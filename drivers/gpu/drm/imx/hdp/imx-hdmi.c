@@ -193,7 +193,7 @@ void hdmi_mode_set_t28hpc(state_struct *state, int vic, int format, int color_de
 	int ret;
 
 	/*  B/W Balance Type: 0 no data, 1 IT601, 2 ITU709 */
-	BT_TYPE bw_type = 0;
+	BT_TYPE bw_type = 2;
 
 	/* Set HDMI TX Mode */
 	/* Mode = 0 - DVI, 1 - HDMI1.4, 2 HDMI 2.0 */

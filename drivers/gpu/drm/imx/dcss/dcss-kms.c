@@ -22,6 +22,7 @@
 #include <linux/reservation.h>
 
 #include "imx-drm.h"
+#include "dcss-crtc.h"
 
 static void dcss_drm_output_poll_changed(struct drm_device *drm)
 {
@@ -77,11 +78,38 @@ static int dcss_drm_atomic_commit(struct drm_device *drm,
 	return drm_atomic_helper_commit(drm, state, nonblock);
 }
 
+static void dcss_kms_setup_output_pipe(struct drm_atomic_state *state)
+{
+	struct drm_crtc *crtc;
+	struct drm_connector *connector;
+	struct drm_connector_state *conn_state;
+	struct drm_display_info *di;
+	int i;
+
+	for_each_connector_in_state(state, connector, conn_state, i) {
+		if (!connector->state->best_encoder)
+			continue;
+
+		if (!connector->state->crtc->state->active ||
+		    !drm_atomic_crtc_needs_modeset(connector->state->crtc->state))
+			continue;
+
+		crtc = connector->state->crtc;
+		di = &connector->display_info;
+
+		dcss_crtc_setup_opipe(crtc, connector, di->hdmi.colorimetry,
+				      di->hdmi.hdr_panel_metadata.eotf,
+				      HDMI_QUANTIZATION_RANGE_FULL);
+	}
+}
+
 static void dcss_drm_atomic_commit_tail(struct drm_atomic_state *state)
 {
 	struct drm_device *dev = state->dev;
 
 	drm_atomic_helper_commit_modeset_disables(dev, state);
+
+	dcss_kms_setup_output_pipe(state);
 
 	drm_atomic_helper_commit_modeset_enables(dev, state);
 

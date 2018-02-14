@@ -493,16 +493,45 @@ static void imx_hdp_mode_setup(struct imx_hdp *hdp, struct drm_display_mode *mod
 	imx_hdp_call(hdp, pixel_link_mux, &hdp->state, mode);
 
 	hdp->link_rate = imx_hdp_link_rate(mode);
+
 	/* mode set */
-	ret = imx_hdp_call(hdp, phy_init, &hdp->state, dp_vic, 1, 8);
+	ret = imx_hdp_call(hdp, phy_init, &hdp->state, dp_vic, hdp->format, hdp->bpc);
 	if (ret < 0) {
 		DRM_ERROR("Failed to initialise HDP PHY\n");
 		return;
 	}
-	imx_hdp_call(hdp, mode_set, &hdp->state, dp_vic, 1, 8, hdp->link_rate);
+	imx_hdp_call(hdp, mode_set, &hdp->state, dp_vic,
+		     hdp->format, hdp->bpc, hdp->link_rate);
 
 	/* Get vic of CEA-861 */
 	hdp->vic = drm_match_cea_mode(mode);
+}
+
+bool imx_hdp_bridge_mode_fixup(struct drm_bridge *bridge,
+			       const struct drm_display_mode *mode,
+			       struct drm_display_mode *adjusted_mode)
+{
+	struct imx_hdp *hdp = bridge->driver_private;
+	struct drm_display_info *di = &hdp->connector.display_info;
+	int vic = imx_get_vic_index((struct drm_display_mode *)mode);
+
+	if (vic < 0)
+		return false;
+
+	if (vic == VIC_MODE_97_60Hz &&
+	    (di->color_formats & DRM_COLOR_FORMAT_YCRCB420) &&
+	     di->bpc >= 10) {
+		hdp->bpc = 10;
+		hdp->format = YCBCR_4_2_0;
+		hdp->hdr_mode = true; /* attempt HDR */
+		return true;
+	}
+
+	hdp->bpc = 8;
+	hdp->format = PXL_RGB;
+	hdp->hdr_mode = false;
+
+	return true;
 }
 
 static void imx_hdp_bridge_mode_set(struct drm_bridge *bridge,
@@ -659,8 +688,8 @@ static const struct drm_bridge_funcs imx_hdp_bridge_funcs = {
 	.enable = imx_hdp_bridge_enable,
 	.disable = imx_hdp_bridge_disable,
 	.mode_set = imx_hdp_bridge_mode_set,
+	.mode_fixup = imx_hdp_bridge_mode_fixup,
 };
-
 
 static void imx_hdp_imx_encoder_disable(struct drm_encoder *encoder)
 {
@@ -668,45 +697,35 @@ static void imx_hdp_imx_encoder_disable(struct drm_encoder *encoder)
 
 static void imx_hdp_imx_encoder_enable(struct drm_encoder *encoder)
 {
-}
-
-static int imx_hdp_imx_encoder_atomic_check(struct drm_encoder *encoder,
-				    struct drm_crtc_state *crtc_state,
-				    struct drm_connector_state *conn_state)
-{
-	struct imx_crtc_state *imx_crtc_state = to_imx_crtc_state(crtc_state);
-
-	imx_crtc_state->bus_format = MEDIA_BUS_FMT_RGB101010_1X30;
-
-	if (conn_state->hdr_metadata_changed)
-		crtc_state->mode_changed = true;
-
-	return 0;
-}
-
-static void imx_hdp_imx_encoder_atomic_modeset(struct drm_encoder *encoder,
-					     struct drm_crtc_state *crtc_state,
-					struct drm_connector_state *conn_state)
-{
 	struct imx_hdp *hdp = container_of(encoder, struct imx_hdp, encoder);
 	union hdmi_infoframe frame;
 	struct hdr_static_metadata *hdr_metadata;
-	int ret;
+	struct drm_connector_state *conn_state = hdp->connector.state;
+	int ret = 0;
 
 	if (!hdp->ops->write_hdr_metadata)
 		return;
 
-	if (!conn_state->hdr_source_metadata_blob_ptr ||
-	    conn_state->hdr_source_metadata_blob_ptr->length == 0)
-		return;
+	if (hdp->hdr_mode && hdp->hdr_metadata_present) {
+		hdr_metadata = (struct hdr_static_metadata *)
+				conn_state->hdr_source_metadata_blob_ptr->data;
 
-	if (!conn_state->hdr_metadata_changed)
-		return;
+		ret = drm_hdmi_infoframe_set_hdr_metadata(&frame.drm,
+							  hdr_metadata);
+	} else {
+		hdr_metadata = devm_kzalloc(hdp->dev,
+					    sizeof(struct hdr_static_metadata),
+					    GFP_KERNEL);
+		hdr_metadata->eotf = 0;
 
-	hdr_metadata = (struct hdr_static_metadata *)
-			conn_state->hdr_source_metadata_blob_ptr->data;
+		ret = drm_hdmi_infoframe_set_hdr_metadata(&frame.drm,
+							  hdr_metadata);
 
-	ret = drm_hdmi_infoframe_set_hdr_metadata(&frame.drm, hdr_metadata);
+		devm_kfree(hdp->dev, hdr_metadata);
+
+		hdp->hdr_mode = false;
+	}
+
 	if (ret < 0) {
 		DRM_ERROR("could not set HDR metadata in infoframe\n");
 		return;
@@ -715,11 +734,27 @@ static void imx_hdp_imx_encoder_atomic_modeset(struct drm_encoder *encoder,
 	hdp->ops->write_hdr_metadata(&hdp->state, &frame);
 }
 
+static int imx_hdp_imx_encoder_atomic_check(struct drm_encoder *encoder,
+				    struct drm_crtc_state *crtc_state,
+				    struct drm_connector_state *conn_state)
+{
+	struct imx_crtc_state *imx_crtc_state = to_imx_crtc_state(crtc_state);
+	struct imx_hdp *hdp = container_of(encoder, struct imx_hdp, encoder);
+
+	imx_crtc_state->bus_format = MEDIA_BUS_FMT_RGB101010_1X30;
+
+	if (conn_state->hdr_metadata_changed &&
+	    conn_state->hdr_source_metadata_blob_ptr &&
+	    conn_state->hdr_source_metadata_blob_ptr->length)
+		hdp->hdr_metadata_present = true;
+
+	return 0;
+}
+
 static const struct drm_encoder_helper_funcs imx_hdp_imx_encoder_helper_funcs = {
 	.enable     = imx_hdp_imx_encoder_enable,
 	.disable    = imx_hdp_imx_encoder_disable,
 	.atomic_check = imx_hdp_imx_encoder_atomic_check,
-	.atomic_mode_set = imx_hdp_imx_encoder_atomic_modeset,
 };
 
 static const struct drm_encoder_funcs imx_hdp_imx_encoder_funcs = {
@@ -1000,6 +1035,8 @@ static int imx_hdp_imx_bind(struct device *dev, struct device *master,
 	hdp->audio_type = devtype->audio_type;
 	hdp->ops = devtype->ops;
 	hdp->rw = devtype->rw;
+	hdp->bpc = 8;
+	hdp->format = PXL_RGB;
 
 	/* HDP controller init */
 	imx_hdp_state_init(hdp);
@@ -1042,7 +1079,8 @@ static int imx_hdp_imx_bind(struct device *dev, struct device *master,
 	/* Pixel Format - 1 RGB, 2 YCbCr 444, 3 YCbCr 420 */
 	/* bpp (bits per subpixel) - 8 24bpp, 10 30bpp, 12 36bpp, 16 48bpp */
 	/* default set hdmi to 1080p60 mode */
-	ret = imx_hdp_call(hdp, phy_init, &hdp->state, 2, 1, 8);
+	ret = imx_hdp_call(hdp, phy_init, &hdp->state, 2,
+			   hdp->format, hdp->bpc);
 	if (ret < 0) {
 		DRM_ERROR("Failed to initialise HDP PHY\n");
 		return ret;
@@ -1076,6 +1114,7 @@ static int imx_hdp_imx_bind(struct device *dev, struct device *master,
 
 	encoder->bridge = bridge;
 	hdp->connector.polled = DRM_CONNECTOR_POLL_HPD;
+	hdp->connector.ycbcr_420_allowed = true;
 
 	/* connector */
 	drm_connector_helper_add(connector,

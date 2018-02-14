@@ -115,11 +115,11 @@
 /* Pipe type */
 #define HDR10_PT_OUTPUT			BIT(3)
 /* Output pipe config descriptor */
-#define HDR10_OPIPE_DESC_POS		4
-#define HDR10_OPIPE_DESC_MASK		GENMASK(19, 4)
+#define HDR10_IPIPE_DESC_POS		4
+#define HDR10_IPIPE_DESC_MASK		GENMASK(19, 4)
 /* Input pipe config descriptor */
-#define HDR10_IPIPE_DESC_POS		20
-#define HDR10_IPIPE_DESC_MASK		GENMASK(35, 20)
+#define HDR10_OPIPE_DESC_POS		20
+#define HDR10_OPIPE_DESC_MASK		GENMASK(35, 20)
 
 /* config invalid */
 #define HDR10_DESC_INVALID		BIT(63)

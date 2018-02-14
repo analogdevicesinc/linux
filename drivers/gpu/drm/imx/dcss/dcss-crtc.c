@@ -18,6 +18,7 @@
 #include <linux/component.h>
 #include <linux/pm_runtime.h>
 #include <drm/drmP.h>
+#include <drm/drm_atomic.h>
 #include <drm/drm_crtc_helper.h>
 #include <drm/drm_atomic_helper.h>
 #include <video/imx-dcss.h>
@@ -25,6 +26,7 @@
 #include "dcss-kms.h"
 #include "dcss-plane.h"
 #include "imx-drm.h"
+#include "dcss-crtc.h"
 
 struct dcss_crtc {
 	struct device *dev;
@@ -41,6 +43,11 @@ struct dcss_crtc {
 	struct completion disable_completion;
 	struct drm_pending_vblank_event *event;
 	int vblank_cnt;
+
+	enum dcss_hdr10_nonlinearity opipe_nl;
+	enum dcss_hdr10_gamut opipe_g;
+	enum dcss_hdr10_pixel_range opipe_pr;
+	u32 opipe_pix_format;
 };
 
 static void dcss_crtc_reset(struct drm_crtc *crtc)
@@ -157,6 +164,64 @@ static void dcss_crtc_atomic_flush(struct drm_crtc *crtc,
 		dcss_ctxld_enable(dcss);
 }
 
+void dcss_crtc_setup_opipe(struct drm_crtc *crtc, struct drm_connector *conn,
+			   u32 colorimetry, u32 eotf,
+			   enum hdmi_quantization_range qr)
+{
+	struct dcss_crtc *dcss_crtc = container_of(crtc, struct dcss_crtc,
+						   base);
+	int vic;
+
+	if ((colorimetry & HDMI_EXTENDED_COLORIMETRY_BT2020) ||
+	    (colorimetry & HDMI_EXTENDED_COLORIMETRY_BT2020_CONST_LUM))
+		dcss_crtc->opipe_g = G_REC2020;
+	else if (colorimetry & HDMI_EXTENDED_COLORIMETRY_ADOBE_RGB)
+		dcss_crtc->opipe_g = G_ADOBE_ARGB;
+	else if (colorimetry & HDMI_EXTENDED_COLORIMETRY_XV_YCC_709)
+		dcss_crtc->opipe_g = G_REC709;
+	else
+		dcss_crtc->opipe_g = G_REC601_PAL;
+
+	if (eotf & (1 << 3))
+		dcss_crtc->opipe_nl = NL_2100HLG;
+	else if (eotf & (1 << 2))
+		dcss_crtc->opipe_nl = NL_REC2084;
+	else
+		dcss_crtc->opipe_nl = NL_REC709;
+
+	if (qr == HDMI_QUANTIZATION_RANGE_FULL)
+		dcss_crtc->opipe_pr = PR_FULL;
+	else
+		dcss_crtc->opipe_pr = PR_LIMITED;
+
+	vic = drm_match_cea_mode(&crtc->state->adjusted_mode);
+
+	/* FIXME: we should get the connector colorspace some other way */
+	if (vic == 97 && conn->state->hdr_source_metadata_blob_ptr &&
+	    conn->state->hdr_source_metadata_blob_ptr->length)
+		dcss_crtc->opipe_pix_format = DRM_FORMAT_P010;
+	else
+		dcss_crtc->opipe_pix_format = DRM_FORMAT_ARGB8888;
+
+	DRM_INFO("OPIPE_CFG: gamut = %d, nl = %d, pr = %d, pix_format = %d\n",
+		 dcss_crtc->opipe_g, dcss_crtc->opipe_nl,
+		 dcss_crtc->opipe_pr, dcss_crtc->opipe_pix_format);
+}
+
+int dcss_crtc_get_opipe_cfg(struct drm_crtc *crtc,
+			    struct dcss_hdr10_pipe_cfg *opipe_cfg)
+{
+	struct dcss_crtc *dcss_crtc = container_of(crtc, struct dcss_crtc,
+						   base);
+
+	opipe_cfg->pixel_format = dcss_crtc->opipe_pix_format;
+	opipe_cfg->g = dcss_crtc->opipe_g;
+	opipe_cfg->nl = dcss_crtc->opipe_nl;
+	opipe_cfg->pr = dcss_crtc->opipe_pr;
+
+	return 0;
+}
+
 static void dcss_crtc_atomic_enable(struct drm_crtc *crtc,
 				    struct drm_crtc_state *old_crtc_state)
 {
@@ -171,8 +236,12 @@ static void dcss_crtc_atomic_enable(struct drm_crtc *crtc,
 	pm_runtime_get_sync(dcss_crtc->dev->parent);
 
 	dcss_dtg_sync_set(dcss, &vm);
+
+	dcss_ss_subsam_set(dcss, dcss_crtc->opipe_pix_format);
 	dcss_ss_sync_set(dcss, &vm, mode->flags & DRM_MODE_FLAG_PHSYNC,
 			 mode->flags & DRM_MODE_FLAG_PVSYNC);
+
+	dcss_dtg_css_set(dcss, dcss_crtc->opipe_pix_format);
 
 	dcss_ss_enable(dcss, true);
 	dcss_dtg_enable(dcss, true, NULL);

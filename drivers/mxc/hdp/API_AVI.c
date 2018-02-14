@@ -131,7 +131,10 @@ CDN_API_STATUS CDN_API_Set_AVI(state_struct *state, VIC_MODES vicMode,
 		packet_C = 1;
 	else if (ITUver == BT_709)
 		packet_C = 2;
-	else
+	else if (ITUver == 2) {
+		packet_C = 0;
+		packet_EC = 0;
+	} else
 		packet_C = 0;
 
 	packet_HB0 = packet_type;

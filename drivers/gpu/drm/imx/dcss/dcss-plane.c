@@ -21,6 +21,7 @@
 
 #include "video/imx-dcss.h"
 #include "dcss-plane.h"
+#include "dcss-crtc.h"
 
 static const u32 dcss_common_formats[] = {
 	/* RGB */
@@ -53,6 +54,7 @@ static const u32 dcss_common_formats[] = {
 	/* YUV420 */
 	DRM_FORMAT_NV12,
 	DRM_FORMAT_NV21,
+	DRM_FORMAT_P010,
 };
 
 static const u64 dcss_video_format_modifiers[] = {
@@ -449,14 +451,14 @@ static void dcss_plane_atomic_update(struct drm_plane *plane,
 
 	ipipe_cfg.pixel_format = pixel_format;
 	ipipe_cfg.nl = NL_REC709;
-	ipipe_cfg.pr = PR_LIMITED;
+	ipipe_cfg.pr = PR_FULL;
 	ipipe_cfg.g = G_REC709;
 
-	/* FIXME: where do I get the output pipe pixel format? */
+	dcss_crtc_get_opipe_cfg(state->crtc, &opipe_cfg);
 
-	opipe_cfg.pixel_format = DRM_FORMAT_ARGB8888;
+	/* apparently the other settins that are read from connector are not good,
+	 * so hardcode */
 	opipe_cfg.nl = NL_REC709;
-	opipe_cfg.pr = PR_LIMITED;
 	opipe_cfg.g = G_REC2020;
 
 	dcss_hdr10_setup(dcss_plane->dcss, dcss_plane->ch_num,

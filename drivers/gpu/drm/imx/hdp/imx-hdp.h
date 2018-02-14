@@ -226,6 +226,11 @@ struct imx_hdp {
 	struct delayed_work hotplug_work;
 
 	struct imx_cec_dev cec;
+
+	int bpc;
+	VIC_PXL_ENCODING_FORMAT format;
+	bool hdr_metadata_present;
+	bool hdr_mode;
 };
 
 void imx_hdp_register_audio_driver(struct device *dev);

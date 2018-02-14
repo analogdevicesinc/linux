@@ -194,8 +194,7 @@ int dcss_dtg_init(struct dcss_soc *dcss, unsigned long dtg_base)
 	dtg->alpha = 255;
 	dtg->use_global = 0;
 
-	dtg->control_status |= OVL_DATA_MODE | BLENDER_VIDEO_ALPHA_SEL |
-		((0x5 << CSS_PIX_COMP_SWAP_POS) & CSS_PIX_COMP_SWAP_MASK) |
+	dtg->control_status |= BLENDER_VIDEO_ALPHA_SEL |
 		((dtg->alpha << DEFAULT_FG_ALPHA_POS) & DEFAULT_FG_ALPHA_MASK);
 
 	return 0;
@@ -342,6 +341,20 @@ void dcss_dtg_plane_alpha_set(struct dcss_soc *dcss, int ch_num,
 	dtg->use_global = use_global_alpha;
 }
 EXPORT_SYMBOL(dcss_dtg_plane_alpha_set);
+
+void dcss_dtg_css_set(struct dcss_soc *dcss, u32 pix_format)
+{
+	struct dcss_dtg_priv *dtg = dcss->dtg_priv;
+
+	if (pix_format == DRM_FORMAT_P010) {
+		dtg->control_status &= ~CSS_PIX_COMP_SWAP_MASK;
+		return;
+	}
+
+	dtg->control_status |=
+			(0x5 << CSS_PIX_COMP_SWAP_POS) & CSS_PIX_COMP_SWAP_MASK;
+}
+EXPORT_SYMBOL(dcss_dtg_css_set);
 
 static void dcss_dtg_disable_callback(void *data)
 {

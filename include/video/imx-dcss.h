@@ -72,10 +72,12 @@ void dcss_dtg_plane_alpha_set(struct dcss_soc *dcss, int ch_num,
 bool dcss_dtg_global_alpha_changed(struct dcss_soc *dcss, int ch_num,
 				   u32 pix_format, int alpha,
 				   int use_global_alpha);
+void dcss_dtg_css_set(struct dcss_soc *dcss, u32 pix_format);
 
 /* SUBSAM */
 void dcss_ss_sync_set(struct dcss_soc *dcss, struct videomode *vm,
 		      bool phsync, bool pvsync);
+void dcss_ss_subsam_set(struct dcss_soc *dcss, u32 pix_format);
 void dcss_ss_enable(struct dcss_soc *dcss, bool en);
 
 /* SCALER */

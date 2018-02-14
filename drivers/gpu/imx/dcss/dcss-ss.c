@@ -16,6 +16,7 @@
 #include <linux/bitops.h>
 #include <linux/io.h>
 #include <video/videomode.h>
+#include <drm/drm_fourcc.h>
 
 #include <video/imx-dcss.h>
 #include "dcss-prv.h"
@@ -146,17 +147,29 @@ int dcss_ss_init(struct dcss_soc *dcss, unsigned long ss_base)
 	ss->ctx_id = CTX_SB_HP;
 #endif
 
-	/* TODO: should these be hardcoded? */
-	dcss_ss_write(dcss->ss_priv, 0x41614161, DCSS_SS_COEFF);
-	dcss_ss_write(dcss->ss_priv, 0x03ff0000, DCSS_SS_CLIP_CB);
-	dcss_ss_write(dcss->ss_priv, 0x03ff0000, DCSS_SS_CLIP_CR);
-
 	return 0;
 }
 
 void dcss_ss_exit(struct dcss_soc *dcss)
 {
 	dcss_writel(0, dcss->ss_priv->base_reg + DCSS_SS_SYS_CTRL);
+}
+
+void dcss_ss_subsam_set(struct dcss_soc *dcss, u32 pix_format)
+{
+	if (pix_format == DRM_FORMAT_P010) {
+		dcss_ss_write(dcss->ss_priv, 0x21612161, DCSS_SS_COEFF);
+		dcss_ss_write(dcss->ss_priv, 2, DCSS_SS_MODE);
+		dcss_ss_write(dcss->ss_priv, 0x03c00040, DCSS_SS_CLIP_CB);
+		dcss_ss_write(dcss->ss_priv, 0x03c00040, DCSS_SS_CLIP_CR);
+
+		return;
+	}
+
+	dcss_ss_write(dcss->ss_priv, 0x41614161, DCSS_SS_COEFF);
+	dcss_ss_write(dcss->ss_priv, 0, DCSS_SS_MODE);
+	dcss_ss_write(dcss->ss_priv, 0x03ff0000, DCSS_SS_CLIP_CB);
+	dcss_ss_write(dcss->ss_priv, 0x03ff0000, DCSS_SS_CLIP_CR);
 }
 
 void dcss_ss_sync_set(struct dcss_soc *dcss, struct videomode *vm,
