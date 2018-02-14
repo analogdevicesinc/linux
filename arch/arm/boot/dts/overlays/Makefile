@@ -95,6 +95,7 @@ dtbo-$(CONFIG_ARCH_BCM2835) += \
 	pwm-ir-tx.dtbo \
 	qca7000.dtbo \
 	rotary-encoder.dtbo \
+	rpi-ad5686.dtbo \
 	rpi-ad738x.dtbo \
 	rpi-ad7768.dtbo \
 	rpi-backlight.dtbo \
