@@ -4,16 +4,6 @@
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/interrupt-controller/irq.h>
 
-&axi_i2c0 {
-	current_limiter@5a {
-		compatible = "adi,adm1177";
-		reg = <0x5a>;
-		adi,r-sense-mohm = <50>; /* 50 mOhm */
-		adi,shutdown-threshold-ma = <1059>; /* 1.059 A */
-		adi,vrange-high-enable;
-	};
-};
-
 / {
 	model = "Epiq Solutions Sidekiq Z2 Rev.A (Z7010/AD9364)";
 
