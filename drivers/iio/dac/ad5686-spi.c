@@ -19,17 +19,28 @@ static int ad5686_spi_write(struct ad5686_state *st,
 	struct spi_device *spi = to_spi_device(st->dev);
 	u8 tx_len, *buf;
 
-	if (st->chip_info->regmap_type == AD5310_REGMAP) {
+	switch (st->chip_info->regmap_type) {
+	case AD5310_REGMAP:
 		st->data[0].d16 = cpu_to_be16(AD5310_CMD(cmd) |
 					      val);
 		buf = &st->data[0].d8[0];
 		tx_len = 2;
-	} else {
+		break;
+	case AD5683_REGMAP:
+		st->data[0].d32 = cpu_to_be32(AD5686_CMD(cmd) |
+					      AD5683_DATA(val));
+		buf = &st->data[0].d8[1];
+		tx_len = 3;
+		break;
+	case AD5686_REGMAP:
 		st->data[0].d32 = cpu_to_be32(AD5686_CMD(cmd) |
 					      AD5686_ADDR(addr) |
 					      val);
 		buf = &st->data[0].d8[1];
 		tx_len = 3;
+		break;
+	default:
+		return -EINVAL;
 	}
 
 	return spi_write(spi, buf, tx_len);

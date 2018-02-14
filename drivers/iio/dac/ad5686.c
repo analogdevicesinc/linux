@@ -100,7 +100,7 @@ static ssize_t ad5686_write_dac_powerdown(struct iio_dev *indio_dev,
 		ref_bit_msk = AD5310_REF_BIT_MSK;
 		break;
 	case AD5683_REGMAP:
-		shift = 17;
+		shift = 13;
 		ref_bit_msk = AD5683_REF_BIT_MSK;
 		break;
 	case AD5686_REGMAP:

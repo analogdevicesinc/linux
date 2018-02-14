@@ -8,6 +8,8 @@
 
 #define AD5310_CMD(x)				((x) << 12)
 
+#define AD5683_DATA(x)				((x) << 4)
+
 #define AD5686_ADDR(x)				((x) << 16)
 #define AD5686_CMD(x)				((x) << 20)
 
@@ -34,7 +36,7 @@
 #define AD5686_CMD_READBACK_ENABLE_V2		0x5
 
 #define AD5310_REF_BIT_MSK			BIT(8)
-#define AD5683_REF_BIT_MSK			BIT(16)
+#define AD5683_REF_BIT_MSK			BIT(12)
 #define AD5693_REF_BIT_MSK			BIT(12)
 
 /**
