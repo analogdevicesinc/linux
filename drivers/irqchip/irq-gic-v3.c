@@ -1235,8 +1235,11 @@ static int __init gic_of_init(struct device_node *node, struct device_node *pare
 		rdist_regs[i].phys_base = res.start;
 	}
 
-	/* sw workaround for IPI can't wakeup CORE ERRATA(ERR011171) on i.MX8MQ */
-	iomuxc_gpr_base = of_iomap(node, 2);
+	if (of_machine_is_compatible("fsl,imx8mq")) {
+		/* sw workaround for IPI can't wakeup CORE
+		   ERRATA(ERR011171) on i.MX8MQ */
+		iomuxc_gpr_base = of_iomap(node, 2);
+	}
 
 	if (of_property_read_u64(node, "redistributor-stride", &redist_stride))
 		redist_stride = 0;
