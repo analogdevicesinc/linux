@@ -177,8 +177,10 @@ static int m2k_fabric_set_calibration_mode(struct iio_dev *indio_dev,
 	struct m2k_fabric *m2k_fabric = iio_priv(indio_dev);
 
 	mutex_lock(&m2k_fabric->lock);
-	m2k_fabric->calibration_mode = val;
-	m2k_fabric_update_switch_settings(m2k_fabric, true, true);
+	if (m2k_fabric->calibration_mode != val) {
+		m2k_fabric->calibration_mode = val;
+		m2k_fabric_update_switch_settings(m2k_fabric, true, true);
+	}
 	mutex_unlock(&m2k_fabric->lock);
 
 	return 0;
@@ -213,8 +215,10 @@ static int m2k_fabric_set_adc_gain(struct iio_dev *indio_dev,
 	struct m2k_fabric *m2k_fabric = iio_priv(indio_dev);
 
 	mutex_lock(&m2k_fabric->lock);
-	m2k_fabric->adc_gain[chan->address] = val;
-	m2k_fabric_update_switch_settings(m2k_fabric, true, false);
+	if (m2k_fabric->adc_gain[chan->address] != val) {
+		m2k_fabric->adc_gain[chan->address] = val;
+		m2k_fabric_update_switch_settings(m2k_fabric, true, false);
+	}
 	mutex_unlock(&m2k_fabric->lock);
 
 	return 0;
@@ -304,12 +308,17 @@ static ssize_t m2k_fabric_powerdown_write(struct iio_dev *indio_dev,
 		/* REVISIT: Workaorund for PowerDown */
 		clk_set_phase(m2k_fabric->clk, state ? 42 : 0);
 	} else {
-		if (chan->output)
-			m2k_fabric->awg_powerdown[chan->channel] = state;
-		else
-			m2k_fabric->sc_powerdown[chan->channel] = state;
-		m2k_fabric_update_switch_settings(m2k_fabric, !chan->output,
-			chan->output);
+		if (chan->output) {
+			if (m2k_fabric->awg_powerdown[chan->channel] != state) {
+				m2k_fabric->awg_powerdown[chan->channel] = state;
+				m2k_fabric_update_switch_settings(m2k_fabric, false, true);
+			}
+		} else {
+			if (m2k_fabric->sc_powerdown[chan->channel] != state) {
+				m2k_fabric->sc_powerdown[chan->channel] = state;
+				m2k_fabric_update_switch_settings(m2k_fabric, true, false);
+			}
+		}
 	}
 	mutex_unlock(&m2k_fabric->lock);
 
