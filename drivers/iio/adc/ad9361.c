@@ -6348,6 +6348,7 @@ static int ad9361_rx_rfpll_rate_change(struct notifier_block *nb,
 			new_rate);
 		if (cnd->new_rate)
 			ad9361_load_gt(phy, new_rate, GT_RX1 + GT_RX2);
+		ad9361_adjust_rx_ext_band_settings(phy, new_rate);
 	}
 
 	return NOTIFY_OK;
@@ -6378,6 +6379,7 @@ static int ad9361_tx_rfpll_rate_change(struct notifier_block *nb,
 				schedule_work(&phy->work);
 				st->last_tx_quad_cal_freq = new_rate;
 			}
+		ad9361_adjust_tx_ext_band_settings(phy, new_rate);
 	}
 
 	return NOTIFY_OK;
@@ -9255,6 +9257,12 @@ static int ad9361_probe(struct spi_device *spi)
 	if (IS_ERR(phy->pdata->cal_sw2_gpio))
 		return PTR_ERR(phy->pdata->cal_sw2_gpio);
 
+	ret = ad9361_register_ext_band_control(phy);
+	if (ret < 0)
+		dev_warn(&spi->dev,
+			 "%s: failed to initialize ext band control\n",
+			 __func__);
+
 	phy->gt_info = ad9361_adi_gt_info;
 
 	ad9361_request_gt(phy, NULL);
@@ -9359,6 +9367,7 @@ static int ad9361_remove(struct spi_device *spi)
 {
 	struct ad9361_rf_phy *phy = ad9361_spi_to_phy(spi);
 
+	ad9361_unregister_ext_band_control(phy);
 	sysfs_remove_bin_file(&phy->indio_dev->dev.kobj, &phy->bin_gt);
 	sysfs_remove_bin_file(&phy->indio_dev->dev.kobj, &phy->bin);
 	iio_device_unregister(phy->indio_dev);
