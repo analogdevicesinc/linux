@@ -178,6 +178,7 @@ static int dcss_plane_atomic_check(struct drm_plane *plane,
 	struct drm_gem_cma_object *cma_obj;
 	struct drm_crtc_state *crtc_state;
 	int hdisplay, vdisplay;
+	struct drm_rect crtc_rect, disp_rect;
 
 	if (!fb)
 		return 0;
@@ -194,11 +195,29 @@ static int dcss_plane_atomic_check(struct drm_plane *plane,
 	hdisplay = crtc_state->adjusted_mode.hdisplay;
 	vdisplay = crtc_state->adjusted_mode.vdisplay;
 
-	/* We don't support cropping yet */
+	crtc_rect.x1 = state->crtc_x;
+	crtc_rect.x2 = state->crtc_x + state->crtc_w;
+	crtc_rect.y1 = state->crtc_y;
+	crtc_rect.y2 = state->crtc_y + state->crtc_h;
+
+	disp_rect.x1 = 0;
+	disp_rect.y1 = 0;
+	disp_rect.x2 = hdisplay;
+	disp_rect.y2 = vdisplay;
+
+	/* make sure the crtc is visible */
+	if (!drm_rect_intersect(&crtc_rect, &disp_rect))
+		return -EINVAL;
+
+	/* cropping is only available on overlay planes when DTRC is used */
 	if (state->crtc_x < 0 || state->crtc_y < 0 ||
 	    state->crtc_x + state->crtc_w > hdisplay ||
-	    state->crtc_y + state->crtc_h > vdisplay)
-		return -EINVAL;
+	    state->crtc_y + state->crtc_h > vdisplay) {
+		if (plane->type == DRM_PLANE_TYPE_PRIMARY)
+			return -EINVAL;
+		else if (!(fb->flags & DRM_MODE_FB_MODIFIERS))
+			return -EINVAL;
+	}
 
 	if (!dcss_scaler_can_scale(dcss_plane->dcss, dcss_plane->ch_num,
 				   state->src_w >> 16, state->src_h >> 16,
@@ -240,8 +259,8 @@ static void dcss_plane_atomic_set_base(struct dcss_plane *dcss_plane)
 		fb->pitches[1] * (state->src_y >> 16) +
 		fb->format->cpp[0] * (state->src_x >> 16);
 
-	dcss_dpr_addr_set(dcss_plane->dcss, dcss_plane->ch_num,
-			  p1_ba, p2_ba, fb->pitches[0]);
+	dcss_dpr_addr_set(dcss_plane->dcss, dcss_plane->ch_num, p1_ba, p2_ba,
+			  fb->pitches[0]);
 
 	switch (plane->type) {
 	case DRM_PLANE_TYPE_PRIMARY:
@@ -312,6 +331,27 @@ static bool dcss_plane_needs_setup(struct drm_plane_state *state,
 	       fb->modifier  != old_fb->modifier;
 }
 
+static void dcss_plane_adjust(struct drm_rect *dis_rect,
+			      struct drm_rect *crtc,
+			      struct drm_rect *src)
+{
+	struct drm_rect new_crtc = *dis_rect, new_src;
+	u32 hscale, vscale;
+
+	hscale = ((src->x2 - src->x1) << 16) / (crtc->x2 - crtc->x1);
+	vscale = ((src->y2 - src->y1) << 16) / (crtc->y2 - crtc->y1);
+
+	drm_rect_intersect(&new_crtc, crtc);
+
+	new_src.x1 = ((new_crtc.x1 - crtc->x1) * hscale + (1 << 15)) >> 16;
+	new_src.x2 = ((new_crtc.x2 - crtc->x1) * hscale + (1 << 15)) >> 16;
+	new_src.y1 = ((new_crtc.y1 - crtc->y1) * vscale + (1 << 15)) >> 16;
+	new_src.y2 = ((new_crtc.y2 - crtc->y1) * vscale + (1 << 15)) >> 16;
+
+	*crtc = new_crtc;
+	*src = new_src;
+}
+
 static void dcss_plane_atomic_update(struct drm_plane *plane,
 				     struct drm_plane_state *old_state)
 {
@@ -321,6 +361,8 @@ static void dcss_plane_atomic_update(struct drm_plane *plane,
 	u32 pixel_format = state->fb->format->format;
 	struct drm_crtc_state *crtc_state = state->crtc->state;
 	bool modifiers_present = !!(fb->flags & DRM_MODE_FB_MODIFIERS);
+	u32 src_w, src_h, adj_w, adj_h;
+	struct drm_rect disp, crtc, src, old_src;
 
 	if (!state->fb)
 		return;
@@ -336,11 +378,46 @@ static void dcss_plane_atomic_update(struct drm_plane *plane,
 		return;
 	}
 
+	dcss_dpr_enable(dcss_plane->dcss, dcss_plane->ch_num, false);
+	dcss_scaler_enable(dcss_plane->dcss, dcss_plane->ch_num, false);
+	dcss_dtg_ch_enable(dcss_plane->dcss, dcss_plane->ch_num, false);
+
+	disp.x1 = 0;
+	disp.y1 = 0;
+	disp.x2 = crtc_state->adjusted_mode.hdisplay;
+	disp.y2 = crtc_state->adjusted_mode.vdisplay;
+
+	crtc.x1 = state->crtc_x;
+	crtc.y1 = state->crtc_y;
+	crtc.x2 = state->crtc_x + state->crtc_w;
+	crtc.y2 = state->crtc_y + state->crtc_h;
+
+	src.x1 = state->src_x >> 16;
+	src.y1 = state->src_y >> 16;
+	src.x2 = (state->src_x >> 16) + (state->src_w >> 16);
+	src.y2 = (state->src_y >> 16) + (state->src_h >> 16);
+
+	old_src = src;
+
+	dcss_plane_adjust(&disp, &crtc, &src);
+
+	/*
+	 * The width and height after clipping, if image was partially
+	 * outside the display area.
+	 */
+	src_w = src.x2 - src.x1;
+	src_h = src.y2 - src.y1;
+
 	if (plane->type == DRM_PLANE_TYPE_OVERLAY)
 		dcss_dtrc_set_res(dcss_plane->dcss, dcss_plane->ch_num,
-				  state->src_w >> 16, state->src_h >> 16);
+				  &src, &old_src);
 
-	dcss_dpr_format_set(dcss_plane->dcss, dcss_plane->ch_num, pixel_format);
+	/* DTRC has probably aligned the sizes. */
+	adj_w = src.x2 - src.x1;
+	adj_h = src.y2 - src.y1;
+
+	dcss_dpr_format_set(dcss_plane->dcss, dcss_plane->ch_num, pixel_format,
+				modifiers_present);
 	if (!modifiers_present)
 		dcss_dpr_tile_derive(dcss_plane->dcss,
 				     dcss_plane->ch_num,
@@ -351,12 +428,13 @@ static void dcss_plane_atomic_update(struct drm_plane *plane,
 				     fb->modifier);
 
 	dcss_dpr_set_res(dcss_plane->dcss, dcss_plane->ch_num,
-			 state->src_w >> 16, state->src_h >> 16);
+			 src_w, src_h, adj_w, adj_h);
 	dcss_plane_atomic_set_base(dcss_plane);
 
 	dcss_scaler_setup(dcss_plane->dcss, dcss_plane->ch_num,
-			  pixel_format, state->src_w >> 16,
-			  state->src_h >> 16, state->crtc_w, state->crtc_h,
+			  pixel_format, src_w, src_h,
+			  crtc.x2 - crtc.x1,
+			  crtc.y2 - crtc.y1,
 			  drm_mode_vrefresh(&crtc_state->mode));
 
 	/*
@@ -368,8 +446,9 @@ static void dcss_plane_atomic_update(struct drm_plane *plane,
 				  DCSS_COLORSPACE_RGB);
 
 	dcss_dtg_plane_pos_set(dcss_plane->dcss, dcss_plane->ch_num,
-			       state->crtc_x, state->crtc_y,
-			       state->crtc_w, state->crtc_h);
+			       crtc.x1, crtc.y1,
+			       crtc.x2 - crtc.x1,
+			       crtc.y2 - crtc.y1);
 	dcss_dtg_plane_alpha_set(dcss_plane->dcss, dcss_plane->ch_num,
 				 pixel_format, dcss_plane->alpha_val,
 				 dcss_plane->use_global_val);

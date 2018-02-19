@@ -43,6 +43,10 @@
 #define DCSS_DTRC_SUVSEA			0x20
 #define DCSS_DTRC_CROPORIG			0x24
 #define DCSS_DTRC_CROPSIZE			0x28
+#define   CROP_HEIGHT_POS			16
+#define   CROP_HEIGHT_MASK			GENMASK(28, 16)
+#define   CROP_WIDTH_POS			0
+#define   CROP_WIDTH_MASK			GENMASK(12, 0)
 #define DCSS_DTRC_DCTL				0x2C
 #define   CROPPING_EN				BIT(18)
 #define   COMPRESSION_DIS			BIT(17)
@@ -299,28 +303,8 @@ void dcss_dtrc_addr_set(struct dcss_soc *dcss, int ch_num, u32 p1_ba, u32 p2_ba,
 	dcss_dtrc_write(dtrc, ch_num, p1_ba, DTRC_F1_OFS + DCSS_DTRC_DYDSADDR);
 	dcss_dtrc_write(dtrc, ch_num, p2_ba, DTRC_F1_OFS + DCSS_DTRC_DCDSADDR);
 
-	if (!ch->running) {
-		dcss_dtrc_write(dtrc, ch_num, p1_ba, DCSS_DTRC_SYSSA);
-		dcss_dtrc_write(dtrc, ch_num, p1_ba + ch->xres * ch->yres,
-				DCSS_DTRC_SYSEA);
-
-		dcss_dtrc_write(dtrc, ch_num, p2_ba, DCSS_DTRC_SUVSSA);
-		dcss_dtrc_write(dtrc, ch_num, p2_ba + ch->xres * ch->yres / 2,
-				DCSS_DTRC_SUVSEA);
-
-		dcss_dtrc_write(dtrc, ch_num, p1_ba,
-				DTRC_F1_OFS + DCSS_DTRC_SYSSA);
-		dcss_dtrc_write(dtrc, ch_num, p1_ba + ch->xres * ch->yres,
-				DTRC_F1_OFS + DCSS_DTRC_SYSEA);
-
-		dcss_dtrc_write(dtrc, ch_num, p2_ba,
-				DTRC_F1_OFS + DCSS_DTRC_SUVSSA);
-		dcss_dtrc_write(dtrc, ch_num, p2_ba + ch->xres * ch->yres / 2,
-				DTRC_F1_OFS + DCSS_DTRC_SUVSEA);
-
-		ch->y_dec_ofs = dec_table_ofs & 0xFFFFFFFF;
-		ch->uv_dec_ofs = dec_table_ofs >> 32;
-	}
+	ch->y_dec_ofs = dec_table_ofs & 0xFFFFFFFF;
+	ch->uv_dec_ofs = dec_table_ofs >> 32;
 
 	dcss_dtrc_write(dtrc, ch_num,
 		p1_ba + ch->y_dec_ofs, DCSS_DTRC_DYTSADDR);
@@ -335,12 +319,15 @@ void dcss_dtrc_addr_set(struct dcss_soc *dcss, int ch_num, u32 p1_ba, u32 p2_ba,
 }
 EXPORT_SYMBOL(dcss_dtrc_addr_set);
 
-void dcss_dtrc_set_res(struct dcss_soc *dcss, int ch_num, u32 xres, u32 yres)
+void dcss_dtrc_set_res(struct dcss_soc *dcss, int ch_num, struct drm_rect *src,
+		       struct drm_rect *old_src)
 {
 	struct dcss_dtrc_priv *dtrc = dcss->dtrc_priv;
 	struct dcss_dtrc_ch *ch;
 	u32 frame_height, frame_width;
+	u32 crop_w, crop_h, crop_orig_w, crop_orig_h;
 	int bank;
+	u32 old_xres, old_yres, xres, yres;
 
 	if (ch_num == 0)
 		return;
@@ -348,19 +335,83 @@ void dcss_dtrc_set_res(struct dcss_soc *dcss, int ch_num, u32 xres, u32 yres)
 	ch_num -= 1;
 
 	ch = &dtrc->ch[ch_num];
+
 	bank = dcss_readl(ch->base_reg + DCSS_DTRC_DTCTRL) >> 31;
 
-	ch->xres = xres;
-	ch->yres = yres;
+	old_xres = old_src->x2 - old_src->x1;
+	old_yres = old_src->y2 - old_src->y1;
+	xres = src->x2 - src->x1;
+	yres = src->y2 - src->y1;
 
-	frame_height = ((yres >> 3) << FRAME_HEIGHT_POS) & FRAME_HEIGHT_MASK;
-	frame_width = ((xres >> 3) << FRAME_WIDTH_POS) & FRAME_WIDTH_MASK;
+	frame_height = ((old_yres >> 3) << FRAME_HEIGHT_POS) & FRAME_HEIGHT_MASK;
+	frame_width = ((old_xres >> 3) << FRAME_WIDTH_POS) & FRAME_WIDTH_MASK;
 
 	dcss_dtrc_write(dcss->dtrc_priv, ch_num, frame_height | frame_width,
 			DTRC_F1_OFS * bank + DCSS_DTRC_SIZE);
 
 	dcss_dtrc_write(dcss->dtrc_priv, ch_num, frame_height | frame_width,
 			DTRC_F1_OFS * (bank ^ 1) + DCSS_DTRC_SIZE);
+
+	/*
+	 * Image original size is aligned:
+	 *   - 128 pixels for width;
+	 *   - 8 lines for height;
+	 */
+	if (xres == old_xres && !(xres & 0x7f) &&
+	    yres == old_yres && !(yres & 0xf)) {
+		ch->dctl &= ~CROPPING_EN;
+		goto exit;
+	}
+
+	/* align the image size */
+	xres = (xres + 0x7f) & ~0x7f;
+	yres = (yres + 0xf) & ~0xf;
+
+	src->x1 &= ~1;
+	src->x2 &= ~1;
+
+	crop_orig_w = (src->x1 << CROP_WIDTH_POS) & CROP_WIDTH_MASK;
+	crop_orig_h = (src->y1 << CROP_HEIGHT_POS) & CROP_HEIGHT_MASK;
+
+	dcss_dtrc_write(dcss->dtrc_priv, ch_num, crop_orig_w | crop_orig_h,
+			DCSS_DTRC_CROPORIG);
+	dcss_dtrc_write(dcss->dtrc_priv, ch_num, crop_orig_w | crop_orig_h,
+			DTRC_F1_OFS + DCSS_DTRC_CROPORIG);
+
+	crop_w = (xres << CROP_WIDTH_POS) & CROP_WIDTH_MASK;
+	crop_h = (yres << CROP_HEIGHT_POS) & CROP_HEIGHT_MASK;
+
+	dcss_dtrc_write(dcss->dtrc_priv, ch_num, crop_w | crop_h,
+			DTRC_F1_OFS * bank + DCSS_DTRC_CROPSIZE);
+	dcss_dtrc_write(dcss->dtrc_priv, ch_num, crop_w | crop_h,
+			DTRC_F1_OFS * (bank ^ 1) + DCSS_DTRC_CROPSIZE);
+
+	ch->dctl |= CROPPING_EN;
+
+exit:
+	dcss_dtrc_write(dtrc, ch_num, xres * yres,
+			DCSS_DTRC_SYSEA);
+	dcss_dtrc_write(dtrc, ch_num, xres * yres,
+			DTRC_F1_OFS + DCSS_DTRC_SYSEA);
+
+	dcss_dtrc_write(dtrc, ch_num, 0x10000000 + xres * yres / 2,
+			DCSS_DTRC_SUVSEA);
+	dcss_dtrc_write(dtrc, ch_num, 0x10000000 + xres * yres / 2,
+			DTRC_F1_OFS + DCSS_DTRC_SUVSEA);
+
+	src->x2 = src->x1 + xres;
+	src->y2 = src->y1 + yres;
+
+	if (ch->running)
+		return;
+
+	dcss_dtrc_write(dtrc, ch_num, 0x0, DCSS_DTRC_SYSSA);
+	dcss_dtrc_write(dtrc, ch_num, 0x0,
+			DTRC_F1_OFS + DCSS_DTRC_SYSSA);
+
+	dcss_dtrc_write(dtrc, ch_num, 0x10000000, DCSS_DTRC_SUVSSA);
+	dcss_dtrc_write(dtrc, ch_num, 0x10000000,
+			DTRC_F1_OFS + DCSS_DTRC_SUVSSA);
 }
 EXPORT_SYMBOL(dcss_dtrc_set_res);
 
@@ -409,7 +460,9 @@ void dcss_dtrc_enable(struct dcss_soc *dcss, int ch_num, bool enable)
 
 	curr_frame = dcss_readl(ch->base_reg + DCSS_DTRC_DTCTRL) >> 31;
 
-	fdctl = PIX_DEPTH_8BIT_EN;
+	fdctl = ch->dctl & ~(PIX_DEPTH_8BIT_EN | COMPRESSION_DIS);
+
+	fdctl |= PIX_DEPTH_8BIT_EN;
 
 	if (ch->format_modifier != DRM_FORMAT_MOD_VSI_G2_TILED_COMPRESSED)
 		fdctl |= COMPRESSION_DIS;
@@ -463,10 +516,10 @@ static void dcss_dtrc_ch_switch_banks(struct dcss_dtrc_priv *dtrc, int dtrc_ch)
 	if (!ch->running)
 		return;
 
-	ch->curr_frame ^= 1;
+	ch->curr_frame = dcss_readl(ch->base_reg + DCSS_DTRC_DTCTRL) >> 31;
 
 	dcss_dtrc_write_irqsafe(dtrc, dtrc_ch, ch->dctl | CONFIG_READY,
-				ch->curr_frame * DTRC_F1_OFS + DCSS_DTRC_DCTL);
+				(ch->curr_frame ^ 1) * DTRC_F1_OFS + DCSS_DTRC_DCTL);
 }
 
 void dcss_dtrc_switch_banks(struct dcss_soc *dcss)

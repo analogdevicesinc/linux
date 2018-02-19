@@ -110,6 +110,10 @@ struct dcss_dpr_ch {
 	u32 mode_ctrl;
 	u32 sys_ctrl;
 	u32 rtram_ctrl;
+
+	u32 pitch;
+
+	bool use_dtrc;
 };
 
 struct dcss_dpr_priv {
@@ -252,7 +256,8 @@ static u32 dcss_dpr_y_pix_high_adjust(struct dcss_dpr_ch *ch, u32 pix_high,
 	return pix_high + offset;
 }
 
-void dcss_dpr_set_res(struct dcss_soc *dcss, int ch_num, u32 xres, u32 yres)
+void dcss_dpr_set_res(struct dcss_soc *dcss, int ch_num, u32 xres, u32 yres,
+		      u32 adj_w, u32 adj_h)
 {
 	struct dcss_dpr_priv *dpr = dcss->dpr_priv;
 	struct dcss_dpr_ch *ch = &dpr->ch[ch_num];
@@ -269,13 +274,23 @@ void dcss_dpr_set_res(struct dcss_soc *dcss, int ch_num, u32 xres, u32 yres)
 
 		pix_x_wide = dcss_dpr_x_pix_wide_adjust(ch, xres, pix_format);
 		pix_y_high = dcss_dpr_y_pix_high_adjust(ch, yres, pix_format);
+
+		/* DTRC may need another width alignment. If it does, use it. */
+		if (pix_x_wide != adj_w)
+			pix_x_wide = adj_w;
+
+		if (pix_y_high != adj_h)
+			pix_y_high = plane == 0 ? adj_h : adj_h >> 1;
+
+		if (plane == 0)
+			ch->pitch = pix_x_wide;
+
 		dcss_dpr_write(dpr, ch_num, pix_x_wide,
 			       DCSS_DPR_FRAME_1P_PIX_X_CTRL + plane * gap);
 		dcss_dpr_write(dpr, ch_num, pix_y_high,
 			       DCSS_DPR_FRAME_1P_PIX_Y_CTRL + plane * gap);
 
-		dcss_dpr_write(dpr, ch_num, xres < 640 ? 3 :
-			       xres < 1280 ? 4 : xres < 3840 ? 5 : 6,
+		dcss_dpr_write(dpr, ch_num, ch->use_dtrc ? 7 : 2,
 			       DCSS_DPR_FRAME_1P_CTRL0 + plane * gap);
 	}
 }
@@ -286,6 +301,11 @@ void dcss_dpr_addr_set(struct dcss_soc *dcss, int ch_num, u32 luma_base_addr,
 {
 	struct dcss_dpr_ch *ch = &dcss->dpr_priv->ch[ch_num];
 
+	if (ch->use_dtrc) {
+		luma_base_addr = 0x0;
+		chroma_base_addr = 0x10000000;
+	}
+
 	if (!dcss_dtrc_is_running(dcss, ch_num)) {
 		dcss_dpr_write(dcss->dpr_priv, ch_num, luma_base_addr,
 			       DCSS_DPR_FRAME_1P_BASE_ADDR);
@@ -293,6 +313,9 @@ void dcss_dpr_addr_set(struct dcss_soc *dcss, int ch_num, u32 luma_base_addr,
 		dcss_dpr_write(dcss->dpr_priv, ch_num, chroma_base_addr,
 			       DCSS_DPR_FRAME_2P_BASE_ADDR);
 	}
+
+	if (ch->use_dtrc)
+		pitch = ch->pitch;
 
 	ch->frame_ctrl &= ~PITCH_MASK;
 	ch->frame_ctrl |= ((pitch << PITCH_POS) & PITCH_MASK);
@@ -586,7 +609,8 @@ void dcss_dpr_tile_derive(struct dcss_soc *dcss,
 }
 EXPORT_SYMBOL(dcss_dpr_tile_set);
 
-void dcss_dpr_format_set(struct dcss_soc *dcss, int ch_num, u32 pix_format)
+void dcss_dpr_format_set(struct dcss_soc *dcss, int ch_num, u32 pix_format,
+			 bool modifiers_present)
 {
 	struct dcss_dpr_ch *ch = &dcss->dpr_priv->ch[ch_num];
 	struct drm_format_name_buf format_name;
@@ -598,6 +622,7 @@ void dcss_dpr_format_set(struct dcss_soc *dcss, int ch_num, u32 pix_format)
 	ch->planes = drm_format_num_planes(pix_format);
 	ch->bpp = dcss_dpr_get_bpp(pix_format);
 	ch->pix_format = pix_format;
+	ch->use_dtrc = modifiers_present;
 
 	dev_dbg(dcss->dev, "pix_format = %s, colorspace = %d, bpp = %d\n",
 		drm_get_format_name(pix_format, &format_name), dcss_cs, ch->bpp);
