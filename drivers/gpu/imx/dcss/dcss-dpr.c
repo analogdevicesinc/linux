@@ -269,7 +269,9 @@ void dcss_dpr_set_res(struct dcss_soc *dcss, int ch_num, u32 xres, u32 yres,
 	u32 gap = DCSS_DPR_FRAME_2P_BASE_ADDR - DCSS_DPR_FRAME_1P_BASE_ADDR;
 	u32 pix_format = dpr->ch[ch_num].pix_format;
 
-	if (pix_format == DRM_FORMAT_NV12 || pix_format == DRM_FORMAT_NV21)
+	if (pix_format == DRM_FORMAT_NV12 ||
+	    pix_format == DRM_FORMAT_NV21 ||
+	    pix_format == DRM_FORMAT_P010)
 		max_planes = 2;
 
 	for (plane = 0; plane < max_planes; plane++) {
@@ -476,6 +478,7 @@ static void dcss_dpr_rtram_set(struct dcss_soc *dcss, int ch_num,
 	switch (pix_format) {
 	case DRM_FORMAT_NV21:
 	case DRM_FORMAT_NV12:
+	case DRM_FORMAT_P010:
 		ch->rtram_3buf_en = 1;
 		ch->rtram_4line_en = 0;
 		break;
@@ -555,6 +558,7 @@ static int dcss_dpr_get_bpp(u32 pix_format)
 	switch (pix_format) {
 	case DRM_FORMAT_NV12:
 	case DRM_FORMAT_NV21:
+	case DRM_FORMAT_P010:
 		bpp = 8;
 		break;
 

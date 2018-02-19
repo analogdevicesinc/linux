@@ -148,6 +148,7 @@ static bool dcss_plane_format_mod_supported(struct drm_plane *plane,
 		switch (format) {
 		case DRM_FORMAT_NV12:
 		case DRM_FORMAT_NV21:
+		case DRM_FORMAT_P010:
 			return modifier == DRM_FORMAT_MOD_VSI_G1_TILED ||
 			       modifier == DRM_FORMAT_MOD_VSI_G2_TILED ||
 			       modifier == DRM_FORMAT_MOD_VSI_G2_TILED_COMPRESSED;
@@ -299,7 +300,8 @@ static void dcss_plane_atomic_set_base(struct dcss_plane *dcss_plane)
 	case DRM_PLANE_TYPE_OVERLAY:
 		if (!modifiers_present ||
 		    (pix_format != DRM_FORMAT_NV12 &&
-		     pix_format != DRM_FORMAT_NV21)) {
+		     pix_format != DRM_FORMAT_NV21 &&
+		     pix_format != DRM_FORMAT_P010)) {
 			dcss_dtrc_bypass(dcss_plane->dcss, dcss_plane->ch_num);
 			return;
 		}
@@ -451,7 +453,7 @@ static void dcss_plane_atomic_update(struct drm_plane *plane,
 
 	ipipe_cfg.pixel_format = pixel_format;
 	ipipe_cfg.nl = NL_REC709;
-	ipipe_cfg.pr = PR_FULL;
+	ipipe_cfg.pr = PR_LIMITED;
 	ipipe_cfg.g = G_REC709;
 
 	dcss_crtc_get_opipe_cfg(state->crtc, &opipe_cfg);
@@ -459,6 +461,7 @@ static void dcss_plane_atomic_update(struct drm_plane *plane,
 	/* apparently the other settins that are read from connector are not good,
 	 * so hardcode */
 	opipe_cfg.nl = NL_REC709;
+	opipe_cfg.pr = PR_FULL;
 	opipe_cfg.g = G_REC2020;
 
 	dcss_hdr10_setup(dcss_plane->dcss, dcss_plane->ch_num,

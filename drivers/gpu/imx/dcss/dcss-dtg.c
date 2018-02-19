@@ -194,7 +194,7 @@ int dcss_dtg_init(struct dcss_soc *dcss, unsigned long dtg_base)
 	dtg->alpha = 255;
 	dtg->use_global = 0;
 
-	dtg->control_status |= BLENDER_VIDEO_ALPHA_SEL |
+	dtg->control_status |= OVL_DATA_MODE | BLENDER_VIDEO_ALPHA_SEL |
 		((dtg->alpha << DEFAULT_FG_ALPHA_POS) & DEFAULT_FG_ALPHA_MASK);
 
 	return 0;
@@ -298,7 +298,8 @@ static bool dcss_dtg_global_alpha_needed(u32 pix_format)
 	       pix_format == DRM_FORMAT_YUYV	    ||
 	       pix_format == DRM_FORMAT_YVYU	    ||
 	       pix_format == DRM_FORMAT_NV12	    ||
-	       pix_format == DRM_FORMAT_NV21;
+	       pix_format == DRM_FORMAT_NV21	    ||
+	       pix_format == DRM_FORMAT_P010;
 }
 
 bool dcss_dtg_global_alpha_changed(struct dcss_soc *dcss, int ch_num,
