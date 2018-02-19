@@ -549,6 +549,54 @@ TX Monitor Control
 	- adi,txmon-1-lo-cm: Please see the manual
 	- adi,txmon-2-lo-cm: Please see the manual
 
+External Filter Banks Control via GPIO
+	1. Overview
+
+	This code is optional and enabled via the CONFIG_AD9361_EXT_BAND_CONTROL
+	Kconfig option.
+	When the RX/TX LO frequency is changed, this code gets called to apply GPIO
+	configuration changes, according to a list of settings defined in the
+	device-tree.
+
+	The essential gist of it, is that in a `ad963x` DT definition the GPIOs
+	that are to be used for band control will be defined like this:
+
+		adi,band-ctl-0-gpio = <&gpio0 0 0>;
+		adi,band-ctl-1-gpio = <&gpio0 1 0>;
+		...
+		adi,band-ctl-N-gpio = <&gpio0 N 0>;
+
+	Up to 256 GPIOs may be defined.
+
+	The numbers for `adi,band-ctl-X-gpio` do have to be incremental.
+	The GPIOs don't need to be incremental.
+
+	Then, in the same `ad963x` DT definition add as many settings as needed:
+
+		adi_rx_ext_band_setting_0 {
+			adi,lo-freq-min = /bits/ 64 <0>;
+			adi,lo-freq-max = /bits/ 64 <5000000>;
+			adi,gpio-settings = <0 ... 0>;
+		};
+
+	Where:
+	* `adi_rx_ext_band_setting_X` has to be incremental
+	* `adi_tx_ext_band_setting_X` is the equivalent for TX band control
+	* `adi,lo-freq-min` and `adi,lo-freq-max` frequency range for which to
+		apply this setting
+	* `adi,gpio-settings` GPIO values/operations for this setting; the
+		number of values in this u32 array must match the number of
+		`adi,band-ctrl-X-gpio` properties
+		Values/ops are:
+		0 = Set GPIO to Output Low; short-hand `L`
+		1 = Set GPIO to Output-High; short-hand ``
+		2 = Set GPIO to Input; short-hand `I`
+		3 = NOP; short-hand `_`
+	The short-hands aim to simplify headaches when comparing GPIO values
+	between datasheet and DT. And are available by including
+	`include/dt-bindings/iio/adc/adi,ad9361.h` and by defining
+	`AD9361_EXT_BAND_CTL_SHORTHANDS` before including the header.
+
 Example:
 &spi0 {
 	status = "okay";
