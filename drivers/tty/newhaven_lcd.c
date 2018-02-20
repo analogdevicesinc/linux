@@ -56,13 +56,13 @@
 #define CUSTOM_TILDE            0x01
 
 struct custom_font {
-	u8 mapping;
-	u8 font[LCD_BYTES_PER_FONT];
+	const char font_cmd[LCD_BYTES_PER_FONT_CMD];
 };
 
+/* Array of commands to send to set up custom fonts. */
 static struct custom_font custom_fonts[] = {
-	{ CUSTOM_BACKSLASH, { 0x00, 0x10, 0x08, 0x04, 0x02, 0x01, 0x00, 0x00, }, },
-	{ CUSTOM_TILDE,     { 0x00, 0x00, 0x00, 0x08, 0x15, 0x02, 0x00, 0x00, }, },
+	{ { LCD_COMMAND, LCD_CUSTOM_CHAR, CUSTOM_BACKSLASH, 0x00, 0x10, 0x08, 0x04, 0x02, 0x01, 0x00, 0x00, }, },
+	{ { LCD_COMMAND, LCD_CUSTOM_CHAR, CUSTOM_TILDE, 0x00, 0x00, 0x00, 0x08, 0x15, 0x02, 0x00, 0x00, }, },
 };
 
 struct lcd {
@@ -139,17 +139,13 @@ static int lcd_cmd_backspace(struct lcd *lcd_data)
    process the command */
 static int lcd_load_custom_fonts(struct lcd *lcd_data)
 {
-	u8 buf[LCD_BYTES_PER_FONT_CMD];
 	int count, i;
 
 	for (i = 0; i < ARRAY_SIZE(custom_fonts); i++) {
-		buf[0] = LCD_COMMAND;
-		buf[1] = LCD_CUSTOM_CHAR;
-		buf[2] = custom_fonts[i].mapping;
-		memcpy(buf + 3, &custom_fonts[i].font, LCD_BYTES_PER_FONT);
-
-		count = i2c_master_send(lcd_data->client, buf, sizeof(buf));
-		if (count != sizeof(buf)) {
+		count = i2c_master_send(lcd_data->client,
+					(const char *)&custom_fonts[i].font_cmd,
+					LCD_BYTES_PER_FONT_CMD);
+		if (count != LCD_BYTES_PER_FONT_CMD) {
 			pr_err("%s: i2c_master_send returns %d\n", __func__, count);
 			return -1;
 		}
@@ -401,7 +397,7 @@ static ssize_t brightness_show(struct device *dev, struct device_attribute *attr
 {
 	struct lcd *lcd_data = dev_get_drvdata(dev);
 
-	return sprintf(buf, "%d\n", lcd_data->brightness);
+	return scnprintf(buf, 2, "%d\n", lcd_data->brightness);
 }
 
 static ssize_t brightness_store(struct device *dev, struct device_attribute *attr,
