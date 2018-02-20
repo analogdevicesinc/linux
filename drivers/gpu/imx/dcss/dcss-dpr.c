@@ -239,7 +239,7 @@ static u32 dcss_dpr_x_pix_wide_adjust(struct dcss_dpr_ch *ch, u32 pix_wide,
 	pix_in_64byte = pix_in_64byte_map[ch->pix_size][ch->tile];
 
 	if (pix_format == DRM_FORMAT_P010)
-		pix_wide *= 10 / 8;
+		pix_wide = pix_wide * 10 / 8;
 
 	div_64byte_mod = pix_wide % pix_in_64byte;
 	offset = (div_64byte_mod == 0) ? 0 : (pix_in_64byte - div_64byte_mod);
@@ -274,6 +274,9 @@ void dcss_dpr_set_res(struct dcss_soc *dcss, int ch_num, u32 xres, u32 yres,
 	    pix_format == DRM_FORMAT_P010)
 		max_planes = 2;
 
+	if (pix_format == DRM_FORMAT_P010)
+		adj_w = adj_w * 10 / 8;
+
 	for (plane = 0; plane < max_planes; plane++) {
 		yres = plane == 1 ? yres >> 1 : yres;
 
@@ -281,7 +284,7 @@ void dcss_dpr_set_res(struct dcss_soc *dcss, int ch_num, u32 xres, u32 yres,
 		pix_y_high = dcss_dpr_y_pix_high_adjust(ch, yres, pix_format);
 
 		/* DTRC may need another width alignment. If it does, use it. */
-		if (pix_x_wide != adj_w)
+		if (pix_x_wide < adj_w)
 			pix_x_wide = adj_w;
 
 		if (pix_y_high != adj_h)

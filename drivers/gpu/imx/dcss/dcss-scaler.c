@@ -616,7 +616,8 @@ void dcss_scaler_setup(struct dcss_soc *dcss, int ch_num, u32 pix_format,
 
 		dcss_scaler_yuv_coef_set(dcss, ch_num);
 
-		/* TODO: determine component depth for YUV */
+		if (pix_format == DRM_FORMAT_P010)
+			pixel_depth = 30;
 
 	} else if (dcss_cs == DCSS_COLORSPACE_RGB) {
 		dcss_scaler_yuv_enable(dcss, ch_num, false);

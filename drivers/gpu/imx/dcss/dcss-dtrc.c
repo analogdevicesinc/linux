@@ -330,6 +330,7 @@ void dcss_dtrc_set_res(struct dcss_soc *dcss, int ch_num, struct drm_rect *src,
 	int bank;
 	u32 old_xres, old_yres, xres, yres;
 	u32 pix_depth;
+	u16 width_align = 0;
 
 	if (ch_num == 0)
 		return;
@@ -357,10 +358,11 @@ void dcss_dtrc_set_res(struct dcss_soc *dcss, int ch_num, struct drm_rect *src,
 
 	/*
 	 * Image original size is aligned:
-	 *   - 128 pixels for width;
+	 *   - 128 pixels for width (8-bit) or 256 (10-bit);
 	 *   - 8 lines for height;
 	 */
-	if (xres == old_xres && !(xres & 0x7f) &&
+	width_align = ch->pix_format == DRM_FORMAT_P010 ? 0xff : 0x7f;
+	if (xres == old_xres && !(xres & width_align) &&
 	    yres == old_yres && !(yres & 0xf)) {
 		ch->dctl &= ~CROPPING_EN;
 		goto exit;
@@ -368,9 +370,9 @@ void dcss_dtrc_set_res(struct dcss_soc *dcss, int ch_num, struct drm_rect *src,
 
 	/* align the image size: down align for compressed formats */
 	if (ch->format_modifier == DRM_FORMAT_MOD_VSI_G2_TILED_COMPRESSED && src->x1)
-		xres = xres & ~0x7f;
+		xres = xres & ~width_align;
 	else
-		xres = (xres - 1 + 0x7f) & ~0x7f;
+		xres = (xres - 1 + width_align) & ~width_align;
 
 	if (ch->format_modifier == DRM_FORMAT_MOD_VSI_G2_TILED_COMPRESSED && src->y1)
 		yres = yres & ~0xf;

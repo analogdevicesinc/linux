@@ -597,7 +597,8 @@ static u64 dcss_hdr10_get_desc(struct dcss_hdr10_pipe_cfg *ipipe_cfg,
 {
 	u32 ipipe_desc, opipe_desc;
 
-	ipipe_desc = dcss_hdr10_pipe_desc(ipipe_cfg);
+	ipipe_desc = dcss_hdr10_pipe_desc(ipipe_cfg) & (~HDR10_BPC_MASK);
+	ipipe_desc |= 2 << HDR10_BPC_POS;
 	opipe_desc = dcss_hdr10_pipe_desc(opipe_cfg);
 
 	return (ipipe_desc & 0xFFFF) |
@@ -630,6 +631,11 @@ void dcss_hdr10_setup(struct dcss_soc *dcss, int ch_num,
 	u64 desc = dcss_hdr10_get_desc(ipipe_cfg, opipe_cfg);
 
 	dcss_hdr10_pipe_setup(dcss, ch_num, desc);
-	dcss_hdr10_pipe_setup(dcss, OPIPE_CH_NO, desc);
+
+	/*
+	 * Input pipe configuration doesn't matter for configuring the output
+	 * pipe. So, will just mask off the input part of the descriptor.
+	 */
+	dcss_hdr10_pipe_setup(dcss, OPIPE_CH_NO, desc | 0xffff);
 }
 EXPORT_SYMBOL(dcss_hdr10_setup);

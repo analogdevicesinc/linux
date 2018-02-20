@@ -384,10 +384,6 @@ static void dcss_plane_atomic_update(struct drm_plane *plane,
 		return;
 	}
 
-	dcss_dpr_enable(dcss_plane->dcss, dcss_plane->ch_num, false);
-	dcss_scaler_enable(dcss_plane->dcss, dcss_plane->ch_num, false);
-	dcss_dtg_ch_enable(dcss_plane->dcss, dcss_plane->ch_num, false);
-
 	disp.x1 = 0;
 	disp.y1 = 0;
 	disp.x2 = crtc_state->adjusted_mode.hdisplay;
@@ -453,7 +449,7 @@ static void dcss_plane_atomic_update(struct drm_plane *plane,
 
 	ipipe_cfg.pixel_format = pixel_format;
 	ipipe_cfg.nl = NL_REC709;
-	ipipe_cfg.pr = PR_LIMITED;
+	ipipe_cfg.pr = PR_FULL;
 	ipipe_cfg.g = G_REC709;
 
 	dcss_crtc_get_opipe_cfg(state->crtc, &opipe_cfg);
