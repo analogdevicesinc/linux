@@ -181,6 +181,11 @@
 	status = "okay";
 };
 
+
+&gpc {
+	fsl,ldo-bypass = <1>;
+};
+
 &fec1 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_enet1>;

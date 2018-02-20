@@ -124,8 +124,20 @@
 		396000	1175000
 		198000	1175000
 	>;
-	arm-supply = <&sw1a_reg>;
-	soc-supply = <&sw1c_reg>;
+};
+
+&reg_arm {
+	vin-supply = <&sw1a_reg>;
+	regulator-allow-bypass;
+};
+
+&reg_soc {
+	vin-supply = <&sw1c_reg>;
+	regulator-allow-bypass;
+};
+
+&gpc {
+	fsl,ldo-bypass = <1>;
 };
 
 &fec1 {
