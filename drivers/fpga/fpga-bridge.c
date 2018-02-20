@@ -292,7 +292,7 @@ static ssize_t name_show(struct device *dev,
 {
 	struct fpga_bridge *bridge = to_fpga_bridge(dev);
 
-	return sprintf(buf, "%s\n", bridge->name);
+	return scnprintf(buf, PAGE_SIZE, "%s\n", bridge->name);
 }
 
 static ssize_t state_show(struct device *dev,
@@ -304,7 +304,7 @@ static ssize_t state_show(struct device *dev,
 	if (bridge->br_ops && bridge->br_ops->enable_show)
 		enable = bridge->br_ops->enable_show(bridge);
 
-	return sprintf(buf, "%s\n", enable ? "enabled" : "disabled");
+	return scnprintf(buf, 10, "%s\n", enable ? "enabled" : "disabled");
 }
 
 static DEVICE_ATTR_RO(name);
