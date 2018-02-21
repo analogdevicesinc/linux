@@ -1262,6 +1262,9 @@ static const struct of_device_id cf_axi_dds_of_match[] = {
 	    .compatible = "adi,axi-ad9371-tx-1.0",
 	    .data = &ad9371_6_00_a_info,
 	}, {
+	    .compatible = "adi,axi-adrv9009-tx-1.0",
+	    .data = &ad9371_6_00_a_info,
+	}, {
 	    .compatible = "adi,axi-ad9162-1.0",
 	    .data = &ad9162_1_00_a_info,
 	},{
