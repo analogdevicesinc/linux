@@ -6,7 +6,7 @@
  * published by the Free Software Foundation.
  */
 
-#include "imx6q-sabresd.dts"
+#include "imx6sl-evk.dts"
 
 &gpc {
 	/* use ldo-enable, u-boot will check it and configure */
@@ -23,12 +23,4 @@
 
 &reg_soc {
 	/delete-property/ vin-supply;
-};
-
-&wdog1 {
-	status = "okay";
-};
-
-&wdog2 {
-	status = "disabled";
 };

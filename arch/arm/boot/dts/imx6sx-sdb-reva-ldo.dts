@@ -6,29 +6,16 @@
  * published by the Free Software Foundation.
  */
 
-#include "imx6q-sabresd.dts"
+#include "imx6sx-sdb-reva.dts"
 
 &gpc {
-	/* use ldo-enable, u-boot will check it and configure */
-	fsl,ldo-bypass = <0>;
+	fsl,ldo-bypass = <0>; /* use ldo-enable, u-boot will check it and configure */
 };
 
 &reg_arm {
 	/delete-property/ vin-supply;
 };
 
-&reg_pu {
-	/delete-property/ vin-supply;
-};
-
 &reg_soc {
 	/delete-property/ vin-supply;
-};
-
-&wdog1 {
-	status = "okay";
-};
-
-&wdog2 {
-	status = "disabled";
 };
