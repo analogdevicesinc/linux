@@ -4663,6 +4663,10 @@ static int ad9361_setup(struct ad9361_rf_phy *phy)
 		}
 	}
 
+	ret = ad9361_gpo_setup(phy, &pd->gpo_ctrl);
+	if (ret < 0)
+		return ret;
+
 	if (pd->port_ctrl.pp_conf[2] & FDD_RX_RATE_2TX_RATE)
 		phy->rx_eq_2tx = true;
 
@@ -4741,10 +4745,6 @@ static int ad9361_setup(struct ad9361_rf_phy *phy)
 		return ret;
 
 	ret = ad9361_ctrl_outs_setup(phy, &pd->ctrl_outs_ctrl);
-	if (ret < 0)
-		return ret;
-
-	ret = ad9361_gpo_setup(phy, &pd->gpo_ctrl);
 	if (ret < 0)
 		return ret;
 
