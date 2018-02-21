@@ -363,9 +363,16 @@ void dcss_dtrc_set_res(struct dcss_soc *dcss, int ch_num, struct drm_rect *src,
 		goto exit;
 	}
 
-	/* align the image size */
-	xres = (xres + 0x7f) & ~0x7f;
-	yres = (yres + 0xf) & ~0xf;
+	/* align the image size: down align for compressed formats */
+	if (ch->format_modifier == DRM_FORMAT_MOD_VSI_G2_TILED_COMPRESSED && src->x1)
+		xres = xres & ~0x7f;
+	else
+		xres = (xres - 1 + 0x7f) & ~0x7f;
+
+	if (ch->format_modifier == DRM_FORMAT_MOD_VSI_G2_TILED_COMPRESSED && src->y1)
+		yres = yres & ~0xf;
+	else
+		yres = (yres - 1 + 0xf) & ~0xf;
 
 	src->x1 &= ~1;
 	src->x2 &= ~1;

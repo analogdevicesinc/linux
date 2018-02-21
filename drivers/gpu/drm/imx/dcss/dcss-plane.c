@@ -363,6 +363,7 @@ static void dcss_plane_atomic_update(struct drm_plane *plane,
 	bool modifiers_present = !!(fb->flags & DRM_MODE_FB_MODIFIERS);
 	u32 src_w, src_h, adj_w, adj_h;
 	struct drm_rect disp, crtc, src, old_src;
+	u32 scaler_w, scaler_h;
 
 	if (!state->fb)
 		return;
@@ -431,8 +432,16 @@ static void dcss_plane_atomic_update(struct drm_plane *plane,
 			 src_w, src_h, adj_w, adj_h);
 	dcss_plane_atomic_set_base(dcss_plane);
 
+	if (fb->modifier == DRM_FORMAT_MOD_VSI_G2_TILED_COMPRESSED) {
+		scaler_w = src.x1 ? adj_w : src_w;
+		scaler_h = src.y1 ? adj_h : src_h;
+	} else {
+		scaler_w = src_w;
+		scaler_h = src_h;
+	}
+
 	dcss_scaler_setup(dcss_plane->dcss, dcss_plane->ch_num,
-			  pixel_format, src_w, src_h,
+			  pixel_format, scaler_w, scaler_h,
 			  crtc.x2 - crtc.x1,
 			  crtc.y2 - crtc.y1,
 			  drm_mode_vrefresh(&crtc_state->mode));
