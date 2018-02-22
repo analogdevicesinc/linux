@@ -53,10 +53,13 @@
 #define GPU_VPU_PDN_REQ		BIT(0)
 
 #define GPC_CLK_MAX		10
+#define DEFAULT_IPG_RATE		66000000
+#define GPC_PU_UP_DELAY_MARGIN		2
 
 #define PGC_DOMAIN_FLAG_NO_PD		BIT(0)
 
 static void __iomem *gpc_base;
+static struct clk *ipg;
 
 static inline bool cpu_is_imx6sx(void)
 {
@@ -183,6 +186,7 @@ static int imx6_pm_dispmix_on(struct generic_pm_domain *genpd)
 {
 	struct imx_pm_domain *pd = to_imx_pm_domain(genpd);
 	u32 val = readl_relaxed(gpc_base + GPC_CNTR);
+	u32 ipg_rate = clk_get_rate(ipg);
 	int i;
 
 	if ((cpu_is_imx6sl() &&
@@ -198,6 +202,10 @@ static int imx6_pm_dispmix_on(struct generic_pm_domain *genpd)
 			;
 
 		writel_relaxed(0x1, gpc_base + GPC_PGC_DISP_SR_OFFSET);
+
+		/* Wait power switch done */
+		udelay(2 * DEFAULT_IPG_RATE / ipg_rate +
+			GPC_PU_UP_DELAY_MARGIN);
 
 		/* Disable reset clocks for all devices in the disp domain */
 		for (i = 0; i < pd->num_clks; i++)
@@ -459,7 +467,7 @@ static int imx_gpc_old_dt_init(struct device *dev, struct regmap *regmap,
 	struct clk *clk;
 	struct imx_pm_domain *domain;
 	bool is_off;
-	int pu_clks, disp_clks;
+	int pu_clks, disp_clks, ipg_clks = 1;
 	int i = 0, k = 0, ret;
 
 	struct imx_pm_domain *pu_domain = &imx_gpc_domains[GPC_PGC_DOMAIN_PU];
@@ -468,12 +476,12 @@ static int imx_gpc_old_dt_init(struct device *dev, struct regmap *regmap,
 	if ((cpu_is_imx6sl() &&
 	     imx_get_soc_revision() >= IMX_CHIP_REVISION_1_2)) {
 		pu_clks = 2;
-		disp_clks = 6;
+		disp_clks = 5;
 	} else if (cpu_is_imx6sx()) {
 		pu_clks = 1;
-		disp_clks = 8;
+		disp_clks = 7;
 	} else {
-		pu_clks = GPC_CLK_MAX;
+		pu_clks = 6;
 		disp_clks = 0;
 	}
 
@@ -486,8 +494,11 @@ static int imx_gpc_old_dt_init(struct device *dev, struct regmap *regmap,
 	}
 	pu_domain->num_clks = i;
 
+	ipg = of_clk_get(dev->of_node, pu_clks);
+
 	/* Get disp domain clks */
-	for (k = 0, i = pu_clks; i < pu_clks + disp_clks ; i++, k++) {
+	for (k = 0, i = pu_clks + ipg_clks; i < pu_clks + ipg_clks + disp_clks;
+		i++, k++) {
 		clk = of_clk_get(dev->of_node, i);
 		if (IS_ERR(clk))
 			break;
