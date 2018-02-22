@@ -50,6 +50,10 @@ static u32 gpc_mf_irqs[IMR_NUM];
 static u32 gpc_mf_request_on[IMR_NUM];
 static DEFINE_SPINLOCK(gpc_lock);
 
+/* implemented in drivers/soc/imx/gpc.c */
+extern void _imx6_pm_pu_power_off(void);
+extern void _imx6_pm_pu_power_on(void);
+
 void imx_gpc_add_m4_wake_up_irq(u32 hwirq, bool enable)
 {
 	unsigned int idx = hwirq / 32;
@@ -151,6 +155,9 @@ void imx_gpc_pre_suspend(bool arm_power_off)
 	void __iomem *reg_imr1 = gpc_base + GPC_IMR1;
 	int i;
 
+	if (cpu_is_imx6q() && imx_get_soc_revision() >= IMX_CHIP_REVISION_2_0)
+		_imx6_pm_pu_power_off();
+
 	/* power down the mega-fast power domain */
 	if ((cpu_is_imx6sx() || cpu_is_imx6ul()) && arm_power_off)
 		imx_gpc_mf_mix_off();
@@ -169,6 +176,9 @@ void imx_gpc_post_resume(void)
 {
 	void __iomem *reg_imr1 = gpc_base + GPC_IMR1;
 	int i;
+
+	if (cpu_is_imx6q() && imx_get_soc_revision() >= IMX_CHIP_REVISION_2_0)
+		_imx6_pm_pu_power_on();
 
 	/* Keep ARM core powered on for other low-power modes */
 	imx_gpc_set_arm_power_in_lpm(false);

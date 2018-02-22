@@ -435,6 +435,19 @@ static struct genpd_onecell_data imx_gpc_onecell_data = {
 	.num_domains = 2,
 };
 
+/* exported for suspend/resume code in arch/arm/mach-imx/gpc.c */
+void _imx6_pm_pu_power_off(void)
+{
+	_imx6_pm_domain_power_off(&imx_gpc_domains[GPC_PGC_DOMAIN_PU].base);
+}
+EXPORT_SYMBOL_GPL(_imx6_pm_pu_power_off);
+
+void _imx6_pm_pu_power_on(void)
+{
+	_imx6_pm_domain_power_on(&imx_gpc_domains[GPC_PGC_DOMAIN_PU].base);
+}
+EXPORT_SYMBOL_GPL(_imx6_pm_pu_power_on);
+
 static int imx_gpc_old_dt_init(struct device *dev, struct regmap *regmap,
 			       unsigned int num_domains)
 {
