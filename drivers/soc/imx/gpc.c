@@ -19,6 +19,8 @@
 #include <linux/regmap.h>
 #include <linux/regulator/consumer.h>
 
+#include <soc/imx/revision.h>
+
 #define GPC_CNTR		0x000
 
 #define GPC_CNTR_PCIE_PHY_PDU_SHIFT	0x7
@@ -34,6 +36,10 @@
 
 #define GPC_PGC_PCI_PDN		0x200
 #define GPC_PGC_PCI_SR		0x20c
+#define GPC_PGC_DISP_PGCR_OFFSET       0x240
+#define GPC_PGC_DISP_PUPSCR_OFFSET     0x244
+#define GPC_PGC_DISP_PDNSCR_OFFSET     0x248
+#define GPC_PGC_DISP_SR_OFFSET         0x24c
 
 #define GPC_PGC_GPU_PDN		0x260
 #define GPC_PGC_GPU_PUPSCR	0x264
@@ -46,11 +52,21 @@
 #define GPU_VPU_PUP_REQ		BIT(1)
 #define GPU_VPU_PDN_REQ		BIT(0)
 
-#define GPC_CLK_MAX		6
+#define GPC_CLK_MAX		10
 
 #define PGC_DOMAIN_FLAG_NO_PD		BIT(0)
 
 static void __iomem *gpc_base;
+
+static inline bool cpu_is_imx6sx(void)
+{
+	return of_machine_is_compatible("fsl,imx6sx");
+}
+
+static inline bool cpu_is_imx6sl(void)
+{
+	return of_machine_is_compatible("fsl,imx6sl");
+}
 
 struct imx_pm_domain {
 	struct generic_pm_domain base;
@@ -155,6 +171,62 @@ static int imx6_pm_domain_power_on(struct generic_pm_domain *genpd)
 
 	_imx6_pm_domain_power_on(genpd);
 
+	return 0;
+}
+
+static int imx6_pm_dispmix_on(struct generic_pm_domain *genpd)
+{
+	struct imx_pm_domain *pd = to_imx_pm_domain(genpd);
+	u32 val = readl_relaxed(gpc_base + GPC_CNTR);
+	int i;
+
+	if ((cpu_is_imx6sl() &&
+		imx_get_soc_revision() >= IMX_CHIP_REVISION_1_2) || cpu_is_imx6sx()) {
+
+		/* Enable reset clocks for all devices in the disp domain */
+		for (i = 0; i < pd->num_clks; i++)
+			clk_prepare_enable(pd->clk[i]);
+
+		writel_relaxed(0x0, gpc_base + GPC_PGC_DISP_PGCR_OFFSET);
+		writel_relaxed(0x20 | val, gpc_base + GPC_CNTR);
+		while (readl_relaxed(gpc_base + GPC_CNTR) & 0x20)
+			;
+
+		writel_relaxed(0x1, gpc_base + GPC_PGC_DISP_SR_OFFSET);
+
+		/* Disable reset clocks for all devices in the disp domain */
+		for (i = 0; i < pd->num_clks; i++)
+			clk_disable_unprepare(pd->clk[i]);
+	}
+	return 0;
+}
+
+static int imx6_pm_dispmix_off(struct generic_pm_domain *genpd)
+{
+	struct imx_pm_domain *pd = to_imx_pm_domain(genpd);
+	u32 val = readl_relaxed(gpc_base + GPC_CNTR);
+	int i;
+
+	if ((cpu_is_imx6sl() &&
+		imx_get_soc_revision() >= IMX_CHIP_REVISION_1_2) || cpu_is_imx6sx()) {
+
+		/* Enable reset clocks for all devices in the disp domain */
+		for (i = 0; i < pd->num_clks; i++)
+			clk_prepare_enable(pd->clk[i]);
+
+		writel_relaxed(0xFFFFFFFF,
+				gpc_base + GPC_PGC_DISP_PUPSCR_OFFSET);
+		writel_relaxed(0xFFFFFFFF,
+				gpc_base + GPC_PGC_DISP_PDNSCR_OFFSET);
+		writel_relaxed(0x1, gpc_base + GPC_PGC_DISP_PGCR_OFFSET);
+		writel_relaxed(0x10 | val, gpc_base + GPC_CNTR);
+		while (readl_relaxed(gpc_base + GPC_CNTR) & 0x10)
+			;
+
+		/* Disable reset clocks for all devices in the disp domain */
+		for (i = 0; i < pd->num_clks; i++)
+			clk_disable_unprepare(pd->clk[i]);
+	}
 	return 0;
 }
 
@@ -297,8 +369,8 @@ static struct imx_pm_domain imx_gpc_domains[] = {
 	}, {
 		.base = {
 			.name = "DISPLAY",
-			.power_off = imx6_pm_domain_power_off,
-			.power_on = imx6_pm_domain_power_on,
+			.power_off = imx6_pm_dispmix_off,
+			.power_on = imx6_pm_dispmix_on,
 		},
 		.reg_offs = 0x240,
 		.cntr_pdn_bit = 4,
@@ -366,29 +438,72 @@ static struct genpd_onecell_data imx_gpc_onecell_data = {
 static int imx_gpc_old_dt_init(struct device *dev, struct regmap *regmap,
 			       unsigned int num_domains)
 {
+	struct clk *clk;
 	struct imx_pm_domain *domain;
-	int i, ret;
+	bool is_off;
+	int pu_clks, disp_clks;
+	int i = 0, k = 0, ret;
+
+	struct imx_pm_domain *pu_domain = &imx_gpc_domains[GPC_PGC_DOMAIN_PU];
+	struct imx_pm_domain *disp_domain = &imx_gpc_domains[GPC_PGC_DOMAIN_DISPLAY];
+
+	if ((cpu_is_imx6sl() &&
+	     imx_get_soc_revision() >= IMX_CHIP_REVISION_1_2)) {
+		pu_clks = 2;
+		disp_clks = 6;
+	} else if (cpu_is_imx6sx()) {
+		pu_clks = 1;
+		disp_clks = 7;
+	} else {
+		pu_clks = GPC_CLK_MAX;
+		disp_clks = 0;
+	}
+
+	/* Get pu domain clks */
+	for (i = 0; i < pu_clks ; i++) {
+		clk = of_clk_get(dev->of_node, i);
+		if (IS_ERR(clk))
+			break;
+		pu_domain->clk[i] = clk;
+	}
+	pu_domain->num_clks = i;
+
+	/* Get disp domain clks */
+	for (k = 0, i = pu_clks; i < pu_clks + disp_clks ; i++, k++) {
+		clk = of_clk_get(dev->of_node, i);
+		if (IS_ERR(clk))
+			break;
+		disp_domain->clk[k] = clk;
+	}
+	disp_domain->num_clks = k;
 
 	for (i = 0; i < num_domains; i++) {
 		domain = &imx_gpc_domains[i];
 		domain->regmap = regmap;
 		domain->ipg_rate_mhz = 66;
 
-		if (i == 1) {
+		if (i == GPC_PGC_DOMAIN_PU) {
 			domain->supply = devm_regulator_get(dev, "pu");
 			if (IS_ERR(domain->supply))
 				return PTR_ERR(domain->supply);;
-
-			ret = imx_pgc_get_clocks(dev, domain);
-			if (ret)
-				goto clk_err;
 
 			domain->base.power_on(&domain->base);
 		}
 	}
 
+	is_off = IS_ENABLED(CONFIG_PM);
+	if (is_off) {
+		_imx6_pm_domain_power_off(&pu_domain->base);
+	} else {
+		/*
+		 * Enable power if compiled without CONFIG_PM in case the
+		 * bootloader disabled it.
+		 */
+		imx6_pm_domain_power_on(&pu_domain->base);
+	}
+
 	for (i = 0; i < num_domains; i++)
-		pm_genpd_init(&imx_gpc_domains[i].base, NULL, false);
+		pm_genpd_init(&imx_gpc_domains[i].base, NULL, is_off);
 
 	if (IS_ENABLED(CONFIG_PM_GENERIC_DOMAINS)) {
 		ret = of_genpd_add_provider_onecell(dev->of_node,
@@ -400,10 +515,10 @@ static int imx_gpc_old_dt_init(struct device *dev, struct regmap *regmap,
 	return 0;
 
 genpd_err:
-	for (i = 0; i < num_domains; i++)
+	for (i = 0; i < num_domains; i++) {
 		pm_genpd_remove(&imx_gpc_domains[i].base);
-	imx_pgc_put_clocks(&imx_gpc_domains[GPC_PGC_DOMAIN_PU]);
-clk_err:
+		imx_pgc_put_clocks(&imx_gpc_domains[i]);
+	}
 	return ret;
 }
 
