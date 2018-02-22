@@ -45,6 +45,8 @@
 
 #define PGC_DOMAIN_FLAG_NO_PD		BIT(0)
 
+static void __iomem *gpc_base;
+
 struct imx_pm_domain {
 	struct generic_pm_domain base;
 	struct regmap *regmap;
@@ -423,6 +425,7 @@ static int imx_gpc_probe(struct platform_device *pdev)
 	base = devm_ioremap_resource(&pdev->dev, res);
 	if (IS_ERR(base))
 		return PTR_ERR(base);
+	gpc_base = base;
 
 	regmap = devm_regmap_init_mmio_clk(&pdev->dev, NULL, base,
 					   &imx_gpc_regmap_config);
