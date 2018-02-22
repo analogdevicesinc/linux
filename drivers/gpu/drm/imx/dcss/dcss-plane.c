@@ -307,7 +307,7 @@ static void dcss_plane_atomic_set_base(struct dcss_plane *dcss_plane)
 		}
 
 		dcss_dtrc_set_format_mod(dcss_plane->dcss, dcss_plane->ch_num,
-					 pix_format, fb->modifier);
+					 fb->modifier);
 		dcss_dtrc_addr_set(dcss_plane->dcss, dcss_plane->ch_num,
 				   p1_ba, p2_ba, dcss_plane->dtrc_table_ofs_val);
 		break;
@@ -412,7 +412,7 @@ static void dcss_plane_atomic_update(struct drm_plane *plane,
 
 	if (plane->type == DRM_PLANE_TYPE_OVERLAY)
 		dcss_dtrc_set_res(dcss_plane->dcss, dcss_plane->ch_num,
-				  &src, &old_src);
+				  &src, &old_src, pixel_format);
 
 	/* DTRC has probably aligned the sizes. */
 	adj_w = src.x2 - src.x1;
