@@ -300,15 +300,12 @@
 };
 
 &clk0_ad9523 {
+	adi,pll2-m1-freq = <750000000>;
 	sync-gpios = <&sys_gpio_out 6 0>;
 	status0-gpios = <&sys_gpio_in 0 0>;
 	status1-gpios = <&sys_gpio_in 1 0>;
 };
 
-/*
- * Set FPGA ref clocks to 333.33 MHz. Allows to generate a wider range of lane
- * rates.
- */
 &ad9523_0_c4 {
 	adi,channel-divider = <3>;
 };
