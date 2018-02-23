@@ -633,9 +633,9 @@ struct fec_enet_private {
 	int pps_enable;
 	unsigned int next_counter;
 
-	u64 ethtool_stats[0];
-
 	struct fec_enet_stop_mode gpr;
+
+	u64 ethtool_stats[0];
 };
 
 void fec_ptp_init(struct platform_device *pdev);
