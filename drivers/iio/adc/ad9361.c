@@ -4663,6 +4663,10 @@ static int ad9361_setup(struct ad9361_rf_phy *phy)
 		}
 	}
 
+	ret = ad9361_auxdac_setup(phy, &pd->auxdac_ctrl);
+	if (ret < 0)
+		return ret;
+
 	ret = ad9361_gpo_setup(phy, &pd->gpo_ctrl);
 	if (ret < 0)
 		return ret;
@@ -4731,10 +4735,6 @@ static int ad9361_setup(struct ad9361_rf_phy *phy)
 		return ret;
 
 	ret = ad9361_pp_port_setup(phy, false);
-	if (ret < 0)
-		return ret;
-
-	ret = ad9361_auxdac_setup(phy, &pd->auxdac_ctrl);
 	if (ret < 0)
 		return ret;
 
