@@ -26,6 +26,7 @@
 #include <linux/can/error.h>
 #include <linux/can/led.h>
 #include <linux/can/rx-offload.h>
+#include <linux/can/platform/flexcan.h>
 #include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/interrupt.h>
@@ -277,6 +278,7 @@ struct flexcan_priv {
 
 	struct clk *clk_ipg;
 	struct clk *clk_per;
+	struct flexcan_platform_data *pdata;
 	const struct flexcan_devtype_data *devtype_data;
 	struct regulator *reg_xceiver;
 };
@@ -358,6 +360,11 @@ static inline void flexcan_error_irq_disable(const struct flexcan_priv *priv)
 
 static inline int flexcan_transceiver_enable(const struct flexcan_priv *priv)
 {
+	if (priv->pdata && priv->pdata->transceiver_switch) {
+		priv->pdata->transceiver_switch(1);
+		return 0;
+	}
+
 	if (!priv->reg_xceiver)
 		return 0;
 
@@ -366,6 +373,11 @@ static inline int flexcan_transceiver_enable(const struct flexcan_priv *priv)
 
 static inline int flexcan_transceiver_disable(const struct flexcan_priv *priv)
 {
+	if (priv->pdata && priv->pdata->transceiver_switch) {
+		priv->pdata->transceiver_switch(0);
+		return 0;
+	}
+
 	if (!priv->reg_xceiver)
 		return 0;
 
@@ -1324,6 +1336,7 @@ static int flexcan_probe(struct platform_device *pdev)
 	priv->regs = regs;
 	priv->clk_ipg = clk_ipg;
 	priv->clk_per = clk_per;
+	priv->pdata = dev_get_platdata(&pdev->dev);
 	priv->devtype_data = devtype_data;
 	priv->reg_xceiver = reg_xceiver;
 
