@@ -78,9 +78,9 @@ static int imx_xtor_hw_params(struct snd_pcm_substream *substream,
 	bool tx = substream->stream == SNDRV_PCM_STREAM_PLAYBACK;
 	struct cpu_priv *cpu_priv = &data->cpu_priv;
 	struct device *dev = rtd->card->dev;
+	u32 channels = params_channels(params);
 	unsigned int fmt = SND_SOC_DAIFMT_I2S | SND_SOC_DAIFMT_NB_NF;
 	int ret, dir;
-	u32 freq;
 
 	/* For playback the XTOR is slave, and for record is master */
 	fmt |= tx ? SND_SOC_DAIFMT_CBS_CFS : SND_SOC_DAIFMT_CBM_CFM;
@@ -94,16 +94,15 @@ static int imx_xtor_hw_params(struct snd_pcm_substream *substream,
 	}
 
 	/* Specific configurations of DAIs starts from here */
-	freq = params_rate(params) * params_width(params) * cpu_priv->slots;
 	ret = snd_soc_dai_set_sysclk(rtd->cpu_dai, cpu_priv->sysclk_id[tx],
-				     freq, dir);
+				     0, dir);
 	if (ret) {
 		dev_err(dev, "failed to set cpu sysclk: %d\n", ret);
 		return ret;
 	}
 
-	ret = snd_soc_dai_set_tdm_slot(rtd->cpu_dai, 0x3, 0x3, cpu_priv->slots,
-					params_width(params));
+	ret = snd_soc_dai_set_tdm_slot(rtd->cpu_dai, BIT(channels) - 1,
+		BIT(channels) - 1, cpu_priv->slots, params_width(params));
 	if (ret) {
 		dev_err(dev, "failed to set cpu dai tdm slot: %d\n", ret);
 		return ret;
