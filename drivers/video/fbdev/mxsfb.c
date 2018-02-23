@@ -1474,6 +1474,9 @@ static int mxsfb_dispdrv_init(struct platform_device *pdev,
 	struct device *dev = &pdev->dev;
 	char disp_dev[32];
 
+	if (!strlen(host->disp_dev))
+		return 0;
+
 	memset(&setting, 0x0, sizeof(setting));
 	setting.fbi = fbi;
 	memcpy(disp_dev, host->disp_dev, strlen(host->disp_dev));
