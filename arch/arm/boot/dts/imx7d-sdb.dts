@@ -157,6 +157,17 @@
 		enable-active-high;
 	};
 
+	wlreg_on: regulator-wl {
+		compatible = "regulator-fixed";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		regulator-name = "wlreg_on";
+		gpio = <&gpio4 21 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+		regulator-boot-on;
+		regulator-always-on;
+	};
+
 	panel {
 		compatible = "innolux,at043tn24";
 		pinctrl-0 = <&pinctrl_backlight>;
@@ -176,6 +187,11 @@
 		brightness-levels = <0 4 8 16 32 64 128 255>;
 		default-brightness-level = <6>;
 		status = "okay";
+	};
+
+	bcmdhd_wlan_0: bcmdhd_wlan@0 {
+		compatible = "android,bcmdhd_wlan";
+		wlreg_on-supply = <&wlreg_on>;
 	};
 
 	pxp_v4l2_out {
