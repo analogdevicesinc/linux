@@ -621,9 +621,9 @@ static ssize_t __iio_format_value(char *buf, size_t len, unsigned int type,
 		tmp1 = vals[1];
 		tmp0 = div_s64_rem(stmp, 1000000000LL, &tmp1);
 		if (vals[1] < 0)
-			return snprintf(buf, len, "-%d.%09u\n", abs(tmp0), -tmp1);
+			return snprintf(buf, len, "-%d.%09u", abs(tmp0), -tmp1);
 		else
-			return snprintf(buf, len,  "%d.%09u\n", tmp0, tmp1);
+			return snprintf(buf, len,  "%d.%09u", tmp0, tmp1);
 	case IIO_VAL_INT_MULTIPLE:
 	{
 		int i;
