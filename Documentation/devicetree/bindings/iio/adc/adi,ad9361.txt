@@ -656,6 +656,24 @@ External Filter Banks Control via GPIO
 	The driver should pick up if there is an infinite recursion in the call
 	hierarchy, as each setting node can call other setting nodes.
 
+	4. Controlling AD9361 Input/Output ports
+
+	Each setting can also specify RF input & output ports to be selected
+	by specifying the `adi,rx-rf-port-input-select` and
+	`adi,tx-rf-port-input-select` options.
+
+	Example:
+		adi_rx_band_setting_0 {
+			adi,lo-freq-min = /bits/ 64 <50000000>;
+			adi,lo-freq-max = /bits/ 64 <435000000>;
+			adi,rx-rf-port-input-select = <2>;
+		};
+
+	Values are the same as described in the `RF Port Control` section
+	of this document. GPIO values can be omitted.
+	These values can be assigned to any recursed sub-setting
+	to take advantage of setting sequencing.
+
 Example:
 &spi0 {
 	status = "okay";
