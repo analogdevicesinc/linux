@@ -63,6 +63,9 @@ struct ad9361_band_setting {
 	u64 freq_min;
 	u64 freq_max;
 	u32 *gpio_values;
+	u32 rf_rx_input_sel;
+	u32 rf_tx_output_sel;
+
 	/* reference to the global objects to be controlled;
 	 * to number of args in some calls
 	 */
@@ -185,6 +188,30 @@ out:
 	return rc;
 }
 
+static int ad9361_parse_platform_data(struct ad9361_band_setting *sett,
+				      struct device *dev,
+				      struct device_node *np)
+{
+	int ret;
+	u32 val;
+
+	ret = of_property_read_u32(np, "adi,rx-rf-port-input-select", &val);
+	if (ret == 0) {
+		dev_dbg(dev, " * adi,rx-rf-port-input-select: %u\n", val);
+		sett->rf_rx_input_sel = val;
+	} else
+		sett->rf_rx_input_sel = NO_PORT_SEL;
+
+	ret = of_property_read_u32(np, "adi,tx-rf-port-input-select", &val);
+	if (ret == 0) {
+		dev_dbg(dev, " * adi,tx-rf-port-input-select: %u\n", val);
+		sett->rf_tx_output_sel = val;
+	} else
+		sett->rf_tx_output_sel = NO_PORT_SEL;
+
+	return 0;
+}
+
 static int ad9361_parse_gpio_settings(struct device *dev,
 				      struct device_node *np,
 				      struct ad9361_ext_band_ctl *ctl,
@@ -272,6 +299,10 @@ static int ad9361_parse_setting(struct device *dev,
 		return ret;
 
 	ret = ad9361_parse_gpio_settings(dev, np, ctl, sett);
+	if (ret < 0)
+		return ret;
+
+	ret = ad9361_parse_platform_data(sett, dev, np);
 	if (ret < 0)
 		return ret;
 
@@ -535,6 +566,54 @@ static int ad9361_apply_gpio_settings(struct device *dev,
 	return 0;
 }
 
+static int ad9361_apply_rx_port_settings(struct ad9361_rf_phy *phy,
+					 struct ad9361_band_setting *new,
+					 struct ad9361_band_setting *curr)
+{
+	struct device *dev = &phy->spi->dev;
+	int ret;
+
+	if (new->rf_rx_input_sel == NO_PORT_SEL)
+		return 0;
+
+	if (curr &&
+	    new->rf_rx_input_sel == curr->rf_rx_input_sel)
+		return 0;
+
+	ret = ad9361_set_rx_port(phy, new->rf_rx_input_sel);
+	if (ret < 0)
+		dev_err(dev, "%s: got error for RX input sel %d\n", __func__, ret);
+	else
+		dev_dbg(dev, "%s: RX input sel %u\n", __func__,
+			new->rf_rx_input_sel);
+
+	return ret;
+}
+
+static int ad9361_apply_tx_port_settings(struct ad9361_rf_phy *phy,
+					 struct ad9361_band_setting *new,
+					 struct ad9361_band_setting *curr)
+{
+	struct device *dev = &phy->spi->dev;
+	int ret;
+
+	if (new->rf_tx_output_sel == NO_PORT_SEL)
+		return 0;
+
+	if (curr &&
+	    new->rf_tx_output_sel == curr->rf_tx_output_sel)
+		return 0;
+
+	ret = ad9361_set_tx_port(phy, new->rf_tx_output_sel);
+	if (ret < 0)
+		dev_err(dev, "%s: got error for TX output sel %d\n", __func__, ret);
+	else
+		dev_dbg(dev, "%s: TX output sel %u\n", __func__,
+			new->rf_tx_output_sel);
+
+	return ret;
+}
+
 static int ad9361_apply_settings(struct ad9361_rf_phy *phy,
 				 struct ad9361_band_setting *new,
 				 struct ad9361_band_setting **curr)
@@ -560,6 +639,14 @@ static int ad9361_apply_settings(struct ad9361_rf_phy *phy,
 		new->name);
 
 	ret = ad9361_apply_gpio_settings(dev, new, lcurr);
+	if (ret < 0)
+		return ret;
+
+	ret = ad9361_apply_rx_port_settings(phy, new, lcurr);
+	if (ret < 0)
+		return ret;
+
+	ret = ad9361_apply_tx_port_settings(phy, new, lcurr);
 	if (ret < 0)
 		return ret;
 
