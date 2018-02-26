@@ -8685,8 +8685,8 @@ static struct ad9361_phy_platform_data
 	return pdata;
 }
 #else
-static
-struct ad9361_phy_platform_data *ad9361_phy_parse_dt(struct device *dev)
+static inline struct ad9361_phy_platform_data
+	*ad9361_phy_parse_dt(struct iio_dev *iodev, struct device *dev)
 {
 	return NULL;
 }
