@@ -26,7 +26,6 @@
 #include "imx-dp.h"
 #include "../imx-drm.h"
 
-struct imx_hdp *g_hdp;
 struct drm_display_mode *g_mode;
 
 static const struct drm_display_mode edid_cea_modes[] = {
@@ -62,116 +61,6 @@ static const struct drm_display_mode edid_cea_modes[] = {
 static inline struct imx_hdp *enc_to_imx_hdp(struct drm_encoder *e)
 {
 	return container_of(e, struct imx_hdp, encoder);
-}
-
-static u32 TMDS_rate_table[7] = {
-25200, 27000, 54000, 74250, 148500, 297000, 594000,
-};
-
-static u32 N_table_32k[8] = {
-/*25200, 27000, 54000, 74250, 148500, 297000, 594000,*/
-4096, 4096, 4096, 4096, 4096, 3072, 3072, 4096,
-};
-
-static u32 N_table_44k[8] = {
-6272, 6272, 6272, 6272, 6272, 4704, 9408, 6272,
-};
-
-static u32 N_table_48k[8] = {
-6144, 6144, 6144, 6144, 6144, 5120, 6144, 6144,
-};
-
-static int select_N_index(int vmode_index)
-{
-
-	int i = 0, j = 0;
-
-	for (i = 0; i < VIC_MODE_COUNT; i++) {
-		if (vic_table[i][23] == vmode_index)
-			break;
-	}
-
-	if (i == VIC_MODE_COUNT) {
-		DRM_ERROR("vmode is wrong!\n");
-		j = 7;
-		return j;
-	}
-
-	for (j = 0; j < 7; j++) {
-		if (vic_table[i][13] == TMDS_rate_table[j])
-			break;
-	}
-
-	return j;
-}
-
-u32 imx_hdp_audio(AUDIO_TYPE type, u32 sample_rate, u32 channels, u32 width)
-{
-	AUDIO_FREQ  freq;
-	AUDIO_WIDTH bits;
-	int ncts_n;
-	state_struct *state = &g_hdp->state;
-	int idx_n = select_N_index(g_hdp->vic);
-
-	switch (sample_rate) {
-	case 32000:
-		freq = AUDIO_FREQ_32;
-		ncts_n = N_table_32k[idx_n];
-		break;
-	case 44100:
-		freq = AUDIO_FREQ_44_1;
-		ncts_n = N_table_44k[idx_n];
-		break;
-	case 48000:
-		freq = AUDIO_FREQ_48;
-		ncts_n = N_table_48k[idx_n];
-		break;
-	case 88200:
-		freq = AUDIO_FREQ_88_2;
-		ncts_n = N_table_44k[idx_n] * 2;
-		break;
-	case 96000:
-		freq = AUDIO_FREQ_96;
-		ncts_n = N_table_48k[idx_n] * 2;
-		break;
-	case 176400:
-		freq = AUDIO_FREQ_176_4;
-		ncts_n = N_table_44k[idx_n] * 4;
-		break;
-	case 192000:
-		freq = AUDIO_FREQ_192;
-		ncts_n = N_table_48k[idx_n] * 4;
-		break;
-	default:
-		return -EINVAL;
-	}
-
-	switch (width) {
-	case 16:
-		bits = AUDIO_WIDTH_16;
-		break;
-	case 24:
-		bits = AUDIO_WIDTH_24;
-		break;
-	case 32:
-		bits = AUDIO_WIDTH_32;
-		break;
-	default:
-		return -EINVAL;
-	}
-
-
-	CDN_API_AudioOff_blocking(state, type);
-	CDN_API_AudioAutoConfig_blocking(state,
-				type,
-				channels,
-				freq,
-				0,
-				bits,
-				g_hdp->audio_type,
-				ncts_n,
-				AUDIO_MUTE_MODE_UNMUTE);
-	return 0;
 }
 
 static void imx_hdp_state_init(struct imx_hdp *hdp)
@@ -1043,7 +932,6 @@ static int imx_hdp_imx_bind(struct device *dev, struct device *master,
 	bridge = &hdp->bridge;
 	connector = &hdp->connector;
 
-	g_hdp = hdp;
 	mutex_init(&hdp->mutex);
 
 	hdp->irq[HPD_IRQ_IN] = platform_get_irq_byname(pdev, "plug_in");
@@ -1140,6 +1028,7 @@ static int imx_hdp_imx_bind(struct device *dev, struct device *master,
 			 DRM_MODE_ENCODER_TMDS, NULL);
 
 	/* bridge */
+	bridge->encoder = encoder;
 	bridge->driver_private = hdp;
 	bridge->funcs = &imx_hdp_bridge_funcs;
 	ret = drm_bridge_attach(encoder, bridge, NULL);
@@ -1201,6 +1090,8 @@ static int imx_hdp_imx_bind(struct device *dev, struct device *master,
 	if (hdp->is_cec)
 		imx_cec_register(&hdp->cec);
 #endif
+
+	imx_hdp_register_audio_driver(dev);
 
 	return 0;
 err_irq:

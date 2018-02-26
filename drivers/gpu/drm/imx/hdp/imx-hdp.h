@@ -225,7 +225,7 @@ struct imx_hdp {
 	struct imx_cec_dev cec;
 };
 
-u32 imx_hdp_audio(AUDIO_TYPE type, u32 sample_rate, u32 channels, u32 width);
+void imx_hdp_register_audio_driver(struct device *dev);
 void imx_arc_power_up(state_struct *state);
 void imx_arc_calibrate(state_struct *state);
 void imx_arc_config(state_struct *state);
