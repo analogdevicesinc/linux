@@ -137,6 +137,16 @@
 		gpio = <&gpio2 14 GPIO_ACTIVE_LOW>;
 	};
 
+	reg_pcie: regulator-pcie {
+		compatible = "regulator-fixed";
+		regulator-name = "MPCIE_3V3";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		gpio = <&extended_io 6 GPIO_ACTIVE_HIGH>;
+		regulator-always-on;
+		enable-active-high;
+	};
+
 	panel {
 		compatible = "innolux,at043tn24";
 		pinctrl-0 = <&pinctrl_backlight>;
@@ -447,7 +457,9 @@
 };
 
 &pcie {
+	pinctrl-names = "default";
 	reset-gpio = <&extended_io 1 GPIO_ACTIVE_LOW>;
+	disable-gpio = <&extended_io 0 GPIO_ACTIVE_LOW>;
 	status = "okay";
 };
 
