@@ -356,6 +356,19 @@ static void dcss_plane_adjust(struct drm_rect *dis_rect,
 	*src = new_src;
 }
 
+static bool dcss_plane_format_has_alpha_channel(u32 pix_format)
+{
+	return pix_format == DRM_FORMAT_ARGB8888 ||
+	       pix_format == DRM_FORMAT_ABGR8888 ||
+	       pix_format == DRM_FORMAT_RGBA8888 ||
+	       pix_format == DRM_FORMAT_BGRA8888 ||
+	       pix_format == DRM_FORMAT_BGRA8888 ||
+	       pix_format == DRM_FORMAT_ARGB2101010 ||
+	       pix_format == DRM_FORMAT_ABGR2101010 ||
+	       pix_format == DRM_FORMAT_RGBA1010102 ||
+	       pix_format == DRM_FORMAT_BGRA1010102;
+}
+
 static void dcss_plane_atomic_update(struct drm_plane *plane,
 				     struct drm_plane_state *old_state)
 {
@@ -369,6 +382,7 @@ static void dcss_plane_atomic_update(struct drm_plane *plane,
 	struct drm_rect disp, crtc, src, old_src;
 	u32 scaler_w, scaler_h;
 	struct dcss_hdr10_pipe_cfg ipipe_cfg, opipe_cfg;
+	bool enable = true;
 
 	if (!state->fb)
 		return;
@@ -482,9 +496,22 @@ static void dcss_plane_atomic_update(struct drm_plane *plane,
 		WARN_ON(1);
 		break;
 	}
-	dcss_dpr_enable(dcss_plane->dcss, dcss_plane->ch_num, true);
-	dcss_scaler_enable(dcss_plane->dcss, dcss_plane->ch_num, true);
-	dcss_dtg_ch_enable(dcss_plane->dcss, dcss_plane->ch_num, true);
+
+	if (!dcss_plane->ch_num &&
+	    ((dcss_plane->alpha_val == 0 &&
+	    !dcss_plane_format_has_alpha_channel(pixel_format)) ||
+	    (dcss_plane->alpha_val == 0 && dcss_plane->use_global_val &&
+	     dcss_plane_format_has_alpha_channel(pixel_format))))
+		enable = false;
+
+	dcss_dpr_enable(dcss_plane->dcss, dcss_plane->ch_num, enable);
+	dcss_scaler_enable(dcss_plane->dcss, dcss_plane->ch_num, enable);
+
+	if (!enable)
+		dcss_dtg_plane_pos_set(dcss_plane->dcss, dcss_plane->ch_num,
+				       0, 0, 0, 0);
+
+	dcss_dtg_ch_enable(dcss_plane->dcss, dcss_plane->ch_num, enable);
 }
 
 static void dcss_plane_atomic_disable(struct drm_plane *plane,

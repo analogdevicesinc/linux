@@ -418,9 +418,9 @@ void dcss_dpr_enable(struct dcss_soc *dcss, int ch_num, bool en)
 {
 	struct dcss_dpr_priv *dpr = dcss->dpr_priv;
 	struct dcss_dpr_ch *ch = &dpr->ch[ch_num];
+	u32 sys_ctrl;
 
-	ch->sys_ctrl &= ~(REPEAT_EN | RUN_EN);
-	ch->sys_ctrl |= (en ? REPEAT_EN | RUN_EN : 0);
+	sys_ctrl = (en ? REPEAT_EN | RUN_EN : 0);
 
 	if (en) {
 		dcss_dpr_write(dpr, ch_num, ch->mode_ctrl, DCSS_DPR_MODE_CTRL0);
@@ -430,7 +430,11 @@ void dcss_dpr_enable(struct dcss_soc *dcss, int ch_num, bool en)
 			       DCSS_DPR_RTRAM_CTRL0);
 	}
 
-	dcss_dpr_write(dpr, ch_num, ch->sys_ctrl, DCSS_DPR_SYSTEM_CTRL0);
+	if (ch->sys_ctrl != sys_ctrl)
+		dcss_dpr_write(dpr, ch_num, sys_ctrl,
+			       DCSS_DPR_SYSTEM_CTRL0);
+
+	ch->sys_ctrl = sys_ctrl;
 }
 EXPORT_SYMBOL(dcss_dpr_enable);
 

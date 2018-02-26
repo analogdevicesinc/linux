@@ -303,17 +303,19 @@ void dcss_dtrc_addr_set(struct dcss_soc *dcss, int ch_num, u32 p1_ba, u32 p2_ba,
 	dcss_dtrc_write(dtrc, ch_num, p1_ba, DTRC_F1_OFS + DCSS_DTRC_DYDSADDR);
 	dcss_dtrc_write(dtrc, ch_num, p2_ba, DTRC_F1_OFS + DCSS_DTRC_DCDSADDR);
 
-	ch->y_dec_ofs = dec_table_ofs & 0xFFFFFFFF;
-	ch->uv_dec_ofs = dec_table_ofs >> 32;
+	if (ch->format_modifier == DRM_FORMAT_MOD_VSI_G2_TILED_COMPRESSED) {
+		ch->y_dec_ofs = dec_table_ofs & 0xFFFFFFFF;
+		ch->uv_dec_ofs = dec_table_ofs >> 32;
 
-	dcss_dtrc_write(dtrc, ch_num,
-		p1_ba + ch->y_dec_ofs, DCSS_DTRC_DYTSADDR);
-	dcss_dtrc_write(dtrc, ch_num,
-		p1_ba + ch->uv_dec_ofs, DCSS_DTRC_DCTSADDR);
-	dcss_dtrc_write(dtrc, ch_num,
-		p1_ba + ch->y_dec_ofs, DTRC_F1_OFS + DCSS_DTRC_DYTSADDR);
-	dcss_dtrc_write(dtrc, ch_num,
-		p1_ba + ch->uv_dec_ofs, DTRC_F1_OFS + DCSS_DTRC_DCTSADDR);
+		dcss_dtrc_write(dtrc, ch_num, p1_ba + ch->y_dec_ofs,
+				DCSS_DTRC_DYTSADDR);
+		dcss_dtrc_write(dtrc, ch_num, p1_ba + ch->uv_dec_ofs,
+				DCSS_DTRC_DCTSADDR);
+		dcss_dtrc_write(dtrc, ch_num, p1_ba + ch->y_dec_ofs,
+				DTRC_F1_OFS + DCSS_DTRC_DYTSADDR);
+		dcss_dtrc_write(dtrc, ch_num, p1_ba + ch->uv_dec_ofs,
+				DTRC_F1_OFS + DCSS_DTRC_DCTSADDR);
+	}
 
 	dtrc->ch[ch_num].bypass = false;
 }
@@ -481,9 +483,9 @@ void dcss_dtrc_enable(struct dcss_soc *dcss, int ch_num, bool enable)
 		fdctl |= COMPRESSION_DIS;
 
 	dcss_dtrc_write(dtrc, ch_num, fdctl,
-			(curr_frame ^ 1) * DTRC_F1_OFS + DCSS_DTRC_DCTL);
-	dcss_dtrc_write(dtrc, ch_num, fdctl | (enable ? CONFIG_READY : 0),
 			curr_frame * DTRC_F1_OFS + DCSS_DTRC_DCTL);
+	dcss_dtrc_write(dtrc, ch_num, fdctl | (enable ? CONFIG_READY : 0),
+			(curr_frame ^ 1) * DTRC_F1_OFS + DCSS_DTRC_DCTL);
 
 	ch->curr_frame = curr_frame;
 	ch->dctl = fdctl;

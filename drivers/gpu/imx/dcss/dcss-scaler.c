@@ -105,6 +105,9 @@ struct dcss_scaler_ch {
 	u32 ctx_id;
 
 	u32 sdata_ctrl;
+	u32 scaler_ctrl;
+
+	u32 pix_format;
 };
 
 struct dcss_scaler_priv {
@@ -212,17 +215,21 @@ void dcss_scaler_enable(struct dcss_soc *dcss, int ch_num, bool en)
 			dcss_rdsrc_enable(dcss, false);
 
 			scaler->ch_using_wrscl = -1;
+			scaler_ctrl = 0;
 		}
 	} else {
-		scaler_ctrl = SCALER_EN | REPEAT_EN;
+		scaler_ctrl = en ? SCALER_EN | REPEAT_EN : 0;
 	}
 
 	if (en)
 		dcss_scaler_write(dcss->scaler_priv, ch_num, ch->sdata_ctrl,
 				  DCSS_SCALER_SDATA_CTRL);
 
-	dcss_scaler_write(dcss->scaler_priv, ch_num, en ? scaler_ctrl : 0,
-			  DCSS_SCALER_CTRL);
+	if (ch->scaler_ctrl != scaler_ctrl)
+		dcss_scaler_write(dcss->scaler_priv, ch_num, scaler_ctrl,
+				  DCSS_SCALER_CTRL);
+
+	ch->scaler_ctrl = scaler_ctrl;
 }
 EXPORT_SYMBOL(dcss_scaler_enable);
 
@@ -587,6 +594,7 @@ void dcss_scaler_setup(struct dcss_soc *dcss, int ch_num, u32 pix_format,
 		       int src_xres, int src_yres, int dst_xres, int dst_yres,
 		       u32 vrefresh_hz)
 {
+	struct dcss_scaler_ch *ch = &dcss->scaler_priv->ch[ch_num];
 	enum dcss_color_space dcss_cs;
 	int planes;
 	const struct drm_format_info *format;
@@ -614,7 +622,8 @@ void dcss_scaler_setup(struct dcss_soc *dcss, int ch_num, u32 pix_format,
 			src_format = BUF_FMT_YUV422;
 		}
 
-		dcss_scaler_yuv_coef_set(dcss, ch_num);
+		if (pix_format != ch->pix_format)
+			dcss_scaler_yuv_coef_set(dcss, ch_num);
 
 		if (pix_format == DRM_FORMAT_P010)
 			pixel_depth = 30;
@@ -625,7 +634,8 @@ void dcss_scaler_setup(struct dcss_soc *dcss, int ch_num, u32 pix_format,
 		format = drm_format_info(pix_format);
 		pixel_depth = format->depth;
 
-		dcss_scaler_rgb_coef_set(dcss, ch_num);
+		if (pix_format != ch->pix_format)
+			dcss_scaler_rgb_coef_set(dcss, ch_num);
 	}
 
 	dcss_scaler_rtr_8lines_enable(dcss, ch_num, rtr_8line_en);
@@ -640,5 +650,7 @@ void dcss_scaler_setup(struct dcss_soc *dcss, int ch_num, u32 pix_format,
 
 	dcss_scaler_setup_path(dcss, ch_num, pix_format, dst_xres,
 			       dst_yres, vrefresh_hz, wrscl_needed);
+
+	ch->pix_format = pix_format;
 }
 EXPORT_SYMBOL(dcss_scaler_setup);

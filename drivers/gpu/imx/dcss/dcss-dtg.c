@@ -255,7 +255,9 @@ void dcss_dtg_sync_set(struct dcss_soc *dcss, struct videomode *vm)
 	 * time to load the DB context. This happens with LCD panels which have
 	 * small vfront_porch, vback_porch and/or vsync_len.
 	 */
-	dcss_dtg_write(dtg, dis_ulc_y < 50 ? 50 : dis_ulc_y, DCSS_DTG_TC_CTXLD);
+	dcss_dtg_write(dtg, ((0 << TC_CTXLD_SB_Y_POS) & TC_CTXLD_SB_Y_MASK) |
+			(dis_ulc_y < 50 ? 50 : dis_ulc_y),
+			DCSS_DTG_TC_CTXLD);
 }
 EXPORT_SYMBOL(dcss_dtg_sync_set);
 
@@ -403,11 +405,15 @@ void dcss_dtg_ch_enable(struct dcss_soc *dcss, int ch_num, bool en)
 {
 	struct dcss_dtg_priv *dtg = dcss->dtg_priv;
 	u32 ch_en_map[] = {CH1_EN, CH2_EN, CH3_EN};
+	u32 control_status;
 
-	dtg->control_status &= ~ch_en_map[ch_num];
-	dtg->control_status |= en ? ch_en_map[ch_num] : 0;
+	control_status = dtg->control_status & ~ch_en_map[ch_num];
+	control_status |= en ? ch_en_map[ch_num] : 0;
 
-	dcss_dtg_write(dtg, dtg->control_status, DCSS_DTG_TC_CONTROL_STATUS);
+	if (dtg->control_status != control_status)
+		dcss_dtg_write(dtg, control_status, DCSS_DTG_TC_CONTROL_STATUS);
+
+	dtg->control_status = control_status;
 }
 EXPORT_SYMBOL(dcss_dtg_ch_enable);
 
