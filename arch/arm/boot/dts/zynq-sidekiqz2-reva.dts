@@ -85,4 +85,6 @@
 &adc0_ad9364 {
 	adi,gpo-manual-mode-enable;
 	adi,gpo-manual-mode-enable-mask = <0x4>;
+
+	reset-gpio = <&tca6408_u21 1 GPIO_OPEN_DRAIN>;
 };
