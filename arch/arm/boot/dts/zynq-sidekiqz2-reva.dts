@@ -79,6 +79,12 @@
 		 *                                  HI_Z input to isolate i2c
 		 *                                  from host SMBus
 		 */
+		en_ext_i2c_3v3_n {
+			gpio-hog;
+			gpios = <0 0>;
+			input;
+			line-name = "en_ext_i2c_3v3_n";
+		};
 	};
 };
 
