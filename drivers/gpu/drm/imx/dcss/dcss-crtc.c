@@ -170,6 +170,7 @@ void dcss_crtc_setup_opipe(struct drm_crtc *crtc, struct drm_connector *conn,
 {
 	struct dcss_crtc *dcss_crtc = container_of(crtc, struct dcss_crtc,
 						   base);
+	struct drm_display_info *di = &conn->display_info;
 	int vic;
 
 	if ((colorimetry & HDMI_EXTENDED_COLORIMETRY_BT2020) ||
@@ -197,8 +198,9 @@ void dcss_crtc_setup_opipe(struct drm_crtc *crtc, struct drm_connector *conn,
 	vic = drm_match_cea_mode(&crtc->state->adjusted_mode);
 
 	/* FIXME: we should get the connector colorspace some other way */
-	if (vic == 97 && conn->state->hdr_source_metadata_blob_ptr &&
-	    conn->state->hdr_source_metadata_blob_ptr->length)
+	if (vic == 97 &&
+	    (di->color_formats & DRM_COLOR_FORMAT_YCRCB420) &&
+	    (di->bpc >= 10))
 		dcss_crtc->opipe_pix_format = DRM_FORMAT_P010;
 	else
 		dcss_crtc->opipe_pix_format = DRM_FORMAT_ARGB8888;
