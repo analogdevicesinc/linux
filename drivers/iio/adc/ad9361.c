@@ -857,9 +857,9 @@ u32 ad9361_validate_rf_bw(struct ad9361_rf_phy *phy, u32 bw)
 {
 	switch(spi_get_device_id(phy->spi)->driver_data) {
 	case ID_AD9363A:
-		return clamp_t(u32, bw, 0, 20000000UL);
+		return clamp_t(u32, bw, 200000UL, 20000000UL);
 	default:
-		return clamp_t(u32, bw, 0, 56000000UL);
+		return clamp_t(u32, bw, 200000UL, 56000000UL);
 	}
 }
 
