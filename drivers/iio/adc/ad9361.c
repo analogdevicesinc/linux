@@ -3037,10 +3037,13 @@ static int ad9361_rf_port_setup(struct ad9361_rf_phy *phy, bool is_out,
 		return -EINVAL;
 
 	if (!is_out) {
+		phy->pdata->rf_rx_input_sel = rx_inputs;
 		if (rx_inputs > 8)
 			return ad9361_txmon_control(phy, rx_inputs & (TX_1 | TX_2));
 		else
 			ad9361_txmon_control(phy, 0);
+	} else {
+		phy->pdata->rf_tx_output_sel = txb;
 	}
 
 	if (rx_inputs < 3)
@@ -7325,12 +7328,10 @@ static int ad9361_set_rf_port(struct iio_dev *indio_dev,
 		if (phy->pdata->rf_tx_output_sel_lock &&
 			mode != phy->pdata->rf_tx_output_sel)
 			return -EINVAL;
-		phy->pdata->rf_tx_output_sel = mode;
 	} else {
 		if (phy->pdata->rf_rx_input_sel_lock &&
 			mode != phy->pdata->rf_rx_input_sel)
 			return -EINVAL;
-		phy->pdata->rf_rx_input_sel = mode;
 	}
 
 	return ad9361_rf_port_setup(phy, chan->output,
