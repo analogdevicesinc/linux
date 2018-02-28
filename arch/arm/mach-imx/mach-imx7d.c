@@ -16,6 +16,7 @@
 #include <asm/mach/map.h>
 
 #include "common.h"
+#include "cpuidle.h"
 
 static int ar8031_phy_fixup(struct phy_device *dev)
 {
@@ -105,6 +106,11 @@ static void __init imx7d_init_irq(void)
 	irqchip_init();
 }
 
+static void __init imx7d_init_late(void)
+{
+	imx7d_cpuidle_init();
+}
+
 static void __init imx7d_map_io(void)
 {
 	debug_ll_io_init();
@@ -123,5 +129,6 @@ DT_MACHINE_START(IMX7D, "Freescale i.MX7 Dual (Device Tree)")
 	.smp            = smp_ops(imx_smp_ops),
 	.init_irq	= imx7d_init_irq,
 	.init_machine	= imx7d_init_machine,
+	.init_late	= imx7d_init_late,
 	.dt_compat	= imx7d_dt_compat,
 MACHINE_END
