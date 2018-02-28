@@ -53,8 +53,8 @@ static const struct imx_ak5558_fs_mul fs_mul[] = {
 	{ .min = 48000,  .max = 48000,  .mul = 512  },
 	{ .min = 96000,  .max = 96000,  .mul = 256  },
 	{ .min = 192000, .max = 192000, .mul = 128  },
-	{ .min = 384000, .max = 384000, .mul = 64  },
-	{ .min = 768000, .max = 768000, .mul = 32   },
+	{ .min = 384000, .max = 384000, .mul = 2 * 64 },
+	{ .min = 768000, .max = 768000, .mul = 2 * 32 },
 };
 
 static struct snd_soc_dapm_widget imx_ak5558_dapm_widgets[] = {
