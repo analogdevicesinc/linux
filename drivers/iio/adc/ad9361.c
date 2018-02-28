@@ -2191,6 +2191,8 @@ static int ad9361_rx_tia_calib(struct ad9361_rf_phy *phy, unsigned long bb_bw_Hz
 	unsigned long Cbbf, R2346;
 	u64 CTIA_fF;
 
+	/* Following registers are set implicitly by the RX BB analog filter calibration */
+
 	u8 reg1EB = ad9361_spi_read(phy->spi, REG_RX_BBF_C3_MSB);
 	u8 reg1EC = ad9361_spi_read(phy->spi, REG_RX_BBF_C3_LSB);
 	u8 reg1E6 = ad9361_spi_read(phy->spi, REG_RX_BBF_R2346);
