@@ -6262,14 +6262,15 @@ static int ad9361_rx_rfpll_rate_change(struct notifier_block *nb,
 	struct clk_notifier_data *cnd = data;
 	struct ad9361_rf_phy *phy =
 		container_of(nb, struct ad9361_rf_phy, clk_nb_rx);
+	u64 new_rate;
 
 
 	if (flags == POST_RATE_CHANGE) {
+		new_rate = ad9361_from_clk(cnd->new_rate);
 		dev_dbg(&phy->spi->dev, "%s: rate %llu Hz", __func__,
-			ad9361_from_clk(cnd->new_rate));
+			new_rate);
 		if (cnd->new_rate)
-			ad9361_load_gt(phy, ad9361_from_clk(cnd->new_rate),
-				       GT_RX1 + GT_RX2);
+			ad9361_load_gt(phy, new_rate, GT_RX1 + GT_RX2);
 	}
 
 	return NOTIFY_OK;
@@ -6281,21 +6282,23 @@ static int ad9361_tx_rfpll_rate_change(struct notifier_block *nb,
 	struct clk_notifier_data *cnd = data;
 	struct ad9361_rf_phy *phy =
 		container_of(nb, struct ad9361_rf_phy, clk_nb_tx);
+	u64 new_rate;
 
 	if (flags == POST_RATE_CHANGE) {
+		new_rate = ad9361_from_clk(cnd->new_rate);
 		dev_dbg(&phy->spi->dev, "%s: rate %llu Hz", __func__,
-			ad9361_from_clk(cnd->new_rate));
+			new_rate);
 		/* For RX LO we typically have the tracking option enabled
 		* so for now do nothing here.
 		*/
 		if (phy->auto_cal_en)
-			if (abs(phy->last_tx_quad_cal_freq - ad9361_from_clk(cnd->new_rate)) >
+			if (abs(phy->last_tx_quad_cal_freq - new_rate) >
 				phy->cal_threshold_freq) {
 
 				set_bit(0, &phy->flags);
 				reinit_completion(&phy->complete);
 				schedule_work(&phy->work);
-				phy->last_tx_quad_cal_freq = ad9361_from_clk(cnd->new_rate);
+				phy->last_tx_quad_cal_freq = new_rate;
 			}
 	}
 
