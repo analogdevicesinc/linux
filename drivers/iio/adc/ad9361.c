@@ -2049,6 +2049,8 @@ static int ad9361_rx_adc_setup(struct ad9361_rf_phy *phy, unsigned long bbpll_fr
 	u32 i;
 	int ret;
 
+	/* Following registers are set implicitly by the RX BB analog filter calibration */
+
 	u8 c3_msb = ad9361_spi_read(phy->spi, REG_RX_BBF_C3_MSB);
 	u8 c3_lsb = ad9361_spi_read(phy->spi, REG_RX_BBF_C3_LSB);
 	u8 r2346 = ad9361_spi_read(phy->spi, REG_RX_BBF_R2346);
