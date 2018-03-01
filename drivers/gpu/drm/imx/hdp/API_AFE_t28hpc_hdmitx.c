@@ -46,6 +46,7 @@
 
 #include <drm/drmP.h>
 #include "API_AFE_t28hpc_hdmitx.h"
+#include "imx-hdp.h"
 
 static char inside(u32 value, u32 left_sharp_corner,
 		  u32 right_sharp_corner)
@@ -55,27 +56,6 @@ static char inside(u32 value, u32 left_sharp_corner,
 	if (value > right_sharp_corner)
 		return false;
 	return true;
-}
-
-void aux_cfg_t28hpc(state_struct *state)
-{
-	Afe_write(state, 0x5025, 0x0001);
-
-	Afe_write(state, 0x5024, 36);
-
-	Afe_write(state, 0x5021, 0x0100);
-	Afe_write(state, 0x5021, 0x0300);
-	Afe_write(state, 0x5026, 0x0000);
-	Afe_write(state, 0x5020, 0x2008);
-	Afe_write(state, 0x5020, 0x2018);
-	Afe_write(state, 0x5020, 0xA018);
-	Afe_write(state, 0x5021, 0x030C);
-	Afe_write(state, 0x5029, 0x0000);
-	Afe_write(state, 0x5027, 0x4001);
-	Afe_write(state, 0x5020, 0xA098);
-	Afe_write(state, 0x5020, 0xA198);
-	Afe_write(state, 0x5021, 0x030D);
-	Afe_write(state, 0x5021, 0x030F);
 }
 
 int phy_cfg_t28hpc(state_struct *state, int num_lanes, VIC_MODES vicMode, int bpp,
@@ -1820,10 +1800,11 @@ int phy_cfg_t28hpc(state_struct *state, int num_lanes, VIC_MODES vicMode, int bp
 	/* register PHY_HDP_MODE_CTL */
 	Afe_write(state, 0xC008, 0x0004);
 
-	aux_cfg_t28hpc(state);
 	return character_freq_khz;
 
 }
+
+#define __ARC_CONFIG__
 
 int hdmi_tx_t28hpc_power_config_seq(state_struct *state, int num_lanes)
 {
@@ -1841,9 +1822,9 @@ int hdmi_tx_t28hpc_power_config_seq(state_struct *state, int num_lanes)
 		;
 
 #ifdef __ARC_CONFIG__
-	arc_power_up(state);
-	arc_calibrate(state);
-	arc_config(state);
+	imx_arc_power_up(state);
+	imx_arc_calibrate(state);
+	imx_arc_config(state);
 #endif
 
 	/* PHY_DP_MODE_CTL */

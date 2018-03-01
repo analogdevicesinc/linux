@@ -48,6 +48,7 @@
 #include <linux/io.h>
 #include "API_AFE_ss28fdsoi_kiran_hdmitx.h"
 #include "ss28fdsoi_hdmitx_table.h"
+#include "imx-hdp.h"
 
 static int inside(u32 value, u32 left_sharp_corner, u32 right_sharp_corner)
 {
@@ -578,6 +579,8 @@ int phy_cfg_hdp_ss28fdsoi(state_struct *state, int num_lanes,
 
 }
 
+#define __ARC_CONFIG__
+
 int hdmi_tx_kiran_power_configuration_seq(state_struct *state, int num_lanes)
 {
 	/* Configure the power state. */
@@ -586,9 +589,9 @@ int hdmi_tx_kiran_power_configuration_seq(state_struct *state, int num_lanes)
 	while (!(Afe_read(state, 0xC008) & (1 << 6))) ;
 
 #ifdef __ARC_CONFIG__
-	arc_power_up(state);
-	arc_calibrate(state);
-	arc_config(state);
+	imx_arc_power_up(state);
+	imx_arc_calibrate(state);
+	imx_arc_config(state);
 #endif
 
 	/* PHY_DP_MODE_CTL */
