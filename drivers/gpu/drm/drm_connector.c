@@ -234,6 +234,10 @@ int drm_connector_init(struct drm_device *dev,
 				   config->link_status_property,
 				   0);
 
+	drm_object_attach_property(&connector->base,
+				   config->non_desktop_property,
+				   0);
+
 	if (drm_core_check_feature(dev, DRIVER_ATOMIC)) {
 		drm_object_attach_property(&connector->base, config->prop_crtc_id, 0);
 	}
@@ -796,6 +800,11 @@ int drm_connector_create_standard_properties(struct drm_device *dev)
 		return -ENOMEM;
 	dev->mode_config.hdr_source_metadata_property = prop;
 
+	prop = drm_property_create_bool(dev, DRM_MODE_PROP_IMMUTABLE, "non-desktop");
+	if (!prop)
+		return -ENOMEM;
+	dev->mode_config.non_desktop_property = prop;
+
 	return 0;
 }
 
@@ -1178,6 +1187,10 @@ int drm_mode_connector_update_edid_property(struct drm_connector *connector,
 
 	if (edid)
 		size = EDID_LENGTH * (1 + edid->extensions);
+
+	drm_object_property_set_value(&connector->base,
+				      dev->mode_config.non_desktop_property,
+			              connector->display_info.non_desktop);
 
 	ret = drm_property_replace_global_blob(dev,
 					       &connector->edid_blob_ptr,

@@ -735,6 +735,14 @@ struct drm_mode_config {
 	 * the position of the output on the host's screen.
 	 */
 	struct drm_property *suggested_x_property;
+
+	/**
+	 * @non_desktop_property: Optional connector property with a hint
+	 * that device isn't a standard display, and the console/desktop
+	 * should not be displayed on it.
+	 */
+	struct drm_property *non_desktop_property;
+
 	/**
 	 * @suggested_y_property: Optional connector property with a hint for
 	 * the position of the output on the host's screen.
