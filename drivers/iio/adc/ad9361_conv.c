@@ -95,8 +95,7 @@ ssize_t ad9361_dig_interface_timing_analysis(struct ad9361_rf_phy *phy,
 	/* Mute TX, we don't want to transmit the PRBS */
 	ad9361_tx_mute(phy, 1);
 
-	if (!phy->pdata->fdd)
-		ad9361_set_ensm_mode(phy, true, false);
+	ad9361_ensm_mode_disable_pinctrl(phy);
 
 	ad9361_bist_loopback(phy, 0);
 	ad9361_bist_prbs(phy, BIST_INJ_RX);
@@ -113,8 +112,7 @@ ssize_t ad9361_dig_interface_timing_analysis(struct ad9361_rf_phy *phy,
 	ad9361_bist_loopback(phy, loopback);
 	ad9361_write_bist_reg(phy, bist);
 
-	if (!phy->pdata->fdd)
-		ad9361_set_ensm_mode(phy, phy->pdata->fdd, phy->pdata->ensm_pin_ctrl);
+	ad9361_ensm_mode_restore_pinctrl(phy);
 	ad9361_ensm_restore_state(phy, ensm_state);
 
 	ad9361_tx_mute(phy, 0);
@@ -632,8 +630,7 @@ int ad9361_dig_tune(struct ad9361_rf_phy *phy, unsigned long max_freq,
 		/* Mute TX, we don't want to transmit the PRBS */
 		ad9361_tx_mute(phy, 1);
 
-		if (!phy->pdata->fdd)
-			ad9361_set_ensm_mode(phy, true, false);
+		ad9361_ensm_mode_disable_pinctrl(phy);
 
 		if (flags & DO_IDELAY)
 			ad9361_midscale_iodelay(phy, false);
@@ -667,8 +664,7 @@ int ad9361_dig_tune(struct ad9361_rf_phy *phy, unsigned long max_freq,
 			ad9361_spi_read(phy->spi, REG_TX_CLOCK_DATA_DELAY);
 	}
 
-	if (!phy->pdata->fdd)
-		ad9361_set_ensm_mode(phy, phy->pdata->fdd, phy->pdata->ensm_pin_ctrl);
+	ad9361_ensm_mode_restore_pinctrl(phy);
 	ad9361_ensm_restore_state(phy, ensm_state);
 
 	axiadc_write(st, ADI_REG_RSTN, ADI_MMCM_RSTN);
