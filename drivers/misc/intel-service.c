@@ -194,6 +194,9 @@ struct intel_svc_chan *request_svc_channel_byname(
 	int i;
 
 	chan = ERR_PTR(-EPROBE_DEFER);
+	if (list_empty(&svc_ctrl))
+		return ERR_PTR(-ENODEV);
+
 	controller = list_first_entry(&svc_ctrl,
 				      struct intel_svc_controller, node);
 	for (i = 0; i < SVC_NUM_CHANNEL; i++) {
