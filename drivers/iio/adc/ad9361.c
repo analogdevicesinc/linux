@@ -3937,7 +3937,7 @@ static int ad9361_validate_trx_clock_chain(struct ad9361_rf_phy *phy,
 	return -EINVAL;
 }
 
-int ad9361_set_trx_clock_chain(struct ad9361_rf_phy *phy,
+static int ad9361_set_trx_clock_chain(struct ad9361_rf_phy *phy,
 				      unsigned long *rx_path_clks,
 				      unsigned long *tx_path_clks)
 {
@@ -4015,7 +4015,14 @@ int ad9361_set_trx_clock_chain(struct ad9361_rf_phy *phy,
 
 	return ad9361_bb_clk_change_handler(phy);
 }
-EXPORT_SYMBOL(ad9361_set_trx_clock_chain);
+
+int ad9361_set_trx_clock_chain_default(struct ad9361_rf_phy *phy)
+{
+	return ad9361_set_trx_clock_chain(phy,
+					  phy->pdata->rx_path_clks,
+					  phy->pdata->tx_path_clks);
+}
+EXPORT_SYMBOL(ad9361_set_trx_clock_chain_default);
 
 static int ad9361_get_trx_clock_chain(struct ad9361_rf_phy *phy, unsigned long *rx_path_clks,
 				      unsigned long *tx_path_clks)
@@ -4756,8 +4763,7 @@ static int ad9361_setup(struct ad9361_rf_phy *phy)
 	ad9361_spi_write(spi, REG_FRACT_BB_FREQ_WORD_2, 0x12);
 	ad9361_spi_write(spi, REG_FRACT_BB_FREQ_WORD_3, 0x34);
 
-	ret = ad9361_set_trx_clock_chain(phy, pd->rx_path_clks,
-				   pd->tx_path_clks);
+	ret = ad9361_set_trx_clock_chain_default(phy);
 	if (ret < 0)
 		return ret;
 

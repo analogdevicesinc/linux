@@ -730,9 +730,7 @@ static int ad9361_post_setup(struct iio_dev *indio_dev)
 			goto error;
 	}
 
-	ret = ad9361_set_trx_clock_chain(phy,
-					 phy->pdata->rx_path_clks,
-					 phy->pdata->tx_path_clks);
+	ret = ad9361_set_trx_clock_chain_default(phy);
 
 	ad9361_ensm_force_state(phy, ENSM_STATE_ALERT);
 	ad9361_ensm_restore_prev_state(phy);
