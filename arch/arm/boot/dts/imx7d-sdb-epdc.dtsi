@@ -11,7 +11,7 @@
 };
 
 &fec1 {
-	status = "disabled";
+	status = "okay";
 };
 
 &fec2 {
