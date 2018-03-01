@@ -4152,7 +4152,7 @@ int ad9361_set_trx_clock_chain_freq(struct ad9361_rf_phy *phy,
 }
 EXPORT_SYMBOL(ad9361_set_trx_clock_chain_freq);
 
-int ad9361_set_ensm_mode(struct ad9361_rf_phy *phy, bool fdd, bool pinctrl)
+static int ad9361_set_ensm_mode(struct ad9361_rf_phy *phy, bool fdd, bool pinctrl)
 {
 	struct ad9361_phy_platform_data *pd = phy->pdata;
 	int ret;
@@ -4175,7 +4175,24 @@ int ad9361_set_ensm_mode(struct ad9361_rf_phy *phy, bool fdd, bool pinctrl)
 
 	return ret;
 }
-EXPORT_SYMBOL(ad9361_set_ensm_mode);
+
+int ad9361_ensm_mode_disable_pinctrl(struct ad9361_rf_phy *phy)
+{
+	if (!phy->pdata->fdd)
+		return ad9361_set_ensm_mode(phy, true, false);
+	return 0;
+}
+EXPORT_SYMBOL(ad9361_ensm_mode_disable_pinctrl);
+
+int ad9361_ensm_mode_restore_pinctrl(struct ad9361_rf_phy *phy)
+{
+	if (!phy->pdata->fdd)
+		return ad9361_set_ensm_mode(phy,
+					    phy->pdata->fdd,
+					    phy->pdata->ensm_pin_ctrl);
+	return 0;
+}
+EXPORT_SYMBOL(ad9361_ensm_mode_restore_pinctrl);
 
 /* Fast Lock */
 
