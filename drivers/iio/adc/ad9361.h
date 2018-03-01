@@ -3403,9 +3403,7 @@ void ad9361_ensm_restore_state(struct ad9361_rf_phy *phy, u8 ensm_state);
 void ad9361_ensm_restore_prev_state(struct ad9361_rf_phy *phy);
 int ad9361_set_trx_clock_chain_freq(struct ad9361_rf_phy *phy,
 					  unsigned long freq);
-int ad9361_set_trx_clock_chain(struct ad9361_rf_phy *phy,
-				      unsigned long *rx_path_clks,
-				      unsigned long *tx_path_clks);
+int ad9361_set_trx_clock_chain_default(struct ad9361_rf_phy *phy);
 int ad9361_dig_tune(struct ad9361_rf_phy *phy, unsigned long max_freq,
 			   enum dig_tune_flags flags);
 int ad9361_tx_mute(struct ad9361_rf_phy *phy, u32 state);
