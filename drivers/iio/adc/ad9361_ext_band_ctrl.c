@@ -42,6 +42,12 @@
  */
 static char of_gpio_prop_names[MAX_CTRL_GPIOS][sizeof("adi,band-ctl-XXX")];
 
+enum CTL_HOOKS {
+	CTL_INIT,
+	CTL_UNINIT,
+	__MAX_CTL_HOOKS,
+};
+
 struct ad9361_ctrl_objs {
 	struct gpio_desc *gpios[MAX_CTRL_GPIOS];
 	int ngpios;
@@ -61,6 +67,7 @@ struct ad9361_band_setting {
 };
 
 struct ad9361_ext_band_ctl {
+	struct ad9361_band_setting	*hooks[__MAX_CTL_HOOKS];
 	struct ad9361_band_setting	*tx_setting;
 	struct ad9361_band_setting	*rx_setting;
 	struct list_head		rx_settings;	/* RX Band settings */
@@ -257,6 +264,34 @@ static int ad9361_populate_settings(struct device *dev,
 	return cnt;
 }
 
+static int ad9361_populate_hooks(struct device *dev,
+				 struct ad9361_ext_band_ctl *ctl)
+{
+	static const char *map[__MAX_CTL_HOOKS] = {
+		[CTL_INIT]	= "adi_ext_band_ctl_init",
+		[CTL_UNINIT]	= "adi_ext_band_ctl_uninit",
+	};
+	struct device_node *np = dev->of_node;
+	struct device_node *child;
+	int i, ret;
+
+	for (i = 0; i < __MAX_CTL_HOOKS; i++) {
+		child = of_get_child_by_name(np, map[i]);
+		if (!child)
+			continue;
+
+		ctl->hooks[i] = devm_kzalloc(dev, sizeof(*ctl->hooks[i]),
+					     GFP_KERNEL);
+		if (!ctl->hooks[i])
+			return -ENOMEM;
+
+		ret = ad9361_parse_setting(dev, child, ctl, ctl->hooks[i]);
+		if (ret < 0)
+			return ret;
+	}
+	return 0;
+}
+
 static void ad9361_init_of_gpio_names(void)
 {
 	int i;
@@ -290,6 +325,20 @@ int ad9361_register_ext_band_control(struct ad9361_rf_phy *phy)
 		return ret;
 	}
 
+	ret = ad9361_populate_hooks(dev, ctl);
+	if (ret < 0)
+		return ret;
+
+	if (ctl->hooks[CTL_INIT]) {
+		ret = ad9361_apply_settings(phy, ctl->hooks[CTL_INIT], NULL);
+		if (ret == 0) {
+			ctl->rx_setting = ctl->hooks[CTL_INIT];
+			ctl->tx_setting = ctl->hooks[CTL_INIT];
+		}
+	}
+	if (ret < 0)
+		return ret;
+
 	ret = ad9361_populate_settings(dev, ctl, "adi_rx_band_setting_",
 				       &ctl->rx_settings);
 	if (ret < 0)
@@ -307,7 +356,12 @@ int ad9361_register_ext_band_control(struct ad9361_rf_phy *phy)
 
 void ad9361_unregister_ext_band_control(struct ad9361_rf_phy *phy)
 {
-	/* Nothing to do yet */
+	struct ad9361_ext_band_ctl *ctl = phy->ext_band_ctl;
+
+	if (!ctl || !ctl->hooks[CTL_UNINIT])
+		return;
+
+	ad9361_apply_settings(phy, ctl->hooks[CTL_UNINIT], NULL);
 }
 
 static struct ad9361_band_setting *ad9361_find_first_setting(
