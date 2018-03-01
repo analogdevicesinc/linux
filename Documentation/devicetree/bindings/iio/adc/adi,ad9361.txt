@@ -597,6 +597,17 @@ External Filter Banks Control via GPIO
 	`include/dt-bindings/iio/adc/adi,ad9361.h` and by defining
 	`AD9361_EXT_BAND_CTL_SHORTHANDS` before including the header.
 
+	2. Driver init/uninit
+
+	Similar to band settings, two fixed settings can be provided on driver
+	initialization (presumably boot-up), and driver uninit (presumably
+	power-down).
+
+	The following device-tree nodes can be added to the ad9361 driver
+	device-tree definition:
+	* `adi_ext_band_ctl_init`: applied when driver initializes
+	* `adi_ext_band_ctl_uninit`: applied when driver uninitializes
+
 Example:
 &spi0 {
 	status = "okay";
