@@ -468,8 +468,7 @@ static int ad9361_dig_tune_delay(struct ad9361_rf_phy *phy,
 	bool half_data_rate;
 	u8 field[2][16];
 
-	if (((phy->pdata->port_ctrl.pp_conf[2] & LVDS_MODE) ||
-	    !ad9361_uses_rx2tx2(phy)))
+	if (ad9361_uses_lvds_mode(phy) || !ad9361_uses_rx2tx2(phy))
 		half_data_rate = false;
 	else
 		half_data_rate = true;
@@ -690,12 +689,12 @@ static int ad9361_post_setup(struct iio_dev *indio_dev)
 	if (!rx2tx2) {
 		axiadc_write(st, 0x4048, tmp | BIT(5)); /* R1_MODE */
 		axiadc_write(st, 0x404c,
-			     (phy->pdata->port_ctrl.pp_conf[2] & LVDS_MODE) ? 1 : 0); /* RATE */
+			     ad9361_uses_lvds_mode(phy) ? 1 : 0); /* RATE */
 	} else {
 		tmp &= ~BIT(5);
 		axiadc_write(st, 0x4048, tmp);
 		axiadc_write(st, 0x404c,
-			     (phy->pdata->port_ctrl.pp_conf[2] & LVDS_MODE) ? 3 : 1); /* RATE */
+			     ad9361_uses_lvds_mode(phy) ? 3 : 1); /* RATE */
 	}
 
 	for (i = 0; i < num_chan; i++) {
