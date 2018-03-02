@@ -608,6 +608,54 @@ External Filter Banks Control via GPIO
 	* `adi_ext_band_ctl_init`: applied when driver initializes
 	* `adi_ext_band_ctl_uninit`: applied when driver uninitializes
 
+	3. Sequencing settings
+
+	This mechanism allows for RX/TX band settings to specify a sequence to run
+	before (and after) applying the values of that specific setting.
+
+	More nodes can be specified and called in a recursive manner. This uses the
+	device-tree's property for referencing other device-tree nodes.
+
+	Example:
+		before_disable_stuff = {
+			adi,band-gpio-settings = <_ I L H>;
+		};
+
+		after_band_setting_stuff {
+			adi,band-gpio-settings = <L L 1 1>;
+		};
+
+		disable_stuff {
+			adi,band-ctl-pre = <&before_disable_stuff 0>;
+			adi,band-gpio-settings = <1 1 1 1>;
+		};
+
+		noop {
+			adi,band-gpio-settings = <0 0 0 0>;
+		};
+
+		adi_rx_band_setting_0 {
+			adi,lo-freq-min = /bits/ 64 <50000000>;
+			adi,lo-freq-max = /bits/ 64 <435000000>;
+			adi,band-gpio-settings = <2 1 3 2>;
+			adi,band-ctl-pre = <&disable_stuff 0
+					&noop 1000>;
+			adi,band-ctl-post = <&after_band_setting_stuff 100>;
+		};
+
+	Before applying the GPIO settings in `adi_rx_band_setting_0`, first the
+	`disable_stuff` settings will be called, with delay 0, and then the `noop`
+	settings with delay of 1000 microseconds.
+
+	Similarly, this can be done to add a `adi,band-ctl-post` property that
+	would run after `adi_rx_band_setting_0` has been applied.
+
+	This can also be applied to the `adi_ext_band_ctl_init` &
+	`adi_ext_band_ctl_uninit` hooks.
+
+	The driver should pick up if there is an infinite recursion in the call
+	hierarchy, as each setting node can call other setting nodes.
+
 Example:
 &spi0 {
 	status = "okay";
