@@ -467,7 +467,7 @@ static int ad9361_dig_tune_delay(struct ad9361_rf_phy *phy,
 	u8 field[2][16];
 
 	if (((phy->pdata->port_ctrl.pp_conf[2] & LVDS_MODE) ||
-	    !phy->pdata->rx2tx2))
+	    !ad9361_uses_rx2tx2(phy)))
 		half_data_rate = false;
 	else
 		half_data_rate = true;
@@ -681,7 +681,7 @@ static int ad9361_post_setup(struct iio_dev *indio_dev)
 	struct axiadc_state *st = iio_priv(indio_dev);
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
 	struct ad9361_rf_phy *phy = conv->phy;
-	unsigned rx2tx2 = phy->pdata->rx2tx2;
+	bool rx2tx2 = ad9361_uses_rx2tx2(phy);
 	unsigned tmp, num_chan, flags;
 	int i, ret;
 
@@ -757,7 +757,7 @@ int ad9361_register_axi_converter(struct ad9361_rf_phy *phy)
 
 	conv->chip_info = &axiadc_chip_info_tbl[
 		(spi_get_device_id(spi)->driver_data == ID_AD9361_2) ?
-		ID_AD9361_2 : phy->pdata->rx2tx2 ? ID_AD9361 : ID_AD9364];
+		ID_AD9361_2 : ad9361_uses_rx2tx2(phy) ? ID_AD9361 : ID_AD9364];
 	conv->write_raw = ad9361_write_raw;
 	conv->read_raw = ad9361_read_raw;
 	conv->post_setup = ad9361_post_setup;
