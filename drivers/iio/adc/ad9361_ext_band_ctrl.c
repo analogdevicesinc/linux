@@ -17,6 +17,7 @@
 #include <linux/io.h>
 #include <linux/string.h>
 #include <linux/uaccess.h>
+#include <linux/list.h>
 
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
@@ -36,6 +37,8 @@
 #define MAX_CTRL_SETTINGS	512	/* Should be enough for a while;
 					 * maybe make it configurable via DT (if needed)
 					 */
+#define NO_PORT_SEL		((u32)-1)
+
 /* Keep these names in static memory, because devm_gpiod_get() does not
  * copy the GPIO names when called. So, we get garbage GPIO names when
  * debugging.
@@ -64,6 +67,13 @@ struct ad9361_band_setting {
 	 * to number of args in some calls
 	 */
 	struct ad9361_ctrl_objs *objs;
+	/* Sequence of settings to apply before & after this setting is applied;
+	 * it must be specified with a delay param (0 if no delay)
+	 */
+	u32 delay;
+
+	struct list_head pre;
+	struct list_head post;
 };
 
 struct ad9361_ext_band_ctl {
@@ -75,6 +85,11 @@ struct ad9361_ext_band_ctl {
 	struct ad9361_ctrl_objs		objs;		/* Objects to control */
 };
 
+static int ad9361_parse_setting(struct device *dev,
+				struct device_node *np,
+				struct ad9361_ext_band_ctl *ctl,
+				struct ad9361_band_setting *sett,
+				const char *root_node_name);
 static int ad9361_apply_settings(struct ad9361_rf_phy *phy,
 				 struct ad9361_band_setting *new,
 				 struct ad9361_band_setting **curr);
@@ -116,6 +131,58 @@ static int ad9361_populate_objs(struct device *dev,
 	objs->ngpios = cnt;
 
 	return cnt;
+}
+
+static int ad9361_parse_setting_seq(struct device *dev,
+				    struct device_node *np,
+				    const char *list_name,
+				    struct ad9361_ext_band_ctl *ctl,
+				    struct list_head *lst,
+				    const char *root_node_name)
+{
+	struct ad9361_band_setting *nseq;
+	struct of_phandle_iterator it;
+	uint32_t args[1];
+	int cell_count = 1;
+	int c, rc = 0;
+
+	INIT_LIST_HEAD(lst);
+
+	of_for_each_phandle(&it, rc, np, list_name, NULL, cell_count) {
+		c = of_phandle_iterator_args(&it, args, cell_count);
+		if (c != cell_count) {
+			dev_err(dev, "Invalid cell count for phandle '%s'\n",
+				it.node->name);
+			rc = -EINVAL;
+			goto out;
+		}
+
+		nseq = devm_kzalloc(dev, sizeof(*nseq), GFP_KERNEL);
+		if (!nseq) {
+			rc = -ENOMEM;
+			goto out;
+		}
+
+		rc = ad9361_parse_setting(dev, it.node, ctl,
+					  nseq, root_node_name);
+		if (rc < 0) {
+			devm_kfree(dev, nseq);
+			goto out;
+		}
+
+		nseq->delay = args[0]; /* delay to wait after this setting */
+
+		list_add_tail(&nseq->list, lst);
+
+		of_node_put(it.node);
+	};
+
+out:
+	if (rc)
+		of_node_put(it.node);
+	if (rc == -ENOENT)
+		return 0;
+	return rc;
 }
 
 static int ad9361_parse_gpio_settings(struct device *dev,
@@ -183,11 +250,33 @@ static int ad9361_parse_gpio_settings(struct device *dev,
 static int ad9361_parse_setting(struct device *dev,
 				struct device_node *np,
 				struct ad9361_ext_band_ctl *ctl,
-				struct ad9361_band_setting *sett)
+				struct ad9361_band_setting *sett,
+				const char *root_node_name)
 {
 	int ret;
 
+	/* Prevent infinite recursion; check against the root node name */
+	if (root_node_name && (strcmp(np->name, root_node_name) == 0)) {
+		dev_warn(dev, "Potential infinite recursion prevented for '%s'\n",
+			 root_node_name);
+		return -EINVAL;
+	}
+
+	/* If NULL, we are the root */
+	if (!root_node_name)
+		root_node_name = np->name;
+
+	ret = ad9361_parse_setting_seq(dev, np, "adi,band-ctl-pre", ctl,
+				       &sett->pre, root_node_name);
+	if (ret < 0)
+		return ret;
+
 	ret = ad9361_parse_gpio_settings(dev, np, ctl, sett);
+	if (ret < 0)
+		return ret;
+
+	ret = ad9361_parse_setting_seq(dev, np, "adi,band-ctl-post", ctl,
+				       &sett->post, root_node_name);
 	if (ret < 0)
 		return ret;
 
@@ -221,7 +310,7 @@ static int ad9361_parse_setting_with_freq_range(struct device *dev,
 	dev_dbg(dev, " * frequency range %llu - %llu\n",
 		 sett->freq_min, sett->freq_max);
 
-	return ad9361_parse_setting(dev, np, ctl, sett);
+	return ad9361_parse_setting(dev, np, ctl, sett, NULL);
 }
 
 static int ad9361_populate_settings(struct device *dev,
@@ -285,7 +374,7 @@ static int ad9361_populate_hooks(struct device *dev,
 		if (!ctl->hooks[i])
 			return -ENOMEM;
 
-		ret = ad9361_parse_setting(dev, child, ctl, ctl->hooks[i]);
+		ret = ad9361_parse_setting(dev, child, ctl, ctl->hooks[i], NULL);
 		if (ret < 0)
 			return ret;
 	}
@@ -380,6 +469,27 @@ static struct ad9361_band_setting *ad9361_find_first_setting(
 	return NULL;
 }
 
+static int ad9361_apply_settings_seq(struct ad9361_rf_phy *phy,
+				     struct list_head *settings,
+				     struct ad9361_band_setting **curr)
+{
+	struct device *dev = &phy->spi->dev;
+	struct ad9361_band_setting *sett;
+	int ret;
+
+	list_for_each_entry(sett, settings, list) {
+		ret = ad9361_apply_settings(phy, sett, curr);
+		if (ret < 0) {
+			dev_err(dev, "Error when applying sequence %d\n", ret);
+			return ret;
+		}
+		if (sett->delay)
+			udelay(sett->delay);
+	}
+
+	return 0;
+}
+
 static int ad9361_apply_gpio_settings(struct device *dev,
 				      struct ad9361_band_setting *new,
 				      struct ad9361_band_setting *curr)
@@ -440,6 +550,12 @@ static int ad9361_apply_settings(struct ad9361_rf_phy *phy,
 		curr = &lcurr;
 	}
 
+	if (!list_empty(&new->pre)) {
+		ret = ad9361_apply_settings_seq(phy, &new->pre, curr);
+		if (ret < 0)
+			return ret;
+	}
+
 	dev_dbg(dev, "%s: Applying setting '%s'\n", __func__,
 		new->name);
 
@@ -448,6 +564,11 @@ static int ad9361_apply_settings(struct ad9361_rf_phy *phy,
 		return ret;
 
 	*curr = new;
+	if (!list_empty(&new->post)) {
+		ret = ad9361_apply_settings_seq(phy, &new->post, curr);
+		if (ret < 0)
+			return ret;
+	}
 
 	dev_dbg(dev, "%s: Applied setting '%s'\n", __func__,
 		new->name);
