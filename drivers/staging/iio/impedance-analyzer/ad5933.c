@@ -779,6 +779,14 @@ static int ad5933_remove(struct i2c_client *client)
 	return 0;
 }
 
+static const struct of_device_id of_ad5933_match[] = {
+	{ .compatible = "adi,ad5933", 0},
+	{ .compatible = "adi,ad5934", 0},
+	{},
+};
+
+MODULE_DEVICE_TABLE(of, of_ad5933_match);
+
 static const struct i2c_device_id ad5933_id[] = {
 	{ "ad5933", 0 },
 	{ "ad5934", 0 },
