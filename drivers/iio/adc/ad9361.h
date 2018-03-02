@@ -3276,6 +3276,12 @@ enum {
 	ID_AD9363A,
 };
 
+enum digital_tune_skip_mode {
+	TUNE_RX_TX,
+	SKIP_TX,
+	SKIP_ALL,
+};
+
 struct ad9361_rf_phy;
 struct ad9361_debugfs_entry {
 	struct ad9361_rf_phy *phy;
@@ -3297,6 +3303,13 @@ struct ad9361_fastlock {
 	u8 save_profile;
 	u8 current_profile[2];
 	struct ad9361_fastlock_entry entry[2][8];
+};
+
+struct ad9361_dig_tune_data {
+	u32 bist_loopback_mode;
+	u32 bist_config;
+	u32 ensm_state;
+	u8 skip_mode;
 };
 
 struct refclk_scale {
@@ -3399,7 +3412,6 @@ int ad9361_find_opt(u8 *field, u32 size, u32 *ret_start);
 int ad9361_ensm_mode_disable_pinctrl(struct ad9361_rf_phy *phy);
 int ad9361_ensm_mode_restore_pinctrl(struct ad9361_rf_phy *phy);
 void ad9361_ensm_force_state(struct ad9361_rf_phy *phy, u8 ensm_state);
-u8 ad9361_ensm_get_state(struct ad9361_rf_phy *phy);
 void ad9361_ensm_restore_state(struct ad9361_rf_phy *phy, u8 ensm_state);
 void ad9361_ensm_restore_prev_state(struct ad9361_rf_phy *phy);
 int ad9361_set_trx_clock_chain_freq(struct ad9361_rf_phy *phy,
@@ -3410,6 +3422,8 @@ int ad9361_dig_tune(struct ad9361_rf_phy *phy, unsigned long max_freq,
 int ad9361_tx_mute(struct ad9361_rf_phy *phy, u32 state);
 int ad9361_write_bist_reg(struct ad9361_rf_phy *phy, u32 val);
 bool ad9361_uses_rx2tx2(struct ad9361_rf_phy *phy);
+int ad9361_get_dig_tune_data(struct ad9361_rf_phy *phy,
+			     struct ad9361_dig_tune_data *data);
 
 #endif
 
