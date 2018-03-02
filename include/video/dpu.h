@@ -729,7 +729,7 @@ struct dpu_plane_res {
 	struct dpu_extdst	*ed[2];
 	struct dpu_fetchdecode	*fd[MAX_FD_NUM];
 	struct dpu_fetcheco	*fe[2];
-	struct dpu_framegen	*fg;
+	struct dpu_framegen	*fg[2];
 	struct dpu_hscaler	*hs[2];
 	struct dpu_layerblend	*lb[MAX_LB_NUM];
 	struct dpu_vscaler	*vs[2];

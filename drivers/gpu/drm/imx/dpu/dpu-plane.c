@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 NXP
+ * Copyright 2017-2018 NXP
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -428,6 +428,7 @@ static void dpu_plane_atomic_update(struct drm_plane *plane,
 	struct dpu_layerblend *lb;
 	struct dpu_constframe *cf;
 	struct dpu_extdst *ed;
+	struct dpu_framegen *fg;
 	struct device *dev = plane->dev->dev;
 	dma_addr_t baseaddr, uv_baseaddr = 0;
 	dpu_block_id_t fe_id, vs_id = ID_NONE, hs_id;
@@ -642,7 +643,8 @@ static void dpu_plane_atomic_update(struct drm_plane *plane,
 					dpstate->base_w, dpstate->base_h);
 		constframe_constantcolor(cf, 0, 0, 0, 0);
 
-		framegen_sacfg(res->fg, dpstate->base_x, dpstate->base_y);
+		fg = res->fg[dplane->stream_id];
+		framegen_sacfg(fg, dpstate->base_x, dpstate->base_y);
 	}
 
 	if (dpstate->is_top) {

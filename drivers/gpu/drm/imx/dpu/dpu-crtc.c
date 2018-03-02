@@ -615,7 +615,7 @@ static int dpu_crtc_init(struct dpu_crtc *dpu_crtc,
 		return ret;
 	}
 
-	plane_grp->res.fg = dpu_crtc->fg;
+	plane_grp->res.fg[stream_id] = dpu_crtc->fg;
 	dpu_crtc->plane[0] = dpu_plane_init(drm, 0, stream_id, plane_grp,
 					DRM_PLANE_TYPE_PRIMARY);
 	if (IS_ERR(dpu_crtc->plane[0])) {
