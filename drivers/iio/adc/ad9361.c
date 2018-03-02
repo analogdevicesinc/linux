@@ -4014,6 +4014,13 @@ int ad9361_get_dig_tune_data(struct ad9361_rf_phy *phy,
 }
 EXPORT_SYMBOL(ad9361_get_dig_tune_data);
 
+bool ad9361_uses_lvds_mode(struct ad9361_rf_phy *phy)
+{
+	return (phy && phy->pdata &&
+		!!(phy->pdata->port_ctrl.pp_conf[2] & LVDS_MODE));
+}
+EXPORT_SYMBOL(ad9361_uses_lvds_mode);
+
 int ad9361_write_clock_data_delays(struct ad9361_rf_phy *phy)
 {
 	if (!phy || !phy->pdata)
