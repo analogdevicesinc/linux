@@ -655,15 +655,9 @@ int ad9361_dig_tune(struct ad9361_rf_phy *phy, unsigned long max_freq,
 
 	if (restore) {
 		ad9361_ensm_force_state(phy, ENSM_STATE_ALERT);
-		ad9361_spi_write(phy->spi, REG_RX_CLOCK_DATA_DELAY,
-				phy->pdata->port_ctrl.rx_clk_data_delay);
-		ad9361_spi_write(phy->spi, REG_TX_CLOCK_DATA_DELAY,
-				phy->pdata->port_ctrl.tx_clk_data_delay);
+		ad9361_write_clock_data_delays(phy);
 	} else if (!(flags & SKIP_STORE_RESULT)) {
-		phy->pdata->port_ctrl.rx_clk_data_delay =
-			ad9361_spi_read(phy->spi, REG_RX_CLOCK_DATA_DELAY);
-		phy->pdata->port_ctrl.tx_clk_data_delay =
-			ad9361_spi_read(phy->spi, REG_TX_CLOCK_DATA_DELAY);
+		ad9361_read_clock_data_delays(phy);
 	}
 
 	ad9361_ensm_mode_restore_pinctrl(phy);
