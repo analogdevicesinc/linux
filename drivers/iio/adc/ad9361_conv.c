@@ -77,19 +77,21 @@ ssize_t ad9361_dig_interface_timing_analysis(struct ad9361_rf_phy *phy,
 						   char *buf, unsigned buflen)
 {
 	struct axiadc_converter *conv = spi_get_drvdata(phy->spi);
-	unsigned int loopback, bist, ensm_state;
+	struct ad9361_dig_tune_data data;
 	int i, j, len = 0;
+	int ret;
 	u8 field[16][16];
 	u8 rx;
 
 	if (!conv)
 		return -ENODEV;
 
+	ret = ad9361_get_dig_tune_data(phy, &data);
+	if (ret < 0)
+		return ret;
+
 	dev_dbg(&phy->spi->dev, "%s:\n", __func__);
 
-	loopback = phy->bist_loopback_mode;
-	bist = phy->bist_config;
-	ensm_state = ad9361_ensm_get_state(phy);
 	rx = ad9361_spi_read(phy->spi, REG_RX_CLOCK_DATA_DELAY);
 
 	/* Mute TX, we don't want to transmit the PRBS */
@@ -109,11 +111,11 @@ ssize_t ad9361_dig_interface_timing_analysis(struct ad9361_rf_phy *phy,
 
 	ad9361_ensm_force_state(phy, ENSM_STATE_ALERT);
 	ad9361_spi_write(phy->spi, REG_RX_CLOCK_DATA_DELAY, rx);
-	ad9361_bist_loopback(phy, loopback);
-	ad9361_write_bist_reg(phy, bist);
+	ad9361_bist_loopback(phy, data.bist_loopback_mode);
+	ad9361_write_bist_reg(phy, data.bist_config);
 
 	ad9361_ensm_mode_restore_pinctrl(phy);
-	ad9361_ensm_restore_state(phy, ensm_state);
+	ad9361_ensm_restore_state(phy, data.ensm_state);
 
 	ad9361_tx_mute(phy, 0);
 
@@ -605,7 +607,7 @@ int ad9361_dig_tune(struct ad9361_rf_phy *phy, unsigned long max_freq,
 		    enum dig_tune_flags flags)
 {
 	struct axiadc_converter *conv = spi_get_drvdata(phy->spi);
-	unsigned int loopback, bist, ensm_state;
+	struct ad9361_dig_tune_data data;
 	struct axiadc_state *st;
 	bool restore = false;
 	int ret = 0;
@@ -613,20 +615,20 @@ int ad9361_dig_tune(struct ad9361_rf_phy *phy, unsigned long max_freq,
 	if (!conv)
 		return -ENODEV;
 
+	ret = ad9361_get_dig_tune_data(phy, &data);
+	if (ret < 0)
+		return ret;
+
 	dev_dbg(&phy->spi->dev, "%s: freq %lu flags 0x%X\n", __func__,
 		max_freq, flags);
 
 	st = iio_priv(conv->indio_dev);
-	ensm_state = ad9361_ensm_get_state(phy);
 
-	if (phy->pdata->dig_interface_tune_skipmode == 2 ||
+	if ((data.skip_mode == SKIP_ALL) ||
 	    (flags & RESTORE_DEFAULT)) {
 		/* skip completely and use defaults */
 		restore = true;
 	} else {
-		loopback = phy->bist_loopback_mode;
-		bist = phy->bist_config;
-
 		/* Mute TX, we don't want to transmit the PRBS */
 		ad9361_tx_mute(phy, 1);
 
@@ -639,11 +641,11 @@ int ad9361_dig_tune(struct ad9361_rf_phy *phy, unsigned long max_freq,
 			ad9361_midscale_iodelay(phy, true);
 
 		ret = ad9361_dig_tune_rx(phy, max_freq, flags);
-		if (ret == 0 && !phy->pdata->dig_interface_tune_skipmode)
+		if (ret == 0 && (data.skip_mode != TUNE_RX_TX))
 			ret = ad9361_dig_tune_tx(phy, max_freq, flags);
 
-		ad9361_bist_loopback(phy, loopback);
-		ad9361_write_bist_reg(phy, bist);
+		ad9361_bist_loopback(phy, data.bist_loopback_mode);
+		ad9361_write_bist_reg(phy, data.bist_config);
 
 		if (ret == -EIO)
 			restore = true;
@@ -665,7 +667,7 @@ int ad9361_dig_tune(struct ad9361_rf_phy *phy, unsigned long max_freq,
 	}
 
 	ad9361_ensm_mode_restore_pinctrl(phy);
-	ad9361_ensm_restore_state(phy, ensm_state);
+	ad9361_ensm_restore_state(phy, data.ensm_state);
 
 	axiadc_write(st, ADI_REG_RSTN, ADI_MMCM_RSTN);
 	axiadc_write(st, ADI_REG_RSTN, ADI_RSTN | ADI_MMCM_RSTN);
