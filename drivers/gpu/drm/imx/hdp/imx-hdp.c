@@ -523,13 +523,11 @@ bool imx_hdp_bridge_mode_fixup(struct drm_bridge *bridge,
 	     di->bpc >= 10) {
 		hdp->bpc = 10;
 		hdp->format = YCBCR_4_2_0;
-		hdp->hdr_mode = true; /* attempt HDR */
 		return true;
 	}
 
 	hdp->bpc = 8;
 	hdp->format = PXL_RGB;
-	hdp->hdr_mode = false;
 
 	return true;
 }
@@ -669,6 +667,38 @@ static void imx_hdp_connector_force(struct drm_connector *connector)
 	mutex_unlock(&hdp->mutex);
 }
 
+static int imx_hdp_set_property(struct drm_connector *connector,
+				struct drm_property *property, uint64_t val)
+{
+	struct imx_hdp *hdp = container_of(connector, struct imx_hdp,
+					   connector);
+	int ret;
+	struct drm_connector_state *conn_state;
+	union hdmi_infoframe frame;
+	struct hdr_static_metadata *hdr_metadata;
+
+	conn_state = connector->state;
+
+	if (conn_state->hdr_source_metadata_blob_ptr &&
+	    conn_state->hdr_source_metadata_blob_ptr->length &&
+	    hdp->ops->write_hdr_metadata) {
+		hdr_metadata = (struct hdr_static_metadata *)
+				conn_state->hdr_source_metadata_blob_ptr->data;
+
+		ret = drm_hdmi_infoframe_set_hdr_metadata(&frame.drm,
+							  hdr_metadata);
+
+		if (ret < 0) {
+			DRM_ERROR("could not set HDR metadata in infoframe\n");
+			return ret;
+		}
+
+		hdp->ops->write_hdr_metadata(&hdp->state, &frame);
+	}
+
+	return 0;
+}
+
 static const struct drm_connector_funcs imx_hdp_connector_funcs = {
 	.fill_modes = drm_helper_probe_single_connector_modes,
 	.detect = imx_hdp_connector_detect,
@@ -677,6 +707,7 @@ static const struct drm_connector_funcs imx_hdp_connector_funcs = {
 	.reset = drm_atomic_helper_connector_reset,
 	.atomic_duplicate_state = drm_atomic_helper_connector_duplicate_state,
 	.atomic_destroy_state = drm_atomic_helper_connector_destroy_state,
+	.set_property = imx_hdp_set_property,
 };
 
 static const struct drm_connector_helper_funcs imx_hdp_connector_helper_funcs = {
@@ -706,7 +737,7 @@ static void imx_hdp_imx_encoder_enable(struct drm_encoder *encoder)
 	if (!hdp->ops->write_hdr_metadata)
 		return;
 
-	if (hdp->hdr_mode && hdp->hdr_metadata_present) {
+	if (hdp->hdr_metadata_present) {
 		hdr_metadata = (struct hdr_static_metadata *)
 				conn_state->hdr_source_metadata_blob_ptr->data;
 
@@ -722,8 +753,6 @@ static void imx_hdp_imx_encoder_enable(struct drm_encoder *encoder)
 							  hdr_metadata);
 
 		devm_kfree(hdp->dev, hdr_metadata);
-
-		hdp->hdr_mode = false;
 	}
 
 	if (ret < 0) {
