@@ -1585,11 +1585,10 @@ out:
 	return rc;
 }
 
-u8 ad9361_ensm_get_state(struct ad9361_rf_phy *phy)
+static u8 ad9361_ensm_get_state(struct ad9361_rf_phy *phy)
 {
 	return ad9361_spi_readf(phy->spi, REG_STATE, ENSM_STATE(~0));
 }
-EXPORT_SYMBOL(ad9361_ensm_get_state);
 
 void ad9361_ensm_force_state(struct ad9361_rf_phy *phy, u8 ensm_state)
 {
@@ -4002,6 +4001,19 @@ bool ad9361_uses_rx2tx2(struct ad9361_rf_phy *phy)
 	return phy && phy->pdata && phy->pdata->rx2tx2;
 }
 EXPORT_SYMBOL(ad9361_uses_rx2tx2);
+
+int ad9361_get_dig_tune_data(struct ad9361_rf_phy *phy,
+			     struct ad9361_dig_tune_data *data)
+{
+	if (!phy || !data)
+		return -EINVAL;
+	data->ensm_state = ad9361_ensm_get_state(phy);
+	data->bist_loopback_mode = phy->bist_loopback_mode;
+	data->skip_mode = phy->pdata->dig_interface_tune_skipmode;
+	data->bist_config = phy->bist_config;
+	return 0;
+}
+EXPORT_SYMBOL(ad9361_get_dig_tune_data);
 
 static int ad9361_get_trx_clock_chain(struct ad9361_rf_phy *phy, unsigned long *rx_path_clks,
 				      unsigned long *tx_path_clks)
