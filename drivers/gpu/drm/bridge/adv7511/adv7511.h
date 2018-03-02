@@ -351,6 +351,10 @@ struct adv7511 {
 	struct i2c_client *i2c_packet;
 	struct i2c_client *i2c_cec;
 
+	u32 addr_cec;
+	u32 addr_edid;
+	u32 addr_pkt;
+
 	struct regmap *regmap;
 	struct regmap *regmap_cec;
 	enum drm_connector_status status;

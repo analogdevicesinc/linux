@@ -52,6 +52,19 @@ properties:
       when communicating with the DSI peripheral.
       It should be one of 0, 1, 2 or 3.
 
+  adi,addr-cec:
+    description:
+      Only for ADV7533 and ADV7535. The I2C DSI-CEC register map
+      address to be programmed into the MAIN register map.
+  adi,addr-edid:
+    description:
+      Only for ADV7533 and ADV7535. The I2C EDID register map
+      to be programmed into the MAIN register map.
+  adi,addr-pkt:
+    description:
+      Only for ADV7533 and ADV7535. The I2C PACKET register map
+      to be programmed into the MAIN register map.
+ 
   clocks:
     description: Reference to the CEC clock.
     maxItems: 1

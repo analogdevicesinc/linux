@@ -196,6 +196,10 @@ int adv7533_parse_dt(struct device_node *np, struct adv7511 *adv)
 	adv->use_timing_gen = !of_property_read_bool(np,
 						"adi,disable-timing-generator");
 
+	of_property_read_u32(np, "adi,addr-cec", &adv->addr_cec);
+	of_property_read_u32(np, "adi,addr-edid", &adv->addr_edid);
+	of_property_read_u32(np, "adi,addr-pkt", &adv->addr_pkt);
+
 	/* TODO: Check if these need to be parsed by DT or not */
 	adv->rgb = true;
 	adv->embedded_sync = false;
