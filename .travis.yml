@@ -1,0 +1,25 @@
+language: c
+
+os: linux
+dist: trusty
+
+notifications:
+  email:
+    on_success: change
+    on_failure: always
+
+env:
+  matrix:
+  - DEFCONFIG_NAME=zynq_xcomm_adv7511_defconfig ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf-
+  - DEFCONFIG_NAME=zynq_pluto_defconfig ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf-
+
+before_install:
+  - sudo apt-get update -qq
+  - sudo apt-get install -y build-essential bc u-boot-tools gcc-arm-linux-gnueabihf
+
+script:
+  - COMMIT_RANGE=$([ -z "$TRAVIS_COMMIT_RANGE" ] &&  echo "HEAD~1" || echo ${TRAVIS_COMMIT_RANGE/.../..})
+  - make ${DEFCONFIG_NAME}
+  - make -j`getconf _NPROCESSORS_ONLN` uImage UIMAGE_LOADADDR=0x8000
+  - for file in `ls arch/arm/boot/dts/zynq-*.dts`; do make `basename $file | sed  -e 's\dts\dtb\g'` || exit 1;done
+  - scripts/checkpatch.pl --git ${COMMIT_RANGE} --ignore FILE_PATH_CHANGES --ignore LONG_LINE --ignore LONG_LINE_STRING --ignore LONG_LINE_COMMENT
