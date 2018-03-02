@@ -944,20 +944,11 @@ static int adxl372_probe(struct spi_device *spi)
 
 	iio_buffer_set_attrs(indio_dev->buffer, adxl372_fifo_attributes);
 
-	ret = iio_device_register(indio_dev);
+	ret = devm_iio_device_register(&st->spi->dev, indio_dev);
 	if (ret < 0) {
 		dev_err(&indio_dev->dev, "Failed to register iio device\n");
 		return ret;
 	}
-
-	return 0;
-}
-
-static int adxl372_remove(struct spi_device *spi)
-{
-	struct iio_dev *indio_dev = spi_get_drvdata(spi);
-
-	iio_device_unregister(indio_dev);
 
 	return 0;
 }
@@ -973,7 +964,6 @@ static struct spi_driver adxl372_driver = {
 		.name = KBUILD_MODNAME,
 	},
 	.probe = adxl372_probe,
-	.remove = adxl372_remove,
 	.id_table = adxl372_id,
 };
 
