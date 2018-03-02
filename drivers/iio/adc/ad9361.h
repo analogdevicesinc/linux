@@ -3426,6 +3426,7 @@ int ad9361_get_dig_tune_data(struct ad9361_rf_phy *phy,
 			     struct ad9361_dig_tune_data *data);
 int ad9361_read_clock_data_delays(struct ad9361_rf_phy *phy);
 int ad9361_write_clock_data_delays(struct ad9361_rf_phy *phy);
+bool ad9361_uses_lvds_mode(struct ad9361_rf_phy *phy);
 
 #endif
 
