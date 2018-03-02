@@ -138,6 +138,16 @@
 	adi,band-ctl-12-gpio = <&tca6408_u21 3 GPIO_ACTIVE_HIGH>; /* tx_band_0 */
 	adi,band-ctl-13-gpio = <&tca6408_u21 2 GPIO_ACTIVE_HIGH>; /* tx_band_1 */
 
+	adi_ext_band_ctl_init {
+		/* All low on boot-up [driver init] */
+		adi,gpio-settings = <1 0 0 0 0 0 0 0 0 0 0 0 0 0>;
+	};
+
+	adi_ext_band_ctl_uninit {
+		/* All low on driver uninit */
+		adi,gpio-settings = <1 0 0 0 0 0 0 0 0 0 0 0 0 0>;
+	};
+
 	adi_rx_band_setting_0 { /* 50 - 435 Mhz ; i.e. 50 <= freq < ( 435 Mhz + 1 Hz ) */
 		adi,lo-freq-min = /bits/ 64 <50000000>;
 		adi,lo-freq-max = /bits/ 64 <435000001>;
