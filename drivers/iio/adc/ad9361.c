@@ -3091,8 +3091,7 @@ static int ad9361_pp_port_setup(struct ad9361_rf_phy *phy, bool restore_c3)
 	ad9361_spi_write(spi, REG_PARALLEL_PORT_CONF_1, pd->port_ctrl.pp_conf[0]);
 	ad9361_spi_write(spi, REG_PARALLEL_PORT_CONF_2, pd->port_ctrl.pp_conf[1]);
 	ad9361_spi_write(spi, REG_PARALLEL_PORT_CONF_3, pd->port_ctrl.pp_conf[2]);
-	ad9361_spi_write(spi, REG_RX_CLOCK_DATA_DELAY, pd->port_ctrl.rx_clk_data_delay);
-	ad9361_spi_write(spi, REG_TX_CLOCK_DATA_DELAY, pd->port_ctrl.tx_clk_data_delay);
+	ad9361_write_clock_data_delays(phy);
 
 	ad9361_spi_write(spi, REG_LVDS_BIAS_CTRL, pd->port_ctrl.lvds_bias_ctrl);
 //	ad9361_spi_write(spi, REG_DIGITAL_IO_CTRL, pd->port_ctrl.digital_io_ctrl);
@@ -4014,6 +4013,30 @@ int ad9361_get_dig_tune_data(struct ad9361_rf_phy *phy,
 	return 0;
 }
 EXPORT_SYMBOL(ad9361_get_dig_tune_data);
+
+int ad9361_write_clock_data_delays(struct ad9361_rf_phy *phy)
+{
+	if (!phy || !phy->pdata)
+		return -EINVAL;
+	ad9361_spi_write(phy->spi, REG_RX_CLOCK_DATA_DELAY,
+			phy->pdata->port_ctrl.rx_clk_data_delay);
+	ad9361_spi_write(phy->spi, REG_TX_CLOCK_DATA_DELAY,
+			phy->pdata->port_ctrl.tx_clk_data_delay);
+	return 0;
+}
+EXPORT_SYMBOL(ad9361_write_clock_data_delays);
+
+int ad9361_read_clock_data_delays(struct ad9361_rf_phy *phy)
+{
+	if (!phy || !phy->pdata)
+		return -EINVAL;
+	phy->pdata->port_ctrl.rx_clk_data_delay =
+		ad9361_spi_read(phy->spi, REG_RX_CLOCK_DATA_DELAY);
+	phy->pdata->port_ctrl.tx_clk_data_delay =
+		ad9361_spi_read(phy->spi, REG_TX_CLOCK_DATA_DELAY);
+	return 0;
+}
+EXPORT_SYMBOL(ad9361_read_clock_data_delays);
 
 static int ad9361_get_trx_clock_chain(struct ad9361_rf_phy *phy, unsigned long *rx_path_clks,
 				      unsigned long *tx_path_clks)
