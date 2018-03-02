@@ -155,7 +155,7 @@ int adv7533_init_cec(struct adv7511 *adv)
 	int ret;
 
 	adv->i2c_cec = i2c_new_dummy(adv->i2c_main->adapter,
-				     adv->i2c_main->addr - 1);
+				     adv->addr_cec);
 	if (!adv->i2c_cec)
 		return -ENOMEM;
 
@@ -258,6 +258,10 @@ int adv7533_parse_dt(struct device_node *np, struct adv7511 *adv)
 
 	adv->use_timing_gen = !of_property_read_bool(np,
 						"adi,disable-timing-generator");
+
+	of_property_read_u32(np, "adi,addr-cec", &adv->addr_cec);
+	of_property_read_u32(np, "adi,addr-edid", &adv->addr_edid);
+	of_property_read_u32(np, "adi,addr-pkt", &adv->addr_pkt);
 
 	/* TODO: Check if these need to be parsed by DT or not */
 	adv->rgb = true;

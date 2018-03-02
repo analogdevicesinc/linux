@@ -71,6 +71,12 @@ Optional properties:
   data lanes, rather than generate its own timings for HDMI output.
 - adi,dsi-channel: Only for ADV7533 and ADV7535. DSI channel number to be used
   when communicating with the DSI peripheral. It should be one of 0, 1, 2 or 3.
+- adi,addr-cec: Only for ADV7533 and ADV7535. The I2C DSI-CEC register map
+  address to be programmed into the MAIN register map.
+- adi,addr-edid: Only for ADV7533 and ADV7535. The I2C EDID register map
+  to be programmed into the MAIN register map.
+- adi,addr-pkt: Only for ADV7533 and ADV7535. The I2C PACKET register map
+  to be programmed into the MAIN register map.
 
 Required nodes:
 
