@@ -16,6 +16,7 @@
 #include <linux/err.h>
 #include <linux/delay.h>
 #include <linux/module.h>
+#include <linux/clk.h>
 
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
@@ -98,6 +99,7 @@ struct ad5933_state {
 	struct i2c_client		*client;
 	struct regulator		*reg;
 	struct regulator		*vref;
+	struct clk			*mclk;
 	struct delayed_work		work;
 	struct mutex			lock; /* Protect sensor state */
 	unsigned long			mclk_hz;
@@ -735,6 +737,19 @@ static int ad5933_probe(struct i2c_client *client,
 	else
 		st->vref_mv = pdata->vref_mv;
 
+	st->mclk = devm_clk_get(&client->dev, "mclk");
+	if (IS_ERR(st->mclk) && PTR_ERR(st->mclk) != -ENOENT) {
+		ret = PTR_ERR(st->mclk);
+		goto error_disable_vref;
+	}
+
+	if (!IS_ERR(st->mclk)) {
+		ret = clk_prepare_enable(st->mclk);
+		if (ret < 0)
+			goto error_disable_vref;
+		pdata->ext_clk_Hz = clk_get_rate(st->mclk);
+	}
+
 	if (pdata->ext_clk_Hz) {
 		st->mclk_hz = pdata->ext_clk_Hz;
 		st->ctrl_lb = AD5933_CTRL_EXT_SYSCLK;
@@ -756,7 +771,7 @@ static int ad5933_probe(struct i2c_client *client,
 
 	ret = ad5933_register_ring_funcs_and_init(indio_dev);
 	if (ret)
-		goto error_disable_vref;
+		goto error_disable_mclk;
 
 	ret = ad5933_setup(st);
 	if (ret)
@@ -770,6 +785,8 @@ static int ad5933_probe(struct i2c_client *client,
 
 error_unreg_ring:
 	iio_kfifo_free(indio_dev->buffer);
+error_disable_mclk:
+	clk_disable_unprepare(st->mclk);
 error_disable_vref:
 	regulator_disable(st->vref);
 error_disable_reg:
@@ -787,6 +804,7 @@ static int ad5933_remove(struct i2c_client *client)
 	iio_kfifo_free(indio_dev->buffer);
 	regulator_disable(st->reg);
 	regulator_disable(st->vref);
+	clk_disable_unprepare(st->mclk);
 
 	return 0;
 }
