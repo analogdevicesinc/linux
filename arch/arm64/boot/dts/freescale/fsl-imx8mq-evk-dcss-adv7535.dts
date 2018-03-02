@@ -14,10 +14,6 @@
 
 #include "fsl-imx8mq-evk.dts"
 
-&ov5640_mipi {
-	status = "disabled";
-};
-
 &hdmi {
 	status = "disabled";
 };
@@ -39,6 +35,7 @@
 	adv_bridge: adv7535@3d {
 		compatible = "adi,adv7533";
 		reg = <0x3d>;
+		adi,addr-cec = <0x3b>;
 		adi,dsi-lanes = <4>;
 		status = "okay";
 
