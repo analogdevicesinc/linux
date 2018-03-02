@@ -3997,6 +3997,12 @@ int ad9361_set_trx_clock_chain_default(struct ad9361_rf_phy *phy)
 }
 EXPORT_SYMBOL(ad9361_set_trx_clock_chain_default);
 
+bool ad9361_uses_rx2tx2(struct ad9361_rf_phy *phy)
+{
+	return phy && phy->pdata && phy->pdata->rx2tx2;
+}
+EXPORT_SYMBOL(ad9361_uses_rx2tx2);
+
 static int ad9361_get_trx_clock_chain(struct ad9361_rf_phy *phy, unsigned long *rx_path_clks,
 				      unsigned long *tx_path_clks)
 {
