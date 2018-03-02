@@ -97,6 +97,7 @@ struct ad5933_platform_data {
 struct ad5933_state {
 	struct i2c_client		*client;
 	struct regulator		*reg;
+	struct regulator		*vref;
 	struct delayed_work		work;
 	unsigned long			mclk_hz;
 	unsigned char			ctrl_hb;
@@ -734,6 +735,14 @@ static int ad5933_probe(struct i2c_client *client,
 		voltage_uv = regulator_get_voltage(st->reg);
 	}
 
+	st->reg = devm_regulator_get(&client->dev, "vref");
+	if (!IS_ERR(st->vref)) {
+		ret = regulator_enable(st->vref);
+		if (ret)
+			goto error_disable_reg;
+		pdata->vref_mv = regulator_get_voltage(st->vref) / 1000;
+	}
+
 	if (voltage_uv)
 		st->vref_mv = voltage_uv / 1000;
 	else
@@ -760,7 +769,7 @@ static int ad5933_probe(struct i2c_client *client,
 
 	ret = ad5933_register_ring_funcs_and_init(indio_dev);
 	if (ret)
-		goto error_disable_reg;
+		goto error_disable_vref;
 
 	ret = ad5933_setup(st);
 	if (ret)
@@ -774,6 +783,9 @@ static int ad5933_probe(struct i2c_client *client,
 
 error_unreg_ring:
 	iio_kfifo_free(indio_dev->buffer);
+error_disable_vref:
+	if (!IS_ERR(st->vref))
+		regulator_disable(st->vref);
 error_disable_reg:
 	if (!IS_ERR(st->reg))
 		regulator_disable(st->reg);
@@ -790,6 +802,8 @@ static int ad5933_remove(struct i2c_client *client)
 	iio_kfifo_free(indio_dev->buffer);
 	if (!IS_ERR(st->reg))
 		regulator_disable(st->reg);
+	if (!IS_ERR(st->vref))
+		regulator_disable(st->vref);
 
 	return 0;
 }
