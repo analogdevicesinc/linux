@@ -575,14 +575,21 @@ static void ivshm_net_state_change(struct work_struct *work)
 	struct net_device *ndev = in->napi.dev;
 	u32 rstate = readl(&in->ivshm_regs->rstate);
 
-
 	switch (in->lstate) {
 	case IVSHM_NET_STATE_RESET:
+		/*
+		 * Wait for the remote to leave READY/RUN before transitioning
+		 * to INIT.
+		 */
 		if (rstate < IVSHM_NET_STATE_READY)
 			ivshm_net_set_state(in, IVSHM_NET_STATE_INIT);
 		break;
 
 	case IVSHM_NET_STATE_INIT:
+		/*
+		 * Wait for the remote to leave RESET before performing the
+		 * initialization and moving to READY.
+		 */
 		if (rstate > IVSHM_NET_STATE_RESET) {
 			ivshm_net_init_queues(ndev);
 			ivshm_net_set_state(in, IVSHM_NET_STATE_READY);
@@ -594,11 +601,21 @@ static void ivshm_net_state_change(struct work_struct *work)
 		break;
 
 	case IVSHM_NET_STATE_READY:
-	case IVSHM_NET_STATE_RUN:
+		/*
+		 * Link is up and we are running once the remote is in READY or
+		 * RUN.
+		 */
 		if (rstate >= IVSHM_NET_STATE_READY) {
 			netif_carrier_on(ndev);
 			ivshm_net_run(ndev);
-		} else if (rstate == IVSHM_NET_STATE_RESET) {
+			break;
+		}
+		/* fall through */
+	case IVSHM_NET_STATE_RUN:
+		/*
+		 * If the remote goes to RESET, we need to follow immediately.
+		 */
+		if (rstate == IVSHM_NET_STATE_RESET) {
 			netif_carrier_off(ndev);
 			ivshm_net_do_stop(ndev);
 		}
