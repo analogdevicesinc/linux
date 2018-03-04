@@ -598,7 +598,7 @@ static void ivshm_net_state_change(struct work_struct *work)
 		if (rstate >= IVSHM_NET_STATE_READY) {
 			netif_carrier_on(ndev);
 			ivshm_net_run(ndev);
-		} else {
+		} else if (rstate == IVSHM_NET_STATE_RESET) {
 			netif_carrier_off(ndev);
 			ivshm_net_do_stop(ndev);
 		}
