@@ -252,6 +252,14 @@ enum adxl372_fifo_mode {
 	ADXL372_FIFO_OLD_SAVED
 };
 
+static const int adxl372_samp_freq_tbl[5] = {
+	[ADXL372_ODR_400HZ] = 400,
+	[ADXL372_ODR_800HZ] = 800,
+	[ADXL372_ODR_1600HZ] = 1600,
+	[ADXL372_ODR_3200HZ] = 3200,
+	[ADXL372_ODR_6400HZ] = 6400,
+};
+
 #define ADXL372_ACCEL_CHANNEL(index, reg, axis) {			\
 	.type = IIO_ACCEL,						\
 	.address = reg,							\
@@ -387,6 +395,18 @@ static int adxl372_set_odr(struct adxl372_state *st,
 	st->odr = odr;
 
 	return ret;
+}
+
+static int adxl372_get_odr_index(struct adxl372_state *st, int val)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(adxl372_samp_freq_tbl); i++) {
+		if (val == adxl372_samp_freq_tbl[i])
+			return i;
+	}
+
+	return -EINVAL;
 }
 
 static int adxl372_set_bandwidth(struct adxl372_state *st,
@@ -679,9 +699,9 @@ static int adxl372_reg_access(struct iio_dev *indio_dev,
 	return ret;
 }
 
-static int adxl372_raw(struct iio_dev *indio_dev,
-		       struct iio_chan_spec const *chan,
-		       int *val, int *val2, long info)
+static int adxl372_read_raw(struct iio_dev *indio_dev,
+			    struct iio_chan_spec const *chan,
+			    int *val, int *val2, long info)
 {
 	struct adxl372_state *st = iio_priv(indio_dev);
 	int ret;
@@ -705,10 +725,58 @@ static int adxl372_raw(struct iio_dev *indio_dev,
 		*val2 = ADXL372_USCALE;
 
 		return IIO_VAL_INT_PLUS_MICRO;
+
+	case IIO_CHAN_INFO_SAMP_FREQ:
+		*val = adxl372_samp_freq_tbl[st->odr];
+
+		return IIO_VAL_INT;
 	}
 
 	return -EINVAL;
 }
+
+static int adxl372_write_raw(struct iio_dev *indio_dev,
+			     struct iio_chan_spec const *chan,
+			     int val, int val2, long info)
+{
+	struct adxl372_state *st = iio_priv(indio_dev);
+	int odr_index, ret;
+
+	switch (info) {
+	case IIO_CHAN_INFO_SAMP_FREQ:
+		odr_index = adxl372_get_odr_index(st, val);
+		if (odr_index < 0)
+			return odr_index;
+
+		ret = adxl372_set_odr(st, odr_index);
+		if (ret < 0)
+			return ret;
+
+		/*
+		 * The maximum bandwidth is constrained to at most half of
+		 * the ODR to ensure that the Nyquist criteria is not violated
+		 */
+		if (st->bw > odr_index)
+			ret = adxl372_set_bandwidth(st, odr_index);
+
+		break;
+	default:
+		ret = -EINVAL;
+	}
+
+	return ret;
+}
+
+static IIO_CONST_ATTR_SAMP_FREQ_AVAIL("400 800 1600 3200 6400");
+
+static struct attribute *adxl372_attributes[] = {
+	&iio_const_attr_sampling_frequency_available.dev_attr.attr,
+	NULL,
+};
+
+static const struct attribute_group adxl372_attrs_group = {
+	.attrs = adxl372_attributes,
+};
 
 static ssize_t adxl372_get_fifo_enabled(struct device *dev,
 					  struct device_attribute *attr,
@@ -861,7 +929,9 @@ static const struct iio_trigger_ops adxl372_trigger_ops = {
 
 static const struct iio_info adxl372_info = {
 	.driver_module	= THIS_MODULE,
-	.read_raw	= adxl372_raw,
+	.attrs		= &adxl372_attrs_group,
+	.read_raw	= adxl372_read_raw,
+	.write_raw	= adxl372_write_raw,
 	.debugfs_reg_access = &adxl372_reg_access,
 	.hwfifo_set_watermark = adxl372_set_watermark,
 };
