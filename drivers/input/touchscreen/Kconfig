@@ -1401,3 +1401,5 @@ config TOUCHSCREEN_HIMAX_HX83112B
 	  module will be called himax_hx83112b.
 
 endif
+
+source "drivers/input/touchscreen/synaptics_dsx/Kconfig"
