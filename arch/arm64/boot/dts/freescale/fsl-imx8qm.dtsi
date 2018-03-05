@@ -148,6 +148,27 @@
 			     <0 32 4>, <0 32 4>, <0 32 4>, <0 32 4>;
 	};
 
+	cci@52090000 {
+		compatible = "arm,cci-400";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		reg = <0 0x52090000 0 0x1000>;
+		ranges = <0 0 0x52090000 0x10000>;
+
+		pmu@9000 {
+			compatible = "arm,cci-400-pmu,r1",
+				     "arm,cci-400-pmu";
+			reg = <0x9000 0x4000>;
+			interrupts = <GIC_SPI 8 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 9 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 10 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 11 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 12 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 13 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-parent = <&gic>;
+		};
+	};
+
 	imx8qm-pm {
 		#address-cells = <1>;
 		#size-cells = <0>;
