@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2016 Freescale Semiconductor, Inc.
- * Copyright 2017 NXP
+ * Copyright 2017-2018 NXP
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -880,7 +880,7 @@
 	tsens: thermal-sensor {
 		compatible = "nxp,imx8qxp-sc-tsens";
 		/* number of the temp sensor on the chip */
-		tsens-num = <1>;
+		tsens-num = <2>;
 		#thermal-sensor-cells = <1>;
 	};
 
@@ -908,6 +908,24 @@
 					trip = <&cpu_alert0>;
 					cooling-device =
 					<&A35_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
+			};
+		};
+
+		drc-thermal0 {
+			polling-delay-passive = <250>;
+			polling-delay = <2000>;
+			thermal-sensors = <&tsens 1>;
+			trips {
+				drc_alert0: trip0 {
+					temperature = <85000>;
+					hysteresis = <2000>;
+					type = "passive";
+				};
+				drc_crit0: trip1 {
+					temperature = <127000>;
+					hysteresis = <2000>;
+					type = "critical";
 				};
 			};
 		};
