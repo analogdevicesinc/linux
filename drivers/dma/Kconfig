@@ -384,6 +384,8 @@ config MXS_DMA
 	  Support the MXS DMA engine. This engine including APBH-DMA
 	  and APBX-DMA is integrated into some Freescale chips.
 
+source "drivers/dma/pxp/Kconfig"
+
 config MX3_IPU
 	bool "MX3x Image Processing Unit support"
 	depends on ARCH_MXC
