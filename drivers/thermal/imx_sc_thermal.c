@@ -44,8 +44,7 @@ enum imx_thermal_trip {
 
 static const sc_rsrc_t imx8qm_sensor_hw_id[] = {
 	SC_R_A53, SC_R_A72, SC_R_GPU_0_PID0, SC_R_GPU_1_PID0,
-	SC_R_DRC_0, SC_R_DRC_1, SC_R_VPU_PID0, SC_R_PMIC_0,
-	SC_R_PMIC_1, SC_R_PMIC_2,
+	SC_R_DRC_0, SC_R_PMIC_0, SC_R_PMIC_1, SC_R_PMIC_2,
 };
 
 static const sc_rsrc_t imx8qxp_sensor_hw_id[] = {
