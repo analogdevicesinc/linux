@@ -33,6 +33,8 @@
 #include <linux/clkdev.h>
 #include <linux/clk-provider.h>
 
+#define IIO_AD9361_USE_PRIVATE_H_
+
 #include "ad9361.h"
 #include "ad9361_private.h"
 
