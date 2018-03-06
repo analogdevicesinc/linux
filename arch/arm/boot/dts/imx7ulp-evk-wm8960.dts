@@ -117,7 +117,7 @@
 	};
 
 	sound {
-		compatible = "fsl,imx7ulp-evk-wm8960",
+		compatible = "fsl,imx7d-evk-wm8960",
 			     "fsl,imx-audio-wm8960";
 		model = "wm8960-audio";
 		cpu-dai = <&sai0>;
@@ -125,8 +125,6 @@
 		codec-master;
 		/* JD3: hp detect high for headphone*/
 		hp-det = <3 0>;
-		hp-det-gpios = <&gpio_ptf 0 0>;
-		mic-det-gpios = <&gpio_ptf 0 0>;
 		audio-routing =
 			"Headphone Jack", "HP_L",
 			"Headphone Jack", "HP_R",
@@ -166,19 +164,6 @@
 	};
 };
 
-&iomuxc1 {
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_hog_1 &pinctrl_hog_audio>;
-
-	imx7ulp-evk {
-		pinctrl_hog_audio: hoggrp-audio {
-			fsl,pins = <
-				IMX7ULP_PAD_PTF0__PTF0		0x30100
-			>;
-		};
-	};
-};
-
 &lpi2c7 {
 	status = "okay";
 
@@ -188,10 +173,8 @@
 		clocks = <&clks_m4 IMX7ULP_CLK_SCG0_CLKOUT>;
 		clock-names = "mclk";
 		wlf,shared-lrclk;
-		assigned-clocks = <&clks_m4 IMX7ULP_CM4_CLK_APLL_SEL>,
-				  <&clks_m4 IMX7ULP_CLK_SCG0_CLKOUT>;
-		assigned-clock-parents = <&clks_m4 IMX7ULP_CM4_CLK_APLL_VCO_POST_DIV2>,
-					 <&clks_m4 IMX7ULP_CM4_CLK_APLL_SEL>;
+		assigned-clocks = <&clks_m4 IMX7ULP_CLK_SCG0_CLKOUT>;
+		assigned-clock-parents = <&clks_m4 IMX7ULP_CM4_CLK_SOSC>;
 	};
 };
 
