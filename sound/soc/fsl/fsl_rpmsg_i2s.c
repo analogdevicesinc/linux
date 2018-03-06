@@ -37,7 +37,7 @@ static int i2s_send_message(struct i2s_rpmsg_s *msg,
 
 	mutex_lock(&info->tx_lock);
 	if (!info->rpdev) {
-		dev_dbg(info->dev, "rpmsg channel not ready, m4 image ready?\n");
+		dev_err(info->dev, "rpmsg channel not ready, m4 image ready?\n");
 		mutex_unlock(&info->tx_lock);
 		return -EINVAL;
 	}
@@ -62,6 +62,9 @@ static int i2s_send_message(struct i2s_rpmsg_s *msg,
 		mutex_unlock(&info->tx_lock);
 		return -ETIMEDOUT;
 	}
+
+	if (msg->header.cmd == GET_CODEC_VALUE)
+		msg->param.buffer_size = info->recv_msg.param.reg_data;
 
 	dev_dbg(&info->rpdev->dev, "cmd:%d, resp %d\n", msg->header.cmd,
 						info->recv_msg.param.resp);
@@ -146,7 +149,7 @@ static int fsl_rpmsg_i2s_probe(struct platform_device *pdev)
 		i2s_info->work_list[i].i2s_info = i2s_info;
 	}
 
-	for (i = 0; i < 2; i++) {
+	for (i = 0; i < RPMSG_AUDIO_NUM; i++) {
 		i2s_info->send_msg[i].header.cate  = IMX_RPMSG_AUDIO;
 		i2s_info->send_msg[i].header.major = IMX_RMPSG_MAJOR;
 		i2s_info->send_msg[i].header.minor = IMX_RMPSG_MINOR;
@@ -155,6 +158,7 @@ static int fsl_rpmsg_i2s_probe(struct platform_device *pdev)
 	}
 
 	mutex_init(&i2s_info->tx_lock);
+	mutex_init(&i2s_info->i2c_lock);
 
 	platform_set_drvdata(pdev, rpmsg_i2s);
 	pm_runtime_enable(&pdev->dev);
