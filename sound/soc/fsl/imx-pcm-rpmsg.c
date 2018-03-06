@@ -463,8 +463,6 @@ static int i2s_rpmsg_cb(struct rpmsg_device *rpdev, void *data, int len,
 
 	dev_dbg(&rpdev->dev, "get from%d: cmd:%d.\n", src, msg->header.cmd);
 
-	memcpy(&i2s_info_g->recv_msg, msg, sizeof(struct i2s_rpmsg_r));
-
 	if (msg->header.type == I2S_TYPE_C) {
 		if (msg->header.cmd == I2S_TX_PERIOD_DONE) {
 			spin_lock_irqsave(&i2s_info_g->lock[0], flags);
@@ -483,8 +481,10 @@ static int i2s_rpmsg_cb(struct rpmsg_device *rpdev, void *data, int len,
 		}
 	}
 
-	if (msg->header.type == I2S_TYPE_B)
+	if (msg->header.type == I2S_TYPE_B) {
+		memcpy(&i2s_info_g->recv_msg, msg, sizeof(struct i2s_rpmsg_r));
 		complete(&i2s_info_g->cmd_complete);
+	}
 
 	return 0;
 }
