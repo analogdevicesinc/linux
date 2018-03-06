@@ -1760,27 +1760,32 @@ static int usb_ss_gadget_ep_dequeue(struct usb_ep *ep,
 		to_usb_ss_ep(ep);
 	struct usb_ss_dev *usb_ss = usb_ss_ep->usb_ss;
 	unsigned long flags;
+	struct usb_request *req, *req_temp;
+
+	if (ep == NULL || request == NULL || ep->desc == NULL)
+		return -EINVAL;
 
 	spin_lock_irqsave(&usb_ss->lock, flags);
-	if (!usb_ss->start_gadget) {
-		dev_dbg(&usb_ss->dev,
-			"DEQUEUE at disconnection: %s\n", ep->name);
-		spin_unlock_irqrestore(&usb_ss->lock, flags);
-		return 0;
-	}
 	dev_dbg(&usb_ss->dev, "DEQUEUE(%02X) %d\n",
 		ep->address, request->length);
 	usb_gadget_unmap_request_by_dev(usb_ss->sysdev, request,
 		ep->address & USB_DIR_IN);
 	request->status = -ECONNRESET;
 
-	if (ep->address)
-	list_del(&request->list);
-
-	if (request->complete) {
-		spin_unlock(&usb_ss->lock);
-		request->complete(ep, request);
-		spin_lock(&usb_ss->lock);
+	if (ep->address) {
+		list_for_each_entry_safe(req, req_temp,
+			&usb_ss_ep->request_list, list) {
+			if (request == req) {
+				list_del_init(&request->list);
+				if (request->complete) {
+					spin_unlock(&usb_ss->lock);
+					usb_gadget_giveback_request
+						(&usb_ss_ep->endpoint, request);
+					spin_lock(&usb_ss->lock);
+				}
+				break;
+			}
+		}
 	}
 
 	spin_unlock_irqrestore(&usb_ss->lock, flags);
