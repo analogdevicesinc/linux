@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 NXP.
+ * Copyright 2017-2018 NXP.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -49,7 +49,7 @@ static const sc_rsrc_t imx8qm_sensor_hw_id[] = {
 };
 
 static const sc_rsrc_t imx8qxp_sensor_hw_id[] = {
-	SC_R_DRC_0,
+	SC_R_SYSTEM, SC_R_DRC_0,
 };
 
 const int *sensor_hw_id;
