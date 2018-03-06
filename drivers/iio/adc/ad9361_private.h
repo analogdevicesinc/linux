@@ -9,6 +9,10 @@
 #ifndef IIO_AD9361_PRIVATE_H_
 #define IIO_AD9361_PRIVATE_H_
 
+#ifndef IIO_AD9361_USE_PRIVATE_H_
+#error "Please do not include ad9361_private.h; use ad9361.h instead"
+#endif
+
 #include "ad9361.h"
 
 /*
