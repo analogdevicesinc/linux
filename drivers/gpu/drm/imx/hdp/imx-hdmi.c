@@ -226,8 +226,6 @@ void hdmi_mode_set_t28hpc(state_struct *state, int vic, int format, int color_de
 		DRM_ERROR("CDN_API_HDMITX_SetVic_blocking ret = %d\n", ret);
 		return;
 	}
-
-	msleep(200);
 }
 
 int hdmi_get_edid_block(void *data, u8 *buf, u32 block, size_t len)
