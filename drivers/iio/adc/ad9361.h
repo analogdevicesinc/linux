@@ -71,6 +71,26 @@ enum {
 	ID_AD9363A,
 };
 
+enum rx_port_sel {
+	RX_A_BALANCED,	/* 0 = (RX1A_N &  RX1A_P) and (RX2A_N & RX2A_P) enabled; balanced */
+	RX_B_BALANCED,  /* 1 = (RX1B_N &  RX1B_P) and (RX2B_N & RX2B_P) enabled; balanced */
+	RX_C_BALANCED,  /* 2 = (RX1C_N &  RX1C_P) and (RX2C_N & RX2C_P) enabled; balanced */
+	RX_A_N,		/* 3 = RX1A_N and RX2A_N enabled; unbalanced */
+	RX_A_P,		/* 4 = RX1A_P and RX2A_P enabled; unbalanced */
+	RX_B_N,		/* 5 = RX1B_N and RX2B_N enabled; unbalanced */
+	RX_B_P,		/* 6 = RX1B_P and RX2B_P enabled; unbalanced */
+	RX_C_N,		/* 7 = RX1C_N and RX2C_N enabled; unbalanced */
+	RX_C_P,		/* 8 = RX1C_P and RX2C_P enabled; unbalanced */
+	TX_MON1,	/* 9 = TX_MON1 enabled */
+	TX_MON2,	/* 10 = TX_MON2 enabled */
+	TX_MON1_2,	/* 11 = TX_MON1 & TX_MON2 enabled */
+};
+
+enum tx_port_sel {
+	TX_A,
+	TX_B,
+};
+
 enum digital_tune_skip_mode {
 	TUNE_RX_TX,
 	SKIP_TX,
@@ -158,6 +178,8 @@ int ad9361_get_dig_tune_data(struct ad9361_rf_phy *phy,
 int ad9361_read_clock_data_delays(struct ad9361_rf_phy *phy);
 int ad9361_write_clock_data_delays(struct ad9361_rf_phy *phy);
 bool ad9361_uses_lvds_mode(struct ad9361_rf_phy *phy);
+int ad9361_set_rx_port(struct ad9361_rf_phy *phy, enum rx_port_sel sel);
+int ad9361_set_tx_port(struct ad9361_rf_phy *phy, enum tx_port_sel sel);
 
 #endif
 
