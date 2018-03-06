@@ -411,7 +411,8 @@ CDN_API_STATUS CDN_API_DPTX_ReadEvent_blocking(state_struct *state,
 				(state, LinkeventId, HPDevents));
 }
 
-CDN_API_STATUS CDN_API_DPTX_Set_VIC(state_struct *state, VIC_MODES vicMode,
+CDN_API_STATUS CDN_API_DPTX_Set_VIC(state_struct *state,
+					struct drm_display_mode *mode,
 				    int bitsPerPixel,
 				    VIC_NUM_OF_LANES NumOfLanes,
 				    VIC_SYMBOL_RATE rate,
@@ -453,7 +454,7 @@ CDN_API_STATUS CDN_API_DPTX_Set_VIC(state_struct *state, VIC_MODES vicMode,
 		bitsPerPixelCalc = bitsPerPixel * 3;
 
 	/* KHz */
-	pixelClockFreq = vic_table[vicMode][PIXEL_FREQ_KHZ];
+	pixelClockFreq = mode->clock;
 
 	/* KHz */
 	min_link_rate = rate * 995;
@@ -482,9 +483,6 @@ CDN_API_STATUS CDN_API_DPTX_Set_VIC(state_struct *state, VIC_MODES vicMode,
 		val2 = TU_SIZE_reg * pixelClockFreq * bitsPerPixelCalc;
 		val2_f = val2 / (NumOfLanes * min_link_rate * 8);
 		val2 /= NumOfLanes * min_link_rate * 8;
-
-/*		pr_info("val=%d, val_f=%d, val2=%d, val2_f=%d\n", val, val_f,
-		       val2, val2_f); */
 	}
 
 	/* calculate the fixed valid symbols */
@@ -510,65 +508,50 @@ CDN_API_STATUS CDN_API_DPTX_Set_VIC(state_struct *state, VIC_MODES vicMode,
 	lineThresh += 2;
 
 	DP_FRAMER_SP_Param =
-	    (vic_table[vicMode][I_P] == INTERLACED ? 4 : 0) +
-	    (vic_table[vicMode][HSYNC_POL] == ACTIVE_LOW ? 2 : 0) +
-	    (vic_table[vicMode][VSYNC_POL] == ACTIVE_LOW ? 1 : 0);
-	DP_FRONT_BACK_PORCH_Param =
-	    vic_table[vicMode][BACK_PORCH] +
-	    (vic_table[vicMode][FRONT_PORCH] << 16);
+	    ((mode->flags & DRM_MODE_FLAG_INTERLACE) ? 4 : 0) +
+		((mode->flags & DRM_MODE_FLAG_NHSYNC) ? 2 : 0) +
+		((mode->flags & DRM_MODE_FLAG_NVSYNC) ? 1 : 0);
 
-	DP_BYTE_COUNT_Param =
-	    vic_table[vicMode][H_ACTIVE] * (bitsPerPixelCalc) / 8;
+	DP_FRONT_BACK_PORCH_Param =
+	    mode->htotal - mode->hsync_end + ((mode->hsync_start - mode->hdisplay) << 16);
+
+	DP_BYTE_COUNT_Param = mode->hdisplay * (bitsPerPixelCalc) / 8;
+
 	MSA_HORIZONTAL_0_Param =
-	    vic_table[vicMode][H_TOTAL] +
-	    ((vic_table[vicMode][HSYNC] +
-	      vic_table[vicMode][BACK_PORCH]) << 16);
+	    mode->htotal + ((mode->htotal - mode->hsync_start) << 16);
+
 	MSA_HORIZONTAL_1_Param =
-	    vic_table[vicMode][HSYNC] +
-	    ((vic_table[vicMode][HSYNC_POL] ==
-	      ACTIVE_LOW ? 0 : 1) << 15) + (vic_table[vicMode][H_ACTIVE] << 16);
+	    mode->hsync_end - mode->hsync_start +
+	    ((mode->flags & DRM_MODE_FLAG_NHSYNC ? 0 : 1) << 15) + (mode->hdisplay << 16);
 
 	MSA_VERTICAL_0_Param =
-	    (vic_table[vicMode][I_P] == INTERLACED ?
-	     ((vic_table[vicMode][V_TOTAL] /
-	       2)) : vic_table[vicMode][V_TOTAL]) +
-	    ((vic_table[vicMode][VSYNC] + vic_table[vicMode][SOF]) << 16);
-	MSA_VERTICAL_1_Param =
-	    (vic_table[vicMode][VSYNC] +
-	     ((vic_table[vicMode][VSYNC_POL] ==
-	       ACTIVE_LOW ? 0 : 1) << 15)) + ((vic_table[vicMode][I_P] ==
-					       INTERLACED ?
-					       vic_table[vicMode][V_ACTIVE] /
-					       2 : vic_table[vicMode][V_ACTIVE])
-					      << 16);
-	DP_HORIZONTAL_ADDR_Param =
-	    ((vic_table[vicMode][H_TOTAL] -
-	      vic_table[vicMode][H_BLANK]) << 16) +
-	    (vic_table[vicMode][H_BLANK] - vic_table[vicMode][FRONT_PORCH] -
-	     vic_table[vicMode][BACK_PORCH]);
-	DP_VERTICAL_0_ADDR_Param =
-	    (vic_table[vicMode][I_P] ==
-	     INTERLACED ? (((vic_table[vicMode][V_TOTAL]) / 2)) :
-	     vic_table[vicMode][V_TOTAL]) - (vic_table[vicMode][VSYNC] +
-					     vic_table[vicMode][SOF] +
-					     vic_table[vicMode][TYPE_EOF]) +
-	    ((vic_table[vicMode][VSYNC] + vic_table[vicMode][SOF]) << 16);
-	DP_VERTICAL_1_ADDR_Param =
-	    (vic_table[vicMode][I_P] ==
-	     INTERLACED ? (((vic_table[vicMode][V_TOTAL]) / 2)) :
-	     vic_table[vicMode][V_TOTAL]);
+	    (mode->flags & DRM_MODE_FLAG_INTERLACE ? (mode->vtotal / 2) : mode->vtotal) +
+	    ((mode->vtotal - mode->vsync_start) << 16);
 
-	if (vic_table[vicMode][I_P] == INTERLACED)
+	MSA_VERTICAL_1_Param =
+	    (mode->vsync_end - mode->vsync_start +
+		 ((mode->flags & DRM_MODE_FLAG_NVSYNC ? 0 : 1) << 15)) +
+		((mode->flags & DRM_MODE_FLAG_INTERLACE ? mode->vdisplay / 2 : mode->vdisplay) << 16);
+
+	DP_HORIZONTAL_ADDR_Param = (mode->hdisplay << 16) + mode->hsync;
+
+	DP_VERTICAL_0_ADDR_Param =
+	    (mode->flags & DRM_MODE_FLAG_INTERLACE ? (mode->vtotal / 2) : mode->vtotal) -
+		(mode->vtotal - mode->vdisplay) + ((mode->vtotal - mode->vsync_start) << 16);
+
+	DP_VERTICAL_1_ADDR_Param =
+	    mode->flags & DRM_MODE_FLAG_INTERLACE ? (mode->vtotal / 2) : mode->vtotal;
+
+	if (mode->flags & DRM_MODE_FLAG_INTERLACE)
 		BND_HSYNC2VSYNC_Param = 0x3020;
 	else
 		BND_HSYNC2VSYNC_Param = 0x2000;
 
-	if (vic_table[vicMode][HSYNC_POL] == ACTIVE_LOW) {
+	if (mode->flags & DRM_MODE_FLAG_NHSYNC)
 		HSYNC2VSYNC_POL_CTRL_Param |= F_HPOL(1);
-	}
-	if (vic_table[vicMode][VSYNC_POL] == ACTIVE_LOW) {
+
+	if (mode->flags & DRM_MODE_FLAG_NVSYNC)
 		HSYNC2VSYNC_POL_CTRL_Param |= F_VPOL(1);
-	}
 
 	switch (bitsPerPixel) {
 	case 6:
@@ -638,13 +621,13 @@ CDN_API_STATUS CDN_API_DPTX_Set_VIC(state_struct *state, VIC_MODES vicMode,
 
 	};
 
-	oddEvenV_Total = vic_table[vicMode][V_TOTAL] % 2;
+	oddEvenV_Total = mode->vtotal % 2;
 	oddEvenV_Total = 1 - oddEvenV_Total;
 	oddEvenV_Total = oddEvenV_Total << 8;
 	MSA_MISC_Param =
 	    ((tempForMisc * 2) + (32 * tempForMisc2) +
 	     ((pxlencformat == Y_ONLY ? 1 : 0) << 14) +
-	     ((oddEvenV_Total) * (vic_table[vicMode][I_P])));
+	     ((oddEvenV_Total) * (mode->flags & DRM_MODE_FLAG_INTERLACE ? 1 : 0)));
 
 	/* 420 has diffrent parameters, enable VSS SDP */
 	if (pxlencformat == YCBCR_4_2_0)
@@ -749,8 +732,7 @@ CDN_API_STATUS CDN_API_DPTX_Set_VIC(state_struct *state, VIC_MODES vicMode,
 		ret =
 		    CDN_API_DPTX_Write_Field(state, BASE_DPTX_STREAM, DP_VB_ID,
 					     2, 1,
-					     ((vic_table[vicMode][I_P] ==
-					       INTERLACED ? 1 : 0) << 2));
+					     ((mode->flags & DRM_MODE_FLAG_INTERLACE ? 1 : 0) << 2));
 		break;
 	case 17:
 		ret =
@@ -784,7 +766,7 @@ CDN_API_STATUS CDN_API_DPTX_Set_VIC(state_struct *state, VIC_MODES vicMode,
 }
 
 CDN_API_STATUS CDN_API_DPTX_Set_VIC_blocking(state_struct *state,
-					     VIC_MODES vicMode,
+					     struct drm_display_mode *mode,
 					     int bitsPerPixel,
 					     VIC_NUM_OF_LANES NumOfLanes,
 					     VIC_SYMBOL_RATE rate,
@@ -794,7 +776,7 @@ CDN_API_STATUS CDN_API_DPTX_Set_VIC_blocking(state_struct *state,
 					     BT_TYPE bt_type, int TU)
 {
 	internal_block_function(&state->mutex, CDN_API_DPTX_Set_VIC
-				(state, vicMode, bitsPerPixel, NumOfLanes, rate,
+				(state, mode, bitsPerPixel, NumOfLanes, rate,
 				 pxlencformat, steroVidAttr, bt_type, TU));
 }
 

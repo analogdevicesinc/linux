@@ -35,6 +35,8 @@
  * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
  * OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *
+ * Copyright 2017-2018 NXP
+ *
  ******************************************************************************
  *
  * API_AFE_t28hpc_hdmitx.h
@@ -51,7 +53,7 @@
 
 #include "../../../../mxc/hdp/all.h"
 
-int phy_cfg_t28hpc(state_struct *state, int num_lanes, VIC_MODES vicMode, int bpp,
+int phy_cfg_t28hpc(state_struct *state, int num_lanes, struct drm_display_mode *mode, int bpp,
 		VIC_PXL_ENCODING_FORMAT format, bool pixel_clk_from_phy);
 int hdmi_tx_t28hpc_power_config_seq(state_struct *state, int num_lanes);
 

@@ -45,28 +45,19 @@ static u32 N_table_48k[8] = {
 6144, 6144, 6144, 6144, 6144, 5120, 6144, 6144,
 };
 
-static int select_N_index(int vmode_index)
+static int select_N_index(u32 pclk)
 {
+	int i = 0;
 
-	int i = 0, j = 0;
-
-	for (i = 0; i < VIC_MODE_COUNT; i++) {
-		if (vic_table[i][23] == vmode_index)
+	for (i = 0; i < 7; i++) {
+		if (pclk == TMDS_rate_table[i])
 			break;
 	}
 
-	if (i == VIC_MODE_COUNT) {
-		DRM_ERROR("vmode is wrong!\n");
-		j = 7;
-		return j;
-	}
+	if (i == 7)
+		DRM_WARN("pclkc %d is not supported!\n", pclk);
 
-	for (j = 0; j < 7; j++) {
-		if (vic_table[i][13] == TMDS_rate_table[j])
-			break;
-	}
-
-	return j;
+	return i;
 }
 
 static u32 imx_hdp_audio(struct imx_hdp *hdmi, AUDIO_TYPE type, u32 sample_rate, u32 channels, u32 width)
@@ -75,7 +66,7 @@ static u32 imx_hdp_audio(struct imx_hdp *hdmi, AUDIO_TYPE type, u32 sample_rate,
 	AUDIO_WIDTH bits;
 	int ncts_n;
 	state_struct *state = &hdmi->state;
-	int idx_n = select_N_index(hdmi->vic);
+	int idx_n = select_N_index(hdmi->cur_mode->clock);
 
 	switch (sample_rate) {
 	case 32000:

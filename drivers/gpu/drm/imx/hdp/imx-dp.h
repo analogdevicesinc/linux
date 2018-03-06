@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 NXP
+ * Copyright 2017-2018 NXP
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -16,8 +16,8 @@
 
 void dp_fw_load(state_struct *state);
 int dp_fw_init(state_struct *state);
-void dp_mode_set(state_struct *state, int vic, int format, int color_depth, int max_link_rate);
-int dp_phy_init(state_struct *state, int vic, int format, int color_depth);
+void dp_mode_set(state_struct *state, struct drm_display_mode *mode, int format, int color_depth, int max_link_rate);
+int dp_phy_init(state_struct *state, struct drm_display_mode *mode, int format, int color_depth);
 int dp_get_edid_block(void *data, u8 *buf, u32 block, size_t len);
 int dp_get_hpd_state(state_struct *state, u8 *hpd);
 

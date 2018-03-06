@@ -35,6 +35,8 @@
  * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
  * OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *
+ * Copyright 2017-2018 NXP
+ *
  ******************************************************************************
  *
  * API_AFE_ss28fdsoi_kiran_hdmitx.h
@@ -48,7 +50,7 @@
 #include "../../../../mxc/hdp/all.h"
 
 int phy_cfg_hdp_ss28fdsoi(state_struct *state, int num_lanes,
-				VIC_MODES vicMode, int bpp, VIC_PXL_ENCODING_FORMAT format);
+				struct drm_display_mode *mode, int bpp, VIC_PXL_ENCODING_FORMAT format);
 int hdmi_tx_kiran_power_configuration_seq(state_struct *state, int num_lanes);
 int get_table_row_match_column(const u32 *array, u32 table_rows,
 			       u32 table_cols, u32 start_row,

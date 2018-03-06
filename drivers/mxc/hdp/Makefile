@@ -8,5 +8,4 @@ obj-$(CONFIG_MX8_HDP) += \
 	API_HDMI_Audio.o \
 	API_Infoframe.o \
 	API_DPTX.o \
-	util.o \
-	vic_table.o
+	util.o

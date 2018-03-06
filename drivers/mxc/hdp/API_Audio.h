@@ -48,7 +48,6 @@
 #define API_AUDIO_H_
 
 #include "API_General.h"
-#include "vic_table.h"
 /**
  * \addtogroup AUDIO_API
  * \{

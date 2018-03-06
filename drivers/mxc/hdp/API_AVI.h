@@ -47,10 +47,9 @@
 #ifndef API_AVI_H_
 #define API_AVI_H_
 
-#include "vic_table.h"
 #include "API_General.h"
 
-CDN_API_STATUS CDN_API_Set_AVI(state_struct *state, VIC_MODES vicMode,
+CDN_API_STATUS CDN_API_Set_AVI(state_struct *state, struct drm_display_mode *mode,
 			       VIC_PXL_ENCODING_FORMAT colorMode,
 			       BT_TYPE ITUver);
 

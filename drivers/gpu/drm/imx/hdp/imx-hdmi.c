@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 NXP
+ * Copyright 2017-2018 NXP
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -76,7 +76,7 @@ int hdmi_fw_init(state_struct *state)
 	return 0;
 }
 
-int hdmi_phy_init(state_struct *state, int vic, int format, int color_depth)
+int hdmi_phy_init(state_struct *state, struct drm_display_mode *mode, int format, int color_depth)
 {
 	struct imx_hdp *hdp = state_to_imx_hdp(state);
 	int ret;
@@ -85,7 +85,7 @@ int hdmi_phy_init(state_struct *state, int vic, int format, int color_depth)
 	imx_hdp_call(hdp, phy_reset, hdp->ipcHndl, 0);
 
 	/* Configure PHY */
-	character_freq_khz = phy_cfg_hdp_ss28fdsoi(state, 4, vic, color_depth, format);
+	character_freq_khz = phy_cfg_hdp_ss28fdsoi(state, 4, mode, color_depth, format);
 
 	imx_hdp_call(hdp, phy_reset, hdp->ipcHndl, 1);
 
@@ -101,7 +101,7 @@ int hdmi_phy_init(state_struct *state, int vic, int format, int color_depth)
 	return true;
 }
 
-void hdmi_mode_set(state_struct *state, int vic, int format, int color_depth, int temp)
+void hdmi_mode_set(state_struct *state, struct drm_display_mode *mode, int format, int color_depth, int temp)
 {
 	int ret;
 
@@ -110,7 +110,7 @@ void hdmi_mode_set(state_struct *state, int vic, int format, int color_depth, in
 	/* Mode = 0 - DVI, 1 - HDMI1.4, 2 HDMI 2.0 */
 	HDMI_TX_MAIL_HANDLER_PROTOCOL_TYPE ptype = 1;
 
-	if (vic == VIC_MODE_97_60Hz)
+	if (drm_match_cea_mode(mode) == VIC_MODE_97_60Hz)
 		ptype = 2;
 
 	ret = CDN_API_HDMITX_Init_blocking(state);
@@ -126,13 +126,13 @@ void hdmi_mode_set(state_struct *state, int vic, int format, int color_depth, in
 		return;
 	}
 
-	ret = CDN_API_Set_AVI(state, vic, format, bw_type);
+	ret = CDN_API_Set_AVI(state, mode, format, bw_type);
 	if (ret != CDN_OK) {
 		DRM_INFO("CDN_API_Set_AVI  ret = %d\n", ret);
 		return;
 	}
 
-	ret =  CDN_API_HDMITX_SetVic_blocking(state, vic, color_depth, format);
+	ret =  CDN_API_HDMITX_SetVic_blocking(state, mode, color_depth, format);
 	if (ret != CDN_OK) {
 		DRM_INFO("CDN_API_HDMITX_SetVic_blocking ret = %d\n", ret);
 		return;
@@ -141,7 +141,7 @@ void hdmi_mode_set(state_struct *state, int vic, int format, int color_depth, in
 	msleep(50);
 }
 
-int hdmi_phy_init_t28hpc(state_struct *state, int vic, int format, int color_depth)
+int hdmi_phy_init_t28hpc(state_struct *state, struct drm_display_mode *mode, int format, int color_depth)
 {
 	int ret;
 	/* 0- pixel clock from phy */
@@ -167,7 +167,7 @@ int hdmi_phy_init_t28hpc(state_struct *state, int vic, int format, int color_dep
 
 	/* Configure PHY */
 	character_freq_khz =
-	    phy_cfg_t28hpc(state, 4, vic, color_depth, format, pixel_clk_from_phy);
+	    phy_cfg_t28hpc(state, 4, mode, color_depth, format, pixel_clk_from_phy);
 
 	hdmi_tx_t28hpc_power_config_seq(state, 4);
 
@@ -188,7 +188,7 @@ int hdmi_phy_init_t28hpc(state_struct *state, int vic, int format, int color_dep
 	return true;
 }
 
-void hdmi_mode_set_t28hpc(state_struct *state, int vic, int format, int color_depth, int temp)
+void hdmi_mode_set_t28hpc(state_struct *state, struct drm_display_mode *mode, int format, int color_depth, int temp)
 {
 	int ret;
 
@@ -199,7 +199,7 @@ void hdmi_mode_set_t28hpc(state_struct *state, int vic, int format, int color_de
 	/* Mode = 0 - DVI, 1 - HDMI1.4, 2 HDMI 2.0 */
 	HDMI_TX_MAIL_HANDLER_PROTOCOL_TYPE ptype = 1;
 
-	if (vic == VIC_MODE_97_60Hz)
+	if (drm_match_cea_mode(mode) == VIC_MODE_97_60Hz)
 		ptype = 2;
 
 	ret = CDN_API_HDMITX_Init_blocking(state);
@@ -215,13 +215,13 @@ void hdmi_mode_set_t28hpc(state_struct *state, int vic, int format, int color_de
 		return;
 	}
 
-	ret = CDN_API_Set_AVI(state, vic, format, bw_type);
+	ret = CDN_API_Set_AVI(state, mode, format, bw_type);
 	if (ret != CDN_OK) {
 		DRM_ERROR("CDN_API_Set_AVI  ret = %d\n", ret);
 		return;
 	}
 
-	ret = CDN_API_HDMITX_SetVic_blocking(state, vic, color_depth, format);
+	ret = CDN_API_HDMITX_SetVic_blocking(state, mode, color_depth, format);
 	if (ret != CDN_OK) {
 		DRM_ERROR("CDN_API_HDMITX_SetVic_blocking ret = %d\n", ret);
 		return;

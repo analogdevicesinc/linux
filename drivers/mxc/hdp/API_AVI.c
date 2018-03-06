@@ -47,14 +47,14 @@
 #include "API_AVI.h"
 #include "API_Infoframe.h"
 
-CDN_API_STATUS CDN_API_Set_AVI(state_struct *state, VIC_MODES vicMode,
+CDN_API_STATUS CDN_API_Set_AVI(state_struct *state, struct drm_display_mode *mode,
 			       VIC_PXL_ENCODING_FORMAT colorMode,
 			       BT_TYPE ITUver)
 {
-	u32 active_slot = vic_table[vicMode][H_BLANK];
-	u32 line_width = vic_table[vicMode][H_TOTAL];
+	u32 active_slot = mode->htotal - mode->hdisplay;
+	u32 line_width = mode->htotal;
 	u32 Hactive = line_width - active_slot + 1;
-	u32 Vactive = vic_table[vicMode][V_ACTIVE] + 1;
+	u32 Vactive = mode->hdisplay + 1;
 
 	u32 Hactive_l = Hactive - 256 * ((u32) Hactive / 256);
 	u32 Hactive_h = Hactive / 256;
@@ -111,11 +111,16 @@ CDN_API_STATUS CDN_API_Set_AVI(state_struct *state, VIC_MODES vicMode,
 
 	/* Active Format Aspec Ratio:
 	 * Same As Picture = 0x8 4:3(Center)=0x9 16:9=0xA 14:9=0xB */
-	packet_R = vic_table[vicMode][VIC_R3_0];
+	if (mode->picture_aspect_ratio == HDMI_PICTURE_ASPECT_4_3)
+		packet_R = 9;
+	else if (mode->picture_aspect_ratio == HDMI_PICTURE_ASPECT_16_9)
+		packet_R = 0xa;
+	else
+		packet_R = 8;
 	/* Video Code (CEA) */
-	packet_VIC = vic_table[vicMode][VIC];
+	packet_VIC = drm_match_cea_mode(mode);
 	/* Pixel Repetition 0 ... 9 (1-10) */
-	packet_PR = vic_table[vicMode][VIC_PR];
+	packet_PR = 0;
 
 	if (colorMode == PXL_RGB)
 		packet_Y = 0;

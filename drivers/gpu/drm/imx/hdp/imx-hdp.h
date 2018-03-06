@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 NXP
+ * Copyright 2017-2018 NXP
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -59,6 +59,7 @@
 
 #define HOTPLUG_DEBOUNCE_MS		200
 
+#define VIC_MODE_97_60Hz 97
 /**
  * imx_hdp_call - Calls a struct imx hdp_operations operation on
  *	an entity
@@ -86,8 +87,8 @@ struct hdp_clks;
 struct hdp_ops {
 	void (*fw_load)(state_struct *state);
 	int (*fw_init)(state_struct *state);
-	int (*phy_init)(state_struct *state, int vic, int format, int color_depth);
-	void (*mode_set)(state_struct *state, int vic, int format, int color_depth, int max_link);
+	int (*phy_init)(state_struct *state, struct drm_display_mode *mode, int format, int color_depth);
+	void (*mode_set)(state_struct *state, struct drm_display_mode *mode, int format, int color_depth, int max_link);
 	int (*get_edid_block)(void *data, u8 *buf, u32 block, size_t len);
 	int (*get_hpd_state)(state_struct *state, u8 *hpd);
 	int (*write_hdr_metadata)(state_struct *state,
@@ -230,6 +231,8 @@ struct imx_hdp {
 	int bpc;
 	VIC_PXL_ENCODING_FORMAT format;
 	bool hdr_metadata_present;
+	bool hdr_mode;
+	struct drm_display_mode *cur_mode;
 };
 
 void imx_hdp_register_audio_driver(struct device *dev);

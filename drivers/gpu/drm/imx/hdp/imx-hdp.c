@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 NXP
+ * Copyright 2017-2018 NXP
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -28,7 +28,7 @@
 
 struct drm_display_mode *g_mode;
 
-static const struct drm_display_mode edid_cea_modes[] = {
+static struct drm_display_mode edid_cea_modes[] = {
 	/* 3 - 720x480@60Hz */
 	{ DRM_MODE("720x480", DRM_MODE_TYPE_DRIVER, 27000, 720, 736,
 		   798, 858, 0, 480, 489, 495, 525, 0,
@@ -446,20 +446,6 @@ void imx8qm_ipg_clock_set_rate(struct hdp_clks *clks)
 	clk_set_rate(clks->av_pll, 24000000);
 }
 
-static int imx_get_vic_index(struct drm_display_mode *mode)
-{
-	int i;
-
-	for (i = 0; i < VIC_MODE_COUNT; i++) {
-		if (mode->hdisplay == vic_table[i][H_ACTIVE] &&
-			mode->vdisplay == vic_table[i][V_ACTIVE] &&
-			mode->clock == vic_table[i][PIXEL_FREQ_KHZ])
-			return i;
-	}
-	/* vidoe mode not support now  */
-	return -1;
-}
-
 static u8 imx_hdp_link_rate(struct drm_display_mode *mode)
 {
 	if (mode->clock < 297000)
@@ -472,15 +458,7 @@ static u8 imx_hdp_link_rate(struct drm_display_mode *mode)
 
 static void imx_hdp_mode_setup(struct imx_hdp *hdp, struct drm_display_mode *mode)
 {
-	int dp_vic;
 	int ret;
-
-	/* Check video mode supported by hdmi/dp phy */
-	dp_vic = imx_get_vic_index(mode);
-	if (dp_vic < 0) {
-		DRM_ERROR("Unsupport video mode now, %s, clk=%d\n", mode->name, mode->clock);
-		return;
-	}
 
 	/* set pixel clock before video mode setup */
 	imx_hdp_call(hdp, pixel_clock_disable, &hdp->clks);
@@ -495,16 +473,17 @@ static void imx_hdp_mode_setup(struct imx_hdp *hdp, struct drm_display_mode *mod
 	hdp->link_rate = imx_hdp_link_rate(mode);
 
 	/* mode set */
-	ret = imx_hdp_call(hdp, phy_init, &hdp->state, dp_vic, hdp->format, hdp->bpc);
+	ret = imx_hdp_call(hdp, phy_init, &hdp->state, mode, hdp->format, hdp->bpc);
 	if (ret < 0) {
 		DRM_ERROR("Failed to initialise HDP PHY\n");
 		return;
 	}
-	imx_hdp_call(hdp, mode_set, &hdp->state, dp_vic,
+	imx_hdp_call(hdp, mode_set, &hdp->state, mode,
 		     hdp->format, hdp->bpc, hdp->link_rate);
 
 	/* Get vic of CEA-861 */
 	hdp->vic = drm_match_cea_mode(mode);
+	hdp->cur_mode = mode;
 }
 
 bool imx_hdp_bridge_mode_fixup(struct drm_bridge *bridge,
@@ -513,7 +492,7 @@ bool imx_hdp_bridge_mode_fixup(struct drm_bridge *bridge,
 {
 	struct imx_hdp *hdp = bridge->driver_private;
 	struct drm_display_info *di = &hdp->connector.display_info;
-	int vic = imx_get_vic_index((struct drm_display_mode *)mode);
+	int vic = drm_match_cea_mode(mode);
 
 	if (vic < 0)
 		return false;
@@ -626,7 +605,6 @@ imx_hdp_connector_mode_valid(struct drm_connector *connector,
 					     connector);
 	enum drm_mode_status mode_status = MODE_OK;
 	struct drm_cmdline_mode *cmdline_mode;
-	int hdp_vic;
 
 	cmdline_mode = &connector->cmdline_mode;
 
@@ -635,11 +613,6 @@ imx_hdp_connector_mode_valid(struct drm_connector *connector,
 		if (cmdline_mode->xres != 0 &&
 			cmdline_mode->xres < mode->hdisplay)
 			return MODE_BAD_HVALUE;
-	} else {
-		/* Check mode in hdp vic table */
-		hdp_vic = imx_get_vic_index(mode);
-		if (hdp_vic < 0)
-			return MODE_NOMODE;
 	}
 
 	if (hdp->is_4kp60 && mode->clock > 594000)
@@ -1108,7 +1081,7 @@ static int imx_hdp_imx_bind(struct device *dev, struct device *master,
 	/* Pixel Format - 1 RGB, 2 YCbCr 444, 3 YCbCr 420 */
 	/* bpp (bits per subpixel) - 8 24bpp, 10 30bpp, 12 36bpp, 16 48bpp */
 	/* default set hdmi to 1080p60 mode */
-	ret = imx_hdp_call(hdp, phy_init, &hdp->state, 2,
+	ret = imx_hdp_call(hdp, phy_init, &hdp->state, &edid_cea_modes[2],
 			   hdp->format, hdp->bpc);
 	if (ret < 0) {
 		DRM_ERROR("Failed to initialise HDP PHY\n");

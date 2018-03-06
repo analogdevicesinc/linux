@@ -49,6 +49,8 @@
 
 #include <linux/delay.h>
 #include <linux/mutex.h>
+#include <drm/drm_modes.h>
+#include <drm/drm_edid.h>
 
 /**
  * \addtogroup GENERAL_API
@@ -105,6 +107,49 @@ typedef enum {
 	CDN_BUS_TYPE_APB = 0,
 	CDN_BUS_TYPE_SAPB = 1
 } CDN_BUS_TYPE;
+
+typedef enum {
+	NUM_OF_LANES_1 = 1,
+	NUM_OF_LANES_2 = 2,
+	NUM_OF_LANES_4 = 4,
+} VIC_NUM_OF_LANES;
+
+typedef enum {
+	RATE_1_6 = 162,
+	RATE_2_1 = 216,
+	RATE_2_4 = 243,
+	RATE_2_7 = 270,
+	RATE_3_2 = 324,
+	RATE_4_3 = 432,
+	RATE_5_4 = 540,
+	RATE_8_1 = 810,
+} VIC_SYMBOL_RATE;
+
+typedef enum {
+	PXL_RGB = 0x1,
+	YCBCR_4_4_4 = 0x2,
+	YCBCR_4_2_2 = 0x4,
+	YCBCR_4_2_0 = 0x8,
+	Y_ONLY = 0x10,
+} VIC_PXL_ENCODING_FORMAT;
+
+typedef enum {
+	BCS_6 = 0x1,
+	BCS_8 = 0x2,
+	BCS_10 = 0x4,
+	BCS_12 = 0x8,
+	BCS_16 = 0x10,
+} VIC_COLOR_DEPTH;
+
+typedef enum {
+	STEREO_VIDEO_LEFT = 0x0,
+	STEREO_VIDEO_RIGHT = 0x1,
+} STEREO_VIDEO_ATTR;
+
+typedef enum {
+	BT_601 = 0x0,
+	BT_709 = 0x1,
+} BT_TYPE;
 
 typedef struct {
     /** apb write status */
@@ -345,5 +390,4 @@ int cdn_sapb_write(state_struct *state, u32 addr, u32 value);
 void cdn_sleep(u32 ms);
 void cdn_usleep(u32 us);
 u16 internal_get_msg_len(state_struct *state);
-
 #endif

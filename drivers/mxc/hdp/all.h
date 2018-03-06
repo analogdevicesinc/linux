@@ -58,5 +58,4 @@
 #include "source_car.h"
 #include "source_phy.h"
 #include "source_vif.h"
-#include "vic_table.h"
 #include "util.h"

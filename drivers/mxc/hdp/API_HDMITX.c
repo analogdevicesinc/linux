@@ -302,59 +302,59 @@ CDN_API_STATUS CDN_API_HDMITX_Init_blocking(state_struct *state)
 }
 
 CDN_API_STATUS CDN_API_HDMITX_SetVic_blocking(state_struct *state,
-					      VIC_MODES vicMode, int bpp,
+					      struct drm_display_mode *mode, int bpp,
 					      VIC_PXL_ENCODING_FORMAT format)
 {
 	CDN_API_STATUS ret;
 	GENERAL_Read_Register_response resp;
-	u32 vsync_lines = vic_table[vicMode][VSYNC];
-	u32 eof_lines = vic_table[vicMode][TYPE_EOF];
-	u32 sof_lines = vic_table[vicMode][SOF];
-	u32 hblank = vic_table[vicMode][H_BLANK];
-	u32 hactive = vic_table[vicMode][H_TOTAL] - hblank;
-	u32 vblank = vsync_lines + eof_lines + sof_lines;
-	u32 vactive = vic_table[vicMode][V_TOTAL] - vblank;
-	u32 hfront = vic_table[vicMode][FRONT_PORCH];
-	u32 hback = vic_table[vicMode][BACK_PORCH];
+	u32 vsync_lines = mode->vsync_end - mode->vsync_start;
+	u32 eof_lines = mode->vsync_start - mode->vdisplay;
+	u32 sof_lines = mode->vtotal - mode->vsync_end;
+	u32 hblank = mode->htotal - mode->hdisplay;
+	u32 hactive = mode->hdisplay;
+	u32 vblank = mode->vtotal - mode->vdisplay;
+	u32 vactive = mode->vdisplay;
+	u32 hfront = mode->hsync_start - mode->hdisplay;
+	u32 hback = mode->htotal - mode->hsync_end;
 	u32 vfront = eof_lines;
 	u32 hsync = hblank - hfront - hback;
 	u32 vsync = vsync_lines;
 	u32 vback = sof_lines;
-	u32 v_h_polarity = ((vic_table[vicMode][HSYNC_POL] == ACTIVE_LOW) ? 0 : 1) + ((vic_table[vicMode][VSYNC_POL] == ACTIVE_LOW) ? 0 : 2);
+	u32 v_h_polarity = ((mode->flags & DRM_MODE_FLAG_NHSYNC) ? 0 : 1) +
+						((mode->flags & DRM_MODE_FLAG_NVSYNC) ? 0 : 2);
 
-	ret =
-	    CDN_API_General_Write_Register_blocking(state, ADDR_SOURCE_MHL_HD +
+	ret = CDN_API_General_Write_Register_blocking(state, ADDR_SOURCE_MHL_HD +
 						    (SCHEDULER_H_SIZE << 2),
 						    (hactive << 16) + hblank);
 	if (ret != CDN_OK)
 		return ret;
-	ret =
-	    CDN_API_General_Write_Register_blocking(state, ADDR_SOURCE_MHL_HD +
+
+	ret = CDN_API_General_Write_Register_blocking(state, ADDR_SOURCE_MHL_HD +
 						    (SCHEDULER_V_SIZE << 2),
 						    (vactive << 16) + vblank);
 	if (ret != CDN_OK)
 		return ret;
-	ret =
-	    CDN_API_General_Write_Register_blocking(state, ADDR_SOURCE_MHL_HD +
+
+	ret = CDN_API_General_Write_Register_blocking(state, ADDR_SOURCE_MHL_HD +
 						    (HDTX_SIGNAL_FRONT_WIDTH <<
 						     2),
 						    (vfront << 16) + hfront);
 	if (ret != CDN_OK)
 		return ret;
-	ret =
-	    CDN_API_General_Write_Register_blocking(state, ADDR_SOURCE_MHL_HD +
+
+	ret = CDN_API_General_Write_Register_blocking(state, ADDR_SOURCE_MHL_HD +
 						    (HDTX_SIGNAL_SYNC_WIDTH <<
 						     2), (vsync << 16) + hsync);
 	if (ret != CDN_OK)
 		return ret;
-	ret =
-	    CDN_API_General_Write_Register_blocking(state, ADDR_SOURCE_MHL_HD +
+
+	ret = CDN_API_General_Write_Register_blocking(state, ADDR_SOURCE_MHL_HD +
 						    (HDTX_SIGNAL_BACK_WIDTH <<
 						     2), (vback << 16) + hback);
 	if (ret != CDN_OK)
 		return ret;
-	ret =
-	    CDN_API_General_Write_Register_blocking(state, ADDR_SOURCE_VIF +
+
+	ret = CDN_API_General_Write_Register_blocking(state, ADDR_SOURCE_VIF +
 						    (HSYNC2VSYNC_POL_CTRL << 2),
 						    v_h_polarity);
 	if (ret != CDN_OK)
@@ -368,8 +368,7 @@ CDN_API_STATUS CDN_API_HDMITX_SetVic_blocking(state_struct *state,
 
 	/* reset data enable */
 	resp.val = resp.val & (~(F_DATA_EN(1)));
-	ret =
-	    CDN_API_General_Write_Register_blocking(state, ADDR_SOURCE_MHL_HD +
+	ret = CDN_API_General_Write_Register_blocking(state, ADDR_SOURCE_MHL_HD +
 						    (HDTX_CONTROLLER << 2),
 						    resp.val);
 	if (ret != CDN_OK)

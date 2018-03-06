@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 NXP
+ * Copyright 2017-2018 NXP
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -16,12 +16,12 @@
 
 void hdmi_fw_load(state_struct *state);
 int hdmi_fw_init(state_struct *state);
-int hdmi_phy_init(state_struct *state, int vic, int format, int color_depth);
-void hdmi_mode_set(state_struct *state, int vic, int format, int color_depth, int temp);
+int hdmi_phy_init(state_struct *state, struct drm_display_mode *mode, int format, int color_depth);
+void hdmi_mode_set(state_struct *state, struct drm_display_mode *mode, int format, int color_depth, int temp);
 int hdmi_get_edid_block(void *data, u8 *buf, u32 block, size_t len);
 int hdmi_get_hpd_state(state_struct *state, u8 *hpd);
-int hdmi_phy_init_t28hpc(state_struct *state, int vic, int format, int color_depth);
-void hdmi_mode_set_t28hpc(state_struct *state, int vic, int format, int color_depth, int temp);
+int hdmi_phy_init_t28hpc(state_struct *state, struct drm_display_mode *mode, int format, int color_depth);
+void hdmi_mode_set_t28hpc(state_struct *state, struct drm_display_mode *mode, int format, int color_depth, int temp);
 int hdmi_write_hdr_metadata(state_struct *state,
 			    union hdmi_infoframe *hdr_infoframe);
 
