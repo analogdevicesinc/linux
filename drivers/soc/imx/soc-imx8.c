@@ -118,7 +118,7 @@ static u32 imx_init_revision_from_scu(void)
 		return IMX_CHIP_REVISION_UNKNOWN;
 	};
 
-	sc_err = sc_misc_get_control(ipc_handle, SC_R_SC_PID0, SC_C_ID, &id);
+	sc_err = sc_misc_get_control(ipc_handle, SC_R_SYSTEM, SC_C_ID, &id);
 	if (sc_err != SC_ERR_NONE) {
 		WARN(1, "%s: Cannot get control\n", __func__);
 
