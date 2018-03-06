@@ -755,10 +755,8 @@ static int cdns_req_ep0_set_configuration(struct usb_ss_dev *usb_ss,
 	case USB_STATE_ADDRESS:
 		/* Configure non-control EPs */
 		list_for_each_entry_safe(usb_ss_ep, temp_ss_ep,
-			&usb_ss->ep_match_list, ep_match_pending_list) {
+			&usb_ss->ep_match_list, ep_match_pending_list)
 			cdns_ep_config(usb_ss_ep);
-			list_del(&usb_ss_ep->ep_match_pending_list);
-		}
 
 #ifdef CDNS_THREADED_IRQ_HANDLING
 		usb_ss->ep_ien = gadget_readl(usb_ss, &usb_ss->regs->ep_ien)
@@ -1980,18 +1978,24 @@ static int usb_ss_gadget_udc_stop(struct usb_gadget *gadget)
 {
 	struct usb_ss_dev *usb_ss = gadget_to_usb_ss(gadget);
 	struct usb_ep *ep;
-	struct usb_ss_endpoint *usb_ss_ep;
+	struct usb_ss_endpoint *usb_ss_ep, *temp_ss_ep;
 	int i;
 	u32 bEndpointAddress;
 
 	usb_ss->gadget_driver = NULL;
+
+	list_for_each_entry_safe(usb_ss_ep, temp_ss_ep,
+		&usb_ss->ep_match_list, ep_match_pending_list) {
+		list_del(&usb_ss_ep->ep_match_pending_list);
+		usb_ss_ep->used = false;
+	}
+
 	if (!usb_ss->start_gadget)
 		return 0;
 
 	list_for_each_entry(ep, &usb_ss->gadget.ep_list, ep_list) {
 		usb_ss_ep = to_usb_ss_ep(ep);
 		bEndpointAddress = usb_ss_ep->num | usb_ss_ep->dir;
-		usb_ss_ep->used = false;
 		select_ep(usb_ss, bEndpointAddress);
 		gadget_writel(usb_ss, &usb_ss->regs->ep_cmd,
 			EP_CMD__EPRST__MASK);
