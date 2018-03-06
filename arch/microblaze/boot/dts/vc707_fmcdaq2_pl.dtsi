@@ -144,119 +144,45 @@
 			compatible = "adi,axi-ad9144-1.0";
 			reg = <0x44a04000 0x4000>;
 		};
-		axi_ad9144_dma: axi_dmac@7c420000 {
+		tx_dma: tx-dmac@7c420000 {
 			compatible = "adi,axi-dmac-1.00.a";
 			interrupt-parent = <&axi_intc>;
 			interrupts = <13 2>;
 			reg = <0x7c420000 0x10000>;
-			xlnx,2d-transfer = <0x0>;
-			xlnx,axi-slice-dest = <0x0>;
-			xlnx,axi-slice-src = <0x0>;
-			xlnx,clks-async-dest-req = <0x1>;
-			xlnx,clks-async-req-src = <0x1>;
-			xlnx,clks-async-src-dest = <0x1>;
-			xlnx,cyclic = <0x0>;
-			xlnx,dma-axi-protocol-dest = <0x0>;
-			xlnx,dma-axi-protocol-src = <0x0>;
-			xlnx,dma-data-width-dest = <0x80>;
-			xlnx,dma-data-width-src = <0x80>;
-			xlnx,dma-length-width = <0x18>;
-			xlnx,dma-type-dest = <0x1>;
-			xlnx,dma-type-src = <0x0>;
-			xlnx,fifo-size = <0x4>;
-			xlnx,max-bytes-per-burst = <0x80>;
-			xlnx,sync-transfer-start = <0x0>;
 		};
-		axi_ad9144_jesd: axi-jesd204b-tx@44a90000 {
-			compatible = "xlnx,jesd204-6.0";
+		axi_ad9144_jesd: axi-jesd204-tx@44a90000 {
+			compatible = "adi,axi-jesd204-tx-1.0";
+			interrupt-parent = <&axi_intc>;
+			interrupts = <15 0>;
 			reg = <0x44a90000 0x1000>;
-			xlnx,component-name = "system_axi_ad9144_jesd_0";
-			xlnx,default-f = <0x2>;
-			xlnx,default-k = <0x20>;
-			xlnx,default-scr = <0x0>;
-			xlnx,default-sysref-always = <0x0>;
-			xlnx,default-sysref-required = <0x0>;
-			xlnx,drpclk-freq = "156.25";
-			xlnx,elaboration-transient-dir = <0x0>;
-			xlnx,global-clk-sel = "false";
-			xlnx,gt-line-rate = "6.25";
-			xlnx,gt-refclk-freq = "156.250";
-			xlnx,lanes = <0x4>;
-			xlnx,lmfc-buffer-size = <0x6>;
-			xlnx,node-is-transmit = <0x1>;
-			xlnx,pll-selection = <0x0>;
-			xlnx,speedgrade = "-2";
-			xlnx,supportlevel = <0x0>;
-			xlnx,sysref-sampling-edge = <0x0>;
-			xlnx,transceivercontrol = "false";
-			xlnx,use-bram = <0x1>;
-			xlnx,use-jspat = "false";
-			xlnx,use-rpat = "false";
 		};
 		axi_ad9680_core: axi-ad9680-hpc@44a10000 {
 			compatible = "adi,axi-ad9680-1.0";
 			reg = <0x44a10000 0x10000>;
 		};
-		axi_ad9680_dma: axi_dmac@7c400000 {
+		rx_dma: rx-dmac@7c400000 {
 			compatible = "adi,axi-dmac-1.00.a";
 			interrupt-parent = <&axi_intc>;
 			interrupts = <12 2>;
 			reg = <0x7c400000 0x10000>;
-			xlnx,2d-transfer = <0x0>;
-			xlnx,axi-slice-dest = <0x0>;
-			xlnx,axi-slice-src = <0x0>;
-			xlnx,clks-async-dest-req = <0x1>;
-			xlnx,clks-async-req-src = <0x1>;
-			xlnx,clks-async-src-dest = <0x1>;
-			xlnx,cyclic = <0x0>;
-			xlnx,dma-axi-protocol-dest = <0x0>;
-			xlnx,dma-axi-protocol-src = <0x0>;
-			xlnx,dma-data-width-dest = <0x40>;
-			xlnx,dma-data-width-src = <0x40>;
-			xlnx,dma-length-width = <0x18>;
-			xlnx,dma-type-dest = <0x0>;
-			xlnx,dma-type-src = <0x1>;
-			xlnx,fifo-size = <0x4>;
-			xlnx,max-bytes-per-burst = <0x80>;
-			xlnx,sync-transfer-start = <0x1>;
 		};
-		axi_ad9680_jesd: axi-jesd204b-rx@44a910000 {
-			compatible = "xlnx,jesd204-6.0";
-			reg = <0x44a91000 0x1000>;
-			xlnx,component-name = "system_axi_ad9680_jesd_0";
-			xlnx,default-f = <0x2>;
-			xlnx,default-k = <0x20>;
-			xlnx,default-scr = <0x0>;
-			xlnx,default-sysref-always = <0x0>;
-			xlnx,default-sysref-required = <0x0>;
-			xlnx,drpclk-freq = "156.25";
-			xlnx,elaboration-transient-dir = <0x0>;
-			xlnx,global-clk-sel = "false";
-			xlnx,gt-line-rate = "6.25";
-			xlnx,gt-refclk-freq = "156.250";
-			xlnx,lanes = <0x4>;
-			xlnx,lmfc-buffer-size = <0x6>;
-			xlnx,node-is-transmit = <0x0>;
-			xlnx,pll-selection = <0x0>;
-			xlnx,speedgrade = "-2";
-			xlnx,supportlevel = <0x0>;
-			xlnx,sysref-sampling-edge = <0x0>;
-			xlnx,transceivercontrol = "false";
-			xlnx,use-bram = <0x1>;
-			xlnx,use-jspat = "false";
-			xlnx,use-rpat = "false";
+		axi_ad9680_jesd: axi-jesd204-rx@44aa0000 {
+			compatible = "adi,axi-jesd204-rx-1.0";
+			interrupt-parent = <&axi_intc>;
+			interrupts = <14 0>;
+			reg = <0x44aa0000 0x1000>;
 		};
 		axi_ad9680_adxcvr: axi-ad9680-adxcvr@44a50000 {
 			#address-cells = <1>;
 			#size-cells = <0>;
 			compatible = "adi,axi-adxcvr-1.0";
-			reg = < 0x44a50000 0x1000 >;
+			reg = <0x44a50000 0x1000>;
 		};
 		axi_ad9144_adxcvr: axi-ad9144-adxcvr@44a60000 {
 			#address-cells = <1>;
 			#size-cells = <0>;
 			compatible = "adi,axi-adxcvr-1.0";
-			reg = < 0x44a60000 0x1000 >;
+			reg = <0x44a60000 0x1000>;
 		};
 		axi_ethernet_dma: dma@41e10000 {
 			axistream-connected = <&axi_ethernet_eth_buf>;

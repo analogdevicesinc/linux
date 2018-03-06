@@ -37,13 +37,13 @@
 };
 
 &axi_ad9144_core {
-	dmas = <&axi_ad9144_dma 0>;
+	dmas = <&tx_dma 0>;
 	dma-names = "tx";
 	spibus-connected = <&dac0_ad9144>;
 	adi,axi-pl-fifo-enable;
 };
 
-&axi_ad9144_dma {
+&tx_dma {
 	#dma-cells = <1>;
 	clocks = <&clk_bus_0>;
 
@@ -53,30 +53,29 @@
 		adi,type = <1>;
 		adi,cyclic;
 	};
-
 };
 
 &axi_ad9144_jesd {
+	clocks = <&clk_bus_0>, <&axi_ad9144_adxcvr 1>, <&axi_ad9144_adxcvr 0>;
+	clock-names = "s_axi_aclk", "device_clk", "lane_clk";
+
+	adi,octets-per-frame = <1>;
+	adi,frames-per-multiframe = <32>;
+	adi,converter-resolution = <16>;
+	adi,bits-per-sample = <16>;
+	adi,converters-per-device = <2>;
+
 	#clock-cells = <0>;
-	clocks = <&axi_ad9144_adxcvr>;
-	clock-names = "dac_gt_clk";
-	clock-output-names = "jesd_dac_clk";
-
-	xlnx,frames-per-multiframe = <32>;
-	xlnx,bytes-per-frame = <1>;
-	xlnx,subclass = <1>;
-	xlnx,lanesync-enable;
-	xlnx,scramble-enable;
-
+	clock-output-names = "jesd_dac_lane_clk";
 };
 
 &axi_ad9680_core {
-	dmas = <&axi_ad9680_dma 0>;
+	dmas = <&rx_dma 0>;
 	dma-names = "rx";
 	spibus-connected = <&adc0_ad9680>;
 };
 
-&axi_ad9680_dma {
+&rx_dma {
 	#dma-cells = <1>;
 	clocks = <&clk_bus_0>;
 
@@ -85,27 +84,27 @@
 		adi,destination-bus-width = <64>;
 		adi,type = <0>;
 	};
-
 };
 
 &axi_ad9680_jesd {
-	#clock-cells = <0>;
-	clocks = <&axi_ad9680_adxcvr>;
-	clock-names = "adc_gt_clk";
-	clock-output-names = "jesd_adc_clk";
+	clocks = <&clk_bus_0>, <&axi_ad9680_adxcvr 1>, <&axi_ad9680_adxcvr 0>;
+	clock-names = "s_axi_aclk", "device_clk", "lane_clk";
 
-	xlnx,frames-per-multiframe = <32>;
-	xlnx,bytes-per-frame = <1>;
-	xlnx,subclass = <1>;
-	xlnx,lanesync-enable;
-	xlnx,scramble-enable;
+	adi,octets-per-frame = <1>;
+	adi,frames-per-multiframe = <32>;
+
+	#clock-cells = <0>;
+	clock-output-names = "jesd_adc_lane_clk";
 };
 
 &axi_ad9680_adxcvr {
 	#clock-cells = <0>;
 	clocks = <&clk0_ad9523 4>;
 	clock-names = "conv";
-	clock-output-names = "adc_gt_clk";
+
+	#clock-cells = <1>;
+	clock-output-names = "adc_gt_clk", "rx_out_clk";
+
 	adi,sys-clk-select = <0>;
 	adi,out-clk-select = <4>;
 	adi,use-lpm-enable;
@@ -116,8 +115,10 @@
 	#clock-cells = <0>;
 	clocks = <&clk0_ad9523 9>;
 	clock-names = "conv";
-	clock-output-names = "dac_gt_clk";
-	adi,link-is-transmit-enable;
+
+	#clock-cells = <1>;
+	clock-output-names = "dac_gt_clk", "tx_out_clk";
+
 	adi,sys-clk-select = <3>;
 	adi,out-clk-select = <4>;
 	adi,use-lpm-enable;
