@@ -70,7 +70,7 @@ static struct fsl_sai_soc_data fsl_sai_imx7ulp = {
 	.fifos = 2,
 	.fifo_depth = 16,
 	.flags = SAI_FLAG_PMQOS,
-	.reg_offset = 0,
+	.reg_offset = 8,
 	.constrain_period_size = false,
 };
 
