@@ -3085,6 +3085,58 @@ static int ad9361_rf_port_setup(struct ad9361_rf_phy *phy, bool is_out,
 	return ad9361_spi_write(phy->spi, REG_INPUT_SELECT, val);
 }
 
+int ad9361_set_rx_port(struct ad9361_rf_phy *phy, enum rx_port_sel sel)
+{
+	struct ad9361_rf_phy_state *st;
+
+	if (!phy)
+		return -EINVAL;
+	switch (sel) {
+	case RX_A_BALANCED:	/* FALLTHROUGH */
+	case RX_B_BALANCED:	/* FALLTHROUGH */
+	case RX_C_BALANCED:	/* FALLTHROUGH */
+	case RX_A_N:		/* FALLTHROUGH */
+	case RX_A_P:		/* FALLTHROUGH */
+	case RX_B_N:		/* FALLTHROUGH */
+	case RX_B_P:		/* FALLTHROUGH */
+	case RX_C_N:		/* FALLTHROUGH */
+	case RX_C_P:		/* FALLTHROUGH */
+	case TX_MON1:		/* FALLTHROUGH */
+	case TX_MON2:		/* FALLTHROUGH */
+	case TX_MON1_2:
+		st = phy->state;
+		if (st->rf_rx_input_sel == sel)
+			return 0;
+		st->rf_rx_input_sel = sel;
+		return ad9361_rf_port_setup(phy, false, sel,
+					    st->rf_tx_output_sel);
+	default:
+		return -EINVAL;
+	}
+}
+EXPORT_SYMBOL(ad9361_set_rx_port);
+
+int ad9361_set_tx_port(struct ad9361_rf_phy *phy, enum tx_port_sel sel)
+{
+	struct ad9361_rf_phy_state *st;
+
+	if (!phy)
+		return -EINVAL;
+	switch (sel) {
+	case (TX_A):	/* FALLTHROUGH */
+	case (TX_B):
+		st = phy->state;
+		if (st->rf_tx_output_sel == sel)
+			return 0;
+		st->rf_tx_output_sel = sel;
+		return ad9361_rf_port_setup(phy, true, st->rf_rx_input_sel,
+					    sel);
+	default:
+		return -EINVAL;
+	}
+}
+EXPORT_SYMBOL(ad9361_set_tx_port);
+
 /*
  * Setup the Parallel Port (Digital Data Interface)
  */
@@ -4860,8 +4912,8 @@ static int ad9361_setup(struct ad9361_rf_phy *phy)
 		ad9361_en_dis_rx(phy, RX_1 | RX_2, RX_1 | RX_2);
 	}
 
-	ret = ad9361_rf_port_setup(phy, true, pd->rf_rx_input_sel,
-				   pd->rf_tx_output_sel);
+	ret = ad9361_rf_port_setup(phy, true, st->rf_rx_input_sel,
+				   st->rf_tx_output_sel);
 	if (ret < 0)
 		return ret;
 
@@ -7460,34 +7512,31 @@ static int ad9361_set_rf_port(struct iio_dev *indio_dev,
 	const struct iio_chan_spec *chan, u32 mode)
 {
 	struct ad9361_rf_phy *phy = iio_priv(indio_dev);
+	struct ad9361_rf_phy_state *st = phy->state;
 
 	if (chan->output) {
 		if (phy->pdata->rf_tx_output_sel_lock &&
-			mode != phy->pdata->rf_tx_output_sel)
+			mode != st->rf_tx_output_sel)
 			return -EINVAL;
-		phy->pdata->rf_tx_output_sel = mode;
+		return ad9361_set_tx_port(phy, mode);
 	} else {
 		if (phy->pdata->rf_rx_input_sel_lock &&
-			mode != phy->pdata->rf_rx_input_sel)
+			mode != st->rf_rx_input_sel)
 			return -EINVAL;
-		phy->pdata->rf_rx_input_sel = mode;
+		return ad9361_set_rx_port(phy, mode);
 	}
-
-	return ad9361_rf_port_setup(phy, chan->output,
-				   phy->pdata->rf_rx_input_sel,
-				   phy->pdata->rf_tx_output_sel);
-
 }
 
 static int ad9361_get_rf_port(struct iio_dev *indio_dev,
 	const struct iio_chan_spec *chan)
 {
 	struct ad9361_rf_phy *phy = iio_priv(indio_dev);
+	struct ad9361_rf_phy_state *st = phy->state;
 
 	if (chan->output)
-		return phy->pdata->rf_tx_output_sel;
+		return st->rf_tx_output_sel;
 	else
-		return phy->pdata->rf_rx_input_sel;
+		return st->rf_rx_input_sel;
 }
 
 static const char * const ad9361_rf_rx_port[] =
@@ -8306,6 +8355,7 @@ static struct ad9361_phy_platform_data
 {
 	struct device_node *np = dev->of_node;
 	struct ad9361_rf_phy *phy = iio_priv(iodev);
+	struct ad9361_rf_phy_state *st = phy->state;
 	struct ad9361_phy_platform_data *pdata;
 	u32 tx_path_clks[NUM_TX_CLOCKS];
 	u32 rx_path_clks[NUM_RX_CLOCKS];
@@ -8408,9 +8458,9 @@ static struct ad9361_phy_platform_data
 			   &pdata->split_gt);
 
 	ad9361_of_get_u32(iodev, np, "adi,rx-rf-port-input-select", 0,
-			  &pdata->rf_rx_input_sel);
+			  &st->rf_rx_input_sel);
 	ad9361_of_get_u32(iodev, np, "adi,tx-rf-port-input-select", 0,
-			  &pdata->rf_tx_output_sel);
+			  &st->rf_tx_output_sel);
 
 	ad9361_of_get_bool(iodev, np, "adi,rx-rf-port-input-select-lock-enable",
 			   &pdata->rf_rx_input_sel_lock);

@@ -335,8 +335,6 @@ struct ad9361_phy_platform_data {
 	u8			dig_interface_tune_skipmode;
 	u32			dcxo_coarse;
 	u32			dcxo_fine;
-	u32			rf_rx_input_sel;
-	u32			rf_tx_output_sel;
 	bool			rf_rx_input_sel_lock;
 	bool			rf_tx_output_sel_lock;
 	u32			rx1tx1_mode_use_rx_num;
@@ -490,6 +488,8 @@ struct ad9361_rf_phy_state {
 	u32			tx2_atten_cached;
 	u8			bist_loopback_mode;
 	u8			bist_config;
+	u32			rf_rx_input_sel;
+	u32			rf_tx_output_sel;
 
 	struct ad9361_fastlock	fastlock;
 };
