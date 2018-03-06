@@ -14,6 +14,8 @@ env:
     DTS_FILES=arch/arm/boot/dts/zynq-*.dts IMAGE=uImage
   - DEFCONFIG_NAME=zynq_pluto_defconfig ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf-
     DTS_FILES=arch/arm/boot/dts/zynq-*.dts IMAGE=uImage
+  - DEFCONFIG_NAME=zynq_sidekiqz2_defconfig ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf-
+    DTS_FILES=arch/arm/boot/dts/zynq-*.dts IMAGE=uImage
   - DEFCONFIG_NAME=adi_zynqmp_defconfig ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu-
     DTS_FILES=arch/arm64/boot/dts/xilinx/zynqmp-*.dts DTS_PREFIX=xilinx/ IMAGE=Image
 
