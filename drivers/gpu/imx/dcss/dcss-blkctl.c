@@ -80,8 +80,13 @@ void dcss_blkctl_cfg(struct dcss_soc *dcss)
 {
 	struct dcss_blkctl_priv *blkctl = dcss->blkctl_priv;
 
-	dcss_writel((blkctl->clk_setting ^ HDMI_MIPI_CLK_SEL),
+	if (blkctl->hdmi_output)
+		dcss_writel((blkctl->clk_setting ^ HDMI_MIPI_CLK_SEL),
 		    blkctl->base_reg + DCSS_BLKCTL_CONTROL0);
+	else
+		dcss_writel((blkctl->clk_setting ^ HDMI_MIPI_CLK_SEL) |
+			    DISPMIX_PIXCLK_SEL,
+			    blkctl->base_reg + DCSS_BLKCTL_CONTROL0);
 
 	/* deassert clock domains resets */
 	dcss_blkctl_clk_reset(blkctl, 0, 0xffffff);
