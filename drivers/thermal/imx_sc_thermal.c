@@ -49,7 +49,8 @@ static const sc_rsrc_t imx8qm_sensor_hw_id[] = {
 };
 
 static const sc_rsrc_t imx8qxp_sensor_hw_id[] = {
-	SC_R_SYSTEM, SC_R_DRC_0,
+	SC_R_SYSTEM, SC_R_DRC_0, SC_R_PMIC_0,
+	SC_R_PMIC_1, SC_R_PMIC_2,
 };
 
 const int *sensor_hw_id;
