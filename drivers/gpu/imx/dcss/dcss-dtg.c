@@ -16,6 +16,7 @@
 #include <linux/bitops.h>
 #include <linux/io.h>
 #include <linux/clk.h>
+#include <linux/delay.h>
 #include <drm/drm_fourcc.h>
 
 #include <video/imx-dcss.h>
@@ -239,6 +240,8 @@ void dcss_dtg_sync_set(struct dcss_soc *dcss, struct videomode *vm)
 	clk_set_rate(dcss->pdiv_clk, vm->pixelclock);
 	clk_prepare_enable(dcss->pdiv_clk);
 	clk_prepare_enable(dcss->pout_clk);
+
+	msleep(500);
 
 	dcss_dtg_write(dtg, ((dtg_lrc_y << TC_Y_POS) | dtg_lrc_x),
 		       DCSS_DTG_TC_DTG);
