@@ -470,9 +470,9 @@ static int ad9361_dig_tune_delay(struct ad9361_rf_phy *phy,
 
 	if (((phy->pdata->port_ctrl.pp_conf[2] & LVDS_MODE) ||
 	    !phy->pdata->rx2tx2))
-	    half_data_rate = false;
+		half_data_rate = false;
 	else
-	    half_data_rate = true;
+		half_data_rate = true;
 
 	memset(field, 0, 32);
 	for (r = 0; r < (max_freq ? ARRAY_SIZE(rates) : 1); r++) {
