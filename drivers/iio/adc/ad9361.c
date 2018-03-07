@@ -846,7 +846,7 @@ static int ad9361_spi_writem(struct spi_device *spi,
 	{
 		int i;
 		for (i = 0; i < num; i++)
-			printk("%s: reg 0x%X val 0x%X\n", __func__, reg--, tbuf[i]);
+			pr_err("%s: reg 0x%X val 0x%X\n", __func__, reg--, tbuf[i]);
 	}
 #endif
 
@@ -2596,9 +2596,9 @@ static int ad9361_tx_quad_phase_search(struct ad9361_rf_phy *phy, u32 rxnco_word
 
 #ifdef _DEBUG
 	for (i = 0; i < 64; i++) {
-		printk("%c", (field[i] ? '#' : 'o'));
+		pr_err("%c", (field[i] ? '#' : 'o'));
 	}
-	printk(" RX_NCO_PHASE_OFFSET(%d, 0x%X) \n", phy->last_tx_quad_cal_phase,
+	pr_err(" RX_NCO_PHASE_OFFSET(%d, 0x%X)\n", phy->last_tx_quad_cal_phase,
 	       phy->last_tx_quad_cal_phase);
 #endif
 
