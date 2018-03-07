@@ -105,6 +105,8 @@ CDN_API_STATUS CDN_API_HDMI_AudioSetInfoFrame(state_struct *state,
 
 	if (numOfChannels == 2) {
 		packet_PB4 = 0;
+	} else if (numOfChannels == 4) {
+		packet_PB4 = 0x3;
 	} else if (numOfChannels == 8) {
 		packet_PB4 = 0x13;
 	}
