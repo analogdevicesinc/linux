@@ -236,6 +236,7 @@ snd-soc-wm9712-objs := wm9712.o
 snd-soc-wm9713-objs := wm9713.o
 snd-soc-wm-hubs-objs := wm_hubs.o
 snd-soc-zx-aud96p22-objs := zx_aud96p22.o
+snd-soc-rpmsg-wm8960-objs := rpmsg_wm8960.o
 # Amp
 snd-soc-dio2125-objs := dio2125.o
 snd-soc-max9877-objs := max9877.o
@@ -480,6 +481,7 @@ obj-$(CONFIG_SND_SOC_WM9713)	+= snd-soc-wm9713.o
 obj-$(CONFIG_SND_SOC_WM_ADSP)	+= snd-soc-wm-adsp.o
 obj-$(CONFIG_SND_SOC_WM_HUBS)	+= snd-soc-wm-hubs.o
 obj-$(CONFIG_SND_SOC_ZX_AUD96P22) += snd-soc-zx-aud96p22.o
+obj-$(CONFIG_SND_SOC_RPMSG_WM8960)	+= snd-soc-rpmsg-wm8960.o
 
 # Amp
 obj-$(CONFIG_SND_SOC_DIO2125)	+= snd-soc-dio2125.o
