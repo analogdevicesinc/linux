@@ -20,7 +20,7 @@
 #include <linux/regmap.h>
 
 /* Settings */
-//#define AK4458_ACKS_USE_MANUAL_MODE
+#define AK4458_ACKS_USE_MANUAL_MODE
 
 #define AK4458_00_CONTROL1			0x00
 #define AK4458_01_CONTROL2			0x01
