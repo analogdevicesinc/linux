@@ -108,7 +108,7 @@ CDN_API_STATUS CDN_API_AudioConfigCore(state_struct *state,
 		cdn_apb_write(state,
 			      ADDR_SOURCE_AIF_SMPL2PCKT + (SMPL2PKT_CNFG << 2),
 			      F_MAX_NUM_CH(numOfChannels - 1) |
-			      F_NUM_OF_I2S_PORTS((numOfChannels / 2) - 1) |
+			      F_NUM_OF_I2S_PORTS_S((numOfChannels / 2) - 1) |
 				  (1 << 8) | (lanesParam << 11));
 
 		if (numOfChannels == 2)
