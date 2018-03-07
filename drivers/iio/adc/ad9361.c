@@ -4732,7 +4732,7 @@ static int ad9361_rssi_gain_step_calib(struct ad9361_rf_phy *phy)
 	return ret;
 }
 
-static void ad9361_clear_state(struct ad9361_rf_phy *phy)
+static void ad9361_init_state(struct ad9361_rf_phy *phy)
 {
 	struct ad9361_rf_phy_state *st = phy->state;
 
@@ -4743,31 +4743,14 @@ static void ad9361_clear_state(struct ad9361_rf_phy *phy)
 	st->rfdc_track_en = true;
 	st->bbdc_track_en = true;
 	st->quad_track_en = true;
-	st->prev_ensm_state = 0;
-	st->curr_ensm_state = 0;
-	st->auto_cal_en = false;
-	st->manual_tx_quad_cal_en = false;
-	st->last_tx_quad_cal_freq = 0;
-	st->flags = 0;
-	st->current_rx_bw_Hz = 0;
-	st->current_tx_bw_Hz = 0;
-	st->rxbbf_div = 0;
-	st->tx_fir_int = 0;
-	st->tx_fir_ntaps = 0;
-	st->rx_fir_dec = 0;
-	st->rx_fir_ntaps = 0;
-	st->ensm_pin_ctl_en = false;
-	st->txmon_tdd_en = 0;
-	st->current_tx_lo_freq = 0;
-	st->current_rx_lo_freq = 0;
-	st->current_tx_use_tdd_table = false;
-	st->current_rx_use_tdd_table = false;
-	st->cached_synth_pd[0] = 0;
-	st->cached_synth_pd[1] = 0;
-	st->bist_loopback_mode = 0;
-	st->bist_config = 0;
+}
 
-	memset(&st->fastlock, 0, sizeof(st->fastlock));
+static void ad9361_clear_state(struct ad9361_rf_phy *phy)
+{
+	struct ad9361_rf_phy_state *st = phy->state;
+
+	memset(st, 0, sizeof(*st));
+	ad9361_init_state(phy);
 }
 
 static unsigned long ad9361_ref_div_sel(unsigned long refin_Hz, unsigned long max)
@@ -9195,6 +9178,8 @@ static int ad9361_probe(struct spi_device *spi)
 	phy->spi = spi;
 	phy->clk_refin = clk;
 
+	ad9361_init_state(phy);
+
 	phy->pdata = ad9361_phy_parse_dt(indio_dev, &spi->dev);
 	if (phy->pdata == NULL)
 		return -EINVAL;
@@ -9219,15 +9204,6 @@ static int ad9361_probe(struct spi_device *spi)
 		GPIOD_OUT_LOW);
 	if (IS_ERR(phy->pdata->cal_sw2_gpio))
 		return PTR_ERR(phy->pdata->cal_sw2_gpio);
-
-
-	st->current_table = -1;
-	st->bypass_tx_fir = true;
-	st->bypass_rx_fir = true;
-	st->rate_governor = 1;
-	st->rfdc_track_en = true;
-	st->bbdc_track_en = true;
-	st->quad_track_en = true;
 
 	phy->gt_info = ad9361_adi_gt_info;
 
