@@ -22,6 +22,8 @@
  * never be changed or removed (only added to at the end of the list).
  */
 #define PD_DC_0                     dc0_power_domain
+#define PD_DC_0_PLL_0               dc0_pll0
+#define PD_DC_0_PLL_1               dc0_pll1
 #define PD_LVDS0                    lvds0_power_domain
 #define PD_LVDS0_I2C0               lvds0_i2c0
 #define PD_LVDS0_I2C1               lvds0_i2c1
@@ -29,6 +31,8 @@
 #define PD_LVDS0_PWM                lvds0_pwm
 #define PD_LVDS0_GPIO               lvds0_gpio
 #define PD_DC_1                     dc1_power_domain
+#define PD_DC_1_PLL_0               dc1_pll0
+#define PD_DC_1_PLL_1               dc1_pll1
 #define PD_LVDS1                    lvds1_power_domain
 #define PD_LVDS1_I2C0               lvds1_i2c0
 #define PD_LVDS1_I2C1               lvds1_i2c1

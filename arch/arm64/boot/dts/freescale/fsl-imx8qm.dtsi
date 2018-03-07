@@ -180,6 +180,20 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 
+			pd_dc0_pll0: PD_DC_0_PLL_0{
+				reg = <SC_R_DC_0_PLL_0>;
+				#power-domain-cells = <0>;
+				power-domains =<&pd_dc0>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				pd_dc0_pll1: PD_DC_0_PLL_1{
+					reg = <SC_R_DC_0_PLL_1>;
+					#power-domain-cells = <0>;
+					power-domains =<&pd_dc0_pll0>;
+				};
+			};
+
 			pd_mipi0: PD_MIPI_0_DSI {
 				reg = <SC_R_MIPI_0>;
 				#power-domain-cells = <0>;
@@ -248,6 +262,21 @@
 			#power-domain-cells = <0>;
 			#address-cells = <1>;
 			#size-cells = <0>;
+
+			pd_dc1_pll0: PD_DC_1_PLL_0{
+				reg = <SC_R_DC_1_PLL_0>;
+				#power-domain-cells = <0>;
+				power-domains =<&pd_dc1>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				pd_dc1_pll1: PD_DC_1_PLL_1{
+					reg = <SC_R_DC_1_PLL_1>;
+					#power-domain-cells = <0>;
+					power-domains =<&pd_dc1_pll0>;
+				};
+			};
+
 			pd_mipi1: PD_MIPI_1_DSI {
 				reg = <SC_R_MIPI_1>;
 				#power-domain-cells = <0>;
@@ -1409,7 +1438,7 @@
 				  <&clk IMX8QM_DC0_DISP1_SEL>;
 		assigned-clock-parents = <&clk IMX8QM_DC0_PLL0_CLK>,
 					 <&clk IMX8QM_DC0_PLL1_CLK>;
-		power-domains = <&pd_dc0>;
+		power-domains = <&pd_dc0_pll1>;
 		fsl,dpr-channels = <&dpr1_channel1>, <&dpr1_channel2>,
 				   <&dpr1_channel3>, <&dpr2_channel1>,
 				   <&dpr2_channel2>, <&dpr2_channel3>;
@@ -1873,7 +1902,7 @@
 				  <&clk IMX8QM_DC1_DISP1_SEL>;
 		assigned-clock-parents = <&clk IMX8QM_DC1_PLL0_CLK>,
 					 <&clk IMX8QM_DC1_PLL1_CLK>;
-		power-domains = <&pd_dc1>;
+		power-domains = <&pd_dc1_pll1>;
 		fsl,dpr-channels = <&dpr3_channel1>, <&dpr3_channel2>,
 				   <&dpr3_channel3>, <&dpr4_channel1>,
 				   <&dpr4_channel2>, <&dpr4_channel3>;

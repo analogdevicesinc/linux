@@ -719,12 +719,31 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 
+			pd_dc0_pll0: PD_DC_0_PLL_0{
+				reg = <SC_R_DC_0_PLL_0>;
+				#power-domain-cells = <0>;
+				power-domains =<&pd_dc0>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				pd_dc0_pll1: PD_DC_0_PLL_1{
+					reg = <SC_R_DC_0_PLL_1>;
+					#power-domain-cells = <0>;
+					power-domains =<&pd_dc0_pll0>;
+				};
+			};
 			pd_mipi_dsi0: PD_MIPI_0_DSI {
 				reg = <SC_R_MIPI_0>;
 				#power-domain-cells = <0>;
 				power-domains =<&pd_dc0>;
 				#address-cells = <1>;
 				#size-cells = <0>;
+
+				pd_mipi_dsi_0_lvds: PD_LVDS0 {
+					reg = <SC_R_LVDS_0>;
+					#power-domain-cells = <0>;
+					power-domains =<&pd_mipi_dsi0>;
+				};
 
 				pd_mipi_dsi_0_i2c0: PD_MIPI_0_DSI_I2C0 {
 					reg = <SC_R_MIPI_0_I2C_0>;
@@ -749,6 +768,12 @@
 				power-domains =<&pd_dc0>;
 				#address-cells = <1>;
 				#size-cells = <0>;
+
+				pd_mipi_dsi_1_lvds: PD_LVDS1 {
+					reg = <SC_R_LVDS_1>;
+					#power-domain-cells = <0>;
+					power-domains =<&pd_mipi_dsi1>;
+				};
 
 				pd_mipi_dsi_1_i2c0: PD_MIPI_1_DSI_I2C0 {
 					reg = <SC_R_MIPI_1_I2C_0>;
@@ -1158,7 +1183,7 @@
 			 <&clk IMX8QXP_DC0_DISP0_CLK>,
 			 <&clk IMX8QXP_DC0_DISP1_CLK>;
 		clock-names = "pll0", "pll1", "disp0", "disp1";
-		power-domains = <&pd_dc0>;
+		power-domains = <&pd_dc0_pll1>;
 		fsl,dpr-channels = <&dpr1_channel1>, <&dpr1_channel2>,
 				   <&dpr1_channel3>, <&dpr2_channel1>,
 				   <&dpr2_channel2>, <&dpr2_channel3>;
@@ -1294,7 +1319,7 @@
 		#phy-cells = <0>;
 		clocks = <&clk IMX8QXP_MIPI0_LVDS_PHY_CLK>;
 		clock-names = "phy";
-		power-domains = <&pd_mipi_dsi0>;
+		power-domains = <&pd_mipi_dsi_0_lvds>;
 		status = "disabled";
 	};
 
@@ -1305,7 +1330,7 @@
 		clocks = <&clk IMX8QXP_MIPI0_LVDS_PIXEL_CLK>,
 			 <&clk IMX8QXP_MIPI0_LVDS_BYPASS_CLK>;
 		clock-names = "pixel", "bypass";
-		power-domains = <&pd_mipi_dsi0>;
+		power-domains = <&pd_mipi_dsi_0_lvds>;
 		gpr = <&lvds_region1>;
 		status = "disabled";
 
@@ -1455,7 +1480,7 @@
 		#phy-cells = <0>;
 		clocks = <&clk IMX8QXP_MIPI1_LVDS_PHY_CLK>;
 		clock-names = "phy";
-		power-domains = <&pd_mipi_dsi1>;
+		power-domains = <&pd_mipi_dsi_1_lvds>;
 		status = "disabled";
 	};
 
@@ -1466,7 +1491,7 @@
 		clocks = <&clk IMX8QXP_MIPI1_LVDS_PIXEL_CLK>,
 			 <&clk IMX8QXP_MIPI1_LVDS_BYPASS_CLK>;
 		clock-names = "pixel", "bypass";
-		power-domains = <&pd_mipi_dsi1>;
+		power-domains = <&pd_mipi_dsi_1_lvds>;
 		gpr = <&lvds_region2>;
 		status = "disabled";
 
