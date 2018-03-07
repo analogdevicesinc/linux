@@ -83,8 +83,8 @@
 #define REG_VCO_PROGRAM_1			 0x04C
 #define REG_VCO_PROGRAM_2			 0x04D
 #define REG_SDM_CTRL				 0x04E /* SDM Control */
-#define REG_RX_SYNTH_POWER_DOWN_OVERRIDE	 	 0x050 /* Rx Synth Power Down Override */
-#define REG_TX_SYNTH_POWER_DOWN_OVERRIDE	 	 0x051 /* TX Synth Power Down Override */
+#define REG_RX_SYNTH_POWER_DOWN_OVERRIDE		 0x050 /* Rx Synth Power Down Override */
+#define REG_TX_SYNTH_POWER_DOWN_OVERRIDE		 0x051 /* TX Synth Power Down Override */
 #define REG_RX_ANALOG_POWER_DOWN_OVERRIDE_1	 0x052 /* Rx Analog Power Down Override 1 */
 #define REG_RX_ANALOG_POWER_DOWN_OVERRIDE_2	 0x053 /* Rx Analog Power Down Override 2 */
 #define REG_RX1_ADC_POWER_DOWN_OVERRIDE		 0x054 /* Rx1 ADC Power Down Override */
@@ -276,7 +276,7 @@
 #define REG_CALIBRATION_CONFIG_2			 0x16A /* Calibration config2 */
 #define REG_CALIBRATION_CONFIG_3			 0x16B /* Calibration config3 */
 #define REG_CALIB_COUNT				 0x16C /* Calib count */
-#define REG_SETTLE_COUNT			 	 0x16D /* Settle count */
+#define REG_SETTLE_COUNT			 0x16D /* Settle count */
 #define REG_RX_QUAD_GAIN1			 0x16E /* Rx Quad gain1 */
 #define REG_RX_QUAD_GAIN2			 0x16F /* Rx Quad gain2 */
 #define REG_RX1_INPUT_A_PHASE_CORR		 0x170 /* Rx1 Input A Phase Corr */
@@ -421,7 +421,7 @@
 #define REG_INT_3_2ND_STAGE_CURRENT		 0x221 /* Int 3 2nd Stage Current */
 #define REG_FLASH_BIAS_CURRENT			 0x222 /* Flash Bias Current */
 #define REG_FLASH_LADDER_BIAS			 0x223 /* Flash Ladder Bias */
-#define REG_FLASH_LADDER_CASCODE_CURRENT	 	 0x224 /* Flash Ladder Cascode Current */
+#define REG_FLASH_LADDER_CASCODE_CURRENT	 0x224 /* Flash Ladder Cascode Current */
 #define REG_FLASH_LADDER_BIAS2			 0x225 /* Flash Ladder Bias2 */
 #define REG_RESET				 0x226 /* Reset */
 #define REG_RX_PFD_CONFIG			 0x230 /* RX PFD Config */
@@ -692,7 +692,7 @@
 /*
  *	REG_ENSM_CONFIG_2
  */
-#define FDD_EXTERNAL_CTRL_ENABLE	     	     (1 << 7) /* FDD External Control Enable */
+#define FDD_EXTERNAL_CTRL_ENABLE	     (1 << 7) /* FDD External Control Enable */
 #define POWER_DOWN_RX_SYNTH		     (1 << 6) /* Power Down Rx Synth */
 #define POWER_DOWN_TX_SYNTH		     (1 << 5) /* Power Down Tx Synth */
 #define TXNRX_SPI_CTRL			     (1 << 4) /* TXNRX SPI Control */
@@ -818,7 +818,7 @@
 /*
  *	REG_PRODUCT_ID
  */
-#define PRODUCT_ID_MASK 		     0xF8
+#define PRODUCT_ID_MASK		     0xF8
 #define PRODUCT_ID_9361		     0x08
 #define REV_MASK			     0x07
 
@@ -1015,8 +1015,8 @@
 /*
  *	REG_TPM_MODE_ENABLE
  */
-#define TX2_MON_ENABLE		     	     (1 << 7) /* Tx2 Monitor Enable */
-#define TX1_MON_ENABLE		     	     (1 << 5) /* Tx1 Monitor Enable */
+#define TX2_MON_ENABLE			     (1 << 7) /* Tx2 Monitor Enable */
+#define TX1_MON_ENABLE			     (1 << 5) /* Tx1 Monitor Enable */
 #define ONE_SHOT_MODE			     (1 << 6) /* One Shot Mode */
 #define TX_MON_DURATION(x)		     (((x) & 0xF) << 0) /* Tx Mon Duration<3:0> */
 
@@ -1324,7 +1324,7 @@
 #define AGC_SOFT_RESET			     (1 << 7) /* Soft Reset */
 #define AGC_GAIN_UNLOCK_CTRL		     (1 << 6) /* Gain Unlock Control */
 #define AGC_USE_FULL_GAIN_TABLE		     (1 << 3) /* Use Full Gain Table */
-#define DIG_GAIN_EN		     	     (1 << 2) /* Enable Digital Gain */
+#define DIG_GAIN_EN			     (1 << 2) /* Enable Digital Gain */
 #define MAN_GAIN_CTRL_RX2		     (1 << 1) /* Manual Gain Control Rx 2 */
 #define MAN_GAIN_CTRL_RX1		     (1 << 0) /* Manual Gain Control Rx 1 */
 
@@ -1370,7 +1370,7 @@
  *	REG_GAIN_STP_CONFIG_2
  */
 #define DECREMENT_STP_SIZE_FOR_SMALL_LPF_GAIN_CHANGE(x) (((x) & 0x7) << 4) /* Fast Attack Only. Decrement Step Size for: Small LPF Gain Change / Full Table Case #2 <2:0> */
-#define LARGE_LPF_GAIN_STEP(x) 		     (((x) & 0xF) << 0) /* Decrement Step Size for: Large LPF Gain Change / Full Table Case #1<3:0> */
+#define LARGE_LPF_GAIN_STEP(x)		     (((x) & 0xF) << 0) /* Decrement Step Size for: Large LPF Gain Change / Full Table Case #1<3:0> */
 
 /*
  *	REG_SMALL_LMT_OVERLOAD_THRESH
@@ -1394,7 +1394,7 @@
 /*
  *	REG_RX1_MANUAL_LPF_GAIN
  */
-#define POWER_MEAS_IN_STATE_5(x)	     	     (((x) & 0x7) << 5) /* Power Meas in State 5<2:0> */
+#define POWER_MEAS_IN_STATE_5(x)	     (((x) & 0x7) << 5) /* Power Meas in State 5<2:0> */
 #define RX1_MANUAL_LPF_GAIN(x)		     (((x) & 0x1F) << 0) /* Rx1 Manual LPF Gain <4:0> */
 #define RX_LPF_IDX_MASK			     RX1_MANUAL_LPF_GAIN(~0)
 
@@ -1526,7 +1526,7 @@
 /*
  *	REG_OUTER_POWER_THRESHS
  */
-#define AGC_OUTER_HIGH_THRESH(x)	     	     (((x) & 0xF) << 4) /* AGC Outer High Threshold<3:0> */
+#define AGC_OUTER_HIGH_THRESH(x)	     (((x) & 0xF) << 4) /* AGC Outer High Threshold<3:0> */
 #define AGC_OUTER_LOW_THRESH(x)		     (((x) & 0xF) << 0) /* AGC Outer Low Threshold<3:0> */
 
 /*
@@ -1799,8 +1799,8 @@
 #define RX1_INPUT_BC_FORCE_OFFSET	     (1 << 6) /* Rx1 Input B&C Force offset */
 #define RX2_INPUT_BC_FORCE_PHGAIN	     (1 << 5) /* Rx2 Input B&C Force Ph/Gain */
 #define RX1_INPUT_BC_FORCE_PHGAIN	     (1 << 4) /* Rx1 Input B&C Force Ph/Gain */
-#define RX2_INPUT_A_FORCE_OFFSET	     	     (1 << 3) /* Rx2 Input A Force offset */
-#define RX1_INPUT_A_FORCE_OFFSET	     	     (1 << 2) /* Rx1 Input A Force offset */
+#define RX2_INPUT_A_FORCE_OFFSET		     (1 << 3) /* Rx2 Input A Force offset */
+#define RX1_INPUT_A_FORCE_OFFSET		     (1 << 2) /* Rx1 Input A Force offset */
 #define RX2_INPUT_A_FORCE_PHGAIN		     (1 << 1) /* Rx2 Input A Force Ph/Gain */
 #define RX1_INPUT_A_FORCE_PHGAIN		     (1 << 0) /* Rx1 Input A Force Ph/Gain */
 
@@ -1908,7 +1908,7 @@
 
 /*
  *	REG_RX1_RSSI_SYMBOL, REG_RX1_RSSI_PREAMBLE,
- * 	REG_RX2_RSSI_SYMBOL, REG_RX2_RSSI_PREAMBLE
+ *	REG_RX2_RSSI_SYMBOL, REG_RX2_RSSI_PREAMBLE
  */
 #define RSSI_LSB_SHIFT	1
 #define RSSI_LSB_MASK1	0x01
@@ -2056,7 +2056,7 @@
 /*
  *	REG_RX1_TUNE_CTRL
  */
-#define RX1_TUNE_RESAMPLE_PHASE	   	     (1 << 2) /* Rx1 Tune Resample Phase */
+#define RX1_TUNE_RESAMPLE_PHASE		     (1 << 2) /* Rx1 Tune Resample Phase */
 #define RX1_TUNE_RESAMPLE		     (1 << 1) /* Rx1 Tune Resample */
 #define RX1_PD_TUNE			     (1 << 0) /* Rx1 PD Tune */
 
@@ -2333,7 +2333,7 @@
 /*
  *	REG_RX_CORRECTION_WORD0
  */
-#define UPDATE_FREQ_WORD		     	     (1 << 7) /* Update Freq Word */
+#define UPDATE_FREQ_WORD		     (1 << 7) /* Update Freq Word */
 #define READ_EFFECTIVE_TUNING_WORD	     (1 << 5) /* Read Effective Tuning Word */
 #define FREQ_CORRECTION_WORD_MSB(x)	     (((x) & 0x1F) << 0) /* Frequency Correction Word<11:7> */
 
@@ -2659,7 +2659,7 @@
  *	REG_REF_DIVIDE_CONFIG_1
  */
 #define REF_DIVIDE_CONFIG_1_DFLT		     (1 << 2) /* Set to 1 */
-#define RX_REF_RESET_BAR		     	     (1 << 1) /* Rx Ref Reset Bar */
+#define RX_REF_RESET_BAR			     (1 << 1) /* Rx Ref Reset Bar */
 #define RX_REF_DIVIDER_MSB		     (1 << 0) /* Rx Ref Divider<1> */
 
 /*
@@ -2689,8 +2689,8 @@
 /*
  *	REG_FAST_ATTACK_STATE
  */
-#define FAST_ATTACK_STATE_RX2(x)	     	     (((x) & 0x7) << 4) /* Fast Attack State Rx2<2:0> */
-#define FAST_ATTACK_STATE_RX1(x)	     	     (((x) & 0x7) << 0) /* Fast Attack State Rx1<2:0> */
+#define FAST_ATTACK_STATE_RX2(x)	     (((x) & 0x7) << 4) /* Fast Attack State Rx2<2:0> */
+#define FAST_ATTACK_STATE_RX1(x)	     (((x) & 0x7) << 0) /* Fast Attack State Rx1<2:0> */
 #define FAST_ATK_MASK			     0x7
 #define RX1_FAST_ATK_SHIFT		     0
 #define RX2_FAST_ATK_SHIFT		     4
@@ -2721,7 +2721,7 @@
 /*
  *	REG_CTRL
  */
-#define CTRL_ENABLE		     	     (1 << 0) /* Set to 1 */
+#define CTRL_ENABLE			     (1 << 0) /* Set to 1 */
 
 /*
  *	REG_BIST_CONFIG
@@ -3108,7 +3108,7 @@ struct ad9361_phy_platform_data {
 	bool			fdd;
 	bool			fdd_independent_mode;
 	bool			split_gt;
-	bool 			use_extclk;
+	bool			use_extclk;
 	bool			ensm_pin_pulse_mode;
 	bool			ensm_pin_ctrl;
 	bool			debug_mode;
