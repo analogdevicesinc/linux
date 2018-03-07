@@ -178,6 +178,12 @@ static const cmd_set_table manufacturer_cmd_set[] = {
 	{0x51, 0x04},
 };
 
+static const u32 rad_bus_formats[] = {
+	MEDIA_BUS_FMT_RGB888_1X24,
+	MEDIA_BUS_FMT_RGB666_1X18,
+	MEDIA_BUS_FMT_RGB565_1X16,
+};
+
 struct rad_panel {
 	struct drm_panel base;
 	struct mipi_dsi_device *dsi;
@@ -215,11 +221,27 @@ static int rad_panel_push_cmd_list(struct mipi_dsi_device *dsi)
 	return ret;
 };
 
+static int color_format_from_dsi_format(enum mipi_dsi_pixel_format format)
+{
+	switch (format) {
+	case MIPI_DSI_FMT_RGB565:
+		return 0x55;
+	case MIPI_DSI_FMT_RGB666:
+	case MIPI_DSI_FMT_RGB666_PACKED:
+		return 0x66;
+	case MIPI_DSI_FMT_RGB888:
+		return 0x77;
+	default:
+		return 0x77; /* for backward compatibility */
+	}
+};
+
 static int rad_panel_prepare(struct drm_panel *panel)
 {
 	struct rad_panel *rad = to_rad_panel(panel);
 	struct mipi_dsi_device *dsi = rad->dsi;
 	struct device *dev = &dsi->dev;
+	int color_format = color_format_from_dsi_format(dsi->format);
 	int ret;
 
 	if (rad->prepared)
@@ -276,8 +298,10 @@ static int rad_panel_prepare(struct drm_panel *panel)
 		DRM_DEV_ERROR(dev, "Failed to set tear scanline (%d)\n", ret);
 		goto fail;
 	}
-	/* Set pixel format to RGB888 */
-	ret = mipi_dsi_dcs_set_pixel_format(dsi, 0x77);
+	/* Set pixel format */
+	ret = mipi_dsi_dcs_set_pixel_format(dsi, color_format);
+	DRM_DEV_DEBUG_DRIVER(dev, "Interface color format set to 0x%x\n",
+				color_format);
 	if (ret < 0) {
 		DRM_DEV_ERROR(dev, "Failed to set pixel format (%d)\n", ret);
 		goto fail;
@@ -393,7 +417,6 @@ static int rad_panel_get_modes(struct drm_panel *panel)
 	struct device *dev = &rad->dsi->dev;
 	struct drm_connector *connector = panel->connector;
 	struct drm_display_mode *mode;
-	u32 bus_format = MEDIA_BUS_FMT_RGB888_1X24;
 	u32 *bus_flags = &connector->display_info.bus_flags;
 	int ret;
 
@@ -420,7 +443,7 @@ static int rad_panel_get_modes(struct drm_panel *panel)
 		*bus_flags |= DRM_BUS_FLAG_PIXDATA_POSEDGE;
 
 	ret = drm_display_info_set_bus_formats(&connector->display_info,
-					       &bus_format, 1);
+			rad_bus_formats, ARRAY_SIZE(rad_bus_formats));
 	if (ret)
 		return ret;
 
@@ -492,7 +515,7 @@ static const struct drm_panel_funcs rad_panel_funcs = {
  * to 132MHz (60Hz refresh rate)
  */
 static const struct display_timing rad_default_timing = {
-	.pixelclock = { 66000000, 120000000, 132000000 },
+	.pixelclock = { 66000000, 132000000, 132000000 },
 	.hactive = { 1080, 1080, 1080 },
 	.hfront_porch = { 20, 20, 20 },
 	.hsync_len = { 2, 2, 2 },
