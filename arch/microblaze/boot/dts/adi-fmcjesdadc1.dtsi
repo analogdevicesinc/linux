@@ -38,7 +38,7 @@
 			compatible = "adi,ad9250";
 			reg = <2>;
 			spi-max-frequency = <10000000>;
-			clocks = <&axi_ad9250_jesd>, <&clk_ad9517 0>;
+			clocks = <&axi_jesd>, <&clk_ad9517 0>;
 			clock-names = "jesd_dac_clk", "adc_clk";
 		};
 
@@ -46,7 +46,7 @@
 			compatible = "adi,ad9250";
 			reg = <3>;
 			spi-max-frequency = <10000000>;
-			clocks = <&axi_ad9250_jesd>, <&clk_ad9517 1>;
+			clocks = <&axi_jesd>, <&clk_ad9517 1>;
 			clock-names = "jesd_dac_clk", "adc_clk";
 		};
 	};
