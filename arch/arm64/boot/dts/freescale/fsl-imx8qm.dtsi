@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2016 Freescale Semiconductor, Inc.
- * Copyright 2017 NXP
+ * Copyright 2017-2018 NXP
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -1118,7 +1118,7 @@
 		#thermal-sensor-cells = <1>;
 	};
 
-	thermal-zones {
+	thermal_zones: thermal-zones {
 		/* cpu thermal */
 		cpu-thermal0 {
 			polling-delay-passive = <250>;
