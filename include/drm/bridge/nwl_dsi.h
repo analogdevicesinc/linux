@@ -18,14 +18,25 @@
 #include <drm/drm_mipi_dsi.h>
 #include <linux/phy/phy.h>
 
-/* RGB bit distribution as specified by the DPI specification */
+/*
+ * RGB bit distribution within the 24-bit data bus,
+ * as specified by the DPI specification
+ */
+enum dpi_interface_color_coding {
+	DPI_16_BIT_565_PACKED, /* 0x0 cfg1 */
+	DPI_16_BIT_565_ALIGNED, /* 0x1 cfg 2 */
+	DPI_16_BIT_565_SHIFTED, /* 0x2 cfg 3 */
+	DPI_18_BIT_PACKED, /* 0x3 cfg1 */
+	DPI_18_BIT_ALIGNED, /* 0x4* cfg2 */
+	DPI_24_BIT /* 0x5 */
+};
+
+/* DSI packet type of pixels, as specified by the DPI specification */
 enum dpi_pixel_format {
-	DPI_16_BIT_565_PACKED,
-	DPI_16_BIT_565_ALIGNED,
-	DPI_16_BIT_565_SHIFTED,
-	DPI_18_BIT_PACKED,
-	DPI_18_BIT_ALIGNED,
-	DPI_24_BIT
+	DPI_FMT_16_BIT, /* 0x0 */
+	DPI_FMT_18_BIT, /* 0x1 */
+	DPI_FMT_18_BIT_LOOSELY_PACKED, /* 0x2 */
+	DPI_FMT_24_BIT /* 0x3 */
 };
 
 /*

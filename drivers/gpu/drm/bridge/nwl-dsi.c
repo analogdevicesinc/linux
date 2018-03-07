@@ -219,20 +219,52 @@ static inline u32 nwl_dsi_read(struct nwl_mipi_dsi *dsi, u32 reg)
 	return readl(dsi->base + reg);
 }
 
-static u32 nwl_dsi_get_dpi_pixel_format(enum mipi_dsi_pixel_format format)
+static enum mipi_dsi_pixel_format mipi_dsi_format_from_bus_format(
+		u32 bus_format)
 {
+	switch (bus_format) {
+	case MEDIA_BUS_FMT_RGB565_1X16:
+		return MIPI_DSI_FMT_RGB565;
+	case MEDIA_BUS_FMT_RGB666_1X18:
+		return MIPI_DSI_FMT_RGB666;
+	case MEDIA_BUS_FMT_RGB888_1X24:
+		return MIPI_DSI_FMT_RGB888;
+	default:
+		return MIPI_DSI_FMT_RGB888;
+	}
+}
 
+static enum dpi_interface_color_coding nwl_dsi_get_dpi_interface_color_coding(
+		enum mipi_dsi_pixel_format format)
+{
 	switch (format) {
 	case MIPI_DSI_FMT_RGB565:
-		return 0x00;
+		return DPI_16_BIT_565_PACKED;
 	case MIPI_DSI_FMT_RGB666:
-		return 0x01;
+		return DPI_18_BIT_ALIGNED;
 	case MIPI_DSI_FMT_RGB666_PACKED:
-		return 0x02;
+		return DPI_18_BIT_PACKED;
 	case MIPI_DSI_FMT_RGB888:
-		return 0x03;
+		return DPI_24_BIT;
 	default:
 		return DPI_24_BIT;
+	}
+}
+
+static enum dpi_pixel_format nwl_dsi_get_dpi_pixel_format(
+		enum mipi_dsi_pixel_format format)
+{
+	switch (format) {
+	case MIPI_DSI_FMT_RGB565:
+		return DPI_FMT_16_BIT;
+	case MIPI_DSI_FMT_RGB666:
+		return DPI_FMT_18_BIT;
+	case MIPI_DSI_FMT_RGB666_PACKED:
+		return DPI_FMT_18_BIT_LOOSELY_PACKED;
+	case MIPI_DSI_FMT_RGB888:
+		return DPI_FMT_24_BIT;
+	default:
+		return DPI_FMT_24_BIT;
 	}
 }
 
@@ -295,6 +327,8 @@ unsigned long nwl_dsi_get_bit_clock(struct drm_bridge *bridge,
 {
 	struct nwl_mipi_dsi *dsi;
 	int bpp;
+	u32 bus_format;
+	struct drm_crtc *crtc = 0;
 
 	/* Make sure the bridge is correctly initialized */
 	if (!bridge || !bridge->driver_private)
@@ -304,6 +338,16 @@ unsigned long nwl_dsi_get_bit_clock(struct drm_bridge *bridge,
 
 	if (dsi->lanes < 1 || dsi->lanes > 4)
 		return 0;
+
+	/* if CTRC updated the bus format, update dsi->format */
+	if (dsi->bridge.encoder)
+		crtc = dsi->bridge.encoder->crtc;
+	if (crtc && crtc->mode.private_flags & 0x1) {
+		bus_format = (crtc->mode.private_flags & 0x1FFFE) >> 1;
+		dsi->format = mipi_dsi_format_from_bus_format(bus_format);
+		/* clear bus format change indication*/
+		crtc->mode.private_flags &= ~0x1;
+	}
 
 	bpp = mipi_dsi_pixel_format_to_bpp(dsi->format);
 
@@ -338,12 +382,19 @@ static void nwl_dsi_config_host(struct nwl_mipi_dsi *dsi)
 
 static void nwl_dsi_config_dpi(struct nwl_mipi_dsi *dsi)
 {
+	struct device *dev = dsi->dev;
 	struct videomode *vm = &dsi->vm;
-	u32 color_format = nwl_dsi_get_dpi_pixel_format(dsi->format);
+	enum dpi_pixel_format pixel_format =
+			nwl_dsi_get_dpi_pixel_format(dsi->format);
+	enum dpi_interface_color_coding color_coding =
+			nwl_dsi_get_dpi_interface_color_coding(dsi->format);
 	bool burst_mode;
 
-	nwl_dsi_write(dsi, INTERFACE_COLOR_CODING, DPI_24_BIT);
-	nwl_dsi_write(dsi, PIXEL_FORMAT, color_format);
+	nwl_dsi_write(dsi, INTERFACE_COLOR_CODING, color_coding);
+	nwl_dsi_write(dsi, PIXEL_FORMAT, pixel_format);
+	DRM_DEV_DEBUG_DRIVER(dev, "DSI format is: %d (CC=%d, PF=%d)\n",
+			dsi->format, color_coding, pixel_format);
+
 	/*TODO: need to make polarity configurable */
 	nwl_dsi_write(dsi, VSYNC_POLARITY, 0x00);
 	nwl_dsi_write(dsi, HSYNC_POLARITY, 0x00);
