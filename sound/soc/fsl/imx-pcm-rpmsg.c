@@ -446,7 +446,6 @@ static struct snd_soc_platform_driver imx_rpmsg_soc_platform = {
 
 int imx_rpmsg_platform_register(struct device *dev)
 {
-
 	struct fsl_rpmsg_i2s  *rpmsg_i2s = dev_get_drvdata(dev);
 
 	i2s_info_g	=  &rpmsg_i2s->i2s_info;
@@ -469,14 +468,14 @@ static int i2s_rpmsg_cb(struct rpmsg_device *rpdev, void *data, int len,
 	if (msg->header.type == I2S_TYPE_C) {
 		if (msg->header.cmd == I2S_TX_PERIOD_DONE) {
 			spin_lock_irqsave(&i2s_info_g->lock[0], flags);
-			rpmsg = &i2s_info_g->send_msg[0];
+			rpmsg = &i2s_info_g->send_msg[RPMSG_AUDIO_TX];
 			rpmsg->param.buffer_tail++;
 			rpmsg->param.buffer_tail %= i2s_info_g->num_period[0];
 			spin_unlock_irqrestore(&i2s_info_g->lock[0], flags);
 			i2s_info_g->callback[0](i2s_info_g->callback_param[0]);
 		} else if (msg->header.cmd == I2S_RX_PERIOD_DONE) {
 			spin_lock_irqsave(&i2s_info_g->lock[1], flags);
-			rpmsg = &i2s_info_g->send_msg[1];
+			rpmsg = &i2s_info_g->send_msg[RPMSG_AUDIO_RX];
 			rpmsg->param.buffer_tail++;
 			rpmsg->param.buffer_tail %= i2s_info_g->num_period[1];
 			spin_unlock_irqrestore(&i2s_info_g->lock[1], flags);
@@ -492,12 +491,28 @@ static int i2s_rpmsg_cb(struct rpmsg_device *rpdev, void *data, int len,
 
 static int i2s_rpmsg_probe(struct rpmsg_device *rpdev)
 {
+	struct platform_device *codec_pdev;
+	struct fsl_rpmsg_i2s *rpmsg_i2s = NULL;
+	int ret;
+
 	i2s_info_g->rpdev = rpdev;
 
 	init_completion(&i2s_info_g->cmd_complete);
 
 	dev_info(&rpdev->dev, "new channel: 0x%x -> 0x%x!\n",
 			rpdev->src, rpdev->dst);
+
+	rpmsg_i2s = container_of(i2s_info_g, struct fsl_rpmsg_i2s, i2s_info);
+
+	codec_pdev = platform_device_register_data(&rpmsg_i2s->pdev->dev,
+			RPMSG_CODEC_DRV_NAME, PLATFORM_DEVID_NONE,
+			NULL, 0);
+	if (IS_ERR(codec_pdev)) {
+		dev_err(&rpdev->dev, "failed to register rpmsg audio codec\n");
+		ret = PTR_ERR(codec_pdev);
+		return ret;
+	}
+
 	return 0;
 }
 
