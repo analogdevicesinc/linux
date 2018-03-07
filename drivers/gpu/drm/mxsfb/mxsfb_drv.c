@@ -65,6 +65,11 @@ static const uint32_t mxsfb_formats[] = {
 	DRM_FORMAT_ABGR8888,
 	DRM_FORMAT_RGBX8888,
 	DRM_FORMAT_RGBA8888,
+	DRM_FORMAT_ARGB1555,
+	DRM_FORMAT_XRGB1555,
+	DRM_FORMAT_ABGR1555,
+	DRM_FORMAT_XBGR1555,
+	DRM_FORMAT_BGR565
 };
 
 static const struct mxsfb_devdata mxsfb_devdata[] = {
