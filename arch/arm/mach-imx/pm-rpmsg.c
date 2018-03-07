@@ -314,8 +314,10 @@ static const struct of_device_id pm_heartbeat_id[] = {
 };
 MODULE_DEVICE_TABLE(of, pm_heartbeat_id);
 
-static SIMPLE_DEV_PM_OPS(pm_heartbeat_ops, pm_heartbeat_suspend,
-			 pm_heartbeat_resume);
+static const struct dev_pm_ops pm_heartbeat_ops = {
+	 SET_LATE_SYSTEM_SLEEP_PM_OPS(pm_heartbeat_suspend,
+				      pm_heartbeat_resume)
+};
 
 static struct platform_driver pm_heartbeat_driver = {
 	.driver = {
