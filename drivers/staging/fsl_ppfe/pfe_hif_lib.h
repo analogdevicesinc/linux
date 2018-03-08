@@ -146,7 +146,7 @@ struct tx_queue_desc {
 #define PFE_BUF_SIZE		2048
 #define PFE_PKT_HEADROOM	128
 
-#define SKB_SHARED_INFO_SIZE   (sizeof(struct skb_shared_info))
+#define SKB_SHARED_INFO_SIZE   SKB_DATA_ALIGN(sizeof(struct skb_shared_info))
 #define PFE_PKT_SIZE		(PFE_BUF_SIZE - PFE_PKT_HEADROOM \
 				 - SKB_SHARED_INFO_SIZE)
 #define MAX_L2_HDR_SIZE		14	/* Not correct for VLAN/PPPoE */
