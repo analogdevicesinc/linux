@@ -1261,8 +1261,8 @@ static void v4l_fill_fmtdesc(struct v4l2_fmtdesc *fmt)
 	case V4L2_PIX_FMT_NV61:		descr = "Y/CrCb 4:2:2"; break;
 	case V4L2_PIX_FMT_NV24:		descr = "Y/CbCr 4:4:4"; break;
 	case V4L2_PIX_FMT_NV42:		descr = "Y/CrCb 4:4:4"; break;
-	case V4L2_PIX_FMT_XV20:		descr = "Y/CrCb 4:2:2 10-bit w/padding"; break;
-	case V4L2_PIX_FMT_XV15:		descr = "Y/CrCb 4:2:0 10-bit w/padding"; break;
+	case V4L2_PIX_FMT_XV15:         descr = "Y/CrCb 4:2:0 10-bit"; break;
+	case V4L2_PIX_FMT_XV20:		descr = "Y/CrCb 4:2:2 10-bit"; break;
 	case V4L2_PIX_FMT_NV12M:	descr = "Y/CbCr 4:2:0 (N-C)"; break;
 	case V4L2_PIX_FMT_NV21M:	descr = "Y/CrCb 4:2:0 (N-C)"; break;
 	case V4L2_PIX_FMT_NV16M:	descr = "Y/CbCr 4:2:2 (N-C)"; break;
@@ -1271,6 +1271,8 @@ static void v4l_fill_fmtdesc(struct v4l2_fmtdesc *fmt)
 	case V4L2_PIX_FMT_NV12MT_16X16:	descr = "Y/CbCr 4:2:0 (16x16 MB, N-C)"; break;
 	case V4L2_PIX_FMT_NV12_COL128:	descr = "Y/CbCr 4:2:0 (128b cols)"; break;
 	case V4L2_PIX_FMT_NV12_10_COL128: descr = "10-bit Y/CbCr 4:2:0 (128b cols)"; break;
+	case V4L2_PIX_FMT_XV20M:        descr = "Y/CrCb 4:2:2 10-bit (N-C)"; break;
+	case V4L2_PIX_FMT_XV15M:        descr = "Y/CrCb 4:2:0 10-bit (N-C)"; break;
 	case V4L2_PIX_FMT_YUV420M:	descr = "Planar YUV 4:2:0 (N-C)"; break;
 	case V4L2_PIX_FMT_YVU420M:	descr = "Planar YVU 4:2:0 (N-C)"; break;
 	case V4L2_PIX_FMT_YUV422M:	descr = "Planar YUV 4:2:2 (N-C)"; break;
