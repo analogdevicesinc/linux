@@ -3409,6 +3409,7 @@ int ad9361_set_trx_clock_chain(struct ad9361_rf_phy *phy,
 int ad9361_dig_tune(struct ad9361_rf_phy *phy, unsigned long max_freq,
 			   enum dig_tune_flags flags);
 int ad9361_tx_mute(struct ad9361_rf_phy *phy, u32 state);
+int ad9361_write_bist_reg(struct ad9361_rf_phy *phy, u32 val);
 
 #endif
 
