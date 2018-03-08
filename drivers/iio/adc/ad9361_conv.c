@@ -633,7 +633,7 @@ int ad9361_dig_tune(struct ad9361_rf_phy *phy, unsigned long max_freq,
 			ret = ad9361_dig_tune_tx(phy, max_freq, flags);
 
 		ad9361_bist_loopback(phy, loopback);
-		ad9361_spi_write(phy->spi, REG_BIST_CONFIG, bist);
+		ad9361_write_bist_reg(phy, bist);
 
 		if (ret == -EIO)
 			restore = true;
