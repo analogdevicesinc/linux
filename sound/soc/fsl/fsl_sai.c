@@ -28,6 +28,7 @@
 #include <linux/mfd/syscon.h>
 #include <linux/mfd/syscon/imx6q-iomuxc-gpr.h>
 
+#include "fsl_dsd.h"
 #include "fsl_sai.h"
 #include "imx-pcm.h"
 
@@ -527,31 +528,21 @@ static int fsl_sai_hw_params(struct snd_pcm_substream *substream,
 	int ret;
 	int i;
 	int trce_mask = 0;
-	snd_pcm_format_t format = params_format(params);
 
 	if (sai->slots)
 		slots = sai->slots;
 
 	pins = DIV_ROUND_UP(channels, slots);
+	sai->is_dsd = fsl_is_dsd(params);
+	sai->pins_state = fsl_get_pins_state(sai->pinctrl, params);
 
-	if (format == SNDRV_PCM_FORMAT_DSD_U8 ||
-		format == SNDRV_PCM_FORMAT_DSD_U16_LE ||
-		format == SNDRV_PCM_FORMAT_DSD_U16_BE ||
-		format == SNDRV_PCM_FORMAT_DSD_U32_LE ||
-		format == SNDRV_PCM_FORMAT_DSD_U32_BE) {
-		sai->is_dsd = true;
-
-		if (!IS_ERR_OR_NULL(sai->pins_dsd)) {
-			ret = pinctrl_select_state(sai->pinctrl, sai->pins_dsd);
-			if (ret) {
-				dev_err(cpu_dai->dev,
-					"failed to set proper pins state: %d\n", ret);
-				return ret;
-			}
+	if (!IS_ERR_OR_NULL(sai->pins_state)) {
+		ret = pinctrl_select_state(sai->pinctrl, sai->pins_state);
+		if (ret) {
+			dev_err(cpu_dai->dev,
+				"failed to set proper pins state: %d\n", ret);
+			return ret;
 		}
-	} else {
-		pinctrl_pm_select_default_state(cpu_dai->dev);
-		sai->is_dsd = false;
 	}
 
 	if (sai->is_dsd)
@@ -924,8 +915,8 @@ static int fsl_sai_dai_resume(struct snd_soc_dai *cpu_dai)
 	struct fsl_sai *sai = snd_soc_dai_get_drvdata(cpu_dai);
 	int ret;
 
-	if (sai->is_dsd && !IS_ERR_OR_NULL(sai->pins_dsd)) {
-		ret = pinctrl_select_state(sai->pinctrl, sai->pins_dsd);
+	if (!IS_ERR_OR_NULL(sai->pins_state)) {
+		ret = pinctrl_select_state(sai->pinctrl, sai->pins_state);
 		if (ret) {
 			dev_err(cpu_dai->dev,
 				"failed to set proper pins state: %d\n", ret);
@@ -1351,9 +1342,6 @@ static int fsl_sai_probe(struct platform_device *pdev)
 	sai->dma_params_tx.maxburst = FSL_SAI_MAXBURST_TX;
 
 	sai->pinctrl  = devm_pinctrl_get(&pdev->dev);
-
-	if (!IS_ERR_OR_NULL(sai->pinctrl))
-		sai->pins_dsd = pinctrl_lookup_state(sai->pinctrl, "dsd");
 
 	platform_set_drvdata(pdev, sai);
 

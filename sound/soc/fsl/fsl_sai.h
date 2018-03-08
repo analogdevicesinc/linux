@@ -216,7 +216,7 @@ struct fsl_sai {
 	const struct fsl_sai_soc_data *soc;
 	struct pm_qos_request pm_qos_req;
 	struct pinctrl *pinctrl;
-	struct pinctrl_state *pins_dsd;
+	struct pinctrl_state *pins_state;
 };
 
 #define TX 1
