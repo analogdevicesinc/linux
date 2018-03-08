@@ -41,8 +41,6 @@ struct dcss_crtc {
 	struct drm_property *dtrc_table_ofs;
 
 	struct completion disable_completion;
-	struct drm_pending_vblank_event *event;
-	int vblank_cnt;
 
 	enum dcss_hdr10_nonlinearity opipe_nl;
 	enum dcss_hdr10_gamut opipe_g;
@@ -142,15 +140,15 @@ static void dcss_crtc_atomic_begin(struct drm_crtc *crtc,
 	struct dcss_crtc *dcss_crtc = container_of(crtc, struct dcss_crtc,
 						   base);
 
+	drm_crtc_vblank_on(crtc);
+
+	spin_lock_irq(&crtc->dev->event_lock);
 	if (crtc->state->event) {
-		crtc->state->event->pipe = drm_crtc_index(crtc);
-
-		WARN_ON(drm_crtc_vblank_get(crtc) != 0);
-
-		dcss_crtc->event = crtc->state->event;
+		WARN_ON(drm_crtc_vblank_get(crtc));
+		drm_crtc_arm_vblank_event(crtc, crtc->state->event);
 		crtc->state->event = NULL;
-		dcss_crtc->vblank_cnt = 0;
 	}
+	spin_unlock_irq(&crtc->dev->event_lock);
 }
 
 static void dcss_crtc_atomic_flush(struct drm_crtc *crtc,
@@ -249,8 +247,6 @@ static void dcss_crtc_atomic_enable(struct drm_crtc *crtc,
 	dcss_dtg_enable(dcss, true, NULL);
 	dcss_ctxld_enable(dcss);
 
-	drm_crtc_vblank_on(crtc);
-
 	crtc->enabled = true;
 }
 
@@ -295,20 +291,9 @@ static const struct drm_crtc_helper_funcs dcss_helper_funcs = {
 static irqreturn_t dcss_crtc_irq_handler(int irq, void *dev_id)
 {
 	struct dcss_crtc *dcss_crtc = dev_id;
-	struct drm_device *drm = dcss_crtc->base.dev;
-	struct drm_crtc *crtc = &dcss_crtc->base;
 	struct dcss_soc *dcss = dev_get_drvdata(dcss_crtc->dev->parent);
-	unsigned long flags;
 
 	drm_crtc_handle_vblank(&dcss_crtc->base);
-
-	spin_lock_irqsave(&drm->event_lock, flags);
-	if (dcss_crtc->event && !dcss_crtc->vblank_cnt--) {
-		drm_crtc_send_vblank_event(crtc, dcss_crtc->event);
-		drm_crtc_vblank_put(crtc);
-		dcss_crtc->event = NULL;
-	}
-	spin_unlock_irqrestore(&drm->event_lock, flags);
 
 	dcss_vblank_irq_clear(dcss);
 
