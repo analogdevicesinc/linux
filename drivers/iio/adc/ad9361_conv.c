@@ -111,7 +111,7 @@ ssize_t ad9361_dig_interface_timing_analysis(struct ad9361_rf_phy *phy,
 	ad9361_ensm_force_state(phy, ENSM_STATE_ALERT);
 	ad9361_spi_write(phy->spi, REG_RX_CLOCK_DATA_DELAY, rx);
 	ad9361_bist_loopback(phy, loopback);
-	ad9361_spi_write(phy->spi, REG_BIST_CONFIG, bist);
+	ad9361_write_bist_reg(phy, bist);
 
 	if (!phy->pdata->fdd)
 		ad9361_set_ensm_mode(phy, phy->pdata->fdd, phy->pdata->ensm_pin_ctrl);
@@ -635,7 +635,7 @@ int ad9361_dig_tune(struct ad9361_rf_phy *phy, unsigned long max_freq,
 			ret = ad9361_dig_tune_tx(phy, max_freq, flags);
 
 		ad9361_bist_loopback(phy, loopback);
-		ad9361_spi_write(phy->spi, REG_BIST_CONFIG, bist);
+		ad9361_write_bist_reg(phy, bist);
 
 		if (ret == -EIO)
 			restore = true;
