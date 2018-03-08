@@ -1027,6 +1027,15 @@ int ad9361_bist_loopback(struct ad9361_rf_phy *phy, unsigned mode)
 }
 EXPORT_SYMBOL(ad9361_bist_loopback);
 
+int ad9361_write_bist_reg(struct ad9361_rf_phy *phy, u32 val)
+{
+	if (!phy)
+		return -EINVAL;
+	phy->bist_config = val;
+	return ad9361_spi_write(phy->spi, REG_BIST_CONFIG, val);
+}
+EXPORT_SYMBOL(ad9361_write_bist_reg);
+
 int ad9361_bist_prbs(struct ad9361_rf_phy *phy, enum ad9361_bist_mode mode)
 {
 	u32 reg = 0;
@@ -1045,9 +1054,7 @@ int ad9361_bist_prbs(struct ad9361_rf_phy *phy, enum ad9361_bist_mode mode)
 		break;
 	};
 
-	phy->bist_config = reg;
-
-	return ad9361_spi_write(phy->spi, REG_BIST_CONFIG, reg);
+	return ad9361_write_bist_reg(phy, reg);
 }
 EXPORT_SYMBOL(ad9361_bist_prbs);
 
@@ -1090,9 +1097,7 @@ static int ad9361_bist_tone(struct ad9361_rf_phy *phy,
 	reg1 = ((mask << 2) & reg_mask);
 	ad9361_spi_write(phy->spi, REG_BIST_AND_DATA_PORT_TEST_CONFIG, reg1);
 
-	phy->bist_config = reg;
-
-	return ad9361_spi_write(phy->spi, REG_BIST_CONFIG, reg);
+	return ad9361_write_bist_reg(phy, reg);
 }
 
 static int ad9361_check_cal_done(struct ad9361_rf_phy *phy, u32 reg,
