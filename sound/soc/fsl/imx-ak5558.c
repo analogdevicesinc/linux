@@ -57,6 +57,17 @@ static const struct imx_ak5558_fs_mul fs_mul[] = {
 	{ .min = 768000, .max = 768000, .mul = 2 * 32 },
 };
 
+/*
+ * MCLK and BCLK selection based on TDM mode
+ * because of SAI we also add the restriction: MCLK >= 2 * BCLK
+ * (Table 9 from datasheet)
+ */
+static const struct imx_ak5558_fs_mul fs_mul_tdm[] = {
+	{ .min = 128,	.max = 128,	.mul = 256 },
+	{ .min = 256,	.max = 256,	.mul = 512 },
+	{ .min = 512,	.max = 512,	.mul = 1024 },
+};
+
 static struct snd_soc_dapm_widget imx_ak5558_dapm_widgets[] = {
 	SND_SOC_DAPM_LINE("Line In", NULL),
 };
@@ -83,13 +94,26 @@ static unsigned long ak5558_get_mclk_rate(struct snd_pcm_substream *substream,
 	struct imx_ak5558_data *data = snd_soc_card_get_drvdata(rtd->card);
 	unsigned int rate = params_rate(params);
 	unsigned int freq = data->freq;
+	int mode;
 	int i;
 
-	for (i = 0; i < ARRAY_SIZE(fs_mul); i++) {
-		if (rate < fs_mul[i].min || rate > fs_mul[i].max)
-			continue;
-		freq = rate * fs_mul[i].mul;
-		break;
+	if (data->tdm_mode) {
+		mode = data->slots * data->slot_width;
+
+		for (i = 0; i < ARRAY_SIZE(fs_mul_tdm); i++) {
+			/* min = max = slots * slots_width */
+			if (mode != fs_mul_tdm[i].min)
+				continue;
+			freq = rate * fs_mul_tdm[i].mul;
+			break;
+		}
+	} else {
+		for (i = 0; i < ARRAY_SIZE(fs_mul); i++) {
+			if (rate < fs_mul[i].min || rate > fs_mul[i].max)
+				continue;
+			freq = rate * fs_mul[i].mul;
+			break;
+		}
 	}
 
 	return freq;
@@ -129,9 +153,13 @@ static int imx_aif_hw_params(struct snd_pcm_substream *substream,
 	}
 
 	if (data->tdm_mode) {
+		/* support TDM256 (8 slots * 32 bits/per slot) */
+		data->slots = 8;
+		data->slot_width = 32;
+
 		ret = snd_soc_dai_set_tdm_slot(cpu_dai,
 			       BIT(channels) - 1, BIT(channels) - 1,
-			       8, 32);
+			       data->slots, data->slot_width);
 		if (ret) {
 			dev_err(dev, "failed to set cpu dai tdm slot: %d\n", ret);
 			return ret;
@@ -145,9 +173,13 @@ static int imx_aif_hw_params(struct snd_pcm_substream *substream,
 			return ret;
 		}
 	} else {
+		/* normal mode (I2S) */
+		data->slots = 2;
+		data->slot_width = params_physical_width(params);
+
 		ret = snd_soc_dai_set_tdm_slot(cpu_dai,
 				       BIT(channels) - 1, BIT(channels) - 1,
-				       2, params_physical_width(params));
+				       data->slots, data->slot_width);
 		if (ret) {
 			dev_err(dev, "failed to set cpu dai tdm slot: %d\n", ret);
 			return ret;
