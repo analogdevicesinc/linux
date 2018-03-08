@@ -316,6 +316,7 @@ int phy_cfg_hdp_ss28fdsoi(state_struct *state, int num_lanes, struct drm_display
 		DRM_INFO
 		    ("Pixel clock frequency (%u kHz) not supported for this color depth (%0d-bit), row=%d\n",
 		     ftemp, bpp, row);
+		return 0;
 	}
 	character_freq_khz =
 	    pixel_freq_khz * character_clock_ratio_num /

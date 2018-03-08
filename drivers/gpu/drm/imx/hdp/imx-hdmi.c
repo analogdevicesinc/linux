@@ -86,6 +86,10 @@ int hdmi_phy_init(state_struct *state, struct drm_display_mode *mode, int format
 
 	/* Configure PHY */
 	character_freq_khz = phy_cfg_hdp_ss28fdsoi(state, 4, mode, color_depth, format);
+	if (character_freq_khz == 0) {
+		DRM_ERROR("failed to set phy pclock\n");
+		return -EINVAL;
+	}
 
 	imx_hdp_call(hdp, phy_reset, hdp->ipcHndl, 1);
 
@@ -168,6 +172,10 @@ int hdmi_phy_init_t28hpc(state_struct *state, struct drm_display_mode *mode, int
 	/* Configure PHY */
 	character_freq_khz =
 	    phy_cfg_t28hpc(state, 4, mode, color_depth, format, pixel_clk_from_phy);
+	if (character_freq_khz == 0) {
+		DRM_ERROR("failed to set phy pclock\n");
+		return -EINVAL;
+	}
 
 	hdmi_tx_t28hpc_power_config_seq(state, 4);
 
