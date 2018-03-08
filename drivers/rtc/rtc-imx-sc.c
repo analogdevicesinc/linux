@@ -61,7 +61,7 @@ static int imx_sc_rtc_read_time(struct device *dev, struct rtc_time *tm)
 
 	sciErr = sc_timer_get_rtc_sec1970(timer_ipcHandle, &time);
 	if (sciErr) {
-		dev_err(dev, "failed to read time: %d\n", sciErr);
+		dev_err_once(dev, "failed to read time: %d\n", sciErr);
 		return -EINVAL;
 	}
 
