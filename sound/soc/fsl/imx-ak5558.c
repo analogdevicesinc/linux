@@ -80,7 +80,7 @@ static const u32 ak5558_rates[] = {
 
 static const u32 ak5558_tdm_rates[] = {
 	8000, 16000, 32000,
-	48000, 96000, 192000,
+	48000, 96000
 };
 
 static const u32 ak5558_channels[] = {
