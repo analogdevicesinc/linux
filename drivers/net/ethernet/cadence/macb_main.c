@@ -36,7 +36,9 @@
 #include <linux/ip.h>
 #include <linux/udp.h>
 #include <linux/tcp.h>
+#include <linux/pm_runtime.h>
 #include <linux/crc32.h>
+#include <linux/inetdevice.h>
 #include "macb.h"
 
 #define MACB_RX_BUFFER_SIZE	128
@@ -72,13 +74,11 @@
 #define GEM_MTU_MIN_SIZE	ETH_MIN_MTU
 #define MACB_NETIF_LSO		NETIF_F_TSO
 
-#define MACB_WOL_HAS_MAGIC_PACKET	(0x1 << 0)
-#define MACB_WOL_ENABLED		(0x1 << 1)
-
 /* Graceful stop timeouts in us. We should allow up to
  * 1 frame time (10 Mbits/s, full-duplex, ignoring collisions)
  */
 #define MACB_HALT_TIMEOUT	1230
+#define MACB_PM_TIMEOUT  100 /* ms */
 
 /* DMA buffer descriptor might be different size
  * depends on hardware configuration:
@@ -322,10 +322,42 @@ static void macb_get_hwaddr(struct macb *bp)
 	eth_hw_addr_random(bp->dev);
 }
 
+static int macb_mdio_wait_for_idle(struct macb *bp)
+{
+	ulong timeout;
+
+	timeout = jiffies + msecs_to_jiffies(1000);
+	/* wait for end of transfer */
+	while (1) {
+		if (MACB_BFEXT(IDLE, macb_readl(bp, NSR)))
+			break;
+
+		if (time_after_eq(jiffies, timeout)) {
+			netdev_err(bp->dev, "wait for end of transfer timed out\n");
+			pm_runtime_mark_last_busy(&bp->pdev->dev);
+			pm_runtime_put_autosuspend(&bp->pdev->dev);
+			return -ETIMEDOUT;
+		}
+
+		cpu_relax();
+	}
+
+	return 0;
+}
+
 static int macb_mdio_read(struct mii_bus *bus, int mii_id, int regnum)
 {
 	struct macb *bp = bus->priv;
 	int value;
+	int err;
+
+	err = pm_runtime_get_sync(&bp->pdev->dev);
+	if (err < 0)
+		return err;
+
+	err = macb_mdio_wait_for_idle(bp);
+	if (err < 0)
+		return err;
 
 	macb_writel(bp, MAN, (MACB_BF(SOF, MACB_MAN_SOF)
 			      | MACB_BF(RW, MACB_MAN_READ)
@@ -333,12 +365,14 @@ static int macb_mdio_read(struct mii_bus *bus, int mii_id, int regnum)
 			      | MACB_BF(REGA, regnum)
 			      | MACB_BF(CODE, MACB_MAN_CODE)));
 
-	/* wait for end of transfer */
-	while (!MACB_BFEXT(IDLE, macb_readl(bp, NSR)))
-		cpu_relax();
+	err = macb_mdio_wait_for_idle(bp);
+	if (err < 0)
+		return err;
 
 	value = MACB_BFEXT(DATA, macb_readl(bp, MAN));
 
+	pm_runtime_mark_last_busy(&bp->pdev->dev);
+	pm_runtime_put_autosuspend(&bp->pdev->dev);
 	return value;
 }
 
@@ -346,6 +380,15 @@ static int macb_mdio_write(struct mii_bus *bus, int mii_id, int regnum,
 			   u16 value)
 {
 	struct macb *bp = bus->priv;
+	int err;
+
+	err = pm_runtime_get_sync(&bp->pdev->dev);
+	if (err < 0)
+		return err;
+
+	err = macb_mdio_wait_for_idle(bp);
+	if (err < 0)
+		return err;
 
 	macb_writel(bp, MAN, (MACB_BF(SOF, MACB_MAN_SOF)
 			      | MACB_BF(RW, MACB_MAN_WRITE)
@@ -354,18 +397,20 @@ static int macb_mdio_write(struct mii_bus *bus, int mii_id, int regnum,
 			      | MACB_BF(CODE, MACB_MAN_CODE)
 			      | MACB_BF(DATA, value)));
 
-	/* wait for end of transfer */
-	while (!MACB_BFEXT(IDLE, macb_readl(bp, NSR)))
-		cpu_relax();
+	err = macb_mdio_wait_for_idle(bp);
+	if (err < 0)
+		return err;
 
+	pm_runtime_mark_last_busy(&bp->pdev->dev);
+	pm_runtime_put_autosuspend(&bp->pdev->dev);
 	return 0;
 }
 
 /**
- * macb_set_tx_clk() - Set a clock to a new frequency
- * @clk		Pointer to the clock to change
- * @rate	New frequency in Hz
- * @dev		Pointer to the struct net_device
+ * macb_set_tx_clk - Set a clock to a new frequency
+ * @clk:	Pointer to the clock to change
+ * @speed:	New frequency in Hz
+ * @dev:	Pointer to the struct net_device
  */
 static void macb_set_tx_clk(struct clk *clk, int speed, struct net_device *dev)
 {
@@ -884,7 +929,9 @@ static void macb_tx_interrupt(struct macb_queue *queue)
 
 			/* First, update TX stats if needed */
 			if (skb) {
-				if (gem_ptp_do_txstamp(queue, skb, desc) == 0) {
+				if (unlikely(skb_shinfo(skb)->tx_flags &
+					     SKBTX_HW_TSTAMP) &&
+				  (gem_ptp_do_txstamp(queue, skb, desc) == 0)) {
 					/* skb now belongs to timestamp buffer
 					 * and will be removed later
 					 */
@@ -933,7 +980,6 @@ static void gem_rx_refill(struct macb_queue *queue)
 		/* Make hw descriptor updates visible to CPU */
 		rmb();
 
-		queue->rx_prepared_head++;
 		desc = macb_rx_desc(queue, entry);
 
 		if (!queue->rx_skbuff[entry]) {
@@ -972,6 +1018,7 @@ static void gem_rx_refill(struct macb_queue *queue)
 			dma_wmb();
 			desc->addr &= ~MACB_BIT(RX_USED);
 		}
+		queue->rx_prepared_head++;
 	}
 
 	/* Make descriptor updates visible to hardware */
@@ -1416,6 +1463,12 @@ static irqreturn_t macb_interrupt(int irq, void *dev_id)
 	spin_lock(&bp->lock);
 
 	while (status) {
+		if (status & MACB_BIT(WOL)) {
+			if (bp->caps & MACB_CAPS_ISR_CLEAR_ON_WRITE)
+				queue_writel(queue, ISR, MACB_BIT(WOL));
+			break;
+		}
+
 		/* close possible race with dev_close */
 		if (unlikely(!netif_running(dev))) {
 			queue_writel(queue, IDR, -1);
@@ -1666,7 +1719,8 @@ static unsigned int macb_tx_map(struct macb *bp,
 			ctrl |= MACB_BF(TX_LSO, lso_ctrl);
 			ctrl |= MACB_BF(TX_TCP_SEQ_SRC, seq_ctrl);
 			if ((bp->dev->features & NETIF_F_HW_CSUM) &&
-			    skb->ip_summed != CHECKSUM_PARTIAL && !lso_ctrl)
+			    skb->ip_summed != CHECKSUM_PARTIAL && !lso_ctrl &&
+			    (skb->data_len == 0))
 				ctrl |= MACB_BIT(TX_NOCRC);
 		} else
 			/* Only set MSS/MFS on payload descriptors
@@ -1763,9 +1817,11 @@ static int macb_pad_and_fcs(struct sk_buff **skb, struct net_device *ndev)
 	struct sk_buff *nskb;
 	u32 fcs;
 
+	/* Not available for GSO and fragments */
 	if (!(ndev->features & NETIF_F_HW_CSUM) ||
 	    !((*skb)->ip_summed != CHECKSUM_PARTIAL) ||
-	    skb_shinfo(*skb)->gso_size)	/* Not available for GSO */
+	    skb_shinfo(*skb)->gso_size ||
+	    ((*skb)->data_len > 0))
 		return 0;
 
 	if (padlen <= 0) {
@@ -1777,7 +1833,7 @@ static int macb_pad_and_fcs(struct sk_buff **skb, struct net_device *ndev)
 			padlen = 0;
 		/* No room for FCS, need to reallocate skb. */
 		else
-			padlen = ETH_FCS_LEN - tailroom;
+			padlen = ETH_FCS_LEN;
 	} else {
 		/* Add room for FCS. */
 		padlen += ETH_FCS_LEN;
@@ -1795,12 +1851,8 @@ static int macb_pad_and_fcs(struct sk_buff **skb, struct net_device *ndev)
 		*skb = nskb;
 	}
 
-	if (padlen) {
-		if (padlen >= ETH_FCS_LEN)
-			skb_put_zero(*skb, padlen - ETH_FCS_LEN);
-		else
-			skb_trim(*skb, ETH_FCS_LEN - padlen);
-	}
+	if (padlen > ETH_FCS_LEN)
+		skb_put_zero(*skb, padlen - ETH_FCS_LEN);
 
 add_fcs:
 	/* set FCS to packet */
@@ -1823,7 +1875,7 @@ static netdev_tx_t macb_start_xmit(struct sk_buff *skb, struct net_device *dev)
 	unsigned long flags;
 	unsigned int desc_cnt, nr_frags, frag_size, f;
 	unsigned int hdrlen;
-	bool is_lso, is_udp = 0;
+	bool is_lso, is_udp = false;
 	netdev_tx_t ret = NETDEV_TX_OK;
 
 	if (macb_clear_csum(skb)) {
@@ -2513,6 +2565,10 @@ static int macb_open(struct net_device *dev)
 
 	netdev_dbg(bp->dev, "open\n");
 
+	err = pm_runtime_get_sync(&bp->pdev->dev);
+	if (err < 0)
+		return err;
+
 	/* carrier starts down */
 	netif_carrier_off(dev);
 
@@ -2571,6 +2627,8 @@ static int macb_close(struct net_device *dev)
 
 	if (bp->ptp_info)
 		bp->ptp_info->ptp_remove(dev);
+
+	pm_runtime_put(&bp->pdev->dev);
 
 	return 0;
 }
@@ -2785,38 +2843,6 @@ static void macb_get_regs(struct net_device *dev, struct ethtool_regs *regs,
 		regs_buff[13] = gem_readl(bp, DMACFG);
 }
 
-static void macb_get_wol(struct net_device *netdev, struct ethtool_wolinfo *wol)
-{
-	struct macb *bp = netdev_priv(netdev);
-
-	wol->supported = 0;
-	wol->wolopts = 0;
-
-	if (bp->wol & MACB_WOL_HAS_MAGIC_PACKET) {
-		wol->supported = WAKE_MAGIC;
-
-		if (bp->wol & MACB_WOL_ENABLED)
-			wol->wolopts |= WAKE_MAGIC;
-	}
-}
-
-static int macb_set_wol(struct net_device *netdev, struct ethtool_wolinfo *wol)
-{
-	struct macb *bp = netdev_priv(netdev);
-
-	if (!(bp->wol & MACB_WOL_HAS_MAGIC_PACKET) ||
-	    (wol->wolopts & ~WAKE_MAGIC))
-		return -EOPNOTSUPP;
-
-	if (wol->wolopts & WAKE_MAGIC)
-		bp->wol |= MACB_WOL_ENABLED;
-	else
-		bp->wol &= ~MACB_WOL_ENABLED;
-
-	device_set_wakeup_enable(&bp->pdev->dev, bp->wol & MACB_WOL_ENABLED);
-
-	return 0;
-}
 
 static void macb_get_ringparam(struct net_device *netdev,
 			       struct ethtool_ringparam *ring)
@@ -3249,8 +3275,6 @@ static const struct ethtool_ops macb_ethtool_ops = {
 	.get_regs		= macb_get_regs,
 	.get_link		= ethtool_op_get_link,
 	.get_ts_info		= ethtool_op_get_ts_info,
-	.get_wol		= macb_get_wol,
-	.set_wol		= macb_set_wol,
 	.get_link_ksettings     = phy_ethtool_get_link_ksettings,
 	.set_link_ksettings     = phy_ethtool_set_link_ksettings,
 	.get_ringparam		= macb_get_ringparam,
@@ -3441,18 +3465,9 @@ static int macb_clk_init(struct platform_device *pdev, struct clk **pclk,
 			 struct clk **hclk, struct clk **tx_clk,
 			 struct clk **rx_clk, struct clk **tsu_clk)
 {
-	struct macb_platform_data *pdata;
 	int err;
 
-	pdata = dev_get_platdata(&pdev->dev);
-	if (pdata) {
-		*pclk = pdata->pclk;
-		*hclk = pdata->hclk;
-	} else {
-		*pclk = devm_clk_get(&pdev->dev, "pclk");
-		*hclk = devm_clk_get(&pdev->dev, "hclk");
-	}
-
+	*pclk = devm_clk_get(&pdev->dev, "pclk");
 	if (IS_ERR_OR_NULL(*pclk)) {
 		err = PTR_ERR(*pclk);
 		if (!err)
@@ -3462,6 +3477,7 @@ static int macb_clk_init(struct platform_device *pdev, struct clk **pclk,
 		return err;
 	}
 
+	*hclk = devm_clk_get(&pdev->dev, "hclk");
 	if (IS_ERR_OR_NULL(*hclk)) {
 		err = PTR_ERR(*hclk);
 		if (!err)
@@ -4085,7 +4101,7 @@ static const struct macb_config zynqmp_config = {
 			MACB_CAPS_JUMBO |
 			MACB_CAPS_GEM_HAS_PTP | MACB_CAPS_BD_RD_PREFETCH |
 			MACB_CAPS_PCS |
-		MACB_CAPS_PARTIAL_STORE_FORWARD,
+		MACB_CAPS_PARTIAL_STORE_FORWARD | MACB_CAPS_WOL,
 	.dma_burst_length = 16,
 	.clk_init = macb_clk_init,
 	.init = macb_init,
@@ -4172,6 +4188,11 @@ static int macb_probe(struct platform_device *pdev)
 	if (err)
 		return err;
 
+	pm_runtime_set_autosuspend_delay(&pdev->dev, MACB_PM_TIMEOUT);
+	pm_runtime_use_autosuspend(&pdev->dev);
+	pm_runtime_get_noresume(&pdev->dev);
+	pm_runtime_set_active(&pdev->dev);
+	pm_runtime_enable(&pdev->dev);
 	native_io = hw_is_native_io(mem);
 
 	macb_probe_queues(mem, native_io, &queue_mask, &num_queues);
@@ -4211,11 +4232,6 @@ static int macb_probe(struct platform_device *pdev)
 
 	if (macb_config)
 		bp->jumbo_max_len = macb_config->jumbo_max_len;
-
-	bp->wol = 0;
-	if (of_get_property(np, "magic-packet", NULL))
-		bp->wol |= MACB_WOL_HAS_MAGIC_PACKET;
-	device_init_wakeup(&pdev->dev, bp->wol & MACB_WOL_HAS_MAGIC_PACKET);
 
 	spin_lock_init(&bp->lock);
 
@@ -4316,11 +4332,17 @@ static int macb_probe(struct platform_device *pdev)
 	tasklet_init(&bp->hresp_err_tasklet, macb_hresp_error_task,
 		     (unsigned long)bp);
 
+	if (bp->caps & MACB_CAPS_WOL)
+		device_set_wakeup_capable(&bp->dev->dev, 1);
+
 	phy_attached_info(phydev);
 
 	netdev_info(dev, "Cadence %s rev 0x%08x at 0x%08lx irq %d (%pM)\n",
 		    macb_is_gem(bp) ? "GEM" : "MACB", macb_readl(bp, MID),
 		    dev->base_addr, dev->irq, dev->dev_addr);
+
+	pm_runtime_mark_last_busy(&bp->pdev->dev);
+	pm_runtime_put_autosuspend(&bp->pdev->dev);
 
 	return 0;
 
@@ -4341,6 +4363,9 @@ err_disable_clocks:
 	clk_disable_unprepare(pclk);
 	clk_disable_unprepare(rx_clk);
 	clk_disable_unprepare(tsu_clk);
+	pm_runtime_disable(&pdev->dev);
+	pm_runtime_set_suspended(&pdev->dev);
+	pm_runtime_dont_use_autosuspend(&pdev->dev);
 
 	return err;
 }
@@ -4364,11 +4389,16 @@ static int macb_remove(struct platform_device *pdev)
 		mdiobus_free(bp->mii_bus);
 
 		unregister_netdev(dev);
-		clk_disable_unprepare(bp->tx_clk);
-		clk_disable_unprepare(bp->hclk);
-		clk_disable_unprepare(bp->pclk);
-		clk_disable_unprepare(bp->rx_clk);
-		clk_disable_unprepare(bp->tsu_clk);
+		pm_runtime_disable(&pdev->dev);
+		pm_runtime_dont_use_autosuspend(&pdev->dev);
+		if (!pm_runtime_suspended(&pdev->dev)) {
+			clk_disable_unprepare(bp->tx_clk);
+			clk_disable_unprepare(bp->hclk);
+			clk_disable_unprepare(bp->pclk);
+			clk_disable_unprepare(bp->rx_clk);
+			clk_disable_unprepare(bp->tsu_clk);
+			pm_runtime_set_suspended(&pdev->dev);
+		}
 		of_node_put(bp->phy_node);
 		free_netdev(dev);
 	}
@@ -4381,20 +4411,68 @@ static int __maybe_unused macb_suspend(struct device *dev)
 	struct platform_device *pdev = to_platform_device(dev);
 	struct net_device *netdev = platform_get_drvdata(pdev);
 	struct macb *bp = netdev_priv(netdev);
+	struct macb_queue *queue = bp->queues;
+	unsigned long flags;
+	unsigned int q;
+	u32 ctrl, arpipmask;
 
-	netif_carrier_off(netdev);
-	netif_device_detach(netdev);
+	if (!netif_running(netdev))
+		return 0;
 
-	if (bp->wol & MACB_WOL_ENABLED) {
+	if (device_may_wakeup(&bp->dev->dev)) {
+		spin_lock_irqsave(&bp->lock, flags);
+		ctrl = macb_readl(bp, NCR);
+		ctrl &= ~(MACB_BIT(TE) | MACB_BIT(RE));
+		macb_writel(bp, NCR, ctrl);
+		/* Tie off RX queues */
+		for (q = 0, queue = bp->queues; q < bp->num_queues;
+		     ++q, ++queue) {
+			queue_writel(queue, RBQP,
+				     lower_32_bits(bp->rx_ring_tieoff_dma));
+		}
+		ctrl = macb_readl(bp, NCR);
+		ctrl |= MACB_BIT(RE);
+		macb_writel(bp, NCR, ctrl);
+		gem_writel(bp, NCFGR, gem_readl(bp, NCFGR) & ~MACB_BIT(NBC));
+		macb_writel(bp, TSR, -1);
+		macb_writel(bp, RSR, -1);
+		macb_readl(bp, ISR);
+		if (bp->caps & MACB_CAPS_ISR_CLEAR_ON_WRITE)
+			macb_writel(bp, ISR, -1);
+
+		/* Enable WOL (Q0 only) and disable all other interrupts */
 		macb_writel(bp, IER, MACB_BIT(WOL));
-		macb_writel(bp, WOL, MACB_BIT(MAG));
+		for (q = 1, queue = bp->queues; q < bp->num_queues;
+		     ++q, ++queue) {
+			queue_writel(queue, IDR, bp->rx_intr_mask |
+						 MACB_TX_INT_FLAGS |
+						 MACB_BIT(HRESP));
+		}
+
+		arpipmask = cpu_to_be32p(&bp->dev->ip_ptr->ifa_list->ifa_local)
+					 & 0xFFFF;
+		gem_writel(bp, WOL, MACB_BIT(ARP) | arpipmask);
+		spin_unlock_irqrestore(&bp->lock, flags);
 		enable_irq_wake(bp->queues[0].irq);
+		netif_device_detach(netdev);
+		for (q = 0, queue = bp->queues; q < bp->num_queues;
+		     ++q, ++queue)
+			napi_disable(&queue->napi);
 	} else {
-		clk_disable_unprepare(bp->tx_clk);
-		clk_disable_unprepare(bp->hclk);
-		clk_disable_unprepare(bp->pclk);
-		clk_disable_unprepare(bp->rx_clk);
+		netif_device_detach(netdev);
+		for (q = 0, queue = bp->queues; q < bp->num_queues;
+		     ++q, ++queue)
+			napi_disable(&queue->napi);
+		phy_stop(netdev->phydev);
+		phy_suspend(netdev->phydev);
+		spin_lock_irqsave(&bp->lock, flags);
+		macb_reset_hw(bp);
+		spin_unlock_irqrestore(&bp->lock, flags);
 	}
+
+	if (bp->ptp_info)
+		bp->ptp_info->ptp_remove(netdev);
+	pm_runtime_force_suspend(dev);
 
 	return 0;
 }
@@ -4404,24 +4482,87 @@ static int __maybe_unused macb_resume(struct device *dev)
 	struct platform_device *pdev = to_platform_device(dev);
 	struct net_device *netdev = platform_get_drvdata(pdev);
 	struct macb *bp = netdev_priv(netdev);
+	struct macb_queue *queue = bp->queues;
+	unsigned long flags;
+	unsigned int q;
 
-	if (bp->wol & MACB_WOL_ENABLED) {
+	if (!netif_running(netdev))
+		return 0;
+
+	pm_runtime_force_resume(dev);
+
+	if (device_may_wakeup(&bp->dev->dev)) {
+		spin_lock_irqsave(&bp->lock, flags);
 		macb_writel(bp, IDR, MACB_BIT(WOL));
-		macb_writel(bp, WOL, 0);
+		gem_writel(bp, WOL, 0);
+		/* Clear Q0 ISR as WOL was enabled on Q0 */
+		if (bp->caps & MACB_CAPS_ISR_CLEAR_ON_WRITE)
+			macb_writel(bp, ISR, -1);
 		disable_irq_wake(bp->queues[0].irq);
+		spin_unlock_irqrestore(&bp->lock, flags);
+		macb_writel(bp, NCR, MACB_BIT(MPE));
+		for (q = 0, queue = bp->queues; q < bp->num_queues;
+		     ++q, ++queue)
+			napi_enable(&queue->napi);
+		netif_carrier_on(netdev);
 	} else {
+		macb_writel(bp, NCR, MACB_BIT(MPE));
+		for (q = 0, queue = bp->queues; q < bp->num_queues;
+		     ++q, ++queue)
+			napi_enable(&queue->napi);
+		phy_resume(netdev->phydev);
+		phy_init_hw(netdev->phydev);
+		phy_start(netdev->phydev);
+	}
+
+	bp->macbgem_ops.mog_init_rings(bp);
+	macb_init_hw(bp);
+	macb_set_rx_mode(netdev);
+	netif_device_attach(netdev);
+	if (bp->ptp_info)
+		bp->ptp_info->ptp_init(netdev);
+
+	return 0;
+}
+
+static int __maybe_unused macb_runtime_suspend(struct device *dev)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct net_device *netdev = platform_get_drvdata(pdev);
+	struct macb *bp = netdev_priv(netdev);
+
+	if (!(device_may_wakeup(&bp->dev->dev))) {
+		clk_disable_unprepare(bp->tx_clk);
+		clk_disable_unprepare(bp->hclk);
+		clk_disable_unprepare(bp->pclk);
+		clk_disable_unprepare(bp->rx_clk);
+	}
+	clk_disable_unprepare(bp->tsu_clk);
+
+	return 0;
+}
+
+static int __maybe_unused macb_runtime_resume(struct device *dev)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct net_device *netdev = platform_get_drvdata(pdev);
+	struct macb *bp = netdev_priv(netdev);
+
+	if (!(device_may_wakeup(&bp->dev->dev))) {
 		clk_prepare_enable(bp->pclk);
 		clk_prepare_enable(bp->hclk);
 		clk_prepare_enable(bp->tx_clk);
 		clk_prepare_enable(bp->rx_clk);
 	}
-
-	netif_device_attach(netdev);
+	clk_prepare_enable(bp->tsu_clk);
 
 	return 0;
 }
 
-static SIMPLE_DEV_PM_OPS(macb_pm_ops, macb_suspend, macb_resume);
+static const struct dev_pm_ops macb_pm_ops = {
+	SET_SYSTEM_SLEEP_PM_OPS(macb_suspend, macb_resume)
+	SET_RUNTIME_PM_OPS(macb_runtime_suspend, macb_runtime_resume, NULL)
+};
 
 static struct platform_driver macb_driver = {
 	.probe		= macb_probe,

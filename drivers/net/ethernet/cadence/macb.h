@@ -94,6 +94,7 @@
 #define GEM_SA3T		0x009C /* Specific3 Top */
 #define GEM_SA4B		0x00A0 /* Specific4 Bottom */
 #define GEM_SA4T		0x00A4 /* Specific4 Top */
+#define GEM_WOL			0x00B8 /* Wake on LAN */
 #define GEM_RXPTPUNI		0x00D4 /* PTP RX Unicast address */
 #define GEM_TXPTPUNI		0x00D8 /* PTP TX Unicast address */
 #define GEM_EFTSH		0x00e8 /* PTP Event Frame Transmitted Seconds Register 47:32 */
@@ -390,7 +391,7 @@
 #define MACB_PFR_SIZE		1
 #define MACB_PTZ_OFFSET		13 /* Enable pause time zero interrupt */
 #define MACB_PTZ_SIZE		1
-#define MACB_WOL_OFFSET		14 /* Enable wake-on-lan interrupt */
+#define MACB_WOL_OFFSET		28 /* Enable WOL received interrupt */
 #define MACB_WOL_SIZE		1
 #define MACB_DRQFR_OFFSET	18 /* PTP Delay Request Frame Received */
 #define MACB_DRQFR_SIZE		1
@@ -485,7 +486,6 @@
 #define GEM_TX_PKT_BUFF_OFFSET			21
 #define GEM_TX_PKT_BUFF_SIZE			1
 
-
 /* Bitfields in DCFG5. */
 #define GEM_TSU_OFFSET				8
 #define GEM_TSU_SIZE				1
@@ -514,7 +514,11 @@
 
 /* Bitfields in TISUBN */
 #define GEM_SUBNSINCR_OFFSET			0
-#define GEM_SUBNSINCR_SIZE			16
+#define GEM_SUBNSINCRL_OFFSET			24
+#define GEM_SUBNSINCRL_SIZE			8
+#define GEM_SUBNSINCRH_OFFSET			0
+#define GEM_SUBNSINCRH_SIZE			16
+#define GEM_SUBNSINCR_SIZE			24
 
 /* Bitfields in TI */
 #define GEM_NSINCR_OFFSET			0
@@ -852,6 +856,9 @@ struct gem_tx_ts {
 
 /* limit RX checksum offload to TCP and UDP packets */
 #define GEM_RX_CSUM_CHECKED_MASK		2
+
+/* Scaled PPM fraction */
+#define PPM_FRACTION	16
 
 /* struct macb_tx_skb - data about an skb which is being transmitted
  * @skb: skb currently being transmitted, only set for the last buffer
