@@ -1131,7 +1131,7 @@ int ak4458_probe(struct device *dev, struct regmap *regmap)
 
 	ak4458->mute_gpio = of_get_named_gpio(np, "ak4458,mute_gpio", 0);
 	if (gpio_is_valid(ak4458->mute_gpio)) {
-		ret = devm_gpio_request_one(dev, ak4458->pdn_gpio,
+		ret = devm_gpio_request_one(dev, ak4458->mute_gpio,
 				GPIOF_OUT_INIT_LOW, "ak4458,mute");
 		if (ret) {
 			dev_err(dev, "unable to get mute gpio\n");
