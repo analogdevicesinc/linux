@@ -534,14 +534,17 @@ static int fsl_sai_hw_params(struct snd_pcm_substream *substream,
 
 	pins = DIV_ROUND_UP(channels, slots);
 	sai->is_dsd = fsl_is_dsd(params);
-	sai->pins_state = fsl_get_pins_state(sai->pinctrl, params);
 
-	if (!IS_ERR_OR_NULL(sai->pins_state)) {
-		ret = pinctrl_select_state(sai->pinctrl, sai->pins_state);
-		if (ret) {
-			dev_err(cpu_dai->dev,
-				"failed to set proper pins state: %d\n", ret);
-			return ret;
+	if (!IS_ERR_OR_NULL(sai->pinctrl)) {
+		sai->pins_state = fsl_get_pins_state(sai->pinctrl, params);
+
+		if (!IS_ERR_OR_NULL(sai->pins_state)) {
+			ret = pinctrl_select_state(sai->pinctrl, sai->pins_state);
+			if (ret) {
+				dev_err(cpu_dai->dev,
+					"failed to set proper pins state: %d\n", ret);
+				return ret;
+			}
 		}
 	}
 
@@ -915,7 +918,7 @@ static int fsl_sai_dai_resume(struct snd_soc_dai *cpu_dai)
 	struct fsl_sai *sai = snd_soc_dai_get_drvdata(cpu_dai);
 	int ret;
 
-	if (!IS_ERR_OR_NULL(sai->pins_state)) {
+	if (!IS_ERR_OR_NULL(sai->pinctrl) && !IS_ERR_OR_NULL(sai->pins_state)) {
 		ret = pinctrl_select_state(sai->pinctrl, sai->pins_state);
 		if (ret) {
 			dev_err(cpu_dai->dev,
@@ -1341,7 +1344,7 @@ static int fsl_sai_probe(struct platform_device *pdev)
 	sai->dma_params_rx.maxburst = FSL_SAI_MAXBURST_RX;
 	sai->dma_params_tx.maxburst = FSL_SAI_MAXBURST_TX;
 
-	sai->pinctrl  = devm_pinctrl_get(&pdev->dev);
+	sai->pinctrl = devm_pinctrl_get(&pdev->dev);
 
 	platform_set_drvdata(pdev, sai);
 
