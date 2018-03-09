@@ -1992,22 +1992,22 @@ static irqreturn_t imx_pcie_dma_isr(int irq, void *param)
 
 	/* check write isr */
 	irqs = readl(pci->dbi_base + offset + DMA_WRITE_INT_STS);
-	if (irqs && DMA_DONE_INT_STS) {
+	if (irqs & DMA_DONE_INT_STS) {
 		/* write 1 clear */
-		writel(irqs && DMA_DONE_INT_STS,
+		writel(irqs & DMA_DONE_INT_STS,
 				pci->dbi_base + offset + DMA_WRITE_INT_CLR);
 		dma_w_end = 1;
-	} else if (irqs && DMA_ABORT_INT_STS) {
+	} else if (irqs & DMA_ABORT_INT_STS) {
 		pr_info("imx pcie dma write error 0x%0x.\n", irqs);
 	}
 	/* check read isr */
 	irqs = readl(pci->dbi_base + offset + DMA_READ_INT_STS);
-	if (irqs && DMA_DONE_INT_STS) {
+	if (irqs & DMA_DONE_INT_STS) {
 		/* write 1 clear */
-		writel(irqs && DMA_DONE_INT_STS,
+		writel(irqs & DMA_DONE_INT_STS,
 				pci->dbi_base + offset + DMA_READ_INT_CLR);
 		dma_r_end = 1;
-	} else if (irqs && DMA_ABORT_INT_STS) {
+	} else if (irqs & DMA_ABORT_INT_STS) {
 		pr_info("imx pcie dma read error 0x%0x.", irqs);
 	}
 	return IRQ_HANDLED;
@@ -2473,14 +2473,14 @@ static int __init imx_pcie_probe(struct platform_device *pdev)
 			test_reg1 = devm_kzalloc(&pdev->dev,
 					test_region_size, GFP_KERNEL);
 			if (!test_reg1) {
-				ret = PTR_ERR(test_reg1);
+				ret = -ENOMEM;
 				return ret;
 			}
 
 			test_reg2 = devm_kzalloc(&pdev->dev,
 					test_region_size, GFP_KERNEL);
 			if (!test_reg2) {
-				ret = PTR_ERR(test_reg1);
+				ret = -ENOMEM;
 				return ret;
 			}
 		}
@@ -2489,7 +2489,7 @@ static int __init imx_pcie_probe(struct platform_device *pdev)
 					test_region_size);
 		if (!pcie_arb_base_addr) {
 			dev_err(dev, "ioremap error in ep io test\n");
-			ret = PTR_ERR(pcie_arb_base_addr);
+			ret = -ENOMEM;
 			return ret;
 		}
 
