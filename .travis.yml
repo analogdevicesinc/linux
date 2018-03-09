@@ -1,3 +1,11 @@
+branches:
+  only:
+  - master
+  - /^feature-.*$/
+  - /^test-.*$/
+  - /^wip-.*$/
+  - /^20.*$/
+
 language: c
 
 os: linux
