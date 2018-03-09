@@ -1974,7 +1974,7 @@
 		clocks = <&clk IMX8QXP_GPU0_CORE_CLK>, <&clk IMX8QXP_GPU0_SHADER_CLK>;
 		clock-names = "core", "shader";
 		assigned-clocks = <&clk IMX8QXP_GPU0_CORE_CLK>, <&clk IMX8QXP_GPU0_SHADER_CLK>;
-		assigned-clock-rates = <600000000>, <850000000>;
+		assigned-clock-rates = <700000000>, <850000000>;
 		power-domains = <&pd_gpu0>;
 		status = "disabled";
 	};
