@@ -21,6 +21,12 @@
 #include <video/imx-dcss.h>
 #include "dcss-prv.h"
 
+#define USE_TBL_HEADER
+
+#ifdef USE_TBL_HEADER
+#include "dcss-hdr10-tables.h"
+#endif
+
 #define USE_CTXLD
 
 #define DCSS_HDR10_A0_LUT		0x0000
@@ -443,10 +449,11 @@ static void dcss_hdr10_parse_fw_data(struct dcss_hdr10_priv *hdr10)
 		dcss_hdr10_tbl_add(hdr10, tbl_desc, tbl_size, data);
 
 		data += tbl_size;
-		remaining -= tbl_size + 2;
+		remaining -= tbl_size + 3;
 	}
 }
 
+#ifndef USE_TBL_HEADER
 static void dcss_hdr10_fw_handler(const struct firmware *fw, void *context)
 {
 	struct dcss_hdr10_priv *hdr10 = context;
@@ -487,6 +494,7 @@ static void dcss_hdr10_fw_handler(const struct firmware *fw, void *context)
 
 	dev_info(hdr10->dcss->dev, "hdr10: DCSS FW loaded successfully\n");
 }
+#endif
 
 static int dcss_hdr10_tbls_init(struct dcss_hdr10_priv *hdr10)
 {
@@ -530,6 +538,7 @@ int dcss_hdr10_init(struct dcss_soc *dcss, unsigned long hdr10_base)
 		return ret;
 	}
 
+#ifndef USE_TBL_HEADER
 	ret = request_firmware_nowait(THIS_MODULE, FW_ACTION_HOTPLUG, "dcss.fw",
 				      dcss->dev, GFP_KERNEL, hdr10,
 				      dcss_hdr10_fw_handler);
@@ -537,6 +546,12 @@ int dcss_hdr10_init(struct dcss_soc *dcss, unsigned long hdr10_base)
 		dev_err(dcss->dev, "hdr10: Cannot async load DCSS FW.\n");
 		return ret;
 	}
+#else
+	hdr10->fw_data = (u8 *)dcss_hdr10_tables;
+	hdr10->fw_size = sizeof(dcss_hdr10_tables);
+
+	dcss_hdr10_parse_fw_data(hdr10);
+#endif
 
 	return dcss_hdr10_ch_init_all(dcss, hdr10_base);
 }
