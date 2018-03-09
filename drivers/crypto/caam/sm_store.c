@@ -993,7 +993,7 @@ int caam_sm_startup(struct platform_device *pdev)
 	struct caam_drv_private_jr *jrpriv;	/* need this for reg page */
 	struct platform_device *sm_pdev;
 	struct sm_page_descriptor *lpagedesc;
-	u32 page, pgstat, lpagect, detectedpage, smvid;
+	u32 page, pgstat, lpagect, detectedpage, smvid, smpart;
 
 	struct device_node *np;
 	ctrldev = &pdev->dev;
@@ -1041,7 +1041,18 @@ int caam_sm_startup(struct platform_device *pdev)
 	ctrlpriv->smdev = smdev;
 
 	/* Set the Secure Memory Register Map Version */
-	smvid = rd_reg32(&ctrlpriv->ctrl->perfmon.smvid);
+	if (ctrlpriv->has_seco) {
+		int i = ctrlpriv->first_jr_index;
+
+		smvid = rd_reg32(&ctrlpriv->jr[i]->perfmon.smvid);
+		smpart = rd_reg32(&ctrlpriv->jr[i]->perfmon.smpart);
+
+	} else {
+		smvid = rd_reg32(&ctrlpriv->ctrl->perfmon.smvid);
+		smpart = rd_reg32(&ctrlpriv->ctrl->perfmon.smpart);
+
+	}
+
 	if (smvid < SMVID_V2)
 		smpriv->sm_reg_offset = SM_V1_OFFSET;
 	else
@@ -1051,16 +1062,14 @@ int caam_sm_startup(struct platform_device *pdev)
 	 * Collect configuration limit data for reference
 	 * This batch comes from the partition data/vid registers in perfmon
 	 */
-	smpriv->max_pages = ((rd_reg32(&ctrlpriv->ctrl->perfmon.smpart)
-			    & SMPART_MAX_NUMPG_MASK) >>
+	smpriv->max_pages = ((smpart & SMPART_MAX_NUMPG_MASK) >>
 			    SMPART_MAX_NUMPG_SHIFT) + 1;
-	smpriv->top_partition = ((rd_reg32(&ctrlpriv->ctrl->perfmon.smpart)
-				  & SMPART_MAX_PNUM_MASK) >>
+	smpriv->top_partition = ((smpart & SMPART_MAX_PNUM_MASK) >>
 				SMPART_MAX_PNUM_SHIFT) + 1;
-	smpriv->top_page =  ((rd_reg32(&ctrlpriv->ctrl->perfmon.smpart)
-			    & SMPART_MAX_PG_MASK) >> SMPART_MAX_PG_SHIFT) + 1;
-	smpriv->page_size = 1024 << ((rd_reg32(&ctrlpriv->ctrl->perfmon.smvid)
-			    & SMVID_PG_SIZE_MASK) >> SMVID_PG_SIZE_SHIFT);
+	smpriv->top_page =  ((smpart & SMPART_MAX_PG_MASK) >>
+				SMPART_MAX_PG_SHIFT) + 1;
+	smpriv->page_size = 1024 << ((smvid & SMVID_PG_SIZE_MASK) >>
+				SMVID_PG_SIZE_SHIFT);
 	smpriv->slot_size = 1 << CONFIG_CRYPTO_DEV_FSL_CAAM_SM_SLOTSIZE;
 
 #ifdef SM_DEBUG
@@ -1109,9 +1118,17 @@ int caam_sm_startup(struct platform_device *pdev)
 				(pgstat & SMCS_PART_SHIFT) >> SMCS_PART_MASK;
 			lpagedesc[page].pg_base = (u8 *)ctrlpriv->sm_base +
 				(smpriv->page_size * page);
-			/* FIXME: get base address from platform property... */
-			lpagedesc[page].pg_phys = (u8 *)0x00100000 +
-				(smpriv->page_size * page);
+			if (ctrlpriv->has_seco) {
+/* FIXME: get different addresses viewed by CPU and CAAM from
+ * platform property
+ */
+				lpagedesc[page].pg_phys = (u8 *)0x20800000 +
+					(smpriv->page_size * page);
+			} else {
+/* FIXME: get base address from platform property... */
+				lpagedesc[page].pg_phys = (u8 *)0x00100000 +
+					(smpriv->page_size * page);
+			}
 			lpagect++;
 #ifdef SM_DEBUG
 			dev_info(smdev,
