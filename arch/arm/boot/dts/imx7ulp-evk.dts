@@ -158,6 +158,9 @@
 		port_idx = <0>;
 		gpio-controller;
 		#gpio-cells = <2>;
+		#interrupt-cells = <2>;
+		interrupt-controller;
+		interrupt-parent = <&rpmsg_gpio0>;
 		status = "okay";
 	};
 
@@ -166,6 +169,9 @@
 		port_idx = <1>;
 		gpio-controller;
 		#gpio-cells = <2>;
+		#interrupt-cells = <2>;
+		interrupt-controller;
+		interrupt-parent = <&rpmsg_gpio1>;
 		status = "okay";
 	};
 
