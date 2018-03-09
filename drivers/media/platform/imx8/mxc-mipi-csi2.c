@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 NXP
+ * Copyright 2017-2018 NXP
  */
 /*
  * The code contained herein is licensed under the GNU General Public
@@ -219,7 +219,8 @@ static void mxc_mipi_csi2_csr_config(struct mxc_mipi_csi2_dev *csi2dev)
 		CSI2SS_PHY_CTRL_CONT_CLK_MODE << CSI2SS_PHY_CTRL_CONT_CLK_MODE_OFFSET |
 		csi2dev->hs_settle << CSI2SS_PHY_CTRL_RX_HS_SETTLE_OFFSET |
 		CSI2SS_PHY_CTRL_PD << CSI2SS_PHY_CTRL_PD_OFFSET |
-		CSI2SS_PHY_CTRL_RTERM_SEL << CSI2SS_PHY_CTRL_RTERM_SEL_OFFSET;
+		CSI2SS_PHY_CTRL_RTERM_SEL << CSI2SS_PHY_CTRL_RTERM_SEL_OFFSET |
+		CSI2SS_PHY_CTRL_AUTO_PD_EN << CSI2SS_PHY_CTRL_AUTO_PD_EN_OFFSET;
 
 	writel(val, csi2dev->csr_regs + CSI2SS_PHY_CTRL);
 }
@@ -309,6 +310,8 @@ static int mxc_csi2_get_sensor_fmt(struct mxc_mipi_csi2_dev *csi2dev)
 	/* Get rxhs settle */
 	if (src_fmt.format.reserved[0] != 0)
 		csi2dev->hs_settle = calc_hs_settle(csi2dev, src_fmt.format.reserved[0]);
+	else if (src_fmt.format.reserved[1] != 0)
+		csi2dev->hs_settle = src_fmt.format.reserved[1];
 	else {
 		if (src_fmt.format.height * src_fmt.format.width > 1024 * 768)
 			csi2dev->hs_settle = rxhs_settle[2];

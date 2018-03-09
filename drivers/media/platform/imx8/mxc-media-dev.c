@@ -240,7 +240,7 @@ static int mxc_md_create_links(struct mxc_md *mxc_md)
 			if (mipi_csi2->vchannel == true)
 				mipi_vc = 4;
 			else
-				mipi_vc = 0;
+				mipi_vc = 1;
 
 			for (j = 0; j < mipi_vc; j++) {
 				ret = media_create_pad_link(source, source_pad + j, sink, sink_pad + j,
