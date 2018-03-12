@@ -115,5 +115,25 @@
 				MX8MQ_IOMUXC_ECSPI1_SCLK_GPIO5_IO6	0x16
 			>;
 		};
+
+		pinctrl_i2c1_synaptics_dsx_io: synaptics_dsx_iogrp {
+			fsl,pins = <
+				MX8MQ_IOMUXC_ECSPI1_MOSI_GPIO5_IO7              0x19
+			>;
+		};
+
+	};
+};
+
+&i2c1 {
+	synaptics_dsx_ts@20 {
+		compatible = "synaptics_dsx";
+		reg = <0x20>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_i2c1_synaptics_dsx_io>;
+		interrupt-parent = <&gpio5>;
+		interrupts = <7 8>;
+	/*	rest-gpios = <&gpio5 6 GPIO_ACTIVE_HIGH>;  */
+		status = "disabled";
 	};
 };
