@@ -1,7 +1,7 @@
 /*
  * drivers/dma/fsl-edma3-v3.c
  *
- * Copyright 2017 NXP .
+ * Copyright 2017-2018 NXP .
  *
  * Driver for the Freescale eDMA engine v3. This driver based on fsl-edma3.c
  * but changed to meet the IP change on i.MX8QM: every dma channel is specific
@@ -451,9 +451,7 @@ static void fsl_edma3_set_tcd_regs(struct fsl_edma3_chan *fsl_chan,
 	writel(le32_to_cpu(tcd->dlast_sga), addr + EDMA_TCD_DLAST_SGA);
 
 	/* Must clear CHa_CSR[DONE] bit before enable TCDa_CSR[ESG] */
-	if ((EDMA_TCD_CSR_E_SG | le16_to_cpu(tcd->csr)) &&
-		EDMA_CH_CSR_DONE | readl(addr + EDMA_CH_CSR))
-		writel(EDMA_CH_CSR_DONE, addr + EDMA_CH_CSR);
+	writel(readl(addr + EDMA_CH_CSR), addr + EDMA_CH_CSR);
 
 	writew(le16_to_cpu(tcd->csr), addr + EDMA_TCD_CSR);
 }
