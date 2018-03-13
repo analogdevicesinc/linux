@@ -3637,16 +3637,19 @@
 
 	sata: sata@5f020000 {
 		compatible = "fsl,imx8qm-ahci";
-		reg = <0x0 0x5f020000 0x0 0x10000>; /* Controller reg */
+		reg = <0x0 0x5f020000 0x0 0x10000>, /* Controller reg */
+			<0x0 0x5f1a0000 0x0 0x10000>; /* PHY reg */
+		reg-names = "ctl", "phy";
 		interrupts = <GIC_SPI 88 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&clk IMX8QM_HSIO_SATA_CLK>,
 			 <&clk IMX8QM_HSIO_PHY_X1_PCLK>,
 			 <&clk IMX8QM_HSIO_SATA_EPCS_TX_CLK>,
 			 <&clk IMX8QM_HSIO_SATA_EPCS_RX_CLK>,
 			 <&clk IMX8QM_HSIO_PHY_X2_PCLK_0>,
-			 <&clk IMX8QM_HSIO_PHY_X2_PCLK_1>;
+			 <&clk IMX8QM_HSIO_PHY_X2_PCLK_1>,
+			 <&clk IMX8QM_HSIO_PHY_X1_APB_CLK>;
 		clock-names = "sata", "sata_ref", "epcs_tx", "epcs_rx",
-				"phy_pclk0", "phy_pclk1";
+				"phy_pclk0", "phy_pclk1", "phy_apbclk";
 		hsio = <&hsio>;
 		power-domains = <&pd_sata0>;
 		iommus = <&smmu 0x13 0x7f80>;
