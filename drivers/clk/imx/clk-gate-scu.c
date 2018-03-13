@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2016 Freescale Semiconductor, Inc.
- * Copyright 2017 NXP
+ * Copyright 2017-2018 NXP
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -123,7 +123,10 @@ static int clk_gate_scu_prepare(struct clk_hw *hw)
 	sci_err = sc_pm_clock_enable(ccm_ipc_handle, gate->rsrc_id,
 		gate->clk_type, true, gate->hw_gate);
 
-	return sci_err;
+	if (sci_err != SC_ERR_NONE)
+		return -EINVAL;
+
+	return 0;
 }
 
 static void clk_gate_scu_unprepare(struct clk_hw *hw)
