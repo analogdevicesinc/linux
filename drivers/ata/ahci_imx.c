@@ -56,6 +56,9 @@ enum {
 	IMX_CLOCK_RESET				= 0x7f3f,
 	IMX_CLOCK_RESET_RESET			= 1 << 0,
 	/* IMX8QM HSIO AHCI definitions */
+	IMX8QM_SATA_PHY_RX_IMPED_RATIO_OFFSET	= 0x03,
+	IMX8QM_SATA_PHY_TX_IMPED_RATIO_OFFSET	= 0x09,
+	IMX8QM_SATA_PHY_IMPED_RATIO_85OHM	= 0x6c,
 	IMX8QM_LPCG_PHYX2_OFFSET		= 0x00000,
 	IMX8QM_CSR_PHYX2_OFFSET			= 0x90000,
 	IMX8QM_CSR_PHYX1_OFFSET			= 0xa0000,
@@ -105,13 +108,16 @@ struct imx_ahci_priv {
 	struct clk *ahb_clk;
 	struct clk *epcs_tx_clk;
 	struct clk *epcs_rx_clk;
+	struct clk *phy_apbclk;
 	struct clk *phy_pclk0;
 	struct clk *phy_pclk1;
+	void __iomem *phy_base;
 	int clkreq_gpio;
 	struct regmap *gpr;
 	bool no_device;
 	bool first_time;
 	u32 phy_params;
+	u32 imped_ratio;
 };
 
 void *sg_io_buffer_hack;
@@ -463,6 +469,11 @@ static int imx8_sata_enable(struct ahci_host_priv *hpriv)
 		dev_err(dev, "can't enable epcs rx clk.\n");
 		goto disable_epcs_tx_clk;
 	}
+	ret = clk_prepare_enable(imxpriv->phy_apbclk);
+	if (ret < 0) {
+		dev_err(dev, "can't enable phy pclk1.\n");
+		goto disable_epcs_rx_clk;
+	}
 	/* Configure PHYx2 PIPE_RSTN */
 	regmap_read(imxpriv->gpr, IMX8QM_CSR_PCIEA_OFFSET
 			+ IMX8QM_CSR_PCIE_CTRL2_OFFSET, &val);
@@ -593,9 +604,32 @@ static int imx8_sata_enable(struct ahci_host_priv *hpriv)
 		dev_err(dev, "TX PLL of the PHY is not locked\n");
 		ret = -ENODEV;
 	} else {
+		writeb(imxpriv->imped_ratio, imxpriv->phy_base
+				+ IMX8QM_SATA_PHY_RX_IMPED_RATIO_OFFSET);
+		writeb(imxpriv->imped_ratio, imxpriv->phy_base
+				+ IMX8QM_SATA_PHY_TX_IMPED_RATIO_OFFSET);
+		reg = readb(imxpriv->phy_base
+				+ IMX8QM_SATA_PHY_RX_IMPED_RATIO_OFFSET);
+		if (unlikely(reg != imxpriv->imped_ratio))
+			dev_info(dev, "Can't set PHY RX impedance ratio.\n");
+		reg = readb(imxpriv->phy_base
+				+ IMX8QM_SATA_PHY_TX_IMPED_RATIO_OFFSET);
+		if (unlikely(reg != imxpriv->imped_ratio))
+			dev_info(dev, "Can't set PHY TX impedance ratio.\n");
+		usleep_range(50, 100);
+
+		/*
+		 * To reduce the power consumption, gate off
+		 * the PHY clks
+		 */
+		clk_disable_unprepare(imxpriv->phy_apbclk);
+		clk_disable_unprepare(imxpriv->phy_pclk1);
+		clk_disable_unprepare(imxpriv->phy_pclk0);
 		return ret;
 	}
 
+	clk_disable_unprepare(imxpriv->phy_apbclk);
+disable_epcs_rx_clk:
 	clk_disable_unprepare(imxpriv->epcs_rx_clk);
 disable_epcs_tx_clk:
 	clk_disable_unprepare(imxpriv->epcs_tx_clk);
@@ -704,8 +738,6 @@ static void imx_sata_disable(struct ahci_host_priv *hpriv)
 	if (imxpriv->type == AHCI_IMX8QM) {
 		clk_disable_unprepare(imxpriv->epcs_rx_clk);
 		clk_disable_unprepare(imxpriv->epcs_tx_clk);
-		clk_disable_unprepare(imxpriv->phy_pclk1);
-		clk_disable_unprepare(imxpriv->phy_pclk0);
 	}
 	clk_disable_unprepare(imxpriv->sata_ref_clk);
 
@@ -951,8 +983,31 @@ static struct scsi_host_template ahci_platform_sht = {
 static int imx8_sata_probe(struct device *dev, struct imx_ahci_priv *imxpriv)
 {
 	int ret;
+	struct resource *phy_res;
+	struct platform_device *pdev = imxpriv->ahci_pdev;
 	struct device_node *np = dev->of_node;
 
+	if (of_property_read_u32(np, "fsl,phy-imp", &imxpriv->imped_ratio)) {
+		/*
+		 * Regarding to the differnet Hw designs,
+		 * Set the impedance ratio to 0x6c when 85OHM is used.
+		 * Keep it to default value 0x80, when 100OHM is used.
+		 */
+		dev_info(dev, "phy impedance ratio is not specified.\n");
+		imxpriv->imped_ratio = IMX8QM_SATA_PHY_IMPED_RATIO_85OHM;
+	}
+	phy_res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "phy");
+	if (phy_res) {
+		imxpriv->phy_base = devm_ioremap(dev, phy_res->start,
+					resource_size(phy_res));
+		if (!imxpriv->phy_base) {
+			dev_err(dev, "error with ioremap\n");
+			return -ENOMEM;
+		}
+	} else {
+		dev_err(dev, "missing *phy* reg region.\n");
+		return -ENOMEM;
+	}
 	imxpriv->gpr =
 		 syscon_regmap_lookup_by_phandle(np, "hsio");
 	if (IS_ERR(imxpriv->gpr)) {
@@ -981,6 +1036,12 @@ static int imx8_sata_probe(struct device *dev, struct imx_ahci_priv *imxpriv)
 	if (IS_ERR(imxpriv->phy_pclk1)) {
 		dev_err(dev, "can't get sata_phy_pclk1 clock.\n");
 		return PTR_ERR(imxpriv->phy_pclk1);
+	}
+
+	imxpriv->phy_apbclk = devm_clk_get(dev, "phy_apbclk");
+	if (IS_ERR(imxpriv->phy_apbclk)) {
+		dev_err(dev, "can't get sata_phy_apbclk clock.\n");
+		return PTR_ERR(imxpriv->phy_apbclk);
 	}
 
 	/* Fetch GPIO, then enable the external OSC */
