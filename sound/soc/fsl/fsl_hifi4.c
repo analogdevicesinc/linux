@@ -532,7 +532,7 @@ static int fsl_hifi4_mmap(struct file *file, struct vm_area_struct *vma)
 	size = hifi4_priv->scratch_buf_size;
 
 	/* ...remap shared memory to user-space */
-	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
+	vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
 	r = remap_pfn_range(vma, vma->vm_start, pfn, size, vma->vm_page_prot);
 	if (r != 0) {
 		pr_err("mapping failed: %d", r);
@@ -839,7 +839,7 @@ static int fsl_hifi4_probe(struct platform_device *pdev)
 	}
 
 	hifi4_priv->sdram_phys_addr = SDRAM_BASE_ADDR;
-	hifi4_priv->sdram_vir_addr = ioremap(hifi4_priv->sdram_phys_addr,
+	hifi4_priv->sdram_vir_addr = ioremap_wc(hifi4_priv->sdram_phys_addr,
 							SDRAM_BASE_SIZE);
 	if (!hifi4_priv->sdram_vir_addr) {
 		dev_err(&pdev->dev, "failed to remap sdram space for hifi4 firmware\n");
