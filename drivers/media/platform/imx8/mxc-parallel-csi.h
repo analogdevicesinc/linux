@@ -145,6 +145,11 @@ struct mxc_parallel_csi_dev {
 
 	struct clk *clk_ipg;
 	struct clk *clk_pixel;
+	struct clk *clk_sel;
+	struct clk *clk_div;
+	struct clk *clk_dpll;
+
+	bool clk_enable;
 
 	struct v4l2_async_subdev	asd;
 	struct v4l2_async_notifier	subdev_notifier;

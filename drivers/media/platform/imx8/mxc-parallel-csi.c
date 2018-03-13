@@ -92,6 +92,9 @@ static int mxc_pcsi_clk_enable(struct mxc_parallel_csi_dev *pcsidev)
 	struct device *dev = &pcsidev->pdev->dev;
 	int ret;
 
+	if (pcsidev->clk_enable)
+		return 0;
+
 	ret = clk_prepare_enable(pcsidev->clk_pixel);
 	if (ret < 0) {
 		dev_info(dev, "%s, enable pixel clk error\n", __func__);
@@ -104,13 +107,20 @@ static int mxc_pcsi_clk_enable(struct mxc_parallel_csi_dev *pcsidev)
 		return ret;
 	}
 
+	pcsidev->clk_enable = true;
+
 	return 0;
 }
 
 static void mxc_pcsi_clk_disable(struct mxc_parallel_csi_dev *pcsidev)
 {
+	if (!pcsidev->clk_enable)
+		return;
+
 	clk_disable_unprepare(pcsidev->clk_pixel);
 	clk_disable_unprepare(pcsidev->clk_ipg);
+
+	pcsidev->clk_enable = false;
 }
 
 static void mxc_pcsi_sw_reset(struct mxc_parallel_csi_dev *pcsidev)
@@ -432,6 +442,7 @@ static int mxc_pcsi_s_stream(struct v4l2_subdev *sd, int enable)
 	dev_dbg(dev, "%s: %d, pcsidev: 0x%d\n", __func__, __LINE__, enable);
 
 	if (enable) {
+		pm_runtime_get_sync(dev);
 		if (!pcsidev->running) {
 			mxc_pcsi_get_sensor_fmt(pcsidev);
 			mxc_pcsi_csr_config(pcsidev);
@@ -441,10 +452,10 @@ static int mxc_pcsi_s_stream(struct v4l2_subdev *sd, int enable)
 		}
 		pcsidev->running++;
 	} else {
-		if (pcsidev->running) {
+		if (pcsidev->running)
 			mxc_pcsi_disable_csi(pcsidev);
-		}
 		pcsidev->running--;
+		pm_runtime_put(dev);
 	}
 
 	return 0;
@@ -551,11 +562,8 @@ static int mxc_parallel_csi_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, pcsidev);
 
-	ret = mxc_pcsi_clk_enable(pcsidev);
-	if (ret < 0)
-		return ret;
-
 	pcsidev->running = 0;
+	pm_runtime_enable(dev);
 
 	dev_info(dev, "%s probe successfully\n", __func__);
 	return 0;
@@ -567,15 +575,126 @@ e_clkdis:
 
 static int mxc_parallel_csi_remove(struct platform_device *pdev)
 {
-	/*struct device *dev = &pdev->dev;*/
 	struct mxc_parallel_csi_dev *pcsidev =
 			(struct mxc_parallel_csi_dev *)platform_get_drvdata(pdev);
 
+	pm_runtime_get_sync(&pdev->dev);
 	media_entity_cleanup(&pcsidev->sd.entity);
+	mxc_pcsi_clk_disable(pcsidev);
+	pm_runtime_put(&pdev->dev);
+	pm_runtime_disable(&pdev->dev);
+
+	return 0;
+}
+
+static void parallel_csi_power_control(sc_pm_power_mode_t mode)
+{
+	sc_ipc_t ipcHndl;
+	sc_err_t sciErr;
+	uint32_t mu_id;
+
+	sciErr = sc_ipc_getMuID(&mu_id);
+	if (sciErr != SC_ERR_NONE) {
+		pr_err("Cannot obtain MU ID\n");
+		return;
+	}
+
+	sciErr = sc_ipc_open(&ipcHndl, mu_id);
+	if (sciErr != SC_ERR_NONE) {
+		pr_err("sc_ipc_open failed! (sciError = %d)\n", sciErr);
+		return;
+	}
+
+	sc_pm_set_resource_power_mode(ipcHndl, SC_R_PI_0, mode);
+
+	if (sciErr != SC_ERR_NONE)
+		pr_err("Set CI_PI resouce power mode failed! (sciError = %d)\n", sciErr);
+
+	msleep(10);
+
+	sc_ipc_close(mu_id);
+}
+
+static int parallel_csi_pm_suspend(struct device *dev)
+{
+	return pm_runtime_force_suspend(dev);
+}
+
+static int parallel_csi_pm_resume(struct device *dev)
+{
+	struct mxc_parallel_csi_dev *pcsidev = dev_get_drvdata(dev);
+	int ret;
+
+	/* Power off CI_PI before set clock parent */
+	parallel_csi_power_control(SC_PM_PW_MODE_OFF);
+
+	pcsidev->clk_div = devm_clk_get(dev, "div");
+	if (IS_ERR(pcsidev->clk_div)) {
+		dev_err(dev, "%s: Get div clk fail\n", __func__);
+		return PTR_ERR(pcsidev->clk_div);
+	}
+
+	pcsidev->clk_sel = devm_clk_get(dev, "sel");
+	if (IS_ERR(pcsidev->clk_sel)) {
+		dev_err(dev, "%s: Get sel clk fail\n", __func__);
+		return PTR_ERR(pcsidev->clk_sel);
+	}
+
+	pcsidev->clk_dpll = devm_clk_get(dev, "dpll");
+	if (IS_ERR(pcsidev->clk_dpll)) {
+		dev_err(dev, "%s: Get DPLL clk fail\n", __func__);
+		return PTR_ERR(pcsidev->clk_dpll);
+	}
+
+	ret = clk_set_parent(pcsidev->clk_sel, pcsidev->clk_dpll);
+	if (ret < 0) {
+		dev_err(dev, "sel clk set parent fail\n");
+		return ret;
+	}
+
+	/* 160MHz for pixel and per clock */
+	ret = clk_set_rate(pcsidev->clk_div, 160000000);
+	if (ret < 0) {
+		dev_err(dev, "div clk set rate fail\n");
+		return ret;
+	}
+
+	/* Release parent clocks */
+	devm_clk_put(dev, pcsidev->clk_dpll);
+	devm_clk_put(dev, pcsidev->clk_sel);
+	devm_clk_put(dev, pcsidev->clk_div);
+
+	pm_runtime_enable(dev);
+
+	return 0;
+}
+
+static int parallel_csi_runtime_suspend(struct device *dev)
+{
+	struct mxc_parallel_csi_dev *pcsidev = dev_get_drvdata(dev);
+
 	mxc_pcsi_clk_disable(pcsidev);
 
 	return 0;
 }
+
+static int parallel_csi_runtime_resume(struct device *dev)
+{
+	struct mxc_parallel_csi_dev *pcsidev = dev_get_drvdata(dev);
+	int ret;
+
+	ret = mxc_pcsi_clk_enable(pcsidev);
+	if (ret < 0)
+		return ret;
+
+	return 0;
+}
+
+static const struct dev_pm_ops parallel_csi_pm_ops = {
+	SET_SYSTEM_SLEEP_PM_OPS(parallel_csi_pm_suspend, parallel_csi_pm_resume)
+	SET_RUNTIME_PM_OPS(parallel_csi_runtime_suspend,
+						parallel_csi_runtime_resume, NULL)
+};
 
 static const struct of_device_id parallel_csi_of_match[] = {
 	{	.compatible = "fsl,mxc-parallel-csi",},
@@ -588,6 +707,7 @@ static struct platform_driver parallel_csi_driver = {
 	.driver = {
 		.name = MXC_PARALLEL_CSI_DRIVER_NAME,
 		.of_match_table = parallel_csi_of_match,
+		.pm = &parallel_csi_pm_ops,
 	},
 	.probe = mxc_parallel_csi_probe,
 	.remove = mxc_parallel_csi_remove,

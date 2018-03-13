@@ -1419,18 +1419,23 @@ static int ov5640_probe(struct i2c_client *client,
 	rst_gpio = of_get_named_gpio(dev->of_node, "rst-gpios", 0);
 	if (!gpio_is_valid(rst_gpio)) {
 		dev_err(dev, "no sensor reset pin available\n");
+		devm_gpio_free(dev, pwn_gpio);
 		return -EINVAL;
 	}
 	retval = devm_gpio_request_one(dev, rst_gpio, GPIOF_OUT_INIT_LOW,
 					"ov5640_reset");
-	if (retval < 0)
+	if (retval < 0) {
+		devm_gpio_free(dev, pwn_gpio);
 		return retval;
+	}
 
 	/* Set initial values for the sensor struct. */
 	memset(&ov5640_data, 0, sizeof(ov5640_data));
 	ov5640_data.sensor_clk = devm_clk_get(dev, "csi_mclk");
 	if (IS_ERR(ov5640_data.sensor_clk)) {
 		dev_err(dev, "get mclk failed\n");
+		devm_gpio_free(dev, pwn_gpio);
+		devm_gpio_free(dev, rst_gpio);
 		return PTR_ERR(ov5640_data.sensor_clk);
 	}
 
