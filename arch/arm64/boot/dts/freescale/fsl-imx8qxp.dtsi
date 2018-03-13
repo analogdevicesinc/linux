@@ -1725,8 +1725,11 @@
 			compatible = "fsl,mxc-parallel-csi";
 			reg = <0x0 0x58261000 0x0 0x1000>;
 			clocks = <&clk IMX8QXP_PARALLEL_CSI_PIXEL_CLK>,
-				   <&clk IMX8QXP_PARALLEL_CSI_IPG_CLK>;
-			clock-names = "pixel", "ipg";
+				   <&clk IMX8QXP_PARALLEL_CSI_IPG_CLK>,
+				   <&clk IMX8QXP_PARALLEL_CSI_CLK_SEL>,
+				   <&clk IMX8QXP_PARALLEL_CSI_PER_CLK_DIV>,
+				   <&clk IMX8QXP_PARALLEL_CSI_CLK_DPLL>;
+			clock-names = "pixel", "ipg", "sel", "div", "dpll";
 			assigned-clocks = <&clk IMX8QXP_PARALLEL_CSI_CLK_SEL>,
 							<&clk IMX8QXP_PARALLEL_CSI_PER_CLK_DIV>;
 			assigned-clock-parents = <&clk IMX8QXP_PARALLEL_CSI_CLK_DPLL>;
