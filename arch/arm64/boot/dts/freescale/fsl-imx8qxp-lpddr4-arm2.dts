@@ -154,6 +154,7 @@
 		pinctrl_hog: hoggrp {
 			fsl,pins = <
 				SC_P_ENET0_REFCLK_125M_25M_LSIO_GPIO5_IO09 0xc600004c
+				SC_P_COMP_CTL_GPIO_1V8_3V3_GPIORHB_PAD	0x000514a0
 			>;
 		};
 
