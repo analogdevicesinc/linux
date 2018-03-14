@@ -35,18 +35,12 @@ static const uint32_t dpu_common_formats[] = {
 	DRM_FORMAT_RGBX8888,
 	/* DRM_FORMAT_BGRA8888, */
 	DRM_FORMAT_BGRX8888,
-	DRM_FORMAT_RGB888,
-	DRM_FORMAT_BGR888,
 	DRM_FORMAT_RGB565,
 
 	DRM_FORMAT_YUYV,
 	DRM_FORMAT_UYVY,
 	DRM_FORMAT_NV12,
 	DRM_FORMAT_NV21,
-	DRM_FORMAT_NV16,
-	DRM_FORMAT_NV61,
-	DRM_FORMAT_NV24,
-	DRM_FORMAT_NV42,
 };
 
 static const uint64_t dpu_format_modifiers[] = {
@@ -130,14 +124,8 @@ static bool dpu_drm_plane_format_mod_supported(struct drm_plane *plane,
 		return false;
 
 	switch (format) {
-	case DRM_FORMAT_RGB888:
-	case DRM_FORMAT_BGR888:
 	case DRM_FORMAT_YUYV:
 	case DRM_FORMAT_UYVY:
-	case DRM_FORMAT_NV16:
-	case DRM_FORMAT_NV61:
-	case DRM_FORMAT_NV24:
-	case DRM_FORMAT_NV42:
 		return modifier == DRM_FORMAT_MOD_LINEAR;
 	case DRM_FORMAT_XRGB8888:
 	case DRM_FORMAT_XBGR8888:
@@ -359,10 +347,6 @@ static int dpu_plane_atomic_check(struct drm_plane *plane,
 		break;
 	case DRM_FORMAT_NV12:
 	case DRM_FORMAT_NV21:
-	case DRM_FORMAT_NV16:
-	case DRM_FORMAT_NV61:
-	case DRM_FORMAT_NV24:
-	case DRM_FORMAT_NV42:
 		bpp = 8;
 		break;
 	default:
@@ -489,10 +473,6 @@ static void dpu_plane_atomic_update(struct drm_plane *plane,
 		break;
 	case DRM_FORMAT_NV12:
 	case DRM_FORMAT_NV21:
-	case DRM_FORMAT_NV16:
-	case DRM_FORMAT_NV61:
-	case DRM_FORMAT_NV24:
-	case DRM_FORMAT_NV42:
 		bpp = 8;
 		break;
 	default:
