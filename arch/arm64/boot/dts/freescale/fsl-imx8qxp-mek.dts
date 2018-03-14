@@ -829,11 +829,6 @@
 	status = "okay";
 };
 
-&gpio0_mipi_csi0 {
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_mipi_csi0_gpio>;
-};
-
 &mipi_csi_0 {
 	#address-cells = <1>;
 	#size-cells = <0>;
