@@ -48,13 +48,12 @@
 };
 
 &spdif0 {
-	compatible = "fsl,imx8qxp-v1-spdif";
+	compatible = "fsl,imx8qm-spdif";
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_spdif0>;
 	assigned-clocks = <&clk IMX8QXP_AUD_PLL0_DIV>,
 			<&clk IMX8QXP_AUD_ACM_AUD_PLL_CLK0_DIV>,
 			<&clk IMX8QXP_AUD_ACM_AUD_REC_CLK0_DIV>;
 	assigned-clock-rates = <786432000>, <49152000>, <24576000>;
-	dmas = <&edma2 23 0 7>, <&edma2 21 0 6>;
 	status = "okay";
 };
