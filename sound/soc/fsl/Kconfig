@@ -517,7 +517,7 @@ config SND_SOC_IMX_AMIX
 
 config SND_SOC_IMX_CDNHDMI
 	tristate "SoC Audio support for i.MX boards with CDN HDMI port"
-	depends on FB_MX8_HDMI
+	depends on DRM_IMX_HDP
 	select SND_SOC_IMX_PCM_DMA
 	select SND_SOC_FSL_SAI
 	select SND_SOC_HDMI_CODEC
