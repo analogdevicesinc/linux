@@ -52,8 +52,8 @@
 		clocks = <&clk IMX8QM_CLK_DUMMY>;
 		clock-names = "csi_mclk";
 		csi_id = <0>;
-		pwn-gpios = <&gpio0_mipi_csi0 1 GPIO_ACTIVE_LOW>;
-		rst-gpios = <&gpio0_mipi_csi0 0 GPIO_ACTIVE_HIGH>;
+		pwn-gpios = <&gpio1 28 GPIO_ACTIVE_LOW>;
+		rst-gpios = <&gpio1 27 GPIO_ACTIVE_HIGH>;
 		mclk = <24000000>;
 		mclk_source = <0>;
 		mipi_csi;
