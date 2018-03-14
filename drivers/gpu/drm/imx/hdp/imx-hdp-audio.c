@@ -66,7 +66,7 @@ static u32 imx_hdp_audio(struct imx_hdp *hdmi, AUDIO_TYPE type, u32 sample_rate,
 	AUDIO_WIDTH bits;
 	int ncts_n;
 	state_struct *state = &hdmi->state;
-	int idx_n = select_N_index(hdmi->cur_mode->clock);
+	int idx_n = select_N_index(hdmi->video.cur_mode.clock);
 
 	switch (sample_rate) {
 	case 32000:

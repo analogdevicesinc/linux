@@ -483,7 +483,6 @@ static void imx_hdp_mode_setup(struct imx_hdp *hdp, struct drm_display_mode *mod
 
 	/* Get vic of CEA-861 */
 	hdp->vic = drm_match_cea_mode(mode);
-	hdp->cur_mode = mode;
 }
 
 bool imx_hdp_bridge_mode_fixup(struct drm_bridge *bridge,

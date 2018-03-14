@@ -232,7 +232,6 @@ struct imx_hdp {
 	VIC_PXL_ENCODING_FORMAT format;
 	bool hdr_metadata_present;
 	bool hdr_mode;
-	struct drm_display_mode *cur_mode;
 };
 
 void imx_hdp_register_audio_driver(struct device *dev);
