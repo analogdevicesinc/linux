@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2016 Freescale Semiconductor, Inc.
- * Copyright 2017 NXP
+ * Copyright 2017-2018 NXP
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -772,6 +772,15 @@ void fetchdecode_reg_update_prefetch(struct dpu_fetchdecode *fd)
 	dprc_reg_update(fd->dprc);
 }
 EXPORT_SYMBOL_GPL(fetchdecode_reg_update_prefetch);
+
+void fetchdecode_prefetch_first_frame_handle(struct dpu_fetchdecode *fd)
+{
+	if (WARN_ON(!fd || !fd->dprc))
+		return;
+
+	dprc_first_frame_handle(fd->dprc);
+}
+EXPORT_SYMBOL_GPL(fetchdecode_prefetch_first_frame_handle);
 
 void fetchdecode_prefetch_irq_handle(struct dpu_fetchdecode *fd)
 {

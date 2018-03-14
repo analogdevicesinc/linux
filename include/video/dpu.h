@@ -515,6 +515,7 @@ fetchdecode_configure_prefetch(struct dpu_fetchdecode *fd,
 void fetchdecode_enable_prefetch(struct dpu_fetchdecode *fd);
 void fetchdecode_disable_prefetch(struct dpu_fetchdecode *fd);
 void fetchdecode_reg_update_prefetch(struct dpu_fetchdecode *fd);
+void fetchdecode_prefetch_first_frame_handle(struct dpu_fetchdecode *fd);
 void fetchdecode_prefetch_irq_handle(struct dpu_fetchdecode *fd);
 void fetchdecode_prefetch_enable_first_frame_irq(struct dpu_fetchdecode *fd);
 bool fetchdecode_has_prefetch(struct dpu_fetchdecode *fd);

@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 NXP
+ * Copyright 2017-2018 NXP
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -55,6 +55,7 @@ void dprc_configure(struct dprc *dprc, unsigned int stream_id,
 		    unsigned long baddr, unsigned long uv_baddr,
 		    bool start, bool aux_start);
 void dprc_reg_update(struct dprc *dprc);
+void dprc_first_frame_handle(struct dprc *dprc);
 void dprc_irq_handle(struct dprc *dprc);
 void dprc_enable_ctrl_done_irq(struct dprc *dprc);
 bool dprc_format_supported(struct dprc *dprc, u32 format, u64 modifier);

@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 NXP
+ * Copyright 2017-2018 NXP
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -447,10 +447,19 @@ void dprc_configure(struct dprc *dprc, unsigned int stream_id,
 	dprc_write(dprc, val, MODE_CTRL0);
 
 	if (start) {
-		val = RUN_EN | REPEAT_EN | SHADOW_LOAD_EN;
 		/* software shadow load for the first frame */
-		val |= SW_SHADOW_LOAD_SEL;
-		dprc_write(dprc, val, SYSTEM_CTRL0);
+		val = SW_SHADOW_LOAD_SEL;
+		if (dprc->is_blit_chan) {
+			val |= RUN_EN | REPEAT_EN | SHADOW_LOAD_EN;
+			dprc_write(dprc, val, SYSTEM_CTRL0);
+		} else {
+			val |= SHADOW_LOAD_EN;
+			dprc_write(dprc, val, SYSTEM_CTRL0);
+
+			/* and then, run... */
+			val |= RUN_EN | REPEAT_EN;
+			dprc_write(dprc, val, SYSTEM_CTRL0);
+		}
 	}
 
 	prg_configure(dprc->prgs[0], width, height, x_offset, y_offset,
@@ -475,17 +484,21 @@ void dprc_reg_update(struct dprc *dprc)
 }
 EXPORT_SYMBOL_GPL(dprc_reg_update);
 
-static void dprc_first_frame_handle(struct dprc *dprc)
+void dprc_first_frame_handle(struct dprc *dprc)
 {
 	if (WARN_ON(!dprc))
 		return;
 
-	dprc_write(dprc, SW_SHADOW_LOAD_SEL, SYSTEM_CTRL0 + CLR);
+	if (dprc->is_blit_chan)
+		dprc_write(dprc, SW_SHADOW_LOAD_SEL, SYSTEM_CTRL0 + CLR);
+	else
+		dprc_write(dprc, REPEAT_EN, SYSTEM_CTRL0);
 
 	prg_shadow_enable(dprc->prgs[0]);
 	if (dprc->use_aux_prg)
 		prg_shadow_enable(dprc->prgs[1]);
 }
+EXPORT_SYMBOL_GPL(dprc_first_frame_handle);
 
 void dprc_irq_handle(struct dprc *dprc)
 {
