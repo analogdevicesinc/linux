@@ -153,7 +153,7 @@
 };
 
 &esai0 {
-	compatible = "fsl,imx8qxp-v1-esai";
+	compatible = "fsl,imx8qm-esai";
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_esai0>;
 	assigned-clocks = <&clk IMX8QXP_ACM_ESAI0_MCLK_SEL>,
@@ -163,7 +163,6 @@
 			<&clk IMX8QXP_AUD_ESAI_0_EXTAL_IPG>;
 	assigned-clock-parents = <&clk IMX8QXP_AUD_ACM_AUD_PLL_CLK0_CLK>;
 	assigned-clock-rates = <0>, <786432000>, <49152000>, <12288000>, <49152000>;
-	dmas = <&edma2 23 0 3>, <&edma2 21 0 2>;
 	status = "okay";
 };
 
