@@ -614,145 +614,157 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 
-			pd_asrc0:PD_AUD_ASRC_0 {
-				reg = <SC_R_ASRC_0>;
-				#power-domain-cells = <0>;
-				power-domains =<&pd_audio>;
-			};
-			pd_asrc1: PD_AUD_ASRC_1 {
-				reg = <SC_R_ASRC_1>;
-				#power-domain-cells = <0>;
-				power-domains =<&pd_audio>;
-			};
-			pd_esai0: PD_AUD_ESAI_0 {
-				reg = <SC_R_ESAI_0>;
-				#power-domain-cells = <0>;
-				power-domains =<&pd_audio>;
-			};
-			pd_esai1: PD_AUD_ESAI_1 {
-				reg = <SC_R_ESAI_1>;
-				#power-domain-cells = <0>;
-				power-domains =<&pd_audio>;
-			};
-			pd_spdif0: PD_AUD_SPDIF_0 {
-				reg = <SC_R_SPDIF_0>;
-				#power-domain-cells = <0>;
-				power-domains =<&pd_audio>;
-			};
-			pd_spdif1: PD_AUD_SPDIF_1 {
-				reg = <SC_R_SPDIF_1>;
-				#power-domain-cells = <0>;
-				power-domains =<&pd_audio>;
-			};
-			pd_sai0:PD_AUD_SAI_0 {
-				reg = <SC_R_SAI_0>;
-				#power-domain-cells = <0>;
-				power-domains =<&pd_audio>;
-			};
-			pd_sai1: PD_AUD_SAI_1 {
-				reg = <SC_R_SAI_1>;
-				#power-domain-cells = <0>;
-				power-domains =<&pd_audio>;
-			};
-			pd_sai2: PD_AUD_SAI_2 {
-				reg = <SC_R_SAI_2>;
-				#power-domain-cells = <0>;
-				power-domains =<&pd_audio>;
-			};
-			pd_sai3: PD_AUD_SAI_3 {
-				reg = <SC_R_SAI_3>;
-				#power-domain-cells = <0>;
-				power-domains =<&pd_audio>;
-			};
-			pd_sai4: PD_AUD_SAI_4 {
-				reg = <SC_R_SAI_4>;
-				#power-domain-cells = <0>;
-				power-domains =<&pd_audio>;
-			};
-			pd_sai5: PD_AUD_SAI_5 {
-				reg = <SC_R_SAI_5>;
-				#power-domain-cells = <0>;
-				power-domains =<&pd_audio>;
-			};
-			pd_sai6: PD_AUD_SAI_6 {
-				reg = <SC_R_SAI_6>;
-				#power-domain-cells = <0>;
-				power-domains =<&pd_audio>;
-			};
-			pd_sai7: PD_AUD_SAI_7 {
-				reg = <SC_R_SAI_7>;
-				#power-domain-cells = <0>;
-				power-domains =<&pd_audio>;
-			};
-			pd_gpt5: PD_AUD_GPT_5 {
-				reg = <SC_R_GPT_5>;
-				#power-domain-cells = <0>;
-				power-domains =<&pd_audio>;
-			};
-			pd_gpt6: PD_AUD_GPT_6 {
-				reg = <SC_R_GPT_6>;
-				#power-domain-cells = <0>;
-				power-domains =<&pd_audio>;
-			};
-			pd_gpt7: PD_AUD_GPT_7 {
-				reg = <SC_R_GPT_7>;
-				#power-domain-cells = <0>;
-				power-domains =<&pd_audio>;
-			};
-			pd_gpt8: PD_AUD_GPT_8 {
-				reg = <SC_R_GPT_8>;
-				#power-domain-cells = <0>;
-				power-domains =<&pd_audio>;
-			};
-			pd_gpt9: PD_AUD_GPT_9 {
-				reg = <SC_R_GPT_9>;
-				#power-domain-cells = <0>;
-				power-domains =<&pd_audio>;
-			};
-			pd_gpt10: PD_AUD_GPT_10 {
-				reg = <SC_R_GPT_10>;
-				#power-domain-cells = <0>;
-				power-domains =<&pd_audio>;
-			};
-			pd_amix: PD_AUD_AMIX {
-				reg = <SC_R_AMIX>;
-				#power-domain-cells = <0>;
-				power-domains =<&pd_audio>;
-			};
-			pd_mqs0: PD_AUD_MQS_0 {
-				reg = <SC_R_MQS_0>;
-				#power-domain-cells = <0>;
-				power-domains =<&pd_audio>;
-			};
-			pd_mclk_out0: PD_AUD_MCLK_OUT_0 {
-				reg = <SC_R_MCLK_OUT_0>;
-				#power-domain-cells = <0>;
-				power-domains =<&pd_audio>;
-			};
-			pd_mclk_out1: PD_AUD_MCLK_OUT_1 {
-				reg = <SC_R_MCLK_OUT_1>;
-				#power-domain-cells = <0>;
-				power-domains =<&pd_audio>;
-			};
 			pd_audio_pll0: PD_AUD_AUDIO_PLL_0 {
 				reg = <SC_R_AUDIO_PLL_0>;
-				#power-domain-cells = <0>;
 				power-domains =<&pd_audio>;
-			};
-			pd_audio_pll1: PD_AUD_AUDIO_PLL_1 {
-				reg = <SC_R_AUDIO_PLL_1>;
 				#power-domain-cells = <0>;
-				power-domains =<&pd_audio>;
-			};
-			pd_audio_clk0: PD_AUD_AUDIO_CLK_0 {
-				reg = <SC_R_AUDIO_CLK_0>;
-				#power-domain-cells = <0>;
-				power-domains =<&pd_audio>;
-			};
-			pd_audio_clk1: PD_AUD_AUDIO_CLK_1 {
-				reg = <SC_R_AUDIO_CLK_1>;
-				#power-domain-cells = <0>;
-				power-domains =<&pd_audio>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				pd_audio_pll1: PD_AUD_AUDIO_PLL_1 {
+					reg = <SC_R_AUDIO_PLL_1>;
+					power-domains =<&pd_audio_pll0>;
+					#power-domain-cells = <0>;
+					#address-cells = <1>;
+					#size-cells = <0>;
+
+					pd_audio_clk0: PD_AUD_AUDIO_CLK_0 {
+						reg = <SC_R_AUDIO_CLK_0>;
+						power-domains =<&pd_audio_pll1>;
+						#power-domain-cells = <0>;
+						#address-cells = <1>;
+						#size-cells = <0>;
+
+						pd_audio_clk1: PD_AUD_AUDIO_CLK_1 {
+							reg = <SC_R_AUDIO_CLK_1>;
+							power-domains =<&pd_audio_clk0>;
+							#power-domain-cells = <0>;
+							#address-cells = <1>;
+							#size-cells = <0>;
+
+							pd_asrc0:PD_AUD_ASRC_0 {
+								reg = <SC_R_ASRC_0>;
+								#power-domain-cells = <0>;
+								power-domains =<&pd_audio_clk1>;
+							};
+							pd_asrc1: PD_AUD_ASRC_1 {
+								reg = <SC_R_ASRC_1>;
+								#power-domain-cells = <0>;
+								power-domains =<&pd_audio_clk1>;
+							};
+							pd_esai0: PD_AUD_ESAI_0 {
+								reg = <SC_R_ESAI_0>;
+								#power-domain-cells = <0>;
+								power-domains =<&pd_audio_clk1>;
+							};
+							pd_esai1: PD_AUD_ESAI_1 {
+								reg = <SC_R_ESAI_1>;
+								#power-domain-cells = <0>;
+								power-domains =<&pd_audio_clk1>;
+							};
+							pd_spdif0: PD_AUD_SPDIF_0 {
+								reg = <SC_R_SPDIF_0>;
+								#power-domain-cells = <0>;
+								power-domains =<&pd_audio_clk1>;
+							};
+							pd_spdif1: PD_AUD_SPDIF_1 {
+								reg = <SC_R_SPDIF_1>;
+								#power-domain-cells = <0>;
+								power-domains =<&pd_audio_clk1>;
+							};
+							pd_sai0:PD_AUD_SAI_0 {
+								reg = <SC_R_SAI_0>;
+								#power-domain-cells = <0>;
+								power-domains =<&pd_audio_clk1>;
+							};
+							pd_sai1: PD_AUD_SAI_1 {
+								reg = <SC_R_SAI_1>;
+								#power-domain-cells = <0>;
+								power-domains =<&pd_audio_clk1>;
+							};
+							pd_sai2: PD_AUD_SAI_2 {
+								reg = <SC_R_SAI_2>;
+								#power-domain-cells = <0>;
+								power-domains =<&pd_audio_clk1>;
+							};
+							pd_sai3: PD_AUD_SAI_3 {
+								reg = <SC_R_SAI_3>;
+								#power-domain-cells = <0>;
+								power-domains =<&pd_audio_clk1>;
+							};
+							pd_sai4: PD_AUD_SAI_4 {
+								reg = <SC_R_SAI_4>;
+								#power-domain-cells = <0>;
+								power-domains =<&pd_audio_clk1>;
+							};
+							pd_sai5: PD_AUD_SAI_5 {
+								reg = <SC_R_SAI_5>;
+								#power-domain-cells = <0>;
+								power-domains =<&pd_audio_clk1>;
+							};
+							pd_sai6: PD_AUD_SAI_6 {
+								reg = <SC_R_SAI_6>;
+								#power-domain-cells = <0>;
+								power-domains =<&pd_audio_clk1>;
+							};
+							pd_sai7: PD_AUD_SAI_7 {
+								reg = <SC_R_SAI_7>;
+								#power-domain-cells = <0>;
+								power-domains =<&pd_audio_clk1>;
+							};
+							pd_gpt5: PD_AUD_GPT_5 {
+								reg = <SC_R_GPT_5>;
+								#power-domain-cells = <0>;
+								power-domains =<&pd_audio_clk1>;
+							};
+							pd_gpt6: PD_AUD_GPT_6 {
+								reg = <SC_R_GPT_6>;
+								#power-domain-cells = <0>;
+								power-domains =<&pd_audio_clk1>;
+							};
+							pd_gpt7: PD_AUD_GPT_7 {
+								reg = <SC_R_GPT_7>;
+								#power-domain-cells = <0>;
+								power-domains =<&pd_audio_clk1>;
+							};
+							pd_gpt8: PD_AUD_GPT_8 {
+								reg = <SC_R_GPT_8>;
+								#power-domain-cells = <0>;
+								power-domains =<&pd_audio_clk1>;
+							};
+							pd_gpt9: PD_AUD_GPT_9 {
+								reg = <SC_R_GPT_9>;
+								#power-domain-cells = <0>;
+								power-domains =<&pd_audio_clk1>;
+							};
+							pd_gpt10: PD_AUD_GPT_10 {
+								reg = <SC_R_GPT_10>;
+								#power-domain-cells = <0>;
+								power-domains =<&pd_audio_clk1>;
+							};
+							pd_amix: PD_AUD_AMIX {
+								reg = <SC_R_AMIX>;
+								#power-domain-cells = <0>;
+								power-domains =<&pd_audio_clk1>;
+							};
+							pd_mqs0: PD_AUD_MQS_0 {
+								reg = <SC_R_MQS_0>;
+								#power-domain-cells = <0>;
+								power-domains =<&pd_audio_clk1>;
+							};
+							pd_mclk_out0: PD_AUD_MCLK_OUT_0 {
+								reg = <SC_R_MCLK_OUT_0>;
+								#power-domain-cells = <0>;
+								power-domains =<&pd_audio_clk1>;
+							};
+							pd_mclk_out1: PD_AUD_MCLK_OUT_1 {
+								reg = <SC_R_MCLK_OUT_1>;
+								#power-domain-cells = <0>;
+								power-domains =<&pd_audio_clk1>;
+							};
+						};
+					};
+				};
 			};
 		};
 
