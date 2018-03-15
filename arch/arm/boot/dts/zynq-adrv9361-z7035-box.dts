@@ -56,6 +56,11 @@
 		lltc,resistor-sense = <20>;
 		lltc,prescaler-exponent = <5>; /* 2^(2*5) = 1024 */
 	};
+
+	adp5061@14 {
+		    compatible = "adi,adp5061";
+		    reg = <0x14>;
+	};
 };
 
 / {
