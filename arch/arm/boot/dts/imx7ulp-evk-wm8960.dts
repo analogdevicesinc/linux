@@ -148,7 +148,7 @@
 		pinctrl_hog_0_1: hoggrp-0-1 {
 			fsl,pins = <
 				IMX7ULP_PAD_PTA24__PTA24		0x127
-				IMX7ULP_PAD_PTB0__CLKOUT		0x900
+				IMX7ULP_PAD_PTB0__CLKOUT0		0x900
 			>;
 		};
 
