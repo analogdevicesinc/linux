@@ -49,7 +49,7 @@
 
 /* Timeout settings for FPGA manager driver */
 #define SVC_RECONFIG_REQUEST_TIMEOUT_MS         100
-#define SVC_RECONFIG_BUFFER_TIMEOUT_MS          100
+#define SVC_RECONFIG_BUFFER_TIMEOUT_MS          240
 
 struct intel_svc_chan;
 

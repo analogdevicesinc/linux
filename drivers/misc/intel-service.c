@@ -55,7 +55,7 @@
  * from the secure world for FPGA manager to reuse, or to free the buffer(s)
  * when all bit-stream data had be send.
  */
-#define FPGA_CONFIG_DATA_CLAIM_TIMEOUT_MS	20
+#define FPGA_CONFIG_DATA_CLAIM_TIMEOUT_MS	200
 /*
  * FPGA_CONFIG_STATUS_TIMEOUT_SEC - poll the FPGA configuration status,
  * service layer will return error to FPGA manager when timeout occurs,
@@ -642,6 +642,8 @@ static int svc_normal_to_secure_shm_thread(void *data)
 		sh_mem->addr = res.a1;
 		sh_mem->size = res.a2;
 	} else {
+		pr_err("%s: after SMC call -- res.a0=0x%016x",  __func__,
+		       (unsigned int)res.a0);
 		sh_mem->addr = 0;
 		sh_mem->size = 0;
 	}
