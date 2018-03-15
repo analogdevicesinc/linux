@@ -86,7 +86,7 @@ struct adxcvr_state {
 	struct device		*dev;
 	void __iomem		*adxcvr_regs;
 	void __iomem		*atx_pll_regs;
-	void __iomem		*adxcfg_regs[4];
+	void __iomem		*adxcfg_regs[32];
 	unsigned int 		version;
 	bool			is_transmit;
 	u32			lanes_per_link;
@@ -522,7 +522,7 @@ static int adxcvr_probe(struct platform_device *pdev)
 {
 	struct resource *mem_adxcvr;
 	struct resource *mem_atx_pll;
-	struct resource *mem_adxcfg[4];
+	struct resource *mem_adxcfg;
 	struct adxcvr_state *st;
 	unsigned int synth_conf;
 	char adxcfg_name[16];
@@ -550,12 +550,18 @@ static int adxcvr_probe(struct platform_device *pdev)
 	st->is_transmit = (bool)(synth_conf & 0x100);
 	st->lanes_per_link = synth_conf & 0xff;
 
+	if (st->lanes_per_link > ARRAY_SIZE(st->adxcfg_regs)) {
+		dev_err(&pdev->dev, "Only up to %d lanes supported.\n",
+			ARRAY_SIZE(st->adxcfg_regs));
+		return -EINVAL;
+	}
+
 	for (lane = 0; lane < st->lanes_per_link; lane++) {
 		sprintf(adxcfg_name, "adxcfg-%d", lane);
-		mem_adxcfg[lane] = platform_get_resource_byname(pdev,
+		mem_adxcfg = platform_get_resource_byname(pdev,
 						IORESOURCE_MEM, adxcfg_name);
 		st->adxcfg_regs[lane] = devm_ioremap_resource(&pdev->dev,
-						mem_adxcfg[lane]);
+							      mem_adxcfg);
 		if (IS_ERR(st->adxcfg_regs[lane]))
 			return PTR_ERR(st->adxcfg_regs[lane]);
 	}
