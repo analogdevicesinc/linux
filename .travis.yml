@@ -19,7 +19,7 @@ before_install:
 
 script:
   - if [[ -n "$TRAVIS_BRANCH" ]]; then git fetch origin +refs/heads/${TRAVIS_BRANCH}:${TRAVIS_BRANCH} ; fi
-  - COMMIT_RANGE=$([ "$TRAVIS_PULL_REQUEST" == "false" ] &&  echo "HEAD~1" || echo ${TRAVIS_BRANCH}..)
+  - COMMIT_RANGE=$([ "$TRAVIS_PULL_REQUEST" == "false" ] &&  echo HEAD || echo ${TRAVIS_BRANCH}..)
   - make ${DEFCONFIG_NAME}
   - make -j`getconf _NPROCESSORS_ONLN` uImage UIMAGE_LOADADDR=0x8000
   - for file in `ls arch/arm/boot/dts/zynq-*.dts`; do make `basename $file | sed  -e 's\dts\dtb\g'` || exit 1;done
