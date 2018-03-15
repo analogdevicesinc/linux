@@ -1,0 +1,36 @@
+Analog Devices JESD204B Transmit Peripheral Driver
+
+The AXI JESD204B TX peripheral driver is a simple driver that supports the
+ADI JESD204B Transmit Peripheral. The driver reads JESD204B link configuration
+data from the devicetree and configures the peripheral accordingly. After
+configuration has completed the JESD204B link is enabled. Link state can be
+monitored through sysfs files.
+
+Required properties:
+  - compatible: Must always "adi,axi-jesd204-tx-1.0".
+  - reg: Base address and register area size. This parameter expects a register
+         range.
+  - interrupts: Property with a value describing the interrupt number.
+  - clock-names: List of input clock names - “s_axi_aclk”, “device_clk”
+  - clocks: Clock phandles and specifiers (See clock bindings for details on
+            clock-names and clocks).
+  - adi,frames-per-multiframe: Number of frames per multi-frame (K).
+  - adi,octets-per-frame: Number of octets per frame (N).
+
+Optional properties:
+  - adi,high-density: If specified the JESD204B link is configured for high
+                      density (HD) operation.
+
+Example:
+
+jesd204b-tx@77a00000 {
+	compatible = "adi,axi-jesd204-tx-1.0";
+	reg = <0x77a00000 0x10000>;
+	interrupts = <0 56 4>;
+
+	clock-names = "s_axi_aclk", "device_clk";
+	clocks = <&clkc 14>, <&ad9528 13>;
+
+	adi,octets-per-frame = <32>;
+	adi,frames-per-multiframe = <4>;
+};
