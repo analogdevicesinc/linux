@@ -19,7 +19,7 @@ dtb-$(CONFIG_ARCH_FSL_IMX8QM) += fsl-imx8qm-lpddr4-arm2.dtb \
 				 fsl-imx8qm-lpddr4-arm2_ca53.dtb \
 				 fsl-imx8qm-lpddr4-arm2_ca72.dtb \
 				 fsl-imx8qm-mek.dtb \
-				 fsl-imx8qm-mek-mipi-csi2.dtb \
+				 fsl-imx8qm-mek-mipi-ov5640.dtb \
 				 fsl-imx8qm-mek-8cam.dtb \
 				 fsl-imx8qm-mek_ca53.dtb \
 				 fsl-imx8qm-mek_ca72.dtb \
