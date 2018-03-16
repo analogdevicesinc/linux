@@ -92,6 +92,7 @@ struct caam_drv_private {
 	struct caam_queue_if __iomem *qi; /* QI control region */
 	struct caam_job_ring __iomem *jr[JOBR_MAX_COUNT]; /* JRs registers */
 	dma_addr_t __iomem *sm_base;	/* Secure memory storage base */
+	phys_addr_t sm_phy;		/* Secure memory storage physical */
 	u32 sm_size;
 
 	/*

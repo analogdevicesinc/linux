@@ -1120,8 +1120,8 @@ int caam_sm_startup(struct platform_device *pdev)
 				lpagedesc[page].pg_phys = (u8 *)0x20800000 +
 					(smpriv->page_size * page);
 			} else {
-/* FIXME: get base address from platform property... */
-				lpagedesc[page].pg_phys = (u8 *)0x00100000 +
+				lpagedesc[page].pg_phys =
+					(u8 *) ctrlpriv->sm_phy +
 					(smpriv->page_size * page);
 			}
 			lpagect++;
