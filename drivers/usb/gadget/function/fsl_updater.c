@@ -36,28 +36,55 @@ static u64 get_be64(u8 *buf)
 		get_unaligned_be32(buf + 4);
 }
 
+static DEFINE_IDA(utp_ida);
+
 static int utp_init(struct fsg_dev *fsg)
 {
-	init_waitqueue_head(&utp_context.wq);
-	init_waitqueue_head(&utp_context.list_full_wq);
+	struct utp_context *utp;
+	int index;
 
-	INIT_LIST_HEAD(&utp_context.read);
-	INIT_LIST_HEAD(&utp_context.write);
-	mutex_init(&utp_context.lock);
+	utp = vzalloc(sizeof(struct utp_context));
+	if (!utp)
+		return -EIO;
+
+	init_waitqueue_head(&utp->wq);
+	init_waitqueue_head(&utp->list_full_wq);
+
+	INIT_LIST_HEAD(&utp->read);
+	INIT_LIST_HEAD(&utp->write);
+	mutex_init(&utp->lock);
 
 	/* the max message is 64KB */
-	utp_context.buffer = vmalloc(0x10000);
-	if (!utp_context.buffer)
+	utp->buffer = vmalloc(0x10000);
+	if (!utp->buffer) {
+		vfree(utp);
 		return -EIO;
-	utp_context.utp_version = 0x1ull;
-	fsg->utp = &utp_context;
-	return misc_register(&utp_dev);
+	}
+
+	utp->utp_version = 0x1ull;
+	fsg->utp = utp;
+	utp->utp_dev.minor = MISC_DYNAMIC_MINOR;
+	utp->utp_dev.fops = &utp_fops;
+
+	index = ida_simple_get(&utp_ida, 0, 0, GFP_KERNEL);
+	if (index == 0)
+		snprintf(utp->utp_name, 8, "utp");
+	else
+		snprintf(utp->utp_name, 8, "utp%d", index);
+
+	utp->utp_dev.name = utp->utp_name;
+	return misc_register(&utp->utp_dev);
 }
 
 static void utp_exit(struct fsg_dev *fsg)
 {
-	vfree(utp_context.buffer);
-	misc_deregister(&utp_dev);
+	struct utp_context *utp;
+	utp = UTP_CTX(fsg);
+
+	misc_deregister(&utp->utp_dev);
+
+	vfree(utp->buffer);
+	vfree(utp);
 }
 
 static struct utp_user_data *utp_user_data_alloc(size_t size)
@@ -73,31 +100,32 @@ static struct utp_user_data *utp_user_data_alloc(size_t size)
 	return uud;
 }
 
-static void utp_user_data_free(struct utp_user_data *uud)
+static void utp_user_data_free(struct utp_context *utp, struct utp_user_data *uud)
 {
-	mutex_lock(&utp_context.lock);
+	mutex_lock(&utp->lock);
 	list_del(&uud->link);
-	mutex_unlock(&utp_context.lock);
+	mutex_unlock(&utp->lock);
 	vfree(uud);
 }
 
 /* Get the number of element for list */
-static u32 count_list(struct list_head *l)
+static u32 count_list(struct utp_context *utp, struct list_head *l)
 {
 	u32 count = 0;
 	struct list_head *tmp;
 
-	mutex_lock(&utp_context.lock);
+	mutex_lock(&utp->lock);
 	list_for_each(tmp, l) {
 		count++;
 	}
-	mutex_unlock(&utp_context.lock);
+	mutex_unlock(&utp->lock);
 
 	return count;
 }
+
 /* The routine will not go on if utp_context.queue is empty */
-#define WAIT_ACTIVITY(queue) \
- wait_event_interruptible(utp_context.wq, !list_empty(&utp_context.queue))
+#define WAIT_ACTIVITY(utp, queue) \
+ wait_event_interruptible(utp->wq, !list_empty(&utp->queue))
 
 /* Called by userspace program (uuc) */
 static ssize_t utp_file_read(struct file *file,
@@ -109,11 +137,14 @@ static ssize_t utp_file_read(struct file *file,
 	size_t size_to_put;
 	int free = 0;
 
-	WAIT_ACTIVITY(read);
+	struct miscdevice *misc = (struct miscdevice *)file->private_data;
+	struct utp_context *utp = container_of(misc, struct utp_context, utp_dev);
 
-	mutex_lock(&utp_context.lock);
-	uud = list_first_entry(&utp_context.read, struct utp_user_data, link);
-	mutex_unlock(&utp_context.lock);
+	WAIT_ACTIVITY(utp, read);
+
+	mutex_lock(&utp->lock);
+	uud = list_first_entry(&utp->read, struct utp_user_data, link);
+	mutex_unlock(&utp->lock);
 	size_to_put = uud->data.size;
 
 	if (size >= size_to_put)
@@ -123,7 +154,7 @@ static ssize_t utp_file_read(struct file *file,
 		return -EACCES;
 	}
 	if (free)
-		utp_user_data_free(uud);
+		utp_user_data_free(utp, uud);
 	else {
 		pr_info("sizeof = %zd, size = %zd\n",
 			sizeof(uud->data),
@@ -137,7 +168,7 @@ static ssize_t utp_file_read(struct file *file,
 	 * The user program has already finished data process,
 	 * go on getting data from the host
 	 */
-	wake_up(&utp_context.list_full_wq);
+	wake_up(&utp->list_full_wq);
 
 	return size_to_put;
 }
@@ -146,6 +177,9 @@ static ssize_t utp_file_write(struct file *file, const char __user *buf,
 				size_t size, loff_t *off)
 {
 	struct utp_user_data *uud;
+
+	struct miscdevice *misc = (struct miscdevice *)file->private_data;
+	struct utp_context *utp = container_of(misc, struct utp_context, utp_dev);
 
 	if (size < sizeof(uud->data))
 		return -EINVAL;
@@ -157,11 +191,11 @@ static ssize_t utp_file_write(struct file *file, const char __user *buf,
 		vfree(uud);
 		return -EACCES;
 	}
-	mutex_lock(&utp_context.lock);
-	list_add_tail(&uud->link, &utp_context.write);
+	mutex_lock(&utp->lock);
+	list_add_tail(&uud->link, &utp->write);
 	/* Go on EXEC routine process */
-	wake_up(&utp_context.wq);
-	mutex_unlock(&utp_context.lock);
+	wake_up(&utp->wq);
+	mutex_unlock(&utp->lock);
 	return size;
 }
 
@@ -386,13 +420,13 @@ static void utp_poll(struct fsg_dev *fsg)
 			printk("%s: pass returned.\n", __func__);
 			UTP_SS_PASS(fsg);
 		}
-		utp_user_data_free(uud);
+		utp_user_data_free(ctx, uud);
 	} else {
-		if (utp_context.cur_state & UTP_FLAG_DATA) {
-			if (count_list(&ctx->read) < 7) {
+		if (ctx->cur_state & UTP_FLAG_DATA) {
+			if (count_list(ctx, &ctx->read) < 7) {
 				pr_debug("%s: pass returned in POLL stage. \n", __func__);
 				UTP_SS_PASS(fsg);
-				utp_context.cur_state = 0;
+				ctx->cur_state = 0;
 				return;
 			}
 		}
@@ -429,7 +463,7 @@ static int utp_exec(struct fsg_dev *fsg,
 	 * the user program (uuc) will return utp_message
 	 * and add list to write list
 	 */
-	WAIT_ACTIVITY(write);
+	WAIT_ACTIVITY(ctx, write);
 
 	mutex_lock(&ctx->lock);
 	if (!list_empty(&ctx->write)) {
@@ -464,7 +498,7 @@ static int utp_exec(struct fsg_dev *fsg,
 		pr_debug("%s: pass returned in EXEC stage. \n", __func__);
 		UTP_SS_PASS(fsg);
 	}
-	utp_user_data_free(uud);
+	utp_user_data_free(ctx, uud);
 	return 0;
 }
 
@@ -552,7 +586,7 @@ static int utp_handle_message(struct fsg_dev *fsg,
 		UTP_SS_PASS(fsg);
 		break;
 	case UTP_PUT:
-		utp_context.cur_state =  UTP_FLAG_DATA;
+		UTP_CTX(fsg)->cur_state =  UTP_FLAG_DATA;
 		pr_debug("%s: PUT, Received %d bytes\n", __func__, fsg->common->data_size);/* data from host to device */
 		uud2r = utp_user_data_alloc(fsg->common->data_size);
 		if (!uud2r)
@@ -596,8 +630,8 @@ static int utp_handle_message(struct fsg_dev *fsg,
 			UTP_SS_PASS(fsg);
 		}
 #endif
-		if (count_list(&UTP_CTX(fsg)->read) < 7) {
-			utp_context.cur_state = 0;
+		if (count_list(UTP_CTX(fsg), &UTP_CTX(fsg)->read) < 7) {
+			UTP_CTX(fsg)->cur_state = 0;
 			UTP_SS_PASS(fsg);
 		} else
 			UTP_SS_BUSY(fsg, UTP_CTX(fsg)->counter);
