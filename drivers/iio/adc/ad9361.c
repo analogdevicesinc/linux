@@ -3254,8 +3254,9 @@ static int ad9361_gc_setup(struct ad9361_rf_phy *phy, struct gain_control *ctrl)
 		SMALL_ADC_OVERLOAD_EXED_COUNTER(ctrl->adc_small_overload_exceed_counter);
 	ad9361_spi_write(spi, REG_ADC_OVERLOAD_COUNTERS, reg);
 
-	ad9361_spi_writef(spi, REG_GAIN_STP_CONFIG_2, LARGE_LPF_GAIN_STEP(~0),
-			 LARGE_LPF_GAIN_STEP(ctrl->adc_large_overload_inc_steps));
+	reg = DECREMENT_STP_SIZE_FOR_SMALL_LPF_GAIN_CHANGE(ctrl->f_agc_large_overload_inc_steps) |
+		LARGE_LPF_GAIN_STEP(ctrl->adc_large_overload_inc_steps);
+	ad9361_spi_write(spi, REG_GAIN_STP_CONFIG_2, reg);
 
 	reg = LARGE_LMT_OVERLOAD_EXED_COUNTER(ctrl->lmt_overload_large_exceed_counter) |
 		SMALL_LMT_OVERLOAD_EXED_COUNTER(ctrl->lmt_overload_small_exceed_counter);
@@ -8505,7 +8506,7 @@ static struct ad9361_phy_platform_data
 	ad9361_of_get_u32(iodev, np, "adi,agc-adc-large-overload-exceed-counter", 10,
 			  &pdata->gain_ctrl.adc_large_overload_exceed_counter);
 	ad9361_of_get_u32(iodev, np, "adi,agc-adc-large-overload-inc-steps", 2,
-			  &pdata->gain_ctrl.adc_large_overload_inc_steps);
+			  &pdata->gain_ctrl.adc_large_overload_inc_steps); /* Name is misleading should be dec-steps */
 	ad9361_of_get_bool(iodev, np, "adi,agc-adc-lmt-small-overload-prevent-gain-inc-enable",
 			   &pdata->gain_ctrl.adc_lmt_small_overload_prevent_gain_inc);
 	ad9361_of_get_u32(iodev, np, "adi,agc-lmt-overload-large-exceed-counter", 10,
@@ -8592,6 +8593,9 @@ static struct ad9361_phy_platform_data
 			&pdata->gain_ctrl.f_agc_rst_gla_if_en_agc_pulled_high_mode); /* 0x0FB, 0x111 */
 	ad9361_of_get_u32(iodev, np, "adi,fagc-power-measurement-duration-in-state5", 64,
 			&pdata->gain_ctrl.f_agc_power_measurement_duration_in_state5); /* 0x109, 0x10a RX samples 0..524288 */
+
+	ad9361_of_get_u32(iodev, np, "adi,fagc-adc-large-overload-inc-steps", 2, /* 0x106 [D6:D4] 0..7 */
+			&pdata->gain_ctrl.f_agc_large_overload_inc_steps); /* Name is misleading should be dec-steps */
 
 	/* RSSI Control */
 
