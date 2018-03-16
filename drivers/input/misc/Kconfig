@@ -870,6 +870,16 @@ config SENSOR_FXLS8471
 	depends on I2C
 	default n
 
+config SENSOR_IMX_RPMSG
+	tristate "NXP IMX rpmsg virtual sensor device driver"
+	depends on (SOC_IMX7ULP)
+	depends on RPMSG && SYSFS
+	depends on OF
+	default n
+	help
+	  This is rpmsg virtual sensor driver on i.mx7ulp, because some
+	  sensors connect with M4 core.
+
 config INPUT_ISL29023
 	tristate "Intersil ISL29023 ambient light sensor"
 	depends on I2C && SYSFS

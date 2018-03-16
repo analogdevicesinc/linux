@@ -1,0 +1,12 @@
+Device-Tree bindings for inputc/rpmsg_input.c input driver over
+rpmsg. For NXP i.MX7ULP EVK platform, all sensors connect with
+M4, A core access sensor should communicate with M4 core by rpmsg
+bus.
+
+Required properties:
+	- compatible = "fsl,rpmsg-input";
+
+Examples:
+	rpmsg_sensor: rpmsg-sensor {
+		compatible = "fsl,rpmsg-input";
+	};

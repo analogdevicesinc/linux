@@ -54,7 +54,7 @@ struct imx_rpmsg_vproc {
 	char *rproc_name;
 	struct mutex lock;
 	int vdev_nums;
-#define MAX_VDEV_NUMS	7
+#define MAX_VDEV_NUMS	8
 	struct imx_virdev ivdev[MAX_VDEV_NUMS];
 	void __iomem *mu_base;
 	struct delayed_work rpmsg_work;
