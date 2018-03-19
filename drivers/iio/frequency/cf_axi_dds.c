@@ -979,7 +979,21 @@ static struct cf_axi_dds_chip_info cf_axi_dds_chip_info_tbl[] = {
 		.num_buf_channels = 1,
 
 	},
-
+	[ID_AD9172] = {
+		.name = "AD9172",
+		.channel = {
+			CF_AXI_DDS_CHAN_BUF(0),
+			CF_AXI_DDS_CHAN_BUF(1),
+			CF_AXI_DDS_CHAN(0, 0, "1A"),
+			CF_AXI_DDS_CHAN(1, 0, "1B"),
+			CF_AXI_DDS_CHAN(2, 0, "2A"),
+			CF_AXI_DDS_CHAN(3, 0, "2B"),
+		},
+		.num_channels = 6,
+		.num_dp_disable_channels = 2,
+		.num_dds_channels = 4,
+		.num_buf_channels = 2,
+	},
 };
 
 static struct cf_axi_dds_chip_info cf_axi_dds_chip_info_ad9361 = {
@@ -1225,6 +1239,9 @@ static const struct of_device_id cf_axi_dds_of_match[] = {
 	    .data = &ad9371_6_00_a_info,
 	}, {
 	    .compatible = "adi,axi-ad9162-1.0",
+	    .data = &ad9162_1_00_a_info,
+	}, {
+	    .compatible = "adi,axi-ad9172-1.0",
 	    .data = &ad9162_1_00_a_info,
 	},
 	{ },
