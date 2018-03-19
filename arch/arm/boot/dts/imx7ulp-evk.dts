@@ -189,6 +189,10 @@
 		};
 	};
 
+	rpmsg_sensor: rpmsg-sensor {
+		compatible = "fsl,rpmsg-input";
+	};
+
 	sound-rpmsg {
 		compatible = "fsl,imx-audio-rpmsg";
 		model = "rpmsg-audio";
@@ -493,7 +497,7 @@
 &rpmsg{
 	/*
 	 * 64K for one rpmsg instance, default using 2 rpmsg instances:
-	 * --0x9FF00000~0x9FF0FFFF: pmic,pm,audio,keys,gpio
+	 * --0x9FF00000~0x9FF0FFFF: pmic,pm,audio,keys,gpio,sensor
 	 * --0x9FF10000~0x9FF1FFFF: pingpong,virtual tty
 	 */
 	vdev-nums = <2>;
