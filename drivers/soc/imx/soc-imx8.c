@@ -103,6 +103,7 @@ static u32 imx_init_revision_from_scu(void)
 	sc_err_t sc_err = SC_ERR_NONE;
 	sc_ipc_t ipc_handle;
 	u32 id, rev;
+	u32 uid_l = 0, uid_h = 0;
 
 	sc_err = sc_ipc_getMuID(&mu_id);
 	if (sc_err != SC_ERR_NONE) {
@@ -131,6 +132,12 @@ static u32 imx_init_revision_from_scu(void)
 
 	imx8_set_soc_id(id);
 	imx8_set_soc_revision(rev);
+
+	sc_misc_unique_id(ipc_handle, &uid_l, &uid_h);
+
+	imx8_soc_uid = uid_h;
+	imx8_soc_uid <<= 32;
+	imx8_soc_uid |= uid_l;
 
 	return rev;
 }
@@ -251,7 +258,7 @@ static ssize_t imx8_get_soc_uid(struct device *dev,
 			struct device_attribute *attr,
 			char *buf)
 {
-	return sprintf(buf, "%016llx\n", imx8_soc_uid);
+	return sprintf(buf, "%016llX\n", imx8_soc_uid);
 }
 
 static struct device_attribute imx8_uid =
