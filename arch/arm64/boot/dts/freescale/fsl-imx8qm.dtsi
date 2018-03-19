@@ -18,7 +18,8 @@
 #include <dt-bindings/clock/imx8qm-clock.h>
 #include <dt-bindings/soc/imx_rsrc.h>
 #include <dt-bindings/soc/imx8_pd.h>
-#include <dt-bindings/pinctrl/pins-imx8qm.h>
+#include <dt-bindings/pinctrl/pads-imx8qm.h>
+#include <dt-bindings/gpio/gpio.h>
 
 / {
 	compatible = "fsl,imx8qm";
