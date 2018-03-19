@@ -1291,6 +1291,7 @@ L:	linux-pm@vger.kernel.org
 S:	Supported
 W:	https://ez.analog.com/linux-software-drivers
 F:	drivers/power/supply/adp5061.c
+F:	Documentation/ABI/testing/sysfs-class-power-adp5061
 
 ANALOG DEVICES INC ADRF6780 DRIVER
 M:	Antoniu Miclaus <antoniu.miclaus@analog.com>
