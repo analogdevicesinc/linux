@@ -220,7 +220,7 @@
 			xlnx,max-bytes-per-burst = <0x80>;
 			xlnx,sync-transfer-start = <0x1>;
 		};
-		axi_ad9680_jesd: axi-jesd204b-rx@44a910000 {
+		axi_ad9680_jesd: axi-jesd204b-rx@44a91000 {
 			compatible = "xlnx,jesd204-6.0";
 			reg = <0x44a91000 0x1000>;
 			xlnx,component-name = "system_axi_ad9680_jesd_0";

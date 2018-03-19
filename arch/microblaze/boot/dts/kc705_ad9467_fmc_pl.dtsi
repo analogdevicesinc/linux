@@ -140,7 +140,7 @@
 		#size-cells = <1>;
 		compatible = "simple-bus";
 		ranges ;
-		axi_ad9467: cf-ad9467-core-lpc@44A00000 {
+		axi_ad9467: cf-ad9467-core-lpc@44a00000 {
 			compatible = "xlnx,cf-ad9467-core-1.00.a";
 			reg = <0x44a00000 0x10000>;
 			xlnx,s-axi-min-size = <0x0000FFFF>;
@@ -244,7 +244,7 @@
 			xlnx,kind-of-intr = <0x412>;
 			xlnx,num-intr-inputs = <0x10>;
 		};
-		axi_linear_flash: flash@42000000 {
+		axi_linear_flash: flash@60000000 {
 			bank-width = <2>;
 			compatible = "cfi-flash";
 			reg = <0x60000000 0x2000000>;
