@@ -1,0 +1,17 @@
+Analog Devices ADP5061 Programmable Linear Battery Charger Driver
+
+Required properties:
+  - compatible:		should be "adi,adp5061"
+  - reg:		i2c address of the device
+
+The node for this driver must be a child node of a I2C controller, hence
+all mandatory properties described in
+Documentation/devicetree/bindings/i2c/i2c.txt
+must be specified.
+
+Example:
+
+	adp5061@14 {
+		    compatible = "adi,adp5061";
+		    reg = <0x14>;
+	};
