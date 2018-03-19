@@ -205,7 +205,7 @@
 &axi_linear_flash {
 	#address-cells = <1>;
 	#size-cells = <1>;
-	partition@00000000 {
+	partition@0 {
 		label = "fpga";
 		reg = <0x00000000 0x1380000>;
 	};
