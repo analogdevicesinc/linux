@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 NXP
+ * Copyright 2017-2018 NXP
  *
  * The code contained herein is licensed under the GNU General Public
  * License. You may obtain a copy of the GNU General Public License
@@ -199,6 +199,7 @@ static int imx_rpmsg_rtc_alarm_irq_enable(struct device *dev,
 	msg.header.minor = IMX_RMPSG_MINOR;
 	msg.header.type = RTC_RPMSG_SEND;
 	msg.header.cmd = RTC_RPMSG_ENABLE_ALARM;
+	msg.enable = enable;
 
 	ret = rtc_send_message(&msg, &rtc_rpmsg, true);
 	if (ret)
