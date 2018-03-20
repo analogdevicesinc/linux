@@ -188,6 +188,7 @@ struct nwl_mipi_dsi {
 	struct drm_bridge		bridge;
 	struct drm_connector		connector;
 	struct mipi_dsi_host		host;
+	struct mipi_dsi_device		*dsi_device;
 
 	struct phy			*phy;
 
@@ -345,6 +346,8 @@ unsigned long nwl_dsi_get_bit_clock(struct drm_bridge *bridge,
 	if (crtc && crtc->mode.private_flags & 0x1) {
 		bus_format = (crtc->mode.private_flags & 0x1FFFE) >> 1;
 		dsi->format = mipi_dsi_format_from_bus_format(bus_format);
+		/* propagate the format to the attached panel/bridge */
+		dsi->dsi_device->format = dsi->format;
 		/* clear bus format change indication*/
 		crtc->mode.private_flags &= ~0x1;
 	}
@@ -539,6 +542,8 @@ static int nwl_dsi_host_attach(struct mipi_dsi_host *host,
 
 	if (device->lanes < 1 || device->lanes > 4)
 		return -EINVAL;
+
+	dsi->dsi_device = device;
 
 	/*
 	 * Someone has attached to us; it could be a panel or another bridge.
