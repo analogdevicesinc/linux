@@ -677,22 +677,20 @@ static void imx_hdp_connector_force(struct drm_connector *connector)
 }
 
 static int imx_hdp_set_property(struct drm_connector *connector,
+				struct drm_connector_state *state,
 				struct drm_property *property, uint64_t val)
 {
 	struct imx_hdp *hdp = container_of(connector, struct imx_hdp,
 					   connector);
 	int ret;
-	struct drm_connector_state *conn_state;
 	union hdmi_infoframe frame;
 	struct hdr_static_metadata *hdr_metadata;
 
-	conn_state = connector->state;
-
-	if (conn_state->hdr_source_metadata_blob_ptr &&
-	    conn_state->hdr_source_metadata_blob_ptr->length &&
+	if (state->hdr_source_metadata_blob_ptr &&
+	    state->hdr_source_metadata_blob_ptr->length &&
 	    hdp->ops->write_hdr_metadata) {
 		hdr_metadata = (struct hdr_static_metadata *)
-				conn_state->hdr_source_metadata_blob_ptr->data;
+				state->hdr_source_metadata_blob_ptr->data;
 
 		ret = drm_hdmi_infoframe_set_hdr_metadata(&frame.drm,
 							  hdr_metadata);
@@ -716,7 +714,7 @@ static const struct drm_connector_funcs imx_hdp_connector_funcs = {
 	.reset = drm_atomic_helper_connector_reset,
 	.atomic_duplicate_state = drm_atomic_helper_connector_duplicate_state,
 	.atomic_destroy_state = drm_atomic_helper_connector_destroy_state,
-	.set_property = imx_hdp_set_property,
+	.atomic_set_property = imx_hdp_set_property,
 };
 
 static const struct drm_connector_helper_funcs imx_hdp_connector_helper_funcs = {
