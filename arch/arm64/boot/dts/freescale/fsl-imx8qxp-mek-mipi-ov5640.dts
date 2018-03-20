@@ -12,7 +12,8 @@
  * GNU General Public License for more details.
  */
 
-#include "fsl-imx8qxp-mek-lvds0-it6263.dts"
+#include "fsl-imx8qxp-mek.dts"
+#include "fsl-imx8qxp-mek-lvds0-it6263.dtsi"
 
 &iomuxc {
 	imx8qxp-mek {
