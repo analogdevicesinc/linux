@@ -570,12 +570,6 @@ int __mmc_switch(struct mmc_card *card, u8 set, u8 index, u8 value,
 	if (!use_busy_signal)
 		goto out;
 
-	/*
-	 * WORKAROUND: for Sandisk eMMC cards, it might need certain delay
-	 * before sending CMD13 after CMD6
-	 */
-	mdelay(1);
-
 	/*If SPI or used HW busy detection above, then we don't need to poll. */
 	if (((host->caps & MMC_CAP_WAIT_WHILE_BUSY) && use_r1b_resp) ||
 		mmc_host_is_spi(host))
@@ -590,6 +584,12 @@ out_tim:
 	/* Switch to new timing before check switch status. */
 	if (timing)
 		mmc_set_timing(host, timing);
+
+	/*
+	 * WORKAROUND: for Sandisk eMMC cards, it might need certain delay
+	 * before sending CMD13 after CMD6
+	 */
+	mdelay(1);
 
 	if (send_status) {
 		err = mmc_switch_status(card);
