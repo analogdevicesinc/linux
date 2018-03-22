@@ -437,6 +437,39 @@ static int adp5061_get_chg_type(struct adp5061_state *st,
 	return ret;
 }
 
+static int adp5061_get_charger_status(struct adp5061_state *st,
+				      union power_supply_propval *val)
+{
+	u8 status1, status2;
+	int ret;
+
+	ret = adp5061_get_status(st, &status1, &status2);
+	if (ret < 0)
+		return ret;
+
+	switch (ADP5061_CHG_STATUS_1_CHG_STATUS(status1)) {
+	case ADP5061_CHG_OFF:
+		val->intval = POWER_SUPPLY_STATUS_NOT_CHARGING;
+		break;
+	case ADP5061_CHG_TRICKLE:
+	case ADP5061_CHG_FAST_CC:
+	case ADP5061_CHG_FAST_CV:
+		val->intval = POWER_SUPPLY_STATUS_CHARGING;
+		break;
+	case ADP5061_CHG_COMPLETE:
+		val->intval = POWER_SUPPLY_STATUS_FULL;
+		break;
+	case ADP5061_CHG_TIMER_EXP:
+		/* The battery must be discharging if there is a charge fault */
+		val->intval = POWER_SUPPLY_STATUS_DISCHARGING;
+		break;
+	default:
+		val->intval = POWER_SUPPLY_STATUS_UNKNOWN;
+	}
+
+	return ret;
+}
+
 static int adp5061_get_property(struct power_supply *psy,
 				enum power_supply_property psp,
 				union power_supply_propval *val)
@@ -499,6 +532,12 @@ static int adp5061_get_property(struct power_supply *psy,
 		 * above this value, fast chargerge mode is entered
 		 */
 		return adp5061_get_vweak_th(st, val);
+	case POWER_SUPPLY_PROP_STATUS:
+		/*
+		 * Indicate the charger status in relation to power
+		 * supply status property
+		 */
+		return adp5061_get_charger_status(st, val);
 	default:
 		return -EINVAL;
 	}
@@ -561,6 +600,7 @@ static enum power_supply_property adp5061_props[] = {
 	POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT,
 	POWER_SUPPLY_PROP_PRECHARGE_CURRENT,
 	POWER_SUPPLY_PROP_VOLTAGE_AVG,
+	POWER_SUPPLY_PROP_STATUS,
 };
 
 static const struct regmap_config adp5061_regmap_config = {
