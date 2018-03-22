@@ -90,7 +90,15 @@ struct mxc_isi_fmt mxc_isi_out_formats[] = {
 		.memplanes	= 1,
 		.colplanes	= 1,
 		.mbus_code	= MEDIA_BUS_FMT_AYUV8_1X32,
-	},
+	}, {
+		.name		= "NV12 (YUYV)",
+		.fourcc		= V4L2_PIX_FMT_NV12,
+		.depth		= { 8, 8 },
+		.color		= MXC_ISI_OUT_FMT_YUV420_2P8P,
+		.memplanes	= 2,
+		.colplanes	= 2,
+		.mbus_code	= MEDIA_BUS_FMT_YUYV8_1X16,
+	}
 };
 
 struct mxc_isi_fmt mxc_isi_src_formats[] = {
@@ -296,16 +304,21 @@ static int cap_vb2_queue_setup(struct vb2_queue *q,
 	unsigned long wh;
 	int i;
 
-	alloc_devs[0] = &mxc_isi->pdev->dev;
-	wh = dst_f->width * dst_f->height;
-
 	if (fmt == NULL)
 		return -EINVAL;
+
+	for (i = 0; i < fmt->memplanes; i++)
+		alloc_devs[i] = &mxc_isi->pdev->dev;
+
+	wh = dst_f->width * dst_f->height;
 
 	*num_planes = fmt->memplanes;
 
 	for (i = 0; i < fmt->memplanes; i++) {
 		unsigned int size = (wh * fmt->depth[i]) / 8;
+
+		if (i == 1 && fmt->fourcc == V4L2_PIX_FMT_NV12)
+			size >>= 1;
 		sizes[i] = max_t(u32, size, dst_f->sizeimage[i]);
 	}
 	dev_dbg(&mxc_isi->pdev->dev, "%s, buf_n=%d, size=%d\n",
@@ -825,12 +838,20 @@ static int mxc_isi_cap_s_fmt_mplane(struct file *file, void *priv,
 
 	for (i = 0; i < pix->num_planes; i++) {
 		bpl = pix->plane_fmt[i].bytesperline;
+
 		if ((bpl == 0) || (bpl / (fmt->depth[i] >> 3)) < pix->width)
 			pix->plane_fmt[i].bytesperline =
 						(pix->width * fmt->depth[i]) >> 3;
-		if (pix->plane_fmt[i].sizeimage == 0)
-			pix->plane_fmt[i].sizeimage = (pix->width * pix->height *
+
+		if (pix->plane_fmt[i].sizeimage == 0) {
+
+			if ((i == 1) && (pix->pixelformat == V4L2_PIX_FMT_NV12))
+				pix->plane_fmt[i].sizeimage =
+					(pix->width * (pix->height >> 1) * fmt->depth[i] >> 3);
+			else
+				pix->plane_fmt[i].sizeimage = (pix->width * pix->height *
 						fmt->depth[i] >> 3);
+		}
 	}
 
 	if (pix->num_planes > 1) {
