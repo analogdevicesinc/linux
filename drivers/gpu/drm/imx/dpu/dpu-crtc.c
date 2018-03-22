@@ -91,18 +91,22 @@ static void dpu_crtc_atomic_enable(struct drm_crtc *crtc,
 				   struct drm_crtc_state *old_crtc_state)
 {
 	struct dpu_crtc *dpu_crtc = to_dpu_crtc(crtc);
+	struct dpu_plane *dplane = to_dpu_plane(crtc->primary);
+	struct dpu_plane_res *res = &dplane->grp->res;
+	struct dpu_extdst *plane_ed = res->ed[dplane->stream_id];
 	unsigned long ret;
 
 	drm_crtc_vblank_on(crtc);
 
-	framegen_enable_clock(dpu_crtc->fg);
-	extdst_pixengcfg_sync_trigger(dpu_crtc->ed);
-	framegen_shdtokgen(dpu_crtc->fg);
-	framegen_enable(dpu_crtc->fg);
-
 	enable_irq(dpu_crtc->safety_shdld_irq);
 	enable_irq(dpu_crtc->content_shdld_irq);
 	enable_irq(dpu_crtc->dec_shdld_irq);
+
+	framegen_enable_clock(dpu_crtc->fg);
+	extdst_pixengcfg_sync_trigger(plane_ed);
+	extdst_pixengcfg_sync_trigger(dpu_crtc->ed);
+	framegen_shdtokgen(dpu_crtc->fg);
+	framegen_enable(dpu_crtc->fg);
 
 	ret = wait_for_completion_timeout(&dpu_crtc->safety_shdld_done, HZ);
 	if (ret == 0)
@@ -418,12 +422,11 @@ static void dpu_crtc_atomic_flush(struct drm_crtc *crtc,
 	if (!crtc->state->active && !old_crtc_state->active)
 		return;
 
-	if (!need_modeset)
+	if (!need_modeset) {
 		enable_irq(dpu_crtc->content_shdld_irq);
 
-	extdst_pixengcfg_sync_trigger(ed);
+		extdst_pixengcfg_sync_trigger(ed);
 
-	if (!need_modeset) {
 		ret = wait_for_completion_timeout(&dpu_crtc->content_shdld_done,
 						  HZ);
 		if (ret == 0)
@@ -441,6 +444,8 @@ static void dpu_crtc_atomic_flush(struct drm_crtc *crtc,
 
 			crtc->state->event = NULL;
 		}
+	} else if (!crtc->state->active) {
+		extdst_pixengcfg_sync_trigger(ed);
 	}
 
 	for (i = 0; i < dpu_crtc->hw_plane_num; i++) {
