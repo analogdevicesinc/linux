@@ -3830,11 +3830,7 @@ drm_parse_hdr_metadata_block(struct drm_connector *connector, const u8 *db)
 	info->hdr_panel_metadata.eotf = eotf_supported(db);
 	info->hdr_panel_metadata.type = hdr_metadata_type(db);
 
-	if (len == 6) {
-		info->hdr_panel_metadata.max_cll = db[4];
-		info->hdr_panel_metadata.max_fall = db[5];
-		info->hdr_panel_metadata.min_cll = db[6];
-	} else if (len == 5) {
+	if (len == 5) {
 		info->hdr_panel_metadata.max_cll = db[4];
 		info->hdr_panel_metadata.max_fall = db[5];
 	} else if (len == 4) {

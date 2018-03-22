@@ -165,8 +165,8 @@ struct hdmi_drm_infoframe {
 	enum hdmi_infoframe_type type;
 	unsigned char version;
 	unsigned char length;
-	uint16_t eotf;
-	uint16_t metadata_type;
+	uint8_t eotf;
+	uint8_t metadata_type;
 	uint16_t display_primaries_x[3];
 	uint16_t display_primaries_y[3];
 	uint16_t white_point_x;
@@ -175,7 +175,6 @@ struct hdmi_drm_infoframe {
 	uint16_t min_mastering_display_luminance;
 	uint16_t max_fall;
 	uint16_t max_cll;
-	uint16_t min_cll;
 };
 
 int hdmi_avi_infoframe_init(struct hdmi_avi_infoframe *frame);
