@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2016 Freescale Semiconductor, Inc.
- * Copyright 2017 NXP
+ * Copyright 2017-2018 NXP
  *
  * SPDX-License-Identifier:     GPL-2.0+
  */
@@ -321,10 +321,8 @@ int __init imx8_mu_init(void)
 		}
 
 		err = irq_set_irq_wake(irq, 1);
-		if (err) {
+		if (err)
 			pr_err("imx8mu_init: set_irq_wake failed: %d\n", err);
-			return err;
-		}
 	}
 
 	if (!scu_mu_init) {
