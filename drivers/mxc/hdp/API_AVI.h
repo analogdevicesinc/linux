@@ -51,6 +51,7 @@
 
 CDN_API_STATUS CDN_API_Set_AVI(state_struct *state, struct drm_display_mode *mode,
 			       VIC_PXL_ENCODING_FORMAT colorMode,
-			       BT_TYPE ITUver);
+			       enum hdmi_colorimetry colorimetry,
+			       enum hdmi_extended_colorimetry ext_colorimetry);
 
 #endif //API_AVI_H_

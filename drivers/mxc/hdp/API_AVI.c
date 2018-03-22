@@ -49,7 +49,8 @@
 
 CDN_API_STATUS CDN_API_Set_AVI(state_struct *state, struct drm_display_mode *mode,
 			       VIC_PXL_ENCODING_FORMAT colorMode,
-			       BT_TYPE ITUver)
+			       enum hdmi_colorimetry colorimetry,
+			       enum hdmi_extended_colorimetry ext_colorimetry)
 {
 	u32 active_slot = mode->htotal - mode->hdisplay;
 	u32 line_width = mode->htotal;
@@ -131,16 +132,8 @@ CDN_API_STATUS CDN_API_Set_AVI(state_struct *state, struct drm_display_mode *mod
 	else if (colorMode == YCBCR_4_2_0)
 		packet_Y = 3;
 
-	/* Colorimetry:  Nodata=0 IT601=1 ITU709=2 */
-	if (ITUver == BT_601)
-		packet_C = 1;
-	else if (ITUver == BT_709)
-		packet_C = 2;
-	else if (ITUver == 2) {
-		packet_C = 0;
-		packet_EC = 0;
-	} else
-		packet_C = 0;
+	packet_C = colorimetry;
+	packet_EC = ext_colorimetry;
 
 	packet_HB0 = packet_type;
 	packet_HB1 = packet_version;
