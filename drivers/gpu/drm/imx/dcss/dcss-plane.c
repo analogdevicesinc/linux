@@ -463,11 +463,11 @@ static void dcss_plane_atomic_update(struct drm_plane *plane,
 
 	ipipe_cfg.pixel_format = pixel_format;
 
-	ipipe_cfg.nl = NL_REC2084;
-	ipipe_cfg.pr = PR_FULL;
-	ipipe_cfg.g = G_REC2020;
-
 	dcss_crtc_get_opipe_cfg(state->crtc, &opipe_cfg);
+
+	ipipe_cfg.nl = opipe_cfg.nl == NL_REC2084 ? NL_REC2084 : NL_REC709;
+	ipipe_cfg.pr = PR_FULL;
+	ipipe_cfg.g = opipe_cfg.g == G_REC2020 ? G_REC2020 : G_REC709;
 
 	dcss_hdr10_setup(dcss_plane->dcss, dcss_plane->ch_num,
 			 &ipipe_cfg, &opipe_cfg);
