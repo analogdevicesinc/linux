@@ -2900,6 +2900,16 @@ out:
 	return ret;
 }
 
+static bool _regulator_is_bypass(struct regulator_dev *rdev)
+{
+	bool bypassed = false;
+
+	if (rdev->desc->ops->get_bypass)
+		rdev->desc->ops->get_bypass(rdev, &bypassed);
+
+	return bypassed;
+}
+
 static inline bool _regulator_should_adjust_supply(struct regulator_dev *rdev)
 {
 	/* Check for adjustable supply */
@@ -2910,6 +2920,8 @@ static inline bool _regulator_should_adjust_supply(struct regulator_dev *rdev)
 
 	/* Check for need to adjust supply */
 	if (rdev->desc->min_dropout_uV)
+		return true;
+	if (_regulator_is_bypass(rdev))
 		return true;
 	if (!(rdev->desc->ops->get_voltage || rdev->desc->ops->get_voltage_sel))
 		return true;
