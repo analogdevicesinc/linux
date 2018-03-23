@@ -650,6 +650,6 @@ void dcss_hdr10_setup(struct dcss_soc *dcss, int ch_num,
 	 * Input pipe configuration doesn't matter for configuring the output
 	 * pipe. So, will just mask off the input part of the descriptor.
 	 */
-	dcss_hdr10_pipe_setup(dcss, OPIPE_CH_NO, desc | 0xffff);
+	dcss_hdr10_pipe_setup(dcss, OPIPE_CH_NO, desc | 0xfffe);
 }
 EXPORT_SYMBOL(dcss_hdr10_setup);
