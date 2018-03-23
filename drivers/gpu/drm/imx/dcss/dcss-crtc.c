@@ -171,19 +171,17 @@ void dcss_crtc_setup_opipe(struct drm_crtc *crtc, struct drm_connector *conn,
 	struct drm_display_info *di = &conn->display_info;
 	int vic;
 
-	if ((colorimetry & HDMI_EXTENDED_COLORIMETRY_BT2020) ||
-	    (colorimetry & HDMI_EXTENDED_COLORIMETRY_BT2020_CONST_LUM))
+	if ((colorimetry & BIT(HDMI_EXTENDED_COLORIMETRY_BT2020)) ||
+	    (colorimetry & BIT(HDMI_EXTENDED_COLORIMETRY_BT2020_CONST_LUM)))
 		dcss_crtc->opipe_g = G_REC2020;
-	else if (colorimetry & HDMI_EXTENDED_COLORIMETRY_ADOBE_RGB)
+	else if (colorimetry & BIT(HDMI_EXTENDED_COLORIMETRY_ADOBE_RGB))
 		dcss_crtc->opipe_g = G_ADOBE_ARGB;
-	else if (colorimetry & HDMI_EXTENDED_COLORIMETRY_XV_YCC_709)
+	else if (colorimetry & BIT(HDMI_EXTENDED_COLORIMETRY_XV_YCC_709))
 		dcss_crtc->opipe_g = G_REC709;
 	else
 		dcss_crtc->opipe_g = G_REC601_PAL;
 
-	if (eotf & (1 << 3))
-		dcss_crtc->opipe_nl = NL_2100HLG;
-	else if (eotf & (1 << 2))
+	if (eotf & (1 << 2))
 		dcss_crtc->opipe_nl = NL_REC2084;
 	else
 		dcss_crtc->opipe_nl = NL_REC709;
