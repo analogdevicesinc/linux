@@ -1,0 +1,20 @@
+#
+# Codec configuration
+#
+
+menu "MXC VPU(Video Processing Unit) B0 DECODER support"
+
+config MXC_VPU_DECODER
+	  tristate "Support for MXC VPU(Video Processing Unit) DECODER"
+	  default y
+	---help---
+	  The VPU codec device provides codec function for H.265 H.264 MPEG2 MPEG4 etc.
+
+config MXC_VPU_DECODER_DEBUG
+	bool "MXC VPU DECODER debugging"
+	depends on MXC_VPU_DECODER != n
+	help
+	  This is an option for the developers; most people should
+	  say N here.  This enables MXC VPU driver debugging.
+
+endmenu

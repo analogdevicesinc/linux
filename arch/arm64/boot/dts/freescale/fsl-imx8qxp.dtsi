@@ -73,7 +73,14 @@
 			no-map;
 			reg = <0 0x8e000000 0 0x1ffffff>;
 		};
-
+		decoder_boot: decoder_boot@0x88000000 {
+			no-map;
+			reg = <0 0x88000000 0 0x2000000>;
+		};
+		encoder_boot: encoder_boot@0x8A000000 {
+			no-map;
+			reg = <0 0x8A000000 0 0x2000000>;
+		};
 		/* global autoconfigured region for contiguous allocations */
 		linux,cma {
 			compatible = "shared-dma-pool";
@@ -82,10 +89,17 @@
 			alloc-ranges = <0 0x90000000 0 0x28000000>;
 			linux,cma-default;
 		};
-
 		rpmsg_reserved: rpmsg@0xb8000000 {
 			no-map;
 			reg = <0 0xb8000000 0 0x400000>;
+		};
+		decoder_rpc: decoder_rpc@0xB9000000 {
+			no-map;
+			reg = <0 0xB9000000 0 0x1000000>;
+		};
+		encoder_rpc: encoder_rpc@0xBA000000 {
+			no-map;
+			reg = <0 0xBA000000 0 0x1000000>;
 		};
 	};
 
@@ -116,7 +130,29 @@
 		fsl,hifi_ap_mu_id = <13>;
 		status = "okay";
 	};
+	mu_m4: mu_m4@37440000 {
+		compatible = "fsl,imx8-mu0-vpu-m4";
+		reg = <0x0 0x37440000 0x0 0x10000>;
+		interrupts = <GIC_SPI 16 IRQ_TYPE_LEVEL_HIGH>;
+		fsl,vpu_ap_mu_id = <15>;
+		status = "okay";
+	};
 
+	mu_m0: mu_m0@2d000000 {
+		compatible = "fsl,imx8-mu0-vpu-m0";
+		reg = <0x0 0x2d000000 0x0 0x10000>;
+		interrupts = <GIC_SPI 469 IRQ_TYPE_LEVEL_HIGH>;
+		fsl,vpu_ap_mu_id = <16>;
+		status = "okay";
+	};
+
+	mu1_m0: mu1_m0@2d020000 {
+		compatible = "fsl,imx8-mu1-vpu-m0";
+		reg = <0x0 0x2d020000 0x0 0x10000>;
+		interrupts = <GIC_SPI 470 IRQ_TYPE_LEVEL_HIGH>;
+		fsl,vpu_ap_mu_id = <17>;
+		status = "okay";
+	};
 	clk: clk {
 		compatible = "fsl,imx8qxp-clk";
 		#clock-cells = <1>;
@@ -2653,6 +2689,33 @@
 		status = "disabled";
 	};
 
+	vpu_decoder: vpu_decoder@2c000000 {
+		compatible = "nxp,imx8qm-vpu-decoder", "nxp,imx8qxp-vpu-decoder";
+		boot-region = <&decoder_boot>;
+		rpc-region = <&decoder_rpc>;
+		reg = <0x0 0x2c000000 0x0 0x1000000>;
+		reg-names = "vpu_regs";
+		clocks = <&clk IMX8QXP_VPU_DEC_CLK>;
+		clock-names = "vpu_clk";
+		assigned-clocks = <&clk IMX8QXP_VPU_DEC_CLK>;
+		assigned-clock-rates = <600000000>;
+		power-domains = <&pd_vpu_dec>;
+		status = "disabled";
+	};
+
+	vpu_encoder: vpu_encoder@2d000000 {
+		compatible = "nxp,imx8qm-vpu-encoder", "nxp,imx8qxp-vpu-encoder";
+		boot-region = <&encoder_boot>;
+		rpc-region = <&encoder_rpc>;
+		reg = <0x0 0x2d000000 0x0 0x1000000>;
+		reg-names = "vpu_regs";
+		clocks = <&clk IMX8QXP_VPU_ENC_CLK>;
+		clock-names = "vpu_encoder_clk";
+		assigned-clocks = <&clk IMX8QXP_VPU_ENC_CLK>;
+		assigned-clock-rates = <600000000>;
+		power-domains = <&pd_vpu_enc>;
+		status = "disabled";
+	};
 	imx_rpmsg: imx_rpmsg {
 		compatible = "fsl,rpmsg-bus", "simple-bus";
 		#address-cells = <2>;

@@ -7,3 +7,5 @@ obj-$(CONFIG_MXC_MIPI_CSI2) += mipi/
 obj-$(CONFIG_MXC_HANTRO) += hantro/
 obj-$(CONFIG_MXC_VPU_MALONE) += vpu-malone/
 obj-$(CONFIG_MX8_HDP)	+= hdp/
+obj-$(CONFIG_MXC_VPU_DECODER) += vpu-decoder-b0/
+obj-$(CONFIG_MXC_VPU_ENCODER) += vpu-encoder-b0/
