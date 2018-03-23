@@ -176,10 +176,8 @@ void dcss_crtc_setup_opipe(struct drm_crtc *crtc, struct drm_connector *conn,
 		dcss_crtc->opipe_g = G_REC2020;
 	else if (colorimetry & BIT(HDMI_EXTENDED_COLORIMETRY_ADOBE_RGB))
 		dcss_crtc->opipe_g = G_ADOBE_ARGB;
-	else if (colorimetry & BIT(HDMI_EXTENDED_COLORIMETRY_XV_YCC_709))
-		dcss_crtc->opipe_g = G_REC709;
 	else
-		dcss_crtc->opipe_g = G_REC601_PAL;
+		dcss_crtc->opipe_g = G_REC709;
 
 	if (eotf & (1 << 2))
 		dcss_crtc->opipe_nl = NL_REC2084;
