@@ -83,6 +83,10 @@
 #define ADP5061_FUNC_SET_2_EN_CHG_VLIM_MSK	BIT(5)
 #define ADP5061_FUNC_SET_2_EN_CHG_VLIM_MODE(x)	(((x) & 0x01) << 5)
 
+/* ADP5061_IEND */
+#define ADP5061_IEND_IEND_MSK			GENMASK(7, 5)
+#define ADP5061_IEND_IEND_MODE(x)		(((x) & 0x07) << 5)
+
 #define ADP5061_NO_BATTERY	0x01
 #define ADP5061_ICHG_MAX	1300 // mA
 
@@ -135,6 +139,10 @@ static const int adp5061_vmax[36] = {
 static const int adp5061_in_current_lim[16] = {
 	100, 150, 200, 250, 300, 400, 500, 600, 700,
 	800, 900, 1000, 1200, 1500, 1800, 2100,
+};
+
+static const int adp5061_iend[8] = {
+	12500, 32500, 52500, 72500, 92500, 117500, 142500, 170000,
 };
 
 struct adp5061_state {
@@ -499,6 +507,37 @@ static int adp5061_get_battery_status(struct adp5061_state *st,
 	return ret;
 }
 
+static int adp5061_get_termination_current(struct adp5061_state *st,
+					   union power_supply_propval *val)
+{
+	unsigned int regval;
+	int ret;
+
+	ret = regmap_read(st->regmap, ADP5061_IEND, &regval);
+	if (ret < 0)
+		return ret;
+
+	regval = (regval & ADP5061_IEND_IEND_MSK) >> 5;
+	val->intval = adp5061_iend[regval];
+
+	return ret;
+}
+
+static int adp5061_set_termination_current(struct adp5061_state *st, int val)
+{
+	int index;
+
+	index = adp5061_get_array_index(adp5061_iend,
+					ARRAY_SIZE(adp5061_iend),
+					val);
+	if (index < 0)
+		return index;
+
+	return regmap_update_bits(st->regmap, ADP5061_IEND,
+				  ADP5061_IEND_IEND_MSK,
+				  ADP5061_IEND_IEND_MODE(index));
+}
+
 static int adp5061_get_property(struct power_supply *psy,
 				enum power_supply_property psp,
 				union power_supply_propval *val)
@@ -573,6 +612,9 @@ static int adp5061_get_property(struct power_supply *psy,
 		 * supply capacity level property
 		 */
 		return adp5061_get_battery_status(st, val);
+	case POWER_SUPPLY_PROP_CHARGE_TERM_CURRENT:
+		/* Indicate the values of the termination current */
+		return adp5061_get_termination_current(st, val);
 	default:
 		return -EINVAL;
 	}
@@ -601,6 +643,8 @@ static int adp5061_set_property(struct power_supply *psy,
 		return adp5061_set_prechg_current(st, val->intval);
 	case POWER_SUPPLY_PROP_VOLTAGE_AVG:
 		return adp5061_set_vweak_th(st, val->intval);
+	case POWER_SUPPLY_PROP_CHARGE_TERM_CURRENT:
+		return adp5061_set_termination_current(st, val->intval);
 	default:
 		return -EINVAL;
 	}
@@ -619,6 +663,7 @@ static int adp5061_prop_writeable(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT:
 	case POWER_SUPPLY_PROP_PRECHARGE_CURRENT:
 	case POWER_SUPPLY_PROP_VOLTAGE_AVG:
+	case POWER_SUPPLY_PROP_CHARGE_TERM_CURRENT:
 		return 1;
 	default:
 		return 0;
@@ -637,6 +682,7 @@ static enum power_supply_property adp5061_props[] = {
 	POWER_SUPPLY_PROP_VOLTAGE_AVG,
 	POWER_SUPPLY_PROP_STATUS,
 	POWER_SUPPLY_PROP_CAPACITY_LEVEL,
+	POWER_SUPPLY_PROP_CHARGE_TERM_CURRENT,
 };
 
 static const struct regmap_config adp5061_regmap_config = {
