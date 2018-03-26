@@ -725,7 +725,8 @@ struct dpu_plane *dpu_plane_init(struct drm_device *drm,
 				 unsigned int possible_crtcs,
 				 unsigned int stream_id,
 				 struct dpu_plane_grp *grp,
-				 enum drm_plane_type type)
+				 enum drm_plane_type type,
+				 bool has_prefetch_fixup)
 {
 	struct dpu_plane *dpu_plane;
 	struct drm_plane *plane;
@@ -738,6 +739,7 @@ struct dpu_plane *dpu_plane_init(struct drm_device *drm,
 
 	dpu_plane->stream_id = stream_id;
 	dpu_plane->grp = grp;
+	dpu_plane->has_prefetch_fixup = has_prefetch_fixup;
 
 	plane = &dpu_plane->base;
 
