@@ -247,11 +247,34 @@
 				#address-cells = <1>;
 				#size-cells = <0>;
 
-				pd_hdmi_i2c0: PD_HDMI_I2C_0 {
-					reg = <SC_R_HDMI_I2C_0>;
+				pd_hdmi_pll0: PD_HDMI_PLL_0{
+					reg = <SC_R_HDMI_PLL_0>;
 					#power-domain-cells = <0>;
 					power-domains =<&pd_hdmi>;
+					#address-cells = <1>;
+					#size-cells = <0>;
+
+					pd_hdmi_pll1: PD_HDMI_PLL_1{
+						reg = <SC_R_HDMI_PLL_1>;
+						#power-domain-cells = <0>;
+						power-domains =<&pd_hdmi_pll0>;
+						#address-cells = <1>;
+						#size-cells = <0>;
+
+						pd_hdmi_i2c0: PD_HDMI_I2C_0 {
+							reg = <SC_R_HDMI_I2C_0>;
+							#power-domain-cells = <0>;
+							power-domains =<&pd_hdmi_pll1>;
+						};
+
+						pd_hdmi_i2s: PD_HDMI_I2S {
+							reg = <SC_R_HDMI_I2S>;
+							#power-domain-cells = <0>;
+							power-domains =<&pd_hdmi_pll1>;
+						};
+					};
 				};
+
 			};
 
 		};
@@ -1516,7 +1539,7 @@
 						"clk_lpcg", "clk_even","clk_dbl",
 						"clk_vif", "clk_apb_csr","clk_apb_ctrl",
 						"clk_i2s", "clk_i2s_bypass";
-		power-domains = <&pd_hdmi>;
+		power-domains = <&pd_hdmi_i2s>;
 
 		port@0 {
 			reg = <0>;

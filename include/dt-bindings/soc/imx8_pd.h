@@ -188,7 +188,10 @@
 #define PD_PARALLEL_CSI_PLL         parallel_csi_pll
 
 #define PD_HDMI                     hdmi_power_domain
+#define PD_HDMI_PLL_0               hdmi_pll0
+#define PD_HDMI_PLL_1               hdmi_pll1
 #define PD_HDMI_I2C_0               hdmi_i2c
+#define PD_HDMI_I2S_0               hdmi_i2s
 #define PD_HDMI_PWM_0               hdmi_pwm
 #define PD_HDMI_GPIO_0              hdmi_gpio
 
