@@ -62,7 +62,6 @@ bool dprc_format_supported(struct dprc *dprc, u32 format, u64 modifier);
 bool dprc_stride_supported(struct dprc *dprc,
 			   unsigned int stride, unsigned int uv_stride,
 			   unsigned int width, u32 format);
-bool dprc_crop_supported(struct dprc *dprc, u64 modifier, u32 y_offset);
 bool dprc_stride_double_check(struct dprc *dprc,
 			      unsigned int stride, unsigned int uv_stride,
 			      unsigned int width, u32 format,

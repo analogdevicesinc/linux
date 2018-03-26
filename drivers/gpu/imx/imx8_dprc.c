@@ -605,30 +605,6 @@ bool dprc_stride_supported(struct dprc *dprc,
 }
 EXPORT_SYMBOL_GPL(dprc_stride_supported);
 
-bool dprc_crop_supported(struct dprc *dprc, u64 modifier, u32 y_offset)
-{
-	if (WARN_ON(!dprc))
-		return false;
-
-	switch (modifier) {
-	case DRM_FORMAT_MOD_AMPHION_TILED:
-		if ((y_offset % AMPHION_Y_STRIPE_HEIGHT) >
-					(PRG_HANDSHAKE_8LINES - 1))
-			return false;
-		break;
-	case DRM_FORMAT_MOD_VIVANTE_SUPER_TILED:
-		if ((y_offset % VIVANTE_SUPER_TILE_HEIGHT) >
-					(PRG_HANDSHAKE_4LINES - 1))
-			return false;
-		break;
-	default:
-		break;
-	}
-
-	return true;
-}
-EXPORT_SYMBOL_GPL(dprc_crop_supported);
-
 bool dprc_stride_double_check(struct dprc *dprc,
 			      unsigned int stride, unsigned int uv_stride,
 			      unsigned int width, u32 format,

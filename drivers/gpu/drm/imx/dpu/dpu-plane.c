@@ -165,27 +165,6 @@ drm_plane_state_to_baseaddr(struct drm_plane_state *state)
 	cma_obj = drm_fb_cma_get_gem_obj(fb, 0);
 	BUG_ON(!cma_obj);
 
-	/* round down x/y to be tile aligned at left/top */
-	switch (fb->modifier) {
-	case DRM_FORMAT_MOD_NONE:
-		break;
-	case DRM_FORMAT_MOD_AMPHION_TILED:
-		x = round_down(x, 8);
-		y = round_down(y, 256);
-		break;
-	case DRM_FORMAT_MOD_VIVANTE_TILED:
-		x = round_down(x, 4);
-		y = round_down(y, 4);
-		break;
-	case DRM_FORMAT_MOD_VIVANTE_SUPER_TILED:
-		x = round_down(x, 64);
-		y = round_down(y, 64);
-		break;
-	default:
-		WARN_ON(1);
-		break;
-	}
-
 	return cma_obj->paddr + fb->offsets[0] + fb->pitches[0] * y +
 	       drm_format_plane_cpp(fb->format->format, 0) * x;
 }
@@ -203,12 +182,6 @@ drm_plane_state_to_uvbaseaddr(struct drm_plane_state *state)
 
 	x /= drm_format_horz_chroma_subsampling(fb->format->format);
 	y /= drm_format_vert_chroma_subsampling(fb->format->format);
-
-	/* round down x/y to be tile aligned at left/top */
-	if (fb->modifier == DRM_FORMAT_MOD_AMPHION_TILED) {
-		x = round_down(x, 8);
-		y = round_down(y, 128);
-	}
 
 	return cma_obj->paddr + fb->offsets[1] + fb->pitches[1] * y +
 	       drm_format_plane_cpp(fb->format->format, 1) * x;
@@ -257,6 +230,9 @@ static int dpu_plane_atomic_check(struct drm_plane *plane,
 	    fb->modifier != DRM_FORMAT_MOD_AMPHION_TILED &&
 	    fb->modifier != DRM_FORMAT_MOD_VIVANTE_TILED &&
 	    fb->modifier != DRM_FORMAT_MOD_VIVANTE_SUPER_TILED)
+		return -EINVAL;
+
+	if (fb->modifier && (src_x || src_y))
 		return -EINVAL;
 
 	if (dplane->grp->has_vproc) {
@@ -329,8 +305,7 @@ static int dpu_plane_atomic_check(struct drm_plane *plane,
 	    fetchdecode_prefetch_stride_supported(fd, fb->pitches[0],
 						  fb->pitches[1],
 						  src_w,
-						  fb->format->format) &&
-	    fetchdecode_prefetch_crop_supported(fd, fb->modifier, src_y))
+						  fb->format->format))
 		dpstate->use_prefetch = true;
 	else
 		dpstate->use_prefetch = false;

@@ -830,16 +830,6 @@ bool fetchdecode_prefetch_stride_supported(struct dpu_fetchdecode *fd,
 }
 EXPORT_SYMBOL_GPL(fetchdecode_prefetch_stride_supported);
 
-bool fetchdecode_prefetch_crop_supported(struct dpu_fetchdecode *fd,
-					 u64 modifier, u32 y_offset)
-{
-	if (WARN_ON(!fd || !fd->dprc))
-		return false;
-
-	return dprc_crop_supported(fd->dprc, modifier, y_offset);
-}
-EXPORT_SYMBOL_GPL(fetchdecode_prefetch_crop_supported);
-
 bool fetchdecode_prefetch_stride_double_check(struct dpu_fetchdecode *fd,
 					      unsigned int stride,
 					      unsigned int uv_stride,

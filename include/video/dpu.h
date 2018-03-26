@@ -526,8 +526,6 @@ bool fetchdecode_prefetch_stride_supported(struct dpu_fetchdecode *fd,
 					   unsigned int uv_stride,
 					   unsigned int width,
 					   u32 format);
-bool fetchdecode_prefetch_crop_supported(struct dpu_fetchdecode *fd,
-					 u64 modifier, u32 y_offset);
 bool fetchdecode_prefetch_stride_double_check(struct dpu_fetchdecode *fd,
 					      unsigned int stride,
 					      unsigned int uv_stride,

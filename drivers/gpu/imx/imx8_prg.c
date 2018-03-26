@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 NXP
+ * Copyright 2017-2018 NXP
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -149,42 +149,9 @@ void prg_configure(struct prg *prg, unsigned int width, unsigned int height,
 	if (prg->is_auxiliary && stride <= burst_size)
 		height /= 2;
 
-	/* prg finer cropping into tile block - top/left start point */
-	switch (modifier) {
-	case DRM_FORMAT_MOD_NONE:
-		break;
-	case DRM_FORMAT_MOD_AMPHION_TILED:
-		x_offset %= AMPHION_STRIPE_WIDTH;
-		y_offset %= (prg->is_auxiliary ?
-			AMPHION_UV_STRIPE_HEIGHT : AMPHION_Y_STRIPE_HEIGHT);
-		break;
-	case DRM_FORMAT_MOD_VIVANTE_TILED:
-		x_offset %= VIVANTE_TILE_WIDTH;
-		y_offset %= VIVANTE_TILE_HEIGHT;
-		break;
-	case DRM_FORMAT_MOD_VIVANTE_SUPER_TILED:
-		x_offset %= VIVANTE_SUPER_TILE_WIDTH;
-		y_offset %= VIVANTE_SUPER_TILE_HEIGHT;
-		break;
-	default:
-		dev_err(prg->dev, "unsupported modifier 0x%016llx\n",
-								modifier);
-		return;
-	}
-
-	if (y_offset >
-	    ((format == DRM_FORMAT_NV21 || format == DRM_FORMAT_NV12) ?
-		(PRG_HANDSHAKE_8LINES - 1) : (PRG_HANDSHAKE_4LINES - 1))) {
-		dev_err(prg->dev,
-			"unsupported crop line %d for modifier 0x%016llx\n",
-							y_offset, modifier);
-		return;
-	}
-
 	prg_write(prg, STRIDE(stride), PRG_STRIDE);
 	prg_write(prg, WIDTH(width), PRG_WIDTH);
 	prg_write(prg, HEIGHT(height), PRG_HEIGHT);
-	prg_write(prg, X(x_offset) | Y(y_offset), PRG_OFFSET);
 	prg_write(prg, baddr, PRG_BADDR);
 
 	val = prg_read(prg, PRG_CTRL);
