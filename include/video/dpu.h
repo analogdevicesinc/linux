@@ -793,6 +793,8 @@ struct dpu_fetcheco *fetchdecode_get_fetcheco(struct dpu_fetchdecode *fd);
 struct dpu_hscaler *fetchdecode_get_hscaler(struct dpu_fetchdecode *fd);
 struct dpu_vscaler *fetchdecode_get_vscaler(struct dpu_fetchdecode *fd);
 
+bool dpu_has_prefetch_fixup(struct dpu_soc *dpu);
+
 bool dpu_vproc_has_fetcheco_cap(u32 cap_mask);
 bool dpu_vproc_has_hscale_cap(u32 cap_mask);
 bool dpu_vproc_has_vscale_cap(u32 cap_mask);
