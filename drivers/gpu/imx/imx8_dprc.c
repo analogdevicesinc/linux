@@ -17,6 +17,7 @@
 #include <linux/io.h>
 #include <linux/module.h>
 #include <linux/of.h>
+#include <linux/of_device.h>
 #include <linux/platform_device.h>
 #include <soc/imx8/sc/sci.h>
 #include <video/imx8-prefetch.h>
@@ -141,8 +142,21 @@ enum {
 #define ROWS_0_6				BIT(0)
 #define ROWS_0_4				0
 
+struct dprc_devtype {
+	bool has_fixup;
+};
+
+static const struct dprc_devtype dprc_type_v1 = {
+	.has_fixup = false,
+};
+
+static const struct dprc_devtype dprc_type_v2 = {
+	.has_fixup = true,
+};
+
 struct dprc {
 	struct device *dev;
+	const struct dprc_devtype *devtype;
 	void __iomem *base;
 	struct list_head list;
 	struct clk *clk_apb;
@@ -338,8 +352,12 @@ void dprc_configure(struct dprc *dprc, unsigned int stream_id,
 		preq = modifier ? BYTE_64 : BYTE_1K;
 
 		dprc_write(dprc, preq, FRAME_2P_CTRL0);
-		dprc_write(dprc, NUM_X_PIX_WIDE(p2_w), FRAME_2P_PIX_X_CTRL);
-		dprc_write(dprc, NUM_Y_PIX_HIGH(p2_h), FRAME_2P_PIX_Y_CTRL);
+		if (!dprc->devtype->has_fixup) {
+			dprc_write(dprc,
+				NUM_X_PIX_WIDE(p2_w), FRAME_2P_PIX_X_CTRL);
+			dprc_write(dprc,
+				NUM_Y_PIX_HIGH(p2_h), FRAME_2P_PIX_Y_CTRL);
+		}
 		dprc_write(dprc, uv_baddr, FRAME_2P_BASE_ADDR_CTRL0);
 	} else {
 		switch (modifier) {
@@ -648,8 +666,16 @@ dprc_lookup_by_phandle(struct device *dev, const char *name, int index)
 }
 EXPORT_SYMBOL_GPL(dprc_lookup_by_phandle);
 
+static const struct of_device_id dprc_dt_ids[] = {
+	{ .compatible = "fsl,imx8qm-dpr-channel", .data = &dprc_type_v1, },
+	{ .compatible = "fsl,imx8qxp-dpr-channel", .data = &dprc_type_v2, },
+	{ /* sentinel */ },
+};
+
 static int dprc_probe(struct platform_device *pdev)
 {
+	const struct of_device_id *of_id =
+			of_match_device(dprc_dt_ids, &pdev->dev);
 	struct device *dev = &pdev->dev;
 	struct resource *res;
 	struct dprc *dprc;
@@ -658,6 +684,8 @@ static int dprc_probe(struct platform_device *pdev)
 	dprc = devm_kzalloc(dev, sizeof(*dprc), GFP_KERNEL);
 	if (!dprc)
 		return -ENOMEM;
+
+	dprc->devtype = of_id->data;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	dprc->base = devm_ioremap_resource(&pdev->dev, res);
@@ -747,12 +775,6 @@ static int dprc_remove(struct platform_device *pdev)
 
 	return 0;
 }
-
-static const struct of_device_id dprc_dt_ids[] = {
-	{ .compatible = "fsl,imx8qm-dpr-channel", },
-	{ .compatible = "fsl,imx8qxp-dpr-channel", },
-	{ /* sentinel */ },
-};
 
 struct platform_driver dprc_drv = {
 	.probe = dprc_probe,
