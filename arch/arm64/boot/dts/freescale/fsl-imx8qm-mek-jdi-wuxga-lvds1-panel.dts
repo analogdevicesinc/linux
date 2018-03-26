@@ -35,6 +35,18 @@
 	status = "disabled";
 };
 
+&i2c1_lvds0 {
+	lvds-to-hdmi-bridge@4c {
+		status = "disabled";
+	};
+};
+
+&i2c1_lvds1 {
+	lvds-to-hdmi-bridge@4c {
+	status = "disabled";
+	};
+};
+
 &ldb2_phy {
 	status = "okay";
 };
