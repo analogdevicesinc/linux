@@ -194,7 +194,7 @@ static int v4l2_ioctl_enum_fmt_vid_cap_mplane(struct file *file,
 	struct vpu_v4l2_fmt *fmt;
 
 	vpu_dbg(LVL_INFO, "%s()\n", __func__);
-	if (f->index >= VPU_MAX_FORMATS)
+	if (f->index >= ARRAY_SIZE(formats_yuv_enc))
 		return -EINVAL;
 
 	fmt = &formats_yuv_enc[f->index];
@@ -211,7 +211,7 @@ static int v4l2_ioctl_enum_fmt_vid_out_mplane(struct file *file,
 
 	vpu_dbg(LVL_INFO, "%s()\n", __func__);
 
-	if (f->index >= VPU_MAX_FORMATS)
+	if (f->index >= ARRAY_SIZE(formats_compressed_enc))
 		return -EINVAL;
 
 	fmt = &formats_compressed_enc[f->index];
@@ -601,7 +601,7 @@ static int v4l2_ioctl_streamoff(struct file *file,
 	return ret;
 }
 
-const struct v4l2_ioctl_ops v4l2_encoder_ioctl_ops = {
+static const struct v4l2_ioctl_ops v4l2_encoder_ioctl_ops = {
 	.vidioc_querycap                = v4l2_ioctl_querycap,
 	.vidioc_enum_fmt_vid_cap_mplane = v4l2_ioctl_enum_fmt_vid_cap_mplane,
 	.vidioc_enum_fmt_vid_out_mplane = v4l2_ioctl_enum_fmt_vid_out_mplane,

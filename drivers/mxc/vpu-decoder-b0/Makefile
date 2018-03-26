@@ -1,8 +1,7 @@
 ##
 ## Makefile for the VPU and M0 driver
 ##
-DEFINES += -D HANDLE_EOS \
-		   -D REBOOT=1 \
+DEFINES += -D REBOOT=1 \
 		   -D BOOT_ARCH=0
 
 EXTRA_CFLAGS += $(DEFINES)

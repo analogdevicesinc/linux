@@ -186,6 +186,7 @@ struct vpu_dev {
 	void *m0_rpc_virt;
 	u_int32 m0_rpc_phy;
 	struct mutex dev_mutex;
+	struct mutex cmd_mutex;
 	bool fw_is_ready;
 	struct completion msg_complete;
 	struct workqueue_struct *workqueue;
