@@ -542,6 +542,7 @@ static const struct dpu_devtype dpu_type_v1 = {
 	.plane_src_na_mask = 0xffffff80,
 	.has_capture = true,
 	.has_prefetch = false,
+	.has_prefetch_fixup = false,
 	.pixel_link_quirks = false,
 	.pixel_link_nhvsync = false,
 	.version = DPU_V1,
@@ -570,15 +571,51 @@ static const struct dpu_devtype dpu_type_v2 = {
 	.plane_src_na_mask = 0xffffffe2,
 	.has_capture = false,
 	.has_prefetch = true,
+	.has_prefetch_fixup = false,
+	.pixel_link_quirks = true,
+	.pixel_link_nhvsync = true,
+	.version = DPU_V2,
+};
+
+static const struct dpu_devtype dpu_type_v2_with_prefetch_fixup = {
+	.cm_ofs = 0x0,
+	.cfs = &cfs_v2,
+	.decs = &decs_v2,
+	.eds = &eds_v2,
+	.fds = &fds_v2,
+	.fes = &fes_v2,
+	.fgs = &fgs_v2,
+	.fls = &fls_v2,
+	.fws = &fws_v2,
+	.hss = &hss_v2,
+	.lbs = &lbs_v2,
+	.tcons = &tcons_v2,
+	.vss = &vss_v2,
+	.cm_reg_ofs = &cm_reg_ofs_v2,
+	.intsteer_map = intsteer_map_v2,
+	.intsteer_map_size = ARRAY_SIZE(intsteer_map_v2),
+	.unused_irq = unused_irq_v2,
+	.sw2hw_irq_map = sw2hw_irq_map_v2,
+	.sw2hw_block_id_map = sw2hw_block_id_map_v2,
+	.plane_src_na_mask = 0xffffffe2,
+	.has_capture = false,
+	.has_prefetch = true,
+	.has_prefetch_fixup = true,
 	.pixel_link_quirks = true,
 	.pixel_link_nhvsync = true,
 	.version = DPU_V2,
 };
 
 static const struct of_device_id dpu_dt_ids[] = {
-	{ .compatible = "fsl,imx8qm-dpu", .data = &dpu_type_v2, },
-	{ .compatible = "fsl,imx8qxp-dpu", .data = &dpu_type_v2, },
-	{ /* sentinel */ }
+	{
+		.compatible = "fsl,imx8qm-dpu",
+		.data = &dpu_type_v2,
+	}, {
+		.compatible = "fsl,imx8qxp-dpu",
+		.data = &dpu_type_v2_with_prefetch_fixup,
+	}, {
+		/* sentinel */
+	}
 };
 MODULE_DEVICE_TABLE(of, dpu_dt_ids);
 

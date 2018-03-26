@@ -206,6 +206,7 @@ struct dpu_devtype {
 	const u32 plane_src_na_mask;
 	bool has_capture;
 	bool has_prefetch;
+	bool has_prefetch_fixup;
 	bool pixel_link_quirks;
 	bool pixel_link_nhvsync;	/* HSYNC and VSYNC high active */
 	unsigned int version;
