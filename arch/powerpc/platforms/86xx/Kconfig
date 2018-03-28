@@ -4,6 +4,7 @@ menuconfig PPC_86xx
 	depends on PPC_BOOK3S_32
 	select FSL_SOC
 	select ALTIVEC
+	select FSL_PMC if SUSPEND
 	help
 	  The Freescale E600 SoCs have 74xx cores.
 

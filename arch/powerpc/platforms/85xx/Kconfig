@@ -10,6 +10,8 @@ menuconfig FSL_SOC_BOOKE
 	select SERIAL_8250_EXTENDED if SERIAL_8250
 	select SERIAL_8250_SHARE_IRQ if SERIAL_8250
 	select FSL_CORENET_RCPM if PPC_E500MC
+	select FSL_QORIQ_PM if SUSPEND && PPC_E500MC
+	select FSL_PMC if SUSPEND && !PPC_E500MC
 	default y
 
 if FSL_SOC_BOOKE
@@ -289,3 +291,7 @@ endif # FSL_SOC_BOOKE
 
 config TQM85xx
 	bool
+
+config FSL_QORIQ_PM
+	bool
+	select FSL_SLEEP_FSM

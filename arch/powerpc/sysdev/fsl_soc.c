@@ -35,6 +35,37 @@
 #include <asm/fsl_hcalls.h>	/* For the Freescale hypervisor */
 
 static phys_addr_t immrbase = -1;
+static phys_addr_t dcsrbase = -1;
+
+phys_addr_t get_dcsrbase(void)
+{
+	struct device_node *np;
+	const __be32 *prop;
+	int size;
+	u32 naddr;
+
+	if (dcsrbase != -1)
+		return dcsrbase;
+
+	np = of_find_compatible_node(NULL, NULL, "fsl,dcsr");
+	if (!np)
+		return -1;
+
+	prop = of_get_property(np, "#address-cells", &size);
+	if (prop && size == 4)
+		naddr = be32_to_cpup(prop);
+	else
+		naddr = 2;
+
+	prop = of_get_property(np, "ranges", NULL);
+	if (prop)
+		dcsrbase = of_translate_address(np, prop + naddr);
+
+	of_node_put(np);
+
+	return dcsrbase;
+}
+EXPORT_SYMBOL(get_dcsrbase);
 
 phys_addr_t get_immrbase(void)
 {
