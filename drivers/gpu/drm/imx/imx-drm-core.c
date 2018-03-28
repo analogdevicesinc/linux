@@ -418,23 +418,7 @@ static struct platform_driver imx_drm_pdrv = {
 		.of_match_table = imx_drm_dt_ids,
 	},
 };
-
-static struct platform_driver * const drivers[] = {
-	&imx_drm_pdrv,
-	&ipu_drm_driver,
-};
-
-static int __init imx_drm_init(void)
-{
-	return platform_register_drivers(drivers, ARRAY_SIZE(drivers));
-}
-module_init(imx_drm_init);
-
-static void __exit imx_drm_exit(void)
-{
-	platform_unregister_drivers(drivers, ARRAY_SIZE(drivers));
-}
-module_exit(imx_drm_exit);
+module_platform_driver(imx_drm_pdrv);
 
 MODULE_AUTHOR("Sascha Hauer <s.hauer@pengutronix.de>");
 MODULE_DESCRIPTION("i.MX drm driver core");
