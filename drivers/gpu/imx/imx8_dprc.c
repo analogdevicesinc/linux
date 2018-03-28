@@ -109,10 +109,14 @@ enum {
 #define FRAME_1P_PIX_X_CTRL			0xa0
 #define FRAME_2P_PIX_X_CTRL			0xf0
 #define NUM_X_PIX_WIDE(n)			((n) & 0xffff)
+#define FRAME_PIX_X_ULC_CTRL			0xf0
+#define CROP_ULC_X(n)				((n) & 0xffff)
 
 #define FRAME_1P_PIX_Y_CTRL			0xb0
 #define FRAME_2P_PIX_Y_CTRL			0x100
 #define NUM_Y_PIX_HIGH(n)			((n) & 0xffff)
+#define FRAME_PIX_Y_ULC_CTRL			0x100
+#define CROP_ULC_Y(n)				((n) & 0xffff)
 
 #define FRAME_1P_BASE_ADDR_CTRL0		0xc0
 #define FRAME_2P_BASE_ADDR_CTRL0		0x110
@@ -318,10 +322,13 @@ void dprc_configure(struct dprc *dprc, unsigned int stream_id,
 		    bool start, bool aux_start)
 {
 	const struct dprc_format_info *info = dprc_format_info(format);
+	unsigned int dprc_width = width + x_offset;
+	unsigned int dprc_height = height + y_offset;
 	unsigned int p1_w, p1_h, p2_w, p2_h;
 	unsigned int prg_stride = width * info->cpp[0];
 	unsigned int bpp = 8 * info->cpp[0];
 	unsigned int preq;
+	unsigned int mt_w = 0, mt_h = 0;	/* w/h in a micro-tile */
 	u32 val;
 
 	if (WARN_ON(!dprc))
@@ -340,14 +347,14 @@ void dprc_configure(struct dprc *dprc, unsigned int stream_id,
 	dprc_write(dprc, IRQ_CTRL_MASK, IRQ_MASK);
 
 	if (info->num_planes > 1) {
-		p1_w = round_up(width, modifier ? 8 : 64);
-		p1_h = modifier ? height : round_up(height, 8);
+		p1_w = round_up(dprc_width, modifier ? 8 : 64);
+		p1_h = round_up(dprc_height, 8);
 
 		p2_w = p1_w;
 		if (modifier)
-			p2_h = height / info->vsub;
+			p2_h = dprc_height / info->vsub;
 		else
-			p2_h = round_up((height / info->vsub), 8);
+			p2_h = round_up((dprc_height / info->vsub), 8);
 
 		preq = modifier ? BYTE_64 : BYTE_1K;
 
@@ -362,26 +369,39 @@ void dprc_configure(struct dprc *dprc, unsigned int stream_id,
 	} else {
 		switch (modifier) {
 		case DRM_FORMAT_MOD_VIVANTE_TILED:
-			p1_w = round_up(width, info->cpp[0] == 2 ? 8 : 4);
+			p1_w = round_up(dprc_width, info->cpp[0] == 2 ? 8 : 4);
 			break;
 		case DRM_FORMAT_MOD_VIVANTE_SUPER_TILED:
-			p1_w = round_up(width, 64);
+			p1_w = round_up(dprc_width, 64);
 			break;
 		default:
-			p1_w = round_up(width, info->cpp[0] == 2 ? 32 : 16);
+			p1_w = round_up(dprc_width,
+					info->cpp[0] == 2 ? 32 : 16);
 			break;
 		}
-		p1_h = round_up(height, 4);
+		p1_h = round_up(dprc_height, 4);
 	}
 
 	dprc_write(dprc, PITCH(stride), FRAME_CTRL0);
 	switch (modifier) {
 	case DRM_FORMAT_MOD_AMPHION_TILED:
 		preq = BYTE_64;
+		mt_w = 8;
+		mt_h = 8;
 		break;
 	case DRM_FORMAT_MOD_VIVANTE_TILED:
 	case DRM_FORMAT_MOD_VIVANTE_SUPER_TILED:
-		preq = (bpp == 16) ? BYTE_64 : BYTE_128;
+		if (bpp == 16) {
+			preq = BYTE_64;
+			mt_w = 8;
+		} else {
+			if (dprc->devtype->has_fixup)
+				preq = (x_offset % 8) ? BYTE_64 : BYTE_128;
+			else
+				preq = BYTE_128;
+			mt_w = 4;
+		}
+		mt_h = 4;
 		break;
 	default:
 		preq = BYTE_1K;
@@ -391,6 +411,12 @@ void dprc_configure(struct dprc *dprc, unsigned int stream_id,
 	dprc_write(dprc, NUM_X_PIX_WIDE(p1_w), FRAME_1P_PIX_X_CTRL);
 	dprc_write(dprc, NUM_Y_PIX_HIGH(p1_h), FRAME_1P_PIX_Y_CTRL);
 	dprc_write(dprc, baddr, FRAME_1P_BASE_ADDR_CTRL0);
+	if (dprc->devtype->has_fixup && modifier) {
+		dprc_write(dprc, CROP_ULC_X(round_down(x_offset, mt_w)),
+							FRAME_PIX_X_ULC_CTRL);
+		dprc_write(dprc, CROP_ULC_Y(round_down(y_offset, mt_h)),
+							FRAME_PIX_Y_ULC_CTRL);
+	}
 
 	val = dprc_read(dprc, RTRAM_CTRL0);
 	val &= ~THRES_LOW_MASK;

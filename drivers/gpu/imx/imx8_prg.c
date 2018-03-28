@@ -135,6 +135,8 @@ void prg_configure(struct prg *prg, unsigned int width, unsigned int height,
 		   bool start)
 {
 	unsigned int burst_size;
+	unsigned int mt_w = 0, mt_h = 0;	/* w/h in a micro-tile */
+	bool is_tkt342628_case = false;
 	u32 val;
 
 	if (WARN_ON(!prg))
@@ -161,12 +163,43 @@ void prg_configure(struct prg *prg, unsigned int width, unsigned int height,
 	 * when prg stride is less or equals to burst size,
 	 * the auxiliary prg height needs to be a half
 	 */
-	if (prg->is_auxiliary && stride <= burst_size)
+	if (prg->is_auxiliary && stride <= burst_size) {
 		height /= 2;
+		is_tkt342628_case = true;
+	}
+
+	/* prg finer cropping into micro-tile block - top/left start point */
+	switch (modifier) {
+	case DRM_FORMAT_MOD_NONE:
+		break;
+	case DRM_FORMAT_MOD_AMPHION_TILED:
+		mt_w = 8;
+		mt_h = 8;
+		break;
+	case DRM_FORMAT_MOD_VIVANTE_TILED:
+	case DRM_FORMAT_MOD_VIVANTE_SUPER_TILED:
+		mt_w = (bits_per_pixel == 16) ? 8 : 4;
+		mt_h = 4;
+		break;
+	default:
+		dev_err(prg->dev, "unsupported modifier 0x%016llx\n", modifier);
+		return;
+	}
+
+	if (prg->devtype->has_dprc_fixup && modifier) {
+		x_offset %= mt_w;
+		y_offset %= mt_h;
+		if (is_tkt342628_case)
+			y_offset /= 2;
+	} else {
+		x_offset = 0;
+		y_offset = 0;
+	}
 
 	prg_write(prg, STRIDE(stride), PRG_STRIDE);
 	prg_write(prg, WIDTH(width), PRG_WIDTH);
 	prg_write(prg, HEIGHT(height), PRG_HEIGHT);
+	prg_write(prg, X(x_offset) | Y(y_offset), PRG_OFFSET);
 	prg_write(prg, baddr, PRG_BADDR);
 
 	val = prg_read(prg, PRG_CTRL);
