@@ -29,7 +29,7 @@
 #include <video/imx-ipu-v3.h>
 
 #include "imx-drm.h"
-#include "ipuv3-plane.h"
+#include "ipuv3/ipuv3-plane.h"
 
 #if IS_ENABLED(CONFIG_DRM_FBDEV_EMULATION)
 static int legacyfb_depth = 16;
