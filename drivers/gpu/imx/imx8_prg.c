@@ -17,6 +17,7 @@
 #include <linux/io.h>
 #include <linux/module.h>
 #include <linux/of.h>
+#include <linux/of_device.h>
 #include <linux/platform_device.h>
 #include <video/imx8-prefetch.h>
 
@@ -66,8 +67,21 @@ enum {
 #define PRG_WIDTH		0x70
 #define WIDTH(n)		(((n) - 1) & 0xffff)
 
+struct prg_devtype {
+	bool has_dprc_fixup;
+};
+
+static const struct prg_devtype prg_type_v1 = {
+	.has_dprc_fixup = false,
+};
+
+static const struct prg_devtype prg_type_v2 = {
+	.has_dprc_fixup = true,
+};
+
 struct prg {
 	struct device *dev;
+	const struct prg_devtype *devtype;
 	void __iomem *base;
 	struct list_head list;
 	struct clk *clk_apb;
@@ -286,8 +300,16 @@ prg_lookup_by_phandle(struct device *dev, const char *name, int index)
 }
 EXPORT_SYMBOL_GPL(prg_lookup_by_phandle);
 
+static const struct of_device_id prg_dt_ids[] = {
+	{ .compatible = "fsl,imx8qm-prg", .data = &prg_type_v1, },
+	{ .compatible = "fsl,imx8qxp-prg", .data = &prg_type_v2, },
+	{ /* sentinel */ },
+};
+
 static int prg_probe(struct platform_device *pdev)
 {
+	const struct of_device_id *of_id =
+			of_match_device(prg_dt_ids, &pdev->dev);
 	struct device *dev = &pdev->dev;
 	struct resource *res;
 	struct prg *prg;
@@ -295,6 +317,8 @@ static int prg_probe(struct platform_device *pdev)
 	prg = devm_kzalloc(dev, sizeof(*prg), GFP_KERNEL);
 	if (!prg)
 		return -ENOMEM;
+
+	prg->devtype = of_id->data;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	prg->base = devm_ioremap_resource(&pdev->dev, res);
@@ -335,12 +359,6 @@ static int prg_remove(struct platform_device *pdev)
 
 	return 0;
 }
-
-static const struct of_device_id prg_dt_ids[] = {
-	{ .compatible = "fsl,imx8qm-prg", },
-	{ .compatible = "fsl,imx8qxp-prg", },
-	{ /* sentinel */ },
-};
 
 struct platform_driver prg_drv = {
 	.probe = prg_probe,
