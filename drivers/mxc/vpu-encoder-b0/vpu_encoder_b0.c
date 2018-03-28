@@ -2050,8 +2050,8 @@ static const struct dev_pm_ops vpu_pm_ops = {
 };
 
 static const struct of_device_id vpu_of_match[] = {
-	{ .compatible = "nxp,imx8qm-vpu-encoder", },
-	{ .compatible = "nxp,imx8qxp-vpu-encoder", },
+	{ .compatible = "nxp,imx8qm-b0-vpuenc", },
+	{ .compatible = "nxp,imx8qm-b0-vpuenc", },
 	{}
 }
 MODULE_DEVICE_TABLE(of, vpu_of_match);

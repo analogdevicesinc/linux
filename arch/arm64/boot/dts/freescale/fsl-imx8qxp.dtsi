@@ -2690,7 +2690,7 @@
 	};
 
 	vpu_decoder: vpu_decoder@2c000000 {
-		compatible = "nxp,imx8qm-vpu-decoder", "nxp,imx8qxp-vpu-decoder";
+		compatible = "nxp,imx8qm-b0-vpudec", "nxp,imx8qxp-b0-vpudec";
 		boot-region = <&decoder_boot>;
 		rpc-region = <&decoder_rpc>;
 		reg = <0x0 0x2c000000 0x0 0x1000000>;
@@ -2704,7 +2704,7 @@
 	};
 
 	vpu_encoder: vpu_encoder@2d000000 {
-		compatible = "nxp,imx8qm-vpu-encoder", "nxp,imx8qxp-vpu-encoder";
+		compatible = "nxp,imx8qm-b0-vpuenc", "nxp,imx8qxp-b0-vpuenc";
 		boot-region = <&encoder_boot>;
 		rpc-region = <&encoder_rpc>;
 		reg = <0x0 0x2d000000 0x0 0x1000000>;
