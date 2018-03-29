@@ -1542,7 +1542,7 @@ static int v4l2_open(struct file *filp)
 		if (ret) {
 			vpu_dbg(LVL_ERR, "error: vpu_firmware_download fail\n");
 			mutex_unlock(&dev->dev_mutex);
-			return ret;
+			goto err_firmware_load;
 		}
 		dev->fw_is_ready = true;
 	}
@@ -1579,6 +1579,15 @@ static int v4l2_open(struct file *filp)
 	ctx->actFrame.size = 0;
 
 	return 0;
+
+err_firmware_load:
+	release_queue_data(ctx);
+	ctrls_delete_encoder(ctx);
+	v4l2_fh_del(&ctx->fh);
+	v4l2_fh_exit(&ctx->fh);
+	clear_bit(ctx->str_index, &dev->instance_mask);
+	kfree(ctx);
+	return ret;
 }
 
 static int v4l2_release(struct file *filp)
