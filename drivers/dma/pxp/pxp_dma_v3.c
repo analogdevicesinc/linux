@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 2010-2016 Freescale Semiconductor, Inc.
  *
- * Copyright 2017 NXP
+ * Copyright 2017-2018 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -2306,6 +2306,19 @@ static uint32_t ps_calc_scaling(struct pxp_pixmap *input,
 		}
 		scale.xscale = input->crop.width * 0x1000 /
 				(output->crop.width * decx);
+
+		/* A factor greater than 2 is not supported
+		 * with the bilinear filter, so correct it in
+		 * driver
+		 */
+		if (((scale.xscale >> BP_PXP_PS_SCALE_OFFSET) & 0x3) > 2) {
+			scale.xscale &= (~(0x3 << BP_PXP_PS_SCALE_OFFSET));
+			scale.xscale |= (0x2 << BP_PXP_PS_SCALE_OFFSET);
+			pr_warn("%s: scale.xscale is larger than 2, forcing to 2"
+					"input w/h=(%d,%d), output w/h=(%d, %d)\n",
+					__func__, input->crop.width, input->crop.height,
+					output->crop.width, output->crop.height);
+		}
 	} else {
 		if (!is_yuv(input->format) ||
 		    (is_yuv(input->format) == is_yuv(output->format)) ||
@@ -2343,6 +2356,19 @@ static uint32_t ps_calc_scaling(struct pxp_pixmap *input,
 		}
 		scale.yscale = input->crop.height * 0x1000 /
 				(output->crop.height * decy);
+
+		/* A factor greater than 2 is not supported
+		 * with the bilinear filter, so correct it in
+		 * driver
+		 */
+		if (((scale.yscale >> BP_PXP_PS_SCALE_OFFSET) & 0x3) > 2) {
+			scale.yscale &= (~(0x3 << BP_PXP_PS_SCALE_OFFSET));
+			scale.yscale |= (0x2 << BP_PXP_PS_SCALE_OFFSET);
+			pr_warn("%s: scale.yscale is larger than 2, forcing to 2"
+					"input w/h=(%d,%d), output w/h=(%d, %d)\n",
+					__func__, input->crop.width, input->crop.height,
+					output->crop.width, output->crop.height);
+		}
 	} else {
 		if ((input->crop.height > 1) && (output->crop.height > 1))
 			scale.yscale = (input->crop.height - 1) * 0x1000 /

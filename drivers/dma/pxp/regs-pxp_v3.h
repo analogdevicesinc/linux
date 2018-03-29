@@ -456,6 +456,8 @@
 #define BF_PXP_PS_SCALE_XSCALE(v)  \
         (((v) << 0) & BM_PXP_PS_SCALE_XSCALE)
 
+#define BP_PXP_PS_SCALE_OFFSET	12
+
 #define HW_PXP_PS_OFFSET	(0x00000120)
 
 #define BP_PXP_PS_OFFSET_RSVD2      28
