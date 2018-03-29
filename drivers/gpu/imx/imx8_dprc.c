@@ -747,6 +747,9 @@ static int dprc_probe(struct platform_device *pdev)
 
 		if (i == 1)
 			prg_set_auxiliary(dprc->prgs[i]);
+
+		if (dprc->is_blit_chan)
+			prg_set_blit(dprc->prgs[i]);
 	}
 
 	dprc->dev = dev;
