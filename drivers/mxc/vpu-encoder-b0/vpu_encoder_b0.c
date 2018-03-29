@@ -90,7 +90,7 @@ static struct vpu_v4l2_fmt  formats_compressed_enc[] = {
 	},
 	{
 		.name       = "MPEG4 ASP Encoded Stream",
-		.fourcc     = VPU_PIX_FMT_ASP,
+		.fourcc     = V4L2_PIX_FMT_MPEG4,
 		.num_planes = 1,
 		.venc_std   = VPU_VIDEO_ASP,
 	},
