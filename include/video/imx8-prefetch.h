@@ -42,6 +42,7 @@ bool prg_stride_supported(struct prg *prg, unsigned int stride);
 bool prg_stride_double_check(struct prg *prg,
 			     unsigned int stride, dma_addr_t baddr);
 void prg_set_auxiliary(struct prg *prg);
+void prg_set_blit(struct prg *prg);
 
 struct dprc;
 struct dprc *

@@ -73,6 +73,7 @@ struct prg {
 	struct clk *clk_apb;
 	struct clk *clk_rtram;
 	bool is_auxiliary;
+	bool is_blit;
 };
 
 static DEFINE_MUTEX(prg_list_mutex);
@@ -254,6 +255,15 @@ void prg_set_auxiliary(struct prg *prg)
 	prg->is_auxiliary = true;
 }
 EXPORT_SYMBOL_GPL(prg_set_auxiliary);
+
+void prg_set_blit(struct prg *prg)
+{
+	if (WARN_ON(!prg))
+		return;
+
+	prg->is_blit = true;
+}
+EXPORT_SYMBOL_GPL(prg_set_blit);
 
 struct prg *
 prg_lookup_by_phandle(struct device *dev, const char *name, int index)
