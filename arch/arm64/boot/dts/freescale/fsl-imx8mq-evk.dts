@@ -142,16 +142,19 @@
 			>;
 		};
 
-		pinctrl_csi1: csi1grp {
+		pinctrl_csi1_pwn: csi1_pwn_grp {
 			fsl,pins = <
 				MX8MQ_IOMUXC_GPIO1_IO03_GPIO1_IO3		0x19
-				MX8MQ_IOMUXC_GPIO1_IO06_GPIO1_IO6		0x19
-				MX8MQ_IOMUXC_GPIO1_IO15_CCMSRCGPCMIX_CLKO2	0x59
 			>;
 		};
-		pinctrl_csi2: csi2grp {
+		pinctrl_csi2_pwn: csi2_pwn_grp {
 			fsl,pins = <
 				MX8MQ_IOMUXC_GPIO1_IO05_GPIO1_IO5		0x19
+			>;
+		};
+
+		pinctrl_csi_rst: csi_rst_grp {
+			fsl,pins = <
 				MX8MQ_IOMUXC_GPIO1_IO06_GPIO1_IO6		0x19
 				MX8MQ_IOMUXC_GPIO1_IO15_CCMSRCGPCMIX_CLKO2	0x59
 			>;
@@ -521,12 +524,12 @@
 		default-role = "sink";
 	};
 
-	ov5640_mipi: ov5640_mipi@3c {
+	ov5640_mipi: ov5640_mipi@1c {
 		compatible = "ovti,ov5640_mipi";
-		reg = <0x3c>;
+		reg = <0x1c>;
 		status = "okay";
 		pinctrl-names = "default";
-		pinctrl-0 = <&pinctrl_csi1>;
+		pinctrl-0 = <&pinctrl_csi1_pwn>, <&pinctrl_csi_rst>;
 		clocks = <&clk IMX8MQ_CLK_CLKO2_DIV>;
 		clock-names = "csi_mclk";
 		assigned-clocks = <&clk IMX8MQ_CLK_CLKO2_SRC>,
@@ -535,7 +538,6 @@
 		assigned-clock-rates = <0>, <20000000>;
 		csi_id = <0>;
 		pwn-gpios = <&gpio1 3 GPIO_ACTIVE_HIGH>;
-		rst-gpios = <&gpio1 6 GPIO_ACTIVE_HIGH>;
 		mclk = <20000000>;
 		mclk_source = <0>;
 		port {
@@ -545,21 +547,20 @@
 		};
 	};
 
-	ov5640_mipi2: ov5640_mipi2@3c {
+	ov5640_mipi2: ov5640_mipi2@2c {
 		compatible = "ovti,ov5640_mipi";
-		reg = <0x3c>;
-		status = "disabled";
+		reg = <0x2c>;
+		status = "okay";
 		pinctrl-names = "default";
-		pinctrl-0 = <&pinctrl_csi2>;
+		pinctrl-0 = <&pinctrl_csi2_pwn>;
 		clocks = <&clk IMX8MQ_CLK_CLKO2_DIV>;
 		clock-names = "csi_mclk";
 		assigned-clocks = <&clk IMX8MQ_CLK_CLKO2_SRC>,
 				  <&clk IMX8MQ_CLK_CLKO2_DIV>;
 		assigned-clock-parents = <&clk IMX8MQ_SYS2_PLL_200M>;
 		assigned-clock-rates = <0>, <20000000>;
-		csi_id = <0>;
+		csi_id = <1>;
 		pwn-gpios = <&gpio1 5 GPIO_ACTIVE_HIGH>;
-		rst-gpios = <&gpio1 6 GPIO_ACTIVE_HIGH>;
 		mclk = <20000000>;
 		mclk_source = <0>;
 		port {
@@ -819,7 +820,7 @@
 &csi2_bridge {
 	fsl,mipi-mode;
 	fsl,two-8bit-sensor-mode;
-	status = "disabled";
+	status = "okay";
 
 	port {
 		csi2_ep: endpoint {
@@ -847,7 +848,7 @@
 &mipi_csi_2 {
 	#address-cells = <1>;
 	#size-cells = <0>;
-	status = "disabled";
+	status = "okay";
 	port {
 		mipi2_sensor_ep: endpoint1 {
 			remote-endpoint = <&ov5640_mipi2_ep>;
