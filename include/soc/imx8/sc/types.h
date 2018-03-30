@@ -762,6 +762,7 @@ typedef enum sc_ctrl_e {
 	SC_C_OFS_IRQ = 42,
 	SC_C_RST0 = 43,
 	SC_C_RST1 = 44,
+	SC_C_SEL0 = 45,
 	SC_C_LAST
 } sc_ctrl_t;
 
