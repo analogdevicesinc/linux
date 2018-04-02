@@ -187,6 +187,12 @@
 			label = "Volume Down";
 			linux,code = <KEY_VOLUMEDOWN>;
 		};
+
+		power-on {
+			label = "PowerOn";
+			linux,code = <KEY_POWER>;
+			rpmsg-key,wakeup;
+		};
 	};
 
 	rpmsg_sensor: rpmsg-sensor {
