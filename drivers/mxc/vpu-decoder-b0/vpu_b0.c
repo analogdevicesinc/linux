@@ -806,6 +806,7 @@ static int v4l2_ioctl_streamoff(struct file *file,
 		ctx->wait_rst_done = true;
 		v4l2_vpu_send_cmd(ctx, ctx->str_index, VID_API_CMD_ABORT, 0, NULL);
 		add_eos(ctx, 0);
+		wake_up_interruptible(&ctx->buffer_wq);
 		wait_for_completion(&ctx->completion);
 	}
 
@@ -1855,7 +1856,8 @@ static void vpu_buf_queue(struct vb2_buffer *vb)
 	data_req->vb2_buf = vb;
 	data_req->id = vb->index;
 
-	list_add_tail(&data_req->list, &This->drv_q);
+	if (data_req->status != FRAME_FREE && data_req->status != FRAME_DECODED)
+		list_add_tail(&data_req->list, &This->drv_q);
 
 	vpu_dbg(LVL_INFO, "before c_port_buf_queue up, vq->type=%d, vb->index=%d\n", vq->type, vb->index);
 	up(&This->drv_q_lock);
