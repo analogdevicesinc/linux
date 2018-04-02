@@ -1326,6 +1326,7 @@ static void vpu_api_event_handler(struct vpu_ctx *ctx, u_int32 uStrIdx, u_int32 
 		};
 		v4l2_event_queue_fh(&ctx->fh, &ev);
 		ctx->firmware_stopped = true;
+		complete(&ctx->stop_cmp);
 		vpu_dbg(LVL_INFO, "send V4L2_EVENT_EOS\n");
 		}
 		break;
@@ -2078,6 +2079,7 @@ static int v4l2_open(struct file *filp)
 	}
 	set_bit(idx, &dev->instance_mask);
 	init_completion(&ctx->completion);
+	init_completion(&ctx->stop_cmp);
 
 	v4l2_fh_init(&ctx->fh, video_devdata(filp));
 	filp->private_data = &ctx->fh;
@@ -2166,6 +2168,11 @@ static int v4l2_release(struct file *filp)
 	struct vpu_dev *dev = video_get_drvdata(vdev);
 	struct vpu_ctx *ctx = v4l2_fh_to_ctx(filp->private_data);
 	u_int32 i;
+
+	if (!ctx->firmware_stopped && ctx->start_flag == false) {
+		v4l2_vpu_send_cmd(ctx, ctx->str_index, VID_API_CMD_STOP, 0, NULL);
+		wait_for_completion(&ctx->stop_cmp);
+	}
 
 	release_queue_data(ctx);
 	ctrls_delete_decoder(ctx);
