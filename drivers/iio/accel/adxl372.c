@@ -311,26 +311,6 @@ struct adxl372_state {
 	__be16				fifo_buf[512];
 };
 
-static int adxl372_spi_write_mask(struct adxl372_state *st,
-				  u8 reg_addr,
-				  unsigned int mask,
-				  u8 data)
-{
-	unsigned int regval;
-	int ret;
-
-	ret = regmap_read(st->regmap, ADXL372_REG_READ(reg_addr), &regval);
-	if (ret < 0)
-		return ret;
-
-	regval &= ~mask;
-	regval |= data;
-
-	ret = regmap_write(st->regmap, ADXL372_REG_WRITE(reg_addr), regval);
-
-	return ret;
-}
-
 static int adxl372_read_fifo(struct adxl372_state *st, u16 fifo_entries)
 {
 	int ret;
@@ -362,10 +342,9 @@ static int adxl372_set_op_mode(struct adxl372_state *st,
 {
 	int ret;
 
-	ret = adxl372_spi_write_mask(st,
-				     ADXL372_POWER_CTL,
-				     ADXL372_POWER_CTL_MODE_MSK,
-				     ADXL372_POWER_CTL_MODE(op_mode));
+	ret = regmap_update_bits(st->regmap, ADXL372_POWER_CTL,
+				 ADXL372_POWER_CTL_MODE_MSK,
+				 ADXL372_POWER_CTL_MODE(op_mode));
 
 	if (ret < 0) {
 		dev_err(&st->spi->dev, "Error writing mode of operation\n");
@@ -382,10 +361,9 @@ static int adxl372_set_odr(struct adxl372_state *st,
 {
 	int ret;
 
-	ret = adxl372_spi_write_mask(st,
-				     ADXL372_TIMING,
-				     ADXL372_TIMING_ODR_MSK,
-				     ADXL372_TIMING_ODR_MODE(odr));
+	ret = regmap_update_bits(st->regmap, ADXL372_TIMING,
+				 ADXL372_TIMING_ODR_MSK,
+				 ADXL372_TIMING_ODR_MODE(odr));
 
 	if (ret < 0) {
 		dev_err(&st->spi->dev, "Error setting output data rate\n");
@@ -426,10 +404,9 @@ static int adxl372_set_bandwidth(struct adxl372_state *st,
 {
 	int ret;
 
-	ret = adxl372_spi_write_mask(st,
-				     ADXL372_MEASURE,
-				     ADXL372_MEASURE_BANDWIDTH_MSK,
-				     ADXL372_MEASURE_BANDWIDTH_MODE(bw));
+	ret = regmap_update_bits(st->regmap, ADXL372_MEASURE,
+				 ADXL372_MEASURE_BANDWIDTH_MSK,
+				 ADXL372_MEASURE_BANDWIDTH_MODE(bw));
 
 	if (ret < 0) {
 		dev_err(&st->spi->dev, "Error setting bandwidth\n");
@@ -446,10 +423,10 @@ static int adxl372_set_act_proc_mode(struct adxl372_state *st,
 {
 	int ret;
 
-	ret = adxl372_spi_write_mask(st,
-				     ADXL372_MEASURE,
-				     ADXL372_MEASURE_LINKLOOP_MSK,
-				     ADXL372_MEASURE_LINKLOOP_MODE(mode));
+	ret = regmap_update_bits(st->regmap,
+				 ADXL372_MEASURE,
+				 ADXL372_MEASURE_LINKLOOP_MSK,
+				 ADXL372_MEASURE_LINKLOOP_MODE(mode));
 
 	if (ret < 0) {
 		dev_err(&st->spi->dev,
