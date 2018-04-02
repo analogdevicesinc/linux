@@ -308,15 +308,7 @@ struct adxl372_state {
 	u8				int1_bitmask;
 	u8				int2_bitmask;
 	u16				watermark;
-
-	/*
-	 * DMA (thus cache coherency maintenance) requires the
-	 * transfer buffers to live in their own cache lines.
-	 */
-	union {
-		__le16 regval;
-		u8 d8[1024];
-	} data ____cacheline_aligned;
+	__be16				fifo_buf[512];
 };
 
 static int adxl372_spi_write_mask(struct adxl372_state *st,
@@ -324,18 +316,17 @@ static int adxl372_spi_write_mask(struct adxl372_state *st,
 				  unsigned int mask,
 				  u8 data)
 {
+	unsigned int regval;
 	int ret;
 
-	ret = regmap_read(st->regmap, ADXL372_REG_READ(reg_addr),
-			  (unsigned int *)&st->data.regval);
+	ret = regmap_read(st->regmap, ADXL372_REG_READ(reg_addr), &regval);
 	if (ret < 0)
 		return ret;
 
-	st->data.regval &= ~mask;
-	st->data.regval |= data;
+	regval &= ~mask;
+	regval |= data;
 
-	ret = regmap_write(st->regmap, ADXL372_REG_WRITE(reg_addr),
-			   st->data.regval);
+	ret = regmap_write(st->regmap, ADXL372_REG_WRITE(reg_addr), regval);
 
 	return ret;
 }
@@ -345,7 +336,7 @@ static int adxl372_read_fifo(struct adxl372_state *st, u16 fifo_entries)
 	int ret;
 
 	ret = regmap_bulk_read(st->regmap, ADXL372_REG_READ(ADXL372_FIFO_DATA),
-			       &st->data.d8[0], fifo_entries * 2);
+			       st->fifo_buf, fifo_entries * 2);
 	if (ret < 0) {
 		dev_err(&st->spi->dev, "Failed to read fifo\n");
 		return ret;
@@ -356,14 +347,14 @@ static int adxl372_read_fifo(struct adxl372_state *st, u16 fifo_entries)
 
 static int adxl372_read_axis(struct adxl372_state *st, u8 addr)
 {
+	__be16 regval;
 	int ret;
 
-	ret = regmap_bulk_read(st->regmap, ADXL372_REG_READ(addr),
-			       &st->data.regval, 2);
+	ret = regmap_bulk_read(st->regmap, ADXL372_REG_READ(addr), &regval, 2);
 	if (ret < 0)
 		return ret;
 
-	return be16_to_cpu(st->data.regval);
+	return be16_to_cpu(regval);
 }
 
 static int adxl372_set_op_mode(struct adxl372_state *st,
@@ -478,6 +469,7 @@ static int adxl372_set_activity_threshold(struct adxl372_state *st,
 		u32 threshold)
 
 {
+	u8 buf[6];
 	u8 th_reg_high_val, th_reg_low_val, th_reg_high_addr;
 	int ret;
 
@@ -497,16 +489,16 @@ static int adxl372_set_activity_threshold(struct adxl372_state *st,
 		break;
 	}
 
-	st->data.d8[0] = th_reg_high_val;
-	st->data.d8[1] = th_reg_low_val;
-	st->data.d8[2] = th_reg_high_val;
-	st->data.d8[3] = th_reg_low_val;
-	st->data.d8[4] = th_reg_high_val;
-	st->data.d8[5] = th_reg_low_val;
+	buf[0] = th_reg_high_val;
+	buf[1] = th_reg_low_val;
+	buf[2] = th_reg_high_val;
+	buf[3] = th_reg_low_val;
+	buf[4] = th_reg_high_val;
+	buf[5] = th_reg_low_val;
 
 	ret = regmap_bulk_write(st->regmap,
 				ADXL372_REG_WRITE(th_reg_high_addr),
-				&st->data.d8[0], 6);
+				buf, 6);
 	if (ret < 0)
 		dev_err(&st->spi->dev, "Error writing activity threshold\n");
 
@@ -517,16 +509,17 @@ static int adxl372_set_interrupts(struct adxl372_state *st,
 				  u8 int1_bitmask,
 				  u8 int2_bitmask)
 {
+	u8 buf[2];
 	int ret;
 
-	st->data.d8[0] = int1_bitmask;
-	st->data.d8[1] = int2_bitmask;
+	buf[0] = int1_bitmask;
+	buf[1] = int2_bitmask;
 
 
 	/* INT1_MAP and INT2_MAP are adjacent registers */
 	ret = regmap_bulk_write(st->regmap,
 				ADXL372_REG_WRITE(ADXL372_INT1_MAP),
-				&st->data.d8[0], 2);
+				buf, 2);
 
 	if (ret < 0) {
 		dev_err(&st->spi->dev,
@@ -542,6 +535,7 @@ static int adxl372_set_interrupts(struct adxl372_state *st,
 
 static int adxl372_configure_fifo(struct adxl372_state *st)
 {
+	u8 buf[2];
 	int ret;
 
 	/* FIFO must be configured while in standby mode */
@@ -549,15 +543,15 @@ static int adxl372_configure_fifo(struct adxl372_state *st)
 	if (ret < 0)
 		return ret;
 
-	st->data.d8[0] = (st->watermark & 0xFF);
-	st->data.d8[1] = (ADXL372_FIFO_CTL_FORMAT_MODE(st->fifo_format) |
-			  ADXL372_FIFO_CTL_MODE_MODE(st->fifo_mode) |
-			  ADXL372_FIFO_CTL_SAMPLES_MODE(st->watermark));
+	buf[0] = (st->watermark & 0xFF);
+	buf[1] = (ADXL372_FIFO_CTL_FORMAT_MODE(st->fifo_format) |
+		  ADXL372_FIFO_CTL_MODE_MODE(st->fifo_mode) |
+		  ADXL372_FIFO_CTL_SAMPLES_MODE(st->watermark));
 
 	/* FIFO_SAMPLES and FIFO_CTL are adjacent registers */
 	ret = regmap_bulk_write(st->regmap,
 				ADXL372_REG_WRITE(ADXL372_FIFO_SAMPLES),
-				&st->data.d8[0], 2);
+				buf, 2);
 
 	if (ret < 0) {
 		dev_err(&st->spi->dev,
@@ -574,24 +568,25 @@ static int adxl372_get_status(struct adxl372_state *st,
 			      u8 *status1, u8 *status2,
 			      u16 *fifo_entries)
 {
+	u8 buf[4];
 	int ret;
 
 	/* STATUS, STATUS2, FIFO_ENTRIES2 and FIFO_ENTRIES are adjacent regs */
 	ret = regmap_bulk_read(st->regmap, ADXL372_REG_READ(ADXL372_STATUS_1),
-			       &st->data.d8[0], 4);
+			       buf, 4);
 	if (ret < 0) {
 		dev_err(&st->spi->dev,
 			"Error reading status register\n");
 		return ret;
 	}
 
-	*status1 = st->data.d8[0];
-	*status2 = st->data.d8[1];
+	*status1 = buf[0];
+	*status2 = buf[1];
 	/*
 	 * FIFO_ENTRIES contains the least significant byte, and FIFO_ENTRIES2
 	 * contains the two most significant bits
 	 */
-	*fifo_entries = ((st->data.d8[2] & 0x3) << 8) | st->data.d8[3];
+	*fifo_entries = ((buf[2] & 0x3) << 8) | buf[3];
 
 	return ret;
 }
@@ -625,7 +620,7 @@ static irqreturn_t adxl372_trigger_handler(int irq, void  *p)
 
 		for (i = 0; i < fifo_entries * 2; i += st->fifo_set_size * 2)
 			iio_push_to_buffers_with_timestamp(indio_dev,
-						&st->data.d8[i],
+						&st->fifo_buf[i],
 						iio_get_time_ns(indio_dev));
 	}
 err:
@@ -635,16 +630,15 @@ err:
 
 static int adxl372_setup(struct adxl372_state *st)
 {
+	unsigned int regval;
 	int ret;
 
-	ret = regmap_read(st->regmap, ADXL372_REG_READ(ADXL372_DEVID),
-			  (unsigned int *)&st->data.regval);
+	ret = regmap_read(st->regmap, ADXL372_REG_READ(ADXL372_DEVID), &regval);
 	if (ret < 0)
 		return ret;
 
-	if (st->data.regval != ADXL372_DEVID_VAL) {
-		dev_err(&st->spi->dev, "Invalid chip id %x\n",
-			st->data.regval);
+	if (regval != ADXL372_DEVID_VAL) {
+		dev_err(&st->spi->dev, "Invalid chip id %x\n", regval);
 		return -ENODEV;
 	}
 
