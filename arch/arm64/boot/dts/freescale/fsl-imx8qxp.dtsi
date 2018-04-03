@@ -2230,8 +2230,8 @@
 				<GIC_SPI 315 IRQ_TYPE_LEVEL_HIGH>,
 				<GIC_SPI 317 IRQ_TYPE_LEVEL_HIGH>, /* sai1 */
 				<GIC_SPI 317 IRQ_TYPE_LEVEL_HIGH>,
-				<GIC_SPI 368 IRQ_TYPE_LEVEL_HIGH>,
-				<GIC_SPI 368 IRQ_TYPE_LEVEL_HIGH>;
+				<GIC_SPI 391 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 393 IRQ_TYPE_LEVEL_HIGH>;
 		interrupt-names = "edma2-chan0-rx", "edma2-chan1-rx", /* asrc0 */
 				"edma2-chan2-rx", "edma2-chan3-tx",
 				"edma2-chan4-tx", "edma2-chan5-tx",
