@@ -801,17 +801,18 @@ static int v4l2_ioctl_streamoff(struct file *file,
 		q_data = &ctx->q_data[V4L2_DST];
 	else
 		return -EINVAL;
-	ret = vb2_streamoff(&q_data->vb2_q,
-			i);
 
 	if(i == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
-	if (!ctx->firmware_stopped) {
-		ctx->wait_rst_done = true;
-		v4l2_vpu_send_cmd(ctx, ctx->str_index, VID_API_CMD_ABORT, 0, NULL);
-		add_eos(ctx, 0);
-		wake_up_interruptible(&ctx->buffer_wq);
-		wait_for_completion(&ctx->completion);
+		if (!ctx->firmware_stopped) {
+			ctx->wait_rst_done = true;
+			v4l2_vpu_send_cmd(ctx, ctx->str_index, VID_API_CMD_ABORT, 0, NULL);
+			add_eos(ctx, 0);
+			wake_up_interruptible(&ctx->buffer_wq);
+			wait_for_completion(&ctx->completion);
 	}
+
+	ret = vb2_streamoff(&q_data->vb2_q,
+			i);
 
 	return ret;
 }
@@ -1273,7 +1274,7 @@ static void v4l2_update_stream_addr(struct vpu_ctx *ctx, uint32_t uStrBufIdx)
 
 static void report_buffer_done(struct vpu_ctx *ctx, void *frame_info)
 {
-	struct vb2_data_req *p_data_req, *p_temp;
+	struct vb2_data_req *p_data_req;
 	struct queue_data *This = &ctx->q_data[V4L2_DST];
 	u_int32 *FrameInfo = (u_int32 *)frame_info;
 	u_int32 fs_id = FrameInfo[0x0];
@@ -1292,19 +1293,13 @@ static void report_buffer_done(struct vpu_ctx *ctx, void *frame_info)
 	if (buffer_id != fs_id)
 		vpu_dbg(LVL_ERR, "error: find buffer_id(%d) and firmware return id(%d) doesn't match\n",
 				buffer_id, fs_id);
-	if (ctx->q_data[V4L2_DST].vb2_reqs[buffer_id].status == FRAME_DECODED)
-		ctx->q_data[V4L2_DST].vb2_reqs[buffer_id].status = FRAME_READY;
-	else
+	if (ctx->q_data[V4L2_DST].vb2_reqs[buffer_id].status != FRAME_DECODED)
 		vpu_dbg(LVL_ERR, "error: buffer(%d) need to set FRAME_READY, but previous state %s is not FRAME_DECODED\n",
 				buffer_id, bufstat[ctx->q_data[V4L2_DST].vb2_reqs[buffer_id].status]);
 
+	ctx->q_data[V4L2_DST].vb2_reqs[buffer_id].status = FRAME_READY;
+
 	down(&This->drv_q_lock);
-	if (!list_empty(&This->drv_q)) {
-		list_for_each_entry_safe(p_data_req, p_temp, &This->drv_q, list) {
-			if(p_data_req->id == fs_id)
-				list_del(&p_data_req->list);
-		}
-	}
 	p_data_req = &This->vb2_reqs[buffer_id];
 	p_data_req->vb2_buf->planes[0].bytesused = This->sizeimage[0];
 	p_data_req->vb2_buf->planes[1].bytesused = This->sizeimage[1];
@@ -1356,11 +1351,10 @@ static void vpu_api_event_handler(struct vpu_ctx *ctx, u_int32 uStrIdx, u_int32 
 		buffer_id = find_buffer_id(ctx, event_data[0]);
 		if (buffer_id != pPicInfo[uStrIdx].uFrameStoreID)
 			vpu_dbg(LVL_ERR, "error: VID_API_EVENT_PIC_DECODED address and id doesn't match\n");
-		if (ctx->q_data[V4L2_DST].vb2_reqs[buffer_id].status == FRAME_FREE)
-			ctx->q_data[V4L2_DST].vb2_reqs[buffer_id].status = FRAME_DECODED;
-		else
+		if (ctx->q_data[V4L2_DST].vb2_reqs[buffer_id].status != FRAME_FREE)
 			vpu_dbg(LVL_ERR, "error: buffer(%d) need to set FRAME_DECODED, but previous state %s is not FRAME_FREE\n",
 					buffer_id, bufstat[ctx->q_data[V4L2_DST].vb2_reqs[buffer_id].status]);
+		ctx->q_data[V4L2_DST].vb2_reqs[buffer_id].status = FRAME_DECODED;
 		}
 		break;
 	case VID_API_EVENT_SEQ_HDR_FOUND: {
@@ -1549,17 +1543,9 @@ static void vpu_api_event_handler(struct vpu_ctx *ctx, u_int32 uStrIdx, u_int32 
 		if (fsrel->eType == MEDIAIP_FRAME_REQ) {
 			p_data_req = &This->vb2_reqs[fsrel->uFSIdx];
 
-			if (p_data_req->status == FRAME_READY)
-				p_data_req->status = FRAME_RELEASE;
-			else {
-				if (ctx->wait_rst_done == true) {
-					p_data_req->status = FRAME_RELEASE;
-					down(&This->drv_q_lock);
-					list_add_tail(&p_data_req->list, &This->drv_q);
-					up(&This->drv_q_lock);
-				} else
-					vpu_dbg(LVL_ERR, "error: normal release need to set status to FRAME_RELEASE but previous status %s is not FRAME_READY\n", bufstat[p_data_req->status]);
-			}
+			if (ctx->wait_rst_done != true && p_data_req->status != FRAME_READY)
+				vpu_dbg(LVL_ERR, "error: normal release need to set status to FRAME_RELEASE but previous status %s is not FRAME_READY\n", bufstat[p_data_req->status]);
+			p_data_req->status = FRAME_RELEASE;
 		}
 		vpu_dbg(LVL_INFO, "VID_API_EVENT_REL_FRAME_BUFF uFSIdx=%d, eType=%d, size=%ld\n", fsrel->uFSIdx, fsrel->eType, sizeof(MEDIA_PLAYER_FSREL));
 	} break;
