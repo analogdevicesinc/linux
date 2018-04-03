@@ -175,9 +175,12 @@ static int find_buffer_id(struct vpu_ctx *ctx, u_int32 addr)
 		p_data_req = &ctx->q_data[V4L2_DST].vb2_reqs[i];
 		if (p_data_req->vb2_buf != NULL) {
 			pphy_address = (u_int32 *)vb2_plane_cookie(p_data_req->vb2_buf, 0);
-			LumaAddr = *pphy_address;
-			if (LumaAddr == addr - ctx->dev->cm_offset)
-				return i;
+			if (pphy_address != NULL) {
+				LumaAddr = *pphy_address;
+				if (LumaAddr == addr - ctx->dev->cm_offset)
+					return i;
+			} else
+				vpu_dbg(LVL_ERR, "error: %s() buffer (%d) is NULL\n", __func__, i);
 		}
 	}
 
@@ -1282,6 +1285,9 @@ static void report_buffer_done(struct vpu_ctx *ctx, void *frame_info)
 	v4l2_update_stream_addr(ctx, 0);
 
 	buffer_id = find_buffer_id(ctx, FrameInfo[1]);
+
+	if (buffer_id == -1)
+		return;
 
 	if (buffer_id != fs_id)
 		vpu_dbg(LVL_ERR, "error: find buffer_id(%d) and firmware return id(%d) doesn't match\n",
