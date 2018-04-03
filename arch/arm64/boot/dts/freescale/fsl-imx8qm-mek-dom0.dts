@@ -1,0 +1,292 @@
+/*
+ * Copyright 2018 NXP
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "fsl-imx8qm-mek.dts"
+#include "fsl-imx8qm-xen.dtsi"
+
+/ {
+	chosen {
+		#address-cells = <2>;
+		#size-cells = <2>;
+
+		/* Could be updated by U-Boot */
+		module@0 {
+			bootargs = "earlycon=xen console=hvc0 loglevel=8 root=/dev/mmcblk1p2 rw  rootwait";
+			compatible = "xen,linux-zimage", "xen,multiboot-module";
+			reg = <0x00000000 0x80a00000 0x00000000 0xf93a00>;
+               };
+	};
+
+	domu {
+		/*
+		 * There are 5 MUs, 0A is used by Dom0, 1A is used
+		 * by ATF, so for DomU, 2A/3A/4A could be used.
+		 * SC_R_MU_0A
+		 * SC_R_MU_1A
+		 * SC_R_MU_2A
+		 * SC_R_MU_3A
+		 * SC_R_MU_4A
+		 * The rsrcs and pads will be configured by uboot scu_rm cmd
+		 */
+		dom2: dom@2 {
+			compatible = "xen,domu";
+			rsrcs = <
+				SC_R_GPU_1_PID0
+				SC_R_GPU_1_PID1
+				SC_R_GPU_1_PID2
+				SC_R_GPU_1_PID3
+				SC_R_LVDS_1
+				SC_R_LVDS_1_I2C_0
+				SC_R_LVDS_1_PWM_0
+				SC_R_DC_1
+				SC_R_DC_1_BLIT0
+				SC_R_DC_1_BLIT1
+				SC_R_DC_1_BLIT2
+				SC_R_DC_1_BLIT_OUT
+				SC_R_DC_1_CAPTURE0
+				SC_R_DC_1_CAPTURE1
+				SC_R_DC_1_WARP
+				SC_R_DC_1_INTEGRAL0
+				SC_R_DC_1_INTEGRAL1
+				SC_R_DC_1_VIDEO0
+				SC_R_DC_1_VIDEO1
+				SC_R_DC_1_FRAC0
+				SC_R_DC_1_FRAC1
+				SC_R_DC_1_PLL_0
+				SC_R_DC_1_PLL_1
+				SC_R_MIPI_1
+				SC_R_MIPI_1_I2C_0
+				SC_R_MIPI_1_I2C_1
+				SC_R_MIPI_1_PWM_0
+				SC_R_HDMI
+				SC_R_HDMI_I2C_0
+				SC_R_SDHC_0
+				SC_R_USB_0
+				SC_R_USB_0_PHY
+				SC_R_MU_2A
+				>;
+			pads = <
+				/* emmc */
+				SC_P_EMMC0_CLK
+				SC_P_EMMC0_CMD
+				SC_P_EMMC0_DATA0
+				SC_P_EMMC0_DATA1
+				SC_P_EMMC0_DATA2
+				SC_P_EMMC0_DATA3
+				SC_P_EMMC0_DATA4
+				SC_P_EMMC0_DATA5
+				SC_P_EMMC0_DATA6
+				SC_P_EMMC0_DATA7
+				SC_P_EMMC0_STROBE
+				SC_P_EMMC0_RESET_B
+				/* usb otg */
+				SC_P_USB_SS3_TC0
+				>;
+		};
+	};
+
+	reserved-memory {
+		/* global autoconfigured region for contiguous allocations */
+		linux,cma {
+			compatible = "shared-dma-pool";
+			reusable;
+			size = <0 0x28000000>;
+			alloc-ranges = <0 0xd0000000 0 0x28000000>;
+			linux,cma-default;
+		};
+	};
+
+	display-subsystem {
+		compatible = "fsl,imx-display-subsystem";
+		ports = <&dpu1_disp0>, <&dpu1_disp1>;
+	};
+
+	/* Passthrough to domu */
+	mu2: mu@5d1d0000 {
+		compatible = "fsl,imx8-mu";
+		reg = <0x0 0x5d1d0000 0x0 0x10000>;
+		interrupts = <GIC_SPI 177 IRQ_TYPE_LEVEL_HIGH>;
+		fsl,scu_ap_mu_id = <0>;
+		xen,passthrough;
+		status = "disabled";
+	};
+
+};
+
+&usbotg1_lpcg {
+	xen,passthrough;
+};
+
+&sdhc1_lpcg {
+	xen,passthrough;
+};
+
+&lpuart1_lpcg {
+	xen,passthrough;
+};
+
+&di_lvds1_lpcg {
+	xen,passthrough;
+};
+
+&dc_1_lpcg {
+	xen,passthrough;
+};
+
+/* SMMU */
+&smmu {
+	mmu-masters = <&dpu2 0x13>, <&gpu_3d1 0x15>,
+		      <&usdhc1 0x12>, <&usbotg1 0x11>;
+};
+
+/* DC0 */
+&pd_dc1 {
+	xen,passthrogh;
+};
+
+&lvds_region2 {
+	xen,passthrough;
+};
+
+&irqsteer_lvds1 {
+	xen,passthrough;
+};
+
+&i2c1_lvds1 {
+	xen,passthrough;
+};
+
+&ldb2_phy {
+	xen,passthrough;
+};
+
+&ldb2 {
+	xen,passthrough;
+};
+
+&dpu2_intsteer {
+	xen,passthrough;
+};
+
+&dpu2 {
+	xen,passthrough;
+	#stream-id-cells = <1>;
+	iommus = <&smmu>;
+};
+
+&prg10 {
+	xen,passthrough;
+};
+
+&prg11 {
+	xen,passthrough;
+};
+
+&prg12 {
+	xen,passthrough;
+};
+
+&prg13 {
+	xen,passthrough;
+};
+
+&prg14 {
+	xen,passthrough;
+};
+
+&prg15 {
+	xen,passthrough;
+};
+
+&prg16 {
+	xen,passthrough;
+};
+
+&prg17 {
+	xen,passthrough;
+};
+
+&prg18 {
+	xen,passthrough;
+};
+
+&dpr3_channel1 {
+	xen,passthrough;
+};
+
+&dpr3_channel2 {
+	xen,passthrough;
+};
+
+&dpr3_channel3 {
+	xen,passthrough;
+};
+
+&dpr4_channel1 {
+	xen,passthrough;
+};
+
+&dpr4_channel2 {
+	xen,passthrough;
+};
+
+&dpr4_channel3 {
+	xen,passthrough;
+};
+
+/* GPU */
+&pd_gpu1 {
+	xen,passthrough;
+};
+
+&gpu_3d1 {
+	xen,passthrough;
+	#stream-id-cells = <1>;
+	iommus = <&smmu>;
+};
+
+&imx8_gpu_ss {
+	cores = <&gpu_3d0>;
+	/delete-property/ reg;
+	/delete-property/ reg-names;
+};
+
+&sata {
+	status = "disabled";
+};
+
+&usdhc1 {
+	xen,passthrough;
+	#stream-id-cells = <1>;
+	iommus = <&smmu>;
+};
+
+&usbotg1 {
+	/* Hack reg */
+	reg = <0x0 0x5b0d0000 0x0 0x1000>;
+	xen,passthrough;
+	#stream-id-cells = <1>;
+	iommus = <&smmu>;
+};
+
+&usbmisc1 {
+	/* Hack */
+	/delete-property/ reg;
+	status = "disabled";
+};
+
+&usbphy1 {
+	reg = <0x0 0x5b100000 0x0 0x1000>;
+	xen,passthrough;
+};

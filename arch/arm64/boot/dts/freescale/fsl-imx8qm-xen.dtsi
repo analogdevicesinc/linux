@@ -1,0 +1,146 @@
+/*
+ * Copyright 2018 NXP
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/*
+ * This dtsi is used by dom0 mainly for passthrough devices to domu.
+ */
+/ {
+	/delete-node/ thermal-zones;
+
+	/delete-node/ wu;
+
+	usbotg1_lpcg: usbotg1_lpcg@5b270000 {
+		compatible = "fsl,imx8qm-usbotg1-lpcg";
+		reg = <0x0 0x5b270000 0x0 0x10000>;
+	};
+
+	sdhc1_lpcg: sdhc1_lpcg@5b200000 {
+		compatible = "fsl,imx8qm-lpuart-lpcg";
+		reg = <0x0 0x5b200000 0x0 0x10000>;
+	};
+
+	lpuart1_lpcg: lpcg@5a470000 {
+		compatible = "fsl,imx8qm-lpuart-lpcg";
+		reg = <0x0 0x5a470000 0x0 0x10000>;
+	};
+
+	di_lvds0_lpcg: lpcg@56243000 {
+		compatible = "fsl,imx8qm-di-lvds0-lpcg";
+		reg = <0x0 0x56243000 0x0 0x1000>;
+	};
+
+	di_lvds1_lpcg: lpcg@57243000 {
+		compatible = "fsl,imx8qm-di-lvds1-lpcg";
+		reg = <0x0 0x57243000 0x0 0x1000>;
+	};
+
+	dc_0_lpcg: lpcg@56010000 {
+		compatible = "fsl,imx8qm-dc0-lpcg";
+		reg = <0x0 0x56010000 0x0 0x10000>;
+	};
+
+	dc_1_lpcg: lpcg@57010000 {
+		compatible = "fsl,imx8qm-dc1-lpcg";
+		reg = <0x0 0x57010000 0x0 0x10000>;
+	};
+};
+
+&mu {
+	interrupt-parent = <&gic>;
+};
+
+&lpuart0 {
+	interrupt-parent = <&gic>;
+};
+
+&lpuart1 {
+	interrupt-parent = <&gic>;
+};
+
+&lpuart2 {
+	interrupt-parent = <&gic>;
+};
+
+&lpuart3 {
+	interrupt-parent = <&gic>;
+};
+
+&lpuart4 {
+	interrupt-parent = <&gic>;
+};
+
+&usdhc1 {
+	/delete-property/ iommus;
+};
+
+&usdhc2 {
+	/delete-property/ iommus;
+};
+
+&usdhc3 {
+	/delete-property/ iommus;
+};
+
+&fec1 {
+	/delete-property/ iommus;
+};
+
+&fec2 {
+	/delete-property/ iommus;
+};
+
+&sata {
+	/delete-property/ iommus;
+};
+
+&usbotg1 {
+	interrupt-parent = <&gic>;
+};
+
+&usbh1 {
+	interrupt-parent = <&gic>;
+};
+
+&usbotg3 {
+	interrupt-parent = <&gic>;
+};
+
+&smmu {
+	/* xen only supports legacy bindings for now */
+	#iommu-cells = <0>;
+};
+
+&dpu1 {
+	fsl,sc_rsrc_id = <SC_R_DC_0_BLIT0>,
+			 <SC_R_DC_0_BLIT1>,
+			 <SC_R_DC_0_BLIT2>,
+			 <SC_R_DC_0_BLIT_OUT>,
+			 <SC_R_DC_0_WARP>,
+			 <SC_R_DC_0_VIDEO0>,
+			 <SC_R_DC_0_VIDEO1>,
+			 <SC_R_DC_0_FRAC0>,
+			 <SC_R_DC_0>;
+};
+
+&dpu2 {
+	fsl,sc_rsrc_id = <SC_R_DC_1_BLIT0>,
+			 <SC_R_DC_1_BLIT1>,
+			 <SC_R_DC_1_BLIT2>,
+			 <SC_R_DC_1_BLIT_OUT>,
+			 <SC_R_DC_1_WARP>,
+			 <SC_R_DC_1_VIDEO0>,
+			 <SC_R_DC_1_VIDEO1>,
+			 <SC_R_DC_1_FRAC0>,
+			 <SC_R_DC_1>;
+};

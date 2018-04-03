@@ -1,0 +1,505 @@
+/*
+ * Copyright 2018 NXP
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/clock/imx8qm-clock.h>
+#include <dt-bindings/input/input.h>
+#include <dt-bindings/soc/imx_rsrc.h>
+#include <dt-bindings/soc/imx8_hsio.h>
+#include <dt-bindings/soc/imx8_pd.h>
+#include <dt-bindings/pinctrl/pads-imx8qm.h>
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/thermal/thermal.h>
+
+/ {
+	model = "Freescale i.MX8QM DOMU";
+	compatible = "fsl,imx8qm-mek", "fsl,imx8qm";
+
+	#address-cells = <2>;
+	#size-cells = <2>;
+
+	/delete-node/ aliases;
+
+	aliases {
+		mmc0 = &usdhc1;
+		dpu1 = &dpu2;
+		ldb1 = &ldb2;
+	};
+
+	passthrough {
+		compatible = "simple-bus";
+		ranges;
+		#address-cells = <2>;
+		#size-cells = <2>;
+
+		clk: clk {
+			compatible = "fsl,imx8qm-clk";
+			#clock-cells = <1>;
+			fsl,lpcg_base_offset = <0x00000001 0x00000000>;
+		};
+
+		iomuxc: iomuxc {
+			compatible = "fsl,imx8qm-iomuxc";
+		};
+
+		#include "fsl-imx8qm-device.dtsi"
+
+		mu1: mu@15d1d0000 {
+			compatible = "fsl,imx8-mu";
+			reg = <0x1 0x5d1d0000 0x0 0x10000>;
+			interrupts = <GIC_SPI 177 IRQ_TYPE_LEVEL_HIGH>;
+			fsl,scu_ap_mu_id = <0>;
+			status = "okay";
+		};
+
+		usb_lpcg {
+			reg = <0x1 0x5b270000 0x0 0x10000>;
+		};
+
+	};
+};
+
+/delete-node/ &tsens;
+/delete-node/ &thermal_zones;
+/delete-node/ &rtc;
+
+&display {
+	ports = <&dpu2_disp0>, <&dpu2_disp1>;
+};
+
+&dpu2_intsteer {
+	reg = <0x1 0x57000000 0x0 0x10000>;
+	status = "okay";
+};
+
+&prg10 {
+	reg = <0x1 0x57040000 0x0 0x10000>;
+	status = "okay";
+};
+
+&prg11 {
+	reg = <0x1 0x57050000 0x0 0x10000>;
+	status = "okay";
+};
+
+&prg12 {
+	reg = <0x1 0x57060000 0x0 0x10000>;
+	status = "okay";
+};
+
+&prg13 {
+	reg = <0x1 0x57070000 0x0 0x10000>;
+	status = "okay";
+};
+
+&prg14 {
+	reg = <0x1 0x57080000 0x0 0x10000>;
+	status = "okay";
+};
+
+&prg15 {
+	reg = <0x1 0x57090000 0x0 0x10000>;
+	status = "okay";
+};
+
+&prg16 {
+	reg = <0x1 0x570a0000 0x0 0x10000>;
+	status = "okay";
+};
+
+&prg17 {
+	reg = <0x1 0x570b0000 0x0 0x10000>;
+	status = "okay";
+};
+
+&prg18 {
+	reg = <0x1 0x570c0000 0x0 0x10000>;
+	status = "okay";
+};
+
+&dpr3_channel1 {
+	reg = <0x1 0x570d0000 0x0 0x10000>;
+	status = "okay";
+};
+
+&dpr3_channel2 {
+	reg = <0x1 0x570e0000 0x0 0x10000>;
+	status = "okay";
+};
+
+&dpr3_channel3 {
+	reg = <0x1 0x570f0000 0x0 0x10000>;
+	status = "okay";
+};
+
+&dpr4_channel1 {
+	reg = <0x1 0x57100000 0x0 0x10000>;
+	status = "okay";
+};
+
+&dpr4_channel2 {
+	reg = <0x1 0x57110000 0x0 0x10000>;
+	status = "okay";
+};
+
+&dpr4_channel3 {
+	reg = <0x1 0x57120000 0x0 0x10000>;
+	status = "okay";
+};
+
+&dpu2 {
+	reg = <0x1 0x57180000 0x0 0x40000>;
+	status = "okay";
+
+	dpu2_disp0: port@0 {
+		dpu2_disp0_mipi_dsi: mipi-dsi-endpoint {
+			/delete-property/ remote-endpoint;
+		};
+	};
+	dpu2_disp1: port@1 {
+		reg = <1>;
+
+		dpu2_disp1_lvds0: lvds0-endpoint {
+			remote-endpoint = <&ldb2_lvds0>;
+		};
+
+		dpu2_disp1_lvds1: lvds1-endpoint {
+			remote-endpoint = <&ldb2_lvds1>;
+		};
+	};
+};
+
+/delete-node/ &hdmi;
+/delete-node/ &irqsteer_dsi0;
+/delete-node/ &i2c0_mipi_dsi0;
+/delete-node/ &mipi_dsi_csr1;
+/delete-node/ &mipi_dsi_phy1;
+/delete-node/ &mipi_dsi1;
+/delete-node/ &mipi_dsi_bridge1;
+
+&lvds_region2 {
+	reg = <0x1 0x57240000 0x0 0x10000>;
+	status = "okay";
+};
+
+&ldb2_phy {
+	reg = <0x1 0x57241000 0x0 0x100>;
+	status = "okay";
+};
+
+&ldb2 {
+	status = "okay";
+
+	lvds-channel@0 {
+		fsl,data-mapping = "jeida";
+		fsl,data-width = <24>;
+		status = "okay";
+
+		port@1 {
+			reg = <1>;
+
+			lvds1_out: endpoint {
+				remote-endpoint = <&it6263_1_in>;
+			};
+		};
+	};
+};
+
+/delete-node/ &lvds0_pwm;
+/delete-node/ &dpu1_intsteer;
+/delete-node/ &prg1;
+/delete-node/ &prg2;
+/delete-node/ &prg3;
+/delete-node/ &prg4;
+/delete-node/ &prg5;
+/delete-node/ &prg6;
+/delete-node/ &prg7;
+/delete-node/ &prg8;
+/delete-node/ &prg9;
+/delete-node/ &dpr1_channel1;
+/delete-node/ &dpr1_channel2;
+/delete-node/ &dpr1_channel3;
+/delete-node/ &dpr2_channel1;
+/delete-node/ &dpr2_channel2;
+/delete-node/ &dpr2_channel3;
+/delete-node/ &dpu1;
+/delete-node/ &irqsteer_dsi1;
+/delete-node/ &i2c0_mipi_dsi1;
+/delete-node/ &mipi_dsi_csr2;
+/delete-node/ &mipi_dsi_phy2;
+/delete-node/ &mipi_dsi2;
+/delete-node/ &mipi_dsi_bridge2;
+/delete-node/ &lvds_region1;
+/delete-node/ &ldb1_phy;
+/delete-node/ &ldb1;
+/delete-node/ &lvds1_pwm;
+/delete-node/ &camera;
+/delete-node/ &i2c0;
+/delete-node/ &i2c1;
+/delete-node/ &i2c2;
+/delete-node/ &i2c3;
+/delete-node/ &i2c4;
+/delete-node/ &i2c0_cm40;
+/delete-node/ &i2c0_cm41;
+/delete-node/ &irqsteer_hdmi;
+/delete-node/ &i2c0_hdmi;
+
+&irqsteer_lvds1 {
+	reg = <0x1 0x57240000 0x0 0x1000>;
+	/delete-property/ interrupt-parent;
+	status = "okay";
+};
+
+&i2c1_lvds1 {
+	reg = <0x1 0x57247000 0x0 0x1000>;
+	status = "okay";
+};
+
+/delete-node/ &irqsteer_lvds0;
+/delete-node/ &i2c1_lvds0;
+/delete-node/ &irqsteer_csi0;
+/delete-node/ &i2c0_mipi_csi0;
+/delete-node/ &irqsteer_csi1;
+/delete-node/ &i2c0_mipi_csi1;
+/delete-node/ &lpspi0;
+/delete-node/ &lpuart0;
+/delete-node/ &lpuart1;
+/delete-node/ &lpuart2;
+/delete-node/ &lpuart3;
+/delete-node/ &lpuart4;
+/delete-node/ &emvsim0;
+/delete-node/ &edma0;
+/delete-node/ &edma2;
+/delete-node/ &edma3;
+/delete-node/ &gpio0;
+/delete-node/ &gpio1;
+/delete-node/ &gpio2;
+/delete-node/ &gpio3;
+/delete-node/ &gpio4;
+/delete-node/ &gpio5;
+/delete-node/ &gpio6;
+/delete-node/ &gpio7;
+/delete-node/ &gpio0_mipi_csi0;
+/delete-node/ &gpio0_mipi_csi1;
+/delete-node/ &gpt0;
+/delete-node/ &pwm0;
+/delete-node/ &pwm1;
+/delete-node/ &pwm2;
+/delete-node/ &pwm3;
+/delete-node/ &pwm4;
+/delete-node/ &pwm5;
+/delete-node/ &pwm6;
+/delete-node/ &pwm7;
+
+&gpu_3d1 {
+	reg = <0x0 0x24100000 0 0x40000>;
+	status = "okay";
+};
+
+/delete-node/ &gpu_3d0;
+
+&imx8_gpu_ss {
+	/* xen guests have 3GB of low RAM @ 1GB */
+	reg = <0x0 0x40000000 0x0 0xc0000000>;
+	reg-names = "phys_baseaddr";
+	cores = <&gpu_3d1>;
+	status = "okay";
+};
+
+/delete-node/ &mlb;
+
+&usdhc1 {
+	compatible = "fsl,imx8qm-usdhc", "fsl,imx6sl-usdhc";
+	/*interrupt-parent = <&gic>;*/
+	/delete-property/ interrupt-parent;
+	reg = <0x1 0x5b010000 0x0 0x10000>;
+};
+
+/delete-node/ &usdhc2;
+/delete-node/ &usdhc3;
+/delete-node/ &fec1;
+/delete-node/ &fec2;
+
+&usbmisc1 {
+	reg = <0x1 0x5b0d0200 0x0 0x200>;
+};
+
+/delete-node/ &usbmisc2;
+
+&usbphy1 {
+	reg = <0x1 0x5b100000 0x0 0x200>;
+};
+
+/delete-node/ &usbh1;
+/delete-node/ &usbotg3;
+/delete-node/ &usbphynop1;
+/delete-node/ &usbphynop2;
+
+&usbotg1 {
+	reg = <0x1 0x5b0d0000 0x0 0x200>;
+	/delete-property/ interrupt-parent;
+};
+
+/delete-node/ &ddr_pmu0;
+/delete-node/ &ddr_pmu1;
+/delete-node/ &vpu;
+/delete-node/ &acm;
+/delete-node/ &esai0;
+/delete-node/ &spdif0;
+/delete-node/ &spdif1;
+/delete-node/ &sai1;
+/delete-node/ &sai0;
+/delete-node/ &sai_hdmi_rx;
+/delete-node/ &sai_hdmi_tx;
+/delete-node/ &sai6;
+/delete-node/ &sai7;
+/delete-node/ &amix;
+/delete-node/ &asrc0;
+/delete-node/ &asrc1;
+/delete-node/ &mqs;
+/delete-node/ &flexspi0;
+
+&dma_cap {
+	compatible = "dma-capability";
+	only-dma-mask32 = <1>;
+};
+
+/delete-node/ &hsio;
+/delete-node/ &ocotp;
+/delete-node/ &pciea;
+/delete-node/ &pcieb;
+/delete-node/ &sata;
+
+/delete-node/ &intmux_cm40;
+/delete-node/ &intmux_cm41;
+/delete-node/ &imx_rpmsg;
+/delete-node/ &sc_pwrkey;
+/delete-node/ &wdog;
+/delete-node/ &wu;
+
+&iomuxc {
+	imx8qm-mek {
+		pinctrl_usdhc1: usdhc1grp {
+			fsl,pins = <
+				SC_P_EMMC0_CLK_CONN_EMMC0_CLK		0x06000041
+				SC_P_EMMC0_CMD_CONN_EMMC0_CMD		0x00000021
+				SC_P_EMMC0_DATA0_CONN_EMMC0_DATA0	0x00000021
+				SC_P_EMMC0_DATA1_CONN_EMMC0_DATA1	0x00000021
+				SC_P_EMMC0_DATA2_CONN_EMMC0_DATA2	0x00000021
+				SC_P_EMMC0_DATA3_CONN_EMMC0_DATA3	0x00000021
+				SC_P_EMMC0_DATA4_CONN_EMMC0_DATA4	0x00000021
+				SC_P_EMMC0_DATA5_CONN_EMMC0_DATA5	0x00000021
+				SC_P_EMMC0_DATA6_CONN_EMMC0_DATA6	0x00000021
+				SC_P_EMMC0_DATA7_CONN_EMMC0_DATA7	0x00000021
+				SC_P_EMMC0_STROBE_CONN_EMMC0_STROBE	0x06000041
+				SC_P_EMMC0_RESET_B_CONN_EMMC0_RESET_B	0x00000021
+			>;
+		};
+
+		pinctrl_usdhc1_100mhz: usdhc1grp100mhz {
+			fsl,pins = <
+				SC_P_EMMC0_CLK_CONN_EMMC0_CLK		0x06000040
+				SC_P_EMMC0_CMD_CONN_EMMC0_CMD		0x00000020
+				SC_P_EMMC0_DATA0_CONN_EMMC0_DATA0	0x00000020
+				SC_P_EMMC0_DATA1_CONN_EMMC0_DATA1	0x00000020
+				SC_P_EMMC0_DATA2_CONN_EMMC0_DATA2	0x00000020
+				SC_P_EMMC0_DATA3_CONN_EMMC0_DATA3	0x00000020
+				SC_P_EMMC0_DATA4_CONN_EMMC0_DATA4	0x00000020
+				SC_P_EMMC0_DATA5_CONN_EMMC0_DATA5	0x00000020
+				SC_P_EMMC0_DATA6_CONN_EMMC0_DATA6	0x00000020
+				SC_P_EMMC0_DATA7_CONN_EMMC0_DATA7	0x00000020
+				SC_P_EMMC0_STROBE_CONN_EMMC0_STROBE	0x06000040
+				SC_P_EMMC0_RESET_B_CONN_EMMC0_RESET_B	0x00000020
+			>;
+		};
+
+		pinctrl_usdhc1_200mhz: usdhc1grp200mhz {
+			fsl,pins = <
+				SC_P_EMMC0_CLK_CONN_EMMC0_CLK		0x06000040
+				SC_P_EMMC0_CMD_CONN_EMMC0_CMD		0x00000020
+				SC_P_EMMC0_DATA0_CONN_EMMC0_DATA0	0x00000020
+				SC_P_EMMC0_DATA1_CONN_EMMC0_DATA1	0x00000020
+				SC_P_EMMC0_DATA2_CONN_EMMC0_DATA2	0x00000020
+				SC_P_EMMC0_DATA3_CONN_EMMC0_DATA3	0x00000020
+				SC_P_EMMC0_DATA4_CONN_EMMC0_DATA4	0x00000020
+				SC_P_EMMC0_DATA5_CONN_EMMC0_DATA5	0x00000020
+				SC_P_EMMC0_DATA6_CONN_EMMC0_DATA6	0x00000020
+				SC_P_EMMC0_DATA7_CONN_EMMC0_DATA7	0x00000020
+				SC_P_EMMC0_STROBE_CONN_EMMC0_STROBE	0x06000040
+				SC_P_EMMC0_RESET_B_CONN_EMMC0_RESET_B	0x00000020
+			>;
+		};
+
+		pinctrl_usbotg1: usbotg1 {
+			fsl,pins = <
+				SC_P_USB_SS3_TC0_CONN_USB_OTG1_PWR		0x00000021
+			>;
+		};
+
+		pinctrl_lvds1_lpi2c1: lvds1lpi2c1grp {
+			fsl,pins = <
+				SC_P_LVDS1_I2C1_SCL_LVDS1_I2C1_SCL	0xc600004c
+				SC_P_LVDS1_I2C1_SDA_LVDS1_I2C1_SDA	0xc600004c
+			>;
+		};
+
+
+
+	};
+};
+
+&usdhc1 {
+	/delete-property/ iommus;
+	pinctrl-names = "default", "state_100mhz", "state_200mhz";
+	pinctrl-0 = <&pinctrl_usdhc1>;
+	pinctrl-1 = <&pinctrl_usdhc1_100mhz>;
+	pinctrl-2 = <&pinctrl_usdhc1_200mhz>;
+	bus-width = <8>;
+	non-removable;
+	status = "okay";
+};
+
+&usbotg1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_usbotg1>;
+	srp-disable;
+	hnp-disable;
+	adp-disable;
+	power-polarity-active-high;
+	disable-over-current;
+	status = "okay";
+};
+
+&i2c1_lvds1 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_lvds1_lpi2c1>;
+	clock-frequency = <100000>;
+	status = "okay";
+
+	lvds-to-hdmi-bridge@4c {
+		compatible = "ite,it6263";
+		reg = <0x4c>;
+
+		port {
+			it6263_1_in: endpoint {
+				clock-lanes = <3>;
+				data-lanes = <0 1 2 4>;
+				remote-endpoint = <&lvds1_out>;
+			};
+		};
+	};
+};

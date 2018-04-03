@@ -27,6 +27,8 @@ dtb-$(CONFIG_ARCH_FSL_IMX8QM) += fsl-imx8qm-lpddr4-arm2.dtb \
 				 fsl-imx8qm-mek-dsi-rm67191.dtb \
 				 fsl-imx8qm-mek-enet2-tja1100.dtb \
 				 fsl-imx8qm-mek-jdi-wuxga-lvds1-panel.dtb \
+				 fsl-imx8qm-mek-dom0.dtb \
+				 fsl-imx8qm-mek-domu.dtb \
 				 fsl-imx8qm-lpddr4-arm2-dp.dtb \
 				 fsl-imx8qm-lpddr4-arm2-8cam.dtb \
 				 fsl-imx8qm-lpddr4-arm2-it6263-dual-channel.dtb \
