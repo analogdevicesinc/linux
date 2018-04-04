@@ -251,6 +251,23 @@
 			>;
 		};
 
+		pinctrl_fec2: fec2grp {
+			fsl,pins = <
+				SC_P_ESAI0_SCKR_CONN_ENET1_RGMII_TX_CTL		0x06000048
+				SC_P_ESAI0_FSR_CONN_ENET1_RGMII_TXC		0x06000048
+				SC_P_ESAI0_TX4_RX1_CONN_ENET1_RGMII_TXD0	0x06000048
+				SC_P_ESAI0_TX5_RX0_CONN_ENET1_RGMII_TXD1	0x06000048
+				SC_P_ESAI0_FST_CONN_ENET1_RGMII_TXD2		0x06000048
+				SC_P_ESAI0_SCKT_CONN_ENET1_RGMII_TXD3		0x06000048
+				SC_P_ESAI0_TX0_CONN_ENET1_RGMII_RXC		0x06000048
+				SC_P_SPDIF0_TX_CONN_ENET1_RGMII_RX_CTL		0x06000048
+				SC_P_SPDIF0_RX_CONN_ENET1_RGMII_RXD0		0x06000048
+				SC_P_ESAI0_TX3_RX2_CONN_ENET1_RGMII_RXD1	0x06000048
+				SC_P_ESAI0_TX2_RX3_CONN_ENET1_RGMII_RXD2	0x06000048
+				SC_P_ESAI0_TX1_CONN_ENET1_RGMII_RXD3		0x06000048
+			>;
+		};
+
 		pinctrl_cm40_i2c: cm40i2cgrp {
 			fsl,pins = <
 				SC_P_ADC_IN1_M40_I2C0_SDA	0x0600004c
@@ -462,6 +479,15 @@
 			status = "disabled";
 		};
 	};
+};
+
+&fec2 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_fec2>;
+	phy-mode = "rgmii-id";
+	phy-handle = <&ethphy1>;
+	fsl,magic-packet;
+	status = "disabled";
 };
 
 &intmux_cm40 {

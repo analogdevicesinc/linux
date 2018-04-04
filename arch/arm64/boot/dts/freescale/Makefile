@@ -27,6 +27,7 @@ dtb-$(CONFIG_ARCH_FSL_IMX8QM) += fsl-imx8qm-lpddr4-arm2.dtb \
 				 fsl-imx8qm-lpddr4-arm2-usb3.dtb
 dtb-$(CONFIG_ARCH_FSL_IMX8QXP) += fsl-imx8qxp-lpddr4-arm2.dtb \
 				  fsl-imx8qxp-mek.dtb \
+				  fsl-imx8qxp-mek-enet2.dtb \
 				  fsl-imx8qxp-mek-lvds0-it6263.dtb \
 				  fsl-imx8qxp-mek-lvds1-it6263.dtb \
 				  fsl-imx8qxp-mek-lvds0-lvds1-it6263.dtb \
