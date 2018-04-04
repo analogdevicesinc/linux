@@ -583,6 +583,11 @@ static int v4l2_ioctl_reqbufs(struct file *file,
 	else
 		return -EINVAL;
 
+	if (reqbuf->count == 0)
+		ctx->buffer_null = true;
+	else
+		ctx->buffer_null = false;
+
 	ret = vb2_reqbufs(&q_data->vb2_q, reqbuf);
 	if (!ret) {
 		if (reqbuf->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
@@ -1312,6 +1317,28 @@ static void report_buffer_done(struct vpu_ctx *ctx, void *frame_info)
 	vpu_dbg(LVL_INFO, "leave %s\n", __func__);
 }
 
+/*
+ * this is used for waiting the right status buffer in the queue list
+ * true means find right buffer, false means not
+ */
+static bool wait_right_buffer(struct queue_data *This)
+{
+	struct vb2_data_req *p_data_req, *p_temp;
+
+	down(&This->drv_q_lock);
+	if (!list_empty(&This->drv_q)) {
+		list_for_each_entry_safe(p_data_req, p_temp, &This->drv_q, list)
+			if (p_data_req->status == FRAME_ALLOC
+					|| p_data_req->status == FRAME_RELEASE) {
+				up(&This->drv_q_lock);
+				return true;
+			}
+	}
+	up(&This->drv_q_lock);
+
+	return false;
+}
+
 static void vpu_api_event_handler(struct vpu_ctx *ctx, u_int32 uStrIdx, u_int32 uEvent, u_int32 *event_data)
 {
 	struct vpu_dev *dev = ctx->dev;
@@ -1458,7 +1485,7 @@ static void vpu_api_event_handler(struct vpu_ctx *ctx, u_int32 uStrIdx, u_int32 
 			}
 #endif
 			wait_event_interruptible(ctx->buffer_wq,
-					((!list_empty(&This->drv_q)) || (ctx->wait_rst_done==true)));
+					((ctx->wait_rst_done == true) || (wait_right_buffer(This) == true)));
 
 			if (!list_empty(&This->drv_q)) {
 				down(&This->drv_q_lock);
@@ -1552,7 +1579,9 @@ static void vpu_api_event_handler(struct vpu_ctx *ctx, u_int32 uStrIdx, u_int32 
 	case VID_API_EVENT_FRAME_BUFF_RDY: {
 		u_int32 *FrameInfo = (u_int32 *)event_data;
 
-		report_buffer_done(ctx, FrameInfo);
+		//when the buffer is not NULL, do report_buffer_done
+		if (ctx->buffer_null == false)
+			report_buffer_done(ctx, FrameInfo);
 	}
 		break;
 	case VID_API_EVENT_CHUNK_DECODED:
@@ -2090,6 +2119,7 @@ static int v4l2_open(struct file *filp)
 	ctx->start_flag = true;
 	ctx->wait_rst_done = false;
 	ctx->firmware_stopped = false;
+	ctx->buffer_null = true; //this flag is to judge whether the buffer is null is not, it is used for the workaround that when send stop command still can receive buffer ready event, and true means buffer is null, false not
 	ctx->pSeqinfo = kzalloc(sizeof(MediaIPFW_Video_SeqInfo), GFP_KERNEL);
 	if (!ctx->pSeqinfo)
 		vpu_dbg(LVL_ERR, "error: pSeqinfo alloc fail\n");

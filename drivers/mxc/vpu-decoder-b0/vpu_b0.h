@@ -223,6 +223,7 @@ struct vpu_ctx {
 	bool b_firstseq;
 	bool start_flag;
 	bool wait_rst_done;
+	bool buffer_null;
 	bool firmware_stopped;
 	wait_queue_head_t buffer_wq;
 	void *dpb_dma_virt;
