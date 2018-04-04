@@ -243,6 +243,7 @@ static int fsl_dsp_ipc_msg_from_dsp(struct xf_client *client,
 
 	/* ...return the message back to a pool and release lock */
 	xf_msg_free(&hifi4_priv->proxy, m);
+	xf_unlock(&hifi4_priv->proxy.lock);
 
 	ret = copy_to_user(user, &msg, sizeof(struct xf_proxy_message));
 	if (ret) {
@@ -384,8 +385,6 @@ static int fsl_hifi4_open(struct inode *inode, struct file *file)
 	atomic_long_inc(&hifi4_priv->refcnt);
 	mutex_unlock(&hifi4_priv->hifi4_mutex);
 
-	pr_info("client-%x created\n", client->id);
-
 	return ret;
 }
 
@@ -400,8 +399,6 @@ static int fsl_hifi4_close(struct inode *inode, struct file *file)
 	client = xf_get_client(file);
 	if (IS_ERR(client))
 		return PTR_ERR(client);
-
-	pr_info("client-%x released\n", client->id);
 
 	proxy = client->proxy;
 	if (proxy) {
@@ -964,7 +961,17 @@ static int fsl_hifi4_runtime_suspend(struct device *dev)
 #ifdef CONFIG_PM_SLEEP
 static int fsl_hifi4_suspend(struct device *dev)
 {
+	struct fsl_hifi4 *hifi4_priv = dev_get_drvdata(dev);
+	struct xf_proxy *proxy = &hifi4_priv->proxy;
 	int ret = 0;
+
+	if (proxy->is_ready) {
+		ret = xf_cmd_send_suspend(proxy);
+		if (ret) {
+			dev_err(dev, "hifi4 suspend fail\n");
+			return ret;
+		}
+	}
 
 	ret = pm_runtime_force_suspend(dev);
 
@@ -973,11 +980,21 @@ static int fsl_hifi4_suspend(struct device *dev)
 
 static int fsl_hifi4_resume(struct device *dev)
 {
+	struct fsl_hifi4 *hifi4_priv = dev_get_drvdata(dev);
+	struct xf_proxy *proxy = &hifi4_priv->proxy;
 	int ret = 0;
 
 	ret = pm_runtime_force_resume(dev);
 	if (ret)
 		return ret;
+
+	if (proxy->is_ready) {
+		ret = xf_cmd_send_resume(proxy);
+		if (ret) {
+			dev_err(dev, "hifi4 resume fail\n");
+			return ret;
+		}
+	}
 
 	return 0;
 }

@@ -135,8 +135,15 @@ struct xf_message *xf_msg_received(struct xf_proxy *proxy,
 {
 	struct xf_message *m;
 
+	/* ...acquire global lock */
+	xf_lock(&proxy->lock);
+
 	/* ...try to peek message from the queue */
 	m = xf_msg_dequeue(queue);
+	if (m == NULL) {
+		/* ...queue is empty; release lock */
+		xf_unlock(&proxy->lock);
+	}
 
 	/* ...if message is non-null, lock is held */
 	return m;
@@ -248,6 +255,10 @@ irqreturn_t fsl_hifi4_mu_isr(int irq, void *dev_id)
 		case ICM_CORE_READY:
 			send_dpu_ext_msg_addr(proxy);
 			proxy->is_ready = 1;
+			complete(&proxy->cmd_complete);
+			break;
+		case XF_SUSPEND:
+		case XF_RESUME:
 			complete(&proxy->cmd_complete);
 			break;
 		default:
@@ -371,6 +382,7 @@ static u32 xf_shmem_process_responses(struct xf_proxy *proxy)
 		m->opcode = response->opcode;
 		m->length = response->length;
 		m->buffer = xf_proxy_a2b(proxy, response->address);
+		m->ret = response->ret;
 
 		/* ...advance local reading index copy */
 		read_idx = XF_QUEUE_ADVANCE_IDX(read_idx);
@@ -416,6 +428,7 @@ static u32 xf_shmem_process_commands(struct xf_proxy *proxy)
 		command->opcode = m->opcode;
 		command->length = m->length;
 		command->address = xf_proxy_b2a(proxy, m->buffer);
+		command->ret = m->ret;
 
 		/* ...return message back to the pool */
 		xf_msg_free(proxy, m);
@@ -426,6 +439,9 @@ static u32 xf_shmem_process_commands(struct xf_proxy *proxy)
 		/* ...update shared copy of queue write pointer */
 		XF_PROXY_WRITE(proxy, cmd_write_idx, write_idx);
 	}
+
+	if (status)
+		icm_intr_send(proxy, 0);
 
 	return status;
 }
@@ -490,8 +506,10 @@ int xf_proxy_init(struct xf_proxy *proxy)
 	/* ...initialize shared memory interface */
 	XF_PROXY_WRITE(proxy, cmd_read_idx, 0);
 	XF_PROXY_WRITE(proxy, cmd_write_idx, 0);
+	XF_PROXY_WRITE(proxy, cmd_invalid, 0);
 	XF_PROXY_WRITE(proxy, rsp_read_idx, 0);
 	XF_PROXY_WRITE(proxy, rsp_write_idx, 0);
+	XF_PROXY_WRITE(proxy, rsp_invalid, 0);
 
 	return 0;
 }
@@ -636,6 +654,49 @@ int xf_cmd_free(struct xf_proxy *proxy, void *buffer, u32 length)
 
 	/* ...free message and release proxy lock */
 	xf_msg_free(proxy, m);
+
+	return ret;
+}
+
+/*
+ * suspend & resume functions
+ */
+int xf_cmd_send_suspend(struct xf_proxy *proxy)
+{
+	union icm_header_t msghdr;
+	int ret = 0;
+
+	init_completion(&proxy->cmd_complete);
+
+	msghdr.allbits = 0;	/* clear all bits; */
+	msghdr.ack  = 0;
+	msghdr.intr = 1;
+	msghdr.msg  = XF_SUSPEND;
+	msghdr.size = 0;
+	icm_intr_send(proxy, msghdr.allbits);
+
+	/* wait for response here */
+	ret = icm_ack_wait(proxy, msghdr.allbits);
+
+	return ret;
+}
+
+int xf_cmd_send_resume(struct xf_proxy *proxy)
+{
+	union icm_header_t msghdr;
+	int ret = 0;
+
+	init_completion(&proxy->cmd_complete);
+
+	msghdr.allbits = 0;	/* clear all bits; */
+	msghdr.ack  = 0;
+	msghdr.intr = 1;
+	msghdr.msg  = XF_RESUME;
+	msghdr.size = 0;
+	icm_intr_send(proxy, msghdr.allbits);
+
+	/* wait for response here */
+	ret = icm_ack_wait(proxy, msghdr.allbits);
 
 	return ret;
 }

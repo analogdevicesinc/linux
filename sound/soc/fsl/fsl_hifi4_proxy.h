@@ -85,15 +85,18 @@ enum icm_action_t {
 	ICM_CORE_READY = 1,
 	ICM_CORE_INIT,
 	ICM_CORE_EXIT,
-	ICM_SUSPEND,
-	ICM_RESUME,
 };
 
 /* ...adjust IPC client of message going from user-space */
 #define XF_MSG_AP_FROM_USER(id, client) (((id) & ~(0xF << 2)) | (client << 2))
 
+/* ...message id contains source and destination ports specification */
+#define __XF_MSG_ID(src, dst)   (((src) & 0xFFFF) | (((dst) & 0xFFFF) << 16))
+
 /* ...wipe out IPC client from message going to user-space */
-#define XF_MSG_AP_TO_USER(id) ((id) & ~(0xF << 18))
+#define XF_MSG_AP_TO_USER(id)   ((id) & ~(0xF << 18))
+#define __XF_AP_PROXY(core)     ((core) | 0x8000)
+#define __XF_DSP_PROXY(core)    ((core) | 0x8000)
 
 /* ...message id contains source and destination ports specification */
 #define __XF_MSG_ID(src, dst)   (((src) & 0xFFFF) | (((dst) & 0xFFFF) << 16))
@@ -143,7 +146,7 @@ enum icm_action_t {
 
 /* ...increment ring-buffer index */
 #define XF_QUEUE_ADVANCE_IDX(idx)       \
-		(((idx) + 1) & (0xFFFF0000 | XF_PROXY_MESSAGE_QUEUE_MASK))
+		(((idx) + 0x10001) & (0xFFFF0000 | XF_PROXY_MESSAGE_QUEUE_MASK))
 
 /* ...test if ring buffer is empty */
 #define XF_QUEUE_EMPTY(read, write)     \
@@ -168,6 +171,9 @@ struct xf_proxy_host_data {
 
 	/* ...reading index for response queue */
 	u32                 rsp_read_idx;
+
+	/* ...indicate command queue is valid or not */
+	u32                 cmd_invalid;
 };
 
 /* ...data managed by DSP (local) */
@@ -181,6 +187,8 @@ struct xf_proxy_dsp_data {
 	/* ...reading index for command queue */
 	u32                 cmd_read_idx;
 
+	/* ...indicate response queue is valid or not */
+	u32                 rsp_invalid;
 };
 
 /* ...shared memory data */
@@ -222,11 +230,17 @@ struct xf_shmem_data {
 #define __XF_PROXY_READ_cmd_read_idx(shmem)         \
 		shmem->remote.cmd_read_idx
 
+#define __XF_PROXY_READ_cmd_invalid(shmem)            \
+		__XF_PROXY_READ_ATOMIC(shmem->local.cmd_invalid)
+
 #define __XF_PROXY_READ_rsp_write_idx(shmem)        \
 		__XF_PROXY_READ_ATOMIC(shmem->remote.rsp_write_idx)
 
 #define __XF_PROXY_READ_rsp_read_idx(shmem)         \
 		shmem->local.rsp_read_idx
+
+#define __XF_PROXY_READ_rsp_invalid(shmem)            \
+		__XF_PROXY_READ_ATOMIC(shmem->remote.rsp_invalid)
 
 /* ...individual fields writings */
 #define __XF_PROXY_WRITE_cmd_write_idx(shmem, v)    \
@@ -235,11 +249,17 @@ struct xf_shmem_data {
 #define __XF_PROXY_WRITE_cmd_read_idx(shmem, v)     \
 		__XF_PROXY_WRITE_ATOMIC(shmem->remote.cmd_read_idx, v)
 
+#define __XF_PROXY_WRITE_cmd_invalid(shmem, v)     \
+		__XF_PROXY_WRITE_ATOMIC(shmem->local.cmd_invalid, v)
+
 #define __XF_PROXY_WRITE_rsp_read_idx(shmem, v)     \
 		__XF_PROXY_WRITE_ATOMIC(shmem->local.rsp_read_idx, v)
 
 #define __XF_PROXY_WRITE_rsp_write_idx(shmem, v)    \
 		__XF_PROXY_WRITE_ATOMIC(shmem->remote.rsp_write_idx, v)
+
+#define __XF_PROXY_WRITE_rsp_invalid(shmem, v)     \
+		__XF_PROXY_WRITE_ATOMIC(shmem->remote.rsp_invalid, v)
 
 /* ...command buffer accessor */
 #define XF_PROXY_COMMAND(proxy, idx)                \
@@ -377,5 +397,8 @@ u32 xf_proxy_b2a(struct xf_proxy *proxy, void *b);
 
 /* ...shared memory translation - shared address to kernel virtual address */
 void *xf_proxy_a2b(struct xf_proxy *proxy, u32 address);
+
+int xf_cmd_send_suspend(struct xf_proxy *proxy);
+int xf_cmd_send_resume(struct xf_proxy *proxy);
 
 #endif
