@@ -291,7 +291,6 @@ static const struct iio_chan_spec adxl372_channels[] = {
 	ADXL372_ACCEL_CHANNEL(0, ADXL372_X_DATA_H, X),
 	ADXL372_ACCEL_CHANNEL(1, ADXL372_Y_DATA_H, Y),
 	ADXL372_ACCEL_CHANNEL(2, ADXL372_Z_DATA_H, Z),
-	IIO_CHAN_SOFT_TIMESTAMP(3),
 };
 
 struct adxl372_state {
@@ -596,9 +595,7 @@ static irqreturn_t adxl372_trigger_handler(int irq, void  *p)
 			goto err;
 
 		for (i = 0; i < fifo_entries * 2; i += st->fifo_set_size * 2)
-			iio_push_to_buffers_with_timestamp(indio_dev,
-						&st->fifo_buf[i],
-						iio_get_time_ns(indio_dev));
+			iio_push_to_buffers(indio_dev, &st->fifo_buf[i]);
 	}
 err:
 	iio_trigger_notify_done(indio_dev->trig);
