@@ -25,18 +25,12 @@
 #ifndef __MXC_HIFI4_UAPI_H__
 #define __MXC_HIFI4_UAPI_H__
 
-#define HIFI4_IOC_MAGIC		'H'
-#define HIFI4_LOAD_CODEC		_IOWR(HIFI4_IOC_MAGIC, 0, unsigned int)
-#define HIFI4_INIT_CODEC		_IOWR(HIFI4_IOC_MAGIC, 1, unsigned int)
-#define HIFI4_CODEC_OPEN		_IOWR(HIFI4_IOC_MAGIC, 2, unsigned int)
-#define HIFI4_CODEC_CLOSE		_IOWR(HIFI4_IOC_MAGIC, 3, unsigned int)
-#define HIFI4_DECODE_ONE_FRAME		_IOW(HIFI4_IOC_MAGIC, 4, unsigned int)
-#define HIFI4_UNLOAD_CODEC		_IOW(HIFI4_IOC_MAGIC, 5, unsigned int)
-#define HIFI4_GET_PCM_PROP		_IOW(HIFI4_IOC_MAGIC, 6, unsigned int)
-#define HIFI4_SET_CONFIG		_IOW(HIFI4_IOC_MAGIC, 7, unsigned int)
-#define HIFI4_RESET_CODEC		_IOW(HIFI4_IOC_MAGIC, 8, unsigned int)
-#define HIFI4_CLIENT_REGISTER		_IOW(HIFI4_IOC_MAGIC, 9, unsigned int)
-#define HIFI4_CLIENT_UNREGISTER		_IOW(HIFI4_IOC_MAGIC, 10, unsigned int)
+#define DSP_IOC_MAGIC		'H'
+#define DSP_CLIENT_REGISTER   _IOW(DSP_IOC_MAGIC, 0, unsigned int)
+#define DSP_CLIENT_UNREGISTER _IOW(DSP_IOC_MAGIC, 1, unsigned int)
+#define DSP_IPC_MSG_SEND      _IOW(DSP_IOC_MAGIC, 2, unsigned int)
+#define DSP_IPC_MSG_RECV      _IOW(DSP_IOC_MAGIC, 3, unsigned int)
+#define DSP_GET_SHMEM_INFO    _IOW(DSP_IOC_MAGIC, 4, unsigned int)
 
 #define CODEC_MP3_DEC		1
 #define CODEC_AAC_DEC		2
@@ -105,6 +99,13 @@ enum HIFI_ParaType {
 	XA_SBC_ENC_BITPOOL,
 	XA_SBC_ENC_CHMODE,
 
+/* Get parmameters */
+	XA_CODEC_DESCRIPTION = 0x200,
+	XA_OUTPUT_PCM_FORMAT,
+	XA_CONSUMED_LENGTH,
+	XA_OUTBUF_ALLOC_SIZE,
+	XA_CONSUMED_CYCLES,
+
 };
 
 #define HIFI_STREAM_DABPLUS_BASE  0x30
@@ -136,45 +137,9 @@ enum HIFI_SbcEncChmode {
 	XA_CHMODE_JOINT =  3,
 };
 
-enum lib_type {
-	HIFI_CODEC_LIB = 1,
-	HIFI_CODEC_WRAP_LIB,
-};
-
-struct decode_info {
-	void *in_buf_addr;
-	int   in_buf_size;
-	int   in_buf_off;
-	void *out_buf_addr;
-	int   out_buf_size;
-	int   out_buf_off;
-	unsigned int input_over;
-	unsigned int process_id;
-};
-
-struct prop_info {
-	int   samplerate;
-	int   channels;
-	int   bits;
-	unsigned int consumed_bytes;
-	unsigned int cycles;
-
-	unsigned int process_id;
-};
-
-struct binary_info {
-	int type;
-	char *file;
-	unsigned int process_id;
-	unsigned int lib_type;
-};
-
-struct prop_config {
-	int   codec_id;  /* codec id */
-	int   cmd;       /* command value */
-	int   val;       /* parameter value */
-	int   ret;       /* executed status of function */
-	unsigned int process_id;
+struct shmem_info {
+	unsigned int phys_addr;
+	unsigned int size;
 };
 
 #endif/* __MXC_HIFI4_UAPI_H__ */
