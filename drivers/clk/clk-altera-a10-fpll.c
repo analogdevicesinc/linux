@@ -284,6 +284,7 @@ static int altera_a10_fpll_set_rate(struct clk_hw *clk_hw, unsigned long rate,
 	unsigned long parent_rate)
 {
 	struct altera_a10_fpll *fpll = clk_hw_to_altera_a10_fpll(clk_hw);
+	unsigned int feedback;
 	unsigned int n, m, c0;
 	unsigned long fvco;
 	unsigned int div0, div1;
@@ -319,9 +320,16 @@ static int altera_a10_fpll_set_rate(struct clk_hw *clk_hw, unsigned long rate,
 	altera_a10_fpll_update(fpll, 0x134, 0x70, (cpc & 0x7) << 4);
 	altera_a10_fpll_update(fpll, 0x135, 0x07, (cpc & 0x38) >> 3);
 
+	/* Calibration needs to run with internal feedback */
+	feedback = altera_a10_fpll_read(fpll, 0x126);
+	altera_a10_fpll_write(fpll, 0x126, feedback | 1);
+
 	altera_a10_fpll_update(fpll, 0x100, 0x2, 0x2);
 	altera_a10_release_arbitration(fpll, true);
 	altera_a10_fpll_pll_calibration_check(fpll);
+
+	/* Restore original feedback configuration */
+	altera_a10_fpll_write(fpll, 0x126, feedback);
 
 	fpll->initial_recalc = false;
 
