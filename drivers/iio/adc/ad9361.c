@@ -3878,8 +3878,13 @@ out:
 }
 
 static int ad9361_validate_trx_clock_chain(struct ad9361_rf_phy *phy,
-				      unsigned long *rx_path_clks)
+					   unsigned long *rx_path_clks,
+					   unsigned long *tx_path_clks)
 {
+	const unsigned long max_rx_rates[] = {MAX_BBPLL_FREQ, MAX_ADC_CLK,
+		MAX_RX_HB3, MAX_RX_HB2, MAX_RX_HB1, MAX_BASEBAND_RATE};
+	const unsigned long max_tx_rates[] = {MAX_BBPLL_FREQ, MAX_DAC_CLK,
+		MAX_TX_HB3, MAX_TX_HB2, MAX_TX_HB1, MAX_BASEBAND_RATE};
 	int i, data_clk;
 
 	data_clk = (phy->pdata->rx2tx2 ? 4 : 2) /
@@ -3894,6 +3899,24 @@ static int ad9361_validate_trx_clock_chain(struct ad9361_rf_phy *phy,
 		return -EINVAL;
 	}
 
+	/* Validate MAX PLL, ADC, DAC and HB filter rates */
+	for (i = 0; i < ARRAY_SIZE(max_rx_rates); i++) {
+		if (rx_path_clks[i] > max_rx_rates[i]) {
+			dev_err(&phy->spi->dev,
+				"%s: Failed RX max rate check (%lu > %lu)",
+				__func__, rx_path_clks[i], max_rx_rates[i]);
+			return -EINVAL;
+		}
+
+		if (tx_path_clks[i] > max_tx_rates[i]) {
+			dev_err(&phy->spi->dev,
+				"%s: Failed TX max rate check (%lu > %lu)",
+				__func__, tx_path_clks[i], max_tx_rates[i]);
+			return -EINVAL;
+		}
+	}
+
+	/* Validate that DATA_CLK exist within the clock chain */
 	for (i = 1; i <= 3; i++) {
 		if (abs(rx_path_clks[ADC_FREQ] / i - data_clk) < 4)
 			return 0;
@@ -3932,7 +3955,7 @@ static int ad9361_set_trx_clock_chain(struct ad9361_rf_phy *phy,
 		tx_path_clks[R2_FREQ], tx_path_clks[R1_FREQ],
 		tx_path_clks[CLKRF_FREQ], tx_path_clks[RX_SAMPL_FREQ]);
 
-	ret = ad9361_validate_trx_clock_chain(phy, rx_path_clks);
+	ret = ad9361_validate_trx_clock_chain(phy, rx_path_clks, tx_path_clks);
 	if (ret < 0)
 		return ret;
 
