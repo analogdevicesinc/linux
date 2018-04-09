@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2016 Freescale Semiconductor, Inc.
- * Copyright 2017 NXP
+ * Copyright 2017-2018 NXP
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -315,6 +315,7 @@ static const struct dpu_unit fls_v2 = {
 	.ids = fl_ids,
 	.pec_ofss = fl_pec_ofss_v2,
 	.ofss = fl_ofss_v2,
+	.dprc_ids = fl_dprc_ids,
 };
 
 static const struct dpu_unit hss_v1 = {
@@ -720,6 +721,7 @@ static int dpu_submodules_init(struct dpu_soc *dpu,
 {
 	const struct dpu_devtype *devtype = dpu->devtype;
 	const struct dpu_unit *fds = devtype->fds;
+	const struct dpu_unit *fls = devtype->fls;
 
 	DPU_UNITS_INIT(cf);
 	DPU_UNITS_INIT(dec);
@@ -736,6 +738,7 @@ static int dpu_submodules_init(struct dpu_soc *dpu,
 	/* get DPR channel for submodules */
 	if (devtype->has_prefetch) {
 		struct dpu_fetchdecode *fd;
+		struct dpu_fetchlayer *fl;
 		struct dprc *dprc;
 		int i;
 
@@ -749,6 +752,18 @@ static int dpu_submodules_init(struct dpu_soc *dpu,
 			fd = dpu_fd_get(dpu, i);
 			fetchdecode_get_dprc(fd, dprc);
 			dpu_fd_put(fd);
+		}
+
+		for (i = 0; i < fls->num; i++) {
+			dprc = dprc_lookup_by_phandle(dpu->dev,
+						      "fsl,dpr-channels",
+						      fls->dprc_ids[i]);
+			if (!dprc)
+				return -EPROBE_DEFER;
+
+			fl = dpu_fl_get(dpu, i);
+			fetchlayer_get_dprc(fl, dprc);
+			dpu_fl_put(fl);
 		}
 	}
 
@@ -1263,6 +1278,18 @@ irq_set_chained_handler_and_data(dpu->irq_##name, NULL, NULL)
 	irq_domain_remove(dpu->domain);
 }
 
+static irqreturn_t dpu_dpr0_irq_handler(int irq, void *desc)
+{
+	struct dpu_soc *dpu = desc;
+	const struct dpu_unit *fls = dpu->devtype->fls;
+	int i;
+
+	for (i = 0; i < fls->num; i++)
+		fetchlayer_prefetch_irq_handle(dpu->fl_priv[i]);
+
+	return IRQ_HANDLED;
+}
+
 static irqreturn_t dpu_dpr1_irq_handler(int irq, void *desc)
 {
 	struct dpu_soc *dpu = desc;
@@ -1540,6 +1567,13 @@ static int dpu_probe(struct platform_device *pdev)
 
 		if (dpu->irq_dpr0 < 0 || dpu->irq_dpr1 < 0)
 			return -ENODEV;
+
+		ret = devm_request_irq(dpu->dev, dpu->irq_dpr0,
+				dpu_dpr0_irq_handler, 0, pdev->name, dpu);
+		if (ret) {
+			dev_err(dpu->dev, "request dpr0 interrupt failed\n");
+			return ret;
+		}
 
 		ret = devm_request_irq(dpu->dev, dpu->irq_dpr1,
 				dpu_dpr1_irq_handler, 0, pdev->name, dpu);

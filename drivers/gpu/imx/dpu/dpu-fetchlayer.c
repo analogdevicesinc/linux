@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2016 Freescale Semiconductor, Inc.
- * Copyright 2017 NXP
+ * Copyright 2017-2018 NXP
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -19,6 +19,7 @@
 #include <linux/platform_device.h>
 #include <linux/types.h>
 #include <video/dpu.h>
+#include <video/imx8-prefetch.h>
 #include "dpu-prv.h"
 
 #define PIXENGCFG_STATUS		0x8
@@ -54,9 +55,13 @@ struct dpu_fetchlayer {
 	struct mutex mutex;
 	int id;
 	bool inuse;
+	bool pin_off;
 	struct dpu_soc *dpu;
 	fetchtype_t fetchtype;
 	shadow_load_req_t shdlreq;
+	/* see DPU_PLANE_SRC_xxx */
+	unsigned int stream_id;
+	struct dprc *dprc;
 };
 
 static inline u32 dpu_fl_read(struct dpu_fetchlayer *fl, unsigned int offset)
@@ -107,6 +112,186 @@ void fetchlayer_baddr_autoupdate(struct dpu_fetchlayer *fl, u8 layer_mask)
 	mutex_unlock(&fl->mutex);
 }
 EXPORT_SYMBOL_GPL(fetchlayer_baddr_autoupdate);
+
+void fetchlayer_shdldreq_sticky(struct dpu_fetchlayer *fl, u8 layer_mask)
+{
+	u32 val;
+
+	mutex_lock(&fl->mutex);
+	val = dpu_fl_read(fl, STATICCONTROL);
+	val &= ~SHDLDREQSTICKY_MASK;
+	val |= SHDLDREQSTICKY(layer_mask);
+	dpu_fl_write(fl, val, STATICCONTROL);
+	mutex_unlock(&fl->mutex);
+}
+EXPORT_SYMBOL_GPL(fetchlayer_shdldreq_sticky);
+
+void fetchlayer_set_burstlength(struct dpu_fetchlayer *fl, dma_addr_t baddr,
+				bool use_prefetch)
+{
+	struct dpu_soc *dpu = fl->dpu;
+	unsigned int burst_size, burst_length;
+	u32 val;
+
+	if (use_prefetch) {
+		/*
+		 * address TKT343664:
+		 * fetch unit base address has to align to burst size
+		 */
+		burst_size = 1 << (ffs(baddr) - 1);
+		burst_size = min(burst_size, 128U);
+		burst_length = burst_size / 8;
+	} else {
+		burst_length = 16;
+	}
+
+	mutex_lock(&fl->mutex);
+	val = dpu_fl_read(fl, BURSTBUFFERMANAGEMENT);
+	val &= ~SETBURSTLENGTH_MASK;
+	val |= SETBURSTLENGTH(burst_length);
+	dpu_fl_write(fl, val, BURSTBUFFERMANAGEMENT);
+	mutex_unlock(&fl->mutex);
+
+	dev_dbg(dpu->dev, "FetchLayer%d burst length is %u\n",
+							fl->id, burst_length);
+}
+EXPORT_SYMBOL_GPL(fetchlayer_set_burstlength);
+
+void fetchlayer_baseaddress(struct dpu_fetchlayer *fl, unsigned int index,
+			    dma_addr_t paddr)
+{
+	mutex_lock(&fl->mutex);
+	dpu_fl_write(fl, paddr, BASEADDRESS(index));
+	mutex_unlock(&fl->mutex);
+}
+EXPORT_SYMBOL_GPL(fetchlayer_baseaddress);
+
+void fetchlayer_source_bpp(struct dpu_fetchlayer *fl, unsigned int index,
+			   int bpp)
+{
+	u32 val;
+
+	mutex_lock(&fl->mutex);
+	val = dpu_fl_read(fl, SOURCEBUFFERATTRIBUTES(index));
+	val &= ~0x3f0000;
+	val |= BITSPERPIXEL(bpp);
+	dpu_fl_write(fl, val, SOURCEBUFFERATTRIBUTES(index));
+	mutex_unlock(&fl->mutex);
+}
+EXPORT_SYMBOL_GPL(fetchlayer_source_bpp);
+
+void fetchlayer_source_stride(struct dpu_fetchlayer *fl, unsigned int index,
+			      unsigned int width, int bpp, unsigned int stride,
+			      dma_addr_t baddr, bool use_prefetch)
+{
+	unsigned int burst_size;
+	u32 val;
+
+	if (use_prefetch) {
+		/*
+		 * address TKT343664:
+		 * fetch unit base address has to align to burst size
+		 */
+		burst_size = 1 << (ffs(baddr) - 1);
+		burst_size = min(burst_size, 128U);
+
+		stride = width * (bpp >> 3);
+		/*
+		 * address TKT339017:
+		 * fixup for burst size vs stride mismatch
+		 */
+		stride = round_up(stride, burst_size);
+	}
+
+	mutex_lock(&fl->mutex);
+	val = dpu_fl_read(fl, SOURCEBUFFERATTRIBUTES(index));
+	val &= ~0xffff;
+	val |= STRIDE(stride);
+	dpu_fl_write(fl, val, SOURCEBUFFERATTRIBUTES(index));
+	mutex_unlock(&fl->mutex);
+}
+EXPORT_SYMBOL_GPL(fetchlayer_source_stride);
+
+void fetchlayer_src_buf_dimensions(struct dpu_fetchlayer *fl,
+				   unsigned int index, unsigned int w,
+				   unsigned int h)
+{
+	u32 val;
+
+	val = LINEWIDTH(w) | LINECOUNT(h);
+
+	mutex_lock(&fl->mutex);
+	dpu_fl_write(fl, val, SOURCEBUFFERDIMENSION(index));
+	mutex_unlock(&fl->mutex);
+}
+EXPORT_SYMBOL_GPL(fetchlayer_src_buf_dimensions);
+
+void fetchlayer_set_fmt(struct dpu_fetchlayer *fl, unsigned int index, u32 fmt)
+{
+	u32 val, bits, shift;
+	int i;
+
+	mutex_lock(&fl->mutex);
+	val = dpu_fl_read(fl, LAYERPROPERTY(index));
+	val &= ~YUVCONVERSIONMODE_MASK;
+	val |= YUVCONVERSIONMODE(YUVCONVERSIONMODE__OFF);
+	dpu_fl_write(fl, val, LAYERPROPERTY(index));
+	mutex_unlock(&fl->mutex);
+
+	for (i = 0; i < ARRAY_SIZE(dpu_pixel_format_matrix); i++) {
+		if (dpu_pixel_format_matrix[i].pixel_format == fmt) {
+			bits = dpu_pixel_format_matrix[i].bits;
+			shift = dpu_pixel_format_matrix[i].shift;
+
+			mutex_lock(&fl->mutex);
+			dpu_fl_write(fl, bits, COLORCOMPONENTBITS(index));
+			dpu_fl_write(fl, shift, COLORCOMPONENTSHIFT(index));
+			mutex_unlock(&fl->mutex);
+			return;
+		}
+	}
+
+	WARN_ON(1);
+}
+EXPORT_SYMBOL_GPL(fetchlayer_set_fmt);
+
+void fetchlayer_source_buffer_enable(struct dpu_fetchlayer *fl,
+				     unsigned int index)
+{
+	u32 val;
+
+	mutex_lock(&fl->mutex);
+	val = dpu_fl_read(fl, LAYERPROPERTY(index));
+	val |= SOURCEBUFFERENABLE;
+	dpu_fl_write(fl, val, LAYERPROPERTY(index));
+	mutex_unlock(&fl->mutex);
+}
+EXPORT_SYMBOL_GPL(fetchlayer_source_buffer_enable);
+
+void fetchlayer_source_buffer_disable(struct dpu_fetchlayer *fl,
+				      unsigned int index)
+{
+	u32 val;
+
+	mutex_lock(&fl->mutex);
+	val = dpu_fl_read(fl, LAYERPROPERTY(index));
+	val &= ~SOURCEBUFFERENABLE;
+	dpu_fl_write(fl, val, LAYERPROPERTY(index));
+	mutex_unlock(&fl->mutex);
+}
+EXPORT_SYMBOL_GPL(fetchlayer_source_buffer_disable);
+
+bool fetchlayer_is_enabled(struct dpu_fetchlayer *fl, unsigned int index)
+{
+	u32 val;
+
+	mutex_lock(&fl->mutex);
+	val = dpu_fl_read(fl, LAYERPROPERTY(index));
+	mutex_unlock(&fl->mutex);
+
+	return !!(val & SOURCEBUFFERENABLE);
+}
+EXPORT_SYMBOL_GPL(fetchlayer_is_enabled);
 
 void fetchlayer_framedimensions(struct dpu_fetchlayer *fl, unsigned int w,
 				unsigned int h)
@@ -218,6 +403,156 @@ int fetchlayer_fetchtype(struct dpu_fetchlayer *fl, fetchtype_t *type)
 }
 EXPORT_SYMBOL_GPL(fetchlayer_fetchtype);
 
+unsigned int fetchlayer_get_stream_id(struct dpu_fetchlayer *fl)
+{
+	return fl->stream_id;
+}
+EXPORT_SYMBOL_GPL(fetchlayer_get_stream_id);
+
+void fetchlayer_set_stream_id(struct dpu_fetchlayer *fl, unsigned int id)
+{
+	switch (id) {
+	case DPU_PLANE_SRC_TO_DISP_STREAM0:
+	case DPU_PLANE_SRC_TO_DISP_STREAM1:
+	case DPU_PLANE_SRC_DISABLED:
+		fl->stream_id = id;
+		break;
+	default:
+		WARN_ON(1);
+	}
+}
+EXPORT_SYMBOL_GPL(fetchlayer_set_stream_id);
+
+void
+fetchlayer_configure_prefetch(struct dpu_fetchlayer *fl, unsigned int stream_id,
+			      unsigned int width, unsigned int height,
+			      unsigned int x_offset, unsigned int y_offset,
+			      unsigned int stride, u32 format, u64 modifier,
+			      unsigned long baddr, bool start)
+{
+	if (WARN_ON(!fl || !fl->dprc))
+		return;
+
+	dprc_configure(fl->dprc,
+			stream_id, width, height, x_offset, y_offset, stride,
+			format, modifier, baddr, 0, start, false);
+}
+EXPORT_SYMBOL_GPL(fetchlayer_configure_prefetch);
+
+void fetchlayer_enable_prefetch(struct dpu_fetchlayer *fl)
+{
+	if (WARN_ON(!fl || !fl->dprc))
+		return;
+
+	dprc_enable(fl->dprc);
+}
+EXPORT_SYMBOL_GPL(fetchlayer_enable_prefetch);
+
+void fetchlayer_disable_prefetch(struct dpu_fetchlayer *fl)
+{
+	if (WARN_ON(!fl || !fl->dprc))
+		return;
+
+	dprc_disable(fl->dprc);
+}
+EXPORT_SYMBOL_GPL(fetchlayer_disable_prefetch);
+
+void fetchlayer_reg_update_prefetch(struct dpu_fetchlayer *fl)
+{
+	if (WARN_ON(!fl || !fl->dprc))
+		return;
+
+	dprc_reg_update(fl->dprc);
+}
+EXPORT_SYMBOL_GPL(fetchlayer_reg_update_prefetch);
+
+void fetchlayer_prefetch_first_frame_handle(struct dpu_fetchlayer *fl)
+{
+	if (WARN_ON(!fl || !fl->dprc))
+		return;
+
+	dprc_first_frame_handle(fl->dprc);
+}
+EXPORT_SYMBOL_GPL(fetchlayer_prefetch_first_frame_handle);
+
+void fetchlayer_prefetch_irq_handle(struct dpu_fetchlayer *fl)
+{
+	if (WARN_ON(!fl || !fl->dprc))
+		return;
+
+	dprc_irq_handle(fl->dprc);
+}
+EXPORT_SYMBOL_GPL(fetchlayer_prefetch_irq_handle);
+
+void fetchlayer_prefetch_enable_first_frame_irq(struct dpu_fetchlayer *fl)
+{
+	if (WARN_ON(!fl || !fl->dprc))
+		return;
+
+	dprc_enable_ctrl_done_irq(fl->dprc);
+}
+EXPORT_SYMBOL_GPL(fetchlayer_prefetch_enable_first_frame_irq);
+
+bool fetchlayer_has_prefetch(struct dpu_fetchlayer *fl)
+{
+	return !!fl->dprc;
+}
+EXPORT_SYMBOL_GPL(fetchlayer_has_prefetch);
+
+bool fetchlayer_prefetch_format_supported(struct dpu_fetchlayer *fl,
+					  u32 format, u64 modifier)
+{
+	if (WARN_ON(!fl || !fl->dprc))
+		return false;
+
+	return dprc_format_supported(fl->dprc, format, modifier);
+}
+EXPORT_SYMBOL_GPL(fetchlayer_prefetch_format_supported);
+
+bool fetchlayer_prefetch_stride_supported(struct dpu_fetchlayer *fl,
+					  unsigned int stride,
+					  unsigned int width,
+					  u32 format)
+{
+	if (WARN_ON(!fl || !fl->dprc))
+		return false;
+
+	return dprc_stride_supported(fl->dprc, stride, 0, width, format);
+}
+EXPORT_SYMBOL_GPL(fetchlayer_prefetch_stride_supported);
+
+bool fetchlayer_prefetch_stride_double_check(struct dpu_fetchlayer *fl,
+					     unsigned int stride,
+					     unsigned int width,
+					     u32 format,
+					     dma_addr_t baseaddr)
+{
+	if (WARN_ON(!fl || !fl->dprc))
+		return false;
+
+	return dprc_stride_double_check(fl->dprc, stride, 0, width, format,
+					baseaddr, 0);
+}
+EXPORT_SYMBOL_GPL(fetchlayer_prefetch_stride_double_check);
+
+void fetchlayer_pin_off(struct dpu_fetchlayer *fl)
+{
+	fl->pin_off = true;
+}
+EXPORT_SYMBOL_GPL(fetchlayer_pin_off);
+
+void fetchlayer_unpin_off(struct dpu_fetchlayer *fl)
+{
+	fl->pin_off = false;
+}
+EXPORT_SYMBOL_GPL(fetchlayer_unpin_off);
+
+bool fetchlayer_is_pinned_off(struct dpu_fetchlayer *fl)
+{
+	return fl->pin_off;
+}
+EXPORT_SYMBOL_GPL(fetchlayer_is_pinned_off);
+
 struct dpu_fetchlayer *dpu_fl_get(struct dpu_soc *dpu, int id)
 {
 	struct dpu_fetchlayer *fl;
@@ -259,6 +594,28 @@ EXPORT_SYMBOL_GPL(dpu_fl_put);
 
 void _dpu_fl_init(struct dpu_soc *dpu, unsigned int id)
 {
+	struct dpu_fetchlayer *fl;
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(fl_ids); i++)
+		if (fl_ids[i] == id)
+			break;
+
+	if (WARN_ON(i == ARRAY_SIZE(fl_ids)))
+		return;
+
+	fl = dpu->fl_priv[i];
+
+	fetchlayer_baddr_autoupdate(fl, 0x0);
+	fetchlayer_shden(fl, true);
+	fetchlayer_shdldreq_sticky(fl, 0xFF);
+	for (i = 0; i < DPU_FRAC_PLANE_LAYER_NUM; i++)
+		fetchlayer_source_buffer_disable(fl, i);
+
+	mutex_lock(&fl->mutex);
+	dpu_fl_write(fl, SETNUMBUFFERS(16) | SETBURSTLENGTH(16),
+			BURSTBUFFERMANAGEMENT);
+	mutex_unlock(&fl->mutex);
 }
 
 int dpu_fl_init(struct dpu_soc *dpu, unsigned int id,
@@ -295,5 +652,15 @@ int dpu_fl_init(struct dpu_soc *dpu, unsigned int id,
 	if (ret < 0)
 		return ret;
 
+	_dpu_fl_init(dpu, id);
+
 	return 0;
+}
+
+void fetchlayer_get_dprc(struct dpu_fetchlayer *fl, void *data)
+{
+	if (WARN_ON(!fl))
+		return;
+
+	fl->dprc = data;
 }

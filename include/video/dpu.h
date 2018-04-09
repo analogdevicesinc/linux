@@ -580,6 +580,25 @@ void dpu_fe_put(struct dpu_fetcheco *fe);
 struct dpu_fetchlayer;
 void fetchlayer_shden(struct dpu_fetchlayer *fl, bool enable);
 void fetchlayer_baddr_autoupdate(struct dpu_fetchlayer *fl, u8 layer_mask);
+void fetchlayer_shdldreq_sticky(struct dpu_fetchlayer *fl, u8 layer_mask);
+void fetchlayer_set_burstlength(struct dpu_fetchlayer *fl, dma_addr_t baddr,
+				bool use_prefetch);
+void fetchlayer_baseaddress(struct dpu_fetchlayer *fl, unsigned int index,
+			    dma_addr_t paddr);
+void fetchlayer_source_bpp(struct dpu_fetchlayer *fl, unsigned int index,
+			   int bpp);
+void fetchlayer_source_stride(struct dpu_fetchlayer *fl, unsigned int index,
+			      unsigned int width, int bpp, unsigned int stride,
+			      dma_addr_t baddr, bool use_prefetch);
+void fetchlayer_src_buf_dimensions(struct dpu_fetchlayer *fl,
+				   unsigned int index, unsigned int w,
+				   unsigned int h);
+void fetchlayer_set_fmt(struct dpu_fetchlayer *fl, unsigned int index, u32 fmt);
+void fetchlayer_source_buffer_enable(struct dpu_fetchlayer *fl,
+				     unsigned int index);
+void fetchlayer_source_buffer_disable(struct dpu_fetchlayer *fl,
+				      unsigned int index);
+bool fetchlayer_is_enabled(struct dpu_fetchlayer *fl, unsigned int index);
 void fetchlayer_framedimensions(struct dpu_fetchlayer *fl, unsigned int w,
 				unsigned int h);
 void fetchlayer_rgb_constantcolor(struct dpu_fetchlayer *fl,
@@ -587,6 +606,35 @@ void fetchlayer_rgb_constantcolor(struct dpu_fetchlayer *fl,
 void fetchlayer_yuv_constantcolor(struct dpu_fetchlayer *fl, u8 y, u8 u, u8 v);
 void fetchlayer_controltrigger(struct dpu_fetchlayer *fl, bool trigger);
 int fetchlayer_fetchtype(struct dpu_fetchlayer *fl, fetchtype_t *type);
+unsigned int fetchlayer_get_stream_id(struct dpu_fetchlayer *fl);
+void fetchlayer_set_stream_id(struct dpu_fetchlayer *fl, unsigned int id);
+void
+fetchlayer_configure_prefetch(struct dpu_fetchlayer *fl, unsigned int stream_id,
+			      unsigned int width, unsigned int height,
+			      unsigned int x_offset, unsigned int y_offset,
+			      unsigned int stride, u32 format, u64 modifier,
+			      unsigned long baddr, bool start);
+void fetchlayer_enable_prefetch(struct dpu_fetchlayer *fl);
+void fetchlayer_disable_prefetch(struct dpu_fetchlayer *fl);
+void fetchlayer_reg_update_prefetch(struct dpu_fetchlayer *fl);
+void fetchlayer_prefetch_first_frame_handle(struct dpu_fetchlayer *fl);
+void fetchlayer_prefetch_irq_handle(struct dpu_fetchlayer *fl);
+void fetchlayer_prefetch_enable_first_frame_irq(struct dpu_fetchlayer *fl);
+bool fetchlayer_has_prefetch(struct dpu_fetchlayer *fl);
+bool fetchlayer_prefetch_format_supported(struct dpu_fetchlayer *fl,
+					  u32 format, u64 modifier);
+bool fetchlayer_prefetch_stride_supported(struct dpu_fetchlayer *fl,
+					  unsigned int stride,
+					  unsigned int width,
+					  u32 format);
+bool fetchlayer_prefetch_stride_double_check(struct dpu_fetchlayer *fl,
+					     unsigned int stride,
+					     unsigned int width,
+					     u32 format,
+					     dma_addr_t baseaddr);
+void fetchlayer_pin_off(struct dpu_fetchlayer *fl);
+void fetchlayer_unpin_off(struct dpu_fetchlayer *fl);
+bool fetchlayer_is_pinned_off(struct dpu_fetchlayer *fl);
 struct dpu_fetchlayer *dpu_fl_get(struct dpu_soc *dpu, int id);
 void dpu_fl_put(struct dpu_fetchlayer *fl);
 

@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2016 Freescale Semiconductor, Inc.
- * Copyright 2017 NXP
+ * Copyright 2017-2018 NXP
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -20,6 +20,8 @@
 #define NA				0xDEADBEEF	/* not available */
 
 #define STATICCONTROL			0x8
+#define SHDLDREQSTICKY(lm)		(((lm) & 0xFF) << 24)
+#define SHDLDREQSTICKY_MASK		(0xFF << 24)
 #define BASEADDRESSAUTOUPDATE(lm)	(((lm) & 0xFF) << 16)
 #define BASEADDRESSAUTOUPDATE_MASK	(0xFF << 16)
 #define SHDEN				BIT(0)
@@ -130,6 +132,8 @@ typedef enum {
 } rastermode_t;
 #define SHDTOKGEN			BIT(0)
 #define FETCHTYPE_MASK			0xF
+
+#define DPU_FRAC_PLANE_LAYER_NUM	8
 
 enum {
 	DPU_V1,
@@ -275,6 +279,7 @@ DECLARE_DPU_UNIT_INIT_FUNC(tcon);
 DECLARE_DPU_UNIT_INIT_FUNC(vs);
 
 void fetchdecode_get_dprc(struct dpu_fetchdecode *fd, void *data);
+void fetchlayer_get_dprc(struct dpu_fetchlayer *fl, void *data);
 
 static const unsigned int cf_ids[] = {0, 1, 4, 5};
 static const unsigned int dec_ids[] = {0, 1};
@@ -289,6 +294,7 @@ static const unsigned int tcon_ids[] = {0, 1};
 static const unsigned int vs_ids[] = {4, 5, 9};
 
 static const unsigned int fd_dprc_ids[] = {3, 4};
+static const unsigned int fl_dprc_ids[] = {2};
 
 struct dpu_pixel_format {
 	u32 pixel_format;
