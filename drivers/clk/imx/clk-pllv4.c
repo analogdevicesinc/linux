@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2016 Freescale Semiconductor, Inc.
+ * Copyright 2017-2018 NXP.
  *
  * The code contained herein is licensed under the GNU General Public
  * License. You may obtain a copy of the GNU General Public License
@@ -127,7 +128,7 @@ static int clk_pllv4_set_rate(struct clk_hw *hw, unsigned long rate,
 
 	mult = rate / parent_rate;
 
-	if (clk_pllv4_is_valid_mult(mult))
+	if (!clk_pllv4_is_valid_mult(mult))
 		return -EINVAL;
 
 	temp64 = (u64) (rate - mult * parent_rate);

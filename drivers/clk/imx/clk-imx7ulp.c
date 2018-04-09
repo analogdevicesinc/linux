@@ -127,8 +127,8 @@ static void __init imx7ulp_clocks_init(struct device_node *scg_node)
 	clks[IMX7ULP_CLK_DDR_SEL] = imx_clk_mux2("ddr_sel", base + 0x30, 24, 1, ddr_sels, ARRAY_SIZE(ddr_sels));
 	clks[IMX7ULP_CLK_NIC_SEL] = imx_clk_mux2("nic_sel", base + 0x40, 28, 1, nic_sels, ARRAY_SIZE(nic_sels));
 
-	clks[IMX7ULP_CLK_CORE_DIV] = imx_clk_divider_flags("core_div", "sys_sel", base + 0x14, 16, 4, CLK_SET_RATE_PARENT | CLK_IS_CRITICAL);
-	clks[IMX7ULP_CLK_HSRUN_CORE] = imx_clk_divider_flags("hsrun_core", "hsrun_sys_sel", base + 0x1c, 16, 4, CLK_SET_RATE_PARENT | CLK_IS_CRITICAL);
+	clks[IMX7ULP_CLK_CORE_DIV] = imx_clk_divider_flags("core_div", "sys_sel", base + 0x14, 16, 4, CLK_SET_RATE_PARENT);
+	clks[IMX7ULP_CLK_HSRUN_CORE] = imx_clk_divider_flags("hsrun_core", "hsrun_sys_sel", base + 0x1c, 16, 4, CLK_SET_RATE_PARENT);
 
 	clks[IMX7ULP_CLK_PLAT_DIV] = imx_clk_divider("plat_div", "core_div", base + 0x14, 12, 4);
 	/* Fake mux */
