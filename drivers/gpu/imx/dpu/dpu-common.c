@@ -591,6 +591,124 @@ u32 dpu_vproc_get_vscale_cap(u32 cap_mask)
 }
 EXPORT_SYMBOL_GPL(dpu_vproc_get_vscale_cap);
 
+bool fetchunit_has_prefetch(struct dpu_fetchdecode *fd,
+			    struct dpu_fetchlayer *fl)
+{
+	if (fd)
+		return fetchdecode_has_prefetch(fd);
+	else
+		return fetchlayer_has_prefetch(fl);
+}
+EXPORT_SYMBOL_GPL(fetchunit_has_prefetch);
+
+bool fetchunit_prefetch_format_supported(struct dpu_fetchdecode *fd,
+					 struct dpu_fetchlayer *fl,
+					 u32 format, u64 modifier)
+{
+	if (fd)
+		return fetchdecode_prefetch_format_supported(fd,
+							format, modifier);
+	else
+		return fetchlayer_prefetch_format_supported(fl,
+							format, modifier);
+}
+EXPORT_SYMBOL_GPL(fetchunit_prefetch_format_supported);
+
+bool fetchunit_prefetch_stride_supported(struct dpu_fetchdecode *fd,
+					 struct dpu_fetchlayer *fl,
+					 unsigned int stride,
+					 unsigned int uv_stride,
+					 unsigned int width,
+					 u32 format)
+{
+	if (fd)
+		return fetchdecode_prefetch_stride_supported(fd,
+					stride, uv_stride, width, format);
+	else
+		return fetchlayer_prefetch_stride_supported(fl,
+					stride, width, format);
+}
+EXPORT_SYMBOL_GPL(fetchunit_prefetch_stride_supported);
+
+bool fetchunit_prefetch_stride_double_check(struct dpu_fetchdecode *fd,
+					    struct dpu_fetchlayer *fl,
+					    unsigned int stride,
+					    unsigned int uv_stride,
+					    unsigned int width,
+					    u32 format,
+					    dma_addr_t baseaddr,
+					    dma_addr_t uv_baseaddr)
+{
+	if (fd)
+		return fetchdecode_prefetch_stride_double_check(fd, stride,
+			uv_stride, width, format, baseaddr, uv_baseaddr);
+	else
+		return fetchlayer_prefetch_stride_double_check(fl, stride,
+						width, format, baseaddr);
+}
+EXPORT_SYMBOL_GPL(fetchunit_prefetch_stride_double_check);
+
+void fetchunit_configure_prefetch(struct dpu_fetchdecode *fd,
+				  struct dpu_fetchlayer *fl,
+				  unsigned int stream_id,
+				  unsigned int width, unsigned int height,
+				  unsigned int x_offset, unsigned int y_offset,
+				  unsigned int stride, u32 format, u64 modifier,
+				  unsigned long baddr, unsigned long uv_baddr,
+				  bool start, bool aux_start)
+{
+	if (fd)
+		fetchdecode_configure_prefetch(fd, stream_id, width, height,
+					x_offset, y_offset, stride,
+					format, modifier, baddr, uv_baddr,
+					start, aux_start);
+	else
+		fetchlayer_configure_prefetch(fl, stream_id, width, height,
+					x_offset, y_offset, stride,
+					format, modifier, baddr, start);
+}
+EXPORT_SYMBOL_GPL(fetchunit_configure_prefetch);
+
+void fetchunit_enable_prefetch(struct dpu_fetchdecode *fd,
+			       struct dpu_fetchlayer *fl)
+{
+	if (fd)
+		fetchdecode_enable_prefetch(fd);
+	else
+		fetchlayer_enable_prefetch(fl);
+}
+EXPORT_SYMBOL_GPL(fetchunit_enable_prefetch);
+
+void fetchunit_reg_update_prefetch(struct dpu_fetchdecode *fd,
+				   struct dpu_fetchlayer *fl)
+{
+	if (fd)
+		fetchdecode_reg_update_prefetch(fd);
+	else
+		fetchlayer_reg_update_prefetch(fl);
+}
+EXPORT_SYMBOL_GPL(fetchunit_reg_update_prefetch);
+
+void fetchunit_prefetch_first_frame_handle(struct dpu_fetchdecode *fd,
+					   struct dpu_fetchlayer *fl)
+{
+	if (fd)
+		fetchdecode_prefetch_first_frame_handle(fd);
+	else
+		fetchlayer_prefetch_first_frame_handle(fl);
+}
+EXPORT_SYMBOL_GPL(fetchunit_prefetch_first_frame_handle);
+
+void fetchunit_disable_prefetch(struct dpu_fetchdecode *fd,
+				struct dpu_fetchlayer *fl)
+{
+	if (fd)
+		fetchdecode_disable_prefetch(fd);
+	else
+		fetchlayer_disable_prefetch(fl);
+}
+EXPORT_SYMBOL_GPL(fetchunit_disable_prefetch);
+
 int dpu_format_horz_chroma_subsampling(u32 format)
 {
 	switch (format) {

@@ -739,6 +739,42 @@ u32 dpu_vproc_get_fetcheco_cap(u32 cap_mask);
 u32 dpu_vproc_get_hscale_cap(u32 cap_mask);
 u32 dpu_vproc_get_vscale_cap(u32 cap_mask);
 
+bool fetchunit_has_prefetch(struct dpu_fetchdecode *fd,
+			    struct dpu_fetchlayer *fl);
+bool fetchunit_prefetch_format_supported(struct dpu_fetchdecode *fd,
+					 struct dpu_fetchlayer *fl,
+					 u32 format, u64 modifier);
+bool fetchunit_prefetch_stride_supported(struct dpu_fetchdecode *fd,
+					 struct dpu_fetchlayer *fl,
+					 unsigned int stride,
+					 unsigned int uv_stride,
+					 unsigned int width,
+					 u32 format);
+bool fetchunit_prefetch_stride_double_check(struct dpu_fetchdecode *fd,
+					    struct dpu_fetchlayer *fl,
+					    unsigned int stride,
+					    unsigned int uv_stride,
+					    unsigned int width,
+					    u32 format,
+					    dma_addr_t baseaddr,
+					    dma_addr_t uv_baseaddr);
+void fetchunit_configure_prefetch(struct dpu_fetchdecode *fd,
+				  struct dpu_fetchlayer *fl,
+				  unsigned int stream_id,
+				  unsigned int width, unsigned int height,
+				  unsigned int x_offset, unsigned int y_offset,
+				  unsigned int stride, u32 format, u64 modifier,
+				  unsigned long baddr, unsigned long uv_baddr,
+				  bool start, bool aux_start);
+void fetchunit_enable_prefetch(struct dpu_fetchdecode *fd,
+			       struct dpu_fetchlayer *fl);
+void fetchunit_reg_update_prefetch(struct dpu_fetchdecode *fd,
+				   struct dpu_fetchlayer *fl);
+void fetchunit_prefetch_first_frame_handle(struct dpu_fetchdecode *fd,
+					   struct dpu_fetchlayer *fl);
+void fetchunit_disable_prefetch(struct dpu_fetchdecode *fd,
+				struct dpu_fetchlayer *fl);
+
 /* dpu blit engine */
 struct dpu_bliteng;
 int dpu_bliteng_init(struct dpu_bliteng *dpu_bliteng);
