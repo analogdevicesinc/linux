@@ -638,6 +638,68 @@ bool fetchlayer_is_pinned_off(struct dpu_fetchlayer *fl);
 struct dpu_fetchlayer *dpu_fl_get(struct dpu_soc *dpu, int id);
 void dpu_fl_put(struct dpu_fetchlayer *fl);
 
+/* Fetch Warp Unit */
+struct dpu_fetchwarp;
+void fetchwarp_shden(struct dpu_fetchwarp *fw, bool enable);
+void fetchwarp_baddr_autoupdate(struct dpu_fetchwarp *fw, u8 layer_mask);
+void fetchwarp_shdldreq_sticky(struct dpu_fetchwarp *fw, u8 layer_mask);
+void fetchwarp_set_burstlength(struct dpu_fetchwarp *fw, dma_addr_t baddr,
+			       bool use_prefetch);
+void fetchwarp_baseaddress(struct dpu_fetchwarp *fw, unsigned int index,
+			   dma_addr_t paddr);
+void fetchwarp_source_bpp(struct dpu_fetchwarp *fw, unsigned int index,
+			  int bpp);
+void fetchwarp_source_stride(struct dpu_fetchwarp *fw, unsigned int index,
+			     unsigned int width, int bpp, unsigned int stride,
+			     dma_addr_t baddr, bool use_prefetch);
+void fetchwarp_src_buf_dimensions(struct dpu_fetchwarp *fw,
+				  unsigned int index, unsigned int w,
+				  unsigned int h);
+void fetchwarp_set_fmt(struct dpu_fetchwarp *fw, unsigned int index, u32 fmt);
+void fetchwarp_source_buffer_enable(struct dpu_fetchwarp *fw,
+				    unsigned int index);
+void fetchwarp_source_buffer_disable(struct dpu_fetchwarp *fw,
+				     unsigned int index);
+bool fetchwarp_is_enabled(struct dpu_fetchwarp *fw, unsigned int index);
+void fetchwarp_framedimensions(struct dpu_fetchwarp *fw, unsigned int w,
+			       unsigned int h);
+void fetchwarp_rgb_constantcolor(struct dpu_fetchwarp *fw,
+				 u8 r, u8 g, u8 b, u8 a);
+void fetchwarp_yuv_constantcolor(struct dpu_fetchwarp *fw, u8 y, u8 u, u8 v);
+void fetchwarp_controltrigger(struct dpu_fetchwarp *fw, bool trigger);
+int fetchwarp_fetchtype(struct dpu_fetchwarp *fw, fetchtype_t *type);
+unsigned int fetchwarp_get_stream_id(struct dpu_fetchwarp *fw);
+void fetchwarp_set_stream_id(struct dpu_fetchwarp *fw, unsigned int id);
+void
+fetchwarp_configure_prefetch(struct dpu_fetchwarp *fw, unsigned int stream_id,
+			     unsigned int width, unsigned int height,
+			     unsigned int x_offset, unsigned int y_offset,
+			     unsigned int stride, u32 format, u64 modifier,
+			     unsigned long baddr, bool start);
+void fetchwarp_enable_prefetch(struct dpu_fetchwarp *fw);
+void fetchwarp_disable_prefetch(struct dpu_fetchwarp *fw);
+void fetchwarp_reg_update_prefetch(struct dpu_fetchwarp *fw);
+void fetchwarp_prefetch_first_frame_handle(struct dpu_fetchwarp *fw);
+void fetchwarp_prefetch_irq_handle(struct dpu_fetchwarp *fw);
+void fetchwarp_prefetch_enable_first_frame_irq(struct dpu_fetchwarp *fw);
+bool fetchwarp_has_prefetch(struct dpu_fetchwarp *fw);
+bool fetchwarp_prefetch_format_supported(struct dpu_fetchwarp *fw,
+					 u32 format, u64 modifier);
+bool fetchwarp_prefetch_stride_supported(struct dpu_fetchwarp *fw,
+					 unsigned int stride,
+					 unsigned int width,
+					 u32 format);
+bool fetchwarp_prefetch_stride_double_check(struct dpu_fetchwarp *fw,
+					    unsigned int stride,
+					    unsigned int width,
+					    u32 format,
+					    dma_addr_t baseaddr);
+void fetchwarp_pin_off(struct dpu_fetchwarp *fw);
+void fetchwarp_unpin_off(struct dpu_fetchwarp *fw);
+bool fetchwarp_is_pinned_off(struct dpu_fetchwarp *fw);
+struct dpu_fetchwarp *dpu_fw_get(struct dpu_soc *dpu, int id);
+void dpu_fw_put(struct dpu_fetchwarp *fw);
+
 /* Frame Generator Unit */
 struct dpu_framegen;
 void framegen_enable(struct dpu_framegen *fg);
@@ -740,18 +802,22 @@ u32 dpu_vproc_get_hscale_cap(u32 cap_mask);
 u32 dpu_vproc_get_vscale_cap(u32 cap_mask);
 
 bool fetchunit_has_prefetch(struct dpu_fetchdecode *fd,
-			    struct dpu_fetchlayer *fl);
+			    struct dpu_fetchlayer *fl,
+			    struct dpu_fetchwarp *fw);
 bool fetchunit_prefetch_format_supported(struct dpu_fetchdecode *fd,
 					 struct dpu_fetchlayer *fl,
+					 struct dpu_fetchwarp *fw,
 					 u32 format, u64 modifier);
 bool fetchunit_prefetch_stride_supported(struct dpu_fetchdecode *fd,
 					 struct dpu_fetchlayer *fl,
+					 struct dpu_fetchwarp *fw,
 					 unsigned int stride,
 					 unsigned int uv_stride,
 					 unsigned int width,
 					 u32 format);
 bool fetchunit_prefetch_stride_double_check(struct dpu_fetchdecode *fd,
 					    struct dpu_fetchlayer *fl,
+					    struct dpu_fetchwarp *fw,
 					    unsigned int stride,
 					    unsigned int uv_stride,
 					    unsigned int width,
@@ -760,6 +826,7 @@ bool fetchunit_prefetch_stride_double_check(struct dpu_fetchdecode *fd,
 					    dma_addr_t uv_baseaddr);
 void fetchunit_configure_prefetch(struct dpu_fetchdecode *fd,
 				  struct dpu_fetchlayer *fl,
+				  struct dpu_fetchwarp *fw,
 				  unsigned int stream_id,
 				  unsigned int width, unsigned int height,
 				  unsigned int x_offset, unsigned int y_offset,
@@ -767,13 +834,17 @@ void fetchunit_configure_prefetch(struct dpu_fetchdecode *fd,
 				  unsigned long baddr, unsigned long uv_baddr,
 				  bool start, bool aux_start);
 void fetchunit_enable_prefetch(struct dpu_fetchdecode *fd,
-			       struct dpu_fetchlayer *fl);
+			       struct dpu_fetchlayer *fl,
+			       struct dpu_fetchwarp *fw);
 void fetchunit_reg_update_prefetch(struct dpu_fetchdecode *fd,
-				   struct dpu_fetchlayer *fl);
+				   struct dpu_fetchlayer *fl,
+				   struct dpu_fetchwarp *fw);
 void fetchunit_prefetch_first_frame_handle(struct dpu_fetchdecode *fd,
-					   struct dpu_fetchlayer *fl);
+					   struct dpu_fetchlayer *fl,
+					   struct dpu_fetchwarp *fw);
 void fetchunit_disable_prefetch(struct dpu_fetchdecode *fd,
-				struct dpu_fetchlayer *fl);
+				struct dpu_fetchlayer *fl,
+				struct dpu_fetchwarp *fw);
 
 /* dpu blit engine */
 struct dpu_bliteng;

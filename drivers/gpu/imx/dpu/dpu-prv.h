@@ -188,6 +188,7 @@ struct dpu_devtype {
 	const struct dpu_unit *fes;
 	const struct dpu_unit *fgs;
 	const struct dpu_unit *fls;
+	const struct dpu_unit *fws;
 	const struct dpu_unit *hss;
 	const struct dpu_unit *lbs;
 	const struct dpu_unit *tcons;
@@ -240,6 +241,7 @@ struct dpu_soc {
 	struct dpu_fetcheco	*fe_priv[4];
 	struct dpu_framegen	*fg_priv[2];
 	struct dpu_fetchlayer	*fl_priv[2];
+	struct dpu_fetchwarp	*fw_priv[1];
 	struct dpu_hscaler	*hs_priv[3];
 	struct dpu_layerblend	*lb_priv[7];
 	struct dpu_tcon		*tcon_priv[2];
@@ -262,6 +264,7 @@ _DECLARE_DPU_UNIT_INIT_FUNC(fd);
 _DECLARE_DPU_UNIT_INIT_FUNC(fe);
 _DECLARE_DPU_UNIT_INIT_FUNC(fg);
 _DECLARE_DPU_UNIT_INIT_FUNC(fl);
+_DECLARE_DPU_UNIT_INIT_FUNC(fw);
 _DECLARE_DPU_UNIT_INIT_FUNC(hs);
 _DECLARE_DPU_UNIT_INIT_FUNC(lb);
 _DECLARE_DPU_UNIT_INIT_FUNC(tcon);
@@ -278,6 +281,7 @@ DECLARE_DPU_UNIT_INIT_FUNC(fd);
 DECLARE_DPU_UNIT_INIT_FUNC(fe);
 DECLARE_DPU_UNIT_INIT_FUNC(fg);
 DECLARE_DPU_UNIT_INIT_FUNC(fl);
+DECLARE_DPU_UNIT_INIT_FUNC(fw);
 DECLARE_DPU_UNIT_INIT_FUNC(hs);
 DECLARE_DPU_UNIT_INIT_FUNC(lb);
 DECLARE_DPU_UNIT_INIT_FUNC(tcon);
@@ -285,6 +289,7 @@ DECLARE_DPU_UNIT_INIT_FUNC(vs);
 
 void fetchdecode_get_dprc(struct dpu_fetchdecode *fd, void *data);
 void fetchlayer_get_dprc(struct dpu_fetchlayer *fl, void *data);
+void fetchwarp_get_dprc(struct dpu_fetchwarp *fw, void *data);
 
 static const unsigned int cf_ids[] = {0, 1, 4, 5};
 static const unsigned int dec_ids[] = {0, 1};
@@ -293,6 +298,7 @@ static const unsigned int fd_ids[] = {0, 1, 2, 3};
 static const unsigned int fe_ids[] = {0, 1, 2, 9};
 static const unsigned int fg_ids[] = {0, 1};
 static const unsigned int fl_ids[] = {0, 1};
+static const unsigned int fw_ids[] = {2};
 static const unsigned int hs_ids[] = {4, 5, 9};
 static const unsigned int lb_ids[] = {0, 1, 2, 3, 4, 5, 6};
 static const unsigned int tcon_ids[] = {0, 1};
@@ -300,6 +306,7 @@ static const unsigned int vs_ids[] = {4, 5, 9};
 
 static const unsigned int fd_dprc_ids[] = {3, 4};
 static const unsigned int fl_dprc_ids[] = {2};
+static const unsigned int fw_dprc_ids[] = {5};
 
 struct dpu_pixel_format {
 	u32 pixel_format;
