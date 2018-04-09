@@ -66,12 +66,17 @@
  *
  * INTEL_SIP_SMC_FPGA_CONFIG_STATUS_ERROR:
  * There is error during the FPGA configuration process.
+ *
+ * INTEL_SIP_SMC_REG_ERROR:
+ * There is error during a read or write operation of the protected
+ * registers.
  */
 #define INTEL_SIP_SMC_RETURN_UNKNOWN_FUNCTION		0xFFFFFFFF
 #define INTEL_SIP_SMC_STATUS_OK				0x0
 #define INTEL_SIP_SMC_FPGA_CONFIG_STATUS_BUSY		0x1
 #define INTEL_SIP_SMC_FPGA_CONFIG_STATUS_REJECTED       0x2
 #define INTEL_SIP_SMC_FPGA_CONFIG_STATUS_ERROR		0x4
+#define INTEL_SIP_SMC_REG_ERROR				0x5
 
 /*
  * Request INTEL_SIP_SMC_FPGA_CONFIG_START
@@ -201,5 +206,64 @@ INTEL_SIP_SMC_FAST_CALL_VAL(INTEL_SIP_SMC_FUNCID_FPGA_CONFIG_COMPLETED_WRITE)
 #define INTEL_SIP_SMC_FUNCID_FPGA_CONFIG_LOOPBACK 6
 #define INTEL_SIP_SMC_FPGA_CONFIG_LOOPBACK \
 	INTEL_SIP_SMC_FAST_CALL_VAL(INTEL_SIP_SMC_FUNCID_FPGA_CONFIG_LOOPBACK)
+
+/*
+ * Request INTEL_SIP_SMC_REG_READ
+ *
+ * Read a protected register using SMCCC
+ *
+ * Call register usage:
+ * a0: INTEL_SIP_SMC_REG_READ.
+ * a1: register address.
+ * a2-7: not used.
+ *
+ * Return status:
+ * a0: INTEL_SIP_SMC_STATUS_OK or INTEL_SIP_SMC_REG_ERROR.
+ * a1: Value in the register
+ * a2-3: not used.
+ */
+#define INTEL_SIP_SMC_FUNCID_REG_READ 7
+#define INTEL_SIP_SMC_REG_READ \
+	INTEL_SIP_SMC_FAST_CALL_VAL(INTEL_SIP_SMC_FUNCID_REG_READ)
+
+/*
+ * Request INTEL_SIP_SMC_REG_WRITE
+ *
+ * Write a protected register using SMCCC
+ *
+ * Call register usage:
+ * a0: INTEL_SIP_SMC_REG_WRITE.
+ * a1: register address
+ * a2: value to program into register.
+ * a3-7: not used.
+ *
+ * Return status:
+ * a0: INTEL_SIP_SMC_STATUS_OK or INTEL_SIP_SMC_REG_ERROR.
+ * a1-3: not used.
+ */
+#define INTEL_SIP_SMC_FUNCID_REG_WRITE 8
+#define INTEL_SIP_SMC_REG_WRITE \
+	INTEL_SIP_SMC_FAST_CALL_VAL(INTEL_SIP_SMC_FUNCID_REG_WRITE)
+
+/*
+ * Request INTEL_SIP_SMC_FUNCID_REG_UPDATE
+ *
+ * Update one or more bits in a protected register using a
+ * read-modify-write operation.
+ *
+ * Call register usage:
+ * a0: INTEL_SIP_SMC_REG_UPDATE.
+ * a1: register address
+ * a2: Write Mask.
+ * a3: Value to write.
+ * a4-7: not used.
+ *
+ * Return status:
+ * a0: INTEL_SIP_SMC_STATUS_OK or INTEL_SIP_SMC_REG_ERROR.
+ * a1-3: Not used.
+ */
+#define INTEL_SIP_SMC_FUNCID_REG_UPDATE 9
+#define INTEL_SIP_SMC_REG_UPDATE \
+	INTEL_SIP_SMC_FAST_CALL_VAL(INTEL_SIP_SMC_FUNCID_REG_UPDATE)
 
 #endif
