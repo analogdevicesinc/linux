@@ -142,7 +142,7 @@ static char *bufstat[] = {
 
 static void vpu_log_event(u_int32 uEvent, u_int32 ctxid)
 {
-	if (uEvent > sizeof(event2str)-1)
+	if (uEvent > ARRAY_SIZE(event2str)-1)
 		vpu_dbg(LVL_INFO, "reveive event: 0x%X, ctx id:%d\n", uEvent, ctxid);
 	else
 		vpu_dbg(LVL_INFO, "recevie event: %s, ctx id:%d\n", event2str[uEvent], ctxid);
@@ -150,7 +150,7 @@ static void vpu_log_event(u_int32 uEvent, u_int32 ctxid)
 
 static void vpu_log_cmd(u_int32 cmdid, u_int32 ctxid)
 {
-	if (cmdid > sizeof(cmd2str)-1)
+	if (cmdid > ARRAY_SIZE(cmd2str)-1)
 		vpu_dbg(LVL_INFO, "send cmd: 0x%X, ctx id:%d\n", cmdid, ctxid);
 	else
 		vpu_dbg(LVL_INFO, "send cmd: %s ctx id:%d\n", cmd2str[cmdid], ctxid);
@@ -1285,7 +1285,7 @@ static void report_buffer_done(struct vpu_ctx *ctx, void *frame_info)
 	u_int32 fs_id = FrameInfo[0x0];
 	uint32_t stride = FrameInfo[3];
 	bool b10BitFormat = (ctx->pSeqinfo->uBitDepthLuma >> 8) || (ctx->pSeqinfo->uBitDepthChroma >> 8);
-	u_int32 buffer_id;
+	int buffer_id;
 
 	vpu_dbg(LVL_INFO, "report_buffer_done fs_id=%d, ulFsLumaBase[0]=%x, stride=%d, b10BitFormat=%d\n", fs_id, FrameInfo[1], stride, b10BitFormat);
 	v4l2_update_stream_addr(ctx, 0);
@@ -1367,7 +1367,7 @@ static void vpu_api_event_handler(struct vpu_ctx *ctx, u_int32 uStrIdx, u_int32 
 		MediaIPFW_Video_PicDispInfo *pDispInfo = &pPicInfo[uStrIdx].DispInfo;
 		MediaIPFW_Video_PicPerfInfo *pPerfInfo = &pPicInfo[uStrIdx].PerfInfo;
 		MediaIPFW_Video_PicPerfDcpInfo *pPerfDcpInfo = &pPicInfo[uStrIdx].PerfDcpInfo;
-		u_int32 buffer_id;
+		int buffer_id;
 
 		vpu_dbg(LVL_INFO, "PICINFO GET: uPicType:%d uPicStruct:%d uPicStAddr:0x%x uFrameStoreID:%d uPercentInErr:%d, uRbspBytesCount=%d, ulLumBaseAddr[0]=%x, pQMeterInfo:%p, pPicInfo:%p, pDispInfo:%p, pPerfInf:%p, pPerfDcpInfo:%p\n",
 				pPicInfo[uStrIdx].uPicType, pPicInfo[uStrIdx].uPicStruct,
@@ -1376,6 +1376,10 @@ static void vpu_api_event_handler(struct vpu_ctx *ctx, u_int32 uStrIdx, u_int32 
 				pQMeterInfo, pPicInfo, pDispInfo, pPerfInfo, pPerfDcpInfo);
 
 		buffer_id = find_buffer_id(ctx, event_data[0]);
+
+		if (buffer_id == -1)
+			break;
+
 		if (buffer_id != pPicInfo[uStrIdx].uFrameStoreID)
 			vpu_dbg(LVL_ERR, "error: VID_API_EVENT_PIC_DECODED address and id doesn't match\n");
 		if (ctx->q_data[V4L2_DST].vb2_reqs[buffer_id].status != FRAME_FREE)
@@ -1430,8 +1434,10 @@ static void vpu_api_event_handler(struct vpu_ctx *ctx, u_int32 uStrIdx, u_int32 
 
 		vpu_dbg(LVL_INFO, "VID_API_EVENT_REQ_FRAME_BUFF, type=%d, size=%ld\n", pFSREQ->eType, sizeof(MEDIA_PLAYER_FSREQ));
 		if (pFSREQ->eType == MEDIAIP_DCP_REQ) {
-			if (ctx->dcp_count >= MAX_DCP_NUM)
+			if (ctx->dcp_count >= MAX_DCP_NUM) {
 				vpu_dbg(LVL_ERR, "error: request dcp buffers number is over MAX_DCP_NUM\n");
+				break;
+			}
 			ctx->uDCPSize = DCP_SIZE;
 			dcp_dma_virt = dma_alloc_coherent(&ctx->dev->plat_dev->dev,
 					ctx->uDCPSize,
@@ -1454,9 +1460,11 @@ static void vpu_api_event_handler(struct vpu_ctx *ctx, u_int32 uStrIdx, u_int32 
 			vpu_dbg(LVL_INFO, "VID_API_CMD_FS_ALLOC, eType=%d, index=%d\n", pFSREQ->eType, ctx->dcp_count);
 			ctx->dcp_count++;
 		} else if (pFSREQ->eType == MEDIAIP_MBI_REQ) {
-			if (ctx->mbi_count >= ctx->mbi_num)
+			if (ctx->mbi_count >= ctx->mbi_num) {
 				vpu_dbg(LVL_ERR, "error: request mbi buffers number(%d) is over allocted buffer number(%d)\n",
 						ctx->mbi_count, ctx->mbi_num);
+				break;
+			}
 			local_cmddata[0] = ctx->mbi_count;
 			local_cmddata[1] = ctx->mbi_dma_phy[ctx->mbi_count] - ctx->dev->cm_offset;
 			local_cmddata[2] = ctx->mbi_size;
@@ -2098,7 +2106,7 @@ static int v4l2_open(struct file *filp)
 	idx = vpu_next_free_instance(dev);
 	if (idx < 0) {
 		ret = idx;
-		return ret;
+		goto err_find_index;
 	}
 	set_bit(idx, &dev->instance_mask);
 	init_completion(&ctx->completion);
@@ -2182,6 +2190,9 @@ err_firmware_load:
 	v4l2_fh_del(&ctx->fh);
 	v4l2_fh_exit(&ctx->fh);
 	clear_bit(ctx->str_index, &dev->instance_mask);
+	kfree(ctx);
+	return ret;
+err_find_index:
 	kfree(ctx);
 	return ret;
 }
@@ -2612,8 +2623,10 @@ static int vpu_probe(struct platform_device *pdev)
 	dev->m0_rpc_virt = ioremap(dev->m0_rpc_phy,
 			SHARED_SIZE
 			);
-	if (!dev->m0_rpc_virt)
+	if (!dev->m0_rpc_virt) {
 		vpu_dbg(LVL_ERR, "error: failed to remap space for rpc shared memory\n");
+		return -ENOMEM;
+	}
 
 	memset_io(dev->m0_rpc_virt, 0, SHARED_SIZE);
 #ifdef CM4
