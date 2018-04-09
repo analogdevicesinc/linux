@@ -591,9 +591,19 @@ bool dprc_format_supported(struct dprc *dprc, u32 format, u64 modifier)
 			modifier == DRM_FORMAT_MOD_VIVANTE_SUPER_TILED);
 	case DRM_FORMAT_YUYV:
 	case DRM_FORMAT_UYVY:
+		switch (dprc->sc_resource) {
+		case SC_R_DC_0_FRAC0:
+		case SC_R_DC_1_FRAC0:
+			return false;
+		}
 		return modifier == DRM_FORMAT_MOD_NONE;
 	case DRM_FORMAT_NV12:
 	case DRM_FORMAT_NV21:
+		switch (dprc->sc_resource) {
+		case SC_R_DC_0_FRAC0:
+		case SC_R_DC_1_FRAC0:
+			return false;
+		}
 		return (dprc->has_aux_prg &&
 			(modifier == DRM_FORMAT_MOD_NONE ||
 			 modifier == DRM_FORMAT_MOD_AMPHION_TILED));
