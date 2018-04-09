@@ -200,8 +200,8 @@ struct dpu_devtype {
 	const unsigned int *sw2hw_irq_map;	/* NULL means linear */
 	const unsigned int *sw2hw_block_id_map;	/* NULL means linear */
 	/*
-	 * index:     0         1       2   3   4   5
-	 * source: fl0(sub0) fl1(sub0) fd0 fd1 fd2 fd3
+	 * index:     0         1         2       3   4   5   6
+	 * source: fl0(sub0) fl1(sub0) fw2(sub0) fd0 fd1 fd2 fd3
 	 */
 	const u32 plane_src_na_mask;
 	bool has_capture;

@@ -59,6 +59,7 @@ static const lb_prim_sel_t stages[] = {LB_PRIM_SEL__LAYERBLEND0,
 /* FIXME: Correct the source entries for subsidiary layers. */
 static const lb_sec_sel_t sources[] = {LB_SEC_SEL__FETCHLAYER0,
 				       LB_SEC_SEL__FETCHLAYER1,
+				       LB_SEC_SEL__FETCHWARP2,
 				       LB_SEC_SEL__FETCHDECODE0,
 				       LB_SEC_SEL__FETCHDECODE1,
 				       LB_SEC_SEL__FETCHDECODE2,
@@ -84,6 +85,8 @@ static inline int source_to_type(lb_sec_sel_t source)
 	case LB_SEC_SEL__FETCHLAYER0:
 	case LB_SEC_SEL__FETCHLAYER1:
 		return DPU_PLANE_SRC_FL;
+	case LB_SEC_SEL__FETCHWARP2:
+		return DPU_PLANE_SRC_FW;
 	case LB_SEC_SEL__FETCHDECODE0:
 	case LB_SEC_SEL__FETCHDECODE1:
 	case LB_SEC_SEL__FETCHDECODE2:
@@ -104,7 +107,8 @@ static inline int source_to_id(lb_sec_sel_t source)
 
 	for (i = 0; i < ARRAY_SIZE(sources); i++) {
 		if (source == sources[i]) {
-			if (type == DPU_PLANE_SRC_FD) {
+			if (type == DPU_PLANE_SRC_FD ||
+			    type == DPU_PLANE_SRC_FW) {
 				while (offset < ARRAY_SIZE(sources)) {
 					if (source_to_type(sources[offset]) ==
 					    type)

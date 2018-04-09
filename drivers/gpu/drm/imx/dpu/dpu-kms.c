@@ -136,6 +136,7 @@ dpu_atomic_assign_plane_source_per_crtc(struct drm_plane_state **states, int n)
 	struct dpu_fetchdecode *fd;
 	struct dpu_fetcheco *fe;
 	struct dpu_fetchlayer *fl;
+	struct dpu_fetchwarp *fw;
 	struct dpu_hscaler *hs;
 	struct dpu_vscaler *vs;
 	unsigned int sid, src_sid;
@@ -190,6 +191,18 @@ dpu_atomic_assign_plane_source_per_crtc(struct drm_plane_state **states, int n)
 
 				/* avoid on-the-fly/hot migration */
 				src_sid = fetchlayer_get_stream_id(fl);
+				if (src_sid && src_sid != BIT(sid))
+					goto next;
+				break;
+			case DPU_PLANE_SRC_FW:
+				fw = grp->res.fw[fu_id];
+
+				if (fmt_is_yuv || need_fetcheco ||
+				    need_hscaler || need_vscaler)
+					goto next;
+
+				/* avoid on-the-fly/hot migration */
+				src_sid = fetchwarp_get_stream_id(fw);
 				if (src_sid && src_sid != BIT(sid))
 					goto next;
 				break;
