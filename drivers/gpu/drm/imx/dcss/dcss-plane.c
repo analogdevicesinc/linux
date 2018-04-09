@@ -18,6 +18,7 @@
 #include <drm/drm_fb_cma_helper.h>
 #include <drm/drm_gem_cma_helper.h>
 #include <drm/drm_atomic.h>
+#include <linux/dma-buf.h>
 
 #include "video/imx-dcss.h"
 #include "dcss-plane.h"
@@ -240,6 +241,23 @@ static int dcss_plane_atomic_check(struct drm_plane *plane,
 	return 0;
 }
 
+static struct drm_gem_object *dcss_plane_gem_import(struct drm_device *dev,
+						    struct dma_buf *dma_buf)
+{
+	struct drm_gem_object *obj;
+
+	if (IS_ERR(dma_buf))
+		return ERR_CAST(dma_buf);
+
+	mutex_lock(&dev->object_name_lock);
+
+	obj = dev->driver->gem_prime_import(dev, dma_buf);
+
+	mutex_unlock(&dev->object_name_lock);
+
+	return obj;
+}
+
 static void dcss_plane_atomic_set_base(struct dcss_plane *dcss_plane)
 {
 	int mod_idx;
@@ -247,6 +265,9 @@ static void dcss_plane_atomic_set_base(struct dcss_plane *dcss_plane)
 	struct drm_plane_state *state = plane->state;
 	struct drm_framebuffer *fb = state->fb;
 	struct drm_gem_cma_object *cma_obj = drm_fb_cma_get_gem_obj(fb, 0);
+	struct dma_buf *dma_buf;
+	struct dma_metadata *mdata;
+	struct drm_gem_object *gem_obj;
 	unsigned long p1_ba, p2_ba;
 	dma_addr_t caddr;
 	bool modifiers_present = !!(fb->flags & DRM_MODE_FB_MODIFIERS);
@@ -287,7 +308,33 @@ static void dcss_plane_atomic_set_base(struct dcss_plane *dcss_plane)
 			dcss_dec400d_bypass(dcss_plane->dcss);
 			return;
 		case DRM_FORMAT_MOD_VIVANTE_SUPER_TILED_FC:
-			caddr = cma_obj->paddr + ALIGN(fb->height, 64) * fb->pitches[0];
+			dma_buf = cma_obj->base.dma_buf;
+			if (!dma_buf) {
+				caddr = cma_obj->paddr +
+					ALIGN(fb->height, 64) * fb->pitches[0];
+				goto config;
+			}
+
+			mdata = dma_buf->priv;
+			if (!mdata ||
+			    mdata->magic != VIV_VIDMEM_METADATA_MAGIC) {
+				WARN_ON(1);
+				return;
+			}
+
+			gem_obj = dcss_plane_gem_import(plane->dev,
+							mdata->ts_dma_buf);
+			if (IS_ERR(gem_obj)) {
+				WARN_ON(1);
+				return;
+			}
+
+			caddr = to_drm_gem_cma_obj(gem_obj)->paddr;
+
+			/* release gem_obj */
+			drm_gem_object_unreference_unlocked(gem_obj);
+
+config:
 			dcss_dec400d_read_config(dcss_plane->dcss, 0, true);
 			dcss_dec400d_addr_set(dcss_plane->dcss, p1_ba, caddr);
 			break;
