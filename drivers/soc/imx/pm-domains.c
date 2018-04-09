@@ -46,6 +46,7 @@ static sc_rsrc_t rsrc_debug_console;
 static sc_rsrc_t irq2rsrc[IMX8_WU_MAX_IRQS];
 static sc_rsrc_t wakeup_rsrc_id[IMX8_WU_MAX_IRQS / 32];
 static DEFINE_SPINLOCK(imx8_wu_lock);
+static DEFINE_MUTEX(rsrc_pm_list_lock);
 
 enum imx_pd_state {
 	PD_LP,
@@ -506,3 +507,111 @@ static int __init imx8_wu_init(struct device_node *node,
 	return 0;
 }
 IRQCHIP_DECLARE(imx8_wakeup_unit, "fsl,imx8-wu", imx8_wu_init);
+
+/***        debugfs support        ***/
+
+#ifdef CONFIG_DEBUG_FS
+#include <linux/pm.h>
+#include <linux/device.h>
+#include <linux/debugfs.h>
+#include <linux/seq_file.h>
+#include <linux/init.h>
+#include <linux/kobject.h>
+
+#define SC_PM_PW_MODE_FAIL	(SC_PM_PW_MODE_ON + 1)
+static struct dentry *imx8_rsrc_pm_debugfs_dir;
+
+static int imx8_rsrc_pm_summary_one(struct seq_file *s,
+				sc_rsrc_t rsrc_id)
+{
+	static const char * const status_lookup[] = {
+		[SC_PM_PW_MODE_OFF] = "OFF",
+		[SC_PM_PW_MODE_STBY] = "STBY",
+		[SC_PM_PW_MODE_LP] = "LP",
+		[SC_PM_PW_MODE_ON] = "ON",
+		[SC_PM_PW_MODE_FAIL] = "FAIL",
+	};
+	sc_err_t sci_err = SC_ERR_NONE;
+	sc_pm_power_mode_t mode;
+	char state[16];
+
+	sci_err = sc_pm_get_resource_power_mode(pm_ipc_handle, rsrc_id, &mode);
+	if (sci_err) {
+		pr_debug("failed to get power mode on resource %d, ret %d\n",
+			rsrc_id, sci_err);
+		mode = SC_PM_PW_MODE_FAIL;
+	}
+
+	if (WARN_ON(mode >= ARRAY_SIZE(status_lookup)))
+		return 0;
+
+	snprintf(state, sizeof(state), "%s", status_lookup[mode]);
+	seq_printf(s, "%-30d  %-15s ", rsrc_id, state);
+	seq_puts(s, "\n");
+
+	return 0;
+}
+
+static int imx8_rsrc_pm_summary_show(struct seq_file *s, void *data)
+{
+	int ret = 0;
+	int i;
+
+	seq_puts(s, "resource_id                    power_mode\n");
+	seq_puts(s, "---------------------------------------------\n");
+
+	ret = mutex_lock_interruptible(&rsrc_pm_list_lock);
+	if (ret)
+		return -ERESTARTSYS;
+
+	for (i = 0; i < SC_R_LAST; i++) {
+		ret = imx8_rsrc_pm_summary_one(s, i);
+		if (ret)
+			break;
+	}
+	mutex_unlock(&rsrc_pm_list_lock);
+
+	return ret;
+}
+
+static int imx8_rsrc_pm_summary_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, imx8_rsrc_pm_summary_show, NULL);
+}
+
+static const struct file_operations imx8_rsrc_pm_summary_fops = {
+	.open = imx8_rsrc_pm_summary_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
+
+static int __init imx8_pm_debug_init(void)
+{
+	struct dentry *d;
+
+	/* skip for non-SCFW system */
+	if (!of_find_compatible_node(NULL, NULL, "nxp,imx8-pd"))
+		return 0;
+
+	imx8_rsrc_pm_debugfs_dir = debugfs_create_dir("imx_rsrc_pm", NULL);
+
+	if (!imx8_rsrc_pm_debugfs_dir)
+		return -ENOMEM;
+
+	d = debugfs_create_file("imx_rsrc_pm_summary", 0444,
+			imx8_rsrc_pm_debugfs_dir, NULL,
+			&imx8_rsrc_pm_summary_fops);
+	if (!d)
+		return -ENOMEM;
+
+	return 0;
+}
+late_initcall(imx8_pm_debug_init);
+
+static void __exit imx8_rsrc_pm_debug_exit(void)
+{
+	debugfs_remove_recursive(imx8_rsrc_pm_debugfs_dir);
+}
+__exitcall(imx8_rsrc_pm_debug_exit);
+#endif /* CONFIG_DEBUG_FS */
