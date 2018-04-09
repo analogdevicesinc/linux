@@ -3904,9 +3904,9 @@ static int ad9361_validate_trx_clock_chain(struct ad9361_rf_phy *phy,
 					   unsigned long *rx_path_clks,
 					   unsigned long *tx_path_clks)
 {
-	const unsigned long max_rx_rates[] = {MAX_BBPLL_FREQ, MAX_ADC_CLK,
+	static const unsigned long max_rx_rates[] = {MAX_BBPLL_FREQ, MAX_ADC_CLK,
 		MAX_RX_HB3, MAX_RX_HB2, MAX_RX_HB1, MAX_BASEBAND_RATE};
-	const unsigned long max_tx_rates[] = {MAX_BBPLL_FREQ, MAX_DAC_CLK,
+	static const unsigned long max_tx_rates[] = {MAX_BBPLL_FREQ, MAX_DAC_CLK,
 		MAX_TX_HB3, MAX_TX_HB2, MAX_TX_HB1, MAX_BASEBAND_RATE};
 	int i, data_clk;
 
