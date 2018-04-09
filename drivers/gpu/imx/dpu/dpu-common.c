@@ -515,6 +515,7 @@ static const struct dpu_devtype dpu_type_v1 = {
 	.intsteer_map = intsteer_map_v1,
 	.intsteer_map_size = ARRAY_SIZE(intsteer_map_v1),
 	.unused_irq = unused_irq_v1,
+	.plane_src_na_mask = 0xffffffc0,
 	.has_capture = true,
 	.has_prefetch = false,
 	.pixel_link_quirks = false,
@@ -541,6 +542,7 @@ static const struct dpu_devtype dpu_type_v2 = {
 	.unused_irq = unused_irq_v2,
 	.sw2hw_irq_map = sw2hw_irq_map_v2,
 	.sw2hw_block_id_map = sw2hw_block_id_map_v2,
+	.plane_src_na_mask = 0xffffffc2,
 	.has_capture = false,
 	.has_prefetch = true,
 	.pixel_link_quirks = true,
@@ -1042,6 +1044,7 @@ static int dpu_get_plane_resource(struct dpu_soc *dpu,
 				  struct dpu_plane_res *res)
 {
 	const struct dpu_unit *fds = dpu->devtype->fds;
+	const struct dpu_unit *fls = dpu->devtype->fls;
 	const struct dpu_unit *lbs = dpu->devtype->lbs;
 	struct dpu_plane_grp *grp = plane_res_to_grp(res);
 	int i;
@@ -1067,6 +1070,11 @@ static int dpu_get_plane_resource(struct dpu_soc *dpu,
 			return PTR_ERR(res->fe[i]);
 		grp->hw_plane_fetcheco_num = ARRAY_SIZE(res->fe);
 	}
+	for (i = 0; i < fls->num; i++) {
+		res->fl[i] = dpu_fl_get(dpu, i);
+		if (IS_ERR(res->fl[i]))
+			return PTR_ERR(res->fl[i]);
+	}
 	/* HScaler could be shared with capture. */
 	if (display_plane_video_proc) {
 		for (i = 0; i < ARRAY_SIZE(res->hs); i++) {
@@ -1091,7 +1099,7 @@ static int dpu_get_plane_resource(struct dpu_soc *dpu,
 		grp->hw_plane_vscaler_num = ARRAY_SIZE(res->vs);
 	}
 
-	grp->hw_plane_num = fds->num;
+	grp->hw_plane_num = fds->num + fls->num;
 
 	return 0;
 }
@@ -1116,6 +1124,10 @@ static void dpu_put_plane_resource(struct dpu_plane_res *res)
 	for (i = 0; i < ARRAY_SIZE(res->fe); i++) {
 		if (!IS_ERR_OR_NULL(res->fe[i]))
 			dpu_fe_put(res->fe[i]);
+	}
+	for (i = 0; i < ARRAY_SIZE(res->fl); i++) {
+		if (!IS_ERR_OR_NULL(res->fl[i]))
+			dpu_fl_put(res->fl[i]);
 	}
 	for (i = 0; i < ARRAY_SIZE(res->hs); i++) {
 		if (!IS_ERR_OR_NULL(res->hs[i]))
@@ -1167,6 +1179,7 @@ static int dpu_add_client_devices(struct dpu_soc *dpu)
 	else
 		memcpy(reg, &client_reg[2], reg_size);
 
+	plane_grp->src_na_mask = devtype->plane_src_na_mask;
 	plane_grp->id = id / client_num;
 	plane_grp->has_vproc = display_plane_video_proc;
 

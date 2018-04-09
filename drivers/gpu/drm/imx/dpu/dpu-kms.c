@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 NXP
+ * Copyright 2017-2018 NXP
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -135,111 +135,153 @@ dpu_atomic_assign_plane_source_per_crtc(struct drm_plane_state **states, int n)
 	struct drm_framebuffer *fb;
 	struct dpu_fetchdecode *fd;
 	struct dpu_fetcheco *fe;
+	struct dpu_fetchlayer *fl;
 	struct dpu_hscaler *hs;
 	struct dpu_vscaler *vs;
 	unsigned int sid, src_sid;
-	int i, j, k;
-	int fd_id;
-	u32 cap_mask, fe_mask, hs_mask, vs_mask;
+	unsigned int num_planes;
+	int i, j, k, l, m;
+	int fu_id, fu_type;
+	int total_asrc_num;
+	u32 src_a_mask, cap_mask, fe_mask, hs_mask, vs_mask;
+	bool need_fetcheco, need_hscaler, need_vscaler;
+	bool fmt_is_yuv;
 
 	/* for active planes only */
 	for (i = 0; i < n; i++) {
 		dpstate = to_dpu_plane_state(states[i]);
 		dplane = to_dpu_plane(states[i]->plane);
 		fb = states[i]->fb;
+		num_planes = drm_format_num_planes(fb->format->format);
+		fmt_is_yuv = drm_format_is_yuv(fb->format->format);
 		grp = dplane->grp;
 		sid = dplane->stream_id;
 
+		need_fetcheco = (num_planes > 1);
+		need_hscaler = (states[i]->src_w >> 16 != states[i]->crtc_w);
+		need_vscaler = (states[i]->src_h >> 16 != states[i]->crtc_h);
+
+		total_asrc_num = 0;
+		src_a_mask = grp->src_a_mask;
+		fe_mask = 0;
+		hs_mask = 0;
+		vs_mask = 0;
+
+		for (l = 0; l < (sizeof(grp->src_a_mask) * 8); l++) {
+			if (grp->src_a_mask & BIT(l))
+				total_asrc_num++;
+		}
+
 		/* assign source */
 		mutex_lock(&grp->mutex);
-		for (k = 0; k < grp->hw_plane_num; k++) {
-			/* already used by others? */
-			if (grp->src_mask & BIT(k))
-				continue;
+		for (k = 0; k < total_asrc_num; k++) {
+			m = ffs(src_a_mask) - 1;
 
-			fd_id = source_to_id(sources[k]);
+			fu_type = source_to_type(sources[m]);
+			fu_id = source_to_id(sources[m]);
 
-			fd = grp->res.fd[fd_id];
+			switch (fu_type) {
+			case DPU_PLANE_SRC_FL:
+				fl = grp->res.fl[fu_id];
 
-			/* avoid on-the-fly/hot migration */
-			src_sid = fetchdecode_get_stream_id(fd);
-			if (src_sid && src_sid != BIT(sid))
-				continue;
-
-			cap_mask = fetchdecode_get_vproc_mask(fd);
-
-			if (drm_format_num_planes(fb->format->format) > 1) {
-				fe = fetchdecode_get_fetcheco(fd);
+				if (fmt_is_yuv || need_fetcheco ||
+				    need_hscaler || need_vscaler)
+					goto next;
 
 				/* avoid on-the-fly/hot migration */
-				src_sid = fetcheco_get_stream_id(fe);
+				src_sid = fetchlayer_get_stream_id(fl);
 				if (src_sid && src_sid != BIT(sid))
-					continue;
-
-				/* fetch unit has the fetcheco capability? */
-				if (!dpu_vproc_has_fetcheco_cap(cap_mask))
-					continue;
-
-				fe_mask = dpu_vproc_get_fetcheco_cap(cap_mask);
-
-				/* fetcheco available? */
-				if (grp->src_use_vproc_mask & fe_mask)
-					continue;
-
-				grp->src_use_vproc_mask |= fe_mask;
-			}
-
-			if (states[i]->src_w >> 16 != states[i]->crtc_w) {
-				hs = fetchdecode_get_hscaler(fd);
+					goto next;
+				break;
+			case DPU_PLANE_SRC_FD:
+				fd = grp->res.fd[fu_id];
 
 				/* avoid on-the-fly/hot migration */
-				src_sid = hscaler_get_stream_id(hs);
+				src_sid = fetchdecode_get_stream_id(fd);
 				if (src_sid && src_sid != BIT(sid))
-					continue;
+					goto next;
 
-				/* fetch unit has the hscale capability? */
-				if (!dpu_vproc_has_hscale_cap(cap_mask))
-					continue;
+				cap_mask = fetchdecode_get_vproc_mask(fd);
 
-				hs_mask = dpu_vproc_get_hscale_cap(cap_mask);
+				if (need_fetcheco) {
+					fe = fetchdecode_get_fetcheco(fd);
 
-				/* hscaler available? */
-				if (grp->src_use_vproc_mask & hs_mask)
-					continue;
+					/* avoid on-the-fly/hot migration */
+					src_sid = fetcheco_get_stream_id(fe);
+					if (src_sid && src_sid != BIT(sid))
+						goto next;
 
-				grp->src_use_vproc_mask |= hs_mask;
+					/* fetch unit has the fetcheco cap? */
+					if (!dpu_vproc_has_fetcheco_cap(cap_mask))
+						goto next;
+
+					fe_mask =
+					   dpu_vproc_get_fetcheco_cap(cap_mask);
+
+					/* fetcheco available? */
+					if (grp->src_use_vproc_mask & fe_mask)
+						goto next;
+				}
+
+				if (need_hscaler) {
+					hs = fetchdecode_get_hscaler(fd);
+
+					/* avoid on-the-fly/hot migration */
+					src_sid = hscaler_get_stream_id(hs);
+					if (src_sid && src_sid != BIT(sid))
+						goto next;
+
+					/* fetch unit has the hscale cap */
+					if (!dpu_vproc_has_hscale_cap(cap_mask))
+						goto next;
+
+					hs_mask =
+					     dpu_vproc_get_hscale_cap(cap_mask);
+
+					/* hscaler available? */
+					if (grp->src_use_vproc_mask & hs_mask)
+						goto next;
+				}
+
+				if (need_vscaler) {
+					vs = fetchdecode_get_vscaler(fd);
+
+					/* avoid on-the-fly/hot migration */
+					src_sid = vscaler_get_stream_id(vs);
+					if (src_sid && src_sid != BIT(sid))
+						goto next;
+
+					/* fetch unit has the vscale cap? */
+					if (!dpu_vproc_has_vscale_cap(cap_mask))
+						goto next;
+
+					vs_mask =
+					     dpu_vproc_get_vscale_cap(cap_mask);
+
+					/* vscaler available? */
+					if (grp->src_use_vproc_mask & vs_mask)
+						goto next;
+				}
+				break;
+			default:
+				return -EINVAL;
 			}
 
-			if (states[i]->src_h >> 16 != states[i]->crtc_h) {
-				vs = fetchdecode_get_vscaler(fd);
-
-				/* avoid on-the-fly/hot migration */
-				src_sid = vscaler_get_stream_id(vs);
-				if (src_sid && src_sid != BIT(sid))
-					continue;
-
-				/* fetch unit has the vscale capability? */
-				if (!dpu_vproc_has_vscale_cap(cap_mask))
-					continue;
-
-				vs_mask = dpu_vproc_get_vscale_cap(cap_mask);
-
-				/* vscaler available? */
-				if (grp->src_use_vproc_mask & vs_mask)
-					continue;
-
-				grp->src_use_vproc_mask |= vs_mask;
-			}
-
-			grp->src_mask |= BIT(k);
+			grp->src_a_mask &= ~BIT(m);
+			grp->src_use_vproc_mask |= fe_mask | hs_mask | vs_mask;
 			break;
+next:
+			src_a_mask &= ~BIT(m);
+			fe_mask = 0;
+			hs_mask = 0;
+			vs_mask = 0;
 		}
 		mutex_unlock(&grp->mutex);
 
-		if (k == grp->hw_plane_num)
+		if (k == total_asrc_num)
 			return -EINVAL;
 
-		dpstate->source = sources[k];
+		dpstate->source = sources[m];
 
 		/* assign stage and blend */
 		if (sid) {
@@ -460,7 +502,7 @@ static int dpu_drm_atomic_check(struct drm_device *dev,
 	for (i = 0; i < MAX_DPU_PLANE_GRP; i++) {
 		if (grp[i]) {
 			mutex_lock(&grp[i]->mutex);
-			grp[i]->src_mask = 0;
+			grp[i]->src_a_mask = ~grp[i]->src_na_mask;
 			grp[i]->src_use_vproc_mask = 0;
 			mutex_unlock(&grp[i]->mutex);
 		}

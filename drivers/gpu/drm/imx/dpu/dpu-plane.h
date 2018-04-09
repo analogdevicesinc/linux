@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 NXP
+ * Copyright 2017-2018 NXP
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -19,6 +19,12 @@
 #include "imx-drm.h"
 
 #define MAX_DPU_PLANE_GRP	(MAX_CRTC / 2)
+
+enum dpu_plane_src_type {
+	DPU_PLANE_SRC_FL,
+	DPU_PLANE_SRC_FW,
+	DPU_PLANE_SRC_FD,
+};
 
 struct dpu_plane {
 	struct drm_plane	base;
@@ -50,7 +56,10 @@ static const lb_prim_sel_t stages[] = {LB_PRIM_SEL__LAYERBLEND0,
 				       LB_PRIM_SEL__LAYERBLEND3,
 				       LB_PRIM_SEL__LAYERBLEND4,
 				       LB_PRIM_SEL__LAYERBLEND5};
-static const lb_sec_sel_t sources[] = {LB_SEC_SEL__FETCHDECODE0,
+/* FIXME: Correct the source entries for subsidiary layers. */
+static const lb_sec_sel_t sources[] = {LB_SEC_SEL__FETCHLAYER0,
+				       LB_SEC_SEL__FETCHLAYER1,
+				       LB_SEC_SEL__FETCHDECODE0,
 				       LB_SEC_SEL__FETCHDECODE1,
 				       LB_SEC_SEL__FETCHDECODE2,
 				       LB_SEC_SEL__FETCHDECODE3};
@@ -69,13 +78,45 @@ to_dpu_plane_state(struct drm_plane_state *plane_state)
 	return container_of(plane_state, struct dpu_plane_state, base);
 }
 
+static inline int source_to_type(lb_sec_sel_t source)
+{
+	switch (source) {
+	case LB_SEC_SEL__FETCHLAYER0:
+	case LB_SEC_SEL__FETCHLAYER1:
+		return DPU_PLANE_SRC_FL;
+	case LB_SEC_SEL__FETCHDECODE0:
+	case LB_SEC_SEL__FETCHDECODE1:
+	case LB_SEC_SEL__FETCHDECODE2:
+	case LB_SEC_SEL__FETCHDECODE3:
+		return DPU_PLANE_SRC_FD;
+	default:
+		break;
+	}
+
+	WARN_ON(1);
+	return -EINVAL;
+}
+
 static inline int source_to_id(lb_sec_sel_t source)
 {
-	int i;
+	int i, offset = 0;
+	int type = source_to_type(source);
 
 	for (i = 0; i < ARRAY_SIZE(sources); i++) {
-		if (source == sources[i])
+		if (source == sources[i]) {
+			if (type == DPU_PLANE_SRC_FD) {
+				while (offset < ARRAY_SIZE(sources)) {
+					if (source_to_type(sources[offset]) ==
+					    type)
+						break;
+					offset++;
+				}
+
+				i -= offset;
+			}
+
 			return i;
+		}
 	}
 
 	WARN_ON(1);
@@ -93,6 +134,21 @@ static inline int blend_to_id(dpu_block_id_t blend)
 
 	WARN_ON(1);
 	return -EINVAL;
+}
+
+static inline bool drm_format_is_yuv(uint32_t format)
+{
+	switch (format) {
+	case DRM_FORMAT_YUYV:
+	case DRM_FORMAT_UYVY:
+	case DRM_FORMAT_NV12:
+	case DRM_FORMAT_NV21:
+		return true;
+	default:
+		break;
+	}
+
+	return false;
 }
 
 struct dpu_plane *dpu_plane_init(struct drm_device *drm,

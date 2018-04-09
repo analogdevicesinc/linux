@@ -806,12 +806,14 @@ void  dpu_be_configure_prefetch(struct dpu_bliteng *dpu_be,
 #define DPU_PLANE_SRC_DISABLED		0
 
 #define MAX_FD_NUM	4
+#define MAX_FL_NUM	2
 #define MAX_LB_NUM	7
 struct dpu_plane_res {
 	struct dpu_constframe	*cf[2];
 	struct dpu_extdst	*ed[2];
 	struct dpu_fetchdecode	*fd[MAX_FD_NUM];
 	struct dpu_fetcheco	*fe[2];
+	struct dpu_fetchlayer	*fl[MAX_FL_NUM];
 	struct dpu_framegen	*fg[2];
 	struct dpu_hscaler	*hs[2];
 	struct dpu_layerblend	*lb[MAX_LB_NUM];
@@ -832,11 +834,12 @@ struct dpu_plane_grp {
 	bool			has_vproc;
 	/*
 	 * used when assigning plane source
-	 * index:    0   1   2   3
-	 * source: fd0 fd1 fd2 fd3
+	 * index:     0         1       2   3   4   5
+	 * source: fl0(sub0) fl1(sub0) fd0 fd1 fd2 fd3
 	 */
 	struct mutex		mutex;
-	u32			src_mask;
+	u32			src_a_mask;
+	u32			src_na_mask;
 	u32			src_use_vproc_mask;
 };
 
