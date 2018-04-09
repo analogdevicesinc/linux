@@ -594,6 +594,8 @@ bool dprc_format_supported(struct dprc *dprc, u32 format, u64 modifier)
 		switch (dprc->sc_resource) {
 		case SC_R_DC_0_FRAC0:
 		case SC_R_DC_1_FRAC0:
+		case SC_R_DC_0_WARP:
+		case SC_R_DC_1_WARP:
 			return false;
 		}
 		return modifier == DRM_FORMAT_MOD_NONE;
@@ -602,6 +604,8 @@ bool dprc_format_supported(struct dprc *dprc, u32 format, u64 modifier)
 		switch (dprc->sc_resource) {
 		case SC_R_DC_0_FRAC0:
 		case SC_R_DC_1_FRAC0:
+		case SC_R_DC_0_WARP:
+		case SC_R_DC_1_WARP:
 			return false;
 		}
 		return (dprc->has_aux_prg &&
