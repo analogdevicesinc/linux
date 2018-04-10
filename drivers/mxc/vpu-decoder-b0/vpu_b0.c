@@ -1353,6 +1353,7 @@ static void vpu_api_event_handler(struct vpu_ctx *ctx, u_int32 uStrIdx, u_int32 
 		const struct v4l2_event ev = {
 			.type = V4L2_EVENT_EOS
 		};
+
 		v4l2_event_queue_fh(&ctx->fh, &ev);
 		ctx->firmware_stopped = true;
 		complete(&ctx->stop_cmp);
@@ -1368,19 +1369,26 @@ static void vpu_api_event_handler(struct vpu_ctx *ctx, u_int32 uStrIdx, u_int32 
 		MediaIPFW_Video_PicPerfInfo *pPerfInfo = &pPicInfo[uStrIdx].PerfInfo;
 		MediaIPFW_Video_PicPerfDcpInfo *pPerfDcpInfo = &pPicInfo[uStrIdx].PerfDcpInfo;
 		int buffer_id;
+		u_int32 uDecFrmId = event_data[7];
+		u_int32 uPicStartAddr = event_data[10];
 
-		vpu_dbg(LVL_INFO, "PICINFO GET: uPicType:%d uPicStruct:%d uPicStAddr:0x%x uFrameStoreID:%d uPercentInErr:%d, uRbspBytesCount=%d, ulLumBaseAddr[0]=%x, pQMeterInfo:%p, pPicInfo:%p, pDispInfo:%p, pPerfInf:%p, pPerfDcpInfo:%p\n",
+		if (ctx->buffer_null == true) {
+			vpu_dbg(LVL_INFO, "frame already released !!!!!!!!!!!!!!!!!\n");
+			break;
+		}
+
+		vpu_dbg(LVL_INFO, "PICINFO GET: uPicType:%d uPicStruct:%d uPicStAddr:0x%x uFrameStoreID:%d uPercentInErr:%d, uRbspBytesCount=%d, ulLumBaseAddr[0]=%x, pQMeterInfo:%p, pPicInfo:%p, pDispInfo:%p, pPerfInf:%p, pPerfDcpInfo:%p, uPicStartAddr=0x%x\n",
 				pPicInfo[uStrIdx].uPicType, pPicInfo[uStrIdx].uPicStruct,
 				pPicInfo[uStrIdx].uPicStAddr, pPicInfo[uStrIdx].uFrameStoreID,
 				pPicInfo[uStrIdx].uPercentInErr, pPerfInfo->uRbspBytesCount, event_data[0],
-				pQMeterInfo, pPicInfo, pDispInfo, pPerfInfo, pPerfDcpInfo);
+				pQMeterInfo, pPicInfo, pDispInfo, pPerfInfo, pPerfDcpInfo, uPicStartAddr);
 
 		buffer_id = find_buffer_id(ctx, event_data[0]);
 
 		if (buffer_id == -1)
 			break;
 
-		if (buffer_id != pPicInfo[uStrIdx].uFrameStoreID)
+		if (buffer_id != uDecFrmId)
 			vpu_dbg(LVL_ERR, "error: VID_API_EVENT_PIC_DECODED address and id doesn't match\n");
 		if (ctx->q_data[V4L2_DST].vb2_reqs[buffer_id].status != FRAME_FREE)
 			vpu_dbg(LVL_ERR, "error: buffer(%d) need to set FRAME_DECODED, but previous state %s is not FRAME_FREE\n",
@@ -1495,6 +1503,11 @@ static void vpu_api_event_handler(struct vpu_ctx *ctx, u_int32 uStrIdx, u_int32 
 			wait_event_interruptible(ctx->buffer_wq,
 					((ctx->wait_rst_done == true) || (wait_right_buffer(This) == true)));
 
+			if (ctx->buffer_null == true) {
+				vpu_dbg(LVL_INFO, "frame already released !!!!!!!!!!!!!!!!!\n");
+				break;
+			}
+
 			if (!list_empty(&This->drv_q)) {
 				down(&This->drv_q_lock);
 				list_for_each_entry_safe(p_data_req, p_temp, &This->drv_q, list) {
@@ -1535,13 +1548,18 @@ static void vpu_api_event_handler(struct vpu_ctx *ctx, u_int32 uStrIdx, u_int32 
 				up(&This->drv_q_lock);
 				if (buffer_flag == false)
 					vpu_dbg(LVL_ERR, "error: don't find the right buffer for VID_API_CMD_FS_ALLOC\n");
-			} else if(ctx->wait_rst_done) {
+			} else if (ctx->wait_rst_done) {
 				u_int32 i;
-				for(i=0; i< VPU_MAX_BUFFER; i++) {
+				for (i = 0; i < VPU_MAX_BUFFER; i++) {
 					p_data_req = &This->vb2_reqs[i];
-					if(p_data_req->status==FRAME_RELEASE)
+					if (p_data_req->status == FRAME_RELEASE)
 						break;
 				}
+				if (i == VPU_MAX_BUFFER) {
+					vpu_dbg(LVL_ERR, "error: don't find buffer when wait_rst_done is true\n"); //wait_rst_done is true when streamoff or v4l2_release is called
+					break;
+				}
+
 				pphy_address = (u_int32 *)vb2_plane_cookie(p_data_req->vb2_buf, 0);
 				LumaAddr = *pphy_address;
 				pphy_address = (u_int32 *)vb2_plane_cookie(p_data_req->vb2_buf, 1);
@@ -1575,6 +1593,11 @@ static void vpu_api_event_handler(struct vpu_ctx *ctx, u_int32 uStrIdx, u_int32 
 		struct queue_data *This = &ctx->q_data[V4L2_DST];
 		struct vb2_data_req *p_data_req;
 
+		if (ctx->buffer_null == true) {
+			vpu_dbg(LVL_INFO, "frame already released !!!!!!!!!!!!!!!!!\n");
+			break;
+		}
+
 		if (fsrel->eType == MEDIAIP_FRAME_REQ) {
 			p_data_req = &This->vb2_reqs[fsrel->uFSIdx];
 
@@ -1599,6 +1622,10 @@ static void vpu_api_event_handler(struct vpu_ctx *ctx, u_int32 uStrIdx, u_int32 
 		u_int32 uStrBufIdx = 0; //use buffer 0 for the stream
 		pSTREAM_BUFFER_DESCRIPTOR_TYPE pStrBufDesc;
 
+		if (ctx->buffer_null == true) {
+			vpu_dbg(LVL_INFO, "frame already released !!!!!!!!!!!!!!!!!\n");
+			break;
+		}
 
 		pStrBufDesc = dev->regs_base + DEC_MFD_XREG_SLV_BASE + MFD_MCX + MFD_MCX_OFF * ctx->str_index;
 		vpu_dbg(LVL_INFO, "%s wptr(%x) rptr(%x) start(%x) end(%x) uStrIdx(%d)\n",
@@ -1710,6 +1737,7 @@ static irqreturn_t fsl_vpu_mu_isr(int irq, void *This)
 		MU_sendMesgToFW(dev->mu_base_virtaddr, BOOT_ADDRESS, dev->m0_p_fw_space_phy);
 #endif
 		MU_sendMesgToFW(dev->mu_base_virtaddr, INIT_DONE, 2);
+
 	} else
 		schedule_work(&dev->msg_work);
 
@@ -2205,6 +2233,8 @@ static int v4l2_release(struct file *filp)
 	u_int32 i;
 
 	if (!ctx->firmware_stopped && ctx->start_flag == false) {
+		ctx->wait_rst_done = true;
+		wake_up_interruptible(&ctx->buffer_wq);  //workaround: to wakeup event handler who still may receive request frame after reset done
 		v4l2_vpu_send_cmd(ctx, ctx->str_index, VID_API_CMD_STOP, 0, NULL);
 		wait_for_completion(&ctx->stop_cmp);
 	}
