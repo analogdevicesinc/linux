@@ -9,18 +9,19 @@
 #include "imx7ulp-evk.dts"
 
 &adv7535 {
-	status = "okay";
-	port {
-		dsi_to_hdmi: endpoint {
-			remote-endpoint = <&mipi_dsi_ep>;
-		};
-	};
+	status = "disabled";
+
+	/delete-node/ port;
 };
 
 &mipi_dsi {
-	port {
-		mipi_dsi_ep: endpoint {
-			remote-endpoint = <&dsi_to_hdmi>;
-		};
-	};
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&pinctrl_mipi_dsi_reset>;
+	pinctrl-1 = <&pinctrl_mipi_dsi_reset>;
+	lcd_panel = "TRULY-WVGA-TFT3P5581E";
+	resets = <&mipi_dsi_reset>;
+
+	/delete-node/ port;
 };
+
+

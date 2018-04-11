@@ -439,9 +439,9 @@
 		interrupt-parent = <&gpio_ptc>;
 		interrupts = <18 IRQ_TYPE_EDGE_FALLING>;
 		video-mode = <1>; /*
-			           * Only support CEA modes.
-			           * Reference mxc_edid.c
-			           */
+						   * Only support CEA modes.
+						   * Reference mxc_edid.c
+						   */
 		dsi-traffic-mode = <0>;
 		bpp = <24>;
 		status = "disabled";
@@ -463,13 +463,25 @@
 	};
 };
 
-&mipi_dsi {
-	pinctrl-names = "default", "sleep";
-	pinctrl-0 = <&pinctrl_mipi_dsi_reset>;
-	pinctrl-1 = <&pinctrl_mipi_dsi_reset>;
-	lcd_panel = "TRULY-WVGA-TFT3P5581E";
-	resets = <&mipi_dsi_reset>;
+
+&adv7535 {
 	status = "okay";
+
+	port {
+		dsi_to_hdmi: endpoint {
+			remote-endpoint = <&mipi_dsi_ep>;
+		};
+	};
+};
+
+&mipi_dsi {
+	status = "okay";
+
+	port {
+		mipi_dsi_ep: endpoint {
+			remote-endpoint = <&dsi_to_hdmi>;
+		};
+	};
 };
 
 &lpuart4 { /* console */
