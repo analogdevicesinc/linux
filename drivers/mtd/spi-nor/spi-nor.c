@@ -197,6 +197,18 @@ static u8 spi_nor_convert_opcode(u8 opcode, const u8 table[][2], size_t size)
 	return opcode;
 }
 
+static inline u8 spi_nor_convert_str_to_dtr_read(u8 opcode)
+{
+	static const u8 spi_nor_sdr_to_dtr_read[][2] = {
+		{ SPINOR_OP_READ_FAST,		SPINOR_OP_READ_1_1_1_DTR },
+		{ SPINOR_OP_READ_1_2_2,		SPINOR_OP_READ_1_2_2_DTR },
+		{ SPINOR_OP_READ_1_4_4,		SPINOR_OP_READ_1_4_4_DTR },
+	};
+
+	return spi_nor_convert_opcode(opcode, spi_nor_sdr_to_dtr_read,
+				      ARRAY_SIZE(spi_nor_sdr_to_dtr_read));
+};
+
 static inline u8 spi_nor_convert_3to4_read(u8 opcode)
 {
 	static const u8 spi_nor_3to4_read[][2] = {
@@ -1974,14 +1986,25 @@ struct sfdp_bfpt {
 /* Fast Read settings. */
 
 static inline void
-spi_nor_set_read_settings_from_bfpt(struct spi_nor_read_command *read,
+spi_nor_set_read_settings_from_bfpt(struct spi_nor *nor,
+				    struct spi_nor_read_command *read,
 				    u16 half,
 				    enum spi_nor_protocol proto)
 {
+	u8 opcode;
+
 	read->num_mode_clocks = (half >> 5) & 0x07;
 	read->num_wait_states = (half >> 0) & 0x1f;
-	read->opcode = (half >> 8) & 0xff;
 	read->proto = proto;
+	opcode = (half >> 8) & 0xff;
+
+	if (spi_nor_protocol_is_dtr(proto))
+		opcode = spi_nor_convert_str_to_dtr_read(opcode);
+	if (nor->addr_width == 4)
+		opcode = spi_nor_convert_3to4_read(opcode);
+
+	read->opcode = opcode;
+
 }
 
 struct sfdp_bfpt_read {
@@ -2046,6 +2069,14 @@ static const struct sfdp_bfpt_read sfdp_bfpt_reads[] = {
 		BFPT_DWORD(1), BIT(21),	/* Supported bit */
 		BFPT_DWORD(3), 0,	/* Settings */
 		SNOR_PROTO_1_4_4,
+	},
+
+	/* Fast Read 1-4-4-DTR */
+	{
+		SNOR_HWCAPS_READ_1_4_4_DTR,
+		BFPT_DWORD(1), BIT(21),	/* Supported bit */
+		BFPT_DWORD(3), 0,	/* Settings */
+		SNOR_PROTO_1_4_4_DTR,
 	},
 
 	/* Fast Read 4-4-4 */
@@ -2187,7 +2218,7 @@ static int spi_nor_parse_bfpt(struct spi_nor *nor,
 		cmd = spi_nor_hwcaps_read2cmd(rd->hwcaps);
 		read = &params->reads[cmd];
 		half = bfpt.dwords[rd->settings_dword] >> rd->settings_shift;
-		spi_nor_set_read_settings_from_bfpt(read, half, rd->proto);
+		spi_nor_set_read_settings_from_bfpt(nor, read, half, rd->proto);
 	}
 
 	/* Sector Erase settings. */
@@ -2590,6 +2621,7 @@ static int spi_nor_setup(struct spi_nor *nor, const struct flash_info *info,
 	 * Keep only the hardware capabilities supported by both the SPI
 	 * controller and the SPI flash memory.
 	 */
+
 	shared_mask = hwcaps->mask & params->hwcaps.mask;
 
 	/* SPI n-n-n protocols are not supported yet. */

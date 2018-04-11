@@ -45,6 +45,9 @@
 
 /* The registers */
 #define QUADSPI_MCR			0x00
+#define MX6SX_QUADSPI_MCR_TX_DDR_DELAY_EN_SHIFT 29
+#define MX6SX_QUADSPI_MCR_TX_DDR_DELAY_EN_MASK  \
+					(1 << MX6SX_QUADSPI_MCR_TX_DDR_DELAY_EN_SHIFT)
 #define QUADSPI_MCR_RESERVED_SHIFT	16
 #define QUADSPI_MCR_RESERVED_MASK	(0xF << QUADSPI_MCR_RESERVED_SHIFT)
 #define QUADSPI_MCR_MDIS_SHIFT		14
@@ -65,6 +68,11 @@
 #define QUADSPI_IPCR			0x08
 #define QUADSPI_IPCR_SEQID_SHIFT	24
 #define QUADSPI_IPCR_SEQID_MASK		(0xF << QUADSPI_IPCR_SEQID_SHIFT)
+
+#define QUADSPI_FLSHCR                  0x0c
+#define QUADSPI_FLSHCR_TDH_SHIFT        16
+#define QUADSPI_FLSHCR_TDH_MASK         (3 << QUADSPI_FLSHCR_TDH_SHIFT)
+#define QUADSPI_FLSHCR_TDH_DDR_EN       (1 << QUADSPI_FLSHCR_TDH_SHIFT)
 
 #define QUADSPI_BUF0CR			0x10
 #define QUADSPI_BUF1CR			0x14
@@ -478,22 +486,41 @@ static void fsl_qspi_prepare_lut(struct spi_nor *nor,
 				    LUT1(ADDR, pad_count(addr_pad), addrlen),
 				    base + QUADSPI_LUT(lut_base));
 
+			if (spi_nor_protocol_is_dtr(protocol))
+				qspi_writel(q, LUT0(CMD, pad_count(cmd_pad), opcode) |
+					    LUT1(ADDR_DDR, pad_count(addr_pad), addrlen),
+					    base + QUADSPI_LUT(lut_base));
 			/*
 			 * For cmds SPINOR_OP_READ and SPINOR_OP_READ_4B value
 			 * of dummy cycles are 0.
 			 */
-			if (read_dm)
+			if (read_dm) {
 				qspi_writel(q,
 					    LUT0(DUMMY, pad_count(dummy_pad),
 					    read_dm) |
 					    LUT1(FSL_READ, pad_count(data_pad),
 					    0),
 					    base + QUADSPI_LUT(lut_base + 1));
-			else
+
+				if (spi_nor_protocol_is_dtr(protocol))
+					qspi_writel(q,
+						    LUT0(DUMMY, pad_count(dummy_pad),
+						    read_dm) |
+						    LUT1(FSL_READ_DDR, pad_count(data_pad),
+						    0),
+						    base + QUADSPI_LUT(lut_base + 1));
+			} else {
 				qspi_writel(q,
 					    LUT0(FSL_READ, pad_count(data_pad),
 					    0),
 					    base + QUADSPI_LUT(lut_base + 1));
+
+				if (spi_nor_protocol_is_dtr(protocol))
+					qspi_writel(q,
+						    LUT0(FSL_READ_DDR, pad_count(data_pad),
+						    0),
+						    base + QUADSPI_LUT(lut_base + 1));
+			}
 
 			stop_lut = 2;
 
@@ -892,6 +919,53 @@ static ssize_t fsl_qspi_write(struct spi_nor *nor, loff_t to,
 	return ret;
 }
 
+static void __fsl_qspi_enable_ddr_mode(struct spi_nor *nor, bool v)
+{
+	struct fsl_qspi *q = nor->priv;
+	u32 reg;
+	/* u32 reg, reg2; */
+
+	reg = qspi_readl(q, q->iobase + QUADSPI_MCR);
+
+	/* Firstly, disable the module */
+	qspi_writel(q, reg | QUADSPI_MCR_MDIS_MASK,
+		    q->iobase + QUADSPI_MCR);
+
+	/* reg2 = qspi_readl(q, q->iobase + QUADSPI_SMPR); */
+	/* reg2 &= ~QUADSPI_SMPR_DDRSMP_MASK; */
+
+	/* Set the Sampling Register for DDR, if to enable it */
+	/* if (v) */
+		/* reg2 |= ((q->ddr_smp << QUADSPI_SMPR_DDRSMP_SHIFT) & */
+			  /* QUADSPI_SMPR_DDRSMP_MASK); */
+
+	/* qspi_writel(q, reg2, q->iobase + QUADSPI_SMPR); */
+
+	/* Enable the module again and enable the DDR, if need */
+	if (v) {
+		reg |= QUADSPI_MCR_DDR_EN_MASK;
+		if (q->devtype_data->devtype == FSL_QUADSPI_IMX6SX)
+			reg |= MX6SX_QUADSPI_MCR_TX_DDR_DELAY_EN_MASK;
+	}
+
+	qspi_writel(q, reg, q->iobase + QUADSPI_MCR);
+
+	if ((q->devtype_data->devtype == FSL_QUADSPI_IMX6UL) ||
+	    (q->devtype_data->devtype == FSL_QUADSPI_IMX7D)) {
+
+		reg = qspi_readl(q, q->iobase + QUADSPI_FLSHCR);
+		reg &= ~QUADSPI_FLSHCR_TDH_MASK;
+
+		if (v)
+			reg |= QUADSPI_FLSHCR_TDH_DDR_EN;
+
+		qspi_writel(q, reg, q->iobase + QUADSPI_FLSHCR);
+	}
+}
+
+#define fsl_qspi_enable_ddr_mode(x)	__fsl_qspi_enable_ddr_mode(x, true)
+#define fsl_qspi_disable_ddr_mode(x)	__fsl_qspi_enable_ddr_mode(x, false)
+
 static ssize_t fsl_qspi_read(struct spi_nor *nor, loff_t from,
 			     size_t len, u_char *buf)
 {
@@ -900,6 +974,11 @@ static ssize_t fsl_qspi_read(struct spi_nor *nor, loff_t from,
 	int i, j;
 
 	fsl_qspi_prepare_lut(nor, FSL_QSPI_OPS_READ, nor->read_opcode, len);
+
+	if (spi_nor_protocol_is_dtr(nor->read_proto))
+		fsl_qspi_enable_ddr_mode(nor);
+	else
+		fsl_qspi_disable_ddr_mode(nor);
 
 	/* if necessary,ioremap buffer before AHB read, */
 	if (!q->ahb_addr) {
@@ -999,7 +1078,7 @@ static void fsl_qspi_unprep(struct spi_nor *nor, enum spi_nor_ops ops)
 static int fsl_qspi_probe(struct platform_device *pdev)
 {
 	const struct spi_nor_hwcaps hwcaps = {
-		.mask = SNOR_HWCAPS_READ_1_1_4 |
+		.mask = SNOR_HWCAPS_READ_1_4_4_DTR |
 			SNOR_HWCAPS_PP,
 	};
 	struct device_node *np = pdev->dev.of_node;
@@ -1058,6 +1137,12 @@ static int fsl_qspi_probe(struct platform_device *pdev)
 	q->clk = devm_clk_get(dev, "qspi");
 	if (IS_ERR(q->clk))
 		return PTR_ERR(q->clk);
+
+	/* find ddrsmp value */
+	/* ret = of_property_read_u32(dev->of_node, "ddrsmp", */
+				   /* &q->ddr_smp); */
+	/* if (ret) */
+		/* q->ddr_smp = 0; */
 
 	ret = fsl_qspi_clk_prep_enable(q);
 	if (ret) {
