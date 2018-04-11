@@ -18,6 +18,14 @@
 	};
 };
 
+&fclk0 {
+	status = "okay";
+};
+
+&fclk2 {
+	status = "okay";
+};
+
 / {
 	fpga_axi: fpga-axi@0 {
 		interrupt-parent = <&gic>;
@@ -32,7 +40,7 @@
 			#dma-cells = <1>;
 			#clock-cells = <0>;
 			interrupts = <0 109 0>;
-			clocks = <&clkc 71>;
+			clocks = <&clkc 73>;
 
 			adi,channels {
 				#size-cells = <0>;
@@ -55,7 +63,7 @@
 			#dma-cells = <1>;
 			#clock-cells = <0>;
 			interrupts = <0 108 0>;
-			clocks = <&clkc 71>;
+			clocks = <&clkc 73>;
 
 			adi,channels {
 				#size-cells = <0>;
