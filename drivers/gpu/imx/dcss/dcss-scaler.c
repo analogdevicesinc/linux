@@ -107,7 +107,8 @@ struct dcss_scaler_ch {
 	u32 sdata_ctrl;
 	u32 scaler_ctrl;
 
-	u32 pix_format;
+	u32 c_vstart;
+	u32 c_hstart;
 };
 
 struct dcss_scaler_priv {
@@ -116,6 +117,176 @@ struct dcss_scaler_priv {
 
 	int ch_using_wrscl;
 };
+
+/* scaler coefficients generator */
+#define PSC_FRAC_BITS 30
+#define PSC_FRAC_SCALE BIT(PSC_FRAC_BITS)
+#define PSC_BITS_FOR_PHASE 4
+#define PSC_NUM_PHASES 16
+#define PSC_STORED_PHASES (PSC_NUM_PHASES / 2 + 1)
+#define PSC_NUM_TAPS 7
+#define PSC_NUM_TAPS_RGBA 5
+#define PSC_COEFF_PRECISION 10
+#define PSC_PHASE_FRACTION_BITS 13
+#define PSC_PHASE_MASK (PSC_NUM_PHASES - 1)
+#define PSC_Q_FRACTION 19
+#define PSC_Q_ROUND_OFFSET (1 << (PSC_Q_FRACTION - 1))
+
+/**
+ * mult_q() - Performs fixed-point multiplication.
+ * @A: multiplier
+ * @B: multiplicand
+ */
+static int mult_q(int A, int B)
+{
+	int result;
+	s64 temp;
+
+	temp = (int64_t)A * (int64_t)B;
+	temp += PSC_Q_ROUND_OFFSET;
+	result = (int)(temp >> PSC_Q_FRACTION);
+	return result;
+}
+
+/**
+ * div_q() - Performs fixed-point division.
+ * @A: dividend
+ * @B: divisor
+ */
+static int div_q(int A, int B)
+{
+	int result;
+	s64 temp;
+
+	temp = (int64_t)A << PSC_Q_FRACTION;
+	if ((temp >= 0 && B >= 0) || (temp < 0 && B < 0))
+		temp += B / 2;
+	else
+		temp -= B / 2;
+
+	result = (int)(temp / B);
+	return result;
+}
+
+/**
+ * exp_approx_q() - Compute approximation to exp(x) function using Taylor
+ *		    series.
+ * @x: fixed-point argument of exp function
+ */
+static int exp_approx_q(int x)
+{
+	int sum = 1 << PSC_Q_FRACTION;
+	int term = 1 << PSC_Q_FRACTION;
+
+	term = mult_q(term, div_q(x, 1 << PSC_Q_FRACTION));
+	sum += term;
+	term = mult_q(term, div_q(x, 2 << PSC_Q_FRACTION));
+	sum += term;
+	term = mult_q(term, div_q(x, 3 << PSC_Q_FRACTION));
+	sum += term;
+	term = mult_q(term, div_q(x, 4 << PSC_Q_FRACTION));
+	sum += term;
+
+	return sum;
+}
+
+/**
+ * dcss_scaler_gaussian_filter() -Generate gaussian prototype filter.
+ * @fc_q: fixed-point cutoff frequency normalized to range [0, 1]
+ * @use_5_taps: indicates whether to use 5 taps or 7 taps
+ * @coef: output filter coefficients
+ */
+static void dcss_scaler_gaussian_filter(int fc_q, bool use_5_taps,
+					bool phase0_identity,
+					int coef[][PSC_NUM_TAPS])
+{
+	int sigma_q, g0_q, g1_q, g2_q;
+	int tap_cnt1, tap_cnt2, phase_cnt;
+	int mid;
+	int phase;
+	int i;
+
+	if (use_5_taps)
+		for (phase = 0; phase < PSC_STORED_PHASES; phase++) {
+			coef[phase][0] = 0;
+			coef[phase][PSC_NUM_TAPS - 1] = 0;
+		}
+
+	/* seed coefficient scanner */
+	mid = (PSC_NUM_PHASES * (use_5_taps ? PSC_NUM_TAPS_RGBA : PSC_NUM_TAPS)) / 2 - 1;
+	phase_cnt = (PSC_NUM_PHASES * (PSC_NUM_TAPS + 1)) / 2;
+	tap_cnt1 = (PSC_NUM_PHASES * PSC_NUM_TAPS) / 2;
+	tap_cnt2 = (PSC_NUM_PHASES * PSC_NUM_TAPS) / 2;
+
+	/* seed gaussian filter generator */
+	sigma_q = div_q(PSC_Q_ROUND_OFFSET, fc_q);
+	g0_q = 1 << PSC_Q_FRACTION;
+	g1_q = exp_approx_q(div_q(-PSC_Q_ROUND_OFFSET, mult_q(sigma_q, sigma_q)));
+	g2_q = mult_q(g1_q, g1_q);
+	coef[phase_cnt & PSC_PHASE_MASK][tap_cnt1 >> PSC_BITS_FOR_PHASE] = g0_q;
+
+	for (i = 0; i < mid; i++) {
+		phase_cnt++;
+		tap_cnt1--;
+		tap_cnt2++;
+
+		g0_q = mult_q(g0_q, g1_q);
+		g1_q = mult_q(g1_q, g2_q);
+
+		if ((phase_cnt & PSC_PHASE_MASK) <= 8)
+			coef[phase_cnt & PSC_PHASE_MASK][tap_cnt1 >> PSC_BITS_FOR_PHASE] = g0_q;
+		if (((-phase_cnt) & PSC_PHASE_MASK) <= 8)
+			coef[(-phase_cnt) & PSC_PHASE_MASK][tap_cnt2 >> PSC_BITS_FOR_PHASE] = g0_q;
+	}
+
+	phase_cnt++;
+	tap_cnt1--;
+	coef[phase_cnt & PSC_PHASE_MASK][tap_cnt1 >> PSC_BITS_FOR_PHASE] = 0;
+
+	/* override phase 0 with identity filter if specified */
+	if (phase0_identity)
+		for (i = 0; i < PSC_NUM_TAPS; i++)
+			coef[0][i] = i == (PSC_NUM_TAPS >> 1) ? (1 << PSC_COEFF_PRECISION) : 0;
+
+	/* normalize coef */
+	for (phase = 0; phase < PSC_STORED_PHASES; phase++) {
+		int sum = 0;
+		s64 ll_temp;
+
+		for (i = 0; i < PSC_NUM_TAPS; i++)
+			sum += coef[phase][i];
+		for (i = 0; i < PSC_NUM_TAPS; i++) {
+			ll_temp = coef[phase][i];
+			ll_temp <<= PSC_COEFF_PRECISION;
+			ll_temp += sum >> 1;
+			ll_temp /= sum;
+			coef[phase][i] = (int)ll_temp;
+		}
+	}
+}
+
+/**
+ * dcss_scaler_filter_design() - Compute filter coefficients using Gaussian filter.
+ * @src_length: length of input
+ * @dst_length: length of output
+ * @use_5_taps: 0 for 7 taps per phase, 1 for 5 taps
+ * @coef: output coefficients
+ */
+static void dcss_scaler_filter_design(int src_length, int dst_length,
+				      bool use_5_taps, bool phase0_identity,
+				      int coef[][PSC_NUM_TAPS])
+{
+	int fc_q;
+
+	/* compute cutoff frequency */
+	if (dst_length >= src_length)
+		fc_q = div_q(1, PSC_NUM_PHASES);
+	else
+		fc_q = div_q(dst_length, src_length * PSC_NUM_PHASES);
+
+	/* compute gaussian filter coefficients */
+	dcss_scaler_gaussian_filter(fc_q, use_5_taps, phase0_identity, coef);
+}
 
 static void dcss_scaler_write(struct dcss_scaler_priv *scl, int ch_num,
 			      u32 val, u32 ofs)
@@ -269,6 +440,15 @@ enum buffer_format {
 	BUF_FMT_ARGB8888_YUV444,
 };
 
+enum chroma_location {
+	PSC_LOC_HORZ_0_VERT_1_OVER_4 = 0,
+	PSC_LOC_HORZ_1_OVER_4_VERT_1_OVER_4 = 1,
+	PSC_LOC_HORZ_0_VERT_0 = 2,
+	PSC_LOC_HORZ_1_OVER_4_VERT_0 = 3,
+	PSC_LOC_HORZ_0_VERT_1_OVER_2 = 4,
+	PSC_LOC_HORZ_1_OVER_4_VERT_1_OVER_2 = 5
+};
+
 static void dcss_scaler_format_set(struct dcss_soc *dcss, int ch_num,
 				   enum buffer_format src_fmt,
 				   enum buffer_format dst_fmt)
@@ -282,10 +462,11 @@ static void dcss_scaler_format_set(struct dcss_soc *dcss, int ch_num,
 static void dcss_scaler_res_set(struct dcss_soc *dcss, int ch_num,
 				int src_xres, int src_yres,
 				int dst_xres, int dst_yres,
-				u32 pix_format)
+				u32 pix_format, enum buffer_format dst_format)
 {
 	u32 lsrc_xres, lsrc_yres, csrc_xres, csrc_yres;
 	u32 ldst_xres, ldst_yres, cdst_xres, cdst_yres;
+	bool src_is_444 = true;
 
 	lsrc_xres = csrc_xres = src_xres;
 	lsrc_yres = csrc_yres = src_yres;
@@ -293,13 +474,24 @@ static void dcss_scaler_res_set(struct dcss_soc *dcss, int ch_num,
 	ldst_yres = cdst_yres = dst_yres;
 
 	if (pix_format == DRM_FORMAT_UYVY || pix_format == DRM_FORMAT_VYUY ||
-	    pix_format == DRM_FORMAT_YUYV || pix_format == DRM_FORMAT_YVYU)
+	    pix_format == DRM_FORMAT_YUYV || pix_format == DRM_FORMAT_YVYU) {
 		csrc_xres >>= 1;
-	else if (pix_format == DRM_FORMAT_NV12 ||
-		 pix_format == DRM_FORMAT_NV21 ||
-		 pix_format == DRM_FORMAT_P010) {
+		src_is_444 = false;
+	} else if (pix_format == DRM_FORMAT_NV12 ||
+		   pix_format == DRM_FORMAT_NV21 ||
+		   pix_format == DRM_FORMAT_P010) {
 		csrc_xres >>= 1;
 		csrc_yres >>= 1;
+		src_is_444 = false;
+	}
+
+	if (dst_format == BUF_FMT_YUV422)
+		cdst_xres >>= 1;
+
+	/* for 4:4:4 to 4:2:2 conversion, source height should be 1 less */
+	if (src_is_444 && dst_format == BUF_FMT_YUV422) {
+		lsrc_yres--;
+		csrc_yres--;
 	}
 
 	dcss_scaler_write(dcss->scaler_priv, ch_num,
@@ -343,24 +535,77 @@ static const struct dcss_scaler_ratios dcss_scaler_wrscl_ratios[] = {
 static bool dcss_scaler_fractions_set(struct dcss_soc *dcss, int ch_num,
 				      int src_xres, int src_yres,
 				      int dst_xres, int dst_yres,
-				      u32 pix_format)
+				      u32 src_format, u32 dst_format,
+				      enum chroma_location src_chroma_loc)
 {
+	struct dcss_scaler_ch *ch = &dcss->scaler_priv->ch[ch_num];
+	int src_c_xres, src_c_yres, dst_c_xres, dst_c_yres;
 	u32 l_vinc, l_hinc, c_vinc, c_hinc;
+	u32 c_vstart, c_hstart;
+
+	src_c_xres = src_xres;
+	src_c_yres = src_yres;
+	dst_c_xres = dst_xres;
+	dst_c_yres = dst_yres;
+
+	c_vstart = 0;
+	c_hstart = 0;
+
+	/* adjustments for source chroma location */
+	if (src_format == BUF_FMT_YUV420) {
+		/* vertical input chroma position adjustment */
+		switch (src_chroma_loc) {
+		case PSC_LOC_HORZ_0_VERT_1_OVER_4:
+		case PSC_LOC_HORZ_1_OVER_4_VERT_1_OVER_4:
+			/*
+			 * move chroma up to first luma line
+			 * (1/4 chroma input line spacing)
+			 */
+			c_vstart -= (1 << (PSC_PHASE_FRACTION_BITS - 2));
+			break;
+		case PSC_LOC_HORZ_0_VERT_1_OVER_2:
+		case PSC_LOC_HORZ_1_OVER_4_VERT_1_OVER_2:
+			/*
+			 * move chroma up to first luma line
+			 * (1/2 chroma input line spacing)
+			 */
+			c_vstart -= (1 << (PSC_PHASE_FRACTION_BITS - 1));
+			break;
+		default:
+			break;
+		}
+		/* horizontal input chroma position adjustment */
+		switch (src_chroma_loc) {
+		case PSC_LOC_HORZ_1_OVER_4_VERT_1_OVER_4:
+		case PSC_LOC_HORZ_1_OVER_4_VERT_0:
+		case PSC_LOC_HORZ_1_OVER_4_VERT_1_OVER_2:
+			/* move chroma left 1/4 chroma input sample spacing */
+			c_hstart -= (1 << (PSC_PHASE_FRACTION_BITS - 2));
+			break;
+		default:
+			break;
+		}
+	}
+
+	/* adjustments to chroma resolution */
+	if (src_format == BUF_FMT_YUV420) {
+		src_c_xres >>= 1;
+		src_c_yres >>= 1;
+	} else if (src_format == BUF_FMT_YUV422) {
+		src_c_xres >>= 1;
+	}
+
+	if (dst_format == BUF_FMT_YUV422)
+		dst_c_xres >>= 1;
 
 	l_vinc = ((src_yres << 13) + (dst_yres >> 1)) / dst_yres;
-	c_vinc = ((src_yres << 13) + (dst_yres >> 1)) / dst_yres;
+	c_vinc = ((src_c_yres << 13) + (dst_c_yres >> 1)) / dst_c_yres;
 	l_hinc = ((src_xres << 13) + (dst_xres >> 1)) / dst_xres;
-	c_hinc = ((src_xres << 13) + (dst_xres >> 1)) / dst_xres;
+	c_hinc = ((src_c_xres << 13) + (dst_c_xres >> 1)) / dst_c_xres;
 
-	if (pix_format == DRM_FORMAT_UYVY || pix_format == DRM_FORMAT_VYUY ||
-	    pix_format == DRM_FORMAT_YUYV || pix_format == DRM_FORMAT_YVYU) {
-		c_hinc >>= 1;
-	} else if (pix_format == DRM_FORMAT_NV12 ||
-		   pix_format == DRM_FORMAT_NV21 ||
-		   pix_format == DRM_FORMAT_P010) {
-		c_hinc >>= 1;
-		c_vinc >>= 1;
-	}
+	/* save chroma start phase */
+	ch->c_vstart = c_vstart;
+	ch->c_hstart = c_hstart;
 
 	dcss_scaler_write(dcss->scaler_priv, ch_num, 0,
 			  DCSS_SCALER_V_LUM_START);
@@ -372,12 +617,12 @@ static bool dcss_scaler_fractions_set(struct dcss_soc *dcss, int ch_num,
 	dcss_scaler_write(dcss->scaler_priv, ch_num, l_hinc,
 			  DCSS_SCALER_H_LUM_INC);
 
-	dcss_scaler_write(dcss->scaler_priv, ch_num, 0,
+	dcss_scaler_write(dcss->scaler_priv, ch_num, c_vstart,
 			  DCSS_SCALER_V_CHR_START);
 	dcss_scaler_write(dcss->scaler_priv, ch_num, c_vinc,
 			  DCSS_SCALER_V_CHR_INC);
 
-	dcss_scaler_write(dcss->scaler_priv, ch_num, 0,
+	dcss_scaler_write(dcss->scaler_priv, ch_num, c_hstart,
 			  DCSS_SCALER_H_CHR_START);
 	dcss_scaler_write(dcss->scaler_priv, ch_num, c_hinc,
 			  DCSS_SCALER_H_CHR_INC);
@@ -411,95 +656,167 @@ bool dcss_scaler_can_scale(struct dcss_soc *dcss, int ch_num,
 }
 EXPORT_SYMBOL(dcss_scaler_can_scale);
 
-static void dcss_scaler_coef_clr(struct dcss_soc *dcss, int ch_num)
+static void dcss_scaler_program_7_coef_set(struct dcss_soc *dcss, int ch_num,
+					   int base_addr,
+					   int coef[][PSC_NUM_TAPS])
 {
-	int i;
+	int i, phase;
 
-	for (i = 0; i < 48; i++) {
+	for (i = 0; i < PSC_STORED_PHASES; i++) {
 		dcss_scaler_write(dcss->scaler_priv, ch_num,
-				  0, DCSS_SCALER_COEF_VLUM + i * 4);
+				  ((coef[i][0] & 0xfff) << 16 |
+				   (coef[i][1] & 0xfff) << 4  |
+				   (coef[i][2] & 0xf00) >> 8),
+				  base_addr + i * sizeof(u32));
 		dcss_scaler_write(dcss->scaler_priv, ch_num,
-				  0, DCSS_SCALER_COEF_HLUM + i * 4);
+				  ((coef[i][2] & 0x0ff) << 20 |
+				   (coef[i][3] & 0xfff) << 8  |
+				   (coef[i][4] & 0xff0) >> 4),
+				  base_addr + 0x40 + i * sizeof(u32));
 		dcss_scaler_write(dcss->scaler_priv, ch_num,
-				  0, DCSS_SCALER_COEF_VCHR + i * 4);
+				  ((coef[i][4] & 0x00f) << 24 |
+				   (coef[i][5] & 0xfff) << 12 |
+				   (coef[i][6] & 0xfff)),
+				  base_addr + 0x80 + i * sizeof(u32));
+	}
+
+	/* reverse both phase and tap orderings */
+	for (phase = (PSC_NUM_PHASES >> 1) - 1; i < PSC_NUM_PHASES; i++, phase--) {
 		dcss_scaler_write(dcss->scaler_priv, ch_num,
-				  0, DCSS_SCALER_COEF_HCHR + i * 4);
+				  ((coef[phase][6] & 0xfff) << 16 |
+				   (coef[phase][5] & 0xfff) << 4  |
+				   (coef[phase][4] & 0xf00) >> 8),
+				  base_addr + i * sizeof(u32));
+		dcss_scaler_write(dcss->scaler_priv, ch_num,
+				  ((coef[phase][4] & 0x0ff) << 20 |
+				   (coef[phase][3] & 0xfff) << 8  |
+				   (coef[phase][2] & 0xff0) >> 4),
+				  base_addr + 0x40 + i * sizeof(u32));
+		dcss_scaler_write(dcss->scaler_priv, ch_num,
+				  ((coef[phase][2] & 0x00f) << 24 |
+				   (coef[phase][1] & 0xfff) << 12 |
+				   (coef[phase][0] & 0xfff)),
+				  base_addr + 0x80 + i * sizeof(u32));
 	}
 }
 
-static void dcss_scaler_rgb_coef_set(struct dcss_soc *dcss, int ch_num)
+static void dcss_scaler_program_5_coef_set(struct dcss_soc *dcss, int ch_num,
+					   int base_addr,
+					   int coef[][PSC_NUM_TAPS])
 {
-	int i;
+	int i, phase;
 
-	dcss_scaler_coef_clr(dcss, ch_num);
-
-	for (i = 0; i < 16; i++) {
-		u32 ofs = (16 + i) * sizeof(u32);
-
-		dcss_scaler_write(dcss->scaler_priv, ch_num, 0x40000,
-				  DCSS_SCALER_COEF_VLUM + ofs);
-		dcss_scaler_write(dcss->scaler_priv, ch_num, 0x40000,
-				  DCSS_SCALER_COEF_HLUM + ofs);
-		dcss_scaler_write(dcss->scaler_priv, ch_num, 0x40000,
-				  DCSS_SCALER_COEF_VCHR + ofs);
-		dcss_scaler_write(dcss->scaler_priv, ch_num, 0x40000,
-				  DCSS_SCALER_COEF_HCHR + ofs);
+	for (i = 0; i < PSC_STORED_PHASES; i++) {
+		dcss_scaler_write(dcss->scaler_priv, ch_num,
+				  ((coef[i][1] & 0xfff) << 16 |
+				   (coef[i][2] & 0xfff) << 4  |
+				   (coef[i][3] & 0xf00) >> 8),
+				  base_addr + i * sizeof(u32));
+		dcss_scaler_write(dcss->scaler_priv, ch_num,
+				  ((coef[i][3] & 0x0ff) << 20 |
+				   (coef[i][4] & 0xfff) << 8  |
+				   (coef[i][5] & 0xff0) >> 4),
+				  base_addr + 0x40 + i * sizeof(u32));
+		dcss_scaler_write(dcss->scaler_priv, ch_num,
+				  ((coef[i][5] & 0x00f) << 24),
+				  base_addr + 0x80 + i * sizeof(u32));
+	}
+	/* reverse both phase and tap orderings */
+	for (phase = (PSC_NUM_PHASES >> 1) - 1; i < PSC_NUM_PHASES; i++, phase--) {
+		dcss_scaler_write(dcss->scaler_priv, ch_num,
+				  ((coef[phase][5] & 0xfff) << 16 |
+				   (coef[phase][4] & 0xfff) << 4  |
+				   (coef[phase][3] & 0xf00) >> 8),
+				  base_addr + i * sizeof(u32));
+		dcss_scaler_write(dcss->scaler_priv, ch_num,
+				  ((coef[phase][3] & 0x0ff) << 20 |
+				   (coef[phase][2] & 0xfff) << 8  |
+				   (coef[phase][1] & 0xff0) >> 4),
+				  base_addr + 0x40 + i * sizeof(u32));
+		dcss_scaler_write(dcss->scaler_priv, ch_num,
+				  ((coef[phase][1] & 0x00f) << 24),
+				  base_addr + 0x80 + i * sizeof(u32));
 	}
 }
 
-static u32 dcss_scaler_yuv_coef[] = {
-	0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000,
-	0x00000000, 0x00000000, 0x00000000, 0x00000061, 0x00000041, 0x00000031,
-	0x00000021, 0x00000010, 0x00000010, 0x00000000, 0x00040300, 0x05532208,
-	0x0413120a, 0x0312f80d, 0x0242d310, 0x01a2a614, 0x01327117, 0x00d2361b,
-	0x0091f81f, 0x0b923600, 0x07b27101, 0x0402a601, 0x00a2d302, 0x0da2f803,
-	0x0af31204, 0x08b32205, 0x00000000, 0x0b000000, 0x0f001000, 0x0a001000,
-	0x0a002000, 0x00003000, 0x0b004000, 0x09006000, 0x08009000, 0x0d000000,
-	0x03000000, 0x0a000000, 0x04000000, 0x01000000, 0x01000000, 0x05000000,
-	0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000,
-	0x00000000, 0x00000000, 0x00000000, 0x00000061, 0x00000041, 0x00000031,
-	0x00000021, 0x00000010, 0x00000010, 0x00000000, 0x00040000, 0x05432008,
-	0x0403100a, 0x0302f50d, 0x0242d110, 0x01a2a413, 0x01326f17, 0x00d2351b,
-	0x0091f71f, 0x0b823500, 0x07a26f01, 0x03f2a401, 0x0092d102, 0x0d92f503,
-	0x0af31004, 0x08b32005, 0x00000000, 0x0b000000, 0x0f001000, 0x09001000,
-	0x09002000, 0x0f003000, 0x0a004000, 0x08006000, 0x07009000, 0x0d000000,
-	0x03000000, 0x0a000000, 0x04000000, 0x00000000, 0x00000000, 0x04000000,
-	0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000,
-	0x00000000, 0x00000000, 0x00000000, 0x00000061, 0x00000041, 0x00000031,
-	0x00000021, 0x00000010, 0x00000010, 0x00000000, 0x00040300, 0x05532208,
-	0x0413120a, 0x0312f80d, 0x0242d310, 0x01a2a614, 0x01327117, 0x00d2361b,
-	0x0091f81f, 0x0b923600, 0x07b27101, 0x0402a601, 0x00a2d302, 0x0da2f803,
-	0x0af31204, 0x08b32205, 0x00000000, 0x0b000000, 0x0f001000, 0x0a001000,
-	0x0a002000, 0x00003000, 0x0b004000, 0x09006000, 0x08009000, 0x0d000000,
-	0x03000000, 0x0a000000, 0x04000000, 0x01000000, 0x01000000, 0x05000000,
-	0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000,
-	0x00000000, 0x00000000, 0x00000000, 0x00000061, 0x00000041, 0x00000031,
-	0x00000021, 0x00000010, 0x00000010, 0x00000000, 0x00040000, 0x05432008,
-	0x0403100a, 0x0302f50d, 0x0242d110, 0x01a2a413, 0x01326f17, 0x00d2351b,
-	0x0091f71f, 0x0b823500, 0x07a26f01, 0x03f2a401, 0x0092d102, 0x0d92f503,
-	0x0af31004, 0x08b32005, 0x00000000, 0x0b000000, 0x0f001000, 0x09001000,
-	0x09002000, 0x0f003000, 0x0a004000, 0x08006000, 0x07009000, 0x0d000000,
-	0x03000000, 0x0a000000, 0x04000000, 0x00000000, 0x00000000, 0x04000000,
-};
-
-static void dcss_scaler_yuv_coef_set(struct dcss_soc *dcss, int ch_num)
+static void dcss_scaler_yuv_coef_set(struct dcss_soc *dcss, int ch_num,
+				     enum buffer_format src_format,
+				     enum buffer_format dst_format,
+				     bool use_5_taps,
+				     int src_xres, int src_yres, int dst_xres,
+				     int dst_yres)
 {
-	int i;
+	struct dcss_scaler_ch *ch = &dcss->scaler_priv->ch[ch_num];
+	int coef[PSC_STORED_PHASES][PSC_NUM_TAPS];
+	bool program_5_taps = use_5_taps ||
+			      (dst_format == BUF_FMT_YUV422 &&
+			       src_format == BUF_FMT_ARGB8888_YUV444);
 
-	for (i = 0; i < 48; i++) {
-		dcss_scaler_write(dcss->scaler_priv, ch_num,
-				  dcss_scaler_yuv_coef[i],
-				  DCSS_SCALER_COEF_VLUM + i * sizeof(u32));
-		dcss_scaler_write(dcss->scaler_priv, ch_num,
-				  dcss_scaler_yuv_coef[48 + i],
-				  DCSS_SCALER_COEF_HLUM + i * sizeof(u32));
-		dcss_scaler_write(dcss->scaler_priv, ch_num,
-				  dcss_scaler_yuv_coef[2 * 48 + i],
-				  DCSS_SCALER_COEF_VCHR + i * sizeof(u32));
-		dcss_scaler_write(dcss->scaler_priv, ch_num,
-				  dcss_scaler_yuv_coef[3 * 48 + i],
-				  DCSS_SCALER_COEF_HCHR + i * sizeof(u32));
-	}
+	/* horizontal luma */
+	dcss_scaler_filter_design(src_xres, dst_xres, 0,
+				  src_xres == dst_xres, coef);
+	dcss_scaler_program_7_coef_set(dcss, ch_num,
+				       DCSS_SCALER_COEF_HLUM, coef);
+
+	/* vertical luma */
+	dcss_scaler_filter_design(src_yres, dst_yres, use_5_taps,
+				  src_yres == dst_yres, coef);
+
+	if (program_5_taps)
+		dcss_scaler_program_5_coef_set(dcss, ch_num,
+					       DCSS_SCALER_COEF_VLUM, coef);
+	else
+		dcss_scaler_program_7_coef_set(dcss, ch_num,
+					       DCSS_SCALER_COEF_VLUM, coef);
+
+	/* adjust chroma resolution */
+	if (src_format != BUF_FMT_ARGB8888_YUV444)
+		src_xres >>= 1;
+	if (src_format == BUF_FMT_YUV420)
+		src_yres >>= 1;
+	if (dst_format != BUF_FMT_ARGB8888_YUV444)
+		dst_xres >>= 1;
+	if (dst_format == BUF_FMT_YUV420) /* should not happen */
+		dst_yres >>= 1;
+
+	/* horizontal chroma */
+	dcss_scaler_filter_design(src_xres, dst_xres, 0,
+				  (src_xres == dst_xres) && (ch->c_hstart == 0),
+				  coef);
+
+	dcss_scaler_program_7_coef_set(dcss, ch_num,
+				       DCSS_SCALER_COEF_HCHR, coef);
+
+	/* vertical chroma */
+	dcss_scaler_filter_design(src_yres, dst_yres, use_5_taps,
+				  (src_yres == dst_yres) && (ch->c_vstart == 0),
+				  coef);
+
+	if (program_5_taps)
+		dcss_scaler_program_5_coef_set(dcss, ch_num,
+					       DCSS_SCALER_COEF_VCHR, coef);
+	else
+		dcss_scaler_program_7_coef_set(dcss, ch_num,
+					       DCSS_SCALER_COEF_VCHR, coef);
+}
+
+static void dcss_scaler_rgb_coef_set(struct dcss_soc *dcss, int ch_num,
+				     int src_xres, int src_yres, int dst_xres,
+				     int dst_yres)
+{
+	int coef[PSC_STORED_PHASES][PSC_NUM_TAPS];
+
+	/* horizontal RGB */
+	dcss_scaler_filter_design(src_xres, dst_xres, 0,
+				  src_xres == dst_xres, coef);
+	dcss_scaler_program_7_coef_set(dcss, ch_num,
+				       DCSS_SCALER_COEF_HLUM, coef);
+
+	/* vertical RGB */
+	dcss_scaler_filter_design(src_yres, dst_yres, 1,
+				  src_yres == dst_yres, coef);
+	dcss_scaler_program_5_coef_set(dcss, ch_num,
+				       DCSS_SCALER_COEF_VLUM, coef);
 }
 
 static void dcss_scaler_set_rgb10_order(struct dcss_soc *dcss, int ch_num,
@@ -594,12 +911,12 @@ void dcss_scaler_setup(struct dcss_soc *dcss, int ch_num, u32 pix_format,
 		       int src_xres, int src_yres, int dst_xres, int dst_yres,
 		       u32 vrefresh_hz)
 {
-	struct dcss_scaler_ch *ch = &dcss->scaler_priv->ch[ch_num];
 	enum dcss_color_space dcss_cs;
 	int planes;
 	const struct drm_format_info *format;
 	unsigned int pixel_depth;
 	bool rtr_8line_en = false;
+	bool use_5_taps = false;
 	enum buffer_format src_format = BUF_FMT_ARGB8888_YUV444;
 	enum buffer_format dst_format = BUF_FMT_ARGB8888_YUV444;
 	bool wrscl_needed = false;
@@ -622,9 +939,7 @@ void dcss_scaler_setup(struct dcss_soc *dcss, int ch_num, u32 pix_format,
 			src_format = BUF_FMT_YUV422;
 		}
 
-		if (pix_format != ch->pix_format)
-			dcss_scaler_yuv_coef_set(dcss, ch_num);
-
+		use_5_taps = !rtr_8line_en;
 		if (pix_format == DRM_FORMAT_P010)
 			pixel_depth = 30;
 
@@ -633,9 +948,22 @@ void dcss_scaler_setup(struct dcss_soc *dcss, int ch_num, u32 pix_format,
 
 		format = drm_format_info(pix_format);
 		pixel_depth = format->depth;
+	}
 
-		if (pix_format != ch->pix_format)
-			dcss_scaler_rgb_coef_set(dcss, ch_num);
+	/* TODO: get src_chroma_loc from VPU metadata */
+	wrscl_needed = dcss_scaler_fractions_set(dcss, ch_num, src_xres,
+						 src_yres, dst_xres,
+						 dst_yres, src_format,
+						 dst_format,
+						 0 /* src_chroma_loc */);
+
+	if (dcss_cs == DCSS_COLORSPACE_YUV) {
+		dcss_scaler_yuv_coef_set(dcss, ch_num, src_format, dst_format,
+					 use_5_taps, src_xres, src_yres,
+					 dst_xres, dst_yres);
+	} else if (dcss_cs == DCSS_COLORSPACE_RGB) {
+		dcss_scaler_rgb_coef_set(dcss, ch_num, src_xres, src_yres,
+					 dst_xres, dst_yres);
 	}
 
 	dcss_scaler_rtr_8lines_enable(dcss, ch_num, rtr_8line_en);
@@ -643,14 +971,9 @@ void dcss_scaler_setup(struct dcss_soc *dcss, int ch_num, u32 pix_format,
 	dcss_scaler_set_rgb10_order(dcss, ch_num, pix_format);
 	dcss_scaler_format_set(dcss, ch_num, src_format, dst_format);
 	dcss_scaler_res_set(dcss, ch_num, src_xres, src_yres,
-			    dst_xres, dst_yres, pix_format);
-	wrscl_needed = dcss_scaler_fractions_set(dcss, ch_num, src_xres,
-						 src_yres, dst_xres,
-						 dst_yres, pix_format);
+			    dst_xres, dst_yres, pix_format, dst_format);
 
 	dcss_scaler_setup_path(dcss, ch_num, pix_format, dst_xres,
 			       dst_yres, vrefresh_hz, wrscl_needed);
-
-	ch->pix_format = pix_format;
 }
 EXPORT_SYMBOL(dcss_scaler_setup);

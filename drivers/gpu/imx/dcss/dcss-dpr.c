@@ -504,9 +504,10 @@ static void dcss_dpr_rtram_set(struct dcss_soc *dcss, int ch_num,
 	ch->mode_ctrl |= (val & mask);
 
 	/* TODO: Should the thresholds be hardcoded? */
-	val = (3 << THRES_LOW_POS) & THRES_LOW_MASK;
+	val = (ch->rtram_4line_en ? 0 : NUM_ROWS_ACTIVE);
+	val |= (3 << THRES_LOW_POS) & THRES_LOW_MASK;
 	val |= (4 << THRES_HIGH_POS) & THRES_HIGH_MASK;
-	mask = THRES_LOW_MASK | THRES_HIGH_MASK;
+	mask = THRES_LOW_MASK | THRES_HIGH_MASK | NUM_ROWS_ACTIVE;
 
 	ch->rtram_ctrl &= ~mask;
 	ch->rtram_ctrl |= (val & mask);
