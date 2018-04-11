@@ -7,7 +7,6 @@
 
 #include <linux/device.h>
 #include <linux/of_address.h>
-#include <soc/imx8/sc/sci.h>
 #include <linux/wait.h>
 #include "compat.h"
 #include "regs.h"
@@ -271,10 +270,10 @@ static void kick_trng(struct device *ctrldev, int ent_delay)
 }
 
 /*
- * inst_rng_imx6 - RNG instantiation function for i.MX6/7 platforms
+ * inst_rng_imx - RNG instantiation function for i.MX6/7/8m platforms
  * @pdev - pointer to the device
  */
-int inst_rng_imx6(struct platform_device *pdev)
+int inst_rng_imx(struct platform_device *pdev)
 {
 	struct device *ctrldev, *dev;
 	struct caam_drv_private *ctrlpriv;
@@ -363,43 +362,6 @@ int inst_rng_imx6(struct platform_device *pdev)
 		/* Enable RDB bit so that RNG works faster */
 		clrsetbits_32(&ctrl->scfgr, 0, SCFGR_RDBENABLE);
 	}
-	return ret;
-}
-
-/*
- * inst_rng_imx8 - RNG instantiation function for i.MX8 platforms
- * @pdev - pointer to the device
- */
-int inst_rng_imx8(struct platform_device *pdev)
-{
-	struct device *ctrldev, *dev;
-	struct caam_drv_private *ctrlpriv;
-	struct caam_ctrl __iomem *ctrl;
-	int ret = 0, rdx;
-	u32 cha_vid_ls;
-
-	dev = &pdev->dev;
-	ctrldev = pdev->dev.parent;
-	ctrlpriv = dev_get_drvdata(ctrldev);
-	ctrl = (struct caam_ctrl __iomem *)ctrlpriv->ctrl;
-
-	rdx = ctrlpriv->first_jr_index;
-	cha_vid_ls = rd_reg32(&ctrlpriv->jr[rdx]->perfmon.cha_id_ls);
-	/*
-	 * If SEC has RNG version >= 4 and RNG state handle has not been
-	 * already instantiated, do RNG instantiation
-	 */
-	if ((cha_vid_ls & CHA_ID_LS_RNG_MASK) >> CHA_ID_LS_RNG_SHIFT >= 4) {
-		/*
-		 * For i.MX8QM rev A0 the secure keys (TDKEK, JDKEK, TDSK),
-		 * are not * generated so gen_sk is set to 1.
-		 */
-		ret = instantiate_rng(0, 1);
-	}
-	/*
-	 * For i.MX8QM rev A0, SH0 and SH1 are instantiated here.
-	 */
-	ctrlpriv->rng4_sh_init = RDSTA_IFMASK;
 	return ret;
 }
 
