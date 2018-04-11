@@ -785,7 +785,6 @@ int sm_keystore_slot_load(struct device *dev, u32 unit, u32 slot,
 	struct caam_drv_private_sm *smpriv = dev_get_drvdata(dev);
 	int retval = -EINVAL;
 	u32 slot_size;
-	u32 i;
 	u8 __iomem *slot_location;
 
 	spin_lock(&smpriv->kslock);
