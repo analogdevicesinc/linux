@@ -24,12 +24,47 @@
 #define WM8960_RINVOL		0x1
 #define WM8960_LOUT1		0x2
 #define WM8960_ROUT1		0x3
+#define WM8960_DACCTL1		0x5
+#define WM8960_DACCTL2		0x6
 #define WM8960_LDAC		0xa
 #define WM8960_RDAC		0xb
+
+#define WM8960_3D		0x10
+#define WM8960_ALC1		0x11
+#define WM8960_ALC2		0x12
+#define WM8960_ALC3		0x13
 #define WM8960_LADC		0x15
 #define WM8960_RADC		0x16
+#define WM8960_ADDCTL1		0x17
+#define WM8960_ADDCTL2		0x18
 #define WM8960_LOUT2		0x28
 #define WM8960_ROUT2		0x29
+
+/* enumerated controls */
+static const char * const wm8960_polarity[] = {"No Inversion", "Left Inverted",
+	"Right Inverted", "Stereo Inversion"};
+static const char * const wm8960_3d_upper_cutoff[] = {"High", "Low"};
+static const char * const wm8960_3d_lower_cutoff[] = {"Low", "High"};
+static const char * const wm8960_alcfunc[] = {"Off", "Right", "Left", "Stereo"};
+static const char * const wm8960_alcmode[] = {"ALC", "Limiter"};
+static const char * const wm8960_adc_data_output_sel[] = {
+	"Left Data = Left ADC;  Right Data = Right ADC",
+	"Left Data = Left ADC;  Right Data = Left ADC",
+	"Left Data = Right ADC; Right Data = Right ADC",
+	"Left Data = Right ADC; Right Data = Left ADC",
+};
+static const char * const wm8960_dmonomix[] = {"Stereo", "Mono"};
+
+static const struct soc_enum wm8960_enum[] = {
+	SOC_ENUM_SINGLE(WM8960_DACCTL1, 5, 4, wm8960_polarity),
+	SOC_ENUM_SINGLE(WM8960_DACCTL2, 5, 4, wm8960_polarity),
+	SOC_ENUM_SINGLE(WM8960_3D, 6, 2, wm8960_3d_upper_cutoff),
+	SOC_ENUM_SINGLE(WM8960_3D, 5, 2, wm8960_3d_lower_cutoff),
+	SOC_ENUM_SINGLE(WM8960_ALC1, 7, 4, wm8960_alcfunc),
+	SOC_ENUM_SINGLE(WM8960_ALC3, 8, 2, wm8960_alcmode),
+	SOC_ENUM_SINGLE(WM8960_ADDCTL1, 2, 4, wm8960_adc_data_output_sel),
+	SOC_ENUM_SINGLE(WM8960_ADDCTL1, 4, 2, wm8960_dmonomix),
+};
 
 static const DECLARE_TLV_DB_SCALE(adc_tlv, -9750, 50, 1);
 static const DECLARE_TLV_DB_SCALE(inpga_tlv, -1725, 75, 0);
@@ -47,6 +82,7 @@ SOC_DOUBLE_R_TLV("Speaker Playback Volume", WM8960_LOUT2, WM8960_ROUT2,
 		 0, 127, 0, out_tlv),
 SOC_DOUBLE_R_TLV("ADC PCM Capture Volume", WM8960_LADC, WM8960_RADC,
 	0, 255, 0, adc_tlv),
+SOC_ENUM("ADC Data Output Select", wm8960_enum[6]),
 };
 
 #define RPMSG_RATES (SNDRV_PCM_RATE_8000_48000 |\
@@ -123,6 +159,8 @@ static int rpmsg_wm8960_probe(struct snd_soc_codec *codec)
 	snd_soc_update_bits(codec, WM8960_ROUT1, 0x100, 0x100);
 	snd_soc_update_bits(codec, WM8960_LOUT2, 0x100, 0x100);
 	snd_soc_update_bits(codec, WM8960_ROUT2, 0x100, 0x100);
+
+	snd_soc_update_bits(codec, WM8960_ADDCTL1, 0xC, 0x4);
 
 	return 0;
 }
