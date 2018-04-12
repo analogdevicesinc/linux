@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 NXP
+ * Copyright 2017-2018 NXP
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -179,11 +179,18 @@ void fetcheco_source_stride(struct dpu_fetcheco *fe, unsigned int width,
 EXPORT_SYMBOL_GPL(fetcheco_source_stride);
 
 void fetcheco_src_buf_dimensions(struct dpu_fetcheco *fe, unsigned int w,
-				 unsigned int h, u32 fmt)
+				 unsigned int h, u32 fmt, bool deinterlace)
 {
-	int width = dpu_format_plane_width(w, fmt, 1);
-	int height = dpu_format_plane_height(h, fmt, 1);
+	int width, height;
 	u32 val;
+
+	if (deinterlace) {
+		width = w;
+		height = h / 2;
+	} else {
+		width = dpu_format_plane_width(w, fmt, 1);
+		height = dpu_format_plane_height(h, fmt, 1);
+	}
 
 	switch (fmt) {
 	case DRM_FORMAT_NV12:
@@ -359,9 +366,12 @@ bool fetcheco_is_enabled(struct dpu_fetcheco *fe)
 EXPORT_SYMBOL_GPL(fetcheco_is_enabled);
 
 void fetcheco_framedimensions(struct dpu_fetcheco *fe, unsigned int w,
-			      unsigned int h)
+			      unsigned int h, bool deinterlace)
 {
 	u32 val;
+
+	if (deinterlace)
+		h /= 2;
 
 	val = FRAMEWIDTH(w) | FRAMEHEIGHT(h);
 

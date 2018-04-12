@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2016 Freescale Semiconductor, Inc.
- * Copyright 2017 NXP
+ * Copyright 2017-2018 NXP
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -132,7 +132,8 @@ void dpu_be_configure_prefetch(struct dpu_bliteng *dpu_be,
 		       x_offset, y_offset,
 		       stride, format, modifier,
 		       baddr, uv_addr,
-		       start, start);
+		       start, start,
+		       false);
 
 	if (start)
 		dprc_enable(dprc);

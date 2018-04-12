@@ -319,11 +319,11 @@ void dprc_configure(struct dprc *dprc, unsigned int stream_id,
 		    unsigned int x_offset, unsigned int y_offset,
 		    unsigned int stride, u32 format, u64 modifier,
 		    unsigned long baddr, unsigned long uv_baddr,
-		    bool start, bool aux_start)
+		    bool start, bool aux_start, bool interlace_frame)
 {
 	const struct dprc_format_info *info = dprc_format_info(format);
 	unsigned int dprc_width = width + x_offset;
-	unsigned int dprc_height = height + y_offset;
+	unsigned int dprc_height;
 	unsigned int p1_w, p1_h, p2_w, p2_h;
 	unsigned int prg_stride = width * info->cpp[0];
 	unsigned int bpp = 8 * info->cpp[0];
@@ -342,6 +342,13 @@ void dprc_configure(struct dprc *dprc, unsigned int stream_id,
 		if (!dprc->is_blit_chan)
 			dprc_dpu_gpr_configure(dprc, stream_id);
 	}
+
+	if (interlace_frame) {
+		height /= 2;
+		y_offset /= 2;
+	}
+
+	dprc_height = height + y_offset;
 
 	/* disable all control irqs and enable all error irqs */
 	dprc_write(dprc, IRQ_CTRL_MASK, IRQ_MASK);

@@ -54,7 +54,7 @@ void dprc_configure(struct dprc *dprc, unsigned int stream_id,
 		    unsigned int x_offset, unsigned int y_offset,
 		    unsigned int stride, u32 format, u64 modifier,
 		    unsigned long baddr, unsigned long uv_baddr,
-		    bool start, bool aux_start);
+		    bool start, bool aux_start, bool interlace_frame);
 void dprc_reg_update(struct dprc *dprc);
 void dprc_first_frame_handle(struct dprc *dprc);
 void dprc_irq_handle(struct dprc *dprc);

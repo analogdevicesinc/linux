@@ -435,7 +435,7 @@ fetchlayer_configure_prefetch(struct dpu_fetchlayer *fl, unsigned int stream_id,
 
 	dprc_configure(fl->dprc,
 			stream_id, width, height, x_offset, y_offset, stride,
-			format, modifier, baddr, 0, start, false);
+			format, modifier, baddr, 0, start, false, false);
 }
 EXPORT_SYMBOL_GPL(fetchlayer_configure_prefetch);
 

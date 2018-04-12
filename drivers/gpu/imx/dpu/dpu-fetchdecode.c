@@ -302,9 +302,12 @@ void fetchdecode_source_stride(struct dpu_fetchdecode *fd, unsigned int width,
 EXPORT_SYMBOL_GPL(fetchdecode_source_stride);
 
 void fetchdecode_src_buf_dimensions(struct dpu_fetchdecode *fd, unsigned int w,
-				    unsigned int h)
+				    unsigned int h, bool deinterlace)
 {
 	u32 val;
+
+	if (deinterlace)
+		h /= 2;
 
 	val = LINEWIDTH(w) | LINECOUNT(h);
 
@@ -314,7 +317,7 @@ void fetchdecode_src_buf_dimensions(struct dpu_fetchdecode *fd, unsigned int w,
 }
 EXPORT_SYMBOL_GPL(fetchdecode_src_buf_dimensions);
 
-void fetchdecode_set_fmt(struct dpu_fetchdecode *fd, u32 fmt)
+void fetchdecode_set_fmt(struct dpu_fetchdecode *fd, u32 fmt, bool deinterlace)
 {
 	u32 val, bits, shift;
 	bool is_planar_yuv = false, is_rastermode_yuv422 = false;
@@ -336,6 +339,8 @@ void fetchdecode_set_fmt(struct dpu_fetchdecode *fd, u32 fmt)
 		/* fall-through */
 	case DRM_FORMAT_NV12:
 	case DRM_FORMAT_NV21:
+		if (deinterlace)
+			is_yuv422upsamplingmode_interpolate = true;
 		is_planar_yuv = true;
 		is_rastermode_yuv422 = true;
 		is_inputselect_compact = true;
@@ -485,9 +490,12 @@ void fetchdecode_clipdimensions(struct dpu_fetchdecode *fd, unsigned int w,
 EXPORT_SYMBOL_GPL(fetchdecode_clipdimensions);
 
 void fetchdecode_framedimensions(struct dpu_fetchdecode *fd, unsigned int w,
-				 unsigned int h)
+				 unsigned int h, bool deinterlace)
 {
 	u32 val;
+
+	if (deinterlace)
+		h /= 2;
 
 	val = FRAMEWIDTH(w) | FRAMEHEIGHT(h);
 
@@ -735,14 +743,16 @@ fetchdecode_configure_prefetch(struct dpu_fetchdecode *fd,
 			       unsigned int x_offset, unsigned int y_offset,
 			       unsigned int stride, u32 format, u64 modifier,
 			       unsigned long baddr, unsigned long uv_baddr,
-			       bool start, bool aux_start)
+			       bool start, bool aux_start,
+			       bool fb_is_interlaced)
 {
 	if (WARN_ON(!fd || !fd->dprc))
 		return;
 
 	dprc_configure(fd->dprc,
 			stream_id, width, height, x_offset, y_offset, stride,
-			format, modifier, baddr, uv_baddr, start, aux_start);
+			format, modifier, baddr, uv_baddr, start, aux_start,
+			fb_is_interlaced);
 }
 EXPORT_SYMBOL_GPL(fetchdecode_configure_prefetch);
 

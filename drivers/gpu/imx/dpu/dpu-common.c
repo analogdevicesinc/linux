@@ -741,13 +741,14 @@ void fetchunit_configure_prefetch(struct dpu_fetchdecode *fd,
 				  unsigned int x_offset, unsigned int y_offset,
 				  unsigned int stride, u32 format, u64 modifier,
 				  unsigned long baddr, unsigned long uv_baddr,
-				  bool start, bool aux_start)
+				  bool start, bool aux_start,
+				  bool fb_is_interlaced)
 {
 	if (fd)
 		fetchdecode_configure_prefetch(fd, stream_id, width, height,
 					x_offset, y_offset, stride,
 					format, modifier, baddr, uv_baddr,
-					start, aux_start);
+					start, aux_start, fb_is_interlaced);
 	else if (fl)
 		fetchlayer_configure_prefetch(fl, stream_id, width, height,
 					x_offset, y_offset, stride,

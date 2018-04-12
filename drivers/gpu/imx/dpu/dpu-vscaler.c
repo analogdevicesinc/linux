@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 NXP
+ * Copyright 2017-2018 NXP
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -162,11 +162,14 @@ void vscaler_shden(struct dpu_vscaler *vs, bool enable)
 }
 EXPORT_SYMBOL_GPL(vscaler_shden);
 
-void vscaler_setup1(struct dpu_vscaler *vs, u32 src, u32 dst)
+void vscaler_setup1(struct dpu_vscaler *vs, u32 src, u32 dst, bool deinterlace)
 {
 	struct dpu_soc *dpu = vs->dpu;
 	u32 scale_factor;
 	u64 tmp64;
+
+	if (deinterlace)
+		dst *= 2;
 
 	if (src == dst) {
 		scale_factor = 0x80000;
@@ -193,16 +196,22 @@ void vscaler_setup1(struct dpu_vscaler *vs, u32 src, u32 dst)
 }
 EXPORT_SYMBOL_GPL(vscaler_setup1);
 
-void vscaler_setup2(struct dpu_vscaler *vs, u32 phase_offset)
+void vscaler_setup2(struct dpu_vscaler *vs, bool deinterlace)
 {
+	/* 0x20000: +0.25 phase offset for deinterlace */
+	u32 phase_offset = deinterlace ? 0x20000 : 0;
+
 	mutex_lock(&vs->mutex);
 	dpu_vs_write(vs, PHASE_OFFSET(phase_offset), SETUP2);
 	mutex_unlock(&vs->mutex);
 }
 EXPORT_SYMBOL_GPL(vscaler_setup2);
 
-void vscaler_setup3(struct dpu_vscaler *vs, u32 phase_offset)
+void vscaler_setup3(struct dpu_vscaler *vs, bool deinterlace)
 {
+	/* 0x1e0000: -0.25 phase offset for deinterlace */
+	u32 phase_offset = deinterlace ? 0x1e0000 : 0;
+
 	mutex_lock(&vs->mutex);
 	dpu_vs_write(vs, PHASE_OFFSET(phase_offset), SETUP3);
 	mutex_unlock(&vs->mutex);
@@ -393,8 +402,8 @@ void _dpu_vs_init(struct dpu_soc *dpu, unsigned int id)
 	vs = dpu->vs_priv[i];
 
 	vscaler_shden(vs, true);
-	vscaler_setup2(vs, 0);
-	vscaler_setup3(vs, 0);
+	vscaler_setup2(vs, false);
+	vscaler_setup3(vs, false);
 	vscaler_setup4(vs, 0);
 	vscaler_setup5(vs, 0);
 	vscaler_pixengcfg_dynamic_src_sel(vs, VS_SRC_SEL__DISABLE);
