@@ -1,7 +1,7 @@
 config DRM_IMX_HDP
 	tristate "IMX8 HD Display Controller"
 	select DRM_IMX
-	select MX8_HDP_DP
+	select MX8_HDP
 	select DRM_KMS_HELPER
 	select VIDEOMODE_HELPERS
 	select DRM_GEM_CMA_HELPER
