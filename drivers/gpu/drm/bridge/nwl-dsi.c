@@ -1018,34 +1018,47 @@ static void nwl_dsi_bridge_enable(struct drm_bridge *bridge)
 
 	nwl_dsi_enable_clocks(dsi, CLK_PHY_REF | CLK_TX_ESC);
 
-	nwl_dsi_config_host(dsi);
-	nwl_dsi_config_dpi(dsi);
-
 	phy_init(dsi->phy);
 
 	ret = phy_power_on(dsi->phy);
 	if (ret < 0) {
 		DRM_DEV_ERROR(dev, "Failed to power on DPHY (%d)\n", ret);
-		return;
+		goto phy_err;
 	}
 
 	nwl_dsi_init_interrupts(dsi);
+	nwl_dsi_config_dpi(dsi);
 
 	if (dsi->panel && drm_panel_prepare(dsi->panel)) {
 		DRM_DEV_ERROR(dev, "Failed to setup panel\n");
-		return;
+		goto prepare_err;
+	}
+
+	nwl_dsi_config_host(dsi);
+
+	if (dsi->panel && drm_panel_enable(dsi->panel)) {
+		DRM_DEV_ERROR(dev, "Failed to enable panel\n");
+		drm_panel_unprepare(dsi->panel);
+		goto enable_err;
 	}
 
 	if (dsi->dsi_mode_flags & MIPI_DSI_CLOCK_NON_CONTINUOUS)
 		nwl_dsi_write(dsi, CFG_NONCONTINUOUS_CLK, 0x00);
 
-	if (dsi->panel && drm_panel_enable(dsi->panel)) {
-		DRM_DEV_ERROR(dev, "Failed to enable panel\n");
-		drm_panel_unprepare(dsi->panel);
-		return;
-	}
-
 	dsi->enabled = true;
+
+	return;
+
+enable_err:
+	drm_panel_unprepare(dsi->panel);
+
+prepare_err:
+	phy_power_off(dsi->phy);
+
+phy_err:
+	phy_exit(dsi->phy);
+	nwl_dsi_disable_clocks(dsi, CLK_PHY_REF | CLK_TX_ESC);
+	devm_free_irq(dev, dsi->irq, dsi);
 }
 
 static void nwl_dsi_bridge_disable(struct drm_bridge *bridge)
@@ -1064,11 +1077,11 @@ static void nwl_dsi_bridge_disable(struct drm_bridge *bridge)
 		drm_panel_unprepare(dsi->panel);
 	}
 
-	nwl_dsi_disable_clocks(dsi, CLK_PHY_REF | CLK_TX_ESC);
-	devm_free_irq(dev, dsi->irq, dsi);
-
 	phy_power_off(dsi->phy);
 	phy_exit(dsi->phy);
+
+	nwl_dsi_disable_clocks(dsi, CLK_PHY_REF | CLK_TX_ESC);
+	devm_free_irq(dev, dsi->irq, dsi);
 
 	dsi->enabled = false;
 }
