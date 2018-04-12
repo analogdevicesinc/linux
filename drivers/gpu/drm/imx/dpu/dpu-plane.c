@@ -26,14 +26,27 @@
  * RGB and packed/2planar YUV formats
  * are widely supported by many fetch units.
  */
-static const uint32_t dpu_common_formats[] = {
-	/* DRM_FORMAT_ARGB8888, */
+static const uint32_t dpu_primary_formats[] = {
+	DRM_FORMAT_ARGB8888,
 	DRM_FORMAT_XRGB8888,
-	/* DRM_FORMAT_ABGR8888, */
+	DRM_FORMAT_ABGR8888,
 	DRM_FORMAT_XBGR8888,
-	/* DRM_FORMAT_RGBA8888, */
+	DRM_FORMAT_RGBA8888,
 	DRM_FORMAT_RGBX8888,
-	/* DRM_FORMAT_BGRA8888, */
+	DRM_FORMAT_BGRA8888,
+	DRM_FORMAT_BGRX8888,
+	DRM_FORMAT_RGB565,
+
+	DRM_FORMAT_YUYV,
+	DRM_FORMAT_UYVY,
+	DRM_FORMAT_NV12,
+	DRM_FORMAT_NV21,
+};
+
+static const uint32_t dpu_overlay_formats[] = {
+	DRM_FORMAT_XRGB8888,
+	DRM_FORMAT_XBGR8888,
+	DRM_FORMAT_RGBX8888,
 	DRM_FORMAT_BGRX8888,
 	DRM_FORMAT_RGB565,
 
@@ -127,9 +140,13 @@ static bool dpu_drm_plane_format_mod_supported(struct drm_plane *plane,
 	case DRM_FORMAT_YUYV:
 	case DRM_FORMAT_UYVY:
 		return modifier == DRM_FORMAT_MOD_LINEAR;
+	case DRM_FORMAT_ARGB8888:
 	case DRM_FORMAT_XRGB8888:
+	case DRM_FORMAT_ABGR8888:
 	case DRM_FORMAT_XBGR8888:
+	case DRM_FORMAT_RGBA8888:
 	case DRM_FORMAT_RGBX8888:
+	case DRM_FORMAT_BGRA8888:
 	case DRM_FORMAT_BGRX8888:
 	case DRM_FORMAT_RGB565:
 		return modifier == DRM_FORMAT_MOD_LINEAR ||
@@ -722,6 +739,7 @@ static void dpu_plane_atomic_update(struct drm_plane *plane,
 	layerblend_pixengcfg_dynamic_prim_sel(lb, dpstate->stage);
 	layerblend_pixengcfg_dynamic_sec_sel(lb, lb_src);
 	layerblend_control(lb, LB_BLEND);
+	layerblend_blendcontrol(lb);
 	layerblend_pixengcfg_clken(lb, CLKEN__AUTOMATIC);
 	layerblend_position(lb, dpstate->layer_x, dpstate->layer_y);
 
@@ -771,10 +789,20 @@ struct dpu_plane *dpu_plane_init(struct drm_device *drm,
 
 	plane = &dpu_plane->base;
 
-	ret = drm_universal_plane_init(drm, plane, possible_crtcs,
-				       &dpu_plane_funcs, dpu_common_formats,
-				       ARRAY_SIZE(dpu_common_formats),
-				       dpu_format_modifiers, type, NULL);
+	if (type == DRM_PLANE_TYPE_PRIMARY)
+		ret = drm_universal_plane_init(drm, plane, possible_crtcs,
+					       &dpu_plane_funcs,
+					       dpu_primary_formats,
+					       ARRAY_SIZE(dpu_primary_formats),
+					       dpu_format_modifiers,
+					       type, NULL);
+	else
+		ret = drm_universal_plane_init(drm, plane, possible_crtcs,
+					       &dpu_plane_funcs,
+					       dpu_overlay_formats,
+					       ARRAY_SIZE(dpu_overlay_formats),
+					       dpu_format_modifiers,
+					       type, NULL);
 	if (ret) {
 		kfree(dpu_plane);
 		return ERR_PTR(ret);
