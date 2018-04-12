@@ -35,65 +35,46 @@
  * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
  * OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *
- * Copyright 2017-2018 NXP
+ * Copyright 2018 NXP
  *
  ******************************************************************************
  *
- * API_AFE.h
+ * API_HDMI_RX_Audio.h
  *
  ******************************************************************************
  */
 
-#ifndef API_AFE_H_
-#define API_AFE_H_
+#ifndef API_HDMI_RX_AUDIO_H_
+#define API_HDMI_RX_AUDIO_H_
 
-#include "util.h"
+#include "API_General.h"
 
-typedef enum {
-	AFE_LINK_RATE_1_6 = 0x6,  /* 1.62 Gb/s */
-	AFE_LINK_RATE_2_1 = 0x8,  /* 2.16 Gb/s */
-	AFE_LINK_RATE_2_4 = 0x9,  /* 2.43 Gb/s */
-	AFE_LINK_RATE_2_7 = 0xA,  /* 2.70 Gb/s */
-	AFE_LINK_RATE_3_2 = 0xC,  /* 3.24 Gb/s */
-	AFE_LINK_RATE_4_3 = 0x10, /* 4.32 Gb/s */
-	AFE_LINK_RATE_5_4 = 0x14, /* 5.40 Gb/s */
-	AFE_LINK_RATE_8_1 = 0x1E, /* 8.10 Gb/s */
-} ENUM_AFE_LINK_RATE;
+/**
+ * \addtogroup AUDIO_API
+ * \{
+ */
 
-/* Some of the PHY programming sequences
- * depend on the reference clock frequency.
- * Variable of this type is used to control
- * the programming flow. */
-typedef enum {
-	REFCLK_24MHZ,
-	REFCLK_27MHZ
-} REFCLK_FREQ;
+/**
+ * \brief start audio reception with the input parameters
+ */
+CDN_API_STATUS CDN_API_RX_AudioAutoConfig(
+		state_struct *state,
+		u8 max_ch_num,
+		u8 i2s_ports_num,
+		u8 dis_port3,
+		u8 enc_sample_width,
+		u8 i2s_sample_width);
 
-typedef enum {
-	CLK_RATIO_1_1,
-	CLK_RATIO_5_4,
-	CLK_RATIO_3_2,
-	CLK_RATIO_2_1,
-	CLK_RATIO_1_2,
-	CLK_RATIO_5_8,
-	CLK_RATIO_3_4
-} clk_ratio_t;
-
-typedef struct {
-	u32 value;
-	u8 lsb;
-	u8 msb;
-	u8 *label;
-} reg_field_t;
-
-u8 AFE_check_rate_supported(ENUM_AFE_LINK_RATE rate);
-void Afe_write(state_struct *state, u32 offset, u16 val);
-u16 Afe_read(state_struct *state, u32 offset);
-void AFE_init(state_struct *state, int num_lanes,
-	      ENUM_AFE_LINK_RATE link_rate);
-void AFE_power(state_struct *state, int num_lanes,
-	       ENUM_AFE_LINK_RATE link_rate);
-void set_field_value(reg_field_t *reg_field, u32 value);
-int set_reg_value(reg_field_t reg_field);
+/**
+ * \brief blocking version of #CDN_API_RX_AudioAutoConfig
+ */
+CDN_API_STATUS CDN_API_RX_AudioAutoConfig_blocking(
+		state_struct *state,
+		u8 max_ch_num,
+		u8 i2s_ports_num,
+		u8 dis_port3,
+		u8 enc_sample_width,
+		u8 i2s_sample_width);
 
 #endif
+

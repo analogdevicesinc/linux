@@ -59,3 +59,6 @@
 #include "source_phy.h"
 #include "source_vif.h"
 #include "util.h"
+#include "sink_pif.h"
+#include "sink_mhl_hd.h"
+#include "API_HDMIRX.h"
