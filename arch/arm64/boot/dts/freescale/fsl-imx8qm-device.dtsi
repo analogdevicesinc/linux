@@ -1202,10 +1202,24 @@
 				#address-cells = <1>;
 				#size-cells = <0>;
 
-				pd_hdmi_rx_i2c0: PD_HDMI_RX_I2C {
-					reg = <SC_R_HDMI_RX_I2C_0>;
+				pd_hdmi_rx_bypass: PD_HDMI_RX_BYPASS {
+					reg = <SC_R_HDMI_RX_BYPASS>;
 					#power-domain-cells = <0>;
 					power-domains =<&pd_hdmi_rx>;
+					#address-cells = <1>;
+					#size-cells = <0>;
+
+					pd_hdmi_rx_i2c0: PD_HDMI_RX_I2C {
+						reg = <SC_R_HDMI_RX_I2C_0>;
+						#power-domain-cells = <0>;
+						power-domains =<&pd_hdmi_rx_bypass>;
+					};
+
+					pd_hdmi_rx_pwm0: PD_HDMI_RX_PWM {
+						reg = <SC_R_HDMI_RX_PWM_0>;
+						#power-domain-cells = <0>;
+						power-domains =<&pd_hdmi_rx_bypass>;
+					};
 				};
 			};
 
@@ -2482,6 +2496,27 @@
 			status = "disabled";
 		};
 
+		hdmi_rx: hdmi_rx@58268000 {
+			compatible = "fsl,imx-hdmi-rx";
+			reg = <0x0 0x58268000 0x0 0x10000>, /* HDP Controller */
+					<0x0 0x58261000 0x0 0x1000>; /* HDP SubSystem CSR  */
+			interrupts = <10 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-parent = <&irqsteer_hdmi_rx>;
+			clocks = <&clk IMX8QM_HDMI_RX_HD_REF_CLK>,
+						<&clk IMX8QM_HDMI_RX_HD_CORE_CLK>,
+						<&clk IMX8QM_HDMI_RX_PXL_CLK>,
+						<&clk IMX8QM_HDMI_RX_SINK_PCLK>,
+						<&clk IMX8QM_HDMI_RX_SINK_SCLK>,
+						<&clk IMX8QM_HDMI_RX_PXL_ENC_CLK>,
+						<&clk IMX8QM_HDMI_RX_SPDIF_CLK>,
+						<&clk IMX8QM_IMG_PXL_LINK_HDMI_IN_CLK>;
+			clock-names = "ref_clk", "core_clk", "pxl_clk",
+							"pclk", "sclk", "enc_clk", "spdif_clk",
+							"pxl_link_clk";
+			power-domains = <&pd_hdmi_rx_bypass>;
+			status = "disabled";
+		};
+
 		jpegdec: jpegdec@58400000 {
 			compatible = "fsl,imx8-jpgdec";
 			reg = <0x0 0x58400000 0x0 0x00040020 >;
@@ -2621,6 +2656,18 @@
 		assigned-clock-rates = <1188000000>, <85000000>;
 		power-domains = <&pd_hdmi>;
 	};
+
+	irqsteer_hdmi_rx: irqsteer@58260000 {
+		compatible = "nxp,imx-irqsteer";
+		reg = <0x0 0x58260000 0x0 0x1000>;
+		interrupts = <GIC_SPI 322 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+		clocks = <&clk IMX8QM_HDMI_RX_IPG_CLK>;
+		clock-names = "ipg";
+		power-domains = <&pd_hdmi_rx>;
+	};
+
 
 	i2c0_hdmi: i2c@56266000 {
 		compatible = "fsl,imx8qm-lpi2c";

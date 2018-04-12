@@ -100,3 +100,44 @@
 	assigned-clock-rates = <786432000>, <49152000>, <12288000>;
 	status = "okay";
 };
+
+/* HDMI RX */
+&isi_0 {
+	status = "disabled";
+};
+
+&isi_1 {
+	interface = <4 0 2>;  /* <Input MIPI_VCx Output>
+						Input:  0-DC0, 1-DC1, 2-MIPI CSI0, 3-MIPI CSI1, 4-HDMI, 5-MEM
+						VCx:    0-VC0, 1-VC1, 2-VC2, 3-VC3, MIPI CSI only
+						Output: 0-DC0, 1-DC1, 2-MEM */
+	status = "okay";
+};
+
+&isi_2 {
+	status = "okay";
+	fsl,chain_buf;
+};
+
+&isi_3 {
+	status = "disabled";
+};
+
+
+&mipi_csi_0 {
+	status = "disabled";
+};
+
+&i2c0_mipi_csi0 {
+	status = "disabled";
+};
+
+&hdmi_rx {
+	assigned-clocks = <&clk IMX8QM_HDMI_RX_HD_REF_SEL>,
+						<&clk IMX8QM_HDMI_RX_PXL_SEL>,
+						<&clk IMX8QM_HDMI_RX_HD_REF_DIV>;
+	assigned-clock-parents = <&clk IMX8QM_HDMI_RX_DIG_PLL_CLK>,
+							<&clk IMX8QM_HDMI_RX_BYPASS_CLK>;
+	assigned-clock-rates = <0>, <0>, <400000000>;
+	status = "okay";
+};
