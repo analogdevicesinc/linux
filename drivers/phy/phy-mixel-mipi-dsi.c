@@ -41,6 +41,7 @@
 #define DPHY_AUTO_PD_EN			0x3c
 #define DPHY_RXLPRP			0x40
 #define DPHY_RXCDRP			0x44
+#define DPHY_M_PRG_RXHS_SETTLE		0x48
 
 #define MBPS(x) ((x) * 1000000)
 
@@ -204,36 +205,53 @@ static int mixel_mipi_phy_enable(struct phy *phy, u32 reset)
 static void mixel_phy_set_prg_regs(struct phy *phy)
 {
 	struct mixel_mipi_phy_priv *priv = phy_get_drvdata(phy);
-	u32 step;
-	u32 step_num;
-	u32 step_max;
 
 	/* MC_PRG_HS_PREPARE */
-	if (priv->data_rate > MBPS(1000))
+	if (priv->data_rate < MBPS(1000))
 		phy_write(phy, 0x01, DPHY_MC_PRG_HS_PREPARE);
 	else
 		phy_write(phy, 0x00, DPHY_MC_PRG_HS_PREPARE);
 
 	/* M_PRG_HS_PREPARE */
-	if (priv->data_rate > MBPS(250))
-		phy_write(phy, 0x00, DPHY_M_PRG_HS_PREPARE);
-	else
+	if (priv->data_rate < MBPS(250))
+		phy_write(phy, 0x03, DPHY_M_PRG_HS_PREPARE);
+	else if (priv->data_rate < MBPS(500))
+		phy_write(phy, 0x02, DPHY_M_PRG_HS_PREPARE);
+	else if (priv->data_rate < MBPS(1000))
 		phy_write(phy, 0x01, DPHY_M_PRG_HS_PREPARE);
+	else
+		phy_write(phy, 0x00, DPHY_M_PRG_HS_PREPARE);
 
 	/* MC_PRG_HS_ZERO */
-	step_max = 48;
-	step = (DATA_RATE_MAX_SPEED - DATA_RATE_MIN_SPEED) / step_max;
-	step_num = ((priv->data_rate - DATA_RATE_MIN_SPEED) / step) + 1;
-	phy_write(phy, step_num, DPHY_MC_PRG_HS_ZERO);
+	if (priv->data_rate < MBPS(250))
+		phy_write(phy, 0x01, DPHY_MC_PRG_HS_ZERO);
+	else if (priv->data_rate < MBPS(500))
+		phy_write(phy, 0x06, DPHY_MC_PRG_HS_ZERO);
+	else if (priv->data_rate < MBPS(1000))
+		phy_write(phy, 0x0F, DPHY_MC_PRG_HS_ZERO);
+	else if (priv->data_rate < MBPS(1500))
+		phy_write(phy, 0x20, DPHY_MC_PRG_HS_ZERO);
+	else
+		phy_write(phy, 0x30, DPHY_MC_PRG_HS_ZERO);
 
 	/* M_PRG_HS_ZERO */
-	if (priv->data_rate < MBPS(1000))
+	if (priv->data_rate < MBPS(500))
+		phy_write(phy, 0x01, DPHY_M_PRG_HS_ZERO);
+	else if (priv->data_rate < MBPS(1000))
+		phy_write(phy, 0x02, DPHY_M_PRG_HS_ZERO);
+	else if (priv->data_rate < MBPS(1500))
 		phy_write(phy, 0x09, DPHY_M_PRG_HS_ZERO);
 	else
 		phy_write(phy, 0x10, DPHY_M_PRG_HS_ZERO);
 
 	/* MC_PRG_HS_TRAIL and M_PRG_HS_TRAIL */
-	if (priv->data_rate < MBPS(1000)) {
+	if (priv->data_rate < MBPS(250)) {
+		phy_write(phy, 0x02, DPHY_MC_PRG_HS_TRAIL);
+		phy_write(phy, 0x02, DPHY_M_PRG_HS_TRAIL);
+	} else if (priv->data_rate < MBPS(500)) {
+		phy_write(phy, 0x04, DPHY_MC_PRG_HS_TRAIL);
+		phy_write(phy, 0x04, DPHY_M_PRG_HS_TRAIL);
+	} else if (priv->data_rate < MBPS(1000)) {
 		phy_write(phy, 0x05, DPHY_MC_PRG_HS_TRAIL);
 		phy_write(phy, 0x05, DPHY_M_PRG_HS_TRAIL);
 	} else if (priv->data_rate < MBPS(1500)) {
@@ -243,13 +261,25 @@ static void mixel_phy_set_prg_regs(struct phy *phy)
 		phy_write(phy, 0x0F, DPHY_MC_PRG_HS_TRAIL);
 		phy_write(phy, 0x0F, DPHY_M_PRG_HS_TRAIL);
 	}
+
+	/* M_PRG_HS_ZERO */
+	if (priv->data_rate < MBPS(250))
+		phy_write(phy, 0x0B, DPHY_M_PRG_RXHS_SETTLE);
+	else if (priv->data_rate < MBPS(500))
+		phy_write(phy, 0x08, DPHY_M_PRG_RXHS_SETTLE);
+	else
+		phy_write(phy, 0x06, DPHY_M_PRG_RXHS_SETTLE);
+
 }
 
-int mixel_mipi_phy_init(struct phy *phy)
+static int mixel_mipi_phy_init(struct phy *phy)
 {
 	struct mixel_mipi_phy_priv *priv = dev_get_drvdata(phy->dev.parent);
 
 	mutex_lock(&priv->lock);
+
+	phy_write(phy, PWR_OFF, DPHY_PD_PLL);
+	phy_write(phy, PWR_OFF, DPHY_PD_DPHY);
 
 	mixel_phy_set_prg_regs(phy);
 
@@ -280,7 +310,7 @@ int mixel_mipi_phy_init(struct phy *phy)
 	return 0;
 }
 
-int mixel_mipi_phy_exit(struct phy *phy)
+static int mixel_mipi_phy_exit(struct phy *phy)
 {
 	phy_write(phy, 0, DPHY_CM);
 	phy_write(phy, 0, DPHY_CN);
@@ -297,7 +327,6 @@ static int mixel_mipi_phy_power_on(struct phy *phy)
 
 	mutex_lock(&priv->lock);
 
-	phy_write(phy, PWR_ON, DPHY_PD_DPHY);
 	phy_write(phy, PWR_ON, DPHY_PD_PLL);
 
 	timeout = 100;
@@ -305,10 +334,15 @@ static int mixel_mipi_phy_power_on(struct phy *phy)
 		udelay(10);
 		if (--timeout == 0) {
 			dev_err(&phy->dev, "Could not get DPHY lock!\n");
+			phy_write(phy, PWR_OFF, DPHY_PD_PLL);
 			mutex_unlock(&priv->lock);
 			return -EINVAL;
 		}
 	}
+	dev_dbg(&phy->dev, "DPHY lock acquired after %d tries\n",
+		(100 - timeout));
+
+	phy_write(phy, PWR_ON, DPHY_PD_DPHY);
 
 	if (priv->have_sc)
 		ret = mixel_mipi_phy_enable(phy, 1);
@@ -367,7 +401,7 @@ static int mixel_mipi_phy_probe(struct platform_device *pdev)
 	struct mixel_mipi_phy_priv *priv;
 	struct resource *res;
 	struct phy *phy;
-	u32 phy_id = 0;
+	int phy_id = 0;
 
 	if (!np)
 		return -ENODEV;
