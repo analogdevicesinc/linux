@@ -196,6 +196,7 @@
 #define PD_HDMI_GPIO_0              hdmi_gpio
 
 #define PD_HDMI_RX                  hdmi_rx_power_domain
+#define PD_HDMI_RX_BYPASS           hdmi_rx_bypass
 #define PD_HDMI_RX_I2C              hdmi_rx_i2c
 #define PD_HDMI_RX_PWM              hdmi_rx_pwm
 
