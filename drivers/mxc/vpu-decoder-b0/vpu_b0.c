@@ -2061,7 +2061,7 @@ static int boot_CM4_up(struct vpu_dev *dev, void *boot_addr)
 	aux_core_ram = 0x34FE0000;
 	size = SZ_128K;
 
-	core_ram_vir = ioremap(aux_core_ram,
+	core_ram_vir = ioremap_wc(aux_core_ram,
 			size
 			);
 	if (!core_ram_vir)
@@ -2642,7 +2642,7 @@ static int vpu_probe(struct platform_device *pdev)
 	}
 
 	//firmware space for M0
-	dev->m0_p_fw_space_vir = ioremap(dev->m0_p_fw_space_phy,
+	dev->m0_p_fw_space_vir = ioremap_wc(dev->m0_p_fw_space_phy,
 			M0_BOOT_SIZE
 			);
 	if (!dev->m0_p_fw_space_vir)
@@ -2650,7 +2650,7 @@ static int vpu_probe(struct platform_device *pdev)
 
 	memset_io(dev->m0_p_fw_space_vir, 0, M0_BOOT_SIZE);
 
-	dev->m0_rpc_virt = ioremap(dev->m0_rpc_phy,
+	dev->m0_rpc_virt = ioremap_wc(dev->m0_rpc_phy,
 			SHARED_SIZE
 			);
 	if (!dev->m0_rpc_virt) {
