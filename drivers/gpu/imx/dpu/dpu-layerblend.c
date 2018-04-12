@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2016 Freescale Semiconductor, Inc.
- * Copyright 2017 NXP
+ * Copyright 2017-2018 NXP
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -58,8 +58,11 @@ static const lb_prim_sel_t prim_sels[] = {
 #define BLENDCONTROL				0x10
 #define ALPHA(a)				(((a) & 0xFF) << 16)
 #define PRIM_C_BLD_FUNC__ONE_MINUS_SEC_ALPHA	0x5
+#define PRIM_C_BLD_FUNC__PRIM_ALPHA		0x2
 #define SEC_C_BLD_FUNC__CONST_ALPHA		(0x6 << 4)
+#define SEC_C_BLD_FUNC__ONE_MINUS_PRIM_ALPHA	(0x3 << 4)
 #define PRIM_A_BLD_FUNC__ONE_MINUS_SEC_ALPHA	(0x5 << 8)
+#define PRIM_A_BLD_FUNC__ZERO			(0x0 << 8)
 #define SEC_A_BLD_FUNC__ONE			(0x1 << 12)
 #define POSITION				0x14
 #define XPOS(x)					((x) & 0x7FFF)
@@ -238,9 +241,9 @@ void layerblend_blendcontrol(struct dpu_layerblend *lb)
 	u32 val;
 
 	val = ALPHA(0xff) |
-	      PRIM_C_BLD_FUNC__ONE_MINUS_SEC_ALPHA |
-	      SEC_C_BLD_FUNC__CONST_ALPHA |
-	      PRIM_A_BLD_FUNC__ONE_MINUS_SEC_ALPHA |
+	      PRIM_C_BLD_FUNC__PRIM_ALPHA |
+	      SEC_C_BLD_FUNC__ONE_MINUS_PRIM_ALPHA |
+	      PRIM_A_BLD_FUNC__ZERO |
 	      SEC_A_BLD_FUNC__ONE;
 
 	mutex_lock(&lb->mutex);
