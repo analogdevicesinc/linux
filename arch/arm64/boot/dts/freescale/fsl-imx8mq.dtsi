@@ -1095,8 +1095,8 @@
 
 	hdmi: hdmi@32c00000 {
 		compatible = "fsl,imx8mq-hdmi";
-		reg = <0x0 0x32c00000 0x0 0x100000>,	/* HDMI registers */
-				<0x0 0x32e40000 0x0 0x40000>;   /* HDMI SEC register */
+		reg = <0x0 0x32c00000 0x0 0x33800>,	/* HDP registers */
+				<0x0 0x32e40000 0x0 0x40000>;   /* HDP SEC register */
 		interrupts = <GIC_SPI 16 IRQ_TYPE_LEVEL_HIGH>;
 		video-mode = <16>;	/* <default_mode: #16>
 					 * #16: 1920x1080p@60HZ 16:9
@@ -1104,6 +1104,12 @@
 					 * #97: 3840x2160p@60Hz 16:9
 					 */
 		power-domains = <&disp_pd>;
+		status = "disabled";
+	};
+
+	hdmi_cec: hdmi_cec@32c33800 {
+		compatible = "fsl,imx8-hdp-cec";
+		reg = <0x0 0x32c33800 0x0 0x200>;
 		status = "disabled";
 	};
 
