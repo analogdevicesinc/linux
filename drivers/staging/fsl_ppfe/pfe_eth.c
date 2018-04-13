@@ -2296,6 +2296,8 @@ static int pfe_eth_init_one(struct pfe *pfe, int id)
 		goto err0;
 	}
 
+	if (us)
+		emac_txq_cnt = EMAC_TXQ_CNT;
 	/* Create an ethernet device instance */
 	ndev = alloc_etherdev_mq(sizeof(*priv), emac_txq_cnt);
 
@@ -2342,6 +2344,9 @@ static int pfe_eth_init_one(struct pfe *pfe, int id)
 		}
 	}
 
+	if (us)
+		goto phy_init;
+
 	ndev->mtu = 1500;
 
 	/* Set MTU limits */
@@ -2378,6 +2383,8 @@ static int pfe_eth_init_one(struct pfe *pfe, int id)
 		netdev_err(ndev, "register_netdev() failed\n");
 		goto err3;
 	}
+
+phy_init:
 	device_init_wakeup(&ndev->dev, WAKE_MAGIC);
 
 	if (!(priv->einfo->phy_flags & GEMAC_NO_PHY)) {
@@ -2387,6 +2394,12 @@ static int pfe_eth_init_one(struct pfe *pfe, int id)
 				   __func__);
 			goto err4;
 		}
+	}
+
+	if (us) {
+		if (priv->phydev)
+			phy_start(priv->phydev);
+		return 0;
 	}
 
 	netif_carrier_on(ndev);
@@ -2400,6 +2413,8 @@ static int pfe_eth_init_one(struct pfe *pfe, int id)
 
 	return 0;
 err4:
+	if (us)
+		goto err3;
 	unregister_netdev(ndev);
 err3:
 	pfe_eth_mdio_exit(priv->mii_bus);
@@ -2446,9 +2461,11 @@ static void pfe_eth_exit_one(struct pfe_eth_priv_s *priv)
 {
 	netif_info(priv, probe, priv->ndev, "%s\n", __func__);
 
-	pfe_eth_sysfs_exit(priv->ndev);
+	if (!us) {
+		pfe_eth_sysfs_exit(priv->ndev);
 
-	unregister_netdev(priv->ndev);
+		unregister_netdev(priv->ndev);
+	}
 
 	if (!(priv->einfo->phy_flags & GEMAC_NO_PHY))
 		pfe_phy_exit(priv->ndev);

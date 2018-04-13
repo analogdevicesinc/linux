@@ -19,6 +19,10 @@
 #include <linux/dma-mapping.h>
 #include "pfe_mod.h"
 
+unsigned int us;
+module_param(us, uint, 0444);
+MODULE_PARM_DESC(us, "0: module enabled for kernel networking (DEFAULT)\n"
+			"1: module enabled for userspace networking\n");
 struct pfe *pfe;
 
 /*
@@ -56,6 +60,9 @@ int pfe_probe(struct pfe *pfe)
 	if (rc < 0)
 		goto err_hw;
 
+	if (us)
+		goto firmware_init;
+
 	rc = pfe_hif_lib_init(pfe);
 	if (rc < 0)
 		goto err_hif_lib;
@@ -64,6 +71,7 @@ int pfe_probe(struct pfe *pfe)
 	if (rc < 0)
 		goto err_hif;
 
+firmware_init:
 	rc = pfe_firmware_init(pfe);
 	if (rc < 0)
 		goto err_firmware;
@@ -99,6 +107,9 @@ err_ctrl:
 	pfe_firmware_exit(pfe);
 
 err_firmware:
+	if (us)
+		goto err_hif_lib;
+
 	pfe_hif_exit(pfe);
 
 err_hif:
@@ -131,10 +142,14 @@ int pfe_remove(struct pfe *pfe)
 #endif
 	pfe_firmware_exit(pfe);
 
+	if (us)
+		goto hw_exit;
+
 	pfe_hif_exit(pfe);
 
 	pfe_hif_lib_exit(pfe);
 
+hw_exit:
 	pfe_hw_exit(pfe);
 
 	return 0;

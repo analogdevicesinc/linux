@@ -22,6 +22,8 @@
 #include <linux/device.h>
 #include <linux/elf.h>
 
+extern unsigned int us;
+
 struct pfe;
 
 #include "pfe_hw.h"
