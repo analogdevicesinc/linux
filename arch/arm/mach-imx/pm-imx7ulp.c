@@ -788,6 +788,7 @@ static irqreturn_t imx7ulp_nmi_isr(int irq, void *param)
 {
 	writel_relaxed(readl_relaxed(mu_base + MU_SR) | MU_B_SR_NMIC,
 		mu_base + MU_SR);
+	pm_system_wakeup();
 
 	return IRQ_HANDLED;
 }
