@@ -217,6 +217,15 @@
 			clocks = <&clks IMX6SX_CLK_OCRAM>;
 		};
 
+		ocram_optee {
+			compatible = "fsl,optee-lpm-sram";
+			reg = <0x8f8000 0x4000>;
+			overw_reg = <&ocrams_ddr 0x904000 0x1000>,
+					<&ocram 0x905000 0x1b000>,
+					<&ocrams 0x900000 0x4000>;
+			overw_clock = <&ocrams &clks IMX6SX_CLK_OCRAM>;
+		};
+
 		intc: interrupt-controller@a01000 {
 			compatible = "arm,cortex-a9-gic";
 			#interrupt-cells = <3>;

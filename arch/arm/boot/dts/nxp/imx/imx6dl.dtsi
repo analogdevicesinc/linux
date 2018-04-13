@@ -94,6 +94,12 @@
 			clocks = <&clks IMX6QDL_CLK_OCRAM>;
 		};
 
+		ocram_optee: sram@918000 {
+			compatible = "fsl,optee-lpm-sram";
+			reg = <0x918000 0x8000>;
+			overw_reg = <&ocram 0x905000 0x13000>;
+		};
+
 		gpu: gpu@00130000 {
 			compatible = "fsl,imx6dl-gpu", "fsl,imx6q-gpu";
 			reg = <0x00130000 0x4000>, <0x00134000 0x4000>,

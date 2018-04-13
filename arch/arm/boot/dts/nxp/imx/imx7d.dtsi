@@ -113,6 +113,15 @@
 			status = "disabled";
 		};
 
+		ocram_optee {
+			compatible = "fsl,optee-lpm-sram";
+			reg = <0x180000 0x8000>;
+			overw_reg = <&ocrams_ddr 0x904000 0x1000>,
+					<&ocram 0x905000 0x1b000>,
+					<&ocrams 0x900000 0x4000>;
+			overw_clock = <&ocrams &clks IMX7D_OCRAM_CLK>;
+		};
+
 		ocrams_mf: sram-mf@00900000 {
 			compatible = "fsl,mega-fast-sram";
 			reg = <0x00900000 0x20000>;

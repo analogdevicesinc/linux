@@ -184,6 +184,12 @@
 			clocks = <&clks IMX6QDL_CLK_OCRAM>;
 		};
 
+		ocram_optee: sram@00938000 {
+			compatible = "fsl,optee-lpm-sram";
+			reg = <0x00938000 0x8000>;
+			overw_reg = <&ocram 0x00905000 0x33000>;
+		};
+
 		aips1: bus@2000000 { /* AIPS1 */
 			spba-bus@2000000 {
 				ecspi5: spi@2018000 {
