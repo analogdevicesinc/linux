@@ -1006,7 +1006,7 @@ static void enc_mem_alloc(struct vpu_ctx *ctx, MEDIAIP_ENC_MEM_REQ_DATA *req_dat
 			ctx->dev->shared_mem.base_offset);
 
 	for (i = 0; i < req_data->uEncFrmNum; i++) {
-		ctx->encFrame[i].size = ((req_data->uEncFrmSize + (~req_data->uAlignmentMask))&req_data->uAlignmentMask);
+		ctx->encFrame[i].size = req_data->uEncFrmSize;
 		ctx->encFrame[i].virt_addr = dma_alloc_coherent(&ctx->dev->plat_dev->dev,
 				ctx->encFrame[i].size,
 				(dma_addr_t *)&ctx->encFrame[i].phy_addr,
@@ -1027,7 +1027,7 @@ static void enc_mem_alloc(struct vpu_ctx *ctx, MEDIAIP_ENC_MEM_REQ_DATA *req_dat
 	}
 
 	for (i = 0; i < req_data->uRefFrmNum; i++) {
-		ctx->refFrame[i].size = ((req_data->uRefFrmSize + (~req_data->uAlignmentMask))&req_data->uAlignmentMask);
+		ctx->refFrame[i].size = req_data->uRefFrmSize;
 		ctx->refFrame[i].virt_addr = dma_alloc_coherent(&ctx->dev->plat_dev->dev,
 				ctx->refFrame[i].size,
 				(dma_addr_t *)&ctx->refFrame[i].phy_addr,
@@ -1048,7 +1048,7 @@ static void enc_mem_alloc(struct vpu_ctx *ctx, MEDIAIP_ENC_MEM_REQ_DATA *req_dat
 		pEncMemPool->tRefFrameBuffers[i].uMemSize = ctx->refFrame[i].size;
 	}
 
-	ctx->actFrame.size = ((req_data->uActBufSize + (~req_data->uAlignmentMask))&req_data->uAlignmentMask);
+	ctx->actFrame.size = req_data->uActBufSize;
 	ctx->actFrame.virt_addr = dma_alloc_coherent(&ctx->dev->plat_dev->dev,
 			ctx->actFrame.size,
 			(dma_addr_t *)&ctx->actFrame.phy_addr,
@@ -1083,7 +1083,7 @@ static void vpu_api_event_handler(struct vpu_ctx *ctx, u_int32 uStrIdx, u_int32 
 		case VID_API_ENC_EVENT_MEM_REQUEST: {
 			MEDIAIP_ENC_MEM_REQ_DATA *req_data = (MEDIAIP_ENC_MEM_REQ_DATA *)event_data;
 			vpu_dbg(LVL_INFO, "VID_API_ENC_EVENT_MEM_REQUEST: need to request memory\n");
-			vpu_dbg(LVL_INFO, "uEncFrmSize = %d, uEncFrmNum=%d, uRefFrmSize=%d, uRefFrmNum=%d, uActBufSize=%d, uAlignmentMask=0x%x\n", req_data->uEncFrmSize, req_data->uEncFrmNum, req_data->uRefFrmSize, req_data->uRefFrmNum, req_data->uActBufSize, req_data->uAlignmentMask);
+			vpu_dbg(LVL_INFO, "uEncFrmSize = %d, uEncFrmNum=%d, uRefFrmSize=%d, uRefFrmNum=%d, uActBufSize=%d\n", req_data->uEncFrmSize, req_data->uEncFrmNum, req_data->uRefFrmSize, req_data->uRefFrmNum, req_data->uActBufSize);
 			enc_mem_alloc(ctx, req_data);
 			//update_yuv_addr(ctx,0);
 			v4l2_vpu_send_cmd(ctx, 0, GTB_ENC_CMD_STREAM_START, 0, NULL);
@@ -1308,7 +1308,8 @@ static void vpu_stop_streaming(struct vb2_queue *q)
 	}
 	if (!list_empty(&q->queued_list))
 		list_for_each_entry(vb, &q->queued_list, queued_entry)
-			vb2_buffer_done(vb, VB2_BUF_STATE_ERROR);
+			if (vb->state == VB2_BUF_STATE_ACTIVE)
+				vb2_buffer_done(vb, VB2_BUF_STATE_ERROR);
 	INIT_LIST_HEAD(&This->drv_q);
 	up(&This->drv_q_lock);
 }

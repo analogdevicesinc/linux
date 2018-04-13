@@ -139,7 +139,6 @@ typedef struct {
 	u_int32                    uRefFrmSize;
 	u_int32                    uRefFrmNum;
 	u_int32                    uActBufSize;
-	u_int32                    uAlignmentMask;
 } MEDIAIP_ENC_MEM_REQ_DATA, *pMEDIAIP_ENC_MEM_REQ_DATA;
 
 typedef struct {
