@@ -493,7 +493,7 @@ static int cdns_req_ep0_get_status(struct usb_ss_dev *usb_ss,
 				usb_status |= 1uL << USB_DEVICE_REMOTE_WAKEUP;
 
 			/* self powered */
-			usb_status |= 1uL << USB_DEVICE_SELF_POWERED;
+			usb_status |= usb_ss->gadget.is_selfpowered;
 		}
 		break;
 
@@ -1910,9 +1910,14 @@ static int usb_ss_gadget_set_selfpowered(struct usb_gadget *gadget,
 		int is_selfpowered)
 {
 	struct usb_ss_dev *usb_ss = gadget_to_usb_ss(gadget);
+	unsigned long flags;
 
 	dev_dbg(&usb_ss->dev, "usb_ss_gadget_set_selfpowered: %d\n",
 		is_selfpowered);
+
+	spin_lock_irqsave(&usb_ss->lock, flags);
+	gadget->is_selfpowered = !!is_selfpowered;
+	spin_unlock_irqrestore(&usb_ss->lock, flags);
 	return 0;
 }
 
