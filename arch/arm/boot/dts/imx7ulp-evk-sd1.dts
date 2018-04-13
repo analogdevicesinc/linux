@@ -41,5 +41,6 @@
 	/delete-property/wifi-host;
 	/delete-property/pm-ignore-notify;
 	/delete-property/keep-power-in-suspend;
+	/delete-property/non-removable;
 	status = "okay";
 };
