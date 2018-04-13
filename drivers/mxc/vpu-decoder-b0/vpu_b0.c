@@ -753,7 +753,7 @@ static int v4l2_ioctl_decoder_cmd(struct file *file,
 		break;
 	case V4L2_DEC_CMD_STOP: {
 	vpu_dbg(LVL_INFO, "receive V4L2_DEC_CMD_STOP\n");
-	v4l2_vpu_send_cmd(ctx, ctx->str_index, VID_API_CMD_STOP, 0, NULL);
+	add_eos(ctx, 0);
 	} break;
 	case V4L2_DEC_CMD_PAUSE:
 		break;
@@ -1341,10 +1341,22 @@ static bool wait_right_buffer(struct queue_data *This)
 
 static void vpu_api_event_handler(struct vpu_ctx *ctx, u_int32 uStrIdx, u_int32 uEvent, u_int32 *event_data)
 {
-	struct vpu_dev *dev = ctx->dev;
-	pDEC_RPC_HOST_IFACE pSharedInterface = (pDEC_RPC_HOST_IFACE)dev->shared_mem.shared_mem_vir;
+	struct vpu_dev *dev;
+	pDEC_RPC_HOST_IFACE pSharedInterface;
 
 	vpu_log_event(uEvent, uStrIdx);
+
+	if (ctx == NULL) {
+		vpu_dbg(LVL_ERR, "receive event: 0x%X after instance released, ignore it\n", uEvent);
+		return;
+	}
+
+	if (ctx->firmware_stopped) {
+		vpu_dbg(LVL_ERR, "receive event: 0x%X after stopped, ignore it\n", uEvent);
+		return;
+	}
+	dev = ctx->dev;
+	pSharedInterface = (pDEC_RPC_HOST_IFACE)dev->shared_mem.shared_mem_vir;
 
 	switch (uEvent) {
 	case VID_API_EVENT_START_DONE:
@@ -1669,7 +1681,7 @@ static void vpu_api_event_handler(struct vpu_ctx *ctx, u_int32 uStrIdx, u_int32 
 				pStrBufDesc->start,
 				pStrBufDesc->end
 				);
-		pStrBufDesc->wptr = pStrBufDesc->start;
+		pStrBufDesc->wptr = pStrBufDesc->rptr;
 		v4l2_vpu_send_cmd(ctx, uStrIdx, VID_API_CMD_RST_BUF, 0, NULL);
 		}
 		break;
@@ -2131,12 +2143,15 @@ static int v4l2_open(struct file *filp)
 	ctx = kzalloc(sizeof(*ctx), GFP_KERNEL);
 	if (!ctx)
 		return -ENOMEM;
+	mutex_lock(&dev->dev_mutex);
 	idx = vpu_next_free_instance(dev);
 	if (idx < 0) {
 		ret = idx;
+		mutex_unlock(&dev->dev_mutex);
 		goto err_find_index;
 	}
 	set_bit(idx, &dev->instance_mask);
+	mutex_unlock(&dev->dev_mutex);
 	init_completion(&ctx->completion);
 	init_completion(&ctx->stop_cmp);
 
