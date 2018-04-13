@@ -28,6 +28,8 @@
 	#size-cells = <2>;
 
 	aliases {
+		csi0 = &mipi_csi_1;
+		csi1 = &mipi_csi_2;
 		ethernet0 = &fec1;
 		serial0 = &uart1;
 		serial1 = &uart2;
@@ -499,6 +501,66 @@
 		assigned-clock-parents = <&clk IMX8MQ_VIDEO_PLL1_OUT>;
 		assigned-clock-rate = <594000000>;
 		interrupts = <GIC_SPI 5 IRQ_TYPE_LEVEL_HIGH>;
+		status = "disabled";
+	};
+
+	csi1_bridge: csi1_bridge@30a90000 {
+		compatible = "fsl,imx8mq-csi", "fsl,imx6s-csi";
+		reg = <0x0 0x30a90000 0x0 0x10000>;
+		interrupts = <GIC_SPI 42 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clk IMX8MQ_CLK_DUMMY>,
+			<&clk IMX8MQ_CLK_CSI1_ROOT>,
+			<&clk IMX8MQ_CLK_DUMMY>;
+		clock-names = "disp-axi", "csi_mclk", "disp_dcic";
+		status = "disabled";
+	};
+
+	csi2_bridge: csi2_bridge@30b80000 {
+		compatible = "fsl,imx8mq-csi", "fsl,imx6s-csi";
+		reg = <0x0 0x30b80000 0x0 0x10000>;
+		interrupts = <GIC_SPI 43 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clk IMX8MQ_CLK_DUMMY>,
+			<&clk IMX8MQ_CLK_CSI2_ROOT>,
+			<&clk IMX8MQ_CLK_DUMMY>;
+		clock-names = "disp-axi", "csi_mclk", "disp_dcic";
+		status = "disabled";
+	};
+
+	mipi_csi_1: mipi_csi1@30a70000 {
+		compatible = "fsl,mxc-mipi-csi2_yav";
+		reg = <0x0 0x30a70000 0x0 0x1000>; /* MIPI CSI1 Controller base addr */
+		interrupts = <GIC_SPI 44 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clk IMX8MQ_CLK_DUMMY>,
+				<&clk IMX8MQ_CLK_CSI1_CORE_DIV>,
+				<&clk IMX8MQ_CLK_CSI1_ESC_DIV>,
+				<&clk IMX8MQ_CLK_CSI1_PHY_REF_DIV>;
+		clock-names = "clk_apb", "clk_core", "clk_esc", "clk_pxl";
+		assigned-clocks = <&clk IMX8MQ_CLK_CSI1_CORE_DIV>,
+				  <&clk IMX8MQ_CLK_CSI1_PHY_REF_DIV>,
+				  <&clk IMX8MQ_CLK_CSI1_ESC_DIV>;
+		assigned-clock-rates = <133000000>, <100000000>, <66000000>;
+		power-domains = <&mipi_csi1_pd>;
+		csis-phy-reset = <&src 0x4c 7>;
+		phy-gpr = <&gpr 0x88>;
+		status = "disabled";
+	};
+
+	mipi_csi_2: mipi_csi2@30b60000 {
+		compatible = "fsl,mxc-mipi-csi2_yav";
+		reg = <0x0 0x30b60000 0x0 0x1000>; /* MIPI CSI2 Controller base addr */
+		interrupts = <GIC_SPI 45 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clk IMX8MQ_CLK_DUMMY>,
+				<&clk IMX8MQ_CLK_CSI2_CORE_DIV>,
+				<&clk IMX8MQ_CLK_CSI2_ESC_DIV>,
+				<&clk IMX8MQ_CLK_CSI2_PHY_REF_DIV>;
+		clock-names = "clk_apb", "clk_core", "clk_esc", "clk_pxl";
+		assigned-clocks = <&clk IMX8MQ_CLK_CSI2_CORE_DIV>,
+				  <&clk IMX8MQ_CLK_CSI2_PHY_REF_DIV>,
+				  <&clk IMX8MQ_CLK_CSI2_ESC_DIV>;
+		assigned-clock-rates = <133000000>, <100000000>, <66000000>;
+		power-domains = <&mipi_csi2_pd>;
+		csis-phy-reset = <&src 0x50 7>;
+		phy-gpr = <&gpr 0xa4>;
 		status = "disabled";
 	};
 
