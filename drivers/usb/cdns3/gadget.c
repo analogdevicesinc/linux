@@ -2298,10 +2298,7 @@ static void __cdns3_gadget_start(struct usb_ss_dev *usb_ss)
 	gadget_writel(usb_ss, &usb_ss->regs->usb_conf,
 			USB_CONF__U1DS__MASK
 			| USB_CONF__U2DS__MASK
-			/*
-			 * TODO:
-			 * | USB_CONF__L1EN__MASK
-			 */
+			| USB_CONF__L1EN__MASK
 			);
 
 	gadget_writel(usb_ss, &usb_ss->regs->usb_conf, USB_CONF__DEVEN__MASK);
