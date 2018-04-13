@@ -1,7 +1,7 @@
 /*
  * Copyright 2015-2016 Freescale Semiconductor, Inc.
  * Copyright 2016 Toradex AG
- * Copyright 2017 NXP.
+ * Copyright 2017-2018 NXP
  *
  * This file is dual-licensed: you can use it either under the terms
  * of the GPL or the X11 license, at your option. Note that this dual
@@ -159,6 +159,15 @@
 			compatible = "fsl,mega-fast-sram";
 			reg = <0x00900000 0x20000>;
 			clocks = <&clks IMX7D_OCRAM_CLK>;
+		};
+
+		ocram_optee {
+			compatible = "fsl,optee-lpm-sram";
+			reg = <0x00180000 0x8000>;
+			overw_reg = <&ocrams_ddr 0x00904000 0x1000>,
+					<&ocram 0x00905000 0x1b000>,
+					<&ocrams 0x00900000 0x4000>;
+			overw_clock = <&ocrams &clks IMX7D_OCRAM_CLK>;
 		};
 	};
 };

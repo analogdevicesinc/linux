@@ -1,6 +1,6 @@
 /*
  * Copyright 2016 Freescale Semiconductor, Inc.
- * Copyright 2017 NXP.
+ * Copyright 2017-2018 NXP
  *
  * This file is dual-licensed: you can use it either under the terms
  * of the GPL or the X11 license, at your option. Note that this dual
@@ -215,6 +215,12 @@
 		ocram: sram@00905000 {
 			compatible = "mmio-sram";
 			reg = <0x00905000 0x1B000>;
+		};
+
+		ocram_optee: sram@00918000 {
+			compatible = "fsl,optee-lpm-sram";
+			reg = <0x00918000 0x8000>;
+			overw_reg = <&ocram 0x00905000 0x13000>;
 		};
 
 		dma_apbh: dma-apbh@01804000 {

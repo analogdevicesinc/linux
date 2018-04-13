@@ -1,6 +1,7 @@
 
 /*
  * Copyright 2013-2015 Freescale Semiconductor, Inc.
+ * Copyright 2018 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -137,6 +138,12 @@
 			compatible = "mmio-sram";
 			reg = <0x00905000 0x3B000>;
 			clocks = <&clks IMX6QDL_CLK_OCRAM>;
+		};
+
+		ocram_optee: sram@00938000 {
+			compatible = "fsl,optee-lpm-sram";
+			reg = <0x00938000 0x8000>;
+			overw_reg = <&ocram 0x00905000 0x33000>;
 		};
 
 		aips-bus@02000000 { /* AIPS1 */
