@@ -206,7 +206,7 @@ static void cdns_ep_stall_flush(struct usb_ss_endpoint *usb_ss_ep)
  */
 static void cdns_ep0_config(struct usb_ss_dev *usb_ss)
 {
-	u32 max_packet_size = 0;
+	u32 reg, max_packet_size = 0;
 
 	switch (usb_ss->gadget.speed) {
 	case USB_SPEED_UNKNOWN:
@@ -273,6 +273,10 @@ static void cdns_ep0_config(struct usb_ss_dev *usb_ss)
 	gadget_writel(usb_ss, &usb_ss->regs->ep_sts_en,
 		EP_STS_EN__SETUPEN__MASK |
 		EP_STS_EN__TRBERREN__MASK);
+
+	reg = gadget_readl(usb_ss, &usb_ss->regs->usb_conf);
+	reg |= USB_CONF__U1DS__MASK | USB_CONF__U2DS__MASK;
+	gadget_writel(usb_ss, &usb_ss->regs->usb_conf, reg);
 
 	cdns_prepare_setup_packet(usb_ss);
 }
