@@ -322,6 +322,12 @@ static void dcss_plane_atomic_set_base(struct dcss_plane *dcss_plane)
 				return;
 			}
 
+			if (!mdata->compressed) {
+				/* Bypass dec400d */
+				dcss_dec400d_bypass(dcss_plane->dcss);
+				return;
+			}
+
 			gem_obj = dcss_plane_gem_import(plane->dev,
 							mdata->ts_dma_buf);
 			if (IS_ERR(gem_obj)) {
