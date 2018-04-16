@@ -276,6 +276,8 @@
 	rx1_enable-gpios = <&gpio 133 0>;
 	tx2_enable-gpios = <&gpio 134 0>;
 	tx1_enable-gpios = <&gpio 135 0>;
+
+	adi,jesd204-deframer-eq-setting = <3>;
 };
 
 &clk0_ad9528 {
