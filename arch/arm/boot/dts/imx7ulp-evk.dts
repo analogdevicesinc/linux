@@ -25,13 +25,6 @@
 		stdout-path = &lpuart4;
 	};
 
-	bcmdhd_wlan_0: bcmdhd_wlan@0 {
-		compatible = "android,bcmdhd_wlan";
-		wlreg_on-supply = <&wlreg_on>;
-		bcmdhd_fw = "/lib/firmware/bcm/1DX_BCM4343W/fw_bcmdhd.bin";
-		bcmdhd_nv = "/lib/firmware/bcm/1DX_BCM4343W/bcmdhd.1DX.SDIO.cal";
-	};
-
 	memory {
 		device_type = "memory";
 		reg = <0x60000000 0x40000000>;
@@ -54,7 +47,7 @@
 
 	modem_reset: modem-reset {
 		compatible = "gpio-reset";
-		reset-gpios = <&gpio2 7 GPIO_ACTIVE_LOW>;
+		reset-gpios = <&rpmsg_gpio0 15 GPIO_ACTIVE_LOW>;
 		reset-delay-us = <1000>;
 		#reset-cells = <0>;
 	};
@@ -63,16 +56,6 @@
 		compatible = "simple-bus";
 		#address-cells = <1>;
 		#size-cells = <0>;
-
-		wlreg_on: fixedregulator@100 {
-			compatible = "regulator-fixed";
-			regulator-min-microvolt = <5000000>;
-			regulator-max-microvolt = <5000000>;
-			regulator-name = "wlreg_on";
-			gpio = <&gpio2 6 GPIO_ACTIVE_HIGH>;
-			startup-delay-us = <100>;
-			enable-active-high;
-		};
 
 		reg_usb_otg1_vbus: regulator@0 {
 			compatible = "regulator-fixed";

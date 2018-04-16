@@ -23,10 +23,6 @@
 	};
 };
 
-&bcmdhd_wlan_0 {
-	status = "disabled";
-};
-
 &lpuart6 {
 	status = "disabled";
 };
