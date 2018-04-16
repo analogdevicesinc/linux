@@ -384,6 +384,7 @@ static void caculate_frame_size(struct vpu_ctx *ctx)
 	bool bfield = false; //WARN need get it
 	bool bOffsetPadding = false; //WARN need get it
 	u_int32 uVertAlign = 256-1;
+	bool b10BitFormat = (ctx->pSeqinfo->uBitDepthLuma > 8) || (ctx->pSeqinfo->uBitDepthChroma > 8);
 
 	struct queue_data *q_data;
 
@@ -403,8 +404,13 @@ static void caculate_frame_size(struct vpu_ctx *ctx)
 	chroma_height = ((chroma_height + uVertAlign) & ~uVertAlign);
 	luma_size = width * height;
 	chroma_size = width * chroma_height;
-	ctx->q_data[V4L2_DST].sizeimage[0] = luma_size;
-	ctx->q_data[V4L2_DST].sizeimage[1] = chroma_size;
+	if (!b10BitFormat) {
+		ctx->q_data[V4L2_DST].sizeimage[0] = luma_size;
+		ctx->q_data[V4L2_DST].sizeimage[1] = chroma_size;
+	} else {
+		ctx->q_data[V4L2_DST].sizeimage[0] = luma_size * 2;
+		ctx->q_data[V4L2_DST].sizeimage[1] = chroma_size * 2;
+	}
 }
 
 static int v4l2_ioctl_g_fmt(struct file *file,
@@ -683,7 +689,7 @@ static int v4l2_ioctl_dqbuf(struct file *file,
 
 	v4l2_update_stream_addr(ctx, 0);
 	if (buf->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE)
-		if (ctx->pSeqinfo->uBitDepthLuma > 8)
+		if ((ctx->pSeqinfo->uBitDepthLuma > 8) || (ctx->pSeqinfo->uBitDepthChroma > 8))
 			buf->reserved = 1;
 
 	return ret;
@@ -1284,10 +1290,10 @@ static void report_buffer_done(struct vpu_ctx *ctx, void *frame_info)
 	u_int32 *FrameInfo = (u_int32 *)frame_info;
 	u_int32 fs_id = FrameInfo[0x0];
 	uint32_t stride = FrameInfo[3];
-	bool b10BitFormat = (ctx->pSeqinfo->uBitDepthLuma >> 8) || (ctx->pSeqinfo->uBitDepthChroma >> 8);
+	bool b10BitFormat = (ctx->pSeqinfo->uBitDepthLuma > 8) || (ctx->pSeqinfo->uBitDepthChroma > 8);
 	int buffer_id;
 
-	vpu_dbg(LVL_INFO, "report_buffer_done fs_id=%d, ulFsLumaBase[0]=%x, stride=%d, b10BitFormat=%d\n", fs_id, FrameInfo[1], stride, b10BitFormat);
+	vpu_dbg(LVL_INFO, "report_buffer_done fs_id=%d, ulFsLumaBase[0]=%x, stride=%d, b10BitFormat=%d, ctx->pSeqinfo->uBitDepthLuma=%d\n", fs_id, FrameInfo[1], stride, b10BitFormat, ctx->pSeqinfo->uBitDepthLuma);
 	v4l2_update_stream_addr(ctx, 0);
 
 	buffer_id = find_buffer_id(ctx, FrameInfo[1]);
