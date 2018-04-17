@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 NXP.
+ * Copyright 2017-2018 NXP.
  *
  * The code contained herein is licensed under the GNU General Public
  * License. You may obtain a copy of the GNU General Public License
@@ -53,7 +53,7 @@ static int tpm_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm,
 			  int duty_ns, int period_ns)
 {
 	struct tpm_pwm_chip *tpm = to_tpm_pwm_chip(chip);
-	int ret, div = 0;
+	int ret, val, div = 0;
 	unsigned int period_cycles, duty_cycles;
 	unsigned long rate;
 	u64 c;
@@ -77,6 +77,12 @@ static int tpm_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm,
 		if (ret)
 			return ret;
 	}
+
+	/* set the pre-scale */
+	val = readl(tpm->base + TPM_SC);
+	val &= ~0x7;
+	val |= div;
+	writel(val, tpm->base + TPM_SC);
 
 	period_cycles = c;
 	c *= duty_ns;
