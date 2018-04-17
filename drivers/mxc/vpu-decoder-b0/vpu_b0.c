@@ -1728,7 +1728,10 @@ static void vpu_api_event_handler(struct vpu_ctx *ctx, u_int32 uStrIdx, u_int32 
 	case VID_API_EVENT_STR_FMT_CHANGE:
 		break;
 	case VID_API_EVENT_FINISHED:
-		v4l2_vpu_send_cmd(ctx, uStrIdx, VID_API_CMD_STOP, 0, NULL);
+		if (ctx->wait_rst_done)
+			vpu_dbg(LVL_ERR, "receive VID_API_EVENT_FINISHED when reset, ignore it\n");
+		else
+			v4l2_vpu_send_cmd(ctx, uStrIdx, VID_API_CMD_STOP, 0, NULL);
 		break;
 	default:
 		break;
@@ -2260,11 +2263,14 @@ static int v4l2_release(struct file *filp)
 		wait_for_completion(&ctx->stop_cmp);
 	}
 
+	dev->ctx[ctx->str_index] = NULL;
 	release_queue_data(ctx);
 	ctrls_delete_decoder(ctx);
 	v4l2_fh_del(&ctx->fh);
 	v4l2_fh_exit(&ctx->fh);
+	mutex_lock(&dev->dev_mutex);
 	clear_bit(ctx->str_index, &dev->instance_mask);
+	mutex_unlock(&dev->dev_mutex);
 
 	for (i = 0; i < MAX_DCP_NUM; i++)
 		if (ctx->dcp_dma_virt[i] != NULL)
