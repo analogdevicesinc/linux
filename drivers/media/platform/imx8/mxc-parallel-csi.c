@@ -548,6 +548,8 @@ static int mxc_parallel_csi_probe(struct platform_device *pdev)
 	pcsidev->sd.flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
 	pcsidev->sd.entity.function = MEDIA_ENT_F_IO_V4L;
 
+	pcsidev->sd.dev = dev;
+
 	pcsidev->pads[MXC_PARALLEL_CSI_PAD_SINK].flags = MEDIA_PAD_FL_SINK;
 	pcsidev->pads[MXC_PARALLEL_CSI_PAD_SOURCE].flags = MEDIA_PAD_FL_SOURCE;
 

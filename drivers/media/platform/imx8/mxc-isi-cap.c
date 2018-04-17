@@ -19,6 +19,7 @@
 #include <linux/pm_runtime.h>
 #include <linux/list.h>
 #include <linux/slab.h>
+#include <linux/of_graph.h>
 
 #include <linux/videodev2.h>
 #include <media/v4l2-device.h>
@@ -31,7 +32,6 @@
 #include "mxc-isi-core.h"
 #include "mxc-isi-hw.h"
 #include "mxc-media-dev.h"
-#include "max9286.h"
 
 struct mxc_isi_fmt mxc_isi_out_formats[] = {
 	{
@@ -968,42 +968,49 @@ static int mxc_isi_cap_s_selection(struct file *file, void *fh,
 	return 0;
 }
 
-static struct v4l2_subdev *mxc_isi_get_subdev_by_name(struct v4l2_device *v4l2,
-			const char *name)
-{
-	struct v4l2_subdev *sd;
-	bool found = false;
-
-	list_for_each_entry(sd, &v4l2->subdevs, list) {
-		if (strstr(sd->name, name) != NULL) {
-			found = true;
-			break;
-		}
-	}
-
-	return (found) ? sd : NULL;
-}
-
 static int mxc_isi_cap_g_chip_ident(struct file *file, void *fb,
 			struct v4l2_dbg_chip_ident *chip)
 {
+	struct device_node *local, *remote, *endpoint;
 	struct mxc_isi_dev *mxc_isi = video_drvdata(file);
-	struct v4l2_device *v4l2_dev = mxc_isi->isi_cap.sd.v4l2_dev;
 	struct video_device *vdev = video_devdata(file);
-	struct sensor_data *max9286;
 	struct v4l2_subdev *sd;
+	struct media_pad *source_pad;
 
-	sd = mxc_isi_get_subdev_by_name(v4l2_dev, "max9286_mipi");
+	source_pad = mxc_isi_get_remote_source_pad(mxc_isi);
+	if (source_pad == NULL) {
+		v4l2_err(mxc_isi->v4l2_dev, "%s, No remote pad found!\n", __func__);
+		return -EINVAL;
+	}
+
+	/* Get remote source pad subdev */
+	sd = media_entity_to_v4l2_subdev(source_pad->entity);
 	if (sd == NULL) {
-		v4l2_err(&mxc_isi->isi_cap.sd, "Can't find sub device\n");
+		v4l2_err(mxc_isi->v4l2_dev, "%s, No remote subdev found!\n", __func__);
+		return -EINVAL;
+	}
+
+	local = dev_of_node(sd->dev);
+	if (!local) {
+		v4l2_err(mxc_isi->v4l2_dev, "%s, Get device node fail\n", __func__);
 		return -ENODEV;
 	}
 
-	max9286 = container_of(sd, struct sensor_data, subdev);
-	if (max9286->sensor_is_there & (0x1 << vdev->num))
-		sprintf(chip->match.name, "max9286_mipi%d\n", vdev->num);
-	else
+	endpoint = of_graph_get_endpoint_by_regs(local, -1, -1);
+	if (!endpoint) {
+		v4l2_err(mxc_isi->v4l2_dev, "%s, No %s endpoint\n",
+						__func__, local->name);
 		return -ENODEV;
+	}
+
+	remote = of_graph_get_remote_port_parent(endpoint);
+	if (!remote) {
+		v4l2_err(mxc_isi->v4l2_dev, "%s No remote port for %s\n",
+					__func__, endpoint->name);
+		return -ENODEV;
+	}
+
+	sprintf(chip->match.name, "imx8_%s_%d", remote->name, vdev->num);
 
 	return 0;
 }

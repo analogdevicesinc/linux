@@ -706,6 +706,8 @@ static int mipi_csi2_probe(struct platform_device *pdev)
 	csi2dev->sd.flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
 	csi2dev->sd.entity.function = MEDIA_ENT_F_IO_V4L;
 
+	csi2dev->sd.dev = dev;
+
 	csi2dev->pads[MXC_MIPI_CSI2_VC0_PAD_SINK].flags = MEDIA_PAD_FL_SINK;
 	csi2dev->pads[MXC_MIPI_CSI2_VC1_PAD_SINK].flags = MEDIA_PAD_FL_SINK;
 	csi2dev->pads[MXC_MIPI_CSI2_VC2_PAD_SINK].flags = MEDIA_PAD_FL_SINK;
