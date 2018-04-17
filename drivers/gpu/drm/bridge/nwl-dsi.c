@@ -1080,7 +1080,6 @@ static void nwl_dsi_bridge_disable(struct drm_bridge *bridge)
 	phy_power_off(dsi->phy);
 	phy_exit(dsi->phy);
 
-	nwl_dsi_disable_clocks(dsi, CLK_PHY_REF | CLK_TX_ESC);
 	devm_free_irq(dev, dsi->irq, dsi);
 
 	dsi->enabled = false;

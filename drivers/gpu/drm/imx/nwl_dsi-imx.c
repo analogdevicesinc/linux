@@ -39,6 +39,7 @@
 #include "imx-drm.h"
 
 #define DRIVER_NAME "nwl_dsi-imx"
+#define NO_CLK_RESET
 
 /* 8MQ SRC specific registers */
 #define SRC_MIPIPHY_RCR				0x28
@@ -450,6 +451,7 @@ static int imx8mq_dsi_poweron(struct imx_mipi_dsi *dsi)
 
 static int imx8mq_dsi_poweroff(struct imx_mipi_dsi *dsi)
 {
+#ifndef NO_CLK_RESET
 	regmap_update_bits(dsi->reset, SRC_MIPIPHY_RCR,
 			   PCLK_RESET_N, 0);
 	regmap_update_bits(dsi->reset, SRC_MIPIPHY_RCR,
@@ -458,6 +460,7 @@ static int imx8mq_dsi_poweroff(struct imx_mipi_dsi *dsi)
 			   RESET_BYTE_N, 0);
 	regmap_update_bits(dsi->reset, SRC_MIPIPHY_RCR,
 			   DPI_RESET_N, 0);
+#endif
 
 	return 0;
 }
