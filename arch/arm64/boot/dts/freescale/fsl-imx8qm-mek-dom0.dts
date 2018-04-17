@@ -74,6 +74,9 @@
 				SC_R_SDHC_0
 				SC_R_USB_0
 				SC_R_USB_0_PHY
+				SC_R_UART_1
+				SC_R_DMA_0_CH14
+				SC_R_DMA_0_CH15
 				SC_R_MU_2A
 				>;
 			pads = <
@@ -92,6 +95,12 @@
 				SC_P_EMMC0_RESET_B
 				/* usb otg */
 				SC_P_USB_SS3_TC0
+				/* uart1 */
+				SC_P_UART1_RX
+				SC_P_UART1_TX
+				SC_P_UART1_CTS_B
+				SC_P_UART1_RTS_B
+				SC_P_QSPI1A_DQS
 				>;
 		};
 	};
@@ -132,6 +141,10 @@
 	xen,passthrough;
 };
 
+&lpuart1 {
+	xen,passthrough;
+};
+
 &lpuart1_lpcg {
 	xen,passthrough;
 };
@@ -144,15 +157,23 @@
 	xen,passthrough;
 };
 
+&edma01 {
+	#stream-id-cells = <1>;
+	xen,passthrough;
+	fsl,sc_rsrc_id = <SC_R_DMA_0_CH14>,
+			 <SC_R_DMA_0_CH15>;
+};
+
 /* SMMU */
 &smmu {
 	mmu-masters = <&dpu2 0x13>, <&gpu_3d1 0x15>,
-		      <&usdhc1 0x12>, <&usbotg1 0x11>;
+		      <&usdhc1 0x12>, <&usbotg1 0x11>,
+		      <&edma01 0x10>;
 };
 
 /* DC0 */
 &pd_dc1 {
-	xen,passthrogh;
+	xen,passthrough;
 };
 
 &lvds_region2 {

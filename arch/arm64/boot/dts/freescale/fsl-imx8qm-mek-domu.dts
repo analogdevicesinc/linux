@@ -36,6 +36,7 @@
 		mmc0 = &usdhc1;
 		dpu1 = &dpu2;
 		ldb1 = &ldb2;
+		serial1 = &lpuart1;
 	};
 
 	passthrough {
@@ -68,6 +69,17 @@
 			reg = <0x1 0x5b270000 0x0 0x10000>;
 		};
 
+		edma01: dma-controller1@5a1f0000 {
+			compatible = "fsl,imx8qm-edma";
+			reg = <0x1 0x5a2e0000 0x0 0x10000>, /* channel14 UART1 rx */
+			      <0x1 0x5a2f0000 0x0 0x10000>; /* channel15 UART1 tx */
+			#dma-cells = <3>;
+			dma-channels = <2>;
+			interrupts = <GIC_SPI 436 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 437 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "edma0-chan14-rx", "edma0-chan15-tx";
+			status = "okay";
+		};
 	};
 };
 
@@ -275,7 +287,16 @@
 /delete-node/ &i2c0_mipi_csi1;
 /delete-node/ &lpspi0;
 /delete-node/ &lpuart0;
-/delete-node/ &lpuart1;
+
+&lpuart1 {
+	/delete-property/ interrupt-parent;
+	reg = <0x1 0x5a070000 0 0x1000>;
+	dmas = <&edma01 15 0 0>, <&edma01 14 0 1>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_lpuart1>;
+	status = "okay";
+};
+
 /delete-node/ &lpuart2;
 /delete-node/ &lpuart3;
 /delete-node/ &lpuart4;
@@ -455,8 +476,15 @@
 			>;
 		};
 
-
-
+		pinctrl_lpuart1: lpuart1grp {
+			fsl,pins = <
+				SC_P_UART1_RX_DMA_UART1_RX		0x06000020
+				SC_P_UART1_TX_DMA_UART1_TX		0x06000020
+				SC_P_UART1_CTS_B_DMA_UART1_CTS_B	0x06000020
+				SC_P_UART1_RTS_B_DMA_UART1_RTS_B	0x06000020
+				SC_P_QSPI1A_DQS_LSIO_GPIO4_IO22		0x00000021
+			>;
+		};
 	};
 };
 
