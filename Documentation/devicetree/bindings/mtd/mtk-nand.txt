@@ -18,7 +18,6 @@ Required NFI properties:
 - interrupts:			Interrupts of NFI.
 - clocks:			NFI required clocks.
 - clock-names:			NFI clocks internal name.
-- status:			Disabled default. Then set "okay" by platform.
 - ecc-engine:			Required ECC Engine node.
 - #address-cells:		NAND chip index, should be 1.
 - #size-cells:			Should be 0.
@@ -32,7 +31,6 @@ Example:
 		clocks = <&pericfg CLK_PERI_NFI>,
 			 <&pericfg CLK_PERI_NFI_PAD>;
 		clock-names = "nfi_clk", "pad_clk";
-		status = "disabled";
 		ecc-engine = <&bch>;
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -147,7 +145,6 @@ Required BCH properties:
 - interrupts:	Interrupts of ECC.
 - clocks:	ECC required clocks.
 - clock-names:	ECC clocks internal name.
-- status:	Disabled default. Then set "okay" by platform.
 
 Example:
 
@@ -157,5 +154,4 @@ Example:
 		interrupts = <GIC_SPI 55 IRQ_TYPE_LEVEL_LOW>;
 		clocks = <&pericfg CLK_PERI_NFI_ECC>;
 		clock-names = "nfiecc_clk";
-		status = "disabled";
 	};
