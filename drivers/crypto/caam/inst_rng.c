@@ -2,7 +2,7 @@
 /*
  * CAAM RNG instantiation driver backend
  *
- * Copyright 2017-2018 NXP Semiconductor, Inc.
+ * Copyright 2017-2018 NXP
  */
 
 #include <linux/device.h>
@@ -286,6 +286,17 @@ int inst_rng_imx6(struct platform_device *pdev)
 	ctrldev = pdev->dev.parent;
 	ctrlpriv = dev_get_drvdata(ctrldev);
 	ctrl = (struct caam_ctrl __iomem *)ctrlpriv->ctrl;
+
+#ifndef CONFIG_ARM64
+	/*
+	 * Check if the Secure Firmware is running,
+	 * check only for i.MX6 and i.MX7
+	 */
+	if (of_find_compatible_node(NULL, NULL, "linaro,optee-tz")) {
+		pr_info("RNG Instantation done by Secure Firmware\n");
+		return ret;
+	}
+#endif
 
 	cha_vid_ls = rd_reg32(&ctrl->perfmon.cha_id_ls);
 
