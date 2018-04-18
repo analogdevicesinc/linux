@@ -9,7 +9,7 @@
  *
  ******************************************************************************/
 /*******************************************************************************
- * fsl_hifi4_proxy.c
+ * fsl_dsp_proxy.c
  *
  * DSP proxy driver
  *
@@ -18,8 +18,8 @@
  ******************************************************************************/
 
 #include <soc/imx8/sc/ipc.h>
-#include "fsl_hifi4_proxy.h"
-#include "fsl_hifi4.h"
+#include "fsl_dsp_proxy.h"
+#include "fsl_dsp.h"
 
 
 /* ...initialize message queue */
@@ -154,41 +154,41 @@ struct xf_message *xf_msg_received(struct xf_proxy *proxy,
  */
 u32 icm_intr_send(struct xf_proxy *proxy, u32 msg)
 {
-	struct fsl_hifi4 *hifi4_priv = container_of(proxy,
-					struct fsl_hifi4, proxy);
+	struct fsl_dsp *dsp_priv = container_of(proxy,
+					struct fsl_dsp, proxy);
 
-	MU_SendMessage(hifi4_priv->mu_base_virtaddr, 0, msg);
+	MU_SendMessage(dsp_priv->mu_base_virtaddr, 0, msg);
 	return 0;
 }
 
 int icm_intr_extended_send(struct xf_proxy *proxy,
 				u32 msg,
-				struct hifi4_ext_msg *ext_msg)
+				struct dsp_ext_msg *ext_msg)
 {
-	struct fsl_hifi4 *hifi4_priv = container_of(proxy,
-					struct fsl_hifi4, proxy);
-	struct device *dev = hifi4_priv->dev;
+	struct fsl_dsp *dsp_priv = container_of(proxy,
+					struct fsl_dsp, proxy);
+	struct device *dev = dsp_priv->dev;
 	union icm_header_t msghdr;
 
 	msghdr.allbits = msg;
 	if (msghdr.size != 8)
 		dev_err(dev, "too much ext msg\n");
 
-	MU_SendMessage(hifi4_priv->mu_base_virtaddr, 1, ext_msg->phys);
-	MU_SendMessage(hifi4_priv->mu_base_virtaddr, 2, ext_msg->size);
-	MU_SendMessage(hifi4_priv->mu_base_virtaddr, 0, msg);
+	MU_SendMessage(dsp_priv->mu_base_virtaddr, 1, ext_msg->phys);
+	MU_SendMessage(dsp_priv->mu_base_virtaddr, 2, ext_msg->size);
+	MU_SendMessage(dsp_priv->mu_base_virtaddr, 0, msg);
 
 	return 0;
 }
 
 int send_dpu_ext_msg_addr(struct xf_proxy *proxy)
 {
-	struct fsl_hifi4 *hifi4_priv = container_of(proxy,
-					struct fsl_hifi4, proxy);
+	struct fsl_dsp *dsp_priv = container_of(proxy,
+					struct fsl_dsp, proxy);
 	union icm_header_t msghdr;
-	struct hifi4_ext_msg ext_msg;
-	struct hifi4_mem_msg *dpu_ext_msg =
-	 (struct hifi4_mem_msg *)((unsigned char *)hifi4_priv->msg_buf_virt
+	struct dsp_ext_msg ext_msg;
+	struct dsp_mem_msg *dpu_ext_msg =
+	 (struct dsp_mem_msg *)((unsigned char *)dsp_priv->msg_buf_virt
 					+ (MSG_BUF_SIZE / 2));
 	int ret_val = 0;
 
@@ -197,15 +197,15 @@ int send_dpu_ext_msg_addr(struct xf_proxy *proxy)
 	msghdr.intr = 1;
 	msghdr.msg  = ICM_CORE_INIT;
 	msghdr.size = 8;
-	ext_msg.phys = hifi4_priv->msg_buf_phys + (MSG_BUF_SIZE / 2);
-	ext_msg.size = sizeof(struct hifi4_mem_msg);
+	ext_msg.phys = dsp_priv->msg_buf_phys + (MSG_BUF_SIZE / 2);
+	ext_msg.size = sizeof(struct dsp_mem_msg);
 
-	dpu_ext_msg->ext_msg_phys = hifi4_priv->msg_buf_phys;
+	dpu_ext_msg->ext_msg_phys = dsp_priv->msg_buf_phys;
 	dpu_ext_msg->ext_msg_size = MSG_BUF_SIZE;
-	dpu_ext_msg->scratch_phys =  hifi4_priv->scratch_buf_phys;
-	dpu_ext_msg->scratch_size =  hifi4_priv->scratch_buf_size;
-	dpu_ext_msg->hifi_config_phys =  hifi4_priv->hifi_config_phys;
-	dpu_ext_msg->hifi_config_size =  hifi4_priv->hifi_config_size;
+	dpu_ext_msg->scratch_phys =  dsp_priv->scratch_buf_phys;
+	dpu_ext_msg->scratch_size =  dsp_priv->scratch_buf_size;
+	dpu_ext_msg->dsp_config_phys =  dsp_priv->dsp_config_phys;
+	dpu_ext_msg->dsp_config_size =  dsp_priv->dsp_config_size;
 
 	icm_intr_extended_send(proxy, msghdr.allbits, &ext_msg);
 
@@ -214,9 +214,9 @@ int send_dpu_ext_msg_addr(struct xf_proxy *proxy)
 
 long icm_ack_wait(struct xf_proxy *proxy, u32 msg)
 {
-	struct fsl_hifi4 *hifi4_priv = container_of(proxy,
-					struct fsl_hifi4, proxy);
-	struct device *dev = hifi4_priv->dev;
+	struct fsl_dsp *dsp_priv = container_of(proxy,
+					struct fsl_dsp, proxy);
+	struct device *dev = dsp_priv->dev;
 	union icm_header_t msghdr;
 	int err;
 
@@ -234,16 +234,16 @@ long icm_ack_wait(struct xf_proxy *proxy, u32 msg)
 	return 0;
 }
 
-irqreturn_t fsl_hifi4_mu_isr(int irq, void *dev_id)
+irqreturn_t fsl_dsp_mu_isr(int irq, void *dev_id)
 {
 	struct xf_proxy *proxy = dev_id;
-	struct fsl_hifi4 *hifi4_priv = container_of(proxy,
-					struct fsl_hifi4, proxy);
-	struct device *dev = hifi4_priv->dev;
+	struct fsl_dsp *dsp_priv = container_of(proxy,
+					struct fsl_dsp, proxy);
+	struct device *dev = dsp_priv->dev;
 	union icm_header_t msghdr;
 	u32 reg;
 
-	MU_ReceiveMsg(hifi4_priv->mu_base_virtaddr, 0, &reg);
+	MU_ReceiveMsg(dsp_priv->mu_base_virtaddr, 0, &reg);
 	msghdr = (union icm_header_t)reg;
 
 	if (msghdr.intr == 1) {
@@ -287,14 +287,14 @@ irqreturn_t fsl_hifi4_mu_isr(int irq, void *dev_id)
 /* ...shared memory translation - kernel virtual address to shared address */
 u32 xf_proxy_b2a(struct xf_proxy *proxy, void *b)
 {
-	struct fsl_hifi4 *hifi4_priv = container_of(proxy,
-					struct fsl_hifi4, proxy);
+	struct fsl_dsp *dsp_priv = container_of(proxy,
+					struct fsl_dsp, proxy);
 
 	if (b == NULL)
 		return XF_PROXY_NULL;
-	else if ((u32)(b - hifi4_priv->scratch_buf_virt) <
+	else if ((u32)(b - dsp_priv->scratch_buf_virt) <
 					SDRAM_SCRATCH_BUF_SIZE)
-		return (u32)(b - hifi4_priv->scratch_buf_virt);
+		return (u32)(b - dsp_priv->scratch_buf_virt);
 	else
 		return XF_PROXY_BADADDR;
 }
@@ -302,11 +302,11 @@ u32 xf_proxy_b2a(struct xf_proxy *proxy, void *b)
 /* ...shared memory translation - shared address to kernel virtual address */
 void *xf_proxy_a2b(struct xf_proxy *proxy, u32 address)
 {
-	struct fsl_hifi4 *hifi4_priv = container_of(proxy,
-					struct fsl_hifi4, proxy);
+	struct fsl_dsp *dsp_priv = container_of(proxy,
+					struct fsl_dsp, proxy);
 
 	if (address < SDRAM_SCRATCH_BUF_SIZE)
-		return hifi4_priv->scratch_buf_virt + address;
+		return dsp_priv->scratch_buf_virt + address;
 	else if (address == XF_PROXY_NULL)
 		return NULL;
 	else
@@ -316,8 +316,8 @@ void *xf_proxy_a2b(struct xf_proxy *proxy, u32 address)
 /* ...process association between response received and intended client */
 static void xf_cmap(struct xf_proxy *proxy, struct xf_message *m)
 {
-	struct fsl_hifi4 *hifi4_priv = container_of(proxy,
-					struct fsl_hifi4, proxy);
+	struct fsl_dsp *dsp_priv = container_of(proxy,
+					struct fsl_dsp, proxy);
 	u32 id = XF_AP_IPC_CLIENT(m->id);
 	struct xf_client *client;
 
@@ -330,7 +330,7 @@ static void xf_cmap(struct xf_proxy *proxy, struct xf_message *m)
 	}
 
 	/* ...make sure the client ID is sane */
-	client = xf_client_lookup(hifi4_priv, id);
+	client = xf_client_lookup(dsp_priv, id);
 	if (!client) {
 		pr_err("rsp[id:%08x]: client lookup failed", m->id);
 		xf_msg_free(proxy, m);
@@ -471,8 +471,8 @@ void xf_proxy_process(struct work_struct *w)
 /* ...initialize shared memory interface */
 int xf_proxy_init(struct xf_proxy *proxy)
 {
-	struct fsl_hifi4 *hifi4_priv = container_of(proxy,
-					struct fsl_hifi4, proxy);
+	struct fsl_dsp *dsp_priv = container_of(proxy,
+					struct fsl_dsp, proxy);
 	struct xf_message *m;
 	int i;
 
@@ -501,7 +501,7 @@ int xf_proxy_init(struct xf_proxy *proxy)
 	INIT_WORK(&proxy->work, xf_proxy_process);
 
 	/* ...set pointer to shared memory */
-	proxy->ipc.shmem = (struct xf_shmem_data *)hifi4_priv->msg_buf_virt;
+	proxy->ipc.shmem = (struct xf_shmem_data *)dsp_priv->msg_buf_virt;
 
 	/* ...initialize shared memory interface */
 	XF_PROXY_WRITE(proxy, cmd_read_idx, 0);

@@ -9,13 +9,13 @@
  *
  ************************************************************/
 /************************************************************
- * fsl_hifi4_proxy.h
+ * fsl_dsp_proxy.h
  *
  * Proxy commmand/response messages
  ************************************************************/
 
-#ifndef __FSL_HIFI4_PROXY_H
-#define __FSL_HIFI4_PROXY_H
+#ifndef __FSL_DSP_PROXY_H
+#define __FSL_DSP_PROXY_H
 
 #include <linux/wait.h>
 #include <linux/device.h>
@@ -329,18 +329,18 @@ union icm_header_t {
 	u32 allbits;
 };
 
-struct hifi4_ext_msg {
+struct dsp_ext_msg {
 	u32	phys;
 	u32	size;
 };
 
-struct hifi4_mem_msg {
+struct dsp_mem_msg {
 	u32 ext_msg_phys;
 	u32 ext_msg_size;
 	u32 scratch_phys;
 	u32 scratch_size;
-	u32 hifi_config_phys;
-	u32 hifi_config_size;
+	u32 dsp_config_phys;
+	u32 dsp_config_size;
 };
 
 static inline void xf_lock_init(spinlock_t *lock)
@@ -375,7 +375,7 @@ struct xf_message *xf_cmd_recv(struct xf_proxy *proxy,
 					int wait);
 
 /* ...mu interrupt handle */
-irqreturn_t fsl_hifi4_mu_isr(int irq, void *dev_id);
+irqreturn_t fsl_dsp_mu_isr(int irq, void *dev_id);
 
 /* ...initialize client pending message queue */
 void xf_msg_queue_init(struct xf_msg_queue *queue);

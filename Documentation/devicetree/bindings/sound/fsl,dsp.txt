@@ -1,16 +1,16 @@
-NXP HIFI4 DSP (HIFI4)
+NXP DSP
 
 The IP is from Cadence.
 
 Required properties:
 
-  - compatible	: Contains "fsl,imx8qxp-hifi4".
+  - compatible	: Contains "fsl,imx8qxp-dsp".
   - reg		: Offset and length of the register set for the device.
 
 Example:
 
-hifi4:  hifi4@596e8000 {
-	compatible = "fsl,imx8qxp-hifi4";
+dsp:  dsp@596e8000 {
+	compatible = "fsl,imx8qxp-dsp";
 	reg = <0x0 0x596e8000 0x0 0x88000>;
 	status = "okay";
 };

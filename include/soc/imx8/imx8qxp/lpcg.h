@@ -149,7 +149,7 @@
 #define     AUD_GPT_8_LPCG          0x594E0000
 #define     AUD_GPT_9_LPCG          0x594F0000
 #define     AUD_GPT_10_LPCG         0x59500000
-#define     AUD_HIFI_LPCG           0x59580000
+#define     AUD_DSP_LPCG            0x59580000
 #define     AUD_OCRAM_LPCG          0x59590000
 #define     AUD_EDMA_0_LPCG         0x595f0000
 #define     AUD_ASRC_1_LPCG         0x59c00000

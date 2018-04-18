@@ -4,26 +4,27 @@
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
  *
- * 1. Redistributions of source code must retain the above copyright notice, this
- *    list of conditions and the following disclaimer.
+ * 1. Redistributions of source code must retain the above copyright notice,
+ *    this list of conditions and the following disclaimer.
  * 2. Redistributions in binary form must reproduce the above copyright notice,
  *    this list of conditions and the following disclaimer in the documentation
  *    and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
- * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
- * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
- * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
- * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
- * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
+ * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef __MXC_HIFI4_UAPI_H__
-#define __MXC_HIFI4_UAPI_H__
+#ifndef __MXC_DSP_UAPI_H__
+#define __MXC_DSP_UAPI_H__
 
 #define DSP_IOC_MAGIC		'H'
 #define DSP_CLIENT_REGISTER   _IOW(DSP_IOC_MAGIC, 0, unsigned int)
@@ -42,7 +43,7 @@
 #define CODEC_SBC_ENC		8
 #define CODEC_DEMO_DEC		9
 
-enum HIFI_ERROR_TYPE {
+enum DSP_ERROR_TYPE {
 	XA_SUCCESS = 0,
 
 	XA_ERROR_STREAM,
@@ -59,7 +60,7 @@ enum HIFI_ERROR_TYPE {
 };
 
 /* Parameter type to Set /Get */
-enum HIFI_ParaType {
+enum DSP_ParaType {
 /* Set parmameters */
 /* common  */
 	XA_SAMPLERATE = 0,
@@ -108,8 +109,8 @@ enum HIFI_ParaType {
 
 };
 
-#define HIFI_STREAM_DABPLUS_BASE  0x30
-enum HIFI_StreamType {
+#define XA_STREAM_DABPLUS_BASE  0x30
+enum DSP_StreamType {
     /* AAC/AACPLUS file format */
 	XA_STREAM_UNKNOWN = 0,
 	XA_STREAM_ADTS,
@@ -121,7 +122,7 @@ enum HIFI_StreamType {
 	XA_STREAM_LOAS,
 
     /* DABPLUS file format */
-	XA_STREAM_DABPLUS_RAW_SIDEINFO = HIFI_STREAM_DABPLUS_BASE,
+	XA_STREAM_DABPLUS_RAW_SIDEINFO = XA_STREAM_DABPLUS_BASE,
 	XA_STREAM_DABPLUS,
 
     /* BSAC file raw format */
@@ -130,7 +131,7 @@ enum HIFI_StreamType {
 };
 
 /* sbc_enc-specific channel modes */
-enum HIFI_SbcEncChmode {
+enum DSP_SbcEncChmode {
 	XA_CHMODE_MONO =   0,
 	XA_CHMODE_DUAL =   1,
 	XA_CHMODE_STEREO = 2,
@@ -142,4 +143,4 @@ struct shmem_info {
 	unsigned int size;
 };
 
-#endif/* __MXC_HIFI4_UAPI_H__ */
+#endif/* __MXC_DSP_UAPI_H__ */

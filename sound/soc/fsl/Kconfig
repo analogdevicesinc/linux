@@ -83,8 +83,8 @@ config SND_SOC_FSL_RPMSG_I2S
 	  This option is only useful for out-of-tree drivers since
 	  in-tree drivers select it automatically.
 
-config SND_SOC_FSL_HIFI4
-	tristate "hifi 4 module support"
+config SND_SOC_FSL_DSP
+	tristate "dsp module support"
 	help
 	  Say Y if you want to add hifi 4 support for the Freescale CPUs.
 	  which is a DSP core for audio processing.

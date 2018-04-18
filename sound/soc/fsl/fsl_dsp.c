@@ -1,5 +1,5 @@
 /*
- * Freescale HIFI 4 driver
+ * Freescale DSP driver
  *
  * Copyright (c) 2012-2013 by Tensilica Inc. ALL RIGHTS RESERVED.
  * Copyright 2018 NXP
@@ -58,20 +58,20 @@
 #ifdef CONFIG_COMPAT
 #include <linux/compat.h>
 #endif
-#include <uapi/linux/mxc_hifi4.h>
+#include <uapi/linux/mxc_dsp.h>
 #include <soc/imx8/sc/svc/irq/api.h>
 #include <soc/imx8/sc/ipc.h>
 #include <soc/imx8/sc/sci.h>
-#include "fsl_hifi4.h"
+#include "fsl_dsp.h"
 
 
 /* ...allocate new client */
-static inline struct xf_client *xf_client_alloc(struct fsl_hifi4 *hifi4_priv)
+static inline struct xf_client *xf_client_alloc(struct fsl_dsp *dsp_priv)
 {
 	struct xf_client *client;
 	u32             id;
 
-	id = hifi4_priv->xf_client_map[0].next;
+	id = dsp_priv->xf_client_map[0].next;
 
 	/* ...try to allocate a client handle */
 	if (id != 0) {
@@ -81,11 +81,11 @@ static inline struct xf_client *xf_client_alloc(struct fsl_hifi4 *hifi4_priv)
 			return ERR_PTR(-ENOMEM);
 
 		/* ...advance the head of free clients */
-		hifi4_priv->xf_client_map[0].next =
-				hifi4_priv->xf_client_map[id].next;
+		dsp_priv->xf_client_map[0].next =
+				dsp_priv->xf_client_map[id].next;
 
 		/* ...put associate client id with given object */
-		hifi4_priv->xf_client_map[id].client = client;
+		dsp_priv->xf_client_map[id].client = client;
 
 		/* ...mark client is not yet bound to proxy */
 		client->proxy = NULL;
@@ -104,25 +104,25 @@ static inline struct xf_client *xf_client_alloc(struct fsl_hifi4 *hifi4_priv)
 static inline void xf_client_free(struct xf_client *client)
 {
 	int     id = client->id;
-	struct fsl_hifi4 *hifi4_priv = (struct fsl_hifi4 *)client->global;
+	struct fsl_dsp *dsp_priv = (struct fsl_dsp *)client->global;
 
 	/* ...put proxy client id into free clients list */
-	hifi4_priv->xf_client_map[id].next = hifi4_priv->xf_client_map[0].next;
-	hifi4_priv->xf_client_map[0].next = id;
+	dsp_priv->xf_client_map[id].next = dsp_priv->xf_client_map[0].next;
+	dsp_priv->xf_client_map[0].next = id;
 
 	/* ...destroy client data */
 	kfree(client);
 }
 
 /* ...lookup client basing on id */
-struct xf_client *xf_client_lookup(struct fsl_hifi4 *hifi4_priv, u32 id)
+struct xf_client *xf_client_lookup(struct fsl_dsp *dsp_priv, u32 id)
 {
 	if ((id >= XF_CFG_MAX_IPC_CLIENTS) ||
-		(hifi4_priv->xf_client_map[id].next < XF_CFG_MAX_IPC_CLIENTS)
+		(dsp_priv->xf_client_map[id].next < XF_CFG_MAX_IPC_CLIENTS)
 	   )
 		return NULL;
 	else
-		return hifi4_priv->xf_client_map[id].client;
+		return dsp_priv->xf_client_map[id].client;
 }
 
 /* ...helper function for retrieving the client handle */
@@ -144,11 +144,11 @@ static inline struct xf_client *xf_get_client(struct file *file)
 
 static int fsl_dsp_client_register(struct xf_client *client)
 {
-	struct fsl_hifi4 *hifi4_priv;
+	struct fsl_dsp *dsp_priv;
 	struct device *dev;
 
-	hifi4_priv = (struct fsl_hifi4 *)client->global;
-	dev = hifi4_priv->dev;
+	dsp_priv = (struct fsl_dsp *)client->global;
+	dev = dsp_priv->dev;
 
 	/* ...make sure client is not registered yet */
 	if (client->proxy != NULL) {
@@ -157,7 +157,7 @@ static int fsl_dsp_client_register(struct xf_client *client)
 	}
 
 	/* ...complete association (no communication with remote proxy here) */
-	client->proxy = &hifi4_priv->proxy;
+	client->proxy = &dsp_priv->proxy;
 
 	pr_debug("client-%x registered within proxy", client->id);
 
@@ -186,8 +186,8 @@ static int fsl_dsp_client_unregister(struct xf_client *client)
 static int fsl_dsp_ipc_msg_to_dsp(struct xf_client *client,
 							void __user *user)
 {
-	struct fsl_hifi4 *hifi4_priv = (struct fsl_hifi4 *)client->global;
-	struct device *dev = hifi4_priv->dev;
+	struct fsl_dsp *dsp_priv = (struct fsl_dsp *)client->global;
+	struct device *dev = dsp_priv->dev;
 	struct xf_proxy_message msg;
 	void *buffer;
 	unsigned long ret = 0;
@@ -199,14 +199,14 @@ static int fsl_dsp_ipc_msg_to_dsp(struct xf_client *client,
 	}
 
 	/* ...make sure message pointer is sane */
-	buffer = xf_proxy_a2b(&hifi4_priv->proxy, msg.address);
+	buffer = xf_proxy_a2b(&dsp_priv->proxy, msg.address);
 	if (buffer == (void *)-1)
 		return -EFAULT;
 
 	/* ...put current proxy client into message session id */
 	msg.session_id = XF_MSG_AP_FROM_USER(msg.session_id, client->id);
 
-	xf_cmd_send(&hifi4_priv->proxy,
+	xf_cmd_send(&dsp_priv->proxy,
 				msg.session_id,
 				msg.opcode,
 				buffer,
@@ -218,13 +218,13 @@ static int fsl_dsp_ipc_msg_to_dsp(struct xf_client *client,
 static int fsl_dsp_ipc_msg_from_dsp(struct xf_client *client,
 							void __user *user)
 {
-	struct fsl_hifi4 *hifi4_priv = (struct fsl_hifi4 *)client->global;
-	struct device *dev = hifi4_priv->dev;
+	struct fsl_dsp *dsp_priv = (struct fsl_dsp *)client->global;
+	struct device *dev = dsp_priv->dev;
 	struct xf_message *m;
 	struct xf_proxy_message msg;
 	unsigned long ret = 0;
 
-	m = xf_cmd_recv(&hifi4_priv->proxy, &client->wait, &client->queue, 0);
+	m = xf_cmd_recv(&dsp_priv->proxy, &client->wait, &client->queue, 0);
 	if (IS_ERR(m)) {
 		dev_err(dev, "receiving failed: %d", (int)PTR_ERR(m));
 		return PTR_ERR(m);
@@ -238,12 +238,12 @@ static int fsl_dsp_ipc_msg_from_dsp(struct xf_client *client,
 	msg.session_id = XF_MSG_AP_TO_USER(m->id);
 	msg.opcode = m->opcode;
 	msg.length = m->length;
-	msg.address = xf_proxy_b2a(&hifi4_priv->proxy, m->buffer);
+	msg.address = xf_proxy_b2a(&dsp_priv->proxy, m->buffer);
 	msg.ret = m->ret;
 
 	/* ...return the message back to a pool and release lock */
-	xf_msg_free(&hifi4_priv->proxy, m);
-	xf_unlock(&hifi4_priv->proxy.lock);
+	xf_msg_free(&dsp_priv->proxy, m);
+	xf_unlock(&dsp_priv->proxy.lock);
 
 	ret = copy_to_user(user, &msg, sizeof(struct xf_proxy_message));
 	if (ret) {
@@ -257,13 +257,13 @@ static int fsl_dsp_ipc_msg_from_dsp(struct xf_client *client,
 static int fsl_dsp_get_shmem_info(struct xf_client *client,
 							void __user *user)
 {
-	struct fsl_hifi4 *hifi4_priv = (struct fsl_hifi4 *)client->global;
-	struct device *dev = hifi4_priv->dev;
+	struct fsl_dsp *dsp_priv = (struct fsl_dsp *)client->global;
+	struct device *dev = dsp_priv->dev;
 	struct shmem_info mem_info;
 	unsigned long ret = 0;
 
-	mem_info.phys_addr = hifi4_priv->scratch_buf_phys;
-	mem_info.size = hifi4_priv->scratch_buf_size;
+	mem_info.phys_addr = dsp_priv->scratch_buf_phys;
+	mem_info.size = dsp_priv->scratch_buf_size;
 
 	ret = copy_to_user(user, &mem_info, sizeof(struct shmem_info));
 	if (ret) {
@@ -274,16 +274,16 @@ static int fsl_dsp_get_shmem_info(struct xf_client *client,
 	return ret;
 }
 
-static struct miscdevice hifi4_miscdev = {
+static struct miscdevice dsp_miscdev = {
 	.name	= "mxc_hifi4",
 	.minor	= MISC_DYNAMIC_MINOR,
 };
 
-static long fsl_hifi4_ioctl(struct file *file, unsigned int cmd,
+static long fsl_dsp_ioctl(struct file *file, unsigned int cmd,
 						unsigned long arg)
 {
 	struct xf_client *client;
-	struct fsl_hifi4 *hifi4_priv;
+	struct fsl_dsp *dsp_priv;
 	struct xf_proxy  *proxy;
 	struct device *dev;
 	void __user *user;
@@ -294,16 +294,16 @@ static long fsl_hifi4_ioctl(struct file *file, unsigned int cmd,
 	if (IS_ERR(client))
 		return PTR_ERR(client);
 
-	hifi4_priv = (struct fsl_hifi4 *)client->global;
-	proxy = &hifi4_priv->proxy;
-	dev = hifi4_priv->dev;
+	dsp_priv = (struct fsl_dsp *)client->global;
+	proxy = &dsp_priv->proxy;
+	dev = dsp_priv->dev;
 	user = (void __user *)arg;
 
-	mutex_lock(&hifi4_priv->hifi4_mutex);
+	mutex_lock(&dsp_priv->dsp_mutex);
 
 	if (!proxy->is_ready) {
-		mutex_unlock(&hifi4_priv->hifi4_mutex);
-		dev_err(dev, "hifi firmware is not ready\n");
+		mutex_unlock(&dsp_priv->dsp_mutex);
+		dev_err(dev, "dsp firmware is not ready\n");
 		return -EFAULT;
 	}
 
@@ -327,29 +327,29 @@ static long fsl_hifi4_ioctl(struct file *file, unsigned int cmd,
 		break;
 	}
 
-	mutex_unlock(&hifi4_priv->hifi4_mutex);
+	mutex_unlock(&dsp_priv->dsp_mutex);
 
 	return ret;
 }
 
-void resource_release(struct fsl_hifi4 *hifi4_priv)
+void resource_release(struct fsl_dsp *dsp_priv)
 {
 	int i;
 
 	/* ...initialize client association map */
 	for (i = 0; i < XF_CFG_MAX_IPC_CLIENTS - 1; i++)
-		hifi4_priv->xf_client_map[i].next = i + 1;
+		dsp_priv->xf_client_map[i].next = i + 1;
 	/* ...set list terminator */
-	hifi4_priv->xf_client_map[i].next = 0;
+	dsp_priv->xf_client_map[i].next = 0;
 
 	/* ...set pointer to shared memory */
-	xf_proxy_init(&hifi4_priv->proxy);
+	xf_proxy_init(&dsp_priv->proxy);
 }
 
-static int fsl_hifi4_open(struct inode *inode, struct file *file)
+static int fsl_dsp_open(struct inode *inode, struct file *file)
 {
-	struct fsl_hifi4 *hifi4_priv = dev_get_drvdata(hifi4_miscdev.parent);
-	struct device *dev = hifi4_priv->dev;
+	struct fsl_dsp *dsp_priv = dev_get_drvdata(dsp_miscdev.parent);
+	struct device *dev = dsp_priv->dev;
 	struct xf_client *client;
 	int ret = 0;
 
@@ -358,7 +358,7 @@ static int fsl_hifi4_open(struct inode *inode, struct file *file)
 		return -EINVAL;
 
 	/* ...allocate new proxy client object */
-	client = xf_client_alloc(hifi4_priv);
+	client = xf_client_alloc(dsp_priv);
 	if (IS_ERR(client))
 		return PTR_ERR(client);
 
@@ -374,23 +374,23 @@ static int fsl_hifi4_open(struct inode *inode, struct file *file)
 	/* ...reset mappings counter */
 	atomic_set(&client->vm_use, 0);
 
-	client->global = (void *)hifi4_priv;
+	client->global = (void *)dsp_priv;
 
 	file->private_data = (void *)client;
 
 	pm_runtime_get_sync(dev);
 
-	mutex_lock(&hifi4_priv->hifi4_mutex);
+	mutex_lock(&dsp_priv->dsp_mutex);
 	/* increase reference counter when opening device */
-	atomic_long_inc(&hifi4_priv->refcnt);
-	mutex_unlock(&hifi4_priv->hifi4_mutex);
+	atomic_long_inc(&dsp_priv->refcnt);
+	mutex_unlock(&dsp_priv->dsp_mutex);
 
 	return ret;
 }
 
-static int fsl_hifi4_close(struct inode *inode, struct file *file)
+static int fsl_dsp_close(struct inode *inode, struct file *file)
 {
-	struct fsl_hifi4 *hifi4_priv;
+	struct fsl_dsp *dsp_priv;
 	struct device *dev;
 	struct xf_proxy *proxy;
 	struct xf_client *client;
@@ -409,26 +409,26 @@ static int fsl_hifi4_close(struct inode *inode, struct file *file)
 		xf_client_free(client);
 	}
 
-	hifi4_priv = (struct fsl_hifi4 *)client->global;
-	dev = hifi4_priv->dev;
+	dsp_priv = (struct fsl_dsp *)client->global;
+	dev = dsp_priv->dev;
 	pm_runtime_put_sync(dev);
 
-	mutex_lock(&hifi4_priv->hifi4_mutex);
+	mutex_lock(&dsp_priv->dsp_mutex);
 	/* decrease reference counter when closing device */
-	atomic_long_dec(&hifi4_priv->refcnt);
+	atomic_long_dec(&dsp_priv->refcnt);
 	/* If device is free, reinitialize the resource of
-	 * hifi4 driver and framework
+	 * dsp driver and framework
 	 */
-	if (atomic_long_read(&hifi4_priv->refcnt) <= 0)
-		resource_release(hifi4_priv);
+	if (atomic_long_read(&dsp_priv->refcnt) <= 0)
+		resource_release(dsp_priv);
 
-	mutex_unlock(&hifi4_priv->hifi4_mutex);
+	mutex_unlock(&dsp_priv->dsp_mutex);
 
 	return 0;
 }
 
 /* ...wait until data is available in the response queue */
-static unsigned int fsl_hifi4_poll(struct file *file, poll_table *wait)
+static unsigned int fsl_dsp_poll(struct file *file, poll_table *wait)
 {
 	struct xf_proxy *proxy;
 	struct xf_client *client;
@@ -458,7 +458,7 @@ static unsigned int fsl_hifi4_poll(struct file *file, poll_table *wait)
  ******************************************************************************/
 
 /* ...add reference to shared buffer */
-static void hifi4_mmap_open(struct vm_area_struct *vma)
+static void dsp_mmap_open(struct vm_area_struct *vma)
 {
 	struct xf_client *client = vma->vm_private_data;
 
@@ -469,7 +469,7 @@ static void hifi4_mmap_open(struct vm_area_struct *vma)
 }
 
 /* ...close reference to shared buffer */
-static void hifi4_mmap_close(struct vm_area_struct *vma)
+static void dsp_mmap_close(struct vm_area_struct *vma)
 {
 	struct xf_client *client = vma->vm_private_data;
 
@@ -480,20 +480,20 @@ static void hifi4_mmap_close(struct vm_area_struct *vma)
 }
 
 /* ...memory map operations */
-static const struct vm_operations_struct hifi4_mmap_ops = {
-	.open   = hifi4_mmap_open,
-	.close  = hifi4_mmap_close,
+static const struct vm_operations_struct dsp_mmap_ops = {
+	.open   = dsp_mmap_open,
+	.close  = dsp_mmap_close,
 };
 
 /* ...shared memory mapping */
-static int fsl_hifi4_mmap(struct file *file, struct vm_area_struct *vma)
+static int fsl_dsp_mmap(struct file *file, struct vm_area_struct *vma)
 {
 	struct xf_proxy *proxy;
 	struct xf_client *client;
 	unsigned long   size;
 	unsigned long   pfn;
 	int             r;
-	struct fsl_hifi4 *hifi4_priv;
+	struct fsl_dsp *dsp_priv;
 
 	/* ...basic sanity checks */
 	client = xf_get_client(file);
@@ -515,7 +515,7 @@ static int fsl_hifi4_mmap(struct file *file, struct vm_area_struct *vma)
 		return -EPERM;
 
 	/* ...set memory map operations */
-	vma->vm_ops = &hifi4_mmap_ops;
+	vma->vm_ops = &dsp_mmap_ops;
 
 	/* ...assign private data */
 	client->vm_start = vma->vm_start;
@@ -524,9 +524,9 @@ static int fsl_hifi4_mmap(struct file *file, struct vm_area_struct *vma)
 	vma->vm_private_data = client;
 
 	/* ...set page number of shared memory */
-	hifi4_priv = (struct fsl_hifi4 *)client->global;
-	pfn = hifi4_priv->scratch_buf_phys >> PAGE_SHIFT;
-	size = hifi4_priv->scratch_buf_size;
+	dsp_priv = (struct fsl_dsp *)client->global;
+	pfn = dsp_priv->scratch_buf_phys >> PAGE_SHIFT;
+	size = dsp_priv->scratch_buf_size;
 
 	/* ...remap shared memory to user-space */
 	vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
@@ -540,7 +540,7 @@ static int fsl_hifi4_mmap(struct file *file, struct vm_area_struct *vma)
 	return 0;
 }
 
-void *memset_hifi(void *dest, int c, size_t count)
+void *memset_dsp(void *dest, int c, size_t count)
 {
 	uint *dl = (uint *)dest;
 	void *dl_1, *dl_2;
@@ -586,7 +586,7 @@ void *memset_hifi(void *dest, int c, size_t count)
 	return dest;
 }
 
-void *memcpy_hifi(void *dest, const void *src, size_t count)
+void *memcpy_dsp(void *dest, const void *src, size_t count)
 {
 	unsigned int *dl = (unsigned int *)dest, *sl = (unsigned int *)src;
 	size_t n = round_up(count, 4) / 4;
@@ -607,10 +607,10 @@ void *memcpy_hifi(void *dest, const void *src, size_t count)
 	return dest;
 }
 
-static void hifi4_load_firmware(const struct firmware *fw, void *context)
+static void dsp_load_firmware(const struct firmware *fw, void *context)
 {
-	struct fsl_hifi4 *hifi4_priv = context;
-	struct device *dev = hifi4_priv->dev;
+	struct fsl_dsp *dsp_priv = context;
+	struct device *dev = dsp_priv->dev;
 	Elf32_Ehdr *ehdr; /* Elf header structure pointer */
 	Elf32_Shdr *shdr; /* Section header structure pointer */
 	Elf32_Addr  sh_addr;
@@ -654,8 +654,8 @@ static void hifi4_load_firmware(const struct firmware *fw, void *context)
 		sh_addr = shdr->sh_addr;
 
 		if (shdr->sh_type == SHT_NOBITS) {
-			memset_hifi((void *)(hifi4_priv->sdram_vir_addr +
-				(sh_addr - hifi4_priv->sdram_phys_addr)),
+			memset_dsp((void *)(dsp_priv->sdram_vir_addr +
+				(sh_addr - dsp_priv->sdram_phys_addr)),
 				0,
 				shdr->sh_size);
 		} else {
@@ -665,13 +665,13 @@ static void hifi4_load_firmware(const struct firmware *fw, void *context)
 				(!strcmp(&strtab[shdr->sh_name], ".data"))   ||
 				(!strcmp(&strtab[shdr->sh_name], ".bss"))
 			) {
-				memcpy_hifi((void *)(hifi4_priv->sdram_vir_addr
-				  + (sh_addr - hifi4_priv->sdram_phys_addr)),
+				memcpy_dsp((void *)(dsp_priv->sdram_vir_addr
+				  + (sh_addr - dsp_priv->sdram_phys_addr)),
 				  (const void *)image,
 				  shdr->sh_size);
 			} else {
-				memcpy_hifi((void *)(hifi4_priv->regs +
-						(sh_addr - hifi4_priv->paddr)),
+				memcpy_dsp((void *)(dsp_priv->regs +
+						(sh_addr - dsp_priv->paddr)),
 						(const void *)image,
 						shdr->sh_size);
 			}
@@ -679,73 +679,73 @@ static void hifi4_load_firmware(const struct firmware *fw, void *context)
 	}
 
 	/* start the core */
-	sc_pm_cpu_start(hifi4_priv->hifi_ipcHandle,
-					SC_R_DSP, true, hifi4_priv->iram);
+	sc_pm_cpu_start(dsp_priv->dsp_ipcHandle,
+					SC_R_DSP, true, dsp_priv->iram);
 }
 
 /* Initialization of the MU code. */
-int hifi4_mu_init(struct fsl_hifi4 *hifi4_priv)
+int dsp_mu_init(struct fsl_dsp *dsp_priv)
 {
-	struct device *dev = hifi4_priv->dev;
+	struct device *dev = dsp_priv->dev;
 	struct device_node *np;
-	unsigned int	hifi_mu_id;
+	unsigned int	dsp_mu_id;
 	u32 irq;
 	int ret = 0;
 
 	/*
-	 * Get the address of MU to be used for communication with the hifi
+	 * Get the address of MU to be used for communication with the dsp
 	 */
-	np = of_find_compatible_node(NULL, NULL, "fsl,imx8-mu-hifi");
+	np = of_find_compatible_node(NULL, NULL, "fsl,imx8-mu-dsp");
 	if (!np) {
 		dev_err(dev, "Cannot find MU entry in device tree\n");
 		return -EINVAL;
 	}
-	hifi4_priv->mu_base_virtaddr = of_iomap(np, 0);
-	WARN_ON(!hifi4_priv->mu_base_virtaddr);
+	dsp_priv->mu_base_virtaddr = of_iomap(np, 0);
+	WARN_ON(!dsp_priv->mu_base_virtaddr);
 
 	ret = of_property_read_u32_index(np,
-				"fsl,hifi_ap_mu_id", 0, &hifi_mu_id);
+				"fsl,dsp_ap_mu_id", 0, &dsp_mu_id);
 	if (ret) {
 		dev_err(dev, "Cannot get mu_id %d\n", ret);
 		return -EINVAL;
 	}
 
-	hifi4_priv->hifi_mu_id = hifi_mu_id;
+	dsp_priv->dsp_mu_id = dsp_mu_id;
 
 	irq = of_irq_get(np, 0);
 
-	ret = devm_request_irq(hifi4_priv->dev, irq, fsl_hifi4_mu_isr,
-			IRQF_EARLY_RESUME, "hifi4_mu_isr", &hifi4_priv->proxy);
+	ret = devm_request_irq(dsp_priv->dev, irq, fsl_dsp_mu_isr,
+			IRQF_EARLY_RESUME, "dsp_mu_isr", &dsp_priv->proxy);
 	if (ret) {
 		dev_err(dev, "request_irq failed %d, err = %d\n", irq, ret);
 		return -EINVAL;
 	}
 
-	if (!hifi4_priv->hifi_mu_init) {
-		MU_Init(hifi4_priv->mu_base_virtaddr);
-		MU_EnableRxFullInt(hifi4_priv->mu_base_virtaddr, 0);
-		hifi4_priv->hifi_mu_init = 1;
+	if (!dsp_priv->dsp_mu_init) {
+		MU_Init(dsp_priv->mu_base_virtaddr);
+		MU_EnableRxFullInt(dsp_priv->mu_base_virtaddr, 0);
+		dsp_priv->dsp_mu_init = 1;
 	}
 
 	return ret;
 }
 
-static const struct file_operations hifi4_fops = {
+static const struct file_operations dsp_fops = {
 	.owner		= THIS_MODULE,
-	.unlocked_ioctl	= fsl_hifi4_ioctl,
+	.unlocked_ioctl	= fsl_dsp_ioctl,
 #ifdef CONFIG_COMPAT
-	.compat_ioctl = fsl_hifi4_ioctl,
+	.compat_ioctl = fsl_dsp_ioctl,
 #endif
-	.open		= fsl_hifi4_open,
-	.poll		= fsl_hifi4_poll,
-	.mmap		= fsl_hifi4_mmap,
-	.release	= fsl_hifi4_close,
+	.open		= fsl_dsp_open,
+	.poll		= fsl_dsp_poll,
+	.mmap		= fsl_dsp_mmap,
+	.release	= fsl_dsp_close,
 };
 
-static int fsl_hifi4_probe(struct platform_device *pdev)
+static int fsl_dsp_probe(struct platform_device *pdev)
 {
 	struct device_node *np = pdev->dev.of_node;
-	struct fsl_hifi4 *hifi4_priv;
+	struct fsl_dsp *dsp_priv;
 	const char *fw_name;
 	struct resource *res;
 	void __iomem *regs;
@@ -756,11 +756,11 @@ static int fsl_hifi4_probe(struct platform_device *pdev)
 	int size, offset, i;
 	int ret;
 
-	hifi4_priv = devm_kzalloc(&pdev->dev, sizeof(*hifi4_priv), GFP_KERNEL);
-	if (!hifi4_priv)
+	dsp_priv = devm_kzalloc(&pdev->dev, sizeof(*dsp_priv), GFP_KERNEL);
+	if (!dsp_priv)
 		return -ENOMEM;
 
-	hifi4_priv->dev = &pdev->dev;
+	dsp_priv->dev = &pdev->dev;
 
 	/* Get the addresses and IRQ */
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
@@ -768,13 +768,13 @@ static int fsl_hifi4_probe(struct platform_device *pdev)
 	if (IS_ERR(regs))
 		return PTR_ERR(regs);
 
-	hifi4_priv->paddr = res->start;
-	hifi4_priv->regs  = regs;
+	dsp_priv->paddr = res->start;
+	dsp_priv->regs  = regs;
 
-	hifi4_priv->dram0 = hifi4_priv->paddr + DRAM0_OFFSET;
-	hifi4_priv->dram1 = hifi4_priv->paddr + DRAM1_OFFSET;
-	hifi4_priv->iram  = hifi4_priv->paddr + IRAM_OFFSET;
-	hifi4_priv->sram  = hifi4_priv->paddr + SYSRAM_OFFSET;
+	dsp_priv->dram0 = dsp_priv->paddr + DRAM0_OFFSET;
+	dsp_priv->dram1 = dsp_priv->paddr + DRAM1_OFFSET;
+	dsp_priv->iram  = dsp_priv->paddr + IRAM_OFFSET;
+	dsp_priv->sram  = dsp_priv->paddr + SYSRAM_OFFSET;
 
 	sciErr = sc_ipc_getMuID(&mu_id);
 	if (sciErr != SC_ERR_NONE) {
@@ -782,69 +782,69 @@ static int fsl_hifi4_probe(struct platform_device *pdev)
 		return sciErr;
 	}
 
-	sciErr = sc_ipc_open(&hifi4_priv->hifi_ipcHandle, mu_id);
+	sciErr = sc_ipc_open(&dsp_priv->dsp_ipcHandle, mu_id);
 	if (sciErr != SC_ERR_NONE) {
 		dev_err(&pdev->dev, "Cannot open MU channel to SCU %d, %d\n",
 								mu_id, sciErr);
 		return sciErr;
 	};
 
-	sciErr = sc_misc_set_control(hifi4_priv->hifi_ipcHandle, SC_R_DSP,
+	sciErr = sc_misc_set_control(dsp_priv->dsp_ipcHandle, SC_R_DSP,
 				SC_C_OFS_SEL, 1);
 	if (sciErr != SC_ERR_NONE) {
 		dev_err(&pdev->dev, "Error system address offset source select\n");
 		return -EIO;
 	}
 
-	sciErr = sc_misc_set_control(hifi4_priv->hifi_ipcHandle, SC_R_DSP,
+	sciErr = sc_misc_set_control(dsp_priv->dsp_ipcHandle, SC_R_DSP,
 				SC_C_OFS_AUDIO, 0x80);
 	if (sciErr != SC_ERR_NONE) {
 		dev_err(&pdev->dev, "Error system address offset of AUDIO\n");
 		return -EIO;
 	}
 
-	sciErr = sc_misc_set_control(hifi4_priv->hifi_ipcHandle, SC_R_DSP,
+	sciErr = sc_misc_set_control(dsp_priv->dsp_ipcHandle, SC_R_DSP,
 				SC_C_OFS_PERIPH, 0x5A);
 	if (sciErr != SC_ERR_NONE) {
 		dev_err(&pdev->dev, "Error system address offset of PERIPH\n");
 		return -EIO;
 	}
 
-	sciErr = sc_misc_set_control(hifi4_priv->hifi_ipcHandle, SC_R_DSP,
+	sciErr = sc_misc_set_control(dsp_priv->dsp_ipcHandle, SC_R_DSP,
 				SC_C_OFS_IRQ, 0x51);
 	if (sciErr != SC_ERR_NONE) {
 		dev_err(&pdev->dev, "Error system address offset of IRQ\n");
 		return -EIO;
 	}
 
-	ret = hifi4_mu_init(hifi4_priv);
+	ret = dsp_mu_init(dsp_priv);
 	if (ret)
 		return ret;
 
-	ret = of_property_read_string(np, "fsl,hifi4-firmware", &fw_name);
-	hifi4_priv->fw_name = fw_name;
+	ret = of_property_read_string(np, "fsl,dsp-firmware", &fw_name);
+	dsp_priv->fw_name = fw_name;
 
-	platform_set_drvdata(pdev, hifi4_priv);
+	platform_set_drvdata(pdev, dsp_priv);
 	pm_runtime_enable(&pdev->dev);
 
-	hifi4_miscdev.fops = &hifi4_fops,
-	hifi4_miscdev.parent = &pdev->dev,
-	ret = misc_register(&hifi4_miscdev);
+	dsp_miscdev.fops = &dsp_fops,
+	dsp_miscdev.parent = &pdev->dev,
+	ret = misc_register(&dsp_miscdev);
 	if (ret) {
 		dev_err(&pdev->dev, "failed to register misc device %d\n", ret);
 		return ret;
 	}
 
-	hifi4_priv->sdram_phys_addr = SDRAM_BASE_ADDR;
-	hifi4_priv->sdram_vir_addr = ioremap_wc(hifi4_priv->sdram_phys_addr,
+	dsp_priv->sdram_phys_addr = SDRAM_BASE_ADDR;
+	dsp_priv->sdram_vir_addr = ioremap_wc(dsp_priv->sdram_phys_addr,
 							SDRAM_BASE_SIZE);
-	if (!hifi4_priv->sdram_vir_addr) {
-		dev_err(&pdev->dev, "failed to remap sdram space for hifi4 firmware\n");
+	if (!dsp_priv->sdram_vir_addr) {
+		dev_err(&pdev->dev, "failed to remap sdram space for dsp firmware\n");
 		return -ENXIO;
 	}
-	memset_io(hifi4_priv->sdram_vir_addr, 0, SDRAM_BASE_SIZE);
+	memset_io(dsp_priv->sdram_vir_addr, 0, SDRAM_BASE_SIZE);
 
-	size = MSG_BUF_SIZE + HIFI_CONFIG_SIZE;
+	size = MSG_BUF_SIZE + DSP_CONFIG_SIZE;
 
 	buf_virt = dma_alloc_coherent(&pdev->dev, size, &buf_phys, GFP_KERNEL);
 	if (!buf_virt) {
@@ -853,69 +853,69 @@ static int fsl_hifi4_probe(struct platform_device *pdev)
 	}
 
 	/* msg ring buffer memory */
-	hifi4_priv->msg_buf_virt = buf_virt;
-	hifi4_priv->msg_buf_phys = buf_phys;
-	hifi4_priv->msg_buf_size = MSG_BUF_SIZE;
+	dsp_priv->msg_buf_virt = buf_virt;
+	dsp_priv->msg_buf_phys = buf_phys;
+	dsp_priv->msg_buf_size = MSG_BUF_SIZE;
 	offset = MSG_BUF_SIZE;
 
 	/* keep dsp framework's global data when suspend/resume */
-	hifi4_priv->hifi_config_virt = buf_virt + offset;
-	hifi4_priv->hifi_config_phys = buf_phys + offset;
-	hifi4_priv->hifi_config_size = HIFI_CONFIG_SIZE;
+	dsp_priv->dsp_config_virt = buf_virt + offset;
+	dsp_priv->dsp_config_phys = buf_phys + offset;
+	dsp_priv->dsp_config_size = DSP_CONFIG_SIZE;
 
 	/* scratch memory for dsp framework */
-	hifi4_priv->scratch_buf_virt = hifi4_priv->sdram_vir_addr +
+	dsp_priv->scratch_buf_virt = dsp_priv->sdram_vir_addr +
 						SDRAM_CODEC_LIB_OFFSET;
-	hifi4_priv->scratch_buf_phys = hifi4_priv->sdram_phys_addr +
+	dsp_priv->scratch_buf_phys = dsp_priv->sdram_phys_addr +
 						SDRAM_CODEC_LIB_OFFSET;
-	hifi4_priv->scratch_buf_size = SDRAM_BASE_SIZE - SDRAM_CODEC_LIB_OFFSET;
+	dsp_priv->scratch_buf_size = SDRAM_BASE_SIZE - SDRAM_CODEC_LIB_OFFSET;
 
-	/* initialize the reference counter for hifi4_priv
+	/* initialize the reference counter for dsp_priv
 	 * structure
 	 */
-	atomic_long_set(&hifi4_priv->refcnt, 0);
+	atomic_long_set(&dsp_priv->refcnt, 0);
 
 	/* ...initialize client association map */
 	for (i = 0; i < XF_CFG_MAX_IPC_CLIENTS - 1; i++)
-		hifi4_priv->xf_client_map[i].next = i + 1;
+		dsp_priv->xf_client_map[i].next = i + 1;
 	/* ...set list terminator */
-	hifi4_priv->xf_client_map[i].next = 0;
+	dsp_priv->xf_client_map[i].next = 0;
 
 	/* ...set pointer to shared memory */
-	xf_proxy_init(&hifi4_priv->proxy);
+	xf_proxy_init(&dsp_priv->proxy);
 
 	/* ...initialize mutex */
-	mutex_init(&hifi4_priv->hifi4_mutex);
+	mutex_init(&dsp_priv->dsp_mutex);
 
 	return 0;
 }
 
-static int fsl_hifi4_remove(struct platform_device *pdev)
+static int fsl_dsp_remove(struct platform_device *pdev)
 {
-	struct fsl_hifi4 *hifi4_priv = platform_get_drvdata(pdev);
+	struct fsl_dsp *dsp_priv = platform_get_drvdata(pdev);
 	int size;
 
-	misc_deregister(&hifi4_miscdev);
+	misc_deregister(&dsp_miscdev);
 
-	size = MSG_BUF_SIZE + HIFI_CONFIG_SIZE;
-	dma_free_coherent(&pdev->dev, size, hifi4_priv->msg_buf_virt,
-				hifi4_priv->msg_buf_phys);
-	if (hifi4_priv->sdram_vir_addr)
-		iounmap(hifi4_priv->sdram_vir_addr);
+	size = MSG_BUF_SIZE + DSP_CONFIG_SIZE;
+	dma_free_coherent(&pdev->dev, size, dsp_priv->msg_buf_virt,
+				dsp_priv->msg_buf_phys);
+	if (dsp_priv->sdram_vir_addr)
+		iounmap(dsp_priv->sdram_vir_addr);
 
 	return 0;
 }
 
 #ifdef CONFIG_PM
-static int fsl_hifi4_runtime_resume(struct device *dev)
+static int fsl_dsp_runtime_resume(struct device *dev)
 {
-	struct fsl_hifi4 *hifi4_priv = dev_get_drvdata(dev);
-	struct xf_proxy *proxy = &hifi4_priv->proxy;
+	struct fsl_dsp *dsp_priv = dev_get_drvdata(dev);
+	struct xf_proxy *proxy = &dsp_priv->proxy;
 	int ret;
 
-	if (sc_pm_set_resource_power_mode(hifi4_priv->hifi_ipcHandle,
+	if (sc_pm_set_resource_power_mode(dsp_priv->dsp_ipcHandle,
 			SC_R_DSP_RAM, SC_PM_PW_MODE_ON) != SC_ERR_NONE) {
-		dev_err(dev, "Error power on HIFI RAM\n");
+		dev_err(dev, "Error power on DSP RAM\n");
 		return -EIO;
 	}
 
@@ -923,9 +923,9 @@ static int fsl_hifi4_runtime_resume(struct device *dev)
 		init_completion(&proxy->cmd_complete);
 
 		ret = request_firmware_nowait(THIS_MODULE,
-				FW_ACTION_HOTPLUG, hifi4_priv->fw_name,
+				FW_ACTION_HOTPLUG, dsp_priv->fw_name,
 				dev,
-				GFP_KERNEL, hifi4_priv, hifi4_load_firmware);
+				GFP_KERNEL, dsp_priv, dsp_load_firmware);
 
 		if (ret) {
 			dev_err(dev, "failed to load firmware\n");
@@ -933,23 +933,23 @@ static int fsl_hifi4_runtime_resume(struct device *dev)
 		}
 
 		ret = icm_ack_wait(proxy, 0);
-		if (ret) {
+		if (ret)
 			return ret;
-		}
-		dev_info(dev, "hifi driver registered\n");
+
+		dev_info(dev, "dsp driver registered\n");
 	}
 
 	return 0;
 }
 
-static int fsl_hifi4_runtime_suspend(struct device *dev)
+static int fsl_dsp_runtime_suspend(struct device *dev)
 {
-	struct fsl_hifi4 *hifi4_priv = dev_get_drvdata(dev);
-	struct xf_proxy *proxy = &hifi4_priv->proxy;
+	struct fsl_dsp *dsp_priv = dev_get_drvdata(dev);
+	struct xf_proxy *proxy = &dsp_priv->proxy;
 
-	if (sc_pm_set_resource_power_mode(hifi4_priv->hifi_ipcHandle,
+	if (sc_pm_set_resource_power_mode(dsp_priv->dsp_ipcHandle,
 			SC_R_DSP_RAM, SC_PM_PW_MODE_OFF) != SC_ERR_NONE) {
-		dev_err(dev, "Error power off HIFI RAM\n");
+		dev_err(dev, "Error power off DSP RAM\n");
 		return -EIO;
 	}
 	proxy->is_ready = 0;
@@ -959,16 +959,16 @@ static int fsl_hifi4_runtime_suspend(struct device *dev)
 
 
 #ifdef CONFIG_PM_SLEEP
-static int fsl_hifi4_suspend(struct device *dev)
+static int fsl_dsp_suspend(struct device *dev)
 {
-	struct fsl_hifi4 *hifi4_priv = dev_get_drvdata(dev);
-	struct xf_proxy *proxy = &hifi4_priv->proxy;
+	struct fsl_dsp *dsp_priv = dev_get_drvdata(dev);
+	struct xf_proxy *proxy = &dsp_priv->proxy;
 	int ret = 0;
 
 	if (proxy->is_ready) {
 		ret = xf_cmd_send_suspend(proxy);
 		if (ret) {
-			dev_err(dev, "hifi4 suspend fail\n");
+			dev_err(dev, "dsp suspend fail\n");
 			return ret;
 		}
 	}
@@ -978,10 +978,10 @@ static int fsl_hifi4_suspend(struct device *dev)
 	return ret;
 }
 
-static int fsl_hifi4_resume(struct device *dev)
+static int fsl_dsp_resume(struct device *dev)
 {
-	struct fsl_hifi4 *hifi4_priv = dev_get_drvdata(dev);
-	struct xf_proxy *proxy = &hifi4_priv->proxy;
+	struct fsl_dsp *dsp_priv = dev_get_drvdata(dev);
+	struct xf_proxy *proxy = &dsp_priv->proxy;
 	int ret = 0;
 
 	ret = pm_runtime_force_resume(dev);
@@ -991,7 +991,7 @@ static int fsl_hifi4_resume(struct device *dev)
 	if (proxy->is_ready) {
 		ret = xf_cmd_send_resume(proxy);
 		if (ret) {
-			dev_err(dev, "hifi4 resume fail\n");
+			dev_err(dev, "dsp resume fail\n");
 			return ret;
 		}
 	}
@@ -1000,29 +1000,29 @@ static int fsl_hifi4_resume(struct device *dev)
 }
 #endif /* CONFIG_PM_SLEEP */
 
-static const struct dev_pm_ops fsl_hifi4_pm = {
-	SET_RUNTIME_PM_OPS(fsl_hifi4_runtime_suspend,
-					fsl_hifi4_runtime_resume, NULL)
-	SET_SYSTEM_SLEEP_PM_OPS(fsl_hifi4_suspend, fsl_hifi4_resume)
+static const struct dev_pm_ops fsl_dsp_pm = {
+	SET_RUNTIME_PM_OPS(fsl_dsp_runtime_suspend,
+					fsl_dsp_runtime_resume, NULL)
+	SET_SYSTEM_SLEEP_PM_OPS(fsl_dsp_suspend, fsl_dsp_resume)
 };
 
-static const struct of_device_id fsl_hifi4_ids[] = {
-	{ .compatible = "fsl,imx8qxp-hifi4", },
+static const struct of_device_id fsl_dsp_ids[] = {
+	{ .compatible = "fsl,imx8qxp-dsp", },
 	{}
 };
-MODULE_DEVICE_TABLE(of, fsl_hifi4_ids);
+MODULE_DEVICE_TABLE(of, fsl_dsp_ids);
 
-static struct platform_driver fsl_hifi4_driver = {
-	.probe = fsl_hifi4_probe,
-	.remove = fsl_hifi4_remove,
+static struct platform_driver fsl_dsp_driver = {
+	.probe = fsl_dsp_probe,
+	.remove = fsl_dsp_remove,
 	.driver = {
-		.name = "fsl-hifi4",
-		.of_match_table = fsl_hifi4_ids,
-		.pm = &fsl_hifi4_pm,
+		.name = "fsl-dsp",
+		.of_match_table = fsl_dsp_ids,
+		.pm = &fsl_dsp_pm,
 	},
 };
-module_platform_driver(fsl_hifi4_driver);
+module_platform_driver(fsl_dsp_driver);
 
-MODULE_DESCRIPTION("Freescale HIFI 4 driver");
-MODULE_ALIAS("platform:fsl-hifi4");
+MODULE_DESCRIPTION("Freescale DSP driver");
+MODULE_ALIAS("platform:fsl-dsp");
 MODULE_LICENSE("Dual BSD/GPL");
