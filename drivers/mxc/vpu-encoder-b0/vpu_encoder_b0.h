@@ -53,7 +53,7 @@ extern unsigned int vpu_dbg_level_encoder;
 #define SHARED_SIZE 0x00400000
 #define MEM_SIZE  0x2800000
 #define YUV_SIZE  0x4000000
-#define STREAM_SIZE 0x600000
+#define STREAM_SIZE 0x300000
 #ifdef CM4
 #define VPU_REG_BASE 0x2c000000
 #else

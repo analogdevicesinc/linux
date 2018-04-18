@@ -910,7 +910,7 @@ static int ctrls_setup_decoder(struct vpu_ctx *This)
 			NUM_CTRLS_DEC + 1
 			);
 	if (This->ctrl_handler.error) {
-		vpu_dbg(LVL_INFO, "%s() v4l2_ctrl_handler_init failed(%d)\n",
+		vpu_dbg(LVL_ERR, "%s() v4l2_ctrl_handler_init failed(%d)\n",
 				__func__, This->ctrl_handler.error);
 
 		return This->ctrl_handler.error;
@@ -932,7 +932,7 @@ static int ctrls_setup_decoder(struct vpu_ctx *This)
 		if (This->ctrl_handler.error ||
 				!This->ctrls[i]
 				) {
-			vpu_dbg(LVL_INFO, "%s() v4l2_ctrl_new_std failed(%d) This->ctrls[%d](%p)\n",
+			vpu_dbg(LVL_ERR, "%s() v4l2_ctrl_new_std failed(%d) This->ctrls[%d](%p)\n",
 					__func__, This->ctrl_handler.error, i, This->ctrls[i]);
 			return This->ctrl_handler.error;
 		}
@@ -1522,7 +1522,7 @@ static void vpu_api_event_handler(struct vpu_ctx *ctx, u_int32 uStrIdx, u_int32 
 					((ctx->wait_rst_done == true) || (wait_right_buffer(This) == true)));
 
 			if (ctx->buffer_null == true) {
-				vpu_dbg(LVL_INFO, "frame already released !!!!!!!!!!!!!!!!!\n");
+				vpu_dbg(LVL_INFO, "frame already released\n");
 				break;
 			}
 
@@ -1559,7 +1559,7 @@ static void vpu_api_event_handler(struct vpu_ctx *ctx, u_int32 uStrIdx, u_int32 
 						buffer_flag = true;
 						break;
 					} else {
-						vpu_dbg(LVL_ERR, "error: buffer %d status=0x%x is not right, find next\n", p_data_req->id, p_data_req->status);
+						vpu_dbg(LVL_INFO, "buffer %d status=0x%x is not right, find next\n", p_data_req->id, p_data_req->status);
 						continue;
 					}
 				}
@@ -1602,7 +1602,7 @@ static void vpu_api_event_handler(struct vpu_ctx *ctx, u_int32 uStrIdx, u_int32 
 				p_data_req->status = FRAME_FREE;
 				vpu_dbg(LVL_INFO, "VID_API_CMD_FS_ALLOC, data_req->vb2_buf=%p, data_req->id=%d\n", p_data_req->vb2_buf, p_data_req->id);
 			} else
-				vpu_dbg(LVL_ERR, "error: wait timeout, but the list is still empty");
+				vpu_dbg(LVL_ERR, "error: the list is still empty");
 		}
 		}
 		break;
@@ -1718,7 +1718,7 @@ static void vpu_api_event_handler(struct vpu_ctx *ctx, u_int32 uStrIdx, u_int32 
 			p_data_req = &ctx->q_data[V4L2_DST].vb2_reqs[i];
 			if (p_data_req->vb2_buf != NULL)
 				if (p_data_req->status != FRAME_RELEASE)
-					vpu_dbg(LVL_ERR, "error: buffer(%d) status is %s when receive VID_API_EVENT_STR_BUF_RST\n", i, bufstat[p_data_req->status]);
+					vpu_dbg(LVL_INFO, "buffer(%d) status is %s when receive VID_API_EVENT_STR_BUF_RST\n", i, bufstat[p_data_req->status]);
 		}
 		complete(&ctx->completion);
 		}
@@ -1823,7 +1823,7 @@ static int vpu_next_free_instance(struct vpu_dev *dev)
 {
 	int idx = ffz(dev->instance_mask);
 
-	if (idx < 0 || idx > VPU_MAX_NUM_STREAMS)
+	if (idx < 0 || idx >= VPU_MAX_NUM_STREAMS)
 		return -EBUSY;
 
 	return idx;

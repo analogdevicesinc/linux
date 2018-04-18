@@ -164,6 +164,7 @@ static struct vpu_v4l2_fmt  formats_yuv_enc[] = {
 		.venc_std   = VPU_PF_YUV420_SEMIPLANAR,
 	},
 };
+static void v4l2_vpu_send_cmd(struct vpu_ctx *ctx, uint32_t idx, uint32_t cmdid, uint32_t cmdnum, uint32_t *local_cmddata);
 
 static void MU_sendMesgToFW(void __iomem *base, MSG_Type type, uint32_t value)
 {
@@ -540,12 +541,15 @@ static int v4l2_ioctl_encoder_cmd(struct file *file,
 		struct v4l2_encoder_cmd *cmd
 		)
 {
+	struct vpu_ctx *ctx = v4l2_fh_to_ctx(fh);
+	u_int32 uStrIdx = ctx->str_index;
 	vpu_dbg(LVL_INFO, "%s()\n", __func__);
 
 	switch (cmd->cmd) {
 	case V4L2_ENC_CMD_START:
 		break;
 	case V4L2_ENC_CMD_STOP:
+		v4l2_vpu_send_cmd(ctx, uStrIdx, GTB_ENC_CMD_STREAM_STOP, 0, NULL);
 		break;
 	case V4L2_ENC_CMD_PAUSE:
 		break;
@@ -655,9 +659,9 @@ static int v4l2_enc_s_ctrl(struct v4l2_ctrl *ctrl)
 			if (!pEncParam->uTargetBitrate) {
 				// Setup some default values if not set, these should really be
 				// resolution specific
-				pEncParam->uTargetBitrate = 200;
-				pEncParam->uMaxBitRate    = 4000;
-				pEncParam->uMinBitRate    = 50;
+				pEncParam->uTargetBitrate = ctx->q_data[V4L2_SRC].height * ctx->q_data[V4L2_SRC].width * 12 * 30 / 100000;
+				pEncParam->uMaxBitRate    = ctx->q_data[V4L2_SRC].height * ctx->q_data[V4L2_SRC].width * 12 * 30 / 10000;
+				pEncParam->uMinBitRate    = ctx->q_data[V4L2_SRC].height * ctx->q_data[V4L2_SRC].width * 12 * 30 / 1000000;
 			}
 		} else
 			// Only CQ and CBR supported at present, force CQ mode
@@ -703,7 +707,7 @@ static void vpu_encoder_ctrls(struct vpu_ctx *ctx)
 			V4L2_MPEG_VIDEO_H264_PROFILE_BASELINE
 			);
 	v4l2_ctrl_new_std(&ctx->ctrl_handler, &vpu_enc_ctrl_ops,
-		V4L2_CID_MPEG_VIDEO_BITRATE, 0, 32767000, 1, 100);
+		V4L2_CID_MPEG_VIDEO_BITRATE, 0, 32767000, 1, 0);
 	v4l2_ctrl_new_std(&ctx->ctrl_handler, &vpu_enc_ctrl_ops,
 		V4L2_CID_MPEG_VIDEO_GOP_SIZE, 1, 60, 1, 16);
 	v4l2_ctrl_new_std(&ctx->ctrl_handler, &vpu_enc_ctrl_ops,
@@ -747,39 +751,6 @@ static void v4l2_vpu_send_cmd(struct vpu_ctx *ctx, uint32_t idx, uint32_t cmdid,
 	MU_SendMessage(ctx->dev->mu_base_virtaddr, 0, COMMAND);
 }
 
-/**the function is used for to convert yuv420p to yuv420sp
- * yyyy yyyy
- * uu vv
- * ->
- * yyyy yyyy
- * uv uv
- **/
-static void convert_feed_stream(struct queue_data *This, struct vb2_buffer *vb)
-{
-	u_int8 *y_start;
-	u_int8 *u_start;
-	u_int8 *v_start;
-	u_int8 *uv_temp;
-	u_int32 i, j;
-	u_int32 height = This->height;
-	u_int32 width = This->width;
-	u_int32 y_size, uv_size;
-	y_size = height * width;
-	uv_size = height * width/2;
-	uv_temp = kmalloc(sizeof(u_int8)*uv_size, GFP_KERNEL);
-
-	y_start = (u_int8 *)vb2_plane_vaddr(vb, 0);
-	u_start = y_start + y_size;
-	v_start = y_start + y_size*5/4;
-	for (i = 0, j = 0; j < uv_size; j += 2, i++) {
-		uv_temp[j] = u_start[i];
-		uv_temp[j+1] = v_start[i];
-	}
-	memcpy(u_start, uv_temp, sizeof(u_int8)*uv_size);
-
-	kfree(uv_temp);
-}
-
 static void v4l2_transfer_buffer_to_firmware(struct queue_data *This, struct vb2_buffer *vb)
 {
 	struct vpu_ctx *ctx = container_of(This, struct vpu_ctx, q_data[V4L2_SRC]);
@@ -791,7 +762,7 @@ static void v4l2_transfer_buffer_to_firmware(struct queue_data *This, struct vb2
 	pMEDIAIP_ENC_EXPERT_MODE_PARAM pEncExpertModeParam;
 	pENC_RPC_HOST_IFACE pSharedInterface = ctx->dev->shared_mem.pSharedInterface;
 	pMEDIA_ENC_API_CONTROL_INTERFACE pEncCtrlInterface;
-	u_int32 uStrIdx = 0;
+	u_int32 uStrIdx = ctx->str_index;
 
 	vpu_dbg(LVL_INFO, "ENC_RPC_HOST_IFACE(%ld)MEDIA_ENC_API_CONTROL_INTERFACE(%ld) EncYUVBufferDesc(%ld) expertParam(%ld) encparam(%ld) MEDIAIP_ENC_FMT(%ld)\n",
 			sizeof(ENC_RPC_HOST_IFACE), sizeof(MEDIA_ENC_API_CONTROL_INTERFACE),
@@ -825,7 +796,7 @@ static void v4l2_transfer_buffer_to_firmware(struct queue_data *This, struct vb2
 			vpu_dbg(LVL_INFO, " 0x%x", read_data[read_idx]);
 		vpu_dbg(LVL_INFO, "\n");
  #endif
-		v4l2_vpu_send_cmd(ctx, 0, GTB_ENC_CMD_CONFIGURE_CODEC, 0, NULL);
+		v4l2_vpu_send_cmd(ctx, ctx->str_index, GTB_ENC_CMD_CONFIGURE_CODEC, 0, NULL);
 		vpu_dbg(LVL_INFO, "send command GTB_ENC_CMD_CONFIGURE_CODEC\n");
 
 		ctx->start_flag = false;
@@ -868,7 +839,6 @@ static bool update_yuv_addr(struct vpu_ctx *ctx, u_int32 uStrIdx)
 			vpu_dbg(LVL_INFO, " 0x%x", read_data[read_idx]);
 		vpu_dbg(LVL_INFO, "\n");
  #endif
-		convert_feed_stream(This, p_data_req->vb2_buf);
 		pphy_address = (u_int32 *)vb2_plane_cookie(p_data_req->vb2_buf, 0);
 		pParamYuvBuffDesc->uLumaBase = *pphy_address;
     /* Not sure what the test should be here for a valid frame return from vb2_plane_cookie */
@@ -988,7 +958,8 @@ static void report_stream_done(struct vpu_ctx *ctx,  MEDIAIP_ENC_PIC_INFO *pEncP
 	list_del(&p_data_req->list);
 	up(&This->drv_q_lock);
 	//memcpy to vb2 buffer from encpicinfo
-	vb2_buffer_done(p_data_req->vb2_buf, VB2_BUF_STATE_DONE);
+	if (p_data_req->vb2_buf->state == VB2_BUF_STATE_ACTIVE)
+		vb2_buffer_done(p_data_req->vb2_buf, VB2_BUF_STATE_DONE);
 	}
 	vpu_dbg(LVL_INFO, "report_buffer_done return\n");
 }
@@ -1078,7 +1049,7 @@ static void vpu_api_event_handler(struct vpu_ctx *ctx, u_int32 uStrIdx, u_int32 
 		case VID_API_ENC_EVENT_START_DONE: {
 		vpu_dbg(LVL_INFO, "VID_API_ENC_EVENT_START_DONE : Encoder configuration complete\n");
 		update_yuv_addr(ctx, 0);
-		v4l2_vpu_send_cmd(ctx, 0, GTB_ENC_CMD_FRAME_ENCODE, 0, NULL);
+		v4l2_vpu_send_cmd(ctx, uStrIdx, GTB_ENC_CMD_FRAME_ENCODE, 0, NULL);
 		} break;
 		case VID_API_ENC_EVENT_MEM_REQUEST: {
 			MEDIAIP_ENC_MEM_REQ_DATA *req_data = (MEDIAIP_ENC_MEM_REQ_DATA *)event_data;
@@ -1086,8 +1057,7 @@ static void vpu_api_event_handler(struct vpu_ctx *ctx, u_int32 uStrIdx, u_int32 
 			vpu_dbg(LVL_INFO, "uEncFrmSize = %d, uEncFrmNum=%d, uRefFrmSize=%d, uRefFrmNum=%d, uActBufSize=%d\n", req_data->uEncFrmSize, req_data->uEncFrmNum, req_data->uRefFrmSize, req_data->uRefFrmNum, req_data->uActBufSize);
 			enc_mem_alloc(ctx, req_data);
 			//update_yuv_addr(ctx,0);
-			v4l2_vpu_send_cmd(ctx, 0, GTB_ENC_CMD_STREAM_START, 0, NULL);
-
+			v4l2_vpu_send_cmd(ctx, uStrIdx, GTB_ENC_CMD_STREAM_START, 0, NULL);
 		} break;
 		case VID_API_ENC_EVENT_PARA_UPD_DONE: {
 		vpu_dbg(LVL_INFO, "VID_API_ENC_EVENT_PARA_UPD_DONE : Parameter update complete\n");
@@ -1122,18 +1092,24 @@ static void vpu_api_event_handler(struct vpu_ctx *ctx, u_int32 uStrIdx, u_int32 
 
 		vpu_dbg(LVL_INFO, "VID_API_ENC_EVENT_FRAME_RELEASE : Frame release - uFrameID = 0x%x\n", *uFrameID);
 		p_data_req = &This->vb2_reqs[*uFrameID];
-		vb2_buffer_done(p_data_req->vb2_buf,
-				VB2_BUF_STATE_DONE
+		if (p_data_req->vb2_buf->state == VB2_BUF_STATE_ACTIVE)
+			vb2_buffer_done(p_data_req->vb2_buf,
+					VB2_BUF_STATE_DONE
 				);
 
 		} break;
-		case VID_API_ENC_EVENT_STOP_DONE:
+		case VID_API_ENC_EVENT_STOP_DONE: {
+		const struct v4l2_event ev = {
+			.type = V4L2_EVENT_EOS
+		};
+		v4l2_event_queue_fh(&ctx->fh, &ev);
+		}
 		vpu_dbg(LVL_INFO, "VID_API_ENC_EVENT_STOP_DONE : Stop done\n");
 		break;
 		case VID_API_ENC_EVENT_FRAME_INPUT_DONE: {
 		vpu_dbg(LVL_INFO, "VID_API_ENC_EVENT_FRAME_INPUT_DONE : Input done\n");
-		update_yuv_addr(ctx, 0);
-		v4l2_vpu_send_cmd(ctx, 0, GTB_ENC_CMD_FRAME_ENCODE, 0, NULL);
+		update_yuv_addr(ctx, uStrIdx);
+		v4l2_vpu_send_cmd(ctx, uStrIdx, GTB_ENC_CMD_FRAME_ENCODE, 0, NULL);
 		} break;
 		case VID_API_ENC_EVENT_TERMINATE_DONE:
 		vpu_dbg(LVL_INFO, "VID_API_ENC_EVENT_TERMINATE_DONE : Codec terminated\n");
@@ -1224,7 +1200,7 @@ static int vpu_next_free_instance(struct vpu_dev *dev)
 {
 	int idx = ffz(dev->instance_mask);
 
-	if (idx < 0 || idx > VPU_MAX_NUM_STREAMS)
+	if (idx < 0 || idx >= VPU_MAX_NUM_STREAMS)
 		return -EBUSY;
 
 	return idx;
@@ -1513,12 +1489,15 @@ static int v4l2_open(struct file *filp)
 	ctx = kzalloc(sizeof(*ctx), GFP_KERNEL);
 	if (!ctx)
 		return -ENOMEM;
+	mutex_lock(&dev->dev_mutex);
 	idx = vpu_next_free_instance(dev);
 	if (idx < 0) {
 		ret = idx;
-		return ret;
+		mutex_unlock(&dev->dev_mutex);
+		goto err_find_index;
 	}
 	set_bit(idx, &dev->instance_mask);
+	mutex_unlock(&dev->dev_mutex);
 	init_completion(&ctx->completion);
 
 	v4l2_fh_init(&ctx->fh, video_devdata(filp));
@@ -1587,6 +1566,8 @@ err_firmware_load:
 	v4l2_fh_del(&ctx->fh);
 	v4l2_fh_exit(&ctx->fh);
 	clear_bit(ctx->str_index, &dev->instance_mask);
+
+err_find_index:
 	kfree(ctx);
 	return ret;
 }
@@ -1602,7 +1583,10 @@ static int v4l2_release(struct file *filp)
 	ctrls_delete_encoder(ctx);
 	v4l2_fh_del(&ctx->fh);
 	v4l2_fh_exit(&ctx->fh);
+
+	mutex_lock(&dev->dev_mutex);
 	clear_bit(ctx->str_index, &dev->instance_mask);
+	mutex_unlock(&dev->dev_mutex);
 
 	dma_free_coherent(&ctx->dev->plat_dev->dev,
 			ctx->encoder_stream.size,
