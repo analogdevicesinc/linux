@@ -1490,6 +1490,17 @@ static int mx6s_vidioc_querycap(struct file *file, void  *priv,
 	return 0;
 }
 
+static int mx6s_vidioc_expbuf(struct file *file, void *priv,
+			     struct v4l2_exportbuffer *eb)
+{
+	struct mx6s_csi_dev *csi_dev = video_drvdata(file);
+
+	if (eb->type == V4L2_BUF_TYPE_VIDEO_CAPTURE)
+		return vb2_expbuf(&csi_dev->vb2_vidq, eb);
+
+	return -EINVAL;
+}
+
 static int mx6s_vidioc_streamon(struct file *file, void *priv,
 			       enum v4l2_buf_type i)
 {
@@ -1672,6 +1683,7 @@ static const struct v4l2_ioctl_ops mx6s_csi_ioctl_ops = {
 	.vidioc_enum_input    = mx6s_vidioc_enum_input,
 	.vidioc_g_input       = mx6s_vidioc_g_input,
 	.vidioc_s_input       = mx6s_vidioc_s_input,
+	.vidioc_expbuf        = mx6s_vidioc_expbuf,
 	.vidioc_streamon      = mx6s_vidioc_streamon,
 	.vidioc_streamoff     = mx6s_vidioc_streamoff,
 	.vidioc_g_parm        = mx6s_vidioc_g_parm,
