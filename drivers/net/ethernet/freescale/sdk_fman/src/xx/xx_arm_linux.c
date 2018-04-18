@@ -607,7 +607,7 @@ uint32_t XX_CurrentTime(void)
     return (jiffies*1000)/HZ;
 }
 
-
+#if 0
 t_Handle XX_CreateTimer(void)
 {
     struct timer_list *p_Timer = (struct timer_list *)XX_Malloc(sizeof(struct timer_list));
@@ -684,6 +684,7 @@ int XX_TimerIsActive(t_Handle h_Timer)
 {
   return timer_pending((struct timer_list *)h_Timer);
 }
+#endif
 
 uint32_t XX_Sleep(uint32_t msecs)
 {
