@@ -506,7 +506,7 @@
 		};
 
 		mmdc: mmdc@40ab0000 {
-			compatible = "fsl,imx7ulp-mmdc";
+			compatible = "fsl,imx7ulp-mmdc", "fsl,imx6q-mmdc";
 			reg = <0x40ab0000 0x4000>;
 		};
 
