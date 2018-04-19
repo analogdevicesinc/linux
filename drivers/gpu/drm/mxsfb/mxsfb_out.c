@@ -86,10 +86,9 @@ static const struct drm_connector_funcs mxsfb_panel_connector_funcs = {
 int mxsfb_create_output(struct drm_device *drm)
 {
 	struct mxsfb_drm_private *mxsfb = drm->dev_private;
-	struct drm_panel *panel;
 	int ret;
 
-	ret = drm_of_find_panel_or_bridge(drm->dev->of_node, 0, 0, &panel, NULL);
+	ret = drm_of_find_panel_or_bridge(drm->dev->of_node, 0, 0, &mxsfb->panel, &mxsfb->bridge);
 	if (ret)
 		return ret;
 
