@@ -305,7 +305,7 @@ static int phy_needs_fixup(struct phy_device *phydev, struct phy_fixup *fixup)
 }
 
 /* Runs any matching fixups for this phydev */
-int phy_scan_fixups(struct phy_device *phydev)
+static int phy_scan_fixups(struct phy_device *phydev)
 {
 	struct phy_fixup *fixup;
 
@@ -325,7 +325,6 @@ int phy_scan_fixups(struct phy_device *phydev)
 
 	return 0;
 }
-EXPORT_SYMBOL(phy_scan_fixups);
 
 static int phy_bus_match(struct device *dev, struct device_driver *drv)
 {
