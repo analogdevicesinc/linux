@@ -39,16 +39,6 @@ enum dpi_pixel_format {
 	DPI_FMT_24_BIT /* 0x3 */
 };
 
-/*
- * Just some helper functions to add/remove a bridge into/from encoder bridge
- * chain.
- */
-bool nwl_dsi_add_bridge(struct drm_encoder *encoder,
-			struct drm_bridge *next_bridge);
-
-bool nwl_dsi_del_bridge(struct drm_encoder *encoder,
-			struct drm_bridge *bridge);
-
 unsigned long nwl_dsi_get_bit_clock(struct drm_bridge *bridge,
 	unsigned long pixclock);
 

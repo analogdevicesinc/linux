@@ -269,60 +269,6 @@ static enum dpi_pixel_format nwl_dsi_get_dpi_pixel_format(
 	}
 }
 
-/* Adds a bridge to encoder bridge chain */
-bool nwl_dsi_add_bridge(struct drm_encoder *encoder,
-			struct drm_bridge *next_bridge)
-{
-	struct drm_bridge *bridge = encoder->bridge;
-
-	if (!next_bridge)
-		return false;
-
-	next_bridge->encoder = encoder;
-	if (!bridge) {
-		encoder->bridge = bridge;
-		return true;
-	}
-
-	while (bridge != next_bridge && bridge->next)
-		bridge = bridge->next;
-
-	/* Avoid adding an existing bridge to the chain */
-	if (bridge == next_bridge) {
-		next_bridge->encoder = NULL;
-		return false;
-	}
-
-	bridge->next = next_bridge;
-	return true;
-}
-EXPORT_SYMBOL_GPL(nwl_dsi_add_bridge);
-
-/* Removes last bridge from encoder bridge chain */
-bool nwl_dsi_del_bridge(struct drm_encoder *encoder,
-			struct drm_bridge *bridge)
-{
-	struct drm_bridge *b = encoder->bridge;
-	struct drm_bridge *prev = NULL;
-
-	if (!b || !bridge)
-		return false;
-
-	while (b->next) {
-		prev = b;
-		b = b->next;
-	}
-
-	bridge->encoder = NULL;
-	if (prev)
-		prev->next = NULL;
-	else
-		encoder->bridge = NULL;
-
-	return true;
-}
-EXPORT_SYMBOL_GPL(nwl_dsi_del_bridge);
-
 unsigned long nwl_dsi_get_bit_clock(struct drm_bridge *bridge,
 	unsigned long pixclock)
 {
@@ -980,21 +926,6 @@ static int nwl_dsi_create_connector(struct drm_device *drm,
 	return 0;
 }
 
-static int nwl_dsi_attach_next_bridge(struct drm_encoder *encoder,
-				      struct drm_bridge *bridge)
-{
-	int ret = 0;
-
-	/* Attach the next bridge in chain */
-	if (!nwl_dsi_add_bridge(encoder, bridge))
-		return -EEXIST;
-	ret = drm_bridge_attach(encoder, bridge, NULL);
-	if (ret)
-		nwl_dsi_del_bridge(encoder, bridge);
-
-	return ret;
-}
-
 static int nwl_dsi_bridge_attach(struct drm_bridge *bridge)
 {
 	struct nwl_mipi_dsi *dsi = bridge->driver_private;
@@ -1028,7 +959,7 @@ static int nwl_dsi_bridge_attach(struct drm_bridge *bridge)
 		}
 
 		dsi->next_bridge = of_drm_find_bridge(remote_node);
-		ret = nwl_dsi_attach_next_bridge(encoder, dsi->next_bridge);
+		ret = drm_bridge_attach(encoder, dsi->next_bridge, encoder->bridge);
 		if (ret)
 			dsi->next_bridge = NULL;
 		of_node_put(remote_node);
@@ -1057,7 +988,6 @@ static void nwl_dsi_bridge_detach(struct drm_bridge *bridge)
 		drm_connector_cleanup(&dsi->connector);
 		dsi->panel = NULL;
 	} else if (dsi->next_bridge) {
-		nwl_dsi_del_bridge(dsi->next_bridge->encoder, dsi->next_bridge);
 		dsi->next_bridge = NULL;
 	}
 	if (dsi->host.dev)
