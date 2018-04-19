@@ -702,13 +702,10 @@ static int imx_nwl_dsi_bridge_attach(struct drm_bridge *bridge)
 	}
 
 	/* Attach the next bridge in chain */
-	nwl_dsi_add_bridge(encoder, dsi->next_bridge);
-	ret = drm_bridge_attach(encoder, dsi->next_bridge, NULL);
-	if (ret) {
+	ret = drm_bridge_attach(encoder, dsi->next_bridge, bridge);
+	if (ret)
 		DRM_DEV_ERROR(dsi->dev, "Failed to attach bridge! (%d)\n",
 			      ret);
-		nwl_dsi_del_bridge(encoder, dsi->next_bridge);
-	}
 
 	return ret;
 }
@@ -719,7 +716,10 @@ static void imx_nwl_dsi_bridge_detach(struct drm_bridge *bridge)
 
 	DRM_DEV_DEBUG_DRIVER(dsi->dev, "id = %s\n",
 			     (dsi->instance)?"DSI1":"DSI0");
-	nwl_dsi_del_bridge(dsi->next_bridge->encoder, dsi->next_bridge);
+	/*
+	 * The next bridge in chain will be automatically detached, there is
+	 * no need for us to detach it.
+	 */
 }
 
 static const struct drm_bridge_funcs imx_nwl_dsi_bridge_funcs = {
