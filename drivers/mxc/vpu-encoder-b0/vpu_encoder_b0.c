@@ -700,11 +700,11 @@ static void vpu_encoder_ctrls(struct vpu_ctx *ctx)
 	v4l2_ctrl_new_std_menu(&ctx->ctrl_handler, &vpu_enc_ctrl_ops,
 			V4L2_CID_MPEG_VIDEO_BITRATE_MODE,
 			V4L2_MPEG_VIDEO_BITRATE_MODE_CBR, 0x0,
-			V4L2_MPEG_VIDEO_BITRATE_MODE_CBR);
+			V4L2_MPEG_VIDEO_BITRATE_MODE_VBR);
 	v4l2_ctrl_new_std_menu(&ctx->ctrl_handler, &vpu_enc_ctrl_ops,
 			V4L2_CID_MPEG_VIDEO_H264_PROFILE,
 			V4L2_MPEG_VIDEO_H264_PROFILE_MULTIVIEW_HIGH, 0x0,
-			V4L2_MPEG_VIDEO_H264_PROFILE_BASELINE
+			V4L2_MPEG_VIDEO_H264_PROFILE_CONSTRAINED_BASELINE
 			);
 	v4l2_ctrl_new_std(&ctx->ctrl_handler, &vpu_enc_ctrl_ops,
 		V4L2_CID_MPEG_VIDEO_BITRATE, 0, 32767000, 1, 0);
@@ -1486,6 +1486,7 @@ static int v4l2_open(struct file *filp)
 	int ret;
 	u_int32 i;
 
+	pm_runtime_get_sync(dev->generic_dev);
 	ctx = kzalloc(sizeof(*ctx), GFP_KERNEL);
 	if (!ctx)
 		return -ENOMEM;
@@ -1568,6 +1569,7 @@ err_firmware_load:
 	clear_bit(ctx->str_index, &dev->instance_mask);
 
 err_find_index:
+	pm_runtime_put_sync(dev->generic_dev);
 	kfree(ctx);
 	return ret;
 }
@@ -1613,6 +1615,7 @@ static int v4l2_release(struct file *filp)
 				ctx->actFrame.virt_addr,
 				ctx->actFrame.phy_addr
 				);
+	pm_runtime_put_sync(dev->generic_dev);
 	kfree(ctx);
 	return 0;
 }
@@ -1694,7 +1697,7 @@ static struct video_device v4l2_videodevice_encoder = {
 	.ioctl_ops = &v4l2_encoder_ioctl_ops,
 	.vfl_dir = VFL_DIR_M2M,
 };
-
+#if 0
 static int set_vpu_pwr(sc_ipc_t ipcHndl,
 		sc_pm_power_mode_t pm
 		)
@@ -1785,7 +1788,7 @@ static void vpu_set_power(struct vpu_dev *dev, bool on)
 			vpu_dbg(LVL_ERR, "failed to power off\n");
 	}
 }
-
+#endif
 static void vpu_setup(struct vpu_dev *This)
 {
 	uint32_t read_data = 0;
@@ -1817,14 +1820,11 @@ static void vpu_reset(struct vpu_dev *This)
 static int vpu_enable_hw(struct vpu_dev *This)
 {
 	vpu_dbg(LVL_INFO, "%s()\n", __func__);
-	vpu_set_power(This, true);
 	This->vpu_clk = clk_get(&This->plat_dev->dev, "vpu_encoder_clk");
 	if (IS_ERR(This->vpu_clk)) {
 		vpu_dbg(LVL_ERR, "vpu_clk get error\n");
 		return -ENOENT;
 	}
-	clk_set_rate(This->vpu_clk, 600000000);
-	clk_prepare_enable(This->vpu_clk);
 	vpu_setup(This);
 	return 0;
 }
@@ -1836,12 +1836,9 @@ static void vpu_disable_hw(struct vpu_dev *This)
 		devm_iounmap(&This->plat_dev->dev,
 				This->regs_base);
 	}
-	clk_disable_unprepare(This->vpu_clk);
 	if (This->vpu_clk) {
 		clk_put(This->vpu_clk);
-		This->vpu_clk = NULL;
 	}
-	vpu_set_power(This, false);
 }
 
 static int vpu_probe(struct platform_device *pdev)
@@ -1953,6 +1950,8 @@ static int vpu_probe(struct platform_device *pdev)
 	}
 
 	INIT_WORK(&dev->msg_work, vpu_msg_run_work);
+	pm_runtime_enable(&pdev->dev);
+	pm_runtime_get_sync(&pdev->dev);
 #ifdef CM4
 	ret = power_CM4_up(dev);
 	if (ret) {
@@ -1988,6 +1987,7 @@ static int vpu_probe(struct platform_device *pdev)
 	rpc_init_shared_memory_encoder(&dev->shared_mem, dev->m0_rpc_phy - dev->m0_p_fw_space_phy, dev->m0_rpc_virt, SHARED_SIZE);
 #endif
 	rpc_set_system_cfg_value_encoder(dev->shared_mem.pSharedInterface, VPU_REG_BASE);
+	pm_runtime_put_sync(&pdev->dev);
 	return 0;
 }
 
@@ -2010,6 +2010,7 @@ static int vpu_remove(struct platform_device *pdev)
 	dev->shared_mem.shared_mem_phy = 0;
 
 	vpu_disable_hw(dev);
+	pm_runtime_disable(&pdev->dev);
 
 	if (video_get_drvdata(dev->pvpu_encoder_dev))
 		video_unregister_device(dev->pvpu_encoder_dev);

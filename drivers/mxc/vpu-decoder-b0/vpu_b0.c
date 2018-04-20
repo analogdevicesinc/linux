@@ -2149,6 +2149,7 @@ static int v4l2_open(struct file *filp)
 	int ret;
 	u_int32 i;
 
+	pm_runtime_get_sync(dev->generic_dev);
 	ctx = kzalloc(sizeof(*ctx), GFP_KERNEL);
 	if (!ctx)
 		return -ENOMEM;
@@ -2245,6 +2246,7 @@ err_firmware_load:
 	kfree(ctx);
 	return ret;
 err_find_index:
+	pm_runtime_put_sync(dev->generic_dev);
 	kfree(ctx);
 	return ret;
 }
@@ -2303,6 +2305,7 @@ static int v4l2_release(struct file *filp)
 		kfree(ctx->pSeqinfo);
 		ctx->pSeqinfo = NULL;
 	}
+	pm_runtime_put_sync(ctx->dev->generic_dev);
 	kfree(ctx);
 	return 0;
 }
@@ -2384,7 +2387,7 @@ static struct video_device v4l2_videodevice_decoder = {
 	.ioctl_ops = &v4l2_decoder_ioctl_ops,
 	.vfl_dir = VFL_DIR_M2M,
 };
-
+#if 0
 static int set_vpu_pwr(sc_ipc_t ipcHndl,
 		sc_pm_power_mode_t pm
 		)
@@ -2485,6 +2488,7 @@ static void vpu_set_power(struct vpu_dev *dev, bool on)
 			vpu_dbg(LVL_ERR, "error: failed to power off\n");
 	}
 }
+#endif
 
 static void vpu_setup(struct vpu_dev *This)
 {
@@ -2517,30 +2521,20 @@ static void vpu_reset(struct vpu_dev *This)
 static int vpu_enable_hw(struct vpu_dev *This)
 {
 	vpu_dbg(LVL_INFO, "%s()\n", __func__);
-	vpu_set_power(This, true);
 	This->vpu_clk = clk_get(&This->plat_dev->dev, "vpu_clk");
 	if (IS_ERR(This->vpu_clk)) {
 		vpu_dbg(LVL_ERR, "vpu_clk get error\n");
 		return -ENOENT;
 	}
-	clk_set_rate(This->vpu_clk, 600000000);
-	clk_prepare_enable(This->vpu_clk);
 	vpu_setup(This);
 	return 0;
 }
 static void vpu_disable_hw(struct vpu_dev *This)
 {
 	vpu_reset(This);
-	if (This->regs_base) {
-		devm_iounmap(&This->plat_dev->dev,
-				This->regs_base);
-	}
-	clk_disable_unprepare(This->vpu_clk);
 	if (This->vpu_clk) {
 		clk_put(This->vpu_clk);
-		This->vpu_clk = NULL;
 	}
-	vpu_set_power(This, false);
 }
 
 static int vpu_probe(struct platform_device *pdev)
@@ -2622,7 +2616,7 @@ static int vpu_probe(struct platform_device *pdev)
 			video_device_release(dev->pvpu_decoder_dev);
 			dev->pvpu_decoder_dev = NULL;
 		} else {
-			vpu_dbg(LVL_INFO, "error: %s  register video decoder device\n",
+			vpu_dbg(LVL_INFO, "%s  register video decoder device\n",
 					__func__
 				   );
 		}
@@ -2655,6 +2649,8 @@ static int vpu_probe(struct platform_device *pdev)
 	}
 
 	INIT_WORK(&dev->msg_work, vpu_msg_run_work);
+	pm_runtime_enable(&pdev->dev);
+	pm_runtime_get_sync(&pdev->dev);
 #ifdef CM4
 	ret = power_CM4_up(dev);
 	if (ret) {
@@ -2693,6 +2689,8 @@ static int vpu_probe(struct platform_device *pdev)
 #endif
 	rpc_set_system_cfg_value(dev->shared_mem.pSharedInterface, VPU_REG_BASE);
 
+	pm_runtime_put_sync(&pdev->dev);
+
 	return 0;
 }
 
@@ -2717,6 +2715,7 @@ static int vpu_remove(struct platform_device *pdev)
 	dev->shared_mem.shared_mem_phy = 0;
 
 	vpu_disable_hw(dev);
+	pm_runtime_disable(&pdev->dev);
 
 	if (video_get_drvdata(dev->pvpu_decoder_dev))
 		video_unregister_device(dev->pvpu_decoder_dev);
