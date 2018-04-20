@@ -786,8 +786,11 @@ static int dprc_probe(struct platform_device *pdev)
 	}
 
 	switch (dprc->sc_resource) {
-	case SC_R_DC_0_BLIT0:
 	case SC_R_DC_0_BLIT1:
+		if (dprc->devtype->has_fixup)
+			dprc->has_aux_prg = true;
+		/* fall-through */
+	case SC_R_DC_0_BLIT0:
 	case SC_R_DC_1_BLIT0:
 	case SC_R_DC_1_BLIT1:
 		dprc->is_blit_chan = true;
