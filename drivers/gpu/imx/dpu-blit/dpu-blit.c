@@ -123,7 +123,7 @@ void dpu_be_configure_prefetch(struct dpu_bliteng *dpu_be,
 	dpu_be_wait(dpu_be);
 
 	if (need_handle_start) {
-		dprc_irq_handle(dprc);
+		dprc_first_frame_handle(dprc);
 		need_handle_start = false;
 	}
 
@@ -141,7 +141,6 @@ void dpu_be_configure_prefetch(struct dpu_bliteng *dpu_be,
 	dprc_reg_update(dprc);
 
 	if (start) {
-		dprc_enable_ctrl_done_irq(dprc);
 		need_handle_start = true;
 	}
 
