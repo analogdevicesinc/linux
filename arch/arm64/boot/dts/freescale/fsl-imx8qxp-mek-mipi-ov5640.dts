@@ -48,7 +48,7 @@
 	status = "okay";
 
 	ov5640_mipi: ov5640_mipi@3c {
-		compatible = "ovti,ov5640_v3";
+		compatible = "ovti,ov5640_mipi_v3";
 		reg = <0x3c>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_mipi_csi0>;

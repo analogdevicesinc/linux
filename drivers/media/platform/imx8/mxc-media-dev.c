@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 NXP
+ * Copyright 2017-2018 NXP
  */
 /*
  * The code contained herein is licensed under the GNU General Public
@@ -199,7 +199,7 @@ static int mxc_md_create_links(struct mxc_md *mxc_md)
 		if (sensor == NULL || sensor->sd == NULL)
 			continue;
 
-		if (mxc_md->parallel_csi) {
+		if (mxc_md->parallel_csi && !sensor->mipi_mode) {
 			pcsidev = mxc_md->pcsidev;
 			if (pcsidev == NULL)
 				continue;
@@ -345,11 +345,12 @@ static int register_sensor_entities(struct mxc_md *mxc_md)
 		struct device_node *port;
 
 		if (of_node_cmp(node->name, "csi") &&
-			of_node_cmp(node->name, "pcsi")) {
+			of_node_cmp(node->name, "pcsi"))
 			continue;
-		}
+
 		if (!of_device_is_available(node))
 			continue;
+
 		/* csi2 node have only port */
 		port = of_get_next_child(node, NULL);
 		if (!port)
@@ -367,6 +368,9 @@ static int register_sensor_entities(struct mxc_md *mxc_md)
 		}
 
 		mxc_md->sensor[index].id = endpoint.base.port;
+
+		if (!of_node_cmp(node->name, "csi"))
+			mxc_md->sensor[index].mipi_mode = true;
 
 		/* remote port---sensor node */
 		rem = of_graph_get_remote_port_parent(ep);

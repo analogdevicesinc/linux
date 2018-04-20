@@ -1,0 +1,160 @@
+#include "fsl-imx8qxp-mek.dts"
+#include "fsl-imx8qxp-mek-lvds0-it6263.dtsi"
+
+&iomuxc {
+	imx8qxp-mek {
+		pinctrl_mipi_csi0: mipicsi0grp{
+			fsl,pins = <
+				SC_P_MIPI_CSI0_MCLK_OUT_MIPI_CSI0_ACM_MCLK_OUT	0xC0000041
+				SC_P_MIPI_CSI0_GPIO0_01_LSIO_GPIO3_IO07		0xC0000041
+				SC_P_MIPI_CSI0_GPIO0_00_LSIO_GPIO3_IO08		0xC0000041
+			>;
+		};
+
+		pinctrl_parallel_csi: parallelcsigrp {
+			fsl,pins = <
+				SC_P_CSI_D00_CI_PI_D02		0xC0000041
+				SC_P_CSI_D01_CI_PI_D03		0xC0000041
+				SC_P_CSI_D02_CI_PI_D04		0xC0000041
+				SC_P_CSI_D03_CI_PI_D05		0xC0000041
+				SC_P_CSI_D04_CI_PI_D06		0xC0000041
+				SC_P_CSI_D05_CI_PI_D07		0xC0000041
+				SC_P_CSI_D06_CI_PI_D08		0xC0000041
+				SC_P_CSI_D07_CI_PI_D09		0xC0000041
+
+				SC_P_CSI_MCLK_CI_PI_MCLK		0xC0000041
+				SC_P_CSI_PCLK_CI_PI_PCLK		0xC0000041
+				SC_P_CSI_HSYNC_CI_PI_HSYNC		0xC0000041
+				SC_P_CSI_VSYNC_CI_PI_VSYNC		0xC0000041
+				SC_P_CSI_EN_LSIO_GPIO3_IO02		0xC0000041
+				SC_P_CSI_RESET_LSIO_GPIO3_IO03	0xC0000041
+			>;
+		};
+	};
+};
+
+&isi_0 {
+	interface = <6 0 2>;	/* INPUT: 6-PARALLEL CSI */
+	parallel_csi;
+	status = "okay";
+};
+
+&i2c0_cm40 {
+	ov5640: ov5640@3c {
+		compatible = "ovti,ov5640_v3";
+		reg = <0x3c>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_parallel_csi>;
+		clocks = <&clk IMX8QXP_PARALLEL_CSI_MISC0_CLK>;
+		clock-names = "csi_mclk";
+		pwn-gpios = <&gpio3 2 GPIO_ACTIVE_LOW>;
+		rst-gpios = <&gpio3 3 GPIO_ACTIVE_HIGH>;
+		csi_id = <0>;
+		mclk = <24000000>;
+		mclk_source = <0>;
+		status = "okay";
+		port {
+			ov5640_ep: endpoint {
+				remote-endpoint = <&parallel_csi_ep>;
+			};
+		};
+	};
+};
+
+&cameradev {
+	parallel_csi;
+	status = "okay";
+};
+
+&parallel_csi {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+	port@0 {
+		reg = <0>;
+		parallel_csi_ep: endpoint {
+			remote-endpoint = <&ov5640_ep>;
+		};
+	};
+};
+
+&isi_1 {
+	interface = <2 0 2>;
+	status = "okay";
+};
+
+&isi_2 {
+	status = "disabled";
+};
+
+&isi_3 {
+	status = "disabled";
+};
+
+&isi_4 {
+	status = "disabled";
+};
+
+&isi_5 {
+	status = "disabled";
+};
+
+&isi_6 {
+	status = "disabled";
+};
+
+&isi_7 {
+	status = "disabled";
+};
+
+&i2c0_csi0 {
+	clock-frequency = <100000>;
+	status = "okay";
+
+	ov5640_mipi: ov5640_mipi@3c {
+		compatible = "ovti,ov5640_mipi_v3";
+		reg = <0x3c>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_mipi_csi0>;
+		clocks = <&clk IMX8QXP_CLK_DUMMY>;
+		clock-names = "csi_mclk";
+		csi_id = <0>;
+		pwn-gpios = <&gpio3 7 GPIO_ACTIVE_LOW>;
+		rst-gpios = <&gpio3 8 GPIO_ACTIVE_HIGH>;
+		mclk = <24000000>;
+		mclk_source = <0>;
+		mipi_csi;
+		status = "okay";
+		port {
+			ov5640_mipi_ep: endpoint {
+				remote-endpoint = <&mipi_csi0_ep>;
+			};
+		};
+	};
+
+	max9286_mipi@6A {
+		status = "disabled";
+	};
+};
+
+&mipi_csi_0 {
+	/delete-property/virtual-channel;
+	status = "okay";
+
+	port@0 {
+		reg = <0>;
+		mipi_csi0_ep: endpoint {
+			remote-endpoint = <&ov5640_mipi_ep>;
+			data-lanes = <1 2>;
+		};
+	};
+};
+
+&jpegdec {
+	status = "disabled";
+};
+
+&jpegenc {
+	status = "disabled";
+};
+

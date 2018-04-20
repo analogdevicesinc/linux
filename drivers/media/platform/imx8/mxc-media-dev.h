@@ -72,7 +72,8 @@ struct mxc_sensor_info {
 	int				id;
 	struct v4l2_subdev		*sd;
 	struct v4l2_async_subdev asd;
-//	struct mxc_isi_dev *host;
+	bool mipi_mode;
+	/* struct mxc_isi_dev *host; */
 };
 
 struct mxc_mjpeg_dec{

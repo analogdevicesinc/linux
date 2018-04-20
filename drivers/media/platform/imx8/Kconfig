@@ -30,6 +30,11 @@ config MXC_CAMERA_OV5640_V3
 	depends on I2C
 	default y
 
+config MXC_CAMERA_OV5640_MIPI_V3
+	tristate "Maxim OV5640_MIPI_V3 driver support"
+	depends on I2C
+	default y
+
 config GMSL_MAX9286
         tristate "Maxim max9286 GMSL Deserializer Input support"
 	select SENSOR_OV10635
