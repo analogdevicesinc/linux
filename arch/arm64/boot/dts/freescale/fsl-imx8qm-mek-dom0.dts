@@ -171,11 +171,6 @@
 		      <&edma01 0x10>;
 };
 
-/* DC0 */
-&pd_dc1 {
-	xen,passthrough;
-};
-
 &lvds_region2 {
 	xen,passthrough;
 };
