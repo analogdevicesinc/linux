@@ -176,7 +176,7 @@ void dcss_crtc_setup_opipe(struct drm_crtc *crtc, struct drm_connector *conn,
 	else
 		dcss_crtc->opipe_g = G_REC709;
 
-	if (eotf & (1 << 2))
+	if ((eotf & (1 << 2)) && dcss_crtc->opipe_g == G_REC2020)
 		dcss_crtc->opipe_nl = NL_REC2084;
 	else
 		dcss_crtc->opipe_nl = NL_REC709;
@@ -196,9 +196,9 @@ void dcss_crtc_setup_opipe(struct drm_crtc *crtc, struct drm_connector *conn,
 	else
 		dcss_crtc->opipe_pix_format = DRM_FORMAT_ARGB8888;
 
-	DRM_INFO("OPIPE_CFG: gamut = %d, nl = %d, pr = %d, pix_format = %d\n",
-		 dcss_crtc->opipe_g, dcss_crtc->opipe_nl,
-		 dcss_crtc->opipe_pr, dcss_crtc->opipe_pix_format);
+	DRM_DEBUG_KMS("OPIPE_CFG: gamut = %d, nl = %d, pr = %d, pix_fmt = %d\n",
+		      dcss_crtc->opipe_g, dcss_crtc->opipe_nl,
+		      dcss_crtc->opipe_pr, dcss_crtc->opipe_pix_format);
 }
 
 int dcss_crtc_get_opipe_cfg(struct drm_crtc *crtc,
