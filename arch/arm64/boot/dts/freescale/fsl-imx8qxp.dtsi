@@ -1183,7 +1183,7 @@
 			     "fsl,imx8qm-dpr-channel";
 		reg = <0x0 0x560e0000 0x0 0x10000>;
 		fsl,sc-resource = <SC_R_DC_0_BLIT1>;
-		fsl,prgs = <&prg2>;
+		fsl,prgs = <&prg2>, <&prg1>;
 		clocks = <&clk IMX8QXP_DC0_DPR0_APB_CLK>,
 			 <&clk IMX8QXP_DC0_DPR0_B_CLK>,
 			 <&clk IMX8QXP_DC0_RTRAM0_CLK>;
