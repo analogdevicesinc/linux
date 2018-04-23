@@ -1547,7 +1547,11 @@ static int cf_axi_dds_remove(struct platform_device *pdev)
 	struct cf_axi_dds_state *st = iio_priv(indio_dev);
 
 	iio_device_unregister(indio_dev);
-	cf_axi_dds_unconfigure_buffer(indio_dev);
+
+	if (!st->dp_disable && !dds_read(st, ADI_REG_ID) &&
+		of_find_property(pdev->dev.of_node, "dmas", NULL))
+		cf_axi_dds_unconfigure_buffer(indio_dev);
+
 	if (st->dev_spi)
 		dds_converter_put(st->dev_spi);
 	if (st->clk) {
