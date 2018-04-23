@@ -330,6 +330,35 @@ static void dprc_dpu_gpr_configure(struct dprc *dprc, unsigned int stream_id)
 	sc_ipc_close(mu_id);
 }
 
+static void dprc_prg_sel_configure(struct dprc *dprc,
+				   u32 resource, unsigned int enable)
+{
+	sc_err_t sciErr;
+	sc_ipc_t ipcHndl = 0;
+	u32 mu_id;
+
+	if (WARN_ON(!dprc))
+		return;
+
+	sciErr = sc_ipc_getMuID(&mu_id);
+	if (sciErr != SC_ERR_NONE) {
+		dev_err(dprc->dev, "cannot obtain MU ID %d\n", sciErr);
+		return;
+	}
+
+	sciErr = sc_ipc_open(&ipcHndl, mu_id);
+	if (sciErr != SC_ERR_NONE) {
+		dev_err(dprc->dev, "sc_ipc_open failed %d\n", sciErr);
+		return;
+	}
+
+	sciErr = sc_misc_set_control(ipcHndl, resource, SC_C_SEL0, enable);
+	if (sciErr != SC_ERR_NONE)
+		dev_err(dprc->dev, "sc_misc_set_control failed %d\n", sciErr);
+
+	sc_ipc_close(mu_id);
+}
+
 void dprc_configure(struct dprc *dprc, unsigned int stream_id,
 		    unsigned int width, unsigned int height,
 		    unsigned int x_offset, unsigned int y_offset,
@@ -387,9 +416,21 @@ void dprc_configure(struct dprc *dprc, unsigned int stream_id,
 				NUM_X_PIX_WIDE(p2_w), FRAME_2P_PIX_X_CTRL);
 			dprc_write(dprc,
 				NUM_Y_PIX_HIGH(p2_h), FRAME_2P_PIX_Y_CTRL);
+		} else {
+			if (dprc->sc_resource == SC_R_DC_0_BLIT1) {
+				dprc_prg_sel_configure(dprc,
+						       SC_R_DC_0_BLIT0, 1);
+				prg_set_auxiliary(dprc->prgs[1]);
+			}
 		}
 		dprc_write(dprc, uv_baddr, FRAME_2P_BASE_ADDR_CTRL0);
 	} else {
+		if (dprc->sc_resource == SC_R_DC_0_BLIT0
+			&& dprc->devtype->has_fixup) {
+			dprc_prg_sel_configure(dprc, SC_R_DC_0_BLIT0, 0);
+			prg_put_auxiliary(dprc->prgs[0]);
+		}
+
 		switch (modifier) {
 		case DRM_FORMAT_MOD_VIVANTE_TILED:
 			p1_w = round_up(dprc_width, info->cpp[0] == 2 ? 8 : 4);
