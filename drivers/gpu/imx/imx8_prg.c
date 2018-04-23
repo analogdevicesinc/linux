@@ -303,6 +303,15 @@ void prg_set_auxiliary(struct prg *prg)
 }
 EXPORT_SYMBOL_GPL(prg_set_auxiliary);
 
+void prg_put_auxiliary(struct prg *prg)
+{
+	if (WARN_ON(!prg))
+		return;
+
+	prg->is_auxiliary = false;
+}
+EXPORT_SYMBOL_GPL(prg_put_auxiliary);
+
 void prg_set_blit(struct prg *prg)
 {
 	if (WARN_ON(!prg))
