@@ -367,13 +367,7 @@ static irqreturn_t cdns_uart_isr(int irq, void *dev_id)
 		cdns_uart_handle_tx(dev_id);
 		isrstatus &= ~CDNS_UART_IXR_TXEMPTY;
 	}
-
-	/*
-	 * Skip RX processing if RX is disabled as RXEMPTY will never be set
-	 * as read bytes will not be removed from the FIFO.
-	 */
-	if (isrstatus & CDNS_UART_IXR_RXMASK &&
-	    !(readl(port->membase + CDNS_UART_CR) & CDNS_UART_CR_RX_DIS))
+	if (isrstatus & CDNS_UART_IXR_RXMASK)
 		cdns_uart_handle_rx(dev_id, isrstatus);
 
 	spin_unlock(&port->lock);
@@ -1190,10 +1184,6 @@ OF_EARLYCON_DECLARE(cdns, "cdns,uart-r1p8", cdns_early_console_setup);
 OF_EARLYCON_DECLARE(cdns, "cdns,uart-r1p12", cdns_early_console_setup);
 OF_EARLYCON_DECLARE(cdns, "xlnx,zynqmp-uart", cdns_early_console_setup);
 
-
-/* Static pointer to console port */
-static struct uart_port *console_port;
-
 /**
  * cdns_uart_console_write - perform write operation
  * @co: Console handle
@@ -1203,7 +1193,7 @@ static struct uart_port *console_port;
 static void cdns_uart_console_write(struct console *co, const char *s,
 				unsigned int count)
 {
-	struct uart_port *port = console_port;
+	struct uart_port *port = &cdns_uart_port[co->index];
 	unsigned long flags;
 	unsigned int imr, ctrl;
 	int locked = 1;
@@ -1247,14 +1237,16 @@ static void cdns_uart_console_write(struct console *co, const char *s,
  *
  * Return: 0 on success, negative errno otherwise.
  */
-static int cdns_uart_console_setup(struct console *co, char *options)
+static int __init cdns_uart_console_setup(struct console *co, char *options)
 {
-	struct uart_port *port = console_port;
-
+	struct uart_port *port = &cdns_uart_port[co->index];
 	int baud = 9600;
 	int bits = 8;
 	int parity = 'n';
 	int flow = 'n';
+
+	if (co->index < 0 || co->index >= CDNS_UART_NR_PORTS)
+		return -EINVAL;
 
 	if (!port->membase) {
 		pr_debug("console on " CDNS_UART_TTY_NAME "%i not present\n",
@@ -1279,6 +1271,20 @@ static struct console cdns_uart_console = {
 	.index	= -1, /* Specified on the cmdline (e.g. console=ttyPS ) */
 	.data	= &cdns_uart_uart_driver,
 };
+
+/**
+ * cdns_uart_console_init - Initialization call
+ *
+ * Return: 0 on success, negative errno otherwise
+ */
+static int __init cdns_uart_console_init(void)
+{
+	register_console(&cdns_uart_console);
+	return 0;
+}
+
+console_initcall(cdns_uart_console_init);
+
 #endif /* CONFIG_SERIAL_XILINX_PS_UART_CONSOLE */
 
 static struct uart_driver cdns_uart_uart_driver = {
@@ -1451,25 +1457,25 @@ static int cdns_uart_probe(struct platform_device *pdev)
 	}
 
 	cdns_uart_data->pclk = devm_clk_get(&pdev->dev, "pclk");
-	if (PTR_ERR(cdns_uart_data->pclk) == -EPROBE_DEFER)
-		return PTR_ERR(cdns_uart_data->pclk);
-
 	if (IS_ERR(cdns_uart_data->pclk)) {
 		cdns_uart_data->pclk = devm_clk_get(&pdev->dev, "aper_clk");
-		if (IS_ERR(cdns_uart_data->pclk))
-			return PTR_ERR(cdns_uart_data->pclk);
-		dev_err(&pdev->dev, "clock name 'aper_clk' is deprecated.\n");
+		if (!IS_ERR(cdns_uart_data->pclk))
+			dev_err(&pdev->dev, "clock name 'aper_clk' is deprecated.\n");
+	}
+	if (IS_ERR(cdns_uart_data->pclk)) {
+		dev_err(&pdev->dev, "pclk clock not found.\n");
+		return PTR_ERR(cdns_uart_data->pclk);
 	}
 
 	cdns_uart_data->uartclk = devm_clk_get(&pdev->dev, "uart_clk");
-	if (PTR_ERR(cdns_uart_data->uartclk) == -EPROBE_DEFER)
-		return PTR_ERR(cdns_uart_data->uartclk);
-
 	if (IS_ERR(cdns_uart_data->uartclk)) {
 		cdns_uart_data->uartclk = devm_clk_get(&pdev->dev, "ref_clk");
-		if (IS_ERR(cdns_uart_data->uartclk))
-			return PTR_ERR(cdns_uart_data->uartclk);
-		dev_err(&pdev->dev, "clock name 'ref_clk' is deprecated.\n");
+		if (!IS_ERR(cdns_uart_data->uartclk))
+			dev_err(&pdev->dev, "clock name 'ref_clk' is deprecated.\n");
+	}
+	if (IS_ERR(cdns_uart_data->uartclk)) {
+		dev_err(&pdev->dev, "uart_clk clock not found.\n");
+		return PTR_ERR(cdns_uart_data->uartclk);
 	}
 
 	rc = clk_prepare_enable(cdns_uart_data->pclk);
@@ -1534,29 +1540,12 @@ static int cdns_uart_probe(struct platform_device *pdev)
 	pm_runtime_set_active(&pdev->dev);
 	pm_runtime_enable(&pdev->dev);
 
-#ifdef CONFIG_SERIAL_XILINX_PS_UART_CONSOLE
-	/*
-	 * If console hasn't been found yet try to assign this port
-	 * because it is required to be assigned for console setup function.
-	 * If register_console() don't assign value, then console_port pointer
-	 * is cleanup.
-	 */
-	if (cdns_uart_uart_driver.cons->index == -1)
-		console_port = port;
-#endif
-
 	rc = uart_add_one_port(&cdns_uart_uart_driver, port);
 	if (rc) {
 		dev_err(&pdev->dev,
 			"uart_add_one_port() failed; err=%i\n", rc);
 		goto err_out_pm_disable;
 	}
-
-#ifdef CONFIG_SERIAL_XILINX_PS_UART_CONSOLE
-	/* This is not port which is used for console that's why clean it up */
-	if (cdns_uart_uart_driver.cons->index == -1)
-		console_port = NULL;
-#endif
 
 	return 0;
 
@@ -1611,7 +1600,6 @@ static struct platform_driver cdns_uart_platform_driver = {
 		.name = CDNS_UART_NAME,
 		.of_match_table = cdns_uart_of_match,
 		.pm = &cdns_uart_dev_pm_ops,
-		.suppress_bind_attrs = IS_BUILTIN(CONFIG_SERIAL_XILINX_PS_UART),
 		},
 };
 
