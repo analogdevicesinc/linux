@@ -39,7 +39,7 @@
 
 static const unsigned int interpolation_factors_available[] = {1, 8};
 
-static unsigned cf_axi_dds_to_signed_mag_fmt(int val, int val2)
+static int cf_axi_dds_to_signed_mag_fmt(int val, int val2, unsigned int *res)
 {
 	unsigned i;
 	u64 val64;
@@ -61,12 +61,15 @@ static unsigned cf_axi_dds_to_signed_mag_fmt(int val, int val2)
 		break;
 	default:
 		pr_err("%s: Invalid Value\n", __func__);
+		return -EINVAL;
 	}
 
 	val64 = (unsigned long long)val2 * 0x4000UL + (1000000UL / 2);
 		do_div(val64, 1000000UL);
 
-	return i | val64;
+	*res = i | val64;
+
+	return 0;
 }
 
 static int cf_axi_dds_signed_mag_fmt_to_iio(unsigned val, int *r_val,
@@ -672,7 +675,9 @@ static int cf_axi_dds_write_raw(struct iio_dev *indio_dev,
 			break;
 		}
 
-		i = cf_axi_dds_to_signed_mag_fmt(val, val2);
+		ret = cf_axi_dds_to_signed_mag_fmt(val, val2, &i);
+		if (ret < 0)
+			break;
 
 		reg = dds_read(st, ADI_REG_CHAN_CNTRL_8(chan->channel));
 
