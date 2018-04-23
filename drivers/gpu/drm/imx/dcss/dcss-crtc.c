@@ -305,6 +305,7 @@ static int dcss_crtc_init(struct dcss_crtc *crtc,
 	if (IS_ERR(crtc->plane[0]))
 		return PTR_ERR(crtc->plane[0]);
 
+	crtc->base.port = pdata->of_node;
 	drm_crtc_helper_add(&crtc->base, &dcss_helper_funcs);
 	ret = drm_crtc_init_with_planes(drm, &crtc->base, &crtc->plane[0]->base,
 					NULL, &dcss_crtc_funcs, NULL);
