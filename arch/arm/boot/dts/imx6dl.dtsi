@@ -111,7 +111,7 @@
 				      "gpu3d_shader_clk";
 			resets = <&src 0>, <&src 3>;
 			reset-names = "gpu3d", "gpu2d";
-			power-domains = <&gpc 1>;
+			power-domains = <&pd_pu>;
 		};
 
 		ocram: sram@00905000 {
