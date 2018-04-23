@@ -5,6 +5,7 @@ if ARCH_MXC || ARCH_MXC_ARM64
 menu "MXC support drivers"
 
 # drivers common to MXC and MX8 go here:
+source "drivers/mxc/gpu-viv/Kconfig"
 source "drivers/mxc/hantro/Kconfig"
 source "drivers/mxc/mlb/Kconfig"
 source "drivers/mxc/hdp/Kconfig"
