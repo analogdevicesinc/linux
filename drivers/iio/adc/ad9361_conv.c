@@ -629,7 +629,7 @@ int ad9361_dig_tune(struct ad9361_rf_phy *phy, unsigned long max_freq,
 			ad9361_midscale_iodelay(phy, true);
 
 		ret = ad9361_dig_tune_rx(phy, max_freq, flags);
-		if (ret == 0 && (data.skip_mode != TUNE_RX_TX))
+		if (ret == 0 && (data.skip_mode == TUNE_RX_TX))
 			ret = ad9361_dig_tune_tx(phy, max_freq, flags);
 
 		ad9361_bist_loopback(phy, data.bist_loopback_mode);
