@@ -201,6 +201,7 @@ static int s10_ops_write_init(struct fpga_manager *mgr,
 	uint i;
 	int ret;
 
+	payload.flags = 0;
 	if (info->flags & FPGA_MGR_PARTIAL_RECONFIG) {
 		dev_info(dev, "Requesting partial reconfiguration.\n");
 		payload.flags |= BIT(COMMAND_RECONFIG_FLAG_PARTIAL);
