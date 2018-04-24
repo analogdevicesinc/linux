@@ -2215,8 +2215,8 @@ gckEVENT_Notify(
 #if gcdALLOC_ON_FAULT
             status = gckHARDWARE_HandleFault(Event->kernel->hardware);
 
-            if (gcmIS_ERROR(status))
 #endif
+            if (gcmIS_ERROR(status))
             {
                 /* Dump error is fault can't be handle. */
                 gckHARDWARE_DumpMMUException(Event->kernel->hardware);
