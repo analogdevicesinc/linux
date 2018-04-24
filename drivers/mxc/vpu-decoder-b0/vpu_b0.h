@@ -222,9 +222,12 @@ struct vpu_ctx {
 	MediaIPFW_Video_SeqInfo *pSeqinfo;
 	bool b_firstseq;
 	bool start_flag;
+	bool wait_abort_done;
 	bool wait_rst_done;
 	bool buffer_null;
 	bool firmware_stopped;
+	bool firmware_finished;
+	bool eos_stop_added;
 	wait_queue_head_t buffer_wq;
 	void *dpb_dma_virt;
 	u_int32 uSize;
