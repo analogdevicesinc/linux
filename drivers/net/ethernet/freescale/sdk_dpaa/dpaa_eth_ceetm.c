@@ -668,7 +668,8 @@ nla_put_failure:
 
 /* Configure a root ceetm qdisc */
 static int ceetm_init_root(struct Qdisc *sch, struct ceetm_qdisc *priv,
-			   struct tc_ceetm_qopt *qopt)
+			   struct tc_ceetm_qopt *qopt,
+			   struct netlink_ext_ack *extack)
 {
 	struct netdev_queue *dev_queue;
 	struct Qdisc *qdisc;
@@ -718,7 +719,7 @@ static int ceetm_init_root(struct Qdisc *sch, struct ceetm_qdisc *priv,
 				      TC_H_MIN(i + PFIFO_MIN_OFFSET));
 
 		qdisc = qdisc_create_dflt(dev_queue, &pfifo_qdisc_ops,
-					  parent_id);
+					  parent_id, extack);
 		if (!qdisc)
 			return -ENOMEM;
 
@@ -1109,7 +1110,8 @@ err_init_wbfs_cls:
 }
 
 /* Configure a generic ceetm qdisc */
-static int ceetm_init(struct Qdisc *sch, struct nlattr *opt)
+static int ceetm_init(struct Qdisc *sch, struct nlattr *opt,
+		      struct netlink_ext_ack *extack)
 {
 	struct tc_ceetm_qopt *qopt;
 	struct nlattr *tb[TCA_CEETM_QOPS + 1];
@@ -1127,7 +1129,7 @@ static int ceetm_init(struct Qdisc *sch, struct nlattr *opt)
 		return -EINVAL;
 	}
 
-	ret = tcf_block_get(&priv->block, &priv->filter_list);
+	ret = tcf_block_get(&priv->block, &priv->filter_list, sch, extack);
 	if (ret)
 		return ret;
 
@@ -1163,7 +1165,7 @@ static int ceetm_init(struct Qdisc *sch, struct nlattr *opt)
 	case CEETM_ROOT:
 		netif_tx_stop_all_queues(dev);
 		dpaa_drain_fqs(dev);
-		ret = ceetm_init_root(sch, priv, qopt);
+		ret = ceetm_init_root(sch, priv, qopt, extack);
 		netif_tx_wake_all_queues(dev);
 		break;
 	case CEETM_PRIO:
@@ -1294,7 +1296,8 @@ change_err:
 }
 
 /* Edit a ceetm qdisc */
-static int ceetm_change(struct Qdisc *sch, struct nlattr *opt)
+static int ceetm_change(struct Qdisc *sch, struct nlattr *opt,
+			struct netlink_ext_ack *extack)
 {
 	struct tc_ceetm_qopt *qopt;
 	struct nlattr *tb[TCA_CEETM_QOPS + 1];
@@ -1486,7 +1489,8 @@ static int ceetm_cls_change_wbfs(struct ceetm_class *cl,
 
 /* Add a ceetm root class or configure a ceetm root/prio/wbfs class */
 static int ceetm_cls_change(struct Qdisc *sch, u32 classid, u32 parentid,
-			    struct nlattr **tca, unsigned long *arg)
+			    struct nlattr **tca, unsigned long *arg,
+			    struct netlink_ext_ack *extack)
 {
 	int err;
 	u64 bps;
@@ -1581,7 +1585,7 @@ static int ceetm_cls_change(struct Qdisc *sch, u32 classid, u32 parentid,
 	if (!cl)
 		return -ENOMEM;
 
-	err = tcf_block_get(&cl->block, &cl->filter_list);
+	err = tcf_block_get(&cl->block, &cl->filter_list, sch, extack);
 	if (err) {
 		kfree(cl);
 		return err;
@@ -1775,7 +1779,8 @@ static struct Qdisc *ceetm_cls_leaf(struct Qdisc *sch, unsigned long arg)
 }
 
 static int ceetm_cls_graft(struct Qdisc *sch, unsigned long arg,
-			   struct Qdisc *new, struct Qdisc **old)
+			   struct Qdisc *new, struct Qdisc **old,
+			   struct netlink_ext_ack *extack)
 {
 	if (new && strcmp(new->ops->id, ceetm_qdisc_ops.id)) {
 		pr_err("CEETM: only ceetm qdiscs can be attached to ceetm classes\n");
@@ -1839,7 +1844,8 @@ static int ceetm_cls_dump_stats(struct Qdisc *sch, unsigned long arg,
 	return gnet_stats_copy_app(d, &xstats, sizeof(xstats));
 }
 
-static struct tcf_block *ceetm_tcf_block(struct Qdisc *sch, unsigned long arg)
+static struct tcf_block *ceetm_tcf_block(struct Qdisc *sch, unsigned long arg,
+					 struct netlink_ext_ack *extack)
 {
 	struct ceetm_qdisc *priv = qdisc_priv(sch);
 	struct ceetm_class *cl = (struct ceetm_class *)arg;
