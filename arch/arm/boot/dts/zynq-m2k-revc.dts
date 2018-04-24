@@ -29,4 +29,5 @@
 
 	en-usr-pow-gpio = <&gpio_exp 7 0>;
 	en-usr-pow-neg-gpio = <&gpio_exp 6 0>;
+	en-done-led-overwrite-gpio = <&gpio_exp 4 0>;
 };

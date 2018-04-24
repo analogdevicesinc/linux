@@ -53,7 +53,9 @@ struct m2k_fabric {
 
 	struct gpio_desc *switch_gpios[M2K_FABRIC_GPIO_MAX];
 	struct gpio_desc *usr_pow_gpio[2];
+	struct gpio_desc *done_led_overwrite_gpio;
 
+	bool done_led_overwrite;
 	bool user_supply_powerdown[2];
 
 	bool sc_powerdown[2];
@@ -249,6 +251,10 @@ static ssize_t m2k_fabric_user_supply_read(struct iio_dev *indio_dev,
 {
 	struct m2k_fabric *m2k_fabric = iio_priv(indio_dev);
 
+	if (chan->channel == 4) {
+		return sprintf(buf, "%d\n", m2k_fabric->done_led_overwrite);
+	}
+
 	return sprintf(buf, "%d\n",
 		       m2k_fabric->user_supply_powerdown[chan->channel - 2]);
 }
@@ -264,6 +270,13 @@ static ssize_t m2k_fabric_user_supply_write(struct iio_dev *indio_dev,
 	ret = strtobool(buf, &state);
 	if (ret)
 		return ret;
+
+	if (chan->channel == 4) {
+		gpiod_set_value_cansleep(m2k_fabric->done_led_overwrite_gpio,
+					 !state);
+		m2k_fabric->done_led_overwrite = state;
+		return len;
+	}
 
 	gpiod_set_value_cansleep(m2k_fabric->usr_pow_gpio[chan->channel - 2],
 				 !state);
@@ -471,6 +484,15 @@ static const struct iio_chan_spec m2k_fabric_chan_spec_reve[] = {
 		.output = 1,
 		.scan_index = -1,
 		.ext_info = m2k_fabric_user_supply_ext_info,
+	},
+	{
+		.type = IIO_VOLTAGE,
+		.indexed = 1,
+		.channel = 4,
+		.extend_name = "done_led_overwrite",
+		.output = 1,
+		.scan_index = -1,
+		.ext_info = m2k_fabric_user_supply_ext_info,
 	}
 };
 
@@ -574,6 +596,11 @@ static int m2k_fabric_probe(struct platform_device *pdev)
 		if (IS_ERR(m2k_fabric->usr_pow_gpio[1]))
 			return PTR_ERR(m2k_fabric->usr_pow_gpio[1]);
 
+		m2k_fabric->done_led_overwrite_gpio = devm_gpiod_get(&pdev->dev,
+							"en-done-led-overwrite",
+							GPIOD_OUT_HIGH);
+		if (IS_ERR(m2k_fabric->done_led_overwrite_gpio))
+			return PTR_ERR(m2k_fabric->done_led_overwrite_gpio);
 	}
 
 	remain_powerdown = of_property_read_bool(pdev->dev.of_node,
