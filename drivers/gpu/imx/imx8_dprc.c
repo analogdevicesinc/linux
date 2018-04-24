@@ -330,8 +330,7 @@ static void dprc_dpu_gpr_configure(struct dprc *dprc, unsigned int stream_id)
 	sc_ipc_close(mu_id);
 }
 
-static void dprc_prg_sel_configure(struct dprc *dprc,
-				   u32 resource, unsigned int enable)
+static void dprc_prg_sel_configure(struct dprc *dprc, u32 resource, bool enable)
 {
 	sc_err_t sciErr;
 	sc_ipc_t ipcHndl = 0;
@@ -419,7 +418,7 @@ void dprc_configure(struct dprc *dprc, unsigned int stream_id,
 		} else {
 			if (dprc->sc_resource == SC_R_DC_0_BLIT1) {
 				dprc_prg_sel_configure(dprc,
-						       SC_R_DC_0_BLIT0, 1);
+						       SC_R_DC_0_BLIT0, true);
 				prg_set_auxiliary(dprc->prgs[1]);
 			}
 		}
@@ -427,7 +426,7 @@ void dprc_configure(struct dprc *dprc, unsigned int stream_id,
 	} else {
 		if (dprc->sc_resource == SC_R_DC_0_BLIT0
 			&& dprc->devtype->has_fixup) {
-			dprc_prg_sel_configure(dprc, SC_R_DC_0_BLIT0, 0);
+			dprc_prg_sel_configure(dprc, SC_R_DC_0_BLIT0, false);
 			prg_set_primary(dprc->prgs[0]);
 		}
 
