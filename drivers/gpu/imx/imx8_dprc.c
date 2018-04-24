@@ -428,7 +428,7 @@ void dprc_configure(struct dprc *dprc, unsigned int stream_id,
 		if (dprc->sc_resource == SC_R_DC_0_BLIT0
 			&& dprc->devtype->has_fixup) {
 			dprc_prg_sel_configure(dprc, SC_R_DC_0_BLIT0, 0);
-			prg_put_auxiliary(dprc->prgs[0]);
+			prg_set_primary(dprc->prgs[0]);
 		}
 
 		switch (modifier) {
