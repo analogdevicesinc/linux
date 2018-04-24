@@ -714,6 +714,12 @@ bool dprc_format_supported(struct dprc *dprc, u32 format, u64 modifier)
 		case SC_R_DC_0_WARP:
 		case SC_R_DC_1_WARP:
 			return false;
+		case SC_R_DC_0_BLIT1:
+			if (!dprc->devtype->has_fixup)
+				break;
+
+			return (modifier == DRM_FORMAT_MOD_NONE ||
+				modifier == DRM_FORMAT_MOD_AMPHION_TILED);
 		}
 		return (dprc->has_aux_prg &&
 			(modifier == DRM_FORMAT_MOD_NONE ||
