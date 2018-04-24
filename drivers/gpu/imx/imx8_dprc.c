@@ -420,14 +420,24 @@ void dprc_configure(struct dprc *dprc, unsigned int stream_id,
 				dprc_prg_sel_configure(dprc,
 						       SC_R_DC_0_BLIT0, true);
 				prg_set_auxiliary(dprc->prgs[1]);
+				dprc->has_aux_prg = true;
 			}
 		}
 		dprc_write(dprc, uv_baddr, FRAME_2P_BASE_ADDR_CTRL0);
 	} else {
-		if (dprc->sc_resource == SC_R_DC_0_BLIT0
-			&& dprc->devtype->has_fixup) {
-			dprc_prg_sel_configure(dprc, SC_R_DC_0_BLIT0, false);
-			prg_set_primary(dprc->prgs[0]);
+		if (dprc->devtype->has_fixup) {
+			switch (dprc->sc_resource) {
+			case SC_R_DC_0_BLIT0:
+				dprc_prg_sel_configure(dprc,
+						       SC_R_DC_0_BLIT0, false);
+				prg_set_primary(dprc->prgs[0]);
+				break;
+			case SC_R_DC_0_BLIT1:
+				dprc->has_aux_prg = false;
+				break;
+			default:
+				break;
+			}
 		}
 
 		switch (modifier) {
