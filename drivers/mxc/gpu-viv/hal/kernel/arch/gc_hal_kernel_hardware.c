@@ -7863,6 +7863,29 @@ gckHARDWARE_SetPowerManagementState(
         /* Release the global semaphore again. */
         gcmkONERROR(gckOS_ReleaseSemaphore(os, Hardware->globalSemaphore));
         globalAcquired = gcvFALSE;
+
+        /* Try to acquire the semaphore to make sure commit is not in progress
+        ** Otherwise, we just abort. */
+        if (flag & gcvPOWER_FLAG_ACQUIRE)
+        {
+            /* ON -> Other, boardcast. */
+            /* Try to acquire the power management semaphore. */
+            status = gckOS_TryAcquireSemaphore(os, command->powerSemaphore);
+
+            if (status == gcvSTATUS_OK)
+            {
+                acquired = gcvTRUE;
+
+                /* avoid acquiring again. */
+                flag &= ~gcvPOWER_FLAG_ACQUIRE;
+            }
+            else
+            {
+                /* Not ready to swith. */
+                status = gcvSTATUS_CHIP_NOT_READY;
+                goto OnError;
+            }
+        }
     }
     else
     {
