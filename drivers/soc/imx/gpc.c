@@ -293,6 +293,8 @@ static int imx_pgc_parse_dt(struct device *dev, struct imx_pm_domain *domain)
 	return imx_pgc_get_clocks(dev, domain);
 }
 
+static void imx_gpc_handle_ldobypass(struct platform_device *pdev);
+
 static int imx_pgc_power_domain_probe(struct platform_device *pdev)
 {
 	struct imx_pm_domain *domain = pdev->dev.platform_data;
@@ -318,6 +320,10 @@ static int imx_pgc_power_domain_probe(struct platform_device *pdev)
 	}
 
 	device_link_add(dev, dev->parent, DL_FLAG_AUTOREMOVE);
+
+	/* Mark PU regulator as bypass */
+	if (pdev->id == 1)
+		imx_gpc_handle_ldobypass(to_platform_device(pdev->dev.parent));
 
 	return 0;
 
@@ -638,6 +644,8 @@ static int imx_gpc_probe(struct platform_device *pdev)
 					  of_id_data->num_domains);
 		if (ret)
 			return ret;
+
+		imx_gpc_handle_ldobypass(pdev);
 	} else {
 		struct imx_pm_domain *domain;
 		struct platform_device *pd_pdev;
@@ -681,8 +689,6 @@ static int imx_gpc_probe(struct platform_device *pdev)
 			}
 		}
 	}
-
-	imx_gpc_handle_ldobypass(pdev);
 
 	if (of_machine_is_compatible("fsl,imx6sx")) {
 		struct regulator *pcie_reg;
