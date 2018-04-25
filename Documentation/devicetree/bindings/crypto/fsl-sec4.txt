@@ -176,6 +176,9 @@ PROPERTIES
       Value type: <string>
       Definition: Must include "fsl,sec-v4.0-ctrl".
 
+      platform precision:
+       - "fsl,imx7d-caam"
+
    - reg
       Usage: required
       Value type: <prop-encoded-array>
@@ -258,6 +261,25 @@ EXAMPLE
 		interrupts = <88 2>;
 	};
 
+=====================================================================
+Secure memory (SM) Node
+
+  - compatible
+      Usage: required
+      Value type: <string>
+      Definition: Must include "fsl,imx6q-caam-sm"
+
+  - reg
+      Usage: required
+      Value type: <prop-encoded-array>
+      Definition: Specifies a two SM parameters:  an offset from
+          the parent physical address and the length the SM registers.
+
+EXAMPLE
+  caam_sm: caam-sm@00100000 {
+    compatible = "fsl,imx6q-caam-sm";
+    reg = <0x00100000 0x3fff>;
+  };
 
 =====================================================================
 Run Time Integrity Check (RTIC) Node

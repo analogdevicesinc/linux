@@ -146,6 +146,11 @@
 		compatible = "arm,cortex-a7-pmu";
 	};
 
+	caam_sm: caam-sm@26000000 {
+			 compatible = "fsl,imx6q-caam-sm";
+			 reg = <0x26000000 0x7fff>;
+	};
+
 	ahbbridge0: ahb-bridge0@40000000 {
 		compatible = "fsl,aips-bus", "simple-bus";
 		#address-cells = <1>;
@@ -193,6 +198,39 @@
 			reg = <0x40220000 0x1000>;
 			interrupts = <GIC_SPI 90 IRQ_TYPE_LEVEL_HIGH>;
 			status = "okay";
+		};
+
+		crypto: caam@40240000 {
+			compatible = "fsl,imx7d-caam", "fsl,sec-v4.0";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			reg = <0x40240000 0x40000>;
+			ranges = <0 0x40240000 0x40000>;
+			clocks = <&clks IMX7ULP_CLK_CAAM>,
+				<&clks IMX7ULP_CLK_NIC1_DIV>;
+			clock-names = "ipg", "aclk";
+
+			sec_ctrl: ctrl@0 {
+				/* CAAM Page 0 only accessible */
+				/*	by secure world */
+				compatible = "fsl,sec-v4.0-ctrl";
+				reg = <0x40240000 0x1000>;
+				secure-status = "okay";
+				status = "disabled";
+			};
+
+			sec_jr0: jr0@1000 {
+				compatible = "fsl,sec-v4.0-job-ring";
+				reg = <0x1000 0x1000>;
+				interrupts = <GIC_SPI 54 IRQ_TYPE_LEVEL_HIGH>;
+			};
+
+			sec_jr1: jr1@2000 {
+				compatible = "fsl,sec-v4.0-job-ring";
+				reg = <0x2000 0x1000>;
+				interrupts = <GIC_SPI 54 IRQ_TYPE_LEVEL_HIGH>;
+				status = "disabled";
+			};
 		};
 
 		rpmsg: rpmsg{
