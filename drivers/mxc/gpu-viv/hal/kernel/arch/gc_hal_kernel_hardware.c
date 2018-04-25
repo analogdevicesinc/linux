@@ -4418,12 +4418,20 @@ gckHARDWARE_Interrupt(
     gctUINT32 data = 0;
     gctUINT32 dataEx;
     gceSTATUS status;
+    gceSTATUS statusEx;
 
     /* Extract gckEVENT object. */
     eventObj = Hardware->kernel->eventObj;
 
     if (InterruptValid)
     {
+        /*
+         * Notice:
+         * In isr here.
+         * We should return success when either FE or AsyncFE reports correct
+         * interrupts, so that isr can wake up threadRoutine for either FE.
+         * That means, only need return ERROR when both FEs reports ERROR.
+         */
         /* Read AQIntrAcknowledge register. */
         gcmkONERROR(
             gckOS_ReadRegisterEx(Hardware->os,
@@ -4438,37 +4446,59 @@ gckHARDWARE_Interrupt(
         }
         else
         {
-
 #if gcdINTERRUPT_STATISTIC
             gckOS_AtomClearMask(Hardware->pendingEvent, data);
 #endif
-
             /* Inform gckEVENT of the interrupt. */
             status = gckEVENT_Interrupt(eventObj, data);
         }
 
-        if (Hardware->hasAsyncFe)
+        if (!Hardware->hasAsyncFe)
         {
-            /* Read BLT interrupt. */
-            gcmkONERROR(gckOS_ReadRegisterEx(
-                Hardware->os,
-                Hardware->core,
-                0x000D4,
-                &dataEx
-                ));
+            /* Done. */
+            goto OnError;
+        }
 
-            /* this bit looks useless now, we can use this check if this interrupt is from FE */
-            dataEx &= ~0x80000000;
+        /* Read BLT interrupt. */
+        statusEx = gckOS_ReadRegisterEx(
+            Hardware->os,
+            Hardware->core,
+            0x000D4,
+            &dataEx
+            );
 
-            /* Descriptor fetched, update counter.
-               We can't do this at dataEx != 0 only, as read HW acknowledge register will overwrite
-               0x007E4. At one interrupt we don't read it, we will miss it.
-            */
-            gckFE_UpdateAvaiable(Hardware, &Hardware->kernel->asyncCommand->fe);
+        if (gcmIS_ERROR(statusEx))
+        {
+            /*
+             * Do not overwrite status here, so that former status from
+             * AQIntrAck is returned.
+             */
+            goto OnError;
+        }
 
-            if (dataEx)
+        /*
+         * This bit looks useless now, we can use this check if this interrupt
+         * is from FE.
+         */
+        dataEx &= ~0x80000000;
+
+        /*
+         * Descriptor fetched, update counter.
+         * We can't do this at dataEx != 0 only, because read HW acknowledge
+         * register will overwrite 0x007E4. If one
+         * interrupt we don't read it, we will miss it for ever.
+         */
+        gckFE_UpdateAvaiable(Hardware, &Hardware->kernel->asyncCommand->fe);
+
+        /* Do not need report NOT_OUT_INTERRUPT error if dataEx is 0. */
+        if (dataEx)
+        {
+            statusEx = gckEVENT_Interrupt(Hardware->kernel->asyncEvent, dataEx);
+
+            if (gcmIS_SUCCESS(statusEx))
             {
-                status = gckEVENT_Interrupt(Hardware->kernel->asyncEvent, dataEx);
+                /* At least AsyncFE is success, treat all as success. */
+                status = gcvSTATUS_OK;
             }
         }
     }
@@ -12322,21 +12352,25 @@ gckFE_UpdateAvaiable(
     OUT gckFE FE
     )
 {
+    gceSTATUS status;
     gctUINT32 data;
     gctINT32 oldValue;
 
-    gcmkVERIFY_OK(gckOS_ReadRegisterEx(
+    status = gckOS_ReadRegisterEx(
         Hardware->os,
         Hardware->core,
         0x007E4,
         &data
-        ));
+        );
 
-    data = (((((gctUINT32) (data)) >> (0 ? 6:0)) & ((gctUINT32) ((((1 ? 6:0) - (0 ? 6:0) + 1) == 32) ? ~0U : (~(~0U << ((1 ? 6:0) - (0 ? 6:0) + 1)))))) );
-
-    while (data--)
+    if (gcmIS_SUCCESS(status))
     {
-        gckOS_AtomIncrement(Hardware->os, FE->freeDscriptors, &oldValue);
+        data = (((((gctUINT32) (data)) >> (0 ? 6:0)) & ((gctUINT32) ((((1 ? 6:0) - (0 ? 6:0) + 1) == 32) ? ~0U : (~(~0U << ((1 ? 6:0) - (0 ? 6:0) + 1)))))) );
+
+        while (data--)
+        {
+            gckOS_AtomIncrement(Hardware->os, FE->freeDscriptors, &oldValue);
+        }
     }
 }
 
