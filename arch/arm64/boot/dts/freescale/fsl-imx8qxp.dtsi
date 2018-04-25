@@ -69,37 +69,43 @@
 		#size-cells = <2>;
 		ranges;
 
-		dsp_reserved: dsp@0x8e000000 {
+		/*
+		 * reserved-memory layout
+		 * 0x8800_0000 ~ 0x8FFF_FFFF is reserved for M4
+		 * Shouldn't be used at A core and Linux side.
+		 *
+		 */
+		decoder_boot: decoder_boot@0x84000000 {
 			no-map;
-			reg = <0 0x8e000000 0 0x1ffffff>;
+			reg = <0 0x84000000 0 0x2000000>;
 		};
-		decoder_boot: decoder_boot@0x88000000 {
+		encoder_boot: encoder_boot@0x86000000 {
 			no-map;
-			reg = <0 0x88000000 0 0x2000000>;
+			reg = <0 0x86000000 0 0x2000000>;
 		};
-		encoder_boot: encoder_boot@0x8A000000 {
+		rpmsg_reserved: rpmsg@0x90000000 {
 			no-map;
-			reg = <0 0x8A000000 0 0x2000000>;
+			reg = <0 0x90000000 0 0x400000>;
+		};
+		decoder_rpc: decoder_rpc@0x90400000 {
+			no-map;
+			reg = <0 0x90400000 0 0x1000000>;
+		};
+		encoder_rpc: encoder_rpc@0x91400000 {
+			no-map;
+			reg = <0 0x91400000 0 0x1000000>;
+		};
+		dsp_reserved: dsp@0x92400000 {
+			no-map;
+			reg = <0 0x92400000 0 0x2000000>;
 		};
 		/* global autoconfigured region for contiguous allocations */
 		linux,cma {
 			compatible = "shared-dma-pool";
 			reusable;
 			size = <0 0x28000000>;
-			alloc-ranges = <0 0x90000000 0 0x28000000>;
+			alloc-ranges = <0 0x96000000 0 0x28000000>;
 			linux,cma-default;
-		};
-		rpmsg_reserved: rpmsg@0xb8000000 {
-			no-map;
-			reg = <0 0xb8000000 0 0x400000>;
-		};
-		decoder_rpc: decoder_rpc@0xB9000000 {
-			no-map;
-			reg = <0 0xB9000000 0 0x1000000>;
-		};
-		encoder_rpc: encoder_rpc@0xBA000000 {
-			no-map;
-			reg = <0 0xBA000000 0 0x1000000>;
 		};
 	};
 
