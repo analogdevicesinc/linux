@@ -48,7 +48,7 @@
 
 #include "vpu_b0.h"
 
-unsigned int vpu_dbg_level_decoder = 0;
+unsigned int vpu_dbg_level_decoder = 1;
 
 static void vpu_api_event_handler(struct vpu_ctx *ctx, u_int32 uStrIdx, u_int32 uEvent, u_int32 *event_data);
 static void v4l2_vpu_send_cmd(struct vpu_ctx *ctx, uint32_t idx, uint32_t cmdid, uint32_t cmdnum, uint32_t *local_cmddata);
@@ -376,8 +376,8 @@ static int v4l2_ioctl_enum_fmt_vid_out_mplane(struct file *file,
 
 static void caculate_frame_size(struct vpu_ctx *ctx)
 {
-	u_int32 width = ctx->pSeqinfo->uHorRes;
-	u_int32 height = ctx->pSeqinfo->uVerRes;
+	u_int32 width = ctx->pSeqinfo->uHorDecodeRes;
+	u_int32 height = ctx->pSeqinfo->uVerDecodeRes;
 	u_int32 luma_size;
 	u_int32 chroma_size;
 	u_int32 chroma_height;
@@ -426,8 +426,8 @@ static int v4l2_ioctl_g_fmt(struct file *file,
 
 	if (f->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
 		pix_mp->pixelformat = V4L2_PIX_FMT_NV12;
-		pix_mp->width = ctx->pSeqinfo->uHorRes;
-		pix_mp->height = ctx->pSeqinfo->uVerRes;
+		pix_mp->width = ctx->pSeqinfo->uHorDecodeRes;
+		pix_mp->height = ctx->pSeqinfo->uVerDecodeRes;
 		pix_mp->field = V4L2_FIELD_ANY;
 		pix_mp->num_planes = 2;
 		pix_mp->colorspace = V4L2_COLORSPACE_REC709;
@@ -737,10 +737,10 @@ static int v4l2_ioctl_g_crop(struct file *file,
 	struct vpu_ctx *ctx = v4l2_fh_to_ctx(fh);
 
 	vpu_dbg(LVL_INFO, "%s()\n", __func__);
-	cr->c.left = 0;
-	cr->c.top = 0;
-	cr->c.width = ctx->pSeqinfo->uHorDecodeRes;
-	cr->c.height = ctx->pSeqinfo->uVerDecodeRes;
+	cr->c.left = ctx->pSeqinfo->uFrameCropLeftOffset;
+	cr->c.top = ctx->pSeqinfo->uFrameCropTopOffset;
+	cr->c.width = ctx->pSeqinfo->uHorRes;
+	cr->c.height = ctx->pSeqinfo->uVerRes;
 
 	return 0;
 }
@@ -1143,7 +1143,12 @@ static void transfer_buffer_to_firmware(struct vpu_ctx *ctx, void *input_buffer,
 	pDEC_RPC_HOST_IFACE pSharedInterface = ctx->dev->shared_mem.pSharedInterface;
 	unsigned int *CurrStrfg = &pSharedInterface->StreamConfig[ctx->str_index];
 
-	vpu_dbg(LVL_INFO, "enter %s, start_flag %d, index=%d\n", __func__, ctx->start_flag, ctx->str_index);
+	vpu_dbg(LVL_INFO, "enter %s, start_flag %d, index=%d, firmware_started=%d\n", __func__, ctx->start_flag, ctx->str_index, ctx->dev->firmware_started);
+
+	if (!ctx->dev->firmware_started)
+		wait_for_completion(&ctx->dev->start_cmp);
+	vpu_dbg(LVL_ALL, "firmware version is %d.%d.%d\n", (pSharedInterface->FWVersion & 0x00ff0000) >> 16, (pSharedInterface->FWVersion & 0x0000ff00) >> 8, pSharedInterface->FWVersion & 0x000000ff);
+
 	if (ctx->stream_buffer_size < buffer_size + MIN_SPACE)
 		vpu_dbg(LVL_INFO, "circular buffer size is too small\n");
 	memcpy(ctx->stream_buffer_virt, input_buffer, buffer_size);
@@ -1749,7 +1754,7 @@ static void vpu_api_event_handler(struct vpu_ctx *ctx, u_int32 uStrIdx, u_int32 
 		ctx->firmware_finished = true;
 
 		if (ctx->wait_rst_done)
-			vpu_dbg(LVL_ERR, "warning: receive VID_API_EVENT_FINISHED when reset, ignore it\n");
+			vpu_dbg(LVL_ERR, "warning: receive VID_API_EVENT_FINISHED when reset\n");
 		else
 			vpu_dbg(LVL_INFO, "receive VID_API_EVENT_FINISHED\n");
 		v4l2_event_queue_fh(&ctx->fh, &ev); //notfiy app stream eos reached
@@ -1781,6 +1786,9 @@ static irqreturn_t fsl_vpu_mu_isr(int irq, void *This)
 #endif
 		MU_sendMesgToFW(dev->mu_base_virtaddr, INIT_DONE, 2);
 
+	} else if (msg == 0x55) {
+		dev->firmware_started = true;
+		complete(&dev->start_cmp);
 	} else
 		schedule_work(&dev->msg_work);
 
@@ -2666,6 +2674,9 @@ static int vpu_probe(struct platform_device *pdev)
 
 	mutex_init(&dev->dev_mutex);
 	mutex_init(&dev->cmd_mutex);
+	init_completion(&dev->start_cmp);
+	dev->firmware_started = false;
+
 	dev->fw_is_ready = false;
 	dev->workqueue = alloc_workqueue("vpu", WQ_UNBOUND | WQ_MEM_RECLAIM, 1);
 	if (!dev->workqueue) {

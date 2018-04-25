@@ -45,7 +45,7 @@ extern unsigned int vpu_dbg_level_decoder;
 
 #define VPU_MAX_FORMATS 4
 #define VPU_MAX_BUFFER 32
-#define M0FW_FILENAME "vpu_fw_imx8qxp_dec.bin"
+#define M0FW_FILENAME "vpu/vpu_fw_imx8qxp_dec.bin"
 #define MMAP_BUF_TYPE_SHIFT 28
 #define MMAP_BUF_TYPE_MASK 0xF0000000
 #define M0_BOOT_SIZE 0x1000000
@@ -188,7 +188,8 @@ struct vpu_dev {
 	struct mutex dev_mutex;
 	struct mutex cmd_mutex;
 	bool fw_is_ready;
-	struct completion msg_complete;
+	bool firmware_started;
+	struct completion start_cmp;
 	struct workqueue_struct *workqueue;
 	struct work_struct msg_work;
 	unsigned long instance_mask;
