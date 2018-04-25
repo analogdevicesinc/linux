@@ -128,6 +128,37 @@ static inline int source_to_id(lb_sec_sel_t source)
 	return -EINVAL;
 }
 
+static inline struct dpu_fetchunit *
+source_to_fu(struct dpu_plane_res *res, lb_sec_sel_t source)
+{
+	int fu_type = source_to_type(source);
+	int fu_id = source_to_id(source);
+
+	if (fu_type < 0 || fu_id < 0)
+		return NULL;
+
+	switch (fu_type) {
+	case DPU_PLANE_SRC_FD:
+		return res->fd[fu_id];
+	case DPU_PLANE_SRC_FL:
+		return res->fl[fu_id];
+	case DPU_PLANE_SRC_FW:
+		return res->fw[fu_id];
+	}
+
+	return NULL;
+}
+
+static inline struct dpu_fetchunit *
+dpstate_to_fu(struct dpu_plane_state *dpstate)
+{
+	struct drm_plane *plane = dpstate->base.plane;
+	struct dpu_plane *dplane = to_dpu_plane(plane);
+	struct dpu_plane_res *res = &dplane->grp->res;
+
+	return source_to_fu(res, dpstate->source);
+}
+
 static inline int blend_to_id(dpu_block_id_t blend)
 {
 	int i;

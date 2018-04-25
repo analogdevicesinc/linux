@@ -16,6 +16,7 @@
 #define __DPU_PRV_H__
 
 #include <drm/drm_fourcc.h>
+#include <video/dpu.h>
 
 #define NA				0xDEADBEEF	/* not available */
 
@@ -238,11 +239,11 @@ struct dpu_soc {
 	struct dpu_constframe	*cf_priv[4];
 	struct dpu_disengcfg	*dec_priv[2];
 	struct dpu_extdst	*ed_priv[4];
-	struct dpu_fetchdecode	*fd_priv[4];
-	struct dpu_fetcheco	*fe_priv[4];
+	struct dpu_fetchunit	*fd_priv[4];
+	struct dpu_fetchunit	*fe_priv[4];
 	struct dpu_framegen	*fg_priv[2];
-	struct dpu_fetchlayer	*fl_priv[2];
-	struct dpu_fetchwarp	*fw_priv[1];
+	struct dpu_fetchunit	*fl_priv[2];
+	struct dpu_fetchunit	*fw_priv[1];
 	struct dpu_hscaler	*hs_priv[3];
 	struct dpu_layerblend	*lb_priv[7];
 	struct dpu_tcon		*tcon_priv[2];
@@ -288,9 +289,37 @@ DECLARE_DPU_UNIT_INIT_FUNC(lb);
 DECLARE_DPU_UNIT_INIT_FUNC(tcon);
 DECLARE_DPU_UNIT_INIT_FUNC(vs);
 
-void fetchdecode_get_dprc(struct dpu_fetchdecode *fd, void *data);
-void fetchlayer_get_dprc(struct dpu_fetchlayer *fl, void *data);
-void fetchwarp_get_dprc(struct dpu_fetchwarp *fw, void *data);
+static inline u32 dpu_pec_fu_read(struct dpu_fetchunit *fu, unsigned int offset)
+{
+	return readl(fu->pec_base + offset);
+}
+
+static inline void dpu_pec_fu_write(struct dpu_fetchunit *fu, u32 value,
+				    unsigned int offset)
+{
+	writel(value, fu->pec_base + offset);
+}
+
+static inline u32 dpu_fu_read(struct dpu_fetchunit *fu, unsigned int offset)
+{
+	return readl(fu->base + offset);
+}
+
+static inline void dpu_fu_write(struct dpu_fetchunit *fu, u32 value,
+				unsigned int offset)
+{
+	writel(value, fu->base + offset);
+}
+
+static inline u32 rgb_color(u8 r, u8 g, u8 b, u8 a)
+{
+	return (r << 24) | (g << 16) | (b << 8) | a;
+}
+
+static inline u32 yuv_color(u8 y, u8 u, u8 v)
+{
+	return (y << 24) | (u << 16) | (v << 8);
+}
 
 static const unsigned int cf_ids[] = {0, 1, 4, 5};
 static const unsigned int dec_ids[] = {0, 1};

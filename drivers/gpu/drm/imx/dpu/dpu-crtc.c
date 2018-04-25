@@ -342,16 +342,14 @@ static void dpu_crtc_atomic_begin(struct drm_crtc *crtc,
 		struct dpu_plane *dplane;
 		struct drm_plane *plane;
 		struct dpu_plane_res *res;
-		struct dpu_fetchdecode *fd = NULL;
-		struct dpu_fetchlayer *fl = NULL;
-		struct dpu_fetchwarp *fw = NULL;
-		struct dpu_fetcheco *fe = NULL;
+		struct dpu_fetchunit *fu;
+		struct dpu_fetchunit *fe = NULL;
 		struct dpu_hscaler *hs = NULL;
 		struct dpu_vscaler *vs = NULL;
 		struct dpu_layerblend *lb;
 		struct dpu_extdst *ed;
 		extdst_src_sel_t ed_src;
-		int fu_id, lb_id, fu_type;
+		int lb_id;
 		bool crtc_disabling_on_primary = false;
 
 		old_dpstate = old_dcstate->dpu_plane_states[i];
@@ -362,25 +360,9 @@ static void dpu_crtc_atomic_begin(struct drm_crtc *crtc,
 		dplane = to_dpu_plane(plane_state->plane);
 		res = &dplane->grp->res;
 
-		fu_type = source_to_type(old_dpstate->source);
-		fu_id = source_to_id(old_dpstate->source);
-		if (fu_id < 0)
+		fu = dpstate_to_fu(old_dpstate);
+		if (!fu)
 			return;
-
-		switch (fu_type) {
-		case DPU_PLANE_SRC_FD:
-			fd = res->fd[fu_id];
-			break;
-		case DPU_PLANE_SRC_FL:
-			fl = res->fl[fu_id];
-			break;
-		case DPU_PLANE_SRC_FW:
-			fw = res->fw[fu_id];
-			break;
-		default:
-			WARN_ON(1);
-			return;
-		}
 
 		lb_id = blend_to_id(old_dpstate->blend);
 		if (lb_id < 0)
@@ -389,10 +371,10 @@ static void dpu_crtc_atomic_begin(struct drm_crtc *crtc,
 		lb = res->lb[lb_id];
 
 		layerblend_pixengcfg_clken(lb, CLKEN__DISABLE);
-		if (fd) {
-			fe = fetchdecode_get_fetcheco(fd);
-			hs = fetchdecode_get_hscaler(fd);
-			vs = fetchdecode_get_vscaler(fd);
+		if (fetchunit_is_fetchdecode(fu)) {
+			fe = fetchdecode_get_fetcheco(fu);
+			hs = fetchdecode_get_hscaler(fu);
+			vs = fetchdecode_get_vscaler(fu);
 			hscaler_pixengcfg_clken(hs, CLKEN__DISABLE);
 			vscaler_pixengcfg_clken(vs, CLKEN__DISABLE);
 			hscaler_mode(hs, SCALER_NEUTRAL);
@@ -411,29 +393,18 @@ static void dpu_crtc_atomic_begin(struct drm_crtc *crtc,
 			crtc_disabling_on_primary = true;
 
 		if (crtc_disabling_on_primary && old_dpstate->use_prefetch) {
-			if (fd) {
-				fetchdecode_pin_off(fd);
-				if (fetcheco_is_enabled(fe))
-					fetcheco_pin_off(fe);
-			} else if (fl) {
-				fetchlayer_pin_off(fl);
-			} else if (fw) {
-				fetchwarp_pin_off(fw);
-			}
+			fu->ops->pin_off(fu);
+			if (fetchunit_is_fetchdecode(fu) &&
+			    fe->ops->is_enabled(fe))
+				fe->ops->pin_off(fe);
 		} else {
-			if (fd) {
-				fetchdecode_source_buffer_disable(fd);
-				fetchdecode_pixengcfg_dynamic_src_sel(fd,
+			fu->ops->disable_src_buf(fu);
+			fu->ops->unpin_off(fu);
+			if (fetchunit_is_fetchdecode(fu)) {
+				fetchdecode_pixengcfg_dynamic_src_sel(fu,
 								FD_SRC_DISABLE);
-				fetcheco_source_buffer_disable(fe);
-				fetchdecode_unpin_off(fd);
-				fetcheco_unpin_off(fe);
-			} else if (fl) {
-				fetchlayer_source_buffer_disable(fl, 0);
-				fetchlayer_unpin_off(fl);
-			} else if (fw) {
-				fetchwarp_source_buffer_disable(fw, 0);
-				fetchwarp_unpin_off(fw);
+				fe->ops->disable_src_buf(fe);
+				fe->ops->unpin_off(fe);
 			}
 		}
 	}
@@ -484,75 +455,37 @@ static void dpu_crtc_atomic_flush(struct drm_crtc *crtc,
 
 	for (i = 0; i < dpu_crtc->hw_plane_num; i++) {
 		struct dpu_plane_state *old_dpstate;
-		struct drm_plane_state *plane_state;
-		struct dpu_plane *dplane;
-		struct dpu_plane_res *res;
-		struct dpu_fetchdecode *fd = NULL;
-		struct dpu_fetchlayer *fl = NULL;
-		struct dpu_fetchwarp *fw = NULL;
-		struct dpu_fetcheco *fe;
+		struct dpu_fetchunit *fu;
+		struct dpu_fetchunit *fe;
 		struct dpu_hscaler *hs;
 		struct dpu_vscaler *vs;
-		int fu_id, fu_type;
 
 		old_dpstate = old_dcstate->dpu_plane_states[i];
 		if (!old_dpstate)
 			continue;
 
-		plane_state = &old_dpstate->base;
-		dplane = to_dpu_plane(plane_state->plane);
-		res = &dplane->grp->res;
-
-		fu_type = source_to_type(old_dpstate->source);
-		fu_id = source_to_id(old_dpstate->source);
-		if (fu_id < 0)
+		fu = dpstate_to_fu(old_dpstate);
+		if (!fu)
 			return;
 
-		switch (fu_type) {
-		case DPU_PLANE_SRC_FD:
-			fd = res->fd[fu_id];
-			break;
-		case DPU_PLANE_SRC_FL:
-			fl = res->fl[fu_id];
-			break;
-		case DPU_PLANE_SRC_FW:
-			fw = res->fw[fu_id];
-			break;
-		default:
-			WARN_ON(1);
-			return;
-		}
+		if (!fu->ops->is_enabled(fu) || fu->ops->is_pinned_off(fu))
+			fu->ops->set_stream_id(fu, DPU_PLANE_SRC_DISABLED);
 
-		if (fd) {
-			if (!fetchdecode_is_enabled(fd) ||
-			     fetchdecode_is_pinned_off(fd))
-				fetchdecode_set_stream_id(fd,
+		if (fetchunit_is_fetchdecode(fu)) {
+			fe = fetchdecode_get_fetcheco(fu);
+			if (!fe->ops->is_enabled(fe) ||
+			     fe->ops->is_pinned_off(fe))
+				fe->ops->set_stream_id(fe,
 							DPU_PLANE_SRC_DISABLED);
 
-			fe = fetchdecode_get_fetcheco(fd);
-			if (!fetcheco_is_enabled(fe) ||
-			     fetcheco_is_pinned_off(fe))
-				fetcheco_set_stream_id(fe,
-							DPU_PLANE_SRC_DISABLED);
-
-			hs = fetchdecode_get_hscaler(fd);
+			hs = fetchdecode_get_hscaler(fu);
 			if (!hscaler_is_enabled(hs))
 				hscaler_set_stream_id(hs,
 							DPU_PLANE_SRC_DISABLED);
 
-			vs = fetchdecode_get_vscaler(fd);
+			vs = fetchdecode_get_vscaler(fu);
 			if (!vscaler_is_enabled(vs))
 				vscaler_set_stream_id(vs,
-							DPU_PLANE_SRC_DISABLED);
-		} else if (fl) {
-			if (!fetchlayer_is_enabled(fl, 0) ||
-			     fetchlayer_is_pinned_off(fl))
-				fetchlayer_set_stream_id(fl,
-							DPU_PLANE_SRC_DISABLED);
-		} else if (fw) {
-			if (!fetchwarp_is_enabled(fw, 0) ||
-			     fetchwarp_is_pinned_off(fw))
-				fetchwarp_set_stream_id(fw,
 							DPU_PLANE_SRC_DISABLED);
 		}
 	}

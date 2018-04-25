@@ -40,146 +40,13 @@
 #define HIDDENSTATUS			0x54
 
 struct dpu_fetcheco {
-	void __iomem *pec_base;
-	void __iomem *base;
-	struct mutex mutex;
-	int id;
-	bool inuse;
-	bool pin_off;
-	struct dpu_soc *dpu;
-	/* see DPU_PLANE_SRC_xxx */
-	unsigned int stream_id;
+	struct dpu_fetchunit fu;
 };
 
-static inline u32 dpu_pec_fe_read(struct dpu_fetcheco *fe, unsigned int offset)
-{
-	return readl(fe->pec_base + offset);
-}
-
-static inline void dpu_pec_fe_write(struct dpu_fetcheco *fe, u32 value,
-				    unsigned int offset)
-{
-	writel(value, fe->pec_base + offset);
-}
-
-static inline u32 dpu_fe_read(struct dpu_fetcheco *fe, unsigned int offset)
-{
-	return readl(fe->base + offset);
-}
-
-static inline void dpu_fe_write(struct dpu_fetcheco *fe, u32 value,
-				unsigned int offset)
-{
-	writel(value, fe->base + offset);
-}
-
-void fetcheco_shden(struct dpu_fetcheco *fe, bool enable)
-{
-	u32 val;
-
-	mutex_lock(&fe->mutex);
-	val = dpu_fe_read(fe, STATICCONTROL);
-	if (enable)
-		val |= SHDEN;
-	else
-		val &= ~SHDEN;
-	dpu_fe_write(fe, val, STATICCONTROL);
-	mutex_unlock(&fe->mutex);
-}
-EXPORT_SYMBOL_GPL(fetcheco_shden);
-
-void fetcheco_set_burstlength(struct dpu_fetcheco *fe, dma_addr_t baddr,
-			      bool use_prefetch)
-{
-	struct dpu_soc *dpu = fe->dpu;
-	unsigned int burst_size, burst_length;
-	u32 val;
-
-	if (use_prefetch) {
-		/*
-		 * address TKT343664:
-		 * fetch unit base address has to align to burst size
-		 */
-		burst_size = 1 << (ffs(baddr) - 1);
-		burst_size = min(burst_size, 128U);
-		burst_length = burst_size / 8;
-	} else {
-		burst_length = 16;
-	}
-
-	mutex_lock(&fe->mutex);
-	val = dpu_fe_read(fe, BURSTBUFFERMANAGEMENT);
-	val &= ~SETBURSTLENGTH_MASK;
-	val |= SETBURSTLENGTH(burst_length);
-	dpu_fe_write(fe, val, BURSTBUFFERMANAGEMENT);
-	mutex_unlock(&fe->mutex);
-
-	dev_dbg(dpu->dev, "FetchEco%d burst length is %u\n",
-						fe->id, burst_length);
-}
-EXPORT_SYMBOL_GPL(fetcheco_set_burstlength);
-
-void fetcheco_baseaddress(struct dpu_fetcheco *fe, dma_addr_t paddr)
-{
-	mutex_lock(&fe->mutex);
-	dpu_fe_write(fe, paddr, BASEADDRESS0);
-	mutex_unlock(&fe->mutex);
-}
-EXPORT_SYMBOL_GPL(fetcheco_baseaddress);
-
-void fetcheco_source_bpp(struct dpu_fetcheco *fe, int bpp)
-{
-	u32 val;
-
-	mutex_lock(&fe->mutex);
-	val = dpu_fe_read(fe, SOURCEBUFFERATTRIBUTES0);
-	val &= ~0x3f0000;
-	val |= BITSPERPIXEL(bpp);
-	dpu_fe_write(fe, val, SOURCEBUFFERATTRIBUTES0);
-	mutex_unlock(&fe->mutex);
-}
-EXPORT_SYMBOL_GPL(fetcheco_source_bpp);
-
-/*
- * The arguments width and bpp are valid only when use_prefetch is true.
- * Since the pixel format has to be NV12 or NV21 when use_prefetch is true,
- * we assume width stands for how many UV we have in bytes for one line,
- * while bpp should be 8bits for every U or V component.
- */
-void fetcheco_source_stride(struct dpu_fetcheco *fe, unsigned int width,
-			    int bpp, unsigned int stride,
-			    dma_addr_t baddr, bool use_prefetch)
-{
-	unsigned int burst_size;
-	u32 val;
-
-	if (use_prefetch) {
-		/*
-		 * address TKT343664:
-		 * fetch unit base address has to align to burst size
-		 */
-		burst_size = 1 << (ffs(baddr) - 1);
-		burst_size = min(burst_size, 128U);
-
-		stride = width * (bpp >> 3);
-		/*
-		 * address TKT339017:
-		 * fixup for burst size vs stride mismatch
-		 */
-		stride = round_up(stride, burst_size);
-	}
-
-	mutex_lock(&fe->mutex);
-	val = dpu_fe_read(fe, SOURCEBUFFERATTRIBUTES0);
-	val &= ~0xffff;
-	val |= STRIDE(stride);
-	dpu_fe_write(fe, val, SOURCEBUFFERATTRIBUTES0);
-	mutex_unlock(&fe->mutex);
-}
-EXPORT_SYMBOL_GPL(fetcheco_source_stride);
-
-void fetcheco_src_buf_dimensions(struct dpu_fetcheco *fe, unsigned int w,
-				 unsigned int h, u32 fmt, bool deinterlace)
+static void
+fetcheco_set_src_buf_dimensions(struct dpu_fetchunit *fu,
+				unsigned int w, unsigned int h,
+				u32 fmt, bool deinterlace)
 {
 	int width, height;
 	u32 val;
@@ -207,13 +74,12 @@ void fetcheco_src_buf_dimensions(struct dpu_fetcheco *fe, unsigned int w,
 
 	val = LINEWIDTH(width) | LINECOUNT(height);
 
-	mutex_lock(&fe->mutex);
-	dpu_fe_write(fe, val, SOURCEBUFFERDIMENSION0);
-	mutex_unlock(&fe->mutex);
+	mutex_lock(&fu->mutex);
+	dpu_fu_write(fu, val, SOURCEBUFFERDIMENSION0);
+	mutex_unlock(&fu->mutex);
 }
-EXPORT_SYMBOL_GPL(fetcheco_src_buf_dimensions);
 
-void fetcheco_set_fmt(struct dpu_fetcheco *fe, u32 fmt)
+static void fetcheco_set_fmt(struct dpu_fetchunit *fu, u32 fmt, bool unused)
 {
 	u32 val, bits, shift;
 	int i, hsub, vsub;
@@ -258,17 +124,17 @@ void fetcheco_set_fmt(struct dpu_fetcheco *fe, u32 fmt)
 		return;
 	}
 
-	mutex_lock(&fe->mutex);
-	val = dpu_fe_read(fe, FRAMERESAMPLING);
+	mutex_lock(&fu->mutex);
+	val = dpu_fu_read(fu, FRAMERESAMPLING);
 	val &= ~(DELTAX_MASK | DELTAY_MASK);
 	val |= DELTAX(x) | DELTAY(y);
-	dpu_fe_write(fe, val, FRAMERESAMPLING);
+	dpu_fu_write(fu, val, FRAMERESAMPLING);
 
-	val = dpu_fe_read(fe, CONTROL);
+	val = dpu_fu_read(fu, CONTROL);
 	val &= ~RASTERMODE_MASK;
 	val |= RASTERMODE(RASTERMODE__NORMAL);
-	dpu_fe_write(fe, val, CONTROL);
-	mutex_unlock(&fe->mutex);
+	dpu_fu_write(fu, val, CONTROL);
+	mutex_unlock(&fu->mutex);
 
 	for (i = 0; i < ARRAY_SIZE(dpu_pixel_format_matrix); i++) {
 		if (dpu_pixel_format_matrix[i].pixel_format == fmt) {
@@ -278,95 +144,60 @@ void fetcheco_set_fmt(struct dpu_fetcheco *fe, u32 fmt)
 			bits &= ~Y_BITS_MASK;
 			shift &= ~Y_SHIFT_MASK;
 
-			mutex_lock(&fe->mutex);
-			dpu_fe_write(fe, bits, COLORCOMPONENTBITS0);
-			dpu_fe_write(fe, shift, COLORCOMPONENTSHIFT0);
-			mutex_unlock(&fe->mutex);
+			mutex_lock(&fu->mutex);
+			dpu_fu_write(fu, bits, COLORCOMPONENTBITS0);
+			dpu_fu_write(fu, shift, COLORCOMPONENTSHIFT0);
+			mutex_unlock(&fu->mutex);
 			return;
 		}
 	}
 
 	WARN_ON(1);
 }
-EXPORT_SYMBOL_GPL(fetcheco_set_fmt);
 
-void fetcheco_layeroffset(struct dpu_fetcheco *fe, unsigned int x,
+void fetcheco_layeroffset(struct dpu_fetchunit *fu, unsigned int x,
 			  unsigned int y)
 {
 	u32 val;
 
 	val = LAYERXOFFSET(x) | LAYERYOFFSET(y);
 
-	mutex_lock(&fe->mutex);
-	dpu_fe_write(fe, val, LAYEROFFSET0);
-	mutex_unlock(&fe->mutex);
+	mutex_lock(&fu->mutex);
+	dpu_fu_write(fu, val, LAYEROFFSET0);
+	mutex_unlock(&fu->mutex);
 }
 EXPORT_SYMBOL_GPL(fetcheco_layeroffset);
 
-void fetcheco_clipoffset(struct dpu_fetcheco *fe, unsigned int x,
+void fetcheco_clipoffset(struct dpu_fetchunit *fu, unsigned int x,
 			 unsigned int y)
 {
 	u32 val;
 
 	val = CLIPWINDOWXOFFSET(x) | CLIPWINDOWYOFFSET(y);
 
-	mutex_lock(&fe->mutex);
-	dpu_fe_write(fe, val, CLIPWINDOWOFFSET0);
-	mutex_unlock(&fe->mutex);
+	mutex_lock(&fu->mutex);
+	dpu_fu_write(fu, val, CLIPWINDOWOFFSET0);
+	mutex_unlock(&fu->mutex);
 }
 EXPORT_SYMBOL_GPL(fetcheco_clipoffset);
 
-void fetcheco_clipdimensions(struct dpu_fetcheco *fe, unsigned int w,
+void fetcheco_clipdimensions(struct dpu_fetchunit *fu, unsigned int w,
 			     unsigned int h)
 {
 	u32 val;
 
 	val = CLIPWINDOWWIDTH(w) | CLIPWINDOWHEIGHT(h);
 
-	mutex_lock(&fe->mutex);
-	dpu_fe_write(fe, val, CLIPWINDOWDIMENSIONS0);
-	mutex_unlock(&fe->mutex);
+	mutex_lock(&fu->mutex);
+	dpu_fu_write(fu, val, CLIPWINDOWDIMENSIONS0);
+	mutex_unlock(&fu->mutex);
 }
 EXPORT_SYMBOL_GPL(fetcheco_clipdimensions);
 
-void fetcheco_source_buffer_enable(struct dpu_fetcheco *fe)
-{
-	u32 val;
-
-	mutex_lock(&fe->mutex);
-	val = dpu_fe_read(fe, LAYERPROPERTY0);
-	val |= SOURCEBUFFERENABLE;
-	dpu_fe_write(fe, val, LAYERPROPERTY0);
-	mutex_unlock(&fe->mutex);
-}
-EXPORT_SYMBOL_GPL(fetcheco_source_buffer_enable);
-
-void fetcheco_source_buffer_disable(struct dpu_fetcheco *fe)
-{
-	u32 val;
-
-	mutex_lock(&fe->mutex);
-	val = dpu_fe_read(fe, LAYERPROPERTY0);
-	val &= ~SOURCEBUFFERENABLE;
-	dpu_fe_write(fe, val, LAYERPROPERTY0);
-	mutex_unlock(&fe->mutex);
-}
-EXPORT_SYMBOL_GPL(fetcheco_source_buffer_disable);
-
-bool fetcheco_is_enabled(struct dpu_fetcheco *fe)
-{
-	u32 val;
-
-	mutex_lock(&fe->mutex);
-	val = dpu_fe_read(fe, LAYERPROPERTY0);
-	mutex_unlock(&fe->mutex);
-
-	return !!(val & SOURCEBUFFERENABLE);
-}
-EXPORT_SYMBOL_GPL(fetcheco_is_enabled);
-
-void fetcheco_framedimensions(struct dpu_fetcheco *fe, unsigned int w,
-			      unsigned int h, bool deinterlace)
+static void
+fetcheco_set_framedimensions(struct dpu_fetchunit *fu,
+			     unsigned int w, unsigned int h,
+			     bool deinterlace)
 {
 	u32 val;
 
@@ -375,90 +206,84 @@ void fetcheco_framedimensions(struct dpu_fetcheco *fe, unsigned int w,
 
 	val = FRAMEWIDTH(w) | FRAMEHEIGHT(h);
 
-	mutex_lock(&fe->mutex);
-	dpu_fe_write(fe, val, FRAMEDIMENSIONS);
-	mutex_unlock(&fe->mutex);
+	mutex_lock(&fu->mutex);
+	dpu_fu_write(fu, val, FRAMEDIMENSIONS);
+	mutex_unlock(&fu->mutex);
 }
-EXPORT_SYMBOL_GPL(fetcheco_framedimensions);
 
-void fetcheco_frameresampling(struct dpu_fetcheco *fe, unsigned int x,
+void fetcheco_frameresampling(struct dpu_fetchunit *fu, unsigned int x,
 			      unsigned int y)
 {
 	u32 val;
 
-	mutex_lock(&fe->mutex);
-	val = dpu_fe_read(fe, FRAMERESAMPLING);
+	mutex_lock(&fu->mutex);
+	val = dpu_fu_read(fu, FRAMERESAMPLING);
 	val &= ~(DELTAX_MASK | DELTAY_MASK);
 	val |= DELTAX(x) | DELTAY(y);
-	dpu_fe_write(fe, val, FRAMERESAMPLING);
-	mutex_unlock(&fe->mutex);
+	dpu_fu_write(fu, val, FRAMERESAMPLING);
+	mutex_unlock(&fu->mutex);
 }
 EXPORT_SYMBOL_GPL(fetcheco_frameresampling);
 
-void fetcheco_controltrigger(struct dpu_fetcheco *fe, bool trigger)
+static void fetcheco_set_controltrigger(struct dpu_fetchunit *fu)
 {
-	u32 val;
-
-	val = trigger ? SHDTOKGEN : 0;
-
-	mutex_lock(&fe->mutex);
-	dpu_fe_write(fe, val, CONTROLTRIGGER);
-	mutex_unlock(&fe->mutex);
+	mutex_lock(&fu->mutex);
+	dpu_fu_write(fu, SHDTOKGEN, CONTROLTRIGGER);
+	mutex_unlock(&fu->mutex);
 }
-EXPORT_SYMBOL_GPL(fetcheco_controltrigger);
 
-int fetcheco_fetchtype(struct dpu_fetcheco *fe, fetchtype_t *type)
+int fetcheco_fetchtype(struct dpu_fetchunit *fu, fetchtype_t *type)
 {
-	struct dpu_soc *dpu = fe->dpu;
+	struct dpu_soc *dpu = fu->dpu;
 	u32 val;
 
-	mutex_lock(&fe->mutex);
-	val = dpu_fe_read(fe, FETCHTYPE);
+	mutex_lock(&fu->mutex);
+	val = dpu_fu_read(fu, FETCHTYPE);
 	val &= FETCHTYPE_MASK;
-	mutex_unlock(&fe->mutex);
+	mutex_unlock(&fu->mutex);
 
 	switch (val) {
 	case FETCHTYPE__DECODE:
 		dev_dbg(dpu->dev, "FetchEco%d with RL and RLAD decoder\n",
-				fe->id);
+				fu->id);
 		break;
 	case FETCHTYPE__LAYER:
 		dev_dbg(dpu->dev, "FetchEco%d with fractional "
-				"plane(8 layers)\n", fe->id);
+				"plane(8 layers)\n", fu->id);
 		break;
 	case FETCHTYPE__WARP:
 		dev_dbg(dpu->dev, "FetchEco%d with arbitrary warping and "
-				"fractional plane(8 layers)\n", fe->id);
+				"fractional plane(8 layers)\n", fu->id);
 		break;
 	case FETCHTYPE__ECO:
 		dev_dbg(dpu->dev, "FetchEco%d with minimum feature set for "
 				"alpha, chroma and coordinate planes\n",
-				fe->id);
+				fu->id);
 		break;
 	case FETCHTYPE__PERSP:
 		dev_dbg(dpu->dev, "FetchEco%d with affine, perspective and "
-				"arbitrary warping\n", fe->id);
+				"arbitrary warping\n", fu->id);
 		break;
 	case FETCHTYPE__ROT:
 		dev_dbg(dpu->dev, "FetchEco%d with affine and arbitrary "
-				"warping\n", fe->id);
+				"warping\n", fu->id);
 		break;
 	case FETCHTYPE__DECODEL:
 		dev_dbg(dpu->dev, "FetchEco%d with RL and RLAD decoder, "
-				"reduced feature set\n", fe->id);
+				"reduced feature set\n", fu->id);
 		break;
 	case FETCHTYPE__LAYERL:
 		dev_dbg(dpu->dev, "FetchEco%d with fractional "
 				"plane(8 layers), reduced feature set\n",
-				fe->id);
+				fu->id);
 		break;
 	case FETCHTYPE__ROTL:
 		dev_dbg(dpu->dev, "FetchEco%d with affine and arbitrary "
-				"warping, reduced feature set\n", fe->id);
+				"warping, reduced feature set\n", fu->id);
 		break;
 	default:
 		dev_warn(dpu->dev, "Invalid fetch type %u for FetchEco%d\n",
-				val, fe->id);
+				val, fu->id);
 		return -EINVAL;
 	}
 
@@ -467,9 +292,9 @@ int fetcheco_fetchtype(struct dpu_fetcheco *fe, fetchtype_t *type)
 }
 EXPORT_SYMBOL_GPL(fetcheco_fetchtype);
 
-dpu_block_id_t fetcheco_get_block_id(struct dpu_fetcheco *fe)
+dpu_block_id_t fetcheco_get_block_id(struct dpu_fetchunit *fu)
 {
-	switch (fe->id) {
+	switch (fu->id) {
 	case 0:
 		return ID_FETCHECO0;
 	case 1:
@@ -486,47 +311,9 @@ dpu_block_id_t fetcheco_get_block_id(struct dpu_fetcheco *fe)
 }
 EXPORT_SYMBOL_GPL(fetcheco_get_block_id);
 
-unsigned int fetcheco_get_stream_id(struct dpu_fetcheco *fe)
+struct dpu_fetchunit *dpu_fe_get(struct dpu_soc *dpu, int id)
 {
-	return fe->stream_id;
-}
-EXPORT_SYMBOL_GPL(fetcheco_get_stream_id);
-
-void fetcheco_set_stream_id(struct dpu_fetcheco *fe, unsigned int id)
-{
-	switch (id) {
-	case DPU_PLANE_SRC_TO_DISP_STREAM0:
-	case DPU_PLANE_SRC_TO_DISP_STREAM1:
-	case DPU_PLANE_SRC_DISABLED:
-		fe->stream_id = id;
-		break;
-	default:
-		WARN_ON(1);
-	}
-}
-EXPORT_SYMBOL_GPL(fetcheco_set_stream_id);
-
-void fetcheco_pin_off(struct dpu_fetcheco *fe)
-{
-	fe->pin_off = true;
-}
-EXPORT_SYMBOL_GPL(fetcheco_pin_off);
-
-void fetcheco_unpin_off(struct dpu_fetcheco *fe)
-{
-	fe->pin_off = false;
-}
-EXPORT_SYMBOL_GPL(fetcheco_unpin_off);
-
-bool fetcheco_is_pinned_off(struct dpu_fetcheco *fe)
-{
-	return fe->pin_off;
-}
-EXPORT_SYMBOL_GPL(fetcheco_is_pinned_off);
-
-struct dpu_fetcheco *dpu_fe_get(struct dpu_soc *dpu, int id)
-{
-	struct dpu_fetcheco *fe;
+	struct dpu_fetchunit *fu;
 	int i;
 
 	for (i = 0; i < ARRAY_SIZE(fe_ids); i++)
@@ -536,36 +323,55 @@ struct dpu_fetcheco *dpu_fe_get(struct dpu_soc *dpu, int id)
 	if (i == ARRAY_SIZE(fe_ids))
 		return ERR_PTR(-EINVAL);
 
-	fe = dpu->fe_priv[i];
+	fu = dpu->fe_priv[i];
 
-	mutex_lock(&fe->mutex);
+	mutex_lock(&fu->mutex);
 
-	if (fe->inuse) {
-		fe = ERR_PTR(-EBUSY);
+	if (fu->inuse) {
+		fu = ERR_PTR(-EBUSY);
 		goto out;
 	}
 
-	fe->inuse = true;
+	fu->inuse = true;
 out:
-	mutex_unlock(&fe->mutex);
+	mutex_unlock(&fu->mutex);
 
-	return fe;
+	return fu;
 }
 EXPORT_SYMBOL_GPL(dpu_fe_get);
 
-void dpu_fe_put(struct dpu_fetcheco *fe)
+void dpu_fe_put(struct dpu_fetchunit *fu)
 {
-	mutex_lock(&fe->mutex);
+	mutex_lock(&fu->mutex);
 
-	fe->inuse = false;
+	fu->inuse = false;
 
-	mutex_unlock(&fe->mutex);
+	mutex_unlock(&fu->mutex);
 }
 EXPORT_SYMBOL_GPL(dpu_fe_put);
 
+static const struct dpu_fetchunit_ops fe_ops = {
+	.set_burstlength = fetchunit_set_burstlength,
+	.set_baseaddress = fetchunit_set_baseaddress,
+	.set_src_bpp = fetchunit_set_src_bpp,
+	.set_src_stride = fetchunit_set_src_stride,
+	.set_src_buf_dimensions = fetcheco_set_src_buf_dimensions,
+	.set_fmt = fetcheco_set_fmt,
+	.enable_src_buf = fetchunit_enable_src_buf,
+	.disable_src_buf = fetchunit_disable_src_buf,
+	.is_enabled = fetchunit_is_enabled,
+	.set_framedimensions = fetcheco_set_framedimensions,
+	.set_controltrigger = fetcheco_set_controltrigger,
+	.get_stream_id = fetchunit_get_stream_id,
+	.set_stream_id = fetchunit_set_stream_id,
+	.pin_off = fetchunit_pin_off,
+	.unpin_off = fetchunit_unpin_off,
+	.is_pinned_off = fetchunit_is_pinned_off,
+};
+
 void _dpu_fe_init(struct dpu_soc *dpu, unsigned int id)
 {
-	struct dpu_fetcheco *fe;
+	struct dpu_fetchunit *fu;
 	int i;
 
 	for (i = 0; i < ARRAY_SIZE(fe_ids); i++)
@@ -575,20 +381,21 @@ void _dpu_fe_init(struct dpu_soc *dpu, unsigned int id)
 	if (WARN_ON(i == ARRAY_SIZE(fe_ids)))
 		return;
 
-	fe = dpu->fe_priv[i];
+	fu = dpu->fe_priv[i];
 
-	fetcheco_shden(fe, true);
+	fetchunit_shden(fu, true);
 
-	mutex_lock(&fe->mutex);
-	dpu_fe_write(fe, SETNUMBUFFERS(16) | SETBURSTLENGTH(16),
+	mutex_lock(&fu->mutex);
+	dpu_fu_write(fu, SETNUMBUFFERS(16) | SETBURSTLENGTH(16),
 			BURSTBUFFERMANAGEMENT);
-	mutex_unlock(&fe->mutex);
+	mutex_unlock(&fu->mutex);
 }
 
 int dpu_fe_init(struct dpu_soc *dpu, unsigned int id,
 		unsigned long pec_base, unsigned long base)
 {
 	struct dpu_fetcheco *fe;
+	struct dpu_fetchunit *fu;
 	int i;
 
 	fe = devm_kzalloc(dpu->dev, sizeof(*fe), GFP_KERNEL);
@@ -599,19 +406,24 @@ int dpu_fe_init(struct dpu_soc *dpu, unsigned int id,
 		if (fe_ids[i] == id)
 			break;
 
-	dpu->fe_priv[i] = fe;
+	fu = &fe->fu;
+	dpu->fe_priv[i] = fu;
 
-	fe->pec_base = devm_ioremap(dpu->dev, pec_base, SZ_16);
-	if (!fe->pec_base)
+	fu->pec_base = devm_ioremap(dpu->dev, pec_base, SZ_16);
+	if (!fu->pec_base)
 		return -ENOMEM;
 
-	fe->base = devm_ioremap(dpu->dev, base, SZ_128);
-	if (!fe->base)
+	fu->base = devm_ioremap(dpu->dev, base, SZ_128);
+	if (!fu->base)
 		return -ENOMEM;
 
-	fe->dpu = dpu;
-	fe->id = id;
-	mutex_init(&fe->mutex);
+	fu->dpu = dpu;
+	fu->id = id;
+	fu->type = FU_T_FE;
+	fu->ops = &fe_ops;
+	fu->name = "fetcheco";
+
+	mutex_init(&fu->mutex);
 
 	_dpu_fe_init(dpu, id);
 

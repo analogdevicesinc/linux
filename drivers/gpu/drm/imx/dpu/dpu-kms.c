@@ -133,16 +133,13 @@ dpu_atomic_assign_plane_source_per_crtc(struct drm_plane_state **states, int n)
 	struct dpu_plane *dplane;
 	struct dpu_plane_grp *grp;
 	struct drm_framebuffer *fb;
-	struct dpu_fetchdecode *fd;
-	struct dpu_fetcheco *fe;
-	struct dpu_fetchlayer *fl;
-	struct dpu_fetchwarp *fw;
+	struct dpu_fetchunit *fu;
+	struct dpu_fetchunit *fe;
 	struct dpu_hscaler *hs;
 	struct dpu_vscaler *vs;
 	unsigned int sid, src_sid;
 	unsigned int num_planes;
 	int i, j, k, l, m;
-	int fu_id, fu_type;
 	int total_asrc_num;
 	u32 src_a_mask, cap_mask, fe_mask, hs_mask, vs_mask;
 	bool need_fetcheco, need_hscaler, need_vscaler;
@@ -178,49 +175,23 @@ dpu_atomic_assign_plane_source_per_crtc(struct drm_plane_state **states, int n)
 		for (k = 0; k < total_asrc_num; k++) {
 			m = ffs(src_a_mask) - 1;
 
-			fu_type = source_to_type(sources[m]);
-			fu_id = source_to_id(sources[m]);
+			fu = source_to_fu(&grp->res, sources[m]);
+			if (!fu)
+				return -EINVAL;
 
-			switch (fu_type) {
-			case DPU_PLANE_SRC_FL:
-				fl = grp->res.fl[fu_id];
+			/* avoid on-the-fly/hot migration */
+			src_sid = fu->ops->get_stream_id(fu);
+			if (src_sid && src_sid != BIT(sid))
+				goto next;
 
-				if (fmt_is_yuv || need_fetcheco ||
-				    need_hscaler || need_vscaler)
-					goto next;
-
-				/* avoid on-the-fly/hot migration */
-				src_sid = fetchlayer_get_stream_id(fl);
-				if (src_sid && src_sid != BIT(sid))
-					goto next;
-				break;
-			case DPU_PLANE_SRC_FW:
-				fw = grp->res.fw[fu_id];
-
-				if (fmt_is_yuv || need_fetcheco ||
-				    need_hscaler || need_vscaler)
-					goto next;
-
-				/* avoid on-the-fly/hot migration */
-				src_sid = fetchwarp_get_stream_id(fw);
-				if (src_sid && src_sid != BIT(sid))
-					goto next;
-				break;
-			case DPU_PLANE_SRC_FD:
-				fd = grp->res.fd[fu_id];
-
-				/* avoid on-the-fly/hot migration */
-				src_sid = fetchdecode_get_stream_id(fd);
-				if (src_sid && src_sid != BIT(sid))
-					goto next;
-
-				cap_mask = fetchdecode_get_vproc_mask(fd);
+			if (fetchunit_is_fetchdecode(fu)) {
+				cap_mask = fetchdecode_get_vproc_mask(fu);
 
 				if (need_fetcheco) {
-					fe = fetchdecode_get_fetcheco(fd);
+					fe = fetchdecode_get_fetcheco(fu);
 
 					/* avoid on-the-fly/hot migration */
-					src_sid = fetcheco_get_stream_id(fe);
+					src_sid = fu->ops->get_stream_id(fe);
 					if (src_sid && src_sid != BIT(sid))
 						goto next;
 
@@ -237,7 +208,7 @@ dpu_atomic_assign_plane_source_per_crtc(struct drm_plane_state **states, int n)
 				}
 
 				if (need_hscaler) {
-					hs = fetchdecode_get_hscaler(fd);
+					hs = fetchdecode_get_hscaler(fu);
 
 					/* avoid on-the-fly/hot migration */
 					src_sid = hscaler_get_stream_id(hs);
@@ -257,7 +228,7 @@ dpu_atomic_assign_plane_source_per_crtc(struct drm_plane_state **states, int n)
 				}
 
 				if (need_vscaler) {
-					vs = fetchdecode_get_vscaler(fd);
+					vs = fetchdecode_get_vscaler(fu);
 
 					/* avoid on-the-fly/hot migration */
 					src_sid = vscaler_get_stream_id(vs);
@@ -275,9 +246,10 @@ dpu_atomic_assign_plane_source_per_crtc(struct drm_plane_state **states, int n)
 					if (grp->src_use_vproc_mask & vs_mask)
 						goto next;
 				}
-				break;
-			default:
-				return -EINVAL;
+			} else {
+				if (fmt_is_yuv || need_fetcheco ||
+				    need_hscaler || need_vscaler)
+					goto next;
 			}
 
 			grp->src_a_mask &= ~BIT(m);
