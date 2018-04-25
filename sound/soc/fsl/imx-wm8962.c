@@ -572,7 +572,6 @@ static int imx_wm8962_probe(struct platform_device *pdev)
 	struct imx_priv *priv = &card_priv;
 	struct i2c_client *codec_dev;
 	struct imx_wm8962_data *data;
-	struct clk *codec_clk;
 	int int_port, ext_port, tmp_port;
 	int ret;
 	struct platform_device *asrc_pdev = NULL;
