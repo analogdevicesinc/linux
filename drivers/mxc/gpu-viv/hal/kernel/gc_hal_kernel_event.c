@@ -1845,7 +1845,10 @@ gckEVENT_Submit(
         gcmkONERROR(gckCOMMAND_ExitCommit(command, FromPower));
 
 #if !gcdNULL_DRIVER
-        gcmkVERIFY_OK(_TryToIdleGPU(Event));
+        if (!FromPower)
+        {
+            gcmkVERIFY_OK(_TryToIdleGPU(Event));
+        }
 #endif
     }
 

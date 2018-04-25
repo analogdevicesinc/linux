@@ -1799,18 +1799,6 @@ gckVGHARDWARE_SetPowerManagementState(
     /* Convert the broadcast power state. */
     switch (State)
     {
-    case gcvPOWER_SUSPEND_ATPOWERON:
-        /* Convert to SUSPEND and don't wait for STALL. */
-        State = gcvPOWER_SUSPEND;
-        stall = gcvFALSE;
-        break;
-
-    case gcvPOWER_OFF_ATPOWERON:
-        /* Convert to OFF and don't wait for STALL. */
-        State = gcvPOWER_OFF;
-        stall = gcvFALSE;
-        break;
-
     case gcvPOWER_IDLE_BROADCAST:
         /* Convert to IDLE and note we are inside broadcast. */
         State     = gcvPOWER_IDLE;
@@ -1826,13 +1814,6 @@ gckVGHARDWARE_SetPowerManagementState(
     case gcvPOWER_OFF_BROADCAST:
         /* Convert to OFF and note we are inside broadcast. */
         State     = gcvPOWER_OFF;
-        broadcast = gcvTRUE;
-        break;
-
-    case gcvPOWER_OFF_RECOVERY:
-        /* Convert to OFF and note we are inside recovery. */
-        State     = gcvPOWER_OFF;
-        stall     = gcvFALSE;
         broadcast = gcvTRUE;
         break;
 

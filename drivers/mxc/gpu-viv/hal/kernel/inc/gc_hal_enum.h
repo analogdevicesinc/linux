@@ -606,12 +606,9 @@ typedef enum _gceCHIPPOWERSTATE
     gcvPOWER_OFF,
     gcvPOWER_IDLE,
     gcvPOWER_SUSPEND,
-    gcvPOWER_SUSPEND_ATPOWERON,
-    gcvPOWER_OFF_ATPOWERON,
     gcvPOWER_IDLE_BROADCAST,
     gcvPOWER_SUSPEND_BROADCAST,
     gcvPOWER_OFF_BROADCAST,
-    gcvPOWER_OFF_RECOVERY,
     gcvPOWER_OFF_TIMEOUT,
     gcvPOWER_ON_AUTO
 }
@@ -2171,3 +2168,4 @@ typedef void *                            gctTHREAD;
 #endif
 
 #endif /* __gc_hal_enum_h_ */
+

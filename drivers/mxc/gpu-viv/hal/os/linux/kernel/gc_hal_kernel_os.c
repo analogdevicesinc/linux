@@ -4891,6 +4891,11 @@ gckOS_Broadcast(
     )
 {
     gceSTATUS status;
+#if gcdPOWER_SUSPEND_WHEN_IDLE
+    gceCHIPPOWERSTATE state = gcvPOWER_SUSPEND_BROADCAST;
+#else
+    gceCHIPPOWERSTATE state = gcvPOWER_IDLE_BROADCAST;
+#endif
 
     gcmkHEADER_ARG("Os=0x%X Hardware=0x%X Reason=%d", Os, Hardware, Reason);
 
@@ -4918,12 +4923,7 @@ gckOS_Broadcast(
 
         /* Put GPU IDLE. */
         gcmkONERROR(
-            gckHARDWARE_SetPowerManagementState(Hardware,
-#if gcdPOWER_SUSPEND_WHEN_IDLE
-                                                gcvPOWER_SUSPEND_BROADCAST));
-#else
-                                                gcvPOWER_IDLE_BROADCAST));
-#endif
+            gckHARDWARE_SetPowerManagementState(Hardware, state));
 
         /* Add idle process DB. */
         gcmkONERROR(gckKERNEL_AddProcessDB(Hardware->kernel,

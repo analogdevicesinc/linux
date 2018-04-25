@@ -1842,6 +1842,9 @@ gckHARDWARE_Construct(
         hardware->stallFEPrefetch = gcvTRUE;
     }
 
+    hardware->hasAsyncFe
+        = gckHARDWARE_IsFeatureAvailable(hardware, gcvFEATURE_ASYNC_BLIT);
+
     hardware->minFscaleValue = 1;
     hardware->waitCount = 200;
 
@@ -4416,14 +4419,8 @@ gckHARDWARE_Interrupt(
     gctUINT32 dataEx;
     gceSTATUS status;
 
-    gcmkHEADER_ARG("Hardware=0x%x InterruptValid=%d", Hardware, InterruptValid);
-
-    /* Verify the arguments. */
-    gcmkVERIFY_OBJECT(Hardware, gcvOBJ_HARDWARE);
-
     /* Extract gckEVENT object. */
     eventObj = Hardware->kernel->eventObj;
-    gcmkVERIFY_OBJECT(eventObj, gcvOBJ_EVENT);
 
     if (InterruptValid)
     {
@@ -4447,11 +4444,10 @@ gckHARDWARE_Interrupt(
 #endif
 
             /* Inform gckEVENT of the interrupt. */
-            status = gckEVENT_Interrupt(eventObj,
-                                        data);
+            status = gckEVENT_Interrupt(eventObj, data);
         }
 
-        if (gckHARDWARE_IsFeatureAvailable(Hardware, gcvFEATURE_ASYNC_BLIT))
+        if (Hardware->hasAsyncFe)
         {
             /* Read BLT interrupt. */
             gcmkONERROR(gckOS_ReadRegisterEx(
@@ -4472,26 +4468,23 @@ gckHARDWARE_Interrupt(
 
             if (dataEx)
             {
-                status = gckEVENT_Interrupt(Hardware->kernel->asyncEvent,
-                                            dataEx
-                                            );
+                status = gckEVENT_Interrupt(Hardware->kernel->asyncEvent, dataEx);
             }
         }
     }
     else
     {
-            /* Handle events. */
-            status = gckEVENT_Notify(eventObj, 0);
+        /* Handle events. */
+        status = gckEVENT_Notify(eventObj, 0);
 
-            if (gckHARDWARE_IsFeatureAvailable(Hardware, gcvFEATURE_ASYNC_BLIT))
-            {
-                status = gckEVENT_Notify(Hardware->kernel->asyncEvent, 0);
-            }
+        if (Hardware->hasAsyncFe)
+        {
+            status = gckEVENT_Notify(Hardware->kernel->asyncEvent, 0);
+        }
     }
 
 OnError:
     /* Return the status. */
-    gcmkFOOTER();
     return status;
 }
 
@@ -7355,12 +7348,9 @@ _PowerEnum(gceCHIPPOWERSTATE State)
         gcmSTRING(gcvPOWER_OFF),
         gcmSTRING(gcvPOWER_IDLE),
         gcmSTRING(gcvPOWER_SUSPEND),
-        gcmSTRING(gcvPOWER_SUSPEND_ATPOWERON),
-        gcmSTRING(gcvPOWER_OFF_ATPOWERON),
         gcmSTRING(gcvPOWER_IDLE_BROADCAST),
         gcmSTRING(gcvPOWER_SUSPEND_BROADCAST),
         gcmSTRING(gcvPOWER_OFF_BROADCAST),
-        gcmSTRING(gcvPOWER_OFF_RECOVERY),
         gcmSTRING(gcvPOWER_OFF_TIMEOUT),
         gcmSTRING(gcvPOWER_ON_AUTO)
     };
@@ -7401,7 +7391,6 @@ gckHARDWARE_SetPowerManagementState(
     gctUINT flag, clock;
     gctBOOL acquired = gcvFALSE;
     gctBOOL mutexAcquired = gcvFALSE;
-    gctBOOL stall = gcvTRUE;
     gctBOOL broadcast = gcvFALSE;
 #if gcdPOWEROFF_TIMEOUT
     gctBOOL timeout = gcvFALSE;
@@ -7592,18 +7581,6 @@ gckHARDWARE_SetPowerManagementState(
     /* Convert the broadcast power state. */
     switch (State)
     {
-    case gcvPOWER_SUSPEND_ATPOWERON:
-        /* Convert to SUSPEND and don't wait for STALL. */
-        State = gcvPOWER_SUSPEND;
-        stall = gcvFALSE;
-        break;
-
-    case gcvPOWER_OFF_ATPOWERON:
-        /* Convert to OFF and don't wait for STALL. */
-        State = gcvPOWER_OFF;
-        stall = gcvFALSE;
-        break;
-
     case gcvPOWER_IDLE_BROADCAST:
         /* Convert to IDLE and note we are inside broadcast. */
         State     = gcvPOWER_IDLE;
@@ -7619,13 +7596,6 @@ gckHARDWARE_SetPowerManagementState(
     case gcvPOWER_OFF_BROADCAST:
         /* Convert to OFF and note we are inside broadcast. */
         State     = gcvPOWER_OFF;
-        broadcast = gcvTRUE;
-        break;
-
-    case gcvPOWER_OFF_RECOVERY:
-        /* Convert to OFF and note we are inside recovery. */
-        State     = gcvPOWER_OFF;
-        stall     = gcvFALSE;
         broadcast = gcvTRUE;
         break;
 
@@ -7673,7 +7643,11 @@ gckHARDWARE_SetPowerManagementState(
         /* Try to acquire the power mutex. */
         status = gckOS_AcquireMutex(os, Hardware->powerMutex, 0);
 
-        if (status == gcvSTATUS_TIMEOUT)
+        if (gcmIS_SUCCESS(status))
+        {
+            mutexAcquired = gcvTRUE;
+        }
+        else if (status == gcvSTATUS_TIMEOUT)
         {
             /* Check if we already own this mutex. */
             if ((Hardware->powerProcess == process)
@@ -7692,19 +7666,14 @@ gckHARDWARE_SetPowerManagementState(
                 status = gcvSTATUS_OK;
                 goto OnError;
             }
-            else
-            {
-                /* Acquire the power mutex. */
-                gcmkONERROR(gckOS_AcquireMutex(os,
-                                               Hardware->powerMutex,
-                                               gcvINFINITE));
-            }
         }
     }
-    else
+
+    if (!mutexAcquired)
     {
         /* Acquire the power mutex. */
         gcmkONERROR(gckOS_AcquireMutex(os, Hardware->powerMutex, gcvINFINITE));
+        mutexAcquired = gcvTRUE;
     }
 
     /* Get time until mtuex acquired. */
@@ -7950,7 +7919,7 @@ gckHARDWARE_SetPowerManagementState(
     /* Get time until powered on. */
     gcmkPROFILE_QUERY(time, onTime);
 
-    if ((flag & gcvPOWER_FLAG_STALL) && stall)
+    if (flag & gcvPOWER_FLAG_STALL)
     {
         gctBOOL idle;
         gctINT32 atomValue;
