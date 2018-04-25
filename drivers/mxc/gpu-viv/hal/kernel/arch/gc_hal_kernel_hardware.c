@@ -8009,6 +8009,18 @@ gckHARDWARE_SetPowerManagementState(
         {
             /* Wait to finish all commands. */
             gcmkONERROR(gckCOMMAND_Stall(command, gcvTRUE));
+
+            for (;;)
+            {
+                gcmkONERROR(gckHARDWARE_QueryIdle(Hardware, &idle));
+
+                if (idle)
+                {
+                    break;
+                }
+
+                gcmkVERIFY_OK(gckOS_Delay(Hardware->os, 1));
+            }
         }
     }
 
