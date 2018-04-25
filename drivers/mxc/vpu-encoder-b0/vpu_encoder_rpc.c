@@ -221,6 +221,7 @@ void rpc_send_cmd_buf_encoder(struct shared_addr *This,
 	u_int32 i;
 	u_int32 *cmdword = (u_int32 *)(This->cmd_mem_vir+pCmdDesc->wptr - pCmdDesc->start);
 
+	*cmdword = 0;
 	*cmdword |= ((idx & 0x000000ff) << 24);
 	*cmdword |= ((cmdnum & 0x000000ff) << 16);
 	*cmdword |= ((cmdid & 0x00003fff) << 0);

@@ -48,7 +48,7 @@
 
 #include "vpu_encoder_b0.h"
 
-unsigned int vpu_dbg_level_encoder = 0;
+unsigned int vpu_dbg_level_encoder = 1;
 #ifdef DUMP_DATA
 #define DATA_NUM 10
 #endif
@@ -747,7 +747,10 @@ static void ctrls_delete_encoder(struct vpu_ctx *This)
 
 static void v4l2_vpu_send_cmd(struct vpu_ctx *ctx, uint32_t idx, uint32_t cmdid, uint32_t cmdnum, uint32_t *local_cmddata)
 {
+	mutex_lock(&ctx->dev->cmd_mutex);
 	rpc_send_cmd_buf_encoder(&ctx->dev->shared_mem, idx, cmdid, cmdnum, local_cmddata);
+	mutex_unlock(&ctx->dev->cmd_mutex);
+	mb();
 	MU_SendMessage(ctx->dev->mu_base_virtaddr, 0, COMMAND);
 }
 
@@ -796,6 +799,17 @@ static void v4l2_transfer_buffer_to_firmware(struct queue_data *This, struct vb2
 			vpu_dbg(LVL_INFO, " 0x%x", read_data[read_idx]);
 		vpu_dbg(LVL_INFO, "\n");
  #endif
+		vpu_dbg(LVL_INFO, "enter %s, start_flag %d, index=%d,firmware_started=%d\n",
+					__func__, ctx->start_flag, ctx->str_index,
+				ctx->dev->firmware_started);
+
+		if (!ctx->dev->firmware_started)
+			wait_for_completion(&ctx->dev->start_cmp);
+		vpu_dbg(LVL_ALL, "vpu encoder firmware version is %d.%d.%d\n",
+				(pSharedInterface->FWVersion & 0x00ff0000) >> 16,
+				(pSharedInterface->FWVersion & 0x0000ff00) >> 8,
+				pSharedInterface->FWVersion & 0x000000ff);
+
 		v4l2_vpu_send_cmd(ctx, ctx->str_index, GTB_ENC_CMD_CONFIGURE_CODEC, 0, NULL);
 		vpu_dbg(LVL_INFO, "send command GTB_ENC_CMD_CONFIGURE_CODEC\n");
 
@@ -1137,6 +1151,9 @@ static irqreturn_t fsl_vpu_mu_isr(int irq, void *This)
 		MU_sendMesgToFW(dev->mu_base_virtaddr, BOOT_ADDRESS, dev->m0_p_fw_space_phy);
 #endif
 		MU_sendMesgToFW(dev->mu_base_virtaddr, INIT_DONE, 2);
+	} else if (msg == 0x55) {
+		dev->firmware_started = true;
+		complete(&dev->start_cmp);
 	} else
 		schedule_work(&dev->msg_work);
 	return IRQ_HANDLED;
@@ -1941,6 +1958,10 @@ static int vpu_probe(struct platform_device *pdev)
 	vpu_enable_hw(dev);
 
 	mutex_init(&dev->dev_mutex);
+	mutex_init(&dev->cmd_mutex);
+	init_completion(&dev->start_cmp);
+	dev->firmware_started = false;
+
 	dev->fw_is_ready = false;
 	dev->workqueue = alloc_workqueue("vpu", WQ_UNBOUND | WQ_MEM_RECLAIM, 1);
 	if (!dev->workqueue) {
