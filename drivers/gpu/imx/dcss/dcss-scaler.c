@@ -521,15 +521,15 @@ struct dcss_scaler_ratios {
 };
 
 static const struct dcss_scaler_ratios dcss_scaler_ratios[] = {
-	{max_downscale(3), max_upscale(5)},
-	{max_downscale(5), max_upscale(7)},
-	{max_downscale(5), max_upscale(7)},
+	{max_downscale(3), max_upscale(16)},
+	{max_downscale(5), max_upscale(16)},
+	{max_downscale(5), max_upscale(16)},
 };
 
 static const struct dcss_scaler_ratios dcss_scaler_wrscl_ratios[] = {
-	{max_downscale(5), max_upscale(5)},
-	{max_downscale(7), max_upscale(7)},
-	{max_downscale(7), max_upscale(7)},
+	{max_downscale(5), max_upscale(16)},
+	{max_downscale(7), max_upscale(16)},
+	{max_downscale(7), max_upscale(16)},
 };
 
 static bool dcss_scaler_fractions_set(struct dcss_soc *dcss, int ch_num,
