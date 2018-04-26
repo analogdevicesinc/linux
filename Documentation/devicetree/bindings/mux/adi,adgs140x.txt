@@ -1,0 +1,39 @@
+Bindings for Analog Devices ADGS1408/1409 8:1/Dual 4:1 Mux
+
+Required properties:
+- compatible : "adi,adgs1408" or "adi,adgs1409"
+- #mux-control-cells : <0>
+* Standard mux-controller bindings as described in mux-controller.txt
+
+Optional properties:
+- idle-state : if present, array of states that the mux controllers will have
+  when idle. The special state MUX_IDLE_AS_IS is the default and
+  MUX_IDLE_DISCONNECT is also supported.
+
+States 0 through 7 correspond to signals S1 through S8 in the datasheet.
+
+Example:
+
+	/*
+	 * One mux controller.
+	 * Mux 1 to 8 set to idle as is (no idle-state declared)
+	 */
+	&spi0 {
+		mux: mux-controller@2 {
+			compatible = "adi,adgs1408";
+			reg = <0>;
+			spi-max-frequency = <1000000>;
+			#mux-control-cells = <0>;
+		};
+	}
+
+	adc-mux@3 {
+		compatible = "io-channel-mux";
+		io-channels = <&adc 1>;
+		io-channel-names = "parent";
+		mux-controls = <&mux>;
+
+		channels = "out_a0", "out_a1", "test0", "test1",
+			"out_b0", "out_b1", "testb0", "testb1";
+
+	};
