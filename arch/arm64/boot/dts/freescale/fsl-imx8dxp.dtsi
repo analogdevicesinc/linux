@@ -1,0 +1,61 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2018 NXP
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+
+#include "fsl-imx8dx.dtsi"
+
+/ {
+    model = "Freescale i.MX8DXP";
+    compatible = "fsl,imx8dxp", "fsl,imx8qxp";
+
+    vpu_decoder: vpu_decoder@2c000000 {
+        compatible = "nxp,imx8qm-b0-vpudec", "nxp,imx8qxp-b0-vpudec";
+        boot-region = <&decoder_boot>;
+        rpc-region = <&decoder_rpc>;
+        reg = <0x0 0x2c000000 0x0 0x1000000>;
+        reg-names = "vpu_regs";
+        clocks = <&clk IMX8QXP_VPU_DEC_CLK>;
+        clock-names = "vpu_clk";
+        assigned-clocks = <&clk IMX8QXP_VPU_DEC_CLK>;
+        assigned-clock-rates = <600000000>;
+        power-domains = <&pd_vpu_dec>;
+        status = "disabled";
+    };
+
+    usbotg3: cdns3@5b110000 {
+        compatible = "Cadence,usb3";
+        reg = <0x0 0x5B110000 0x0 0x10000>,
+            <0x0 0x5B130000 0x0 0x10000>,
+            <0x0 0x5B140000 0x0 0x10000>,
+            <0x0 0x5B160000 0x0 0x40000>,
+            <0x0 0x5B120000 0x0 0x10000>;
+        interrupt-parent = <&wu>;
+        interrupts = <GIC_SPI 271 IRQ_TYPE_LEVEL_HIGH>;
+        clocks = <&clk IMX8QXP_USB3_LPM_CLK>,
+            <&clk IMX8QXP_USB3_BUS_CLK>,
+            <&clk IMX8QXP_USB3_ACLK>,
+            <&clk IMX8QXP_USB3_IPG_CLK>,
+            <&clk IMX8QXP_USB3_CORE_PCLK>;
+        clock-names = "usb3_lpm_clk", "usb3_bus_clk", "usb3_aclk",
+            "usb3_ipg_clk", "usb3_core_pclk";
+        power-domains = <&pd_conn_usb2>;
+        cdns3,usbphy = <&usbphynop1>;
+        status = "disabled";
+    };
+};
+
+&gpu_3d0 {
+    assigned-clock-rates = <700000000>, <850000000>;
+};
