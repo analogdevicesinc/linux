@@ -2217,7 +2217,6 @@ gckEVENT_Notify(
 #if gcdUSE_MMU_EXCEPTION
 #if gcdALLOC_ON_FAULT
             status = gckHARDWARE_HandleFault(Event->kernel->hardware);
-
 #endif
             if (gcmIS_ERROR(status))
             {
