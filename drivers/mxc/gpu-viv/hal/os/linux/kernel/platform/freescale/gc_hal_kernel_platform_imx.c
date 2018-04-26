@@ -324,6 +324,7 @@ static ssize_t gpu3DMinClock_show(struct device_driver *dev, char *buf)
 
     galDevice = platform_get_drvdata(pdevice);
 
+    minf = 0;
     if (galDevice->kernels[gcvCORE_MAJOR])
     {
          gckHARDWARE_GetFscaleValue(galDevice->kernels[gcvCORE_MAJOR]->hardware,
