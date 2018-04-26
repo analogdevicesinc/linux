@@ -1,5 +1,5 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
- * Copyright (C) 2016 Freescale Semiconductor, Inc.
  * Copyright 2018 NXP
  *
  * This program is free software; you can redistribute it and/or
@@ -13,29 +13,13 @@
  * GNU General Public License for more details.
  */
 
-#include "fsl-imx8qm-lpddr4-arm2.dts"
+/dts-v1/;
+
+#include "fsl-imx8qp.dtsi"
+
+#include "fsl-imx8q-arm2.dtsi"
 
 / {
         model = "Freescale i.MX8QP ARM2";
-        compatible = "fsl,imx8qm-arm2", "fsl,imx8qm";
-};
-
-&gpu_3d0 {
-      assigned-clock-rates = <625000000>, <625000000>;
-};
-
-&gpu_3d1 {
-      assigned-clock-rates = <625000000>, <625000000>;
-};
-
-&A72_1 {
-        device_type = "";
-};
-
-&imx8_gpu_ss {/*<freq-kHz vol-uV>*/
-	operating-points = <
-/*nominal*/	625000	0
-		625000	0
-/*underdrive*/	400000	0  /*core/shader clock share the same frequency on underdrive mode*/
-	>;
+        compatible = "fsl,imx8qp-arm2", "fsl,imx8qp", "fsl,imx8qm";
 };

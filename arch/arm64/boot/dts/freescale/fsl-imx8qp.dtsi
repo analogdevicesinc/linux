@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
- * Copyright 2017~2018 NXP
+ * Copyright 2018 NXP
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -13,12 +13,31 @@
  * GNU General Public License for more details.
  */
 
-/dts-v1/;
-
 #include "fsl-imx8qm.dtsi"
-#include "fsl-imx8q-arm2.dtsi"
 
 / {
-        model = "Freescale i.MX8QM LPDDR4 ARM2";
-        compatible = "fsl,imx8qm-lpddr4-arm2", "fsl,imx8qm";
+		model = "Freescale i.MX8QP";
+		compatible = "fsl,imx8qp", "fsl,imx8qm";
+
+		pmu {
+			interrupt-affinity = <&A72_0>;
+		};
+};
+
+/delete-node/ &A72_1;
+
+&gpu_3d0 {
+      assigned-clock-rates = <625000000>, <625000000>;
+};
+
+&gpu_3d1 {
+      assigned-clock-rates = <625000000>, <625000000>;
+};
+
+&imx8_gpu_ss {/*<freq-kHz vol-uV>*/
+	operating-points = <
+	/*nominal*/	625000  0
+				625000  0
+/*underdrive*/	400000  0  /*core/shader clock share the same frequency on underdrive mode*/
+	>;
 };

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
- * Copyright 2017~2018 NXP
+ * Copyright 2018 NXP
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -13,12 +13,30 @@
  * GNU General Public License for more details.
  */
 
-/dts-v1/;
-
 #include "fsl-imx8qm.dtsi"
-#include "fsl-imx8q-arm2.dtsi"
 
 / {
-        model = "Freescale i.MX8QM LPDDR4 ARM2";
-        compatible = "fsl,imx8qm-lpddr4-arm2", "fsl,imx8qm";
+        model = "Freescale i.MX8DM";
+        compatible = "fsl, imx8dm", "fsl,imx8qm";
+
+};
+
+&A53_0 {
+        device_type = "";
+};
+
+&A53_1 {
+        device_type = "";
+};
+
+&A53_2 {
+        device_type = "";
+};
+
+&A53_3 {
+        device_type = "";
+};
+
+&A53_L2 {
+        compatible = "";
 };

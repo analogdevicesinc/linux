@@ -1,0 +1,109 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2018 NXP
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+#include "fsl-imx8dm.dtsi"
+
+#include "fsl-imx8q-arm2.dtsi"
+
+/ {
+        model = "Freescale i.MX8DM ARM2";
+        compatible = "fsl,imx8dm-arm2", "fsl,imx8dm", "fsl,imx8qm";
+};
+
+&gpu_3d1 {
+    status = "disabled";
+};
+
+&mipi_dsi_phy2 {
+    status = "disabled";
+};
+
+&mipi_dsi2 {
+    status = "disabled";
+};
+
+&mipi_dsi_bridge2 {
+    status = "disabled";
+};
+
+&display{
+    ports = <&dpu1_disp0>, <&dpu1_disp1>;
+};
+
+&prg10 {
+    status = "disabled";
+};
+
+&prg11 {
+    status = "disabled";
+};
+
+&prg12 {
+    status = "disabled";
+};
+
+&prg13 {
+    status = "disabled";
+};
+
+&prg14 {
+    status = "disabled";
+};
+
+&prg15 {
+    status = "disabled";
+};
+
+&prg16 {
+    status = "disabled";
+};
+
+&prg17 {
+    status = "disabled";
+};
+
+&prg18 {
+    status = "disabled";
+};
+
+&dpr3_channel1 {
+    status = "disabled";
+};
+
+&dpr3_channel2 {
+    status = "disabled";
+};
+
+&dpr3_channel3 {
+    status = "disabled";
+};
+
+&dpr4_channel1 {
+    status = "disabled";
+};
+
+&dpr4_channel2 {
+    status = "disabled";
+};
+
+&dpr4_channel3 {
+    status = "disabled";
+};
+
+&dpu2 {
+    status = "disabled";
+};
