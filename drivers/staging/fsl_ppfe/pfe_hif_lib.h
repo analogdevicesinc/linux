@@ -23,6 +23,7 @@
 
 #define HIF_CL_REQ_TIMEOUT	10
 #define GFP_DMA_PFE 0
+#define PFE_PARSE_INFO_SIZE	16
 
 enum {
 	REQUEST_CL_REGISTER = 0,

@@ -435,6 +435,7 @@ void *hif_lib_receive_pkt(struct hif_client_s *client, int qno, int *len, int
 			u16 size = *rx_ctrl >> HIF_CTRL_RX_OFFSET_OFST;
 
 			if (size) {
+				size += PFE_PARSE_INFO_SIZE;
 				*len = CL_DESC_BUF_LEN(desc->ctrl) -
 						PFE_PKT_HEADER_SZ - size;
 				*ofst = pfe_pkt_headroom + PFE_PKT_HEADER_SZ
@@ -442,8 +443,10 @@ void *hif_lib_receive_pkt(struct hif_client_s *client, int qno, int *len, int
 				*priv_data = desc->data + PFE_PKT_HEADER_SZ;
 			} else {
 				*len = CL_DESC_BUF_LEN(desc->ctrl) -
-						PFE_PKT_HEADER_SZ;
-				*ofst = pfe_pkt_headroom + PFE_PKT_HEADER_SZ;
+				       PFE_PKT_HEADER_SZ - PFE_PARSE_INFO_SIZE;
+				*ofst = pfe_pkt_headroom
+					+ PFE_PKT_HEADER_SZ
+					+ PFE_PARSE_INFO_SIZE;
 				*priv_data = NULL;
 			}
 
