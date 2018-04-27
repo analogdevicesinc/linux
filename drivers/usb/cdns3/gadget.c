@@ -1520,6 +1520,7 @@ static int usb_ss_gadget_ep_enable(struct usb_ep *ep,
 	ep->enabled = 1;
 	ep->desc = desc;
 	usb_ss_ep->hw_pending_flag = 0;
+	usb_ss_ep->stalled_flag = 0;
 	spin_unlock_irqrestore(&usb_ss->lock, flags);
 
 	return 0;
