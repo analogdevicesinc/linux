@@ -712,6 +712,11 @@ static int cf_axi_dds_reg_access(struct iio_dev *indio_dev,
 	if ((reg & ~DEBUGFS_DRA_PCORE_REG_MAGIC) > 0xFFFF)
 		return -EINVAL;
 
+	/* Check that the register is in range and aligned */
+	if (((reg & DEBUGFS_DRA_PCORE_REG_MAGIC) || st->standalone) &&
+	    ((reg & 0xffff) >= st->regs_size || (reg & 0x3)))
+		return -EINVAL;
+
 	if (st->dev_spi)
 		conv = to_converter(st->dev_spi);
 
@@ -1295,6 +1300,7 @@ static int cf_axi_dds_probe(struct platform_device *pdev)
 	st = iio_priv(indio_dev);
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	st->regs_size = resource_size(res);
 	st->regs = devm_ioremap(&pdev->dev, res->start, resource_size(res));
 	if (!st->regs) {
 		ret = -ENOMEM;

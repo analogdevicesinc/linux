@@ -213,6 +213,7 @@ struct cf_axi_dds_state {
 	bool			pl_dma_fifo_en;
 
 	struct iio_info		iio_info;
+	size_t			regs_size;
 	void __iomem		*regs;
 	void __iomem		*slave_regs;
 	void __iomem		*master_regs;
