@@ -218,6 +218,25 @@ static int usb_ss_allocate_trb_pool(struct usb_ss_endpoint *usb_ss_ep)
 }
 
 /**
+ * cdns_data_flush - do flush data at onchip buffer
+ * @usb_ss_ep: extended endpoint object
+ *
+ * Endpoint must be selected before call to this function
+ *
+ * Returns zero on success or negative value on failure
+ */
+static int cdns_data_flush(struct usb_ss_endpoint *usb_ss_ep)
+{
+	struct usb_ss_dev *usb_ss = usb_ss_ep->usb_ss;
+
+	gadget_writel(usb_ss, &usb_ss->regs->ep_cmd,
+		EP_CMD__DFLUSH__MASK);
+	/* wait for DFLUSH cleared */
+	return wait_reg_bit_clear(usb_ss, &usb_ss->regs->ep_cmd,
+		EP_CMD__DFLUSH__MASK, 100);
+}
+
+/**
  * cdns_ep_stall_flush - Stalls and flushes selected endpoint
  * @usb_ss_ep: extended endpoint object
  *
@@ -1728,6 +1747,8 @@ static int usb_ss_gadget_ep_disable(struct usb_ep *ep)
 	dev_dbg(&usb_ss->dev,
 		"Disabling endpoint: %s\n", ep->name);
 
+	select_ep(usb_ss, ep->desc->bEndpointAddress);
+	ret = cdns_data_flush(usb_ss_ep);
 	while (!list_empty(&usb_ss_ep->request_list)) {
 
 		request = next_request(&usb_ss_ep->request_list);
@@ -1740,7 +1761,6 @@ static int usb_ss_gadget_ep_disable(struct usb_ep *ep)
 		spin_lock(&usb_ss->lock);
 	}
 
-	select_ep(usb_ss, ep->desc->bEndpointAddress);
 	ep_cfg = gadget_readl(usb_ss, &usb_ss->regs->ep_cfg);
 	ep_cfg &= ~EP_CFG__ENABLE__MASK;
 	gadget_writel(usb_ss, &usb_ss->regs->ep_cfg, ep_cfg);
@@ -1851,6 +1871,7 @@ static int usb_ss_gadget_ep_dequeue(struct usb_ep *ep,
 	struct usb_ss_dev *usb_ss = usb_ss_ep->usb_ss;
 	unsigned long flags;
 	struct usb_request *req, *req_temp;
+	int ret = 0;
 
 	if (ep == NULL || request == NULL || ep->desc == NULL)
 		return -EINVAL;
@@ -1862,6 +1883,8 @@ static int usb_ss_gadget_ep_dequeue(struct usb_ep *ep,
 		ep->address & USB_DIR_IN);
 	request->status = -ECONNRESET;
 
+	select_ep(usb_ss, ep->desc->bEndpointAddress);
+	ret = cdns_data_flush(usb_ss_ep);
 	if (ep->address) {
 		list_for_each_entry_safe(req, req_temp,
 			&usb_ss_ep->request_list, list) {
@@ -1879,7 +1902,7 @@ static int usb_ss_gadget_ep_dequeue(struct usb_ep *ep,
 	}
 
 	spin_unlock_irqrestore(&usb_ss->lock, flags);
-	return 0;
+	return ret;
 }
 
 /**
