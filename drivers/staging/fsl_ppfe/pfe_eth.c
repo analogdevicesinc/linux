@@ -2461,14 +2461,14 @@ static void pfe_eth_exit_one(struct pfe_eth_priv_s *priv)
 {
 	netif_info(priv, probe, priv->ndev, "%s\n", __func__);
 
-	if (!us) {
+	if (!us)
 		pfe_eth_sysfs_exit(priv->ndev);
-
-		unregister_netdev(priv->ndev);
-	}
 
 	if (!(priv->einfo->phy_flags & GEMAC_NO_PHY))
 		pfe_phy_exit(priv->ndev);
+
+	if (!us)
+		unregister_netdev(priv->ndev);
 
 	if (priv->mii_bus)
 		pfe_eth_mdio_exit(priv->mii_bus);
