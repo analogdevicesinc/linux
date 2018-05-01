@@ -2560,6 +2560,14 @@ static int spi_nor_select_read(struct spi_nor *nor,
 	 * into the so called dummy clock cycles.
 	 */
 	nor->read_dummy = read->num_mode_clocks + read->num_wait_states;
+
+	/*
+	 * STR mode may need 10 dummy cycles but the DDR mode should be
+	 * no more than 8 cycles
+	 */
+	if (spi_nor_protocol_is_dtr(read->proto))
+		nor->read_dummy = nor->read_dummy > 8 ? 8 : nor->read_dummy;
+
 	return 0;
 }
 
