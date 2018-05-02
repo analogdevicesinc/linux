@@ -1,0 +1,96 @@
+/dts-v1/;
+/include/ "zynq-pluto-sdr.dtsi"
+#include <dt-bindings/input/input.h>
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+
+/ {
+	model = "Epiq Solutions Sidekiq Z2 Rev.A (Z7010/AD9364)";
+
+	leds {
+		compatible = "gpio-leds";
+		led0 {
+			label = "led0:green";
+			gpios = <&gpio0 15 0>;
+			linux,default-trigger = "heartbeat";
+		};
+	};
+
+	gpio_keys {
+		compatible = "gpio-keys";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		button {
+			interrupt-parent = <&gpio0>;
+			interrupts = <14 IRQ_TYPE_EDGE_FALLING>;
+			label = "Button";
+			linux,code = <BTN_MISC>;
+		};
+
+	};
+};
+
+&axi_i2c0 {
+	/* yep, U20 on the board has i2c addr 21 and vice-versa */
+	tca6408_u20: gpio@21 {
+		compatible = "ti,tca6408";
+		reg = <0x21>;
+		gpio-controller;
+		#gpio-cells = <2>;
+
+		/**
+		 * rx_ant_1: gpios = <7 0>:  High for RX Antenna port 1
+		 * rx_ant_2: gpios = <6 0>:  High for RX Antenna port 2
+		 *
+		 * All LNA pins set to low, disable LAN control
+		 * lna_bias_1: gpios = <5 0>: High for Max Bias;
+		 *                            other pins must be HI-Z
+		 * lna_bias_2: gpios = <4 0>: High for Med Bias;
+		 *                            other pins must be HI-Z inputs
+		 * lna_bias_3: gpios = <3 0>: High for Min Bias;
+		 *                            other pins must be HI-Z inputs
+		 * band_0_2_3: gpios = <2 0>: High for Band 0,2,3, Low for 1 & 4
+		 * band_0:     gpios = <1 0>: High for RX 50-3000 MHz thru,
+		 *                            freq range is limited by ad936x
+		 * band_1: gpios = <0 0>; High for RX 40-435 MHz (Bandpass)
+		 */
+	};
+
+	tca6408_u21: gpio@20 {
+		compatible = "ti,tca6408";
+		reg = <0x20>;
+		gpio-controller;
+		#gpio-cells = <2>;
+
+		/**
+		 * band_2: gpios = <7 0>: High for RX 435-910MHz (Bandpass)
+		 * band_3: gpios = <6 0>: High for RX 910-1950MHz (Bandpass)
+		 * band_4: gpios = <5 0>: High for RX 1950-6000MHz (Bandpass)
+		 * tdd_ant_3: gpios = <4 0>: High for RX Antenna port 3;
+		 *                           Low for TX Antenna port 3 (TDD/FDD)
+		 * tx_band_0: gpios = <3 0>: High for TX 50-3000 MHz
+		 * tx_band_1: gpios = <2 0>: High for TX 3000-6000 MHz
+		 * rfic_reset_n: gpios = <1 0>: Avoid Out-High;
+		 *                              Low to reset ad936x;
+		 *                              otherwise HI_Z input
+		 * en_ext_i2c_3v3_n: gpios = <0 0>: Low to connect on-board
+		 *                                  i2c to host SMBus;
+		 *                                  HI_Z input to isolate i2c
+		 *                                  from host SMBus
+		 */
+		en_ext_i2c_3v3_n {
+			gpio-hog;
+			gpios = <0 0>;
+			input;
+			line-name = "en_ext_i2c_3v3_n";
+		};
+	};
+};
+
+&adc0_ad9364 {
+	adi,gpo-manual-mode-enable;
+	adi,gpo-manual-mode-enable-mask = <0x4>;
+
+	reset-gpio = <&tca6408_u21 1 GPIO_OPEN_DRAIN>;
+};
