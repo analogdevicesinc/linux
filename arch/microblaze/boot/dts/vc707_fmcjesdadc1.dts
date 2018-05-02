@@ -1,0 +1,117 @@
+
+/dts-v1/;
+/include/ "vc707.dtsi"
+
+#define fmc_i2c fmc1_hpc_iic
+#define fmc_spi axi_spi
+
+&amba_pl {
+	axi_ad9250_core0: axi-ad9250-hpc-0@44a10000 {
+		compatible = "xlnx,axi-ad9250-1.00.a";
+		reg = <0x44a10000 0x10000>;
+		dmas = <&rx_dma0 0>;
+		dma-names = "rx";
+		spibus-connected = <&adc0_ad9250>;
+	};
+	rx_dma0: rx-dmac@7c420000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		interrupt-parent = <&axi_intc>;
+		interrupts = <13 2>;
+		reg = <0x7c420000 0x10000>;
+		#dma-cells = <1>;
+		clocks = <&clk_bus_0>;
+
+		adi,channels {
+			#size-cells = <0>;
+			#address-cells = <1>;
+
+			dma-channel@0 {
+				reg = <0>;
+				adi,source-bus-width = <64>;
+				adi,source-bus-type = <2>;
+				adi,destination-bus-width = <64>;
+				adi,destination-bus-type = <0>;
+			};
+		};
+	};
+	axi_ad9250_core1: axi-ad9250-hpc-1@44a20000 {
+		compatible = "xlnx,axi-ad9250-1.00.a";
+		reg = <0x44a20000 0x10000>;
+		dmas = <&rx_dma1 0>;
+		dma-names = "rx";
+		spibus-connected = <&adc1_ad9250>;
+	};
+	rx_dma1: rx-dmac@7c430000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		interrupt-parent = <&axi_intc>;
+		interrupts = <12 2>;
+		reg = <0x7c430000 0x10000>;
+		#dma-cells = <1>;
+		clocks = <&clk_bus_0>;
+
+		adi,channels {
+			#size-cells = <0>;
+			#address-cells = <1>;
+
+			dma-channel@0 {
+				reg = <0>;
+				adi,source-bus-width = <64>;
+				adi,source-bus-type = <2>;
+				adi,destination-bus-width = <64>;
+				adi,destination-bus-type = <0>;
+			};
+		};
+	};
+	axi_adxcvr: axi-adxcvr@44a60000 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "adi,axi-adxcvr-1.0";
+		reg = < 0x44a60000 0x1000 >;
+		#clock-cells = <1>;
+
+		clocks = <&clk_ad9517 0>;
+		clock-names = "conv";
+		clock-output-names = "adc_gt_clk", "rx_out_clk";
+
+		adi,sys-clk-select = <0>;
+		adi,out-clk-select = <2>;
+		adi,use-cpll-enable;
+	};
+	axi_jesd: axi-jesd204b-rx@44aa0000 {
+		compatible = "adi,axi-jesd204-rx-1.0";
+		reg = <0x44aa0000 0x1000>;
+		interrupt-parent = <&axi_intc>;
+		interrupts = <14 0>;
+
+		#clock-cells = <0>;
+		clocks = <&clk_bus_0>, <&axi_adxcvr 1>, <&axi_adxcvr 0>;
+		clock-names = "s_axi_aclk", "device_clk", "lane_clk";
+		clock-output-names = "jesd_adc_lane_clk";
+
+		adi,octets-per-frame = <2>;
+		adi,frames-per-multiframe = <32>;
+	};
+};
+
+&axi_gpio {
+	sysref_enable {
+		gpio-hog;
+		gpios = <32 0>;
+		output-high;
+		line-name = "sysref-enable";
+	};
+};
+
+&fmc_i2c {
+	eeprom@50 {
+		compatible = "at24,24c02";
+		reg = <0x50>;
+	};
+
+	eeprom@54 {
+		compatible = "at24,24c02";
+		reg = <0x54>;
+	};
+};
+
+#include "adi-fmcjesdadc1.dtsi"
