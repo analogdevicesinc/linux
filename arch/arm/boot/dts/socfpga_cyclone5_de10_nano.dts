@@ -1,0 +1,12 @@
+// SPDX-License-Identifier: (GPL-2.0-only OR BSD-3-Clause)
+/*
+ * Terasic DE10 Nano
+ *
+ * https://www.terasic.com.tw/cgi-bin/page/archive.pl?Language=English&No=1046
+ *
+ * hdl_project: <adv7513/de10nano>
+ * board_revision: <B0>
+ * Copyright (C) 2020 Analog Devices Inc.
+ */
+/dts-v1/;
+#include "socfpga_cyclone5_de10_nano.dtsi"

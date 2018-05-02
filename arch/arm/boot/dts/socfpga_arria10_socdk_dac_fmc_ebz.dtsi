@@ -1,0 +1,34 @@
+
+#include "socfpga_arria10_socdk.dtsi"
+
+&mmc {
+	status = "okay";
+	num-slots = <1>;
+	cap-sd-highspeed;
+	broken-cd;
+	bus-width = <4>;
+	altr,dw-mshc-ciu-div = <3>;
+	altr,dw-mshc-sdr-timing = <0 3>;
+};
+
+/ {
+	clocks {
+		sys_clk: sys_clk {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <100000000>;
+			clock-output-names = "system_clock";
+		};
+
+		dma_clk: dma_clk {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <166666667>;
+			clock-output-names = "dma_clock";
+		};
+	};
+};
+
+#include "adi-intel-dac-fmc-ebz.dtsi"
+
+#define fmc_spi sys_spi

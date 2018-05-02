@@ -1,0 +1,172 @@
+
+#include <dt-bindings/iio/frequency/ad9528.h>
+
+&fmc_spi {
+
+	clk0_ad9528: ad9528-1@0 {
+		compatible = "adi,ad9528";
+		reg = <0>;
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		spi-max-frequency = <10000000>;
+		//adi,spi-3wire-enable;
+
+		clock-output-names = "ad9528-1_out0", "ad9528-1_out1", "ad9528-1_out2", "ad9528-1_out3", "ad9528-1_out4", "ad9528-1_out5", "ad9528-1_out6", "ad9528-1_out7", "ad9528-1_out8", "ad9528-1_out9", "ad9528-1_out10", "ad9528-1_out11", "ad9528-1_out12", "ad9528-1_out13";
+		#clock-cells = <1>;
+
+		adi,vcxo-freq = <122880000>;
+
+		adi,refa-enable;
+		adi,refa-diff-rcv-enable;
+		adi,refa-r-div = <1>;
+		adi,osc-in-cmos-neg-inp-enable;
+
+		/* PLL1 config */
+		adi,pll1-feedback-div = <4>;
+		adi,pll1-charge-pump-current-nA = <5000>;
+
+
+		/* PLL2 config */
+		adi,pll2-vco-div-m1 = <3>; /* use 5 for 184320000 output device clock */
+		adi,pll2-n2-div = <10>; /* N / M1 */
+		adi,pll2-r1-div = <1>;
+		adi,pll2-charge-pump-current-nA = <805000>;
+
+		/* SYSREF config */
+		adi,sysref-src = <SYSREF_SRC_INTERNAL>;
+		adi,sysref-pattern-mode = <SYSREF_PATTERN_CONTINUOUS>;
+		adi,sysref-k-div = <512>;
+		adi,sysref-request-enable;
+		adi,sysref-nshot-mode = <SYSREF_NSHOT_4_PULSES>;
+		adi,sysref-request-trigger-mode = <SYSREF_LEVEL_HIGH>;
+
+		adi,rpole2 = <RPOLE2_900_OHM>;
+		adi,rzero = <RZERO_1850_OHM>;
+		adi,cpole1 = <CPOLE1_16_PF>;
+
+		adi,status-mon-pin0-function-select = <1>; /* PLL1 & PLL2 Locked */
+		adi,status-mon-pin1-function-select = <7>; /* REFA Correct */
+
+		ad9528_0_c13: channel@13 {
+			reg = <13>;
+			adi,extended-name = "DEV_CLK";
+			adi,driver-mode = <DRIVER_MODE_LVDS>;
+			adi,divider-phase = <0>;
+			adi,channel-divider = <10>;
+			adi,signal-source = <SOURCE_VCO>;
+		};
+
+		ad9528_0_c1: channel@1 {
+			reg = <1>;
+			adi,extended-name = "FMC_CLK";
+			adi,driver-mode = <DRIVER_MODE_LVDS>;
+			adi,divider-phase = <0>;
+			adi,channel-divider = <10>;
+			adi,signal-source = <SOURCE_VCO>;
+		};
+
+		ad9528_0_c12: channel@12 {
+			reg = <12>;
+			adi,extended-name = "DEV_SYSREF";
+			adi,driver-mode = <DRIVER_MODE_LVDS>;
+			adi,divider-phase = <0>;
+			adi,channel-divider = <10>;
+			adi,signal-source = <SOURCE_SYSREF_VCO>;
+		};
+
+		ad9528_0_c3: channel@3 {
+			reg = <3>;
+			adi,extended-name = "FMC_SYSREF";
+			adi,driver-mode = <DRIVER_MODE_LVDS>;
+			adi,divider-phase = <0>;
+			adi,channel-divider = <10>;
+			adi,signal-source = <SOURCE_SYSREF_VCO>;
+		};
+
+	};
+
+
+	trx0_ad9371: ad9371-phy@1 {
+		compatible = "adi,ad9371";
+		reg = <1>;
+
+		/* SPI Setup */
+		spi-max-frequency = <25000000>;
+
+		/* Clocks */
+		clocks = <&axi_ad9371_rx_jesd>, <&axi_ad9371_tx_jesd>,
+			<&axi_ad9371_rx_os_jesd>, <&clk0_ad9528 13>,
+			<&clk0_ad9528 1>,  <&clk0_ad9528 12>, <&clk0_ad9528 3>;
+		clock-names = "jesd_rx_clk", "jesd_tx_clk",
+			"jesd_rx_os_clk", "dev_clk", "fmc_clk",
+			"sysref_dev_clk", "sysref_fmc_clk";
+
+		clock-output-names = "rx_sampl_clk", "rx_os_sampl_clk", "tx_sampl_clk";
+		#clock-cells = <1>;
+
+		adi,clocks-clk-pll-vco-freq_khz = <9830400>;
+		adi,clocks-device-clock_khz = <122880>;
+		adi,clocks-clk-pll-hs-div = <4>;
+		adi,clocks-clk-pll-vco-div = <2>;
+
+		adi,jesd204-obs-framer-over-sample = <0>;
+
+		adi,rx-profile-adc-div = <1>;
+		adi,rx-profile-en-high-rej-dec5 = <1>;
+		adi,rx-profile-iq-rate_khz = <122880>;
+		adi,rx-profile-rf-bandwidth_hz = <100000000>;
+		adi,rx-profile-rhb1-decimation = <1>;
+		adi,rx-profile-rx-bbf-3db-corner_khz = <100000>;
+		adi,rx-profile-rx-dec5-decimation = <5>;
+		adi,rx-profile-rx-fir-decimation = <2>;
+
+		adi,rx-profile-rx-fir-gain_db = <(-6)>;
+		adi,rx-profile-rx-fir-num-fir-coefs = <48>;
+		adi,rx-profile-rx-fir-coefs = /bits/ 16 <(-5) (-26) (32) (51) (-67) (-116) (140) (212) (-252) (-367) (429) (595) (-688) (-931) (1072) (1427) (-1650) (-2188) (2612) (3496) (-4802) (-7591) (9656) (32317) (32317) (9656) (-7591) (-4802) (3496) (2612) (-2188) (-1650) (1427) (1072) (-931) (-688) (595) (429) (-367) (-252) (212) (140) (-116) (-67) (51) (32) (-26) (-5)>;
+
+		adi,rx-profile-custom-adc-profile = /bits/ 16  <534 386 201 98 1280 491 1591 279 1306 104 792 28 48 39 23 187>;
+
+		adi,obs-profile-adc-div = <1>;
+		adi,obs-profile-en-high-rej-dec5 = <1>;
+		adi,obs-profile-iq-rate_khz = <245760>;
+		adi,obs-profile-rf-bandwidth_hz = <200000000>;
+		adi,obs-profile-rhb1-decimation = <1>;
+		adi,obs-profile-rx-bbf-3db-corner_khz = <100000>;
+		adi,obs-profile-rx-dec5-decimation = <5>;
+		adi,obs-profile-rx-fir-decimation = <1>;
+
+		adi,obs-profile-rx-fir-gain_db = <6>;
+		adi,obs-profile-rx-fir-num-fir-coefs = <24>;
+		adi,obs-profile-rx-fir-coefs = /bits/ 16 <(-289) (81) (-23) (-86) (229) (-354) (397) (-233) (-657) (1699) (-4172) (23010) (-4172) (1699) (-657) (-233) (397) (-354) (229) (-86) (-23) (81) (-289) (0)>;
+
+		adi,obs-profile-custom-adc-profile = /bits/ 16  <450 349 201 98 1280 730 1626 818 1476 732 834 20 41 36 24 200>;
+		adi,obs-settings-custom-loopback-adc-profile = /bits/ 16  <569 369 201 98 1280 291 1541 149 1320 58 807 34 48 40 23 189>;
+
+		adi,tx-profile-dac-div = <1>;
+		adi,tx-profile-iq-rate_khz = <245760>;
+		adi,tx-profile-primary-sig-bandwidth_hz = <75000000>;
+		adi,tx-profile-rf-bandwidth_hz = <200000000>;
+		adi,tx-profile-thb1-interpolation = <2>;
+		adi,tx-profile-thb2-interpolation = <1>;
+		adi,tx-profile-tx-bbf-3db-corner_khz = <100000>;
+		adi,tx-profile-tx-dac-3db-corner_khz = <187000>;
+		adi,tx-profile-tx-fir-interpolation = <1>;
+		adi,tx-profile-tx-input-hb-interpolation = <1>;
+
+		adi,tx-profile-tx-fir-gain_db = <6>;
+		adi,tx-profile-tx-fir-num-fir-coefs = <16>;
+		adi,tx-profile-tx-fir-coefs = /bits/ 16 <(6) (-270) (203) (-168) (-84) (983) (-3222) (21143) (-3222) (983) (-84) (-168) (203) (-270) (6) (0)>;
+
+		adi,sniffer-profile-adc-div = <1>;
+		adi,sniffer-profile-en-high-rej-dec5 = <0>;
+		adi,sniffer-profile-iq-rate_khz = <30720>;
+		adi,sniffer-profile-rf-bandwidth_hz = <20000000>;
+		adi,sniffer-profile-rhb1-decimation = <2>;
+		adi,sniffer-profile-rx-bbf-3db-corner_khz = <100000>;
+		adi,sniffer-profile-rx-dec5-decimation = <5>;
+		adi,sniffer-profile-rx-fir-decimation = <4>;
+	};
+};
+

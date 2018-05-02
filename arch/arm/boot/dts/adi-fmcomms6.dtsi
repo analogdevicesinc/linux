@@ -1,0 +1,69 @@
+/ {
+	clocks {
+		ad9517_ref_clk: clock@0 {
+				compatible = "fixed-clock";
+
+				clock-frequency = <125000000>;
+				clock-output-names = "refclk";
+				#clock-cells = <0>;
+		};
+		ad9517_clkin: clock@1 {
+				compatible = "fixed-clock";
+
+				clock-frequency = <1200000000>;
+				clock-output-names = "clkin";
+				#clock-cells = <0>;
+		};
+	};
+};
+
+&fmc_i2c {
+	eeprom@50 {
+		compatible = "at24,24c02";
+		reg = <0x50>;
+	};
+};
+
+&fmc_spi {
+	clk_ad9517: ad9517@0 {
+		compatible = "adi,ad9517-4";
+		reg = <0>;
+
+		spi-max-frequency = <10000000>;
+		adi,spi-3wire-enable;
+
+		clocks = <&ad9517_ref_clk>, <&ad9517_clkin>;
+		clock-names = "refclk", "clkin";
+
+		clock-output-names = "out0", "out1", "out2", "out3", "out4", "out5", "out6", "out7";
+		#clock-cells = <1>;
+
+		firmware = "ad9517_fmcomms6.stp";
+	};
+
+	lo_pll0_rx_adf4351: adf4351-rx-lpc@2 {
+		compatible = "adi,adf4351";
+		reg = <2>;
+
+		spi-max-frequency = <10000000>;
+
+		clocks = <&ad9517_ref_clk>;
+		clock-names = "clkin";
+
+		adi,channel-spacing = <10000>;
+		adi,power-up-frequency = <1500000000>;
+		adi,phase-detector-polarity-positive-enable;
+		adi,charge-pump-current = <2500>;
+		adi,output-power = <3>;
+		adi,mute-till-lock-enable;
+	};
+
+	adc0_ad9652: ad9652@0 {
+		compatible = "adi,ad9652";
+		reg = <1>;
+
+		spi-max-frequency = <10000000>;
+
+		clocks = <&clk_ad9517 0>;
+	};
+};

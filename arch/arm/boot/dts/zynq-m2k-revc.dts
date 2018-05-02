@@ -1,0 +1,46 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices ADALM2000
+ * https://wiki.analog.com/university/tools/m2k
+ * https://wiki.analog.com/university/courses/electronics/labs
+ * https://wiki.analog.com/university/tools/adalm2000/devs/intro
+ * https://wiki.analog.com/university/tools/m2k/users/quick_start
+ *
+ * hdl_project: <m2k/standalone>
+ * board_revision: <C>
+ *
+ * Copyright (C) 2018-2019 Analog Devices Inc.
+ */
+/*
+ * 	Summary of RevB -> RevC hardware changes which require firmware changes:
+ *
+ * 1-	ADP5589 pin1 (R7) EN_USR_POW_POS enables the positive user power supply – logic 1 enables the supply
+ * 2-	ADP5589 pin2 (R6) EN_USR_POW_NEG  enables the negative user power supply – logic 1 enables the supply
+ * 3-	ADP5589 pin3 (R5) EN_SC is active HIGH - logic 1 enables the oscilloscope
+ * 4-	Hardware revision voltage changed to 0.7V
+ * 5-	AD9965 AUXIN1 pin72 can be used to measure the USB voltage
+ *
+ */
+
+#include "zynq-m2k-revb.dts"
+
+/ {
+	model = "Analog Devices M2k Rev.C (Z7010)";
+};
+
+/* Is always on */
+&reg_5V0_A {
+	/delete-property/ gpio;
+	/delete-property/ enable-active-high;
+};
+
+&m2k_fabric {
+	/delete-property/ adi,revd;
+	adi,reve;
+
+	en-sc-gpio = <&gpio_exp 5 1>; /* Inverted */
+
+	en-usr-pow-gpio = <&gpio_exp 7 0>;
+	en-usr-pow-neg-gpio = <&gpio_exp 6 0>;
+	en-done-led-overwrite-gpio = <&gpio_exp 4 0>;
+};
