@@ -1,0 +1,58 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices ADRV9375
+ * https://wiki.analog.com/resources/tools-software/linux-drivers/iio-transceiver/ad9371
+ * https://wiki.analog.com/resources/eval/user-guides/mykonos
+ *
+ * hdl_project: <adrv9371x/zc706>
+ * board_revision: <>
+ *
+ * Copyright (C) 2016-2019 Analog Devices Inc.
+ */
+#include "zynq-zc706-adv7511-adrv9371.dts"
+
+&trx0_ad9371 {
+
+	compatible = "adi,ad9375";
+
+	adi,dpd-damping = <5>;
+	adi,dpd-num-weights = <1>;
+	adi,dpd-model-version = <2>;
+	adi,dpd-high-power-model-update = <1>;
+	adi,dpd-model-prior-weight = <20>;
+	adi,dpd-robust-modeling = <0>;
+	adi,dpd-samples = <512>;
+	adi,dpd-outlier-threshold = <4096>;
+	adi,dpd-additional-delay-offset = <0>;
+	adi,dpd-path-delay-pn-seq-level = <255>;
+	adi,dpd-weights0-real = <64>;
+	adi,dpd-weights0-imag = <0>;
+	adi,dpd-weights1-real = <0>;
+	adi,dpd-weights1-imag = <0>;
+	adi,dpd-weights2-real = <0>;
+	adi,dpd-weights2-imag = <0>;
+
+	adi,clgc-tx1-desired-gain = <(-2000)>;
+	adi,clgc-tx2-desired-gain = <(-2000)>;
+	adi,clgc-tx1-atten-limit = <0>;
+	adi,clgc-tx2-atten-limit = <0>;
+	adi,clgc-tx1-control-ratio = <75>;
+	adi,clgc-tx2-control-ratio = <75>;
+	adi,clgc-allow-tx1-atten-updates = <1>;
+	adi,clgc-allow-tx2-atten-updates = <1>;
+	adi,clgc-additional-delay-offset = <0>;
+	adi,clgc-path-delay-pn-seq-level = <255>;
+	adi,clgc-tx1-rel-threshold = <600>;
+	adi,clgc-tx2-rel-threshold = <600>;
+	adi,clgc-tx1-rel-threshold-en = <0>;
+	adi,clgc-tx2-rel-threshold-en = <0>;
+
+	adi,vswr-additional-delay-offset = <0>;
+	adi,vswr-path-delay-pn-seq-level = <255>;
+	adi,vswr-tx1-vswr-switch-gpio3p3-pin = <0>;
+	adi,vswr-tx2-vswr-switch-gpio3p3-pin = <1>;
+	adi,vswr-tx1-vswr-switch-polarity = <0>;
+	adi,vswr-tx2-vswr-switch-polarity = <0>;
+	adi,vswr-tx1-vswr-switch-delay_us = <50>;
+	adi,vswr-tx2-vswr-switch-delay_us = <50>;
+};

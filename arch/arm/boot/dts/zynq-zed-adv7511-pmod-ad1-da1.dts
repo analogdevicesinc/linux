@@ -1,0 +1,34 @@
+/dts-v1/;
+
+#include "zynq-zed.dtsi"
+#include "zynq-zed-adv7511.dtsi"
+
+/ {
+	adc_vref: fixedregulator@0 {
+		compatible = "regulator-fixed";
+		regulator-name = "fixed-supply";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		regulator-boot-on;
+	};
+};
+
+&spi0 {
+	ad7476@0 {
+		compatible = "adi,ad7476a";
+		reg = <0>;
+		spi-max-frequency = <1000000>;
+		spi-cpha;
+		spi-cpol;
+		vcc-supply = <&adc_vref>;
+	};
+};
+		
+&spi1 {
+	ad7303@0 {
+		compatible = "adi,ad7303";
+		reg = <0>;
+		spi-max-frequency = <1000000>;
+		Vdd-supply = <&adc_vref>;
+	};
+};

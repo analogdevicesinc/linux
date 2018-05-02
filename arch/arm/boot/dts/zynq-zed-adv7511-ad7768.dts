@@ -1,0 +1,73 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices AD7768
+ * https://wiki.analog.com/resources/tools-software/linux-drivers/iio-adc/ad7768
+ *
+ * hdl_project: <ad7768evb/zed>
+ * board_revision: <>
+ *
+ * Copyright (C) 2016-2019 Analog Devices Inc.
+ */
+/dts-v1/;
+
+#include "zynq-zed.dtsi"
+#include "zynq-zed-adv7511.dtsi"
+
+
+/ {
+	vref: regulator-vref {
+		compatible = "regulator-fixed";
+		regulator-name = "fixed-supply";
+		regulator-min-microvolt = <4096000>;
+		regulator-max-microvolt = <4096000>;
+		regulator-always-on;
+	};
+
+	clocks {
+		ad7768_mclk: clock@0 {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <32768000>;
+		};
+	};
+};
+
+&fpga_axi {
+	rx_dma: rx-dmac@7c400000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x7c400000 0x10000>;
+		#dma-cells = <1>;
+		interrupts = <0 57 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clkc 16>;
+
+		adi,channels {
+			#size-cells = <0>;
+			#address-cells = <1>;
+
+			dma-channel@0 {
+				reg = <0>;
+				adi,source-bus-width = <32>;
+				adi,source-bus-type = <2>;
+				adi,destination-bus-width = <32>;
+				adi,destination-bus-type = <0>;
+			};
+		};
+	};
+};
+
+&spi0 {
+	status = "okay";
+
+	ad7768: adc@0 {
+		compatible = "adi,ad7768";
+		reg = <0>;
+		spi-max-frequency = <1000000>;
+
+		dmas = <&rx_dma 0>;
+		dma-names = "rx";
+
+		vref-supply = <&vref>;
+		clocks = <&ad7768_mclk>;
+		clock-names = "mclk";
+	};
+};
