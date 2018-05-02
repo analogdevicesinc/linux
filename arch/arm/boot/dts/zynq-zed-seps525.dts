@@ -1,0 +1,47 @@
+/dts-v1/;
+
+#include "zynq-zed.dtsi"
+#include "zynq-zed-adv7511.dtsi"
+
+/*
+ * USING:
+ * https://github.com/analogdevicesinc/hdl/tree/master/projects/cftl_std/zed
+ */
+
+/*
+ * SPI:
+ * spi0_csn      # "JA1"
+ * spi0_mosi     # "JA2"
+ * spi0_miso     # "JA3"
+ * spi0_clk      # "JA4"
+ * gpio_cftl[0]] # "JA9"        GPIO 54 + 32 + 0
+ * gpio_cftl[1]] # "JA10"       GPIO 54 + 32 + 1
+ */
+
+
+ /* Display:
+  * NHD-1.69-160128UGC3 (Newhaven Display International, Inc.)
+  */
+
+&spi0 {
+	status = "okay";
+	num-cs = <4>;
+	is-decoded-cs = <0>;
+
+	nhd@0{
+		compatible = "syncoam,seps525";
+		reg = <0>;
+		status = "ok";
+
+		spi-max-frequency = <10000000>;
+		spi-cpol;
+		spi-cpha;
+		rotate = <0>;
+		fps = <50>;
+		buswidth = <8>;
+		txbuflen = <64000>;
+		reset-gpios = <&gpio0 87 0>; /* JA10 */
+		dc-gpios = <&gpio0 86 0>; /* JA9 */
+		debug = <0>;
+	};
+};

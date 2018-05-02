@@ -1,0 +1,55 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices AD9265
+ * https://wiki.analog.com/resources/tools-software/linux-drivers/iio-adc/axi-adc-hdl
+ * https://wiki.analog.com/resources/fpga/xilinx/fmc/ad9265
+ *
+ * hdl_project: <ad9265_fmc/zc706>
+ * board_revision: <>
+ *
+ * Copyright (C) 2016-2019 Analog Devices Inc.
+ */
+/dts-v1/;
+
+#include "zynq-zc706.dtsi"
+#include "zynq-zc706-adv7511.dtsi"
+
+&fpga_axi {
+	rx_dma: rx-dmac@44a30000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x44a30000 0x10000>;
+		#dma-cells = <1>;
+		interrupts = <0 57 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clkc 16>;
+
+		adi,channels {
+			#size-cells = <0>;
+			#address-cells = <1>;
+
+			dma-channel@0 {
+				reg = <0>;
+				adi,source-bus-width = <16>;
+				adi,source-bus-type = <2>;
+				adi,destination-bus-width = <64>;
+				adi,destination-bus-type = <0>;
+			};
+		};
+	};
+
+	axi_ad9265_core: axi-ad9265-core-lpc@44a00000 {
+		compatible = "xlnx,axi-ad9434-1.00.a";
+		reg = <0x44a00000 0x10000>;
+		dmas = <&rx_dma 0>;
+		dma-names = "rx";
+
+		spibus-connected = <&adc_ad9265>;
+	};
+};
+
+&spi0 {
+	status = "okay";
+};
+
+#define fmc_spi spi0
+
+#include "adi-ad9265-fmc-125ebz.dtsi"

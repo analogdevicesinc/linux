@@ -1,0 +1,189 @@
+/dts-v1/;
+
+#include "zynq-zed.dtsi"
+#include "zynq-zed-adv7511.dtsi"
+
+&aliases {
+	ethernet1 = &gem1;
+};
+
+&gem0 {
+	phy1: phy@1 {
+		device_type = "ethernet-phy";
+		reg = <0x1>;
+		marvell,reg-init = <3 16 0xff00 0x1e 3 17 0xfff0 0x0a>;
+	};
+};
+
+&gem1 {
+	status = "okay";
+
+	phy-handle = <&phy1>;
+	phy-mode = "rgmii-id";
+};
+
+&fpga_axi {
+	fmc_i2c: i2c@41620000 {
+		compatible = "xlnx,axi-iic-1.01.b", "xlnx,xps-iic-2.00.a";
+		reg = <0x41620000 0x10000>;
+		interrupt-parent = <&intc>;
+		interrupts = <0 55 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clkc 15>;
+		clock-names = "pclk";
+
+		#size-cells = <0>;
+		#address-cells = <1>;
+
+		eeprom@50 {
+			compatible = "at24,24c02";
+			reg = <0x50>;
+		};
+	};
+
+	ee2_i2c: i2c@41510000 {
+		compatible = "xlnx,axi-iic-1.01.b", "xlnx,xps-iic-2.00.a";
+		reg = <0x41510000 0x10000>;
+		interrupt-parent = <&intc>;
+		interrupts = <0 56 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clkc 15>;
+		clock-names = "pclk";
+
+		#size-cells = <0>;
+		#address-cells = <1>;
+
+		eeprom@50 {
+			compatible = "at24,24c32";
+			reg = <0x50>;
+		};
+	};
+
+	ad-mc-speed@40410000 {
+		compatible = "xlnx,axi-ad-mc-speed-1.00.a";
+		reg = <0x40410000 0x10000>;
+		dmas = <&ad_mc_speed_dma 0>;
+		dma-names = "ad-mc-speed-dma";
+	};
+	ad_mc_speed_dma: dma@40510000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x40510000 0x10000>;
+		#dma-cells = <1>;
+		interrupts = <0 57 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clkc 15>;
+
+		adi,channels {
+			#size-cells = <0>;
+			#address-cells = <1>;
+
+			dma-channel@0 {
+				reg = <0>;
+				adi,source-bus-width = <32>;
+				adi,source-bus-type = <2>;
+				adi,destination-bus-width = <64>;
+				adi,destination-bus-type = <0>;
+			};
+		};
+	};
+
+	ad-mc-adc@40420000 {
+		compatible = "xlnx,axi-ad-mc-adc-1.00.a";
+		reg = <0x40420000 0x10000>;
+		dmas = <&ad_mc_adc_dma 0>;
+		dma-names = "ad-mc-adc-dma";
+	};
+	ad_mc_adc_dma: dma@40520000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x40520000 0x10000>;
+		#dma-cells = <1>;
+		interrupts = <0 54 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clkc 15>;
+
+		adi,channels {
+			#size-cells = <0>;
+			#address-cells = <1>;
+
+			dma-channel@0 {
+				reg = <0>;
+				adi,source-bus-width = <64>;
+				adi,source-bus-type = <2>;
+				adi,destination-bus-width = <64>;
+				adi,destination-bus-type = <0>;
+			};
+		};
+	};
+
+	ad-mc-ctrl@40430000 {
+		compatible = "xlnx,axi-ad-mc-ctrl-1.00.a";
+		reg = <0x40430000 0x10000>;
+	};
+
+	ad-mc-speed-m2@40440000 {
+		compatible = "xlnx,axi-ad-mc-speed-1.00.a";
+		reg = <0x40440000 0x10000>;
+		dmas = <&ad_mc_speed_dma_m2 0>;
+		dma-names = "ad-mc-speed-dma";
+	};
+	ad_mc_speed_dma_m2: dma@40540000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x40540000 0x10000>;
+		#dma-cells = <1>;
+		interrupts = <0 53 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clkc 15>;
+
+		adi,channels {
+			#size-cells = <0>;
+			#address-cells = <1>;
+
+			dma-channel@0 {
+				reg = <0>;
+				adi,source-bus-width = <32>;
+				adi,source-bus-type = <2>;
+				adi,destination-bus-width = <64>;
+				adi,destination-bus-type = <0>;
+			};
+		};
+	};
+
+	ad-mc-adc-m2@40450000 {
+		compatible = "xlnx,axi-ad-mc-adc-1.00.a";
+		reg = <0x40450000 0x10000>;
+		dmas = <&ad_mc_adc_dma_m2 0>;
+		dma-names = "ad-mc-adc-dma";
+	};
+	ad_mc_adc_dma_m2: dma@40550000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x40550000 0x10000>;
+		#dma-cells = <1>;
+		interrupts = <0 52 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clkc 15>;
+
+		adi,channels {
+			#size-cells = <0>;
+			#address-cells = <1>;
+
+			dma-channel@0 {
+				reg = <0>;
+				adi,source-bus-width = <64>;
+				adi,source-bus-type = <2>;
+				adi,destination-bus-width = <64>;
+				adi,destination-bus-type = <0>;
+			};
+		};
+	};
+
+	ad-mc-ctrl-m2@40460000 {
+		compatible = "xlnx,axi-ad-mc-ctrl-1.00.a";
+		reg = <0x40460000 0x10000>;
+	};
+};
+
+&spi0 {
+	status = "okay";
+	ad2s1210@0 {
+		compatible = "adi,ad2s1210";
+		reg = <0>;
+		spi-cpha;
+		spi-max-frequency = <1000000>;
+		sample-gpios = <&gpio0 86 0>;
+	};
+};
+

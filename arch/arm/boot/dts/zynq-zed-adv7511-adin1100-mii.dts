@@ -1,0 +1,14 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * ADIN1100 Eval board on ZedBoard carrier
+ *
+ * hdl_project: <>
+ * board_revision: <>
+ *
+ * Copyright 2020 Analog Devices Inc.
+ */
+/dts-v1/;
+
+#include "zynq-zed.dtsi"
+#include "zynq-zed-adv7511.dtsi"
+#include "adi-adin1100-mii.dtsi"
