@@ -1,0 +1,15 @@
+#include "zynq-zc706-adv7511-ad9625-fmcadc2.dts"
+
+&spi0 {
+	/* FMCADC3 only:
+	 * Remove R211, R213, R215, R217, R219, R208
+	 * Populate: R209, R220, R221, R222
+	 */
+	dga0_ada4961: ada4961@1 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "adi,ada4961";
+		reg = <1>;
+		spi-max-frequency = <1000000>;
+	};
+};

@@ -1,0 +1,269 @@
+/dts-v1/;
+
+#include "zynq-zed.dtsi"
+#include "zynq-zed-adv7511.dtsi"
+
+&usb0 {
+	dr_mode = "otg";
+};
+
+/ {
+	ref_clock: ref-clock {
+		#clock-cells = <0>;
+		compatible = "fixed-clock";
+		clock-frequency = <20000000>;
+		clock-output-names = "refclk";
+	};
+
+	m2k-fabric {
+		compatible = "adi,m2k-fabric";
+		adi,revb;
+
+		en-sc-cal1-gpio = <&gpio_exp 8 0>;
+		en-sc1-cal2-gpio = <&gpio_exp 0 0>;
+		en-sc2-cal2-gpio = <&gpio_exp 1 0>;
+
+		sc-cal-mux0-gpio = <&gpio_exp 2 0>;
+		sc-cal-mux1-gpio = <&gpio_exp 3 0>;
+
+		en-awg1-gpio = <&gpio_exp 14 0>;
+		en-awg2-gpio = <&gpio_exp 15 0>;
+		en-awg2-50ohm-gpio = <&gpio_exp 4 0>;
+		en-awg1-50ohm-gpio = <&gpio_exp 5 0>;
+
+		en-usr-pow-gpio = <&gpio_exp 6 0>;
+
+		en-sc1-lg-gpio = <&gpio_exp 10 0>;
+		en-sc1-hg-gpio = <&gpio_exp 11 0>;
+		en-sc2-lg-gpio = <&gpio_exp 12 0>;
+		en-sc2-hg-gpio = <&gpio_exp 13 0>;
+
+	};
+
+	ref_1V2: regulator@0 {
+		compatible = "regulator-fixed";
+
+		regulator-name = "REF_1V2";
+		regulator-min-microvolt = <1200000>;
+		regulator-max-microvolt = <1200000>;
+	};
+
+	reg_5V0_A: regulator@1 {
+		compatible = "regulator-fixed";
+
+		regulator-name = "5V0_A";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+
+		gpio = <&gpio0 87 0>;
+		enabale-active-high;
+
+		regulator-boot-on;
+		regulator-always-on;
+	};
+
+	leds {
+		compatible = "gpio-leds";
+		status {
+			label = "Status";
+			gpios = <&gpio_exp 18 0>;
+			linux,default-trigger = "heartbeat";
+		};
+	};
+};
+
+&spi0 {
+	status = "okay";
+
+	converter_clock: pll@0 {
+		compatible = "adi,adf4360-9";
+		reg = <1>;
+		spi-max-frequency = <2000000>;
+
+		#clock-cells = <0>;
+
+		clocks = <&ref_clock>;
+		clock-names = "clkin";
+		clock-output-names = "ADF4360-9";
+
+		adi,loop-filter-charge-pump-current-microamp = <1870>;
+		adi,loop-filter-pfd-frequency-hz = <5000000>;
+	};
+
+	converter@1 {
+		compatible = "adi,ad9963";
+		reg = <0>;
+		spi-max-frequency = <5000000>;
+
+		reset-gpio = <&gpio0 86 1>;
+
+		clocks = <&converter_clock>;
+		clock-names = "clk";
+	};
+};
+
+&fpga_axi {
+	fmc_i2c: i2c@41620000 {
+		compatible = "xlnx,axi-iic-1.01.b", "xlnx,xps-iic-2.00.a";
+		interrupt-parent = <&intc>;
+		interrupts = <0 55 IRQ_TYPE_LEVEL_HIGH>;
+		reg = <0x41620000 0x10000>;
+
+		#size-cells = <0>;
+		#address-cells = <1>;
+
+		gpio_exp: gpio@34 {
+			compatible = "adi,adp5589";
+			reg = <0x34>;
+
+			#gpio-cells = <2>;
+			gpio-controller;
+		};
+
+		dac@1c {
+			compatible = "adi,ad5625";
+			reg = <0x1c>;
+
+			vref-supply = <&ref_1V2>;
+		};
+
+		dac@0f {
+			compatible = "adi,ad5627";
+			reg = <0x0f>;
+
+			vref-supply = <&ref_1V2>;
+		};
+
+		current_limiter@5a {
+			compatible = "adi,adm1177";
+			reg = <0x5a>;
+			adi,r-sense-mohm = <100>; /* 100 mOhm */
+			adi,shutdown-threshold-ma = <1059>; /* 1.059 A */
+			adi,vrange-high-enable;
+		};
+
+		adc@2f {
+			compatible = "adi,ad7291";
+			reg = <0x2f>;
+		};
+	};
+
+	rx_dma0: dma@7c440000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x7c440000 0x10000>;
+		#dma-cells = <1>;
+		interrupts = <0 54 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clkc 15>;
+
+		dma-channel {
+			adi,source-bus-width = <32>;
+			adi,destination-bus-width = <64>;
+			adi,type = <0>;
+		};
+	};
+/*
+	rx_dma1: dma@7c440000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x7c460000 0x10000>;
+		#dma-cells = <1>;
+		interrupts = <0 36 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clkc 15>;
+
+		dma-channel {
+			adi,buswidth = <64>;
+			adi,type = <0>;
+		};
+	};
+*/
+	tx_dma: dma@7c480000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x7c480000 0x10000>;
+		#dma-cells = <1>;
+		interrupts = <0 52 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clkc 15>;
+
+		dma-channel {
+			adi,source-bus-width = <64>;
+			adi,destination-bus-width = <32>;
+			adi,type = <1>;
+			adi,cyclic;
+		};
+	};
+
+	m2k-adc@70200000 {
+		compatible = "adi,m2k-adc-1.00.a";
+		reg = <0x70200000 0x10000>, <0x7c500000 0x10000>;
+		clocks = <&converter_clock>;
+		dmas = <&rx_dma0 0>;
+		dma-names = "rx";
+	};
+
+	m2k-dac@70204000 {
+		compatible = "adi,axi-ad9963-dds-1.00.a";
+		reg = <0x70204000 0x10000>, <0x7c5a0000 0x10000>;
+		clocks = <&converter_clock>;
+		clock-names = "sampl_clk";
+		dmas = <&tx_dma 0>;
+		dma-names = "tx";
+
+		adi,axi-dds-default-scale = <0x800>;
+		adi,axi-dds-default-frequency = <1000000>;
+	};
+
+	logic_analyzer_clkgen: clock@7000000 {
+		compatible = "adi,axi-clkgen-2.00.a";
+		reg = <0x70000000 0x10000>;
+		clocks = <&clkc 16>;
+
+		#clock-cells = <0>;
+	};
+
+	logic_analyzer_rx_dma: dma@7c400000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x7c400000 0x10000>;
+
+		#dma-cells = <1>;
+		interrupts = <0 57 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clkc 15>;
+
+		dma-channel {
+			adi,source-bus-width = <16>;
+			adi,destination-bus-width = <64>;
+			adi,type = <0>;
+		};
+	};
+
+	logic_analyzer_tx_dma: dma@7c420000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x7c420000 0x10000>;
+
+		#dma-cells = <1>;
+		interrupts = <0 56 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clkc 15>;
+
+		dma-channel {
+			adi,source-bus-width = <64>;
+			adi,destination-bus-width = <16>;
+			adi,type = <1>;
+			adi,cyclic;
+		};
+	};
+
+	logic_analyzer@7010000 {
+		compatible = "adi,m2k-logic-analyzer";
+		reg = <0x70100000 0x10000>;
+
+		clocks = <&logic_analyzer_clkgen 0>;
+
+		dmas = <&logic_analyzer_tx_dma 0>, <&logic_analyzer_rx_dma 0>;
+		dma-names = "tx", "rx";
+	};
+
+	m2k-adc-trigger@7C4c0000 {
+		compatible = "adi,axi-adc-trigger";
+		reg = <0x7C4c0000 0x10000>;
+		clocks = <&converter_clock>;
+	};
+
+};
+

@@ -1,0 +1,275 @@
+/dts-v1/;
+
+#include "zynq-zed.dtsi"
+
+/ {
+	fpga_axi: fpga-axi@0 {
+		compatible = "simple-bus";
+		#address-cells = <0x1>;
+		#size-cells = <0x1>;
+		ranges;
+
+		axi_iic_imageon: i2c@43c40000 {
+			compatible = "xlnx,axi-iic-1.02.a", "xlnx,xps-iic-2.00.a";
+			reg = <0x43c40000 0x10000>;
+			interrupt-parent = <&intc>;
+			interrupts = <0 55 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clkc 15>;
+			clock-names = "pclk";
+
+			#size-cells = <0>;
+			#address-cells = <1>;
+
+			mux@70 {
+				compatible = "nxp,pca9546";
+				reg = <0x70>;
+				reset-gpio = <&gpio0 87 1>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				i2c@1 {
+					#size-cells = <0>;
+					#address-cells = <1>;
+					reg = <1>;
+
+					adv7511: adv7511@39 {
+						compatible = "adi,adv7511";
+						reg = <0x39>, <0x3f>;
+						reg-names = "primary", "edid";
+
+						adi,input-depth = <8>;
+						adi,input-colorspace = "yuv422";
+						adi,input-clock = "1x";
+						adi,input-style = <1>;
+						adi,input-justification = "left";
+						adi,clock-delay = <0>;
+						adi,embedded-sync;
+
+						pd-gpios = <&pca9534 4 0>;
+
+						#sound-dai-cells = <0>;
+
+						ports {
+							#address-cells = <1>;
+							#size-cells = <0>;
+
+							port@0 {
+								reg = <0>;
+								adv7511_in: endpoint {
+									remote-endpoint = <&axi_hdmi_out>;
+								};
+							};
+
+							port@1 {
+								reg = <1>;
+							};
+						};
+					};
+				};
+
+				i2c@2 {
+					#size-cells = <0>;
+					#address-cells = <1>;
+					reg = <2>;
+
+					adv7611@4c {
+						compatible = "adi,adv7611";
+						reg = <0x4c>;
+						#address-cells = <0x1>;
+						#size-cells = <0x0>;
+						interrupt-parent = <&gpio0>;
+						interrupts = <86 4>;
+
+						port@0 {
+							reg = <0x0>;
+						};
+
+						port@1 {
+							reg = <0x1>;
+
+							adv7611: endpoint {
+								bus-width = <16>;
+								remote-endpoint = <&axi_hdmi_rx>;
+							};
+						};
+					};
+				};
+
+				i2c@3 {
+					#size-cells = <0>;
+					#address-cells = <1>;
+					reg = <3>;
+
+					pca9534: pca9534@20 {
+						compatible = "nxp,pca9534";
+						reg = <0x20>;
+						gpio-controller;
+						#gpio-cells = <2>;
+					};
+				};
+			};
+		};
+
+		hdmi_dma: dma@43000000 {
+			compatible = "adi,axi-dmac-1.00.a";
+			reg = <0x43000000 0x10000>;
+			#dma-cells = <1>;
+			interrupts = <0 59 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clkc 16>;
+
+			adi,channels {
+				#size-cells = <0>;
+				#address-cells = <1>;
+
+				dma-channel@0 {
+					reg = <0>;
+					adi,source-bus-width = <64>;
+					adi,source-bus-type = <0>;
+					adi,destination-bus-width = <64>;
+					adi,destination-bus-type = <1>;
+				};
+			};
+		};
+
+		axi_hdmi_clkgen: axi-clkgen@79000000 {
+			compatible = "adi,axi-clkgen-2.00.a";
+			reg = <0x79000000 0x10000>;
+			#clock-cells = <0>;
+			clocks = <&clkc 16>;
+		};
+
+		axi_hdmi_core: axi-hdmi-tx@70e00000 {
+			compatible = "adi,axi-hdmi-tx-1.00.a";
+			reg = <0x70e00000 0x10000>;
+			encoder-slave = <&adv7511>;
+			dmas = <&hdmi_dma 0>;
+			dma-names = "video";
+			clocks = <&axi_hdmi_clkgen>;
+
+			port {
+				axi_hdmi_out: endpoint {
+					remote-endpoint = <&adv7511_in>;
+				};
+			};
+		};
+
+		axi_spdif_tx_0: axi-spdif-tx@75c00000 {
+			compatible = "adi,axi-spdif-tx-1.00.a";
+			reg = <0x75c00000 0x1000>;
+			dmas = <&dmac_s 0>;
+			dma-names = "tx";
+			clocks = <&clkc 15>, <&audio_clock>;
+			clock-names = "axi", "ref";
+
+			#sound-dai-cells = <0>;
+		};
+
+		axi_hdmi_rx_core: axi-hdmi-rx@43100000 {
+			compatible = "adi,axi-hdmi-rx-1.00.a";
+			reg = <0x43100000 0x10000>;
+			dmas = <&axi_dmac 0>;
+			dma-names = "rx";
+			gpios = <&pca9534 2 0>;
+
+			port {
+				#address-cells = <0>;
+				#size-cells = <0>;
+
+				axi_hdmi_rx: endpoint {
+					remote-endpoint = <&adv7611>;
+				};
+			};
+		};
+
+		axi_dmac: dmac@43c20000 {
+			compatible = "adi,axi-dmac-1.00.a";
+			reg = <0x43c20000 0x10000>;
+			#dma-cells = <1>;
+			interrupts = <0 56 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clkc 16>;
+
+			adi,channels {
+				#size-cells = <0>;
+				#address-cells = <1>;
+
+				dma-channel@0 {
+					reg = <0>;
+					adi,source-bus-width = <64>;
+					adi,source-bus-type = <2>;
+					adi,destination-bus-width = <64>;
+					adi,destination-bus-type = <0>;
+				};
+			};
+		};
+	};
+
+	audio_clock: audio_clock {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <12288000>;
+	};
+
+	adv7511_hdmi_snd {
+		compatible = "simple-audio-card";
+		simple-audio-card,name = "HDMI monitor";
+		simple-audio-card,widgets =
+			"Speaker", "Speaker";
+		simple-audio-card,routing =
+			"Speaker", "TX";
+
+		simple-audio-card,dai-link@0 {
+			format = "spdif";
+			cpu {
+				sound-dai = <&axi_spdif_tx_0>;
+				frame-master;
+				bitclock-master;
+			};
+			codec {
+				sound-dai = <&adv7511>;
+			};
+		};
+	};
+
+	leds {
+		compatible = "gpio-leds";
+		ld0 {
+			label = "ld0:red";
+			gpios = <&gpio0 73 0>;
+		};
+
+		ld1 {
+			label = "ld1:red";
+			gpios = <&gpio0 74 0>;
+		};
+
+		ld2 {
+			label = "ld2:red";
+			gpios = <&gpio0 75 0>;
+		};
+
+		ld3 {
+			label = "ld3:red";
+			gpios = <&gpio0 76 0>;
+		};
+
+		ld4 {
+			label = "ld4:red";
+			gpios = <&gpio0 77 0>;
+		};
+
+		ld5 {
+			label = "ld5:red";
+			gpios = <&gpio0 78 0>;
+		};
+
+		ld6 {
+			label = "ld6:red";
+			gpios = <&gpio0 79 0>;
+		};
+
+		ld7 {
+			label = "ld7:red";
+			gpios = <&gpio0 80 0>;
+		};
+	};
+};

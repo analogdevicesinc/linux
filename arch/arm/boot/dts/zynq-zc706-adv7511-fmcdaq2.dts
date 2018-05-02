@@ -1,0 +1,194 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices AD-FMCDAQ2-EBZ
+ * https://wiki.analog.com/resources/eval/user-guides/ad-fmcdaq2-ebz
+ *
+ * hdl_project: <daq2/zc706>
+ * board_revision: <>
+ *
+ * Copyright (C) 2014-2019 Analog Devices Inc.
+ */
+/dts-v1/;
+
+#include "zynq-zc706.dtsi"
+#include "zynq-zc706-adv7511.dtsi"
+
+&i2c_mux {
+	i2c@5 { /* HPC IIC */
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <5>;
+
+		eeprom@50 {
+			compatible = "at24,24c02";
+			reg = <0x50>;
+		};
+
+		eeprom@54 {
+			compatible = "at24,24c02";
+			reg = <0x54>;
+		};
+
+		ad7291@2f {
+			compatible = "adi,ad7291";
+			reg = <0x2f>;
+		};
+	};
+};
+
+
+&fpga_axi {
+	rx_dma: rx-dmac@7c400000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x7c400000 0x10000>;
+		#dma-cells = <1>;
+		interrupts = <0 57 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clkc 16>;
+
+		adi,channels {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			dma-channel@0 {
+				reg = <0>;
+				adi,source-bus-width = <64>;
+				adi,source-bus-type = <2>;
+				adi,destination-bus-width = <64>;
+				adi,destination-bus-type = <0>;
+			};
+		};
+	};
+
+	tx_dma: tx-dmac@7c420000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x7c420000 0x10000>;
+		#dma-cells = <1>;
+		interrupts = <0 56 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clkc 16>;
+
+		adi,channels {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			dma-channel@0 {
+				reg = <0>;
+				adi,source-bus-width = <128>;
+				adi,source-bus-type = <0>;
+				adi,destination-bus-width = <128>;
+				adi,destination-bus-type = <1>;
+			};
+		};
+	};
+
+	axi_ad9144_core: axi-ad9144-hpc@44a04000 {
+		compatible = "adi,axi-ad9144-1.0";
+		reg = <0x44a04000 0x4000>;
+		dmas = <&tx_dma 0>;
+		dma-names = "tx";
+		spibus-connected = <&dac0_ad9144>;
+		adi,axi-pl-fifo-enable;
+	};
+
+	axi_ad9144_jesd: axi-jesd204-tx@44a90000 {
+		compatible = "adi,axi-jesd204-tx-1.0";
+		reg = <0x44a90000 0x1000>;
+
+		interrupts = <0 54 IRQ_TYPE_LEVEL_HIGH>;
+
+		clocks = <&clkc 16>, <&axi_ad9144_adxcvr 1>, <&axi_ad9144_adxcvr 0>;
+		clock-names = "s_axi_aclk", "device_clk", "lane_clk";
+
+		adi,octets-per-frame = <1>;
+		adi,frames-per-multiframe = <32>;
+		adi,converter-resolution = <16>;
+		adi,bits-per-sample = <16>;
+		adi,converters-per-device = <2>;
+
+		#clock-cells = <0>;
+		clock-output-names = "jesd_dac_lane_clk";
+	};
+
+	axi_ad9680_core: axi-ad9680-hpc@44a10000 {
+		compatible = "adi,axi-ad9680-1.0";
+		reg = <0x44a10000 0x10000>;
+		dmas = <&rx_dma 0>;
+		dma-names = "rx";
+		spibus-connected = <&adc0_ad9680>;
+	};
+
+	axi_ad9680_jesd: axi-jesd204-rx@44aa0000 {
+		compatible = "adi,axi-jesd204-rx-1.0";
+		reg = <0x44aa0000 0x1000>;
+
+		interrupts = <0 55 IRQ_TYPE_LEVEL_HIGH>;
+
+		clocks = <&clkc 16>, <&axi_ad9680_adxcvr 1>, <&axi_ad9680_adxcvr 0>;
+		clock-names = "s_axi_aclk", "device_clk", "lane_clk";
+
+		adi,octets-per-frame = <1>;
+		adi,frames-per-multiframe = <32>;
+
+		#clock-cells = <0>;
+		clock-output-names = "jesd_adc_lane_clk";
+	};
+
+	axi_ad9680_adxcvr: axi-adxcvr-rx@44a50000 {
+		compatible = "adi,axi-adxcvr-1.0";
+		reg = <0x44a50000 0x1000>;
+
+		clocks = <&clk0_ad9523 4>;
+		clock-names = "conv";
+
+		#clock-cells = <1>;
+		clock-output-names = "adc_gt_clk", "rx_out_clk";
+
+		adi,sys-clk-select = <0>;
+		adi,out-clk-select = <4>;
+		adi,use-lpm-enable;
+		adi,use-cpll-enable;
+		adi,vco-max-khz = <5000000>;
+	};
+
+	axi_ad9144_adxcvr: axi-adxcvr-tx@44a60000 {
+		compatible = "adi,axi-adxcvr-1.0";
+		reg = <0x44a60000 0x1000>;
+
+		clocks = <&clk0_ad9523 9>;
+		clock-names = "conv";
+
+		#clock-cells = <1>;
+		clock-output-names = "dac_gt_clk", "tx_out_clk";
+
+		adi,sys-clk-select = <3>;
+		adi,out-clk-select = <4>;
+		adi,use-lpm-enable;
+	};
+};
+
+&spi0 {
+	status = "okay";
+};
+
+#define fmc_spi spi0
+
+#include "adi-daq2.dtsi"
+
+&adc0_ad9680 {
+	powerdown-gpios = <&gpio0 96 0>;
+	fastdetect-a-gpios = <&gpio0 89 0>;
+	fastdetect-b-gpios = <&gpio0 90 0>;
+};
+
+&dac0_ad9144 {
+	txen-gpios = <&gpio0 95 0>;
+	reset-gpios = <&gpio0 94 0>;
+	irq-gpios = <&gpio0 88 0>;
+};
+
+&clk0_ad9523 {
+	powerdown-gpios = <&gpio0 93 0>;
+	sync-gpios = <&gpio0 92 0>;
+	reset-gpios = <&gpio0 91 0>;
+	status0-gpios = <&gpio0 86 0>;
+	status1-gpios = <&gpio0 87 0>;
+};

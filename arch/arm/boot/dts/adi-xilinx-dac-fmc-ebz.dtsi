@@ -1,0 +1,38 @@
+&fpga_axi {
+	dac_dma: dma@7c420000 {
+		reg = <0x7c420000 0x10000>;
+
+		interrupts = <0 56 0>;
+		clocks = <&axi_clk>;
+	};
+
+	jesd204_transport: jesd204-transport-layer@44a04000 {
+		reg = <0x44a14000 0x4000>;
+	};
+
+	jesd204_link: jesd204-link-layer@44a90000 {
+		reg = <0x44a20000 0x1000>;
+
+		interrupts = <0 54 0>;
+
+		clocks = <&axi_clk>, <&fpga_device_clk>, <&jesd204_phy 0>;
+		clock-names = "s_axi_aclk", "device_clk", "lane_clk";
+	};
+
+	jesd204_phy: jesd204-phy@44a60000 {
+		compatible = "adi,axi-adxcvr-1.0";
+		reg = <0x44a00000 0x1000>;
+
+		clocks = <&fpga_device_clk>, <&fpga_device_clk>;
+		clock-names = "conv", "div40";
+
+		#clock-cells = <1>;
+		clock-output-names = "dac_gt_clk", "tx_out_clk";
+
+		adi,sys-clk-select = <3>;
+		adi,out-clk-select = <4>;
+		adi,use-lpm-enable;
+	};
+};
+
+#include "adi-common-dac-fmc-ebz.dtsi"

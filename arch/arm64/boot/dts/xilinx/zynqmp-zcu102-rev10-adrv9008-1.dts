@@ -1,0 +1,180 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices ADRV9008-1
+ * https://wiki.analog.com/resources/eval/user-guides/adrv9009
+ * https://wiki.analog.com/resources/tools-software/linux-drivers/iio-transceiver/adrv9009
+ * https://wiki.analog.com/resources/tools-software/linux-software/adrv9009_advanced_plugin
+ *
+ * hdl_project: <adrv9009/zcu102>
+ * board_revision: <>
+ *
+ * Copyright (C) 2019 Analog Devices Inc.
+ */
+#include "zynqmp-zcu102-rev1.0.dts"
+#include <dt-bindings/interrupt-controller/irq.h>
+
+&i2c1 {
+	i2c-mux@75 {
+		i2c@1 { /* HPC1 */
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <1>;
+
+			ad7291@2f {
+				compatible = "adi,ad7291";
+				reg = <0x2f>;
+			};
+
+			eeprom@50 {
+				compatible = "at24,24c02";
+				reg = <0x50>;
+			};
+		};
+	};
+};
+
+/ {
+	fpga_axi: fpga-axi@0 {
+		interrupt-parent = <&gic>;
+		compatible = "simple-bus";
+		#address-cells = <0x1>;
+		#size-cells = <0x1>;
+		ranges = <0 0 0 0xffffffff>;
+
+		rx_dma: dma@9c400000 {
+			compatible = "adi,axi-dmac-1.00.a";
+			reg = <0x9c400000 0x10000>;
+			#dma-cells = <1>;
+			#clock-cells = <0>;
+			interrupts = <0 109 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&zynqmp_clk 73>;
+
+			adi,channels {
+				#size-cells = <0>;
+				#address-cells = <1>;
+
+				dma-channel@0 {
+					reg = <0>;
+					adi,source-bus-width = <64>;
+					adi,source-bus-type = <2>;
+					adi,destination-bus-width = <64>;
+					adi,destination-bus-type = <0>;
+				};
+			};
+		};
+
+		axi_adrv9009_core_rx: axi-adrv9009-rx-hpc@84a00000 {
+			compatible = "adi,axi-adrv9009-rx-1.0";
+			reg = <0x84a00000 0x8000>;
+			dmas = <&rx_dma 0>;
+			dma-names = "rx";
+			spibus-connected = <&trx0_adrv9009>;
+			adi,axi-decimation-core-available;
+			decimation-gpios = <&gpio 139 GPIO_ACTIVE_HIGH>;
+		};
+
+		axi_adrv9009_rx_jesd: axi-jesd204-rx@84aa0000 {
+			compatible = "adi,axi-jesd204-rx-1.0";
+			reg = <0x84aa0000 0x1000>;
+
+			interrupts = <0 106 IRQ_TYPE_LEVEL_HIGH>;
+
+			clocks = <&zynqmp_clk 71>, <&axi_rx_clkgen>, <&axi_adrv9009_adxcvr_rx 0>;
+			clock-names = "s_axi_aclk", "device_clk", "lane_clk";
+
+			#clock-cells = <0>;
+			clock-output-names = "jesd_rx_lane_clk";
+
+			adi,octets-per-frame = <4>;
+			adi,frames-per-multiframe = <32>;
+		};
+
+		axi_rx_clkgen: axi-clkgen@83c10000  {
+			compatible = "adi,axi-clkgen-2.00.a";
+			reg = <0x83c10000 0x10000>;
+			#clock-cells = <0>;
+			clocks = <&clk0_ad9528 1>;
+			clock-output-names = "axi_rx_clkgen";
+		};
+
+		axi_adrv9009_adxcvr_rx: axi-adxcvr-rx@84a60000 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "adi,axi-adxcvr-1.0";
+			reg = <0x84a60000 0x1000>;
+
+			clocks = <&clk0_ad9528 1>, <&axi_rx_clkgen 0>;
+			clock-names = "conv", "div40";
+
+			#clock-cells = <1>;
+			clock-output-names = "rx_gt_clk", "rx_out_clk";
+
+			adi,sys-clk-select = <0>;
+			adi,out-clk-select = <3>;
+			adi,use-lpm-enable;
+			adi,use-cpll-enable;
+		};
+
+		axi_sysid_0: axi-sysid-0@85000000 {
+			compatible = "adi,axi-sysid-1.00.a";
+			reg = <0x85000000 0x10000>;
+		};
+	};
+};
+
+&spi0 {
+	status = "okay";
+};
+
+#define fmc_spi spi0
+
+#include "adi-adrv9009.dtsi"
+
+// adrv9009_dac_fifo_bypass_s 60
+// ad9528_reset_b,       // 59
+// ad9528_sysref_req,    // 58
+// adrv9009_tx1_enable,    // 57
+// adrv9009_tx2_enable,    // 56
+// adrv9009_rx1_enable,    // 55
+// adrv9009_rx2_enable,    // 54
+// adrv9009_test,          // 53
+// adrv9009_reset_b,       // 52
+// adrv9009_gpint,         // 51
+// adrv9009_gpio_00,       // 50
+// adrv9009_gpio_01,       // 49
+// adrv9009_gpio_02,       // 48
+// adrv9009_gpio_03,       // 47
+// adrv9009_gpio_04,       // 46
+// adrv9009_gpio_05,       // 45
+// adrv9009_gpio_06,       // 44
+// adrv9009_gpio_07,       // 43
+// adrv9009_gpio_15,       // 42
+// adrv9009_gpio_08,       // 41
+// adrv9009_gpio_09,       // 40
+// adrv9009_gpio_10,       // 39
+// adrv9009_gpio_11,       // 38
+// adrv9009_gpio_12,       // 37
+// adrv9009_gpio_14,       // 36
+// adrv9009_gpio_13,       // 35
+// adrv9009_gpio_17,       // 34
+// adrv9009_gpio_16,       // 33
+// adrv9009_gpio_18}));    // 32 + 78
+
+&trx0_adrv9009 {
+	compatible = "adrv9008-1";
+
+	clocks = <&axi_adrv9009_rx_jesd>, <&clk0_ad9528 13>,
+		<&clk0_ad9528 1>, <&clk0_ad9528 12>, <&clk0_ad9528 3>;
+	clock-names = "jesd_rx_clk", "dev_clk", "fmc_clk", "sysref_dev_clk",
+		"sysref_fmc_clk";
+
+	reset-gpios = <&gpio 130 0>;
+	test-gpios = <&gpio 131 0>;
+	sysref-req-gpios = <&gpio 136 0>;
+	rx2-enable-gpios = <&gpio 132 0>;
+	rx1-enable-gpios = <&gpio 133 0>;
+};
+
+&clk0_ad9528 {
+	reset-gpios = <&gpio 137 0>;
+};

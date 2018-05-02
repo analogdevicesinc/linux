@@ -1,0 +1,64 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices AD9467
+ * https://wiki.analog.com/resources/tools-software/linux-drivers/iio-adc/axi-adc-hdl
+ * https://wiki.analog.com/resources/eval/ad9467-fmc-250ebz
+ * https://wiki.analog.com/resources/fpga/xilinx/fmc/ad9467
+ *
+ * hdl_project: <ad9467_fmc/kc705>
+ * board_revision: <>
+ *
+ * Copyright (C) 2016-2019 Analog Devices Inc.
+ */
+/dts-v1/;
+#include "kc705.dtsi"
+
+#define fmc_i2c fmc_lpc_iic
+#define fmc_spi axi_spi
+
+&amba_pl {
+	axi_ad9467: cf-ad9467-core-lpc@44a00000 {
+		compatible = "adi,axi-adc-10.0.a";
+		reg = <0x44a00000 0x10000>;
+		xlnx,s-axi-min-size = <0x0000FFFF>;
+		dmas = <&rx_dma 0>;
+		dma-names = "rx";
+		spibus-connected = <&adc_ad9467>;
+	};
+
+	rx_dma: dma@44a30000 {
+		#dma-cells = <1>;
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x44a30000 0x10000>;
+		interrupt-parent = <&axi_intc>;
+		interrupts = <12 2>;
+		clocks = <&clk_bus_0>;
+
+		adi,channels {
+			#size-cells = <0>;
+			#address-cells = <1>;
+
+			dma-channel@0 {
+				reg = <0>;
+				adi,source-bus-width = <16>;
+				adi,source-bus-type = <2>;
+				adi,destination-bus-width = <64>;
+				adi,destination-bus-type = <0>;
+			};
+		};
+	};
+};
+
+&fmc_i2c {
+	eeprom@50 {
+		compatible = "at24,24c02";
+		reg = <0x50>;
+	};
+
+	eeprom@54 {
+		compatible = "at24,24c02";
+		reg = <0x54>;
+	};
+};
+
+#include "adi-ad9467-fmc-250ebz.dtsi"

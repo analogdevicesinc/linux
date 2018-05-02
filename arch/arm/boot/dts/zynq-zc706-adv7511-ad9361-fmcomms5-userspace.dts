@@ -1,0 +1,70 @@
+/dts-v1/;
+
+#include "zynq-zc706.dtsi"
+#include "zynq-zc706-adv7511.dtsi"
+
+&i2c_mux {
+	fmc_i2c: i2c@6 {
+		#size-cells = <0>;
+		#address-cells = <1>;
+		reg = <6>;
+
+		eeprom@50 {
+			compatible = "at24,24c02";
+			reg = <0x50>;
+		};
+	};
+};
+
+&spi0 {
+	status = "okay";
+};
+
+&spi1 {
+	status = "okay";
+};
+
+#define fmc_spi spi0
+#define pmod_spi spi1
+
+&fmc_spi {
+	spi@0 {
+		compatible = "spidev";
+		spi-cpha;
+		reg = <0x0>;
+		spi-max-frequency = <1000000>;
+	};
+	spi@1 {
+		compatible = "spidev";
+		spi-cpha;
+		reg = <0x1>;
+		spi-max-frequency = <1000000>;
+	};
+};
+
+&fpga_axi {
+	ad9361@79020000 {
+		compatible = "dmem-uio";
+		reg = <0x79020000 0x6000>;
+	};
+
+	rx_dma@7c400000 {
+		compatible = "dmem-uio";
+		reg = <0x7c400000 0x10000>;
+		uio,number-of-dynamic-regions = <1>;
+		uio,dynamic-regions-sizes = <262144>;
+	};
+
+	tx_dma@7c420000 {
+		compatible = "dmem-uio";
+		reg = <0x7c420000 0x10000>;
+		uio,number-of-dynamic-regions = <1>;
+		uio,dynamic-regions-sizes = <262144>;
+	};
+
+	ad9361_b@79040000 {
+		compatible = "dmem-uio";
+		reg = <0x79040000 0x6000>;
+	};
+};
+

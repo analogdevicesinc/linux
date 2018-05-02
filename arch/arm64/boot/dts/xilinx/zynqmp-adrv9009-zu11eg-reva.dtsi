@@ -1,0 +1,1410 @@
+/*
+ * dts file for ADRV9009-ZU11EG System on Module
+ *
+ * Copyright (C) 2019 Analog Devices Inc.
+ *
+ * Licensed under the GPL-2.
+ */
+
+/dts-v1/;
+
+#include "zynqmp.dtsi"
+#include "zynqmp-clk-ccf.dtsi"
+#include <dt-bindings/input/input.h>
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/pinctrl/pinctrl-zynqmp.h>
+#include <dt-bindings/phy/phy.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/iio/frequency/hmc7044.h>
+
+/ {
+	model = "Analog Devices ADRV9009-ZU11EG Rev.A";
+	compatible = "xlnx,zynqmp";
+
+	aliases {
+		ethernet0 = &gem3;
+		ethernet1 = &gem0;
+		gpio0 = &gpio;
+		i2c0 = &i2c0;
+		i2c1 = &i2c1;
+		mmc0 = &sdhci1;
+		rtc0 = &rtc;
+		serial0 = &uart1;
+		serial1 = &uart0;
+		serial2 = &dcc;
+		spi0 = &qspi;
+		usb0 = &usb0;
+	};
+
+	chosen {
+		bootargs = "earlycon";
+		stdout-path = "serial0:115200n8";
+	};
+
+	memory@0 {
+		device_type = "memory";
+		reg = <0x0 0x0 0x0 0x80000000>, <0x8 0x00000000 0x0 0x80000000>;
+	};
+};
+
+&gem3 {
+	status = "okay";
+	phy-handle = <&phy0>;
+	phy-mode = "rgmii-id";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_gem3_default>;
+
+	phy0: phy@0 {
+		device_type = "ethernet-phy";
+		reg = <0x0>;
+		marvell,reg-init = <3 16 0xff00 0x1e 3 17 0xfff0 0x00>;
+		reset-gpios = <&gpio 25 GPIO_ACTIVE_LOW>;
+	};
+};
+
+&gpio {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_gpio_default>;
+};
+
+&i2c0 {
+	status = "okay";
+	clock-frequency = <400000>;
+	pinctrl-names = "default", "gpio";
+	pinctrl-0 = <&pinctrl_i2c0_default>;
+	pinctrl-1 = <&pinctrl_i2c0_gpio>;
+	scl-gpios = <&gpio 14 GPIO_ACTIVE_HIGH>;
+	sda-gpios = <&gpio 15 GPIO_ACTIVE_HIGH>;
+
+	current_limiter@58 { /* U12 */
+		compatible = "adi,adm1177";
+		reg = <0x58>;
+		adi,r-sense-mohm = <10>; /* 10 mOhm */
+		adi,shutdown-threshold-ma = <10000>; /* 10 A */
+		adi,vrange-high-enable;
+	};
+
+	ad9542@4b {
+		compatible = "adi,ad9542";
+		reg = <0x4b>;
+	};
+
+	adm1266@48 {
+		compatible = "adi,adm1266";
+		reg = <0x48>;
+	};
+
+	eeprom@2c { /* U49 */
+		compatible = "24c16";
+		reg = <0x2c>;
+	};
+};
+
+&sdhci1 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_sdhci1_default>;
+	no-1-8-v;
+	xlnx,mio_bank = <1>;
+};
+
+&uart1 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_uart1_default>;
+};
+
+&watchdog0 {
+	status = "okay";
+};
+
+&xilinx_ams {
+	status = "okay";
+};
+
+&ams_ps {
+	status = "okay";
+};
+
+&ams_pl {
+	status = "okay";
+};
+
+&spi0 {
+	status = "okay";
+	num-cs = <8>;
+	is-decoded-cs = <1>;
+
+	trx0_adrv9009: adrv9009-phy@0 {
+		compatible = "adrv9009-x2";
+		reg = <0>;
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		/* SPI Setup */
+		spi-max-frequency = <25000000>;
+
+		interrupt-parent = <&gpio>;
+		interrupts = <129 1>;
+
+		/* Clocks */
+		clocks = <&axi_adrv9009_rx_jesd>, <&axi_adrv9009_tx_jesd>,
+			<&axi_adrv9009_rx_os_jesd>, <&hmc7044 0>,
+			<&hmc7044 5>, <&hmc7044 1>, <&hmc7044 8>,
+			<&hmc7044 4>;
+
+		clock-names = "jesd_rx_clk", "jesd_tx_clk", "jesd_rx_os_clk",
+			"dev_clk", "fmc_clk", "sysref_dev_clk",
+			"sysref_fmc_clk", "fmc2_clk";
+
+
+		clock-output-names = "rx_sampl_clk", "rx_os_sampl_clk", "tx_sampl_clk";
+		#clock-cells = <1>;
+
+		/* JESD204 */
+
+		/* JESD204 RX */
+		adi,jesd204-framer-a-bank-id = <1>;
+		adi,jesd204-framer-a-device-id = <0>;
+		adi,jesd204-framer-a-lane0-id = <0>;
+		adi,jesd204-framer-a-m = <4>;
+		adi,jesd204-framer-a-k = <32>;
+		adi,jesd204-framer-a-f = <4>;
+		adi,jesd204-framer-a-np = <16>;
+		adi,jesd204-framer-a-scramble = <1>;
+		adi,jesd204-framer-a-external-sysref = <1>;
+		adi,jesd204-framer-a-serializer-lanes-enabled = <0x03>;
+		adi,jesd204-framer-a-serializer-lane-crossbar = <0xE4>;
+		adi,jesd204-framer-a-lmfc-offset = <5>;
+		adi,jesd204-framer-a-new-sysref-on-relink = <0>;
+		adi,jesd204-framer-a-syncb-in-select = <0>;
+		adi,jesd204-framer-a-over-sample = <0>;
+		adi,jesd204-framer-a-syncb-in-lvds-mode = <1>;
+		adi,jesd204-framer-a-syncb-in-lvds-pn-invert = <0>;
+		adi,jesd204-framer-a-enable-manual-lane-xbar = <0>;
+
+		/* JESD204 OBS */
+		adi,jesd204-framer-b-bank-id = <0>;
+		adi,jesd204-framer-b-device-id = <0>;
+		adi,jesd204-framer-b-lane0-id = <0>;
+		adi,jesd204-framer-b-m = <2>;
+		adi,jesd204-framer-b-k = <32>;
+		adi,jesd204-framer-b-f = <4>;
+		adi,jesd204-framer-b-np = <16>;
+		adi,jesd204-framer-b-scramble = <1>;
+		adi,jesd204-framer-b-external-sysref = <1>;
+		adi,jesd204-framer-b-serializer-lanes-enabled = <0x0C>;
+		adi,jesd204-framer-b-serializer-lane-crossbar = <0xE4>;
+		adi,jesd204-framer-b-lmfc-offset = <5>;
+		adi,jesd204-framer-b-new-sysref-on-relink = <0>;
+		adi,jesd204-framer-b-syncb-in-select = <1>;
+		adi,jesd204-framer-b-over-sample = <0>;
+		adi,jesd204-framer-b-syncb-in-lvds-mode = <1>;
+		adi,jesd204-framer-b-syncb-in-lvds-pn-invert = <0>;
+		adi,jesd204-framer-b-enable-manual-lane-xbar = <0>;
+
+		/* JESD204 TX */
+		adi,jesd204-deframer-a-bank-id = <0>;
+		adi,jesd204-deframer-a-device-id = <0>;
+		adi,jesd204-deframer-a-lane0-id = <0>;
+		adi,jesd204-deframer-a-m = <4>;
+		adi,jesd204-deframer-a-k = <32>;
+		adi,jesd204-deframer-a-scramble = <1>;
+		adi,jesd204-deframer-a-external-sysref = <1>;
+		adi,jesd204-deframer-a-deserializer-lanes-enabled = <0x0F>;
+		adi,jesd204-deframer-a-deserializer-lane-crossbar = <0xE4>;
+		adi,jesd204-deframer-a-lmfc-offset = <1>;
+		adi,jesd204-deframer-a-new-sysref-on-relink = <0>;
+		adi,jesd204-deframer-a-syncb-out-select = <0>;
+		adi,jesd204-deframer-a-np = <16>;
+		adi,jesd204-deframer-a-syncb-out-lvds-mode = <1>;
+		adi,jesd204-deframer-a-syncb-out-lvds-pn-invert = <0>;
+		adi,jesd204-deframer-a-syncb-out-cmos-slew-rate = <0>;
+		adi,jesd204-deframer-a-syncb-out-cmos-drive-level = <0>;
+		adi,jesd204-deframer-a-enable-manual-lane-xbar = <0>;
+
+		adi,jesd204-ser-amplitude = <15>;
+		adi,jesd204-ser-pre-emphasis = <1>;
+		adi,jesd204-ser-invert-lane-polarity = <0>;
+		adi,jesd204-des-invert-lane-polarity = <0>;
+		adi,jesd204-des-eq-setting = <1>;
+		adi,jesd204-sysref-lvds-mode = <1>;
+		adi,jesd204-sysref-lvds-pn-invert = <0>;
+
+		/* RX */
+
+		adi,rx-profile-rx-fir-gain_db = <(-6)>;
+		adi,rx-profile-rx-fir-num-fir-coefs = <48>;
+		adi,rx-profile-rx-fir-coefs = /bits/ 16 <(-2) (23) (46) (-17) (-104) (10) (208) (23) (-370) (-97) (607) (240) (-942) (-489) (1407) (910) (-2065) (-1637) (3058) (2995) (-4912) (-6526) (9941) (30489) (30489) (9941) (-6526) (-4912) (2995) (3058) (-1637) (-2065) (910) (1407) (-489) (-942) (240) (607) (-97) (-370) (23) (208) (10) (-104) (-17) (46) (23) (-2)>;
+
+		adi,rx-profile-rx-fir-decimation = <2>;
+		adi,rx-profile-rx-dec5-decimation = <4>;
+		adi,rx-profile-rhb1-decimation = <1>;
+		adi,rx-profile-rx-output-rate_khz = <245760>;
+		adi,rx-profile-rf-bandwidth_hz = <200000000>;
+		adi,rx-profile-rx-bbf3d-bcorner_khz = <200000>;
+		adi,rx-profile-rx-adc-profile = /bits/ 16 <182 142 173 90 1280 982 1335 96 1369 48 1012 18 48 48 37 208 0 0 0 0 52 0 7 6 42 0 7 6 42 0 25 27 0 0 25 27 0 0 165 44 31 905>;
+		adi,rx-profile-rx-ddc-mode = <0>;
+
+		adi,rx-nco-shifter-band-a-input-band-width_khz = <0>;
+		adi,rx-nco-shifter-band-a-input-center-freq_khz = <0>;
+		adi,rx-nco-shifter-band-a-nco1-freq_khz = <0>;
+		adi,rx-nco-shifter-band-a-nco2-freq_khz = <0>;
+		adi,rx-nco-shifter-band-binput-band-width_khz = <0>;
+		adi,rx-nco-shifter-band-binput-center-freq_khz = <0>;
+		adi,rx-nco-shifter-band-bnco1-freq_khz = <0>;
+		adi,rx-nco-shifter-band-bnco2-freq_khz = <0>;
+
+		adi,rx-gain-control-gain-mode = <0>;
+		adi,rx-gain-control-rx1-gain-index = <255>;
+		adi,rx-gain-control-rx2-gain-index = <255>;
+		adi,rx-gain-control-rx1-max-gain-index = <255>;
+		adi,rx-gain-control-rx1-min-gain-index = <195>;
+		adi,rx-gain-control-rx2-max-gain-index = <255>;
+		adi,rx-gain-control-rx2-min-gain-index = <195>;
+
+		adi,rx-settings-framer-sel = <0>;
+		adi,rx-settings-rx-channels = <3>;
+
+		/* ORX */
+
+		adi,orx-profile-rx-fir-gain_db = <6>;
+		adi,orx-profile-rx-fir-num-fir-coefs = <24>;
+		adi,orx-profile-rx-fir-coefs = /bits/ 16  <(-10) (7) (-10) (-12) (6) (-12) (16) (-16) (1) (63) (-431) (17235) (-431) (63) (1) (-16) (16) (-12) (6) (-12) (-10) (7) (-10) (0)>;
+		adi,orx-profile-rx-fir-decimation = <1>;
+		adi,orx-profile-rx-dec5-decimation = <4>;
+		adi,orx-profile-rhb1-decimation = <2>;
+		adi,orx-profile-orx-output-rate_khz = <245760>;
+		adi,orx-profile-rf-bandwidth_hz = <200000000>;
+		adi,orx-profile-rx-bbf3d-bcorner_khz = <225000>;
+		adi,orx-profile-orx-low-pass-adc-profile = /bits/ 16  <185 141 172 90 1280 942 1332 90 1368 46 1016 19 48 48 37 208 0 0 0 0 52 0 7 6 42 0 7 6 42 0 25 27 0 0 25 27 0 0 165 44 31 905>;
+		adi,orx-profile-orx-band-pass-adc-profile = /bits/ 16  <0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0>;
+		adi,orx-profile-orx-ddc-mode = <0>;
+		adi,orx-profile-orx-merge-filter = /bits/ 16  <0 0 0 0 0 0 0 0 0 0 0 0>;
+
+		adi,orx-gain-control-gain-mode = <0>;
+		adi,orx-gain-control-orx1-gain-index = <255>;
+		adi,orx-gain-control-orx2-gain-index = <255>;
+		adi,orx-gain-control-orx1-max-gain-index = <255>;
+		adi,orx-gain-control-orx1-min-gain-index = <195>;
+		adi,orx-gain-control-orx2-max-gain-index = <255>;
+		adi,orx-gain-control-orx2-min-gain-index = <195>;
+
+		adi,obs-settings-framer-sel = <1>;
+		adi,obs-settings-obs-rx-channels-enable = <3>;
+		adi,obs-settings-obs-rx-lo-source = <0>;
+
+		/* TX */
+
+		adi,tx-profile-tx-fir-gain_db = <6>;
+		adi,tx-profile-tx-fir-num-fir-coefs = <40>;
+		adi,tx-profile-tx-fir-coefs = /bits/ 16  <(-14) (5) (-9) (6) (-4) (19) (-29) (27) (-30) (46) (-63) (77) (-103) (150) (-218) (337) (-599) (1266) (-2718) (19537) (-2718) (1266) (-599) (337) (-218) (150) (-103) (77) (-63) (46) (-30) (27) (-29) (19) (-4) (6) (-9) (5) (-14) (0)>;
+
+		adi,tx-profile-dac-div = <1>;
+
+		adi,tx-profile-tx-fir-interpolation = <1>;
+		adi,tx-profile-thb1-interpolation = <2>;
+		adi,tx-profile-thb2-interpolation = <2>;
+		adi,tx-profile-thb3-interpolation = <2>;
+		adi,tx-profile-tx-int5-interpolation = <1>;
+		adi,tx-profile-tx-input-rate_khz = <245760>;
+		adi,tx-profile-primary-sig-bandwidth_hz = <100000000>;
+		adi,tx-profile-rf-bandwidth_hz = <225000000>;
+		adi,tx-profile-tx-dac3d-bcorner_khz = <225000>;
+		adi,tx-profile-tx-bbf3d-bcorner_khz = <113000>;
+		adi,tx-profile-loop-back-adc-profile = /bits/ 16 <206 132 168 90 1280 641 1307 53 1359 28 1039 30 48 48 37 210 0 0 0 0 53 0 7 6 42 0 7 6 42 0 25 27 0 0 25 27 0 0 165 44 31 905>;
+
+		adi,tx-settings-deframer-sel = <0>;
+		adi,tx-settings-tx-channels = <3>;
+		adi,tx-settings-tx-atten-step-size = <0>;
+		adi,tx-settings-tx1-atten_md-b = <10000>;
+		adi,tx-settings-tx2-atten_md-b = <10000>;
+		adi,tx-settings-dis-tx-data-if-pll-unlock = <0>;
+
+		/* Clocks */
+
+		adi,dig-clocks-device-clock_khz = <245760>;
+		adi,dig-clocks-clk-pll-vco-freq_khz = <9830400>;
+		adi,dig-clocks-clk-pll-hs-div = <1>;
+		adi,dig-clocks-rf-pll-use-external-lo = <0>;
+		adi,dig-clocks-rf-pll-phase-sync-mode = <3>;
+
+		/* AGC */
+
+		adi,rxagc-peak-agc-under-range-low-interval_ns = <205>;
+		adi,rxagc-peak-agc-under-range-mid-interval = <2>;
+		adi,rxagc-peak-agc-under-range-high-interval = <4>;
+		adi,rxagc-peak-apd-high-thresh = <39>;
+		adi,rxagc-peak-apd-low-gain-mode-high-thresh = <36>;
+		adi,rxagc-peak-apd-low-thresh = <23>;
+		adi,rxagc-peak-apd-low-gain-mode-low-thresh = <19>;
+		adi,rxagc-peak-apd-upper-thresh-peak-exceeded-cnt = <6>;
+		adi,rxagc-peak-apd-lower-thresh-peak-exceeded-cnt = <3>;
+		adi,rxagc-peak-apd-gain-step-attack = <4>;
+		adi,rxagc-peak-apd-gain-step-recovery = <2>;
+		adi,rxagc-peak-enable-hb2-overload = <1>;
+		adi,rxagc-peak-hb2-overload-duration-cnt = <1>;
+		adi,rxagc-peak-hb2-overload-thresh-cnt = <4>;
+		adi,rxagc-peak-hb2-high-thresh = <181>;
+		adi,rxagc-peak-hb2-under-range-low-thresh = <45>;
+		adi,rxagc-peak-hb2-under-range-mid-thresh = <90>;
+		adi,rxagc-peak-hb2-under-range-high-thresh = <128>;
+		adi,rxagc-peak-hb2-upper-thresh-peak-exceeded-cnt = <6>;
+		adi,rxagc-peak-hb2-lower-thresh-peak-exceeded-cnt = <3>;
+		adi,rxagc-peak-hb2-gain-step-high-recovery = <2>;
+		adi,rxagc-peak-hb2-gain-step-low-recovery = <4>;
+		adi,rxagc-peak-hb2-gain-step-mid-recovery = <8>;
+		adi,rxagc-peak-hb2-gain-step-attack = <4>;
+		adi,rxagc-peak-hb2-overload-power-mode = <1>;
+		adi,rxagc-peak-hb2-ovrg-sel = <0>;
+		adi,rxagc-peak-hb2-thresh-config = <3>;
+
+		adi,rxagc-power-power-enable-measurement = <1>;
+		adi,rxagc-power-power-use-rfir-out = <1>;
+		adi,rxagc-power-power-use-bbdc2 = <0>;
+		adi,rxagc-power-under-range-high-power-thresh = <9>;
+		adi,rxagc-power-under-range-low-power-thresh = <2>;
+		adi,rxagc-power-under-range-high-power-gain-step-recovery = <4>;
+		adi,rxagc-power-under-range-low-power-gain-step-recovery = <4>;
+		adi,rxagc-power-power-measurement-duration = <5>;
+		adi,rxagc-power-rx1-tdd-power-meas-duration = <5>;
+		adi,rxagc-power-rx1-tdd-power-meas-delay = <1>;
+		adi,rxagc-power-rx2-tdd-power-meas-duration = <5>;
+		adi,rxagc-power-rx2-tdd-power-meas-delay = <1>;
+		adi,rxagc-power-upper0-power-thresh = <2>;
+		adi,rxagc-power-upper1-power-thresh = <0>;
+		adi,rxagc-power-power-log-shift = <0>;
+
+		adi,rxagc-agc-peak-wait-time = <4>;
+		adi,rxagc-agc-rx1-max-gain-index = <255>;
+		adi,rxagc-agc-rx1-min-gain-index = <195>;
+		adi,rxagc-agc-rx2-max-gain-index = <255>;
+		adi,rxagc-agc-rx2-min-gain-index = <195>;
+		adi,rxagc-agc-gain-update-counter_us = <250>;
+		adi,rxagc-agc-rx1-attack-delay = <10>;
+		adi,rxagc-agc-rx2-attack-delay = <10>;
+		adi,rxagc-agc-slow-loop-settling-delay = <16>;
+		adi,rxagc-agc-low-thresh-prevent-gain = <0>;
+		adi,rxagc-agc-change-gain-if-thresh-high = <1>;
+		adi,rxagc-agc-peak-thresh-gain-control-mode = <1>;
+		adi,rxagc-agc-reset-on-rxon = <0>;
+		adi,rxagc-agc-enable-sync-pulse-for-gain-counter = <0>;
+		adi,rxagc-agc-enable-ip3-optimization-thresh = <0>;
+		adi,rxagc-ip3-over-range-thresh = <31>;
+		adi,rxagc-ip3-over-range-thresh-index = <246>;
+		adi,rxagc-ip3-peak-exceeded-cnt = <4>;
+		adi,rxagc-agc-enable-fast-recovery-loop = <0>;
+
+
+		/* Misc */
+
+		adi,aux-dac-enables = <0x00>; /* Mask */
+
+		adi,aux-dac-vref0 = <3>;
+		adi,aux-dac-resolution0 = <0>;
+		adi,aux-dac-values0 = <0>;
+		adi,aux-dac-vref1 = <3>;
+		adi,aux-dac-resolution1 = <0>;
+		adi,aux-dac-values1 = <0>;
+		adi,aux-dac-vref2 = <3>;
+		adi,aux-dac-resolution2 = <0>;
+		adi,aux-dac-values2 = <0>;
+		adi,aux-dac-vref3 = <3>;
+		adi,aux-dac-resolution3 = <0>;
+		adi,aux-dac-values3 = <0>;
+		adi,aux-dac-vref4 = <3>;
+		adi,aux-dac-resolution4 = <0>;
+		adi,aux-dac-values4 = <0>;
+		adi,aux-dac-vref5 = <3>;
+		adi,aux-dac-resolution5 = <0>;
+		adi,aux-dac-values5 = <0>;
+		adi,aux-dac-vref6 = <3>;
+		adi,aux-dac-resolution6 = <0>;
+		adi,aux-dac-values6 = <0>;
+		adi,aux-dac-vref7 = <3>;
+		adi,aux-dac-resolution7 = <0>;
+		adi,aux-dac-values7 = <0>;
+		adi,aux-dac-vref8 = <3>;
+		adi,aux-dac-resolution8 = <0>;
+		adi,aux-dac-values8 = <0>;
+		adi,aux-dac-vref9 = <3>;
+		adi,aux-dac-resolution9 = <0>;
+		adi,aux-dac-values9 = <0>;
+		adi,aux-dac-vref10 = <3>;
+		adi,aux-dac-resolution10 = <0>;
+		adi,aux-dac-values10 = <0>;
+		adi,aux-dac-vref11 = <3>;
+		adi,aux-dac-resolution11 = <0>;
+		adi,aux-dac-values11 = <0>;
+
+		adi,arm-gpio-config-orx1-tx-sel0-pin-gpio-pin-sel = <0>;
+		adi,arm-gpio-config-orx1-tx-sel0-pin-polarity = <0>;
+		adi,arm-gpio-config-orx1-tx-sel0-pin-enable = <0>;
+
+		adi,arm-gpio-config-orx1-tx-sel1-pin-gpio-pin-sel = <0>;
+		adi,arm-gpio-config-orx1-tx-sel1-pin-polarity = <0>;
+		adi,arm-gpio-config-orx1-tx-sel1-pin-enable = <0>;
+		adi,arm-gpio-config-orx2-tx-sel0-pin-gpio-pin-sel = <0>;
+		adi,arm-gpio-config-orx2-tx-sel0-pin-polarity = <0>;
+		adi,arm-gpio-config-orx2-tx-sel0-pin-enable = <0>;
+
+		adi,arm-gpio-config-orx2-tx-sel1-pin-gpio-pin-sel = <0>;
+		adi,arm-gpio-config-orx2-tx-sel1-pin-polarity = <0>;
+		adi,arm-gpio-config-orx2-tx-sel1-pin-enable = <0>;
+		adi,arm-gpio-config-en-tx-tracking-cals-gpio-pin-sel = <0>;
+		adi,arm-gpio-config-en-tx-tracking-cals-polarity = <0>;
+		adi,arm-gpio-config-en-tx-tracking-cals-enable = <0>;
+
+		adi,orx-lo-cfg-disable-aux-pll-relocking = <0>;
+		adi,orx-lo-cfg-gpio-select = <19>;
+
+		adi,fhm-config-fhm-gpio-pin = <0>;
+		adi,fhm-config-fhm-min-freq_mhz = <2400>;
+		adi,fhm-config-fhm-max-freq_mhz = <2500>;
+
+		adi,fhm-mode-fhm-enable = <0>;
+		adi,fhm-mode-enable-mcs-sync = <0>;
+		adi,fhm-mode-fhm-trigger-mode = <0>;
+		adi,fhm-mode-fhm-exit-mode = <1>;
+		adi,fhm-mode-fhm-init-frequency_hz = <2450000000>;
+
+		adi,rx1-gain-ctrl-pin-inc-step = <1>;
+		adi,rx1-gain-ctrl-pin-dec-step = <1>;
+		adi,rx1-gain-ctrl-pin-rx-gain-inc-pin = <0>;
+		adi,rx1-gain-ctrl-pin-rx-gain-dec-pin = <1>;
+		adi,rx1-gain-ctrl-pin-enable = <0>;
+
+		adi,rx2-gain-ctrl-pin-inc-step = <1>;
+		adi,rx2-gain-ctrl-pin-dec-step = <1>;
+		adi,rx2-gain-ctrl-pin-rx-gain-inc-pin = <3>;
+		adi,rx2-gain-ctrl-pin-rx-gain-dec-pin = <4>;
+		adi,rx2-gain-ctrl-pin-enable = <0>;
+
+		adi,tx1-atten-ctrl-pin-step-size = <0>;
+		adi,tx1-atten-ctrl-pin-tx-atten-inc-pin = <4>;
+		adi,tx1-atten-ctrl-pin-tx-atten-dec-pin = <5>;
+		adi,tx1-atten-ctrl-pin-enable = <0>;
+
+		adi,tx2-atten-ctrl-pin-step-size = <0>;
+		adi,tx2-atten-ctrl-pin-tx-atten-inc-pin = <6>;
+		adi,tx2-atten-ctrl-pin-tx-atten-dec-pin = <7>;
+		adi,tx2-atten-ctrl-pin-enable = <0>;
+
+		adi,tx-pa-protection-avg-duration = <3>;
+		adi,tx-pa-protection-tx-atten-step = <2>;
+		adi,tx-pa-protection-tx1-power-threshold = <4096>;
+		adi,tx-pa-protection-tx2-power-threshold = <4096>;
+		adi,tx-pa-protection-peak-count = <4>;
+		adi,tx-pa-protection-tx1-peak-threshold = <140>;
+		adi,tx-pa-protection-tx2-peak-threshold = <140>;
+	};
+
+	trx1_adrv9009: adrv9009-phy-b@0 {
+		compatible = "adrv9009";
+		reg = <1>;
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		/* SPI Setup */
+		spi-max-frequency = <25000000>;
+
+		interrupt-parent = <&gpio>;
+		interrupts = <155 1>;
+
+		/* Clocks */
+		clocks = <&axi_adrv9009_rx_jesd>, <&axi_adrv9009_tx_jesd>,
+			<&axi_adrv9009_rx_os_jesd>, <&hmc7044 2>,
+			<&hmc7044 5>, <&hmc7044 3>, <&hmc7044 9>,
+			<&hmc7044 4>;
+
+		clock-names = "jesd_rx_clk", "jesd_tx_clk", "jesd_rx_os_clk",
+			"dev_clk", "fmc_clk", "sysref_dev_clk",
+			"sysref_fmc_clk", "fmc2_clk";
+
+		clock-output-names = "rx_sampl_clk", "rx_os_sampl_clk", "tx_sampl_clk";
+		#clock-cells = <1>;
+
+		/* JESD204 */
+
+		/* JESD204 RX */
+		adi,jesd204-framer-a-bank-id = <1>;
+		adi,jesd204-framer-a-device-id = <0>;
+		adi,jesd204-framer-a-lane0-id = <0>;
+		adi,jesd204-framer-a-m = <4>;
+		adi,jesd204-framer-a-k = <32>;
+		adi,jesd204-framer-a-f = <4>;
+		adi,jesd204-framer-a-np = <16>;
+		adi,jesd204-framer-a-scramble = <1>;
+		adi,jesd204-framer-a-external-sysref = <1>;
+		adi,jesd204-framer-a-serializer-lanes-enabled = <0x03>;
+		adi,jesd204-framer-a-serializer-lane-crossbar = <0xE4>;
+		adi,jesd204-framer-a-lmfc-offset = <5>;
+		adi,jesd204-framer-a-new-sysref-on-relink = <0>;
+		adi,jesd204-framer-a-syncb-in-select = <0>;
+		adi,jesd204-framer-a-over-sample = <0>;
+		adi,jesd204-framer-a-syncb-in-lvds-mode = <1>;
+		adi,jesd204-framer-a-syncb-in-lvds-pn-invert = <0>;
+		adi,jesd204-framer-a-enable-manual-lane-xbar = <0>;
+
+		/* JESD204 OBS */
+		adi,jesd204-framer-b-bank-id = <0>;
+		adi,jesd204-framer-b-device-id = <0>;
+		adi,jesd204-framer-b-lane0-id = <0>;
+		adi,jesd204-framer-b-m = <2>;
+		adi,jesd204-framer-b-k = <32>;
+		adi,jesd204-framer-b-f = <4>;
+		adi,jesd204-framer-b-np = <16>;
+		adi,jesd204-framer-b-scramble = <1>;
+		adi,jesd204-framer-b-external-sysref = <1>;
+		adi,jesd204-framer-b-serializer-lanes-enabled = <0x0C>;
+		adi,jesd204-framer-b-serializer-lane-crossbar = <0xE4>;
+		adi,jesd204-framer-b-lmfc-offset = <5>;
+		adi,jesd204-framer-b-new-sysref-on-relink = <0>;
+		adi,jesd204-framer-b-syncb-in-select = <1>;
+		adi,jesd204-framer-b-over-sample = <0>;
+		adi,jesd204-framer-b-syncb-in-lvds-mode = <1>;
+		adi,jesd204-framer-b-syncb-in-lvds-pn-invert = <0>;
+		adi,jesd204-framer-b-enable-manual-lane-xbar = <0>;
+
+		/* JESD204 TX */
+		adi,jesd204-deframer-a-bank-id = <0>;
+		adi,jesd204-deframer-a-device-id = <0>;
+		adi,jesd204-deframer-a-lane0-id = <0>;
+		adi,jesd204-deframer-a-m = <4>;
+		adi,jesd204-deframer-a-k = <32>;
+		adi,jesd204-deframer-a-scramble = <1>;
+		adi,jesd204-deframer-a-external-sysref = <1>;
+		adi,jesd204-deframer-a-deserializer-lanes-enabled = <0x0F>;
+		adi,jesd204-deframer-a-deserializer-lane-crossbar = <0xE4>;
+		adi,jesd204-deframer-a-lmfc-offset = <1>;
+		adi,jesd204-deframer-a-new-sysref-on-relink = <0>;
+		adi,jesd204-deframer-a-syncb-out-select = <0>;
+		adi,jesd204-deframer-a-np = <16>;
+		adi,jesd204-deframer-a-syncb-out-lvds-mode = <1>;
+		adi,jesd204-deframer-a-syncb-out-lvds-pn-invert = <0>;
+		adi,jesd204-deframer-a-syncb-out-cmos-slew-rate = <0>;
+		adi,jesd204-deframer-a-syncb-out-cmos-drive-level = <0>;
+		adi,jesd204-deframer-a-enable-manual-lane-xbar = <0>;
+
+		adi,jesd204-ser-amplitude = <15>;
+		adi,jesd204-ser-pre-emphasis = <1>;
+		adi,jesd204-ser-invert-lane-polarity = <0>;
+		adi,jesd204-des-invert-lane-polarity = <0>;
+		adi,jesd204-des-eq-setting = <1>;
+		adi,jesd204-sysref-lvds-mode = <1>;
+		adi,jesd204-sysref-lvds-pn-invert = <0>;
+
+		/* RX */
+
+		adi,rx-profile-rx-fir-gain_db = <(-6)>;
+		adi,rx-profile-rx-fir-num-fir-coefs = <48>;
+		adi,rx-profile-rx-fir-coefs = /bits/ 16 <(-2) (23) (46) (-17) (-104) (10) (208) (23) (-370) (-97) (607) (240) (-942) (-489) (1407) (910) (-2065) (-1637) (3058) (2995) (-4912) (-6526) (9941) (30489) (30489) (9941) (-6526) (-4912) (2995) (3058) (-1637) (-2065) (910) (1407) (-489) (-942) (240) (607) (-97) (-370) (23) (208) (10) (-104) (-17) (46) (23) (-2)>;
+
+		adi,rx-profile-rx-fir-decimation = <2>;
+		adi,rx-profile-rx-dec5-decimation = <4>;
+		adi,rx-profile-rhb1-decimation = <1>;
+		adi,rx-profile-rx-output-rate_khz = <245760>;
+		adi,rx-profile-rf-bandwidth_hz = <200000000>;
+		adi,rx-profile-rx-bbf3d-bcorner_khz = <200000>;
+		adi,rx-profile-rx-adc-profile = /bits/ 16 <182 142 173 90 1280 982 1335 96 1369 48 1012 18 48 48 37 208 0 0 0 0 52 0 7 6 42 0 7 6 42 0 25 27 0 0 25 27 0 0 165 44 31 905>;
+		adi,rx-profile-rx-ddc-mode = <0>;
+
+		adi,rx-nco-shifter-band-a-input-band-width_khz = <0>;
+		adi,rx-nco-shifter-band-a-input-center-freq_khz = <0>;
+		adi,rx-nco-shifter-band-a-nco1-freq_khz = <0>;
+		adi,rx-nco-shifter-band-a-nco2-freq_khz = <0>;
+		adi,rx-nco-shifter-band-binput-band-width_khz = <0>;
+		adi,rx-nco-shifter-band-binput-center-freq_khz = <0>;
+		adi,rx-nco-shifter-band-bnco1-freq_khz = <0>;
+		adi,rx-nco-shifter-band-bnco2-freq_khz = <0>;
+
+		adi,rx-gain-control-gain-mode = <0>;
+		adi,rx-gain-control-rx1-gain-index = <255>;
+		adi,rx-gain-control-rx2-gain-index = <255>;
+		adi,rx-gain-control-rx1-max-gain-index = <255>;
+		adi,rx-gain-control-rx1-min-gain-index = <195>;
+		adi,rx-gain-control-rx2-max-gain-index = <255>;
+		adi,rx-gain-control-rx2-min-gain-index = <195>;
+
+		adi,rx-settings-framer-sel = <0>;
+		adi,rx-settings-rx-channels = <3>;
+
+		/* ORX */
+
+		adi,orx-profile-rx-fir-gain_db = <6>;
+		adi,orx-profile-rx-fir-num-fir-coefs = <24>;
+		adi,orx-profile-rx-fir-coefs = /bits/ 16  <(-10) (7) (-10) (-12) (6) (-12) (16) (-16) (1) (63) (-431) (17235) (-431) (63) (1) (-16) (16) (-12) (6) (-12) (-10) (7) (-10) (0)>;
+		adi,orx-profile-rx-fir-decimation = <1>;
+		adi,orx-profile-rx-dec5-decimation = <4>;
+		adi,orx-profile-rhb1-decimation = <2>;
+		adi,orx-profile-orx-output-rate_khz = <245760>;
+		adi,orx-profile-rf-bandwidth_hz = <200000000>;
+		adi,orx-profile-rx-bbf3d-bcorner_khz = <225000>;
+		adi,orx-profile-orx-low-pass-adc-profile = /bits/ 16  <185 141 172 90 1280 942 1332 90 1368 46 1016 19 48 48 37 208 0 0 0 0 52 0 7 6 42 0 7 6 42 0 25 27 0 0 25 27 0 0 165 44 31 905>;
+		adi,orx-profile-orx-band-pass-adc-profile = /bits/ 16  <0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0>;
+		adi,orx-profile-orx-ddc-mode = <0>;
+		adi,orx-profile-orx-merge-filter = /bits/ 16  <0 0 0 0 0 0 0 0 0 0 0 0>;
+
+		adi,orx-gain-control-gain-mode = <0>;
+		adi,orx-gain-control-orx1-gain-index = <255>;
+		adi,orx-gain-control-orx2-gain-index = <255>;
+		adi,orx-gain-control-orx1-max-gain-index = <255>;
+		adi,orx-gain-control-orx1-min-gain-index = <195>;
+		adi,orx-gain-control-orx2-max-gain-index = <255>;
+		adi,orx-gain-control-orx2-min-gain-index = <195>;
+
+		adi,obs-settings-framer-sel = <1>;
+		adi,obs-settings-obs-rx-channels-enable = <3>;
+		adi,obs-settings-obs-rx-lo-source = <0>;
+
+		/* TX */
+
+		adi,tx-profile-tx-fir-gain_db = <6>;
+		adi,tx-profile-tx-fir-num-fir-coefs = <40>;
+		adi,tx-profile-tx-fir-coefs = /bits/ 16  <(-14) (5) (-9) (6) (-4) (19) (-29) (27) (-30) (46) (-63) (77) (-103) (150) (-218) (337) (-599) (1266) (-2718) (19537) (-2718) (1266) (-599) (337) (-218) (150) (-103) (77) (-63) (46) (-30) (27) (-29) (19) (-4) (6) (-9) (5) (-14) (0)>;
+
+		adi,tx-profile-dac-div = <1>;
+
+		adi,tx-profile-tx-fir-interpolation = <1>;
+		adi,tx-profile-thb1-interpolation = <2>;
+		adi,tx-profile-thb2-interpolation = <2>;
+		adi,tx-profile-thb3-interpolation = <2>;
+		adi,tx-profile-tx-int5-interpolation = <1>;
+		adi,tx-profile-tx-input-rate_khz = <245760>;
+		adi,tx-profile-primary-sig-bandwidth_hz = <100000000>;
+		adi,tx-profile-rf-bandwidth_hz = <225000000>;
+		adi,tx-profile-tx-dac3d-bcorner_khz = <225000>;
+		adi,tx-profile-tx-bbf3d-bcorner_khz = <113000>;
+		adi,tx-profile-loop-back-adc-profile = /bits/ 16 <206 132 168 90 1280 641 1307 53 1359 28 1039 30 48 48 37 210 0 0 0 0 53 0 7 6 42 0 7 6 42 0 25 27 0 0 25 27 0 0 165 44 31 905>;
+
+		adi,tx-settings-deframer-sel = <0>;
+		adi,tx-settings-tx-channels = <3>;
+		adi,tx-settings-tx-atten-step-size = <0>;
+		adi,tx-settings-tx1-atten_md-b = <10000>;
+		adi,tx-settings-tx2-atten_md-b = <10000>;
+		adi,tx-settings-dis-tx-data-if-pll-unlock = <0>;
+
+		/* Clocks */
+
+		adi,dig-clocks-device-clock_khz = <245760>;
+		adi,dig-clocks-clk-pll-vco-freq_khz = <9830400>;
+		adi,dig-clocks-clk-pll-hs-div = <1>;
+		adi,dig-clocks-rf-pll-use-external-lo = <0>;
+		adi,dig-clocks-rf-pll-phase-sync-mode = <3>;
+
+		/* AGC */
+
+		adi,rxagc-peak-agc-under-range-low-interval_ns = <205>;
+		adi,rxagc-peak-agc-under-range-mid-interval = <2>;
+		adi,rxagc-peak-agc-under-range-high-interval = <4>;
+		adi,rxagc-peak-apd-high-thresh = <39>;
+		adi,rxagc-peak-apd-low-gain-mode-high-thresh = <36>;
+		adi,rxagc-peak-apd-low-thresh = <23>;
+		adi,rxagc-peak-apd-low-gain-mode-low-thresh = <19>;
+		adi,rxagc-peak-apd-upper-thresh-peak-exceeded-cnt = <6>;
+		adi,rxagc-peak-apd-lower-thresh-peak-exceeded-cnt = <3>;
+		adi,rxagc-peak-apd-gain-step-attack = <4>;
+		adi,rxagc-peak-apd-gain-step-recovery = <2>;
+		adi,rxagc-peak-enable-hb2-overload = <1>;
+		adi,rxagc-peak-hb2-overload-duration-cnt = <1>;
+		adi,rxagc-peak-hb2-overload-thresh-cnt = <4>;
+		adi,rxagc-peak-hb2-high-thresh = <181>;
+		adi,rxagc-peak-hb2-under-range-low-thresh = <45>;
+		adi,rxagc-peak-hb2-under-range-mid-thresh = <90>;
+		adi,rxagc-peak-hb2-under-range-high-thresh = <128>;
+		adi,rxagc-peak-hb2-upper-thresh-peak-exceeded-cnt = <6>;
+		adi,rxagc-peak-hb2-lower-thresh-peak-exceeded-cnt = <3>;
+		adi,rxagc-peak-hb2-gain-step-high-recovery = <2>;
+		adi,rxagc-peak-hb2-gain-step-low-recovery = <4>;
+		adi,rxagc-peak-hb2-gain-step-mid-recovery = <8>;
+		adi,rxagc-peak-hb2-gain-step-attack = <4>;
+		adi,rxagc-peak-hb2-overload-power-mode = <1>;
+		adi,rxagc-peak-hb2-ovrg-sel = <0>;
+		adi,rxagc-peak-hb2-thresh-config = <3>;
+
+		adi,rxagc-power-power-enable-measurement = <1>;
+		adi,rxagc-power-power-use-rfir-out = <1>;
+		adi,rxagc-power-power-use-bbdc2 = <0>;
+		adi,rxagc-power-under-range-high-power-thresh = <9>;
+		adi,rxagc-power-under-range-low-power-thresh = <2>;
+		adi,rxagc-power-under-range-high-power-gain-step-recovery = <4>;
+		adi,rxagc-power-under-range-low-power-gain-step-recovery = <4>;
+		adi,rxagc-power-power-measurement-duration = <5>;
+		adi,rxagc-power-rx1-tdd-power-meas-duration = <5>;
+		adi,rxagc-power-rx1-tdd-power-meas-delay = <1>;
+		adi,rxagc-power-rx2-tdd-power-meas-duration = <5>;
+		adi,rxagc-power-rx2-tdd-power-meas-delay = <1>;
+		adi,rxagc-power-upper0-power-thresh = <2>;
+		adi,rxagc-power-upper1-power-thresh = <0>;
+		adi,rxagc-power-power-log-shift = <0>;
+
+		adi,rxagc-agc-peak-wait-time = <4>;
+		adi,rxagc-agc-rx1-max-gain-index = <255>;
+		adi,rxagc-agc-rx1-min-gain-index = <195>;
+		adi,rxagc-agc-rx2-max-gain-index = <255>;
+		adi,rxagc-agc-rx2-min-gain-index = <195>;
+		adi,rxagc-agc-gain-update-counter_us = <250>;
+		adi,rxagc-agc-rx1-attack-delay = <10>;
+		adi,rxagc-agc-rx2-attack-delay = <10>;
+		adi,rxagc-agc-slow-loop-settling-delay = <16>;
+		adi,rxagc-agc-low-thresh-prevent-gain = <0>;
+		adi,rxagc-agc-change-gain-if-thresh-high = <1>;
+		adi,rxagc-agc-peak-thresh-gain-control-mode = <1>;
+		adi,rxagc-agc-reset-on-rxon = <0>;
+		adi,rxagc-agc-enable-sync-pulse-for-gain-counter = <0>;
+		adi,rxagc-agc-enable-ip3-optimization-thresh = <0>;
+		adi,rxagc-ip3-over-range-thresh = <31>;
+		adi,rxagc-ip3-over-range-thresh-index = <246>;
+		adi,rxagc-ip3-peak-exceeded-cnt = <4>;
+		adi,rxagc-agc-enable-fast-recovery-loop = <0>;
+
+
+		/* Misc */
+
+		adi,aux-dac-enables = <0x00>; /* Mask */
+
+		adi,aux-dac-vref0 = <3>;
+		adi,aux-dac-resolution0 = <0>;
+		adi,aux-dac-values0 = <0>;
+		adi,aux-dac-vref1 = <3>;
+		adi,aux-dac-resolution1 = <0>;
+		adi,aux-dac-values1 = <0>;
+		adi,aux-dac-vref2 = <3>;
+		adi,aux-dac-resolution2 = <0>;
+		adi,aux-dac-values2 = <0>;
+		adi,aux-dac-vref3 = <3>;
+		adi,aux-dac-resolution3 = <0>;
+		adi,aux-dac-values3 = <0>;
+		adi,aux-dac-vref4 = <3>;
+		adi,aux-dac-resolution4 = <0>;
+		adi,aux-dac-values4 = <0>;
+		adi,aux-dac-vref5 = <3>;
+		adi,aux-dac-resolution5 = <0>;
+		adi,aux-dac-values5 = <0>;
+		adi,aux-dac-vref6 = <3>;
+		adi,aux-dac-resolution6 = <0>;
+		adi,aux-dac-values6 = <0>;
+		adi,aux-dac-vref7 = <3>;
+		adi,aux-dac-resolution7 = <0>;
+		adi,aux-dac-values7 = <0>;
+		adi,aux-dac-vref8 = <3>;
+		adi,aux-dac-resolution8 = <0>;
+		adi,aux-dac-values8 = <0>;
+		adi,aux-dac-vref9 = <3>;
+		adi,aux-dac-resolution9 = <0>;
+		adi,aux-dac-values9 = <0>;
+		adi,aux-dac-vref10 = <3>;
+		adi,aux-dac-resolution10 = <0>;
+		adi,aux-dac-values10 = <0>;
+		adi,aux-dac-vref11 = <3>;
+		adi,aux-dac-resolution11 = <0>;
+		adi,aux-dac-values11 = <0>;
+
+		adi,arm-gpio-config-orx1-tx-sel0-pin-gpio-pin-sel = <0>;
+		adi,arm-gpio-config-orx1-tx-sel0-pin-polarity = <0>;
+		adi,arm-gpio-config-orx1-tx-sel0-pin-enable = <0>;
+
+		adi,arm-gpio-config-orx1-tx-sel1-pin-gpio-pin-sel = <0>;
+		adi,arm-gpio-config-orx1-tx-sel1-pin-polarity = <0>;
+		adi,arm-gpio-config-orx1-tx-sel1-pin-enable = <0>;
+		adi,arm-gpio-config-orx2-tx-sel0-pin-gpio-pin-sel = <0>;
+		adi,arm-gpio-config-orx2-tx-sel0-pin-polarity = <0>;
+		adi,arm-gpio-config-orx2-tx-sel0-pin-enable = <0>;
+
+		adi,arm-gpio-config-orx2-tx-sel1-pin-gpio-pin-sel = <0>;
+		adi,arm-gpio-config-orx2-tx-sel1-pin-polarity = <0>;
+		adi,arm-gpio-config-orx2-tx-sel1-pin-enable = <0>;
+		adi,arm-gpio-config-en-tx-tracking-cals-gpio-pin-sel = <0>;
+		adi,arm-gpio-config-en-tx-tracking-cals-polarity = <0>;
+		adi,arm-gpio-config-en-tx-tracking-cals-enable = <0>;
+
+		adi,orx-lo-cfg-disable-aux-pll-relocking = <0>;
+		adi,orx-lo-cfg-gpio-select = <19>;
+
+		adi,fhm-config-fhm-gpio-pin = <0>;
+		adi,fhm-config-fhm-min-freq_mhz = <2400>;
+		adi,fhm-config-fhm-max-freq_mhz = <2500>;
+
+		adi,fhm-mode-fhm-enable = <0>;
+		adi,fhm-mode-enable-mcs-sync = <0>;
+		adi,fhm-mode-fhm-trigger-mode = <0>;
+		adi,fhm-mode-fhm-exit-mode = <1>;
+		adi,fhm-mode-fhm-init-frequency_hz = <2450000000>;
+
+		adi,rx1-gain-ctrl-pin-inc-step = <1>;
+		adi,rx1-gain-ctrl-pin-dec-step = <1>;
+		adi,rx1-gain-ctrl-pin-rx-gain-inc-pin = <0>;
+		adi,rx1-gain-ctrl-pin-rx-gain-dec-pin = <1>;
+		adi,rx1-gain-ctrl-pin-enable = <0>;
+
+		adi,rx2-gain-ctrl-pin-inc-step = <1>;
+		adi,rx2-gain-ctrl-pin-dec-step = <1>;
+		adi,rx2-gain-ctrl-pin-rx-gain-inc-pin = <3>;
+		adi,rx2-gain-ctrl-pin-rx-gain-dec-pin = <4>;
+		adi,rx2-gain-ctrl-pin-enable = <0>;
+
+		adi,tx1-atten-ctrl-pin-step-size = <0>;
+		adi,tx1-atten-ctrl-pin-tx-atten-inc-pin = <4>;
+		adi,tx1-atten-ctrl-pin-tx-atten-dec-pin = <5>;
+		adi,tx1-atten-ctrl-pin-enable = <0>;
+
+		adi,tx2-atten-ctrl-pin-step-size = <0>;
+		adi,tx2-atten-ctrl-pin-tx-atten-inc-pin = <6>;
+		adi,tx2-atten-ctrl-pin-tx-atten-dec-pin = <7>;
+		adi,tx2-atten-ctrl-pin-enable = <0>;
+
+		adi,tx-pa-protection-avg-duration = <3>;
+		adi,tx-pa-protection-tx-atten-step = <2>;
+		adi,tx-pa-protection-tx1-power-threshold = <4096>;
+		adi,tx-pa-protection-tx2-power-threshold = <4096>;
+		adi,tx-pa-protection-peak-count = <4>;
+		adi,tx-pa-protection-tx1-peak-threshold = <140>;
+		adi,tx-pa-protection-tx2-peak-threshold = <140>;
+	};
+
+	hmc7044: hmc7044@0 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		#clock-cells = <1>;
+		compatible = "adi,hmc7044";
+		reg = <2>;
+		spi-max-frequency = <10000000>;
+
+		adi,pll1-clkin-frequencies = <122880000 122880000 0 0>;
+		adi,pll1-ref-prio-ctrl = <0xE5>; /* prefer CLKIN1 */
+
+		adi,clkin0-buffer-mode  = <0x09>;
+		adi,clkin1-buffer-mode  = <0x09>;
+		adi,sync-pin-mode = <1>;
+
+		adi,pll1-loop-bandwidth-hz = <200>;
+
+		adi,vcxo-frequency = <122880000>;
+
+		adi,pll2-output-frequency = <2949120000>;
+
+		adi,sysref-timer-divider = <3840>;
+		adi,pulse-generator-mode = <7>;
+
+		adi,oscin-buffer-mode = <0x15>;
+
+		adi,gpi-controls = <0x00 0x00 0x00 0x11>;
+		adi,gpo-controls = <0x1f 0x2b 0x00 0x00>;
+
+		adi,high-performance-mode-clock-dist-enable;
+		adi,high-performance-mode-pll-vco-enable;
+
+		clock-output-names =
+			"hmc7044_out0_DEV_REFCLK_A", "hmc7044_out1_DEV_SYSREF_A",
+			"hmc7044_out2_DEV_REFCLK_B", "hmc7044_out3_DEV_SYSREF_B",
+			"hmc7044_out4_JESD_REFCLK_TX_OBS_AB", "hmc7044_out5_JESD_REFCLK_RX_AB",
+			"hmc7044_out6_CORE_CLK_TX_OBS_AB", "hmc7044_out7_CORE_CLK_RX_AB",
+			"hmc7044_out8_FPGA_SYSREF_TX_OBS_AB","hmc7044_out9_FPGA_SYSREF_RX_AB",
+			"hmc7044_out10", "hmc7044_out11",
+			"hmc7044_out12", "hmc7044_out13";
+
+		hmc7044_c0: channel@0 {
+			reg = <0>;
+			adi,extended-name = "DEV_REFCLK_A";
+			adi,divider = <12>;	// 245760000
+			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;	// LVDS
+			adi,coarse-digital-delay = <15>;
+		};
+		hmc7044_c1: channel@1 {
+			reg = <1>;
+			adi,extended-name = "DEV_SYSREF_A";
+			adi,divider = <3840>;	// 768000
+			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;	// LVDS
+			adi,startup-mode-dynamic-enable;
+			adi,high-performance-mode-disable;
+			adi,driver-impedance-mode = <HMC7044_DRIVER_IMPEDANCE_100_OHM>;
+		};
+		hmc7044_c2: channel@2 {
+			reg = <2>;
+			adi,extended-name = "DEV_REFCLK_B";
+			adi,divider = <12>;	// 245760000
+			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;	// LVDS
+			adi,coarse-digital-delay = <15>;
+		};
+		hmc7044_c3: channel@3 {
+			reg = <3>;
+			adi,extended-name = "DEV_SYSREF_B";
+			adi,divider = <3840>;	// 768000
+			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;	// LVDS
+			adi,startup-mode-dynamic-enable;
+			adi,high-performance-mode-disable;
+			adi,driver-impedance-mode = <HMC7044_DRIVER_IMPEDANCE_100_OHM>;
+		};
+		hmc7044_c4: channel@4 {
+			reg = <4>;
+			adi,extended-name = "JESD_REFCLK_TX_OBS_AB";
+			adi,divider = <12>;	// 245760000
+			adi,driver-mode = <HMC7044_DRIVER_MODE_LVPECL>;	// LVPECL
+		};
+		hmc7044_c5: channel@5 {
+			reg = <5>;
+			adi,extended-name = "JESD_REFCLK_RX_AB";
+			adi,divider = <12>;	// 245760000
+			adi,driver-mode = <HMC7044_DRIVER_MODE_LVPECL>;	// LVPECL
+		};
+		hmc7044_c6: channel@6 {
+			reg = <6>;
+			adi,extended-name = "CORE_CLK_TX_OBS_AB";
+			adi,divider = <24>;	// 122880000
+			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;	// LVDS
+		};
+		hmc7044_c7: channel@7 {
+			reg = <7>;
+			adi,extended-name = "CORE_CLK_RX_AB";
+			adi,divider = <12>;	// 245760000
+			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;	// LVDS
+		};
+		hmc7044_c8: channel@8 {
+			reg = <8>;
+			adi,extended-name = "FPGA_SYSREF_TX_OBS_AB";
+			adi,divider = <3840>;	// 768000
+			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;	// LVDS
+			adi,startup-mode-dynamic-enable;
+			adi,high-performance-mode-disable;
+		};
+		hmc7044_c9: channel@9 {
+			reg = <9>;
+			adi,extended-name = "FPGA_SYSREF_RX_AB";
+			adi,divider = <3840>;	// 768000
+			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;	// LVDS
+			adi,startup-mode-dynamic-enable;
+			adi,high-performance-mode-disable;
+		};
+	};
+};
+
+&pinctrl0 {
+	status = "okay";
+
+	pinctrl_i2c0_default: i2c0-default {
+		mux {
+			groups = "i2c0_3_grp";
+			function = "i2c0";
+		};
+
+		conf {
+			groups = "i2c0_3_grp";
+			bias-pull-up;
+			slew-rate = <SLEW_RATE_SLOW>;
+			io-standard = <IO_STANDARD_LVCMOS18>;
+		};
+	};
+
+	pinctrl_i2c0_gpio: i2c0-gpio {
+		mux {
+			groups = "gpio0_14_grp", "gpio0_15_grp";
+			function = "gpio0";
+		};
+
+		conf {
+			groups = "gpio0_14_grp", "gpio0_15_grp";
+			slew-rate = <SLEW_RATE_SLOW>;
+			io-standard = <IO_STANDARD_LVCMOS18>;
+		};
+	};
+
+	pinctrl_i2c1_gpio: i2c1-gpio {
+		mux {
+			groups = "gpio0_32_grp", "gpio0_33_grp";
+			function = "gpio0";
+		};
+
+		conf {
+			groups = "gpio0_32_grp", "gpio0_33_grp";
+			slew-rate = <SLEW_RATE_SLOW>;
+			io-standard = <IO_STANDARD_LVCMOS18>;
+		};
+	};
+
+	pinctrl_uart1_default: uart1-default {
+		mux {
+			groups = "uart1_5_grp";
+			function = "uart1";
+		};
+
+		conf {
+			groups = "uart1_5_grp";
+			slew-rate = <SLEW_RATE_SLOW>;
+			io-standard = <IO_STANDARD_LVCMOS18>;
+		};
+
+		conf-rx {
+			pins = "MIO21";
+			bias-high-impedance;
+		};
+
+		conf-tx {
+			pins = "MIO20";
+			bias-disable;
+		};
+	};
+
+	pinctrl_gem3_default: gem3-default {
+		mux {
+			function = "ethernet3";
+			groups = "ethernet3_0_grp";
+		};
+
+		conf {
+			groups = "ethernet3_0_grp";
+			slew-rate = <SLEW_RATE_SLOW>;
+			io-standard = <IO_STANDARD_LVCMOS18>;
+		};
+
+		conf-rx {
+			pins = "MIO70", "MIO71", "MIO72", "MIO73", "MIO74",
+									"MIO75";
+			bias-high-impedance;
+			low-power-disable;
+		};
+
+		conf-tx {
+			pins = "MIO64", "MIO65", "MIO66", "MIO67", "MIO68",
+									"MIO69";
+			bias-disable;
+			low-power-enable;
+		};
+
+		mux-mdio {
+			function = "mdio3";
+			groups = "mdio3_0_grp";
+		};
+
+		conf-mdio {
+			groups = "mdio3_0_grp";
+			slew-rate = <SLEW_RATE_SLOW>;
+			io-standard = <IO_STANDARD_LVCMOS18>;
+			bias-disable;
+		};
+	};
+
+	pinctrl_sdhci1_default: sdhci1-default {
+		mux {
+			groups = "sdio1_0_grp";
+			function = "sdio1";
+		};
+
+		conf {
+			groups = "sdio1_0_grp";
+			slew-rate = <SLEW_RATE_SLOW>;
+			io-standard = <IO_STANDARD_LVCMOS18>;
+			bias-disable;
+		};
+
+		mux-cd {
+			groups = "sdio1_cd_0_grp";
+			function = "sdio1_cd";
+		};
+
+		conf-cd {
+			groups = "sdio1_cd_0_grp";
+			bias-high-impedance;
+			bias-pull-up;
+			slew-rate = <SLEW_RATE_SLOW>;
+			io-standard = <IO_STANDARD_LVCMOS18>;
+		};
+
+		mux-wp {
+			groups = "sdio1_wp_0_grp";
+			function = "sdio1_wp";
+		};
+
+		conf-wp {
+			groups = "sdio1_wp_0_grp";
+			bias-high-impedance;
+			bias-pull-up;
+			slew-rate = <SLEW_RATE_SLOW>;
+			io-standard = <IO_STANDARD_LVCMOS18>;
+		};
+	};
+
+	pinctrl_gpio_default: gpio-default {
+		mux-usbsw {
+			function = "gpio0";
+			groups = "gpio0_35_grp", "gpio0_36_grp", "gpio0_37_grp", "gpio0_38_grp";
+		};
+
+		conf-usbsw {
+			groups = "gpio0_35_grp", "gpio0_36_grp", "gpio0_37_grp", "gpio0_38_grp";
+			slew-rate = <SLEW_RATE_SLOW>;
+			io-standard = <IO_STANDARD_LVCMOS18>;
+		};
+	};
+
+	pinctrl_usb0_default: usb0-default {
+		mux {
+			groups = "usb0_0_grp";
+			function = "usb0";
+		};
+
+		conf {
+			groups = "usb0_0_grp";
+			slew-rate = <SLEW_RATE_SLOW>;
+			io-standard = <IO_STANDARD_LVCMOS18>;
+		};
+
+		conf-rx {
+			pins = "MIO52", "MIO53", "MIO55";
+			bias-high-impedance;
+		};
+
+		conf-tx {
+			pins = "MIO54", "MIO56", "MIO57", "MIO58", "MIO59",
+			"MIO60", "MIO61", "MIO62", "MIO63";
+			bias-disable;
+		};
+	};
+};
+
+
+/ {
+	fpga_axi: fpga-axi@0 {
+		interrupt-parent = <&gic>;
+		compatible = "simple-bus";
+		#address-cells = <0x2>;
+		#size-cells = <0x1>;
+		ranges = <0 0 0 0 0xffffffff>;
+
+		axi_adrv9009_adxcvr_rx: axi-adxcvr-rx@84a40000 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "adi,axi-adxcvr-1.0";
+			reg = <0x0 0x84a40000 0x1000>;
+
+			clocks = <&hmc7044 5>, <&hmc7044 7>;
+			clock-names = "conv", "div40";
+
+			#clock-cells = <1>;
+			clock-output-names = "rx_gt_clk", "rx_out_clk";
+
+			adi,sys-clk-select = <0>;
+			adi,out-clk-select = <3>;
+			adi,use-lpm-enable;
+			adi,use-cpll-enable;
+		};
+
+		axi_adrv9009_rx_jesd: axi-jesd204-rx@84a50000 {
+			compatible = "adi,axi-jesd204-rx-1.0";
+			reg = <0x0 0x84a50000 0x1000>;
+
+			interrupts = <0 109 IRQ_TYPE_LEVEL_HIGH>;
+
+			clocks = <&zynqmp_clk 71>, <&hmc7044 7>, <&axi_adrv9009_adxcvr_rx 0>;
+			clock-names = "s_axi_aclk", "device_clk", "lane_clk";
+
+			#clock-cells = <0>;
+			clock-output-names = "jesd_rx_lane_clk";
+
+			adi,octets-per-frame = <4>;
+			adi,frames-per-multiframe = <32>;
+		};
+
+		axi_adrv9009_adxcvr_rx_os: axi-adxcvr-rx-os@84a60000 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "adi,axi-adxcvr-1.0";
+			reg = <0x0 0x84a60000 0x1000>;
+
+			clocks = <&hmc7044 4>, <&hmc7044 6>;
+			clock-names = "conv", "div40";
+
+			#clock-cells = <1>;
+			clock-output-names = "rx_os_gt_clk", "rx_os_out_clk";
+
+			adi,sys-clk-select = <0>;
+			adi,out-clk-select = <3>;
+			adi,use-lpm-enable;
+			adi,use-cpll-enable;
+		};
+
+		axi_adrv9009_rx_os_jesd: axi-jesd204-rx@84a70000 {
+			compatible = "adi,axi-jesd204-rx-1.0";
+			reg = <0x0 0x84a70000 0x1000>;
+
+			interrupts = <0 107 IRQ_TYPE_LEVEL_HIGH>;
+
+			clocks = <&zynqmp_clk 71>, <&hmc7044 6>, <&axi_adrv9009_adxcvr_rx_os 0>;
+			clock-names = "s_axi_aclk", "device_clk", "lane_clk";
+
+			#clock-cells = <0>;
+			clock-output-names = "jesd_rx_os_lane_clk";
+
+			adi,octets-per-frame = <4>;
+			adi,frames-per-multiframe = <32>;
+		};
+
+		axi_adrv9009_adxcvr_tx: axi-adxcvr-tx@84a20000 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "adi,axi-adxcvr-1.0";
+			reg = <0x0 0x84a20000 0x1000>;
+
+			clocks = <&hmc7044 4>, <&hmc7044 6>;
+			clock-names = "conv", "div40";
+
+			#clock-cells = <1>;
+			clock-output-names = "tx_gt_clk", "tx_out_clk";
+
+			adi,sys-clk-select = <3>;
+			adi,out-clk-select = <3>;
+		};
+
+		axi_adrv9009_tx_jesd: axi-jesd204-tx@84a30000 {
+			compatible = "adi,axi-jesd204-tx-1.0";
+			reg = <0x0 0x84a30000 0x1000>;
+
+			interrupts = <0 108 IRQ_TYPE_LEVEL_HIGH>;
+
+			clocks = <&zynqmp_clk 71>, <&hmc7044 6>, <&axi_adrv9009_adxcvr_tx 0>;
+			clock-names = "s_axi_aclk", "device_clk", "lane_clk";
+
+			#clock-cells = <0>;
+			clock-output-names = "jesd_tx_lane_clk";
+
+			adi,octets-per-frame = <2>;
+			adi,frames-per-multiframe = <32>;
+			adi,converter-resolution = <14>;
+			adi,bits-per-sample = <16>;
+			adi,converters-per-device = <4>;
+			adi,control-bits-per-sample = <2>;
+		};
+
+		axi_fan_control: axi-fan-control@80000000 {
+			compatible = "adi,axi-fan-control-1.00.a";
+			reg = <0x0 0x80000000 0x10000>;
+			clocks = <&zynqmp_clk 71>;
+			interrupts = <0 110 IRQ_TYPE_LEVEL_HIGH>;
+
+			adi,pulses-per-revolution = <2>;
+		};
+
+		rx_dma: dma@9c420000 {
+			compatible = "adi,axi-dmac-1.00.a";
+			reg = <0x0 0x9c420000 0x10000>;
+			#dma-cells = <1>;
+			#clock-cells = <0>;
+			interrupts = <0 106 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&zynqmp_clk 73>;
+
+			adi,channels {
+				#size-cells = <0>;
+				#address-cells = <1>;
+
+				dma-channel@0 {
+					reg = <0>;
+					adi,source-bus-width = <128>;
+					adi,source-bus-type = <2>;
+					adi,destination-bus-width = <128>;
+					adi,destination-bus-type = <0>;
+				};
+			};
+		};
+
+		rx_obs_dma: dma@9c440000 {
+			compatible = "adi,axi-dmac-1.00.a";
+			reg = <0x0 0x9c440000 0x10000>;
+			#dma-cells = <1>;
+			#clock-cells = <0>;
+			interrupts = <0 104 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&zynqmp_clk 73>;
+
+			adi,channels {
+				#size-cells = <0>;
+				#address-cells = <1>;
+
+				dma-channel@0 {
+					reg = <0>;
+					adi,source-bus-width = <128>;
+					adi,source-bus-type = <2>;
+					adi,destination-bus-width = <128>;
+					adi,destination-bus-type = <0>;
+				};
+			};
+		};
+
+		tx_dma: dma@9c400000  {
+			compatible = "adi,axi-dmac-1.00.a";
+			reg = <0x0 0x9c400000 0x10000>;
+			#dma-cells = <1>;
+			#clock-cells = <0>;
+			interrupts = <0 105 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&zynqmp_clk 73>;
+
+			adi,channels {
+				#size-cells = <0>;
+				#address-cells = <1>;
+
+				dma-channel@0 {
+					reg = <0>;
+					adi,source-bus-width = <128>;
+					adi,source-bus-type = <0>;
+					adi,destination-bus-width = <256>;
+					adi,destination-bus-type = <1>;
+				};
+			};
+		};
+
+		axi_adrv9009_core_rx: axi-adrv9009-rx-hpc@84a00000 {
+			compatible = "adi,axi-adrv9009-rx-1.0";
+			reg = <0x0 0x84a00000 0x8000>;
+			dmas = <&rx_dma 0>;
+			dma-names = "rx";
+			spibus-connected = <&trx0_adrv9009>;
+			adi,axi-pl-fifo-enable;
+		};
+
+		axi_adrv9009_core_rx_obs: axi-adrv9009-rx-obs-hpc@84a08000 {
+			compatible = "adi,axi-adrv9009-obs-1.0";
+			reg = <0x0 0x84a08000 0x1000>;
+			dmas = <&rx_obs_dma 0>;
+			dma-names = "rx";
+			clocks = <&trx0_adrv9009 1>;
+			clock-names = "sampl_clk";
+		};
+
+		axi_adrv9009_core_tx: axi-adrv9009-tx-hpc@84a04000 {
+			compatible = "adi,axi-adrv9009-x2-tx-1.0";
+			reg = <0x0 0x84a04000 0x4000>;
+			dmas = <&tx_dma 0>;
+			dma-names = "tx";
+			clocks = <&trx0_adrv9009 2>;
+			clock-names = "sampl_clk";
+			spibus-connected = <&trx0_adrv9009>;
+			adi,axi-pl-fifo-enable;
+			plddrbypass-gpios = <&gpio 168 0>;
+		};
+
+		axi_sysid_0: axi-sysid-0@85000000 {
+			compatible = "adi,axi-sysid-1.00.a";
+			reg = <0x0 0x85000000 0x10000>;
+			status = "disabled";
+		};
+	};
+};
+
+&trx0_adrv9009 {
+	reset-gpios = <&gpio 130 0>;
+	test-gpios = <&gpio 131 0>;
+	rx1-enable-gpios = <&gpio 132 0>;
+	rx2-enable-gpios = <&gpio 133 0>;
+	tx1-enable-gpios = <&gpio 134 0>;
+	tx2-enable-gpios = <&gpio 135 0>;
+	sysref-req-gpio = <&gpio 167 0>;
+};
+
+&trx1_adrv9009 {
+	reset-gpios = <&gpio 156 0>;
+	test-gpios = <&gpio 157 0>;
+	rx1-enable-gpios = <&gpio 158 0>;
+	rx2-enable-gpios = <&gpio 159 0>;
+	tx1-enable-gpios = <&gpio 160 0>;
+	tx2-enable-gpios = <&gpio 161 0>;
+};

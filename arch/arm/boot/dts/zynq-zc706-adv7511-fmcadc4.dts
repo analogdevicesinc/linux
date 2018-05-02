@@ -1,0 +1,90 @@
+/dts-v1/;
+
+#include "zynq-zc706.dtsi"
+#include "zynq-zc706-adv7511.dtsi"
+
+&fpga_axi {
+	rx_dma0: rx-dmac@7c400000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x7c400000 0x10000>;
+		#dma-cells = <1>;
+		interrupts = <0 57 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clkc 16>;
+
+		adi,channels {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			dma-channel@0 {
+				reg = <0>;
+				adi,source-bus-width = <64>;
+				adi,source-bus-type = <1>;
+				adi,destination-bus-width = <64>;
+				adi,destination-bus-type = <0>;
+			};
+		};
+	};
+
+	axi_ad9680_core0: axi-ad9680-hpc-ab@44a00000 {
+		compatible = "adi,axi-ad9680-1.0";
+		reg = <0x44a00000 0x10000>;
+		dmas = <&rx_dma0 0>;
+		dma-names = "rx";
+
+		spibus-connected = <&adc0_ad9680>;
+		slavecore-reg = <0x44a10000 0x10000>;
+	};
+
+	axi_ad9680_core1: axi-ad9680-hpc-cd@44a10000 {
+		compatible = "adi,axi-ad9680-1.0";
+		reg = <0x44a10000 0x10000>;
+
+		spibus-connected = <&adc1_ad9680>;
+	};
+
+	axi_ad9680_jesd: axi-jesd204-rx@44aa0000 {
+		compatible = "adi,axi-jesd204-rx-1.0";
+		reg = <0x44aa0000 0x1000>;
+
+		interrupts = <0 56 IRQ_TYPE_LEVEL_HIGH>;
+
+		clocks = <&clkc 16>, <&axi_adxcvr 1>, <&axi_adxcvr 0>;
+		clock-names = "s_axi_aclk", "device_clk", "lane_clk";
+
+		#clock-cells = <0>;
+		clock-output-names = "jesd_adc_lane_clk";
+
+		adi,octets-per-frame = <1>;
+		adi,frames-per-multiframe = <32>;
+	};
+
+	axi_adxcvr: axi-adxcvr-rx@44a60000 {
+		compatible = "adi,axi-adxcvr-1.0";
+		reg = <0x44a60000 0x1000>;
+
+		clocks = <&clk0_ad9528 1>;
+		clock-names = "conv";
+
+		#clock-cells = <1>;
+		clock-output-names = "adc_gt_clk", "rx_out_clk";
+
+		adi,sys-clk-select = <3>;
+		adi,out-clk-select = <4>;
+		adi,use-lpm-enable;
+	};
+};
+
+&spi0 {
+	status = "okay";
+	is-decoded-cs = <1>;
+	num-cs = <7>;
+};
+
+#define fmc_spi spi0
+
+#include "adi-fmcadc4.dtsi"
+
+&clk0_ad9528 {
+	reset-gpios = <&gpio0 86 0>;
+	status0-gpios = <&gpio0 87 0>;
+};
