@@ -1,0 +1,8 @@
+/dts-v1/;
+
+#define fmc_gpio sys_gpio_out
+#define fmc_gpio_base 0
+#define fpga_device_clk ad9516 9
+
+#include "socfpga_arria10_socdk_dac_fmc_ebz.dtsi"
+#include "adi-ad9136-fmc-ebz.dtsi"

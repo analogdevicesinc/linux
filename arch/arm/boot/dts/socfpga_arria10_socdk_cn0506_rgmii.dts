@@ -1,0 +1,24 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * ADIN PHY FMC Board
+ * https://wiki.analog.com/resources/tools-software/linux-drivers/net-phy/adin
+ *
+ * hdl_project: <cn0506_rgmii/a10soc>
+ * board_revision: <>
+ *
+ * Copyright 2020 Analog Devices Inc.
+ */
+/dts-v1/;
+#include "socfpga_arria10_socdk.dtsi"
+
+#include "adi-cn0506-socfpga-rgmii.dtsi"
+
+&mmc {
+	status = "okay";
+	num-slots = <1>;
+	cap-sd-highspeed;
+	broken-cd;
+	bus-width = <4>;
+	altr,dw-mshc-ciu-div = <3>;
+	altr,dw-mshc-sdr-timing = <0 3>;
+};

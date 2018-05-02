@@ -1,0 +1,110 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices AD-FMCOMMS8-EBZ (JESD204 FSM variant)
+ * https://wiki.analog.com/resources/eval/user-guides/ad-fmcomms8-ebz
+ * https://wiki.analog.com/resources/tools-software/linux-drivers/iio-transceiver/adrv9009
+ * https://wiki.analog.com/resources/tools-software/linux-software/adrv9009_advanced_plugin
+ *
+ * hdl_project: <fmcomms8/zcu102>
+ * board_revision: <>
+ *
+ * Copyright (C) 2020 Analog Devices Inc.
+ */
+#include "zynqmp-zcu102-rev10-adrv9009-fmcomms8.dts"
+#include <dt-bindings/iio/adc/adi,adrv9009.h>
+
+&trx2_adrv9009 {
+	/delete-property/ interrupts;
+
+	/* Clocks */
+	clocks = <&hmc7044_fmc 0>;
+
+	clock-names = "dev_clk";
+
+	jesd204-device;
+	#jesd204-cells = <2>;
+	jesd204-inputs = <&axi_adrv9009_rx_jesd 0 FRAMER_LINK_RX>,
+		<&axi_adrv9009_rx_os_jesd 0 FRAMER_LINK_ORX>,
+		<&axi_adrv9009_tx_jesd 0 DEFRAMER_LINK_TX>;
+};
+
+&trx3_adrv9009 {
+	/delete-property/ interrupts;
+
+	clocks = <&hmc7044_fmc 2>;
+
+	clock-names = "dev_clk";
+
+	jesd204-device;
+	#jesd204-cells = <2>;
+	jesd204-top-device = <0>;
+	jesd204-link-ids = <DEFRAMER_LINK_TX FRAMER_LINK_RX FRAMER_LINK_ORX>;
+
+	jesd204-inputs =
+		<&trx2_adrv9009 0 FRAMER_LINK_RX>,
+		<&trx2_adrv9009 0 FRAMER_LINK_ORX>,
+		<&trx2_adrv9009 0 DEFRAMER_LINK_TX>;
+};
+
+&axi_adrv9009_adxcvr_rx {
+	clocks = <&hmc7044_fmc 5>;
+	clock-names = "conv";
+
+	jesd204-device;
+	#jesd204-cells = <2>;
+	jesd204-inputs =  <&hmc7044_fmc 0 FRAMER_LINK_RX>;
+};
+
+&axi_adrv9009_adxcvr_rx_os {
+	clocks = <&hmc7044_fmc 4>;
+	clock-names = "conv";
+
+	jesd204-device;
+	#jesd204-cells = <2>;
+	jesd204-inputs =  <&hmc7044_fmc 0 FRAMER_LINK_ORX>;
+};
+
+&axi_adrv9009_adxcvr_tx {
+	clocks = <&hmc7044_fmc 4>;
+	clock-names = "conv";
+
+	jesd204-device;
+	#jesd204-cells = <2>;
+	jesd204-inputs =  <&hmc7044_fmc 0 DEFRAMER_LINK_TX>;
+};
+
+&axi_adrv9009_rx_jesd {
+	jesd204-device;
+	#jesd204-cells = <2>;
+	jesd204-inputs = <&axi_adrv9009_adxcvr_rx 0 FRAMER_LINK_RX>;
+};
+
+&axi_adrv9009_rx_os_jesd {
+	jesd204-device;
+	#jesd204-cells = <2>;
+	jesd204-inputs = <&axi_adrv9009_adxcvr_rx_os 0 FRAMER_LINK_ORX>;
+};
+
+&axi_adrv9009_tx_jesd {
+	jesd204-device;
+	#jesd204-cells = <2>;
+	jesd204-inputs = <&axi_adrv9009_adxcvr_tx 0 DEFRAMER_LINK_TX>;
+};
+
+&hmc7044_fmc {
+	jesd204-device;
+	#jesd204-cells = <2>;
+	jesd204-sysref-provider;
+
+	adi,pulse-generator-mode = <HMC7044_PULSE_GEN_16_PULSE>;
+
+	/* REF CLK (J14) -> On board REF (Y4) */
+	adi,pll1-ref-prio-ctrl = <0x1E>; /* CLKIN2 -> CLKIN3 -> CLKIN1 -> CLKIN0 */
+	adi,pll1-clkin-frequencies = <30720000 30720000 30720000 19200000>;
+
+	adi,clkin0-buffer-mode = <0x07>; /* AC + 100 Ohm Term */
+	adi,clkin1-buffer-mode = <0x09>; /* LVPECL */
+	adi,clkin2-buffer-mode = <0x5>;  /* AC */
+	adi,clkin3-buffer-mode = <0x11>; /* HIGH-Z */
+
+};

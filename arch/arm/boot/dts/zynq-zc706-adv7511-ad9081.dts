@@ -1,0 +1,235 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices AD9081-FMC-EBZ
+ * https://wiki.analog.com/resources/tools-software/linux-drivers/iio-mxfe/ad9081
+ * https://wiki.analog.com/resources/eval/user-guides/ad9081_fmca_ebz/ad9081_fmca_ebz_hdl
+ *
+ * hdl_project: <ad9081_fmca_ebz/zc706>
+ * board_revision: <>
+ *
+ * Copyright (C) 2019-2020 Analog Devices Inc.
+ */
+/dts-v1/;
+
+#include "zynq-zc706.dtsi"
+#include "zynq-zc706-adv7511.dtsi"
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/iio/adc/adi,ad9081.h>
+#include <dt-bindings/jesd204/adxcvr.h>
+
+/*
+ * This is a device tree which uses QPLL for both adxcvr instances.
+ * For this to work both instances need to configure the same lane rate.
+ *
+ * The Rx links (ADC Path) operate with the following parameters:
+ *
+ *    * Rx Deframer parameters: L=4, M=8, F=4, S=1, N=16, N = 16
+ *    * Dual link : No
+ *    * RX_DEVICE_CLK  250 MHz (Lane Rate/40)
+ *    * REF_CLK  250 MHz (Lane Rate/40)
+ *    * JESD204B Lane Rate  10Gbps
+ *    * QPLL0
+ *    * K = 32
+ *    * ADC Clock Rate 4 G with Decimation /16
+ *
+ * The Tx links (DAC Path) operate with the following parameters:
+ *
+ *    * Tx Framer parameters: L=4, M=8, F=4, S=1, N=16, N = 16
+ *    * Dual link : No
+ *    * TX_DEVICE_CLK  250 MHz (Lane Rate/40)
+ *    * REF_CLK  250 MHz (Lane Rate/40)
+ *    * JESD204B Lane Rate  10Gbps
+ *    * QPLL0
+ *    * K = 32
+ *    * DAC Clock Rate 12 G with Interpolation *48
+ */
+
+&i2c_mux {
+	i2c@5 { /* HPC IIC */
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <5>;
+
+		eeprom@50 {
+			compatible = "at24,24c02";
+			reg = <0x50>;
+		};
+	};
+};
+
+&fpga_axi {
+		rx_dma: dma@7c420000 {
+			compatible = "adi,axi-dmac-1.00.a";
+			reg = <0x7c420000 0x10000>;
+			#dma-cells = <1>;
+			#clock-cells = <0>;
+			interrupts = <0 57 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clkc 16>;
+		};
+
+		tx_dma: dma@7c430000  {
+			compatible = "adi,axi-dmac-1.00.a";
+			reg = <0x7c430000 0x10000>;
+			#dma-cells = <1>;
+			#clock-cells = <0>;
+			interrupts = <0 56 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clkc 16>;
+		};
+
+		axi_ad9081_core_rx: axi-ad9081-rx-hpc@44a10000 {
+			compatible = "adi,axi-ad9081-rx-1.0";
+			reg = <0x44a10000 0x8000>;
+			dmas = <&rx_dma 0>;
+			dma-names = "rx";
+			spibus-connected = <&trx0_ad9081>;
+
+			jesd204-device;
+			#jesd204-cells = <2>;
+			jesd204-inputs = <&axi_ad9081_rx_jesd 0 FRAMER_LINK0_RX>;
+		};
+
+		axi_ad9081_core_tx: axi-ad9081-tx-hpc@44b10000 {
+			compatible = "adi,axi-ad9081-tx-1.0";
+			reg = <0x44b10000 0x4000>;
+			dmas = <&tx_dma 0>;
+			dma-names = "tx";
+			clocks = <&trx0_ad9081 1>;
+			clock-names = "sampl_clk";
+			spibus-connected = <&trx0_ad9081>;
+			//adi,axi-pl-fifo-enable;
+
+			jesd204-device;
+			#jesd204-cells = <2>;
+			jesd204-inputs = <&axi_ad9081_tx_jesd 0 DEFRAMER_LINK0_TX>;
+		};
+
+		axi_ad9081_rx_jesd: axi-jesd204-rx@44a90000 {
+			compatible = "adi,axi-jesd204-rx-1.0";
+			reg = <0x44a90000 0x1000>;
+
+			interrupts = <0 55 IRQ_TYPE_LEVEL_HIGH>;
+
+			clocks = <&clkc 16>, <&hmc7044 10>, <&axi_ad9081_adxcvr_rx 0>;
+			clock-names = "s_axi_aclk", "device_clk", "lane_clk";
+
+			#clock-cells = <0>;
+			clock-output-names = "jesd_rx_lane_clk";
+
+			jesd204-device;
+			#jesd204-cells = <2>;
+			jesd204-inputs = <&axi_ad9081_adxcvr_rx 0 FRAMER_LINK0_RX>;
+		};
+
+		axi_ad9081_tx_jesd: axi-jesd204-tx@44b90000 {
+			compatible = "adi,axi-jesd204-tx-1.0";
+			reg = <0x44b90000 0x1000>;
+
+			interrupts = <0 54 IRQ_TYPE_LEVEL_HIGH>;
+
+			clocks = <&clkc 16>, <&hmc7044 6>, <&axi_ad9081_adxcvr_tx 0>;
+			clock-names = "s_axi_aclk", "device_clk", "lane_clk";
+
+			#clock-cells = <0>;
+			clock-output-names = "jesd_tx_lane_clk";
+
+			jesd204-device;
+			#jesd204-cells = <2>;
+			jesd204-inputs = <&axi_ad9081_adxcvr_tx 0 DEFRAMER_LINK0_TX>;
+		};
+
+		axi_ad9081_adxcvr_rx: axi-adxcvr-rx@44a60000 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "adi,axi-adxcvr-1.0";
+			reg = <0x44a60000 0x1000>;
+
+			clocks = <&hmc7044 12>;
+			clock-names = "conv";
+
+			#clock-cells = <1>;
+			clock-output-names = "rx_gt_clk", "rx_out_clk";
+
+			adi,sys-clk-select = <XCVR_QPLL>;
+			adi,out-clk-select = <XCVR_REFCLK>;
+ 			adi,use-lpm-enable;
+
+			jesd204-device;
+			#jesd204-cells = <2>;
+			jesd204-inputs =  <&hmc7044 0 FRAMER_LINK0_RX>;
+		};
+
+		axi_ad9081_adxcvr_tx: axi-adxcvr-tx@44b60000 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "adi,axi-adxcvr-1.0";
+			reg = <0x44b60000 0x1000>;
+
+			clocks = <&hmc7044 12>;
+			clock-names = "conv";
+
+			#clock-cells = <1>;
+			clock-output-names = "tx_gt_clk", "tx_out_clk";
+
+			adi,sys-clk-select = <XCVR_QPLL>;
+			adi,out-clk-select = <XCVR_REFCLK>;
+
+			jesd204-device;
+			#jesd204-cells = <2>;
+			jesd204-inputs =  <&hmc7044 0 DEFRAMER_LINK0_TX>;
+		};
+
+		axi_sysid_0: axi-sysid-0@45000000 {
+			compatible = "adi,axi-sysid-1.00.a";
+			reg = <0x45000000 0x10000>;
+		};
+};
+
+&spi0 {
+	status = "okay";
+};
+
+#define fmc_spi spi0
+
+#include "adi-ad9081-fmc-ebz.dtsi"
+
+// ad_iobuf #(.DATA_WIDTH(12)) i_iobuf (
+// 	.dio_t (gpio_t[43:32]),
+// 	.dio_i (gpio_o[43:32]),
+// 	.dio_o (gpio_i[43:32]),
+// 	dio_p ({hmc_gpio1,       // 43
+// 	gpio[10:0]}));   // 42-32
+//
+// assign gpio_i[44] = agc0[0];
+// assign gpio_i[45] = agc0[1];
+// assign gpio_i[46] = agc1[0];
+// assign gpio_i[47] = agc1[1];
+// assign gpio_i[48] = agc2[0];
+// assign gpio_i[49] = agc2[1];
+// assign gpio_i[50] = agc3[0];
+// assign gpio_i[51] = agc3[1];
+// assign gpio_i[52] = irqb[0];
+// assign gpio_i[53] = irqb[1];
+//
+// assign hmc_sync         = gpio_o[54];
+// assign rstb             = gpio_o[55];
+// assign rxen[0]          = gpio_o[56];
+// assign rxen[1]          = gpio_o[57];
+// assign txen[0]          = gpio_o[58];
+// assign txen[1]          = gpio_o[59];
+// assign dac_fifo_bypass  = gpio_o[60];
+
+#define fmc_gpio_base 54
+
+&trx0_ad9081 {
+	reset-gpios = <&gpio0 (fmc_gpio_base + 55) 0>;
+	sysref-req-gpios = <&gpio0 (fmc_gpio_base + 54) 0>;
+	rx2-enable-gpios = <&gpio0 (fmc_gpio_base + 57) 0>;
+	rx1-enable-gpios = <&gpio0 (fmc_gpio_base + 56) 0>;
+	tx2-enable-gpios = <&gpio0 (fmc_gpio_base + 59) 0>;
+	tx1-enable-gpios = <&gpio0 (fmc_gpio_base + 58) 0>;
+};
+
+&axi_ad9081_core_tx {
+	plddrbypass-gpios = <&gpio0 (fmc_gpio_base + 60) 0>;
+};

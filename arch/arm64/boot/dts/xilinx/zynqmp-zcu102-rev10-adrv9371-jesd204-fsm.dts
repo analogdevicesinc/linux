@@ -1,0 +1,88 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices AD9371
+ * Link: https://wiki.analog.com/resources/eval/user-guides/mykonos/quickstart
+ *
+ * hdl_project: <adrv9371x/zcu102>
+ * board_revision: <A>
+ *
+ * Copyright 2016-2020 Analog Devices Inc.
+ */
+#include "zynqmp-zcu102-rev10-adrv9371.dts"
+
+#include <dt-bindings/iio/adc/adi,ad9371.h>
+
+&trx0_ad9371{
+	jesd204-device;
+	#jesd204-cells = <2>;
+	jesd204-top-device = <0>; /* This is the TOP device */
+	jesd204-link-ids = <DEFRAMER_LINK_TX FRAMER_LINK_RX FRAMER_LINK_ORX>;
+
+	jesd204-inputs =
+		<&axi_ad9371_rx_jesd 0 FRAMER_LINK_RX>,
+		<&axi_ad9371_rx_os_jesd 0 FRAMER_LINK_ORX>,
+		<&axi_ad9371_core_tx 0 DEFRAMER_LINK_TX>;
+
+};
+
+&axi_ad9371_core_tx {
+	jesd204-device;
+	#jesd204-cells = <2>;
+	jesd204-inputs = <&axi_ad9371_tx_jesd 0 DEFRAMER_LINK_TX>;
+};
+
+&axi_ad9371_rx_jesd {
+	jesd204-device;
+	#jesd204-cells = <2>;
+	jesd204-inputs = <&axi_ad9371_adxcvr_rx 0 FRAMER_LINK_RX>;
+};
+
+&axi_ad9371_rx_os_jesd {
+	jesd204-device;
+	#jesd204-cells = <2>;
+	jesd204-inputs = <&axi_ad9371_adxcvr_rx_os 0 FRAMER_LINK_ORX>;
+};
+
+&axi_ad9371_tx_jesd {
+	jesd204-device;
+	#jesd204-cells = <2>;
+	jesd204-inputs = <&axi_ad9371_adxcvr_tx 0 DEFRAMER_LINK_TX>;
+};
+
+&axi_ad9371_adxcvr_rx {
+    	jesd204-device;
+	#jesd204-cells = <2>;
+	jesd204-inputs =  <&clk0_ad9528 0 FRAMER_LINK_RX>;
+	clocks = <&clk0_ad9528 1>; /* div40 is controlled by axi_ad9371_rx_jesd */
+	clock-names = "conv";
+};
+
+&axi_ad9371_adxcvr_rx_os {
+    	jesd204-device;
+	#jesd204-cells = <2>;
+	jesd204-inputs =  <&clk0_ad9528 0 FRAMER_LINK_ORX>;
+	clocks = <&clk0_ad9528 1>; /* div40 is controlled by axi_ad9371_rx_os_jesd */
+	clock-names = "conv";
+};
+
+&axi_ad9371_adxcvr_tx {
+    	jesd204-device;
+	#jesd204-cells = <2>;
+	jesd204-inputs =  <&clk0_ad9528 0 DEFRAMER_LINK_TX>;
+	clocks = <&clk0_ad9528 1>; /* div40 is controlled by axi_ad9371_tx_jesd */
+	clock-names = "conv";
+};
+
+&clk0_ad9528 {
+	jesd204-device;
+	#jesd204-cells = <2>;
+	jesd204-sysref-provider;
+
+	adi,sysref-pattern-mode = <SYSREF_PATTERN_NSHOT>;
+        adi,sysref-nshot-mode = <SYSREF_NSHOT_4_PULSES>;
+
+        /* See UG-992: Minimum Delay Requirements Between SYSREF Pulses */
+        adi,jesd204-max-sysref-frequency-hz = <78125>;
+
+	/delete-property/ adi,sysref-request-enable;
+};

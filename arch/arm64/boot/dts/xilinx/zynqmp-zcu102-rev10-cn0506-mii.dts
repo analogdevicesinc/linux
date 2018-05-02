@@ -1,0 +1,12 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * ADIN PHY FMC board
+ * https://wiki.analog.com/resources/tools-software/linux-drivers/net-phy/adin
+ *
+ * hdl_project: <cn0506_mii/zcu102>
+ * board_revision: <>
+ *
+ * Copyright 2020 Analog Devices Inc.
+ */
+#include "zynqmp-zcu102-rev1.0.dts"
+#include "adi-cn0506-mii.dtsi"

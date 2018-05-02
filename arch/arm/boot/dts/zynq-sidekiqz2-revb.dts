@@ -1,0 +1,267 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * EPIQ Solutions Sidekiq Z2
+ * https://epiqsolutions.com/rf-transceiver/sidekiq-z2/
+ *
+ * hdl_project: <sidekiqz2>
+ * board_revision: <>
+ *
+ * Copyright (C) 2018-2019 Analog Devices Inc.
+ */
+/dts-v1/;
+#include "zynq-pluto-sdr.dtsi"
+#include <dt-bindings/input/input.h>
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+
+#define AD9361_EXT_BAND_CTL_SHORTHANDS
+#include <dt-bindings/iio/adc/adi,ad9361.h>
+
+/ {
+	model = "Epiq Solutions Sidekiq Z2 Rev.B (Z7010/AD9364)";
+
+	leds {
+		compatible = "gpio-leds";
+		led0 {
+			label = "led0:green";
+			gpios = <&gpio0 15 0>;
+			linux,default-trigger = "heartbeat";
+		};
+	};
+
+	gpio_keys {
+		compatible = "gpio-keys";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		button {
+			interrupt-parent = <&gpio0>;
+			interrupts = <14 IRQ_TYPE_EDGE_FALLING>;
+			label = "Button";
+			linux,code = <BTN_MISC>;
+		};
+
+	};
+};
+
+&axi_i2c0 {
+	/* yep, U20 on the board has i2c addr 21 and vice-versa */
+	tca6408_u20: gpio@21 {
+		compatible = "ti,tca6408";
+		reg = <0x21>;
+		gpio-controller;
+		#gpio-cells = <2>;
+
+		/**
+		 * rx_ant_1: gpios = <7 0>:  High for RX Antenna port 1
+		 * rx_ant_2: gpios = <6 0>:  High for RX Antenna port 2
+		 *
+		 * All LNA pins set to low, disable LAN control
+		 * lna_bias_1: gpios = <5 0>: High for Max Bias;
+		 *                            other pins must be HI-Z
+		 * lna_bias_2: gpios = <4 0>: High for Med Bias;
+		 *                            other pins must be HI-Z inputs
+		 * lna_bias_3: gpios = <3 0>: High for Min Bias;
+		 *                            other pins must be HI-Z inputs
+		 * band_0_2_3: gpios = <2 0>: High for Band 0,2,3, Low for 1 & 4
+		 * band_0:     gpios = <1 0>: High for RX 50-3000 MHz thru,
+		 *                            freq range is limited by ad936x
+		 * band_1: gpios = <0 0>; High for RX 40-435 MHz (Bandpass)
+		 */
+		gpio-line-names = "band_1", "band_0", "band_0_2_3",
+			"lna_bias_3", "lna_bias_2", "lna_bias_1",
+			"rx_ant_2", "rx_ant_1";
+	};
+
+	tca6408_u21: gpio@20 {
+		compatible = "ti,tca6408";
+		reg = <0x20>;
+		gpio-controller;
+		#gpio-cells = <2>;
+
+		/**
+		 * band_2: gpios = <7 0>: High for RX 435-910MHz (Bandpass)
+		 * band_3: gpios = <6 0>: High for RX 910-1950MHz (Bandpass)
+		 * band_4: gpios = <5 0>: High for RX 1950-6000MHz (Bandpass)
+		 * lna_sw: gpios = <4 0>: Low to enable on-board LNA path;
+		 *                        High to enable LNA bypass
+		 * tx_band_0: gpios = <3 0>: High for TX 50-3000 MHz
+		 * tx_band_1: gpios = <2 0>: High for TX 3000-6000 MHz
+		 * rfic_reset_n: gpios = <1 0>: Avoid Out-High;
+		 *                              Low to reset ad936x;
+		 *                              otherwise HI_Z input
+		 * en_ext_i2c_3v3_n: gpios = <0 0>: Low to connect on-board
+		 *                                  i2c to host SMBus;
+		 *                                  HI_Z input to isolate i2c
+		 *                                  from host SMBus
+		 */
+
+		gpio-line-names = "en_ext_i2c_3v3_n", "rfic_reset_n",
+			"tx_band_1", "tx_band_0", "lna_sw", "band_4",
+			"band_3", "band_2";
+
+		lna_sw {
+			gpio-hog;
+			gpios = <4 0>;
+			output-low;
+			line-name = "lna_sw";
+		};
+
+		en_ext_i2c_3v3_n {
+			gpio-hog;
+			gpios = <0 0>;
+			input;
+			line-name = "en_ext_i2c_3v3_n";
+		};
+	};
+};
+
+&adc0_ad9364 {
+	compatible = "adi,ad9364";
+
+	adi,gpo-manual-mode-enable;
+	adi,gpo-manual-mode-enable-mask = <0x4>;
+
+	/* Make sure to define `reset-gpios` otherwise, Pluto's reset pin
+	 * will still be used. `reset-gpios` takes precedence over
+	 * `reset-gpio`
+	 */
+	reset-gpios = <&tca6408_u21 1 GPIO_OPEN_DRAIN>;
+
+	/* Up to 256 GPIOs can be defined like this ;
+	 * for `adi,band-ctl-X-gpio`, X has to be incremental
+	 */
+	adi,band-ctl-0-gpio = <&gpio0 67 GPIO_ACTIVE_HIGH>;      /* tdd_ant_3 */
+
+	adi,band-ctl-1-gpio = <&tca6408_u20 7 GPIO_ACTIVE_HIGH>; /* rx_ant_1 */
+	adi,band-ctl-2-gpio = <&tca6408_u20 6 GPIO_ACTIVE_HIGH>; /* rx_ant_2 */
+	adi,band-ctl-3-gpio = <&tca6408_u20 5 GPIO_ACTIVE_HIGH>; /* lna_bias_1 */
+	adi,band-ctl-4-gpio = <&tca6408_u20 4 GPIO_ACTIVE_HIGH>; /* lna_bias_2 */
+	adi,band-ctl-5-gpio = <&tca6408_u20 3 GPIO_ACTIVE_HIGH>; /* lna_bias_3 */
+	adi,band-ctl-6-gpio = <&tca6408_u20 2 GPIO_ACTIVE_HIGH>; /* band_0_2_3 */
+	adi,band-ctl-7-gpio = <&tca6408_u20 1 GPIO_ACTIVE_HIGH>; /* band_0 */
+	adi,band-ctl-8-gpio = <&tca6408_u20 0 GPIO_ACTIVE_HIGH>; /* band_1 */
+
+	adi,band-ctl-9-gpio = <&tca6408_u21 7 GPIO_ACTIVE_HIGH>; /* band_2 */
+	adi,band-ctl-10-gpio = <&tca6408_u21 6 GPIO_ACTIVE_HIGH>; /* band_3 */
+	adi,band-ctl-11-gpio = <&tca6408_u21 5 GPIO_ACTIVE_HIGH>; /* band_4 */
+	adi,band-ctl-12-gpio = <&tca6408_u21 3 GPIO_ACTIVE_HIGH>; /* tx_band_0 */
+	adi,band-ctl-13-gpio = <&tca6408_u21 2 GPIO_ACTIVE_HIGH>; /* tx_band_1 */
+
+	sidekiq_disable_lna: sidekiq_disable_lna {
+		adi,gpio-settings = <_ _ _ 0 0 0 _ _ _ _ _ _ _ _>;
+	};
+
+	sidekiq_lna_med: sidekiq_lna_med {
+		adi,gpio-settings = <_ _ _ I 1 I _ _ _ _ _ _ _ _>;
+	};
+
+	sidekiq_rx_antenna_isolation: sidekiq_rx_antenna_isolation {
+		adi,gpio-settings = <0 0 0 _ _ _ _ _ _ _ _ _ _ _>;
+	};
+
+	sidekiq_tx_antenna_2: sidekiq_tx_antenna_2 {
+		adi,gpio-settings = <_ _ _ _ _ _ _ _ _ _ _ _ 1 2>;
+	};
+
+	sidekiq_rx_ant_1: sidekiq_rx_ant_1 {
+		adi,gpio-settings = <0 1 0 _ _ _ _ _ _ _ _ _ _ _>;
+	};
+
+	ad9361_rx_ant_port_a: ad9361_rx_ant_port_a {
+		adi,rx-rf-port-input-select = <0>; /* (RX1A_N &  RX1A_P) and (RX2A_N & RX2A_P) enabled; balanced */
+	};
+
+	ad9361_rx_ant_port_b: ad9361_rx_ant_port_b {
+		adi,rx-rf-port-input-select = <1>; /* (RX1B_N &  RX1B_P) and (RX2B_N & RX2B_P) enabled; balanced */
+	};
+
+	ad9361_rx_ant_port_c: ad9361_rx_ant_port_c {
+		adi,rx-rf-port-input-select = <2>; /* (RX1C_N &  RX1C_P) and (RX2C_N & RX2C_P) enabled; balanced */
+	};
+
+	ad9361_tx_ant_port_a: ad9361_tx_ant_port_a {
+		adi,tx-rf-port-input-select = <0>; /* TX1A, TX2A */
+	};
+
+	ad9361_tx_ant_port_b: ad9361_tx_ant_port_b {
+		adi,tx-rf-port-input-select = <1>; /* TX1B, TX2B */
+	};
+
+	sidekiq_rx_pre: sidekiq_rx_pre {
+		/* FIXME: delays are 0 ; maybe check if we need to adjust this */
+		adi,band-ctl-pre = <&sidekiq_disable_lna 0
+				    &sidekiq_rx_antenna_isolation 0>;
+	};
+
+	adi_ext_band_ctl_init {
+		/* All low on boot-up [driver init] */
+		adi,gpio-settings = <1 0 0 0 0 0 0 0 0 0 0 0 0 0>;
+	};
+
+	adi_ext_band_ctl_uninit {
+		/* All low on driver uninit */
+		adi,band-ctl-pre = <&sidekiq_rx_pre 0>;
+		adi,gpio-settings = <1 0 0 0 0 0 0 0 0 0 0 0 0 0>;
+	};
+
+	adi_rx_band_setting_0 { /* 70 - 435 Mhz ; i.e. 70 <= freq < ( 435 Mhz + 1 Hz ) */
+		adi,lo-freq-min = /bits/ 64 <70000000>;
+		adi,lo-freq-max = /bits/ 64 <435000001>;
+
+		adi,band-ctl-pre = <&sidekiq_rx_pre 0>;
+		adi,gpio-settings = <0 _ _ _ _ _ 0 0 1 0 0 0 _ _>; /* Band_1*/
+		adi,band-ctl-post = <&ad9361_rx_ant_port_b 0
+				     &sidekiq_rx_ant_1 0
+				     &sidekiq_lna_med 0>; /* LNA Max or Min could be used here instead */
+	};
+
+	adi_rx_band_setting_1 { /* 435 - 910 Mhz */
+		adi,lo-freq-min = /bits/ 64 <435000001>;
+		adi,lo-freq-max = /bits/ 64 <910000001>;
+
+		adi,band-ctl-pre = <&sidekiq_rx_pre 0>;
+		adi,gpio-settings = <0 _ _ _ _ _ 1 0 0 1 0 0 _ _>; /* Band 2 */
+		adi,band-ctl-post = <&ad9361_rx_ant_port_c 0
+				     &sidekiq_rx_ant_1 0
+				     &sidekiq_lna_med 0>;
+	};
+
+	adi_rx_band_setting_2 { /* 910 - 1950 Mhz */
+		adi,lo-freq-min = /bits/ 64 <910000001>;
+		adi,lo-freq-max = /bits/ 64 <1950000001>;
+
+		adi,band-ctl-pre = <&sidekiq_rx_pre 0>;
+		adi,gpio-settings = <0 _ _ _ _ _ 1 0 0 0 1 0 _ _>; /* Band 3 */
+		adi,band-ctl-post = <&ad9361_rx_ant_port_c 0
+				     &sidekiq_rx_ant_1 0
+				     &sidekiq_lna_med 0>;
+	};
+
+	adi_rx_band_setting_3 { /* 1950 - 6000 Mhz */
+		adi,lo-freq-min = /bits/ 64 <1950000001>;
+		adi,lo-freq-max = /bits/ 64 <6000000001>;
+
+		adi,band-ctl-pre = <&sidekiq_rx_pre 0>;
+		adi,gpio-settings = <0 _ _ _ _ _ 0 0 0 0 0 1 _ _>; /* Band 4 */
+		adi,band-ctl-post = <&ad9361_rx_ant_port_a 0
+				     &sidekiq_rx_ant_1 0
+				     &sidekiq_lna_med 0>;
+	};
+
+	adi_tx_band_setting_0 { /* 46.8 - 3000 Mhz (including 3000 Mhz */
+		adi,lo-freq-min = /bits/ 64 <46875001>;
+		adi,lo-freq-max = /bits/ 64 <3000000001>;
+
+		adi,gpio-settings = <0 _ _ _ _ _ _ _ _ _ _ _ 1 0>; /* TX Band 0 */
+		adi,band-ctl-post = <&ad9361_tx_ant_port_b 0>;
+	};
+
+	adi_tx_band_setting_1 { /* 3000 -6000 Mhz */
+		adi,lo-freq-min = /bits/ 64 <3000000001>;
+		adi,lo-freq-max = /bits/ 64 <6000000001>;
+
+		adi,gpio-settings = <0 _ _ _ _ _ _ _ _ _ _ _ 0 1>; /* TX Band 1 */
+		adi,band-ctl-post = <&ad9361_tx_ant_port_a 0>;
+	};
+};

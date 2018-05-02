@@ -1,0 +1,108 @@
+
+
+/ {
+	clocks {
+		adf4355_clkin: clock@0 {
+			compatible = "fixed-clock";
+
+			clock-frequency = <122880000>;
+			clock-output-names = "clkin";
+			#clock-cells = <0>;
+		};
+
+		adc_clk_div: hmc361 {
+			compatible = "fixed-factor-clock";
+
+			clock-div = <2>;
+			clock-mult = <1>;
+			clocks = <&adf4355_clk>;
+
+			#clock-cells = <0>;
+		};
+
+		adc_divclk: ad9625-divclk {
+			compatible = "fixed-factor-clock";
+
+			clock-div = <2>; /* DIV4 but the parent olyready uses clk scale / 2 */
+			clock-mult = <1>;
+			clocks = <&adc_clk_div>;
+
+			#clock-cells = <0>;
+		};
+	};
+};
+
+#include <dt-bindings/iio/frequency/ad9508.h>
+
+&fmc_spi {
+	adf4355_clk: adf4355@5 {
+		compatible = "adi,adf4355-2";
+		reg = <5>;
+
+		spi-max-frequency = <10000000>;
+
+		clocks = <&adf4355_clkin>;
+		clock-names = "clkin";
+		clock-scales = <1 2>;
+
+		clock-output-names = "adf4355_pll";
+		#clock-cells = <0>;
+
+		adi,charge-pump-current = <900>;
+		adi,muxout-select = <6>;
+		adi,output-a-power = <3>;
+		adi,output-b-power = <3>;
+		adi,charge-pump-negative-bleed-enable;
+		adi,reference-differential-input-enable;
+		adi,muxout-level-3v3-enable;
+		adi,power-up-frequency = /bits/ 64 <3932160000>;
+		adi,output-a-enable;
+		adi,output-b-enable;
+		adi,clock-shift = <1>;
+	};
+
+
+
+	dac0_ad9162: ad9162@2 {
+		compatible = "adi,ad9162";
+		reg = <2>;
+
+		spi-cpol;
+		spi-cpha;
+		spi-max-frequency = <1000000>;
+
+		clocks = <&axi_ad9162_jesd>, <&adf4355_clk>;
+		clock-names = "jesd_dac_clk", "dac_clk";
+		dac_clk-clock-scales = <1 2>;
+		adi,full-scale-current-microamp = <20000>;
+		adi,spi-3wire-enable;
+	};
+
+	adc0_ad9625: ad9625@1 {
+		compatible = "adi,ad9625";
+		reg = <1>;
+
+		spi-max-frequency = <1000000>;
+		spi-cpol;
+		spi-cpha;
+
+		clocks = <&axi_ad9625_jesd>, <&adc_clk_div>;
+		clock-names = "jesd_adc_clk", "adc_clk";
+		adc_clk-clock-scales = <1 2>;
+	};
+
+	dga0_adl5240: adl5240@4 {
+		compatible = "adi,adl5240";
+		reg = <4>;
+
+		spi-max-frequency = <100000>;
+	};
+
+	att0_hmc1119: hmc1119@6 {
+		compatible = "adi,hmc1119";
+		reg = <6>;
+
+		spi-max-frequency = <100000>;
+	};
+};
+
