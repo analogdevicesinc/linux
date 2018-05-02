@@ -1,0 +1,10 @@
+#include  "zynq-adrv9361-z7035-bob.dts"
+
+&adc0_ad9361 {
+	/* Enable CMOS Mode */
+	adi,swap-ports-enable;
+	/delete-property/ adi,lvds-mode-enable;
+	/delete-property/ adi,lvds-rx-onchip-termination-enable;
+	adi,full-port-enable;
+	adi,digital-interface-tune-fir-disable;
+};
