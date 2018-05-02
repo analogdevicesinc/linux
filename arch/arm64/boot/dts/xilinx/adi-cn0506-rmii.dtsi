@@ -1,0 +1,69 @@
+&i2c1 {
+	i2c-mux@75 {
+		i2c@1 { /* HPC1 */
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <1>;
+
+			/* the EEPROM for the Vadj FRU data */
+			eeprom@50 {
+				compatible = "at24,24c02";
+				reg = <0x50>;
+			};
+
+			fmc_mii_clk1: clock-generator@32 {
+				#clock-cells = <0>;
+				compatible = "silabs,si514";
+				reg = <0x32>;
+				clock-output-names = "si514_fmc_mii_clk1";
+				assigned-clocks = <&fmc_mii_clk1>;
+				assigned-clock-rates = <50000000>;
+			};
+
+			fmc_mii_clk2: clock-generator@33 {
+				#clock-cells = <0>;
+				compatible = "silabs,si514";
+				reg = <0x33>;
+				clock-output-names = "si514_fmc_mii_clk2";
+				assigned-clocks = <&fmc_mii_clk2>;
+				assigned-clock-rates = <50000000>;
+			};
+		};
+	};
+};
+
+&gem0 {
+	status = "okay";
+	phy-mode = "rmii";
+	phy-handle = <&ethernet_gem0_phy1>;
+
+	/* need to override the clocks to squeeze our external ref fmc_mii_clk1 here */
+	clocks = <&zynqmp_clk LPD_LSBUS>, <&fmc_mii_clk1>, <&zynqmp_clk GEM0_TX>,
+		 <&zynqmp_clk GEM0_RX>, <&zynqmp_clk GEM_TSU>;
+	clock-names = "pclk", "hclk", "tx_clk", "rx_clk", "tsu_clk";
+
+	ethernet_gem0_phy1: ethernet-phy@1 {
+		reg = <1>;
+		reset-gpios = <&gpio 115 GPIO_ACTIVE_HIGH>;
+		reset-assert-us = <20>; /* 10 us minimum */
+		reset-deassert-us = <10000>; /* 5 ms minimum */
+	};
+};
+
+&gem1 {
+	status = "okay";
+	phy-mode = "rmii";
+	phy-handle = <&ethernet_gem1_phy2>;
+
+	/* need to override the clocks to squeeze our external ref fmc_mii_clk2 here */
+	clocks = <&zynqmp_clk LPD_LSBUS>, <&fmc_mii_clk2>, <&zynqmp_clk GEM1_TX>,
+		 <&zynqmp_clk GEM1_RX>, <&zynqmp_clk GEM_TSU>;
+	clock-names = "pclk", "hclk", "tx_clk", "rx_clk", "tsu_clk";
+
+	ethernet_gem1_phy2: ethernet-phy@2 {
+		reg = <2>;
+		reset-gpios = <&gpio 114 GPIO_ACTIVE_HIGH>;
+		reset-assert-us = <20>; /* 10 us minimum */
+		reset-deassert-us = <10000>; /* 5 ms minimum */
+	};
+};

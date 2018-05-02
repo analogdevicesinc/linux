@@ -1,0 +1,16 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices ADV7511
+ * https://www.analog.com/en/products/adv7511.html
+ * https://wiki.analog.com/resources/tools-software/linux-drivers/platforms/zynq
+ * https://wiki.analog.com/resources/fpga/xilinx/kc705/adv7511
+ *
+ * hdl_project: <adv7511/zc702>
+ * board_revision: <>
+ *
+ * Copyright (C) 2012-2019 Analog Devices Inc.
+ */
+/dts-v1/;
+
+#include "zynq-zc702.dtsi"
+#include "zynq-zc702-adv7511.dtsi"

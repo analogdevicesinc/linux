@@ -1,0 +1,47 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices ADALM2000
+ * https://wiki.analog.com/university/tools/m2k
+ * https://wiki.analog.com/university/courses/electronics/labs
+ * https://wiki.analog.com/university/tools/adalm2000/devs/intro
+ * https://wiki.analog.com/university/tools/m2k/users/quick_start
+ *
+ * hdl_project: <m2k/standalone>
+ * board_revision: <B>
+ *
+ * Copyright (C) 2018-2019 Analog Devices Inc.
+ */
+/*
+ * 	Summary of RevA -> RevB hardware changes which require firmware changes:
+ *
+ *	ADP5589 pin 2  --enables user power supplies –active low
+ *	ADP5589 pin 3  --enables both ADC drivers
+ *	ADP5589 pin 4  --DONE LED override –LOW turns off the FPGA DONE LED (used to enable channel 2 ADC driver)
+ *	ADP5589 pin 19 --Power good – HIGH means everything is OK
+ *	ADP5589 pin 20 and 21 are inputs  --- they show which usb connectors are plugged in
+ *	Voltage and current monitors were removed
+ */
+
+#include "zynq-m2k-reva.dts"
+
+/delete-node/ &led_gpio_exp;
+/delete-node/ &current_limiter;
+/delete-node/ &supply_mon_adc;
+
+/ {
+	model = "Analog Devices M2k Rev.B (Z7010)";
+};
+
+&m2k_fabric {
+		/delete-property/ adi,revb;
+		/delete-property/ adi,revc;
+		adi,revd;
+
+		/delete-property/ en-sc1-gpio;
+		/delete-property/ en-sc2-gpio;
+		adi,powerdown-enable;
+
+		en-sc-gpio = <&gpio_exp 5 0>;
+
+		en-usr-pow-gpio = <&gpio_exp 6 1>;
+};

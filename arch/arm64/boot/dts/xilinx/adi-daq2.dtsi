@@ -1,0 +1,137 @@
+/ {
+	clocks {
+
+	};
+};
+
+&fmc_spi {
+	clk0_ad9523: ad9523-1@0 {
+		compatible = "adi,ad9523-1";
+		reg = <0>;
+
+		spi-max-frequency = <10000000>;
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		clock-output-names = "ad9523-1_out0", "ad9523-1_out1", "ad9523-1_out2", "ad9523-1_out3", "ad9523-1_out4", "ad9523-1_out5", "ad9523-1_out6", "ad9523-1_out7", "ad9523-1_out8", "ad9523-1_out9", "ad9523-1_out10", "ad9523-1_out11", "ad9523-1_out12", "ad9523-1_out13";
+		#clock-cells = <1>;
+
+		adi,vcxo-freq = <125000000>;
+		adi,spi-3wire-enable;
+		adi,pll1-bypass-enable;
+		adi,osc-in-diff-enable;
+
+		adi,pll2-charge-pump-current-nA = <413000>;
+
+		/*
+		 * Valid ranges based on VCO locking range:
+		 *    980.00 MHz - 1033.33 MHz
+		 *    735.00 MHz -  775.00 MHz
+		 *    588.00 MHz -  620.00 MHz
+		 */
+		adi,pll2-m1-freq = <1000000000>;
+
+		/* Manual PLL2 divider configuration */
+//		adi,pll2-r2-div = <1>;
+//		adi,pll2-vco-div-m1 = <3>;
+//		adi,pll2-ndiv-a-cnt = <0>; /* a = N % 4 */
+//		adi,pll2-ndiv-b-cnt = <6>; /* b = N / 4 */
+
+		adi,rpole2 = <0>;
+		adi,rzero = <7>;
+		adi,cpole1 = <2>;
+
+		ad9523_0_c1:channel@1 {
+			reg = <1>;
+			adi,extended-name = "DAC_CLK";
+			adi,driver-mode = <3>;
+			adi,divider-phase = <1>;
+			adi,channel-divider = <1>;
+//			adi,output-dis;
+		};
+		ad9523_0_c4:channel@4 {
+			reg = <4>;
+			adi,extended-name = "ADC_CLK_FMC";
+			adi,driver-mode = <3>;
+			adi,divider-phase = <1>;
+			adi,channel-divider = <2>;
+//			adi,output-dis;
+		};
+
+		ad9523_0_c5:channel@5 {
+			reg = <5>;
+			adi,extended-name = "ADC_SYSREF";
+			adi,driver-mode = <3>;
+			adi,divider-phase = <1>;
+			adi,channel-divider = <128>;
+//			adi,output-dis;
+		};
+
+		ad9523_0_c6:channel@6 {
+			reg = <6>;
+			adi,extended-name = "CLKD_ADC_SYSREF";
+			adi,driver-mode = <3>;
+			adi,divider-phase = <1>;
+			adi,channel-divider = <128>;
+//			adi,output-dis;
+		};
+
+		ad9523_0_c7:channel@7 {
+			reg = <7>;
+			adi,extended-name = "CLKD_DAC_SYSREF";
+			adi,driver-mode = <3>;
+			adi,divider-phase = <1>;
+			adi,channel-divider = <128>;
+//			adi,output-dis;
+		};
+
+		ad9523_0_c8:channel@8 {
+			reg = <8>;
+			adi,extended-name = "DAC_SYSREF";
+			adi,driver-mode = <3>;
+			adi,divider-phase = <1>;
+			adi,channel-divider = <128>;
+//			adi,output-dis;
+		};
+
+		ad9523_0_c9:channel@9 {
+			reg = <9>;
+			adi,extended-name = "FMC_DAC_REF_CLK";
+			adi,driver-mode = <3>;
+			adi,divider-phase = <1>;
+			adi,channel-divider = <2>;
+//			adi,output-dis;
+		};
+
+		ad9523_0_c13:channel@13 {
+			reg = <13>;
+			adi,extended-name = "ADC_CLK";
+			adi,driver-mode = <3>;
+			adi,divider-phase = <1>;
+			adi,channel-divider = <1>;
+//			adi,output-dis;
+		};
+	};
+
+	dac0_ad9144: ad9144@1 {
+		compatible = "adi,ad9144";
+		reg = <1>;
+
+		spi-max-frequency = <1000000>;
+
+		clocks = <&axi_ad9144_jesd>, <&clk0_ad9523 1>, <&clk0_ad9523 8>;
+		clock-names = "jesd_dac_clk", "dac_clk", "dac_sysref";
+	};
+
+	adc0_ad9680: ad9680@2 {
+		compatible = "adi,ad9680";
+		reg = <2>;
+
+		spi-max-frequency = <1000000>;
+
+		clocks = <&axi_ad9680_jesd>, <&clk0_ad9523 13>, <&clk0_ad9523 5>;
+		clock-names = "jesd_adc_clk", "adc_clk", "adc_sysref";
+	};
+};
+

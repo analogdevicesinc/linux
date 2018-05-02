@@ -1,0 +1,158 @@
+#include <dt-bindings/iio/frequency/ad9528.h>
+
+/ {
+	clocks {
+		adf_ref_clock: clock@0 {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <25000000>;
+			clock-output-names = "adf_ref_clock";
+		};
+	};
+
+	vref_adc: regulator-vref-adc {
+		compatible = "regulator-fixed";
+		regulator-name = "vref-adc";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		regulator-always-on;
+	};
+
+	vref_dac: regulator-vref-dac {
+		compatible = "regulator-fixed";
+		regulator-name = "vref-dac";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		regulator-always-on;
+	};
+};
+
+&spi_vco {
+	adf4360: pll@0 {
+		compatible = "adi,adf4360-7";
+		reg = <0>;
+		spi-max-frequency = <2000000>;
+
+		#clock-cells = <0>;
+
+		clocks = <&adf_ref_clock>;
+		clock-names = "clkin";
+		clock-output-names = "adf4360-7";
+
+		adi,loop-filter-charge-pump-current-microamp = <1870>;
+		adi,loop-filter-pfd-frequency-hz = <2500000>;
+		adi,power-up-frequency-hz = <1000000000>;
+	};
+};
+
+&spi_clkgen {
+	ad9528: ad9528@0 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		#clock-cells = <1>;
+		compatible = "adi,ad9528";
+
+		spi-max-frequency = <10000000>;
+		reg = <0>;
+
+		clocks = <&adf4360>;
+
+		clock-output-names = "ad9528_out0", "ad9528_out1", "ad9528_out2", "ad9528_out3", "ad9528_out4", "ad9528_out5", "ad9528_out6", "ad9528_out7", "ad9528_out8", "ad9528_out9", "ad9528_out10", "ad9528_out11", "ad9528_out12", "ad9528_out13";
+		adi,vcxo-freq = <1000000000>;
+
+		adi,osc-in-diff-enable;
+
+		/* PLL1 config */
+		adi,pll1-bypass-enable;
+
+		/* PLL2 config */
+		adi,pll2-bypass-enable;
+
+		ad9528_c0: channel@0 {
+			reg = <0>;
+			adi,extended-name = "ADC_SAMPLE_CLK";
+			adi,driver-mode = <DRIVER_MODE_LVDS>;
+			adi,divider-phase = <0>;
+			adi,channel-divider = <1>;
+			adi,signal-source = <SOURCE_VCO>;
+		};
+
+		ad9528_c1: channel@1 {
+			reg = <1>;
+			adi,extended-name = "CLK_SYSREF_ADC";
+			adi,driver-mode = <DRIVER_MODE_LVDS>;
+			adi,divider-phase = <0>;
+			adi,channel-divider = <128>;
+			adi,signal-source = <SOURCE_VCO>;
+		};
+
+		ad9528_c2: channel@2 {
+			reg = <2>;
+			adi,extended-name = "SYSREF_TO_FPGA";
+			adi,driver-mode = <DRIVER_MODE_LVDS>;
+			adi,divider-phase = <4>;
+			adi,channel-divider = <128>;
+			adi,signal-source = <SOURCE_VCO>;
+		};
+
+		ad9528_c3: channel@3 {
+			reg = <3>;
+			adi,extended-name = "ADC_DEV_CLK";
+			adi,driver-mode = <DRIVER_MODE_LVDS>;
+			adi,divider-phase = <0>;
+			adi,channel-divider = <4>;
+			adi,signal-source = <SOURCE_VCO>;
+		};
+
+		ad9528_c4: channel@4 {
+			reg = <4>;
+			adi,extended-name = "EXT_REFCLK_TO_FPGA";
+			adi,driver-mode = <DRIVER_MODE_LVDS>;
+			adi,divider-phase = <0>;
+			adi,channel-divider = <4>;
+			adi,signal-source = <SOURCE_VCO>;
+		};
+
+	};
+};
+
+&spi_adc {
+	ad9094: ad9094@1 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		#clock-cells = <1>;
+		compatible = "adi,ad9094";
+
+		/* SPI Setup */
+		reg = <0>;
+		spi-max-frequency = <25000000>;
+
+		/* Clocks */
+		clocks = <&axi_ad9094_rx_jesd>, <&ad9528 0>, <&ad9528 1>;
+		clock-names = "jesd_adc_clk", "adc_clk", "adc_sysref";
+	};
+};
+
+&spi_afe_adc {
+	ad7091: ad7091@0 {
+		compatible = "adi,ad7091";
+		reg = <0>;
+		spi-max-frequency = <1000000>;
+		spi-cpol;
+		vcc-supply = <&vref_adc>;
+	};
+};
+
+&i2c_afe_dac {
+	ad5627@0c {
+		compatible = "ad5627";
+		reg = <0x0c>;
+
+		vref-supply = <&vref_dac>;
+	};
+
+	ltc2461@14 {
+		compatible = "ltc2471";
+		reg = <0x14>;
+	};
+};

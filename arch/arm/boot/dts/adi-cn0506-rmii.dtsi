@@ -1,0 +1,45 @@
+#include <dt-bindings/gpio/gpio.h>
+
+&gem0 {
+	status = "okay";
+	phy-mode = "rmii";
+	phy-handle = <&ethernet_gem0_phy1>;
+	/* Override compatible string to configure a MAC that works
+	 * at 100 Mbit. Otherwise gigabit can be advertised by the
+	 * PHY after matching MAC link caps with PHY link caps,
+	 * even though, the design won't be able to actually support it
+	 */
+	compatible = "cdns,macb";
+
+	clocks = <&clkc 30>, <&fmc_mii_clk1>, <&clkc 13>;
+	clock-names = "pclk", "hclk", "tx_clk";
+
+	ethernet_gem0_phy1: ethernet-phy@1 {
+		reg = <1>;
+		reset-gpios = <&gpio0 91 GPIO_ACTIVE_HIGH>;
+		reset-assert-us = <20>; /* 10 us minimum */
+		reset-deassert-us = <10000>; /* 5 ms minimum */
+	};
+};
+
+&gem1 {
+	status = "okay";
+	phy-mode = "rmii";
+	phy-handle = <&ethernet_gem1_phy2>;
+	/* Override compatible string to configure a MAC that works
+	 * at 100 Mbit. Otherwise gigabit can be advertised by the
+	 * PHY after matching MAC link caps with PHY link caps,
+	 * even though, the design won't be able to actually support it
+	 */
+	compatible = "cdns,macb";
+
+	clocks = <&clkc 31>, <&fmc_mii_clk2>, <&clkc 14>;
+	clock-names = "pclk", "hclk", "tx_clk";
+
+	ethernet_gem1_phy2: ethernet-phy@2 {
+		reg = <2>;
+		reset-gpios = <&gpio0 90 GPIO_ACTIVE_HIGH>;
+		reset-assert-us = <20>; /* 10 us minimum */
+		reset-deassert-us = <10000>; /* 5 ms minimum */
+	};
+};

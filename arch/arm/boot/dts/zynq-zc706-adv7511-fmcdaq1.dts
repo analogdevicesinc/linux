@@ -1,0 +1,49 @@
+/dts-v1/;
+
+#include "zynq-zc706.dtsi"
+#include "zynq-zc706-adv7511.dtsi"
+
+&fpga_axi {
+	rx_dma: dma@44a60000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x44a60000 0x10000>;
+		#dma-cells = <1>;
+		interrupts = <0 57 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clkc 16>;
+
+		adi,channels {
+			#size-cells = <0>;
+			#address-cells = <1>;
+
+			dma-channel@0 {
+				reg = <0>;
+				adi,source-bus-width = <64>;
+				adi,source-bus-type = <2>;
+				adi,destination-bus-width = <64>;
+				adi,destination-bus-type = <0>;
+			};
+		};
+	};
+
+	ad9684_core: ad9684-core@44a20000 {
+		compatible = "adi,axi-ad9684-1.0";
+		reg = <0x44a20000 0x10000>;
+		dmas = <&rx_dma 0>;
+		dma-names = "rx";
+		spibus-connected = <&adc_ad9684>;
+	};
+
+	ad9122_core: ad9122-core-lpc@44a04000 {
+		compatible = "adi,axi-ad9122-6.00.a";
+		reg = <0x44a04000 0x10000>;
+		spibus-connected = <&dac_ad9122>;
+	};
+};
+
+&spi0 {
+	status = "okay";
+};
+
+#define fmc_spi spi0
+
+#include "adi-daq1.dtsi"

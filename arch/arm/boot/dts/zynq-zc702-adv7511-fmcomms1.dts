@@ -1,0 +1,68 @@
+/dts-v1/;
+
+#include "zynq-zc702.dtsi"
+#include "zynq-zc702-adv7511.dtsi"
+
+&fpga_axi {
+	rx_dma: dma@7c400000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x7c400000 0x10000>;
+		#dma-cells = <1>;
+		interrupts = <0 57 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clkc 16>;
+
+		adi,channels {
+			#size-cells = <0>;
+			#address-cells = <1>;
+
+			dma-channel@0 {
+				reg = <0>;
+				adi,source-bus-width = <64>;
+				adi,source-bus-type = <2>;
+				adi,destination-bus-width = <64>;
+				adi,destination-bus-type = <0>;
+			};
+		};
+	};
+
+	tx_dma: dma@7c420000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x7c420000 0x10000>;
+		#dma-cells = <1>;
+		interrupts = <0 56 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clkc 16>;
+
+		adi,channels {
+			#size-cells = <0>;
+			#address-cells = <1>;
+
+			dma-channel@0 {
+				reg = <0>;
+				adi,source-bus-width = <64>;
+				adi,source-bus-type = <0>;
+				adi,destination-bus-width = <64>;
+				adi,destination-bus-type = <2>;
+			};
+		};
+	};
+
+	cf_ad9643_core_0: cf-ad9643-core-lpc@79020000 {
+		compatible = "adi,axi-ad9643-6.00.a";
+		reg = <0x79020000 0x10000>;
+		dmas = <&rx_dma 0>;
+		dma-names = "rx";
+
+		spibus-connected = <&adc0_ad9467>;
+	};
+
+	cf_ad9122_core_0: cf-ad9122-core-lpc@74204000 {
+		compatible = "adi,axi-ad9122-6.00.a";
+		reg = <0x74204000 0x10000>;
+		dmas = <&tx_dma 0>;
+		dma-names = "tx";
+
+		spibus-connected = <&dac0_ad9122>;
+	};
+};
+
+#include "adi-fmcomms1.dtsi"

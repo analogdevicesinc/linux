@@ -1,0 +1,55 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices ADALM Pluto
+ * https://wiki.analog.com/university/tools/pluto
+ * https://wiki.analog.com/university/tools/pluto/users
+ * https://wiki.analog.com/university/tools/pluto/users/firmware
+ * https://wiki.analog.com/university/tools/pluto/other
+ *
+ * hdl_project: <pluto>
+ * board_revision: <B>
+ *
+ * Copyright (C) 2016-2019 Analog Devices Inc.
+ */
+/dts-v1/;
+#include "zynq-pluto-sdr.dtsi"
+#include <dt-bindings/input/input.h>
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+
+&axi_i2c0 {
+	current_limiter@5a {
+		compatible = "adi,adm1177";
+		reg = <0x5a>;
+		adi,r-sense-mohm = <50>; /* 50 mOhm */
+		adi,shutdown-threshold-ma = <1059>; /* 1.059 A */
+		adi,vrange-high-enable;
+	};
+};
+
+/ {
+	model = "Analog Devices PlutoSDR Rev.B (Z7010/AD9363)";
+
+	leds {
+		compatible = "gpio-leds";
+		led0 {
+			label = "led0:green";
+			gpios = <&gpio0 15 0>;
+			linux,default-trigger = "heartbeat";
+		};
+	};
+
+	gpio_keys {
+		compatible = "gpio-keys";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		button {
+			interrupt-parent = <&gpio0>;
+			interrupts = <14 IRQ_TYPE_EDGE_FALLING>;
+			label = "Button";
+			linux,code = <BTN_MISC>;
+		};
+
+	};
+};

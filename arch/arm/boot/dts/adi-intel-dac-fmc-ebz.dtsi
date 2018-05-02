@@ -1,0 +1,97 @@
+/ {
+	soc {
+		sys_hps_bridges: bridge@ff200000 {
+			compatible = "altr,bridge-16.0", "simple-bus";
+			reg = <0xff200000 0x00200000>;
+
+			#address-cells = <1>;
+			#size-cells = <1>;
+			ranges = <0x00000000 0xff200000 0x00200000>;
+
+			sys_gpio_in: sys-gpio-in@0 {
+				compatible = "altr,pio-16.0", "altr,pio-1.0";
+				reg = <0x00 0x10>;
+
+				#gpio-cells = <2>;
+				gpio-controller;
+			};
+
+			sys_gpio_out: sys-gpio-out@20 {
+				compatible = "altr,pio-16.0", "altr,pio-1.0";
+				reg = <0x20 0x10>;
+
+				#gpio-cells = <2>;
+				gpio-controller;
+			};
+
+			sys_spi: spi@40 {
+				compatible = "altr,spi-16.0", "altr,spi-1.0";
+				reg = <0x40 0x20>;
+
+				interrupt-parent = <&intc>;
+				interrupts = <0 26 4>;
+
+				#address-cells = <0x1>;
+				#size-cells = <0x0>;
+			};
+
+			dac_dma: dmac@40000 {
+				reg = <0x40000 0x4000>;
+
+				interrupt-parent = <&intc>;
+				interrupts = <0 30 0>;
+
+				clocks = <&dma_clk>;
+			};
+
+			jesd204_transport: jesd204-transport-layer@34000 {
+				reg = <0x34000 0x4000>;
+			};
+
+			jesd204_link: jesd204-link-layer@20000 {
+				reg = <0x20000 0x4000>;
+
+				interrupt-parent = <&intc>;
+				interrupts = <0 28 0>;
+
+				clocks = <&sys_clk>, <&tx_device_clk_pll>, <&jesd204_phy>;
+				clock-names = "s_axi_aclk", "device_clk", "lane_clk";
+			};
+
+			jesd204_phy: jesd204-phy@24000 {
+				compatible = "adi,altera-adxcvr-1.00.a";
+				reg = <0x24000 0x1000>,
+				      <0x26000 0x1000>,
+				      <0x28000 0x1000>,
+				      <0x29000 0x1000>,
+				      <0x2a000 0x1000>,
+				      <0x2b000 0x1000>,
+				      <0x2c000 0x1000>,
+				      <0x2d000 0x1000>,
+				      <0x2e000 0x1000>,
+				      <0x2f000 0x1000>;
+				reg-names = "adxcvr", "atx-pll",
+					"adxcfg-0", "adxcfg-1", "adxcfg-2", "adxcfg-3",
+					"adxcfg-4", "adxcfg-5", "adxcfg-6", "adxcfg-7";
+
+				clocks = <&fpga_device_clk>, <&tx_device_clk_pll>;
+				clock-names = "ref", "link";
+
+				#clock-cells = <0>;
+				clock-output-names = "jesd204_tx_lane_clock";
+			};
+
+			tx_device_clk_pll: altera-a10-fpll@25000 {
+				compatible = "altr,a10-fpll";
+				reg = <0x25000 0x1000>;
+
+				clocks = <&fpga_device_clk>;
+
+				#clock-cells = <0>;
+				clock-output-names = "jesd204_tx_link_clock";
+			};
+		};
+	};
+};
+
+#include "adi-common-dac-fmc-ebz.dtsi"

@@ -1,0 +1,30 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * ADIN1100 Eval board on ZCU102 carrier
+ *
+ * hdl_project: <>
+ * board_revision: <>
+ *
+ * Copyright 2020 Analog Devices Inc.
+ */
+#include "zynqmp-zcu102-rev1.0.dts"
+
+&i2c1 {
+	i2c-mux@75 {
+		i2c@1 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <1>;
+			/* HPC1_IIC */
+			eeprom@50 {
+				compatible = "at24,24c02";
+				reg = <0x50>;
+			};
+		};
+	};
+};
+
+&gem1 {
+	status = "okay";
+	phy-mode = "rmii";
+};
