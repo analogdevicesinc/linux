@@ -1,0 +1,52 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices ADRV9008-1 (via jesd204-fsm)
+ * https://wiki.analog.com/resources/eval/user-guides/adrv9009
+ * https://wiki.analog.com/resources/tools-software/linux-drivers/iio-transceiver/adrv9009
+ * https://wiki.analog.com/resources/tools-software/linux-software/adrv9009_advanced_plugin
+ *
+ * hdl_project: <adrv9009/zc706>
+ * board_revision: <>
+ *
+ * Copyright (C) 2020 Analog Devices Inc.
+ */
+
+#include "zynq-zc706-adv7511-adrv9008-1.dts"
+
+#include <dt-bindings/iio/adc/adi,adrv9009.h>
+
+&trx0_adrv9009 {
+	jesd204-device;
+	#jesd204-cells = <2>;
+	jesd204-top-device = <0>; /* This is the TOP device */
+	jesd204-link-ids = <FRAMER_LINK_RX>;
+
+	jesd204-inputs =
+		<&axi_adrv9009_rx_jesd 0 FRAMER_LINK_RX>;
+
+	/delete-property/ interrupts;
+};
+
+&axi_adrv9009_rx_jesd {
+	jesd204-device;
+	#jesd204-cells = <2>;
+	jesd204-inputs = <&axi_adrv9009_adxcvr_rx 0 FRAMER_LINK_RX>;
+};
+
+&axi_adrv9009_adxcvr_rx {
+	jesd204-device;
+	#jesd204-cells = <2>;
+	jesd204-inputs =  <&clk0_ad9528 0 FRAMER_LINK_RX>;
+	clocks = <&clk0_ad9528 1>; /* div40 is controlled by axi_adrv9009_rx_jesd */
+	clock-names = "conv";
+};
+
+&clk0_ad9528 {
+	jesd204-device;
+	#jesd204-cells = <2>;
+	jesd204-sysref-provider;
+
+	adi,sysref-pattern-mode = <SYSREF_PATTERN_NSHOT>;
+	/delete-property/ adi,sysref-request-enable;
+	adi,sysref-nshot-mode = <SYSREF_NSHOT_8_PULSES>;
+};

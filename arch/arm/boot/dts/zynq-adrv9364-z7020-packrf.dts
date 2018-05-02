@@ -1,0 +1,346 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * AD9364-Z7020 System on Module (SOM) SDR - PackRF Carrier
+ * Link: https://www.analog.com/ADRV9361-Z7020
+ * Link: https://wiki.analog.com/resources/eval/user-guides/adrv936x_rfsom
+ *
+ * hdl_project: <adrv9364z7020/ccpackrf_lvds>
+ * board_revision: <>
+ *
+ * Copyright 2016-2019 Analog Devices Inc.
+ */
+/dts-v1/;
+#include "zynq-adrv9364-z7020.dtsi"
+#include <dt-bindings/input/input.h>
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+
+/ {
+	model = "Analog Devices ADRV9364-Z7020 RFSOM-BOX (Z7020/AD9364)";
+};
+
+&axi_i2c0 {
+	ad7291-ccbox@2f {
+		compatible = "adi,ad7291";
+		reg = <0x2f>;
+	};
+
+	eeprom@50 {
+		compatible = "at24,24c32";
+		reg = <0x50>;
+	};
+
+	adau1761: adau1761@3a {
+		compatible = "adi,adau1761";
+		reg = <0x3a>;
+
+		clocks = <&audio_clock>;
+		clock-names = "mclk";
+
+		#sound-dai-cells = <0>;
+	};
+
+	ts3a227e@3b {
+		compatible = "ti,ts3a227e";
+		reg = <0x3b>;
+		interrupt-parent = <&gpio0>;
+		interrupts = <75 IRQ_TYPE_LEVEL_LOW>;
+		ti,micbias = <1>; /* 2.2 Volt */
+		ti,insertion-debounce-time = <6>; /* 1 sec */
+	};
+
+	rtc@68 {
+		compatible = "dallas,ds3232";
+		reg = <0x69>;
+		interrupt-parent = <&gpio0>;
+		interrupts = <80 IRQ_TYPE_LEVEL_LOW>;
+	};
+
+	fuelgauge: ltc2942@64 {
+		compatible = "lltc,ltc2942";
+		reg = <0x64>;
+		lltc,resistor-sense = <20>;
+		lltc,prescaler-exponent = <5>; /* 2^(2*5) = 1024 */
+	};
+};
+
+/ {
+	leds {
+		compatible = "gpio-leds";
+		led0 {
+			label = "led0:red";
+			gpios = <&gpio0 56 0>;
+			linux,default-trigger = "heartbeat";
+			};
+
+		led1 {
+			label = "led1:green";
+			gpios = <&gpio0 55 0>;
+			linux,default-trigger = "heartbeat";
+		};
+
+		led2 {
+			label = "led2:blue";
+			gpios = <&gpio0 54 0>;
+			linux,default-trigger = "heartbeat";
+		};
+	};
+
+	gpio-keys-power {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "gpio-keys";
+
+		power {
+			interrupt-parent = <&gpio0>;
+			interrupts = <76 IRQ_TYPE_EDGE_FALLING>;
+
+			label = "Power";
+			//gpios = <&gpio0 76 GPIO_ACTIVE_LOW>;
+
+			linux,code = <KEY_POWER>;
+			gpio-key,wakeup;
+		};
+	};
+
+	gpio-keys-nav-switch {
+		compatible = "gpio-keys";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		interrupt-parent = <&gpio0>;
+		autorepeat;
+
+		s5 {
+			label = "Right";
+			linux,code = <KEY_RIGHT>;
+			interrupts = <101 IRQ_TYPE_EDGE_RISING>;
+			debounce-interval = <10>;
+		};
+
+		s3 {
+			label = "Left";
+			linux,code = <KEY_LEFT>;
+			interrupts = <103 IRQ_TYPE_EDGE_RISING>;
+			debounce-interval = <10>;
+			};
+
+		s4 {
+			label = "Down";
+			linux,code = <KEY_DOWN>;
+			interrupts = <102 IRQ_TYPE_EDGE_RISING>;
+			debounce-interval = <10>;
+		};
+
+		s2 {
+			label = "Up";
+			linux,code = <KEY_UP>;
+			interrupts = <104 IRQ_TYPE_EDGE_RISING>;
+			debounce-interval = <10>;
+		};
+
+		s1 {
+			label = "Enter";
+			linux,code = <KEY_ENTER>;
+			interrupts = <111 IRQ_TYPE_EDGE_RISING>;
+			debounce-interval = <10>;
+		};
+
+	};
+
+	rotary {
+			compatible = "rotary-encoder";
+			gpios = <&gpio0 112 1>, <&gpio0 113 1>;
+			linux,axis = <REL_WHEEL>;
+			rotary-encoder,steps = <24>;
+			rotary-encoder,steps-per-period = <2>;
+			rotary-encoder,rollover;
+			rotary-encoder,relative-axis;
+	};
+
+	poweroff {
+		compatible = "gpio-poweroff";
+		gpios = <&gpio0 77 GPIO_ACTIVE_LOW>;
+	};
+
+	audio_clock: audio_clock {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <12288000>;
+	};
+
+
+	pzsdr_sound {
+		compatible = "simple-audio-card-adrv936x-box";
+		simple-audio-card,name = "ADRV9364-Z7020 ADAU1761";
+		simple-audio-card,widgets =
+			"Microphone", "Mic In",
+			"Headphone", "Headphone Out";
+		simple-audio-card,routing =
+			"Headphone Out", "LHP",
+			"Headphone Out", "RHP",
+			"Mic In", "MICBIAS",
+			"LINN", "Mic In";
+
+		simple-audio-card,dai-link@0 {
+			format = "i2s";
+			cpu {
+				sound-dai = <&axi_i2s_0>;
+				frame-master;
+				bitclock-master;
+			};
+			codec {
+				sound-dai = <&adau1761>;
+			};
+		};
+	};
+};
+
+&gpio0 {
+	imu_rstn {
+		gpio-hog;
+		gpios = <63 0>;
+		output-high;
+		line-name = "imu_rstn";
+	};
+
+	gps_reset0 {
+		gpio-hog;
+		gpios = <60 0>;
+		output-high;
+		line-name = "gps_reset";
+	};
+
+	gps_force_on {
+		gpio-hog;
+		gpios = <59 0>;
+		input;
+		line-name = "gps_force_on";
+	};
+
+	gps_standby {
+		gpio-hog;
+		gpios = <58 0>;
+		input;
+		line-name = "gps_standby";
+	};
+};
+
+ /* Display:
+  * NHD-1.69-160128UGC3 (Newhaven Display International, Inc.)
+  */
+
+&spi0 {
+	status = "okay";
+
+	nhd@0{
+		compatible = "syncoam,seps525";
+		reg = <1>;
+		status = "ok";
+
+		spi-max-frequency = <10000000>;
+		spi-cpol;
+		spi-cpha;
+		rotate = <0>;
+		fps = <50>;
+		buswidth = <8>;
+		txbuflen = <64000>;
+		reset-gpios = <&gpio0 64 0>;
+		dc-gpios = <&gpio0 65 0>;
+		debug = <0>;
+	};
+};
+
+&spi1 {
+	status = "okay";
+	num-cs = <4>;
+	is-decoded-cs = <0>;
+
+	adis16460@0{
+		compatible = "adi,adis16460";
+		reg = <0>;
+		spi-max-frequency = <1000000>;
+		spi-cpol;
+		spi-cpha;
+		interrupt-parent = <&gpio0>;
+		interrupts = <82 IRQ_TYPE_EDGE_RISING>;
+	};
+};
+
+&usb0 {
+	status = "okay";
+	dr_mode = "otg";
+};
+
+&uart0 {
+	status = "okay";
+};
+
+&aliases {
+	serial1 = &uart0;
+};
+
+&fpga_axi {
+	axi_i2s_0: axi-i2s@77600000 {
+		compatible = "adi,axi-i2s-1.00.a";
+		reg = <0x77600000 0x1000>;
+		dmas = <&dmac_s 0 &dmac_s 1>;
+		dma-names = "tx", "rx";
+		clocks = <&clkc 15>, <&audio_clock>;
+		clock-names = "axi", "ref";
+
+		#sound-dai-cells = <0>;
+	};
+};
+
+/*
+
+input	imu_ready	28	82
+output	imu_rstn	9	63
+inout	imu_sync	8	62
+
+output	oled_rst	10	64
+output	oled_dc		11	65
+
+output	switch_led_r	2	56
+output	switch_led_g	1	55
+output	switch_led_b	0	54
+
+output	gps_reset	6	60
+output	gps_force_on	5	59
+output	gps_standby	4	58
+input	gps_pps		7	61
+
+input	pss_valid_n_0	12	66
+input	pss_valid_n_1	13	67
+input	pss_valid_n_2	14	68
+inout	adp5061_io_0	16	70
+inout	adp5061_io_1	17	71
+inout	adp5061_io_2	18	72
+
+	rtc_int		26	80
+	adp1614_en	25	79
+	otg_ctrl	24	78
+
+inout	ltc2955_kill_n	23	77
+inout	ltc2955_int_n	22	76
+inout	mic_present_n	20	74
+inout	ts3a227_int_n	21	75
+
+output	enable		47	101
+output	txnrx		48	102
+
+inout	gpio_rf0	56	110
+inout	gpio_rf1	55	109
+inout	gpio_rf2	54	108
+inout	gpio_rf3	53	107
+inout	gpio_rf4	61	115
+inout	gpio_rfpwr_enable 52	106
+inout	gpio_clksel	51	105
+inout	gpio_resetb	46	100
+inout	gpio_sync	45	99
+inout	gpio_en_agc	44	98
+inout	gpio_ctl	40..43	94..97
+inout	gpio_status	32..39	86..93
+
+*/
+

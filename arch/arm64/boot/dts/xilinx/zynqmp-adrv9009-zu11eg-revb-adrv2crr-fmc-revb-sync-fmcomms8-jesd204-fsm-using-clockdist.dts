@@ -1,0 +1,155 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices ADRV2CRR-FMC using ADRV9009-ZU11EG System on Module + AD-FMCOMMS8-EBZ
+ *
+ * The clocking tree on the ADRV2CRR-FMC using ADRV9009-ZU11EG System on Module + AD-FMCOMMS8-EBZ
+ * supports both REFERENCE distribution using HMC7044 PLL1 & PLL2, synced via SYNC pin and
+ * CLOCK distribution using HMC7044 CLKIN1/FIN and synced via CLKIN0/RFSYNC.
+ *
+ * This devicetree configures the HMC7044 clock chips on the SOM and FMCOMMS8 to act as HMC7043
+ * by disabling PLL1 & PLL2 and receiving a high frequency distribution clock via CLKIN1/FIN.
+ *
+ * https://wiki.analog.com/resources/eval/user-guides/adrv9009-zu11eg/adrv2crr-fmc_carrier_board
+ * https://wiki.analog.com/resources/eval/user-guides/ad-fmcomms8-ebz
+ * https://wiki.analog.com/resources/tools-software/linux-drivers/iio-transceiver/adrv9009
+ * https://wiki.analog.com/resources/tools-software/linux-software/adrv9009_advanced_plugin
+ *
+ * hdl_project: <adrv9009zu11eg/adrv2crr_fmcomms8>
+ * board_revision: <>
+ *
+ * Copyright (C) 2020 Analog Devices Inc.
+ */
+#include "zynqmp-adrv9009-zu11eg-revb-adrv2crr-fmc-revb-sync-fmcomms8-jesd204-fsm.dts"
+#include <dt-bindings/iio/frequency/hmc7044.h>
+
+#define REFCLK_DIV	4 /* 983.04 MHz via clkin1 / 4 = 245.76 MHz */
+#define DEV_DIG_DELAY	5 /* used to be 15 -> now 5 */
+
+&hmc7044 {
+	adi,sync-pin-mode = <0>;
+
+	adi,hmc-two-level-tree-sync-en;
+
+	adi,clkin1-vco-in-enable;
+	adi,clkin0-rf-sync-enable;
+
+	adi,clkin0-buffer-mode = <0x0b>; /* Needs HW modification - remove AC couble Caps */
+	adi,clkin1-buffer-mode = <0x0b>;
+
+	clocks = <&hmc7044_car 2>;
+	clock-names = "clkin1";
+
+	hmc7044_c0: channel@0 {
+		reg = <0>;
+		adi,extended-name = "DEV_REFCLK_A";
+		adi,divider = <REFCLK_DIV>;	// 245760000
+		adi,coarse-digital-delay = <DEV_DIG_DELAY>;
+	};
+
+	hmc7044_c2: channel@2 {
+		reg = <2>;
+		adi,extended-name = "DEV_REFCLK_B";
+		adi,divider = <REFCLK_DIV>;	// 245760000
+		adi,coarse-digital-delay = <DEV_DIG_DELAY>;
+	};
+
+	hmc7044_c4: channel@4 {
+		reg = <4>;
+		adi,extended-name = "JESD_REFCLK_TX_OBS_AB";
+		adi,divider = <REFCLK_DIV>;	// 245760000
+	};
+
+	hmc7044_c5: channel@5 {
+		reg = <5>;
+		adi,extended-name = "JESD_REFCLK_RX_AB";
+		adi,divider = <REFCLK_DIV>;	// 245760000
+	};
+};
+
+&hmc7044_fmc {
+	adi,pulse-generator-mode = <HMC7044_PULSE_GEN_16_PULSE>;
+	adi,sync-pin-mode = <0>;
+
+	adi,hmc-two-level-tree-sync-en;
+
+	adi,clkin1-vco-in-enable;
+	adi,clkin0-rf-sync-enable;
+
+	clocks = <&hmc7044_car 9>;
+	clock-names = "clkin1";
+
+	adi,clkin0-buffer-mode = <0x0b>; /* Needs HW modification - remove AC couble Caps */
+	adi,clkin1-buffer-mode = <0x0b>;
+
+	hmc7044_fmc_c0: channel@0 {
+		reg = <0>;
+		adi,extended-name = "DEV_REFCLK_C";
+		adi,divider = <REFCLK_DIV>;	// 245760000
+		adi,coarse-digital-delay = <DEV_DIG_DELAY>;
+	};
+
+	hmc7044_fmc_c2: channel@2 {
+		reg = <2>;
+		adi,extended-name = "DEV_REFCLK_D";
+		adi,divider = <REFCLK_DIV>;	// 245760000
+		adi,coarse-digital-delay = <DEV_DIG_DELAY>;
+	};
+
+	hmc7044_fmc_c4: channel@4 {
+		reg = <4>;
+		adi,extended-name = "JESD_REFCLK_TX_OBS_CD";
+		adi,divider = <REFCLK_DIV>;	// 245760000
+	};
+
+	hmc7044_fmc_c5: channel@5 {
+		reg = <5>;
+		adi,extended-name = "JESD_REFCLK_RX_CD";
+		adi,divider = <REFCLK_DIV>;	// 245760000
+	};
+};
+
+#define REF_DIV 3 /* 983.04 MHz */
+
+&hmc7044_car {
+	/* SYSREF Provider */
+	adi,pulse-generator-mode = <HMC7044_PULSE_GEN_1_PULSE>;
+	adi,sync-pin-mode = <0>;
+
+	adi,hmc-two-level-tree-sync-en;
+
+	hmc7044_car_c0: channel@0 {
+		reg = <0>;
+		adi,extended-name = "RFSYNC_SOM";
+		adi,divider = <1024>; /* set by the jesd204-fsm */
+		adi,driver-mode = <HMC7044_DRIVER_MODE_LVPECL>;
+		adi,startup-mode-dynamic-enable;
+		adi,high-performance-mode-disable;
+		adi,force-mute-enable;
+		adi,control0-rb4-enable;
+	};
+
+	hmc7044_car_c2: channel@2 {
+		reg = <2>;
+		adi,extended-name = "REFCLK_OUT2";
+		adi,divider = <REF_DIV>;
+		adi,driver-mode = <HMC7044_DRIVER_MODE_LVPECL>;
+	};
+
+	hmc7044_car_c8: channel@8 {
+		reg = <8>;
+		adi,extended-name = "RFSYNC_FMC";
+		adi,divider = <1024>; /* set by the jesd204-fsm */
+		adi,driver-mode = <HMC7044_DRIVER_MODE_LVPECL>;
+		adi,startup-mode-dynamic-enable;
+		adi,high-performance-mode-disable;
+		adi,force-mute-enable;
+		adi,control0-rb4-enable;
+	};
+
+	hmc7044_car_c9: channel@9 {
+		reg = <9>;
+		adi,extended-name = "REFCLK_OUT4";
+		adi,divider = <REF_DIV>;
+		adi,driver-mode = <HMC7044_DRIVER_MODE_LVPECL>;
+	};
+};

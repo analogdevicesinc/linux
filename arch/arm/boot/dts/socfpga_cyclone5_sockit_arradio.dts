@@ -1,0 +1,251 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * ARRADIO AD9361 HSMC board
+ * Link: https://wiki.analog.com/resources/eval/user-guides/arradio
+ *
+ * hdl_project: <arradio/c5soc>
+ * board_revision: <>
+ *
+ * Copyright 2020 Analog Devices Inc.
+ */
+#include <dt-bindings/interrupt-controller/irq.h>
+
+#include "socfpga_cyclone5.dtsi"
+
+/ {
+	model = "Terasic SoCkit";
+	compatible = "altr,socfpga-cyclone5", "altr,socfpga";
+
+	chosen {
+		bootargs = "console=ttyS0,115200";
+	};
+
+	memory {
+		name = "memory";
+		device_type = "memory";
+		reg = <0x0 0x40000000>;
+	};
+
+	aliases {
+		ethernet0 = &gmac1;
+	};
+
+	dma_clk: dma_clk {
+		#clock-cells = <0x0>;
+		compatible = "fixed-clock";
+		clock-frequency = <250000000>;
+		clock-output-names = "dma_clock";
+	};
+
+	soc {
+		clkmgr@ffd04000 {
+			clocks {
+				osc1 {
+					clock-frequency = <25000000>;
+				};
+			};
+		};
+
+		gmac1: ethernet@ff702000 {
+			phy-mode = "rgmii";
+			phy-addr = <0xffffffff>; /* probe for phy addr */
+			status = "okay";
+
+			rxd0-skew-ps = <0>;
+			rxd1-skew-ps = <0>;
+			rxd2-skew-ps = <0>;
+			rxd3-skew-ps = <0>;
+			txen-skew-ps = <0>;
+			txc-skew-ps = <2600>;
+			rxdv-skew-ps = <0>;
+			rxc-skew-ps = <2000>;
+		};
+
+		timer0: timer0@ffc08000 {
+			clock-frequency = <100000000>;
+		};
+
+		timer1: timer1@ffc09000 {
+			clock-frequency = <100000000>;
+		};
+
+		timer2: timer2@ffd00000 {
+			clock-frequency = <25000000>;
+		};
+
+		timer3: timer3@ffd01000 {
+			clock-frequency = <25000000>;
+		};
+
+		uart0: serial0@ffc02000 {
+			clock-frequency = <100000000>;
+		};
+
+		uart1: serial1@ffc03000 {
+			clock-frequency = <100000000>;
+		};
+
+		mmc: dwmmc0@ff704000 {
+			status = "okay";
+			supports-highspeed;
+			altr,dw-mshc-ciu-div = <0x3>;
+			altr,dw-mshc-sdr-timing = <0x0 0x3>;
+			slot@0 {
+				reg = <0x0>;
+				bus-width = <0x4>;
+			};
+		};
+
+		usb1: usb@ffb40000 {
+			status = "okay";
+			enable-dynamic-fifo = <1>;
+			host-rx-fifo-size = <0xa00>;
+			host-perio-tx-fifo-size = <0xa00>;
+			host-nperio-tx-fifo-size = <0xa00>;
+			dma-desc-enable = <0>;
+			dr_mode = "host";
+		};
+
+		i2c0: i2c@ffc04000 {
+			status = "okay";
+			speed-mode = <0>;
+			#size-cells = <0>;
+			#address-cells = <1>;
+		};
+
+		sys_hps_bridges: bridge@c0000000 {
+			compatible = "simple-bus";
+			reg = <0xc0000000 0x20000000>,
+				<0xff200000 0x00200000>;
+			reg-names = "axi_h2f", "axi_h2f_lw";
+			#address-cells = <2>;
+			#size-cells = <1>;
+			ranges = <0x00000000 0x00000000 0xc0000000 0x00010000>,
+				<0x00000001 0x00009000 0xff209000 0x00000080>,
+				<0x00000001 0x00100000 0xff300000 0x00100000>;
+
+			alt_vip_vfr_vga: vip@100009000 {
+				compatible = "ALTR,vip-frame-reader-9.1";
+				reg = <0x00000001 0x00009000 0x00000080>;
+				max-width = <1360>;
+				max-height = <768>;
+				bits-per-color = <8>;
+				colors-per-beat = <4>;
+				beats-per-pixel = <1>;
+				mem-word-width = <128>;
+			};
+
+			c5soc_sys_cpu_interconnect: bridge@100100000 {
+				compatible = "simple-bus";
+				reg = <0x00000001 0x00100000 0x00100000>;
+				#address-cells = <1>;
+				#size-cells = <1>;
+				ranges = <0x00020000 0x00000001 0x00120000 0x00010000>,
+					<0x00000000 0x00000001 0x00100000 0x00004000>,
+					<0x00004000 0x00000001 0x00104000 0x00004000>,
+					<0x00009000 0x00000001 0x00109000 0x00000010>,
+					<0x00008000 0x00000001 0x00108000 0x00000020>;
+
+				cf_ad9361_adc_core_0: cf-ad9361-lpc@20000 {
+					compatible = "adi,axi-ad9361-6.00.a";
+					reg = <0x00020000 0x00010000>;
+					dmas = <&rx_dma 0>;
+					dma-names = "rx";
+					spibus-connected = <&adc0_ad9361>;
+				};
+
+				cf_ad9361_dac_core_0: cf-ad9361-dds-core-lpc@24000 {
+					compatible = "adi,axi-ad9361-dds-6.00.a";
+					reg = <0x00024000 0x00001000>;
+					dmas = <&tx_dma 0>;
+					dma-names = "tx";
+					clocks = <&adc0_ad9361 13>;
+					clock-names = "sampl_clk";
+				};
+
+				tx_dma: dma@4000 {
+					compatible = "adi,axi-dmac-1.00.a";
+					reg = <0x00004000 0x00004000>;
+					interrupt-parent = <&intc>;
+					interrupts = <0 43 4>;
+					#dma-cells = <1>;
+					clocks = <&dma_clk>;
+
+					adi,channels {
+						#size-cells = <0>;
+						#address-cells = <1>;
+
+						dma-channel@0 {
+							reg = <0>;
+							adi,source-bus-width = <64>;
+							adi,source-bus-type = <0>;
+							adi,destination-bus-width = <64>;
+							adi,destination-bus-type = <1>;
+						};
+					};
+				};
+
+				rx_dma: dma@0 {
+					compatible = "adi,axi-dmac-1.00.a";
+					reg = <0x00000000 0x00004000>;
+					interrupt-parent = <&intc>;
+					interrupts = <0 42 4>;
+					#dma-cells = <1>;
+					clocks = <&dma_clk>;
+
+					adi,channels {
+						#size-cells = <0>;
+						#address-cells = <1>;
+
+						dma-channel@0 {
+							reg = <0>;
+							adi,source-bus-width = <64>;
+							adi,source-bus-type = <2>;
+							adi,destination-bus-width = <128>;
+							adi,destination-bus-type = <0>;
+						};
+					};
+				};
+
+				gpio: gpio@9000 {
+					compatible = "altr,pio-1.0";
+					reg = <0x00009000 0x00000010>;
+					altr,gpio-bank-width = <5>;
+					resetvalue = <0>;
+					#gpio-cells = <2>;
+					gpio-controller;
+				};
+
+				spi_ad9361: spi@8000 {
+					compatible = "altr,spi-1.0";
+					reg = <0x00008000 0x00000020>;
+					interrupt-parent = <&intc>;
+					interrupts = <0 41 4>;
+					#address-cells = <0x1>;
+					#size-cells = <0x0>;
+				};
+			};
+		};
+	};
+};
+
+#define fmc_i2c i2c0
+#define fmc_spi spi_ad9361
+
+#include "adi-fmcomms2.dtsi"
+
+&adc0_ad9361 {
+	/delete-property/ spi-cpha;
+
+	adi,lvds-bias-mV = <300>;
+
+	/* GPIO */
+	reset-gpios = <&gpio 4 0>;
+	en_agc-gpios = <&gpio 3 0>;
+	sync-gpios = <&gpio 2 0>;
+	enable-gpios = <&gpio 1 0>;
+	txnrx-gpios = <&gpio 0 0>;
+
+	/* AXI Converter */
+	adi,axi-half-dac-rate-enable;
+};
