@@ -1,0 +1,175 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * dts file for AD9081-FMC-EBZ on Xilinx VCU118
+ *
+ * Copyright (C) 2019 Analog Devices Inc.
+ */
+/dts-v1/;
+#include "vcu118.dtsi"
+
+#define fmc_i2c fmcp_hspc_iic
+#define fmc_spi axi_spi
+
+&axi_intc {
+	xlnx,kind-of-intr = <0x4f0>;
+};
+
+&axi_ethernet {
+	local-mac-address = [00 0a 35 00 90 81];
+};
+
+&amba_pl {
+	rx_dma: dma@7c420000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x7c420000 0x10000>;
+		#dma-cells = <1>;
+		#clock-cells = <0>;
+		interrupt-parent = <&axi_intc>;
+		interrupts = <12 2>;
+
+		clocks = <&clk_bus_0>;
+
+		adi,channels {
+			#size-cells = <0>;
+			#address-cells = <1>;
+
+			dma-channel@0 {
+				reg = <0>;
+				adi,source-bus-width = <256>;
+				adi,source-bus-type = <2>;
+				adi,destination-bus-width = <256>;
+				adi,destination-bus-type = <0>;
+			};
+		};
+	};
+
+	tx_dma: dma@7c430000  {
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x7c430000 0x10000>;
+		#dma-cells = <1>;
+		#clock-cells = <0>;
+		interrupt-parent = <&axi_intc>;
+		interrupts = <13 2>;
+		clocks = <&clk_bus_0>;
+
+		adi,channels {
+			#size-cells = <0>;
+			#address-cells = <1>;
+
+			dma-channel@0 {
+				reg = <0>;
+				adi,source-bus-width = <256>;
+				adi,source-bus-type = <0>;
+				adi,destination-bus-width = <256>;
+				adi,destination-bus-type = <2>;
+			};
+		};
+	};
+
+	axi_ad9081_core_rx: axi-ad9081-rx-hpc@44a10000 {
+		compatible = "adi,axi-ad9081-rx-1.0";
+		reg = <0x44a10000 0x8000>;
+		dmas = <&rx_dma 0>;
+		dma-names = "rx";
+		spibus-connected = <&trx0_ad9081>;
+	};
+
+
+	axi_ad9081_core_tx: axi-ad9081-tx-hpc@44b10000 {
+		compatible = "adi,axi-ad9081-tx-1.0";
+		reg = <0x44b10000 0x4000>;
+		dmas = <&tx_dma 0>;
+		dma-names = "tx";
+		clocks = <&trx0_ad9081 1>;
+		clock-names = "sampl_clk";
+		spibus-connected = <&trx0_ad9081>;
+		//adi,axi-pl-fifo-enable;
+	};
+
+	axi_ad9081_rx_jesd: axi-jesd204-rx@44a90000 {
+		compatible = "adi,axi-jesd204-rx-1.0";
+		reg = <0x44a90000 0x4000>;
+		interrupt-parent = <&axi_intc>;
+		interrupts = <14 2>;
+
+		clocks = <&clk_bus_0>, <&hmc7044 6>, <&axi_ad9081_adxcvr_rx 0>;
+		clock-names = "s_axi_aclk", "device_clk", "lane_clk";
+
+		#clock-cells = <0>;
+		clock-output-names = "jesd_rx_lane_clk";
+
+		adi,octets-per-frame = <1>;
+		adi,frames-per-multiframe = <32>;
+	};
+
+	axi_ad9081_tx_jesd: axi-jesd204-tx@44b90000 {
+		compatible = "adi,axi-jesd204-tx-1.0";
+		reg = <0x44b90000 0x4000>;
+
+		interrupt-parent = <&axi_intc>;
+		interrupts = <15 2>;
+
+		clocks = <&clk_bus_0>, <&hmc7044 6>, <&axi_ad9081_adxcvr_tx 0>;
+		clock-names = "s_axi_aclk", "device_clk", "lane_clk";
+
+		#clock-cells = <0>;
+		clock-output-names = "jesd_tx_lane_clk";
+
+		adi,octets-per-frame = <1>;
+		adi,frames-per-multiframe = <32>;
+		adi,converter-resolution = <16>;
+		adi,bits-per-sample = <16>;
+		adi,converters-per-device = <4>;
+		adi,control-bits-per-sample = <0>;
+	};
+
+	axi_ad9081_adxcvr_rx: axi-adxcvr-rx@44a60000 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "adi,axi-adxcvr-1.0";
+		reg = <0x44a60000 0x1000>;
+
+		clocks = <&hmc7044 12>, <&hmc7044 10>;
+		clock-names = "conv", "div40";
+
+		#clock-cells = <1>;
+		clock-output-names = "rx_gt_clk", "rx_out_clk";
+
+		adi,sys-clk-select = <3>;
+		adi,out-clk-select = <4>;
+		adi,use-lpm-enable;
+		adi,use-cpll-enable;
+	};
+
+	axi_ad9081_adxcvr_tx: axi-adxcvr-tx@44b60000 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "adi,axi-adxcvr-1.0";
+		reg = <0x44b60000 0x1000>;
+
+		clocks = <&hmc7044 12>, <&hmc7044 6>;
+		clock-names = "conv", "div40";
+
+		#clock-cells = <1>;
+		clock-output-names = "tx_gt_clk", "tx_out_clk";
+
+		adi,sys-clk-select = <3>;
+		adi,out-clk-select = <4>;
+	};
+
+	axi_sysid_0: axi-sysid-0@45000000 {
+		compatible = "adi,axi-sysid-1.00.a";
+		reg = <0x45000000 0x10000>;
+	};
+};
+
+#include "adi-ad9081-fmc-ebz.dtsi"
+
+&trx0_ad9081 {
+	reset-gpios = <&axi_gpio 55 0>;
+	sysref-req-gpios = <&axi_gpio 43 0>;
+	rx2-enable-gpios = <&axi_gpio 57 0>;
+	rx1-enable-gpios = <&axi_gpio 56 0>;
+	tx2-enable-gpios = <&axi_gpio 59 0>;
+	tx1-enable-gpios = <&axi_gpio 58 0>;
+};

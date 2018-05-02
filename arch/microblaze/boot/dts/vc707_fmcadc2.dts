@@ -1,0 +1,123 @@
+
+/dts-v1/;
+#include "vc707.dtsi"
+
+#define fmc_i2c fmc1_hpc_iic
+#define fmc_spi axi_spi
+
+/ {
+	clocks {
+		ad9625_clkin: clock@0 {
+			compatible = "fixed-clock";
+			clock-frequency = <2500000000>;
+			#clock-cells = <0>;
+			clock-output-names = "clkin";
+		};
+
+		ad9625_divclk: clock@1 {
+			compatible = "fixed-factor-clock";
+
+			clocks = <&ad9625_clkin>;
+			clock-div = <4>;
+			clock-mult = <1>;
+
+			#clock-cells = <0>;
+			clock-output-names = "divclk";
+		};
+	};
+};
+
+&amba_pl {
+	axi_ad9625_core: axi-ad9625@44a10000 {
+		compatible = "adi,axi-ad9625-1.0";
+		reg = <0x44a10000 0x10000>;
+		dmas = <&axi_ad9625_dma 0>;
+		dma-names = "rx";
+		spibus-connected = <&adc0_ad9625>;
+	};
+	axi_ad9625_dma: axi_dmac@7c420000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		interrupt-parent = <&axi_intc>;
+		interrupts = <12 2>;
+		reg = <0x7c420000 0x10000>;
+		#dma-cells = <1>;
+		clocks = <&clk_bus_0>;
+
+		adi,channels {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			dma-channel@0 {
+				reg = <0>;
+				adi,source-bus-width = <64>;
+				adi,source-bus-type = <1>;
+				adi,destination-bus-width = <64>;
+				adi,destination-bus-type = <0>;
+			};
+		};
+	};
+	axi_adxcvr: axi-adxcvr@44a60000 {
+		compatible = "adi,axi-adxcvr-1.0";
+		reg = <0x44a60000 0x1000>;
+
+		clocks = <&ad9625_divclk>;
+		clock-names = "conv";
+
+		#clock-cells = <1>;
+		clock-output-names = "adc_gt_clk", "rx_out_clk";
+
+		adi,sys-clk-select = <0>;
+		adi,out-clk-select = <2>;
+		adi,use-cpll-enable;
+	};
+	axi_ad9625_jesd: axi-jesd204-rx@44aa0000 {
+		compatible = "adi,axi-jesd204-rx-1.0";
+		reg = <0x44aa0000 0x1000>;
+
+		interrupt-parent = <&axi_intc>;
+		interrupts = <13 2>;
+
+		clocks = <&clk_bus_0>, <&axi_adxcvr 1>, <&axi_adxcvr 0>;
+		clock-names = "s_axi_aclk", "device_clk", "lane_clk";
+
+		#clock-cells = <0>;
+		clock-output-names = "jesd_adc_lane_clk";
+
+		adi,octets-per-frame = <1>;
+		adi,frames-per-multiframe = <32>;
+	};
+};
+
+&fmc_spi {
+	adc0_ad9625: ad9625@0 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "adi,ad9625";
+		reg = <0>;
+		spi-max-frequency = <10000000>;
+		clocks = <&axi_ad9625_jesd>, <&ad9625_clkin>;
+		clock-names = "jesd_adc_clk", "adc_clk";
+
+	};
+};
+
+&axi_gpio {
+	sysref_enable {
+		gpio-hog;
+		gpios = <34 0>;
+		output-high;
+		line-name = "sysref-enable";
+	};
+};
+
+&fmc_i2c {
+	eeprom@50 {
+		compatible = "at24,24c02";
+		reg = <0x50>;
+	};
+
+	eeprom@54 {
+		compatible = "at24,24c02";
+		reg = <0x54>;
+	};
+};

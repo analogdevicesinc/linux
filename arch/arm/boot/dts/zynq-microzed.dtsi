@@ -1,0 +1,68 @@
+#include "zynq.dtsi"
+
+/ {
+	model = "Avnet MicroZed";
+	memory {
+		device_type = "memory";
+		reg = <0x000000000 0x40000000>;
+	};
+
+	chosen {
+		stdout-path = "/amba@0/uart@E0001000";
+	};
+
+	fpga_axi: fpga-axi@0 {
+		compatible = "simple-bus";
+		#address-cells = <0x1>;
+		#size-cells = <0x1>;
+		ranges;
+	};
+};
+
+&gem0 {
+	phy-handle = <&phy0>;
+	phy-mode = "rgmii-id";
+
+	phy0: phy@0 {
+		device_type = "ethernet-phy";
+		reg = <0x0>;
+		marvell,reg-init = <3 16 0xff00 0x1e 3 17 0xfff0 0x00>;
+	};
+};
+
+&usb0 {
+	xlnx,phy-reset-gpio = <&gpio0 7 0>;
+};
+
+&qspi {
+	status = "okay";
+	is-dual = <0>;
+	num-cs = <1>;
+	primary_flash: ps7-qspi@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "n25q128";
+		reg = <0x0>;
+		spi-max-frequency = <50000000>;
+		partition@0 {
+			label = "boot";
+			reg = <0x00000000 0x00500000>;
+		};
+		partition@500000 {
+			label = "bootenv";
+			reg = <0x00500000 0x00020000>;
+		};
+		partition@520000 {
+			label = "config";
+			reg = <0x00520000 0x00020000>;
+		};
+		partition@540000 {
+			label = "image";
+			reg = <0x00540000 0x00a80000>;
+		};
+		partition@fc0000 {
+			label = "spare";
+			reg = <0x00fc0000 0x00000000>;
+		};
+	};
+};

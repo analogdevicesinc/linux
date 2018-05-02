@@ -1,0 +1,158 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices AD6676
+ * https://wiki.analog.com/resources/tools-software/linux-drivers/iio-adc/ad6676
+ * https://wiki.analog.com/resources/eval/ad6676-wideband_rx_subsystem_ad6676ebz
+ *
+ * hdl_project: <ad6676evb/vc707>
+ * board_revision: <>
+ *
+ * Copyright (C) 2016-2019 Analog Devices Inc.
+ */
+/dts-v1/;
+#include "vc707.dtsi"
+
+#define fmc_i2c fmc1_hpc_iic
+#define fmc_spi axi_spi
+
+/ {
+	clocks {
+		ad6676_clkin: clock@1 {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <200000000>;
+			clock-output-names = "clkin";
+		};
+	};
+};
+
+&amba_pl {
+	axi_ad6676_core: axi-ad6676-hpc@44a10000 {
+		compatible = "adi,axi-ad6676-1.0";
+		reg = <0x44a10000 0x10000>;
+		dmas = <&axi_ad6676_dma 0>;
+		dma-names = "rx";
+		spibus-connected = <&adc0_ad6676>;
+	};
+	axi_ad6676_dma: axi_dmac@7c420000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		interrupt-parent = <&axi_intc>;
+		interrupts = <13 2>;
+		reg = <0x7c420000 0x10000>;
+		#dma-cells = <1>;
+		clocks = <&clk_bus_0>;
+
+		adi,channels {
+			#size-cells = <0>;
+			#address-cells = <1>;
+
+			dma-channel@0 {
+				reg = <0>;
+				adi,source-bus-width = <64>;
+				adi,source-bus-type = <2>;
+				adi,destination-bus-width = <64>;
+				adi,destination-bus-type = <0>;
+			};
+		};
+	};
+	axi_ad6676_jesd: axi-jesd204-rx@44aa0000 {
+		compatible = "adi,axi-jesd204-rx-1.0";
+		reg = <0x44aa0000 0x1000>;
+
+		interrupt-parent = <&axi_intc>;
+		interrupts = <12 2>;
+
+		clocks = <&clk_bus_0>, <&axi_adxcvr 1>, <&axi_adxcvr 0>;
+		clock-names = "s_axi_aclk", "device_clk", "lane_clk";
+
+		#clock-cells = <0>;
+		clock-output-names = "jesd_adc_lane_clk";
+
+		adi,octets-per-frame = <2>;
+		adi,frames-per-multiframe = <16>;
+	};
+
+	axi_adxcvr: axi-adxcvr@44a60000 {
+		compatible = "adi,axi-adxcvr-1.0";
+		reg = <0x44a60000 0x1000>;
+
+		clocks = <&ad6676_clkin>;
+		clock-names = "conv";
+
+		#clock-cells = <1>;
+		clock-output-names = "adc_gt_clk", "rx_out_clk";
+
+		adi,sys-clk-select = <0>;
+		adi,out-clk-select = <4>;
+		adi,use-cpll-enable;
+	};
+};
+
+&fmc_spi {
+	adc0_ad6676: ad6676@0 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "adi,ad6676";
+		reg = <0>;
+		spi-max-frequency = <10000000>;
+		clocks = <&axi_ad6676_jesd>, <&ad6676_clkin>;
+		clock-names = "jesd_clk", "ref_clk";
+
+		adi,adc-frequency-hz = <3200000000>;
+		adi,adc-frequency-fixed-enable;
+		adi,intermediate-frequency-hz = <250000000>;
+
+		adi,intermediate-frequency-min-hz = <150000000>;
+		adi,intermediate-frequency-max-hz = <450000000>;
+
+		adi,bandwidth-hz = <75000000>;
+		adi,margin-low-mhz = <5>;
+		adi,margin-high-mhz = <5>;
+		adi,margin-if-mhz = <0>;
+		adi,decimation = <16>;
+		adi,external-inductance-l-nh = <19>;
+		//adi,use-external-clk-enable;
+
+		adi,jesd-scrambling-enable;
+		adi,jesd-use-lvds-syncb-enable;
+		//adi,jesd-powerdown-sysref-enable;
+		adi,jesd-l-lanes = <2>;
+		adi,jesd-f-frames-per-multiframe = <16>;
+
+		adi,shuffler-control = <1>;
+		adi,shuffler-thresh = <5>;
+
+		oen-gpios = <&axi_gpio 41 8>;   /* 0 */
+		sela-gpios = <&axi_gpio 40 8>;  /* 0 */
+		selb-gpios = <&axi_gpio 39 8>;  /* 1 */
+		s0-gpios = <&axi_gpio 38 8>;    /* 0 */
+		s1-gpios = <&axi_gpio 37 8>;    /* 1 */
+		reset-gpios = <&axi_gpio 36 8>; /* 1 */
+		agc1-gpios = <&axi_gpio 35 8>;
+		agc2-gpios = <&axi_gpio 34 8>;
+		agc3-gpios = <&axi_gpio 33 8>;
+		agc4-gpios = <&axi_gpio 32 8>;
+
+	};
+};
+
+&axi_gpio {
+	sysref_enable {
+		gpio-hog;
+		gpios = <48 0>;
+		output-high;
+		line-name = "sysref-enable";
+	};
+};
+
+&fmc_i2c {
+	eeprom@50 {
+		compatible = "at24,24c02";
+		reg = <0x50>;
+	};
+
+	eeprom@54 {
+		compatible = "at24,24c02";
+		reg = <0x54>;
+	};
+};

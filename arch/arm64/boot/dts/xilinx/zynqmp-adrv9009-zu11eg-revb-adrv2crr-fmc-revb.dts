@@ -1,0 +1,29 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * ADRV2CRR-FMC using ADRV9009-ZU11EG Rev.B System on Module
+ *
+ * https://wiki.analog.com/resources/eval/user-guides/adrv9009
+ * https://wiki.analog.com/resources/tools-software/linux-drivers/iio-transceiver/adrv9009
+ * https://wiki.analog.com/resources/tools-software/linux-software/adrv9009_advanced_plugin
+ * https://wiki.analog.com/resources/eval/user-guides/adrv9009-zu11eg/adrv2crr-fmc_carrier_board
+ *
+ * hdl_project: <adrv9009zu11eg/adrv2crr_fmc>
+ * board_revision: <B>
+ *
+ * Copyright (C) 2019 Analog Devices Inc.
+ */
+
+#include "zynqmp-adrv9009-zu11eg-reva-adrv2crr-fmc-reva.dts"
+#include "zynqmp-adrv9009-zu11eg-revb.dtsi"
+
+&dwc3_0 {
+	status = "okay";
+	dr_mode = "otg";
+};
+
+&hmc7044_fmc_car {
+	adi,pll1-clkin-frequencies = <122880000 122880000 0 38400000>;
+	adi,pll1-ref-prio-ctrl = <0xb1>;  // priorities: clkin 1,0,3,2
+	adi,pll1-ref-autorevert-enable;
+	adi,clkin0-buffer-mode  = <0x07>; // buffer en, AC coupling, 100ohm termination
+};

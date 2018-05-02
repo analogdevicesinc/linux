@@ -1,0 +1,220 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * dts file for the QUAD AD9081-FMC-EBZ on Xilinx VCU118
+ *
+ * Copyright (C) 2019 Analog Devices Inc.
+ */
+/dts-v1/;
+#include "vcu118.dtsi"
+
+#define fmc_i2c fmcp_hspc_iic
+#define fmc_spi axi_spi
+
+&axi_intc {
+	xlnx,kind-of-intr = <0x4f0>;
+};
+
+&axi_ethernet {
+	local-mac-address = [00 0a 35 AD 90 81];
+};
+
+&amba_pl {
+		axi_spi2: axi_quad_spi@44a80000 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			bits-per-word = <8>;
+			compatible = "xlnx,xps-spi-2.00.a";
+			fifo-size = <16>;
+			interrupt-parent = <&axi_intc>;
+			interrupts = <7 0>;
+			num-cs = <0x8>;
+			reg = <0x44a80000 0x10000>;
+			xlnx,num-ss-bits = <0x8>;
+			xlnx,spi-mode = <0>;
+		};
+
+		rx_dma: dma@7c420000 {
+			compatible = "adi,axi-dmac-1.00.a";
+			reg = <0x7c420000 0x10000>;
+			#dma-cells = <1>;
+			#clock-cells = <0>;
+			interrupt-parent = <&axi_intc>;
+			interrupts = <12 4>;
+
+			clocks = <&clk_bus_0>;
+
+			adi,channels {
+				#size-cells = <0>;
+				#address-cells = <1>;
+
+				dma-channel@0 {
+					reg = <0>;
+					adi,source-bus-width = <256>;
+					adi,source-bus-type = <2>;
+					adi,destination-bus-width = <256>;
+					adi,destination-bus-type = <0>;
+				};
+			};
+		};
+
+		tx_dma: dma@7c430000  {
+			compatible = "adi,axi-dmac-1.00.a";
+			reg = <0x7c430000 0x10000>;
+			#dma-cells = <1>;
+			#clock-cells = <0>;
+			interrupt-parent = <&axi_intc>;
+			interrupts = <13 4>;
+			clocks = <&clk_bus_0>;
+
+			adi,channels {
+				#size-cells = <0>;
+				#address-cells = <1>;
+
+				dma-channel@0 {
+					reg = <0>;
+					adi,source-bus-width = <256>;
+					adi,source-bus-type = <0>;
+					adi,destination-bus-width = <256>;
+					adi,destination-bus-type = <2>;
+				};
+			};
+		};
+
+		axi_ad9081_core_rx: axi-ad9081-rx-3@44a10000 {
+			compatible = "adi,axi-ad9081-rx-1.0";
+			reg = <0x44a10000 0x8000>;
+			dmas = <&rx_dma 0>;
+			dma-names = "rx";
+			spibus-connected = <&trx3_ad9081>;
+		};
+
+		axi_ad9081_core_tx: axi-ad9081-tx-3@44b10000 {
+			compatible = "adi,axi-ad9081-tx-1.0";
+			reg = <0x44b10000 0x8000>;
+			dmas = <&tx_dma 0>;
+			dma-names = "tx";
+			clocks = <&trx3_ad9081 1>;
+			clock-names = "sampl_clk";
+			spibus-connected = <&trx3_ad9081>;
+			adi,axi-pl-fifo-enable;
+		};
+
+		axi_ad9081_rx_jesd: axi-jesd204-rx@44a90000 {
+			compatible = "adi,axi-jesd204-rx-1.0";
+			reg = <0x44a90000 0x4000>;
+			interrupt-parent = <&axi_intc>;
+			interrupts = <14 4>;
+
+			clocks = <&clk_bus_0>, <&hmc7043 8>, <&axi_ad9081_adxcvr_rx 0>;
+			clock-names = "s_axi_aclk", "device_clk", "lane_clk";
+
+			#clock-cells = <0>;
+			clock-output-names = "jesd_rx_lane_clk";
+
+			adi,octets-per-frame = <1>;
+			adi,frames-per-multiframe = <32>;
+		};
+
+		axi_ad9081_tx_jesd: axi-jesd204-tx@44b90000 {
+			compatible = "adi,axi-jesd204-tx-1.0";
+			reg = <0x44b90000 0x4000>;
+
+			interrupt-parent = <&axi_intc>;
+			interrupts = <15 4>;
+
+			clocks = <&clk_bus_0>, <&hmc7043 8>, <&axi_ad9081_adxcvr_tx 0>;
+			clock-names = "s_axi_aclk", "device_clk", "lane_clk";
+
+			#clock-cells = <0>;
+			clock-output-names = "jesd_tx_lane_clk";
+
+			adi,octets-per-frame = <1>;
+			adi,frames-per-multiframe = <32>;
+			adi,converter-resolution = <16>;
+			adi,bits-per-sample = <16>;
+			adi,converters-per-device = <4>;
+			adi,control-bits-per-sample = <0>;
+		};
+
+		axi_ad9081_adxcvr_rx: axi-adxcvr-rx@44a60000 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "adi,axi-adxcvr-1.0";
+			reg = <0x44a60000 0x1000>;
+
+			clocks = <&hmc7043 0>, <&hmc7043 8>;
+			clock-names = "conv", "div40";
+
+			#clock-cells = <1>;
+			clock-output-names = "rx_gt_clk", "rx_out_clk";
+
+			adi,sys-clk-select = <0>;
+			adi,out-clk-select = <3>;
+			adi,use-lpm-enable;
+			adi,use-cpll-enable;
+		};
+
+		axi_ad9081_adxcvr_tx: axi-adxcvr-tx@44b60000 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "adi,axi-adxcvr-1.0";
+			reg = <0x44b60000 0x1000>;
+
+			clocks = <&hmc7043 0>, <&hmc7043 8>;
+			clock-names = "conv", "div40";
+
+			#clock-cells = <1>;
+			clock-output-names = "tx_gt_clk", "tx_out_clk";
+
+			adi,sys-clk-select = <3>;
+			adi,out-clk-select = <4>;
+		};
+
+		axi_sysid_0: axi-sysid-0@45000000 {
+			compatible = "adi,axi-sysid-1.00.a";
+			reg = <0x45000000 0x10000>;
+		};
+
+		axi_gpio_2: gpio@7c440000 {
+			#gpio-cells = <3>;
+			#interrupt-cells = <2>;
+			clock-frequency = <100000000>;
+			clock-names = "s_axi_aclk";
+			clocks = <&clk_bus_0>;
+			compatible = "xlnx,axi-gpio-2.0", "xlnx,xps-gpio-1.00.a";
+			gpio-controller ;
+			interrupt-controller ;
+			interrupt-names = "ip2intc_irpt";
+			interrupt-parent = <&axi_intc>;
+			interrupts = <8 2>;
+			reg = <0x7c440000 0x1000>;
+			xlnx,all-inputs = <0x0>;
+			xlnx,all-inputs-2 = <0x0>;
+			xlnx,all-outputs = <0x0>;
+			xlnx,all-outputs-2 = <0x0>;
+			xlnx,dout-default = <0x00000000>;
+			xlnx,dout-default-2 = <0x00000000>;
+			xlnx,gpio-width = <0x20>;
+			xlnx,gpio2-width = <0x20>;
+			xlnx,interrupt-present = <0x1>;
+			xlnx,is-dual = <0x1>;
+			xlnx,tri-default = <0xFFFFFFFF>;
+			xlnx,tri-default-2 = <0xFFFFFFFF>;
+		};
+
+		gpio_hmc425a: hmc425a {
+			compatible = "adi,hmc425a";
+			ctrl-gpios = <&axi_gpio 40 GPIO_ACTIVE_HIGH>,
+				<&axi_gpio 39 GPIO_ACTIVE_HIGH>,
+				<&axi_gpio 38 GPIO_ACTIVE_HIGH>,
+				<&axi_gpio 37 GPIO_ACTIVE_HIGH>,
+				<&axi_gpio 36 GPIO_ACTIVE_HIGH>,
+				<&axi_gpio 35 GPIO_ACTIVE_HIGH>;
+
+		};
+
+};
+
+&axi_ad9081_core_tx {
+	plddrbypass-gpios = <&axi_gpio 61 0>;
+};

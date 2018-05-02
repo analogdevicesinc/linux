@@ -1,0 +1,179 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Prototyping platform for LiDAR applications
+ * Link: https://wiki.analog.com/resources/eval/user-guides/ad-fmclidar1-ebz
+ *
+ * hdl_project: <ad_fmclidar1_ebz/a10soc>
+ * board_revision: <B>
+ *
+ * Copyright 2020 Analog Devices Inc.
+ */
+/dts-v1/;
+#include "socfpga_arria10_socdk.dtsi"
+#include <dt-bindings/iio/frequency/ad9528.h>
+
+&mmc {
+	status = "okay";
+	num-slots = <1>;
+	cap-sd-highspeed;
+	broken-cd;
+	bus-width = <4>;
+	altr,dw-mshc-ciu-div = <3>;
+	altr,dw-mshc-sdr-timing = <0 3>;
+};
+
+/ {
+	clocks {
+		sys_clk: sys_clk {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <100000000>;
+			clock-output-names = "system_clock";
+		};
+
+		dma_clk: dma_clk {
+			#clock-cells = <0x0>;
+			compatible = "fixed-clock";
+			clock-frequency = <250000000>;
+			clock-output-names = "dma_clk";
+		};
+	};
+
+	soc {
+		sys_hps_bridges: bridge@ff200000 {
+			compatible = "simple-bus";
+			reg = <0xff200000 0x00200000>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			ranges = <0x00000000 0xff200000 0x00200000>;
+
+			spi_adc: spi@40 {
+				compatible = "altr,spi-1.0";
+				reg = <0x00000040 0x00000020>;
+				interrupt-parent = <&intc>;
+				interrupts = <0 26 4>;
+				#address-cells = <0x1>;
+				#size-cells = <0x0>;
+			};
+
+			spi_clkgen: spi@60 {
+				compatible = "altr,spi-1.0";
+				reg = <0x00000060 0x00000020>;
+				interrupt-parent = <&intc>;
+				interrupts = <0 27 4>;
+				#address-cells = <0x1>;
+				#size-cells = <0x0>;
+			};
+
+			spi_vco: spi@80 {
+				compatible = "altr,spi-1.0";
+				reg = <0x00000080 0x00000020>;
+				interrupt-parent = <&intc>;
+				interrupts = <0 28 4>;
+				#address-cells = <0x1>;
+				#size-cells = <0x0>;
+			};
+
+			spi_afe_adc: spi@a0 {
+				compatible = "altr,spi-1.0";
+				reg = <0x000000a0 0x00000020>;
+				interrupt-parent = <&intc>;
+				interrupts = <0 29 4>;
+				#address-cells = <0x1>;
+				#size-cells = <0x0>;
+			};
+
+			axi_ad9094_rx_jesd: axi-jesd204-rx@40000 {
+				compatible = "adi,axi-jesd204-rx-1.0";
+				reg = <0x00040000 0x4000>;
+
+				interrupt-parent = <&intc>;
+				interrupts = <0 30 4>;
+
+				clocks = <&sys_clk>, <&ad9528 3>, <&axi_ad9094_adxcvr 0>;
+				clock-names = "s_axi_aclk", "device_clk", "lane_clk";
+
+				adi,octets-per-frame = <1>;
+				adi,frames-per-multiframe = <32>;
+				adi,converter-resolution = <8>;
+				adi,bits-per-sample = <8>;
+				adi,converters-per-device = <2>;
+				adi,subclass = <1>;
+
+				#clock-cells = <0>;
+				clock-output-names = "jesd_adc_lane_clk";
+			};
+
+			axi_ad9094_adxcvr: axi-adxcvr-rx@44000 {
+				compatible = "adi,altera-adxcvr-1.00.a";
+				reg = <0x00044000 0x00001000>,
+					<0x00048000 0x00001000>,
+					<0x00049000 0x00001000>,
+					<0x0004a000 0x00001000>,
+					<0x0004b000 0x00001000>;
+				reg-names = "adxcvr", "adxcfg-0", "adxcfg-1", "adxcfg-2", "adxcfg-3";
+
+				clocks = <&ad9528 4>, <&rx_device_clk_pll>;
+				clock-names = "ref", "link";
+
+				#clock-cells = <1>;
+				clock-output-names = "adc_gt_clk", "rx_out_clk";
+			};
+
+			rx_device_clk_pll: altera-a10-fpll@45000 {
+				compatible = "altr,a10-fpll";
+				reg = <0x00045000 0x1000>;
+				clocks = <&ad9528 4>;
+
+				#clock-cells = <0>;
+				clock-output-names = "jesd204_rx_link_clock";
+			};
+
+			rx_dma: rx-dmac@4c000 {
+				compatible = "adi,axi-dmac-1.00.a";
+				reg = <0x0004c000 0x00004000>;
+				interrupt-parent = <&intc>;
+				interrupts = <0 31 4>;
+				#dma-cells = <1>;
+				clocks = <&dma_clk>;
+
+				adi,channels {
+					#size-cells = <0>;
+					#address-cells = <1>;
+
+					dma-channel@0 {
+						reg = <0>;
+						adi,source-bus-width = <256>;
+						adi,source-bus-type = <2>;
+						adi,destination-bus-width = <64>;
+						adi,destination-bus-type = <0>;
+					};
+				};
+			};
+
+			axi_ad9094_core: axi-ad9094-hpc@50000 {
+				compatible = "adi,axi-ad9694-1.0";
+				reg = <0x00050000 0x10000>;
+				dmas = <&rx_dma 0>;
+				dma-names = "rx";
+				spibus-connected = <&ad9094>;
+				adi,axi-additional-channel-available;
+			};
+
+			axi_pulse_capture: axi-pulse-capture@60000 {
+				compatible = "adi,axi-pulse-capture-1.00.a";
+				reg = <0x00060000 0x10000>;
+				interrupts = <0 32 4>;
+				clocks = <&ad9528 3>;
+			};
+		};
+	};
+};
+
+&i2c1 {
+	status = "okay";
+};
+
+#define i2c_afe_dac i2c1
+
+#include "adi-fmclidar1.dtsi"

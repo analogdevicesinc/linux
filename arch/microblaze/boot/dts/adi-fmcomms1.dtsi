@@ -1,0 +1,180 @@
+
+&fmc_i2c {
+	spi_xcomm0: spi_xcomm0@58 {
+		#size-cells = <0>;
+		#address-cells = <1>;
+		compatible = "spi-xcomm";
+		reg = <0x58>;
+		clksync0_ad9548: ad9548-lpc@6 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "ad9548";
+			reg = <2>;
+			spi-3wire;
+			spi-max-frequency = <10000000>;
+		};
+		clk0_ad9523: ad9523-lpc@3 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			#clock-cells = <1>;
+			compatible = "ad9523-1";
+			reg = <3>;
+			spi-max-frequency = <10000000>;
+			spi-3wire;
+			clock-output-names = "ad9523-lpc_out0", "ad9523-lpc_out1", "ad9523-lpc_out2", "ad9523-lpc_out3", "ad9523-lpc_out4", "ad9523-lpc_out5", "ad9523-lpc_out6", "ad9523-lpc_out7", "ad9523-lpc_out8", "ad9523-lpc_out9", "ad9523-lpc_out10", "ad9523-lpc_out11", "ad9523-lpc_out12", "ad9523-lpc_out13";
+			adi,vcxo-freq = <122880000>;
+			adi,refb-diff-rcv-enable;
+			adi,zd-in-diff-enable;
+			adi,osc-in-cmos-neg-inp-enable;
+			adi,refa-r-div = <0>;
+			adi,refb-r-div = <0>;
+			adi,pll1-feedback-div = <4>;
+			adi,pll1-charge-pump-current-nA = <2000>;
+			adi,refa-cmos-neg-inp-enable;
+			adi,pll1-loop-filter-rzero = <3>;
+			adi,ref-mode = <3>;
+			adi,pll2-charge-pump-current-nA = <420000>;
+			adi,pll2-ndiv-a-cnt = <0>;
+			adi,pll2-ndiv-b-cnt = <3>;
+			adi,pll2-freq-doubler-enable;
+			adi,pll2-r2-div = <1>;
+			adi,pll2-vco-diff-m1 = <3>;
+			adi,pll2-vco-diff-m2 = <3>;
+			adi,rpole2 = <0>;
+			adi,rzero = <2>;
+			adi,cpole1 = <2>;
+
+			ad9523_0_c0:channel@0 {
+				reg = <0>;
+				adi,extended-name = "ZD_OUTPUT";
+				adi,driver-mode = <2>;
+				adi,divider-phase = <0>;
+				adi,channel-divider = <8>;
+			};
+			ad9523_0_c12:channel@12 {
+				reg = <12>;
+				adi,extended-name = "DAC_CLK";
+				adi,driver-mode = <1>;
+				adi,divider-phase = <0>;
+				adi,channel-divider = <2>;
+			};
+			ad9523_0_c2:channel@2 {
+				reg = <2>;
+				adi,extended-name = "ADC_CLK";
+				adi,driver-mode = <3>;
+				adi,divider-phase = <0>;
+				adi,channel-divider = <4>;
+			};
+			ad9523_0_c10:channel@10 {
+				reg = <10>;
+				adi,extended-name = "DAC_REF_CLK";
+				adi,driver-mode = <2>;
+				adi,divider-phase = <0>;
+				adi,channel-divider = <16>;
+			};
+			ad9523_0_c5:channel@5 {
+				reg = <5>;
+				adi,extended-name = "TX_LO_REF_CLK";
+				adi,driver-mode = <8>; /* HiZ on - */
+				adi,divider-phase = <0>;
+				adi,channel-divider = <8>;
+				adi,sync-ignore-enable;
+			};
+			ad9523_0_c6:channel@6 {
+				reg = <6>;
+				adi,extended-name = "DAC_DCO_CLK";
+				adi,driver-mode = <3>;
+				adi,divider-phase = <0>;
+				adi,channel-divider = <2>;
+			};
+			ad9523_0_c7:channel@7 {
+				reg = <7>;
+				adi,extended-name = "ADC_SYNC_CLK";
+				adi,driver-mode = <8>; /* HiZ on - */
+				adi,divider-phase = <1>;
+				adi,channel-divider = <32>;
+			};
+			ad9523_0_c9:channel@9 {
+				reg = <9>;
+				adi,extended-name = "RX_LO_REF_CLK";
+				adi,driver-mode = <8>; /* HiZ on - */
+				adi,divider-phase = <0>;
+				adi,channel-divider = <8>;
+				adi,sync-ignore-enable;
+			};
+		};
+
+		adc0_ad9467: ad9467@1 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "ad9643";
+			reg = <1>;
+			spi-max-frequency = <10000000>;
+			spi-3wire;
+			clocks = <&clk0_ad9523 2>;
+			clock-names = "clkin";
+		};
+
+		dac0_ad9122: ad9122@0 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "ad9122";
+			reg = <0>;
+			spi-max-frequency = <10000000>;
+			clocks = <&clk0_ad9523 6>, <&clk0_ad9523 12>, <&clk0_ad9523 10>;
+			clock-names = "data_clk", "dac_clk", "ref_clk";
+			dac-fcenter-shift = <0>;
+			dac-interp-factor = <2>;
+			/*dac-data-rate = <491520000>;*/
+			dac-data-rate = <245760000>;
+			temp-sensor-calibration-temperature-mdeg = <25000>;
+		};
+
+		vga0_ad8366: ad8366-lpc@6 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "ad8366";
+			reg = <6>;
+			spi-3wire;
+			spi-max-frequency = <10000000>;
+		};
+
+		lo_pll0_rx_adf4351: adf4351-rx-lpc@4 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "adf4351";
+			reg = <4>;
+			spi-max-frequency = <10000000>;
+			clocks = <&clk0_ad9523 9>;
+			clock-names = "clkin";
+			adi,channel-spacing = <10000>;
+			adi,power-up-frequency = <2400000000>;
+			adi,phase-detector-polarity-positive-enable;
+			adi,charge-pump-current = <2500>;
+			adi,output-power = <3>;
+			adi,mute-till-lock-enable;
+		};
+
+		lo_pll0_tx_adf4351: adf4351-tx-lpc@5 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "adf4351";
+			reg = <5>;
+			spi-max-frequency = <10000000>;
+			clocks = <&clk0_ad9523 5>;
+			clock-names = "clkin";
+			adi,channel-spacing = <10000>;
+			adi,power-up-frequency = <2400000000>;
+			adi,phase-detector-polarity-positive-enable;
+			adi,charge-pump-current = <2500>;
+			adi,output-power = <3>;
+			adi,mute-till-lock-enable;
+		};
+
+	};
+
+	eeprom@50 {
+		compatible = "at24,24c02";
+		reg = <0x50>;
+	};
+};

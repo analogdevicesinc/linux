@@ -1,0 +1,48 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * dts file for ADRV2CRR-FMC using ADRV9009-ZU11EG Rev.B System on Module
+ *
+ * Copyright (C) 2019 Analog Devices Inc.
+ *
+ * Summary of RevA -> RevB changes:
+ *
+ * OUT 1,3,8,9	-- LVPECL force & force to logic zero
+ * OUT 6,7	-- CML no pull-up(will be LVPECL on rev C)
+ */
+
+/ {
+	model = "Analog Devices ADRV9009-ZU11EG Rev.B";
+};
+
+&hmc7044_c1 {
+	adi,force-mute-enable;
+	adi,driver-mode = <HMC7044_DRIVER_MODE_LVPECL>;
+	adi,control0-rb4-enable;
+};
+
+&hmc7044_c3 {
+	adi,force-mute-enable;
+	adi,driver-mode = <HMC7044_DRIVER_MODE_LVPECL>;
+	adi,control0-rb4-enable;
+};
+
+&hmc7044_c8 {
+	adi,force-mute-enable;
+	adi,driver-mode = <HMC7044_DRIVER_MODE_LVPECL>;
+	adi,control0-rb4-enable;
+};
+
+&hmc7044_c9 {
+	adi,force-mute-enable;
+	adi,driver-mode = <HMC7044_DRIVER_MODE_LVPECL>;
+	adi,control0-rb4-enable;
+};
+
+&hmc7044_c6 {
+	adi,driver-mode = <HMC7044_DRIVER_MODE_CML>;
+};
+
+&hmc7044_c7 {
+	adi,driver-mode = <HMC7044_DRIVER_MODE_CML>;
+};
+

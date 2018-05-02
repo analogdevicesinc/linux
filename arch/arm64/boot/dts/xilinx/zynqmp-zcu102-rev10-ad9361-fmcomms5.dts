@@ -1,0 +1,146 @@
+/*
+ * dts file for FMCOMMS5 AD9361 on Xilinx ZynqMP ZCU102 Rev 1.0
+ *
+ * Copyright (C) 2018 Analog Devices Inc.
+ *
+ * Licensed under the GPL-2.
+ */
+
+#include "zynqmp-zcu102-rev1.0.dts"
+#include <dt-bindings/interrupt-controller/irq.h>
+
+&i2c1 {
+	i2c-mux@75 {
+		fmc_i2c: i2c@0 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0>;
+		};
+	};
+};
+
+&fclk0 {
+	status = "okay";
+};
+
+&fclk2 {
+	status = "okay";
+};
+
+/ {
+	fpga_axi: fpga-axi@0 {
+		interrupt-parent = <&gic>;
+		compatible = "simple-bus";
+		#address-cells = <0x1>;
+		#size-cells = <0x1>;
+		ranges = <0 0 0 0xffffffff>;
+
+		rx_dma: dma@9c400000 {
+			compatible = "adi,axi-dmac-1.00.a";
+			reg = <0x9c400000 0x10000>;
+			#dma-cells = <1>;
+			#clock-cells = <0>;
+			interrupts = <0 109 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&zynqmp_clk 73>;
+
+			adi,channels {
+				#size-cells = <0>;
+				#address-cells = <1>;
+
+				dma-channel@0 {
+					reg = <0>;
+					adi,source-bus-width = <128>;
+					adi,source-bus-type = <2>;
+					adi,destination-bus-width = <64>;
+					adi,destination-bus-type = <0>;
+				};
+			};
+		};
+
+		tx_dma: dma@9c420000  {
+			compatible = "adi,axi-dmac-1.00.a";
+			reg = <0x9c420000 0x10000>;
+			#dma-cells = <1>;
+			#clock-cells = <0>;
+			interrupts = <0 108 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&zynqmp_clk 73>;
+
+			adi,channels {
+				#size-cells = <0>;
+				#address-cells = <1>;
+
+				dma-channel@0 {
+					reg = <0>;
+					adi,source-bus-width = <64>;
+					adi,source-bus-type = <0>;
+					adi,destination-bus-width = <128>;
+					adi,destination-bus-type = <2>;
+				};
+			};
+		};
+
+		/* Master HDL cores with DMA */
+		cf_ad9361_adc_core_0: cf-ad9361-A@99020000 {
+			compatible = "adi,axi-ad9361-6.00.a";
+			reg = <0x99020000 0x6000>;
+			dmas = <&rx_dma 0>;
+			dma-names = "rx";
+			spibus-connected = <&adc0_ad9361>;
+			slavecore-reg = <0x99040000 0x6000>;
+		};
+
+		cf_ad9361_dac_core_0: cf-ad9361-dds-core-lpc@99024000 {
+			compatible = "adi,axi-ad9361x2-dds-6.00.a";
+			reg = <0x99024000 0x1000>;
+			clocks = <&adc0_ad9361 13>;
+			clock-names = "sampl_clk";
+			dmas = <&tx_dma 0>;
+			dma-names = "tx";
+			slavecore-reg = <0x99044000 0x1000>;
+		};
+
+		/* Slave HDL cores without DMA */
+		cf_ad9361_adc_core_1: cf-ad9361-B@99040000 {
+			compatible = "adi,axi-ad9361-6.00.a";
+			reg = <0x99040000 0x6000>;
+			spibus-connected = <&adc1_ad9361>;
+		};
+
+		cf_ad9361_dac_core_1: cf-ad9361-dds-core-B@99044000 {
+			compatible = "adi,axi-ad9361x2-dds-6.00.a";
+			reg = <0x99044000 0x1000>;
+			clocks = <&adc1_ad9361 13>;
+			clock-names = "sampl_clk";
+			mastercore-reg = <0x99024000 0x1000>;
+		};
+
+		axi_sysid_0: axi-sysid-0@85000000 {
+			compatible = "adi,axi-sysid-1.00.a";
+			reg = <0x85000000 0x10000>;
+		};
+	};
+};
+
+&spi0 {
+	status = "okay";
+};
+
+&dwc3_0 {
+	status = "okay";
+	dr_mode = "otg";
+};
+
+#define fmc_spi spi0
+
+#include "adi-fmcomms5.dtsi"
+
+&adc0_ad9361 {
+	reset-gpios = <&gpio 130 0>;
+	sync-gpios = <&gpio 129 0>;
+	cal-sw1-gpios = <&gpio 137 0>;
+	cal-sw2-gpios = <&gpio 138 0>;
+};
+
+&adc1_ad9361 {
+	reset-gpios = <&gpio 143 0>;
+};

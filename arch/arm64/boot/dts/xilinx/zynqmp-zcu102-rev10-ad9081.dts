@@ -1,0 +1,218 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * dts file for AD9081-FMC-EBZ on Xilinx ZynqMP ZCU102 Rev 1.0
+ *
+ * Copyright (C) 2019-2020 Analog Devices Inc.
+ */
+
+#include "zynqmp-zcu102-rev1.0.dts"
+#include <dt-bindings/interrupt-controller/irq.h>
+
+&i2c1 {
+	i2c-mux@75 {
+		i2c@0 { /* HPC0 */
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0>;
+			/* HPC0_IIC */
+			eeprom@50 {
+				compatible = "at24,24c02";
+				reg = <0x50>;
+			};
+		};
+	};
+};
+
+/ {
+	fpga_axi: fpga-axi@0 {
+		interrupt-parent = <&gic>;
+		compatible = "simple-bus";
+		#address-cells = <0x1>;
+		#size-cells = <0x1>;
+		ranges = <0 0 0 0xffffffff>;
+
+		rx_dma: dma@9c420000 {
+			compatible = "adi,axi-dmac-1.00.a";
+			reg = <0x9c420000 0x10000>;
+			#dma-cells = <1>;
+			#clock-cells = <0>;
+			interrupts = <0 109 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&zynqmp_clk 73>;
+
+			adi,channels {
+				#size-cells = <0>;
+				#address-cells = <1>;
+
+				dma-channel@0 {
+					reg = <0>;
+					adi,source-bus-width = <265>;
+					adi,source-bus-type = <2>;
+					adi,destination-bus-width = <265>;
+					adi,destination-bus-type = <0>;
+				};
+			};
+		};
+
+		tx_dma: dma@9c430000  {
+			compatible = "adi,axi-dmac-1.00.a";
+			reg = <0x9c430000 0x10000>;
+			#dma-cells = <1>;
+			#clock-cells = <0>;
+			interrupts = <0 108 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&zynqmp_clk 73>;
+
+			adi,channels {
+				#size-cells = <0>;
+				#address-cells = <1>;
+
+				dma-channel@0 {
+					reg = <0>;
+					adi,source-bus-width = <256>;
+					adi,source-bus-type = <0>;
+					adi,destination-bus-width = <256>;
+					adi,destination-bus-type = <2>;
+				};
+			};
+		};
+
+		axi_ad9081_core_rx: axi-ad9081-rx-hpc@84a10000 {
+			compatible = "adi,axi-ad9081-rx-1.0";
+			reg = <0x84a10000 0x8000>;
+			dmas = <&rx_dma 0>;
+			dma-names = "rx";
+			spibus-connected = <&trx0_ad9081>;
+		};
+
+		axi_ad9081_core_tx: axi-ad9081-tx-hpc@84b10000 {
+			compatible = "adi,axi-ad9081-tx-1.0";
+			reg = <0x84b10000 0x4000>;
+			dmas = <&tx_dma 0>;
+			dma-names = "tx";
+			clocks = <&trx0_ad9081 1>;
+			clock-names = "sampl_clk";
+			spibus-connected = <&trx0_ad9081>;
+			//adi,axi-pl-fifo-enable;
+		};
+
+		axi_ad9081_rx_jesd: axi-jesd204-rx@84a90000 {
+			compatible = "adi,axi-jesd204-rx-1.0";
+			reg = <0x84a90000 0x1000>;
+
+			interrupts = <0 107 IRQ_TYPE_LEVEL_HIGH>;
+
+			clocks = <&zynqmp_clk 71>, <&hmc7044 10>, <&axi_ad9081_adxcvr_rx 0>;
+			clock-names = "s_axi_aclk", "device_clk", "lane_clk";
+
+			#clock-cells = <0>;
+			clock-output-names = "jesd_rx_lane_clk";
+
+			adi,octets-per-frame = <1>;
+			adi,frames-per-multiframe = <32>;
+		};
+
+		axi_ad9081_tx_jesd: axi-jesd204-tx@84b90000 {
+			compatible = "adi,axi-jesd204-tx-1.0";
+			reg = <0x84b90000 0x1000>;
+
+			interrupts = <0 106 IRQ_TYPE_LEVEL_HIGH>;
+
+			clocks = <&zynqmp_clk 71>, <&hmc7044 6>, <&axi_ad9081_adxcvr_tx 0>;
+			clock-names = "s_axi_aclk", "device_clk", "lane_clk";
+
+			#clock-cells = <0>;
+			clock-output-names = "jesd_tx_lane_clk";
+
+			adi,octets-per-frame = <1>;
+			adi,frames-per-multiframe = <32>;
+			adi,converter-resolution = <16>;
+			adi,bits-per-sample = <16>;
+			adi,converters-per-device = <4>;
+			adi,control-bits-per-sample = <0>;
+		};
+
+		axi_ad9081_adxcvr_rx: axi-adxcvr-rx@84a60000 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "adi,axi-adxcvr-1.0";
+			reg = <0x84a60000 0x1000>;
+
+			clocks = <&hmc7044 12>, <&hmc7044 10>;
+			clock-names = "conv", "div40";
+
+			#clock-cells = <1>;
+			clock-output-names = "rx_gt_clk", "rx_out_clk";
+
+			adi,sys-clk-select = <3>;
+			adi,out-clk-select = <4>;
+ 			adi,use-lpm-enable;
+ 			adi,use-cpll-enable;
+		};
+
+		axi_ad9081_adxcvr_tx: axi-adxcvr-tx@84b60000 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "adi,axi-adxcvr-1.0";
+			reg = <0x84b60000 0x1000>;
+
+			clocks = <&hmc7044 12>, <&hmc7044 6>;
+			clock-names = "conv", "div40";
+
+			#clock-cells = <1>;
+			clock-output-names = "tx_gt_clk", "tx_out_clk";
+
+			adi,sys-clk-select = <3>;
+			adi,out-clk-select = <4>;
+		};
+
+		axi_sysid_0: axi-sysid-0@85000000 {
+			compatible = "adi,axi-sysid-1.00.a";
+			reg = <0x85000000 0x10000>;
+		};
+	};
+};
+
+&spi0 {
+	status = "okay";
+};
+
+#define fmc_spi spi0
+#include "adi-ad9081-fmc-ebz.dtsi"
+
+// ad_iobuf #(.DATA_WIDTH(12)) i_iobuf (
+// 	.dio_t (gpio_t[43:32]),
+// 	.dio_i (gpio_o[43:32]),
+// 	.dio_o (gpio_i[43:32]),
+// 	dio_p ({hmc_gpio1,       // 43 121
+// 	gpio[10:0]}));   // 42-32
+//
+// assign gpio_i[44] = agc0[0];
+// assign gpio_i[45] = agc0[1];
+// assign gpio_i[46] = agc1[0];
+// assign gpio_i[47] = agc1[1];
+// assign gpio_i[48] = agc2[0];
+// assign gpio_i[49] = agc2[1];
+// assign gpio_i[50] = agc3[0];
+// assign gpio_i[51] = agc3[1];
+// assign gpio_i[52] = irqb[0];
+// assign gpio_i[53] = irqb[1];
+//
+// assign hmc_sync         = gpio_o[54];
+// assign rstb             = gpio_o[55]; 133
+// assign rxen[0]          = gpio_o[56]; 134
+// assign rxen[1]          = gpio_o[57]; 135
+// assign txen[0]          = gpio_o[58]; 136
+// assign txen[1]          = gpio_o[59]; 137
+// assign dac_fifo_bypass  = gpio_o[60];
+
+&trx0_ad9081 {
+	reset-gpios = <&gpio 133 0>;
+	sysref-req-gpios = <&gpio 121 0>;
+	rx2-enable-gpios = <&gpio 135 0>;
+	rx1-enable-gpios = <&gpio 134 0>;
+	tx2-enable-gpios = <&gpio 137 0>;
+	tx1-enable-gpios = <&gpio 136 0>;
+};
+
+&axi_ad9081_core_tx {
+	plddrbypass-gpios = <&gpio 138 0>;
+};

@@ -1,0 +1,165 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Prototyping platform for LiDAR applications
+ * Link: https://wiki.analog.com/resources/eval/user-guides/ad-fmclidar1-ebz
+ *
+ * hdl_project: <ad_fmclidar1_ebz/zc706>
+ * board_revision: <B>
+ *
+ * Copyright 2020 Analog Devices Inc.
+ */
+/dts-v1/;
+
+#include "zynq-zc706.dtsi"
+#include "zynq-zc706-adv7511.dtsi"
+
+&i2c_mux {
+	i2c@5 { /* HPC IIC */
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <5>;
+
+		eeprom@50 {
+			compatible = "at24,24c02";
+			reg = <0x50>;
+		};
+
+		eeprom@54 {
+			compatible = "at24,24c02";
+			reg = <0x54>;
+		};
+	};
+};
+
+&fpga_axi {
+	axi_spi_vco: axi_quad_spi@7c500000 {
+		reg = <0x7c500000 0x10000>;
+		compatible = "xlnx,xps-spi-2.00.a";
+		bits-per-word = <8>;
+		clock-names = "ext_spi_clk", "s_axi_aclk";
+		clocks = <&clkc 15>, <&clkc 15>;
+		fifo-size = <16>;
+		interrupt-names = "ip2intc_irpt";
+		interrupt-parent = <&intc>;
+		interrupts = <0 54 IRQ_TYPE_EDGE_RISING>;
+		num-cs = <0x1>;
+		xlnx,num-ss-bits = <0x1>;
+		xlnx,spi-mode = <0>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+	};
+
+	axi_spi_afe_adc: axi_quad_spi@7c600000 {
+		reg = <0x7c600000 0x10000>;
+		compatible = "xlnx,xps-spi-2.00.a";
+		bits-per-word = <8>;
+		clock-names = "ext_spi_clk", "s_axi_aclk";
+		clocks = <&clkc 15>, <&clkc 15>;
+		fifo-size = <16>;
+		interrupt-names = "ip2intc_irpt";
+		interrupt-parent = <&intc>;
+		interrupts = <0 53 IRQ_TYPE_EDGE_RISING>;
+		num-cs = <0x1>;
+		xlnx,num-ss-bits = <0x1>;
+		xlnx,spi-mode = <0>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+	};
+
+	axi_pulse_capture: axi-pulse-capture@7c700000 {
+		compatible = "adi,axi-pulse-capture-1.00.a";
+		reg = <0x7c700000 0x10000>;
+		interrupts = <0 52 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&axi_ad9094_adxcvr 1>;
+	};
+
+	rx_dma: rx-dmac@7c400000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x7c400000 0x10000>;
+		#dma-cells = <1>;
+		interrupts = <0 57 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clkc 16>;
+
+		adi,channels {
+			#size-cells = <0>;
+			#address-cells = <1>;
+
+			dma-channel@0 {
+				reg = <0>;
+				adi,source-bus-width = <256>;
+				adi,source-bus-type = <2>;
+				adi,destination-bus-width = <64>;
+				adi,destination-bus-type = <0>;
+			};
+		};
+	};
+
+	axi_ad9094_core: axi-ad9094-hpc@44a10000 {
+		compatible = "adi,axi-ad9694-1.0";
+		reg = <0x44a10000 0x10000>;
+		dmas = <&rx_dma 0>;
+		dma-names = "rx";
+		spibus-connected = <&ad9094>;
+		adi,axi-additional-channel-available;
+	};
+
+	axi_ad9094_rx_jesd: axi-jesd204-rx@44aa0000 {
+		compatible = "adi,axi-jesd204-rx-1.0";
+		reg = <0x44aa0000 0x1000>;
+
+		interrupts = <0 55 IRQ_TYPE_LEVEL_HIGH>;
+
+		clocks = <&clkc 16>, <&ad9528 3>, <&axi_ad9094_adxcvr 0>;
+		clock-names = "s_axi_aclk", "device_clk", "lane_clk";
+
+		adi,octets-per-frame = <1>;
+		adi,frames-per-multiframe = <32>;
+		adi,converter-resolution = <8>;
+		adi,bits-per-sample = <8>;
+		adi,converters-per-device = <2>;
+		adi,subclass = <1>;
+
+		#clock-cells = <0>;
+		clock-output-names = "jesd_adc_lane_clk";
+	};
+
+	axi_ad9094_adxcvr: axi-adxcvr-rx@44a50000 {
+		compatible = "adi,axi-adxcvr-1.0";
+		reg = <0x44a50000 0x1000>;
+
+		clocks = <&ad9528 4>;
+		clock-names = "conv";
+
+		#clock-cells = <1>;
+		clock-output-names = "adc_gt_clk", "rx_out_clk";
+
+		adi,sys-clk-select = <3>;
+		adi,out-clk-select = <3>;
+		adi,use-lpm-enable;
+	};
+};
+
+&spi1 {
+	status = "okay";
+};
+
+&spi0 {
+	status = "okay";
+};
+
+&i2c1 {
+	status = "okay";
+	clock-frequency = <400000>;
+};
+
+#define spi_vco		axi_spi_vco
+#define spi_clkgen	spi1
+#define spi_adc		spi0
+#define spi_afe_adc	axi_spi_afe_adc
+#define i2c_afe_dac	i2c1
+
+#include "adi-fmclidar1.dtsi"
+
+&ad7091 {
+	convst-gpios = <&gpio0 91 0>;
+};

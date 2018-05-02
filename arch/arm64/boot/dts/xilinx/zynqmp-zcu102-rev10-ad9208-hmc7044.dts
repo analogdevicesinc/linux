@@ -1,0 +1,73 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * dts file for AD9208 on Xilinx ZynqMP ZCU102 Rev 1.0
+ *
+ * Copyright (C) 2019 Analog Devices Inc.
+ *
+ */
+
+#include "zynqmp-zcu102-rev10-ad9208.dts"
+#include <dt-bindings/iio/frequency/hmc7044.h>
+
+&spi0 {
+	status = "okay";
+
+	adc0_ad9208: ad9208@0 {
+		adi,sampling-frequency = /bits/ 64 <2949120000>;
+	};
+};
+
+&spi1 {
+	status = "okay";
+
+	hmc7044: hmc7044@0 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		#clock-cells = <1>;
+		compatible = "adi,hmc7044";
+		reg = <0>;
+		spi-max-frequency = <100000>;
+
+		adi,pll1-clkin-frequencies = <122880000 0 0 0>;
+
+		adi,pll1-loop-bandwidth-hz = <200>;
+
+		adi,vcxo-frequency = <122880000>;
+
+		adi,pll2-output-frequency = <2949120000>;
+
+		adi,sysref-timer-divider = <1024>;
+		adi,pulse-generator-mode = <0>;
+
+		adi,clkin0-buffer-mode = <0x15>;
+		adi,oscin-buffer-mode = <0x15>;
+
+		adi,gpi-controls = <0x00 0x00 0x00 0x00>;
+		adi,gpo-controls = <0x7f 0x7f 0x00 0x00>;
+
+		clock-output-names = "hmc7044_out0", "hmc7044_out1", "hmc7044_out2",
+				     "hmc7044_out3", "hmc7044_out4", "hmc7044_out5",
+				     "hmc7044_out6", "hmc7044_out7", "hmc7044_out8",
+				     "hmc7044_out9", "hmc7044_out10", "hmc7044_out11",
+				     "hmc7044_out12", "hmc7044_out13";
+
+		hmc7044_c0: channel@0 {
+			reg = <0>;
+			adi,extended-name = "CLKOUT0";
+			adi,divider = <1>;
+			adi,driver-mode = <HMC7044_DRIVER_MODE_LVPECL>;
+		};
+		hmc7044_c2: channel@2 {
+			reg = <2>;
+			adi,extended-name = "CLKOUT2";
+			adi,divider = <8>;
+			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;
+		};
+		hmc7044_c10: channel@10 {
+			reg = <10>;
+			adi,extended-name = "CLKOUT3";
+			adi,divider = <8>;
+			adi,driver-mode = <HMC7044_DRIVER_MODE_LVPECL>;
+		};
+	};
+};

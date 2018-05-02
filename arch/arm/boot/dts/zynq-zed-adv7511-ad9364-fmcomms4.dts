@@ -1,0 +1,109 @@
+/dts-v1/;
+
+#include "zynq-zed.dtsi"
+#include "zynq-zed-adv7511.dtsi"
+
+&fpga_axi {
+	fmc_i2c: i2c@41620000 {
+		compatible = "xlnx,axi-iic-1.01.b", "xlnx,xps-iic-2.00.a";
+		reg = <0x41620000 0x10000>;
+		interrupt-parent = <&intc>;
+		interrupts = <0 55 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clkc 15>;
+		clock-names = "pclk";
+
+		#size-cells = <0>;
+		#address-cells = <1>;
+	};
+
+	rx_dma: dma@7c400000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x7c400000 0x10000>;
+		#dma-cells = <1>;
+		interrupts = <0 57 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clkc 16>;
+
+		adi,channels {
+			#size-cells = <0>;
+			#address-cells = <1>;
+
+			dma-channel@0 {
+				reg = <0>;
+				adi,source-bus-width = <64>;
+				adi,source-bus-type = <2>;
+				adi,destination-bus-width = <64>;
+				adi,destination-bus-type = <0>;
+			};
+		};
+	};
+
+	tx_dma: dma@7c420000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x7c420000 0x10000>;
+		#dma-cells = <1>;
+		interrupts = <0 56 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clkc 16>;
+
+		adi,channels {
+			#size-cells = <0>;
+			#address-cells = <1>;
+
+			dma-channel@0 {
+				reg = <0>;
+				adi,source-bus-width = <64>;
+				adi,source-bus-type = <0>;
+				adi,destination-bus-width = <64>;
+				adi,destination-bus-type = <2>;
+			};
+		};
+	};
+
+	cf_ad9361_adc_core_0: cf-ad9361-lpc@79020000 {
+		compatible = "adi,axi-ad9361-6.00.a";
+		reg = <0x79020000 0x6000>;
+		dmas = <&rx_dma 0>;
+		dma-names = "rx";
+
+		spibus-connected = <&adc0_ad9364>;
+	};
+
+	cf_ad9361_dac_core_0: cf-ad9361-dds-core-lpc@79024000 {
+		compatible = "adi,axi-ad9364-dds-6.00.a";
+		reg = <0x79024000 0x1000>;
+		clocks = <&adc0_ad9364 13>;
+		clock-names = "sampl_clk";
+		dmas = <&tx_dma 0>;
+		dma-names = "tx";
+	};
+};
+
+&spi0 {
+	status = "okay";
+};
+
+&spi1 {
+	status = "okay";
+};
+
+#define fmc_spi spi0
+#define pmod_spi spi1
+
+#include "adi-fmcomms4.dtsi"
+#include "adi-fmcomms3-up-down-converter.dtsi"
+
+&adc0_ad9364 {
+	en_agc-gpios  = <&gpio0 98 0>;
+	sync-gpios  = <&gpio0 99 0>;
+	reset-gpios = <&gpio0 100 0>;
+	enable-gpios = <&gpio0 101 0>;
+	txnrx-gpios = <&gpio0 102 0>;
+};
+
+&lo_pll0_rx_adf4351 {
+	gpios = <&gpio0 103 0>;
+};
+
+&lo_pll0_tx_adf4351 {
+	gpios = <&gpio0 104 0>;
+};
+

@@ -1,0 +1,156 @@
+/dts-v1/;
+
+#include "zynq-zed.dtsi"
+#include "zynq-zed-adv7511.dtsi"
+#include <dt-bindings/gpio/gpio.h>
+
+/ {
+	fpga_axi: fpga-axi@0 {
+		compatible = "simple-bus";
+		#address-cells = <0x1>;
+		#size-cells = <0x1>;
+		ranges;
+
+		i2c@43c40000 {
+			compatible = "xlnx,axi-iic-1.01.b", "xlnx,xps-iic-2.00.a";
+			reg = <0x43c40000 0x10000>;
+			interrupt-parent = <&intc>;
+			interrupts = <0 55 0x4>;
+			clocks = <&clkc 15>;
+			clock-names = "pclk";
+
+			#size-cells = <0>;
+			#address-cells = <1>;
+
+			mux@70 {
+				compatible = "nxp,pca9546";
+				reg = <0x70>;
+				reset-gpio = <&gpio0 87 1>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+				i2c@1 {
+					#size-cells = <0>;
+					#address-cells = <1>;
+					reg = <1>;
+
+					adv7511@39 {
+						compatible = "adv7511-media";
+						reg = <0x39>;
+
+						powerdown-gpio = <&pca9534 4 GPIO_ACTIVE_HIGH>;
+
+						edid-addr = <0x3F>;
+						pktmem-addr = <0x38>;
+						cec-addr = <0x3C>;
+
+						video-input {
+							input-id = <2>;
+							input-style = <1>;
+							input-color-depth = <8>;
+							bit-justification = <2>;
+							hsync-polarity = <0>;
+							vsync-polarity = <0>;
+							clock-delay = <3>;
+						};
+
+						video-output {
+							hdmi-mode = <1>;
+							output-format = <1>;
+							output-color-space = <1>;
+							up-conversion = <0>;
+							csc-enable = <0>;
+							csc-scaling-factor = <2>;
+							csc-coefficients {
+								a1 = <0x0B37>;
+								a2 = <0x0800>;
+								a3 = <0x0000>;
+								a4 = <0x1A86>;
+								b1 = <0x1A49>;
+								b2 = <0x0800>;
+								b3 = <0x1D3F>;
+								b4 = <0x0422>;
+								c1 = <0x0000>;
+								c2 = <0x0800>;
+								c3 = <0x0E2D>;
+								c4 = <0x1914>;
+							};
+						};
+
+						port {
+							adv7511_media: endpoint {
+								remote-endpoint = <&imageon_output>;
+							};
+						};
+
+					};
+				};
+
+				i2c@2 {
+					#size-cells = <0>;
+					#address-cells = <1>;
+					reg = <2>;
+
+					adv7611@4c {
+						compatible = "adi,adv7611";
+						reg = <0x4c>;
+						#address-cells = <0x1>;
+						#size-cells = <0x0>;
+
+						reset-gpios = <&pca9534 0 0>;
+						hpd-gpios = <&pca9534 2 0>;
+
+						port@0 {
+							reg = <0x0>;
+						};
+
+						port@1 {
+							reg = <0x1>;
+							adv7611: endpoint {
+								remote-endpoint = <&imageon_input>;
+							};
+						};
+					};
+				};
+
+				i2c@3 {
+					#size-cells = <0>;
+					#address-cells = <1>;
+					reg = <3>;
+
+					pca9534: pca9534@20 {
+						compatible = "nxp,pca9534";
+						reg = <0x20>;
+						gpio-controller;
+						#gpio-cells = <2>;
+					};
+				};
+			};
+		};
+	};
+
+	imageon_bridge {
+		compatible = "adi,imageon-v4l2-bridge-1.00.a";
+
+		interrupt-parent = <&gpio0>;
+		interrupts = <86 0>;
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+			    reg = <0>;
+			    imageon_input: endpoint {
+			        remote-endpoint = <&adv7611>;
+			    };
+			};
+
+			port@1 {
+			    reg = <1>;
+			    imageon_output: endpoint {
+			        remote-endpoint = <&adv7511_media>;
+			    };
+			};
+		};
+	};
+};

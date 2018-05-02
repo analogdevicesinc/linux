@@ -1,0 +1,185 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * dts file for AD9208 on Xilinx ZynqMP ZCU102 Rev 1.0
+ *
+ * Copyright (C) 2019 Analog Devices Inc.
+ *
+ */
+
+#include "zynqmp-zcu102-rev1.0.dts"
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/iio/adc/adi,ad9208.h>
+
+&i2c1 {
+	i2c-mux@75 {
+		i2c@0 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0>;
+
+			eeprom@50 {
+				compatible = "at24,24c02";
+				reg = <0x50>;
+			};
+		};
+	};
+};
+
+/ {
+	fpga_axi: fpga-axi@0 {
+		interrupt-parent = <&gic>;
+		compatible = "simple-bus";
+		#address-cells = <0x1>;
+		#size-cells = <0x1>;
+		ranges = <0 0 0 0xffffffff>;
+
+		ad9208_clkin: clock@0 {
+			#clock-cells = <0>;
+			compatible = "adjustable-clock";
+			clock-frequency = <3000000000>;
+			clock-accuracy = <1000000000>; /* 0 ... 6 Ghz */
+			clock-output-names = "ad9208_clk";
+		};
+
+		rx_dma: rx-dmac@9c420000 {
+			#dma-cells = <1>;
+			compatible = "adi,axi-dmac-1.00.a";
+			reg = <0x9c420000 0x10000>;
+			interrupts = <0 109 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&zynqmp_clk 71>;
+
+			adi,channels {
+				#size-cells = <0>;
+				#address-cells = <1>;
+
+				dma-channel@0 {
+					reg = <0>;
+					adi,source-bus-width = <128>;
+					adi,source-bus-type = <1>;
+					adi,destination-bus-width = <128>;
+					adi,destination-bus-type = <0>;
+				};
+			};
+		};
+
+		axi_ad9208_core: axi-ad9208-hpc@84a10000 {
+			compatible = "adi,axi-ad9208-1.0";
+			reg = <0x84a10000 0x10000>;
+			dmas = <&rx_dma 0>;
+			dma-names = "rx";
+			spibus-connected = <&adc0_ad9208>;
+		};
+
+		axi_ad9208_jesd: axi-jesd204-rx@84aa0000 {
+			compatible = "adi,axi-jesd204-rx-1.0";
+			reg = <0x84aa0000 0x4000>;
+			interrupts = <0 108 IRQ_TYPE_LEVEL_HIGH>;
+
+			clocks = <&zynqmp_clk 71>, <&axi_ad9208_adxcvr 1>, <&axi_ad9208_adxcvr 0>;
+			clock-names = "s_axi_aclk", "device_clk", "lane_clk";
+
+			adi,octets-per-frame = <1>;
+			adi,frames-per-multiframe = <32>;
+			adi,subclass = <0>;
+
+			#clock-cells = <0>;
+			clock-output-names = "jesd_adc_lane_clk";
+		};
+
+		axi_ad9208_adxcvr: axi-adxcvr-rx@84a60000 {
+			compatible = "adi,axi-adxcvr-1.0";
+			reg = <0x84a60000 0x1000>;
+
+			clocks = <&si570_2>, <&si570_2>;
+			clock-names = "conv", "div40";
+
+			adi,sys-clk-select = <3>;
+			adi,out-clk-select = <3>;
+			adi,use-lpm-enable;
+
+			#clock-cells = <1>;
+			clock-output-names = "adc_gt_clk", "rx_out_clk";
+		};
+
+		axi_sysid_0: axi-sysid-0@85000000 {
+			compatible = "adi,axi-sysid-1.00.a";
+			reg = <0x85000000 0x10000>;
+		};
+	};
+};
+
+&spi0 {
+	status = "okay";
+
+	adc0_ad9208: ad9208@0 {
+		compatible = "adi,ad9208";
+
+		powerdown-gpios = <&gpio 116 0>;
+		fastdetect-a-gpios = <&gpio 113 0>;
+		fastdetect-b-gpios = <&gpio 114 0>;
+
+		spi-cpol;
+		spi-cpha;
+		spi-max-frequency = <10000000>;
+		reg = <0>;
+
+		clocks = <&axi_ad9208_jesd>, <&ad9208_clkin>;
+		clock-names = "jesd_adc_clk", "adc_clk";
+
+		adi,powerdown-mode = <AD9208_PDN_MODE_POWERDOWN>;
+
+		adi,sampling-frequency = /bits/ 64 <2600000000>;
+		adi,input-clock-divider-ratio = <1>;
+		adi,duty-cycle-stabilizer-enable;
+
+		adi,analog-input-neg-buffer-current = <AD9208_BUFF_CURR_600_UA>;
+		adi,analog-input-pos-buffer-current = <AD9208_BUFF_CURR_600_UA>;
+
+		adi,sysref-lmfc-offset = <0>;
+		adi,sysref-pos-window-skew = <0>;
+		adi,sysref-neg-window-skew = <0>;
+		adi,sysref-mode = <AD9208_SYSREF_CONT>;
+		adi,sysref-nshot-ignore-count = <0>;
+
+		/* JESD204 parameters */
+
+		adi,octets-per-frame = <1>;
+		adi,frames-per-multiframe = <32>;
+		adi,converter-resolution = <16>;
+		adi,bits-per-sample = <16>;
+		adi,converters-per-device = <2>;
+		adi,control-bits-per-sample = <0>;
+		adi,lanes-per-device = <8>;
+		adi,subclass = <0>;
+
+		/* DDC setup */
+
+		adi,ddc-channel-number = <AD9208_FULL_BANDWIDTH_MODE>;
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		ad9208_ddc0: channel@0 {
+			reg = <0>;
+			adi,decimation = <2>;
+			adi,nco-mode-select = <AD9208_NCO_MODE_VIF>;
+			adi,nco-channel-carrier-frequency-hz = /bits/ 64 <70000000>;
+			adi,nco-channel-phase-offset = /bits/ 64 <0>;
+			adi,ddc-gain-6dB-enable;
+		};
+	};
+
+	ad7940: ad7940@1 {
+		compatible = "adi,ad7940";
+		spi-max-frequency = <1000000>;
+		reg = <1>;
+
+	};
+
+	adt7320: adt7320@2 {
+		compatible = "adi,adt7320";
+		spi-max-frequency = <1000000>;
+		reg = <2>;
+
+	};
+};

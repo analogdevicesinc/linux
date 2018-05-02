@@ -1,0 +1,106 @@
+/*
+ * ZYNQ M2k (Z7010)
+ *
+ * Copyright (C) 2017 Analog Devices Inc.
+ *
+ * Licensed under the GPL-2.
+ */
+#include "zynq.dtsi"
+
+#include <dt-bindings/interrupt-controller/irq.h>
+
+/ {
+	model = "Analog Devices M2k Rev.A (Z7010)";
+	memory {
+		device_type = "memory";
+		reg = <0x00000000 0x20000000>;
+	};
+
+	chosen {
+		stdout-path = "/amba@0/uart@E0001000";
+	};
+
+	usb_phy0: phy0 {
+		compatible = "ulpi-phy";
+		#phy-cells = <0>;
+		reg = <0xe0002000 0x1000>;
+		view-port = <0x0170>;
+		drv-vbus;
+	};
+
+};
+
+&cpu0 {
+	operating-points = <
+		/* kHz    uV */
+		500000  1000000
+//		250000  1000000
+	>;
+};
+
+&sdhci0 {
+	status = "disabled";
+};
+
+&dmac_s {
+	status = "disabled";
+};
+
+&watchdog0 {
+	status = "okay";
+	reset-on-timeout;
+};
+
+&usb0 {
+	xlnx,phy-reset-gpio = <&gpio0 52 0>;
+	dr_mode = "otg";
+	status = "okay";
+	usb-phy = <&usb_phy0>;
+};
+
+&clkc {
+	fclk-enable = <0x9>;
+};
+
+&qspi {
+	status = "okay";
+	is-dual = <0>;
+	num-cs = <1>;
+	primary_flash: ps7-qspi@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		spi-tx-bus-width = <1>;
+		spi-rx-bus-width = <4>;
+		compatible = "n25q256a", "n25q512a", "jedec,spi-nor"; /* same as S25FL256 */
+		reg = <0x0>;
+		spi-max-frequency = <50000000>;
+		partition@qspi-fsbl-uboot {
+			label = "qspi-fsbl-uboot";
+			reg = <0x0 0x100000>; /* 1M */
+		};
+		partition@qspi-uboot-env {
+			label = "qspi-uboot-env";
+			reg = <0x100000 0x20000>; /* 128k */
+		};
+		partition@qspi-nvmfs {
+			label = "qspi-nvmfs";
+			reg = <0x120000 0xE0000>; /* 1M */
+		};
+		partition@qspi-linux {
+			label = "qspi-linux";
+			reg = <0x200000 0x1E00000>; /* 30M */
+		};
+	};
+};
+
+&adc {
+	xlnx,channels {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		channel@0 {
+			reg = <0>;
+		};
+	};
+};
+
+

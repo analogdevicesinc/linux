@@ -1,0 +1,117 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices AD-FMCDAQ3-EBZ
+ * https://wiki.analog.com/resources/eval/user-guides/ad-fmcdaq3-ebz
+ *
+ * hdl_project: <daq3/zc706>
+ * board_revision: <C>
+ *
+ * Copyright (C) 2015-2019 Analog Devices Inc.
+ */
+#include "zynq-zc706-adv7511-fmcdaq3.dts"
+
+/delete-node/ &ad9528_0_c13;
+/delete-node/ &ad9528_0_c2;
+/delete-node/ &ad9528_0_c6;
+/delete-node/ &ad9528_0_c7;
+/delete-node/ &ad9528_0_c5;
+/delete-node/ &ad9528_0_c8;
+/delete-node/ &ad9528_0_c4;
+/delete-node/ &ad9528_0_c9;
+
+&clk0_ad9528 {
+
+	adi,vcxo-freq = <100000000>;
+	/* PLL2 config for VCO = 3600MHz, N = 36*/
+//	adi,pll2-n2-div = <12>; /* N / M1 */
+
+	ad9528_0_c13: channel@13 {
+		reg = <13>;
+		adi,extended-name = "ADC_CLK";
+		adi,driver-mode = <DRIVER_MODE_LVDS>;
+		adi,divider-phase = <0>;
+		adi,channel-divider = <1>;
+		adi,signal-source = <SOURCE_VCO>;
+	};
+
+	ad9528_0_c2: channel@2 {
+		reg = <2>;
+		adi,extended-name = "DAC_CLK";
+		adi,driver-mode = <DRIVER_MODE_LVDS>;
+		adi,divider-phase = <0>;
+		adi,channel-divider = <1>;
+		adi,signal-source = <SOURCE_VCO>;
+	};
+
+	ad9528_0_c9: channel@9 {
+		reg = <9>;
+		adi,extended-name = "ADC_CLK_FMC";
+		adi,driver-mode = <DRIVER_MODE_LVDS>;
+		adi,divider-phase = <0>;
+		adi,channel-divider = <2>;
+		adi,signal-source = <SOURCE_VCO>;
+	};
+
+	ad9528_0_c8: channel@8 {
+		reg = <8>;
+		adi,extended-name = "ADC_SYSREF";
+		adi,driver-mode = <DRIVER_MODE_LVDS>;
+		adi,divider-phase = <0>;
+		adi,channel-divider = <1>;
+		adi,signal-source = <SOURCE_SYSREF_VCO>;
+	};
+
+	ad9528_0_c7: channel@7 {
+		reg = <7>;
+		adi,extended-name = "CLKD_ADC_SYSREF";
+		adi,driver-mode = <DRIVER_MODE_LVDS>;
+		adi,divider-phase = <0>;
+		adi,channel-divider = <2>;
+		adi,signal-source = <SOURCE_SYSREF_VCO>;
+	};
+
+	ad9528_0_c6: channel@6 {
+		reg = <6>;
+		adi,extended-name = "CLKD_DAC_SYSREF";
+		adi,driver-mode = <DRIVER_MODE_LVDS>;
+		adi,divider-phase = <0>;
+		adi,channel-divider = <2>;
+		adi,signal-source = <SOURCE_SYSREF_VCO>;
+	};
+
+	ad9528_0_c5: channel@5 {
+		reg = <5>;
+		adi,extended-name = "DAC_SYSREF";
+		adi,driver-mode = <DRIVER_MODE_LVDS>;
+		adi,divider-phase = <0>;
+		adi,channel-divider = <1>;
+		adi,signal-source = <SOURCE_SYSREF_VCO>;
+	};
+
+	ad9528_0_c4: channel@4 {
+		reg = <4>;
+		adi,extended-name = "DAC_CLK_FMC";
+		adi,driver-mode = <DRIVER_MODE_LVDS>;
+		adi,divider-phase = <0>;
+		adi,channel-divider = <2>;
+		adi,signal-source = <SOURCE_VCO>;
+	};
+};
+
+&dac0_ad9152 {
+	clocks = <&axi_ad9152_jesd>, <&clk0_ad9528 2>, <&clk0_ad9528 5>;
+};
+
+&adc0_ad9680 {
+	clocks = <&axi_ad9680_jesd>, <&clk0_ad9528 13>, <&clk0_ad9528 8>;
+};
+
+&axi_ad9680_adxcvr {
+	clocks = <&clk0_ad9528 9>, <&clk0_ad9528 7>;
+};
+
+&axi_ad9152_adxcvr {
+	clocks = <&clk0_ad9528 4>, <&clk0_ad9528 6>;
+};
+
+

@@ -1,0 +1,383 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices ADALM2000
+ * https://wiki.analog.com/university/tools/m2k
+ * https://wiki.analog.com/university/courses/electronics/labs
+ * https://wiki.analog.com/university/tools/adalm2000/devs/intro
+ * https://wiki.analog.com/university/tools/m2k/users/quick_start
+ *
+ * hdl_project: <m2k/standalone>
+ * board_revision: <A>
+ *
+ * Copyright (C) 2018-2019 Analog Devices Inc.
+ */
+/dts-v1/;
+
+#include "zynq-m2k.dtsi"
+
+#include <dt-bindings/input/input.h>
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+
+/ {
+	ref_clock: ref-clock {
+		#clock-cells = <0>;
+		compatible = "fixed-clock";
+		clock-frequency = <20000000>;
+		clock-output-names = "refclk";
+	};
+
+	ext_clock: ext-clock {
+		#clock-cells = <0>;
+		compatible = "fixed-clock";
+		clock-frequency = <2000000>;
+		clock-output-names = "extclk";
+	};
+
+	/* DAC is running at 1.5x the referene but with 2x interpolation */
+	dac_data_clock: dac-data-clock {
+		#clock-cells = <0>;
+		compatible = "fixed-factor-clock";
+		clocks = <&converter_clock>;
+		clock-mult = <3>;
+		clock-div = <4>;
+	};
+
+	m2k_fabric: m2k-fabric {
+		compatible = "adi,m2k-fabric";
+		clocks = <&converter_clock>;
+		adi,revc;
+
+		en-sc-cal1-gpio = <&gpio_exp 8 0>;
+		en-sc1-cal2-gpio = <&gpio_exp 1 0>;
+		en-sc2-cal2-gpio = <&gpio_exp 0 0>;
+
+		sc-cal-mux0-gpio = <&gpio_exp 2 0>;
+		sc-cal-mux1-gpio = <&gpio_exp 3 0>;
+
+		en-awg1-gpio = <&gpio_exp 15 0>;
+		en-awg2-gpio = <&gpio_exp 14 0>;
+		en-sc1-gpio = <&gpio_exp 5 0>;
+		en-sc2-gpio = <&gpio_exp 4 0>;
+
+		en-usr-pow-gpio = <&gpio_exp 6 0>;
+
+		en-sc1-lg-gpio = <&gpio_exp 10 0>;
+		en-sc1-hg-gpio = <&gpio_exp 11 0>;
+		en-sc2-lg-gpio = <&gpio_exp 12 0>;
+		en-sc2-hg-gpio = <&gpio_exp 13 0>;
+
+		adi,powerdown-enable;
+
+	};
+
+	ref_1V2: regulator@0 {
+		compatible = "regulator-fixed";
+
+		regulator-name = "REF_1V2";
+		regulator-min-microvolt = <1200000>;
+		regulator-max-microvolt = <1200000>;
+	};
+
+	reg_5V0_A: regulator@1 {
+		compatible = "regulator-fixed";
+
+		regulator-name = "5V0_A";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+
+		gpio = <&gpio0 55 0>;
+		enable-active-high;
+
+		regulator-boot-on;
+		regulator-always-on;
+	};
+
+	leds0 {
+		compatible = "gpio-leds";
+
+		led0 {
+			label = "led0:green";
+			gpios = <&gpio0 15 0>;
+			linux,default-trigger = "heartbeat";
+		};
+	};
+
+	led_gpio_exp: leds1 {
+		compatible = "gpio-leds";
+
+		status {
+			label = "Status";
+			gpios = <&gpio_exp 18 0>;
+			linux,default-trigger = "heartbeat";
+		};
+	};
+
+	gpio_keys {
+		compatible = "gpio-keys";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		button {
+			interrupt-parent = <&gpio0>;
+			interrupts = <14 IRQ_TYPE_EDGE_FALLING>;
+			label = "Button";
+			linux,code = <BTN_MISC>;
+		};
+
+	};
+};
+
+&spi0 {
+	status = "okay";
+
+	converter_clock: pll@0 {
+		compatible = "adi,adf4360-9";
+		reg = <1>;
+		spi-max-frequency = <2000000>;
+
+		#clock-cells = <0>;
+
+		clocks = <&ref_clock>;
+		clock-names = "clkin";
+		clock-output-names = "ADF4360-9";
+
+		adi,loop-filter-charge-pump-current-microamp = <2500>;
+		adi,loop-filter-pfd-frequency-hz = <5000000>;
+		adi,power-up-frequency-hz = <100000000>;
+		adi,power-out-level-microamp = <5000>;
+	};
+
+	converter@1 {
+		compatible = "adi,ad9963";
+		reg = <0>;
+		spi-max-frequency = <5000000>;
+
+		reset-gpio = <&gpio0 54 1>;
+
+		clocks = <&converter_clock>;
+		clock-names = "clk";
+	};
+};
+
+/ {
+	fpga_axi: fpga-axi@0 {
+		compatible = "simple-bus";
+		#address-cells = <0x1>;
+		#size-cells = <0x1>;
+		ranges;
+
+		fmc_i2c: i2c@41600000 {
+			compatible = "xlnx,axi-iic-1.01.b", "xlnx,xps-iic-2.00.a";
+			interrupt-parent = <&intc>;
+			interrupts = <0 58 IRQ_TYPE_LEVEL_HIGH>;
+			reg = <0x41600000 0x10000>;
+			clocks = <&clkc 15>;
+			clock-names = "pclk";
+
+			#size-cells = <0>;
+			#address-cells = <1>;
+
+			gpio_exp: gpio@34 {
+				compatible = "adi,adp5589";
+				reg = <0x34>;
+
+				#gpio-cells = <2>;
+				gpio-controller;
+			};
+
+			dac@1c {
+				compatible = "adi,ad5625";
+				reg = <0x1c>;
+
+				vref-supply = <&ref_1V2>;
+			};
+
+			dac@0f {
+				compatible = "adi,ad5627";
+				reg = <0x0f>;
+
+				vref-supply = <&ref_1V2>;
+			};
+
+			current_limiter: current_limiter@5a {
+				compatible = "adi,adm1177";
+				reg = <0x5a>;
+				adi,r-sense-mohm = <50>; /* 50 mOhm */
+				adi,shutdown-threshold-ma = <1200>; /* 1.200 A */
+				adi,vrange-high-enable;
+			};
+
+			supply_mon_adc: adc@2f {
+				compatible = "adi,ad7291";
+				reg = <0x2f>;
+			};
+		};
+
+		rx_dma0: dma@7c440000 {
+			compatible = "adi,axi-dmac-1.00.a";
+			reg = <0x7c440000 0x10000>;
+			#dma-cells = <1>;
+			interrupts = <0 54 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clkc 15>;
+
+			adi,channels {
+				#size-cells = <0>;
+				#address-cells = <1>;
+
+				dma-channel@0 {
+					reg = <0>;
+					adi,source-bus-width = <32>;
+					adi,source-bus-type = <2>;
+					adi,destination-bus-width = <64>;
+					adi,destination-bus-type = <0>;
+				};
+			};
+		};
+	/*
+		rx_dma1: dma@7c440000 {
+			compatible = "adi,axi-dmac-1.00.a";
+			reg = <0x7c460000 0x10000>;
+			#dma-cells = <1>;
+			interrupts = <0 36 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clkc 15>;
+
+			dma-channel {
+				adi,buswidth = <64>;
+				adi,type = <0>;
+			};
+		};
+	*/
+		tx_dma0: dma@7c480000 {
+			compatible = "adi,axi-dmac-1.00.a";
+			reg = <0x7c480000 0x10000>;
+			#dma-cells = <1>;
+			interrupts = <0 53 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clkc 15>;
+
+			adi,channels {
+				#size-cells = <0>;
+				#address-cells = <1>;
+
+				dma-channel@0 {
+					reg = <0>;
+					adi,source-bus-width = <64>;
+					adi,source-bus-type = <0>;
+					adi,destination-bus-width = <16>;
+					adi,destination-bus-type = <2>;
+				};
+			};
+		};
+
+		tx_dma1: dma@7c460000 {
+			compatible = "adi,axi-dmac-1.00.a";
+			reg = <0x7c460000 0x10000>;
+			#dma-cells = <1>;
+			interrupts = <0 52 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clkc 15>;
+
+			adi,channels {
+				#size-cells = <0>;
+				#address-cells = <1>;
+
+				dma-channel@0 {
+					reg = <0>;
+					adi,source-bus-width = <64>;
+					adi,source-bus-type = <0>;
+					adi,destination-bus-width = <16>;
+					adi,destination-bus-type = <2>;
+				};
+			};
+		};
+
+		m2k-adc@70200000 {
+			compatible = "adi,m2k-adc-1.00.a";
+			reg = <0x70200000 0x10000>, <0x7c500000 0x10000>;
+			clocks = <&converter_clock>;
+			dmas = <&rx_dma0 0>;
+			dma-names = "rx";
+		};
+
+		dds: m2k-dds@70204000 {
+			compatible = "adi,axi-ad9963-dds-1.00.a";
+			reg = <0x70204000 0x10000>;
+			clocks = <&dac_data_clock>;
+			clock-names = "sampl_clk";
+
+			adi,axi-dds-default-scale = <0x800>;
+			adi,axi-dds-default-frequency = <1000000>;
+		};
+
+		m2k-dac@7c5a0000 {
+			compatible = "adi,m2k-dac-1.00.a";
+			reg = <0x7c5a0000 0x10000>;
+			clocks = <&dac_data_clock>;
+			clock-names = "dac_clk";
+			dmas = <&tx_dma0 0 &tx_dma1 0>;
+			dma-names = "tx0", "tx1";
+
+			dds-connected = <&dds>;
+		};
+
+		logic_analyzer_rx_dma: dma@7c400000 {
+			compatible = "adi,axi-dmac-1.00.a";
+			reg = <0x7c400000 0x10000>;
+
+			#dma-cells = <1>;
+			interrupts = <0 57 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clkc 15>;
+
+			adi,channels {
+				#size-cells = <0>;
+				#address-cells = <1>;
+
+				dma-channel@0 {
+					reg = <0>;
+					adi,source-bus-width = <16>;
+					adi,source-bus-type = <2>;
+					adi,destination-bus-width = <64>;
+					adi,destination-bus-type = <0>;
+				};
+			};
+		};
+
+		logic_analyzer_tx_dma: dma@7c420000 {
+			compatible = "adi,axi-dmac-1.00.a";
+			reg = <0x7c420000 0x10000>;
+
+			#dma-cells = <1>;
+			interrupts = <0 56 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clkc 15>;
+
+			adi,channels {
+				#size-cells = <0>;
+				#address-cells = <1>;
+
+				dma-channel@0 {
+					reg = <0>;
+					adi,source-bus-width = <64>;
+					adi,source-bus-type = <0>;
+					adi,destination-bus-width = <16>;
+					adi,destination-bus-type = <2>;
+				};
+			};
+		};
+
+		logic_analyzer@70100000 {
+			compatible = "adi,m2k-logic-analyzer";
+			reg = <0x70100000 0x10000>;
+
+			clocks = <&clkc 17>;
+
+			dmas = <&logic_analyzer_tx_dma 0>, <&logic_analyzer_rx_dma 0>;
+			dma-names = "tx", "rx";
+		};
+
+		m2k-adc-trigger@7c4c0000 {
+			compatible = "adi,axi-adc-trigger";
+			reg = <0x7c4c0000 0x10000>;
+			clocks = <&converter_clock>;
+		};
+	};
+};
+

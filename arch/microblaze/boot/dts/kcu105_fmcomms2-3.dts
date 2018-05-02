@@ -1,0 +1,76 @@
+
+/dts-v1/;
+#include "kcu105.dtsi"
+
+#define fmc_i2c fmc_lpc_iic
+#define fmc_spi axi_spi
+
+&amba_pl {
+	rx_dma: dma@7c400000 {
+		#dma-cells = <1>;
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x7c400000 0x10000>;
+		interrupt-parent = <&axi_intc>;
+		interrupts = <12 2>;
+		clocks = <&clk_bus_0>;
+
+		adi,channels {
+			#size-cells = <0>;
+			#address-cells = <1>;
+
+			dma-channel@0 {
+				reg = <0>;
+				adi,source-bus-width = <64>;
+				adi,source-bus-type = <2>;
+				adi,destination-bus-width = <64>;
+				adi,destination-bus-type = <0>;
+			};
+		};
+	};
+	tx_dma: dma@7c420000 {
+		#dma-cells = <1>;
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x7c420000 0x10000>;
+		interrupt-parent = <&axi_intc>;
+		interrupts = <13 2>;
+		clocks = <&clk_bus_0>;
+
+		adi,channels {
+			#size-cells = <0>;
+			#address-cells = <1>;
+
+			dma-channel@0 {
+				reg = <0>;
+				adi,source-bus-width = <64>;
+				adi,source-bus-type = <0>;
+				adi,destination-bus-width = <64>;
+				adi,destination-bus-type = <2>;
+			};
+		};
+	};
+	cf-ad9361-lpc@79020000 {
+		compatible = "adi,axi-ad9361-6.00.a";
+		reg = <0x79020000 0x6000>;
+		dmas = <&rx_dma 0>;
+		dma-names = "rx";
+		spibus-connected = <&adc0_ad9361>;
+	};
+	cf-ad9361-dds-core-lpc@79024000 {
+		compatible = "adi,axi-ad9361-dds-6.00.a";
+		reg = <0x79024000 0x1000>;
+		clocks = <&adc0_ad9361 13>;
+		clock-names = "sampl_clk";
+		dmas = <&tx_dma 0>;
+		dma-names = "tx";
+	};
+};
+
+#include "adi-fmcomms2.dtsi"
+
+&adc0_ad9361 {
+	en_agc-gpios = <&axi_gpio 44 8>;
+	sync-gpios = <&axi_gpio 45 8>;
+	reset-gpios = <&axi_gpio 46 8>;
+	enable-gpios = <&axi_gpio 47 8>;
+	txnrx-gpios = <&axi_gpio 48 8>;
+};
