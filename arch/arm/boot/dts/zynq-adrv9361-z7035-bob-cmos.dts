@@ -1,0 +1,21 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * AD9361-Z7035 System on Module (SOM) SDR - Breakout Carrier (CMOS)
+ * Link: https://www.analog.com/ADRV9361-Z7035
+ * Link: https://wiki.analog.com/resources/eval/user-guides/adrv936x_rfsom
+ *
+ * hdl_project: <adrv9361z7035/ccbob_cmos>
+ * board_revision: <>
+ *
+ * Copyright 2016-2019 Analog Devices Inc.
+ */
+#include  "zynq-adrv9361-z7035-bob.dts"
+
+&adc0_ad9361 {
+	/* Enable CMOS Mode */
+	adi,swap-ports-enable;
+	/delete-property/ adi,lvds-mode-enable;
+	/delete-property/ adi,lvds-rx-onchip-termination-enable;
+	adi,full-port-enable;
+	adi,digital-interface-tune-fir-disable;
+};

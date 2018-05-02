@@ -1,0 +1,155 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices Quad-MxFE
+ * https://wiki.analog.com/resources/eval/user-guides/quadmxfe
+ * https://wiki.analog.com/resources/tools-software/linux-drivers/iio-mxfe/ad9081
+ * https://wiki.analog.com/resources/eval/user-guides/ad_quadmxfe1_ebz/ad_quadmxfe1_ebz_hdl
+ *
+ * hdl_project: <ad_quadmxfe1_ebz/vcu118>
+ * board_revision: <Rev.C>
+ *
+ * Copyright (C) 2019-2020 Analog Devices Inc.
+ */
+
+#include "vcu118_quad_ad9081_204c_txmode_10_rxmode_11.dts"
+
+/ {
+	model = "Analog Devices AD-QUADMXFE1-EBZ Rev.C";
+};
+
+&gpio_hmc425a {
+	compatible = "adi,hmc540s";
+	ctrl-gpios = <&axi_gpio 38 GPIO_ACTIVE_HIGH>,
+		<&axi_gpio 37 GPIO_ACTIVE_HIGH>,
+		<&axi_gpio 36 GPIO_ACTIVE_HIGH>,
+		<&axi_gpio 35 GPIO_ACTIVE_HIGH>;
+};
+
+&fmc_i2c {
+	current_limiter@58 {
+		compatible = "adi,adm1177-iio";
+		reg = <0x58>;
+		adi,r-sense-mohm = <10>; /* 10 mOhm */
+		adi,shutdown-threshold-ma = <10000>; /* 10 A */
+		adi,vrange-high-enable;
+	};
+};
+
+&axi_ad9081_rx_jesd {
+	clocks = <&clk_bus_0>, <&hmc7043 2>, <&rx_fixed_linerate 0>;
+	jesd204-inputs = <&hmc7043 0 FRAMER_LINK0_RX>; /* omit axi_ad9081_adxcvr_rx */
+};
+
+&axi_ad9081_tx_jesd {
+	clocks = <&clk_bus_0>, <&hmc7043 4>, <&tx_fixed_linerate 0>;
+	jesd204-inputs = <&hmc7043 0 DEFRAMER_LINK0_TX>; /* omit axi_ad9081_adxcvr_tx */
+};
+
+&hmc7043 {
+	hmc7043_c0: channel@0 {
+		reg = <0>;
+		adi,extended-name = "FPGA_REFCLK";
+		adi,divider = <HMC7043_FPGA_XCVR_CLKDIV>;
+		adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;
+	};
+
+        hmc7043_c1: channel@1 {
+		reg = <1>;
+		adi,extended-name = "SYSREF_FPGA";
+		adi,divider = <HMC7043_SYSREF_CLKDIV>;
+		adi,driver-mode = <HMC7044_DRIVER_MODE_LVPECL>;
+		adi,coarse-digital-delay = <0>;
+		adi,fine-analog-delay = <0>;
+		adi,output-mux-mode = <0>;
+		adi,jesd204-sysref-chan;
+	};
+
+	hmc7043_c2: channel@2 {
+		reg = <2>;
+		adi,extended-name = "RX_CORE_LINK_CLK";
+		adi,divider = <HMC7043_FPGA_LINK_CLKDIV_RX>;
+		adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;
+	};
+
+        /delete-node/ hmc7043_c3;
+
+        hmc7043_c4: channel@4 {
+		reg = <4>;
+		adi,extended-name = "TX_CORE_LINK_CLK";
+		adi,divider = <HMC7043_FPGA_LINK_CLKDIV_TX>;
+		adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;
+	};
+
+        /delete-node/ hmc7043_c5;
+        /delete-node/ hmc7043_c6;
+
+	hmc7043_c7: channel@7 {
+		reg = <7>;
+		adi,extended-name = "SYSREF_MXFE0";
+		adi,divider = <HMC7043_SYSREF_CLKDIV>;
+		adi,driver-mode = <HMC7044_DRIVER_MODE_LVPECL>;
+		adi,coarse-digital-delay = <0>;
+		adi,fine-analog-delay = <0>;
+		adi,output-mux-mode = <0>;
+		adi,jesd204-sysref-chan;
+	};
+
+        /delete-node/ hmc7043_c8;
+
+	hmc7043_c9: channel@9 {
+		reg = <9>;
+		adi,extended-name = "SYSREF_MXFE1";
+		adi,divider = <HMC7043_SYSREF_CLKDIV>;
+		adi,driver-mode = <HMC7044_DRIVER_MODE_LVPECL>;
+		adi,coarse-digital-delay = <0>;
+		adi,fine-analog-delay = <0>;
+		adi,output-mux-mode = <0>;
+		adi,jesd204-sysref-chan;
+	};
+
+        /delete-node/ hmc7043_c10;
+
+	hmc7043_c11: channel@11 {
+		reg = <11>;
+		adi,extended-name = "SYSREF_MXFE2";
+		adi,divider = <HMC7043_SYSREF_CLKDIV>;
+		adi,driver-mode = <HMC7044_DRIVER_MODE_LVPECL>;
+		adi,coarse-digital-delay = <0>;
+		adi,fine-analog-delay = <0>;
+		adi,output-mux-mode = <0>;
+		adi,jesd204-sysref-chan;
+	};
+
+        /delete-node/ hmc7043_c12;
+
+	hmc7043_c13: channel@13 {
+		reg = <13>;
+		adi,extended-name = "SYSREF_MXFE3";
+		adi,divider = <HMC7043_SYSREF_CLKDIV>;
+		adi,driver-mode = <HMC7044_DRIVER_MODE_LVPECL>;
+		adi,coarse-digital-delay = <0>;
+		adi,fine-analog-delay = <0>;
+		adi,output-mux-mode = <0>;
+		adi,jesd204-sysref-chan;
+	};
+};
+
+&trx0_ad9081 {
+        /delete-property/ adi,jesd-sync-pins-01-swap-enable;
+        adi,jesd-sync-pin-0a-cmos-enable;
+};
+
+&trx1_ad9081 {
+        /delete-property/ adi,jesd-sync-pins-01-swap-enable;
+        adi,jesd-sync-pin-0a-cmos-enable;
+};
+
+&trx2_ad9081 {
+        /delete-property/ adi,jesd-sync-pins-01-swap-enable;
+        adi,jesd-sync-pin-0a-cmos-enable;
+};
+
+&trx3_ad9081 {
+        /delete-property/ adi,jesd-sync-pins-01-swap-enable;
+        adi,jesd-sync-pin-0a-cmos-enable;
+};

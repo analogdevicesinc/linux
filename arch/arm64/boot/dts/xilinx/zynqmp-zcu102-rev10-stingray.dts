@@ -1,0 +1,321 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices Stingray
+ * https://wiki.analog.com/resources/eval/user-guides/quadmxfe/quick-start
+ * https://wiki.analog.com/resources/tools-software/linux-drivers/iio-mxfe/ad9081
+ *
+ * hdl_project: <ad9081_fmca_ebz/zcu102>
+ * board_revision: <>
+ *
+ * Copyright (C) 2019-2020 Analog Devices Inc.
+ */
+
+#include "zynqmp-zcu102-rev10-ad9081-m8-l4.dts"
+
+/ {
+	clocks {
+		adf4371_clkin: clock@0 {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <100000000>;
+			clock-output-names = "adf4371_clkin";
+		};
+	};
+
+	vcc_ltc2314: fixedregulator@0 {
+		compatible = "regulator-fixed";
+		regulator-name = "fixed-supply";
+		regulator-min-microvolt = <2048000>;
+		regulator-max-microvolt = <2048000>;
+		regulator-boot-on;
+	};
+
+	stingray_control@0 {
+	        compatible = "one-bit-adc-dac";
+	        #address-cells = <1>;
+	        #size-cells = <0>;
+
+	        out-gpios = <&gpio 139 0>, <&gpio 140 0>, <&gpio 141 0>,
+			<&gpio 142 0>, <&gpio 143 0>, <&gpio 144 0>;
+		label = "stingray_control";
+
+	        channel@0 {
+			reg = <0>;
+			label = "PA_ON";
+	        };
+
+	        channel@1 {
+			reg = <1>;
+			label = "TR";
+	        };
+
+	        channel@2 {
+			reg = <2>;
+			label = "TX_LOAD";
+	        };
+
+	        channel@3 {
+			reg = <3>;
+			label = "RX_LOAD";
+	        };
+
+	        channel@4 {
+			reg = <4>;
+			label = "5V_CTRL";
+	        };
+
+	        channel@5 {
+			reg = <5>;
+			label = "PWR_UP_DOWN";
+	        };
+	};
+
+	xud_control@1 {
+	        compatible = "one-bit-adc-dac";
+	        #address-cells = <1>;
+	        #size-cells = <0>;
+
+	        out-gpios = <&gpio 145 0>, <&gpio 146 0>, <&gpio 147 0>,
+			<&gpio 148 0>, <&gpio 149 0>, <&gpio 150 0>,
+			<&gpio 151 0>, <&gpio 152 0>;
+		label = "xud_control";
+
+	        channel@0 {
+			reg = <0>;
+			label = "TX_RX_1";
+	        };
+
+	        channel@1 {
+			reg = <1>;
+			label = "IF_STATE_1";
+	        };
+
+	        channel@2 {
+			reg = <2>;
+			label = "RX_AMP_EN_1";
+	        };
+
+	        channel@3 {
+			reg = <3>;
+			label = "CTRL_PLL_1";
+	        };
+
+	        channel@4 {
+			reg = <4>;
+			label = "TX_RX_2";
+	        };
+
+	        channel@5 {
+			reg = <5>;
+			label = "IF_STATE_2";
+	        };
+
+	        channel@6 {
+			reg = <6>;
+			label = "RX_AMP_EN_2";
+	        };
+
+	        channel@7 {
+			reg = <7>;
+			label = "CTRL_PLL_1";
+	        };
+	};
+};
+
+&fpga_axi {
+	axi_spi_pmod: axi_quad_spi@85200000 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		bits-per-word = <8>;
+		compatible = "xlnx,xps-spi-2.00.a";
+		fifo-size = <16>;
+		interrupts = <0 111 IRQ_TYPE_LEVEL_HIGH>;
+		num-cs = <0x8>;
+		reg = <0x85200000 0x10000>;
+		xlnx,num-ss-bits = <0x8>;
+		xlnx,spi-mode = <0>;
+	};
+
+	axi_i2c_pmod: i2c@85100000 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		clock-names = "s_axi_aclk";
+		clocks = <&zynqmp_clk 71>;
+		compatible = "xlnx,axi-iic-2.0", "xlnx,xps-iic-2.00.a";
+		interrupt-names = "iic2intc_irpt";
+		interrupts = <0 110 IRQ_TYPE_LEVEL_HIGH>;
+		reg = <0x85100000 0x1000>;
+	};
+};
+
+&axi_i2c_pmod {
+	ltc2992@6A {
+                #address-cells = <1>;
+                #size-cells = <0>;
+                compatible = "adi,ltc2992";
+                reg = <0x6A>;
+                channel@0 {
+                        reg = <0x0>;
+                        shunt-resistor-micro-ohms = <8000>;
+                };
+                channel@1 {
+                        reg = <0x1>;
+                        shunt-resistor-micro-ohms = <3500>;
+                };
+        };
+};
+
+&axi_spi_pmod {
+	adar1000_csb_1@1 {
+		compatible = "adi,adar1000";
+		reg = <1>;
+		spi-max-frequency = <12500000>;
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		adar1000_csb_1_1@0 {
+			reg = <0>;
+			label = "csb1_chip1";
+		};
+
+		adar1000_csb_1_2@1 {
+			reg = <1>;
+			label = "csb1_chip2";
+		};
+
+		adar1000_csb_1_3@2 {
+			reg = <2>;
+			label = "csb1_chip3";
+		};
+
+		adar1000_csb_1_4@3 {
+			reg = <3>;
+			label = "csb1_chip4";
+		};
+	};
+
+	adar1000_csb_2@2 {
+		compatible = "adi,adar1000";
+		reg = <2>;
+		spi-max-frequency = <12500000>;
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		adar1000_csb_2_1@0 {
+			reg = <0>;
+			label = "csb2_chip1";
+		};
+
+		adar1000_csb_2_2@1 {
+			reg = <1>;
+			label = "csb2_chip2";
+		};
+
+		adar1000_csb_2_3@2 {
+			reg = <2>;
+			label = "csb2_chip3";
+		};
+
+		adar1000_csb_2_4@3 {
+			reg = <3>;
+			label = "csb2_chip4";
+		};
+	};
+
+	adar1000_csb_3@3 {
+		compatible = "adi,adar1000";
+		reg = <3>;
+		spi-max-frequency = <12500000>;
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		adar1000_csb_3_1@0 {
+			reg = <0>;
+			label = "csb3_chip1";
+		};
+
+		adar1000_csb_3_2@1 {
+			reg = <1>;
+			label = "csb3_chip2";
+		};
+
+		adar1000_csb_3_3@2 {
+			reg = <2>;
+			label = "csb3_chip3";
+		};
+
+		adar1000_csb_3_4@3 {
+			reg = <3>;
+			label = "csb3_chip4";
+		};
+	};
+
+	adar1000_csb_4@4 {
+		compatible = "adi,adar1000";
+		reg = <4>;
+		spi-max-frequency = <12500000>;
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		adar1000_csb_4_1@0 {
+			reg = <0>;
+			label = "csb4_chip1";
+		};
+
+		adar1000_csb_4_2@1 {
+			reg = <1>;
+			label = "csb4_chip2";
+		};
+
+		adar1000_csb_4_3@2 {
+			reg = <2>;
+			label = "csb4_chip3";
+		};
+
+		adar1000_csb_4_4@3 {
+			reg = <3>;
+			label = "csb4_chip4";
+		};
+	};
+
+	ltc2314@5 {
+		compatible = "adi,ltc2314-14";
+		reg = <5>;
+		spi-max-frequency = <12500000>;
+		vcc-supply = <&vcc_ltc2314>;
+	};
+
+	adf4371_clk0: adf4371-0@6 {
+		compatible = "adi,adf4371";
+		reg = <6>;
+
+		#address-cells = <1>;
+		#clock-cells = <1>;
+		#size-cells = <0>;
+
+		spi-max-frequency = <12500000>;
+		clocks = <&adf4371_clkin>;
+		clock-names = "clkin";
+		clock-output-names = "pll0-clk-rf8", "pll0-clk-rfaux8",
+			"pll0-clk-rf16", "pll0-clk-rf32";
+	};
+
+	adf4371_clk1: adf4371-1@7 {
+		compatible = "adi,adf4371";
+		reg = <7>;
+
+		#address-cells = <1>;
+		#clock-cells = <1>;
+		#size-cells = <0>;
+
+		spi-max-frequency = <12500000>;
+		clocks = <&adf4371_clkin>;
+		clock-names = "clkin";
+		clock-output-names = "pll1-clk-rf8", "pll1-clk-rfaux8",
+			"pll1-clk-rf16", "pll1-clk-rf32";
+	};
+};

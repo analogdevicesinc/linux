@@ -1,0 +1,52 @@
+/dts-v1/;
+
+#include "zynq-zc706.dtsi"
+#include "zynq-zc706-adv7511.dtsi"
+
+&i2c_mux {
+	fmc_i2c: i2c@6 { /* LPC */
+		#size-cells = <0>;
+		#address-cells = <1>;
+		reg = <6>;
+	};
+};
+
+&fpga_axi {
+	rx_dma: rx-dmac@7c420000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x7c420000 0x10000>;
+		#dma-cells = <1>;
+		interrupts = <0 57 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clkc 16>;
+
+		adi,channels {
+			#size-cells = <0>;
+			#address-cells = <1>;
+
+			dma-channel@0 {
+				reg = <0>;
+				adi,source-bus-width = <64>;
+				adi,source-bus-type = <2>;
+				adi,destination-bus-width = <64>;
+				adi,destination-bus-type = <0>;
+			};
+		};
+	};
+
+	axi_ad9652_core_0: axi-ad9652-lpc@79020000 {
+		compatible = "adi,axi-ad9643-6.00.a";
+		reg = <0x79020000 0x10000>;
+		dmas = <&rx_dma 0>;
+		dma-names = "rx";
+
+		spibus-connected = <&adc0_ad9652>;
+	};
+};
+
+&spi0 {
+	status = "okay";
+};
+
+#define fmc_spi spi0
+
+#include "adi-fmcomms6.dtsi"

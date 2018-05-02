@@ -1,0 +1,20 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * AD9364-Z7020 System on Module (SOM) SDR - Breakout Carrier (CMOS)
+ * Link: https://www.analog.com/ADRV9361-Z7020
+ * Link: https://wiki.analog.com/resources/eval/user-guides/adrv936x_rfsom
+ *
+ * hdl_project: <adrv9364z7020/ccbob_cmos>
+ * board_revision: <>
+ *
+ * Copyright 2016-2019 Analog Devices Inc.
+ */
+#include  "zynq-adrv9364-z7020-bob.dts"
+
+&adc0_ad9364 {
+	/* Enable CMOS Mode */
+	/delete-property/ adi,lvds-mode-enable;
+	/delete-property/ adi,lvds-rx-onchip-termination-enable;
+	adi,full-port-enable;
+	adi,digital-interface-tune-fir-disable;
+};

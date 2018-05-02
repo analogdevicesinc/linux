@@ -1,0 +1,23 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices ADALM2000
+ * https://wiki.analog.com/university/tools/m2k
+ * https://wiki.analog.com/university/courses/electronics/labs
+ * https://wiki.analog.com/university/tools/adalm2000/devs/intro
+ * https://wiki.analog.com/university/tools/m2k/users/quick_start
+ *
+ * hdl_project: <m2k/standalone>
+ * board_revision: <F>
+ *
+ * Copyright (C) 2018-2019 Analog Devices Inc.
+ */
+/*
+ * 	Summary of RevE -> RevF hardware changes which require firmware changes:
+ *	Placeholder only for potential future revision
+ */
+
+#include "zynq-m2k-reve.dts"
+
+/ {
+	model = "Analog Devices M2k Rev.F (Z7010)";
+};
