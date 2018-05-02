@@ -1,0 +1,83 @@
+/ {
+	clocks {
+		ad9516_clkin: refclk {
+			compatible = "fixed-clock";
+
+			clock-frequency = <1400000000>;
+			clock-output-names = "ad9516-extclk";
+			#clock-cells = <0>;
+		};
+
+/* Ref clock for external clock chip
+		ref_clock: clock@0 {
+			compatible = "fixed-clock";
+
+			clock-frequency = <10000000 >;
+			clock-output-names = "10M-TCXO";
+			#clock-cells = <0>;
+		};
+*/
+	};
+};
+
+/*
+ * Example of how to use a programmable external clock generator connected to
+ * the PMOD SPI to generate the input clock frequency for the board.
+
+&pmod_spi {
+	status = "okay";
+
+	ad9516_clkin: pll@0 {
+		compatible = "adi,adf4360-7";
+		reg = <0>;
+		spi-max-frequency = <2000000>;
+
+		#clock-cells = <0>;
+
+		clocks = <&ref_clock>;
+		clock-names = "clkin";
+		clock-output-names = "adf4360-7";
+
+		adi,loop-filter-charge-pump-current-microamp = <1870>;
+		adi,loop-filter-pfd-frequency-hz = <2500000>;
+
+		assigned-clocks = <&ad9516_clkin>;
+		assigned-clock-rates = <750000000>;
+	};
+};
+*/
+
+&fmc_spi {
+	status = "okay";
+
+	ad9516: clockchip@0 {
+		compatible = "adi,ad9516-1";
+		reg = <0>;
+
+		spi-max-frequency = <10000000>;
+
+		clocks = <&ad9516_clkin>;
+		clock-names = "clkin";
+		clock-output-names = "ad9516-out0", "ad9516-out1", "ad9516-out2",
+			"ad9516-out3", "ad9516-out4", "ad9516-out5", "ad9516-out6",
+			"ad9516-out7", "ad9516-out8", "ad9516-out9";
+		#clock-cells = <1>;
+
+		/* DAC clock, DAC SYSREF, FPGA clock, FPGA SYSREF */
+		assigned-clocks = <&ad9516 1>, <&ad9516 6>, <&ad9516 9>, <&ad9516 7>;
+		assigned-clock-rates = <1400000000>, <683594>, <87500000>, <683594>;
+	};
+
+	dac: dac@1 {
+		compatible = "adi,ad9136";
+		reg = <1>;
+		adi,spi-4wire-enable;
+
+		spi-max-frequency = <1000000>;
+
+		txen-gpios = <&fmc_gpio (fmc_gpio_base + 0) 0>, <&fmc_gpio (fmc_gpio_base + 1) 0>;
+
+		clocks = <&jesd204_link>, <&ad9516 1>, <&ad9516 6>;
+		clock-names = "jesd_dac_clk", "dac_clk", "dac_sysref";
+	};
+};

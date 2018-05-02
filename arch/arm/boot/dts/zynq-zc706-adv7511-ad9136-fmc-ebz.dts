@@ -1,0 +1,33 @@
+/dts-v1/;
+
+#include "zynq-zc706.dtsi"
+#include "zynq-zc706-adv7511.dtsi"
+
+&i2c_mux {
+	i2c@5 { /* HPC IIC */
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <5>;
+
+		eeprom@50 {
+			compatible = "at24,24c02";
+			reg = <0x50>;
+		};
+
+		eeprom@54 {
+			compatible = "at24,24c02";
+			reg = <0x54>;
+		};
+	};
+};
+
+#define fmc_spi spi0
+#define pmod_spi spi1
+#define axi_clk clkc 16
+#define fpga_device_clk ad9516 9
+
+#define fmc_gpio_base 86
+#define fmc_gpio gpio0
+
+#include "adi-xilinx-dac-fmc-ebz.dtsi"
+#include "adi-ad9136-fmc-ebz.dtsi"

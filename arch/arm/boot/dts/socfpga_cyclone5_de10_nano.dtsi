@@ -1,0 +1,270 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright (C) 2017, Intel Corporation
+ *
+ * based on socfpga_cyclone5_de0_nano_soc.dts
+ */
+
+#include "socfpga_cyclone5.dtsi"
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/gpio/gpio.h>
+
+
+/ {
+	model = "Terasic DE10-Nano";
+	compatible = "altr,socfpga-cyclone5", "altr,socfpga";
+
+	chosen {
+		bootargs = "earlyprintk";
+		stdout-path = "serial0:115200n8";
+	};
+
+	memory {
+		name = "memory";
+		device_type = "memory";
+		reg = <0x0 0x40000000>;	/* 1GB */
+	};
+
+	soc {
+		fpga_axi: axi_h2f_lw_bridge@0xff200000 {
+			compatible = "simple-bus";
+			reg = <0xff200000 0x00200000>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			ranges = <0x00000000 0xff200000 0x00200000>;
+		};
+	};
+
+	aliases {
+		ethernet0 = &gmac1;
+		udc0 = &usb1;
+	};
+
+	clocks {
+		sys_clk: sys_clk {
+			#clock-cells = <0x0>;
+			compatible = "fixed-clock";
+			clock-frequency = <50000000>;
+			clock-output-names = "sys_clk";
+		};
+
+		pixel_clk_pll: pixel_clk_pll {
+			#clock-cells = <0x0>;
+			compatible = "fixed-clock";
+			clock-frequency = <148500000>;
+			clock-output-names = "pixel_clk_pll";
+		};
+	};
+
+	ltc2308_vref: voltage-regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "fixed-supply";
+		regulator-min-microvolt = <4096000>;
+		regulator-max-microvolt = <4096000>;
+		regulator-always-on;
+	};
+};
+
+&uart0 {
+	status = "okay";
+};
+
+&gmac1 {
+	status = "okay";
+	phy-mode = "rgmii";
+
+	rxd0-skew-ps = <420>;
+	rxd1-skew-ps = <420>;
+	rxd2-skew-ps = <420>;
+	rxd3-skew-ps = <420>;
+	txen-skew-ps = <0>;
+	txc-skew-ps = <1860>;
+	rxdv-skew-ps = <420>;
+	rxc-skew-ps = <1680>;
+};
+
+&mmc0 {
+	status = "okay";
+	u-boot,dm-pre-reloc;
+};
+
+&usb1 {
+	status = "okay";
+};
+
+&uart0 {
+	clock-frequency = <100000000>;
+	u-boot,dm-pre-reloc;
+};
+
+&watchdog0 {
+	status = "disabled";
+};
+
+&gpio0 {
+	status = "okay";
+};
+
+&gpio1 {
+	status = "okay";
+};
+
+&gpio2 {
+	status = "okay";
+};
+
+&porta {
+	bank-name = "porta";
+};
+
+&portb {
+	bank-name = "portb";
+};
+
+&portc {
+	bank-name = "portc";
+};
+
+&i2c0 {
+	status = "okay";
+	clock-frequency = <100000>;
+
+	adxl345@53 {
+		compatible = "adi,adxl34x";
+		reg = <0x53>;
+		interrupt-parent = <&portc>;
+		interrupts = <3 2>;
+	};
+
+	adv7513: adv7513@0x39 {
+		compatible = "adi,adv7513";
+		reg = <0x39>, <0x3f>;
+		reg-names = "primary", "edid";
+
+		adi,input-depth = <8>;
+		adi,input-colorspace = "rgb";
+		adi,input-clock = "1x";
+		adi,clock-delay = <0>;
+
+		#sound-dai-cells = <0>;
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				reg = <0>;
+				adv7513_in: endpoint {
+					remote-endpoint = <&axi_hdmi_out>;
+				};
+			};
+
+			port@1 {
+				reg = <1>;
+			};
+		};
+	};
+};
+
+&fpga_axi {
+	gpio_in: gpio_in@0x00010100 {
+		compatible = "altr,pio-18.1", "altr,pio-1.0";
+		reg = <0x00010100 0x00000010>;
+		altr,gpio-bank-width = <32>;
+		altr,interrupt-type = <4>;
+		altr,interrupt_type = <4>;
+		level_trigger = <1>;
+		resetvalue = <0>;
+		#gpio-cells = <2>;
+		gpio-controller;
+	};
+
+	gpio_out: gpio_out@0x00109000 {
+		compatible = "altr,pio-1.0";
+		reg = <0x00109000 0x00000010>;
+		altr,gpio-bank-width = <32>;
+		resetvalue = <0>;
+		#gpio-cells = <2>;
+		gpio-controller;
+	};
+
+	altera_spi@0x00010A000 {
+		compatible = "altr,spi-18.1", "altr,spi-1.0";
+		reg = <0x0010a000 0x00000020>;
+		interrupt-parent = <&intc>;
+		interrupts = <0 43 IRQ_TYPE_LEVEL_HIGH>;
+		#address-cells = <0x1>;
+		#size-cells = <0x0>;
+
+		ltc2308: adc@0x1 {
+			compatible = "adi,ltc2308";
+			reg = <0>;
+			spi-max-frequency = <40000000>;
+			vref-supply = <&ltc2308_vref>;
+			cnv-gpios = <&gpio_out 9 GPIO_ACTIVE_HIGH>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			channel@0 {
+				reg = <0>;
+			};
+			channel@1 {
+				reg = <1>;
+			};
+			channel@2 {
+				reg = <2>;
+			};
+			channel@3 {
+				reg = <3>;
+			};
+			channel@4 {
+				reg = <4>;
+			};
+			channel@5 {
+				reg = <5>;
+			};
+			channel@6 {
+				reg = <6>;
+			};
+			channel@7 {
+				reg = <7>;
+			};
+		};
+	};
+
+	hdmi_tx_dma: dma@0x00080000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x00080000 0x00000800>;
+		interrupt-parent = <&intc>;
+		interrupts = <0 47 IRQ_TYPE_LEVEL_HIGH>;
+		#dma-cells = <1>;
+		clocks = <&sys_clk>;
+
+		adi,channels {
+			#size-cells = <0>;
+			#address-cells = <1>;
+
+			dma-channel@0 {
+				reg = <0>;
+				adi,source-bus-width = <64>;
+				adi,source-bus-type = <0>;
+				adi,destination-bus-width = <64>;
+				adi,destination-bus-type = <1>;
+			};
+		};
+	};
+
+	axi_hdmi@0x00090000 {
+		compatible = "adi,axi-hdmi-tx-1.00.a";
+		reg = <0x00090000 0x10000>;
+		dmas = <&hdmi_tx_dma 0>;
+		dma-names = "video";
+		clocks = <&pixel_clk_pll>;
+		adi,is-rgb;
+
+		port {
+			axi_hdmi_out: endpoint {
+				remote-endpoint = <&adv7513_in>;
+			};
+		};
+	};
+};

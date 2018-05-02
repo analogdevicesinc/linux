@@ -1,0 +1,41 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices ADRV2CRR-FMC using ADRV9009-ZU11EG System on Module + AD-FMCOMMS8-EBZ
+ * Secondary module in a Multi-SoM / Multi-Topology setup.
+ * https://wiki.analog.com/resources/eval/user-guides/adrv9009-zu11eg/adrv2crr-fmc_carrier_board
+ * https://wiki.analog.com/resources/eval/user-guides/ad-fmcomms8-ebz
+ * https://wiki.analog.com/resources/tools-software/linux-drivers/iio-transceiver/adrv9009
+ * https://wiki.analog.com/resources/tools-software/linux-software/adrv9009_advanced_plugin
+ * https://wiki.analog.com/resources/tools-software/linux-drivers/jesd204/jesd204-fsm-framework
+ *
+ * hdl_project: <adrv9009zu11eg/adrv2crr_fmcomms8>
+ * board_revision: <>
+ *
+ * Copyright (C) 2020 Analog Devices Inc.
+ */
+#include "zynqmp-adrv9009-zu11eg-revb-adrv2crr-fmc-revb-sync-fmcomms8-jesd204-fsm.dts"
+#include <dt-bindings/jesd204/device-states.h>
+
+&trx0_adrv9009 {
+	jesd204-stop-states = <
+		JESD204_FSM_STATE_CLK_SYNC_STAGE1
+		JESD204_FSM_STATE_CLK_SYNC_STAGE2
+		JESD204_FSM_STATE_CLK_SYNC_STAGE3
+		JESD204_FSM_STATE_LINK_SETUP
+		JESD204_FSM_STATE_OPT_SETUP_STAGE1
+		JESD204_FSM_STATE_OPT_SETUP_STAGE2
+		JESD204_FSM_STATE_OPT_SETUP_STAGE3
+		JESD204_FSM_STATE_OPT_SETUP_STAGE4
+		JESD204_FSM_STATE_OPT_SETUP_STAGE5
+		JESD204_FSM_STATE_CLOCKS_ENABLE
+		JESD204_FSM_STATE_LINK_ENABLE>;
+};
+
+&hmc7044_car {
+	/delete-property/ jesd204-sysref-provider;
+	jesd204-secondary-sysref-provider;
+};
+
+&hmc7044_ext {
+	status = "disabled";
+};

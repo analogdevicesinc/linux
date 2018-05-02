@@ -1,0 +1,41 @@
+/ {
+	aliases {
+		ethernet0 = &gmac0;
+		ethernet1 = &gmac1;
+		ethernet2 = &gmac2;
+	};
+};
+
+&gmac1 {
+	status = "okay";
+	phy-mode = "rgmii-id";
+	mac-mode = "gmii";
+	phy-handle = <&ethernet_gmac1_phy1>;
+
+	mdio {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "snps,dwmac-mdio";
+
+		ethernet_gmac1_phy1: ethernet-phy@1 {
+			reg = <1>;
+		};
+	};
+};
+
+&gmac2 {
+	status = "okay";
+	phy-mode = "rgmii-id";
+	mac-mode = "gmii";
+	phy-handle = <&ethernet_gmac2_phy2>;
+
+	mdio {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "snps,dwmac-mdio";
+
+		ethernet_gmac2_phy2: ethernet-phy@2 {
+			reg = <2>;
+		};
+	};
+};

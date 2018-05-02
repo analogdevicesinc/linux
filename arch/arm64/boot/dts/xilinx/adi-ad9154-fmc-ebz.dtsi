@@ -1,0 +1,53 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * dts file for AD9154-FMC-EBZ on Xilinx ZynqMP ZCU102 Rev 1.0
+ *
+ * Copyright (C) 2018-2019 Analog Devices Inc.
+ */
+
+/ {
+	clocks {
+		ad9516_clkin: clock@0 {
+			compatible = "fixed-clock";
+
+			clock-frequency = <2000000000>;
+			clock-output-names = "clkin";
+			#clock-cells = <0>;
+		};
+	};
+};
+
+
+&fmc_spi {
+	clk_ad9516: ad9516@0 {
+		compatible = "adi,ad9516-1";
+		reg = <0>;
+
+		spi-max-frequency = <10000000>;
+
+		firmware = "ad9144_fmc_ebz_ad9516.stp";
+
+		clocks = <&ad9516_clkin>, <&ad9516_clkin>;
+		clock-names = "refclk", "clkin";
+
+		clock-output-names = "out0", "out1", "out2", "out3", "out4", "out5", "out6", "out7";
+		#clock-cells = <1>;
+	};
+
+	dac0_ad9154: ad9154@1 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "adi,ad9154";
+		reg = <1>;
+		spi-max-frequency = <1000000>;
+		clocks = <&axi_ad9154_jesd>, <&clk_ad9516 1>, <&clk_ad9516 6>;
+		clock-names = "jesd_dac_clk", "dac_clk", "dac_sysref";
+
+		adi,jesd-link-mode = <0>;
+		adi,spi-4wire;
+
+		adi,interpolation = <2>;
+
+	};
+};
+

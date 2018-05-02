@@ -1,0 +1,21 @@
+/*
+ * dts file for ADRV9363 - AD9363 on Xilinx ZynqMP ZCU102 RevB
+ *
+ * Copyright (C) 2017 Analog Devices Inc.
+ *
+ * Licensed under the GPL-2.
+ */
+
+#include "zynqmp-zcu102-revB-ad9361-fmcomms2-3.dts"
+
+&ad9361_clkin {
+	compatible = "adjustable-clock";
+	clock-frequency = <40000000>;
+	clock-accuracy = <200000>; /* 200 ppm (ppb) */
+};
+
+&adc0_ad9361 {
+	compatible = "adi,ad9363a";
+
+	adi,xo-disable-use-ext-refclk-enable;
+};

@@ -1,0 +1,253 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Highspeed JESD-compatible data acquisition system
+ * Link: https://wiki.analog.com/resources/eval/user-guides/ad-fmcdaq2-ebz
+ *
+ * hdl_project: <daq2/a10soc>
+ * board_revision: <C>
+ *
+ * Copyright 2016-2019 Analog Devices Inc.
+ */
+/dts-v1/;
+#include "socfpga_arria10_socdk.dtsi"
+#include <dt-bindings/interrupt-controller/irq.h>
+
+&mmc {
+	status = "okay";
+	num-slots = <1>;
+	cap-sd-highspeed;
+	broken-cd;
+	bus-width = <4>;
+	altr,dw-mshc-ciu-div = <3>;
+	altr,dw-mshc-sdr-timing = <0 3>;
+};
+
+/ {
+	clocks {
+		sys_clk: sys_clk@2 {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <100000000>;
+			clock-output-names = "system_clock";
+		};
+
+		dma_clk: dma_clk@4 {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <166666667>;
+			clock-output-names = "dma_clock";
+		};
+	};
+
+	soc {
+		sys_hps_bridges: bridge@ff200000 {
+			compatible = "altr,bridge-16.0", "simple-bus";
+			reg = <0xff200000 0x00200000>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			ranges = <0x00000000 0xff200000 0x00200000>;
+
+			sys_gpio_in: sys-gpio-in@0 {
+				compatible = "altr,pio-16.0", "altr,pio-1.0";
+				reg = <0x00 0x10>;
+				#gpio-cells = <2>;
+				gpio-controller;
+			};
+
+			sys_gpio_out: sys-gpio-out@20 {
+				compatible = "altr,pio-16.0", "altr,pio-1.0";
+				reg = <0x20 0x10>;
+				#gpio-cells = <2>;
+				gpio-controller;
+			};
+
+			sys_spi: spi@40 {
+				compatible = "altr,spi-16.0", "altr,spi-1.0";
+				reg = <0x40 0x20>;
+				interrupt-parent = <&intc>;
+				interrupts = <0 26 IRQ_TYPE_LEVEL_HIGH>;
+				#address-cells = <0x1>;
+				#size-cells = <0x0>;
+			};
+
+			rx_dma: rx-dmac@4c000 {
+				compatible = "adi,axi-dmac-1.00.a";
+				reg = <0x4c000 0x4000>;
+				#dma-cells = <1>;
+				interrupt-parent = <&intc>;
+				interrupts = <0 29 IRQ_TYPE_LEVEL_HIGH>;
+				clocks = <&dma_clk>;
+
+				adi,channels {
+					#size-cells = <0>;
+					#address-cells = <1>;
+					dma-channel@0 {
+						reg = <0>;
+						adi,source-bus-width = <128>;
+						adi,source-bus-type = <1>;
+						adi,destination-bus-width = <128>;
+						adi,destination-bus-type = <0>;
+					};
+				};
+			};
+
+			tx_dma: tx-dmac@2c000 {
+				compatible = "adi,axi-dmac-1.00.a";
+				reg = <0x2c000 0x4000>;
+				#dma-cells = <1>;
+				interrupt-parent = <&intc>;
+				interrupts = <0 30 IRQ_TYPE_LEVEL_HIGH>;
+				clocks = <&dma_clk>;
+
+				adi,channels {
+					#size-cells = <0>;
+					#address-cells = <1>;
+					dma-channel@0 {
+						reg = <0>;
+						adi,source-bus-width = <128>;
+						adi,source-bus-type = <0>;
+						adi,destination-bus-width = <128>;
+						adi,destination-bus-type = <1>;
+					adi,cyclic;
+					};
+				};
+			};
+
+			axi_ad9144_core: axi-ad9144-hpc@34000 {
+				compatible = "adi,axi-ad9144-1.0";
+				reg = <0x34000 0x4000>;
+				dmas = <&tx_dma 0>;
+				dma-names = "tx";
+				spibus-connected = <&dac0_ad9144>;
+				adi,axi-pl-fifo-enable;
+				plddrbypass-gpios = <&sys_gpio_out 12 0>;
+			};
+
+			axi_ad9144_jesd: axi-jesd204-tx@20000 {
+				compatible = "adi,axi-jesd204-tx-1.0";
+				reg = <0x20000 0x4000>;
+
+				interrupt-parent = <&intc>;
+				interrupts = <0 28 IRQ_TYPE_LEVEL_HIGH>;
+
+				clocks = <&sys_clk>, <&tx_device_clk_pll>, <&axi_ad9144_xcvr>;
+				clock-names = "s_axi_aclk", "device_clk", "lane_clk";
+
+				adi,octets-per-frame = <1>;
+				adi,frames-per-multiframe = <32>;
+				adi,converter-resolution = <16>;
+				adi,bits-per-sample = <16>;
+				adi,converters-per-device = <2>;
+
+				#clock-cells = <0>;
+				clock-output-names = "jesd_dac_lane_clk";
+			};
+
+			axi_ad9680_core: axi-ad9680-hpc@50000 {
+				compatible = "adi,axi-ad9680-1.0";
+				reg = <0x50000 0x10000>;
+				dmas = <&rx_dma 0>;
+				dma-names = "rx";
+				spibus-connected = <&adc0_ad9680>;
+			};
+
+			axi_ad9680_jesd: axi-jesd204-rx@40000 {
+				compatible = "adi,axi-jesd204-rx-1.0";
+				reg = <0x40000 0x4000>;
+
+				interrupt-parent = <&intc>;
+				interrupts = <0 27 IRQ_TYPE_LEVEL_HIGH>;
+
+				clocks = <&sys_clk>, <&rx_device_clk_pll>, <&axi_ad9680_xcvr>;
+				clock-names = "s_axi_aclk", "device_clk", "lane_clk";
+
+				adi,octets-per-frame = <1>;
+				adi,frames-per-multiframe = <32>;
+
+				#clock-cells = <0>;
+				clock-output-names = "jesd_adc_lane_clk";
+			};
+
+			axi_ad9144_xcvr: axi-ad9144-xcvr@24000 {
+				compatible = "adi,altera-adxcvr-1.00.a";
+				reg = <0x24000 0x0001000>,
+				      <0x26000 0x1000>,
+				      <0x28000 0x1000>,
+				      <0x29000 0x1000>,
+				      <0x2a000 0x1000>,
+				      <0x2b000 0x1000>;
+				reg-names = "adxcvr", "atx-pll", "adxcfg-0", "adxcfg-1", "adxcfg-2", "adxcfg-3";
+
+				#clock-cells = <0>;
+				clocks = <&clk0_ad9523 9>, <&tx_device_clk_pll>;
+				clock-names = "ref", "link";
+				clock-output-names = "jesd204_tx_lane_clock";
+			};
+
+			axi_ad9680_xcvr: axi-ad9680-xcvr@44000 {
+				compatible = "adi,altera-adxcvr-1.00.a";
+				reg = <0x44000 0x1000>,
+				      <0x48000 0x1000>,
+				      <0x49000 0x1000>,
+				      <0x4a000 0x1000>,
+				      <0x4b000 0x1000>;
+				reg-names = "adxcvr", "adxcfg-0", "adxcfg-1", "adxcfg-2", "adxcfg-3";
+
+				#clock-cells = <0>;
+				clocks = <&clk0_ad9523 4>, <&rx_device_clk_pll>;
+				clock-names = "ref", "link";
+				clock-output-names = "jesd204_rx_lane_clock";
+			};
+
+			tx_device_clk_pll: altera-a10-fpll@25000 {
+				compatible = "altr,a10-fpll";
+				reg = <0x25000 0x1000>;
+				#clock-cells = <0>;
+				clocks = <&clk0_ad9523 9>;
+				clock-output-names = "jesd204_tx_link_clock";
+			};
+
+			rx_device_clk_pll: altera-a10-fpll@45000 {
+				compatible = "altr,a10-fpll";
+				reg = <0x45000 0x1000>;
+				#clock-cells = <0>;
+				clocks = <&clk0_ad9523 4>;
+				clock-output-names = "jesd204_rx_link_clock";
+			};
+		};
+	};
+};
+
+#define fmc_spi sys_spi
+
+#include "adi-daq2.dtsi"
+
+&adc0_ad9680 {
+	powerdown-gpios = <&sys_gpio_out 10 0>;
+//	fastdetect-a-gpios = <&sys_gpio_in 4 0>;
+//	fastdetect-b-gpios = <&sys_gpio_in 3 0>;
+};
+
+&dac0_ad9144 {
+	txen-gpios = <&sys_gpio_out 9 0>;
+	reset-gpios = <&sys_gpio_out 8 0>;
+	irq-gpios = <&sys_gpio_in 2 0>;
+};
+
+&clk0_ad9523 {
+	sync-gpios = <&sys_gpio_out 6 0>;
+	status0-gpios = <&sys_gpio_in 0 0>;
+	status1-gpios = <&sys_gpio_in 1 0>;
+};
+
+/*
+ * Set FPGA ref clocks to 333.33 MHz. Allows to generate a wider range of lane
+ * rates.
+ */
+&ad9523_0_c4 {
+	adi,channel-divider = <3>;
+};
+
+&ad9523_0_c9 {
+	adi,channel-divider = <3>;
+};

@@ -1,0 +1,125 @@
+&fmc_spi {
+	spi-adi-daq1@0 {
+		compatible = "adi,spi-adi-daq1";
+
+		reg = <0>;
+		spi-max-frequency = <10000000>;
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		gpio_daq1: gpio-daq1@3 {
+			compatible = "adi,gpio-adi-daq1";
+			reg = <3>;
+
+			spi-max-frequency = <10000000>;
+
+			gpio-controller;
+			#gpio-cells = <2>;
+		};
+
+		clk_ad9523: ad9523-1@2 {
+			compatible = "adi,ad9523-1";
+			reg = <2>;
+
+			spi-max-frequency = <1000000>;
+			adi,spi-3wire-enable;
+
+			#address-cells = <1>;
+			#size-cells = <0>;
+			#clock-cells = <1>;
+
+			powerdown-gpios = <&gpio_daq1 2 0>;
+			sync-gpios = <&gpio_daq1 4 0>;
+			reset-gpios = <&gpio_daq1 3 0>;
+			status0-gpios = <&gpio_daq1 8 0>;
+			status1-gpios = <&gpio_daq1 9 0>;
+
+			clock-output-names = "ad9523_out0", "ad9523_out1", "ad9523_out2", "ad9523_out3", "ad9523_out4", "ad9523_out5", "ad9523_out6", "ad9523_out7", "ad9523_out8", "ad9523_out9", "ad9523_out10", "ad9523_out11", "ad9523_out12", "ad9523_out13";
+			adi,vcxo-freq = <125000000>;
+
+			adi,osc-in-diff-enable;
+
+			adi,refa-r-div = <0>;
+			adi,refb-r-div = <0>;
+			adi,pll1-feedback-div = <0>;
+			adi,pll1-charge-pump-current-nA = <6000>;
+			adi,pll1-loopfilter-rzero = <0>;
+
+			adi,ref-mode = <1>;
+
+			adi,pll2-charge-pump-current-nA = <413000>;
+			adi,pll2-ndiv-a-cnt = <0>;
+			adi,pll2-ndiv-b-cnt = <6>;
+			adi,pll2-r2-div = <1>;
+			adi,pll2-vco-div-m1 = <3>;
+			adi,pll2-vco-div-m2 = <3>;
+
+			adi,rpole2 = <0>;
+			adi,rzero = <7>;
+			adi,cpole1 = <2>;
+
+			ad9523_c2:channel@2 {
+				reg = <2>;
+				adi,extended-name = "DAC_CLK";
+				adi,driver-mode = <2>;
+				adi,divider-phase = <0>;
+				adi,channel-divider = <2>;
+			};
+
+			ad9523_c4:channel@4 {
+				reg = <4>;
+				adi,extended-name = "DAC_REF_CLK";
+				adi,driver-mode = <2>;
+				adi,divider-phase = <0>;
+				adi,channel-divider = <16>;
+			};
+
+			ad9523_c8:channel@8 {
+				reg = <8>;
+				adi,extended-name = "DAC_FPGA_CLK";
+				adi,driver-mode = <2>;
+				adi,divider-phase = <0>;
+				adi,channel-divider = <2>;
+			};
+
+			ad9523_c13:channel@13 {
+				reg = <13>;
+				adi,extended-name = "ADC_CLK";
+				adi,driver-mode = <2>;
+				adi,divider-phase = <0>;
+				adi,channel-divider = <2>;
+			};
+		};
+
+		adc_ad9684: ad9684@0 {
+			compatible = "adi,ad9684";
+			reg = <0>;
+
+			spi-max-frequency = <10000000>;
+			spi-3wire;
+
+			clocks = <&clk_ad9523 13>;
+			clock-names = "clkin";
+
+			powerdown-gpios = <&gpio_daq1 0 0>;
+		};
+
+		dac_ad9122: ad9122@1 {
+			compatible = "adi,ad9122";
+			reg = <1>;
+
+			spi-max-frequency = <10000000>;
+			spi-3wire;
+
+			clocks = <&clk_ad9523 8>, <&clk_ad9523 2>, <&clk_ad9523 4>;
+			clock-names = "data_clk", "dac_clk", "ref_clk";
+
+			dac-fcenter-shift = <0>;
+			dac-interp-factor = <2>;
+			dac-data-rate = <500000000>;
+			temp-sensor-calibration-temperature-mdeg = <25000>;
+			reset-gpios = <&gpio_daq1 1 0>;
+		};
+	};
+};

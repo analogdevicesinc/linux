@@ -1,0 +1,51 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * AD9361-Z7035 System on Module (SOM) SDR - FMC Carrier - TDD mode
+ * Link: https://www.analog.com/ADRV9361-Z7035
+ * Link: https://wiki.analog.com/resources/eval/user-guides/adrv936x_rfsom
+ *
+ * hdl_project: <adrv9361z7035/ccfmc_lvds>
+ * board_revision: <>
+ *
+ * Copyright 2015-2019 Analog Devices Inc.
+ */
+#include "zynq-adrv9361-z7035-fmc.dts"
+
+&adc0_ad9361 {
+	/delete-property/ adi,frequency-division-duplex-mode-enable;
+	adi,tdd-use-dual-synth-mode-enable;
+	adi,ensm-enable-txnrx-control-enable;
+
+	adi,rx-synthesizer-frequency-hz = /bits/ 64 <2400000000>;
+	adi,tx-synthesizer-frequency-hz = /bits/ 64 <2400000000>;
+
+	adi,elna-bypass-loss-mdB = <2100>;
+	adi,elna-gain-mdB = <17000>;
+	adi,elna-rx1-gpo0-control-enable;
+	adi,elna-rx2-gpo1-control-enable;
+	adi,elna-settling-delay-ns = <1000>;
+
+	adi,gpo2-slave-rx-enable;
+	adi,gpo2-rx-delay-us = <0>;
+
+	adi,gpo3-slave-tx-enable;
+	adi,gpo3-tx-delay-us = <0>;
+};
+
+&fpga_axi {
+	cf_ad9361_tdd_core_0: cf-ad9361-tdd-core-lpc@79028000 {
+		compatible = "adi,axi-tdd-1.00";
+		reg = <0x79028000 0x1000>;
+		adi,profile-config0 = <0 1228800 1 1198080 771920 771920 1198080 39832 771536 781032 1197696 44832 766536 786032 1192696>; // Master
+		adi,profile-config1 = <0 1228800 0 771920 1198080 1198080 771920 781032 1197696 39832 771536 786032 1192696 44832 766536>; // Slave
+	};
+};
+
+&gpio0 {
+	rf_gpio_0 {
+		gpio-hog;
+		gpios = <110 0>;
+		output-high;
+		line-name = "RF_GPIO0 PA ON";
+	};
+};

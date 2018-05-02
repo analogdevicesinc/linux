@@ -1,0 +1,94 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices ADALM Pluto
+ * https://wiki.analog.com/university/tools/pluto
+ * https://wiki.analog.com/university/tools/pluto/users
+ * https://wiki.analog.com/university/tools/pluto/users/firmware
+ * https://wiki.analog.com/university/tools/pluto/other
+ *
+ * hdl_project: <pluto>
+ * board_revision: <C>
+ *
+ * Copyright (C) 2016-2019 Analog Devices Inc.
+ */
+/dts-v1/;
+#include "zynq-pluto-sdr.dtsi"
+#include <dt-bindings/input/input.h>
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+
+/* These GPIO hogs are configured by u-boot environment */
+&gpio0 {
+	clock_extern_en {
+		gpio-hog;
+		gpios = <48 0>;
+		output-high;
+	};
+
+	clock_internal_en {
+		gpio-hog;
+		gpios = <48 0>;
+		output-low;
+	};
+};
+
+&amba {
+	axi_spi: axi_quad_spi@7C430000 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		bits-per-word = <8>;
+		compatible = "xlnx,xps-spi-2.00.a";
+		fifo-size = <16>;
+		interrupt-parent = <&intc>;
+		interrupts = <0 55 IRQ_TYPE_LEVEL_HIGH>;
+		cs-gpios = <&gpio0 49 0>;
+		num-cs = <0x1>;
+		reg = <0x7C430000 0x10000>;
+		xlnx,num-ss-bits = <0x1>;
+		xlnx,spi-mode = <0>;
+
+		spidev0: spidev@0 {
+			compatible = "adi,swspi";
+			reg = <0>;	/* CE0 */
+			#address-cells = <1>;
+			#size-cells = <0>;
+			spi-max-frequency = <125000000>;
+		};
+	};
+};
+
+&adc0_ad9364 {
+	/* This property is controlled by u-boot environment. */
+	adi,2rx-2tx-mode-enable;
+};
+
+&cf_ad9364_dac_core_0 {
+	/* This property is controlled by u-boot environment. */
+	compatible = "adi,axi-ad9361-dds-6.00.a";
+};
+
+/ {
+	model = "Analog Devices PlutoSDR Rev.C (Z7010/AD9363)";
+
+	leds {
+		compatible = "gpio-leds";
+		led0 {
+			label = "led0:green";
+			gpios = <&gpio0 15 0>;
+			linux,default-trigger = "heartbeat";
+		};
+	};
+
+	gpio_keys {
+		compatible = "gpio-keys";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		button {
+			interrupt-parent = <&gpio0>;
+			interrupts = <14 IRQ_TYPE_EDGE_FALLING>;
+			label = "Button";
+			linux,code = <BTN_MISC>;
+		};
+	};
+};

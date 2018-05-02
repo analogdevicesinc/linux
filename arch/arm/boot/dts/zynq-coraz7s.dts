@@ -1,0 +1,2 @@
+/dts-v1/;
+#include "zynq-coraz7s.dtsi"
