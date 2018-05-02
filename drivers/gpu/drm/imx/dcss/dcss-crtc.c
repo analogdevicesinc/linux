@@ -191,7 +191,7 @@ void dcss_crtc_setup_opipe(struct drm_crtc *crtc, struct drm_connector *conn,
 	/* FIXME: we should get the connector colorspace some other way */
 	if (vic == 97 &&
 	    (di->color_formats & DRM_COLOR_FORMAT_YCRCB420) &&
-	    (di->bpc >= 10))
+	    (di->hdmi.y420_dc_modes & DRM_EDID_YCBCR420_DC_30))
 		dcss_crtc->opipe_pix_format = DRM_FORMAT_P010;
 	else
 		dcss_crtc->opipe_pix_format = DRM_FORMAT_ARGB8888;
