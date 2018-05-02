@@ -1,0 +1,82 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * ADRV2CRR-FMC using ADRV9009-ZU11EG Rev.B System on Module (250.000 MSPS)
+ *
+ * https://wiki.analog.com/resources/eval/user-guides/adrv9009
+ * https://wiki.analog.com/resources/tools-software/linux-drivers/iio-transceiver/adrv9009
+ * https://wiki.analog.com/resources/tools-software/linux-software/adrv9009_advanced_plugin
+ * https://wiki.analog.com/resources/eval/user-guides/adrv9009-zu11eg/adrv2crr-fmc_carrier_board
+ *
+ * hdl_project: <adrv9009zu11eg/adrv2crr_fmc>
+ * board_revision: <B>
+ *
+ * Copyright (C) 2020 Analog Devices Inc.
+ */
+
+#include "zynqmp-adrv9009-zu11eg-revb-adrv2crr-fmc-revb-jesd204-fsm.dts"
+
+&hmc7044 {
+	adi,pll2-output-frequency = <3000000000>; /* VCO @ 3.000GHz */
+};
+
+&hmc7044_car {
+	adi,pll2-output-frequency = <3000000000>; /* VCO @ 3.000GHz */
+};
+
+&trx0_adrv9009 {
+	adi,rx-profile-rx-output-rate_khz = <250000>;
+	adi,rx-profile-rx-fir-num-fir-coefs = <48>;
+	adi,rx-profile-rx-fir-coefs = /bits/ 16 <(-5) (-16) (24) (39) (-57) (-92) (123) (179) (-230) (-323) (400) (543) (-657) (-875) (1040) (1378) (-1618) (-2181) (2539) (3604) (-4339) (-7197) (9305) (31179) (31179) (9305) (-7197) (-4339) (3604) (2539) (-2181) (-1618) (1378) (1040) (-875) (-657) (543) (400) (-323) (-230) (179) (123) (-92) (-57) (39) (24) (-16) (-5)>;
+	adi,rx-profile-rx-adc-profile = /bits/ 16 <(184) (138) (169) (90) (1280) (921) (1331) (87) (1367) (44) (1025) (20) (48) (48) (37) (207) (0) (0) (0) (0) (52) (0) (7) (6) (42) (0) (7) (6) (42) (0) (25) (27) (0) (0) (25) (27) (0) (0) (165) (44) (31) (905)>;
+
+	adi,orx-profile-rx-fir-decimation = <2>;
+	adi,orx-profile-rx-dec5-decimation = <4>;
+	adi,orx-profile-rhb1-decimation = <1>;
+	adi,orx-profile-orx-output-rate_khz = <250000>;
+	adi,orx-profile-rx-fir-num-fir-coefs = <48>;
+	adi,orx-profile-rx-fir-coefs = /bits/ 16  <(-5) (-15) (23) (38) (-54) (-88) (102) (139) (-246) (-302) (405) (514) (-654) (-832) (1028) (1312) (-1596) (-2080) (2514) (3463) (-4281) (-6896) (9413) (30864) (30864) (9413) (-6896) (-4281) (3463) (2514) (-2080) (-1596) (1312) (1028) (-832) (-654) (514) (405) (-302) (-246) (139) (102) (-88) (-54) (38) (23) (-15) (-5)>;
+	adi,orx-profile-orx-low-pass-adc-profile = /bits/ 16  <(184) (138) (169) (90) (1280) (921) (1331) (87) (1367) (44) (1025) (20) (48) (48) (37) (207) (0) (0) (0) (0) (52) (0) (7) (6) (42) (0) (7) (6) (42) (0) (25) (27) (0) (0) (25) (27) (0) (0) (165) (44) (31) (905)>;
+	adi,orx-profile-orx-band-pass-adc-profile = /bits/ 16  <(184) (138) (169) (90) (1280) (921) (1331) (87) (1367) (44) (1025) (20) (48) (48) (37) (207) (0) (0) (0) (0) (52) (0) (7) (6) (42) (0) (7) (6) (42) (0) (25) (27) (0) (0) (25) (27) (0) (0) (165) (44) (31) (905)>;
+
+	adi,tx-profile-tx-input-rate_khz = <250000>;
+	adi,tx-profile-primary-sig-bandwidth_hz = <75000000>;
+	adi,tx-profile-rf-bandwidth_hz = <200000000>;
+	adi,tx-profile-tx-bbf3d-bcorner_khz = <100000>;
+	adi,tx-profile-tx-dac3d-bcorner_khz = <200000>;
+	adi,tx-profile-tx-fir-gain_db = <0>;
+	adi,tx-profile-tx-fir-num-fir-coefs = <20>;
+	adi,tx-profile-tx-fir-coefs = /bits/ 16  <(32) (-79) (132) (-178) (204) (-156) (-110) (1031) (-3097) (20270) (-3097) (1031) (-110) (-156) (204) (-178) (132) (-79) (32) (0)>;
+	adi,tx-profile-loop-back-adc-profile = /bits/ 16 <(240) (140) (179) (90) (1280) (473) (1274) (36) (1316) (22) (804) (35) (48) (48) (30) (172) (0) (0) (0) (0) (43) (0) (7) (6) (42) (0) (7) (6) (42) (0) (25) (27) (0) (0) (25) (27) (0) (0) (165) (44) (31) (905)>;
+
+	adi,dig-clocks-device-clock_khz = <250000>;
+	adi,dig-clocks-clk-pll-vco-freq_khz = <10000000>;
+};
+
+&trx1_adrv9009 {
+	adi,rx-profile-rx-output-rate_khz = <250000>;
+	adi,rx-profile-rx-fir-num-fir-coefs = <48>;
+	adi,rx-profile-rx-fir-coefs = /bits/ 16 <(-5) (-16) (24) (39) (-57) (-92) (123) (179) (-230) (-323) (400) (543) (-657) (-875) (1040) (1378) (-1618) (-2181) (2539) (3604) (-4339) (-7197) (9305) (31179) (31179) (9305) (-7197) (-4339) (3604) (2539) (-2181) (-1618) (1378) (1040) (-875) (-657) (543) (400) (-323) (-230) (179) (123) (-92) (-57) (39) (24) (-16) (-5)>;
+	adi,rx-profile-rx-adc-profile = /bits/ 16 <(184) (138) (169) (90) (1280) (921) (1331) (87) (1367) (44) (1025) (20) (48) (48) (37) (207) (0) (0) (0) (0) (52) (0) (7) (6) (42) (0) (7) (6) (42) (0) (25) (27) (0) (0) (25) (27) (0) (0) (165) (44) (31) (905)>;
+
+	adi,orx-profile-rx-fir-decimation = <2>;
+	adi,orx-profile-rx-dec5-decimation = <4>;
+	adi,orx-profile-rhb1-decimation = <1>;
+	adi,orx-profile-orx-output-rate_khz = <250000>;
+	adi,orx-profile-rx-fir-num-fir-coefs = <48>;
+	adi,orx-profile-rx-fir-coefs = /bits/ 16  <(-5) (-15) (23) (38) (-54) (-88) (102) (139) (-246) (-302) (405) (514) (-654) (-832) (1028) (1312) (-1596) (-2080) (2514) (3463) (-4281) (-6896) (9413) (30864) (30864) (9413) (-6896) (-4281) (3463) (2514) (-2080) (-1596) (1312) (1028) (-832) (-654) (514) (405) (-302) (-246) (139) (102) (-88) (-54) (38) (23) (-15) (-5)>;
+	adi,orx-profile-orx-low-pass-adc-profile = /bits/ 16  <(184) (138) (169) (90) (1280) (921) (1331) (87) (1367) (44) (1025) (20) (48) (48) (37) (207) (0) (0) (0) (0) (52) (0) (7) (6) (42) (0) (7) (6) (42) (0) (25) (27) (0) (0) (25) (27) (0) (0) (165) (44) (31) (905)>;
+	adi,orx-profile-orx-band-pass-adc-profile = /bits/ 16  <(184) (138) (169) (90) (1280) (921) (1331) (87) (1367) (44) (1025) (20) (48) (48) (37) (207) (0) (0) (0) (0) (52) (0) (7) (6) (42) (0) (7) (6) (42) (0) (25) (27) (0) (0) (25) (27) (0) (0) (165) (44) (31) (905)>;
+
+	adi,tx-profile-tx-input-rate_khz = <250000>;
+	adi,tx-profile-primary-sig-bandwidth_hz = <75000000>;
+	adi,tx-profile-rf-bandwidth_hz = <200000000>;
+	adi,tx-profile-tx-bbf3d-bcorner_khz = <100000>;
+	adi,tx-profile-tx-dac3d-bcorner_khz = <200000>;
+	adi,tx-profile-tx-fir-gain_db = <0>;
+	adi,tx-profile-tx-fir-num-fir-coefs = <20>;
+	adi,tx-profile-tx-fir-coefs = /bits/ 16  <(32) (-79) (132) (-178) (204) (-156) (-110) (1031) (-3097) (20270) (-3097) (1031) (-110) (-156) (204) (-178) (132) (-79) (32) (0)>;
+	adi,tx-profile-loop-back-adc-profile = /bits/ 16 <(240) (140) (179) (90) (1280) (473) (1274) (36) (1316) (22) (804) (35) (48) (48) (30) (172) (0) (0) (0) (0) (43) (0) (7) (6) (42) (0) (7) (6) (42) (0) (25) (27) (0) (0) (25) (27) (0) (0) (165) (44) (31) (905)>;
+
+	adi,dig-clocks-device-clock_khz = <250000>;
+	adi,dig-clocks-clk-pll-vco-freq_khz = <10000000>;
+};

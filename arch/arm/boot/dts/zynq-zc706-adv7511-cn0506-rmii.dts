@@ -1,0 +1,41 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * ADIN PHY FMC board
+ * https://wiki.analog.com/resources/tools-software/linux-drivers/net-phy/adin
+ *
+ * hdl_project: <cn0506_rmii/zc706>
+ * board_revision: <>
+ *
+ * Copyright 2020 Analog Devices Inc.
+ */
+/dts-v1/;
+
+#include "zynq-zc706.dtsi"
+#include "zynq-zc706-adv7511.dtsi"
+#include "adi-cn0506-rmii.dtsi"
+
+&i2c_mux {
+	i2c@6 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <6>;
+
+		fmc_mii_clk1: clock-generator@32 {
+			#clock-cells = <0>;
+			compatible = "silabs,si514";
+			reg = <0x32>;
+			clock-output-names = "si514_fmc_mii_clk1";
+			assigned-clocks = <&fmc_mii_clk1>;
+			assigned-clock-rates = <50000000>;
+		};
+
+		fmc_mii_clk2: clock-generator@33 {
+			#clock-cells = <0>;
+			compatible = "silabs,si514";
+			reg = <0x33>;
+			clock-output-names = "si514_fmc_mii_clk2";
+			assigned-clocks = <&fmc_mii_clk2>;
+			assigned-clock-rates = <50000000>;
+		};
+	};
+};

@@ -1,0 +1,113 @@
+#include "zynq.dtsi"
+
+#include <dt-bindings/interrupt-controller/irq.h>
+
+/ {
+	model = "Xilinx Zynq ZC706";
+	memory {
+		device_type = "memory";
+		reg = <0x00000000 0x40000000>;
+	};
+
+	chosen {
+		bootargs = "console=ttyPS0,115200 root=/dev/mmcblk0p2 rw earlyprintk rootfstype=ext4 rootwait";
+		stdout-path = "/amba@0/uart@E0001000";
+	};
+
+	leds {
+		compatible = "gpio-leds";
+		ds8 {
+			label = "ds12:green";
+			gpios = <&gpio0 61 0>;
+		};
+
+		ds9 {
+			label = "ds15:green";
+			gpios = <&gpio0 62 0>;
+		};
+
+		ds10 {
+			label = "ds16:green";
+			gpios = <&gpio0 63 0>;
+		};
+
+		ds35 {
+			label = "ds17:green";
+			gpios = <&gpio0 64 0>;
+		};
+	};
+
+	gpio_keys {
+		compatible = "gpio-keys";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		autorepeat;
+
+		sw7 {
+			label = "Left";
+			linux,code = <105>; // Left
+			gpios = <&gpio0 58 0>;
+		};
+
+		sw8 {
+			label = "Right";
+			linux,code = <106>; // Right
+			gpios = <&gpio0 60 0>;
+		};
+
+		sw9 {
+			label = "Select";
+			linux,code = <28>; // Enter
+			gpios = <&gpio0 59 0>;
+		};
+	};
+};
+
+&gem0 {
+	phy-handle = <&phy0>;
+	phy-mode = "rgmii-id";
+
+	phy0: phy@7 {
+		device_type = "ethernet-phy";
+		reg = <0x7>;
+	};
+};
+
+&usb0 {
+	xlnx,phy-reset-gpio = <&gpio0 7 0>;
+};
+
+&qspi {
+	status = "okay";
+	is-dual = <1>;
+	num-cs = <1>;
+	primary_flash: ps7-qspi@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		spi-tx-bus-width = <1>;
+		spi-rx-bus-width = <4>;
+		compatible = "n25q128a11";
+		reg = <0x0>;
+		spi-max-frequency = <50000000>;
+		partition@0 {
+			label = "boot";
+			reg = <0x00000000 0x00500000>;
+		};
+		partition@500000 {
+			label = "bootenv";
+			reg = <0x00500000 0x00020000>;
+		};
+		partition@520000 {
+			label = "config";
+			reg = <0x00520000 0x00020000>;
+		};
+		partition@540000 {
+			label = "image";
+			reg = <0x00540000 0x00a80000>;
+		};
+		partition@fc0000 {
+			label = "spare";
+			reg = <0x00fc0000 0x00000000>;
+		};
+	};
+};

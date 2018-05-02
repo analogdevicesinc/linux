@@ -1,0 +1,110 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices AD9739A
+ * https://wiki.analog.com/resources/tools-software/linux-drivers/iio-dds/axi-dac-dds-hdl
+ * https://wiki.analog.com/resources/fpga/xilinx/fmc/ad9739a
+ *
+ * hdl_project: <ad9739a_fmc/zc706>
+ * board_revision: <>
+ *
+ * Copyright (C) 2016-2019 Analog Devices Inc.
+ */
+/dts-v1/;
+
+#include "zynq-zc706.dtsi"
+#include "zynq-zc706-adv7511.dtsi"
+
+&i2c_mux {
+	fmc_i2c: i2c@6 {
+		#size-cells = <0>;
+		#address-cells = <1>;
+		reg = <6>;
+
+		eeprom@50 {
+			compatible = "at24,24c02";
+			reg = <0x50>;
+		};
+	};
+};
+
+&spi0 {
+	status = "okay";
+};
+
+#define fmc_spi spi0
+
+/{
+	adf4350_clkin: adf4350_clkin {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <25000000>;
+	};
+
+	adf4350_clkout: adf4350_clkout {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <2500000000>;
+	};
+};
+
+&fpga_axi {
+	tx_dma: tx-dmac@7c420000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x7c420000 0x10000>;
+		#dma-cells = <1>;
+		interrupts = <0 56 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clkc 16>;
+
+		adi,channels {
+			#size-cells = <0>;
+			#address-cells = <1>;
+
+			dma-channel@0 {
+				reg = <0>;
+				adi,source-bus-width = <256>;
+				adi,source-bus-type = <0>;
+				adi,destination-bus-width = <256>;
+				adi,destination-bus-type = <2>;
+			};
+		};
+	};
+
+	axi_ad9739a_core: axi-ad9739a-hpc@74204000 {
+		compatible = "adi,axi-ad9739a-8.00.b";
+		reg = < 0x74204000 0x4000 >;
+		dmas = <&tx_dma 0>;
+		dma-names = "tx";
+		spibus-connected = <&ad9739a>;
+	};
+};
+
+&fmc_spi {
+	adf4350: adf4350@0 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "adi,adf4350";
+		reg = <0>;
+		spi-max-frequency = <10000000>;
+		clocks = <&adf4350_clkin>;
+		clock-names = "clkin";
+		adi,channel-spacing = <100000>;
+		adi,power-up-frequency = <2500000000>;
+		adi,phase-detector-polarity-positive-enable;
+		adi,charge-pump-current = <2500>;
+		adi,output-power = <3>;
+		adi,aux-output-fundamental-enable;
+	};
+
+	ad9739a: ad9739a@1 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "adi,ad9739a";
+		reg = <1>;
+		spi-max-frequency = <10000000>;
+		clocks = <&adf4350_clkout>;
+		clock-names = "dac_clk";
+		//adi,mix-mode-enable;
+		//adi,full-scale-current-ua = <25000>;
+	};
+};
+

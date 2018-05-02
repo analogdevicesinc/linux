@@ -1,0 +1,31 @@
+&gem0 {
+	status = "okay";
+	phy-mode = "mii";
+	phy-handle = <&ethernet_gem0_phy1>;
+	/* Override compatible string to configure a MAC that works
+	 * at 100 Mbit. Otherwise gigabit can be advertised by the
+	 * PHY after matching MAC link caps with PHY link caps,
+	 * even though, the design won't be able to actually support it
+	 */
+	compatible = "cdns,macb";
+
+	ethernet_gem0_phy1: ethernet-phy@1 {
+		reg = <1>;
+	};
+};
+
+&gem1 {
+	status = "okay";
+	phy-mode = "mii";
+	phy-handle = <&ethernet_gem1_phy2>;
+	/* Override compatible string to configure a MAC that works
+	 * at 100 Mbit. Otherwise gigabit can be advertised by the
+	 * PHY after matching MAC link caps with PHY link caps,
+	 * even though, the design won't be able to actually support it
+	 */
+	compatible = "cdns,macb";
+
+	ethernet_gem1_phy2: ethernet-phy@2 {
+		reg = <2>;
+	};
+};
