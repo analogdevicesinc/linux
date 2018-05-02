@@ -1,0 +1,156 @@
+
+/dts-v1/;
+/include/ "vc707_fmcjesdadc1_pl.dtsi"
+/ {
+	chosen {
+		bootargs = "console=ttyUL0,115200";
+		linux,stdout-path = &axi_uart;
+		stdout-path = &axi_uart;
+	};
+	aliases {
+		ethernet0 = &axi_ethernet_eth_buf;
+		i2c0 = &axi_iic_main;
+		serial0 = &axi_uart;
+		serial1 = &sys_mb_debug;
+		spi0 = &axi_spi;
+	};
+	memory {
+		device_type = "memory";
+		reg = <0x80000000 0x40000000>;
+	};
+};
+&axi_ethernet_eth_buf {
+	local-mac-address = [00 0a 35 00 00 15];
+	phy-handle = <&phy0 &phy1>;
+	phy-mode = "sgmii";
+};
+
+&axi_ethernet_eth_buf_mdio {
+	phy0: phy@7 {
+		device_type = "ethernet-phy";
+		reg = <7>;
+	};
+	phy1: phy@1 {
+		device_type = "ethernet-phy";
+		reg = <1>;
+	};
+};
+
+&axi_ad9250_core0{
+	dmas = <&rx_dma0 0>;
+	dma-names = "rx";
+	spibus-connected = <&adc0_ad9250>;
+};
+
+&axi_ad9250_core1{
+	dmas = <&rx_dma1 0>;
+	dma-names = "rx";
+	spibus-connected = <&adc1_ad9250>;
+};
+
+&rx_dma0 {
+	#dma-cells = <1>;
+	clocks = <&clk_bus_0>;
+
+	dma-channel {
+		adi,buswidth = <256>;
+		adi,type = <0>;
+	};
+};
+
+&rx_dma1 {
+	#dma-cells = <1>;
+	clocks = <&clk_bus_0>;
+
+	dma-channel {
+		adi,buswidth = <256>;
+		adi,type = <0>;
+	};
+};
+
+&axi_jesd{
+	#clock-cells = <0>;
+	clocks = <&clk_bus_0>, <&axi_adxcvr 1>, <&axi_adxcvr 0>;
+	clock-names = "s_axi_aclk", "device_clk", "lane_clk";
+	clock-output-names = "jesd_adc_lane_clk";
+
+	adi,octets-per-frame = <2>;
+	adi,frames-per-multiframe = <32>;
+};
+
+&axi_adxcvr {
+	#clock-cells = <1>;
+
+	clocks = <&clk_ad9517 0>;
+	clock-names = "conv";
+	clock-output-names = "adc_gt_clk", "rx_out_clk";
+
+	adi,sys-clk-select = <0>;
+	adi,out-clk-select = <2>;
+	adi,use-cpll-enable;
+};
+
+&axi_gpio {
+	sysref_enable {
+		gpio-hog;
+		gpios = <32 0>;
+		output-high;
+		line-name = "sysref-enable";
+	};
+};
+
+&axi_iic_main {
+	mux@74 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "pca9548";
+		reg = <0x74>;
+
+		fmc_i2c: i2c@1 { /* HPC */
+			#size-cells = <0>;
+			#address-cells = <1>;
+			reg = <1>;
+			eeprom@50 {
+				compatible = "at24,24c02";
+				reg = <0x50>;
+			};
+
+			eeprom@54 {
+				compatible = "at24,24c02";
+				reg = <0x54>;
+			};
+		};
+
+		mux2: i2c@2 { /* LPC */
+			#size-cells = <0>;
+			#address-cells = <1>;
+			reg = <2>;
+
+
+		};
+	};
+};
+
+&axi_linear_flash {
+	#address-cells = <1>;
+	#size-cells = <1>;
+	partition@0 {
+		label = "fpga";
+		reg = <0x00000000 0x1380000>;
+	};
+	partition@1380000 {
+		label = "boot";
+		reg = <0x01380000 0x80000>;
+	};
+	partition@1400000 {
+		label = "bootenv";
+		reg = <0x01400000 0x40000>;
+	};
+	partition@1440000 {
+		label = "image";
+		reg = <0x01440000 0xBC0000>;
+	};
+};
+
+#define fmc_spi axi_spi
+#include "adi-fmcjesdadc1.dtsi"
