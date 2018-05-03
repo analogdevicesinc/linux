@@ -127,53 +127,11 @@ static int xilinx_xcvr_drp_update(struct xilinx_xcvr *xcvr,
 static int xilinx_xcvr_gth3_configure_cdr(struct xilinx_xcvr *xcvr,
 	unsigned int drp_port, unsigned int out_div)
 {
-	unsigned int cfg0, cfg1, cfg2, cfg3;
+	/*
+	 * TODO: UltraScale FPGAs Transceivers Wizard should be used for
+	 *	 generating these settings
+	 */
 
-	switch (xcvr->refclk_ppm) {
-	case PM_200:
-		cfg0 = 0x0018;
-		break;
-	case PM_700:
-	case PM_1250:
-		cfg0 = 0x8018;
-		break;
-	default:
-		return -EINVAL;
-	}
-
-	if (xcvr->encoding == ENC_8B10B) {
-
-		cfg1 = 0xC208;
-		cfg3 = 0x07FE;
-		cfg3 = 0x0020;
-
-		switch (out_div) {
-		case 1:
-			cfg2 = 0x2000;
-			break;
-		case 2:
-			cfg2 = 0x1000;
-			break;
-		case 4:
-			cfg2 = 0x0800;
-			break;
-		case 8:
-			cfg2 = 0x0400;
-			break;
-		default:
-			return -EINVAL;
-		}
-
-	} else {
-		dev_warn(xcvr->dev, "%s: GTH PRBS CDR not implemented\n", __func__);
-		return 0;
-	}
-#if 0
-	xilinx_xcvr_drp_write(xcvr, drp_port, RXCDR_CFG0_ADDR, cfg0);
-	xilinx_xcvr_drp_write(xcvr, drp_port, RXCDR_CFG1_ADDR, cfg1);
-	xilinx_xcvr_drp_write(xcvr, drp_port, RXCDR_CFG2_ADDR, cfg2);
-	xilinx_xcvr_drp_write(xcvr, drp_port, RXCDR_CFG3_ADDR, cfg3);
-#endif
 	return 0;
 }
 
@@ -295,17 +253,10 @@ int xilinx_xcvr_configure_lpm_dfe_mode(struct xilinx_xcvr *xcvr,
 	switch (xcvr->type) {
 	case XILINX_XCVR_TYPE_US_GTH3:
 	case XILINX_XCVR_TYPE_US_GTH4:
-#if 0
-		if (lpm) {
-			xilinx_xcvr_drp_write(xcvr, drp_port, 0x036, 0x0032);
-			xilinx_xcvr_drp_write(xcvr, drp_port, 0x039, 0x1000);
-			xilinx_xcvr_drp_write(xcvr, drp_port, 0x062, 0x1980);
-		} else {
-			xilinx_xcvr_drp_write(xcvr, drp_port, 0x036, 0x0002);
-			xilinx_xcvr_drp_write(xcvr, drp_port, 0x039, 0x0000);
-			xilinx_xcvr_drp_write(xcvr, drp_port, 0x062, 0x0000);
-		}
-#endif
+		/*
+		 * TODO: UltraScale FPGAs Transceivers Wizard should be used for
+		 *	 generating these settings
+		 */
 		break;
 	case XILINX_XCVR_TYPE_S7_GTX2:
 		if (lpm)
