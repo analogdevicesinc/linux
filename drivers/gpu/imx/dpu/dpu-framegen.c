@@ -97,6 +97,7 @@ typedef enum {
 #define FGSRFTD			0x94
 
 #define KHZ			1000
+#define PLL_MIN_FREQ_HZ		648000000
 
 struct dpu_framegen {
 	void __iomem *base;
@@ -221,11 +222,11 @@ EXPORT_SYMBOL_GPL(framegen_shdtokgen);
 
 void framegen_cfg_videomode(struct dpu_framegen *fg, struct drm_display_mode *m)
 {
-	const struct dpu_devtype *devtype = fg->dpu->devtype;
 	u32 hact, htotal, hsync, hsbp;
 	u32 vact, vtotal, vsync, vsbp;
 	u32 val;
 	unsigned long disp_clock_rate, pll_clock_rate = 0;
+	int div = 0;
 
 	hact = m->crtc_hdisplay;
 	htotal = m->crtc_htotal;
@@ -271,21 +272,11 @@ void framegen_cfg_videomode(struct dpu_framegen *fg, struct drm_display_mode *m)
 
 	disp_clock_rate = m->clock * 1000;
 
-	if (devtype->version == DPU_V1) {
-		/* FIXME: why the folders */
-		if (disp_clock_rate > 150000000)
-			pll_clock_rate = disp_clock_rate * 2;
-		else if (disp_clock_rate > 75000000)
-			pll_clock_rate = disp_clock_rate * 4;
-		else
-			pll_clock_rate = disp_clock_rate * 8;
-	} else if (devtype->version == DPU_V2) {
-		/* FIXME: why the hardcoded clock rate */
-		if (disp_clock_rate > 75000000)
-			pll_clock_rate = 1188000000;
-		else
-			pll_clock_rate = disp_clock_rate * 8;
-	}
+	/* find an even divisor for PLL */
+	do {
+		div += 2;
+		pll_clock_rate = disp_clock_rate * div;
+	} while (pll_clock_rate < PLL_MIN_FREQ_HZ);
 
 	/*
 	 * To workaround setting clock rate failure issue
