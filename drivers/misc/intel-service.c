@@ -49,7 +49,7 @@
 /* SVC_NUM_DATA_IN_FIFO - number of struct intel_svc_data in the FIFO */
 #define SVC_NUM_DATA_IN_FIFO			32
 /* SVC_NUM_CHANNEL - number of channel supported by service layer driver */
-#define SVC_NUM_CHANNEL				2
+#define SVC_NUM_CHANNEL				3
 /*
  * FPGA_CONFIG_DATA_CLAIM_TIMEOUT_MS - claim back the submitted buffer(s)
  * from the secure world for FPGA manager to reuse, or to free the buffer(s)
@@ -115,7 +115,7 @@ struct intel_svc_data_mem {
  * @paddr: playload physical address
  * @size: playload size
  * @command: service command requested by client
- *
+ * @arg[3]: args to be passed via registers and not physically mapped buffers
  * This struct is used in service FIFO for inter-process communication.
  */
 struct intel_svc_data {
@@ -123,6 +123,7 @@ struct intel_svc_data {
 	phys_addr_t paddr;
 	size_t size;
 	u32 command;
+	u64 arg[3];
 };
 
 /**
@@ -270,6 +271,9 @@ int intel_svc_send(struct intel_svc_chan *chan, void *msg)
 	}
 
 	p_data->command = p_msg->command;
+	p_data->arg[0] = p_msg->arg[0];
+	p_data->arg[1] = p_msg->arg[1];
+	p_data->arg[2] = p_msg->arg[2];
 	p_data->size = p_msg->payload_length;
 	p_data->chan = chan;
 	pr_debug("%s: put to FIFO pa=0x%016x, cmd=%x, size=%u\n", __func__,
@@ -563,6 +567,16 @@ static int svc_normal_to_secure_thread(void *data)
 			a1 = 0;
 			a2 = 0;
 			break;
+		case COMMAND_RSU_STATUS:
+			a0 = INTEL_SIP_SMC_RSU_STATUS;
+			a1 = 0;
+			a2 = 0;
+			break;
+		case COMMAND_RSU_UPDATE:
+			a0 = INTEL_SIP_SMC_RSU_UPDATE;
+			a1 = pdata->arg[0];
+			a2 = 0;
+			break;
 		default:
 			/* it shouldn't happen */
 			break;
@@ -578,6 +592,32 @@ static int svc_normal_to_secure_thread(void *data)
 		pr_debug(" res.a1=0x%016x, res.a2=0x%016x",
 			 (unsigned int)res.a1, (unsigned int)res.a2);
 		pr_debug(" res.a3=0x%016x\n", (unsigned int)res.a3);
+
+		if (pdata->command == COMMAND_RSU_STATUS) {
+			if (res.a0 == INTEL_SIP_SMC_RSU_ERROR)
+				cdata->status = 0;
+			else
+				cdata->status = BIT(SVC_STATUS_RSU_OK);
+
+			cdata->kaddr1 = &res;
+			cdata->kaddr2 = NULL;
+			cdata->kaddr3 = NULL;
+			pdata->chan->scl->receive_cb(pdata->chan->scl, cdata);
+			continue;
+		}
+
+		if (pdata->command == COMMAND_RSU_UPDATE) {
+			if (res.a0 == INTEL_SIP_SMC_STATUS_OK)
+				cdata->status = BIT(SVC_STATUS_RSU_OK);
+			else
+				cdata->status = 0;
+
+			cdata->kaddr1 = NULL;
+			cdata->kaddr2 = NULL;
+			cdata->kaddr3 = NULL;
+			pdata->chan->scl->receive_cb(pdata->chan->scl, cdata);
+			continue;
+		}
 
 		switch (res.a0) {
 		case INTEL_SIP_SMC_STATUS_OK:
@@ -882,8 +922,13 @@ static int intel_svc_drv_probe(struct platform_device *pdev)
 
 	chans[1].scl = NULL;
 	chans[1].ctrl = controller;
-	chans[1].name = "dummy";
+	chans[1].name = "rsu";
 	spin_lock_init(&chans[1].lock);
+
+	chans[2].scl = NULL;
+	chans[2].ctrl = controller;
+	chans[2].name = "dummy";
+	spin_lock_init(&chans[2].lock);
 
 	wake_up_process(controller->task);
 
