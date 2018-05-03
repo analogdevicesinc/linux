@@ -1,0 +1,28 @@
+Intel Remote System Update (RSU) for Stratix10 SoC FPGAs
+============================================
+The Intel Remote System Update (RSU) driver exposes interfaces
+accessed through the Intel Service Layer to user space via SysFS
+device attribute nodes. The RSU interfaces report/control some of
+the optional RSU features of the Stratix 10 SoC FPGA.
+
+The RSU feature provides a way for customers to update the boot
+configuration of a Stratix 10 SoC device with significantly reduced
+risk of corrupting the bitstream storage and bricking the system.
+
+Required properties:
+-------------------
+The intel-rsu node has the following mandatory properties and must be located
+under the firmware/svc node.
+
+- compatible: "intel,stratix10-rsu"
+
+Example:
+-------
+
+	firmware {
+		svc {
+			rsu {
+				compatible = "intel,stratix10-rsu";
+			};
+		};
+	};
