@@ -412,14 +412,13 @@
 		focaltech,reset-gpio = <&gpio_ptf 1 0x01>;
 		focaltech,irq-gpio = <&gpio_ptf 0 0x02>;
 		focaltech,max-touch-number = <5>;
-		focaltech,display-coords =  <0 0 272 480>;
+		focaltech,display-coords =  <0 0 480 854>;
 
 		focaltech,have-key;
 		focaltech,key-number = <3>;
 		focaltech,keys = <139 102 158>;
 		focaltech,key-y-coord = <2000>;
 		focaltech,key-x-coords = <200 600 800>;
-		focaltech,scaling-down-half;
 	};
 };
 
