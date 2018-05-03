@@ -103,9 +103,9 @@
 		interrupt-parent = <&gic>;
 	};
 
-	mu: mu@5d1b0000 {
+	mu: mu@5d1c0000 {
 		compatible = "fsl,imx8-mu";
-		reg = <0x0 0x5d1b0000 0x0 0x10000>;
+		reg = <0x0 0x5d1c0000 0x0 0x10000>;
 		interrupts = <GIC_SPI 176 IRQ_TYPE_LEVEL_HIGH>;
 		interrupt-parent = <&wu>;
 		fsl,scu_ap_mu_id = <0>;
