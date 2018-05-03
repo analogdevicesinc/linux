@@ -1408,17 +1408,23 @@ static void vpu_api_event_handler(struct vpu_ctx *ctx, u_int32 uStrIdx, u_int32 
 		int buffer_id;
 		u_int32 uDecFrmId = event_data[7];
 		u_int32 uPicStartAddr = event_data[10];
+		struct queue_data *This = &ctx->q_data[V4L2_DST];
+		u_int32 uDpbmcCrc;
 
 		if (ctx->buffer_null == true) {
 			vpu_dbg(LVL_INFO, "frame already released\n");
 			break;
 		}
 
-		vpu_dbg(LVL_INFO, "PICINFO GET: uPicType:%d uPicStruct:%d uPicStAddr:0x%x uFrameStoreID:%d uPercentInErr:%d, uRbspBytesCount=%d, ulLumBaseAddr[0]=%x, pQMeterInfo:%p, pPicInfo:%p, pDispInfo:%p, pPerfInf:%p, pPerfDcpInfo:%p, uPicStartAddr=0x%x\n",
+		if (This->vdec_std == VPU_VIDEO_HEVC)
+			uDpbmcCrc = pPerfDcpInfo->uDBEDpbCRC[0];
+		else
+			uDpbmcCrc = pPerfInfo->uMemCRC;
+		vpu_dbg(LVL_INFO, "PICINFO GET: uPicType:%d uPicStruct:%d uPicStAddr:0x%x uFrameStoreID:%d uPercentInErr:%d, uRbspBytesCount=%d, ulLumBaseAddr[0]=%x, pQMeterInfo:%p, pPicInfo:%p, pDispInfo:%p, pPerfInfo:%p, pPerfDcpInfo:%p, uPicStartAddr=0x%x, uDpbmcCrc:%x\n",
 				pPicInfo[uStrIdx].uPicType, pPicInfo[uStrIdx].uPicStruct,
 				pPicInfo[uStrIdx].uPicStAddr, pPicInfo[uStrIdx].uFrameStoreID,
 				pPicInfo[uStrIdx].uPercentInErr, pPerfInfo->uRbspBytesCount, event_data[0],
-				pQMeterInfo, pPicInfo, pDispInfo, pPerfInfo, pPerfDcpInfo, uPicStartAddr);
+				pQMeterInfo, pPicInfo, pDispInfo, pPerfInfo, pPerfDcpInfo, uPicStartAddr, uDpbmcCrc);
 
 		buffer_id = find_buffer_id(ctx, event_data[0]);
 
