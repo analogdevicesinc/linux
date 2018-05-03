@@ -302,7 +302,7 @@ config SPI_IMG_SPFI
 
 config SPI_IMX
 	tristate "Freescale i.MX SPI controllers"
-	depends on ARCH_MXC || COMPILE_TEST
+	depends on ARCH_MXC || ARCH_MXC_ARM64 || COMPILE_TEST
 	select SPI_BITBANG
 	help
 	  This enables using the Freescale i.MX SPI controllers in master
