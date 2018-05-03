@@ -2630,6 +2630,7 @@
 		interrupts = <GIC_SPI 136 IRQ_TYPE_LEVEL_HIGH>;
 		gpio-controller;
 		#gpio-cells = <2>;
+                power-domains = <&pd_lsio_gpio0>;
 		interrupt-controller;
 		#interrupt-cells = <2>;
 	};
@@ -2640,6 +2641,7 @@
 		interrupts = <GIC_SPI 137 IRQ_TYPE_LEVEL_HIGH>;
 		gpio-controller;
 		#gpio-cells = <2>;
+                power-domains = <&pd_lsio_gpio1>;
 		interrupt-controller;
 		#interrupt-cells = <2>;
 	};
@@ -2650,6 +2652,7 @@
 		interrupts = <GIC_SPI 138 IRQ_TYPE_LEVEL_HIGH>;
 		gpio-controller;
 		#gpio-cells = <2>;
+                power-domains = <&pd_lsio_gpio2>;
 		interrupt-controller;
 		#interrupt-cells = <2>;
 	};
@@ -2660,6 +2663,7 @@
 		interrupts = <GIC_SPI 139 IRQ_TYPE_LEVEL_HIGH>;
 		gpio-controller;
 		#gpio-cells = <2>;
+                power-domains = <&pd_lsio_gpio3>;
 		interrupt-controller;
 		#interrupt-cells = <2>;
 	};
@@ -2670,6 +2674,7 @@
 		interrupts = <GIC_SPI 140 IRQ_TYPE_LEVEL_HIGH>;
 		gpio-controller;
 		#gpio-cells = <2>;
+                power-domains = <&pd_lsio_gpio4>;
 		interrupt-controller;
 		#interrupt-cells = <2>;
 	};
@@ -2680,6 +2685,7 @@
 		interrupts = <GIC_SPI 141 IRQ_TYPE_LEVEL_HIGH>;
 		gpio-controller;
 		#gpio-cells = <2>;
+                power-domains = <&pd_lsio_gpio5>;
 		interrupt-controller;
 		#interrupt-cells = <2>;
 	};
@@ -2690,6 +2696,7 @@
 		interrupts = <GIC_SPI 142 IRQ_TYPE_LEVEL_HIGH>;
 		gpio-controller;
 		#gpio-cells = <2>;
+                power-domains = <&pd_lsio_gpio6>;
 		interrupt-controller;
 		#interrupt-cells = <2>;
 	};
@@ -2700,6 +2707,7 @@
 		interrupts = <GIC_SPI 143 IRQ_TYPE_LEVEL_HIGH>;
 		gpio-controller;
 		#gpio-cells = <2>;
+                power-domains = <&pd_lsio_gpio7>;
 		interrupt-controller;
 		#interrupt-cells = <2>;
 	};
