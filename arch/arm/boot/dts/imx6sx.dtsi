@@ -290,7 +290,7 @@
 				"gpu3d_shader_clk";
 			resets = <&src 0>;
 			reset-names = "gpu3d";
-			power-domains = <&gpc 1>;
+			power-domains = <&pd_pu>;
 		};
 
 		gpmi: gpmi-nand@01806000{
@@ -892,15 +892,38 @@
 				interrupts = <GIC_SPI 89 IRQ_TYPE_LEVEL_HIGH>;
 				interrupt-parent = <&intc>;
 				fsl,mf-mix-wakeup-irq = <0x7c00000 0x3d00 0x0 0x400240>;
-				clocks = <&clks IMX6SX_CLK_GPU>, <&clks IMX6SX_CLK_IPG>,
-					<&clks IMX6SX_CLK_PXP_AXI>, <&clks IMX6SX_CLK_DISPLAY_AXI>,
-					<&clks IMX6SX_CLK_LCDIF1_PIX>, <&clks IMX6SX_CLK_LCDIF_APB>,
-					<&clks IMX6SX_CLK_LCDIF2_PIX>, <&clks IMX6SX_CLK_CSI>,
-					<&clks IMX6SX_CLK_VADC>;
-				clock-names = "gpu3d_core", "ipg", "pxp_axi", "disp_axi", "lcdif1_pix",
-						"lcdif_axi", "lcdif2_pix", "csi_mclk";
+				clocks = <&clks IMX6SX_CLK_IPG>;
+				clock-names = "ipg";
 				pcie-phy-supply = <&reg_pcie_phy>;
-				#power-domain-cells = <1>;
+
+				pgc {
+					#address-cells = <1>;
+					#size-cells = <0>;
+
+					power-domain@0 {
+						reg = <0>;
+						#power-domain-cells = <0>;
+					};
+
+					pd_pu: power-domain@1 {
+						reg = <1>;
+						#power-domain-cells = <0>;
+						power-supply = <&reg_soc>;
+						clocks = <&clks IMX6SX_CLK_GPU>;
+					};
+
+					pd_disp: power-domain@2 {
+						reg = <2>;
+						#power-domain-cells = <0>;
+						clocks = <&clks IMX6SX_CLK_PXP_AXI>,
+							 <&clks IMX6SX_CLK_DISPLAY_AXI>,
+							 <&clks IMX6SX_CLK_LCDIF1_PIX>,
+							 <&clks IMX6SX_CLK_LCDIF_APB>,
+							 <&clks IMX6SX_CLK_LCDIF2_PIX>,
+							 <&clks IMX6SX_CLK_CSI>,
+							 <&clks IMX6SX_CLK_VADC>;
+					};
+				};
 			};
 
 			iomuxc: iomuxc@020e0000 {
@@ -1386,7 +1409,7 @@
 					clocks = <&clks IMX6SX_CLK_PXP_AXI>,
 						 <&clks IMX6SX_CLK_DISPLAY_AXI>;
 					clock-names = "pxp-axi", "disp-axi";
-					power-domains = <&gpc 2>;
+					power-domains = <&pd_disp>;
 					status = "disabled";
 				};
 
@@ -1409,7 +1432,7 @@
 						 <&clks IMX6SX_CLK_LCDIF_APB>,
 						 <&clks IMX6SX_CLK_DISPLAY_AXI>;
 					clock-names = "pix", "axi", "disp_axi";
-					power-domains = <&gpc 2>;
+					power-domains = <&pd_disp>;
 					status = "disabled";
 				};
 
@@ -1421,7 +1444,7 @@
 						 <&clks IMX6SX_CLK_LCDIF_APB>,
 						 <&clks IMX6SX_CLK_DISPLAY_AXI>;
 					clock-names = "pix", "axi", "disp_axi";
-					power-domains = <&gpc 2>;
+					power-domains = <&pd_disp>;
 					status = "disabled";
 				};
 
@@ -1432,7 +1455,7 @@
 					clocks = <&clks IMX6SX_CLK_VADC>,
 						 <&clks IMX6SX_CLK_CSI>;
 					clock-names = "vadc", "csi";
-					power-domains = <&gpc 2>;
+					power-domains = <&pd_disp>;
 					gpr = <&gpr>;
 					status = "disabled";
 				};
@@ -1583,7 +1606,7 @@
 				 <&clks IMX6SX_CLK_DISPLAY_AXI>;
 			clock-names = "pcie", "pcie_bus", "pcie_phy", "pcie_inbound_axi";
 			pcie-phy-supply = <&reg_pcie_phy>;
-			power-domains = <&gpc 2>;
+			power-domains = <&pd_disp>;
 			fsl,max-link-speed = <2>;
 			status = "disabled";
 		};

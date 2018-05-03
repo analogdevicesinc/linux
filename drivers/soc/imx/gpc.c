@@ -414,10 +414,16 @@ static const struct imx_gpc_dt_data imx6sl_dt_data = {
 	.err009619_present = false,
 };
 
+static const struct imx_gpc_dt_data imx6sx_dt_data = {
+	.num_domains = 3,
+	.err009619_present = false,
+};
+
 static const struct of_device_id imx_gpc_dt_ids[] = {
 	{ .compatible = "fsl,imx6q-gpc", .data = &imx6q_dt_data },
 	{ .compatible = "fsl,imx6qp-gpc", .data = &imx6qp_dt_data },
 	{ .compatible = "fsl,imx6sl-gpc", .data = &imx6sl_dt_data },
+	{ .compatible = "fsl,imx6sx-gpc", .data = &imx6sx_dt_data },
 	{ }
 };
 
