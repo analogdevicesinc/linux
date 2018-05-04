@@ -26,6 +26,12 @@ config ARCH_FSL_IMX8MQ
 	select HAVE_IMX_RPMSG
 	select HAVE_IMX8_SOC
 
+config ARCH_FSL_IMX8MM
+	bool "i.MX8MM"
+	select HAVE_IMX_MU
+	select HAVE_IMX_RPMSG
+	select HAVE_IMX8_SOC
+
 endif
 
 config IMX7_PM_DOMAINS
