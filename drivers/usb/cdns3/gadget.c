@@ -103,6 +103,7 @@ static int usb_ss_init_ep0(struct usb_ss_dev *usb_ss);
 static void __cdns3_gadget_start(struct usb_ss_dev *usb_ss);
 static void cdns_prepare_setup_packet(struct usb_ss_dev *usb_ss);
 static void cdns_ep_config(struct usb_ss_endpoint *usb_ss_ep);
+static void cdns_enable_l1(struct usb_ss_dev *usb_ss, int enable);
 
 static struct usb_endpoint_descriptor cdns3_gadget_ep0_desc = {
 	.bLength	= USB_DT_ENDPOINT_SIZE,
@@ -291,6 +292,7 @@ static void cdns_gadget_unconfig(struct usb_ss_dev *usb_ss)
 	gadget_writel(usb_ss, &usb_ss->regs->usb_conf,
 		USB_CONF__CFGRST__MASK);
 
+	cdns_enable_l1(usb_ss, 0);
 	usb_ss->hw_configured_flag = 0;
 }
 
@@ -738,6 +740,16 @@ static int cdns_req_ep0_set_isoch_delay(struct usb_ss_dev *usb_ss,
 	return 0;
 }
 
+static void cdns_enable_l1(struct usb_ss_dev *usb_ss, int enable)
+{
+	if (enable)
+		gadget_writel(usb_ss, &usb_ss->regs->usb_conf,
+				USB_CONF__L1EN__MASK);
+	else
+		gadget_writel(usb_ss, &usb_ss->regs->usb_conf,
+				USB_CONF__L1DS__MASK);
+}
+
 /**
  * cdns_req_ep0_set_configuration - Handling of SET_CONFIG standard USB request
  * @usb_ss: extended gadget object
@@ -785,6 +797,7 @@ static int cdns_req_ep0_set_configuration(struct usb_ss_dev *usb_ss,
 					& USB_STS__CFGSTS__MASK))
 					;
 				usb_ss->hw_configured_flag = 1;
+				cdns_enable_l1(usb_ss, 1);
 
 				list_for_each_entry(ep,
 					&usb_ss->gadget.ep_list,
@@ -1354,6 +1367,7 @@ static int usb_ss_gadget_ep0_queue(struct usb_ep *ep,
 				;
 			erdy_sent = 1;
 			usb_ss->hw_configured_flag = 1;
+			cdns_enable_l1(usb_ss, 1);
 
 			list_for_each_entry(ep,
 				&usb_ss->gadget.ep_list,
@@ -2308,7 +2322,6 @@ static void __cdns3_gadget_start(struct usb_ss_dev *usb_ss)
 	gadget_writel(usb_ss, &usb_ss->regs->usb_conf,
 			USB_CONF__U1DS__MASK
 			| USB_CONF__U2DS__MASK
-			| USB_CONF__L1EN__MASK
 			);
 
 	gadget_writel(usb_ss, &usb_ss->regs->usb_conf, USB_CONF__DEVEN__MASK);
