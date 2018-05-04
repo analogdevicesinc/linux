@@ -125,6 +125,10 @@ ifeq ($(VIVANTE_ENABLE_3D), 1)
 OBJS += $(ARCH_KERNEL_DIR)/gc_hal_kernel_recorder.o
 endif
 
+ifneq ($(CONFIG_ARM64),)
+VIVANTE_ENABLE_VG=0
+endif
+
 ifeq ($(VIVANTE_ENABLE_VG), 1)
 OBJS +=\
           $(HAL_KERNEL_DIR)/gc_hal_kernel_vg.o\
