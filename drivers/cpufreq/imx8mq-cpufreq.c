@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 NXP
+ * Copyright (C) 2017-2018 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -34,11 +34,12 @@ static struct clk *arm_pll_out_clk;
 static struct clk *sys1_pll_800m_clk;
 struct thermal_cooling_device *cdev;
 static struct regulator *dc_reg;
+static struct regulator *arm_reg;
 
 static int imx8mq_set_target(struct cpufreq_policy *policy, unsigned int index)
 {
 	struct dev_pm_opp *opp;
-	unsigned long freq_hz;
+	unsigned long freq_hz, volt;
 	unsigned int old_freq, new_freq;
 	int ret;
 
@@ -56,6 +57,7 @@ static int imx8mq_set_target(struct cpufreq_policy *policy, unsigned int index)
 		mutex_unlock(&set_cpufreq_lock);
 		return PTR_ERR(opp);
 	}
+	volt = dev_pm_opp_get_voltage(opp);
 	rcu_read_unlock();
 
 	dev_dbg(cpu_dev, "%u MHz --> %u MHz\n",
@@ -72,6 +74,17 @@ static int imx8mq_set_target(struct cpufreq_policy *policy, unsigned int index)
 		}
 	}
 
+	if (new_freq > old_freq) {
+		if (!IS_ERR(arm_reg)) {
+			ret = regulator_set_voltage_tol(arm_reg, volt, 0);
+			if (ret) {
+				dev_err(cpu_dev, "failed to scale arm_reg up: %d\n", ret);
+				mutex_unlock(&set_cpufreq_lock);
+				return ret;
+			}
+		}
+	}
+
 	clk_set_parent(arm_a53_src_clk, sys1_pll_800m_clk);
 	clk_set_rate(arm_pll_clk, new_freq * 1000);
 	clk_set_parent(arm_a53_src_clk, arm_pll_out_clk);
@@ -81,6 +94,17 @@ static int imx8mq_set_target(struct cpufreq_policy *policy, unsigned int index)
 			ret = regulator_set_voltage_tol(dc_reg, DC_VOLTAGE_MIN, 0);
 			if (ret) {
 				dev_err(cpu_dev, "failed to scale dc_reg down: %d\n", ret);
+				mutex_unlock(&set_cpufreq_lock);
+				return ret;
+			}
+		}
+	}
+
+	if (new_freq < old_freq) {
+		if (!IS_ERR(arm_reg)) {
+			ret = regulator_set_voltage_tol(arm_reg, volt, 0);
+			if (ret) {
+				dev_err(cpu_dev, "failed to scale arm_reg down: %d\n", ret);
 				mutex_unlock(&set_cpufreq_lock);
 				return ret;
 			}
@@ -177,6 +201,7 @@ static int imx8mq_cpufreq_probe(struct platform_device *pdev)
 	}
 
 	dc_reg = regulator_get_optional(cpu_dev, "dc");
+	arm_reg = regulator_get_optional(cpu_dev, "arm");
 
 	/*
 	 * We expect an OPP table supplied by platform.
