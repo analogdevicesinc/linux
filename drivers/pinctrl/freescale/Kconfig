@@ -159,6 +159,14 @@ config PINCTRL_IMX8MQ
 	help
 	  Say Y here to enable the imx8mq pinctrl driver
 
+config PINCTRL_IMX8MM
+	bool "IMX8MM pinctrl driver"
+	depends on ARCH_FSL_IMX8MM
+	select PINCTRL_IMX
+	select PINCTRL_IMX_MEMMAP
+	help
+	  Say Y here to enable the imx8mm pinctrl driver
+
 config PINCTRL_VF610
 	bool "Freescale Vybrid VF610 pinctrl driver"
 	depends on SOC_VF610
