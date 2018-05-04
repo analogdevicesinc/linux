@@ -47,8 +47,8 @@ static void imx_irqsteer_irq_unmask(struct irq_data *d)
 	u32 val, idx;
 
 	spin_lock(&irqsteer_data->lock);
-	idx = irqsteer_data->endian ? (irqsteer_data->channum - d->hwirq / 32 - 1) :
-				      d->hwirq / 32;
+	idx = irqsteer_data->endian ?
+		(irqsteer_data->channum - d->hwirq / 32 - 1) : d->hwirq / 32;
 	reg = irqsteer_data->regs + CHANMASK(idx);
 	val = readl_relaxed(reg);
 	val |= 1 << (d->hwirq % 32);
@@ -63,7 +63,8 @@ static void imx_irqsteer_irq_mask(struct irq_data *d)
 	u32 val, idx;
 
 	spin_lock(&irqsteer_data->lock);
-	idx = d->hwirq / 32;
+	idx = irqsteer_data->endian ?
+		(irqsteer_data->channum - d->hwirq / 32 - 1) : d->hwirq / 32;
 	reg = irqsteer_data->regs + CHANMASK(idx);
 	val = readl_relaxed(reg);
 	val &= ~(1 << (d->hwirq % 32));
