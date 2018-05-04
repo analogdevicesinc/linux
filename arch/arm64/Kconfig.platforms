@@ -310,4 +310,17 @@ config ARCH_FSL_IMX8MQ
 	help
 	  This enables support for Freescale i.MX8MQ SOC.
 
+config ARCH_FSL_IMX8MM
+	bool "Freescale i.MX8MM SOC"
+	select ARCH_MXC
+	select SERIAL_IMX
+	select PINCTRL
+	select PINCTRL_IMX
+	select PINCTRL_IMX8MM
+	select PM
+	select SOC_BUS
+	select KEYBOARD_SNVS_PWRKEY
+	help
+	  This enables support for Freescale i.MX8MM SOC.
+
 endmenu
