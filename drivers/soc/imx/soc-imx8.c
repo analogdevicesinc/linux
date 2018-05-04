@@ -424,7 +424,8 @@ static void __init imx8mq_opp_init(void)
 		goto put_node;
 	}
 
-	imx8mq_opp_check_speed_grading(cpu_dev);
+	if (of_machine_is_compatible("fsl,imx8mq"))
+		imx8mq_opp_check_speed_grading(cpu_dev);
 
 put_node:
 	of_node_put(np);
@@ -432,7 +433,8 @@ put_node:
 
 static int __init imx8_register_cpufreq(void)
 {
-	if (of_machine_is_compatible("fsl,imx8mq")) {
+	if (of_machine_is_compatible("fsl,imx8mq") ||
+		of_machine_is_compatible("fsl,imx8mm")) {
 		imx8mq_opp_init();
 		platform_device_register_simple("imx8mq-cpufreq", -1, NULL, 0);
 	} else {
