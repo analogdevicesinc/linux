@@ -416,3 +416,7 @@
 	fsl,ext-reset-output;
 	status = "okay";
 };
+
+&A53_0 {
+	arm-supply = <&buck2_reg>;
+};

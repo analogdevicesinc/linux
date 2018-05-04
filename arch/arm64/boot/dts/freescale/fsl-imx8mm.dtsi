@@ -877,3 +877,19 @@
 		status = "disabled";
 	};
 };
+
+&A53_0 {
+	operating-points = <
+		/* kHz    uV */
+		1800000 1000000
+		1600000 900000
+		1200000 800000
+	>;
+	clocks = <&clk IMX8MM_CLK_A53_DIV>, <&clk IMX8MM_CLK_A53_SRC>,
+		<&clk IMX8MM_ARM_PLL>, <&clk IMX8MM_ARM_PLL_OUT>,
+		<&clk IMX8MM_SYS_PLL1_800M>;
+	clock-names = "a53", "arm_a53_src", "arm_pll",
+		"arm_pll_out", "sys1_pll_800m";
+	clock-latency = <61036>;
+	#cooling-cells = <2>;
+};
