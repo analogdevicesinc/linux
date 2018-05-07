@@ -294,6 +294,8 @@ static void cdns_gadget_unconfig(struct usb_ss_dev *usb_ss)
 
 	cdns_enable_l1(usb_ss, 0);
 	usb_ss->hw_configured_flag = 0;
+	usb_ss->onchip_mem_allocated_size = 0;
+	usb_ss->out_mem_is_allocated = 0;
 }
 
 /**
@@ -1402,6 +1404,37 @@ static int usb_ss_gadget_ep0_queue(struct usb_ep *ep,
 
 	return 0;
 }
+/**
+ * ep_onchip_buffer_alloc - Try to allocate onchip buf for EP
+ *
+ * The real allocation will occur during write to EP_CFG register,
+ * this function is used to check if the 'size' allocation is allowed.
+ *
+ * @usb_ss: extended gadget object
+ * @size: the size (KB) for EP would like to allocate
+ * @is_in: the direction for EP
+ *
+ * Return 0 if the later allocation is allowed or negative value on failure
+ */
+
+static int ep_onchip_buffer_alloc(struct usb_ss_dev *usb_ss,
+		int size, int is_in)
+{
+	if (is_in) {
+		usb_ss->onchip_mem_allocated_size += size;
+	} else if (!usb_ss->out_mem_is_allocated) {
+		 /* ALL OUT EPs are shared the same chunk onchip memory */
+		usb_ss->onchip_mem_allocated_size += size;
+		usb_ss->out_mem_is_allocated = 1;
+	}
+
+	if (usb_ss->onchip_mem_allocated_size > CDNS3_ONCHIP_BUF_SIZE) {
+		usb_ss->onchip_mem_allocated_size -= size;
+		return -EPERM;
+	} else {
+		return 0;
+	}
+}
 
 /**
  * cdns_ep_config Configure hardware endpoint
@@ -1414,7 +1447,9 @@ static void cdns_ep_config(struct usb_ss_endpoint *usb_ss_ep)
 	u32 max_packet_size = 0;
 	u32 bEndpointAddress = usb_ss_ep->num | usb_ss_ep->dir;
 	u32 interrupt_mask = 0;
+	int is_in = !!usb_ss_ep->dir;
 	bool is_iso_ep = (usb_ss_ep->type == USB_ENDPOINT_XFER_ISOC);
+	int default_buf_size = CDNS3_EP_BUF_SIZE;
 
 	dev_dbg(&usb_ss->dev, "%s: %s addr=0x%x\n", __func__,
 			usb_ss_ep->name, bEndpointAddress);
@@ -1461,15 +1496,14 @@ static void cdns_ep_config(struct usb_ss_endpoint *usb_ss_ep)
 		break;
 	}
 
-	ep_cfg |= EP_CFG__MAXPKTSIZE__WRITE(max_packet_size);
-
-	if (is_iso_ep) {
-		ep_cfg |= EP_CFG__BUFFERING__WRITE(1);
-		ep_cfg |= EP_CFG__MAXBURST__WRITE(0);
-	} else {
-		ep_cfg |= EP_CFG__BUFFERING__WRITE(3);
-		ep_cfg |= EP_CFG__MAXBURST__WRITE(15);
+	if (ep_onchip_buffer_alloc(usb_ss, default_buf_size, is_in)) {
+		dev_err(&usb_ss->dev, "onchip mem is full, ep is invalid\n");
+		return;
 	}
+
+	ep_cfg |= EP_CFG__MAXPKTSIZE__WRITE(max_packet_size) |
+		EP_CFG__BUFFERING__WRITE(default_buf_size - 1) |
+		EP_CFG__MAXBURST__WRITE(usb_ss_ep->endpoint.maxburst);
 
 	select_ep(usb_ss, bEndpointAddress);
 	gadget_writel(usb_ss, &usb_ss->regs->ep_cfg, ep_cfg);
@@ -2017,6 +2051,8 @@ static int usb_ss_gadget_udc_stop(struct usb_gadget *gadget)
 		usb_ss_ep->used = false;
 	}
 
+	usb_ss->onchip_mem_allocated_size = 0;
+	usb_ss->out_mem_is_allocated = 0;
 	if (!usb_ss->start_gadget)
 		return 0;
 

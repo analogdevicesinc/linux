@@ -146,6 +146,9 @@
 #define CAST_INDEX_TO_EP_ADDR(index) \
 	((index / 2 + 1) | ((index % 2) ? 0x80 : 0x00))
 
+/* 18KB is the total size, and 2KB is used for EP0 and configuration */
+#define CDNS3_ONCHIP_BUF_SIZE	16	/* KB */
+#define CDNS3_EP_BUF_SIZE	2	/* KB */
 /*-------------------------------------------------------------------------*/
 /* Used structs */
 
@@ -208,6 +211,9 @@ struct usb_ss_dev {
 	struct device *sysdev;
 	bool start_gadget; /* The device mode is enabled */
 	struct list_head ep_match_list;
+	int onchip_mem_allocated_size; /* KB */
+	/* Memory is allocated for OUT */
+	int out_mem_is_allocated:1;
 };
 
 #endif /* __DRIVERS_CDNS3_GADGET */
