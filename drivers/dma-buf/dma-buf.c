@@ -16,6 +16,7 @@
 #include <linux/dma-buf.h>
 #include <linux/dma-fence.h>
 #include <linux/dma-fence-unwrap.h>
+#include <linux/dma-map-ops.h>
 #include <linux/anon_inodes.h>
 #include <linux/export.h>
 #include <linux/debugfs.h>
@@ -27,6 +28,7 @@
 #include <linux/mm.h>
 #include <linux/mount.h>
 #include <linux/pseudo_fs.h>
+#include <linux/device.h>
 
 #include <uapi/linux/dma-buf.h>
 #include <uapi/linux/magic.h>
@@ -464,6 +466,36 @@ static long dma_buf_ioctl(struct file *file,
 	dmabuf = file->private_data;
 
 	switch (cmd) {
+	case DMA_BUF_IOCTL_PHYS: {
+		struct dma_buf_attachment *attachment = NULL;
+		struct sg_table *sgt = NULL;
+		unsigned long phys = 0;
+		struct device dev;
+
+		if (!dmabuf || IS_ERR(dmabuf)) {
+			return -EFAULT;
+		}
+		memset(&dev, 0, sizeof(dev));
+		device_initialize(&dev);
+		dev.coherent_dma_mask = DMA_BIT_MASK(64);
+		dev.dma_mask = &dev.coherent_dma_mask;
+		arch_setup_dma_ops(&dev, false);
+		attachment = dma_buf_attach(dmabuf, &dev);
+		if (!attachment || IS_ERR(attachment)) {
+			return -EFAULT;
+		}
+
+		sgt = dma_buf_map_attachment(attachment, DMA_BIDIRECTIONAL);
+		if (sgt && !IS_ERR(sgt)) {
+			phys = sg_dma_address(sgt->sgl);
+			dma_buf_unmap_attachment(attachment, sgt,
+					DMA_BIDIRECTIONAL);
+		}
+		dma_buf_detach(dmabuf, attachment);
+		if (copy_to_user((void __user *) arg, &phys, sizeof(phys)))
+			return -EFAULT;
+		return 0;
+	}
 	case DMA_BUF_IOCTL_SYNC:
 		if (copy_from_user(&sync, (void __user *) arg, sizeof(sync)))
 			return -EFAULT;
