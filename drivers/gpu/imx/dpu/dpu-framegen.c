@@ -267,9 +267,6 @@ void framegen_cfg_videomode(struct dpu_framegen *fg, struct drm_display_mode *m)
 	dpu_fg_write(fg, 0, FGCCR);
 	mutex_unlock(&fg->mutex);
 
-	clk_get_rate(fg->clk_pll);
-	clk_get_rate(fg->clk_disp);
-
 	disp_clock_rate = m->clock * 1000;
 
 	/* find an even divisor for PLL */
