@@ -2633,6 +2633,8 @@
                 power-domains = <&pd_lsio_gpio0>;
 		interrupt-controller;
 		#interrupt-cells = <2>;
+		clocks = <&clk IMX8QM_GPIO0_IPG_S_CLK>;
+		clock-names = "ipg";
 	};
 
 	gpio1: gpio@5d090000 {
@@ -2644,6 +2646,8 @@
                 power-domains = <&pd_lsio_gpio1>;
 		interrupt-controller;
 		#interrupt-cells = <2>;
+		clocks = <&clk IMX8QM_GPIO1_IPG_S_CLK>;
+		clock-names = "ipg";
 	};
 
 	gpio2: gpio@5d0a0000 {
@@ -2655,6 +2659,8 @@
                 power-domains = <&pd_lsio_gpio2>;
 		interrupt-controller;
 		#interrupt-cells = <2>;
+		clocks = <&clk IMX8QM_GPIO2_IPG_S_CLK>;
+		clock-names = "ipg";
 	};
 
 	gpio3: gpio@5d0b0000 {
@@ -2666,6 +2672,8 @@
                 power-domains = <&pd_lsio_gpio3>;
 		interrupt-controller;
 		#interrupt-cells = <2>;
+		clocks = <&clk IMX8QM_GPIO3_IPG_S_CLK>;
+		clock-names = "ipg";
 	};
 
 	gpio4: gpio@5d0c0000 {
@@ -2677,6 +2685,8 @@
                 power-domains = <&pd_lsio_gpio4>;
 		interrupt-controller;
 		#interrupt-cells = <2>;
+		clocks = <&clk IMX8QM_GPIO4_IPG_S_CLK>;
+		clock-names = "ipg";
 	};
 
 	gpio5: gpio@5d0d0000 {
@@ -2699,6 +2709,8 @@
                 power-domains = <&pd_lsio_gpio6>;
 		interrupt-controller;
 		#interrupt-cells = <2>;
+		clocks = <&clk IMX8QM_GPIO6_IPG_S_CLK>;
+		clock-names = "ipg";
 	};
 
 	gpio7: gpio@5d0f0000 {
@@ -2710,6 +2722,8 @@
                 power-domains = <&pd_lsio_gpio7>;
 		interrupt-controller;
 		#interrupt-cells = <2>;
+		clocks = <&clk IMX8QM_GPIO7_IPG_S_CLK>;
+		clock-names = "ipg";
 	};
 
 	gpio0_mipi_csi0: gpio@58222000 {
