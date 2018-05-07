@@ -259,7 +259,7 @@ static void scu_mu_work_handler(struct work_struct *work)
 	 * the right group for itself, return directly if not.
 	 */
 	for (i = 0; i < SC_IRQ_NUM_GROUP; i++) {
-		sciErr = sc_irq_status(mu_ipcHandle, SC_R_MU_0A, i,
+		sciErr = sc_irq_status(mu_ipcHandle, SC_R_MU_1A, i,
 					&irq_status);
 		/* no irq? */
 		if (!irq_status)
@@ -349,35 +349,35 @@ int __init imx8_mu_init(void)
 	};
 
 	/* Request for the high temp interrupt. */
-	sciErr = sc_irq_enable(mu_ipcHandle, SC_R_MU_0A, SC_IRQ_GROUP_TEMP,
+	sciErr = sc_irq_enable(mu_ipcHandle, SC_R_MU_1A, SC_IRQ_GROUP_TEMP,
 			       SC_IRQ_TEMP_PMIC0_HIGH, true);
 
 	if (sciErr)
 		pr_info("Cannot request PMIC0_TEMP interrupt\n");
 
 	/* Request for the high temp interrupt. */
-	sciErr = sc_irq_enable(mu_ipcHandle, SC_R_MU_0A, SC_IRQ_GROUP_TEMP,
+	sciErr = sc_irq_enable(mu_ipcHandle, SC_R_MU_1A, SC_IRQ_GROUP_TEMP,
 			       SC_IRQ_TEMP_PMIC1_HIGH, true);
 
 	if (sciErr)
 		pr_info("Cannot request PMIC1_TEMP interrupt\n");
 
 	/* Request for the rtc alarm interrupt. */
-	sciErr = sc_irq_enable(mu_ipcHandle, SC_R_MU_0A, SC_IRQ_GROUP_RTC,
+	sciErr = sc_irq_enable(mu_ipcHandle, SC_R_MU_1A, SC_IRQ_GROUP_RTC,
 			       SC_IRQ_RTC, true);
 
 	if (sciErr)
 		pr_info("Cannot request ALARM_RTC interrupt\n");
 
 	/* Request for the ON/OFF interrupt. */
-	sciErr = sc_irq_enable(mu_ipcHandle, SC_R_MU_0A, SC_IRQ_GROUP_WAKE,
+	sciErr = sc_irq_enable(mu_ipcHandle, SC_R_MU_1A, SC_IRQ_GROUP_WAKE,
 			       SC_IRQ_BUTTON, true);
 
 	if (sciErr)
 		pr_info("Cannot request ON/OFF interrupt\n");
 
 	/* Request for the watchdog interrupt. */
-	sciErr = sc_irq_enable(mu_ipcHandle, SC_R_MU_0A, SC_IRQ_GROUP_WDOG,
+	sciErr = sc_irq_enable(mu_ipcHandle, SC_R_MU_1A, SC_IRQ_GROUP_WDOG,
 			       SC_IRQ_WDOG, true);
 
 	if (sciErr)
