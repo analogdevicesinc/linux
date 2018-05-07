@@ -199,6 +199,11 @@ static int axiadc_reg_access(struct iio_dev *indio_dev,
 	struct axiadc_state *st = iio_priv(indio_dev);
 	int ret;
 
+	/* Check that the register is in range and aligned */
+	if ((reg & DEBUGFS_DRA_PCORE_REG_MAGIC) &&
+	    ((reg & 0xffff) >= st->regs_size || (reg & 0x3)))
+		return -EINVAL;
+
 	mutex_lock(&indio_dev->mlock);
 
 	if (!(reg & DEBUGFS_DRA_PCORE_REG_MAGIC)) {
@@ -772,6 +777,7 @@ static int axiadc_probe(struct platform_device *pdev)
 	st = iio_priv(indio_dev);
 
 	mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	st->regs_size = resource_size(mem);
 	st->regs = devm_ioremap_resource(&pdev->dev, mem);
 	if (IS_ERR(st->regs))
 		return PTR_ERR(st->regs);

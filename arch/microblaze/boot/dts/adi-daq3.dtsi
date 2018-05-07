@@ -1,0 +1,146 @@
+#include <dt-bindings/iio/frequency/ad9528.h>
+
+&fmc_spi {
+	clk0_ad9528: ad9528@0 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		#clock-cells = <1>;
+		compatible = "adi,ad9528";
+
+		spi-cpol;
+		spi-cpha;
+		spi-max-frequency = <10000000>;
+		adi,spi-3wire-enable;
+		reg = <0>;
+
+		clock-output-names = "ad9528_out0", "ad9528_out1", "ad9528_out2", "ad9528_out3", "ad9528_out4", "ad9528_out5", "ad9528_out6", "ad9528_out7", "ad9528_out8", "ad9528_out9", "ad9528_out10", "ad9528_out11", "ad9528_out12", "ad9528_out13";
+		adi,vcxo-freq = <100000000>;
+
+		/* PLL1 config */
+		adi,pll1-bypass-enable;
+		adi,osc-in-diff-enable;
+
+		/* PLL2 config */
+		/*
+		 * Valid ranges based on VCO locking range:
+		 *   1150.000 MHz - 1341.666 MHz
+		 *    862.500 MHz - 1006.250 MHz
+		 *    690.000 MHz -  805.000 MHz
+		 */
+		adi,pll2-m1-frequency = <1233333333>;
+		adi,pll2-charge-pump-current-nA = <35000>;
+
+		/* SYSREF config */
+		adi,sysref-src = <SYSREF_SRC_INTERNAL>;
+		adi,sysref-k-div = <128>;
+
+		adi,rpole2 = <RPOLE2_900_OHM>;
+		adi,rzero = <RZERO_1850_OHM>;
+		adi,cpole1 = <CPOLE1_16_PF>;
+
+		ad9528_0_c2: channel@2 {
+			reg = <2>;
+			adi,extended-name = "DAC_CLK";
+			adi,driver-mode = <DRIVER_MODE_LVDS>;
+			adi,divider-phase = <0>;
+			adi,channel-divider = <1>;
+			adi,signal-source = <SOURCE_VCO>;
+		};
+
+		ad9528_0_c4: channel@4 {
+			reg = <4>;
+			adi,extended-name = "DAC_CLK_FMC";
+			adi,driver-mode = <DRIVER_MODE_LVDS>;
+			adi,divider-phase = <0>;
+			adi,channel-divider = <2>;
+			adi,signal-source = <SOURCE_VCO>;
+		};
+
+		ad9528_0_c5: channel@5 {
+			reg = <5>;
+			adi,extended-name = "DAC_SYSREF";
+			adi,driver-mode = <DRIVER_MODE_LVDS>;
+			adi,divider-phase = <0>;
+			adi,channel-divider = <1>;
+			adi,signal-source = <SOURCE_SYSREF_VCO>;
+		};
+
+		ad9528_0_c6: channel@6 {
+			reg = <6>;
+			adi,extended-name = "CLKD_DAC_SYSREF";
+			adi,driver-mode = <DRIVER_MODE_LVDS>;
+			adi,divider-phase = <0>;
+			adi,channel-divider = <2>;
+			adi,signal-source = <SOURCE_SYSREF_VCO>;
+		};
+
+		ad9528_0_c7: channel@7 {
+			reg = <7>;
+			adi,extended-name = "CLKD_ADC_SYSREF";
+			adi,driver-mode = <DRIVER_MODE_LVDS>;
+			adi,divider-phase = <0>;
+			adi,channel-divider = <2>;
+			adi,signal-source = <SOURCE_SYSREF_VCO>;
+		};
+
+		ad9528_0_c8: channel@8 {
+			reg = <8>;
+			adi,extended-name = "ADC_SYSREF";
+			adi,driver-mode = <DRIVER_MODE_LVDS>;
+			adi,divider-phase = <0>;
+			adi,channel-divider = <1>;
+			adi,signal-source = <SOURCE_SYSREF_VCO>;
+		};
+
+		ad9528_0_c9: channel@9 {
+			reg = <9>;
+			adi,extended-name = "ADC_CLK_FMC";
+			adi,driver-mode = <DRIVER_MODE_LVDS>;
+			adi,divider-phase = <0>;
+			adi,channel-divider = <2>;
+			adi,signal-source = <SOURCE_VCO>;
+		};
+
+		ad9528_0_c13: channel@13 {
+			reg = <13>;
+			adi,extended-name = "ADC_CLK";
+			adi,driver-mode = <DRIVER_MODE_LVDS>;
+			adi,divider-phase = <0>;
+			adi,channel-divider = <1>;
+			adi,signal-source = <SOURCE_VCO>;
+		};
+	};
+
+	dac0_ad9152: ad9152@1 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "adi,ad9152";
+
+		spi-cpol;
+		spi-cpha;
+		spi-max-frequency = <10000000>;
+		adi,spi-3wire-enable;
+		reg = <1>;
+
+		clocks = <&axi_ad9152_jesd>, <&clk0_ad9528 2>, <&clk0_ad9528 5>;
+		clock-names = "jesd_dac_clk", "dac_clk", "dac_sysref";
+	};
+
+	adc0_ad9680: ad9680@2 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "adi,ad9680";
+
+		spi-cpol;
+		spi-cpha;
+		spi-max-frequency = <10000000>;
+		adi,spi-3wire-enable;
+		reg = <2>;
+
+		/* Content of Registers: 0x16, 0x18, 0x19, 0x1A, 0x30, 0x11A, 0x934, 0x935 */
+		adi,sfdr-optimization-config = <0xE 0xA0 0x50 0x09 0x18 0x00 0x1F 0x04>;
+
+		clocks = <&axi_ad9680_jesd>, <&clk0_ad9528 13>, <&clk0_ad9528 8>;
+		clock-names = "jesd_adc_clk", "adc_clk", "adc_sysref";
+	};
+};
