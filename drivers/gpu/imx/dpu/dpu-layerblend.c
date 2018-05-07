@@ -64,6 +64,7 @@ static const lb_prim_sel_t prim_sels[] = {
 #define PRIM_A_BLD_FUNC__ONE_MINUS_SEC_ALPHA	(0x5 << 8)
 #define PRIM_A_BLD_FUNC__ZERO			(0x0 << 8)
 #define SEC_A_BLD_FUNC__ONE			(0x1 << 12)
+#define SEC_A_BLD_FUNC__ZERO			(0x0 << 12)
 #define POSITION				0x14
 #define XPOS(x)					((x) & 0x7FFF)
 #define YPOS(y)					(((y) & 0x7FFF) << 16)
@@ -236,15 +237,16 @@ void layerblend_control(struct dpu_layerblend *lb, lb_mode_t mode)
 }
 EXPORT_SYMBOL_GPL(layerblend_control);
 
-void layerblend_blendcontrol(struct dpu_layerblend *lb)
+void layerblend_blendcontrol(struct dpu_layerblend *lb, bool sec_from_scaler)
 {
 	u32 val;
 
 	val = ALPHA(0xff) |
 	      PRIM_C_BLD_FUNC__PRIM_ALPHA |
 	      SEC_C_BLD_FUNC__ONE_MINUS_PRIM_ALPHA |
-	      PRIM_A_BLD_FUNC__ZERO |
-	      SEC_A_BLD_FUNC__ONE;
+	      PRIM_A_BLD_FUNC__ZERO;
+
+	val |= sec_from_scaler ? SEC_A_BLD_FUNC__ZERO : SEC_A_BLD_FUNC__ONE;
 
 	mutex_lock(&lb->mutex);
 	dpu_lb_write(lb, val, BLENDCONTROL);

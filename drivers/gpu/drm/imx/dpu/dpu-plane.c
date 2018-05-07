@@ -646,7 +646,7 @@ static void dpu_plane_atomic_update(struct drm_plane *plane,
 	layerblend_pixengcfg_dynamic_prim_sel(lb, dpstate->stage);
 	layerblend_pixengcfg_dynamic_sec_sel(lb, lb_src);
 	layerblend_control(lb, LB_BLEND);
-	layerblend_blendcontrol(lb);
+	layerblend_blendcontrol(lb, need_hscaler || need_vscaler);
 	layerblend_pixengcfg_clken(lb, CLKEN__AUTOMATIC);
 	layerblend_position(lb, dpstate->layer_x, dpstate->layer_y);
 
