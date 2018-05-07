@@ -206,5 +206,10 @@
 #define PD_CM41_I2C                 cm41_i2c
 #define PD_CM41_INTMUX              cm41_intmux
 
+#define PD_CAAM                     caam_power_domain
+#define PD_CAAM_JR1                 caam_job_ring1
+#define PD_CAAM_JR2                 caam_job_ring2
+#define PD_CAAM_JR3                 caam_job_ring3
+
 #endif /* __DT_BINDINGS_IMX8_PD_H */
 
