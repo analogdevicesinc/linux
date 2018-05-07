@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2016 Freescale Semiconductor, Inc.
- * Copyright 2017 NXP
+ * Copyright 2017-2018 NXP
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -558,8 +558,6 @@ static int imx8qm_clk_probe(struct platform_device *pdev)
 	clks[IMX8QM_ROMCP_REG_CLK] = imx_clk_gate2_scu("romcp_reg_clk", "lsio_bus_clk_root", LPCG_ADDR(ROMCP_LPCG), 0x10, FUNCTION_NAME(PD_LSIO));
 	clks[IMX8QM_ROMCP_CLK] = imx_clk_gate2_scu("romcp_clk", "lsio_mem_clk_root", LPCG_ADDR(ROMCP_LPCG), 0x0, FUNCTION_NAME(PD_LSIO));
 	clks[IMX8QM_96KROM_CLK] = imx_clk_gate2_scu("96krom_clk", "lsio_mem_clk_root", LPCG_ADDR(ROMCP_LPCG), 0x4, FUNCTION_NAME(PD_LSIO));
-	clks[IMX8QM_OCRAM_MEM_CLK] = imx_clk_gate2_scu("ocram_lk", "lsio_mem_clk_root", LPCG_ADDR(OCRAM_LPCG), 0x4, FUNCTION_NAME(PD_LSIO));
-	clks[IMX8QM_OCRAM_CTRL_CLK] = imx_clk_gate2_scu("ocram_ctrl_clk", "lsio_mem_clk_root", LPCG_ADDR(OCRAM_LPCG), 0x0, FUNCTION_NAME(PD_LSIO));
 
 	/* Audio */
 	clks[IMX8QM_AUD_ACM_AUD_PLL_CLK0_CLK] = imx_clk_gate_scu("aud_acm_aud_pll_clk0_clk", "aud_acm_aud_pll_clk0_div", SC_R_AUDIO_PLL_0, SC_PM_CLK_MISC0, LPCG_ADDR(AUD_PLL_CLK0_LPCG), 0, 0);
