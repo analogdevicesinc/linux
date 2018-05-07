@@ -1616,6 +1616,10 @@ static int usb_ss_gadget_ep_enable(struct usb_ep *ep,
 		ep->name, desc->bEndpointAddress);
 	spin_lock_irqsave(&usb_ss->lock, flags);
 	select_ep(usb_ss, desc->bEndpointAddress);
+	gadget_writel(usb_ss, &usb_ss->regs->ep_cmd,
+		EP_CMD__EPRST__MASK);
+	ret = wait_reg_bit_clear(usb_ss, &usb_ss->regs->ep_cmd,
+		EP_CMD__EPRST__MASK, 100);
 	ep_cfg = gadget_readl(usb_ss, &usb_ss->regs->ep_cfg);
 	ep_cfg |= EP_CFG__ENABLE__MASK;
 	gadget_writel(usb_ss, &usb_ss->regs->ep_cfg, ep_cfg);
