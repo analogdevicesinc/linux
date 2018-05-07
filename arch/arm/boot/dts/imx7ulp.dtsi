@@ -142,6 +142,10 @@
 		reg = <0x1fffc000 0x4000>;
 	};
 
+	pmu: pmu@a7 {
+		compatible = "arm,cortex-a7-pmu";
+	};
+
 	ahbbridge0: ahb-bridge0@40000000 {
 		compatible = "fsl,aips-bus", "simple-bus";
 		#address-cells = <1>;
