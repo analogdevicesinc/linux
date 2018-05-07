@@ -556,11 +556,20 @@
 				};
 			};
 
-			pd_dsp: PD_AUD_DSP {
-				reg = <SC_R_DSP>;
+			pd_dsp_mu: PD_DSP_MU {
+				reg = <SC_R_MU_13A>;
 				#power-domain-cells = <0>;
 				power-domains =<&pd_audio>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				pd_dsp: PD_AUD_DSP {
+					reg = <SC_R_DSP>;
+					#power-domain-cells = <0>;
+					power-domains =<&pd_audio>;
+				};
 			};
+
 			pd_dsp_ram: PD_AUD_OCRAM {
 				reg = <SC_R_DSP_RAM>;
 				#power-domain-cells = <0>;
