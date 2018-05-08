@@ -49,9 +49,6 @@
 #define GPC_PGC_DISP_PDN	0x240
 #define GPC_PGC_DISP_SR		0x24c
 
-#define GPU_VPU_PUP_REQ		BIT(1)
-#define GPU_VPU_PDN_REQ		BIT(0)
-
 #define GPC_CLK_MAX		10
 #define DEFAULT_IPG_RATE		66000000
 #define GPC_PU_UP_DELAY_MARGIN		2
@@ -116,7 +113,7 @@ static void _imx6_pm_domain_power_off(struct generic_pm_domain *genpd)
 	/* Wait ISO + ISO2SW IPG clock cycles */
 	udelay(DIV_ROUND_UP(iso + iso2sw, pd->ipg_rate_mhz));
 
-	while (readl_relaxed(gpc_base + GPC_CNTR) & GPU_VPU_PDN_REQ)
+	while (readl_relaxed(gpc_base + GPC_CNTR) & val)
 		;
 }
 
@@ -153,7 +150,7 @@ static void _imx6_pm_domain_power_on(struct generic_pm_domain *genpd)
 	val = BIT(pd->cntr_pdn_bit + 1);
 	regmap_update_bits(pd->regmap, GPC_CNTR, val, val);
 
-	while (readl_relaxed(gpc_base + GPC_CNTR) & GPU_VPU_PUP_REQ)
+	while (readl_relaxed(gpc_base + GPC_CNTR) & val)
 		;
 	/* Wait power switch done */
 	udelay(2 * DEFAULT_IPG_RATE / ipg_rate +
