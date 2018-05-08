@@ -193,7 +193,7 @@ static void mxc_pcsi_config_ctrl_reg1(struct mxc_parallel_csi_dev *pcsidev)
 
 	/* Config Pixel Width */
 	val = (CSI_CTRL_REG1_PIXEL_WIDTH(pcsidev->format.width - 1) |
-		CSI_CTRL_REG1_VSYNC_PULSE(3));
+		CSI_CTRL_REG1_VSYNC_PULSE(pcsidev->format.width << 1));
 	writel(val, pcsidev->csr_regs + CSI_CTRL_REG1);
 
 }
