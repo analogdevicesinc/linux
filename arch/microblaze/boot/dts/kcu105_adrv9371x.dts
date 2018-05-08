@@ -2,6 +2,7 @@
 /dts-v1/;
 /include/ "kcu105.dtsi"
 
+#define fmc_i2c fmc_hpc_iic
 #define fmc_spi axi_spi
 
 &amba_pl {
@@ -249,4 +250,16 @@
 
 &axi_ad9371_core_tx {
 	plddrbypass-gpios = <&axi_gpio 60 0>;
+};
+
+&fmc_i2c {
+	ad7291@2f {
+		compatible = "adi,ad7291";
+		reg = <0x2f>;
+	};
+
+	eeprom@50 {
+		compatible = "at24,24c02";
+		reg = <0x50>;
+	};
 };
