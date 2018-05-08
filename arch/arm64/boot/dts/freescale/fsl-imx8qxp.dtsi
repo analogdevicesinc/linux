@@ -647,19 +647,73 @@
 				reg = <SC_R_UART_1>;
 				#power-domain-cells = <0>;
 				power-domains = <&pd_dma>;
+				#address-cells = <1>;
+				#size-cells = <0>;
 				wakeup-irq = <226>;
+
+				pd_dma2_chan10: PD_UART1_RX {
+					reg = <SC_R_DMA_2_CH10>;
+					power-domains =<&pd_dma_lpuart1>;
+					#power-domain-cells = <0>;
+					#address-cells = <1>;
+					#size-cells = <0>;
+
+					pd_dma2_chan11: PD_UART1_TX {
+						reg = <SC_R_DMA_2_CH11>;
+						power-domains =<&pd_dma2_chan10>;
+						#power-domain-cells = <0>;
+						#address-cells = <1>;
+						#size-cells = <0>;
+					};
+				};
 			};
 			pd_dma_lpuart2: PD_DMA_UART2 {
 				reg = <SC_R_UART_2>;
 				#power-domain-cells = <0>;
 				power-domains = <&pd_dma>;
+				#address-cells = <1>;
+				#size-cells = <0>;
 				wakeup-irq = <227>;
+
+				pd_dma2_chan12: PD_UART2_RX {
+					reg = <SC_R_DMA_2_CH12>;
+					power-domains =<&pd_dma_lpuart2>;
+					#power-domain-cells = <0>;
+					#address-cells = <1>;
+					#size-cells = <0>;
+
+					pd_dma2_chan13: PD_UART2_TX {
+						reg = <SC_R_DMA_2_CH13>;
+						power-domains =<&pd_dma2_chan12>;
+						#power-domain-cells = <0>;
+						#address-cells = <1>;
+						#size-cells = <0>;
+					};
+				};
 			};
 			pd_dma_lpuart3: PD_DMA_UART3 {
 				reg = <SC_R_UART_3>;
 				#power-domain-cells = <0>;
 				power-domains = <&pd_dma>;
+				#address-cells = <1>;
+				#size-cells = <0>;
 				wakeup-irq = <228>;
+
+				pd_dma3_chan14: PD_UART3_RX {
+					reg = <SC_R_DMA_2_CH14>;
+					power-domains =<&pd_dma_lpuart3>;
+					#power-domain-cells = <0>;
+					#address-cells = <1>;
+					#size-cells = <0>;
+
+					pd_dma3_chan15: PD_UART3_TX {
+						reg = <SC_R_DMA_2_CH15>;
+						power-domains =<&pd_dma3_chan14>;
+						#power-domain-cells = <0>;
+						#address-cells = <1>;
+						#size-cells = <0>;
+					};
+				};
 			};
 			pd_dma_lpspi0: PD_DMA_SPI_0 {
 				reg = <SC_R_SPI_0>;
@@ -2218,7 +2272,7 @@
 		clock-names = "per", "ipg";
 		assigned-clocks = <&clk IMX8QXP_UART1_CLK>;
 		assigned-clock-rates = <80000000>;
-		power-domains = <&pd_dma_lpuart1>;
+		power-domains = <&pd_dma2_chan11>;
 		dma-names = "tx","rx";
 		dmas = <&edma2 11 0 0>,
 			<&edma2 10 0 1>;
@@ -2235,7 +2289,7 @@
 		clock-names = "per", "ipg";
 		assigned-clocks = <&clk IMX8QXP_UART2_CLK>;
 		assigned-clock-rates = <80000000>;
-		power-domains = <&pd_dma_lpuart2>;
+		power-domains = <&pd_dma2_chan13>;
 		dma-names = "tx","rx";
 		dmas = <&edma2 13 0 0>,
 			<&edma2 12 0 1>;
@@ -2252,7 +2306,7 @@
 		clock-names = "per", "ipg";
 		assigned-clocks = <&clk IMX8QXP_UART3_CLK>;
 		assigned-clock-rates = <80000000>;
-		power-domains = <&pd_dma_lpuart3>;
+		power-domains = <&pd_dma3_chan15>;
 		dma-names = "tx","rx";
 		dmas = <&edma2 15 0 0>,
 			<&edma2 14 0 1>;
