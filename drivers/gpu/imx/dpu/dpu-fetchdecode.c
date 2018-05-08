@@ -647,22 +647,22 @@ void dpu_fd_put(struct dpu_fetchunit *fu)
 EXPORT_SYMBOL_GPL(dpu_fd_put);
 
 static const struct dpu_fetchunit_ops fd_ops = {
-	.set_burstlength = fetchunit_set_burstlength,
-	.set_baseaddress = fetchdecode_set_baseaddress,
-	.set_src_bpp = fetchdecode_set_src_bpp,
-	.set_src_stride = fetchdecode_set_src_stride,
-	.set_src_buf_dimensions = fetchdecode_set_src_buf_dimensions,
-	.set_fmt = fetchdecode_set_fmt,
-	.enable_src_buf = fetchdecode_enable_src_buf,
-	.disable_src_buf = fetchdecode_disable_src_buf,
-	.is_enabled = fetchdecode_is_enabled,
-	.set_framedimensions = fetchdecode_set_framedimensions,
-	.set_controltrigger = fetchdecode_set_controltrigger,
-	.get_stream_id = fetchunit_get_stream_id,
-	.set_stream_id = fetchunit_set_stream_id,
-	.pin_off = fetchunit_pin_off,
-	.unpin_off = fetchunit_unpin_off,
-	.is_pinned_off = fetchunit_is_pinned_off,
+	.set_burstlength	= fetchunit_set_burstlength,
+	.set_baseaddress	= fetchdecode_set_baseaddress,
+	.set_src_bpp		= fetchdecode_set_src_bpp,
+	.set_src_stride		= fetchdecode_set_src_stride,
+	.set_src_buf_dimensions	= fetchdecode_set_src_buf_dimensions,
+	.set_fmt		= fetchdecode_set_fmt,
+	.enable_src_buf		= fetchdecode_enable_src_buf,
+	.disable_src_buf	= fetchdecode_disable_src_buf,
+	.is_enabled		= fetchdecode_is_enabled,
+	.set_framedimensions	= fetchdecode_set_framedimensions,
+	.set_controltrigger	= fetchdecode_set_controltrigger,
+	.get_stream_id		= fetchunit_get_stream_id,
+	.set_stream_id		= fetchunit_set_stream_id,
+	.pin_off		= fetchunit_pin_off,
+	.unpin_off		= fetchunit_unpin_off,
+	.is_pinned_off		= fetchunit_is_pinned_off,
 };
 
 void _dpu_fd_init(struct dpu_soc *dpu, unsigned int id)
