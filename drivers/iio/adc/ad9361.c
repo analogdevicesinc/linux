@@ -934,9 +934,9 @@ static int ad9361_1rx1tx_channel_map(struct ad9361_rf_phy *phy, bool tx, int cha
 static int ad9361_reset(struct ad9361_rf_phy *phy)
 {
 	if (phy->pdata->reset_gpio) {
-		gpiod_set_value(phy->pdata->reset_gpio, 0);
+		gpiod_set_value_cansleep(phy->pdata->reset_gpio, 0);
 		mdelay(1);
-		gpiod_set_value(phy->pdata->reset_gpio, 1);
+		gpiod_set_value_cansleep(phy->pdata->reset_gpio, 1);
 		mdelay(1);
 		dev_dbg(&phy->spi->dev, "%s: by GPIO", __func__);
 		return 0;
