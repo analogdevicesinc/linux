@@ -2801,6 +2801,7 @@
 		rpmsg: rpmsg{
 			compatible = "fsl,imx8qxp-rpmsg";
 			status = "disabled";
+			power-domains = <&pd_cm40_mu0a0>;
 		};
 	};
 
