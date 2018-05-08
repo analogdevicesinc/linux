@@ -94,5 +94,9 @@
 	adi,gpo-manual-mode-enable;
 	adi,gpo-manual-mode-enable-mask = <0x4>;
 
-	reset-gpio = <&tca6408_u21 1 GPIO_OPEN_DRAIN>;
+	/* Make sure to define `reset-gpios` otherwise, Pluto's reset pin
+	 * will still be used. `reset-gpios` takes precedence over
+	 * `reset-gpio`
+	 */
+	reset-gpios = <&tca6408_u21 1 GPIO_OPEN_DRAIN>;
 };
