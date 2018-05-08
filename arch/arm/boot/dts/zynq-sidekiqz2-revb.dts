@@ -67,8 +67,8 @@
 		 * band_2: gpios = <7 0>: High for RX 435-910MHz (Bandpass)
 		 * band_3: gpios = <6 0>: High for RX 910-1950MHz (Bandpass)
 		 * band_4: gpios = <5 0>: High for RX 1950-6000MHz (Bandpass)
-		 * tdd_ant_3: gpios = <4 0>: High for RX Antenna port 3;
-		 *                           Low for TX Antenna port 3 (TDD/FDD)
+		 * lna_sw: gpios = <4 0>: Low to enable on-board LNA path;
+		 *                        High to enable LNA bypass
 		 * tx_band_0: gpios = <3 0>: High for TX 50-3000 MHz
 		 * tx_band_1: gpios = <2 0>: High for TX 3000-6000 MHz
 		 * rfic_reset_n: gpios = <1 0>: Avoid Out-High;
@@ -79,6 +79,14 @@
 		 *                                  HI_Z input to isolate i2c
 		 *                                  from host SMBus
 		 */
+
+		lna_sw {
+			gpio-hog;
+			gpios = <4 0>;
+			output-low;
+			line-name = "lna_sw";
+		};
+
 		en_ext_i2c_3v3_n {
 			gpio-hog;
 			gpios = <0 0>;
