@@ -385,7 +385,7 @@ struct xilinx_dma_chan {
 	bool has_vflip;
 };
 
-struct xilinx_dma_config {
+struct xilinx_dma_ip_config {
 	enum xdma_ip_type dmatype;
 	int (*clk_init)(struct platform_device *pdev, struct clk **axi_clk,
 			struct clk **tx_clk, struct clk **txs_clk,
@@ -423,7 +423,7 @@ struct xilinx_dma_device {
 	u32 flush_on_fsync;
 	bool ext_addr;
 	struct platform_device  *pdev;
-	const struct xilinx_dma_config *dma_config;
+	const struct xilinx_dma_ip_config *dma_config;
 	struct clk *axi_clk;
 	struct clk *tx_clk;
 	struct clk *txs_clk;
@@ -2656,17 +2656,17 @@ static struct dma_chan *of_dma_xilinx_xlate(struct of_phandle_args *dma_spec,
 	return dma_get_slave_channel(&xdev->chan[chan_id]->common);
 }
 
-static const struct xilinx_dma_config axidma_config = {
+static const struct xilinx_dma_ip_config axidma_config = {
 	.dmatype = XDMA_TYPE_AXIDMA,
 	.clk_init = axidma_clk_init,
 };
 
-static const struct xilinx_dma_config axicdma_config = {
+static const struct xilinx_dma_ip_config axicdma_config = {
 	.dmatype = XDMA_TYPE_CDMA,
 	.clk_init = axicdma_clk_init,
 };
 
-static const struct xilinx_dma_config axivdma_config = {
+static const struct xilinx_dma_ip_config axivdma_config = {
 	.dmatype = XDMA_TYPE_VDMA,
 	.clk_init = axivdma_clk_init,
 };
