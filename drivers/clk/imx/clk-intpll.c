@@ -11,6 +11,7 @@
 
 #include <linux/bitops.h>
 #include <linux/clk-provider.h>
+#include <linux/delay.h>
 #include <linux/err.h>
 #include <linux/io.h>
 #include <linux/slab.h>
@@ -197,7 +198,7 @@ static int clk_int_pll1416x_set_rate(struct clk_hw *hw, unsigned long drate,
 
 	/* Bypass clock and set lock to pll output lock */
 	tmp = readl_relaxed(pll->base);
-	tmp |= BYPASS_MASK | LOCK_SEL_MASK;
+	tmp |= LOCK_SEL_MASK;
 	writel_relaxed(tmp, pll->base);
 
 	/* Enable RST */
@@ -207,6 +208,14 @@ static int clk_int_pll1416x_set_rate(struct clk_hw *hw, unsigned long drate,
 	div_val = (rate->mdiv << MDIV_SHIFT) | (rate->pdiv << PDIV_SHIFT) |
 		(rate->sdiv << SDIV_SHIFT);
 	writel_relaxed(div_val, pll->base + 0x4);
+
+	/*
+	 * According to SPEC, t3 - t2 need to be greater than
+	 * 1us and 1/FREF, respectively.
+	 * FREF is FIN / Prediv, the prediv is [1, 63], so choose
+	 * 3us.
+	 */
+	udelay(3);
 
 	/* Disable RST */
 	tmp |= RST_MASK;
@@ -250,12 +259,8 @@ static int clk_int_pll1443x_set_rate(struct clk_hw *hw, unsigned long drate,
 		return 0;
 	}
 
-	/* Bypass clock and set lock to pll output lock */
-	tmp = readl_relaxed(pll->base);
-	tmp |= BYPASS_MASK | LOCK_SEL_MASK;
-	writel_relaxed(tmp, pll->base);
-
 	/* Enable RST */
+	tmp = readl_relaxed(pll->base);
 	tmp &= ~RST_MASK;
 	writel_relaxed(tmp, pll->base);
 
@@ -263,6 +268,14 @@ static int clk_int_pll1443x_set_rate(struct clk_hw *hw, unsigned long drate,
 		(rate->sdiv << SDIV_SHIFT);
 	writel_relaxed(div_val, pll->base + 0x4);
 	writel_relaxed(rate->kdiv << KDIV_SHIFT, pll->base + 0x8);
+
+	/*
+	 * According to SPEC, t3 - t2 need to be greater than
+	 * 1us and 1/FREF, respectively.
+	 * FREF is FIN / Prediv, the prediv is [1, 63], so choose
+	 * 3us.
+	 */
+	udelay(3);
 
 	/* Disable RST */
 	tmp |= RST_MASK;
