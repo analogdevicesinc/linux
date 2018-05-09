@@ -47,4 +47,16 @@ config MUX_MMIO
 	  To compile the driver as a module, choose M here: the module will
 	  be called mux-mmio.
 
+config MUX_ADGS140X
+	tristate "Analog Devices ADGS1408/ADGS1409 Multiplexers"
+	depends on SPI
+	help
+	  ADGS1408 and ADGS1409 4 independent single-pole/single-throw
+	  switches.
+
+	  The driver suports driving each switch independently.
+
+	  To compile the driver as a module, choose M here: the module will
+	  be called mux-ads140x.
+
 endmenu
