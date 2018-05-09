@@ -3686,11 +3686,6 @@ static int macb_probe(struct platform_device *pdev)
 		dma_set_mask(&pdev->dev, DMA_BIT_MASK(44));
 #endif
 
-#ifdef CONFIG_ARCH_DMA_ADDR_T_64BIT
-	if (GEM_BFEXT(DBWDEF, gem_readl(bp, DCFG1)) > GEM_DBW32)
-		dma_set_mask(&pdev->dev, DMA_BIT_MASK(44));
-#endif
-
 	spin_lock_init(&bp->lock);
 
 	/* setup capabilities */
