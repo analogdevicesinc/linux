@@ -451,55 +451,258 @@
 							#address-cells = <1>;
 							#size-cells = <0>;
 
-							pd_asrc0:PD_AUD_ASRC_0 {
-								reg = <SC_R_ASRC_0>;
-								#power-domain-cells = <0>;
+							pd_dma0_chan0: PD_ASRC_0_RXA {
+								reg = <SC_R_DMA_0_CH0>;
 								power-domains =<&pd_audio_clk1>;
+								#power-domain-cells = <0>;
+								#address-cells = <1>;
+								#size-cells = <0>;
+
+							pd_dma0_chan1: PD_ASRC_0_RXB {
+								reg = <SC_R_DMA_0_CH1>;
+								power-domains =<&pd_dma0_chan0>;
+								#power-domain-cells = <0>;
+								#address-cells = <1>;
+								#size-cells = <0>;
+
+							pd_dma0_chan2: PD_ASRC_0_RXC {
+								reg = <SC_R_DMA_0_CH2>;
+								power-domains =<&pd_dma0_chan1>;
+								#power-domain-cells = <0>;
+								#address-cells = <1>;
+								#size-cells = <0>;
+
+							pd_dma0_chan3: PD_ASRC_0_TXA {
+								reg = <SC_R_DMA_0_CH3>;
+								power-domains =<&pd_dma0_chan2>;
+								#power-domain-cells = <0>;
+								#address-cells = <1>;
+								#size-cells = <0>;
+
+							pd_dma0_chan4: PD_ASRC_0_TXB {
+								reg = <SC_R_DMA_0_CH4>;
+								power-domains =<&pd_dma0_chan3>;
+								#power-domain-cells = <0>;
+								#address-cells = <1>;
+								#size-cells = <0>;
+
+							pd_dma0_chan5: PD_ASRC_0_TXC {
+								reg = <SC_R_DMA_0_CH5>;
+								power-domains =<&pd_dma0_chan4>;
+								#power-domain-cells = <0>;
+								#address-cells = <1>;
+								#size-cells = <0>;
+
+								pd_asrc0:PD_AUD_ASRC_0 {
+									reg = <SC_R_ASRC_0>;
+									#power-domain-cells = <0>;
+									power-domains =<&pd_dma0_chan5>;
+								};
 							};
-							pd_asrc1: PD_AUD_ASRC_1 {
-								reg = <SC_R_ASRC_1>;
-								#power-domain-cells = <0>;
-								power-domains =<&pd_audio_clk1>;
 							};
-							pd_esai0: PD_AUD_ESAI_0 {
-								reg = <SC_R_ESAI_0>;
-								#power-domain-cells = <0>;
-								power-domains =<&pd_audio_clk1>;
 							};
-							pd_spdif0: PD_AUD_SPDIF_0 {
-								reg = <SC_R_SPDIF_0>;
-								#power-domain-cells = <0>;
-								power-domains =<&pd_audio_clk1>;
 							};
-							pd_sai0:PD_AUD_SAI_0 {
-								reg = <SC_R_SAI_0>;
-								#power-domain-cells = <0>;
-								power-domains =<&pd_audio_clk1>;
 							};
-							pd_sai1: PD_AUD_SAI_1 {
-								reg = <SC_R_SAI_1>;
-								#power-domain-cells = <0>;
-								power-domains =<&pd_audio_clk1>;
 							};
-							pd_sai2: PD_AUD_SAI_2 {
-								reg = <SC_R_SAI_2>;
-								#power-domain-cells = <0>;
+
+							pd_dma1_chan0: PD_ASRC_1_RXA {
+								reg = <SC_R_DMA_1_CH0>;
 								power-domains =<&pd_audio_clk1>;
+								#power-domain-cells = <0>;
+								#address-cells = <1>;
+								#size-cells = <0>;
+
+							pd_dma1_chan1: PD_ASRC_1_RXB {
+								reg = <SC_R_DMA_1_CH1>;
+								power-domains =<&pd_dma1_chan0>;
+								#power-domain-cells = <0>;
+								#address-cells = <1>;
+								#size-cells = <0>;
+
+							pd_dma1_chan2: PD_ASRC_1_RXC {
+								reg = <SC_R_DMA_1_CH2>;
+								power-domains =<&pd_dma1_chan1>;
+								#power-domain-cells = <0>;
+								#address-cells = <1>;
+								#size-cells = <0>;
+
+							pd_dma1_chan3: PD_ASRC_1_TXA {
+								reg = <SC_R_DMA_1_CH3>;
+								power-domains =<&pd_dma1_chan2>;
+								#power-domain-cells = <0>;
+								#address-cells = <1>;
+								#size-cells = <0>;
+
+							pd_dma1_chan4: PD_ASRC_1_TXB {
+								reg = <SC_R_DMA_1_CH4>;
+								power-domains =<&pd_dma1_chan3>;
+								#power-domain-cells = <0>;
+								#address-cells = <1>;
+								#size-cells = <0>;
+
+							pd_dma1_chan5: PD_ASRC_1_TXC {
+								reg = <SC_R_DMA_1_CH5>;
+								power-domains =<&pd_dma1_chan4>;
+								#power-domain-cells = <0>;
+								#address-cells = <1>;
+								#size-cells = <0>;
+
+								pd_asrc1: PD_AUD_ASRC_1 {
+									reg = <SC_R_ASRC_1>;
+									#power-domain-cells = <0>;
+									power-domains =<&pd_dma1_chan5>;
+
+								};
 							};
-							pd_sai3: PD_AUD_SAI_3 {
-								reg = <SC_R_SAI_3>;
-								#power-domain-cells = <0>;
-								power-domains =<&pd_audio_clk1>;
 							};
-							pd_sai4: PD_AUD_SAI_4 {
-								reg = <SC_R_SAI_4>;
-								#power-domain-cells = <0>;
-								power-domains =<&pd_audio_clk1>;
 							};
-							pd_sai5: PD_AUD_SAI_5 {
-								reg = <SC_R_SAI_5>;
-								#power-domain-cells = <0>;
+							};
+							};
+							};
+							pd_dma0_chan6: PD_ESAI_0_RX {
+								reg = <SC_R_DMA_0_CH6>;
 								power-domains =<&pd_audio_clk1>;
+								#power-domain-cells = <0>;
+								#address-cells = <1>;
+								#size-cells = <0>;
+
+							pd_dma0_chan7: PD_ESAI_0_TX {
+								reg = <SC_R_DMA_0_CH7>;
+								power-domains =<&pd_dma0_chan6>;
+								#power-domain-cells = <0>;
+								#address-cells = <1>;
+								#size-cells = <0>;
+
+								pd_esai0: PD_AUD_ESAI_0 {
+									reg = <SC_R_ESAI_0>;
+									#power-domain-cells = <0>;
+									power-domains =<&pd_dma0_chan7>;
+								};
+							};
+							};
+							pd_dma0_chan8: PD_SPDIF_0_RX {
+								reg = <SC_R_DMA_0_CH8>;
+								power-domains =<&pd_audio_clk1>;
+								#power-domain-cells = <0>;
+								#address-cells = <1>;
+								#size-cells = <0>;
+
+							pd_dma0_chan9: PD_SPDIF_0_TX {
+								reg = <SC_R_DMA_0_CH9>;
+								power-domains =<&pd_dma0_chan8>;
+								#power-domain-cells = <0>;
+								#address-cells = <1>;
+								#size-cells = <0>;
+
+								pd_spdif0: PD_AUD_SPDIF_0 {
+									reg = <SC_R_SPDIF_0>;
+									#power-domain-cells = <0>;
+									power-domains =<&pd_dma0_chan9>;
+
+								};
+							};
+							};
+							pd_dma0_chan12: PD_SAI_0_RX {
+								reg = <SC_R_DMA_0_CH12>;
+								power-domains =<&pd_audio_clk1>;
+								#power-domain-cells = <0>;
+								#address-cells = <1>;
+								#size-cells = <0>;
+
+							pd_dma0_chan13: PD_SAI_0_TX {
+								reg = <SC_R_DMA_0_CH13>;
+								power-domains =<&pd_dma0_chan12>;
+								#power-domain-cells = <0>;
+								#address-cells = <1>;
+								#size-cells = <0>;
+
+								pd_sai0:PD_AUD_SAI_0 {
+									reg = <SC_R_SAI_0>;
+									#power-domain-cells = <0>;
+									power-domains =<&pd_dma0_chan13>;
+								};
+							};
+
+							};
+							pd_dma0_chan14: PD_SAI_1_RX {
+								reg = <SC_R_DMA_0_CH14>;
+								power-domains =<&pd_audio_clk1>;
+								#power-domain-cells = <0>;
+								#address-cells = <1>;
+								#size-cells = <0>;
+
+							pd_dma0_chan15: PD_SAI_1_TX {
+								reg = <SC_R_DMA_0_CH15>;
+								power-domains =<&pd_dma0_chan14>;
+								#power-domain-cells = <0>;
+								#address-cells = <1>;
+								#size-cells = <0>;
+
+								pd_sai1: PD_AUD_SAI_1 {
+									reg = <SC_R_SAI_1>;
+									#power-domain-cells = <0>;
+									power-domains =<&pd_dma0_chan15>;
+								};
+							};
+							};
+							pd_dma0_chan16: PD_SAI_2_RX {
+								reg = <SC_R_DMA_0_CH16>;
+								power-domains =<&pd_audio_clk1>;
+								#power-domain-cells = <0>;
+								#address-cells = <1>;
+								#size-cells = <0>;
+								pd_sai2: PD_AUD_SAI_2 {
+									reg = <SC_R_SAI_2>;
+									#power-domain-cells = <0>;
+									power-domains =<&pd_dma0_chan16>;
+								};
+							};
+							pd_dma0_chan17: PD_SAI_3_RX {
+								reg = <SC_R_DMA_0_CH17>;
+								power-domains =<&pd_audio_clk1>;
+								#power-domain-cells = <0>;
+								#address-cells = <1>;
+								#size-cells = <0>;
+
+								pd_sai3: PD_AUD_SAI_3 {
+									reg = <SC_R_SAI_3>;
+									#power-domain-cells = <0>;
+									power-domains =<&pd_dma0_chan17>;
+								};
+							};
+							pd_dma1_chan8: PD_SAI_4_RX {
+								reg = <SC_R_DMA_1_CH8>;
+								power-domains =<&pd_audio_clk1>;
+								#power-domain-cells = <0>;
+								#address-cells = <1>;
+								#size-cells = <0>;
+
+							pd_dma1_chan9: PD_SAI_4_TX {
+								reg = <SC_R_DMA_1_CH9>;
+								power-domains =<&pd_dma1_chan8>;
+								#power-domain-cells = <0>;
+								#address-cells = <1>;
+								#size-cells = <0>;
+
+								pd_sai4: PD_AUD_SAI_4 {
+									reg = <SC_R_SAI_4>;
+									#power-domain-cells = <0>;
+									power-domains =<&pd_dma1_chan9>;
+
+								};
+							};
+							};
+							pd_dma1_chan10: PD_SAI_5_TX {
+								reg = <SC_R_DMA_1_CH10>;
+								power-domains =<&pd_audio_clk1>;
+								#power-domain-cells = <0>;
+								#address-cells = <1>;
+								#size-cells = <0>;
+								pd_sai5: PD_AUD_SAI_5 {
+									reg = <SC_R_SAI_5>;
+									#power-domain-cells = <0>;
+									power-domains =<&pd_dma1_chan10>;
+								};
 							};
 							pd_gpt5: PD_AUD_GPT_5 {
 								reg = <SC_R_GPT_5>;
@@ -556,24 +759,33 @@
 				};
 			};
 
-			pd_dsp_mu: PD_DSP_MU {
+			pd_dsp_mu_A: PD_DSP_MU_A {
 				reg = <SC_R_MU_13A>;
 				#power-domain-cells = <0>;
 				power-domains =<&pd_audio>;
 				#address-cells = <1>;
 				#size-cells = <0>;
 
-				pd_dsp: PD_AUD_DSP {
-					reg = <SC_R_DSP>;
+				pd_dsp_mu_B: PD_DSP_MU_B {
+					reg = <SC_R_MU_13B>;
 					#power-domain-cells = <0>;
-					power-domains =<&pd_audio>;
-				};
-			};
+					power-domains =<&pd_dsp_mu_A>;
+					#address-cells = <1>;
+					#size-cells = <0>;
 
-			pd_dsp_ram: PD_AUD_OCRAM {
-				reg = <SC_R_DSP_RAM>;
-				#power-domain-cells = <0>;
-				power-domains =<&pd_audio>;
+					pd_dsp_ram: PD_AUD_OCRAM {
+						reg = <SC_R_DSP_RAM>;
+						#power-domain-cells = <0>;
+						power-domains =<&pd_dsp_mu_B>;
+						#address-cells = <1>;
+						#size-cells = <0>;
+						pd_dsp: PD_AUD_DSP {
+							reg = <SC_R_DSP>;
+							#power-domain-cells = <0>;
+							power-domains =<&pd_dsp_ram>;
+						};
+					};
+				};
 			};
 		};
 
@@ -2456,6 +2668,38 @@
 		dmas = <&edma0 14 0 1>, <&edma0 15 0 0>;
 		status = "disabled";
 		power-domains = <&pd_sai1>;
+	};
+
+	sai2: sai@59060000 {
+		compatible = "fsl,imx8qm-sai";
+		reg = <0x0 0x59060000 0x0 0x10000>;
+		interrupts = <GIC_SPI 318 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clk IMX8QXP_AUD_SAI_2_IPG>,
+			<&clk IMX8QXP_CLK_DUMMY>,
+			<&clk IMX8QXP_AUD_SAI_2_MCLK>,
+			<&clk IMX8QXP_CLK_DUMMY>,
+			<&clk IMX8QXP_CLK_DUMMY>;
+		clock-names = "bus", "mclk0", "mclk1", "mclk2", "mclk3";
+		dma-names = "rx";
+		dmas = <&edma0 16 0 1>;
+		status = "disabled";
+		power-domains = <&pd_sai2>;
+	};
+
+	sai3: sai@59070000 {
+		compatible = "fsl,imx8qm-sai";
+		reg = <0x0 0x59070000 0x0 0x10000>;
+		interrupts = <GIC_SPI 323 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clk IMX8QXP_AUD_SAI_3_IPG>,
+			<&clk IMX8QXP_CLK_DUMMY>,
+			<&clk IMX8QXP_AUD_SAI_3_MCLK>,
+			<&clk IMX8QXP_CLK_DUMMY>,
+			<&clk IMX8QXP_CLK_DUMMY>;
+		clock-names = "bus", "mclk0", "mclk1", "mclk2", "mclk3";
+		dma-names = "rx";
+		dmas = <&edma0 17 0 1>;
+		status = "disabled";
+		power-domains = <&pd_sai3>;
 	};
 
 	sai4: sai@59820000 {
