@@ -3605,6 +3605,7 @@
 
 		rpmsg: rpmsg {
 			compatible = "fsl,imx8qm-rpmsg";
+			power-domains = <&pd_cm40_mu0a0>;
 			status = "disabled";
 		};
 
@@ -3622,6 +3623,7 @@
 		rpmsg1: rpmsg1{
 			compatible = "fsl,imx8qm-rpmsg";
 			multi-core-id = <1>;
+			power-domains = <&pd_cm41_mu0a0>;
 			status = "disabled";
 		};
 	};
