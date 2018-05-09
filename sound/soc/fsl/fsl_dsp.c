@@ -721,12 +721,6 @@ int dsp_mu_init(struct fsl_dsp *dsp_priv)
 		return -EINVAL;
 	}
 
-	if (!dsp_priv->dsp_mu_init) {
-		MU_Init(dsp_priv->mu_base_virtaddr);
-		MU_EnableRxFullInt(dsp_priv->mu_base_virtaddr, 0);
-		dsp_priv->dsp_mu_init = 1;
-	}
-
 	return ret;
 }
 
@@ -913,10 +907,10 @@ static int fsl_dsp_runtime_resume(struct device *dev)
 	struct xf_proxy *proxy = &dsp_priv->proxy;
 	int ret;
 
-	if (sc_pm_set_resource_power_mode(dsp_priv->dsp_ipcHandle,
-			SC_R_DSP_RAM, SC_PM_PW_MODE_ON) != SC_ERR_NONE) {
-		dev_err(dev, "Error power on DSP RAM\n");
-		return -EIO;
+	if (!dsp_priv->dsp_mu_init) {
+		MU_Init(dsp_priv->mu_base_virtaddr);
+		MU_EnableRxFullInt(dsp_priv->mu_base_virtaddr, 0);
+		dsp_priv->dsp_mu_init = 1;
 	}
 
 	if (!proxy->is_ready) {
@@ -947,11 +941,7 @@ static int fsl_dsp_runtime_suspend(struct device *dev)
 	struct fsl_dsp *dsp_priv = dev_get_drvdata(dev);
 	struct xf_proxy *proxy = &dsp_priv->proxy;
 
-	if (sc_pm_set_resource_power_mode(dsp_priv->dsp_ipcHandle,
-			SC_R_DSP_RAM, SC_PM_PW_MODE_OFF) != SC_ERR_NONE) {
-		dev_err(dev, "Error power off DSP RAM\n");
-		return -EIO;
-	}
+	dsp_priv->dsp_mu_init = 0;
 	proxy->is_ready = 0;
 	return 0;
 }
