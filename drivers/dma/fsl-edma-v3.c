@@ -149,6 +149,7 @@ struct fsl_edma3_chan {
 	enum dma_status			status;
 	enum fsl_edma3_pm_state		pm_state;
 	bool				idle;
+	bool				used;
 	struct fsl_edma3_engine		*edma3;
 	struct fsl_edma3_desc		*edesc;
 	struct fsl_edma3_slave_config	fsc;
@@ -226,6 +227,8 @@ static void fsl_edma3_enable_request(struct fsl_edma3_chan *fsl_chan)
 
 	val |= EDMA_CH_CSR_ERQ;
 	writel(val, addr + EDMA_CH_CSR);
+
+	fsl_chan->used = true;
 }
 
 static void fsl_edma3_disable_request(struct fsl_edma3_chan *fsl_chan)
@@ -281,6 +284,7 @@ static int fsl_edma3_terminate_all(struct dma_chan *chan)
 	fsl_edma3_disable_request(fsl_chan);
 	fsl_chan->edesc = NULL;
 	fsl_chan->idle = true;
+	fsl_chan->used = false;
 	vchan_get_all_descriptors(&fsl_chan->vchan, &head);
 	spin_unlock_irqrestore(&fsl_chan->vchan.lock, flags);
 	vchan_dma_desc_free_list(&fsl_chan->vchan, &head);
@@ -805,6 +809,7 @@ static void fsl_edma3_free_chan_resources(struct dma_chan *chan)
 	vchan_dma_desc_free_list(&fsl_chan->vchan, &head);
 	dma_pool_destroy(fsl_chan->tcd_pool);
 	fsl_chan->tcd_pool = NULL;
+	fsl_chan->used = false;
 }
 
 static int fsl_edma3_probe(struct platform_device *pdev)
@@ -900,6 +905,7 @@ static int fsl_edma3_probe(struct platform_device *pdev)
 
 		fsl_chan->vchan.desc_free = fsl_edma3_free_desc;
 		vchan_init(&fsl_chan->vchan, &fsl_edma3->dma_dev);
+		fsl_chan->used = false;
 	}
 
 	mutex_init(&fsl_edma3->fsl_edma3_mutex);
@@ -969,6 +975,8 @@ static int fsl_edma3_suspend_late(struct device *dev)
 		fsl_chan = &fsl_edma->chans[i];
 		addr = fsl_chan->membase;
 
+		if (!fsl_chan->used)
+			continue;
 		spin_lock_irqsave(&fsl_chan->vchan.lock, flags);
 		fsl_edma->edma_regs[i].csr = readl(addr + EDMA_CH_CSR);
 		fsl_edma->edma_regs[i].sbr = readl(addr + EDMA_CH_SBR);
@@ -995,6 +1003,9 @@ static int fsl_edma3_resume_early(struct device *dev)
 	for (i = 0; i < fsl_edma->n_chans; i++) {
 		fsl_chan = &fsl_edma->chans[i];
 		addr = fsl_chan->membase;
+
+		if (!fsl_chan->used)
+			continue;
 
 		spin_lock_irqsave(&fsl_chan->vchan.lock, flags);
 		writel(fsl_edma->edma_regs[i].csr, addr + EDMA_CH_CSR);
