@@ -803,8 +803,6 @@ static void v4l2_transfer_buffer_to_firmware(struct queue_data *This, struct vb2
 					__func__, ctx->start_flag, ctx->str_index,
 				ctx->dev->firmware_started);
 
-		if (!ctx->dev->firmware_started)
-			wait_for_completion(&ctx->dev->start_cmp);
 		vpu_dbg(LVL_ALL, "vpu encoder firmware version is %d.%d.%d\n",
 				(pSharedInterface->FWVersion & 0x00ff0000) >> 16,
 				(pSharedInterface->FWVersion & 0x0000ff00) >> 8,
@@ -1542,6 +1540,9 @@ static int v4l2_open(struct file *filp)
 			mutex_unlock(&dev->dev_mutex);
 			goto err_firmware_load;
 		}
+
+		if (!ctx->dev->firmware_started)
+			wait_for_completion(&ctx->dev->start_cmp);
 		dev->fw_is_ready = true;
 	}
 	mutex_unlock(&dev->dev_mutex);

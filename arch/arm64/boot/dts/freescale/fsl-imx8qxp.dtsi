@@ -983,15 +983,32 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 
-			pd_vpu_enc: VPU_ENC {
-				reg = <SC_R_VPU_ENC_0>;
+			pd_vpu_mu_enc: VPU_ENC_MU {
+				reg = <SC_R_VPU_MU_1>;
 				#power-domain-cells = <0>;
 				power-domains =<&pd_vpu>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				pd_vpu_enc: VPU_ENC {
+					reg = <SC_R_VPU_ENC_0>;
+					#power-domain-cells = <0>;
+					power-domains =<&pd_vpu_mu_enc>;
+				};
 			};
-			pd_vpu_dec: VPU_DEC {
-				reg = <SC_R_VPU_DEC_0>;
+
+			pd_vpu_mu_dec: VPU_DEC_MU {
+				reg = <SC_R_VPU_MU_0>;
 				#power-domain-cells = <0>;
 				power-domains =<&pd_vpu>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				pd_vpu_dec: VPU_DEC {
+					reg = <SC_R_VPU_DEC_0>;
+					#power-domain-cells = <0>;
+					power-domains =<&pd_vpu_mu_dec>;
+				};
 			};
 		};
 

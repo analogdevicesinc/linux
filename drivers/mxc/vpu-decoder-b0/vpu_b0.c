@@ -1145,8 +1145,6 @@ static void transfer_buffer_to_firmware(struct vpu_ctx *ctx, void *input_buffer,
 
 	vpu_dbg(LVL_INFO, "enter %s, start_flag %d, index=%d, firmware_started=%d\n", __func__, ctx->start_flag, ctx->str_index, ctx->dev->firmware_started);
 
-	if (!ctx->dev->firmware_started)
-		wait_for_completion(&ctx->dev->start_cmp);
 	vpu_dbg(LVL_ALL, "firmware version is %d.%d.%d\n", (pSharedInterface->FWVersion & 0x00ff0000) >> 16, (pSharedInterface->FWVersion & 0x0000ff00) >> 8, pSharedInterface->FWVersion & 0x000000ff);
 
 	if (ctx->stream_buffer_size < buffer_size + MIN_SPACE)
@@ -2234,6 +2232,8 @@ static int v4l2_open(struct file *filp)
 			goto err_firmware_load;
 		} else
 			vpu_dbg(LVL_INFO, "done: vpu_firmware_download\n");
+		if (!ctx->dev->firmware_started)
+			wait_for_completion(&ctx->dev->start_cmp);
 		dev->fw_is_ready = true;
 	}
 	mutex_unlock(&dev->dev_mutex);
