@@ -64,10 +64,14 @@ enum {
 	}
 
 static const struct imx_int_pll_rate_table imx8mm_intpll_tbl[] = {
-	PLL_1416X_RATE(1800000000U, 0xe1, 3, 0),
-	PLL_1416X_RATE(1600000000U, 0xc8, 3, 0),
-	PLL_1416X_RATE(1200000000U, 0x12c, 3, 1),
-	PLL_1416X_RATE(750000000U, 0xfa, 2, 2),
+	PLL_1416X_RATE(1800000000U, 225, 3, 0),
+	PLL_1416X_RATE(1600000000U, 200, 3, 0),
+	PLL_1416X_RATE(1200000000U, 300, 3, 1),
+	PLL_1416X_RATE(1000000000U, 250, 3, 1),
+	PLL_1416X_RATE(800000000U,  200, 3, 1),
+	PLL_1416X_RATE(750000000U,  250, 2, 2),
+	PLL_1416X_RATE(700000000U,  350, 3, 2),
+	PLL_1416X_RATE(600000000U,  300, 3, 2),
 };
 
 static const struct imx_int_pll_rate_table imx8mm_audiopll_tbl[] = {
@@ -76,11 +80,11 @@ static const struct imx_int_pll_rate_table imx8mm_audiopll_tbl[] = {
 };
 
 static const struct imx_int_pll_rate_table imx8mm_videopll_tbl[] = {
-	PLL_1443X_RATE(650000000U, 0x145, 3, 2, 0),
+	PLL_1443X_RATE(650000000U, 325, 3, 2, 0),
 };
 
 static const struct imx_int_pll_rate_table imx8mm_drampll_tbl[] = {
-	PLL_1443X_RATE(650000000U, 0x145, 3, 2, 0),
+	PLL_1443X_RATE(650000000U, 325, 3, 2, 0),
 };
 
 static struct imx_int_pll_clk imx8mm_audio_pll __initdata = {
