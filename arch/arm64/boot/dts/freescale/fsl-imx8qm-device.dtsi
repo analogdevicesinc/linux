@@ -350,14 +350,17 @@
 			pd_conn_usb2: PD_CONN_USB_2 {
 				reg = <SC_R_USB_2>;
 				#power-domain-cells = <0>;
+				#address-cells = <1>;
+				#size-cells = <0>;
 				power-domains = <&pd_conn>;
 				wakeup-irq = <271>;
-			};
-			pd_conn_usb2_phy: PD_CONN_USB_2_PHY {
-				reg = <SC_R_USB_2_PHY>;
-				#power-domain-cells = <0>;
-				power-domains = <&pd_conn>;
-				wakeup-irq = <271>;
+
+				pd_conn_usb2_phy: PD_CONN_USB_2_PHY {
+					reg = <SC_R_USB_2_PHY>;
+					#power-domain-cells = <0>;
+					power-domains = <&pd_conn_usb2>;
+					wakeup-irq = <271>;
+				};
 			};
 			pd_conn_sdch0: PD_CONN_SDHC_0 {
 				reg = <SC_R_SDHC_0>;
