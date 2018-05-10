@@ -547,14 +547,6 @@ static int imx8qm_clk_probe(struct platform_device *pdev)
 	clks[IMX8QM_FSPI1_IPG_S_CLK] = imx_clk_gate2_scu("fspi1_ipg_s_clk", "lsio_bus_clk_root", LPCG_ADDR(FSPI_1_LPCG), 0x18, FUNCTION_NAME(PD_LSIO_FSPI_1));
 	clks[IMX8QM_FSPI1_IPG_CLK] = imx_clk_gate2_scu("fspi1_ipg_clk", "fspi1_ipg_s_clk", LPCG_ADDR(FSPI_1_LPCG), 0x14, FUNCTION_NAME(PD_LSIO_FSPI_1));
 	clks[IMX8QM_FSPI1_CLK] = imx_clk_gate_scu("fspi_1_clk", "fspi_1_div", SC_R_FSPI_1, SC_PM_CLK_PER, LPCG_ADDR(FSPI_1_LPCG), 0, 0);
-	clks[IMX8QM_GPIO0_IPG_S_CLK] = imx_clk_gate2_scu("gpio0_ipg_s_clk", "lsio_bus_clk_root", LPCG_ADDR(GPIO_0_LPCG), 0x10, FUNCTION_NAME(PD_LSIO_GPIO_0));
-	clks[IMX8QM_GPIO1_IPG_S_CLK] = imx_clk_gate2_scu("gpio1_ipg_s_clk", "lsio_bus_clk_root", LPCG_ADDR(GPIO_1_LPCG), 0x10, FUNCTION_NAME(PD_LSIO_GPIO_1));
-	clks[IMX8QM_GPIO2_IPG_S_CLK] = imx_clk_gate2_scu("gpio2_ipg_s_clk", "lsio_bus_clk_root", LPCG_ADDR(GPIO_2_LPCG), 0x10, FUNCTION_NAME(PD_LSIO_GPIO_2));
-	clks[IMX8QM_GPIO3_IPG_S_CLK] = imx_clk_gate2_scu("gpio3_ipg_s_clk", "lsio_bus_clk_root", LPCG_ADDR(GPIO_3_LPCG), 0x10, FUNCTION_NAME(PD_LSIO_GPIO_3));
-	clks[IMX8QM_GPIO4_IPG_S_CLK] = imx_clk_gate2_scu("gpio4_ipg_s_clk", "lsio_bus_clk_root", LPCG_ADDR(GPIO_4_LPCG), 0x10, FUNCTION_NAME(PD_LSIO_GPIO_4));
-	clks[IMX8QM_GPIO5_IPG_S_CLK] = imx_clk_gate2_scu("gpio5_ipg_s_clk", "lsio_bus_clk_root", LPCG_ADDR(GPIO_5_LPCG), 0x10, FUNCTION_NAME(PD_LSIO_GPIO_5));
-	clks[IMX8QM_GPIO6_IPG_S_CLK] = imx_clk_gate2_scu("gpio6_ipg_s_clk", "lsio_bus_clk_root", LPCG_ADDR(GPIO_6_LPCG), 0x10, FUNCTION_NAME(PD_LSIO_GPIO_6));
-	clks[IMX8QM_GPIO7_IPG_S_CLK] = imx_clk_gate2_scu("gpio7_ipg_s_clk", "lsio_bus_clk_root", LPCG_ADDR(GPIO_7_LPCG), 0x10, FUNCTION_NAME(PD_LSIO_GPIO_7));
 	clks[IMX8QM_ROMCP_REG_CLK] = imx_clk_gate2_scu("romcp_reg_clk", "lsio_bus_clk_root", LPCG_ADDR(ROMCP_LPCG), 0x10, FUNCTION_NAME(PD_LSIO));
 	clks[IMX8QM_ROMCP_CLK] = imx_clk_gate2_scu("romcp_clk", "lsio_mem_clk_root", LPCG_ADDR(ROMCP_LPCG), 0x0, FUNCTION_NAME(PD_LSIO));
 	clks[IMX8QM_96KROM_CLK] = imx_clk_gate2_scu("96krom_clk", "lsio_mem_clk_root", LPCG_ADDR(ROMCP_LPCG), 0x4, FUNCTION_NAME(PD_LSIO));
