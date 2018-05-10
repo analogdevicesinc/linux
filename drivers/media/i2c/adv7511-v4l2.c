@@ -1828,7 +1828,7 @@ static int adv7511_probe(struct i2c_client *client, const struct i2c_device_id *
 		v4l_err(client, "No platform data!\n");
 		return -ENODEV;
 	}
-	memcpy(&state->pdata, pdata, sizeof(state->pdata));
+
 	state->fmt_code = MEDIA_BUS_FMT_RGB888_1X24;
 	state->colorspace = V4L2_COLORSPACE_SRGB;
 
