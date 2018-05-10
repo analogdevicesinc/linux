@@ -13,7 +13,6 @@
 #include <linux/of.h>
 #include <linux/i2c.h>
 #include <linux/of_address.h>
-#include <linux/of_i2c.h>
 #include <linux/of_dma.h>
 #include <linux/of_graph.h>
 #include <linux/clk.h>
@@ -63,6 +62,8 @@ static int axi_hdmi_load(struct drm_device *dev, unsigned long flags)
 	struct axi_hdmi_private *private = dev_get_drvdata(dev->dev);
 	struct drm_encoder *encoder;
 	int ret;
+
+	private->drm_dev = dev;
 
 	dev->dev_private = private;
 
@@ -135,7 +136,7 @@ static struct drm_driver axi_hdmi_driver = {
 	.gem_vm_ops		= &drm_gem_cma_vm_ops,
 	.dumb_create		= drm_gem_cma_dumb_create,
 	.dumb_map_offset	= drm_gem_cma_dumb_map_offset,
-	.dumb_destroy		= drm_gem_cma_dumb_destroy,
+	.dumb_destroy		= drm_gem_dumb_destroy,
 	.fops			= &axi_hdmi_driver_fops,
 	.name			= DRIVER_NAME,
 	.desc			= DRIVER_DESC,
@@ -167,13 +168,14 @@ static int axi_hdmi_platform_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	private->base = devm_request_and_ioremap(&pdev->dev, res);
-	if (!private->base)
-		return -EBUSY;
+	private->base = devm_ioremap_resource(&pdev->dev, res);
+	if (IS_ERR(private->base))
+		return PTR_ERR(private->base);
 
 	private->hdmi_clock = devm_clk_get(&pdev->dev, NULL);
-	if (IS_ERR(private->hdmi_clock))
+	if (IS_ERR(private->hdmi_clock)) {
 		return -EPROBE_DEFER;
+	}
 
 	ep_node = of_graph_get_next_endpoint(np, NULL);
 	if (ep_node) {
@@ -217,7 +219,8 @@ static int axi_hdmi_platform_probe(struct platform_device *pdev)
 static int axi_hdmi_platform_remove(struct platform_device *pdev)
 {
 	struct axi_hdmi_private *private = platform_get_drvdata(pdev);
-	drm_platform_exit(&axi_hdmi_driver, pdev);
+
+	drm_put_dev(private->drm_dev);
 	dma_release_channel(private->dma);
 	return 0;
 }
