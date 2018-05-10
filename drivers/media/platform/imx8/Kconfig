@@ -49,6 +49,8 @@ config IMX8_JPEG
 	select VIDEOBUF2_DMA_CONTIG
 	default y
 
+source "drivers/media/platform/imx8/hdmi/Kconfig"
+
 endmenu
 endif #VIDEO_MX8_CAPTURE
 

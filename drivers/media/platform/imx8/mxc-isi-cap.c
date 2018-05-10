@@ -167,6 +167,7 @@ struct mxc_isi_fmt *mxc_isi_get_src_fmt(struct v4l2_subdev_format *sd_fmt)
 	/* two fmt RGB32 and YUV444 from pixellink */
 	if (sd_fmt->format.code == MEDIA_BUS_FMT_YUYV8_1X16 ||
 		sd_fmt->format.code == MEDIA_BUS_FMT_YVYU8_2X8 ||
+		sd_fmt->format.code == MEDIA_BUS_FMT_AYUV8_1X32 ||
 		sd_fmt->format.code == MEDIA_BUS_FMT_UYVY8_2X8)
 		index = 1;
 	else
@@ -859,11 +860,11 @@ static int mxc_isi_cap_streamon(struct file *file, void *priv,
 	int ret;
 
 	dev_dbg(&mxc_isi->pdev->dev, "%s\n", __func__);
-	mxc_isi_pipeline_enable(mxc_isi, 1);
+	mxc_isi_channel_enable(mxc_isi);
 
 	ret = vb2_ioctl_streamon(file, priv, type);
 
-	mxc_isi_channel_enable(mxc_isi);
+	mxc_isi_pipeline_enable(mxc_isi, 1);
 
 	return ret;
 }
@@ -875,10 +876,11 @@ static int mxc_isi_cap_streamoff(struct file *file, void *priv,
 	int ret;
 
 	dev_dbg(&mxc_isi->pdev->dev, "%s\n", __func__);
-	mxc_isi_pipeline_enable(mxc_isi, 0);
+	mxc_isi_channel_disable(mxc_isi);
 
 	ret = vb2_ioctl_streamoff(file, priv, type);
-	mxc_isi_channel_disable(mxc_isi);
+
+	mxc_isi_pipeline_enable(mxc_isi, 0);
 
 	return ret;
 }

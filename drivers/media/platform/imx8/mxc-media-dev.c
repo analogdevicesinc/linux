@@ -161,6 +161,13 @@ static int mxc_md_create_links(struct mxc_md *mxc_md)
 			break;
 
 		case ISI_INPUT_INTERFACE_HDMI:
+			if (mxc_md->hdmi_rx == NULL)
+				continue;
+			source = &mxc_md->hdmi_rx->sd.entity;
+			source_pad = MXC_HDMI_RX_PAD_SOURCE;
+			sink_pad = MXC_ISI_SD_PAD_SINK_HDMI;
+			break;
+
 		case ISI_INPUT_INTERFACE_DC0:
 		case ISI_INPUT_INTERFACE_DC1:
 		case ISI_INPUT_INTERFACE_MEM:
@@ -227,15 +234,15 @@ static int mxc_md_create_links(struct mxc_md *mxc_md)
 				return ret;
 			v4l2_info(&mxc_md->v4l2_dev, "created link [%s] => [%s]\n",
 						sensor->sd->entity.name, pcsidev->sd.entity.name);
-		} else {
+		} else if (mxc_md->mipi_csi2) {
 			mipi_csi2 = mxc_md->mipi_csi2[sensor->id];
 			if (mipi_csi2 ==  NULL)
 				continue;
 			source = &sensor->sd->entity;
 			sink = &mipi_csi2->sd.entity;
 
-			source_pad = 0;  //sensor source pad: MIPI_CSI2_SENS_VC0_PAD_SOURCE
-			sink_pad = source_pad;  //mipi sink pad: MXC_MIPI_CSI2_VC0_PAD_SINK;
+			source_pad = 0;  /* sensor source pad: MIPI_CSI2_SENS_VC0_PAD_SOURCE */
+			sink_pad = source_pad;  /* mipi sink pad: MXC_MIPI_CSI2_VC0_PAD_SINK; */
 
 			if (mipi_csi2->vchannel == true)
 				mipi_vc = 4;
@@ -276,6 +283,7 @@ static int subdev_notifier_bound(struct v4l2_async_notifier *notifier,
 	struct mxc_sensor_info *sensor = NULL;
 	int i;
 
+	dev_dbg(&mxc_md->pdev->dev, "%s\n", __func__);
 	/* Find platform data for this sensor subdev */
 	for (i = 0; i < ARRAY_SIZE(mxc_md->sensor); i++) {
 		if (mxc_md->sensor[i].asd.match.fwnode.fwnode ==
@@ -303,6 +311,7 @@ static int subdev_notifier_complete(struct v4l2_async_notifier *notifier)
 	struct mxc_md *mxc_md = notifier_to_mxc_md(notifier);
 	int ret;
 
+	dev_dbg(&mxc_md->pdev->dev, "%s\n", __func__);
 	mutex_lock(&mxc_md->media_dev.graph_mutex);
 
 	ret = mxc_md_create_links(mxc_md);
@@ -330,7 +339,7 @@ void mxc_sensor_notify(struct v4l2_subdev *sd, unsigned int notification,
 	return;
 }
 
-/* Register mipi sensor sub-devices */
+/* Register mipi sensor / Parallel CSI / HDMI Rx sub-devices */
 static int register_sensor_entities(struct mxc_md *mxc_md)
 {
 	struct device_node *parent = mxc_md->pdev->dev.of_node;
@@ -340,9 +349,19 @@ static int register_sensor_entities(struct mxc_md *mxc_md)
 
 	mxc_md->num_sensors = 0;
 
-	/* Attach sensors linked to MIPI CSI2 */
+	/* Attach sensors linked to MIPI CSI2 / paralle csi / HDMI Rx */
 	for_each_available_child_of_node(parent, node) {
 		struct device_node *port;
+
+		if (!of_node_cmp(node->name, "hdmi_rx")) {
+			mxc_md->sensor[index].asd.match_type = V4L2_ASYNC_MATCH_FWNODE;
+			mxc_md->sensor[index].asd.match.fwnode.fwnode = of_fwnode_handle(node);
+			mxc_md->async_subdevs[index] = &mxc_md->sensor[index].asd;
+
+			mxc_md->num_sensors++;
+			index++;
+			continue;
+		}
 
 		if (of_node_cmp(node->name, "csi") &&
 			of_node_cmp(node->name, "pcsi"))
@@ -362,7 +381,7 @@ static int register_sensor_entities(struct mxc_md *mxc_md)
 			return -EINVAL;
 
 		v4l2_fwnode_endpoint_parse(of_fwnode_handle(ep), &endpoint);
-		if (WARN_ON(endpoint.base.port >= MXC_MAX_MIPI_SENSORS)) {
+		if (WARN_ON(endpoint.base.port >= MXC_MAX_SENSORS)) {
 			v4l2_err(&mxc_md->v4l2_dev, "Failed to get sensor endpoint\n");
 			return -EINVAL;
 		}
@@ -398,6 +417,7 @@ static int register_isi_entity(struct mxc_md *mxc_md, struct mxc_isi_dev *mxc_is
 	struct v4l2_subdev *sd = &mxc_isi->isi_cap.sd;
 	int ret;
 
+	dev_dbg(&mxc_md->pdev->dev, "%s\n", __func__);
 	if (WARN_ON(mxc_isi->id >= MXC_ISI_MAX_DEVS || mxc_md->mxc_isi[mxc_isi->id]))
 		return -EBUSY;
 
@@ -447,6 +467,18 @@ static int register_parallel_csi_entity(struct mxc_md *mxc_md,
 	return ret;
 }
 
+static int register_hdmi_rx_entity(struct mxc_md *mxc_md,
+				struct mxc_hdmi_rx_dev *hdmi_rx)
+{
+	struct v4l2_subdev *sd = &hdmi_rx->sd;;
+
+	dev_dbg(&mxc_md->pdev->dev, "%s\n", __func__);
+	sd->grp_id = GRP_ID_MXC_HDMI_RX;
+	mxc_md->hdmi_rx = hdmi_rx;
+
+	return 0;
+}
+
 static int mxc_md_register_platform_entity(struct mxc_md *mxc_md,
 					    struct platform_device *pdev,
 					    int plat_entity)
@@ -474,6 +506,9 @@ static int mxc_md_register_platform_entity(struct mxc_md *mxc_md,
 		case IDX_PARALLEL_CSI:
 			ret = register_parallel_csi_entity(mxc_md, drvdata);
 			break;
+		case IDX_HDMI_RX:
+			ret = register_hdmi_rx_entity(mxc_md, drvdata);
+			break;
 		default:
 			ret = -ENODEV;
 		}
@@ -492,7 +527,7 @@ dev_unlock:
 	return ret;
 }
 
-/* Register ISI, MIPI CSI2 and HDMI In Media entities */
+/* Register ISI, MIPI CSI2 and HDMI Rx Media entities */
 static int mxc_md_register_platform_entities(struct mxc_md *mxc_md,
 					      struct device_node *parent)
 {
@@ -514,6 +549,8 @@ static int mxc_md_register_platform_entities(struct mxc_md *mxc_md,
 			plat_entity = IDX_MIPI_CSI2;
 		else if (!strcmp(node->name, PARALLEL_CSI_OF_NODE_NAME))
 			plat_entity = IDX_PARALLEL_CSI;
+		else if (!strcmp(node->name, MXC_HDMI_RX_NODE_NAME))
+			plat_entity = IDX_HDMI_RX;
 
 		if (plat_entity >= 0)
 			ret = mxc_md_register_platform_entity(mxc_md, pdev,
@@ -617,7 +654,7 @@ static int mxc_md_probe(struct platform_device *pdev)
 		ret = v4l2_async_notifier_register(&mxc_md->v4l2_dev,
 						&mxc_md->subdev_notifier);
 		if (ret < 0) {
-			printk("Sensor register failed\n");
+			dev_warn(&mxc_md->pdev->dev, "Sensor register failed\n");
 			goto err_m_ent;
 		}
 	}

@@ -1,0 +1,4 @@
+config IMX8_HDMI_RX
+	tristate "IMX8 HDMI RX Controller"
+	select MX8_HDP_RX
+	default y
