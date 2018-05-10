@@ -52,6 +52,52 @@ unsigned int vpu_dbg_level_encoder = 1;
 #ifdef DUMP_DATA
 #define DATA_NUM 10
 #endif
+
+static char *cmd2str[] = {
+	"GTB_ENC_CMD_NOOP",   /*0x0*/
+	"GTB_ENC_CMD_STREAM_START",
+	"GTB_ENC_CMD_FRAME_ENCODE",
+	"GTB_ENC_CMD_FRAME_SKIP",
+	"GTB_ENC_CMD_STREAM_STOP",
+	"GTB_ENC_CMD_PARAMETER_UPD",
+	"GTB_ENC_CMD_TERMINATE",
+	"GTB_ENC_CMD_SNAPSHOT",
+	"GTB_ENC_CMD_ROLL_SNAPSHOT",
+	"GTB_ENC_CMD_LOCK_SCHEDULER",
+	"GTB_ENC_CMD_UNLOCK_SCHEDULER",
+	"GTB_ENC_CMD_CONFIGURE_CODEC",
+	"GTB_ENC_CMD_DEAD_MARK",
+};
+
+static char *event2str[] = {
+	"VID_API_EVENT_UNDEFINED", /*0x1*/
+	"VID_API_ENC_EVENT_RESET_DONE", /*0x1*/
+	"VID_API_ENC_EVENT_START_DONE",
+	"VID_API_ENC_EVENT_STOP_DONE",
+	"VID_API_ENC_EVENT_TERMINATE_DONE",
+	"VID_API_ENC_EVENT_FRAME_INPUT_DONE",
+	"VID_API_ENC_EVENT_FRAME_DONE",
+	"VID_API_ENC_EVENT_FRAME_RELEASE",
+	"VID_API_ENC_EVENT_PARA_UPD_DONE",
+	"VID_API_ENC_EVENT_MEM_REQUEST",
+};
+
+static void vpu_log_event(u_int32 uEvent, u_int32 ctxid)
+{
+	if (uEvent > ARRAY_SIZE(event2str)-1)
+		vpu_dbg(LVL_INFO, "reveive event: 0x%X, ctx id:%d\n", uEvent, ctxid);
+	else
+		vpu_dbg(LVL_INFO, "recevie event: %s, ctx id:%d\n", event2str[uEvent], ctxid);
+}
+
+static void vpu_log_cmd(u_int32 cmdid, u_int32 ctxid)
+{
+	if (cmdid > ARRAY_SIZE(cmd2str)-1)
+		vpu_dbg(LVL_INFO, "send cmd: 0x%X, ctx id:%d\n", cmdid, ctxid);
+	else
+		vpu_dbg(LVL_INFO, "send cmd: %s ctx id:%d\n", cmd2str[cmdid], ctxid);
+}
+
 /*
  * v4l2 ioctl() operation
  *
@@ -62,97 +108,6 @@ static struct vpu_v4l2_fmt  formats_compressed_enc[] = {
 		.fourcc     = V4L2_PIX_FMT_H264,
 		.num_planes = 1,
 		.venc_std   = VPU_VIDEO_AVC,
-	},
-	{
-		.name       = "VC1 Encoded Stream",
-		.fourcc     = V4L2_PIX_FMT_VC1_ANNEX_G,
-		.num_planes = 1,
-		.venc_std   = VPU_VIDEO_VC1,
-	},
-	{
-		.name       = "VC1 RCV Encoded Stream",
-		.fourcc     = V4L2_PIX_FMT_VC1_ANNEX_L,
-		.num_planes = 1,
-		.venc_std   = VPU_VIDEO_VC1,
-	},
-	{
-		.name       = "MPEG2 Encoded Stream",
-		.fourcc     = V4L2_PIX_FMT_MPEG2,
-		.num_planes = 1,
-		.venc_std   = VPU_VIDEO_MPEG2,
-	},
-
-	{
-		.name       = "AVS Encoded Stream",
-		.fourcc     = VPU_PIX_FMT_AVS,
-		.num_planes = 1,
-		.venc_std   = VPU_VIDEO_AVS,
-	},
-	{
-		.name       = "MPEG4 ASP Encoded Stream",
-		.fourcc     = V4L2_PIX_FMT_MPEG4,
-		.num_planes = 1,
-		.venc_std   = VPU_VIDEO_ASP,
-	},
-	{
-		.name       = "JPEG stills",
-		.fourcc     = V4L2_PIX_FMT_JPEG,
-		.num_planes = 1,
-		.venc_std   = VPU_VIDEO_JPEG,
-	},
-	{
-		.name       = "RV8 Encoded Stream",
-		.fourcc     = VPU_PIX_FMT_RV8,
-		.num_planes = 1,
-		.venc_std   = VPU_VIDEO_RV8,
-	},
-	{
-		.name       = "RV9 Encoded Stream",
-		.fourcc     = VPU_PIX_FMT_RV9,
-		.num_planes = 1,
-		.venc_std   = VPU_VIDEO_RV9,
-	},
-	{
-		.name       = "VP6 Encoded Stream",
-		.fourcc     = VPU_PIX_FMT_VP6,
-		.num_planes = 1,
-		.venc_std   = VPU_VIDEO_VP6,
-	},
-	{
-		.name       = "VP6 SPK Encoded Stream",
-		.fourcc     = VPU_PIX_FMT_SPK,
-		.num_planes = 1,
-		.venc_std   = VPU_VIDEO_SPK,
-	},
-	{
-		.name       = "VP8 Encoded Stream",
-		.fourcc     = V4L2_PIX_FMT_VP8,
-		.num_planes = 1,
-		.venc_std   = VPU_VIDEO_VP8,
-	},
-	{
-		.name       = "H264/MVC Encoded Stream",
-		.fourcc     = V4L2_PIX_FMT_H264_MVC,
-		.num_planes = 1,
-		.venc_std   = VPU_VIDEO_AVC_MVC,
-	},
-	{
-		.name       = "H265 HEVC Encoded Stream",
-		.fourcc     = VPU_PIX_FMT_HEVC,
-		.num_planes = 1,
-		.venc_std   = VPU_VIDEO_HEVC,
-	},
-	{
-		.name       = "VP9 Encoded Stream",
-		.fourcc     = VPU_PIX_FMT_VP9,
-		.num_planes = 1,
-		.venc_std   = VPU_VIDEO_VP9,
-	},
-	{
-		.name       = "Logo",
-		.fourcc     = VPU_PIX_FMT_LOGO,
-		.num_planes = 1,
-		.venc_std   = VPU_VIDEO_UNDEFINED,
 	},
 };
 
@@ -550,6 +505,9 @@ static int v4l2_ioctl_encoder_cmd(struct file *file,
 		break;
 	case V4L2_ENC_CMD_STOP:
 		v4l2_vpu_send_cmd(ctx, uStrIdx, GTB_ENC_CMD_STREAM_STOP, 0, NULL);
+		ctx->forceStop = true;
+		wake_up_interruptible(&ctx->buffer_wq_input);
+		wake_up_interruptible(&ctx->buffer_wq_output);
 		break;
 	case V4L2_ENC_CMD_PAUSE:
 		break;
@@ -672,6 +630,9 @@ static int v4l2_enc_s_ctrl(struct v4l2_ctrl *ctrl)
 		if (V4L2_MPEG_VIDEO_H264_PROFILE_BASELINE == ctrl->val)
 		pEncParam->eProfile = MEDIAIP_ENC_PROF_H264_BP;
 		break;
+	case V4L2_CID_MPEG_VIDEO_H264_LEVEL:
+		vpu_dbg(LVL_INFO, "V4L2_CID_MPEG_VIDEO_H264_LEVEL set val = %d\n", ctrl->val);
+		break;
 	case V4L2_CID_MPEG_VIDEO_BITRATE:
 		pEncParam->uTargetBitrate = ctrl->val;
 		break;
@@ -705,6 +666,11 @@ static void vpu_encoder_ctrls(struct vpu_ctx *ctx)
 			V4L2_CID_MPEG_VIDEO_H264_PROFILE,
 			V4L2_MPEG_VIDEO_H264_PROFILE_MULTIVIEW_HIGH, 0x0,
 			V4L2_MPEG_VIDEO_H264_PROFILE_CONSTRAINED_BASELINE
+			);
+	v4l2_ctrl_new_std_menu(&ctx->ctrl_handler, &vpu_enc_ctrl_ops,
+			V4L2_CID_MPEG_VIDEO_H264_LEVEL,
+			V4L2_MPEG_VIDEO_H264_LEVEL_5_1, 0x0,
+			V4L2_MPEG_VIDEO_H264_LEVEL_1_0
 			);
 	v4l2_ctrl_new_std(&ctx->ctrl_handler, &vpu_enc_ctrl_ops,
 		V4L2_CID_MPEG_VIDEO_BITRATE, 0, 32767000, 1, 0);
@@ -747,6 +713,7 @@ static void ctrls_delete_encoder(struct vpu_ctx *This)
 
 static void v4l2_vpu_send_cmd(struct vpu_ctx *ctx, uint32_t idx, uint32_t cmdid, uint32_t cmdnum, uint32_t *local_cmddata)
 {
+	vpu_log_cmd(cmdid, idx);
 	mutex_lock(&ctx->dev->cmd_mutex);
 	rpc_send_cmd_buf_encoder(&ctx->dev->shared_mem, idx, cmdid, cmdnum, local_cmddata);
 	mutex_unlock(&ctx->dev->cmd_mutex);
@@ -836,7 +803,7 @@ static bool update_yuv_addr(struct vpu_ctx *ctx, u_int32 uStrIdx)
 			ctx->dev->shared_mem.base_offset);
 
 	wait_event_interruptible(ctx->buffer_wq_input,
-			!list_empty(&This->drv_q)
+			!list_empty(&This->drv_q) || ctx->forceStop
 			);
 
 	down(&This->drv_q_lock);
@@ -906,8 +873,10 @@ static void report_stream_done(struct vpu_ctx *ctx,  MEDIAIP_ENC_PIC_INFO *pEncP
 
 	vpu_dbg(LVL_INFO, "report_stream_done eptr=%x, rptr=%x, start=%x, end=%x\n", wptr, rptr, start, end);
 	wait_event_interruptible(ctx->buffer_wq_output,
-			!list_empty(&This->drv_q)
+			!list_empty(&This->drv_q) || ctx->forceStop
 			);
+	if (ctx->forceStop)
+		return;
 
 	if (!list_empty(&This->drv_q)) {
 		down(&This->drv_q_lock);
@@ -1055,32 +1024,28 @@ static void enc_mem_alloc(struct vpu_ctx *ctx, MEDIAIP_ENC_MEM_REQ_DATA *req_dat
 
 static void vpu_api_event_handler(struct vpu_ctx *ctx, u_int32 uStrIdx, u_int32 uEvent, u_int32 *event_data)
 {
-	vpu_dbg(LVL_INFO, "vpu_encoder_event_handler is called\n");
+	vpu_log_event(uEvent, uStrIdx);
 	if (uStrIdx < VID_API_NUM_STREAMS) {
 		switch (uEvent) {
 		case VID_API_ENC_EVENT_START_DONE: {
-		vpu_dbg(LVL_INFO, "VID_API_ENC_EVENT_START_DONE : Encoder configuration complete\n");
 		update_yuv_addr(ctx, 0);
 		v4l2_vpu_send_cmd(ctx, uStrIdx, GTB_ENC_CMD_FRAME_ENCODE, 0, NULL);
 		} break;
 		case VID_API_ENC_EVENT_MEM_REQUEST: {
 			MEDIAIP_ENC_MEM_REQ_DATA *req_data = (MEDIAIP_ENC_MEM_REQ_DATA *)event_data;
-			vpu_dbg(LVL_INFO, "VID_API_ENC_EVENT_MEM_REQUEST: need to request memory\n");
 			vpu_dbg(LVL_INFO, "uEncFrmSize = %d, uEncFrmNum=%d, uRefFrmSize=%d, uRefFrmNum=%d, uActBufSize=%d\n", req_data->uEncFrmSize, req_data->uEncFrmNum, req_data->uRefFrmSize, req_data->uRefFrmNum, req_data->uActBufSize);
 			enc_mem_alloc(ctx, req_data);
 			//update_yuv_addr(ctx,0);
 			v4l2_vpu_send_cmd(ctx, uStrIdx, GTB_ENC_CMD_STREAM_START, 0, NULL);
 		} break;
-		case VID_API_ENC_EVENT_PARA_UPD_DONE: {
-		vpu_dbg(LVL_INFO, "VID_API_ENC_EVENT_PARA_UPD_DONE : Parameter update complete\n");
-		} break;
+		case VID_API_ENC_EVENT_PARA_UPD_DONE:
+		break;
 		case VID_API_ENC_EVENT_FRAME_DONE: {
 		MEDIAIP_ENC_PIC_INFO *pEncPicInfo = (MEDIAIP_ENC_PIC_INFO *)event_data;
 
 		vpu_dbg(LVL_INFO, "VID_API_ENC_EVENT_FRAME_DONE pEncPicInfo->uPicEncodDone=%d: Encode picture done\n", pEncPicInfo->uPicEncodDone);
 		if (pEncPicInfo->uPicEncodDone) {
 #ifdef TB_REC_DBG
-		vpu_dbg(LVL_INFO, "VID_API_ENC_EVENT_FRAME_DONE : Encode picture done\n");
 		vpu_dbg(LVL_INFO, "       - Frame ID      : 0x%x\n", pEncPicInfo->uFrameID);
 
 		vpu_dbg(LVL_INFO, "       - Picture Type  : %s\n", pEncPicInfo->ePicType == MEDIAIP_ENC_PIC_TYPE_B_FRAME ? "B picture" :
@@ -1114,17 +1079,16 @@ static void vpu_api_event_handler(struct vpu_ctx *ctx, u_int32 uStrIdx, u_int32 
 		const struct v4l2_event ev = {
 			.type = V4L2_EVENT_EOS
 		};
+		ctx->firmware_stopped = true;
+		complete(&ctx->stop_cmp);
 		v4l2_event_queue_fh(&ctx->fh, &ev);
 		}
-		vpu_dbg(LVL_INFO, "VID_API_ENC_EVENT_STOP_DONE : Stop done\n");
 		break;
 		case VID_API_ENC_EVENT_FRAME_INPUT_DONE: {
-		vpu_dbg(LVL_INFO, "VID_API_ENC_EVENT_FRAME_INPUT_DONE : Input done\n");
 		update_yuv_addr(ctx, uStrIdx);
 		v4l2_vpu_send_cmd(ctx, uStrIdx, GTB_ENC_CMD_FRAME_ENCODE, 0, NULL);
 		} break;
 		case VID_API_ENC_EVENT_TERMINATE_DONE:
-		vpu_dbg(LVL_INFO, "VID_API_ENC_EVENT_TERMINATE_DONE : Codec terminated\n");
 		break;
 		default:
 		vpu_dbg(LVL_INFO, "........unknown event : 0x%x\n", uEvent);
@@ -1515,6 +1479,7 @@ static int v4l2_open(struct file *filp)
 	set_bit(idx, &dev->instance_mask);
 	mutex_unlock(&dev->dev_mutex);
 	init_completion(&ctx->completion);
+	init_completion(&ctx->stop_cmp);
 
 	v4l2_fh_init(&ctx->fh, video_devdata(filp));
 	filp->private_data = &ctx->fh;
@@ -1529,6 +1494,8 @@ static int v4l2_open(struct file *filp)
 	dev->ctx[idx] = ctx;
 	ctx->b_firstseq = true;
 	ctx->start_flag = true;
+	ctx->forceStop = false;
+	ctx->firmware_stopped = false;
 	init_queue_data(ctx);
 	init_waitqueue_head(&ctx->buffer_wq_output);
 	init_waitqueue_head(&ctx->buffer_wq_input);
@@ -1598,6 +1565,9 @@ static int v4l2_release(struct file *filp)
 	struct vpu_dev *dev = video_get_drvdata(vdev);
 	struct vpu_ctx *ctx = v4l2_fh_to_ctx(filp->private_data);
 	u_int32 i;
+
+	if (!ctx->firmware_stopped && ctx->start_flag == false)
+		wait_for_completion(&ctx->stop_cmp);
 
 	release_queue_data(ctx);
 	ctrls_delete_encoder(ctx);
@@ -1819,9 +1789,6 @@ static void vpu_setup(struct vpu_dev *This)
 	writel(0xE, This->regs_base + SCB_XREG_SLV_BASE + SCB_SCB_BLK_CTRL + SCB_BLK_CTRL_SCB_CLK_ENABLE_SET);
 	writel(0x7, This->regs_base + SCB_XREG_SLV_BASE + SCB_SCB_BLK_CTRL + SCB_BLK_CTRL_CACHE_RESET_SET);
 
-	writel(0x1f, This->regs_base + DEC_MFD_XREG_SLV_BASE + MFD_BLK_CTRL + MFD_BLK_CTRL_MFD_SYS_CLOCK_ENABLE_SET);
-	writel(0xffffffff, This->regs_base + DEC_MFD_XREG_SLV_BASE + MFD_BLK_CTRL + MFD_BLK_CTRL_MFD_SYS_RESET_SET);
-
 	writel(0x102, This->regs_base + XMEM_CONTROL);
 
 	read_data = readl(This->regs_base+0x70108);
@@ -1832,7 +1799,6 @@ static void vpu_reset(struct vpu_dev *This)
 {
 	vpu_dbg(LVL_INFO, "enter %s\n", __func__);
 	writel(0x7, This->regs_base + SCB_XREG_SLV_BASE + SCB_SCB_BLK_CTRL + SCB_BLK_CTRL_CACHE_RESET_CLR);
-	writel(0xffffffff, This->regs_base + DEC_MFD_XREG_SLV_BASE + MFD_BLK_CTRL + MFD_BLK_CTRL_MFD_SYS_RESET_CLR);
 }
 
 static int vpu_enable_hw(struct vpu_dev *This)

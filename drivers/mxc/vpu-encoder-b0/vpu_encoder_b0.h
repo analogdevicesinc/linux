@@ -216,10 +216,12 @@ struct vpu_ctx {
 
 	int str_index;
 	struct queue_data q_data[2];
-//	struct work_struct msg_work;
 	struct completion completion;
+	struct completion stop_cmp;
 	bool b_firstseq;
 	bool start_flag;
+	bool firmware_stopped;
+	bool forceStop;
 	wait_queue_head_t buffer_wq_output;
 	wait_queue_head_t buffer_wq_input;
 	struct buffer_addr encoder_buffer;
@@ -232,9 +234,9 @@ struct vpu_ctx {
 };
 
 #define LVL_INFO 3
-#define LVL_ERR  2
-#define LVL_IRQ  1
-#define LVL_ALL  0
+#define LVL_IRQ  2
+#define LVL_ALL  1
+#define LVL_ERR  0
 
 #define vpu_dbg(level, fmt, arg...) \
 	do { \
