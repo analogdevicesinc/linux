@@ -378,10 +378,13 @@
 /delete-node/ &vpu;
 /delete-node/ &acm;
 /delete-node/ &esai0;
+/delete-node/ &esai1;
 /delete-node/ &spdif0;
 /delete-node/ &spdif1;
 /delete-node/ &sai1;
 /delete-node/ &sai0;
+/delete-node/ &sai2;
+/delete-node/ &sai3;
 /delete-node/ &sai_hdmi_rx;
 /delete-node/ &sai_hdmi_tx;
 /delete-node/ &sai6;
