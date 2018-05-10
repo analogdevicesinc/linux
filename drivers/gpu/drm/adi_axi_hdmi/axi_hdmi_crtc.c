@@ -9,11 +9,12 @@
 
 #include <linux/slab.h>
 #include <linux/dmaengine.h>
-#include <linux/amba/xilinx_dma.h>
+#include <linux/dma/xilinx_dma.h>
 
 #include <drm/drm_atomic_helper.h>
 #include <drm/drm_crtc_helper.h>
 #include <drm/drm_gem_cma_helper.h>
+#include <drm/drm_plane_helper.h>
 
 #include "axi_hdmi_drv.h"
 
@@ -48,6 +49,7 @@ static struct dma_async_tx_descriptor *axi_hdmi_vdma_prep_interleaved_desc(
 
 	memset(&vdma_config, 0, sizeof(vdma_config));
 	vdma_config.park = 1;
+	vdma_config.coalesc = 0xff;
 	xilinx_vdma_channel_set_config(axi_hdmi_crtc->dma, &vdma_config);
 
 	offset = plane->state->crtc_x * fb->bits_per_pixel / 8 +
@@ -143,6 +145,7 @@ static void axi_hdmi_crtc_destroy(struct drm_crtc *crtc)
 	struct axi_hdmi_crtc *axi_hdmi_crtc = to_axi_hdmi_crtc(crtc);
 
 	drm_crtc_cleanup(crtc);
+	kfree(axi_hdmi_crtc->dma_template);
 	kfree(axi_hdmi_crtc);
 }
 
@@ -185,6 +188,11 @@ struct drm_crtc *axi_hdmi_crtc_create(struct drm_device *dev)
 	struct drm_crtc *crtc;
 	struct drm_plane *plane;
 	int ret;
+
+	if (!dma_has_cap(DMA_INTERLEAVE, p->dma->device->cap_mask)) {
+		DRM_ERROR("DMA needs to support interleaved transfers\n");
+		return ERR_PTR(-EINVAL);
+	}
 
 	axi_hdmi_crtc = kzalloc(sizeof(*axi_hdmi_crtc), GFP_KERNEL);
 	if (!axi_hdmi_crtc)

@@ -19,6 +19,7 @@
 #include <drm/drm_atomic_helper.h>
 #include <drm/drm_crtc_helper.h>
 #include <drm/drm_encoder_slave.h>
+#include <drm/drm_edid.h>
 
 #include "axi_hdmi_drv.h"
 
@@ -48,6 +49,7 @@
 
 #define AXI_HDMI_RESET_ENABLE		BIT(0)
 
+#define AXI_HDMI_CTRL_SS_BYPASS		BIT(2)
 #define AXI_HDMI_CTRL_FULL_RANGE	BIT(1)
 #define AXI_HDMI_CTRL_CSC_BYPASS	BIT(0)
 
@@ -101,10 +103,10 @@ static inline struct drm_encoder *connector_to_encoder(struct drm_connector *con
 static int axi_hdmi_connector_init(struct drm_device *dev,
 	struct drm_connector *connector, struct drm_encoder *encoder);
 
-static inline struct drm_encoder_slave_funcs *
-get_slave_funcs(struct drm_encoder *enc)
+static const struct drm_encoder_slave_funcs *get_slave_funcs(
+	struct drm_encoder *enc)
 {
-	if (!to_encoder_slave(enc))
+	if (enc->bridge)
 		return NULL;
 
 	return to_encoder_slave(enc)->slave_funcs;
@@ -168,6 +170,7 @@ static ssize_t axi_hdmi_set_mode(struct file *file, const char __user *userbuf,
 {
 	struct axi_hdmi_private *private = file->private_data;
 	char buf[20];
+	unsigned int ctrl;
 	unsigned int i;
 
 	count = min_t(size_t, count, sizeof(buf) - 1);
@@ -185,6 +188,18 @@ static ssize_t axi_hdmi_set_mode(struct file *file, const char __user *userbuf,
 		return -EINVAL;
 
 	writel(i, private->base + AXI_HDMI_REG_SOURCE_SEL);
+
+	if (i == AXI_HDMI_SOURCE_SEL_TESTPATTERN) {
+		ctrl = AXI_HDMI_CTRL_CSC_BYPASS | AXI_HDMI_CTRL_SS_BYPASS |
+			AXI_HDMI_CTRL_FULL_RANGE;
+	} else {
+		if (private->is_rgb)
+			ctrl = AXI_HDMI_CTRL_CSC_BYPASS;
+		else
+			ctrl = 0;
+	}
+
+	writel(ctrl, private->base + AXI_HDMI_REG_CTRL);
 
 	return count;
 }
@@ -219,9 +234,9 @@ static inline void axi_hdmi_debugfs_init(struct axi_hdmi_encoder *enc)
 static void axi_hdmi_encoder_enable(struct drm_encoder *encoder)
 {
 	struct axi_hdmi_encoder *axi_hdmi_encoder = to_axi_hdmi_encoder(encoder);
-	struct drm_connector *connector = &axi_hdmi_encoder->connector;
+	struct drm_connector *connector;
 	struct axi_hdmi_private *private = encoder->dev->dev_private;
-	struct drm_encoder_slave_funcs *sfuncs = get_slave_funcs(encoder);
+	const struct drm_encoder_slave_funcs *sfuncs = get_slave_funcs(encoder);
 	struct adv7511_video_config config;
 	struct edid *edid;
 
@@ -234,10 +249,8 @@ static void axi_hdmi_encoder_enable(struct drm_encoder *encoder)
 	if (!sfuncs)
 		return;
 
-	if (!connector)
-		edid = NULL;
-	else
-		edid = drm_connector_get_edid(connector);
+	connector = &axi_hdmi_encoder->connector;
+	edid = drm_connector_get_edid(connector);
 
 	if (edid)
 		config.hdmi_mode = drm_detect_hdmi_monitor(edid);
@@ -291,7 +304,7 @@ static void axi_hdmi_encoder_mode_set(struct drm_encoder *encoder,
 	struct drm_crtc_state *crtc_state,
 	struct drm_connector_state *conn_state)
 {
-	struct drm_encoder_slave_funcs *sfuncs = get_slave_funcs(encoder);
+	const struct drm_encoder_slave_funcs *sfuncs = get_slave_funcs(encoder);
 	struct axi_hdmi_private *private = encoder->dev->dev_private;
 	struct drm_display_mode *mode = &crtc_state->mode;
 	unsigned int h_de_min, h_de_max;
@@ -331,7 +344,7 @@ static const struct drm_encoder_helper_funcs axi_hdmi_encoder_helper_funcs = {
 
 static void axi_hdmi_encoder_destroy(struct drm_encoder *encoder)
 {
-	struct drm_encoder_slave_funcs *sfuncs = get_slave_funcs(encoder);
+	const struct drm_encoder_slave_funcs *sfuncs = get_slave_funcs(encoder);
 	struct axi_hdmi_encoder *axi_hdmi_encoder =
 		to_axi_hdmi_encoder(encoder);
 
@@ -349,31 +362,44 @@ static const struct drm_encoder_funcs axi_hdmi_encoder_funcs = {
 struct drm_encoder *axi_hdmi_encoder_create(struct drm_device *dev)
 {
 	struct drm_encoder *encoder;
-	struct drm_connector *connector;
 	struct axi_hdmi_encoder *axi_hdmi_encoder;
-	struct drm_i2c_encoder_driver *encoder_drv;
 	struct axi_hdmi_private *priv = dev->dev_private;
+	struct drm_bridge *bridge;
+	int ret;
 
 	axi_hdmi_encoder = kzalloc(sizeof(*axi_hdmi_encoder), GFP_KERNEL);
-	if (!axi_hdmi_encoder) {
-		DRM_ERROR("failed to allocate encoder\n");
+	if (!axi_hdmi_encoder)
 		return NULL;
-	}
 
 	encoder = &axi_hdmi_encoder->encoder.base;
 	encoder->possible_crtcs = 1;
 
 	drm_encoder_init(dev, encoder, &axi_hdmi_encoder_funcs,
-			DRM_MODE_ENCODER_TMDS);
+			DRM_MODE_ENCODER_TMDS, NULL);
 	drm_encoder_helper_add(encoder, &axi_hdmi_encoder_helper_funcs);
 
-	encoder_drv = to_drm_i2c_encoder_driver(priv->encoder_slave->driver);
-	encoder_drv->encoder_init(priv->encoder_slave, dev,
-		&axi_hdmi_encoder->encoder);
+	bridge = of_drm_find_bridge(priv->encoder_slave->dev.of_node);
+	if (bridge) {
+		bridge->encoder = encoder;
+		encoder->bridge = bridge;
+		ret = drm_bridge_attach(dev, bridge);
+		if (ret) {
+		    drm_encoder_cleanup(encoder);
+		    return NULL;
+		}
+	} else {
+		struct drm_connector *connector;
+		struct drm_i2c_encoder_driver *encoder_drv;
 
-	connector = &axi_hdmi_encoder->connector;
+		/* For backwards compatibility, drop it eventually. */
+		encoder_drv = to_drm_i2c_encoder_driver(to_i2c_driver(priv->encoder_slave->dev.driver));
+		encoder_drv->encoder_init(priv->encoder_slave, dev, &axi_hdmi_encoder->encoder);
 
-	axi_hdmi_connector_init(dev, connector, encoder);
+		connector = &axi_hdmi_encoder->connector;
+		axi_hdmi_connector_init(dev, connector, encoder);
+	}
+
+
 	axi_hdmi_debugfs_init(axi_hdmi_encoder);
 
 	writel(AXI_HDMI_SOURCE_SEL_NORMAL, priv->base + AXI_HDMI_REG_SOURCE_SEL);
@@ -386,7 +412,7 @@ struct drm_encoder *axi_hdmi_encoder_create(struct drm_device *dev)
 static int axi_hdmi_connector_get_modes(struct drm_connector *connector)
 {
 	struct drm_encoder *encoder = connector_to_encoder(connector);
-	struct drm_encoder_slave_funcs *sfuncs = get_slave_funcs(encoder);
+	const struct drm_encoder_slave_funcs *sfuncs = get_slave_funcs(encoder);
 	int count = 0;
 
 	if (sfuncs && sfuncs->get_modes)
@@ -423,7 +449,7 @@ static enum drm_connector_status axi_hdmi_connector_detect(
 {
 	enum drm_connector_status status = connector_status_unknown;
 	struct drm_encoder *encoder = connector_to_encoder(connector);
-	struct drm_encoder_slave_funcs *sfuncs = get_slave_funcs(encoder);
+	const struct drm_encoder_slave_funcs *sfuncs = get_slave_funcs(encoder);
 
 	if (sfuncs && sfuncs->detect)
 		status = sfuncs->detect(encoder, connector);
@@ -433,7 +459,7 @@ static enum drm_connector_status axi_hdmi_connector_detect(
 
 static void axi_hdmi_connector_destroy(struct drm_connector *connector)
 {
-	drm_sysfs_connector_remove(connector);
+	drm_connector_unregister(connector);
 	drm_connector_cleanup(connector);
 }
 
@@ -460,11 +486,9 @@ static int axi_hdmi_connector_init(struct drm_device *dev,
 	drm_connector_init(dev, connector, &axi_hdmi_connector_funcs, type);
 	drm_connector_helper_add(connector, &axi_hdmi_connector_helper_funcs);
 
-	err = drm_sysfs_connector_add(connector);
+	err = drm_connector_register(connector);
 	if (err)
 		goto err_connector;
-
-	connector->encoder = encoder;
 
 	err = drm_mode_connector_attach_encoder(connector, encoder);
 	if (err) {
@@ -475,7 +499,7 @@ static int axi_hdmi_connector_init(struct drm_device *dev,
 	return 0;
 
 err_sysfs:
-	drm_sysfs_connector_remove(connector);
+	drm_connector_unregister(connector);
 err_connector:
 	drm_connector_cleanup(connector);
 	return err;
