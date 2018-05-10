@@ -998,16 +998,32 @@
 				power-domains =<&pd_isi_ch0>;
 			};
 
-			pd_jpgdec: PD_IMAGING_JPEG_DEC {
-				reg = <SC_R_MJPEG_DEC_S0>;
+			pd_jpeg_dec_mp: PD_JPEG_DEC_MP {
+				reg = <SC_R_MJPEG_DEC_MP>;
 				#power-domain-cells = <0>;
 				power-domains =<&pd_isi_ch0>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				pd_jpgdec: PD_IMAGING_JPEG_DEC {
+					reg = <SC_R_MJPEG_DEC_S0>;
+					#power-domain-cells = <0>;
+					power-domains =<&pd_jpeg_dec_mp>;
+				};
 			};
 
-			pd_jpgenc: PD_IMAGING_JPEG_ENC {
-				reg = <SC_R_MJPEG_ENC_S0>;
+			pd_jpeg_enc_mp: PD_JPEG_ENC_MP {
+				reg = <SC_R_MJPEG_ENC_MP>;
 				#power-domain-cells = <0>;
 				power-domains =<&pd_isi_ch0>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				pd_jpgenc: PD_IMAGING_JPEG_ENC {
+					reg = <SC_R_MJPEG_ENC_S0>;
+					#power-domain-cells = <0>;
+					power-domains =<&pd_jpeg_enc_mp>;
+				};
 			};
 		};
 
