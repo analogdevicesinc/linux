@@ -19,7 +19,7 @@
 #include <linux/of_graph.h>
 #include <media/v4l2-device.h>
 #include <media/v4l2-of.h>
-#include <media/adv7604.h>
+#include <media/i2c/adv7604.h>
 
 #define INPUT_SUBDEV		0
 #define OUTPUT_SUBDEV		1
