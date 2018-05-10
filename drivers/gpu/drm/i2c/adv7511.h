@@ -10,6 +10,7 @@
 #define __ADV7511_H__
 
 #include <linux/hdmi.h>
+#include <linux/gpio/consumer.h>
 
 #define ADV7511_REG_CHIP_REVISION		0x00
 #define ADV7511_REG_N0				0x01
@@ -61,7 +62,9 @@
 #define ADV7511_REG_AUDIO_INFOFRAME_LENGTH	0x71
 #define ADV7511_REG_AUDIO_INFOFRAME_CHECKSUM	0x72
 #define ADV7511_REG_AUDIO_INFOFRAME(x)		(0x73 + (x)) /* 0x73 - 0x7c */
-#define ADV7511_REG_INT_ENABLE(x)		(0x94 + (x))
+#define ADV7511_REG_INT_ENABLE0			0x92
+#define ADV7511_REG_INT_ENABLE1			0x94
+#define ADV7511_REG_INT_ENABLE2			0x95
 #define ADV7511_REG_INT(x)			(0x96 + (x))
 #define ADV7511_REG_INPUT_CLK_DIV		0x9d
 #define ADV7511_REG_PLL_STATUS			0x9e
@@ -90,7 +93,7 @@
 #define ADV7511_CSC_ENABLE			BIT(7)
 #define ADV7511_CSC_UPDATE_MODE			BIT(5)
 
-#define ADV7511_INT0_HDP			BIT(7)
+#define ADV7511_INT0_HPD			BIT(7)
 #define ADV7511_INT0_VSYNC			BIT(5)
 #define ADV7511_INT0_AUDIO_FIFO_FULL		BIT(4)
 #define ADV7511_INT0_EDID_READY			BIT(2)
@@ -110,6 +113,10 @@
 #define ADV7511_CEC_CTRL_POWER_DOWN		BIT(0)
 
 #define ADV7511_POWER_POWER_DOWN		BIT(6)
+
+#define ADV7511_HDMI_CFG_MODE_MASK		0x2
+#define ADV7511_HDMI_CFG_MODE_DVI		0x0
+#define ADV7511_HDMI_CFG_MODE_HDMI		0x2
 
 #define ADV7511_AUDIO_SELECT_I2C		0x0
 #define ADV7511_AUDIO_SELECT_SPDIF		0x1
@@ -153,11 +160,11 @@
 #define ADV7511_PACKET_ENABLE_SPARE2		BIT(1)
 #define ADV7511_PACKET_ENABLE_SPARE1		BIT(0)
 
-#define ADV7511_REG_POWER2_HDP_SRC_MASK		0xc0
-#define ADV7511_REG_POWER2_HDP_SRC_BOTH		0x00
-#define ADV7511_REG_POWER2_HDP_SRC_HDP		0x40
-#define ADV7511_REG_POWER2_HDP_SRC_CEC		0x80
-#define ADV7511_REG_POWER2_HDP_SRC_NONE		0xc0
+#define ADV7511_REG_POWER2_HPD_SRC_MASK		0xc0
+#define ADV7511_REG_POWER2_HPD_SRC_BOTH		0x00
+#define ADV7511_REG_POWER2_HPD_SRC_HPD		0x40
+#define ADV7511_REG_POWER2_HPD_SRC_CEC		0x80
+#define ADV7511_REG_POWER2_HPD_SRC_NONE		0xc0
 #define ADV7511_REG_POWER2_TDMS_ENABLE		BIT(4)
 #define ADV7511_REG_POWER2_GATE_INPUT_CLK	BIT(0)
 
@@ -184,6 +191,18 @@
 #define ADV7511_PACKET_ISRC2(x)	    ADV7511_PACKET(4, x)
 #define ADV7511_PACKET_GM(x)	    ADV7511_PACKET(5, x)
 #define ADV7511_PACKET_SPARE(x)	    ADV7511_PACKET(6, x)
+
+enum adv7511_input_clock {
+	ADV7511_INPUT_CLOCK_1X,
+	ADV7511_INPUT_CLOCK_2X,
+	ADV7511_INPUT_CLOCK_DDR,
+};
+
+enum adv7511_input_justification {
+	ADV7511_INPUT_JUSTIFICATION_EVENLY = 0,
+	ADV7511_INPUT_JUSTIFICATION_RIGHT = 1,
+	ADV7511_INPUT_JUSTIFICATION_LEFT = 2,
+};
 
 #include <drm/drmP.h>
 
@@ -226,18 +245,6 @@ enum adv7511_input_id {
 	ADV7511_INPUT_ID_8_10_12BIT_YCbCr422_SEPARATE_SYNC = 3,
 	ADV7511_INPUT_ID_8_10_12BIT_YCbCr422_EMBEDDED_SYNC = 4,
 	ADV7511_INPUT_ID_12_15_16BIT_RGB444_YCbCr444 = 5,
-};
-
-/**
- * enum adv7511_input_bit_justifiction - Selects the input format bit justifiction
- * ADV7511_INPUT_BIT_JUSTIFICATION_EVENLY: Input bits are evenly distributed
- * ADV7511_INPUT_BIT_JUSTIFICATION_RIGHT: Input bit signals have right justification
- * ADV7511_INPUT_BIT_JUSTIFICATION_LEFT: Input bit signals have left justification
- **/
-enum adv7511_input_bit_justifiction {
-	ADV7511_INPUT_BIT_JUSTIFICATION_EVENLY = 0,
-	ADV7511_INPUT_BIT_JUSTIFICATION_RIGHT = 1,
-	ADV7511_INPUT_BIT_JUSTIFICATION_LEFT = 2,
 };
 
 /**
@@ -290,18 +297,19 @@ enum adv7511_input_clock_delay {
 
 /**
  * enum adv7511_sync_polarity - Polarity for the input sync signals
- * ADV7511_SYNC_POLARITY_PASSTHROUGH:  Sync polarity matches that of the currently
- *				    configured mode.
- * ADV7511_SYNC_POLARITY_LOW:	    Sync polarity is low
- * ADV7511_SYNC_POLARITY_HIGH:	    Sync polarity is high
+ * @ADV7511_SYNC_POLARITY_PASSTHROUGH:  Sync polarity matches that of
+ *				       the currently configured mode.
+ * @ADV7511_SYNC_POLARITY_LOW:	    Sync polarity is low
+ * @ADV7511_SYNC_POLARITY_HIGH:	    Sync polarity is high
  *
- * If the polarity is set to either ADV7511_SYNC_POLARITY_LOW or
- * ADV7511_SYNC_POLARITY_HIGH the ADV7511 will internally invert the signal if
- * it is required to match the sync polarity setting for the currently selected
- * mode. If the polarity is set to ADV7511_SYNC_POLARITY_PASSTHROUGH, the ADV7511
- * will route the signal unchanged, this is useful if the upstream graphics core
- * will already generate the sync singals with the correct polarity.
- **/
+ * If the polarity is set to either LOW or HIGH the driver will configure the
+ * ADV7511 to internally invert the sync signal if required to match the sync
+ * polarity setting for the currently selected output mode.
+  *
+ * If the polarity is set to PASSTHROUGH, the ADV7511 will route the signal
+ * unchanged. This is used when the upstream graphics core already generates
+ * the sync signals with the correct polarity.
+ */
 enum adv7511_sync_polarity {
 	ADV7511_SYNC_POLARITY_PASSTHROUGH,
 	ADV7511_SYNC_POLARITY_LOW,
@@ -340,7 +348,7 @@ enum adv7511_up_conversion {
  * @sync_pulse:			Select the sync pulse
  * @clock_delay:		Clock delay for the input clock
  * @reverse_bitorder:		Reverse video input signal bitorder
- * @bit_justification:		Video input format bit justification
+ * @input_justification:		Video input format bit justification
  * @up_conversion:		Selects the upscaling conversion method
  * @input_color_depth:		Input video format color depth
  * @tmds_clock_inversion:	Whether to invert the TDMS clock
@@ -355,7 +363,7 @@ struct adv7511_link_config {
 	enum adv7511_input_sync_pulse sync_pulse;
 	enum adv7511_input_clock_delay clock_delay;
 	bool reverse_bitorder;
-	enum adv7511_input_bit_justifiction bit_justification;
+	enum adv7511_input_justification input_justification;
 	enum adv7511_up_conversion up_conversion;
 	enum adv7511_input_color_depth input_color_depth;
 	bool tmds_clock_inversion;
@@ -363,11 +371,14 @@ struct adv7511_link_config {
 
 	enum adv7511_sync_polarity vsync_polarity;
 	enum adv7511_sync_polarity hsync_polarity;
+
+	bool auto_csc_config;
+	bool rgb;
 };
 
 /**
 	adi,input-style = 1|2|3;
-	adi,input-id = 
+	adi,input-id =
 		"24-bit-rgb444-ycbcr444",
 		"16-20-24-bit-ycbcr422-separate-sync" |
 		"16-20-24-bit-ycbcr422-embedded-sync" |
@@ -391,7 +402,7 @@ struct adv7511_link_config {
  * @ADV7511_CSC_SCALING_1: CSC results are not scaled
  * @ADV7511_CSC_SCALING_2: CSC results are scaled by a factor of two
  * @ADV7511_CSC_SCALING_4: CSC results are scalled by a factor of four
- **/
+ */
 enum adv7511_csc_scaling {
 	ADV7511_CSC_SCALING_1 = 0,
 	ADV7511_CSC_SCALING_2 = 1,
@@ -405,7 +416,7 @@ enum adv7511_csc_scaling {
  * @csc_coefficents:		Color space conversion coefficents
  * @hdmi_mode:			Whether to use HDMI or DVI output mode
  * @avi_infoframe:		HDMI infoframe
- **/
+ */
 struct adv7511_video_config {
 	bool csc_enable;
 	enum adv7511_csc_scaling csc_scaling_factor;
@@ -440,10 +451,12 @@ struct adv7511 {
 	bool embedded_sync;
 	enum adv7511_sync_polarity vsync_polarity;
 	enum adv7511_sync_polarity hsync_polarity;
+	bool auto_csc_config;
+	bool rgb;
 
 	struct edid *edid;
-};
 
-struct edid *adv7511_get_edid(struct drm_encoder *encoder);
+	struct gpio_desc *gpio_pd;
+};
 
 #endif
