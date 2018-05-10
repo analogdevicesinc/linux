@@ -182,7 +182,7 @@ config AD5791
 	  module will be called ad5791.
 
 config AD7303
-	tristate "Analog Devices Analog Devices AD7303 DAC driver"
+	tristate "Analog Devices AD7303 DAC driver"
 	depends on SPI
 	select IIO_BUFFER
 	select IIO_TRIGGER
