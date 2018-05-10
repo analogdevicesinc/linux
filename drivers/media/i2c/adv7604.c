@@ -37,8 +37,6 @@
 #include <linux/v4l2-dv-timings.h>
 #include <linux/videodev2.h>
 #include <linux/workqueue.h>
-#include <linux/of_gpio.h>
-#include <linux/of_graph.h>
 #include <linux/interrupt.h>
 #include <linux/regmap.h>
 
@@ -1619,7 +1617,7 @@ static int adv76xx_query_dv_timings(struct v4l2_subdev *sd,
 
 		bt->width = hdmi_read16(sd, 0x07, info->linewidth_mask);
 		bt->height = hdmi_read16(sd, 0x09, info->field0_height_mask);
-		bt->pixelclock = adv76xx_read_hdmi_pixelclock(sd);
+		bt->pixelclock = info->read_hdmi_pixelclock(sd);
 		bt->hfrontporch = hdmi_read16(sd, 0x20, info->hfrontporch_mask);
 		bt->hsync = hdmi_read16(sd, 0x22, info->hsync_mask);
 		bt->hbackporch = hdmi_read16(sd, 0x24, info->hbackporch_mask);
