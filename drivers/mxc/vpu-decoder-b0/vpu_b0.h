@@ -41,7 +41,7 @@ extern unsigned int vpu_dbg_level_decoder;
 #define v4l2_ctrl_to_ctx(__ctrl) \
 	container_of((__ctrl)->handler, struct vpu_ctx, ctrl_handler)
 
-#define MIN_SPACE 2048
+#define MIN_SPACE 4096
 
 #define VPU_MAX_FORMATS 4
 #define VPU_MAX_BUFFER 32
@@ -228,6 +228,7 @@ struct vpu_ctx {
 	bool buffer_null;
 	bool firmware_stopped;
 	bool firmware_finished;
+	bool stream_feed_complete;
 	bool eos_stop_added;
 	wait_queue_head_t buffer_wq;
 	void *dpb_dma_virt;
