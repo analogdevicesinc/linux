@@ -169,12 +169,10 @@ static int adc_probe(struct platform_device *pdev)
 
 	ret = iio_device_register(indio_dev);
 	if (ret)
-		goto err_iio_unregister_buffer;
+		goto err_unconfigure_ring;
 
 	return 0;
 
-err_iio_unregister_buffer:
-	iio_buffer_unregister(indio_dev);
 err_unconfigure_ring:
 	if (st->streaming_dma)
 		axiadc_unconfigure_ring_stream(indio_dev);
@@ -189,7 +187,6 @@ static int adc_remove(struct platform_device *pdev)
 	struct iio_dev *indio_dev = platform_get_drvdata(pdev);
 
 	iio_device_unregister(indio_dev);
-	iio_buffer_unregister(indio_dev);
 	axiadc_unconfigure_ring(indio_dev);
 
 	return 0;
