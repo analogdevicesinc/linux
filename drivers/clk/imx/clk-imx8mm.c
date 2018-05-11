@@ -282,8 +282,8 @@ static const char *imx8mm_i2c3_sels[] = {"osc_24m", "sys_pll1_160m", "sys_pll2_5
 static const char *imx8mm_i2c4_sels[] = {"osc_24m", "sys_pll1_160m", "sys_pll2_50m", "sys_pll3_out", "audio_pll1_out",
 					 "video_pll1_out", "audio_pll2_out", "sys_pll1_133m", };
 
-static const char *imx8mm_uart1_sels[] = {"osc_24m", "sys1_pll_80m", "sys2_pll_200m", "sys2_pll_100m",
-					  "sys3_pll2_out", "clk_ext2", "clk_ext4", "audio_pll2_out", };
+static const char *imx8mm_uart1_sels[] = {"osc_24m", "sys_pll1_80m", "sys_pll2_200m", "sys_pll2_100m",
+					  "sys_pll3_out", "clk_ext2", "clk_ext4", "audio_pll2_out", };
 
 static const char *imx8mm_uart2_sels[] = {"osc_24m", "sys_pll1_80m", "sys_pll2_200m", "sys_pll2_100m",
 					  "sys_pll3_out", "clk_ext2", "clk_ext3", "audio_pll2_out", };
