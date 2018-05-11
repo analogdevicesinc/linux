@@ -209,9 +209,6 @@ int ad9371_register_axi_converter(struct ad9371_rf_phy *phy)
 		return -ENOMEM;
 
 	conv->chip_info = &axiadc_chip_info_tbl[ID_AD9371];
-	conv->adc_output_mode = OUTPUT_MODE_TWOS_COMPLEMENT;
-	conv->write = ad9371_spi_write;
-	conv->read = ad9371_spi_read;
 	conv->write_raw = ad9371_write_raw;
 	conv->read_raw = ad9371_read_raw;
 	conv->post_setup = ad9371_post_setup;
