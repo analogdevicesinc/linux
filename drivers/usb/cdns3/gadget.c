@@ -2217,7 +2217,7 @@ static int usb_ss_init_ep(struct usb_ss_dev *usb_ss)
 		if (bulk_ep_reg & (1uL << ep_reg_pos)) {
 			usb_ss_ep->endpoint.caps.type_bulk = 1;
 			usb_ss_ep->endpoint.caps.type_int = 1;
-			usb_ss_ep->endpoint.maxburst = 15;
+			usb_ss_ep->endpoint.maxburst = CDNS3_EP_BUF_SIZE - 1;
 		}
 
 		list_add_tail(&usb_ss_ep->endpoint.ep_list,
