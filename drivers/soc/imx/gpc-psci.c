@@ -330,6 +330,7 @@ exit:
 
 static const struct of_device_id imx_gpc_pm_domain_ids[] = {
 	{.compatible = "fsl,imx8mq-pm-domain"},
+	{.compatible = "fsl,imx8mm-pm-domain"},
 	{},
 };
 
