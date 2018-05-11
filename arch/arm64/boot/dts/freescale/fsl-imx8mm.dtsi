@@ -894,6 +894,36 @@
 		power-domains = <&vpu_g2_pd>;
 		status = "disabled";
 	};
+
+	gpu: gpu@38000000 {
+		compatible ="fsl,imx6q-gpu";
+		reg = <0x0 0x38000000 0x0 0x8000>, <0x0 0x38008000 0x0 0x8000>,
+                        <0x0 0x40000000 0x0 0x80000000>, <0x0 0x0 0x0 0x8000000>;
+		reg-names = "iobase_3d", "iobase_2d",
+                        "phys_baseaddr", "contiguous_mem";
+		interrupts = <GIC_SPI 3 IRQ_TYPE_LEVEL_HIGH>,
+                        <GIC_SPI 25 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "irq_3d", "irq_2d";
+		clocks = <&clk IMX8MM_CLK_GPU3D_ROOT>,
+			<&clk IMX8MM_CLK_DUMMY>,
+			<&clk IMX8MM_CLK_GPU_BUS_ROOT>,
+			<&clk IMX8MM_CLK_GPU_AHB_DIV>,
+			<&clk IMX8MM_CLK_GPU2D_ROOT>,
+			<&clk IMX8MM_CLK_GPU_BUS_ROOT>,
+			<&clk IMX8MM_CLK_GPU_AHB_DIV>;
+		clock-names = "gpu3d_clk", "gpu3d_shader_clk",
+                              "gpu3d_axi_clk", "gpu3d_ahb_clk",
+			      "gpu2d_clk", "gpu2d_axi_clk",
+                              "gpu2d_ahb_clk";
+
+		assigned-clocks = <&clk IMX8MM_CLK_GPU3D_SRC>, <&clk IMX8MM_CLK_GPU2D_SRC>, <&clk IMX8MM_CLK_GPU_AXI_SRC>, <&clk IMX8MM_CLK_GPU_AHB_SRC>,<&clk IMX8MM_GPU_PLL_OUT>;
+		assigned-clock-parents = <&clk IMX8MM_GPU_PLL_OUT>,<&clk IMX8MM_GPU_PLL_OUT>, <&clk IMX8MM_SYS_PLL1_800M>, <&clk IMX8MM_SYS_PLL1_800M>;
+		assigned-clock-rates = <0>, <0>, <0>,<0>,<1000000000>;
+
+		power-domains = <&gpu_mix_pd>;
+
+		status = "disabled";
+      };
 };
 
 &A53_0 {
