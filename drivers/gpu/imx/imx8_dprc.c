@@ -445,7 +445,11 @@ void dprc_configure(struct dprc *dprc, unsigned int stream_id,
 			p1_w = round_up(dprc_width, info->cpp[0] == 2 ? 8 : 4);
 			break;
 		case DRM_FORMAT_MOD_VIVANTE_SUPER_TILED:
-			p1_w = round_up(dprc_width, 64);
+			if (dprc->is_blit_chan && dprc->devtype->has_fixup)
+				p1_w = round_up(dprc_width,
+						info->cpp[0] == 2 ? 8 : 4);
+			else
+				p1_w = round_up(dprc_width, 64);
 			break;
 		default:
 			p1_w = round_up(dprc_width,
