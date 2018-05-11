@@ -54,6 +54,7 @@ static void vpu_api_event_handler(struct vpu_ctx *ctx, u_int32 uStrIdx, u_int32 
 static void v4l2_vpu_send_cmd(struct vpu_ctx *ctx, uint32_t idx, uint32_t cmdid, uint32_t cmdnum, uint32_t *local_cmddata);
 static void add_eos(struct vpu_ctx *ctx, u_int32 uStrBufIdx);
 static void v4l2_update_stream_addr(struct vpu_ctx *ctx, uint32_t uStrBufIdx);
+static int reset_vpu_firmware(struct vpu_dev *dev);
 
 static char *cmd2str[] = {
 	"VID_API_CMD_NULL",   /*0x0*/
@@ -601,7 +602,7 @@ static int v4l2_ioctl_reqbufs(struct file *file,
 				q_data->vb2_reqs[i].status = FRAME_ALLOC;
 			alloc_mbi_buffer(ctx, q_data, reqbuf->count);
 		}
-	} else
+	} else if (reqbuf->count != 0)
 		vpu_dbg(LVL_ERR, "error: %s() can't request (%d) buffer\n", __func__, reqbuf->count);
 
 	return ret;
@@ -838,7 +839,12 @@ static int v4l2_ioctl_streamoff(struct file *file,
 			v4l2_vpu_send_cmd(ctx, ctx->str_index, VID_API_CMD_ABORT, 0, NULL);
 
 			wake_up_interruptible(&ctx->buffer_wq);
-			wait_for_completion(&ctx->completion);
+			if (!wait_for_completion_timeout(&ctx->completion, msecs_to_jiffies(1000))) {
+				mutex_lock(&ctx->dev->dev_mutex);
+				set_bit(ctx->str_index, &ctx->dev->hang_mask);
+				mutex_unlock(&ctx->dev->dev_mutex);
+				vpu_dbg(LVL_ERR, "the path id:%d firmware hang after send VID_API_CMD_ABORT\n", ctx->str_index);
+			}
 			vpu_dbg(LVL_INFO, "receive abort done\n");
 		}
 	}
@@ -846,7 +852,10 @@ static int v4l2_ioctl_streamoff(struct file *file,
 	ret = vb2_streamoff(&q_data->vb2_q,
 			i);
 
-	return ret;
+	if (ctx->dev->hang_mask & (1 << ctx->str_index))
+		return -EINVAL;
+	else
+		return ret;
 }
 
 static const struct v4l2_ioctl_ops v4l2_decoder_ioctl_ops = {
@@ -1803,8 +1812,8 @@ static void vpu_api_event_handler(struct vpu_ctx *ctx, u_int32 uStrIdx, u_int32 
 		if (ctx->eos_stop_added) {
 			if (ctx->firmware_finished == false) {
 				vpu_dbg(LVL_INFO, "receive VID_API_EVENT_FINISHED\n");
-				v4l2_event_queue_fh(&ctx->fh, &ev); //notfiy app stream eos reached
 				ctx->firmware_finished = true;
+				v4l2_event_queue_fh(&ctx->fh, &ev); //notfiy app stream eos reached
 			} else	{
 				vpu_dbg(LVL_ERR, "receive VID_API_EVENT_FINISHED when ctx->firmware_finished == true - IGNORE\n");
 			}
@@ -1841,8 +1850,10 @@ static irqreturn_t fsl_vpu_mu_isr(int irq, void *This)
 	} else if (msg == 0x55) {
 		dev->firmware_started = true;
 		complete(&dev->start_cmp);
-	} else
+	} else {
+//		queue_work(dev->workqueue, &dev->msg_work);
 		schedule_work(&dev->msg_work);
+	}
 
 	return IRQ_HANDLED;
 }
@@ -1901,10 +1912,28 @@ static int vpu_mu_init(struct vpu_dev *dev)
 	return ret;
 }
 
+/*
+ * Add judge to find if it has available path to decode, if all
+ * path hang, reset vpu and then get one index
+ */
 static int vpu_next_free_instance(struct vpu_dev *dev)
 {
-	int idx = ffz(dev->instance_mask);
+	int count = 0;
+	unsigned long hang_mask = dev->hang_mask;
+	int idx;
 
+	while (hang_mask) {
+		if (hang_mask & 1)
+			count++;
+		hang_mask >>= 1;
+	}
+	if (count == VPU_MAX_NUM_STREAMS) {
+		dev->hang_mask = 0;
+		dev->instance_mask = 0;
+		reset_vpu_firmware(dev);
+	}
+
+	idx = ffz(dev->instance_mask);
 	if (idx < 0 || idx >= VPU_MAX_NUM_STREAMS)
 		return -EBUSY;
 
@@ -2355,7 +2384,12 @@ static int v4l2_release(struct file *filp)
 		wake_up_interruptible(&ctx->buffer_wq);  //workaround: to wakeup event handler who still may receive request frame after reset done
 		vpu_dbg(LVL_INFO, "v4l2_release() - send VID_API_CMD_STOP\n");
 		v4l2_vpu_send_cmd(ctx, ctx->str_index, VID_API_CMD_STOP, 0, NULL);
-		wait_for_completion(&ctx->stop_cmp);
+		if (!wait_for_completion_timeout(&ctx->stop_cmp, msecs_to_jiffies(1000))) {
+			mutex_lock(&dev->dev_mutex);
+			set_bit(ctx->str_index, &dev->hang_mask);
+			mutex_unlock(&dev->dev_mutex);
+			vpu_dbg(LVL_ERR, "the path id:%d firmware hang after send VID_API_CMD_STOP\n", ctx->str_index);
+		}
 	}
 
 	dev->ctx[ctx->str_index] = NULL;
@@ -2364,7 +2398,8 @@ static int v4l2_release(struct file *filp)
 	v4l2_fh_del(&ctx->fh);
 	v4l2_fh_exit(&ctx->fh);
 	mutex_lock(&dev->dev_mutex);
-	clear_bit(ctx->str_index, &dev->instance_mask);
+	if (!(dev->hang_mask & (1 << ctx->str_index))) // judge the path is hang or not, if hang, don't clear
+		clear_bit(ctx->str_index, &dev->instance_mask);
 	mutex_unlock(&dev->dev_mutex);
 
 	for (i = 0; i < MAX_DCP_NUM; i++)
@@ -2432,7 +2467,7 @@ static unsigned int v4l2_poll(struct file *filp, poll_table *wait)
 			rc |= POLLOUT | POLLWRNORM;
 		poll_wait(filp, &dst_q->done_wq, wait);
 		if (!list_empty(&dst_q->done_list))
-			rc |= POLLIN | POLLWRNORM;
+			rc |= POLLIN | POLLRDNORM;
 	} else
 		rc = POLLERR;
 
@@ -2480,7 +2515,7 @@ static struct video_device v4l2_videodevice_decoder = {
 	.ioctl_ops = &v4l2_decoder_ioctl_ops,
 	.vfl_dir = VFL_DIR_M2M,
 };
-#if 0
+#if 1
 static int set_vpu_pwr(sc_ipc_t ipcHndl,
 		sc_pm_power_mode_t pm
 		)
@@ -2494,45 +2529,10 @@ static int set_vpu_pwr(sc_ipc_t ipcHndl,
 		goto set_vpu_pwrexit;
 	}
 
-	// Power on or off PID0, DEC, ENC
-	sciErr = sc_pm_set_resource_power_mode(ipcHndl, SC_R_VPU_PID0, pm);
+	// Power on or off DEC, ENC MU
+	sciErr = sc_pm_set_resource_power_mode(ipcHndl, SC_R_VPU, pm);
 	if (sciErr != SC_ERR_NONE) {
-		vpu_dbg(LVL_ERR, "error: --- sc_pm_set_resource_power_mode(SC_R_VPU_PID0,%d) SCI error! (%d)\n", sciErr, pm);
-		goto set_vpu_pwrexit;
-	}
-	sciErr = sc_pm_set_resource_power_mode(ipcHndl, SC_R_VPU_PID1, pm);
-	if (sciErr != SC_ERR_NONE) {
-		vpu_dbg(LVL_ERR, "error: --- sc_pm_set_resource_power_mode(SC_R_VPU_PID1,%d) SCI error! (%d)\n", sciErr, pm);
-		goto set_vpu_pwrexit;
-	}
-	sciErr = sc_pm_set_resource_power_mode(ipcHndl, SC_R_VPU_PID2, pm);
-	if (sciErr != SC_ERR_NONE) {
-		vpu_dbg(LVL_ERR, "error: --- sc_pm_set_resource_power_mode(SC_R_VPU_PID2,%d) SCI error! (%d)\n", sciErr, pm);
-		goto set_vpu_pwrexit;
-	}
-	sciErr = sc_pm_set_resource_power_mode(ipcHndl, SC_R_VPU_PID3, pm);
-	if (sciErr != SC_ERR_NONE) {
-		vpu_dbg(LVL_ERR, "error: --- sc_pm_set_resource_power_mode(SC_R_VPU_PID3,%d) SCI error! (%d)\n", sciErr, pm);
-		goto set_vpu_pwrexit;
-	}
-	sciErr = sc_pm_set_resource_power_mode(ipcHndl, SC_R_VPU_PID4, pm);
-	if (sciErr != SC_ERR_NONE) {
-		vpu_dbg(LVL_ERR, "error: --- sc_pm_set_resource_power_mode(SC_R_VPU_PID4,%d) SCI error! (%d)\n", sciErr, pm);
-		goto set_vpu_pwrexit;
-	}
-	sciErr = sc_pm_set_resource_power_mode(ipcHndl, SC_R_VPU_PID5, pm);
-	if (sciErr != SC_ERR_NONE) {
-		vpu_dbg(LVL_ERR, "error: --- sc_pm_set_resource_power_mode(SC_R_VPU_PID5,%d) SCI error! (%d)\n", sciErr, pm);
-		goto set_vpu_pwrexit;
-	}
-	sciErr = sc_pm_set_resource_power_mode(ipcHndl, SC_R_VPU_PID6, pm);
-	if (sciErr != SC_ERR_NONE) {
-		vpu_dbg(LVL_ERR, "error: --- sc_pm_set_resource_power_mode(SC_R_VPU_PID6,%d) SCI error! (%d)\n", sciErr, pm);
-		goto set_vpu_pwrexit;
-	}
-	sciErr = sc_pm_set_resource_power_mode(ipcHndl, SC_R_VPU_PID7, pm);
-	if (sciErr != SC_ERR_NONE) {
-		vpu_dbg(LVL_ERR, "error: --- sc_pm_set_resource_power_mode(SC_R_VPU_PID7,%d) SCI error! (%d)\n", sciErr, pm);
+		vpu_dbg(LVL_ERR, "error: --- sc_pm_set_resource_power_mode(SC_R_VPU,%d) SCI error! (%d)\n", sciErr, pm);
 		goto set_vpu_pwrexit;
 	}
 #ifdef TEST_BUILD
@@ -2558,6 +2558,11 @@ static int set_vpu_pwr(sc_ipc_t ipcHndl,
 		goto set_vpu_pwrexit;
 	}
 #endif
+	sciErr = sc_pm_set_resource_power_mode(ipcHndl, SC_R_VPU_MU_0, pm);
+	if (sciErr != SC_ERR_NONE) {
+		vpu_dbg(LVL_ERR, "error: --- sc_pm_set_resource_power_mode(SC_R_VPU_MU_0,%d) SCI error! (%d)\n", sciErr, pm);
+		goto set_vpu_pwrexit;
+	}
 
 	rv = 0;
 
@@ -2619,6 +2624,8 @@ static int vpu_enable_hw(struct vpu_dev *This)
 		vpu_dbg(LVL_ERR, "vpu_clk get error\n");
 		return -ENOENT;
 	}
+	clk_set_rate(This->vpu_clk, 600000000);
+	clk_prepare_enable(This->vpu_clk);
 	vpu_setup(This);
 	return 0;
 }
@@ -2628,6 +2635,27 @@ static void vpu_disable_hw(struct vpu_dev *This)
 	if (This->vpu_clk) {
 		clk_put(This->vpu_clk);
 	}
+}
+
+static int reset_vpu_firmware(struct vpu_dev *dev)
+{
+	int ret = 0;
+
+	vpu_dbg(LVL_ALL, "RESET: reset_vpu_firmware\n");
+	vpu_set_power(dev, false);
+	usleep_range(1000, 1100);
+	vpu_set_power(dev, true);
+	dev->fw_is_ready = false;
+	dev->firmware_started = false;
+	vpu_enable_hw(dev);
+
+	rpc_init_shared_memory(&dev->shared_mem, dev->m0_rpc_phy - dev->m0_p_fw_space_phy, dev->m0_rpc_virt, SHARED_SIZE);
+	rpc_set_system_cfg_value(dev->shared_mem.pSharedInterface, VPU_REG_BASE);
+
+	MU_Init(dev->mu_base_virtaddr);
+	MU_EnableRxFullInt(dev->mu_base_virtaddr, 0);
+
+	return ret;
 }
 
 static int vpu_probe(struct platform_device *pdev)
@@ -2735,6 +2763,8 @@ static int vpu_probe(struct platform_device *pdev)
 	mutex_init(&dev->cmd_mutex);
 	init_completion(&dev->start_cmp);
 	dev->firmware_started = false;
+	dev->hang_mask = 0;
+	dev->instance_mask = 0;
 
 	dev->fw_is_ready = false;
 	dev->workqueue = alloc_workqueue("vpu", WQ_UNBOUND | WQ_MEM_RECLAIM, 1);

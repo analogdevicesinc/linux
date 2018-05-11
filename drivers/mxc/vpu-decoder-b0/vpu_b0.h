@@ -193,6 +193,7 @@ struct vpu_dev {
 	struct workqueue_struct *workqueue;
 	struct work_struct msg_work;
 	unsigned long instance_mask;
+	unsigned long hang_mask; //this is used to deal with hang issue to reset firmware
 	sc_ipc_t mu_ipcHandle;
 	struct clk *vpu_clk;
 	void __iomem *mu_base_virtaddr;
