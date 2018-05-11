@@ -52,7 +52,7 @@
 			adi,extended-name = "ADC_CLK_FMC";
 			adi,driver-mode = <3>;
 			adi,divider-phase = <1>;
-			adi,channel-divider = <4>;
+			adi,channel-divider = <2>;
 //			adi,output-dis;
 		};
 
@@ -106,7 +106,7 @@
 			adi,extended-name = "ADC_CLK";
 			adi,driver-mode = <3>;
 			adi,divider-phase = <1>;
-			adi,channel-divider = <2>;
+			adi,channel-divider = <1>;
 //			adi,output-dis;
 		};
 	};
