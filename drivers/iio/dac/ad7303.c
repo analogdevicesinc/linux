@@ -293,7 +293,7 @@ static int ad7303_probe(struct spi_device *spi)
 
 	if (spi->dev.of_node) {
 		ext_ref = of_property_read_bool(spi->dev.of_node,
-				"REF-supply");
+				"adi,use-external-reference");
 	} else {
 		struct ad7303_platform_data *pdata = spi->dev.platform_data;
 		if (pdata && pdata->use_external_ref)
