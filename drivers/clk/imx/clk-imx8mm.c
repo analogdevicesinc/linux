@@ -165,7 +165,7 @@ static const char *imx8mm_vpu_bus_sels[] = {"osc_24m", "sys_pll1_800m", "vpu_pll
 static const char *imx8mm_disp_axi_sels[] = {"osc_24m", "sys_pll2_1000m", "sys_pll1_800m", "sys_pll3_out",
 					     "sys_pll1_40m", "audio_pll2_out", "clk_ext1", "clk_ext4", };
 
-static const char *imx8mm_disp_apb_sels[] = {"osc_24m", "sys_pll2_125m", "sys1_pll_800m", "sys_pll3_out",
+static const char *imx8mm_disp_apb_sels[] = {"osc_24m", "sys_pll2_125m", "sys_pll1_800m", "sys_pll3_out",
 					     "sys1_pll_40m", "audio_pll2_out", "clk_ext1", "clk_ext3", };
 
 static const char *imx8mm_disp_rtrm_sels[] = {"osc_24m", "sys_pll1_800m", "sys_pll2_200m", "sys_pll2_1000m",
@@ -261,7 +261,7 @@ static const char *imx8mm_enet_phy_sels[] = {"osc_24m", "sys_pll2_50m", "sys_pll
 static const char *imx8mm_nand_sels[] = {"osc_24m", "sys_pll2_500m", "audio_pll1_out", "sys_pll1_400m",
 					 "audio_pll2_out", "sys_pll3_out", "sys_pll2_250m", "video_pll1_out", };
 
-static const char *imx8mm_qspi_sels[] = {"osc_24m", "sys1_pll_400m", "sys1_pll_800m", "sys2_pll_500m",
+static const char *imx8mm_qspi_sels[] = {"osc_24m", "sys1_pll_400m", "sys_pll1_800m", "sys2_pll_500m",
 					 "audio_pll2_out", "sys1_pll_266m", "sys3_pll2_out", "sys1_pll_100m", };
 
 static const char *imx8mm_usdhc1_sels[] = {"osc_24m", "sys_pll1_400m", "sys_pll1_800m", "sys_pll2_500m",
