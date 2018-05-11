@@ -121,6 +121,8 @@ void dpu_be_configure_prefetch(struct dpu_bliteng *dpu_be,
 	}
 
 	dpu_be_wait(dpu_be);
+	dpu_cs_wait_idle(dpu_be);
+	udelay(10);
 
 	if (need_handle_start) {
 		dprc_first_frame_handle(dprc);
