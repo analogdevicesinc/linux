@@ -3742,13 +3742,13 @@ static int ad9371_probe(struct spi_device *spi)
 	}
 
 	ad9371_clk_register(phy, "-rx_sampl_clk", NULL, NULL,
-			    CLK_GET_RATE_NOCACHE | CLK_IGNORE_UNUSED | CLK_IS_ROOT, RX_SAMPL_CLK);
+			    CLK_GET_RATE_NOCACHE | CLK_IGNORE_UNUSED , RX_SAMPL_CLK);
 
 	ad9371_clk_register(phy, "-obs_sampl_clk", NULL, NULL,
-			    CLK_GET_RATE_NOCACHE | CLK_IGNORE_UNUSED | CLK_IS_ROOT, OBS_SAMPL_CLK);
+			    CLK_GET_RATE_NOCACHE | CLK_IGNORE_UNUSED, OBS_SAMPL_CLK);
 
 	ad9371_clk_register(phy, "-tx_sampl_clk", NULL, NULL,
-			    CLK_GET_RATE_NOCACHE | CLK_IGNORE_UNUSED | CLK_IS_ROOT, TX_SAMPL_CLK);
+			    CLK_GET_RATE_NOCACHE | CLK_IGNORE_UNUSED, TX_SAMPL_CLK);
 
 	phy->clk_data.clks = phy->clks;
 	phy->clk_data.clk_num = NUM_AD9371_CLKS;
