@@ -80,6 +80,9 @@
 				SC_R_MU_2A
 				>;
 			pads = <
+				/* i2c1_lvds1 */
+				SC_P_LVDS1_I2C1_SCL
+				SC_P_LVDS1_I2C1_SDA
 				/* emmc */
 				SC_P_EMMC0_CLK
 				SC_P_EMMC0_CMD
