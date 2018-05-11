@@ -438,7 +438,7 @@
 #define	IMX8MM_CLK_WDOG2_ROOT                   426
 #define	IMX8MM_CLK_WDOG3_ROOT                   427
 #define	IMX8MM_CLK_VPU_G1_ROOT                  428
-#define	IMX8MM_CLK_GPU_ROOT                     429
+#define	IMX8MM_CLK_GPU_BUS_ROOT                 429
 #define	IMX8MM_CLK_VPU_H1_ROOT                  430
 #define	IMX8MM_CLK_VPU_G2_ROOT                  431
 #define	IMX8MM_CLK_PDM_ROOT                     432
@@ -455,6 +455,7 @@
 #define	IMX8MM_CLK_GPT_3M                       443
 #define	IMX8MM_CLK_ARM                          444
 #define	IMX8MM_CLK_PDM_IPG			445
+#define	IMX8MM_CLK_GPU2D_ROOT			446
 
-#define	IMX8MM_CLK_END				446
+#define	IMX8MM_CLK_END				447
 #endif
