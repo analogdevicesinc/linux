@@ -372,7 +372,7 @@ void dprc_configure(struct dprc *dprc, unsigned int stream_id,
 	unsigned int prg_stride = width * info->cpp[0];
 	unsigned int bpp = 8 * info->cpp[0];
 	unsigned int preq;
-	unsigned int mt_w = 0, mt_h = 0;	/* w/h in a micro-tile */
+	unsigned int mt_w = 1, mt_h = 0;	/* w/h in a micro-tile */
 	u32 val;
 
 	if (WARN_ON(!dprc))
@@ -582,6 +582,9 @@ void dprc_configure(struct dprc *dprc, unsigned int stream_id,
 			dprc_write(dprc, val, SYSTEM_CTRL0);
 		}
 	}
+
+	if (dprc->is_blit_chan && dprc->devtype->has_fixup)
+		prg_stride = (width  + (x_offset % mt_w)) * info->cpp[0];
 
 	prg_configure(dprc->prgs[0], width, height, x_offset, y_offset,
 			prg_stride, bpp, baddr, format, modifier, start);
