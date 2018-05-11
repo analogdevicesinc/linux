@@ -68,6 +68,7 @@ struct fsl_dsp {
 	unsigned long			sram;
 	void			        *sdram_vir_addr;
 	unsigned long			sdram_phys_addr;
+	int				sdram_reserved_size;
 	void				*msg_buf_virt;
 	dma_addr_t			 msg_buf_phys;
 	int				 msg_buf_size;
@@ -107,27 +108,6 @@ struct fsl_dsp {
 #define INPUT_BUF_SIZE		4096
 #define OUTPUT_BUF_SIZE		16384
 #define DSP_CONFIG_SIZE    4096
-
-/*external buffer
- *  ----------------------------------------------------------------------
- *  |  name                      | size     |   description     |
- * -----------------------------------------------------------------------
- *  |  scratch buffer for malloc | 0xffffff | For MEM_scratch_malloc()
- * ------------------------------------------------------------------------
- *  |  global structure          | 4096     | For store dsp config structure
- * ------------------------------------------------------------------------
- */
-
-#define MEMORY_REMAP_OFFSET	0x39000000
-
-/* reserved memory for dsp firmware and core libs to
- * save their instruction/data section in SDRAM, the physical
- * address range is 0x8e000000 ~ 0x8fffffff (32M bytes).
- */
-#define SDRAM_BASE_ADDR  0x8e000000
-#define SDRAM_BASE_SIZE  0x1ffffff
-#define SDRAM_CODEC_LIB_OFFSET 0x1000000
-#define SDRAM_SCRATCH_BUF_SIZE 0xffffff
 
 #define SC_C_OFS_SEL    39
 #define SC_C_OFS_AUDIO  40

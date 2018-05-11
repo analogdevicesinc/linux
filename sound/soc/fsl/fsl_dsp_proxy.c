@@ -282,7 +282,7 @@ irqreturn_t fsl_dsp_mu_isr(int irq, void *dev_id)
 /* ...NULL-address specification */
 #define XF_PROXY_NULL           (~0U)
 
-#define XF_PROXY_BADADDR  SDRAM_SCRATCH_BUF_SIZE
+#define XF_PROXY_BADADDR        (dsp_priv->scratch_buf_size)
 
 /* ...shared memory translation - kernel virtual address to shared address */
 u32 xf_proxy_b2a(struct xf_proxy *proxy, void *b)
@@ -293,7 +293,7 @@ u32 xf_proxy_b2a(struct xf_proxy *proxy, void *b)
 	if (b == NULL)
 		return XF_PROXY_NULL;
 	else if ((u32)(b - dsp_priv->scratch_buf_virt) <
-					SDRAM_SCRATCH_BUF_SIZE)
+					dsp_priv->scratch_buf_size)
 		return (u32)(b - dsp_priv->scratch_buf_virt);
 	else
 		return XF_PROXY_BADADDR;
@@ -305,7 +305,7 @@ void *xf_proxy_a2b(struct xf_proxy *proxy, u32 address)
 	struct fsl_dsp *dsp_priv = container_of(proxy,
 					struct fsl_dsp, proxy);
 
-	if (address < SDRAM_SCRATCH_BUF_SIZE)
+	if (address < dsp_priv->scratch_buf_size)
 		return dsp_priv->scratch_buf_virt + address;
 	else if (address == XF_PROXY_NULL)
 		return NULL;
