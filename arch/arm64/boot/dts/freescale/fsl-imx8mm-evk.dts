@@ -25,6 +25,14 @@
 		stdout-patch = &uart2;
 	};
 
+	modem_reset: modem-reset {
+		compatible = "gpio-reset";
+		reset-gpios = <&gpio2 6 GPIO_ACTIVE_LOW>;
+		reset-delay-us = <2000>;
+		reset-post-delay-ms = <40>;
+		#reset-cells = <0>;
+	};
+
 	reg_usdhc2_vmmc: regulator-usdhc2 {
 		compatible = "regulator-fixed";
 		regulator-name = "VSD_3V3";
@@ -86,10 +94,29 @@
 			>;
 		};
 
-		pinctrl_uart2: uart1grp {
+		pinctrl_uart1: uart1grp {
 			fsl,pins = <
-				MX8MM_IOMUXC_UART2_RXD_UART2_DCE_RX	0x49
-				MX8MM_IOMUXC_UART2_TXD_UART2_DCE_TX	0x49
+				MX8MM_IOMUXC_UART1_RXD_UART1_DCE_RX	0x140
+				MX8MM_IOMUXC_UART1_TXD_UART1_DCE_TX	0x140
+				MX8MM_IOMUXC_UART3_RXD_UART1_DCE_CTS_B	0x140
+				MX8MM_IOMUXC_UART3_TXD_UART1_DCE_RTS_B	0x140
+				MX8MM_IOMUXC_SD1_DATA4_GPIO2_IO6	0x19
+			>;
+		};
+
+		pinctrl_uart2: uart2grp {
+			fsl,pins = <
+				MX8MM_IOMUXC_UART2_RXD_UART2_DCE_RX	0x140
+				MX8MM_IOMUXC_UART2_TXD_UART2_DCE_TX	0x140
+			>;
+		};
+
+		pinctrl_uart3: uart3grp {
+			fsl,pins = <
+				MX8MM_IOMUXC_ECSPI1_SCLK_UART3_DCE_RX		0x140
+				MX8MM_IOMUXC_ECSPI1_MOSI_UART3_DCE_TX		0x140
+				MX8MM_IOMUXC_ECSPI1_SS0_UART3_DCE_RTS_B		0x140
+				MX8MM_IOMUXC_ECSPI1_MISO_UART3_DCE_CTS_B	0x140
 			>;
 		};
 
@@ -383,9 +410,26 @@
 	};
 };
 
+&uart1 { /* BT */
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_uart1>;
+	assigned-clocks = <&clk IMX8MM_CLK_UART1_SRC>;
+	assigned-clock-parents = <&clk IMX8MM_SYS_PLL1_80M>;
+	resets = <&modem_reset>;
+	status = "okay";
+};
+
 &uart2 { /* console */
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_uart2>;
+	status = "okay";
+};
+
+&uart3 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_uart3>;
+	assigned-clocks = <&clk IMX8MM_CLK_UART3_SRC>;
+	assigned-clock-parents = <&clk IMX8MM_SYS_PLL1_80M>;
 	status = "okay";
 };
 

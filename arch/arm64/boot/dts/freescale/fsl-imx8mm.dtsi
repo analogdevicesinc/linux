@@ -35,6 +35,7 @@
 		serial0 = &uart1;
 		serial1 = &uart2;
 		serial2 = &uart3;
+		serial3 = &uart4;
 		mmc0 = &usdhc1;
 		mmc1 = &usdhc2;
 		mmc2 = &usdhc3;
@@ -367,6 +368,8 @@
 		clocks = <&clk IMX8MM_CLK_UART1_ROOT>,
 			<&clk IMX8MM_CLK_UART1_ROOT>;
 		clock-names = "ipg", "per";
+		dmas = <&sdma1 22 4 0>, <&sdma1 23 4 0>;
+		dma-names = "rx", "tx";
 		status = "disabled";
 	};
 
@@ -379,6 +382,8 @@
 		clocks = <&clk IMX8MM_CLK_UART3_ROOT>,
 			<&clk IMX8MM_CLK_UART3_ROOT>;
 		clock-names = "ipg", "per";
+		dmas = <&sdma1 26 4 0>, <&sdma1 27 4 0>;
+		dma-names = "rx", "tx";
 		status = "disabled";
 	};
 
@@ -431,6 +436,19 @@
 		reg = <0x0 0x30a50000 0x0 0x10000>;
 		interrupts = <GIC_SPI 38 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&clk IMX8MM_CLK_I2C4_ROOT>;
+		status = "disabled";
+	};
+
+	uart4: serial@30a60000 {
+		compatible = "fsl,imx8mq-uart",
+			     "fsl,imx6q-uart", "fsl,imx21-uart";
+		reg = <0x0 0x30a60000 0x0 0x10000>;
+		interrupts = <GIC_SPI 29 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clk IMX8MM_CLK_UART4_ROOT>,
+			<&clk IMX8MM_CLK_UART4_ROOT>;
+		clock-names = "ipg", "per";
+		dmas = <&sdma1 28 4 0>, <&sdma1 29 4 0>;
+		dma-names = "rx", "tx";
 		status = "disabled";
 	};
 
