@@ -739,7 +739,6 @@ static int ad9517_setup(struct ad9517_state *st)
 		st->output[OUT_7].parent_name =
 		st->div0123_clk_parent_name;
 
-
 	st->div0123_freq = div0123_freq;
 	st->vco_divin_freq = vco_divin_freq;
 
