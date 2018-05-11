@@ -1103,7 +1103,12 @@ static inline int get_power_imx6(struct device *pdev)
             clk_axi = NULL;
             printk("galcore: clk_get 2d axi clock failed, disable 2d\n");
         }
+        clk_ahb = clk_get(pdev, "gpu2d_ahb_clk");
+        if (IS_ERR(clk_ahb)) {
+            clk_ahb = NULL;
+        }
 
+        priv->imx_gpu_clks[gcvCORE_2D].clk_ahb = clk_ahb;
         priv->imx_gpu_clks[gcvCORE_2D].clk_core = clk_core;
         priv->imx_gpu_clks[gcvCORE_2D].clk_axi = clk_axi;
 
