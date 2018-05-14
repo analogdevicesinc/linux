@@ -19,6 +19,8 @@ config MXC_SIM
 source "drivers/mxc/sim/Kconfig"
 
 if ARCH_MXC_ARM64
+source "drivers/mxc/hantro_845/Kconfig"
+source "drivers/mxc/hantro_845_h1/Kconfig"
 source "drivers/mxc/vpu-malone/Kconfig"
 source "drivers/mxc/vpu-decoder-b0/Kconfig"
 source "drivers/mxc/vpu-encoder-b0/Kconfig"
