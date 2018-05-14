@@ -51,6 +51,7 @@ dtb-$(CONFIG_ARCH_FSL_IMX8QXP) += fsl-imx8qxp-lpddr4-arm2.dtb \
 				  fsl-imx8qxp-mek-enet2.dtb \
 				  fsl-imx8qxp-mek-enet2-tja1100.dtb \
 				  fsl-imx8qxp-mek-dsi-rm67191.dtb \
+				  fsl-imx8qxp-mek-a0.dtb \
 				  fsl-imx8qxp-lpddr4-arm2-enet2.dtb \
 				  fsl-imx8qxp-lpddr4-arm2-enet2-tja1100.dtb \
 				  fsl-imx8qxp-lpddr4-arm2-gpmi-nand.dtb \
@@ -59,7 +60,8 @@ dtb-$(CONFIG_ARCH_FSL_IMX8QXP) += fsl-imx8qxp-lpddr4-arm2.dtb \
 				  fsl-imx8qxp-lpddr4-arm2-mlb.dtb \
 				  fsl-imx8qxp-lpddr4-arm2-mqs.dtb \
 				  fsl-imx8qxp-lpddr4-arm2-wm8962.dtb \
-				  fsl-imx8qxp-lpddr4-arm2-dsi-rm67191.dtb
+				  fsl-imx8qxp-lpddr4-arm2-dsi-rm67191.dtb \
+				  fsl-imx8qxp-lpddr4-arm2-a0.dtb
 dtb-$(CONFIG_ARCH_FSL_IMX8MQ) += fsl-imx8mq-ddr3l-arm2.dtb \
 				 fsl-imx8mq-ddr4-arm2.dtb \
 				 fsl-imx8mq-ddr4-arm2-gpmi-nand.dtb \
