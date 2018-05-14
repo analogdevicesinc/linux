@@ -111,6 +111,18 @@
 			>;
 		};
 
+		pinctrl_typec1: typec1grp {
+			fsl,pins = <
+				MX8MM_IOMUXC_SD1_STROBE_GPIO2_IO11	0x159
+			>;
+		};
+
+		pinctrl_typec2: typec2grp {
+			fsl,pins = <
+				MX8MM_IOMUXC_SD2_CD_B_GPIO2_IO12	0x159
+			>;
+		};
+
 		pinctrl_uart1: uart1grp {
 			fsl,pins = <
 				MX8MM_IOMUXC_UART1_RXD_UART1_DCE_RX	0x140
@@ -435,6 +447,44 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_i2c2>;
 	status = "okay";
+
+	typec1_ptn5110: tcpci@50 {
+		compatible = "usb,tcpci";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_typec1>;
+		reg = <0x50>;
+		interrupt-parent = <&gpio2>;
+		interrupts = <11 8>;
+		src-pdos = <0x380190c8>;
+		snk-pdos = <0x380190c8>;
+		/* Only can sink 5V for safe */
+		max-snk-mv = <5000>;
+		max-snk-ma = <3000>;
+		op-snk-mw = <10000>;
+		max-snk-mw = <15000>;
+		port-type = "drp";
+		default-role = "sink";
+		status = "okay";
+	};
+
+	typec2_ptn5110: tcpci@52 {
+		compatible = "usb,tcpci";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_typec2>;
+		reg = <0x52>;
+		interrupt-parent = <&gpio2>;
+		interrupts = <12 8>;
+		src-pdos = <0x380190c8>;
+		snk-pdos = <0x380190c8>;
+		/* Only can sink 5V for safe */
+		max-snk-mv = <5000>;
+		max-snk-ma = <3000>;
+		op-snk-mw = <10000>;
+		max-snk-mw = <15000>;
+		port-type = "drp";
+		default-role = "sink";
+		status = "disabled";
+	};
 };
 
 &i2c3 {
@@ -487,6 +537,18 @@
 	assigned-clocks = <&clk IMX8MM_CLK_UART3_SRC>;
 	assigned-clock-parents = <&clk IMX8MM_SYS_PLL1_80M>;
 	status = "okay";
+};
+
+&usbotg1 {
+	dr_mode = "otg";
+	extcon = <0>, <&typec1_ptn5110>;
+	status = "okay";
+};
+
+&usbotg2 {
+	dr_mode = "otg";
+	extcon = <0>, <&typec2_ptn5110>;
+	status = "disabled";
 };
 
 &usdhc1 {
