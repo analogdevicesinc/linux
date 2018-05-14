@@ -55,6 +55,9 @@
 		 *                            freq range is limited by ad936x
 		 * band_1: gpios = <0 0>; High for RX 40-435 MHz (Bandpass)
 		 */
+		gpio-line-names = "band_1", "band_0", "band_0_2_3",
+			"lna_bias_3", "lna_bias_2", "lna_bias_1",
+			"rx_ant_2", "rx_ant_1";
 	};
 
 	tca6408_u21: gpio@20 {
@@ -79,6 +82,10 @@
 		 *                                  HI_Z input to isolate i2c
 		 *                                  from host SMBus
 		 */
+
+		gpio-line-names = "en_ext_i2c_3v3_n", "rfic_reset_n",
+			"tx_band_1", "tx_band_0", "lna_sw", "band_4",
+			"band_3", "band_2";
 
 		lna_sw {
 			gpio-hog;
