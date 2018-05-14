@@ -35,6 +35,8 @@
 #define FSL_SAI_FLAGS (FSL_SAI_CSR_SEIE |\
 		       FSL_SAI_CSR_FEIE)
 
+#define FSL_SAI_VERID_0301	0x0301
+
 static struct fsl_sai_soc_data fsl_sai_vf610 = {
 	.imx = false,
 	/*dataline is mask, not index*/
@@ -426,6 +428,48 @@ static int fsl_sai_set_dai_fmt(struct snd_soc_dai *cpu_dai, unsigned int fmt)
 	return ret;
 }
 
+static int fsl_sai_check_ver(struct snd_soc_dai *cpu_dai)
+{
+	struct fsl_sai *sai = dev_get_drvdata(cpu_dai->dev);
+	unsigned char offset = sai->soc->reg_offset;
+	unsigned int val;
+
+	if (FSL_SAI_TCSR(offset) == FSL_SAI_VERID)
+		return 0;
+
+	if (sai->verid.loaded)
+		return 0;
+
+	sai->verid.loaded = true;
+	regmap_read(sai->regmap, FSL_SAI_VERID, &val);
+	dev_dbg(cpu_dai->dev, "VERID: 0x%016X\n", val);
+
+	sai->verid.id = (val & FSL_SAI_VER_ID_MASK) >> FSL_SAI_VER_ID_SHIFT;
+	sai->verid.extfifo_en = (val & FSL_SAI_VER_EFIFO_EN);
+	sai->verid.timestamp_en = (val & FSL_SAI_VER_TSTMP_EN);
+
+	regmap_read(sai->regmap, FSL_SAI_PARAM, &val);
+	dev_dbg(cpu_dai->dev, "PARAM: 0x%016X\n", val);
+
+	/* max slots per frame, power of 2 */
+	sai->param.spf = 1 <<
+		((val & FSL_SAI_PAR_SPF_MASK) >> FSL_SAI_PAR_SPF_SHIFT);
+
+	/* words per fifo, power of 2 */
+	sai->param.wpf = 1 <<
+		((val & FSL_SAI_PAR_WPF_MASK) >> FSL_SAI_PAR_WPF_SHIFT);
+
+	/* number of datalines implemented */
+	sai->param.dln = val & FSL_SAI_PAR_DLN_MASK;
+
+	dev_dbg(cpu_dai->dev,
+		"Version: 0x%08X, SPF: %u, WPF: %u, DLN: %u\n",
+		sai->verid.id, sai->param.spf, sai->param.wpf, sai->param.dln
+	);
+
+	return 0;
+}
+
 static int fsl_sai_set_bclk(struct snd_soc_dai *dai, bool tx, u32 freq)
 {
 	struct fsl_sai *sai = snd_soc_dai_get_drvdata(dai);
@@ -504,6 +548,15 @@ static int fsl_sai_set_bclk(struct snd_soc_dai *dai, bool tx, u32 freq)
 				   FSL_SAI_CR2_MSEL(sai->mclk_id[tx]));
 		regmap_update_bits(sai->regmap, FSL_SAI_TCR2(offset),
 				   FSL_SAI_CR2_DIV_MASK, savediv - 1);
+	}
+
+	fsl_sai_check_ver(dai);
+	switch (sai->verid.id) {
+	case FSL_SAI_VERID_0301:
+		/* SAI is in master mode at this point, so enable MCLK */
+		regmap_update_bits(sai->regmap, FSL_SAI_MCTL,
+				FSL_SAI_MCTL_MCLK_EN, FSL_SAI_MCTL_MCLK_EN);
+		break;
 	}
 
 	dev_dbg(dai->dev, "best fit: clock id=%d, div=%d, deviation =%d\n",
@@ -996,6 +1049,8 @@ static struct reg_default fsl_sai_v3_reg_defaults[] = {
 	{FSL_SAI_RCR4(8), 0},
 	{FSL_SAI_RCR5(8), 0},
 	{FSL_SAI_RMR,  0},
+	{FSL_SAI_MCTL, 0},
+	{FSL_SAI_MDIV, 0},
 };
 
 static bool fsl_sai_readable_reg(struct device *dev, unsigned int reg)
@@ -1036,6 +1091,10 @@ static bool fsl_sai_readable_reg(struct device *dev, unsigned int reg)
 	case FSL_SAI_RFR6:
 	case FSL_SAI_RFR7:
 	case FSL_SAI_RMR:
+	case FSL_SAI_MCTL:
+	case FSL_SAI_MDIV:
+	case FSL_SAI_VERID:
+	case FSL_SAI_PARAM:
 		return true;
 	default:
 		return false;
@@ -1051,6 +1110,8 @@ static bool fsl_sai_volatile_reg(struct device *dev, unsigned int reg)
 		return true;
 
 	switch (reg) {
+	case FSL_SAI_VERID:
+	case FSL_SAI_PARAM:
 	case FSL_SAI_TFR0:
 	case FSL_SAI_TFR1:
 	case FSL_SAI_TFR2:
@@ -1103,6 +1164,8 @@ static bool fsl_sai_writeable_reg(struct device *dev, unsigned int reg)
 	case FSL_SAI_TDR7:
 	case FSL_SAI_TMR:
 	case FSL_SAI_RMR:
+	case FSL_SAI_MCTL:
+	case FSL_SAI_MDIV:
 		return true;
 	default:
 		return false;
@@ -1128,7 +1191,7 @@ static const struct regmap_config fsl_sai_v3_regmap_config = {
 	.reg_stride = 4,
 	.val_bits = 32,
 
-	.max_register = FSL_SAI_RMR,
+	.max_register = FSL_SAI_MDIV,
 	.reg_defaults = fsl_sai_v3_reg_defaults,
 	.num_reg_defaults = ARRAY_SIZE(fsl_sai_v3_reg_defaults),
 	.readable_reg = fsl_sai_readable_reg,
