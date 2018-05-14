@@ -149,6 +149,7 @@
 /* 18KB is the total size, and 2KB is used for EP0 and configuration */
 #define CDNS3_ONCHIP_BUF_SIZE	16	/* KB */
 #define CDNS3_EP_BUF_SIZE	2	/* KB */
+#define CDNS3_UNALIGNED_BUF_SIZE	16384 /* Bytes */
 /*-------------------------------------------------------------------------*/
 /* Used structs */
 

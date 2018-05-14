@@ -414,9 +414,14 @@ static int cdns_ep_run_transfer(struct usb_ss_endpoint *usb_ss_ep)
 	trb_dma = request->dma;
 
 	/* must allocate buffer aligned to 8 */
-	if (request->dma % ADDR_MODULO_8) {
-		memcpy(usb_ss_ep->cpu_addr, request->buf, request->length);
-		trb_dma = usb_ss_ep->dma_addr;
+	if ((request->dma % ADDR_MODULO_8)) {
+		if (request->length <= CDNS3_UNALIGNED_BUF_SIZE) {
+			memcpy(usb_ss_ep->cpu_addr, request->buf,
+				request->length);
+			trb_dma = usb_ss_ep->dma_addr;
+		} else {
+			return -ENOMEM;
+		}
 	}
 
 	trb = usb_ss_ep->trb_pool;
@@ -1005,6 +1010,11 @@ static int cdns_check_ep_interrupt_proceed(struct usb_ss_endpoint *usb_ss_ep)
 		request = next_request(&usb_ss_ep->request_list);
 		if (!request)
 			return 0;
+
+		if ((request->dma % ADDR_MODULO_8) &&
+				(usb_ss_ep->dir == USB_DIR_OUT))
+			memcpy(request->buf, usb_ss_ep->cpu_addr,
+					request->length);
 
 		usb_gadget_unmap_request_by_dev(usb_ss->sysdev, request,
 			usb_ss_ep->endpoint.desc->bEndpointAddress
@@ -1605,9 +1615,9 @@ static int usb_ss_gadget_ep_enable(struct usb_ep *ep,
 		return ret;
 
 	if (!usb_ss_ep->cpu_addr) {
-		usb_ss_ep->cpu_addr = dma_alloc_coherent(usb_ss->sysdev, 4096,
-			&usb_ss_ep->dma_addr, GFP_DMA);
-
+		usb_ss_ep->cpu_addr = dma_alloc_coherent(usb_ss->sysdev,
+				CDNS3_UNALIGNED_BUF_SIZE,
+				&usb_ss_ep->dma_addr, GFP_DMA);
 		if (!usb_ss_ep->cpu_addr)
 			return -ENOMEM;
 	}
@@ -1711,8 +1721,8 @@ static void usb_ss_free_trb_pool(struct usb_ss_endpoint *usb_ss_ep)
 	}
 
 	if (usb_ss_ep->cpu_addr) {
-		dma_free_coherent(usb_ss->sysdev, 4096, usb_ss_ep->cpu_addr,
-			usb_ss_ep->dma_addr);
+		dma_free_coherent(usb_ss->sysdev, CDNS3_UNALIGNED_BUF_SIZE,
+			usb_ss_ep->cpu_addr, usb_ss_ep->dma_addr);
 		usb_ss_ep->cpu_addr = NULL;
 	}
 }
@@ -1853,7 +1863,7 @@ static int usb_ss_gadget_ep_queue(struct usb_ep *ep,
 
 	if (empty_list) {
 		if (!usb_ss_ep->stalled_flag)
-			cdns_ep_run_transfer(usb_ss_ep);
+			ret = cdns_ep_run_transfer(usb_ss_ep);
 	}
 	spin_unlock_irqrestore(&usb_ss->lock, flags);
 
