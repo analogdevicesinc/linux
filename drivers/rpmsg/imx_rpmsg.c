@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2015 Freescale Semiconductor, Inc.
- * Copyright 2017 NXP
+ * Copyright 2017-2018 NXP
  *
  * derived from the omap-rpmsg implementation.
  *
@@ -459,6 +459,8 @@ static int imx_rpmsg_probe(struct platform_device *pdev)
 	}
 	rpdev->mu_base = of_iomap(np_mu, 0);
 	WARN_ON(!rpdev->mu_base);
+
+	spin_lock_init(&rpdev->mu_lock);
 
 	if (variant == IMX7ULP)
 		irq = of_irq_get(np_mu, 1);
