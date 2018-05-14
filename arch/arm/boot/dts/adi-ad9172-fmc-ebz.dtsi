@@ -1,0 +1,32 @@
+/ {
+	clocks {
+
+	};
+};
+
+&fmc_spi {
+	hmc7044: hmc7044@0 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		#clock-cells = <1>;
+		compatible = "adi,hmc7044";
+		reg = <0>;
+
+		spi-max-frequency = <10000000>;
+
+		clock-output-names = "clk-0", "clk-1", "clk-2", "clk-3", "clk-4",
+			"clk-5", "clk-6", "clk-7", "clk-8", "clk-9", "clk-10", "clk-11",
+			"clk-12", "clk-13";
+	};
+
+	dac0_ad9172: ad9172@1 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "adi,ad9172";
+		reg = <1>;
+		spi-max-frequency = <1000000>;
+		clocks = <&axi_ad9172_jesd>, <&hmc7044 2>, <&hmc7044 3>;
+		clock-names = "jesd_dac_clk", "dac_clk", "dac_sysref";
+	};
+};
+
