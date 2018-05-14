@@ -2452,7 +2452,7 @@
 				<0x0 0x58221000 0x0 0x1000>; /* CSI0 Subsystem CSR base addr  */
 			interrupts = <10 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-parent = <&irqsteer_csi0>;
-			clocks = <&clk IMX8QM_CSI0_APB_CLK>,
+			clocks = <&clk IMX8QM_CLK_DUMMY>,
 					<&clk IMX8QM_CSI0_CORE_CLK>,
 					<&clk IMX8QM_CSI0_ESC_CLK>,
 					<&clk IMX8QM_IMG_PXL_LINK_CSI0_CLK>;
@@ -2470,7 +2470,7 @@
 					<0x0 0x58241000 0x0 0x1000>; /* CSI1 Subsystem CSR base addr  */
 			interrupts = <10 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-parent = <&irqsteer_csi1>;
-			clocks = <&clk IMX8QM_CSI1_APB_CLK>,
+			clocks = <&clk IMX8QM_CLK_DUMMY>,
 					<&clk IMX8QM_CSI1_CORE_CLK>,
 					<&clk IMX8QM_CSI1_ESC_CLK>,
 					<&clk IMX8QM_IMG_PXL_LINK_CSI1_CLK>;
@@ -2695,7 +2695,7 @@
 		interrupt-controller;
 		interrupt-parent = <&gic>;
 		#interrupt-cells = <2>;
-		clocks = <&clk IMX8QM_CSI0_LIS_IPG_CLK>;
+		clocks = <&clk IMX8QM_CLK_DUMMY>;
 		clock-names = "ipg";
 		power-domains = <&pd_csi0>;
 	};
@@ -2721,7 +2721,7 @@
 		interrupt-controller;
 		interrupt-parent = <&gic>;
 		#interrupt-cells = <2>;
-		clocks = <&clk IMX8QM_CSI1_LIS_IPG_CLK>;
+		clocks = <&clk IMX8QM_CLK_DUMMY>;
 		clock-names = "ipg";
 		power-domains = <&pd_csi1>;
 	};
@@ -3068,8 +3068,6 @@
 		interrupt-controller;
 		#interrupt-cells = <2>;
 		power-domains = <&pd_csi0>;
-		clocks = <&clk IMX8QM_CSI0_IPG_CLK_S>;
-		clock-names = "ipg";
 		status = "disabled";
 	};
 
@@ -3083,8 +3081,6 @@
 		interrupt-controller;
 		#interrupt-cells = <2>;
 		power-domains = <&pd_csi1>;
-		clocks = <&clk IMX8QM_CSI1_IPG_CLK_S>;
-		clock-names = "ipg";
 		status = "disabled";
 	};
 
