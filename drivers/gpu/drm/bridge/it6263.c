@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 NXP
+ * Copyright 2017-2018 NXP
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -391,12 +391,16 @@ it6263_connector_detect(struct drm_connector *connector, bool force)
 	 * FIXME: We read status tens of times to workaround
 	 * cable detection failure issue at boot time on some
 	 * platforms.
+	 * Spin on this for up to one second.
 	 */
-	for (i = 0; i < 90; i++)
+	for (i = 0; i < 100; i++) {
 		regmap_read(it6263->hdmi_regmap, HDMI_REG_SYS_STATUS, &status);
+		if (status & HPDETECT)
+			return connector_status_connected;
+		usleep_range(5000, 10000);
+	}
 
-	return (status & HPDETECT) ? connector_status_connected :
-					connector_status_disconnected;
+	return connector_status_disconnected;
 }
 
 static const struct drm_connector_funcs it6263_connector_funcs = {
