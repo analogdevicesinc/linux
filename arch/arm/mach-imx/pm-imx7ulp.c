@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2016 Freescale Semiconductor, Inc.
- * Copyright 2017 NXP
+ * Copyright 2017-2018 NXP
  *
  * The code contained herein is licensed under the GNU General Public
  * License. You may obtain a copy of the GNU General Public License
@@ -514,6 +514,13 @@ static int imx7ulp_pm_enter(suspend_state_t state)
 	}
 
 	return 0;
+}
+
+/* Put CA7 into VLLS mode before M4 power off CA7 */
+void imx7ulp_poweroff(void)
+{
+	imx7ulp_set_lpm(VLLS);
+	cpu_suspend(0, imx7ulp_suspend_finish);
 }
 
 static int imx7ulp_pm_valid(suspend_state_t state)

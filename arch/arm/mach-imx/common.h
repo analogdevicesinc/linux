@@ -229,6 +229,7 @@ void imx6ull_pm_init(void);
 void imx7d_pm_init(void);
 void imx7ulp_pm_init(void);
 void imx7ulp_enable_nmi(void);
+void imx7ulp_poweroff(void);
 void imx6q_pm_set_ccm_base(void __iomem *base);
 
 #ifdef CONFIG_PM
