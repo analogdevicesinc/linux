@@ -61,6 +61,12 @@
  *	&usdhc2 {
  *		status = "disabled";
  *	};
+ *
+ *
+ * 3. When wifi driver switch to QCA CLD from ATH10K, there have two known issues:
+ *	- QCA CLD driver only support ONE instance.
+ *	- QCA CLD driver don't support PCIe MSI feature.
+ *    So here it has to disable pcie0 port.
  */
 
 #include "fsl-imx8mq-evk.dts"
@@ -69,4 +75,8 @@
 	modem_reset: modem-reset {
 		reset-gpios = <&gpio3 5 GPIO_ACTIVE_HIGH>;
 	};
+};
+
+&pcie0{
+	status = "disabled";
 };
