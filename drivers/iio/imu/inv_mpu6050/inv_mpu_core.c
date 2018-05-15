@@ -878,8 +878,7 @@ int inv_mpu_core_probe(struct regmap *regmap, int irq, const char *name,
 	result = iio_triggered_buffer_setup(indio_dev,
 					    inv_mpu6050_irq_handler,
 					    inv_mpu6050_read_fifo,
-					    NULL
-					    );
+					    NULL);
 	if (result) {
 		dev_err(dev, "configure buffer fail %d\n", result);
 		return result;

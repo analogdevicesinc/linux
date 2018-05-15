@@ -245,22 +245,22 @@ static const struct iio_chan_spec_ext_info ad7303_ext_info[] = {
 	{ },
 };
 
-#define AD7303_CHANNEL(chan) {				\
-	.type = IIO_VOLTAGE,				\
-	.indexed = 1,					\
-	.output = 1,					\
-	.channel = (chan),				\
-	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW),	\
-	.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SCALE), \
-	.address = (chan),				\
-	.scan_index = (chan),				\
-	.scan_type = {					\
-		.realbits = 8,				\
-		.storagebits = 8,			\
-		.shift = 0,				\
-		.sign = 'u',				\
-	},						\
-	.ext_info = ad7303_ext_info,			\
+#define AD7303_CHANNEL(chan) {					\
+	.type = IIO_VOLTAGE,					\
+	.indexed = 1,						\
+	.output = 1,						\
+	.channel = (chan),					\
+	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW),		\
+	.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SCALE),	\
+	.address = (chan),					\
+	.scan_index = (chan),					\
+	.scan_type = {						\
+		.sign = 'u',					\
+		.realbits = 8,					\
+		.storagebits = 8,				\
+		.shift = 0,					\
+	},							\
+	.ext_info = ad7303_ext_info,				\
 }
 
 static const struct iio_chan_spec ad7303_channels[] = {

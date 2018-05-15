@@ -1430,6 +1430,7 @@ static struct clk_core *clk_calc_new_rates(struct clk_core *core,
 		new_rate = parent->new_rate;
 		goto out;
 	}
+
 	/* some clocks must be gated to change parent */
 	if (parent != old_parent &&
 	    (core->flags & CLK_SET_PARENT_GATE) && core->prepare_count) {
