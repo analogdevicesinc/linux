@@ -233,7 +233,7 @@ static bool spi_imx_can_dma(struct spi_master *master, struct spi_device *spi,
 			break;
 	}
 
-	if (i == 0)
+	if (i == 0 || transfer->len < spi_imx->devtype_data->fifo_size / 2)
 		return false;
 
 	spi_imx->wml = i;
@@ -538,11 +538,12 @@ static int mx51_ecspi_config(struct spi_device *spi)
 	if (spi_imx->devtype_data->devtype == IMX6UL_ECSPI)
 		tx_wml = spi_imx->wml / 2;
 
-	writel(MX51_ECSPI_DMA_RX_WML(spi_imx->wml) |
-		MX51_ECSPI_DMA_TX_WML(tx_wml) |
-		MX51_ECSPI_DMA_RXT_WML(spi_imx->wml) |
-		MX51_ECSPI_DMA_TEDEN | MX51_ECSPI_DMA_RXDEN |
-		MX51_ECSPI_DMA_RXTDEN, spi_imx->base + MX51_ECSPI_DMA);
+	if (spi_imx->usedma)
+		writel(MX51_ECSPI_DMA_RX_WML(spi_imx->wml) |
+			MX51_ECSPI_DMA_TX_WML(tx_wml) |
+			MX51_ECSPI_DMA_RXT_WML(spi_imx->wml) |
+			MX51_ECSPI_DMA_TEDEN | MX51_ECSPI_DMA_RXDEN |
+			MX51_ECSPI_DMA_RXTDEN, spi_imx->base + MX51_ECSPI_DMA);
 
 	return 0;
 }
