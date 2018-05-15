@@ -213,37 +213,44 @@ static int s10_ops_write_init(struct fpga_manager *mgr,
 	ret = s10_svc_send_msg(priv, COMMAND_RECONFIG,
 			       &payload, sizeof(payload));
 	if (ret < 0)
-		return ret;
+		goto init_done;
 
 	timeout = msecs_to_jiffies(SVC_RECONFIG_REQUEST_TIMEOUT_MS);
 	ret = wait_for_completion_interruptible_timeout(
 		&priv->status_return_completion, timeout);
 	if (!ret) {
 		dev_err(dev, "timeout waiting for RECONFIG_REQUEST\n");
-		return -ETIMEDOUT;
+		ret = -ETIMEDOUT;
+		goto init_done;
 	}
 	if (ret < 0) {
 		dev_err(dev, "error (%d) waiting for RECONFIG_REQUEST\n", ret);
-		return ret;
+		goto init_done;
 	}
 
+	ret = 0;
 	if (!test_and_clear_bit(SVC_STATUS_RECONFIG_REQUEST_OK,
-				&priv->status))
-		return -ETIMEDOUT;
+				&priv->status)) {
+		ret = -ETIMEDOUT;
+		goto init_done;
+	}
 
 	/* Allocate buffers from the service layer's pool. */
 	for (i = 0; i < NUM_SVC_BUFS; i++) {
 		kbuf = intel_svc_allocate_memory(priv->chan, SVC_BUF_SIZE);
 		if (!kbuf) {
 			s10_free_buffers(mgr);
-			return -ENOMEM;
+			ret = -ENOMEM;
+			goto init_done;
 		}
 
 		priv->svc_bufs[i].buf = kbuf;
 		priv->svc_bufs[i].lock = 0;
 	}
 
-	return 0;
+init_done:
+	intel_svc_done(priv->chan);
+	return ret;
 }
 
 /**
@@ -404,36 +411,41 @@ static int s10_ops_write_complete(struct fpga_manager *mgr,
 
 		ret = s10_svc_send_msg(priv, COMMAND_RECONFIG_STATUS, NULL, 0);
 		if (ret < 0)
-			return ret;
+			break;
 
 		ret = wait_for_completion_interruptible_timeout(
 			&priv->status_return_completion, timeout);
 		if (!ret) {
 			dev_err(dev,
 				"timeout waiting for RECONFIG_COMPLETED\n");
-			return -ETIMEDOUT;
+			ret = -ETIMEDOUT;
+			break;
 		}
 		if (ret < 0) {
 			dev_err(dev,
 				"error (%d) waiting for RECONFIG_COMPLETED\n",
 				ret);
-			return ret;
+			break;
 		}
 		/* Not error or timeout, so ret is # of jiffies until timeout */
 		timeout = ret;
+		ret = 0;
 
 		if (test_and_clear_bit(SVC_STATUS_RECONFIG_COMPLETED,
-				       &priv->status))
+					&priv->status))
 			break;
 
 		if (test_and_clear_bit(SVC_STATUS_RECONFIG_ERROR,
 				       &priv->status)) {
 			dev_err(dev, "ERROR - giving up - SVC_STATUS_RECONFIG_ERROR\n");
-			return -EFAULT;
+			ret = -EFAULT;
+			break;
 		}
 	} while (1);
 
-	return 0;
+	intel_svc_done(priv->chan);
+
+	return ret;
 }
 
 static enum fpga_mgr_states s10_ops_state(struct fpga_manager *mgr)
