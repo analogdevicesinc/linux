@@ -89,6 +89,8 @@
 };
 
 &adc0_ad9364 {
+	compatible = "adi,ad9364";
+
 	adi,gpo-manual-mode-enable;
 	adi,gpo-manual-mode-enable-mask = <0x4>;
 
