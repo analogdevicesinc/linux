@@ -439,6 +439,7 @@ struct sdma_engine {
 	bool				bd0_iram;
 	struct sdma_buffer_descriptor	*bd0;
 	bool				suspend_off;
+	bool				fw_loaded;
 	int				idx;
 	/* clock ration for AHB:SDMA core. 1:1 is 1, 2:1 is 0*/
 	bool				clk_ratio;
@@ -1509,6 +1510,12 @@ static struct sdma_desc *sdma_transfer_init(struct sdma_channel *sdmac,
 			      enum dma_transfer_direction direction, u32 bds)
 {
 	struct sdma_desc *desc;
+
+	if (!sdmac->sdma->fw_loaded) {
+		dev_err(sdmac->sdma->dev, "sdma firmware not ready!\n");
+		goto err_out;
+	}
+
 	/* Now allocate and setup the descriptor. */
 	desc = kzalloc((sizeof(*desc)), GFP_ATOMIC);
 	if (!desc)
@@ -1964,7 +1971,7 @@ static void sdma_load_firmware(const struct firmware *fw, void *context)
 		return;
 	}
 
-	if (fw->size < sizeof(*header))
+	if (fw->size < sizeof(*header) || sdma->fw_loaded)
 		goto err_firmware;
 
 	header = (struct sdma_firmware_header *)fw->data;
@@ -2008,6 +2015,8 @@ static void sdma_load_firmware(const struct firmware *fw, void *context)
 	dev_info(sdma->dev, "loaded firmware %d.%d\n",
 			header->version_major,
 			header->version_minor);
+
+	sdma->fw_loaded = true;
 
 err_firmware:
 	release_firmware(fw);
@@ -2476,6 +2485,8 @@ static int sdma_suspend(struct device *dev)
 		else
 			sdma->save_regs[i] = readl_relaxed(sdma->regs + 4 * i);
 	}
+
+	sdma->fw_loaded = false;
 
 	clk_disable(sdma->clk_ipg);
 	clk_disable(sdma->clk_ahb);
