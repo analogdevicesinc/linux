@@ -96,7 +96,7 @@ static int get_status(struct intel_rsu_priv *priv)
 	msg.command = COMMAND_RSU_STATUS;
 	ret = intel_svc_send(priv->chan, &msg);
 	if (ret < 0)
-		return ret;
+		goto status_done;
 
 	timeout = msecs_to_jiffies(SVC_RSU_REQUEST_TIMEOUT_MS);
 	ret =
@@ -105,15 +105,20 @@ static int get_status(struct intel_rsu_priv *priv)
 	if (!ret) {
 		dev_err(priv->client.dev,
 			"timeout waiting for COMMAND_RSU_STATUS\n");
-		return -ETIMEDOUT;
+		ret = -ETIMEDOUT;
+		goto status_done;
 	}
 	if (ret < 0) {
 		dev_err(priv->client.dev,
 			"error (%d) waiting for COMMAND_RSU_STATUS\n", ret);
-		return ret;
+		goto status_done;
 	}
 
-	return 0;
+	ret = 0;
+
+status_done:
+	intel_svc_done(priv->chan);
+	return ret;
 }
 
 /* current_image_show() - DEVICE_ATTR callback to show current_image status */
@@ -229,7 +234,7 @@ static int send_update(struct intel_rsu_priv *priv,
 
 	ret = intel_svc_send(priv->chan, &msg);
 	if (ret < 0)
-		return ret;
+		goto update_done;
 
 	timeout = msecs_to_jiffies(SVC_RSU_REQUEST_TIMEOUT_MS);
 	ret = wait_for_completion_interruptible_timeout(&priv->svc_completion,
@@ -237,15 +242,20 @@ static int send_update(struct intel_rsu_priv *priv,
 	if (!ret) {
 		dev_err(priv->client.dev,
 			"timeout waiting for COMMAND_RSU_UPDATE\n");
-		return -ETIMEDOUT;
+		ret = -ETIMEDOUT;
+		goto update_done;
 	}
 	if (ret < 0) {
 		dev_err(priv->client.dev,
 			"error (%d) waiting for COMMAND_RSU_UPDATE\n", ret);
-		return ret;
+		goto update_done;
 	}
 
-	return 0;
+	ret = 0;
+
+update_done:
+	intel_svc_done(priv->chan);
+	return ret;
 }
 
 /* reboot_image_store() - DEVICE_ATTR callback to store reboot_image request */
