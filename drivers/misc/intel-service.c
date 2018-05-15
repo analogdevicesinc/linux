@@ -49,7 +49,7 @@
 /* SVC_NUM_DATA_IN_FIFO - number of struct intel_svc_data in the FIFO */
 #define SVC_NUM_DATA_IN_FIFO			32
 /* SVC_NUM_CHANNEL - number of channel supported by service layer driver */
-#define SVC_NUM_CHANNEL				3
+#define SVC_NUM_CHANNEL				2
 /*
  * FPGA_CONFIG_DATA_CLAIM_TIMEOUT_MS - claim back the submitted buffer(s)
  * from the secure world for FPGA manager to reuse, or to free the buffer(s)
@@ -924,11 +924,6 @@ static int intel_svc_drv_probe(struct platform_device *pdev)
 	chans[1].ctrl = controller;
 	chans[1].name = "rsu";
 	spin_lock_init(&chans[1].lock);
-
-	chans[2].scl = NULL;
-	chans[2].ctrl = controller;
-	chans[2].name = "dummy";
-	spin_lock_init(&chans[2].lock);
 
 	wake_up_process(controller->task);
 

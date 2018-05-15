@@ -9,10 +9,9 @@
 /*
  * Service layer driver supports client names
  * @fpga: for FPGA configuration
- * @dummy: for integration/debug/trouble-shooting
+ * @rsu: for remote status update
  */
 #define SVC_CLIENT_FPGA		"fpga"
-#define SVC_CLIENT_DUMMY	"dummy"
 #define SVC_CLIENT_RSU		"rsu"
 
 /*
