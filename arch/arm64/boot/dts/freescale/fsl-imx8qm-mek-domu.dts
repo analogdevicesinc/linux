@@ -258,6 +258,8 @@
 /delete-node/ &ldb1;
 /delete-node/ &lvds1_pwm;
 /delete-node/ &camera;
+/delete-node/ &adc0;
+/delete-node/ &adc1;
 /delete-node/ &i2c0;
 /delete-node/ &i2c1;
 /delete-node/ &i2c2;

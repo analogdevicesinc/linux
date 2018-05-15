@@ -2544,6 +2544,34 @@
 		};
 	};
 
+	adc0: adc@5a880000 {
+		compatible = "fsl,imx8qxp-adc";
+		reg = <0x0 0x5a880000 0x0 0x10000>;
+		interrupts = <GIC_SPI 240 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-parent = <&gic>;
+		clocks = <&clk IMX8QM_ADC0_CLK>,
+			 <&clk IMX8QM_ADC0_IPG_CLK>;
+		clock-names = "per", "ipg";
+		assigned-clocks = <&clk IMX8QM_ADC0_CLK>;
+		assigned-clock-rates = <24000000>;
+		power-domains = <&pd_dma_adc0>;
+		status = "disabled";
+	};
+
+	adc1: adc@5a890000 {
+		compatible = "fsl,imx8qxp-adc";
+		reg = <0x0 0x5a890000 0x0 0x10000>;
+		interrupts = <GIC_SPI 241 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-parent = <&gic>;
+		clocks = <&clk IMX8QM_ADC1_CLK>,
+			 <&clk IMX8QM_ADC1_IPG_CLK>;
+		clock-names = "per", "ipg";
+		assigned-clocks = <&clk IMX8QM_ADC1_CLK>;
+		assigned-clock-rates = <24000000>;
+		power-domains = <&pd_dma_adc1>;
+		status = "disabled";
+	};
+
 	i2c0: i2c@5a800000 {
 		compatible = "fsl,imx8qm-lpi2c", "fsl,imx7ulp-lpi2c";
 		reg = <0x0 0x5a800000 0x0 0x4000>;

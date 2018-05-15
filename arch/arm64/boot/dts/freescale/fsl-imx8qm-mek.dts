@@ -74,6 +74,13 @@
 			regulator-max-microvolt = <3300000>;
 			regulator-always-on;
 		};
+
+		reg_vref_1v8: adc_vref_1v8 {
+			compatible = "regulator-fixed";
+			regulator-name = "vref_1v8";
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+		};
 	};
 
 	sound: sound {
@@ -206,6 +213,12 @@
 			fsl,pins = <
 				SC_P_MCLK_OUT0_AUD_ACM_MCLK_OUT0	0x0600004c
 				SC_P_QSPI1A_DATA1_LSIO_GPIO4_IO25	0x0600004c
+			>;
+		};
+
+		pinctrl_adc0: adc0grp {
+			fsl,pins = <
+				SC_P_ADC_IN0_DMA_ADC0_IN0		0xc0000060
 			>;
 		};
 
@@ -542,6 +555,13 @@
 		};
 
 	};
+};
+
+&adc0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_adc0>;
+	vref-supply = <&reg_vref_1v8>;
+	status = "okay";
 };
 
 &asrc0 {
