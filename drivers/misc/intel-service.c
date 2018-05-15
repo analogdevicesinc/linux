@@ -67,7 +67,7 @@ typedef void (svc_invoke_fn)(unsigned long, unsigned long, unsigned long,
 			     unsigned long, unsigned long, unsigned long,
 			     unsigned long, unsigned long,
 			     struct arm_smccc_res *);
-
+static int svc_normal_to_secure_thread(void *data);
 struct intel_svc_chan;
 
 /**
@@ -131,6 +131,7 @@ struct intel_svc_data {
  * @dev: device
  * @chans: array of service channels
  * $num_chans: number of channels in 'chans' array
+ * @num_active_client: number of active service client
  * @node: list management
  * @genpool: memory pool pointing to the memory region
  * @task: pointer to the thread task which handles SMC or HVC call
@@ -146,6 +147,7 @@ struct intel_svc_controller {
 	struct device *dev;
 	struct intel_svc_chan *chans;
 	int num_chans;
+	int num_active_client;
 	struct list_head node;
 	struct gen_pool *genpool;
 	struct task_struct *task;
@@ -214,6 +216,7 @@ struct intel_svc_chan *request_svc_channel_byname(
 
 	spin_lock_irqsave(&chan->lock, flag);
 	chan->scl = client;
+	chan->ctrl->num_active_client++;
 	spin_unlock_irqrestore(&chan->lock, flag);
 
 	return chan;
@@ -232,6 +235,7 @@ void free_svc_channel(struct intel_svc_chan *chan)
 
 	spin_lock_irqsave(&chan->lock, flag);
 	chan->scl = NULL;
+	chan->ctrl->num_active_client--;
 	module_put(chan->ctrl->dev->driver->owner);
 	spin_unlock_irqrestore(&chan->lock, flag);
 }
@@ -258,6 +262,20 @@ int intel_svc_send(struct intel_svc_chan *chan, void *msg)
 	p_data = kmalloc(sizeof(*p_data), GFP_KERNEL);
 	if (!p_data)
 		return -ENOMEM;
+
+	/* first client will create kernel thread */
+	if (!chan->ctrl->task) {
+		chan->ctrl->task =
+			kthread_create_on_cpu(svc_normal_to_secure_thread,
+					      (void *)chan->ctrl, 0,
+					      "svc_smc_hvc_thread");
+			if (IS_ERR(chan->ctrl->task)) {
+				dev_err(chan->ctrl->dev,
+					"fails to create svc_smc_hvc_thread\n");
+				return -EINVAL;
+			}
+			wake_up_process(chan->ctrl->task);
+	}
 
 	pr_debug("%s: sent P-va=%p, P-com=%x, P-size=%u\n", __func__,
 		 p_msg->payload, p_msg->command,
@@ -291,6 +309,25 @@ int intel_svc_send(struct intel_svc_chan *chan, void *msg)
 	return ret;
 }
 EXPORT_SYMBOL_GPL(intel_svc_send);
+
+/**
+ * intel_svc_done() - complete service request transactions
+ * @chan: service channel assigned to the client
+ *
+ * This function should be called when client has finished its request
+ * or there is an error in the request process. It allows the service layer
+ * to stop the running thread to have maximize savings in kernel resources.
+ */
+void intel_svc_done(struct intel_svc_chan *chan)
+{
+	/* stop thread when thread is running AND only one active client */
+	if (chan->ctrl->task && (chan->ctrl->num_active_client <= 1)) {
+		pr_debug("svc_smc_hvc_shm_thread is stopped\n");
+		kthread_stop(chan->ctrl->task);
+		chan->ctrl->task = NULL;
+	}
+}
+EXPORT_SYMBOL_GPL(intel_svc_done);
 
 /**
  * intel_svc_allocate_memory() - allocate memory
@@ -535,6 +572,8 @@ static int svc_normal_to_secure_thread(void *data)
 	a0 = INTEL_SIP_SMC_FPGA_CONFIG_LOOPBACK;
 	a1 = 0;
 	a2 = 0;
+
+	pr_debug("smc_hvc_shm_thread is running\n");
 
 	while (!kthread_should_stop()) {
 		ret_fifo = kfifo_out_spinlocked(&ctrl->svc_fifo,
@@ -857,7 +896,6 @@ static int intel_svc_drv_probe(struct platform_device *pdev)
 	struct intel_svc_chan *chans;
 	struct gen_pool *genpool;
 	struct intel_svc_sh_memory *sh_memory;
-	struct task_struct *task;
 	svc_invoke_fn *invoke_fn;
 	size_t fifo_size;
 	int ret;
@@ -890,20 +928,12 @@ static int intel_svc_drv_probe(struct platform_device *pdev)
 	if (!chans)
 		return -ENOMEM;
 
-	/* smc or hvc call happens on cpu 0 bound kthread */
-	task = kthread_create_on_cpu(svc_normal_to_secure_thread,
-				     (void *)controller, 0,
-				     "svc_smc_hvc_thread");
-	if (IS_ERR(task)) {
-		dev_err(dev, "fails to create svc_smc_hvc_thread\n");
-		return -EINVAL;
-	}
-
 	controller->dev = dev;
 	controller->num_chans = SVC_NUM_CHANNEL;
+	controller->num_active_client = 0;
 	controller->chans = chans;
 	controller->genpool = genpool;
-	controller->task = task;
+	controller->task = NULL;
 	controller->invoke_fn = invoke_fn;
 	init_completion(&controller->complete_status);
 
@@ -925,8 +955,6 @@ static int intel_svc_drv_probe(struct platform_device *pdev)
 	chans[1].name = "rsu";
 	spin_lock_init(&chans[1].lock);
 
-	wake_up_process(controller->task);
-
 	list_add_tail(&controller->node, &svc_ctrl);
 	platform_set_drvdata(pdev, controller);
 
@@ -940,7 +968,10 @@ static int intel_svc_drv_remove(struct platform_device *pdev)
 	struct intel_svc_controller *ctrl = platform_get_drvdata(pdev);
 
 	kfifo_free(&ctrl->svc_fifo);
-	kthread_stop(ctrl->task);
+	if (ctrl->task) {
+		kthread_stop(ctrl->task);
+		ctrl->task = NULL;
+	}
 	if (ctrl->genpool)
 		gen_pool_destroy(ctrl->genpool);
 	list_del(&ctrl->node);

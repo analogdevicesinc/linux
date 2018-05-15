@@ -184,5 +184,15 @@ void intel_svc_free_memory(struct intel_svc_chan *chan, void *kaddr);
  * by service layer driver, or -ENOBUFS if the data queue FIFO is full.
  */
 int intel_svc_send(struct intel_svc_chan *chan, void *msg);
+
+/**
+ * intel_svc_done() - complete service request
+ * @chan: service channel assigned to the client
+ *
+ * This function is used by service client to inform service layer that
+ * client's service requests are completed, or there is an error in the
+ * request process.
+ */
+void intel_svc_done(struct intel_svc_chan *chan);
 #endif
 
