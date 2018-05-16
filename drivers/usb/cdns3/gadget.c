@@ -68,9 +68,6 @@ static void cdns_check_ep0_interrupt_proceed(struct usb_ss_dev *usb_ss,
 	int dir);
 static void cdns_check_usb_interrupt_proceed(struct usb_ss_dev *usb_ss,
 	u32 usb_ists);
-#ifdef CDNS_THREADED_IRQ_HANDLING
-static irqreturn_t cdns_irq_handler(int irq, void *_usb_ss);
-#endif
 static int usb_ss_gadget_ep0_enable(struct usb_ep *ep,
 	const struct usb_endpoint_descriptor *desc);
 static int usb_ss_gadget_ep0_disable(struct usb_ep *ep);
@@ -838,10 +835,6 @@ static int cdns_req_ep0_set_configuration(struct usb_ss_dev *usb_ss,
 			&usb_ss->ep_match_list, ep_match_pending_list)
 			cdns_ep_config(usb_ss_ep);
 
-#ifdef CDNS_THREADED_IRQ_HANDLING
-		usb_ss->ep_ien = gadget_readl(usb_ss, &usb_ss->regs->ep_ien)
-			| EP_IEN__EOUTEN0__MASK | EP_IEN__EINEN0__MASK;
-#endif
 		result = cdns_get_setup_ret(usb_ss, ctrl_req);
 
 		if (result != 0)
@@ -1259,31 +1252,6 @@ static void cdns_check_usb_interrupt_proceed(struct usb_ss_dev *usb_ss,
 	gadget_writel(usb_ss, &usb_ss->regs->usb_ists, (1uL << interrupt_bit));
 }
 
-#ifdef CDNS_THREADED_IRQ_HANDLING
-static irqreturn_t cdns_irq_handler(int irq, void *_usb_ss)
-{
-	struct usb_ss_dev *usb_ss = _usb_ss;
-
-	usb_ss->usb_ien = gadget_readl(usb_ss, &usb_ss->regs->usb_ien);
-	usb_ss->ep_ien = gadget_readl(usb_ss, &usb_ss->regs->ep_ien);
-
-	if (!gadget_readl(usb_ss, &usb_ss->regs->usb_ists)
-		&& !gadget_readl(usb_ss, &usb_ss->regs->ep_ists)) {
-		dev_dbg(&usb_ss->dev, "--BUBBLE INTERRUPT 0 !!!\n");
-		if (gadget_readl(usb_ss, &usb_ss->regs->usb_sts) &
-				USB_STS__CFGSTS__MASK)
-			return IRQ_HANDLED;
-		return IRQ_NONE;
-	}
-
-	gadget_writel(usb_ss, &usb_ss->regs->usb_ien, 0);
-	gadget_writel(usb_ss, &usb_ss->regs->ep_ien, 0);
-
-	gadget_readl(usb_ss, &usb_ss->regs->dma_axi_ctrl);
-	return IRQ_WAKE_THREAD;
-}
-#endif
-
 /**
  * cdns_irq_handler - irq line interrupt handler
  * @cdns: cdns3 instance
@@ -1353,12 +1321,6 @@ static irqreturn_t cdns_irq_handler_thread(struct cdns3 *cdns)
 irqend:
 
 	spin_unlock_irqrestore(&usb_ss->lock, flags);
-#ifdef CDNS_THREADED_IRQ_HANDLING
-	local_irq_save(flags);
-	gadget_writel(usb_ss, &usb_ss->regs->usb_ien, usb_ss->usb_ien);
-	gadget_writel(usb_ss, &usb_ss->regs->ep_ien, usb_ss->ep_ien);
-	local_irq_restore(flags);
-#endif
 	return ret;
 }
 
