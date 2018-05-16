@@ -294,7 +294,7 @@ static void __exit iio_exit(void)
 	if (iio_devt)
 		unregister_chrdev_region(iio_devt, IIO_DEV_MAX);
 	bus_unregister(&iio_bus_type);
-	debugfs_remove(iio_debugfs_dentry);
+	debugfs_remove_recursive(iio_debugfs_dentry);
 }
 
 #if defined(CONFIG_DEBUG_FS)
@@ -556,7 +556,6 @@ EXPORT_SYMBOL(iio_read_mount_matrix);
 static ssize_t __iio_format_value(char *buf, size_t len, unsigned int type,
 				  int size, const int *vals)
 {
-	s64 stmp;
 	unsigned long long tmp;
 	int tmp0, tmp1;
 	bool scale_db = false;
@@ -1598,6 +1597,8 @@ static int iio_chrdev_release(struct inode *inode, struct file *filp)
 	struct iio_dev *indio_dev = container_of(inode->i_cdev,
 						struct iio_dev, chrdev);
 	clear_bit(IIO_BUSY_BIT_POS, &indio_dev->flags);
+	if (indio_dev->buffer)
+		iio_buffer_free_blocks(indio_dev->buffer);
 	iio_device_put(indio_dev);
 
 	return 0;
@@ -1614,16 +1615,29 @@ static long iio_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	if (!indio_dev->info)
 		return -ENODEV;
 
-	if (cmd == IIO_GET_EVENT_FD_IOCTL) {
+	switch (cmd) {
+	case IIO_GET_EVENT_FD_IOCTL:
 		fd = iio_event_getfd(indio_dev);
 		if (fd < 0)
 			return fd;
 		if (copy_to_user(ip, &fd, sizeof(fd)))
 			return -EFAULT;
 		return 0;
+	default:
+		if (indio_dev->buffer)
+			return iio_buffer_ioctl(indio_dev, filp, cmd, arg);
 	}
 	return -EINVAL;
 }
+
+static const struct file_operations iio_buffer_none_fileops = {
+	.release = iio_chrdev_release,
+	.open = iio_chrdev_open,
+	.owner = THIS_MODULE,
+	.llseek = noop_llseek,
+	.unlocked_ioctl = iio_ioctl,
+	.compat_ioctl = iio_ioctl,
+};
 
 static const struct file_operations iio_buffer_in_fileops = {
 	.read = iio_buffer_read_first_n_outer_addr,
@@ -1634,6 +1648,7 @@ static const struct file_operations iio_buffer_in_fileops = {
 	.llseek = noop_llseek,
 	.unlocked_ioctl = iio_ioctl,
 	.compat_ioctl = iio_ioctl,
+	.mmap = iio_buffer_mmap,
 };
 
 static bool iio_chan_same_size(const struct iio_chan_spec *a,
@@ -1683,6 +1698,7 @@ static const struct file_operations iio_buffer_out_fileops = {
 	.llseek = noop_llseek,
 	.unlocked_ioctl = iio_ioctl,
 	.compat_ioctl = iio_ioctl,
+	.mmap = iio_buffer_mmap,
 };
 
 int __iio_device_register(struct iio_dev *indio_dev, struct module *this_mod)
