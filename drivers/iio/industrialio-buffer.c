@@ -18,6 +18,8 @@
 #include <linux/cdev.h>
 #include <linux/slab.h>
 #include <linux/poll.h>
+#include <linux/sched.h>
+#include <linux/dma-mapping.h>
 #include <linux/sched/signal.h>
 
 #include <linux/iio/iio.h>
@@ -342,15 +344,16 @@ int iio_buffer_alloc_scanmask(struct iio_buffer *buffer,
 	if (!indio_dev->masklength)
 		return 0;
 
-	buffer->scan_mask = kcalloc(BITS_TO_LONGS(indio_dev->masklength),
-		sizeof(*buffer->scan_mask), GFP_KERNEL);
+	buffer->scan_mask = bitmap_zalloc(indio_dev->masklength, GFP_KERNEL);
 	if (buffer->scan_mask == NULL)
 		return -ENOMEM;
 
-	buffer->channel_mask = kcalloc(BITS_TO_LONGS(indio_dev->num_channels),
-		sizeof(*buffer->channel_mask), GFP_KERNEL);
-	if (buffer->channel_mask == NULL)
+	buffer->channel_mask = bitmap_zalloc(indio_dev->num_channels,
+					     GFP_KERNEL);
+	if (buffer->channel_mask == NULL) {
+		bitmap_free(buffer->scan_mask);
 		return -ENOMEM;
+	}
 
 	return 0;
 }
@@ -366,8 +369,8 @@ EXPORT_SYMBOL(iio_buffer_alloc_scanmask);
  */
 void iio_buffer_free_scanmask(struct iio_buffer *buffer)
 {
-	kfree(buffer->channel_mask);
-	kfree(buffer->scan_mask);
+	bitmap_free(buffer->channel_mask);
+	bitmap_free(buffer->scan_mask);
 }
 EXPORT_SYMBOL(iio_buffer_free_scanmask);
 
@@ -489,7 +492,8 @@ static int iio_channel_mask_set(struct iio_dev *indio_dev,
 		return -EINVAL;
 	}
 
-	trialmask = bitmap_alloc(indio_dev->masklength, GFP_KERNEL);
+	/* Upstream uses bitmap_alloc since there's no channel mask support */
+	trialmask = bitmap_zalloc(indio_dev->masklength, GFP_KERNEL);
 	if (!trialmask)
 		return -ENOMEM;
 
@@ -527,7 +531,8 @@ static int iio_channel_mask_clear(struct iio_dev *indio_dev,
 
 	clear_bit(bit, buffer->channel_mask);
 
-	memset(buffer->scan_mask, 0, BITS_TO_LONGS(indio_dev->masklength));
+	memset(buffer->scan_mask, 0,
+	       BITS_TO_LONGS(indio_dev->masklength) * sizeof(*buffer->scan_mask));
 	for_each_set_bit(ch, buffer->channel_mask, indio_dev->num_channels)
 		set_bit(indio_dev->channels[ch].scan_index, buffer->scan_mask);
 	return 0;
@@ -1300,7 +1305,7 @@ int iio_update_buffers(struct iio_dev *indio_dev,
 		return 0;
 
 	if (insert_buffer &&
-	    (insert_buffer->direction == IIO_BUFFER_DIRECTION_OUT))
+	    insert_buffer->direction == IIO_BUFFER_DIRECTION_OUT)
 		return -EINVAL;
 
 	mutex_lock(&iio_dev_opaque->info_exist_lock);
@@ -1553,9 +1558,215 @@ static int iio_buffer_chrdev_release(struct inode *inode, struct file *filep)
 
 	kfree(ib);
 	clear_bit(IIO_BUSY_BIT_POS, &buffer->flags);
+	iio_buffer_free_blocks(buffer);
 	iio_device_put(indio_dev);
 
 	return 0;
+}
+
+static int iio_buffer_query_block(struct iio_buffer *buffer,
+				  struct iio_buffer_block __user *user_block)
+{
+	struct iio_buffer_block block;
+	int ret;
+
+	if (!buffer->access->query_block)
+		return -ENOSYS;
+
+	if (copy_from_user(&block, user_block, sizeof(block)))
+		return -EFAULT;
+
+	ret = buffer->access->query_block(buffer, &block);
+	if (ret)
+		return ret;
+
+	if (copy_to_user(user_block, &block, sizeof(block)))
+		return -EFAULT;
+
+	return 0;
+}
+
+static int iio_buffer_dequeue_block(struct iio_dev *indio_dev,
+				    struct iio_buffer *buffer,
+				    struct iio_buffer_block __user *user_block,
+				    bool non_blocking)
+{
+	struct iio_dev_opaque *iio_dev_opaque = to_iio_dev_opaque(indio_dev);
+	struct iio_buffer_block block;
+	int ret;
+
+	if (!buffer->access->dequeue_block)
+		return -ENOSYS;
+
+	do {
+		if (!iio_buffer_data_available(buffer)) {
+			if (non_blocking)
+				return -EAGAIN;
+
+			/*
+			 * With 5.15, we always reach this point witth the lock
+			 * held so that we need to unlock it before going to
+			 * sleep so it's still possible to unregister the device.
+			 */
+			mutex_unlock(&iio_dev_opaque->info_exist_lock);
+			ret = wait_event_interruptible(buffer->pollq,
+						       iio_buffer_data_available(buffer) ||
+						       !indio_dev->info);
+			if (ret)
+				return ret;
+
+			mutex_lock(&iio_dev_opaque->info_exist_lock);
+			if (!indio_dev->info)
+				return -ENODEV;
+		}
+
+		ret = buffer->access->dequeue_block(buffer, &block);
+		if (ret == -EAGAIN && non_blocking)
+			ret = 0;
+	} while (ret);
+
+	if (ret)
+		return ret;
+
+	if (copy_to_user(user_block, &block, sizeof(block)))
+		return -EFAULT;
+
+	return 0;
+}
+
+static int iio_buffer_enqueue_block(struct iio_buffer *buffer,
+				    struct iio_buffer_block __user *user_block)
+{
+	struct iio_buffer_block block;
+
+	if (!buffer->access->enqueue_block)
+		return -ENOSYS;
+
+	if (copy_from_user(&block, user_block, sizeof(block)))
+		return -EFAULT;
+
+	return buffer->access->enqueue_block(buffer, &block);
+}
+
+static int iio_buffer_alloc_blocks(struct iio_buffer *buffer,
+				   struct iio_buffer_block_alloc_req __user *user_req)
+{
+	struct iio_buffer_block_alloc_req req;
+	int ret;
+
+	if (!buffer->access->alloc_blocks)
+		return -ENOSYS;
+
+	if (copy_from_user(&req, user_req, sizeof(req)))
+		return -EFAULT;
+
+	ret = buffer->access->alloc_blocks(buffer, &req);
+	if (ret)
+		return ret;
+
+	if (copy_to_user(user_req, &req, sizeof(req)))
+		return -EFAULT;
+
+	return 0;
+}
+
+void iio_buffer_free_blocks(struct iio_buffer *buffer)
+{
+	if (buffer->access->free_blocks)
+		buffer->access->free_blocks(buffer);
+}
+
+static int iio_buffer_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
+{
+	struct iio_dev_buffer_pair *ib = filp->private_data;
+	bool non_blocking = filp->f_flags & O_NONBLOCK;
+	struct iio_dev *indio_dev = ib->indio_dev;
+	struct iio_buffer *rb = ib->buffer;
+
+	if (!rb || !rb->access)
+		return -ENODEV;
+
+	switch (cmd) {
+	case IIO_BLOCK_ALLOC_IOCTL:
+		return iio_buffer_alloc_blocks(rb, (struct iio_buffer_block_alloc_req __user *)arg);
+	case IIO_BLOCK_FREE_IOCTL:
+		iio_buffer_free_blocks(rb);
+		return 0;
+	case IIO_BLOCK_QUERY_IOCTL:
+		return iio_buffer_query_block(rb, (struct iio_buffer_block __user *)arg);
+	case IIO_BLOCK_ENQUEUE_IOCTL:
+		return iio_buffer_enqueue_block(rb, (struct iio_buffer_block __user *)arg);
+	case IIO_BLOCK_DEQUEUE_IOCTL:
+		return iio_buffer_dequeue_block(indio_dev, rb,
+						(struct iio_buffer_block __user *)arg,
+						non_blocking);
+	default:
+		return IIO_IOCTL_UNHANDLED;
+	}
+}
+
+static long iio_buffer_ioctl_wrapper(struct file *filp, unsigned int cmd,
+				     unsigned long arg)
+{
+	struct iio_dev_buffer_pair *ib = filp->private_data;
+	struct iio_dev *indio_dev = ib->indio_dev;
+	struct iio_dev_opaque *iio_dev_opaque = to_iio_dev_opaque(indio_dev);
+	int ret;
+
+	mutex_lock(&iio_dev_opaque->info_exist_lock);
+
+	/*
+	 * The NULL check here is required to prevent crashing when a device
+	 * is being removed while userspace would still have open file handles
+	 * to try to access this device.
+	 */
+	if (!indio_dev->info)
+		goto out_unlock;
+
+	ret = iio_buffer_ioctl(filp, cmd, arg);
+	if (ret == IIO_IOCTL_UNHANDLED)
+		ret = -ENODEV;
+out_unlock:
+	mutex_unlock(&iio_dev_opaque->info_exist_lock);
+
+	return ret;
+}
+
+static int iio_buffer_mmap(struct file *filep, struct vm_area_struct *vma)
+{
+	struct iio_dev_buffer_pair *ib = filep->private_data;
+	struct iio_buffer *rb = ib->buffer;
+
+	if (!rb || !rb->access || !rb->access->mmap)
+		return -ENODEV;
+
+	if (!(vma->vm_flags & VM_SHARED))
+		return -EINVAL;
+
+	switch (rb->direction) {
+	case IIO_BUFFER_DIRECTION_IN:
+		if (!(vma->vm_flags & VM_READ))
+			return -EINVAL;
+		break;
+	case IIO_BUFFER_DIRECTION_OUT:
+		if (!(vma->vm_flags & VM_WRITE))
+			return -EINVAL;
+		break;
+	}
+
+	return rb->access->mmap(rb, vma);
+}
+
+int iio_buffer_mmap_wrapper(struct file *filep, struct vm_area_struct *vma)
+{
+	struct iio_dev_buffer_pair *ib = filep->private_data;
+	struct iio_buffer *rb = ib->buffer;
+
+	/* check if buffer was opened through new API */
+	if (test_bit(IIO_BUSY_BIT_POS, &rb->flags))
+		return -EBUSY;
+
+	return iio_buffer_mmap(filep, vma);
 }
 
 static const struct file_operations iio_buffer_chrdev_fileops = {
@@ -1564,7 +1775,10 @@ static const struct file_operations iio_buffer_chrdev_fileops = {
 	.read = iio_buffer_read,
 	.write = iio_buffer_write,
 	.poll = iio_buffer_poll,
+	.unlocked_ioctl = iio_buffer_ioctl_wrapper,
+	.compat_ioctl = compat_ptr_ioctl,
 	.release = iio_buffer_chrdev_release,
+	.mmap = iio_buffer_mmap,
 };
 
 static long iio_device_buffer_getfd(struct iio_dev *indio_dev, unsigned long arg)
@@ -1631,14 +1845,25 @@ error_iio_dev_put:
 	return ret;
 }
 
+/*
+ * This code diverges from upstream so we can support our high speed API
+ * with multi buffer support. Should be removed as soon as the high speed
+ * API gets upstream.
+ */
 static long iio_device_buffer_ioctl(struct iio_dev *indio_dev, struct file *filp,
 				    unsigned int cmd, unsigned long arg)
 {
+	struct iio_dev_buffer_pair *ib = filp->private_data;
+	struct iio_buffer *rb = ib->buffer;
+
 	switch (cmd) {
 	case IIO_BUFFER_GET_FD_IOCTL:
 		return iio_device_buffer_getfd(indio_dev, arg);
 	default:
-		return IIO_IOCTL_UNHANDLED;
+		/* check if buffer0 was opened through new API */
+		if (test_bit(IIO_BUSY_BIT_POS, &rb->flags))
+			return -EBUSY;
+		return iio_buffer_ioctl(filp, cmd, arg);
 	}
 }
 
@@ -1771,8 +1996,8 @@ static void __iio_buffer_free_sysfs_and_mask(struct iio_buffer *buffer,
 {
 	if (index == 0)
 		iio_buffer_unregister_legacy_sysfs_groups(indio_dev);
-	bitmap_free(buffer->channel_mask);
 	bitmap_free(buffer->scan_mask);
+	bitmap_free(buffer->channel_mask);
 	kfree(buffer->buffer_group.name);
 	kfree(buffer->buffer_group.attrs);
 	iio_free_chan_devattr_list(&buffer->buffer_attr_list);
