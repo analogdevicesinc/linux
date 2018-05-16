@@ -150,10 +150,10 @@ static int v4l2_ioctl_enum_fmt_vid_cap_mplane(struct file *file,
 	struct vpu_v4l2_fmt *fmt;
 
 	vpu_dbg(LVL_INFO, "%s()\n", __func__);
-	if (f->index >= ARRAY_SIZE(formats_yuv_enc))
+	if (f->index >= ARRAY_SIZE(formats_compressed_enc))
 		return -EINVAL;
 
-	fmt = &formats_yuv_enc[f->index];
+	fmt = &formats_compressed_enc[f->index];
 	strlcpy(f->description, fmt->name, sizeof(f->description));
 	f->pixelformat = fmt->fourcc;
 	return 0;
@@ -167,10 +167,10 @@ static int v4l2_ioctl_enum_fmt_vid_out_mplane(struct file *file,
 
 	vpu_dbg(LVL_INFO, "%s()\n", __func__);
 
-	if (f->index >= ARRAY_SIZE(formats_compressed_enc))
+	if (f->index >= ARRAY_SIZE(formats_yuv_enc))
 		return -EINVAL;
 
-	fmt = &formats_compressed_enc[f->index];
+	fmt = &formats_yuv_enc[f->index];
 	strlcpy(f->description, fmt->name, sizeof(f->description));
 	f->pixelformat = fmt->fourcc;
 	f->flags |= V4L2_FMT_FLAG_COMPRESSED;
@@ -504,8 +504,8 @@ static int v4l2_ioctl_encoder_cmd(struct file *file,
 	case V4L2_ENC_CMD_START:
 		break;
 	case V4L2_ENC_CMD_STOP:
-		v4l2_vpu_send_cmd(ctx, uStrIdx, GTB_ENC_CMD_STREAM_STOP, 0, NULL);
 		ctx->forceStop = true;
+		v4l2_vpu_send_cmd(ctx, uStrIdx, GTB_ENC_CMD_STREAM_STOP, 0, NULL);
 		wake_up_interruptible(&ctx->buffer_wq_input);
 		wake_up_interruptible(&ctx->buffer_wq_output);
 		break;
@@ -627,8 +627,16 @@ static int v4l2_enc_s_ctrl(struct v4l2_ctrl *ctrl)
 	}
 		break;
 	case V4L2_CID_MPEG_VIDEO_H264_PROFILE:
-		if (V4L2_MPEG_VIDEO_H264_PROFILE_BASELINE == ctrl->val)
-		pEncParam->eProfile = MEDIAIP_ENC_PROF_H264_BP;
+		if ((V4L2_MPEG_VIDEO_H264_PROFILE_BASELINE == ctrl->val) || (V4L2_MPEG_VIDEO_H264_PROFILE_CONSTRAINED_BASELINE == ctrl->val))
+			pEncParam->eProfile = MEDIAIP_ENC_PROF_H264_BP;
+		else if (V4L2_MPEG_VIDEO_H264_PROFILE_MAIN == ctrl->val)
+			pEncParam->eProfile = MEDIAIP_ENC_PROF_H264_MP;
+		else if (V4L2_MPEG_VIDEO_H264_PROFILE_HIGH == ctrl->val)
+			pEncParam->eProfile = MEDIAIP_ENC_PROF_H264_HP;
+		else {
+			vpu_dbg(LVL_INFO, "not support h264 profile %d, set default: BP\n", ctrl->val);
+			pEncParam->eProfile = MEDIAIP_ENC_PROF_H264_BP;
+		}
 		break;
 	case V4L2_CID_MPEG_VIDEO_H264_LEVEL:
 		vpu_dbg(LVL_INFO, "V4L2_CID_MPEG_VIDEO_H264_LEVEL set val = %d\n", ctrl->val);
@@ -637,7 +645,7 @@ static int v4l2_enc_s_ctrl(struct v4l2_ctrl *ctrl)
 		pEncParam->uTargetBitrate = ctrl->val;
 		break;
 	case V4L2_CID_MPEG_VIDEO_GOP_SIZE:
-		pEncParam->uGopBLength = ctrl->val;
+		pEncParam->uIFrameInterval = ctrl->val;
 		break;
 	case V4L2_CID_MPEG_VIDEO_H264_I_FRAME_QP:
 		pEncParam->uInitSliceQP = ctrl->val;
@@ -1465,6 +1473,8 @@ static int v4l2_open(struct file *filp)
 	int ret;
 	u_int32 i;
 
+	vpu_dbg(LVL_INFO, "%s()\n", __func__);
+
 	pm_runtime_get_sync(dev->generic_dev);
 	ctx = kzalloc(sizeof(*ctx), GFP_KERNEL);
 	if (!ctx)
@@ -1565,6 +1575,16 @@ static int v4l2_release(struct file *filp)
 	struct vpu_dev *dev = video_get_drvdata(vdev);
 	struct vpu_ctx *ctx = v4l2_fh_to_ctx(filp->private_data);
 	u_int32 i;
+
+	vpu_dbg(LVL_INFO, "%s()\n", __func__);
+
+	if (!ctx->forceStop && !ctx->start_flag) {
+		//need send stop if app call release without calling of V4L2_ENC_CMD_STOP
+		ctx->forceStop = true;
+		v4l2_vpu_send_cmd(ctx, ctx->str_index, GTB_ENC_CMD_STREAM_STOP, 0, NULL);
+		wake_up_interruptible(&ctx->buffer_wq_input);
+		wake_up_interruptible(&ctx->buffer_wq_output);
+	}
 
 	if (!ctx->firmware_stopped && ctx->start_flag == false)
 		wait_for_completion(&ctx->stop_cmp);
