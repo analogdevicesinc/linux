@@ -46,6 +46,7 @@ available subsections can be seen below.
    pinctl
    gpio
    misc_devices
+   fpga/index
 
 .. only::  subproject and html
 
