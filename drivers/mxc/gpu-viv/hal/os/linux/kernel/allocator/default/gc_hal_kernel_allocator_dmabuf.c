@@ -277,8 +277,8 @@ _DmabufAttach(
 
     Mdl->priv = buf_desc;
 
-    /* Always treat it as a non-contigous buffer. */
-    Mdl->contiguous = gcvFALSE;
+    /* Need set it as true to avoid MMU mapping. */
+    Mdl->contiguous = gcvTRUE;
 
     gcmkFOOTER_NO();
     return gcvSTATUS_OK;
