@@ -395,7 +395,7 @@ void iio_buffer_channel_disable(struct iio_buffer *buffer,
 	const struct iio_channel *chan);
 
 int iio_buffer_alloc_scanmask(struct iio_buffer *buffer,
-       struct iio_dev *indio_dev);
+	struct iio_dev *indio_dev);
 void iio_buffer_free_scanmask(struct iio_buffer *buffer);
 
 /**
