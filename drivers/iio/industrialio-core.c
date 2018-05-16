@@ -1769,6 +1769,8 @@ static int iio_chrdev_release(struct inode *inode, struct file *filp)
 	struct iio_dev *indio_dev = &iio_dev_opaque->indio_dev;
 	kfree(ib);
 	clear_bit(IIO_BUSY_BIT_POS, &iio_dev_opaque->flags);
+	if (indio_dev->buffer)
+		iio_buffer_free_blocks(indio_dev->buffer);
 	iio_device_put(indio_dev);
 
 	return 0;
@@ -1820,15 +1822,27 @@ out_unlock:
 	return ret;
 }
 
+static bool iio_chan_same_size(const struct iio_chan_spec *a,
+	const struct iio_chan_spec *b)
+{
+	if (a->scan_type.storagebits != b->scan_type.storagebits)
+		return false;
+	if (a->scan_type.repeat != b->scan_type.repeat)
+		return false;
+	return true;
+}
+
 static const struct file_operations iio_buffer_fileops = {
 	.owner = THIS_MODULE,
 	.llseek = noop_llseek,
 	.read = iio_buffer_read_outer_addr,
+	.write = iio_buffer_write_outer_addr,
 	.poll = iio_buffer_poll_addr,
 	.unlocked_ioctl = iio_ioctl,
 	.compat_ioctl = compat_ptr_ioctl,
 	.open = iio_chrdev_open,
 	.release = iio_chrdev_release,
+	.mmap = iio_buffer_mmap_addr,
 };
 
 static const struct file_operations iio_event_fileops = {
@@ -1839,16 +1853,6 @@ static const struct file_operations iio_event_fileops = {
 	.open = iio_chrdev_open,
 	.release = iio_chrdev_release,
 };
-
-static bool iio_chan_same_size(const struct iio_chan_spec *a,
-	const struct iio_chan_spec *b)
-{
-	if (a->scan_type.storagebits != b->scan_type.storagebits)
-		return false;
-	if (a->scan_type.repeat != b->scan_type.repeat)
-		return false;
-	return true;
-}
 
 static int iio_check_unique_scan_index(struct iio_dev *indio_dev)
 {
