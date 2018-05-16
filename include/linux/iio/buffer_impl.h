@@ -9,6 +9,34 @@
 struct iio_dev;
 struct iio_buffer;
 
+#define IIO_BLOCK_ALLOC_IOCTL	_IOWR('i', 0xa0, struct iio_buffer_block_alloc_req)
+#define IIO_BLOCK_FREE_IOCTL	_IO('i', 0xa1)
+#define IIO_BLOCK_QUERY_IOCTL	_IOWR('i', 0xa2, struct iio_buffer_block)
+#define IIO_BLOCK_ENQUEUE_IOCTL	_IOWR('i', 0xa3, struct iio_buffer_block)
+#define IIO_BLOCK_DEQUEUE_IOCTL	_IOWR('i', 0xa4, struct iio_buffer_block)
+
+struct iio_buffer_block_alloc_req {
+	__u32 type;
+	__u32 size;
+	__u32 count;
+	__u32 id;
+};
+
+#define IIO_BUFFER_BLOCK_FLAG_TIMESTAMP_VALID (1 << 0)
+#define IIO_BUFFER_BLOCK_FLAG_CYCLIC (1 << 1)
+
+struct iio_buffer_block {
+	__u32 id;
+	__u32 size;
+	__u32 bytes_used;
+	__u32 type;
+	__u32 flags;
+	union {
+		__u32 offset;
+	} data;
+	__u64 timestamp;
+};
+
 /**
  * INDIO_BUFFER_FLAG_FIXED_WATERMARK - Watermark level of the buffer can not be
  *   configured. It has a fixed value which will be buffer specific.
@@ -18,7 +46,7 @@ struct iio_buffer;
 /**
  * struct iio_buffer_access_funcs - access functions for buffers.
  * @store_to:		actually store stuff to the buffer
- * @read_first_n:	try to get a specified number of bytes (must exist)
+ * @read:		try to get a specified number of elements (must exist)
  * @data_available:	indicates how much data is available for reading from
  *			the buffer.
  * @request_update:	if a parameter change has been marked, update underlying
@@ -45,10 +73,12 @@ struct iio_buffer;
  **/
 struct iio_buffer_access_funcs {
 	int (*store_to)(struct iio_buffer *buffer, const void *data);
-	int (*read_first_n)(struct iio_buffer *buffer,
-			    size_t n,
-			    char __user *buf);
+	int (*read)(struct iio_buffer *buffer, size_t n, char __user *buf);
 	size_t (*data_available)(struct iio_buffer *buffer);
+	int (*remove_from)(struct iio_buffer *buffer, void *data);
+	int (*write)(struct iio_buffer *buffer, size_t n,
+		const char __user *buf);
+	bool (*space_available)(struct iio_buffer *buffer);
 
 	int (*request_update)(struct iio_buffer *buffer);
 
@@ -59,6 +89,18 @@ struct iio_buffer_access_funcs {
 	int (*disable)(struct iio_buffer *buffer, struct iio_dev *indio_dev);
 
 	void (*release)(struct iio_buffer *buffer);
+
+	int (*alloc_blocks)(struct iio_buffer *buffer,
+		struct iio_buffer_block_alloc_req *req);
+	int (*free_blocks)(struct iio_buffer *buffer);
+	int (*enqueue_block)(struct iio_buffer *buffer,
+		struct iio_buffer_block *block);
+	int (*dequeue_block)(struct iio_buffer *buffer,
+		struct iio_buffer_block *block);
+	int (*query_block)(struct iio_buffer *buffer,
+		struct iio_buffer_block *block);
+	int (*mmap)(struct iio_buffer *buffer,
+		struct vm_area_struct *vma);
 
 	unsigned int modes;
 	unsigned int flags;
@@ -85,6 +127,9 @@ struct iio_buffer {
 
 	/** @scan_mask: Bitmask used in masking scan mode elements. */
 	long *scan_mask;
+
+	/** @channel_mask: Bitmask used in masking scan mode elements (per channel). */
+	long *channel_mask;
 
 	/** @demux_list: List of operations required to demux the scan. */
 	struct list_head demux_list;
@@ -132,6 +177,17 @@ struct iio_buffer {
 	/* @ref: Reference count of the buffer. */
 	struct kref ref;
 };
+
+static inline int iio_buffer_write(struct iio_buffer *buffer, size_t n,
+	const char __user *buf)
+{
+	return buffer->access->write(buffer, n, buf);
+}
+
+static inline int iio_buffer_remove_sample(struct iio_buffer *buffer, u8 *data)
+{
+	return buffer->access->remove_from(buffer, data);
+}
 
 /**
  * iio_update_buffers() - add or remove buffer from active list
