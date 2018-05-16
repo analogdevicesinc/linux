@@ -29,6 +29,9 @@ struct sg_table;
  * @IIO_BLOCK_STATE_DEAD: Block has been marked as to be freed
  */
 enum iio_block_state {
+#ifdef CONFIG_IIO_DMA_BUF_MMAP_LEGACY
+	IIO_BLOCK_STATE_DEQUEUED,
+#endif
 	IIO_BLOCK_STATE_QUEUED,
 	IIO_BLOCK_STATE_ACTIVE,
 	IIO_BLOCK_STATE_DONE,
@@ -54,6 +57,9 @@ struct iio_dma_buffer_block {
 	/* May only be accessed by the owner of the block */
 	struct list_head head;
 	size_t bytes_used;
+#ifdef CONFIG_IIO_DMA_BUF_MMAP_LEGACY
+	struct iio_buffer_block block;
+#endif
 
 	/*
 	 * Set during allocation, constant thereafter. May be accessed read-only
@@ -122,9 +128,20 @@ struct iio_dma_buffer_queue {
 	struct mutex lock;
 	spinlock_t list_lock;
 	struct list_head incoming;
+#ifdef CONFIG_IIO_DMA_BUF_MMAP_LEGACY
+	struct list_head outgoing;
+#endif
 
 	bool active;
 	atomic_t num_dmabufs;
+
+	void *driver_data;
+
+#ifdef CONFIG_IIO_DMA_BUF_MMAP_LEGACY
+	unsigned int num_blocks;
+	struct iio_dma_buffer_block **blocks;
+	unsigned int max_offset;
+#endif
 
 	struct iio_dma_buffer_queue_fileio fileio;
 };
@@ -158,9 +175,23 @@ int iio_dma_buffer_set_length(struct iio_buffer *buffer, unsigned int length);
 int iio_dma_buffer_request_update(struct iio_buffer *buffer);
 
 int iio_dma_buffer_init(struct iio_dma_buffer_queue *queue,
-	struct device *dma_dev, const struct iio_dma_buffer_ops *ops);
+	struct device *dma_dev, const struct iio_dma_buffer_ops *ops,
+	void *driver_data);
 void iio_dma_buffer_exit(struct iio_dma_buffer_queue *queue);
 void iio_dma_buffer_release(struct iio_dma_buffer_queue *queue);
+#ifdef CONFIG_IIO_DMA_BUF_MMAP_LEGACY
+int iio_dma_buffer_alloc_blocks(struct iio_buffer *buffer,
+	struct iio_buffer_block_alloc_req *req);
+int iio_dma_buffer_free_blocks(struct iio_buffer *buffer);
+int iio_dma_buffer_query_block(struct iio_buffer *buffer,
+	struct iio_buffer_block *block);
+int iio_dma_buffer_enqueue_block(struct iio_buffer *buffer,
+	struct iio_buffer_block *block);
+int iio_dma_buffer_dequeue_block(struct iio_buffer *buffer,
+	struct iio_buffer_block *block);
+int iio_dma_buffer_mmap(struct iio_buffer *buffer,
+	struct vm_area_struct *vma);
+#else
 
 struct iio_dma_buffer_block *
 iio_dma_buffer_attach_dmabuf(struct iio_buffer *buffer,
@@ -174,5 +205,5 @@ int iio_dma_buffer_enqueue_dmabuf(struct iio_buffer *buffer,
 				  size_t size, bool cyclic);
 void iio_dma_buffer_lock_queue(struct iio_buffer *buffer);
 void iio_dma_buffer_unlock_queue(struct iio_buffer *buffer);
-
+#endif
 #endif
