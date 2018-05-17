@@ -57,33 +57,38 @@ static void axi_hdmi_mode_config_init(struct drm_device *dev)
 	dev->mode_config.funcs = &axi_hdmi_mode_config_funcs;
 }
 
-static int axi_hdmi_load(struct drm_device *dev, unsigned long flags)
+static int axi_hdmi_init(struct drm_driver *ddrv, struct device *dev)
 {
-	struct axi_hdmi_private *private = dev_get_drvdata(dev->dev);
+	struct axi_hdmi_private *private = dev_get_drvdata(dev);
+	struct drm_device *ddev;
 	struct drm_encoder *encoder;
 	int ret;
 
-	private->drm_dev = dev;
+	ddev = drm_dev_alloc(ddrv, dev);
+	if (IS_ERR(ddev))
+		return PTR_ERR(ddev);
 
-	dev->dev_private = private;
+	private->drm_dev = ddev;
 
-	axi_hdmi_mode_config_init(dev);
+	ddev->dev_private = private;
 
-	private->crtc = axi_hdmi_crtc_create(dev);
+	axi_hdmi_mode_config_init(ddev);
+
+	private->crtc = axi_hdmi_crtc_create(ddev);
 	if (IS_ERR(private->crtc)) {
 		ret = PTR_ERR(private->crtc);
 		goto err_crtc;
 	}
 
-	encoder = axi_hdmi_encoder_create(dev);
+	encoder = axi_hdmi_encoder_create(ddev);
 	if (IS_ERR(encoder)) {
 	    ret = PTR_ERR(encoder);
 	    goto err_crtc;
 	}
 
-	drm_mode_config_reset(dev);
+	drm_mode_config_reset(ddev);
 
-	private->fbdev = drm_fbdev_cma_init(dev, 32, 1, 1);
+	private->fbdev = drm_fbdev_cma_init(ddev, 32, 1);
 	if (IS_ERR(private->fbdev)) {
 		DRM_ERROR("failed to initialize drm fbdev\n");
 		ret = PTR_ERR(private->fbdev);
@@ -91,24 +96,22 @@ static int axi_hdmi_load(struct drm_device *dev, unsigned long flags)
 	}
 
 	/* init kms poll for handling hpd */
-	drm_kms_helper_poll_init(dev);
+	drm_kms_helper_poll_init(ddev);
 
 	return 0;
 
 err_crtc:
-	drm_mode_config_cleanup(dev);
+	drm_mode_config_cleanup(ddev);
 	return ret;
 }
 
-static int axi_hdmi_unload(struct drm_device *dev)
+static void axi_hdmi_unload(struct drm_device *dev)
 {
 	struct axi_hdmi_private *private = dev->dev_private;
 
 	drm_fbdev_cma_fini(private->fbdev);
 	drm_kms_helper_poll_fini(dev);
 	drm_mode_config_cleanup(dev);
-
-	return 0;
 }
 
 static void axi_hdmi_lastclose(struct drm_device *dev)
@@ -129,14 +132,11 @@ static const struct file_operations axi_hdmi_driver_fops = {
 
 static struct drm_driver axi_hdmi_driver = {
 	.driver_features	= DRIVER_MODESET | DRIVER_GEM | DRIVER_ATOMIC,
-	.load			= axi_hdmi_load,
 	.unload			= axi_hdmi_unload,
 	.lastclose		= axi_hdmi_lastclose,
 	.gem_free_object	= drm_gem_cma_free_object,
 	.gem_vm_ops		= &drm_gem_cma_vm_ops,
 	.dumb_create		= drm_gem_cma_dumb_create,
-	.dumb_map_offset	= drm_gem_cma_dumb_map_offset,
-	.dumb_destroy		= drm_gem_dumb_destroy,
 	.fops			= &axi_hdmi_driver_fops,
 	.name			= DRIVER_NAME,
 	.desc			= DRIVER_DESC,
@@ -213,7 +213,7 @@ static int axi_hdmi_platform_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, private);
 
-	return drm_platform_init(&axi_hdmi_driver, pdev);
+	return axi_hdmi_init(&axi_hdmi_driver, &pdev->dev);
 }
 
 static int axi_hdmi_platform_remove(struct platform_device *pdev)
