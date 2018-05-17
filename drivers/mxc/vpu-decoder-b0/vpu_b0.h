@@ -32,6 +32,7 @@
 #include <soc/imx8/sc/sci.h>
 #include <linux/mx8_mu.h>
 #include <media/v4l2-event.h>
+#include <linux/kfifo.h>
 #include "vpu_rpc.h"
 
 extern unsigned int vpu_dbg_level_decoder;
@@ -218,7 +219,10 @@ struct vpu_ctx {
 
 	int str_index;
 	struct queue_data q_data[2];
-//	struct work_struct msg_work;
+	struct kfifo msg_fifo;
+	struct mutex instance_mutex;
+	struct work_struct instance_work;
+	struct workqueue_struct *instance_wq;
 	struct completion completion;
 	struct completion stop_cmp;
 	MediaIPFW_Video_SeqInfo *pSeqinfo;
@@ -231,6 +235,7 @@ struct vpu_ctx {
 	bool firmware_finished;
 	bool stream_feed_complete;
 	bool eos_stop_added;
+	bool ctx_released;
 	wait_queue_head_t buffer_wq;
 	void *dpb_dma_virt;
 	u_int32 uSize;

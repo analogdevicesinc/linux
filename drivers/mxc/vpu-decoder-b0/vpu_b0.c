@@ -1850,10 +1850,8 @@ static irqreturn_t fsl_vpu_mu_isr(int irq, void *This)
 	} else if (msg == 0x55) {
 		dev->firmware_started = true;
 		complete(&dev->start_cmp);
-	} else {
-//		queue_work(dev->workqueue, &dev->msg_work);
+	} else
 		schedule_work(&dev->msg_work);
-	}
 
 	return IRQ_HANDLED;
 }
@@ -1940,6 +1938,30 @@ static int vpu_next_free_instance(struct vpu_dev *dev)
 	return idx;
 }
 
+void send_msg_queue(struct vpu_ctx *ctx, struct event_msg *msg)
+{
+	u_int32 ret;
+
+	ret = kfifo_in(&ctx->msg_fifo, msg, sizeof(struct event_msg));
+	if (ret != sizeof(struct event_msg))
+		vpu_dbg(LVL_ERR, "There is no memory for msg fifo, ret=%d\n", ret);
+}
+
+bool receive_msg_queue(struct vpu_ctx *ctx, struct event_msg *msg)
+{
+	u_int32 ret;
+
+	if (kfifo_len(&ctx->msg_fifo) >= sizeof(*msg)) {
+		ret = kfifo_out(&ctx->msg_fifo, msg, sizeof(*msg));
+		if (ret != sizeof(*msg)) {
+			vpu_dbg(LVL_ERR, "kfifo_out has error, ret=%d\n", ret);
+			return false;
+		} else
+			return true;
+	} else
+		return false;
+}
+
 extern u_int32 rpc_MediaIPFW_Video_message_check(struct shared_addr *This);
 static void vpu_msg_run_work(struct work_struct *work)
 {
@@ -1950,11 +1972,28 @@ static void vpu_msg_run_work(struct work_struct *work)
 
 	while (rpc_MediaIPFW_Video_message_check(This) == API_MSG_AVAILABLE) {
 		rpc_receive_msg_buf(This, &msg);
+		mutex_lock(&dev->dev_mutex);
 		ctx = dev->ctx[msg.idx];
-		vpu_api_event_handler(ctx, msg.idx, msg.msgid, msg.msgdata);
+		if (ctx != NULL) {
+			mutex_lock(&ctx->instance_mutex);
+			if (!ctx->ctx_released) {
+				send_msg_queue(ctx, &msg);
+				queue_work(ctx->instance_wq, &ctx->instance_work);
+			}
+			mutex_unlock(&ctx->instance_mutex);
+		}
+		mutex_unlock(&dev->dev_mutex);
 	}
 	if (rpc_MediaIPFW_Video_message_check(This) == API_MSG_BUFFER_ERROR)
 		vpu_dbg(LVL_ERR, "error: message size is too big to handle\n");
+}
+static void vpu_msg_instance_work(struct work_struct *work)
+{
+	struct vpu_ctx *ctx = container_of(work, struct vpu_ctx, instance_work);
+	struct event_msg msg;
+
+	while (receive_msg_queue(ctx, &msg))
+		vpu_api_event_handler(ctx, msg.idx, msg.msgid, msg.msgdata);
 }
 
 static int vpu_queue_setup(struct vb2_queue *vq,
@@ -2285,6 +2324,23 @@ static int v4l2_open(struct file *filp)
 	ctrls_setup_decoder(ctx);
 	ctx->fh.ctrl_handler = &ctx->ctrl_handler;
 
+
+	ctx->instance_wq = alloc_workqueue("vpu_instance", WQ_UNBOUND | WQ_MEM_RECLAIM, 1);
+	if (!ctx->instance_wq) {
+		vpu_dbg(LVL_ERR, "error: %s unable to alloc workqueue for ctx\n", __func__);
+		ret = -ENOMEM;
+		goto err_alloc;
+	}
+	INIT_WORK(&ctx->instance_work, vpu_msg_instance_work);
+
+	mutex_init(&ctx->instance_mutex);
+	if (kfifo_alloc(&ctx->msg_fifo,
+				sizeof(struct event_msg) * VID_API_MESSAGE_LIMIT,
+				GFP_KERNEL)) {
+		vpu_dbg(LVL_ERR, "fail to alloc fifo when open\n");
+		ret = -ENOMEM;
+		goto err_alloc;
+	}
 	ctx->dev = dev;
 	ctx->str_index = idx;
 	dev->ctx[idx] = ctx;
@@ -2296,6 +2352,7 @@ static int v4l2_open(struct file *filp)
 	ctx->eos_stop_added    = false;
 	ctx->stream_feed_complete = false;
 	ctx->buffer_null = true; //this flag is to judge whether the buffer is null is not, it is used for the workaround that when send stop command still can receive buffer ready event, and true means buffer is null, false not
+	ctx->ctx_released = false;
 	ctx->pSeqinfo = kzalloc(sizeof(MediaIPFW_Video_SeqInfo), GFP_KERNEL);
 	if (!ctx->pSeqinfo)
 		vpu_dbg(LVL_ERR, "error: pSeqinfo alloc fail\n");
@@ -2338,8 +2395,8 @@ static int v4l2_open(struct file *filp)
 	if (!ctx->stream_buffer_virt)
 		vpu_dbg(LVL_ERR, "error: %s() stream buffer alloc size(%x) fail!\n", __func__, ctx->stream_buffer_size);
 	else
-		vpu_dbg(LVL_INFO, "%s() stream_buffer_size(%d) stream_buffer_virt(%p) stream_buffer_phy(%p)\n",
-				__func__, ctx->stream_buffer_size, ctx->stream_buffer_virt, (void *)ctx->stream_buffer_phy);
+		vpu_dbg(LVL_INFO, "%s() stream_buffer_size(%d) stream_buffer_virt(%p) stream_buffer_phy(%p), index(%d)\n",
+				__func__, ctx->stream_buffer_size, ctx->stream_buffer_virt, (void *)ctx->stream_buffer_phy, ctx->str_index);
 	ctx->udata_buffer_size = UDATA_BUFFER_SIZE;
 	ctx->udata_buffer_virt = dma_alloc_coherent(&ctx->dev->plat_dev->dev,
 			ctx->udata_buffer_size,
@@ -2364,6 +2421,10 @@ err_firmware_load:
 	kfree(ctx);
 	return ret;
 err_find_index:
+	pm_runtime_put_sync(dev->generic_dev);
+	kfree(ctx);
+	return ret;
+err_alloc:
 	pm_runtime_put_sync(dev->generic_dev);
 	kfree(ctx);
 	return ret;
@@ -2392,15 +2453,10 @@ static int v4l2_release(struct file *filp)
 		}
 	}
 
-	dev->ctx[ctx->str_index] = NULL;
 	release_queue_data(ctx);
 	ctrls_delete_decoder(ctx);
 	v4l2_fh_del(&ctx->fh);
 	v4l2_fh_exit(&ctx->fh);
-	mutex_lock(&dev->dev_mutex);
-	if (!(dev->hang_mask & (1 << ctx->str_index))) // judge the path is hang or not, if hang, don't clear
-		clear_bit(ctx->str_index, &dev->instance_mask);
-	mutex_unlock(&dev->dev_mutex);
 
 	for (i = 0; i < MAX_DCP_NUM; i++)
 		if (ctx->dcp_dma_virt[i] != NULL)
@@ -2433,6 +2489,18 @@ static int v4l2_release(struct file *filp)
 		kfree(ctx->pSeqinfo);
 		ctx->pSeqinfo = NULL;
 	}
+	mutex_lock(&ctx->instance_mutex);
+	ctx->ctx_released = true;
+	kfifo_free(&ctx->msg_fifo);
+	destroy_workqueue(ctx->instance_wq);
+	mutex_unlock(&ctx->instance_mutex);
+	ctx->stream_buffer_virt = NULL;
+	mutex_lock(&dev->dev_mutex);
+	if (!(dev->hang_mask & (1 << ctx->str_index))) // judge the path is hang or not, if hang, don't clear
+		clear_bit(ctx->str_index, &dev->instance_mask);
+	dev->ctx[ctx->str_index] = NULL;
+	mutex_unlock(&dev->dev_mutex);
+
 	pm_runtime_put_sync(ctx->dev->generic_dev);
 	kfree(ctx);
 	return 0;
