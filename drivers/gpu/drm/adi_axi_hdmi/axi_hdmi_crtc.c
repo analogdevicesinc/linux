@@ -52,7 +52,7 @@ static struct dma_async_tx_descriptor *axi_hdmi_vdma_prep_interleaved_desc(
 	vdma_config.coalesc = 0xff;
 	xilinx_vdma_channel_set_config(axi_hdmi_crtc->dma, &vdma_config);
 
-	offset = plane->state->crtc_x * fb->bits_per_pixel / 8 +
+	offset = plane->state->crtc_x * fb->format->cpp[0] / 8 +
 		plane->state->crtc_y * fb->pitches[0];
 
 	/* Interleaved DMA is used that way:
@@ -77,7 +77,7 @@ static struct dma_async_tx_descriptor *axi_hdmi_vdma_prep_interleaved_desc(
 	axi_hdmi_crtc->dma_template->dst_inc = 0;
 	axi_hdmi_crtc->dma_template->dst_sgl = 0;
 
-	hw_row_size = plane->state->crtc_w * fb->bits_per_pixel / 8;
+	hw_row_size = plane->state->crtc_w * fb->format->cpp[0] / 8;
 	axi_hdmi_crtc->dma_template->sgl[0].size = hw_row_size;
 
 	/* the vdma driver seems to look at icg, and not src_icg */
@@ -109,11 +109,13 @@ static void axi_hdmi_plane_atomic_update(struct drm_plane *plane,
 	dma_async_issue_pending(axi_hdmi_crtc->dma);
 }
 
-static void axi_hdmi_crtc_enable(struct drm_crtc *crtc)
+static void axi_hdmi_crtc_enable(struct drm_crtc *crtc,
+				 struct drm_crtc_state *old_state)
 {
 }
 
-static void axi_hdmi_crtc_disable(struct drm_crtc *crtc)
+static void axi_hdmi_crtc_disable(struct drm_crtc *crtc,
+				  struct drm_crtc_state *old_state)
 {
 	struct axi_hdmi_crtc *axi_hdmi_crtc = to_axi_hdmi_crtc(crtc);
 
@@ -135,8 +137,8 @@ static void axi_hdmi_crtc_atomic_begin(struct drm_crtc *crtc,
 }
 
 static const struct drm_crtc_helper_funcs axi_hdmi_crtc_helper_funcs = {
-	.enable = axi_hdmi_crtc_enable,
-	.disable = axi_hdmi_crtc_disable,
+	.atomic_enable = axi_hdmi_crtc_enable,
+	.atomic_disable = axi_hdmi_crtc_disable,
 	.atomic_begin = axi_hdmi_crtc_atomic_begin,
 };
 
@@ -212,7 +214,7 @@ struct drm_crtc *axi_hdmi_crtc_create(struct drm_device *dev)
 
 	ret = drm_universal_plane_init(dev, plane, 0xff, &axi_hdmi_plane_funcs,
 		axi_hdmi_supported_formats,
-		ARRAY_SIZE(axi_hdmi_supported_formats),
+		ARRAY_SIZE(axi_hdmi_supported_formats), NULL,
 		DRM_PLANE_TYPE_PRIMARY, NULL);
 	if (ret)
 		goto err_free_dma_template;
