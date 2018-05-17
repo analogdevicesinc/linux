@@ -177,6 +177,7 @@
 		/* kHz    uV */
 		/* voltage is maintained by SCFW, so no need here */
 		1200000	   0
+		1104000	   0
 		900000	   0
 		600000	   0
 	>;
@@ -191,6 +192,7 @@
 		/* voltage is maintained by SCFW, so no need here */
 		1596000	   0
 		1464000	   0
+		1300000	   0
 		1056000	   0
 		600000     0
 	>;
