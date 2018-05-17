@@ -1,0 +1,5 @@
+config IMX_HDP_CEC
+	bool "Enable IMX HDP CEC support"
+	depends on MEDIA_CEC
+	---help---
+	When selected the imx hdmi will support the optional HDMI CEC feature.

@@ -27,7 +27,7 @@
 
 #include <drm/drm_dp_helper.h>
 #include "../../../../mxc/hdp/all.h"
-#include "imx-cec.h"
+#include "../../../../mxc/hdp-cec/imx-hdp-cec.h"
 
 /* For testing hdp firmware define DEBUG_FW_LOAD */
 #undef DEBUG_FW_LOAD

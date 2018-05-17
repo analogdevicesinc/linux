@@ -5,5 +5,3 @@ obj-$(CONFIG_DRM_IMX_HDP) += imx-hdp.o \
 			ss28fdsoi_hdmitx_table.o \
 			API_AFE_mcu1_dp.o \
 			imx-hdp-audio.o
-
-obj-$(CONFIG_IMX_HDP_CEC) += imx-cec.o \

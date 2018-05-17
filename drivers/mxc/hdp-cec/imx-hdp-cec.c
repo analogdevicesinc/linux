@@ -25,7 +25,7 @@
 #include <media/cec.h>
 #include <soc/imx8/soc.h>
 
-#include "imx-hdp.h"
+#include "imx-hdp-cec.h"
 
 #define CEC_NAME	"hdp-cec"
 
@@ -46,22 +46,18 @@
 
 u32 cec_read(struct imx_cec_dev *cec, u32 offset)
 {
-	struct imx_hdp *hdp = container_of(cec, struct imx_hdp, cec);
-	struct hdp_mem *mem = &hdp->mem;
 	u32 addr = (offset << 2) + ADDR_HDP_CEC_BASE;
 	u32 value;
 
-	hdp->rw->read_reg(mem, addr, &value);
+	cec->rw->read_reg(cec->mem, addr, &value);
 	return value;
 }
 
 void cec_write(struct imx_cec_dev *cec, u32 offset, u32 value)
 {
-	struct imx_hdp *hdp = container_of(cec, struct imx_hdp, cec);
-	struct hdp_mem *mem = &hdp->mem;
 	u32 addr = (offset << 2) + ADDR_HDP_CEC_BASE;
 
-	hdp->rw->write_reg(mem, addr, value);
+	cec->rw->write_reg(cec->mem, addr, value);
 }
 
 void cec_clear_rx_buffer(struct imx_cec_dev *cec)
@@ -143,7 +139,7 @@ u32 imx_cec_set_logical_addr(struct imx_cec_dev *cec, u32 la)
 	u8 i;
 	u8 la_reg;
 
-	if ((la >= MAX_LA_VAL)) {
+	if (la >= MAX_LA_VAL) {
 		dev_err(cec->dev, "Error logical Addr\n");
 		return -EINVAL;
 	}
@@ -273,13 +269,12 @@ static const struct cec_adap_ops imx_cec_adap_ops = {
 
 int imx_cec_register(struct imx_cec_dev *cec)
 {
-	struct imx_hdp *hdp = container_of(cec, struct imx_hdp, cec);
-	struct device *dev = hdp->dev;
+	struct device *dev = cec->dev;
 	int ret;
 
 	/* Set CEC clock divider */
-	if (hdp->clks.clk_core)
-		cec->clk_div = clk_get_rate(hdp->clks.clk_core) / 100000;
+	if (cec->clk_core)
+		cec->clk_div = clk_get_rate(cec->clk_core) / 100000;
 	else
 		/* Default HDMI core clock rate 133MHz */
 		cec->clk_div = 1330;
@@ -301,9 +296,9 @@ int imx_cec_register(struct imx_cec_dev *cec)
 	cec->dev = dev;
 
 	cec->cec_worker = kthread_create(cec_poll_worker, cec, "hdp-cec");
-	if (IS_ERR(cec->cec_worker)) {
+	if (IS_ERR(cec->cec_worker))
 		dev_err(cec->dev, "failed  create hdp cec thread\n");
-	}
+
 	wake_up_process(cec->cec_worker);
 
 	dev_dbg(dev, "CEC successfuly probed\n");

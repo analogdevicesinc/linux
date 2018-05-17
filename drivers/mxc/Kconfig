@@ -9,6 +9,7 @@ source "drivers/mxc/gpu-viv/Kconfig"
 source "drivers/mxc/hantro/Kconfig"
 source "drivers/mxc/mlb/Kconfig"
 source "drivers/mxc/hdp/Kconfig"
+source "drivers/mxc/hdp-cec/Kconfig"
 
 config MXC_SIM
         tristate "MXC SIM support"

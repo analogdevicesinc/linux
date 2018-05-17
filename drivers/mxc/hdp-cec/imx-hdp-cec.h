@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 NXP
+ * Copyright 2018 NXP
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -12,10 +12,12 @@
  * GNU General Public License for more details.
  */
 
-#ifndef _IMX_CEC_H_
-#define _IMX_CEC_H_
+#ifndef _IMX_HDP_CEC_H_
+#define _IMX_HDP_CEC_H_
 
 #include <linux/cec.h>
+#include "../hdp/util.h"
+#include "../hdp/address.h"
 
 /* regsiter define */
 /* register TX_MSG_HEADER */
@@ -328,13 +330,18 @@ struct imx_cec_dev {
 	struct cec_adapter *adap;
 	struct device *dev;
 	struct mutex lock;
-	void __iomem *reg_base;
 
 	struct cec_msg msg;
 	u32 clk_div;
 	struct task_struct *cec_worker;
+
+	/* inited by HDP controller driver */
+	struct clk *clk_core;
+	struct hdp_mem *mem;
+	struct hdp_rw_func *rw;
 };
 
 int imx_cec_register(struct imx_cec_dev *cec);
 int imx_cec_unregister(struct imx_cec_dev *cec);
+
 #endif

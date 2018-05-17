@@ -10,5 +10,6 @@ obj-$(CONFIG_MXC_HANTRO_845) += hantro_845/
 obj-$(CONFIG_MXC_HANTRO_845_H1) += hantro_845_h1/
 obj-$(CONFIG_MXC_VPU_MALONE) += vpu-malone/
 obj-$(CONFIG_MX8_HDP)	+= hdp/
+obj-$(CONFIG_IMX_HDP_CEC)	+= hdp-cec/
 obj-$(CONFIG_MXC_VPU_DECODER) += vpu-decoder-b0/
 obj-$(CONFIG_MXC_VPU_ENCODER) += vpu-encoder-b0/

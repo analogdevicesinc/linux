@@ -74,6 +74,21 @@ static void imx_hdp_state_init(struct imx_hdp *hdp)
 	state->rw = hdp->rw;
 }
 
+#ifdef CONFIG_IMX_HDP_CEC
+static void imx_hdp_cec_init(struct imx_hdp *hdp)
+{
+	struct imx_cec_dev *cec = &hdp->cec;
+
+	memset(cec, 0, sizeof(struct imx_cec_dev));
+
+	if (hdp->clks.clk_core)
+		cec->clk_core = hdp->clks.clk_core;
+	cec->dev = hdp->dev;
+	cec->mem = &hdp->mem;
+	cec->rw = hdp->rw;
+}
+#endif
+
 static void imx8qm_pixel_link_mux(state_struct *state, struct drm_display_mode *mode)
 {
 	struct imx_hdp *hdp = state_to_imx_hdp(state);
@@ -1167,8 +1182,10 @@ static int imx_hdp_imx_bind(struct device *dev, struct device *master,
 			enable_irq(hdp->irq[HPD_IRQ_OUT]);
 	}
 #ifdef CONFIG_IMX_HDP_CEC
-	if (hdp->is_cec)
+	if (hdp->is_cec) {
+		imx_hdp_cec_init(hdp);
 		imx_cec_register(&hdp->cec);
+	}
 #endif
 
 	imx_hdp_register_audio_driver(dev);
