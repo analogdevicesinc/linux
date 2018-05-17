@@ -372,7 +372,7 @@ void dprc_configure(struct dprc *dprc, unsigned int stream_id,
 	unsigned int prg_stride = width * info->cpp[0];
 	unsigned int bpp = 8 * info->cpp[0];
 	unsigned int preq;
-	unsigned int mt_w = 1, mt_h = 0;	/* w/h in a micro-tile */
+	unsigned int mt_w = 0, mt_h = 0;	/* w/h in a micro-tile */
 	u32 val;
 
 	if (WARN_ON(!dprc))
@@ -587,9 +587,6 @@ void dprc_configure(struct dprc *dprc, unsigned int stream_id,
 		}
 	}
 
-	if (dprc->is_blit_chan && dprc->devtype->has_fixup)
-		prg_stride = (width  + (x_offset % mt_w)) * info->cpp[0];
-
 	prg_configure(dprc->prgs[0], width, height, x_offset, y_offset,
 			prg_stride, bpp, baddr, format, modifier, start);
 	if (dprc->use_aux_prg)
@@ -758,21 +755,24 @@ bool dprc_stride_supported(struct dprc *dprc,
 EXPORT_SYMBOL_GPL(dprc_stride_supported);
 
 bool dprc_stride_double_check(struct dprc *dprc,
-			      unsigned int stride, unsigned int uv_stride,
-			      unsigned int width, u32 format,
+			      unsigned int width, unsigned int x_offset,
+			      u32 format, u64 modifier,
 			      dma_addr_t baddr, dma_addr_t uv_baddr)
 {
 	const struct dprc_format_info *info = dprc_format_info(format);
+	unsigned int bpp = 8 * info->cpp[0];
 	unsigned int prg_stride = width * info->cpp[0];
 
 	if (WARN_ON(!dprc))
 		return false;
 
-	if (!prg_stride_double_check(dprc->prgs[0], prg_stride, baddr))
+	if (!prg_stride_double_check(dprc->prgs[0], width, x_offset,
+				     bpp, modifier, prg_stride, baddr))
 		return false;
 
 	if (info->num_planes > 1 &&
-	    !prg_stride_double_check(dprc->prgs[1], prg_stride, uv_baddr))
+	    !prg_stride_double_check(dprc->prgs[1], width, x_offset,
+				     bpp, modifier, prg_stride, uv_baddr))
 		return false;
 
 	return true;

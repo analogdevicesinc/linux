@@ -147,10 +147,39 @@ int fetchdecode_pixengcfg_dynamic_src_sel(struct dpu_fetchunit *fu,
 EXPORT_SYMBOL_GPL(fetchdecode_pixengcfg_dynamic_src_sel);
 
 static void
-fetchdecode_set_baseaddress(struct dpu_fetchunit *fu, dma_addr_t paddr)
+fetchdecode_set_baseaddress(struct dpu_fetchunit *fu, unsigned int width,
+			    unsigned int x_offset, unsigned int y_offset,
+			    unsigned int mt_w, unsigned int mt_h,
+			    int bpp, dma_addr_t baddr)
 {
+	unsigned int burst_size, stride;
+	bool nonzero_mod = !!mt_w;
+
+	if (nonzero_mod) {
+		/* consider PRG x offset to calculate buffer address */
+		baddr += (x_offset % mt_w) * (bpp / 8);
+
+		/*
+		 * address TKT343664:
+		 * fetch unit base address has to align to burst size
+		 */
+		burst_size = 1 << (ffs(baddr) - 1);
+		burst_size = round_up(burst_size, 8);
+		burst_size = min(burst_size, 128U);
+
+		stride = width * (bpp >> 3);
+		/*
+		 * address TKT339017:
+		 * fixup for burst size vs stride mismatch
+		 */
+		stride = round_up(stride + round_up(baddr % 8, 8), burst_size);
+
+		/* consider PRG y offset to calculate buffer address */
+		baddr += (y_offset % mt_h) * stride;
+	}
+
 	mutex_lock(&fu->mutex);
-	dpu_fu_write(fu, paddr, BASEADDRESS0);
+	dpu_fu_write(fu, baddr, BASEADDRESS0);
 	mutex_unlock(&fu->mutex);
 }
 
@@ -168,18 +197,25 @@ static void fetchdecode_set_src_bpp(struct dpu_fetchunit *fu, int bpp)
 
 static void
 fetchdecode_set_src_stride(struct dpu_fetchunit *fu,
-			   unsigned int width, int bpp, unsigned int stride,
+			   unsigned int width, unsigned int x_offset,
+			   unsigned int mt_w, int bpp, unsigned int stride,
 			   dma_addr_t baddr, bool use_prefetch)
 {
 	unsigned int burst_size;
+	bool nonzero_mod = !!mt_w;
 	u32 val;
 
 	if (use_prefetch) {
+		/* consider PRG x offset to calculate buffer address */
+		if (nonzero_mod)
+			baddr += (x_offset % mt_w) * (bpp / 8);
+
 		/*
 		 * address TKT343664:
 		 * fetch unit base address has to align to burst size
 		 */
 		burst_size = 1 << (ffs(baddr) - 1);
+		burst_size = round_up(burst_size, 8);
 		burst_size = min(burst_size, 128U);
 
 		stride = width * (bpp >> 3);
@@ -187,7 +223,11 @@ fetchdecode_set_src_stride(struct dpu_fetchunit *fu,
 		 * address TKT339017:
 		 * fixup for burst size vs stride mismatch
 		 */
-		stride = round_up(stride, burst_size);
+		if (nonzero_mod)
+			stride = round_up(stride + round_up(baddr % 8, 8),
+								burst_size);
+		else
+			stride = round_up(stride, burst_size);
 	}
 
 	mutex_lock(&fu->mutex);

@@ -347,7 +347,13 @@ static int dpu_plane_atomic_check(struct drm_plane *plane,
 	if (fb->modifier && !dpstate->use_prefetch)
 		return -EINVAL;
 
-	/* base address alignment check */
+	/*
+	 * base address alignment check
+	 *
+	 * The (uv) base address offset introduced by PRG x/y
+	 * offset(for tile formats) would not impact the alignment
+	 * check, so we don't take the offset into consideration.
+	 */
 	baseaddr = drm_plane_state_to_baseaddr(state);
 	switch (fb->format->format) {
 	case DRM_FORMAT_YUYV:
@@ -368,8 +374,13 @@ static int dpu_plane_atomic_check(struct drm_plane *plane,
 			return -EINVAL;
 		break;
 	case 16:
-		if (baseaddr & (dpstate->use_prefetch ? 0x7 : 0x1))
-			return -EINVAL;
+		if (fb->modifier) {
+			if (baseaddr & 0x1)
+				return -EINVAL;
+		} else {
+			if (baseaddr & (dpstate->use_prefetch ? 0x7 : 0x1))
+				return -EINVAL;
+		}
 		break;
 	}
 
@@ -379,16 +390,21 @@ static int dpu_plane_atomic_check(struct drm_plane *plane,
 	/* UV base address alignment check, assuming 16bpp */
 	if (drm_format_num_planes(fb->format->format) > 1) {
 		uv_baseaddr = drm_plane_state_to_uvbaseaddr(state);
-		if (uv_baseaddr & (dpstate->use_prefetch ? 0x7 : 0x1))
-			return -EINVAL;
+		if (fb->modifier) {
+			if (uv_baseaddr & 0x1)
+				return -EINVAL;
+		} else {
+			if (uv_baseaddr & (dpstate->use_prefetch ? 0x7 : 0x1))
+				return -EINVAL;
+		}
 
 		if (fb->pitches[1] > 0x10000)
 			return -EINVAL;
 	}
 
 	if (dpstate->use_prefetch &&
-	    !dprc_stride_double_check(dprc, fb->pitches[0], fb->pitches[1],
-					src_w, fb->format->format,
+	    !dprc_stride_double_check(dprc, src_w, src_x, fb->format->format,
+					fb->modifier,
 					baseaddr, uv_baseaddr)) {
 		if (fb->modifier)
 			return -EINVAL;
@@ -427,6 +443,7 @@ static void dpu_plane_atomic_update(struct drm_plane *plane,
 	dpu_block_id_t fe_id, vs_id = ID_NONE, hs_id;
 	lb_sec_sel_t lb_src = dpstate->source;
 	unsigned int src_w, src_h, src_x, src_y;
+	unsigned int mt_w = 0, mt_h = 0;	/* w/h in a micro-tile */
 	int bpp, lb_id;
 	bool need_fetcheco = false, need_hscaler = false, need_vscaler = false;
 	bool prefetch_start = false, aux_prefetch_start = false;
@@ -498,6 +515,20 @@ static void dpu_plane_atomic_update(struct drm_plane *plane,
 		break;
 	}
 
+	switch (fb->modifier) {
+	case DRM_FORMAT_MOD_AMPHION_TILED:
+		mt_w = 8;
+		mt_h = 8;
+		break;
+	case DRM_FORMAT_MOD_VIVANTE_TILED:
+	case DRM_FORMAT_MOD_VIVANTE_SUPER_TILED:
+		mt_w = (bpp == 16) ? 8 : 4;
+		mt_h = 4;
+		break;
+	default:
+		break;
+	}
+
 	baseaddr = drm_plane_state_to_baseaddr(state);
 	if (need_fetcheco)
 		uv_baseaddr = drm_plane_state_to_uvbaseaddr(state);
@@ -507,15 +538,17 @@ static void dpu_plane_atomic_update(struct drm_plane *plane,
 	     need_modeset))
 		prefetch_start = true;
 
-	fu->ops->set_burstlength(fu, baseaddr, dpstate->use_prefetch);
+	fu->ops->set_burstlength(fu, src_x, mt_w, bpp,
+				 baseaddr, dpstate->use_prefetch);
 	fu->ops->set_src_bpp(fu, bpp);
-	fu->ops->set_src_stride(fu, src_w, bpp, fb->pitches[0],
+	fu->ops->set_src_stride(fu, src_w, src_x, mt_w, bpp, fb->pitches[0],
 				baseaddr, dpstate->use_prefetch);
 	fu->ops->set_src_buf_dimensions(fu, src_w, src_h, 0, fb_is_interlaced);
 	fu->ops->set_fmt(fu, fb->format->format, fb_is_interlaced);
 	fu->ops->enable_src_buf(fu);
 	fu->ops->set_framedimensions(fu, src_w, src_h, fb_is_interlaced);
-	fu->ops->set_baseaddress(fu, baseaddr);
+	fu->ops->set_baseaddress(fu, src_w, src_x, src_y, mt_w, mt_h, bpp,
+				 baseaddr);
 	fu->ops->set_stream_id(fu, dplane->stream_id ?
 						DPU_PLANE_SRC_TO_DISP_STREAM1 :
 						DPU_PLANE_SRC_TO_DISP_STREAM0);
@@ -536,10 +569,11 @@ static void dpu_plane_atomic_update(struct drm_plane *plane,
 
 		fetchdecode_pixengcfg_dynamic_src_sel(fu,
 						(fd_dynamic_src_sel_t)fe_id);
-		fe->ops->set_burstlength(fe, uv_baseaddr,
+		fe->ops->set_burstlength(fe, src_x, mt_w, bpp, uv_baseaddr,
 					 dpstate->use_prefetch);
 		fe->ops->set_src_bpp(fe, 16);
-		fe->ops->set_src_stride(fe, src_w, bpp, fb->pitches[1],
+		fe->ops->set_src_stride(fe, src_w, src_x, mt_w, bpp,
+					fb->pitches[1],
 					uv_baseaddr, dpstate->use_prefetch);
 		fe->ops->set_fmt(fe, fb->format->format, fb_is_interlaced);
 		fe->ops->set_src_buf_dimensions(fe, src_w, src_h,
@@ -547,7 +581,8 @@ static void dpu_plane_atomic_update(struct drm_plane *plane,
 						fb_is_interlaced);
 		fe->ops->set_framedimensions(fe, src_w, src_h,
 						fb_is_interlaced);
-		fe->ops->set_baseaddress(fe, uv_baseaddr);
+		fe->ops->set_baseaddress(fe, src_w, src_x, src_y / 2,
+					 mt_w, mt_h, bpp, uv_baseaddr);
 		fe->ops->enable_src_buf(fe);
 		fe->ops->set_stream_id(fe, dplane->stream_id ?
 					DPU_PLANE_SRC_TO_DISP_STREAM1 :

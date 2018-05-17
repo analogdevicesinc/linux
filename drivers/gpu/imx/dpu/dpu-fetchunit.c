@@ -76,19 +76,26 @@ void fetchunit_shdldreq_sticky(struct dpu_fetchunit *fu, u8 layer_mask)
 }
 EXPORT_SYMBOL_GPL(fetchunit_shdldreq_sticky);
 
-void fetchunit_set_burstlength(struct dpu_fetchunit *fu, dma_addr_t baddr,
-			       bool use_prefetch)
+void fetchunit_set_burstlength(struct dpu_fetchunit *fu,
+			       unsigned int x_offset, unsigned int mt_w,
+			       int bpp, dma_addr_t baddr, bool use_prefetch)
 {
 	struct dpu_soc *dpu = fu->dpu;
 	unsigned int burst_size, burst_length;
+	bool nonzero_mod = !!mt_w;
 	u32 val;
 
 	if (use_prefetch) {
+		/* consider PRG x offset to calculate buffer address */
+		if (nonzero_mod)
+			baddr += (x_offset % mt_w) * (bpp / 8);
+
 		/*
 		 * address TKT343664:
 		 * fetch unit base address has to align to burst size
 		 */
 		burst_size = 1 << (ffs(baddr) - 1);
+		burst_size = round_up(burst_size, 8);
 		burst_size = min(burst_size, 128U);
 		burst_length = burst_size / 8;
 	} else {
@@ -107,10 +114,39 @@ void fetchunit_set_burstlength(struct dpu_fetchunit *fu, dma_addr_t baddr,
 }
 EXPORT_SYMBOL_GPL(fetchunit_set_burstlength);
 
-void fetchunit_set_baseaddress(struct dpu_fetchunit *fu, dma_addr_t paddr)
+void fetchunit_set_baseaddress(struct dpu_fetchunit *fu, unsigned int width,
+			       unsigned int x_offset, unsigned int y_offset,
+			       unsigned int mt_w, unsigned int mt_h,
+			       int bpp, dma_addr_t baddr)
 {
+	unsigned int burst_size, stride;
+	bool nonzero_mod = !!mt_w;
+
+	if (nonzero_mod) {
+		/* consider PRG x offset to calculate buffer address */
+		baddr += (x_offset % mt_w) * (bpp / 8);
+
+		/*
+		 * address TKT343664:
+		 * fetch unit base address has to align to burst size
+		 */
+		burst_size = 1 << (ffs(baddr) - 1);
+		burst_size = round_up(burst_size, 8);
+		burst_size = min(burst_size, 128U);
+
+		stride = width * (bpp >> 3);
+		/*
+		 * address TKT339017:
+		 * fixup for burst size vs stride mismatch
+		 */
+		stride = round_up(stride + round_up(baddr % 8, 8), burst_size);
+
+		/* consider PRG y offset to calculate buffer address */
+		baddr += (y_offset % mt_h) * stride;
+	}
+
 	mutex_lock(&fu->mutex);
-	dpu_fu_write(fu, paddr, BASEADDRESS(fu->sub_id));
+	dpu_fu_write(fu, baddr, BASEADDRESS(fu->sub_id));
 	mutex_unlock(&fu->mutex);
 }
 EXPORT_SYMBOL_GPL(fetchunit_set_baseaddress);
@@ -135,18 +171,25 @@ EXPORT_SYMBOL_GPL(fetchunit_set_src_bpp);
  * in bytes for one line, while bpp should be 8bits for every U or V component.
  */
 void fetchunit_set_src_stride(struct dpu_fetchunit *fu,
-			      unsigned int width, int bpp, unsigned int stride,
+			      unsigned int width, unsigned int x_offset,
+			      unsigned int mt_w, int bpp, unsigned int stride,
 			      dma_addr_t baddr, bool use_prefetch)
 {
 	unsigned int burst_size;
+	bool nonzero_mod = !!mt_w;
 	u32 val;
 
 	if (use_prefetch) {
+		/* consider PRG x offset to calculate buffer address */
+		if (nonzero_mod)
+			baddr += (x_offset % mt_w) * (bpp / 8);
+
 		/*
 		 * address TKT343664:
 		 * fetch unit base address has to align to burst size
 		 */
 		burst_size = 1 << (ffs(baddr) - 1);
+		burst_size = round_up(burst_size, 8);
 		burst_size = min(burst_size, 128U);
 
 		stride = width * (bpp >> 3);
@@ -154,7 +197,11 @@ void fetchunit_set_src_stride(struct dpu_fetchunit *fu,
 		 * address TKT339017:
 		 * fixup for burst size vs stride mismatch
 		 */
-		stride = round_up(stride, burst_size);
+		if (nonzero_mod)
+			stride = round_up(stride + round_up(baddr % 8, 8),
+								burst_size);
+		else
+			stride = round_up(stride, burst_size);
 	}
 
 	mutex_lock(&fu->mutex);

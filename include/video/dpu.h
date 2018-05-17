@@ -432,14 +432,19 @@ struct dpu_fetchunit;
 
 struct dpu_fetchunit_ops {
 	void (*set_burstlength)(struct dpu_fetchunit *fu,
-				dma_addr_t baddr, bool use_prefetch);
+				unsigned int x_offset, unsigned int mt_w,
+				int bpp, dma_addr_t baddr, bool use_prefetch);
 
-	void (*set_baseaddress)(struct dpu_fetchunit *fu, dma_addr_t paddr);
+	void (*set_baseaddress)(struct dpu_fetchunit *fu, unsigned int width,
+				unsigned int x_offset, unsigned int y_offset,
+				unsigned int mt_w, unsigned int mt_h,
+				int bpp, dma_addr_t baddr);
 
 	void (*set_src_bpp)(struct dpu_fetchunit *fu, int bpp);
 
 	void (*set_src_stride)(struct dpu_fetchunit *fu,
-			       unsigned int width, int bpp, unsigned int stride,
+			       unsigned int width, unsigned int x_offset,
+			       unsigned int mt_w, int bpp, unsigned int stride,
 			       dma_addr_t baddr, bool use_prefetch);
 
 	void (*set_src_buf_dimensions)(struct dpu_fetchunit *fu,
@@ -688,12 +693,17 @@ void fetchunit_get_dprc(struct dpu_fetchunit *fu, void *data);
 void fetchunit_shden(struct dpu_fetchunit *fu, bool enable);
 void fetchunit_baddr_autoupdate(struct dpu_fetchunit *fu, u8 layer_mask);
 void fetchunit_shdldreq_sticky(struct dpu_fetchunit *fu, u8 layer_mask);
-void fetchunit_set_burstlength(struct dpu_fetchunit *fu, dma_addr_t baddr,
-			       bool use_prefetch);
-void fetchunit_set_baseaddress(struct dpu_fetchunit *fu, dma_addr_t paddr);
+void fetchunit_set_burstlength(struct dpu_fetchunit *fu,
+			       unsigned int x_offset, unsigned int mt_w,
+			       int bpp, dma_addr_t baddr, bool use_prefetch);
+void fetchunit_set_baseaddress(struct dpu_fetchunit *fu, unsigned int width,
+			       unsigned int x_offset, unsigned int y_offset,
+			       unsigned int mt_w, unsigned int mt_h,
+			       int bpp, dma_addr_t baddr);
 void fetchunit_set_src_bpp(struct dpu_fetchunit *fu, int bpp);
 void fetchunit_set_src_stride(struct dpu_fetchunit *fu,
-			      unsigned int width, int bpp, unsigned int stride,
+			      unsigned int width, unsigned int x_offset,
+			      unsigned int mt_w, int bpp, unsigned int stride,
 			      dma_addr_t baddr, bool use_prefetch);
 void fetchunit_enable_src_buf(struct dpu_fetchunit *fu);
 void fetchunit_disable_src_buf(struct dpu_fetchunit *fu);

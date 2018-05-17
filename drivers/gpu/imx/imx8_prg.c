@@ -136,7 +136,7 @@ void prg_configure(struct prg *prg, unsigned int width, unsigned int height,
 {
 	unsigned int burst_size;
 	unsigned int mt_w = 0, mt_h = 0;	/* w/h in a micro-tile */
-	bool is_tkt342628_case = false;
+	unsigned long _baddr;
 	u32 val;
 
 	if (WARN_ON(!prg))
@@ -144,29 +144,6 @@ void prg_configure(struct prg *prg, unsigned int width, unsigned int height,
 
 	if (start)
 		prg_reset(prg);
-
-	/*
-	 * address TKT343664:
-	 * fetch unit base address has to align to burst_size
-	 */
-	burst_size = 1 << (ffs(baddr) - 1);
-	burst_size = min(burst_size, 128U);
-
-	/*
-	 * address TKT339017:
-	 * fixup for burst size vs stride mismatch
-	 */
-	stride = round_up(stride, burst_size);
-
-	/*
-	 * address TKT342628(part 1):
-	 * when prg stride is less or equals to burst size,
-	 * the auxiliary prg height needs to be a half
-	 */
-	if (prg->is_auxiliary && stride <= burst_size) {
-		height /= 2;
-		is_tkt342628_case = true;
-	}
 
 	/* prg finer cropping into micro-tile block - top/left start point */
 	switch (modifier) {
@@ -189,11 +166,41 @@ void prg_configure(struct prg *prg, unsigned int width, unsigned int height,
 	if (prg->devtype->has_dprc_fixup && modifier) {
 		x_offset %= mt_w;
 		y_offset %= mt_h;
-		if (is_tkt342628_case)
-			y_offset /= 2;
+
+		/* consider x offset to calculate stride */
+		_baddr = baddr + (x_offset * (bits_per_pixel / 8));
 	} else {
 		x_offset = 0;
 		y_offset = 0;
+		_baddr = baddr;
+	}
+
+	/*
+	 * address TKT343664:
+	 * fetch unit base address has to align to burst_size
+	 */
+	burst_size = 1 << (ffs(_baddr) - 1);
+	burst_size = round_up(burst_size, 8);
+	burst_size = min(burst_size, 128U);
+
+	/*
+	 * address TKT339017:
+	 * fixup for burst size vs stride mismatch
+	 */
+	if (prg->devtype->has_dprc_fixup && modifier)
+		stride = round_up(stride + round_up(_baddr % 8, 8), burst_size);
+	else
+		stride = round_up(stride, burst_size);
+
+	/*
+	 * address TKT342628(part 1):
+	 * when prg stride is less or equals to burst size,
+	 * the auxiliary prg height needs to be a half
+	 */
+	if (prg->is_auxiliary && stride <= burst_size) {
+		height /= 2;
+		if (prg->devtype->has_dprc_fixup && modifier)
+			y_offset /= 2;
 	}
 
 	prg_write(prg, STRIDE(stride), PRG_STRIDE);
@@ -273,22 +280,58 @@ bool prg_stride_supported(struct prg *prg, unsigned int stride)
 EXPORT_SYMBOL_GPL(prg_stride_supported);
 
 bool prg_stride_double_check(struct prg *prg,
+			     unsigned int width, unsigned int x_offset,
+			     unsigned int bits_per_pixel, u64 modifier,
 			     unsigned int stride, dma_addr_t baddr)
 {
 	unsigned int burst_size;
+	unsigned int mt_w = 0;	/* w in a micro-tile */
+	dma_addr_t _baddr;
+
+	if (WARN_ON(!prg))
+		return false;
+
+	/* prg finer cropping into micro-tile block - top/left start point */
+	switch (modifier) {
+	case DRM_FORMAT_MOD_NONE:
+		break;
+	case DRM_FORMAT_MOD_AMPHION_TILED:
+		mt_w = 8;
+		break;
+	case DRM_FORMAT_MOD_VIVANTE_TILED:
+	case DRM_FORMAT_MOD_VIVANTE_SUPER_TILED:
+		mt_w = (bits_per_pixel == 16) ? 8 : 4;
+		break;
+	default:
+		dev_err(prg->dev, "unsupported modifier 0x%016llx\n", modifier);
+		return false;
+	}
+
+	if (prg->devtype->has_dprc_fixup && modifier) {
+		x_offset %= mt_w;
+
+		/* consider x offset to calculate stride */
+		_baddr = baddr + (x_offset * (bits_per_pixel / 8));
+	} else {
+		_baddr = baddr;
+	}
 
 	/*
 	 * address TKT343664:
 	 * fetch unit base address has to align to burst size
 	 */
-	burst_size = 1 << (ffs(baddr) - 1);
+	burst_size = 1 << (ffs(_baddr) - 1);
+	burst_size = round_up(burst_size, 8);
 	burst_size = min(burst_size, 128U);
 
 	/*
 	 * address TKT339017:
 	 * fixup for burst size vs stride mismatch
 	 */
-	stride = round_up(stride, burst_size);
+	if (prg->devtype->has_dprc_fixup && modifier)
+		stride = round_up(stride + round_up(_baddr % 8, 8), burst_size);
+	else
+		stride = round_up(stride, burst_size);
 
 	return stride < 0x10000;
 }
