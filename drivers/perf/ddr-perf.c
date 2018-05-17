@@ -21,6 +21,8 @@
 #define COUNTER_CNTL		0x0
 #define COUNTER_READ		0x20
 
+#define COUNTER_DPCR1		0x30
+
 #define CNTL_OVER		0x1
 #define CNTL_CLEAR		0x2
 #define CNTL_EN			0x4
@@ -80,6 +82,26 @@ PMU_EVENT_ATTR_STRING(refresh, ddr_perf_refresh, "event=0x37");
 PMU_EVENT_ATTR_STRING(write, ddr_perf_write, "event=0x38");
 PMU_EVENT_ATTR_STRING(raw-hazard, ddr_perf_raw_hazard, "event=0x39");
 
+PMU_EVENT_ATTR_STRING(axid-read, ddr_perf_axid_read, "event=0x41");
+PMU_EVENT_ATTR_STRING(axid-write, ddr_perf_axid_write, "event=0x42");
+
+#define DDR_CAP_AXI_ID 0x1
+
+struct fsl_ddr_devtype_data {
+	unsigned int flags;
+};
+
+static const struct fsl_ddr_devtype_data imx8_data;
+static const struct fsl_ddr_devtype_data imx8m_data = {
+	.flags = DDR_CAP_AXI_ID,
+};
+
+static const struct of_device_id imx_ddr_pmu_dt_ids[] = {
+	{ .compatible = "fsl,imx8-ddr-pmu", .data = (void*)&imx8_data},
+	{ .compatible = "fsl,imx8m-ddr-pmu", .data = (void*)&imx8m_data},
+	{ /* sentinel */ }
+};
+
 struct ddr_pmu {
 	struct pmu pmu;
 	void __iomem *base;
@@ -89,6 +111,7 @@ struct ddr_pmu {
 	struct perf_event *active_events[NUM_COUNTER];
 	int total_events;
 	bool cycles_active;
+	struct fsl_ddr_devtype_data *devtype;
 };
 
 static ssize_t ddr_perf_cpumask_show(struct device *dev,
@@ -142,6 +165,8 @@ static struct attribute *ddr_perf_events_attrs[] = {
 	&ddr_perf_refresh.attr.attr,
 	&ddr_perf_write.attr.attr,
 	&ddr_perf_raw_hazard.attr.attr,
+	&ddr_perf_axid_read.attr.attr,
+	&ddr_perf_axid_write.attr.attr,
 	NULL,
 };
 
@@ -151,8 +176,11 @@ static struct attribute_group ddr_perf_events_attr_group = {
 };
 
 PMU_FORMAT_ATTR(event, "config:0-63");
+PMU_FORMAT_ATTR(axi_id, "config1:0-63");
+
 static struct attribute *ddr_perf_format_attrs[] = {
 	&format_attr_event.attr,
+	&format_attr_axi_id.attr,
 	NULL,
 };
 
@@ -275,6 +303,14 @@ static void ddr_perf_event_start(struct perf_event *event, int flags)
 	struct ddr_pmu *pmu = to_ddr_pmu(event->pmu);
 	struct hw_perf_event *hwc = &event->hw;
 	int counter = hwc->idx;
+
+	if (pmu->devtype->flags & DDR_CAP_AXI_ID) {
+		if (event->attr.config == 0x41 ||
+		    event->attr.config == 0x42) {
+			int val = event->attr.config1;
+			writel(val, pmu->base + COUNTER_DPCR1);
+		}
+	}
 
 	local64_set(&hwc->prev_count, 0);
 
@@ -413,6 +449,8 @@ static int ddr_perf_probe(struct platform_device *pdev)
 	int num;
 	int ret;
 	u32 irq;
+	const struct of_device_id *of_id =
+		of_match_device(imx_ddr_pmu_dt_ids, &pdev->dev);
 
 	iomem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	base = devm_ioremap_resource(&pdev->dev, iomem);
@@ -429,6 +467,8 @@ static int ddr_perf_probe(struct platform_device *pdev)
 
 	num = ddr_perf_init(pmu, base, &pdev->dev);
 	name = devm_kasprintf(&pdev->dev, GFP_KERNEL, "ddr%d", num);
+
+	pmu->devtype = (struct fsl_ddr_devtype_data *)of_id->data;
 
 	cpumask_set_cpu(smp_processor_id(), &pmu->cpu);
 	ret = perf_pmu_register(&(pmu->pmu), name, -1);
@@ -472,11 +512,6 @@ static int ddr_perf_remove(struct platform_device *pdev)
 
 	return 0;
 }
-
-static const struct of_device_id imx_ddr_pmu_dt_ids[] = {
-	{ .compatible = "fsl,imx8-ddr-pmu", },
-	{ /* sentinel */ }
-};
 
 static struct platform_driver imx_ddr_pmu_driver = {
 	.driver         = {
