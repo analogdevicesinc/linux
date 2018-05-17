@@ -247,12 +247,6 @@
 		status = "disabled";
 	};
 
-	pcie_phy: pcie-phy@306d0000 {
-		  compatible = "fsl,imx-pcie-phy";
-		  reg = <0x306d0000 0x10000>;
-		  status = "disabled";
-	};
-
 	epdc: epdc@306f0000 {
 		compatible = "fsl,imx7d-epdc";
 		interrupts = <GIC_SPI 117 IRQ_TYPE_LEVEL_HIGH>;
@@ -362,8 +356,9 @@
 	pcie: pcie@0x33800000 {
 		compatible = "fsl,imx7d-pcie", "snps,dw-pcie";
 		reg = <0x33800000 0x4000>,
+		      <0x306d0000 0x10000>,
 		      <0x4ff00000 0x80000>;
-		reg-names = "dbi", "config";
+		reg-names = "dbi", "phy", "config";
 		#address-cells = <3>;
 		#size-cells = <2>;
 		device_type = "pci";

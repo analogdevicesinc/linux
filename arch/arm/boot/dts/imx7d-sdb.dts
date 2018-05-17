@@ -654,10 +654,6 @@
 	status = "okay";
 };
 
-&pcie_phy {
-       status = "okay";
-};
-
 &pcie {
 	pinctrl-names = "default";
 	reset-gpio = <&extended_io 1 GPIO_ACTIVE_LOW>;
