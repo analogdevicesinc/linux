@@ -883,6 +883,36 @@
 		};
 	};
 
+	pcie0: pcie@0x33800000 {
+		compatible = "fsl,imx8mm-pcie", "snps,dw-pcie";
+		reg = <0x0 0x33800000 0x0 0x400000>, <0x0 0x32f00000 0x0 0x10000>,
+			<0x0 0x1ff00000 0x0 0x80000>;
+		reg-names = "dbi", "phy", "config";
+		#address-cells = <3>;
+		#size-cells = <2>;
+		device_type = "pci";
+		ranges =  <0x81000000 0 0x00000000 0x0 0x1ff80000 0 0x00010000 /* downstream I/O 64KB */
+			   0x82000000 0 0x18000000 0x0 0x18000000 0 0x07f00000>; /* non-prefetchable memory */
+		num-lanes = <1>;
+		interrupts = <GIC_SPI 122 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 127 IRQ_TYPE_LEVEL_HIGH>; /* eDMA */
+		interrupt-names = "msi";
+		#interrupt-cells = <1>;
+		interrupt-map-mask = <0 0 0 0x7>;
+		interrupt-map = <0 0 0 1 &gic GIC_SPI 125 IRQ_TYPE_LEVEL_HIGH>,
+				<0 0 0 2 &gic GIC_SPI 124 IRQ_TYPE_LEVEL_HIGH>,
+				<0 0 0 3 &gic GIC_SPI 123 IRQ_TYPE_LEVEL_HIGH>,
+				<0 0 0 4 &gic GIC_SPI 122 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clk IMX8MM_CLK_PCIE1_ROOT>,
+			<&clk IMX8MM_CLK_PCIE1_CTRL_CG>,
+			<&clk IMX8MM_CLK_PCIE1_PHY_CG>;
+		clock-names = "pcie", "pcie_bus", "pcie_phy";
+		fsl,max-link-speed = <2>;
+		ctrl-id = <0>;
+		power-domains = <&pcie0_pd>;
+		status = "disabled";
+	};
+
 	vpu_h1: vpu_h1@38320000 {
 		compatible = "nxp,imx8mm-hantro-h1";
 		reg = <0x0 0x38320000 0x0 0x10000>;

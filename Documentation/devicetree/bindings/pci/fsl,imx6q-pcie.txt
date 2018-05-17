@@ -12,6 +12,7 @@ Required properties:
 	- "fsl,imx8qm-pcie"
 	- "fsl,imx8qxp-pcie"
 	- "fsl,imx8mq-pcie"
+	- "fsl,imx8mm-pcie"
 - reg: base address and length of the PCIe controller
 - interrupts: A list of interrupt outputs of the controller. Must contain an
   entry for each entry in the interrupt-names property.
