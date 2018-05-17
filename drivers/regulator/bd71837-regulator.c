@@ -101,8 +101,6 @@ static struct regulator_ops bd71837_fixed_regulator_ops = {
 };
 
 static struct regulator_ops bd71837_buck_regulator_ops = {
-	.enable = regulator_enable_regmap,
-	.disable = regulator_disable_regmap,
 	.is_enabled = regulator_is_enabled_regmap,
 	.list_voltage = regulator_list_voltage_linear_range,
 	.set_voltage_sel = regulator_set_voltage_sel_regmap,
@@ -111,8 +109,6 @@ static struct regulator_ops bd71837_buck_regulator_ops = {
 };
 
 static struct regulator_ops bd71837_buck1234_regulator_ops = {
-	.enable = regulator_enable_regmap,
-	.disable = regulator_disable_regmap,
 	.is_enabled = regulator_is_enabled_regmap,
 	.list_voltage = regulator_list_voltage_linear_range,
 	.set_voltage_sel = regulator_set_voltage_sel_regmap,
