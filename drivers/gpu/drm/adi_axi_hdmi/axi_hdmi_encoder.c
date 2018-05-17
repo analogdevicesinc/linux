@@ -382,7 +382,7 @@ struct drm_encoder *axi_hdmi_encoder_create(struct drm_device *dev)
 	if (bridge) {
 		bridge->encoder = encoder;
 		encoder->bridge = bridge;
-		ret = drm_bridge_attach(dev, bridge);
+		ret = drm_bridge_attach(encoder, bridge, NULL);
 		if (ret) {
 		    drm_encoder_cleanup(encoder);
 		    return NULL;
@@ -464,7 +464,6 @@ static void axi_hdmi_connector_destroy(struct drm_connector *connector)
 }
 
 static struct drm_connector_funcs axi_hdmi_connector_funcs = {
-	.dpms = drm_atomic_helper_connector_dpms,
 	.fill_modes = drm_helper_probe_single_connector_modes,
 	.detect = axi_hdmi_connector_detect,
 	.destroy = axi_hdmi_connector_destroy,
