@@ -18,7 +18,7 @@
 #include <linux/of_irq.h>
 #include <linux/of_graph.h>
 #include <media/v4l2-device.h>
-#include <media/v4l2-of.h>
+#include <media/v4l2-fwnode.h>
 #include <media/i2c/adv7604.h>
 
 #define INPUT_SUBDEV		0
@@ -105,8 +105,8 @@ static int imageon_bridge_async_bound(struct v4l2_async_notifier *notifier,
 	};
 	int ret;
 
-	if (bridge->imageon_subdev[INPUT_SUBDEV].asd.match.of.node
-			== subdev->dev->of_node) {
+	if (bridge->imageon_subdev[INPUT_SUBDEV].asd.match.fwnode.fwnode
+			== of_fwnode_handle(subdev->dev->of_node)) {
 
 		bridge->imageon_subdev[INPUT_SUBDEV].subdev = subdev;
 
@@ -120,8 +120,8 @@ static int imageon_bridge_async_bound(struct v4l2_async_notifier *notifier,
 			return ret;
 	}
 
-	if (bridge->imageon_subdev[OUTPUT_SUBDEV].asd.match.of.node
-			== subdev->dev->of_node) {
+	if (bridge->imageon_subdev[OUTPUT_SUBDEV].asd.match.fwnode.fwnode
+			== of_fwnode_handle(subdev->dev->of_node)) {
 
 		bridge->imageon_subdev[OUTPUT_SUBDEV].subdev = subdev;
 
@@ -171,9 +171,9 @@ static struct imageon_bridge *imageon_bridge_parse_dt(struct device *dev)
 		}
 		ep = next;
 
-		bridge->imageon_subdev[index].asd.match_type = V4L2_ASYNC_MATCH_OF;
-		bridge->imageon_subdev[index].asd.match.of.node =
-			of_graph_get_remote_port_parent(next);
+		bridge->imageon_subdev[index].asd.match_type = V4L2_ASYNC_MATCH_FWNODE;
+		bridge->imageon_subdev[index].asd.match.fwnode.fwnode =
+			of_fwnode_handle(of_graph_get_remote_port_parent(next));
 	}
 
 	return bridge;
