@@ -1302,15 +1302,24 @@ static int spi_imx_transfer(struct spi_device *spi,
 
 static int spi_imx_setup(struct spi_device *spi)
 {
+	int ret;
+
 	dev_dbg(&spi->dev, "%s: mode %d, %u bpw, %d hz\n", __func__,
 		 spi->mode, spi->bits_per_word, spi->max_speed_hz);
 
 	if (spi->mode & SPI_NO_CS)
 		return 0;
 
-	if (gpio_is_valid(spi->cs_gpio))
+	if (gpio_is_valid(spi->cs_gpio)) {
+		ret = devm_gpio_request(&spi->master->dev, spi->cs_gpio,
+					dev_name(&spi->master->dev));
+		if (ret) {
+			dev_err(&spi->master->dev, "Can't get CS GPIO \n");
+			return ret;
+		}
 		gpio_direction_output(spi->cs_gpio,
 				      spi->mode & SPI_CS_HIGH ? 0 : 1);
+	}
 
 	spi_imx_chipselect(spi, BITBANG_CS_INACTIVE);
 
@@ -1482,25 +1491,6 @@ static int spi_imx_probe(struct platform_device *pdev)
 	if (ret) {
 		dev_err(&pdev->dev, "bitbang start failed with %d\n", ret);
 		goto out_clk_put;
-	}
-
-	if (!master->cs_gpios) {
-		dev_err(&pdev->dev, "No CS GPIOs available\n");
-		ret = -EINVAL;
-		goto out_clk_put;
-	}
-
-	for (i = 0; i < master->num_chipselect; i++) {
-		if (!gpio_is_valid(master->cs_gpios[i]))
-			continue;
-
-		ret = devm_gpio_request(&pdev->dev, master->cs_gpios[i],
-					DRIVER_NAME);
-		if (ret) {
-			dev_err(&pdev->dev, "Can't get CS GPIO %i\n",
-				master->cs_gpios[i]);
-			goto out_clk_put;
-		}
 	}
 
 	dev_info(&pdev->dev, "probed\n");
