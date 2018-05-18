@@ -272,13 +272,6 @@ int imx_cec_register(struct imx_cec_dev *cec)
 	struct device *dev = cec->dev;
 	int ret;
 
-	/* Set CEC clock divider */
-	if (cec->clk_core)
-		cec->clk_div = clk_get_rate(cec->clk_core) / 100000;
-	else
-		/* Default HDMI core clock rate 133MHz */
-		cec->clk_div = 1330;
-
 	cec->adap = cec_allocate_adapter(&imx_cec_adap_ops, cec,
 					 CEC_NAME,
 					 CEC_CAP_PHYS_ADDR | CEC_CAP_LOG_ADDRS |

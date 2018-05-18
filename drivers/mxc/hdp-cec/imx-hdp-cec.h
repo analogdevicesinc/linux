@@ -336,7 +336,6 @@ struct imx_cec_dev {
 	struct task_struct *cec_worker;
 
 	/* inited by HDP controller driver */
-	struct clk *clk_core;
 	struct hdp_mem *mem;
 	struct hdp_rw_func *rw;
 };

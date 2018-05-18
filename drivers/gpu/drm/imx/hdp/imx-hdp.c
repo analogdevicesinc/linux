@@ -77,12 +77,14 @@ static void imx_hdp_state_init(struct imx_hdp *hdp)
 #ifdef CONFIG_IMX_HDP_CEC
 static void imx_hdp_cec_init(struct imx_hdp *hdp)
 {
+	state_struct *state = &hdp->state;
 	struct imx_cec_dev *cec = &hdp->cec;
+	u32 clk_MHz;
 
 	memset(cec, 0, sizeof(struct imx_cec_dev));
 
-	if (hdp->clks.clk_core)
-		cec->clk_core = hdp->clks.clk_core;
+	CDN_API_GetClock(state, &clk_MHz);
+	cec->clk_div = clk_MHz * 10;
 	cec->dev = hdp->dev;
 	cec->mem = &hdp->mem;
 	cec->rw = hdp->rw;
