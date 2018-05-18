@@ -361,6 +361,11 @@ CDN_API_STATUS CDN_API_SetClock(state_struct *state, u8 MHz)
 	return cdn_apb_write(state, SW_CLK_H << 2, MHz);
 }
 
+CDN_API_STATUS CDN_API_GetClock(state_struct *state, u32 *MHz)
+{
+	return cdn_apb_read(state, SW_CLK_H << 2, MHz);
+}
+
 CDN_API_STATUS CDN_API_General_Read_Register(state_struct *state, u32 addr,
 					     GENERAL_Read_Register_response *resp)
 {

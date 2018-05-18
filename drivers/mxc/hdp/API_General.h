@@ -224,6 +224,8 @@ CDN_API_STATUS CDN_API_ApbConf_blocking(state_struct *state, u8 dpcd_bus_sel,
  */
 CDN_API_STATUS CDN_API_SetClock(state_struct *state, u8 MHz);
 
+CDN_API_STATUS CDN_API_GetClock(state_struct *state, u32 *MHz);
+
 CDN_API_STATUS CDN_API_General_Read_Register(state_struct *state, u32 addr,
 					     GENERAL_Read_Register_response *resp);
 CDN_API_STATUS CDN_API_General_Read_Register_blocking(state_struct *state,
