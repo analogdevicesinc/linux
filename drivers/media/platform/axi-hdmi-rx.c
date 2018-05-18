@@ -20,7 +20,7 @@
 
 #include <media/videobuf2-dma-contig.h>
 #include <media/v4l2-event.h>
-#include <media/v4l2-of.h>
+#include <media/v4l2-fwnode.h>
 #include <media/v4l2-ctrls.h>
 #include <media/v4l2-dev.h>
 #include <media/v4l2-device.h>
@@ -861,7 +861,7 @@ static int axi_hdmi_rx_probe(struct platform_device *pdev)
 	struct device_node *ep_node;
 	struct axi_hdmi_rx *hdmi_rx;
 	struct resource *res;
-	struct v4l2_of_endpoint bus_cfg;
+	struct v4l2_fwnode_endpoint bus_cfg;
 	int ret;
 
 	hdmi_rx = devm_kzalloc(&pdev->dev, sizeof(*hdmi_rx), GFP_KERNEL);
@@ -908,14 +908,14 @@ static int axi_hdmi_rx_probe(struct platform_device *pdev)
 		goto err_device_unregister;
 	}
 	bus_cfg.bus.parallel.bus_width = 0;
-	v4l2_of_parse_endpoint(ep_node, &bus_cfg);
+	v4l2_fwnode_endpoint_parse(of_fwnode_handle(ep_node), &bus_cfg);
 	if (bus_cfg.bus.parallel.bus_width)
 		hdmi_rx->bus_width = bus_cfg.bus.parallel.bus_width;
 	else
 		hdmi_rx->bus_width = 16;
 
-	hdmi_rx->asd.match_type = V4L2_ASYNC_MATCH_OF;
-	hdmi_rx->asd.match.of.node = of_graph_get_remote_port_parent(ep_node);
+	hdmi_rx->asd.match_type = V4L2_ASYNC_MATCH_FWNODE;
+	hdmi_rx->asd.match.fwnode.fwnode = of_fwnode_handle(of_graph_get_remote_port_parent(ep_node));
 
 	hdmi_rx->asds[0] = &hdmi_rx->asd;
 	hdmi_rx->notifier.subdevs = hdmi_rx->asds;
