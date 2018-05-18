@@ -75,14 +75,14 @@
 
 /* register SINK_SCDC_CAR */
 #define SINK_SCDC_CAR 2
-#define F_SCDC_SYS_CLK_EN(x) (((x) & ((1 << 1) - 1)) << 0)
-#define F_SCDC_SYS_CLK_EN_RD(x) (((x) & (((1 << 1) - 1) << 0)) >> 0)
-#define F_SCDC_SYS_CLK_RSTN_EN(x) (((x) & ((1 << 1) - 1)) << 1)
-#define F_SCDC_SYS_CLK_RSTN_EN_RD(x) (((x) & (((1 << 1) - 1) << 1)) >> 1)
-#define F_SCDC_RSTN_EN(x) (((x) & ((1 << 8) - 1)) << 8)
-#define F_SCDC_RSTN_EN_RD(x) (((x) & (((1 << 8) - 1) << 8)) >> 8)
-#define F_SCDC_CLK_EN(x) (((x) & ((1 << 8) - 1)) << 16)
-#define F_SCDC_CLK_EN_RD(x) (((x) & (((1 << 8) - 1) << 16)) >> 16)
+#define F_SINK_SCDC_SYS_CLK_EN(x) (((x) & ((1 << 1) - 1)) << 0)
+#define F_SINK_SCDC_SYS_CLK_EN_RD(x) (((x) & (((1 << 1) - 1) << 0)) >> 0)
+#define F_SINK_SCDC_SYS_CLK_RSTN_EN(x) (((x) & ((1 << 1) - 1)) << 1)
+#define F_SINK_SCDC_SYS_CLK_RSTN_EN_RD(x) (((x) & (((1 << 1) - 1) << 1)) >> 1)
+#define F_SINK_SCDC_RSTN_EN(x) (((x) & ((1 << 8) - 1)) << 8)
+#define F_SINK_SCDC_RSTN_EN_RD(x) (((x) & (((1 << 8) - 1) << 8)) >> 8)
+#define F_SINK_SCDC_CLK_EN(x) (((x) & ((1 << 8) - 1)) << 16)
+#define F_SINK_SCDC_CLK_EN_RD(x) (((x) & (((1 << 8) - 1) << 16)) >> 16)
 
 /* register SINK_PKT_CAR */
 #define SINK_PKT_CAR 3
@@ -137,18 +137,18 @@
 
 /* register SINK_AUDIO_CAR */
 #define SINK_AUDIO_CAR 8
-#define F_ACR_REF_CLK_EN(x) (((x) & ((1 << 1) - 1)) << 0)
-#define F_ACR_REF_CLK_EN_RD(x) (((x) & (((1 << 1) - 1) << 0)) >> 0)
-#define F_ACR_REF_CLK_RSTN_EN(x) (((x) & ((1 << 1) - 1)) << 1)
-#define F_ACR_REF_CLK_RSTN_EN_RD(x) (((x) & (((1 << 1) - 1) << 1)) >> 1)
-#define F_SPDIF_MCLK_EN(x) (((x) & ((1 << 1) - 1)) << 2)
-#define F_SPDIF_MCLK_EN_RD(x) (((x) & (((1 << 1) - 1) << 2)) >> 2)
-#define F_SPDIF_MCLK_RSTN_EN(x) (((x) & ((1 << 1) - 1)) << 3)
-#define F_SPDIF_MCLK_RSTN_EN_RD(x) (((x) & (((1 << 1) - 1) << 3)) >> 3)
-#define F_I2S_CLK_EN(x) (((x) & ((1 << 1) - 1)) << 4)
-#define F_I2S_CLK_EN_RD(x) (((x) & (((1 << 1) - 1) << 4)) >> 4)
-#define F_I2S_CLK_RSTN_EN(x) (((x) & ((1 << 1) - 1)) << 5)
-#define F_I2S_CLK_RSTN_EN_RD(x) (((x) & (((1 << 1) - 1) << 5)) >> 5)
+#define F_SINK_ACR_REF_CLK_EN(x) (((x) & ((1 << 1) - 1)) << 0)
+#define F_SINK_ACR_REF_CLK_EN_RD(x) (((x) & (((1 << 1) - 1) << 0)) >> 0)
+#define F_SINK_ACR_REF_CLK_RSTN_EN(x) (((x) & ((1 << 1) - 1)) << 1)
+#define F_SINK_ACR_REF_CLK_RSTN_EN_RD(x) (((x) & (((1 << 1) - 1) << 1)) >> 1)
+#define F_SINK_SPDIF_MCLK_EN(x) (((x) & ((1 << 1) - 1)) << 2)
+#define F_SINK_SPDIF_MCLK_EN_RD(x) (((x) & (((1 << 1) - 1) << 2)) >> 2)
+#define F_SINK_SPDIF_MCLK_RSTN_EN(x) (((x) & ((1 << 1) - 1)) << 3)
+#define F_SINK_SPDIF_MCLK_RSTN_EN_RD(x) (((x) & (((1 << 1) - 1) << 3)) >> 3)
+#define F_SINK_I2S_CLK_EN(x) (((x) & ((1 << 1) - 1)) << 4)
+#define F_SINK_I2S_CLK_EN_RD(x) (((x) & (((1 << 1) - 1) << 4)) >> 4)
+#define F_SINK_I2S_CLK_RSTN_EN(x) (((x) & ((1 << 1) - 1)) << 5)
+#define F_SINK_I2S_CLK_RSTN_EN_RD(x) (((x) & (((1 << 1) - 1) << 5)) >> 5)
 
 /* register SINK_PHY_CAR */
 #define SINK_PHY_CAR 9
