@@ -456,6 +456,7 @@
 #define	IMX8MM_CLK_ARM                          444
 #define	IMX8MM_CLK_PDM_IPG			445
 #define	IMX8MM_CLK_GPU2D_ROOT			446
+#define	IMX8MM_CLK_MU_ROOT			447
 
-#define	IMX8MM_CLK_END				447
+#define	IMX8MM_CLK_END				448
 #endif
