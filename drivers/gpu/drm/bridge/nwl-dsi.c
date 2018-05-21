@@ -207,6 +207,7 @@ struct nwl_mipi_dsi {
 	u32				lanes;
 	u32				vc;
 	unsigned long			dsi_mode_flags;
+	bool				no_clk_reset;
 	bool				enabled;
 };
 
@@ -1080,6 +1081,9 @@ static void nwl_dsi_bridge_disable(struct drm_bridge *bridge)
 	phy_power_off(dsi->phy);
 	phy_exit(dsi->phy);
 
+	if (!dsi->no_clk_reset)
+		nwl_dsi_disable_clocks(dsi, CLK_PHY_REF | CLK_TX_ESC);
+
 	devm_free_irq(dev, dsi->irq, dsi);
 
 	dsi->enabled = false;
@@ -1161,6 +1165,8 @@ static int nwl_dsi_probe(struct platform_device *pdev)
 		DRM_DEV_ERROR(dev, "Failed to get device IRQ!\n");
 		return -EINVAL;
 	}
+
+	dsi->no_clk_reset = of_property_read_bool(dev->of_node, "no_clk_reset");
 
 	dsi->dev = dev;
 	platform_set_drvdata(pdev, dsi);
