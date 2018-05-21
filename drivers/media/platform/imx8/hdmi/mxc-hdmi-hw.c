@@ -273,6 +273,7 @@ int hdmirx_startup(state_struct *state)
 	struct mxc_hdmi_rx_dev *hdmi_rx = state_to_mxc_hdmirx(state);
 	S_HDMI_SCDC_GET_MSG *scdcData = &hdmi_rx->scdcData;
 	u8 ret = 0;
+	u32 i;
 
 	/* Start from TMDS/pixel clock ratio of 1:1.
 	 * It affects only pixel clock frequency as the character/data clocks are generated based on
@@ -308,11 +309,23 @@ int hdmirx_startup(state_struct *state)
 	CDN_API_HDMIRX_SetHpd_blocking(state, 0);
 	dev_dbg(&hdmi_rx->pdev->dev, "Clear HDP\n");
 
-	/* Wait for 5v */
-	while ((event5V & (1 << HDMI_RX_EVENT_5V_VAL)) == 0) {
+	/* check for 5v to get hdmi cable state */
+	CDN_API_HDMIRX_ReadEvent(state, &event5V);
+	dev_dbg(&hdmi_rx->pdev->dev, "event5V = 0x%02X\n", event5V);
+	for (i = 0; i < 5; i++) {
+		if (event5V & (1 << HDMI_RX_EVENT_5V_VAL)) {
+			dev_info(&hdmi_rx->pdev->dev, "HDMI 5V present\n");
+			break;
+		}
+		msleep(20);
 		CDN_API_HDMIRX_ReadEvent(state, &event5V);
 		dev_dbg(&hdmi_rx->pdev->dev, "event5V = 0x%02X\n", event5V);
 	}
+	if (i == 5) {
+		dev_info(&hdmi_rx->pdev->dev, "No HDMI 5V present!!!\n");
+		return -1;
+	}
+
 	/* Got 5v, set hpd */
 	msleep(100);	/* provide minimum low pulse length (100ms) */
 	CDN_API_HDMIRX_SetHpd_blocking(state, 1);
@@ -409,6 +422,5 @@ int hdmirx_startup(state_struct *state)
 	CDN_API_HDMIRX_Init_blocking(state);
 	dev_dbg(&hdmi_rx->pdev->dev,
 				"CDN_API_HDMIRX_Init_blocking() complete.\n");
-
 	return 0;
 }
