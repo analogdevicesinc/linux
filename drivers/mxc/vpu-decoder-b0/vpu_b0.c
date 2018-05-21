@@ -767,6 +767,17 @@ static int v4l2_ioctl_decoder_cmd(struct file *file,
 			// the driver should respond by inserting an EOS
 			ctx->stream_feed_complete = true;
 			vpu_dbg(LVL_INFO, "END OF STREAM FED - waiting for VID_API_EVENT_FIFO_LOW\n");
+
+			ctx->stream_feed_complete = true;
+			vpu_dbg(LVL_ALL, "END OF STREAM FED - waiting for VID_API_EVENT_FIFO_LOW\n");
+			if (!wait_for_completion_timeout(&ctx->eos_cmp, msecs_to_jiffies(2000))) {
+				vpu_dbg(LVL_ERR, "wait FIFO LOW timeout, insert eos directly\n");
+				ctx->eos_stop_added = true;
+				ctx->stream_feed_complete = false;
+				v4l2_update_stream_addr(ctx, 0);
+				add_eos(ctx, 0);
+			}
+
 		} else	{
 			vpu_dbg(LVL_ERR, "Firmware already stopped !\n");
 		}
@@ -1727,8 +1738,9 @@ static void vpu_api_event_handler(struct vpu_ctx *ctx, u_int32 uStrIdx, u_int32 
 			// Set ctx->stream_feed_complete = false so that we don't try
 			// to insert another EOS on the next VID_API_EVENT_FIFO_LOW event
 			ctx->stream_feed_complete = false;
-			add_eos(ctx, 0);
 			v4l2_update_stream_addr(ctx, uStrBufIdx);
+			add_eos(ctx, 0);
+			complete(&ctx->eos_cmp);
 			vpu_dbg(LVL_INFO, "%s - VID_API_EVENT_FIFO_LOW - After wptr(%x) rptr(%x) start(%x) end(%x) uStrIdx(%d)\n",
 				__func__, pStrBufDesc->wptr, pStrBufDesc->rptr, pStrBufDesc->start, pStrBufDesc->end, uStrIdx);
 		} else {
@@ -2315,6 +2327,7 @@ static int v4l2_open(struct file *filp)
 	mutex_unlock(&dev->dev_mutex);
 	init_completion(&ctx->completion);
 	init_completion(&ctx->stop_cmp);
+	init_completion(&ctx->eos_cmp);
 
 	v4l2_fh_init(&ctx->fh, video_devdata(filp));
 	filp->private_data = &ctx->fh;

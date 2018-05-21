@@ -225,6 +225,7 @@ struct vpu_ctx {
 	struct workqueue_struct *instance_wq;
 	struct completion completion;
 	struct completion stop_cmp;
+	struct completion eos_cmp;
 	MediaIPFW_Video_SeqInfo *pSeqinfo;
 	bool b_firstseq;
 	bool start_flag;
