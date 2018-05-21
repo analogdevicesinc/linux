@@ -35,6 +35,7 @@
 #include <uapi/linux/v4l2-dv-timings.h>
 
 #include "../../../../mxc/hdp/all.h"
+#include "../../../../mxc/hdp-cec/imx-hdp-cec.h"
 
 #define state_to_mxc_hdmirx(env) \
 	container_of(env, struct mxc_hdmi_rx_dev, state)
@@ -102,7 +103,6 @@ struct mxc_hdmi_rx_dev {
 	struct clk		*enc_clk;
 	struct clk		*spdif_clk;
 	struct clk		*pxl_link_clk;
-	struct hdp_rw_func *rw;
 	struct hdp_mem mem;
 
 	u32 flags;
@@ -115,6 +115,9 @@ struct mxc_hdmi_rx_dev {
 	u8 hdmi_vic;
     u8 pixel_encoding;
 	u8 color_depth;
+
+	u8 is_cec;
+	struct imx_cec_dev cec;
 };
 
 enum mxc_hdmi_rx_power_state {

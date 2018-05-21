@@ -28,6 +28,8 @@
 
 #define imx_sd_to_hdmi(sd) container_of(sd, struct mxc_hdmi_rx_dev, sd)
 
+static void mxc_hdmi_cec_init(struct mxc_hdmi_rx_dev *hdmi_rx);
+
 static const struct v4l2_dv_timings_cap mxc_hdmi_timings_cap = {
 	.type = V4L2_DV_BT_656_1120,
 	/* keep this initialization for compatibility with GCC < 4.4.6 */
@@ -625,6 +627,24 @@ static void mxc_hdmi_state_init(struct mxc_hdmi_rx_dev *hdmi_rx)
 	state->rw = &imx8qm_rw;
 }
 
+#ifdef CONFIG_IMX_HDP_CEC
+static void mxc_hdmi_cec_init(struct mxc_hdmi_rx_dev *hdmi_rx)
+{
+	state_struct *state = &hdmi_rx->state;
+	struct imx_cec_dev *cec = &hdmi_rx->cec;
+	u32 clk_rate;
+
+	memset(cec, 0, sizeof(struct imx_cec_dev));
+
+	CDN_API_GetClock(state, &clk_rate);
+	cec->clk_div = clk_rate * 10;
+	cec->dev = &hdmi_rx->pdev->dev;
+	cec->mem = &hdmi_rx->mem;
+	cec->rw = &imx8qm_rw;
+}
+#endif
+
+
 int mxc_hdmi_init(struct mxc_hdmi_rx_dev *hdmi_rx)
 {
 	sc_err_t sciErr;
@@ -730,6 +750,8 @@ static int mxc_hdmi_probe(struct platform_device *pdev)
 		media_entity_cleanup(&hdmi_rx->sd.entity);
 	}
 
+	hdmi_rx->is_cec = of_property_read_bool(pdev->dev.of_node, "fsl,cec");
+
 	mxc_hdmi_clock_init(hdmi_rx);
 
 	hdmi_rx->flags = MXC_HDMI_RX_PM_POWERED;
@@ -748,6 +770,12 @@ static int mxc_hdmi_probe(struct platform_device *pdev)
 		dev_info(dev, "mxc hdmi rx startup failed\n");
 		goto failed;
 	}
+#ifdef CONFIG_IMX_HDP_CEC
+	if (hdmi_rx->is_cec) {
+		mxc_hdmi_cec_init(hdmi_rx);
+		imx_cec_register(&hdmi_rx->cec);
+	}
+#endif
 
 	dev_info(dev, "mxc hdmi rx probe successfully\n");
 
@@ -772,6 +800,11 @@ static int mxc_hdmi_remove(struct platform_device *pdev)
 	dev_dbg(dev, "%s\n", __func__);
 	v4l2_async_unregister_subdev(&hdmi_rx->sd);
 	media_entity_cleanup(&hdmi_rx->sd.entity);
+
+#ifdef CONFIG_IMX_HDP_CEC
+	if (hdmi_rx->is_cec)
+		imx_cec_unregister(&hdmi_rx->cec);
+#endif
 
 	/* Reset HDMI RX PHY */
 	CDN_API_HDMIRX_Stop_blocking(state);
