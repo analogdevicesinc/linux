@@ -133,6 +133,7 @@
 };
 
 &hdmi_rx {
+	fsl,cec;
 	assigned-clocks = <&clk IMX8QM_HDMI_RX_HD_REF_SEL>,
 						<&clk IMX8QM_HDMI_RX_PXL_SEL>,
 						<&clk IMX8QM_HDMI_RX_HD_REF_DIV>;
