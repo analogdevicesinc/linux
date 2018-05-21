@@ -400,9 +400,8 @@ static void caculate_frame_size(struct vpu_ctx *ctx)
 		height += 0x10;
 	}
 
-	chroma_height = height >> 1;
 	height = ((height + uVertAlign) & ~uVertAlign);
-	chroma_height = ((chroma_height + uVertAlign) & ~uVertAlign);
+	chroma_height = height >> 1;
 	luma_size = width * height;
 	chroma_size = width * chroma_height;
 	if (!b10BitFormat) {
@@ -422,29 +421,35 @@ static int v4l2_ioctl_g_fmt(struct file *file,
 	struct vpu_ctx *ctx =           v4l2_fh_to_ctx(fh);
 	struct v4l2_pix_format_mplane   *pix_mp = &f->fmt.pix_mp;
 	unsigned int i;
+	struct queue_data               *q_data;
 
 	vpu_dbg(LVL_INFO, "%s()\n", __func__);
 
 	if (f->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
+		q_data = &ctx->q_data[V4L2_DST];
 		pix_mp->pixelformat = V4L2_PIX_FMT_NV12;
-		pix_mp->width = ctx->pSeqinfo->uHorDecodeRes;
-		pix_mp->height = ctx->pSeqinfo->uVerDecodeRes;
+		pix_mp->width = ctx->pSeqinfo->uHorRes > 0?ctx->pSeqinfo->uHorRes:q_data->width;
+		pix_mp->height = ctx->pSeqinfo->uVerRes > 0?ctx->pSeqinfo->uVerRes:q_data->height;
 		pix_mp->field = V4L2_FIELD_ANY;
 		pix_mp->num_planes = 2;
 		pix_mp->colorspace = V4L2_COLORSPACE_REC709;
 
 		for (i = 0; i < pix_mp->num_planes; i++) {
-			pix_mp->plane_fmt[i].bytesperline = ctx->q_data[V4L2_DST].stride;
-			pix_mp->plane_fmt[i].sizeimage = ctx->q_data[V4L2_DST].sizeimage[i];
+			pix_mp->plane_fmt[i].bytesperline = q_data->stride;
+			pix_mp->plane_fmt[i].sizeimage = q_data->sizeimage[i];
 		}
 	} else if (f->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
-		pix_mp->width = 0;
-		pix_mp->height = 0;
+		q_data = &ctx->q_data[V4L2_SRC];
+		pix_mp->width = q_data->width;
+		pix_mp->height = q_data->height;
 		pix_mp->field = V4L2_FIELD_ANY;
-		pix_mp->plane_fmt[0].bytesperline = 0;
-		pix_mp->plane_fmt[0].sizeimage = 0;
-		pix_mp->pixelformat = ctx->q_data[V4L2_SRC].fourcc;
-		pix_mp->num_planes = 1;
+		pix_mp->num_planes = q_data->num_planes;
+		for (i = 0; i < pix_mp->num_planes; i++) {
+			pix_mp->plane_fmt[i].bytesperline = q_data->stride;
+			pix_mp->plane_fmt[i].sizeimage = q_data->sizeimage[i];
+
+		}
+		pix_mp->pixelformat = q_data->fourcc;
 	} else
 		return -EINVAL;
 	return 0;
@@ -469,7 +474,6 @@ static int v4l2_ioctl_s_fmt(struct file *file,
 		)
 {
 	struct vpu_ctx                  *ctx = v4l2_fh_to_ctx(fh);
-	int                             ret = 0;
 	struct v4l2_pix_format_mplane   *pix_mp = &f->fmt.pix_mp;
 	struct queue_data               *q_data;
 	u_int32                         i;
@@ -478,31 +482,35 @@ static int v4l2_ioctl_s_fmt(struct file *file,
 
 	if (f->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
 		q_data = &ctx->q_data[V4L2_DST];
-
+		set_video_standard(q_data, f, formats_yuv_dec, ARRAY_SIZE(formats_yuv_dec));
 		pix_mp->num_planes = 2;
 		pix_mp->colorspace = V4L2_COLORSPACE_REC709;
 		for (i = 0; i < pix_mp->num_planes; i++) {
-			pix_mp->plane_fmt[i].bytesperline = ctx->q_data[V4L2_DST].stride;
-			pix_mp->plane_fmt[i].sizeimage = ctx->q_data[V4L2_DST].sizeimage[i];
+			if (ctx->q_data[V4L2_DST].stride > 0)
+				pix_mp->plane_fmt[i].bytesperline = ctx->q_data[V4L2_DST].stride;
+			if (ctx->q_data[V4L2_DST].sizeimage[i] > 0)
+				pix_mp->plane_fmt[i].sizeimage = ctx->q_data[V4L2_DST].sizeimage[i];
 		}
-		q_data->fourcc = pix_mp->pixelformat;
-		q_data->width = pix_mp->width;
-		q_data->height = pix_mp->height;
-		q_data->sizeimage[0] = pix_mp->plane_fmt[0].sizeimage;
-		q_data->rect.left = 0;
-		q_data->rect.top = 0;
-		q_data->rect.width = pix_mp->width;
-		q_data->rect.height = pix_mp->height;
-		set_video_standard(q_data, f, formats_yuv_dec, ARRAY_SIZE(formats_yuv_dec));
 	} else if (f->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
 		q_data = &ctx->q_data[V4L2_SRC];
-		q_data->fourcc = pix_mp->pixelformat;
-		q_data->sizeimage[0] = pix_mp->plane_fmt[0].sizeimage;
 		set_video_standard(q_data, f, formats_compressed_dec, ARRAY_SIZE(formats_compressed_dec));
 	} else
-		ret = -EINVAL;
+		return -EINVAL;
 
-	return ret;
+	q_data->num_planes = pix_mp->num_planes;
+	for (i = 0; i < q_data->num_planes; i++) {
+		q_data->stride = pix_mp->plane_fmt[i].bytesperline;
+		q_data->sizeimage[i] = pix_mp->plane_fmt[i].sizeimage;
+	}
+	q_data->fourcc = pix_mp->pixelformat;
+	q_data->width = pix_mp->width;
+	q_data->height = pix_mp->height;
+	q_data->rect.left = 0;
+	q_data->rect.top = 0;
+	q_data->rect.width = pix_mp->width;
+	q_data->rect.height = pix_mp->height;
+
+	return 0;
 }
 
 static int v4l2_ioctl_expbuf(struct file *file,
@@ -1585,24 +1593,16 @@ static void vpu_api_event_handler(struct vpu_ctx *ctx, u_int32 uStrIdx, u_int32 
 			vpu_dbg(LVL_INFO, "VID_API_CMD_FS_ALLOC, eType=%d, index=%d\n", pFSREQ->eType, ctx->mbi_count);
 			ctx->mbi_count++;
 		} else {
-#if 0
-			while (timeout_count < MAX_TIMEOUT_COUNT) {
+#if 1
+			while (1) {
 				if (!wait_event_interruptible_timeout(ctx->buffer_wq,
-							!list_empty(&This->drv_q),
-							msecs_to_jiffies(1000)))
-					vpu_dbg(LVL_ERR, " error: wait_event_interruptible_timeout wait timeout\n");
-				else {
-					vpu_dbg(LVL_INFO, " wait_event_interruptible_timeout list is not empty now\n");
-					if (!list_empty(&This->drv_q))
-						break;
-				}
-				if (!list_empty(&This->drv_q))
+							((ctx->wait_rst_done == true) || (wait_right_buffer(This) == true)),
+							msecs_to_jiffies(5000)))
+					vpu_dbg(LVL_ERR, " warn: wait_event_interruptible_timeout wait 5s timeout\n");
+				else
 					break;
-				timeout_count++;
 			}
 #endif
-			wait_event_interruptible(ctx->buffer_wq,
-					((ctx->wait_rst_done == true) || (wait_right_buffer(This) == true)));
 
 			if (ctx->buffer_null == true) {
 				vpu_dbg(LVL_INFO, "frame already released\n");

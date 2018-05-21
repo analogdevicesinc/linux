@@ -163,6 +163,7 @@ struct queue_data {
 	unsigned int height;
 	unsigned int stride;
 	unsigned int bytesperline;
+	unsigned int num_planes;
 	unsigned int sizeimage[2];
 	unsigned int fourcc;
 	unsigned int vdec_std;
