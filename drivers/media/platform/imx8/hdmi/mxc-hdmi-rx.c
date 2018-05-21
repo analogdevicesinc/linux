@@ -528,21 +528,9 @@ static const struct v4l2_subdev_pad_ops imx_pad_ops_hdmi = {
 static int mxc_hdmi_s_power(struct v4l2_subdev *sd, int on)
 {
 	struct mxc_hdmi_rx_dev *hdmi_rx = imx_sd_to_hdmi(sd);
-	state_struct *state = &hdmi_rx->state;
 	struct device *dev = &hdmi_rx->pdev->dev;
-	u8 sts;
 
 	dev_dbg(dev, "%s\n", __func__);
-
-	if (on) {
-		pm_runtime_get_sync(dev);
-		hdmirx_startup(&hdmi_rx->state);
-	} else {
-		/* Reset HDMI RX PHY */
-		CDN_API_HDMIRX_Stop_blocking(state);
-		CDN_API_MainControl_blocking(state, 0, &sts);
-		pm_runtime_put_sync(dev);
-	}
 
 	return 0;
 }
@@ -751,9 +739,13 @@ static int mxc_hdmi_probe(struct platform_device *pdev)
 	pm_runtime_enable(dev);
 	pm_runtime_get_sync(dev);
 	ret = mxc_hdmi_init(hdmi_rx);
-	pm_runtime_put_sync(dev);
 	if (ret) {
 		dev_info(dev, "mxc hdmi rx init failed\n");
+		goto failed;
+	}
+	ret = hdmirx_startup(&hdmi_rx->state);
+	if (ret) {
+		dev_info(dev, "mxc hdmi rx startup failed\n");
 		goto failed;
 	}
 
@@ -766,19 +758,27 @@ failed:
 
 	mxc_hdmi_clock_disable(hdmi_rx);
 	pm_runtime_disable(dev);
+	dev_info(dev, "mxc hdmi rx probe failed\n");
 	return ret;
 }
 
 static int mxc_hdmi_remove(struct platform_device *pdev)
 {
 	struct mxc_hdmi_rx_dev *hdmi_rx = platform_get_drvdata(pdev);
+	state_struct *state = &hdmi_rx->state;
 	struct device *dev = &pdev->dev;
+	u8 sts;
 
 	dev_dbg(dev, "%s\n", __func__);
 	v4l2_async_unregister_subdev(&hdmi_rx->sd);
 	media_entity_cleanup(&hdmi_rx->sd.entity);
 
+	/* Reset HDMI RX PHY */
+	CDN_API_HDMIRX_Stop_blocking(state);
+	CDN_API_MainControl_blocking(state, 0, &sts);
+
 	mxc_hdmi_clock_disable(hdmi_rx);
+	pm_runtime_put_sync(dev);
 	pm_runtime_disable(dev);
 
 	return 0;
