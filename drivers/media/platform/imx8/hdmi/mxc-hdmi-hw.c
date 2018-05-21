@@ -422,5 +422,11 @@ int hdmirx_startup(state_struct *state)
 	CDN_API_HDMIRX_Init_blocking(state);
 	dev_dbg(&hdmi_rx->pdev->dev,
 				"CDN_API_HDMIRX_Init_blocking() complete.\n");
+
+	/* Initialize HDMI RX CEC */
+	CDN_API_General_Write_Register_blocking(state,
+				ADDR_SINK_CAR + (SINK_CEC_CAR << 2),
+				F_SINK_CEC_SYS_CLK_EN(1) |
+				F_SINK_CEC_SYS_CLK_RSTN_EN(1));
 	return 0;
 }
