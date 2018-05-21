@@ -2,7 +2,7 @@
 ## Makefile for the VPU and M0 driver
 ##
 DEFINES += -D REBOOT=1 \
-		   -D BOOT_ARCH=0
+		   -D BOOT_ARCH=1
 
 EXTRA_CFLAGS += $(DEFINES)
 

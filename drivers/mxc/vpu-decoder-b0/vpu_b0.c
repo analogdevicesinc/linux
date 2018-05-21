@@ -1862,6 +1862,9 @@ static irqreturn_t fsl_vpu_mu_isr(int irq, void *This)
 	} else if (msg == 0x55) {
 		dev->firmware_started = true;
 		complete(&dev->start_cmp);
+	}  else if (msg == 0xA5) {
+		/*receive snapshot done msg and wakeup complete to suspend*/
+		complete(&dev->snap_done_cmp);
 	} else
 		schedule_work(&dev->msg_work);
 
@@ -2843,6 +2846,7 @@ static int vpu_probe(struct platform_device *pdev)
 	mutex_init(&dev->dev_mutex);
 	mutex_init(&dev->cmd_mutex);
 	init_completion(&dev->start_cmp);
+	init_completion(&dev->snap_done_cmp);
 	dev->firmware_started = false;
 	dev->hang_mask = 0;
 	dev->instance_mask = 0;
@@ -2941,13 +2945,67 @@ static int vpu_runtime_resume(struct device *dev)
 	return 0;
 }
 
+#define CHECK_BIT(var, pos) (((var) >> (pos)) & 1)
+
+static void v4l2_vpu_send_snapshot(struct vpu_dev *dev)
+{
+	int i = 0;
+	int strIdx = (~dev->hang_mask) & (dev->instance_mask);
+	/*figure out the first available instance*/
+	for (i = 0; i < VPU_MAX_NUM_STREAMS; i++) {
+		if (CHECK_BIT(strIdx, i))
+		  break;
+	}
+
+	strIdx = i;
+	v4l2_vpu_send_cmd(dev->ctx[strIdx], strIdx, VID_API_CMD_SNAPSHOT, 0, NULL);
+}
+
 static int vpu_suspend(struct device *dev)
 {
+	struct vpu_dev *vpudev = (struct vpu_dev *)dev_get_drvdata(dev);
+
+	if (vpudev->hang_mask != vpudev->instance_mask) {
+
+		/*if there is an available device, send snapshot command to firmware*/
+		v4l2_vpu_send_snapshot(vpudev);
+
+		if (!wait_for_completion_timeout(&vpudev->snap_done_cmp, msecs_to_jiffies(1000))) {
+			vpu_dbg(LVL_ERR, "error: wait for snapdone event timeouti\n");
+			return -1;
+		}
+	}
+
+	vpu_set_power(vpudev, false);
+
 	return 0;
 }
 
 static int vpu_resume(struct device *dev)
 {
+	struct vpu_dev *vpudev = (struct vpu_dev *)dev_get_drvdata(dev);
+	void *csr_offset, *csr_cpuwait;
+
+	vpu_set_power(vpudev, true);
+	vpu_enable_hw(vpudev);
+
+	MU_Init(vpudev->mu_base_virtaddr);
+	MU_EnableRxFullInt(vpudev->mu_base_virtaddr, 0);
+
+	if (vpudev->hang_mask == vpudev->instance_mask) {
+		/*no instance is active before suspend, do reset*/
+		vpudev->fw_is_ready = false;
+		vpudev->firmware_started = false;
+
+		rpc_init_shared_memory(&vpudev->shared_mem, vpudev->m0_rpc_phy - vpudev->m0_p_fw_space_phy, vpudev->m0_rpc_virt, SHARED_SIZE);
+		rpc_set_system_cfg_value(vpudev->shared_mem.pSharedInterface, VPU_REG_BASE);
+	} else {
+		/*resume*/
+		csr_offset = ioremap(0x2d040000, 4);
+		writel(vpudev->m0_p_fw_space_phy, csr_offset);
+		csr_cpuwait = ioremap(0x2d040004, 4);
+		writel(0x0, csr_cpuwait);
+	}
 	return 0;
 }
 

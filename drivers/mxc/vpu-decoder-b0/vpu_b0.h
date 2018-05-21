@@ -191,6 +191,7 @@ struct vpu_dev {
 	bool fw_is_ready;
 	bool firmware_started;
 	struct completion start_cmp;
+	struct completion snap_done_cmp;
 	struct workqueue_struct *workqueue;
 	struct work_struct msg_work;
 	unsigned long instance_mask;
