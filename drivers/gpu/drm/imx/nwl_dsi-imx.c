@@ -39,7 +39,6 @@
 #include "imx-drm.h"
 
 #define DRIVER_NAME "nwl_dsi-imx"
-#define NO_CLK_RESET
 
 /* 8MQ SRC specific registers */
 #define SRC_MIPIPHY_RCR				0x28
@@ -93,6 +92,7 @@ struct imx_mipi_dsi {
 	u32				instance;
 	u32				sync_pol;
 	u32				power_on_delay;
+	bool				no_clk_reset;
 	bool				enabled;
 	bool				suspended;
 };
@@ -451,7 +451,6 @@ static int imx8mq_dsi_poweron(struct imx_mipi_dsi *dsi)
 
 static int imx8mq_dsi_poweroff(struct imx_mipi_dsi *dsi)
 {
-#ifndef NO_CLK_RESET
 	regmap_update_bits(dsi->reset, SRC_MIPIPHY_RCR,
 			   PCLK_RESET_N, 0);
 	regmap_update_bits(dsi->reset, SRC_MIPIPHY_RCR,
@@ -460,7 +459,6 @@ static int imx8mq_dsi_poweroff(struct imx_mipi_dsi *dsi)
 			   RESET_BYTE_N, 0);
 	regmap_update_bits(dsi->reset, SRC_MIPIPHY_RCR,
 			   DPI_RESET_N, 0);
-#endif
 
 	return 0;
 }
@@ -537,7 +535,8 @@ static void imx_nwl_dsi_disable(struct imx_mipi_dsi *dsi)
 
 	DRM_DEV_DEBUG_DRIVER(dev, "id = %s\n", (dsi->instance)?"DSI1":"DSI0");
 
-	devtype->poweroff(dsi);
+	if (!dsi->no_clk_reset)
+		devtype->poweroff(dsi);
 
 	imx_nwl_dsi_set_clocks(dsi, false);
 
@@ -829,6 +828,8 @@ static int imx_nwl_dsi_parse_of(struct device *dev, bool as_bridge)
 		   IOMUXC_GPR13,
 		   IMX8MQ_GPR13_MIPI_MUX_SEL,
 		   mux_val);
+
+	dsi->no_clk_reset = of_property_read_bool(np, "no_clk_reset");
 
 	return 0;
 }
