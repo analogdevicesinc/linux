@@ -165,16 +165,28 @@ static const struct soc_enum ak4497_dac_enum2[] = {
 			    ak4497_adfs_select)
 };
 
+int ak4497_read(struct snd_soc_codec *codec, unsigned int reg,
+	unsigned int *val)
+{
+	int ret;
+
+	ret = snd_soc_component_read(&codec->component, reg, val);
+	if (ret < 0)
+		dev_err(codec->dev, "Register %u read failed, ret=%d.\n", reg, ret);
+
+	return ret;
+}
+
 static int ak4497_get_dsdsel(struct snd_kcontrol *kcontrol,
 			     struct snd_ctl_elem_value  *ucontrol)
 {
 	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
-	u8 dsdsel0, dsdsel1;
+	unsigned int dsdsel0, dsdsel1;
 
-	dsdsel0 = snd_soc_read(codec, AK4497_06_DSD1);
+	ak4497_read(codec, AK4497_06_DSD1, &dsdsel0);
 	dsdsel0 &= AK4497_DSDSEL0;
 
-	dsdsel1 = snd_soc_read(codec, AK4497_09_DSD2);
+	ak4497_read(codec, AK4497_09_DSD2, &dsdsel1);
 	dsdsel1 &= AK4497_DSDSEL1;
 
 	ucontrol->value.enumerated.item[0] = ((dsdsel1 << 1) | dsdsel0);
@@ -310,9 +322,9 @@ static int ak4497_get_adfs(struct snd_kcontrol *kcontrol,
 			   struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
-	int nADFSbit;
+	unsigned int nADFSbit;
 
-	nADFSbit = snd_soc_read(codec, AK4497_15_DFSREAD);
+	ak4497_read(codec, AK4497_15_DFSREAD, &nADFSbit);
 	nADFSbit &= 0x7;
 
 	ucontrol->value.enumerated.item[0] = nADFSbit;
@@ -369,8 +381,8 @@ static int set_test_reg(struct snd_kcontrol *kcontrol,
 {
 	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
 	u32 currMode = ucontrol->value.enumerated.item[0];
-	int i, value;
-	int regs, rege;
+	int i, regs, rege;
+	unsigned int value;
 
 	nTestRegNo = currMode;
 
@@ -383,7 +395,7 @@ static int set_test_reg(struct snd_kcontrol *kcontrol,
 	}
 
 	for (i = regs; i <= rege; i++) {
-		value = snd_soc_read(codec, i);
+		ak4497_read(codec, i, &value);
 		pr_debug("***AK4497 Addr,Reg=(%x, %x)\n", i, value);
 	}
 
@@ -496,13 +508,10 @@ static int ak4497_hw_params(struct snd_pcm_substream *substream,
 	struct ak4497_priv *ak4497 = snd_soc_codec_get_drvdata(codec);
 	snd_pcm_format_t pcm_format = params_format(params);
 
-	u8 format;
-	u8 dfs;
-	u8 dfs2;
+	unsigned int dfs, dfs2, dsdsel0, dsdsel1, format;
 	int nfs1;
 	bool is_dsd = false;
 	int dsd_bclk;
-	u8 dsdsel0, dsdsel1;
 
 	if (pcm_format == SNDRV_PCM_FORMAT_DSD_U8 ||
 		pcm_format == SNDRV_PCM_FORMAT_DSD_U16_LE ||
@@ -514,17 +523,16 @@ static int ak4497_hw_params(struct snd_pcm_substream *substream,
 	nfs1 = params_rate(params);
 	ak4497->fs1 = nfs1;
 
-	dfs = snd_soc_read(codec, AK4497_01_CONTROL2);
+	ak4497_read(codec, AK4497_01_CONTROL2, &dfs);
 	dfs &= ~AK4497_DFS;
 
-	dfs2 = snd_soc_read(codec, AK4497_05_CONTROL4);
+	ak4497_read(codec, AK4497_05_CONTROL4, &dfs2);
 	dfs2 &= ~AK4497_DFS2;
 
-
-	dsdsel0 = snd_soc_read(codec, AK4497_06_DSD1);
+	ak4497_read(codec, AK4497_06_DSD1, &dsdsel0);
 	dsdsel0 &= ~AK4497_DSDSEL0;
 
-	dsdsel1 = snd_soc_read(codec, AK4497_09_DSD2);
+	ak4497_read(codec, AK4497_09_DSD2, &dsdsel1);
 	dsdsel1 &= ~AK4497_DSDSEL1;
 
 	if (!is_dsd) {
@@ -594,7 +602,7 @@ static int ak4497_hw_params(struct snd_pcm_substream *substream,
 	snd_soc_write(codec, AK4497_01_CONTROL2, dfs);
 	snd_soc_write(codec, AK4497_05_CONTROL4, dfs2);
 
-	format = snd_soc_read(codec, AK4497_00_CONTROL1);
+	ak4497_read(codec, AK4497_00_CONTROL1, &format);
 	format &= ~AK4497_DIF;
 
 	switch (params_format(params)) {
@@ -640,14 +648,13 @@ static int ak4497_set_dai_fmt(struct snd_soc_dai *dai, unsigned int fmt)
 {
 	struct snd_soc_codec *codec = dai->codec;
 	struct ak4497_priv *ak4497 = snd_soc_codec_get_drvdata(codec);
-	u8 format;
-	u8 format2;
+	unsigned int format, format2;
 
 	/* set master/slave audio interface */
-	format = snd_soc_read(codec, AK4497_00_CONTROL1);
+	ak4497_read(codec, AK4497_00_CONTROL1, &format);
 	format &= ~AK4497_DIF;
 
-	format2 = snd_soc_read(codec, AK4497_02_CONTROL3);
+	ak4497_read(codec, AK4497_02_CONTROL3, &format2);
 	format2 &= ~AK4497_DIF_DSD;
 
 	switch (fmt & SND_SOC_DAIFMT_MASTER_MASK) {
@@ -737,13 +744,13 @@ static int ak4497_set_dai_mute(struct snd_soc_dai *dai, int mute)
 		mdelay(ndt);
 
 		/* External Mute ON */
-		if (ak4497->mute_gpio != -1)
-			gpio_set_value(ak4497->mute_gpio, 1);
+		if (gpio_is_valid(ak4497->mute_gpio))
+			gpio_set_value_cansleep(ak4497->mute_gpio, 1);
 	} else { /* SMUTE: 0, NORMAL operation */
 
 		/* External Mute OFF */
-		if (ak4497->mute_gpio != -1)
-			gpio_set_value(ak4497->mute_gpio, 0);
+		if (gpio_is_valid(ak4497->mute_gpio))
+			gpio_set_value_cansleep(ak4497->mute_gpio, 0);
 		snd_soc_update_bits(codec, AK4497_01_CONTROL2, 0x01, 0x00);
 	}
 
@@ -812,13 +819,14 @@ static void ak4497_init_reg(struct snd_soc_codec *codec)
 {
 	struct ak4497_priv *ak4497 = snd_soc_codec_get_drvdata(codec);
 
-	if (ak4497->mute_gpio > 0)
-		gpio_set_value(ak4497->mute_gpio, 1); /* External Mute ON */
+	/* External Mute ON */
+	if (gpio_is_valid(ak4497->mute_gpio))
+		gpio_set_value_cansleep(ak4497->mute_gpio, 1);
 
-	if (ak4497->pdn_gpio > 0) {
-		gpio_set_value(ak4497->pdn_gpio, 0);
+	if (gpio_is_valid(ak4497->pdn_gpio)) {
+		gpio_set_value_cansleep(ak4497->pdn_gpio, 0);
 		usleep_range(1000, 2000);
-		gpio_set_value(ak4497->pdn_gpio, 1);
+		gpio_set_value_cansleep(ak4497->pdn_gpio, 1);
 		usleep_range(1000, 2000);
 	}
 
@@ -874,11 +882,11 @@ static int ak4497_probe(struct snd_soc_codec *codec)
 	int ret = 0;
 
 	ret = ak4497_parse_dt(ak4497);
-	if (ak4497->pdn_gpio > 0) {
+	if (gpio_is_valid(ak4497->pdn_gpio)) {
 		ret = gpio_request(ak4497->pdn_gpio, "ak4497 pdn");
 		gpio_direction_output(ak4497->pdn_gpio, 0);
 	}
-	if (ak4497->mute_gpio > 0) {
+	if (gpio_is_valid(ak4497->mute_gpio)) {
 		ret = gpio_request(ak4497->mute_gpio, "ak4497 mute");
 		gpio_direction_output(ak4497->mute_gpio, 0);
 	}
@@ -897,11 +905,11 @@ static int ak4497_remove(struct snd_soc_codec *codec)
 	struct ak4497_priv *ak4497 = snd_soc_codec_get_drvdata(codec);
 
 	ak4497_set_bias_level(codec, SND_SOC_BIAS_OFF);
-	if (ak4497->pdn_gpio > 0) {
-		gpio_set_value(ak4497->pdn_gpio, 0);
+	if (gpio_is_valid(ak4497->pdn_gpio)) {
+		gpio_set_value_cansleep(ak4497->pdn_gpio, 0);
 		gpio_free(ak4497->pdn_gpio);
 	}
-	if (ak4497->mute_gpio > 0)
+	if (gpio_is_valid(ak4497->mute_gpio))
 		gpio_free(ak4497->mute_gpio);
 
 	return 0;
@@ -914,12 +922,12 @@ static int ak4497_runtime_suspend(struct device *dev)
 
 	regcache_cache_only(ak4497->regmap, true);
 
-	if (ak4497->pdn_gpio > 0) {
-		gpio_set_value(ak4497->pdn_gpio, 0);
+	if (gpio_is_valid(ak4497->pdn_gpio)) {
+		gpio_set_value_cansleep(ak4497->pdn_gpio, 0);
 		usleep_range(1000, 2000);
 	}
 
-	if (ak4497->mute_gpio > 0)
+	if (gpio_is_valid(ak4497->mute_gpio))
 		gpio_free(ak4497->mute_gpio);
 
 	return 0;
@@ -929,11 +937,12 @@ static int ak4497_runtime_resume(struct device *dev)
 {
 	struct ak4497_priv *ak4497 = dev_get_drvdata(dev);
 
-	if (ak4497->mute_gpio > 0)
-		gpio_set_value(ak4497->mute_gpio, 1); /* External Mute ON */
+	/* External Mute ON */
+	if (gpio_is_valid(ak4497->mute_gpio))
+		gpio_set_value_cansleep(ak4497->mute_gpio, 1);
 
-	if (ak4497->pdn_gpio > 0) {
-		gpio_set_value(ak4497->pdn_gpio, 1);
+	if (gpio_is_valid(ak4497->pdn_gpio)) {
+		gpio_set_value_cansleep(ak4497->pdn_gpio, 1);
 		usleep_range(1000, 2000);
 	}
 
