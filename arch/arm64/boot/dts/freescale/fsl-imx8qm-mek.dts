@@ -1251,6 +1251,7 @@
 };
 
 &mipi_dsi1 {
+	pwr-delay = <10>;
 	status = "okay";
 };
 
@@ -1292,6 +1293,7 @@
 };
 
 &mipi_dsi2 {
+	pwr-delay = <10>;
 	status = "okay";
 };
 
