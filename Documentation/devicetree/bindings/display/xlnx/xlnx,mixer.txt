@@ -1,0 +1,152 @@
+Device-Tree bindings for Xilinx Video Mixer IP 3.0 core
+
+The IP core provides a flexible video processing block for alpha blending
+and compositing multiple video and/or graphics layers.
+Support for up to eight layers, with an optional logo layer, using a
+combination of video inputs from either frame buffer or streaming video
+cores (through AXI4-Stream interfaces) is provided.
+The Video Mixer always has one streaming input layer, known as master layer.
+
+Required properties:
+ - compatible: Should be "xlnx,mixer-3.0".
+ - reg: Base address and size of the IP core.
+ - interrupts: Interrupt number.
+ - interrupts-parent: phandle for interrupt controller.
+ - reset-gpio: gpio to reset the mixer IP
+ - xlnx,dma-addr-width: dma address width, valid values are 32 and 64
+ - xlnx,bpc: bits per component for mixer
+ - xlnx,ppc: pixel per clock for mixer
+ - layer_[x]: node for [x] layer
+ - xlnx,layer-id: layer identifier number
+ - xlnx,vformat: video format for layer. See list of supported formats below.
+ - xlnx,layer-max-width: max layer width, mandatory for master layer
+   for overlay layers if scaling is alowed then this is mandatory otherwise
+   not required for overlay layers
+ - xlnx,layer-max-height: max layer height, mandatory for master layer
+   Not required for overlay layers
+
+Optional properties:
+ - dmas: dma attach to layer, mandatory for master layer
+   for rest other layers its optional
+ - dma-names: Should be "dma0", for more details on DMA identifier string
+   refer Documentation/devicetree/bindings/dma/dma.txt
+ - xlnx,layer-streaming: denotes layer can be streaming,
+   mandatory for master layer. Streaming layers need external dma, where
+   as non streaming layers read directly from memory.
+ - xlnx,layer-alpha: denotes layer can do alpha compositing
+ - xlnx,layer-scale: denotes layer can be scale to 2x and 4x
+ - xlnx,logo-layer: denotes logo layer is enable
+ - logo: logo layer
+
+Supported Formats:
+	Mixer IP Format		Driver supported Format String
+	 BGR888			"BG24"
+	 RGB888			"RG24"
+	 XBGR2101010		"XB30"
+	 XRGB8888		"XR24"
+	 RGBA8888		"RA24"
+	 ABGR8888		"AB24"
+	 ARGB8888		"AR24"
+	 XBGR8888		"XB24"
+	 YUYV			"YUYV"
+	 UYVY			"UYVY"
+	 AYUV			"AYUV"
+	 NV12			"NV12"
+	 NV16			"NV16"
+	 Y8			"GREY"
+	 Y10			"Y10 " (Note: Space included)
+	 XVUY2101010		"XV30"
+	 VUY888			"VU24"
+	 XVUY8888		"XV24"
+	 XV15			"XV15"
+	 XV20			"XV20"
+Note : Format strings are case sensitive.
+
+Example:
+	v_mix_0: v_mix@80100000 {
+		compatible = "xlnx,mixer-3.0";
+		interrupt-parent = <&gic>;
+		interrupts = <0 93 4>;
+		reg = <0x0 0x80100000 0x0 0x80000>;
+
+		xlnx,dma-addr-width=<32>;
+		reset-gpios = <&gpio 1 1>;
+
+		xlnx,bpc = <8>;
+		xlnx,ppc = <2>;
+		xlnx,num-layers = <8>;
+		xlnx,logo-layer;
+
+		mixer_port: mixer_port@0 {
+			reg = <0>;
+			mixer_crtc: endpoint {
+				remote-endpoint = <&sdi_encoder>;
+			};
+		};
+		xv_mix_master: layer_0 {
+			xlnx,layer-id = <0>;
+			xlnx,vformat = "YUYV";
+			xlnx,layer-max-width = <4096>;
+			xlnx,layer-height = <2160>;
+			dmas = <&axi_vdma_0 0>;
+			dma-names = "dma0";
+			xlnx,layer-streaming;
+		};
+		xv_mix_overlay_1: layer_1 {
+			xlnx,layer-id = <1>;
+			xlnx,vformat = "NV16";
+			xlnx,layer-alpha;
+			xlnx,layer-scale;
+			xlnx,layer-max-width=<1920>;
+		};
+		xv_mix_overlay_2: layer_2 {
+			xlnx,layer-id = <2>;
+			xlnx,vformat = "YUYV";
+			xlnx,layer-alpha;
+			xlnx,layer-scale;
+			xlnx,layer-max-width=<1920>;
+		};
+		xv_mix_overlay_3: layer_3 {
+			xlnx,layer-id = <3>;
+			xlnx,vformat = "AYUV";
+			xlnx,layer-alpha;
+			xlnx,layer-scale;
+			xlnx,layer-max-width=<1920>;
+		};
+		xv_mix_overlay_4: layer_4 {
+			xlnx,layer-id = <4>;
+			xlnx,vformat = "GREY";
+			dmas = <&scaler_v_frmbuf_rd_0 0>;
+			dma-names = "dma0";
+			xlnx,layer-streaming;
+			xlnx,layer-alpha;
+			xlnx,layer-scale;
+			xlnx,layer-max-width=<1920>;
+		};
+		xv_mix_overlay_5: layer_5 {
+			xlnx,layer-id = <5>;
+			xlnx,vformat = "AB24";
+			xlnx,layer-alpha;
+			xlnx,layer-scale;
+			xlnx,layer-max-width=<1920>;
+		};
+		xv_mix_overlay_6: layer_6 {
+			xlnx,layer-id = <6>;
+			xlnx,vformat = "XB24";
+			xlnx,layer-alpha;
+			xlnx,layer-scale;
+			xlnx,layer-max-width=<1920>;
+			};
+		xv_mix_overlay_7: layer_7 {
+			xlnx,layer-id = <7>;
+			xlnx,vformat = "BG24";
+			xlnx,layer-alpha;
+			xlnx,layer-scale;
+			xlnx,layer-max-width=<1920>;
+		};
+		xv_mix_logo: logo {
+			xlnx,layer-id = <8>;
+			xlnx,logo-height = <64>;
+			xlnx,logo-width = <64>;
+		};
+	};

@@ -1,0 +1,92 @@
+config DRM_XLNX
+	tristate "Xilinx DRM KMS Driver"
+	depends on DRM && OF
+	select DRM_KMS_HELPER
+	select DRM_KMS_CMA_HELPER
+	select DRM_GEM_CMA_HELPER
+	help
+	  Xilinx DRM KMS driver. Choose this option if you have
+	  a Xilinx SoCs with hardened display pipeline or soft
+	  display pipeline using Xilinx IPs in FPGA. This module
+	  provides the kernel mode setting functionalities
+	  for Xilinx display drivers.
+
+config DRM_XLNX_BRIDGE
+	tristate "Xilinx DRM KMS bridge"
+	depends on DRM_XLNX
+	help
+	  Xilinx DRM KMS bridge. This module provides some interfaces
+	  to enable inter-module communication. Choose this option
+	  from the provider driver when the Xilinx bridge interface is
+	  needed.
+
+config DRM_XLNX_BRIDGE_DEBUG_FS
+	bool "Xilinx DRM KMS bridge debugfs"
+	depends on DEBUG_FS && DRM_XLNX_BRIDGE
+	help
+	  Enable the debugfs code for Xilinx bridge. The debugfs code
+	  enables debugging or testing related features. It exposes some
+	  low level controls to the user space to help testing automation,
+	  as well as can enable additional diagnostic or statistical
+	  information.
+
+config DRM_ZYNQMP_DPSUB
+	tristate "ZynqMP DP Subsystem Driver"
+	depends on ARCH_ZYNQMP && OF && DRM_XLNX && COMMON_CLK
+	select XILINX_DPDMA
+	select PHY_XILINX_ZYNQMP
+	help
+	  DRM KMS driver for ZynqMP DP Subsystem controller. Choose
+	  this option if you have a Xilinx ZynqMP SoC with DisplayPort
+	  subsystem. The driver provides the kernel mode setting
+	  functionlaities for ZynqMP DP subsystem.
+
+config DRM_XLNX_DSI
+	tristate "Xilinx DRM DSI Subsystem Driver"
+	depends on DRM_XLNX
+	select DRM_MIPI_DSI
+	select DRM_PANEL
+	select BACKLIGHT_LCD_SUPPORT
+	select BACKLIGHT_CLASS_DEVICE
+	select DRM_PANEL_SIMPLE
+	help
+	  DRM driver for Xilinx MIPI-DSI.
+
+config DRM_XLNX_MIXER
+	tristate "Xilinx DRM Mixer Driver"
+	depends on DRM_XLNX
+	help
+	  DRM driver for Xilinx Mixer driver
+
+config DRM_XLNX_PL_DISP
+	tristate "Xilinx DRM PL display driver"
+	depends on DRM_XLNX
+	help
+	  DRM driver for Xilinx PL display driver, provides drm
+	  crtc and plane object to display pipeline. You need to
+	  choose this option if your display pipeline needs one
+	  crtc and plane object with single DMA connected.
+
+config DRM_XLNX_SDI
+	tristate "Xilinx DRM SDI Subsystem Driver"
+	depends on DRM_XLNX
+	help
+	  DRM driver for Xilinx SDI Tx Subsystem.
+
+config DRM_XLNX_BRIDGE_CSC
+	tristate "Xilinx DRM CSC Driver"
+	depends on DRM_XLNX_BRIDGE
+	help
+	  DRM brige driver for color space converter of VPSS. Choose
+	  this option if color space converter is connected to an encoder.
+	  The driver provides set/get resolution and color format
+	  functionality through bridge layer.
+
+config DRM_XLNX_BRIDGE_SCALER
+	tristate "Xilinx DRM Scaler Driver"
+	depends on DRM_XLNX_BRIDGE
+	help
+	  DRM brige driver for scaler of VPSS. Choose this option
+	  if scaler is connected to an encoder. The driver provides
+	  upscaling, down scaling and no scaling functionality through
+	  bridge layer.

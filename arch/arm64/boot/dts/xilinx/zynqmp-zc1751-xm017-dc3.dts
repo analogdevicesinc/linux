@@ -1,14 +1,10 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
  * dts file for Xilinx ZynqMP zc1751-xm017-dc3
  *
- * (C) Copyright 2016, Xilinx, Inc.
+ * (C) Copyright 2016 - 2018, Xilinx, Inc.
  *
  * Michal Simek <michal.simek@xilinx.com>
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License as
- * published by the Free Software Foundation; either version 2 of
- * the License, or (at your option) any later version.
  */
 
 /dts-v1/;
@@ -44,19 +40,12 @@
 	};
 };
 
-/* fpd_dma clk 667MHz, lpd_dma 500MHz */
 &fpd_dma_chan1 {
 	status = "okay";
-	xlnx,include-sg; /* for testing purpose */
-	xlnx,overfetch; /* for testing purpose */
-	xlnx,ratectrl = <0>; /* for testing purpose */
-	xlnx,src-issue = <31>;
 };
 
 &fpd_dma_chan2 {
 	status = "okay";
-	xlnx,ratectrl = <100>; /* for testing purpose */
-	xlnx,src-issue = <4>; /* for testing purpose */
 };
 
 &fpd_dma_chan3 {
@@ -65,7 +54,6 @@
 
 &fpd_dma_chan4 {
 	status = "okay";
-	xlnx,include-sg; /* for testing purpose */
 };
 
 &fpd_dma_chan5 {
@@ -74,7 +62,6 @@
 
 &fpd_dma_chan6 {
 	status = "okay";
-	xlnx,include-sg; /* for testing purpose */
 };
 
 &fpd_dma_chan7 {
@@ -83,7 +70,6 @@
 
 &fpd_dma_chan8 {
 	status = "okay";
-	xlnx,include-sg; /* for testing purpose */
 };
 
 &gem0 {

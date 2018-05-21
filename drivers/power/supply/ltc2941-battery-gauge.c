@@ -478,6 +478,20 @@ static int ltc294x_i2c_probe(struct i2c_client *client,
 			info->id = LTC2942_ID;
 	}
 
+	/* Read status register to check for LTC2942 */
+	if (info->id == LTC2941_ID || info->id == LTC2942_ID) {
+		ret = ltc294x_read_regs(client, LTC294X_REG_STATUS, &status, 1);
+		if (ret < 0) {
+			dev_err(&client->dev,
+				"Could not read status register\n");
+			return ret;
+		}
+		if (status & LTC2941_REG_STATUS_CHIP_ID)
+			info->id = LTC2941_ID;
+		else
+			info->id = LTC2942_ID;
+	}
+
 	info->client = client;
 	info->supply_desc.type = POWER_SUPPLY_TYPE_BATTERY;
 	info->supply_desc.properties = ltc294x_properties;

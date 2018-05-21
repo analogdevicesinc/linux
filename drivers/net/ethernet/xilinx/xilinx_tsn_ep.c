@@ -41,6 +41,8 @@ static int tsn_ep_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
 #ifdef CONFIG_XILINX_TSN_QBV
 	case SIOCCHIOCTL:
 		return axienet_set_schedule(dev, rq->ifr_data);
+	case SIOC_GET_SCHED:
+		return axienet_get_schedule(dev, rq->ifr_data);
 #endif
 	default:
 		return -EOPNOTSUPP;
@@ -90,6 +92,7 @@ static int tsn_ep_probe(struct platform_device *pdev)
 	struct axienet_local *lp;
 	struct net_device *ndev;
 	struct resource *ethres;
+	u16 num_queues = 0;
 
 	ndev = alloc_netdev(0, "ep", NET_NAME_UNKNOWN, ether_setup);
 	if (!ndev)
@@ -105,6 +108,12 @@ static int tsn_ep_probe(struct platform_device *pdev)
 	lp->dev = &pdev->dev;
 	lp->options = XAE_OPTION_DEFAULTS;
 
+	ret = of_property_read_u16(
+		pdev->dev.of_node, "xlnx,num-queues", &num_queues);
+	if (ret || ((num_queues != 2) && (num_queues != 3)))
+		lp->num_queues = XAE_MAX_QUEUES;
+	else
+		lp->num_queues = num_queues;
 	/* Map device registers */
 	ethres = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	lp->regs = devm_ioremap_resource(&pdev->dev, ethres);

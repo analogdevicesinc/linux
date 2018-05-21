@@ -17,6 +17,7 @@
 
 #include "xilinx_tsn_switch.h"
 #include <linux/of_platform.h>
+#include <linux/module.h>
 #include <linux/miscdevice.h>
 
 static struct miscdevice switch_dev;
@@ -717,7 +718,7 @@ static int tsn_switch_init(void)
 	return 0;
 }
 
-static int tsn_switch_cam_init(void)
+static int tsn_switch_cam_init(u16 num_q)
 {
 	u32 pmap;
 	u32 timeout = 20000;
@@ -729,12 +730,18 @@ static int tsn_switch_cam_init(void)
 
 	if (!timeout)
 		pr_warn("Switch init took longer time!!");
+
+	if (num_q == 3) {
 	/* map pcp = 2,3 to queue1
 	 *     pcp = 4 to queue2
 	 */
 	pmap = ((PMAP_EGRESS_QUEUE1_SELECT << PMAP_PRIORITY2_SHIFT) |
 		(PMAP_EGRESS_QUEUE1_SELECT << PMAP_PRIORITY3_SHIFT) |
 		(PMAP_EGRESS_QUEUE2_SELECT << PMAP_PRIORITY4_SHIFT));
+	} else if (num_q == 2) {
+		/*     pcp = 4 to queue1 */
+		pmap = (PMAP_EGRESS_QUEUE1_SELECT << PMAP_PRIORITY4_SHIFT);
+	}
 
 	axienet_iow(&lp, XAS_PMAP_OFFSET, pmap);
 
@@ -754,6 +761,7 @@ static int tsnswitch_probe(struct platform_device *pdev)
 {
 	struct resource *swt;
 	int ret;
+	u16 num_q;
 
 	pr_info("TSN Switch probe\n");
 	/* Map device registers */
@@ -762,12 +770,17 @@ static int tsnswitch_probe(struct platform_device *pdev)
 	if (IS_ERR(lp.regs))
 		return PTR_ERR(lp.regs);
 
+	ret = of_property_read_u16(pdev->dev.of_node, "xlnx,num-queues",
+				   &num_q);
+	if (ret || ((num_q != 2) && (num_q != 3)))
+		num_q = XAE_MAX_QUEUES;
+
 	pr_info("TSN Switch Initializing ....\n");
 	ret = tsn_switch_init();
 	if (ret)
 		return ret;
 	pr_info("TSN CAM Initializing ....\n");
-	ret = tsn_switch_cam_init();
+	ret = tsn_switch_cam_init(num_q);
 
 	return ret;
 }

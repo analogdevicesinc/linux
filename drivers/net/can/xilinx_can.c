@@ -502,6 +502,9 @@ static int xcan_chip_start(struct net_device *ndev)
 		   priv->read_reg(priv, XCAN_SR_OFFSET));
 
 	priv->can.state = CAN_STATE_ERROR_ACTIVE;
+	priv->tx_head = 0;
+	priv->tx_tail = 0;
+
 	return 0;
 }
 
@@ -649,10 +652,14 @@ static int xcan_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 		if (buffnr == -1)
 			netif_stop_queue(ndev);
 	} else {
-		if (cf->len > 0)
-			data[0] = be32_to_cpup((__be32 *)(cf->data + 0));
-		if (cf->len > 4)
-			data[1] = be32_to_cpup((__be32 *)(cf->data + 4));
+		if (!(cf->can_id & CAN_RTR_FLAG)) {
+			if (cf->len > 0)
+				data[0] =
+				be32_to_cpup((__be32 *)(cf->data + 0));
+			if (cf->len > 4)
+				data[1] =
+				be32_to_cpup((__be32 *)(cf->data + 4));
+		}
 
 		can_put_echo_skb(skb, ndev, priv->tx_head % priv->tx_max);
 		priv->tx_head++;
@@ -1071,7 +1078,7 @@ static int xcan_rx_poll(struct napi_struct *napi, int quota)
 		can_led_event(ndev, CAN_LED_EVENT_RX);
 
 	if (work_done < quota) {
-		napi_complete(napi);
+		napi_complete_done(napi, work_done);
 		ier = priv->read_reg(priv, XCAN_IER_OFFSET);
 		ier |= rx_bit_mask;
 		priv->write_reg(priv, XCAN_IER_OFFSET, ier);
@@ -1126,8 +1133,10 @@ static irqreturn_t xcan_interrupt(int irq, void *dev_id)
 
 	/* Check for the type of interrupt and Processing it */
 	if (isr & (XCAN_IXR_SLP_MASK | XCAN_IXR_WKUP_MASK)) {
-		priv->write_reg(priv, XCAN_ICR_OFFSET, (XCAN_IXR_SLP_MASK |
-				XCAN_IXR_WKUP_MASK));
+		if (isr & XCAN_IXR_SLP_MASK)
+			priv->write_reg(priv, XCAN_ICR_OFFSET, XCAN_IXR_SLP_MASK);
+		if (isr & XCAN_IXR_WKUP_MASK)
+			priv->write_reg(priv, XCAN_ICR_OFFSET, XCAN_IXR_WKUP_MASK);
 		xcan_state_interrupt(ndev, isr);
 	}
 
@@ -1138,9 +1147,15 @@ static irqreturn_t xcan_interrupt(int irq, void *dev_id)
 	/* Check for the type of error interrupt and Processing it */
 	if (isr & (XCAN_IXR_ERROR_MASK | XCAN_IXR_RXOFLW_MASK |
 			XCAN_IXR_BSOFF_MASK | XCAN_IXR_ARBLST_MASK)) {
-		priv->write_reg(priv, XCAN_ICR_OFFSET, (XCAN_IXR_ERROR_MASK |
-				XCAN_IXR_RXOFLW_MASK | XCAN_IXR_BSOFF_MASK |
-				XCAN_IXR_ARBLST_MASK));
+		if (isr & XCAN_IXR_ERROR_MASK)
+			priv->write_reg(priv, XCAN_ICR_OFFSET, XCAN_IXR_ERROR_MASK);
+		if (isr & XCAN_IXR_RXOFLW_MASK)
+			priv->write_reg(priv, XCAN_ICR_OFFSET, XCAN_IXR_RXOFLW_MASK);
+		if (isr & XCAN_IXR_BSOFF_MASK)
+			priv->write_reg(priv, XCAN_ICR_OFFSET, XCAN_IXR_BSOFF_MASK);
+		if (isr & XCAN_IXR_ARBLST_MASK)
+			priv->write_reg(priv, XCAN_ICR_OFFSET, XCAN_IXR_ARBLST_MASK);
+
 		xcan_err_interrupt(ndev, isr);
 	}
 	if (priv->quirks & CANFD_SUPPORT) {
@@ -1512,6 +1527,8 @@ static int xcan_probe(struct platform_device *pdev)
 	}
 	priv->reg_base = addr;
 	priv->tx_max = tx_max;
+	priv->tx_head = 0;
+	priv->tx_tail = 0;
 
 	/* Get IRQ for the device */
 	ndev->irq = platform_get_irq(pdev, 0);
@@ -1524,7 +1541,8 @@ static int xcan_probe(struct platform_device *pdev)
 	/* Getting the CAN can_clk info */
 	priv->can_clk = devm_clk_get(&pdev->dev, "can_clk");
 	if (IS_ERR(priv->can_clk)) {
-		dev_err(&pdev->dev, "Device clock not found.\n");
+		if (PTR_ERR(priv->can_clk) != -EPROBE_DEFER)
+			dev_err(&pdev->dev, "Device clock not found.\n");
 		ret = PTR_ERR(priv->can_clk);
 		goto err_free;
 	}
@@ -1533,14 +1551,16 @@ static int xcan_probe(struct platform_device *pdev)
 				    "xlnx,zynq-can-1.0")) {
 		priv->bus_clk = devm_clk_get(&pdev->dev, "pclk");
 		if (IS_ERR(priv->bus_clk)) {
-			dev_err(&pdev->dev, "bus clock not found\n");
+			if (PTR_ERR(priv->can_clk) != -EPROBE_DEFER)
+				dev_err(&pdev->dev, "bus clock not found\n");
 			ret = PTR_ERR(priv->bus_clk);
 			goto err_free;
 		}
 	} else {
 		priv->bus_clk = devm_clk_get(&pdev->dev, "s_axi_aclk");
 		if (IS_ERR(priv->bus_clk)) {
-			dev_err(&pdev->dev, "bus clock not found\n");
+			if (PTR_ERR(priv->bus_clk) != -EPROBE_DEFER)
+				dev_err(&pdev->dev, "bus clock not found\n");
 			ret = PTR_ERR(priv->bus_clk);
 			goto err_free;
 		}
@@ -1563,6 +1583,7 @@ static int xcan_probe(struct platform_device *pdev)
 
 	pm_runtime_set_active(&pdev->dev);
 	pm_runtime_enable(&pdev->dev);
+	pm_runtime_get_sync(&pdev->dev);
 
 	if (priv->read_reg(priv, XCAN_SR_OFFSET) != XCAN_SR_CONFIG_MASK) {
 		priv->write_reg = xcan_write_reg_be;

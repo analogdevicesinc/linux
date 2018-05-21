@@ -1,7 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0
 /*
- * Xilinx DPDMA Engine driver
+ * Xilinx ZynqMP DPDMA Engine driver
  *
- *  Copyright (C) 2015 Xilinx, Inc.
+ *  Copyright (C) 2015 - 2018 Xilinx, Inc.
  *
  *  Author: Hyun Woo Kwon <hyun.kwon@xilinx.com>
  *
@@ -263,7 +264,7 @@ enum xilinx_dpdma_chan_status {
  * Transition is triggered as following:
  *
  * -> allocated_desc : a descriptor allocation
- * allocated_desc -> submitted_desc: a descriptorsubmission
+ * allocated_desc -> submitted_desc: a descriptor submission
  * submitted_desc -> pending_desc: request to issue pending a descriptor
  * pending_desc -> active_desc: VSYNC intr when a desc is scheduled to DPDMA
  * active_desc -> done_list: VSYNC intr when DPDMA switches to a new desc
@@ -299,7 +300,7 @@ struct xilinx_dpdma_chan {
 	bool first_frame;
 	bool video_group;
 
-	spinlock_t lock;
+	spinlock_t lock; /* lock to access struct xilinx_dpdma_chan */
 	struct dma_pool *desc_pool;
 	struct tasklet_struct done_task;
 	struct tasklet_struct err_task;
@@ -340,7 +341,9 @@ struct xilinx_dpdma_device {
 #ifdef CONFIG_XILINX_DPDMA_DEBUG_FS
 #define XILINX_DPDMA_DEBUGFS_READ_MAX_SIZE	32
 #define XILINX_DPDMA_DEBUGFS_UINT16_MAX_STR	"65535"
-#define IN_RANGE(x, min, max) ((x) >= (min) && (x) <= (max))
+#define IN_RANGE(x, min, max) ({		\
+		typeof(x) _x = (x);		\
+		_x >= (min) && _x <= (max); })
 
 /* Match xilinx_dpdma_testcases vs dpdma_debugfs_reqs[] entry */
 enum xilinx_dpdma_testcases {
@@ -430,7 +433,7 @@ struct xilinx_dpdma_debugfs_request dpdma_debugfs_reqs[] = {
 static ssize_t xilinx_dpdma_debugfs_write(struct file *f, const char __user
 					       *buf, size_t size, loff_t *pos)
 {
-	char *kern_buff;
+	char *kern_buff, *kern_buff_start;
 	char *dpdma_test_req;
 	int ret;
 	int i;
@@ -445,26 +448,27 @@ static ssize_t xilinx_dpdma_debugfs_write(struct file *f, const char __user
 	kern_buff = kzalloc(size, GFP_KERNEL);
 	if (!kern_buff)
 		return -ENOMEM;
+	kern_buff_start = kern_buff;
 
 	ret = strncpy_from_user(kern_buff, buf, size);
 	if (ret < 0) {
-		kfree(kern_buff);
+		kfree(kern_buff_start);
 		return ret;
 	}
 
-	/* Read the testcase name from an user request */
+	/* Read the testcase name from a user request */
 	dpdma_test_req = strsep(&kern_buff, " ");
 
 	for (i = 0; i < ARRAY_SIZE(dpdma_debugfs_reqs); i++) {
 		if (!strcasecmp(dpdma_test_req, dpdma_debugfs_reqs[i].req)) {
 			if (!dpdma_debugfs_reqs[i].write_handler(&kern_buff)) {
-				kfree(kern_buff);
+				kfree(kern_buff_start);
 				return size;
 			}
 			break;
 		}
 	}
-	kfree(kern_buff);
+	kfree(kern_buff_start);
 	return -EINVAL;
 }
 
@@ -473,6 +477,7 @@ static ssize_t xilinx_dpdma_debugfs_read(struct file *f, char __user *buf,
 {
 	char *kern_buff = NULL;
 	size_t kern_buff_len, out_str_len;
+	enum xilinx_dpdma_testcases tc;
 	int ret;
 
 	if (size <= 0)
@@ -487,14 +492,14 @@ static ssize_t xilinx_dpdma_debugfs_read(struct file *f, char __user *buf,
 		return -ENOMEM;
 	}
 
-	if (dpdma_debugfs.testcase == DPDMA_TC_NONE) {
+	tc = dpdma_debugfs.testcase;
+	if (tc == DPDMA_TC_NONE) {
 		out_str_len = strlen("No testcase executed");
 		out_str_len = min_t(size_t, XILINX_DPDMA_DEBUGFS_READ_MAX_SIZE,
 				    out_str_len);
 		snprintf(kern_buff, out_str_len, "%s", "No testcase executed");
 	} else {
-		ret = dpdma_debugfs_reqs[dpdma_debugfs.testcase].read_handler(
-				&kern_buff);
+		ret = dpdma_debugfs_reqs[tc].read_handler(&kern_buff);
 		if (ret) {
 			kfree(kern_buff);
 			return ret;
@@ -649,8 +654,8 @@ static inline void
 xilinx_dpdma_sw_desc_next_64(struct xilinx_dpdma_sw_desc *sw_desc,
 			     struct xilinx_dpdma_sw_desc *next)
 {
-	sw_desc->hw.next_desc = (u32)next->phys;
-	sw_desc->hw.addr_ext |= ((u64)next->phys >> 32) &
+	sw_desc->hw.next_desc = lower_32_bits(next->phys);
+	sw_desc->hw.addr_ext |= upper_32_bits(next->phys) &
 				XILINX_DPDMA_DESC_ADDR_EXT_ADDR_MASK;
 }
 
@@ -670,10 +675,13 @@ static void xilinx_dpdma_sw_desc_addr_64(struct xilinx_dpdma_sw_desc *sw_desc,
 {
 	struct xilinx_dpdma_hw_desc *hw_desc = &sw_desc->hw;
 	unsigned int i;
+	u32 src_addr_extn;
 
-	hw_desc->src_addr = (u32)dma_addr[0];
-	hw_desc->addr_ext |=
-		((u64)dma_addr[0] >> 32) & XILINX_DPDMA_DESC_ADDR_EXT_ADDR_MASK;
+	hw_desc->src_addr = lower_32_bits(dma_addr[0]);
+	src_addr_extn = upper_32_bits(dma_addr[0]) &
+			XILINX_DPDMA_DESC_ADDR_EXT_ADDR_MASK;
+	hw_desc->addr_ext |= (src_addr_extn <<
+			      XILINX_DPDMA_DESC_ADDR_EXT_ADDR_SHIFT);
 
 	if (prev)
 		xilinx_dpdma_sw_desc_next_64(prev, sw_desc);
@@ -709,11 +717,10 @@ xilinx_dpdma_chan_alloc_sw_desc(struct xilinx_dpdma_chan *chan)
 	struct xilinx_dpdma_sw_desc *sw_desc;
 	dma_addr_t phys;
 
-	sw_desc = dma_pool_alloc(chan->desc_pool, GFP_ATOMIC, &phys);
+	sw_desc = dma_pool_zalloc(chan->desc_pool, GFP_ATOMIC, &phys);
 	if (!sw_desc)
 		return NULL;
 
-	memset(sw_desc, 0, sizeof(*sw_desc));
 	sw_desc->phys = phys;
 
 	return sw_desc;
@@ -1446,10 +1453,11 @@ static inline u32 xilinx_dpdma_chan_ostand(struct xilinx_dpdma_chan *chan)
  * @chan: DPDMA channel
  *
  * Notify waiters for no outstanding event, so waiters can stop the channel
- * safely. This function is supposed to be called when 'no oustanding' interrupt
- * is generated. The 'no outstanding' interrupt is disabled and should be
- * re-enabled when this event is handled. If the channel status register still
- * shows some number of outstanding transactions, the interrupt remains enabled.
+ * safely. This function is supposed to be called when 'no outstanding'
+ * interrupt is generated. The 'no outstanding' interrupt is disabled and
+ * should be re-enabled when this event is handled. If the channel status
+ * register still shows some number of outstanding transactions, the interrupt
+ * remains enabled.
  *
  * Return: 0 on success. On failure, -EWOULDBLOCK if there's still outstanding
  * transaction(s).
@@ -1464,7 +1472,7 @@ static int xilinx_dpdma_chan_notify_no_ostand(struct xilinx_dpdma_chan *chan)
 		return -EWOULDBLOCK;
 	}
 
-	/* Disable 'no oustanding' interrupt */
+	/* Disable 'no outstanding' interrupt */
 	dpdma_write(chan->xdev->reg, XILINX_DPDMA_IDS,
 		    1 << (XILINX_DPDMA_INTR_NO_OSTAND_SHIFT + chan->id));
 	wake_up(&chan->wait_to_stop);
@@ -1473,7 +1481,7 @@ static int xilinx_dpdma_chan_notify_no_ostand(struct xilinx_dpdma_chan *chan)
 }
 
 /**
- * xilinx_dpdma_chan_wait_no_ostand - Wait for the oustanding transaction intr
+ * xilinx_dpdma_chan_wait_no_ostand - Wait for the no outstanding intr
  * @chan: DPDMA channel
  *
  * Wait for the no outstanding transaction interrupt. This functions can sleep
@@ -1507,7 +1515,7 @@ static int xilinx_dpdma_chan_wait_no_ostand(struct xilinx_dpdma_chan *chan)
 }
 
 /**
- * xilinx_dpdma_chan_poll_no_ostand - Poll the oustanding transaction status reg
+ * xilinx_dpdma_chan_poll_no_ostand - Poll the outstanding transaction status
  * @chan: DPDMA channel
  *
  * Poll the outstanding transaction status, and return when there's no
@@ -1542,19 +1550,23 @@ static int xilinx_dpdma_chan_poll_no_ostand(struct xilinx_dpdma_chan *chan)
 /**
  * xilinx_dpdma_chan_stop - Stop the channel
  * @chan: DPDMA channel
+ * @poll: flag whether to poll or wait
  *
  * Stop the channel with the following sequence: 1. Pause, 2. Wait (sleep) for
  * no outstanding transaction interrupt, 3. Disable the channel.
  *
- * Return: 0 on success, or error code from xilinx_dpdma_chan_wait_no_ostand().
+ * Return: 0 on success, or an error from xilinx_dpdma_chan_poll/wait_ostand().
  */
-static int xilinx_dpdma_chan_stop(struct xilinx_dpdma_chan *chan)
+static int xilinx_dpdma_chan_stop(struct xilinx_dpdma_chan *chan, bool poll)
 {
 	unsigned long flags;
 	bool ret;
 
 	xilinx_dpdma_chan_pause(chan);
-	ret = xilinx_dpdma_chan_wait_no_ostand(chan);
+	if (poll)
+		ret = xilinx_dpdma_chan_poll_no_ostand(chan);
+	else
+		ret = xilinx_dpdma_chan_wait_no_ostand(chan);
 	if (ret)
 		return ret;
 
@@ -1606,7 +1618,8 @@ static void xilinx_dpdma_chan_free_resources(struct xilinx_dpdma_chan *chan)
  * xilinx_dpdma_chan_terminate_all - Terminate the channel and descriptors
  * @chan: DPDMA channel
  *
- * Stop the channel and free all associated descriptors.
+ * Stop the channel and free all associated descriptors. Poll the no outstanding
+ * transaction interrupt as this can be called from an atomic context.
  *
  * Return: 0 on success, or the error code from xilinx_dpdma_chan_stop().
  */
@@ -1626,10 +1639,47 @@ static int xilinx_dpdma_chan_terminate_all(struct xilinx_dpdma_chan *chan)
 		}
 	}
 
-	ret = xilinx_dpdma_chan_stop(chan);
+	ret = xilinx_dpdma_chan_stop(chan, true);
 	if (ret)
 		return ret;
 
+	xilinx_dpdma_chan_free_all_desc(chan);
+
+	return 0;
+}
+
+/**
+ * xilinx_dpdma_chan_synchronize - Synchronize all outgoing transfer
+ * @chan: DPDMA channel
+ *
+ * Stop the channel and free all associated descriptors. As this can't be
+ * called in an atomic context, sleep-wait for no outstanding transaction
+ * interrupt. Then kill all related tasklets.
+ *
+ * Return: 0 on success, or the error code from xilinx_dpdma_chan_stop().
+ */
+static int xilinx_dpdma_chan_synchronize(struct xilinx_dpdma_chan *chan)
+{
+	struct xilinx_dpdma_device *xdev = chan->xdev;
+	int ret;
+	unsigned int i;
+
+	if (chan->video_group) {
+		for (i = VIDEO0; i < GRAPHICS; i++) {
+			if (xdev->chan[i]->video_group &&
+			    xdev->chan[i]->status == STREAMING) {
+				xilinx_dpdma_chan_pause(xdev->chan[i]);
+				xdev->chan[i]->video_group = false;
+			}
+		}
+	}
+
+	ret = xilinx_dpdma_chan_stop(chan, false);
+	if (ret)
+		return ret;
+
+	tasklet_kill(&chan->err_task);
+	tasklet_kill(&chan->done_task);
 	xilinx_dpdma_chan_free_all_desc(chan);
 
 	return 0;
@@ -1684,31 +1734,28 @@ static void xilinx_dpdma_chan_handle_err(struct xilinx_dpdma_chan *chan)
 	xilinx_dpdma_chan_disable(chan);
 	chan->status = IDLE;
 
-	/* Decide if the current descriptor can be rescheduled */
-	if (chan->active_desc) {
-		switch (chan->active_desc->status) {
-		case ACTIVE:
-		case PREPARED:
-			xilinx_dpdma_chan_free_tx_desc(chan,
-						       chan->submitted_desc);
-			chan->submitted_desc = NULL;
-			xilinx_dpdma_chan_free_tx_desc(chan,
-						       chan->pending_desc);
-			chan->pending_desc = NULL;
+	if (!chan->active_desc)
+		goto out_unlock;
+
+	xilinx_dpdma_chan_dump_tx_desc(chan, chan->active_desc);
+
+	switch (chan->active_desc->status) {
+	case ERRORED:
+		dev_dbg(dev, "repeated error on desc\n");
+	case ACTIVE:
+	case PREPARED:
+		/* Reschedule if there's no new descriptor */
+		if (!chan->pending_desc && !chan->submitted_desc) {
 			chan->active_desc->status = ERRORED;
 			chan->submitted_desc = chan->active_desc;
-			break;
-		case ERRORED:
-			dev_err(dev, "desc is dropped by unrecoverable err\n");
-			xilinx_dpdma_chan_dump_tx_desc(chan, chan->active_desc);
+		} else {
 			xilinx_dpdma_chan_free_tx_desc(chan, chan->active_desc);
-			break;
-		default:
-			break;
 		}
-		chan->active_desc = NULL;
+		break;
 	}
+	chan->active_desc = NULL;
 
+out_unlock:
 	spin_unlock_irqrestore(&chan->lock, flags);
 }
 
@@ -1864,6 +1911,11 @@ static int xilinx_dpdma_terminate_all(struct dma_chan *dchan)
 	return xilinx_dpdma_chan_terminate_all(to_xilinx_chan(dchan));
 }
 
+static void xilinx_dpdma_synchronize(struct dma_chan *dchan)
+{
+	xilinx_dpdma_chan_synchronize(to_xilinx_chan(dchan));
+}
+
 /* Xilinx DPDMA device operations */
 
 /**
@@ -1876,7 +1928,7 @@ static int xilinx_dpdma_terminate_all(struct dma_chan *dchan)
 static bool xilinx_dpdma_err(u32 isr, u32 eisr)
 {
 	if ((isr & XILINX_DPDMA_INTR_GLOBAL_ERR ||
-	    eisr & XILINX_DPDMA_EINTR_GLOBAL_ERR))
+	     eisr & XILINX_DPDMA_EINTR_GLOBAL_ERR))
 		return true;
 
 	return false;
@@ -1898,8 +1950,9 @@ static void xilinx_dpdma_handle_err_intr(struct xilinx_dpdma_device *xdev,
 	bool err = xilinx_dpdma_err(isr, eisr);
 	unsigned int i;
 
-	dev_err(xdev->dev, "error intr: isr = 0x%08x, eisr = 0x%08x\n",
-		isr, eisr);
+	dev_dbg_ratelimited(xdev->dev,
+			    "error intr: isr = 0x%08x, eisr = 0x%08x\n",
+			    isr, eisr);
 
 	/* Disable channel error interrupts until errors are handled. */
 	dpdma_write(xdev->reg, XILINX_DPDMA_IDS,
@@ -2167,6 +2220,7 @@ static int xilinx_dpdma_probe(struct platform_device *pdev)
 	ddev->device_pause = xilinx_dpdma_pause;
 	ddev->device_resume = xilinx_dpdma_resume;
 	ddev->device_terminate_all = xilinx_dpdma_terminate_all;
+	ddev->device_synchronize = xilinx_dpdma_synchronize;
 	ddev->src_addr_widths = BIT(DMA_SLAVE_BUSWIDTH_UNDEFINED);
 	ddev->directions = BIT(DMA_MEM_TO_DEV);
 	ddev->residue_granularity = DMA_RESIDUE_GRANULARITY_DESCRIPTOR;
@@ -2194,7 +2248,7 @@ static int xilinx_dpdma_probe(struct platform_device *pdev)
 
 	ret = dma_async_device_register(ddev);
 	if (ret) {
-		dev_err(xdev->dev, "failed to enable the axi clock\n");
+		dev_err(xdev->dev, "failed to register the dma device\n");
 		goto error_dma_async;
 	}
 

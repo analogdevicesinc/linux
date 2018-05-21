@@ -1162,7 +1162,7 @@ xv_vscaler_setup_video_fmt(struct xscaler_device *xscaler, u32 code_in)
 	u32 video_in;
 
 	switch (code_in) {
-	case MEDIA_BUS_FMT_UYVY8_1_5X8:
+	case MEDIA_BUS_FMT_VYYUYY8_1X24:
 		dev_dbg(xscaler->xvip.dev,
 			"Vscaler Input Media Format YUV 420");
 		video_in = XVIDC_CSF_YCRCB_420;
@@ -1229,7 +1229,7 @@ static int xv_hscaler_setup_video_fmt(struct xscaler_device *xscaler,
 		vsc_out);
 
 	switch (code_out) {
-	case MEDIA_BUS_FMT_UYVY8_1_5X8:
+	case MEDIA_BUS_FMT_VYYUYY8_1X24:
 		dev_dbg(xscaler->xvip.dev,
 			"Hscaler Output Media Format YUV 420\n");
 		video_out = XVIDC_CSF_YCRCB_420;
@@ -1325,6 +1325,7 @@ static int xscaler_s_stream(struct v4l2_subdev *subdev, int enable)
 		gpiod_set_value_cansleep(xscaler->rst_gpio,
 					 XSCALER_RESET_DEASSERT);
 		xscaler_reset(xscaler);
+		memset(xscaler->H_phases, 0, sizeof(xscaler->H_phases));
 		return 0;
 	}
 

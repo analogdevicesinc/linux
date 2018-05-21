@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2007-2013 Michal Simek <monstr@monstr.eu>
- * Copyright (C) 2012-2014 Xilinx, Inc.
+ * Copyright (C) 2012-2013 Xilinx, Inc.
  * Copyright (C) 2007-2009 PetaLogix
  * Copyright (C) 2006 Atmark Techno, Inc.
  *
@@ -10,31 +10,15 @@
  */
 
 #include <linux/irqdomain.h>
-#include <linux/of_address.h>
-#include <linux/of_irq.h>
-#include <linux/io.h>
-#include <linux/interrupt.h>
+#include <linux/irq.h>
 #include <linux/irqchip.h>
 #include <linux/irqchip/chained_irq.h>
-#include <linux/slab.h>
+#include <linux/of_address.h>
+#include <linux/io.h>
+#include <linux/bug.h>
+#include <linux/of_irq.h>
 
-/**
- * struct intc - Interrupt controller private data structure
- * @baseaddr:	Base address of the interrupt controller device
- * @nr_irq:	Number of interrrupts supported by the device
- * @intr_mask:	Type of each interrupt, level or edge
- * @domain:	The interrupt domain for the device
- * @read_fn:	The read function for device registers
- * @write_fn:	The write function for device registers
- */
-struct intc {
-	void __iomem *baseaddr;
-	u32 nr_irq;
-	u32 intr_mask;
-	struct irq_domain *domain;
-	unsigned int (*read_fn)(void __iomem *addr);
-	void (*write_fn)(u32, void __iomem *addr);
-};
+static struct xintc_irq_chip *primary_intc;
 
 /* No one else should require these constants, so define them locally here. */
 #define ISR 0x00			/* Interrupt Status Register */
@@ -49,105 +33,118 @@ struct intc {
 #define MER_ME (1<<0)
 #define MER_HIE (1<<1)
 
-static void intc_write32(u32 val, void __iomem *addr)
+struct xintc_irq_chip {
+	void		__iomem *base;
+	struct		irq_domain *root_domain;
+	u32		intr_mask;
+	struct			irq_chip *intc_dev;
+	u32				nr_irq;
+	unsigned int	(*read_fn)(void __iomem *addr);
+	void			(*write_fn)(void __iomem *addr, u32);
+};
+
+static void xintc_write(void __iomem *addr, u32 data)
 {
-	iowrite32(val, addr);
+		iowrite32(data, addr);
 }
 
-static unsigned int intc_read32(void __iomem *addr)
+static unsigned int xintc_read(void __iomem *addr)
 {
-	return ioread32(addr);
+		return ioread32(addr);
 }
 
-static void intc_write32_be(u32 val, void __iomem *addr)
+static void xintc_write_be(void __iomem *addr, u32 data)
 {
-	iowrite32be(val, addr);
+		iowrite32be(data, addr);
 }
 
-static unsigned int intc_read32_be(void __iomem *addr)
+static unsigned int xintc_read_be(void __iomem *addr)
 {
-	return ioread32be(addr);
+		return ioread32be(addr);
 }
 
 static void intc_enable_or_unmask(struct irq_data *d)
 {
 	unsigned long mask = 1 << d->hwirq;
-	struct intc *local_intc = irq_data_get_irq_chip_data(d);
+	struct xintc_irq_chip *local_intc = irq_data_get_irq_chip_data(d);
 
-	pr_debug("enable_or_unmask: %ld\n", d->hwirq);
+	pr_debug("irq-xilinx: enable_or_unmask: %ld\n", d->hwirq);
 
-	/*
-	 * ack level irqs because they can't be acked during
+	/* ack level irqs because they can't be acked during
 	 * ack function since the handle_level_irq function
 	 * acks the irq before calling the interrupt handler
 	 */
 	if (irqd_is_level_type(d))
-		local_intc->write_fn(mask, local_intc->baseaddr + IAR);
+		local_intc->write_fn(local_intc->base + IAR, mask);
 
-	local_intc->write_fn(mask, local_intc->baseaddr + SIE);
+	local_intc->write_fn(local_intc->base + SIE, mask);
 }
 
 static void intc_disable_or_mask(struct irq_data *d)
 {
-	struct intc *local_intc = irq_data_get_irq_chip_data(d);
+	struct xintc_irq_chip *local_intc = irq_data_get_irq_chip_data(d);
 
-	pr_debug("disable: %ld\n", d->hwirq);
-	local_intc->write_fn(1 << d->hwirq, local_intc->baseaddr + CIE);
+	pr_debug("irq-xilinx: disable: %ld\n", d->hwirq);
+	local_intc->write_fn(local_intc->base + CIE, 1 << d->hwirq);
 }
 
 static void intc_ack(struct irq_data *d)
 {
-	struct intc *local_intc = irq_data_get_irq_chip_data(d);
+	struct xintc_irq_chip *local_intc = irq_data_get_irq_chip_data(d);
 
-	pr_debug("ack: %ld\n", d->hwirq);
-	local_intc->write_fn(1 << d->hwirq, local_intc->baseaddr + IAR);
+	pr_debug("irq-xilinx: ack: %ld\n", d->hwirq);
+	local_intc->write_fn(local_intc->base + IAR, 1 << d->hwirq);
 }
 
 static void intc_mask_ack(struct irq_data *d)
 {
 	unsigned long mask = 1 << d->hwirq;
-	struct intc *local_intc = irq_data_get_irq_chip_data(d);
+	struct xintc_irq_chip *local_intc = irq_data_get_irq_chip_data(d);
 
-	pr_debug("disable_and_ack: %ld\n", d->hwirq);
-	local_intc->write_fn(mask, local_intc->baseaddr + CIE);
-	local_intc->write_fn(mask, local_intc->baseaddr + IAR);
+	pr_debug("irq-xilinx: disable_and_ack: %ld\n", d->hwirq);
+	local_intc->write_fn(local_intc->base + CIE, mask);
+	local_intc->write_fn(local_intc->base + IAR, mask);
 }
 
-static struct irq_chip intc_dev = {
-	.name = "Xilinx INTC",
-	.irq_unmask = intc_enable_or_unmask,
-	.irq_mask = intc_disable_or_mask,
-	.irq_ack = intc_ack,
-	.irq_mask_ack = intc_mask_ack,
-};
-
-static unsigned int get_irq(struct intc *local_intc)
+static unsigned int xintc_get_irq_local(struct xintc_irq_chip *local_intc)
 {
 	int hwirq, irq = -1;
 
-	hwirq = local_intc->read_fn(local_intc->baseaddr + IVR);
+	hwirq = local_intc->read_fn(local_intc->base + IVR);
 	if (hwirq != -1U)
-		irq = irq_find_mapping(local_intc->domain, hwirq);
+		irq = irq_find_mapping(local_intc->root_domain, hwirq);
 
-	pr_debug("get_irq: hwirq=%d, irq=%d\n", hwirq, irq);
+	pr_debug("irq-xilinx: hwirq=%d, irq=%d\n", hwirq, irq);
+
+	return irq;
+}
+
+unsigned int xintc_get_irq(void)
+{
+	int hwirq, irq = -1;
+
+	hwirq = primary_intc->read_fn(primary_intc->base + IVR);
+	if (hwirq != -1U)
+		irq = irq_find_mapping(primary_intc->root_domain, hwirq);
+
+	pr_debug("irq-xilinx: hwirq=%d, irq=%d\n", hwirq, irq);
 
 	return irq;
 }
 
 static int xintc_map(struct irq_domain *d, unsigned int irq, irq_hw_number_t hw)
 {
-	struct intc *local_intc = d->host_data;
+	struct xintc_irq_chip *local_intc = d->host_data;
 
 	if (local_intc->intr_mask & (1 << hw)) {
-		irq_set_chip_and_handler_name(irq, &intc_dev,
+		irq_set_chip_and_handler_name(irq, local_intc->intc_dev,
 						handle_edge_irq, "edge");
 		irq_clear_status_flags(irq, IRQ_LEVEL);
 	} else {
-		irq_set_chip_and_handler_name(irq, &intc_dev,
+		irq_set_chip_and_handler_name(irq, local_intc->intc_dev,
 						handle_level_irq, "level");
 		irq_set_status_flags(irq, IRQ_LEVEL);
 	}
-
 	irq_set_chip_data(irq, local_intc);
 	return 0;
 }
@@ -157,115 +154,119 @@ static const struct irq_domain_ops xintc_irq_domain_ops = {
 	.map = xintc_map,
 };
 
-static void intc_handler(struct irq_desc *desc)
+static void xil_intc_irq_handler(struct irq_desc *desc)
 {
 	struct irq_chip *chip = irq_desc_get_chip(desc);
-	struct intc *local_intc =
+	struct xintc_irq_chip *local_intc =
 		irq_data_get_irq_handler_data(&desc->irq_data);
-	int irq;
+	u32 pending;
 
-	pr_debug("intc_handler: input irq = %d\n", desc->irq_data.irq);
 	chained_irq_enter(chip, desc);
-
-	/*
-	 * ignore the irq input as we now need to query the AXI interrupt
-	 * controller to see which interrupt is active
-	 */
-	irq = get_irq(local_intc);
-	while (irq != -1U) {
-		generic_handle_irq(irq);
-		irq = get_irq(local_intc);
-	}
-
+	do {
+		pending = xintc_get_irq_local(local_intc);
+		if (pending == -1U)
+			break;
+		generic_handle_irq(pending);
+	} while (true);
 	chained_irq_exit(chip, desc);
 }
 
-static int __init xilinx_intc_of_init(struct device_node *node,
+static int __init xilinx_intc_of_init(struct device_node *intc,
 					     struct device_node *parent)
 {
-	u32 irq;
-	int ret;
-	struct intc *intc;
+	int ret, irq;
+	struct xintc_irq_chip *irqc;
+	struct irq_chip *intc_dev;
 
-	intc = kzalloc(sizeof(struct intc), GFP_KERNEL);
-	if (!intc)
+	irqc = kzalloc(sizeof(*irqc), GFP_KERNEL);
+	if (!irqc)
 		return -ENOMEM;
+	irqc->base = of_iomap(intc, 0);
+	BUG_ON(!irqc->base);
 
-	intc->baseaddr = of_iomap(node, 0);
-	if (!intc->baseaddr) {
-		pr_err("%s: unable to map memory\n", node->full_name);
+	ret = of_property_read_u32(intc, "xlnx,num-intr-inputs", &irqc->nr_irq);
+	if (ret < 0) {
+		pr_err("irq-xilinx: unable to read xlnx,num-intr-inputs\n");
+		goto error;
+	}
+
+	ret = of_property_read_u32(intc, "xlnx,kind-of-intr", &irqc->intr_mask);
+	if (ret < 0) {
+		pr_warn("irq-xilinx: unable to read xlnx,kind-of-intr\n");
+		irqc->intr_mask = 0;
+	}
+
+	if (irqc->intr_mask >> irqc->nr_irq)
+		pr_warn("irq-xilinx: mismatch in kind-of-intr param\n");
+
+	pr_info("irq-xilinx: %pOF: num_irq=%d, edge=0x%x\n",
+		intc, irqc->nr_irq, irqc->intr_mask);
+
+	intc_dev = kzalloc(sizeof(*intc_dev), GFP_KERNEL);
+	if (!intc_dev) {
 		ret = -ENOMEM;
-		goto error1;
+		goto error;
 	}
 
-	ret = of_property_read_u32(node, "xlnx,num-intr-inputs", &intc->nr_irq);
-	if (ret < 0) {
-		pr_err("%s: unable to read xlnx,num-intr-inputs\n",
-			node->full_name);
-		goto error2;
-	}
+	intc_dev->name = intc->full_name;
+	intc_dev->irq_unmask = intc_enable_or_unmask,
+	intc_dev->irq_mask = intc_disable_or_mask,
+	intc_dev->irq_ack = intc_ack,
+	intc_dev->irq_mask_ack = intc_mask_ack,
+	irqc->intc_dev = intc_dev;
 
-	ret = of_property_read_u32(node, "xlnx,kind-of-intr", &intc->intr_mask);
-	if (ret < 0) {
-		pr_err("%s: unable to read xlnx,kind-of-intr\n",
-			node->full_name);
-		goto error2;
-	}
-
-	if (intc->intr_mask >> intc->nr_irq)
-		pr_info(" ERROR: Mismatch in kind-of-intr param\n");
-
-	pr_info("%s: num_irq=%d, edge=0x%x\n",
-		node->full_name, intc->nr_irq, intc->intr_mask);
-
-	intc->write_fn = intc_write32;
-	intc->read_fn = intc_read32;
-
+	irqc->write_fn = xintc_write;
+	irqc->read_fn = xintc_read;
 	/*
 	 * Disable all external interrupts until they are
 	 * explicity requested.
 	 */
-	intc->write_fn(0, intc->baseaddr + IER);
+	irqc->write_fn(irqc->base + IER, 0);
 
 	/* Acknowledge any pending interrupts just in case. */
-	intc->write_fn(0xffffffff, intc->baseaddr + IAR);
+	irqc->write_fn(irqc->base + IAR, 0xffffffff);
 
-	/*
-	 * Turn on the Master Enable and then set up the driver for
-	 * a big-endian processor if big-endian is detected.
-	 */
-	intc->write_fn(MER_HIE | MER_ME, intc->baseaddr + MER);
-	if (!(intc->read_fn(intc->baseaddr + MER) & (MER_HIE | MER_ME))) {
-		intc->write_fn = intc_write32_be;
-		intc->read_fn = intc_read32_be;
-		intc->write_fn(MER_HIE | MER_ME, intc->baseaddr + MER);
+	/* Turn on the Master Enable. */
+	irqc->write_fn(irqc->base + MER, MER_HIE | MER_ME);
+	if (!(irqc->read_fn(irqc->base + MER) & (MER_HIE | MER_ME))) {
+		irqc->write_fn = xintc_write_be;
+		irqc->read_fn = xintc_read_be;
+		irqc->write_fn(irqc->base + MER, MER_HIE | MER_ME);
 	}
 
-	intc->domain = irq_domain_add_linear(node, intc->nr_irq,
-				&xintc_irq_domain_ops, intc);
-	irq_set_default_host(intc->domain);
+	irqc->root_domain = irq_domain_add_linear(intc, irqc->nr_irq,
+						  &xintc_irq_domain_ops, irqc);
+	if (!irqc->root_domain) {
+		pr_err("irq-xilinx: Unable to create IRQ domain\n");
+		goto err_alloc;
+	}
 
-	/*
-	 * Check if this interrupt controller is a chained interrupt controller
-	 * and if so then set up the handler and enable it.
-	 */
-	irq = irq_of_parse_and_map(node, 0);
-	if (irq > 0) {
-		pr_info("%s: chained intc connected to irq %d\n",
-			 node->full_name, irq);
-		irq_set_handler(irq, intc_handler);
-		irq_set_handler_data(irq, intc);
-		enable_irq(irq);
-	};
+	if (parent) {
+		irq = irq_of_parse_and_map(intc, 0);
+		if (irq) {
+			irq_set_chained_handler_and_data(irq,
+							 xil_intc_irq_handler,
+							 irqc);
+		} else {
+			pr_err("irq-xilinx: interrupts property not in DT\n");
+			ret = -EINVAL;
+			goto err_alloc;
+		}
+	} else {
+		primary_intc = irqc;
+		irq_set_default_host(primary_intc->root_domain);
+	}
 
 	return 0;
 
-error2:
-	iounmap(intc->baseaddr);
-
-error1:
-	kfree(intc);
+err_alloc:
+	kfree(intc_dev);
+error:
+	iounmap(irqc->base);
+	kfree(irqc);
 	return ret;
+
 }
 
-IRQCHIP_DECLARE(xilinx_intc, "xlnx,xps-intc-1.00.a", xilinx_intc_of_init);
+IRQCHIP_DECLARE(xilinx_intc_xps, "xlnx,xps-intc-1.00.a", xilinx_intc_of_init);
+IRQCHIP_DECLARE(xilinx_intc_opb, "xlnx,opb-intc-1.00.c", xilinx_intc_of_init);

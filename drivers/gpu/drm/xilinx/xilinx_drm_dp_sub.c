@@ -554,7 +554,7 @@ static ssize_t
 xilinx_dp_sub_debugfs_write(struct file *f, const char __user *buf,
 			    size_t size, loff_t *pos)
 {
-	char *kern_buff, *dp_sub_test_req;
+	char *kern_buff, *dp_sub_test_req, *kern_buff_start;
 	int ret;
 	unsigned int i;
 
@@ -567,10 +567,11 @@ xilinx_dp_sub_debugfs_write(struct file *f, const char __user *buf,
 	kern_buff = kzalloc(size, GFP_KERNEL);
 	if (!kern_buff)
 		return -ENOMEM;
+	kern_buff_start = kern_buff;
 
 	ret = strncpy_from_user(kern_buff, buf, size);
 	if (ret < 0) {
-		kfree(kern_buff);
+		kfree(kern_buff_start);
 		return ret;
 	}
 
@@ -580,11 +581,11 @@ xilinx_dp_sub_debugfs_write(struct file *f, const char __user *buf,
 	for (i = 0; i < ARRAY_SIZE(dp_sub_debugfs_reqs); i++) {
 		if (!strcasecmp(dp_sub_test_req, dp_sub_debugfs_reqs[i].req))
 			if (!dp_sub_debugfs_reqs[i].write_handler(&kern_buff)) {
-				kfree(kern_buff);
+				kfree(kern_buff_start);
 				return size;
 			}
 	}
-	kfree(kern_buff);
+	kfree(kern_buff_start);
 	return -EINVAL;
 }
 
@@ -1095,6 +1096,26 @@ static const struct xilinx_drm_dp_sub_fmt av_buf_vid_fmts[] = {
 		.sf[1]		= XILINX_DP_SUB_AV_BUF_8BIT_SF,
 		.sf[2]		= XILINX_DP_SUB_AV_BUF_8BIT_SF,
 		.name		= "nv21",
+	}, {
+		.drm_fmt	= DRM_FORMAT_XV15,
+		.dp_sub_fmt	= XILINX_DP_SUB_AV_BUF_FMT_NL_VID_YV16CI_420_10,
+		.rgb		= false,
+		.swap		= false,
+		.chroma_sub	= true,
+		.sf[0]		= XILINX_DP_SUB_AV_BUF_10BIT_SF,
+		.sf[1]		= XILINX_DP_SUB_AV_BUF_10BIT_SF,
+		.sf[2]		= XILINX_DP_SUB_AV_BUF_10BIT_SF,
+		.name		= "yuv42010b",
+	}, {
+		.drm_fmt	= DRM_FORMAT_XV20,
+		.dp_sub_fmt	= XILINX_DP_SUB_AV_BUF_FMT_NL_VID_YV16CI_10,
+		.rgb		= false,
+		.swap		= false,
+		.chroma_sub	= true,
+		.sf[0]		= XILINX_DP_SUB_AV_BUF_10BIT_SF,
+		.sf[1]		= XILINX_DP_SUB_AV_BUF_10BIT_SF,
+		.sf[2]		= XILINX_DP_SUB_AV_BUF_10BIT_SF,
+		.name		= "yuv42210b",
 	}
 };
 

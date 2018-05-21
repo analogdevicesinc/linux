@@ -1,14 +1,10 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
  * dts file for Xilinx ZynqMP zc1751-xm016-dc2
  *
- * (C) Copyright 2015, Xilinx, Inc.
+ * (C) Copyright 2015 - 2018, Xilinx, Inc.
  *
  * Michal Simek <michal.simek@xilinx.com>
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License as
- * published by the Free Software Foundation; either version 2 of
- * the License, or (at your option) any later version.
  */
 
 /dts-v1/;
@@ -59,19 +55,12 @@
 	pinctrl-0 = <&pinctrl_can1_default>;
 };
 
-/* fpd_dma clk 667MHz, lpd_dma 500MHz */
 &fpd_dma_chan1 {
 	status = "okay";
-	xlnx,include-sg; /* for testing purpose */
-	xlnx,overfetch; /* for testing purpose */
-	xlnx,ratectrl = <0>; /* for testing purpose */
-	xlnx,src-issue = <31>;
 };
 
 &fpd_dma_chan2 {
 	status = "okay";
-	xlnx,ratectrl = <100>; /* for testing purpose */
-	xlnx,src-issue = <4>; /* for testing purpose */
 };
 
 &fpd_dma_chan3 {
@@ -80,7 +69,6 @@
 
 &fpd_dma_chan4 {
 	status = "okay";
-	xlnx,include-sg; /* for testing purpose */
 };
 
 &fpd_dma_chan5 {
@@ -89,7 +77,6 @@
 
 &fpd_dma_chan6 {
 	status = "okay";
-	xlnx,include-sg; /* for testing purpose */
 };
 
 &fpd_dma_chan7 {
@@ -98,7 +85,6 @@
 
 &fpd_dma_chan8 {
 	status = "okay";
-	xlnx,include-sg; /* for testing purpose */
 };
 
 &gem2 {
@@ -209,74 +195,6 @@
 			reg = <0x0 0x3400000 0xfcc00000>;
 		};
 	};
-};
-
-&rtc {
-	status = "okay";
-};
-
-&spi0 {
-	status = "okay";
-	num-cs = <1>;
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_spi0_default>;
-
-	spi0_flash0: spi0_flash0@0 {
-		compatible = "m25p80";
-		#address-cells = <1>;
-		#size-cells = <1>;
-		spi-max-frequency = <50000000>;
-		reg = <0>;
-
-		spi0_flash0@0 {
-			label = "spi0_flash0";
-			reg = <0x0 0x100000>;
-		};
-	};
-};
-
-&spi1 {
-	status = "okay";
-	num-cs = <1>;
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_spi1_default>;
-
-	spi1_flash0: spi1_flash0@0 {
-		compatible = "mtd_dataflash";
-		#address-cells = <1>;
-		#size-cells = <1>;
-		spi-max-frequency = <20000000>;
-		reg = <0>;
-
-		spi1_flash0@0 {
-			label = "spi1_flash0";
-			reg = <0x0 0x84000>;
-		};
-	};
-};
-
-/* ULPI SMSC USB3320 */
-&usb1 {
-	status = "okay";
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_usb1_default>;
-};
-
-&dwc3_1 {
-	status = "okay";
-	dr_mode = "host";
-};
-
-&uart0 {
-	status = "okay";
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_uart0_default>;
-};
-
-&uart1 {
-	status = "okay";
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_uart1_default>;
 };
 
 &pinctrl0 {
@@ -475,32 +393,32 @@
 		};
 
 		mux-ce {
-			groups = "nand0_0_ce_grp";
+			groups = "nand0_ce_0_grp";
 			function = "nand0_ce";
 		};
 
 		conf-ce {
-			groups = "nand0_0_ce_grp";
+			groups = "nand0_ce_0_grp";
 			bias-pull-up;
 		};
 
 		mux-rb {
-			groups = "nand0_0_rb_grp";
+			groups = "nand0_rb_0_grp";
 			function = "nand0_rb";
 		};
 
 		conf-rb {
-			groups = "nand0_0_rb_grp";
+			groups = "nand0_rb_0_grp";
 			bias-pull-up;
 		};
 
 		mux-dqs {
-			groups = "nand0_0_dqs_grp";
+			groups = "nand0_dqs_0_grp";
 			function = "nand0_dqs";
 		};
 
 		conf-dqs {
-			groups = "nand0_0_dqs_grp";
+			groups = "nand0_dqs_0_grp";
 			bias-pull-up;
 		};
 	};
@@ -519,14 +437,14 @@
 		};
 
 		mux-cs {
-			groups = "spi0_0_ss0_grp", "spi0_0_ss1_grp",
-							"spi0_0_ss2_grp";
+			groups = "spi0_ss_0_grp", "spi0_ss_1_grp",
+							"spi0_ss_2_grp";
 			function = "spi0_ss";
 		};
 
 		conf-cs {
-			groups = "spi0_0_ss0_grp", "spi0_0_ss1_grp",
-							"spi0_0_ss2_grp";
+			groups = "spi0_ss_0_grp", "spi0_ss_1_grp",
+							"spi0_ss_2_grp";
 			bias-disable;
 		};
 	};
@@ -545,15 +463,83 @@
 		};
 
 		mux-cs {
-			groups = "spi1_3_ss0_grp", "spi1_3_ss1_grp",
-							"spi1_3_ss2_grp";
+			groups = "spi1_ss_9_grp", "spi1_ss_10_grp",
+							"spi1_ss_11_grp";
 			function = "spi1_ss";
 		};
 
 		conf-cs {
-			groups = "spi1_3_ss0_grp", "spi1_3_ss1_grp",
-							"spi1_3_ss2_grp";
+			groups = "spi1_ss_9_grp", "spi1_ss_10_grp",
+							"spi1_ss_11_grp";
 			bias-disable;
 		};
 	};
+};
+
+&rtc {
+	status = "okay";
+};
+
+&spi0 {
+	status = "okay";
+	num-cs = <1>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_spi0_default>;
+
+	spi0_flash0: flash0@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "sst,sst25wf080", "jedec,spi-nor";
+		spi-max-frequency = <50000000>;
+		reg = <0>;
+
+		partition@0 {
+			label = "data";
+			reg = <0x0 0x100000>;
+		};
+	};
+};
+
+&spi1 {
+	status = "okay";
+	num-cs = <1>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_spi1_default>;
+
+	spi1_flash0: flash0@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "atmel,at45db041e", "atmel,at45", "atmel,dataflash";
+		spi-max-frequency = <20000000>;
+		reg = <0>;
+
+		partition@0 {
+			label = "data";
+			reg = <0x0 0x84000>;
+		};
+	};
+};
+
+/* ULPI SMSC USB3320 */
+&usb1 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_usb1_default>;
+};
+
+&dwc3_1 {
+	status = "okay";
+	dr_mode = "host";
+};
+
+&uart0 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_uart0_default>;
+};
+
+&uart1 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_uart1_default>;
 };
