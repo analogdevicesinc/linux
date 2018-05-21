@@ -77,8 +77,13 @@
 			compatible = "shared-dma-pool";
 			reusable;
 			size = <0 0x28000000>;
-			alloc-ranges = <0 0x40000000 0 0x80000000>;
+			alloc-ranges = <0 0x40000000 0 0x60000000>;
 			linux,cma-default;
+		};
+
+		rpmsg_reserved: rpmsg@0xb8000000 {
+			no-map;
+			reg = <0 0xb8000000 0 0x400000>;
 		};
 	};
 
@@ -450,6 +455,28 @@
 		dmas = <&sdma1 28 4 0>, <&sdma1 29 4 0>;
 		dma-names = "rx", "tx";
 		status = "disabled";
+	};
+
+
+	imx_rpmsg: imx_rpmsg {
+		compatible = "fsl,rpmsg-bus", "simple-bus";
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		mu: mu@30aa0000 {
+			compatible = "fsl,imx8mq-mu", "fsl,imx6sx-mu";
+			reg = <0x0 0x30aa0000 0x0 0x10000>;
+			interrupts = <GIC_SPI 88 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clk IMX8MM_CLK_MU_ROOT>;
+			clock-names = "mu";
+			status = "disabled";
+		};
+
+		rpmsg: rpmsg{
+			compatible = "fsl,imx8qm-rpmsg";
+			status = "disabled";
+		};
 	};
 
 	usbotg1: usb@32e40000 {
