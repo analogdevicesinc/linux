@@ -384,7 +384,11 @@ static int const clks_init_on[] __initconst = {
 	IMX8MM_CLK_MAIN_AXI_CG, IMX8MM_CLK_AUDIO_AHB_CG,
 	IMX8MM_CLK_DRAM_APB_DIV, IMX8MM_CLK_A53_DIV,
 	IMX8MM_DRAM_PLL_OUT, IMX8MM_ARM_PLL_OUT,
+	IMX8MM_CLK_DISP_AXI_CG, IMX8MM_CLK_DISP_APB_CG,
 };
+
+static const char *imx8mq_clko1_sels[] = {"osc_25m", "sys_pll1_800m", "osc_27m", "sys_pll1_200m", "audio_pll2_clk",
+					 "vpu_pll", "sys_pll1_80m", };
 
 static struct clk *clks[IMX8MM_CLK_END];
 static struct clk_onecell_data clk_data;
@@ -623,6 +627,7 @@ static void __init imx8mm_clocks_init(struct device_node *ccm_node)
 	clks[IMX8MM_CLK_GPT1_SRC] = imx_clk_mux2("gpt1_src", base + 0xb580, 24, 3, imx8mm_gpt1_sels, ARRAY_SIZE(imx8mm_gpt1_sels));
 	clks[IMX8MM_CLK_WDOG_SRC] = imx_clk_mux2("wdog_src", base + 0xb900, 24, 3, imx8mm_wdog_sels, ARRAY_SIZE(imx8mm_wdog_sels));
 	clks[IMX8MM_CLK_WRCLK_SRC] = imx_clk_mux2("wrclk_src", base + 0xb980, 24, 3, imx8mm_wrclk_sels, ARRAY_SIZE(imx8mm_wrclk_sels));
+	clks[IMX8MM_CLK_CLKO1_SRC] = imx_clk_mux2("clko1_src", base + 0xba00, 24, 3, imx8mq_clko1_sels, ARRAY_SIZE(imx8mq_clko1_sels));
 	clks[IMX8MM_CLK_DSI_CORE_SRC] = imx_clk_mux2("dsi_core_src", base + 0xbb00, 24, 3, imx8mm_dsi_core_sels, ARRAY_SIZE(imx8mm_dsi_core_sels));
 	clks[IMX8MM_CLK_DSI_PHY_REF_SRC] = imx_clk_mux2("dsi_phy_ref_src", base + 0xbb80, 24, 3, imx8mm_dsi_phy_sels, ARRAY_SIZE(imx8mm_dsi_phy_sels));
 	clks[IMX8MM_CLK_DSI_DBI_SRC] = imx_clk_mux2("dsi_dbi_src", base + 0xbc00, 24, 3, imx8mm_dsi_dbi_sels, ARRAY_SIZE(imx8mm_dsi_dbi_sels));
@@ -685,6 +690,7 @@ static void __init imx8mm_clocks_init(struct device_node *ccm_node)
 	clks[IMX8MM_CLK_GPT1_CG] = imx_clk_gate3("gpt1_cg", "gpt1_src", base + 0xb580, 28);
 	clks[IMX8MM_CLK_WDOG_CG] = imx_clk_gate3("wdog_cg", "wdog_src", base + 0xb900, 28);
 	clks[IMX8MM_CLK_WRCLK_CG] = imx_clk_gate3("wrclk_cg", "wrclk_src", base + 0xb980, 28);
+	clks[IMX8MM_CLK_CLKO1_CG] = imx_clk_gate3("clko1_cg", "clko1_src", base + 0xba00, 28);
 	clks[IMX8MM_CLK_DSI_CORE_CG] = imx_clk_gate3("dsi_core_cg", "dsi_core_src", base + 0xbb00, 28);
 	clks[IMX8MM_CLK_DSI_PHY_REF_CG] = imx_clk_gate3("dsi_phy_ref_cg", "dsi_phy_ref_src", base + 0xbb80, 28);
 	clks[IMX8MM_CLK_DSI_DBI_CG] = imx_clk_gate3("dsi_dbi_cg", "dsi_dbi_src", base + 0xbc00, 28);
@@ -747,6 +753,7 @@ static void __init imx8mm_clocks_init(struct device_node *ccm_node)
 	clks[IMX8MM_CLK_GPT1_PRE_DIV] = imx_clk_divider2("gpt1_pre_div", "gpt1_cg", base + 0xb580, 16, 3);
 	clks[IMX8MM_CLK_WDOG_PRE_DIV] = imx_clk_divider2("wdog_pre_div", "wdog_cg", base + 0xb900, 16, 3);
 	clks[IMX8MM_CLK_WRCLK_PRE_DIV] = imx_clk_divider2("wrclk_pre_div", "wrclk_cg", base + 0xb980, 16, 3);
+	clks[IMX8MM_CLK_CLKO1_PRE_DIV] = imx_clk_divider2("clko1_pre_div", "clko1_cg", base + 0xba00, 16, 3);
 	clks[IMX8MM_CLK_DSI_CORE_PRE_DIV] = imx_clk_divider2("dsi_core_pre_div", "dsi_core_cg", base + 0xbb00, 16, 3);
 	clks[IMX8MM_CLK_DSI_PHY_REF_PRE_DIV] = imx_clk_divider2("dsi_phy_ref_pre_div", "dsi_phy_ref_cg", base + 0xbb80, 16, 3);
 	clks[IMX8MM_CLK_DSI_DBI_PRE_DIV] = imx_clk_divider2("dsi_dbi_pre_div", "dsi_dbi_cg", base + 0xbc00, 16, 3);
@@ -809,6 +816,7 @@ static void __init imx8mm_clocks_init(struct device_node *ccm_node)
 	clks[IMX8MM_CLK_GPT1_DIV] = imx_clk_divider2("gpt1_div", "gpt1_pre_div", base + 0xb580, 0, 6);
 	clks[IMX8MM_CLK_WDOG_DIV] = imx_clk_divider2("wdog_div", "wdog_pre_div", base + 0xb900, 0, 6);
 	clks[IMX8MM_CLK_WRCLK_DIV] = imx_clk_divider2("wrclk_div", "wrclk_pre_div", base + 0xb980, 0, 6);
+	clks[IMX8MM_CLK_CLKO1_DIV] = imx_clk_divider2("clko1_div", "clko1_pre_div", base + 0xba00, 0, 6);
 	clks[IMX8MM_CLK_DSI_CORE_DIV] = imx_clk_divider2("dsi_core_div", "dsi_core_pre_div", base + 0xbb00, 0, 6);
 	clks[IMX8MM_CLK_DSI_PHY_REF_DIV] = imx_clk_divider2("dsi_phy_ref_div", "dsi_phy_ref_pre_div", base + 0xbb80, 0, 6);
 	clks[IMX8MM_CLK_DSI_DBI_DIV] = imx_clk_divider2("dsi_dbi_div", "dsi_dbi_pre_div", base + 0xbc00, 0, 6);
@@ -885,6 +893,7 @@ static void __init imx8mm_clocks_init(struct device_node *ccm_node)
 	clks[IMX8MM_CLK_SDMA2_ROOT] = imx_clk_gate4("sdma2_clk", "ipg_audio_root", base + 0x43b0, 0);
 	clks[IMX8MM_CLK_SDMA3_ROOT] = imx_clk_gate4("sdma3_clk", "ipg_audio_root", base + 0x45f0, 0);
 	clks[IMX8MM_CLK_GPU2D_ROOT] = imx_clk_gate4("gpu2d_root_clk", "gpu2d_div", base + 0x4660, 0);
+	clks[IMX8MM_CLK_CSI1_ROOT] = imx_clk_gate4("csi1_root_clk", "csi1_core_div", base + 0x4650, 0);
 
 	clks[IMX8MM_CLK_GPT_3M] = imx_clk_fixed_factor("gpt_3m", "osc_24m", 1, 8);
 
@@ -911,6 +920,17 @@ static void __init imx8mm_clocks_init(struct device_node *ccm_node)
 	clk_set_parent(clks[IMX8MM_CLK_NOC_SRC], clks[IMX8MM_SYS_PLL3_OUT]);
 	clk_set_parent(clks[IMX8MM_CLK_PCIE1_CTRL_SRC], clks[IMX8MM_SYS_PLL2_250M]);
 	clk_set_parent(clks[IMX8MM_CLK_PCIE1_PHY_SRC], clks[IMX8MM_SYS_PLL2_100M]);
+
+	clk_set_parent(clks[IMX8MM_CLK_CLKO1_DIV], clks[IMX8MM_CLK_24M]);
+	clk_set_parent(clks[IMX8MM_CLK_CSI1_CORE_SRC], clks[IMX8MM_SYS_PLL2_1000M]);
+	clk_set_parent(clks[IMX8MM_CLK_CSI1_PHY_REF_SRC], clks[IMX8MM_SYS_PLL2_1000M]);
+	clk_set_parent(clks[IMX8MM_CLK_CSI1_ESC_SRC], clks[IMX8MM_SYS_PLL1_800M]);
+
+	writel_relaxed(0x2, base + 0x45d0);
+	clk_set_parent(clks[IMX8MM_CLK_DISP_AXI_SRC], clks[IMX8MM_SYS_PLL2_1000M]);
+	clk_set_rate(clks[IMX8MM_CLK_DISP_AXI_PRE_DIV], 500000000);
+	clk_set_parent(clks[IMX8MM_CLK_DISP_APB_SRC], clks[IMX8MM_SYS_PLL1_800M]);
+	clk_set_rate(clks[IMX8MM_CLK_DISP_APB_PRE_DIV], 200000000);
 
 	pr_info("i.MX8MM clock driver init done\n");
 }
