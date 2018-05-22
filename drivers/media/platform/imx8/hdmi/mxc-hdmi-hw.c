@@ -338,21 +338,29 @@ int hdmirx_startup(state_struct *state)
 	imx8qm_hdmi_phy_reset(state, 1);
 
 	ret = pma_cmn_ready(state);
-	if (ret < 0)
+	if (ret < 0) {
 		pr_err("pma_cmn_ready failed\n");
+		return -1;
+	}
 
 	msleep(500);
 
 	arc_config(state);
 
 	ret = pma_rx_clk_signal_detect(state);
-	if (ret < 0)
+	if (ret < 0) {
 		pr_err("pma_rx_clk_signal_detect failed\n");
+		return -1;
+	}
 	/* Get TMDS clock frequency */
 	rx_clk_freq = pma_rx_clk_freq_detect(state);
 
-	pma_pll_config(state, rx_clk_freq, clk_ratio, tmds_bit_clock_ratio,
+	ret = pma_pll_config(state, rx_clk_freq, clk_ratio, tmds_bit_clock_ratio,
 		       data_rate_change);
+	if (ret < 0) {
+		pr_err("pma_pll_config failed\n");
+		return -1;
+	}
 	msleep(500);
 
 	/* Setup the scrambling mode */

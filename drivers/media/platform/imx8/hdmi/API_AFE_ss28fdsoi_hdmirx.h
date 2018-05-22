@@ -133,7 +133,7 @@ u8 pma_cmn_ready(state_struct *state);
 u8 pma_rx_clk_signal_detect(state_struct *state);
 u32 pma_rx_clk_freq_detect(state_struct *state);
 void pre_data_rate_change(state_struct *state);
-void pma_pll_config(state_struct *state, u32, clk_ratio_t, tmds_bit_clock_ratio_t, unsigned char);
+u8 pma_pll_config(state_struct *state, u32, clk_ratio_t, tmds_bit_clock_ratio_t, unsigned char);
 clk_ratio_t clk_ratio_detect(state_struct *state, u32, u32, u8, pixel_encoding_t, tmds_bit_clock_ratio_t);
 void phy_status(state_struct *state);
 
