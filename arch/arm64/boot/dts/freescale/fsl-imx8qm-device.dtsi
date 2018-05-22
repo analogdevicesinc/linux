@@ -2681,7 +2681,7 @@
 		clock-names = "ipg";
 		assigned-clocks = <&clk IMX8QM_HDMI_DIG_PLL_CLK>,
 							<&clk IMX8QM_HDMI_LIS_IPG_CLK>;
-		assigned-clock-rates = <1188000000>, <85000000>;
+		assigned-clock-rates = <675000000>, <85000000>;
 		power-domains = <&pd_hdmi>;
 	};
 
