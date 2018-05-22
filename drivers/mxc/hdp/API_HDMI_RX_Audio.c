@@ -64,6 +64,7 @@ CDN_API_STATUS CDN_API_RX_AudioAutoConfig(
 	u8 enc_size_code;
 	u8 i2s_size_code;
 	u8 i2s_port3_dis = (dis_port3 != 0 && i2s_ports_num == 4) ? 1 : 0;
+	u8 times = 0;
 
 	/* Valid values: 1/2/4. */
 	/* 3 ports can be emulated with 'i2s_ports_num = 4' and 'dis_port3 = 1'. */
@@ -127,7 +128,7 @@ CDN_API_STATUS CDN_API_RX_AudioAutoConfig(
 	if (cdn_apb_write(state,
 				ADDR_AIF_ENCODER + ((0x40 + AUDIO_SINK_CNFG) << 2),
 				F_ENC_LOW_INDEX_MSB(0) | F_SINK_AUDIO_CH_NUM(max_ch_num - 1) |
-				F_ENC_SAMPLE_JUST(0x1) | F_ENC_SMPL_WIDTH(enc_size_code) |
+				F_ENC_SAMPLE_JUST(0x0) | F_ENC_SMPL_WIDTH(enc_size_code) |
 				F_I2S_ENC_WL_SIZE(i2s_size_code) | F_CNTL_SMPL_ONLY_EN(1) |
 				F_CNTL_TYPE_OVRD(0x0) | F_CNTL_TYPE_OVRD_EN(0) |
 				F_I2S_ENC_PORT_EN((1 << i2s_ports_num) - 1) | F_WS_POLARITY(0)))
@@ -138,7 +139,12 @@ CDN_API_STATUS CDN_API_RX_AudioAutoConfig(
 		if (cdn_apb_read(state,
 					ADDR_AIF_ENCODER + (AIF_ACR_N_ST << 2), &regread))
 			return CDN_ERR;
-	} while (!(regread));
+		times++;
+		udelay(10);
+	} while (!(regread) && times < 100);
+
+	if (times == 100)
+		return CDN_ERR;
 
 	/* Enable ACR */
 	if (cdn_apb_write(state,
