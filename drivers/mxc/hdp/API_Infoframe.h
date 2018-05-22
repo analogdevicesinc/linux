@@ -59,5 +59,6 @@ CDN_API_STATUS CDN_API_InfoframeSetNoActiveIdle(state_struct *state,
 						u8 entry_id, u8 packet_len,
 						u32 *packet, u8 packet_type);
 CDN_API_STATUS CDN_API_InfoframeRemove(state_struct *state, u8 entry_id);
+CDN_API_STATUS CDN_API_InfoframeRemovePacket(state_struct *state, u8 entry_id, u8 packet_type);
 
 #endif

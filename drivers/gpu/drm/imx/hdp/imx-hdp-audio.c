@@ -165,6 +165,10 @@ static int imx_hdp_audio_hw_params(struct device *dev, void *data,
 
 static void imx_hdp_audio_shutdown(struct device *dev, void *data)
 {
+	struct imx_hdp *hdmi = dev_get_drvdata(dev);
+	state_struct *state = &hdmi->state;
+
+	CDN_API_InfoframeRemovePacket(state, 0x1, 0x84);
 }
 
 static int imx_hdp_audio_get_eld(struct device *dev, void *data, uint8_t *buf, size_t len)

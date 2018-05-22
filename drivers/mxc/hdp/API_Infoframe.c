@@ -144,3 +144,20 @@ CDN_API_STATUS CDN_API_InfoframeRemove(state_struct *state, u8 entry_id)
 
 	return CDN_OK;
 }
+
+CDN_API_STATUS CDN_API_InfoframeRemovePacket(state_struct *state, u8 entry_id, u8 packet_type)
+{
+	/* invalidate entry */
+	if (cdn_apb_write
+	    (state,
+	     BANK_OFFSET | ADDR_SOURCE_PIF | (SOURCE_PIF_PKT_ALLOC_REG << 2),
+	     0x20000 | F_PKT_ALLOC_ADDRESS(entry_id) |  F_PACKET_TYPE(packet_type)))
+		return CDN_ERR;
+	if (cdn_apb_write
+	    (state,
+	     BANK_OFFSET | ADDR_SOURCE_PIF | (SOURCE_PIF_PKT_ALLOC_WR_EN << 2),
+	     F_PKT_ALLOC_WR_EN(1)))
+		return CDN_ERR;
+
+	return CDN_OK;
+}
