@@ -399,7 +399,7 @@ int hdmi_write_hdr_metadata(state_struct *state,
 	buffer[0] = 0;
 	infoframe_size++;
 
-	return CDN_API_InfoframeSet(state, 1, infoframe_size,
+	return CDN_API_InfoframeSet(state, 2, infoframe_size,
 				    (u32 *)buffer,
 				    HDMI_INFOFRAME_TYPE_DRM);
 }
