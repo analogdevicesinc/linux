@@ -2911,6 +2911,42 @@
 		status = "disabled";
 	};
 
+	ftmpwm0: ftmpwm@0x05a8a0000 {
+		compatible = "fsl,vf610-ftm-pwm";
+		reg = <0 0x5A8A0000 0 0x1000>;
+		#pwm-cells = <3>;
+		clock-names = "ftm_sys", "ftm_ext",
+				"ftm_fix", "ftm_cnt_clk_en", "ipg";
+		clocks = <&clk IMX8QM_FTM0_CLK>,
+			<&clk IMX8QM_CLK_DUMMY>,
+			<&clk IMX8QM_FTM0_CLK>,
+			<&clk IMX8QM_CLK_DUMMY>,
+			<&clk IMX8QM_FTM0_IPG_CLK>;
+		assigned-clocks = <&clk IMX8QM_FTM0_CLK>;
+		assigned-clock-rates = <8000000>;
+		power-domains = <&pd_dma_ftm0>;
+		ftm-has-pwmen-bits;
+		status = "disabled";
+	};
+
+	ftmpwm1: ftmpwm@0x05a8b0000 {
+		compatible = "fsl,vf610-ftm-pwm";
+		reg = <0 0x5A8B0000 0 0x1000>;
+		#pwm-cells = <3>;
+		clock-names = "ftm_sys", "ftm_ext",
+				"ftm_fix", "ftm_cnt_clk_en", "ipg";
+		clocks = <&clk IMX8QM_FTM1_CLK>,
+			<&clk IMX8QM_CLK_DUMMY>,
+			<&clk IMX8QM_FTM1_CLK>,
+			<&clk IMX8QM_CLK_DUMMY>,
+			<&clk IMX8QM_FTM0_IPG_CLK>;
+		assigned-clocks = <&clk IMX8QM_FTM1_CLK>;
+		assigned-clock-rates = <8000000>;
+		power-domains = <&pd_dma_ftm1>;
+		ftm-has-pwmen-bits;
+		status = "disabled";
+	};
+
 	emvsim0: sim0@5a0d0000 {
 		compatible = "fsl,imx8-emvsim";
 		reg = <0x0 0x5a0d0000 0x0 0x10000>;
