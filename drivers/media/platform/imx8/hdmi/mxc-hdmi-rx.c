@@ -156,6 +156,12 @@ static int mxc_hdmi_clock_init(struct mxc_hdmi_rx_dev *hdmi_rx)
 		return PTR_ERR(hdmi_rx->enc_clk);
 	}
 
+	hdmi_rx->i2s_clk = devm_clk_get(dev, "i2s_clk");
+	if (IS_ERR(hdmi_rx->i2s_clk)) {
+		dev_err(dev, "failed to get hdmi rx i2s clk\n");
+		return PTR_ERR(hdmi_rx->i2s_clk);
+	}
+
 	hdmi_rx->spdif_clk = devm_clk_get(dev, "spdif_clk");
 	if (IS_ERR(hdmi_rx->spdif_clk)) {
 		dev_err(dev, "failed to get hdmi rx spdif clk\n");
@@ -202,6 +208,13 @@ static int mxc_hdmi_clock_enable(struct mxc_hdmi_rx_dev *hdmi_rx)
 		dev_err(dev, "%s, pre pclk error %d\n", __func__, ret);
 		return ret;
 	}
+
+	ret = clk_prepare_enable(hdmi_rx->i2s_clk);
+	if (ret < 0) {
+		dev_err(dev, "%s, pre i2s_clk error %d\n", __func__, ret);
+		return ret;
+	}
+
 	ret = clk_prepare_enable(hdmi_rx->spdif_clk);
 	if (ret < 0) {
 		dev_err(dev, "%s, pre spdif_clk error %d\n", __func__, ret);
@@ -225,6 +238,7 @@ static void mxc_hdmi_clock_disable(struct mxc_hdmi_rx_dev *hdmi_rx)
 	clk_disable_unprepare(hdmi_rx->enc_clk);
 	clk_disable_unprepare(hdmi_rx->sclk);
 	clk_disable_unprepare(hdmi_rx->pclk);
+	clk_disable_unprepare(hdmi_rx->i2s_clk);
 	clk_disable_unprepare(hdmi_rx->spdif_clk);
 	clk_disable_unprepare(hdmi_rx->pxl_link_clk);
 }

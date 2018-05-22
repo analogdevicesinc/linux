@@ -101,6 +101,7 @@ struct mxc_hdmi_rx_dev {
 	struct clk		*ref_clk;
 	struct clk		*pxl_clk;
 	struct clk		*enc_clk;
+	struct clk		*i2s_clk;
 	struct clk		*spdif_clk;
 	struct clk		*pxl_link_clk;
 	struct hdp_mem mem;
