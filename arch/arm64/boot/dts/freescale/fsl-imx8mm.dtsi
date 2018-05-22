@@ -927,7 +927,7 @@
 				<0 0 0 3 &gic GIC_SPI 123 IRQ_TYPE_LEVEL_HIGH>,
 				<0 0 0 4 &gic GIC_SPI 122 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&clk IMX8MM_CLK_PCIE1_ROOT>,
-			<&clk IMX8MM_CLK_PCIE1_CTRL_CG>,
+			<&clk IMX8MM_CLK_PCIE1_AUX_CG>,
 			<&clk IMX8MM_CLK_PCIE1_PHY_CG>;
 		clock-names = "pcie", "pcie_bus", "pcie_phy";
 		fsl,max-link-speed = <2>;
