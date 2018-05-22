@@ -777,6 +777,8 @@ static int mxc_hdmi_probe(struct platform_device *pdev)
 	}
 #endif
 
+	mxc_hdmi_rx_register_audio_driver(dev);
+
 	dev_info(dev, "mxc hdmi rx probe successfully\n");
 
 	return ret;

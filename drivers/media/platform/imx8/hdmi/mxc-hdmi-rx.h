@@ -118,6 +118,9 @@ struct mxc_hdmi_rx_dev {
 
 	u8 is_cec;
 	struct imx_cec_dev cec;
+	u32 sample_rate;
+	u32 sample_width;
+	u32 channels;
 };
 
 enum mxc_hdmi_rx_power_state {
@@ -130,5 +133,6 @@ int hdmirx_startup(state_struct *state);
 void imx8qm_hdmi_phy_reset(state_struct *state, u8 reset);
 int hdmi_rx_init(state_struct *state);
 int mxc_hdmi_frame_timing(struct mxc_hdmi_rx_dev *hdmi_rx);
+void mxc_hdmi_rx_register_audio_driver(struct device *dev);
 
 #endif
