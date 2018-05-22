@@ -78,19 +78,27 @@ static int imx_cdnhdmi_hw_params(struct snd_pcm_substream *substream,
 	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
 	struct snd_soc_card *card = rtd->card;
 	struct device *dev = card->dev;
+	bool tx = substream->stream == SNDRV_PCM_STREAM_PLAYBACK;
 	int ret;
 
 	/* set cpu DAI configuration */
-	ret = snd_soc_dai_set_fmt(cpu_dai,
+	if (tx)
+		ret = snd_soc_dai_set_fmt(cpu_dai,
 			SND_SOC_DAIFMT_I2S |
 			SND_SOC_DAIFMT_NB_NF |
 			SND_SOC_DAIFMT_CBS_CFS);
+	else
+		ret = snd_soc_dai_set_fmt(cpu_dai,
+			SND_SOC_DAIFMT_I2S |
+			SND_SOC_DAIFMT_NB_NF |
+			SND_SOC_DAIFMT_CBM_CFM);
+
 	if (ret) {
 		dev_err(dev, "failed to set cpu dai fmt: %d\n", ret);
 		return ret;
 	}
 
-	ret = snd_soc_dai_set_sysclk(cpu_dai, 0, 0, SND_SOC_CLOCK_OUT);
+	ret = snd_soc_dai_set_sysclk(cpu_dai, 0, 0, tx ? SND_SOC_CLOCK_OUT : SND_SOC_CLOCK_IN);
 	if (ret) {
 		dev_err(dev, "failed to set cpu sysclk: %d\n", ret);
 		return ret;
@@ -258,6 +266,89 @@ static int imx_cdnhdmi_formats_get(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+static int get_edid_rx_info(struct snd_soc_card *card)
+{
+	struct snd_soc_pcm_runtime *rtd = list_first_entry(
+		&card->rtd_list, struct snd_soc_pcm_runtime, list);
+	struct snd_soc_dai *codec_dai = rtd->codec_dai;
+	struct snd_soc_codec *codec = codec_dai->codec;
+	struct hdmi_codec_pdata *hcd = codec->dev->platform_data;
+	struct imx_cdnhdmi_data *data = snd_soc_card_get_drvdata(card);
+	int ret;
+
+	ret = hcd->ops->get_eld(codec->dev->parent, hcd->data,
+					    data->eld, sizeof(data->eld));
+
+	if (ret)
+		return -EINVAL;
+
+	data->edid_rates[0] = data->eld[0] +
+		(data->eld[1] << 8) +
+		(data->eld[2] << 16) +
+		(data->eld[3] << 24);
+
+	data->edid_channels[0] = data->eld[4] +
+		(data->eld[5] << 8) +
+		(data->eld[6] << 16) +
+		(data->eld[7] << 24);
+
+
+	return 0;
+}
+
+static int imx_cdnhdmi_rx_channels_info(struct snd_kcontrol *kcontrol,
+			     struct snd_ctl_elem_info *uinfo)
+{
+	uinfo->type  = SNDRV_CTL_ELEM_TYPE_INTEGER;
+	uinfo->count = 1;
+	uinfo->value.integer.min = 2;
+	uinfo->value.integer.max = 8;
+
+	return 0;
+}
+
+static int imx_cdnhdmi_rx_channels_get(struct snd_kcontrol *kcontrol,
+			    struct snd_ctl_elem_value *uvalue)
+{
+	struct snd_soc_card *card = snd_kcontrol_chip(kcontrol);
+	struct imx_cdnhdmi_data *data = snd_soc_card_get_drvdata(card);
+	int ret;
+
+	ret = get_edid_rx_info(card);
+	if (ret)
+		return ret;
+	uvalue->value.integer.value[0] = data->edid_channels[0];
+
+	return 0;
+}
+
+static int imx_cdnhdmi_rx_rates_info(struct snd_kcontrol *kcontrol,
+			     struct snd_ctl_elem_info *uinfo)
+{
+	uinfo->type  = SNDRV_CTL_ELEM_TYPE_INTEGER;
+	uinfo->count = 1;
+	uinfo->value.integer.min = 16000;
+	uinfo->value.integer.max = 192000;
+
+	return 0;
+}
+
+static int imx_cdnhdmi_rx_rates_get(struct snd_kcontrol *kcontrol,
+			    struct snd_ctl_elem_value *uvalue)
+{
+	struct snd_soc_card *card = snd_kcontrol_chip(kcontrol);
+	struct imx_cdnhdmi_data *data = snd_soc_card_get_drvdata(card);
+	int ret;
+
+	ret = get_edid_rx_info(card);
+	if (ret)
+		return ret;
+
+	uvalue->value.integer.value[0] = data->edid_rates[0];
+
+	return 0;
+}
+
 static struct snd_kcontrol_new imx_cdnhdmi_ctrls[] = {
 	{
 		.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
@@ -282,6 +373,25 @@ static struct snd_kcontrol_new imx_cdnhdmi_ctrls[] = {
 			SNDRV_CTL_ELEM_ACCESS_VOLATILE,
 		.info = imx_cdnhdmi_formats_info,
 		.get = imx_cdnhdmi_formats_get,
+	},
+};
+
+static struct snd_kcontrol_new imx_cdnhdmi_rx_ctrls[] = {
+	{
+		.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
+		.name = "HDMI Rx Channels",
+		.access = SNDRV_CTL_ELEM_ACCESS_READ |
+			SNDRV_CTL_ELEM_ACCESS_VOLATILE,
+		.info = imx_cdnhdmi_rx_channels_info,
+		.get = imx_cdnhdmi_rx_channels_get,
+	},
+	{
+		.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
+		.name = "HDMI Rx Rates",
+		.access = SNDRV_CTL_ELEM_ACCESS_READ |
+			SNDRV_CTL_ELEM_ACCESS_VOLATILE,
+		.info = imx_cdnhdmi_rx_rates_info,
+		.get = imx_cdnhdmi_rx_rates_get,
 	},
 };
 
@@ -341,8 +451,6 @@ static int imx_cdnhdmi_probe(struct platform_device *pdev)
 
 	data->dai.name = "imx8 hdmi";
 	data->dai.stream_name = "imx8 hdmi";
-	data->dai.codec_dai_name = "hdmi-hifi.0";
-	data->dai.codec_name = "hdmi-audio-codec";
 	data->dai.cpu_dai_name = dev_name(&cpu_pdev->dev);
 	data->dai.platform_of_node = cpu_np;
 	data->dai.ops = &imx_cdnhdmi_ops;
@@ -352,6 +460,36 @@ static int imx_cdnhdmi_probe(struct platform_device *pdev)
 			    SND_SOC_DAIFMT_NB_NF |
 			    SND_SOC_DAIFMT_CBS_CFS;
 
+	if (of_property_read_bool(pdev->dev.of_node, "hdmi-out")) {
+		data->dai.playback_only = true;
+		data->dai.capture_only = false;
+		data->dai.dai_fmt = SND_SOC_DAIFMT_I2S |
+			    SND_SOC_DAIFMT_NB_NF |
+			    SND_SOC_DAIFMT_CBS_CFS;
+		data->dai.codec_dai_name = "hdmi-hifi.0";
+		data->dai.codec_name = "hdmi-audio-codec.1";
+		data->card.controls	= imx_cdnhdmi_ctrls;
+		data->card.num_controls	= ARRAY_SIZE(imx_cdnhdmi_ctrls);
+	}
+
+	if (of_property_read_bool(pdev->dev.of_node, "hdmi-in")) {
+		data->dai.playback_only = false;
+		data->dai.capture_only = true;
+		data->dai.dai_fmt = SND_SOC_DAIFMT_I2S |
+			    SND_SOC_DAIFMT_NB_NF |
+			    SND_SOC_DAIFMT_CBM_CFM;
+		data->dai.codec_dai_name = "hdmi-hifi.0";
+		data->dai.codec_name = "hdmi-audio-codec.2";
+		data->card.controls	= imx_cdnhdmi_rx_ctrls;
+		data->card.num_controls	= ARRAY_SIZE(imx_cdnhdmi_rx_ctrls);
+	}
+
+	if ((data->dai.playback_only && data->dai.capture_only)
+		|| (!data->dai.playback_only && !data->dai.capture_only)) {
+		dev_err(&pdev->dev, "Wrongly enable HDMI DAI link\n");
+		goto fail;
+	}
+
 	data->card.dev = &pdev->dev;
 	data->card.owner = THIS_MODULE;
 	ret = snd_soc_of_parse_card_name(&data->card, "model");
@@ -359,8 +497,7 @@ static int imx_cdnhdmi_probe(struct platform_device *pdev)
 		goto fail;
 	data->card.num_links = 1;
 	data->card.dai_link = &data->dai;
-	data->card.controls	= imx_cdnhdmi_ctrls,
-	data->card.num_controls	= ARRAY_SIZE(imx_cdnhdmi_ctrls),
+
 
 	platform_set_drvdata(pdev, &data->card);
 	snd_soc_card_set_drvdata(&data->card, data);
