@@ -8,6 +8,9 @@ Required properties for the AD5758:
 
 Optional properties:
 
+ - reset-gpios : GPIO spec for the RESET pin. If specified, it will be
+ 		 asserted during driver probe.
+
  - adi,dc-dc-mode: Mode of operation of the dc-to-dc converter
 		   The following values are currently supported:
 		   	* 0: DC-to-DC converter powered off
@@ -76,6 +79,8 @@ AD5758 Example:
 		reg = <0>;
 		spi-max-frequency = <1000000>;
 		spi-cpha;
+
+		reset-gpios = <&gpio 22 0>;
 
 		adi,dc-dc-mode = <2>;
 		adi,dc-dc-ilim = <200>;

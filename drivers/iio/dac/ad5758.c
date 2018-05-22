@@ -17,6 +17,7 @@
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
 #include <linux/property.h>
+#include <linux/gpio/consumer.h>
 
 /* AD5758 registers definition */
 #define AD5758_NOP					0x00
@@ -114,6 +115,7 @@
 struct ad5758_state {
 	struct spi_device *spi;
 	struct mutex lock;
+	struct gpio_desc *gpio_reset;
 	unsigned int dc_dc_mode;
 	unsigned int dc_dc_ilim;
 	unsigned int sr_config[3];
@@ -431,6 +433,22 @@ static int ad5758_internal_buffers_en(struct ad5758_state *st,
 				AD5758_DIG_DIAG_RES_CAL_MEM_UNREFRESHED_MSK);
 }
 
+static int ad5758_reset(struct ad5758_state *st)
+{
+	if (st->gpio_reset) {
+		gpiod_set_value(st->gpio_reset, 0);
+		udelay(100);
+		gpiod_set_value(st->gpio_reset, 1);
+	} else {
+		/* Perform a software reset */
+		return ad5758_soft_reset(st);
+	}
+
+	mdelay(1);
+
+	return 0;
+}
+
 static int ad5758_reg_access(struct iio_dev *indio_dev,
 			     unsigned int reg,
 			     unsigned int writeval,
@@ -697,13 +715,18 @@ static int ad5758_init(struct ad5758_state *st)
 
 	ad5758_parse_dt(st);
 
+	st->gpio_reset = devm_gpiod_get_optional(&st->spi->dev, "reset",
+						 GPIOD_OUT_HIGH);
+	if (IS_ERR(st->gpio_reset))
+		return PTR_ERR(st->gpio_reset);
+
 	/* Disable CRC checks */
 	ret = ad5758_crc_disable(st);
 	if (ret < 0)
 		return ret;
 
-	/* Perform a software reset */
-	ret = ad5758_soft_reset(st);
+	/* Perform a reset */
+	ret = ad5758_reset(st);
 	if (ret < 0)
 		return ret;
 
