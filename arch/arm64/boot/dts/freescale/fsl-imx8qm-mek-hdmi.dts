@@ -18,12 +18,21 @@
 #include "fsl-imx8qm-mek.dts"
 
 / {
-	sound-hdmi {
+	sound-hdmi-tx {
 		compatible = "fsl,imx-audio-cdnhdmi";
-		model = "imx-audio-hdmi";
+		model = "imx-audio-hdmi-tx";
 		audio-cpu = <&sai_hdmi_tx>;
 		constraint-rate = <48000>;
 		protocol = <1>;
+		hdmi-out;
+	};
+
+	sound-hdmi-rx {
+		compatible = "fsl,imx-audio-cdnhdmi";
+		model = "imx-audio-hdmi-rx";
+		audio-cpu = <&sai_hdmi_rx>;
+		protocol = <1>;
+		hdmi-in;
 	};
 
 	sound-amix-sai {
@@ -89,6 +98,11 @@
 			<&clk IMX8QM_AUD_SAI_HDMITX0_MCLK>;
 	assigned-clock-parents = <&clk IMX8QM_AUD_ACM_AUD_PLL_CLK1_CLK>;
 	assigned-clock-rates = <0>, <768000000>, <768000000>, <768000000>, <768000000>;
+	fsl,sai-asynchronous;
+	status = "okay";
+};
+
+&sai_hdmi_rx {
 	fsl,sai-asynchronous;
 	status = "okay";
 };

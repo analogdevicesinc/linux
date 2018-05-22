@@ -83,6 +83,7 @@
 		model = "imx-audio-hdmi";
 		audio-cpu = <&sai4>;
 		protocol = <1>;
+		hdmi-out;
 	};
 
 	sound-spdif {

@@ -2508,10 +2508,12 @@
 						<&clk IMX8QM_HDMI_RX_SINK_PCLK>,
 						<&clk IMX8QM_HDMI_RX_SINK_SCLK>,
 						<&clk IMX8QM_HDMI_RX_PXL_ENC_CLK>,
+						<&clk IMX8QM_HDMI_RX_I2S_CLK>,
 						<&clk IMX8QM_HDMI_RX_SPDIF_CLK>,
 						<&clk IMX8QM_IMG_PXL_LINK_HDMI_IN_CLK>;
 			clock-names = "ref_clk", "core_clk", "pxl_clk",
-							"pclk", "sclk", "enc_clk", "spdif_clk",
+							"pclk", "sclk", "enc_clk",
+							"i2s_clk", "spdif_clk",
 							"pxl_link_clk";
 			power-domains = <&pd_hdmi_rx_bypass>;
 			status = "disabled";
