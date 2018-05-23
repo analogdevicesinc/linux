@@ -196,7 +196,7 @@ void imx_hdp_register_audio_driver(struct device *dev)
 	struct platform_device *pdev;
 
 	pdev = platform_device_register_data(dev, HDMI_CODEC_DRV_NAME,
-					     PLATFORM_DEVID_NONE, &codec_data,
+					     1, &codec_data,
 					     sizeof(codec_data));
 	if (IS_ERR(pdev))
 		return;
