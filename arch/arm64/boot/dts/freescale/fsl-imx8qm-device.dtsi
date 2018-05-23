@@ -902,6 +902,35 @@
 					};
 				};
 			};
+
+			pd_dsp_mu_A: PD_DSP_MU_A {
+				reg = <SC_R_MU_13A>;
+				#power-domain-cells = <0>;
+				power-domains =<&pd_audio>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				pd_dsp_mu_B: PD_DSP_MU_B {
+					reg = <SC_R_MU_13B>;
+					#power-domain-cells = <0>;
+					power-domains =<&pd_dsp_mu_A>;
+					#address-cells = <1>;
+					#size-cells = <0>;
+
+					pd_dsp_ram: PD_AUD_OCRAM {
+						reg = <SC_R_DSP_RAM>;
+						#power-domain-cells = <0>;
+						power-domains =<&pd_dsp_mu_B>;
+						#address-cells = <1>;
+						#size-cells = <0>;
+						pd_dsp: PD_AUD_DSP {
+							reg = <SC_R_DSP>;
+							#power-domain-cells = <0>;
+							power-domains =<&pd_dsp_ram>;
+						};
+					};
+				};
+			};
 		};
 
 		pd_dma: PD_DMA {
@@ -3604,6 +3633,18 @@
 		compatible = "nxp,imx8qm-acm";
 		reg = <0x0 0x59e00000 0x0 0x1D0000>;
 		status = "disabled";
+	};
+
+	dsp: dsp@556e8000 {
+		compatible = "fsl,imx8qxp-dsp";
+		reserved-region = <&dsp_reserved>;
+		reg = <0x0 0x556e8000 0x0 0x88000>;
+		clocks = <&clk IMX8QM_AUD_DSP_IPG>,
+			<&clk IMX8QM_AUD_OCRAM_IPG>,
+			<&clk IMX8QM_AUD_DSP_CORE_CLK>;
+		clock-names = "ipg", "ocram", "core";
+		fsl,dsp-firmware = "imx/dsp/hifi4.bin";
+		power-domains = <&pd_dsp>;
 	};
 
 	esai0: esai@59010000 {

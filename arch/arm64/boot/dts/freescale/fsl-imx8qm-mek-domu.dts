@@ -331,6 +331,7 @@
 /delete-node/ &dpr2_channel2;
 /delete-node/ &dpr2_channel3;
 /delete-node/ &dpu1;
+/delete-node/ &dsp;
 /delete-node/ &irqsteer_dsi1;
 /delete-node/ &i2c0_mipi_dsi1;
 /delete-node/ &mipi_dsi_csr2;
