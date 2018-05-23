@@ -1953,7 +1953,7 @@ static int vpu_next_free_instance(struct vpu_dev *dev)
 	return idx;
 }
 
-void send_msg_queue(struct vpu_ctx *ctx, struct event_msg *msg)
+static void send_msg_queue(struct vpu_ctx *ctx, struct event_msg *msg)
 {
 	u_int32 ret;
 
@@ -1962,7 +1962,7 @@ void send_msg_queue(struct vpu_ctx *ctx, struct event_msg *msg)
 		vpu_dbg(LVL_ERR, "There is no memory for msg fifo, ret=%d\n", ret);
 }
 
-bool receive_msg_queue(struct vpu_ctx *ctx, struct event_msg *msg)
+static bool receive_msg_queue(struct vpu_ctx *ctx, struct event_msg *msg)
 {
 	u_int32 ret;
 
@@ -2953,11 +2953,12 @@ static void v4l2_vpu_send_snapshot(struct vpu_dev *dev)
 	int strIdx = (~dev->hang_mask) & (dev->instance_mask);
 	/*figure out the first available instance*/
 	for (i = 0; i < VPU_MAX_NUM_STREAMS; i++) {
-		if (CHECK_BIT(strIdx, i))
-		  break;
+		if (CHECK_BIT(strIdx, i)) {
+			strIdx = i;
+			break;
+		}
 	}
 
-	strIdx = i;
 	v4l2_vpu_send_cmd(dev->ctx[strIdx], strIdx, VID_API_CMD_SNAPSHOT, 0, NULL);
 }
 
@@ -2971,7 +2972,7 @@ static int vpu_suspend(struct device *dev)
 		v4l2_vpu_send_snapshot(vpudev);
 
 		if (!wait_for_completion_timeout(&vpudev->snap_done_cmp, msecs_to_jiffies(1000))) {
-			vpu_dbg(LVL_ERR, "error: wait for snapdone event timeouti\n");
+			vpu_dbg(LVL_ERR, "error: wait for vpu decoder snapdone event timeout!\n");
 			return -1;
 		}
 	}
@@ -3005,6 +3006,11 @@ static int vpu_resume(struct device *dev)
 		writel(vpudev->m0_p_fw_space_phy, csr_offset);
 		csr_cpuwait = ioremap(0x2d040004, 4);
 		writel(0x0, csr_cpuwait);
+		/*wait for firmware resotre done*/
+		if (!wait_for_completion_timeout(&vpudev->start_cmp, msecs_to_jiffies(1000))) {
+			vpu_dbg(LVL_ERR, "error: wait for vpu decoder resume done timeout!\n");
+			return -1;
+		}
 	}
 	return 0;
 }

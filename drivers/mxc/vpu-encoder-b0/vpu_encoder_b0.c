@@ -1193,6 +1193,30 @@ static int vpu_next_free_instance(struct vpu_dev *dev)
 	return idx;
 }
 
+static void send_msg_queue(struct vpu_ctx *ctx, struct event_msg *msg)
+{
+	u_int32 ret;
+
+	ret = kfifo_in(&ctx->msg_fifo, msg, sizeof(struct event_msg));
+	if (ret != sizeof(struct event_msg))
+		vpu_dbg(LVL_ERR, "There is no memory for msg fifo, ret=%d\n", ret);
+}
+
+static bool receive_msg_queue(struct vpu_ctx *ctx, struct event_msg *msg)
+{
+	u_int32 ret;
+
+	if (kfifo_len(&ctx->msg_fifo) >= sizeof(*msg)) {
+		ret = kfifo_out(&ctx->msg_fifo, msg, sizeof(*msg));
+		if (ret != sizeof(*msg)) {
+			vpu_dbg(LVL_ERR, "kfifo_out has error, ret=%d\n", ret);
+			return false;
+		} else
+			return true;
+	} else
+		return false;
+}
+
 extern u_int32 rpc_MediaIPFW_Video_message_check_encoder(struct shared_addr *This);
 static void vpu_msg_run_work(struct work_struct *work)
 {
@@ -1203,12 +1227,29 @@ static void vpu_msg_run_work(struct work_struct *work)
 
 	while (rpc_MediaIPFW_Video_message_check_encoder(This) == API_MSG_AVAILABLE) {
 		rpc_receive_msg_buf_encoder(This, &msg);
+		mutex_lock(&dev->dev_mutex);
 		ctx = dev->ctx[msg.idx];
-		vpu_api_event_handler(ctx, msg.idx, msg.msgid, msg.msgdata);
+		if (ctx != NULL) {
+			mutex_lock(&ctx->instance_mutex);
+			if (!ctx->ctx_released) {
+				send_msg_queue(ctx, &msg);
+				queue_work(ctx->instance_wq, &ctx->instance_work);
+			}
+			mutex_unlock(&ctx->instance_mutex);
+		}
+		mutex_unlock(&dev->dev_mutex);
 	}
 	if (rpc_MediaIPFW_Video_message_check_encoder(This) == API_MSG_BUFFER_ERROR)
 		vpu_dbg(LVL_ERR, "MSG num is too big to handle");
 
+}
+static void vpu_msg_instance_work(struct work_struct *work)
+{
+	struct vpu_ctx *ctx = container_of(work, struct vpu_ctx, instance_work);
+	struct event_msg msg;
+
+	while (receive_msg_queue(ctx, &msg))
+		vpu_api_event_handler(ctx, msg.idx, msg.msgid, msg.msgdata);
 }
 
 static int vpu_queue_setup(struct vb2_queue *vq,
@@ -1501,11 +1542,28 @@ static int v4l2_open(struct file *filp)
 	ctrls_setup_encoder(ctx);
 	ctx->fh.ctrl_handler = &ctx->ctrl_handler;
 
+	ctx->instance_wq = alloc_workqueue("vpu_instance", WQ_UNBOUND | WQ_MEM_RECLAIM, 1);
+	if (!ctx->instance_wq) {
+		vpu_dbg(LVL_ERR, "error: %s unable to alloc workqueue for ctx\n", __func__);
+		ret = -ENOMEM;
+		goto err_alloc;
+	}
+	INIT_WORK(&ctx->instance_work, vpu_msg_instance_work);
+
+	mutex_init(&ctx->instance_mutex);
+	if (kfifo_alloc(&ctx->msg_fifo,
+				sizeof(struct event_msg) * VID_API_MESSAGE_LIMIT,
+				GFP_KERNEL)) {
+		vpu_dbg(LVL_ERR, "fail to alloc fifo when open\n");
+		ret = -ENOMEM;
+		goto err_alloc;
+	}
 	dev->ctx[idx] = ctx;
 	ctx->b_firstseq = true;
 	ctx->start_flag = true;
 	ctx->forceStop = false;
 	ctx->firmware_stopped = false;
+	ctx->ctx_released = false;
 	init_queue_data(ctx);
 	init_waitqueue_head(&ctx->buffer_wq_output);
 	init_waitqueue_head(&ctx->buffer_wq_input);
@@ -1567,6 +1625,10 @@ err_find_index:
 	pm_runtime_put_sync(dev->generic_dev);
 	kfree(ctx);
 	return ret;
+err_alloc:
+	pm_runtime_put_sync(dev->generic_dev);
+	kfree(ctx);
+	return ret;
 }
 
 static int v4l2_release(struct file *filp)
@@ -1623,6 +1685,17 @@ static int v4l2_release(struct file *filp)
 				ctx->actFrame.virt_addr,
 				ctx->actFrame.phy_addr
 				);
+	mutex_lock(&ctx->instance_mutex);
+	ctx->ctx_released = true;
+	kfifo_free(&ctx->msg_fifo);
+	destroy_workqueue(ctx->instance_wq);
+	mutex_unlock(&ctx->instance_mutex);
+	mutex_lock(&dev->dev_mutex);
+	if (!(dev->hang_mask & (1 << ctx->str_index))) // judge the path is hang or not, if hang, don't clear
+		clear_bit(ctx->str_index, &dev->instance_mask);
+	dev->ctx[ctx->str_index] = NULL;
+	mutex_unlock(&dev->dev_mutex);
+
 	pm_runtime_put_sync(dev->generic_dev);
 	kfree(ctx);
 	return 0;
@@ -1705,7 +1778,7 @@ static struct video_device v4l2_videodevice_encoder = {
 	.ioctl_ops = &v4l2_encoder_ioctl_ops,
 	.vfl_dir = VFL_DIR_M2M,
 };
-#if 0
+#if 1
 static int set_vpu_pwr(sc_ipc_t ipcHndl,
 		sc_pm_power_mode_t pm
 		)
@@ -1715,64 +1788,34 @@ static int set_vpu_pwr(sc_ipc_t ipcHndl,
 
 	vpu_dbg(LVL_INFO, "%s()\n", __func__);
 	if (!ipcHndl) {
-		vpu_dbg(LVL_ERR, "--- set_vpu_pwr no IPC handle\n");
+		vpu_dbg(LVL_ERR, "error: --- set_vpu_pwr no IPC handle\n");
 		goto set_vpu_pwrexit;
 	}
 
-	// Power on or off PID0, ENC
-	sciErr = sc_pm_set_resource_power_mode(ipcHndl, SC_R_VPU_PID0, pm);
+	// Power on or off VPU, ENC and MU1
+	sciErr = sc_pm_set_resource_power_mode(ipcHndl, SC_R_VPU, pm);
 	if (sciErr != SC_ERR_NONE) {
-		vpu_dbg(LVL_ERR, "--- sc_pm_set_resource_power_mode(SC_R_VPU_PID0,%d) SCI error! (%d)\n", sciErr, pm);
-		goto set_vpu_pwrexit;
-	}
-	sciErr = sc_pm_set_resource_power_mode(ipcHndl, SC_R_VPU_PID1, pm);
-	if (sciErr != SC_ERR_NONE) {
-		vpu_dbg(LVL_ERR, "--- sc_pm_set_resource_power_mode(SC_R_VPU_PID1,%d) SCI error! (%d)\n", sciErr, pm);
-		goto set_vpu_pwrexit;
-	}
-	sciErr = sc_pm_set_resource_power_mode(ipcHndl, SC_R_VPU_PID2, pm);
-	if (sciErr != SC_ERR_NONE) {
-		vpu_dbg(LVL_ERR, "--- sc_pm_set_resource_power_mode(SC_R_VPU_PID2,%d) SCI error! (%d)\n", sciErr, pm);
-		goto set_vpu_pwrexit;
-	}
-	sciErr = sc_pm_set_resource_power_mode(ipcHndl, SC_R_VPU_PID3, pm);
-	if (sciErr != SC_ERR_NONE) {
-		vpu_dbg(LVL_ERR, "--- sc_pm_set_resource_power_mode(SC_R_VPU_PID3,%d) SCI error! (%d)\n", sciErr, pm);
-		goto set_vpu_pwrexit;
-	}
-	sciErr = sc_pm_set_resource_power_mode(ipcHndl, SC_R_VPU_PID4, pm);
-	if (sciErr != SC_ERR_NONE) {
-		vpu_dbg(LVL_ERR, "--- sc_pm_set_resource_power_mode(SC_R_VPU_PID4,%d) SCI error! (%d)\n", sciErr, pm);
-		goto set_vpu_pwrexit;
-	}
-	sciErr = sc_pm_set_resource_power_mode(ipcHndl, SC_R_VPU_PID5, pm);
-	if (sciErr != SC_ERR_NONE) {
-		vpu_dbg(LVL_ERR, "--- sc_pm_set_resource_power_mode(SC_R_VPU_PID5,%d) SCI error! (%d)\n", sciErr, pm);
-		goto set_vpu_pwrexit;
-	}
-	sciErr = sc_pm_set_resource_power_mode(ipcHndl, SC_R_VPU_PID6, pm);
-	if (sciErr != SC_ERR_NONE) {
-		vpu_dbg(LVL_ERR, "--- sc_pm_set_resource_power_mode(SC_R_VPU_PID6,%d) SCI error! (%d)\n", sciErr, pm);
-		goto set_vpu_pwrexit;
-	}
-	sciErr = sc_pm_set_resource_power_mode(ipcHndl, SC_R_VPU_PID7, pm);
-	if (sciErr != SC_ERR_NONE) {
-		vpu_dbg(LVL_ERR, "--- sc_pm_set_resource_power_mode(SC_R_VPU_PID7,%d) SCI error! (%d)\n", sciErr, pm);
+		vpu_dbg(LVL_ERR, "error: --- sc_pm_set_resource_power_mode(SC_R_VPU,%d) SCI error! (%d)\n", sciErr, pm);
 		goto set_vpu_pwrexit;
 	}
 #ifdef TEST_BUILD
 	sciErr = sc_pm_set_resource_power_mode(ipcHndl, SC_R_VPU_ENC, pm);
 	if (sciErr != SC_ERR_NONE) {
-		vpu_dbg(LVL_ERR, "--- sc_pm_set_resource_power_mode(SC_R_VPU_ENC,%d) SCI error! (%d)\n", sciErr, pm);
+		vpu_dbg(LVL_ERR, "error: --- sc_pm_set_resource_power_mode(SC_R_VPU_ENC,%d) SCI error! (%d)\n", sciErr, pm);
 		goto set_vpu_pwrexit;
 	}
 #else
 	sciErr = sc_pm_set_resource_power_mode(ipcHndl, SC_R_VPU_ENC_0, pm);
 	if (sciErr != SC_ERR_NONE) {
-		vpu_dbg(LVL_ERR, "--- sc_pm_set_resource_power_mode(SC_R_VPU_ENC_0,%d) SCI error! (%d)\n", sciErr, pm);
+		vpu_dbg(LVL_ERR, "error: --- sc_pm_set_resource_power_mode(SC_R_VPU_ENC_0,%d) SCI error! (%d)\n", sciErr, pm);
 		goto set_vpu_pwrexit;
 	}
 #endif
+	sciErr = sc_pm_set_resource_power_mode(ipcHndl, SC_R_VPU_MU_1, pm);
+	if (sciErr != SC_ERR_NONE) {
+		vpu_dbg(LVL_ERR, "error: --- sc_pm_set_resource_power_mode(SC_R_VPU_MU_1,%d) SCI error! (%d)\n", sciErr, pm);
+		goto set_vpu_pwrexit;
+	}
 
 	rv = 0;
 
@@ -1787,16 +1830,17 @@ static void vpu_set_power(struct vpu_dev *dev, bool on)
 	if (on) {
 		ret = set_vpu_pwr(dev->mu_ipcHandle, SC_PM_PW_MODE_ON);
 		if (ret)
-			vpu_dbg(LVL_ERR, "failed to power on\n");
+			vpu_dbg(LVL_ERR, "error: failed to power on\n");
 		pm_runtime_get_sync(dev->generic_dev);
 	} else {
 		pm_runtime_put_sync_suspend(dev->generic_dev);
 		ret = set_vpu_pwr(dev->mu_ipcHandle, SC_PM_PW_MODE_OFF);
 		if (ret)
-			vpu_dbg(LVL_ERR, "failed to power off\n");
+			vpu_dbg(LVL_ERR, "error: failed to power off\n");
 	}
 }
 #endif
+
 static void vpu_setup(struct vpu_dev *This)
 {
 	uint32_t read_data = 0;
@@ -2037,13 +2081,73 @@ static int vpu_runtime_resume(struct device *dev)
 	return 0;
 }
 
+#define CHECK_BIT(var, pos) (((var) >> (pos)) & 1)
+
+static void v4l2_vpu_send_snapshot(struct vpu_dev *dev)
+{
+	int i = 0;
+	int strIdx = (~dev->hang_mask) & (dev->instance_mask);
+	/*figure out the first available instance*/
+	for (i = 0; i < VPU_MAX_NUM_STREAMS; i++) {
+		if (CHECK_BIT(strIdx, i)) {
+			strIdx = i;
+			break;
+		}
+	}
+
+	v4l2_vpu_send_cmd(dev->ctx[strIdx], strIdx, GTB_ENC_CMD_SNAPSHOT, 0, NULL);
+}
+
 static int vpu_suspend(struct device *dev)
 {
+	struct vpu_dev *vpudev = (struct vpu_dev *)dev_get_drvdata(dev);
+
+	if (vpudev->hang_mask != vpudev->instance_mask) {
+
+		/*if there is an available device, send snapshot command to firmware*/
+		v4l2_vpu_send_snapshot(vpudev);
+
+		if (!wait_for_completion_timeout(&vpudev->snap_done_cmp, msecs_to_jiffies(1000))) {
+			vpu_dbg(LVL_ERR, "error: wait for vpu encoder snapdone event timeout!\n");
+			return -1;
+		}
+	}
+
+	vpu_set_power(vpudev, false);
+
 	return 0;
 }
 
 static int vpu_resume(struct device *dev)
 {
+	struct vpu_dev *vpudev = (struct vpu_dev *)dev_get_drvdata(dev);
+	void *csr_offset, *csr_cpuwait;
+
+	vpu_set_power(vpudev, true);
+	vpu_enable_hw(vpudev);
+
+	MU_Init(vpudev->mu_base_virtaddr);
+	MU_EnableRxFullInt(vpudev->mu_base_virtaddr, 0);
+
+	if (vpudev->hang_mask == vpudev->instance_mask) {
+		/*no instance is active before suspend, do reset*/
+		vpudev->fw_is_ready = false;
+		vpudev->firmware_started = false;
+
+		rpc_init_shared_memory_encoder(&vpudev->shared_mem, vpudev->m0_rpc_phy - vpudev->m0_p_fw_space_phy, vpudev->m0_rpc_virt, SHARED_SIZE);
+		rpc_set_system_cfg_value_encoder(vpudev->shared_mem.pSharedInterface, VPU_REG_BASE);
+	} else {
+		/*resume*/
+		csr_offset = ioremap(0x2d050000, 4);
+		writel(vpudev->m0_p_fw_space_phy, csr_offset);
+		csr_cpuwait = ioremap(0x2d050004, 4);
+		writel(0x0, csr_cpuwait);
+		/*wait for firmware resotre done*/
+		if (!wait_for_completion_timeout(&vpudev->start_cmp, msecs_to_jiffies(1000))) {
+			vpu_dbg(LVL_ERR, "error: wait for vpu encoder resume done timeout!\n");
+			return -1;
+		}
+	}
 	return 0;
 }
 
