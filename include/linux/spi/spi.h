@@ -322,6 +322,8 @@ static inline void spi_unregister_driver(struct spi_driver *sdrv)
  * @bus_lock_spinlock: spinlock for SPI bus locking
  * @bus_lock_mutex: mutex for exclusion of multiple callers
  * @bus_lock_flag: indicates that the SPI bus is locked for exclusive use
+ * @add_lock: protects against concurrent registration of slaves with the same
+ *	chip_select.
  * @setup: updates the device mode and clocking records used by a
  *	device's SPI controller; protocol code may call this.  This
  *	must fail if an unrecognized or unsupported mode is requested.
@@ -483,6 +485,8 @@ struct spi_controller {
 
 	/* flag indicating that the SPI bus is locked for exclusive use */
 	bool			bus_lock_flag;
+
+	struct mutex		add_lock;
 
 	/* Setup mode and clock, etc (spi driver may call many times).
 	 *
