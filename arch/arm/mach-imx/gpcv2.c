@@ -950,6 +950,12 @@ static int __init imx_gpcv2_init(struct device_node *node,
 	/* disable RBC */
 	imx_gpcv2_enable_rbc(false);
 
+	/*
+	 * Clear the OF_POPULATED flag set in of_irq_init so that
+	 * later the GPC power domain driver will not be skipped.
+	 */
+	of_node_clear_flag(node, OF_POPULATED);
+
 	return 0;
 }
 
