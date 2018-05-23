@@ -440,13 +440,14 @@
 	};
 
 	gpt1: gpt@302d0000 {
-		compatible = "fsl,imx8mq-gpt";
+		compatible = "fsl,imx8mq-gpt", "fsl,imx7d-gpt";
 		reg = <0x0 0x302d0000 0x0 0x10000>;
 		interrupts = <GIC_SPI 55 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&clk IMX8MQ_CLK_GPT1_ROOT>,
 			 <&clk IMX8MQ_CLK_GPT1_ROOT>,
 			 <&clk IMX8MQ_GPT_3M_CLK>;
 		clock-names = "ipg", "per", "osc_per";
+		status = "disabled";
 	};
 
 	irqsteer_dcss: irqsteer@32e2d000 {
