@@ -76,6 +76,8 @@ struct fsl_dsp {
 	dma_addr_t			 dsp_config_phys;
 	int				 dsp_config_size;
 
+	unsigned int			fixup_offset;
+
 	/* ...proxy data structures */
 	struct xf_proxy proxy;
 

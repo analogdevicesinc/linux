@@ -3644,6 +3644,7 @@
 			<&clk IMX8QM_AUD_DSP_CORE_CLK>;
 		clock-names = "ipg", "ocram", "core";
 		fsl,dsp-firmware = "imx/dsp/hifi4.bin";
+		fixup-offset = <0x4000000>;
 		power-domains = <&pd_dsp>;
 	};
 

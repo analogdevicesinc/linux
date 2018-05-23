@@ -670,6 +670,12 @@ static void dsp_load_firmware(const struct firmware *fw, void *context)
 				  (const void *)image,
 				  shdr->sh_size);
 			} else {
+				/* sh_addr is from DSP view, we need to
+				 * fixup addr because we load the firmware from
+				 * the ARM core side
+				 */
+				sh_addr -= dsp_priv->fixup_offset;
+
 				memcpy_dsp((void *)(dsp_priv->regs +
 						(sh_addr - dsp_priv->paddr)),
 						(const void *)image,
@@ -819,6 +825,8 @@ static int fsl_dsp_probe(struct platform_device *pdev)
 
 	ret = of_property_read_string(np, "fsl,dsp-firmware", &fw_name);
 	dsp_priv->fw_name = fw_name;
+
+	ret = of_property_read_u32(np, "fixup-offset", &dsp_priv->fixup_offset);
 
 	platform_set_drvdata(pdev, dsp_priv);
 	pm_runtime_enable(&pdev->dev);
