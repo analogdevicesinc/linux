@@ -33,6 +33,7 @@
 #include <linux/mfd/syscon.h>
 #include <linux/module.h>
 #include <linux/of.h>
+#include <linux/of_address.h>
 #include <linux/of_graph.h>
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
@@ -189,6 +190,8 @@ MODULE_PARM_DESC(debug, "Debug level (0-2)");
 #define MIPI_CSIS_PKTDATA_EVEN		0x3000
 #define MIPI_CSIS_PKTDATA_SIZE		SZ_4K
 
+#define MIPI_CSIS_MISC			0x8008
+
 #define DEFAULT_SCLK_CSIS_FREQ	166000000UL
 
 enum {
@@ -328,6 +331,8 @@ static const struct csis_pix_format mipi_csis_formats[] = {
 	}
 };
 
+typedef int (*mipi_csis_phy_reset_t)(struct csi_state *state);
+
 #define mipi_csis_write(__csis, __r, __v) writel(__v, __csis->regs + __r)
 #define mipi_csis_read(__csis, __r) readl(__csis->regs + __r)
 
@@ -381,6 +386,25 @@ static int mipi_csis_phy_init(struct csi_state *state)
 			1000000, 1000000);
 
 	return ret;
+}
+
+static int mipi_csis_phy_reset_mx8mm(struct csi_state *state)
+{
+	struct device_node *np;
+	void __iomem *reg;
+
+	np = of_find_compatible_node(NULL, NULL, "fsl,imx8mm-csi");
+	if (WARN_ON(!np))
+		return -ENXIO;
+
+	reg  = of_iomap(np, 0);
+
+	writel(0, reg + MIPI_CSIS_MISC);
+	usleep_range(10, 20);
+	writel(0x30000, reg + MIPI_CSIS_MISC);
+	usleep_range(10, 20);
+
+	return 0;
 }
 
 static int mipi_csis_phy_reset(struct csi_state *state)
@@ -1026,6 +1050,8 @@ static int mipi_csis_probe(struct platform_device *pdev)
 	struct v4l2_subdev *mipi_sd;
 	struct resource *mem_res;
 	struct csi_state *state;
+	const struct of_device_id *of_id;
+	mipi_csis_phy_reset_t phy_reset_fn;
 	int ret = -ENOMEM;
 
 	state = devm_kzalloc(dev, sizeof(*state), GFP_KERNEL);
@@ -1050,7 +1076,12 @@ static int mipi_csis_probe(struct platform_device *pdev)
 	}
 
 	mipi_csis_phy_init(state);
-	mipi_csis_phy_reset(state);
+	of_id = of_match_node(mipi_csis_of_match, dev->of_node);
+	if (!of_id || !of_id->data)
+		return -EINVAL;
+
+	phy_reset_fn = of_id->data;
+	phy_reset_fn(state);
 
 	mem_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	state->regs = devm_ioremap_resource(dev, mem_res);
@@ -1225,7 +1256,12 @@ static const struct dev_pm_ops mipi_csis_pm_ops = {
 };
 
 static const struct of_device_id mipi_csis_of_match[] = {
-	{	.compatible = "fsl,imx7d-mipi-csi",},
+	{	.compatible = "fsl,imx7d-mipi-csi",
+		.data = (void *)&mipi_csis_phy_reset,
+	},
+	{	.compatible = "fsl,imx8mm-mipi-csi",
+		.data = (void *)&mipi_csis_phy_reset_mx8mm,
+	},
 	{ /* sentinel */ },
 };
 MODULE_DEVICE_TABLE(of, mipi_csis_of_match);
