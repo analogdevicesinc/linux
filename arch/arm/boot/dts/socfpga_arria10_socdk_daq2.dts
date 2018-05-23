@@ -97,6 +97,7 @@
 				dma-names = "tx";
 				spibus-connected = <&dac0_ad9144>;
 				adi,axi-pl-fifo-enable;
+				plddrbypass-gpios = <&sys_gpio_out 12 0>;
 			};
 
 			axi_ad9144_jesd: axi-jesd204-tx@20000 {
