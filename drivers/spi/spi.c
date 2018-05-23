@@ -500,7 +500,6 @@ static int spi_dev_check(struct device *dev, void *data)
  */
 int spi_add_device(struct spi_device *spi)
 {
-	static DEFINE_MUTEX(spi_add_lock);
 	struct spi_master *master = spi->master;
 	struct device *dev = master->dev.parent;
 	int status;
@@ -520,7 +519,7 @@ int spi_add_device(struct spi_device *spi)
 	 * chipselect **BEFORE** we call setup(), else we'll trash
 	 * its configuration.  Lock against concurrent add() calls.
 	 */
-	mutex_lock(&spi_add_lock);
+	mutex_lock(&master->add_lock);
 
 	status = bus_for_each_dev(&spi_bus_type, NULL, spi, spi_dev_check);
 	if (status) {
@@ -552,7 +551,7 @@ int spi_add_device(struct spi_device *spi)
 		dev_dbg(dev, "registered child %s\n", dev_name(&spi->dev));
 
 done:
-	mutex_unlock(&spi_add_lock);
+	mutex_unlock(&master->add_lock);
 	return status;
 }
 EXPORT_SYMBOL_GPL(spi_add_device);
@@ -1911,6 +1910,8 @@ int spi_register_master(struct spi_master *master)
 		master->bus_num = atomic_dec_return(&dyn_bus_id);
 		dynamic = 1;
 	}
+
+	mutex_init(&master->add_lock);
 
 	INIT_LIST_HEAD(&master->queue);
 	spin_lock_init(&master->queue_lock);
