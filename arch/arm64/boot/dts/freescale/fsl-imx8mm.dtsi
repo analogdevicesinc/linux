@@ -166,6 +166,29 @@
 		};
 	};
 
+	csi1_bridge: csi1_bridge@32e20000 {
+		compatible = "fsl,imx8mm-csi", "fsl,imx8mq-csi", "fsl,imx6s-csi";
+		reg = <0x0 0x32e20000 0x0 0x10000>;
+		interrupts = <GIC_SPI 16 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clk IMX8MM_CLK_DUMMY>,
+			<&clk IMX8MM_CLK_CSI1_ROOT>,
+			<&clk IMX8MM_CLK_DUMMY>;
+		clock-names = "disp-axi", "csi_mclk", "disp_dcic";
+		status = "disabled";
+	};
+
+	mipi_csi_1: mipi_csi@32e30000 {
+		compatible = "fsl,imx8mm-mipi-csi";
+		reg = <0x0 0x32e30000 0x0 0x1000>;
+		interrupts = <GIC_SPI 17 IRQ_TYPE_LEVEL_HIGH>;
+		clock-frequency = <333000000>;
+		clocks = <&clk IMX8MM_CLK_CSI1_CORE_DIV>,
+				<&clk IMX8MM_CLK_CSI1_PHY_REF_DIV>;
+		clock-names = "mipi_clk", "phy_clk";
+		bus-width = <4>;
+		status = "disabled";
+	};
+
 	mipi_pd: gpc_power_domain@0 {
 		compatible = "fsl,imx8mm-pm-domain";
 		#power-domain-cells = <0>;
