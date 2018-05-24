@@ -18,6 +18,7 @@
 #include <linux/pm_domain.h>
 #include <linux/regmap.h>
 #include <linux/regulator/consumer.h>
+#include <linux/io.h>
 #include <dt-bindings/power/imx7-power.h>
 
 #define GPC_LPCR_A7_BSC			0x000
@@ -259,6 +260,207 @@ static struct platform_driver imx7_pgc_domain_driver = {
 };
 builtin_platform_driver(imx7_pgc_domain_driver)
 
+/* Some drivers rely on regulator notifiers to switch pgc on/off */
+
+#define GPC_PGC_MIPI_PHY	0xc00
+#define GPC_PGC_PCIE_PHY	0xc40
+#define GPC_PGC_USB_OTG1_PHY	0xc80
+#define GPC_PGC_USB_OTG2_PHY	0xcc0
+#define GPC_PGC_USB_HSIC_PHY	0xd00
+
+#define BM_GPC_PGC_PCG				0x1
+
+static void __iomem *gpc_base;
+static struct notifier_block nb_mipi, nb_pcie, nb_usb_hsic;
+
+static void imx_gpcv2_set_m_core_pgc(bool enable, u32 offset)
+{
+	u32 val = readl_relaxed(gpc_base + offset) & (~BM_GPC_PGC_PCG);
+
+	if (enable)
+		val |= BM_GPC_PGC_PCG;
+
+	writel_relaxed(val, gpc_base + offset);
+}
+
+static int imx_mipi_regulator_notify(struct notifier_block *nb,
+					unsigned long event,
+					void *ignored)
+{
+	u32 val = 0;
+
+	val = readl_relaxed(gpc_base + GPC_PGC_CPU_MAPPING);
+	writel_relaxed(val | BIT(2), gpc_base + GPC_PGC_CPU_MAPPING);
+
+	switch (event) {
+	case REGULATOR_EVENT_AFT_DO_ENABLE:
+		/*
+		 * For imx7d pcie phy, VDD18 turn on time has to wait
+		 * at least 0.1 .s after VDD10 turns on.
+		 */
+		udelay(1);
+		val = readl_relaxed(gpc_base + GPC_PU_PGC_SW_PUP_REQ);
+		writel_relaxed(val | BIT(0), gpc_base + GPC_PU_PGC_SW_PUP_REQ);
+		while (readl_relaxed(gpc_base + GPC_PU_PGC_SW_PUP_REQ) & BIT(0))
+			;
+		break;
+	case REGULATOR_EVENT_PRE_DO_DISABLE:
+		/* only disable phy need to set PGC bit, enable does NOT need */
+		imx_gpcv2_set_m_core_pgc(true, GPC_PGC_MIPI_PHY);
+		val = readl_relaxed(gpc_base + GPC_PU_PGC_SW_PDN_REQ);
+		writel_relaxed(val | BIT(0), gpc_base + GPC_PU_PGC_SW_PDN_REQ);
+		while (readl_relaxed(gpc_base + GPC_PU_PGC_SW_PDN_REQ) & BIT(0))
+			;
+		imx_gpcv2_set_m_core_pgc(false, GPC_PGC_MIPI_PHY);
+		/*
+		 * For imx7d pcie phy, VDD18 turn off time has to advance
+		 * at least 0.1 .s before VDD10 turns off.
+		 */
+		udelay(1);
+		break;
+	default:
+		break;
+	}
+
+	val = readl_relaxed(gpc_base + GPC_PGC_CPU_MAPPING);
+	writel_relaxed(val & ~BIT(2), gpc_base + GPC_PGC_CPU_MAPPING);
+
+	return NOTIFY_OK;
+}
+
+static int imx_pcie_regulator_notify(struct notifier_block *nb,
+					unsigned long event,
+					void *ignored)
+{
+	u32 val = 0;
+
+	val = readl_relaxed(gpc_base + GPC_PGC_CPU_MAPPING);
+	writel_relaxed(val | BIT(3), gpc_base + GPC_PGC_CPU_MAPPING);
+
+	switch (event) {
+	case REGULATOR_EVENT_AFT_DO_ENABLE:
+		/*
+		 * For imx7d pcie phy, VDD18 turn on time has to wait
+		 * at least 0.1 .s after VDD10 turns on.
+		 */
+		udelay(1);
+		val = readl_relaxed(gpc_base + GPC_PU_PGC_SW_PUP_REQ);
+		writel_relaxed(val | BIT(1), gpc_base + GPC_PU_PGC_SW_PUP_REQ);
+		while (readl_relaxed(gpc_base + GPC_PU_PGC_SW_PUP_REQ) & BIT(1))
+			;
+		break;
+	case REGULATOR_EVENT_PRE_DO_DISABLE:
+		/* only disable phy need to set PGC bit, enable does NOT need */
+		imx_gpcv2_set_m_core_pgc(true, GPC_PGC_PCIE_PHY);
+		val = readl_relaxed(gpc_base + GPC_PU_PGC_SW_PDN_REQ);
+		writel_relaxed(val | BIT(1), gpc_base + GPC_PU_PGC_SW_PDN_REQ);
+		while (readl_relaxed(gpc_base + GPC_PU_PGC_SW_PDN_REQ) & BIT(1))
+			;
+		imx_gpcv2_set_m_core_pgc(false, GPC_PGC_PCIE_PHY);
+		/*
+		 * For imx7d pcie phy, VDD18 turn off time has to advance
+		 * at least 0.1 .s before VDD10 turns off.
+		 */
+		udelay(1);
+		break;
+	default:
+		break;
+	}
+
+	val = readl_relaxed(gpc_base + GPC_PGC_CPU_MAPPING);
+	writel_relaxed(val & ~BIT(3), gpc_base + GPC_PGC_CPU_MAPPING);
+
+	return NOTIFY_OK;
+}
+
+static int imx_usb_hsic_regulator_notify(struct notifier_block *nb,
+					unsigned long event,
+					void *ignored)
+{
+	u32 val = 0;
+
+	val = readl_relaxed(gpc_base + GPC_PGC_CPU_MAPPING);
+	writel_relaxed(val | BIT(6), gpc_base + GPC_PGC_CPU_MAPPING);
+
+	switch (event) {
+	case REGULATOR_EVENT_PRE_DO_ENABLE:
+		val = readl_relaxed(gpc_base + GPC_PU_PGC_SW_PUP_REQ);
+		writel_relaxed(val | BIT(4), gpc_base + GPC_PU_PGC_SW_PUP_REQ);
+		while (readl_relaxed(gpc_base + GPC_PU_PGC_SW_PUP_REQ) & BIT(4))
+			;
+		break;
+	case REGULATOR_EVENT_PRE_DO_DISABLE:
+		/* only disable phy need to set PGC bit, enable does NOT need */
+		imx_gpcv2_set_m_core_pgc(true, GPC_PGC_USB_HSIC_PHY);
+		val = readl_relaxed(gpc_base + GPC_PU_PGC_SW_PDN_REQ);
+		writel_relaxed(val | BIT(4), gpc_base + GPC_PU_PGC_SW_PDN_REQ);
+		while (readl_relaxed(gpc_base + GPC_PU_PGC_SW_PDN_REQ) & BIT(4))
+			;
+		imx_gpcv2_set_m_core_pgc(false, GPC_PGC_USB_HSIC_PHY);
+		break;
+	default:
+		break;
+	}
+
+	val = readl_relaxed(gpc_base + GPC_PGC_CPU_MAPPING);
+	writel_relaxed(val & ~BIT(6), gpc_base + GPC_PGC_CPU_MAPPING);
+
+	return NOTIFY_OK;
+}
+
+static int imx_gpcv2_init_regnb(struct platform_device *pdev)
+{
+	int ret;
+	struct regulator *mipi_reg, *pcie_reg, *usb_hsic_reg;
+
+	mipi_reg = devm_regulator_get(&pdev->dev, "mipi-phy");
+	if (IS_ERR(mipi_reg)) {
+		ret = PTR_ERR(mipi_reg);
+		dev_info(&pdev->dev, "mipi regulator not ready.\n");
+		return ret;
+	}
+	nb_mipi.notifier_call = &imx_mipi_regulator_notify;
+
+	ret = regulator_register_notifier(mipi_reg, &nb_mipi);
+	if (ret) {
+		dev_err(&pdev->dev,
+			"mipi regulator notifier request failed.\n");
+		return ret;
+	}
+
+	pcie_reg = devm_regulator_get(&pdev->dev, "pcie-phy");
+	if (IS_ERR(pcie_reg)) {
+		ret = PTR_ERR(pcie_reg);
+		dev_info(&pdev->dev, "pcie regulator not ready.\n");
+		return ret;
+	}
+	nb_pcie.notifier_call = &imx_pcie_regulator_notify;
+
+	ret = regulator_register_notifier(pcie_reg, &nb_pcie);
+	if (ret) {
+		dev_err(&pdev->dev,
+			"pcie regulator notifier request failed\n");
+		return ret;
+	}
+
+	usb_hsic_reg = devm_regulator_get(&pdev->dev, "vcc");
+	if (IS_ERR(usb_hsic_reg)) {
+		ret = PTR_ERR(usb_hsic_reg);
+		dev_err(&pdev->dev, "usb hsic regulator not ready.\n");
+		return ret;
+	}
+	nb_usb_hsic.notifier_call = &imx_usb_hsic_regulator_notify;
+
+	ret = regulator_register_notifier(usb_hsic_reg, &nb_usb_hsic);
+	if (ret) {
+		dev_err(&pdev->dev,
+			"usb hsic regulator notifier request failed\n");
+		return ret;
+	}
+
+	return 0;
+}
+
 static int imx_gpcv2_probe(struct platform_device *pdev)
 {
 	static const struct regmap_range yes_ranges[] = {
@@ -300,6 +502,7 @@ static int imx_gpcv2_probe(struct platform_device *pdev)
 	base = devm_ioremap_resource(dev, res);
 	if (IS_ERR(base))
 		return PTR_ERR(base);
+	gpc_base = base;
 
 	regmap = devm_regmap_init_mmio(dev, base, &regmap_config);
 	if (IS_ERR(regmap)) {
@@ -360,7 +563,7 @@ static int imx_gpcv2_probe(struct platform_device *pdev)
 		}
 	}
 
-	return 0;
+	return imx_gpcv2_init_regnb(pdev);
 }
 
 static const struct of_device_id imx_gpcv2_dt_ids[] = {
