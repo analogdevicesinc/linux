@@ -1,0 +1,14 @@
+#
+# Logi Analyzer drivers
+#
+# When adding new entries keep the list in alphabetical order
+
+menu "Logic Analyzers"
+
+config M2K_LOGIC_ANALYZER
+	tristate "M2k Logic Analyzer support"
+	help
+	  Support for the Logic Analyzer module on the Analog Devices
+	  ADALM-2000 (M2k) platform.
+
+endmenu
