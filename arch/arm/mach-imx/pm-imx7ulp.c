@@ -574,9 +574,6 @@ static int __init imx7ulp_dt_find_lpsram(unsigned long node, const char *uname,
 
 void __init imx7ulp_pm_map_io(void)
 {
-	if (psci_ops.cpu_suspend) {
-		return;
-	}
 	/*
 	 * Get the address of IRAM or OCRAM to be used by the low
 	 * power code from the device tree.
@@ -588,9 +585,6 @@ void __init imx7ulp_pm_map_io(void)
 		pr_warn("No valid ocram available for suspend/resume!\n");
 		return;
 	}
-
-	/* Set all entries to 0 except first 3 words reserved for M4. */
-	memset((void *)iram_tlb_base_addr, 0, MX7ULP_IRAM_TLB_SIZE);
 }
 
 void __init imx7ulp_pm_common_init(const struct imx7ulp_pm_socdata
@@ -610,6 +604,9 @@ void __init imx7ulp_pm_common_init(const struct imx7ulp_pm_socdata
 		aips4_base = ioremap(MX7ULP_AIPS4_BASE_ADDR, SZ_1M);
 		aips5_base = ioremap(MX7ULP_AIPS5_BASE_ADDR, SZ_1M);
 	} else {
+		/* Set all entries to 0 except first 3 words reserved for M4. */
+		memset((void *)iram_tlb_base_addr, 0, MX7ULP_IRAM_TLB_SIZE);
+
 		/*
 		 * Make sure the IRAM virtual address has a mapping in the IRAM
 		 * page table.
