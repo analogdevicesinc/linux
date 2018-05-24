@@ -809,6 +809,18 @@
 		status = "disabled";
 	};
 
+	flexspi: flexspi@30bb0000 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "fsl,imx8mm-flexspi";
+		reg = <0 0x30bb0000 0 0x10000>, <0 0x08000000 0 0x10000000>;
+		reg-names = "FlexSPI", "FlexSPI-memory";
+		interrupts = <GIC_SPI 107 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clk IMX8MM_CLK_QSPI_ROOT>;
+		clock-names = "fspi";
+		status = "disabled";
+	};
+
 	ecspi1: ecspi@30820000 {
 		#address-cells = <1>;
 		#size-cells = <0>;
