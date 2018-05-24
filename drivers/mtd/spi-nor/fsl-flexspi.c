@@ -410,6 +410,7 @@
 enum fsl_flexspi_devtype {
 	FSL_FLEXSPI_IMX8QM,
 	FSL_FLEXSPI_IMX8QXP,
+	FSL_FLEXSPI_IMX8MM,
 };
 
 struct fsl_flexspi_devtype_data {
@@ -422,8 +423,7 @@ struct fsl_flexspi_devtype_data {
 
 static struct fsl_flexspi_devtype_data imx8qm_data = {
 	.devtype = FSL_FLEXSPI_IMX8QM,
-	/* .rxfifo = 1024, */
-	.rxfifo = 128,
+	.rxfifo = 1024,
 	.txfifo = 1024,
 	.ahb_buf_size = 2048,
 	.driver_data = 0,
@@ -431,8 +431,15 @@ static struct fsl_flexspi_devtype_data imx8qm_data = {
 
 static struct fsl_flexspi_devtype_data imx8qxp_data = {
 	.devtype = FSL_FLEXSPI_IMX8QXP,
-	/* .rxfifo = 1024, */
-	.rxfifo = 128,
+	.rxfifo = 1024,
+	.txfifo = 1024,
+	.ahb_buf_size = 2048,
+	.driver_data = 0,
+};
+
+static struct fsl_flexspi_devtype_data imx8mm_data = {
+	.devtype = FSL_FLEXSPI_IMX8MM,
+	.rxfifo = 1024,
 	.txfifo = 1024,
 	.ahb_buf_size = 2048,
 	.driver_data = 0,
@@ -489,7 +496,6 @@ static irqreturn_t fsl_flexspi_irq_handler(int irq, void *dev_id)
 static void fsl_flexspi_init_lut(struct fsl_flexspi *flex)
 {
 	void __iomem *base = flex->iobase;
-	int rxfifo = flex->devtype_data->rxfifo;
 	struct spi_nor *nor = &flex->nor[0];
 	u8 addrlen = (nor->addr_width == 3) ? ADDR24BIT : ADDR32BIT;
 	u32 lut_base;
@@ -522,7 +528,7 @@ static void fsl_flexspi_init_lut(struct fsl_flexspi *flex)
 		       base + FLEXSPI_LUT(lut_base));
 
 		writel(LUT0(DUMMY_DDR, PAD8, dm * 2)
-			| LUT1(READ_DDR, PAD8, rxfifo),
+			| LUT1(READ_DDR, PAD8, 0),
 			base + FLEXSPI_LUT(lut_base + 1));
 	/* QUAD Fast Read */
 	} else if (op == SPINOR_OP_READ_1_1_4 || op == SPINOR_OP_READ_1_1_4_4B) {
@@ -531,7 +537,7 @@ static void fsl_flexspi_init_lut(struct fsl_flexspi *flex)
 		       base + FLEXSPI_LUT(lut_base));
 
 		writel(LUT0(DUMMY, PAD1, dm) |
-		       LUT1(FSL_READ, PAD4, rxfifo),
+		       LUT1(FSL_READ, PAD4, 0),
 		       base + FLEXSPI_LUT(lut_base + 1));
 	/* DDR Quad I/O Read 	 */
 	} else if (op == SPINOR_OP_READ_1_4_4_D || op == SPINOR_OP_READ_1_4_4_D_4B) {
@@ -544,7 +550,7 @@ static void fsl_flexspi_init_lut(struct fsl_flexspi *flex)
 		       LUT1(DUMMY, PAD1, dm),
 		       base + FLEXSPI_LUT(lut_base + 1));
 
-		writel(LUT0(READ_DDR, PAD4, rxfifo) |
+		writel(LUT0(READ_DDR, PAD4, 0) |
 		       LUT1(JMP_ON_CS, PAD1, 0),
 		       base + FLEXSPI_LUT(lut_base + 2));
 	/* DDR Quad Fast Read 	 */
@@ -555,7 +561,7 @@ static void fsl_flexspi_init_lut(struct fsl_flexspi *flex)
 		       base + FLEXSPI_LUT(lut_base));
 
 		writel(LUT0(DUMMY, PAD1, dm) |
-		       LUT1(READ_DDR, PAD4, rxfifo),
+		       LUT1(READ_DDR, PAD4, 0),
 		       base + FLEXSPI_LUT(lut_base + 1));
 
 		writel(LUT0(JMP_ON_CS, PAD1, 0),
@@ -1160,6 +1166,7 @@ static void fsl_flexspi_unprep(struct spi_nor *nor, enum spi_nor_ops ops)
 static const struct of_device_id fsl_flexspi_dt_ids[] = {
 	{ .compatible = "fsl,imx8qm-flexspi", .data = (void *)&imx8qm_data, },
 	{ .compatible = "fsl,imx8qxp-flexspi", .data = (void *)&imx8qxp_data, },
+	{ .compatible = "fsl,imx8mm-flexspi", .data = (void *)&imx8mm_data, },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, fsl_flexspi_dt_ids);
