@@ -156,8 +156,6 @@ void mxc_isi_channel_hw_reset(struct mxc_isi_dev *mxc_isi)
 	if (sciErr != SC_ERR_NONE)
 		pr_err("sc_misc_MIPI reset failed! (sciError = %d)\n", sciErr);
 
-	msleep(10);
-
 	sciErr = sc_pm_set_resource_power_mode(ipcHndl, SC_R_ISI_CH0, SC_PM_PW_MODE_ON);
 	if (sciErr != SC_ERR_NONE)
 		pr_err("sc_misc_MIPI reset failed! (sciError = %d)\n", sciErr);
