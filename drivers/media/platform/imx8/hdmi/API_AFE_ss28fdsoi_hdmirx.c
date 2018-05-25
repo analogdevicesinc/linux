@@ -95,6 +95,8 @@ void arc_config(state_struct *state)
 {
 	u16 reg_val;
 
+	write16(state, TXDA_CYA_AUXDA_CYA_ADDR, 0x0001);
+
 	write16(state, TX_DIG_CTRL_REG_2_ADDR, 0x0024);
 
 	reg_val = read16(state, TX_ANA_CTRL_REG_1_ADDR);

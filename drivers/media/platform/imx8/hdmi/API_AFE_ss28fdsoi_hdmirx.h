@@ -88,6 +88,7 @@
 #define TX_ANA_CTRL_REG_1_ADDR                 0x5020
 #define TX_ANA_CTRL_REG_2_ADDR                 0x5021
 #define TX_DIG_CTRL_REG_2_ADDR                 0x5024
+#define TXDA_CYA_AUXDA_CYA_ADDR                0x5025
 #define TX_ANA_CTRL_REG_3_ADDR                 0x5026
 #define TX_ANA_CTRL_REG_4_ADDR                 0x5027
 #define TX_ANA_CTRL_REG_5_ADDR                 0x5029
