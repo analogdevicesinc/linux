@@ -44,6 +44,7 @@
 		model = "imx-hdmi-arc";
 		spdif-controller = <&spdif1>;
 		spdif-in;
+		spdif-out;
 	};
 };
 
