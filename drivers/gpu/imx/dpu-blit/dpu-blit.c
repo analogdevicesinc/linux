@@ -110,9 +110,21 @@ void dpu_be_configure_prefetch(struct dpu_bliteng *dpu_be,
 	static bool start = true;
 	static bool need_handle_start;
 	struct dprc *dprc;
+	static bool tiled_work_unfinished = true;
 
 	/* Enable DPR, dprc1 is connected to plane0 */
 	dprc = dpu_be->dprc[1];
+
+	/*
+	 * Waiting for the previous tiled command finished
+	 * before disable the dpr.
+	 */
+	if (tiled_work_unfinished) {
+		dpu_be_wait(dpu_be);
+		dpu_cs_wait_idle(dpu_be);
+		udelay(10);
+		tiled_work_unfinished = false;
+	}
 
 	if (baddr == 0x0) {
 		dprc_disable(dprc);
@@ -120,9 +132,7 @@ void dpu_be_configure_prefetch(struct dpu_bliteng *dpu_be,
 		return;
 	}
 
-	dpu_be_wait(dpu_be);
-	dpu_cs_wait_idle(dpu_be);
-	udelay(10);
+	tiled_work_unfinished = true;
 
 	if (need_handle_start) {
 		dprc_first_frame_handle(dprc);
