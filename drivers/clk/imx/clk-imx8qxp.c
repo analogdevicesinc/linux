@@ -564,8 +564,8 @@ static int imx8qxp_clk_probe(struct platform_device *pdev)
 	clks[IMX8QXP_PARALLEL_CSI_CLK_SEL] = imx_clk_mux2_scu("pll0_sel", pll0_sels, ARRAY_SIZE(pll0_sels), SC_R_PI_0, SC_PM_CLK_PER);
 	clks[IMX8QXP_PARALLEL_CSI_PER_CLK_DIV] = imx_clk_divider2_scu("parallel_per_clk", "pll0_sel", SC_R_PI_0, SC_PM_CLK_PER);
 	clks[IMX8QXP_PARALLEL_CSI_MCLK_DIV] = imx_clk_divider_scu("parallel_csi_mclk_div", SC_R_PI_0, SC_PM_CLK_MISC0);
-	clks[IMX8QXP_PARALLEL_CSI_PIXEL_CLK] = imx_clk_gate2_scu("parallel_pixel_clk", "parallel_per_clk", (void __iomem *)(PARALLEL_CSI_LPCG + 0x18), 0, FUNCTION_NAME(PD_PARALLEL_CSI));
-	clks[IMX8QXP_PARALLEL_CSI_IPG_CLK] = imx_clk_gate2_scu("parallel_ipg_clk", "parallel_per_clk", (void __iomem *)(PARALLEL_CSI_LPCG + 0x4), 16, FUNCTION_NAME(PD_PARALLEL_CSI));
+	clks[IMX8QXP_PARALLEL_CSI_PIXEL_CLK] = imx_clk_gate_scu("parallel_pixel_clk", "parallel_per_clk", SC_R_PI_0, SC_PM_CLK_PER, (void __iomem *)(PARALLEL_CSI_LPCG + 0x18), 0, 0);
+	clks[IMX8QXP_PARALLEL_CSI_IPG_CLK] = imx_clk_gate_scu("parallel_ipg_clk", "parallel_per_clk", SC_R_PI_0, SC_PM_CLK_PER, (void __iomem *)(PARALLEL_CSI_LPCG + 0x4), 16, 0);
 	clks[IMX8QXP_PARALLEL_CSI_MISC0_CLK] = imx_clk_gate_scu("parallel_csi_mclk", "parallel_csi_mclk_div", SC_R_PI_0, SC_PM_CLK_MISC0, (void __iomem *)(PARALLEL_CSI_LPCG + 0x1C), 0, 0);
 
 
