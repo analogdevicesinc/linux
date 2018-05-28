@@ -1537,6 +1537,13 @@
 		reg = <0x0 0x56000000 0x0 0x10000>;
 	};
 
+	pixel_combiner1: pixel-combiner@56020000 {
+		compatible = "fsl,imx8qm-pixel-combiner";
+		reg = <0x0 0x56020000 0x0 0x10000>;
+		power-domains = <&pd_dc0>;
+		status = "disabled";
+	};
+
 	prg1: prg@56040000 {
 		compatible = "fsl,imx8qm-prg";
 		reg = <0x0 0x56040000 0x0 0x10000>;
@@ -1744,6 +1751,7 @@
 		fsl,dpr-channels = <&dpr1_channel1>, <&dpr1_channel2>,
 				   <&dpr1_channel3>, <&dpr2_channel1>,
 				   <&dpr2_channel2>, <&dpr2_channel3>;
+		fsl,pixel-combiner = <&pixel_combiner1>;
 		status = "disabled";
 
 		dpu1_disp0: port@0 {
@@ -2045,6 +2053,13 @@
 		reg = <0x0 0x57000000 0x0 0x10000>;
 	};
 
+	pixel_combiner2: pixel-combiner@57020000 {
+		compatible = "fsl,imx8qm-pixel-combiner";
+		reg = <0x0 0x57020000 0x0 0x10000>;
+		power-domains = <&pd_dc1>;
+		status = "disabled";
+	};
+
 	prg10: prg@57040000 {
 		compatible = "fsl,imx8qm-prg";
 		reg = <0x0 0x57040000 0x0 0x10000>;
@@ -2252,6 +2267,7 @@
 		fsl,dpr-channels = <&dpr3_channel1>, <&dpr3_channel2>,
 				   <&dpr3_channel3>, <&dpr4_channel1>,
 				   <&dpr4_channel2>, <&dpr4_channel3>;
+		fsl,pixel-combiner = <&pixel_combiner2>;
 		status = "disabled";
 
 		dpu2_disp0: port@0 {
