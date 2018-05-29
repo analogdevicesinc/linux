@@ -376,7 +376,7 @@
 				SC_P_PCIE_CTRL0_CLKREQ_B_LSIO_GPIO4_IO27	0x04000021
 				SC_P_PCIE_CTRL0_WAKE_B_LSIO_GPIO4_IO28		0x04000021
 				SC_P_PCIE_CTRL0_PERST_B_LSIO_GPIO4_IO29		0x04000021
-				SC_P_LVDS1_I2C0_SDA_LVDS1_GPIO0_IO03		0x04000021
+				SC_P_LVDS1_I2C0_SDA_LSIO_GPIO1_IO13		0x06000000
 				SC_P_USDHC2_RESET_B_LSIO_GPIO4_IO09		0x04000021
 			>;
 		};
@@ -986,7 +986,7 @@
 	ext_osc = <1>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_pciea>;
-	disable-gpio = <&gpio0 3 GPIO_ACTIVE_LOW>;
+	disable-gpio = <&gpio1 13 GPIO_ACTIVE_LOW>;
 	reset-gpio = <&gpio4 29 GPIO_ACTIVE_LOW>;
 	clkreq-gpio = <&gpio4 27 GPIO_ACTIVE_LOW>;
 	epdev_on-supply = <&epdev_on>;
