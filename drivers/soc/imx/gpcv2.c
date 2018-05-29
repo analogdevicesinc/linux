@@ -45,6 +45,7 @@
  * GPC_PGC memory map are incorrect, below offset
  * values are from design RTL.
  */
+
 #define PGC_MIPI			16
 #define PGC_PCIE			17
 #define PGC_USB_HSIC			20
