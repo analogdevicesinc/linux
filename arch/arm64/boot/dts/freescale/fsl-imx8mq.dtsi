@@ -86,7 +86,7 @@
 
 		rpmsg_reserved: rpmsg@0xb8000000 {
 			no-map;
-			reg = <0 0xb8000000 0 0x100000>;
+			reg = <0 0xb8000000 0 0x400000>;
 		};
 	};
 
@@ -1288,6 +1288,7 @@
 		compatible = "fsl,imx8mq-pcie", "snps,dw-pcie";
 		reg = <0x0 0x33800000 0x0 0x400000>, <0x0 0x1ff00000 0x0 0x80000>;
 		reg-names = "dbi", "config";
+		reserved-region = <&rpmsg_reserved>;
 		#address-cells = <3>;
 		#size-cells = <2>;
 		device_type = "pci";
@@ -1317,6 +1318,7 @@
 		compatible = "fsl,imx8mq-pcie", "snps,dw-pcie";
 		reg = <0x0 0x33c00000 0x0 0x400000>, <0x0 0x27f00000 0x0 0x80000>;
 		reg-names = "dbi", "config";
+		reserved-region = <&rpmsg_reserved>;
 		#address-cells = <3>;
 		#size-cells = <2>;
 		device_type = "pci";

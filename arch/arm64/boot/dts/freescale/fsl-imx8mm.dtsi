@@ -920,6 +920,7 @@
 		reg = <0x0 0x33800000 0x0 0x400000>, <0x0 0x32f00000 0x0 0x10000>,
 			<0x0 0x1ff00000 0x0 0x80000>;
 		reg-names = "dbi", "phy", "config";
+		reserved-region = <&rpmsg_reserved>;
 		#address-cells = <3>;
 		#size-cells = <2>;
 		device_type = "pci";

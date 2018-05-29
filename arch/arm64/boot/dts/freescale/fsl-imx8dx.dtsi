@@ -3124,6 +3124,7 @@
 		reg = <0x0 0x5f010000 0x0 0x10000>, /* Controller reg*/
 		      <0x0 0x7ff00000 0x0 0x80000>; /* PCI cfg space */
 		reg-names = "dbi", "config";
+		reserved-region = <&rpmsg_reserved>;
 		#address-cells = <3>;
 		#size-cells = <2>;
 		device_type = "pci";
