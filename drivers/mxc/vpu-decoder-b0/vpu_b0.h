@@ -236,7 +236,6 @@ struct vpu_ctx {
 	bool buffer_null;
 	bool firmware_stopped;
 	bool firmware_finished;
-	bool stream_feed_complete;
 	bool eos_stop_added;
 	bool ctx_released;
 	wait_queue_head_t buffer_wq;
