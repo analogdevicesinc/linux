@@ -53,13 +53,21 @@ The full ID of peripheral types can be found below.
 	24	SAI
 	25	HDMI Audio
 
-The third cell specifies the transfer priority as below.
+The third cell specifies the transfer priority and software done
+as below.
+
+	Bit31: sw_done
+	Bit15~Bit8: selector
+	Bit7~Bit0: priority level
 
 	ID	transfer priority
 	-------------------------
 	0	High
 	1	Medium
 	2	Low
+
+For example: 0x80000000 means sw_done enabled for done0 sector and
+	High priority for PDM on i.mx8mm.
 
 Optional properties:
 

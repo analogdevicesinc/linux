@@ -83,6 +83,9 @@
 #define SDMA_CHNENBL0_IMX35	0x200
 #define SDMA_CHNENBL0_IMX31	0x080
 #define SDMA_CHNPRI_0		0x100
+#define SDMA_DONE0_CONFIG	0x1000
+#define SDMA_DONE0_CONFIG_DONE_SEL	0x7
+#define SDMA_DONE0_CONFIG_DONE_DIS	0x6
 
 /*
  * Buffer descriptor status values.
@@ -363,6 +366,8 @@ struct sdma_channel {
 	bool				src_dualfifo;
 	bool				dst_dualfifo;
 	unsigned int			fifo_num;
+	bool				sw_done;
+	u32				sw_done_sel;
 	struct dma_pool			*bd_pool;
 };
 
@@ -759,6 +764,21 @@ static void sdma_event_enable(struct sdma_channel *sdmac, unsigned int event)
 	val = readl_relaxed(sdma->regs + chnenbl);
 	__set_bit(channel, &val);
 	writel_relaxed(val, sdma->regs + chnenbl);
+
+	/* Set SDMA_DONEx_CONFIG is sw_done enabled */
+	if (sdmac->sw_done) {
+		u32 offset = SDMA_DONE0_CONFIG + sdmac->sw_done_sel / 4;
+		u32 done_sel = SDMA_DONE0_CONFIG_DONE_SEL +
+				((sdmac->sw_done_sel % 4) << 3);
+		u32 sw_done_dis = SDMA_DONE0_CONFIG_DONE_DIS +
+				((sdmac->sw_done_sel % 4) << 3);
+
+		val = readl_relaxed(sdma->regs + offset);
+		__set_bit(done_sel, &val);
+		__clear_bit(sw_done_dis, &val);
+		writel_relaxed(val, sdma->regs + offset);
+	}
+
 }
 
 static void sdma_event_disable(struct sdma_channel *sdmac, unsigned int event)
@@ -1162,7 +1182,13 @@ static void sdma_set_watermarklevel_for_p2p(struct sdma_channel *sdmac)
 static void sdma_set_watermarklevel_for_sais(struct sdma_channel *sdmac)
 {
 	sdmac->watermark_level &= ~(0xFFF << SDMA_WATERMARK_LEVEL_FIFOS_OFF |
-				    SDMA_WATERMARK_LEVEL_SW_DONE);
+				    SDMA_WATERMARK_LEVEL_SW_DONE |
+				    0xf << SDMA_WATERMARK_LEVEL_SW_DONE_SEL_OFF);
+
+	if (sdmac->sw_done)
+		sdmac->watermark_level |= SDMA_WATERMARK_LEVEL_SW_DONE |
+			sdmac->sw_done_sel <<
+			SDMA_WATERMARK_LEVEL_SW_DONE_SEL_OFF;
 
 	/* For fifo_num
 	 * bit 0-7 is the fifo number;
@@ -1463,6 +1489,11 @@ static int sdma_alloc_chan_resources(struct dma_chan *chan)
 	sdmac->event_id1 = data->dma_request2;
 	sdmac->src_dualfifo = data->src_dualfifo;
 	sdmac->dst_dualfifo = data->dst_dualfifo;
+	/* Get software done selector if sw_done enabled */
+	if (data->done_sel & BIT(31)) {
+		sdmac->sw_done = true;
+		sdmac->sw_done_sel = (data->done_sel >> 8) & 0xff;
+	}
 
 	ret = sdma_set_channel_priority(sdmac, prio);
 	if (ret)
@@ -2211,7 +2242,10 @@ static struct dma_chan *sdma_xlate(struct of_phandle_args *dma_spec,
 
 	data.dma_request = dma_spec->args[0];
 	data.peripheral_type = dma_spec->args[1];
-	data.priority = dma_spec->args[2];
+	/* Get sw_done setting if sw_done enabled */
+	if (dma_spec->args[2] & BIT(31))
+		data.done_sel = dma_spec->args[2];
+	data.priority = dma_spec->args[2] & 0xff;
 	data.idx = sdma->idx;
 
 	return dma_request_channel(mask, sdma_filter_fn, &data);
