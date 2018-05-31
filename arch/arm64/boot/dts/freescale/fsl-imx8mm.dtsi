@@ -508,6 +508,15 @@
 		};
 	};
 
+	ocotp: ocotp-ctrl@30350000 {
+		compatible = "fsl,imx8mq-ocotp", "fsl,imx7d-ocotp", "syscon";
+		reg = <0 0x30350000 0 0x10000>;
+		clocks = <&clk IMX8MM_CLK_OCOTP_ROOT>;
+		/* For nvmem subnodes */
+		#address-cells = <1>;
+		#size-cells = <1>;
+	};
+
 	usbotg1: usb@32e40000 {
 		compatible = "fsl,imx7d-usb", "fsl,imx27-usb";
 		reg = <0x0 0x32e40000 0x0 0x200>;
