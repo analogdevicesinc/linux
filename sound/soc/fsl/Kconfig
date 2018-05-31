@@ -406,6 +406,16 @@ config SND_SOC_IMX_WM8962_ANDROID
 	  Say Y if you want to add support for SoC audio on an i.MX board with
 	  a wm8962 codec in android.
 
+config SND_SOC_IMX_MICFIL
+	tristate "SoC Audio support for i.MX boards with micfil"
+	depends on OF && I2C
+	select SND_SOC_IMX_PCM_DMA
+	select SND_SOC_FSL_MICFIL
+	help
+	  Soc Audio support for i.MX boards with micfil
+	  Say Y if you want to add support for SoC audio on
+	  an i.MX board with micfil.
+
 config SND_SOC_IMX_RPMSG
 	tristate "SoC Audio support for i.MX boards with rpmsg"
 	depends on OF && I2C && INPUT
