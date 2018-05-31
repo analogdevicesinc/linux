@@ -661,7 +661,7 @@
 	};
 
 	micfil: micfil@30080000 {
-		compatible = "fsl,imx9mq-micfil";
+		compatible = "fsl,imx8mm-micfil";
 		reg = <0x0 0x30080000 0x0 0x10000>;
 		interrupts = <GIC_SPI 44 IRQ_TYPE_LEVEL_HIGH>,
 			     <GIC_SPI 45 IRQ_TYPE_LEVEL_HIGH>,
@@ -670,7 +670,7 @@
 		clocks = <&clk IMX8MM_CLK_PDM_IPG>,
 			 <&clk IMX8MM_CLK_PDM_ROOT>;
 		clock-names = "ipg_clk", "ipg_clk_app";
-		dmas = <&sdma2 24 24 0>;
+		dmas = <&sdma2 24 26 0x80000000>;
 		dma-names = "rx";
 		status = "disabled";
 	};
