@@ -328,6 +328,12 @@ static struct vpu_v4l2_fmt  formats_yuv_dec[] = {
 		.num_planes	= 2,
 		.vdec_std   = VPU_PF_YUV420_SEMIPLANAR,
 	},
+	{
+		.name       = "4:2:0 2 Planes Y/CbCr",
+		.fourcc     = V4L2_PIX_FMT_NV12_10BIT,
+		.num_planes = 2,
+		.vdec_std   = VPU_PF_YUV420_SEMIPLANAR,
+	},
 };
 
 static int v4l2_ioctl_querycap(struct file *file,
@@ -386,8 +392,6 @@ static void caculate_frame_size(struct vpu_ctx *ctx)
 	u_int32 luma_size;
 	u_int32 chroma_size;
 	u_int32 chroma_height;
-	bool bfield = false; //WARN need get it
-	bool bOffsetPadding = false; //WARN need get it
 	u_int32 uVertAlign = 256-1;
 	bool b10BitFormat = (ctx->pSeqinfo->uBitDepthLuma > 8) || (ctx->pSeqinfo->uBitDepthChroma > 8);
 
@@ -395,26 +399,16 @@ static void caculate_frame_size(struct vpu_ctx *ctx)
 
 	q_data = &ctx->q_data[V4L2_DST];
 
+	width = b10BitFormat?(width + ((width + 3) >> 2)):width;
 	width = ((width + uVertAlign) & ~uVertAlign);
 	q_data->stride = width;
-	if (bfield)
-		height = ctx->pSeqinfo->uVerRes >> 0x1;
-	if (bOffsetPadding) {
-		height = ((height + 0xF) & 0xFFFFFFF0);
-		height += 0x10;
-	}
 
 	height = ((height + uVertAlign) & ~uVertAlign);
 	chroma_height = height >> 1;
 	luma_size = width * height;
 	chroma_size = width * chroma_height;
-	if (!b10BitFormat) {
-		ctx->q_data[V4L2_DST].sizeimage[0] = luma_size;
-		ctx->q_data[V4L2_DST].sizeimage[1] = chroma_size;
-	} else {
-		ctx->q_data[V4L2_DST].sizeimage[0] = luma_size * 2;
-		ctx->q_data[V4L2_DST].sizeimage[1] = chroma_size * 2;
-	}
+	ctx->q_data[V4L2_DST].sizeimage[0] = luma_size;
+	ctx->q_data[V4L2_DST].sizeimage[1] = chroma_size;
 }
 
 static int v4l2_ioctl_g_fmt(struct file *file,
@@ -431,10 +425,13 @@ static int v4l2_ioctl_g_fmt(struct file *file,
 
 	if (f->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
 		q_data = &ctx->q_data[V4L2_DST];
-		pix_mp->pixelformat = V4L2_PIX_FMT_NV12;
+		if ((ctx->pSeqinfo->uBitDepthLuma > 8) || (ctx->pSeqinfo->uBitDepthChroma > 8))
+			pix_mp->pixelformat = V4L2_PIX_FMT_NV12_10BIT;
+		else
+			pix_mp->pixelformat = V4L2_PIX_FMT_NV12;
 		pix_mp->width = ctx->pSeqinfo->uHorRes > 0?ctx->pSeqinfo->uHorRes:q_data->width;
 		pix_mp->height = ctx->pSeqinfo->uVerRes > 0?ctx->pSeqinfo->uVerRes:q_data->height;
-		pix_mp->field = V4L2_FIELD_ANY;
+		pix_mp->field = V4L2_FIELD_NONE;
 		pix_mp->num_planes = 2;
 		pix_mp->colorspace = V4L2_COLORSPACE_REC709;
 
@@ -446,7 +443,7 @@ static int v4l2_ioctl_g_fmt(struct file *file,
 		q_data = &ctx->q_data[V4L2_SRC];
 		pix_mp->width = q_data->width;
 		pix_mp->height = q_data->height;
-		pix_mp->field = V4L2_FIELD_ANY;
+		pix_mp->field = V4L2_FIELD_NONE;
 		pix_mp->num_planes = q_data->num_planes;
 		for (i = 0; i < pix_mp->num_planes; i++) {
 			pix_mp->plane_fmt[i].bytesperline = q_data->stride;
@@ -700,6 +697,10 @@ static int v4l2_ioctl_dqbuf(struct file *file,
 
 	ret = vb2_dqbuf(&q_data->vb2_q, buf, file->f_flags & O_NONBLOCK);
 
+	if (q_data->vb2_reqs[buf->index].bfield)
+		buf->field = V4L2_FIELD_INTERLACED;
+	else
+		buf->field = V4L2_FIELD_NONE;
 	v4l2_update_stream_addr(ctx, 0);
 	if (buf->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE)
 		if ((ctx->pSeqinfo->uBitDepthLuma > 8) || (ctx->pSeqinfo->uBitDepthChroma > 8))
@@ -1498,6 +1499,7 @@ static void vpu_api_event_handler(struct vpu_ctx *ctx, u_int32 uStrIdx, u_int32 
 			vpu_dbg(LVL_ERR, "error: buffer(%d) need to set FRAME_DECODED, but previous state %s is not FRAME_FREE\n",
 					buffer_id, bufstat[ctx->q_data[V4L2_DST].vb2_reqs[buffer_id].status]);
 		ctx->q_data[V4L2_DST].vb2_reqs[buffer_id].status = FRAME_DECODED;
+		ctx->q_data[V4L2_DST].vb2_reqs[buffer_id].bfield = pDispInfo->bTopFldFirst;
 		}
 		break;
 	case VID_API_EVENT_SEQ_HDR_FOUND: {
@@ -1514,10 +1516,10 @@ static void vpu_api_event_handler(struct vpu_ctx *ctx, u_int32 uStrIdx, u_int32 
 		memcpy(ctx->pSeqinfo, &pSeqInfo[ctx->str_index], sizeof(MediaIPFW_Video_SeqInfo));
 
 		caculate_frame_size(ctx);
-		vpu_dbg(LVL_INFO, "SEQINFO GET: uHorRes:%d uVerRes:%d uHorDecodeRes:%d uVerDecodeRes:%d uNumDPBFrms:%d, num=%d\n",
+		vpu_dbg(LVL_INFO, "SEQINFO GET: uHorRes:%d uVerRes:%d uHorDecodeRes:%d uVerDecodeRes:%d uNumDPBFrms:%d, num:%d, uNumRefFrms:%d, uNumDFEAreas:%d\n",
 				ctx->pSeqinfo->uHorRes, ctx->pSeqinfo->uVerRes,
 				ctx->pSeqinfo->uHorDecodeRes, ctx->pSeqinfo->uVerDecodeRes,
-				ctx->pSeqinfo->uNumDPBFrms, num);
+				ctx->pSeqinfo->uNumDPBFrms, num, ctx->pSeqinfo->uNumRefFrms, ctx->pSeqinfo->uNumDFEAreas);
 		if (ctx->b_firstseq) {
 			const struct v4l2_event ev = {
 				.type = V4L2_EVENT_SOURCE_CHANGE,

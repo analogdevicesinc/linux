@@ -65,6 +65,7 @@ extern unsigned int vpu_dbg_level_decoder;
 #endif
 
 #define V4L2_MAX_CTRLS 12
+#define V4L2_PIX_FMT_NV12_10BIT    v4l2_fourcc('N', 'T', '1', '2') /*  Y/CbCr 4:2:0 for 10bit  */
 
 struct vpu_v4l2_control {
 	uint32_t id;
@@ -156,6 +157,7 @@ struct vb2_data_req {
 	struct vb2_buffer *vb2_buf;
 	int id;
 	u_int32 status;
+	bool bfield;
 };
 
 struct queue_data {
