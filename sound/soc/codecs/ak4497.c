@@ -815,9 +815,10 @@ struct snd_soc_dai_driver ak4497_dai[] = {
 	},
 };
 
-static void ak4497_init_reg(struct snd_soc_codec *codec)
+static int ak4497_init_reg(struct snd_soc_codec *codec)
 {
 	struct ak4497_priv *ak4497 = snd_soc_codec_get_drvdata(codec);
+	int ret = 0;
 
 	/* External Mute ON */
 	if (gpio_is_valid(ak4497->mute_gpio))
@@ -833,10 +834,16 @@ static void ak4497_init_reg(struct snd_soc_codec *codec)
 	/* ak4497_set_bias_level(codec, SND_SOC_BIAS_STANDBY); */
 
 	/* SYNCE bit = 1 */
-	snd_soc_update_bits(codec, AK4497_07_CONTROL5, 0x01, 0x01);
+	ret = snd_soc_update_bits(codec, AK4497_07_CONTROL5, 0x01, 0x01);
+	if (ret)
+		return ret;
 
 	/*  HLOAD bit = 1, SC2 bit = 1 */
-	snd_soc_update_bits(codec, AK4497_08_SOUNDCONTROL, 0x0F, 0x0C);
+	ret = snd_soc_update_bits(codec, AK4497_08_SOUNDCONTROL, 0x0F, 0x0C);
+	if (ret)
+		return ret;
+
+	return ret;
 }
 
 static int ak4497_parse_dt(struct ak4497_priv *ak4497)
@@ -882,16 +889,25 @@ static int ak4497_probe(struct snd_soc_codec *codec)
 	int ret = 0;
 
 	ret = ak4497_parse_dt(ak4497);
+	if (ret)
+		return ret;
+
 	if (gpio_is_valid(ak4497->pdn_gpio)) {
 		ret = gpio_request(ak4497->pdn_gpio, "ak4497 pdn");
+		if (ret)
+			return ret;
 		gpio_direction_output(ak4497->pdn_gpio, 0);
 	}
 	if (gpio_is_valid(ak4497->mute_gpio)) {
 		ret = gpio_request(ak4497->mute_gpio, "ak4497 mute");
+		if (ret)
+			return ret;
 		gpio_direction_output(ak4497->mute_gpio, 0);
 	}
 
-	ak4497_init_reg(codec);
+	ret = ak4497_init_reg(codec);
+	if (ret)
+		return ret;
 
 	ak4497->fs1 = 48000;
 	ak4497->nBickFreq = 1;
