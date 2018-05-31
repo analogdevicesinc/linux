@@ -881,11 +881,16 @@ static int mxc_isi_cap_streamon(struct file *file, void *priv,
 	int ret;
 
 	dev_dbg(&mxc_isi->pdev->dev, "%s\n", __func__);
-	mxc_isi_channel_enable(mxc_isi);
 
-	ret = vb2_ioctl_streamon(file, priv, type);
-
-	mxc_isi_pipeline_enable(mxc_isi, 1);
+	if (mxc_isi->interface[IN_PORT] == ISI_INPUT_INTERFACE_HDMI) {
+		mxc_isi_channel_enable(mxc_isi);
+		ret = vb2_ioctl_streamon(file, priv, type);
+		mxc_isi_pipeline_enable(mxc_isi, 1);
+	} else {
+		mxc_isi_pipeline_enable(mxc_isi, 1);
+		ret = vb2_ioctl_streamon(file, priv, type);
+		mxc_isi_channel_enable(mxc_isi);
+	}
 
 	return ret;
 }
@@ -897,11 +902,16 @@ static int mxc_isi_cap_streamoff(struct file *file, void *priv,
 	int ret;
 
 	dev_dbg(&mxc_isi->pdev->dev, "%s\n", __func__);
-	mxc_isi_channel_disable(mxc_isi);
 
-	ret = vb2_ioctl_streamoff(file, priv, type);
-
-	mxc_isi_pipeline_enable(mxc_isi, 0);
+	if (mxc_isi->interface[IN_PORT] == ISI_INPUT_INTERFACE_HDMI) {
+		mxc_isi_channel_disable(mxc_isi);
+		ret = vb2_ioctl_streamoff(file, priv, type);
+		mxc_isi_pipeline_enable(mxc_isi, 0);
+	} else {
+		mxc_isi_pipeline_enable(mxc_isi, 0);
+		ret = vb2_ioctl_streamoff(file, priv, type);
+		mxc_isi_channel_disable(mxc_isi);
+	}
 
 	return ret;
 }
