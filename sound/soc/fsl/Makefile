@@ -27,6 +27,8 @@ snd-soc-fsl-dma-objs := fsl_dma.o
 snd-soc-fsl-rpmsg-i2s-objs := fsl_rpmsg_i2s.o
 snd-soc-fsl-hdmi-objs := fsl_hdmi.o
 snd-soc-fsl-asoc-card-objs := fsl-asoc-card.o
+snd-soc-fsl-micfil-objs := fsl_micfil.o
+
 obj-$(CONFIG_SND_SOC_FSL_ACM) += snd-soc-fsl-acm.o
 obj-$(CONFIG_SND_SOC_FSL_AMIX) += snd-soc-fsl-amix.o
 obj-$(CONFIG_SND_SOC_FSL_ASRC) += snd-soc-fsl-asrc.o
@@ -40,6 +42,7 @@ obj-$(CONFIG_SND_SOC_FSL_HDMI) += snd-soc-fsl-hdmi.o
 obj-$(CONFIG_SND_SOC_POWERPC_DMA) += snd-soc-fsl-dma.o
 obj-$(CONFIG_SND_SOC_FSL_RPMSG_I2S) += snd-soc-fsl-rpmsg-i2s.o
 obj-$(CONFIG_SND_SOC_FSL_ASOC_CARD) += snd-soc-fsl-asoc-card.o
+obj-$(CONFIG_SND_SOC_FSL_MICFIL) += snd-soc-fsl-micfil.o
 
 # MPC5200 Platform Support
 obj-$(CONFIG_SND_MPC52xx_DMA) += mpc5200_dma.o
