@@ -6,12 +6,6 @@
  * published by the Free Software Foundation.
  */
 
-&bcmdhd_wlan_0 {
-	/* Need to define WL_HOST_WAKE for OOB IRQ: ENET2_RX_ER (gpio2_15) */
-	/* Hardware modification is needed on imx6ul evk for using OOB. */
-	gpios = <&gpio2 15 0>;  /* WL_HOST_WAKE */
-};
-
 &pinctrl_wifi {
 	fsl,pins = <
 		/* MUXing for WL_HOST_WAKE */
@@ -26,5 +20,11 @@
  * Refer to Murata Hardware Reference Manual for more details.
  */
 &fec2 {
-	status="disabled";
+	status = "disabled";
+};
+
+&brcmf {
+	interrupt-parent = <&gpio2>;
+	interrupts = <15 IRQ_TYPE_LEVEL_HIGH>;
+	interrupt-names = "host-wake";
 };
