@@ -1676,10 +1676,6 @@
 			 <&clk IMX8QM_DC0_DISP1_CLK>;
 		clock-names = "pll0", "pll1", "bypass0",
 			      "disp0_sel", "disp1_sel", "disp0", "disp1";
-		assigned-clocks = <&clk IMX8QM_DC0_DISP0_SEL>,
-				  <&clk IMX8QM_DC0_DISP1_SEL>;
-		assigned-clock-parents = <&clk IMX8QM_DC0_PLL0_CLK>,
-					 <&clk IMX8QM_DC0_PLL1_CLK>;
 		power-domains = <&pd_dc0_pll1>;
 		fsl,dpr-channels = <&dpr1_channel1>, <&dpr1_channel2>,
 				   <&dpr1_channel3>, <&dpr2_channel1>,
@@ -2144,10 +2140,6 @@
 			 <&clk IMX8QM_DC1_DISP1_CLK>;
 		clock-names = "pll0", "pll1", "bypass0",
 			      "disp0_sel", "disp1_sel", "disp0", "disp1";
-		assigned-clocks = <&clk IMX8QM_DC1_DISP0_SEL>,
-				  <&clk IMX8QM_DC1_DISP1_SEL>;
-		assigned-clock-parents = <&clk IMX8QM_DC1_PLL0_CLK>,
-					 <&clk IMX8QM_DC1_PLL1_CLK>;
 		power-domains = <&pd_dc1_pll1>;
 		fsl,dpr-channels = <&dpr3_channel1>, <&dpr3_channel2>,
 				   <&dpr3_channel3>, <&dpr4_channel1>,
