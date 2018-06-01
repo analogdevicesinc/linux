@@ -591,8 +591,9 @@ struct dpu_framegen;
 void framegen_enable(struct dpu_framegen *fg);
 void framegen_disable(struct dpu_framegen *fg);
 void framegen_shdtokgen(struct dpu_framegen *fg);
-void framegen_cfg_videomode(struct dpu_framegen *fg,
-				struct drm_display_mode *m);
+void
+framegen_cfg_videomode(struct dpu_framegen *fg, struct drm_display_mode *m,
+		       bool encoder_type_has_tmds);
 void framegen_pkickconfig(struct dpu_framegen *fg, bool enable);
 void framegen_sacfg(struct dpu_framegen *fg, unsigned int x, unsigned int y);
 void framegen_displaymode(struct dpu_framegen *fg, fgdm_t mode);

@@ -493,20 +493,39 @@ static void dpu_crtc_atomic_flush(struct drm_crtc *crtc,
 
 static void dpu_crtc_mode_set_nofb(struct drm_crtc *crtc)
 {
+	struct drm_device *dev = crtc->dev;
 	struct dpu_crtc *dpu_crtc = to_dpu_crtc(crtc);
 	struct imx_crtc_state *imx_crtc_state = to_imx_crtc_state(crtc->state);
 	struct drm_display_mode *mode = &crtc->state->adjusted_mode;
+	struct drm_encoder *encoder;
 	struct dpu_plane *dplane = to_dpu_plane(crtc->primary);
 	struct dpu_plane_res *res = &dplane->grp->res;
 	struct dpu_extdst *plane_ed = res->ed[dplane->stream_id];
 	extdst_src_sel_t ed_src;
+	unsigned long encoder_types = 0;
+	u32 encoder_mask;
+	bool encoder_type_has_tmds = false;
 
 	dev_dbg(dpu_crtc->dev, "%s: mode->hdisplay: %d\n", __func__,
 			mode->hdisplay);
 	dev_dbg(dpu_crtc->dev, "%s: mode->vdisplay: %d\n", __func__,
 			mode->vdisplay);
 
-	framegen_cfg_videomode(dpu_crtc->fg, mode);
+	list_for_each_entry(encoder, &dev->mode_config.encoder_list, head) {
+		encoder_mask = 1 << drm_encoder_index(encoder);
+
+		if (!(crtc->state->encoder_mask & encoder_mask))
+			continue;
+
+		encoder_types |= BIT(encoder->encoder_type);
+	}
+
+	if (encoder_types & BIT(DRM_MODE_ENCODER_TMDS)) {
+		encoder_type_has_tmds = true;
+		dev_dbg(dpu_crtc->dev, "%s: encoder type has TMDS\n", __func__);
+	}
+
+	framegen_cfg_videomode(dpu_crtc->fg, mode, encoder_type_has_tmds);
 	framegen_displaymode(dpu_crtc->fg, FGDM__SEC_ON_TOP);
 
 	framegen_panic_displaymode(dpu_crtc->fg, FGDM__TEST);

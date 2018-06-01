@@ -102,10 +102,13 @@ typedef enum {
 struct dpu_framegen {
 	void __iomem *base;
 	struct clk *clk_pll;
+	struct clk *clk_bypass;
+	struct clk *clk_disp_sel;
 	struct clk *clk_disp;
 	struct mutex mutex;
 	int id;
 	bool inuse;
+	bool use_bypass_clk;
 	struct dpu_soc *dpu;
 };
 
@@ -220,8 +223,11 @@ void framegen_shdtokgen(struct dpu_framegen *fg)
 }
 EXPORT_SYMBOL_GPL(framegen_shdtokgen);
 
-void framegen_cfg_videomode(struct dpu_framegen *fg, struct drm_display_mode *m)
+void
+framegen_cfg_videomode(struct dpu_framegen *fg, struct drm_display_mode *m,
+		       bool encoder_type_has_tmds)
 {
+	const struct dpu_devtype *devtype = fg->dpu->devtype;
 	u32 hact, htotal, hsync, hsbp;
 	u32 vact, vtotal, vsync, vsbp;
 	u32 val;
@@ -269,12 +275,6 @@ void framegen_cfg_videomode(struct dpu_framegen *fg, struct drm_display_mode *m)
 
 	disp_clock_rate = m->clock * 1000;
 
-	/* find an even divisor for PLL */
-	do {
-		div += 2;
-		pll_clock_rate = disp_clock_rate * div;
-	} while (pll_clock_rate < PLL_MIN_FREQ_HZ);
-
 	/*
 	 * To workaround setting clock rate failure issue
 	 * when the system resumes back from PM sleep mode,
@@ -282,10 +282,30 @@ void framegen_cfg_videomode(struct dpu_framegen *fg, struct drm_display_mode *m)
 	 * their rates, otherwise, setting the clock rates
 	 * will fail.
 	 */
-	clk_get_rate(fg->clk_pll);
-	clk_get_rate(fg->clk_disp);
-	clk_set_rate(fg->clk_pll, pll_clock_rate);
-	clk_set_rate(fg->clk_disp, disp_clock_rate);
+	if (devtype->has_disp_sel_clk && encoder_type_has_tmds) {
+		clk_set_parent(fg->clk_disp_sel, fg->clk_bypass);
+
+		clk_get_rate(fg->clk_disp);
+		clk_set_rate(fg->clk_disp, disp_clock_rate);
+
+		fg->use_bypass_clk = true;
+	} else {
+		/* find an even divisor for PLL */
+		do {
+			div += 2;
+			pll_clock_rate = disp_clock_rate * div;
+		} while (pll_clock_rate < PLL_MIN_FREQ_HZ);
+
+		if (devtype->has_disp_sel_clk)
+			clk_set_parent(fg->clk_disp_sel, fg->clk_pll);
+
+		clk_get_rate(fg->clk_pll);
+		clk_get_rate(fg->clk_disp);
+		clk_set_rate(fg->clk_pll, pll_clock_rate);
+		clk_set_rate(fg->clk_disp, disp_clock_rate);
+
+		fg->use_bypass_clk = false;
+	}
 }
 EXPORT_SYMBOL_GPL(framegen_cfg_videomode);
 
@@ -433,14 +453,16 @@ EXPORT_SYMBOL_GPL(framegen_wait_for_frame_counter_moving);
 
 void framegen_enable_clock(struct dpu_framegen *fg)
 {
-	clk_prepare_enable(fg->clk_pll);
+	if (!fg->use_bypass_clk)
+		clk_prepare_enable(fg->clk_pll);
 	clk_prepare_enable(fg->clk_disp);
 }
 EXPORT_SYMBOL_GPL(framegen_enable_clock);
 
 void framegen_disable_clock(struct dpu_framegen *fg)
 {
-	clk_disable_unprepare(fg->clk_pll);
+	if (!fg->use_bypass_clk)
+		clk_disable_unprepare(fg->clk_pll);
 	clk_disable_unprepare(fg->clk_disp);
 }
 EXPORT_SYMBOL_GPL(framegen_disable_clock);
@@ -525,6 +547,17 @@ int dpu_fg_init(struct dpu_soc *dpu, unsigned int id,
 	fg->clk_pll = devm_clk_get(dpu->dev, id ? "pll1" : "pll0");
 	if (IS_ERR(fg->clk_pll))
 		return PTR_ERR(fg->clk_pll);
+
+	if (dpu->devtype->has_disp_sel_clk) {
+		fg->clk_bypass = devm_clk_get(dpu->dev, "bypass0");
+		if (IS_ERR(fg->clk_bypass))
+			return PTR_ERR(fg->clk_bypass);
+
+		fg->clk_disp_sel = devm_clk_get(dpu->dev,
+					id ? "disp1_sel" : "disp0_sel");
+			if (IS_ERR(fg->clk_disp_sel))
+				return PTR_ERR(fg->clk_disp_sel);
+	}
 
 	fg->clk_disp = devm_clk_get(dpu->dev, id ? "disp1" : "disp0");
 	if (IS_ERR(fg->clk_disp))
