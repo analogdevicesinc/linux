@@ -1669,9 +1669,13 @@
 				  "irq_dpr1";
 		clocks = <&clk IMX8QM_DC0_PLL0_CLK>,
 			 <&clk IMX8QM_DC0_PLL1_CLK>,
+			 <&clk IMX8QM_DC0_BYPASS_0_DIV>,
+			 <&clk IMX8QM_DC0_DISP0_SEL>,
+			 <&clk IMX8QM_DC0_DISP1_SEL>,
 			 <&clk IMX8QM_DC0_DISP0_CLK>,
 			 <&clk IMX8QM_DC0_DISP1_CLK>;
-		clock-names = "pll0", "pll1", "disp0", "disp1";
+		clock-names = "pll0", "pll1", "bypass0",
+			      "disp0_sel", "disp1_sel", "disp0", "disp1";
 		assigned-clocks = <&clk IMX8QM_DC0_DISP0_SEL>,
 				  <&clk IMX8QM_DC0_DISP1_SEL>;
 		assigned-clock-parents = <&clk IMX8QM_DC0_PLL0_CLK>,
@@ -2133,9 +2137,13 @@
 				  "irq_dpr1";
 		clocks = <&clk IMX8QM_DC1_PLL0_CLK>,
 			 <&clk IMX8QM_DC1_PLL1_CLK>,
+			 <&clk IMX8QM_DC1_BYPASS_0_DIV>,
+			 <&clk IMX8QM_DC1_DISP0_SEL>,
+			 <&clk IMX8QM_DC1_DISP1_SEL>,
 			 <&clk IMX8QM_DC1_DISP0_CLK>,
 			 <&clk IMX8QM_DC1_DISP1_CLK>;
-		clock-names = "pll0", "pll1", "disp0", "disp1";
+		clock-names = "pll0", "pll1", "bypass0",
+			      "disp0_sel", "disp1_sel", "disp0", "disp1";
 		assigned-clocks = <&clk IMX8QM_DC1_DISP0_SEL>,
 				  <&clk IMX8QM_DC1_DISP1_SEL>;
 		assigned-clock-parents = <&clk IMX8QM_DC1_PLL0_CLK>,
