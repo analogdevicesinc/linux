@@ -119,7 +119,7 @@ void dpu_be_configure_prefetch(struct dpu_bliteng *dpu_be,
 	 * Waiting for the previous tiled command finished
 	 * before disable the dpr.
 	 */
-	if (tiled_work_unfinished) {
+	if (tiled_work_unfinished || baddr) {
 		dpu_be_wait(dpu_be);
 		dpu_cs_wait_idle(dpu_be);
 		udelay(10);
@@ -127,7 +127,8 @@ void dpu_be_configure_prefetch(struct dpu_bliteng *dpu_be,
 	}
 
 	if (baddr == 0x0) {
-		dprc_disable(dprc);
+		if (!start)
+			dprc_disable(dprc);
 		start = true;
 		return;
 	}
