@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 NXP
+ * Copyright 2017-2018 NXP
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -46,13 +46,6 @@
 		spdif-in;
 		spdif-out;
 	};
-};
-
-&dpu1 {
-		assigned-clocks = <&clk IMX8QM_DC0_DISP0_SEL>,
-						<&clk IMX8QM_DC0_DISP1_SEL>;
-		assigned-clock-parents = <&clk IMX8QM_DC0_BYPASS_0_DIV>,
-						<&clk IMX8QM_DC0_PLL1_CLK>;
 };
 
 &ldb1_phy {
