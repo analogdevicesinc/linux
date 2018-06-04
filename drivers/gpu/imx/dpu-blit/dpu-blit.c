@@ -121,8 +121,6 @@ void dpu_be_configure_prefetch(struct dpu_bliteng *dpu_be,
 	 */
 	if (tiled_work_unfinished || baddr) {
 		dpu_be_wait(dpu_be);
-		dpu_cs_wait_idle(dpu_be);
-		udelay(10);
 		tiled_work_unfinished = false;
 	}
 
@@ -249,7 +247,11 @@ EXPORT_SYMBOL(dpu_be_blit);
 #define STORE9_SEQCOMPLETE_IRQ_MASK	(1U<<STORE9_SEQCOMPLETE_IRQ)
 void dpu_be_wait(struct dpu_bliteng *dpu_be)
 {
-	dpu_be_write(dpu_be, 0x10, PIXENGCFG_STORE9_TRIGGER);
+	dpu_cs_wait_fifo_space(dpu_be);
+
+	dpu_be_write(dpu_be, 0x14000001, CMDSEQ_HIF);
+	dpu_be_write(dpu_be, PIXENGCFG_STORE9_TRIGGER, CMDSEQ_HIF);
+	dpu_be_write(dpu_be, 0x10, CMDSEQ_HIF);
 
 	while ((dpu_be_read(dpu_be, COMCTRL_INTERRUPTSTATUS0) &
 		STORE9_SEQCOMPLETE_IRQ_MASK) == 0)
