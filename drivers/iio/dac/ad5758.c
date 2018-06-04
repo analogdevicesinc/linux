@@ -612,6 +612,7 @@ static const struct iio_chan_spec ad5758_channels[] = {
 		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW),
 		.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SCALE),
 		.indexed = 1,
+		.output = 1,
 		.channel = 0,
 		.scan_index = 0,
 		.scan_type = {
