@@ -127,8 +127,10 @@ void dpu_be_configure_prefetch(struct dpu_bliteng *dpu_be,
 	}
 
 	if (baddr == 0x0) {
-		if (!start)
+		if (!start) {
 			dprc_disable(dprc);
+			need_handle_start = false;
+		}
 		start = true;
 		return;
 	}
