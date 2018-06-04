@@ -116,7 +116,7 @@ static char *event2str[] = {
 	"VID_API_EVENT_RET_PING",
 	"VID_API_EVENT_QMETER",
 	"VID_API_EVENT_STR_FMT_CHANGED",
-	"VID_API_EVENT_MIPS_XCPT",
+	"VID_API_EVENT_FIRMWARE_XCPT",
 	"VID_API_EVENT_START_DONE",
 	"VID_API_EVENT_STOPPED",
 	"VID_API_EVENT_ABORT_DONE",
@@ -1499,7 +1499,10 @@ static void vpu_api_event_handler(struct vpu_ctx *ctx, u_int32 uStrIdx, u_int32 
 			vpu_dbg(LVL_ERR, "error: buffer(%d) need to set FRAME_DECODED, but previous state %s is not FRAME_FREE\n",
 					buffer_id, bufstat[ctx->q_data[V4L2_DST].vb2_reqs[buffer_id].status]);
 		ctx->q_data[V4L2_DST].vb2_reqs[buffer_id].status = FRAME_DECODED;
-		ctx->q_data[V4L2_DST].vb2_reqs[buffer_id].bfield = pDispInfo->bTopFldFirst;
+		if ((pDispInfo->bTopFldFirst == 1) && (pPicInfo[uStrIdx].uPicStruct == 2))//uPicStruct == 2 is field
+			ctx->q_data[V4L2_DST].vb2_reqs[buffer_id].bfield = true;
+		else
+			ctx->q_data[V4L2_DST].vb2_reqs[buffer_id].bfield = false;
 		}
 		break;
 	case VID_API_EVENT_SEQ_HDR_FOUND: {
@@ -1809,7 +1812,10 @@ static void vpu_api_event_handler(struct vpu_ctx *ctx, u_int32 uStrIdx, u_int32 
 		v4l2_event_queue_fh(&ctx->fh, &ev); //notfiy app stream eos reached
 
 	}	break;
+	case VID_API_EVENT_FIRMWARE_XCPT:
+		vpu_dbg(LVL_ERR, "warning: FIRMWARE hang, and send event VID_API_EVENT_FIRMWARE_XCPT\n");
 	default:
+		vpu_dbg(LVL_ERR, "warning: uEvent %d is not handled\n", uEvent);
 		break;
 	}
 	vpu_dbg(LVL_INFO, "leave %s, uEvent %d\n", __func__, uEvent);
