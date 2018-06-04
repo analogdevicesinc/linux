@@ -707,6 +707,14 @@ static inline void ahash_unmap(struct device *dev,
 	if (edesc->dst_dma)
 		dma_unmap_single(dev, edesc->dst_dma, dst_len, DMA_FROM_DEVICE);
 
+	if (state->buf_dma) {
+		dma_unmap_single(dev, state->buf_dma,
+			(state->current_buf ?
+				state->buflen_1 : state->buflen_0),
+			DMA_TO_DEVICE);
+		state->buf_dma = 0;
+	}
+
 	if (edesc->sec4_sg_bytes)
 		dma_unmap_single(dev, edesc->sec4_sg_dma,
 				 edesc->sec4_sg_bytes, DMA_TO_DEVICE);
