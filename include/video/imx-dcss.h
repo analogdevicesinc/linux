@@ -106,6 +106,7 @@ bool dcss_scaler_can_scale(struct dcss_soc *dcss, int ch_num,
 
 /* CTXLD */
 int dcss_ctxld_enable(struct dcss_soc *dcss);
+bool dcss_ctxld_is_flushed(struct dcss_soc *dcss);
 
 /* HDR10 */
 enum dcss_hdr10_nonlinearity {

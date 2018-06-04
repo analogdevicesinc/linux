@@ -111,6 +111,8 @@ struct dcss_dpr_ch {
 	u32 sys_ctrl;
 	u32 rtram_ctrl;
 
+	bool sys_ctrl_chgd;
+
 	u32 pitch;
 
 	bool use_dtrc;
@@ -431,8 +433,7 @@ void dcss_dpr_enable(struct dcss_soc *dcss, int ch_num, bool en)
 	}
 
 	if (ch->sys_ctrl != sys_ctrl)
-		dcss_dpr_write(dpr, ch_num, sys_ctrl,
-			       DCSS_DPR_SYSTEM_CTRL0);
+		ch->sys_ctrl_chgd = true;
 
 	ch->sys_ctrl = sys_ctrl;
 }
@@ -651,3 +652,19 @@ void dcss_dpr_format_set(struct dcss_soc *dcss, int ch_num, u32 pix_format,
 	dcss_dpr_rtram_set(dcss, ch_num, pix_format);
 }
 EXPORT_SYMBOL(dcss_dpr_format_set);
+
+void dcss_dpr_write_sysctrl(struct dcss_soc *dcss)
+{
+	int chnum;
+
+	for (chnum = 0; chnum < 3; chnum++) {
+		struct dcss_dpr_ch *ch = &dcss->dpr_priv->ch[chnum];
+
+		if (ch->sys_ctrl_chgd) {
+			dcss_ctxld_write_irqsafe(dcss, ch->ctx_id, ch->sys_ctrl,
+						 ch->base_ofs +
+						 DCSS_DPR_SYSTEM_CTRL0);
+			ch->sys_ctrl_chgd = false;
+		}
+	}
+}

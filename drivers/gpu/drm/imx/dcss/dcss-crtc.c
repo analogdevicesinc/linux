@@ -286,7 +286,8 @@ static irqreturn_t dcss_crtc_irq_handler(int irq, void *dev_id)
 	struct dcss_crtc *dcss_crtc = dev_id;
 	struct dcss_soc *dcss = dev_get_drvdata(dcss_crtc->dev->parent);
 
-	drm_crtc_handle_vblank(&dcss_crtc->base);
+	if (dcss_ctxld_is_flushed(dcss))
+		drm_crtc_handle_vblank(&dcss_crtc->base);
 
 	dcss_vblank_irq_clear(dcss);
 

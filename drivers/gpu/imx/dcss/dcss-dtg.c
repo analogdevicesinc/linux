@@ -17,6 +17,8 @@
 #include <linux/io.h>
 #include <linux/clk.h>
 #include <linux/delay.h>
+#include <linux/platform_device.h>
+#include <linux/interrupt.h>
 #include <drm/drm_fourcc.h>
 
 #include <video/imx-dcss.h>
@@ -136,6 +138,8 @@ struct dcss_dtg_priv {
 	u32 alpha;
 	u32 use_global;
 
+	int ctxld_kick_irq;
+
 	/*
 	 * This will be passed on by DRM CRTC so that we can signal when DTG has
 	 * been successfully stopped. Otherwise, any modesetting while DTG is
@@ -169,6 +173,44 @@ void dcss_dtg_dump_regs(struct seq_file *s, void *data)
 }
 #endif
 
+static irqreturn_t dcss_dtg_irq_handler(int irq, void *data)
+{
+	struct dcss_dtg_priv *dtg = data;
+	u32 status;
+
+	status = dcss_readl(dtg->base_reg + DCSS_DTG_INT_STATUS);
+
+	dcss_ctxld_kick(dtg->dcss);
+
+	dcss_writel(status & LINE1_IRQ, dtg->base_reg + DCSS_DTG_INT_CONTROL);
+
+	return IRQ_HANDLED;
+}
+
+static int dcss_dtg_irq_config(struct dcss_dtg_priv *dtg)
+{
+	struct dcss_soc *dcss = dtg->dcss;
+	struct platform_device *pdev = to_platform_device(dcss->dev);
+	int ret;
+
+	dtg->ctxld_kick_irq = platform_get_irq_byname(pdev, "ctxld_kick");
+	if (dtg->ctxld_kick_irq < 0) {
+		dev_err(dcss->dev, "dtg: can't get line2 irq number\n");
+		return dtg->ctxld_kick_irq;
+	}
+
+	ret = devm_request_irq(dcss->dev, dtg->ctxld_kick_irq,
+			       dcss_dtg_irq_handler,
+			       IRQF_TRIGGER_HIGH,
+			       "dcss_ctxld_kick", dtg);
+	if (ret) {
+		dev_err(dcss->dev, "dtg: irq request failed.\n");
+		return ret;
+	}
+
+	return 0;
+}
+
 int dcss_dtg_init(struct dcss_soc *dcss, unsigned long dtg_base)
 {
 	struct dcss_dtg_priv *dtg;
@@ -198,7 +240,7 @@ int dcss_dtg_init(struct dcss_soc *dcss, unsigned long dtg_base)
 	dtg->control_status |= OVL_DATA_MODE | BLENDER_VIDEO_ALPHA_SEL |
 		((dtg->alpha << DEFAULT_FG_ALPHA_POS) & DEFAULT_FG_ALPHA_MASK);
 
-	return 0;
+	return dcss_dtg_irq_config(dtg);
 }
 
 void dcss_dtg_exit(struct dcss_soc *dcss)
@@ -215,6 +257,7 @@ void dcss_dtg_sync_set(struct dcss_soc *dcss, struct videomode *vm)
 	u16 dtg_lrc_x, dtg_lrc_y;
 	u16 dis_ulc_x, dis_ulc_y;
 	u16 dis_lrc_x, dis_lrc_y;
+	u32 sb_ctxld_trig, db_ctxld_trig;
 
 	dev_dbg(dcss->dev, "hfront_porch = %d\n", vm->hfront_porch);
 	dev_dbg(dcss->dev, "hback_porch = %d\n", vm->hback_porch);
@@ -253,14 +296,18 @@ void dcss_dtg_sync_set(struct dcss_soc *dcss, struct videomode *vm)
 	dtg->dis_ulc_x = dis_ulc_x;
 	dtg->dis_ulc_y = dis_ulc_y;
 
-	/*
-	 * If the dis_ulc_y is too small, then the context loader will not have
-	 * time to load the DB context. This happens with LCD panels which have
-	 * small vfront_porch, vback_porch and/or vsync_len.
-	 */
-	dcss_dtg_write(dtg, ((0 << TC_CTXLD_SB_Y_POS) & TC_CTXLD_SB_Y_MASK) |
-			(dis_ulc_y < 50 ? 50 : dis_ulc_y),
-			DCSS_DTG_TC_CTXLD);
+	sb_ctxld_trig = ((0 * dis_lrc_y / 100) << TC_CTXLD_SB_Y_POS) &
+							TC_CTXLD_SB_Y_MASK;
+	db_ctxld_trig = ((99 * dis_lrc_y / 100) << TC_CTXLD_DB_Y_POS) &
+							TC_CTXLD_DB_Y_MASK;
+
+	dcss_dtg_write(dtg, sb_ctxld_trig | db_ctxld_trig, DCSS_DTG_TC_CTXLD);
+
+	/* vblank trigger */
+	dcss_dtg_write(dtg, 0, DCSS_DTG_LINE0_INT);
+
+	/* CTXLD trigger */
+	dcss_dtg_write(dtg, ((98 * dis_lrc_y) / 100) << 16, DCSS_DTG_LINE1_INT);
 }
 EXPORT_SYMBOL(dcss_dtg_sync_set);
 
@@ -424,11 +471,16 @@ void dcss_dtg_vblank_irq_enable(struct dcss_soc *dcss, bool en)
 {
 	void __iomem *reg;
 	struct dcss_dtg_priv *dtg = dcss->dtg_priv;
-	u32 val = en ? LINE0_IRQ : 0;
+	u32 val = en ? (LINE0_IRQ | LINE1_IRQ) : 0;
+
+	/* need to keep the CTXLD kick interrupt ON if DTRC is used */
+	if (!en && (dcss_dtrc_is_running(dcss, 1) ||
+		    dcss_dtrc_is_running(dcss, 2)))
+		val |= LINE1_IRQ;
 
 	reg = dtg->base_reg + DCSS_DTG_INT_MASK;
 
-	dcss_update(val, LINE0_IRQ, reg);
+	dcss_update(val, LINE0_IRQ | LINE1_IRQ, reg);
 }
 
 void dcss_dtg_vblank_irq_clear(struct dcss_soc *dcss)

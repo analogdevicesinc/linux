@@ -107,6 +107,8 @@ struct dcss_scaler_ch {
 	u32 sdata_ctrl;
 	u32 scaler_ctrl;
 
+	bool scaler_ctrl_chgd;
+
 	u32 c_vstart;
 	u32 c_hstart;
 };
@@ -397,8 +399,7 @@ void dcss_scaler_enable(struct dcss_soc *dcss, int ch_num, bool en)
 				  DCSS_SCALER_SDATA_CTRL);
 
 	if (ch->scaler_ctrl != scaler_ctrl)
-		dcss_scaler_write(dcss->scaler_priv, ch_num, scaler_ctrl,
-				  DCSS_SCALER_CTRL);
+		ch->scaler_ctrl_chgd = true;
 
 	ch->scaler_ctrl = scaler_ctrl;
 }
@@ -977,3 +978,19 @@ void dcss_scaler_setup(struct dcss_soc *dcss, int ch_num, u32 pix_format,
 			       dst_yres, vrefresh_hz, wrscl_needed);
 }
 EXPORT_SYMBOL(dcss_scaler_setup);
+
+void dcss_scaler_write_sclctrl(struct dcss_soc *dcss)
+{
+	int chnum;
+
+	for (chnum = 0; chnum < 3; chnum++) {
+		struct dcss_scaler_ch *ch = &dcss->scaler_priv->ch[chnum];
+
+		if (ch->scaler_ctrl_chgd) {
+			dcss_ctxld_write_irqsafe(dcss, ch->ctx_id,
+						 ch->scaler_ctrl,
+					ch->base_ofs + DCSS_SCALER_CTRL);
+			ch->scaler_ctrl_chgd = false;
+		}
+	}
+}

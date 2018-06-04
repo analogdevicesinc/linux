@@ -80,10 +80,12 @@ int dcss_ctxld_resume(struct dcss_soc *dcss);
 int dcss_ctxld_suspend(struct dcss_soc *dcss);
 void dcss_ctxld_write_irqsafe(struct dcss_soc *dcss, u32 ctx_id, u32 val,
 			      u32 reg_ofs);
+void dcss_ctxld_kick(struct dcss_soc *dcss);
 
 /* DPR */
 int dcss_dpr_init(struct dcss_soc *dcss, unsigned long dpr_base);
 void dcss_dpr_exit(struct dcss_soc *dcss);
+void dcss_dpr_write_sysctrl(struct dcss_soc *dcss);
 
 /* DTG */
 int dcss_dtg_init(struct dcss_soc *dcss, unsigned long dtg_base);
@@ -103,6 +105,7 @@ void dcss_hdr10_cfg(struct dcss_soc *dcss);
 /* SCALER */
 int dcss_scaler_init(struct dcss_soc *dcss, unsigned long scaler_base);
 void dcss_scaler_exit(struct dcss_soc *dcss);
+void dcss_scaler_write_sclctrl(struct dcss_soc *dcss);
 
 /* DTRC */
 int dcss_dtrc_init(struct dcss_soc *dcss, unsigned long dtrc_base);
