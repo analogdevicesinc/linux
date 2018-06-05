@@ -19,7 +19,7 @@ obj-$(CONFIG_CRYPTO_DEV_FSL_CAAM_SM_TEST) += sm_test.o
 obj-$(CONFIG_CRYPTO_DEV_FSL_CAAM_SECVIO) += secvio.o
 
 caam-objs := ctrl.o
-caam_jr-objs := jr.o key_gen.o error.o
+caam_jr-objs := jr.o key_gen.o error.o inst_rng.o
 caam_pkc-y := caampkc.o pkc_desc.o
 ifneq ($(CONFIG_CRYPTO_DEV_FSL_CAAM_CRYPTO_API_QI),)
 	ccflags-y += -DCONFIG_CAAM_QI

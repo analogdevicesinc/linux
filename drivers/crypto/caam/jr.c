@@ -14,6 +14,7 @@
 #include "jr.h"
 #include "desc.h"
 #include "intern.h"
+#include "inst_rng.h"
 
 struct jr_driver_data {
 	/* List of Physical JobR's with the Driver */
@@ -99,6 +100,12 @@ static int caam_jr_remove(struct platform_device *pdev)
 
 	jrdev = &pdev->dev;
 	jrpriv = dev_get_drvdata(jrdev);
+
+	/*
+	 * Deinstantiate RNG by first JR
+	 */
+	if (jrpriv->ridx == 0)
+		deinst_rng(pdev);
 
 	/*
 	 * Return EBUSY if job ring already allocated.
@@ -358,7 +365,6 @@ int caam_jr_enqueue(struct device *dev, u32 *desc,
 	head_entry->desc_addr_dma = desc_dma;
 
 	jrp->inpring[jrp->inp_ring_write_index] = cpu_to_caam_dma(desc_dma);
-
 	/*
 	 * Guarantee that the descriptor's DMA address has been written to
 	 * the next slot in the ring before the write index is updated, since
@@ -544,8 +550,31 @@ static int caam_jr_probe(struct platform_device *pdev)
 
 	device_init_wakeup(&pdev->dev, 1);
 	device_set_wakeup_enable(&pdev->dev, false);
-
-	return 0;
+	/*
+	 * Instantiate RNG by JR rather than DECO
+	 */
+	if (jrpriv->ridx == 0) {
+		if (of_machine_is_compatible("fsl,imx8qm") ||
+			of_machine_is_compatible("fsl,imx8qxp")) {
+			/*
+			 * This is a workaround for SOC REV_A0:
+			 * i.MX8QM and i.MX8QXP reach kernel level
+			 * with RNG un-instantiated. It is instantiated
+			 * here unlike REV_B0 and later.
+			 */
+#ifdef CONFIG_HAVE_IMX8_SOC
+			if (imx8_get_soc_revision() == IMX_CHIP_REVISION_1_0)
+				error = inst_rng_imx8(pdev);
+#endif
+		} else {
+			/*
+			 * This call is done for legacy SOCs:
+			 * i.MX6 i.MX7 and i.MX8M (mScale).
+			 */
+			error = inst_rng_imx6(pdev);
+		}
+	}
+	return error;
 }
 
 #ifdef CONFIG_PM
