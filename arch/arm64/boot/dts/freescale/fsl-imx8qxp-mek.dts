@@ -92,7 +92,6 @@
 		model = "wm8960-audio";
 		cpu-dai = <&sai1>;
 		audio-codec = <&wm8960>;
-		asrc-controller = <&asrc0>;
 		codec-master;
 		/*
 		 * hp-det = <hp-det-pin hp-det-polarity>;
@@ -135,6 +134,7 @@
 		model = "imx-cs42888";
 		esai-controller = <&esai0>;
 		audio-codec = <&cs42888>;
+		asrc-controller = <&asrc0>;
 		status = "okay";
 	};
 };
