@@ -1131,6 +1131,7 @@ fec_restart(struct net_device *ndev)
 static int fec_enet_stop_mode(struct fec_enet_private *fep, bool enabled)
 {
 	struct fec_platform_data *pdata = fep->pdev->dev.platform_data;
+	struct device_node *np = fep->pdev->dev.of_node;
 
 	if (fep->gpr.gpr) {
 		if (enabled)
@@ -1143,6 +1144,8 @@ static int fec_enet_stop_mode(struct fec_enet_private *fep, bool enabled)
 					   0);
 	} else if (pdata && pdata->sleep_mode_enable) {
 		pdata->sleep_mode_enable(enabled);
+	} else {
+		fec_enet_ipg_stop_misc_set(np, enabled);
 	}
 
 	return 0;

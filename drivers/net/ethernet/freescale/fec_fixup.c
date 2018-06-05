@@ -197,9 +197,38 @@ static void imx8qm_get_mac_from_fuse(int dev_id, unsigned char *mac,
 	mac[4] = val2;
 	mac[5] = val2 >> 8;
 }
+
+static void imx8qm_ipg_stop_enable(int dev_id, bool enabled)
+{
+	uint32_t mu_id;
+	sc_ipc_t ipc_handle;
+	sc_err_t sc_err = SC_ERR_NONE;
+	uint32_t rsrc_id, val;
+
+	sc_err = sc_ipc_getMuID(&mu_id);
+	if (sc_err != SC_ERR_NONE) {
+		pr_err("FEC MAC fuse: Get MU ID failed\n");
+		return;
+	}
+
+	sc_err = sc_ipc_open(&ipc_handle, mu_id);
+	if (sc_err != SC_ERR_NONE) {
+		pr_err("FEC MAC fuse: Open MU channel failed\n");
+		return;
+	}
+
+	if (dev_id == 0)
+		rsrc_id = SC_R_ENET_0;
+	else
+		rsrc_id = SC_R_ENET_1;
+
+	val = enabled ? 1 : 0;
+	sc_misc_set_control(ipc_handle, rsrc_id, SC_C_IPG_STOP, val);
+}
 #else
 static void imx8qm_get_mac_from_fuse(int dev_id, unsigned char *mac,
 				     struct imx_fuse_mac_addr *fuse_mapping) {}
+static void imx8qm_ipg_stop_enable(int dev_id, bool enabled) {}
 #endif
 
 void fec_enet_get_mac_from_fuse(struct device_node *np, unsigned char *mac)
@@ -221,4 +250,20 @@ void fec_enet_get_mac_from_fuse(struct device_node *np, unsigned char *mac)
 					 &imx8_fuse_mapping[IMX8QXP_FUSE]);
 	else if (of_machine_is_compatible("fsl,imx8mq"))
 		imx8mq_get_mac_from_fuse(idx, mac);
+}
+
+void fec_enet_ipg_stop_misc_set(struct device_node *np, bool enabled)
+{
+	int idx;
+
+	if (!np)
+		return;
+
+	idx = of_alias_get_id(np, "ethernet");
+	if (idx < 0)
+		idx = 0;
+
+	if (of_machine_is_compatible("fsl,imx8qm") ||
+	    of_machine_is_compatible("fsl,imx8qxp"))
+		imx8qm_ipg_stop_enable(idx, enabled);
 }
