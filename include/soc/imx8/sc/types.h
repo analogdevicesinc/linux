@@ -763,6 +763,15 @@ typedef enum sc_ctrl_e {
 	SC_C_RST0 = 43,
 	SC_C_RST1 = 44,
 	SC_C_SEL0 = 45,
+	SC_C_CALIB0 = 46,
+	SC_C_CALIB1 = 47,
+	SC_C_CALIB2 = 48,
+	SC_C_IPG_DEBUG = 49,
+	SC_C_IPG_DOZE = 50,
+	SC_C_IPG_WAIT = 51,
+	SC_C_IPG_STOP = 52,
+	SC_C_IPG_STOP_MODE = 53,
+	SC_C_IPG_STOP_ACK = 54,
 	SC_C_LAST
 } sc_ctrl_t;
 
