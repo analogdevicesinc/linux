@@ -89,8 +89,7 @@ struct caam_drv_private {
 	struct caam_deco __iomem *deco; /* DECO/CCB views */
 	struct caam_assurance __iomem *assure;
 	struct caam_queue_if __iomem *qi; /* QI control region */
-	/* JobR's register space */
-	struct caam_job_ring __iomem *jr[JOBR_MAX_COUNT];
+	struct caam_job_ring __iomem *jr[JOBR_MAX_COUNT]; /* JRs registers */
 	dma_addr_t __iomem *sm_base;	/* Secure memory storage base */
 	u32 sm_size;
 
@@ -122,11 +121,6 @@ struct caam_drv_private {
 #ifdef CONFIG_DEBUG_FS
 	struct dentry *dfs_root;
 	struct dentry *ctl; /* controller dir */
-	struct dentry *ctl_rq_dequeued, *ctl_ob_enc_req, *ctl_ib_dec_req;
-	struct dentry *ctl_ob_enc_bytes, *ctl_ob_prot_bytes;
-	struct dentry *ctl_ib_dec_bytes, *ctl_ib_valid_bytes;
-	struct dentry *ctl_faultaddr, *ctl_faultdetail, *ctl_faultstatus;
-
 	struct debugfs_blob_wrapper ctl_kek_wrap, ctl_tkek_wrap, ctl_tdsk_wrap;
 	struct dentry *ctl_kek, *ctl_tkek, *ctl_tdsk;
 #endif
