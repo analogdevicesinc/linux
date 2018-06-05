@@ -159,10 +159,12 @@
 };
 
 &fec1 {
+	interrupt-parent = <&gic>;
 	/delete-property/ iommus;
 };
 
 &fec2 {
+	interrupt-parent = <&gic>;
 	/delete-property/ iommus;
 };
 
