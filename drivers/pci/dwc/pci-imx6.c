@@ -1951,7 +1951,7 @@ static void pci_imx_pm_turn_off(struct imx_pcie *imx_pcie)
 		break;
 	case IMX6Q:
 		dev_info(dev, "Info: don't support pm_turn_off yet.\n");
-		break;
+		return;
 	}
 
 	udelay(1000);
