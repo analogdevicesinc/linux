@@ -16,6 +16,9 @@ Required properties:
 	"pll-ref"	- DSIM PHY PLL reference clock
 - assigned-clocks:	phandles to clocks that requires initial configuration
 - assigned-clock-rates:	rates of the clocks that requires initial configuration
+- pref-clk:		Assign DPHY PLL reference clock frequency. If not exists,
+			DSIM bridge driver will use the default lock frequency
+			which is 27MHz.
 - port: 		input and output port nodes with endpoint definitions as
 			defined in Documentation/devicetree/bindings/graph.txt;
 			the input port should be connected to an encoder or a
