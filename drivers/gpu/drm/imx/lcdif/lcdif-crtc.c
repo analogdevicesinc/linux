@@ -295,6 +295,10 @@ static int lcdif_crtc_bind(struct device *dev, struct device *master,
 	if (!drm->mode_config.helper_private)
 		drm->mode_config.helper_private = &lcdif_drm_mode_config_helpers;
 
+	/* limit the max width and height */
+	drm->mode_config.max_width  = 1920;
+	drm->mode_config.max_height = 1080;
+
 	dev_set_drvdata(dev, lcdif_crtc);
 
 	dev_dbg(dev, "%s: lcdif crtc bind end\n", __func__);
