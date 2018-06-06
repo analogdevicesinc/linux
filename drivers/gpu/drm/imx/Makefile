@@ -13,3 +13,4 @@ obj-$(CONFIG_DRM_IMX_IPUV3) += ipuv3/
 obj-$(CONFIG_DRM_IMX_DPU) += dpu/
 obj-$(CONFIG_DRM_IMX_HDP) += hdp/
 obj-$(CONFIG_DRM_IMX_DCSS) += dcss/
+obj-$(CONFIG_DRM_IMX_LCDIF) += lcdif/
