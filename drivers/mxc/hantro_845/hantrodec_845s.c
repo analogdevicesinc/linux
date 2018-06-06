@@ -483,7 +483,7 @@ static int GetDecCoreID(unsigned long format)
 	PDEBUG("GetDecCoreID=%d\n", core_id);
 	return core_id;
 }
-
+#if 0
 static int hantrodec_choose_core(int is_g1)
 {
 	volatile unsigned char *reg = NULL;
@@ -517,7 +517,7 @@ static int hantrodec_choose_core(int is_g1)
 	PDEBUG("hantrodec_choose_core OK!\n");
 	return 0;
 }
-
+#endif
 
 static long ReserveDecoder(hantrodec_t *dev, struct file *filp, unsigned long format)
 {
@@ -537,6 +537,7 @@ static long ReserveDecoder(hantrodec_t *dev, struct file *filp, unsigned long fo
 	if (wait_event_interruptible(hw_queue, GetDecCoreAny(&Core, dev, filp, format) != 0))
 		return -ERESTARTSYS;
 #endif
+#if 0
 	if (IS_G1(dev->hw_id)) {
 		if (0 == hantrodec_choose_core(1))
 			PDEBUG("G1 is reserved\n");
@@ -548,7 +549,7 @@ static long ReserveDecoder(hantrodec_t *dev, struct file *filp, unsigned long fo
 		else
 			return -1;
 	}
-
+#endif
 #ifdef CONFIG_DEVICE_THERMAL_XXX
 	if (hantro_dynamic_clock)
 		hantro_thermal_check(hantro_dev);
