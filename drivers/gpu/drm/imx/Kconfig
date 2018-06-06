@@ -5,7 +5,7 @@ config DRM_IMX
 	select VIDEOMODE_HELPERS
 	select DRM_GEM_DMA_HELPER
 	depends on DRM && (ARCH_MXC || ARCH_MULTIPLATFORM || COMPILE_TEST)
-	depends on IMX_IPUV3_CORE
+	depends on IMX_IPUV3_CORE || IMX8MM_LCDIF_CORE
 	help
 	  enable i.MX graphics support
 
@@ -48,4 +48,5 @@ config DRM_IMX_HDMI
 	  Choose this if you want to use HDMI on i.MX6.
 
 source "drivers/gpu/drm/imx/dcss/Kconfig"
+source "drivers/gpu/drm/imx/lcdif/Kconfig"
 source "drivers/gpu/drm/imx/lcdc/Kconfig"
