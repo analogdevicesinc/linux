@@ -1,0 +1,81 @@
+#include <dt-bindings/iio/frequency/ad9528.h>
+
+&fmc_spi {
+
+	ad9528: ad9528@0 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		#clock-cells = <1>;
+		compatible = "adi,ad9528";
+
+		spi-max-frequency = <10000000>;
+		//adi,spi-3wire-enable;
+		reg = <0>;
+
+		clock-output-names = "ad9528_out0", "ad9528_out1", "ad9528_out2", "ad9528_out3", "ad9528_out4", "ad9528_out5", "ad9528_out6", "ad9528_out7", "ad9528_out8", "ad9528_out9", "ad9528_out10", "ad9528_out11", "ad9528_out12", "ad9528_out13";
+		adi,vcxo-freq = <122880000>;
+
+		adi,refa-enable;
+		adi,refa-diff-rcv-enable;
+		adi,refa-r-div = <1>;
+		adi,osc-in-cmos-neg-inp-enable;
+
+		/* PLL1 config */
+		adi,pll1-feedback-div = <4>;
+		adi,pll1-charge-pump-current-nA = <5000>;
+
+
+		/* PLL2 config */
+//		adi,pll2-m1-frequency = <737280000>;
+		adi,pll2-m1-frequency = <983040000>;
+		adi,pll2-charge-pump-current-nA = <805000>;
+
+		/* SYSREF config */
+		adi,sysref-src = <SYSREF_SRC_INTERNAL>;
+		adi,sysref-pattern-mode = <SYSREF_PATTERN_STOP>;
+		adi,sysref-k-div = <512>;
+		adi,sysref-request-enable;
+		adi,sysref-nshot-mode = <SYSREF_NSHOT_4_PULSES>;
+		adi,sysref-request-trigger-mode = <SYSREF_LEVEL_HIGH>;
+
+		adi,rpole2 = <RPOLE2_900_OHM>;
+		adi,rzero = <RZERO_1850_OHM>;
+		adi,cpole1 = <CPOLE1_16_PF>;
+
+		adi,status-mon-pin0-function-select = <1>; /* PLL1 & PLL2 Locked */
+		adi,status-mon-pin1-function-select = <7>; /* REFA Correct */
+
+		ad9528_c4: channel@3 {
+			reg = <4>;
+			adi,extended-name = "ADC_CLK";
+			adi,driver-mode = <DRIVER_MODE_LVDS>;
+			adi,divider-phase = <0>;
+			adi,channel-divider = <1>;
+			adi,signal-source = <SOURCE_VCO>;
+		};
+
+		ad9528_c12: channel@1 {
+			reg = <12>;
+			adi,extended-name = "FPGA_CLK";
+			adi,driver-mode = <DRIVER_MODE_LVDS>;
+			adi,divider-phase = <0>;
+			adi,channel-divider = <4>;
+			adi,signal-source = <SOURCE_VCO>;
+		};
+	};
+
+	ad9694: ad9694@1 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		#clock-cells = <1>;
+		compatible = "adi,ad9694";
+
+		/* SPI Setup */
+		reg = <1>;
+		spi-max-frequency = <25000000>;
+
+		/* Clocks */
+		clocks = <&axi_ad9694_rx_jesd>, <&ad9528 4>;
+		clock-names = "jesd_adc_clk", "adc_clk";
+	};
+};
