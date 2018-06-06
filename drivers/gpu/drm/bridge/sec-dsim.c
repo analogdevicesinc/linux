@@ -352,7 +352,6 @@ static int sec_mipi_dsim_bridge_attach(struct drm_bridge *bridge)
 	struct device *dev = dsim->dev;
 	struct device_node *np = dev->of_node;
 	struct device_node *endpoint, *remote;
-	struct drm_device *drm_dev = bridge->dev;
 	struct drm_bridge *next = NULL;
 	struct drm_encoder *encoder = dsim->encoder;
 
@@ -396,7 +395,7 @@ static int sec_mipi_dsim_bridge_attach(struct drm_bridge *bridge)
 
 	dsim->next = next;
 	next->encoder = encoder;
-	ret = drm_bridge_attach(drm_dev, next);
+	ret = drm_bridge_attach(encoder, bridge, next);
 	if (ret) {
 		dev_err(dev, "Unable to attach bridge %s: %d\n",
 			remote->name, ret);
@@ -408,19 +407,6 @@ static int sec_mipi_dsim_bridge_attach(struct drm_bridge *bridge)
 	bridge->next = next;
 
 	return 0;
-}
-
-static void sec_mipi_dsim_bridge_detach(struct drm_bridge *bridge)
-{
-	struct sec_mipi_dsim *dsim = bridge->driver_private;
-
-	if (bridge->next) {
-		drm_bridge_detach(dsim->next);
-
-		bridge->next->encoder = NULL;
-		bridge->next  = NULL;
-		dsim->next    = NULL;
-	}
 }
 
 static int sec_mipi_dsim_config_pll(struct sec_mipi_dsim *dsim)
@@ -824,7 +810,6 @@ static void sec_mipi_dsim_bridge_mode_set(struct drm_bridge *bridge,
 
 static const struct drm_bridge_funcs sec_mipi_dsim_bridge_funcs = {
 	.attach     = sec_mipi_dsim_bridge_attach,
-	.detach     = sec_mipi_dsim_bridge_detach,
 	.enable     = sec_mipi_dsim_bridge_enable,
 	.disable    = sec_mipi_dsim_bridge_disable,
 	.mode_set   = sec_mipi_dsim_bridge_mode_set,
@@ -1057,7 +1042,6 @@ static enum drm_connector_status
 }
 
 static const struct drm_connector_funcs sec_mipi_dsim_connector_funcs = {
-	.dpms       = drm_atomic_helper_connector_dpms,
 	.detect     = sec_mipi_dsim_connector_detect,
 	.fill_modes = drm_helper_probe_single_connector_modes,
 	.destroy    = drm_connector_cleanup,
@@ -1168,7 +1152,7 @@ int sec_mipi_dsim_bind(struct device *dev, struct device *master, void *data,
 	dev_set_drvdata(dev, dsim);
 
 	/* attach sec dsim bridge and its next bridge if exists */
-	ret = drm_bridge_attach(drm_dev, bridge);
+	ret = drm_bridge_attach(encoder, bridge, NULL);
 	if (ret) {
 		dev_err(dev, "Failed to attach bridge: %s\n", dev_name(dev));
 		mipi_dsi_host_unregister(&dsim->dsi_host);
@@ -1221,8 +1205,6 @@ void sec_mipi_dsim_unbind(struct device *dev, struct device *master, void *data)
 		drm_connector_cleanup(&dsim->connector);
 		dsim->panel = NULL;
 	}
-
-	drm_bridge_detach(dsim->bridge);
 
 	mipi_dsi_host_unregister(&dsim->dsi_host);
 }

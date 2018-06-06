@@ -54,6 +54,15 @@ config DRM_IMX_NWL_DSI
 	  Choose this to enable the internal NWL MIPI DSI controller
 	  found on i.MX8 processors.
 
+config DRM_IMX_SEC_DSIM
+	tristate "Support for Samsung MIPI DSIM displays"
+	depends on DRM_IMX
+	select MFD_SYSCON
+	select DRM_SEC_MIPI_DSIM
+	help
+	  Choose this to enable the internal SEC MIPI DSIM controller
+          found on i.MX platform.
+
 source "drivers/gpu/drm/imx/ipuv3/Kconfig"
 source "drivers/gpu/drm/imx/dpu/Kconfig"
 source "drivers/gpu/drm/imx/hdp/Kconfig"
