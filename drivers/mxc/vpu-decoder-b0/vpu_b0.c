@@ -1814,6 +1814,8 @@ static void vpu_api_event_handler(struct vpu_ctx *ctx, u_int32 uStrIdx, u_int32 
 	}	break;
 	case VID_API_EVENT_FIRMWARE_XCPT:
 		vpu_dbg(LVL_ERR, "warning: FIRMWARE hang, and send event VID_API_EVENT_FIRMWARE_XCPT\n");
+	case VID_API_EVENT_DEC_CFG_INFO:
+		break;
 	default:
 		vpu_dbg(LVL_ERR, "warning: uEvent %d is not handled\n", uEvent);
 		break;
