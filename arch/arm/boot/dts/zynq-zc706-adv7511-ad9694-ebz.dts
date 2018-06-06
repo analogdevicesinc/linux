@@ -1,0 +1,90 @@
+/dts-v1/;
+
+/include/ "zynq-zc706.dtsi"
+/include/ "zynq-zc706-adv7511.dtsi"
+
+&i2c_mux {
+	i2c@5 { /* HPC IIC */
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <5>;
+
+		eeprom@50 {
+			compatible = "at24,24c02";
+			reg = <0x50>;
+		};
+
+		eeprom@54 {
+			compatible = "at24,24c02";
+			reg = <0x54>;
+		};
+	};
+};
+
+
+&fpga_axi {
+	rx_dma: rx-dmac@7c400000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x7c400000 0x10000>;
+		#dma-cells = <1>;
+		interrupts = <0 57 0>;
+		clocks = <&clkc 16>;
+
+		dma-channel {
+			adi,source-bus-width = <64>;
+			adi,destination-bus-width = <128>;
+			adi,type = <0>;
+		};
+	};
+
+	axi_ad9694_core: axi-ad9694-hpc@44a10000 {
+		compatible = "adi,axi-ad9694-1.0";
+		reg = <0x44a10000 0x10000>;
+		dmas = <&rx_dma 0>;
+		dma-names = "rx";
+		spibus-connected = <&ad9694>;
+	};
+
+	axi_ad9694_rx_jesd: axi-jesd204-rx@44aa0000 {
+		compatible = "adi,axi-jesd204-rx-1.0";
+		reg = <0x44aa0000 0x1000>;
+
+		interrupts = <0 55 0>;
+
+		clocks = <&clkc 16>, <&axi_ad9694_adxcvr 1>, <&axi_ad9694_adxcvr 0>;
+		clock-names = "s_axi_aclk", "device_clk", "lane_clk";
+
+		adi,octets-per-frame = <1>;
+		adi,frames-per-multiframe = <32>;
+		adi,converter-resolution = <8>;
+		adi,bits-per-sample = <8>;
+		adi,converters-per-device = <2>;
+		adi,subclass = <0>;
+
+		#clock-cells = <0>;
+		clock-output-names = "jesd_adc_lane_clk";
+	};
+
+	axi_ad9694_adxcvr: axi-ad9694-adxcvr@44a50000 {
+		compatible = "adi,axi-adxcvr-1.0";
+		reg = <0x44a50000 0x1000>;
+
+		clocks = <&ad9528 12>;
+		clock-names = "conv";
+
+		#clock-cells = <1>;
+		clock-output-names = "adc_gt_clk", "rx_out_clk";
+
+		adi,sys-clk-select = <3>;
+		adi,out-clk-select = <3>;
+		adi,use-lpm-enable;
+	};
+};
+
+&spi0 {
+	status = "okay";
+};
+
+#define fmc_spi spi0
+
+#include "adi-ad9694-ebz.dtsi"
