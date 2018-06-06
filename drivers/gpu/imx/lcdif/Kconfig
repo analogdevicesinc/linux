@@ -1,0 +1,8 @@
+config IMX_LCDIF_CORE
+	tristate "i.MX LCDIF core support"
+	depends on ARCH_FSL_IMX8MM
+	depends on RESET_CONTROLLER
+	help
+	  Choose this if you have a NXP i.MX8MM platform and want to use the
+	  LCDIF display controller. This option only enables LCDIF base support.
+
