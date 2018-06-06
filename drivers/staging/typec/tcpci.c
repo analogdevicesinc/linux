@@ -381,9 +381,8 @@ static int tcpci_set_vbus(struct tcpc_dev *tcpc, bool source, bool sink)
 	struct tcpci *tcpci = tcpc_to_tcpci(tcpc);
 	int ret;
 
-	/* Disable both source and sink first before enabling anything */
-
-	if (!source) {
+	/* Only disable source if it was enabled */
+	if (!source && tcpci->drive_vbus) {
 		ret = regmap_write(tcpci->regmap, TCPC_COMMAND,
 				   TCPC_CMD_DISABLE_SRC_VBUS);
 		if (ret < 0)
