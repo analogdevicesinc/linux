@@ -18,6 +18,7 @@
 
 #include <linux/dma-mapping.h>
 #include "pfe_mod.h"
+#include "pfe_cdev.h"
 
 unsigned int us;
 module_param(us, uint, 0444);
@@ -92,7 +93,17 @@ firmware_init:
 	if (rc < 0)
 		goto err_debugfs;
 
+	if (us) {
+		/* Creating a character device */
+		rc = pfe_cdev_init();
+		if (rc < 0)
+			goto err_cdev;
+	}
+
 	return 0;
+
+err_cdev:
+	pfe_debugfs_exit(pfe);
 
 err_debugfs:
 	pfe_sysfs_exit(pfe);
@@ -128,6 +139,9 @@ err_hw:
 int pfe_remove(struct pfe *pfe)
 {
 	pr_info("%s\n", __func__);
+
+	if (us)
+		pfe_cdev_exit();
 
 	pfe_debugfs_exit(pfe);
 

@@ -16,4 +16,5 @@ pfe-y += pfe_mod.o \
 	pfe_sysfs.o \
 	pfe_debugfs.o \
 	pfe_ls1012a_platform.o \
-	pfe_hal.o
+	pfe_hal.o \
+	pfe_cdev.o

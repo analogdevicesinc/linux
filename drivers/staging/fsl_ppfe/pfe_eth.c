@@ -55,6 +55,7 @@
 
 #include "pfe_mod.h"
 #include "pfe_eth.h"
+#include "pfe_cdev.h"
 
 #define LS1012A_REV_1_0		0x87040010
 
@@ -1160,6 +1161,19 @@ static void pfe_eth_adjust_link(struct net_device *ndev)
 		phy_print_status(phydev);
 
 	spin_unlock_irqrestore(&priv->lock, flags);
+
+	/* Now, dump the details to the cdev.
+	 * XXX: Locking would be required? (uniprocess arch)
+	 *      Or, maybe move it in spinlock above
+	 */
+	if (us && priv->einfo->gem_id < PFE_CDEV_ETH_COUNT) {
+		pr_debug("Changing link state from (%u) to (%u) for ID=(%u)\n",
+			 link_states[priv->einfo->gem_id].state,
+			 phydev->link,
+			 priv->einfo->gem_id);
+		link_states[priv->einfo->gem_id].phy_id = priv->einfo->gem_id;
+		link_states[priv->einfo->gem_id].state = phydev->link;
+	}
 }
 
 /* pfe_phy_exit

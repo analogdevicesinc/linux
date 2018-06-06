@@ -1,0 +1,207 @@
+/*
+ * Copyright 2018 NXP
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+/* @pfe_cdev.c.
+ *  Dummy device representing the PFE US in userspace.
+ *  - used for interacting with the kernel layer for link status
+ */
+
+#include "pfe_cdev.h"
+
+static int pfe_majno;
+static struct class *pfe_char_class;
+static struct device *pfe_char_dev;
+
+struct pfe_shared_info link_states[PFE_CDEV_ETH_COUNT];
+
+static int pfe_cdev_open(struct inode *inp, struct file *fp)
+{
+	pr_debug("PFE CDEV device opened.\n");
+	return 0;
+}
+
+static ssize_t pfe_cdev_read(struct file *fp, char *buf,
+			     size_t len, loff_t *off)
+{
+	int ret = 0;
+
+	pr_info("PFE CDEV attempt copying (%lu) size of user.\n",
+		sizeof(link_states));
+
+	pr_debug("Dump link_state on screen before copy_to_user\n");
+	for (; ret < PFE_CDEV_ETH_COUNT; ret++) {
+		pr_debug("%u  %u", link_states[ret].phy_id,
+			 link_states[ret].state);
+		pr_debug("\n");
+	}
+
+	/* Copy to user the value in buffer sized len */
+	ret = copy_to_user(buf, &link_states, sizeof(link_states));
+	if (ret != 0) {
+		pr_err("Failed to send (%d)bytes of (%lu) requested.\n",
+		       ret, len);
+		return -EFAULT;
+	}
+
+	/* offset set back to 0 as there is contextual reading offset */
+	*off = 0;
+	pr_debug("Read of (%lu) bytes performed.\n", sizeof(link_states));
+
+	return sizeof(link_states);
+}
+
+/**
+ * This function is for getting some commands from user through non-IOCTL
+ * channel. It can used to configure the device.
+ * TODO: To be filled in future, if require duplex communication with user
+ * space.
+ */
+static ssize_t pfe_cdev_write(struct file *fp, const char *buf,
+			      size_t len, loff_t *off)
+{
+	pr_info("PFE CDEV Write operation not supported!\n");
+
+	return -EFAULT;
+}
+
+static int pfe_cdev_release(struct inode *inp, struct file *fp)
+{
+	pr_info("PFE_CDEV: Device successfully closed\n");
+	return 0;
+}
+
+static long pfe_cdev_ioctl(struct file *fp, unsigned int cmd,
+			   unsigned long arg)
+{
+	int ret = -EFAULT;
+	int __user *argp = (int __user *)arg;
+
+	pr_debug("PFE CDEV IOCTL Called with cmd=(%u)\n", cmd);
+
+	switch (cmd) {
+	case PFE_CDEV_ETH0_STATE_GET:
+		/* Return an unsigned int (link state) for ETH0 */
+		*argp = link_states[0].state;
+		pr_debug("Returning state=%d for ETH0\n", *argp);
+		ret = 0;
+		break;
+	case PFE_CDEV_ETH1_STATE_GET:
+		/* Return an unsigned int (link state) for ETH0 */
+		*argp = link_states[1].state;
+		pr_debug("Returning state=%d for ETH1\n", *argp);
+		ret = 0;
+		break;
+	default:
+		pr_info("Unsupport cmd (%d) for PFE CDEV.\n", cmd);
+		break;
+	};
+
+	return ret;
+}
+
+static unsigned int pfe_cdev_poll(struct file *fp,
+				  struct poll_table_struct *wait)
+{
+	pr_info("PFE CDEV poll method not supported\n");
+	return 0;
+}
+
+static const struct file_operations pfe_cdev_fops = {
+	.open = pfe_cdev_open,
+	.read = pfe_cdev_read,
+	.write = pfe_cdev_write,
+	.release = pfe_cdev_release,
+	.unlocked_ioctl = pfe_cdev_ioctl,
+	.poll = pfe_cdev_poll,
+};
+
+int pfe_cdev_init(void)
+{
+	int ret;
+
+	pr_debug("PFE CDEV initialization begin\n");
+
+	/* Register the major number for the device */
+	pfe_majno = register_chrdev(0, PFE_CDEV_NAME, &pfe_cdev_fops);
+	if (pfe_majno < 0) {
+		pr_err("Unable to register PFE CDEV. PFE CDEV not available\n");
+		ret = pfe_majno;
+		goto cleanup;
+	}
+
+	pr_debug("PFE CDEV assigned major number: %d\n", pfe_majno);
+
+	/* Register the class for the device */
+	pfe_char_class = class_create(THIS_MODULE, PFE_CLASS_NAME);
+	if (IS_ERR(pfe_char_class)) {
+		pr_err(
+		"Failed to init class for PFE CDEV. PFE CDEV not available.\n");
+		goto cleanup;
+	}
+
+	pr_debug("PFE CDEV Class created successfully.\n");
+
+	/* Create the device without any parent and without any callback data */
+	    pfe_char_dev = device_create(pfe_char_class, NULL,
+					 MKDEV(pfe_majno, 0), NULL,
+					 PFE_CDEV_NAME);
+	if (IS_ERR(pfe_char_dev)) {
+		pr_err("Unable to PFE CDEV device. PFE CDEV not available.\n");
+		ret = PTR_ERR(pfe_char_dev);
+		goto cleanup;
+	}
+
+	/* Information structure being shared with the userspace */
+	memset(link_states, 0, sizeof(struct pfe_shared_info) *
+			PFE_CDEV_ETH_COUNT);
+
+	pr_info("PFE CDEV created: %s\n", PFE_CDEV_NAME);
+
+	ret = 0;
+	return ret;
+
+cleanup:
+	if (!IS_ERR(pfe_char_class))
+		class_destroy(pfe_char_class);
+
+	if (pfe_majno > 0)
+		unregister_chrdev(pfe_majno, PFE_CDEV_NAME);
+
+	ret = -EFAULT;
+	return ret;
+}
+
+void pfe_cdev_exit(void)
+{
+	if (!IS_ERR(pfe_char_dev))
+		device_destroy(pfe_char_class, MKDEV(pfe_majno, 0));
+
+	if (!IS_ERR(pfe_char_class)) {
+		class_unregister(pfe_char_class);
+		class_destroy(pfe_char_class);
+	}
+
+	if (pfe_majno > 0)
+		unregister_chrdev(pfe_majno, PFE_CDEV_NAME);
+
+	/* reset the variables */
+	pfe_majno = 0;
+	pfe_char_class = NULL;
+	pfe_char_dev = NULL;
+
+	pr_info("PFE CDEV Removed.\n");
+}
