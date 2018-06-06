@@ -181,12 +181,14 @@ static void imx8qm_get_mac_from_fuse(int dev_id, unsigned char *mac,
 	sc_err = sc_misc_otp_fuse_read(ipc_handle, word1, &val1);
 	if (sc_err != SC_ERR_NONE) {
 		pr_err("FEC MAC fuse %d read error: %d\n", word1, sc_err);
+		sc_ipc_close(ipc_handle);
 		return;
 	}
 
 	sc_err = sc_misc_otp_fuse_read(ipc_handle, word2, &val2);
 	if (sc_err != SC_ERR_NONE) {
 		pr_err("FEC MAC fuse %d read error: %d\n", word2, sc_err);
+		sc_ipc_close(ipc_handle);
 		return;
 	}
 
@@ -196,6 +198,8 @@ static void imx8qm_get_mac_from_fuse(int dev_id, unsigned char *mac,
 	mac[3] = val1 >> 24;
 	mac[4] = val2;
 	mac[5] = val2 >> 8;
+
+	sc_ipc_close(ipc_handle);
 }
 
 static void imx8qm_ipg_stop_enable(int dev_id, bool enabled)
@@ -207,13 +211,13 @@ static void imx8qm_ipg_stop_enable(int dev_id, bool enabled)
 
 	sc_err = sc_ipc_getMuID(&mu_id);
 	if (sc_err != SC_ERR_NONE) {
-		pr_err("FEC MAC fuse: Get MU ID failed\n");
+		pr_err("FEC ipg stop: Get MU ID failed\n");
 		return;
 	}
 
 	sc_err = sc_ipc_open(&ipc_handle, mu_id);
 	if (sc_err != SC_ERR_NONE) {
-		pr_err("FEC MAC fuse: Open MU channel failed\n");
+		pr_err("FEC ipg stop: Open MU channel failed\n");
 		return;
 	}
 
@@ -223,7 +227,11 @@ static void imx8qm_ipg_stop_enable(int dev_id, bool enabled)
 		rsrc_id = SC_R_ENET_1;
 
 	val = enabled ? 1 : 0;
-	sc_misc_set_control(ipc_handle, rsrc_id, SC_C_IPG_STOP, val);
+	sc_err = sc_misc_set_control(ipc_handle, rsrc_id, SC_C_IPG_STOP, val);
+	if (sc_err != SC_ERR_NONE)
+		pr_err("FEC ipg stop set error: %d\n", sc_err);
+
+	sc_ipc_close(ipc_handle);
 }
 #else
 static void imx8qm_get_mac_from_fuse(int dev_id, unsigned char *mac,
