@@ -517,6 +517,11 @@
 		#size-cells = <1>;
 	};
 
+	dispmix_gpr: display-gpr@32e28000 {
+		compatible = "fsl, imx8mm-iomuxc-gpr", "syscon";
+		reg = <0x0 0x32e28000 0x0 0x100>;
+	};
+
 	usbotg1: usb@32e40000 {
 		compatible = "fsl,imx7d-usb", "fsl,imx27-usb";
 		reg = <0x0 0x32e40000 0x0 0x200>;
@@ -838,79 +843,57 @@
 	};
 
 	lcdif: lcdif@32E00000 {
-		compatible = "fsl,imx8mm-lcdif", "fsl,imx28-lcdif";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "fsl,imx8mm-lcdif";
 		reg = <0x0 0x32e00000 0x0 0x10000>;
-		clocks = <&clk IMX8MM_CLK_LCDIF_PIXEL_DIV>;
-		clock-names = "pix";
-		assigned-clocks = <&clk IMX8MM_CLK_LCDIF_PIXEL_SRC>;
-		assigned-clock-parents = <&clk IMX8MM_VIDEO_PLL1_OUT>;
-		assigned-clock-rate = <594000000>;
+		clocks = <&clk IMX8MM_CLK_LCDIF_PIXEL_DIV>,
+			 <&clk IMX8MM_CLK_DISP_AXI_ROOT>,
+			 <&clk IMX8MM_CLK_DISP_APB_ROOT>;
+		clock-names = "pix", "disp-axi", "disp-apb";
+		assigned-clocks = <&clk IMX8MM_CLK_LCDIF_PIXEL_SRC>,
+				  <&clk IMX8MM_CLK_DISP_AXI_SRC>,
+				  <&clk IMX8MM_CLK_DISP_APB_SRC>;
+		assigned-clock-parents = <&clk IMX8MM_VIDEO_PLL1_OUT>,
+					 <&clk IMX8MM_SYS_PLL2_1000M>,
+					 <&clk IMX8MM_SYS_PLL1_800M>;
+		assigned-clock-rate = <594000000>, <500000000>, <200000000>;
 		interrupts = <GIC_SPI 5 IRQ_TYPE_LEVEL_HIGH>;
-		max-res = <1920>, <1080>;
+		lcdif-gpr = <&dispmix_gpr>;
 		status = "disabled";
 
-		port@0 {
-			lcdif_mipi_dsi: mipi-dsi-endpoint {
-				remote-endpoint = <&mipi_dsi_in>;
+		lcdif_disp0: port@0 {
+			reg = <0>;
+
+			lcdif_to_dsim: endpoint {
+				remote-endpoint = <&dsim_from_lcdif>;
 			};
 		};
 	};
 
-	mipi_dsi_phy: dsi_phy@32e10300 {
-		compatible = "mixel,imx8mm-mipi-dsi-phy",
-			     "mixel,imx8mq-mipi-dsi-phy";
-		reg = <0x0 0x32e10300 0x0 0x100>;
-		#phy-cells = <0>;
-		status = "disabled";
-	};
-
-	mipi_dsi_bridge: mipi_dsi_bridge@32E10000 {
-		compatible = "nwl,mipi-dsi";
-		reg = <0x0 0x32e10000 0x0 0x400>;
-		interrupts = <GIC_SPI 18 IRQ_TYPE_LEVEL_HIGH>;
-		clocks = <&clk IMX8MM_CLK_DSI_PHY_REF_DIV>,
-			 <&clk IMX8MM_CLK_DSI_ESC_RX_DIV>,
-			 <&clk IMX8MM_CLK_IPG_DSI_ESC_RX_ROOT>;
-		clock-names = "phy_ref", "rx_esc", "tx_esc";
-		assigned-clocks = <&clk IMX8MM_CLK_DSI_ESC_RX_SRC>;
-		assigned-clock-parents = <&clk IMX8MM_SYS_PLL1_80M>;
-		assigned-clock-rates = <80000000>;
-		phys = <&mipi_dsi_phy>;
-		phy-names = "dphy";
-		status = "disabled";
-
-		port@0 {
-			mipi_dsi_bridge_in: endpoint {
-				remote-endpoint = <&mipi_dsi_out>;
-			};
-		};
+	display-subsystem {
+		compatible = "fsl,imx-display-subsystem";
+		ports = <&lcdif_disp0>;
 	};
 
 	mipi_dsi: mipi_dsi@32E10000 {
-		compatible = "fsl,imx8mm-mipi-dsi_drm", "fsl,imx8mq-mipi-dsi_drm";
+		compatible = "fsl,imx8mm-mipi-dsim";
+		reg = <0x0 0x32e10000 0x0 0x400>;
 		clocks = <&clk IMX8MM_CLK_DSI_CORE_DIV>,
 			 <&clk IMX8MM_CLK_DSI_PHY_REF_DIV>;
-		clock-names = "core", "phy_ref";
+		clock-names = "cfg", "pll-ref";
 		assigned-clocks = <&clk IMX8MM_CLK_DSI_CORE_SRC>,
 				  <&clk IMX8MM_CLK_DSI_PHY_REF_SRC>;
 		assigned-clock-parents = <&clk IMX8MM_SYS_PLL1_266M>,
 					 <&clk IMX8MM_VIDEO_PLL1_OUT>;
 		assigned-clock-rates = <266000000>, <594000000>;
-		src = <&src>;
-		mux-sel = <&gpr>;
-		phys = <&mipi_dsi_phy>;
-		phys-names = "dphy";
+		interrupts = <GIC_SPI 18 IRQ_TYPE_LEVEL_HIGH>;
+		dsi-gpr = <&dispmix_gpr>;
 		status = "disabled";
 
 		port@0 {
-			mipi_dsi_out: endpoint {
-				remote-endpoint = <&mipi_dsi_bridge_in>;
-			};
-		};
-
-		port@1 {
-			mipi_dsi_in: endpoint {
-				remote-endpoint = <&lcdif_mipi_dsi>;
+			dsim_from_lcdif: endpoint {
+				remote-endpoint = <&lcdif_to_dsim>;
 			};
 		};
 	};
