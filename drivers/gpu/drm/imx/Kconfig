@@ -47,5 +47,14 @@ config DRM_IMX_HDMI
 	help
 	  Choose this if you want to use HDMI on i.MX6.
 
+config DRM_IMX_SEC_DSIM
+	tristate "Support for Samsung MIPI DSIM displays"
+	depends on DRM_IMX
+	select MFD_SYSCON
+	select DRM_SEC_MIPI_DSIM
+	help
+	  Choose this to enable the internal SEC MIPI DSIM controller
+	  found on i.MX platform.
+
 source "drivers/gpu/drm/imx/dcss/Kconfig"
 source "drivers/gpu/drm/imx/lcdc/Kconfig"
