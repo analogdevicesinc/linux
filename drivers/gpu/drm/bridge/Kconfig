@@ -57,6 +57,15 @@ config DRM_NWL_DSI
 	select DRM_MIPI_DSI
 	select DRM_PANEL
 
+config DRM_SEC_MIPI_DSIM
+	tristate "Samsung MIPI DSIM Bridge"
+	depends on OF
+	select DRM_KMS_HELPER
+	select DRM_MIPI_DSI
+	select DRM_PANEL
+	help
+	  The Samsung MPI DSIM Bridge driver.
+
 config DRM_NXP_PTN3460
 	tristate "NXP PTN3460 DP/LVDS bridge"
 	depends on OF
