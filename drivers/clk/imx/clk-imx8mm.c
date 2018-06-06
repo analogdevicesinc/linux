@@ -919,6 +919,7 @@ static void __init imx8mm_clocks_init(struct device_node *ccm_node)
 
 	/* increase NOC clock to design target */
 	clk_set_rate(clks[IMX8MM_SYS_PLL3], 750000000);
+	clk_set_rate(clks[IMX8MM_VIDEO_PLL1], 594000000);
 	clk_set_parent(clks[IMX8MM_CLK_NOC_SRC], clks[IMX8MM_SYS_PLL3_OUT]);
 	clk_set_parent(clks[IMX8MM_CLK_PCIE1_CTRL_SRC], clks[IMX8MM_SYS_PLL2_250M]);
 	clk_set_parent(clks[IMX8MM_CLK_PCIE1_PHY_SRC], clks[IMX8MM_SYS_PLL2_100M]);
