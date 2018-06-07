@@ -318,7 +318,7 @@ static int axi_jesd204_rx_apply_config(struct axi_jesd204_rx *jesd,
 
 	writel_relaxed(val, jesd->base + JESD204_RX_REG_LINK_CONF0);
 
-	if (config->jesd_version == 0)
+	if (config->subclass_version == 0)
 		writel_relaxed(JESD204_RX_REG_SYSREF_CONF_SYSREF_DISABLE,
 			       jesd->base + JESD204_RX_REG_SYSREF_CONF);
 
@@ -350,10 +350,11 @@ static int axi_jesd204_rx_parse_dt_config(struct device_node *np,
 	config->enable_scrambling = true;
 	config->lanes_per_device = jesd->num_lanes;
 	config->jesd_version = 1;
+	config->subclass_version = 1;
 
 	ret = of_property_read_u32(np, "adi,subclass", &val);
 	if (ret == 0)
-		config->jesd_version = val;
+		config->subclass_version = val;
 
 	return 0;
 }
