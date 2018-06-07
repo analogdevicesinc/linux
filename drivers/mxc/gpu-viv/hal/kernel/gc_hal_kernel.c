@@ -2486,6 +2486,7 @@ gckKERNEL_Dispatch(
         }
         else
         {
+	    gctUINT32 i;
             if (Interface->u.Commit.count > 1 && Interface->engine == gcvENGINE_RENDER)
             {
                 gctUINT32 i;
@@ -2530,7 +2531,6 @@ gckKERNEL_Dispatch(
 
             if (Interface->u.Commit.count > 1 && Interface->engine == gcvENGINE_RENDER)
             {
-                gctUINT32 i;
 
                 for (i = 1; i < Interface->u.Commit.count; i++)
                 {
@@ -2567,6 +2567,23 @@ gckKERNEL_Dispatch(
                     }
                 }
             }
+
+	    for (i = 0; i < Interface->u.Commit.count; i++) {
+		    gceHARDWARE_TYPE type = Interface->hardwareType;
+		    gckKERNEL kernel = Device->map[type].kernels[i];
+
+		    if  ((kernel->hardware->options.gpuProfiler == gcvTRUE) &&
+		         (kernel->profileEnable == gcvTRUE)) {
+			    gcmkONERROR(gckCOMMAND_Stall(kernel->command, gcvTRUE));
+
+			    if (kernel->command->currContext) {
+				    gcmkONERROR(gckHARDWARE_UpdateContextProfile(
+							    kernel->hardware,
+							    kernel->command->currContext));
+			    }
+		    }
+	    }
+
         }
         gcmkONERROR(gckOS_ReleaseMutex(Kernel->os, Kernel->device->commitMutex));
         commitMutexAcquired = gcvFALSE;

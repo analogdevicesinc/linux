@@ -2538,19 +2538,6 @@ gckCOMMAND_Commit(
     gcmkONERROR(gckCOMMAND_ExitCommit(Command, gcvFALSE));
     commitEntered = gcvFALSE;
 
-    if  ((Command->kernel->hardware->options.gpuProfiler == gcvTRUE) &&
-         (Command->kernel->profileEnable == gcvTRUE))
-    {
-        gcmkONERROR(gckCOMMAND_Stall(Command, gcvTRUE));
-
-        if (Command->currContext)
-        {
-            gcmkONERROR(gckHARDWARE_UpdateContextProfile(
-                        hardware,
-                        Command->currContext));
-        }
-    }
-
     if (status == gcvSTATUS_INTERRUPTED)
     {
         gcmkTRACE(
