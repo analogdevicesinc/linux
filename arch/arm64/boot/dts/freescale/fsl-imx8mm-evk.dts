@@ -933,6 +933,6 @@
 	pinctrl-0 = <&pinctrl_pdm>;
 	assigned-clocks = <&clk IMX8MM_CLK_PDM_SRC>, <&clk IMX8MM_CLK_PDM_DIV>;
 	assigned-clock-parents = <&clk IMX8MM_AUDIO_PLL1_OUT>;
-	assigned-clock-rates = <0>, <24576000>;
+	assigned-clock-rates = <0>, <196608000>;
 	status = "okay";
 };
