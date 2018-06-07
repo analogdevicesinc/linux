@@ -251,6 +251,56 @@ dcss_drm: dcss@0x32e00000 {
 	};
 };
 
+NXP i.MX eLCDIF (Enhanced LCD Interface)
+========================================
+Required properties:
+- compatible: should be "fsl,imx8mm-lcdif"
+- reg: should be register base and length as documented in the
+  datasheet.
+- interrupts, interrupt-names: Should contain interrupts and names as
+  documented in the datasheet.
+- interrupt-parent: contains the phandle to IRQ Steer module.
+- clocks, clock-names: phandles to the LCDIF clocks described in
+  Documentation/devicetree/bindings/clock/clock-bindings.txt
+- assigned-clocks, assigned-clock-parents, assigned-clock-rate: configure
+  LCDIF related clock sources, clock source parents and clock source rates.
+- lcdif-gpr: a phandle which provides the LCDIF control and gpr registers
+  configuration.
+Optional properties:
+- port@0: Port nodes with endpoint definitions as defined in
+  Documentation/devicetree/bindings/media/video-interfaces.txt.
+  ports 0 should correspond to display interface 0.
+
+example:
+	lcdif: lcdif@32E00000 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "fsl,imx8mm-lcdif";
+		reg = <0x0 0x32e00000 0x0 0x10000>;
+		clocks = <&clk IMX8MM_CLK_LCDIF_PIXEL_DIV>,
+			 <&clk IMX8MM_CLK_DISP_AXI_ROOT>,
+			 <&clk IMX8MM_CLK_DISP_APB_ROOT>;
+		clock-names = "pix", "disp-axi", "disp-apb";
+		assigned-clocks = <&clk IMX8MM_CLK_LCDIF_PIXEL_SRC>,
+				  <&clk IMX8MM_CLK_DISP_AXI_SRC>,
+				  <&clk IMX8MM_CLK_DISP_APB_SRC>;
+		assigned-clock-parents = <&clk IMX8MM_VIDEO_PLL1_OUT>,
+					 <&clk IMX8MM_SYS_PLL2_1000M>,
+					 <&clk IMX8MM_SYS_PLL1_800M>;
+		assigned-clock-rate = <594000000>, <500000000>, <200000000>;
+		interrupts = <GIC_SPI 5 IRQ_TYPE_LEVEL_HIGH>;
+		lcdif-gpr = <&dispmix_gpr>;
+		status = "disabled";
+
+		lcdif_disp0: port@0 {
+			reg = <0>;
+
+			lcdif_to_dsim: endpoint {
+				remote-endpoint = <&dsim_from_lcdif>;
+			};
+		};
+	};
+
 Freescale i.MX8 PRG (Prefetch Resolve Gasket)
 =============================================
 Required properties:
