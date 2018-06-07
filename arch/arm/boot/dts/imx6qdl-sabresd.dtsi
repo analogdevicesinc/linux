@@ -316,16 +316,6 @@
 
 &mipi_csi {
 	status = "okay";
-
-	port@0 {
-		reg = <0>;
-
-		mipi_csi2_in: endpoint {
-			remote-endpoint = <&ov5640_to_mipi_csi2>;
-			clock-lanes = <0>;
-			data-lanes = <1 2>;
-		};
-	};
 };
 
 &audmux {
@@ -471,32 +461,6 @@
 	scl-gpios = <&gpio4 12 GPIO_ACTIVE_HIGH>;
 	sda-gpios = <&gpio4 13 GPIO_ACTIVE_HIGH>;
 	status = "okay";
-
-	ov5640: camera@3c {
-		compatible = "ovti,ov5640";
-		pinctrl-names = "default";
-		pinctrl-0 = <&pinctrl_ov5640>;
-		reg = <0x3c>;
-		clocks = <&clks IMX6QDL_CLK_CKO>;
-		clock-names = "xclk";
-		DOVDD-supply = <&vgen4_reg>; /* 1.8v */
-		AVDD-supply = <&vgen3_reg>;  /* 2.8v, rev C board is VGEN3
-						rev B board is VGEN5 */
-		DVDD-supply = <&vgen2_reg>;  /* 1.5v*/
-		powerdown-gpios = <&gpio1 19 GPIO_ACTIVE_HIGH>;
-		reset-gpios = <&gpio1 20 GPIO_ACTIVE_LOW>;
-
-		port {
-			#address-cells = <1>;
-			#size-cells = <0>;
-
-			ov5640_to_mipi_csi2: endpoint {
-				remote-endpoint = <&mipi_csi2_in>;
-				clock-lanes = <0>;
-				data-lanes = <1 2>;
-			};
-		};
-	};
 
 	egalax_ts@04 {
 		compatible = "eeti,egalax_ts";
