@@ -41,6 +41,7 @@ struct fsl_micfil {
 	bool slave_mode;
 	char name[32];
 	unsigned int mclk_streams;
+	int quality;	/*QUALITY 2-0 bits */
 };
 
 struct fsl_micfil_soc_data {
@@ -63,8 +64,82 @@ static const struct of_device_id fsl_micfil_dt_ids[] = {
 };
 MODULE_DEVICE_TABLE(of, fsl_micfil_dt_ids);
 
-static const struct snd_soc_component_driver fsl_micfil_component = {
-	.name		= "fsl-micfil",
+/* Table 5. Quality Modes
+ * Medium	0 0 0
+ * High		0 0 1
+ * Very Low 2	1 0 0
+ * Very Low 1	1 0 1
+ * Very Low 0	1 1 0
+ * Low		1 1 1
+ */
+static const char * const micfil_quality_select_texts[] = {
+	"Medium", "High",
+	"VLow2", "VLow1",
+	"VLow0", "Low",
+};
+
+static const struct soc_enum fsl_micfil_enum[] = {
+	SOC_ENUM_SINGLE(REG_MICFIL_CTRL2,
+			MICFIL_CTRL2_QSEL_SHIFT,
+			ARRAY_SIZE(micfil_quality_select_texts),
+			micfil_quality_select_texts),
+};
+
+static int set_quality(struct snd_kcontrol *kcontrol,
+		       struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *comp = snd_kcontrol_chip(kcontrol);
+	struct soc_enum *e = (struct soc_enum *)kcontrol->private_value;
+	unsigned int *item = ucontrol->value.enumerated.item;
+	struct fsl_micfil *micfil = snd_soc_component_get_drvdata(comp);
+	int val = snd_soc_enum_item_to_val(e, item[0]);
+	int ret;
+
+	switch (val) {
+	case 0:
+	case 1:
+		micfil->quality = val;
+		break;
+	case 2:
+	case 3:
+	case 4:
+	case 5:
+		micfil->quality = val + 2;
+		break;
+	default:
+		dev_err(comp->dev, "Undefined value %d\n", val);
+		return -EINVAL;
+	}
+
+	ret = snd_soc_component_update_bits(comp,
+					    REG_MICFIL_CTRL2,
+					    MICFIL_CTRL2_QSEL_MASK,
+					    micfil->quality << MICFIL_CTRL2_QSEL_SHIFT);
+	if (ret)
+		return ret;
+
+	return 0;
+}
+
+static const struct snd_kcontrol_new fsl_micfil_snd_controls[] = {
+	SOC_SINGLE_RANGE("CH1 Gain", REG_MICFIL_OUT_CTRL,
+			 MICFIL_OUTGAIN_CHX_SHIFT(0), 0x0, 0xF, 0),
+	SOC_SINGLE_RANGE("CH2 Gain", REG_MICFIL_OUT_CTRL,
+			 MICFIL_OUTGAIN_CHX_SHIFT(1), 0x0, 0xF, 0),
+	SOC_SINGLE_RANGE("CH3 Gain", REG_MICFIL_OUT_CTRL,
+			 MICFIL_OUTGAIN_CHX_SHIFT(2), 0x0, 0xF, 0),
+	SOC_SINGLE_RANGE("CH4 Gain", REG_MICFIL_OUT_CTRL,
+			 MICFIL_OUTGAIN_CHX_SHIFT(3), 0x0, 0xF, 0),
+	SOC_SINGLE_RANGE("CH5 Gain", REG_MICFIL_OUT_CTRL,
+			 MICFIL_OUTGAIN_CHX_SHIFT(4), 0x0, 0xF, 0),
+	SOC_SINGLE_RANGE("CH6 Gain", REG_MICFIL_OUT_CTRL,
+			 MICFIL_OUTGAIN_CHX_SHIFT(5), 0x0, 0xF, 0),
+	SOC_SINGLE_RANGE("CH7 Gain", REG_MICFIL_OUT_CTRL,
+			 MICFIL_OUTGAIN_CHX_SHIFT(6), 0x0, 0xF, 0),
+	SOC_SINGLE_RANGE("CH8 Gain", REG_MICFIL_OUT_CTRL,
+			 MICFIL_OUTGAIN_CHX_SHIFT(7), 0x0, 0xF, 0),
+	SOC_ENUM_EXT("MICFIL Quality Select", fsl_micfil_enum[0],
+		     snd_soc_get_enum_double, set_quality),
 };
 
 static inline unsigned int get_pdm_clk(struct fsl_micfil *micfil,
@@ -339,7 +414,6 @@ static int fsl_micfil_hw_free(struct snd_pcm_substream *substream,
 {
 	struct fsl_micfil *micfil = snd_soc_dai_get_drvdata(dai);
 
-
 	if (!micfil->slave_mode &&
 	    micfil->mclk_streams & BIT(substream->stream)) {
 		clk_disable_unprepare(micfil->mclk);
@@ -450,7 +524,13 @@ static struct snd_soc_dai_driver fsl_micfil_dai = {
 	.ops = &fsl_micfil_dai_ops,
 };
 
-/* REG MAP */
+static const struct snd_soc_component_driver fsl_micfil_component = {
+	.name		= "fsl-micfil-dai",
+	.controls	= fsl_micfil_snd_controls,
+	.num_controls	= ARRAY_SIZE(fsl_micfil_snd_controls),
+};
+
+/* REGMAP */
 static const struct reg_default fsl_micfil_reg_defaults[] = {
 	{REG_MICFIL_CTRL1,		0x00000000},
 	{REG_MICFIL_CTRL2,		0x00000000},
@@ -514,7 +594,7 @@ static bool fsl_micfil_writeable_reg(struct device *dev, unsigned int reg)
 	switch (reg) {
 	case REG_MICFIL_CTRL1:
 	case REG_MICFIL_CTRL2:
-	case REG_MICFIL_STAT:		/* Write 1 to Clear */
+	case REG_MICFIL_STAT:
 	case REG_MICFIL_FIFO_CTRL:
 	case REG_MICFIL_FIFO_STAT:	/* Write 1 to Clear */
 	case REG_MICFIL_DC_CTRL:
