@@ -10,6 +10,7 @@
 #ifndef CAAM_PDB_H
 #define CAAM_PDB_H
 #include "compat.h"
+#include "regs.h"
 
 /*
  * PDB- IPSec ESP Header Modification Options
@@ -508,10 +509,10 @@ struct dsa_verify_pdb {
  */
 struct rsa_pub_pdb {
 	u32		sgf;
-	dma_addr_t	f_dma;
-	dma_addr_t	g_dma;
-	dma_addr_t	n_dma;
-	dma_addr_t	e_dma;
+	caam_dma_addr_t	f_dma;
+	caam_dma_addr_t	g_dma;
+	caam_dma_addr_t	n_dma;
+	caam_dma_addr_t	e_dma;
 	u32		f_len;
 } __packed;
 
@@ -525,10 +526,10 @@ struct rsa_pub_pdb {
  */
 struct rsa_priv_f1_pdb {
 	u32		sgf;
-	dma_addr_t	g_dma;
-	dma_addr_t	f_dma;
-	dma_addr_t	n_dma;
-	dma_addr_t	d_dma;
+	caam_dma_addr_t	g_dma;
+	caam_dma_addr_t	f_dma;
+	caam_dma_addr_t	n_dma;
+	caam_dma_addr_t	d_dma;
 } __packed;
 
 /**
