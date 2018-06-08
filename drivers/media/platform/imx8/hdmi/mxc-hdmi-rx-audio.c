@@ -43,12 +43,11 @@ static int get_audio_infoframe(state_struct *state, unsigned int *chan)
 
 	do {
 		cdn_apb_read(state, ADDR_SINK_PIF + (PKT_INT_STATUS << 2), &regread);
-		udelay(10);
+		udelay(100);
 		times++;
-	} while (!(regread & (1 << 0)) && times < 100);
+	} while (!(regread & (1 << 0)) && times < 5000);
 
-
-	if (times == 100) {
+	if (times == 5000) {
 		ret = -EINVAL;
 		return ret;
 	}
