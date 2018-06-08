@@ -239,17 +239,6 @@
 				     &sidekiq_lna_med 0>;
 	};
 
-	adi_rx_band_setting_4 { /* 0 - 3000 Mhz (including 3000 Mhz */
-		adi,lo-freq-min = /bits/ 64 <0>;
-		adi,lo-freq-max = /bits/ 64 <3000000001>;
-
-		adi,band-ctl-pre = <&sidekiq_rx_pre 0>;
-		adi,gpio-settings = <0 _ _ _ _ _ 1 1 0 0 0 0 _ _>; /* Band 0 */
-		adi,band-ctl-post = <&ad9361_rx_ant_port_c 0
-				     &sidekiq_rx_ant_1 0
-				     &sidekiq_lna_med 0>;
-	};
-
 	adi_tx_band_setting_0 { /* 50 - 3000 Mhz (including 3000 Mhz */
 		adi,lo-freq-min = /bits/ 64 <50000000>;
 		adi,lo-freq-max = /bits/ 64 <3000000001>;
