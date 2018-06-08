@@ -1763,6 +1763,7 @@ static void vpu_api_event_handler(struct vpu_ctx *ctx, u_int32 uStrIdx, u_int32 
 		}
 		break;
 	case VID_API_EVENT_RES_CHANGE:
+#if 0
 		{
 			const struct v4l2_event ev = {
 			.type = V4L2_EVENT_SOURCE_CHANGE,
@@ -1770,6 +1771,7 @@ static void vpu_api_event_handler(struct vpu_ctx *ctx, u_int32 uStrIdx, u_int32 
 		};
 		v4l2_event_queue_fh(&ctx->fh, &ev);
 		}
+#endif
 		break;
 	case VID_API_EVENT_STR_BUF_RST: {
 		pSTREAM_BUFFER_DESCRIPTOR_TYPE pStrBufDesc;
