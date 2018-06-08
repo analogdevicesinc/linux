@@ -589,7 +589,7 @@ External Filter Banks Control via GPIO
 		`adi,band-ctrl-X-gpio` properties
 		Values/ops are:
 		0 = Set GPIO to Output Low; short-hand `L`
-		1 = Set GPIO to Output-High; short-hand ``
+		1 = Set GPIO to Output-High; short-hand `H`
 		2 = Set GPIO to Input; short-hand `I`
 		3 = NOP; short-hand `_`
 	The short-hands aim to simplify headaches when comparing GPIO values
