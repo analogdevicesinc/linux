@@ -97,6 +97,7 @@ void arc_config(state_struct *state)
 
 	write16(state, TXDA_CYA_AUXDA_CYA_ADDR, 0x0001);
 
+	write16(state, TX_DIG_CTRL_REG_1_ADDR, 0x3);
 	write16(state, TX_DIG_CTRL_REG_2_ADDR, 0x0024);
 
 	reg_val = read16(state, TX_ANA_CTRL_REG_1_ADDR);
@@ -110,7 +111,7 @@ void arc_config(state_struct *state)
 	write16(state, TX_ANA_CTRL_REG_1_ADDR, 0x2018);
 	write16(state, TX_ANA_CTRL_REG_1_ADDR, 0x2098);
 	write16(state, TX_ANA_CTRL_REG_2_ADDR, 0x030C);
-	write16(state, TX_ANA_CTRL_REG_5_ADDR, 0x0000);
+	write16(state, TX_ANA_CTRL_REG_5_ADDR, 0x0010);
 	write16(state, TX_ANA_CTRL_REG_4_ADDR, 0x4001);
 	write16(state, TX_ANA_CTRL_REG_1_ADDR, 0x2198);
 	write16(state, TX_ANA_CTRL_REG_2_ADDR, 0x030D);

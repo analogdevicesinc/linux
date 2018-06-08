@@ -87,6 +87,7 @@
 #define XCVR_DIAG_RX_LANE_CAL_RST_TMR_ADDR     0x40EA
 #define TX_ANA_CTRL_REG_1_ADDR                 0x5020
 #define TX_ANA_CTRL_REG_2_ADDR                 0x5021
+#define TX_DIG_CTRL_REG_1_ADDR                 0x5023
 #define TX_DIG_CTRL_REG_2_ADDR                 0x5024
 #define TXDA_CYA_AUXDA_CYA_ADDR                0x5025
 #define TX_ANA_CTRL_REG_3_ADDR                 0x5026
