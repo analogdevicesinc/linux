@@ -195,8 +195,8 @@
 		adi,gpio-settings = <1 0 0 0 0 0 0 0 0 0 0 0 0 0>;
 	};
 
-	adi_rx_band_setting_0 { /* 50 - 435 Mhz ; i.e. 50 <= freq < ( 435 Mhz + 1 Hz ) */
-		adi,lo-freq-min = /bits/ 64 <50000000>;
+	adi_rx_band_setting_0 { /* 70 - 435 Mhz ; i.e. 70 <= freq < ( 435 Mhz + 1 Hz ) */
+		adi,lo-freq-min = /bits/ 64 <70000000>;
 		adi,lo-freq-max = /bits/ 64 <435000001>;
 
 		adi,band-ctl-pre = <&sidekiq_rx_pre 0>;
@@ -239,8 +239,8 @@
 				     &sidekiq_lna_med 0>;
 	};
 
-	adi_tx_band_setting_0 { /* 50 - 3000 Mhz (including 3000 Mhz */
-		adi,lo-freq-min = /bits/ 64 <50000000>;
+	adi_tx_band_setting_0 { /* 46.8 - 3000 Mhz (including 3000 Mhz */
+		adi,lo-freq-min = /bits/ 64 <46875001>;
 		adi,lo-freq-max = /bits/ 64 <3000000001>;
 
 		adi,gpio-settings = <0 _ _ _ _ _ _ _ _ _ _ _ 1 0>; /* TX Band 0 */
