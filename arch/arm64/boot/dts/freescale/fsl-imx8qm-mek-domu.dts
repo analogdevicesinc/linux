@@ -45,6 +45,31 @@
 		#address-cells = <2>;
 		#size-cells = <2>;
 
+		firmware {
+			android {
+				compatible = "android,firmware";
+				fstab {
+					compatible = "android,fstab";
+					vendor {
+						compatible = "android,vendor";
+						/* emmc node which used if androidboot.storage_type=emmc */
+						dev_emmc = "/dev/block/platform/passthrough/15b010000.usdhc/by-name/vendor";
+						type = "ext4";
+						mnt_flags = "ro,barrier=1,inode_readahead_blks=8";
+						fsmgr_flags = "wait,slotselect,avb";
+					};
+				};
+
+				vbmeta {
+					/*we need use FirstStageMountVBootV2 if we enable avb*/
+					compatible = "android,vbmeta";
+					/*parts means the partition witch can be mount in first stage*/
+					parts = "vbmeta,boot,system,vendor";
+				};
+			};
+		};
+
+
 		clk: clk {
 			compatible = "fsl,imx8qm-clk";
 			#clock-cells = <1>;
