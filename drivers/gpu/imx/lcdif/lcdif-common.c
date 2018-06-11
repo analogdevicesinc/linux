@@ -15,6 +15,7 @@
 #include <linux/busfreq-imx.h>
 #include <linux/clk.h>
 #include <linux/iopoll.h>
+#include <linux/media-bus-format.h>
 #include <linux/mfd/syscon.h>
 #include <linux/module.h>
 #include <linux/of_device.h>
@@ -207,6 +208,58 @@ void lcdif_vblank_irq_clear(struct lcdif_soc *lcdif)
 	writel(CTRL1_CUR_FRAME_DONE_IRQ, lcdif->base + LCDIF_CTRL1 + REG_CLR);
 }
 EXPORT_SYMBOL(lcdif_vblank_irq_clear);
+
+static uint32_t lcdif_get_bpp_from_fmt(uint32_t format)
+{
+	/* TODO: only support RGB for now */
+
+	switch (format) {
+	case DRM_FORMAT_RGB565:
+	case DRM_FORMAT_BGR565:
+	case DRM_FORMAT_ARGB1555:
+	case DRM_FORMAT_XRGB1555:
+	case DRM_FORMAT_ABGR1555:
+	case DRM_FORMAT_XBGR1555:
+		return 16;
+	case DRM_FORMAT_ARGB8888:
+	case DRM_FORMAT_XRGB8888:
+	case DRM_FORMAT_ABGR8888:
+	case DRM_FORMAT_XBGR8888:
+	case DRM_FORMAT_RGBA8888:
+	case DRM_FORMAT_RGBX8888:
+		return 32;
+	default:
+		/* unsupported format */
+		return 0;
+	}
+}
+
+/*
+ * Get the bus format supported by LCDIF
+ * according to drm fourcc format
+ */
+int lcdif_get_bus_fmt_from_pix_fmt(struct lcdif_soc *lcdif,
+				   uint32_t format)
+{
+	uint32_t bpp;
+
+	bpp = lcdif_get_bpp_from_fmt(format);
+	if (!bpp)
+		return -EINVAL;
+
+	switch (bpp) {
+	case 16:
+		return MEDIA_BUS_FMT_RGB565_1X16;
+	case 18:
+		return MEDIA_BUS_FMT_RGB666_1X18;
+	case 24:
+	case 32:
+		return MEDIA_BUS_FMT_RGB888_1X24;
+	default:
+		return -EINVAL;
+	}
+}
+EXPORT_SYMBOL(lcdif_get_bus_fmt_from_pix_fmt);
 
 int lcdif_set_pix_fmt(struct lcdif_soc *lcdif, u32 format)
 {

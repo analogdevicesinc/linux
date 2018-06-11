@@ -45,6 +45,9 @@ static int lcdif_plane_atomic_check(struct drm_plane *plane,
 				    struct drm_plane_state *plane_state)
 {
 	int ret;
+	uint32_t bus_fmt;
+	struct lcdif_plane *lcdif_plane = to_lcdif_plane(plane);
+	struct lcdif_soc *lcdif = lcdif_plane->lcdif;
 	struct drm_framebuffer *fb = plane_state->fb;
 	struct drm_crtc_state *crtc_state;
 	struct drm_display_mode *mode;
@@ -67,23 +70,14 @@ static int lcdif_plane_atomic_check(struct drm_plane *plane,
 							plane_state->crtc);
 	mode = &crtc_state->adjusted_mode;
 
+	bus_fmt = lcdif_get_bus_fmt_from_pix_fmt(lcdif, fb->format->format);
+	if (bus_fmt < 0)
+		return -EINVAL;
+
 	/* check fb pixel format matches bus format */
 	flags = mode->private_flags & 0xffff;
-
-	switch (fb->format->format) {
-	case DRM_FORMAT_RGB565:
-		if (flags != MEDIA_BUS_FMT_RGB565_1X16)
-			return -EINVAL;
-		break;
-	case DRM_FORMAT_ARGB8888:
-	case DRM_FORMAT_XRGB8888:
-		if (flags != MEDIA_BUS_FMT_RGB888_1X24)
-			return -EINVAL;
-		break;
-	default:
-		/* TODO: add other formats support later */
+	if (flags != bus_fmt)
 		return -EINVAL;
-	}
 
 	clip.x2 = mode->hdisplay;
 	clip.y2 = mode->vdisplay;
