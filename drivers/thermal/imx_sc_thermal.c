@@ -77,7 +77,7 @@ static int imx_sc_tsens_get_temp(void *data, int *temp)
 			return -EINVAL;
 		}
 	}
-	*temp = celsius * 1000 + tenths;
+	*temp = celsius * 1000 + tenths * 100;
 
 	return 0;
 }
