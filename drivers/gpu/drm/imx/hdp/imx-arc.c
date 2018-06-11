@@ -87,7 +87,7 @@ void imx_arc_config(state_struct *state)
 	/* register TX_ANA_CTRL_REG_2 */
 	Afe_write(state, 0x5021, 0x030C);
 	/* register TX_ANA_CTRL_REG_5 */
-	Afe_write(state, 0x5029, 0x0000);
+	Afe_write(state, 0x5029, 0x0010);
 	udelay(100);
 	/* register TX_ANA_CTRL_REG_4 */
 	Afe_write(state, 0x5027, 0x4001);
