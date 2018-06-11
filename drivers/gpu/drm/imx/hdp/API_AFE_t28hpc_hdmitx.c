@@ -45,35 +45,31 @@
  */
 
 #include <drm/drmP.h>
-#include "API_AFE_t28hpc_hdmitx.h"
 #include "imx-hdp.h"
+#include "API_AFE_t28hpc_hdmitx.h"
+#include "t28hpc_hdmitx_table.h"
 
-static char inside(u32 value, u32 left_sharp_corner,
-		  u32 right_sharp_corner)
+int phy_cfg_hdp_t28hpc(state_struct *state,
+				int num_lanes,
+				struct drm_display_mode *mode,
+				int bpp,
+				VIC_PXL_ENCODING_FORMAT format,
+				bool pixel_clk_from_phy)
 {
-	if (value < left_sharp_corner)
-		return false;
-	if (value > right_sharp_corner)
-		return false;
-	return true;
-}
-
-int phy_cfg_t28hpc(state_struct *state, int num_lanes, struct drm_display_mode *mode, int bpp,
-		VIC_PXL_ENCODING_FORMAT format, bool pixel_clk_from_phy)
-{
-
 	const int phy_reset_workaround = 1;
-	unsigned int vco_freq;
+	u32 vco_freq_khz;
 	unsigned char k;
-	uint32_t reg_val;
-	uint32_t pixel_freq_khz = mode->clock;
-	uint32_t character_clock_ratio_num = 1;
-	uint32_t character_clock_ratio_den = 1;
-	uint32_t character_freq_khz;
-	const unsigned int refclk_freq_khz = 27000;
-	unsigned int ftemp, ftemp2;
+	unsigned char row;
+	u32 feedback_factor;
+	u32 reg_val;
+	u32 pll_feedback_divider_total;
+	int pixel_freq_khz = mode->clock;
+	u32 character_clock_ratio_num = 1;
+	u32 character_clock_ratio_den = 1;
+	u32 character_freq_khz;
+	const u32 refclk_freq_khz = 27000;
+	clk_ratio_t clk_ratio = CLK_RATIO_1_1;
 
-	clk_ratio_t clk_ratio = 0;
 	reg_field_t cmnda_pll0_hs_sym_div_sel;
 	reg_field_t cmnda_pll0_ip_div;
 	reg_field_t cmnda_pll0_fb_div_low;
@@ -90,17 +86,12 @@ int phy_cfg_t28hpc(state_struct *state, int num_lanes, struct drm_display_mode *
 	reg_field_t ptat_ndac_ctrl;
 	reg_field_t charge_pump_gain;
 	reg_field_t vco_ring_select;
-	reg_field_t pll_feedback_divider_total;
+
 	reg_field_t cmnda_pll0_pxdiv_high;
 	reg_field_t cmnda_pll0_pxdiv_low;
 	reg_field_t coarse_code;
 	reg_field_t v2i_code;
 	reg_field_t vco_cal_code;
-
-	cmnda_pll0_fb_div_high.value = 0x00A;
-	ftemp = pixel_freq_khz;
-
-	DRM_INFO("mode:%dx%dp%d, pixel clock %u kHz\n", mode->hdisplay, mode->vdisplay, mode->vrefresh, ftemp);
 
 	/* Set field position */
 	cmnda_pll0_hs_sym_div_sel.msb = 9;
@@ -135,8 +126,6 @@ int phy_cfg_t28hpc(state_struct *state, int num_lanes, struct drm_display_mode *
 	charge_pump_gain.lsb = 0;
 	vco_ring_select.msb = 12;
 	vco_ring_select.lsb = 12;
-	pll_feedback_divider_total.msb = 9;
-	pll_feedback_divider_total.lsb = 0;
 	cmnda_pll0_pxdiv_high.msb = 9;
 	cmnda_pll0_pxdiv_high.lsb = 0;
 	cmnda_pll0_pxdiv_low.msb = 9;
@@ -147,37 +136,6 @@ int phy_cfg_t28hpc(state_struct *state, int num_lanes, struct drm_display_mode *
 	v2i_code.lsb = 0;
 	vco_cal_code.msb = 8;
 	vco_cal_code.lsb = 0;
-
-	if (phy_reset_workaround) {
-		/* register PHY_PMA_ISOLATION_CTRL */
-		Afe_write(state, 0xC81F, 0xD000);	/*  enable PHY isolation mode only for CMN */
-		/* register PHY_PMA_ISO_PLL_CTRL1 */
-		reg_val = Afe_read(state, 0xC812);
-		reg_val &= 0xFF00;
-		reg_val |= 0x0012;
-		Afe_write(state, 0xC812, reg_val);	/* set cmn_pll0_clk_datart1_div/cmn_pll0_clk_datart0_div dividers */
-		/* register PHY_ISO_CMN_CTRL */
-		Afe_write(state, 0xC010, 0x0000);	/* assert PHY reset from isolation register */
-		/* register PHY_PMA_ISO_CMN_CTRL */
-		Afe_write(state, 0xC810, 0x0000);	/* assert PMA CMN reset */
-		/* register XCVR_DIAG_BIDI_CTRL */
-		for (k = 0; k < num_lanes; k++) {
-			Afe_write(state, 0x40E8 | (k << 9), 0x00FF);
-		}
-	}
-	/*---------------------------------------------------------------
-	 * Describing Task phy_cfg_hdp
-	 * --------------------------------------------------------------*/
-	/* register PHY_PMA_CMN_CTRL1 */
-	reg_val = Afe_read(state, 0xC800);
-	reg_val &= 0xFFF7;
-	reg_val |= 0x0008;
-	Afe_write(state, 0xC800, reg_val);
-
-	/* register CMN_DIAG_PLL0_TEST_MODE */
-	Afe_write(state, 0x01C4, 0x0020);
-	/* register CMN_PSM_CLK_CTRL */
-	Afe_write(state, 0x0061, 0x0016);
 
 	switch (format) {
 	case YCBCR_4_2_2:
@@ -213,8 +171,7 @@ int phy_cfg_t28hpc(state_struct *state, int num_lanes, struct drm_display_mode *
 		break;
 
 	default:
-		switch (bpp) {
-			/* Assume RGB */
+		switch (bpp) {	/* Assume RGB */
 		case 10:
 			clk_ratio = CLK_RATIO_5_4;
 			character_clock_ratio_num = 5;
@@ -237,1453 +194,475 @@ int phy_cfg_t28hpc(state_struct *state, int num_lanes, struct drm_display_mode *
 		}
 	}
 
-	character_freq_khz = pixel_freq_khz *
-	    character_clock_ratio_num / character_clock_ratio_den;
-	ftemp = pixel_freq_khz;
-	ftemp2 = character_freq_khz;
+	/* Determine a relevant feedback factor as used in the
+	 * t28hpc_hdmitx_clock_control_table table */
+	switch (clk_ratio) {
+	case CLK_RATIO_1_1:
+		feedback_factor = 1000;
+		break;
+	case CLK_RATIO_5_4:
+		feedback_factor = 1250;
+		break;
+	case CLK_RATIO_3_2:
+		feedback_factor = 1500;
+		break;
+	case CLK_RATIO_2_1:
+		feedback_factor = 2000;
+		break;
+	case CLK_RATIO_1_2:
+		feedback_factor = 500;
+		break;
+	case CLK_RATIO_5_8:
+		feedback_factor = 625;
+		break;
+	case CLK_RATIO_3_4:
+		feedback_factor = 750;
+		break;
+	}
+
+	character_freq_khz =
+	    pixel_freq_khz * character_clock_ratio_num /
+	    character_clock_ratio_den;
 	DRM_INFO
-	    ("Pixel clock frequency: %u kHz, character clock frequency: %u, color depth is %0d-bit.\n",
-	     ftemp, ftemp2, bpp);
+	    ("Pixel clock frequency: %d KHz, character clock frequency: %d, color depth is %0d-bit.\n",
+	     pixel_freq_khz, character_freq_khz, bpp);
+
 	if (pixel_clk_from_phy == 0) {
 
-		/* --------------------------------------------------------------
-		 * Describing Task phy_cfg_hdmi_pll0_0pt5736 (Clock is input)
-		 * --------------------------------------------------------------*/
+		/* Get right row from the t28hpc_hdmitx_clock_control_table_pixel_in table.
+		 * Check if 'pixel_freq_mhz' falls inside
+		 * the <PIXEL_CLK_FREQ_MHZ_MIN, PIXEL_CLK_FREQ_MHZ_MAX> range.
+		 * Consider only the rows with FEEDBACK_FACTOR column matching feedback_factor. */
+		row =
+		    get_table_row((const u32 *)&t28hpc_hdmitx_clock_control_table_pixel_in,
+				  T28HPC_HDMITX_CLOCK_CONTROL_TABLE_ROWS_PIXEL_IN,
+				  T28HPC_HDMITX_CLOCK_CONTROL_TABLE_COLS_PIXEL_IN,
+				  pixel_freq_khz, T6_PIXEL_CLK_FREQ_KHZ_MIN,
+				  T6_PIXEL_CLK_FREQ_KHZ_MAX, T6_FEEDBACK_FACTOR,
+				  feedback_factor);
 
-		/* register CMN_PLL0_VCOCAL_INIT_TMR */
-		Afe_write(state, 0x0084, 0x0064);
-		/* register CMN_PLL0_VCOCAL_ITER_TMR */
-		Afe_write(state, 0x0085, 0x000A);
-		/* register PHY_HDP_CLK_CTL */
-		reg_val = Afe_read(state, 0xC009);
-		reg_val &= 0x00FF;
-		reg_val |= 0x1200;
-		Afe_write(state, 0xC009, reg_val);
-
-		switch (clk_ratio) {
-		case CLK_RATIO_1_1:
-			if (inside(pixel_freq_khz, 340000, 600000)) {
-				set_field_value(&cmnda_pll0_hs_sym_div_sel,
-						0x00);
-				set_field_value(&cmnda_pll0_ip_div, 0x3C);
-				set_field_value(&cmnda_pll0_fb_div_low, 0x24A);
-				set_field_value(&cmn_ref_clk_dig_div, 0x03);
-				set_field_value(&divider_scaler, 0x06);
-				set_field_value(&cmnda_hs_clk_0_sel, 0x01);
-				set_field_value(&cmnda_hs_clk_1_sel, 0x01);
-				set_field_value(&tx_subrate, 0x01);
-				set_field_value(&vco_ring_select, 0x01);
-				set_field_value(&pll_feedback_divider_total,
-						600);
-			} else if (inside(pixel_freq_khz, 170000, 340000)) {
-				set_field_value(&cmnda_pll0_hs_sym_div_sel,
-						0x00);
-				set_field_value(&cmnda_pll0_ip_div, 0x22);
-				set_field_value(&cmnda_pll0_fb_div_low, 0x146);
-				set_field_value(&cmn_ref_clk_dig_div, 0x01);
-				set_field_value(&divider_scaler, 0x07);
-				set_field_value(&cmnda_hs_clk_0_sel, 0x01);
-				set_field_value(&cmnda_hs_clk_1_sel, 0x01);
-				set_field_value(&tx_subrate, 0x01);
-				set_field_value(&vco_ring_select, 0x00);
-				set_field_value(&pll_feedback_divider_total,
-						340);
-			} else if (inside(pixel_freq_khz, 85000, 170000)) {
-				set_field_value(&cmnda_pll0_hs_sym_div_sel,
-						0x01);
-				set_field_value(&cmnda_pll0_ip_div, 0x11);
-				set_field_value(&cmnda_pll0_fb_div_low, 0x146);
-				set_field_value(&cmn_ref_clk_dig_div, 0x00);
-				set_field_value(&divider_scaler, 0x07);
-				set_field_value(&cmnda_hs_clk_0_sel, 0x01);
-				set_field_value(&cmnda_hs_clk_1_sel, 0x01);
-				set_field_value(&tx_subrate, 0x02);
-				set_field_value(&vco_ring_select, 0x00);
-				set_field_value(&pll_feedback_divider_total,
-						340);
-			} else if (inside(pixel_freq_khz, 42500, 85000)) {
-				set_field_value(&cmnda_pll0_hs_sym_div_sel,
-						0x02);
-				set_field_value(&cmnda_pll0_ip_div, 0x08);
-				set_field_value(&cmnda_pll0_fb_div_low, 0x132);
-				set_field_value(&cmn_ref_clk_dig_div, 0x03);
-				set_field_value(&divider_scaler, 0x01);
-				set_field_value(&cmnda_hs_clk_0_sel, 0x01);
-				set_field_value(&cmnda_hs_clk_1_sel, 0x01);
-				set_field_value(&tx_subrate, 0x04);
-				set_field_value(&vco_ring_select, 0x00);
-				set_field_value(&pll_feedback_divider_total,
-						320);
-			} else if (inside(pixel_freq_khz, 25000, 42500)) {
-				set_field_value(&cmnda_pll0_hs_sym_div_sel,
-						0x03);
-				set_field_value(&cmnda_pll0_ip_div, 0x05);
-				set_field_value(&cmnda_pll0_fb_div_low, 0x182);
-				set_field_value(&cmn_ref_clk_dig_div, 0x01);
-				set_field_value(&divider_scaler, 0x01);
-				set_field_value(&cmnda_hs_clk_0_sel, 0x02);
-				set_field_value(&cmnda_hs_clk_1_sel, 0x02);
-				set_field_value(&tx_subrate, 0x04);
-				set_field_value(&vco_ring_select, 0x00);
-				set_field_value(&pll_feedback_divider_total,
-						400);
-			} else {
-				ftemp = pixel_freq_khz;
-				DRM_ERROR
-				    ("Pixel clock frequency (%u) is outside of the supported range\n",
-				     ftemp);
-				return 0;
-			}
-			break;
-
-		case CLK_RATIO_5_4:
-			if (inside(pixel_freq_khz, 272000, 480000)) {
-				set_field_value(&cmnda_pll0_hs_sym_div_sel,
-						0x00);
-				set_field_value(&cmnda_pll0_ip_div, 0x30);
-				set_field_value(&cmnda_pll0_fb_div_low, 0x24A);
-				set_field_value(&cmn_ref_clk_dig_div, 0x03);
-				set_field_value(&divider_scaler, 0x05);
-				set_field_value(&cmnda_hs_clk_0_sel, 0x01);
-				set_field_value(&cmnda_hs_clk_1_sel, 0x01);
-				set_field_value(&tx_subrate, 0x01);
-				set_field_value(&vco_ring_select, 0x01);
-				set_field_value(&pll_feedback_divider_total,
-						600);
-			} else if (inside(pixel_freq_khz, 136000, 272000)) {
-				set_field_value(&cmnda_pll0_hs_sym_div_sel,
-						0x00);
-				set_field_value(&cmnda_pll0_ip_div, 0x1A);
-				set_field_value(&cmnda_pll0_fb_div_low, 0x137);
-				set_field_value(&cmn_ref_clk_dig_div, 0x02);
-				set_field_value(&divider_scaler, 0x04);
-				set_field_value(&cmnda_hs_clk_0_sel, 0x01);
-				set_field_value(&cmnda_hs_clk_1_sel, 0x01);
-				set_field_value(&tx_subrate, 0x01);
-				set_field_value(&vco_ring_select, 0x00);
-				set_field_value(&pll_feedback_divider_total,
-						325);
-			} else if (inside(pixel_freq_khz, 68000, 136000)) {
-				set_field_value(&cmnda_pll0_hs_sym_div_sel,
-						0x01);
-				set_field_value(&cmnda_pll0_ip_div, 0x0D);
-				set_field_value(&cmnda_pll0_fb_div_low, 0x137);
-				set_field_value(&cmn_ref_clk_dig_div, 0x02);
-				set_field_value(&divider_scaler, 0x02);
-				set_field_value(&cmnda_hs_clk_0_sel, 0x01);
-				set_field_value(&cmnda_hs_clk_1_sel, 0x01);
-				set_field_value(&tx_subrate, 0x02);
-				set_field_value(&vco_ring_select, 0x00);
-				set_field_value(&pll_feedback_divider_total,
-						325);
-			} else if (inside(pixel_freq_khz, 34000, 68000)) {
-				set_field_value(&cmnda_pll0_hs_sym_div_sel,
-						0x02);
-				set_field_value(&cmnda_pll0_ip_div, 0x06);
-				set_field_value(&cmnda_pll0_fb_div_low, 0x11E);
-				set_field_value(&cmn_ref_clk_dig_div, 0x02);
-				set_field_value(&divider_scaler, 0x01);
-				set_field_value(&cmnda_hs_clk_0_sel, 0x01);
-				set_field_value(&cmnda_hs_clk_1_sel, 0x01);
-				set_field_value(&tx_subrate, 0x04);
-				set_field_value(&vco_ring_select, 0x00);
-				set_field_value(&pll_feedback_divider_total,
-						300);
-			} else if (inside(pixel_freq_khz, 25000, 34000)) {
-				set_field_value(&cmnda_pll0_hs_sym_div_sel,
-						0x03);
-				set_field_value(&cmnda_pll0_ip_div, 0x04);
-				set_field_value(&cmnda_pll0_fb_div_low, 0x182);
-				set_field_value(&cmn_ref_clk_dig_div, 0x01);
-				set_field_value(&divider_scaler, 0x01);
-				set_field_value(&cmnda_hs_clk_0_sel, 0x02);
-				set_field_value(&cmnda_hs_clk_1_sel, 0x02);
-				set_field_value(&tx_subrate, 0x04);
-				set_field_value(&vco_ring_select, 0x00);
-				set_field_value(&pll_feedback_divider_total,
-						400);
-			} else {
-				ftemp = pixel_freq_khz;
-				DRM_ERROR
-				    ("Pixel clock frequency (%u) is outside of the supported range\n",
-				     ftemp);
-				return 0;
-			}
-			break;
-		case CLK_RATIO_3_2:
-			if (inside(pixel_freq_khz, 226000, 400000)) {
-				set_field_value(&cmnda_pll0_hs_sym_div_sel,
-						0x00);
-				set_field_value(&cmnda_pll0_ip_div, 0x28);
-				set_field_value(&cmnda_pll0_fb_div_low, 0x24A);
-				set_field_value(&cmn_ref_clk_dig_div, 0x03);
-				set_field_value(&divider_scaler, 0x04);
-				set_field_value(&cmnda_hs_clk_0_sel, 0x01);
-				set_field_value(&cmnda_hs_clk_1_sel, 0x01);
-				set_field_value(&tx_subrate, 0x01);
-				set_field_value(&vco_ring_select, 0x01);
-				set_field_value(&pll_feedback_divider_total,
-						600);
-			} else if (inside(pixel_freq_khz, 113000, 226000)) {
-				set_field_value(&cmnda_pll0_hs_sym_div_sel,
-						0x00);
-				set_field_value(&cmnda_pll0_ip_div, 0x16);
-				set_field_value(&cmnda_pll0_fb_div_low, 0x13C);
-				set_field_value(&cmn_ref_clk_dig_div, 0x01);
-				set_field_value(&divider_scaler, 0x05);
-				set_field_value(&cmnda_hs_clk_0_sel, 0x01);
-				set_field_value(&cmnda_hs_clk_1_sel, 0x01);
-				set_field_value(&tx_subrate, 0x01);
-				set_field_value(&vco_ring_select, 0x00);
-				set_field_value(&pll_feedback_divider_total,
-						330);
-			} else if (inside(pixel_freq_khz, 56000, 113000)) {
-				set_field_value(&cmnda_pll0_hs_sym_div_sel,
-						0x01);
-				set_field_value(&cmnda_pll0_ip_div, 0x0B);
-				set_field_value(&cmnda_pll0_fb_div_low, 0x13C);
-				set_field_value(&cmn_ref_clk_dig_div, 0x00);
-				set_field_value(&divider_scaler, 0x05);
-				set_field_value(&cmnda_hs_clk_0_sel, 0x01);
-				set_field_value(&cmnda_hs_clk_1_sel, 0x01);
-				set_field_value(&tx_subrate, 0x02);
-				set_field_value(&vco_ring_select, 0x00);
-				set_field_value(&pll_feedback_divider_total,
-						330);
-			} else if (inside(pixel_freq_khz, 28000, 56000)) {
-				set_field_value(&cmnda_pll0_hs_sym_div_sel,
-						0x02);
-				set_field_value(&cmnda_pll0_ip_div, 0x06);
-				set_field_value(&cmnda_pll0_fb_div_low, 0x15A);
-				set_field_value(&cmn_ref_clk_dig_div, 0x02);
-				set_field_value(&divider_scaler, 0x01);
-				set_field_value(&cmnda_hs_clk_0_sel, 0x01);
-				set_field_value(&cmnda_hs_clk_1_sel, 0x01);
-				set_field_value(&tx_subrate, 0x04);
-				set_field_value(&vco_ring_select, 0x00);
-				set_field_value(&pll_feedback_divider_total,
-						360);
-			} else if (inside(pixel_freq_khz, 25000, 28000)) {
-				set_field_value(&cmnda_pll0_hs_sym_div_sel,
-						0x03);
-				set_field_value(&cmnda_pll0_ip_div, 0x03);
-				set_field_value(&cmnda_pll0_fb_div_low, 0x15A);
-				set_field_value(&cmn_ref_clk_dig_div, 0x01);
-				set_field_value(&divider_scaler, 0x01);
-				set_field_value(&cmnda_hs_clk_0_sel, 0x02);
-				set_field_value(&cmnda_hs_clk_1_sel, 0x02);
-				set_field_value(&tx_subrate, 0x04);
-				set_field_value(&vco_ring_select, 0x00);
-				set_field_value(&pll_feedback_divider_total,
-						360);
-			} else {
-				ftemp = pixel_freq_khz;
-				DRM_ERROR
-				    ("Pixel clock frequency (%u) is outside of the supported range\n",
-				     ftemp);
-				return 0;
-			}
-			break;
-		case CLK_RATIO_2_1:
-			if (inside(pixel_freq_khz, 170000, 300000)) {
-				set_field_value(&cmnda_pll0_hs_sym_div_sel,
-						0x00);
-				set_field_value(&cmnda_pll0_ip_div, 0x22);
-				set_field_value(&cmnda_pll0_fb_div_low, 0x29A);
-				set_field_value(&cmn_ref_clk_dig_div, 0x01);
-				set_field_value(&divider_scaler, 0x06);
-				set_field_value(&cmnda_hs_clk_0_sel, 0x01);
-				set_field_value(&cmnda_hs_clk_1_sel, 0x01);
-				set_field_value(&tx_subrate, 0x01);
-				set_field_value(&vco_ring_select, 0x01);
-				set_field_value(&pll_feedback_divider_total,
-						680);
-			} else if (inside(pixel_freq_khz, 85000, 170000)) {
-				set_field_value(&cmnda_pll0_hs_sym_div_sel,
-						0x00);
-				set_field_value(&cmnda_pll0_ip_div, 0x11);
-				set_field_value(&cmnda_pll0_fb_div_low, 0x146);
-				set_field_value(&cmn_ref_clk_dig_div, 0x00);
-				set_field_value(&divider_scaler, 0x07);
-				set_field_value(&cmnda_hs_clk_0_sel, 0x01);
-				set_field_value(&cmnda_hs_clk_1_sel, 0x01);
-				set_field_value(&tx_subrate, 0x01);
-				set_field_value(&vco_ring_select, 0x00);
-				set_field_value(&pll_feedback_divider_total,
-						340);
-			} else if (inside(pixel_freq_khz, 42500, 85000)) {
-				set_field_value(&cmnda_pll0_hs_sym_div_sel,
-						0x01);
-				set_field_value(&cmnda_pll0_ip_div, 0x08);
-				set_field_value(&cmnda_pll0_fb_div_low, 0x132);
-				set_field_value(&cmn_ref_clk_dig_div, 0x03);
-				set_field_value(&divider_scaler, 0x01);
-				set_field_value(&cmnda_hs_clk_0_sel, 0x01);
-				set_field_value(&cmnda_hs_clk_1_sel, 0x01);
-				set_field_value(&tx_subrate, 0x02);
-				set_field_value(&vco_ring_select, 0x00);
-				set_field_value(&pll_feedback_divider_total,
-						320);
-			} else if (inside(pixel_freq_khz, 25000, 42500)) {
-				set_field_value(&cmnda_pll0_hs_sym_div_sel,
-						0x02);
-				set_field_value(&cmnda_pll0_ip_div, 0x05);
-				set_field_value(&cmnda_pll0_fb_div_low, 0x182);
-				set_field_value(&cmn_ref_clk_dig_div, 0x01);
-				set_field_value(&divider_scaler, 0x01);
-				set_field_value(&cmnda_hs_clk_0_sel, 0x01);
-				set_field_value(&cmnda_hs_clk_1_sel, 0x01);
-				set_field_value(&tx_subrate, 0x04);
-				set_field_value(&vco_ring_select, 0x00);
-				set_field_value(&pll_feedback_divider_total,
-						400);
-			} else {
-				ftemp = pixel_freq_khz;
-				DRM_ERROR
-				    ("Pixel clock frequency (%u) is outside of the supported range\n",
-				     ftemp);
-				return 0;
-			}
-			break;
-		case CLK_RATIO_1_2:
-			if (!(inside(pixel_freq_khz, 594000, 594000))) {
-				ftemp = pixel_freq_khz;
-				DRM_ERROR
-				    ("Pixel clock frequency (%u) is outside of the supported range\n",
-				     ftemp);
-				return 0;
-			} else {
-				set_field_value(&cmnda_pll0_hs_sym_div_sel,
-						0x01);
-				set_field_value(&cmnda_pll0_ip_div, 0x3C);
-				set_field_value(&cmnda_pll0_fb_div_low, 0x24A);
-				set_field_value(&cmn_ref_clk_dig_div, 0x03);
-				set_field_value(&divider_scaler, 0x06);
-				set_field_value(&cmnda_hs_clk_0_sel, 0x01);
-				set_field_value(&cmnda_hs_clk_1_sel, 0x01);
-				set_field_value(&tx_subrate, 0x02);
-				set_field_value(&vco_ring_select, 0x01);
-				set_field_value(&pll_feedback_divider_total,
-						600);
-			}
-			break;
-		case CLK_RATIO_5_8:
-			if (!(inside(pixel_freq_khz, 594000, 594000))) {
-				ftemp = pixel_freq_khz;
-				DRM_ERROR
-				    ("Pixel clock frequency (%u) is outside of the supported range\n",
-				     ftemp);
-				return 0;
-			} else {
-				set_field_value(&cmnda_pll0_hs_sym_div_sel,
-						0x00);
-				set_field_value(&cmnda_pll0_ip_div, 0x3C);
-				set_field_value(&cmnda_pll0_fb_div_low, 0x169);
-				set_field_value(&cmn_ref_clk_dig_div, 0x03);
-				set_field_value(&divider_scaler, 0x06);
-				set_field_value(&cmnda_hs_clk_0_sel, 0x01);
-				set_field_value(&cmnda_hs_clk_1_sel, 0x01);
-				set_field_value(&tx_subrate, 0x01);
-				set_field_value(&vco_ring_select, 0x01);
-				set_field_value(&pll_feedback_divider_total,
-						375);
-			}
-			break;
-		case CLK_RATIO_3_4:
-			if (!(inside(pixel_freq_khz, 594000, 594000))) {
-				ftemp = pixel_freq_khz;
-				DRM_ERROR
-				    ("Pixel clock frequency (%u) is outside of the supported range\n",
-				     ftemp);
-				return 0;
-			} else {
-				set_field_value(&cmnda_pll0_hs_sym_div_sel,
-						0x00);
-				set_field_value(&cmnda_pll0_ip_div, 0x3C);
-				set_field_value(&cmnda_pll0_fb_div_low, 0x1B4);
-				set_field_value(&cmn_ref_clk_dig_div, 0x03);
-				set_field_value(&divider_scaler, 0x06);
-				set_field_value(&cmnda_hs_clk_0_sel, 0x01);
-				set_field_value(&cmnda_hs_clk_1_sel, 0x01);
-				set_field_value(&tx_subrate, 0x01);
-				set_field_value(&vco_ring_select, 0x01);
-				set_field_value(&pll_feedback_divider_total,
-						450);
-			}
-			break;
-		}
-		vco_freq =
-		    pixel_freq_khz * pll_feedback_divider_total.value /
-		    cmnda_pll0_ip_div.value;
-		ftemp = vco_freq;
-		DRM_INFO("VCO frequency is %u kHz\n", ftemp);
-
-		if (inside(vco_freq, 1700000, 2000000)) {
-			set_field_value(&voltage_to_current_coarse, 0x04);
-			set_field_value(&voltage_to_current, 0x03);
-			set_field_value(&ndac_ctrl, 0x00);
-			set_field_value(&pmos_ctrl, 0x09);
-			set_field_value(&ptat_ndac_ctrl, 0x09);
-			switch (pll_feedback_divider_total.value) {
-			case 300:
-				set_field_value(&charge_pump_gain, 0x82);
-				break;
-			case 320:
-				set_field_value(&charge_pump_gain, 0x83);
-				break;
-			case 325:
-				set_field_value(&charge_pump_gain, 0x83);
-				break;
-			case 330:
-				set_field_value(&charge_pump_gain, 0x84);
-				break;
-			case 340:
-				set_field_value(&charge_pump_gain, 0x84);
-				break;
-			case 360:
-				set_field_value(&charge_pump_gain, 0x86);
-				break;
-			case 400:
-				set_field_value(&charge_pump_gain, 0xA2);
-				break;
-			default:
-				DRM_ERROR
-				    ("pll_feedback_divider_total (%0d) is outside of the supported range for vco_freq equal %u\n",
-				     pll_feedback_divider_total.value, ftemp);
-				return 0;
-			}
-		} else if (inside(vco_freq, 2000000, 2400000)) {
-			set_field_value(&voltage_to_current_coarse, 0x04);
-			set_field_value(&voltage_to_current, 0x03);
-			set_field_value(&ndac_ctrl, 0x00);
-			set_field_value(&pmos_ctrl, 0x09);
-			set_field_value(&ptat_ndac_ctrl, 0x09);
-			switch (pll_feedback_divider_total.value) {
-			case 300:
-				set_field_value(&charge_pump_gain, 0x47);
-				break;
-			case 320:
-				set_field_value(&charge_pump_gain, 0x4B);
-				break;
-			case 325:
-				set_field_value(&charge_pump_gain, 0x4C);
-				break;
-			case 330:
-				set_field_value(&charge_pump_gain, 0x80);
-				break;
-			case 340:
-				set_field_value(&charge_pump_gain, 0x81);
-				break;
-			case 360:
-				set_field_value(&charge_pump_gain, 0x82);
-				break;
-			case 400:
-				set_field_value(&charge_pump_gain, 0x84);
-				break;
-			default:
-				DRM_ERROR
-				    ("pll_feedback_divider_total (%0d) is outside of the supported range for vco_freq equal %u\n",
-				     pll_feedback_divider_total.value, ftemp);
-				return 0;
-			}
-		} else if (inside(vco_freq, 2400000, 2800000)) {
-			set_field_value(&voltage_to_current_coarse, 0x05);
-			set_field_value(&voltage_to_current, 0x03);
-			set_field_value(&ndac_ctrl, 0x01);
-			set_field_value(&pmos_ctrl, 0x00);
-			set_field_value(&ptat_ndac_ctrl, 0x07);
-			switch (pll_feedback_divider_total.value) {
-			case 300:
-				set_field_value(&charge_pump_gain, 0x43);
-				break;
-			case 320:
-				set_field_value(&charge_pump_gain, 0x45);
-				break;
-			case 325:
-				set_field_value(&charge_pump_gain, 0x45);
-				break;
-			case 330:
-				set_field_value(&charge_pump_gain, 0x45);
-				break;
-			case 340:
-				set_field_value(&charge_pump_gain, 0x86);
-				break;
-			case 360:
-				set_field_value(&charge_pump_gain, 0x4A);
-				break;
-			case 400:
-				set_field_value(&charge_pump_gain, 0x81);
-				break;
-			default:
-				DRM_ERROR
-				    ("pll_feedback_divider_total (%0d) is outside of the supported range for vco_freq equal %u\n",
-				     pll_feedback_divider_total.value, ftemp);
-				return 0;
-			}
-		} else if (inside(vco_freq, 2800000, 3400000)) {
-			set_field_value(&voltage_to_current_coarse, 0x06);
-			set_field_value(&voltage_to_current, 0x03);
-			set_field_value(&ndac_ctrl, 0x01);
-			set_field_value(&pmos_ctrl, 0x00);
-			set_field_value(&ptat_ndac_ctrl, 0x07);
-			switch (pll_feedback_divider_total.value) {
-			case 300:
-				set_field_value(&charge_pump_gain, 0x3D);
-				break;
-			case 320:
-				set_field_value(&charge_pump_gain, 0x41);
-				break;
-			case 325:
-				set_field_value(&charge_pump_gain, 0x41);
-				break;
-			case 330:
-				set_field_value(&charge_pump_gain, 0x41);
-				break;
-			case 340:
-				set_field_value(&charge_pump_gain, 0x42);
-				break;
-			case 360:
-				set_field_value(&charge_pump_gain, 0x43);
-				break;
-			case 400:
-				set_field_value(&charge_pump_gain, 0x46);
-				break;
-			default:
-				DRM_ERROR
-				    ("pll_feedback_divider_total (%0d) is outside of the supported range for vco_freq equal %u\n",
-				     pll_feedback_divider_total.value, ftemp);
-				return 0;
-			}
-		} else if (inside(vco_freq, 3400000, 3900000)) {
-			set_field_value(&voltage_to_current_coarse, 0x04);
-			set_field_value(&voltage_to_current, 0x03);
-			set_field_value(&ndac_ctrl, 0x00);
-			set_field_value(&pmos_ctrl, 0x07);
-			set_field_value(&ptat_ndac_ctrl, 0x0F);
-			switch (pll_feedback_divider_total.value) {
-			case 375:
-				set_field_value(&charge_pump_gain, 0x41);
-				break;
-			case 600:
-				set_field_value(&charge_pump_gain, 0x82);
-				break;
-			case 680:
-				set_field_value(&charge_pump_gain, 0x85);
-				break;
-			default:
-				DRM_ERROR
-				    ("pll_feedback_divider_total (%0d) is outside of the supported range for vco_freq equal %u\n",
-				     pll_feedback_divider_total.value, ftemp);
-				return 0;
-			}
-		} else if (inside(vco_freq, 3900000, 4500000)) {
-			set_field_value(&voltage_to_current_coarse, 0x05);
-			set_field_value(&voltage_to_current, 0x03);
-			set_field_value(&ndac_ctrl, 0x00);
-			set_field_value(&pmos_ctrl, 0x07);
-			set_field_value(&ptat_ndac_ctrl, 0x0F);
-			switch (pll_feedback_divider_total.value) {
-			case 450:
-				set_field_value(&charge_pump_gain, 0x41);
-				break;
-			case 600:
-				set_field_value(&charge_pump_gain, 0x4B);
-				break;
-			case 680:
-				set_field_value(&charge_pump_gain, 0x82);
-				break;
-			default:
-				DRM_ERROR
-				    ("pll_feedback_divider_total (%0d) is outside of the supported range for vco_freq equal %u\n",
-				     pll_feedback_divider_total.value, ftemp);
-				return 0;
-			}
-		} else if (inside(vco_freq, 4500000, 5200000)) {
-			set_field_value(&voltage_to_current_coarse, 0x06);
-			set_field_value(&voltage_to_current, 0x03);
-			set_field_value(&ndac_ctrl, 0x01);
-			set_field_value(&pmos_ctrl, 0x00);
-			set_field_value(&ptat_ndac_ctrl, 0x07);
-			switch (pll_feedback_divider_total.value) {
-			case 600:
-				set_field_value(&charge_pump_gain, 0x45);
-				break;
-			case 680:
-				set_field_value(&charge_pump_gain, 0x4A);
-				break;
-			default:
-				DRM_ERROR
-				    ("pll_feedback_divider_total (%0d) is outside of the supported range for vco_freq equal %u\n",
-				     pll_feedback_divider_total.value, ftemp);
-				return 0;
-			}
-		} else if (inside(vco_freq, 5200000, 6000000)) {
-			set_field_value(&voltage_to_current_coarse, 0x07);
-			set_field_value(&voltage_to_current, 0x03);
-			set_field_value(&ndac_ctrl, 0x01);
-			set_field_value(&pmos_ctrl, 0x00);
-			set_field_value(&ptat_ndac_ctrl, 0x07);
-			switch (pll_feedback_divider_total.value) {
-			case 600:
-				set_field_value(&charge_pump_gain, 0x42);
-				break;
-			case 680:
-				set_field_value(&charge_pump_gain, 0x45);
-				break;
-			default:
-				DRM_ERROR
-				    ("pll_feedback_divider_total (%0d) is outside of the supported range for vco_freq equal %u\n",
-				     pll_feedback_divider_total.value, ftemp);
-				return 0;
-			}
+		/* Check if row was found */
+		if (row + 1) {
+			DRM_INFO
+			    ("Pixel clock frequency (%d KHz) is supported in this color depth (%0d-bit). Settings found in row %0d\n",
+			     pixel_freq_khz, bpp, row);
 		} else {
-			DRM_ERROR
-			    ("VCO frequency %u kHz is outside of the supported range\n",
-			     ftemp);
+			DRM_INFO
+			    ("Pixel clock frequency (%d KHz) not supported for this color depth (%0d-bit)\n",
+			     pixel_freq_khz, bpp);
 			return 0;
 		}
 
-		/* register CMN_DIAG_PLL0_INCLK_CTRL */
-		reg_val = set_reg_value(cmnda_pll0_hs_sym_div_sel);
-		reg_val |= set_reg_value(cmnda_pll0_ip_div);
-		Afe_write(state, 0x01CA, reg_val);
-		/* register CMN_DIAG_PLL0_FBL_OVRD */
-		reg_val = set_reg_value(cmnda_pll0_fb_div_low);
-		reg_val |= (1 << 15);
-		Afe_write(state, 0x01C1, reg_val);
-		/* register PHY_PMA_CMN_CTRL1 */
-		reg_val = Afe_read(state, 0xC800);
-		reg_val &= 0xCFFF;
-		reg_val |= set_reg_value(cmn_ref_clk_dig_div);
-		Afe_write(state, 0xC800, reg_val);
-		/* register CMN_CDIAG_REFCLK_CTRL */
-		reg_val = Afe_read(state, 0x0062);
-		reg_val &= 0x8FFF;
-		reg_val |= set_reg_value(divider_scaler);
-		reg_val |= 0x00C0;
-		Afe_write(state, 0x0062, reg_val);
-		/* register CMN_DIAG_HSCLK_SEL */
-		reg_val = Afe_read(state, 0x01E0);
-		reg_val &= 0xFF00;
-		reg_val |= (cmnda_hs_clk_0_sel.value >> 1) << 0;
-		reg_val |= (cmnda_hs_clk_1_sel.value >> 1) << 4;
-		Afe_write(state, 0x01E0, reg_val);
+		/* Extract particular values from the
+		 * t28hpc_hdmitx_clock_control_table_pixel_in table */
+		set_field_value(&cmnda_pll0_ip_div,
+				t28hpc_hdmitx_clock_control_table_pixel_in[row]
+				[T6_CMNDA_PLL0_IP_DIV]);
+		set_field_value(&cmn_ref_clk_dig_div,
+				t28hpc_hdmitx_clock_control_table_pixel_in[row]
+				[T6_CMN_REF_CLK_DIG_DIV]);
+		set_field_value(&divider_scaler,
+				t28hpc_hdmitx_clock_control_table_pixel_in[row]
+				[T6_REF_CLK_DIVIDER_SCALER]);
+		set_field_value(&cmnda_pll0_fb_div_low,
+				t28hpc_hdmitx_clock_control_table_pixel_in[row]
+				[T6_CMNDA_PLL0_FB_DIV_LOW]);
+		set_field_value(&cmnda_pll0_fb_div_high,
+				t28hpc_hdmitx_clock_control_table_pixel_in[row]
+				[T6_CMNDA_PLL0_FB_DIV_HIGH]);
+		set_field_value(&vco_ring_select,
+				t28hpc_hdmitx_clock_control_table_pixel_in[row]
+				[T6_VCO_RING_SELECT]);
+		set_field_value(&cmnda_hs_clk_0_sel,
+				t28hpc_hdmitx_clock_control_table_pixel_in[row]
+				[T6_CMNDA_HS_CLK_0_SEL]);
+		set_field_value(&cmnda_hs_clk_1_sel,
+				t28hpc_hdmitx_clock_control_table_pixel_in[row]
+				[T6_CMNDA_HS_CLK_1_SEL]);
+		set_field_value(&tx_subrate,
+				t28hpc_hdmitx_clock_control_table_pixel_in[row]
+				[T6_HSCLK_DIV_TX_SUB_RATE]);
+		set_field_value(&cmnda_pll0_hs_sym_div_sel,
+				t28hpc_hdmitx_clock_control_table_pixel_in[row]
+				[T6_CMNDA_PLL0_HS_SYM_DIV_SEL]);
 
-		/* register XCVR_DIAG_HSCLK_SEL */
-		for (k = 0; k < num_lanes; k++) {
-			reg_val = Afe_read(state, 0x40E1 | (k << 9));
-			reg_val &= 0xCFFF;
-			reg_val |= (cmnda_hs_clk_0_sel.value >> 1) << 12;
-			Afe_write(state, 0x40E1 | (k << 9), reg_val);
+		/* Display parameters (informative message) */
+		DRM_DEBUG("set_field_value() cmnda_pll0_ip_div        : 0x%02X\n",
+		       cmnda_pll0_ip_div.value);
+		DRM_DEBUG("set_field_value() cmn_ref_clk_dig_div      : 0x%X\n",
+		       cmn_ref_clk_dig_div.value);
+		DRM_DEBUG("set_field_value() divider_scaler           : 0x%X\n",
+		       divider_scaler.value);
+		DRM_DEBUG("set_field_value() cmnda_pll0_fb_div_low    : 0x%03X\n",
+		       cmnda_pll0_fb_div_low.value);
+		DRM_DEBUG("set_field_value() cmnda_pll0_fb_div_high   : 0x%03X\n",
+		       cmnda_pll0_fb_div_high.value);
+		DRM_DEBUG("set_field_value() vco_ring_select          : %0d\n",
+		       vco_ring_select.value);
+		DRM_DEBUG("set_field_value() cmnda_hs_clk_0_sel       : %0d\n",
+		       cmnda_hs_clk_0_sel.value);
+		DRM_DEBUG("set_field_value() cmnda_hs_clk_1_sel       : %0d\n",
+		       cmnda_hs_clk_1_sel.value);
+		DRM_DEBUG("set_field_value() tx_subrate               : %0d\n",
+		       tx_subrate.value);
+		DRM_DEBUG("set_field_value() cmnda_pll0_hs_sym_div_sel: 0x%X\n",
+		       cmnda_pll0_hs_sym_div_sel.value);
+
+		pll_feedback_divider_total =
+		    cmnda_pll0_fb_div_low.value + cmnda_pll0_fb_div_high.value + 4;
+		vco_freq_khz =
+		    pixel_freq_khz * pll_feedback_divider_total /
+		    cmnda_pll0_ip_div.value;
+		DRM_INFO("VCO frequency is %d\n", vco_freq_khz);
+
+		/* Get right row from the t28hpc_hdmitx_pll_tuning_table_pixel_in table.
+		 * Check if 'vco_freq_khz' falls inside the
+		 * <PLL_VCO_FREQ_KHZ_MIN, PLL_VCO_FREQ_KHZ_MAX> range.
+		 * Consider only the rows with PLL_FEEDBACK_DIV_TOTAL
+		 * column matching pll_feedback_divider_total. */
+		row =
+		    get_table_row((const u32 *)&t28hpc_hdmitx_pll_tuning_table_pixel_in,
+				  T28HPC_HDMITX_PLL_TUNING_TABLE_ROWS_PIXEL_IN,
+				  T28HPC_HDMITX_PLL_TUNING_TABLE_COLS_PIXEL_IN,
+				  vco_freq_khz, T7_PLL_VCO_FREQ_KHZ_MIN,
+				  T7_PLL_VCO_FREQ_KHZ_MAX,
+				  T7_PLL_FEEDBACK_DIV_TOTAL,
+				  pll_feedback_divider_total);
+
+		if (row + 1) {
+			DRM_INFO
+			    ("VCO frequency (%d KHz) is supported. Settings found in row %0d\n",
+			     vco_freq_khz, row);
+		} else {
+			DRM_INFO("VCO frequency (%d KHz) not supported\n",
+			       vco_freq_khz);
+			return 0;
 		}
 
-		/* register TX_DIAG_TX_CTRL */
-		for (k = 0; k < num_lanes; k++) {
-			reg_val = Afe_read(state, 0x41E0 | (k << 9));
-			reg_val &= 0xFF3F;
-			reg_val |= (tx_subrate.value >> 1) << 6;
-			Afe_write(state, 0x41E0 | (k << 9), reg_val);
-		}
+		/* Extract particular values from
+		 * the t28hpc_hdmitx_pll_tuning_table_pixel_in table */
+		set_field_value(&voltage_to_current_coarse,
+				t28hpc_hdmitx_pll_tuning_table_pixel_in[row]
+				[T7_VOLTAGE_TO_CURRENT_COARSE]);
+		set_field_value(&voltage_to_current,
+				t28hpc_hdmitx_pll_tuning_table_pixel_in[row]
+				[T7_VOLTAGE_TO_CURRENT]);
+		set_field_value(&ndac_ctrl,
+				t28hpc_hdmitx_pll_tuning_table_pixel_in[row]
+				[T7_NDAC_CTRL]);
+		set_field_value(&pmos_ctrl,
+				t28hpc_hdmitx_pll_tuning_table_pixel_in[row]
+				[T7_PMOS_CTRL]);
+		set_field_value(&ptat_ndac_ctrl,
+				t28hpc_hdmitx_pll_tuning_table_pixel_in[row]
+				[T7_PTAT_NDAC_CTRL]);
+		set_field_value(&charge_pump_gain,
+				t28hpc_hdmitx_pll_tuning_table_pixel_in[row]
+				[T7_CHARGE_PUMP_GAIN]);
 
-		/* register CMN_PLLSM0_USER_DEF_CTRL */
-		reg_val = set_reg_value(vco_ring_select);
-		Afe_write(state, 0x002F, reg_val);
-		/* register CMN_DIAG_PLL0_OVRD */
-		Afe_write(state, 0x01C2, 0x0000);
-		/* register CMN_DIAG_PLL0_FBH_OVRD */
-		reg_val = set_reg_value(cmnda_pll0_fb_div_high);
-		reg_val |= (1 << 15);
-		Afe_write(state, 0x01C0, reg_val);
-		/* register CMN_DIAG_PLL0_V2I_TUNE */
-		reg_val = set_reg_value(voltage_to_current_coarse);
-		reg_val |= set_reg_value(voltage_to_current);
-		Afe_write(state, 0x01C5, reg_val);
-		/* register CMN_DIAG_PLL0_PTATIS_TUNE1 */
-		reg_val = set_reg_value(pmos_ctrl);
-		reg_val |= set_reg_value(ndac_ctrl);
-		Afe_write(state, 0x01C8, reg_val);
-		/* register CMN_DIAG_PLL0_PTATIS_TUNE2 */
-		reg_val = set_reg_value(ptat_ndac_ctrl);
-		Afe_write(state, 0x01C9, reg_val);
-		/* register CMN_DIAG_PLL0_CP_TUNE */
-		reg_val = set_reg_value(charge_pump_gain);
-		Afe_write(state, 0x01C6, reg_val);
-		/* register CMN_DIAG_PLL0_LF_PROG */
-		Afe_write(state, 0x01C7, 0x0008);
-
-		/* register XCVR_DIAG_PLLDRC_CTRL */
-		for (k = 0; k < num_lanes; k++) {
-			reg_val = Afe_read(state, 0x40E0 | (k << 9));
-			reg_val &= 0xBFFF;
-			Afe_write(state, 0x40E0 | (k << 9), reg_val);
-		}
+		/* Display parameters (informative message) */
+		DRM_DEBUG("set_field_value() voltage_to_current_coarse : 0x%X\n",
+		       voltage_to_current_coarse.value);
+		DRM_DEBUG("set_field_value() voltage_to_current        : 0x%X\n",
+		       voltage_to_current.value);
+		DRM_DEBUG("set_field_value() ndac_ctrl                 : 0x%X\n",
+		       ndac_ctrl.value);
+		DRM_DEBUG("set_field_value() pmos_ctrl                 : 0x%02X\n",
+		       pmos_ctrl.value);
+		DRM_DEBUG("set_field_value() ptat_ndac_ctrl            : 0x%02X\n",
+		       ptat_ndac_ctrl.value);
+		DRM_DEBUG("set_field_value() charge_pump_gain          : 0x%03X\n",
+		       charge_pump_gain.value);
 
 	} else {
-		/* pixel_clk_from_phy == 1
-		 * Describing task phy_cfg_hdmi_pll0_0pt099_ver2 (Clock is OUTPUT)
-		 * support pixel clock list
-		 * 27MHz, 74.25MHz, 99MHz, 148.5MHz, 198MHz, 297MHz, 594MHz */
-		if (inside(pixel_freq_khz, 27000, 27000)) {
-			switch (clk_ratio) {
-			case CLK_RATIO_1_1:
-				set_field_value(&cmnda_pll0_ip_div, 0x03);
-				set_field_value(&cmn_ref_clk_dig_div, 0x01);
-				set_field_value(&divider_scaler, 0x01);
-				set_field_value(&pll_feedback_divider_total,
-						240);
-				set_field_value(&cmnda_pll0_fb_div_low, 0xBC);
-				set_field_value(&cmnda_pll0_fb_div_high, 0x30);
-				set_field_value(&cmnda_pll0_pxdiv_low, 0x26);
-				set_field_value(&cmnda_pll0_pxdiv_high, 0x26);
-				set_field_value(&vco_ring_select, 0x00);
-				set_field_value(&cmnda_hs_clk_0_sel, 0x02);
-				set_field_value(&cmnda_hs_clk_1_sel, 0x02);
-				set_field_value(&tx_subrate, 0x04);
-				set_field_value(&cmnda_pll0_hs_sym_div_sel,
-						0x03);
-				break;
-			case CLK_RATIO_5_4:
-				set_field_value(&cmnda_pll0_ip_div, 0x03);
-				set_field_value(&cmn_ref_clk_dig_div, 0x01);
-				set_field_value(&divider_scaler, 0x01);
-				set_field_value(&pll_feedback_divider_total,
-						300);
-				set_field_value(&cmnda_pll0_fb_div_low, 0x0EC);
-				set_field_value(&cmnda_pll0_fb_div_high, 0x03C);
-				set_field_value(&cmnda_pll0_pxdiv_low, 0x030);
-				set_field_value(&cmnda_pll0_pxdiv_high, 0x030);
-				set_field_value(&vco_ring_select, 0x00);
-				set_field_value(&cmnda_hs_clk_0_sel, 0x02);
-				set_field_value(&cmnda_hs_clk_1_sel, 0x02);
-				set_field_value(&tx_subrate, 0x04);
-				set_field_value(&cmnda_pll0_hs_sym_div_sel,
-						0x03);
-				break;
-			case CLK_RATIO_3_2:
-				set_field_value(&cmnda_pll0_ip_div, 0x03);
-				set_field_value(&cmn_ref_clk_dig_div, 0x01);
-				set_field_value(&divider_scaler, 0x01);
-				set_field_value(&pll_feedback_divider_total,
-						360);
-				set_field_value(&cmnda_pll0_fb_div_low, 0x11C);
-				set_field_value(&cmnda_pll0_fb_div_high, 0x048);
-				set_field_value(&cmnda_pll0_pxdiv_low, 0x03A);
-				set_field_value(&cmnda_pll0_pxdiv_high, 0x03A);
-				set_field_value(&vco_ring_select, 0x00);
-				set_field_value(&cmnda_hs_clk_0_sel, 0x02);
-				set_field_value(&cmnda_hs_clk_1_sel, 0x02);
-				set_field_value(&tx_subrate, 0x04);
-				set_field_value(&cmnda_pll0_hs_sym_div_sel,
-						0x03);
-				break;
-			case CLK_RATIO_2_1:
-				set_field_value(&cmnda_pll0_ip_div, 0x03);
-				set_field_value(&cmn_ref_clk_dig_div, 0x01);
-				set_field_value(&divider_scaler, 0x01);
-				set_field_value(&pll_feedback_divider_total,
-						240);
-				set_field_value(&cmnda_pll0_fb_div_low, 0x0BC);
-				set_field_value(&cmnda_pll0_fb_div_high, 0x030);
-				set_field_value(&cmnda_pll0_pxdiv_low, 0x026);
-				set_field_value(&cmnda_pll0_pxdiv_high, 0x026);
-				set_field_value(&vco_ring_select, 0x00);
-				set_field_value(&cmnda_hs_clk_0_sel, 0x02);
-				set_field_value(&cmnda_hs_clk_1_sel, 0x02);
-				set_field_value(&tx_subrate, 0x02);
-				set_field_value(&cmnda_pll0_hs_sym_div_sel,
-						0x02);
-				break;
-			default:
-				break;
-			}
-		} else if (inside(pixel_freq_khz, 54000, 54000)) {
-			switch (clk_ratio) {
-			case CLK_RATIO_1_1:
-				set_field_value(&cmnda_pll0_ip_div, 0x03);
-				set_field_value(&cmn_ref_clk_dig_div, 0x01);
-				set_field_value(&divider_scaler, 0x01);
-				set_field_value(&pll_feedback_divider_total,
-						480);
-				set_field_value(&cmnda_pll0_fb_div_low, 0x17C);
-				set_field_value(&cmnda_pll0_fb_div_high, 0x060);
-				set_field_value(&cmnda_pll0_pxdiv_low, 0x026);
-				set_field_value(&cmnda_pll0_pxdiv_high, 0x026);
-				set_field_value(&vco_ring_select, 0x01);
-				set_field_value(&cmnda_hs_clk_0_sel, 0x02);
-				set_field_value(&cmnda_hs_clk_1_sel, 0x02);
-				set_field_value(&tx_subrate, 0x04);
-				set_field_value(&cmnda_pll0_hs_sym_div_sel,
-						0x03);
-				break;
-			case CLK_RATIO_5_4:
-				set_field_value(&cmnda_pll0_ip_div, 0x04);
-				set_field_value(&cmn_ref_clk_dig_div, 0x01);
-				set_field_value(&divider_scaler, 0x01);
-				set_field_value(&pll_feedback_divider_total,
-						400);
-				set_field_value(&cmnda_pll0_fb_div_low, 0x13C);
-				set_field_value(&cmnda_pll0_fb_div_high, 0x050);
-				set_field_value(&cmnda_pll0_pxdiv_low, 0x017);
-				set_field_value(&cmnda_pll0_pxdiv_high, 0x017);
-				set_field_value(&vco_ring_select, 0x00);
-				set_field_value(&cmnda_hs_clk_0_sel, 0x01);
-				set_field_value(&cmnda_hs_clk_1_sel, 0x01);
-				set_field_value(&tx_subrate, 0x04);
-				set_field_value(&cmnda_pll0_hs_sym_div_sel,
-						0x02);
-				break;
-			case CLK_RATIO_3_2:
-				set_field_value(&cmnda_pll0_ip_div, 0x04);
-				set_field_value(&cmn_ref_clk_dig_div, 0x01);
-				set_field_value(&divider_scaler, 0x01);
-				set_field_value(&pll_feedback_divider_total,
-						480);
-				set_field_value(&cmnda_pll0_fb_div_low, 0x17C);
-				set_field_value(&cmnda_pll0_fb_div_high, 0x060);
-				set_field_value(&cmnda_pll0_pxdiv_low, 0x01C);
-				set_field_value(&cmnda_pll0_pxdiv_high, 0x01C);
-				set_field_value(&vco_ring_select, 0x00);
-				set_field_value(&cmnda_hs_clk_0_sel, 0x02);
-				set_field_value(&cmnda_hs_clk_1_sel, 0x02);
-				set_field_value(&tx_subrate, 0x02);
-				set_field_value(&cmnda_pll0_hs_sym_div_sel,
-						0x02);
-				break;
-			case CLK_RATIO_2_1:
-				set_field_value(&cmnda_pll0_ip_div, 0x03);
-				set_field_value(&cmn_ref_clk_dig_div, 0x01);
-				set_field_value(&divider_scaler, 0x01);
-				set_field_value(&pll_feedback_divider_total,
-						240);
-				set_field_value(&cmnda_pll0_fb_div_low, 0x0bc);
-				set_field_value(&cmnda_pll0_fb_div_high, 0x030);
-				set_field_value(&cmnda_pll0_pxdiv_low, 0x012);
-				set_field_value(&cmnda_pll0_pxdiv_high, 0x012);
-				set_field_value(&vco_ring_select, 0x00);
-				set_field_value(&cmnda_hs_clk_0_sel, 0x02);
-				set_field_value(&cmnda_hs_clk_1_sel, 0x02);
-				set_field_value(&tx_subrate, 0x01);
-				set_field_value(&cmnda_pll0_hs_sym_div_sel,
-						0x01);
-				break;
-			default:
-				break;
-			}
-		} else if (inside(pixel_freq_khz, 74250, 74250)) {
-			switch (clk_ratio) {
-			case CLK_RATIO_1_1:
-				set_field_value(&cmnda_pll0_ip_div, 0x03);
-				set_field_value(&cmn_ref_clk_dig_div, 0x01);
-				set_field_value(&divider_scaler, 0x01);
-				set_field_value(&pll_feedback_divider_total,
-						660);
-				set_field_value(&cmnda_pll0_fb_div_low, 0x20c);
-				set_field_value(&cmnda_pll0_fb_div_high, 0x084);
-				set_field_value(&cmnda_pll0_pxdiv_low, 0x026);
-				set_field_value(&cmnda_pll0_pxdiv_high, 0x026);
-				set_field_value(&vco_ring_select, 0x01);
-				set_field_value(&cmnda_hs_clk_0_sel, 0x02);
-				set_field_value(&cmnda_hs_clk_1_sel, 0x02);
-				set_field_value(&tx_subrate, 0x04);
-				set_field_value(&cmnda_pll0_hs_sym_div_sel,
-						0x03);
-				break;
-			case CLK_RATIO_5_4:
-				set_field_value(&cmnda_pll0_ip_div, 0x04);
-				set_field_value(&cmn_ref_clk_dig_div, 0x01);
-				set_field_value(&divider_scaler, 0x01);
-				set_field_value(&pll_feedback_divider_total,
-						550);
-				set_field_value(&cmnda_pll0_fb_div_low, 0x1b4);
-				set_field_value(&cmnda_pll0_fb_div_high, 0x06e);
-				set_field_value(&cmnda_pll0_pxdiv_low, 0x017);
-				set_field_value(&cmnda_pll0_pxdiv_high, 0x017);
-				set_field_value(&vco_ring_select, 0x01);
-				set_field_value(&cmnda_hs_clk_0_sel, 0x01);
-				set_field_value(&cmnda_hs_clk_1_sel, 0x01);
-				set_field_value(&tx_subrate, 0x04);
-				set_field_value(&cmnda_pll0_hs_sym_div_sel,
-						0x02);
-				break;
-			case CLK_RATIO_3_2:
-				set_field_value(&cmnda_pll0_ip_div, 0x04);
-				set_field_value(&cmn_ref_clk_dig_div, 0x01);
-				set_field_value(&divider_scaler, 0x01);
-				set_field_value(&pll_feedback_divider_total,
-						660);
-				set_field_value(&cmnda_pll0_fb_div_low, 0x20c);
-				set_field_value(&cmnda_pll0_fb_div_high, 0x084);
-				set_field_value(&cmnda_pll0_pxdiv_low, 0x01c);
-				set_field_value(&cmnda_pll0_pxdiv_high, 0x01c);
-				set_field_value(&vco_ring_select, 0x01);
-				set_field_value(&cmnda_hs_clk_0_sel, 0x02);
-				set_field_value(&cmnda_hs_clk_1_sel, 0x02);
-				set_field_value(&tx_subrate, 0x02);
-				set_field_value(&cmnda_pll0_hs_sym_div_sel,
-						0x02);
-				break;
-			case CLK_RATIO_2_1:
-				set_field_value(&cmnda_pll0_ip_div, 0x03);
-				set_field_value(&cmn_ref_clk_dig_div, 0x01);
-				set_field_value(&divider_scaler, 0x01);
-				set_field_value(&pll_feedback_divider_total,
-						330);
-				set_field_value(&cmnda_pll0_fb_div_low, 0x104);
-				set_field_value(&cmnda_pll0_fb_div_high, 0x042);
-				set_field_value(&cmnda_pll0_pxdiv_low, 0x012);
-				set_field_value(&cmnda_pll0_pxdiv_high, 0x012);
-				set_field_value(&vco_ring_select, 0x00);
-				set_field_value(&cmnda_hs_clk_0_sel, 0x02);
-				set_field_value(&cmnda_hs_clk_1_sel, 0x02);
-				set_field_value(&tx_subrate, 0x01);
-				set_field_value(&cmnda_pll0_hs_sym_div_sel,
-						0x01);
-				break;
-			default:
-				break;
-			}
-		} else if (inside(pixel_freq_khz, 99000, 99000)) {
-			switch (clk_ratio) {
-			case CLK_RATIO_1_1:
-				set_field_value(&cmnda_pll0_ip_div, 0x03);
-				set_field_value(&cmn_ref_clk_dig_div, 0x01);
-				set_field_value(&divider_scaler, 0x01);
-				set_field_value(&pll_feedback_divider_total,
-						440);
-				set_field_value(&cmnda_pll0_fb_div_low, 0x15c);
-				set_field_value(&cmnda_pll0_fb_div_high, 0x058);
-				set_field_value(&cmnda_pll0_pxdiv_low, 0x012);
-				set_field_value(&cmnda_pll0_pxdiv_high, 0x012);
-				set_field_value(&vco_ring_select, 0x01);
-				set_field_value(&cmnda_hs_clk_0_sel, 0x02);
-				set_field_value(&cmnda_hs_clk_1_sel, 0x02);
-				set_field_value(&tx_subrate, 0x02);
-				set_field_value(&cmnda_pll0_hs_sym_div_sel,
-						0x02);
-				break;
-			case CLK_RATIO_5_4:
-				set_field_value(&cmnda_pll0_ip_div, 0x03);
-				set_field_value(&cmn_ref_clk_dig_div, 0x01);
-				set_field_value(&divider_scaler, 0x01);
-				set_field_value(&pll_feedback_divider_total,
-						275);
-				set_field_value(&cmnda_pll0_fb_div_low, 0x0d8);
-				set_field_value(&cmnda_pll0_fb_div_high, 0x037);
-				set_field_value(&cmnda_pll0_pxdiv_low, 0x00b);
-				set_field_value(&cmnda_pll0_pxdiv_high, 0x00a);
-				set_field_value(&vco_ring_select, 0x00);
-				set_field_value(&cmnda_hs_clk_0_sel, 0x01);
-				set_field_value(&cmnda_hs_clk_1_sel, 0x01);
-				set_field_value(&tx_subrate, 0x02);
-				set_field_value(&cmnda_pll0_hs_sym_div_sel,
-						0x01);
-				break;
-			case CLK_RATIO_3_2:
-				set_field_value(&cmnda_pll0_ip_div, 0x03);
-				set_field_value(&cmn_ref_clk_dig_div, 0x01);
-				set_field_value(&divider_scaler, 0x01);
-				set_field_value(&pll_feedback_divider_total,
-						330);
-				set_field_value(&cmnda_pll0_fb_div_low, 0x104);
-				set_field_value(&cmnda_pll0_fb_div_high, 0x042);
-				set_field_value(&cmnda_pll0_pxdiv_low, 0x00d);
-				set_field_value(&cmnda_pll0_pxdiv_high, 0x00d);
-				set_field_value(&vco_ring_select, 0x00);
-				set_field_value(&cmnda_hs_clk_0_sel, 0x02);
-				set_field_value(&cmnda_hs_clk_1_sel, 0x02);
-				set_field_value(&tx_subrate, 0x01);
-				set_field_value(&cmnda_pll0_hs_sym_div_sel,
-						0x01);
-				break;
-			case CLK_RATIO_2_1:
-				set_field_value(&cmnda_pll0_ip_div, 0x03);
-				set_field_value(&cmn_ref_clk_dig_div, 0x01);
-				set_field_value(&divider_scaler, 0x01);
-				set_field_value(&pll_feedback_divider_total,
-						440);
-				set_field_value(&cmnda_pll0_fb_div_low, 0x15c);
-				set_field_value(&cmnda_pll0_fb_div_high, 0x058);
-				set_field_value(&cmnda_pll0_pxdiv_low, 0x012);
-				set_field_value(&cmnda_pll0_pxdiv_high, 0x012);
-				set_field_value(&vco_ring_select, 0x01);
-				set_field_value(&cmnda_hs_clk_0_sel, 0x02);
-				set_field_value(&cmnda_hs_clk_1_sel, 0x02);
-				set_field_value(&tx_subrate, 0x01);
-				set_field_value(&cmnda_pll0_hs_sym_div_sel,
-						0x01);
-				break;
-			default:
-				break;
-			}
-		} else if (inside(pixel_freq_khz, 148500, 148500)) {
-			switch (clk_ratio) {
-			case CLK_RATIO_1_1:
-				set_field_value(&cmnda_pll0_ip_div, 0x03);
-				set_field_value(&cmn_ref_clk_dig_div, 0x01);
-				set_field_value(&divider_scaler, 0x01);
-				set_field_value(&pll_feedback_divider_total,
-						660);
-				set_field_value(&cmnda_pll0_fb_div_low, 0x20c);
-				set_field_value(&cmnda_pll0_fb_div_high, 0x084);
-				set_field_value(&cmnda_pll0_pxdiv_low, 0x012);
-				set_field_value(&cmnda_pll0_pxdiv_high, 0x012);
-				set_field_value(&vco_ring_select, 0x01);
-				set_field_value(&cmnda_hs_clk_0_sel, 0x02);
-				set_field_value(&cmnda_hs_clk_1_sel, 0x02);
-				set_field_value(&tx_subrate, 0x02);
-				set_field_value(&cmnda_pll0_hs_sym_div_sel,
-						0x02);
-				break;
-			case CLK_RATIO_5_4:
-				set_field_value(&cmnda_pll0_ip_div, 0x04);
-				set_field_value(&cmn_ref_clk_dig_div, 0x01);
-				set_field_value(&divider_scaler, 0x01);
-				set_field_value(&pll_feedback_divider_total,
-						550);
-				set_field_value(&cmnda_pll0_fb_div_low, 0x1b4);
-				set_field_value(&cmnda_pll0_fb_div_high, 0x06e);
-				set_field_value(&cmnda_pll0_pxdiv_low, 0x00b);
-				set_field_value(&cmnda_pll0_pxdiv_high, 0x00a);
-				set_field_value(&vco_ring_select, 0x01);
-				set_field_value(&cmnda_hs_clk_0_sel, 0x01);
-				set_field_value(&cmnda_hs_clk_1_sel, 0x01);
-				set_field_value(&tx_subrate, 0x02);
-				set_field_value(&cmnda_pll0_hs_sym_div_sel,
-						0x01);
-				break;
-			case CLK_RATIO_3_2:
-				set_field_value(&cmnda_pll0_ip_div, 0x03);
-				set_field_value(&cmn_ref_clk_dig_div, 0x01);
-				set_field_value(&divider_scaler, 0x01);
-				set_field_value(&pll_feedback_divider_total,
-						495);
-				set_field_value(&cmnda_pll0_fb_div_low, 0x188);
-				set_field_value(&cmnda_pll0_fb_div_high, 0x063);
-				set_field_value(&cmnda_pll0_pxdiv_low, 0x00d);
-				set_field_value(&cmnda_pll0_pxdiv_high, 0x00d);
-				set_field_value(&vco_ring_select, 0x01);
-				set_field_value(&cmnda_hs_clk_0_sel, 0x01);
-				set_field_value(&cmnda_hs_clk_1_sel, 0x01);
-				set_field_value(&tx_subrate, 0x02);
-				set_field_value(&cmnda_pll0_hs_sym_div_sel,
-						0x01);
-				break;
-			case CLK_RATIO_2_1:
-				set_field_value(&cmnda_pll0_ip_div, 0x03);
-				set_field_value(&cmn_ref_clk_dig_div, 0x01);
-				set_field_value(&divider_scaler, 0x01);
-				set_field_value(&pll_feedback_divider_total,
-						660);
-				set_field_value(&cmnda_pll0_fb_div_low, 0x20c);
-				set_field_value(&cmnda_pll0_fb_div_high, 0x084);
-				set_field_value(&cmnda_pll0_pxdiv_low, 0x012);
-				set_field_value(&cmnda_pll0_pxdiv_high, 0x012);
-				set_field_value(&vco_ring_select, 0x01);
-				set_field_value(&cmnda_hs_clk_0_sel, 0x02);
-				set_field_value(&cmnda_hs_clk_1_sel, 0x02);
-				set_field_value(&tx_subrate, 0x01);
-				set_field_value(&cmnda_pll0_hs_sym_div_sel,
-						0x01);
-				break;
-			default:
-				break;
-			}
-		} else if (inside(pixel_freq_khz, 198000, 198000)) {
-			switch (clk_ratio) {
-			case CLK_RATIO_1_1:
-				set_field_value(&cmnda_pll0_ip_div, 0x03);
-				set_field_value(&cmn_ref_clk_dig_div, 0x01);
-				set_field_value(&divider_scaler, 0x01);
-				set_field_value(&pll_feedback_divider_total,
-						220);
-				set_field_value(&cmnda_pll0_fb_div_low, 0x0ac);
-				set_field_value(&cmnda_pll0_fb_div_high, 0x02c);
-				set_field_value(&cmnda_pll0_pxdiv_low, 0x003);
-				set_field_value(&cmnda_pll0_pxdiv_high, 0x003);
-				set_field_value(&vco_ring_select, 0x00);
-				set_field_value(&cmnda_hs_clk_0_sel, 0x01);
-				set_field_value(&cmnda_hs_clk_1_sel, 0x01);
-				set_field_value(&tx_subrate, 0x01);
-				set_field_value(&cmnda_pll0_hs_sym_div_sel,
-						0x00);
-				break;
-			case CLK_RATIO_5_4:
-				set_field_value(&cmnda_pll0_ip_div, 0x03);
-				set_field_value(&cmn_ref_clk_dig_div, 0x01);
-				set_field_value(&divider_scaler, 0x01);
-				set_field_value(&pll_feedback_divider_total,
-						550);
-				set_field_value(&cmnda_pll0_fb_div_low, 0x1b4);
-				set_field_value(&cmnda_pll0_fb_div_high, 0x06e);
-				set_field_value(&cmnda_pll0_pxdiv_low, 0x00b);
-				set_field_value(&cmnda_pll0_pxdiv_high, 0x00a);
-				set_field_value(&vco_ring_select, 0x01);
-				set_field_value(&cmnda_hs_clk_0_sel, 0x01);
-				set_field_value(&cmnda_hs_clk_1_sel, 0x01);
-				set_field_value(&tx_subrate, 0x02);
-				set_field_value(&cmnda_pll0_hs_sym_div_sel,
-						0x01);
-				break;
-			case CLK_RATIO_3_2:
-				set_field_value(&cmnda_pll0_ip_div, 0x03);
-				set_field_value(&cmn_ref_clk_dig_div, 0x01);
-				set_field_value(&divider_scaler, 0x01);
-				set_field_value(&pll_feedback_divider_total,
-						330);
-				set_field_value(&cmnda_pll0_fb_div_low, 0x104);
-				set_field_value(&cmnda_pll0_fb_div_high, 0x042);
-				set_field_value(&cmnda_pll0_pxdiv_low, 0x006);
-				set_field_value(&cmnda_pll0_pxdiv_high, 0x005);
-				set_field_value(&vco_ring_select, 0x00);
-				set_field_value(&cmnda_hs_clk_0_sel, 0x01);
-				set_field_value(&cmnda_hs_clk_1_sel, 0x01);
-				set_field_value(&tx_subrate, 0x01);
-				set_field_value(&cmnda_pll0_hs_sym_div_sel,
-						0x00);
-				break;
-			case CLK_RATIO_2_1:
-				set_field_value(&cmnda_pll0_ip_div, 0x03);
-				set_field_value(&cmn_ref_clk_dig_div, 0x01);
-				set_field_value(&divider_scaler, 0x01);
-				set_field_value(&pll_feedback_divider_total,
-						440);
-				set_field_value(&cmnda_pll0_fb_div_low, 0x15c);
-				set_field_value(&cmnda_pll0_fb_div_high, 0x058);
-				set_field_value(&cmnda_pll0_pxdiv_low, 0x008);
-				set_field_value(&cmnda_pll0_pxdiv_high, 0x008);
-				set_field_value(&vco_ring_select, 0x01);
-				set_field_value(&cmnda_hs_clk_0_sel, 0x01);
-				set_field_value(&cmnda_hs_clk_1_sel, 0x01);
-				set_field_value(&tx_subrate, 0x01);
-				set_field_value(&cmnda_pll0_hs_sym_div_sel,
-						0x00);
-				break;
-			default:
-				break;
-			}
-		} else if (inside(pixel_freq_khz, 297000, 297000)) {
-			switch (clk_ratio) {
-			case CLK_RATIO_1_1:
-				set_field_value(&cmnda_pll0_ip_div, 0x03);
-				set_field_value(&cmn_ref_clk_dig_div, 0x01);
-				set_field_value(&divider_scaler, 0x01);
-				set_field_value(&pll_feedback_divider_total,
-						330);
-				set_field_value(&cmnda_pll0_fb_div_low, 0x104);
-				set_field_value(&cmnda_pll0_fb_div_high, 0x042);
-				set_field_value(&cmnda_pll0_pxdiv_low, 0x003);
-				set_field_value(&cmnda_pll0_pxdiv_high, 0x003);
-				set_field_value(&vco_ring_select, 0x00);
-				set_field_value(&cmnda_hs_clk_0_sel, 0x01);
-				set_field_value(&cmnda_hs_clk_1_sel, 0x01);
-				set_field_value(&tx_subrate, 0x01);
-				set_field_value(&cmnda_pll0_hs_sym_div_sel,
-						0x00);
-				break;
-			case CLK_RATIO_3_2:
-				set_field_value(&cmnda_pll0_ip_div, 0x03);
-				set_field_value(&cmn_ref_clk_dig_div, 0x01);
-				set_field_value(&divider_scaler, 0x01);
-				set_field_value(&pll_feedback_divider_total,
-						495);
-				set_field_value(&cmnda_pll0_fb_div_low, 0x188);
-				set_field_value(&cmnda_pll0_fb_div_high, 0x063);
-				set_field_value(&cmnda_pll0_pxdiv_low, 0x006);
-				set_field_value(&cmnda_pll0_pxdiv_high, 0x005);
-				set_field_value(&vco_ring_select, 0x01);
-				set_field_value(&cmnda_hs_clk_0_sel, 0x01);
-				set_field_value(&cmnda_hs_clk_1_sel, 0x01);
-				set_field_value(&tx_subrate, 0x01);
-				set_field_value(&cmnda_pll0_hs_sym_div_sel,
-						0x00);
-				break;
-			case CLK_RATIO_2_1:
-				set_field_value(&cmnda_pll0_ip_div, 0x03);
-				set_field_value(&cmn_ref_clk_dig_div, 0x01);
-				set_field_value(&divider_scaler, 0x01);
-				set_field_value(&pll_feedback_divider_total,
-						660);
-				set_field_value(&cmnda_pll0_fb_div_low, 0x20c);
-				set_field_value(&cmnda_pll0_fb_div_high, 0x084);
-				set_field_value(&cmnda_pll0_pxdiv_low, 0x008);
-				set_field_value(&cmnda_pll0_pxdiv_high, 0x008);
-				set_field_value(&vco_ring_select, 0x01);
-				set_field_value(&cmnda_hs_clk_0_sel, 0x01);
-				set_field_value(&cmnda_hs_clk_1_sel, 0x01);
-				set_field_value(&tx_subrate, 0x01);
-				set_field_value(&cmnda_pll0_hs_sym_div_sel,
-						0x00);
-				break;
-			default:
-				ftemp = pixel_freq_khz;
-				DRM_ERROR
-				    ("This pixel clock frequency (%u kHz) is not supported with this (%0d-bit) color depth.\n",
-				     ftemp, bpp);
-				return 0;
-			}
-		} else if (inside(pixel_freq_khz, 594000, 594000)) {
-			switch (clk_ratio) {
-			case CLK_RATIO_1_1:
-				set_field_value(&cmnda_pll0_ip_div, 0x03);
-				set_field_value(&cmn_ref_clk_dig_div, 0x01);
-				set_field_value(&divider_scaler, 0x01);
-				set_field_value(&pll_feedback_divider_total,
-						660);
-				set_field_value(&cmnda_pll0_fb_div_low, 0x20c);
-				set_field_value(&cmnda_pll0_fb_div_high, 0x084);
-				set_field_value(&cmnda_pll0_pxdiv_low, 0x003);
-				set_field_value(&cmnda_pll0_pxdiv_high, 0x003);
-				set_field_value(&vco_ring_select, 0x01);
-				set_field_value(&cmnda_hs_clk_0_sel, 0x01);
-				set_field_value(&cmnda_hs_clk_1_sel, 0x01);
-				set_field_value(&tx_subrate, 0x01);
-				set_field_value(&cmnda_pll0_hs_sym_div_sel,
-						0x00);
-				break;
-			case CLK_RATIO_1_2:
-				set_field_value(&cmnda_pll0_ip_div, 0x03);
-				set_field_value(&cmn_ref_clk_dig_div, 0x01);
-				set_field_value(&divider_scaler, 0x01);
-				set_field_value(&pll_feedback_divider_total,
-						660);
-				set_field_value(&cmnda_pll0_fb_div_low, 0x20c);
-				set_field_value(&cmnda_pll0_fb_div_high, 0x084);
-				set_field_value(&cmnda_pll0_pxdiv_low, 0x003);
-				set_field_value(&cmnda_pll0_pxdiv_high, 0x003);
-				set_field_value(&vco_ring_select, 0x01);
-				set_field_value(&cmnda_hs_clk_0_sel, 0x01);
-				set_field_value(&cmnda_hs_clk_1_sel, 0x01);
-				set_field_value(&tx_subrate, 0x02);
-				set_field_value(&cmnda_pll0_hs_sym_div_sel,
-						0x01);
-				break;
-			case CLK_RATIO_5_8:
-				set_field_value(&cmnda_pll0_ip_div, 0x04);
-				set_field_value(&cmn_ref_clk_dig_div, 0x01);
-				set_field_value(&divider_scaler, 0x01);
-				set_field_value(&pll_feedback_divider_total,
-						550);
-				set_field_value(&cmnda_pll0_fb_div_low, 0x1b4);
-				set_field_value(&cmnda_pll0_fb_div_high, 0x06e);
-				/* does not matter - pixel clock delivered to controller from SoC */
-				set_field_value(&cmnda_pll0_pxdiv_low, 0x003);
-				/* does not matter - pixel clock delivered to controller from SoC */
-				set_field_value(&cmnda_pll0_pxdiv_high, 0x003);
-				set_field_value(&vco_ring_select, 0x01);
-				set_field_value(&cmnda_hs_clk_0_sel, 0x01);
-				set_field_value(&cmnda_hs_clk_1_sel, 0x01);
-				set_field_value(&tx_subrate, 0x01);
-				set_field_value(&cmnda_pll0_hs_sym_div_sel,
-						0x00);
-				break;
-			case CLK_RATIO_3_4:
-				set_field_value(&cmnda_pll0_ip_div, 0x03);
-				set_field_value(&cmn_ref_clk_dig_div, 0x01);
-				set_field_value(&divider_scaler, 0x01);
-				set_field_value(&pll_feedback_divider_total,
-						495);
-				set_field_value(&cmnda_pll0_fb_div_low, 0x188);
-				set_field_value(&cmnda_pll0_fb_div_high, 0x063);
-				/* does not matter - pixel clock delivered to controller from SoC */
-				set_field_value(&cmnda_pll0_pxdiv_low, 0x003);
-				/* does not matter - pixel clock delivered to controller from SoC */
-				set_field_value(&cmnda_pll0_pxdiv_high, 0x003);
-				set_field_value(&vco_ring_select, 0x01);
-				set_field_value(&cmnda_hs_clk_0_sel, 0x01);
-				set_field_value(&cmnda_hs_clk_1_sel, 0x01);
-				set_field_value(&tx_subrate, 0x01);
-				set_field_value(&cmnda_pll0_hs_sym_div_sel,
-						0x00);
-				break;
-			default:
-				DRM_ERROR
-				    ("This pixel clock frequency (%d KHz) is not supported with this (%0d-bit) color depth.\n",
-				     pixel_freq_khz, bpp);
-				return 0;
-			}
+		/* pixel_clk_from_phy == 1 */
+
+		/* Get right row from the t28hpc_hdmitx_clock_control_table_pixel_out table.
+		 * Check if 'pixel_freq_khz' value matches the PIXEL_CLK_FREQ_MHZ column.
+		 * Consider only the rows with FEEDBACK_FACTOR column matching feedback_factor. */
+		row =
+		    get_table_row((const u32 *)&t28hpc_hdmitx_clock_control_table_pixel_out,
+				  T28HPC_HDMITX_CLOCK_CONTROL_TABLE_ROWS_PIXEL_OUT,
+				  T28HPC_HDMITX_CLOCK_CONTROL_TABLE_COLS_PIXEL_OUT,
+				  pixel_freq_khz, T8_PIXEL_CLK_FREQ_KHZ,
+				  T8_PIXEL_CLK_FREQ_KHZ, T8_FEEDBACK_FACTOR,
+				  feedback_factor);
+
+		/* Check if row was found */
+		if (row + 1) {
+			DRM_INFO
+			    ("Pixel clock frequency (%d KHz) is supported in this color depth (%0d-bit). Settings found in row %0d\n",
+			     pixel_freq_khz, bpp, row);
 		} else {
-			ftemp = pixel_freq_khz;
-			DRM_ERROR
-			    ("This pixel clock frequency (%d kHz) is not supported.\n", ftemp);
+			DRM_INFO
+			    ("Pixel clock frequency (%d KHz) not supported for this color depth (%0d-bit)\n",
+			     pixel_freq_khz, bpp);
 			return 0;
 		}
 
-		vco_freq =
-		    refclk_freq_khz * pll_feedback_divider_total.value /
-		    cmnda_pll0_ip_div.value;
-		ftemp = vco_freq;
-		DRM_INFO("VCO frequency is %u kHz\n", ftemp);
+		/* Extract particular values from
+		 * the t28hpc_hdmitx_clock_control_table_pixel_out table */
+		set_field_value(&cmnda_pll0_ip_div,
+				t28hpc_hdmitx_clock_control_table_pixel_out[row]
+				[T8_CMNDA_PLL0_IP_DIV]);
+		set_field_value(&cmn_ref_clk_dig_div,
+				t28hpc_hdmitx_clock_control_table_pixel_out[row]
+				[T8_CMN_REF_CLK_DIG_DIV]);
+		set_field_value(&divider_scaler,
+				t28hpc_hdmitx_clock_control_table_pixel_out[row]
+				[T8_REF_CLK_DIVIDER_SCALER]);
+		set_field_value(&cmnda_pll0_fb_div_low,
+				t28hpc_hdmitx_clock_control_table_pixel_out[row]
+				[T8_CMNDA_PLL0_FB_DIV_LOW]);
+		set_field_value(&cmnda_pll0_fb_div_high,
+				t28hpc_hdmitx_clock_control_table_pixel_out[row]
+				[T8_CMNDA_PLL0_FB_DIV_HIGH]);
+		set_field_value(&cmnda_pll0_pxdiv_low,
+				t28hpc_hdmitx_clock_control_table_pixel_out[row]
+				[T8_CMNDA_PLL0_PXDIV_LOW]);
+		set_field_value(&cmnda_pll0_pxdiv_high,
+				t28hpc_hdmitx_clock_control_table_pixel_out[row]
+				[T8_CMNDA_PLL0_PXDIV_HIGH]);
+		set_field_value(&vco_ring_select,
+				t28hpc_hdmitx_clock_control_table_pixel_out[row]
+				[T8_VCO_RING_SELECT]);
+		set_field_value(&cmnda_hs_clk_0_sel,
+				t28hpc_hdmitx_clock_control_table_pixel_out[row]
+				[T8_CMNDA_HS_CLK_0_SEL]);
+		set_field_value(&cmnda_hs_clk_1_sel,
+				t28hpc_hdmitx_clock_control_table_pixel_out[row]
+				[T8_CMNDA_HS_CLK_1_SEL]);
+		set_field_value(&tx_subrate,
+				t28hpc_hdmitx_clock_control_table_pixel_out[row]
+				[T8_HSCLK_DIV_TX_SUB_RATE]);
+		set_field_value(&cmnda_pll0_hs_sym_div_sel,
+				t28hpc_hdmitx_clock_control_table_pixel_out[row]
+				[T8_CMNDA_PLL0_HS_SYM_DIV_SEL]);
 
-		if (inside(vco_freq, 1980000, 1980000)) {
-			set_field_value(&voltage_to_current_coarse, 0x04);
-			set_field_value(&voltage_to_current, 0x03);
-			set_field_value(&ndac_ctrl, 0x00);
-			set_field_value(&pmos_ctrl, 0x09);
-			set_field_value(&ptat_ndac_ctrl, 0x09);
-			set_field_value(&charge_pump_gain, 0x042);
-			set_field_value(&coarse_code, 160);
-			set_field_value(&v2i_code, 5);
-			set_field_value(&vco_cal_code, 183);
-		} else if (inside(vco_freq, 2160000, 2160000)) {
-			set_field_value(&voltage_to_current_coarse, 0x04);
-			set_field_value(&voltage_to_current, 0x03);
-			set_field_value(&ndac_ctrl, 0x00);
-			set_field_value(&pmos_ctrl, 0x09);
-			set_field_value(&ptat_ndac_ctrl, 0x09);
-			set_field_value(&charge_pump_gain, 0x042);
-			set_field_value(&coarse_code, 166);
-			set_field_value(&v2i_code, 6);
-			set_field_value(&vco_cal_code, 208);
-		} else if (inside(vco_freq, 2475000, 2475000)) {
-			set_field_value(&voltage_to_current_coarse, 0x05);
-			set_field_value(&voltage_to_current, 0x03);
-			set_field_value(&ndac_ctrl, 0x01);
-			set_field_value(&pmos_ctrl, 0x00);
-			set_field_value(&ptat_ndac_ctrl, 0x07);
-			set_field_value(&charge_pump_gain, 0x042);
-			set_field_value(&coarse_code, 167);
-			set_field_value(&v2i_code, 6);
-			set_field_value(&vco_cal_code, 209);
-		} else if (inside(vco_freq, 2700000, 2700000)) {
-			set_field_value(&voltage_to_current_coarse, 0x05);
-			set_field_value(&voltage_to_current, 0x03);
-			set_field_value(&ndac_ctrl, 0x01);
-			set_field_value(&pmos_ctrl, 0x00);
-			set_field_value(&ptat_ndac_ctrl, 0x07);
-			switch (pll_feedback_divider_total.value) {
-			case 300:
-				set_field_value(&charge_pump_gain, 0x042);
-				break;
-			case 400:
-				set_field_value(&charge_pump_gain, 0x04c);
-				break;
-			}
-			set_field_value(&coarse_code, 188);
-			set_field_value(&v2i_code, 6);
-			set_field_value(&vco_cal_code, 225);
-		} else if (inside(vco_freq, 2970000, 2970000)) {
-			set_field_value(&voltage_to_current_coarse, 0x06);
-			set_field_value(&voltage_to_current, 0x03);
-			set_field_value(&ndac_ctrl, 0x01);
-			set_field_value(&pmos_ctrl, 0x00);
-			set_field_value(&ptat_ndac_ctrl, 0x07);
-			set_field_value(&charge_pump_gain, 0x042);
-			set_field_value(&coarse_code, 183);
-			set_field_value(&v2i_code, 6);
-			set_field_value(&vco_cal_code, 225);
-		} else if (inside(vco_freq, 3240000, 3240000)) {
-			set_field_value(&voltage_to_current_coarse, 0x05);
-			set_field_value(&voltage_to_current, 0x03);
-			set_field_value(&ndac_ctrl, 0x01);
-			set_field_value(&pmos_ctrl, 0x00);
-			set_field_value(&ptat_ndac_ctrl, 0x07);
-			switch (pll_feedback_divider_total.value) {
-			case 360:
-				set_field_value(&charge_pump_gain, 0x042);
-				break;
-			case 480:
-				set_field_value(&charge_pump_gain, 0x04c);
-				break;
-			}
-			set_field_value(&coarse_code, 203);
-			set_field_value(&v2i_code, 7);
-			set_field_value(&vco_cal_code, 256);
-		} else if (inside(vco_freq, 3712500, 3712500)) {
-			set_field_value(&voltage_to_current_coarse, 0x04);
-			set_field_value(&voltage_to_current, 0x03);
-			set_field_value(&ndac_ctrl, 0x00);
-			set_field_value(&pmos_ctrl, 0x07);
-			set_field_value(&ptat_ndac_ctrl, 0x0F);
-			set_field_value(&charge_pump_gain, 0x04c);
-			set_field_value(&coarse_code, 212);
-			set_field_value(&v2i_code, 7);
-			set_field_value(&vco_cal_code, 257);
-		} else if (inside(vco_freq, 3960000, 3960000)) {
-			set_field_value(&voltage_to_current_coarse, 0x05);
-			set_field_value(&voltage_to_current, 0x03);
-			set_field_value(&ndac_ctrl, 0x00);
-			set_field_value(&pmos_ctrl, 0x07);
-			set_field_value(&ptat_ndac_ctrl, 0x0F);
-			set_field_value(&charge_pump_gain, 0x042);
-			set_field_value(&coarse_code, 184);
-			set_field_value(&v2i_code, 6);
-			set_field_value(&vco_cal_code, 226);
-		} else if (inside(vco_freq, 4320000, 4320000)) {
-			set_field_value(&voltage_to_current_coarse, 0x05);
-			set_field_value(&voltage_to_current, 0x03);
-			set_field_value(&ndac_ctrl, 0x01);
-			set_field_value(&pmos_ctrl, 0x07);
-			set_field_value(&ptat_ndac_ctrl, 0x0F);
-			set_field_value(&charge_pump_gain, 0x042);
-			set_field_value(&coarse_code, 205);
-			set_field_value(&v2i_code, 7);
-			set_field_value(&vco_cal_code, 258);
-		} else if (inside(vco_freq, 4455000, 4455000)) {
-			set_field_value(&voltage_to_current_coarse, 0x05);
-			set_field_value(&voltage_to_current, 0x03);
-			set_field_value(&ndac_ctrl, 0x00);
-			set_field_value(&pmos_ctrl, 0x07);
-			set_field_value(&ptat_ndac_ctrl, 0x0F);
-			switch (pll_feedback_divider_total.value) {
-			case 495:
-				set_field_value(&charge_pump_gain, 0x042);
-				break;
-			case 660:
-				set_field_value(&charge_pump_gain, 0x04c);
-				break;
-			}
-			set_field_value(&coarse_code, 219);
-			set_field_value(&v2i_code, 7);
-			set_field_value(&vco_cal_code, 272);
-		} else if (inside(vco_freq, 4950000, 4950000)) {
-			set_field_value(&voltage_to_current_coarse, 0x06);
-			set_field_value(&voltage_to_current, 0x03);
-			set_field_value(&ndac_ctrl, 0x01);
-			set_field_value(&pmos_ctrl, 0x00);
-			set_field_value(&ptat_ndac_ctrl, 0x07);
-			set_field_value(&charge_pump_gain, 0x042);
-			set_field_value(&coarse_code, 213);
-			set_field_value(&v2i_code, 7);
-			set_field_value(&vco_cal_code, 258);
-		} else if (inside(vco_freq, 5940000, 5940000)) {
-			set_field_value(&voltage_to_current_coarse, 0x07);
-			set_field_value(&voltage_to_current, 0x03);
-			set_field_value(&ndac_ctrl, 0x01);
-			set_field_value(&pmos_ctrl, 0x00);
-			set_field_value(&ptat_ndac_ctrl, 0x07);
-			set_field_value(&charge_pump_gain, 0x042);
-			set_field_value(&coarse_code, 244);
-			set_field_value(&v2i_code, 8);
-			set_field_value(&vco_cal_code, 292);
+		/* Display parameters (informative message) */
+		DRM_DEBUG("set_field_value() cmnda_pll0_ip_div        : 0x%02X\n",
+		       cmnda_pll0_ip_div.value);
+		DRM_DEBUG("set_field_value() cmn_ref_clk_dig_div      : 0x%X\n",
+		       cmn_ref_clk_dig_div.value);
+		DRM_DEBUG("set_field_value() divider_scaler           : 0x%X\n",
+		       divider_scaler.value);
+		DRM_DEBUG("set_field_value() cmnda_pll0_fb_div_low    : 0x%03X\n",
+		       cmnda_pll0_fb_div_low.value);
+		DRM_DEBUG("set_field_value() cmnda_pll0_fb_div_high   : 0x%03X\n",
+		       cmnda_pll0_fb_div_high.value);
+		DRM_DEBUG("set_field_value() cmnda_pll0_pxdiv_low     : 0x%03X\n",
+		       cmnda_pll0_pxdiv_low.value);
+		DRM_DEBUG("set_field_value() cmnda_pll0_pxdiv_high    : 0x%03X\n",
+		       cmnda_pll0_pxdiv_high.value);
+		DRM_DEBUG("set_field_value() vco_ring_select          : %0d\n",
+		       vco_ring_select.value);
+		DRM_DEBUG("set_field_value() cmnda_hs_clk_0_sel       : %0d\n",
+		       cmnda_hs_clk_0_sel.value);
+		DRM_DEBUG("set_field_value() cmnda_hs_clk_1_sel       : %0d\n",
+		       cmnda_hs_clk_1_sel.value);
+		DRM_DEBUG("set_field_value() tx_subrate               : %0d\n",
+		       tx_subrate.value);
+		DRM_DEBUG("set_field_value() cmnda_pll0_hs_sym_div_sel: 0x%X\n",
+		       cmnda_pll0_hs_sym_div_sel.value);
+
+		pll_feedback_divider_total =
+		    cmnda_pll0_fb_div_low.value + cmnda_pll0_fb_div_high.value + 4;
+		vco_freq_khz =
+		    refclk_freq_khz * pll_feedback_divider_total / cmnda_pll0_ip_div.value;
+
+		DRM_INFO("VCO frequency is %d\n", vco_freq_khz);
+
+		/* Get right row from the t28hpc_hdmitx_pll_tuning_table table_pixel_out.
+		 * Check if 'vco_freq_khz' falls inside
+		 * the <PLL_VCO_FREQ_KH_MIN, PLL_VCO_FREQ_KHZ_MAX> range.
+		 * Consider only the rows with PLL_FEEDBACK_DIV_TOTAL
+		 * column matching pll_feedback_divider_total. */
+		row =
+		    get_table_row((const u32 *)&t28hpc_hdmitx_pll_tuning_table_pixel_out,
+				  T28HPC_HDMITX_PLL_TUNING_TABLE_ROWS_PIXEL_OUT,
+				  T28HPC_HDMITX_PLL_TUNING_TABLE_COLS_PIXEL_OUT,
+				  vco_freq_khz, T9_PLL_VCO_FREQ_KHZ_MIN,
+				  T9_PLL_VCO_FREQ_KHZ_MAX,
+				  T9_PLL_FEEDBACK_DIV_TOTAL,
+				  pll_feedback_divider_total);
+
+		if (row + 1) {
+			DRM_INFO
+			    ("VCO frequency (%d KHz) is supported. Settings found in row %0d\n",
+			     vco_freq_khz, row);
 		} else {
-			ftemp = vco_freq;
-			DRM_ERROR("Current vco_freq (%u kHz) is not supported.\n",
-			       ftemp);
+			DRM_INFO("VCO frequency (%d KHz) not supported\n",
+			       vco_freq_khz);
 			return 0;
 		}
 
-		/* register CMN_PLL0_VCOCAL_INIT_TMR */
-		Afe_write(state, 0x0084, 0x0064);
-		/* register CMN_PLL0_VCOCAL_ITER_TMR */
-		Afe_write(state, 0x0085, 0x000A);
-		/* register PHY_HDP_CLK_CTL */
-		reg_val = Afe_read(state, 0xC009);
-		reg_val &= 0x00FF;
-		reg_val |= 0x2 << 8;
-		reg_val |= 0x1 << 12;
-		Afe_write(state, 0xC009, reg_val);
-		/* register CMN_DIAG_PLL0_INCLK_CTRL */
-		reg_val = set_reg_value(cmnda_pll0_ip_div);
-		reg_val |= set_reg_value(cmnda_pll0_hs_sym_div_sel);
-		Afe_write(state, 0x01CA, reg_val);
-		/* register CMN_DIAG_PLL0_FBH_OVRD */
-		reg_val = set_reg_value(cmnda_pll0_fb_div_high);
-		reg_val |= (1 << 15);
-		Afe_write(state, 0x01C0, reg_val);
-		/* register CMN_DIAG_PLL0_FBL_OVRD */
-		reg_val = set_reg_value(cmnda_pll0_fb_div_low);
-		reg_val |= (1 << 15);
-		Afe_write(state, 0x01C1, reg_val);
+		/* Extract particular values from
+		 * the t28hpc_hdmitx_pll_tuning_table_pixel_out table. */
+		set_field_value(&voltage_to_current_coarse,
+				t28hpc_hdmitx_pll_tuning_table_pixel_out[row]
+				[T9_VOLTAGE_TO_CURRENT_COARSE]);
+		set_field_value(&voltage_to_current,
+				t28hpc_hdmitx_pll_tuning_table_pixel_out[row]
+				[T9_VOLTAGE_TO_CURRENT]);
+		set_field_value(&ndac_ctrl,
+				t28hpc_hdmitx_pll_tuning_table_pixel_out[row]
+				[T9_NDAC_CTRL]);
+		set_field_value(&pmos_ctrl,
+				t28hpc_hdmitx_pll_tuning_table_pixel_out[row]
+				[T9_PMOS_CTRL]);
+		set_field_value(&ptat_ndac_ctrl,
+				t28hpc_hdmitx_pll_tuning_table_pixel_out[row]
+				[T9_PTAT_NDAC_CTRL]);
+		set_field_value(&charge_pump_gain,
+				t28hpc_hdmitx_pll_tuning_table_pixel_out[row]
+				[T9_CHARGE_PUMP_GAIN]);
+		set_field_value(&coarse_code,
+				t28hpc_hdmitx_pll_tuning_table_pixel_out[row]
+				[T9_COARSE_CODE]);
+		set_field_value(&v2i_code,
+				t28hpc_hdmitx_pll_tuning_table_pixel_out[row]
+				[T9_V2I_CODE]);
+		set_field_value(&vco_cal_code,
+				t28hpc_hdmitx_pll_tuning_table_pixel_out[row]
+				[T9_VCO_CAL_CODE]);
+
+		/* Display parameters (informative message) */
+		DRM_DEBUG("set_field_value() voltage_to_current_coarse : 0x%X\n",
+		       voltage_to_current_coarse.value);
+		DRM_DEBUG("set_field_value() voltage_to_current        : 0x%X\n",
+		       voltage_to_current.value);
+		DRM_DEBUG("set_field_value() ndac_ctrl                 : 0x%X\n",
+		       ndac_ctrl.value);
+		DRM_DEBUG("set_field_value() pmos_ctrl                 : 0x%02X\n",
+		       pmos_ctrl.value);
+		DRM_DEBUG("set_field_value() ptat_ndac_ctrl            : 0x%02X\n",
+		       ptat_ndac_ctrl.value);
+		DRM_DEBUG("set_field_value() charge_pump_gain          : 0x%03X\n",
+		       charge_pump_gain.value);
+		DRM_DEBUG("set_field_value() coarse_code               : %0d\n",
+		       coarse_code.value);
+		DRM_DEBUG("set_field_value() v2i_code                  : %0d\n",
+		       v2i_code.value);
+		DRM_DEBUG("set_field_value() vco_cal_code              : %0d\n",
+		       vco_cal_code.value);
+	}
+
+	if (phy_reset_workaround) {
+		/* register PHY_PMA_ISOLATION_CTRL */
+		/* enable PHY isolation mode only for CMN */
+		Afe_write(state, 0xC81F, 0xD000);
+		/* register PHY_PMA_ISO_PLL_CTRL1 */
+		reg_val = Afe_read(state, 0xC812);
+		reg_val &= 0xFF00;
+		reg_val |= 0x0012;
+		/* set cmn_pll0_clk_datart1_div/cmn_pll0_clk_datart0_div dividers */
+		Afe_write(state, 0xC812, reg_val);
+		/* register PHY_ISO_CMN_CTRL */
+		/* assert PHY reset from isolation register */
+		Afe_write(state, 0xC010, 0x0000);
+		/* register PHY_PMA_ISO_CMN_CTRL */
+		/* assert PMA CMN reset */
+		Afe_write(state, 0xC810, 0x0000);
+		/* register XCVR_DIAG_BIDI_CTRL */
+		for (k = 0; k < num_lanes; k++) {
+			Afe_write(state, 0x40E8 | (k << 9), 0x00FF);
+		}
+	}
+	/* Describing Task phy_cfg_hdp */
+
+	/* register PHY_PMA_CMN_CTRL1 */
+	reg_val = Afe_read(state, 0xC800);
+	reg_val &= 0xFFF7;
+	reg_val |= 0x0008;
+	Afe_write(state, 0xC800, reg_val);
+
+	/* register CMN_DIAG_PLL0_TEST_MODE */
+	Afe_write(state, 0x01C4, 0x0020);
+	/* register CMN_PSM_CLK_CTRL */
+	Afe_write(state, 0x0061, 0x0016);
+
+	/* Describing Task phy_cfg_hdmi_pll0_0pt5736 */
+
+	/* register CMN_PLL0_VCOCAL_INIT_TMR */
+	Afe_write(state, 0x0084, 0x0064);
+	/* register CMN_PLL0_VCOCAL_ITER_TMR */
+	Afe_write(state, 0x0085, 0x000A);
+	/*register PHY_HDP_CLK_CTL */
+	reg_val = Afe_read(state, 0xC009);
+	reg_val &= 0x00FF;
+	reg_val |= 0x1200;
+	Afe_write(state, 0xC009, reg_val);
+	/* register CMN_DIAG_PLL0_INCLK_CTRL */
+	reg_val = set_reg_value(cmnda_pll0_hs_sym_div_sel);
+	reg_val |= set_reg_value(cmnda_pll0_ip_div);
+	Afe_write(state, 0x01CA, reg_val);
+	/* register CMN_DIAG_PLL0_FBH_OVRD */
+	reg_val = set_reg_value(cmnda_pll0_fb_div_high);
+	reg_val |= (1 << 15);
+	Afe_write(state, 0x01C0, reg_val);
+	/* register CMN_DIAG_PLL0_FBL_OVRD */
+	reg_val = set_reg_value(cmnda_pll0_fb_div_low);
+	reg_val |= (1 << 15);
+	Afe_write(state, 0x01C1, reg_val);
+	/*register PHY_PMA_CMN_CTRL1 */
+	reg_val = Afe_read(state, 0xC800);
+	reg_val &= 0xCFFF;
+	reg_val |= set_reg_value(cmn_ref_clk_dig_div);
+	Afe_write(state, 0xC800, reg_val);
+	/* register CMN_CDIAG_REFCLK_CTRL */
+	reg_val = Afe_read(state, 0x0062);
+	reg_val &= 0x8FFF;
+	reg_val |= set_reg_value(divider_scaler);
+	reg_val |= 0x00C0;
+	Afe_write(state, 0x0062, reg_val);
+	/*register CMN_DIAG_HSCLK_SEL */
+	reg_val = Afe_read(state, 0x01E0);
+	reg_val &= 0xFF00;
+	reg_val |= (cmnda_hs_clk_0_sel.value >> 1) << 0;
+	reg_val |= (cmnda_hs_clk_1_sel.value >> 1) << 4;
+	Afe_write(state, 0x01E0, reg_val);
+	/*register XCVR_DIAG_HSCLK_SEL */
+	for (k = 0; k < num_lanes; k++) {
+		reg_val = Afe_read(state, 0x40E1 | (k << 9));
+		reg_val &= 0xCFFF;
+		reg_val |= (cmnda_hs_clk_0_sel.value >> 1) << 12;
+		Afe_write(state, 0x40E1 | (k << 9), reg_val);
+	}
+	/* register TX_DIAG_TX_CTRL */
+	for (k = 0; k < num_lanes; k++) {
+		reg_val = Afe_read(state, 0x41E0 | (k << 9));
+		reg_val &= 0xFF3F;
+		reg_val |= (tx_subrate.value >> 1) << 6;
+		Afe_write(state, 0x41E0 | (k << 9), reg_val);
+	}
+	/* register CMN_PLLSM0_USER_DEF_CTRL */
+	reg_val = set_reg_value(vco_ring_select);
+	Afe_write(state, 0x002F, reg_val);
+	/* register CMN_DIAG_PLL0_OVRD */
+	Afe_write(state, 0x01C2, 0x0000);
+	/* register CMN_DIAG_PLL0_V2I_TUNE */
+	reg_val = set_reg_value(voltage_to_current_coarse);
+	reg_val |= set_reg_value(voltage_to_current);
+	Afe_write(state, 0x01C5, reg_val);
+	/* register CMN_DIAG_PLL0_PTATIS_TUNE1 */
+	reg_val = set_reg_value(pmos_ctrl);
+	reg_val |= set_reg_value(ndac_ctrl);
+	Afe_write(state, 0x01C8, reg_val);
+	/* register CMN_DIAG_PLL0_PTATIS_TUNE2 */
+	reg_val = set_reg_value(ptat_ndac_ctrl);
+	Afe_write(state, 0x01C9, reg_val);
+	/* register CMN_DIAG_PLL0_CP_TUNE */
+	reg_val = set_reg_value(charge_pump_gain);
+	Afe_write(state, 0x01C6, reg_val);
+	/* register CMN_DIAG_PLL0_LF_PROG */
+	Afe_write(state, 0x01C7, 0x0008);
+	/* register XCVR_DIAG_PLLDRC_CTRL */
+	for (k = 0; k < num_lanes; k++) {
+		reg_val = Afe_read(state, 0x40E0 | (k << 9));
+		reg_val &= 0xBFFF;
+		Afe_write(state, 0x40E0 | (k << 9), reg_val);
+	}
+	if (pixel_clk_from_phy == 1) {
 		/* register CMN_DIAG_PLL0_PXL_DIVL */
 		reg_val = set_reg_value(cmnda_pll0_pxdiv_low);
 		Afe_write(state, 0x01CC, reg_val);
@@ -1692,73 +671,11 @@ int phy_cfg_t28hpc(state_struct *state, int num_lanes, struct drm_display_mode *
 		reg_val |= (1 << 15);
 		Afe_write(state, 0x01CB, reg_val);
 
-		/* register TX_DIAG_TX_CTRL */
-		for (k = 0; k < num_lanes; k++) {
-			reg_val = Afe_read(state, 0x41E0 | (k << 9));
-			reg_val &= 0xFF3F;
-			reg_val |= (tx_subrate.value >> 1) << 6;
-			Afe_write(state, 0x41E0 | (k << 9), reg_val);
-		}
-
-		/* register PHY_PMA_CMN_CTRL1 */
-		reg_val = Afe_read(state, 0xC800);
-		reg_val &= 0xCFFF;
-		reg_val |= set_reg_value(cmn_ref_clk_dig_div);
-		Afe_write(state, 0xC800, reg_val);
-		/* register CMN_CDIAG_REFCLK_CTRL */
-		reg_val = Afe_read(state, 0x0062);
-		reg_val &= 0x8FFF;
-		reg_val |= set_reg_value(divider_scaler);
-		reg_val |= 0x00C0;
-		Afe_write(state, 0x0062, reg_val);
-		/* register CMN_DIAG_HSCLK_SEL */
-		reg_val = Afe_read(state, 0x01E0);
-		reg_val &= 0xFF00;
-		reg_val |= (cmnda_hs_clk_0_sel.value >> 1) << 0;
-		reg_val |= (cmnda_hs_clk_1_sel.value >> 1) << 4;
-		Afe_write(state, 0x01E0, reg_val);
-		/* register CMN_PLLSM0_USER_DEF_CTRL */
-		reg_val = set_reg_value(vco_ring_select);
-		Afe_write(state, 0x002F, reg_val);
-
-		/* register XCVR_DIAG_HSCLK_SEL */
-		for (k = 0; k < num_lanes; k++) {
-			reg_val = Afe_read(state, 0x40E1 | (k << 9));
-			reg_val &= 0xCFFF;
-			reg_val |= (cmnda_hs_clk_0_sel.value >> 1) << 12;
-			Afe_write(state, 0x40E1 | (k << 9), reg_val);
-		}
-
-		/* register CMN_DIAG_PLL0_OVRD */
-		Afe_write(state, 0x01C2, 0x0000);
-		/* register CMN_DIAG_PLL0_V2I_TUNE */
-		reg_val = set_reg_value(voltage_to_current_coarse);
-		reg_val |= set_reg_value(voltage_to_current);
-		Afe_write(state, 0x01C5, reg_val);
-		/* register CMN_DIAG_PLL0_PTATIS_TUNE1 */
-		reg_val = set_reg_value(pmos_ctrl);
-		reg_val |= set_reg_value(ndac_ctrl);
-		Afe_write(state, 0x01C8, reg_val);
-		/* register CMN_DIAG_PLL0_PTATIS_TUNE2 */
-		reg_val = set_reg_value(ptat_ndac_ctrl);
-		Afe_write(state, 0x01C9, reg_val);
 		/* register CMN_PLL0_VCOCAL_START */
 		reg_val = Afe_read(state, 0x0081);
 		reg_val &= 0xFE00;
 		reg_val |= set_reg_value(vco_cal_code);
 		Afe_write(state, 0x0081, reg_val);
-		/* register CMN_DIAG_PLL0_CP_TUNE */
-		reg_val = set_reg_value(charge_pump_gain);
-		Afe_write(state, 0x01C6, reg_val);
-		/* register CMN_DIAG_PLL0_LF_PROG */
-		Afe_write(state, 0x01C7, 0x0008);
-
-		/* register XCVR_DIAG_PLLDRC_CTRL */
-		for (k = 0; k < num_lanes; k++) {
-			reg_val = Afe_read(state, 0x40E0 | (k << 9));
-			reg_val &= 0xBFFF;
-			Afe_write(state, 0x40E0 | (k << 9), reg_val);
-		}
 	}
 
 	/* Back to task phy_cfg_hdp */
@@ -1766,40 +683,43 @@ int phy_cfg_t28hpc(state_struct *state, int num_lanes, struct drm_display_mode *
 	/* register PHY_PMA_CMN_CTRL1 */
 	reg_val = Afe_read(state, 0xC800);
 	reg_val &= 0xFF8F;
-	/* for differential clock on the refclk_p and refclk_m
-	 * off chip pins: PHY_PMA_CMN_CTRL1[6:4]=3'b000 */
+	/* for single ended reference clock
+	 * on the cmn_ref_clk_int pin: PHY_PMA_CMN_CTRL1[6:4]=3'b011 */
+	/* for differential clock on the refclk_p and
+	 * refclk_m off chip pins: PHY_PMA_CMN_CTRL1[6:4]=3'b000 */
 	reg_val |= 0x0000;
 	Afe_write(state, 0xC800, reg_val);
 
-	/* register CMN_DIAG_ACYA */
+	/*register CMN_DIAG_ACYA */
+	/* for differential clock on the refclk_p and
+	 * refclk_m off chip pins: CMN_DIAG_ACYA[8]=1'b1 */
 	Afe_write(state, 0x01FF, 0x0100);
 
 	if (phy_reset_workaround) {
 		/* register PHY_ISO_CMN_CTRL */
-		Afe_write(state, 0xC010, 0x0001);	// Deassert PHY reset
+		/* Deassert PHY reset */
+		Afe_write(state, 0xC010, 0x0001);
 		/* register PHY_PMA_ISO_CMN_CTRL */
 		Afe_write(state, 0xC810, 0x0003);
 		for (k = 0; k < num_lanes; k++) {
 			/* register XCVR_PSM_RCTRL */
 			Afe_write(state, 0x4001 | (k << 9), 0xFEFC);
 		}
-		/* register PHY_PMA_ISO_CMN_CTRL
-		 * Assert cmn_macro_pwr_en*/
+		/* register PHY_PMA_ISO_CMN_CTRL */
+		/* Assert cmn_macro_pwr_en */
 		Afe_write(state, 0xC810, 0x0013);
 
-		/* PHY_PMA_ISO_CMN_CTRL
-		 * wait for cmn_macro_pwr_en_ack*/
-		while (!(Afe_read(state, 0xC810) & (1 << 5)))
-			;
+		/* PHY_PMA_ISO_CMN_CTRL */
+		/* wait for cmn_macro_pwr_en_ack */
+		while (!(Afe_read(state, 0xC810) & (1 << 5)));
 
-		/* PHY_PMA_CMN_CTRL1 wait for cmn_ready */
-		while (!(Afe_read(state, 0xC800) & (1 << 0)))
-			;
+		/* PHY_PMA_CMN_CTRL1 */
+		/* wait for cmn_ready */
+		while (!(Afe_read(state, 0xC800) & (1 << 0)));
 	} else {
-		for (k = 0; k < num_lanes; k++) {
+		for (k = 0; k < num_lanes; k++)
 			/* register XCVR_PSM_RCTRL */
 			Afe_write(state, 0x4001 | (k << 9), 0xBEFC);
-		}
 	}
 	for (k = 0; k < num_lanes; k++) {
 		/* register TX_PSC_A0 */
@@ -1814,20 +734,17 @@ int phy_cfg_t28hpc(state_struct *state, int num_lanes, struct drm_display_mode *
 		reg_val = Afe_read(state, 0x8006 | (k << 9));
 		reg_val &= 0xFFBB;
 		Afe_write(state, 0x8006 | (k << 9), reg_val);
+		/* register RX_PSC_A0 */
 		reg_val = Afe_read(state, 0x8000 | (k << 9));
 		reg_val &= 0xFFBB;
 		Afe_write(state, 0x8000 | (k << 9), reg_val);
 	}
 
-	/* End of task phy_cfg_hdp */
 	/* register PHY_HDP_MODE_CTL */
 	Afe_write(state, 0xC008, 0x0004);
 
 	return character_freq_khz;
-
 }
-
-#define __ARC_CONFIG__
 
 int hdmi_tx_t28hpc_power_config_seq(state_struct *state, int num_lanes)
 {
@@ -1841,21 +758,17 @@ int hdmi_tx_t28hpc_power_config_seq(state_struct *state, int num_lanes)
 	}
 
 	/* register PHY_DP_MODE_CTL */
-	while (!(Afe_read(state, 0xC008) & (1 << 6)))
-		;
+	while (!(Afe_read(state, 0xC008) & (1 << 6)));
 
-#ifdef __ARC_CONFIG__
 	imx_arc_power_up(state);
 	imx_arc_calibrate(state);
 	imx_arc_config(state);
-#endif
 
 	/* PHY_DP_MODE_CTL */
 	Afe_write(state, 0xC008, (((0x0F << num_lanes) & 0x0F) << 12) | 0x0101);
 
 	/* PHY_DP_MODE_CTL */
-	while (!(Afe_read(state, 0xC008) & (1 << 4)))
-		;
+	while (!(Afe_read(state, 0xC008) & (1 << 4)));
 
 	return 0;
 }

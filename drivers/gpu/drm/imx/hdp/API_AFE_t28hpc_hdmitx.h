@@ -53,7 +53,7 @@
 
 #include "../../../../mxc/hdp/all.h"
 
-int phy_cfg_t28hpc(state_struct *state, int num_lanes, struct drm_display_mode *mode, int bpp,
+int phy_cfg_hdp_t28hpc(state_struct *state, int num_lanes, struct drm_display_mode *mode, int bpp,
 		VIC_PXL_ENCODING_FORMAT format, bool pixel_clk_from_phy);
 int hdmi_tx_t28hpc_power_config_seq(state_struct *state, int num_lanes);
 
