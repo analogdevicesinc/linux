@@ -2184,7 +2184,7 @@ static int __init imx_pcie_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct dw_pcie *pci;
 	struct imx_pcie *imx_pcie;
-	struct resource *res;
+	struct resource *res, reserved_res;
 	struct device_node *reserved_node, *node = dev->of_node;
 	int ret;
 
@@ -2232,11 +2232,13 @@ static int __init imx_pcie_probe(struct platform_device *pdev)
 	if (!reserved_node) {
 		dev_info(dev, "no reserved region node.\n");
 	} else {
-		if (of_address_to_resource(reserved_node, 0, res)) {
+		if (of_address_to_resource(reserved_node, 0, &reserved_res)) {
 			dev_err(dev, "failed to get reserved region address\n");
+			of_node_put(reserved_node);
 			return -EINVAL;
 		}
-		ddr_test_region = res->start + SZ_2M;
+		ddr_test_region = reserved_res.start + SZ_2M;
+		of_node_put(reserved_node);
 	}
 
 	/* Fetch GPIOs */
