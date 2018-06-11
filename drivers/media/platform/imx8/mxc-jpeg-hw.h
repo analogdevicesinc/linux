@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 NXP
+ * Copyright 2018 NXP
  */
 /*
  * The code contained herein is licensed under the GNU General Public
@@ -11,6 +11,9 @@
  */
 #ifndef _MXC_JPEG_HW_H
 #define _MXC_JPEG_HW_H
+
+/* JPEG-Decoder Wrapper Register Map */
+#define GLB_CTRL			0x0
 #define COM_STATUS			0x4
 #define OUT_BUFFER0			0x14
 #define OUT_BUFFER1			0x18
@@ -19,6 +22,8 @@
 #define STM_BUFSIZE			0x24
 #define IMG_SIZE			0x28
 #define STM_CTRL			0x2C
+
+/* JPEG-Decoder Register Map */
 #define CAST_STATUS0			0x100
 #define CAST_STATUS1			0x104
 #define CAST_STATUS2			0x108
@@ -33,6 +38,8 @@
 #define CAST_STATUS11			0x12c
 #define CAST_STATUS12			0x130
 #define CAST_STATUS13			0x134
+
+/* JPEG-Decoder Wrapper Slot Registers 0..3 */
 #define SLOT_BASE			0x10000
 #define SLOT_STATUS			0x0
 #define SLOT_IRQ_EN			0x4
@@ -45,11 +52,30 @@
 #define MXC_RESET_DEC			(0x1 << 1)
 #define MXC_DEC_GO			(0x1 << 2)
 #define MXC_ENDIAN_MD			(0x1 << 3)
-#define MXC_SLOT_EN			(0x1 << 4)
+#define MXC_SLOT_EN(slot)		(0x1 << (slot + 4))
 #define MXC_CONFIG_MOD			(0x1 << 9)
+#define MXC_FRMDONE			0x8
+#define MXC_NXT_DESCPT_EN		0x1
+#define MXC_DEC_EXIT_IDLE_MODE		0x4
+
+/* JPEG-Decoder Wrapper - STM_CTRL Register Fields */
+#define MXC_PIXEL_PRECISION(precision) ((precision)/8 << 2)
+enum mxc_jpeg_image_format {
+	MXC_JPEG_YUV420 = 0x0, /* 2 Plannar, Y=1st plane UV=2nd plane */
+	MXC_JPEG_YUV422 = 0x1, /* 1 Plannar, YUYV sequence */
+	MXC_JPEG_RGB	= 0x2, /* RGBRGB packed format */
+	MXC_JPEG_YUV444	= 0x3, /* 1 Plannar, YUVYUV sequence */
+	MXC_JPEG_GRAY = 0x4, /* Y8 or Y12 or Single Component */
+	MXC_JPEG_RESERVED = 0x5,
+	MXC_JPEG_ARGB	= 0x6,
+};
+#define MXC_IMAGE_FORMAT(jpeg_img_fmt) ((jpeg_img_fmt) << 3)
+#define MXC_BITBUF_PTR_CLR(clr) ((clr) << 7)
+#define MXC_AUTO_START(go) ((go) << 8)
+
 
 #include "mxc-jpeg.h"
-void print_descriptor_info(struct mxc_jpeg_desc *desc);
+void print_descriptor_info(struct device *dev, struct mxc_jpeg_desc *desc);
 void mxc_jpeg_reset(void __iomem *reg);
 int mxc_jpeg_enable(void __iomem *reg);
 void mxc_jpeg_enc_config(void __iomem *reg, struct mxc_jpeg_desc *cfg_desc,
@@ -65,7 +91,8 @@ int mxc_jpeg_set_output(void __iomem *reg, u16 out_pitch, u32 out_buf,
 void mxc_jpeg_set_addrs(struct mxc_jpeg_desc *desc, u32 src_addr, u32 dst_addr);
 int mxc_jpeg_set_params(struct mxc_jpeg_desc *desc,  u32 bufsize, u16
 			 out_pitch, u32 format);
+void mxc_jpeg_set_bufsize(struct mxc_jpeg_desc *desc,  u32 bufsize);
 void mxc_jpeg_set_res(struct mxc_jpeg_desc *desc, u16 w, u16 h);
 void mxc_jpeg_set_desc(u32 desc, void __iomem *reg, int slot);
-void print_cast_decoder_info(void __iomem *reg);
+void print_cast_decoder_info(struct device *dev, void __iomem *reg);
 #endif

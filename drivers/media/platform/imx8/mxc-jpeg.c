@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 NXP
+ * Copyright 2018 NXP
  */
 /*
  * The code contained herein is licensed under the GNU General Public
@@ -250,10 +250,13 @@ static irqreturn_t mxc_jpeg_dec_irq(int irq, void *priv)
 	void *testaddri;
 	void *testaddro;
 
-	dec_ret = readl(reg + 0x10000);
-	writel(dec_ret, reg + 0x10000);
-	if (!(dec_ret & 0x8))
+
+	/* hardcoded slot 0 */
+	dec_ret = readl(reg + MXC_SLOT_OFFSET(0, SLOT_STATUS));
+	writel(dec_ret, reg + MXC_SLOT_OFFSET(0, SLOT_STATUS)); /* w1c */
+	if (!(dec_ret & MXC_FRMDONE))
 		return IRQ_HANDLED;
+
 	ctx = v4l2_m2m_get_curr_priv(jpeg->m2m_dev);
 	dst_buf = v4l2_m2m_next_dst_buf(ctx->fh.m2m_ctx);
 	src_buf = v4l2_m2m_next_src_buf(ctx->fh.m2m_ctx);
@@ -308,9 +311,9 @@ static void mxc_jpeg_device_run(void *priv)
 {
 	struct mxc_jpeg_ctx *ctx = priv;
 	struct mxc_jpeg_dev *jpeg = ctx->mxc_jpeg;
+	struct device *dev = jpeg->dev;
 	struct vb2_buffer *src_buf, *dst_buf;
 	unsigned long flags;
-	struct mxc_jpeg_q_data *cap_q_data = &ctx->cap_q;
 	struct mxc_jpeg_src_buf *jpeg_src_buf;
 	int slot;
 	void *testaddri;
@@ -337,13 +340,13 @@ static void mxc_jpeg_device_run(void *priv)
 	} else {
 		mxc_jpeg_addrs(desc, dst_buf, src_buf, 0);
 		slot = mxc_jpeg_get_slot(jpeg->base_reg);
+		if (slot == -EINVAL)
+			dev_err(dev, "No more slots available!\n");
 		mxc_jpeg_enable_slot(jpeg->base_reg, slot);
-		mxc_jpeg_set_params(desc,
-				    mxc_jpeg_align(vb2_plane_size(src_buf, 0),
-						   1024),
-				    cap_q_data->bytesperline[0],
-				    cap_q_data->fmt->fourcc);
+		mxc_jpeg_set_bufsize(desc,
+			mxc_jpeg_align(vb2_plane_size(src_buf, 0), 1024));
 		mxc_jpeg_enable_irq(jpeg->base_reg, slot);
+		print_descriptor_info(dev, desc);
 		mxc_jpeg_set_desc(dma_handle, jpeg->base_reg, slot);
 		mxc_jpeg_go(jpeg->base_reg);
 	}
@@ -351,10 +354,16 @@ static void mxc_jpeg_device_run(void *priv)
 }
 static int mxc_jpeg_job_ready(void *priv)
 {
+	struct mxc_jpeg_ctx *ctx = priv;
+
+	dev_warn(ctx->mxc_jpeg->dev, "mxc_jpeg_job_ready unimplemented\n");
 	return 1;
 }
 static void mxc_jpeg_job_abort(void *priv)
 {
+	struct mxc_jpeg_ctx *ctx = priv;
+
+	dev_warn(ctx->mxc_jpeg->dev, "mxc_jpeg_job_abort unimplemented\n");
 }
 
 static struct mxc_jpeg_q_data *mxc_jpeg_get_q_data(struct mxc_jpeg_ctx *ctx,
@@ -415,25 +424,108 @@ static u8 get_byte(struct mxc_jpeg_stream *stream)
 	stream->loc++;
 	return ret;
 }
-static u16 get_word_be(struct mxc_jpeg_stream *stream, u32 *word)
-{
-	u16 ret1;
-	u16 ret2;
 
-	ret1 = get_byte(stream);
-	ret2 = get_byte(stream);
-	if (ret1 != -1 && ret2 != -1) {
-		*word = ((ret1 << 8) | ret2);
-		return 0;
-	}
-	return -1;
+static void _bswap16(u16 *a)
+{
+	*a = ((*a & 0x00FF) << 8) | ((*a & 0xFF00) >> 8);
 }
-static int mxc_jpeg_parse(struct mxc_jpeg_desc *desc, u8 *src_addr, u32 size)
+
+static u8 get_sof(struct device *dev,
+	struct mxc_jpeg_stream *stream,
+	struct mxc_jpeg_sof *sof)
+{
+	int i;
+
+	if (stream->loc + sizeof(struct mxc_jpeg_sof) >= stream->end)
+		return -1;
+	memcpy(sof, &stream->addr[stream->loc], sizeof(struct mxc_jpeg_sof));
+	_bswap16(&sof->length);
+	_bswap16(&sof->height);
+	_bswap16(&sof->width);
+	dev_info(dev, "JPEG SOF: length=%d, precision=%d\n",
+		sof->length, sof->precision);
+	dev_info(dev, "JPEG SOF: height=%d, width=%d\n",
+		sof->height, sof->width);
+	for (i = 0; i < sof->components_no; i++) {
+		dev_info(dev, "JPEG SOF: comp_id=%d, H=0x%x, V=0x%x\n",
+			sof->comp[i].id, sof->comp[i].v, sof->comp[i].h);
+	}
+	return 0;
+}
+
+static enum mxc_jpeg_image_format mxc_jpeg_get_image_format(
+	struct device *dev,
+	const struct mxc_jpeg_sof *sof)
+{
+	if (sof->components_no == 1) {
+		dev_info(dev, "IMAGE_FORMAT is: MXC_JPEG_GRAY\n");
+		return MXC_JPEG_GRAY;
+	}
+	if (sof->components_no == 3) {
+		if (sof->comp[0].h == 2 && sof->comp[0].v == 2 &&
+		    sof->comp[1].h == 1 && sof->comp[1].v == 1 &&
+		    sof->comp[2].h == 1 && sof->comp[2].v == 1){
+			dev_info(dev, "IMAGE_FORMAT is: MXC_JPEG_YUV420\n");
+			return MXC_JPEG_YUV420;
+		}
+		if (sof->comp[0].h == 2 && sof->comp[0].v == 1 &&
+		    sof->comp[1].h == 1 && sof->comp[1].v == 1 &&
+		    sof->comp[2].h == 1 && sof->comp[2].v == 1){
+			dev_info(dev, "IMAGE_FORMAT is: MXC_JPEG_YUV422\n");
+			return MXC_JPEG_YUV422;
+		}
+		if (sof->comp[0].h == 1 && sof->comp[0].v == 1 &&
+		    sof->comp[1].h == 1 && sof->comp[1].v == 1 &&
+		    sof->comp[2].h == 1 && sof->comp[2].v == 1){
+			dev_info(dev, "IMAGE_FORMAT is: MXC_JPEG_YUV444\n");
+			return MXC_JPEG_YUV444;
+		}
+	}
+	dev_info(dev, "IMAGE_FORMAT is: MXC_JPEG_RESERVED\n");
+	return MXC_JPEG_RESERVED;
+}
+
+static u32 mxc_jpeg_get_line_pitch(
+	struct device *dev,
+	const struct mxc_jpeg_sof *sof,
+	enum mxc_jpeg_image_format img_fmt)
+{
+	u32 line_pitch;
+
+	switch (img_fmt) {
+	case  MXC_JPEG_YUV420:
+		line_pitch = sof->width * (sof->precision/8) * 1;
+		break;
+	case  MXC_JPEG_YUV422:
+		line_pitch = sof->width * (sof->precision/8) * 2;
+		break;
+	case  MXC_JPEG_RGB:
+		line_pitch = sof->width * (sof->precision/8) * 3;
+		break;
+	case  MXC_JPEG_YUV444:
+		line_pitch = sof->width * (sof->precision/8) * 3;
+		break;
+	case  MXC_JPEG_GRAY:
+		line_pitch = sof->width * (sof->precision/8) * 1;
+		break;
+	default:
+		line_pitch = sof->width * (sof->precision/8) * 3;
+		break;
+	}
+	dev_info(dev, "line_pitch = %d\n", line_pitch);
+	return line_pitch;
+}
+
+static int mxc_jpeg_parse(struct device *dev,
+	struct mxc_jpeg_desc *desc, u8 *src_addr, u32 size)
 {
 	struct mxc_jpeg_stream stream;
 	bool notfound = true;
-	int height, width, byte, length, word;
+	struct mxc_jpeg_sof sof;
+	int byte;
+	enum mxc_jpeg_image_format img_fmt;
 
+	memset(&sof, 0, sizeof(struct mxc_jpeg_sof));
 	stream.addr = src_addr;
 	stream.end = size;
 	stream.loc = 0;
@@ -450,20 +542,10 @@ static int mxc_jpeg_parse(struct mxc_jpeg_desc *desc, u8 *src_addr, u32 size)
 			return false;
 		if (byte == 0)
 			continue;
-		length = 0;
 		switch (byte) {
 		case SOF2:
 		case SOF0:
-			if (get_word_be(&stream, &word))
-				break;
-			length = (long)word - 2;
-			if (!length)
-				return false;
-			if (get_byte(&stream) == -1)
-				break;
-			if (get_word_be(&stream, &height))
-				break;
-			if (get_word_be(&stream, &width))
+			if (get_sof(dev, &stream, &sof) == -1)
 				break;
 			notfound = false;
 			break;
@@ -471,12 +553,25 @@ static int mxc_jpeg_parse(struct mxc_jpeg_desc *desc, u8 *src_addr, u32 size)
 			notfound = true;
 		}
 	}
-	if (width % 8 != 0 || height % 8 != 0)
+	if (sof.width % 8 != 0 || sof.height % 8 != 0) {
+		dev_info(dev, "JPEG width or height not multiple of 8: %dx%d\n",
+			sof.width, sof.height);
 		return -EINVAL;
-	desc->w = width;
-	desc->h = height;
+	}
+	if (sof.width > 0x2000 || sof.height > 0x2000) {
+		dev_info(dev, "JPEG width or height should be <= 8192: %dx%d\n",
+			sof.width, sof.height);
+		return -EINVAL;
+	}
+	desc->imgsize = sof.width << 16 | sof.height;
+	dev_info(dev, "JPEG imgsize = 0x%x (%dx%d)\n", desc->imgsize,
+		sof.width, sof.height);
+	img_fmt = mxc_jpeg_get_image_format(dev, &sof);
+	desc->stm_ctrl |= MXC_IMAGE_FORMAT(img_fmt);
+	desc->line_pitch = mxc_jpeg_get_line_pitch(dev, &sof, img_fmt);
 	return 0;
 }
+
 static void mxc_jpeg_buf_queue(struct vb2_buffer *vb)
 {
 	int ret;
@@ -492,7 +587,8 @@ static void mxc_jpeg_buf_queue(struct vb2_buffer *vb)
 					     &jpeg_src_buf->handle, 0);
 	if (ctx->mode != MXC_JPEG_DECODE)
 		goto end;
-	ret = mxc_jpeg_parse(jpeg_src_buf->desc, (u8 *)vb2_plane_vaddr(vb, 0),
+	ret = mxc_jpeg_parse(ctx->mxc_jpeg->dev,
+			     jpeg_src_buf->desc, (u8 *)vb2_plane_vaddr(vb, 0),
 			     vb2_get_plane_payload(vb, 0));
 	if (ret) {
 		v4l2_err(&ctx->mxc_jpeg->v4l2_dev,

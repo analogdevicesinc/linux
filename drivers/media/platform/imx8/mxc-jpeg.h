@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 NXP
+ * Copyright 2018 NXP
  */
 /*
  * The code contained herein is licensed under the GNU General Public
@@ -68,8 +68,7 @@ struct mxc_jpeg_desc {
 	u32 line_pitch;
 	u32 stm_bufbase;
 	u32 stm_bufsize;
-	u16 w;
-	u16 h;
+	u32 imgsize;
 	u32 stm_ctrl;
 } __packed;
 
@@ -115,4 +114,21 @@ struct mxc_jpeg_dev {
 	struct mxc_jpeg_desc			*cfg_desc;
 	dma_addr_t				cfg_handle;
 };
+
+/* JPEG Start Of Frame marker fields*/
+struct mxc_jpeg_sof_comp {
+	u8 id; /*component id*/
+	u8 v :4; /* vertical sampling*/
+	u8 h :4; /* horizontal sampling*/
+	u8 quantization_table_no;
+} __packed;
+
+struct mxc_jpeg_sof {
+	u16 length;
+	u8 precision;
+	u16 height, width;
+	u8 components_no;
+	struct mxc_jpeg_sof_comp comp[3];
+} __packed;
+
 #endif
