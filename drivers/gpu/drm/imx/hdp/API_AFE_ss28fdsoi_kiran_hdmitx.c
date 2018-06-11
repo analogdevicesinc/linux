@@ -50,73 +50,20 @@
 #include "ss28fdsoi_hdmitx_table.h"
 #include "imx-hdp.h"
 
-static int inside(u32 value, u32 left_sharp_corner, u32 right_sharp_corner)
-{
-	if (value < left_sharp_corner)
-		return 0;
-	if (value > right_sharp_corner)
-		return 0;
-	return 1;
-}
-
-int get_table_row_match_column(const u32 *array, u32 table_rows,
-			       u32 table_cols, u32 start_row,
-			       u32 column_to_search,
-			       u32 value_to_search_in_column)
-{
-	u32 idx_cols, idx_rows;
-	u32 value;
-	for (idx_rows = start_row; idx_rows < table_rows; idx_rows++) {
-		for (idx_cols = 0; idx_cols < table_cols; idx_cols++) {
-			if (idx_cols == column_to_search) {
-				value =
-				    *((array + idx_rows * table_cols) +
-				      idx_cols);
-				if (value == value_to_search_in_column) {
-					return idx_rows;
-				}
-			}
-		}
-	}
-	return -1;
-}
-
-int get_table_row(const u32 *array, u32 table_rows,
-		  u32 table_cols, u32 variable_in_range,
-		  u32 range_min_column, u32 range_max_column,
-		  u32 column_to_search, u32 column_value)
-{
-	u32 i = 0;
-	while (1) {
-		i = get_table_row_match_column(array, table_rows, table_cols, i,
-					       column_to_search, column_value);
-		if (i + 1) {
-			if (inside(variable_in_range,
-				   *((array + i * table_cols) +
-				     range_min_column),
-				   *((array + i * table_cols) +
-				     range_max_column))) {
-				break;
-			}
-			i++;
-		} else {
-			break;
-		}
-	}
-	return i;
-}
-
-int phy_cfg_hdp_ss28fdsoi(state_struct *state, int num_lanes, struct drm_display_mode *mode, int bpp,
-		VIC_PXL_ENCODING_FORMAT format)
+int phy_cfg_hdp_ss28fdsoi(state_struct *state,
+					int num_lanes,
+					struct drm_display_mode *mode,
+					int bpp,
+					VIC_PXL_ENCODING_FORMAT format)
 {
 	const int phy_reset_workaround = 0;
 	u32 vco_freq_khz;
 	unsigned char i;
 	u32 row, feedback_factor;
-	uint32_t reg_val;
+	u32 reg_val;
 	int pixel_freq_khz = mode->clock;
-	uint32_t character_clock_ratio_num = 1;
-	uint32_t character_clock_ratio_den = 1;
+	u32 character_clock_ratio_num = 1;
+	u32 character_clock_ratio_den = 1;
 	int character_freq_khz;
 	u32 ftemp;
 	clk_ratio_t clk_ratio = CLK_RATIO_1_1;
