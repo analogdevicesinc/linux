@@ -25,10 +25,10 @@
 
 / {
 	model = "Freescale i.MX8QM DOMU";
-	compatible = "fsl,imx8qm-mek", "fsl,imx8qm";
-
-	#address-cells = <2>;
-	#size-cells = <2>;
+	compatible = "fsl,imx8qm-mek", "fsl,imx8qm", "xen,xenvm-4.10", "xen,xenvm";
+	interrupt-parent = <&gic>;
+	#address-cells = <0x2>;
+	#size-cells = <0x2>;
 
 	/delete-node/ aliases;
 
@@ -37,6 +37,65 @@
 		dpu1 = &dpu2;
 		ldb1 = &ldb2;
 		serial1 = &lpuart1;
+	};
+
+	cpus {
+		#address-cells = <0x2>;
+		#size-cells = <0x0>;
+
+		cpu@0 {
+			device_type = "cpu";
+			compatible = "arm,armv8";
+			enable-method = "psci";
+			reg = <0x0 0x0>;
+		};
+
+		cpu@1 {
+			device_type = "cpu";
+			compatible = "arm,armv8";
+			enable-method = "psci";
+			reg = <0x0 0x1>;
+		};
+	};
+
+	psci {
+		compatible = "arm,psci-1.0";
+		method = "hvc";
+	};
+
+	memory@80000000 {
+		device_type = "memory";
+		/* Will be updated by U-Boot or XEN TOOL */
+		reg = <0x00000000 0x40000000 0 0x40000000>;
+	};
+
+	gic: interrupt-controller@3001000 {
+		compatible = "arm,gic-v3";
+		#interrupt-cells = <3>;
+		#address-cells = <0x0>;
+		interrupt-controller;
+		redistributor-stride = <0x20000>;
+		#redistributor-regions = <0x1>;
+		reg = <0x0 0x3001000 0 0x10000>, /* GIC Dist */
+		      <0x0 0x3020000 0 0x1000000>; /* GICR */
+		interrupts = <GIC_PPI 9 (GIC_CPU_MASK_SIMPLE(6) | IRQ_TYPE_LEVEL_HIGH)>;
+		interrupt-parent = <&gic>;
+	};
+
+	timer {
+		compatible = "arm,armv8-timer";
+		interrupts = <GIC_PPI 13 (GIC_CPU_MASK_SIMPLE(6) | IRQ_TYPE_LEVEL_LOW)>,
+			     <GIC_PPI 14 (GIC_CPU_MASK_SIMPLE(6) | IRQ_TYPE_LEVEL_LOW)>,
+			     <GIC_PPI 11 (GIC_CPU_MASK_SIMPLE(6) | IRQ_TYPE_LEVEL_LOW)>;
+		interrupt-parent = <&gic>;
+		clock-frequency = <8000000>;
+	};
+
+	hypervisor {
+		compatible = "xen,xen-4.10", "xen,xen";
+		reg = <0x0 0x38000000 0x0 0x1000000>;
+		interrupts = <GIC_PPI 15 (GIC_CPU_MASK_SIMPLE(6) | IRQ_TYPE_LEVEL_LOW)>;
+		interrupt-parent = <&gic>;
 	};
 
 	passthrough {
