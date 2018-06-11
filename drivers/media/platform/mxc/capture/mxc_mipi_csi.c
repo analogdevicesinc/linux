@@ -275,6 +275,8 @@ struct csi_state {
 	void __iomem *regs;
 	struct clk *mipi_clk;
 	struct clk *phy_clk;
+	struct clk *disp_axi;
+	struct clk *disp_apb;
 	int irq;
 	u32 flags;
 
@@ -545,12 +547,20 @@ static void mipi_csis_clk_enable(struct csi_state *state)
 {
 	clk_prepare_enable(state->mipi_clk);
 	clk_prepare_enable(state->phy_clk);
+	if (state->disp_axi)
+		clk_prepare_enable(state->disp_axi);
+	if (state->disp_apb)
+		clk_prepare_enable(state->disp_apb);
 }
 
 static void mipi_csis_clk_disable(struct csi_state *state)
 {
 	clk_disable_unprepare(state->mipi_clk);
 	clk_disable_unprepare(state->phy_clk);
+	if (state->disp_axi)
+		clk_disable_unprepare(state->disp_axi);
+	if (state->disp_apb)
+		clk_disable_unprepare(state->disp_apb);
 }
 
 static int mipi_csis_clk_get(struct csi_state *state)
@@ -568,6 +578,18 @@ static int mipi_csis_clk_get(struct csi_state *state)
 	if (IS_ERR(state->phy_clk)) {
 		dev_err(dev, "Could not get mipi phy clock\n");
 		return -ENODEV;
+	}
+
+	state->disp_axi = devm_clk_get(dev, "disp_axi");
+	if (IS_ERR(state->disp_axi)) {
+		dev_warn(dev, "Could not get disp_axi clock\n");
+		state->disp_axi = NULL;
+	}
+
+	state->disp_apb = devm_clk_get(dev, "disp_apb");
+	if (IS_ERR(state->disp_apb)) {
+		dev_warn(dev, "Could not get disp apb clock\n");
+		state->disp_apb = NULL;
 	}
 
 	/* Set clock rate */
@@ -1081,7 +1103,6 @@ static int mipi_csis_probe(struct platform_device *pdev)
 		return -EINVAL;
 
 	phy_reset_fn = of_id->data;
-	phy_reset_fn(state);
 
 	mem_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	state->regs = devm_ioremap_resource(dev, mem_res);
@@ -1099,6 +1120,8 @@ static int mipi_csis_probe(struct platform_device *pdev)
 		return ret;
 
 	mipi_csis_clk_enable(state);
+
+	phy_reset_fn(state);
 
 	ret = devm_request_irq(dev, state->irq, mipi_csis_irq_handler,
 			       0, dev_name(dev), state);
