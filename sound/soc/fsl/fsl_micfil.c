@@ -25,11 +25,8 @@
 #include "fsl_micfil.h"
 #include "imx-pcm.h"
 
-#define FSL_MICFIL_RATES		SNDRV_PCM_RATE_8000_192000
-#define FSL_MICFIL_FORMATS		(SNDRV_PCM_FMTBIT_S8 | \
-					SNDRV_PCM_FMTBIT_S16_LE | \
-					SNDRV_PCM_FMTBIT_S20_3LE | \
-					SNDRV_PCM_FMTBIT_S24_LE)
+#define FSL_MICFIL_RATES		SNDRV_PCM_RATE_8000_48000
+#define FSL_MICFIL_FORMATS		(SNDRV_PCM_FMTBIT_S16_LE)
 
 struct fsl_micfil {
 	struct platform_device *pdev;
