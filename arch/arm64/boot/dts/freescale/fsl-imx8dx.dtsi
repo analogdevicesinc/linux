@@ -1790,18 +1790,21 @@
 		#size-cells = <0>;
 		compatible = "fsl,imx8qxp-ldb";
 		clocks = <&clk IMX8QXP_MIPI0_LVDS_PIXEL_CLK>,
-			 <&clk IMX8QXP_MIPI0_LVDS_BYPASS_CLK>;
-		clock-names = "pixel", "bypass";
-		power-domains = <&pd_mipi_dsi_0_lvds>;
+			 <&clk IMX8QXP_MIPI0_LVDS_BYPASS_CLK>,
+			 <&clk IMX8QXP_MIPI1_LVDS_PIXEL_CLK>,
+			 <&clk IMX8QXP_MIPI1_LVDS_BYPASS_CLK>;
+		clock-names = "pixel", "bypass", "aux_pixel", "aux_bypass";
+		power-domains = <&pd_mipi_dsi_0_lvds>, <&pd_mipi_dsi_1_lvds>;
 		gpr = <&lvds_region1>;
+		aux-gpr = <&lvds_region2>;
 		status = "disabled";
 
 		lvds-channel@0 {
 			#address-cells = <1>;
 			#size-cells = <0>;
 			reg = <0>;
-			phys = <&ldb1_phy>;
-			phy-names = "ldb_phy";
+			phys = <&ldb1_phy>, <&ldb2_phy>;
+			phy-names = "ldb_phy", "aux_ldb_phy";
 			status = "disabled";
 
 			port@0 {
@@ -1951,18 +1954,21 @@
 		#size-cells = <0>;
 		compatible = "fsl,imx8qxp-ldb";
 		clocks = <&clk IMX8QXP_MIPI1_LVDS_PIXEL_CLK>,
-			 <&clk IMX8QXP_MIPI1_LVDS_BYPASS_CLK>;
-		clock-names = "pixel", "bypass";
-		power-domains = <&pd_mipi_dsi_1_lvds>;
+			 <&clk IMX8QXP_MIPI1_LVDS_BYPASS_CLK>,
+			 <&clk IMX8QXP_MIPI0_LVDS_PIXEL_CLK>,
+			 <&clk IMX8QXP_MIPI0_LVDS_BYPASS_CLK>;
+		clock-names = "pixel", "bypass", "aux_pixel", "aux_bypass";
+		power-domains = <&pd_mipi_dsi_1_lvds>, <&pd_mipi_dsi_0_lvds>;
 		gpr = <&lvds_region2>;
+		aux-gpr = <&lvds_region1>;
 		status = "disabled";
 
 		lvds-channel@0 {
 			#address-cells = <1>;
 			#size-cells = <0>;
 			reg = <0>;
-			phys = <&ldb2_phy>;
-			phy-names = "ldb_phy";
+			phys = <&ldb2_phy>, <&ldb1_phy>;
+			phy-names = "ldb_phy", "aux_ldb_phy";
 			status = "disabled";
 
 			port@0 {
