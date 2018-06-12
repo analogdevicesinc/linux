@@ -201,9 +201,11 @@ static int mxc_isi_remove(struct platform_device *pdev)
 	struct mxc_isi_dev *mxc_isi = platform_get_drvdata(pdev);
 	struct device *dev = &pdev->dev;
 
+	pm_runtime_get_sync(&pdev->dev);
 	mxc_isi_unregister_capture_subdev(mxc_isi);
 
 	clk_disable_unprepare(mxc_isi->clk);
+	pm_runtime_put_sync(&pdev->dev);
 	pm_runtime_disable(dev);
 
 	return 0;
@@ -214,6 +216,8 @@ static int mxc_isi_pm_suspend(struct device *dev)
 {
 	struct mxc_isi_dev *mxc_isi = dev_get_drvdata(dev);
 
+	pm_runtime_get_sync(dev);
+
 	if ((mxc_isi->flags & MXC_ISI_PM_SUSPENDED) ||
 		(mxc_isi->flags & MXC_ISI_RUNTIME_SUSPEND))
 		return 0;
@@ -221,6 +225,7 @@ static int mxc_isi_pm_suspend(struct device *dev)
 	clk_disable_unprepare(mxc_isi->clk);
 	mxc_isi->flags |= MXC_ISI_PM_SUSPENDED;
 	mxc_isi->flags &= ~MXC_ISI_PM_POWERED;
+	pm_runtime_put_sync(dev);
 
 	return 0;
 }
@@ -230,14 +235,21 @@ static int mxc_isi_pm_resume(struct device *dev)
 	struct mxc_isi_dev *mxc_isi = dev_get_drvdata(dev);
 	int ret;
 
+	pm_runtime_get_sync(dev);
 	if (mxc_isi->flags & MXC_ISI_PM_POWERED)
 		return 0;
 
+	ret = clk_prepare_enable(mxc_isi->clk);
+	if (ret) {
+		pr_info("== %s ret=%d\n", __func__, ret);
+		return -EAGAIN;
+	}
+
 	mxc_isi->flags |= MXC_ISI_PM_POWERED;
 	mxc_isi->flags &= ~MXC_ISI_PM_SUSPENDED;
+	pm_runtime_put_sync(dev);
 
-	ret = clk_prepare_enable(mxc_isi->clk);
-	return (ret) ? -EAGAIN : 0;
+	return 0;
 }
 #endif
 
