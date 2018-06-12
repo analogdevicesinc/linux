@@ -38,6 +38,11 @@ Required properties:
         The following clocks are expected on i.MX8qm:
                 "pixel" - pixel clock
                 "bypass" - bypass clock
+        The following clocks are expected on i.MX8qxp:
+                "pixel" - pixel clock
+                "bypass" - bypass clock
+                "aux_pixel" - pixel clock of the auxiliary LDB
+                "aux_bypass" - bypass clock of the auxiliary LDB
         The needed clock numbers for each are documented in
         Documentation/devicetree/bindings/clock/imx5-clock.txt, and in
         Documentation/devicetree/bindings/clock/imx6q-clock.txt.
@@ -51,8 +56,11 @@ Optional properties:
                not used on i.MX6q, i.MX8qm and i.MX8qxp
  - fsl,dual-channel : boolean. if it exists, only LVDS channel 0 should
    be configured - one input will be distributed on both outputs in dual
-   channel mode
-   Currently, i.MX8qxp doesn't support dual channel mode.
+   channel mode(i.MX8qxp uses two LDBs to support this).  Note that when
+   i.MX8qxp LDB works in dual channel mode, only the primary LDB node
+   should be active and the auxiliary LDB node should be disabled.
+ - aux-gpr : the phandle points to the auxiliary LVDS region containing
+             the LVDS control register(only required by i.MX8qxp)
 
 LVDS Channel
 ============
@@ -75,9 +83,11 @@ Required properties:
    and i.MX8qxp) must be connected to a panel input port or a bridge input port.
    Optionally, the output port can be left out if display-timings are used
    instead.
- - phys: the phandle for the LVDS PHY device. Valid only on i.MX8qm and
-         i.MX8qxp.
- - phy-names: should be "ldb_phy". Valid only on i.MX8qm and i.MX8qxp.
+ - phys: the phandle for the LVDS PHY devices. Valid only on i.MX8qm and
+         i.MX8qxp.  For i.MX8qxp, two PHYs should be provided for LVDS
+         channel0, one for primary LDB and the other for auxiliary LDB.
+ - phy-names: should be "ldb_phy" for i.MX8qm, and "ldb_phy", "aux_ldb_phy"
+              for i.MX8qxp.  Valid only on i.MX8qm and i.MX8qxp.
 
 Optional properties (required if display-timings are used):
  - ddc-i2c-bus: phandle of an I2C controller used for DDC EDID probing
