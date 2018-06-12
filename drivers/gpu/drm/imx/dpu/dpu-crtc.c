@@ -505,6 +505,7 @@ static void dpu_crtc_mode_set_nofb(struct drm_crtc *crtc)
 	unsigned long encoder_types = 0;
 	u32 encoder_mask;
 	bool encoder_type_has_tmds = false;
+	bool encoder_type_has_lvds = false;
 
 	dev_dbg(dpu_crtc->dev, "%s: mode->hdisplay: %d\n", __func__,
 			mode->hdisplay);
@@ -525,7 +526,13 @@ static void dpu_crtc_mode_set_nofb(struct drm_crtc *crtc)
 		dev_dbg(dpu_crtc->dev, "%s: encoder type has TMDS\n", __func__);
 	}
 
-	framegen_cfg_videomode(dpu_crtc->fg, mode, encoder_type_has_tmds);
+	if (encoder_types & BIT(DRM_MODE_ENCODER_LVDS)) {
+		encoder_type_has_lvds = true;
+		dev_dbg(dpu_crtc->dev, "%s: encoder type has LVDS\n", __func__);
+	}
+
+	framegen_cfg_videomode(dpu_crtc->fg, mode,
+			encoder_type_has_tmds, encoder_type_has_lvds);
 	framegen_displaymode(dpu_crtc->fg, FGDM__SEC_ON_TOP);
 
 	framegen_panic_displaymode(dpu_crtc->fg, FGDM__TEST);

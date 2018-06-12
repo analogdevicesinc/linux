@@ -109,6 +109,7 @@ struct dpu_framegen {
 	int id;
 	bool inuse;
 	bool use_bypass_clk;
+	bool encoder_type_has_lvds;
 	struct dpu_soc *dpu;
 };
 
@@ -194,20 +195,24 @@ static void dpu_pixel_link_disable(int dpu_id, int stream_id)
 void framegen_enable(struct dpu_framegen *fg)
 {
 	struct dpu_soc *dpu = fg->dpu;
+	const struct dpu_devtype *devtype = dpu->devtype;
 
 	mutex_lock(&fg->mutex);
 	dpu_fg_write(fg, FGEN, FGENABLE);
 	mutex_unlock(&fg->mutex);
 
-	dpu_pixel_link_enable(dpu->id, fg->id);
+	if (!(devtype->has_dual_ldb && fg->encoder_type_has_lvds))
+		dpu_pixel_link_enable(dpu->id, fg->id);
 }
 EXPORT_SYMBOL_GPL(framegen_enable);
 
 void framegen_disable(struct dpu_framegen *fg)
 {
 	struct dpu_soc *dpu = fg->dpu;
+	const struct dpu_devtype *devtype = dpu->devtype;
 
-	dpu_pixel_link_disable(dpu->id, fg->id);
+	if (!(devtype->has_dual_ldb && fg->encoder_type_has_lvds))
+		dpu_pixel_link_disable(dpu->id, fg->id);
 
 	mutex_lock(&fg->mutex);
 	dpu_fg_write(fg, 0, FGENABLE);
@@ -225,7 +230,7 @@ EXPORT_SYMBOL_GPL(framegen_shdtokgen);
 
 void
 framegen_cfg_videomode(struct dpu_framegen *fg, struct drm_display_mode *m,
-		       bool encoder_type_has_tmds)
+		       bool encoder_type_has_tmds, bool encoder_type_has_lvds)
 {
 	const struct dpu_devtype *devtype = fg->dpu->devtype;
 	u32 hact, htotal, hsync, hsbp;
@@ -233,6 +238,8 @@ framegen_cfg_videomode(struct dpu_framegen *fg, struct drm_display_mode *m,
 	u32 val;
 	unsigned long disp_clock_rate, pll_clock_rate = 0;
 	int div = 0;
+
+	fg->encoder_type_has_lvds = encoder_type_has_lvds;
 
 	hact = m->crtc_hdisplay;
 	htotal = m->crtc_htotal;
