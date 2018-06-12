@@ -721,7 +721,7 @@
 	};
 
 	spdif1: spdif@30090000 {
-		compatible = "fsl,imx8mm-spdif", "fsl,imx8mq-spdif", "fsl,imx35-spdif";
+		compatible = "fsl,imx8mm-spdif";
 		reg = <0x0 0x30090000 0x0 0x10000>;
 		interrupts = <GIC_SPI 6 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&clk IMX8MM_CLK_IPG_AUDIO_ROOT>, /* core */
