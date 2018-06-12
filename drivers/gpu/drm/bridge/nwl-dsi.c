@@ -1009,6 +1009,8 @@ static void nwl_dsi_bridge_enable(struct drm_bridge *bridge)
 		return;
 	}
 
+	pm_runtime_get_sync(dev);
+
 	ret = devm_request_irq(dev, dsi->irq,
 			       nwl_dsi_irq_handler, 0, IRQ_NAME, dsi);
 	if (ret < 0) {
@@ -1085,6 +1087,8 @@ static void nwl_dsi_bridge_disable(struct drm_bridge *bridge)
 		nwl_dsi_disable_clocks(dsi, CLK_PHY_REF | CLK_TX_ESC);
 
 	devm_free_irq(dev, dsi->irq, dsi);
+
+	pm_runtime_put_sync(dev);
 
 	dsi->enabled = false;
 }
@@ -1166,6 +1170,8 @@ static int nwl_dsi_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
+	pm_runtime_enable(dev);
+
 	dsi->no_clk_reset = of_property_read_bool(dev->of_node, "no_clk_reset");
 
 	dsi->dev = dev;
@@ -1187,6 +1193,8 @@ static int nwl_dsi_remove(struct platform_device *pdev)
 	struct nwl_mipi_dsi *dsi = platform_get_drvdata(pdev);
 
 	drm_bridge_remove(&dsi->bridge);
+
+	pm_runtime_disable(&pdev->dev);
 
 	return 0;
 }
