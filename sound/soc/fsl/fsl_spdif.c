@@ -179,6 +179,17 @@ static struct fsl_spdif_soc_data fsl_spdif_imx8qm = {
 	.constrain_period_size = true,
 };
 
+static struct fsl_spdif_soc_data fsl_spdif_imx8mm = {
+	.imx = true,
+	.dma_workaround = false,
+	.tx_burst = FSL_SPDIF_TXFIFO_WML,
+	.rx_burst = FSL_SPDIF_RXFIFO_WML,
+	.interrupts = 1,
+	.tx_formats = FSL_SPDIF_FORMATS_PLAYBACK,
+	.rx_rates = (FSL_SPDIF_RATES_CAPTURE | SNDRV_PCM_RATE_192000),
+	.constrain_period_size = false,
+};
+
 /* DPLL locked and lock loss interrupt handler */
 static void spdif_irq_dpll_lock(struct fsl_spdif_priv *spdif_priv)
 {
@@ -1304,6 +1315,7 @@ static int fsl_spdif_probe_txclk(struct fsl_spdif_priv *spdif_priv,
 
 static const struct of_device_id fsl_spdif_dt_ids[] = {
 	{ .compatible = "fsl,imx8qxp-v1-spdif", .data = &fsl_spdif_imx8qxp_v1, },
+	{ .compatible = "fsl,imx8mm-spdif", .data = &fsl_spdif_imx8mm, },
 	{ .compatible = "fsl,imx8qm-spdif", .data = &fsl_spdif_imx8qm, },
 	{ .compatible = "fsl,imx35-spdif", .data = &fsl_spdif_imx35, },
 	{ .compatible = "fsl,vf610-spdif", .data = &fsl_spdif_vf610, },
