@@ -108,6 +108,18 @@ static uint32_t axi_clkgen_lookup_lock(unsigned int m)
 	return 0x1f1f00fa;
 }
 
+#ifdef ARCH_ZYNQMP
+static const unsigned int fpfd_min = 10000;
+static const unsigned int fpfd_max = 450000;
+static const unsigned int fvco_min = 800000;
+static const unsigned int fvco_max = 1600000;
+#else
+static const unsigned int fpfd_min = 10000;
+static const unsigned int fpfd_max = 300000;
+static const unsigned int fvco_min = 600000;
+static const unsigned int fvco_max = 1200000;
+#endif
+
 static const struct axi_clkgen_limits axi_clkgen_zynqmp_default_limits = {
 	.fpfd_min = 10000,
 	.fpfd_max = 450000,
