@@ -62,6 +62,7 @@ static const u64 dcss_video_format_modifiers[] = {
 	DRM_FORMAT_MOD_VSI_G1_TILED,
 	DRM_FORMAT_MOD_VSI_G2_TILED,
 	DRM_FORMAT_MOD_VSI_G2_TILED_COMPRESSED,
+	DRM_FORMAT_MOD_LINEAR,
 	DRM_FORMAT_MOD_INVALID,
 };
 
@@ -150,7 +151,8 @@ static bool dcss_plane_format_mod_supported(struct drm_plane *plane,
 		case DRM_FORMAT_NV12:
 		case DRM_FORMAT_NV21:
 		case DRM_FORMAT_P010:
-			return modifier == DRM_FORMAT_MOD_VSI_G1_TILED ||
+			return modifier == DRM_FORMAT_MOD_LINEAR ||
+			       modifier == DRM_FORMAT_MOD_VSI_G1_TILED ||
 			       modifier == DRM_FORMAT_MOD_VSI_G2_TILED ||
 			       modifier == DRM_FORMAT_MOD_VSI_G2_TILED_COMPRESSED;
 		default:
@@ -352,6 +354,7 @@ config:
 		break;
 	case DRM_PLANE_TYPE_OVERLAY:
 		if (!modifiers_present ||
+		    (modifiers_present && fb->modifier == DRM_FORMAT_MOD_LINEAR) ||
 		    (pix_format != DRM_FORMAT_NV12 &&
 		     pix_format != DRM_FORMAT_NV21 &&
 		     pix_format != DRM_FORMAT_P010)) {
@@ -484,6 +487,10 @@ static void dcss_plane_atomic_update(struct drm_plane *plane,
 	/* DTRC has probably aligned the sizes. */
 	adj_w = src.x2 - src.x1;
 	adj_h = src.y2 - src.y1;
+
+	if (plane->type == DRM_PLANE_TYPE_OVERLAY &&
+	    modifiers_present && fb->modifier == DRM_FORMAT_MOD_LINEAR)
+		modifiers_present = false;
 
 	dcss_dpr_format_set(dcss_plane->dcss, dcss_plane->ch_num, pixel_format,
 				modifiers_present);
