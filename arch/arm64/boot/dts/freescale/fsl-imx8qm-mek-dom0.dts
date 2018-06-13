@@ -39,8 +39,23 @@
 		 * SC_R_MU_4A
 		 * The rsrcs and pads will be configured by uboot scu_rm cmd
 		 */
-		dom2: dom@2 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		doma {
 			compatible = "xen,domu";
+			/*
+			 * The name entry in VM configuration file
+			 * needs to be same as here.
+			 */
+			domain_name = "DomU";
+			/*
+			 * The reg property will be updated by U-Boot to
+			 * reflect the partition id.
+			 */
+			reg = <0>;
+			init_on_rsrcs = <
+				SC_R_MU_2A
+			>;
 			rsrcs = <
 				SC_R_GPU_1_PID0
 				SC_R_GPU_1_PID1
