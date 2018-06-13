@@ -76,7 +76,7 @@ int hdmi_fw_init(state_struct *state)
 	return 0;
 }
 
-int hdmi_phy_init(state_struct *state, struct drm_display_mode *mode, int format, int color_depth)
+int hdmi_phy_init_ss28fdsoi(state_struct *state, struct drm_display_mode *mode, int format, int color_depth)
 {
 	struct imx_hdp *hdp = state_to_imx_hdp(state);
 	int ret;
@@ -105,7 +105,7 @@ int hdmi_phy_init(state_struct *state, struct drm_display_mode *mode, int format
 	return true;
 }
 
-void hdmi_mode_set(state_struct *state, struct drm_display_mode *mode, int format, int color_depth, int temp)
+void hdmi_mode_set_ss28fdsoi(state_struct *state, struct drm_display_mode *mode, int format, int color_depth, int temp)
 {
 	int ret;
 

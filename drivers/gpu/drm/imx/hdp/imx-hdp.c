@@ -909,8 +909,8 @@ static struct hdp_ops imx8qm_hdmi_ops = {
 	.fw_load = hdmi_fw_load,
 #endif
 	.fw_init = hdmi_fw_init,
-	.phy_init = hdmi_phy_init,
-	.mode_set = hdmi_mode_set,
+	.phy_init = hdmi_phy_init_ss28fdsoi,
+	.mode_set = hdmi_mode_set_ss28fdsoi,
 	.get_edid_block = hdmi_get_edid_block,
 	.get_hpd_state = hdmi_get_hpd_state,
 
