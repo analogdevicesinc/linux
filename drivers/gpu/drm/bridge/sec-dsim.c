@@ -272,10 +272,6 @@ static int sec_mipi_dsim_host_attach(struct mipi_dsi_host *host,
 	struct device *dev = dsim->dev;
 	struct drm_panel *panel;
 
-	/* Don't support multiple panels */
-	if (dsim->panel)
-		return -EBUSY;
-
 	if (!dsi->lanes || dsi->lanes > pdata->max_data_lanes) {
 		dev_err(dev, "invalid data lanes number\n");
 		return -EINVAL;
@@ -299,10 +295,16 @@ static int sec_mipi_dsim_host_attach(struct mipi_dsi_host *host,
 		return -EINVAL;
 	}
 
-	if (!dsim->next && !dsim->panel) {
+	if (!dsim->next) {
 		/* 'dsi' must be panel device */
 		panel = of_drm_find_panel(dsi->dev.of_node);
 		WARN_ON(!panel);
+
+		/* Don't support multiple panels */
+		if (dsim->panel && panel && dsim->panel != panel) {
+			dev_err(dev, "don't support multiple panels\n");
+			return -EBUSY;
+		}
 
 		dsim->panel = panel;
 	}
