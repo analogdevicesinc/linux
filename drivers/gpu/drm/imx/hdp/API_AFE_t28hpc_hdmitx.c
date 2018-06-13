@@ -49,6 +49,21 @@
 #include "API_AFE_t28hpc_hdmitx.h"
 #include "t28hpc_hdmitx_table.h"
 
+/* check pixel clock rate in
+ * Table 8. HDMI TX pixel clock */
+int pixel_clock_range_t28hpc(struct drm_display_mode *mode)
+{
+	int i, row, rate;
+
+	row = T28HPC_HDMITX_CLOCK_CONTROL_TABLE_ROWS_PIXEL_OUT;
+	for (i = 0; i < row; i++) {
+		   rate = t28hpc_hdmitx_clock_control_table_pixel_out[i][T8_PIXEL_CLK_FREQ_KHZ];
+		   if (rate == mode->clock)
+			   return 1;
+	}
+	return 0;
+}
+
 int phy_cfg_hdp_t28hpc(state_struct *state,
 				int num_lanes,
 				struct drm_display_mode *mode,

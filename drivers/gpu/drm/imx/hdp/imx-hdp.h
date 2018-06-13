@@ -106,6 +106,7 @@ struct hdp_ops {
 	int (*pixel_clock_enable)(struct hdp_clks *clks);
 	void (*pixel_clock_disable)(struct hdp_clks *clks);
 	void (*pixel_clock_set_rate)(struct hdp_clks *clks);
+	int (*pixel_clock_range)(struct drm_display_mode *mode);
 };
 
 struct hdp_devtype {

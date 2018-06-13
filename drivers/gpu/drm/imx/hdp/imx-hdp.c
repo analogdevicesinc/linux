@@ -633,6 +633,7 @@ imx_hdp_connector_mode_valid(struct drm_connector *connector,
 					     connector);
 	enum drm_mode_status mode_status = MODE_OK;
 	struct drm_cmdline_mode *cmdline_mode;
+	int ret;
 
 	cmdline_mode = &connector->cmdline_mode;
 
@@ -648,12 +649,19 @@ imx_hdp_connector_mode_valid(struct drm_connector *connector,
 	else if (!hdp->is_4kp60 && mode->clock > 297000)
 		return MODE_CLOCK_HIGH;
 
+	ret = imx_hdp_call(hdp, pixel_clock_range, mode);
+	if (ret == 0) {
+		DRM_DEBUG("pixel clock %d out of range\n", mode->clock);
+		return MODE_CLOCK_RANGE;
+	}
+
 	/* 4096x2160 is not supported now */
 	if (mode->hdisplay > 3840)
 		return MODE_BAD_HVALUE;
 
 	if (mode->vdisplay > 2160)
 		return MODE_BAD_VVALUE;
+
 
 	return mode_status;
 }
@@ -957,6 +965,7 @@ static struct hdp_ops imx8mq_ops = {
 	.get_edid_block = hdmi_get_edid_block,
 	.get_hpd_state = hdmi_get_hpd_state,
 	.write_hdr_metadata = hdmi_write_hdr_metadata,
+	.pixel_clock_range = pixel_clock_range_t28hpc,
 };
 
 static struct hdp_devtype imx8mq_hdmi_devtype = {
