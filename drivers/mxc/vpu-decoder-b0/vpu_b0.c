@@ -866,10 +866,10 @@ static int v4l2_ioctl_streamoff(struct file *file,
 			i);
 
 	if (ctx->dev->hang_mask & (1 << ctx->str_index)) {
-		vpu_dbg(LVL_ERR, "%s(): failed and some instance are blocked\n", __func__);
+		vpu_dbg(LVL_ERR, "%s(): not succeed and some instance are blocked\n", __func__);
 		return -EINVAL;
 	} else if (ctx->firmware_stopped) {
-		vpu_dbg(LVL_ERR, "%s(): failed and firmware is stopped\n", __func__);
+		vpu_dbg(LVL_ERR, "%s(): not succeed and firmware is stopped\n", __func__);
 		return -EINVAL;
 	}
 	else
@@ -1403,7 +1403,7 @@ static void report_buffer_done(struct vpu_ctx *ctx, void *frame_info)
 				VB2_BUF_STATE_DONE
 				);
 	else
-		vpu_dbg(LVL_ERR, "error: check buffer(%d) state(%d)\n", buffer_id, p_data_req->vb2_buf->state);
+		vpu_dbg(LVL_ERR, "warning: wait_rst_done(%d) check buffer(%d) state(%d)\n", ctx->wait_rst_done, buffer_id, p_data_req->vb2_buf->state);
 	up(&This->drv_q_lock);
 	vpu_dbg(LVL_INFO, "leave %s\n", __func__);
 }
@@ -1763,6 +1763,7 @@ static void vpu_api_event_handler(struct vpu_ctx *ctx, u_int32 uStrIdx, u_int32 
 		}
 		break;
 	case VID_API_EVENT_RES_CHANGE:
+		vpu_dbg(LVL_ERR, "warning: VID_API_EVENT_RES_CHANGE is not handled\n");
 #if 0
 		{
 			const struct v4l2_event ev = {
