@@ -551,7 +551,7 @@ static int enable_jobrings(struct caam_drv_private *ctrlpriv, int block_offset)
 			/* Get actual job ring index from its offset
 			 * ex: CAAM JR2 offset 0x30000 index = 2
 			 */
-			while (index > 16)
+			while (index >= 16)
 				index = index >> 4;
 			index -= 1;
 			ctrlpriv->jr[index] = (struct caam_job_ring __force *)
