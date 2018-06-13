@@ -298,7 +298,12 @@ static int sec_mipi_dsim_host_attach(struct mipi_dsi_host *host,
 	if (!dsim->next) {
 		/* 'dsi' must be panel device */
 		panel = of_drm_find_panel(dsi->dev.of_node);
-		WARN_ON(!panel);
+
+		if (!panel) {
+			dev_err(dev, "refuse unknown dsi device attach\n");
+			WARN_ON(!panel);
+			return -ENODEV;
+		}
 
 		/* Don't support multiple panels */
 		if (dsim->panel && panel && dsim->panel != panel) {
