@@ -1849,7 +1849,9 @@ static int usb_ss_gadget_ep_dequeue(struct usb_ep *ep,
 	request->status = -ECONNRESET;
 
 	select_ep(usb_ss, ep->desc->bEndpointAddress);
-	ret = cdns_data_flush(usb_ss_ep);
+	if (usb_ss->start_gadget)
+		ret = cdns_data_flush(usb_ss_ep);
+
 	list_for_each_entry_safe(req, req_temp,
 		&usb_ss_ep->request_list, list) {
 		if (request == req) {
