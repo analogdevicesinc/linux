@@ -78,19 +78,24 @@
 
 		};
 
-		axi_vdma_0: axivdma@43000000 {
-			#address-cells = <1>;
-			#size-cells = <1>;
+		hdmi_dma: dma@43000000 {
+			compatible = "adi,axi-dmac-1.00.a";
+			reg = <0x43000000 0x10000>;
 			#dma-cells = <1>;
-			compatible = "xlnx,axi-vdma-1.00.a";
-			reg = <0x43000000 0x1000>;
-			xlnx,num-fstores = <0x3>;
-			dma-channel@7e200000 {
-				compatible = "xlnx,axi-vdma-mm2s-channel";
-				interrupts = <0 59 0x4>;
-				xlnx,datawidth = <0x40>;
-				xlnx,genlock-mode = <0x0>;
-				xlnx,include-dre = <0x0>;
+			interrupts = <0 59 0>;
+			clocks = <&clkc 16>;
+
+			adi,channels {
+				#size-cells = <0>;
+				#address-cells = <1>;
+
+				dma-channel@0 {
+					reg = <0>;
+					adi,source-bus-width = <64>;
+					adi,source-bus-type = <0>;
+					adi,destination-bus-width = <64>;
+					adi,destination-bus-type = <1>;
+				};
 			};
 		};
 
@@ -104,7 +109,7 @@
 		axi_hdmi@70e00000 {
 			compatible = "adi,axi-hdmi-tx-1.00.a";
 			reg = <0x70e00000 0x10000>;
-			dmas = <&axi_vdma_0 0>;
+			dmas = <&hdmi_dma 0>;
 			dma-names = "video";
 			clocks = <&hdmi_clock>;
 
