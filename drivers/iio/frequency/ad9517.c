@@ -239,10 +239,11 @@ static int ad9517_parse_firmware(struct ad9517_state *st,
 	char *line;
 	int ret;
 
-	line = kmalloc(size, GFP_KERNEL);
+	line = kmalloc(size + 1, GFP_KERNEL);
 	if (!line)
 		return -ENOMEM;
 	memcpy(line, data, size);
+	line[size] = '\0';
 	while (line) {
 		ret = sscanf(line, "\"%x\",\"%x\",\"%x\"", &addr, &val1, &val2);
 		if (ret == 3) {
