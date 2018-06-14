@@ -13,8 +13,6 @@
 #include <linux/spi/spi.h>
 #include <linux/err.h>
 #include <linux/delay.h>
-#include <linux/delay.h>
-#include <linux/io.h>
 #include <linux/firmware.h>
 #include <linux/of.h>
 #include <linux/mutex.h>
@@ -22,7 +20,6 @@
 #include <linux/gpio/consumer.h>
 
 #include <linux/clk.h>
-#include <linux/clkdev.h>
 #include <linux/clk-provider.h>
 
 #include <linux/iio/iio.h>
