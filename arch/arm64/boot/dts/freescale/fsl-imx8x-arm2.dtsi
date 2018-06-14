@@ -62,6 +62,13 @@
 			gpio = <&max7322 0 GPIO_ACTIVE_HIGH>;
 			enable-active-high;
 		};
+
+		reg_adc_vref_1v8: adc_vref_1v8 {
+			compatible = "regulator-fixed";
+			regulator-name = "vref_1v8";
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+		};
 	};
 
 	sound-cs42888 {
@@ -83,6 +90,13 @@
 };
 
 &acm {
+	status = "okay";
+};
+
+&adc0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_adc0>;
+	vref-supply = <&reg_adc_vref_1v8>;
 	status = "okay";
 };
 
@@ -148,6 +162,13 @@
 			fsl,pins = <
 				SC_P_ENET0_REFCLK_125M_25M_LSIO_GPIO5_IO09 0xc600004c
 				SC_P_COMP_CTL_GPIO_1V8_3V3_GPIORHB_PAD	0x000514a0
+			>;
+		};
+
+		pinctrl_adc0: adc0grp {
+			fsl,pins = <
+				SC_P_ADC_IN0_ADMA_ADC_IN0		0x60
+				SC_P_ADC_IN1_ADMA_ADC_IN1		0x60
 			>;
 		};
 
