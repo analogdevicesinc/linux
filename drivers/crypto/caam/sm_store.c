@@ -59,50 +59,43 @@ void sm_show_page(struct device *dev, struct sm_page_descriptor *pgdesc)
 
 #define INITIAL_DESCSZ 16	/* size of tmp buffer for descriptor const. */
 
-static __always_inline int sm_set_cmd_reg(struct caam_drv_private_sm *smpriv,
-					  struct caam_drv_private_jr *jrpriv,
-					  u32 val)
-{
-
-	if (smpriv->sm_reg_offset == SM_V1_OFFSET) {
-		struct caam_secure_mem_v1 *sm_regs_v1;
-		sm_regs_v1 = (struct caam_secure_mem_v1 *)
-			((void *)jrpriv->rregs + SM_V1_OFFSET);
-		wr_reg32(&sm_regs_v1->sm_cmd, val);
-
-	} else if (smpriv->sm_reg_offset == SM_V2_OFFSET) {
-		struct caam_secure_mem_v2 *sm_regs_v2;
-		sm_regs_v2 = (struct caam_secure_mem_v2 *)
-			((void *)jrpriv->rregs + SM_V2_OFFSET);
-		wr_reg32(&sm_regs_v2->sm_cmd, val);
-	} else {
-		return -EINVAL;
-	}
-
-	return 0;
-}
-
-static __always_inline u32 sm_get_status_reg(struct caam_drv_private_sm *smpriv,
+static __always_inline u32 sm_send_cmd(struct caam_drv_private_sm *smpriv,
 					     struct caam_drv_private_jr *jrpriv,
-					     u32 *val)
+					     u32 cmd, u32 *status)
 {
+	void __iomem *write_address;
+	void __iomem *read_address;
+
 	if (smpriv->sm_reg_offset == SM_V1_OFFSET) {
 		struct caam_secure_mem_v1 *sm_regs_v1;
 		sm_regs_v1 = (struct caam_secure_mem_v1 *)
 			((void *)jrpriv->rregs + SM_V1_OFFSET);
-		*val = rd_reg32(&sm_regs_v1->sm_status);
+		write_address = &sm_regs_v1->sm_cmd;
+		read_address = &sm_regs_v1->sm_status;
+
 	} else if (smpriv->sm_reg_offset == SM_V2_OFFSET) {
 		struct caam_secure_mem_v2 *sm_regs_v2;
 		sm_regs_v2 = (struct caam_secure_mem_v2 *)
 			((void *)jrpriv->rregs + SM_V2_OFFSET);
-		*val = rd_reg32(&sm_regs_v2->sm_status);
+		write_address = &sm_regs_v2->sm_cmd;
+		read_address = &sm_regs_v2->sm_status;
+
 	} else {
 		return -EINVAL;
 	}
 
+	wr_reg32(write_address, cmd);
+
+	udelay(10);
+
+	/* Read until the command has terminated and the status is correct */
+	do {
+		*status = rd_reg32(read_address);
+	} while (((*status & SMCS_CMDERR_MASK) >>  SMCS_CMDERR_SHIFT)
+				   == SMCS_CMDERR_INCOMP);
+
 	return 0;
 }
-
 /*
  * Construct a black key conversion job descriptor
  *
@@ -993,6 +986,7 @@ int caam_sm_startup(struct platform_device *pdev)
 	struct platform_device *sm_pdev;
 	struct sm_page_descriptor *lpagedesc;
 	u32 page, pgstat, lpagect, detectedpage, smvid, smpart;
+	int ret = 0;
 
 	struct device_node *np;
 	ctrldev = &pdev->dev;
@@ -1002,8 +996,10 @@ int caam_sm_startup(struct platform_device *pdev)
 	 * If ctrlpriv is NULL, it's probably because the caam driver wasn't
 	 * properly initialized (e.g. RNG4 init failed). Thus, bail out here.
 	 */
-	if (!ctrlpriv)
-		return -ENODEV;
+	if (!ctrlpriv) {
+		ret = -ENODEV;
+		goto exit;
+	}
 
 	/*
 	 * Set up the private block for secure memory
@@ -1012,7 +1008,8 @@ int caam_sm_startup(struct platform_device *pdev)
 	smpriv = kzalloc(sizeof(struct caam_drv_private_sm), GFP_KERNEL);
 	if (smpriv == NULL) {
 		dev_err(ctrldev, "can't alloc private mem for secure memory\n");
-		return -ENOMEM;
+		ret = -ENOMEM;
+		goto exit;
 	}
 	smpriv->parentdev = ctrldev; /* copy of parent dev is handy */
 	spin_lock_init(&smpriv->kslock);
@@ -1024,8 +1021,8 @@ int caam_sm_startup(struct platform_device *pdev)
 	sm_pdev = of_platform_device_create(np, "caam_sm", ctrldev);
 
 	if (sm_pdev == NULL) {
-		kfree(smpriv);
-		return -EINVAL;
+		ret = -EINVAL;
+		goto free_smpriv;
 	}
 
 	/* Save a pointer to the platform device for Secure Memory */
@@ -1086,26 +1083,37 @@ int caam_sm_startup(struct platform_device *pdev)
 	 * an SM instance to any ring instance).
 	 */
 	smpriv->smringdev = caam_jr_alloc();
+	if (!smpriv->smringdev) {
+		dev_err(smdev, "Device for job ring not created\n");
+		ret = -ENODEV;
+		goto unregister_smpdev;
+	}
+
 	jrpriv = dev_get_drvdata(smpriv->smringdev);
 	lpagect = 0;
 	pgstat = 0;
 	lpagedesc = kzalloc(sizeof(struct sm_page_descriptor)
 			    * smpriv->max_pages, GFP_KERNEL);
 	if (lpagedesc == NULL) {
-		kfree(smpriv);
-		return -ENOMEM;
+		ret = -ENOMEM;
+		goto free_smringdev;
 	}
 
 	for (page = 0; page < smpriv->max_pages; page++) {
-		if (sm_set_cmd_reg(smpriv, jrpriv,
-				   ((page << SMC_PAGE_SHIFT) & SMC_PAGE_MASK) |
-				   (SMC_CMD_PAGE_INQUIRY & SMC_CMD_MASK)))
-			return -EINVAL;
-		if (sm_get_status_reg(smpriv, jrpriv, &pgstat))
-			return -EINVAL;
+		u32 page_ownership;
 
-		if (((pgstat & SMCS_PGWON_MASK) >> SMCS_PGOWN_SHIFT)
-		    == SMCS_PGOWN_OWNED) { /* our page? */
+		if (sm_send_cmd(smpriv, jrpriv,
+				((page << SMC_PAGE_SHIFT) & SMC_PAGE_MASK) |
+				(SMC_CMD_PAGE_INQUIRY & SMC_CMD_MASK),
+				&pgstat)) {
+			ret = -EINVAL;
+			goto free_lpagedesc;
+		}
+
+		page_ownership = (pgstat & SMCS_PGWON_MASK) >> SMCS_PGOWN_SHIFT;
+		if ((page_ownership == SMCS_PGOWN_OWNED)
+			|| (page_ownership == SMCS_PGOWN_NOOWN)) {
+			/* page allocated */
 			lpagedesc[page].phys_pagenum =
 				(pgstat & SMCS_PAGE_MASK) >> SMCS_PAGE_SHIFT;
 			lpagedesc[page].own_part =
@@ -1136,9 +1144,8 @@ int caam_sm_startup(struct platform_device *pdev)
 	smpriv->pagedesc = kzalloc(sizeof(struct sm_page_descriptor) * lpagect,
 				   GFP_KERNEL);
 	if (smpriv->pagedesc == NULL) {
-		kfree(lpagedesc);
-		kfree(smpriv);
-		return -ENOMEM;
+		ret = -ENOMEM;
+		goto free_lpagedesc;
 	}
 	smpriv->localpages = lpagect;
 
@@ -1159,7 +1166,19 @@ int caam_sm_startup(struct platform_device *pdev)
 
 	sm_init_keystore(smdev);
 
-	return 0;
+	goto exit;
+
+free_lpagedesc:
+	kfree(lpagedesc);
+free_smringdev:
+	caam_jr_free(smpriv->smringdev);
+unregister_smpdev:
+	of_device_unregister(smpriv->sm_pdev);
+free_smpriv:
+	kfree(smpriv);
+
+exit:
+	return ret;
 }
 
 void caam_sm_shutdown(struct platform_device *pdev)
@@ -1177,6 +1196,8 @@ void caam_sm_shutdown(struct platform_device *pdev)
 		return;
 
 	smpriv = dev_get_drvdata(smdev);
+
+	caam_jr_free(smpriv->smringdev);
 
 	/* Remove Secure Memory Platform Device */
 	of_device_unregister(smpriv->sm_pdev);
