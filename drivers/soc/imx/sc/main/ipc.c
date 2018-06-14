@@ -16,6 +16,7 @@
 #include <linux/interrupt.h>
 #include <linux/irq.h>
 #include <linux/mx8_mu.h>
+#include <linux/syscore_ops.h>
 
 #include <soc/imx8/sc/svc/irq/api.h>
 #include <soc/imx8/sc/ipc.h>
@@ -283,6 +284,19 @@ static irqreturn_t imx8_scu_mu_isr(int irq, void *param)
 	return IRQ_HANDLED;
 }
 
+static void imx8_mu_resume(void)
+{
+	int i;
+
+	MU_Init(mu_base_virtaddr);
+	for (i = 0; i < MU_RR_COUNT; i++)
+		MU_EnableGeneralInt(mu_base_virtaddr, i);
+}
+
+struct syscore_ops imx8_mu_syscore_ops = {
+	.resume = imx8_mu_resume,
+};
+
 /*Initialization of the MU code. */
 int __init imx8_mu_init(void)
 {
@@ -382,6 +396,8 @@ int __init imx8_mu_init(void)
 
 	if (sciErr)
 		pr_info("Cannot request WDOG interrupt\n");
+
+	register_syscore_ops(&imx8_mu_syscore_ops);
 
 	pr_info("*****Initialized MU\n");
 	return scu_mu_id;
