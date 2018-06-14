@@ -678,6 +678,7 @@ static int __maybe_unused mxc_gpio_resume(struct device *dev)
 
 static const struct dev_pm_ops mxc_gpio_dev_pm_ops = {
 	SET_SYSTEM_SLEEP_PM_OPS(mxc_gpio_suspend, mxc_gpio_resume)
+	SET_NOIRQ_SYSTEM_SLEEP_PM_OPS(mxc_gpio_runtime_suspend, mxc_gpio_runtime_resume)
 	SET_RUNTIME_PM_OPS(mxc_gpio_runtime_suspend,
 			mxc_gpio_runtime_resume, NULL)
 };
