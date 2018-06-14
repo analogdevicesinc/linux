@@ -133,8 +133,6 @@ enum outputs {
 	NUM_OUTPUTS,
 };
 
-#define AD9517_REG(addr, val)	((addr << 16) | (val & 0xFF))
-
 struct ad9517_platform_data {
 	unsigned long *regs;
 	unsigned num_regs;
