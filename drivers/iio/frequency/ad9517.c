@@ -157,8 +157,8 @@ struct ad9517_state {
 	unsigned long clkin_freq;
 	unsigned long div0123_freq;
 	unsigned long vco_divin_freq;
-	char *div0123_clk_parent_name;
-	char *vco_divin_clk_parent_name;
+	const char *div0123_clk_parent_name;
+	const char *vco_divin_clk_parent_name;
 
 	struct gpio_desc *gpio_reset;
 	struct gpio_desc *gpio_sync;
@@ -584,6 +584,18 @@ static bool ad9517_is_enabled(struct ad9517_state *st, unsigned int out)
 		 output_pwrdwn_lut[out][PWRDWN_MASK]);
 }
 
+static const char *ad9517_get_parent_name(struct ad9517_state *st,
+	const char *name)
+{
+	int i;
+
+	i = of_property_match_string(st->spi->dev.of_node, "clock-names", name);
+	if (i < 0)
+		return ERR_PTR(i);
+
+	return of_clk_get_parent_name(st->spi->dev.of_node, i);
+}
+
 static int ad9517_setup(struct ad9517_state *st)
 {
 	struct spi_device *spi = st->spi;
@@ -728,18 +740,22 @@ static int ad9517_setup(struct ad9517_state *st)
 	}
 
 	/* Internal clock distribution */
-
 	if (st->regs[AD9517_INPUT_CLKS] & AD9517_VCO_DIVIDER_SEL) {
 		vco_divin_freq = vco_freq;
-		st->vco_divin_clk_parent_name = "refclk";
+		st->vco_divin_clk_parent_name = ad9517_get_parent_name(st, "refclk");
 	} else {
 		vco_divin_freq = st->clkin_freq;
-		st->vco_divin_clk_parent_name = "clkin";
+		st->vco_divin_clk_parent_name = ad9517_get_parent_name(st, "clkin");
 	}
+
+	if (IS_ERR(st->vco_divin_clk_parent_name))
+		return PTR_ERR(st->vco_divin_clk_parent_name);
 
 	if (st->regs[AD9517_INPUT_CLKS] & AD9517_VCO_DIVIDER_BP) {
 		div0123_freq = st->clkin_freq;
-		st->div0123_clk_parent_name = "clkin";
+		st->div0123_clk_parent_name = ad9517_get_parent_name(st, "clkin");
+		if (IS_ERR(st->div0123_clk_parent_name))
+			return PTR_ERR(st->div0123_clk_parent_name);
 	} else {
 		div0123_freq = vco_divin_freq /
 			((st->regs[AD9517_VCO_DIVIDER] & 0x7) + 2);
