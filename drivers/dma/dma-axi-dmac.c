@@ -232,8 +232,8 @@ static void axi_dmac_start_transfer(struct axi_dmac_chan *chan)
 			desc->num_submitted = 0; /* Start again */
 		} else {
 			chan->next_desc = NULL;
-			flags |= AXI_DMAC_FLAG_LAST;
 		}
+		flags |= AXI_DMAC_FLAG_LAST;
 	} else {
 		chan->next_desc = desc;
 	}
