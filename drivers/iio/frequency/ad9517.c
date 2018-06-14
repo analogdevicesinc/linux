@@ -96,7 +96,7 @@
 #define AD9517_SDO_ACTIVE	(0x81)
 #define AD9517_LONG_INSTR	(0x18)
 
-#define NUM_OUTPUTS 8
+#define MAX_NUM_OUTPUTS 10
 
 /*
  * The address field of the channel is used to identify the output type
@@ -128,9 +128,11 @@ struct ad9517_outputs {
 struct ad9517_state {
 	struct spi_device *spi;
 	unsigned char regs[AD9517_TRANSFER+1];
-	struct ad9517_outputs output[NUM_OUTPUTS];
-	struct clk *clks[NUM_OUTPUTS];
+
+	struct ad9517_outputs output[MAX_NUM_OUTPUTS];
+	struct clk *clks[MAX_NUM_OUTPUTS];
 	struct clk_onecell_data clk_data;
+
 	unsigned long refin_freq;
 	unsigned long clkin_freq;
 	unsigned long div0123_freq;
@@ -525,7 +527,7 @@ static const char *ad9517_get_parent_name(struct ad9517_state *st,
 	return of_clk_get_parent_name(st->spi->dev.of_node, i);
 }
 
-static int ad9517_setup(struct ad9517_state *st)
+static int ad9517_setup(struct ad9517_state *st, unsigned int num_outputs)
 {
 	struct spi_device *spi = st->spi;
 	int ret, reg;
@@ -698,7 +700,7 @@ static int ad9517_setup(struct ad9517_state *st)
 	}
 
 	/* CMOS/LVDS outputs */
-	for (i = 0; i < NUM_OUTPUTS; i += 2) {
+	for (i = 0; i < num_outputs; i += 2) {
 		reg_index = AD9517_ADDRESS_DIVIDER_INDEX(st->output[i].address);
 		div3 = st->regs[AD9517_PECLDIV_3(reg_index)];
 
@@ -900,6 +902,19 @@ static const struct iio_info ad9517_info = {
 	  .output = 1,						\
 	  .address = _addr }
 
+static const struct iio_chan_spec ad9516_chan[] = {
+	AD9517_CHAN(0, AD9517_ADDRESS_LVPECL(0)),
+	AD9517_CHAN(1, AD9517_ADDRESS_LVPECL(1)),
+	AD9517_CHAN(2, AD9517_ADDRESS_LVPECL(2)),
+	AD9517_CHAN(3, AD9517_ADDRESS_LVPECL(3)),
+	AD9517_CHAN(4, AD9517_ADDRESS_LVPECL(4)),
+	AD9517_CHAN(5, AD9517_ADDRESS_LVPECL(5)),
+	AD9517_CHAN(6, AD9517_ADDRESS_CMOS(0)),
+	AD9517_CHAN(7, AD9517_ADDRESS_CMOS(1)),
+	AD9517_CHAN(8, AD9517_ADDRESS_CMOS(2)),
+	AD9517_CHAN(9, AD9517_ADDRESS_CMOS(3)),
+};
+
 static const struct iio_chan_spec ad9517_chan[] = {
 	AD9517_CHAN(0, AD9517_ADDRESS_LVPECL(0)),
 	AD9517_CHAN(1, AD9517_ADDRESS_LVPECL(1)),
@@ -912,9 +927,34 @@ static const struct iio_chan_spec ad9517_chan[] = {
 	AD9517_CHAN(7, AD9517_ADDRESS_CMOS(3)),
 };
 
+enum ad9517_device_type {
+	AD9516,
+	AD9517,
+};
+
+#define AD9517_DRIVER_DATA(type, part_id) \
+	((type << 8) | part_id)
+
+struct ad9517_device_info {
+	unsigned int num_channels;
+	const struct iio_chan_spec *channels;
+};
+
+static const struct ad9517_device_info ad9517_device_info[] = {
+	[AD9516] = {
+		.num_channels = ARRAY_SIZE(ad9516_chan),
+		.channels = ad9516_chan,
+	},
+	[AD9517] = {
+		.num_channels = ARRAY_SIZE(ad9517_chan),
+		.channels = ad9517_chan,
+	},
+};
+
 static int ad9517_probe(struct spi_device *spi)
 {
 	struct ad9517_platform_data *pdata = spi->dev.platform_data;
+	const struct spi_device_id *id;
 	struct iio_dev *indio_dev;
 	int out, ret, conf;
 	const struct firmware *fw;
@@ -922,6 +962,11 @@ static int ad9517_probe(struct spi_device *spi)
 	struct clk *clk, *ref_clk, *clkin;
 	bool spi3wire = of_property_read_bool(
 			spi->dev.of_node, "adi,spi-3wire-enable");
+	unsigned int device_type, part_id;
+
+	id = spi_get_device_id(spi);
+	device_type = id->driver_data >> 8;
+	part_id = id->driver_data & 0xff;
 
 	indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*st));
 	if (indio_dev == NULL)
@@ -954,7 +999,7 @@ static int ad9517_probe(struct spi_device *spi)
 	ret = ad9517_read(spi, AD9517_PARTID);
 	if (ret < 0)
 		return ret;
-	if (ret != spi_get_device_id(spi)->driver_data) {
+	if (ret != part_id) {
 		dev_err(&spi->dev, "Unrecognized CHIP_ID 0x%X\n", ret);
  		return -ENODEV;
 	}
@@ -1012,18 +1057,25 @@ static int ad9517_probe(struct spi_device *spi)
 		clk_prepare_enable(clkin);
 	}
 
-	/* Needs to be done before ad9517_setup() */
-	for (out = 0; out < NUM_OUTPUTS; out++)
-		st->output[out].address = ad9517_chan[out].address;
+	indio_dev->dev.parent = &spi->dev;
+	indio_dev->name = spi_get_device_id(spi)->name;
+	indio_dev->info = &ad9517_info;
+	indio_dev->modes = INDIO_DIRECT_MODE;
+	indio_dev->channels = ad9517_device_info[device_type].channels;
+	indio_dev->num_channels = ad9517_device_info[device_type].num_channels;
 
-	ret = ad9517_setup(st);
+	/* Needs to be done before ad9517_setup() */
+	for (out = 0; out < indio_dev->num_channels; out++)
+		st->output[out].address = indio_dev->channels[out].address;
+
+	ret = ad9517_setup(st, indio_dev->num_channels);
 	if (ret < 0)
 		return ret;
 
 	st->clk_data.clks = st->clks;
-	st->clk_data.clk_num = NUM_OUTPUTS;
+	st->clk_data.clk_num = indio_dev->num_channels;
 
-	for (out = 0; out < NUM_OUTPUTS; out++) {
+	for (out = 0; out < indio_dev->num_channels; out++) {
 		clk = ad9517_clk_register(st, out);
 		if (IS_ERR(clk))
 			return PTR_ERR(clk);
@@ -1031,13 +1083,6 @@ static int ad9517_probe(struct spi_device *spi)
 
 	of_clk_add_provider(st->spi->dev.of_node,
 			    of_clk_src_onecell_get, &st->clk_data);
-
-	indio_dev->dev.parent = &spi->dev;
-	indio_dev->name = spi_get_device_id(spi)->name;
-	indio_dev->info = &ad9517_info;
-	indio_dev->modes = INDIO_DIRECT_MODE;
-	indio_dev->channels = ad9517_chan;
-	indio_dev->num_channels = NUM_OUTPUTS;
 
 	ret = iio_device_register(indio_dev);
 	if (ret)
@@ -1065,11 +1110,17 @@ static int ad9517_remove(struct spi_device *spi)
 }
 
 static const struct spi_device_id ad9517_id[] = {
-	{"ad9517-0", 0x11},
-	{"ad9517-1", 0x51},
-	{"ad9517-2", 0x91},
-	{"ad9517-3", 0x53},
-	{"ad9517-4", 0xD3},
+	{"ad9516-0", AD9517_DRIVER_DATA(AD9516, 0x01) },
+	{"ad9516-1", AD9517_DRIVER_DATA(AD9516, 0x41) },
+	{"ad9516-2", AD9517_DRIVER_DATA(AD9516, 0x81) },
+	{"ad9516-3", AD9517_DRIVER_DATA(AD9516, 0x43) },
+	{"ad9516-4", AD9517_DRIVER_DATA(AD9516, 0xc3) },
+	{"ad9516-5", AD9517_DRIVER_DATA(AD9516, 0xc1) },
+	{"ad9517-0", AD9517_DRIVER_DATA(AD9517, 0x11) },
+	{"ad9517-1", AD9517_DRIVER_DATA(AD9517, 0x51) },
+	{"ad9517-2", AD9517_DRIVER_DATA(AD9517, 0x91) },
+	{"ad9517-3", AD9517_DRIVER_DATA(AD9517, 0x53) },
+	{"ad9517-4", AD9517_DRIVER_DATA(AD9517, 0xD3) },
 	{}
 };
 MODULE_DEVICE_TABLE(spi, ad9517_id);
