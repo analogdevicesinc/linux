@@ -152,8 +152,6 @@ struct ad9517_state {
 	unsigned long clkin_freq;
 	unsigned long div0123_freq;
 	unsigned long vco_divin_freq;
-	const char *div0123_clk_parent_name;
-	const char *vco_divin_clk_parent_name;
 
 	struct gpio_desc *gpio_reset;
 	struct gpio_desc *gpio_sync;
@@ -602,6 +600,8 @@ static int ad9517_setup(struct ad9517_state *st)
 	unsigned long div0123_freq;
 	bool uses_vco = false;
 	bool uses_clkin = false;
+	const char *div0123_parent_name;
+	const char *vco_divin_parent_name;
 
 	gpiod_set_value(st->gpio_sync, 1);
 
@@ -737,24 +737,24 @@ static int ad9517_setup(struct ad9517_state *st)
 	/* Internal clock distribution */
 	if (st->regs[AD9517_INPUT_CLKS] & AD9517_VCO_DIVIDER_SEL) {
 		vco_divin_freq = vco_freq;
-		st->vco_divin_clk_parent_name = ad9517_get_parent_name(st, "refclk");
+		vco_divin_parent_name = ad9517_get_parent_name(st, "refclk");
 	} else {
 		vco_divin_freq = st->clkin_freq;
-		st->vco_divin_clk_parent_name = ad9517_get_parent_name(st, "clkin");
+		vco_divin_parent_name = ad9517_get_parent_name(st, "clkin");
 	}
 
-	if (IS_ERR(st->vco_divin_clk_parent_name))
-		return PTR_ERR(st->vco_divin_clk_parent_name);
+	if (IS_ERR(vco_divin_parent_name))
+		return PTR_ERR(vco_divin_parent_name);
 
 	if (st->regs[AD9517_INPUT_CLKS] & AD9517_VCO_DIVIDER_BP) {
 		div0123_freq = st->clkin_freq;
-		st->div0123_clk_parent_name = ad9517_get_parent_name(st, "clkin");
-		if (IS_ERR(st->div0123_clk_parent_name))
-			return PTR_ERR(st->div0123_clk_parent_name);
+		div0123_parent_name = ad9517_get_parent_name(st, "clkin");
+		if (IS_ERR(div0123_parent_name))
+			return PTR_ERR(div0123_parent_name);
 	} else {
 		div0123_freq = vco_divin_freq /
 			((st->regs[AD9517_VCO_DIVIDER] & 0x7) + 2);
-		st->div0123_clk_parent_name = st->vco_divin_clk_parent_name;
+		div0123_parent_name = vco_divin_parent_name;
 	}
 
 	/* Outputs */
@@ -763,11 +763,11 @@ static int ad9517_setup(struct ad9517_state *st)
 	if (st->regs[AD9517_PECLDIV0_3] & AD9517_PECLDIV_VCO_SEL) {
 		st->output[OUT_0].parent_name =
 			st->output[OUT_1].parent_name =
-			st->vco_divin_clk_parent_name;
+			vco_divin_parent_name;
 	} else {
 		st->output[OUT_0].parent_name =
 			st->output[OUT_1].parent_name =
-			st->div0123_clk_parent_name;
+			div0123_parent_name;
 	}
 
 	/* 2..3 */
@@ -775,24 +775,24 @@ static int ad9517_setup(struct ad9517_state *st)
 	if (st->regs[AD9517_PECLDIV1_3] & AD9517_PECLDIV_VCO_SEL) {
 		st->output[OUT_2].parent_name =
 			st->output[OUT_3].parent_name =
-			st->vco_divin_clk_parent_name;
+			vco_divin_parent_name;
 	} else {
 		st->output[OUT_2].parent_name =
 			st->output[OUT_3].parent_name =
-			st->div0123_clk_parent_name;
+			div0123_parent_name;
 	}
 
 	/* 4..5 */
 
 	st->output[OUT_4].parent_name =
 		st->output[OUT_5].parent_name =
-		st->div0123_clk_parent_name;
+		div0123_parent_name;
 
 	/* 6..7 */
 
 	st->output[OUT_6].parent_name =
 		st->output[OUT_7].parent_name =
-		st->div0123_clk_parent_name;
+		div0123_parent_name;
 
 	st->div0123_freq = div0123_freq;
 	st->vco_divin_freq = vco_divin_freq;
