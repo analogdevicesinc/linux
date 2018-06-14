@@ -222,6 +222,7 @@ static int dpu_plane_atomic_check(struct drm_plane *plane,
 {
 	struct dpu_plane *dplane = to_dpu_plane(plane);
 	struct dpu_plane_state *dpstate = to_dpu_plane_state(state);
+	struct dpu_plane_state *old_dpstate = to_dpu_plane_state(plane->state);
 	struct drm_crtc_state *crtc_state;
 	struct drm_framebuffer *fb = state->fb;
 	struct dpu_fetchunit *fu;
@@ -293,6 +294,12 @@ static int dpu_plane_atomic_check(struct drm_plane *plane,
 		drm_atomic_get_existing_crtc_state(state->state, state->crtc);
 	if (WARN_ON(!crtc_state))
 		return -EINVAL;
+
+	/* mode set is needed when base x/y is changed */
+	if (plane->type == DRM_PLANE_TYPE_PRIMARY)
+		if ((dpstate->base_x != old_dpstate->base_x) ||
+		    (dpstate->base_y != old_dpstate->base_y))
+			crtc_state->mode_changed = true;
 
 	if (state->crtc_x + state->crtc_w >
 	    crtc_state->adjusted_mode.hdisplay)
