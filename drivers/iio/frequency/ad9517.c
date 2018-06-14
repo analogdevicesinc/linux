@@ -930,6 +930,7 @@ static const struct iio_chan_spec ad9517_chan[] = {
 enum ad9517_device_type {
 	AD9516,
 	AD9517,
+	AD9518,
 };
 
 #define AD9517_DRIVER_DATA(type, part_id) \
@@ -948,6 +949,10 @@ static const struct ad9517_device_info ad9517_device_info[] = {
 	[AD9517] = {
 		.num_channels = ARRAY_SIZE(ad9517_chan),
 		.channels = ad9517_chan,
+	},
+	[AD9518] = { /* Same layout as AD9516 but only LVPECL outputs */
+		.num_channels = 6,
+		.channels = ad9516_chan,
 	},
 };
 
@@ -1121,6 +1126,11 @@ static const struct spi_device_id ad9517_id[] = {
 	{"ad9517-2", AD9517_DRIVER_DATA(AD9517, 0x91) },
 	{"ad9517-3", AD9517_DRIVER_DATA(AD9517, 0x53) },
 	{"ad9517-4", AD9517_DRIVER_DATA(AD9517, 0xD3) },
+	{"ad9518-0", AD9517_DRIVER_DATA(AD9518, 0x21) },
+	{"ad9518-1", AD9517_DRIVER_DATA(AD9518, 0x61) },
+	{"ad9518-2", AD9517_DRIVER_DATA(AD9518, 0xa1) },
+	{"ad9518-3", AD9517_DRIVER_DATA(AD9518, 0x63) },
+	{"ad9518-4", AD9517_DRIVER_DATA(AD9518, 0xe3) },
 	{}
 };
 MODULE_DEVICE_TABLE(spi, ad9517_id);
