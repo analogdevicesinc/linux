@@ -203,6 +203,10 @@ static const struct iio_chan_spec imx8qxp_adc_iio_channels[] = {
 	IMX8QXP_ADC_CHAN(1),
 	IMX8QXP_ADC_CHAN(2),
 	IMX8QXP_ADC_CHAN(3),
+	IMX8QXP_ADC_CHAN(4),
+	IMX8QXP_ADC_CHAN(5),
+	IMX8QXP_ADC_CHAN(6),
+	IMX8QXP_ADC_CHAN(7),
 };
 
 static void imx8qxp_adc_feature_prepare(struct imx8qxp_adc *adc)
@@ -403,7 +407,7 @@ static int imx8qxp_adc_read_raw(struct iio_dev *indio_dev,
 		mutex_lock(&indio_dev->mlock);
 		reinit_completion(&adc->completion);
 
-		channel = chan->channel & 0x03;
+		channel = chan->channel & 0x07;
 		adc->channel_id = channel;
 		adc->cmd_id = 1;
 		adc->trigger_id = 0;
