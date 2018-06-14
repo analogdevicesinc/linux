@@ -17,6 +17,7 @@
 #include <linux/io.h>
 #include <linux/firmware.h>
 #include <linux/of.h>
+#include <linux/mutex.h>
 
 #include <linux/gpio/consumer.h>
 
@@ -161,6 +162,8 @@ struct ad9517_state {
 
 	struct gpio_desc *gpio_reset;
 	struct gpio_desc *gpio_sync;
+
+	struct mutex lock;
 };
 
 #define IS_FD				(1 << 7)
@@ -454,6 +457,7 @@ static int ad9517_set_frequency(struct ad9517_state *st, int chan,
 {
 	int ret;
 
+	mutex_lock(&st->lock);
 	switch (chan) {
 	case 0 ... 3:
 		ret = ad9517_out0123_set_frequency(st, chan, rate);
@@ -465,9 +469,14 @@ static int ad9517_set_frequency(struct ad9517_state *st, int chan,
 		return -EINVAL;
 	}
 	if (ret < 0)
-		return ret;
+		goto out_unlock;
 
-	return ad9517_write(st->spi, AD9517_TRANSFER, AD9517_TRANSFER_NOW);
+	ret = ad9517_write(st->spi, AD9517_TRANSFER, AD9517_TRANSFER_NOW);
+
+out_unlock:
+	mutex_unlock(&st->lock);
+
+	return ret;
 }
 
 static unsigned long ad9517_get_frequency(struct ad9517_state *st, int chan)
@@ -475,6 +484,7 @@ static unsigned long ad9517_get_frequency(struct ad9517_state *st, int chan)
 	unsigned long rate;
 	unsigned d1, d2;
 
+	mutex_lock(&st->lock);
 	switch (chan) {
 	case 0:
 	case 1:
@@ -540,6 +550,7 @@ static unsigned long ad9517_get_frequency(struct ad9517_state *st, int chan)
 
 		break;
 	}
+	mutex_unlock(&st->lock);
 
 	return rate;
 }
@@ -549,6 +560,7 @@ static int ad9517_out_enable(struct ad9517_state *st, int chan, int val)
 	unsigned reg = output_pwrdwn_lut[chan][PWRDWN_REG];
 	int ret;
 
+	mutex_lock(&st->lock);
 	if (val)
 		st->regs[reg] &= ~output_pwrdwn_lut[chan][PWRDWN_MASK];
 	else
@@ -556,9 +568,14 @@ static int ad9517_out_enable(struct ad9517_state *st, int chan, int val)
 
 	ret = ad9517_write(st->spi, reg, st->regs[reg]);
 	if (ret < 0)
-		return ret;
+		goto out_unlock;
 
-	return ad9517_write(st->spi, AD9517_TRANSFER, AD9517_TRANSFER_NOW);
+	ret = ad9517_write(st->spi, AD9517_TRANSFER, AD9517_TRANSFER_NOW);
+
+out_unlock:
+	mutex_unlock(&st->lock);
+
+	return ret;
 }
 
 static bool ad9517_is_enabled(struct ad9517_state *st, unsigned int out)
@@ -878,7 +895,7 @@ static int ad9517_reg_access(struct iio_dev *indio_dev,
 	struct ad9517_state *st = iio_priv(indio_dev);
 	int ret;
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&st->lock);
 	if (readval == NULL) {
 		ret = ad9517_write(st->spi, reg, writeval);
 		/* Update all registers */
@@ -892,7 +909,7 @@ static int ad9517_reg_access(struct iio_dev *indio_dev,
 	}
 
 out_unlock:
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&st->lock);
 
 	return ret;
 }
@@ -977,6 +994,7 @@ static int ad9517_probe(struct spi_device *spi)
 		return -ENOMEM;
 
 	st = iio_priv(indio_dev);
+	mutex_init(&st->lock);
 
 	st->gpio_reset = devm_gpiod_get_optional(&spi->dev, "reset",
 	    GPIOD_OUT_HIGH);
