@@ -67,7 +67,7 @@
 					};
 				};
 
-				i2c@2 { 
+				i2c@2 {
 					#size-cells = <0>;
 					#address-cells = <1>;
 					reg = <2>;
@@ -110,19 +110,24 @@
 			};
 		};
 
-		axi_hdmi_dma: axi-vdma@43000000 {
-			#address-cells = <1>;
-			#size-cells = <1>;
-			#dma-cells = <1>;
-			compatible = "xlnx,axi-vdma-1.00.a";
+		hdmi_dma: dma@43000000 {
+			compatible = "adi,axi-dmac-1.00.a";
 			reg = <0x43000000 0x10000>;
-			xlnx,num-fstores = <0x3>;
-			dma-channel@43000000 {
-				compatible = "xlnx,axi-vdma-mm2s-channel";
-				interrupts = <0 59 0x4>;
-				xlnx,datawidth = <0x40>;
-				xlnx,genlock-mode = <0x0>;
-				xlnx,include-dre = <0x0>;
+			#dma-cells = <1>;
+			interrupts = <0 59 0>;
+			clocks = <&clkc 16>;
+
+			adi,channels {
+				#size-cells = <0>;
+				#address-cells = <1>;
+
+				dma-channel@0 {
+					reg = <0>;
+					adi,source-bus-width = <64>;
+					adi,source-bus-type = <0>;
+					adi,destination-bus-width = <64>;
+					adi,destination-bus-type = <1>;
+				};
 			};
 		};
 
@@ -137,7 +142,7 @@
 			compatible = "adi,axi-hdmi-tx-1.00.a";
 			reg = <0x70e00000 0x10000>;
 			encoder-slave = <&adv7511>;
-			dmas = <&axi_hdmi_dma 0>;
+			dmas = <&hdmi_dma 0>;
 			dma-names = "video";
 			clocks = <&axi_hdmi_clkgen>;
 
