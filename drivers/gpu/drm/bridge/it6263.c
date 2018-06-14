@@ -335,6 +335,21 @@ struct it6263 {
 	bool split_mode;
 };
 
+struct it6263_minimode {
+	int hdisplay;
+	int vdisplay;
+	int vrefresh;
+};
+
+static const struct it6263_minimode it6263_bad_mode_db[] = {
+	{1600, 900,  60},
+	{1280, 1024, 60},
+	{1280, 720,  30},
+	{1280, 720,  25},
+	{1280, 720,  24},
+	{1152, 864,  75},
+};
+
 static inline struct it6263 *bridge_to_it6263(struct drm_bridge *bridge)
 {
 	return container_of(bridge, struct it6263, bridge);
@@ -507,8 +522,19 @@ static int it6263_get_modes(struct drm_connector *connector)
 enum drm_mode_status it6263_mode_valid(struct drm_connector *connector,
 					struct drm_display_mode *mode)
 {
+	const struct it6263_minimode *m;
+	int i, vrefresh = drm_mode_vrefresh(mode);
+
 	if (mode->clock > 150000)
 		return MODE_CLOCK_HIGH;
+
+	for (i = 0; i < ARRAY_SIZE(it6263_bad_mode_db); i++) {
+		m = &it6263_bad_mode_db[i];
+		if ((mode->hdisplay == m->hdisplay) &&
+		    (mode->vdisplay == m->vdisplay) &&
+		    (vrefresh == m->vrefresh))
+			return MODE_BAD;
+	}
 
 	return MODE_OK;
 }
