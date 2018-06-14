@@ -1110,6 +1110,7 @@ static void cdns_check_ep0_interrupt_proceed(struct usb_ss_dev *usb_ss, int dir)
 			dev_dbg(&usb_ss->dev, "IOC(%02X) %d\n",
 				dir ? USB_DIR_IN : USB_DIR_OUT,
 				usb_ss->actual_ep0_request->actual);
+			list_del_init(&usb_ss->actual_ep0_request->list);
 		}
 
 		if (usb_ss->actual_ep0_request
@@ -1404,6 +1405,7 @@ static int usb_ss_gadget_ep0_queue(struct usb_ep *ep,
 
 	usb_ss->actual_ep0_request = request;
 	cdns_ep0_run_transfer(usb_ss, request->dma, request->length, 1);
+	list_add_tail(&request->list, &usb_ss_ep->request_list);
 	spin_unlock_irqrestore(&usb_ss->lock, flags);
 	return ret;
 }
@@ -1848,19 +1850,17 @@ static int usb_ss_gadget_ep_dequeue(struct usb_ep *ep,
 
 	select_ep(usb_ss, ep->desc->bEndpointAddress);
 	ret = cdns_data_flush(usb_ss_ep);
-	if (ep->address) {
-		list_for_each_entry_safe(req, req_temp,
-			&usb_ss_ep->request_list, list) {
-			if (request == req) {
-				list_del_init(&request->list);
-				if (request->complete) {
-					spin_unlock(&usb_ss->lock);
-					usb_gadget_giveback_request
-						(&usb_ss_ep->endpoint, request);
-					spin_lock(&usb_ss->lock);
-				}
-				break;
+	list_for_each_entry_safe(req, req_temp,
+		&usb_ss_ep->request_list, list) {
+		if (request == req) {
+			list_del_init(&request->list);
+			if (request->complete) {
+				spin_unlock(&usb_ss->lock);
+				usb_gadget_giveback_request
+					(&usb_ss_ep->endpoint, request);
+				spin_lock(&usb_ss->lock);
 			}
+			break;
 		}
 	}
 
@@ -2216,6 +2216,7 @@ static int usb_ss_init_ep0(struct usb_ss_dev *usb_ss)
 	ep0->endpoint.name = ep0->name;
 	ep0->endpoint.desc = &cdns3_gadget_ep0_desc;
 	usb_ss->gadget.ep0 = &ep0->endpoint;
+	INIT_LIST_HEAD(&ep0->request_list);
 
 	return 0;
 }
