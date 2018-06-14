@@ -880,13 +880,18 @@ static struct clk *ad9517_clk_register(struct ad9517_state *st, unsigned num)
 	struct ad9517_outputs *output = &st->output[num];
 	struct clk *clk;
 	char name[8];
+	int ret;
 
-	sprintf(name, "out%d", num);
-
-	init.name = name;
 	init.ops = &ad9517_clk_ops;
 	init.parent_names = &output->parent_name;
 	init.num_parents = 1;
+
+	ret = of_property_read_string_index(st->spi->dev.of_node,
+		"clock-output-names", num, &init.name);
+	if (ret < 0) {
+		sprintf(name, "out%d", num);
+		init.name = name;
+	}
 
 	output->hw.init = &init;
 	output->st = st;
