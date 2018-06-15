@@ -74,7 +74,7 @@ int phy_cfg_hdp_t28hpc(state_struct *state,
 	const int phy_reset_workaround = 1;
 	u32 vco_freq_khz;
 	unsigned char k;
-	unsigned char row;
+	int row;
 	u32 feedback_factor;
 	u32 reg_val;
 	u32 pll_feedback_divider_total;
@@ -257,16 +257,14 @@ int phy_cfg_hdp_t28hpc(state_struct *state,
 				  feedback_factor);
 
 		/* Check if row was found */
-		if (row + 1) {
-			DRM_INFO
-			    ("Pixel clock frequency (%d KHz) is supported in this color depth (%0d-bit). Settings found in row %0d\n",
-			     pixel_freq_khz, bpp, row);
-		} else {
-			DRM_INFO
-			    ("Pixel clock frequency (%d KHz) not supported for this color depth (%0d-bit)\n",
+		if (row == -1) {
+			DRM_WARN("Pixel clock frequency (%d KHz) not supported for this color depth (%0d-bit)\n",
 			     pixel_freq_khz, bpp);
 			return 0;
 		}
+		DRM_INFO
+		    ("Pixel clock frequency (%d KHz) is supported in this color depth (%0d-bit). Settings found in row %0d\n",
+		     pixel_freq_khz, bpp, row);
 
 		/* Extract particular values from the
 		 * t28hpc_hdmitx_clock_control_table_pixel_in table */
@@ -344,15 +342,13 @@ int phy_cfg_hdp_t28hpc(state_struct *state,
 				  T7_PLL_FEEDBACK_DIV_TOTAL,
 				  pll_feedback_divider_total);
 
-		if (row + 1) {
-			DRM_INFO
-			    ("VCO frequency (%d KHz) is supported. Settings found in row %0d\n",
-			     vco_freq_khz, row);
-		} else {
-			DRM_INFO("VCO frequency (%d KHz) not supported\n",
+		if (row == -1) {
+			DRM_WARN("VCO frequency (%d KHz) not supported\n",
 			       vco_freq_khz);
 			return 0;
 		}
+		DRM_INFO ("VCO frequency (%d KHz) is supported. Settings found in row %0d\n",
+			     vco_freq_khz, row);
 
 		/* Extract particular values from
 		 * the t28hpc_hdmitx_pll_tuning_table_pixel_in table */
@@ -404,16 +400,14 @@ int phy_cfg_hdp_t28hpc(state_struct *state,
 				  feedback_factor);
 
 		/* Check if row was found */
-		if (row + 1) {
-			DRM_INFO
-			    ("Pixel clock frequency (%d KHz) is supported in this color depth (%0d-bit). Settings found in row %0d\n",
-			     pixel_freq_khz, bpp, row);
-		} else {
-			DRM_INFO
-			    ("Pixel clock frequency (%d KHz) not supported for this color depth (%0d-bit)\n",
+		if (row == -1) {
+			DRM_WARN("Pixel clock frequency (%d KHz) not supported for this color depth (%0d-bit)\n",
 			     pixel_freq_khz, bpp);
 			return 0;
 		}
+		DRM_INFO
+			 ("Pixel clock frequency (%d KHz) is supported in this color depth (%0d-bit). Settings found in row %0d\n",
+			     pixel_freq_khz, bpp, row);
 
 		/* Extract particular values from
 		 * the t28hpc_hdmitx_clock_control_table_pixel_out table */
@@ -501,15 +495,13 @@ int phy_cfg_hdp_t28hpc(state_struct *state,
 				  T9_PLL_FEEDBACK_DIV_TOTAL,
 				  pll_feedback_divider_total);
 
-		if (row + 1) {
-			DRM_INFO
-			    ("VCO frequency (%d KHz) is supported. Settings found in row %0d\n",
-			     vco_freq_khz, row);
-		} else {
-			DRM_INFO("VCO frequency (%d KHz) not supported\n",
+		if (row == -1) {
+			DRM_WARN("VCO frequency (%d KHz) not supported\n",
 			       vco_freq_khz);
 			return 0;
 		}
+		DRM_INFO("VCO frequency (%d KHz) is supported. Settings found in row %0d\n",
+			     vco_freq_khz, row);
 
 		/* Extract particular values from
 		 * the t28hpc_hdmitx_pll_tuning_table_pixel_out table. */

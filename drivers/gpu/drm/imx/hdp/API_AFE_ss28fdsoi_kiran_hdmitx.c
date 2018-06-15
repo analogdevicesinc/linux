@@ -59,7 +59,8 @@ int phy_cfg_hdp_ss28fdsoi(state_struct *state,
 	const int phy_reset_workaround = 0;
 	u32 vco_freq_khz;
 	unsigned char i;
-	u32 row, feedback_factor;
+	u32 feedback_factor;
+	int row;
 	u32 reg_val;
 	int pixel_freq_khz = mode->clock;
 	u32 character_clock_ratio_num = 1;
@@ -255,16 +256,15 @@ int phy_cfg_hdp_ss28fdsoi(state_struct *state,
 
 	/* Check if row was found */
 	ftemp = pixel_freq_khz;
-	if (row + 1) {
-		DRM_INFO
-		    ("Pixel clock frequency (%u kHz) is supported in this color depth (%0d-bit). Settings found in row %0d\n",
-		     ftemp, bpp, row);
-	} else {
-		DRM_INFO
-		    ("Pixel clock frequency (%u kHz) not supported for this color depth (%0d-bit), row=%d\n",
+	if (row == -1) {
+		DRM_WARN("Pixel clock frequency (%u kHz) not supported for this color depth (%0d-bit), row=%d\n",
 		     ftemp, bpp, row);
 		return 0;
 	}
+	DRM_INFO
+		("Pixel clock frequency (%u kHz) is supported in this color depth (%0d-bit). Settings found in row %0d\n",
+		 ftemp, bpp, row);
+
 	character_freq_khz =
 	    pixel_freq_khz * character_clock_ratio_num /
 	    character_clock_ratio_den;
@@ -346,13 +346,13 @@ int phy_cfg_hdp_ss28fdsoi(state_struct *state,
 			  PLL_FEEDBACK_DIV_TOTAL,
 			  pll_feedback_divider_total.value);
 	ftemp = vco_freq_khz;
-	if (row + 1) {
-		DRM_INFO
-		    ("VCO frequency (%u kHz) is supported. Settings found in row %0d\n",
-		     ftemp, row);
-	} else {
-		DRM_INFO("VCO frequency (%u kHz) not supported\n", ftemp);
+	if (row == -1) {
+		DRM_WARN("VCO frequency (%u kHz) not supported\n", ftemp);
+		return 0;
 	}
+	DRM_INFO
+	    ("VCO frequency (%u kHz) is supported. Settings found in row %0d\n",
+	     ftemp, row);
 
 	/* Extract particular values from the ss28fdsoi_hdmitx_pll_tuning_table table */
 	set_field_value(&voltage_to_current_coarse,
