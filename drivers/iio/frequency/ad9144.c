@@ -197,6 +197,18 @@ static void ad9144_setup_samplerate(struct ad9144_state *st)
 	regmap_write(map, 0x0e7, 0x30);	// turn off cal clock
 }
 
+/*
+ * Required device configuration as per table 16 from the AD9144
+ * datasheet Rev B.
+ */
+static const struct reg_sequence ad9144_required_device_config[] = {
+	{ 0x12d, 0x8b },
+	{ 0x146, 0x01 },
+	{ 0x2a4, 0xff },
+	{ 0x232, 0xff },
+	{ 0x333, 0x01 },
+};
+
 static int ad9144_setup(struct ad9144_state *st,
 		struct ad9144_platform_data *pdata)
 {
@@ -215,17 +227,8 @@ static int ad9144_setup(struct ad9144_state *st,
 	regmap_write(map, 0x314, 0x01);	// pclk == qbd master clock
 
 	if (st->id == CHIPID_AD9144) {
-		// required device configurations
-
-		regmap_write(map, 0x12d, 0x8b);	// data-path
-		regmap_write(map, 0x146, 0x01);	// data-path
-		regmap_write(map, 0x2a4, 0xff);	// clock
-		regmap_write(map, 0x1c4, 0x73);	// dac-pll
-		regmap_write(map, 0x291, 0x49);	// serde-pll
-		regmap_write(map, 0x29c, 0x24);	// serde-pll
-		regmap_write(map, 0x29f, 0x73);	// serde-pll
-		regmap_write(map, 0x232, 0xff);	// jesd
-		regmap_write(map, 0x333, 0x01);	// jesd
+		regmap_multi_reg_write(map, ad9144_required_device_config,
+			ARRAY_SIZE(ad9144_required_device_config));
 
 		/* Write optimal settings for the SERDES PLL, as per table 39 of the
 		 * datasheet. */
