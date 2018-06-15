@@ -48,7 +48,3 @@
 &uart4 {
 	status = "disabled";
 };
-
-&wdog1{
-	status = "disabled";
-};
