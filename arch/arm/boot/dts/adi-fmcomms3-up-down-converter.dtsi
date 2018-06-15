@@ -4,23 +4,25 @@
 / {
 	clocks {
 		adf4351_clkin: clock@1 {
-			#clock-cells = <0>;
 			compatible = "fixed-clock";
+
 			clock-frequency = <25000000>;
 			clock-output-names = "refclk";
+			#clock-cells = <0>;
 		};
 	};
 };
 
 &pmod_spi {
 		lo_pll0_tx_adf4351: adf4351-udc-tx-pmod@0 {
-			#address-cells = <1>;
-			#size-cells = <0>;
 			compatible = "adi,adf4351";
 			reg = <0>;
+
 			spi-max-frequency = <10000000>;
+
 			clocks = <&adf4351_clkin>;
 			clock-names = "clkin";
+
 			adi,channel-spacing = <1000000>;
 			adi,power-up-frequency = <370000000>;
 			adi,phase-detector-polarity-positive-enable;
@@ -31,13 +33,14 @@
 		};
 
 		lo_pll0_rx_adf4351: adf4351-udc-rx-pmod@1 {
-			#address-cells = <1>;
-			#size-cells = <0>;
 			compatible = "adi,adf4351";
 			reg = <1>;
+
 			spi-max-frequency = <10000000>;
+
 			clocks = <&adf4351_clkin>;
 			clock-names = "clkin";
+
 			adi,channel-spacing = <1000000>;
 			adi,power-up-frequency = <340000000>;
 			adi,phase-detector-polarity-positive-enable;

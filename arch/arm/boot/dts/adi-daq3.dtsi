@@ -2,16 +2,17 @@
 
 &fmc_spi {
 	clk0_ad9528: ad9528@0 {
-		#address-cells = <1>;
-		#size-cells = <0>;
-		#clock-cells = <1>;
 		compatible = "adi,ad9528";
+		reg = <0>;
 
 		spi-cpol;
 		spi-cpha;
 		spi-max-frequency = <10000000>;
 		adi,spi-3wire-enable;
-		reg = <0>;
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+		#clock-cells = <1>;
 
 		clock-output-names = "ad9528_out0", "ad9528_out1", "ad9528_out2", "ad9528_out3", "ad9528_out4", "ad9528_out5", "ad9528_out6", "ad9528_out7", "ad9528_out8", "ad9528_out9", "ad9528_out10", "ad9528_out11", "ad9528_out12", "ad9528_out13";
 		adi,vcxo-freq = <125000000>;
@@ -118,15 +119,13 @@
 	};
 
 	dac0_ad9152: ad9152@1 {
-		#address-cells = <1>;
-		#size-cells = <0>;
 		compatible = "adi,ad9152";
+		reg = <1>;
 
 		spi-cpol;
 		spi-cpha;
 		spi-max-frequency = <10000000>;
 		adi,spi-3wire-enable;
-		reg = <1>;
 
 		clocks = <&axi_ad9152_jesd>, <&clk0_ad9528 2>, <&clk0_ad9528 8>;
 		clock-names = "jesd_dac_clk", "dac_clk", "dac_sysref";
@@ -136,15 +135,14 @@
 	};
 
 	adc0_ad9680: ad9680@2 {
-		#address-cells = <1>;
-		#size-cells = <0>;
 		compatible = "adi,ad9680";
+		reg = <2>;
 
 		spi-cpol;
 		spi-cpha;
 		spi-max-frequency = <10000000>;
 		adi,spi-3wire-enable;
-		reg = <2>;
+
 		/* Content of Registers: 0x16, 0x18, 0x19, 0x1A, 0x30, 0x11A, 0x934, 0x935 */
 		adi,sfdr-optimization-config = <0xE 0xA0 0x50 0x09 0x18 0x00 0x1F 0x04>;
 
