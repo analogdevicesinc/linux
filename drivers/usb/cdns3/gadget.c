@@ -197,18 +197,20 @@ static int usb_ss_allocate_trb_pool(struct usb_ss_endpoint *usb_ss_ep)
 {
 	struct usb_ss_dev *usb_ss = usb_ss_ep->usb_ss;
 
-	if (usb_ss_ep->trb_pool)
-		return 0;
-
-	usb_ss_ep->trb_pool = dma_zalloc_coherent(usb_ss->sysdev,
+	if (!usb_ss_ep->trb_pool) {
+		usb_ss_ep->trb_pool = dma_zalloc_coherent(usb_ss->sysdev,
 			sizeof(struct usb_ss_trb) * USB_SS_TRBS_NUM,
 		&usb_ss_ep->trb_pool_dma, GFP_DMA);
+		if (!usb_ss_ep->trb_pool)
+			return -ENOMEM;
+	}
 
-	if (!usb_ss_ep->trb_pool) {
-		dev_err(&usb_ss->dev,
-				"Failed to allocate TRB pool for endpoint %s\n",
-				usb_ss_ep->name);
-		return -ENOMEM;
+	if (!usb_ss_ep->cpu_addr) {
+		usb_ss_ep->cpu_addr = dma_alloc_coherent(usb_ss->sysdev,
+				CDNS3_UNALIGNED_BUF_SIZE,
+				&usb_ss_ep->dma_addr, GFP_DMA);
+		if (!usb_ss_ep->cpu_addr)
+			return -ENOMEM;
 	}
 
 	return 0;
@@ -1547,14 +1549,6 @@ static int usb_ss_gadget_ep_enable(struct usb_ep *ep,
 	ret = usb_ss_allocate_trb_pool(usb_ss_ep);
 	if (ret)
 		return ret;
-
-	if (!usb_ss_ep->cpu_addr) {
-		usb_ss_ep->cpu_addr = dma_alloc_coherent(usb_ss->sysdev,
-				CDNS3_UNALIGNED_BUF_SIZE,
-				&usb_ss_ep->dma_addr, GFP_DMA);
-		if (!usb_ss_ep->cpu_addr)
-			return -ENOMEM;
-	}
 
 	dev_dbg(&usb_ss->dev, "Enabling endpoint: %s, addr=0x%x\n",
 		ep->name, desc->bEndpointAddress);
