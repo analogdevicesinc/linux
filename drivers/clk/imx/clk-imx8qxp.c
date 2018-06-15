@@ -497,6 +497,8 @@ static int imx8qxp_clk_probe(struct platform_device *pdev)
 	clks[IMX8QXP_MIPI0_PWM_IPG_S_CLK] = imx_clk_gate2_scu("mipi0_pwm_ipg_s", "ipg_mipi_clk_root", (void __iomem *)(DI_MIPI0_LPCG + 0xC), 16, FUNCTION_NAME(PD_MIPI_0_DSI_PWM0));
 	clks[IMX8QXP_MIPI0_PWM_IPG_CLK] = imx_clk_gate2_scu("mipi0_pwm_ipg_clk", "mipi0_pwm_ipg_s", (void __iomem *)(DI_MIPI0_LPCG + 0xC), 16, FUNCTION_NAME(PD_MIPI_0_DSI_PWM0));
 	clks[IMX8QXP_MIPI0_PWM_32K_CLK] = imx_clk_gate2_scu("mipi0_pwm_32K_clk", "xtal_32KHz", (void __iomem *)(DI_MIPI0_LPCG + 0xC), 0, FUNCTION_NAME(PD_MIPI_0_DSI_PWM0));
+	clks[IMX8QXP_MIPI0_PWM_DIV] = imx_clk_divider_scu("mipi0_pwm_div", SC_R_MIPI_0_PWM_0, SC_PM_CLK_PER);
+	clks[IMX8QXP_MIPI0_PWM_CLK] = imx_clk_gate_scu("mipi0_pwm_clk", "mipi0_pwm_div", SC_R_MIPI_0_PWM_0, SC_PM_CLK_PER, (void __iomem *)(DI_MIPI0_LPCG + 0xC), 0, 0);
 	clks[IMX8QXP_MIPI0_GPIO_IPG_CLK] = imx_clk_gate2_scu("mipi0_gpio_ipg_clk", "ipg_mipi_clk_root", (void __iomem *)(DI_MIPI0_LPCG + 0x8), 0, FUNCTION_NAME(PD_MIPI_0_GPIO_0));
 	clks[IMX8QXP_MIPI0_LIS_IPG_CLK] = imx_clk_gate2_scu("mipi0_lis_ipg_clk", "ipg_mipi_clk_root", (void __iomem *)(DI_MIPI0_LPCG + 0x0), 16, FUNCTION_NAME(PD_MIPI_0_DSI));
 	clks[IMX8QXP_MIPI1_BYPASS_CLK] = imx_clk_divider_scu("mipi1_bypass_clk", SC_R_MIPI_1, SC_PM_CLK_BYPASS);
@@ -525,6 +527,8 @@ static int imx8qxp_clk_probe(struct platform_device *pdev)
 	clks[IMX8QXP_MIPI1_PWM_IPG_S_CLK] = imx_clk_gate2_scu("mipi1_pwm_ipg_s", "ipg_mipi_clk_root", (void __iomem *)(DI_MIPI1_LPCG + 0xC), 16, FUNCTION_NAME(PD_MIPI_1_DSI_PWM0));
 	clks[IMX8QXP_MIPI1_PWM_IPG_CLK] = imx_clk_gate2_scu("mipi1_pwm_ipg_clk", "mipi1_pwm_ipg_s", (void __iomem *)(DI_MIPI1_LPCG + 0xC), 16, FUNCTION_NAME(PD_MIPI_1_DSI_PWM0));
 	clks[IMX8QXP_MIPI1_PWM_32K_CLK] = imx_clk_gate2_scu("mipi1_pwm_32K_clk", "xtal_32KHz", (void __iomem *)(DI_MIPI1_LPCG + 0xC), 0, FUNCTION_NAME(PD_MIPI_1_DSI_PWM0));
+	clks[IMX8QXP_MIPI1_PWM_DIV] = imx_clk_divider_scu("mipi1_pwm_div", SC_R_MIPI_1_PWM_0, SC_PM_CLK_PER);
+	clks[IMX8QXP_MIPI1_PWM_CLK] = imx_clk_gate_scu("mipi1_pwm_clk", "mipi1_pwm_div", SC_R_MIPI_1_PWM_0, SC_PM_CLK_PER, (void __iomem *)(DI_MIPI1_LPCG + 0xC), 0, 0);
 	clks[IMX8QXP_MIPI1_GPIO_IPG_CLK] = imx_clk_gate2_scu("mipi1_gpio_ipg_clk", "ipg_mipi_clk_root", (void __iomem *)(DI_MIPI1_LPCG + 0x8), 0, FUNCTION_NAME(PD_MIPI_1_GPIO_0));
 	clks[IMX8QXP_MIPI1_LIS_IPG_CLK] = imx_clk_gate2_scu("mipi1_lis_ipg_clk", "ipg_mipi_clk_root", (void __iomem *)(DI_MIPI1_LPCG + 0x0), 16, FUNCTION_NAME(PD_MIPI_1_DSI));
 
