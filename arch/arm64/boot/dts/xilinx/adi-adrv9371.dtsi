@@ -4,16 +4,18 @@
 &fmc_spi {
 
 	clk0_ad9528: ad9528-1@0 {
+		compatible = "ad9528";
+		reg = <0>;
+
 		#address-cells = <1>;
 		#size-cells = <0>;
-		#clock-cells = <1>;
-		compatible = "ad9528";
 
 		spi-max-frequency = <10000000>;
 		//adi,spi-3wire-enable;
-		reg = <0>;
 
 		clock-output-names = "ad9528-1_out0", "ad9528-1_out1", "ad9528-1_out2", "ad9528-1_out3", "ad9528-1_out4", "ad9528-1_out5", "ad9528-1_out6", "ad9528-1_out7", "ad9528-1_out8", "ad9528-1_out9", "ad9528-1_out10", "ad9528-1_out11", "ad9528-1_out12", "ad9528-1_out13";
+		#clock-cells = <1>;
+
 		adi,vcxo-freq = <122880000>;
 
 		adi,refa-enable;
@@ -87,19 +89,18 @@
 
 
 	trx0_ad9371: ad9371-phy@1 {
-		#address-cells = <1>;
-		#size-cells = <0>;
-		#clock-cells = <1>;
 		compatible = "ad9371";
+		reg = <1>;
 
 		/* SPI Setup */
-		reg = <1>;
 		spi-max-frequency = <25000000>;
 
 		/* Clocks */
 		clocks = <&axi_ad9371_rx_jesd>, <&axi_ad9371_tx_jesd>, <&axi_ad9371_rx_os_jesd>, <&clk0_ad9528 13>, <&clk0_ad9528 1>;
 		clock-names = "jesd_rx_clk", "jesd_tx_clk", "jesd_rx_os_clk", "dev_clk", "fmc_clk";
+
 		clock-output-names = "rx_sampl_clk", "rx_os_sampl_clk", "tx_sampl_clk";
+		#clock-cells = <1>;
 
 		adi,clocks-clk-pll-vco-freq_khz = <9830400>;
 		adi,clocks-device-clock_khz = <122880>;
@@ -164,3 +165,4 @@
 		adi,sniffer-profile-rx-fir-decimation = <4>;
 	};
 };
+
