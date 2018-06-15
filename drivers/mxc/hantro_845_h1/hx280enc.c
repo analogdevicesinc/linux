@@ -147,6 +147,7 @@ static irqreturn_t hx280enc_isr(int irq, void *dev_id, struct pt_regs *regs);
 static irqreturn_t hx280enc_isr(int irq, void *dev_id);
 #endif
 
+#ifdef VSI
 /* VM operations */
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 28))
 static struct page *hx280enc_vm_nopage(struct vm_area_struct *vma,
@@ -188,7 +189,7 @@ nopage:hx280enc_vm_nopage,
 fault:hx280enc_vm_fault,
 #endif
 };
-
+#endif
 
 #ifndef VSI
 static int hantro_h1_clk_enable(struct device *dev)
@@ -242,15 +243,26 @@ static int hantro_h1_ctrlblk_reset(struct device *dev)
  * vm_area_struct for us, so we examine this to see what was requested.
  */
 
-static int hx280enc_mmap(struct file *filp, struct vm_area_struct *vma)
+static int hx280enc_mmap(struct file *filp, struct vm_area_struct *vm)
 {
+#ifdef VSI
 	int result = -EINVAL;
 
 	result = -EINVAL;
-
 	vma->vm_ops = &hx280enc_vm_ops;
-
 	return result;
+#else
+	if (vm->vm_pgoff == (hx280enc_data.iobaseaddr >> PAGE_SHIFT)) {
+		vm->vm_flags |= VM_IO;
+		vm->vm_page_prot = pgprot_noncached(vm->vm_page_prot);
+		PDEBUG("hx280enc mmap: size=0x%lX, page off=0x%lX\n", (vm->vm_end - vm->vm_start), vm->vm_pgoff);
+		return remap_pfn_range(vm, vm->vm_start, vm->vm_pgoff, vm->vm_end - vm->vm_start,
+						vm->vm_page_prot) ? -EAGAIN : 0;
+	} else {
+		pr_err("invalid map offset :0x%lX\n", vm->vm_pgoff);
+		return -EINVAL;
+	}
+#endif
 }
 
 static long hx280enc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
