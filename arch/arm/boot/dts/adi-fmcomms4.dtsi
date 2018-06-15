@@ -1,19 +1,17 @@
 / {
 	clocks {
 		ad9364_clkin: clock@0 {
-			#clock-cells = <0>;
 			compatible = "fixed-clock";
+
 			clock-frequency = <40000000>;
 			clock-output-names = "ad9361_ext_refclk";
+			#clock-cells = <0>;
 		};
 	};
 };
 
 &fmc_spi {
 	adc0_ad9364: ad9361-phy@0 {
-		#address-cells = <1>;
-		#size-cells = <0>;
-		#clock-cells = <1>;
 		compatible = "adi,ad9364";
 
 		/* SPI Setup */
@@ -25,6 +23,7 @@
 		clocks = <&ad9364_clkin 0>;
 		clock-names = "ad9361_ext_refclk";
 		clock-output-names = "rx_sampl_clk", "tx_sampl_clk";
+		#clock-cells = <1>;
 
 		/* Digital Interface Control */
 
