@@ -994,6 +994,10 @@ static void hotplug_work_func(struct work_struct *work)
 
 	if (connector->status == connector_status_connected) {
 		/* Cable Connected */
+		/* For HDMI2.0 SCDC should setup again.
+		 * So recovery pre video mode if it is 4Kp60 */
+		if (drm_mode_equal(&hdp->video.pre_mode, &edid_cea_modes[3]))
+			imx_hdp_mode_setup(hdp, &hdp->video.pre_mode);
 		DRM_INFO("HDMI/DP Cable Plug In\n");
 		enable_irq(hdp->irq[HPD_IRQ_OUT]);
 	} else if (connector->status == connector_status_disconnected) {
