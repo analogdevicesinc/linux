@@ -6,11 +6,12 @@
 
 &fmc_spi {
 	clk0_ad9523: ad9523-1@0 {
-		#address-cells = <1>;
-		#size-cells = <0>;
-		#clock-cells = <1>;
 		compatible = "adi,ad9523-1";
 		reg = <0>;
+
+		#clock-cells = <1>;
+		#address-cells = <1>;
+		#size-cells = <0>;
 
 		spi-max-frequency = <10000000>;
 		clock-output-names = "ad9523-1_out0", "ad9523-1_out1", "ad9523-1_out2", "ad9523-1_out3", "ad9523-1_out4", "ad9523-1_out5", "ad9523-1_out6", "ad9523-1_out7", "ad9523-1_out8", "ad9523-1_out9", "ad9523-1_out10", "ad9523-1_out11", "ad9523-1_out12", "ad9523-1_out13";
@@ -112,21 +113,21 @@
 	};
 
 	dac0_ad9144: ad9144@1 {
-		#address-cells = <1>;
-		#size-cells = <0>;
 		compatible = "adi,ad9144";
 		reg = <1>;
+
 		spi-max-frequency = <1000000>;
+
 		clocks = <&axi_ad9144_jesd>, <&clk0_ad9523 1>, <&clk0_ad9523 8>;
 		clock-names = "jesd_dac_clk", "dac_clk", "dac_sysref";
 	};
 
 	adc0_ad9680: ad9680@2 {
-		#address-cells = <1>;
-		#size-cells = <0>;
 		compatible = "adi,ad9680";
 		reg = <2>;
+
 		spi-max-frequency = <1000000>;
+
 		clocks = <&axi_ad9680_jesd>, <&clk0_ad9523 13>, <&clk0_ad9523 5>;
 		clock-names = "jesd_adc_clk", "adc_clk", "adc_sysref";
 	};
