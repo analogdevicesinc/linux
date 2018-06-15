@@ -29,6 +29,8 @@
 #include <linux/spinlock.h>
 #include <linux/usb/typec.h>
 #include <linux/workqueue.h>
+#include <linux/busfreq-imx.h>
+#include <linux/pm_qos.h>
 
 #include "pd.h"
 #include "pd_vdo.h"
@@ -299,6 +301,7 @@ struct tcpm_port {
 
 	/* Send response timer */
 	struct hrtimer snd_res_timer;
+	struct pm_qos_request pm_qos_req;
 
 #ifdef CONFIG_DEBUG_FS
 	struct dentry *dentry;
@@ -2908,6 +2911,33 @@ static void run_state_machine(struct tcpm_port *port)
 	}
 }
 
+static void tcpm_qos_active(struct tcpm_port *port, bool on)
+{
+	enum tcpm_state idle_state;
+
+	if (port->typec_caps.type == TYPEC_PORT_UFP)
+		idle_state = SNK_UNATTACHED;
+	else if (port->typec_caps.type == TYPEC_PORT_DFP)
+		idle_state = SNK_UNATTACHED;
+	else if (port->typec_caps.type == TYPEC_PORT_DRP)
+		idle_state = DRP_TOGGLING;
+	else
+		return;
+
+	if ((port->prev_state == SNK_READY || port->prev_state == SRC_READY ||
+	     port->prev_state == idle_state) && on) {
+		/* Hold high bus before leave those states */
+		request_bus_freq(BUS_FREQ_HIGH);
+		pm_qos_add_request(&port->pm_qos_req,
+				   PM_QOS_CPU_DMA_LATENCY, 0);
+	} else if ((port->state == SNK_READY || port->state == SRC_READY ||
+		    port->state == idle_state) && !on) {
+		/* Release high bus after enter those states */
+		pm_qos_remove_request(&port->pm_qos_req);
+		release_bus_freq(BUS_FREQ_HIGH);
+	}
+}
+
 static void tcpm_state_machine_work(struct work_struct *work)
 {
 	struct tcpm_port *port = container_of(work, struct tcpm_port,
@@ -2930,6 +2960,7 @@ static void tcpm_state_machine_work(struct work_struct *work)
 		port->delayed_state = INVALID_STATE;
 	}
 
+	tcpm_qos_active(port, true);
 	/*
 	 * Continue running as long as we have (non-delayed) state changes
 	 * to make.
@@ -2941,6 +2972,7 @@ static void tcpm_state_machine_work(struct work_struct *work)
 			tcpm_send_queued_message(port);
 	} while (port->state != prev_state && !port->delayed_state);
 
+	tcpm_qos_active(port, false);
 done:
 	port->state_machine_running = false;
 	mutex_unlock(&port->lock);
@@ -3535,6 +3567,9 @@ static void tcpm_init(struct tcpm_port *port)
 		port->vbus_never_low = true;
 
 	tcpm_reset_port(port);
+
+	request_bus_freq(BUS_FREQ_HIGH);
+	pm_qos_add_request(&port->pm_qos_req, PM_QOS_CPU_DMA_LATENCY, 0);
 
 	tcpm_set_state(port, tcpm_default_state(port), 0);
 
