@@ -207,3 +207,14 @@
 	clock-latency = <61036>;
 	#cooling-cells = <2>;
 };
+
+
+&imx8_gpu_ss {/*<freq-kHz vol-uV>*/
+       operating-points = <
+/*overdrive*/  800000  0  /*The first tuple is for core clock frequency*/
+               1000000 0  /*The second tuple is for shader clock frequency*/
+/*nominal*/    650000  0
+               700000  0
+/*underdrive*/ 400000  0  /*core/shader clock share the same frequency on underdrive mode*/
+       >;
+};
