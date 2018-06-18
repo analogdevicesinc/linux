@@ -558,7 +558,7 @@
 		assigned-clock-parents = <&clk IMX8MQ_VIDEO_PLL1_OUT>,
 					 <&clk IMX8MQ_SYS1_PLL_800M>,
 					 <&clk IMX8MQ_SYS1_PLL_800M>,
-					 <&clk IMX8MQ_VIDEO2_PHY_27MHZ>;
+					 <&clk IMX8MQ_CLK_PHY_27MHZ>;
 		assigned-clock-rates = <594000000>,
 				       <800000000>,
 				       <400000000>,
