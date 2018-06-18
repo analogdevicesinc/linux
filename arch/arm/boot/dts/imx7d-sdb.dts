@@ -645,6 +645,12 @@
 	status = "okay";
 };
 
+&pwm1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_pwm1>;
+	status = "okay";
+};
+
 &pcie {
 	pinctrl-names = "default";
 	reset-gpio = <&extended_io 1 GPIO_ACTIVE_LOW>;
