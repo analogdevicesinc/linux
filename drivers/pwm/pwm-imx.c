@@ -50,6 +50,7 @@
 
 struct imx_chip {
 	struct clk	*clk_per;
+	struct clk	*clk_ipg;
 
 	void __iomem	*mmio_base;
 
@@ -57,6 +58,32 @@ struct imx_chip {
 };
 
 #define to_imx_chip(chip)	container_of(chip, struct imx_chip, chip)
+
+static int imx_pwm_clk_prepare_enable(struct pwm_chip *chip)
+{
+	struct imx_chip *imx = to_imx_chip(chip);
+	int ret;
+
+	ret = clk_prepare_enable(imx->clk_per);
+	if (ret)
+		return ret;
+
+	ret = clk_prepare_enable(imx->clk_ipg);
+	if (ret) {
+		clk_disable_unprepare(imx->clk_per);
+		return ret;
+	}
+
+	return 0;
+}
+
+static void imx_pwm_clk_disable_unprepare(struct pwm_chip *chip)
+{
+	struct imx_chip *imx = to_imx_chip(chip);
+
+	clk_disable_unprepare(imx->clk_ipg);
+	clk_disable_unprepare(imx->clk_per);
+}
 
 static int imx_pwm_config_v1(struct pwm_chip *chip,
 		struct pwm_device *pwm, int duty_ns, int period_ns)
@@ -199,7 +226,7 @@ static int imx_pwm_apply_v2(struct pwm_chip *chip, struct pwm_device *pwm,
 		if (cstate.enabled) {
 			imx_pwm_wait_fifo_slot(chip, pwm);
 		} else {
-			ret = clk_prepare_enable(imx->clk_per);
+			ret = imx_pwm_clk_prepare_enable(chip);
 			if (ret)
 				return ret;
 
@@ -221,7 +248,7 @@ static int imx_pwm_apply_v2(struct pwm_chip *chip, struct pwm_device *pwm,
 	} else if (cstate.enabled) {
 		writel(0, imx->mmio_base + MX3_PWMCR);
 
-		clk_disable_unprepare(imx->clk_per);
+		imx_pwm_clk_disable_unprepare(chip);
 	}
 
 	return 0;
@@ -283,6 +310,13 @@ static int imx_pwm_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "getting per clock failed with %ld\n",
 				PTR_ERR(imx->clk_per));
 		return PTR_ERR(imx->clk_per);
+	}
+
+	imx->clk_ipg = devm_clk_get(&pdev->dev, "ipg");
+	if (IS_ERR(imx->clk_ipg)) {
+		dev_err(&pdev->dev, "getting ipg clock failed with %ld\n",
+				PTR_ERR(imx->clk_ipg));
+		return PTR_ERR(imx->clk_ipg);
 	}
 
 	imx->chip.ops = data->ops;
