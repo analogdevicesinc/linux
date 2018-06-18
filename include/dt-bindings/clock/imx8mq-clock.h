@@ -628,7 +628,7 @@
 
 #define IMX8MQ_CLK_NAND_USDHC_BUS_RAWNAND_CLK	488
 
-#define IMX8MQ_VIDEO2_PHY_27MHZ			489
+#define IMX8MQ_CLK_PHY_27MHZ			489
 
 #define IMX8MQ_CLK_END                         490
 
