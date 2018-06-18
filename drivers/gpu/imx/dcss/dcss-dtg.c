@@ -481,6 +481,8 @@ void dcss_dtg_vblank_irq_enable(struct dcss_soc *dcss, bool en)
 	reg = dtg->base_reg + DCSS_DTG_INT_MASK;
 
 	dcss_update(val, LINE0_IRQ | LINE1_IRQ, reg);
+
+	dcss_dpr_irq_enable(dcss, en);
 }
 
 void dcss_dtg_vblank_irq_clear(struct dcss_soc *dcss)

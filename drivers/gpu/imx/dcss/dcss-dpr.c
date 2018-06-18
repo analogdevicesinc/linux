@@ -93,6 +93,9 @@
 #define   THRES_LOW_MASK			GENMASK(6, 4)
 #define   ABORT_SEL				BIT(7)
 
+#define TRACE_COMPLETION			(1LL << 48)
+#define TRACE_BUF_SUBMISSION 			(2LL << 48)
+
 struct dcss_dpr_ch {
 	void __iomem *base_reg;
 	u32 base_ofs;
@@ -116,6 +119,9 @@ struct dcss_dpr_ch {
 	u32 pitch;
 
 	bool use_dtrc;
+
+	int ch_num;
+	int irq;
 };
 
 struct dcss_dpr_priv {
@@ -172,6 +178,49 @@ void dcss_dpr_dump_regs(struct seq_file *s, void *data)
 }
 #endif
 
+static irqreturn_t dcss_dpr_irq_handler(int irq, void *data)
+{
+	struct dcss_dpr_ch *ch = data;
+
+	dcss_trace_module(TRACE_DPR, TRACE_COMPLETION | ch->ch_num);
+
+	dcss_clr(1, ch->base_reg + DCSS_DPR_IRQ_NONMASK_STATUS);
+
+	return IRQ_HANDLED;
+}
+
+static int dcss_dpr_irq_config(struct dcss_soc *dcss, int ch_num)
+{
+	struct platform_device *pdev = to_platform_device(dcss->dev);
+	struct dcss_dpr_priv *dpr = dcss->dpr_priv;
+	struct dcss_dpr_ch *ch = &dpr->ch[ch_num];
+	int ret;
+	char irq_name[20];
+
+	sprintf(irq_name, "dpr_dc_ch%d", ch_num);
+	irq_name[10] = 0;
+
+	ch->irq = platform_get_irq_byname(pdev, irq_name);
+	if (ch->irq < 0) {
+		dev_err(dcss->dev, "dpr: can't get DPR irq\n");
+		return ch->irq;
+	}
+
+	/* mask interrupts off */
+	dcss_set(0xff, ch->base_reg + DCSS_DPR_IRQ_MASK);
+
+	ret = devm_request_irq(dcss->dev, ch->irq,
+			       dcss_dpr_irq_handler,
+			       IRQF_TRIGGER_HIGH,
+			       "dcss-dpr", ch);
+	if (ret) {
+		dev_err(dcss->dev, "dpr: irq request failed.\n");
+		return ret;
+	}
+
+	return 0;
+}
+
 static int dcss_dpr_ch_init_all(struct dcss_soc *dcss, unsigned long dpr_base)
 {
 	struct dcss_dpr_priv *priv = dcss->dpr_priv;
@@ -189,6 +238,10 @@ static int dcss_dpr_ch_init_all(struct dcss_soc *dcss, unsigned long dpr_base)
 				i);
 			return -ENOMEM;
 		}
+
+		ch->ch_num = i;
+
+		dcss_dpr_irq_config(dcss, i);
 
 #if defined(USE_CTXLD)
 		ch->ctx_id = CTX_SB_HP;
@@ -311,7 +364,8 @@ void dcss_dpr_addr_set(struct dcss_soc *dcss, int ch_num, u32 luma_base_addr,
 {
 	struct dcss_dpr_ch *ch = &dcss->dpr_priv->ch[ch_num];
 
-	dcss_trace_module(TRACE_DPR, ((u64)ch_num << 32) | luma_base_addr);
+	dcss_trace_module(TRACE_DPR, TRACE_BUF_SUBMISSION |
+			  ((u64)ch_num << 32) | luma_base_addr);
 
 	if (ch->use_dtrc) {
 		luma_base_addr = 0x0;
@@ -669,4 +723,13 @@ void dcss_dpr_write_sysctrl(struct dcss_soc *dcss)
 			ch->sys_ctrl_chgd = false;
 		}
 	}
+}
+
+void dcss_dpr_irq_enable(struct dcss_soc *dcss, bool en)
+{
+	struct dcss_dpr_priv *dpr = dcss->dpr_priv;
+
+	dcss_writel(en ? 0xfe : 0xff, dpr->ch[0].base_reg + DCSS_DPR_IRQ_MASK);
+	dcss_writel(en ? 0xfe : 0xff, dpr->ch[1].base_reg + DCSS_DPR_IRQ_MASK);
+	dcss_writel(en ? 0xfe : 0xff, dpr->ch[2].base_reg + DCSS_DPR_IRQ_MASK);
 }

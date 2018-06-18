@@ -86,6 +86,7 @@ void dcss_ctxld_kick(struct dcss_soc *dcss);
 int dcss_dpr_init(struct dcss_soc *dcss, unsigned long dpr_base);
 void dcss_dpr_exit(struct dcss_soc *dcss);
 void dcss_dpr_write_sysctrl(struct dcss_soc *dcss);
+void dcss_dpr_irq_enable(struct dcss_soc *dcss, bool en);
 
 /* DTG */
 int dcss_dtg_init(struct dcss_soc *dcss, unsigned long dtg_base);
