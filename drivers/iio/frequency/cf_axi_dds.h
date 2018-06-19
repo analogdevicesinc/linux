@@ -240,7 +240,7 @@ struct cf_axi_converter {
 	void		*phy;
 	struct gpio_desc			*pwrdown_gpio;
 	struct gpio_desc			*reset_gpio;
-	struct gpio_desc			*txen_gpio;
+	struct gpio_desc			*txen_gpio[2];
 	unsigned		id;
 	unsigned		interp_factor;
 	unsigned		fcenter_shift;
