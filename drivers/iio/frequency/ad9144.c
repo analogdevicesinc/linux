@@ -40,7 +40,6 @@ struct ad9144_platform_data {
 	u8 xbar_lane1_sel;
 	u8 xbar_lane2_sel;
 	u8 xbar_lane3_sel;
-	bool lanes2_3_swap_data;
 	u8 interpolation;
 	unsigned int fcenter_shift;
 };
@@ -333,12 +332,6 @@ static int ad9144_setup(struct ad9144_state *st,
 
 	regmap_write(map, 0x300, 0x01);	// enable link
 
-	/* TODO: remove me
-	 * Fix for an early DAQ3 design bug (swapped SERDIN+ / SERDIN- pins) */
-	if (st->id == CHIPID_AD9152)
-		regmap_write(map, 0x334,
-				pdata->lanes2_3_swap_data ? 0x0c : 0x00);
-
 	return 0;
 }
 
@@ -511,9 +504,6 @@ static struct ad9144_platform_data *ad9144_parse_dt(struct device *dev)
 	tmp = 3;
 	of_property_read_u32(np, "adi,jesd-xbar-lane3-sel", &tmp);
 	pdata->xbar_lane3_sel = tmp;
-
-	pdata->lanes2_3_swap_data = of_property_read_bool(np,
-			"adi,lanes2-3-swap-data");
 
 	tmp = 1;
 	of_property_read_u32(np, "adi,interpolation", &tmp);
