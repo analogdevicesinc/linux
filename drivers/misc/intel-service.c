@@ -258,6 +258,7 @@ int intel_svc_send(struct intel_svc_chan *chan, void *msg)
 	struct intel_svc_data_mem *p_mem;
 	struct intel_svc_data *p_data;
 	int ret = 0;
+	unsigned int cpu = 0;
 
 	p_data = kmalloc(sizeof(*p_data), GFP_KERNEL);
 	if (!p_data)
@@ -266,8 +267,9 @@ int intel_svc_send(struct intel_svc_chan *chan, void *msg)
 	/* first client will create kernel thread */
 	if (!chan->ctrl->task) {
 		chan->ctrl->task =
-			kthread_create_on_cpu(svc_normal_to_secure_thread,
-					      (void *)chan->ctrl, 0,
+			kthread_create_on_node(svc_normal_to_secure_thread,
+					      (void *)chan->ctrl,
+					      cpu_to_node(cpu),
 					      "svc_smc_hvc_thread");
 			if (IS_ERR(chan->ctrl->task)) {
 				dev_err(chan->ctrl->dev,
@@ -275,6 +277,7 @@ int intel_svc_send(struct intel_svc_chan *chan, void *msg)
 				kfree(p_data);
 				return -EINVAL;
 			}
+			kthread_bind(chan->ctrl->task, cpu);
 			wake_up_process(chan->ctrl->task);
 	}
 
@@ -745,15 +748,17 @@ static int svc_get_sh_memory_param(struct platform_device *pdev,
 {
 	struct device *dev = &pdev->dev;
 	struct task_struct *sh_memory_task;
+	unsigned int cpu = 0;
 
 	init_completion(&param->sync_complete);
 
 	/* smc/hvc call happens on cpu 0 bound kthread */
-	sh_memory_task = kthread_create_on_cpu(svc_normal_to_secure_shm_thread,
-					       (void *)param,
-						0, "svc_smc_hvc_shm_thread");
+	sh_memory_task = kthread_create_on_node(svc_normal_to_secure_shm_thread,
+					       (void *)param, cpu_to_node(cpu),
+					       "svc_smc_hvc_shm_thread");
 	if (IS_ERR(sh_memory_task))
 		dev_err(dev, "fail to create intel_svc_smc_shm_thread\n");
+	kthread_bind(sh_memory_task, cpu);
 	wake_up_process(sh_memory_task);
 
 	if (!wait_for_completion_timeout(&param->sync_complete, 10 * HZ)) {
