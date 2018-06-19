@@ -2069,6 +2069,10 @@ static int usb_ss_gadget_udc_stop(struct usb_gadget *gadget)
 
 	usb_ss->onchip_mem_allocated_size = 0;
 	usb_ss->out_mem_is_allocated = 0;
+	usb_ss->gadget.speed = USB_SPEED_UNKNOWN;
+	for (i = 0; i < usb_ss->ep_nums ; i++)
+		usb_ss_free_trb_pool(usb_ss->eps[i]);
+
 	if (!usb_ss->start_gadget)
 		return 0;
 
@@ -2085,9 +2089,6 @@ static int usb_ss_gadget_udc_stop(struct usb_gadget *gadget)
 	/* disable interrupt for device */
 	gadget_writel(usb_ss, &usb_ss->regs->usb_ien, 0);
 	gadget_writel(usb_ss, &usb_ss->regs->usb_conf, USB_CONF__DEVDS__MASK);
-
-	for (i = 0; i < usb_ss->ep_nums ; i++)
-		usb_ss_free_trb_pool(usb_ss->eps[i]);
 
 	return ret;
 }
@@ -2418,6 +2419,7 @@ static void __cdns3_gadget_stop(struct cdns3 *cdns)
 		usb_ss->gadget_driver->disconnect(&usb_ss->gadget);
 	usb_gadget_disconnect(&usb_ss->gadget);
 	spin_lock_irqsave(&usb_ss->lock, flags);
+	usb_ss->gadget.speed = USB_SPEED_UNKNOWN;
 	/* disable interrupt for device */
 	gadget_writel(usb_ss, &usb_ss->regs->usb_ien, 0);
 	gadget_writel(usb_ss, &usb_ss->regs->usb_conf, USB_CONF__DEVDS__MASK);
