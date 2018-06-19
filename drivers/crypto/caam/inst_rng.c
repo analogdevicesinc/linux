@@ -156,8 +156,8 @@ static int instantiate_rng(int state_handle_mask, int gen_sk)
 		/* Try to run it through JR */
 		ret = run_descriptor_jr(desc, sh_idx);
 		if (ret)
-			pr_err("Failed to run desc  RNG4 SH%d status (0x%x)\n",
-			       sh_idx, ret);
+			pr_debug("Failed to run desc  RNG4 SH%d status (0x%x)\n",
+				 sh_idx, ret);
 		/* Clear the contents before recreating the descriptor */
 		memset(desc, 0x00, CAAM_CMD_SZ * 7);
 	}
@@ -204,8 +204,8 @@ int deinstantiate_rng(int state_handle_mask)
 			/* Try to run it through JR */
 			ret = run_descriptor_jr(desc, sh_idx);
 			if (ret)
-				pr_err("Failed to run desc to deinstantiate RNG4 SH%d\n",
-					  sh_idx);
+				pr_debug("Failed to run desc to deinstantiate RNG4 SH%d\n",
+					 sh_idx);
 		}
 	}
 
