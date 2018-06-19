@@ -31,6 +31,9 @@
 /* Indicates buffer is in use if set */
 #define SVC_BUF_LOCK	0
 
+#define S10_BUFFER_TIMEOUT (msecs_to_jiffies(SVC_RECONFIG_BUFFER_TIMEOUT_MS))
+#define S10_RECONFIG_TIMEOUT (msecs_to_jiffies(SVC_RECONFIG_REQUEST_TIMEOUT_MS))
+
 /**
  * struct s10_svc_buf
  * @buf: virtual address of buf provided by service layer
@@ -195,7 +198,6 @@ static int s10_ops_write_init(struct fpga_manager *mgr,
 {
 	struct s10_priv *priv = mgr->priv;
 	struct device *dev = priv->client.dev;
-	unsigned long timeout;
 	struct intel_command_reconfig_payload payload;
 	char *kbuf;
 	uint i;
@@ -215,9 +217,8 @@ static int s10_ops_write_init(struct fpga_manager *mgr,
 	if (ret < 0)
 		goto init_done;
 
-	timeout = msecs_to_jiffies(SVC_RECONFIG_REQUEST_TIMEOUT_MS);
 	ret = wait_for_completion_interruptible_timeout(
-		&priv->status_return_completion, timeout);
+		&priv->status_return_completion, S10_RECONFIG_TIMEOUT);
 	if (!ret) {
 		dev_err(dev, "timeout waiting for RECONFIG_REQUEST\n");
 		ret = -ETIMEDOUT;
@@ -255,15 +256,14 @@ init_done:
 
 /**
  * s10_send_buf
- * Send a buffer to the service layer queue
+ * Send a buffer to the service layer queue.
  * @mgr: fpga manager struct
- * @buf_num: index of buffer in svc_bufs array
  * @buf: fpga image buffer
  * @count: size of buf in bytes
- * Returns # of bytes transferred or -errno, never 0
+ * Returns # of bytes transferred or -ENOBUFS if the all the buffers are in use
+ * or if the service queue is full.  Never returns 0.
  */
-static int s10_send_buf(struct fpga_manager *mgr, uint buf_num,
-			const char *buf, size_t count)
+static int s10_send_buf(struct fpga_manager *mgr, const char *buf, size_t count)
 
 {
 	struct s10_priv *priv = mgr->priv;
@@ -271,11 +271,22 @@ static int s10_send_buf(struct fpga_manager *mgr, uint buf_num,
 	void *svc_buf;
 	size_t xfer_sz;
 	int ret;
+	uint i;
+
+	/* get/lock a buffer that that's not being used */
+	for (i = 0; i < NUM_SVC_BUFS; i++)
+		if (!test_and_set_bit_lock(SVC_BUF_LOCK,
+					   &priv->svc_bufs[i].lock))
+			break;
+
+	if (i == NUM_SVC_BUFS)
+		return -ENOBUFS;
 
 	xfer_sz = count < SVC_BUF_SIZE ? count : SVC_BUF_SIZE;
 
-	svc_buf = priv->svc_bufs[buf_num].buf;
+	svc_buf = priv->svc_bufs[i].buf;
 	memcpy(svc_buf, buf, xfer_sz);
+	/* Returns -ENOBUFS If service queue is full. */
 	ret = s10_svc_send_msg(priv, COMMAND_RECONFIG_DATA_SUBMIT,
 			       svc_buf, xfer_sz);
 	if (ret < 0) {
@@ -289,8 +300,10 @@ static int s10_send_buf(struct fpga_manager *mgr, uint buf_num,
 
 /**
  * s10_ops_write
+ *
  * Send a FPGA image to privileged layers to write to the FPGA.  When done
  * sending, free all service layer buffers we allocated in write_init.
+ *
  * @mgr: fpga manager
  * @buf: fpga image buffer
  * @count: size of buf in bytes
@@ -301,40 +314,26 @@ static int s10_ops_write(struct fpga_manager *mgr, const char *buf,
 {
 	struct s10_priv *priv = mgr->priv;
 	struct device *dev = priv->client.dev;
-	unsigned long timeout;
+	long wait_status;
 	int sent = 0;
 	int ret = 0;
-	uint i;
 
-	timeout = msecs_to_jiffies(SVC_RECONFIG_BUFFER_TIMEOUT_MS);
-
-	/* Buffer loop: either send buffers or free them. */
-	while (1) {
+	/*
+	 * Loop waiting for buffers to be returned.  When a buffer is returned,
+	 * reuse it to send more data or free if if all data has been sent.
+	 */
+	while (count > 0 || s10_free_buffer_count(mgr) != NUM_SVC_BUFS) {
 		reinit_completion(&priv->status_return_completion);
 
 		if (count > 0) {
-			for (i = 0; i < NUM_SVC_BUFS; i++)
-				if (!test_and_set_bit_lock(
-					 SVC_BUF_LOCK, &priv->svc_bufs[i].lock))
-					break;
-
-			if (i == NUM_SVC_BUFS)
-				/* wait for a free buffer */
-				continue;
-
-			sent = s10_send_buf(mgr, i, buf, count);
-			/*
-			 * If service queue was full, we won't get a callback.
-			 * Wait and try again
-			 */
+			sent = s10_send_buf(mgr, buf, count);
 			if (sent < 0)
 				continue;
 
 			count -= sent;
 			buf += sent;
 		} else {
-			s10_free_buffers(mgr);
-			if (s10_free_buffer_count(mgr) == NUM_SVC_BUFS)
+			if (s10_free_buffers(mgr))
 				return 0;
 
 			ret = s10_svc_send_msg(
@@ -348,19 +347,19 @@ static int s10_ops_write(struct fpga_manager *mgr, const char *buf,
 		 * If callback hasn't already happened, wait for buffers to be
 		 * returned from service layer
 		 */
-		if (priv->status)
+		wait_status = 1; /* not timed out */
+		if (!priv->status)
+			wait_status = wait_for_completion_interruptible_timeout(
+				&priv->status_return_completion,
+				S10_BUFFER_TIMEOUT);
+
+		if (test_and_clear_bit(SVC_STATUS_RECONFIG_BUFFER_DONE,
+				       &priv->status) ||
+		    test_and_clear_bit(SVC_STATUS_RECONFIG_BUFFER_SUBMITTED,
+				       &priv->status)) {
 			ret = 0;
-		else
-			ret = wait_for_completion_interruptible_timeout(
-				&priv->status_return_completion, timeout);
-
-		if (test_and_clear_bit(
-				SVC_STATUS_RECONFIG_BUFFER_DONE, &priv->status))
 			continue;
-
-		if (test_and_clear_bit(SVC_STATUS_RECONFIG_BUFFER_SUBMITTED,
-				       &priv->status))
-			continue;
+		}
 
 		if (test_and_clear_bit(SVC_STATUS_RECONFIG_ERROR,
 				       &priv->status)) {
@@ -369,12 +368,13 @@ static int s10_ops_write(struct fpga_manager *mgr, const char *buf,
 			break;
 		}
 
-		if (!ret) {
+		if (!wait_status) {
 			dev_err(dev, "timeout waiting for svc layer buffers\n");
 			ret = -ETIMEDOUT;
 			break;
 		}
-		if (ret < 0) {
+		if (wait_status < 0) {
+			ret = wait_status;
 			dev_err(dev,
 				"error (%d) waiting for svc layer buffers\n",
 				ret);
@@ -382,8 +382,7 @@ static int s10_ops_write(struct fpga_manager *mgr, const char *buf,
 		}
 	}
 
-	s10_free_buffers(mgr);
-	if (s10_free_buffer_count(mgr) != NUM_SVC_BUFS)
+	if (!s10_free_buffers(mgr))
 		dev_err(dev, "%s not all buffers were freed\n", __func__);
 
 	return ret;
