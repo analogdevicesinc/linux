@@ -272,6 +272,7 @@ int intel_svc_send(struct intel_svc_chan *chan, void *msg)
 			if (IS_ERR(chan->ctrl->task)) {
 				dev_err(chan->ctrl->dev,
 					"fails to create svc_smc_hvc_thread\n");
+				kfree(p_data);
 				return -EINVAL;
 			}
 			wake_up_process(chan->ctrl->task);
@@ -281,12 +282,11 @@ int intel_svc_send(struct intel_svc_chan *chan, void *msg)
 		 p_msg->payload, p_msg->command,
 		 (unsigned int)p_msg->payload_length);
 
-	list_for_each_entry(p_mem, &svc_data_mem, node) {
+	list_for_each_entry(p_mem, &svc_data_mem, node)
 		if (p_mem->vaddr == p_msg->payload) {
 			p_data->paddr = p_mem->paddr;
 			break;
 		}
-	}
 
 	p_data->command = p_msg->command;
 	p_data->arg[0] = p_msg->arg[0];
@@ -405,10 +405,9 @@ static void *svc_pa_to_va(unsigned long addr)
 	struct intel_svc_data_mem *pmem;
 
 	pr_debug("claim back P-addr=0x%016x\n", (unsigned int)addr);
-	list_for_each_entry(pmem, &svc_data_mem, node) {
+	list_for_each_entry(pmem, &svc_data_mem, node)
 		if (pmem->paddr == addr)
 			return pmem->vaddr;
-	}
 
 	/* physical address is not found */
 	return NULL;
@@ -565,8 +564,10 @@ static int svc_normal_to_secure_thread(void *data)
 		return -ENOMEM;
 
 	cdata = kmalloc(sizeof(*cdata), GFP_KERNEL);
-	if (!cdata)
+	if (!cdata) {
+		kfree(pdata);
 		return -ENOMEM;
+	}
 
 	/* default set, to remove build warning */
 	a0 = INTEL_SIP_SMC_FPGA_CONFIG_LOOPBACK;
