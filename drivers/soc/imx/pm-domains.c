@@ -13,6 +13,7 @@
  * GNU General Public License for more details.
  */
 
+#include <linux/arm-smccc.h>
 #include <linux/clk.h>
 #include <linux/clk-provider.h>
 #include <linux/console.h>
@@ -31,6 +32,7 @@
 #include <linux/slab.h>
 #include <linux/syscore_ops.h>
 
+#include <soc/imx/fsl_sip.h>
 #include <soc/imx8/sc/sci.h>
 
 #include "pm-domain-imx8.h"
@@ -260,6 +262,27 @@ static void imx8_detach_dev(struct generic_pm_domain *genpd, struct device *dev)
 	}
 }
 
+static int imx8_pm_domains_suspend(void)
+{
+	struct arm_smccc_res res;
+	unsigned int i;
+
+	for (i = 0; i < IMX8_WU_MAX_IRQS / 32; i++) {
+		if (wakeup_rsrc_id[i] != 0) {
+			arm_smccc_smc(FSL_SIP_WAKEUP_SRC,
+				FSL_SIP_WAKEUP_SRC_IRQSTEER, 0,
+				0, 0, 0, 0, 0, &res);
+			return 0;
+		}
+	}
+
+	arm_smccc_smc(FSL_SIP_WAKEUP_SRC,
+			FSL_SIP_WAKEUP_SRC_SCU, 0,
+			0, 0, 0, 0, 0, &res);
+
+	return 0;
+}
+
 static void imx8_pm_domains_resume(void)
 {
 	sc_err_t sci_err = SC_ERR_NONE;
@@ -278,6 +301,7 @@ static void imx8_pm_domains_resume(void)
 }
 
 struct syscore_ops imx8_pm_domains_syscore_ops = {
+	.suspend = imx8_pm_domains_suspend,
 	.resume = imx8_pm_domains_resume,
 };
 

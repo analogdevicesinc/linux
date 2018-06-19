@@ -60,4 +60,8 @@
 #define FSL_SIP_NOC			0xc2000008
 #define FSL_SIP_NOC_LCDIF		0x0
 
+#define FSL_SIP_WAKEUP_SRC		0xc2000009
+#define FSL_SIP_WAKEUP_SRC_SCU		0x1
+#define FSL_SIP_WAKEUP_SRC_IRQSTEER	0x2
+
 #endif
