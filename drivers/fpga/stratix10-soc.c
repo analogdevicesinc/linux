@@ -302,7 +302,7 @@ static int s10_ops_write(struct fpga_manager *mgr, const char *buf,
 	struct s10_priv *priv = mgr->priv;
 	struct device *dev = priv->client.dev;
 	unsigned long timeout;
-	size_t sent = 0;
+	int sent = 0;
 	int ret = 0;
 	uint i;
 
