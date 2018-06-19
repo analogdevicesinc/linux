@@ -26,8 +26,7 @@ static struct dentry *fpga_mgr_debugfs_root;
 
 struct fpga_mgr_debugfs {
 	struct dentry *debugfs_dir;
-	char *firmware_name;
-	struct fpga_image_info info;
+	struct fpga_image_info *info;
 };
 
 static ssize_t fpga_mgr_firmware_write_file(struct file *file,
@@ -39,12 +38,21 @@ static ssize_t fpga_mgr_firmware_write_file(struct file *file,
 	char *buf;
 	int ret;
 
-	buf = kzalloc(count, GFP_KERNEL);
-	if (!buf)
+	ret = fpga_mgr_lock(mgr);
+	if (ret) {
+		dev_err(&mgr->dev, "FPGA manager is busy\n");
+		return -EBUSY;
+	}
+
+	buf = devm_kzalloc(&mgr->dev, count, GFP_KERNEL);
+	if (!buf) {
+		fpga_mgr_unlock(mgr);
 		return -ENOMEM;
+	}
 
 	if (copy_from_user(buf, user_buf, count)) {
-		kfree(buf);
+		fpga_mgr_unlock(mgr);
+		devm_kfree(&mgr->dev, buf);
 		return -EFAULT;
 	}
 
@@ -53,13 +61,16 @@ static ssize_t fpga_mgr_firmware_write_file(struct file *file,
 		buf[count - 1] = 0;
 
 	/* Release previous firmware name (if any). Save current one. */
-	kfree(debugfs->firmware_name);
-	debugfs->firmware_name = buf;
+	if (debugfs->info->firmware_name)
+		devm_kfree(&mgr->dev, debugfs->info->firmware_name);
+	debugfs->info->firmware_name = buf;
 
-	ret = fpga_mgr_firmware_load(mgr, &debugfs->info, buf);
+	ret = fpga_mgr_load(mgr, debugfs->info);
 	if (ret)
 		dev_err(&mgr->dev,
-			"fpga_mgr_firmware_load returned with value %d\n", ret);
+			"fpga_mgr_load returned with value %d\n", ret);
+
+	fpga_mgr_unlock(mgr);
 
 	return count;
 }
@@ -73,14 +84,14 @@ static ssize_t fpga_mgr_firmware_read_file(struct file *file,
 	char *buf;
 	int ret;
 
-	if (debugfs->firmware_name == NULL)
+	if (!debugfs->info->firmware_name)
 		return 0;
 
 	buf = kzalloc(PAGE_SIZE, GFP_KERNEL);
 	if (!buf)
 		return -ENOMEM;
 
-	ret = snprintf(buf, PAGE_SIZE, "%s\n", debugfs->firmware_name);
+	ret = snprintf(buf, PAGE_SIZE, "%s\n", debugfs->info->firmware_name);
 	if (ret < 0) {
 		kfree(buf);
 		return ret;
@@ -110,23 +121,41 @@ static ssize_t fpga_mgr_image_write_file(struct file *file,
 
 	dev_info(&mgr->dev, "writing %zu bytes to %s\n", count, mgr->name);
 
+	ret = fpga_mgr_lock(mgr);
+	if (ret) {
+		dev_err(&mgr->dev, "FPGA manager is busy\n");
+		return -EBUSY;
+	}
+
 	buf = kzalloc(count, GFP_KERNEL);
-	if (!buf)
+	if (!buf) {
+		fpga_mgr_unlock(mgr);
 		return -ENOMEM;
+	}
 
 	if (copy_from_user(buf, user_buf, count)) {
+		fpga_mgr_unlock(mgr);
 		kfree(buf);
 		return -EFAULT;
 	}
 
 	/* If firmware interface was previously used, forget it. */
-	kfree(debugfs->firmware_name);
-	debugfs->firmware_name = NULL;
+	if (debugfs->info->firmware_name)
+		devm_kfree(&mgr->dev, debugfs->info->firmware_name);
+	debugfs->info->firmware_name = NULL;
 
-	ret = fpga_mgr_buf_load(mgr, &debugfs->info, buf, count);
+	debugfs->info->buf = buf;
+	debugfs->info->count = count;
+
+	ret = fpga_mgr_load(mgr, debugfs->info);
 	if (ret)
 		dev_err(&mgr->dev,
 		       "fpga_mgr_buf_load returned with value %d\n", ret);
+
+	fpga_mgr_unlock(mgr);
+
+	debugfs->info->buf = NULL;
+	debugfs->info->count = 0;
 
 	kfree(buf);
 
@@ -151,6 +180,13 @@ void fpga_mgr_debugfs_add(struct fpga_manager *mgr)
 	if (!debugfs)
 		return;
 
+	info = fpga_image_info_alloc(&mgr->dev);
+	if (!info) {
+		kfree(debugfs);
+		return;
+	}
+	debugfs->info = info;
+
 	debugfs->debugfs_dir = debugfs_create_dir(dev_name(&mgr->dev),
 						  fpga_mgr_debugfs_root);
 
@@ -159,8 +195,6 @@ void fpga_mgr_debugfs_add(struct fpga_manager *mgr)
 
 	debugfs_create_file("image", 0200, debugfs->debugfs_dir, mgr,
 			    &fpga_mgr_image_fops);
-
-	info = &debugfs->info;
 
 	debugfs_create_u32("flags", 0600, debugfs->debugfs_dir, &info->flags);
 
@@ -179,7 +213,10 @@ void fpga_mgr_debugfs_remove(struct fpga_manager *mgr)
 		return;
 
 	debugfs_remove_recursive(debugfs->debugfs_dir);
-	kfree(debugfs->firmware_name);
+
+	/* this function also frees debugfs->info->firmware_name */
+	fpga_image_info_free(debugfs->info);
+
 	kfree(debugfs);
 }
 
