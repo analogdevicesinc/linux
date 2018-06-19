@@ -419,9 +419,9 @@ static int ad9162_probe(struct spi_device *spi)
 	if (IS_ERR(conv->reset_gpio))
 		return PTR_ERR(conv->reset_gpio);
 
-	conv->txen_gpio = devm_gpiod_get_optional(&spi->dev, "txen", GPIOD_OUT_HIGH);
-	if (IS_ERR(conv->txen_gpio))
-		return PTR_ERR(conv->txen_gpio);
+	conv->txen_gpio[0] = devm_gpiod_get_optional(&spi->dev, "txen", GPIOD_OUT_HIGH);
+	if (IS_ERR(conv->txen_gpio[0]))
+		return PTR_ERR(conv->txen_gpio[0]);
 
 	st->map = devm_regmap_init_spi(spi, &ad9162_regmap_config);
 	if (IS_ERR(st->map))
