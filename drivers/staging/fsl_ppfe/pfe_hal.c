@@ -19,6 +19,8 @@
 #include "pfe_mod.h"
 #include "pfe/pfe.h"
 
+#define PFE_RCR_MAX_FL_MASK	0xC000FFFF
+
 void *cbus_base_addr;
 void *ddr_base_addr;
 unsigned long ddr_phys_base_addr;
@@ -1011,8 +1013,8 @@ void gemac_no_broadcast(void *base)
 void gemac_enable_1536_rx(void *base)
 {
 	/* Set 1536 as Maximum frame length */
-	writel(readl(base + EMAC_RCNTRL_REG) | (1536 << 16), base +
-		EMAC_RCNTRL_REG);
+	writel((readl(base + EMAC_RCNTRL_REG) & PFE_RCR_MAX_FL_MASK)
+		| (1536 << 16), base +	EMAC_RCNTRL_REG);
 }
 
 /* GEMAC enable jumbo function.
@@ -1020,8 +1022,8 @@ void gemac_enable_1536_rx(void *base)
  */
 void gemac_enable_rx_jmb(void *base)
 {
-	writel(readl(base + EMAC_RCNTRL_REG) | (JUMBO_FRAME_SIZE << 16), base
-		+ EMAC_RCNTRL_REG);
+	writel((readl(base + EMAC_RCNTRL_REG) & PFE_RCR_MAX_FL_MASK)
+		| (JUMBO_FRAME_SIZE << 16), base + EMAC_RCNTRL_REG);
 }
 
 /* GEMAC enable stacked vlan function.
