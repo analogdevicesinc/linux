@@ -42,6 +42,7 @@ struct ad9144_platform_data {
 	u8 xbar_lane3_sel;
 	u8 interpolation;
 	unsigned int fcenter_shift;
+	bool spi4wire;
 };
 
 struct ad9144_state {
@@ -506,6 +507,13 @@ static struct ad9144_platform_data *ad9144_parse_dt(struct device *dev)
 	of_property_read_u32(np, "adi,frequency-center-shift", &tmp);
 	pdata->fcenter_shift = tmp;
 
+	/*
+	 * DO NOT copy this. It is as wrong as it gets, we have to do it to
+	 * preserve backwards compatibility with earlier versions of the driver
+	 * that only supported 3 wire mode.
+	 */
+	pdata->spi4wire = of_property_read_bool(np, "adi,spi-4wire");
+
 	return pdata;
 }
 #else
@@ -524,7 +532,7 @@ static const struct regmap_config ad9144_regmap_config = {
 	.cache_type = REGCACHE_NONE,
 };
 
-static int ad9144_reset(struct ad9144_state *st)
+static int ad9144_reset(struct ad9144_state *st, bool spi4wire)
 {
 	int ret;
 
@@ -533,7 +541,7 @@ static int ad9144_reset(struct ad9144_state *st)
 	ret = regmap_write(st->map, REG_SPI_INTFCONFA, SOFTRESET_M | SOFTRESET);
 	if (ret < 0)
 		return ret;
-	ret = regmap_write(st->map, REG_SPI_INTFCONFA, 0x00);
+	ret = regmap_write(st->map, REG_SPI_INTFCONFA, spi4wire ? 0x18 : 0x00);
 
 	msleep(4);
 
@@ -597,7 +605,7 @@ static int ad9144_probe(struct spi_device *spi)
 	if (IS_ERR(st->map))
 		return PTR_ERR(st->map);
 
-	ret = ad9144_reset(st);
+	ret = ad9144_reset(st, pdata->spi4wire);
 	if (ret < 0)
 		return ret;
 
