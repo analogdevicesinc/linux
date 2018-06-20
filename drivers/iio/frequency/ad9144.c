@@ -24,9 +24,12 @@
 #include "ad9144.h"
 #include "cf_axi_dds.h"
 
+#define AD9144_CHIPID(product_idh, product_idl, product_grade) \
+	(((product_idh) << 8) | ((product_idl) << 8) | (product_grade))
+
 enum chip_id {
-	CHIPID_AD9144 = 0x44,
-	CHIPID_AD9152 = 0x52,
+	CHIPID_AD9144 = AD9144_CHIPID(0x91, 0x44, 0x0),
+	CHIPID_AD9152 = AD9144_CHIPID(0x91, 0x52, 0x0),
 };
 
 #define AD9144_MOD_TYPE_NONE		(0x0 << 2)
@@ -565,8 +568,8 @@ static int ad9144_probe(struct spi_device *spi)
 	struct ad9144_platform_data *pdata;
 	struct ad9144_state *st;
 	unsigned long lane_rate_kHz;
+	unsigned int idl, idh, grade;
 	unsigned int i;
-	unsigned id;
 	int ret;
 
 	if (spi->dev.of_node)
@@ -619,19 +622,30 @@ static int ad9144_probe(struct spi_device *spi)
 	if (ret < 0)
 		return ret;
 
-	ret = regmap_read(st->map, REG_SPI_PRODIDL, &id);
+	ret = regmap_read(st->map, REG_SPI_PRODIDL, &idl);
 	if (ret < 0)
 		return ret;
 
-	if (id != st->id) {
-		dev_err(&spi->dev, "Unrecognized CHIP_ID 0x%X\n", id);
+	ret = regmap_read(st->map, REG_SPI_PRODIDH, &idh);
+	if (ret < 0)
+		return ret;
+
+	ret = regmap_read(st->map, REG_SPI_CHIPGRADE, &grade);
+	if (ret < 0)
+		return ret;
+	grade >>= 4; /* grade is in the 4 MSBs */
+
+	if (st->id != AD9144_CHIPID(idh, idl, grade)) {
+		dev_err(&spi->dev,
+		    "Unrecognized CHIP_ID 0x%.2X%.2X and CHIP_GRADE 0x%x\n",
+		    idh, idl, grade);
 		ret = -ENODEV;
 		goto out;
 	}
 
 	regmap_write(st->map, REG_SPI_SCRATCHPAD, 0xAD);
-	regmap_read(st->map, REG_SPI_SCRATCHPAD, &id);
-	if (id != 0xAD)
+	regmap_read(st->map, REG_SPI_SCRATCHPAD, &idl);
+	if (idl != 0xAD)
 		return -EIO;
 
 	conv->write = ad9144_write;
