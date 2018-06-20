@@ -2243,11 +2243,11 @@ static const struct net_device_ops pfe_netdev_ops = {
 	.ndo_stop = pfe_eth_close,
 	.ndo_start_xmit = pfe_eth_send_packet,
 	.ndo_select_queue = pfe_eth_select_queue,
-	.ndo_get_stats = pfe_eth_get_stats,
-	.ndo_set_mac_address = pfe_eth_set_mac_address,
 	.ndo_set_rx_mode = pfe_eth_set_multi,
-	.ndo_set_features = pfe_eth_set_features,
+	.ndo_set_mac_address = pfe_eth_set_mac_address,
 	.ndo_validate_addr = eth_validate_addr,
+	.ndo_get_stats = pfe_eth_get_stats,
+	.ndo_set_features = pfe_eth_set_features,
 };
 
 /* pfe_eth_init_one
