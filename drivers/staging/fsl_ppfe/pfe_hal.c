@@ -869,8 +869,8 @@ void gemac_set_mode(void *base, int mode)
 	/*Remove loopbank*/
 	val &= ~EMAC_RCNTRL_LOOP;
 
-	/*Enable flow control and MII mode*/
-	val |= (EMAC_RCNTRL_FCE | EMAC_RCNTRL_MII_MODE);
+	/* Enable flow control and MII mode and terminate received CRC */
+	val |= (EMAC_RCNTRL_FCE | EMAC_RCNTRL_MII_MODE | EMAC_RCNTRL_CRC_FWD);
 
 	writel(val, base + EMAC_RCNTRL_REG);
 }
