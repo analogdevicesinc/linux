@@ -196,13 +196,6 @@ static int ad9144_setup(struct ad9144_state *st,
 
 	// power-up and dac initialization
 
-	msleep(5);
-
-	regmap_write(map, REG_SPI_INTFCONFA, SOFTRESET_M | SOFTRESET);	// reset
-	regmap_write(map, REG_SPI_INTFCONFA, 0x00);	// reset
-
-	msleep(4);
-
 	regmap_write(map, 0x011, 0x00);	// dacs - power up everything
 	regmap_write(map, 0x080, 0x00);	// clocks - power up everything
 	regmap_write(map, 0x081, 0x00);	// sysref - power up/falling edge
@@ -531,6 +524,22 @@ static const struct regmap_config ad9144_regmap_config = {
 	.cache_type = REGCACHE_NONE,
 };
 
+static int ad9144_reset(struct ad9144_state *st)
+{
+	int ret;
+
+	msleep(5);
+
+	ret = regmap_write(st->map, REG_SPI_INTFCONFA, SOFTRESET_M | SOFTRESET);
+	if (ret < 0)
+		return ret;
+	ret = regmap_write(st->map, REG_SPI_INTFCONFA, 0x00);
+
+	msleep(4);
+
+	return ret;
+}
+
 static int ad9144_probe(struct spi_device *spi)
 {
 	const struct spi_device_id *dev_id = spi_get_device_id(spi);
@@ -587,6 +596,10 @@ static int ad9144_probe(struct spi_device *spi)
 	st->map = devm_regmap_init_spi(spi, &ad9144_regmap_config);
 	if (IS_ERR(st->map))
 		return PTR_ERR(st->map);
+
+	ret = ad9144_reset(st);
+	if (ret < 0)
+		return ret;
 
 	ret = regmap_read(st->map, REG_SPI_PRODIDL, &id);
 	if (ret < 0)
