@@ -1028,15 +1028,6 @@ void gemac_set_rx_max_fl(void *base, int mtu)
 		| (mtu << 16), base + EMAC_RCNTRL_REG);
 }
 
-/* GEMAC enable jumbo function.
- * @param[in]	base	GEMAC base address
- */
-void gemac_enable_rx_jmb(void *base)
-{
-	writel((readl(base + EMAC_RCNTRL_REG) & PFE_RCR_MAX_FL_MASK)
-		| (JUMBO_FRAME_SIZE << 16), base + EMAC_RCNTRL_REG);
-}
-
 /* GEMAC enable stacked vlan function.
  * @param[in]	base	GEMAC base address
  */

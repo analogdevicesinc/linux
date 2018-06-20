@@ -1272,7 +1272,6 @@ static int pfe_gemac_init(struct pfe_eth_priv_s *priv)
 	gemac_set_config(priv->EMAC_baseaddr, &cfg);
 	gemac_allow_broadcast(priv->EMAC_baseaddr);
 	gemac_enable_1536_rx(priv->EMAC_baseaddr);
-	gemac_enable_rx_jmb(priv->EMAC_baseaddr);
 	gemac_enable_stacked_vlan(priv->EMAC_baseaddr);
 	gemac_enable_pause_rx(priv->EMAC_baseaddr);
 	gemac_set_bus_width(priv->EMAC_baseaddr, 64);
