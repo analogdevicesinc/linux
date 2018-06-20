@@ -128,6 +128,7 @@ static void ad9144_setup_samplerate(struct ad9144_state *st)
 	u8 i, timeout;
 	unsigned long lane_rate_kHz;
 	unsigned int sample_rate;
+	unsigned int serdes_plldiv, serdes_cdr;
 	unsigned int val;
 
 	sample_rate = clk_get_rate(st->conv.clk[1]);
@@ -136,27 +137,36 @@ static void ad9144_setup_samplerate(struct ad9144_state *st)
 
 	ad9144_set_nco_freq(st, sample_rate, st->fcenter_shift);
 
+	/*
+	 * Based on table 4 of the AD9144 datasheet Rev. B.
+	 */
+	if (lane_rate_kHz < 2880000) {
+		serdes_cdr = 0x0a;
+		serdes_plldiv = 0x06;
+	} else if (lane_rate_kHz < 5750000) {
+		serdes_cdr = 0x08;
+		serdes_plldiv = 0x05;
+	} else {
+		serdes_cdr = 0x28;
+		serdes_plldiv = 0x04;
+	}
+
 	// physical layer
 
 	regmap_write(map, 0x280, 0x00);	// enable serdes pll
 
 	regmap_write(map, 0x2a7, 0x01);	// input termination calibration
+
 	if (st->id == CHIPID_AD9144)
 		regmap_write(map, 0x2ae, 0x01);	// input termination calibration
-	if (lane_rate_kHz < 2880000)
-		regmap_write(map, 0x230, 0x0A); // CDR_OVERSAMP
-	else if (lane_rate_kHz < 5520000)
-		regmap_write(map, 0x230, 0x08);
-	else
-		regmap_write(map, 0x230, 0x28); // ENHALFRATE
+
+	regmap_write(map, 0x230, serdes_cdr);
+
 	regmap_write(map, 0x206, 0x00);	// cdr reset
 	regmap_write(map, 0x206, 0x01);	// cdr reset
-	if (lane_rate_kHz < 2880000)
-		regmap_write(map, 0x289, 0x06);	// data-rate < 2.88 Gbps
-	else if (lane_rate_kHz < 5520000)
-		regmap_write(map, 0x289, 0x05);
-	else
-		regmap_write(map, 0x289, 0x04);	// data-rate > 5.52 Gbps
+
+	regmap_write(map, 0x289, serdes_plldiv);
+
 	regmap_write(map, 0x280, 0x01);	// enable serdes pll
 	regmap_write(map, 0x280, 0x05);	// enable serdes calibration
 	mdelay(20);
