@@ -19,6 +19,9 @@
 #include "pfe_mod.h"
 #include "pfe/pfe.h"
 
+/* A-010897: Jumbo frame is not supported */
+extern bool pfe_errata_a010897;
+
 #define PFE_RCR_MAX_FL_MASK	0xC000FFFF
 
 void *cbus_base_addr;
@@ -1102,7 +1105,12 @@ void gemac_set_config(void *base, struct gemac_cfg *cfg)
 	/*GEMAC config taken from VLSI */
 	writel(0x00000004, base + EMAC_TFWR_STR_FWD);
 	writel(0x00000005, base + EMAC_RX_SECTION_FULL);
-	writel(0x00003fff, base + EMAC_TRUNC_FL);
+
+	if (pfe_errata_a010897)
+		writel(0x0000076c, base + EMAC_TRUNC_FL);
+	else
+		writel(0x00003fff, base + EMAC_TRUNC_FL);
+
 	writel(0x00000030, base + EMAC_TX_SECTION_EMPTY);
 	writel(0x00000000, base + EMAC_MIB_CTRL_STS_REG);
 

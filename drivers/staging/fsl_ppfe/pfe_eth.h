@@ -85,7 +85,8 @@ struct ls1012a_pfe_platform_data {
 #define EMAC_TXQ_CNT	16
 #define EMAC_TXQ_DEPTH	(HIF_TX_DESC_NT)
 
-#define JUMBO_FRAME_SIZE	10258
+#define JUMBO_FRAME_SIZE_V1	1900
+#define JUMBO_FRAME_SIZE_V2	10258
 /*
  * Client Tx queue threshold, for txQ flush condition.
  * It must be smaller than the queue size (in case we ever change it in the

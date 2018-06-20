@@ -44,6 +44,7 @@
 #include <linux/delay.h>
 #include <linux/regmap.h>
 #include <linux/i2c.h>
+#include <linux/fsl/guts.h>
 
 #if defined(CONFIG_NF_CONNTRACK_MARK)
 #include <net/netfilter/nf_conntrack.h>
@@ -51,6 +52,10 @@
 
 #include "pfe_mod.h"
 #include "pfe_eth.h"
+
+#define LS1012A_REV_1_0		0x87040010
+
+bool pfe_errata_a010897;
 
 static void *cbus_emac_base[3];
 static void *cbus_gpi_base[3];
@@ -2362,7 +2367,15 @@ static int pfe_eth_init_one(struct pfe *pfe, int id)
 
 	/* Set MTU limits */
 	ndev->min_mtu = ETH_MIN_MTU;
-	ndev->max_mtu = JUMBO_FRAME_SIZE;
+
+/*
+ * Jumbo frames are not supported on LS1012A rev-1.0.
+ * So max mtu should be restricted to supported frame length.
+ */
+	if (pfe_errata_a010897)
+		ndev->max_mtu = JUMBO_FRAME_SIZE_V1 - ETH_HLEN - ETH_FCS_LEN;
+	else
+		ndev->max_mtu = JUMBO_FRAME_SIZE_V2 - ETH_HLEN - ETH_FCS_LEN;
 
 	/* supported features */
 	ndev->hw_features = NETIF_F_SG;
@@ -2449,6 +2462,11 @@ int pfe_eth_init(struct pfe *pfe)
 
 	cbus_gpi_base[0] = EGPI1_BASE_ADDR;
 	cbus_gpi_base[1] = EGPI2_BASE_ADDR;
+
+	if (fsl_guts_get_svr() == LS1012A_REV_1_0)
+		pfe_errata_a010897 = true;
+	else
+		pfe_errata_a010897 = false;
 
 	for (ii = 0; ii < NUM_GEMAC_SUPPORT; ii++) {
 		err = pfe_eth_init_one(pfe, ii);
