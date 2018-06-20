@@ -449,6 +449,27 @@ static int ad9517_out0123_set_frequency(struct ad9517_state *st, int chan, int v
 	return 0;
 }
 
+static int ad9517_set_frequency(struct ad9517_state *st, int chan,
+	unsigned int rate)
+{
+	int ret;
+
+	switch (chan) {
+	case 0 ... 3:
+		ret = ad9517_out0123_set_frequency(st, chan, rate);
+		break;
+	case 4 ... 7:
+		ret = ad9517_out4567_set_frequency(st, chan, rate);
+		break;
+	default:
+		return -EINVAL;
+	}
+	if (ret < 0)
+		return ret;
+
+	return ad9517_write(st->spi, AD9517_TRANSFER, AD9517_TRANSFER_NOW);
+}
+
 static unsigned long ad9517_get_frequency(struct ad9517_state *st, int chan)
 {
 	unsigned long rate;
@@ -538,6 +559,12 @@ static int ad9517_out_enable(struct ad9517_state *st, int chan, int val)
 		return ret;
 
 	return ad9517_write(st->spi, AD9517_TRANSFER, AD9517_TRANSFER_NOW);
+}
+
+static bool ad9517_is_enabled(struct ad9517_state *st, unsigned int out)
+{
+	return !(st->regs[output_pwrdwn_lut[out][PWRDWN_REG]] &
+		 output_pwrdwn_lut[out][PWRDWN_MASK]);
 }
 
 static int ad9517_setup(struct ad9517_state *st)
@@ -754,13 +781,10 @@ static unsigned long ad9517_recalc_rate(struct clk_hw *hw,
 				    to_ad9517_clk_output(hw)->num);
 }
 
-static int ad9517_is_enabled(struct clk_hw *hw)
+static int ad9517_clk_is_enabled(struct clk_hw *hw)
 {
-	unsigned out = to_ad9517_clk_output(hw)->num;
-
-	return !(to_ad9517_clk_output(hw)->st->regs[
-			output_pwrdwn_lut[out][PWRDWN_REG]] &
-			output_pwrdwn_lut[out][PWRDWN_MASK]);
+	return ad9517_is_enabled(to_ad9517_clk_output(hw)->st,
+				 to_ad9517_clk_output(hw)->num);
 }
 
 static long ad9517_clk_round_rate(struct clk_hw *hw, unsigned long rate,
@@ -797,20 +821,8 @@ static int ad9517_clk_set_rate(struct clk_hw *hw, unsigned long rate,
 {
 	struct ad9517_state *st = to_ad9517_clk_output(hw)->st;
 	unsigned num = to_ad9517_clk_output(hw)->num;
-	int ret;
 
-	switch (num) {
-	case 0 ... 3:
-		ret = ad9517_out0123_set_frequency(st, num, rate);
-		break;
-	case 4 ... 7:
-		ret = ad9517_out4567_set_frequency(st, num, rate);
-		break;
-	}
-
-	ad9517_write(st->spi, AD9517_TRANSFER, AD9517_TRANSFER_NOW);
-
-	return ret;
+	return ad9517_set_frequency(st, num, rate);
 }
 
 static int ad9517_clk_prepare(struct clk_hw *hw)
@@ -827,7 +839,7 @@ static void ad9517_clk_unprepare(struct clk_hw *hw)
 
 static const struct clk_ops ad9517_clk_ops = {
 	.recalc_rate = ad9517_recalc_rate,
-	.is_enabled = ad9517_is_enabled,
+	.is_enabled = ad9517_clk_is_enabled,
 	.set_rate = ad9517_clk_set_rate,
 	.round_rate = ad9517_clk_round_rate,
 	.prepare = ad9517_clk_prepare,
@@ -895,9 +907,7 @@ static int ad9517_read_raw(struct iio_dev *indio_dev,
 
 	switch (m) {
 	case IIO_CHAN_INFO_RAW:
-		*val = !(st->regs[output_pwrdwn_lut[chan->channel][PWRDWN_REG]] &
-			output_pwrdwn_lut[chan->channel][PWRDWN_MASK]);
-
+		*val = ad9517_is_enabled(st, chan->channel);
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_FREQUENCY:
 		*val = (int) ad9517_get_frequency(st, chan->channel);
@@ -914,29 +924,15 @@ static int ad9517_write_raw(struct iio_dev *indio_dev,
 			    long m)
 {
 	struct ad9517_state *st = iio_priv(indio_dev);
-	int ret;
 
 	switch (m) {
 	case IIO_CHAN_INFO_RAW:
-		ad9517_out_enable(st, chan->channel, val);
-		break;
+		return ad9517_out_enable(st, chan->channel, val);
 	case IIO_CHAN_INFO_FREQUENCY:
-		switch (chan->channel) {
-		case 0 ... 3:
-			ret = ad9517_out0123_set_frequency(st, chan->channel, val);
-			break;
-		case 4 ... 7:
-			ret = ad9517_out4567_set_frequency(st, chan->channel, val);
-			break;
-		}
-
-		ad9517_write(st->spi, AD9517_TRANSFER, AD9517_TRANSFER_NOW);
-		break;
+		return ad9517_set_frequency(st, chan->channel, val);
 	default:
 		return -EINVAL;
 	}
-
-	return ret;
 }
 
 static const struct iio_info ad9517_info = {
