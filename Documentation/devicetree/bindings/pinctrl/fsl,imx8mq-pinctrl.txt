@@ -1,0 +1,36 @@
+* Freescale i.MX8M Qual IOMUX Controller
+
+Please refer to fsl,imx-pinctrl.txt in this directory for common binding part
+and usage.
+
+Required properties:
+- compatible: "fsl,imx8mq-iomuxc" for IOMUXC controller.
+- fsl,pins: each entry consists of 6 integers and represents the mux and config
+  setting for one pin.  The first 5 integers <mux_reg conf_reg input_reg mux_val
+  input_val> are specified using a PIN_FUNC_ID macro, which can be found in
+  pins-imx8mq.h under device tree source folder.  The last integer CONFIG is
+  the pad setting value like pull-up on this pin.  Please refer to i.MX8M Qual
+  Reference Manual for detailed CONFIG settings.
+
+CONFIG bits definition:
+PAD_CTL_LVTTL                   (1 << 8)
+PAD_CTL_HYS                     (1 << 7)
+PAD_CTL_PUE                     (1 << 6)
+PAD_CTL_ODE                     (1 << 5)
+PAD_CTL_SRE_SLOW                (0 << 3)
+PAD_CTL_SRE_MED                 (1 << 3)
+PAD_CTL_SRE_FAST                (2 << 3)
+PAD_CTL_SRE_MAX                 (3 << 3)
+PAD_CTL_DSE_HIZ                 (0 << 0)
+PAD_CTL_DSE_255                 (1 << 0)
+PAD_CTL_DSE_105                 (2 << 0)
+PAD_CTL_DSE_75                  (3 << 0)
+PAD_CTL_DSE_85                  (4 << 0)
+PAD_CTL_DSE_65                  (5 << 0)
+PAD_CTL_DSE_45                  (6 << 0)
+PAD_CTL_DSE_40                  (7 << 0)
+
+iomuxc: iomuxc@30330000 {
+	compatible = "fsl,imx8mq-iomuxc";
+	reg = <0x0 0x30330000 0x0 0x10000>;
+};
