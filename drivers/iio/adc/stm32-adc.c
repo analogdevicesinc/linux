@@ -1482,10 +1482,6 @@ static int stm32_adc_buffer_postenable(struct iio_dev *indio_dev)
 		goto err_clr_trig;
 	}
 
-	ret = iio_triggered_buffer_postenable(indio_dev);
-	if (ret < 0)
-		goto err_stop_dma;
-
 	/* Reset adc buffer index */
 	adc->bufi = 0;
 
@@ -1496,9 +1492,6 @@ static int stm32_adc_buffer_postenable(struct iio_dev *indio_dev)
 
 	return 0;
 
-err_stop_dma:
-	if (adc->dma_chan)
-		dmaengine_terminate_all(adc->dma_chan);
 err_clr_trig:
 	stm32_adc_set_trig(indio_dev, NULL);
 err_unprepare:
@@ -1516,10 +1509,6 @@ static int stm32_adc_buffer_predisable(struct iio_dev *indio_dev)
 	adc->cfg->stop_conv(adc);
 	if (!adc->dma_chan)
 		stm32_adc_conv_irq_disable(adc);
-
-	ret = iio_triggered_buffer_predisable(indio_dev);
-	if (ret < 0)
-		dev_err(&indio_dev->dev, "predisable failed\n");
 
 	if (adc->dma_chan)
 		dmaengine_terminate_all(adc->dma_chan);
