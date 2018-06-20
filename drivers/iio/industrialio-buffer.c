@@ -962,9 +962,12 @@ static int iio_enable_buffers(struct iio_dev *indio_dev,
 		}
 	}
 
-	ret = iio_trigger_attach_poll_func(indio_dev);
-	if (ret)
-		goto err_disable_buffers;
+	if (indio_dev->currentmode == INDIO_BUFFER_TRIGGERED) {
+		ret = iio_trigger_attach_poll_func(indio_dev->trig,
+						   indio_dev->pollfunc);
+		if (ret)
+			goto err_disable_buffers;
+	}
 
 	return 0;
 
@@ -992,7 +995,10 @@ static int iio_disable_buffers(struct iio_dev *indio_dev)
 	if (list_empty(&indio_dev->buffer_list))
 		return 0;
 
-	iio_trigger_detach_poll_func(indio_dev);
+	if (indio_dev->currentmode == INDIO_BUFFER_TRIGGERED) {
+		iio_trigger_detach_poll_func(indio_dev->trig,
+					     indio_dev->pollfunc);
+	}
 
 	/*
 	 * If things go wrong at some step in disable we still need to continue
