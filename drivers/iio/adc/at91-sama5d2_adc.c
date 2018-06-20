@@ -500,7 +500,7 @@ static int at91_adc_buffer_postenable(struct iio_dev *indio_dev)
 		return ret;
 	}
 
-	return iio_triggered_buffer_postenable(indio_dev);
+	return 0;
 }
 
 static int at91_adc_buffer_predisable(struct iio_dev *indio_dev)
@@ -508,10 +508,6 @@ static int at91_adc_buffer_predisable(struct iio_dev *indio_dev)
 	struct at91_adc_state *st = iio_priv(indio_dev);
 	int ret;
 	u8 bit;
-
-	ret = iio_triggered_buffer_predisable(indio_dev);
-	if (ret < 0)
-		dev_err(&indio_dev->dev, "buffer predisable failed\n");
 
 	if (!st->dma_st.dma_chan)
 		return ret;
