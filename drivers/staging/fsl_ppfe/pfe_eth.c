@@ -1345,6 +1345,17 @@ static int pfe_eth_event_handler(void *data, int event, int qno)
 	return 0;
 }
 
+static int pfe_eth_change_mtu(struct net_device *ndev, int new_mtu)
+{
+	struct pfe_eth_priv_s *priv = netdev_priv(ndev);
+
+	ndev->mtu = new_mtu;
+	new_mtu += ETH_HLEN + ETH_FCS_LEN;
+	gemac_set_rx_max_fl(priv->EMAC_baseaddr, new_mtu);
+
+	return 0;
+}
+
 /* pfe_eth_open
  */
 static int pfe_eth_open(struct net_device *ndev)
@@ -2246,6 +2257,7 @@ static const struct net_device_ops pfe_netdev_ops = {
 	.ndo_set_rx_mode = pfe_eth_set_multi,
 	.ndo_set_mac_address = pfe_eth_set_mac_address,
 	.ndo_validate_addr = eth_validate_addr,
+	.ndo_change_mtu = pfe_eth_change_mtu,
 	.ndo_get_stats = pfe_eth_get_stats,
 	.ndo_set_features = pfe_eth_set_features,
 };

@@ -1017,6 +1017,17 @@ void gemac_enable_1536_rx(void *base)
 		| (1536 << 16), base +	EMAC_RCNTRL_REG);
 }
 
+/* GEMAC set rx Max frame length.
+ * @param[in]	base	GEMAC base address
+ * @param[in]	mtu	new mtu
+ */
+void gemac_set_rx_max_fl(void *base, int mtu)
+{
+	/* Set mtu as Maximum frame length */
+	writel((readl(base + EMAC_RCNTRL_REG) & PFE_RCR_MAX_FL_MASK)
+		| (mtu << 16), base + EMAC_RCNTRL_REG);
+}
+
 /* GEMAC enable jumbo function.
  * @param[in]	base	GEMAC base address
  */

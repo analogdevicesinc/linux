@@ -303,6 +303,7 @@ void gemac_allow_broadcast(void *base);
 void gemac_no_broadcast(void *base);
 void gemac_enable_1536_rx(void *base);
 void gemac_disable_1536_rx(void *base);
+void gemac_set_rx_max_fl(void *base, int mtu);
 void gemac_enable_rx_jmb(void *base);
 void gemac_disable_rx_jmb(void *base);
 void gemac_enable_stacked_vlan(void *base);
