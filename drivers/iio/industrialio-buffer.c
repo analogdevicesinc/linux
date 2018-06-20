@@ -28,7 +28,6 @@
 #include <linux/iio/sysfs.h>
 #include <linux/iio/buffer.h>
 #include <linux/iio/buffer_impl.h>
-#include <linux/iio/trigger.h>
 
 static const char * const iio_endian_prefix[] = {
 	[IIO_BE] = "be",
@@ -954,23 +953,21 @@ static int iio_enable_buffers(struct iio_dev *indio_dev,
 
 	indio_dev->currentmode = config->mode;
 
-	ret = iio_trigger_attach_poll_func(indio_dev);
-	if (ret)
-		goto err_disable_buffers;
-
 	if (indio_dev->setup_ops->postenable) {
 		ret = indio_dev->setup_ops->postenable(indio_dev);
 		if (ret) {
 			dev_dbg(&indio_dev->dev,
 			       "Buffer not started: postenable failed (%d)\n", ret);
-			goto err_detach_pollfunc;
+			goto err_disable_buffers;
 		}
 	}
 
+	ret = iio_trigger_attach_poll_func(indio_dev);
+	if (ret)
+		goto err_disable_buffers;
+
 	return 0;
 
-err_detach_pollfunc:
-	iio_trigger_detach_poll_func(indio_dev);
 err_disable_buffers:
 	list_for_each_entry_continue_reverse(buffer, &indio_dev->buffer_list,
 					     buffer_list)
@@ -995,6 +992,8 @@ static int iio_disable_buffers(struct iio_dev *indio_dev)
 	if (list_empty(&indio_dev->buffer_list))
 		return 0;
 
+	iio_trigger_detach_poll_func(indio_dev);
+
 	/*
 	 * If things go wrong at some step in disable we still need to continue
 	 * to perform the other steps, otherwise we leave the device in a
@@ -1015,8 +1014,6 @@ static int iio_disable_buffers(struct iio_dev *indio_dev)
 	}
 
 	indio_dev->currentmode = INDIO_DIRECT_MODE;
-
-	iio_trigger_detach_poll_func(indio_dev);
 
 	if (indio_dev->setup_ops->postdisable) {
 		ret2 = indio_dev->setup_ops->postdisable(indio_dev);
