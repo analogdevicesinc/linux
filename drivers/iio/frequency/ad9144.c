@@ -127,6 +127,7 @@ static void ad9144_setup_samplerate(struct ad9144_state *st)
 	unsigned long lane_rate_kHz;
 	unsigned int sample_rate;
 	unsigned int serdes_plldiv, serdes_cdr;
+	unsigned int serdes_vco_freq;
 	unsigned int val;
 
 	sample_rate = clk_get_rate(st->conv.clk[1]);
@@ -141,12 +142,31 @@ static void ad9144_setup_samplerate(struct ad9144_state *st)
 	if (lane_rate_kHz < 2880000) {
 		serdes_cdr = 0x0a;
 		serdes_plldiv = 0x06;
+		serdes_vco_freq = lane_rate_kHz * 4;
 	} else if (lane_rate_kHz < 5750000) {
 		serdes_cdr = 0x08;
 		serdes_plldiv = 0x05;
+		serdes_vco_freq = lane_rate_kHz * 2;
 	} else {
 		serdes_cdr = 0x28;
 		serdes_plldiv = 0x04;
+		serdes_vco_freq = lane_rate_kHz;
+	}
+
+	if (st->id == CHIPID_AD9152) {
+		/*
+		 * VCO filter and charge pump setting.
+		 * Based on Table 36 of the AD9152 datasheet Rev. B
+		 */
+		if (serdes_vco_freq < 7150000) {
+			regmap_write(map, 0x296, 0x02);
+			regmap_write(map, 0x291, 0x49);
+			regmap_write(map, 0x28a, 0x7b);
+		} else {
+			regmap_write(map, 0x296, 0x03);
+			regmap_write(map, 0x291, 0x4c);
+			regmap_write(map, 0x28a, 0x2b);
+		}
 	}
 
 	// physical layer
@@ -209,6 +229,26 @@ static const struct reg_sequence ad9144_required_device_config[] = {
 	{ 0x333, 0x01 },
 };
 
+/*
+ * Optimal settings for the SERDES PLL, as per table 39 of the AD9144 datasheet.
+ * and table 16 of the AD9152 datasheet.
+ */
+static const struct reg_sequence ad9144_optimal_serdes_settings[] = {
+	{ 0x284, 0x62 },
+	{ 0x285, 0xc9 },
+	{ 0x286, 0x0e },
+	{ 0x287, 0x12 },
+	{ 0x28b, 0x00 },
+	{ 0x290, 0x89 },
+	{ 0x294, 0x24 },
+	{ 0x297, 0x0d },
+	{ 0x299, 0x02 },
+	{ 0x29a, 0x8e },
+	{ 0x29c, 0x2a },
+	{ 0x29f, 0x78 },
+	{ 0x2a0, 0x06 },
+};
+
 static int ad9144_setup(struct ad9144_state *st,
 		struct ad9144_platform_data *pdata)
 {
@@ -230,27 +270,19 @@ static int ad9144_setup(struct ad9144_state *st,
 		regmap_multi_reg_write(map, ad9144_required_device_config,
 			ARRAY_SIZE(ad9144_required_device_config));
 
-		/* Write optimal settings for the SERDES PLL, as per table 39 of the
-		 * datasheet. */
-		regmap_write(map, 0x284, 0x62);
-		regmap_write(map, 0x285, 0xc9);
-		regmap_write(map, 0x286, 0x0e);
-		regmap_write(map, 0x287, 0x12);
-		regmap_write(map, 0x28a, 0x7b);
-		regmap_write(map, 0x28b, 0x00);
-		regmap_write(map, 0x290, 0x89);
-		regmap_write(map, 0x294, 0x24);
+		/*
+		 * SERDES optimization according to table 39 AD9144 Rev. B
+		 * datasheet.
+		 */
 		regmap_write(map, 0x296, 0x03);
-		regmap_write(map, 0x297, 0x0d);
-		regmap_write(map, 0x299, 0x02);
-		regmap_write(map, 0x29a, 0x8e);
-		regmap_write(map, 0x29c, 0x2a);
-		regmap_write(map, 0x29f, 0x78);
-		regmap_write(map, 0x2a0, 0x06);
+		regmap_write(map, 0x28a, 0x7b);
 
 		regmap_write(map, 0x2b1, 0xb7);	// jesd termination
 		regmap_write(map, 0x2b2, 0x87);	// jesd termination
 	}
+
+	regmap_multi_reg_write(map, ad9144_optimal_serdes_settings,
+		ARRAY_SIZE(ad9144_optimal_serdes_settings));
 
 	// digital data path
 
