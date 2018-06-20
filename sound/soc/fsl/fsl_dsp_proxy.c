@@ -1,8 +1,5 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
 /*******************************************************************************
- *
- * This file is licensed under the terms of the GNU General Public License
- * version 2. This program is licensed "as is" without any warranty of any
- * kind, whether express or implied.
  *
  * Copyright (C) 2017 Cadence Design Systems, Inc.
  * Copyright 2018 NXP
