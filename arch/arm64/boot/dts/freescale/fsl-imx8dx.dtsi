@@ -1121,6 +1121,20 @@
 					power-domains =<&pd_mipi_dsi0>;
 				};
 
+				pd_mipi_dsi_0_aux_lvds: PD_AUX_LVDS0 {
+					reg = <SC_R_LVDS_0>;
+					#power-domain-cells = <0>;
+					power-domains = <&pd_mipi_dsi0>;
+					#address-cells = <1>;
+					#size-cells = <0>;
+
+					pd_mipi_dsi_1_dual_lvds: PD_DUAL_LVDS1 {
+						reg = <SC_R_LVDS_1>;
+						#power-domain-cells = <0>;
+						power-domains = <&pd_mipi_dsi_0_aux_lvds>;
+					};
+				};
+
 				pd_mipi_dsi_0_i2c0: PD_MIPI_0_DSI_I2C0 {
 					reg = <SC_R_MIPI_0_I2C_0>;
 					#power-domain-cells = <0>;
@@ -1149,6 +1163,20 @@
 					reg = <SC_R_LVDS_1>;
 					#power-domain-cells = <0>;
 					power-domains =<&pd_mipi_dsi1>;
+				};
+
+				pd_mipi_dsi_1_aux_lvds: PD_AUX_LVDS1 {
+					reg = <SC_R_LVDS_1>;
+					#power-domain-cells = <0>;
+					power-domains = <&pd_mipi_dsi1>;
+					#address-cells = <1>;
+					#size-cells = <0>;
+
+					pd_mipi_dsi_0_dual_lvds: PD_DUAL_LVDS0 {
+						reg = <SC_R_LVDS_0>;
+						#power-domain-cells = <0>;
+						power-domains = <&pd_mipi_dsi_1_aux_lvds>;
+					};
 				};
 
 				pd_mipi_dsi_1_i2c0: PD_MIPI_1_DSI_I2C0 {
