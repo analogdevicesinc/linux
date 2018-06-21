@@ -101,6 +101,7 @@
 
 #define ENDPOINT_DIR_MASK		0x80
 
+#define ENDPOINT_ZLP_BUF_SIZE		1024
 /*-------------------------------------------------------------------------*/
 
 /**
@@ -193,6 +194,7 @@ struct usb_ss_dev {
 	dma_addr_t trb_ep0_dma;
 	u32 *trb_ep0;
 	u8 *setup;
+	void *zlp_buf;
 
 	struct usb_ss_endpoint *eps[USB_SS_ENDPOINTS_MAX_COUNT];
 	int ep_nums;

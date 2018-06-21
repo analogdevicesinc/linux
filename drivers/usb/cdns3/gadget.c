@@ -1012,6 +1012,9 @@ static int cdns_check_ep_interrupt_proceed(struct usb_ss_endpoint *usb_ss_ep)
 			spin_lock(&usb_ss->lock);
 		}
 
+		if (request->buf == usb_ss->zlp_buf)
+			kfree(request);
+
 		/* handle deferred STALL */
 		if (usb_ss_ep->stalled_flag) {
 			cdns_ep_stall_flush(usb_ss_ep);
@@ -1750,17 +1753,14 @@ static void usb_ss_gadget_ep_free_request(struct usb_ep *ep,
  *
  * Returns 0 on success, error code elsewhere
  */
-static int usb_ss_gadget_ep_queue(struct usb_ep *ep,
+static int __usb_ss_gadget_ep_queue(struct usb_ep *ep,
 		struct usb_request *request, gfp_t gfp_flags)
 {
 	struct usb_ss_endpoint *usb_ss_ep =
 		to_usb_ss_ep(ep);
 	struct usb_ss_dev *usb_ss = usb_ss_ep->usb_ss;
-	unsigned long flags;
 	int ret = 0;
 	int empty_list = 0;
-
-	spin_lock_irqsave(&usb_ss->lock, flags);
 
 	request->actual = 0;
 	request->status = -EINPROGRESS;
@@ -1774,22 +1774,44 @@ static int usb_ss_gadget_ep_queue(struct usb_ep *ep,
 	ret = usb_gadget_map_request_by_dev(usb_ss->sysdev, request,
 			ep->desc->bEndpointAddress & USB_DIR_IN);
 
-	if (ret) {
-		spin_unlock_irqrestore(&usb_ss->lock, flags);
+	if (ret)
 		return ret;
-	}
 
 	empty_list = list_empty(&usb_ss_ep->request_list);
 	list_add_tail(&request->list, &usb_ss_ep->request_list);
 
-	if (!usb_ss->hw_configured_flag) {
-		spin_unlock_irqrestore(&usb_ss->lock, flags);
+	if (!usb_ss->hw_configured_flag)
 		return 0;
-	}
 
 	if (empty_list) {
 		if (!usb_ss_ep->stalled_flag)
 			ret = cdns_ep_run_transfer(usb_ss_ep);
+	}
+
+	return ret;
+}
+
+static int usb_ss_gadget_ep_queue(struct usb_ep *ep,
+		struct usb_request *request, gfp_t gfp_flags)
+{
+	struct usb_ss_endpoint *usb_ss_ep = to_usb_ss_ep(ep);
+	struct usb_ss_dev *usb_ss = usb_ss_ep->usb_ss;
+	struct usb_request *zlp_request;
+	unsigned long flags;
+	int ret;
+
+	spin_lock_irqsave(&usb_ss->lock, flags);
+
+	ret = __usb_ss_gadget_ep_queue(ep, request, gfp_flags);
+	if (ret == 0 && request->zero && request->length &&
+			(request->length % ep->maxpacket == 0)) {
+		zlp_request = usb_ss_gadget_ep_alloc_request(ep, GFP_ATOMIC);
+		zlp_request->length = 0;
+		zlp_request->buf = usb_ss->zlp_buf;
+
+		dev_dbg(&usb_ss->dev, "Queuing ZLP for endpoint: %s\n",
+			usb_ss_ep->name);
+		ret = __usb_ss_gadget_ep_queue(ep, zlp_request, gfp_flags);
 	}
 
 	spin_unlock_irqrestore(&usb_ss->lock, flags);
@@ -2281,6 +2303,12 @@ static int __cdns3_gadget_init(struct cdns3 *cdns)
 		goto err4;
 	}
 
+	usb_ss->zlp_buf = kzalloc(ENDPOINT_ZLP_BUF_SIZE, GFP_KERNEL);
+	if (!usb_ss->zlp_buf) {
+		ret = -ENOMEM;
+		goto err4;
+	}
+
 	return 0;
 err4:
 	dma_free_coherent(usb_ss->sysdev, 8, usb_ss->setup,
@@ -2316,6 +2344,7 @@ void cdns3_gadget_remove(struct cdns3 *cdns)
 			usb_ss->trb_ep0_dma);
 	device_unregister(cdns->gadget_dev);
 	cdns->gadget_dev = NULL;
+	kfree(usb_ss->zlp_buf);
 }
 
 static void __cdns3_gadget_start(struct usb_ss_dev *usb_ss)
