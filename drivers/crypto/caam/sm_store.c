@@ -420,13 +420,17 @@ void sm_key_job_done(struct device *dev, u32 *desc, u32 err, void *context)
 {
 	struct sm_key_job_result *res = context;
 
+	if (err)
+		caam_jr_strstatus(dev, err);
+
 	res->error = err;	/* save off the error for postprocessing */
+
 	complete(&res->completion);	/* mark us complete */
 }
 
 static int sm_key_job(struct device *ksdev, u32 *jobdesc)
 {
-	struct sm_key_job_result testres;
+	struct sm_key_job_result testres = {0};
 	struct caam_drv_private_sm *kspriv;
 	int rtn = 0;
 
@@ -436,10 +440,13 @@ static int sm_key_job(struct device *ksdev, u32 *jobdesc)
 
 	rtn = caam_jr_enqueue(kspriv->smringdev, jobdesc, sm_key_job_done,
 			      &testres);
-	if (!rtn) {
-		wait_for_completion_interruptible(&testres.completion);
-		rtn = testres.error;
-	}
+	if (rtn)
+		goto exit;
+
+	wait_for_completion_interruptible(&testres.completion);
+	rtn = testres.error;
+
+exit:
 	return rtn;
 }
 
