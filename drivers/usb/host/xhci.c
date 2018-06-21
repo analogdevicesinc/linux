@@ -925,7 +925,7 @@ static void xhci_disable_port_wake_on_bits(struct xhci_hcd *xhci)
 
 static bool xhci_pending_portevent(struct xhci_hcd *xhci)
 {
-	__le32 __iomem		**port_array;
+	struct xhci_port	**ports;
 	int			port_index;
 	u32			status;
 	u32			portsc;
@@ -939,18 +939,18 @@ static bool xhci_pending_portevent(struct xhci_hcd *xhci)
 	 * being written to the Event Ring. See note in xhci 1.1 section 4.19.2.
 	 */
 
-	port_index = xhci->num_usb2_ports;
-	port_array = xhci->usb2_ports;
+	port_index = xhci->usb2_rhub.num_ports;
+	ports = xhci->usb2_rhub.ports;
 	while (port_index--) {
-		portsc = readl(port_array[port_index]);
+		portsc = readl(ports[port_index]->addr);
 		if (portsc & PORT_CHANGE_MASK ||
 		    (portsc & PORT_PLS_MASK) == XDEV_RESUME)
 			return true;
 	}
-	port_index = xhci->num_usb3_ports;
-	port_array = xhci->usb3_ports;
+	port_index = xhci->usb3_rhub.num_ports;
+	ports = xhci->usb3_rhub.ports;
 	while (port_index--) {
-		portsc = readl(port_array[port_index]);
+		portsc = readl(ports[port_index]->addr);
 		if (portsc & PORT_CHANGE_MASK ||
 		    (portsc & PORT_PLS_MASK) == XDEV_RESUME)
 			return true;
@@ -3754,7 +3754,6 @@ static void xhci_free_dev(struct usb_hcd *hcd, struct usb_device *udev)
 		virt_dev->eps[i].ep_state &= ~EP_STOP_CMD_PENDING;
 		del_timer_sync(&virt_dev->eps[i].stop_cmd_timer);
 	}
-
 	xhci_debugfs_remove_slot(xhci, udev->slot_id);
 	virt_dev->udev = NULL;
 	ret = xhci_disable_slot(xhci, udev->slot_id);
