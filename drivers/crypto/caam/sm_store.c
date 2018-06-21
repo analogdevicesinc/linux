@@ -869,21 +869,44 @@ int sm_keystore_slot_export(struct device *dev, u32 unit, u32 slot, u8 keycolor,
 	dma_addr_t keymod_dma, outbuf_dma;
 	u32 dsize, jstat;
 	u32 __iomem *encapdesc = NULL;
+	struct device *dev_for_dma_op;
+
+	/* Use the ring as device for DMA operations */
+	dev_for_dma_op = smpriv->smringdev;
 
 	/* Get the base address(es) of the specified slot */
 	slotaddr = (u8 *)smpriv->slot_get_address(dev, unit, slot);
 	slotphys = smpriv->slot_get_physical(dev, unit, slot);
 
-	/* Build/map/flush the key modifier */
+	/* Allocate memory for key modifier compatible with DMA */
 	lkeymod = kmalloc(SECMEM_KEYMOD_LEN, GFP_KERNEL | GFP_DMA);
-	memcpy(lkeymod, keymod, SECMEM_KEYMOD_LEN);
-	keymod_dma = dma_map_single(dev, lkeymod, SECMEM_KEYMOD_LEN,
-				    DMA_TO_DEVICE);
-	dma_sync_single_for_device(dev, keymod_dma, SECMEM_KEYMOD_LEN,
-				   DMA_TO_DEVICE);
+	if (!lkeymod) {
+		retval = (-ENOMEM);
+		goto exit;
+	}
 
-	outbuf_dma = dma_map_single(dev, outbuf, keylen + BLOB_OVERHEAD,
-				    DMA_FROM_DEVICE);
+	/* Get DMA address for the key modifier */
+	keymod_dma = dma_map_single(dev_for_dma_op, lkeymod,
+					SECMEM_KEYMOD_LEN, DMA_TO_DEVICE);
+	if (dma_mapping_error(dev_for_dma_op, keymod_dma)) {
+		dev_err(dev, "unable to map keymod: %p\n", lkeymod);
+		retval = (-ENOMEM);
+		goto free_keymod;
+	}
+
+	/* Copy the keymod and synchronize the DMA */
+	memcpy(lkeymod, keymod, SECMEM_KEYMOD_LEN);
+	dma_sync_single_for_device(dev_for_dma_op, keymod_dma,
+					SECMEM_KEYMOD_LEN, DMA_TO_DEVICE);
+
+	/* Get DMA address for the destination */
+	outbuf_dma = dma_map_single(dev_for_dma_op, outbuf,
+				keylen + BLOB_OVERHEAD, DMA_FROM_DEVICE);
+	if (dma_mapping_error(dev_for_dma_op, outbuf_dma)) {
+		dev_err(dev, "unable to map outbuf: %p\n", outbuf);
+		retval = (-ENOMEM);
+		goto unmap_keymod;
+	}
 
 	/* Build the encapsulation job descriptor */
 	dsize = blob_encap_jobdesc(&encapdesc, keymod_dma, slotphys, outbuf_dma,
@@ -891,20 +914,35 @@ int sm_keystore_slot_export(struct device *dev, u32 unit, u32 slot, u8 keycolor,
 	if (!dsize) {
 		dev_err(dev, "can't alloc an encapsulation descriptor\n");
 		retval = -ENOMEM;
-		goto out;
+		goto unmap_outbuf;
 	}
-	jstat = sm_key_job(dev, encapdesc);
-	dma_sync_single_for_cpu(dev, outbuf_dma, keylen + BLOB_OVERHEAD,
-				DMA_FROM_DEVICE);
-	if (jstat)
-		retval = -EIO;
 
-out:
-	dma_unmap_single(dev, outbuf_dma, keylen + BLOB_OVERHEAD,
-			 DMA_FROM_DEVICE);
-	dma_unmap_single(dev, keymod_dma, SECMEM_KEYMOD_LEN, DMA_TO_DEVICE);
+	/* Run the job */
+	jstat = sm_key_job(dev, encapdesc);
+	if (jstat) {
+		retval = (-EIO);
+		goto free_desc;
+	}
+
+	/* Synchronize the data received */
+	dma_sync_single_for_cpu(dev_for_dma_op, outbuf_dma,
+			keylen + BLOB_OVERHEAD, DMA_FROM_DEVICE);
+
+free_desc:
 	kfree(encapdesc);
 
+unmap_outbuf:
+	dma_unmap_single(dev_for_dma_op, outbuf_dma, keylen + BLOB_OVERHEAD,
+			DMA_FROM_DEVICE);
+
+unmap_keymod:
+	dma_unmap_single(dev_for_dma_op, keymod_dma, SECMEM_KEYMOD_LEN,
+			DMA_TO_DEVICE);
+
+free_keymod:
+	kfree(lkeymod);
+
+exit:
 	return retval;
 }
 EXPORT_SYMBOL(sm_keystore_slot_export);
@@ -920,23 +958,48 @@ int sm_keystore_slot_import(struct device *dev, u32 unit, u32 slot, u8 keycolor,
 	dma_addr_t keymod_dma, inbuf_dma;
 	u32 dsize, jstat;
 	u32 __iomem *decapdesc = NULL;
+	struct device *dev_for_dma_op;
+
+	/* Use the ring as device for DMA operations */
+	dev_for_dma_op = smpriv->smringdev;
 
 	/* Get the base address(es) of the specified slot */
 	slotaddr = (u8 *)smpriv->slot_get_address(dev, unit, slot);
 	slotphys = smpriv->slot_get_physical(dev, unit, slot);
 
-	/* Build/map/flush the key modifier */
+	/* Allocate memory for key modifier compatible with DMA */
 	lkeymod = kmalloc(SECMEM_KEYMOD_LEN, GFP_KERNEL | GFP_DMA);
-	memcpy(lkeymod, keymod, SECMEM_KEYMOD_LEN);
-	keymod_dma = dma_map_single(dev, lkeymod, SECMEM_KEYMOD_LEN,
-				    DMA_TO_DEVICE);
-	dma_sync_single_for_device(dev, keymod_dma, SECMEM_KEYMOD_LEN,
-				   DMA_TO_DEVICE);
+	if (!lkeymod) {
+		retval = (-ENOMEM);
+		goto exit;
+	}
 
-	inbuf_dma = dma_map_single(dev, inbuf, keylen + BLOB_OVERHEAD,
-				   DMA_TO_DEVICE);
-	dma_sync_single_for_device(dev, inbuf_dma, keylen + BLOB_OVERHEAD,
-				   DMA_TO_DEVICE);
+	/* Get DMA address for the key modifier */
+	keymod_dma = dma_map_single(dev_for_dma_op, lkeymod,
+					SECMEM_KEYMOD_LEN, DMA_TO_DEVICE);
+	if (dma_mapping_error(dev_for_dma_op, keymod_dma)) {
+		dev_err(dev, "unable to map keymod: %p\n", lkeymod);
+		retval = (-ENOMEM);
+		goto free_keymod;
+	}
+
+	/* Copy the keymod and synchronize the DMA */
+	memcpy(lkeymod, keymod, SECMEM_KEYMOD_LEN);
+	dma_sync_single_for_device(dev_for_dma_op, keymod_dma,
+					SECMEM_KEYMOD_LEN, DMA_TO_DEVICE);
+
+	/* Get DMA address for the input */
+	inbuf_dma = dma_map_single(dev_for_dma_op, inbuf,
+					keylen + BLOB_OVERHEAD, DMA_TO_DEVICE);
+	if (dma_mapping_error(dev_for_dma_op, inbuf_dma)) {
+		dev_err(dev, "unable to map inbuf: %p\n", (void *)inbuf_dma);
+		retval = (-ENOMEM);
+		goto unmap_keymod;
+	}
+
+	/* synchronize the DMA */
+	dma_sync_single_for_device(dev_for_dma_op, inbuf_dma,
+					keylen + BLOB_OVERHEAD, DMA_TO_DEVICE);
 
 	/* Build the encapsulation job descriptor */
 	dsize = blob_decap_jobdesc(&decapdesc, keymod_dma, inbuf_dma, slotphys,
@@ -944,9 +1007,10 @@ int sm_keystore_slot_import(struct device *dev, u32 unit, u32 slot, u8 keycolor,
 	if (!dsize) {
 		dev_err(dev, "can't alloc a decapsulation descriptor\n");
 		retval = -ENOMEM;
-		goto out;
+		goto unmap_inbuf;
 	}
 
+	/* Run the job */
 	jstat = sm_key_job(dev, decapdesc);
 
 	/*
@@ -955,15 +1019,26 @@ int sm_keystore_slot_import(struct device *dev, u32 unit, u32 slot, u8 keycolor,
 	 * meaningful for something like an ICV error on restore, otherwise
 	 * the caller is left guessing.
 	 */
-	if (jstat)
-		retval = -EIO;
+	if (jstat) {
+		retval = (-EIO);
+		goto free_desc;
+	}
 
-out:
-	dma_unmap_single(dev, inbuf_dma, keylen + BLOB_OVERHEAD,
-			 DMA_TO_DEVICE);
-	dma_unmap_single(dev, keymod_dma, SECMEM_KEYMOD_LEN, DMA_TO_DEVICE);
+free_desc:
 	kfree(decapdesc);
 
+unmap_inbuf:
+	dma_unmap_single(dev_for_dma_op, inbuf_dma, keylen + BLOB_OVERHEAD,
+			DMA_TO_DEVICE);
+
+unmap_keymod:
+	dma_unmap_single(dev_for_dma_op, keymod_dma, SECMEM_KEYMOD_LEN,
+			DMA_TO_DEVICE);
+
+free_keymod:
+	kfree(lkeymod);
+
+exit:
 	return retval;
 }
 EXPORT_SYMBOL(sm_keystore_slot_import);
