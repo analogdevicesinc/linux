@@ -148,7 +148,6 @@
 		spi-cpha;
 		spi-max-frequency = <1000000>;
 		sample-gpios = <&gpio0 86 0>;
-		adi,entirely-configuration-mode-enable;
 	};
 };
 
