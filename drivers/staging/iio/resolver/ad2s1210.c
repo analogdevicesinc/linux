@@ -741,6 +741,7 @@ static int ad2s1210_probe(struct spi_device *spi)
 	st->hysteresis = true;
 	st->mode = MOD_CONFIG;
 	st->resolution = 12;
+	st->fclkin = AD2S1210_DEF_CLKIN;
 	st->fexcit = AD2S1210_DEF_EXCIT;
 
 	ret = ad2s1210_setup_gpios(st);
@@ -762,7 +763,6 @@ static int ad2s1210_probe(struct spi_device *spi)
 	if (ret)
 		return ret;
 
-	st->fclkin = spi->max_speed_hz;
 	spi_setup(spi);
 	ad2s1210_initial(st);
 
