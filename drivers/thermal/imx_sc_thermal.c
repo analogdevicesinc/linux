@@ -221,7 +221,7 @@ static struct platform_driver imx_sc_tsens_driver = {
 		.probe = imx_sc_tsens_probe,
 		.remove = imx_sc_tsens_remove,
 		.driver = {
-			.name = "i.MX-sc-tsens",
+			.name = "imx-sc-thermal",
 			.of_match_table = imx_sc_tsens_table,
 		},
 };
