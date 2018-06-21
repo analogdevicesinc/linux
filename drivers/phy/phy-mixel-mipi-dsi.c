@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 NXP
+ * Copyright 2018 NXP
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -37,11 +37,6 @@
 #define DPHY_CO				0x2c
 #define DPHY_LOCK			0x30
 #define DPHY_LOCK_BYP			0x34
-#define DPHY_TX_RCAL			0x38
-#define DPHY_AUTO_PD_EN			0x3c
-#define DPHY_RXLPRP			0x40
-#define DPHY_RXCDRP			0x44
-#define DPHY_M_PRG_RXHS_SETTLE		0x48
 
 #define MBPS(x) ((x) * 1000000)
 
@@ -68,19 +63,26 @@ struct pll_divider {
 	u32 co;
 };
 
+struct devtype {
+	bool have_sc;
+	u8 reg_tx_rcal;
+	u8 reg_auto_pd_en;
+	u8 reg_rxlprp;
+	u8 reg_rxcdrp;
+	u8 reg_rxhs_settle;
+	u8 reg_bypass_pll;
+};
+
 struct mixel_mipi_phy_priv {
 	struct device	*dev;
 	void __iomem	*base;
-	bool		have_sc;
+	const struct devtype	*plat_data;
 	sc_rsrc_t	mipi_id;
 	struct pll_divider divider;
 	struct mutex	lock;
 	unsigned long	data_rate;
 };
 
-struct devtype {
-	bool have_sc;
-};
 
 static inline u32 phy_read(struct phy *phy, unsigned int reg)
 {
@@ -262,13 +264,15 @@ static void mixel_phy_set_prg_regs(struct phy *phy)
 		phy_write(phy, 0x0F, DPHY_M_PRG_HS_TRAIL);
 	}
 
-	/* M_PRG_HS_ZERO */
+	/* M_PRG_RXHS_SETTLE */
+	if (priv->plat_data->reg_rxhs_settle == 0xFF)
+		return;
 	if (priv->data_rate < MBPS(250))
-		phy_write(phy, 0x0B, DPHY_M_PRG_RXHS_SETTLE);
+		phy_write(phy, 0x0B, priv->plat_data->reg_rxhs_settle);
 	else if (priv->data_rate < MBPS(500))
-		phy_write(phy, 0x08, DPHY_M_PRG_RXHS_SETTLE);
+		phy_write(phy, 0x08, priv->plat_data->reg_rxhs_settle);
 	else
-		phy_write(phy, 0x06, DPHY_M_PRG_RXHS_SETTLE);
+		phy_write(phy, 0x06, priv->plat_data->reg_rxhs_settle);
 
 }
 
@@ -284,10 +288,14 @@ static int mixel_mipi_phy_init(struct phy *phy)
 	mixel_phy_set_prg_regs(phy);
 
 	phy_write(phy, 0x00, DPHY_LOCK_BYP);
-	phy_write(phy, 0x01, DPHY_TX_RCAL);
-	phy_write(phy, 0x00, DPHY_AUTO_PD_EN);
-	phy_write(phy, 0x01, DPHY_RXLPRP);
-	phy_write(phy, 0x01, DPHY_RXCDRP);
+	if (priv->plat_data->reg_tx_rcal != 0xFF)
+		phy_write(phy, 0x01, priv->plat_data->reg_tx_rcal);
+	if (priv->plat_data->reg_auto_pd_en != 0xFF)
+		phy_write(phy, 0x00, priv->plat_data->reg_auto_pd_en);
+	if (priv->plat_data->reg_rxlprp != 0xFF)
+		phy_write(phy, 0x02, priv->plat_data->reg_rxlprp);
+	if (priv->plat_data->reg_rxcdrp != 0xFF)
+		phy_write(phy, 0x02, priv->plat_data->reg_rxcdrp);
 	phy_write(phy, 0x25, DPHY_TST);
 
 	/* VCO = REF_CLK * CM / CN * CO */
@@ -344,7 +352,7 @@ static int mixel_mipi_phy_power_on(struct phy *phy)
 
 	phy_write(phy, PWR_ON, DPHY_PD_DPHY);
 
-	if (priv->have_sc)
+	if (priv->plat_data->have_sc)
 		ret = mixel_mipi_phy_enable(phy, 1);
 
 	mutex_unlock(&priv->lock);
@@ -362,7 +370,7 @@ static int mixel_mipi_phy_power_off(struct phy *phy)
 	phy_write(phy, PWR_OFF, DPHY_PD_PLL);
 	phy_write(phy, PWR_OFF, DPHY_PD_DPHY);
 
-	if (priv->have_sc)
+	if (priv->plat_data->have_sc)
 		ret = mixel_mipi_phy_enable(phy, 0);
 
 	mutex_unlock(&priv->lock);
@@ -378,9 +386,33 @@ static const struct phy_ops mixel_mipi_phy_ops = {
 	.owner = THIS_MODULE,
 };
 
-static struct devtype imx8qm_dev = { .have_sc = true };
-static struct devtype imx8qxp_dev = { .have_sc = true };
-static struct devtype imx8mq_dev = { .have_sc = false };
+static struct devtype imx8qm_dev = {
+	.have_sc = true,
+	.reg_tx_rcal = 0xFF,
+	.reg_auto_pd_en = 0x38,
+	.reg_rxlprp = 0x3c,
+	.reg_rxcdrp = 0x40,
+	.reg_rxhs_settle = 0x44,
+	.reg_bypass_pll = 0xFF,
+};
+static struct devtype imx8qxp_dev = {
+	.have_sc = true,
+	.reg_tx_rcal = 0xFF,
+	.reg_auto_pd_en = 0x38,
+	.reg_rxlprp = 0x3c,
+	.reg_rxcdrp = 0x40,
+	.reg_rxhs_settle = 0x44,
+	.reg_bypass_pll = 0xFF,
+};
+static struct devtype imx8mq_dev = {
+	.have_sc = false,
+	.reg_tx_rcal = 0x38,
+	.reg_auto_pd_en = 0x3c,
+	.reg_rxlprp = 0x40,
+	.reg_rxcdrp = 0x44,
+	.reg_rxhs_settle = 0x48,
+	.reg_bypass_pll = 0x4c,
+};
 
 static const struct of_device_id mixel_mipi_phy_of_match[] = {
 	{ .compatible = "mixel,imx8qm-mipi-dsi-phy", .data = &imx8qm_dev },
@@ -396,7 +428,6 @@ static int mixel_mipi_phy_probe(struct platform_device *pdev)
 	struct device_node *np = dev->of_node;
 	const struct of_device_id *of_id =
 		of_match_device(mixel_mipi_phy_of_match, dev);
-	const struct devtype *devtype = of_id->data;
 	struct phy_provider *phy_provider;
 	struct mixel_mipi_phy_priv *priv;
 	struct resource *res;
@@ -418,7 +449,7 @@ static int mixel_mipi_phy_probe(struct platform_device *pdev)
 	if (IS_ERR(priv->base))
 		return PTR_ERR(priv->base);
 
-	priv->have_sc = devtype->have_sc;
+	priv->plat_data = of_id->data;
 
 	phy_id = of_alias_get_id(np, "dsi_phy");
 	if (phy_id < 0) {
