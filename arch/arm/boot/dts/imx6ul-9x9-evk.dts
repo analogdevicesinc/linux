@@ -242,7 +242,7 @@
 };
 
 &gpc {
-	fsl,cpu_pupscr_sw2iso = <0x1>;
+	fsl,cpu_pupscr_sw2iso = <0xf>;
 	fsl,cpu_pupscr_sw = <0x0>;
 	fsl,cpu_pdnscr_iso2sw = <0x1>;
 	fsl,cpu_pdnscr_iso = <0x1>;
