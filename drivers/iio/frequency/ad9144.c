@@ -119,11 +119,6 @@ static void ad9144_set_nco_freq(struct ad9144_state *st, uint32_t sample_rate,
 		regmap_write(st->map, 0x113, 1);
 }
 
-// static int ad9144_get_fifo_status(struct cf_axi_converter *conv)
-// {
-//      return 0;
-// }
-
 static void ad9144_setup_samplerate(struct ad9144_state *st)
 {
 	struct regmap *map = st->map;
