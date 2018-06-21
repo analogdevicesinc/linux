@@ -60,6 +60,7 @@ enum ad2s1210_mode {
 	MOD_VEL,
 	MOD_CONFIG,
 	MOD_RESERVED,
+	MOD_CONFIG_ONLY,
 };
 
 enum ad2s1210_gpios {
@@ -107,6 +108,9 @@ static const int ad2s1210_mode_vals[4][2] = {
 static inline void ad2s1210_set_mode(enum ad2s1210_mode mode,
 				     struct ad2s1210_state *st)
 {
+	if (st->mode == MOD_CONFIG_ONLY)
+		return;
+
 	gpiod_set_value(st->gpios[AD2S1210_A0], ad2s1210_mode_vals[mode][0]);
 	gpiod_set_value(st->gpios[AD2S1210_A1], ad2s1210_mode_vals[mode][1]);
 	st->mode = mode;
@@ -179,6 +183,9 @@ static const int ad2s1210_res_pins[4][2] = {
 
 static inline void ad2s1210_set_resolution_pin(struct ad2s1210_state *st)
 {
+	if (st->mode == MOD_CONFIG_ONLY)
+		return;
+
 	gpiod_set_value(st->gpios[AD2S1210_RES0],
 			ad2s1210_res_pins[(st->resolution - 10) / 2][0]);
 	gpiod_set_value(st->gpios[AD2S1210_RES1],
@@ -467,6 +474,7 @@ static int ad2s1210_read_raw(struct iio_dev *indio_dev,
 	int ret = 0;
 	u16 pos;
 	s16 vel;
+	unsigned char addr;
 
 	mutex_lock(&st->lock);
 	gpiod_set_value(st->gpios[AD2S1210_SAMPLE], 0);
@@ -475,10 +483,16 @@ static int ad2s1210_read_raw(struct iio_dev *indio_dev,
 
 	switch (chan->type) {
 	case IIO_ANGL:
-		ad2s1210_set_mode(MOD_POS, st);
+		if (st->mode == MOD_CONFIG_ONLY)
+			addr = AD2S1210_REG_POSITION;
+		else
+			ad2s1210_set_mode(MOD_POS, st);
 		break;
 	case IIO_ANGL_VEL:
-		ad2s1210_set_mode(MOD_VEL, st);
+		if (st->mode == MOD_CONFIG_ONLY)
+			addr = AD2S1210_REG_VELOCITY;
+		else
+			ad2s1210_set_mode(MOD_VEL, st);
 		break;
 	default:
 		ret = -EINVAL;
@@ -486,9 +500,15 @@ static int ad2s1210_read_raw(struct iio_dev *indio_dev,
 	}
 	if (ret < 0)
 		goto error_ret;
-	ret = spi_read(st->sdev, st->rx, 2);
-	if (ret < 0)
-		goto error_ret;
+
+	if (st->mode == MOD_CONFIG_ONLY) {
+		st->rx[0] = ad2s1210_config_read(st, addr);
+		st->rx[1] = ad2s1210_config_read(st, addr + 1);
+	} else {
+		ret = spi_read(st->sdev, st->rx, 2);
+		if (ret < 0)
+			goto error_ret;
+	}
 
 	switch (chan->type) {
 	case IIO_ANGL:
@@ -631,11 +651,13 @@ static const struct iio_info ad2s1210_info = {
 static int ad2s1210_setup_gpios(struct ad2s1210_state *st)
 {
 	struct spi_device *spi = st->sdev;
+	bool have_one_gpio = false;
 	int i, ret;
 
 	for (i = 0; i < ARRAY_SIZE(gpios); i++) {
-		st->gpios[i] = devm_gpiod_get(&spi->dev, gpios[i].name,
-					      gpios[i].flags);
+		st->gpios[i] = devm_gpiod_get_optional(&spi->dev,
+						       gpios[i].name,
+						       gpios[i].flags);
 		if (IS_ERR(st->gpios[i])) {
 			ret = PTR_ERR(st->gpios[i]);
 			dev_err(&spi->dev,
@@ -643,7 +665,12 @@ static int ad2s1210_setup_gpios(struct ad2s1210_state *st)
 				gpios[i].name, ret);
 			return ret;
 		}
+		if (!st->gpios[i])
+			have_one_gpio = true;
 	}
+
+	if (!have_one_gpio)
+		st->mode = MOD_CONFIG_ONLY;
 
 	return 0;
 }
