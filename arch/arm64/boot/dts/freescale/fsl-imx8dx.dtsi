@@ -1792,7 +1792,7 @@
 			 <&clk IMX8QXP_MIPI1_LVDS_PIXEL_CLK>,
 			 <&clk IMX8QXP_MIPI1_LVDS_BYPASS_CLK>;
 		clock-names = "pixel", "bypass", "aux_pixel", "aux_bypass";
-		power-domains = <&pd_mipi_dsi_0_lvds>, <&pd_mipi_dsi_1_lvds>;
+		power-domains = <&pd_mipi_dsi_0_lvds>;
 		gpr = <&lvds_region1>;
 		aux-gpr = <&lvds_region2>;
 		status = "disabled";
@@ -1968,7 +1968,7 @@
 			 <&clk IMX8QXP_MIPI0_LVDS_PIXEL_CLK>,
 			 <&clk IMX8QXP_MIPI0_LVDS_BYPASS_CLK>;
 		clock-names = "pixel", "bypass", "aux_pixel", "aux_bypass";
-		power-domains = <&pd_mipi_dsi_1_lvds>, <&pd_mipi_dsi_0_lvds>;
+		power-domains = <&pd_mipi_dsi_1_lvds>;
 		gpr = <&lvds_region2>;
 		aux-gpr = <&lvds_region1>;
 		status = "disabled";
