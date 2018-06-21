@@ -29,6 +29,7 @@
 
 &ldb2 {
 	fsl,dual-channel;
+	power-domains = <&pd_mipi_dsi_1_dual_lvds>;
 
 	lvds-channel@0 {
 		fsl,data-mapping = "spwg";

@@ -26,4 +26,5 @@
 
 &ldb2 {
 	fsl,dual-channel;
+	power-domains = <&pd_mipi_dsi_1_dual_lvds>;
 };
