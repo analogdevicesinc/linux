@@ -346,7 +346,7 @@ static const struct regulator_desc bd71837_regulators[] = {
 		.vsel_reg = BD71837_REG_LDO1_VOLT,
 		.vsel_mask = LDO1_MASK,
 		.enable_reg = BD71837_REG_LDO1_VOLT,
-		.enable_mask = LDO1_SEL|LDO1_EN,
+		.enable_mask = LDO1_EN,
 		.owner = THIS_MODULE,
 	},
 	/*
@@ -361,7 +361,7 @@ static const struct regulator_desc bd71837_regulators[] = {
 		.n_voltages = BD71837_LDO2_VOLTAGE_NUM,
 		.min_uV = 900000,
 		.enable_reg = BD71837_REG_LDO2_VOLT,
-		.enable_mask = LDO2_SEL|LDO2_EN,
+		.enable_mask = LDO2_EN,
 		.owner = THIS_MODULE,
 	},
 	{
@@ -375,7 +375,7 @@ static const struct regulator_desc bd71837_regulators[] = {
 		.vsel_reg = BD71837_REG_LDO3_VOLT,
 		.vsel_mask = LDO3_MASK,
 		.enable_reg = BD71837_REG_LDO3_VOLT,
-		.enable_mask = LDO3_SEL|LDO3_EN,
+		.enable_mask = LDO3_EN,
 		.owner = THIS_MODULE,
 	},
 	{
@@ -389,7 +389,7 @@ static const struct regulator_desc bd71837_regulators[] = {
 		.vsel_reg = BD71837_REG_LDO4_VOLT,
 		.vsel_mask = LDO4_MASK,
 		.enable_reg = BD71837_REG_LDO4_VOLT,
-		.enable_mask = LDO4_SEL|LDO4_EN,
+		.enable_mask = LDO4_EN,
 		.owner = THIS_MODULE,
 	},
 	{
@@ -859,24 +859,6 @@ static int bd71837_probe(struct platform_device *pdev)
 	err = bd71837_reg_write(bd71837, BD71837_REG_REGLOCK, 0x0);
 	if (err != 0) {
 		dev_err(&pdev->dev, "Failed to write LOCK register(%d)\n", err);
-		goto err;
-	}
-	/* Enable LDO5 */
-	err = bd71837_set_bits(bd71837, BD71837_REG_LDO5_VOLT, LDO5_EN);
-	if (err != 0) {
-		dev_err(&pdev->dev, "Failed to enable LDO5 register(%d)\n", err);
-		goto err;
-	}
-	/* Enable LDO6 */
-	err = bd71837_set_bits(bd71837, BD71837_REG_LDO6_VOLT, LDO6_EN);
-	if (err != 0) {
-		dev_err(&pdev->dev, "Failed to enable LDO6 register(%d)\n", err);
-		goto err;
-	}
-	/* Enable LDO7 */
-	err = bd71837_set_bits(bd71837, BD71837_REG_LDO7_VOLT, LDO7_EN);
-	if (err != 0) {
-		dev_err(&pdev->dev, "Failed to enable LDO7 register(%d)\n", err);
 		goto err;
 	}
 
