@@ -563,6 +563,10 @@ static int imx8qm_clk_probe(struct platform_device *pdev)
 	clks[IMX8QM_ROMCP_CLK] = imx_clk_gate2_scu("romcp_clk", "lsio_mem_clk_root", LPCG_ADDR(ROMCP_LPCG), 0x0, FUNCTION_NAME(PD_LSIO));
 	clks[IMX8QM_96KROM_CLK] = imx_clk_gate2_scu("96krom_clk", "lsio_mem_clk_root", LPCG_ADDR(ROMCP_LPCG), 0x4, FUNCTION_NAME(PD_LSIO));
 
+	clks[IMX8QM_LSIO_MU5A_IPG_S_CLK] = imx_clk_gate2_scu("mu5_a_ipg_s_clk", "lsio_bus_clk_root", LPCG_ADDR(MU_5A_LPCG), 0x10, FUNCTION_NAME(PD_LSIO_MU5A));
+	clks[IMX8QM_LSIO_MU5A_IPG_CLK] = imx_clk_gate2_scu("mu5_a_ipg_clk", "mu5_a_ipg_s_clk",  LPCG_ADDR(MU_5A_LPCG), 0x0, FUNCTION_NAME(PD_LSIO_MU5A));
+	clks[IMX8QM_LSIO_MU6A_IPG_S_CLK] = imx_clk_gate2_scu("mu6_a_ipg_s_clk", "lsio_bus_clk_root", LPCG_ADDR(MU_6A_LPCG), 0x10, FUNCTION_NAME(PD_LSIO_MU6A));
+	clks[IMX8QM_LSIO_MU6A_IPG_CLK] = imx_clk_gate2_scu("mu6_a_ipg_clk", "mu6_a_ipg_s_clk",  LPCG_ADDR(MU_6A_LPCG), 0x0, FUNCTION_NAME(PD_LSIO_MU6A));
 	/* Audio */
 	clks[IMX8QM_AUD_ACM_AUD_PLL_CLK0_CLK] = imx_clk_gate_scu("aud_acm_aud_pll_clk0_clk", "aud_acm_aud_pll_clk0_div", SC_R_AUDIO_PLL_0, SC_PM_CLK_MISC0, LPCG_ADDR(AUD_PLL_CLK0_LPCG), 0, 0);
 	clks[IMX8QM_AUD_ACM_AUD_PLL_CLK1_CLK] = imx_clk_gate_scu("aud_acm_aud_pll_clk1_clk", "aud_acm_aud_pll_clk1_div", SC_R_AUDIO_PLL_1, SC_PM_CLK_MISC0, LPCG_ADDR(AUD_PLL_CLK1_LPCG), 0, 0);
