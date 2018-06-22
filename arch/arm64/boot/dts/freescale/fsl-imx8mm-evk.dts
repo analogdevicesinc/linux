@@ -492,7 +492,7 @@
 		#size-cells = <1>;
 		compatible = "micron,mt25qu256aba";
 		spi-max-frequency = <29000000>;
-		spi-nor,ddr-quad-read-dummy = <8>;
+		spi-nor,ddr-quad-read-dummy = <6>;
 	};
 };
 
