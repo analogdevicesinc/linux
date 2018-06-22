@@ -670,7 +670,7 @@ static int v4l2_enc_g_ctrl(struct v4l2_ctrl *ctrl)
 
 	switch (ctrl->id) {
 	case V4L2_CID_MIN_BUFFERS_FOR_OUTPUT:
-		ctrl->val = 6;
+		ctrl->val = MIN_BUFFER_COUNT;
 		break;
 	default:
 		vpu_dbg(LVL_INFO, "%s() Invalid control(%d)\n",
@@ -712,7 +712,7 @@ static void vpu_encoder_ctrls(struct vpu_ctx *ctx)
 	v4l2_ctrl_new_std(&ctx->ctrl_handler, &vpu_enc_ctrl_ops,
 		V4L2_CID_MPEG_VIDEO_H264_B_FRAME_QP, 0, 51, 1, 25);
 	v4l2_ctrl_new_std(&ctx->ctrl_handler, &vpu_enc_ctrl_ops,
-		V4L2_CID_MIN_BUFFERS_FOR_OUTPUT, 0, 32, 1, 6);
+		V4L2_CID_MIN_BUFFERS_FOR_OUTPUT, 0, 32, 1, MIN_BUFFER_COUNT);
 }
 
 static int ctrls_setup_encoder(struct vpu_ctx *ctx)

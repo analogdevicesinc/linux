@@ -29,7 +29,6 @@
         clocks = <&clk IMX8QXP_VPU_DEC_CLK>;
         clock-names = "vpu_clk";
         assigned-clocks = <&clk IMX8QXP_VPU_DEC_CLK>;
-        assigned-clock-rates = <600000000>;
         power-domains = <&pd_vpu_dec>;
         status = "disabled";
     };

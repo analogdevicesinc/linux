@@ -404,7 +404,10 @@ static void caculate_frame_size(struct vpu_ctx *ctx)
 	q_data->stride = width;
 
 	height = ((height + uVertAlign) & ~uVertAlign);
-	chroma_height = height >> 1;
+	if (ctx->pSeqinfo->uProgressive)
+		chroma_height = height >> 1;
+	else
+		chroma_height = height;
 	luma_size = width * height;
 	chroma_size = width * chroma_height;
 	ctx->q_data[V4L2_DST].sizeimage[0] = luma_size;
@@ -1499,10 +1502,10 @@ static void vpu_api_event_handler(struct vpu_ctx *ctx, u_int32 uStrIdx, u_int32 
 			vpu_dbg(LVL_ERR, "error: buffer(%d) need to set FRAME_DECODED, but previous state %s is not FRAME_FREE\n",
 					buffer_id, bufstat[ctx->q_data[V4L2_DST].vb2_reqs[buffer_id].status]);
 		ctx->q_data[V4L2_DST].vb2_reqs[buffer_id].status = FRAME_DECODED;
-		if ((pDispInfo->bTopFldFirst == 1) && (pPicInfo[uStrIdx].uPicStruct == 2))//uPicStruct == 2 is field
-			ctx->q_data[V4L2_DST].vb2_reqs[buffer_id].bfield = true;
-		else
+		if (ctx->pSeqinfo->uProgressive == 1)
 			ctx->q_data[V4L2_DST].vb2_reqs[buffer_id].bfield = false;
+		else
+			ctx->q_data[V4L2_DST].vb2_reqs[buffer_id].bfield = true;
 		}
 		break;
 	case VID_API_EVENT_SEQ_HDR_FOUND: {
@@ -1658,8 +1661,10 @@ static void vpu_api_event_handler(struct vpu_ctx *ctx, u_int32 uStrIdx, u_int32 
 					if (p_data_req->status == FRAME_RELEASE)
 						break;
 				}
+				if (ctx->firmware_finished)
+					break;
 				if (i == VPU_MAX_BUFFER) {
-					vpu_dbg(LVL_ERR, "error: don't find buffer when wait_rst_done is true\n"); //wait_rst_done is true when streamoff or v4l2_release is called
+					vpu_dbg(LVL_ERR, "error: don't find buffer when wait_rst_done is true, ctx->firmware_stopped=%dfin=%d\n", ctx->firmware_stopped, ctx->firmware_finished); //wait_rst_done is true when streamoff or v4l2_release is called
 					break;
 				}
 
@@ -2388,6 +2393,7 @@ static int v4l2_open(struct file *filp)
 	ctx->mbi_count = 0;
 	ctx->mbi_num = 0;
 	ctx->mbi_size = 0;
+#ifdef DYNAMIC_MEM
 	ctx->stream_buffer_size = MAX_BUFFER_SIZE;
 	ctx->stream_buffer_virt = dma_alloc_coherent(&ctx->dev->plat_dev->dev,
 			ctx->stream_buffer_size,
@@ -2399,6 +2405,11 @@ static int v4l2_open(struct file *filp)
 	else
 		vpu_dbg(LVL_INFO, "%s() stream_buffer_size(%d) stream_buffer_virt(%p) stream_buffer_phy(%p), index(%d)\n",
 				__func__, ctx->stream_buffer_size, ctx->stream_buffer_virt, (void *)ctx->stream_buffer_phy, ctx->str_index);
+#else
+	ctx->stream_buffer_size = dev->str_size/VPU_MAX_NUM_STREAMS;
+	ctx->stream_buffer_phy = dev->str_base_phy + ctx->str_index * ctx->stream_buffer_size;
+	ctx->stream_buffer_virt = dev->str_base_vir + ctx->str_index * ctx->stream_buffer_size;
+#endif
 	ctx->udata_buffer_size = UDATA_BUFFER_SIZE;
 	ctx->udata_buffer_virt = dma_alloc_coherent(&ctx->dev->plat_dev->dev,
 			ctx->udata_buffer_size,
@@ -2476,12 +2487,14 @@ static int v4l2_release(struct file *filp)
 				ctx->mbi_dma_virt[i],
 				ctx->mbi_dma_phy[i]
 				);
+#ifdef DYNAMIC_MEM
 	if (ctx->stream_buffer_virt)
 		dma_free_coherent(&ctx->dev->plat_dev->dev,
 				ctx->stream_buffer_size,
 				ctx->stream_buffer_virt,
 				ctx->stream_buffer_phy
 				);
+#endif
 	if (ctx->udata_buffer_virt)
 		dma_free_coherent(&ctx->dev->plat_dev->dev,
 				ctx->udata_buffer_size,
@@ -2778,6 +2791,20 @@ static int vpu_probe(struct platform_device *pdev)
 			return -EINVAL;
 		}
 		dev->m0_rpc_phy = reserved_res.start;
+#ifndef DYNAMIC_MEM
+		reserved_node = of_parse_phandle(np, "str-region", 0);
+		if (!reserved_node) {
+			vpu_dbg(LVL_ERR, "error: str-region of_parse_phandle error\n");
+			return -ENODEV;
+		}
+
+		if (of_address_to_resource(reserved_node, 0, &reserved_res)) {
+			vpu_dbg(LVL_ERR, "error: str-region of_address_to_resource error\n");
+			return -EINVAL;
+		}
+		dev->str_base_phy = reserved_res.start;
+		dev->str_size = resource_size(&reserved_res);
+#endif
 	} else
 		vpu_dbg(LVL_ERR, "error: %s of_node is NULL\n", __func__);
 
@@ -2881,6 +2908,17 @@ static int vpu_probe(struct platform_device *pdev)
 	}
 
 	memset_io(dev->m0_rpc_virt, 0, SHARED_SIZE);
+#ifndef DYNAMIC_MEM
+	dev->str_base_vir = ioremap_wc(dev->str_base_phy,
+			dev->str_size
+			);
+	if (!dev->str_base_vir) {
+		vpu_dbg(LVL_ERR, "error: failed to remap space for stream memory\n");
+		return -ENOMEM;
+	}
+
+	memset_io(dev->str_base_vir, 0, dev->str_size);
+#endif
 #ifdef CM4
 	rpc_init_shared_memory(&dev->shared_mem, dev->m0_rpc_phy, dev->m0_rpc_virt, SHARED_SIZE);
 #else

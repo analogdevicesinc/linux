@@ -104,6 +104,10 @@
 			no-map;
 			reg = <0 0x92400000 0 0x2000000>;
 		};
+		decoder_str: str@0x94400000 {
+			no-map;
+			reg = <0 0x94400000 0 0x1800000>;
+		};
 		/* global autoconfigured region for contiguous allocations */
 		linux,cma {
 			compatible = "shared-dma-pool";
@@ -3246,6 +3250,7 @@
 		compatible = "nxp,imx8qm-b0-vpudec", "nxp,imx8qxp-b0-vpudec";
 		boot-region = <&decoder_boot>;
 		rpc-region = <&decoder_rpc>;
+		str-region = <&decoder_str>;
 		reg = <0x0 0x2c000000 0x0 0x1000000>;
 		reg-names = "vpu_regs";
 		clocks = <&clk IMX8QXP_VPU_DEC_CLK>;
@@ -3264,7 +3269,6 @@
 		clocks = <&clk IMX8QXP_VPU_ENC_CLK>;
 		clock-names = "vpu_encoder_clk";
 		assigned-clocks = <&clk IMX8QXP_VPU_ENC_CLK>;
-		assigned-clock-rates = <600000000>;
 		power-domains = <&pd_vpu_enc>;
 		status = "disabled";
 	};
