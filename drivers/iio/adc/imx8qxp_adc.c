@@ -17,6 +17,7 @@
 #include <linux/kernel.h>
 #include <linux/delay.h>
 #include <linux/module.h>
+#include <linux/pm_runtime.h>
 #include <linux/platform_device.h>
 #include <linux/regulator/consumer.h>
 
@@ -400,6 +401,8 @@ static int imx8qxp_adc_read_raw(struct iio_dev *indio_dev,
 
 	switch (mask) {
 	case IIO_CHAN_INFO_RAW:
+		pm_runtime_get_sync(adc->dev);
+
 		mutex_lock(&indio_dev->mlock);
 		reinit_completion(&adc->completion);
 
@@ -417,6 +420,10 @@ static int imx8qxp_adc_read_raw(struct iio_dev *indio_dev,
 
 		ret = wait_for_completion_interruptible_timeout
 				(&adc->completion, IMX8QXP_ADC_TIMEOUT);
+
+		pm_runtime_mark_last_busy(adc->dev);
+		pm_runtime_put_sync_autosuspend(adc->dev);
+
 		if (ret == 0) {
 			mutex_unlock(&indio_dev->mlock);
 			return -ETIMEDOUT;
@@ -480,7 +487,12 @@ static int imx8qxp_adc_reg_access(struct iio_dev *indio_dev,
 	if (!readval || reg % 4 || reg > IMX8QXP_REG_ADC_TST)
 		return -EINVAL;
 
+	pm_runtime_get_sync(adc->dev);
+
 	*readval = readl(adc->regs + reg);
+
+	pm_runtime_mark_last_busy(adc->dev);
+	pm_runtime_put_sync_autosuspend(adc->dev);
 
 	return 0;
 }
@@ -602,6 +614,11 @@ static int imx8qxp_adc_probe(struct platform_device *pdev)
 		goto error_iio_device_register;
 	}
 
+	pm_runtime_set_active(&pdev->dev);
+	pm_runtime_set_autosuspend_delay(&pdev->dev, 50);
+	pm_runtime_use_autosuspend(&pdev->dev);
+	pm_runtime_enable(&pdev->dev);
+
 	return 0;
 
 error_iio_device_register:
@@ -619,6 +636,8 @@ static int imx8qxp_adc_remove(struct platform_device *pdev)
 	struct iio_dev *indio_dev = platform_get_drvdata(pdev);
 	struct imx8qxp_adc *adc = iio_priv(indio_dev);
 
+	pm_runtime_get_sync(&pdev->dev);
+
 	iio_device_unregister(indio_dev);
 
 	imx8qxp_adc_disable(adc);
@@ -627,10 +646,14 @@ static int imx8qxp_adc_remove(struct platform_device *pdev)
 	clk_disable_unprepare(adc->ipg_clk);
 	regulator_disable(adc->vref);
 
+	pm_runtime_disable(&pdev->dev);
+	pm_runtime_put_noidle(&pdev->dev);
+
+
 	return 0;
 }
 
-static int __maybe_unused imx8qxp_adc_suspend(struct device *dev)
+static int imx8qxp_adc_runtime_suspend(struct device *dev)
 {
 	struct iio_dev *indio_dev = dev_get_drvdata(dev);
 	struct imx8qxp_adc *adc = iio_priv(indio_dev);
@@ -644,7 +667,7 @@ static int __maybe_unused imx8qxp_adc_suspend(struct device *dev)
 	return 0;
 }
 
-static int __maybe_unused imx8qxp_adc_resume(struct device *dev)
+static int imx8qxp_adc_runtime_resume(struct device *dev)
 {
 	struct iio_dev *indio_dev = dev_get_drvdata(dev);
 	struct imx8qxp_adc *adc = iio_priv(indio_dev);
@@ -679,7 +702,10 @@ static int __maybe_unused imx8qxp_adc_resume(struct device *dev)
 	return 0;
 }
 
-static SIMPLE_DEV_PM_OPS(imx8qxp_adc_pm_ops, imx8qxp_adc_suspend, imx8qxp_adc_resume);
+static const struct dev_pm_ops imx8qxp_adc_pm_ops = {
+	SET_SYSTEM_SLEEP_PM_OPS(pm_runtime_force_suspend, pm_runtime_force_resume)
+	SET_RUNTIME_PM_OPS(imx8qxp_adc_runtime_suspend, imx8qxp_adc_runtime_resume, NULL)
+};
 
 static struct platform_driver imx8qxp_adc_driver = {
 	.probe		= imx8qxp_adc_probe,
