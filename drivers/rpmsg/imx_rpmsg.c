@@ -39,7 +39,6 @@ enum imx_rpmsg_variants {
 	IMX8QXP,
 	IMX8QM,
 };
-static enum imx_rpmsg_variants variant;
 
 struct imx_virdev {
 	struct virtio_device vdev;
@@ -53,6 +52,8 @@ struct imx_virdev {
 struct imx_rpmsg_vproc {
 	char *rproc_name;
 	struct mutex lock;
+	struct clk *mu_clk;
+	enum imx_rpmsg_variants variant;
 	int vdev_nums;
 #define MAX_VDEV_NUMS	8
 	struct imx_virdev ivdev[MAX_VDEV_NUMS];
@@ -430,22 +431,38 @@ static irqreturn_t imx_mu_rpmsg_isr(int irq, void *param)
 	return IRQ_HANDLED;
 }
 
+static int imx_rpmsg_mu_init(struct imx_rpmsg_vproc *rpdev)
+{
+	int ret = 0;
+
+	/*
+	 * bit26 is used by rpmsg channels.
+	 * bit0 of MX7ULP_MU_CR used to let m4 to know MU is ready now
+	 */
+	MU_Init(rpdev->mu_base);
+	if (rpdev->variant == IMX7ULP) {
+		MU_EnableRxFullInt(rpdev->mu_base, 1);
+		ret = MU_SetFn(rpdev->mu_base, 1);
+	} else {
+		MU_EnableRxFullInt(rpdev->mu_base, 1);
+	}
+
+	return ret;
+}
 static int imx_rpmsg_probe(struct platform_device *pdev)
 {
 	int core_id, j, ret = 0;
 	u32 irq;
-	struct clk *clk;
 	struct device_node *np_mu;
 	struct device *dev = &pdev->dev;
 	struct device_node *np = pdev->dev.of_node;
 	struct imx_rpmsg_vproc *rpdev;
 
-	variant = (enum imx_rpmsg_variants)of_device_get_match_data(dev);
-
 	if (of_property_read_u32(np, "multi-core-id", &core_id))
 		core_id = 0;
 	rpdev = &imx_rpmsg_vprocs[core_id];
 	rpdev->core_id = core_id;
+	rpdev->variant = (enum imx_rpmsg_variants)of_device_get_match_data(dev);
 
 	/* Initialize the mu unit used by rpmsg */
 	if (rpdev->core_id == 1)
@@ -462,7 +479,7 @@ static int imx_rpmsg_probe(struct platform_device *pdev)
 
 	spin_lock_init(&rpdev->mu_lock);
 
-	if (variant == IMX7ULP)
+	if (rpdev->variant == IMX7ULP)
 		irq = of_irq_get(np_mu, 1);
 	else
 		irq = of_irq_get(np_mu, 0);
@@ -476,31 +493,28 @@ static int imx_rpmsg_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	if (variant == IMX7D || variant == IMX8QXP || variant == IMX8QM) {
-		clk = of_clk_get(np_mu, 0);
-		if (IS_ERR(clk)) {
+	if (rpdev->variant == IMX7D || rpdev->variant == IMX8QXP
+			|| rpdev->variant == IMX8QM) {
+		rpdev->mu_clk = of_clk_get(np_mu, 0);
+		if (IS_ERR(rpdev->mu_clk)) {
 			pr_err("mu clock source missing or invalid\n");
-			return PTR_ERR(clk);
+			return PTR_ERR(rpdev->mu_clk);
 		}
-		ret = clk_prepare_enable(clk);
+		ret = clk_prepare_enable(rpdev->mu_clk);
 		if (ret) {
 			pr_err("unable to enable mu clock\n");
 			return ret;
 		}
+	} else {
+		rpdev->mu_clk = NULL;
 	}
 
-	INIT_DELAYED_WORK(&(rpdev->rpmsg_work), rpmsg_work_handler);
-	/*
-	 * bit26 is used by rpmsg channels.
-	 * bit0 of MX7ULP_MU_CR used to let m4 to know MU is ready now
-	 */
-	MU_Init(rpdev->mu_base);
-	if (variant == IMX7ULP) {
-		MU_EnableRxFullInt(rpdev->mu_base, 1);
-		MU_SetFn(rpdev->mu_base, 1);
-	} else {
-		MU_EnableRxFullInt(rpdev->mu_base, 1);
+	ret = imx_rpmsg_mu_init(rpdev);
+	if (ret) {
+		pr_err("unable to initialize mu module.\n");
+		return ret;
 	}
+	INIT_DELAYED_WORK(&(rpdev->rpmsg_work), rpmsg_work_handler);
 	BLOCKING_INIT_NOTIFIER_HEAD(&(rpdev->notifier));
 
 	pr_info("MU is ready for cross core communication!\n");
@@ -544,15 +558,44 @@ static int imx_rpmsg_probe(struct platform_device *pdev)
 		}
 
 	}
+	platform_set_drvdata(pdev, rpdev);
 
 	return ret;
 }
+
+#ifdef CONFIG_PM_SLEEP
+static int imx_rpmsg_suspend(struct device *dev)
+{
+	struct imx_rpmsg_vproc *rpdev = dev_get_drvdata(dev);
+
+	clk_disable_unprepare(rpdev->mu_clk);
+
+	return 0;
+}
+
+static int imx_rpmsg_resume(struct device *dev)
+{
+	struct imx_rpmsg_vproc *rpdev = dev_get_drvdata(dev);
+	int ret;
+
+	ret = clk_prepare_enable(rpdev->mu_clk);
+	if (ret) {
+		pr_err("unable to enable mu clock\n");
+		return ret;
+	}
+
+	return imx_rpmsg_mu_init(rpdev);
+}
+#endif
+
+static SIMPLE_DEV_PM_OPS(imx_rpmsg_pm_ops, imx_rpmsg_suspend, imx_rpmsg_resume);
 
 static struct platform_driver imx_rpmsg_driver = {
 	.driver = {
 		   .owner = THIS_MODULE,
 		   .name = "imx-rpmsg",
 		   .of_match_table = imx_rpmsg_dt_ids,
+		   .pm = &imx_rpmsg_pm_ops,
 		   },
 	.probe = imx_rpmsg_probe,
 };
