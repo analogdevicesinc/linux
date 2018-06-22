@@ -32,6 +32,9 @@
 #include <soc/imx8/sc/sci.h>
 #include <linux/pm_runtime.h>
 
+/* Board only enabled up to Quad mode, not Octal*/
+#define FLEXSPI_QUIRK_QUAD_ONLY		(1 << 0)
+
 /* runtime pm timeout */
 #define FSL_FLEXSPI_RPM_TIMEOUT 50 /* 50ms */
 
@@ -442,7 +445,7 @@ static struct fsl_flexspi_devtype_data imx8mm_data = {
 	.rxfifo = 1024,
 	.txfifo = 1024,
 	.ahb_buf_size = 2048,
-	.driver_data = 0,
+	.driver_data = FLEXSPI_QUIRK_QUAD_ONLY,
 };
 
 #define FSL_FLEXSPI_MAX_CHIP	4
@@ -467,6 +470,11 @@ struct fsl_flexspi {
 	struct mutex lock;
 	struct pm_qos_request pm_qos_req;
 };
+
+static inline int fsl_flexspi_quad_only(struct fsl_flexspi *flex)
+{
+	return flex->devtype_data->driver_data & FLEXSPI_QUIRK_QUAD_ONLY;
+}
 
 static inline void fsl_flexspi_unlock_lut(struct fsl_flexspi *flex)
 {
@@ -556,11 +564,11 @@ static void fsl_flexspi_init_lut(struct fsl_flexspi *flex)
 	/* DDR Quad Fast Read 	 */
 	} else if (op == SPINOR_OP_READ_1_1_4_D) {
 		/* read mode : 1-1-4, such as Micron N25Q256A. */
-		writel(LUT0(CMD_DDR, PAD1, op) |
+		writel(LUT0(CMD, PAD1, op) |
 		       LUT1(ADDR_DDR, PAD1, addrlen),
 		       base + FLEXSPI_LUT(lut_base));
 
-		writel(LUT0(DUMMY, PAD1, dm) |
+		writel(LUT0(DUMMY_DDR, PAD4, dm * 2) |
 		       LUT1(READ_DDR, PAD4, 0),
 		       base + FLEXSPI_LUT(lut_base + 1));
 
@@ -1302,7 +1310,8 @@ static int fsl_flexspi_probe(struct platform_device *pdev)
 		ret = of_property_read_u32(np, "spi-nor,ddr-quad-read-dummy",
 					&dummy);
 		if (!ret && dummy > 0)
-			hwcaps.mask |= SNOR_HWCAPS_READ;
+			hwcaps.mask |= fsl_flexspi_quad_only(flex) ?
+				    SNOR_HWCAPS_READ_1_1_4 :SNOR_HWCAPS_READ_1_8_8;
 		else
 			hwcaps.mask |= SNOR_HWCAPS_READ;
 
