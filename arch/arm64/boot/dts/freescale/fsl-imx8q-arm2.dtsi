@@ -957,6 +957,10 @@
 	status = "okay";
 };
 
+&pixel_combiner1 {
+	status = "okay";
+};
+
 &prg1 {
 	status = "okay";
 };
@@ -1018,6 +1022,10 @@
 };
 
 &dpu1 {
+	status = "okay";
+};
+
+&pixel_combiner2 {
 	status = "okay";
 };
 
