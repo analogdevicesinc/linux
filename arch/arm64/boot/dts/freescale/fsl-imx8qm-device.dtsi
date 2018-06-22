@@ -317,6 +317,16 @@
 				#power-domain-cells = <0>;
 				power-domains = <&pd_lsio>;
 			};
+			pd_lsio_mu5a: PD_LSIO_MU5A {
+				reg = <SC_R_MU_5A>;
+				#power-domain-cells = <0>;
+				power-domains = <&pd_lsio>;
+			};
+			pd_lsio_mu6a: PD_LSIO_MU6A {
+				reg = <SC_R_MU_6A>;
+				#power-domain-cells = <0>;
+				power-domains = <&pd_lsio>;
+			};
 		};
 
 		pd_conn: PD_CONN {
@@ -1303,12 +1313,6 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 
-			pd_cm40_mu0a0: PD_CM40_MU0A0{
-				reg = <SC_R_M4_0_MU_0A0>;
-				#power-domain-cells = <0>;
-				power-domains =<&pd_cm40>;
-			};
-
 			pd_cm40_i2c: PD_CM40_I2C {
 				reg = <SC_R_M4_0_I2C>;
 				#power-domain-cells = <0>;
@@ -1329,12 +1333,6 @@
 			#power-domain-cells = <0>;
 			#address-cells = <1>;
 			#size-cells = <0>;
-
-			pd_cm41_mu0a0: PD_CM41_MU0A0{
-				reg = <SC_R_M4_1_MU_0A0>;
-				#power-domain-cells = <0>;
-				power-domains =<&pd_cm41>;
-			};
 
 			pd_cm41_i2c: PD_CM41_I2C {
 				reg = <SC_R_M4_1_I2C>;
@@ -4086,38 +4084,36 @@
 		#size-cells = <2>;
 		ranges;
 
-		mu_rpmsg: mu_rpmsg@37440000 {
+		mu_rpmsg: mu_rpmsg@5d200000 {
 			compatible = "fsl,imx6sx-mu";
-			reg = <0x0 0x37440000 0x0 0x10000>;
-			interrupts = <31 IRQ_TYPE_LEVEL_HIGH>;
-			interrupt-parent = <&intmux_cm40>;
-			clocks = <&clk IMX8QM_CM40_IPG_CLK>;
+			reg = <0x0 0x5d200000 0x0 0x10000>;
+			interrupts = <GIC_SPI 184 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clk IMX8QM_LSIO_MU5A_IPG_CLK>;
 			clock-names = "ipg";
-			power-domains = <&pd_cm40_mu0a0>;
+			power-domains = <&pd_lsio_mu5a>;
 			status = "okay";
 		};
 
 		rpmsg: rpmsg {
 			compatible = "fsl,imx8qm-rpmsg";
-			power-domains = <&pd_cm40_mu0a0>;
+			power-domains = <&pd_lsio_mu5a>;
 			status = "disabled";
 		};
 
-		mu_rpmsg1: mu_rpmsg1@3b440000 {
+		mu_rpmsg1: mu_rpmsg1@5d210000 {
 			compatible = "fsl,imx-mu-rpmsg1";
-			reg = <0x0 0x3b440000 0x0 0x10000>;
-			interrupts = <31 IRQ_TYPE_LEVEL_HIGH>;
-			interrupt-parent = <&intmux_cm41>;
-			clocks = <&clk IMX8QM_CM41_IPG_CLK>;
+			reg = <0x0 0x5d210000 0x0 0x10000>;
+			interrupts = <GIC_SPI 185 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clk IMX8QM_LSIO_MU6A_IPG_CLK>;
 			clock-names = "ipg";
-			power-domains = <&pd_cm41_mu0a0>;
+			power-domains = <&pd_lsio_mu6a>;
 			status = "okay";
 		};
 
 		rpmsg1: rpmsg1{
 			compatible = "fsl,imx8qm-rpmsg";
 			multi-core-id = <1>;
-			power-domains = <&pd_cm41_mu0a0>;
+			power-domains = <&pd_lsio_mu6a>;
 			status = "disabled";
 		};
 	};

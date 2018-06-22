@@ -323,6 +323,11 @@
 				#power-domain-cells = <0>;
 				power-domains = <&pd_lsio>;
 			};
+			pd_lsio_mu5a: PD_LSIO_MU5A {
+				reg = <SC_R_MU_5A>;
+				#power-domain-cells = <0>;
+				power-domains = <&pd_lsio>;
+			};
 		};
 
 		pd_conn: PD_CONN {
@@ -1082,12 +1087,6 @@
 				#power-domain-cells = <0>;
 				power-domains =<&pd_cm40>;
 				early_power_on;
-			};
-
-			pd_cm40_mu0a0: PD_CM40_MU0A0{
-				reg = <SC_R_M4_0_MU_0A0>;
-				#power-domain-cells = <0>;
-				power-domains =<&pd_cm40>;
 			};
 		};
 
@@ -3260,20 +3259,19 @@
 		#size-cells = <2>;
 		ranges;
 
-		mu_rpmsg: mu_rpmsg@37440000 {
+		mu_rpmsg: mu_rpmsg@5d200000 {
 			compatible = "fsl,imx6sx-mu";
-			reg = <0x0 0x37440000 0x0 0x10000>;
-			interrupts = <31 IRQ_TYPE_LEVEL_HIGH>;
-			interrupt-parent = <&intmux_cm40>;
-			clocks = <&clk IMX8QXP_CM40_IPG_CLK>;
+			reg = <0x0 0x5d200000 0x0 0x10000>;
+			interrupts = <GIC_SPI 184 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clk IMX8QXP_LSIO_MU5A_IPG_CLK>;
 			clock-names = "ipg";
-			power-domains = <&pd_cm40_mu0a0>;
+			power-domains = <&pd_lsio_mu5a>;
 		};
 
 		rpmsg: rpmsg{
 			compatible = "fsl,imx8qxp-rpmsg";
 			status = "disabled";
-			power-domains = <&pd_cm40_mu0a0>;
+			power-domains = <&pd_lsio_mu5a>;
 		};
 	};
 
