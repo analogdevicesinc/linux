@@ -1397,6 +1397,7 @@ static int usb_ss_gadget_ep0_queue(struct usb_ep *ep,
 	ret = usb_gadget_map_request_by_dev(usb_ss->sysdev, request,
 			usb_ss->ep0_data_dir);
 	if (ret) {
+		spin_unlock_irqrestore(&usb_ss->lock, flags);
 		dev_err(&usb_ss->dev, "failed to map request\n");
 		return -EINVAL;
 	}
