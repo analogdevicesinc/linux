@@ -1651,7 +1651,7 @@ static void vpu_api_event_handler(struct vpu_ctx *ctx, u_int32 uStrIdx, u_int32 
 					}
 				}
 				up(&This->drv_q_lock);
-				if (buffer_flag == false)
+				if (buffer_flag == false && !ctx->firmware_finished)
 					vpu_dbg(LVL_ERR, "error: don't find the right buffer for VID_API_CMD_FS_ALLOC\n");
 			} else if (ctx->wait_rst_done) {
 				u_int32 i;
@@ -1820,8 +1820,14 @@ static void vpu_api_event_handler(struct vpu_ctx *ctx, u_int32 uStrIdx, u_int32 
 		v4l2_event_queue_fh(&ctx->fh, &ev); //notfiy app stream eos reached
 
 	}	break;
-	case VID_API_EVENT_FIRMWARE_XCPT:
+	case VID_API_EVENT_FIRMWARE_XCPT: {
+		const struct v4l2_event ev = {
+			.type = V4L2_EVENT_EOS
+		};
+		v4l2_event_queue_fh(&ctx->fh, &ev);
 		vpu_dbg(LVL_ERR, "warning: FIRMWARE hang, and send event VID_API_EVENT_FIRMWARE_XCPT\n");
+		}
+		break;
 	case VID_API_EVENT_DEC_CFG_INFO:
 		break;
 	default:
