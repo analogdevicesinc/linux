@@ -1362,6 +1362,38 @@
 		};
 	};
 
+	crypto: caam@30900000 {
+		compatible = "fsl,sec-v4.0";
+		#address-cells = <0x1>;
+		#size-cells = <0x1>;
+		reg = <0 0x30900000 0 0x40000>;
+		ranges = <0 0 0x30900000 0x40000>;
+		interrupts = <GIC_SPI 91 IRQ_TYPE_LEVEL_HIGH>;
+
+		sec_jr0: jr0@1000 {
+			 compatible = "fsl,sec-v4.0-job-ring";
+			 reg = <0x1000 0x1000>;
+			 interrupts = <GIC_SPI 105 IRQ_TYPE_LEVEL_HIGH>;
+		};
+
+		sec_jr1: jr1@2000 {
+			 compatible = "fsl,sec-v4.0-job-ring";
+			 reg = <0x2000 0x1000>;
+			 interrupts = <GIC_SPI 106 IRQ_TYPE_LEVEL_HIGH>;
+		};
+
+		sec_jr2: jr2@3000 {
+			 compatible = "fsl,sec-v4.0-job-ring";
+			 reg = <0x3000 0x1000>;
+			 interrupts = <GIC_SPI 114 IRQ_TYPE_LEVEL_HIGH>;
+		};
+	};
+
+	caam_sm: caam-sm@00100000 {
+		compatible = "fsl,imx6q-caam-sm";
+		reg = <0 0x00100000 0 0x7fff>;
+	};
+
 	caam_snvs: caam-snvs@30370000 {
 		compatible = "fsl,imx6q-caam-snvs";
 		reg = <0 0x30370000 0 0x10000>;

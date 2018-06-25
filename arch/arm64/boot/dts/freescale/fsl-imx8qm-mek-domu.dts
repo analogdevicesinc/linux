@@ -495,6 +495,8 @@
 /delete-node/ &intmux_cm40;
 /delete-node/ &intmux_cm41;
 /delete-node/ &imx_rpmsg;
+/delete-node/ &crypto;
+/delete-node/ &caam_sm;
 /delete-node/ &sc_pwrkey;
 /delete-node/ &wdog;
 /delete-node/ &wu;

@@ -1347,6 +1347,30 @@
 				early_power_on;
 			};
 		};
+
+		pd_caam: PD_CAAM {
+			compatible = "nxp,imx8-pd";
+			reg = <SC_R_LAST>;
+			#power-domain-cells = <0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			pd_caam_jr1: PD_CAAM_JR1 {
+				reg = <SC_R_CAAM_JR1>;
+				#power-domain-cells = <0>;
+				power-domains = <&pd_caam>;
+			};
+			pd_caam_jr2: PD_CAAM_JR2 {
+				reg = <SC_R_CAAM_JR2>;
+				#power-domain-cells = <0>;
+				power-domains = <&pd_caam>;
+			};
+			pd_caam_jr3: PD_CAAM_JR3 {
+				reg = <SC_R_CAAM_JR3>;
+				#power-domain-cells = <0>;
+				power-domains = <&pd_caam>;
+			};
+		};
 	};
 
 	tsens: thermal-sensor {
@@ -4116,6 +4140,45 @@
 			power-domains = <&pd_lsio_mu6a>;
 			status = "disabled";
 		};
+	};
+
+	crypto: caam@0x31400000 {
+		compatible = "fsl,sec-v4.0";
+		reg = <0 0x31400000 0 0x400000>;
+		interrupts = <GIC_SPI 148 IRQ_TYPE_LEVEL_HIGH>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges = <0 0 0x31400000 0x400000>;
+		fsl,first-jr-index = <2>;
+
+		sec_jr1: jr1@0x20000 {
+			compatible = "fsl,sec-v4.0-job-ring";
+			reg = <0x20000 0x1000>;
+			interrupts = <GIC_SPI 452 IRQ_TYPE_LEVEL_HIGH>;
+			power-domains = <&pd_caam_jr1>;
+			status = "disabled";
+		};
+
+		sec_jr2: jr2@30000 {
+			compatible = "fsl,sec-v4.0-job-ring";
+			reg = <0x30000 0x1000>;
+			interrupts = <GIC_SPI 453 IRQ_TYPE_LEVEL_HIGH>;
+			power-domains = <&pd_caam_jr2>;
+			status = "okay";
+		};
+
+		sec_jr3: jr3@40000 {
+			compatible = "fsl,sec-v4.0-job-ring";
+			reg = <0x40000 0x1000>;
+			interrupts = <GIC_SPI 454 IRQ_TYPE_LEVEL_HIGH>;
+			power-domains = <&pd_caam_jr3>;
+			status = "okay";
+		};
+	};
+
+	caam_sm: caam-sm@31800000 {
+		compatible = "fsl,imx6q-caam-sm";
+		reg = <0 0x31800000 0 0x1ffff>;
 	};
 
 	sc_pwrkey: sc-powerkey {
