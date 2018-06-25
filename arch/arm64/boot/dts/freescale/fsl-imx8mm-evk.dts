@@ -45,6 +45,17 @@
 		#reset-cells = <0>;
 	};
 
+	pwmleds {
+		compatible = "pwm-leds";
+		ledpwm4 {
+			label = "PWM4";
+			pwms = <&pwm4 0 50000>;
+			max-brightness = <255>;
+			linux,default-trigger = "heartbeat";
+			active-low;
+		};
+	};
+
 	regulators {
 		compatible = "simple-bus";
 		#address-cells = <1>;
@@ -212,6 +223,12 @@
 				MX8MM_IOMUXC_I2C4_SCL_GPIO5_IO20	0x41
 				MX8MM_IOMUXC_GPIO1_IO05_GPIO1_IO5	0x41
 				MX8MM_IOMUXC_SAI2_RXFS_GPIO4_IO21	0x41
+			>;
+		};
+
+		pinctrl_pwm4: pwm4grp {
+			fsl,pins = <
+				MX8MM_IOMUXC_GPIO1_IO15_PWM4_OUT	0x16
 			>;
 		};
 
@@ -857,6 +874,12 @@
 	disable-gpio = <&gpio1 5 GPIO_ACTIVE_LOW>;
 	reset-gpio = <&gpio4 21 GPIO_ACTIVE_LOW>;
 	ext_osc = <0>;
+	status = "okay";
+};
+
+&pwm4 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_pwm4>;
 	status = "okay";
 };
 
