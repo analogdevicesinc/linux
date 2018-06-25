@@ -336,7 +336,6 @@ static struct reg_value ov5640_setting_30fps_1080P_1920_1080[] = {
 
 static struct reg_value ov5640_setting_15fps_QSXGA_2592_1944[] = {
 	{0x3008, 0x42, 0, 0},
-	{0x4202, 0x0f, 0, 0},	/* stream off the sensor */
 	{0x3820, 0x40, 0, 0}, {0x3821, 0x06, 0, 0}, /*disable flip*/
 	{0x3035, 0x11, 0, 0}, {0x3036, 0x54, 0, 0}, {0x3c07, 0x08, 0, 0},
 	{0x3c09, 0x1c, 0, 0}, {0x3c0a, 0x9c, 0, 0}, {0x3c0b, 0x40, 0, 0},
@@ -356,7 +355,6 @@ static struct reg_value ov5640_setting_15fps_QSXGA_2592_1944[] = {
 	{0x4001, 0x02, 0, 0}, {0x4004, 0x06, 0, 0}, {0x4713, 0x03, 0, 0},
 	{0x4407, 0x04, 0, 0}, {0x460b, 0x35, 0, 0}, {0x460c, 0x22, 0, 0},
 	{0x3824, 0x02, 0, 0}, {0x5001, 0x83, 0, 70}, {0x3008, 0x02, 0, 0},
-	{0x4202, 0x00, 0, 0},	/* stream on the sensor */
 };
 
 static struct ov5640_mode_info ov5640_mode_info_data[2][ov5640_mode_MAX + 1] = {
