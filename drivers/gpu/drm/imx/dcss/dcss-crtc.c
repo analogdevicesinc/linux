@@ -28,6 +28,9 @@
 #include "imx-drm.h"
 #include "dcss-crtc.h"
 
+#define TRACE_FLUSH	0
+#define TRACE_VBLANK	1
+
 struct dcss_crtc {
 	struct device *dev;
 	struct drm_crtc		base;
@@ -154,6 +157,8 @@ static void dcss_crtc_atomic_flush(struct drm_crtc *crtc,
 	struct dcss_crtc *dcss_crtc = container_of(crtc, struct dcss_crtc,
 						   base);
 	struct dcss_soc *dcss = dev_get_drvdata(dcss_crtc->dev->parent);
+
+	dcss_trace_module(TRACE_DRM_CRTC, TRACE_FLUSH);
 
 	if (dcss_dtg_is_enabled(dcss))
 		dcss_ctxld_enable(dcss);
@@ -285,6 +290,8 @@ static irqreturn_t dcss_crtc_irq_handler(int irq, void *dev_id)
 {
 	struct dcss_crtc *dcss_crtc = dev_id;
 	struct dcss_soc *dcss = dev_get_drvdata(dcss_crtc->dev->parent);
+
+	dcss_trace_module(TRACE_DRM_CRTC, TRACE_VBLANK);
 
 	if (dcss_ctxld_is_flushed(dcss))
 		drm_crtc_handle_vblank(&dcss_crtc->base);

@@ -65,6 +65,10 @@
 #define CTXLD_SB_CTX_ENTRIES		(CTXLD_SB_LP_CTX_ENTRIES + \
 					 CTXLD_SB_HP_CTX_ENTRIES)
 
+#define TRACE_ARM			(1LL << 48)
+#define TRACE_IRQ			(2LL << 48)
+#define TRACE_KICK			(3LL << 48)
+
 static struct dcss_debug_reg ctxld_debug_reg[] = {
 	DCSS_DBG_REG(DCSS_CTXLD_CONTROL_STATUS),
 	DCSS_DBG_REG(DCSS_CTXLD_DB_BASE_ADDR),
@@ -141,6 +145,8 @@ static irqreturn_t dcss_ctxld_irq_handler(int irq, void *data)
 	    !(irq_status & CTXLD_ENABLE) && priv->in_use) {
 		priv->in_use = false;
 
+		dcss_trace_module(TRACE_CTXLD,
+				  TRACE_IRQ | (priv->current_ctx ^ 1));
 
 		if (priv->dcss->dcss_disable_callback) {
 			struct dcss_dtg_priv *dtg = priv->dcss->dtg_priv;
@@ -325,6 +331,10 @@ static int __dcss_ctxld_enable(struct dcss_ctxld_priv *ctxld)
 	dcss_writel(sb_base, ctxld->ctxld_reg + DCSS_CTXLD_SB_BASE_ADDR);
 	dcss_writel(sb_count, ctxld->ctxld_reg + DCSS_CTXLD_SB_COUNT);
 
+	dcss_trace_module(TRACE_CTXLD,
+			  TRACE_ARM | db_cnt | (sb_count << 16) |
+			  ((u64)ctxld->current_ctx << 32));
+
 	/* enable the context loader */
 	dcss_set(CTXLD_ENABLE, ctxld->ctxld_reg + DCSS_CTXLD_CONTROL_STATUS);
 
@@ -368,6 +378,8 @@ void dcss_ctxld_kick(struct dcss_soc *dcss)
 {
 	struct dcss_ctxld_priv *ctxld = dcss->ctxld_priv;
 	unsigned long flags;
+
+	dcss_trace_module(TRACE_CTXLD, TRACE_KICK);
 
 	spin_lock_irqsave(&ctxld->lock, flags);
 	if (ctxld->armed) {

@@ -311,6 +311,8 @@ void dcss_dpr_addr_set(struct dcss_soc *dcss, int ch_num, u32 luma_base_addr,
 {
 	struct dcss_dpr_ch *ch = &dcss->dpr_priv->ch[ch_num];
 
+	dcss_trace_module(TRACE_DPR, ((u64)ch_num << 32) | luma_base_addr);
+
 	if (ch->use_dtrc) {
 		luma_base_addr = 0x0;
 		chroma_base_addr = 0x10000000;
