@@ -27,37 +27,8 @@ Optional properties:
 			* 350
 			* 400
 
- - adi,slew: Array of slewrate settings should contain 3 fields:
-	1: Should be either 0 or 1 in order to enable or disable slewrate.
-	2: Slew rate clock:
-		Valid values for the slew rate update frequency [Hz]:
-		* 240000
-		* 200000
-		* 150000
-		* 128000
-		* 64000
-		* 32000
-		* 16000
-		* 8000
-		* 4000
-		* 2000
-		* 1000
-		* 512
-		* 256
-		* 128
-		* 64
-		* 16
-	3: Slew rate step:
-		Defines by how much the output value changes at each update.
-		Valid values for the step size LSBs:
-		* 4
-		* 12
-		* 64
-		* 120
-		* 256
-		* 500
-		* 1820
-		* 2048
+ - adi,slew-time-us: The time it takes for the output to reach the full scale [uS]
+ 		     The supported range is between 133us up to 1023984375us
 
  - adi,range: The output range
 	      The following values are currently supported:
@@ -84,6 +55,6 @@ AD5758 Example:
 
 		adi,dc-dc-mode = <2>;
 		adi,dc-dc-ilim = <200>;
-		adi,slew = <1 200000 12>;
+		adi,slew-time-us = <125000>;
 		adi,range = <1>;
 	};
