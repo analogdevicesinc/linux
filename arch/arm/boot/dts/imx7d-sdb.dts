@@ -106,18 +106,6 @@
 		regulator-max-microvolt = <1800000>;
 	};
 
-	reg_brcm: regulator-brcm {
-		compatible = "regulator-fixed";
-		gpio = <&gpio4 21 GPIO_ACTIVE_HIGH>;
-		enable-active-high;
-		regulator-name = "brcm_reg";
-		pinctrl-names = "default";
-		pinctrl-0 = <&pinctrl_brcm_reg>;
-		regulator-min-microvolt = <3300000>;
-		regulator-max-microvolt = <3300000>;
-		startup-delay-us = <200000>;
-	};
-
 	reg_can2_3v3: regulator-can2-3v3 {
 		compatible = "regulator-fixed";
 		regulator-name = "can2-3v3";
@@ -139,26 +127,12 @@
 		enable-active-high;
 	};
 
-	wlreg_on: regulator-wl {
-		compatible = "regulator-fixed";
-		regulator-min-microvolt = <5000000>;
-		regulator-max-microvolt = <5000000>;
-		regulator-name = "wlreg_on";
-		gpio = <&gpio4 21 GPIO_ACTIVE_HIGH>;
-		enable-active-high;
-	};
-
 	backlight {
 		compatible = "pwm-backlight";
 		pwms = <&pwm1 0 5000000 0>;
 		brightness-levels = <0 4 8 16 32 64 128 255>;
 		default-brightness-level = <6>;
 		status = "okay";
-	};
-
-	bcmdhd_wlan_0: bcmdhd_wlan@0 {
-		compatible = "android,bcmdhd_wlan";
-		wlreg_on-supply = <&wlreg_on>;
 	};
 
 	pxp_v4l2_out {
@@ -197,6 +171,13 @@
 		model = "sii902x-audio";
 		cpu-dai = <&sai3>;
 		hdmi-controler = <&sii902x>;
+	};
+
+	usdhc2_pwrseq: usdhc2_pwrseq {
+		compatible = "mmc-pwrseq-simple";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_brcm_reg>;
+		reset-gpios = <&gpio4 21 GPIO_ACTIVE_LOW>;
 	};
 };
 
@@ -762,19 +743,24 @@
 };
 
 &usdhc2 {
+	#address-cells = <1>;
+	#size-cells = <0>;
 	pinctrl-names = "default", "state_100mhz", "state_200mhz";
-	pinctrl-0 = <&pinctrl_usdhc2>;
-	pinctrl-1 = <&pinctrl_usdhc2_100mhz>;
-	pinctrl-2 = <&pinctrl_usdhc2_200mhz>;
+	pinctrl-0 = <&pinctrl_usdhc2 &pinctrl_wifi>;
+	pinctrl-1 = <&pinctrl_usdhc2_100mhz &pinctrl_wifi>;
+	pinctrl-2 = <&pinctrl_usdhc2_200mhz &pinctrl_wifi>;
 	wakeup-source;
 	keep-power-in-suspend;
 	non-removable;
-	vmmc-supply = <&reg_brcm>;
+	mmc-pwrseq = <&usdhc2_pwrseq>;
 	fsl,tuning-step = <2>;
 	pm-ignore-notify;
-	cd-post;
-	wifi-host;
 	status = "okay";
+
+	brcmf: bcrmf@1 {
+		reg = <1>;
+		compatible = "brcm,bcm4329-fmac";
+	};
 };
 
 &usdhc3 {
@@ -1238,6 +1224,12 @@
 				MX7D_PAD_SD3_DATA6__SD3_DATA6		0x5b
 				MX7D_PAD_SD3_DATA7__SD3_DATA7		0x5b
 				MX7D_PAD_SD3_STROBE__SD3_STROBE		0x1b
+			>;
+		};
+
+		pinctrl_wifi: wifigrp {
+			fsl,pins = <
+				MX7D_PAD_ECSPI2_SCLK__GPIO4_IO20	0x19 /* WL_HOST_WAKE */
 			>;
 		};
 	};
