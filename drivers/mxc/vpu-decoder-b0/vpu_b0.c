@@ -938,7 +938,7 @@ static int v4l2_dec_g_v_ctrl(struct v4l2_ctrl *ctrl)
 
 	switch (ctrl->id) {
 	case V4L2_CID_MIN_BUFFERS_FOR_CAPTURE:
-		ctrl->val = ctx->pSeqinfo->uNumDPBFrms;
+		ctrl->val = ctx->pSeqinfo->uNumDPBFrms + ctx->pSeqinfo->uNumRefFrms;
 		break;
 	default:
 		vpu_dbg(LVL_INFO, "%s() Invalid control(%d)\n",
