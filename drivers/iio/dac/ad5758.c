@@ -13,11 +13,14 @@
 #include <linux/sysfs.h>
 #include <linux/spi/spi.h>
 #include <linux/delay.h>
+#include <linux/bsearch.h>
 
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
 #include <linux/property.h>
 #include <linux/gpio/consumer.h>
+
+#include <asm/div64.h>
 
 /* AD5758 registers definition */
 #define AD5758_NOP					0x00
@@ -103,6 +106,8 @@
 /* x^8 + x^2 + x^1 + x^0 */
 #define AD5758_CRC8_POLY	0x07
 
+#define AD5758_FULL_SCALE_MICRO	65535000000
+
 /**
  * struct ad5758_state - driver instance specific data
  * @spi:	spi_device
@@ -118,7 +123,7 @@ struct ad5758_state {
 	struct gpio_desc *gpio_reset;
 	unsigned int dc_dc_mode;
 	unsigned int dc_dc_ilim;
-	unsigned int sr_config[3];
+	unsigned int slew_time;
 	unsigned int out_range;
 	unsigned int pwr_down;
 
@@ -172,12 +177,12 @@ static const struct ad5758_range ad5758_min_max_table[] = {
 	{ AD5758_RANGE_MINUS_1mA_PLUS_22mA, -1, 22 },
 };
 
-static const int ad5758_slew_rate_clk[16] = {
+static const int ad5758_sr_clk[16] = {
 	240000, 200000, 150000, 128000, 64000, 32000, 16000, 8000, 4000, 2000,
 	1000, 512, 256, 128, 64, 16
 };
 
-static const int ad5758_slew_rate_step[8] = {
+static const int ad5758_sr_step[8] = {
 	4, 12, 64, 120, 256, 500, 1820, 2048
 };
 
@@ -239,16 +244,22 @@ static int ad5758_spi_write_mask(struct ad5758_state *st,
 	return ad5758_spi_reg_write(st, addr, regval);
 }
 
-static int ad5758_get_array_index(const int *array, unsigned int size, int val)
+int cmpfunc(const void *a, const void *b)
+{
+	return (*(int *)a - *(int *)b);
+}
+
+static int ad5758_find_closest_match(const int *array,
+				     unsigned int size, int val)
 {
 	int i;
 
 	for (i = 0; i < size; i++) {
-		if (val == array[i])
+		if (val <= array[i])
 			return i;
 	}
 
-	return -EINVAL;
+	return size - 1;
 }
 
 static int ad5758_wait_for_task_complete(struct ad5758_state *st,
@@ -351,10 +362,9 @@ static int ad5758_set_dc_dc_ilim(struct ad5758_state *st, unsigned int ilim)
 					     AD5758_DCDC_CONFIG2_BUSY_3WI_MSK);
 }
 
-static int ad5758_slew_rate_config(struct ad5758_state *st,
-				   unsigned int enable,
-				   unsigned int sr_clk,
-				   unsigned int sr_step)
+static int ad5758_slew_rate_set(struct ad5758_state *st,
+				unsigned int sr_clk_idx,
+				unsigned int sr_step_idx)
 {
 	unsigned int mode;
 	unsigned long int mask;
@@ -364,9 +374,9 @@ static int ad5758_slew_rate_config(struct ad5758_state *st,
 	       AD5758_DAC_CONFIG_SR_CLOCK_MSK |
 	       AD5758_DAC_CONFIG_SR_STEP_MSK);
 
-	mode = (AD5758_DAC_CONFIG_SR_EN_MODE(enable) |
-		AD5758_DAC_CONFIG_SR_CLOCK_MODE(sr_clk) |
-		AD5758_DAC_CONFIG_SR_STEP_MODE(sr_step));
+	mode = (AD5758_DAC_CONFIG_SR_EN_MODE(1) |
+		AD5758_DAC_CONFIG_SR_CLOCK_MODE(sr_clk_idx) |
+		AD5758_DAC_CONFIG_SR_STEP_MODE(sr_step_idx));
 
 	ret = ad5758_spi_write_mask(st, AD5758_DAC_CONFIG, mask, mode);
 	if (ret < 0)
@@ -375,6 +385,57 @@ static int ad5758_slew_rate_config(struct ad5758_state *st,
 	/* Wait to allow time for the internal calibrations to complete */
 	return ad5758_wait_for_task_complete(st, AD5758_DIGITAL_DIAG_RESULTS,
 				AD5758_DIG_DIAG_RES_CAL_MEM_UNREFRESHED_MSK);
+}
+
+static int ad5758_slew_rate_config(struct ad5758_state *st)
+{
+	unsigned int sr_clk_idx, sr_step_idx;
+	int i, res;
+	s64 diff_new, diff_old;
+	u64 sr_step, calc_slew_time;
+
+	diff_old = S64_MAX;
+	/*
+	 * The slew time can be determined by using the formula:
+	 * Slew Time = (Full Scale Out / (Step Size x Update Clk Freq))
+	 * where Slew time is expressed in microseconds
+	 * Given the desired slew time, the following algorithm determines the
+	 * best match for the step size and the update clock frequency.
+	 */
+	for (i = 0; i < ARRAY_SIZE(ad5758_sr_clk); i++) {
+		/*
+		 * Go through each valid update clock freq and determine a raw
+		 * value for the step size by using the formula:
+		 * Step Size = Full Scale Out / (Update Clk Freq * Slew Time)
+		 */
+		sr_step = AD5758_FULL_SCALE_MICRO;
+		do_div(sr_step, ad5758_sr_clk[i]);
+		do_div(sr_step, st->slew_time);
+		/*
+		 * After a raw value for step size was determined, find the
+		 * closest valid match
+		 */
+		res = ad5758_find_closest_match(ad5758_sr_step,
+						ARRAY_SIZE(ad5758_sr_step),
+						sr_step);
+		/* Calculate the slew time */
+		calc_slew_time = AD5758_FULL_SCALE_MICRO;
+		do_div(calc_slew_time, ad5758_sr_step[res]);
+		do_div(calc_slew_time, ad5758_sr_clk[i]);
+		/*
+		 * Determine with how many microseconds the calculated slew time
+		 * is different from the desired slew time and store the diff
+		 * for the next iteration
+		 */
+		diff_new = abs(st->slew_time - calc_slew_time);
+		if (diff_new < diff_old) {
+			diff_old = diff_new;
+			sr_clk_idx = i;
+			sr_step_idx = res;
+		}
+	}
+
+	return ad5758_slew_rate_set(st, sr_clk_idx, sr_step_idx);
 }
 
 static int ad5758_set_out_range(struct ad5758_state *st, unsigned int range)
@@ -637,19 +698,21 @@ static int ad5758_crc_disable(struct ad5758_state *st)
 
 static void ad5758_parse_dt(struct ad5758_state *st)
 {
-	unsigned int i, tmp, tmparray[3];
-	int index;
+	unsigned int i, tmp;
+	int *index;
 
-	st->dc_dc_ilim = 150;
+	/* 150 mA */
+	st->dc_dc_ilim = 0;
 	if (!device_property_read_u32(&st->spi->dev,
 				      "adi,dc-dc-ilim", &tmp)) {
-		index = ad5758_get_array_index(ad5758_dc_dc_ilimt,
-					ARRAY_SIZE(ad5758_dc_dc_ilimt), tmp);
-		if (index < 0)
+		index = (int *) bsearch(&tmp, ad5758_dc_dc_ilimt,
+					ARRAY_SIZE(ad5758_dc_dc_ilimt),
+					sizeof(int), cmpfunc);
+		if (!index)
 			dev_warn(&st->spi->dev,
 				 "dc-dc-ilim out of range using default");
 		else
-			st->dc_dc_ilim = index;
+			st->dc_dc_ilim = index - ad5758_dc_dc_ilimt;
 	} else {
 		dev_dbg(&st->spi->dev,
 			 "Missing \"dc-dc-ilim\" property, using default\n");
@@ -678,35 +741,12 @@ static void ad5758_parse_dt(struct ad5758_state *st)
 			"Missing \"range\" property, using default\n");
 	}
 
-	st->sr_config[0] = 1;
-	st->sr_config[1] = 16000;
-	st->sr_config[2] = 4;
-	if (!device_property_read_u32_array(&st->spi->dev, "adi,slew",
-					    tmparray, 3)) {
-		st->sr_config[0] = tmparray[0];
-
-		index = ad5758_get_array_index(ad5758_slew_rate_clk,
-					       ARRAY_SIZE(ad5758_slew_rate_clk),
-					       tmparray[1]);
-
-		if (index < 0)
-			dev_warn(&st->spi->dev,
-				"slew rate clock out of range, using default");
-		else
-			st->sr_config[1] = index;
-
-		index = ad5758_get_array_index(ad5758_slew_rate_step,
-					ARRAY_SIZE(ad5758_slew_rate_step),
-					tmparray[2]);
-
-		if (index < 0)
-			dev_warn(&st->spi->dev,
-				"slew rate step out of range, using default");
-		else
-			st->sr_config[2] = index;
+	if (!device_property_read_u32(&st->spi->dev,
+				      "adi,slew-time-us", &tmp)) {
+		st->slew_time = tmp;
 	} else {
-		dev_dbg(&st->spi->dev,
-			 "Missing \"slew\" property, using default\n");
+		dev_dbg(&st->spi->dev, "Missing \"slew-time-us\" property\n");
+		st->slew_time = 0;
 	}
 }
 
@@ -766,10 +806,11 @@ static int ad5758_init(struct ad5758_state *st)
 		return ret;
 
 	/* Enable Slew Rate Control, set the slew rate clock and step */
-	ret = ad5758_slew_rate_config(st, st->sr_config[0],
-				      st->sr_config[1], st->sr_config[2]);
-	if (ret < 0)
-		return ret;
+	if (st->slew_time) {
+		ret = ad5758_slew_rate_config(st);
+		if (ret < 0)
+			return ret;
+	}
 
 	/* Enable the VIOUT fault protection switch (FPS is closed) */
 	ret = ad5758_fault_prot_switch_en(st, 1);
