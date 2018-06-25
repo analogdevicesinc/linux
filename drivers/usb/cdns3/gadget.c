@@ -101,6 +101,7 @@ static void __cdns3_gadget_start(struct usb_ss_dev *usb_ss);
 static void cdns_prepare_setup_packet(struct usb_ss_dev *usb_ss);
 static void cdns_ep_config(struct usb_ss_endpoint *usb_ss_ep);
 static void cdns_enable_l1(struct usb_ss_dev *usb_ss, int enable);
+static void __pending_setup_status_handler(struct usb_ss_dev *usb_ss);
 
 static struct usb_endpoint_descriptor cdns3_gadget_ep0_desc = {
 	.bLength	= USB_DT_ENDPOINT_SIZE,
@@ -1057,6 +1058,8 @@ static void cdns_check_ep0_interrupt_proceed(struct usb_ss_dev *usb_ss, int dir)
 
 	dev_dbg(&usb_ss->dev, "EP_STS: %08X\n", ep_sts_reg);
 
+	__pending_setup_status_handler(usb_ss);
+
 	if ((ep_sts_reg & EP_STS__SETUP__MASK) && (dir == 0)) {
 		dev_dbg(&usb_ss->dev, "SETUP(%02X)\n", 0x00);
 
@@ -1338,6 +1341,27 @@ static int usb_ss_gadget_ep0_set_halt(struct usb_ep *ep, int value)
 	return 0;
 }
 
+static void __pending_setup_status_handler(struct usb_ss_dev *usb_ss)
+{
+	struct usb_request *request = usb_ss->pending_status_request;
+
+	if (usb_ss->status_completion_no_call && request && request->complete) {
+		request->complete(usb_ss->gadget.ep0, request);
+		usb_ss->status_completion_no_call = 0;
+	}
+}
+
+static void pending_setup_status_handler(struct work_struct *work)
+{
+	struct usb_ss_dev *usb_ss = container_of(work, struct usb_ss_dev,
+			pending_status_wq);
+	unsigned long flags;
+
+	spin_lock_irqsave(&usb_ss->lock, flags);
+	__pending_setup_status_handler(usb_ss);
+	spin_unlock_irqrestore(&usb_ss->lock, flags);
+}
+
 /**
  * usb_ss_gadget_ep0_queue Transfer data on endpoint zero
  * @ep: pointer to endpoint zero object
@@ -1390,9 +1414,17 @@ static int usb_ss_gadget_ep0_queue(struct usb_ep *ep,
 		if (!erdy_sent)
 			gadget_writel(usb_ss, &usb_ss->regs->ep_cmd,
 			EP_CMD__ERDY__MASK | EP_CMD__REQ_CMPL__MASK);
-		if (request->complete)
-			request->complete(usb_ss->gadget.ep0, request);
+
+		request->actual = 0;
+		usb_ss->status_completion_no_call = true;
+		usb_ss->pending_status_request = request;
 		spin_unlock_irqrestore(&usb_ss->lock, flags);
+		/*
+		 * Since there is no completion interrupt for status stage,
+		 * it needs to call ->completion in software after
+		 * ep0_queue is back.
+		 */
+		queue_work(system_freezable_wq, &usb_ss->pending_status_wq);
 		return 0;
 	}
 
@@ -2256,6 +2288,7 @@ static int __cdns3_gadget_init(struct cdns3 *cdns)
 	usb_ss->gadget.sg_supported = 1;
 	usb_ss->is_connected = 0;
 	spin_lock_init(&usb_ss->lock);
+	INIT_WORK(&usb_ss->pending_status_wq, pending_setup_status_handler);
 
 	usb_ss->in_standby_mode = 1;
 

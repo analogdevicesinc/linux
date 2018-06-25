@@ -207,6 +207,7 @@ struct usb_ss_dev {
 
 	unsigned is_connected:1;
 	unsigned in_standby_mode:1;
+	unsigned status_completion_no_call:1;
 
 	u32 usb_ien;
 	u32 ep_ien;
@@ -217,6 +218,8 @@ struct usb_ss_dev {
 	int onchip_mem_allocated_size; /* KB */
 	/* Memory is allocated for OUT */
 	int out_mem_is_allocated:1;
+	struct work_struct pending_status_wq;
+	struct usb_request *pending_status_request;
 };
 
 #endif /* __DRIVERS_CDNS3_GADGET */
