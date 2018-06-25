@@ -90,6 +90,9 @@
 #define DCSS_DTRC_PFCR				0xF4
 #define DCSS_DTRC_TOCR				0xF8
 
+#define TRACE_IRQ				(1LL << 48)
+#define TRACE_SWITCH_BANKS			(2LL << 48)
+
 struct dcss_dtrc_ch {
 	void __iomem *base_reg;
 	u32 base_ofs;
@@ -109,6 +112,9 @@ struct dcss_dtrc_ch {
 
 	bool bypass;
 	bool running;
+
+	int irq;
+	int ch_num;
 };
 
 struct dcss_dtrc_priv {
@@ -193,6 +199,54 @@ void dcss_dtrc_dump_regs(struct seq_file *s, void *data)
 }
 #endif
 
+static irqreturn_t dcss_dtrc_irq_handler(int irq, void *data)
+{
+	struct dcss_dtrc_ch *ch = data;
+	u32 b0, b1, curr_bank;
+
+	b0 = dcss_readl(ch->base_reg + DCSS_DTRC_DCTL) & 0x1;
+	b1 = dcss_readl(ch->base_reg + DTRC_F1_OFS + DCSS_DTRC_DCTL) & 0x1;
+	curr_bank = dcss_readl(ch->base_reg + DCSS_DTRC_DTCTRL) >> 31;
+
+	dcss_trace_module(TRACE_DTRC, TRACE_IRQ | (ch->ch_num + 1) << 3 |
+			  curr_bank << 2 | b0 << 0 | b1 << 1);
+
+	dcss_update(1, 1, ch->base_reg + DCSS_DTRC_FDINTR);
+
+	return IRQ_HANDLED;
+}
+
+static int dcss_dtrc_irq_config(struct dcss_soc *dcss, int ch_num)
+{
+	struct platform_device *pdev = to_platform_device(dcss->dev);
+	struct dcss_dtrc_priv *dtrc = dcss->dtrc_priv;
+	struct dcss_dtrc_ch *ch = &dtrc->ch[ch_num];
+	char irq_name[20];
+	int ret;
+
+	sprintf(irq_name, "dtrc_ch%d", ch_num + 1);
+	irq_name[8] = 0;
+
+	ch->irq = platform_get_irq_byname(pdev, irq_name);
+	if (ch->irq < 0) {
+		dev_err(dcss->dev, "dtrc: can't get DTRC irq\n");
+		return ch->irq;
+	}
+
+	ret = devm_request_irq(dcss->dev, ch->irq,
+			dcss_dtrc_irq_handler,
+			IRQF_TRIGGER_HIGH,
+			"dcss-dtrc", ch);
+	if (ret) {
+		dev_err(dcss->dev, "dtrc: irq request failed.\n");
+		return ret;
+	}
+
+	dcss_writel(1, ch->base_reg + DCSS_DTRC_INTEN);
+
+	return 0;
+}
+
 static int dcss_dtrc_ch_init_all(struct dcss_soc *dcss, unsigned long dtrc_base)
 {
 	struct dcss_dtrc_priv *dtrc = dcss->dtrc_priv;
@@ -209,6 +263,10 @@ static int dcss_dtrc_ch_init_all(struct dcss_soc *dcss, unsigned long dtrc_base)
 			dev_err(dcss->dev, "dtrc: unable to remap ch base\n");
 			return -ENOMEM;
 		}
+
+		ch->ch_num = i;
+
+		dcss_dtrc_irq_config(dcss, i);
 
 #if defined(USE_CTXLD)
 		ch->ctx_id = CTX_SB_HP;
@@ -527,11 +585,19 @@ EXPORT_SYMBOL(dcss_dtrc_set_format_mod);
 static void dcss_dtrc_ch_switch_banks(struct dcss_dtrc_priv *dtrc, int dtrc_ch)
 {
 	struct dcss_dtrc_ch *ch = &dtrc->ch[dtrc_ch];
+	u32 b0, b1;
 
 	if (!ch->running)
 		return;
 
+	b0 = dcss_readl(ch->base_reg + DCSS_DTRC_DCTL) & 0x1;
+	b1 = dcss_readl(ch->base_reg + DTRC_F1_OFS + DCSS_DTRC_DCTL) & 0x1;
+
 	ch->curr_frame = dcss_readl(ch->base_reg + DCSS_DTRC_DTCTRL) >> 31;
+
+	dcss_trace_module(TRACE_DTRC, TRACE_SWITCH_BANKS |
+			  (dtrc_ch + 1) << 3 | ch->curr_frame << 2 |
+			  b0 << 0 | b1 << 1);
 
 	dcss_dtrc_write_irqsafe(dtrc, dtrc_ch, ch->dctl | CONFIG_READY,
 				(ch->curr_frame ^ 1) * DTRC_F1_OFS + DCSS_DTRC_DCTL);
