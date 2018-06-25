@@ -80,6 +80,16 @@
 			enable-active-high;
 		};
 
+		reg_sd1_vmmc: sd1_regulator {
+			compatible = "regulator-fixed";
+			regulator-name = "WLAN_EN";
+			regulator-min-microvolt = <3300000>;
+			regulator-max-microvolt = <3300000>;
+			gpio = <&rpmsg_gpio0 14 GPIO_ACTIVE_HIGH>;
+			off-on-delay = <20000>;
+			startup-delay-us = <100>;
+			enable-active-high;
+		};
 	};
 
 	extcon_usb1: extcon_usb1 {
@@ -333,7 +343,7 @@
 		pinctrl_usdhc1: usdhc1grp {
 			fsl,pins = <
 				IMX7ULP_PAD_PTE3__SDHC1_CMD	0x43
-				IMX7ULP_PAD_PTE2__SDHC1_CLK	0x43
+				IMX7ULP_PAD_PTE2__SDHC1_CLK	0x10042
 				IMX7ULP_PAD_PTE1__SDHC1_D0	0x43
 				IMX7ULP_PAD_PTE0__SDHC1_D1	0x43
 				IMX7ULP_PAD_PTE5__SDHC1_D2	0x43
@@ -347,12 +357,6 @@
 				IMX7ULP_PAD_PTE13__PTE13	0x10003	/* USDHC1 CD */
 				IMX7ULP_PAD_PTE12__PTE12	0x10003	/* USDHC1 WP */
 				IMX7ULP_PAD_PTE14__SDHC1_VS	0x43	/* USDHC1 VSEL */
-			>;
-		};
-
-		pinctrl_wifi: wifigrp {
-			fsl,pins = <
-				IMX7ULP_PAD_PTE6__PTE6		0x20043	/* WL_REG_ON */
 			>;
 		};
 
@@ -550,12 +554,13 @@
 
 &usdhc1 {
 	pinctrl-names = "default", "sleep";
-	pinctrl-0 = <&pinctrl_usdhc1 &pinctrl_wifi>;
-	pinctrl-1 = <&pinctrl_usdhc1 &pinctrl_wifi>;
-	non-removable;
-	keep-power-in-suspend;
-	cd-post;
+	pinctrl-0 = <&pinctrl_usdhc1>;
+	pinctrl-1 = <&pinctrl_usdhc1>;
+	bus-width = <4>;
+	no-1-8-v;
+	vmmc-supply = <&reg_sd1_vmmc>;
 	pm-ignore-notify;
-	wifi-host;
+	keep-power-in-suspend;
+	non-removable;
 	status = "okay";
 };
