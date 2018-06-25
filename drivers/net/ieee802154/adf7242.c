@@ -574,9 +574,7 @@ static void adf7242_clear_irqstat(struct adf7242_local *lp)
 
 static int adf7242_cmd_rx(struct adf7242_local *lp)
 {
-	/*
-	 * Wait until the ACK is sent
-	 */
+	/* Wait until the ACK is sent */
 	adf7242_wait_status(lp, RC_STATUS_PHY_RDY, RC_STATUS_MASK, __LINE__);
 	adf7242_clear_irqstat(lp);
 	mod_delayed_work(lp->wqueue, &lp->work, msecs_to_jiffies(400));
@@ -836,9 +834,7 @@ static int adf7242_xmit(struct ieee802154_hw *hw, struct sk_buff *skb)
 	struct adf7242_local *lp = hw->priv;
 	int ret;
 
-	/*
-	 * ensure existing instances of the IRQ handler have completed
-	 */
+	/* ensure existing instances of the IRQ handler have completed */
 	disable_irq(lp->spi->irq);
 	set_bit(FLAG_XMIT, &lp->flags);
 	cancel_delayed_work_sync(&lp->work);
@@ -992,8 +988,8 @@ static irqreturn_t adf7242_isr(int irq, void *data)
 	xmit = test_bit(FLAG_XMIT, &lp->flags);
 
 	if (xmit && (irq1 & IRQ_CSMA_CA)) {
-
-		adf7242_wait_status(lp, RC_STATUS_PHY_RDY, RC_STATUS_MASK, __LINE__);
+		adf7242_wait_status(lp, RC_STATUS_PHY_RDY,
+				    RC_STATUS_MASK, __LINE__);
 
 		if (ADF7242_REPORT_CSMA_CA_STAT) {
 			u8 astat;
@@ -1033,7 +1029,8 @@ static irqreturn_t adf7242_isr(int irq, void *data)
 
 		dev_dbg(&lp->spi->dev, "%s:%d : ERROR IRQ1 = 0x%X, xmit %d\n",
 			__func__, __LINE__, irq1, xmit);
-		adf7242_wait_status(lp, RC_STATUS_PHY_RDY, RC_STATUS_MASK, __LINE__);
+		adf7242_wait_status(lp, RC_STATUS_PHY_RDY,
+				    RC_STATUS_MASK, __LINE__);
 		complete(&lp->tx_complete);
 		adf7242_clear_irqstat(lp);
 	}
