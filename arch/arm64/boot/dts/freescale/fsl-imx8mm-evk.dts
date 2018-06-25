@@ -706,7 +706,7 @@
 		mipi1_sensor_ep: endpoint1 {
 			remote-endpoint = <&ov5640_mipi1_ep>;
 			data-lanes = <2>;
-			csis-hs-settle = <5>;
+			csis-hs-settle = <13>;
 			csis-clk-settle = <2>;
 			csis-wclk;
 		};
@@ -762,11 +762,11 @@
 		clock-names = "csi_mclk";
 		assigned-clocks = <&clk IMX8MM_CLK_CLKO1_SRC>,
 				  <&clk IMX8MM_CLK_CLKO1_DIV>;
-		assigned-clock-parents = <&clk IMX8MM_SYS_PLL1_200M>;
-		assigned-clock-rates = <0>, <25000000>;
+		assigned-clock-parents = <&clk IMX8MM_CLK_24M>;
+		assigned-clock-rates = <0>, <24000000>;
 		csi_id = <0>;
 		pwn-gpios = <&gpio1 7 GPIO_ACTIVE_HIGH>;
-		mclk = <25000000>;
+		mclk = <24000000>;
 		mclk_source = <0>;
 		port {
 			ov5640_mipi1_ep: endpoint {
