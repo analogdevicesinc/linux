@@ -22,6 +22,10 @@
 		mxcfb3 = &mxcfb4;
 	};
 
+	chosen {
+		stdout-path = &uart4;
+	};
+
 	gpio-keys {
 		compatible = "gpio-keys1";
 		pinctrl-names = "default";

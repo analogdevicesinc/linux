@@ -30,6 +30,10 @@
 		status = "okay";
 	};
 
+	chosen {
+		stdout-path = &uart1;
+	};
+
 	memory {
 		reg = <0x80000000 0x40000000>;
 	};
