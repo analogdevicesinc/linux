@@ -326,6 +326,125 @@ static void dcss_clocks_enable(struct dcss_soc *dcss, bool en)
 
 #ifdef CONFIG_DEBUG_FS
 #include <linux/debugfs.h>
+#include <linux/slab.h>
+#include <linux/sched/clock.h>
+
+static unsigned int dcss_tracing;
+EXPORT_SYMBOL(dcss_tracing);
+
+module_param_named(tracing, dcss_tracing, int, 0600);
+
+struct dcss_trace {
+	u64 seq;
+	u64 time_ns;
+	u64 tag;
+	struct list_head node;
+};
+
+static LIST_HEAD(dcss_trace_list);
+static spinlock_t lock;
+static u64 seq;
+
+void dcss_trace_write(u64 tag)
+{
+	struct dcss_trace *trace;
+	unsigned long flags;
+
+	if (!dcss_tracing)
+		return;
+
+	trace = kzalloc(sizeof(*trace), GFP_KERNEL);
+	if (!trace)
+		return;
+
+	trace->time_ns = local_clock();
+	trace->tag = tag;
+	trace->seq = seq;
+
+	spin_lock_irqsave(&lock, flags);
+	list_add_tail(&trace->node, &dcss_trace_list);
+	seq++;
+	spin_unlock_irqrestore(&lock, flags);
+}
+EXPORT_SYMBOL(dcss_trace_write);
+
+static int dcss_trace_dump_show(struct seq_file *s, void *data)
+{
+	struct dcss_trace *trace = data;
+
+	if (trace)
+		seq_printf(s, "%lld %lld %lld\n",
+			   trace->seq, trace->time_ns, trace->tag);
+
+	return 0;
+}
+
+static void *dcss_trace_dump_start(struct seq_file *s, loff_t *pos)
+{
+	unsigned long flags;
+	struct dcss_trace *trace = NULL;
+
+	spin_lock_irqsave(&lock, flags);
+	if (!list_empty(&dcss_trace_list)) {
+		trace = list_first_entry(&dcss_trace_list,
+					 struct dcss_trace, node);
+		goto exit;
+	}
+
+exit:
+	spin_unlock_irqrestore(&lock, flags);
+	return trace;
+}
+
+static void *dcss_trace_dump_next(struct seq_file *s, void *v, loff_t *pos)
+{
+	unsigned long flags;
+	struct dcss_trace *next_trace = NULL;
+	struct dcss_trace *trace = v;
+
+	++*pos;
+	spin_lock_irqsave(&lock, flags);
+	if (!list_is_last(&trace->node, &dcss_trace_list)) {
+		next_trace = list_entry(trace->node.next,
+					struct dcss_trace, node);
+		goto exit;
+	}
+
+exit:
+	spin_unlock_irqrestore(&lock, flags);
+	return next_trace;
+}
+
+static void dcss_trace_dump_stop(struct seq_file *s, void *v)
+{
+	unsigned long flags;
+	struct dcss_trace *trace, *tmp;
+	struct dcss_trace *last_trace = v;
+
+	spin_lock_irqsave(&lock, flags);
+	if (!list_empty(&dcss_trace_list)) {
+		list_for_each_entry_safe(trace, tmp, &dcss_trace_list, node) {
+			if (last_trace && trace->seq >= last_trace->seq)
+				break;
+
+			list_del(&trace->node);
+			kfree(trace);
+		}
+	}
+	spin_unlock_irqrestore(&lock, flags);
+}
+
+static const struct seq_operations dcss_trace_seq_ops = {
+	.start = dcss_trace_dump_start,
+	.next = dcss_trace_dump_next,
+	.stop = dcss_trace_dump_stop,
+	.show = dcss_trace_dump_show,
+};
+
+static int dcss_trace_dump_open(struct inode *inode, struct file *file)
+{
+	return seq_open(file, &dcss_trace_seq_ops);
+}
 
 static int dcss_dump_regs_show(struct seq_file *s, void *data)
 {
@@ -374,6 +493,13 @@ static const struct file_operations dcss_dump_ctx_fops = {
 	.release	= single_release,
 };
 
+static const struct file_operations dcss_dump_trace_fops = {
+	.open		= dcss_trace_dump_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= seq_release,
+};
+
 static void dcss_debugfs_init(struct dcss_soc *dcss)
 {
 	struct dentry *d, *root;
@@ -392,6 +518,11 @@ static void dcss_debugfs_init(struct dcss_soc *dcss)
 	if (!d)
 		goto err;
 
+	d = debugfs_create_file("dump_trace_log", 0444, root, dcss,
+				&dcss_dump_trace_fops);
+	if (!d)
+		goto err;
+
 	return;
 
 err:
@@ -401,6 +532,11 @@ err:
 static void dcss_debugfs_init(struct dcss_soc *dcss)
 {
 }
+
+void dcss_trace_write(u64 tag)
+{
+}
+EXPORT_SYMBOL(dcss_trace_write);
 #endif
 
 static void dcss_bus_freq(struct dcss_soc *dcss, bool en)

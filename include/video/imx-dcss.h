@@ -30,6 +30,28 @@ int dcss_vblank_irq_get(struct dcss_soc *dcss);
 void dcss_vblank_irq_enable(struct dcss_soc *dcss, bool en);
 void dcss_vblank_irq_clear(struct dcss_soc *dcss);
 enum dcss_color_space dcss_drm_fourcc_to_colorspace(u32 drm_fourcc);
+void dcss_trace_write(u64 tag);
+
+
+#define TAG(x)			((x) << 56)
+
+#define TRACE_COMMON		TAG(0LL)
+#define TRACE_DTG		TAG(1LL)
+#define TRACE_SS		TAG(2LL)
+#define TRACE_DPR		TAG(3LL)
+#define TRACE_SCALER		TAG(4LL)
+#define TRACE_CTXLD		TAG(5LL)
+#define TRACE_DEC400D		TAG(6LL)
+#define TRACE_DTRC		TAG(7LL)
+#define TRACE_HDR10		TAG(8LL)
+#define TRACE_RDSRC		TAG(9LL)
+#define TRACE_WRSCL		TAG(10LL)
+
+#define TRACE_DRM_CRTC		TAG(11LL)
+#define TRACE_DRM_PLANE		TAG(12LL)
+#define TRACE_DRM_KMS		TAG(13LL)
+
+#define dcss_trace_module(mod_tag, val) dcss_trace_write((mod_tag) | (val));
 
 /* BLKCTL */
 void dcss_blkctl_hdmi_secure_src_en(struct dcss_soc *dcss);
