@@ -1387,24 +1387,6 @@
 				};
 			};
 		};
-
-		drc-thermal0 {
-			polling-delay-passive = <250>;
-			polling-delay = <2000>;
-			thermal-sensors = <&tsens 1>;
-			trips {
-				drc_alert0: trip0 {
-					temperature = <85000>;
-					hysteresis = <2000>;
-					type = "passive";
-				};
-				drc_crit0: trip1 {
-					temperature = <127000>;
-					hysteresis = <2000>;
-					type = "critical";
-				};
-			};
-		};
 	};
 
 	irqsteer_csi: irqsteer@58220000 {
