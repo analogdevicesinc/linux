@@ -610,9 +610,21 @@ static int v4l2_ioctl_reqbufs(struct file *file,
 	ret = vb2_reqbufs(&q_data->vb2_q, reqbuf);
 	if (!ret) {
 		if (reqbuf->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
-			for (i = 0; i < reqbuf->count; i++)
-				q_data->vb2_reqs[i].status = FRAME_ALLOC;
-			alloc_mbi_buffer(ctx, q_data, reqbuf->count);
+			if (reqbuf->count == 0) {
+				for (i = 0; i < MAX_MBI_NUM; i++)
+					if (ctx->mbi_dma_virt[i] != NULL) {
+						dma_free_coherent(&ctx->dev->plat_dev->dev,
+								ctx->mbi_size,
+								ctx->mbi_dma_virt[i],
+								ctx->mbi_dma_phy[i]
+								);
+						ctx->mbi_dma_virt[i] = NULL;
+					}
+			} else {
+				for (i = 0; i < reqbuf->count; i++)
+					q_data->vb2_reqs[i].status = FRAME_ALLOC;
+				alloc_mbi_buffer(ctx, q_data, reqbuf->count);
+			}
 		}
 	} else if (reqbuf->count != 0)
 		vpu_dbg(LVL_ERR, "error: %s() can't request (%d) buffer\n", __func__, reqbuf->count);
