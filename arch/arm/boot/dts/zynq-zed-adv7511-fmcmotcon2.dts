@@ -3,23 +3,80 @@
 /include/ "zynq-zed.dtsi"
 /include/ "zynq-zed-adv7511.dtsi"
 
+/delete-node/ &gem0;
+/delete-node/ &gem1;
+
 &aliases {
-	ethernet1 = &gem1;
+	ethernet0 = &eth0;
+	ethernet1 = &eth1;
 };
 
-&gem0 {
-	phy1: phy@1 {
-		device_type = "ethernet-phy";
-		reg = <0x1>;
-		marvell,reg-init = <3 16 0xff00 0x1e 3 17 0xfff0 0x0a>;
+&amba {
+	eth0: eth0@e000b000 {
+		compatible = "xlnx,ps7-ethernet-1.00.a";
+		reg = <0xe000b000 0x1000>;
+		interrupts = <0 22 4>;
+		interrupt-parent = <&intc>;
+		#address-cells = <0x1>;
+		#size-cells = <0x0>;
+
+		clock-names = "ref_clk", "aper_clk";
+		clocks = <&clkc 13>, <&clkc 30>;
+
+		xlnx,enet-clk-freq-hz = <0x17d7840>;
+		xlnx,enet-reset = "MIO 11";
+		xlnx,enet-slcr-1000mbps-div0 = <0x8>;
+		xlnx,enet-slcr-1000mbps-div1 = <0x1>;
+		xlnx,enet-slcr-100mbps-div0 = <0x8>;
+		xlnx,enet-slcr-100mbps-div1 = <0x5>;
+		xlnx,enet-slcr-10mbps-div0 = <0x8>;
+		xlnx,enet-slcr-10mbps-div1 = <0x32>;
+		xlnx,eth-mode = <0x1>;
+		xlnx,has-mdio = <0x1>;
+		xlnx,ptp-enet-clock = <111111115>;
+
+		phy-handle = <&phy0>;
+		phy-mode = "rgmii-id";
+
+		phy0: phy@0 {
+			device_type = "ethernet-phy";
+			reg = <0x0>;
+			marvell,reg-init = <3 16 0xff00 0x1e 3 17 0xfff0 0x0a>;
+		};
+
+		phy1: phy@1 {
+			device_type = "ethernet-phy";
+			reg = <0x1>;
+			marvell,reg-init = <3 16 0xff00 0x1e 3 17 0xfff0 0x0a>;
+		};
 	};
-};
 
-&gem1 {
-	status = "okay";
+	eth1: eth1@e000c000 {
+		compatible = "xlnx,ps7-ethernet-1.00.a";
+		reg = <0xe000c000 0x1000>;
+		interrupts = <0 45 4>;
+		interrupt-parent = <&intc>;
+		#address-cells = <0x1>;
+		#size-cells = <0x0>;
 
-	phy-handle = <&phy1>;
-	phy-mode = "rgmii-id";
+		clock-names = "ref_clk", "aper_clk";
+		clocks = <&clkc 14>, <&clkc 31>;
+
+		xlnx,enet-clk-freq-hz = <0xbebc20>;
+		xlnx,enet-slcr-1000mbps-div0 = <0x1>;
+		xlnx,enet-slcr-1000mbps-div1 = <0x1>;
+		xlnx,enet-slcr-100mbps-div0 = <0x1>;
+		xlnx,enet-slcr-100mbps-div1 = <0x5>;
+		xlnx,enet-slcr-10mbps-div0 = <0x1>;
+		xlnx,enet-slcr-10mbps-div1 = <0x32>;
+		xlnx,eth-mode = <0x1>;
+		xlnx,has-mdio = <0x0>;
+		xlnx,ptp-enet-clock = <111111115>;
+		local-mac-address = [00 49 76 a2 b2 f5];
+
+		phy-handle = <&phy1>;
+		phy-mode = "rgmii-id";
+	};
 };
 
 &fpga_axi {
@@ -148,7 +205,6 @@
 		spi-cpha;
 		spi-max-frequency = <1000000>;
 		sample-gpios = <&gpio0 86 0>;
-		adi,entirely-configuration-mode-enable;
 	};
 };
 
