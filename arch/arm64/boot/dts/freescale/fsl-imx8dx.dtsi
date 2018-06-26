@@ -1356,7 +1356,7 @@
 	tsens: thermal-sensor {
 		compatible = "nxp,imx8qxp-sc-tsens";
 		/* number of the temp sensor on the chip */
-		tsens-num = <2>;
+		tsens-num = <1>;
 		#thermal-sensor-cells = <1>;
 	};
 

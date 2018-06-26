@@ -1135,14 +1135,14 @@
 };
 
 &tsens {
-	tsens-num = <3>;
+	tsens-num = <2>;
 };
 
 &thermal_zones {
 	pmic-thermal0 {
 		polling-delay-passive = <250>;
 		polling-delay = <2000>;
-		thermal-sensors = <&tsens 2>;
+		thermal-sensors = <&tsens 1>;
 		trips {
 			pmic_alert0: trip0 {
 				temperature = <80000>;
