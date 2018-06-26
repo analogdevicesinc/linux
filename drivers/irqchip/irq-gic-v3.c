@@ -678,7 +678,7 @@ static void gic_raise_softirq(const struct cpumask *mask, unsigned int irq)
 			val |= (1 << 12);
 			writel_relaxed(val, iomuxc_gpr_base + 0x4);
 			/* delay for a while to make sure cores wakeup done */
-			udelay(50);
+			udelay(10);
 			val &= ~(1 << 12);
 			writel_relaxed(val, iomuxc_gpr_base + 0x4);
 		}
