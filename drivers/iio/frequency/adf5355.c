@@ -501,7 +501,7 @@ static ssize_t adf5355_write(struct iio_dev *indio_dev,
 {
 	struct adf5355_state *st = iio_priv(indio_dev);
 	unsigned long long readin;
-	unsigned long tmp;
+	unsigned long tmp = 0;
 	int ret;
 
 	ret = kstrtoull(buf, 10, &readin);
