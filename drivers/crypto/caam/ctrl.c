@@ -426,13 +426,24 @@ static int caam_probe(struct platform_device *pdev)
 	check_virt(ctrlpriv, comp_params);
 
 	/* Set DMA masks according to platform ranging */
-	if (sizeof(dma_addr_t) == sizeof(u64))
+	if (of_machine_is_compatible("fsl,imx8mm") ||
+		of_machine_is_compatible("fsl,imx8qm") ||
+		of_machine_is_compatible("fsl,imx8qxp") ||
+		of_machine_is_compatible("fsl,imx8mq")) {
+		ret = dma_set_mask_and_coherent(dev, DMA_BIT_MASK(32));
+	} else if (sizeof(dma_addr_t) == sizeof(u64))
 		if (of_device_is_compatible(nprop, "fsl,sec-v5.0"))
-			dma_set_mask_and_coherent(dev, DMA_BIT_MASK(40));
+			ret = dma_set_mask_and_coherent(dev, DMA_BIT_MASK(40));
 		else
-			dma_set_mask_and_coherent(dev, DMA_BIT_MASK(36));
+			ret = dma_set_mask_and_coherent(dev, DMA_BIT_MASK(36));
 	else
-		dma_set_mask_and_coherent(dev, DMA_BIT_MASK(32));
+		ret = dma_set_mask_and_coherent(dev, DMA_BIT_MASK(32));
+
+	if (ret) {
+		dev_err(dev, "dma_set_mask_and_coherent failed (%d)\n",
+			ret);
+		goto iounmap_ctrl;
+	}
 
 	ret = enable_jobrings(ctrlpriv, block_offset);
 	if (ret)
@@ -660,16 +671,29 @@ static int probe_w_seco(struct caam_drv_private *ctrlpriv)
 	 */
 
 	/* Set DMA masks according to platform ranging */
-	if (sizeof(dma_addr_t) == sizeof(u64))
+	if (of_machine_is_compatible("fsl,imx8mm") ||
+		of_machine_is_compatible("fsl,imx8qm") ||
+		of_machine_is_compatible("fsl,imx8qxp") ||
+		of_machine_is_compatible("fsl,imx8mq")) {
+		ret = dma_set_mask_and_coherent(ctrlpriv->dev,
+			DMA_BIT_MASK(32));
+	} else if (sizeof(dma_addr_t) == sizeof(u64))
 		if (of_device_is_compatible(ctrlpriv->pdev->dev.of_node,
 					    "fsl,sec-v5.0"))
-			dma_set_mask_and_coherent(ctrlpriv->dev,
+			ret = dma_set_mask_and_coherent(ctrlpriv->dev,
 						  DMA_BIT_MASK(40));
 		else
-			dma_set_mask_and_coherent(ctrlpriv->dev,
+			ret = dma_set_mask_and_coherent(ctrlpriv->dev,
 						  DMA_BIT_MASK(36));
 	else
-		dma_set_mask_and_coherent(ctrlpriv->dev, DMA_BIT_MASK(32));
+		ret = dma_set_mask_and_coherent(ctrlpriv->dev,
+			DMA_BIT_MASK(32));
+
+	if (ret) {
+		dev_err(ctrlpriv->dev, "dma_set_mask_and_coherent failed (%d)\n",
+			ret);
+		return ret;
+	}
 
 	/*
 	 * this is where we should run the descriptor for DRNG init
