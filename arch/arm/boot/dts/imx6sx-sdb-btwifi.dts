@@ -23,21 +23,9 @@
 		#reset-cells = <0>;
 	};
 
-	regulators {
-		wlreg_on: fixedregulator@100 {
-			compatible = "regulator-fixed";
-			regulator-min-microvolt = <5000000>;
-			regulator-max-microvolt = <5000000>;
-			regulator-name = "wlreg_on";
-			gpio = <&gpio6 10 0>;
-			startup-delay-us = <100>;
-			enable-active-high;
-		};
-	};
-
-	bcmdhd_wlan_0: bcmdhd_wlan@0 {
-		compatible = "android,bcmdhd_wlan";
-		wlreg_on-supply = <&wlreg_on>;
+	usdhc3_pwrseq: usdhc3_pwrseq {
+		compatible = "mmc-pwrseq-simple";
+		reset-gpios = <&gpio6 10 GPIO_ACTIVE_LOW>;
 	};
 };
 
@@ -79,6 +67,7 @@
 				MX6SX_PAD_KEY_COL0__GPIO2_IO_10		0x17059 /* CD */
 				MX6SX_PAD_KEY_ROW0__GPIO2_IO_15		0x17059 /* WP */
 				/* Murata Module control signals */
+				MX6SX_PAD_SD2_DATA1__GPIO6_IO_9         0x13069 /* WL_HOST_WAKE */
 				MX6SX_PAD_SD2_DATA2__GPIO6_IO_10	0x13069 /* WL_REG_ON */
 			>;
 		};
@@ -105,13 +94,20 @@
 };
 
 &usdhc3 {
+	#address-cells = <1>;
+	#size-cells = <0>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_wifi>;
 	bus-width = <4>;
 	no-1-8-v;	/* force 3.3V VIO */
 	non-removable;
-	cd-post;
+	mmc-pwrseq = <&usdhc3_pwrseq>;
 	pm-ignore-notify;
-	wifi-host;	/* pull in card detect mechanism for BCMDHD driver */
+	cap-power-off-card;
 	status = "okay";
+
+	brcmf: bcrmf@1 {
+		reg = <1>;
+		compatible = "brcm,bcm4329-fmac";
+	};
 };

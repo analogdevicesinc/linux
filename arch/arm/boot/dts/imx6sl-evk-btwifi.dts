@@ -23,21 +23,9 @@
 		#reset-cells = <0>;
 	};
 
-	regulators {
-		wlreg_on: fixedregulator@100 {
-			compatible = "regulator-fixed";
-			regulator-min-microvolt = <5000000>;
-			regulator-max-microvolt = <5000000>;
-			regulator-name = "wlreg_on";
-			gpio = <&gpio5 16 0>;
-			startup-delay-us = <100>;
-			enable-active-high;
-		};
-	};
-
-	bcmdhd_wlan_0: bcmdhd_wlan@0 {
-		compatible = "android,bcmdhd_wlan";
-		wlreg_on-supply = <&wlreg_on>;
+	usdhc1_pwrseq: usdhc1_pwrseq {
+		compatible = "mmc-pwrseq-simple";
+		reset-gpios = <&gpio5 16 GPIO_ACTIVE_LOW>;
 	};
 };
 
@@ -58,6 +46,7 @@
 				MX6SL_PAD_SD1_DAT1__SD1_DATA1		0x17059
 				MX6SL_PAD_SD1_DAT2__SD1_DATA2		0x17059
 				MX6SL_PAD_SD1_DAT3__SD1_DATA3		0x17059
+				MX6SL_PAD_SD3_DAT1__GPIO5_IO20		0x13069 /* WL_HOST_WAKE */
 				MX6SL_PAD_SD3_DAT2__GPIO5_IO16		0x13069 /* WL_REG_ON */
 			>;
 		};
@@ -85,14 +74,21 @@
 };
 
 &usdhc1 {
+	#address-cells = <1>;
+	#size-cells = <0>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_wifi>;
 	bus-width = <4>;
 	no-1-8-v;
 	non-removable;
-	cd-post;
+	mmc-pwrseq = <&usdhc1_pwrseq>;
 	pm-ignore-notify;
-	wifi-host;
+	cap-power-off-card;
+
+	brcmf: bcrmf@1 {
+		reg = <1>;
+		compatible = "brcm,bcm4329-fmac";
+	};
 };
 
 &usdhc3 {

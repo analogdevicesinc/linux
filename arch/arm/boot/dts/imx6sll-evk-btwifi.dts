@@ -22,22 +22,9 @@
 		#reset-cells = <0>;
 	};
 
-	regulators {
-		wlreg_on: fixedregulator@100 {
-			compatible = "regulator-fixed";
-			regulator-min-microvolt = <5000000>;
-			regulator-max-microvolt = <5000000>;
-			regulator-name = "wlreg_on";
-			gpio = <&gpio3 24 0>;
-			startup-delay-us = <100>;
-			enable-active-high;
-		};
-	};
-
-	bcmdhd_wlan_0: bcmdhd_wlan@0 {
-		compatible = "android,bcmdhd_wlan";
-		wlreg_on-supply = <&wlreg_on>;
-		gpios = <&gpio3 26 0>;          /* WL_HOST_WAKE */
+	usdhc1_pwrseq: usdhc1_pwrseq {
+		compatible = "mmc-pwrseq-simple";
+		reset-gpios = <&gpio3 24 GPIO_ACTIVE_LOW>;
 	};
 };
 
@@ -73,11 +60,19 @@
 };
 
 &usdhc3 {
+	#address-cells = <1>;
+	#size-cells = <0>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_wifi>;
+	bus-width = <4>;
 	no-1-8-v;
 	non-removable;
-	cd-post;
+	mmc-pwrseq = <&usdhc1_pwrseq>;
 	pm-ignore-notify;
-	wifi-host; /* add hook for SD card detect mechanism for BCMDHD driver */
+	cap-power-off-card;
+
+	brcmf: bcrmf@1 {
+		reg = <1>;
+		compatible = "brcm,bcm4329-fmac";
+	};
 };
