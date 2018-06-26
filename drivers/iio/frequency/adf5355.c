@@ -850,8 +850,6 @@ static int adf5355_probe(struct spi_device *spi)
 	st->pdata = pdata;
 	st->clk = clk;
 
-	st->is_5355 = (spi_get_device_id(spi)->driver_data == 5355);
-
 	switch (spi_get_device_id(spi)->driver_data) {
 	case ADF5355:
 		st->is_5355 = true;
