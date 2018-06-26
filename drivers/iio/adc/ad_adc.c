@@ -125,6 +125,20 @@ static const struct adc_chip_info m2k_adc_chip_info = {
 	.ctrl_flags = ADI_FORMAT_SIGNEXT | ADI_FORMAT_ENABLE,
 };
 
+static const struct iio_chan_spec adrv9009_obs_rx_channels[] = {
+	AD9361_OBS_RX_CHANNEL(0, IIO_MOD_I, 0),
+	AD9361_OBS_RX_CHANNEL(0, IIO_MOD_Q, 1),
+	AD9361_OBS_RX_CHANNEL(1, IIO_MOD_I, 2),
+	AD9361_OBS_RX_CHANNEL(1, IIO_MOD_Q, 3),
+
+};
+
+static const struct adc_chip_info adrv9009_obs_rx_chip_info = {
+	.channels = adrv9009_obs_rx_channels,
+	.num_channels = ARRAY_SIZE(adrv9009_obs_rx_channels),
+	.ctrl_flags = ADI_FORMAT_SIGNEXT | ADI_FORMAT_ENABLE,
+};
+
 static int axiadc_hw_consumer_postenable(struct iio_dev *indio_dev)
 {
 	struct axiadc_state *st = iio_priv(indio_dev);
@@ -224,7 +238,7 @@ static const struct of_device_id adc_of_match[] = {
 	{ .compatible = "adi,cn0363-adc-1.00.a", .data = &cn0363_chip_info },
 	{ .compatible = "adi,axi-ad9371-obs-1.0", .data = &ad9371_obs_rx_chip_info },
 	{ .compatible = "adi,m2k-adc-1.00.a", .data = &m2k_adc_chip_info },
-	{ .compatible = "adi,axi-adrv9009-obs-1.0", .data = &ad9371_obs_rx_chip_info },
+	{ .compatible = "adi,axi-adrv9009-obs-1.0", .data = &adrv9009_obs_rx_chip_info },
 	{ /* end of list */ },
 };
 MODULE_DEVICE_TABLE(of, adc_of_match);
