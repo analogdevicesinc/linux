@@ -45,7 +45,6 @@
  */
 #include "address.h"
 #include "apb_cfg.h"
-#include "API_AVI.h"
 #include "API_AFE.h"
 #include "API_DPTX.h"
 #include "API_General.h"
@@ -53,7 +52,6 @@
 #include "API_Audio.h"
 #include "API_HDCP.h"
 #include "API_HDMITX.h"
-#include "API_HDMI_Audio.h"
 #include "dptx_framer.h"
 #include "source_car.h"
 #include "source_phy.h"

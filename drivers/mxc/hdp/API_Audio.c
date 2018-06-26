@@ -46,7 +46,6 @@
 #include "address.h"
 #include "aif_pckt2smp.h"
 #include "API_Audio.h"
-#include "API_HDMI_Audio.h"
 #include "API_DPTX.h"
 #include "API_General.h"
 #include "clock_meters.h"
@@ -321,16 +320,6 @@ CDN_API_STATUS CDN_API_AudioAutoConfig(state_struct *state,
 		    CDN_API_AudioConfigCore(state, audioType, numOfChannels,
 					    freq, lanes, width);
 		break;
-	case 8:
-		if ((protocol == CDN_HDMITX_TYPHOON)
-		    || (protocol == CDN_HDMITX_KIRAN)) {
-			CDN_API_HDMI_AudioSetInfoFrame(state, mode, audioType,
-						       numOfChannels, freq,
-						       lanes, ncts);
-		}
-		ret = CDN_OK;
-		break;
-
 	}
 	if (!state->tmp && ret == CDN_STARTED)
 		return CDN_STARTED;
