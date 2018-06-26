@@ -130,7 +130,7 @@ static ssize_t current_image_show(struct device *dev,
 	if (!priv)
 		return -ENODEV;
 
-	return sprintf(buf, "%ld", priv->status.current_image);
+	return scnprintf(buf, PAGE_SIZE, "%ld", priv->status.current_image);
 }
 
 /* fail_image_show() - DEVICE_ATTR callback to show fail_image status */
@@ -142,7 +142,7 @@ static ssize_t fail_image_show(struct device *dev,
 	if (!priv)
 		return -ENODEV;
 
-	return sprintf(buf, "%ld", priv->status.fail_image);
+	return scnprintf(buf, PAGE_SIZE, "%ld", priv->status.fail_image);
 }
 
 /* version_show() - DEVICE_ATTR callback to show version status */
@@ -154,7 +154,7 @@ static ssize_t version_show(struct device *dev, struct device_attribute *attr,
 	if (!priv)
 		return -ENODEV;
 
-	return sprintf(buf, "%d", priv->status.version);
+	return scnprintf(buf, PAGE_SIZE, "%d", priv->status.version);
 }
 
 /* state_show() - DEVICE_ATTR callback to show state status */
@@ -166,7 +166,7 @@ static ssize_t state_show(struct device *dev, struct device_attribute *attr,
 	if (!priv)
 		return -ENODEV;
 
-	return sprintf(buf, "%d", priv->status.state);
+	return scnprintf(buf, PAGE_SIZE, "%d", priv->status.state);
 }
 
 /* error_location_show() - DEVICE_ATTR callback to show error_location status */
@@ -178,7 +178,7 @@ static ssize_t error_location_show(struct device *dev,
 	if (!priv)
 		return -ENODEV;
 
-	return sprintf(buf, "%d", priv->status.error_location);
+	return scnprintf(buf, PAGE_SIZE, "%d", priv->status.error_location);
 }
 
 /* error_details_show() - DEVICE_ATTR callback to show error_details status */
@@ -190,7 +190,7 @@ static ssize_t error_details_show(struct device *dev,
 	if (!priv)
 		return -ENODEV;
 
-	return sprintf(buf, "%d", priv->status.error_details);
+	return scnprintf(buf, PAGE_SIZE, "%d", priv->status.error_details);
 }
 
 /*
