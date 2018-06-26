@@ -76,6 +76,69 @@ int hdmi_fw_init(state_struct *state)
 	return 0;
 }
 
+#define RGB_ALLOWED_COLORIMETRY (BIT(HDMI_EXTENDED_COLORIMETRY_BT2020) |\
+				 BIT(HDMI_EXTENDED_COLORIMETRY_ADOBE_RGB))
+#define YCC_ALLOWED_COLORIMETRY (BIT(HDMI_EXTENDED_COLORIMETRY_BT2020) |\
+				 BIT(HDMI_EXTENDED_COLORIMETRY_BT2020_CONST_LUM) |\
+				 BIT(HDMI_EXTENDED_COLORIMETRY_ADOBE_YCC_601) |\
+				 BIT(HDMI_EXTENDED_COLORIMETRY_S_YCC_601) |\
+				 BIT(HDMI_EXTENDED_COLORIMETRY_XV_YCC_709) |\
+				 BIT(HDMI_EXTENDED_COLORIMETRY_XV_YCC_601))
+
+static int hdmi_avi_info_set(struct imx_hdp *hdp,
+				struct drm_display_mode *mode,
+				int format)
+{
+	struct hdmi_avi_infoframe frame;
+	struct drm_display_info *di = &hdp->connector.display_info;
+	enum hdmi_extended_colorimetry ext_colorimetry;
+	u32 sink_colorimetry;
+	u32 allowed_colorimetry;
+	u8 buf[32];
+	int ret;
+
+	/* Initialise info frame from DRM mode */
+	drm_hdmi_avi_infoframe_from_display_mode(&frame, mode, false);
+
+	/* Set up colorimetry */
+	allowed_colorimetry = format == PXL_RGB ? RGB_ALLOWED_COLORIMETRY :
+						  YCC_ALLOWED_COLORIMETRY;
+
+	sink_colorimetry = di->hdmi.colorimetry & allowed_colorimetry;
+
+	if (sink_colorimetry & BIT(HDMI_EXTENDED_COLORIMETRY_BT2020))
+		ext_colorimetry = HDMI_EXTENDED_COLORIMETRY_BT2020;
+	else if (sink_colorimetry & BIT(HDMI_EXTENDED_COLORIMETRY_BT2020_CONST_LUM))
+		ext_colorimetry = HDMI_EXTENDED_COLORIMETRY_BT2020_CONST_LUM;
+	else if (sink_colorimetry & BIT(HDMI_EXTENDED_COLORIMETRY_ADOBE_RGB))
+		ext_colorimetry = HDMI_EXTENDED_COLORIMETRY_ADOBE_RGB;
+	else if (sink_colorimetry & BIT(HDMI_EXTENDED_COLORIMETRY_XV_YCC_709))
+		ext_colorimetry = HDMI_EXTENDED_COLORIMETRY_XV_YCC_709;
+	else if (sink_colorimetry & BIT(HDMI_EXTENDED_COLORIMETRY_ADOBE_YCC_601))
+		ext_colorimetry = HDMI_EXTENDED_COLORIMETRY_ADOBE_YCC_601;
+	else if (sink_colorimetry & BIT(HDMI_EXTENDED_COLORIMETRY_S_YCC_601))
+		ext_colorimetry = HDMI_EXTENDED_COLORIMETRY_S_YCC_601;
+	else if (sink_colorimetry & BIT(HDMI_EXTENDED_COLORIMETRY_XV_YCC_601))
+		ext_colorimetry = HDMI_EXTENDED_COLORIMETRY_XV_YCC_601;
+	else
+		ext_colorimetry = 0;
+
+	frame.colorimetry = sink_colorimetry ? HDMI_COLORIMETRY_EXTENDED :
+					  HDMI_COLORIMETRY_NONE;
+	frame.extended_colorimetry = ext_colorimetry;
+
+	ret = hdmi_avi_infoframe_pack(&frame, buf + 1, sizeof(buf) - 1);
+	if (ret < 0) {
+		DRM_ERROR("failed to pack AVI infoframe: %d\n", ret);
+		return -1;
+	}
+
+	buf[0] = 0;
+	return CDN_API_InfoframeSet(&hdp->state, 0, sizeof(buf),
+				    (u32 *)buf, HDMI_INFOFRAME_TYPE_AVI);
+
+}
+
 int hdmi_phy_init_ss28fdsoi(state_struct *state, struct drm_display_mode *mode, int format, int color_depth)
 {
 	struct imx_hdp *hdp = state_to_imx_hdp(state);
@@ -107,6 +170,7 @@ int hdmi_phy_init_ss28fdsoi(state_struct *state, struct drm_display_mode *mode, 
 
 void hdmi_mode_set_ss28fdsoi(state_struct *state, struct drm_display_mode *mode, int format, int color_depth, int temp)
 {
+	struct imx_hdp *hdp = container_of(state, struct imx_hdp, state);
 	int ret;
 
 	/* Mode = 0 - DVI, 1 - HDMI1.4, 2 HDMI 2.0 */
@@ -128,11 +192,12 @@ void hdmi_mode_set_ss28fdsoi(state_struct *state, struct drm_display_mode *mode,
 		return;
 	}
 
-	ret = CDN_API_Set_AVI(state, mode, format, 0, 0);
+	ret = hdmi_avi_info_set(hdp, mode, format);
 	if (ret != CDN_OK) {
-		DRM_INFO("CDN_API_Set_AVI  ret = %d\n", ret);
+		DRM_ERROR("hdmi avi info set ret = %d\n", ret);
 		return;
 	}
+
 
 	ret =  CDN_API_HDMITX_SetVic_blocking(state, mode, color_depth, format);
 	if (ret != CDN_OK) {
@@ -192,49 +257,6 @@ int hdmi_phy_init_t28hpc(state_struct *state, struct drm_display_mode *mode, int
 	     ret);
 
 	return true;
-}
-
-#define RGB_ALLOWED_COLORIMETRY (BIT(HDMI_EXTENDED_COLORIMETRY_BT2020) |\
-				 BIT(HDMI_EXTENDED_COLORIMETRY_ADOBE_RGB))
-#define YCC_ALLOWED_COLORIMETRY (BIT(HDMI_EXTENDED_COLORIMETRY_BT2020) |\
-				 BIT(HDMI_EXTENDED_COLORIMETRY_BT2020_CONST_LUM) |\
-				 BIT(HDMI_EXTENDED_COLORIMETRY_ADOBE_YCC_601) |\
-				 BIT(HDMI_EXTENDED_COLORIMETRY_S_YCC_601) |\
-				 BIT(HDMI_EXTENDED_COLORIMETRY_XV_YCC_709) |\
-				 BIT(HDMI_EXTENDED_COLORIMETRY_XV_YCC_601))
-
-static void hdmi_compute_colorimetry(struct drm_display_info *di,
-				     int format,
-				     enum hdmi_colorimetry *colorimetry,
-				     enum hdmi_extended_colorimetry *ext_colorimetry)
-{
-	u32 sink_colorimetry;
-	u32 allowed_colorimetry;
-
-	allowed_colorimetry = format == PXL_RGB ? RGB_ALLOWED_COLORIMETRY :
-						  YCC_ALLOWED_COLORIMETRY;
-
-	sink_colorimetry = di->hdmi.colorimetry & allowed_colorimetry;
-
-	if (sink_colorimetry & BIT(HDMI_EXTENDED_COLORIMETRY_BT2020))
-		*ext_colorimetry = HDMI_EXTENDED_COLORIMETRY_BT2020;
-	else if (sink_colorimetry & BIT(HDMI_EXTENDED_COLORIMETRY_BT2020_CONST_LUM))
-		*ext_colorimetry = HDMI_EXTENDED_COLORIMETRY_BT2020_CONST_LUM;
-	else if (sink_colorimetry & BIT(HDMI_EXTENDED_COLORIMETRY_ADOBE_RGB))
-		*ext_colorimetry = HDMI_EXTENDED_COLORIMETRY_ADOBE_RGB;
-	else if (sink_colorimetry & BIT(HDMI_EXTENDED_COLORIMETRY_XV_YCC_709))
-		*ext_colorimetry = HDMI_EXTENDED_COLORIMETRY_XV_YCC_709;
-	else if (sink_colorimetry & BIT(HDMI_EXTENDED_COLORIMETRY_ADOBE_YCC_601))
-		*ext_colorimetry = HDMI_EXTENDED_COLORIMETRY_ADOBE_YCC_601;
-	else if (sink_colorimetry & BIT(HDMI_EXTENDED_COLORIMETRY_S_YCC_601))
-		*ext_colorimetry = HDMI_EXTENDED_COLORIMETRY_S_YCC_601;
-	else if (sink_colorimetry & BIT(HDMI_EXTENDED_COLORIMETRY_XV_YCC_601))
-		*ext_colorimetry = HDMI_EXTENDED_COLORIMETRY_XV_YCC_601;
-	else
-		*ext_colorimetry = 0;
-
-	*colorimetry = sink_colorimetry ? HDMI_COLORIMETRY_EXTENDED :
-					  HDMI_COLORIMETRY_NONE;
 }
 
 void hdmi_mode_set_vswing(state_struct *state)
@@ -302,8 +324,6 @@ void hdmi_mode_set_t28hpc(state_struct *state, struct drm_display_mode *mode, in
 {
 	struct imx_hdp *hdp = container_of(state, struct imx_hdp, state);
 	int ret;
-	enum hdmi_colorimetry colorimetry;
-	enum hdmi_extended_colorimetry ext_colorimetry;
 
 	/* Set HDMI TX Mode */
 	/* Mode = 0 - DVI, 1 - HDMI1.4, 2 HDMI 2.0 */
@@ -325,12 +345,9 @@ void hdmi_mode_set_t28hpc(state_struct *state, struct drm_display_mode *mode, in
 		return;
 	}
 
-	hdmi_compute_colorimetry(&hdp->connector.display_info, format,
-				 &colorimetry, &ext_colorimetry);
-
-	ret = CDN_API_Set_AVI(state, mode, format, colorimetry, ext_colorimetry);
+	ret = hdmi_avi_info_set(hdp, mode, format);
 	if (ret != CDN_OK) {
-		DRM_ERROR("CDN_API_Set_AVI  ret = %d\n", ret);
+		DRM_ERROR("hdmi avi info set ret = %d\n", ret);
 		return;
 	}
 
