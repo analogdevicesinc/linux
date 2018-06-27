@@ -67,7 +67,6 @@ static int imx_pdm_mic_hw_params(struct snd_pcm_substream *substream,
 	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
 	struct snd_soc_card *card = rtd->card;
 	struct imx_pdm_data *data = snd_soc_card_get_drvdata(card);
-	unsigned int bitclk = params_rate(params) * data->decimation;
 	int ret;
 
 	/* set cpu dai format configuration */
@@ -80,8 +79,7 @@ static int imx_pdm_mic_hw_params(struct snd_pcm_substream *substream,
 	/* set tdm slots only one for now */
 	snd_soc_dai_set_tdm_slot(cpu_dai, 0, 0, 1, 32);
 	/* Set clock out */
-	ret = snd_soc_dai_set_sysclk(cpu_dai, FSL_SAI_CLK_BIT,
-			bitclk, SND_SOC_CLOCK_OUT);
+	ret = snd_soc_dai_set_bclk_ratio(cpu_dai, data->decimation);
 	if (ret) {
 		dev_err(card->dev, "fail to set cpu sysclk: %d\n", ret);
 		return ret;
