@@ -89,14 +89,24 @@ struct mxc_jpeg_ctx {
 	struct v4l2_fh			fh;
 	unsigned int			mode;
 	unsigned int			enc_state;
+	unsigned int			aborting;
+};
+
+struct mxc_jpeg_slot_data {
+	int used;
+	struct mxc_jpeg_desc *desc; // enc/dec descriptor
+	struct mxc_jpeg_desc *cfg_desc; // configuration descriptor
+	void *cfg_stream_vaddr; // configuration bitstream virtual address
+	int flags;
+	dma_addr_t desc_handle;
+	dma_addr_t cfg_desc_handle; // configuration descriptor dma address
+	dma_addr_t cfg_stream_handle; // configuration bitstream dma address
 };
 
 struct mxc_jpeg_dev {
 	spinlock_t				hw_lock;
 	unsigned int				mode;
 	struct mutex			lock;
-	struct mutex			lock2;
-	//wait_queue_head_t		irq_queue;
 	bool					enc;
 	bool					dec;
 	struct clk				*clk_ipg;
@@ -111,8 +121,7 @@ struct mxc_jpeg_dev {
 	unsigned int				irq;
 	int					id;
 
-	struct mxc_jpeg_desc			*cfg_desc;
-	dma_addr_t				cfg_handle;
+	struct mxc_jpeg_slot_data slot_data[MXC_MAX_SLOTS];
 };
 
 /* JPEG Start Of Frame marker fields*/

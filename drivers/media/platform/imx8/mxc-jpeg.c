@@ -101,8 +101,8 @@ static const unsigned char hactbl[615] = {
 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63,
 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63,
 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63,
-0xFF, 0xC0, 0x00, 0x11, 0x08, 0x01, 0x00,
-0x01, 0x00, 0x03, 0x01, 0x11, 0x00, 0x02,
+0xFF, 0xC0, 0x00, 0x11, 0x08, 0x00, 0x40,
+0x00, 0x40, 0x03, 0x01, 0x21, 0x00, 0x02,
 0x11, 0x01, 0x03, 0x11, 0x01, 0xFF, 0xC4,
 0x01, 0xA2, 0x00, 0x00, 0x01, 0x05, 0x01,
 0x01, 0x01, 0x01, 0x01, 0x01, 0x00, 0x00,
@@ -169,16 +169,21 @@ static const unsigned char hactbl[615] = {
 0x11, 0x00, 0x3F, 0x00, 0xFF, 0xD9
 };
 
-struct mxc_jpeg_src_buf {
-	struct vb2_v4l2_buffer b;
-	struct list_head list;
-	struct mxc_jpeg_desc *desc;
-	void *tbl;
-	int flags;
-	dma_addr_t handle;
-	dma_addr_t cfg_handle;
-	dma_addr_t tbl_handle;
-};
+static void print_buf(struct device *dev, struct vb2_buffer *buf)
+{
+	void *testaddri;
+	char *data;
+	u32 dma_addr;
+
+	testaddri = vb2_plane_vaddr(buf, 0);
+	dma_addr = vb2_dma_contig_plane_dma_addr(buf, 0);
+	data = (char *)testaddri;
+
+	/* print just the first 4 bytes from the beginning of the buffer */
+	dev_dbg(dev, "vaddr=%p dma_addr=%x: %x %x %x %x ...\n",
+		testaddri, dma_addr,
+		data[0], data[1], data[2], data[3]);
+}
 
 #define MXC_NUM_FORMATS ARRAY_SIZE(mxc_formats)
 static inline u32 mxc_jpeg_align(u32 val, u32 align)
@@ -192,11 +197,6 @@ static inline struct mxc_jpeg_ctx *mxc_jpeg_fh_to_ctx(struct v4l2_fh *fh)
 	return container_of(fh, struct mxc_jpeg_ctx, fh);
 }
 
-static inline struct mxc_jpeg_src_buf *mxc_jpeg_vb2_to_srcbuf(
-							struct vb2_buffer *vb)
-{
-	return container_of(to_vb2_v4l2_buffer(vb), struct mxc_jpeg_src_buf, b);
-}
 
 static int enum_fmt(struct mxc_jpeg_fmt *mxc_formats, int n,
 		    struct v4l2_fmtdesc *f, u32 type)
@@ -225,14 +225,14 @@ static int enum_fmt(struct mxc_jpeg_fmt *mxc_formats, int n,
 	return 0;
 }
 
-void mxc_jpeg_addrs(struct mxc_jpeg_desc *desc, struct vb2_buffer *b_base0_buf,
-struct vb2_buffer *bufbase_buf, int offset)
+static void mxc_jpeg_addrs(struct mxc_jpeg_desc *desc,
+			   struct vb2_buffer *b_base0_buf,
+			   struct vb2_buffer *bufbase_buf, int offset)
 {
-	u32 buf_base0, bufbase;
-
-	buf_base0 = vb2_dma_contig_plane_dma_addr(b_base0_buf, 0);
-	bufbase = vb2_dma_contig_plane_dma_addr(bufbase_buf, 0);
-	mxc_jpeg_set_addrs(desc, buf_base0, bufbase + offset);
+	desc->buf_base0 = vb2_dma_contig_plane_dma_addr(b_base0_buf, 0);
+	desc->buf_base1 = 0; /* TODO for YUV420*/
+	desc->stm_bufbase = vb2_dma_contig_plane_dma_addr(bufbase_buf, 0) +
+		offset;
 }
 
 static irqreturn_t mxc_jpeg_dec_irq(int irq, void *priv)
@@ -240,73 +240,110 @@ static irqreturn_t mxc_jpeg_dec_irq(int irq, void *priv)
 	struct mxc_jpeg_dev *jpeg = priv;
 	struct mxc_jpeg_ctx *ctx;
 	void __iomem *reg = jpeg->base_reg;
+	struct device *dev = jpeg->dev;
 	struct vb2_buffer *src_buf, *dst_buf;
-	struct mxc_jpeg_src_buf *jpeg_src_buf;
-	enum vb2_buffer_state buf_state = VB2_BUF_STATE_ERROR;
 	struct mxc_jpeg_desc *desc;
 	dma_addr_t dma_handle;
-	u32 dec_ret, offset, slot;
-	struct mxc_jpeg_q_data *q_data;
-	void *testaddri;
-	void *testaddro;
+	u32 dec_ret;
+	int slot = 0; /* TODO remove hardcoded slot 0 */
 
-
-	/* hardcoded slot 0 */
-	dec_ret = readl(reg + MXC_SLOT_OFFSET(0, SLOT_STATUS));
-	writel(dec_ret, reg + MXC_SLOT_OFFSET(0, SLOT_STATUS)); /* w1c */
-	if (!(dec_ret & MXC_FRMDONE))
-		return IRQ_HANDLED;
+	spin_lock(&jpeg->hw_lock);
 
 	ctx = v4l2_m2m_get_curr_priv(jpeg->m2m_dev);
+	if (!ctx) {
+		dev_err(dev,
+			 "Instance released before the end of transaction.\n");
+		goto job_unlock;
+	}
+	if (ctx->aborting) {
+		dev_dbg(dev, "Aborting current job\n");
+		mxc_jpeg_sw_reset(reg);
+		goto job_finish;
+	}
+
+	dec_ret = readl(reg + MXC_SLOT_OFFSET(slot, SLOT_STATUS));
+	writel(dec_ret, reg + MXC_SLOT_OFFSET(slot, SLOT_STATUS)); /* w1c */
+	if (!(dec_ret & SLOTa_STATUS_FRMDONE))
+		goto job_unlock;
+
 	dst_buf = v4l2_m2m_next_dst_buf(ctx->fh.m2m_ctx);
 	src_buf = v4l2_m2m_next_src_buf(ctx->fh.m2m_ctx);
-	jpeg_src_buf = mxc_jpeg_vb2_to_srcbuf(src_buf);
 
-	if (ctx->mode == MXC_JPEG_ENCODE &&
-	    ctx->enc_state == MXC_JPEG_ENC_CONF) {
-		q_data = &ctx->out_q;
-		desc = jpeg_src_buf->desc;
-		dma_handle = jpeg_src_buf->handle;
-
-		testaddri = vb2_plane_vaddr(src_buf, 0);
-		testaddro = vb2_plane_vaddr(dst_buf, 0);
-
-		offset = mxc_jpeg_get_offset(jpeg->base_reg, 0);
-		mxc_jpeg_addrs(desc, src_buf, dst_buf, offset);
-		slot = mxc_jpeg_get_slot(jpeg->base_reg);
-		mxc_jpeg_set_params(desc, mxc_jpeg_align(
-				    vb2_plane_size(src_buf, 0), 1024),
-				    q_data->bytesperline[0],
-				    q_data->fmt->fourcc);
-		mxc_jpeg_set_res(desc, q_data->w, q_data->h);
+	if (ctx->mode == MXC_JPEG_ENCODE
+	    && ctx->enc_state == MXC_JPEG_ENC_CONF) {
 		ctx->enc_state = MXC_JPEG_ENC_DONE;
+		if (dec_ret & SLOTa_STATUS_ENC_CONFIG_ERR) {
+			dev_err(dev, "Encoder config finished with errors.\n");
+			goto job_finish;
+		}
+
+		dev_dbg(dev, "Encoder config finished.\n");
+
+		/* get out of config mode*/
+		mxc_jpeg_set_config_mode(reg, 0);
+
+		slot = 0; /* TODO get slot*/
+
+		desc = jpeg->slot_data[slot].desc;
+		dma_handle = jpeg->slot_data[slot].desc_handle;
+
+		mxc_jpeg_addrs(desc, src_buf, dst_buf, 0);
+
+		/* TODO remove hardcodings*/
+		mxc_jpeg_set_bufsize(desc, 0x1000);
+		mxc_jpeg_set_res(desc, 64, 64);
+		mxc_jpeg_set_line_pitch(desc, 64 * 2);
+		desc->stm_ctrl = STM_CTRL_CONFIG_MOD(0) |
+				 STM_CTRL_AUTO_START(1) |
+				 STM_CTRL_IMAGE_FORMAT(MXC_JPEG_YUV422);
+
+		mxc_jpeg_enable_slot(jpeg->base_reg, slot);
+		mxc_jpeg_enable_irq(jpeg->base_reg, slot);
 		mxc_jpeg_set_desc(dma_handle, jpeg->base_reg, slot);
-		return IRQ_HANDLED;
+
+		print_descriptor_info(dev, desc);
+		print_wrapper_info(dev, jpeg->base_reg);
+		print_cast_encoder_info(dev, jpeg->base_reg);
+
+		dev_dbg(dev, "Encoder starts encoding...\n");
+		mxc_jpeg_go_auto(jpeg->base_reg);
+		goto job_unlock;
 	}
-	buf_state = VB2_BUF_STATE_DONE;
+	if (ctx->mode == MXC_JPEG_ENCODE)
+		dev_dbg(dev, "Encoding finished\n");
+	else
+		dev_dbg(dev, "Decoding finished\n");
+
+	/* short preview of the results */
+	dev_dbg(dev, "src_buf: ");
+	print_buf(dev, src_buf);
+	dev_dbg(dev, "dst_buf: ");
+	print_buf(dev, dst_buf);
+
 	v4l2_m2m_src_buf_remove(ctx->fh.m2m_ctx);
 	v4l2_m2m_dst_buf_remove(ctx->fh.m2m_ctx);
-	v4l2_m2m_buf_done(to_vb2_v4l2_buffer(src_buf), buf_state);
-	v4l2_m2m_buf_done(to_vb2_v4l2_buffer(dst_buf), buf_state);
+	v4l2_m2m_buf_done(to_vb2_v4l2_buffer(src_buf), VB2_BUF_STATE_DONE);
+	v4l2_m2m_buf_done(to_vb2_v4l2_buffer(dst_buf), VB2_BUF_STATE_DONE);
+job_finish:
 	v4l2_m2m_job_finish(jpeg->m2m_dev, ctx->fh.m2m_ctx);
+job_unlock:
+	spin_unlock(&jpeg->hw_lock);
 	return IRQ_HANDLED;
 }
-void mxc_jpeg_config_enc(struct vb2_buffer *out_buf,
-			 struct mxc_jpeg_src_buf *jpeg_src_buf,
+
+static void mxc_jpeg_config_enc(struct vb2_buffer *out_buf,
+			 int slot,
 			 struct mxc_jpeg_dev *jpeg)
 {
 	dma_addr_t jpg_handle;
 
 	jpg_handle = vb2_dma_contig_plane_dma_addr(out_buf, 0);
-	jpeg_src_buf->tbl = dma_zalloc_coherent(jpeg->dev,
-				  sizeof(unsigned char) * 615,
-				  &jpeg_src_buf->tbl_handle, 0);
-	memcpy(jpeg_src_buf->tbl, &hactbl, sizeof(unsigned char) * 615);
-
-	mxc_jpeg_enc_config(jpeg->base_reg, jpeg_src_buf->desc, jpeg_src_buf->handle,
-			    jpeg_src_buf->tbl_handle, jpg_handle);
-
+	mxc_jpeg_enc_config(jpeg->dev,
+		jpeg->base_reg,
+		jpeg->slot_data[slot].desc, jpeg->slot_data[slot].desc_handle,
+		jpeg->slot_data[slot].cfg_stream_handle, jpg_handle);
 }
+
 static void mxc_jpeg_device_run(void *priv)
 {
 	struct mxc_jpeg_ctx *ctx = priv;
@@ -314,34 +351,31 @@ static void mxc_jpeg_device_run(void *priv)
 	struct device *dev = jpeg->dev;
 	struct vb2_buffer *src_buf, *dst_buf;
 	unsigned long flags;
-	struct mxc_jpeg_src_buf *jpeg_src_buf;
-	int slot;
-	void *testaddri;
-	void *testaddro;
+	int slot = 0;
 	dma_addr_t dma_handle;
 	struct mxc_jpeg_desc *desc;
 
-
+	spin_lock_irqsave(&ctx->mxc_jpeg->hw_lock, flags);
 	src_buf = v4l2_m2m_next_src_buf(ctx->fh.m2m_ctx);
 	dst_buf = v4l2_m2m_next_dst_buf(ctx->fh.m2m_ctx);
-	jpeg_src_buf = mxc_jpeg_vb2_to_srcbuf(src_buf);
-	desc = jpeg_src_buf->desc;
-	dma_handle = jpeg_src_buf->handle;
-
-
-	testaddri = vb2_plane_vaddr(src_buf, 0);
-	testaddro = vb2_plane_vaddr(dst_buf, 0);
-	spin_lock_irqsave(&ctx->mxc_jpeg->hw_lock, flags);
+	if (!src_buf || !dst_buf) {
+		dev_err(dev, "Null src or dst buf\n");
+		goto end;
+	}
+	slot = 0; /* TODO get slot */
 	mxc_jpeg_enable(jpeg->base_reg);
 
 	if (ctx->mode == MXC_JPEG_ENCODE) {
+		dev_dbg(dev, "Encoding on slot %d\n", slot);
 		ctx->enc_state = MXC_JPEG_ENC_CONF;
-		mxc_jpeg_config_enc(dst_buf, jpeg_src_buf, jpeg);
+		mxc_jpeg_config_enc(dst_buf, slot, jpeg);
 	} else {
+		dev_dbg(dev, "Decoding on slot %d\n", slot);
+		desc = jpeg->slot_data[slot].desc;
+		dma_handle = jpeg->slot_data[slot].desc_handle;
+
 		mxc_jpeg_addrs(desc, dst_buf, src_buf, 0);
-		slot = mxc_jpeg_get_slot(jpeg->base_reg);
-		if (slot == -EINVAL)
-			dev_err(dev, "No more slots available!\n");
+
 		mxc_jpeg_enable_slot(jpeg->base_reg, slot);
 		mxc_jpeg_set_bufsize(desc,
 			mxc_jpeg_align(vb2_plane_size(src_buf, 0), 1024));
@@ -350,20 +384,34 @@ static void mxc_jpeg_device_run(void *priv)
 		mxc_jpeg_set_desc(dma_handle, jpeg->base_reg, slot);
 		mxc_jpeg_go(jpeg->base_reg);
 	}
+end:
 	spin_unlock_irqrestore(&ctx->mxc_jpeg->hw_lock, flags);
 }
+
 static int mxc_jpeg_job_ready(void *priv)
 {
 	struct mxc_jpeg_ctx *ctx = priv;
+	unsigned int num_src_bufs_ready;
+	unsigned int num_dst_bufs_ready;
+	unsigned long flags;
 
-	dev_warn(ctx->mxc_jpeg->dev, "mxc_jpeg_job_ready unimplemented\n");
-	return 1;
+	spin_lock_irqsave(&ctx->mxc_jpeg->hw_lock, flags);
+
+	num_src_bufs_ready = v4l2_m2m_num_src_bufs_ready(ctx->fh.m2m_ctx);
+	num_dst_bufs_ready = v4l2_m2m_num_dst_bufs_ready(ctx->fh.m2m_ctx);
+
+	spin_unlock_irqrestore(&ctx->mxc_jpeg->hw_lock, flags);
+
+	if (num_src_bufs_ready >= 1 && num_dst_bufs_ready >= 1)
+		return 1;
+	return 0;
 }
 static void mxc_jpeg_job_abort(void *priv)
 {
 	struct mxc_jpeg_ctx *ctx = priv;
 
-	dev_warn(ctx->mxc_jpeg->dev, "mxc_jpeg_job_abort unimplemented\n");
+	ctx->aborting = 1;
+	dev_dbg(ctx->mxc_jpeg->dev, "Abort requested\n");
 }
 
 static struct mxc_jpeg_q_data *mxc_jpeg_get_q_data(struct mxc_jpeg_ctx *ctx,
@@ -399,6 +447,7 @@ static int mxc_jpeg_start_streaming(struct vb2_queue *q, unsigned int count)
 	struct mxc_jpeg_ctx *ctx = vb2_get_drv_priv(q);
 	int ret;
 
+	dev_dbg(ctx->mxc_jpeg->dev, "Start streaming\n");
 	ret = pm_runtime_get_sync(ctx->mxc_jpeg->dev);
 	return ret > 0 ? 0 : ret;
 }
@@ -407,7 +456,8 @@ static void mxc_jpeg_stop_streaming(struct vb2_queue *q)
 {
 	struct mxc_jpeg_ctx *ctx = vb2_get_drv_priv(q);
 
-	pm_runtime_put(&ctx->mxc_jpeg->pdev->dev);
+	dev_dbg(ctx->mxc_jpeg->dev, "Stop streaming\n");
+	pm_runtime_put_sync(&ctx->mxc_jpeg->pdev->dev);
 }
 struct mxc_jpeg_stream {
 	u8 *addr;
@@ -567,7 +617,7 @@ static int mxc_jpeg_parse(struct device *dev,
 	dev_info(dev, "JPEG imgsize = 0x%x (%dx%d)\n", desc->imgsize,
 		sof.width, sof.height);
 	img_fmt = mxc_jpeg_get_image_format(dev, &sof);
-	desc->stm_ctrl |= MXC_IMAGE_FORMAT(img_fmt);
+	desc->stm_ctrl |= STM_CTRL_IMAGE_FORMAT(img_fmt);
 	desc->line_pitch = mxc_jpeg_get_line_pitch(dev, &sof, img_fmt);
 	return 0;
 }
@@ -575,21 +625,19 @@ static int mxc_jpeg_parse(struct device *dev,
 static void mxc_jpeg_buf_queue(struct vb2_buffer *vb)
 {
 	int ret;
-	struct mxc_jpeg_src_buf *jpeg_src_buf;
 	struct vb2_v4l2_buffer *vbuf = to_vb2_v4l2_buffer(vb);
 	struct mxc_jpeg_ctx *ctx = vb2_get_drv_priv(vb->vb2_queue);
+	int slot = 0; /* TODO get slot*/
 
 	if (vb->vb2_queue->type != V4L2_BUF_TYPE_VIDEO_OUTPUT)
 		goto end;
-	jpeg_src_buf = container_of(vbuf, struct mxc_jpeg_src_buf, b);
-	jpeg_src_buf->desc = dma_zalloc_coherent(ctx->mxc_jpeg->dev,
-					     sizeof(struct mxc_jpeg_desc),
-					     &jpeg_src_buf->handle, 0);
+
 	if (ctx->mode != MXC_JPEG_DECODE)
 		goto end;
 	ret = mxc_jpeg_parse(ctx->mxc_jpeg->dev,
-			     jpeg_src_buf->desc, (u8 *)vb2_plane_vaddr(vb, 0),
-			     vb2_get_plane_payload(vb, 0));
+			ctx->mxc_jpeg->slot_data[slot].desc,
+			(u8 *)vb2_plane_vaddr(vb, 0),
+			vb2_get_plane_payload(vb, 0));
 	if (ret) {
 		v4l2_err(&ctx->mxc_jpeg->v4l2_dev,
 			 "driver does not support this resolution\n");
@@ -629,31 +677,18 @@ static int mxc_jpeg_buf_prepare(struct vb2_buffer *vb)
 
 static void mxc_jpeg_buf_clean(struct vb2_buffer *vb)
 {
-	struct mxc_jpeg_ctx *ctx = vb2_get_drv_priv(vb->vb2_queue);
-	struct vb2_v4l2_buffer *vbuf = to_vb2_v4l2_buffer(vb);
-	struct mxc_jpeg_src_buf *jpeg_src_buf;
-
-	jpeg_src_buf = container_of(vbuf, struct mxc_jpeg_src_buf, b);
-
-	if (ctx->mode == MXC_JPEG_ENCODE &&
-		ctx->enc_state == MXC_JPEG_ENC_CONF)
-			dma_free_coherent(ctx->mxc_jpeg->dev, sizeof(hactbl),
-					  jpeg_src_buf->tbl, jpeg_src_buf->tbl_handle);
-
-	dma_free_coherent(ctx->mxc_jpeg->dev, sizeof(struct mxc_jpeg_desc),
-			  jpeg_src_buf->desc, jpeg_src_buf->handle);
+	return;
 }
 
 static const struct vb2_ops mxc_jpeg_qops = {
 	.queue_setup		= mxc_jpeg_queue_setup,
-
-	.buf_prepare		= mxc_jpeg_buf_prepare,
-	.buf_queue		= mxc_jpeg_buf_queue,
 	.wait_prepare		= vb2_ops_wait_prepare,
 	.wait_finish		= vb2_ops_wait_finish,
+	.buf_prepare		= mxc_jpeg_buf_prepare,
+	.buf_cleanup		= mxc_jpeg_buf_clean,
 	.start_streaming	= mxc_jpeg_start_streaming,
 	.stop_streaming		= mxc_jpeg_stop_streaming,
-	.buf_cleanup		= mxc_jpeg_buf_clean,
+	.buf_queue		= mxc_jpeg_buf_queue,
 };
 static int mxc_jpeg_queue_init(void *priv, struct vb2_queue *src_vq,
 			       struct vb2_queue *dst_vq)
@@ -711,6 +746,76 @@ static struct mxc_jpeg_fmt *mxc_jpeg_find_format(struct mxc_jpeg_ctx *ctx,
 	return NULL;
 }
 
+static int mxc_jpeg_alloc_slot_data(struct mxc_jpeg_dev *jpeg)
+{
+	int slot;
+
+	for (slot = 0; slot < MXC_MAX_SLOTS; slot++) {
+		/* allocate descriptor for decoding/encoding phase */
+		jpeg->slot_data[slot].desc = dma_zalloc_coherent(jpeg->dev,
+			sizeof(struct mxc_jpeg_desc),
+			&(jpeg->slot_data[slot].desc_handle), 0);
+		if (!jpeg->slot_data[slot].desc)
+			goto err;
+		dev_dbg(jpeg->dev, "Descriptor for dec/enc: %p 0x%llx\n",
+			jpeg->slot_data[slot].desc,
+			jpeg->slot_data[slot].desc_handle);
+
+		/* allocate descriptor for configuration phase (encoder only) */
+		jpeg->slot_data[slot].cfg_desc = dma_zalloc_coherent(jpeg->dev,
+			sizeof(struct mxc_jpeg_desc),
+			&jpeg->slot_data[slot].cfg_desc_handle, 0);
+		if (!jpeg->slot_data[slot].cfg_desc)
+			goto err;
+		dev_dbg(jpeg->dev, "Descriptor for config phase: %p 0x%llx\n",
+			jpeg->slot_data[slot].cfg_desc,
+			jpeg->slot_data[slot].cfg_desc_handle);
+
+		/* allocate configuration stream */
+		jpeg->slot_data[slot].cfg_stream_vaddr = dma_zalloc_coherent(
+			jpeg->dev,
+			sizeof(hactbl),
+			&jpeg->slot_data[slot].cfg_stream_handle, 0);
+		if (!jpeg->slot_data[slot].cfg_stream_vaddr)
+			goto err;
+		dev_dbg(jpeg->dev, "Configuration stream: %p 0x%llx\n",
+			jpeg->slot_data[slot].cfg_stream_vaddr,
+			jpeg->slot_data[slot].cfg_stream_handle);
+
+		/* initial set-up for configuration stream
+		 * TODO: fixup the sizes, currently harcoded to 64x64)
+		 */
+		memcpy(jpeg->slot_data[slot].cfg_stream_vaddr,
+		       &hactbl, sizeof(hactbl));
+	}
+	return 0;
+err:
+	dev_err(jpeg->dev, "Could not allocate descriptors\n");
+	return 1;
+}
+
+static int mxc_jpeg_free_slot_data(struct mxc_jpeg_dev *jpeg)
+{
+	int slot;
+
+	for (slot = 0; slot < MXC_MAX_SLOTS; slot++) {
+		/* free descriptor for decoding/encoding phase */
+		dma_free_coherent(jpeg->dev, sizeof(struct mxc_jpeg_desc),
+			jpeg->slot_data[slot].desc,
+			jpeg->slot_data[slot].desc_handle);
+
+		/* free descriptor for configuration phase (encoder only) */
+		dma_free_coherent(jpeg->dev, sizeof(struct mxc_jpeg_desc),
+			jpeg->slot_data[slot].cfg_desc,
+			jpeg->slot_data[slot].cfg_desc_handle);
+
+		/* free configuration stream */
+		dma_free_coherent(jpeg->dev, sizeof(hactbl),
+			jpeg->slot_data[slot].cfg_stream_vaddr,
+			jpeg->slot_data[slot].cfg_stream_handle);
+	}
+	return 0;
+}
 
 static int mxc_jpeg_open(struct file *file)
 {
@@ -758,7 +863,8 @@ static int mxc_jpeg_open(struct file *file)
 		goto error;
 	}
 
-
+	if (mxc_jpeg_alloc_slot_data(mxc_jpeg))
+		goto error;
 
 	mutex_unlock(&mxc_jpeg->lock);
 	return 0;
@@ -967,7 +1073,6 @@ static int mxc_jpeg_qbuf(struct file *file, void *priv, struct v4l2_buffer *buf)
 	struct mxc_jpeg_ctx *ctx = mxc_jpeg_fh_to_ctx(priv);
 	struct vb2_queue *vq;
 	struct vb2_buffer *vb;
-	struct mxc_jpeg_src_buf *jpeg_src_buf;
 
 	if (buf->type != V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
 		goto end;
@@ -979,7 +1084,6 @@ static int mxc_jpeg_qbuf(struct file *file, void *priv, struct v4l2_buffer *buf)
 	}
 
 	vb = vq->bufs[buf->index];
-	jpeg_src_buf = mxc_jpeg_vb2_to_srcbuf(vb);
 end:
 	return v4l2_m2m_qbuf(file, fh->m2m_ctx, buf);
 }
@@ -1016,6 +1120,7 @@ static int mxc_jpeg_release(struct file *file)
 	struct mxc_jpeg_ctx *ctx = mxc_jpeg_fh_to_ctx(file->private_data);
 
 	mutex_lock(&mxc_jpeg->lock);
+	mxc_jpeg_free_slot_data(mxc_jpeg);
 	v4l2_m2m_ctx_release(ctx->fh.m2m_ctx);
 	v4l2_fh_del(&ctx->fh);
 	v4l2_fh_exit(&ctx->fh);
@@ -1059,6 +1164,11 @@ static int mxc_jpeg_probe(struct platform_device *pdev)
 
 	mutex_init(&jpeg->lock);
 	spin_lock_init(&jpeg->hw_lock);
+
+	if (dma_set_mask_and_coherent(dev, DMA_BIT_MASK(32))) {
+		dev_err(&pdev->dev, "No suitable DMA available.\n");
+		return -EINVAL;
+	}
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	dec_irq = platform_get_irq(pdev, 0);
@@ -1126,7 +1236,7 @@ static int mxc_jpeg_probe(struct platform_device *pdev)
 	jpeg->dec_vdev->ioctl_ops = &mxc_jpeg_ioctl_ops;
 	jpeg->dec_vdev->minor = -1;
 	jpeg->dec_vdev->release = video_device_release;
-	jpeg->dec_vdev->lock = &jpeg->lock;
+	jpeg->dec_vdev->lock = &jpeg->lock; /* lock for ioctl serialization*/
 	jpeg->dec_vdev->v4l2_dev = &jpeg->v4l2_dev;
 	jpeg->dec_vdev->vfl_dir = VFL_DIR_M2M;
 	jpeg->dec_vdev->device_caps = V4L2_CAP_STREAMING |
@@ -1217,6 +1327,7 @@ static int mxc_jpeg_remove(struct platform_device *pdev)
 	video_device_release(jpeg->dec_vdev);
 	v4l2_m2m_release(jpeg->m2m_dev);
 	v4l2_device_unregister(&jpeg->v4l2_dev);
+
 	return 0;
 }
 
