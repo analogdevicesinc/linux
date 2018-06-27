@@ -506,6 +506,7 @@ struct dpu_constframe;
 void constframe_shden(struct dpu_constframe *cf, bool enable);
 void constframe_framedimensions(struct dpu_constframe *cf, unsigned int w,
 				unsigned int h);
+void constframe_framedimensions_copy_prim(struct dpu_constframe *cf);
 void constframe_constantcolor(struct dpu_constframe *cf, unsigned int r,
 			      unsigned int g, unsigned int b, unsigned int a);
 void constframe_controltrigger(struct dpu_constframe *cf, bool trigger);
