@@ -2,7 +2,7 @@ Freescale i.MX audio complex with AK4497 DAC
 
 Required properties:
 
-- compatible   : "fsl,imx-audio-ak4497"
+- compatible   : "fsl,imx-audio-ak4497", "fsl,imx-audio-ak4497-mq"
 - model        : The user-visible name of this sound complex
 - audio-cpu    : The phandle of CPU DAI
 - audio-codec  : The phandle of the ak4497 audio DAC

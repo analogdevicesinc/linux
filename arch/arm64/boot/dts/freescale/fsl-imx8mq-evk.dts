@@ -117,7 +117,7 @@
 	};
 
 	sound-ak4497 {
-		compatible = "fsl,imx-audio-ak4497";
+		compatible = "fsl,imx-audio-ak4497-mq";
 		model = "ak4497-audio";
 		audio-cpu = <&sai1>;
 		audio-codec = <&ak4497>;

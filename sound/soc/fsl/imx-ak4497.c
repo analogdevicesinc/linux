@@ -25,6 +25,7 @@
 
 struct imx_ak4497_data {
 	struct snd_soc_card card;
+	bool one2one_ratio;
 };
 
 static struct snd_soc_dapm_widget imx_ak4497_dapm_widgets[] = {
@@ -88,6 +89,7 @@ static int imx_aif_hw_params(struct snd_pcm_substream *substream,
 	struct snd_soc_dai *codec_dai = rtd->codec_dai;
 	struct snd_soc_card *card = rtd->card;
 	struct device *dev = card->dev;
+	struct imx_ak4497_data *priv = snd_soc_card_get_drvdata(card);
 	unsigned int channels = params_channels(params);
 	unsigned int fmt = SND_SOC_DAIFMT_NB_NF | SND_SOC_DAIFMT_CBS_CFS;
 	unsigned long freq = imx_ak4497_compute_freq(substream, params);
@@ -95,6 +97,9 @@ static int imx_aif_hw_params(struct snd_pcm_substream *substream,
 	int ret;
 
 	fmt |= (is_dsd ? SND_SOC_DAIFMT_PDM : SND_SOC_DAIFMT_I2S);
+
+	if (is_dsd && freq > 22579200 && priv->one2one_ratio)
+		freq = 22579200;
 
 	ret = snd_soc_dai_set_sysclk(cpu_dai, FSL_SAI_CLK_MAST1, freq,
 					SND_SOC_CLOCK_OUT);
@@ -212,6 +217,8 @@ static int imx_ak4497_probe(struct platform_device *pdev)
 	priv->card.owner = THIS_MODULE;
 	priv->card.dapm_widgets = imx_ak4497_dapm_widgets;
 	priv->card.num_dapm_widgets = ARRAY_SIZE(imx_ak4497_dapm_widgets);
+	priv->one2one_ratio = !of_device_is_compatible(pdev->dev.of_node,
+					"fsl,imx-audio-ak4497-mq");
 
 	ret = snd_soc_of_parse_card_name(&priv->card, "model");
 	if (ret)
@@ -237,6 +244,7 @@ fail:
 
 static const struct of_device_id imx_ak4497_dt_ids[] = {
 	{ .compatible = "fsl,imx-audio-ak4497", },
+	{ .compatible = "fsl,imx-audio-ak4497-mq", },
 	{ },
 };
 MODULE_DEVICE_TABLE(of, imx_ak4497_dt_ids);
