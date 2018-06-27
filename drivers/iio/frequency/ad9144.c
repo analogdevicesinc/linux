@@ -25,9 +25,13 @@
 #include "cf_axi_dds.h"
 
 #define AD9144_CHIPID(product_idh, product_idl, product_grade) \
-	(((product_idh) << 8) | ((product_idl) << 8) | (product_grade))
+	(((product_idh) << 16) | ((product_idl) << 8) | (product_grade))
+
+#define AD9144_ID_GET_PRODUCT_ID(x) ((x) >> 8)
 
 enum chip_id {
+	CHIPID_AD9135 = AD9144_CHIPID(0x91, 0x44, 0x4),
+	CHIPID_AD9136 = AD9144_CHIPID(0x91, 0x44, 0x6),
 	CHIPID_AD9144 = AD9144_CHIPID(0x91, 0x44, 0x0),
 	CHIPID_AD9152 = AD9144_CHIPID(0x91, 0x52, 0x0),
 };
@@ -124,14 +128,38 @@ static int ad9144_setup_link(struct ad9144_state *st,
 {
 	struct regmap *map = st->map;
 	unsigned int lane_mask;
+	bool ad9136_dual_mode;
+	unsigned int M, L;
 	unsigned int val;
-	unsigned int i;
+	unsigned int i, j;
 
-	lane_mask = (1 << config->num_lanes) - 1;
+	/*
+	 * Datasheet calls this mode 11, 12, 13. L and M need to be
+	 * programmed to half their actual values.
+	 */
+	ad9136_dual_mode = (st->id == CHIPID_AD9136 ||
+			    st->id == CHIPID_AD9135) &&
+			   config->num_converters == 2;
+
+	if (ad9136_dual_mode) {
+		M = 0;
+		L = (config->num_lanes / 2) - 1;
+		lane_mask = (1 << (config->num_lanes / 2)) - 1;
+		lane_mask |= lane_mask << 4;
+	} else {
+		M = config->num_converters - 1;
+		L = config->num_lanes - 1;
+		lane_mask = (1 << config->num_lanes) - 1;
+	}
 
 	for (i = 0; i < 4; i++) {
-		val = config->lane_mux[2*i];
-		val |= config->lane_mux[2*i+1] << 3;
+		if (ad9136_dual_mode && i >= 2)
+			j = config->num_lanes / 2 + 2*(i-2);
+		else
+			j = 2*i;
+
+		val = config->lane_mux[j];
+		val |= config->lane_mux[j+1] << 3;
 		regmap_write(map, REG_XBAR(i), val);
 	}
 
@@ -147,14 +175,14 @@ static int ad9144_setup_link(struct ad9144_state *st,
 	regmap_write(map, REG_ILS_DID, config->did);
 	regmap_write(map, REG_ILS_BID, config->bid);
 
-	val = config->num_lanes; /* L */
+	val = L; /* L */
 	if (config->scrambling)
 		val |= BIT(7);
 	regmap_write(map, REG_ILS_SCR_L, val);
 
 	regmap_write(map, REG_ILS_F, config->octets_per_frame - 1); /* F */
 	regmap_write(map, REG_ILS_K, config->frames_per_multiframe - 1); /* K */
-	regmap_write(map, REG_ILS_M, config->num_converters); /* M */
+	regmap_write(map, REG_ILS_M, M); /* M */
 	regmap_write(map, REG_ILS_CS_N, 15); /* N */
 
 	val = 15; /* NP */
@@ -246,9 +274,21 @@ static int ad9144_dac_calibrate(struct ad9144_state *st)
 {
 	struct regmap *map = st->map;
 	struct device *dev = regmap_get_device(map);
+	unsigned int dac_mask;
 	unsigned int timeout;
 	unsigned int val;
 	unsigned int i;
+
+	switch (st->id) {
+	case CHIPID_AD9144:
+		dac_mask = GENMASK(st->num_converters - 1, 0);
+		break;
+	default: /* AD9135/AD9136 */
+		dac_mask = BIT(0);
+		if (st->num_converters == 2)
+			dac_mask |= BIT(2);
+		break;
+	}
 
 	/*
 	 * DAC calibration sequence as per table 86 AD9144 datasheet Rev B.
@@ -259,7 +299,7 @@ static int ad9144_dac_calibrate(struct ad9144_state *st)
 	/* Set initial value */
 	regmap_write(map, REG_CAL_INIT, 0xa2);
 	/* Select all DACs */
-	regmap_write(map, REG_CAL_INDX, GENMASK(st->num_converters - 1, 0));
+	regmap_write(map, REG_CAL_INDX, dac_mask);
 
 	/* Start calibration */
 	regmap_write(map, REG_CAL_CTRL, 0x01);
@@ -267,8 +307,17 @@ static int ad9144_dac_calibrate(struct ad9144_state *st)
 	mdelay(10);
 
 	for (i = 0; i < st->num_converters; i++) {
+		switch (st->id) {
+		case CHIPID_AD9144:
+			dac_mask = BIT(i);
+			break;
+		default:
+			dac_mask = BIT(2*i);
+			break;
+		}
+
 		/* Select DAC N */
-		regmap_write(map, REG_CAL_INDX, BIT(i));
+		regmap_write(map, REG_CAL_INDX, dac_mask);
 
 		timeout = 30;
 		do {
@@ -342,7 +391,7 @@ static void ad9144_setup_samplerate(struct ad9144_state *st)
 	regmap_write(map, 0x280, 0x00);	// disable serdes pll
 
 	regmap_write(map, 0x2a7, 0x01);	// input termination calibration
-	if (st->id == CHIPID_AD9144)
+	if (AD9144_ID_GET_PRODUCT_ID(st->id) == 0x9144)
 		regmap_write(map, 0x2ae, 0x01);	// input termination calibration
 
 	regmap_write(map, 0x230, serdes_cdr);
@@ -359,7 +408,7 @@ static void ad9144_setup_samplerate(struct ad9144_state *st)
 	if ((val & 0x01) == 0x00)
 		dev_err(dev, "PLL/link errors!!\n\r");
 
-	if (st->id == CHIPID_AD9144)
+	if (AD9144_ID_GET_PRODUCT_ID(st->id) == 0x9144)
 		ad9144_dac_calibrate(st);
 }
 
@@ -417,7 +466,7 @@ static int ad9144_setup(struct ad9144_state *st,
 
 	regmap_write(map, 0x314, 0x01);	// pclk == qbd master clock
 
-	if (st->id == CHIPID_AD9144) {
+	if (AD9144_ID_GET_PRODUCT_ID(st->id) == 0x9144) {
 		regmap_multi_reg_write(map, ad9144_required_device_config,
 			ARRAY_SIZE(ad9144_required_device_config));
 
@@ -442,24 +491,16 @@ static int ad9144_setup(struct ad9144_state *st,
 		val = 0x01;
 		break;
 	case 4:
-		switch (st->id) {
-		case CHIPID_AD9144:
+		if (AD9144_ID_GET_PRODUCT_ID(st->id) == 0x9144)
 			val = 0x03;
-			break;
-		default:
+		else
 			val = 0x02;
-			break;
-		}
 		break;
 	case 8:
-		switch (st->id) {
-		case CHIPID_AD9144:
+		if (AD9144_ID_GET_PRODUCT_ID(st->id) == 0x9144)
 			val = 0x04;
-			break;
-		default:
+		else
 			val = 0x03;
-			break;
-		}
 		break;
 	default:
 		val = 0x00;
@@ -486,7 +527,7 @@ static int ad9144_setup(struct ad9144_state *st,
 	/* LMFC settings for link 0 */
 	regmap_write(map, 0x304, 0x00);	// lmfc delay
 	regmap_write(map, 0x306, 0x0a);	// receive buffer delay
-	if (st->id == CHIPID_AD9144) {
+	if (AD9144_ID_GET_PRODUCT_ID(st->id) == 0x9144) {
 		/* LMFC settings for link 1 */
 		regmap_write(map, 0x305, 0x00);	// lmfc delay
 		regmap_write(map, 0x307, 0x0a);	// receive buffer delay
@@ -550,6 +591,19 @@ static int ad9144_set_sample_rate(struct cf_axi_converter *conv,
 	int ret;
 
 	switch (st->id) {
+	case CHIPID_AD9136:
+	case CHIPID_AD9135:
+		max_lane_rate_khz = 12400000;
+		switch (st->interpolation) {
+		case 1:
+		case 2:
+			max_sample_rate = 2120000000U;
+			break;
+		default:
+			max_sample_rate = 2800000000U;
+			break;
+		}
+		break;
 	case CHIPID_AD9144:
 		max_lane_rate_khz = 12400000;
 		switch (st->interpolation) {
@@ -597,7 +651,7 @@ static int ad9144_set_sample_rate(struct cf_axi_converter *conv,
 	sample_rate = clamp(sample_rate, min_sample_rate, max_sample_rate);
 	sample_rate = clk_round_rate(conv->clk[CLK_DAC], sample_rate);
 
-	sysref_rate = DIV_ROUND_CLOSEST(sample_rate, 32);
+	sysref_rate = DIV_ROUND_CLOSEST(sample_rate, 128);
 	lane_rate_kHz = ad9144_get_lane_rate(st, sample_rate);
 
 	regmap_write(map, 0x300, 0x00);	// disable link
@@ -779,6 +833,7 @@ static int ad9144_probe(struct spi_device *spi)
 	struct ad9144_platform_data *pdata;
 	struct ad9144_state *st;
 	unsigned long lane_rate_kHz;
+	bool spi4wire;
 	unsigned int idl, idh, grade;
 	unsigned int i;
 	int ret;
@@ -814,6 +869,18 @@ static int ad9144_probe(struct spi_device *spi)
 	st->fcenter_shift = pdata->fcenter_shift;
 	conv = &st->conv;
 
+	switch (st->id) {
+	case CHIPID_AD9144:
+	case CHIPID_AD9152:
+		/* Crazy mode to keep backwards compatibility */
+		spi4wire = pdata->spi4wire;
+		break;
+	default:
+		/* Normal mode for all other devices */
+		spi4wire = !(spi->mode & SPI_3WIRE);
+		break;
+	}
+
 	conv->reset_gpio = devm_gpiod_get_optional(&spi->dev, "reset", GPIOD_OUT_HIGH);
 	if (IS_ERR(conv->reset_gpio))
 		return PTR_ERR(conv->reset_gpio);
@@ -829,7 +896,7 @@ static int ad9144_probe(struct spi_device *spi)
 	if (IS_ERR(st->map))
 		return PTR_ERR(st->map);
 
-	ret = ad9144_reset(st, pdata->spi4wire);
+	ret = ad9144_reset(st, spi4wire);
 	if (ret < 0)
 		return ret;
 
@@ -867,7 +934,21 @@ static int ad9144_probe(struct spi_device *spi)
 	conv->write_raw = ad9144_write_raw;
 	conv->read_raw = ad9144_read_raw;
 	conv->spi = spi;
-	conv->id = st->id == CHIPID_AD9144 ? ID_AD9144 : ID_AD9152;
+
+	switch (st->id) {
+	case CHIPID_AD9135:
+		conv->id = ID_AD9135;
+		break;
+	case CHIPID_AD9136:
+		conv->id = ID_AD9136;
+		break;
+	case CHIPID_AD9144:
+		conv->id = ID_AD9144;
+		break;
+	default:
+		conv->id = ID_AD9152;
+		break;
+	}
 
 	ret = ad9144_get_clks(conv);
 	if (ret < 0) {
@@ -926,6 +1007,8 @@ out:
 }
 
 static const struct spi_device_id ad9144_id[] = {
+	{ "ad9135", CHIPID_AD9135 },
+	{ "ad9136", CHIPID_AD9136 },
 	{ "ad9144", CHIPID_AD9144 },
 	{ "ad9152", CHIPID_AD9152 },
 	{}
