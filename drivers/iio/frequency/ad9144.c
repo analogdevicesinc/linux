@@ -32,6 +32,35 @@ enum chip_id {
 	CHIPID_AD9152 = AD9144_CHIPID(0x91, 0x52, 0x0),
 };
 
+enum ad9144_sysref_mode {
+	AD9144_SYSREF_ONESHOT,
+	AD9144_SYSREF_CONTINUOUS
+};
+
+struct ad9144_sysref_config {
+	enum ad9144_sysref_mode mode;
+	bool capture_falling_edge;
+};
+
+struct ad9144_jesd204_link_config {
+	uint8_t did;
+	uint8_t bid;
+
+	uint8_t num_lanes;
+	uint8_t num_converters;
+	uint8_t octets_per_frame;
+	uint8_t frames_per_multiframe;
+	uint8_t samples_per_frame;
+
+	uint8_t lane_mux[8];
+
+	bool scrambling;
+	bool high_density;
+	uint8_t subclass;
+
+	struct ad9144_sysref_config sysref;
+};
+
 #define AD9144_MOD_TYPE_NONE		(0x0 << 2)
 #define AD9144_MOD_TYPE_FINE		(0x1 << 2)
 #define AD9144_MOD_TYPE_COARSE4		(0x2 << 2)
@@ -39,10 +68,7 @@ enum chip_id {
 #define AD9144_MOD_TYPE_MASK		(0x3 << 2)
 
 struct ad9144_platform_data {
-	u8 xbar_lane0_sel;
-	u8 xbar_lane1_sel;
-	u8 xbar_lane2_sel;
-	u8 xbar_lane3_sel;
+	u8 xbar_lane_sel[8];
 	u8 interpolation;
 	unsigned int fcenter_shift;
 	bool spi4wire;
@@ -54,6 +80,9 @@ struct ad9144_state {
 	unsigned int fcenter_shift;
 	enum chip_id id;
 	struct regmap *map;
+
+	unsigned int num_lanes;
+	unsigned int num_converters;
 };
 
 static const char * const clk_names[] = {
@@ -90,6 +119,88 @@ static int ad9144_get_temperature_code(struct cf_axi_converter *conv)
 	return ((val2 & 0xFF) << 8) | (val1 & 0xFF);
 }
 
+static int ad9144_setup_link(struct ad9144_state *st,
+	struct ad9144_jesd204_link_config *config)
+{
+	struct regmap *map = st->map;
+	unsigned int lane_mask;
+	unsigned int val;
+	unsigned int i;
+
+	lane_mask = (1 << config->num_lanes) - 1;
+
+	for (i = 0; i < 4; i++) {
+		val = config->lane_mux[2*i];
+		val |= config->lane_mux[2*i+1] << 3;
+		regmap_write(map, REG_XBAR(i), val);
+	}
+
+	val = 0;
+	if (!config->subclass)
+		val |= BIT(4);
+	if (!config->sysref.capture_falling_edge)
+		val |= BIT(2);
+	regmap_write(map, REG_SYSREF_ACTRL0, val);
+
+	regmap_write(map, REG_GENERAL_JRX_CTRL_1, config->subclass);
+
+	regmap_write(map, REG_ILS_DID, config->did);
+	regmap_write(map, REG_ILS_BID, config->bid);
+
+	val = config->num_lanes; /* L */
+	if (config->scrambling)
+		val |= BIT(7);
+	regmap_write(map, REG_ILS_SCR_L, val);
+
+	regmap_write(map, REG_ILS_F, config->octets_per_frame - 1); /* F */
+	regmap_write(map, REG_ILS_K, config->frames_per_multiframe - 1); /* K */
+	regmap_write(map, REG_ILS_M, config->num_converters); /* M */
+	regmap_write(map, REG_ILS_CS_N, 15); /* N */
+
+	val = 15; /* NP */
+	val |= config->subclass << 5; /* SUBCLASSV */
+	regmap_write(map, REG_ILS_NP, val);
+
+	val = config->samples_per_frame - 1; /* S */
+	val |= BIT(5); /* JESDVER */
+	regmap_write(map, REG_ILS_S, val);
+
+	val = config->high_density ? BIT(7) : 0x0; /* HD */
+	regmap_write(map, REG_ILS_HD_CF, val);
+
+	/* Static for now */
+	regmap_write(map, REG_KVAL, 0x01);
+
+	regmap_write(map, REG_LANEDESKEW, lane_mask);
+	regmap_write(map, REG_CTRLREG1, config->octets_per_frame);
+	regmap_write(map, REG_LANEENABLE, lane_mask);
+
+	/*
+	 * Length of the SYNC~ error pulse in PCLK cycles. According to the
+	 * JESD204 standard the pulse length should be two frame clock cycles.
+	 *
+	 * 1 PCLK cycle = 4 octets
+	 *   => SYNC~ pulse length = 2 * octets_per_frame / 4
+	 */
+	switch (config->octets_per_frame) {
+	case 1:
+		/* 0.5 PCLK cycles */
+		val = 0x0;
+		break;
+	case 2:
+		/* 1 PCLK cycle */
+		val = 0x1;
+		break;
+	default:
+		/* 2 PCLK cycles */
+		val = 0x2;
+		break;
+	}
+	regmap_write(map, REG_SYNCB_GEN_1, val << 4);
+
+	return 0;
+}
+
 static void ad9144_set_nco_freq(struct ad9144_state *st, uint32_t sample_rate,
 	uint32_t nco_freq)
 {
@@ -119,20 +230,77 @@ static void ad9144_set_nco_freq(struct ad9144_state *st, uint32_t sample_rate,
 		regmap_write(st->map, 0x113, 1);
 }
 
+static unsigned long ad9144_get_lane_rate(struct ad9144_state *st,
+	unsigned int sample_rate)
+{
+	/*
+	 * lanerate_khz = ((samplerate_hz / interpolation) * 20 * M / L) / 1000
+	 *
+	 * Slightly reordered here to avoid loss of precession or overflows.
+	 */
+	return DIV_ROUND_CLOSEST(sample_rate,
+		50 * st->num_lanes * st->interpolation / st->num_converters);
+}
+
+static int ad9144_dac_calibrate(struct ad9144_state *st)
+{
+	struct regmap *map = st->map;
+	struct device *dev = regmap_get_device(map);
+	unsigned int timeout;
+	unsigned int val;
+	unsigned int i;
+
+	/*
+	 * DAC calibration sequence as per table 86 AD9144 datasheet Rev B.
+	 */
+
+	/* Set calibration clock */
+	regmap_write(map, REG_CAL_CLKDIV, 0x38);
+	/* Set initial value */
+	regmap_write(map, REG_CAL_INIT, 0xa2);
+	/* Select all DACs */
+	regmap_write(map, REG_CAL_INDX, GENMASK(st->num_converters - 1, 0));
+
+	/* Start calibration */
+	regmap_write(map, REG_CAL_CTRL, 0x01);
+	regmap_write(map, REG_CAL_CTRL, 0x03);
+	mdelay(10);
+
+	for (i = 0; i < st->num_converters; i++) {
+		/* Select DAC N */
+		regmap_write(map, REG_CAL_INDX, BIT(i));
+
+		timeout = 30;
+		do {
+			mdelay(1);
+			regmap_read(map, REG_CAL_CTRL, &val);
+		} while ((val & CAL_ACTIVE) && timeout--);
+
+		if ((val & (CAL_FIN | CAL_ERRHI | CAL_ERRLO)) != CAL_FIN)
+			dev_err(dev, "DAC-%d calibration failed (0x%X)\n",
+				i, val);
+		else
+			dev_dbg(dev, "DAC-%d calibration successful\n", i);
+	}
+
+	/* Turn off calibration clock */
+	regmap_write(map, REG_CAL_CLKDIV, 0x30);
+
+	return 0;
+}
+
 static void ad9144_setup_samplerate(struct ad9144_state *st)
 {
 	struct regmap *map = st->map;
 	struct device *dev = regmap_get_device(map);
-	u8 i, timeout;
-	unsigned long lane_rate_kHz;
 	unsigned int sample_rate;
 	unsigned int serdes_plldiv, serdes_cdr;
 	unsigned int serdes_vco_freq;
 	unsigned int val;
+	unsigned long lane_rate_kHz;
 
 	sample_rate = clk_get_rate(st->conv.clk[1]);
-	lane_rate_kHz = (sample_rate / 1000) * 10; // FIXME for other configurations
-	lane_rate_kHz /= st->interpolation;
+	lane_rate_kHz = ad9144_get_lane_rate(st, sample_rate);
 
 	ad9144_set_nco_freq(st, sample_rate, st->fcenter_shift);
 
@@ -171,10 +339,9 @@ static void ad9144_setup_samplerate(struct ad9144_state *st)
 
 	// physical layer
 
-	regmap_write(map, 0x280, 0x00);	// enable serdes pll
+	regmap_write(map, 0x280, 0x00);	// disable serdes pll
 
 	regmap_write(map, 0x2a7, 0x01);	// input termination calibration
-
 	if (st->id == CHIPID_AD9144)
 		regmap_write(map, 0x2ae, 0x01);	// input termination calibration
 
@@ -186,35 +353,14 @@ static void ad9144_setup_samplerate(struct ad9144_state *st)
 	regmap_write(map, 0x289, serdes_plldiv);
 
 	regmap_write(map, 0x280, 0x01);	// enable serdes pll
-	regmap_write(map, 0x280, 0x05);	// enable serdes calibration
 	mdelay(20);
 
 	regmap_read(map, 0x281, &val);
 	if ((val & 0x01) == 0x00)
 		dev_err(dev, "PLL/link errors!!\n\r");
 
-	if (st->id == CHIPID_AD9144) {
-		// dac calibration
-		regmap_write(map, 0x0e7, 0x38);	// set calibration clock to 1m
-		regmap_write(map, 0x0ed, 0xa6);	// use isb reference of 38 to set cal
-		regmap_write(map, 0x0e8, 0x03);	// cal 2 dacs at once
-		regmap_write(map, 0x0e9, 0x01);	// single cal enable
-		regmap_write(map, 0x0e9, 0x03);	// single cal start
-		mdelay(10);
-
-		for (i = 0, timeout = 30; i < 2; i++) {
-			regmap_write(map, 0x0e8, 1 << i); // read dac-x
-			do {
-				mdelay(1);
-				regmap_read(map, 0x0e9, &val);
-			} while ((val & CAL_ACTIVE) && timeout--);
-
-			if ((val & (CAL_FIN | CAL_ERRHI | CAL_ERRLO)) != CAL_FIN)
-				dev_err(dev, "AD9144, dac-%d calibration failed (0x%X)!!\n", i, val);
-		}
-	}
-
-	regmap_write(map, 0x0e7, 0x30);	// turn off cal clock
+	if (st->id == CHIPID_AD9144)
+		ad9144_dac_calibrate(st);
 }
 
 /*
@@ -250,10 +396,15 @@ static const struct reg_sequence ad9144_optimal_serdes_settings[] = {
 };
 
 static int ad9144_setup(struct ad9144_state *st,
-		struct ad9144_platform_data *pdata)
+	struct ad9144_jesd204_link_config *link_config)
 {
 	struct regmap *map = st->map;
+	unsigned int sysref_mode;
+	unsigned int phy_mask;
 	unsigned int val;
+	unsigned int i;
+
+	regmap_write(map, 0x300, 0x00);	// single link - link 0
 
 	// power-up and dac initialization
 
@@ -317,53 +468,38 @@ static int ad9144_setup(struct ad9144_state *st,
 	regmap_write(map, 0x112, val);	// interpolation
 	regmap_write(map, 0x110, 0x00);	// 2's complement
 
-	// lane mux
-
-	regmap_write(map, REG_XBAR_LN_0_1, SRC_LANE0(pdata->xbar_lane0_sel) |
-		SRC_LANE1(pdata->xbar_lane1_sel));	// lane selects
-	regmap_write(map, REG_XBAR_LN_2_3, SRC_LANE2(pdata->xbar_lane2_sel) |
-		SRC_LANE3(pdata->xbar_lane3_sel));	// lane selects
-
 	// transport layer
 
-	regmap_write(map, 0x200, 0x00);	// phy - power up
-	regmap_write(map, 0x201, 0x00);	// phy - power up
-	if (st->id == CHIPID_AD9152) {
-		regmap_write(map, 0x230, 0x28); // half-rate CDR
-		regmap_write(map, 0x312, 0x20); // half-rate CDR
-	}
-	regmap_write(map, 0x300, 0x00);	// single link - link 0
-	regmap_write(map, 0x450, 0x00);	// device id (0x400)
-	regmap_write(map, 0x451, 0x00);	// bank id (0x401)
-	regmap_write(map, 0x452, 0x04);	// lane-id (0x402)
-	regmap_write(map, 0x453, 0x83);	// descrambling, 4 lanes
-	regmap_write(map, 0x454, 0x00);	// octects per frame per lane (1)
-	regmap_write(map, 0x455, 0x1f);	// mult-frame - framecount (32)
-	regmap_write(map, 0x456, 0x01);	// no-of-converters (2)
-	regmap_write(map, 0x457, 0x0f);	// no CS bits, 16bit dac
-	regmap_write(map, 0x458, 0x2f);	// subclass 1, 16bits per sample
-	regmap_write(map, 0x459, 0x20);	// jesd204b, 1 samples per converter per device
-	regmap_write(map, 0x45a, 0x80);	// HD mode, no CS bits
-	regmap_write(map, 0x45d, 0x49);	// check-sum of 0x450 to 0x45c
-	regmap_write(map, 0x478, 0x01);	// ilas mf count
-	regmap_write(map, 0x46c, 0x0f);	// enable deskew for all lanes
-	regmap_write(map, 0x476, 0x01);	// frame - bytecount (1)
-	regmap_write(map, 0x47d, 0x0f);	// enable all lanes
+	phy_mask = 0xff;
+	for (i = 0; i < link_config->num_lanes; i++)
+		phy_mask &= ~BIT(link_config->lane_mux[i]);
+
+	regmap_write(map, REG_MASTER_PD, 0x00);
+	regmap_write(map, REG_PHY_PD, phy_mask);
+
+	ad9144_setup_link(st, link_config);
 
 	regmap_write(map, 0x268, 0x62);	// equalizer
 
 	// data link layer
 
-	regmap_write(map, 0x301, 0x01);	// subclass-1
+	/* LMFC settings for link 0 */
 	regmap_write(map, 0x304, 0x00);	// lmfc delay
-	if (st->id == CHIPID_AD9144)
-		regmap_write(map, 0x305, 0x00);	// lmfc delay
 	regmap_write(map, 0x306, 0x0a);	// receive buffer delay
-	if (st->id == CHIPID_AD9144)
+	if (st->id == CHIPID_AD9144) {
+		/* LMFC settings for link 1 */
+		regmap_write(map, 0x305, 0x00);	// lmfc delay
 		regmap_write(map, 0x307, 0x0a);	// receive buffer delay
-	regmap_write(map, 0x03a, 0x01);	// sync-oneshot mode
-	regmap_write(map, 0x03a, 0x81);	// sync-enable
-	regmap_write(map, 0x03a, 0xc1);	// sysref-armed
+	}
+
+	if (link_config->sysref.mode == AD9144_SYSREF_ONESHOT)
+		sysref_mode = 0x1;
+	else
+		sysref_mode = 0x2;
+
+	regmap_write(map, 0x03a, sysref_mode); // sync-oneshot mode
+	regmap_write(map, 0x03a, 0x80 | sysref_mode); // sync-enable
+	regmap_write(map, 0x03a, 0xc0 | sysref_mode); // sysref-armed
 
 	ad9144_setup_samplerate(st);
 
@@ -407,10 +543,15 @@ static int ad9144_set_sample_rate(struct cf_axi_converter *conv,
 	unsigned long lane_rate_kHz;
 	unsigned long sysref_rate;
 	unsigned int max_sample_rate;
+	unsigned int min_sample_rate;
+	unsigned int max_lane_rate_khz;
+	unsigned int bits_per_sample_per_lane;
+	unsigned int tmp;
 	int ret;
 
 	switch (st->id) {
 	case CHIPID_AD9144:
+		max_lane_rate_khz = 12400000;
 		switch (st->interpolation) {
 		case 1:
 			max_sample_rate = 1060000000U;
@@ -424,6 +565,7 @@ static int ad9144_set_sample_rate(struct cf_axi_converter *conv,
 		}
 		break;
 	default:
+		max_lane_rate_khz = 12380000;
 		switch (st->interpolation) {
 		case 1:
 			max_sample_rate = 1238000000U;
@@ -435,11 +577,28 @@ static int ad9144_set_sample_rate(struct cf_axi_converter *conv,
 		break;
 	}
 
-	sample_rate = clamp(sample_rate, 200000000U, max_sample_rate);
+	/*
+	 * The lane rate limits can put further constraints on the sample rate
+	 * depending on converter to lane ratio and interpolation factor.
+	 */
+
+	/* 5, 10, 20 or 40 */
+	bits_per_sample_per_lane = (20 * st->num_converters) / st->num_lanes;
+
+	/* Be careful not to overflow */
+	tmp = max_lane_rate_khz * (1000 / bits_per_sample_per_lane);
+	if (tmp < max_sample_rate / st->interpolation)
+		max_sample_rate = tmp * st->interpolation;
+
+	/* Based on minimum lane rate */
+	min_sample_rate = 1440000000U / bits_per_sample_per_lane;
+	min_sample_rate *= st->interpolation;
+
+	sample_rate = clamp(sample_rate, min_sample_rate, max_sample_rate);
 	sample_rate = clk_round_rate(conv->clk[CLK_DAC], sample_rate);
 
 	sysref_rate = DIV_ROUND_CLOSEST(sample_rate, 32);
-	lane_rate_kHz = DIV_ROUND_CLOSEST(sample_rate, 100);
+	lane_rate_kHz = ad9144_get_lane_rate(st, sample_rate);
 
 	regmap_write(map, 0x300, 0x00);	// disable link
 
@@ -545,29 +704,23 @@ static int ad9144_prepare(struct cf_axi_converter *conv)
 #ifdef CONFIG_OF
 static struct ad9144_platform_data *ad9144_parse_dt(struct device *dev)
 {
+	char prop_name[] = "adi,jesd-xbar-lane0-sel";
 	struct device_node *np = dev->of_node;
 	struct ad9144_platform_data *pdata;
 	unsigned int tmp;
+	unsigned int i;
 
 	pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
 	if (!pdata)
 		return NULL;
 
-	tmp = 0;
-	of_property_read_u32(np, "adi,jesd-xbar-lane0-sel", &tmp);
-	pdata->xbar_lane0_sel = tmp;
+	for (i = 0; i < 8; i++) {
+		prop_name[sizeof("adi,jesd-xbar-lane")-1] = '0' + i;
 
-	tmp = 1;
-	of_property_read_u32(np, "adi,jesd-xbar-lane1-sel", &tmp);
-	pdata->xbar_lane1_sel = tmp;
-
-	tmp = 2;
-	of_property_read_u32(np, "adi,jesd-xbar-lane2-sel", &tmp);
-	pdata->xbar_lane2_sel = tmp;
-
-	tmp = 3;
-	of_property_read_u32(np, "adi,jesd-xbar-lane3-sel", &tmp);
-	pdata->xbar_lane3_sel = tmp;
+		tmp = i;
+		of_property_read_u32(np, prop_name, &tmp);
+		pdata->xbar_lane_sel[i] = tmp;
+	}
 
 	tmp = 1;
 	of_property_read_u32(np, "adi,interpolation", &tmp);
@@ -621,6 +774,7 @@ static int ad9144_reset(struct ad9144_state *st, bool spi4wire)
 static int ad9144_probe(struct spi_device *spi)
 {
 	const struct spi_device_id *dev_id = spi_get_device_id(spi);
+	struct ad9144_jesd204_link_config link_config;
 	struct cf_axi_converter *conv;
 	struct ad9144_platform_data *pdata;
 	struct ad9144_state *st;
@@ -722,9 +876,28 @@ static int ad9144_probe(struct spi_device *spi)
 		goto out;
 	}
 
-	lane_rate_kHz = clk_get_rate(st->conv.clk[1]);
-	lane_rate_kHz = DIV_ROUND_CLOSEST(lane_rate_kHz, 100);	// FIXME for other configurations
-	lane_rate_kHz /= st->interpolation;
+	st->num_lanes = 4;
+	st->num_converters = 2;
+
+	memset(&link_config, 0x00, sizeof(link_config));
+
+	link_config.did = 0;
+	link_config.bid = 0;
+	link_config.num_lanes = st->num_lanes;
+	link_config.num_converters = st->num_converters;
+	link_config.octets_per_frame = 1;
+	link_config.frames_per_multiframe = 32;
+	link_config.samples_per_frame = 1;
+
+	link_config.high_density = true;
+	link_config.scrambling = true;
+	link_config.subclass = 1;
+	link_config.sysref.mode = AD9144_SYSREF_ONESHOT;
+
+	for (i = 0; i < 8; i++)
+		link_config.lane_mux[i] = pdata->xbar_lane_sel[i];
+
+	lane_rate_kHz = ad9144_get_lane_rate(st, clk_get_rate(st->conv.clk[1]));
 	ret = clk_set_rate(conv->clk[0], lane_rate_kHz);
 	if (ret < 0) {
 		dev_err(&spi->dev, "Failed to set lane rate to %ld kHz: %d\n",
@@ -738,7 +911,7 @@ static int ad9144_probe(struct spi_device *spi)
 		return ret;
 	}
 
-	ret = ad9144_setup(st, pdata);
+	ret = ad9144_setup(st, &link_config);
 	if (ret < 0) {
 		dev_err(&spi->dev, "Failed to setup device\n");
 		goto out;
