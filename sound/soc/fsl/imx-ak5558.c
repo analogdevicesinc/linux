@@ -28,7 +28,6 @@
 struct imx_ak5558_data {
 	struct snd_soc_card card;
 	bool tdm_mode;
-	unsigned long freq;
 	unsigned long slots;
 	unsigned long slot_width;
 };
@@ -50,11 +49,11 @@ struct imx_ak5558_fs_mul {
  */
 static const struct imx_ak5558_fs_mul fs_mul[] = {
 	{ .min = 8000,   .max = 32000,  .mul = 1024 },
-	{ .min = 48000,  .max = 48000,  .mul = 512  },
-	{ .min = 96000,  .max = 96000,  .mul = 256  },
-	{ .min = 192000, .max = 192000, .mul = 128  },
-	{ .min = 384000, .max = 384000, .mul = 2 * 64 },
-	{ .min = 768000, .max = 768000, .mul = 2 * 32 },
+	{ .min = 44100,  .max = 48000,  .mul = 512  },
+	{ .min = 88200,  .max = 96000,  .mul = 256  },
+	{ .min = 176400, .max = 192000, .mul = 128  },
+	{ .min = 352800, .max = 384000, .mul = 2*64 },
+	{ .min = 705600, .max = 768000, .mul = 2*32 },
 };
 
 /*
@@ -73,9 +72,10 @@ static struct snd_soc_dapm_widget imx_ak5558_dapm_widgets[] = {
 };
 
 static const u32 ak5558_rates[] = {
-	8000, 16000, 32000,
-	48000, 96000, 192000,
-	384000, 768000,
+	8000, 11025, 16000, 22050,
+	32000, 44100, 48000, 88200,
+	96000, 176400, 192000, 352800,
+	384000, 705600, 768000,
 };
 
 static const u32 ak5558_tdm_rates[] = {
@@ -93,7 +93,7 @@ static unsigned long ak5558_get_mclk_rate(struct snd_pcm_substream *substream,
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct imx_ak5558_data *data = snd_soc_card_get_drvdata(rtd->card);
 	unsigned int rate = params_rate(params);
-	unsigned int freq = data->freq;
+	unsigned int freq = 0; /* Let DAI manage clk frequency by default */
 	int mode;
 	int i;
 
@@ -248,9 +248,7 @@ static int imx_ak5558_probe(struct platform_device *pdev)
 	struct imx_ak5558_data *priv;
 	struct device_node *cpu_np, *codec_np = NULL;
 	struct platform_device *cpu_pdev;
-	struct clk *mclk;
 	int ret;
-
 
 	priv = devm_kzalloc(&pdev->dev, sizeof(*priv), GFP_KERNEL);
 	if (!priv)
@@ -291,15 +289,6 @@ static int imx_ak5558_probe(struct platform_device *pdev)
 	priv->card.owner = THIS_MODULE;
 	priv->card.dapm_widgets = imx_ak5558_dapm_widgets;
 	priv->card.num_dapm_widgets = ARRAY_SIZE(imx_ak5558_dapm_widgets);
-
-	mclk = devm_clk_get(&cpu_pdev->dev, "mclk1");
-	if (IS_ERR(mclk)) {
-		ret = PTR_ERR(mclk);
-		dev_err(&pdev->dev, "failed to get DAI mclk1: %d\n", ret);
-		return -EINVAL;
-	}
-
-	priv->freq = clk_get_rate(mclk);
 
 	ret = snd_soc_of_parse_card_name(&priv->card, "model");
 	if (ret)

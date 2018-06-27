@@ -31,7 +31,6 @@ struct imx_ak4458_data {
 	struct snd_soc_codec_conf *codec_conf;
 	bool tdm_mode;
 	int pdn_gpio;
-	unsigned long freq;
 	unsigned int slots;
 	unsigned int slot_width;
 };
@@ -54,8 +53,8 @@ static const struct imx_ak4458_fs_mul fs_mul[] = {
 	{ .min = 8000,   .max = 48000,  .mul = 1024  }, /* Normal */
 	{ .min = 88200,  .max = 96000,  .mul = 512  }, /* Double */
 	{ .min = 176400, .max = 192000, .mul = 256  }, /* Quad */
-	{ .min = 384000, .max = 384000, .mul = 128   }, /* Oct */
-	{ .min = 768000, .max = 768000, .mul = 64   }, /* Hex */
+	{ .min = 352800, .max = 384000, .mul = 128   }, /* Oct */
+	{ .min = 705600, .max = 768000, .mul = 64   }, /* Hex */
 };
 
 static const struct imx_ak4458_fs_mul fs_mul_tdm[] = {
@@ -70,9 +69,10 @@ static const struct imx_ak4458_fs_mul fs_mul_tdm[] = {
 };
 
 static const u32 ak4458_rates[] = {
-	8000, 16000, 32000,
-	48000, 96000, 192000,
-	384000, 768000,
+	8000, 11025, 16000, 22050,
+	32000, 44100, 48000, 88200,
+	96000, 176400, 192000, 352800,
+	384000, 705600, 768000,
 };
 
 static const u32 ak4458_rates_tdm[] = {
@@ -96,7 +96,7 @@ static unsigned long ak4458_get_mclk_rate(struct snd_pcm_substream *substream,
 	unsigned int rate = params_rate(params);
 	int i;
 	int mode;
-	unsigned int freq = data->freq;
+	unsigned int freq = 0; /* Let DAI manage clk frequency by default */
 
 	if (data->tdm_mode) {
 		/* can be 128, 256 or 512 */
@@ -263,9 +263,7 @@ static int imx_ak4458_probe(struct platform_device *pdev)
 	struct imx_ak4458_data *priv;
 	struct device_node *cpu_np, *codec_np_0 = NULL, *codec_np_1 = NULL;
 	struct platform_device *cpu_pdev;
-	struct clk *mclk;
 	int ret;
-
 
 	priv = devm_kzalloc(&pdev->dev, sizeof(*priv), GFP_KERNEL);
 	if (!priv)
@@ -345,15 +343,6 @@ static int imx_ak4458_probe(struct platform_device *pdev)
 		gpio_set_value_cansleep(priv->pdn_gpio, 1);
 		usleep_range(1000, 2000);
 	}
-
-	mclk = devm_clk_get(&cpu_pdev->dev, "mclk1");
-	if (IS_ERR(mclk)) {
-		ret = PTR_ERR(mclk);
-		dev_err(&pdev->dev, "failed to get DAI mclk1: %d\n", ret);
-		return -EINVAL;
-	}
-
-	priv->freq = clk_get_rate(mclk);
 
 	ret = snd_soc_of_parse_card_name(&priv->card, "model");
 	if (ret)
