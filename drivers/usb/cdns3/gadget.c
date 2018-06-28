@@ -1392,7 +1392,6 @@ static int usb_ss_gadget_ep0_queue(struct usb_ep *ep,
 		if (!usb_ss->hw_configured_flag) {
 			gadget_writel(usb_ss, &usb_ss->regs->usb_conf,
 			USB_CONF__CFGSET__MASK); /* SET CONFIGURATION */
-			cdns_prepare_setup_packet(usb_ss);
 			gadget_writel(usb_ss, &usb_ss->regs->ep_cmd,
 				EP_CMD__ERDY__MASK | EP_CMD__REQ_CMPL__MASK);
 			/* wait until configuration set */
@@ -1415,6 +1414,7 @@ static int usb_ss_gadget_ep0_queue(struct usb_ep *ep,
 			gadget_writel(usb_ss, &usb_ss->regs->ep_cmd,
 			EP_CMD__ERDY__MASK | EP_CMD__REQ_CMPL__MASK);
 
+		cdns_prepare_setup_packet(usb_ss);
 		request->actual = 0;
 		usb_ss->status_completion_no_call = true;
 		usb_ss->pending_status_request = request;
