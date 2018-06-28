@@ -406,9 +406,36 @@ static int ad9144_set_sample_rate(struct cf_axi_converter *conv,
 	struct regmap *map = st->map;
 	unsigned long lane_rate_kHz;
 	unsigned long sysref_rate;
+	unsigned int max_sample_rate;
 	int ret;
 
-	sample_rate = clamp(sample_rate, 200000000U, 1000000000U);
+	switch (st->id) {
+	case CHIPID_AD9144:
+		switch (st->interpolation) {
+		case 1:
+			max_sample_rate = 1060000000U;
+			break;
+		case 2:
+			max_sample_rate = 2120000000U;
+			break;
+		default:
+			max_sample_rate = 2800000000U;
+			break;
+		}
+		break;
+	default:
+		switch (st->interpolation) {
+		case 1:
+			max_sample_rate = 1238000000U;
+			break;
+		default:
+			max_sample_rate = 2250000000U;
+			break;
+		}
+		break;
+	}
+
+	sample_rate = clamp(sample_rate, 200000000U, max_sample_rate);
 	sample_rate = clk_round_rate(conv->clk[CLK_DAC], sample_rate);
 
 	sysref_rate = DIV_ROUND_CLOSEST(sample_rate, 32);
