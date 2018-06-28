@@ -322,6 +322,7 @@ static irqreturn_t xadc_zynq_interrupt_handler(int irq, void *devid)
 
 #define XADC_ZYNQ_TCK_RATE_MAX 50000000
 #define XADC_ZYNQ_IGAP_DEFAULT 20
+#define XADC_ZYNQ_PCAP_RATE_MAX 200000000
 
 static int xadc_zynq_setup(struct platform_device *pdev,
 	struct iio_dev *indio_dev, int irq)
@@ -341,8 +342,10 @@ static int xadc_zynq_setup(struct platform_device *pdev,
 
 	pcap_rate = clk_get_rate(xadc->clk);
 
-	if (tck_rate > XADC_ZYNQ_TCK_RATE_MAX)
-		tck_rate = XADC_ZYNQ_TCK_RATE_MAX;
+	if (pcap_rate > XADC_ZYNQ_PCAP_RATE_MAX)
+		clk_set_rate(xadc->clk,
+			(unsigned long) XADC_ZYNQ_PCAP_RATE_MAX);
+
 	if (tck_rate > pcap_rate / 2) {
 		div = 2;
 	} else {
@@ -1043,7 +1046,7 @@ static int xadc_parse_dt(struct iio_dev *indio_dev, struct device_node *np,
 	unsigned int num_channels;
 	const char *external_mux;
 	u32 ext_mux_chan;
-	int reg;
+	u32 reg;
 	int ret;
 
 	*conf = 0;
