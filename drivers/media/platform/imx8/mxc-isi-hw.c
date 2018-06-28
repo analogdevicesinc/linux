@@ -161,7 +161,7 @@ void mxc_isi_channel_hw_reset(struct mxc_isi_dev *mxc_isi)
 	if (sciErr != SC_ERR_NONE)
 		pr_err("sc_misc_MIPI reset failed! (sciError = %d)\n", sciErr);
 
-	msleep(10);
+	udelay(500);
 
 	sc_ipc_close(mu_id);
 }

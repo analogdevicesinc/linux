@@ -580,6 +580,7 @@ static int mxc_isi_capture_open(struct file *file)
 
 	dev_dbg(&mxc_isi->pdev->dev, "%s, ISI%d\n", __func__, mxc_isi->id);
 
+
 	/* Get remote source pad */
 	source_pad = mxc_isi_get_remote_source_pad(mxc_isi);
 	if (source_pad == NULL) {
@@ -594,14 +595,20 @@ static int mxc_isi_capture_open(struct file *file)
 		return -EINVAL;
 	}
 
-	pm_runtime_get_sync(dev);
-
 	mutex_lock(&mxc_isi->lock);
 	ret = v4l2_fh_open(file);
 	mutex_unlock(&mxc_isi->lock);
 
-	mxc_isi_channel_init(mxc_isi);
-	return v4l2_subdev_call(sd, core, s_power, 1);
+	pm_runtime_get_sync(dev);
+
+	ret = v4l2_subdev_call(sd, core, s_power, 1);
+	if (ret) {
+		v4l2_err(mxc_isi->v4l2_dev, "%s, Call subdev s_power fail!\n", __func__);
+		pm_runtime_put(dev);
+		return ret;
+	}
+
+	return 0;
 }
 
 static int mxc_isi_capture_release(struct file *file)
@@ -618,30 +625,38 @@ static int mxc_isi_capture_release(struct file *file)
 	source_pad = mxc_isi_get_remote_source_pad(mxc_isi);
 	if (source_pad == NULL) {
 		v4l2_err(mxc_isi->v4l2_dev, "%s, No remote pad found!\n", __func__);
-		return -EINVAL;
+		ret = -EINVAL;
+		goto label;
 	}
 
 	/* Get remote source pad subdev */
 	sd = media_entity_to_v4l2_subdev(source_pad->entity);
 	if (sd == NULL) {
 		v4l2_err(mxc_isi->v4l2_dev, "%s, No remote subdev found!\n", __func__);
-		return -EINVAL;
+		ret = -EINVAL;
+		goto label;
 	}
 
 	mutex_lock(&mxc_isi->lock);
 	ret = _vb2_fop_release(file, NULL);
+	if (ret) {
+		v4l2_err(mxc_isi->v4l2_dev, "%s fail\n", __func__);
+		mutex_unlock(&mxc_isi->lock);
+		goto label;
+	}
 	mutex_unlock(&mxc_isi->lock);
+
 	mxc_isi_channel_deinit(mxc_isi);
 
 	ret = v4l2_subdev_call(sd, core, s_power, 0);
 	if (ret < 0 && ret != -ENOIOCTLCMD) {
 		v4l2_err(mxc_isi->v4l2_dev, "%s s_power fail\n", __func__);
-		return -EINVAL;
+		goto label;
 	}
 
-	pm_runtime_put_sync(dev);
-
-	return ret;
+label:
+	pm_runtime_put(dev);
+	return (ret) ? ret : 0;
 }
 
 static const struct v4l2_file_operations mxc_isi_capture_fops = {
@@ -868,6 +883,7 @@ static int mxc_isi_cap_s_fmt_mplane(struct file *file, void *priv,
 
 	mxc_isi_source_fmt_init(mxc_isi);
 
+	mxc_isi_channel_init(mxc_isi);
 	/* configure mxc isi channel */
 	mxc_isi_channel_config(mxc_isi);
 

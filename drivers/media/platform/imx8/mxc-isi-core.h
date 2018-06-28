@@ -155,12 +155,6 @@ enum mxc_isi_m2m_in_fmt {
 	MXC_ISI_M2M_IN_FMT_YUV422_1P10P,
 };
 
-enum mxc_isi_power_state {
-	MXC_ISI_PM_SUSPENDED = 0x01,
-	MXC_ISI_PM_POWERED = 0x02,
-	MXC_ISI_RUNTIME_SUSPEND = 0x04,
-};
-
 struct mxc_isi_fmt {
 	char	*name;
 	u32 mbus_code;
