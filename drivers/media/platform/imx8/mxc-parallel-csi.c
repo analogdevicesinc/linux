@@ -580,41 +580,10 @@ static int mxc_parallel_csi_remove(struct platform_device *pdev)
 	struct mxc_parallel_csi_dev *pcsidev =
 			(struct mxc_parallel_csi_dev *)platform_get_drvdata(pdev);
 
-	pm_runtime_get_sync(&pdev->dev);
 	media_entity_cleanup(&pcsidev->sd.entity);
-	mxc_pcsi_clk_disable(pcsidev);
-	pm_runtime_put(&pdev->dev);
 	pm_runtime_disable(&pdev->dev);
 
 	return 0;
-}
-
-static void parallel_csi_power_control(sc_pm_power_mode_t mode)
-{
-	sc_ipc_t ipcHndl;
-	sc_err_t sciErr;
-	uint32_t mu_id;
-
-	sciErr = sc_ipc_getMuID(&mu_id);
-	if (sciErr != SC_ERR_NONE) {
-		pr_err("Cannot obtain MU ID\n");
-		return;
-	}
-
-	sciErr = sc_ipc_open(&ipcHndl, mu_id);
-	if (sciErr != SC_ERR_NONE) {
-		pr_err("sc_ipc_open failed! (sciError = %d)\n", sciErr);
-		return;
-	}
-
-	sc_pm_set_resource_power_mode(ipcHndl, SC_R_PI_0, mode);
-
-	if (sciErr != SC_ERR_NONE)
-		pr_err("Set CI_PI resouce power mode failed! (sciError = %d)\n", sciErr);
-
-	msleep(10);
-
-	sc_ipc_close(mu_id);
 }
 
 static int parallel_csi_pm_suspend(struct device *dev)
@@ -624,51 +593,7 @@ static int parallel_csi_pm_suspend(struct device *dev)
 
 static int parallel_csi_pm_resume(struct device *dev)
 {
-	struct mxc_parallel_csi_dev *pcsidev = dev_get_drvdata(dev);
-	int ret;
-
-	/* Power off CI_PI before set clock parent */
-	parallel_csi_power_control(SC_PM_PW_MODE_OFF);
-
-	pcsidev->clk_div = devm_clk_get(dev, "div");
-	if (IS_ERR(pcsidev->clk_div)) {
-		dev_err(dev, "%s: Get div clk fail\n", __func__);
-		return PTR_ERR(pcsidev->clk_div);
-	}
-
-	pcsidev->clk_sel = devm_clk_get(dev, "sel");
-	if (IS_ERR(pcsidev->clk_sel)) {
-		dev_err(dev, "%s: Get sel clk fail\n", __func__);
-		return PTR_ERR(pcsidev->clk_sel);
-	}
-
-	pcsidev->clk_dpll = devm_clk_get(dev, "dpll");
-	if (IS_ERR(pcsidev->clk_dpll)) {
-		dev_err(dev, "%s: Get DPLL clk fail\n", __func__);
-		return PTR_ERR(pcsidev->clk_dpll);
-	}
-
-	ret = clk_set_parent(pcsidev->clk_sel, pcsidev->clk_dpll);
-	if (ret < 0) {
-		dev_err(dev, "sel clk set parent fail\n");
-		return ret;
-	}
-
-	/* 160MHz for pixel and per clock */
-	ret = clk_set_rate(pcsidev->clk_div, 160000000);
-	if (ret < 0) {
-		dev_err(dev, "div clk set rate fail\n");
-		return ret;
-	}
-
-	/* Release parent clocks */
-	devm_clk_put(dev, pcsidev->clk_dpll);
-	devm_clk_put(dev, pcsidev->clk_sel);
-	devm_clk_put(dev, pcsidev->clk_div);
-
-	pm_runtime_enable(dev);
-
-	return 0;
+	return pm_runtime_force_resume(dev);
 }
 
 static int parallel_csi_runtime_suspend(struct device *dev)

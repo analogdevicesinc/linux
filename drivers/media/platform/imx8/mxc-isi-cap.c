@@ -580,7 +580,6 @@ static int mxc_isi_capture_open(struct file *file)
 
 	dev_dbg(&mxc_isi->pdev->dev, "%s, ISI%d\n", __func__, mxc_isi->id);
 
-
 	/* Get remote source pad */
 	source_pad = mxc_isi_get_remote_source_pad(mxc_isi);
 	if (source_pad == NULL) {
