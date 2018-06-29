@@ -4150,6 +4150,7 @@
 		#size-cells = <1>;
 		ranges = <0 0 0x31400000 0x400000>;
 		fsl,first-jr-index = <2>;
+		fsl,sec-era = <9>;
 
 		sec_jr1: jr1@0x20000 {
 			compatible = "fsl,sec-v4.0-job-ring";
