@@ -1870,9 +1870,6 @@ static int usb_ss_gadget_ep_dequeue(struct usb_ep *ep,
 	spin_lock_irqsave(&usb_ss->lock, flags);
 	dev_dbg(&usb_ss->dev, "DEQUEUE(%02X) %d\n",
 		ep->address, request->length);
-	usb_gadget_unmap_request_by_dev(usb_ss->sysdev, request,
-		ep->address & USB_DIR_IN);
-	request->status = -ECONNRESET;
 
 	select_ep(usb_ss, ep->desc->bEndpointAddress);
 	if (usb_ss->start_gadget)
@@ -1881,6 +1878,9 @@ static int usb_ss_gadget_ep_dequeue(struct usb_ep *ep,
 	list_for_each_entry_safe(req, req_temp,
 		&usb_ss_ep->request_list, list) {
 		if (request == req) {
+			request->status = -ECONNRESET;
+			usb_gadget_unmap_request_by_dev(usb_ss->sysdev, request,
+				ep->address & USB_DIR_IN);
 			list_del_init(&request->list);
 			if (request->complete) {
 				spin_unlock(&usb_ss->lock);
