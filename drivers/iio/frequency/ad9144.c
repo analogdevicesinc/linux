@@ -450,6 +450,8 @@ static int ad9144_setup(struct ad9144_state *st,
 	struct regmap *map = st->map;
 	unsigned int sysref_mode;
 	unsigned int phy_mask;
+	unsigned int pd_dac;
+	unsigned int pd_clk;
 	unsigned int val;
 	unsigned int i;
 
@@ -457,8 +459,31 @@ static int ad9144_setup(struct ad9144_state *st,
 
 	// power-up and dac initialization
 
-	regmap_write(map, 0x011, 0x00);	// dacs - power up everything
-	regmap_write(map, 0x080, 0x00);	// clocks - power up everything
+	switch (st->id) {
+	case CHIPID_AD9152:
+		if (st->num_converters == 1)
+			pd_dac = BIT(5) | BIT(2);
+		else
+			pd_dac = 0x00;
+		pd_clk = 0x04;
+		break;
+	case CHIPID_AD9144:
+		pd_clk = GENMASK(7 - DIV_ROUND_UP(st->num_converters, 2), 6);
+		pd_dac = GENMASK(6 - st->num_converters, 3);
+		break;
+	default: /* AD9135/AD9136 */
+		if (st->num_converters == 1) {
+			pd_dac = GENMASK(5, 3);
+			pd_clk = BIT(5);
+		} else {
+			pd_dac = BIT(5) | BIT(3);
+			pd_clk = 0x00;
+		}
+		break;
+	}
+
+	regmap_write(map, REG_PWRCNTRL0, pd_dac); /* Power-up DACs */
+	regmap_write(map, REG_CLKCFG0, pd_clk); /* Power-up clocks */
 	regmap_write(map, 0x081, 0x00);	// sysref - power up/falling edge
 
 	regmap_write(map, 0x2aa, 0xb7);	// jesd termination
