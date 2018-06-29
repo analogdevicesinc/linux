@@ -25,6 +25,18 @@
 		stdout-patch = &uart2;
 	};
 
+	leds {
+		compatible = "gpio-leds";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_gpio_led>;
+
+		status {
+			label = "status";
+			gpios = <&gpio3 16 0>;
+			default-state = "on";
+		};
+	};
+
 	modem_reset: modem-reset {
 		compatible = "gpio-reset";
 		reset-gpios = <&gpio2 6 GPIO_ACTIVE_LOW>;
@@ -165,6 +177,12 @@
 				MX8MM_IOMUXC_NAND_DATA01_QSPI_A_DATA1		0x82
 				MX8MM_IOMUXC_NAND_DATA02_QSPI_A_DATA2		0x82
 				MX8MM_IOMUXC_NAND_DATA03_QSPI_A_DATA3		0x82
+			>;
+		};
+
+		pinctrl_gpio_led: gpioledgrp {
+			fsl,pins = <
+				MX8MM_IOMUXC_NAND_READY_B_GPIO3_IO16	0x19
 			>;
 		};
 
