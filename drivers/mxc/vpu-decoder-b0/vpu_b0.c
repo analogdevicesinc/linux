@@ -627,7 +627,7 @@ static int v4l2_ioctl_reqbufs(struct file *file,
 			}
 		}
 	} else if (reqbuf->count != 0)
-		vpu_dbg(LVL_ERR, "error: %s() can't request (%d) buffer\n", __func__, reqbuf->count);
+		vpu_dbg(LVL_ERR, "error: %s() can't request (%d) buffer ret=%d\n", __func__, reqbuf->count, ret);
 
 	return ret;
 }
@@ -660,7 +660,8 @@ static int v4l2_ioctl_querybuf(struct file *file,
 			} else
 				buf->m.offset |= (q_data->type << MMAP_BUF_TYPE_SHIFT);
 		}
-	}
+	} else
+		vpu_dbg(LVL_ERR, "error: %s() return ret=%d\n", __func__, ret);
 
 	return ret;
 }
@@ -685,9 +686,12 @@ static int v4l2_ioctl_qbuf(struct file *file,
 		return -EINVAL;
 
 	ret = vb2_qbuf(&q_data->vb2_q, buf);
-	if (buf->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE)
-		wake_up_interruptible(&ctx->buffer_wq);
-	v4l2_update_stream_addr(ctx, 0);
+	if (!ret) {
+		if (buf->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE)
+			wake_up_interruptible(&ctx->buffer_wq);
+		v4l2_update_stream_addr(ctx, 0);
+	} else
+		vpu_dbg(LVL_ERR, "error: %s() return ret=%d\n", __func__, ret);
 
 	return ret;
 }
@@ -712,14 +716,17 @@ static int v4l2_ioctl_dqbuf(struct file *file,
 
 	ret = vb2_dqbuf(&q_data->vb2_q, buf, file->f_flags & O_NONBLOCK);
 
-	if (q_data->vb2_reqs[buf->index].bfield)
-		buf->field = V4L2_FIELD_INTERLACED;
-	else
-		buf->field = V4L2_FIELD_NONE;
-	v4l2_update_stream_addr(ctx, 0);
-	if (buf->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE)
-		if ((ctx->pSeqinfo->uBitDepthLuma > 8) || (ctx->pSeqinfo->uBitDepthChroma > 8))
-			buf->reserved = 1;
+	if (!ret) {
+		if (q_data->vb2_reqs[buf->index].bfield)
+			buf->field = V4L2_FIELD_INTERLACED;
+		else
+			buf->field = V4L2_FIELD_NONE;
+		v4l2_update_stream_addr(ctx, 0);
+		if (buf->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE)
+			if ((ctx->pSeqinfo->uBitDepthLuma > 8) || (ctx->pSeqinfo->uBitDepthChroma > 8))
+				buf->reserved = 1;
+	} else
+		vpu_dbg(LVL_ERR, "error: %s() return ret=%d\n", __func__, ret);
 
 	return ret;
 }
@@ -828,10 +835,13 @@ static int v4l2_ioctl_streamon(struct file *file,
 	ctx->firmware_finished = false;
 
 	ret = vb2_streamon(&q_data->vb2_q,	i);
-	if (i == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE)
-		wake_up_interruptible(&ctx->buffer_wq);
+	if (!ret) {
+		if (i == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE)
+			wake_up_interruptible(&ctx->buffer_wq);
 
-	v4l2_update_stream_addr(ctx, 0);
+		v4l2_update_stream_addr(ctx, 0);
+	} else
+		vpu_dbg(LVL_ERR, "error: %s() return ret=%d\n", __func__, ret);
 
 	return ret;
 }
