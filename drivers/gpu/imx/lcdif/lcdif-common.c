@@ -599,14 +599,6 @@ static int imx_lcdif_probe(struct platform_device *pdev)
 
 	pm_runtime_enable(dev);
 
-	disp_mix_bus_rstn_reset(lcdif->gpr, false);
-	disp_mix_lcdif_clks_enable(lcdif->gpr, true);
-
-	/* Pull LCDIF out of reset */
-	pm_runtime_get_sync(dev);
-	writel(0x0, lcdif->base + LCDIF_CTRL);
-	pm_runtime_put(dev);
-
 	dev_dbg(dev, "%s: probe end\n", __func__);
 
 	return lcdif_add_client_devices(lcdif);
@@ -651,8 +643,16 @@ static int imx_lcdif_runtime_resume(struct device *dev)
 	request_bus_freq(BUS_FREQ_HIGH);
 
 	ret = lcdif_enable_clocks(lcdif);
-	if (ret)
+	if (ret) {
 		release_bus_freq(BUS_FREQ_HIGH);
+		return ret;
+	}
+
+	disp_mix_bus_rstn_reset(lcdif->gpr, false);
+	disp_mix_lcdif_clks_enable(lcdif->gpr, true);
+
+	/* Pull LCDIF out of reset */
+	writel(0x0, lcdif->base + LCDIF_CTRL);
 
 	return ret;
 }
