@@ -234,6 +234,11 @@
 	status = "okay";
 };
 
+&dwc3_0 {
+	status = "okay";
+	dr_mode = "otg";
+};
+
 #define fmc_spi spi0
 
 #include "adi-adrv9371.dtsi"
