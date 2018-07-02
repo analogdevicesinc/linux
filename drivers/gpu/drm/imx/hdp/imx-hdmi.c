@@ -200,6 +200,10 @@ void hdmi_mode_set_ss28fdsoi(state_struct *state, struct drm_display_mode *mode,
 		return;
 	}
 
+	/* force GCP CD to 0 when bpp=24 for pass CTS 7-19 */
+	if (color_depth == 8)
+		CDN_API_HDMITX_Disable_GCP(state);
+
 	/* Set HDMI TX Mode */
 	ret = CDN_API_HDMITX_Set_Mode_blocking(state, ptype, character_freq_khz);
 	if (ret != CDN_OK) {
@@ -352,6 +356,10 @@ void hdmi_mode_set_t28hpc(state_struct *state, struct drm_display_mode *mode, in
 		DRM_ERROR("CDN_API_STATUS CDN_API_HDMITX_Init_blocking  ret = %d\n", ret);
 		return;
 	}
+
+	/* force GCP CD to 0 when bpp=24 for pass CTS 7-19 */
+	if (color_depth == 8)
+		CDN_API_HDMITX_Disable_GCP(state);
 
 	/* Set HDMI TX Mode */
 	ret = CDN_API_HDMITX_Set_Mode_blocking(state, ptype, character_freq_khz);

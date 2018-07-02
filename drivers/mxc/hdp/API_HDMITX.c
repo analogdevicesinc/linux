@@ -436,6 +436,16 @@ CDN_API_STATUS CDN_API_HDMITX_SetVic_blocking(state_struct *state,
 	return ret;
 }
 
+CDN_API_STATUS CDN_API_HDMITX_Disable_GCP(state_struct *state)
+{
+	GENERAL_Read_Register_response resp;
+
+	CDN_API_General_Read_Register_blocking(state, ADDR_SOURCE_MHL_HD +(HDTX_CONTROLLER<<2), &resp);
+	resp.val = resp.val & (~F_GCP_EN(1));
+	return CDN_API_General_Write_Register_blocking(state,
+			ADDR_SOURCE_MHL_HD +(HDTX_CONTROLLER<<2), resp.val);
+}
+
 CDN_API_STATUS CDN_API_HDMITX_ForceColorDepth_blocking(state_struct *state,
 						       u8 force, u8 val)
 {

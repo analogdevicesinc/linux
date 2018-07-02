@@ -161,4 +161,5 @@ CDN_API_STATUS CDN_API_HDMITX_ReadEvents_blocking(state_struct *state,
 CDN_API_STATUS CDN_API_HDMITX_GetHpdStatus(state_struct *state, u8 *hpd_sts);
 CDN_API_STATUS CDN_API_HDMITX_GetHpdStatus_blocking(state_struct *state,
 						    u8 *hpd_sts);
+CDN_API_STATUS CDN_API_HDMITX_Disable_GCP(state_struct *state);
 #endif
