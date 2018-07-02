@@ -1650,6 +1650,10 @@ static void vpu_api_event_handler(struct vpu_ctx *ctx, u_int32 uStrIdx, u_int32 
 								ChromaAddr,
 								p_data_req->id
 								);
+						if (!LumaAddr || !ChromaAddr) {
+							LumaAddr = p_data_req->phy_addr[0];
+							ChromaAddr = p_data_req->phy_addr[1];
+						}
 
 						local_cmddata[0] = p_data_req->id;
 						local_cmddata[1] = LumaAddr - ctx->dev->cm_offset;
@@ -1700,6 +1704,10 @@ static void vpu_api_event_handler(struct vpu_ctx *ctx, u_int32 uStrIdx, u_int32 
 						ChromaAddr,
 						p_data_req->id
 						);
+				if (!LumaAddr || !ChromaAddr) {
+					LumaAddr = p_data_req->phy_addr[0];
+					ChromaAddr = p_data_req->phy_addr[1];
+				}
 				local_cmddata[0] = p_data_req->id;
 				local_cmddata[1] = LumaAddr - ctx->dev->cm_offset;
 				local_cmddata[2] = local_cmddata[1] + This->sizeimage[0]/2;
@@ -2110,6 +2118,7 @@ static void vpu_buf_queue(struct vb2_buffer *vb)
 	struct vb2_queue    *vq = vb->vb2_queue;
 	struct queue_data   *This = (struct queue_data *)vq->drv_priv;
 	struct vb2_data_req *data_req;
+	u_int32 *pphy_address;
 
 	vpu_dbg(LVL_INFO, "%s() is called\n", __func__);
 
@@ -2118,7 +2127,12 @@ static void vpu_buf_queue(struct vb2_buffer *vb)
 	data_req = &This->vb2_reqs[vb->index];
 	data_req->vb2_buf = vb;
 	data_req->id = vb->index;
-
+	if (vq->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
+		pphy_address = (u_int32 *)vb2_plane_cookie(vb, 0);
+		data_req->phy_addr[0] = *pphy_address;
+		pphy_address = (u_int32 *)vb2_plane_cookie(vb, 1);
+		data_req->phy_addr[1] = *pphy_address;
+	}
 	if (data_req->status != FRAME_FREE && data_req->status != FRAME_DECODED)
 		list_add_tail(&data_req->list, &This->drv_q);
 
@@ -2569,6 +2583,9 @@ static unsigned int v4l2_poll(struct file *filp, poll_table *wait)
 
 		src_q = &ctx->q_data[V4L2_SRC].vb2_q;
 		dst_q = &ctx->q_data[V4L2_DST].vb2_q;
+
+		if (ctx->firmware_finished && !list_empty(&dst_q->done_list))
+			rc = 0;
 
 		if ((!src_q->streaming || list_empty(&src_q->queued_list))
 				&& (!dst_q->streaming || list_empty(&dst_q->queued_list))) {
