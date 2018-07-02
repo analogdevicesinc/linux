@@ -127,6 +127,21 @@ static int hdmi_avi_info_set(struct imx_hdp *hdp,
 					  HDMI_COLORIMETRY_NONE;
 	frame.extended_colorimetry = ext_colorimetry;
 
+	switch (format) {
+	case YCBCR_4_4_4:
+		frame.colorspace = HDMI_COLORSPACE_YUV444;
+		break;
+	case YCBCR_4_2_2:
+		frame.colorspace = HDMI_COLORSPACE_YUV422;
+		break;
+	case YCBCR_4_2_0:
+		frame.colorspace = HDMI_COLORSPACE_YUV420;
+		break;
+	default:
+		frame.colorspace = HDMI_COLORSPACE_RGB;
+		break;
+	}
+
 	ret = hdmi_avi_infoframe_pack(&frame, buf + 1, sizeof(buf) - 1);
 	if (ret < 0) {
 		DRM_ERROR("failed to pack AVI infoframe: %d\n", ret);
