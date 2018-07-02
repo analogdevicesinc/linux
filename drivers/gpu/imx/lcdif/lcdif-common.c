@@ -85,6 +85,20 @@ static const struct of_device_id imx_lcdif_dt_ids[] = {
 };
 MODULE_DEVICE_TABLE(of, lcdif_dt_ids);
 
+#ifdef CONFIG_PM
+static int imx_lcdif_runtime_suspend(struct device *dev);
+static int imx_lcdif_runtime_resume(struct device *dev);
+#else
+static int imx_lcdif_runtime_suspend(struct device *dev)
+{
+	return 0;
+}
+static int imx_lcdif_runtime_resume(struct device *dev)
+{
+	return 0;
+}
+#endif
+
 void disp_mix_bus_rstn_reset(struct regmap *gpr, bool reset)
 {
 	if (!reset)
@@ -614,9 +628,18 @@ static int imx_lcdif_remove(struct platform_device *pdev)
 #ifdef CONFIG_PM_SLEEP
 static int imx_lcdif_suspend(struct device *dev)
 {
-	return 0;
+	return imx_lcdif_runtime_suspend(dev);
 }
 
+static int imx_lcdif_resume(struct device *dev)
+{
+	return imx_lcdif_runtime_resume(dev);
+}
+#else
+static int imx_lcdif_suspend(struct device *dev)
+{
+	return 0;
+}
 static int imx_lcdif_resume(struct device *dev)
 {
 	return 0;
