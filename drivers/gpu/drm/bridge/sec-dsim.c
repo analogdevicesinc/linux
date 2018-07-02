@@ -314,6 +314,8 @@ struct sec_mipi_dsim {
 	const struct sec_mipi_dsim_plat_data *pdata;
 };
 
+static void sec_mipi_dsim_irq_init(struct sec_mipi_dsim *dsim);
+
 /* For now, dsim only support one device attached */
 static int sec_mipi_dsim_host_attach(struct mipi_dsi_host *host,
 				     struct mipi_dsi_device *dsi)
@@ -1189,6 +1191,8 @@ void sec_mipi_dsim_resume(struct device *dev)
 
 	clk_prepare_enable(dsim->clk_cfg);
 
+	sec_mipi_dsim_irq_init(dsim);
+
 	/* TODO: add dsim de-reset */
 }
 EXPORT_SYMBOL(sec_mipi_dsim_resume);
@@ -1582,7 +1586,6 @@ int sec_mipi_dsim_bind(struct device *dev, struct device *master, void *data,
 			goto cleanup_connector;
 	}
 
-	sec_mipi_dsim_irq_init(dsim);
 	dev_dbg(dev, "sec-dsim bridge bind end\n");
 
 	return 0;
