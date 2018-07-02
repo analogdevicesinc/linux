@@ -55,6 +55,20 @@ struct imx_sec_dsim_device {
 
 static struct imx_sec_dsim_device *dsim_dev;
 
+#if CONFIG_PM
+static int imx_sec_dsim_runtime_suspend(struct device *dev);
+static int imx_sec_dsim_runtime_resume(struct device *dev);
+#else
+static int imx_sec_dsim_runtime_suspend(struct device *dev)
+{
+	return 0;
+}
+static int imx_sec_dsim_runtime_resume(struct device *dev)
+{
+	return 0;
+}
+#endif
+
 static void disp_mix_dsim_soft_reset_release(struct regmap *gpr, bool release)
 {
 	if (release)
@@ -250,6 +264,16 @@ static int imx_sec_dsim_remove(struct platform_device *pdev)
 }
 
 #ifdef CONFIG_PM_SLEEP
+static int imx_sec_dsim_suspend(struct device *dev)
+{
+	return imx_sec_dsim_runtime_suspend(dev);
+}
+
+static int imx_sec_dsim_resume(struct device *dev)
+{
+	return imx_sec_dsim_runtime_resume(dev);
+}
+#else
 static int imx_sec_dsim_suspend(struct device *dev)
 {
 	return 0;
