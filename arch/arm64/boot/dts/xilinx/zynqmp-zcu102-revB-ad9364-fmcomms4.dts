@@ -9,7 +9,7 @@
 #include "zynqmp-zcu102-revB.dts"
 
 &i2c1 {
-	i2cswitch@75 {
+	i2c-mux@75{
 		i2c@0 {
 			#address-cells = <1>;
 			#size-cells = <0>;
