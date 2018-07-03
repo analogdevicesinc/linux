@@ -1,0 +1,86 @@
+Analog Devices AD5770R DAC device driver
+
+Required properties for the AD5770R:
+	- compatible: Must be "adi,ad5770r"
+	- reg: SPI chip select number for the device
+	- spi-max-frequency: Max SPI frequency to use (< 10000000, as per
+			Documentation/devicetree/bindings/spi/spi-bus.txt)
+	- child nodes: Each child node represents one channel and has
+		the following required properties:
+		* num: This represents the channel num
+		* adi,range-microamp: Output range of the channel
+		The following ranges are supported:
+		* Channel 0:
+			* <0 300000> 0 mA to 300 mA
+			* <(-60000) 0> -60 to 0 mA
+			* <(-60000) 300000> -60 to 300 mA
+		* Channel 1:
+			* <0 140000> 0 to 140 mA
+			* <0 250000> 0 to 250 mA
+		* Channel 2:
+			* <0 55000> 0 to 55 mA
+			* <0 150000> 0 to 150 mA
+		* Channel 3 to Channel 5:
+			* <0 45000> 0 to 45 mA
+			* <0 100000> 0 to 100 mA
+
+Optional properties:
+
+- vref: Specify the voltage of the external reference used.
+		Available reference options are: 1.25 V or 2.5 V. If no
+		external reference declared then the device will use the
+		internal reference of 1.25 V.
+
+- reset-gpios: GPIO spec for the RESET pin. If specified, it will be
+		asserted during driver probe.
+
+AD5770R Example:
+
+	ad5770r@0 {
+		compatible = "ad5770r";
+		reg = <0>;
+                spi-max-frequency = <1000000>;
+		vref-supply = <&vref>;
+
+		reset-gpios = <&gpio 22 0>;
+
+		channel@0 {
+			num = <0>;
+			adi,range-microamp = <0 300000>;
+		};
+
+		channel@1 {
+			num = <1>;
+			adi,range-microamp = <0 140000>;
+		};
+
+		channel@2 {
+			num = <2>;
+			adi,range-microamp = <0 55000>;
+		};
+
+		channel@3 {
+			num = <3>;
+			adi,range-microamp = <0 45000>;
+		};
+
+		channel@4 {
+			num = <4>;
+			adi,range-microamp = <0 45000>;
+		};
+
+		channel@5 {
+			num = <5>;
+			adi,range-microamp = <0 45000>;
+		};
+       };
+
+External reference example:
+
+	vref: fixedregulator@0 {
+		compatible = "regulator-fixed";
+		regulator-name = "fixed-supply";
+		regulator-min-microvolt = <1250000>;
+		regulator-max-microvolt = <1250000>;
+	};
+
