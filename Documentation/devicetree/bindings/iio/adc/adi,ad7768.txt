@@ -1,0 +1,22 @@
+* Analog Devices AD7768 Analog to Digital Converter (ADC)
+
+Required properties:
+	- compatible: Must be one of "adi,ad7768".
+	- reg: SPI chip select number for the device.
+	- spi-max-frequency: See Documentation/devicetree/bindings/spi/spi-bus.txt.
+	- dmas: DMA specifier, consisting of a phandle to DMA controller node.
+	- dma-names: Must be "rx".
+	- vref-supply: phandle to the regulator for ADC reference voltage.
+
+Example:
+
+ad7768: adc@0 {
+	compatible = "adi,ad7768";
+	reg = <0>;
+	spi-max-frequency = <1000000>;
+
+	dmas = <&rx_dma 0>;
+	dma-names = "rx";
+
+	vref-supply = <&vref>;
+};
