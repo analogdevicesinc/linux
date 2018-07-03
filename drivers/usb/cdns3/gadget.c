@@ -1429,6 +1429,13 @@ static int usb_ss_gadget_ep0_queue(struct usb_ep *ep,
 	}
 
 	spin_lock_irqsave(&usb_ss->lock, flags);
+	if (!list_empty(&usb_ss_ep->request_list)) {
+		dev_err(&usb_ss->dev,
+			"can't handle multiple requests for ep0\n");
+		spin_unlock_irqrestore(&usb_ss->lock, flags);
+		return -EOPNOTSUPP;
+	}
+
 	ret = usb_gadget_map_request_by_dev(usb_ss->sysdev, request,
 			usb_ss->ep0_data_dir);
 	if (ret) {
