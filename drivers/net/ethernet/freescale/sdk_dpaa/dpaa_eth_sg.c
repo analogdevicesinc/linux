@@ -847,7 +847,7 @@ static struct sk_buff *a010022_realign_skb(struct sk_buff *skb,
 		WARN_ONCE(1, "skb parsing failure\n");
 		goto err;
 	}
-	copy_skb_header(nskb, skb);
+	skb_copy_header(nskb, skb);
 
 #ifdef CONFIG_FSL_DPAA_TS
 	/* Copy relevant timestamp info from the old skb to the new */
