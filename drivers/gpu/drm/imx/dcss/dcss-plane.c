@@ -21,6 +21,7 @@
 #include <linux/dma-buf.h>
 
 #include "video/imx-dcss.h"
+#include "video/viv-metadata.h"
 #include "dcss-plane.h"
 #include "dcss-crtc.h"
 
@@ -267,13 +268,12 @@ static void dcss_plane_atomic_set_base(struct dcss_plane *dcss_plane)
 	struct drm_plane_state *state = plane->state;
 	struct drm_framebuffer *fb = state->fb;
 	struct drm_gem_cma_object *cma_obj = drm_fb_cma_get_gem_obj(fb, 0);
-	struct dma_buf *dma_buf;
-	struct dma_metadata *mdata;
-	struct drm_gem_object *gem_obj;
 	unsigned long p1_ba, p2_ba;
 	dma_addr_t caddr;
 	bool modifiers_present = !!(fb->flags & DRM_MODE_FB_MODIFIERS);
 	u32 pix_format = state->fb->format->format;
+	bool compressed = true;
+	uint32_t compressed_format = 0;
 
 	BUG_ON(!cma_obj);
 
@@ -310,40 +310,38 @@ static void dcss_plane_atomic_set_base(struct dcss_plane *dcss_plane)
 			dcss_dec400d_bypass(dcss_plane->dcss);
 			return;
 		case DRM_FORMAT_MOD_VIVANTE_SUPER_TILED_FC:
-			dma_buf = cma_obj->base.dma_buf;
-			if (!dma_buf) {
-				caddr = cma_obj->paddr +
-					ALIGN(fb->height, 64) * fb->pitches[0];
-				goto config;
-			}
+			do {
+				struct dma_buf *dma_buf = cma_obj->base.dma_buf;
+				struct drm_gem_object *gem_obj;
+					_VIV_VIDMEM_METADATA *mdata;
 
-			mdata = dma_buf->priv;
-			if (!mdata ||
-			    mdata->magic != VIV_VIDMEM_METADATA_MAGIC) {
-				WARN_ON(1);
-				return;
-			}
+				if (!dma_buf) {
+					caddr = cma_obj->paddr + ALIGN(fb->height, 64) * fb->pitches[0];
+					break;
+				}
 
-			if (!mdata->compressed) {
-				/* Bypass dec400d */
-				dcss_dec400d_bypass(dcss_plane->dcss);
-				return;
-			}
+				mdata = dma_buf->priv;
+				if (!mdata || mdata->magic != VIV_VIDMEM_METADATA_MAGIC) {
+					break;
+				}
+				compressed = mdata->compressed ? true : false;
+				compressed_format = mdata->compress_format;
 
-			gem_obj = dcss_plane_gem_import(plane->dev,
-							mdata->ts_dma_buf);
-			if (IS_ERR(gem_obj)) {
-				WARN_ON(1);
-				return;
-			}
+				gem_obj = dcss_plane_gem_import(plane->dev, mdata->ts_dma_buf);
+				if (IS_ERR(gem_obj)) {
+					break;
+				}
 
-			caddr = to_drm_gem_cma_obj(gem_obj)->paddr;
+				caddr = to_drm_gem_cma_obj(gem_obj)->paddr;
 
-			/* release gem_obj */
-			drm_gem_object_unreference_unlocked(gem_obj);
+				/* release gem_obj */
+				drm_gem_object_unreference_unlocked(gem_obj);
 
-config:
-			dcss_dec400d_read_config(dcss_plane->dcss, 0, true);
+				dcss_dec400d_fast_clear_config(dcss_plane->dcss,
+						mdata->fc_value,
+						mdata->fc_enabled);
+			} while (0);
+			dcss_dec400d_read_config(dcss_plane->dcss, 0, compressed, compressed_format);
 			dcss_dec400d_addr_set(dcss_plane->dcss, p1_ba, caddr);
 			break;
 		default:

@@ -25,21 +25,6 @@ struct dcss_client_platformdata {
 	struct device_node *of_node;
 };
 
-#define VIV_VIDMEM_METADATA_MAGIC fourcc_code('v', 'i', 'v', 'm')
-
-struct dma_metadata {
-	uint32_t magic;
-	int32_t  ts_buf_fd;
-	void *ts_dma_buf;
-
-	uint32_t fc_enabled;
-	uint32_t fc_value;
-	uint32_t fc_value_upper;
-
-	uint32_t compressed;
-	uint32_t compressed_format;
-};
-
 /* COMMON */
 int dcss_vblank_irq_get(struct dcss_soc *dcss);
 void dcss_vblank_irq_enable(struct dcss_soc *dcss, bool en);
@@ -168,6 +153,10 @@ void dcss_dec400d_addr_set(struct dcss_soc *dcss,
 			   uint32_t caddr);
 void dcss_dec400d_read_config(struct dcss_soc *dcss,
 			      uint32_t read_id,
-			      bool compress_en);
+			      bool compress_en,
+			      uint32_t compress_format);
+void dcss_dec400d_fast_clear_config(struct dcss_soc *dcss,
+                                    uint32_t fc_value,
+                                    bool enable);
 void dcss_dec400d_enable(struct dcss_soc *dcss);
 #endif /* __IMX_DCSS_H__ */

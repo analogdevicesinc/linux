@@ -18,6 +18,7 @@
 #include <drm/drm_fourcc.h>
 
 #include <video/imx-dcss.h>
+#include <video/viv-metadata.h>
 #include "dcss-prv.h"
 
 #define USE_CTXLD			1
@@ -25,6 +26,11 @@
 /* DEC400D registers offsets */
 #define DEC400D_READCONFIG_BASE		0x800
 #define DEC400D_READCONFIG(i)		(DEC400D_READCONFIG_BASE + ((i) << 2))
+#define DEC400D_READCONFIG_BASE     0x800
+#define DEC400D_READBUFFERBASE0     0x900
+#define DEC400D_READCACHEBASE0      0x980
+#define DEC400D_CONTROL             0xB00
+#define DEC400D_CLEAR               0xB80
 #define   COMPRESSION_ENABLE_BIT	0
 #define   COMPRESSION_FORMAT_BIT	3
 #define   COMPRESSION_ALIGN_MODE_BIT	16
@@ -35,6 +41,24 @@
 #define DEC400D_CONTROL			0xB00
 #define   DISABLE_COMPRESSION_BIT	1
 #define   SHADOW_TRIGGER_BIT		29
+#define DEC400_CFMT_ARGB8           0x0
+#define DEC400_CFMT_XRGB8           0x1
+#define DEC400_CFMT_AYUV            0x2
+#define DEC400_CFMT_UYVY            0x3
+#define DEC400_CFMT_YUY2            0x4
+#define DEC400_CFMT_YUV_ONLY        0x5
+#define DEC400_CFMT_UV_MIX          0x6
+#define DEC400_CFMT_ARGB4           0x7
+#define DEC400_CFMT_XRGB4           0x8
+#define DEC400_CFMT_A1R5G5B5        0x9
+#define DEC400_CFMT_X1R5G5B5        0xA
+#define DEC400_CFMT_R5G6B5          0xB
+#define DEC400_CFMT_Z24S8           0xC
+#define DEC400_CFMT_Z24             0xD
+#define DEC400_CFMT_Z16             0xE
+#define DEC400_CFMT_A2R10G10B10     0xF
+#define DEC400_CFMT_BAYER           0x10
+#define DEC400_CFMT_SIGNED_BAYER    0x11
 
 struct dcss_dec400d_priv {
 	struct dcss_soc *dcss;
@@ -118,7 +142,7 @@ void dcss_dec400d_bypass(struct dcss_soc *dcss)
 	uint32_t control;
 	struct dcss_dec400d_priv *dec400d = dcss->dec400d_priv;
 
-	dcss_dec400d_read_config(dcss, 0, false);
+	dcss_dec400d_read_config(dcss, 0, false, 0);
 
 	control = dcss_readl(dec400d->dec400d_reg + DEC400D_CONTROL);
 	pr_debug("%s: dec400d control = %#x\n", __func__, control);
@@ -169,8 +193,10 @@ EXPORT_SYMBOL(dcss_dec400d_addr_set);
 
 void dcss_dec400d_read_config(struct dcss_soc *dcss,
 			      uint32_t read_id,
-			      bool compress_en)
+			      bool compress_en,
+			      uint32_t compress_format)
 {
+	uint32_t cformat = 0;
 	uint32_t read_config = 0x0;
 	struct dcss_dec400d_priv *dec400d = dcss->dec400d_priv;
 
@@ -183,16 +209,69 @@ void dcss_dec400d_read_config(struct dcss_soc *dcss,
 	if (compress_en == false)
 		goto config;
 
-	switch (dec400d->pixel_format) {
-	case DRM_FORMAT_ARGB8888:
-	case DRM_FORMAT_XRGB8888:
-		read_config |= 0x0 << COMPRESSION_FORMAT_BIT;
-		break;
+	switch (compress_format) {
+	    case _VIV_CFMT_ARGB8:
+	        cformat = DEC400_CFMT_ARGB8;
+	        break;
+	    case _VIV_CFMT_XRGB8:
+	        cformat = DEC400_CFMT_XRGB8;
+	        break;
+	    case _VIV_CFMT_AYUV:
+	        cformat = DEC400_CFMT_AYUV;
+	        break;
+	    case _VIV_CFMT_UYVY:
+	        cformat = DEC400_CFMT_UYVY;
+	        break;
+	    case _VIV_CFMT_YUY2:
+	        cformat = DEC400_CFMT_YUY2;
+	        break;
+	    case _VIV_CFMT_YUV_ONLY:
+	        cformat = DEC400_CFMT_YUV_ONLY;
+	        break;
+	    case _VIV_CFMT_UV_MIX:
+	        cformat = DEC400_CFMT_UV_MIX;
+	        break;
+	    case _VIV_CFMT_ARGB4:
+	        cformat = DEC400_CFMT_ARGB4;
+	        break;
+	    case _VIV_CFMT_XRGB4:
+	        cformat = DEC400_CFMT_XRGB4;
+	        break;
+	    case _VIV_CFMT_A1R5G5B5:
+	        cformat = DEC400_CFMT_A1R5G5B5;
+	        break;
+	    case _VIV_CFMT_X1R5G5B5:
+	        cformat = DEC400_CFMT_X1R5G5B5;
+	        break;
+	    case _VIV_CFMT_R5G6B5:
+	        cformat = DEC400_CFMT_R5G6B5;
+	        break;
+	    case _VIV_CFMT_Z24S8:
+	        cformat = DEC400_CFMT_Z24S8;
+	        break;
+	    case _VIV_CFMT_Z24:
+	        cformat = DEC400_CFMT_Z24;
+	        break;
+	    case _VIV_CFMT_Z16:
+	        cformat = DEC400_CFMT_Z16;
+	        break;
+	    case _VIV_CFMT_A2R10G10B10:
+	        cformat = DEC400_CFMT_A2R10G10B10;
+	        break;
+	    case _VIV_CFMT_BAYER:
+	        cformat = DEC400_CFMT_BAYER;
+	        break;
+	    case _VIV_CFMT_SIGNED_BAYER:
+	        cformat = DEC400_CFMT_SIGNED_BAYER;
+	        break;
 	default:
 		/* TODO: not support yet */
 		WARN_ON(1);
 		return;
 	}
+
+	/* Dec compress format */
+	read_config |= cformat << COMPRESSION_FORMAT_BIT;
 
 	/* ALIGN32_BYTE */
 	read_config |= 0x2 << COMPRESSION_ALIGN_MODE_BIT;
@@ -210,6 +289,16 @@ config:
 	dcss_dec400d_write(dec400d, read_config, DEC400D_READCONFIG(read_id));
 }
 EXPORT_SYMBOL(dcss_dec400d_read_config);
+
+void dcss_dec400d_fast_clear_config(struct dcss_soc *dcss,
+				    uint32_t fc_value,
+				    bool enable)
+{
+	struct dcss_dec400d_priv *dec400d = dcss->dec400d_priv;
+
+	dcss_dec400d_write(dec400d, fc_value, DEC400D_CLEAR);
+}
+EXPORT_SYMBOL(dcss_dec400d_fast_clear_config);
 
 void dcss_dec400d_enable(struct dcss_soc *dcss)
 {
