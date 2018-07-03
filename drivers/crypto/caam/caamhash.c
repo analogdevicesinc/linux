@@ -1,7 +1,7 @@
 /*
  * caam - Freescale FSL CAAM support for ahash functions of crypto API
  *
- * Copyright 2011 Freescale Semiconductor, Inc.
+ * Copyright (C) 2017 Freescale Semiconductor, Inc.
  *
  * Based on caamalg.c crypto API driver.
  *
@@ -2146,8 +2146,14 @@ static int __init caam_algapi_hash_init(void)
 	 * Register crypto algorithms the device supports.  First, identify
 	 * presence and attributes of MD block.
 	 */
-	cha_vid = rd_reg32(&priv->ctrl->perfmon.cha_id_ls);
-	cha_inst = rd_reg32(&priv->ctrl->perfmon.cha_num_ls);
+	if (priv->has_seco) {
+		i = priv->first_jr_index;
+		cha_vid = rd_reg32(&priv->jr[i]->perfmon.cha_id_ls);
+		cha_inst = rd_reg32(&priv->jr[i]->perfmon.cha_num_ls);
+	} else {
+		cha_vid = rd_reg32(&priv->ctrl->perfmon.cha_id_ls);
+		cha_inst = rd_reg32(&priv->ctrl->perfmon.cha_num_ls);
+	}
 
 	/*
 	 * Skip registration of any hashing algorithms if MD block

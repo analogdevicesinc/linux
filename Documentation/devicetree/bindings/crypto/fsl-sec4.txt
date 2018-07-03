@@ -54,7 +54,7 @@ PROPERTIES
    - compatible
       Usage: required
       Value type: <string>
-      Definition: Must include "fsl,sec-v4.0"
+      Definition: Must include "fsl,sec-v4.0" or "fsl,sec4.0"
 
    - fsl,sec-era
       Usage: optional

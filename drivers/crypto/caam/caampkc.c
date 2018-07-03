@@ -1,7 +1,7 @@
 /*
  * caam - Freescale FSL CAAM support for Public Key Cryptography
  *
- * Copyright 2016 Freescale Semiconductor, Inc.
+ * Copyright (C) 2017 Freescale Semiconductor, Inc.
  *
  * There is no Shared Descriptor for PKC so that the Job Descriptor must carry
  * all the desired key parameters, input and output pointers.
@@ -1051,7 +1051,13 @@ static int __init caam_pkc_init(void)
 		return -ENODEV;
 
 	/* Determine public key hardware accelerator presence. */
-	cha_inst = rd_reg32(&priv->ctrl->perfmon.cha_num_ls);
+	if (priv->has_seco) {
+		int i = priv->first_jr_index;
+
+		cha_inst = rd_reg32(&priv->jr[i]->perfmon.cha_num_ls);
+	} else {
+		cha_inst = rd_reg32(&priv->ctrl->perfmon.cha_num_ls);
+	}
 	pk_inst = (cha_inst & CHA_ID_LS_PK_MASK) >> CHA_ID_LS_PK_SHIFT;
 
 	/* Do not register algorithms if PKHA is not present. */

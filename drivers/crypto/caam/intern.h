@@ -3,7 +3,7 @@
  * CAAM/SEC 4.x driver backend
  * Private/internal definitions between modules
  *
- * Copyright 2008-2011 Freescale Semiconductor, Inc.
+ * Copyright 2008-2017 Freescale Semiconductor, Inc.
  *
  */
 
@@ -12,6 +12,9 @@
 
 /* Currently comes from Kconfig param as a ^2 (driver-required) */
 #define JOBR_DEPTH (1 << CONFIG_CRYPTO_DEV_FSL_CAAM_RINGSIZE)
+
+/* Job ring count */
+#define JOBR_MAX_COUNT 4
 
 /* Kconfig params for interrupt coalescing if selected (else zero) */
 #ifdef CONFIG_CRYPTO_DEV_FSL_CAAM_INTC
@@ -32,7 +35,8 @@ struct caam_jrentry_info {
 	void (*callbk)(struct device *dev, u32 *desc, u32 status, void *arg);
 	void *cbkarg;	/* Argument per ring entry */
 	u32 *desc_addr_virt;	/* Stored virt addr for postprocessing */
-	dma_addr_t desc_addr_dma;	/* Stored bus addr for done matching */
+	/* CAAM Pointer Size in MCFGR[PS] is 0 by default (32bits) */
+	u32 desc_addr_dma;	/* Stored bus addr for done matching */
 	u32 desc_size;	/* Stored size for postprocessing, header derived */
 };
 
@@ -54,7 +58,8 @@ struct caam_drv_private_jr {
 	spinlock_t inplock ____cacheline_aligned; /* Input ring index lock */
 	int inp_ring_write_index;	/* Input index "tail" */
 	int head;			/* entinfo (s/w ring) head index */
-	dma_addr_t *inpring;	/* Base of input ring, alloc DMA-safe */
+	/* CAAM Pointer Size in MCFGR[PS] is 0 by default (32bits) */
+	u32 *inpring;	/* Base of input ring, alloc DMA-safe */
 	spinlock_t outlock ____cacheline_aligned; /* Output ring index lock */
 	int out_ring_read_index;	/* Output index "tail" */
 	int tail;			/* entinfo (s/w ring) tail index */
@@ -68,7 +73,8 @@ struct caam_drv_private {
 #ifdef CONFIG_CAAM_QI
 	struct device *qidev;
 #endif
-
+	struct device *dev;
+	struct platform_device *pdev;
 	struct device *smdev;
 
 	/*
@@ -83,7 +89,8 @@ struct caam_drv_private {
 	struct caam_deco __iomem *deco; /* DECO/CCB views */
 	struct caam_assurance __iomem *assure;
 	struct caam_queue_if __iomem *qi; /* QI control region */
-	struct caam_job_ring __iomem *jr[4];	/* JobR's register space */
+	/* JobR's register space */
+	struct caam_job_ring __iomem *jr[JOBR_MAX_COUNT];
 	dma_addr_t __iomem *sm_base;	/* Secure memory storage base */
 	u32 sm_size;
 
@@ -106,6 +113,8 @@ struct caam_drv_private {
 	struct clk *caam_aclk;
 	struct clk *caam_emi_slow;
 
+	bool has_seco;
+	u32 first_jr_index;
 	/*
 	 * debugfs entries for developer view into driver/device
 	 * variables at runtime.
@@ -113,6 +122,11 @@ struct caam_drv_private {
 #ifdef CONFIG_DEBUG_FS
 	struct dentry *dfs_root;
 	struct dentry *ctl; /* controller dir */
+	struct dentry *ctl_rq_dequeued, *ctl_ob_enc_req, *ctl_ib_dec_req;
+	struct dentry *ctl_ob_enc_bytes, *ctl_ob_prot_bytes;
+	struct dentry *ctl_ib_dec_bytes, *ctl_ib_valid_bytes;
+	struct dentry *ctl_faultaddr, *ctl_faultdetail, *ctl_faultstatus;
+
 	struct debugfs_blob_wrapper ctl_kek_wrap, ctl_tkek_wrap, ctl_tdsk_wrap;
 	struct dentry *ctl_kek, *ctl_tkek, *ctl_tdsk;
 #endif

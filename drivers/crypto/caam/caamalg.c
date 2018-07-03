@@ -3546,8 +3546,14 @@ static int __init caam_algapi_init(void)
 	 * Register crypto algorithms the device supports.
 	 * First, detect presence and attributes of DES, AES, and MD blocks.
 	 */
-	cha_vid = rd_reg32(&priv->ctrl->perfmon.cha_id_ls);
-	cha_inst = rd_reg32(&priv->ctrl->perfmon.cha_num_ls);
+	if (priv->has_seco) {
+		i = priv->first_jr_index;
+		cha_vid = rd_reg32(&priv->jr[i]->perfmon.cha_id_ls);
+		cha_inst = rd_reg32(&priv->jr[i]->perfmon.cha_num_ls);
+	} else {
+		cha_vid = rd_reg32(&priv->ctrl->perfmon.cha_id_ls);
+		cha_inst = rd_reg32(&priv->ctrl->perfmon.cha_num_ls);
+	}
 	des_inst = (cha_inst & CHA_ID_LS_DES_MASK) >> CHA_ID_LS_DES_SHIFT;
 	aes_inst = (cha_inst & CHA_ID_LS_AES_MASK) >> CHA_ID_LS_AES_SHIFT;
 	md_inst = (cha_inst & CHA_ID_LS_MD_MASK) >> CHA_ID_LS_MD_SHIFT;

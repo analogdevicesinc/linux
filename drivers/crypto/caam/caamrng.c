@@ -352,6 +352,7 @@ static int __init caam_rng_init(void)
 	struct device *ctrldev;
 	struct caam_drv_private *priv;
 	int err;
+	u32 cha_inst;
 
 	dev_node = of_find_compatible_node(NULL, NULL, "fsl,sec-v4.0");
 	if (!dev_node) {
@@ -378,7 +379,14 @@ static int __init caam_rng_init(void)
 		return -ENODEV;
 
 	/* Check for an instantiated RNG before registration */
-	if (!(rd_reg32(&priv->ctrl->perfmon.cha_num_ls) & CHA_ID_LS_RNG_MASK))
+	if (priv->has_seco) {
+		int i = priv->first_jr_index;
+
+		cha_inst = rd_reg32(&priv->jr[i]->perfmon.cha_num_ls);
+	} else {
+		cha_inst = rd_reg32(&priv->ctrl->perfmon.cha_num_ls);
+	}
+	if (!(cha_inst & CHA_ID_LS_RNG_MASK))
 		return -ENODEV;
 
 	dev = caam_jr_alloc();
