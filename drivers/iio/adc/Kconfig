@@ -109,6 +109,16 @@ config AD7766
 	  To compile this driver as a module, choose M here: the module will be
 	  called ad7766.
 
+config AD7768
+	tristate "Analog Devices AD7768 ADC driver"
+	depends on SPI
+	help
+	  Say yes here to build support for Analog Devices AD7768 SPI analog to
+	  digital converter (ADC).
+
+	  To compile this driver as a module, choose M here: the module will be
+	  called ad7768.
+
 config AD7791
 	tristate "Analog Devices AD7791 ADC driver"
 	depends on SPI
