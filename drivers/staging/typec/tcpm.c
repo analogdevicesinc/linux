@@ -846,6 +846,33 @@ static int tcpm_pd_send_sink_caps(struct tcpm_port *port)
 	return tcpm_pd_transmit(port, TCPC_TX_SOP, &msg);
 }
 
+static void tcpm_qos_handling(struct tcpm_port *port)
+{
+	enum tcpm_state idle_state;
+
+	if (port->typec_caps.type == TYPEC_PORT_UFP)
+		idle_state = SNK_UNATTACHED;
+	else if (port->typec_caps.type == TYPEC_PORT_DFP)
+		idle_state = SNK_UNATTACHED;
+	else if (port->typec_caps.type == TYPEC_PORT_DRP)
+		idle_state = DRP_TOGGLING;
+	else
+		return;
+
+	if ((port->prev_state == SNK_READY || port->prev_state == SRC_READY ||
+	     port->prev_state == idle_state)) {
+		/* Hold high bus before leave those states */
+		request_bus_freq(BUS_FREQ_HIGH);
+		pm_qos_add_request(&port->pm_qos_req,
+				   PM_QOS_CPU_DMA_LATENCY, 0);
+	} else if ((port->state == SNK_READY || port->state == SRC_READY ||
+		    port->state == idle_state)) {
+		/* Release high bus after enter those states */
+		pm_qos_remove_request(&port->pm_qos_req);
+		release_bus_freq(BUS_FREQ_HIGH);
+	}
+}
+
 static void tcpm_set_state(struct tcpm_port *port, enum tcpm_state state,
 			   unsigned int delay_ms)
 {
@@ -864,6 +891,7 @@ static void tcpm_set_state(struct tcpm_port *port, enum tcpm_state state,
 		port->delayed_state = INVALID_STATE;
 		port->prev_state = port->state;
 		port->state = state;
+		tcpm_qos_handling(port);
 		/*
 		 * Don't re-queue the state machine work item if we're currently
 		 * in the state machine and we're immediately changing states.
@@ -2911,33 +2939,6 @@ static void run_state_machine(struct tcpm_port *port)
 	}
 }
 
-static void tcpm_qos_active(struct tcpm_port *port, bool on)
-{
-	enum tcpm_state idle_state;
-
-	if (port->typec_caps.type == TYPEC_PORT_UFP)
-		idle_state = SNK_UNATTACHED;
-	else if (port->typec_caps.type == TYPEC_PORT_DFP)
-		idle_state = SNK_UNATTACHED;
-	else if (port->typec_caps.type == TYPEC_PORT_DRP)
-		idle_state = DRP_TOGGLING;
-	else
-		return;
-
-	if ((port->prev_state == SNK_READY || port->prev_state == SRC_READY ||
-	     port->prev_state == idle_state) && on) {
-		/* Hold high bus before leave those states */
-		request_bus_freq(BUS_FREQ_HIGH);
-		pm_qos_add_request(&port->pm_qos_req,
-				   PM_QOS_CPU_DMA_LATENCY, 0);
-	} else if ((port->state == SNK_READY || port->state == SRC_READY ||
-		    port->state == idle_state) && !on) {
-		/* Release high bus after enter those states */
-		pm_qos_remove_request(&port->pm_qos_req);
-		release_bus_freq(BUS_FREQ_HIGH);
-	}
-}
-
 static void tcpm_state_machine_work(struct work_struct *work)
 {
 	struct tcpm_port *port = container_of(work, struct tcpm_port,
@@ -2958,9 +2959,9 @@ static void tcpm_state_machine_work(struct work_struct *work)
 		port->prev_state = port->state;
 		port->state = port->delayed_state;
 		port->delayed_state = INVALID_STATE;
+		tcpm_qos_handling(port);
 	}
 
-	tcpm_qos_active(port, true);
 	/*
 	 * Continue running as long as we have (non-delayed) state changes
 	 * to make.
@@ -2971,8 +2972,6 @@ static void tcpm_state_machine_work(struct work_struct *work)
 		if (port->queued_message)
 			tcpm_send_queued_message(port);
 	} while (port->state != prev_state && !port->delayed_state);
-
-	tcpm_qos_active(port, false);
 done:
 	port->state_machine_running = false;
 	mutex_unlock(&port->lock);
@@ -3568,9 +3567,6 @@ static void tcpm_init(struct tcpm_port *port)
 
 	tcpm_reset_port(port);
 
-	request_bus_freq(BUS_FREQ_HIGH);
-	pm_qos_add_request(&port->pm_qos_req, PM_QOS_CPU_DMA_LATENCY, 0);
-
 	tcpm_set_state(port, tcpm_default_state(port), 0);
 
 	_tcpm_cc_change(port, cc1, cc2);
@@ -3799,6 +3795,9 @@ struct tcpm_port *tcpm_register_port(struct device *dev, struct tcpc_dev *tcpc)
 
 	tcpm_debugfs_init(port);
 	mutex_lock(&port->lock);
+	request_bus_freq(BUS_FREQ_HIGH);
+	pm_qos_add_request(&port->pm_qos_req, PM_QOS_CPU_DMA_LATENCY, 0);
+
 	tcpm_init(port);
 	mutex_unlock(&port->lock);
 
