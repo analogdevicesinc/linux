@@ -7,5 +7,7 @@ obj-$(CONFIG_ENCRYPTED_KEYS) += encrypted-keys.o
 
 encrypted-keys-y := encrypted.o ecryptfs_format.o
 masterkey-$(CONFIG_TRUSTED_KEYS) := masterkey_trusted.o
+masterkey-$(CONFIG_SECURE_KEYS) := masterkey_secure.o
 masterkey-$(CONFIG_TRUSTED_KEYS)-$(CONFIG_ENCRYPTED_KEYS) := masterkey_trusted.o
+masterkey-$(CONFIG_SECURE_KEYS)-$(CONFIG_ENCRYPTED_KEYS) := masterkey_secure.o
 encrypted-keys-y += $(masterkey-y) $(masterkey-m-m)

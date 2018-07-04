@@ -12590,6 +12590,7 @@ F:	include/keys/secure-type.h
 F:	security/keys/secure_key.c
 F:	security/keys/securekey_desc.c
 F:	security/keys/securekey_desc.h
+F:	security/keys/encrypted-keys/masterkey_secure.c
 
 KEYS-TRUSTED
 M:	James Bottomley <James.Bottomley@HansenPartnership.com>

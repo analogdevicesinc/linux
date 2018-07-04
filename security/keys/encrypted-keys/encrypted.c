@@ -36,6 +36,7 @@
 #include "ecryptfs_format.h"
 
 static const char KEY_TRUSTED_PREFIX[] = "trusted:";
+static const char KEY_SECURE_PREFIX[] = "secure:";
 static const char KEY_USER_PREFIX[] = "user:";
 static const char hash_alg[] = "sha256";
 static const char hmac_alg[] = "hmac(sha256)";
@@ -47,6 +48,7 @@ static unsigned int ivsize;
 static int blksize;
 
 #define KEY_TRUSTED_PREFIX_LEN (sizeof (KEY_TRUSTED_PREFIX) - 1)
+#define KEY_SECURE_PREFIX_LEN (sizeof(KEY_SECURE_PREFIX) - 1)
 #define KEY_USER_PREFIX_LEN (sizeof (KEY_USER_PREFIX) - 1)
 #define KEY_ECRYPTFS_DESC_LEN 16
 #define HASH_SIZE SHA256_DIGEST_SIZE
@@ -130,7 +132,7 @@ static int valid_ecryptfs_desc(const char *ecryptfs_desc)
 /*
  * valid_master_desc - verify the 'key-type:desc' of a new/updated master-key
  *
- * key-type:= "trusted:" | "user:"
+ * key-type:= "trusted:" | "user:" | "secure:"
  * desc:= master-key description
  *
  * Verify that 'key-type' is valid and that 'desc' exists. On key update,
@@ -145,6 +147,8 @@ static int valid_master_desc(const char *new_desc, const char *orig_desc)
 
 	if (!strncmp(new_desc, KEY_TRUSTED_PREFIX, KEY_TRUSTED_PREFIX_LEN))
 		prefix_len = KEY_TRUSTED_PREFIX_LEN;
+	else if (!strncmp(new_desc, KEY_SECURE_PREFIX, KEY_SECURE_PREFIX_LEN))
+		prefix_len = KEY_SECURE_PREFIX_LEN;
 	else if (!strncmp(new_desc, KEY_USER_PREFIX, KEY_USER_PREFIX_LEN))
 		prefix_len = KEY_USER_PREFIX_LEN;
 	else
@@ -351,7 +355,7 @@ static int calc_hmac(u8 *digest, const u8 *key, unsigned int keylen,
 
 enum derived_key_type { ENC_KEY, AUTH_KEY };
 
-/* Derive authentication/encryption key from trusted key */
+/* Derive authentication/encryption key from trusted/secure key */
 static int get_derived_key(u8 *derived_key, enum derived_key_type key_type,
 			   const u8 *master_key, size_t master_keylen)
 {
@@ -423,6 +427,11 @@ static struct key *request_master_key(struct encrypted_key_payload *epayload,
 		mkey = request_trusted_key(epayload->master_desc +
 					   KEY_TRUSTED_PREFIX_LEN,
 					   master_key, master_keylen);
+	} else if (!strncmp(epayload->master_desc, KEY_SECURE_PREFIX,
+			    KEY_SECURE_PREFIX_LEN)) {
+		mkey = request_secure_key(epayload->master_desc +
+					  KEY_SECURE_PREFIX_LEN,
+					  master_key, master_keylen);
 	} else if (!strncmp(epayload->master_desc, KEY_USER_PREFIX,
 			    KEY_USER_PREFIX_LEN)) {
 		mkey = request_user_key(epayload->master_desc +
