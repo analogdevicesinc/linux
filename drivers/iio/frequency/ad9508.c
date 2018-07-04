@@ -470,15 +470,14 @@ static int ad9508_setup(struct iio_dev *indio_dev)
 		return ret;
 
 
-// 	ret = ad9508_read(indio_dev, AD9508_CHIP_ID);
-// 	if (ret < 0)
-// 		return ret;
-//
-// 	if ((ret & 0xFFFFFF) != AD9508_SPI_MAGIC) {
-// 		dev_err(&indio_dev->dev,
-// 				"SPI Read Verify failed (0x%X)\n", ret);
-// 		return -EIO;
-// 	}
+	ret = ad9508_read(indio_dev, AD9508_PART_ID);
+	if (ret < 0)
+		return ret;
+
+	if (ret != 0x0500) {
+		dev_err(&st->spi->dev, "Unexpected device ID (0x%.2x)\n", ret);
+		return -ENODEV;
+	}
 
 	st->clk_data.clks = st->clks;
 	st->clk_data.clk_num = AD9508_NUM_CHAN;
