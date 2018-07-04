@@ -420,18 +420,24 @@ static struct clk *ad9508_clk_register(struct iio_dev *indio_dev, unsigned num,
 				bool is_enabled)
 {
 	struct ad9508_state *st = iio_priv(indio_dev);
+	struct device_node *of_node = st->spi->dev.of_node;
 	struct clk_init_data init;
 	struct ad9508_outputs *output = &st->output[num];
 	struct clk *clk;
 	const char *parent_name;
 	char name[SPI_NAME_SIZE + 8];
+	int ret;
 
-	sprintf(name, "%s_out%d", indio_dev->name, num);
+	ret = of_property_read_string_index(of_node, "clock-output-names",
+		num, &init.name);
+	if (ret < 0) {
+		sprintf(name, "%s_out%d", indio_dev->name, num);
+		init.name = name;
+	}
 
-	init.name = name;
 	init.ops = &ad9508_clk_ops;
 
-	parent_name = of_clk_get_parent_name(indio_dev->dev.parent->of_node, 0);
+	parent_name = of_clk_get_parent_name(of_node, 0);
 	init.parent_names = &parent_name;
 	init.num_parents = 1;
 
