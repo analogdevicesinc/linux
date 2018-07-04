@@ -12580,6 +12580,17 @@ F:	Documentation/security/keys/trusted-encrypted.rst
 F:	include/keys/encrypted-type.h
 F:	security/keys/encrypted-keys/
 
+KEYS-SECURE
+M:	Udit Agarwal <udit.agarwal@nxp.com>
+R:	Sahil Malhotra <sahil.malhotra@nxp.com>
+L:	linux-security-module@vger.kernel.org
+L:	keyrings@vger.kernel.org
+S:	Supported
+F:	include/keys/secure-type.h
+F:	security/keys/secure_key.c
+F:	security/keys/securekey_desc.c
+F:	security/keys/securekey_desc.h
+
 KEYS-TRUSTED
 M:	James Bottomley <James.Bottomley@HansenPartnership.com>
 M:	Jarkko Sakkinen <jarkko@kernel.org>

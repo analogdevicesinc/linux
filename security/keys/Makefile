@@ -29,4 +29,9 @@ obj-$(CONFIG_ASYMMETRIC_KEY_TYPE) += keyctl_pkey.o
 #
 obj-$(CONFIG_BIG_KEYS) += big_key.o
 obj-$(CONFIG_TRUSTED_KEYS) += trusted-keys/
+CFLAGS_secure_key.o += -I$(obj)/../../drivers/crypto/caam/
+CFLAGS_securekey_desc.o += -I$(obj)/../../drivers/crypto/caam/
+obj-$(CONFIG_SECURE_KEYS) += securekey.o
+securekey-y := securekey_desc.o \
+	       secure_key.o
 obj-$(CONFIG_ENCRYPTED_KEYS) += encrypted-keys/
