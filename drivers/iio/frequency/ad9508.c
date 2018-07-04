@@ -5,7 +5,6 @@
  *
  * Licensed under the GPL-2.
  */
-#define DEBUG
 #include <linux/device.h>
 #include <linux/kernel.h>
 #include <linux/slab.h>
