@@ -460,7 +460,7 @@ static int ad9508_setup(struct iio_dev *indio_dev)
 	struct ad9508_channel_spec *chan;
 	int ret, i;
 
-	dev_info(&indio_dev->dev, "ad9508 setup\n");
+	dev_dbg(&indio_dev->dev, "ad9508 setup\n");
 
 	ret = ad9508_write(indio_dev, AD9508_SERIAL_PORT_CONFIG,
 			AD9508_SER_CONF_SOFT_RESET |
@@ -669,7 +669,7 @@ static int ad9508_probe(struct spi_device *spi)
 	if (ret)
 		goto error_disable_reg;
 
-	dev_info(&spi->dev, "probed %s\n", indio_dev->name);
+	dev_dbg(&spi->dev, "probed %s\n", indio_dev->name);
 
 	return 0;
 
