@@ -280,7 +280,7 @@ static const char *imx8mq_clko2_sels[] = {"osc_25m", "sys2_pll_200m", "sys1_pll_
 static int const clks_init_on[] __initconst = {
 	IMX8MQ_CLK_DRAM_CORE, IMX8MQ_CLK_AHB_CG,
 	IMX8MQ_CLK_NOC_CG, IMX8MQ_CLK_NOC_APB_CG,
-	IMX8MQ_CLK_USB_BUS_CG, IMX8MQ_CLK_NAND_USDHC_BUS_CG,
+	IMX8MQ_CLK_USB_BUS_CG,
 	IMX8MQ_CLK_MAIN_AXI_CG, IMX8MQ_CLK_A53_CG,
 	IMX8MQ_CLK_TMU_ROOT,
 	IMX8MQ_CLK_DRAM_APB_DIV,
