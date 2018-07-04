@@ -449,7 +449,7 @@ static struct clk *ad9508_clk_register(struct iio_dev *indio_dev, unsigned num,
 	output->is_enabled = is_enabled;
 
 	/* register the clock */
-	clk = clk_register(&st->spi->dev, &output->hw);
+	clk = devm_clk_register(&st->spi->dev, &output->hw);
 	st->clk_data.clks[num] = clk;
 
 	return clk;
