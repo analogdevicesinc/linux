@@ -392,7 +392,7 @@ static long ad9508_clk_round_rate(struct clk_hw *hw, unsigned long rate,
 	tmp = DIV_ROUND_CLOSEST(*prate, rate);
 	tmp = clamp(tmp, 1UL, 1024UL);
 
-	return *prate / (tmp - 1);
+	return *prate / tmp;
 }
 
 static int ad9508_clk_set_rate(struct clk_hw *hw, unsigned long rate,
