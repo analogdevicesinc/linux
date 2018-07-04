@@ -51,7 +51,7 @@
 
 		interrupts = <0 55 0>;
 
-		clocks = <&clkc 16>, <&axi_ad9694_adxcvr 1>, <&axi_ad9694_adxcvr 0>;
+		clocks = <&clkc 16>, <&ad9508 3>, <&axi_ad9694_adxcvr 0>;
 		clock-names = "s_axi_aclk", "device_clk", "lane_clk";
 
 		adi,octets-per-frame = <1>;
@@ -69,7 +69,7 @@
 		compatible = "adi,axi-adxcvr-1.0";
 		reg = <0x44a50000 0x1000>;
 
-		clocks = <&ad9528 12>;
+		clocks = <&ad9508 2>;
 		clock-names = "conv";
 
 		#clock-cells = <1>;
