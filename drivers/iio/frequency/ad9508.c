@@ -269,6 +269,7 @@ static int ad9508_read_raw(struct iio_dev *indio_dev,
 	case IIO_CHAN_INFO_PHASE:
 		ret = ad9508_read(indio_dev, AD9508_CHANNEL_OUT_PHASE(chan->channel));
 		div = ad9508_read(indio_dev, AD9508_CHANNEL_OUT_DIV(chan->channel));
+		div += 1;
 		code = (ret * 3141592) / div;
 		*val = code / 1000000;
 		*val2 = (code % 1000000) * 10;
@@ -307,6 +308,7 @@ static int ad9508_write_raw(struct iio_dev *indio_dev,
 		break;
 	case IIO_CHAN_INFO_PHASE:
 		ret = ad9508_read(indio_dev, AD9508_CHANNEL_OUT_DIV(chan->channel));
+		ret += 1;
 		code = val * 1000000 + val2 % 1000000;
 		tmp = (code * ret) / 3141592;
 		tmp = clamp(tmp, 0, 2047);
