@@ -270,7 +270,7 @@ static int ad9508_read_raw(struct iio_dev *indio_dev,
 		ret = ad9508_read(indio_dev, AD9508_CHANNEL_OUT_PHASE(chan->channel));
 		div = ad9508_read(indio_dev, AD9508_CHANNEL_OUT_DIV(chan->channel));
 		div += 1;
-		code = (ret * 3141592) / div;
+		code = DIV_ROUND_CLOSEST(ret * 3141592, div);
 		*val = code / 1000000;
 		*val2 = (code % 1000000) * 10;
 		mutex_unlock(&st->lock);
@@ -310,7 +310,7 @@ static int ad9508_write_raw(struct iio_dev *indio_dev,
 		ret = ad9508_read(indio_dev, AD9508_CHANNEL_OUT_DIV(chan->channel));
 		ret += 1;
 		code = val * 1000000 + val2 % 1000000;
-		tmp = (code * ret) / 3141592;
+		tmp = DIV_ROUND_CLOSEST(code * ret, 3141592);
 		tmp = clamp(tmp, 0, 2047);
 		ret = ad9508_write(indio_dev, AD9508_CHANNEL_OUT_PHASE(chan->channel), tmp);
 		break;
