@@ -1009,6 +1009,8 @@
 	};
 
 	mipi_dsi: mipi_dsi@32E10000 {
+		#address-cells = <1>;
+		#size-cells = <0>;
 		compatible = "fsl,imx8mm-mipi-dsim";
 		reg = <0x0 0x32e10000 0x0 0x400>;
 		clocks = <&clk IMX8MM_CLK_DSI_CORE_DIV>,
