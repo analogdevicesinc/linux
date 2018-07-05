@@ -20,11 +20,18 @@
  *  - used for interacting with the kernel layer for link status
  */
 
+#include <linux/eventfd.h>
+#include <linux/irqreturn.h>
+#include <linux/io.h>
+#include <asm/irq.h>
+
 #include "pfe_cdev.h"
+#include "pfe_mod.h"
 
 static int pfe_majno;
 static struct class *pfe_char_class;
 static struct device *pfe_char_dev;
+struct eventfd_ctx *g_trigger;
 
 struct pfe_shared_info link_states[PFE_CDEV_ETH_COUNT];
 
@@ -80,8 +87,42 @@ static ssize_t pfe_cdev_write(struct file *fp, const char *buf,
 
 static int pfe_cdev_release(struct inode *inp, struct file *fp)
 {
+	if (g_trigger) {
+		free_irq(pfe->hif_irq, g_trigger);
+		eventfd_ctx_put(g_trigger);
+		g_trigger = NULL;
+	}
+
 	pr_info("PFE_CDEV: Device successfully closed\n");
 	return 0;
+}
+
+/*
+ * hif_us_isr-
+ * This ISR routine processes Rx/Tx done interrupts from the HIF hardware block
+ */
+static irqreturn_t hif_us_isr(int irq, void *arg)
+{
+	struct eventfd_ctx *trigger = (struct eventfd_ctx *)arg;
+	int int_status;
+	int int_enable_mask;
+
+	/*Read hif interrupt source register */
+	int_status = readl_relaxed(HIF_INT_SRC);
+	int_enable_mask = readl_relaxed(HIF_INT_ENABLE);
+
+	if ((int_status & HIF_INT) == 0)
+		return IRQ_NONE;
+
+	if (int_status & HIF_RXPKT_INT) {
+		int_enable_mask &= ~(HIF_RXPKT_INT);
+		eventfd_signal(trigger, 1);
+	}
+
+	/*Disable interrupts, they will be enabled after they are serviced */
+	writel_relaxed(int_enable_mask, HIF_INT_ENABLE);
+
+	return IRQ_HANDLED;
 }
 
 static long pfe_cdev_ioctl(struct file *fp, unsigned int cmd,
@@ -103,6 +144,22 @@ static long pfe_cdev_ioctl(struct file *fp, unsigned int cmd,
 		/* Return an unsigned int (link state) for ETH0 */
 		*argp = link_states[1].state;
 		pr_debug("Returning state=%d for ETH1\n", *argp);
+		ret = 0;
+		break;
+	case PFE_CDEV_HIF_INTR_EN:
+		/* Return success/failure */
+		g_trigger = eventfd_ctx_fdget(*argp);
+		if (IS_ERR(g_trigger))
+			return PTR_ERR(g_trigger);
+		ret = request_irq(pfe->hif_irq, hif_us_isr, 0, "pfe_hif",
+				  g_trigger);
+		if (ret) {
+			pr_err("%s: failed to get the hif IRQ = %d\n",
+			       __func__, pfe->hif_irq);
+			eventfd_ctx_put(g_trigger);
+			g_trigger = NULL;
+		}
+		pr_debug("request_irq for hif interrupt: %d\n", pfe->hif_irq);
 		ret = 0;
 		break;
 	default:

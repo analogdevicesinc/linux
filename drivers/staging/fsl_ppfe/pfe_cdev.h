@@ -43,8 +43,9 @@ struct pfe_shared_info {
 extern struct pfe_shared_info link_states[PFE_CDEV_ETH_COUNT];
 
 /* IOCTL Commands */
-#define PFE_CDEV_ETH0_STATE_GET	0
-#define PFE_CDEV_ETH1_STATE_GET	1
+#define PFE_CDEV_ETH0_STATE_GET		_IOR('R', 0, int)
+#define PFE_CDEV_ETH1_STATE_GET		_IOR('R', 1, int)
+#define PFE_CDEV_HIF_INTR_EN		_IOWR('R', 2, int)
 
 int pfe_cdev_init(void);
 void pfe_cdev_exit(void);
