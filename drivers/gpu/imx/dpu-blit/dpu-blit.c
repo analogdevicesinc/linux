@@ -107,8 +107,6 @@ void dpu_be_configure_prefetch(struct dpu_bliteng *dpu_be,
 			       u32 stride, u32 format, u64 modifier,
 			       u64 baddr, u64 uv_addr)
 {
-	static bool start = true;
-	static bool need_handle_start;
 	struct dprc *dprc;
 
 	/* Enable DPR, dprc1 is connected to plane0 */
@@ -119,22 +117,22 @@ void dpu_be_configure_prefetch(struct dpu_bliteng *dpu_be,
 	 * 1. tile work with dprc/prg (baddr)
 	 * 2. switch tile to linear (!start)
 	 */
-	if (!start || baddr) {
+	if (!dpu_be->start || baddr) {
 		dpu_be_wait(dpu_be);
 	}
 
 	if (baddr == 0x0) {
-		if (!start) {
+		if (!dpu_be->start) {
 			dprc_disable(dprc);
-			need_handle_start = false;
+			dpu_be->handle_start = false;
 		}
-		start = true;
+		dpu_be->start = true;
 		return;
 	}
 
-	if (need_handle_start) {
+	if (dpu_be->handle_start) {
 		dprc_first_frame_handle(dprc);
-		need_handle_start = false;
+		dpu_be->handle_start = false;
 	}
 
 	dprc_configure(dprc, 0,
@@ -142,17 +140,18 @@ void dpu_be_configure_prefetch(struct dpu_bliteng *dpu_be,
 		       x_offset, y_offset,
 		       stride, format, modifier,
 		       baddr, uv_addr,
-		       start, start,
+		       dpu_be->start,
+		       dpu_be->start,
 		       false);
 
-	if (start) {
+	if (dpu_be->start) {
 		dprc_enable(dprc);
-		need_handle_start = true;
+		dpu_be->handle_start = true;
 	}
 
 	dprc_reg_update(dprc);
 
-	start = false;
+	dpu_be->start = false;
 }
 EXPORT_SYMBOL(dpu_be_configure_prefetch);
 
@@ -410,6 +409,12 @@ int dpu_bliteng_init(struct dpu_bliteng *dpu_bliteng)
 	/* DPR, each blit engine has two dprc, 0 & 1 */
 	dpu_bliteng->dprc[0] = dpu_be_dprc_get(dpu, 0);
 	dpu_bliteng->dprc[1] = dpu_be_dprc_get(dpu, 1);
+
+	dprc_disable(dpu_bliteng->dprc[0]);
+	dprc_disable(dpu_bliteng->dprc[1]);
+
+	dpu_bliteng->handle_start = false;
+	dpu_bliteng->start = true;
 
 	return 0;
 }
