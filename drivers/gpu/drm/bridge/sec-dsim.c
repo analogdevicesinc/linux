@@ -14,8 +14,10 @@
  * GNU General Public License for more details.
  */
 
+#include <asm/unaligned.h>
 #include <linux/clk.h>
 #include <linux/completion.h>
+#include <linux/delay.h>
 #include <linux/module.h>
 #include <linux/of_graph.h>
 #include <drm/bridge/sec_mipi_dsim.h>
@@ -29,6 +31,7 @@
 #include <drm/drm_mipi_dsi.h>
 #include <drm/drm_panel.h>
 #include <video/videomode.h>
+#include <video/mipi_display.h>
 
 /* dsim registers */
 #define DSIM_VERSION			0x00
@@ -117,6 +120,13 @@
 #define CONFIG_SET_NUMOFDATLANE(x)	REG_PUT(x,  6,  5)
 #define CONFIG_SET_LANEEN(x)		REG_PUT(x,  4,  0)
 
+#define ESCMODE_SET_STOPSTATE_CNT(X)	REG_PUT(x, 31, 21)
+#define ESCMODE_FORCESTOPSTATE		BIT(20)
+#define ESCMODE_FORCEBTA		BIT(16)
+#define ESCMODE_CMDLPDT			BIT(7)
+#define ESCMODE_TXLPDT			BIT(6)
+#define ESCMODE_TXTRIGGERRST		BIT(5)
+
 #define MDRESOL_MAINSTANDBY		BIT(31)
 #define MDRESOL_SET_MAINVRESOL(x)	REG_PUT(x, 27, 16)
 #define MDRESOL_SET_MAINHRESOL(x)	REG_PUT(x, 11,  0)
@@ -139,6 +149,8 @@
 #define INTSRC_LPDRTOUT			BIT(21)
 #define INTSRC_TATOUT			BIT(20)
 #define INTSRC_RXDATDONE		BIT(18)
+#define INTSRC_RXTE			BIT(17)
+#define INTSRC_RXACK			BIT(16)
 #define INTSRC_MASK			(INTSRC_PLLSTABLE	|	\
 					 INTSRC_SWRSTRELEASE	|	\
 					 INTSRC_SFRPLFIFOEMPTY	|	\
@@ -146,7 +158,9 @@
 					 INTSRC_FRAMEDONE	|	\
 					 INTSRC_LPDRTOUT	|	\
 					 INTSRC_TATOUT		|	\
-					 INTSRC_RXDATDONE)
+					 INTSRC_RXDATDONE	|	\
+					 INTSRC_RXTE		|	\
+					 INTSRC_RXACK)
 
 #define INTMSK_MSKPLLSTABLE		BIT(31)
 #define INTMSK_MSKSWRELEASE		BIT(30)
@@ -156,6 +170,20 @@
 #define INTMSK_MSKLPDRTOUT		BIT(21)
 #define INTMSK_MSKTATOUT		BIT(20)
 #define INTMSK_MSKRXDATDONE		BIT(18)
+#define INTMSK_MSKRXTE			BIT(17)
+#define INTMSK_MSKRXACK			BIT(16)
+
+#define PKTHDR_SET_DATA1(x)		REG_PUT(x, 23, 16)
+#define PKTHDR_GET_DATA1(x)		REG_GET(x, 23, 16)
+#define PKTHDR_SET_DATA0(x)		REG_PUT(x, 15,  8)
+#define PKTHDR_GET_DATA0(x)		REG_GET(x, 15,  8)
+#define PKTHDR_GET_WC(x)		REG_GET(x, 23,  8)
+#define PKTHDR_SET_DI(x)		REG_PUT(x,  7,  0)
+#define PKTHDR_GET_DI(x)		REG_GET(x,  7,  0)
+#define PKTHDR_SET_DT(x)		REG_PUT(x,  5,  0)
+#define PKTHDR_GET_DT(x)		REG_GET(x,  5,  0)
+#define PKTHDR_SET_VC(x)		REG_PUT(x,  7,  6)
+#define PKTHDR_GET_VC(x)		REG_GET(x,  7,  6)
 
 #define FIFOCTRL_FULLRX			BIT(25)
 #define FIFOCTRL_EMPTYRX		BIT(24)
@@ -232,7 +260,11 @@
 #define ERRCONTROL1		25
 #define ERRCONTROL0		26
 
+#define MIPI_FIFO_TIMEOUT	msecs_to_jiffies(250)
+
 #define to_sec_mipi_dsim(dsi) container_of(dsi, struct sec_mipi_dsim, dsi_host)
+#define conn_to_sec_mipi_dsim(conn)		\
+	container_of(conn, struct sec_mipi_dsim, connector)
 
 /* DSIM PLL configuration from spec:
  *
@@ -276,6 +308,9 @@ struct sec_mipi_dsim {
 	struct videomode vmode;
 
 	struct completion pll_stable;
+	struct completion ph_tx_done;
+	struct completion pl_tx_done;
+	struct completion rx_done;
 	const struct sec_mipi_dsim_plat_data *pdata;
 };
 
@@ -361,10 +396,220 @@ static int sec_mipi_dsim_host_detach(struct mipi_dsi_host *host,
 	return 0;
 }
 
+static void sec_mipi_dsim_config_cmd_lpm(struct sec_mipi_dsim *dsim,
+					 bool enable)
+{
+	uint32_t escmode;
+
+	escmode = dsim_read(dsim, DSIM_ESCMODE);
+
+	if (enable)
+		escmode |= ESCMODE_CMDLPDT;
+	else
+		escmode &= ~ESCMODE_CMDLPDT;
+
+	/* force BTA at the end of packet transfer
+	 * to receive the acknowledgment from dsi
+	 * peripheral for this transfer
+	 */
+	escmode |= ESCMODE_FORCEBTA;
+
+	dsim_write(dsim, escmode, DSIM_ESCMODE);
+}
+
+static void sec_mipi_dsim_write_pl_to_sfr_fifo(struct sec_mipi_dsim *dsim,
+					       const void *payload,
+					       size_t length)
+{
+	uint32_t pl_data;
+
+	if (!length)
+		return;
+
+	while (length >= 4) {
+		pl_data = get_unaligned_le32(payload);
+		dsim_write(dsim, pl_data, DSIM_PAYLOAD);
+		payload += 4;
+		length -= 4;
+	}
+
+	pl_data = 0;
+	switch (length) {
+	case 3:
+		pl_data |= ((u8 *)payload)[2] << 16;
+	case 2:
+		pl_data |= ((u8 *)payload)[1] << 8;
+	case 1:
+		pl_data |= ((u8 *)payload)[0];
+		dsim_write(dsim, pl_data, DSIM_PAYLOAD);
+		break;
+	}
+}
+
+static void sec_mipi_dsim_write_ph_to_sfr_fifo(struct sec_mipi_dsim *dsim,
+					       void *header,
+					       bool use_lpm)
+{
+	uint32_t pkthdr;
+
+	/* config LPM for CMD TX */
+	sec_mipi_dsim_config_cmd_lpm(dsim, use_lpm);
+
+	pkthdr = PKTHDR_SET_DATA1(((u8 *)header)[2])	| /* WC MSB  */
+		 PKTHDR_SET_DATA0(((u8 *)header)[1])	| /* WC LSB  */
+		 PKTHDR_SET_DI(((u8 *)header)[0]);	  /* Data ID */
+
+	dsim_write(dsim, pkthdr, DSIM_PKTHDR);
+}
+
+static int sec_mipi_dsim_read_pl_from_sfr_fifo(struct sec_mipi_dsim *dsim,
+					       void *payload,
+					       size_t length)
+{
+	uint8_t data_type;
+	uint16_t word_count = 0;
+	uint32_t fifoctrl, ph, pl;
+
+	fifoctrl = dsim_read(dsim, DSIM_FIFOCTRL);
+
+	if (WARN_ON(fifoctrl & FIFOCTRL_EMPTYRX))
+		return -EINVAL;
+
+	ph = dsim_read(dsim, DSIM_RXFIFO);
+	data_type = PKTHDR_GET_DT(ph);
+	switch (data_type) {
+	case MIPI_DSI_RX_ACKNOWLEDGE_AND_ERROR_REPORT:
+		dev_err(dsim->dev, "peripheral report error: (0-7)%x, (8-15)%x\n",
+			PKTHDR_GET_DATA0(ph), PKTHDR_GET_DATA1(ph));
+		return -EPROTO;
+	case MIPI_DSI_RX_DCS_SHORT_READ_RESPONSE_2BYTE:
+	case MIPI_DSI_RX_GENERIC_SHORT_READ_RESPONSE_2BYTE:
+		if (!WARN_ON(length < 2)) {
+			((u8 *)payload)[1] = PKTHDR_GET_DATA1(ph);
+			word_count++;
+		}
+		/* fall through */
+	case MIPI_DSI_RX_DCS_SHORT_READ_RESPONSE_1BYTE:
+	case MIPI_DSI_RX_GENERIC_SHORT_READ_RESPONSE_1BYTE:
+		((u8 *)payload)[0] = PKTHDR_GET_DATA0(ph);
+		word_count++;
+		length = word_count;
+		break;
+	case MIPI_DSI_RX_DCS_LONG_READ_RESPONSE:
+	case MIPI_DSI_RX_GENERIC_LONG_READ_RESPONSE:
+		word_count = PKTHDR_GET_WC(ph);
+		if (word_count > length) {
+			dev_err(dsim->dev, "invalid receive buffer length\n");
+			return -EINVAL;
+		}
+
+		length = word_count;
+
+		while (word_count >= 4) {
+			pl = dsim_read(dsim, DSIM_RXFIFO);
+			((u8 *)payload)[0] = pl & 0xff;
+			((u8 *)payload)[1] = (pl >> 8)  & 0xff;
+			((u8 *)payload)[2] = (pl >> 16) & 0xff;
+			((u8 *)payload)[3] = (pl >> 24) & 0xff;
+			payload += 4;
+			word_count -= 4;
+		}
+
+		if (word_count > 0) {
+			pl = dsim_read(dsim, DSIM_RXFIFO);
+
+			switch (word_count) {
+			case 3:
+				((u8 *)payload)[2] = (pl >> 16) & 0xff;
+			case 2:
+				((u8 *)payload)[1] = (pl >> 8) & 0xff;
+			case 1:
+				((u8 *)payload)[0] = pl & 0xff;
+				break;
+			}
+		}
+
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return length;
+}
+
 static ssize_t sec_mipi_dsim_host_transfer(struct mipi_dsi_host *host,
 					   const struct mipi_dsi_msg *msg)
 {
-	/* TODO: Add support later */
+	int ret;
+	bool use_lpm;
+	struct mipi_dsi_packet packet;
+	struct sec_mipi_dsim *dsim = to_sec_mipi_dsim(host);
+
+	if ((msg->rx_buf && !msg->rx_len) || (msg->rx_len && !msg->rx_buf))
+		return -EINVAL;
+
+	ret = mipi_dsi_create_packet(&packet, msg);
+	if (ret) {
+		dev_err(dsim->dev, "failed to create dsi packet: %d\n", ret);
+		return ret;
+	}
+
+	/* need to read data from peripheral */
+	if (unlikely(msg->rx_buf))
+		reinit_completion(&dsim->rx_done);
+
+	use_lpm = msg->flags & MIPI_DSI_MSG_USE_LPM ? true : false;
+
+	if (packet.payload_length) {		/* Long Packet case */
+		reinit_completion(&dsim->pl_tx_done);
+
+		/* write packet payload */
+		sec_mipi_dsim_write_pl_to_sfr_fifo(dsim,
+						   packet.payload,
+						   packet.payload_length);
+
+		/* write packet header */
+		sec_mipi_dsim_write_ph_to_sfr_fifo(dsim,
+						   packet.header,
+						   use_lpm);
+
+		ret = wait_for_completion_timeout(&dsim->pl_tx_done,
+						  MIPI_FIFO_TIMEOUT);
+		if (!ret) {
+			dev_err(dsim->dev, "wait payload tx done time out\n");
+			return -EBUSY;
+		}
+	} else {
+		reinit_completion(&dsim->ph_tx_done);
+
+		/* write packet header */
+		sec_mipi_dsim_write_ph_to_sfr_fifo(dsim,
+						   packet.header,
+						   use_lpm);
+
+		ret = wait_for_completion_timeout(&dsim->ph_tx_done,
+						  MIPI_FIFO_TIMEOUT);
+		if (!ret) {
+			dev_err(dsim->dev, "wait pkthdr tx done time out\n");
+			return -EBUSY;
+		}
+	}
+
+	/* read packet payload */
+	if (unlikely(msg->rx_buf)) {
+		ret = wait_for_completion_timeout(&dsim->rx_done,
+						  MIPI_FIFO_TIMEOUT);
+		if (!ret) {
+			dev_err(dsim->dev, "wait rx done time out\n");
+			return -EBUSY;
+		}
+
+		ret = sec_mipi_dsim_read_pl_from_sfr_fifo(dsim,
+							  msg->rx_buf,
+							  msg->rx_len);
+		if (ret < 0)
+			return ret;
+	}
 
 	return 0;
 }
@@ -495,15 +740,25 @@ static void sec_mipi_dsim_set_main_mode(struct sec_mipi_dsim *dsim)
 	bpp = mipi_dsi_pixel_format_to_bpp(dsim->format);
 
 	/* calculate hfp & hbp word counts */
-	hfp_wc = vmode->hfront_porch * (bpp >> 3) / dsim->lanes - 6;
-	hbp_wc = vmode->hback_porch  * (bpp >> 3) / dsim->lanes - 6;
+	if (dsim->panel) {
+		hfp_wc = vmode->hfront_porch * (bpp >> 3);
+		hbp_wc = vmode->hback_porch * (bpp >> 3);
+	} else {
+		hfp_wc = vmode->hfront_porch * (bpp >> 3) / dsim->lanes - 6;
+		hbp_wc = vmode->hback_porch  * (bpp >> 3) / dsim->lanes - 6;
+	}
+
 	mhporch |= MHPORCH_SET_MAINHFP(hfp_wc) |
 		   MHPORCH_SET_MAINHBP(hbp_wc);
 
 	dsim_write(dsim, mhporch, DSIM_MHPORCH);
 
 	/* calculate hsa word counts */
-	hsa_wc = vmode->hsync_len * (bpp >> 3) / dsim->lanes - 6;
+	if (dsim->panel)
+		hsa_wc = vmode->hsync_len * (bpp >> 3);
+	else
+		hsa_wc = vmode->hsync_len * (bpp >> 3) / dsim->lanes - 6;
+
 	msync |= MSYNC_SET_MAINVSA(vmode->vsync_len) |
 		 MSYNC_SET_MAINHSA(hsa_wc);
 
@@ -704,6 +959,7 @@ static int sec_mipi_dsim_check_pll_out(struct sec_mipi_dsim *dsim,
 	dsim->pix_clk = DIV_ROUND_UP_ULL(pix_clk, 1000);
 	dsim->bit_clk = DIV_ROUND_UP_ULL(bit_clk, 1000);
 
+	dsim->pms = 0x4210;
 	if (dsim->mode_flags & MIPI_DSI_MODE_VIDEO_SYNC_PULSE) {
 		ref_clk = PHY_REF_CLK / 1000;
 		/* TODO: add PMS calculate and check
@@ -735,7 +991,7 @@ static void sec_mipi_dsim_bridge_enable(struct drm_bridge *bridge)
 	ret = sec_mipi_dsim_config_pll(dsim);
 	if (ret) {
 		dev_err(dsim->dev, "dsim pll config failed: %d\n", ret);
-		return;
+		goto panel_unprepare;
 	}
 
 	/* config dphy timings */
@@ -744,11 +1000,36 @@ static void sec_mipi_dsim_bridge_enable(struct drm_bridge *bridge)
 	/* initialize FIFO pointers */
 	sec_mipi_dsim_init_fifo_pointers(dsim);
 
+	/* prepare panel if exists */
+	if (dsim->panel) {
+		ret = drm_panel_prepare(dsim->panel);
+		if (unlikely(ret)) {
+			dev_err(dsim->dev, "panel prepare failed: %d\n", ret);
+			return;
+		}
+	}
+
 	/* config esc clock, byte clock and etc */
 	sec_mipi_dsim_config_clkctrl(dsim);
 
+	/* enable panel if exists */
+	if (dsim->panel) {
+		ret = drm_panel_enable(dsim->panel);
+		if (unlikely(ret)) {
+			dev_err(dsim->dev, "panel enable failed: %d\n", ret);
+			goto panel_unprepare;
+		}
+	}
+
 	/* enable data transfer of dsim */
 	sec_mipi_dsim_set_standby(dsim, true);
+
+	return;
+
+panel_unprepare:
+	ret = drm_panel_unprepare(dsim->panel);
+	if (unlikely(ret))
+		dev_err(dsim->dev, "panel unprepare failed: %d\n", ret);
 }
 
 static void sec_mipi_dsim_disable_clkctrl(struct sec_mipi_dsim *dsim)
@@ -779,7 +1060,15 @@ static void sec_mipi_dsim_disable_pll(struct sec_mipi_dsim *dsim)
 
 static void sec_mipi_dsim_bridge_disable(struct drm_bridge *bridge)
 {
+	int ret;
 	struct sec_mipi_dsim *dsim = bridge->driver_private;
+
+	/* disable panel if exists */
+	if (dsim->panel) {
+		ret = drm_panel_disable(dsim->panel);
+		if (unlikely(ret))
+			dev_err(dsim->dev, "panel disable failed: %d\n", ret);
+	}
 
 	/* disable data transfer of dsim */
 	sec_mipi_dsim_set_standby(dsim, false);
@@ -789,6 +1078,13 @@ static void sec_mipi_dsim_bridge_disable(struct drm_bridge *bridge)
 
 	/* disable dsim pll */
 	sec_mipi_dsim_disable_pll(dsim);
+
+	/* unprepare panel if exists */
+	if (dsim->panel) {
+		ret = drm_panel_unprepare(dsim->panel);
+		if (unlikely(ret))
+			dev_err(dsim->dev, "panel unprepare failed: %d\n", ret);
+	}
 }
 
 static bool sec_mipi_dsim_bridge_mode_fixup(struct drm_bridge *bridge,
@@ -929,6 +1225,12 @@ static void __maybe_unused sec_mipi_dsim_irq_mask(struct sec_mipi_dsim *dsim,
 	case RXDATDONE:
 		intmsk |= INTMSK_MSKRXDATDONE;
 		break;
+	case RXTE:
+		intmsk |= INTMSK_MSKRXTE;
+		break;
+	case RXACK:
+		intmsk |= INTMSK_MSKRXACK;
+		break;
 	default:
 		/* unsupported irq */
 		return;
@@ -969,6 +1271,12 @@ static void sec_mipi_dsim_irq_unmask(struct sec_mipi_dsim *dsim,
 	case RXDATDONE:
 		intmsk &= ~INTMSK_MSKRXDATDONE;
 		break;
+	case RXTE:
+		intmsk &= ~INTMSK_MSKRXTE;
+		break;
+	case RXACK:
+		intmsk &= ~INTMSK_MSKRXACK;
+		break;
 	default:
 		/* unsupported irq */
 		return;
@@ -1008,6 +1316,12 @@ static void sec_mipi_dsim_irq_clear(struct sec_mipi_dsim *dsim,
 	case RXDATDONE:
 		intsrc |= INTSRC_RXDATDONE;
 		break;
+	case RXTE:
+		intsrc |= INTSRC_RXTE;
+		break;
+	case RXACK:
+		intsrc |= INTSRC_RXACK;
+		break;
 	default:
 		/* unsupported irq */
 		return;
@@ -1027,6 +1341,8 @@ static void sec_mipi_dsim_irq_init(struct sec_mipi_dsim *dsim)
 		sec_mipi_dsim_irq_unmask(dsim, LPDRTOUT);
 		sec_mipi_dsim_irq_unmask(dsim, TATOUT);
 		sec_mipi_dsim_irq_unmask(dsim, RXDATDONE);
+		sec_mipi_dsim_irq_unmask(dsim, RXTE);
+		sec_mipi_dsim_irq_unmask(dsim, RXACK);
 	}
 }
 
@@ -1059,29 +1375,52 @@ static irqreturn_t sec_mipi_dsim_irq_handler(int irq, void *data)
 	if (intsrc & INTSRC_SWRSTRELEASE)
 		sec_mipi_dsim_irq_clear(dsim, SWRSTRELEASE);
 
-	if (intsrc & INTSRC_SFRPLFIFOEMPTY)
+	if (intsrc & INTSRC_SFRPLFIFOEMPTY) {
 		sec_mipi_dsim_irq_clear(dsim, SFRPLFIFOEMPTY);
+		complete(&dsim->pl_tx_done);
+	}
 
-	if (intsrc & INTSRC_SFRPHFIFOEMPTY)
+	if (intsrc & INTSRC_SFRPHFIFOEMPTY) {
 		sec_mipi_dsim_irq_clear(dsim, SFRPHFIFOEMPTY);
+		complete(&dsim->ph_tx_done);
+	}
 
-	if (intsrc & INTSRC_LPDRTOUT)
+	if (WARN_ON(intsrc & INTSRC_LPDRTOUT)) {
 		sec_mipi_dsim_irq_clear(dsim, LPDRTOUT);
+		dev_warn(dsim->dev, "LP RX timeout\n");
+	}
 
-	if (intsrc & INTSRC_TATOUT)
+	if (WARN_ON(intsrc & INTSRC_TATOUT)) {
 		sec_mipi_dsim_irq_clear(dsim, TATOUT);
+		dev_warn(dsim->dev, "Turns around Acknowledge timeout\n");
+	}
 
-	if (intsrc & INTSRC_RXDATDONE)
+	if (intsrc & INTSRC_RXDATDONE) {
 		sec_mipi_dsim_irq_clear(dsim, RXDATDONE);
+		complete(&dsim->rx_done);
+	}
+
+	if (intsrc & INTSRC_RXTE) {
+		sec_mipi_dsim_irq_clear(dsim, RXTE);
+		dev_dbg(dsim->dev, "TE Rx trigger received\n");
+	}
+
+	if (intsrc & INTSRC_RXACK) {
+		sec_mipi_dsim_irq_clear(dsim, RXACK);
+		dev_dbg(dsim->dev, "ACK Rx trigger received\n");
+	}
 
 	return IRQ_HANDLED;
 }
 
 static int sec_mipi_dsim_connector_get_modes(struct drm_connector *connector)
 {
-	/* TODO: add support later */
+	struct sec_mipi_dsim *dsim = conn_to_sec_mipi_dsim(connector);
 
-	return 0;
+	if (WARN_ON(!dsim->panel))
+		return -ENODEV;
+
+	return drm_panel_get_modes(dsim->panel);
 }
 
 static const struct drm_connector_helper_funcs
@@ -1174,6 +1513,9 @@ int sec_mipi_dsim_bind(struct device *dev, struct device *master, void *data,
 	}
 
 	init_completion(&dsim->pll_stable);
+	init_completion(&dsim->ph_tx_done);
+	init_completion(&dsim->pl_tx_done);
+	init_completion(&dsim->rx_done);
 
 	/* Initialize and attach sec dsim bridge */
 	bridge = devm_kzalloc(dev, sizeof(*bridge), GFP_KERNEL);
