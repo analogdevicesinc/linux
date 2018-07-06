@@ -39,8 +39,8 @@ struct dpu_bliteng {
 
 	struct dprc *dprc[2];
 
-	bool handle_start;
 	bool start;
+	bool sync;
 };
 
 #endif

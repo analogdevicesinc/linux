@@ -544,11 +544,11 @@ void dprc_configure(struct dprc *dprc, unsigned int stream_id,
 	}
 	dprc_write(dprc, val, MODE_CTRL0);
 
-	if (start) {
+	if (start || dprc->is_blit_chan) {
 		/* software shadow load for the first frame */
 		val = SW_SHADOW_LOAD_SEL;
 		if (dprc->is_blit_chan) {
-			val |= RUN_EN | REPEAT_EN | SHADOW_LOAD_EN;
+			val |= RUN_EN | SHADOW_LOAD_EN;
 			dprc_write(dprc, val, SYSTEM_CTRL0);
 		} else {
 			val |= SHADOW_LOAD_EN;
@@ -588,7 +588,7 @@ void dprc_first_frame_handle(struct dprc *dprc)
 		return;
 
 	if (dprc->is_blit_chan)
-		dprc_write(dprc, SW_SHADOW_LOAD_SEL, SYSTEM_CTRL0 + CLR);
+		return;
 	else
 		dprc_write(dprc, REPEAT_EN, SYSTEM_CTRL0);
 

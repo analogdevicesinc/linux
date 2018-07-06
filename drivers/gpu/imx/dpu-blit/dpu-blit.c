@@ -121,18 +121,14 @@ void dpu_be_configure_prefetch(struct dpu_bliteng *dpu_be,
 		dpu_be_wait(dpu_be);
 	}
 
+	dpu_be->sync = true;
+
 	if (baddr == 0x0) {
 		if (!dpu_be->start) {
 			dprc_disable(dprc);
-			dpu_be->handle_start = false;
+			dpu_be->start = true;
 		}
-		dpu_be->start = true;
 		return;
-	}
-
-	if (dpu_be->handle_start) {
-		dprc_first_frame_handle(dprc);
-		dpu_be->handle_start = false;
 	}
 
 	dprc_configure(dprc, 0,
@@ -146,7 +142,6 @@ void dpu_be_configure_prefetch(struct dpu_bliteng *dpu_be,
 
 	if (dpu_be->start) {
 		dprc_enable(dprc);
-		dpu_be->handle_start = true;
 	}
 
 	dprc_reg_update(dprc);
@@ -241,6 +236,8 @@ EXPORT_SYMBOL(dpu_be_blit);
 #define STORE9_SEQCOMPLETE_IRQ_MASK	(1U<<STORE9_SEQCOMPLETE_IRQ)
 void dpu_be_wait(struct dpu_bliteng *dpu_be)
 {
+	if (!dpu_be->sync) return;
+
 	dpu_cs_wait_fifo_space(dpu_be);
 
 	dpu_be_write(dpu_be, 0x14000001, CMDSEQ_HIF);
@@ -253,6 +250,8 @@ void dpu_be_wait(struct dpu_bliteng *dpu_be)
 
 	dpu_be_write(dpu_be, STORE9_SEQCOMPLETE_IRQ_MASK,
 		COMCTRL_INTERRUPTCLEAR0);
+
+	dpu_be->sync = false;
 }
 EXPORT_SYMBOL(dpu_be_wait);
 
@@ -413,8 +412,8 @@ int dpu_bliteng_init(struct dpu_bliteng *dpu_bliteng)
 	dprc_disable(dpu_bliteng->dprc[0]);
 	dprc_disable(dpu_bliteng->dprc[1]);
 
-	dpu_bliteng->handle_start = false;
 	dpu_bliteng->start = true;
+	dpu_bliteng->sync = false;
 
 	return 0;
 }
