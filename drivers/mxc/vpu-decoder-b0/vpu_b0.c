@@ -52,7 +52,7 @@ unsigned int vpu_dbg_level_decoder = 1;
 
 static void vpu_api_event_handler(struct vpu_ctx *ctx, u_int32 uStrIdx, u_int32 uEvent, u_int32 *event_data);
 static void v4l2_vpu_send_cmd(struct vpu_ctx *ctx, uint32_t idx, uint32_t cmdid, uint32_t cmdnum, uint32_t *local_cmddata);
-static void add_eos(struct vpu_ctx *ctx, u_int32 uStrBufIdx);
+static bool add_eos(struct vpu_ctx *ctx, u_int32 uStrBufIdx);
 static void v4l2_update_stream_addr(struct vpu_ctx *ctx, uint32_t uStrBufIdx);
 static int reset_vpu_firmware(struct vpu_dev *dev);
 
@@ -1033,7 +1033,7 @@ static void ctrls_delete_decoder(struct vpu_ctx *This)
 		This->ctrls[i] = NULL;
 }
 
-static void add_eos(struct vpu_ctx *ctx, u_int32 uStrBufIdx)
+static bool add_eos(struct vpu_ctx *ctx, u_int32 uStrBufIdx)
 {
 	struct vpu_dev *dev = ctx->dev;
 	pSTREAM_BUFFER_DESCRIPTOR_TYPE pStrBufDesc;
@@ -1057,24 +1057,34 @@ static void add_eos(struct vpu_ctx *ctx, u_int32 uStrBufIdx)
 	rptr = pStrBufDesc->rptr;
 
 	buffer = kzalloc(MIN_SPACE, GFP_KERNEL); //for eos data
-	if (!buffer)
+	if (!buffer) {
 		vpu_dbg(LVL_ERR, "error:  eos buffer alloc fail\n");
+		return false;
+	}
 	plbuffer = (uint32_t *)buffer;
-	pbbuffer = (uint8_t *)(ctx->stream_buffer_virt + wptr - start);
+	if (wptr - start < ctx->stream_buffer_size)
+		pbbuffer = (uint8_t *)(ctx->stream_buffer_virt + wptr - start);
+	else {
+		vpu_dbg(LVL_ERR, "error: return wptr(0x%x), start(0x%x) is not valid\n", wptr, start);
+		return false;
+	}
 
 	// Word align
 	if (((u_int64)pbbuffer)%4 != 0) {
 		int i;
-
+		if (end%4 != 0) {
+			vpu_dbg(LVL_ERR, "end address of stream not aligned by 4 bytes !\n");
+			return false;
+		}
 		pad_bytes = 4 - (((u_int64)pbbuffer)%4);
 		for (i = 0; i < pad_bytes; i++)
 			pbbuffer[i] = 0;
 		pbbuffer += pad_bytes;
-		if (end%4 != 0)
-			vpu_dbg(LVL_ERR, "end address of stream not aligned by 4 bytes !\n");
 		wptr += pad_bytes;
-		if (wptr == end)
+		if (wptr == end) {
 			wptr = start;
+			pbbuffer = (uint8_t *)ctx->stream_buffer_virt;
+		}
 	}
 
 	switch (q_data->vdec_std) {
@@ -1143,6 +1153,7 @@ static void add_eos(struct vpu_ctx *ctx, u_int32 uStrBufIdx)
 		(VPU_REG_BASE + DEC_MFD_XREG_SLV_BASE + MFD_MCX + MFD_MCX_OFF * ctx->str_index);
 	kfree(buffer);
 	vpu_dbg(LVL_INFO, "add eos MCX address virt=%p, phy=0x%x, index=%d\n", pStrBufDesc, dev->shared_mem.pSharedInterface->pStreamBuffDesc[ctx->str_index][uStrBufIdx], ctx->str_index);
+	return true;
 }
 
 TB_API_DEC_FMT vpu_format_remap(uint32_t vdec_std)
