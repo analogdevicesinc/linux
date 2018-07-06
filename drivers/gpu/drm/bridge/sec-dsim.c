@@ -52,7 +52,7 @@
 #define DSIM_PAYLOAD			0x40
 #define DSIM_RXFIFO			0x44
 #define DSIM_FIFOTHLD			0x48
-#define DSIM_FIFOCTRL			0x48
+#define DSIM_FIFOCTRL			0x4c
 #define DSIM_MEMACCHR			0x50
 #define DSIM_MULTI_PKT			0x78
 
