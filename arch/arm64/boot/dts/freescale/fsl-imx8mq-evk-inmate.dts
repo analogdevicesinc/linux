@@ -1,0 +1,192 @@
+/*
+ * Copyright 2018 NXP
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+#include "fsl-imx8mq.dtsi"
+
+/ {
+	model = "Freescale i.MX8MQ EVK";
+	compatible = "fsl,imx8mq-evk", "fsl,imx8mq";
+	interrupt-parent = <&gic>;
+
+	timer {
+		compatible = "arm,armv8-timer";
+		interrupts = <GIC_PPI 13 (GIC_CPU_MASK_SIMPLE(6) | IRQ_TYPE_LEVEL_LOW)>, /* Physical Secure */
+			     <GIC_PPI 14 (GIC_CPU_MASK_SIMPLE(6) | IRQ_TYPE_LEVEL_LOW)>, /* Physical Non-Secure */
+			     <GIC_PPI 11 (GIC_CPU_MASK_SIMPLE(6) | IRQ_TYPE_LEVEL_LOW)>, /* Virtual */
+			     <GIC_PPI 10 (GIC_CPU_MASK_SIMPLE(6) | IRQ_TYPE_LEVEL_LOW)>; /* Hypervisor */
+		clock-frequency = <8333333>;
+	};
+
+	clocks {
+		clk_dummy: clock@7 {
+			compatible = "fixed-clock";
+			reg = <7>;
+			#clock-cells = <0>;
+			clock-frequency = <0>;
+			clock-output-names = "clk_dummy";
+		};
+
+		/* The clocks are configured by 1st OS */
+		clk_400m: clock@8 {
+			compatible = "fixed-clock";
+			reg = <8>;
+			#clock-cells = <0>;
+			clock-frequency = <400000000>;
+			clock-output-names = "400m";
+		};
+		clk_266m: clock@9 {
+			compatible = "fixed-clock";
+			reg = <9>;
+			#clock-cells = <0>;
+			clock-frequency = <266000000>;
+			clock-output-names = "266m";
+		};
+		clk_80m: clock@10 {
+			compatible = "fixed-clock";
+			reg = <10>;
+			#clock-cells = <0>;
+			clock-frequency = <80000000>;
+			clock-output-names = "80m";
+		};
+	};
+
+	display-subsystem {
+		/delete-property/ compatible;
+	};
+};
+
+&clk {
+	/delete-property/ compatible;
+};
+
+/delete-node/ &{/cpus/cpu@0};
+/delete-node/ &{/cpus/cpu@1};
+/delete-node/ &{/pmu};
+
+/delete-node/ &{/busfreq};
+
+/delete-node/ &resmem;
+
+&mipi_pd {
+	status = "disabled";
+};
+
+&pcie0_pd {
+	status = "disabled";
+};
+
+&usb_otg1_pd {
+	status = "disabled";
+};
+
+&usb_otg2_pd {
+	status = "disabled";
+};
+
+&gpu_pd {
+	status = "disabled";
+};
+
+&vpu_pd {
+	status = "disabled";
+};
+
+&mipi_csi1_pd {
+	status = "disabled";
+};
+
+&mipi_csi2_pd {
+	status = "disabled";
+};
+
+&pcie1_pd {
+	status = "disabled";
+};
+
+&gpio1 {
+	status = "disabled";
+};
+&gpio2 {
+	status = "disabled";
+};
+&gpio3 {
+	status = "disabled";
+};
+&gpio4 {
+	status = "disabled";
+};
+&gpio5 {
+	status = "disabled";
+};
+
+/delete-node/ &tmu;
+/delete-node/ &{/thermal-zones};
+
+/delete-node/ &irqsteer_dcss;
+/delete-node/ &ocotp;
+/delete-node/ &snvs;
+
+&src {
+	/delete-property/ compatible;
+};
+
+&dcss {
+	/delete-property/ interrupt-parent;
+};
+
+/delete-node/ &gpc;
+/delete-node/ &system_counter;
+/delete-node/ &imx_ion;
+/delete-node/ &pcie0;
+/delete-node/ &pcie1;
+/delete-node/ &vpu;
+/delete-node/ &ddr_pmu0;
+/delete-node/ &imx_rpmsg;
+/*/delete-node/ &crypto;*/
+/*/delete-node/ &caam_sm;*/
+/delete-node/ &caam_snvs;
+/delete-node/ &irq_sec_vio;
+/delete-node/ &dma_apbh;
+/delete-node/ &gpmi;
+
+&gic {
+	reg = <0x0 0x38800000 0 0x10000>, /* GIC Dist */
+	      <0x0 0x38880000 0 0xC0000>; /* GICR (RD_base + SGI_base) */
+};
+
+
+/delete-node/ &iomuxc;
+
+&uart2 {
+	clocks = <&osc_25m>,
+		<&osc_25m>;
+	clock-names = "ipg", "per";
+	/delete-property/ dmas;
+	/delete-property/ dmas-names;
+	status = "okay";
+};
+
+&usdhc1 {
+	clocks = <&clk_dummy>,
+		<&clk_266m>,
+		<&clk_400m>;
+	/delete-property/assigned-clocks;
+	/delete-property/assigned-clock-rates;
+	clock-names = "ipg", "ahb", "per";
+	bus-width = <8>;
+	non-removable;
+	status = "okay";
+};
