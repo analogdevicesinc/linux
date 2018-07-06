@@ -157,6 +157,22 @@
 #define INTMSK_MSKTATOUT		BIT(20)
 #define INTMSK_MSKRXDATDONE		BIT(18)
 
+#define FIFOCTRL_FULLRX			BIT(25)
+#define FIFOCTRL_EMPTYRX		BIT(24)
+#define FIFOCTRL_FULLHSFR		BIT(23)
+#define FIFOCTRL_EMPTYHSFR		BIT(22)
+#define FIFOCTRL_FULLLSFR		BIT(21)
+#define FIFOCTRL_EMPTYLSFR		BIT(20)
+#define FIFOCTRL_FULLHMAIN		BIT(11)
+#define FIFOCTRL_EMPTYHMAIN		BIT(10)
+#define FIFOCTRL_FULLLMAIN		BIT(9)
+#define FIFOCTRL_EMPTYLMAIN		BIT(8)
+#define FIFOCTRL_NINITRX		BIT(4)
+#define FIFOCTRL_NINITSFR		BIT(3)
+#define FIFOCTRL_NINITI80		BIT(2)
+#define FIFOCTRL_NINITSUB		BIT(1)
+#define FIFOCTRL_NINITMAIN		BIT(0)
+
 #define PLLCTRL_DPDNSWAP_CLK		BIT(25)
 #define PLLCTRL_DPDNSWAP_DAT		BIT(24)
 #define PLLCTRL_PLLEN			BIT(23)
@@ -596,6 +612,27 @@ static void sec_mipi_dsim_config_dphy(struct sec_mipi_dsim *dsim)
 	dsim_write(dsim, 0xf000f, DSIM_TIMEOUT);
 }
 
+static void sec_mipi_dsim_init_fifo_pointers(struct sec_mipi_dsim *dsim)
+{
+	uint32_t fifoctrl, fifo_ptrs;
+
+	fifoctrl = dsim_read(dsim, DSIM_FIFOCTRL);
+
+	fifo_ptrs = FIFOCTRL_NINITRX	|
+		    FIFOCTRL_NINITSFR	|
+		    FIFOCTRL_NINITI80	|
+		    FIFOCTRL_NINITSUB	|
+		    FIFOCTRL_NINITMAIN;
+
+	fifoctrl &= ~fifo_ptrs;
+	dsim_write(dsim, fifoctrl, DSIM_FIFOCTRL);
+	udelay(500);
+
+	fifoctrl |= fifo_ptrs;
+	dsim_write(dsim, fifoctrl, DSIM_FIFOCTRL);
+	udelay(500);
+}
+
 static void sec_mipi_dsim_config_clkctrl(struct sec_mipi_dsim *dsim)
 {
 	uint32_t clkctrl = 0, data_lanes_en;
@@ -701,6 +738,9 @@ static void sec_mipi_dsim_bridge_enable(struct drm_bridge *bridge)
 
 	/* config dphy timings */
 	sec_mipi_dsim_config_dphy(dsim);
+
+	/* initialize FIFO pointers */
+	sec_mipi_dsim_init_fifo_pointers(dsim);
 
 	/* config esc clock, byte clock and etc */
 	sec_mipi_dsim_config_clkctrl(dsim);
