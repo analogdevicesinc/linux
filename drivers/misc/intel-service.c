@@ -192,13 +192,13 @@ struct intel_svc_chan *request_svc_channel_byname(
 {
 	struct device *dev = client->dev;
 	struct intel_svc_controller *controller;
-	struct intel_svc_chan *chan;
+	struct intel_svc_chan *chan = NULL;
 	unsigned long flag;
 	int i;
 
-	chan = ERR_PTR(-EPROBE_DEFER);
+	/* if probe was called after client's, or error on probe */
 	if (list_empty(&svc_ctrl))
-		return ERR_PTR(-ENODEV);
+		return ERR_PTR(-EPROBE_DEFER);
 
 	controller = list_first_entry(&svc_ctrl,
 				      struct intel_svc_controller, node);
@@ -207,6 +207,12 @@ struct intel_svc_chan *request_svc_channel_byname(
 			chan = &controller->chans[i];
 			break;
 		}
+	}
+
+	/* if there was no channel match */
+	if (i == SVC_NUM_CHANNEL) {
+		dev_err(dev, "%s: channel not allocated\n", __func__);
+		return ERR_PTR(-EINVAL);
 	}
 
 	if (chan->scl || !try_module_get(controller->dev->driver->owner)) {
