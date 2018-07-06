@@ -455,7 +455,6 @@
 		reg = <0x0 0x32e2d000 0x0 0x1000>;
 		interrupts = <GIC_SPI 18 IRQ_TYPE_LEVEL_HIGH>;
 		interrupt-controller;
-		interrupt-parent = <&gpc>;
 		#interrupt-cells = <2>;
 		nxp,irqsteer_chans = <2>;
 		nxp,endian = <1>;		/* MSB */
@@ -595,7 +594,6 @@
 		interrupts = <GIC_SPI 16 IRQ_TYPE_LEVEL_HIGH>,
 					<GIC_SPI 25 IRQ_TYPE_LEVEL_HIGH>;
 		interrupt-names = "plug_in", "plug_out";
-		interrupt-parent = <&gpc>;
 		fsl,cec;
 		status = "disabled";
 
@@ -800,7 +798,6 @@
 		clocks = <&clk IMX8MQ_CLK_ECSPI1_ROOT>,
 			 <&clk IMX8MQ_CLK_ECSPI1_ROOT>;
 		clock-names = "ipg", "per";
-		interrupt-parent = <&gpc>;
 		status = "disabled";
 	};
 
@@ -848,7 +845,6 @@
 		clocks = <&clk IMX8MQ_CLK_UART1_ROOT>,
 			<&clk IMX8MQ_CLK_UART1_ROOT>;
 		clock-names = "ipg", "per";
-		interrupt-parent = <&gpc>;
 		status = "disabled";
 	};
 
@@ -954,7 +950,6 @@
 			compatible = "snps,dwc3";
 			reg = <0x0 0x38100000 0x0 0x10000>;
 			interrupts = <GIC_SPI 40 IRQ_TYPE_LEVEL_HIGH>;
-			interrupt-parent = <&gpc>;
 			phys = <&usb3_phy0 0>, <&usb3_phy0 1>;
 			phy-names = "usb2-phy", "usb3-phy";
 			power-domains = <&usb_otg1_pd>;
@@ -995,7 +990,6 @@
 			compatible = "snps,dwc3";
 			reg = <0x0 0x38200000 0x0 0x10000>;
 			interrupts = <GIC_SPI 41 IRQ_TYPE_LEVEL_HIGH>;
-			interrupt-parent = <&gpc>;
 			phys = <&usb3_phy1 0>, <&usb3_phy1 1>;
 			phy-names = "usb2-phy", "usb3-phy";
 			power-domains = <&usb_otg2_pd>;
