@@ -1618,18 +1618,8 @@ static int synaptics_rmi4_irq_enable(struct synaptics_rmi4_data *rmi4_data,
 		bool enable)
 {
 	int retval = 0;
-	unsigned char intr_status[MAX_INTR_REGISTERS];
 
 	if (enable) {
-
-		/* Clear interrupts first */
-		retval = synaptics_rmi4_i2c_read(rmi4_data,
-				rmi4_data->f01_data_base_addr + 1,
-				intr_status,
-				rmi4_data->num_of_intr_regs);
-		if (retval < 0)
-			return retval;
-
 		/* set up irq */
 		if (!rmi4_data->irq_enabled) {
 #ifdef CONFIG_OF_TOUCH
