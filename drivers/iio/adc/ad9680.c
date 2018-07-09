@@ -831,6 +831,8 @@ static int ad9680_setup_link(struct spi_device *spi,
 	/* Disable SYSREF */
 	ret |= ad9680_spi_write(spi, 0x120, 0x00);
 
+	ret |= ad9680_spi_write(spi, 0x121, 0x0f);
+
 	switch (config->sysref.mode) {
 	case AD9680_SYSREF_CONTINUOUS:
 		val = 0x02;
@@ -1022,6 +1024,7 @@ static int ad9694_setup(struct spi_device *spi)
 	struct axiadc_converter *conv = spi_get_drvdata(spi);
 	struct ad9680_jesd204_link_config link_config;
 	unsigned int pll_stat;
+	unsigned int val;
 	unsigned int i;
 	int ret;
 
@@ -1060,7 +1063,7 @@ static int ad9694_setup(struct spi_device *spi)
 
 	if (conv->sysref_clk) {
 		link_config.subclass = 1;
-		link_config.sysref.mode = AD9680_SYSREF_CONTINUOUS;
+		link_config.sysref.mode = AD9680_SYSREF_ONESHOT;
 	} else {
 		link_config.subclass = 0;
 		link_config.sysref.mode = AD9680_SYSREF_DISABLED;
@@ -1084,6 +1087,18 @@ static int ad9694_setup(struct spi_device *spi)
 
 	dev_info(&conv->spi->dev, "AD9694 PLL %s\n",
 		 pll_stat & 0x80 ? "LOCKED" : "UNLOCKED");
+
+	/* Re-arm the SYSREF in oneshot mode */
+	if (link_config.sysref.mode == AD9680_SYSREF_ONESHOT) {
+		val = 0x04;
+
+		if (link_config.sysref.capture_falling_edge)
+			val |= 0x08;
+
+		if (link_config.sysref.valid_falling_edge)
+			val |= 0x10;
+		ad9680_spi_write(spi, 0x120, val);
+	}
 
 	ret = clk_prepare_enable(conv->lane_clk);
 	if (ret < 0) {
