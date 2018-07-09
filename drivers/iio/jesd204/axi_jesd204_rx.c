@@ -62,6 +62,9 @@
 /* JESD204_RX_REG_SYSREF_CONF */
 #define JESD204_RX_REG_SYSREF_CONF_SYSREF_DISABLE	BIT(0)
 
+/* JESD204_RX_REG_LINK_CONF2 */
+#define JESD204_RX_LINK_CONF2_BUFFER_EARLY_RELEASE	BIT(16)
+
 struct jesd204_rx_config {
 	uint8_t device_id;
 	uint8_t bank_id;
@@ -318,9 +321,12 @@ static int axi_jesd204_rx_apply_config(struct axi_jesd204_rx *jesd,
 
 	writel_relaxed(val, jesd->base + JESD204_RX_REG_LINK_CONF0);
 
-	if (config->subclass_version == 0)
+	if (config->subclass_version == 0) {
 		writel_relaxed(JESD204_RX_REG_SYSREF_CONF_SYSREF_DISABLE,
 			       jesd->base + JESD204_RX_REG_SYSREF_CONF);
+		writel_relaxed(JESD204_RX_LINK_CONF2_BUFFER_EARLY_RELEASE,
+			       jesd->base + JESD204_RX_REG_LINK_CONF2);
+	}
 
 	return 0;
 }
