@@ -1,0 +1,77 @@
+* Analog Devices ADF4360 PLL
+
+The ADF4360 devices are a family of PLLs with integrated VCO and integer-N frequency
+synthesizer. Each of the parts in the family has a specific frequency range that
+is supported by its respective internal VCO.
+
+The device has a reference clock input and a clock output that has the generated
+frequency.
+
+An external loop filter is required on the PCB to control the loop of the
+phase-frequency-detector of the PLL. The charge pump current and the
+phase-frequency-detector frequency need to be configured according to the
+requirements for which the external loop filter was designed.
+
+The device offers a write-only SPI interface to configure it.
+
+The devicetree bindings for this device follow the standard bindings for SPI
+devices (../spi/spi.txt) and clock consumers and providers (clock-bindings.txt).
+
+Required properties:
+
+- compatible: must be one of
+    * adi,adf4360-0
+    * adi,adf4360-1
+    * adi,adf4360-2
+    * adi,adf4360-3
+    * adi,adf4360-4
+    * adi,adf4360-5
+    * adi,adf4360-6
+    * adi,adf4360-7
+    * adi,adf4360-8
+    * adi,adf4360-9
+- reg: SPI chip select number for the device
+- spi-max-frequency: Max SPI frequency to use (< 20000000)
+- #clock-cells: Must should be 0.
+- clock-output-names:
+- clocks: Phandle and optional specifier to clock node that describes the
+    reference input clock
+
+- adi,loop-filter-pfd-frequency-hz: The frequency of the
+    phase-frequency-detector that the external loop filter was designed for.
+- adi,loop-filter-charger-pump-current: The charge pump current that the
+    external loop filter was designed for.
+
+Optional properties:
+- adi,loop-filter-inverting: Indicates that the external loop filter is a
+    inverting filter.
+
+Required properties for ADF4360-7, ADF4360-8 and ADF4360-9:
+  ADF4360-7 to ADF4360-9 have a VCO that is tuned to a specific frequency range
+  using an external inductor placed on the PCB. These properties describe the
+  range selected by the external inductor.
+
+- adi,vco-minimum-frequency-hz: Minimum VCO frequency that can be supported by
+    the tuning range set by the external inductor.
+- adi,vco-maximum-frequency-hz: Maximum VCO frequency that can be supported by
+    the tuning range set by the external inductor.
+
+Example:
+
+&spi {
+	pll@0 {
+		compatible = "adi,adf4360-7";
+		reg = <0>;
+		spi-max-frequency = <2000000>;
+
+		#clock-cells = <0>;
+		clock-output-names = "adf4360-7";
+
+		clocks = <&ref_clock>;
+
+		adi,loop-filter-charge-pump-current = <5>;
+		adi,loop-filter-pfd-frequency-hz = <2500000>;
+		adi,vco-minimum-frequency-hz = <700000000>;
+		adi,vco-maximum-frequency-hz = <840000000>;
+	};
+};
