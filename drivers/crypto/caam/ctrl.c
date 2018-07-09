@@ -81,12 +81,17 @@ static int caam_remove(struct platform_device *pdev)
 	iounmap(ctrl);
 
 	/* shut clocks off before finalizing shutdown */
-	clk_disable_unprepare(ctrlpriv->caam_ipg);
-	clk_disable_unprepare(ctrlpriv->caam_aclk);
-	if (ctrlpriv->caam_mem)
-		clk_disable_unprepare(ctrlpriv->caam_mem);
-	if (ctrlpriv->caam_emi_slow)
-		clk_disable_unprepare(ctrlpriv->caam_emi_slow);
+	if (!of_machine_is_compatible("fsl,imx8mm") &&
+		!of_machine_is_compatible("fsl,imx8mq") &&
+		!of_machine_is_compatible("fsl,imx8qm") &&
+		!of_machine_is_compatible("fsl,imx8qxp")) {
+		clk_disable_unprepare(ctrlpriv->caam_ipg);
+		clk_disable_unprepare(ctrlpriv->caam_aclk);
+		if (ctrlpriv->caam_mem)
+			clk_disable_unprepare(ctrlpriv->caam_mem);
+		if (ctrlpriv->caam_emi_slow)
+			clk_disable_unprepare(ctrlpriv->caam_emi_slow);
+	}
 
 	return 0;
 }
@@ -313,8 +318,10 @@ static int caam_probe(struct platform_device *pdev)
 	int block_offset = 0;
 
 	ctrlpriv = devm_kzalloc(&pdev->dev, sizeof(*ctrlpriv), GFP_KERNEL);
-	if (!ctrlpriv)
-		return -ENOMEM;
+	if (!ctrlpriv) {
+		ret = -ENOMEM;
+		goto exit;
+	}
 
 	dev = &pdev->dev;
 	dev_set_drvdata(dev, ctrlpriv);
@@ -330,7 +337,7 @@ static int caam_probe(struct platform_device *pdev)
 	     !of_machine_is_compatible("fsl,imx8qxp")) {
 		ret = init_clocks(ctrlpriv);
 		if (ret)
-			goto disable_clocks;
+			goto exit;
 	}
 	/* Get configuration properties from device tree */
 	/* First, get register page */
@@ -383,7 +390,7 @@ static int caam_probe(struct platform_device *pdev)
 	np = of_find_compatible_node(NULL, NULL, "fsl,imx6q-caam-sm");
 	if (!np) {
 		ret = -ENODEV;
-		goto disable_clocks;
+		goto iounmap_ctrl;
 	}
 
 	/* Get CAAM SM registers base address from device tree */
@@ -391,14 +398,14 @@ static int caam_probe(struct platform_device *pdev)
 	if (ret) {
 		dev_err(dev, "failed to retrieve registers base from device tree\n");
 		ret = -ENODEV;
-		goto disable_clocks;
+		goto iounmap_ctrl;
 	}
 
 	ctrlpriv->sm_phy = res_regs.start;
 	ctrlpriv->sm_base = devm_ioremap_resource(dev, &res_regs);
 	if (IS_ERR(ctrlpriv->sm_base)) {
 		ret = PTR_ERR(ctrlpriv->sm_base);
-		goto disable_clocks;
+		goto iounmap_ctrl;
 	}
 
 	if (!of_machine_is_compatible("fsl,imx8mm") &&
@@ -493,6 +500,7 @@ disable_clocks:
 		clk_disable_unprepare(ctrlpriv->caam_ipg);
 	}
 
+exit:
 	return ret;
 }
 
