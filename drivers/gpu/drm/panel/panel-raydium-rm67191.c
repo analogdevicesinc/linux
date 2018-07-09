@@ -270,7 +270,8 @@ static int rad_panel_unprepare(struct drm_panel *panel)
 
 	if (rad->reset != NULL) {
 		gpiod_set_value(rad->reset, 0);
-		usleep_range(10000, 15000);
+		usleep_range(15000, 17000);
+		gpiod_set_value(rad->reset, 1);
 	}
 
 	rad->prepared = false;
