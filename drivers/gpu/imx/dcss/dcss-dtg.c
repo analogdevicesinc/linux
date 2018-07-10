@@ -284,7 +284,7 @@ void dcss_dtg_sync_set(struct dcss_soc *dcss, struct videomode *vm)
 	clk_prepare_enable(dcss->pdiv_clk);
 	clk_prepare_enable(dcss->pout_clk);
 
-	msleep(500);
+	msleep(50);
 
 	dcss_dtg_write(dtg, ((dtg_lrc_y << TC_Y_POS) | dtg_lrc_x),
 		       DCSS_DTG_TC_DTG);
