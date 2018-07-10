@@ -1646,7 +1646,7 @@ static void vpu_api_event_handler(struct vpu_ctx *ctx, u_int32 uStrIdx, u_int32 
 				break;
 			}
 
-			if (!list_empty(&This->drv_q)) {
+			if (!list_empty(&This->drv_q) && !ctx->wait_rst_done) {
 				down(&This->drv_q_lock);
 				list_for_each_entry_safe(p_data_req, p_temp, &This->drv_q, list) {
 					if (p_data_req->status == FRAME_ALLOC
