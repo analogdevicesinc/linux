@@ -159,7 +159,7 @@ MODULE_PARM_DESC(hantro_dbg, "Debug level (0-1)");
 	} while (0)
 
 
-static int hantrodec_major = -1; /* dynamic allocation */
+static int hantrodec_major; /* dynamic allocation */
 
 /* here's all the must remember stuff */
 typedef struct {
