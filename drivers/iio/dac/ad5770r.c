@@ -585,8 +585,8 @@ static int ad5770r_probe(struct spi_device *spi)
 	if (!IS_ERR(st->vref_reg)) {
 		ret = regulator_enable(st->vref_reg);
 		if (ret)
-			dev_err(&spi->dev, "Failed to enable vref regulators: %d\n",
-				ret);
+			dev_err(&spi->dev,
+				"Failed to enable vref regulators: %d\n", ret);
 
 		ret = regulator_get_voltage(st->vref_reg);
 		if (ret < 0) {
