@@ -222,7 +222,9 @@ static int dcss_plane_atomic_check(struct drm_plane *plane,
 	    state->crtc_y + state->crtc_h > vdisplay) {
 		if (plane->type == DRM_PLANE_TYPE_PRIMARY)
 			return -EINVAL;
-		else if (!(fb->flags & DRM_MODE_FB_MODIFIERS))
+		else if (!(fb->flags & DRM_MODE_FB_MODIFIERS) ||
+			 (fb->flags & DRM_MODE_FB_MODIFIERS &&
+			  fb->modifier == DRM_FORMAT_MOD_LINEAR))
 			return -EINVAL;
 	}
 
