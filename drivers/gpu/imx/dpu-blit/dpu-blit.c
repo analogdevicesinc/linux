@@ -422,6 +422,12 @@ EXPORT_SYMBOL_GPL(dpu_bliteng_init);
 
 void dpu_bliteng_fini(struct dpu_bliteng *dpu_bliteng)
 {
+	/* LockUnlock and LockUnlockHIF */
+	dpu_be_write(dpu_bliteng, CMDSEQ_LOCKUNLOCKHIF_LOCKUNLOCKHIF__LOCK_KEY,
+		CMDSEQ_LOCKUNLOCKHIF);
+	dpu_be_write(dpu_bliteng, CMDSEQ_LOCKUNLOCK_LOCKUNLOCK__LOCK_KEY,
+		CMDSEQ_LOCKUNLOCK);
+
 	kfree(dpu_bliteng->cmd_list);
 
 	if (dpu_bliteng->buffer_addr_virt)
