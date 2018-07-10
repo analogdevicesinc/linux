@@ -68,6 +68,7 @@ struct cdns3_role_driver {
  * @role_switch_wq: work queue item for role switch
  * @in_lpm: the controller in low power mode
  * @wakeup_int: the wakeup interrupt
+ * @mutex: the mutex for concurrent code at driver
  */
 struct cdns3 {
 	struct device *dev;
@@ -89,6 +90,7 @@ struct cdns3 {
 	struct work_struct role_switch_wq;
 	bool in_lpm;
 	bool wakeup_int;
+	struct mutex mutex;
 };
 
 static inline struct cdns3_role_driver *cdns3_role(struct cdns3 *cdns)
@@ -99,14 +101,18 @@ static inline struct cdns3_role_driver *cdns3_role(struct cdns3 *cdns)
 
 static inline int cdns3_role_start(struct cdns3 *cdns, enum cdns3_roles role)
 {
+	int ret;
 	if (role >= CDNS3_ROLE_END)
 		return 0;
 
 	if (!cdns->roles[role])
 		return -ENXIO;
 
+	mutex_lock(&cdns->mutex);
 	cdns->role = role;
-	return cdns->roles[role]->start(cdns);
+	ret = cdns->roles[role]->start(cdns);
+	mutex_unlock(&cdns->mutex);
+	return ret;
 }
 
 static inline void cdns3_role_stop(struct cdns3 *cdns)
@@ -116,8 +122,10 @@ static inline void cdns3_role_stop(struct cdns3 *cdns)
 	if (role == CDNS3_ROLE_END)
 		return;
 
+	mutex_lock(&cdns->mutex);
 	cdns->roles[role]->stop(cdns);
 	cdns->role = CDNS3_ROLE_END;
+	mutex_unlock(&cdns->mutex);
 }
 
 #endif /* __DRIVERS_USB_CDNS3_CORE_H */

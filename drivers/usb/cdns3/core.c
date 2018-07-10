@@ -561,6 +561,7 @@ static int cdns3_probe(struct platform_device *pdev)
 		return PTR_ERR(regs);
 	cdns->otg_regs = regs;
 
+	mutex_init(&cdns->mutex);
 	ret = cdns3_get_clks(dev);
 	if (ret)
 		return ret;
