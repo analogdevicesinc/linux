@@ -250,9 +250,11 @@
 #define CMDSEQ_HIF                                  ((uint32_t)(0x400))
 
 #define CMDSEQ_LOCKUNLOCKHIF                        ((uint32_t)(0x500))
+#define CMDSEQ_LOCKUNLOCKHIF_LOCKUNLOCKHIF__LOCK_KEY 0x5651F763U
 #define CMDSEQ_LOCKUNLOCKHIF_LOCKUNLOCKHIF__UNLOCK_KEY 0x691DB936U
 
 #define CMDSEQ_LOCKUNLOCK                           ((uint32_t)(0x580))
+#define CMDSEQ_LOCKUNLOCK_LOCKUNLOCK__LOCK_KEY      0x5651F763U
 #define CMDSEQ_LOCKUNLOCK_LOCKUNLOCK__UNLOCK_KEY    0x691DB936U
 
 #define CMDSEQ_BUFFERADDRESS                        ((uint32_t)(0x588))
