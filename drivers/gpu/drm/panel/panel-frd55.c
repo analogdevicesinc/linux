@@ -28,9 +28,9 @@ struct frd55 {
 static const struct drm_display_mode default_mode = {
 	.clock = 125000,
 	.hdisplay = HDISP,
-	.hsync_start = HDISP*2 + 12,
-	.hsync_end = HDISP*2 + 12 + 2,
-	.htotal = HDISP*2 + 12 + 2 + 18,
+	.hsync_start = HDISP + 12 + 64,
+	.hsync_end = HDISP + 12 + 2 + 64,
+	.htotal = HDISP + 12 + 2 + 18 + 64,
 	.vdisplay = VDISP,
 	.vsync_start = VDISP + 4,
 	.vsync_end = VDISP + 4 + 2,
@@ -102,9 +102,9 @@ static int frd55_init_sequence(struct frd55 *ctx)
 	dcs_write_seq(ctx, 0x07, 0xD0);
 	dcs_write_seq(ctx, 0x0A, 0x0F);
 	dcs_write_seq(ctx, 0x0C, 0x06);
-	dcs_write_seq(ctx, 0x0D, 0x7F);
-	dcs_write_seq(ctx, 0x0E, 0x7F);
-	dcs_write_seq(ctx, 0x0F, 0x74);
+	dcs_write_seq(ctx, 0x0D, 0x00);
+	dcs_write_seq(ctx, 0x0E, 0x00);
+	dcs_write_seq(ctx, 0x0F, 0x77);
 	dcs_write_seq(ctx, 0x10, 0x63);
 	dcs_write_seq(ctx, 0x11, 0x3C);
 	dcs_write_seq(ctx, 0x12, 0x5C);
