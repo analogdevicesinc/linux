@@ -12,6 +12,14 @@
 		regulator-max-microvolt = <4096000>;
 		regulator-always-on;
 	};
+
+	clocks {
+		ad7768_mclk: clock@0 {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <32768000>;
+		};
+	};
 };
 
 &fpga_axi {
@@ -49,5 +57,7 @@
 		dma-names = "rx";
 
 		vref-supply = <&vref>;
+		clocks = <&ad7768_mclk>;
+		clock-names = "mclk";
 	};
 };
