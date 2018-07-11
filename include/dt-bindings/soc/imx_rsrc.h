@@ -336,7 +336,7 @@
 #define SC_R_SAI_2                      320
 #define SC_R_IRQSTR_SCU2                321
 #define SC_R_IRQSTR_DSP                 322
-#define SC_R_UNUSED5                    323
+#define SC_R_ELCDIF_PLL                 323
 #define SC_R_UNUSED6                    324
 #define SC_R_AUDIO_PLL_0                325
 #define SC_R_PI_0                       326

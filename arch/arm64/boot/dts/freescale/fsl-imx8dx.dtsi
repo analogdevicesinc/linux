@@ -979,10 +979,19 @@
 				#power-domain-cells = <0>;
 				power-domains = <&pd_dma>;
 			};
-			pd_dma_lcd0: PD_DMA_LCD_0 {
-				reg = <SC_R_LCD_0>;
+
+			pd_dma_elcdif_pll: PD_DMA_ELCDIF_PLL {
+				reg = <SC_R_ELCDIF_PLL>;
 				#power-domain-cells = <0>;
 				power-domains = <&pd_dma>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				pd_dma_lcd0: PD_DMA_LCD_0 {
+					reg = <SC_R_LCD_0>;
+					#power-domain-cells = <0>;
+					power-domains = <&pd_dma_elcdif_pll>;
+				};
 			};
 		};
 

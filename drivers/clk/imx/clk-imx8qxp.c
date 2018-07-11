@@ -139,6 +139,22 @@ static const char *pll0_sels[] = {
 	"dummy",
 };
 
+static const char *lcd_pxl_sels[] = {
+	"dummy",
+	"dummy",
+	"dummy",
+	"dummy",
+	"lcd_pxl_bypass_div",
+};
+
+static const char *lcd_sels[] = {
+	"dummy",
+	"dummy",
+	"dummy",
+	"dummy",
+	"elcdif_pll",
+};
+
 static struct clk *clks[IMX8QXP_CLK_END];
 static struct clk_onecell_data clk_data;
 
@@ -171,10 +187,12 @@ static int imx8qxp_clk_probe(struct platform_device *pdev)
 	/* User Defined PLLs dividers */
 	clks[IMX8QXP_AUD_PLL0_DIV] = imx_clk_divider_scu("audio_pll0_div", SC_R_AUDIO_PLL_0, SC_PM_CLK_PLL);
 	clks[IMX8QXP_AUD_PLL1_DIV] = imx_clk_divider_scu("audio_pll1_div", SC_R_AUDIO_PLL_1, SC_PM_CLK_PLL);
+	clks[IMX8QXP_ELCDIF_PLL_DIV] = imx_clk_divider_scu("elcdif_pll_div", SC_R_ELCDIF_PLL, SC_PM_CLK_PLL);
 
 	/* User Defined PLLs clocks */
 	clks[IMX8QXP_AUD_PLL0]     = imx_clk_gate_scu("audio_pll0_clk", "audio_pll0_div", SC_R_AUDIO_PLL_0, SC_PM_CLK_PLL, NULL, 0, 0);
 	clks[IMX8QXP_AUD_PLL1]     = imx_clk_gate_scu("audio_pll1_clk", "audio_pll1_div", SC_R_AUDIO_PLL_1, SC_PM_CLK_PLL, NULL, 0, 0);
+	clks[IMX8QXP_ELCDIF_PLL] = imx_clk_gate_scu("elcdif_pll", "elcdif_pll_div", SC_R_ELCDIF_PLL, SC_PM_CLK_PLL, NULL, 0, 0);
 
 	clks[IMX8QXP_IPG_DMA_CLK_ROOT] = imx_clk_fixed("ipg_dma_clk_root", SC_120MHZ);
 	clks[IMX8QXP_IPG_AUD_CLK_ROOT] = imx_clk_fixed("ipg_aud_clk_root", SC_150MHZ);
@@ -360,7 +378,13 @@ static int imx8qxp_clk_probe(struct platform_device *pdev)
 	clks[IMX8QXP_PWM_DIV] = imx_clk_divider_scu("pwm_div", SC_R_LCD_0_PWM_0, SC_PM_CLK_PER);
 	clks[IMX8QXP_PWM_CLK] = imx_clk_gate_scu("pwm_clk", "pwm_div", SC_R_LCD_0_PWM_0, SC_PM_CLK_PER, (void __iomem *)(PWM_LPCG), 0, 0);
 	clks[IMX8QXP_LCD_IPG_CLK] = imx_clk_gate2_scu("lcd_ipg_clk", "ipg_dma_clk_root", (void __iomem *)(LCD_LPCG), 16, FUNCTION_NAME(PD_DMA_LCD_0));
-	clks[IMX8QXP_LCD_DIV] = imx_clk_divider_scu("lcd_div", SC_R_LCD_0, SC_PM_CLK_PER);
+
+	clks[IMX8QXP_LCD_PXL_BYPASS_DIV] = imx_clk_divider_scu("lcd_pxl_bypass_div", SC_R_LCD_0, SC_PM_CLK_BYPASS);
+	clks[IMX8QXP_LCD_PXL_SEL] = imx_clk_mux2_scu("lcd_pxl_sel", lcd_pxl_sels, ARRAY_SIZE(lcd_pxl_sels), SC_R_LCD_0, SC_PM_CLK_MISC0);
+	clks[IMX8QXP_LCD_PXL_DIV] = imx_clk_divider2_scu("lcd_pxl_div", "lcd_pxl_sel", SC_R_LCD_0, SC_PM_CLK_MISC0);
+	clks[IMX8QXP_LCD_PXL_CLK] = imx_clk_gate_scu("lcd_pxl_clk", "lcd_pxl_div", SC_R_LCD_0, SC_PM_CLK_MISC0, NULL, 0, 0);
+	clks[IMX8QXP_LCD_SEL] = imx_clk_mux2_scu("lcd_sel", lcd_sels, ARRAY_SIZE(lcd_sels), SC_R_LCD_0, SC_PM_CLK_PER);
+	clks[IMX8QXP_LCD_DIV] = imx_clk_divider2_scu("lcd_div", "lcd_sel", SC_R_LCD_0, SC_PM_CLK_PER);
 	clks[IMX8QXP_LCD_CLK] = imx_clk_gate_scu("lcd_clk", "lcd_div", SC_R_LCD_0, SC_PM_CLK_PER, (void __iomem *)(LCD_LPCG), 0, 0);
 
 	/* Connectivity */

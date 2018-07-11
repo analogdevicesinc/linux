@@ -65,6 +65,7 @@
 #define PD_DMA_CAN_2                dma_flexcan2
 #define PD_DMA_PWM_0                dma_pwm0
 #define PD_DMA_LCD_0                dma_lcd0
+#define PD_DMA_ELCDIF_PLL           dma_elcdif_pll
 
 #define PD_HSIO                     hsio_power_domain
 #define PD_HSIO_PCIE_A              hsio_pcie0
