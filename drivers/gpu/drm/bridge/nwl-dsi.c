@@ -960,7 +960,7 @@ static int nwl_dsi_bridge_attach(struct drm_bridge *bridge)
 		}
 
 		dsi->next_bridge = of_drm_find_bridge(remote_node);
-		ret = drm_bridge_attach(encoder, dsi->next_bridge, encoder->bridge);
+		ret = drm_bridge_attach(encoder, dsi->next_bridge, bridge);
 		if (ret)
 			dsi->next_bridge = NULL;
 		of_node_put(remote_node);
