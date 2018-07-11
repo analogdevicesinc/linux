@@ -466,7 +466,7 @@ static int imx_cdnhdmi_probe(struct platform_device *pdev)
 		data->dai.dai_fmt = SND_SOC_DAIFMT_I2S |
 			    SND_SOC_DAIFMT_NB_NF |
 			    SND_SOC_DAIFMT_CBS_CFS;
-		data->dai.codec_dai_name = "hdmi-hifi.0";
+		data->dai.codec_dai_name = "i2s-hifi";
 		data->dai.codec_name = "hdmi-audio-codec.1";
 		data->card.controls	= imx_cdnhdmi_ctrls;
 		data->card.num_controls	= ARRAY_SIZE(imx_cdnhdmi_ctrls);
@@ -478,7 +478,7 @@ static int imx_cdnhdmi_probe(struct platform_device *pdev)
 		data->dai.dai_fmt = SND_SOC_DAIFMT_I2S |
 			    SND_SOC_DAIFMT_NB_NF |
 			    SND_SOC_DAIFMT_CBM_CFM;
-		data->dai.codec_dai_name = "hdmi-hifi.0";
+		data->dai.codec_dai_name = "i2s-hifi";
 		data->dai.codec_name = "hdmi-audio-codec.2";
 		data->card.controls	= imx_cdnhdmi_rx_ctrls;
 		data->card.num_controls	= ARRAY_SIZE(imx_cdnhdmi_rx_ctrls);
