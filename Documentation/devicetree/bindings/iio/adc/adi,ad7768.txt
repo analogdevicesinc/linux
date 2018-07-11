@@ -7,6 +7,8 @@ Required properties:
 	- dmas: DMA specifier, consisting of a phandle to DMA controller node.
 	- dma-names: Must be "rx".
 	- vref-supply: phandle to the regulator for ADC reference voltage.
+	- clocks: phandle to the master clock (mclk).
+	- clock-names: Must be "mclk".
 
 Example:
 
@@ -19,4 +21,6 @@ ad7768: adc@0 {
 	dma-names = "rx";
 
 	vref-supply = <&vref>;
+	clocks = <&adc_clk>;
+	clock-names = "mclk";
 };
