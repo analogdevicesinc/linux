@@ -1091,9 +1091,9 @@
 			      "gpu2d_clk", "gpu2d_axi_clk",
                               "gpu2d_ahb_clk";
 
-		assigned-clocks = <&clk IMX8MM_CLK_GPU3D_SRC>, <&clk IMX8MM_CLK_GPU2D_SRC>, <&clk IMX8MM_CLK_GPU_AXI_SRC>, <&clk IMX8MM_CLK_GPU_AHB_SRC>,<&clk IMX8MM_GPU_PLL_OUT>;
+		assigned-clocks = <&clk IMX8MM_CLK_GPU3D_SRC>, <&clk IMX8MM_CLK_GPU2D_SRC>, <&clk IMX8MM_CLK_GPU_AXI_SRC>, <&clk IMX8MM_CLK_GPU_AHB_SRC>,<&clk IMX8MM_GPU_PLL_OUT>, <&clk IMX8MM_CLK_GPU_AHB_DIV>;
 		assigned-clock-parents = <&clk IMX8MM_GPU_PLL_OUT>,<&clk IMX8MM_GPU_PLL_OUT>, <&clk IMX8MM_SYS_PLL1_800M>, <&clk IMX8MM_SYS_PLL1_800M>;
-		assigned-clock-rates = <0>, <0>, <0>,<0>,<1000000000>;
+		assigned-clock-rates = <0>, <0>, <0>,<0>,<1000000000>, <400000000>;
 
 		power-domains = <&gpu_mix_pd>;
 
