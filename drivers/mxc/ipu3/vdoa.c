@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2012-2015 Freescale Semiconductor, Inc. All Rights Reserved.
+ * Copyright 2018 NXP
  *
  * The code contained herein is licensed under the GNU General Public
  * License. You may obtain a copy of the GNU General Public License
@@ -528,7 +529,7 @@ static void __exit vdoa_cleanup(void)
 	platform_driver_unregister(&vdoa_driver);
 }
 
-module_init(vdoa_init);
+subsys_initcall(vdoa_init);
 module_exit(vdoa_cleanup);
 
 MODULE_AUTHOR("Freescale Semiconductor, Inc.");
