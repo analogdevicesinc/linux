@@ -34,23 +34,23 @@ Optional properties:
 		[Bits 2:0] - see register 0x005A. If this is not specified,
 		0 will be used by default.
 	- adi,clkin0-buffer-mode - CLKIN0 Input Buffer Control, for
-		specifing the Input Buffer Mode (Bits [4:1]) and the
+		specifying the Input Buffer Mode (Bits [4:1]) and the
 		Buffer enable bit ([0]) - see register 0x000A. If this is
 		not specified, 0 will be used by default.
 	- adi,clkin1-buffer-mode - CLKIN1 Input Buffer Control, for
-		specifing the Input Buffer Mode (Bits [4:1]) and the
+		specifying the Input Buffer Mode (Bits [4:1]) and the
 		Buffer enable bit ([0]) - see register 0x000B. If this is
 		not specified, 0 will be used by default.
 	- adi,clkin2-buffer-mode - CLKIN2 Input Buffer Control, for
-		specifing the Input Buffer Mode (Bits [4:1]) and the
+		specifying the Input Buffer Mode (Bits [4:1]) and the
 		Buffer enable bit ([0]) - see register 0x000C. If this is
 		not specified, 0 will be used by default.
 	- adi,clkin3-buffer-mode - CLKIN3 Input Buffer Control, for
-		specifing the Input Buffer Mode (Bits [4:1]) and the
+		specifying the Input Buffer Mode (Bits [4:1]) and the
 		Buffer enable bit ([0]) - see register 0x000D. If this is
 		not specified, 0 will be used by default.
 	- adi,oscin-buffer-mode - OSCIN Input Buffer Control, for
-		specifing the Input Buffer Mode (Bits [4:1]) and the
+		specifying the Input Buffer Mode (Bits [4:1]) and the
 		Buffer enable bit ([0]) - see register 0x000E. If this is
 		not specified, 0 will be used by default.
 
