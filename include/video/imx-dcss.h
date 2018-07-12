@@ -53,6 +53,9 @@ void dcss_trace_write(u64 tag);
 
 #define dcss_trace_module(mod_tag, val) dcss_trace_write((mod_tag) | (val));
 
+/* COMMON */
+void dcss_req_pm_qos(struct dcss_soc *dcss, bool en);
+
 /* BLKCTL */
 void dcss_blkctl_hdmi_secure_src_en(struct dcss_soc *dcss);
 

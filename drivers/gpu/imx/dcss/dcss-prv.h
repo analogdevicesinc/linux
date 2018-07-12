@@ -61,6 +61,7 @@ struct dcss_soc {
 	bool clks_on;
 
 	struct pm_qos_request pm_qos_req;
+	bool pm_req_active;
 };
 
 /* BLKCTL */

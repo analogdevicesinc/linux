@@ -106,6 +106,8 @@ static int dcss_enable_vblank(struct drm_crtc *crtc)
 
 	dcss_crtc->irq_enabled = true;
 
+	dcss_req_pm_qos(dcss, true);
+
 	dcss_vblank_irq_enable(dcss, true);
 
 	enable_irq(dcss_crtc->irq);
@@ -122,6 +124,8 @@ static void dcss_disable_vblank(struct drm_crtc *crtc)
 	disable_irq_nosync(dcss_crtc->irq);
 
 	dcss_vblank_irq_enable(dcss, false);
+
+	dcss_req_pm_qos(dcss, false);
 
 	dcss_crtc->irq_enabled = false;
 }
