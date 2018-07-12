@@ -1,7 +1,8 @@
 /*
  * caam - Freescale FSL CAAM support for ahash functions of crypto API
  *
- * Copyright 2017 NXP
+ * Copyright 2011 Freescale Semiconductor, Inc.
+ * Copyright 2017-2018 NXP
  *
  * Based on caamalg.c crypto API driver.
  *

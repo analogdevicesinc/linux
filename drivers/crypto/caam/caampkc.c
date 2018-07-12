@@ -1,7 +1,8 @@
 /*
  * caam - Freescale FSL CAAM support for Public Key Cryptography
  *
- * Copyright 2017 NXP
+ * Copyright 2016 Freescale Semiconductor, Inc.
+ * Copyright 2017-2018 NXP
  *
  * There is no Shared Descriptor for PKC so that the Job Descriptor must carry
  * all the desired key parameters, input and output pointers.

@@ -2,6 +2,7 @@
  * caam - Freescale FSL CAAM support for hw_random
  *
  * Copyright 2011 Freescale Semiconductor, Inc.
+ * Copyright 2018 NXP
  *
  * Based on caamalg.c crypto API driver.
  *

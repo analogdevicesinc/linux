@@ -3,6 +3,7 @@
  * CAAM Protocol Data Block (PDB) definition header file
  *
  * Copyright 2008-2016 Freescale Semiconductor, Inc.
+ * Copyright 2018 NXP
  *
  */
 

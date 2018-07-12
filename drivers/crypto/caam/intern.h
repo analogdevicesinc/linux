@@ -4,7 +4,7 @@
  * Private/internal definitions between modules
  *
  * Copyright 2008-2016 Freescale Semiconductor, Inc.
- * Copyright 2017 NXP
+ * Copyright 2017-2018 NXP
  *
  */
 

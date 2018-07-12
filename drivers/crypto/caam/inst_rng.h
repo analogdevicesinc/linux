@@ -2,7 +2,7 @@
 /*
  * CAAM Private/internal definitions between modules
  *
- * Copyright 2017 NXP Semiconductor, Inc.
+ * Copyright 2017-2018 NXP Semiconductor, Inc.
  */
 
 #ifndef INST_RNG_H

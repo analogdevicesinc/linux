@@ -2,7 +2,7 @@
 /*
  * CAAM RNG instantiation driver backend
  *
- * Copyright 2017 NXP Semiconductor, Inc.
+ * Copyright 2017-2018 NXP Semiconductor, Inc.
  */
 
 #include <linux/device.h>
