@@ -34,6 +34,7 @@
 
 &lcdif {
 	status = "okay";
+	max-res = <1920>, <1080>;
 
 	port@0 {
 		lcdif_mipi_dsi: mipi-dsi-endpoint {
@@ -48,6 +49,10 @@
 		reg = <0x3d>;
 		adi,addr-cec = <0x3b>;
 		adi,dsi-lanes = <4>;
+		pinctrl-0 = <&pinctrl_i2c1_dsi_ts_int>;
+		interrupt-parent = <&gpio5>;
+		interrupts = <7 IRQ_TYPE_LEVEL_LOW>;
+
 		status = "okay";
 
 		port {
@@ -85,3 +90,12 @@
 	};
 };
 
+&iomuxc {
+	imx8mq-evk {
+		pinctrl_i2c1_dsi_ts_int: dsi_ts_int {
+			fsl,pins = <
+				MX8MQ_IOMUXC_ECSPI1_MOSI_GPIO5_IO7              0x19
+			>;
+		};
+	};
+};
