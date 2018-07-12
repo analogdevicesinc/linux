@@ -7,10 +7,17 @@ Required properties:
  - reg: SPI chip select number for the device
  - spi-max-frequency: Max SPI frequency to use
 
+Optional properties:
+ - interrupt-parent: phandle to the parent interrupt controller
+ - interrupts: interrupt mapping for GPIO IRQ, it should by configured with
+ 		flag IRQ_TYPE_EDGE_FALLING
+
 Example:
 
 	accelerometer@0 {
 		compatible = "adi,adxl372";
 		reg = <0>;
 		spi-max-frequency = <1000000>;
+		interrupt-parent = <&gpio>;
+		interrupts = <25 IRQ_TYPE_EDGE_FALLING>;
 	};
