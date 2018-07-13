@@ -614,7 +614,6 @@
 		assigned-clock-parents = <&clk IMX8MQ_VIDEO_PLL1_OUT>;
 		assigned-clock-rate = <594000000>;
 		interrupts = <GIC_SPI 5 IRQ_TYPE_LEVEL_HIGH>;
-		max-res = <1280>, <720>;
 		status = "disabled";
 	};
 

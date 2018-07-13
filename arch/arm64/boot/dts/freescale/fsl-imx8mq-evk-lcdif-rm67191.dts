@@ -32,12 +32,9 @@
 	status = "disabled";
 };
 
-&hdmi_cec {
-	status = "disabled";
-};
-
 &lcdif {
 	status = "okay";
+	max-res = <1080>, <1920>;
 
 	assigned-clocks = <&clk IMX8MQ_CLK_LCDIF_PIXEL_SRC>,
 			  <&clk IMX8MQ_VIDEO_PLL1_REF_SEL>,
@@ -100,7 +97,7 @@
 		};
 	};
 
-	port@1 {
+	port@2 {
 		mipi_dsi_bridge_out: endpoint {
 			remote-endpoint = <&panel1_in>;
 		};

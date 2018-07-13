@@ -12,72 +12,27 @@
  * GNU General Public License for more details.
  */
 
-#include "fsl-imx8mq-evk.dts"
+#include "fsl-imx8mq-evk-lcdif-adv7535.dts"
+
+/ {
+	display-subsystem {
+		status = "okay";
+	};
+};
+
+&irqsteer_dcss {
+	status = "okay";
+};
+
+&dcss {
+	status = "okay";
+};
+
+&hdmi {
+	status = "okay";
+};
 
 &lcdif {
 	status = "okay";
-
-	port@0 {
-		lcdif_mipi_dsi: mipi-dsi-endpoint {
-			remote-endpoint = <&mipi_dsi_in>;
-		};
-	};
-};
-
-&i2c1 {
-	adv_bridge: adv7535@3d {
-		compatible = "adi,adv7533";
-		reg = <0x3d>;
-		adi,addr-cec = <0x3b>;
-		adi,dsi-lanes = <4>;
-		pinctrl-0 = <&pinctrl_i2c1_dsi_ts_int>;
-		interrupt-parent = <&gpio5>;
-		interrupts = <7 IRQ_TYPE_LEVEL_LOW>;
-
-		status = "okay";
-
-		port {
-			adv7535_in: endpoint {
-				remote-endpoint = <&mipi_dsi_bridge_adv>;
-			};
-		};
-	};
-};
-
-&mipi_dsi_phy {
-	status = "okay";
-};
-
-&mipi_dsi {
-	status = "okay";
-	as_bridge;
-	sync-pol = <1>;
-	pwr-delay = <10>;
-
-	port@1 {
-		mipi_dsi_in: endpoint {
-			remote-endpoint = <&lcdif_mipi_dsi>;
-		};
-	};
-};
-
-&mipi_dsi_bridge {
-	status = "okay";
-
-	port@1 {
-		mipi_dsi_bridge_adv: endpoint {
-			remote-endpoint = <&adv7535_in>;
-		};
-	};
-};
-
-&iomuxc {
-	imx8mq-evk {
-		pinctrl_i2c1_dsi_ts_int: dsi_ts_int {
-			fsl,pins = <
-				MX8MQ_IOMUXC_ECSPI1_MOSI_GPIO5_IO7              0x19
-			>;
-		};
-
-	};
+	max-res = <1280>, <720>;
 };
