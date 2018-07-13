@@ -521,8 +521,10 @@ static void sec_mipi_dsim_config_dpi(struct sec_mipi_dsim *dsim)
 
 	dsim_write(dsim, rgb_status, DSIM_RGB_STATUS);
 
-	if (dsim->mode_flags & MIPI_DSI_CLOCK_NON_CONTINUOUS)
+	if (dsim->mode_flags & MIPI_DSI_CLOCK_NON_CONTINUOUS) {
+		config |= CONFIG_NON_CONTINUOUS_CLOCK_LANE;
 		config |= CONFIG_CLKLANE_STOP_START;
+	}
 
 	if (dsim->mode_flags & MIPI_DSI_MODE_VSYNC_FLUSH)
 		config |= CONFIG_MFLUSH_VS;
