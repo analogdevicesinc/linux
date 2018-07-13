@@ -70,7 +70,7 @@ static void imx_hdmi_audio_avi_set(state_struct *state,
 	hdmi_audio_infoframe_init(&frame);
 
 	frame.channels = channels;
-	frame.coding_type = HDMI_AUDIO_CODING_TYPE_PCM;
+	frame.coding_type = HDMI_AUDIO_CODING_TYPE_STREAM;
 
 	ret = hdmi_audio_infoframe_pack(&frame, buf + 1, sizeof(buf) - 1);
 	if (ret < 0) {
