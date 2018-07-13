@@ -348,25 +348,25 @@ static long hx280enc_ioctl(struct file *filp, unsigned int cmd, unsigned long ar
 	if (err)
 		return -EFAULT;
 
-	switch (cmd)	{
-	case HX280ENC_IOCGHWOFFSET:
+	switch (_IOC_NR(cmd))	{
+	case _IOC_NR(HX280ENC_IOCGHWOFFSET):
 		__put_user(hx280enc_data.iobaseaddr, (unsigned long *) arg);
 		break;
-	case HX280ENC_IOCGHWIOSIZE:
+	case _IOC_NR(HX280ENC_IOCGHWIOSIZE):
 		__put_user(hx280enc_data.iosize, (unsigned int *) arg);
 	break;
-	case HX280ENC_IOCH_ENC_RESERVE: {
+	case _IOC_NR(HX280ENC_IOCH_ENC_RESERVE): {
 		int ret;
 
 		PDEBUG("Reserve ENC Cores\n");
 		ret = ReserveEncoder(&hx280enc_data);
 		return ret;
 	}
-	case HX280ENC_IOCH_ENC_RELEASE:
+	case _IOC_NR(HX280ENC_IOCH_ENC_RELEASE):
 		PDEBUG("Release ENC Core\n");
 		ReleaseEncoder(&hx280enc_data);
 		break;
-	case HX280ENC_IOCG_CORE_WAIT: {
+	case _IOC_NR(HX280ENC_IOCG_CORE_WAIT): {
 		int ret;
 
 		ret = WaitEncReady(&hx280enc_data);
@@ -422,60 +422,54 @@ static int hx280enc_release(struct inode *inode, struct file *filp)
 
 static long hx280enc_ioctl32(struct file *filp, unsigned int cmd, unsigned long arg)
 {
+    long err = 0;
 #define HX280ENC_IOCTL32(err, filp, cmd, arg) { \
-        mm_segment_t old_fs = get_fs(); \
-        set_fs(KERNEL_DS); \
-        err = hx280enc_ioctl(filp, cmd, arg); \
-        if (err) \
-            return err; \
-        set_fs(old_fs); \
-    }
+	mm_segment_t old_fs = get_fs(); \
+	set_fs(KERNEL_DS); \
+	err = hx280enc_ioctl(filp, cmd, arg); \
+	if (err) \
+	return err; \
+	set_fs(old_fs); \
+}
 
 union {
-        unsigned long kux;
-        unsigned int kui;
-    } karg;
+    unsigned long kux;
+    unsigned int kui;
+} karg;
     void __user *up = compat_ptr(arg);
-    long err = 0;
 
     switch (_IOC_NR(cmd))    {
     case _IOC_NR(HX280ENC_IOCGHWOFFSET):
-        err = get_user(karg.kux, (s32 __user *)up);
-        if (err)
-            return err;
-        HX280ENC_IOCTL32(err, filp, cmd, (unsigned long)&karg);
-        err = put_user(((s32)karg.kux), (s32 __user *)up);
-        break;
+		err = get_user(karg.kux, (s32 __user *)up);
+		if (err)
+		    return err;
+		HX280ENC_IOCTL32(err, filp, cmd, (unsigned long)&karg);
+		err = put_user(((s32)karg.kux), (s32 __user *)up);
+		break;
     case _IOC_NR(HX280ENC_IOCGHWIOSIZE):
-        err = get_user(karg.kui, (s32 __user *)up);
-        if (err)
-            return err;
-        HX280ENC_IOCTL32(err, filp, cmd, (unsigned long)&karg);
-        err = put_user(((s32)karg.kui), (s32 __user *)up);
-        break;
-    case _IOC_NR(HX280ENC_IOCH_ENC_RESERVE):
-        {
-            int ret;
-            PDEBUG("Reserve ENC Cores\n");
-            ret = ReserveEncoder(&hx280enc_data);
-            return ret;
-        }
-    case _IOC_NR(HX280ENC_IOCH_ENC_RELEASE):
-        {
-            PDEBUG("Release ENC Core\n");
-            ReleaseEncoder(&hx280enc_data);
-            break;
-        }
-
-    case _IOC_NR(HX280ENC_IOCG_CORE_WAIT):
-        {
-            int ret;
-            ret = WaitEncReady(&hx280enc_data);
-            return ret;
-        }
-    default:
-        break;
-    }
+		err = get_user(karg.kui, (s32 __user *)up);
+		if (err)
+		    return err;
+		HX280ENC_IOCTL32(err, filp, cmd, (unsigned long)&karg);
+		err = put_user(((s32)karg.kui), (s32 __user *)up);
+		break;
+    case _IOC_NR(HX280ENC_IOCH_ENC_RESERVE): {
+	    int ret;
+	    PDEBUG("Reserve ENC Cores\n");
+	    ret = ReserveEncoder(&hx280enc_data);
+	    return ret;
+	}
+    case _IOC_NR(HX280ENC_IOCH_ENC_RELEASE): {
+	    PDEBUG("Release ENC Core\n");
+	    ReleaseEncoder(&hx280enc_data);
+	    break;
+	}
+    case _IOC_NR(HX280ENC_IOCG_CORE_WAIT): {
+	    int ret;
+	    ret = WaitEncReady(&hx280enc_data);
+	    return ret;
+	}
+	}
     return 0;
 }
 
