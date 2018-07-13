@@ -2195,7 +2195,8 @@ static void macb_ptp_init(struct macb *bp)
 	bp->phc_index = ptp_clock_index(bp->ptp_clock);
 }
 
-/* Configure the receive DMA engine
+/*
+ * Configure the receive DMA engine
  * - use the correct receive buffer size
  * - set best burst length for DMA operations
  *   (if not supported by FIFO, it will fallback to default)
@@ -3753,7 +3754,7 @@ static int macb_probe(struct platform_device *pdev)
 	netif_carrier_off(dev);
 
 	tasklet_init(&bp->hresp_err_tasklet, macb_hresp_error_task,
-		     (unsigned long)bp);
+		     (unsigned long) bp);
 
 	netdev_info(dev, "Cadence %s rev 0x%08x at 0x%08lx irq %d (%pM)\n",
 		    macb_is_gem(bp) ? "GEM" : "MACB", macb_readl(bp, MID),
@@ -3827,23 +3828,9 @@ static int __maybe_unused macb_suspend(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct net_device *netdev = platform_get_drvdata(pdev);
-	struct macb *bp = netdev_priv(netdev);
-	unsigned long flags;
 
-	if (!netif_running(netdev))
-		return 0;
-
-	netif_device_detach(netdev);
-	napi_disable(&bp->napi);
-	phy_stop(bp->phy_dev);
-	spin_lock_irqsave(&bp->lock, flags);
-	macb_reset_hw(bp);
-	netif_carrier_off(netdev);
-	spin_unlock_irqrestore(&bp->lock, flags);
-	if ((gem_readl(bp, DCFG5) & GEM_BIT(TSU)) &&
-	    (bp->caps & MACB_CAPS_TSU))
-		macb_ptp_close(bp);
-	pm_runtime_force_suspend(dev);
+	if (netif_running(netdev))
+		macb_close(netdev);
 
 	return 0;
 }
@@ -3852,19 +3839,9 @@ static int __maybe_unused macb_resume(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct net_device *netdev = platform_get_drvdata(pdev);
-	struct macb *bp = netdev_priv(netdev);
 
-	if (!netif_running(netdev))
-		return 0;
-
-	pm_runtime_force_resume(dev);
-	macb_writel(bp, NCR, MACB_BIT(MPE));
-	napi_enable(&bp->napi);
-	netif_carrier_on(netdev);
-	phy_start(bp->phy_dev);
-	bp->macbgem_ops.mog_init_rings(bp);
-	macb_init_hw(bp);
-	netif_device_attach(netdev);
+	if (netif_running(netdev))
+		macb_open(netdev);
 
 	return 0;
 }
