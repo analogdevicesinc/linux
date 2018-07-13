@@ -420,6 +420,65 @@ static int hx280enc_release(struct inode *inode, struct file *filp)
 	return 0;
 }
 
+static long hx280enc_ioctl32(struct file *filp, unsigned int cmd, unsigned long arg)
+{
+#define HX280ENC_IOCTL32(err, filp, cmd, arg) { \
+        mm_segment_t old_fs = get_fs(); \
+        set_fs(KERNEL_DS); \
+        err = hx280enc_ioctl(filp, cmd, arg); \
+        if (err) \
+            return err; \
+        set_fs(old_fs); \
+    }
+
+union {
+        unsigned long kux;
+        unsigned int kui;
+    } karg;
+    void __user *up = compat_ptr(arg);
+    long err = 0;
+
+    switch (_IOC_NR(cmd))    {
+    case _IOC_NR(HX280ENC_IOCGHWOFFSET):
+        err = get_user(karg.kux, (s32 __user *)up);
+        if (err)
+            return err;
+        HX280ENC_IOCTL32(err, filp, cmd, (unsigned long)&karg);
+        err = put_user(((s32)karg.kux), (s32 __user *)up);
+        break;
+    case _IOC_NR(HX280ENC_IOCGHWIOSIZE):
+        err = get_user(karg.kui, (s32 __user *)up);
+        if (err)
+            return err;
+        HX280ENC_IOCTL32(err, filp, cmd, (unsigned long)&karg);
+        err = put_user(((s32)karg.kui), (s32 __user *)up);
+        break;
+    case _IOC_NR(HX280ENC_IOCH_ENC_RESERVE):
+        {
+            int ret;
+            PDEBUG("Reserve ENC Cores\n");
+            ret = ReserveEncoder(&hx280enc_data);
+            return ret;
+        }
+    case _IOC_NR(HX280ENC_IOCH_ENC_RELEASE):
+        {
+            PDEBUG("Release ENC Core\n");
+            ReleaseEncoder(&hx280enc_data);
+            break;
+        }
+
+    case _IOC_NR(HX280ENC_IOCG_CORE_WAIT):
+        {
+            int ret;
+            ret = WaitEncReady(&hx280enc_data);
+            return ret;
+        }
+    default:
+        break;
+    }
+    return 0;
+}
+
 /* VFS methods */
 static struct file_operations hx280enc_fops = {
 	.owner = THIS_MODULE,
@@ -428,6 +487,9 @@ static struct file_operations hx280enc_fops = {
 	.unlocked_ioctl = hx280enc_ioctl,
 	.fasync = NULL,
 	.mmap = hx280enc_mmap,
+#ifdef CONFIG_COMPAT
+	.compat_ioctl = hx280enc_ioctl32,
+#endif
 };
 
 #ifndef VSI
