@@ -419,13 +419,28 @@ static const struct regmap_config axi_jesd_rx_regmap_config = {
 	.writeable_reg = axi_jesd_rx_regmap_rdwr,
 };
 
+/* Returns true if the link should be restarted */
+static bool axi_jesd204_rx_check_lane_status(struct axi_jesd204_rx *jesd,
+	unsigned int lane)
+{
+	unsigned int status;
+
+	status = readl_relaxed(jesd->base + JESD204_RX_REG_LANE_STATUS(lane));
+	status &= 0x3;
+	if (status != 0x0)
+		return false;
+
+	dev_err(jesd->dev, "Lane %d desynced, restarting link\n", lane);
+
+	return true;
+}
+
 static void axi_jesd204_rx_watchdog(struct work_struct *work)
 {
 	struct axi_jesd204_rx *jesd =
 		container_of(work, struct axi_jesd204_rx, watchdog_work.work);
 	unsigned int link_disabled;
 	unsigned int link_status;
-	unsigned int lane_status;
 	bool restart = false;
 	unsigned int i;
 
@@ -435,14 +450,8 @@ static void axi_jesd204_rx_watchdog(struct work_struct *work)
 
 	link_status = readl_relaxed(jesd->base + JESD204_RX_REG_LINK_STATUS);
 	if (link_status == 3) {
-		for (i = 0; i < jesd->num_lanes; i++) {
-			lane_status = readl_relaxed(jesd->base + JESD204_RX_REG_LANE_STATUS(i));
-			lane_status &= 0x3;
-			if (lane_status == 0x0) {
-				dev_err(jesd->dev, "Lane %d desynced, restarting link\n", i);
-				restart = true;
-			}
-		}
+		for (i = 0; i < jesd->num_lanes; i++)
+			restart |= axi_jesd204_rx_check_lane_status(jesd, i);
 
 		if (restart) {
 			writel_relaxed(0x1, jesd->base + JESD204_RX_REG_LINK_DISABLE);
