@@ -339,7 +339,7 @@ static int xsdirx_set_modedetect(struct xsdirxss_core *core, u16 mask)
 		val |= XSDIRX_MDL_CTRL_MODE_DET_EN_MASK;
 	} else {
 		/* Fixed Mode */
-		u32 forced_mode_mask = 0;
+		u32 forced_mode_mask;
 
 		dev_dbg(core->dev, "Detect fixed mode\n");
 
