@@ -304,8 +304,6 @@ static int xsdirx_set_modedetect(struct xsdirxss_core *core, u16 mask)
 		return -EINVAL;
 	}
 
-	dev_dbg(core->dev, "mask = 0x%x\n", mask);
-
 	val = xsdirxss_read(core, XSDIRX_MDL_CTRL_REG);
 	val &= ~(XSDIRX_MDL_CTRL_MODE_DET_EN_MASK);
 	val &= ~(XSDIRX_MDL_CTRL_MODE_AUTO_DET_MASK);
@@ -622,7 +620,6 @@ static int xsdirxss_unsubscribe_event(struct v4l2_subdev *sd,
  */
 static int xsdirxss_s_ctrl(struct v4l2_ctrl *ctrl)
 {
-	int ret = 0;
 	struct xsdirxss_state *xsdirxss =
 		container_of(ctrl->handler,
 			     struct xsdirxss_state, ctrl_handler);
@@ -649,20 +646,7 @@ static int xsdirxss_s_ctrl(struct v4l2_ctrl *ctrl)
 		break;
 	case V4L2_CID_XILINX_SDIRX_SEARCH_MODES:
 		if (ctrl->val) {
-			if (core->mode == XSDIRXSS_SDI_STD_3G) {
-				dev_dbg(core->dev, "Upto 3G supported\n");
-				ctrl->val &= ~(BIT(XSDIRX_MODE_6G_OFFSET) |
-					       BIT(XSDIRX_MODE_12GI_OFFSET) |
-					       BIT(XSDIRX_MODE_12GF_OFFSET));
-			}
-
-			if (core->mode == XSDIRXSS_SDI_STD_6G) {
-				dev_dbg(core->dev, "Upto 6G supported\n");
-				ctrl->val &= ~(BIT(XSDIRX_MODE_12GI_OFFSET) |
-					       BIT(XSDIRX_MODE_12GF_OFFSET));
-			}
-
-			ret = xsdirx_set_modedetect(core, ctrl->val);
+			xsdirx_set_modedetect(core, ctrl->val);
 		} else {
 			dev_err(core->dev, "Select at least one mode!\n");
 			return -EINVAL;
@@ -674,7 +658,7 @@ static int xsdirxss_s_ctrl(struct v4l2_ctrl *ctrl)
 		return -EINVAL;
 	}
 	xsdirx_core_enable(core);
-	return ret;
+	return 0;
 }
 
 /**
