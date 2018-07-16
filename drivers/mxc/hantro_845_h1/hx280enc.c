@@ -1,7 +1,7 @@
 /*
  * Encoder device driver (kernel module)
  *
- * Copyright (c) 2013-2017, VeriSilicon Inc.
+ * Copyright (c) 2013-2018, VeriSilicon Inc.
  * Copyright (C) 2012 Google Finland Oy.
  *
  * This program is free software; you can redistribute it and/or
@@ -46,9 +46,9 @@
 #include <linux/sched.h>
 
 /* needed for virt_to_phys() */
-#include <asm/io.h>
+#include <linux/io.h>
 #include <linux/pci.h>
-#include <asm/uaccess.h>
+#include <linux/uaccess.h>
 #include <linux/ioport.h>
 
 #include <asm/irq.h>
@@ -98,7 +98,7 @@ MODULE_DESCRIPTION("Hantro 6280/7280/8270/8290/H1 Encoder driver");
 /* these could be module params in the future */
 
 #define ENC_IO_BASE                 INTEGRATOR_LOGIC_MODULE0_BASE
-#define ENC_IO_SIZE                 (300 * 4)    /* bytes */
+#define ENC_IO_SIZE                 (500 * 4)    /* bytes */
 
 #define ENC_HW_ID1                  0x62800000
 #define ENC_HW_ID2                  0x72800000
@@ -108,8 +108,15 @@ MODULE_DESCRIPTION("Hantro 6280/7280/8270/8290/H1 Encoder driver");
 
 #define HX280ENC_BUF_SIZE           0
 
-unsigned long base_port = INTEGRATOR_LOGIC_MODULE0_BASE;
+static unsigned long base_port = INTEGRATOR_LOGIC_MODULE0_BASE;
 static int irq = VP_PB_INT_LT;
+
+/* for critical data access */
+static DEFINE_SPINLOCK(owner_lock);
+/* for irq wait */
+static DECLARE_WAIT_QUEUE_HEAD(enc_wait_queue);
+/* for reserve hw */
+static DECLARE_WAIT_QUEUE_HEAD(enc_hw_queue);
 
 /* module_param(name, type, perm) */
 module_param(base_port, ulong, 0644);
@@ -120,12 +127,17 @@ static int hx280enc_major;
 
 /* here's all the must remember stuff */
 typedef struct {
-	char *buffer;
-	unsigned int buffsize;
+	u32 hw_id; //hw id to indicate project
+	u32 is_valid; //indicate this core is hantro's core or not
+	u32 is_reserved; //indicate this core is occupied by user or not
+	int pid; //indicate which process is occupying the core
+	u32 irq_received; //indicate this core receives irq
+	u32 irq_status;
+	int irq;
 	unsigned long iobaseaddr;
 	unsigned int iosize;
+
 	volatile u8 *hwregs;
-	unsigned int irq;
 	struct fasync_struct *async_queue;
 } hx280enc_t;
 
@@ -141,55 +153,7 @@ static void dump_regs(unsigned long data);
 #endif
 
 /* IRQ handler */
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 18))
-static irqreturn_t hx280enc_isr(int irq, void *dev_id, struct pt_regs *regs);
-#else
 static irqreturn_t hx280enc_isr(int irq, void *dev_id);
-#endif
-
-#ifdef VSI
-/* VM operations */
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 28))
-static struct page *hx280enc_vm_nopage(struct vm_area_struct *vma,
-				unsigned long address, int *type)
-{
-	PDEBUG("hx280enc_vm_nopage: problem with mem access\n");
-	return NOPAGE_SIGBUS;   /* send a SIGBUS */
-}
-#elif(LINUX_VERSION_CODE < KERNEL_VERSION(4,11,0))
-static int hx280enc_vm_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
-{
-	PDEBUG("hx280enc_vm_fault: problem with mem access\n");
-	return VM_FAULT_SIGBUS; /* send a SIGBUS */
-}
-#else
-static int hx280enc_vm_fault(struct vm_fault *vmf)
-{
-	PDEBUG("hx280enc_vm_fault: problem with mem access\n");
-	return VM_FAULT_SIGBUS; /* send a SIGBUS */
-}
-#endif
-
-static void hx280enc_vm_open(struct vm_area_struct *vma)
-{
-	PDEBUG("hx280enc_vm_open:\n");
-}
-
-static void hx280enc_vm_close(struct vm_area_struct *vma)
-{
-	PDEBUG("hx280enc_vm_close:\n");
-}
-
-static struct vm_operations_struct hx280enc_vm_ops = {
-open:hx280enc_vm_open,
-close:hx280enc_vm_close,
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 28))
-nopage:hx280enc_vm_nopage,
-#else
-fault:hx280enc_vm_fault,
-#endif
-};
-#endif
 
 #ifndef VSI
 static int hantro_h1_clk_enable(struct device *dev)
@@ -265,6 +229,98 @@ static int hx280enc_mmap(struct file *filp, struct vm_area_struct *vm)
 #endif
 }
 
+static int CheckEncIrq(hx280enc_t *dev)
+{
+	unsigned long flags;
+	int rdy = 0;
+
+	spin_lock_irqsave(&owner_lock, flags);
+
+	if (dev->irq_received) {
+		/* reset the wait condition(s) */
+		PDEBUG("check irq ready\n");
+		dev->irq_received = 0;
+		rdy = 1;
+	}
+
+	spin_unlock_irqrestore(&owner_lock, flags);
+	//printk("rdy=%d\n",rdy);
+
+	return rdy;
+}
+
+unsigned int WaitEncReady(hx280enc_t *dev)
+{
+	PDEBUG("WaitEncReady\n");
+
+	if (wait_event_interruptible(enc_wait_queue, CheckEncIrq(dev))) {
+		PDEBUG("ENC wait_event_interruptible interrupted\n");
+		return -ERESTARTSYS;
+	}
+
+	return 0;
+}
+
+int CheckCoreOccupation(hx280enc_t *dev)
+{
+	int ret = 0;
+	unsigned long flags;
+
+	spin_lock_irqsave(&owner_lock, flags);
+	if (!dev->is_reserved) {
+		dev->is_reserved = 1;
+		dev->pid = current->pid;
+		ret = 1;
+		PDEBUG("CheckCoreOccupation pid=%d\n", dev->pid);
+	}
+	spin_unlock_irqrestore(&owner_lock, flags);
+
+	return ret;
+}
+
+int GetWorkableCore(hx280enc_t *dev)
+{
+	int ret = 0;
+
+	PDEBUG("GetWorkableCore\n");
+
+	if (dev->is_valid && CheckCoreOccupation(dev))
+		ret = 1;
+
+	return ret;
+}
+
+long ReserveEncoder(hx280enc_t *dev)
+{
+	/* lock a core that has specified core id*/
+	if (wait_event_interruptible(enc_hw_queue, GetWorkableCore(dev) != 0))
+		return -ERESTARTSYS;
+
+	return 0;
+}
+
+void ReleaseEncoder(hx280enc_t *dev)
+{
+	unsigned long flags;
+
+	PDEBUG("ReleaseEncoder\n");
+
+	spin_lock_irqsave(&owner_lock, flags);
+	PDEBUG("relase reseve by pid=%d with current->pid=%d\n", dev->pid, current->pid);
+	if (dev->is_reserved && dev->pid == current->pid) {
+		dev->pid = -1;
+		dev->is_reserved = 0;
+	}
+
+	dev->irq_received = 0;
+	dev->irq_status = 0;
+	spin_unlock_irqrestore(&owner_lock, flags);
+
+	wake_up_interruptible_all(&enc_hw_queue);
+
+}
+
+
 static long hx280enc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
 	int err = 0;
@@ -299,6 +355,23 @@ static long hx280enc_ioctl(struct file *filp, unsigned int cmd, unsigned long ar
 	case HX280ENC_IOCGHWIOSIZE:
 		__put_user(hx280enc_data.iosize, (unsigned int *) arg);
 	break;
+	case HX280ENC_IOCH_ENC_RESERVE: {
+		int ret;
+
+		PDEBUG("Reserve ENC Cores\n");
+		ret = ReserveEncoder(&hx280enc_data);
+		return ret;
+	}
+	case HX280ENC_IOCH_ENC_RELEASE:
+		PDEBUG("Release ENC Core\n");
+		ReleaseEncoder(&hx280enc_data);
+		break;
+	case HX280ENC_IOCG_CORE_WAIT: {
+		int ret;
+
+		ret = WaitEncReady(&hx280enc_data);
+		return ret;
+	}
 	}
 	return 0;
 }
@@ -319,42 +392,42 @@ static int hx280enc_open(struct inode *inode, struct file *filp)
 	return result;
 }
 
-static int hx280enc_fasync(int fd, struct file *filp, int mode)
-{
-	hx280enc_t *dev = (hx280enc_t *) filp->private_data;
-
-	PDEBUG("fasync called\n");
-
-	return fasync_helper(fd, filp, mode, &dev->async_queue);
-}
-
 static int hx280enc_release(struct inode *inode, struct file *filp)
 {
-#ifdef HX280ENC_DEBUG
 	hx280enc_t *dev = (hx280enc_t *) filp->private_data;
-
+	unsigned long flags;
+#ifdef HX280ENC_DEBUG
 	dump_regs((unsigned long) dev); /* dump the regs */
 #endif
 
-	/* remove this filp from the asynchronusly notified filp's */
-	hx280enc_fasync(-1, filp, 0);
+	PDEBUG("dev closed\n");
+	spin_lock_irqsave(&owner_lock, flags);
+	if (dev->is_reserved == 1 && dev->pid == current->pid) {
+		dev->pid = -1;
+		dev->is_reserved = 0;
+		dev->irq_received = 0;
+		dev->irq_status = 0;
+		PDEBUG("release reserved core\n");
+	}
+	spin_unlock_irqrestore(&owner_lock, flags);
+	wake_up_interruptible_all(&enc_hw_queue);
 
 #ifndef VSI
 	pm_runtime_put_sync(hantro_h1_dev);
 	hantro_h1_clk_disable(hantro_h1_dev);
 #endif
 
-	PDEBUG("dev closed\n");
 	return 0;
 }
 
 /* VFS methods */
 static struct file_operations hx280enc_fops = {
-mmap:hx280enc_mmap,
-open:hx280enc_open,
-release:hx280enc_release,
-unlocked_ioctl:hx280enc_ioctl,
-fasync:hx280enc_fasync,
+	.owner = THIS_MODULE,
+	.open = hx280enc_open,
+	.release = hx280enc_release,
+	.unlocked_ioctl = hx280enc_ioctl,
+	.fasync = NULL,
+	.mmap = hx280enc_mmap,
 };
 
 #ifndef VSI
@@ -393,7 +466,8 @@ static int __init hx280enc_init(void)
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 18))
 					SA_INTERRUPT | SA_SHIRQ,
 #else
-					IRQF_DISABLED | IRQF_SHARED,
+				//IRQF_DISABLED | IRQF_SHARED,
+				IRQF_SHARED,
 #endif
 					"hx280enc", (void *) &hx280enc_data);
 		if (result == -EINVAL) {
@@ -457,7 +531,7 @@ static int ReserveIO(void)
 	}
 
 	hwid = readl(hx280enc_data.hwregs);
-#if 1
+
 	/* check for encoder HW ID */
 	if ((((hwid >> 16) & 0xFFFF) != ((ENC_HW_ID1 >> 16) & 0xFFFF)) &&
 		(((hwid >> 16) & 0xFFFF) != ((ENC_HW_ID2 >> 16) & 0xFFFF)) &&
@@ -471,33 +545,40 @@ static int ReserveIO(void)
 		ReleaseIO();
 		return -EBUSY;
 	}
-#endif
+
+	hx280enc_data.hw_id = hwid;
+	hx280enc_data.is_valid = 1;
+
 	PDEBUG(KERN_INFO "hx280enc: HW at base <0x%08lx> with ID <0x%08lx>\n", hx280enc_data.iobaseaddr, hwid);
 	return 0;
 }
 
 static void ReleaseIO(void)
 {
+	if (hx280enc_data.is_valid == 0)
+		return;
 	if (hx280enc_data.hwregs)
 		iounmap((void *) hx280enc_data.hwregs);
 	release_mem_region(hx280enc_data.iobaseaddr, hx280enc_data.iosize);
 }
 
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 18))
-irqreturn_t hx280enc_isr(int irq, void *dev_id, struct pt_regs *regs)
-#else
 irqreturn_t hx280enc_isr(int irq, void *dev_id)
-#endif
 {
 	hx280enc_t *dev = (hx280enc_t *) dev_id;
 	u32 irq_status;
+	unsigned long flags;
 	u32 is_write1_clr;
 
+	spin_lock_irqsave(&owner_lock, flags);
+	if (!dev->is_reserved)	{
+		spin_unlock_irqrestore(&owner_lock, flags);
+		return IRQ_HANDLED;
+	}
+	spin_unlock_irqrestore(&owner_lock, flags);
 	irq_status = readl(dev->hwregs + 0x04);
 
 	/* BASE_HWFuse2 = 0x4a0; HWCFGIrqClearSupport = 0x00800000 */
 	is_write1_clr = (readl(dev->hwregs + 0x4a0) & 0x00800000);
-
 	if (irq_status & 0x01) {
 		/* clear enc IRQ and slice ready interrupt bit */
 		if (is_write1_clr)
@@ -513,13 +594,12 @@ irqreturn_t hx280enc_isr(int irq, void *dev_id)
 			return IRQ_HANDLED;
 		}
 
-		/* All other interrupts will be signaled to EWL. */
-		if (dev->async_queue)
-			kill_fasync(&dev->async_queue, SIGIO, POLL_IN);
-		else {
-			PDEBUG(KERN_WARNING
-			"hx280enc: IRQ received w/o anybody waiting for it!\n");
-		}
+		spin_lock_irqsave(&owner_lock, flags);
+		dev->irq_received = 1;
+		dev->irq_status = irq_status & (~0x01);
+		spin_unlock_irqrestore(&owner_lock, flags);
+
+		wake_up_interruptible_all(&enc_wait_queue);
 
 		PDEBUG("IRQ handled!\n");
 		return IRQ_HANDLED;
@@ -533,11 +613,13 @@ static void ResetAsic(hx280enc_t *dev)
 {
 	int i;
 
+	if (dev->is_valid == 0)
+		return;
+
 	writel(0, dev->hwregs + 0x38);
 
 	for (i = 4; i < dev->iosize; i += 4)
 		writel(0, dev->hwregs + i);
-
 }
 
 #ifdef HX280ENC_DEBUG

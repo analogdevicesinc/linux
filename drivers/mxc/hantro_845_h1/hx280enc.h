@@ -68,7 +68,12 @@
 #define HX280ENC_IOCXVIRT2BUS      _IOWR(HX280ENC_IOC_MAGIC,  7, unsigned long *)
 
 #define HX280ENC_IOCHARDRESET      _IO(HX280ENC_IOC_MAGIC, 8)   /* debugging tool */
+#define HX280ENC_IOCGSRAMOFFSET    _IOR(HX280ENC_IOC_MAGIC,  9, unsigned long *)
+#define HX280ENC_IOCGSRAMEIOSIZE    _IOR(HX280ENC_IOC_MAGIC,  10, unsigned int *)
 
-#define HX280ENC_IOC_MAXNR 8
+#define HX280ENC_IOCH_ENC_RESERVE   _IOR(HX280ENC_IOC_MAGIC, 11, unsigned int *)
+#define HX280ENC_IOCH_ENC_RELEASE   _IOR(HX280ENC_IOC_MAGIC, 12, unsigned int *)
+#define HX280ENC_IOCG_CORE_WAIT     _IOR(HX280ENC_IOC_MAGIC, 13, unsigned int *)
+#define HX280ENC_IOC_MAXNR 30
 
 #endif /* !_UAPI_HX280ENC_H_ */
