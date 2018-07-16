@@ -590,7 +590,8 @@
 		#size-cells = <0>;
 		compatible = "fsl,imx8mq-hdmi";
 		reg = <0x0 0x32c00000 0x0 0x100000>,	/* HDP registers */
-				<0x0 0x32e40000 0x0 0x40000>;   /* HDP SEC register */
+				<0x0 0x32e40000 0x0 0x40000>, /* HDP SEC register */
+				<0x0 0x32e2f000 0x0 0x10>;    /* RESET register */
 		interrupts = <GIC_SPI 16 IRQ_TYPE_LEVEL_HIGH>,
 					<GIC_SPI 25 IRQ_TYPE_LEVEL_HIGH>;
 		interrupt-names = "plug_in", "plug_out";
