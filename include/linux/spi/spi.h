@@ -160,6 +160,8 @@ struct spi_device {
 #define	SPI_TX_QUAD	0x200			/* transmit with 4 wires */
 #define	SPI_RX_DUAL	0x400			/* receive with 2 wires */
 #define	SPI_RX_QUAD	0x800			/* receive with 4 wires */
+#define	SPI_NO_MOSI	0x1000			/* no transmit wire */
+#define	SPI_NO_MISO	0x2000			/* no receive wire */
 	int			irq;
 	void			*controller_state;
 	void			*controller_data;
