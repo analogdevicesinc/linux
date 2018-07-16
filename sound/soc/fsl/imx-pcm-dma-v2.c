@@ -45,6 +45,25 @@ static bool imx_dma_filter_fn(struct dma_chan *chan, void *param)
 	return true;
 }
 
+static void imx_pcm_dma_v2_complete(void *arg)
+{
+	struct snd_pcm_substream *substream = arg;
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct dmaengine_pcm_runtime_data *prtd =
+				substream->runtime->private_data;
+	struct snd_dmaengine_dai_dma_data *dma_data;
+
+	prtd->pos += snd_pcm_lib_period_bytes(substream);
+	if (prtd->pos >= snd_pcm_lib_buffer_bytes(substream))
+		prtd->pos = 0;
+
+	snd_pcm_period_elapsed(substream);
+
+	dma_data = snd_soc_dai_get_dma_data(rtd->cpu_dai, substream);
+	if (dma_data->check_xrun && dma_data->check_xrun(substream))
+		dma_data->device_reset(substream, 1);
+}
+
 /* this may get called several times by oss emulation */
 static int imx_pcm_hw_params(struct snd_pcm_substream *substream,
 			      struct snd_pcm_hw_params *params)
@@ -54,7 +73,11 @@ static int imx_pcm_hw_params(struct snd_pcm_substream *substream,
 	struct snd_dmaengine_dai_dma_data *dma_data;
 	struct dma_slave_config config;
 	struct dma_chan *chan;
+	struct dmaengine_pcm_runtime_data *prtd =
+				substream->runtime->private_data;
 	int err = 0;
+
+	prtd->callback = imx_pcm_dma_v2_complete;
 
 	dma_data = snd_soc_dai_get_dma_data(rtd->cpu_dai, substream);
 
