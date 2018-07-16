@@ -72,6 +72,7 @@ struct mxc_gpio_port {
 	struct device *dev;
 	u32 both_edges;
 	int saved_reg[6];
+	int suspend_saved_reg[6];
 	bool gpio_ranges;
 };
 
@@ -652,6 +653,62 @@ static int __maybe_unused mxc_gpio_runtime_resume(struct device *dev)
 	return 0;
 }
 
+static int __maybe_unused mxc_gpio_noirq_suspend(struct device *dev)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct mxc_gpio_port *port = platform_get_drvdata(pdev);
+	unsigned long flags;
+	int ret;
+
+	if (mxc_gpio_hwtype == IMX21_GPIO)
+		return 0;
+
+	ret = clk_prepare_enable(port->clk);
+	if (ret)
+		return ret;
+
+	spin_lock_irqsave(&port->gc.bgpio_lock, flags);
+	port->suspend_saved_reg[0] = readl(port->base + GPIO_ICR1);
+	port->suspend_saved_reg[1] = readl(port->base + GPIO_ICR2);
+	port->suspend_saved_reg[2] = readl(port->base + GPIO_IMR);
+	port->suspend_saved_reg[3] = readl(port->base + GPIO_GDIR);
+	port->suspend_saved_reg[4] = readl(port->base + GPIO_EDGE_SEL);
+	port->suspend_saved_reg[5] = readl(port->base + GPIO_DR);
+	spin_unlock_irqrestore(&port->gc.bgpio_lock, flags);
+
+	clk_disable_unprepare(port->clk);
+
+	return 0;
+}
+
+static int __maybe_unused mxc_gpio_noirq_resume(struct device *dev)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct mxc_gpio_port *port = platform_get_drvdata(pdev);
+	unsigned long flags;
+	int ret;
+
+	if (mxc_gpio_hwtype == IMX21_GPIO)
+		return 0;
+
+	ret = clk_prepare_enable(port->clk);
+	if (ret)
+		return ret;
+
+	spin_lock_irqsave(&port->gc.bgpio_lock, flags);
+	writel(port->suspend_saved_reg[0], port->base + GPIO_ICR1);
+	writel(port->suspend_saved_reg[1], port->base + GPIO_ICR2);
+	writel(port->suspend_saved_reg[2], port->base + GPIO_IMR);
+	writel(port->suspend_saved_reg[3], port->base + GPIO_GDIR);
+	writel(port->suspend_saved_reg[4], port->base + GPIO_EDGE_SEL);
+	writel(port->suspend_saved_reg[5], port->base + GPIO_DR);
+	spin_unlock_irqrestore(&port->gc.bgpio_lock, flags);
+
+	clk_disable_unprepare(port->clk);
+
+	return 0;
+}
+
 static int __maybe_unused mxc_gpio_suspend(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
@@ -678,7 +735,7 @@ static int __maybe_unused mxc_gpio_resume(struct device *dev)
 
 static const struct dev_pm_ops mxc_gpio_dev_pm_ops = {
 	SET_SYSTEM_SLEEP_PM_OPS(mxc_gpio_suspend, mxc_gpio_resume)
-	SET_NOIRQ_SYSTEM_SLEEP_PM_OPS(mxc_gpio_runtime_suspend, mxc_gpio_runtime_resume)
+	SET_NOIRQ_SYSTEM_SLEEP_PM_OPS(mxc_gpio_noirq_suspend, mxc_gpio_noirq_resume)
 	SET_RUNTIME_PM_OPS(mxc_gpio_runtime_suspend,
 			mxc_gpio_runtime_resume, NULL)
 };
