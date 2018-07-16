@@ -108,31 +108,42 @@ void mxc_isi_channel_set_outbuf(struct mxc_isi_dev *mxc_isi, struct mxc_isi_buff
 {
 	struct vb2_buffer *vb2_buf = &buf->v4l2_buf.vb2_buf;
 	struct frame_addr *paddr = &buf->paddr;
+	struct v4l2_pix_format_mplane *pix = &mxc_isi->pix;
 	u32 framecount = buf->v4l2_buf.sequence;
 	int val = 0;
 
-	paddr->y = vb2_dma_contig_plane_dma_addr(vb2_buf, 0);
+	if (buf->discard) {
+		paddr->y = mxc_isi->discard_buffer_dma[0];
+		if (pix->num_planes == 2)
+			paddr->cb = mxc_isi->discard_buffer_dma[1];
+		if (pix->num_planes == 3) {
+			paddr->cb = mxc_isi->discard_buffer_dma[1];
+			paddr->cr = mxc_isi->discard_buffer_dma[2];
+		}
+	} else {
+		paddr->y = vb2_dma_contig_plane_dma_addr(vb2_buf, 0);
 
-	if (vb2_buf->num_planes == 2)
-		paddr->cb = vb2_dma_contig_plane_dma_addr(vb2_buf, 1);
-	if (vb2_buf->num_planes == 3) {
-		paddr->cb = vb2_dma_contig_plane_dma_addr(vb2_buf, 1);
-		paddr->cr = vb2_dma_contig_plane_dma_addr(vb2_buf, 2);
+		if (vb2_buf->num_planes == 2)
+			paddr->cb = vb2_dma_contig_plane_dma_addr(vb2_buf, 1);
+		if (vb2_buf->num_planes == 3) {
+			paddr->cb = vb2_dma_contig_plane_dma_addr(vb2_buf, 1);
+			paddr->cr = vb2_dma_contig_plane_dma_addr(vb2_buf, 2);
+		}
 	}
 
 	val = readl(mxc_isi->regs + CHNL_OUT_BUF_CTRL);
-	if (framecount % 2 == 1) {
-		writel(paddr->y, mxc_isi->regs + CHNL_OUT_BUF2_ADDR_Y);
-		writel(paddr->cb, mxc_isi->regs + CHNL_OUT_BUF2_ADDR_U);
-		writel(paddr->cr, mxc_isi->regs + CHNL_OUT_BUF2_ADDR_V);
-		val ^= CHNL_OUT_BUF_CTRL_LOAD_BUF2_ADDR_MASK;
-	} else {
+	if (framecount % 2 == 0) {
 		writel(paddr->y, mxc_isi->regs + CHNL_OUT_BUF1_ADDR_Y);
 		writel(paddr->cb, mxc_isi->regs + CHNL_OUT_BUF1_ADDR_U);
 		writel(paddr->cr, mxc_isi->regs + CHNL_OUT_BUF1_ADDR_V);
 		val ^= CHNL_OUT_BUF_CTRL_LOAD_BUF1_ADDR_MASK;
+	} else if (framecount % 2 == 1) {
+		writel(paddr->y, mxc_isi->regs + CHNL_OUT_BUF2_ADDR_Y);
+		writel(paddr->cb, mxc_isi->regs + CHNL_OUT_BUF2_ADDR_U);
+		writel(paddr->cr, mxc_isi->regs + CHNL_OUT_BUF2_ADDR_V);
+		val ^= CHNL_OUT_BUF_CTRL_LOAD_BUF2_ADDR_MASK;
 	}
-	writel(val,	mxc_isi->regs + CHNL_OUT_BUF_CTRL);
+	writel(val, mxc_isi->regs + CHNL_OUT_BUF_CTRL);
 }
 
 void mxc_isi_channel_hw_reset(struct mxc_isi_dev *mxc_isi)
@@ -543,6 +554,7 @@ void mxc_isi_channel_enable(struct mxc_isi_dev *mxc_isi)
 	val |= 0xff << CHNL_CTRL_BLANK_PXL_OFFSET;
 	writel(val, mxc_isi->regs + CHNL_CTRL);
 
+	mxc_isi_clean_irq_status(mxc_isi, 0);
 	mxc_isi_enable_irq(mxc_isi);
 	msleep(300);
 	dump_isi_regs(mxc_isi);
@@ -585,7 +597,7 @@ void  mxc_isi_enable_irq(struct mxc_isi_dev *mxc_isi)
 
 void mxc_isi_disable_irq(struct mxc_isi_dev *mxc_isi)
 {
-	writel(0, mxc_isi->regs + CHNL_CTRL);
+	writel(0, mxc_isi->regs + CHNL_IER);
 }
 
 u32 mxc_isi_get_irq_status(struct mxc_isi_dev *mxc_isi)

@@ -225,6 +225,7 @@ struct mxc_isi_buffer {
 	struct vb2_v4l2_buffer v4l2_buf;
 	struct list_head	list;
 	struct frame_addr	paddr;
+	bool discard;
 };
 
 struct mxc_isi_m2m_dev {
@@ -245,13 +246,13 @@ struct mxc_isi_cap_dev {
 	struct vb2_queue		vb2_q;
 	struct list_head		out_pending;
 	struct list_head		out_active;
+	struct list_head		out_discard;
 
 	struct mxc_isi_frame	src_f;
 	struct mxc_isi_frame	dst_f;
 	u32						frame_count;
 
 	u32 buf_index;
-
 };
 
 struct mxc_isi_dev {
@@ -292,6 +293,13 @@ struct mxc_isi_dev {
 	struct mxc_isi_ctrls ctrls;
 	u8			alpha;		/* goable alpha */
 	struct mxc_isi_roi_alpha alpha_roi[5];		/* ROI alpha */
+
+	struct v4l2_pix_format_mplane pix;
+
+	size_t discard_size[MXC_MAX_PLANES];
+	void *discard_buffer[MXC_MAX_PLANES];
+	dma_addr_t discard_buffer_dma[MXC_MAX_PLANES];
+	struct mxc_isi_buffer buf_discard[2];
 };
 
 static inline void set_frame_bounds(struct mxc_isi_frame *f, u32 width, u32 height)
