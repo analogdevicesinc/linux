@@ -91,7 +91,11 @@ void Afe_write(state_struct *state, u32 offset, u16 val);
 u16 Afe_read(state_struct *state, u32 offset);
 void AFE_init(state_struct *state, int num_lanes,
 	      ENUM_AFE_LINK_RATE link_rate);
+void afe_init_t28hpc(state_struct *state, int num_lanes,
+	      ENUM_AFE_LINK_RATE link_rate);
 void AFE_power(state_struct *state, int num_lanes,
+	       ENUM_AFE_LINK_RATE link_rate);
+void afe_power_t28hpc(state_struct *state, int num_lanes,
 	       ENUM_AFE_LINK_RATE link_rate);
 void set_field_value(reg_field_t *reg_field, u32 value);
 int set_reg_value(reg_field_t reg_field);

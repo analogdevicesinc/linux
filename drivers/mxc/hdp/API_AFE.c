@@ -35,7 +35,7 @@
  * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
  * OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *
- * Copyright 2017 NXP
+ * Copyright 2017-2018 NXP
  *
  ******************************************************************************
  *
@@ -169,3 +169,20 @@ int get_table_row(
 	}
 	return i;
 }
+
+u8 AFE_check_rate_supported(ENUM_AFE_LINK_RATE rate)
+{
+	switch (rate) {
+	case AFE_LINK_RATE_1_6:
+	case AFE_LINK_RATE_2_1:
+	case AFE_LINK_RATE_2_4:
+	case AFE_LINK_RATE_2_7:
+	case AFE_LINK_RATE_3_2:
+	case AFE_LINK_RATE_4_3:
+	case AFE_LINK_RATE_5_4:
+		return 1;
+	default:
+		return 0;
+	}
+}
+
