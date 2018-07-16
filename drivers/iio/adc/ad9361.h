@@ -138,7 +138,7 @@ struct ad9361_rf_phy {
 	struct refclk_scale	clk_priv[NUM_AD9361_CLKS];
 	struct clk_onecell_data	clk_data;
 	struct ad9361_phy_platform_data *pdata;
-	struct ad9361_debugfs_entry debugfs_entry[180];
+	struct ad9361_debugfs_entry debugfs_entry[181];
 	struct bin_attribute 	bin;
 	struct bin_attribute 	bin_gt;
 	struct iio_dev 		*indio_dev;
