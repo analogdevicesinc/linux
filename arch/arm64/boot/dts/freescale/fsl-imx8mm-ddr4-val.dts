@@ -39,6 +39,10 @@
 			enable-active-high;
 		};
 	};
+
+	busfreq {
+		status = "disabled";
+	};
 };
 
 &iomuxc {

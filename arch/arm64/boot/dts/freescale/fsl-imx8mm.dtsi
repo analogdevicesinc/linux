@@ -110,6 +110,24 @@
 		interrupt-parent = <&gic>;
 	};
 
+	busfreq { /* BUSFREQ */
+		compatible = "fsl,imx_busfreq";
+		clocks = <&clk IMX8MM_DRAM_PLL_OUT>, <&clk IMX8MM_CLK_DRAM_ALT_SRC>,
+			 <&clk IMX8MM_CLK_DRAM_APB_SRC>, <&clk IMX8MM_CLK_DRAM_APB_PRE_DIV>,
+		         <&clk IMX8MM_CLK_DRAM_CORE>, <&clk IMX8MM_CLK_DRAM_ALT_ROOT>,
+			 <&clk IMX8MM_SYS_PLL1_40M>, <&clk IMX8MM_SYS_PLL1_100M>,
+			 <&clk IMX8MM_SYS_PLL2_333M>, <&clk IMX8MM_CLK_NOC_DIV>,
+			 <&clk IMX8MM_CLK_AHB_DIV>, <&clk IMX8MM_CLK_MAIN_AXI_SRC>,
+			 <&clk IMX8MM_CLK_24M>, <&clk IMX8MM_SYS_PLL1_800M>;
+		clock-names = "dram_pll", "dram_alt_src", "dram_apb_src", "dram_apb_pre_div",
+			      "dram_core", "dram_alt_root", "sys_pll1_40m", "sys_pll1_100m",
+			      "sys_pll2_333m", "noc_div", "ahb_div", "main_axi_src", "osc_24m",
+			      "sys_pll1_800m";
+		interrupts = <GIC_SPI 74 IRQ_TYPE_LEVEL_HIGH>, <GIC_SPI 75 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 76 IRQ_TYPE_LEVEL_HIGH>, <GIC_SPI 77 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-name = "irq_busfreq_0", "irq_busfreq_1", "irq_busfreq_2", "irq_busfreq_3";
+	};
+
 	ddr_pmu0: ddr_pmu@3d800000 {
 		compatible = "fsl,imx8m-ddr-pmu", "fsl,imx8-ddr-pmu";
 		reg = <0x0 0x3d800000 0x0 0x400000>;
