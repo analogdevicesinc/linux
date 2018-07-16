@@ -715,6 +715,9 @@
 	status = "okay";
 	extcon = <&typec_ptn5100>;
 	dr_mode = "otg";
+	hnp-disable;
+	srp-disable;
+	adp-disable;
 };
 
 &usb3_phy1 {
