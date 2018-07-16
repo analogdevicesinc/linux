@@ -609,9 +609,9 @@ static void sec_mipi_dsim_config_dphy(struct sec_mipi_dsim *dsim)
 		      PHYTIMING2_SET_M_THSTRAILCTL(11);
 	dsim_write(dsim, phytiming2, DSIM_PHYTIMING2);
 
-	timeout |= TIMEOUT_SET_BTAOUT(0xf)	|
-		   TIMEOUT_SET_LPDRTOUT(0xf);
-	dsim_write(dsim, 0xf000f, DSIM_TIMEOUT);
+	timeout |= TIMEOUT_SET_BTAOUT(0xff)	|
+		   TIMEOUT_SET_LPDRTOUT(0xff);
+	dsim_write(dsim, timeout, DSIM_TIMEOUT);
 }
 
 static void sec_mipi_dsim_init_fifo_pointers(struct sec_mipi_dsim *dsim)
