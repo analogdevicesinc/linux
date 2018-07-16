@@ -35,7 +35,7 @@
  * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
  * OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *
- * Copyright 2017 NXP
+ * Copyright 2017-2018 NXP
  *
  ******************************************************************************
  *
@@ -181,6 +181,7 @@ typedef struct {
 struct hdp_mem {
 	void __iomem *regs_base; /* Controller regs base */
 	void __iomem *ss_base; /* HDP Subsystem regs base */
+	void __iomem *rst_base; /* HDP Subsystem reset base */
 };
 
 struct hdp_rw_func {
