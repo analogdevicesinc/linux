@@ -377,14 +377,16 @@ static const char *imx8mm_pdm_sels[] = {"osc_24m", "sys_pll2_100m", "audio_pll1_
 static const char *imx8mm_vpu_h1_sels[] = {"osc_24m", "vpu_pll_out", "sys_pll1_800m", "sys_pll2_1000m",
 					   "audio_pll2_clk", "sys_pll2_125m", "sys_pll3_clk", "audio_pll1_out", };
 
+static const char *imx8mm_dram_core_sels[] = {"dram_pll_out", "dram_alt_root", };
+
 static int const clks_init_on[] __initconst = {
-	IMX8MM_CLK_DRAM_ALT_DIV, IMX8MM_CLK_AHB_CG,
+	IMX8MM_CLK_AHB_CG, IMX8MM_CLK_DRAM_CORE,
 	IMX8MM_CLK_NOC_CG, IMX8MM_CLK_NOC_APB_CG,
 	IMX8MM_CLK_USB_BUS_CG, IMX8MM_CLK_NAND_USDHC_BUS_CG,
 	IMX8MM_CLK_MAIN_AXI_CG, IMX8MM_CLK_AUDIO_AHB_CG,
 	IMX8MM_CLK_DRAM_APB_DIV, IMX8MM_CLK_A53_DIV,
-	IMX8MM_DRAM_PLL_OUT, IMX8MM_ARM_PLL_OUT,
-	IMX8MM_CLK_DISP_AXI_CG, IMX8MM_CLK_DISP_APB_CG,
+	IMX8MM_ARM_PLL_OUT, IMX8MM_CLK_DISP_AXI_CG,
+	IMX8MM_CLK_DISP_APB_CG,
 };
 
 static const char *imx8mm_clko1_sels[] = {"osc_24m", "sys_pll1_800m", "osc_27m", "sys_pll1_200m", "audio_pll2_clk",
@@ -574,7 +576,7 @@ static void __init imx8mm_clocks_init(struct device_node *ccm_node)
 	clks[IMX8MM_CLK_AUDIO_AHB_CG] = imx_clk_gate3("audio_ahb_cg", "audio_ahb_src", base + 0x9100, 28);
 	clks[IMX8MM_CLK_AHB_PRE_DIV] = imx_clk_divider2("ahb_pre_div", "ahb_cg", base + 0x9000, 16, 3);
 	clks[IMX8MM_CLK_AUDIO_AHB_PRE_DIV] = imx_clk_divider2("audio_ahb_pre_div", "audio_ahb_cg", base + 0x9100, 16, 3);
-	clks[IMX8MM_CLK_AHB_DIV] = imx_clk_divider2("ahb_div", "ahb_pre_div", base + 0x9000, 0, 6);
+	clks[IMX8MM_CLK_AHB_DIV] = imx_clk_divider_flags("ahb_div", "ahb_pre_div", base + 0x9000, 0, 6, CLK_SET_RATE_PARENT | CLK_OPS_PARENT_ENABLE);
 	clks[IMX8MM_CLK_AUDIO_AHB_DIV] = imx_clk_divider2("audio_ahb_div", "audio_ahb_pre_div", base + 0x9100, 0, 6);
 
 	/* IPG */
@@ -896,6 +898,9 @@ static void __init imx8mm_clocks_init(struct device_node *ccm_node)
 	clks[IMX8MM_CLK_CSI1_ROOT] = imx_clk_gate4("csi1_root_clk", "csi1_core_div", base + 0x4650, 0);
 
 	clks[IMX8MM_CLK_GPT_3M] = imx_clk_fixed_factor("gpt_3m", "osc_24m", 1, 8);
+
+	clks[IMX8MM_CLK_DRAM_ALT_ROOT] = imx_clk_fixed_factor("dram_alt_root", "dram_alt_div", 1, 4);
+	clks[IMX8MM_CLK_DRAM_CORE] = imx_clk_mux2("dram_core_clk", base + 0x9800, 24, 1, imx8mm_dram_core_sels, ARRAY_SIZE(imx8mm_dram_core_sels));
 
 	clks[IMX8MM_CLK_ARM] = imx_clk_cpu("arm", "arm_a53_div",
 					   clks[IMX8MM_CLK_A53_DIV],
