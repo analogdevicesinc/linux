@@ -7862,7 +7862,7 @@ static int ad9361_phy_read_avail(struct iio_dev *indio_dev,
 	switch (mask) {
 	case IIO_CHAN_INFO_HARDWAREGAIN:
 		if (chan->output) {
-			static const int tx_hw_gain[3] = {0, 250, 89750};
+			static const int tx_hw_gain[3] = {-89750, 250, 0};
 			*vals = tx_hw_gain;
 			*type = IIO_VAL_INT;
 			return IIO_AVAIL_RANGE;
