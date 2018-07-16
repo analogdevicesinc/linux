@@ -1256,6 +1256,19 @@ static int dwc3_probe(struct platform_device *pdev)
 
 	dwc3_get_properties(dwc);
 
+	if (dwc->dr_mode == USB_DR_MODE_OTG) {
+		dwc->otg_caps.otg_rev = 0x0300;
+		dwc->otg_caps.hnp_support = true;
+		dwc->otg_caps.srp_support = true;
+		dwc->otg_caps.adp_support = true;
+
+		/* Update otg capabilities by DT properties */
+		ret = of_usb_update_otg_caps(dev->of_node,
+					&dwc->otg_caps);
+		if (ret)
+			goto err0;
+	}
+
 	platform_set_drvdata(pdev, dwc);
 	dwc3_cache_hwparams(dwc);
 
