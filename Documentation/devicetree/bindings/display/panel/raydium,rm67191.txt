@@ -17,6 +17,12 @@ Optional properties:
 - pinctrl-0		phandle to the pin settings for the reset pin
 - panel-width-mm:	physical panel width [mm]
 - panel-height-mm:	physical panel height [mm]
+- video-mode:		Video data transfer mode
+			must be <0>, <1> or <2> as
+			follows:
+			    <0>: Burst mode
+			    <1>: Non-burst mode with sync event
+			    <2>: Non-burst mode with sync pulse
 
 [1]: Documentation/devicetree/bindings/display/display-timing.txt
 
