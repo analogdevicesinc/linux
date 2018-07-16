@@ -160,7 +160,7 @@ int hdmi_phy_init_ss28fdsoi(state_struct *state, struct drm_display_mode *mode, 
 	int ret;
 
 	/* reset phy */
-	imx_hdp_call(hdp, phy_reset, hdp->ipcHndl, 0);
+	imx_hdp_call(hdp, phy_reset, hdp->ipcHndl, NULL, 0);
 
 	/* Configure PHY */
 	character_freq_khz = phy_cfg_hdp_ss28fdsoi(state, 4, mode, color_depth, format);
@@ -169,7 +169,7 @@ int hdmi_phy_init_ss28fdsoi(state_struct *state, struct drm_display_mode *mode, 
 		return -EINVAL;
 	}
 
-	imx_hdp_call(hdp, phy_reset, hdp->ipcHndl, 1);
+	imx_hdp_call(hdp, phy_reset, hdp->ipcHndl, NULL, 1);
 
 	hdmi_tx_kiran_power_configuration_seq(state, 4);
 
