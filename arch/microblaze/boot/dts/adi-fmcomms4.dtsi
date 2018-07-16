@@ -77,6 +77,7 @@
 		adi,tx-rf-port-input-select = <0>; /* TX1A */
 		//adi,update-tx-gain-in-alert-enable;
 		adi,tx-attenuation-mdB = <10000>;
+		adi,tx-lo-powerdown-managed-enable;
 
 		adi,rf-rx-bandwidth-hz = <18000000>;
 		adi,rf-tx-bandwidth-hz = <18000000>;
