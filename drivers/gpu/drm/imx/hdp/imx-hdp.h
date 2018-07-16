@@ -94,7 +94,7 @@ struct hdp_ops {
 	int (*write_hdr_metadata)(state_struct *state,
 				  union hdmi_infoframe *hdr_infoframe);
 
-	void (*phy_reset)(sc_ipc_t ipcHndl, u8 reset);
+	void (*phy_reset)(sc_ipc_t ipcHndl, struct hdp_mem *mem, u8 reset);
 	int (*pixel_link_init)(state_struct *state);
 	void (*pixel_link_deinit)(state_struct *state);
 	void (*pixel_link_mux)(state_struct *state, struct drm_display_mode *mode);
@@ -202,7 +202,11 @@ struct imx_hdp {
 	u8 is_edid;
 	u8 is_4kp60;
 	u8 is_cec;
+	u8 is_edp;
 	u8 audio_type;
+	u32 lane_mapping;
+	u32 edp_link_rate;
+	u32 edp_num_lanes;
 
 	struct mutex mutex;		/* for state below and previous_mode */
 	enum drm_connector_force force;	/* mutex-protected force state */
