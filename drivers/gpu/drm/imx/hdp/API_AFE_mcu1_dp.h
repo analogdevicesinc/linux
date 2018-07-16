@@ -128,7 +128,7 @@
 #define TX_DIAG_TX_DRV_1 0x43E1
 #define TX_DIAG_TX_DRV_2 0x45E1
 #define TX_DIAG_TX_DRV_3 0x47E1
-#define PHY_HDP_MODE CTRL 0xC008
+#define PHY_HDP_MODE_CTRL 0xC008
 #define TX_DIAG_ACYA_0 0x41ff
 #define TX_DIAG_ACYA_1 0x43ff
 #define TX_DIAG_ACYA_2 0x45ff
@@ -165,4 +165,4 @@
 #define PHY_HDP_TX_CTL_L2 0xC488
 #define PHY_HDP_TX_CTL_L3 0xC4C8
 
-#endif //API_AFE_MCU1_DP_H
+#endif /*API_AFE_MCU1_DP_H*/

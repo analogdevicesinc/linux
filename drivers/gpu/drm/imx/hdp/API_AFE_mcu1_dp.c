@@ -48,22 +48,6 @@
 #include "API_AFE_mcu1_dp.h"
 #include "../../../../mxc/hdp/all.h"
 
-u8 AFE_check_rate_supported(ENUM_AFE_LINK_RATE rate)
-{
-	switch (rate) {
-	case AFE_LINK_RATE_1_6:
-	case AFE_LINK_RATE_2_1:
-	case AFE_LINK_RATE_2_4:
-	case AFE_LINK_RATE_2_7:
-	case AFE_LINK_RATE_3_2:
-	case AFE_LINK_RATE_4_3:
-	case AFE_LINK_RATE_5_4:
-		return 1;
-	default:
-		return 0;
-	}
-}
-
 static void AFE_WriteReg(state_struct *state, ENUM_AFE_LINK_RATE link_rate,
 			 unsigned int addr,
 			 unsigned int val1_6,
@@ -103,7 +87,7 @@ static void AFE_WriteReg(state_struct *state, ENUM_AFE_LINK_RATE link_rate,
 	}
 }
 
-void phy_cfg_24mhz(state_struct *state, int num_lanes)
+static void phy_cfg_24mhz(state_struct *state, int num_lanes)
 {
 	int k;
 
@@ -115,7 +99,9 @@ void phy_cfg_24mhz(state_struct *state, int num_lanes)
 }
 
 /* Valid for 24 MHz only */
-void phy_cfg_dp_pll0(state_struct *state, int num_lanes, ENUM_AFE_LINK_RATE link_rate)
+static void phy_cfg_dp_pll0(state_struct *state,
+			    int num_lanes,
+			    ENUM_AFE_LINK_RATE link_rate)
 {
 	int k;
 	volatile u16 rdata;
@@ -236,7 +222,7 @@ void phy_cfg_dp_pll0(state_struct *state, int num_lanes, ENUM_AFE_LINK_RATE link
 	}
 }
 
-void phy_cfg_dp_ln(state_struct *state, int num_lanes)
+static void phy_cfg_dp_ln(state_struct *state, int num_lanes)
 {
 	int k;
 	u16 rdata;
@@ -261,7 +247,7 @@ void phy_cfg_dp_ln(state_struct *state, int num_lanes)
 	}
 }
 
-u16 aux_cal_cfg(state_struct *state, u16 prev_calib_code)
+static u16 aux_cal_cfg(state_struct *state, u16 prev_calib_code)
 {
 	u16 txpu_calib_code;
 	u16 txpd_calib_code;
@@ -292,7 +278,7 @@ u16 aux_cal_cfg(state_struct *state, u16 prev_calib_code)
 	return new_calib_code;
 }
 
-void aux_cfg(state_struct *state)
+static void aux_cfg(state_struct *state)
 {
 	volatile u16 rdata;
 
