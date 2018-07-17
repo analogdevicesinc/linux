@@ -62,7 +62,6 @@
 #include <asm/atomic.h>
 #include <linux/dma-mapping.h>
 #include <linux/slab.h>
-#include <linux/dma-mapping.h>
 #include <linux/platform_device.h>
 
 #define _GC_OBJ_ZONE    gcvZONE_OS
@@ -137,6 +136,7 @@ _CMAFSLAlloc(
     )
 {
     gceSTATUS status;
+    u32 gfp = GFP_KERNEL | gcdNOWARN;
     gcsCMA_PRIV_PTR priv = (gcsCMA_PRIV_PTR)Allocator->privateData;
 
     struct mdl_cma_priv *mdl_priv=gcvNULL;
@@ -159,10 +159,17 @@ _CMAFSLAlloc(
     gcmkONERROR(gckOS_Allocate(os, sizeof(struct mdl_cma_priv), (gctPOINTER *)&mdl_priv));
     mdl_priv->kvaddr = gcvNULL;
 
+#if defined(CONFIG_ZONE_DMA32) && LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,37)
+    if (Flags & gcvALLOC_FLAG_4GB_ADDR)
+    {
+        gfp |= __GFP_DMA32;
+    }
+#endif
+
     mdl_priv->kvaddr = dma_alloc_writecombine(&os->device->platform->device->dev,
             NumPages * PAGE_SIZE,
             &mdl_priv->physical,
-            GFP_KERNEL | gcdNOWARN);
+            gfp);
 
     if (mdl_priv->kvaddr == gcvNULL)
     {
@@ -220,8 +227,10 @@ _CMAFSLGetSGT(
         gcmkONERROR(gcvSTATUS_OUT_OF_MEMORY);
     }
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,13,0)
-    page = phys_to_page (mdlPriv->physical);
+#if !defined(phys_to_page)
+    page = virt_to_page(mdlPriv->kvaddr);
+#elif LINUX_VERSION_CODE < KERNEL_VERSION(3,13,0)
+    page = phys_to_page(mdlPriv->physical);
 #else
     page = phys_to_page(dma_to_phys(&Allocator->os->device->platform->device->dev, mdl_priv->physical));
 #endif
@@ -276,9 +285,10 @@ static gceSTATUS
 _CMAFSLMmap(
     IN gckALLOCATOR Allocator,
     IN PLINUX_MDL Mdl,
+    IN gctBOOL Cacheable,
     IN gctSIZE_T skipPages,
     IN gctSIZE_T numPages,
-    INOUT struct vm_area_struct *vma
+    IN struct vm_area_struct *vma
     )
 {
     gckOS os = Allocator->os;
@@ -323,7 +333,7 @@ static void
 _CMAFSLUnmapUser(
     IN gckALLOCATOR Allocator,
     IN PLINUX_MDL Mdl,
-    IN gctPOINTER Logical,
+    IN PLINUX_MDL_MAP MdlMap,
     IN gctUINT32 Size
     )
 {
@@ -334,7 +344,7 @@ _CMAFSLUnmapUser(
     }
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3,4,0)
-    if (vm_munmap((unsigned long)Logical, Size) < 0)
+    if (vm_munmap((unsigned long)MdlMap->vmaAddr, Size) < 0)
     {
         gcmkTRACE_ZONE(
                 gcvLEVEL_WARNING, gcvZONE_OS,
@@ -344,7 +354,7 @@ _CMAFSLUnmapUser(
     }
 #else
     down_write(&current->mm->mmap_sem);
-    if (do_munmap(current->mm, (unsigned long)Logical, Size) < 0)
+    if (do_munmap(current->mm, (unsigned long)MdlMap->vmaAddr, Size) < 0)
     {
         gcmkTRACE_ZONE(
                 gcvLEVEL_WARNING, gcvZONE_OS,
@@ -360,8 +370,8 @@ static gceSTATUS
 _CMAFSLMapUser(
     IN gckALLOCATOR Allocator,
     IN PLINUX_MDL Mdl,
-    IN gctBOOL Cacheable,
-    OUT gctPOINTER * UserLogical
+    IN PLINUX_MDL_MAP MdlMap,
+    IN gctBOOL Cacheable
     )
 {
     gctPOINTER userLogical = gcvNULL;
@@ -419,24 +429,13 @@ _CMAFSLMapUser(
             gcmkERR_BREAK(gcvSTATUS_OUT_OF_RESOURCES);
         }
 
-        gcmkERR_BREAK(_CMAFSLMmap(Allocator, Mdl, 0, Mdl->numPages, vma));
+        gcmkERR_BREAK(_CMAFSLMmap(Allocator, Mdl, Cacheable, 0, Mdl->numPages, vma));
+        MdlMap->vmaAddr = userLogical;
+        MdlMap->cacheable = Cacheable;
+        MdlMap->vma = vma;
     }
     while (gcvFALSE);
     up_write(&current->mm->mmap_sem);
-
-    if (gcmIS_SUCCESS(status))
-    {
-        gcmkONERROR(gckOS_CacheFlush(
-            Allocator->os,
-            _GetProcessID(),
-            Mdl,
-            gcvINVALID_ADDRESS,
-            userLogical,
-            Mdl->numPages * PAGE_SIZE
-            ));
-
-        *UserLogical = userLogical;
-    }
 
 OnError:
     if (gcmIS_ERROR(status) && userLogical)
@@ -479,6 +478,18 @@ _CMACache(
     IN gceCACHEOPERATION Operation
     )
 {
+    switch (Operation)
+    {
+    case gcvCACHE_CLEAN:
+    case gcvCACHE_FLUSH:
+        _MemoryBarrier();
+        break;
+    case gcvCACHE_INVALIDATE:
+        break;
+    default:
+        return gcvSTATUS_INVALID_ARGUMENT;
+    }
+
     return gcvSTATUS_OK;
 }
 
@@ -559,6 +570,9 @@ _CMAFSLAlloctorInit(
 
     allocator->capability = gcvALLOC_FLAG_CONTIGUOUS
                           | gcvALLOC_FLAG_DMABUF_EXPORTABLE
+#if defined(CONFIG_ZONE_DMA32) && LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,37)
+                          | gcvALLOC_FLAG_4GB_ADDR
+#endif
                           ;
 
 #if defined(CONFIG_ARM64)

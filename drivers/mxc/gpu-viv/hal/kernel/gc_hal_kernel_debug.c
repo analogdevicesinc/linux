@@ -2031,6 +2031,7 @@ gckOS_DumpBuffer(
         if (Type != gcvDUMP_BUFFER_FROM_USER)
         {
             gcmkVERIFY_OK(gckOS_GetPhysicalAddress(Os, Buffer, &physical));
+            gcmkVERIFY_OK(gckOS_CPUPhysicalToGPUPhysical(Os, physical, &physical));
             gcmkSAFECASTPHYSADDRT(address, physical);
         }
         else

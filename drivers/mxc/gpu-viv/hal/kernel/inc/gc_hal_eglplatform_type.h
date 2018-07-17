@@ -322,3 +322,5 @@ halDISPLAY_INFO;
 #endif
 
 #endif /* __gc_hal_eglplatform_type_h_ */
+
+

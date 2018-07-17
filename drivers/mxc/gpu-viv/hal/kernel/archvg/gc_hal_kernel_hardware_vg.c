@@ -1229,6 +1229,8 @@ gckVGHARDWARE_ConvertLogical(
                 ));
         }
 
+        gcmkVERIFY_OK(gckOS_CPUPhysicalToGPUPhysical(Hardware->os, physical, &physical));
+
         gcmkSAFECASTPHYSADDRT(address, physical);
 
         /* Return hardware specific address. */

@@ -195,6 +195,7 @@ gckKERNEL_SecurityExecute(
 
 #if defined(LINUX)
     gcmkONERROR(gckOS_GetPhysicalAddress(Kernel->os, Buffer, &physical));
+    gcmkVERIFY_OK(gckOS_CPUPhysicalToGPUPhysical(Kernel->os, physical, &physical));
     gcmkSAFECASTPHYSADDRT(address, physical);
 
     iface.u.Execute.command_buffer = (gctUINT32 *)address;
@@ -236,6 +237,7 @@ gckKERNEL_SecurityMapMemory(
 
 #if defined(LINUX)
     gcmkONERROR(gckOS_GetPhysicalAddress(Kernel->os, PhysicalArray, &physical));
+    gcmkVERIFY_OK(gckOS_CPUPhysicalToGPUPhysical(Kernel->os, physical, &physical));
     gcmkSAFECASTPHYSADDRT(address, physical);
     iface.u.MapMemory.physicals = (gctUINT32 *)address;
 #endif

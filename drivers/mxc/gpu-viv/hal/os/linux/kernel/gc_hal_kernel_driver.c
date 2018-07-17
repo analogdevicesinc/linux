@@ -76,9 +76,9 @@ MODULE_LICENSE("Dual MIT/GPL");
 #define USE_MSI     1
 #endif
 
-static struct class* gpuClass;
+static struct class* gpuClass = NULL;
 
-static gcsPLATFORM *platform;
+static gcsPLATFORM *platform = NULL;
 
 static gckGALDEVICE galDevice;
 
@@ -870,6 +870,8 @@ int viv_drm_probe(struct device *dev);
 int viv_drm_remove(struct device *dev);
 #endif
 
+struct device *galcore_device = NULL;
+
 #if USE_LINUX_PCIE
 static int gpu_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 #else /* USE_LINUX_PCIE */
@@ -881,6 +883,8 @@ static int gpu_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 #endif /* USE_LINUX_PCIE */
 {
     int ret = -ENODEV;
+    static u64 dma_mask = ~0ULL;
+
     gcsMODULE_PARAMETERS moduleParam = {
         .irqLine            = irqLine,
         .registerMemBase    = registerMemBase,
@@ -916,8 +920,12 @@ static int gpu_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
     memcpy(moduleParam.registerBases, registerBases, gcmSIZEOF(gctUINT) * gcvCORE_COUNT);
     memcpy(moduleParam.registerSizes, registerSizes, gcmSIZEOF(gctUINT) * gcvCORE_COUNT);
     memcpy(moduleParam.chipIDs, chipIDs, gcmSIZEOF(gctUINT) * gcvCORE_COUNT);
-    moduleParam.compression = compression;
+    moduleParam.compression = (compression == -1) ? gcvCOMPRESSION_OPTION_DEFAULT : (gceCOMPRESSION_OPTION)compression;
     platform->device = pdev;
+    galcore_device = &pdev->dev;
+
+    galcore_device->dma_mask = &dma_mask;
+
 #if USE_LINUX_PCIE
     if (pci_enable_device(pdev)) {
         printk(KERN_ERR "galcore: pci_enable_device() failed.\n");
@@ -1018,6 +1026,8 @@ static void gpu_remove(struct pci_dev *pdev)
     gcmkFOOTER_NO();
     return;
 #else
+    galcore_device->dma_mask = NULL;
+    galcore_device = NULL;
     gcmkFOOTER_NO();
     return 0;
 #endif

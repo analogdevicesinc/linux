@@ -136,7 +136,7 @@ gctaOS_AllocateSecurityMemory(
 {
     gceSTATUS status;
 
-    gcmkONERROR(gckOS_AllocateNonPagedMemory(Os->os, gcvFALSE, Bytes, (gctPHYS_ADDR *)Physical, Logical));
+    gcmkONERROR(gckOS_AllocateNonPagedMemory(Os->os, gcvFALSE, gcvALLOC_FLAG_CONTIGUOUS, Bytes, (gctPHYS_ADDR *)Physical, Logical));
 
     return gcvSTATUS_OK;
 
@@ -166,7 +166,7 @@ gctaOS_AllocateNonSecurityMemory(
 {
     gceSTATUS status;
 
-    gcmkONERROR(gckOS_AllocateNonPagedMemory(Os->os, gcvFALSE, Bytes, (gctPHYS_ADDR *)Physical, Logical));
+    gcmkONERROR(gckOS_AllocateNonPagedMemory(Os->os, gcvFALSE, gcvALLOC_FLAG_CONTIGUOUS, Bytes, (gctPHYS_ADDR *)Physical, Logical));
 
     return gcvSTATUS_OK;
 
@@ -214,6 +214,8 @@ gctaOS_GetPhysicalAddress(
     gceSTATUS status;
 
     gcmkONERROR(gckOS_GetPhysicalAddress(Os->os, Logical, &physical));
+
+    gcmkVERIFY_OK(gckOS_CPUPhysicalToGPUPhysical(Os->os, physical, &physical));
 
     *Physical = (gctUINT32)physical;
 

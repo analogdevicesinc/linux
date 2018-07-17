@@ -82,6 +82,7 @@ gctCONST_STRING _DispatchText[] =
 {
     gcmDEFINE2TEXT(gcvHAL_QUERY_VIDEO_MEMORY),
     gcmDEFINE2TEXT(gcvHAL_QUERY_CHIP_IDENTITY),
+    gcmDEFINE2TEXT(gcvHAL_QUERY_CHIP_FREQUENCY),
     gcmDEFINE2TEXT(gcvHAL_ALLOCATE_NON_PAGED_MEMORY),
     gcmDEFINE2TEXT(gcvHAL_FREE_NON_PAGED_MEMORY),
     gcmDEFINE2TEXT(gcvHAL_ALLOCATE_CONTIGUOUS_MEMORY),
@@ -302,6 +303,8 @@ _MapCommandBuffer(
             Kernel->command->queues[i].logical,
             &physical
             ));
+
+        gcmkVERIFY_OK(gckOS_CPUPhysicalToGPUPhysical(Kernel->os, physical, &physical));
 
         gcmkSAFECASTPHYSADDRT(address, physical);
 
@@ -850,6 +853,13 @@ gckKERNEL_Destroy(
         Kernel->monitorTimerStop = gcvTRUE;
     }
 
+    if (Kernel->monitorTimer)
+    {
+        /* Stop and destroy monitor timer. */
+        gcmkVERIFY_OK(gckOS_StopTimer(Kernel->os, Kernel->monitorTimer));
+        gcmkVERIFY_OK(gckOS_DestroyTimer(Kernel->os, Kernel->monitorTimer));
+    }
+
 #if gcdENABLE_VG
     if (Kernel->vg)
     {
@@ -935,12 +945,6 @@ gckKERNEL_Destroy(
         gcmkVERIFY_OK(gckKERNEL_SecurityClose(Kernel->securityChannel));
     }
 #endif
-
-    if (Kernel->monitorTimer)
-    {
-        gcmkVERIFY_OK(gckOS_StopTimer(Kernel->os, Kernel->monitorTimer));
-        gcmkVERIFY_OK(gckOS_DestroyTimer(Kernel->os, Kernel->monitorTimer));
-    }
 
     /* Mark the gckKERNEL object as unknown. */
     Kernel->object.type = gcvOBJ_UNKNOWN;
@@ -1911,6 +1915,93 @@ OnError:
     return status;
 }
 
+static gceSTATUS
+gckKERNEL_CacheOperation(
+    IN gckKERNEL Kernel,
+    IN gctUINT32 ProcessID,
+    IN gctUINT32 Node,
+    IN gceCACHEOPERATION Operation,
+    IN gctPOINTER Logical,
+    IN gctSIZE_T Bytes
+    )
+{
+    gceSTATUS status;
+    gckVIDMEM_NODE nodeObject = gcvNULL;
+    gcuVIDMEM_NODE_PTR node = gcvNULL;
+    void *memHandle;
+
+    gcmkHEADER_ARG("Kernel=%p pid=%u Node=%u op=%d Logical=%p Bytes=0x%lx",
+                   Kernel, ProcessID, Node, Operation, Logical, Bytes);
+
+    gcmkONERROR(gckVIDMEM_HANDLE_Lookup(Kernel,
+                                        ProcessID,
+                                        Node,
+                                        &nodeObject));
+
+    node = nodeObject->node;
+
+    if (node->VidMem.memory->object.type == gcvOBJ_VIDMEM)
+    {
+        static gctBOOL printed;
+
+        if (!printed)
+        {
+            printed = gcvTRUE;
+            gcmkPRINT("[galcore]: %s: Flush Video Memory", __FUNCTION__);
+        }
+
+        gcmkFOOTER_NO();
+        return gcvSTATUS_OK;
+    }
+    else
+    {
+        memHandle = node->Virtual.physical;
+    }
+
+    switch (Operation)
+    {
+    case gcvCACHE_FLUSH:
+        /* Clean and invalidate the cache. */
+        status = gckOS_CacheFlush(Kernel->os,
+                                  ProcessID,
+                                  memHandle,
+                                  gcvINVALID_PHYSICAL_ADDRESS,
+                                  Logical,
+                                  Bytes);
+        break;
+    case gcvCACHE_CLEAN:
+        /* Clean the cache. */
+        status = gckOS_CacheClean(Kernel->os,
+                                  ProcessID,
+                                  memHandle,
+                                  gcvINVALID_PHYSICAL_ADDRESS,
+                                  Logical,
+                                  Bytes);
+        break;
+    case gcvCACHE_INVALIDATE:
+        /* Invalidate the cache. */
+        status = gckOS_CacheInvalidate(Kernel->os,
+                                       ProcessID,
+                                       memHandle,
+                                       gcvINVALID_PHYSICAL_ADDRESS,
+                                       Logical,
+                                       Bytes);
+        break;
+
+    case gcvCACHE_MEMORY_BARRIER:
+        status = gckOS_MemoryBarrier(Kernel->os, Logical);
+        break;
+
+    default:
+        gcmkONERROR(gcvSTATUS_INVALID_ARGUMENT);
+        break;
+    }
+
+OnError:
+    gcmkFOOTER();
+    return status;
+}
+
 gceSTATUS
 gckKERNEL_WaitFence(
     IN gckKERNEL Kernel,
@@ -2150,7 +2241,6 @@ gckKERNEL_Dispatch(
     gcskSECURE_CACHE_PTR cache;
     gctPOINTER logical;
 #endif
-    gctUINT64 paddr = gcvINVALID_ADDRESS;
 #if !USE_NEW_LINUX_SIGNAL
     gctSIGNAL   signal;
 #endif
@@ -2209,6 +2299,12 @@ gckKERNEL_Dispatch(
                 &Interface->u.QueryChipIdentity));
         break;
 
+    case gcvHAL_QUERY_CHIP_FREQUENCY:
+        /* Query chip clock. */
+        Interface->u.QueryChipFrequency.mcClk = Kernel->hardware->mcClk;
+        Interface->u.QueryChipFrequency.shClk = Kernel->hardware->shClk;
+        break;
+
     case gcvHAL_MAP_MEMORY:
         physical = gcmINT2PTR(Interface->u.MapMemory.physical);
 
@@ -2254,6 +2350,7 @@ gckKERNEL_Dispatch(
             gckOS_AllocateNonPagedMemory(
                 Kernel->os,
                 FromUser,
+                gcvALLOC_FLAG_CONTIGUOUS,
                 &bytes,
                 &physical,
                 &logical));
@@ -2486,11 +2583,10 @@ gckKERNEL_Dispatch(
         }
         else
         {
-	    gctUINT32 i;
+            gctUINT32 i;
+
             if (Interface->u.Commit.count > 1 && Interface->engine == gcvENGINE_RENDER)
             {
-                gctUINT32 i;
-
                 for (i = 0; i < Interface->u.Commit.count; i++)
                 {
                     gceHARDWARE_TYPE type = Interface->hardwareType;
@@ -2531,7 +2627,6 @@ gckKERNEL_Dispatch(
 
             if (Interface->u.Commit.count > 1 && Interface->engine == gcvENGINE_RENDER)
             {
-
                 for (i = 1; i < Interface->u.Commit.count; i++)
                 {
                     gceHARDWARE_TYPE type = Interface->hardwareType;
@@ -2568,22 +2663,24 @@ gckKERNEL_Dispatch(
                 }
             }
 
-	    for (i = 0; i < Interface->u.Commit.count; i++) {
-		    gceHARDWARE_TYPE type = Interface->hardwareType;
-		    gckKERNEL kernel = Device->map[type].kernels[i];
+            for (i = 0; i < Interface->u.Commit.count; i++)
+            {
+                gceHARDWARE_TYPE type = Interface->hardwareType;
+                gckKERNEL kernel = Device->map[type].kernels[i];
 
-		    if  ((kernel->hardware->options.gpuProfiler == gcvTRUE) &&
-		         (kernel->profileEnable == gcvTRUE)) {
-			    gcmkONERROR(gckCOMMAND_Stall(kernel->command, gcvTRUE));
+                if  ((kernel->hardware->options.gpuProfiler == gcvTRUE) &&
+                     (kernel->profileEnable == gcvTRUE))
+                {
+                    gcmkONERROR(gckCOMMAND_Stall(kernel->command, gcvTRUE));
 
-			    if (kernel->command->currContext) {
-				    gcmkONERROR(gckHARDWARE_UpdateContextProfile(
-							    kernel->hardware,
-							    kernel->command->currContext));
-			    }
-		    }
-	    }
-
+                    if (kernel->command->currContext)
+                    {
+                        gcmkONERROR(gckHARDWARE_UpdateContextProfile(
+                                    kernel->hardware,
+                                    kernel->command->currContext));
+                    }
+                }
+            }
         }
         gcmkONERROR(gckOS_ReleaseMutex(Kernel->os, Kernel->device->commitMutex));
         commitMutexAcquired = gcvFALSE;
@@ -2913,48 +3010,15 @@ gckKERNEL_Dispatch(
         break;
 
     case gcvHAL_CACHE:
-
         logical = gcmUINT64_TO_PTR(Interface->u.Cache.logical);
-
         bytes = (gctSIZE_T) Interface->u.Cache.bytes;
-        switch(Interface->u.Cache.operation)
-        {
-        case gcvCACHE_FLUSH:
-            /* Clean and invalidate the cache. */
-            status = gckOS_CacheFlush(Kernel->os,
-                                      processID,
-                                      physical,
-                                      paddr,
-                                      logical,
-                                      bytes);
-            break;
-        case gcvCACHE_CLEAN:
-            /* Clean the cache. */
-            status = gckOS_CacheClean(Kernel->os,
-                                      processID,
-                                      physical,
-                                      paddr,
-                                      logical,
-                                      bytes);
-            break;
-        case gcvCACHE_INVALIDATE:
-            /* Invalidate the cache. */
-            status = gckOS_CacheInvalidate(Kernel->os,
-                                           processID,
-                                           physical,
-                                           paddr,
-                                           logical,
-                                           bytes);
-            break;
 
-        case gcvCACHE_MEMORY_BARRIER:
-            status = gckOS_MemoryBarrier(Kernel->os,
-                                         logical);
-            break;
-        default:
-            status = gcvSTATUS_INVALID_ARGUMENT;
-            break;
-        }
+        gcmkONERROR(gckKERNEL_CacheOperation(Kernel,
+                                             processID,
+                                             Interface->u.Cache.node,
+                                             Interface->u.Cache.operation,
+                                             logical,
+                                             bytes));
         break;
 
     case gcvHAL_TIMESTAMP:
@@ -3635,6 +3699,8 @@ gckKERNEL_MapLogicalToPhysical(
             /* Map the logical address to a DMA address. */
             gcmkONERROR(
                 gckOS_GetPhysicalAddress(Kernel->os, *Data, &slot->dma));
+
+            gcmkVERIFY_OK(gckOS_CPUPhysicalToGPUPhysical(Kernel->os, slot->dma, &slot->dma));
         }
 
         /* Move slot to head of list. */
@@ -3743,6 +3809,8 @@ gckKERNEL_MapLogicalToPhysical(
             /* Map the logical address to a DMA address. */
             gcmkONERROR(
                 gckOS_GetPhysicalAddress(Kernel->os, *Data, &slot->dma));
+
+            gcmkVERIFY_OK(gckOS_CPUPhysicalToGPUPhysical(Kernel->os, slot->dma, &slot->dma));
         }
 
         /* Save time stamp. */
@@ -3798,6 +3866,8 @@ gckKERNEL_MapLogicalToPhysical(
             gcmkONERROR(
                 gckOS_GetPhysicalAddress(Kernel->os, *Data, &slot->dma));
 
+            gcmkVERIFY_OK(gckOS_CPUPhysicalToGPUPhysical(Kernel->os, slot->dma, &slot->dma));
+
             if (hash->nextHash != gcvNULL)
             {
                 gcmkTRACE_ZONE(gcvLEVEL_INFO, gcvZONE_KERNEL,
@@ -3845,6 +3915,8 @@ gckKERNEL_MapLogicalToPhysical(
             /* Map the logical address to a DMA address. */
             gcmkONERROR(
                 gckOS_GetPhysicalAddress(Kernel->os, *Data, &slot->dma));
+
+            gcmkVERIFY_OK(gckOS_CPUPhysicalToGPUPhysical(Kernel->os, slot->dma, &slot->dma));
         }
     }
 #endif
@@ -4534,6 +4606,7 @@ gckKERNEL_AllocateVirtualMemory(
         gcmkONERROR(gckOS_AllocateNonPagedMemory(
             os,
             InUserSpace,
+            gcvALLOC_FLAG_CONTIGUOUS,
             &bytes,
             &buffer->physical,
             &logical
@@ -5864,6 +5937,7 @@ gckFENCE_Create(
         gcmkONERROR(gckOS_AllocateNonPagedMemory(
             Os,
             gcvFALSE,
+            gcvALLOC_FLAG_CONTIGUOUS,
             &pageSize,
             &fence->physical,
             &fence->logical
@@ -6408,6 +6482,8 @@ gckKERNEL_MapInTrustApplicaiton(
                 logical,
                 &phys
                 ));
+
+            gcmkVERIFY_OK(gckOS_CPUPhysicalToGPUPhysical(Kernel->os, phys, &phys));
         }
 
         phys &= ~pageMask;

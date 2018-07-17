@@ -1187,6 +1187,8 @@ _AllocateLinear(
 
         gcmkERR_BREAK(gckOS_GetPhysicalAddress(Command->os, logical, &paddr));
 
+        gcmkVERIFY_OK(gckOS_CPUPhysicalToGPUPhysical(Command->os, paddr, &paddr));
+
         gcmkSAFECASTPHYSADDRT(address, paddr);
 
         /* Set return values. */

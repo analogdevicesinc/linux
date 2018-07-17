@@ -53,7 +53,7 @@
 *****************************************************************************/
 
 
-/*Auto created on 2018-05-02 10:01*/
+/*Auto created on 2018-05-16 12:13*/
 #ifndef _gc_feature_database_h_
 #define _gc_feature_database_h_
 
@@ -8810,8 +8810,8 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* PatchVersion */
         0x1, /* FormalRelease */
         0x4, /* gcFEATURE_VALUE_Streams */
-        0x20, /* gcFEATURE_VALUE_TempRegisters */
-        0x40, /* gcFEATURE_VALUE_ThreadCount */
+        0x40, /* gcFEATURE_VALUE_TempRegisters */
+        0x80, /* gcFEATURE_VALUE_ThreadCount */
         0x8, /* gcFEATURE_VALUE_VertexCacheSize */
         0x1, /* gcFEATURE_VALUE_NumShaderCores */
         0x1, /* gcFEATURE_VALUE_NumPixelPipes */
@@ -9270,8 +9270,8 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* PatchVersion */
         0x1, /* FormalRelease */
         0x4, /* gcFEATURE_VALUE_Streams */
-        0x20, /* gcFEATURE_VALUE_TempRegisters */
-        0x40, /* gcFEATURE_VALUE_ThreadCount */
+        0x40, /* gcFEATURE_VALUE_TempRegisters */
+        0x80, /* gcFEATURE_VALUE_ThreadCount */
         0x8, /* gcFEATURE_VALUE_VertexCacheSize */
         0x1, /* gcFEATURE_VALUE_NumShaderCores */
         0x1, /* gcFEATURE_VALUE_NumPixelPipes */
@@ -9730,8 +9730,8 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x4, /* PatchVersion */
         0x1, /* FormalRelease */
         0x4, /* gcFEATURE_VALUE_Streams */
-        0x20, /* gcFEATURE_VALUE_TempRegisters */
-        0x40, /* gcFEATURE_VALUE_ThreadCount */
+        0x40, /* gcFEATURE_VALUE_TempRegisters */
+        0x80, /* gcFEATURE_VALUE_ThreadCount */
         0x8, /* gcFEATURE_VALUE_VertexCacheSize */
         0x1, /* gcFEATURE_VALUE_NumShaderCores */
         0x1, /* gcFEATURE_VALUE_NumPixelPipes */
@@ -10190,8 +10190,8 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x7, /* PatchVersion */
         0x0, /* FormalRelease */
         0x4, /* gcFEATURE_VALUE_Streams */
-        0x20, /* gcFEATURE_VALUE_TempRegisters */
-        0x40, /* gcFEATURE_VALUE_ThreadCount */
+        0x40, /* gcFEATURE_VALUE_TempRegisters */
+        0x80, /* gcFEATURE_VALUE_ThreadCount */
         0x8, /* gcFEATURE_VALUE_VertexCacheSize */
         0x1, /* gcFEATURE_VALUE_NumShaderCores */
         0x1, /* gcFEATURE_VALUE_NumPixelPipes */
@@ -10650,8 +10650,8 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x7, /* PatchVersion */
         0x1, /* FormalRelease */
         0x4, /* gcFEATURE_VALUE_Streams */
-        0x20, /* gcFEATURE_VALUE_TempRegisters */
-        0x40, /* gcFEATURE_VALUE_ThreadCount */
+        0x40, /* gcFEATURE_VALUE_TempRegisters */
+        0x80, /* gcFEATURE_VALUE_ThreadCount */
         0x8, /* gcFEATURE_VALUE_VertexCacheSize */
         0x1, /* gcFEATURE_VALUE_NumShaderCores */
         0x1, /* gcFEATURE_VALUE_NumPixelPipes */
@@ -11110,8 +11110,8 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x9, /* PatchVersion */
         0x1, /* FormalRelease */
         0x4, /* gcFEATURE_VALUE_Streams */
-        0x20, /* gcFEATURE_VALUE_TempRegisters */
-        0x40, /* gcFEATURE_VALUE_ThreadCount */
+        0x40, /* gcFEATURE_VALUE_TempRegisters */
+        0x80, /* gcFEATURE_VALUE_ThreadCount */
         0x8, /* gcFEATURE_VALUE_VertexCacheSize */
         0x1, /* gcFEATURE_VALUE_NumShaderCores */
         0x1, /* gcFEATURE_VALUE_NumPixelPipes */
@@ -49321,7 +49321,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x100, /* gcFEATURE_VALUE_VIP_SRAM_SIZE */
         0x2, /* gcFEATURE_VALUE_TPEngine_CoreCount */
         0x400, /* gcFEATURE_VALUE_AXI_SRAM_SIZE */
-        0x3, /* gcFEATURE_VALUE_NN_INIMAGE_OFFSET_BITS */
+        0x4, /* gcFEATURE_VALUE_NN_INIMAGE_OFFSET_BITS */
         0x1, /* gcFEATURE_BIT_REG_FastClear */
         0x0, /* gcFEATURE_BIT_REG_SpecialAntiAliasing */
         0x1, /* gcFEATURE_BIT_REG_Pipe3D */
@@ -68189,3 +68189,5 @@ gcQueryFeatureDB(
     return gcvNULL;
 }
 #endif /* _gc_feature_database_h_ */
+
+

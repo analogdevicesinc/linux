@@ -126,7 +126,9 @@ OBJS += $(ARCH_KERNEL_DIR)/gc_hal_kernel_recorder.o
 endif
 
 ifneq ($(CONFIG_ARM64),)
+ifeq ($(CONFIG_ANDROID),)
 VIVANTE_ENABLE_VG=0
+endif
 endif
 
 ifeq ($(VIVANTE_ENABLE_VG), 1)

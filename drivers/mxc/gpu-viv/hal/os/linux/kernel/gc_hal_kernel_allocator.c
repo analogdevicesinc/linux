@@ -178,3 +178,83 @@ gckOS_FreeAllocators(
     return gcvSTATUS_OK;
 }
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION (3,6,0) \
+    || (!defined (ARCH_HAS_SG_CHAIN) && !defined (CONFIG_ARCH_HAS_SG_CHAIN))
+
+#if LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,23)
+static inline void sg_set_page(struct scatterlist *sg, struct page *page,
+                   unsigned int len, unsigned int offset)
+{
+    sg->page = page;
+    sg->offset = offset;
+    sg->length = len;
+}
+
+static inline void sg_mark_end(struct scatterlist *sg)
+{
+    (void)sg;
+}
+#  endif
+
+int
+alloc_sg_list_from_pages(
+    struct scatterlist **sgl,
+    struct page **pages,
+    unsigned int  n_pages,
+    unsigned long offset,
+    unsigned long size,
+    unsigned int  *nents
+    )
+{
+    unsigned int chunks;
+    unsigned int i;
+    unsigned int cur_page;
+    struct scatterlist *s;
+
+    chunks = 1;
+
+    for (i = 1; i < n_pages; ++i)
+    {
+        if (page_to_pfn(pages[i]) != page_to_pfn(pages[i - 1]) + 1)
+        {
+            ++chunks;
+        }
+    }
+
+    s = kzalloc(sizeof(struct scatterlist) * chunks, GFP_KERNEL);
+    if (unlikely(!s))
+    {
+        return -ENOMEM;
+    }
+
+    *sgl = s;
+    *nents = chunks;
+
+    cur_page = 0;
+
+    for (i = 0; i < chunks; i++, s++)
+    {
+        unsigned long chunk_size;
+        unsigned int j;
+
+        for (j = cur_page + 1; j < n_pages; j++)
+        {
+            if (page_to_pfn(pages[j]) != page_to_pfn(pages[j - 1]) + 1)
+            {
+                break;
+            }
+        }
+
+        chunk_size = ((j - cur_page) << PAGE_SHIFT) - offset;
+        sg_set_page(s, pages[cur_page], min(size, chunk_size), offset);
+        size -= chunk_size;
+        offset = 0;
+        cur_page = j;
+    }
+
+    sg_mark_end(s - 1);
+
+    return 0;
+}
+#endif
+

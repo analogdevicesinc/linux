@@ -284,6 +284,7 @@ static int viv_ioctl_gem_unlock(struct drm_device *drm, void *data,
     {
         gcmkONERROR(gcvSTATUS_NOT_FOUND);
     }
+    drm_gem_object_unreference_unlocked(gem_obj);
     viv_obj = container_of(gem_obj, struct viv_gem_object, base);
 
     memset(&iface, 0, sizeof(iface));

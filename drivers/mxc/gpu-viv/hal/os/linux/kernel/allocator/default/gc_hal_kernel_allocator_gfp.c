@@ -68,31 +68,44 @@
 
 #define gcdDISCRETE_PAGES 0
 
-struct gfp_priv
+struct gfp_alloc
 {
     atomic_t low;
     atomic_t high;
 };
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION (2,6,24)
+struct sg_table
+{
+    struct scatterlist *sgl;
+    unsigned int nents;
+    unsigned int orig_nents;
+};
+#endif
+
 struct gfp_mdl_priv
 {
+    int contiguous;
+
     union
     {
         /* Pointer to a array of pages. */
-        struct page *       contiguousPages;
-        /* Pointer to a array of pointers to page. */
-        struct page **      nonContiguousPages;
+        struct
+        {
+            struct page *contiguousPages;
+            dma_addr_t dma_addr;
+            int exact;
+        };
+
+        struct
+        {
+            /* Pointer to a array of pointers to page. */
+            struct page **nonContiguousPages;
+            struct sg_table sgt;
+        };
     };
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27)
-    gctBOOL                 exact;
-#endif
-
-    gctBOOL                 cacheable;
-
-    gcsPLATFORM *           platform;
-
-    gctBOOL                 contiguous;
+    gcsPLATFORM * platform;
 };
 
 /******************************************************************************\
@@ -103,7 +116,7 @@ static int gc_usage_show(struct seq_file* m, void* data)
 {
     gcsINFO_NODE *node = m->private;
     gckALLOCATOR Allocator = node->device;
-    struct gfp_priv *priv = Allocator->privateData;
+    struct gfp_alloc *priv = Allocator->privateData;
     long long low  = (long long)atomic_read(&priv->low);
     long long high = (long long)atomic_read(&priv->high);
 
@@ -181,14 +194,12 @@ _NonContiguousFree(
 
 static struct page **
 _NonContiguousAlloc(
-    IN gctUINT32 NumPages
+    IN gctUINT32 NumPages,
+    IN gctUINT32 Gfp
     )
 {
     struct page ** pages;
     struct page *p;
-#if gcdDISCRETE_PAGES
-    struct page *l;
-#endif
     gctINT i, size;
 
     gcmkHEADER_ARG("NumPages=%u", NumPages);
@@ -220,7 +231,7 @@ _NonContiguousAlloc(
 
     for (i = 0; i < NumPages; i++)
     {
-        p = alloc_page(GFP_KERNEL | __GFP_HIGHMEM | gcdNOWARN);
+        p = alloc_page(Gfp);
 
         if (!p)
         {
@@ -235,10 +246,10 @@ _NonContiguousAlloc(
             if (page_to_pfn(pages[i-1]) == page_to_pfn(p)-1)
             {
                 /* Replaced page. */
-                l = p;
+                struct page *l = p;
 
                 /* Allocate a page which is not contiguous to previous one. */
-                p = alloc_page(GFP_KERNEL | __GFP_HIGHMEM | __GFP_NOWARN);
+                p = alloc_page(Gfp);
 
                 /* Give replaced page back. */
                 __free_page(l);
@@ -273,33 +284,40 @@ _GFPAlloc(
 {
     gceSTATUS status;
     gctUINT i;
+    u32 gfp = GFP_KERNEL | __GFP_HIGHMEM | gcdNOWARN;
     gctBOOL contiguous = Flags & gcvALLOC_FLAG_CONTIGUOUS;
-#ifdef gcdSYS_FREE_MEMORY_LIMIT
-    struct sysinfo temsysinfo;
-#endif
 
-    struct gfp_priv *priv = (struct gfp_priv *)Allocator->privateData;
+    struct gfp_alloc *priv = (struct gfp_alloc *)Allocator->privateData;
     struct gfp_mdl_priv *mdlPriv = gcvNULL;
+    int result;
     int low = 0;
     int high = 0;
 
     gcmkHEADER_ARG("Allocator=%p Mdl=%p NumPages=%zu Flags=0x%x", Allocator, Mdl, NumPages, Flags);
 
 #ifdef gcdSYS_FREE_MEMORY_LIMIT
-    si_meminfo(&temsysinfo);
-
     if (Flags & gcvALLOC_FLAG_MEMLIMIT)
     {
-        if ( (temsysinfo.freeram < NumPages) || ((temsysinfo.freeram-NumPages) < gcdSYS_FREE_MEMORY_LIMIT) )
+        struct sysinfo temsysinfo;
+        si_meminfo(&temsysinfo);
+
+        if ((temsysinfo.freeram < NumPages) || ((temsysinfo.freeram-NumPages) < gcdSYS_FREE_MEMORY_LIMIT))
         {
             gcmkONERROR(gcvSTATUS_OUT_OF_MEMORY);
         }
     }
 #endif
 
-    gcmkONERROR(gckOS_Allocate(Allocator->os, sizeof(struct gfp_mdl_priv), (gctPOINTER *)&mdlPriv));
+    mdlPriv = kzalloc(sizeof(struct gfp_mdl_priv), GFP_KERNEL | __GFP_NORETRY);
 
-    memset(mdlPriv, 0, sizeof(struct gfp_mdl_priv));
+#if defined(CONFIG_ZONE_DMA32) && LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,37)
+    if (Flags & gcvALLOC_FLAG_4GB_ADDR)
+    {
+        /* remove __GFP_HIGHMEM bit, add __GFP_DMA32 bit */
+        gfp &= ~__GFP_HIGHMEM;
+        gfp |= __GFP_DMA32;
+    }
+#endif
 
     if (contiguous)
     {
@@ -308,11 +326,14 @@ _GFPAlloc(
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27)
         void *addr = NULL;
 
-        addr = alloc_pages_exact(bytes, GFP_KERNEL | gcdNOWARN | __GFP_NORETRY);
+        addr = alloc_pages_exact(bytes, (gfp & ~__GFP_HIGHMEM) | __GFP_NORETRY);
 
         mdlPriv->contiguousPages = addr ? virt_to_page(addr) : gcvNULL;
 
-        mdlPriv->exact = gcvTRUE;
+        if (mdlPriv->contiguousPages)
+        {
+            mdlPriv->exact = gcvTRUE;
+        }
 #endif
 
         if (mdlPriv->contiguousPages == gcvNULL)
@@ -325,16 +346,32 @@ _GFPAlloc(
                 goto OnError;
             }
 
-            mdlPriv->contiguousPages =
-                alloc_pages(GFP_KERNEL | __GFP_HIGHMEM | gcdNOWARN, order);
+            mdlPriv->contiguousPages = alloc_pages(gfp, order);
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27)
-            mdlPriv->exact = gcvFALSE;
-#endif
         }
 
         if (mdlPriv->contiguousPages == gcvNULL)
         {
+            gcmkONERROR(gcvSTATUS_OUT_OF_MEMORY);
+        }
+
+        mdlPriv->dma_addr = dma_map_page(galcore_device,
+                mdlPriv->contiguousPages, 0, NumPages * PAGE_SIZE,
+                DMA_TO_DEVICE);
+
+        if (!mdlPriv->dma_addr)
+        {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27)
+            if (mdlPriv->exact)
+            {
+                free_pages_exact(page_address(mdlPriv->contiguousPages), bytes);
+            }
+            else
+#endif
+            {
+                __free_pages(mdlPriv->contiguousPages, get_order(bytes));
+            }
+
             gcmkONERROR(gcvSTATUS_OUT_OF_MEMORY);
         }
 
@@ -350,10 +387,45 @@ _GFPAlloc(
     }
     else
     {
-        mdlPriv->nonContiguousPages = _NonContiguousAlloc(NumPages);
+        mdlPriv->nonContiguousPages = _NonContiguousAlloc(NumPages, gfp);
 
         if (mdlPriv->nonContiguousPages == gcvNULL)
         {
+            gcmkONERROR(gcvSTATUS_OUT_OF_MEMORY);
+        }
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION (3,6,0) \
+    && (defined(ARCH_HAS_SG_CHAIN) || defined(CONFIG_ARCH_HAS_SG_CHAIN))
+        result = sg_alloc_table_from_pages(&mdlPriv->sgt,
+                    mdlPriv->nonContiguousPages, NumPages, 0,
+                    NumPages << PAGE_SHIFT, GFP_KERNEL);
+
+#else
+        result = alloc_sg_list_from_pages(&mdlPriv->sgt.sgl,
+                    mdlPriv->nonContiguousPages, NumPages, 0,
+                    NumPages << PAGE_SHIFT, &mdlPriv->sgt.nents);
+
+        mdlPriv->sgt.orig_nents = mdlPriv->sgt.nents;
+#endif
+        if (result < 0)
+        {
+            _NonContiguousFree(mdlPriv->nonContiguousPages, NumPages);
+            gcmkONERROR(gcvSTATUS_OUT_OF_MEMORY);
+        }
+
+        result = dma_map_sg(galcore_device,
+                    mdlPriv->sgt.sgl, mdlPriv->sgt.nents, DMA_TO_DEVICE);
+
+        if (result != mdlPriv->sgt.nents)
+        {
+            _NonContiguousFree(mdlPriv->nonContiguousPages, NumPages);
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION (3,6,0) \
+    && (defined (ARCH_HAS_SG_CHAIN) || defined (CONFIG_ARCH_HAS_SG_CHAIN))
+            sg_free_table(&mdlPriv->sgt);
+#else
+            kfree(mdlPriv->sgt.sgl);
+#endif
             gcmkONERROR(gcvSTATUS_OUT_OF_MEMORY);
         }
 
@@ -387,28 +459,10 @@ _GFPAlloc(
 
         if (PageHighMem(page))
         {
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 37)
-            void *vaddr = kmap_atomic(page);
-#else
-            void *vaddr = kmap_atomic(page, KM_USER0);
-#endif
-
-            gcmkVERIFY_OK(gckOS_CacheFlush(
-                Allocator->os, _GetProcessID(), gcvNULL, phys, vaddr, PAGE_SIZE
-                ));
-
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 37)
-            kunmap_atomic(vaddr);
-#else
-            kunmap_atomic(vaddr, KM_USER0);
-#endif
             high++;
         }
         else
         {
-            gcmkVERIFY_OK(gckOS_CacheFlush(
-                Allocator->os, _GetProcessID(), gcvNULL, phys, page_address(page), PAGE_SIZE
-                ));
             low++;
         }
     }
@@ -426,7 +480,7 @@ _GFPAlloc(
 OnError:
     if (mdlPriv)
     {
-        gcmkOS_SAFE_FREE(Allocator->os, mdlPriv);
+        kfree(mdlPriv);
     }
 
     gcmkFOOTER();
@@ -512,10 +566,28 @@ _GFPFree(
 {
     gctINT i;
     struct page * page;
-    struct gfp_priv *priv = (struct gfp_priv *)Allocator->privateData;
+    struct gfp_alloc *priv = (struct gfp_alloc *)Allocator->privateData;
     struct gfp_mdl_priv *mdlPriv = Mdl->priv;
     int low  = 0;
     int high = 0;
+
+    if (Mdl->contiguous)
+    {
+        dma_unmap_page(galcore_device, mdlPriv->dma_addr,
+                Mdl->numPages << PAGE_SHIFT, DMA_TO_DEVICE);
+    }
+    else
+    {
+        dma_unmap_sg(galcore_device, mdlPriv->sgt.sgl, mdlPriv->sgt.nents,
+                DMA_TO_DEVICE);
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION (3,6,0) \
+    && (defined (ARCH_HAS_SG_CHAIN) || defined (CONFIG_ARCH_HAS_SG_CHAIN))
+        sg_free_table(&mdlPriv->sgt);
+#else
+        kfree(mdlPriv->sgt.sgl);
+#endif
+    }
 
     for (i = 0; i < Mdl->numPages; i++)
     {
@@ -572,16 +644,17 @@ _GFPFree(
         _NonContiguousFree(mdlPriv->nonContiguousPages, Mdl->numPages);
     }
 
-    gcmkOS_SAFE_FREE(Allocator->os, Mdl->priv);
+    kfree(Mdl->priv);
 }
 
 static gceSTATUS
 _GFPMmap(
     IN gckALLOCATOR Allocator,
     IN PLINUX_MDL Mdl,
+    IN gctBOOL Cacheable,
     IN gctSIZE_T skipPages,
     IN gctSIZE_T numPages,
-    INOUT struct vm_area_struct *vma
+    IN struct vm_area_struct *vma
     )
 {
     struct gfp_mdl_priv *mdlPriv = (struct gfp_mdl_priv*)Mdl->priv;
@@ -591,7 +664,8 @@ _GFPMmap(
     gcmkHEADER_ARG("Allocator=%p Mdl=%p vma=%p", Allocator, Mdl, vma);
 
     vma->vm_flags |= gcdVM_FLAGS;
-    if (mdlPriv->cacheable == gcvFALSE)
+
+    if (Cacheable == gcvFALSE)
     {
         vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
     }
@@ -659,13 +733,11 @@ static void
 _GFPUnmapUser(
     IN gckALLOCATOR Allocator,
     IN PLINUX_MDL Mdl,
-    IN gctPOINTER Logical,
+    IN PLINUX_MDL_MAP MdlMap,
     IN gctUINT32 Size
     )
 {
-    struct gfp_mdl_priv *mdlPriv = (struct gfp_mdl_priv*)Mdl->priv;
-
-    mdlPriv->cacheable = gcvFALSE;
+    MdlMap->cacheable = gcvFALSE;
 
     if (unlikely(current->mm == gcvNULL))
     {
@@ -674,7 +746,7 @@ _GFPUnmapUser(
     }
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3,5,0)
-    if (vm_munmap((unsigned long)Logical, Size) < 0)
+    if (vm_munmap((unsigned long)MdlMap->vmaAddr, Size) < 0)
     {
         gcmkTRACE_ZONE(
                 gcvLEVEL_WARNING, gcvZONE_OS,
@@ -684,7 +756,7 @@ _GFPUnmapUser(
     }
 #else
     down_write(&current->mm->mmap_sem);
-    if (do_munmap(current->mm, (unsigned long)Logical, Size) < 0)
+    if (do_munmap(current->mm, (unsigned long)MdlMap->vmaAddr, Size) < 0)
     {
         gcmkTRACE_ZONE(
                 gcvLEVEL_WARNING, gcvZONE_OS,
@@ -694,14 +766,16 @@ _GFPUnmapUser(
     }
     up_write(&current->mm->mmap_sem);
 #endif
+
+    MdlMap->vma = NULL;
 }
 
 static gceSTATUS
 _GFPMapUser(
     gckALLOCATOR Allocator,
     PLINUX_MDL Mdl,
-    gctBOOL Cacheable,
-    OUT gctPOINTER * UserLogical
+    PLINUX_MDL_MAP MdlMap,
+    gctBOOL Cacheable
     )
 {
     gctPOINTER userLogical = gcvNULL;
@@ -751,7 +825,6 @@ _GFPMapUser(
     down_write(&current->mm->mmap_sem);
     do
     {
-        struct gfp_mdl_priv *mdlPriv = (struct gfp_mdl_priv*)Mdl->priv;
         struct vm_area_struct *vma = find_vma(current->mm, (unsigned long)userLogical);
 
         if (vma == gcvNULL)
@@ -765,25 +838,16 @@ _GFPMapUser(
             gcmkERR_BREAK(gcvSTATUS_OUT_OF_RESOURCES);
         }
 
-        /* mdlPriv->cacheable must be used under protection of mdl->mapMutex. */
-        mdlPriv->cacheable = Cacheable;
-        gcmkERR_BREAK(_GFPMmap(Allocator, Mdl, 0, Mdl->numPages, vma));
+        gcmkERR_BREAK(_GFPMmap(Allocator, Mdl, Cacheable, 0, Mdl->numPages, vma));
+        MdlMap->vma = vma;
     }
     while (gcvFALSE);
     up_write(&current->mm->mmap_sem);
 
     if (gcmIS_SUCCESS(status))
     {
-        gcmkONERROR(gckOS_CacheFlush(
-            Allocator->os,
-            _GetProcessID(),
-            Mdl,
-            gcvINVALID_ADDRESS,
-            userLogical,
-            Mdl->numPages * PAGE_SIZE
-            ));
-
-        *UserLogical = userLogical;
+        MdlMap->vmaAddr = userLogical;
+        MdlMap->cacheable = Cacheable;
     }
 
 OnError:
@@ -891,6 +955,60 @@ _GFPCache(
     IN gceCACHEOPERATION Operation
     )
 {
+    struct gfp_mdl_priv *mdlPriv = Mdl->priv;
+    enum dma_data_direction dir;
+
+    switch (Operation)
+    {
+    case gcvCACHE_CLEAN:
+        dir = DMA_TO_DEVICE;
+
+        if (mdlPriv->contiguous)
+        {
+            dma_sync_single_for_device(galcore_device,
+                    mdlPriv->dma_addr, Mdl->numPages << PAGE_SHIFT, dir);
+        }
+        else
+        {
+            dma_sync_sg_for_device(galcore_device,
+                    mdlPriv->sgt.sgl, mdlPriv->sgt.nents, dir);
+        }
+
+        break;
+    case gcvCACHE_FLUSH:
+        dir = DMA_BIDIRECTIONAL;
+
+        if (mdlPriv->contiguous)
+        {
+            dma_sync_single_for_device(galcore_device,
+                    mdlPriv->dma_addr, Mdl->numPages << PAGE_SHIFT, dir);
+        }
+        else
+        {
+            dma_sync_sg_for_device(galcore_device,
+                    mdlPriv->sgt.sgl, mdlPriv->sgt.nents, dir);
+        }
+
+        break;
+    case gcvCACHE_INVALIDATE:
+        dir = DMA_FROM_DEVICE;
+
+        if (mdlPriv->contiguous)
+        {
+            dma_sync_single_for_cpu(galcore_device,
+                    mdlPriv->dma_addr, Mdl->numPages << PAGE_SHIFT, dir);
+        }
+        else
+        {
+            dma_sync_sg_for_cpu(galcore_device,
+                    mdlPriv->sgt.sgl, mdlPriv->sgt.nents, dir);
+        }
+
+        break;
+    default:
+        return gcvSTATUS_INVALID_ARGUMENT;
+    }
+
     return gcvSTATUS_OK;
 }
 
@@ -959,12 +1077,12 @@ _GFPAlloctorInit(
 {
     gceSTATUS status;
     gckALLOCATOR allocator = gcvNULL;
-    struct gfp_priv *priv = gcvNULL;
+    struct gfp_alloc *priv = gcvNULL;
 
     gcmkONERROR(
         gckALLOCATOR_Construct(Os, &GFPAllocatorOperations, &allocator));
 
-    priv = kzalloc(sizeof(struct gfp_priv), GFP_KERNEL | gcdNOWARN);
+    priv = kzalloc(sizeof(struct gfp_alloc), GFP_KERNEL | gcdNOWARN);
 
     if (!priv)
     {
@@ -986,6 +1104,9 @@ _GFPAlloctorInit(
                           | gcvALLOC_FLAG_MEMLIMIT
                           | gcvALLOC_FLAG_ALLOC_ON_FAULT
                           | gcvALLOC_FLAG_DMABUF_EXPORTABLE
+#if defined(CONFIG_ZONE_DMA32) && LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,37)
+                          | gcvALLOC_FLAG_4GB_ADDR
+#endif
                           ;
 
 #if defined(gcdEMULATE_SECURE_ALLOCATOR)

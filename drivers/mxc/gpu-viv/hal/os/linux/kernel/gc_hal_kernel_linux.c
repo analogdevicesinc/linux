@@ -463,12 +463,6 @@ gckKERNEL_Notify(
 {
     gceSTATUS status;
 
-    gcmkHEADER_ARG("Kernel=%p Notification=%d Data=%d",
-                   Kernel, Notification, Data);
-
-    /* Verify the arguments. */
-    gcmkVERIFY_OBJECT(Kernel, gcvOBJ_KERNEL);
-
     /* Dispatch on notifcation. */
     switch (Notification)
     {
@@ -477,8 +471,7 @@ gckKERNEL_Notify(
 #if COMMAND_PROCESSOR_VERSION > 1
         status = gckINTERRUPT_Notify(Kernel->interrupt, Data);
 #else
-        status = gckHARDWARE_Interrupt(Kernel->hardware,
-                                       Data);
+        status = gckHARDWARE_Interrupt(Kernel->hardware, Data);
 #endif
         break;
 
@@ -488,7 +481,6 @@ gckKERNEL_Notify(
     }
 
     /* Success. */
-    gcmkFOOTER();
     return status;
 }
 

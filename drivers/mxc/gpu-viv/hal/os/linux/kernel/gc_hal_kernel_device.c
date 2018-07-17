@@ -70,6 +70,10 @@ static gckGALDEVICE galDevice;
 
 extern gcTA globalTA[16];
 
+gceSTATUS
+gckGALDEVICE_QueryFrequency( IN gckGALDEVICE Device);
+
+
 /******************************************************************************\
 ******************************** Debugfs Support *******************************
 \******************************************************************************/
@@ -692,6 +696,42 @@ static int gc_dump_trigger_write(const char __user *buf, size_t count, void* dat
     return strtoint_from_user(buf, count, &dumpCore);
 }
 
+static int gc_clk_show(struct seq_file* m, void* data)
+{
+    gcsINFO_NODE *node = m->private;
+    gckGALDEVICE device = node->device;
+    gctUINT i;
+
+    gckGALDEVICE_QueryFrequency(device);
+
+    for (i = gcvCORE_MAJOR; i < gcvCORE_COUNT; i++)
+    {
+        if (device->kernels[i])
+        {
+            gckHARDWARE hardware = device->kernels[i]->hardware;
+
+#if gcdENABLE_VG
+            if (i == gcvCORE_VG)
+            {
+                continue;
+            }
+#endif
+
+            if (hardware->mcClk)
+            {
+                seq_printf(m, "gpu%d mc clock: %d HZ.\n", i, hardware->mcClk);
+            }
+
+            if (hardware->shClk)
+            {
+                seq_printf(m, "gpu%d sh clock: %d HZ.\n", i, hardware->shClk);
+            }
+        }
+    }
+
+    return 0;
+}
+
 static gcsINFO InfoList[] =
 {
     {"info", gc_info_show},
@@ -702,6 +742,7 @@ static gcsINFO InfoList[] =
     {"version", gc_version_show},
     {"vidmem", gc_vidmem_show, gc_vidmem_write},
     {"dump_trigger", gc_dump_trigger_show, gc_dump_trigger_write},
+    {"clk", gc_clk_show},
 };
 
 static gceSTATUS
@@ -2056,6 +2097,89 @@ gckGALDEVICE_Stop_Threads(
     return gcvSTATUS_OK;
 }
 
+gceSTATUS
+gckGALDEVICE_QueryFrequency(
+    IN gckGALDEVICE Device
+    )
+{
+    gctUINT64 mcStart[gcvCORE_COUNT], shStart[gcvCORE_COUNT];
+    gctUINT32 mcClk[gcvCORE_COUNT], shClk[gcvCORE_COUNT];
+    gckHARDWARE hardware = gcvNULL;
+    gceSTATUS status;
+    gctUINT i;
+
+    gcmkHEADER_ARG("Device=0x%p", Device);
+
+    for (i = gcvCORE_MAJOR; i < gcvCORE_COUNT; i++)
+    {
+#if gcdENABLE_VG
+        if (i == gcvCORE_VG)
+        {
+            continue;
+        }
+#endif
+
+        if (Device->kernels[i])
+        {
+            hardware = Device->kernels[i]->hardware;
+
+            mcStart[i] = shStart[i] = 0;
+
+            if (Device->args.powerManagement)
+            {
+                gcmkONERROR(gckHARDWARE_SetPowerManagement(
+                    hardware, gcvFALSE
+                    ));
+            }
+
+            gcmkONERROR(gckHARDWARE_SetPowerManagementState(
+                hardware, gcvPOWER_ON_AUTO
+                ));
+
+            gckHARDWARE_EnterQueryClock(hardware,
+                                        &mcStart[i], &shStart[i]);
+        }
+    }
+
+    gcmkONERROR(gckOS_Delay(Device->os, 50));
+
+    for (i = gcvCORE_MAJOR; i < gcvCORE_COUNT; i++)
+    {
+        mcClk[i] = shClk[i] = 0;
+
+#if gcdENABLE_VG
+        if (i == gcvCORE_VG)
+        {
+            continue;
+        }
+#endif
+
+        if (Device->kernels[i] && mcStart[i])
+        {
+            hardware = Device->kernels[i]->hardware;
+
+            if (Device->args.powerManagement)
+            {
+                gcmkONERROR(gckHARDWARE_SetPowerManagement(
+                    hardware, gcvTRUE
+                    ));
+            }
+
+            gckHARDWARE_ExitQueryClock(hardware,
+                                       mcStart[i], shStart[i],
+                                       &mcClk[i], &shClk[i]);
+
+            hardware->mcClk = mcClk[i];
+            hardware->shClk = shClk[i];
+        }
+    }
+
+OnError:
+    gcmkFOOTER_NO();
+
+    return status;
+}
+
 /*******************************************************************************
 **
 **  gckGALDEVICE_Start
@@ -2089,6 +2213,8 @@ gckGALDEVICE_Start(
 
     /* Start the kernel thread. */
     gcmkONERROR(gckGALDEVICE_Start_Threads(Device));
+
+    gcmkONERROR(gckGALDEVICE_QueryFrequency(Device));
 
     for (i = 0; i < gcvCORE_COUNT; i++)
     {

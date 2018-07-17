@@ -121,7 +121,7 @@ typedef gctTHREADFUNCRESULT (gctTHREADFUNCTYPE * gctTHREADFUNC) (
 #define gcmkIS_ERROR(status)        (status < 0)
 
 #define gcmALIGNDOWN(n, align) \
-( \
+(\
     (n) & ~((align) - 1) \
 )
 
@@ -130,7 +130,7 @@ typedef gctTHREADFUNCRESULT (gctTHREADFUNCTYPE * gctTHREADFUNC) (
 
 
 #define gcmIS_NAN(x) \
-( \
+(\
     ((* (gctUINT32_PTR) &(x)) & 0x7FFFFFFF) == 0x7FFFFFFF \
 )
 
@@ -160,7 +160,7 @@ typedef gctTHREADFUNCRESULT (gctTHREADFUNCTYPE * gctTHREADFUNC) (
     status = Function; \
     if (gcmIS_ERROR(status)) \
     { \
-        gcmTRACE( \
+        gcmTRACE(\
             gcvLEVEL_ERROR, \
             "gcmERR_GOTO: status=%d @ line=%d in function %s.\n", \
             status, __LINE__, __FUNCTION__ \
@@ -170,9 +170,9 @@ typedef gctTHREADFUNCRESULT (gctTHREADFUNCTYPE * gctTHREADFUNC) (
 
 #if gcvDEBUG || gcdFORCE_MESSAGES
 #   define gcmVERIFY_BOOLEAN(Expression) \
-        gcmASSERT( \
-            ( (Expression) == gcvFALSE ) || \
-            ( (Expression) == gcvTRUE  )    \
+        gcmASSERT(\
+            ((Expression) == gcvFALSE ) || \
+            ((Expression) == gcvTRUE  )    \
             )
 #else
 #   define gcmVERIFY_BOOLEAN(Expression)
@@ -192,7 +192,7 @@ typedef gctTHREADFUNCRESULT (gctTHREADFUNCTYPE * gctTHREADFUNC) (
 **      value   Value for field.
 */
 #define gcmVERIFYFIELDFIT(reg, field, value) \
-    gcmASSERT( \
+    gcmASSERT(\
         (value) <= gcmFIELDMAX(reg, field) \
         )
 /*******************************************************************************
@@ -207,9 +207,9 @@ typedef gctTHREADFUNCRESULT (gctTHREADFUNCTYPE * gctTHREADFUNC) (
 **      field   Name of field within register.
 */
 #define gcmFIELDMAX(reg, field) \
-( \
+(\
     (gctUINT32) \
-        ( \
+        (\
         (__gcmGETSIZE(reg##_##field) == 32) \
                 ?  ~0U \
                 : (~(~0U << __gcmGETSIZE(reg##_##field))) \
@@ -250,28 +250,28 @@ typedef gctTHREADFUNCRESULT (gctTHREADFUNCTYPE * gctTHREADFUNC) (
 \******************************************************************************/
 
 #define gcmKB2BYTES(Kilobyte) \
-( \
+(\
     (Kilobyte) << 10 \
 )
 
 #define gcmMB2BYTES(Megabyte) \
-( \
+(\
     (Megabyte) << 20 \
 )
 
 #define gcmMAT(Matrix, Row, Column) \
-( \
+(\
     (Matrix) [(Row) * 3 + (Column)] \
 )
 
 #define gcmMAKE2CHAR(Char1, Char2) \
-( \
+(\
     ((gctUINT16) (gctUINT8) (Char1) << 0) | \
     ((gctUINT16) (gctUINT8) (Char2) << 8) \
 )
 
 #define gcmMAKE4CHAR(Char1, Char2, Char3, Char4) \
-( \
+(\
     ((gctUINT32)(gctUINT8) (Char1) <<  0) | \
     ((gctUINT32)(gctUINT8) (Char2) <<  8) | \
     ((gctUINT32)(gctUINT8) (Char3) << 16) | \
@@ -914,3 +914,5 @@ gckVGMMU_Flush(
 #endif
 
 #endif /* __gc_hal_h_ */
+
+

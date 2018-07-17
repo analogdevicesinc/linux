@@ -136,33 +136,33 @@ gcePATHTYPE;
 */
 typedef enum _gceVGCMD
 {
-    gcvVGCMD_END,                        /*  0: GCCMD_TS_OPCODE_END           */
-    gcvVGCMD_CLOSE,                      /*  1: GCCMD_TS_OPCODE_CLOSE         */
-    gcvVGCMD_MOVE,                       /*  2: GCCMD_TS_OPCODE_MOVE          */
-    gcvVGCMD_MOVE_REL,                   /*  3: GCCMD_TS_OPCODE_MOVE_REL      */
-    gcvVGCMD_LINE,                       /*  4: GCCMD_TS_OPCODE_LINE          */
-    gcvVGCMD_LINE_REL,                   /*  5: GCCMD_TS_OPCODE_LINE_REL      */
-    gcvVGCMD_QUAD,                       /*  6: GCCMD_TS_OPCODE_QUADRATIC     */
-    gcvVGCMD_QUAD_REL,                   /*  7: GCCMD_TS_OPCODE_QUADRATIC_REL */
-    gcvVGCMD_CUBIC,                      /*  8: GCCMD_TS_OPCODE_CUBIC         */
-    gcvVGCMD_CUBIC_REL,                  /*  9: GCCMD_TS_OPCODE_CUBIC_REL     */
-    gcvVGCMD_BREAK,                      /* 10: GCCMD_TS_OPCODE_BREAK         */
-    gcvVGCMD_HLINE,                      /* 11: ******* R E S E R V E D *******/
-    gcvVGCMD_HLINE_REL,                  /* 12: ******* R E S E R V E D *******/
-    gcvVGCMD_VLINE,                      /* 13: ******* R E S E R V E D *******/
-    gcvVGCMD_VLINE_REL,                  /* 14: ******* R E S E R V E D *******/
-    gcvVGCMD_SQUAD,                      /* 15: ******* R E S E R V E D *******/
-    gcvVGCMD_SQUAD_REL,                  /* 16: ******* R E S E R V E D *******/
-    gcvVGCMD_SCUBIC,                     /* 17: ******* R E S E R V E D *******/
-    gcvVGCMD_SCUBIC_REL,                 /* 18: ******* R E S E R V E D *******/
-    gcvVGCMD_SCCWARC,                    /* 19: ******* R E S E R V E D *******/
-    gcvVGCMD_SCCWARC_REL,                /* 20: ******* R E S E R V E D *******/
-    gcvVGCMD_SCWARC,                     /* 21: ******* R E S E R V E D *******/
-    gcvVGCMD_SCWARC_REL,                 /* 22: ******* R E S E R V E D *******/
-    gcvVGCMD_LCCWARC,                    /* 23: ******* R E S E R V E D *******/
-    gcvVGCMD_LCCWARC_REL,                /* 24: ******* R E S E R V E D *******/
-    gcvVGCMD_LCWARC,                     /* 25: ******* R E S E R V E D *******/
-    gcvVGCMD_LCWARC_REL,                 /* 26: ******* R E S E R V E D *******/
+    gcvVGCMD_END, /*  0: 0x00           */
+    gcvVGCMD_CLOSE, /*  1: 0x01         */
+    gcvVGCMD_MOVE, /*  2: 0x02          */
+    gcvVGCMD_MOVE_REL, /*  3: 0x03      */
+    gcvVGCMD_LINE, /*  4: 0x04          */
+    gcvVGCMD_LINE_REL, /*  5: 0x05      */
+    gcvVGCMD_QUAD, /*  6: 0x06     */
+    gcvVGCMD_QUAD_REL, /*  7: 0x07 */
+    gcvVGCMD_CUBIC, /*  8: 0x08         */
+    gcvVGCMD_CUBIC_REL, /*  9: 0x09     */
+    gcvVGCMD_BREAK, /* 10: 0x0A         */
+    gcvVGCMD_HLINE, /* 11: ******* R E S E R V E D *******/
+    gcvVGCMD_HLINE_REL, /* 12: ******* R E S E R V E D *******/
+    gcvVGCMD_VLINE, /* 13: ******* R E S E R V E D *******/
+    gcvVGCMD_VLINE_REL, /* 14: ******* R E S E R V E D *******/
+    gcvVGCMD_SQUAD, /* 15: ******* R E S E R V E D *******/
+    gcvVGCMD_SQUAD_REL, /* 16: ******* R E S E R V E D *******/
+    gcvVGCMD_SCUBIC, /* 17: ******* R E S E R V E D *******/
+    gcvVGCMD_SCUBIC_REL, /* 18: ******* R E S E R V E D *******/
+    gcvVGCMD_SCCWARC, /* 19: ******* R E S E R V E D *******/
+    gcvVGCMD_SCCWARC_REL, /* 20: ******* R E S E R V E D *******/
+    gcvVGCMD_SCWARC, /* 21: ******* R E S E R V E D *******/
+    gcvVGCMD_SCWARC_REL, /* 22: ******* R E S E R V E D *******/
+    gcvVGCMD_LCCWARC, /* 23: ******* R E S E R V E D *******/
+    gcvVGCMD_LCCWARC_REL, /* 24: ******* R E S E R V E D *******/
+    gcvVGCMD_LCWARC, /* 25: ******* R E S E R V E D *******/
+    gcvVGCMD_LCWARC_REL, /* 26: ******* R E S E R V E D *******/
 
     /* The width of the command recognized by the hardware on bits. */
     gcvVGCMD_WIDTH = 5,
@@ -171,27 +171,27 @@ typedef enum _gceVGCMD
     gcvVGCMD_MASK = (1 << gcvVGCMD_WIDTH) - 1,
 
     /* Command modifiers. */
-    gcvVGCMD_H_MOD   = 1 << gcvVGCMD_WIDTH,  /* =  32 */
-    gcvVGCMD_V_MOD   = 2 << gcvVGCMD_WIDTH,  /* =  64 */
-    gcvVGCMD_S_MOD   = 3 << gcvVGCMD_WIDTH,  /* =  96 */
-    gcvVGCMD_ARC_MOD = 4 << gcvVGCMD_WIDTH,  /* = 128 */
+    gcvVGCMD_H_MOD   = 1 << gcvVGCMD_WIDTH, /* =  32 */
+    gcvVGCMD_V_MOD   = 2 << gcvVGCMD_WIDTH, /* =  64 */
+    gcvVGCMD_S_MOD   = 3 << gcvVGCMD_WIDTH, /* =  96 */
+    gcvVGCMD_ARC_MOD = 4 << gcvVGCMD_WIDTH, /* = 128 */
 
     /* Emulated LINE commands. */
-    gcvVGCMD_HLINE_EMUL     = gcvVGCMD_H_MOD | gcvVGCMD_LINE,        /* =  36 */
-    gcvVGCMD_HLINE_EMUL_REL = gcvVGCMD_H_MOD | gcvVGCMD_LINE_REL,    /* =  37 */
-    gcvVGCMD_VLINE_EMUL     = gcvVGCMD_V_MOD | gcvVGCMD_LINE,        /* =  68 */
-    gcvVGCMD_VLINE_EMUL_REL = gcvVGCMD_V_MOD | gcvVGCMD_LINE_REL,    /* =  69 */
+    gcvVGCMD_HLINE_EMUL     = gcvVGCMD_H_MOD | gcvVGCMD_LINE, /* =  36 */
+    gcvVGCMD_HLINE_EMUL_REL = gcvVGCMD_H_MOD | gcvVGCMD_LINE_REL, /* =  37 */
+    gcvVGCMD_VLINE_EMUL     = gcvVGCMD_V_MOD | gcvVGCMD_LINE, /* =  68 */
+    gcvVGCMD_VLINE_EMUL_REL = gcvVGCMD_V_MOD | gcvVGCMD_LINE_REL, /* =  69 */
 
     /* Emulated SMOOTH commands. */
-    gcvVGCMD_SQUAD_EMUL      = gcvVGCMD_S_MOD | gcvVGCMD_QUAD,       /* = 102 */
-    gcvVGCMD_SQUAD_EMUL_REL  = gcvVGCMD_S_MOD | gcvVGCMD_QUAD_REL,   /* = 103 */
-    gcvVGCMD_SCUBIC_EMUL     = gcvVGCMD_S_MOD | gcvVGCMD_CUBIC,      /* = 104 */
-    gcvVGCMD_SCUBIC_EMUL_REL = gcvVGCMD_S_MOD | gcvVGCMD_CUBIC_REL,  /* = 105 */
+    gcvVGCMD_SQUAD_EMUL      = gcvVGCMD_S_MOD | gcvVGCMD_QUAD, /* = 102 */
+    gcvVGCMD_SQUAD_EMUL_REL  = gcvVGCMD_S_MOD | gcvVGCMD_QUAD_REL, /* = 103 */
+    gcvVGCMD_SCUBIC_EMUL     = gcvVGCMD_S_MOD | gcvVGCMD_CUBIC, /* = 104 */
+    gcvVGCMD_SCUBIC_EMUL_REL = gcvVGCMD_S_MOD | gcvVGCMD_CUBIC_REL, /* = 105 */
 
     /* Emulation ARC commands. */
-    gcvVGCMD_ARC_LINE     = gcvVGCMD_ARC_MOD | gcvVGCMD_LINE,        /* = 132 */
-    gcvVGCMD_ARC_LINE_REL = gcvVGCMD_ARC_MOD | gcvVGCMD_LINE_REL,    /* = 133 */
-    gcvVGCMD_ARC_QUAD     = gcvVGCMD_ARC_MOD | gcvVGCMD_QUAD,        /* = 134 */
+    gcvVGCMD_ARC_LINE     = gcvVGCMD_ARC_MOD | gcvVGCMD_LINE, /* = 132 */
+    gcvVGCMD_ARC_LINE_REL = gcvVGCMD_ARC_MOD | gcvVGCMD_LINE_REL, /* = 133 */
+    gcvVGCMD_ARC_QUAD     = gcvVGCMD_ARC_MOD | gcvVGCMD_QUAD, /* = 134 */
     gcvVGCMD_ARC_QUAD_REL = gcvVGCMD_ARC_MOD | gcvVGCMD_QUAD_REL     /* = 135 */
 }
 gceVGCMD;
@@ -774,7 +774,7 @@ gceSTATUS
 gcoVG_Destroy(
     IN gcoVG Vg
 #if gcdGC355_PROFILER
-    ,
+,
     IN gctUINT TreeDepth,
     IN gctUINT saveLayerTreeDepth,
     IN gctUINT varTreeDepth
@@ -863,7 +863,7 @@ gceSTATUS
 gcoVG_FlushMask(
     IN gcoVG Vg
 #if gcdGC355_PROFILER
-    ,
+,
     IN gctUINT TreeDepth,
     IN gctUINT saveLayerTreeDepth,
     IN gctUINT varTreeDepth
@@ -1316,3 +1316,5 @@ gcoVG_Resolve(
 #endif
 
 #endif  /* __gc_hal_vg_h_ */
+
+

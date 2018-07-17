@@ -1751,7 +1751,9 @@ gckHARDWARE_Construct(
  22:22) + 1))))))) << (0 ? 22:22)))));
 #endif
 
-    if (gckHARDWARE_IsFeatureAvailable(hardware, gcvFEATURE_64K_L2_CACHE) == gcvFALSE)
+    hardware->hasL2Cache = gckHARDWARE_IsFeatureAvailable(hardware, gcvFEATURE_64K_L2_CACHE);
+
+    if (!hardware->hasL2Cache)
     {
         gcmkONERROR(gckOS_WriteRegisterEx(Os,
                                           Core,
@@ -1865,6 +1867,7 @@ gckHARDWARE_Construct(
         gcmkONERROR(gckOS_AllocateNonPagedMemory(
             hardware->os,
             gcvFALSE,
+            gcvALLOC_FLAG_CONTIGUOUS,
             &hardware->pagetableArray.size,
             &hardware->pagetableArray.physical,
             &hardware->pagetableArray.logical
@@ -1873,6 +1876,12 @@ gckHARDWARE_Construct(
         gcmkONERROR(gckOS_GetPhysicalAddress(
             hardware->os,
             hardware->pagetableArray.logical,
+            &hardware->pagetableArray.address
+            ));
+
+        gcmkVERIFY_OK(gckOS_CPUPhysicalToGPUPhysical(
+            hardware->os,
+            hardware->pagetableArray.address,
             &hardware->pagetableArray.address
             ));
     }
@@ -2966,6 +2975,81 @@ OnError:
     return status;
 }
 
+/* Atomic version of Execute, for IRQ routine. */
+static gceSTATUS
+gckHARDWARE_AtomicExecute(
+    IN gckHARDWARE Hardware,
+    IN gctUINT32 Address,
+    IN gctSIZE_T Bytes
+    )
+{
+    gctUINT32 control;
+
+    /* Enable all events. */
+    gckOS_WriteRegisterEx(Hardware->os, Hardware->core, 0x00014, ~0U);
+
+    /* Write address register. */
+    gckOS_WriteRegisterEx(Hardware->os, Hardware->core, 0x00654, Address);
+
+    /* Build control register. */
+    control = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 16:16) - (0 ? 16:16) + 1) == 32) ? ~0U : (~(~0U << ((1 ? 16:16) - (0 ?
+ 16:16) + 1))))))) << (0 ? 16:16))) | (((gctUINT32) (0x1 & ((gctUINT32) ((((1 ?
+ 16:16) - (0 ? 16:16) + 1) == 32) ? ~0U : (~(~0U << ((1 ? 16:16) - (0 ?
+ 16:16) + 1))))))) << (0 ? 16:16)))
+            | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 15:0) - (0 ? 15:0) + 1) == 32) ? ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ?
+ 15:0))) | (((gctUINT32) ((gctUINT32) ((Bytes + 7) >> 3) & ((gctUINT32) ((((1 ?
+ 15:0) - (0 ? 15:0) + 1) == 32) ? ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ?
+ 15:0)));
+
+    /* Set big endian */
+    if (Hardware->bigEndian)
+    {
+        control |= ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 21:20) - (0 ? 21:20) + 1) == 32) ? ~0U : (~(~0U << ((1 ? 21:20) - (0 ?
+ 21:20) + 1))))))) << (0 ? 21:20))) | (((gctUINT32) (0x2 & ((gctUINT32) ((((1 ?
+ 21:20) - (0 ? 21:20) + 1) == 32) ? ~0U : (~(~0U << ((1 ? 21:20) - (0 ?
+ 21:20) + 1))))))) << (0 ? 21:20)));
+    }
+
+    /* Make sure writing to command buffer and previous AHB register is done. */
+    gckOS_MemoryBarrier(Hardware->os, gcvNULL);
+
+    /* Write control register. */
+    switch (Hardware->options.secureMode)
+    {
+    case gcvSECURE_NONE:
+        gckOS_WriteRegisterEx(Hardware->os, Hardware->core, 0x00658, control);
+        break;
+    case gcvSECURE_IN_NORMAL:
+
+#if defined(__KERNEL__)
+        gckOS_WriteRegisterEx(Hardware->os, Hardware->core, 0x00658, control);
+#endif
+        gckOS_WriteRegisterEx(Hardware->os, Hardware->core, 0x003A4, control);
+
+        break;
+#if gcdENABLE_TRUST_APPLICATION
+    case gcvSECURE_IN_TA:
+        /* Send message to TA. */
+        gckKERNEL_SecurityStartCommand(Hardware->kernel, Address, (gctUINT32)Bytes);
+        break;
+#endif
+    default:
+        break;
+    }
+
+    /* Increase execute count. */
+    Hardware->executeCount++;
+
+    /* Record last execute address. */
+    Hardware->lastExecuteAddress = Address;
+
+    /* Success. */
+    return gcvSTATUS_OK;
+}
+
 /*******************************************************************************
 **
 **  gckHARDWARE_WaitLink
@@ -3032,7 +3116,7 @@ gckHARDWARE_WaitLink(
     gcmkVERIFY_OBJECT(Hardware, gcvOBJ_HARDWARE);
     gcmkVERIFY_ARGUMENT((Logical != gcvNULL) || (Bytes != gcvNULL));
 
-    useL2 = gckHARDWARE_IsFeatureAvailable(Hardware, gcvFEATURE_64K_L2_CACHE);
+    useL2 = Hardware->hasL2Cache;
 
     /* Compute number of bytes required. */
     if (useL2)
@@ -3596,6 +3680,7 @@ gckHARDWARE_Event(
         {
             gctPHYS_ADDR_T phys;
             gckOS_GetPhysicalAddress(Hardware->os, Logical, &phys);
+            gckOS_CPUPhysicalToGPUPhysical(Hardware->os, phys, &phys);
             gcmkTRACE_ZONE(gcvLEVEL_INFO, gcvZONE_HARDWARE,
                            "0x%08x: EVENT %d", phys, Event);
         }
@@ -4356,6 +4441,8 @@ gckHARDWARE_ConvertLogical(
         gcmkONERROR(gckOS_GetPhysicalAddress(Hardware->os, Logical, &physical));
     }
 
+    gcmkVERIFY_OK(gckOS_CPUPhysicalToGPUPhysical(Hardware->os, physical, &physical));
+
     gcmkSAFECASTPHYSADDRT(address, physical);
 
     /* For old MMU, get GPU address according to baseAddress. */
@@ -4388,6 +4475,42 @@ OnError:
     /* Return the status. */
     gcmkFOOTER();
     return status;
+}
+
+static void
+_ResumeWaitLinkFE(
+    gckHARDWARE Hardware
+    )
+{
+    gctUINT32 resume;
+    gctUINT32 bytes;
+    gctUINT32 idle;
+
+    /* Make sure FE is idle. */
+    do
+    {
+        gckOS_ReadRegisterEx(Hardware->os,
+                             Hardware->core,
+                             0x00004,
+                             &idle);
+    }
+    while (idle != 0x7FFFFFFF);
+
+    gckOS_ReadRegisterEx(Hardware->os,
+                         Hardware->core,
+                         0x00664,
+                         &resume);
+
+    gckOS_ReadRegisterEx(Hardware->os,
+                         Hardware->core,
+                         0x00664,
+                         &resume);
+
+    /* Determine the wait-link command size. */
+    bytes = Hardware->hasL2Cache ? 24 : 16;
+
+    /* Start Command Parser. */
+    gckHARDWARE_AtomicExecute(Hardware, resume, bytes);
 }
 
 /*******************************************************************************
@@ -4437,11 +4560,15 @@ gckHARDWARE_Interrupt(
          * That means, only need return ERROR when both FEs reports ERROR.
          */
         /* Read AQIntrAcknowledge register. */
-        gcmkONERROR(
-            gckOS_ReadRegisterEx(Hardware->os,
-                                 Hardware->core,
-                                 0x00010,
-                                 &data));
+        status = gckOS_ReadRegisterEx(Hardware->os,
+                                      Hardware->core,
+                                      0x00010,
+                                      &data);
+
+        if (gcmIS_ERROR(status))
+        {
+            goto OnError;
+        }
 
         if (data == 0)
         {
@@ -4453,6 +4580,13 @@ gckHARDWARE_Interrupt(
 #if gcdINTERRUPT_STATISTIC
             gckOS_AtomClearMask(Hardware->pendingEvent, data);
 #endif
+            if (data & (1 << 29))
+            {
+                /* Event ID 29 is not a normal event, but for invalidating pipe. */
+                _ResumeWaitLinkFE(Hardware);
+                data &= ~(1 << 29);
+            }
+
             /* Inform gckEVENT of the interrupt. */
             status = gckEVENT_Interrupt(eventObj, data);
         }
@@ -4796,6 +4930,8 @@ gckHARDWARE_SetMMU(
         /* Convert the logical address into physical address. */
         gcmkONERROR(gckOS_GetPhysicalAddress(Hardware->os, Logical, &physical));
 
+        gcmkVERIFY_OK(gckOS_CPUPhysicalToGPUPhysical(Hardware->os, physical, &physical));
+
         gcmkSAFECASTPHYSADDRT(address, physical);
 
         gcmkTRACE_ZONE(gcvLEVEL_INFO, gcvZONE_HARDWARE,
@@ -4914,6 +5050,9 @@ gckHARDWARE_SetMMU(
 
                 gcmkONERROR(
                     gckOS_GetPhysicalAddress(Hardware->os, safeLogical, &physical));
+
+                gcmkVERIFY_OK(
+                    gckOS_CPUPhysicalToGPUPhysical(Hardware->os, physical, &physical));
 
                 address = (gctUINT32)(physical & 0xFFFFFFFF);
                 extSafeAddress = (gctUINT32)(physical >> 32);
@@ -5656,9 +5795,14 @@ gckHARDWARE_SetMMUStates(
         }
     }
 
+    reserveBytes += 8;
+
     /* Convert logical address into physical address. */
     gcmkONERROR(
         gckOS_GetPhysicalAddress(Hardware->os, MtlbAddress, &physical));
+
+    gcmkVERIFY_OK(
+        gckOS_CPUPhysicalToGPUPhysical(Hardware->os, physical, &physical));
 
     config  = (gctUINT32)(physical & 0xFFFFFFFF);
     extMtlb = (gctUINT32)(physical >> 32);
@@ -5671,6 +5815,9 @@ gckHARDWARE_SetMMUStates(
 
     gcmkONERROR(
         gckOS_GetPhysicalAddress(Hardware->os, SafeAddress, &physical));
+
+    gcmkVERIFY_OK(
+        gckOS_CPUPhysicalToGPUPhysical(Hardware->os, physical, &physical));
 
     address = (gctUINT32)(physical & 0xFFFFFFFF);
     extSafeAddress = (gctUINT32)(physical >> 32);
@@ -5843,6 +5990,30 @@ gckHARDWARE_SetMMUStates(
                     = configEx;
             }
         }
+
+        *buffer++
+            = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 31:27) - (0 ? 31:27) + 1) == 32) ? ~0U : (~(~0U << ((1 ? 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ? 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
+ 31:27) - (0 ? 31:27) + 1) == 32) ? ~0U : (~(~0U << ((1 ? 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ? 31:27)))
+            | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 15:0) - (0 ? 15:0) + 1) == 32) ? ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ?
+ 15:0))) | (((gctUINT32) ((gctUINT32) (0x0E12) & ((gctUINT32) ((((1 ? 15:0) - (0 ?
+ 15:0) + 1) == 32) ? ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ?
+ 15:0)))
+            | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 25:16) - (0 ? 25:16) + 1) == 32) ? ~0U : (~(~0U << ((1 ? 25:16) - (0 ?
+ 25:16) + 1))))))) << (0 ? 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
+ 25:16) - (0 ? 25:16) + 1) == 32) ? ~0U : (~(~0U << ((1 ? 25:16) - (0 ?
+ 25:16) + 1))))))) << (0 ? 25:16)));
+
+        *buffer++
+            = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 16:16) - (0 ? 16:16) + 1) == 32) ? ~0U : (~(~0U << ((1 ? 16:16) - (0 ?
+ 16:16) + 1))))))) << (0 ? 16:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
+ 16:16) - (0 ? 16:16) + 1) == 32) ? ~0U : (~(~0U << ((1 ? 16:16) - (0 ?
+ 16:16) + 1))))))) << (0 ? 16:16)));
 
         do{*buffer++ = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  31:27) - (0 ? 31:27) + 1) == 32) ? ~0U : (~(~0U << ((1 ? 31:27) - (0 ?
@@ -6185,10 +6356,22 @@ gckHARDWARE_ConfigMMU(
         /* Get physical address of this command buffer segment. */
         gcmkONERROR(gckOS_GetPhysicalAddress(Hardware->os, buffer, &physical));
 
+        gcmkVERIFY_OK(gckOS_CPUPhysicalToGPUPhysical(
+            Hardware->os,
+            physical,
+            &physical
+            ));
+
         gcmkSAFECASTPHYSADDRT(address, physical);
 
         /* Get physical address of Master TLB. */
         gcmkONERROR(gckOS_GetPhysicalAddress(Hardware->os, MtlbLogical, &physical));
+
+        gcmkVERIFY_OK(gckOS_CPUPhysicalToGPUPhysical(
+            Hardware->os,
+            physical,
+            &physical
+            ));
 
         gcmkSAFECASTPHYSADDRT(config, physical);
 
@@ -12109,11 +12292,19 @@ gckHARDWARE_PrepareFunctions(
     {
         gctUINT32 mmuBytes;
         gctPHYS_ADDR_T physical = 0;
+        gctUINT32 flags = gcvALLOC_FLAG_CONTIGUOUS;
+
+#if defined(CONFIG_ZONE_DMA32)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,37)
+        flags |= gcvALLOC_FLAG_4GB_ADDR;
+#endif
+#endif
 
         /* Allocate mmu command buffer within 32bit space */
         gcmkONERROR(gckOS_AllocateNonPagedMemory(
             os,
             gcvFALSE,
+            flags,
             &Hardware->mmuFuncBytes,
             &Hardware->mmuFuncPhysical,
             &Hardware->mmuFuncLogical
@@ -12125,9 +12316,16 @@ gckHARDWARE_PrepareFunctions(
             &physical
             ));
 
-        if (physical & 0xFFFFFFFF00000000ULL)
+        gcmkVERIFY_OK(gckOS_CPUPhysicalToGPUPhysical(
+            os,
+            physical,
+            &physical
+            ));
+
+        if (!(flags & gcvALLOC_FLAG_4GB_ADDR) && (physical & 0xFFFFFFFF00000000ULL))
         {
-            gcmkFATAL("%s(%d): Command buffer physical address (0x%llx) for MMU setup exceeds 32bits",
+            gcmkFATAL("%s(%d): Command buffer physical address (0x%llx) for MMU setup exceeds 32bits, "
+                      "please rebuild kernel with CONFIG_ZONE_DMA32=y.",
                       __FUNCTION__, __LINE__, physical);
         }
 
@@ -12185,6 +12383,7 @@ gckHARDWARE_PrepareFunctions(
         gcmkONERROR(gckOS_AllocateNonPagedMemory(
             os,
             gcvFALSE,
+            gcvALLOC_FLAG_CONTIGUOUS,
             &Hardware->auxFuncBytes,
             &Hardware->auxFuncPhysical,
             &Hardware->auxFuncLogical
@@ -12193,6 +12392,12 @@ gckHARDWARE_PrepareFunctions(
         gcmkONERROR(gckOS_GetPhysicalAddress(
             os,
             Hardware->auxFuncLogical,
+            &physical
+            ));
+
+        gcmkVERIFY_OK(gckOS_CPUPhysicalToGPUPhysical(
+            os,
+            physical,
             &physical
             ));
 
@@ -13709,6 +13914,89 @@ gckHARDWARE_DummyDraw(
     *Bytes = bytes;
 
     return gcvSTATUS_OK;
+}
+
+gceSTATUS
+gckHARDWARE_EnterQueryClock(
+    IN gckHARDWARE Hardware,
+    OUT gctUINT64 *McStart,
+    OUT gctUINT64 *ShStart
+    )
+{
+    gceSTATUS status;
+    gctUINT64 mcStart, shStart;
+
+    gcmkONERROR(gckOS_GetTime(&mcStart));
+    gcmkONERROR(gckOS_WriteRegisterEx(Hardware->os, Hardware->core, 0x00438, 0));
+
+    *McStart = mcStart;
+
+    if (Hardware->core <= gcvCORE_3D_MAX)
+    {
+        gcmkONERROR(gckOS_WriteRegisterEx(Hardware->os, Hardware->core, 0x00470, 0xFFU << 24));
+
+        gcmkONERROR(gckOS_GetTime(&shStart));
+
+        gcmkONERROR(gckOS_WriteRegisterEx(Hardware->os, Hardware->core, 0x00470, 0x4U << 24));
+
+        *ShStart = shStart;
+    }
+
+OnError:
+    return status;
+}
+
+gceSTATUS
+gckHARDWARE_ExitQueryClock(
+    IN gckHARDWARE Hardware,
+    IN gctUINT64 McStart,
+    IN gctUINT64 ShStart,
+    OUT gctUINT32 *McClk,
+    OUT gctUINT32 *ShClk
+    )
+{
+    gceSTATUS status;
+    gctUINT64 mcEnd, shEnd;
+    gctUINT32 mcCycle, shCycle;
+    gctUINT64 mcFreq, shFreq = 0;
+
+    gcmkONERROR(gckOS_GetTime(&mcEnd));
+    gcmkONERROR(gckOS_ReadRegisterEx(Hardware->os, Hardware->core, 0x00438, &mcCycle));
+
+    if (mcCycle == 0)
+    {
+        gcmkONERROR(gcvSTATUS_GENERIC_IO);
+    }
+
+    /* cycle = (gctUINT64)cycle * 1000000 / (end - start); */
+    mcFreq = ((gctUINT64)mcCycle * ((1000000U << 12) / (gctUINT32)(mcEnd - McStart))) >> 12;
+
+    *McClk = (gctUINT32)mcFreq;
+
+    if (Hardware->core <= gcvCORE_3D_MAX)
+    {
+        gcmkONERROR(gckOS_GetTime(&shEnd));
+        gcmkONERROR(gckOS_ReadRegisterEx(Hardware->os, Hardware->core, 0x0045C, &shCycle));
+
+        if (!shCycle)
+        {
+            /*TODO: [VIV] Query SH cycle not support for old chips */
+            *ShClk = *McClk;
+            return gcvSTATUS_OK;
+        }
+
+        if (!ShStart)
+        {
+            gcmkONERROR(gcvSTATUS_GENERIC_IO);
+        }
+
+        shFreq = ((gctUINT64)shCycle * ((1000000U << 12) / (gctUINT32)(shEnd - ShStart))) >> 12;
+    }
+
+    *ShClk = (gctUINT32)shFreq;
+
+OnError:
+    return status;
 }
 
 

@@ -148,6 +148,8 @@
 #   endif
 #endif
 
+extern struct device *galcore_device;
+
 /******************************************************************************\
 ********************************** Structures **********************************
 \******************************************************************************/
@@ -330,6 +332,26 @@ _GetProcessID(
 #else
     return current->tgid;
 #endif
+}
+
+static inline void
+_MemoryBarrier(
+    void
+    )
+{
+#if defined(CONFIG_ARM) && (LINUX_VERSION_CODE < KERNEL_VERSION(2,6,34))
+    dsb();
+#else
+    mb();
+#endif
+}
+
+static inline void
+_Barrier(
+    void
+    )
+{
+    barrier();
 }
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,25)

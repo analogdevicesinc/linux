@@ -216,9 +216,10 @@ static gceSTATUS
 reserved_mem_mmap(
     IN gckALLOCATOR Allocator,
     IN PLINUX_MDL Mdl,
+    IN gctBOOL Cacheable,
     IN gctSIZE_T skipPages,
     IN gctSIZE_T numPages,
-    INOUT struct vm_area_struct *vma
+    IN struct vm_area_struct *vma
     )
 {
     struct reserved_mem *res = (struct reserved_mem*)Mdl->priv;
@@ -255,7 +256,7 @@ static void
 reserved_mem_unmap_user(
     IN gckALLOCATOR Allocator,
     IN PLINUX_MDL Mdl,
-    IN gctPOINTER Logical,
+    IN PLINUX_MDL_MAP MdlMap,
     IN gctUINT32 Size
     )
 {
@@ -263,13 +264,13 @@ reserved_mem_unmap_user(
         return;
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3,5,0)
-    if (vm_munmap((unsigned long)Logical, (unsigned long)Size) < 0)
+    if (vm_munmap((unsigned long)MdlMap->vmaAddr, (unsigned long)Size) < 0)
     {
         printk("%s: vm_munmap failed\n", __func__);
     }
 #else
     down_write(&current->mm->mmap_sem);
-    if (do_munmap(current->mm, (unsigned long)Logical, (unsigned long)Size) < 0)
+    if (do_munmap(current->mm, (unsigned long)MdlMap->vmaAddr, (unsigned long)Size) < 0)
     {
         printk("%s: do_munmap failed\n", __func__);
     }
@@ -281,8 +282,8 @@ static gceSTATUS
 reserved_mem_map_user(
     gckALLOCATOR Allocator,
     PLINUX_MDL Mdl,
-    gctBOOL Cacheable,
-    OUT gctPOINTER *UserLogical
+    PLINUX_MDL_MAP MdlMap,
+    gctBOOL Cacheable
     )
 {
     struct reserved_mem *res = (struct reserved_mem*)Mdl->priv;
@@ -333,9 +334,11 @@ reserved_mem_map_user(
             gcmkERR_BREAK(gcvSTATUS_OUT_OF_RESOURCES);
         }
 
-        gcmkERR_BREAK(reserved_mem_mmap(Allocator, Mdl, 0, Mdl->numPages, vma));
+        gcmkERR_BREAK(reserved_mem_mmap(Allocator, Mdl, gcvFALSE, 0, Mdl->numPages, vma));
 
-        *UserLogical = userLogical;
+        MdlMap->vmaAddr = userLogical;
+        MdlMap->cacheable = gcvFALSE;
+        MdlMap->vma = vma;
     }
     while (gcvFALSE);
     up_write(&current->mm->mmap_sem);
@@ -359,6 +362,7 @@ reserved_mem_map_kernel(
     struct reserved_mem *res = Mdl->priv;
     void *vaddr;
 
+    /* Should never run here now. */
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4,6,0)
     vaddr = memremap(res->start, res->size, MEMREMAP_WC);
 #elif LINUX_VERSION_CODE >= KERNEL_VERSION(4,3,0)
@@ -401,6 +405,19 @@ reserved_mem_cache_op(
     IN gceCACHEOPERATION Operation
     )
 {
+    /* Always WC or UC, safe to use mb. */
+    switch (Operation)
+    {
+    case gcvCACHE_CLEAN:
+    case gcvCACHE_FLUSH:
+        _MemoryBarrier();
+        break;
+    case gcvCACHE_INVALIDATE:
+        break;
+    default:
+        return gcvSTATUS_INVALID_ARGUMENT;
+    }
+
     return gcvSTATUS_OK;
 }
 

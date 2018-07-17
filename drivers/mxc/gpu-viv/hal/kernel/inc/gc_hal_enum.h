@@ -513,8 +513,9 @@ typedef enum _gceFEATURE
     gcvFEATURE_FENCE,
     gcvFEATURE_PE_DEPTH_ONLY_OQFIX,
     gcvFEATURE_VG_RESOLUTION_8K,
-    gcvFEATURE_IMAGE_LS_NO_FULLMASK_FIX, 
+    gcvFEATURE_IMAGE_LS_NO_FULLMASK_FIX,
     gcvFEATURE_PE_TILE_CACHE_FLUSH_FIX,
+
     /* Insert features above this comment only. */
     gcvFEATURE_COUNT                /* Not a feature. */
 }
@@ -618,9 +619,9 @@ gceCHIPPOWERSTATE;
 /* CPU cache operations */
 typedef enum _gceCACHEOPERATION
 {
-    gcvCACHE_CLEAN      = 0x01,     /* Flush CPU cache to mem */
-    gcvCACHE_INVALIDATE = 0x02,     /* Invalidte CPU cache */
-    gcvCACHE_FLUSH      = gcvCACHE_CLEAN  | gcvCACHE_INVALIDATE,    /* Both flush & invalidate */
+    gcvCACHE_CLEAN      = 0x01, /* Flush CPU cache to mem */
+    gcvCACHE_INVALIDATE = 0x02, /* Invalidte CPU cache */
+    gcvCACHE_FLUSH      = gcvCACHE_CLEAN  | gcvCACHE_INVALIDATE, /* Both flush & invalidate */
     gcvCACHE_MEMORY_BARRIER = 0x04
 }
 gceCACHEOPERATION;
@@ -647,23 +648,24 @@ typedef enum _gceSURF_TYPE
     gcvSURF_NUM_TYPES, /* Make sure this is the last one! */
 
     /* Combinations. */
+    gcvSURF_CMA_LIMIT               = 0x80000000,
     gcvSURF_NO_TILE_STATUS          = 0x100,
-    gcvSURF_NO_VIDMEM               = 0x200,    /* Used to allocate surfaces with no underlying vidmem node.
+    gcvSURF_NO_VIDMEM               = 0x200, /* Used to allocate surfaces with no underlying vidmem node.
                                                    In Android, vidmem node is allocated by another process. */
-    gcvSURF_CACHEABLE               = 0x400,    /* Used to allocate a cacheable surface */
-    gcvSURF_TILE_RLV_FENCE          = 0x800,    /* create texture fence as tile */
-    gcvSURF_TILE_STATUS_DIRTY       = 0x1000,   /* Init tile status to all dirty */
+    gcvSURF_CACHEABLE               = 0x400, /* Used to allocate a cacheable surface */
+    gcvSURF_TILE_RLV_FENCE          = 0x800, /* create texture fence as tile */
+    gcvSURF_TILE_STATUS_DIRTY       = 0x1000, /* Init tile status to all dirty */
     gcvSURF_LINEAR                  = 0x2000,
-    gcvSURF_CREATE_AS_TEXTURE       = 0x4000,   /* create it as a texture */
-    gcvSURF_PROTECTED_CONTENT       = 0x8000,   /* create it as content protected */
-    gcvSURF_CREATE_AS_DISPLAYBUFFER = 0x10000,  /*create it as a display buffer surface */
-    gcvSURF_CONTIGUOUS              = 0x20000,  /*create it as contiguous */
-    gcvSURF_NO_COMPRESSION          = 0x40000,  /* Create it as no compression, valid on when it has tile status. */
-    gcvSURF_DEC                     = 0x80000,  /* Surface is DEC compressed */
+    gcvSURF_CREATE_AS_TEXTURE       = 0x4000, /* create it as a texture */
+    gcvSURF_PROTECTED_CONTENT       = 0x8000, /* create it as content protected */
+    gcvSURF_CREATE_AS_DISPLAYBUFFER = 0x10000, /*create it as a display buffer surface */
+    gcvSURF_CONTIGUOUS              = 0x20000, /*create it as contiguous */
+    gcvSURF_NO_COMPRESSION          = 0x40000, /* Create it as no compression, valid on when it has tile status. */
+    gcvSURF_DEC                     = 0x80000, /* Surface is DEC compressed */
     gcvSURF_NO_HZ                   = 0x100000,
     gcvSURF_3D                      = 0x200000, /* It's 3d surface */
     gcvSURF_DMABUF_EXPORTABLE       = 0x400000, /* master node can be exported as dma-buf fd */
-    gcvSURF_CMA_LIMIT               = 0x800000,
+    gcvSURF_CACHE_MODE_128          = 0x800000,
 
     gcvSURF_TEXTURE_LINEAR               = gcvSURF_TEXTURE
                                          | gcvSURF_LINEAR,
@@ -927,6 +929,8 @@ typedef enum _gceSURF_FORMAT
     gcvSURF_A4L12,
     gcvSURF_A12L12,
     gcvSURF_A16L16,
+
+    gcvSURF_A8L8_1_A8R8G8B8,
 
     /* Bump formats. */
     gcvSURF_L6V5U5              = 1000,
@@ -1290,21 +1294,21 @@ typedef enum _gceSURF_BLEND_MODE
 {
     /* Porter-Duff blending modes.                   */
     /*                         Fsrc      Fdst        */
-    gcvBLEND_CLEAR = 0,     /* 0         0           */
-    gcvBLEND_SRC,           /* 1         0           */
-    gcvBLEND_DST,           /* 0         1           */
-    gcvBLEND_SRC_OVER_DST,  /* 1         1 - Asrc    */
-    gcvBLEND_DST_OVER_SRC,  /* 1 - Adst  1           */
-    gcvBLEND_SRC_IN_DST,    /* Adst      0           */
-    gcvBLEND_DST_IN_SRC,    /* 0         Asrc        */
-    gcvBLEND_SRC_OUT_DST,   /* 1 - Adst  0           */
-    gcvBLEND_DST_OUT_SRC,   /* 0         1 - Asrc    */
-    gcvBLEND_SRC_ATOP_DST,  /* Adst      1 - Asrc    */
-    gcvBLEND_DST_ATOP_SRC,  /* 1 - Adst  Asrc        */
-    gcvBLEND_SRC_XOR_DST,   /* 1 - Adst  1 - Asrc    */
+    gcvBLEND_CLEAR = 0, /* 0         0           */
+    gcvBLEND_SRC, /* 1         0           */
+    gcvBLEND_DST, /* 0         1           */
+    gcvBLEND_SRC_OVER_DST, /* 1         1 - Asrc    */
+    gcvBLEND_DST_OVER_SRC, /* 1 - Adst  1           */
+    gcvBLEND_SRC_IN_DST, /* Adst      0           */
+    gcvBLEND_DST_IN_SRC, /* 0         Asrc        */
+    gcvBLEND_SRC_OUT_DST, /* 1 - Adst  0           */
+    gcvBLEND_DST_OUT_SRC, /* 0         1 - Asrc    */
+    gcvBLEND_SRC_ATOP_DST, /* Adst      1 - Asrc    */
+    gcvBLEND_DST_ATOP_SRC, /* 1 - Adst  Asrc        */
+    gcvBLEND_SRC_XOR_DST, /* 1 - Adst  1 - Asrc    */
 
     /* Special blending modes.                       */
-    gcvBLEND_SET,           /* DST = 1               */
+    gcvBLEND_SET, /* DST = 1               */
     gcvBLEND_SUB            /* DST = DST * (1 - SRC) */
 }
 gceSURF_BLEND_MODE;
@@ -1574,21 +1578,22 @@ gceFILTER_PASS_TYPE;
 /* Endian hints. */
 typedef enum _gceENDIAN_HINT
 {
-    gcvENDIAN_NO_SWAP = 0,
-    gcvENDIAN_SWAP_WORD,
-    gcvENDIAN_SWAP_DWORD
+    gcvENDIAN_NO_SWAP    = 0,
+    gcvENDIAN_SWAP_WORD  = 1,
+    gcvENDIAN_SWAP_DWORD = 2,
+    gcvENDIAN_SWAP_QWORD = 3,
 }
 gceENDIAN_HINT;
 
 /* Tiling modes. */
 typedef enum _gceTILING
 {
-    gcvINVALIDTILED = 0x0,        /* Invalid tiling */
+    gcvINVALIDTILED = 0x0, /* Invalid tiling */
     /* Tiling basic modes enum'ed in power of 2. */
-    gcvLINEAR      = 0x1,         /* No    tiling. */
-    gcvTILED       = 0x2,         /* 4x4   tiling. */
-    gcvSUPERTILED  = 0x4,         /* 64x64 tiling. */
-    gcvMINORTILED  = 0x8,         /* 2x2   tiling. */
+    gcvLINEAR      = 0x1, /* No    tiling. */
+    gcvTILED       = 0x2, /* 4x4   tiling. */
+    gcvSUPERTILED  = 0x4, /* 64x64 tiling. */
+    gcvMINORTILED  = 0x8, /* 2x2   tiling. */
 
     /* Tiling special layouts. */
     gcvTILING_SPLIT_BUFFER = 0x10,
@@ -2112,6 +2117,8 @@ gceCOMPRESSION_OPTION;
 /* Can be exported as dmabuf-fd */
 #define gcvALLOC_FLAG_DMABUF_EXPORTABLE     0x00000010
 
+#define gcvALLOC_FLAG_4GB_ADDR              0x00000020
+
 /* Do not try slow pools (gcvPOOL_VIRTUAL/gcvPOOL_CONTIGUOUS) */
 #define gcvALLOC_FLAG_FAST_POOLS            0x00000100
 
@@ -2177,3 +2184,5 @@ typedef void *                            gctTHREAD;
 #endif
 
 #endif /* __gc_hal_enum_h_ */
+
+

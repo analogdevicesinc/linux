@@ -2525,7 +2525,7 @@ if (halti5){    vsConstBase  = 0xD000;
 
     if (halti5)
     {
-        index += _State(Context, index, 0x14920 >> 2, 0x00000000, 7, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x14920 >> 2, 0x03012000, 7, gcvFALSE, gcvFALSE);
         index += _State(Context, index, 0x14940 >> 2, 0x00000000, 7, gcvFALSE, gcvFALSE);
         index += _State(Context, index, 0x14960 >> 2, 0x00000000, 7, gcvFALSE, gcvFALSE);
         index += _State(Context, index, 0x14980 >> 2, 0x00000000, 7, gcvFALSE, gcvFALSE);

@@ -157,6 +157,7 @@ _DmaAlloc(
     )
 {
     gceSTATUS status;
+    u32 gfp = GFP_KERNEL | gcdNOWARN;
     gcsDMA_PRIV_PTR allocatorPriv = (gcsDMA_PRIV_PTR)Allocator->privateData;
 
     struct mdl_dma_priv *mdlPriv=gcvNULL;
@@ -165,21 +166,29 @@ _DmaAlloc(
     gcmkHEADER_ARG("Mdl=%p NumPages=0x%zx Flags=0x%x", Mdl, NumPages, Flags);
 
     gcmkONERROR(gckOS_Allocate(os, sizeof(struct mdl_dma_priv), (gctPOINTER *)&mdlPriv));
+    mdlPriv->kvaddr = gcvNULL;
+
+#if defined(CONFIG_ZONE_DMA32) && LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,37)
+    if (Flags & gcvALLOC_FLAG_4GB_ADDR)
+    {
+        gfp |= __GFP_DMA32;
+    }
+#endif
 
     mdlPriv->kvaddr
 #if defined CONFIG_ARM64
-        = dma_alloc_coherent(_GetDevice(os), NumPages * PAGE_SIZE, &mdlPriv->dmaHandle, GFP_KERNEL | gcdNOWARN);
+        = dma_alloc_coherent(_GetDevice(os), NumPages * PAGE_SIZE, &mdlPriv->dmaHandle, gfp);
 #elif defined CONFIG_MIPS || defined CONFIG_CPU_CSKYV2 || defined CONFIG_PPC
-        = dma_alloc_coherent(gcvNULL, NumPages * PAGE_SIZE, &mdlPriv->dmaHandle, GFP_KERNEL | gcdNOWARN);
+        = dma_alloc_coherent(gcvNULL, NumPages * PAGE_SIZE, &mdlPriv->dmaHandle, gfp);
 #else
-        = dma_alloc_writecombine(gcvNULL, NumPages * PAGE_SIZE,  &mdlPriv->dmaHandle, GFP_KERNEL | gcdNOWARN);
+        = dma_alloc_writecombine(gcvNULL, NumPages * PAGE_SIZE,  &mdlPriv->dmaHandle, gfp);
 #endif
 
 #ifdef CONFLICT_BETWEEN_BASE_AND_PHYS
     if ((os->device->baseAddress & 0x80000000) != (mdlPriv->dmaHandle & 0x80000000))
     {
         mdlPriv->dmaHandle = (mdlPriv->dmaHandle & ~0x80000000)
-                            | (os->device->baseAddress & 0x80000000);
+                           | (os->device->baseAddress & 0x80000000);
     }
 #endif
 
@@ -243,8 +252,10 @@ _DmaGetSGT(
         gcmkONERROR(gcvSTATUS_OUT_OF_MEMORY);
     }
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,13,0)
-    page = phys_to_page (mdlPriv->dmaHandle);
+#if !defined(phys_to_page)
+    page = virt_to_page(mdlPriv->kvaddr);
+#elif LINUX_VERSION_CODE < KERNEL_VERSION(3,13,0)
+    page = phys_to_page(mdlPriv->dmaHandle);
 #else
     page = phys_to_page(dma_to_phys(&Allocator->os->device->platform->device->dev, mdlPriv->dmaHandle));
 #endif
@@ -306,9 +317,10 @@ static gceSTATUS
 _DmaMmap(
     IN gckALLOCATOR Allocator,
     IN PLINUX_MDL Mdl,
+    IN gctBOOL Cacheable,
     IN gctSIZE_T skipPages,
     IN gctSIZE_T numPages,
-    INOUT struct vm_area_struct *vma
+    IN struct vm_area_struct *vma
     )
 {
     struct mdl_dma_priv *mdlPriv = (struct mdl_dma_priv*)Mdl->priv;
@@ -325,7 +337,7 @@ _DmaMmap(
             vma->vm_start,
             (mdlPriv->dmaHandle >> PAGE_SHIFT) + skipPages,
             numPages << PAGE_SHIFT,
-            gcmkNONPAGED_MEMROY_PROT(vma->vm_page_prot)) < 0)
+            pgprot_writecombine(vma->vm_page_prot)) < 0)
 #else
     /* map kernel memory to user space.. */
     if (dma_mmap_writecombine(gcvNULL,
@@ -352,7 +364,7 @@ static void
 _DmaUnmapUser(
     IN gckALLOCATOR Allocator,
     IN PLINUX_MDL Mdl,
-    IN gctPOINTER Logical,
+    IN PLINUX_MDL_MAP MdlMap,
     IN gctUINT32 Size
     )
 {
@@ -363,7 +375,7 @@ _DmaUnmapUser(
     }
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3,4,0)
-    if (vm_munmap((unsigned long)Logical, Size) < 0)
+    if (vm_munmap((unsigned long)MdlMap->vmaAddr, Size) < 0)
     {
         gcmkTRACE_ZONE(
                 gcvLEVEL_WARNING, gcvZONE_OS,
@@ -373,7 +385,7 @@ _DmaUnmapUser(
     }
 #else
     down_write(&current->mm->mmap_sem);
-    if (do_munmap(current->mm, (unsigned long)Logical, Size) < 0)
+    if (do_munmap(current->mm, (unsigned long)MdlMap->vmaAddr, Size) < 0)
     {
         gcmkTRACE_ZONE(
                 gcvLEVEL_WARNING, gcvZONE_OS,
@@ -389,8 +401,8 @@ static gceSTATUS
 _DmaMapUser(
     gckALLOCATOR Allocator,
     PLINUX_MDL Mdl,
-    gctBOOL Cacheable,
-    OUT gctPOINTER * UserLogical
+    PLINUX_MDL_MAP MdlMap,
+    gctBOOL Cacheable
     )
 {
     gctPOINTER userLogical = gcvNULL;
@@ -439,8 +451,6 @@ _DmaMapUser(
         struct vm_area_struct *vma = find_vma(current->mm, (unsigned long)userLogical);
         if (vma == gcvNULL)
         {
-            up_write(&current->mm->mmap_sem);
-
             gcmkTRACE_ZONE(
                 gcvLEVEL_INFO, gcvZONE_OS,
                 "%s(%d): find_vma error",
@@ -450,9 +460,11 @@ _DmaMapUser(
             gcmkERR_BREAK(gcvSTATUS_OUT_OF_RESOURCES);
         }
 
-        gcmkERR_BREAK(_DmaMmap(Allocator, Mdl, 0, Mdl->numPages, vma));
+        gcmkERR_BREAK(_DmaMmap(Allocator, Mdl, Cacheable, 0, Mdl->numPages, vma));
 
-        *UserLogical = userLogical;
+        MdlMap->vmaAddr = userLogical;
+        MdlMap->cacheable = gcvFALSE;
+        MdlMap->vma = vma;
     }
     while (gcvFALSE);
     up_write(&current->mm->mmap_sem);
@@ -498,6 +510,18 @@ _DmaCache(
     IN gceCACHEOPERATION Operation
     )
 {
+    switch (Operation)
+    {
+    case gcvCACHE_CLEAN:
+    case gcvCACHE_FLUSH:
+        _MemoryBarrier();
+        break;
+    case gcvCACHE_INVALIDATE:
+        break;
+    default:
+        return gcvSTATUS_INVALID_ARGUMENT;
+    }
+
     return gcvSTATUS_OK;
 }
 
@@ -578,7 +602,12 @@ _DmaAlloctorInit(
      * DMA allocator is only used for NonPaged memory
      * when NO_DMA_COHERENT is not defined.
      */
-    allocator->capability = gcvALLOC_FLAG_DMABUF_EXPORTABLE;
+    allocator->capability = gcvALLOC_FLAG_CONTIGUOUS
+                          | gcvALLOC_FLAG_DMABUF_EXPORTABLE
+#if defined(CONFIG_ZONE_DMA32) && LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,37)
+                          | gcvALLOC_FLAG_4GB_ADDR
+#endif
+                          ;
 
     *Allocator = allocator;
 

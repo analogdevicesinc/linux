@@ -74,7 +74,7 @@ typedef struct _gcsDMABUF
 {
     struct dma_buf            * dmabuf;
     struct dma_buf_attachment * attachment;
-    struct sg_table           * sgtable;
+    struct sg_table           * sgt;
     unsigned long             * pagearray;
 
     int                         npages;
@@ -262,7 +262,7 @@ _DmabufAttach(
     buf_desc->dmabuf = dmabuf;
     buf_desc->pagearray = pagearray;
     buf_desc->attachment = attachment;
-    buf_desc->sgtable = sgt;
+    buf_desc->sgt = sgt;
 
     /* Record in buffer list to support debugfs. */
     buf_desc->npages = npages;
@@ -313,7 +313,7 @@ _DmabufFree(
     list_del(&buf_desc->list);
     mutex_unlock(&priv->lock);
 
-    dma_buf_unmap_attachment(buf_desc->attachment, buf_desc->sgtable, DMA_BIDIRECTIONAL);
+    dma_buf_unmap_attachment(buf_desc->attachment, buf_desc->sgt, DMA_BIDIRECTIONAL);
 
     dma_buf_detach(buf_desc->dmabuf, buf_desc->attachment);
 
@@ -328,12 +328,12 @@ static void
 _DmabufUnmapUser(
     IN gckALLOCATOR Allocator,
     IN PLINUX_MDL Mdl,
-    IN gctPOINTER Logical,
+    IN PLINUX_MDL_MAP MdlMap,
     IN gctUINT32 Size
     )
 {
     gcsDMABUF *buf_desc = Mdl->priv;
-    gctINT8_PTR userLogical = Logical;
+    gctINT8_PTR userLogical = MdlMap->vmaAddr;
 
     if (unlikely(current->mm == gcvNULL))
     {
@@ -341,7 +341,7 @@ _DmabufUnmapUser(
         return;
     }
 
-    userLogical -= buf_desc->sgtable->sgl->offset;
+    userLogical -= buf_desc->sgt->sgl->offset;
     vm_munmap((unsigned long)userLogical, Mdl->numPages << PAGE_SHIFT);
 }
 
@@ -349,8 +349,8 @@ static gceSTATUS
 _DmabufMapUser(
     IN gckALLOCATOR Allocator,
     IN PLINUX_MDL Mdl,
-    IN gctBOOL Cacheable,
-    OUT gctPOINTER * UserLogical
+    IN PLINUX_MDL_MAP MdlMap,
+    IN gctBOOL Cacheable
     )
 {
     gcsDMABUF *buf_desc = Mdl->priv;
@@ -368,7 +368,7 @@ _DmabufMapUser(
     {
         gcmkONERROR(gcvSTATUS_OUT_OF_RESOURCES);
     }
-    userLogical += buf_desc->sgtable->sgl->offset;
+    userLogical += buf_desc->sgt->sgl->offset;
 
     /* To make sure the mapping is created. */
     if (access_ok(VERIFY_READ, userLogical, 4))
@@ -379,12 +379,13 @@ _DmabufMapUser(
         (void)mem;
     }
 
-    *UserLogical = (gctPOINTER)userLogical;
+    MdlMap->vmaAddr = (gctPOINTER)userLogical;
+    MdlMap->cacheable = Cacheable;
 
 OnError:
     if (gcmIS_ERROR(status) && userLogical)
     {
-        _DmabufUnmapUser(Allocator, Mdl, userLogical, Mdl->numPages << PAGE_SHIFT);
+        _DmabufUnmapUser(Allocator, Mdl, MdlMap, Mdl->numPages << PAGE_SHIFT);
     }
     return status;
 }
@@ -422,6 +423,28 @@ _DmabufCache(
     IN gceCACHEOPERATION Operation
     )
 {
+    gcsDMABUF *buf_desc = Mdl->priv;
+    struct sg_table *sgt = buf_desc->sgt;
+    enum dma_data_direction dir;
+
+    switch (Operation)
+    {
+    case gcvCACHE_CLEAN:
+        dir = DMA_TO_DEVICE;
+        dma_sync_sg_for_device(galcore_device, sgt->sgl, sgt->nents, dir);
+        break;
+    case gcvCACHE_FLUSH:
+        dir = DMA_BIDIRECTIONAL;
+        dma_sync_sg_for_device(galcore_device, sgt->sgl, sgt->nents, dir);
+        break;
+    case gcvCACHE_INVALIDATE:
+        dir = DMA_FROM_DEVICE;
+        dma_sync_sg_for_cpu(galcore_device, sgt->sgl, sgt->nents, dir);
+        break;
+    default:
+        return gcvSTATUS_INVALID_ARGUMENT;
+    }
+
     return gcvSTATUS_OK;
 }
 

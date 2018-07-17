@@ -62,8 +62,13 @@ typedef struct _LINUX_MDL_MAP LINUX_MDL_MAP, *PLINUX_MDL_MAP;
 struct _LINUX_MDL_MAP
 {
     gctINT                  pid;
-    gctPOINTER              vmaAddr;
+
+    /* map references. */
     gctUINT32               count;
+
+    struct vm_area_struct * vma;
+    gctPOINTER              vmaAddr;
+    gctBOOL                 cacheable;
 
     struct list_head        link;
 };
