@@ -112,17 +112,39 @@ static void reduce_bus_freq(void)
 	if (audio_bus_count) {
 		if (cur_bus_freq_mode == BUS_FREQ_HIGH) {
 
-			update_bus_freq(LOW_BUS_FREQ_667MTS);
+			if (of_machine_is_compatible("fsl,imx8mq")) {
+				update_bus_freq(LOW_BUS_FREQ_667MTS);
 
-			/*
-			 * the dram_apb and dram_core clk rate is changed
-			 * in ATF side, below two lines of code is just used
-			 * to upate the clock tree info in kernel side.
-			 */
-			clk_set_rate(dram_apb_pre_div, 160000000);
-			clk_get_rate(dram_pll_clk);
-			/* reduce the NOC & bus clock */
-			clk_set_rate(noc_div, clk_get_rate(noc_div) / 8);
+				/*
+				 * the dram_apb and dram_core clk rate is changed
+				 * in ATF side, below two lines of code is just used
+				 * to upate the clock tree info in kernel side.
+				 */
+				clk_set_rate(dram_apb_pre_div, 160000000);
+				clk_get_rate(dram_pll_clk);
+				/* reduce the NOC & bus clock */
+				clk_set_rate(noc_div, clk_get_rate(noc_div) / 8);
+			} else {
+				/* prepare the necessary clk before frequency change */
+				clk_prepare_enable(sys1_pll_40m);
+				clk_prepare_enable(dram_alt_root);
+				clk_prepare_enable(sys1_pll_100m);
+
+				update_bus_freq(LOW_BUS_FREQ_100MTS);
+
+				/* correct the clock tree info */
+				clk_set_parent(dram_alt_src, sys1_pll_100m);
+				clk_set_parent(dram_core_clk, dram_alt_root);
+				clk_set_parent(dram_apb_src, sys1_pll_40m);
+				clk_set_rate(dram_apb_pre_div, 20000000);
+				clk_disable_unprepare(sys1_pll_100m);
+				clk_disable_unprepare(sys1_pll_40m);
+				clk_disable_unprepare(dram_alt_root);
+
+				/* change the NOC rate */
+				clk_set_rate(noc_div, clk_get_rate(noc_div) / 5);
+			}
+
 			clk_set_rate(ahb_div, clk_get_rate(ahb_div) / 6);
 			clk_set_parent(main_axi_src, osc_25m);
 		}
@@ -133,12 +155,34 @@ static void reduce_bus_freq(void)
 	} else {
 		if (cur_bus_freq_mode == BUS_FREQ_HIGH) {
 
-			update_bus_freq(LOW_BUS_FREQ_667MTS);
+			if (of_machine_is_compatible("fsl,imx8mq")) {
+				update_bus_freq(LOW_BUS_FREQ_667MTS);
 
-			clk_set_rate(dram_apb_pre_div, 160000000);
-			clk_get_rate(dram_pll_clk);
-			/* reduce the NOC & bus clock */
-			clk_set_rate(noc_div, clk_get_rate(noc_div) / 8);
+				clk_set_rate(dram_apb_pre_div, 160000000);
+				clk_get_rate(dram_pll_clk);
+				/* reduce the NOC & bus clock */
+				clk_set_rate(noc_div, clk_get_rate(noc_div) / 8);
+			} else {
+				/* prepare the necessary clk before frequency change */
+				clk_prepare_enable(sys1_pll_40m);
+				clk_prepare_enable(dram_alt_root);
+				clk_prepare_enable(sys1_pll_100m);
+
+				update_bus_freq(LOW_BUS_FREQ_100MTS);
+
+				/* correct the clock tree info */
+				clk_set_parent(dram_alt_src, sys1_pll_100m);
+				clk_set_parent(dram_core_clk, dram_alt_root);
+				clk_set_parent(dram_apb_src, sys1_pll_40m);
+				clk_set_rate(dram_apb_pre_div, 20000000);
+				clk_disable_unprepare(sys1_pll_100m);
+				clk_disable_unprepare(sys1_pll_40m);
+				clk_disable_unprepare(dram_alt_root);
+
+				/* change the NOC clock rate  */
+				clk_set_rate(noc_div, clk_get_rate(noc_div) / 5);
+			}
+
 			clk_set_rate(ahb_div, clk_get_rate(ahb_div) / 6);
 			clk_set_parent(main_axi_src, osc_25m);
 		}
@@ -149,9 +193,9 @@ static void reduce_bus_freq(void)
 	}
 
 	if (audio_bus_freq_mode)
-		printk(KERN_DEBUG "ddrc freq set to audio mode: 167MHz\n");
+		printk(KERN_DEBUG "ddrc freq set to audio bus mode\n");
 	if (low_bus_freq_mode)
-		printk(KERN_DEBUG "ddrc freq set to low bus mode: 167MHz\n");
+		printk(KERN_DEBUG "ddrc freq set to low bus mode\n");
 }
 
 static void reduce_bus_freq_handler(struct work_struct *work)
@@ -208,12 +252,30 @@ static int set_high_bus_freq(int high_bus_freq)
 	if (high_bus_freq_mode)
 		return 0;
 
-	/* switch the DDR freqeuncy */
-	update_bus_freq(HIGH_FREQ_3200MTS);
+	if (of_machine_is_compatible("fsl,imx8mq")) {
+		/* switch the DDR freqeuncy */
+		update_bus_freq(HIGH_FREQ_3200MTS);
 
-	clk_set_rate(dram_apb_pre_div, 200000000);
-	clk_get_rate(dram_pll_clk);
-	clk_set_rate(noc_div, 800000000);
+		clk_set_rate(dram_apb_pre_div, 200000000);
+		clk_get_rate(dram_pll_clk);
+		clk_set_rate(noc_div, 800000000);
+	} else {
+		/*  enable the clks needed in frequency */
+		clk_prepare_enable(sys1_pll_800m);
+		clk_prepare_enable(dram_pll_clk);
+
+		/* switch the DDR freqeuncy */
+		update_bus_freq(HIGH_FREQ_3200MTS);
+
+		/* correct the clock tree info */
+		clk_set_parent(dram_apb_src, sys1_pll_800m);
+		clk_set_rate(dram_apb_pre_div, 160000000);
+		clk_set_parent(dram_core_clk, dram_pll_clk);
+		clk_disable_unprepare(sys1_pll_800m);
+		clk_disable_unprepare(dram_pll_clk);
+		clk_set_rate(noc_div, 750000000);
+	}
+
 	clk_set_rate(ahb_div, 133333333);
 	clk_set_parent(main_axi_src, sys2_pll_333m);
 
@@ -223,7 +285,7 @@ static int set_high_bus_freq(int high_bus_freq)
 	cur_bus_freq_mode = BUS_FREQ_HIGH;
 
 	if (high_bus_freq_mode)
-		printk(KERN_DEBUG "ddrc freq set to high mode: 800MHz\n");
+		printk(KERN_DEBUG "ddrc freq set to high bus mode\n");
 
 	return 0;
 }
@@ -435,7 +497,7 @@ static int init_busfreq_irq(struct platform_device *busfreq_pdev)
 	return 0;
 }
 
-static int init_busfreq_clk(struct platform_device *pdev)
+static int imx8mq_init_busfreq_clk(struct platform_device *pdev)
 {
 	dram_pll_clk = devm_clk_get(&pdev->dev, "dram_pll");
 	sys1_pll_800m = devm_clk_get(&pdev->dev, "sys1_pll_800m");
@@ -465,6 +527,35 @@ static int init_busfreq_clk(struct platform_device *pdev)
 	return 0;
 }
 
+static int imx8mm_init_busfreq_clk(struct platform_device *pdev)
+{
+	dram_pll_clk = devm_clk_get(&pdev->dev, "dram_pll");
+	dram_alt_src = devm_clk_get(&pdev->dev, "dram_alt_src");
+	dram_alt_root = devm_clk_get(&pdev->dev, "dram_alt_root");
+	dram_core_clk = devm_clk_get(&pdev->dev, "dram_core");
+	dram_apb_src = devm_clk_get(&pdev->dev, "dram_apb_src");
+	dram_apb_pre_div = devm_clk_get(&pdev->dev, "dram_apb_pre_div");
+	sys1_pll_800m = devm_clk_get(&pdev->dev, "sys_pll1_800m");
+	sys1_pll_100m = devm_clk_get(&pdev->dev, "sys_pll1_100m");
+	sys1_pll_40m = devm_clk_get(&pdev->dev, "sys_pll1_40m");
+	noc_div = devm_clk_get(&pdev->dev, "noc_div");
+	ahb_div = devm_clk_get(&pdev->dev, "ahb_div");
+	main_axi_src = devm_clk_get(&pdev->dev, "main_axi_src");
+	osc_25m = devm_clk_get(&pdev->dev, "osc_24m");
+	sys2_pll_333m = devm_clk_get(&pdev->dev, "sys_pll2_333m");
+
+	if (IS_ERR(dram_pll_clk) || IS_ERR(dram_alt_src) || IS_ERR(dram_alt_root) ||
+	    IS_ERR(dram_core_clk) || IS_ERR(dram_apb_src) || IS_ERR(dram_apb_pre_div) ||
+	    IS_ERR(sys1_pll_800m) || IS_ERR(sys1_pll_100m) || IS_ERR(sys1_pll_40m) ||
+	    IS_ERR(osc_25m) || IS_ERR(noc_div) || IS_ERR(main_axi_src) || IS_ERR(ahb_div) ||
+	    IS_ERR(sys2_pll_333m)) {
+		dev_err(&pdev->dev, "failed to get busfreq clk\n");
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 /*!
  * This is the probe routine for the bus frequency driver.
  *
@@ -480,7 +571,11 @@ static int busfreq_probe(struct platform_device *pdev)
 	busfreq_dev = &pdev->dev;
 
 	/* get the clock for DDRC */
-	err = init_busfreq_clk(pdev);
+	if (of_machine_is_compatible("fsl,imx8mq"))
+		err = imx8mq_init_busfreq_clk(pdev);
+	else
+		err = imx8mm_init_busfreq_clk(pdev);
+
 	if (err) {
 		dev_err(busfreq_dev, "init clk failed\n");
 		return err;
