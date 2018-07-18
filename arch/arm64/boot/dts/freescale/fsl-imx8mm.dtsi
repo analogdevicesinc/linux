@@ -1003,11 +1003,6 @@
 		};
 	};
 
-	display-subsystem {
-		compatible = "fsl,imx-display-subsystem";
-		ports = <&lcdif_disp0>;
-	};
-
 	mipi_dsi: mipi_dsi@32E10000 {
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -1031,6 +1026,11 @@
 				remote-endpoint = <&lcdif_to_dsim>;
 			};
 		};
+	};
+
+	display-subsystem {
+		compatible = "fsl,imx-display-subsystem";
+		ports = <&lcdif_disp0>;
 	};
 
 	pcie0: pcie@0x33800000 {
