@@ -8,7 +8,8 @@ EXTRA_CFLAGS += $(DEFINES)
 
 obj-y = vpu-decoder.o
 vpu-decoder-objs = vpu_b0.o \
-	vpu_rpc.o
+	vpu_rpc.o \
+	insert_startcode.o
 
 clean:
 	rm -rf $(vpu-decoder-objs)

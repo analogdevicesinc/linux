@@ -47,6 +47,7 @@
 #include <media/videobuf2-dma-sg.h>
 
 #include "vpu_b0.h"
+#include "insert_startcode.h"
 
 unsigned int vpu_dbg_level_decoder = 1;
 
@@ -271,16 +272,10 @@ static struct vpu_v4l2_fmt  formats_compressed_dec[] = {
 		.vdec_std   = VPU_VIDEO_JPEG,
 	},
 	{
-		.name       = "RV8 Encoded Stream",
-		.fourcc     = VPU_PIX_FMT_RV8,
+		.name       = "RV Encoded Stream",
+		.fourcc     = VPU_PIX_FMT_RV,
 		.num_planes = 1,
-		.vdec_std   = VPU_VIDEO_RV8,
-	},
-	{
-		.name       = "RV9 Encoded Stream",
-		.fourcc     = VPU_PIX_FMT_RV9,
-		.num_planes = 1,
-		.vdec_std   = VPU_VIDEO_RV9,
+		.vdec_std   = VPU_VIDEO_RV,
 	},
 	{
 		.name       = "VP6 Encoded Stream",
@@ -289,10 +284,16 @@ static struct vpu_v4l2_fmt  formats_compressed_dec[] = {
 		.vdec_std   = VPU_VIDEO_VP6,
 	},
 	{
-		.name       = "VP6 SPK Encoded Stream",
+		.name       = "SPK Encoded Stream",
 		.fourcc     = VPU_PIX_FMT_SPK,
 		.num_planes = 1,
 		.vdec_std   = VPU_VIDEO_SPK,
+	},
+	{
+		.name       = "H263 Encoded Stream",
+		.fourcc     = V4L2_PIX_FMT_H263,
+		.num_planes = 1,
+		.vdec_std   = VPU_VIDEO_ASP,
 	},
 	{
 		.name       = "VP8 Encoded Stream",
@@ -311,12 +312,6 @@ static struct vpu_v4l2_fmt  formats_compressed_dec[] = {
 		.fourcc     = VPU_PIX_FMT_HEVC,
 		.num_planes = 1,
 		.vdec_std   = VPU_VIDEO_HEVC,
-	},
-	{
-		.name       = "VP9 Encoded Stream",
-		.fourcc     = VPU_PIX_FMT_VP9,
-		.num_planes = 1,
-		.vdec_std   = VPU_VIDEO_VP9,
 	},
 	{
 		.name       = "Logo",
@@ -1108,8 +1103,7 @@ static bool add_eos(struct vpu_ctx *ctx, u_int32 uStrBufIdx)
 	case VPU_VIDEO_SPK:
 	case VPU_VIDEO_VP6:
 	case VPU_VIDEO_VP8:
-	case VPU_VIDEO_RV8:
-	case VPU_VIDEO_RV9:
+	case VPU_VIDEO_RV:
 		last = 0x34010000;
 		break;
 	case VPU_VIDEO_JPEG:
@@ -1209,11 +1203,7 @@ TB_API_DEC_FMT vpu_format_remap(uint32_t vdec_std)
 		malone_format = VSys_HevcFrmt;
 		vpu_dbg(LVL_INFO, "format translated to HEVC");
 		break;
-	case VPU_VIDEO_RV8:
-		malone_format = VSys_RvFrmt;
-		vpu_dbg(LVL_INFO, "format translated to RV");
-		break;
-	case VPU_VIDEO_RV9:
+	case VPU_VIDEO_RV:
 		malone_format = VSys_RvFrmt;
 		vpu_dbg(LVL_INFO, "format translated to RV");
 		break;
@@ -1240,6 +1230,7 @@ static void v4l2_vpu_send_cmd(struct vpu_ctx *ctx, uint32_t idx, uint32_t cmdid,
 	mb();
 	MU_SendMessage(ctx->dev->mu_base_virtaddr, 0, COMMAND);
 }
+
 static void transfer_buffer_to_firmware(struct vpu_ctx *ctx, void *input_buffer, uint32_t buffer_size, uint32_t vdec_std)
 {
 	pSTREAM_BUFFER_DESCRIPTOR_TYPE pStrBufDesc;
@@ -1248,19 +1239,26 @@ static void transfer_buffer_to_firmware(struct vpu_ctx *ctx, void *input_buffer,
 		&ctx->dev->shared_mem.pSharedInterface->UDataBuffer[ctx->str_index];
 	pDEC_RPC_HOST_IFACE pSharedInterface = ctx->dev->shared_mem.pSharedInterface;
 	unsigned int *CurrStrfg = &pSharedInterface->StreamConfig[ctx->str_index];
+	u_int32 length;
 
 	vpu_dbg(LVL_INFO, "enter %s, start_flag %d, index=%d, firmware_started=%d\n", __func__, ctx->start_flag, ctx->str_index, ctx->dev->firmware_started);
 
 	vpu_dbg(LVL_ALL, "firmware version is %d.%d.%d\n", (pSharedInterface->FWVersion & 0x00ff0000) >> 16, (pSharedInterface->FWVersion & 0x0000ff00) >> 8, pSharedInterface->FWVersion & 0x000000ff);
 
+
 	if (ctx->stream_buffer_size < buffer_size + MIN_SPACE)
 		vpu_dbg(LVL_INFO, "circular buffer size is too small\n");
-	memcpy(ctx->stream_buffer_virt, input_buffer, buffer_size);
+	length = insert_scode_4_seq(ctx, input_buffer, ctx->stream_buffer_virt, vdec_std, buffer_size);
+	if (length == 0) {
+		memcpy(ctx->stream_buffer_virt + length, input_buffer, buffer_size);
+		length = buffer_size;
+	}
+//	memcpy(ctx->stream_buffer_virt + length, input_buffer, buffer_size);
 	vpu_dbg(LVL_INFO, "transfer data from virt 0x%p: size:%d\n", ctx->stream_buffer_virt, buffer_size);
 	mb();
 	pStrBufDesc = ctx->dev->regs_base + DEC_MFD_XREG_SLV_BASE + MFD_MCX + MFD_MCX_OFF * ctx->str_index;
 	// CAUTION: wptr must not be end
-	pStrBufDesc->wptr = ctx->stream_buffer_phy + buffer_size - ctx->dev->cm_offset;
+	pStrBufDesc->wptr = ctx->stream_buffer_phy + length - ctx->dev->cm_offset;
 	pStrBufDesc->rptr = ctx->stream_buffer_phy - ctx->dev->cm_offset;
 	pStrBufDesc->start = ctx->stream_buffer_phy - ctx->dev->cm_offset;
 	pStrBufDesc->end = ctx->stream_buffer_phy + ctx->stream_buffer_size - ctx->dev->cm_offset;
@@ -1308,6 +1306,8 @@ static int update_stream_addr(struct vpu_ctx *ctx, void *input_buffer, uint32_t 
 	struct vpu_dev *dev = ctx->dev;
 	uint32_t index = ctx->str_index;
 	pSTREAM_BUFFER_DESCRIPTOR_TYPE pStrBufDesc;
+	struct queue_data *q_data = &ctx->q_data[V4L2_SRC];
+	u_int8 payload_header[256];
 	uint32_t nfreespace = 0;
 	uint32_t wptr;
 	uint32_t rptr;
@@ -1315,6 +1315,7 @@ static int update_stream_addr(struct vpu_ctx *ctx, void *input_buffer, uint32_t 
 	uint32_t end;
 	void *wptr_virt;
 	uint32_t ret = 1;
+	u_int32 length = 0;
 
 	vpu_dbg(LVL_INFO, "enter %s\n", __func__);
 
@@ -1335,6 +1336,8 @@ static int update_stream_addr(struct vpu_ctx *ctx, void *input_buffer, uint32_t 
 	end = pStrBufDesc->end;
 	wptr_virt = (void *)ctx->stream_buffer_virt + wptr - start;
 
+	length = insert_scode_4_pic(ctx, payload_header, input_buffer, q_data->vdec_std, buffer_size);
+
 	vpu_dbg(LVL_INFO, "update_stream_addr down\n");
 
 	if (wptr == rptr)
@@ -1347,8 +1350,22 @@ static int update_stream_addr(struct vpu_ctx *ctx, void *input_buffer, uint32_t 
 	if (nfreespace-buffer_size < MIN_SPACE)
 			return 0;
 
-	if (nfreespace >= buffer_size) {
+	if (nfreespace >= buffer_size + length) {
 		if ((wptr == rptr) || (wptr > rptr)) {
+			if (end - wptr >= length) {
+				memcpy(wptr_virt, payload_header, length);
+				wptr += length;
+				wptr_virt += length;
+				if (wptr == end) {
+					wptr = start;
+					wptr_virt = (void *)ctx->stream_buffer_virt;
+				}
+			} else {
+				memcpy(wptr_virt, payload_header, end-wptr);
+				memcpy(ctx->stream_buffer_virt, payload_header + (end-wptr), length - (end-wptr));
+				wptr = start + length - (end-wptr);
+				wptr_virt = (void *)ctx->stream_buffer_virt + length - (end-wptr);
+			}
 			if (end - wptr >= buffer_size) {
 				memcpy(wptr_virt, input_buffer, buffer_size);
 				wptr += buffer_size;

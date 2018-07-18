@@ -101,24 +101,20 @@ enum vpu_video_standard {
 	VPU_VIDEO_AVS = 4,
 	VPU_VIDEO_ASP = 5,
 	VPU_VIDEO_JPEG = 6,
-	VPU_VIDEO_RV8 = 7,
-	VPU_VIDEO_RV9 = 8,
-	VPU_VIDEO_VP6 = 9,
-	VPU_VIDEO_SPK = 10,
-	VPU_VIDEO_VP8 = 11,
-	VPU_VIDEO_AVC_MVC = 12,
-	VPU_VIDEO_HEVC = 13,
-	VPU_VIDEO_VP9 = 14,
+	VPU_VIDEO_RV = 7,
+	VPU_VIDEO_VP6 = 8,
+	VPU_VIDEO_SPK = 9,
+	VPU_VIDEO_VP8 = 10,
+	VPU_VIDEO_AVC_MVC = 11,
+	VPU_VIDEO_HEVC = 12,
 };
 
 #define VPU_PIX_FMT_AVS         v4l2_fourcc('A', 'V', 'S', '0')
 #define VPU_PIX_FMT_ASP         v4l2_fourcc('A', 'S', 'P', '0')
-#define VPU_PIX_FMT_RV8         v4l2_fourcc('R', 'V', '8', '0')
-#define VPU_PIX_FMT_RV9         v4l2_fourcc('R', 'V', '9', '0')
+#define VPU_PIX_FMT_RV          v4l2_fourcc('R', 'V', '0', '0')
 #define VPU_PIX_FMT_VP6         v4l2_fourcc('V', 'P', '6', '0')
 #define VPU_PIX_FMT_SPK         v4l2_fourcc('S', 'P', 'K', '0')
 #define VPU_PIX_FMT_HEVC        v4l2_fourcc('H', 'E', 'V', 'C')
-#define VPU_PIX_FMT_VP9         v4l2_fourcc('V', 'P', '9', '0')
 #define VPU_PIX_FMT_LOGO        v4l2_fourcc('L', 'O', 'G', 'O')
 
 #define VPU_PIX_FMT_TILED_8     v4l2_fourcc('Z', 'T', '0', '8')

@@ -156,6 +156,7 @@ static int v4l2_ioctl_enum_fmt_vid_cap_mplane(struct file *file,
 	fmt = &formats_compressed_enc[f->index];
 	strlcpy(f->description, fmt->name, sizeof(f->description));
 	f->pixelformat = fmt->fourcc;
+	f->flags |= V4L2_FMT_FLAG_COMPRESSED;
 	return 0;
 }
 static int v4l2_ioctl_enum_fmt_vid_out_mplane(struct file *file,
@@ -173,7 +174,6 @@ static int v4l2_ioctl_enum_fmt_vid_out_mplane(struct file *file,
 	fmt = &formats_yuv_enc[f->index];
 	strlcpy(f->description, fmt->name, sizeof(f->description));
 	f->pixelformat = fmt->fourcc;
-	f->flags |= V4L2_FMT_FLAG_COMPRESSED;
 	return 0;
 }
 
