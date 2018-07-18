@@ -644,7 +644,7 @@ static int imx7d_pcie_wait_for_phy_pll_lock(struct imx_pcie *imx_pcie)
 static int imx8_pcie_wait_for_phy_pll_lock(struct imx_pcie *imx_pcie)
 {
 	u32 val, tmp, orig;
-	unsigned int retries;
+	unsigned int retries = 0;
 	struct dw_pcie *pci = imx_pcie->pci;
 	struct device *dev = pci->dev;
 
@@ -2179,7 +2179,7 @@ static int imx_pcie_local_dma_start(struct pcie_port *pp, bool dir,
 	return 0;
 }
 
-static int __init imx_pcie_probe(struct platform_device *pdev)
+static int imx_pcie_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct dw_pcie *pci;
