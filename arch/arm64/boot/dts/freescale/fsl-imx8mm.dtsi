@@ -783,13 +783,13 @@
 		compatible = "fsl,imx8mm-spdif";
 		reg = <0x0 0x30090000 0x0 0x10000>;
 		interrupts = <GIC_SPI 6 IRQ_TYPE_LEVEL_HIGH>;
-		clocks = <&clk IMX8MM_CLK_IPG_AUDIO_ROOT>, /* core */
+		clocks = <&clk IMX8MM_CLK_AUDIO_AHB_DIV>, /* core */
 			 <&clk IMX8MM_CLK_24M>, /* rxtx0 */
 			 <&clk IMX8MM_CLK_SPDIF1_DIV>, /* rxtx1 */
 			 <&clk IMX8MM_CLK_DUMMY>, /* rxtx2 */
 			 <&clk IMX8MM_CLK_DUMMY>, /* rxtx3 */
 			 <&clk IMX8MM_CLK_DUMMY>, /* rxtx4 */
-			 <&clk IMX8MM_CLK_IPG_AUDIO_ROOT>, /* rxtx5 */
+			 <&clk IMX8MM_CLK_AUDIO_AHB_DIV>, /* rxtx5 */
 			 <&clk IMX8MM_CLK_DUMMY>, /* rxtx6 */
 			 <&clk IMX8MM_CLK_DUMMY>, /* rxtx7 */
 			 <&clk IMX8MM_CLK_DUMMY>; /* spba */
