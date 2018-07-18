@@ -2520,8 +2520,6 @@ static int sdma_suspend(struct device *dev)
 			sdma->save_regs[i] = readl_relaxed(sdma->regs + 4 * i);
 	}
 
-	sdma->fw_loaded = false;
-
 	clk_disable(sdma->clk_ipg);
 	clk_disable(sdma->clk_ahb);
 
@@ -2548,6 +2546,8 @@ static int sdma_resume(struct device *dev)
 		return 0;
 	}
 
+	/* Firmware was lost, mark as "not ready" */
+	sdma->fw_loaded = false;
 	sdma->suspend_off = true;
 
 	/* restore regs and load firmware */
