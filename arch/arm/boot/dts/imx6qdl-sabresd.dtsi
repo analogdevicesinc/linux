@@ -50,16 +50,6 @@
 		stdout-path = &uart1;
 	};
 
-	leds {
-		compatible = "gpio-leds";
-
-		charger-led {
-			gpios = <&gpio1 2 0>;
-			linux,default-trigger = "max8903-charger-charging";
-			retain-state-suspended;
-		};
-	};
-
 	memory: memory {
 		reg = <0x10000000 0x40000000>;
 	};
@@ -267,9 +257,10 @@
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_gpio_leds>;
 
-		red {
+		charger-led {
 			gpios = <&gpio1 2 0>;
-			default-state = "on";
+			linux,default-trigger = "max8903-charger-charging";
+			retain-state-suspended;
 		};
 	};
 
