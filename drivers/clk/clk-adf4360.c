@@ -278,8 +278,6 @@ static int adf4360_set_rate(struct clk_hw *clk_hw,
 	}
 	n = p * b + a;
 
-	printk("set_rate: %u %u %u %u %u\n", r, n, p, a, b);
-
 	val_ctrl = adf4360_part_info[adf4360->part_id].default_cpl;
 	val_ctrl |= ADF4360_CTRL_CPI1(adf4360->cpi);
 	val_ctrl |= ADF4360_CTRL_CPI2(adf4360->cpi);
@@ -323,7 +321,7 @@ static int adf4360_set_rate(struct clk_hw *clk_hw,
 	msleep(15);
 	adf4360_write_reg(adf4360, ADF4360_REG_NDIV, val_n);
 
-	printk("regs: %x %x %x\n", val_ctrl, val_r, val_n);
+	dev_dbg(&adf4360->spi->dev, "regs: %x %x %x\n", val_ctrl, val_r, val_n);
 
 	adf4360->n = n;
 	adf4360->r = r;
