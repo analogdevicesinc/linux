@@ -76,6 +76,9 @@ static struct drm_crtc_state *dcss_crtc_duplicate_state(struct drm_crtc *crtc)
 {
 	struct imx_crtc_state *state;
 
+	if (!crtc->state)
+		return NULL;
+
 	state = kzalloc(sizeof(*state), GFP_KERNEL);
 	if (!state)
 		return NULL;
