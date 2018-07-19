@@ -114,6 +114,7 @@ enum vpu_video_standard {
 #define VPU_PIX_FMT_RV          v4l2_fourcc('R', 'V', '0', '0')
 #define VPU_PIX_FMT_VP6         v4l2_fourcc('V', 'P', '6', '0')
 #define VPU_PIX_FMT_SPK         v4l2_fourcc('S', 'P', 'K', '0')
+#define VPU_PIX_FMT_DIVX        v4l2_fourcc('D', 'I', 'V', 'X')
 #define VPU_PIX_FMT_HEVC        v4l2_fourcc('H', 'E', 'V', 'C')
 #define VPU_PIX_FMT_LOGO        v4l2_fourcc('L', 'O', 'G', 'O')
 

@@ -190,6 +190,221 @@ static int VC1CreateNalFrameHeader(unsigned char *pHeader, int *pHeaderLen, unsi
 	return 1;
 }
 
+void vp6_scd_sequence_header(unsigned char *buffer, int pic_width, int pic_height)
+{
+	int Length = 0;
+
+	buffer[0] = 0x00;
+	buffer[1] = 0x00;
+	buffer[2] = 0x01;
+	buffer[3] = 0x31;
+	buffer[4] = (Length+12)>>16;
+	buffer[5] = (Length+12)>>8;
+	buffer[6] = 0x4e;
+	buffer[7] = (Length+12);
+	buffer[8] = 0x36;
+	buffer[9] = 0x1;
+	buffer[10] = pic_width>>8;
+	buffer[11] = pic_width;
+	buffer[12] = 0x58;
+	buffer[13] = pic_height>>8;
+	buffer[14] = pic_height;
+	buffer[15] = 0x50;
+}
+
+void vp6_scd_frame_header(unsigned char *buffer, int pic_width, int pic_height, int Length)
+{
+	buffer[0] = 0x00;
+	buffer[1] = 0x00;
+	buffer[2] = 0x01;
+	buffer[3] = 0x32;
+	buffer[4] = (Length+12)>>16;
+	buffer[5] = (Length+12)>>8;
+	buffer[6] = 0x4e;
+	buffer[7] = (Length+12);
+	buffer[8] = 0x36;
+	buffer[9] = 0x1;
+	buffer[10] = pic_width>>8;
+	buffer[11] = pic_width;
+	buffer[12] = 0x58;
+	buffer[13] = pic_height>>8;
+	buffer[14] = pic_height;
+	buffer[15] = 0x50;
+}
+
+void vp8_ivf_sequence_header(unsigned char *buffer, int pic_width, int pic_height)
+{
+	int Length = 32;
+
+	buffer[0] = 0x44;
+	buffer[1] = 0x4b;
+	buffer[2] = 0x49;
+	buffer[3] = 0x46; //0-3byte signature "DKIF"
+	buffer[4] = 0x00;
+	buffer[5] = 0x00; //4-5byte version 0
+	buffer[6] = Length;
+	buffer[7] = Length >> 8; //length of Header
+	buffer[8] = 0x56;
+	buffer[9] = 0x50;
+	buffer[10] = 0x38;
+	buffer[11] = 0x30; //VP8 fourcc
+	buffer[12] = pic_width;
+	buffer[13] = pic_width >> 8;
+	buffer[14] = pic_height;
+	buffer[15] = pic_height >> 8;
+	buffer[16] = 0xe8;
+	buffer[17] = 0x03;
+	buffer[18] = 0x00;
+	buffer[19] = 0x00; //16-19 frame rate
+	buffer[20] = 0x01;
+	buffer[21] = 0x00;
+	buffer[22] = 0x00;
+	buffer[23] = 0x00; //20-23 time scale
+	buffer[24] = 0xdf;
+	buffer[25] = 0xf9;
+	buffer[26] = 0x09;
+	buffer[27] = 0x00; //24-27 number frames
+	//28-31 unused
+}
+
+void vp8_ivf_frame_header(unsigned char *buffer, u_int32 FrameSize)
+{
+	buffer[0] = FrameSize;
+	buffer[1] = FrameSize >> 8;
+	buffer[2] = FrameSize >> 16;
+	buffer[3] = FrameSize >> 24;
+	//4-11 timestamp
+}
+
+void vp8_scd_sequence_header(unsigned char *buffer, int pic_width, int pic_height)
+{
+	int Length = 32;
+
+	buffer[0] = 0x00;
+	buffer[1] = 0x00;
+	buffer[2] = 0x01;
+	buffer[3] = 0x31;
+	buffer[4] = (Length+12)>>16;
+	buffer[5] = (Length+12)>>8;
+	buffer[6] = 0x4e;
+	buffer[7] = (Length+12);
+	buffer[8] = 0x36;
+	buffer[9] = 0x1;
+	buffer[10] = pic_width>>8;
+	buffer[11] = pic_width;
+	buffer[12] = 0x58;
+	buffer[13] = pic_height>>8;
+	buffer[14] = pic_height;
+	buffer[15] = 0x50;
+}
+void vp8_scd_frame_header(unsigned char *buffer, int pic_width, int pic_height, int Length)
+{
+	buffer[0] = 0x00;
+	buffer[1] = 0x00;
+	buffer[2] = 0x01;
+	buffer[3] = 0x32;
+	buffer[4] = (Length+12)>>16;
+	buffer[5] = (Length+12)>>8;
+	buffer[6] = 0x4e;
+	buffer[7] = (Length+12);
+	buffer[8] = 0x36;
+	buffer[9] = 0x1;
+	buffer[10] = pic_width>>8;
+	buffer[11] = pic_width;
+	buffer[12] = 0x58;
+	buffer[13] = pic_height>>8;
+	buffer[14] = pic_height;
+	buffer[15] = 0x50;
+}
+
+static void insert_payload_header_divx(u_int8 *dst, u_int32 uPayloadSize, u_int32 uWidth, u_int32 uHeight)
+{
+	// Startcode
+	dst[0] = 0x00;
+	dst[1] = 0x00;
+	dst[2] = 0x01;
+	dst[3] = 0x32;
+
+	// Length
+	dst[4] = ((uPayloadSize>>16)&0xff);
+	dst[5] = ((uPayloadSize>>8)&0xff);
+	dst[6] = 0x4e;
+	dst[7] = ((uPayloadSize>>0)&0xff);
+
+	// Codec ID and Version
+	dst[8] = 0x38;
+	dst[9] = 0x01;
+
+	// Width
+	dst[10] = ((uWidth>>8)&0xff);
+	dst[11] = ((uWidth>>0)&0xff);
+	dst[12] = 0x58;
+
+	// Height
+	dst[13] = ((uHeight>>8)&0xff);
+	dst[14] = ((uHeight>>0)&0xff);
+	dst[15] = 0x50;
+}
+
+static void insert_seq_header_spk(u_int8 *dst, u_int32 uPayloadSize, u_int32 uWidth, u_int32 uHeight)
+{
+	// Startcode
+	dst[0] = 0x00;
+	dst[1] = 0x00;
+	dst[2] = 0x01;
+	dst[3] = 0x31;
+
+	// Length
+	dst[4] = ((uPayloadSize>>16)&0xff);
+	dst[5] = ((uPayloadSize>>8)&0xff);
+	dst[6] = 0x4e;
+	dst[7] = ((uPayloadSize>>0)&0xff);
+
+	// Codec ID and Version
+	dst[8] = 0x39;
+	dst[9] = 0x01;
+
+	// Width
+	dst[10] = ((uWidth>>8)&0xff);
+	dst[11] = ((uWidth>>0)&0xff);
+	dst[12] = 0x58;
+
+	// Height
+	dst[13] = ((uHeight>>8)&0xff);
+	dst[14] = ((uHeight>>0)&0xff);
+	dst[15] = 0x50;
+}
+
+static void insert_frame_header_spk(u_int8 *dst, u_int32 uPayloadSize, u_int32 uWidth, u_int32 uHeight)
+{
+	uPayloadSize = 0;
+	// Startcode
+	dst[0] = 0x00;
+	dst[1] = 0x00;
+	dst[2] = 0x01;
+	dst[3] = 0x32;
+
+	// Length
+	dst[4] = ((uPayloadSize>>16)&0xff);
+	dst[5] = ((uPayloadSize>>8)&0xff);
+	dst[6] = 0x4e;
+	dst[7] = ((uPayloadSize>>0)&0xff);
+
+	// Codec ID and Version
+	dst[8] = 0x39;
+	dst[9] = 0x01;
+
+	// Width
+	dst[10] = ((uWidth>>8)&0xff);
+	dst[11] = ((uWidth>>0)&0xff);
+	dst[12] = 0x58;
+
+	// Height
+	dst[13] = ((uHeight>>8)&0xff);
+	dst[14] = ((uHeight>>0)&0xff);
+	dst[15] = 0x50;
+}
+
 u_int32 insert_scode_4_seq(struct vpu_ctx *ctx, u_int8 *src, u_int8 *dst, u_int32 vdec_std, u_int32 uPayloadSize)
 {
 	struct queue_data *q_data = &ctx->q_data[V4L2_SRC];
@@ -223,6 +438,44 @@ u_int32 insert_scode_4_seq(struct vpu_ctx *ctx, u_int8 *src, u_int8 *dst, u_int3
 			length += HeaderLen;
 		}
 	}
+
+	break;
+	case VPU_VIDEO_VP6: {
+		vp6_scd_sequence_header(dst, q_data->width, q_data->height);
+		length = 16;
+	}
+	break;
+	case VPU_VIDEO_VP8: {
+		u_int8 seq_header[32] = {0};
+		u_int8 frame_header[8] = {0};
+
+		vp8_scd_sequence_header(dst, q_data->width, q_data->height);
+		length = 16;
+		vp8_ivf_sequence_header(seq_header, q_data->width, q_data->height);
+		memcpy(dst+length, seq_header, 32);
+		length += 32;
+		vp8_scd_frame_header(dst + length, q_data->width, q_data->height, uPayloadSize);
+		length += 16;
+		vp8_ivf_frame_header(frame_header, uPayloadSize);
+		memcpy(dst+length, frame_header, 8);
+		length += 8;
+		memcpy(dst+length, src, uPayloadSize);
+		length += uPayloadSize;
+	}
+	break;
+	case VPU_VIDEO_ASP: {
+		if (q_data->fourcc == VPU_PIX_FMT_DIVX) {
+			insert_payload_header_divx(dst, uPayloadSize, q_data->width, q_data->height);
+			length = 16;
+			memcpy(dst+length, src, uPayloadSize);
+			length += uPayloadSize;
+		}
+	}
+	break;
+	case VPU_VIDEO_SPK: {
+		insert_seq_header_spk(dst, uPayloadSize, q_data->width, q_data->height);
+		length = 16;
+	}
 	break;
 	default:
 	break;
@@ -255,6 +508,33 @@ u_int32 insert_scode_4_pic(struct vpu_ctx *ctx, u_int8 *dst, u_int8 *src, u_int3
 			memcpy(dst, Header, HeaderLen);
 			length = HeaderLen;
 		}
+	}
+	break;
+	case VPU_VIDEO_VP6: {
+		vp6_scd_frame_header(dst, q_data->width, q_data->height, uPayloadSize);
+		length = 16;
+	}
+	break;
+	case VPU_VIDEO_VP8: {
+		u_int8 frame_header[8];
+
+		vp8_scd_frame_header(dst, q_data->width, q_data->height, uPayloadSize);
+		length = 16;
+		vp8_ivf_frame_header(frame_header, uPayloadSize);
+		memcpy(dst+length, frame_header, 8);
+		length += 8;
+	}
+	break;
+	case VPU_VIDEO_ASP: {
+		if (q_data->fourcc == VPU_PIX_FMT_DIVX) {
+			insert_payload_header_divx(dst, uPayloadSize, q_data->width, q_data->height);
+			length = 16;
+		}
+	}
+	break;
+	case VPU_VIDEO_SPK: {
+		insert_frame_header_spk(dst, uPayloadSize, q_data->width, q_data->height);
+		length = 16;
 	}
 	break;
 	default:

@@ -266,6 +266,12 @@ static struct vpu_v4l2_fmt  formats_compressed_dec[] = {
 		.vdec_std   = VPU_VIDEO_ASP,
 	},
 	{
+		.name       = "DIVX Encoded Stream",
+		.fourcc     = VPU_PIX_FMT_DIVX,
+		.num_planes = 1,
+		.vdec_std   = VPU_VIDEO_ASP,
+	},
+	{
 		.name       = "JPEG stills",
 		.fourcc     = V4L2_PIX_FMT_JPEG,
 		.num_planes = 1,
@@ -1271,6 +1277,13 @@ static void transfer_buffer_to_firmware(struct vpu_ctx *ctx, void *input_buffer,
 	pUdataBuf->uUDataBase = ctx->udata_buffer_phy - ctx->dev->cm_offset;
 	pUdataBuf->uUDataSlotSize = ctx->udata_buffer_size;
 	VID_STREAM_CONFIG_FORMAT_SET(vpu_format_remap(vdec_std), CurrStrfg);
+	if (vdec_std == VPU_VIDEO_JPEG) {
+		MediaIPFW_Video_JpegParams *pJpgPara;
+
+		pJpgPara = (MediaIPFW_Video_JpegParams *)ctx->dev->shared_mem.jpeg_mem_vir;
+		pJpgPara[ctx->str_index].uJpgMjpegMode = 1; //1:JPGD_MJPEG_MODE_A; 2:JPGD_MJPEG_MODE_B
+		pJpgPara[ctx->str_index].uJpgMjpegInterlaced = 0; //0: JPGD_MJPEG_PROGRESSIVE
+	}
 }
 
 static void v4l2_transfer_buffer_to_firmware(struct queue_data *This, struct vb2_buffer *vb)
