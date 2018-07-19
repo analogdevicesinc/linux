@@ -237,7 +237,7 @@ struct viv_sync_timeline * viv_sync_timeline_create(const char *name, gckOS Os)
         return NULL;
 
     strncpy(timeline->name, name, sizeof(timeline->name));
-    timeline->context = fence_context_alloc(1);
+    timeline->context = dma_fence_context_alloc(1);
     atomic64_set(&timeline->seqno, 0);
     timeline->os = Os;
 
@@ -249,19 +249,19 @@ void viv_sync_timeline_destroy(struct viv_sync_timeline *timeline)
     kfree(timeline);
 }
 
-static const char * viv_fence_get_driver_name(struct fence *fence)
+static const char * viv_fence_get_driver_name(struct dma_fence *fence)
 {
     return "viv_gpu_sync";
 }
 
-static const char * viv_fence_get_timeline_name(struct fence *fence)
+static const char * viv_fence_get_timeline_name(struct dma_fence *fence)
 {
     struct viv_fence *f = (struct viv_fence *)fence;
     return f->parent->name;
 }
 
 /* Same as fence_signaled. */
-static inline bool __viv_fence_signaled(struct fence *fence)
+static inline bool __viv_fence_signaled(struct dma_fence *fence)
 {
     struct viv_fence *f = (struct viv_fence *)fence;
     struct viv_sync_timeline *timeline = f->parent;
@@ -272,19 +272,19 @@ static inline bool __viv_fence_signaled(struct fence *fence)
     return (status == gcvSTATUS_TRUE) ? true : false;
 }
 
-static bool viv_fence_enable_signaling(struct fence *fence)
+static bool viv_fence_enable_signaling(struct dma_fence *fence)
 {
     /* fence is locked already. */
     return !__viv_fence_signaled(fence);
 }
 
-static bool viv_fence_signaled(struct fence *fence)
+static bool viv_fence_signaled(struct dma_fence *fence)
 {
     /* fence could be locked, could be not. */
     return __viv_fence_signaled(fence);
 }
 
-static void viv_fence_release(struct fence *fence)
+static void viv_fence_release(struct dma_fence *fence)
 {
     struct viv_fence *f = (struct viv_fence *)fence;
     struct viv_sync_timeline *timeline = f->parent;
@@ -295,22 +295,22 @@ static void viv_fence_release(struct fence *fence)
     kfree(fence);
 }
 
-static struct fence_ops viv_fence_ops =
+static struct dma_fence_ops viv_fence_ops =
 {
     .get_driver_name = viv_fence_get_driver_name,
     .get_timeline_name = viv_fence_get_timeline_name,
     .enable_signaling = viv_fence_enable_signaling,
     .signaled = viv_fence_signaled,
-    .wait = fence_default_wait,
+    .wait = dma_fence_default_wait,
     .release = viv_fence_release,
 };
 
-struct fence * viv_fence_create(struct viv_sync_timeline *timeline,
+struct dma_fence * viv_fence_create(struct viv_sync_timeline *timeline,
                     gcsSIGNAL *signal)
 {
     gceSTATUS status;
     struct viv_fence *fence;
-    struct fence *old_fence = NULL;
+    struct dma_fence *old_fence = NULL;
     unsigned seqno;
 
     fence = kzalloc(sizeof(struct viv_fence), gcdNOWARN | GFP_KERNEL);
@@ -333,7 +333,7 @@ struct fence * viv_fence_create(struct viv_sync_timeline *timeline,
 
     seqno = (unsigned)atomic64_inc_return(&timeline->seqno);
 
-    fence_init((struct fence *)fence, &viv_fence_ops,
+    dma_fence_init((struct dma_fence *)fence, &viv_fence_ops,
             &fence->lock, timeline->context, seqno);
 
     /*
@@ -348,24 +348,24 @@ struct fence * viv_fence_create(struct viv_sync_timeline *timeline,
     }
 
     if (!signal->done) {
-        signal->fence = (struct fence*)fence;
-        fence_get((struct fence*)fence);
+        signal->fence = (struct dma_fence*)fence;
+        dma_fence_get((struct dma_fence*)fence);
     }
 
     spin_unlock(&signal->lock);
 
     if (old_fence)
-        fence_put(old_fence);
+        dma_fence_put(old_fence);
 
     if (!signal->fence) {
         /* Fence already signaled. */
         gckOS_DestroySignal(timeline->os, fence->signal);
         fence->signal = NULL;
 
-        fence_signal_locked((struct fence*)fence);
+        dma_fence_signal_locked((struct dma_fence*)fence);
     }
 
-    return (struct fence*)fence;
+    return (struct dma_fence*)fence;
 }
 
 #endif /* v4.9.0 */

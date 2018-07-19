@@ -5647,7 +5647,7 @@ gckOS_Signal(
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4,9,0)
     struct sync_timeline * timeline = gcvNULL;
 #  else
-    struct fence * fence = gcvNULL;
+    struct dma_fence * fence = gcvNULL;
 #  endif
 #endif
 
@@ -5716,8 +5716,8 @@ gckOS_Signal(
 #  else
     if (fence)
     {
-        fence_signal(fence);
-        fence_put(fence);
+        dma_fence_signal(fence);
+        dma_fence_put(fence);
     }
 #  endif
 #endif
@@ -6797,7 +6797,7 @@ gckOS_WaitNativeFence(
 
         for (i = 0; i < fence->num_fences; i++)
         {
-            struct fence *f = fence->cbs[i].sync_pt;
+            struct dma_fence *f = fence->cbs[i].sync_pt;
             struct sync_pt *pt = container_of(f, struct sync_pt, base);
 
             /* Do not need to wait on same timeline. */
@@ -6942,7 +6942,7 @@ gckOS_CreateNativeFence(
     OUT gctINT * FenceFD
     )
 {
-    struct fence *fence = NULL;
+    struct dma_fence *fence = NULL;
     struct sync_file *sync = NULL;
     int fd;
     struct viv_sync_timeline *timeline;
@@ -6993,7 +6993,7 @@ OnError:
 
     if (fence)
     {
-        fence_put(fence);
+        dma_fence_put(fence);
     }
 
     if (fd > 0)
@@ -7013,12 +7013,12 @@ gckOS_WaitNativeFence(
     IN gctUINT32 Timeout
     )
 {
-    struct fence *fence;
+    struct dma_fence *fence;
     struct viv_sync_timeline *timeline;
     gceSTATUS status = gcvSTATUS_OK;
     unsigned int i;
     unsigned int numFences;
-    struct fence **fences;
+    struct dma_fence **fences;
     unsigned long timeout;
 
     timeline = (struct viv_sync_timeline *) Timeline;
@@ -7030,9 +7030,9 @@ gckOS_WaitNativeFence(
         gcmkONERROR(gcvSTATUS_GENERIC_IO);
     }
 
-    if (fence_is_array(fence))
+    if (dma_fence_is_array(fence))
     {
-        struct fence_array *array = to_fence_array(fence);
+        struct dma_fence_array *array = to_dma_fence_array(fence);
         fences = array->fences;
         numFences = array->num_fences;
     }
@@ -7046,13 +7046,13 @@ gckOS_WaitNativeFence(
 
     for (i = 0; i < numFences; i++)
     {
-        struct fence *f = fences[i];
+        struct dma_fence *f = fences[i];
 
         if (f->context != timeline->context &&
-            !fence_is_signaled(f))
+            !dma_fence_is_signaled(f))
         {
             signed long ret;
-            ret = fence_wait_timeout(fence, 1, timeout);
+            ret = dma_fence_wait_timeout(fence, 1, timeout);
 
             if (ret == -ERESTARTSYS)
             {
@@ -7072,7 +7072,7 @@ gckOS_WaitNativeFence(
         }
     }
 
-    fence_put(fence);
+    dma_fence_put(fence);
 
     return gcvSTATUS_OK;
 

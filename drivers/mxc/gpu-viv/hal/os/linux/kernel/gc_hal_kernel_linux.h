@@ -266,7 +266,7 @@ typedef struct _gcsSIGNAL
     /* Parent timeline. */
     struct sync_timeline * timeline;
 #  else
-    struct fence *fence;
+    struct dma_fence *fence;
 #  endif
 #endif
 }

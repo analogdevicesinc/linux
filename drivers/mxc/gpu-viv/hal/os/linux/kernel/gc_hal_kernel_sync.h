@@ -101,8 +101,8 @@ struct sync_pt * viv_sync_pt_create(struct viv_sync_timeline *obj,
 #else /* v4.9.0 */
 
 #include <linux/sync_file.h>
-#include <linux/fence.h>
-#include <linux/fence-array.h>
+#include <linux/dma-fence.h>
+#include <linux/dma-fence-array.h>
 
 #include <gc_hal.h>
 #include <gc_hal_base.h>
@@ -125,7 +125,7 @@ struct viv_sync_timeline
 struct viv_fence
 {
     /* must be the first. */
-    struct fence base;
+    struct dma_fence base;
     spinlock_t lock;
 
     struct viv_sync_timeline *parent;
@@ -138,7 +138,7 @@ struct viv_sync_timeline * viv_sync_timeline_create(const char *name, gckOS Os);
 
 void viv_sync_timeline_destroy(struct viv_sync_timeline *timeline);
 
-struct fence * viv_fence_create(struct viv_sync_timeline *timeline,
+struct dma_fence * viv_fence_create(struct viv_sync_timeline *timeline,
                     gcsSIGNAL *signal);
 
 #endif /* v4.9.0 */
