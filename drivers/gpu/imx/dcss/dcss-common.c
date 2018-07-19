@@ -448,6 +448,10 @@ static int dcss_trace_dump_open(struct inode *inode, struct file *file)
 
 static int dcss_dump_regs_show(struct seq_file *s, void *data)
 {
+	struct dcss_soc *dcss = s->private;
+
+	pm_runtime_get_sync(dcss->dev);
+
 	dcss_blkctl_dump_regs(s, s->private);
 	dcss_dtrc_dump_regs(s, s->private);
 	dcss_dpr_dump_regs(s, s->private);
@@ -458,6 +462,8 @@ static int dcss_dump_regs_show(struct seq_file *s, void *data)
 	dcss_ss_dump_regs(s, s->private);
 	dcss_hdr10_dump_regs(s, s->private);
 	dcss_ctxld_dump_regs(s, s->private);
+
+	pm_runtime_put_sync(dcss->dev);
 
 	return 0;
 }
