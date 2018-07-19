@@ -227,6 +227,7 @@ struct axiadc_converter {
 	unsigned long 		adc_clk;
 	const struct axiadc_chip_info	*chip_info;
 
+	struct delayed_work	watchdog_work;
 	bool			sample_rate_read_only;
 
 	int (*reg_access)(struct iio_dev *indio_dev, unsigned int reg,
