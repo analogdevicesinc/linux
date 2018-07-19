@@ -111,6 +111,9 @@ dpu_drm_atomic_plane_duplicate_state(struct drm_plane *plane)
 	copy->stage = state->stage;
 	copy->source = state->source;
 	copy->blend = state->blend;
+	copy->aux_stage = state->aux_stage;
+	copy->aux_source = state->aux_source;
+	copy->aux_blend = state->aux_blend;
 	copy->layer_x = state->layer_x;
 	copy->layer_y = state->layer_y;
 	copy->base_x = state->base_x;
@@ -119,6 +122,20 @@ dpu_drm_atomic_plane_duplicate_state(struct drm_plane *plane)
 	copy->base_h = state->base_h;
 	copy->is_top = state->is_top;
 	copy->use_prefetch = state->use_prefetch;
+	copy->use_aux_prefetch = state->use_aux_prefetch;
+	copy->need_aux_source = state->need_aux_source;
+	copy->left_layer_x = state->left_layer_x;
+	copy->left_base_x = state->left_base_x;
+	copy->left_base_w = state->left_base_w;
+	copy->left_src_w = state->left_src_w;
+	copy->left_crtc_w = state->left_crtc_w;
+	copy->right_layer_x = state->right_layer_x;
+	copy->right_base_x = state->right_base_x;
+	copy->right_base_w = state->right_base_w;
+	copy->right_src_w = state->right_src_w;
+	copy->right_crtc_w = state->right_crtc_w;
+	copy->is_left_top = state->is_left_top;
+	copy->is_right_top = state->is_right_top;
 
 	return &copy->base;
 }
@@ -173,11 +190,13 @@ static const struct drm_plane_funcs dpu_plane_funcs = {
 };
 
 static inline dma_addr_t
-drm_plane_state_to_baseaddr(struct drm_plane_state *state)
+drm_plane_state_to_baseaddr(struct drm_plane_state *state, bool aux_source)
 {
 	struct drm_framebuffer *fb = state->fb;
 	struct drm_gem_cma_object *cma_obj;
-	unsigned int x = state->src_x >> 16;
+	struct dpu_plane_state *dpstate = to_dpu_plane_state(state);
+	unsigned int x = (state->src_x >> 16) +
+				(aux_source ? dpstate->left_src_w : 0);
 	unsigned int y = state->src_y >> 16;
 
 	cma_obj = drm_fb_cma_get_gem_obj(fb, 0);
@@ -194,11 +213,12 @@ drm_plane_state_to_baseaddr(struct drm_plane_state *state)
 }
 
 static inline dma_addr_t
-drm_plane_state_to_uvbaseaddr(struct drm_plane_state *state)
+drm_plane_state_to_uvbaseaddr(struct drm_plane_state *state, bool aux_source)
 {
 	struct drm_framebuffer *fb = state->fb;
 	struct drm_gem_cma_object *cma_obj;
-	int x = state->src_x >> 16;
+	struct dpu_plane_state *dpstate = to_dpu_plane_state(state);
+	int x = (state->src_x >> 16) + (aux_source ? dpstate->left_src_w : 0);
 	int y = state->src_y >> 16;
 
 	cma_obj = drm_fb_cma_get_gem_obj(fb, 1);
@@ -223,6 +243,7 @@ static int dpu_plane_atomic_check(struct drm_plane *plane,
 	struct dpu_plane *dplane = to_dpu_plane(plane);
 	struct dpu_plane_state *dpstate = to_dpu_plane_state(state);
 	struct dpu_plane_state *old_dpstate = to_dpu_plane_state(plane->state);
+	struct dpu_plane_res *res = &dplane->grp->res;
 	struct drm_crtc_state *crtc_state;
 	struct drm_framebuffer *fb = state->fb;
 	struct dpu_fetchunit *fu;
@@ -230,8 +251,10 @@ static int dpu_plane_atomic_check(struct drm_plane *plane,
 	dma_addr_t baseaddr, uv_baseaddr = 0;
 	u32 src_w = state->src_w >> 16, src_h = state->src_h >> 16,
 	    src_x = state->src_x >> 16, src_y = state->src_y >> 16;
+	unsigned int frame_width;
 	int bpp;
 	bool fb_is_interlaced;
+	bool check_aux_source = false;
 
 	/* pure software check */
 	if (plane->type != DRM_PLANE_TYPE_PRIMARY)
@@ -244,6 +267,9 @@ static int dpu_plane_atomic_check(struct drm_plane *plane,
 		dpstate->stage = LB_PRIM_SEL__DISABLE;
 		dpstate->source = LB_SEC_SEL__DISABLE;
 		dpstate->blend = ID_NONE;
+		dpstate->aux_stage = LB_PRIM_SEL__DISABLE;
+		dpstate->aux_source = LB_SEC_SEL__DISABLE;
+		dpstate->aux_blend = ID_NONE;
 		dpstate->layer_x = 0;
 		dpstate->layer_y = 0;
 		dpstate->base_x = 0;
@@ -252,17 +278,25 @@ static int dpu_plane_atomic_check(struct drm_plane *plane,
 		dpstate->base_h = 0;
 		dpstate->is_top = false;
 		dpstate->use_prefetch = false;
+		dpstate->use_aux_prefetch = false;
+		dpstate->need_aux_source = false;
+		dpstate->left_layer_x = 0;
+		dpstate->left_base_x = 0;
+		dpstate->left_base_w = 0;
+		dpstate->left_src_w = 0;
+		dpstate->left_crtc_w = 0;
+		dpstate->right_layer_x = 0;
+		dpstate->right_base_x = 0;
+		dpstate->right_base_w = 0;
+		dpstate->right_src_w = 0;
+		dpstate->right_crtc_w = 0;
+		dpstate->is_left_top = false;
+		dpstate->is_right_top = false;
 		return 0;
 	}
 
 	if (!state->crtc)
 		return -EINVAL;
-
-	fu = dpstate_to_fu(dpstate);
-	if (!fu)
-		return -EINVAL;
-
-	dprc = fu->dprc;
 
 	fb_is_interlaced = !!(fb->flags & DRM_MODE_FB_INTERLACED);
 
@@ -305,9 +339,16 @@ static int dpu_plane_atomic_check(struct drm_plane *plane,
 		return -EINVAL;
 
 	/* pixel/line count and position parameters check */
-	if (drm_format_horz_chroma_subsampling(fb->format->format) == 2 &&
-	    ((src_w % 2) || (src_x % 2)))
-		return -EINVAL;
+	if (drm_format_horz_chroma_subsampling(fb->format->format) == 2) {
+		if (dpstate->left_src_w || dpstate->right_src_w) {
+			if ((dpstate->left_src_w % 2) ||
+			    (dpstate->right_src_w % 2) || (src_x % 2))
+				return -EINVAL;
+		} else {
+			if ((src_w % 2) || (src_x % 2))
+				return -EINVAL;
+		}
+	}
 	if (drm_format_vert_chroma_subsampling(fb->format->format) == 2) {
 		if (src_h % (fb_is_interlaced ? 4 : 2))
 			return -EINVAL;
@@ -339,16 +380,41 @@ static int dpu_plane_atomic_check(struct drm_plane *plane,
 		break;
 	}
 
+again:
+	fu = source_to_fu(res,
+		check_aux_source ? dpstate->aux_source : dpstate->source);
+	if (!fu)
+		return -EINVAL;
+
+	dprc = fu->dprc;
+
+	if (dpstate->need_aux_source)
+		frame_width = check_aux_source ?
+				dpstate->right_src_w : dpstate->left_src_w;
+	else
+		frame_width = src_w;
+
 	if (dprc &&
 	    dprc_format_supported(dprc, fb->format->format, fb->modifier) &&
 	    dprc_stride_supported(dprc, fb->pitches[0], fb->pitches[1],
-					src_w, fb->format->format))
-		dpstate->use_prefetch = true;
-	else
-		dpstate->use_prefetch = false;
+					frame_width, fb->format->format)) {
+		if (check_aux_source)
+			dpstate->use_aux_prefetch = true;
+		else
+			dpstate->use_prefetch = true;
+	} else {
+		if (check_aux_source)
+			dpstate->use_aux_prefetch = false;
+		else
+			dpstate->use_prefetch = false;
+	}
 
-	if (fb->modifier && !dpstate->use_prefetch)
-		return -EINVAL;
+	if (fb->modifier) {
+		if (check_aux_source && !dpstate->use_aux_prefetch)
+			return -EINVAL;
+		else if (!check_aux_source && !dpstate->use_prefetch)
+			return -EINVAL;
+	}
 
 	/*
 	 * base address alignment check
@@ -357,7 +423,7 @@ static int dpu_plane_atomic_check(struct drm_plane *plane,
 	 * offset(for tile formats) would not impact the alignment
 	 * check, so we don't take the offset into consideration.
 	 */
-	baseaddr = drm_plane_state_to_baseaddr(state);
+	baseaddr = drm_plane_state_to_baseaddr(state, check_aux_source);
 	switch (fb->format->format) {
 	case DRM_FORMAT_YUYV:
 	case DRM_FORMAT_UYVY:
@@ -381,8 +447,15 @@ static int dpu_plane_atomic_check(struct drm_plane *plane,
 			if (baseaddr & 0x1)
 				return -EINVAL;
 		} else {
-			if (baseaddr & (dpstate->use_prefetch ? 0x7 : 0x1))
-				return -EINVAL;
+			if (check_aux_source) {
+				if (baseaddr &
+				    (dpstate->use_aux_prefetch ? 0x7 : 0x1))
+					return -EINVAL;
+			} else {
+				if (baseaddr &
+				    (dpstate->use_prefetch ? 0x7 : 0x1))
+					return -EINVAL;
+			}
 		}
 		break;
 	}
@@ -392,21 +465,30 @@ static int dpu_plane_atomic_check(struct drm_plane *plane,
 
 	/* UV base address alignment check, assuming 16bpp */
 	if (drm_format_num_planes(fb->format->format) > 1) {
-		uv_baseaddr = drm_plane_state_to_uvbaseaddr(state);
+		uv_baseaddr = drm_plane_state_to_uvbaseaddr(state,
+							check_aux_source);
 		if (fb->modifier) {
 			if (uv_baseaddr & 0x1)
 				return -EINVAL;
 		} else {
-			if (uv_baseaddr & (dpstate->use_prefetch ? 0x7 : 0x1))
-				return -EINVAL;
+			if (check_aux_source) {
+				if (uv_baseaddr &
+				    (dpstate->use_aux_prefetch ? 0x7 : 0x1))
+					return -EINVAL;
+			} else {
+				if (uv_baseaddr &
+				    (dpstate->use_prefetch ? 0x7 : 0x1))
+					return -EINVAL;
+			}
 		}
 
 		if (fb->pitches[1] > 0x10000)
 			return -EINVAL;
 	}
 
-	if (dpstate->use_prefetch &&
-	    !dprc_stride_double_check(dprc, src_w, src_x, fb->format->format,
+	if (!check_aux_source && dpstate->use_prefetch &&
+	    !dprc_stride_double_check(dprc, frame_width, src_x,
+					fb->format->format,
 					fb->modifier,
 					baseaddr, uv_baseaddr)) {
 		if (fb->modifier)
@@ -419,6 +501,26 @@ static int dpu_plane_atomic_check(struct drm_plane *plane,
 			return -EINVAL;
 
 		dpstate->use_prefetch = false;
+	} else if (check_aux_source && dpstate->use_aux_prefetch &&
+		   !dprc_stride_double_check(dprc, frame_width, src_x,
+					fb->format->format,
+					fb->modifier,
+					baseaddr, uv_baseaddr)) {
+		if (fb->modifier)
+			return -EINVAL;
+
+		if (bpp == 16 && (baseaddr & 0x1))
+			return -EINVAL;
+
+		if (uv_baseaddr & 0x1)
+			return -EINVAL;
+
+		dpstate->use_aux_prefetch = false;
+	}
+
+	if (dpstate->need_aux_source && !check_aux_source) {
+		check_aux_source = true;
+		goto again;
 	}
 
 	return 0;
@@ -438,18 +540,24 @@ static void dpu_plane_atomic_update(struct drm_plane *plane,
 	struct dpu_hscaler *hs = NULL;
 	struct dpu_vscaler *vs = NULL;
 	struct dpu_layerblend *lb;
-	struct dpu_constframe *cf;
+	struct dpu_constframe *cf, *aux_cf;
 	struct dpu_extdst *ed;
-	struct dpu_framegen *fg = res->fg[dplane->stream_id];
+	struct dpu_framegen *fg, *aux_fg;
 	struct device *dev = plane->dev->dev;
 	dma_addr_t baseaddr, uv_baseaddr = 0;
-	dpu_block_id_t fe_id, vs_id = ID_NONE, hs_id;
-	lb_sec_sel_t lb_src = dpstate->source;
+	dpu_block_id_t blend, fe_id, vs_id = ID_NONE, hs_id;
+	lb_sec_sel_t source;
+	lb_prim_sel_t stage;
+	unsigned int stream_id;
 	unsigned int src_w, src_h, src_x, src_y;
+	unsigned int layer_x;
 	unsigned int mt_w = 0, mt_h = 0;	/* w/h in a micro-tile */
 	int bpp, lb_id;
-	bool need_fetcheco = false, need_hscaler = false, need_vscaler = false;
-	bool prefetch_start = false, aux_prefetch_start = false;
+	bool need_fetcheco, need_hscaler = false, need_vscaler = false;
+	bool prefetch_start, uv_prefetch_start;
+	bool crtc_use_pc = dpstate->left_src_w || dpstate->right_src_w;
+	bool update_aux_source = false;
+	bool use_prefetch;
 	bool need_modeset;
 	bool is_overlay = plane->type == DRM_PLANE_TYPE_OVERLAY;
 	bool fb_is_interlaced;
@@ -464,21 +572,62 @@ static void dpu_plane_atomic_update(struct drm_plane *plane,
 	need_modeset = drm_atomic_crtc_needs_modeset(state->crtc->state);
 	fb_is_interlaced = !!(fb->flags & DRM_MODE_FB_INTERLACED);
 
-	fu = dpstate_to_fu(dpstate);
+again:
+	need_fetcheco = false;
+	prefetch_start = false;
+	uv_prefetch_start = false;
+
+	source = update_aux_source ? dpstate->aux_source : dpstate->source;
+	blend = update_aux_source ? dpstate->aux_blend : dpstate->blend;
+	stage = update_aux_source ? dpstate->aux_stage : dpstate->stage;
+	use_prefetch = update_aux_source ?
+			dpstate->use_aux_prefetch : dpstate->use_prefetch;
+
+	if (crtc_use_pc) {
+		if (update_aux_source) {
+			stream_id = 1;
+			layer_x = dpstate->right_layer_x;
+		} else {
+			stream_id = dpstate->left_src_w ? 0 : 1;
+			layer_x = dpstate->left_src_w ?
+				dpstate->left_layer_x : dpstate->right_layer_x;
+		}
+	} else {
+		stream_id = dplane->stream_id;
+		layer_x = dpstate->layer_x;
+	}
+
+	fg = res->fg[stream_id];
+
+	fu = source_to_fu(res, source);
 	if (!fu)
 		return;
 
 	dprc = fu->dprc;
 
-	lb_id = blend_to_id(dpstate->blend);
+	lb_id = blend_to_id(blend);
 	if (lb_id < 0)
 		return;
 
 	lb = res->lb[lb_id];
 
-	src_w = state->src_w >> 16;
+	if (crtc_use_pc) {
+		if (update_aux_source || !dpstate->left_src_w)
+			src_w = dpstate->right_src_w;
+		else
+			src_w = dpstate->left_src_w;
+	} else {
+		src_w = state->src_w >> 16;
+	}
 	src_h = state->src_h >> 16;
-	src_x = fb->modifier ? (state->src_x >> 16) : 0;
+	if (crtc_use_pc && update_aux_source) {
+		if (fb->modifier)
+			src_x = (state->src_x >> 16) + dpstate->left_src_w;
+		else
+			src_x = 0;
+	} else {
+		src_x = fb->modifier ? (state->src_x >> 16) : 0;
+	}
 	src_y = fb->modifier ? (state->src_y >> 16) : 0;
 
 	if (fetchunit_is_fetchdecode(fu)) {
@@ -489,7 +638,8 @@ static void dpu_plane_atomic_update(struct drm_plane *plane,
 				return;
 		}
 
-		if (src_w != state->crtc_w) {
+		/* assume pixel combiner is unused */
+		if ((src_w != state->crtc_w) && !crtc_use_pc) {
 			need_hscaler = true;
 			hs = fetchdecode_get_hscaler(fu);
 			if (IS_ERR(hs))
@@ -532,29 +682,29 @@ static void dpu_plane_atomic_update(struct drm_plane *plane,
 		break;
 	}
 
-	baseaddr = drm_plane_state_to_baseaddr(state);
+	baseaddr = drm_plane_state_to_baseaddr(state, update_aux_source);
 	if (need_fetcheco)
-		uv_baseaddr = drm_plane_state_to_uvbaseaddr(state);
+		uv_baseaddr = drm_plane_state_to_uvbaseaddr(state,
+							update_aux_source);
 
-	if (dpstate->use_prefetch &&
+	if (use_prefetch &&
 	    (fu->ops->get_stream_id(fu) == DPU_PLANE_SRC_DISABLED ||
 	     need_modeset))
 		prefetch_start = true;
 
-	fu->ops->set_burstlength(fu, src_x, mt_w, bpp,
-				 baseaddr, dpstate->use_prefetch);
+	fu->ops->set_burstlength(fu, src_x, mt_w, bpp, baseaddr, use_prefetch);
 	fu->ops->set_src_bpp(fu, bpp);
 	fu->ops->set_src_stride(fu, src_w, src_x, mt_w, bpp, fb->pitches[0],
-				baseaddr, dpstate->use_prefetch);
+				baseaddr, use_prefetch);
 	fu->ops->set_src_buf_dimensions(fu, src_w, src_h, 0, fb_is_interlaced);
 	fu->ops->set_fmt(fu, fb->format->format, fb_is_interlaced);
 	fu->ops->enable_src_buf(fu);
 	fu->ops->set_framedimensions(fu, src_w, src_h, fb_is_interlaced);
 	fu->ops->set_baseaddress(fu, src_w, src_x, src_y, mt_w, mt_h, bpp,
 				 baseaddr);
-	fu->ops->set_stream_id(fu, dplane->stream_id ?
-						DPU_PLANE_SRC_TO_DISP_STREAM1 :
-						DPU_PLANE_SRC_TO_DISP_STREAM0);
+	fu->ops->set_stream_id(fu, stream_id ?
+					DPU_PLANE_SRC_TO_DISP_STREAM1 :
+					DPU_PLANE_SRC_TO_DISP_STREAM0);
 	fu->ops->unpin_off(fu);
 
 	dev_dbg(dev, "[PLANE:%d:%s] %s-0x%02x\n",
@@ -565,19 +715,19 @@ static void dpu_plane_atomic_update(struct drm_plane *plane,
 		if (fe_id == ID_NONE)
 			return;
 
-		if (dpstate->use_prefetch &&
+		if (use_prefetch &&
 		    (fe->ops->get_stream_id(fe) == DPU_PLANE_SRC_DISABLED ||
 		     need_modeset))
-			aux_prefetch_start = true;
+			uv_prefetch_start = true;
 
 		fetchdecode_pixengcfg_dynamic_src_sel(fu,
 						(fd_dynamic_src_sel_t)fe_id);
 		fe->ops->set_burstlength(fe, src_x, mt_w, bpp, uv_baseaddr,
-					 dpstate->use_prefetch);
+					 use_prefetch);
 		fe->ops->set_src_bpp(fe, 16);
 		fe->ops->set_src_stride(fe, src_w, src_x, mt_w, bpp,
 					fb->pitches[1],
-					uv_baseaddr, dpstate->use_prefetch);
+					uv_baseaddr, use_prefetch);
 		fe->ops->set_fmt(fe, fb->format->format, fb_is_interlaced);
 		fe->ops->set_src_buf_dimensions(fe, src_w, src_h,
 						fb->format->format,
@@ -587,7 +737,7 @@ static void dpu_plane_atomic_update(struct drm_plane *plane,
 		fe->ops->set_baseaddress(fe, src_w, src_x, src_y / 2,
 					 mt_w, mt_h, bpp, uv_baseaddr);
 		fe->ops->enable_src_buf(fe);
-		fe->ops->set_stream_id(fe, dplane->stream_id ?
+		fe->ops->set_stream_id(fe, stream_id ?
 					DPU_PLANE_SRC_TO_DISP_STREAM1 :
 					DPU_PLANE_SRC_TO_DISP_STREAM0);
 		fe->ops->unpin_off(fe);
@@ -606,8 +756,7 @@ static void dpu_plane_atomic_update(struct drm_plane *plane,
 		if (vs_id == ID_NONE)
 			return;
 
-		vscaler_pixengcfg_dynamic_src_sel(vs,
-					(vs_src_sel_t)(dpstate->source));
+		vscaler_pixengcfg_dynamic_src_sel(vs, (vs_src_sel_t)source);
 		vscaler_pixengcfg_clken(vs, CLKEN__AUTOMATIC);
 		vscaler_setup1(vs, src_h, state->crtc_h, fb_is_interlaced);
 		vscaler_setup2(vs, fb_is_interlaced);
@@ -622,7 +771,7 @@ static void dpu_plane_atomic_update(struct drm_plane *plane,
 					DPU_PLANE_SRC_TO_DISP_STREAM1 :
 					DPU_PLANE_SRC_TO_DISP_STREAM0);
 
-		lb_src = (lb_sec_sel_t)vs_id;
+		source = (lb_sec_sel_t)vs_id;
 
 		dev_dbg(dev, "[PLANE:%d:%s] vscaler-0x%02x\n",
 					plane->base.id, plane->name, vs_id);
@@ -635,8 +784,8 @@ static void dpu_plane_atomic_update(struct drm_plane *plane,
 			return;
 
 		hscaler_pixengcfg_dynamic_src_sel(hs, need_vscaler ?
-					(hs_src_sel_t)(vs_id) :
-					(hs_src_sel_t)(dpstate->source));
+							(hs_src_sel_t)vs_id :
+							(hs_src_sel_t)source);
 		hscaler_pixengcfg_clken(hs, CLKEN__AUTOMATIC);
 		hscaler_setup1(hs, src_w, state->crtc_w);
 		hscaler_output_size(hs, state->crtc_w);
@@ -647,64 +796,115 @@ static void dpu_plane_atomic_update(struct drm_plane *plane,
 					DPU_PLANE_SRC_TO_DISP_STREAM1 :
 					DPU_PLANE_SRC_TO_DISP_STREAM0);
 
-		lb_src = (lb_sec_sel_t)hs_id;
+		source = (lb_sec_sel_t)hs_id;
 
 		dev_dbg(dev, "[PLANE:%d:%s] hscaler-0x%02x\n",
 					plane->base.id, plane->name, hs_id);
 	}
 
-	if (dpstate->use_prefetch) {
-		dprc_configure(dprc, dplane->stream_id,
+	if (use_prefetch) {
+		dprc_configure(dprc, stream_id,
 			       src_w, src_h, src_x, src_y,
 			       fb->pitches[0], fb->format->format,
 			       fb->modifier, baseaddr, uv_baseaddr,
-			       prefetch_start, aux_prefetch_start,
+			       prefetch_start, uv_prefetch_start,
 			       fb_is_interlaced);
-		if (prefetch_start || aux_prefetch_start)
+		if (prefetch_start || uv_prefetch_start)
 			dprc_enable(dprc);
 
 		dprc_reg_update(dprc);
 
-		if (prefetch_start || aux_prefetch_start) {
+		if (prefetch_start || uv_prefetch_start) {
 			dprc_first_frame_handle(dprc);
 
 			if (!need_modeset && is_overlay)
 				framegen_wait_for_frame_counter_moving(fg);
 		}
 
-		dev_dbg(dev, "[PLANE:%d:%s] use prefetch\n",
-					plane->base.id, plane->name);
+		if (update_aux_source)
+			dev_dbg(dev, "[PLANE:%d:%s] use aux prefetch\n",
+						plane->base.id, plane->name);
+		else
+			dev_dbg(dev, "[PLANE:%d:%s] use prefetch\n",
+						plane->base.id, plane->name);
 	} else if (dprc) {
 		dprc_disable(dprc);
 
-		dev_dbg(dev, "[PLANE:%d:%s] bypass prefetch\n",
-					plane->base.id, plane->name);
+		if (update_aux_source)
+			dev_dbg(dev, "[PLANE:%d:%s] bypass aux prefetch\n",
+						plane->base.id, plane->name);
+		else
+			dev_dbg(dev, "[PLANE:%d:%s] bypass prefetch\n",
+						plane->base.id, plane->name);
 	}
 
-	layerblend_pixengcfg_dynamic_prim_sel(lb, dpstate->stage);
-	layerblend_pixengcfg_dynamic_sec_sel(lb, lb_src);
+	layerblend_pixengcfg_dynamic_prim_sel(lb, stage);
+	layerblend_pixengcfg_dynamic_sec_sel(lb, source);
 	layerblend_control(lb, LB_BLEND);
 	layerblend_blendcontrol(lb, need_hscaler || need_vscaler);
 	layerblend_pixengcfg_clken(lb, CLKEN__AUTOMATIC);
-	layerblend_position(lb, dpstate->layer_x, dpstate->layer_y);
+	layerblend_position(lb, layer_x, dpstate->layer_y);
 
 	if (plane->type == DRM_PLANE_TYPE_PRIMARY) {
-		cf = res->cf[dplane->stream_id];
-		constframe_framedimensions(cf,
-					dpstate->base_w, dpstate->base_h);
+		unsigned int base_w, base_x;
+
+		cf = res->cf[stream_id];
+
+		if (crtc_use_pc) {
+			if (update_aux_source || !dpstate->left_crtc_w) {
+				base_w = dpstate->right_base_w;
+				base_x = dpstate->right_base_x;
+			} else {
+				base_w = dpstate->left_base_w;
+				base_x = dpstate->left_base_x;
+			}
+
+			if (!dpstate->left_crtc_w || !dpstate->right_crtc_w) {
+				aux_cf = dpu_aux_cf_peek(cf);
+				aux_fg = dpu_aux_fg_peek(fg);
+
+				constframe_framedimensions_copy_prim(aux_cf);
+				constframe_constantcolor(aux_cf, 0, 0, 0, 0);
+
+				framegen_sacfg(aux_fg, 0, 0);
+			}
+		} else {
+			base_w = dpstate->base_w;
+			base_x = dpstate->base_x;
+		}
+
+		constframe_framedimensions(cf, base_w, dpstate->base_h);
 		constframe_constantcolor(cf, 0, 0, 0, 0);
 
-		framegen_sacfg(fg, dpstate->base_x, dpstate->base_y);
+		framegen_sacfg(fg, base_x, dpstate->base_y);
 	}
 
-	if (dpstate->is_top) {
-		ed = res->ed[dplane->stream_id];
-		extdst_pixengcfg_src_sel(ed, (extdst_src_sel_t)dpstate->blend);
+	if (crtc_use_pc) {
+		if ((!stream_id && dpstate->is_left_top) ||
+		     (stream_id && dpstate->is_right_top)) {
+			ed = res->ed[stream_id];
+			extdst_pixengcfg_src_sel(ed, (extdst_src_sel_t)blend);
+		}
+	} else {
+		if (dpstate->is_top) {
+			ed = res->ed[stream_id];
+			extdst_pixengcfg_src_sel(ed, (extdst_src_sel_t)blend);
+		}
 	}
 
-	dev_dbg(dev, "[PLANE:%d:%s] source-0x%02x stage-0x%02x blend-0x%02x\n",
-			plane->base.id, plane->name,
-			dpstate->source, dpstate->stage, dpstate->blend);
+	if (update_aux_source)
+		dev_dbg(dev, "[PLANE:%d:%s] *aux* source-0x%02x stage-0x%02x blend-0x%02x\n",
+				plane->base.id, plane->name,
+				source, stage, blend);
+	else
+		dev_dbg(dev, "[PLANE:%d:%s] source-0x%02x stage-0x%02x blend-0x%02x\n",
+				plane->base.id, plane->name,
+				source, stage, blend);
+
+	if (dpstate->need_aux_source && !update_aux_source) {
+		update_aux_source = true;
+		goto again;
+	}
 }
 
 static const struct drm_plane_helper_funcs dpu_plane_helper_funcs = {

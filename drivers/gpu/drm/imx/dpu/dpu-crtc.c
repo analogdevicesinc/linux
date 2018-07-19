@@ -26,6 +26,7 @@
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <video/dpu.h>
+#include <video/imx8-pc.h>
 #include "dpu-crtc.h"
 #include "dpu-kms.h"
 #include "dpu-plane.h"
@@ -52,43 +53,154 @@ crtc_state_get_dpu_plane_states(struct drm_crtc_state *state)
 	return dcstate->dpu_plane_states;
 }
 
+struct dpu_crtc *dpu_crtc_get_aux_dpu_crtc(struct dpu_crtc *dpu_crtc)
+{
+	struct drm_crtc *crtc = &dpu_crtc->base, *tmp_crtc;
+	struct drm_device *dev = crtc->dev;
+	struct dpu_crtc *aux_dpu_crtc = NULL;
+
+	drm_for_each_crtc(tmp_crtc, dev) {
+		if (tmp_crtc == crtc)
+			continue;
+
+		aux_dpu_crtc = to_dpu_crtc(tmp_crtc);
+
+		if (dpu_crtc->crtc_grp_id == aux_dpu_crtc->crtc_grp_id)
+			break;
+	}
+
+	BUG_ON(!aux_dpu_crtc);
+
+	return aux_dpu_crtc;
+}
+
 static void dpu_crtc_atomic_enable(struct drm_crtc *crtc,
 				   struct drm_crtc_state *old_crtc_state)
 {
 	struct dpu_crtc *dpu_crtc = to_dpu_crtc(crtc);
+	struct dpu_crtc *aux_dpu_crtc = dpu_crtc_get_aux_dpu_crtc(dpu_crtc);
+	struct imx_crtc_state *imx_crtc_state = to_imx_crtc_state(crtc->state);
+	struct dpu_crtc_state *dcstate = to_dpu_crtc_state(imx_crtc_state);
 	struct dpu_plane *dplane = to_dpu_plane(crtc->primary);
 	struct dpu_plane_res *res = &dplane->grp->res;
 	struct dpu_extdst *plane_ed = res->ed[dplane->stream_id];
+	struct dpu_extdst *aux_plane_ed = dpu_aux_ed_peek(plane_ed);
+	struct dpu_extdst *m_plane_ed = NULL, *s_plane_ed;
+	struct completion *shdld_done;
+	struct completion *m_safety_shdld_done, *s_safety_shdld_done;
+	struct completion *m_content_shdld_done, *s_content_shdld_done;
+	struct completion *m_dec_shdld_done, *s_dec_shdld_done;
 	unsigned long ret;
 
 	drm_crtc_vblank_on(crtc);
 
+	if (dcstate->use_pc) {
+		tcon_enable_pc(dpu_crtc->tcon);
+
+		if (extdst_is_master(plane_ed)) {
+			m_plane_ed = plane_ed;
+			s_plane_ed = aux_plane_ed;
+		} else {
+			m_plane_ed = plane_ed;
+			s_plane_ed = aux_plane_ed;
+		}
+		extdst_pixengcfg_syncmode_master(m_plane_ed, true);
+		extdst_pixengcfg_syncmode_master(s_plane_ed, false);
+	} else {
+		extdst_pixengcfg_syncmode_master(plane_ed, false);
+	}
+
 	enable_irq(dpu_crtc->safety_shdld_irq);
 	enable_irq(dpu_crtc->content_shdld_irq);
 	enable_irq(dpu_crtc->dec_shdld_irq);
+	if (dcstate->use_pc) {
+		enable_irq(aux_dpu_crtc->safety_shdld_irq);
+		enable_irq(aux_dpu_crtc->content_shdld_irq);
+		enable_irq(aux_dpu_crtc->dec_shdld_irq);
+	}
 
-	framegen_enable_clock(dpu_crtc->fg);
-	extdst_pixengcfg_sync_trigger(plane_ed);
-	extdst_pixengcfg_sync_trigger(dpu_crtc->ed);
-	framegen_shdtokgen(dpu_crtc->fg);
-	framegen_enable(dpu_crtc->fg);
+	if (dcstate->use_pc) {
+		framegen_enable_clock(dpu_crtc->m_fg);
+		extdst_pixengcfg_sync_trigger(m_plane_ed);
+		framegen_shdtokgen(dpu_crtc->m_fg);
 
-	ret = wait_for_completion_timeout(&dpu_crtc->safety_shdld_done, HZ);
-	if (ret == 0)
-		dev_warn(dpu_crtc->dev,
-			 "enable - wait for safety shdld done timeout\n");
-	ret = wait_for_completion_timeout(&dpu_crtc->content_shdld_done, HZ);
-	if (ret == 0)
-		dev_warn(dpu_crtc->dev,
-			 "enable - wait for content shdld done timeout\n");
-	ret = wait_for_completion_timeout(&dpu_crtc->dec_shdld_done, HZ);
-	if (ret == 0)
-		dev_warn(dpu_crtc->dev,
-			 "enable - wait for DEC shdld done timeout\n");
+		/* First turn on the slave stream, second the master stream. */
+		framegen_enable(dpu_crtc->s_fg);
+		framegen_enable(dpu_crtc->m_fg);
+
+		if (dpu_crtc->stream_id) {
+			m_safety_shdld_done  = &aux_dpu_crtc->safety_shdld_done;
+			m_content_shdld_done = &aux_dpu_crtc->content_shdld_done;
+			m_dec_shdld_done     = &aux_dpu_crtc->dec_shdld_done;
+			s_safety_shdld_done  = &dpu_crtc->safety_shdld_done;
+			s_content_shdld_done = &dpu_crtc->content_shdld_done;
+			s_dec_shdld_done     = &dpu_crtc->dec_shdld_done;
+		} else {
+			m_safety_shdld_done  = &dpu_crtc->safety_shdld_done;
+			m_content_shdld_done = &dpu_crtc->content_shdld_done;
+			m_dec_shdld_done     = &dpu_crtc->dec_shdld_done;
+			s_safety_shdld_done  = &aux_dpu_crtc->safety_shdld_done;
+			s_content_shdld_done = &aux_dpu_crtc->content_shdld_done;
+			s_dec_shdld_done     = &aux_dpu_crtc->dec_shdld_done;
+		}
+
+		ret = wait_for_completion_timeout(m_safety_shdld_done, HZ);
+		if (ret == 0)
+			dev_warn(dpu_crtc->dev,
+				 "enable - wait for master safety shdld done timeout\n");
+		ret = wait_for_completion_timeout(m_content_shdld_done, HZ);
+		if (ret == 0)
+			dev_warn(dpu_crtc->dev,
+				 "enable - wait for master content shdld done timeout\n");
+		ret = wait_for_completion_timeout(m_dec_shdld_done, HZ);
+		if (ret == 0)
+			dev_warn(dpu_crtc->dev,
+				 "enable - wait for master dec shdld done timeout\n");
+
+		ret = wait_for_completion_timeout(s_safety_shdld_done, HZ);
+		if (ret == 0)
+			dev_warn(dpu_crtc->dev,
+				 "enable - wait for slave safety shdld done timeout\n");
+		ret = wait_for_completion_timeout(s_content_shdld_done, HZ);
+		if (ret == 0)
+			dev_warn(dpu_crtc->dev,
+				 "enable - wait for slave content shdld done timeout\n");
+		ret = wait_for_completion_timeout(s_dec_shdld_done, HZ);
+		if (ret == 0)
+			dev_warn(dpu_crtc->dev,
+				 "enable - wait for slave DEC shdld done timeout\n");
+	} else {
+		framegen_enable_clock(dpu_crtc->fg);
+		extdst_pixengcfg_sync_trigger(plane_ed);
+		extdst_pixengcfg_sync_trigger(dpu_crtc->ed);
+		framegen_shdtokgen(dpu_crtc->fg);
+		framegen_enable(dpu_crtc->fg);
+
+		shdld_done = &dpu_crtc->safety_shdld_done;
+		ret = wait_for_completion_timeout(shdld_done, HZ);
+		if (ret == 0)
+			dev_warn(dpu_crtc->dev,
+				 "enable - wait for safety shdld done timeout\n");
+		shdld_done = &dpu_crtc->content_shdld_done;
+		ret = wait_for_completion_timeout(shdld_done, HZ);
+		if (ret == 0)
+			dev_warn(dpu_crtc->dev,
+				 "enable - wait for content shdld done timeout\n");
+		shdld_done = &dpu_crtc->dec_shdld_done;
+		ret = wait_for_completion_timeout(shdld_done, HZ);
+		if (ret == 0)
+			dev_warn(dpu_crtc->dev,
+				 "enable - wait for dec shdld done timeout\n");
+	}
 
 	disable_irq(dpu_crtc->safety_shdld_irq);
 	disable_irq(dpu_crtc->content_shdld_irq);
 	disable_irq(dpu_crtc->dec_shdld_irq);
+	if (dcstate->use_pc) {
+		disable_irq(aux_dpu_crtc->safety_shdld_irq);
+		disable_irq(aux_dpu_crtc->content_shdld_irq);
+		disable_irq(aux_dpu_crtc->dec_shdld_irq);
+	}
 
 	if (crtc->state->event) {
 		spin_lock_irq(&crtc->dev->event_lock);
@@ -103,18 +215,45 @@ static void dpu_crtc_atomic_enable(struct drm_crtc *crtc,
 	 * Turn TCON into operation mode later after the first dumb frame is
 	 * generated by DPU.  This makes DPR/PRG be able to evade the frame.
 	 */
-	framegen_wait_for_frame_counter_moving(dpu_crtc->fg);
-	tcon_set_operation_mode(dpu_crtc->tcon);
+	if (dcstate->use_pc) {
+		framegen_wait_for_frame_counter_moving(dpu_crtc->m_fg);
+		tcon_set_operation_mode(dpu_crtc->m_tcon);
+		framegen_wait_for_frame_counter_moving(dpu_crtc->s_fg);
+		tcon_set_operation_mode(dpu_crtc->s_tcon);
+
+		framegen_wait_for_secondary_syncup(dpu_crtc->m_fg);
+		framegen_wait_for_secondary_syncup(dpu_crtc->s_fg);
+	} else {
+		framegen_wait_for_frame_counter_moving(dpu_crtc->fg);
+		tcon_set_operation_mode(dpu_crtc->tcon);
+	}
 }
 
 static void dpu_crtc_atomic_disable(struct drm_crtc *crtc,
 				    struct drm_crtc_state *old_crtc_state)
 {
 	struct dpu_crtc *dpu_crtc = to_dpu_crtc(crtc);
+	struct imx_crtc_state *imx_crtc_state =
+					to_imx_crtc_state(old_crtc_state);
+	struct dpu_crtc_state *dcstate = to_dpu_crtc_state(imx_crtc_state);
+	struct drm_display_mode *adjusted_mode = &old_crtc_state->adjusted_mode;
 
-	framegen_disable(dpu_crtc->fg);
-	framegen_wait_done(dpu_crtc->fg, &old_crtc_state->adjusted_mode);
-	framegen_disable_clock(dpu_crtc->fg);
+	if (dcstate->use_pc) {
+		tcon_disable_pc(dpu_crtc->tcon);
+
+		/* First turn off the master stream, second the slave stream. */
+		framegen_disable(dpu_crtc->m_fg);
+		framegen_disable(dpu_crtc->s_fg);
+
+		framegen_wait_done(dpu_crtc->m_fg, adjusted_mode);
+		framegen_wait_done(dpu_crtc->s_fg, adjusted_mode);
+
+		framegen_disable_clock(dpu_crtc->m_fg);
+	} else {
+		framegen_disable(dpu_crtc->fg);
+		framegen_wait_done(dpu_crtc->fg, adjusted_mode);
+		framegen_disable_clock(dpu_crtc->fg);
+	}
 
 	WARN_ON(!crtc->state->event);
 
@@ -159,26 +298,30 @@ static void dpu_drm_crtc_reset(struct drm_crtc *crtc)
 static struct drm_crtc_state *
 dpu_drm_crtc_duplicate_state(struct drm_crtc *crtc)
 {
+	struct imx_crtc_state *imx_crtc_state;
 	struct dpu_crtc *dpu_crtc = to_dpu_crtc(crtc);
-	struct dpu_crtc_state *state;
+	struct dpu_crtc_state *state, *copy;
 
 	if (WARN_ON(!crtc->state))
 		return NULL;
 
-	state = kzalloc(sizeof(*state), GFP_KERNEL);
-	if (!state)
+	copy = kzalloc(sizeof(*copy), GFP_KERNEL);
+	if (!copy)
 		return NULL;
 
-	state->dpu_plane_states = alloc_dpu_plane_states(dpu_crtc);
-	if (IS_ERR(state->dpu_plane_states)) {
-		kfree(state);
+	copy->dpu_plane_states = alloc_dpu_plane_states(dpu_crtc);
+	if (IS_ERR(copy->dpu_plane_states)) {
+		kfree(copy);
 		return NULL;
 	}
 
 	__drm_atomic_helper_crtc_duplicate_state(crtc,
-					&state->imx_crtc_state.base);
+					&copy->imx_crtc_state.base);
+	imx_crtc_state = to_imx_crtc_state(crtc->state);
+	state = to_dpu_crtc_state(imx_crtc_state);
+	copy->use_pc = state->use_pc;
 
-	return &state->imx_crtc_state.base;
+	return &copy->imx_crtc_state.base;
 }
 
 static void dpu_drm_crtc_destroy_state(struct drm_crtc *crtc,
@@ -266,7 +409,18 @@ static int dpu_crtc_atomic_check(struct drm_crtc *crtc,
 	struct dpu_plane_state *dpstate;
 	struct imx_crtc_state *imx_crtc_state = to_imx_crtc_state(crtc_state);
 	struct dpu_crtc_state *dcstate = to_dpu_crtc_state(imx_crtc_state);
+	struct drm_display_mode *mode = &crtc_state->adjusted_mode;
+	struct videomode vm;
 	int i = 0;
+
+	if (crtc_state->enable) {
+		drm_display_mode_to_videomode(mode, &vm);
+
+		if (dcstate->use_pc &&
+		    ((vm.hactive % 2)   || (vm.hfront_porch % 2) ||
+		     (vm.hsync_len % 2) || (vm.hback_porch % 2)))
+			return -EINVAL;
+	}
 
 	/*
 	 * cache the plane states so that the planes can be disabled in
@@ -312,8 +466,11 @@ static void dpu_crtc_atomic_begin(struct drm_crtc *crtc,
 		struct dpu_layerblend *lb;
 		struct dpu_extdst *ed;
 		extdst_src_sel_t ed_src;
+		dpu_block_id_t blend, source;
+		unsigned int stream_id;
 		int lb_id;
-		bool crtc_disabling_on_primary = false;
+		bool crtc_disabling_on_primary;
+		bool release_aux_source;
 
 		old_dpstate = old_dcstate->dpu_plane_states[i];
 		if (!old_dpstate)
@@ -323,11 +480,31 @@ static void dpu_crtc_atomic_begin(struct drm_crtc *crtc,
 		dplane = to_dpu_plane(plane_state->plane);
 		res = &dplane->grp->res;
 
-		fu = dpstate_to_fu(old_dpstate);
+		release_aux_source = false;
+again:
+		crtc_disabling_on_primary = false;
+
+		if (old_dcstate->use_pc) {
+			if (release_aux_source) {
+				source = old_dpstate->aux_source;
+				blend = old_dpstate->aux_blend;
+				stream_id = 1;
+			} else {
+				source = old_dpstate->source;
+				blend = old_dpstate->blend;
+				stream_id = old_dpstate->left_src_w ? 0 : 1;
+			}
+		} else {
+			source = old_dpstate->source;
+			blend = old_dpstate->blend;
+			stream_id = dplane->stream_id;
+		}
+
+		fu = source_to_fu(res, source);
 		if (!fu)
 			return;
 
-		lb_id = blend_to_id(old_dpstate->blend);
+		lb_id = blend_to_id(blend);
 		if (lb_id < 0)
 			return;
 
@@ -344,8 +521,8 @@ static void dpu_crtc_atomic_begin(struct drm_crtc *crtc,
 			vscaler_mode(vs, SCALER_NEUTRAL);
 		}
 		if (old_dpstate->is_top) {
-			ed = res->ed[dplane->stream_id];
-			ed_src = dplane->stream_id ?
+			ed = res->ed[stream_id];
+			ed_src = stream_id ?
 				ED_SRC_CONSTFRAME1 : ED_SRC_CONSTFRAME0;
 			extdst_pixengcfg_src_sel(ed, ed_src);
 		}
@@ -370,19 +547,30 @@ static void dpu_crtc_atomic_begin(struct drm_crtc *crtc,
 				fe->ops->unpin_off(fe);
 			}
 		}
+
+		if (old_dpstate->need_aux_source && !release_aux_source) {
+			release_aux_source = true;
+			goto again;
+		}
 	}
 }
 
 static void dpu_crtc_atomic_flush(struct drm_crtc *crtc,
 				  struct drm_crtc_state *old_crtc_state)
 {
-	struct dpu_crtc *dpu_crtc = to_dpu_crtc(crtc);
-	struct imx_crtc_state *imx_crtc_state =
+	struct dpu_crtc *dpu_crtc = to_dpu_crtc(crtc), *aux_dpu_crtc = NULL;
+	struct imx_crtc_state *imx_crtc_state = to_imx_crtc_state(crtc->state);
+	struct imx_crtc_state *old_imx_crtc_state =
 					to_imx_crtc_state(old_crtc_state);
-	struct dpu_crtc_state *old_dcstate = to_dpu_crtc_state(imx_crtc_state);
+	struct dpu_crtc_state *dcstate = to_dpu_crtc_state(imx_crtc_state);
+	struct dpu_crtc_state *old_dcstate =
+					to_dpu_crtc_state(old_imx_crtc_state);
 	struct dpu_plane *dplane = to_dpu_plane(crtc->primary);
 	struct dpu_plane_res *res = &dplane->grp->res;
-	struct dpu_extdst *ed = res->ed[dplane->stream_id];
+	struct dpu_extdst *ed = res->ed[dplane->stream_id], *aux_ed;
+	struct completion *shdld_done;
+	struct completion *m_content_shdld_done = NULL;
+	struct completion *s_content_shdld_done = NULL;
 	unsigned long ret;
 	int i;
 	bool need_modeset = drm_atomic_crtc_needs_modeset(crtc->state);
@@ -390,18 +578,57 @@ static void dpu_crtc_atomic_flush(struct drm_crtc *crtc,
 	if (!crtc->state->active && !old_crtc_state->active)
 		return;
 
+	if (dcstate->use_pc) {
+		aux_dpu_crtc = dpu_crtc_get_aux_dpu_crtc(dpu_crtc);
+
+		if (dpu_crtc->stream_id) {
+			m_content_shdld_done = &aux_dpu_crtc->content_shdld_done;
+			s_content_shdld_done = &dpu_crtc->content_shdld_done;
+		} else {
+			m_content_shdld_done = &dpu_crtc->content_shdld_done;
+			s_content_shdld_done = &aux_dpu_crtc->content_shdld_done;
+		}
+	}
+
 	if (!need_modeset) {
 		enable_irq(dpu_crtc->content_shdld_irq);
+		if (dcstate->use_pc)
+			enable_irq(aux_dpu_crtc->content_shdld_irq);
 
-		extdst_pixengcfg_sync_trigger(ed);
+		if (dcstate->use_pc) {
+			if (extdst_is_master(ed)) {
+				extdst_pixengcfg_sync_trigger(ed);
+			} else {
+				aux_ed = dpu_aux_ed_peek(ed);
+				extdst_pixengcfg_sync_trigger(aux_ed);
+			}
+		} else {
+			extdst_pixengcfg_sync_trigger(ed);
+		}
 
-		ret = wait_for_completion_timeout(&dpu_crtc->content_shdld_done,
-						  HZ);
-		if (ret == 0)
-			dev_warn(dpu_crtc->dev,
-			      "flush - wait for content shdld done timeout\n");
+		if (dcstate->use_pc) {
+			shdld_done = m_content_shdld_done;
+			ret = wait_for_completion_timeout(shdld_done, HZ);
+			if (ret == 0)
+				dev_warn(dpu_crtc->dev,
+				      "flush - wait for master content shdld done timeout\n");
+
+			shdld_done = s_content_shdld_done;
+			ret = wait_for_completion_timeout(shdld_done, HZ);
+			if (ret == 0)
+				dev_warn(dpu_crtc->dev,
+					"flush - wait for slave content shdld done timeout\n");
+		} else {
+			shdld_done = &dpu_crtc->content_shdld_done;
+			ret = wait_for_completion_timeout(shdld_done, HZ);
+			if (ret == 0)
+				dev_warn(dpu_crtc->dev,
+				      "flush - wait for content shdld done timeout\n");
+		}
 
 		disable_irq(dpu_crtc->content_shdld_irq);
+		if (dcstate->use_pc)
+			disable_irq(aux_dpu_crtc->content_shdld_irq);
 
 		WARN_ON(!crtc->state->event);
 
@@ -413,7 +640,16 @@ static void dpu_crtc_atomic_flush(struct drm_crtc *crtc,
 			crtc->state->event = NULL;
 		}
 	} else if (!crtc->state->active) {
-		extdst_pixengcfg_sync_trigger(ed);
+		if (old_dcstate->use_pc) {
+			if (extdst_is_master(ed)) {
+				extdst_pixengcfg_sync_trigger(ed);
+			} else {
+				aux_ed = dpu_aux_ed_peek(ed);
+				extdst_pixengcfg_sync_trigger(aux_ed);
+			}
+		} else {
+			extdst_pixengcfg_sync_trigger(ed);
+		}
 	}
 
 	for (i = 0; i < dpu_crtc->hw_plane_num; i++) {
@@ -422,12 +658,18 @@ static void dpu_crtc_atomic_flush(struct drm_crtc *crtc,
 		struct dpu_fetchunit *fe;
 		struct dpu_hscaler *hs;
 		struct dpu_vscaler *vs;
+		dpu_block_id_t source;
+		bool aux_source_disable;
 
 		old_dpstate = old_dcstate->dpu_plane_states[i];
 		if (!old_dpstate)
 			continue;
 
-		fu = dpstate_to_fu(old_dpstate);
+		aux_source_disable = false;
+again:
+		source = aux_source_disable ?
+				old_dpstate->aux_source : old_dpstate->source;
+		fu = source_to_fu(res, source);
 		if (!fu)
 			return;
 
@@ -451,6 +693,11 @@ static void dpu_crtc_atomic_flush(struct drm_crtc *crtc,
 				vscaler_set_stream_id(vs,
 							DPU_PLANE_SRC_DISABLED);
 		}
+
+		if (old_dpstate->need_aux_source && !aux_source_disable) {
+			aux_source_disable = true;
+			goto again;
+		}
 	}
 }
 
@@ -458,22 +705,35 @@ static void dpu_crtc_mode_set_nofb(struct drm_crtc *crtc)
 {
 	struct drm_device *dev = crtc->dev;
 	struct dpu_crtc *dpu_crtc = to_dpu_crtc(crtc);
+	struct dpu_crtc *aux_dpu_crtc = dpu_crtc_get_aux_dpu_crtc(dpu_crtc);
 	struct imx_crtc_state *imx_crtc_state = to_imx_crtc_state(crtc->state);
+	struct dpu_crtc_state *dcstate = to_dpu_crtc_state(imx_crtc_state);
 	struct drm_display_mode *mode = &crtc->state->adjusted_mode;
 	struct drm_encoder *encoder;
 	struct dpu_plane *dplane = to_dpu_plane(crtc->primary);
 	struct dpu_plane_res *res = &dplane->grp->res;
-	struct dpu_extdst *plane_ed = res->ed[dplane->stream_id];
+	struct dpu_constframe *cf;
+	struct dpu_disengcfg *dec;
+	struct dpu_extdst *ed, *plane_ed;
+	struct dpu_framegen *fg;
+	struct dpu_tcon *tcon;
+	struct dpu_store *st;
 	extdst_src_sel_t ed_src;
 	unsigned long encoder_types = 0;
 	u32 encoder_mask;
+	unsigned int stream_id;
+	int crtc_hdisplay = dcstate->use_pc ?
+			(mode->crtc_hdisplay >> 1) : mode->crtc_hdisplay;
 	bool encoder_type_has_tmds = false;
 	bool encoder_type_has_lvds = false;
+	bool cfg_aux_pipe = false;
 
 	dev_dbg(dpu_crtc->dev, "%s: mode->hdisplay: %d\n", __func__,
 			mode->hdisplay);
 	dev_dbg(dpu_crtc->dev, "%s: mode->vdisplay: %d\n", __func__,
 			mode->vdisplay);
+	if (dcstate->use_pc)
+		dev_dbg(dpu_crtc->dev, "%s: use pixel combiner\n", __func__);
 
 	list_for_each_entry(encoder, &dev->mode_config.encoder_list, head) {
 		encoder_mask = 1 << drm_encoder_index(encoder);
@@ -494,26 +754,64 @@ static void dpu_crtc_mode_set_nofb(struct drm_crtc *crtc)
 		dev_dbg(dpu_crtc->dev, "%s: encoder type has LVDS\n", __func__);
 	}
 
-	framegen_cfg_videomode(dpu_crtc->fg, mode, false,
+again:
+	if (cfg_aux_pipe) {
+		cf = dpu_crtc->aux_cf;
+		dec = dpu_crtc->aux_dec;
+		ed = dpu_crtc->aux_ed;
+		fg = dpu_crtc->aux_fg;
+		tcon = dpu_crtc->aux_tcon;
+		st = aux_dpu_crtc->st;
+		stream_id = dpu_crtc->stream_id ^ 1;
+	} else {
+		cf = dpu_crtc->cf;
+		dec = dpu_crtc->dec;
+		ed = dpu_crtc->ed;
+		fg = dpu_crtc->fg;
+		tcon = dpu_crtc->tcon;
+		st = dpu_crtc->st;
+		stream_id = dpu_crtc->stream_id;
+	}
+
+	if (dcstate->use_pc) {
+		store_pixengcfg_syncmode_fixup(st, true);
+		framegen_syncmode_fixup(fg,
+				framegen_is_master(fg) ? false : true);
+		framegen_syncmode(fg, framegen_is_master(fg) ?
+				FGSYNCMODE__MASTER : FGSYNCMODE__SLAVE_ONCE);
+	} else {
+		store_pixengcfg_syncmode_fixup(st, false);
+		framegen_syncmode_fixup(fg, false);
+		framegen_syncmode(fg, FGSYNCMODE__OFF);
+	}
+
+	framegen_cfg_videomode(fg, mode, dcstate->use_pc,
 			encoder_type_has_tmds, encoder_type_has_lvds);
-	framegen_displaymode(dpu_crtc->fg, FGDM__SEC_ON_TOP);
+	framegen_displaymode(fg, FGDM__SEC_ON_TOP);
 
-	framegen_panic_displaymode(dpu_crtc->fg, FGDM__TEST);
+	framegen_panic_displaymode(fg, FGDM__TEST);
 
-	tcon_cfg_videomode(dpu_crtc->tcon, mode, false);
-	tcon_set_fmt(dpu_crtc->tcon, imx_crtc_state->bus_format);
+	tcon_cfg_videomode(tcon, mode, dcstate->use_pc);
+	tcon_set_fmt(tcon, imx_crtc_state->bus_format);
+	if (dpu_crtc->has_pc)
+		tcon_configure_pc(tcon, stream_id, mode->crtc_hdisplay,
+				dcstate->use_pc ? PC_COMBINE : PC_BYPASS, 0);
 
-	disengcfg_polarity_ctrl(dpu_crtc->dec, mode->flags);
+	disengcfg_polarity_ctrl(dec, mode->flags);
 
-	constframe_framedimensions(dpu_crtc->cf,
-					mode->crtc_hdisplay,
-					mode->crtc_vdisplay);
+	constframe_framedimensions(cf, crtc_hdisplay, mode->crtc_vdisplay);
 
-	ed_src = dpu_crtc->stream_id ? ED_SRC_CONSTFRAME5 : ED_SRC_CONSTFRAME4;
-	extdst_pixengcfg_src_sel(dpu_crtc->ed, ed_src);
+	ed_src = stream_id ? ED_SRC_CONSTFRAME5 : ED_SRC_CONSTFRAME4;
+	extdst_pixengcfg_src_sel(ed, ed_src);
 
-	ed_src = dpu_crtc->stream_id ? ED_SRC_CONSTFRAME1 : ED_SRC_CONSTFRAME0;
+	plane_ed = res->ed[stream_id];
+	ed_src = stream_id ? ED_SRC_CONSTFRAME1 : ED_SRC_CONSTFRAME0;
 	extdst_pixengcfg_src_sel(plane_ed, ed_src);
+
+	if (dcstate->use_pc && !cfg_aux_pipe) {
+		cfg_aux_pipe = true;
+		goto again;
+	}
 }
 
 static const struct drm_crtc_helper_funcs dpu_helper_funcs = {
@@ -537,6 +835,8 @@ static void dpu_crtc_put_resources(struct dpu_crtc *dpu_crtc)
 		dpu_fg_put(dpu_crtc->fg);
 	if (!IS_ERR_OR_NULL(dpu_crtc->tcon))
 		dpu_tcon_put(dpu_crtc->tcon);
+	if (!IS_ERR_OR_NULL(dpu_crtc->st))
+		dpu_st_put(dpu_crtc->st);
 }
 
 static int dpu_crtc_get_resources(struct dpu_crtc *dpu_crtc)
@@ -580,6 +880,40 @@ static int dpu_crtc_get_resources(struct dpu_crtc *dpu_crtc)
 	}
 	dpu_crtc->aux_tcon = dpu_aux_tcon_peek(dpu_crtc->tcon);
 
+	if (stream_id == 0) {
+		dpu_crtc->st = dpu_st_get(dpu, 9);
+		if (IS_ERR(dpu_crtc->st)) {
+			ret = PTR_ERR(dpu_crtc->st);
+			goto err_out;
+		}
+	}
+
+	if (stream_id) {
+		dpu_crtc->m_cf   = dpu_crtc->aux_cf;
+		dpu_crtc->m_dec  = dpu_crtc->aux_dec;
+		dpu_crtc->m_ed   = dpu_crtc->aux_ed;
+		dpu_crtc->m_fg   = dpu_crtc->aux_fg;
+		dpu_crtc->m_tcon = dpu_crtc->aux_tcon;
+
+		dpu_crtc->s_cf   = dpu_crtc->cf;
+		dpu_crtc->s_dec  = dpu_crtc->dec;
+		dpu_crtc->s_ed   = dpu_crtc->ed;
+		dpu_crtc->s_fg   = dpu_crtc->fg;
+		dpu_crtc->s_tcon = dpu_crtc->tcon;
+	} else {
+		dpu_crtc->m_cf   = dpu_crtc->cf;
+		dpu_crtc->m_dec  = dpu_crtc->dec;
+		dpu_crtc->m_ed   = dpu_crtc->ed;
+		dpu_crtc->m_fg   = dpu_crtc->fg;
+		dpu_crtc->m_tcon = dpu_crtc->tcon;
+
+		dpu_crtc->s_cf   = dpu_crtc->aux_cf;
+		dpu_crtc->s_dec  = dpu_crtc->aux_dec;
+		dpu_crtc->s_ed   = dpu_crtc->aux_ed;
+		dpu_crtc->s_fg   = dpu_crtc->aux_fg;
+		dpu_crtc->s_tcon = dpu_crtc->aux_tcon;
+	}
+
 	return 0;
 err_out:
 	dpu_crtc_put_resources(dpu_crtc);
@@ -604,6 +938,9 @@ static int dpu_crtc_init(struct dpu_crtc *dpu_crtc,
 	dpu_crtc->stream_id = stream_id;
 	dpu_crtc->crtc_grp_id = pdata->di_grp_id;
 	dpu_crtc->hw_plane_num = plane_grp->hw_plane_num;
+	dpu_crtc->has_pc = dpu_has_pc(dpu);
+	dpu_crtc->syncmode_min_prate = dpu_get_syncmode_min_prate(dpu);
+	dpu_crtc->singlemode_max_width = dpu_get_singlemode_max_width(dpu);
 
 	dpu_crtc->plane = devm_kcalloc(dev, dpu_crtc->hw_plane_num,
 					sizeof(*dpu_crtc->plane), GFP_KERNEL);

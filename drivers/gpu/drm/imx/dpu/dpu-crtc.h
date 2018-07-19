@@ -28,19 +28,36 @@ struct dpu_crtc {
 	struct dpu_extdst	*ed;
 	struct dpu_framegen	*fg;
 	struct dpu_tcon		*tcon;
+	struct dpu_store	*st;
 	struct dpu_constframe	*aux_cf;
 	struct dpu_disengcfg	*aux_dec;
 	struct dpu_extdst	*aux_ed;
 	struct dpu_framegen	*aux_fg;
 	struct dpu_tcon		*aux_tcon;
+	/* master */
+	struct dpu_constframe	*m_cf;
+	struct dpu_disengcfg	*m_dec;
+	struct dpu_extdst	*m_ed;
+	struct dpu_framegen	*m_fg;
+	struct dpu_tcon		*m_tcon;
+	/* slave */
+	struct dpu_constframe	*s_cf;
+	struct dpu_disengcfg	*s_dec;
+	struct dpu_extdst	*s_ed;
+	struct dpu_framegen	*s_fg;
+	struct dpu_tcon		*s_tcon;
 	struct dpu_plane	**plane;
 	unsigned int		hw_plane_num;
 	unsigned int		stream_id;
 	unsigned int		crtc_grp_id;
+	unsigned int		syncmode_min_prate;
+	unsigned int		singlemode_max_width;
 	int			vbl_irq;
 	int			safety_shdld_irq;
 	int			content_shdld_irq;
 	int			dec_shdld_irq;
+
+	bool			has_pc;
 
 	struct completion	safety_shdld_done;
 	struct completion	content_shdld_done;
@@ -50,6 +67,7 @@ struct dpu_crtc {
 struct dpu_crtc_state {
 	struct imx_crtc_state	imx_crtc_state;
 	struct dpu_plane_state	**dpu_plane_states;
+	bool			use_pc;
 };
 
 static inline struct dpu_crtc_state *to_dpu_crtc_state(struct imx_crtc_state *s)
