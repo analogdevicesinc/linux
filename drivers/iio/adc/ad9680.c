@@ -27,6 +27,7 @@
 #define AD9680_REG_CHIP_ID_LOW		0x004
 #define AD9680_REG_CHIP_ID_HIGH		0x005
 #define AD9680_REG_DEVICE_INDEX		0x008
+#define AD9680_REG_PAIR_INDEX		0x009
 #define AD9680_REG_INPUT_FS_RANGE	0x025
 #define AD9680_REG_CHIP_PIN_CTRL	0x040
 
@@ -167,14 +168,21 @@ static int ad9680_reg_access(struct iio_dev *indio_dev, unsigned int reg,
 static int ad9680_select_channel(struct axiadc_converter *conv,
 	int chan)
 {
-	unsigned int val;
+	unsigned int device, pair;
+	int ret;
 
-	if (chan >= 0)
-		val = BIT(chan & 0x1);
-	else
-		val = 0x3;
+	if (chan >= 0) {
+		device = BIT(chan & 0x1);
+		pair = BIT((chan >> 1) & 1);
+	} else {
+		device = 0x3;
+		pair = 0x3;
+	}
 
-	return ad9680_spi_write(conv->spi, AD9680_REG_DEVICE_INDEX, val);
+	ret = ad9680_spi_write(conv->spi, AD9680_REG_DEVICE_INDEX, device);
+	if (ret < 0)
+		return ret;
+	return ad9680_spi_write(conv->spi, AD9680_REG_PAIR_INDEX, pair);
 }
 
 static int ad9680_channel_write(struct axiadc_converter *conv,
@@ -651,9 +659,11 @@ static const struct axiadc_chip_info axiadc_chip_info_tbl[] = {
 		.max_rate = 1000000000UL,
 		.scale_table = ad9694_scale_table,
 		.num_scales = ARRAY_SIZE(ad9694_scale_table),
-		.num_channels = 2,
+		.num_channels = 4,
 		.channel[0] = AD9694_CHAN(0),
 		.channel[1] = AD9694_CHAN(1),
+		.channel[2] = AD9694_CHAN(2),
+		.channel[3] = AD9694_CHAN(3),
 	},
 };
 
@@ -1035,13 +1045,8 @@ static int ad9694_setup(struct spi_device *spi)
 	ad9680_spi_write(spi, 0x000, 0x81); /* RESET */
 	mdelay(5);
 
-	/* Power-down C/D */
-	ret = ad9680_spi_write(spi, 0x009, 0x02); /* select pair C/D */
-	ret |= ad9680_spi_write(spi, 0x008, 0x03); /* select both channels */
-	ret |= ad9680_spi_write(spi, 0x002, 0x03); /* Power down */
-
 	/* Configure A/B */
-	ret |= ad9680_spi_write(spi, 0x009, 0x01); /* select pair A/B */
+	ret |= ad9680_spi_write(spi, 0x009, 0x03); /* select pair A/B */
 	ret |= ad9680_spi_write(spi, 0x008, 0x03); /* select both channels */
 
 	ret |= ad9680_spi_write(spi, 0x108, 0x00); /* Clock divider = 1 */
