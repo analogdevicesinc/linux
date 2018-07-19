@@ -46,6 +46,18 @@ struct fsl_micfil {
 	unsigned int mclk_streams;
 	int quality;	/*QUALITY 2-0 bits */
 	bool slave_mode;
+	int vad_sound_gain;
+	int vad_noise_gain;
+	int vad_input_gain;
+	int vad_frame_time;
+	int vad_init_time;
+	int vad_init_mode;
+	int vad_nfil_adjust;
+	int vad_hpf;
+	int vad_zcd_th;
+	int vad_zcd_auto;
+	int vad_zcd_en;
+	int vad_zcd_adj;
 	atomic_t state;
 	atomic_t voice_detected;
 	atomic_t init_hwvad_done;
@@ -90,11 +102,39 @@ static const char * const micfil_quality_select_texts[] = {
 	"VLow0", "Low",
 };
 
+static const char * const micfil_hwvad_init_mode[] = {
+	"Envelope mode", "Energy mode",
+};
+
+static const char * const micfil_hwvad_hpf_texts[] = {
+	"Filter bypass",
+	"Cut-off @1750Hz",
+	"Cut-off @215Hz",
+	"Cut-off @102Hz",
+};
+
+static const char * const micfil_hwvad_zcd_enable[] = {
+	"OFF", "ON",
+};
+
+static const char * const micfil_hwvad_zcdauto_enable[] = {
+	"OFF", "ON",
+};
+
+
 static const struct soc_enum fsl_micfil_enum[] = {
 	SOC_ENUM_SINGLE(REG_MICFIL_CTRL2,
 			MICFIL_CTRL2_QSEL_SHIFT,
 			ARRAY_SIZE(micfil_quality_select_texts),
 			micfil_quality_select_texts),
+	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(micfil_hwvad_init_mode),
+			    micfil_hwvad_init_mode),
+	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(micfil_hwvad_hpf_texts),
+			    micfil_hwvad_hpf_texts),
+	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(micfil_hwvad_zcd_enable),
+			    micfil_hwvad_zcd_enable),
+	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(micfil_hwvad_zcdauto_enable),
+			    micfil_hwvad_zcd_enable),
 };
 
 static int set_quality(struct snd_kcontrol *kcontrol,
@@ -133,6 +173,355 @@ static int set_quality(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+static int hwvad_put_init_mode(struct snd_kcontrol *kcontrol,
+			       struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *comp = snd_kcontrol_chip(kcontrol);
+	struct soc_enum *e = (struct soc_enum *)kcontrol->private_value;
+	unsigned int *item = ucontrol->value.enumerated.item;
+	struct fsl_micfil *micfil = snd_soc_component_get_drvdata(comp);
+	int val = snd_soc_enum_item_to_val(e, item[0]);
+
+	/* 0 - Envelope-based Mode
+	 * 1 - Energy-based Mode
+	 */
+	micfil->vad_init_mode = val;
+	return 0;
+}
+
+static int hwvad_get_init_mode(struct snd_kcontrol *kcontrol,
+			       struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *comp = snd_kcontrol_chip(kcontrol);
+	struct fsl_micfil *micfil = snd_soc_component_get_drvdata(comp);
+
+	ucontrol->value.enumerated.item[0] = micfil->vad_init_mode;
+
+	return 0;
+}
+
+static int hwvad_put_hpf(struct snd_kcontrol *kcontrol,
+			 struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *comp = snd_kcontrol_chip(kcontrol);
+	struct soc_enum *e = (struct soc_enum *)kcontrol->private_value;
+	unsigned int *item = ucontrol->value.enumerated.item;
+	struct fsl_micfil *micfil = snd_soc_component_get_drvdata(comp);
+	int val = snd_soc_enum_item_to_val(e, item[0]);
+
+	/* 00 - HPF Bypass
+	 * 01 - Cut-off frequency 1750Hz
+	 * 10 - Cut-off frequency 215Hz
+	 * 11 - Cut-off frequency 102Hz
+	 */
+	micfil->vad_hpf = val;
+
+	return 0;
+}
+
+static int hwvad_get_hpf(struct snd_kcontrol *kcontrol,
+			 struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *comp = snd_kcontrol_chip(kcontrol);
+	struct fsl_micfil *micfil = snd_soc_component_get_drvdata(comp);
+
+	ucontrol->value.enumerated.item[0] = micfil->vad_hpf;
+
+	return 0;
+}
+
+static int hwvad_put_zcd_en(struct snd_kcontrol *kcontrol,
+			    struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *comp = snd_kcontrol_chip(kcontrol);
+	struct soc_enum *e = (struct soc_enum *)kcontrol->private_value;
+	unsigned int *item = ucontrol->value.enumerated.item;
+	struct fsl_micfil *micfil = snd_soc_component_get_drvdata(comp);
+	int val = snd_soc_enum_item_to_val(e, item[0]);
+
+	micfil->vad_zcd_en = val;
+
+	return 0;
+}
+
+static int hwvad_get_zcd_en(struct snd_kcontrol *kcontrol,
+			    struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *comp = snd_kcontrol_chip(kcontrol);
+	struct fsl_micfil *micfil = snd_soc_component_get_drvdata(comp);
+
+	ucontrol->value.enumerated.item[0] = micfil->vad_zcd_en;
+
+	return 0;
+}
+
+static int hwvad_put_zcd_auto(struct snd_kcontrol *kcontrol,
+			      struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *comp = snd_kcontrol_chip(kcontrol);
+	struct soc_enum *e = (struct soc_enum *)kcontrol->private_value;
+	unsigned int *item = ucontrol->value.enumerated.item;
+	struct fsl_micfil *micfil = snd_soc_component_get_drvdata(comp);
+	int val = snd_soc_enum_item_to_val(e, item[0]);
+
+	micfil->vad_zcd_auto = val;
+
+	return 0;
+}
+
+static int hwvad_get_zcd_auto(struct snd_kcontrol *kcontrol,
+			      struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *comp = snd_kcontrol_chip(kcontrol);
+	struct fsl_micfil *micfil = snd_soc_component_get_drvdata(comp);
+
+	ucontrol->value.enumerated.item[0] = micfil->vad_zcd_auto;
+
+	return 0;
+}
+
+static int hwvad_gain_info(struct snd_kcontrol *kcontrol,
+			   struct snd_ctl_elem_info *uinfo)
+{
+	uinfo->type = SNDRV_CTL_ELEM_TYPE_INTEGER;
+	uinfo->count = 1;
+	uinfo->value.integer.min = 0;
+	uinfo->value.integer.max = 0xf;
+
+	return 0;
+}
+
+static int hwvad_put_input_gain(struct snd_kcontrol *kcontrol,
+			        struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *comp = snd_kcontrol_chip(kcontrol);
+	struct fsl_micfil *micfil = snd_soc_component_get_drvdata(comp);
+
+	micfil->vad_input_gain = ucontrol->value.integer.value[0];
+
+	return 0;
+}
+
+static int hwvad_get_input_gain(struct snd_kcontrol *kcontrol,
+			        struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *comp = snd_kcontrol_chip(kcontrol);
+	struct fsl_micfil *micfil = snd_soc_component_get_drvdata(comp);
+
+	ucontrol->value.enumerated.item[0] = micfil->vad_input_gain;
+
+	return 0;
+}
+
+static int hwvad_put_sound_gain(struct snd_kcontrol *kcontrol,
+			        struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *comp = snd_kcontrol_chip(kcontrol);
+	struct fsl_micfil *micfil = snd_soc_component_get_drvdata(comp);
+
+	micfil->vad_sound_gain = ucontrol->value.integer.value[0];
+
+	return 0;
+}
+
+static int hwvad_get_sound_gain(struct snd_kcontrol *kcontrol,
+			        struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *comp = snd_kcontrol_chip(kcontrol);
+	struct fsl_micfil *micfil = snd_soc_component_get_drvdata(comp);
+
+	ucontrol->value.enumerated.item[0] = micfil->vad_sound_gain;
+
+	return 0;
+}
+
+static int hwvad_put_noise_gain(struct snd_kcontrol *kcontrol,
+			        struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *comp = snd_kcontrol_chip(kcontrol);
+	struct fsl_micfil *micfil = snd_soc_component_get_drvdata(comp);
+
+	micfil->vad_noise_gain = ucontrol->value.integer.value[0];
+
+	return 0;
+}
+
+static int hwvad_get_noise_gain(struct snd_kcontrol *kcontrol,
+			        struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *comp = snd_kcontrol_chip(kcontrol);
+	struct fsl_micfil *micfil = snd_soc_component_get_drvdata(comp);
+
+	ucontrol->value.enumerated.item[0] = micfil->vad_noise_gain;
+
+	return 0;
+}
+
+static int hwvad_framet_info(struct snd_kcontrol *kcontrol,
+			   struct snd_ctl_elem_info *uinfo)
+{
+	uinfo->type = SNDRV_CTL_ELEM_TYPE_INTEGER;
+	uinfo->count = 1;
+	uinfo->value.integer.min = 1;
+	uinfo->value.integer.max = 64;
+
+	return 0;
+}
+
+static int hwvad_put_frame_time(struct snd_kcontrol *kcontrol,
+			        struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *comp = snd_kcontrol_chip(kcontrol);
+	struct fsl_micfil *micfil = snd_soc_component_get_drvdata(comp);
+
+	micfil->vad_frame_time = ucontrol->value.integer.value[0];
+
+	return 0;
+}
+
+static int hwvad_get_frame_time(struct snd_kcontrol *kcontrol,
+			        struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *comp = snd_kcontrol_chip(kcontrol);
+	struct fsl_micfil *micfil = snd_soc_component_get_drvdata(comp);
+
+	ucontrol->value.enumerated.item[0] = micfil->vad_frame_time;
+
+	return 0;
+}
+
+static int hwvad_initt_info(struct snd_kcontrol *kcontrol,
+			   struct snd_ctl_elem_info *uinfo)
+{
+	uinfo->type = SNDRV_CTL_ELEM_TYPE_INTEGER;
+	uinfo->count = 1;
+	uinfo->value.integer.min = 1;
+	uinfo->value.integer.max = 32;
+
+	return 0;
+}
+
+static int hwvad_put_init_time(struct snd_kcontrol *kcontrol,
+			        struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *comp = snd_kcontrol_chip(kcontrol);
+	struct fsl_micfil *micfil = snd_soc_component_get_drvdata(comp);
+
+	micfil->vad_init_time = ucontrol->value.integer.value[0];
+
+	return 0;
+}
+
+static int hwvad_get_init_time(struct snd_kcontrol *kcontrol,
+			        struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *comp = snd_kcontrol_chip(kcontrol);
+	struct fsl_micfil *micfil = snd_soc_component_get_drvdata(comp);
+
+	ucontrol->value.enumerated.item[0] = micfil->vad_init_time;
+
+	return 0;
+}
+
+static int hwvad_nfiladj_info(struct snd_kcontrol *kcontrol,
+			      struct snd_ctl_elem_info *uinfo)
+{
+	uinfo->type = SNDRV_CTL_ELEM_TYPE_INTEGER;
+	uinfo->count = 1;
+	uinfo->value.integer.min = 1;
+	uinfo->value.integer.max = 32;
+
+	return 0;
+}
+
+static int hwvad_put_nfil_adjust(struct snd_kcontrol *kcontrol,
+			        struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *comp = snd_kcontrol_chip(kcontrol);
+	struct fsl_micfil *micfil = snd_soc_component_get_drvdata(comp);
+
+	micfil->vad_nfil_adjust = ucontrol->value.integer.value[0];
+
+	return 0;
+}
+
+static int hwvad_get_nfil_adjust(struct snd_kcontrol *kcontrol,
+			        struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *comp = snd_kcontrol_chip(kcontrol);
+	struct fsl_micfil *micfil = snd_soc_component_get_drvdata(comp);
+
+	ucontrol->value.enumerated.item[0] = micfil->vad_nfil_adjust;
+
+	return 0;
+}
+
+static int hwvad_zcdth_info(struct snd_kcontrol *kcontrol,
+			      struct snd_ctl_elem_info *uinfo)
+{
+	uinfo->type = SNDRV_CTL_ELEM_TYPE_INTEGER;
+	uinfo->count = 1;
+	uinfo->value.integer.min = 1;
+	uinfo->value.integer.max = 1024;
+
+	return 0;
+}
+
+static int hwvad_put_zcd_th(struct snd_kcontrol *kcontrol,
+			    struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *comp = snd_kcontrol_chip(kcontrol);
+	struct fsl_micfil *micfil = snd_soc_component_get_drvdata(comp);
+
+	micfil->vad_zcd_th = ucontrol->value.integer.value[0];
+
+	return 0;
+}
+
+static int hwvad_get_zcd_th(struct snd_kcontrol *kcontrol,
+			    struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *comp = snd_kcontrol_chip(kcontrol);
+	struct fsl_micfil *micfil = snd_soc_component_get_drvdata(comp);
+
+	ucontrol->value.enumerated.item[0] = micfil->vad_zcd_th;
+
+	return 0;
+}
+
+static int hwvad_zcdadj_info(struct snd_kcontrol *kcontrol,
+			      struct snd_ctl_elem_info *uinfo)
+{
+	uinfo->type = SNDRV_CTL_ELEM_TYPE_INTEGER;
+	uinfo->count = 1;
+	uinfo->value.integer.min = 1;
+	uinfo->value.integer.max = 16;
+
+	return 0;
+}
+
+static int hwvad_put_zcd_adj(struct snd_kcontrol *kcontrol,
+			     struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *comp = snd_kcontrol_chip(kcontrol);
+	struct fsl_micfil *micfil = snd_soc_component_get_drvdata(comp);
+
+	micfil->vad_zcd_adj = ucontrol->value.integer.value[0];
+
+	return 0;
+}
+
+static int hwvad_get_zcd_adj(struct snd_kcontrol *kcontrol,
+			     struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *comp = snd_kcontrol_chip(kcontrol);
+	struct fsl_micfil *micfil = snd_soc_component_get_drvdata(comp);
+
+	ucontrol->value.enumerated.item[0] = micfil->vad_zcd_adj;
+
+	return 0;
+}
+
 static const struct snd_kcontrol_new fsl_micfil_snd_controls[] = {
 	SOC_SINGLE_RANGE("CH1 Gain", REG_MICFIL_OUT_CTRL,
 			 MICFIL_OUTGAIN_CHX_SHIFT(0), 0x0, 0xF, 0),
@@ -152,6 +541,88 @@ static const struct snd_kcontrol_new fsl_micfil_snd_controls[] = {
 			 MICFIL_OUTGAIN_CHX_SHIFT(7), 0x0, 0xF, 0),
 	SOC_ENUM_EXT("MICFIL Quality Select", fsl_micfil_enum[0],
 		     snd_soc_get_enum_double, set_quality),
+	SOC_ENUM_EXT("HWVAD Initialization Mode", fsl_micfil_enum[1],
+		     hwvad_get_init_mode, hwvad_put_init_mode),
+	SOC_ENUM_EXT("HWVAD High-Pass Filter", fsl_micfil_enum[2],
+		     hwvad_get_hpf, hwvad_put_hpf),
+	SOC_ENUM_EXT("HWVAD Zero-Crossing Detector Enable", fsl_micfil_enum[3],
+		     hwvad_get_zcd_en, hwvad_put_zcd_en),
+	SOC_ENUM_EXT("HWVAD Zero-Crossing Detector Auto Threshold", fsl_micfil_enum[4],
+		     hwvad_get_zcd_auto, hwvad_put_zcd_auto),
+
+	{
+		.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
+		.name = "HWVAD Input Gain",
+		.access = SNDRV_CTL_ELEM_ACCESS_READ |
+			  SNDRV_CTL_ELEM_ACCESS_WRITE,
+		.info = hwvad_gain_info,
+		.get = hwvad_get_input_gain,
+		.put = hwvad_put_input_gain,
+	},
+	{
+		.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
+		.name = "HWVAD Sound Gain",
+		.access = SNDRV_CTL_ELEM_ACCESS_READ |
+			  SNDRV_CTL_ELEM_ACCESS_WRITE,
+		.info = hwvad_gain_info,
+		.get = hwvad_get_sound_gain,
+		.put = hwvad_put_sound_gain,
+	},
+	{
+		.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
+		.name = "HWVAD Noise Gain",
+		.access = SNDRV_CTL_ELEM_ACCESS_READ |
+			  SNDRV_CTL_ELEM_ACCESS_WRITE,
+		.info = hwvad_gain_info,
+		.get = hwvad_get_noise_gain,
+		.put = hwvad_put_noise_gain,
+	},
+	{
+		.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
+		.name = "HWVAD Detector Frame Time",
+		.access = SNDRV_CTL_ELEM_ACCESS_READ |
+			  SNDRV_CTL_ELEM_ACCESS_WRITE,
+		.info = hwvad_framet_info,
+		.get = hwvad_get_frame_time,
+		.put = hwvad_put_frame_time,
+	},
+	{
+		.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
+		.name = "HWVAD Detector Initialization Time",
+		.access = SNDRV_CTL_ELEM_ACCESS_READ |
+			  SNDRV_CTL_ELEM_ACCESS_WRITE,
+		.info = hwvad_initt_info,
+		.get = hwvad_get_init_time,
+		.put = hwvad_put_init_time,
+	},
+	{
+		.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
+		.name = "HWVAD Noise Filter Adjustment",
+		.access = SNDRV_CTL_ELEM_ACCESS_READ |
+			  SNDRV_CTL_ELEM_ACCESS_WRITE,
+		.info = hwvad_nfiladj_info,
+		.get = hwvad_get_nfil_adjust,
+		.put = hwvad_put_nfil_adjust,
+	},
+	{
+		.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
+		.name = "HWVAD Zero-Crossing Detector Threshold",
+		.access = SNDRV_CTL_ELEM_ACCESS_READ |
+			  SNDRV_CTL_ELEM_ACCESS_WRITE,
+		.info = hwvad_zcdth_info,
+		.get = hwvad_get_zcd_th,
+		.put = hwvad_put_zcd_th,
+	},
+	{
+		.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
+		.name = "HWVAD Zero-Crossing Detector Adjustment",
+		.access = SNDRV_CTL_ELEM_ACCESS_READ |
+			  SNDRV_CTL_ELEM_ACCESS_WRITE,
+		.info = hwvad_zcdadj_info,
+		.get = hwvad_get_zcd_adj,
+		.put = hwvad_put_zcd_adj,
+	},
+
 };
 
 static int disable_hwvad(struct device *dev);
@@ -350,21 +821,22 @@ static int init_hwvad_internal_filters(struct device *dev)
  * improving the voice detection performance.
  * See Section 8.4.3
  */
-static int __maybe_unused init_zcd(struct device *dev,
-				   int threshold,
-				   int mode)
+static int __maybe_unused init_zcd(struct device *dev)
 {
 	struct fsl_micfil *micfil = dev_get_drvdata(dev);
 	int ret;
 
-	if (mode == MICFIL_HWVAD_ZCD_AUTO) {
-		/* enable auto-threshold */
-		auto_threshold = MICFIL_VAD0_ZCD_ZCDAUT;
+	/* exit if zcd is not enabled from userspace */
+	if (!micfil->vad_zcd_en) {
+		dev_info(dev, "Zero Crossing Detector is not enabled.\n");
+		return 0;
+	}
 
+	if (micfil->vad_zcd_auto) {
 		/* Zero-Crossing Detector Adjustment */
 		ret = regmap_update_bits(micfil->regmap, REG_MICFIL_VAD0_ZCD,
 					 MICFIL_VAD0_ZCD_ZCDADJ_MASK,
-					 MICFIL_HWVAD_ZCDADJ);
+					 micfil->vad_zcd_adj);
 		if (ret) {
 			dev_err(dev,
 				"Failed to set ZCDADJ in ZCD_VAD0 [%d]\n",
@@ -376,7 +848,7 @@ static int __maybe_unused init_zcd(struct device *dev,
 	/* Zero-Crossing Detector Threshold */
 	ret = regmap_update_bits(micfil->regmap, REG_MICFIL_VAD0_ZCD,
 				 MICFIL_VAD0_ZCD_ZCDTH_MASK,
-				 MICFIL_VAD0_ZCD_ZCDTH(threshold));
+				 MICFIL_VAD0_ZCD_ZCDTH(micfil->vad_zcd_th));
 	if (ret) {
 		dev_err(dev, "Failed to set ZCDTH in ZCD_VAD0 [%d]\n", ret);
 		return ret;
@@ -394,7 +866,7 @@ static int __maybe_unused init_zcd(struct device *dev,
 	/* Zero-Crossing Detector Automatic Threshold */
 	ret = regmap_update_bits(micfil->regmap, REG_MICFIL_VAD0_ZCD,
 				 MICFIL_VAD0_ZCD_ZCDAUT_MASK,
-				 auto_threshold);
+				 micfil->vad_zcd_auto);
 	if (ret) {
 		dev_err(dev,
 			"Failed to set/clear ZCDAUT in ZCD_VAD0 [%d]\n",
@@ -661,7 +1133,7 @@ static int init_hwvad_envelope_mode(struct device *dev)
  * or reset only when the MICFIL isn't running i.e. when the BSY_FIL
  * bit in STAT register is cleared
  */
-static int __maybe_unused init_hwvad(struct device *dev, int mode)
+static int __maybe_unused init_hwvad(struct device *dev)
 {
 	struct fsl_micfil *micfil = dev_get_drvdata(dev);
 	int ret;
@@ -695,7 +1167,7 @@ static int __maybe_unused init_hwvad(struct device *dev, int mode)
 	/* configure detector frame time VADFRAMET */
 	ret = regmap_update_bits(micfil->regmap, REG_MICFIL_VAD0_CTRL2,
 				 MICFIL_VAD0_CTRL2_FRAMET_MASK,
-				 MICFIL_VAD0_CTRL2_FRAMET(MICFIL_HWVAD_FRAMET_DEFAULT));
+				 MICFIL_VAD0_CTRL2_FRAMET(micfil->vad_frame_time));
 	if (ret) {
 		dev_err(dev, "Failed to set FRAMET in CTRL2_VAD0 [%d]\n", ret);
 		return ret;
@@ -704,7 +1176,7 @@ static int __maybe_unused init_hwvad(struct device *dev, int mode)
 	/* configure initialization time in VADINITT */
 	ret = regmap_update_bits(micfil->regmap, REG_MICFIL_VAD0_CTRL1,
 				 MICFIL_VAD0_CTRL1_INITT_MASK,
-				 MICFIL_VAD0_CTRL1_INITT(MICFIL_HWVAD_INIT_FRAMES));
+				 MICFIL_VAD0_CTRL1_INITT(micfil->vad_init_time));
 	if (ret) {
 		dev_err(dev, "Failed to set INITT in CTRL1_VAD0 [%d]\n", ret);
 		return ret;
@@ -713,7 +1185,7 @@ static int __maybe_unused init_hwvad(struct device *dev, int mode)
 	/* configure input gain in VADINPGAIN */
 	ret = regmap_update_bits(micfil->regmap, REG_MICFIL_VAD0_CTRL2,
 				 MICFIL_VAD0_CTRL2_INPGAIN_MASK,
-				 MICFIL_VAD0_CTRL2_INPGAIN(MICFIL_HWVAD_INPGAIN));
+				 MICFIL_VAD0_CTRL2_INPGAIN(micfil->vad_input_gain));
 	if (ret) {
 		dev_err(dev, "Failed to set INPGAIN in CTRL2_VAD0 [%d]\n", ret);
 		return ret;
@@ -722,16 +1194,16 @@ static int __maybe_unused init_hwvad(struct device *dev, int mode)
 	/* configure sound gain in SGAIN */
 	ret = regmap_update_bits(micfil->regmap, REG_MICFIL_VAD0_SCONFIG,
 				 MICFIL_VAD0_SCONFIG_SGAIN_MASK,
-				 MICFIL_VAD0_SCONFIG_SGAIN(MICFIL_HWVAD_SGAIN));
+				 MICFIL_VAD0_SCONFIG_SGAIN(micfil->vad_sound_gain));
 	if (ret) {
 		dev_err(dev, "Failed to set SGAIN in SCONFIG_VAD0 [%d]\n", ret);
 		return ret;
 	}
 
-	/* configure sound gain in SGAIN */
+	/* configure noise gain in NGAIN */
 	ret = regmap_update_bits(micfil->regmap, REG_MICFIL_VAD0_NCONFIG,
 				 MICFIL_VAD0_NCONFIG_NGAIN_MASK,
-				 MICFIL_VAD0_NCONFIG_NGAIN(MICFIL_HWVAD_NGAIN));
+				 MICFIL_VAD0_NCONFIG_NGAIN(micfil->vad_noise_gain));
 	if (ret) {
 		dev_err(dev, "Failed to set NGAIN in NCONFIG_VAD0 [%d]\n", ret);
 		return ret;
@@ -740,7 +1212,7 @@ static int __maybe_unused init_hwvad(struct device *dev, int mode)
 	/* configure or clear the VADNFILADJ based on mode */
 	ret = regmap_update_bits(micfil->regmap, REG_MICFIL_VAD0_NCONFIG,
 				 MICFIL_VAD0_NCONFIG_NFILADJ_MASK,
-				 MICFIL_VAD0_NCONFIG_NFILADJ(MICFIL_HWVAD_NFILADJ));
+				 MICFIL_VAD0_NCONFIG_NFILADJ(micfil->vad_nfil_adjust));
 	if (ret) {
 		dev_err(dev,
 			"Failed to set VADNFILADJ in NCONFIG_VAD0 [%d]\n",
@@ -751,14 +1223,14 @@ static int __maybe_unused init_hwvad(struct device *dev, int mode)
 	/* enable the high-pass filter in VADHPF */
 	ret = regmap_update_bits(micfil->regmap, REG_MICFIL_VAD0_CTRL2,
 				 MICFIL_VAD0_CTRL2_HPF_MASK,
-				 MICFIL_VAD0_CTRL2_HPF(MICFIL_HWVAD_HPF_BYPASS));
+				 MICFIL_VAD0_CTRL2_HPF(micfil->vad_hpf));
 	if (ret) {
 		dev_err(dev, "Failed to set HPF in CTRL2_VAD0 [%d]\n", ret);
 		return ret;
 	}
 
 	/* envelope-based specific initialization */
-	if (mode == MICFIL_HWVAD_ENVELOPE_MODE) {
+	if (micfil->vad_init_mode == MICFIL_HWVAD_ENVELOPE_MODE) {
 		ret = init_hwvad_envelope_mode(dev);
 		if (ret)
 			return ret;
@@ -1067,8 +1539,9 @@ static struct snd_soc_dai_driver fsl_micfil_dai = {
 
 static const struct snd_soc_component_driver fsl_micfil_component = {
 	.name		= "fsl-micfil-dai",
-	.controls	= fsl_micfil_snd_controls,
-	.num_controls	= ARRAY_SIZE(fsl_micfil_snd_controls),
+	.controls       = fsl_micfil_snd_controls,
+	.num_controls   = ARRAY_SIZE(fsl_micfil_snd_controls),
+
 };
 
 /* REGMAP */
@@ -1336,7 +1809,7 @@ static int enable_hwvad(struct device *dev)
 		return ret;
 
 	/* Initialize Hardware Voice Activity */
-	ret = init_hwvad(dev, MICFIL_HWVAD_ENVELOPE_MODE);
+	ret = init_hwvad(dev);
 	if (ret)
 		goto enable_err;
 
