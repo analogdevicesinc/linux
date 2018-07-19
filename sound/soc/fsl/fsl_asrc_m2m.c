@@ -552,12 +552,7 @@ static long fsl_asrc_ioctl_config_pair(struct fsl_asrc_pair *pair,
 	m2m->rate[IN] = config.input_sample_rate;
 	m2m->rate[OUT] = config.output_sample_rate;
 
-	if (m2m->rate[OUT] >= m2m->rate[IN] * 8)
-		m2m->last_period_size = (m2m->rate[OUT] / m2m->rate[IN]) * 5;
-	else if (m2m->rate[OUT] > m2m->rate[IN])
-		m2m->last_period_size = ASRC_OUTPUT_LAST_SAMPLE_MAX;
-	else
-		m2m->last_period_size = ASRC_OUTPUT_LAST_SAMPLE;
+	m2m->last_period_size = ASRC_OUTPUT_LAST_SAMPLE;
 
 	ret = fsl_allocate_dma_buf(pair);
 	if (ret) {
@@ -623,6 +618,60 @@ static long fsl_asrc_ioctl_release_pair(struct fsl_asrc_pair *pair,
 	return 0;
 }
 
+static long fsl_asrc_calc_last_period_size(struct fsl_asrc_pair *pair,
+					struct asrc_convert_buffer *pbuf)
+{
+	struct fsl_asrc_m2m *m2m = pair->private;
+	unsigned int out_length;
+	unsigned int in_width, out_width;
+	unsigned int channels = pair->channels;
+	unsigned int in_samples, out_samples;
+	unsigned int last_period_size;
+
+	switch (m2m->word_width[IN]) {
+	case ASRC_WIDTH_24_BIT:
+		in_width = 4;
+		break;
+	case ASRC_WIDTH_16_BIT:
+		in_width = 2;
+		break;
+	case ASRC_WIDTH_8_BIT:
+		in_width = 1;
+		break;
+	default:
+		in_width = 2;
+		break;
+	}
+
+	switch (m2m->word_width[OUT]) {
+	case ASRC_WIDTH_24_BIT:
+		out_width = 4;
+		break;
+	case ASRC_WIDTH_16_BIT:
+		out_width = 2;
+		break;
+	case ASRC_WIDTH_8_BIT:
+		out_width = 1;
+		break;
+	default:
+		out_width = 2;
+		break;
+	}
+
+	in_samples = pbuf->input_buffer_length / (in_width * channels);
+
+	out_samples = (m2m->rate[OUT] * in_samples / m2m->rate[IN]);
+
+	out_length = out_samples * out_width * channels;
+
+	last_period_size = pbuf->output_buffer_length / (out_width * channels)
+					- out_samples;
+
+	m2m->last_period_size = last_period_size + 1 + ASRC_OUTPUT_LAST_SAMPLE;
+
+	return 0;
+}
+
 static long fsl_asrc_ioctl_convert(struct fsl_asrc_pair *pair,
 				   void __user *user)
 {
@@ -637,6 +686,8 @@ static long fsl_asrc_ioctl_convert(struct fsl_asrc_pair *pair,
 		pair_err("failed to get buf from user space: %ld\n", ret);
 		return ret;
 	}
+
+	fsl_asrc_calc_last_period_size(pair, &buf);
 
 	ret = fsl_asrc_prepare_buffer(pair, &buf);
 	if (ret) {
