@@ -324,14 +324,14 @@ static void dcss_plane_atomic_set_base(struct dcss_plane *dcss_plane)
 
 				mdata = dma_buf->priv;
 				if (!mdata || mdata->magic != VIV_VIDMEM_METADATA_MAGIC) {
-					break;
+					return;
 				}
 				compressed = mdata->compressed ? true : false;
 				compressed_format = mdata->compress_format;
 
 				gem_obj = dcss_plane_gem_import(plane->dev, mdata->ts_dma_buf);
 				if (IS_ERR(gem_obj)) {
-					break;
+					return;
 				}
 
 				caddr = to_drm_gem_cma_obj(gem_obj)->paddr;
