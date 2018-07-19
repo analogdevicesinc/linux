@@ -1114,8 +1114,8 @@ static int ad9694_setup_jesd204_link(struct axiadc_converter *conv,
 	ad9680_spi_write(conv->spi, 0x56e, val << 4);
 
 	/* Required sequence after link reset */
-	ad9680_spi_write(conv->spi, 0x1228, 0x0f);
 	ad9680_spi_write(conv->spi, 0x1228, 0x4f);
+	ad9680_spi_write(conv->spi, 0x1228, 0x0f);
 	ad9680_spi_write(conv->spi, 0x1222, 0x04);
 	ad9680_spi_write(conv->spi, 0x1222, 0x00);
 	ad9680_spi_write(conv->spi, 0x1262, 0x08);
@@ -1220,10 +1220,53 @@ static int ad9694_setup(struct spi_device *spi)
 		return ret;
 	}
 
+	schedule_delayed_work(&conv->watchdog_work, HZ);
+
 	conv->sample_rate_read_only = true;
 
 	return ret;
 }
+
+static void ad9694_serdes_pll_watchdog(struct work_struct *work)
+{
+	struct axiadc_converter *conv =
+		container_of(work, struct axiadc_converter, watchdog_work.work);
+	unsigned int clock_detected, serdes_locked;
+
+	clock_detected = ad9680_spi_read(conv->spi, 0x11b);
+	serdes_locked = ad9680_spi_read(conv->spi, 0x56f);
+
+	/* Restart if clock is detected, but SERDES is not locked */
+	if ((clock_detected & 0x01) && !(serdes_locked & 0x80)) {
+		dev_err(&conv->spi->dev, "Lost SERDES PLL lock, re-initializing.");
+
+		clk_disable_unprepare(conv->lane_clk);
+
+		 /* datapath soft reset */
+		ad9680_spi_write(conv->spi, 0x001, 0x02);
+		mdelay(1);
+
+		/* Required sequence after link reset */
+		ad9680_spi_write(conv->spi, 0x1228, 0x4f);
+		ad9680_spi_write(conv->spi, 0x1228, 0x0f);
+		ad9680_spi_write(conv->spi, 0x1222, 0x04);
+		ad9680_spi_write(conv->spi, 0x1222, 0x00);
+		ad9680_spi_write(conv->spi, 0x1262, 0x08);
+		ad9680_spi_write(conv->spi, 0x1262, 0x00);
+
+		mdelay(20);
+		serdes_locked = ad9680_spi_read(conv->spi, 0x56f);
+
+		dev_info(&conv->spi->dev, "AD9694 PLL %s\n",
+			 (serdes_locked & 0x80) ? "LOCKED" : "UNLOCKED");
+
+		clk_prepare_enable(conv->lane_clk);
+	}
+
+	schedule_delayed_work(&conv->watchdog_work, HZ);
+}
+
+
 
 static int ad9680_read_raw(struct iio_dev *indio_dev,
 	const struct iio_chan_spec *chan, int *val, int *val2, long info)
@@ -1352,6 +1395,8 @@ static int ad9680_probe(struct spi_device *spi)
 	conv->adc_clkscale.mult = 1;
 	conv->adc_clkscale.div = 1;
 
+	INIT_DELAYED_WORK(&conv->watchdog_work, ad9694_serdes_pll_watchdog);
+
 	spi_set_drvdata(spi, conv);
 	conv->spi = spi;
 
@@ -1435,6 +1480,7 @@ static int ad9680_remove(struct spi_device *spi)
 {
 	struct axiadc_converter *conv = spi_get_drvdata(spi);
 
+	cancel_delayed_work_sync(&conv->watchdog_work);
 	clk_disable_unprepare(conv->clk);
 
 	return 0;
