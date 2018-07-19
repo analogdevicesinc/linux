@@ -148,7 +148,7 @@
 
 	caam_sm: caam-sm@26000000 {
 			 compatible = "fsl,imx6q-caam-sm";
-			 reg = <0x26000000 0x7fff>;
+			 reg = <0x26000000 0x8000>;
 	};
 
 	ahbbridge0: ahb-bridge0@40000000 {

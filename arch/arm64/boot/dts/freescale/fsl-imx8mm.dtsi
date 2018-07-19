@@ -1186,7 +1186,7 @@
 
 	caam_sm: caam-sm@00100000 {
 		compatible = "fsl,imx6q-caam-sm";
-		reg = <0 0x00100000 0 0x7fff>;
+		reg = <0 0x00100000 0 0x8000>;
 	};
 
 	caam_snvs: caam-snvs@30370000 {

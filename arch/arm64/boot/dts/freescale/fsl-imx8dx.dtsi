@@ -3340,7 +3340,7 @@
 
 	caam_sm: caam-sm@31800000 {
 		compatible = "fsl,imx6q-caam-sm";
-		reg = <0 0x31800000 0 0x1ffff>;
+		reg = <0 0x31800000 0 0x10000>;
 	};
 
 	sc_pwrkey: sc-powerkey {

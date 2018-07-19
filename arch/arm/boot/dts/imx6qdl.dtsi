@@ -89,7 +89,7 @@
 
 		caam_sm: caam-sm@00100000 {
 			compatible = "fsl,imx6q-caam-sm";
-			reg = <0x00100000 0x3fff>;
+			reg = <0x00100000 0x4000>;
 		};
 
 		dma_apbh: dma-apbh@00110000 {

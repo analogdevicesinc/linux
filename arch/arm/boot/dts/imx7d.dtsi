@@ -118,7 +118,7 @@
 
 		caam_sm: caam-sm@00100000 {
 			 compatible = "fsl,imx7d-caam-sm", "fsl,imx6q-caam-sm";
-			 reg = <0x00100000 0x7fff>;
+			 reg = <0x00100000 0x8000>;
 		};
 
 		irq_sec_vio: caam_secvio {
