@@ -87,7 +87,7 @@ static struct dma_async_tx_descriptor *axi_hdmi_vdma_prep_interleaved_desc(
 		fb->pitches[0] - hw_row_size;
 
 	return dmaengine_prep_interleaved_dma(axi_hdmi_crtc->dma,
-						axi_hdmi_crtc->dma_template, 0);
+				axi_hdmi_crtc->dma_template, DMA_CYCLIC);
 }
 
 static void axi_hdmi_plane_atomic_update(struct drm_plane *plane,
