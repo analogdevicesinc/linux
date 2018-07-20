@@ -116,15 +116,18 @@ static irqreturn_t hif_us_isr(int irq, void *arg)
 
 	if (int_status & HIF_RXPKT_INT) {
 		int_enable_mask &= ~(HIF_RXPKT_INT);
+		/* Disable interrupts, they will be enabled after
+		 * they are serviced
+		 */
+		writel_relaxed(int_enable_mask, HIF_INT_ENABLE);
+
 		eventfd_signal(trigger, 1);
 	}
-
-	/*Disable interrupts, they will be enabled after they are serviced */
-	writel_relaxed(int_enable_mask, HIF_INT_ENABLE);
 
 	return IRQ_HANDLED;
 }
 
+#define PFE_INTR_COAL_USECS	100
 static long pfe_cdev_ioctl(struct file *fp, unsigned int cmd,
 			   unsigned long arg)
 {
@@ -159,6 +162,9 @@ static long pfe_cdev_ioctl(struct file *fp, unsigned int cmd,
 			eventfd_ctx_put(g_trigger);
 			g_trigger = NULL;
 		}
+		writel((PFE_INTR_COAL_USECS * (pfe->ctrl.sys_clk / 1000)) |
+			HIF_INT_COAL_ENABLE, HIF_INT_COAL);
+
 		pr_debug("request_irq for hif interrupt: %d\n", pfe->hif_irq);
 		ret = 0;
 		break;
