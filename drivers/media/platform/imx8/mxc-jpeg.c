@@ -204,7 +204,7 @@ static int enum_fmt(struct mxc_jpeg_fmt *mxc_formats, int n,
 	int i, num = 0;
 
 	for (i = 0; i < n; ++i) {
-		if (mxc_formats[i].flags & type) {
+		if (mxc_formats[i].flags == type) {
 			/* index-th format of type type found ? */
 			if (num == f->index)
 				break;
@@ -789,16 +789,29 @@ static int mxc_jpeg_querycap(struct file *file, void *priv,
 static int mxc_jpeg_enum_fmt_vid_cap(struct file *file, void *priv,
 				     struct v4l2_fmtdesc *f)
 {
-	return enum_fmt(mxc_formats, MXC_NUM_FORMATS, f,
-				 MXC_IN_FORMAT);
+	struct mxc_jpeg_ctx *ctx = mxc_jpeg_fh_to_ctx(priv);
+
+	if (ctx->mode == MXC_JPEG_ENCODE)
+		return enum_fmt(mxc_formats, MXC_NUM_FORMATS, f,
+			MXC_IN_FORMAT);
+	else
+		return enum_fmt(mxc_formats, MXC_NUM_FORMATS, f,
+			MXC_OUT_FORMAT);
 }
 
 static int mxc_jpeg_enum_fmt_vid_out(struct file *file, void *priv,
 				     struct v4l2_fmtdesc *f)
 {
-	return enum_fmt(mxc_formats, MXC_NUM_FORMATS, f,
-				 MXC_OUT_FORMAT);
+	struct mxc_jpeg_ctx *ctx = mxc_jpeg_fh_to_ctx(priv);
+
+	if (ctx->mode == MXC_JPEG_DECODE)
+		return enum_fmt(mxc_formats, MXC_NUM_FORMATS, f,
+				MXC_IN_FORMAT);
+	else
+		return enum_fmt(mxc_formats, MXC_NUM_FORMATS, f,
+				MXC_OUT_FORMAT);
 }
+
 static void mxc_jpeg_bound_align_image(u32 *w, unsigned int wmin,
 				       unsigned int wmax, unsigned int walign,
 				       u32 *h, unsigned int hmin,
