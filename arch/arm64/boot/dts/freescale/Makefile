@@ -25,6 +25,7 @@ dtb-$(CONFIG_ARCH_FSL_IMX8QM) += fsl-imx8qm-lpddr4-arm2.dtb \
 				 fsl-imx8qm-mek_ca53.dtb \
 				 fsl-imx8qm-mek_ca72.dtb \
 				 fsl-imx8qm-mek-hdmi.dtb \
+				 fsl-imx8qm-mek-hdmi-in.dtb \
 				 fsl-imx8qm-mek-dsi-rm67191.dtb \
 				 fsl-imx8qm-mek-enet2-tja1100.dtb \
 				 fsl-imx8qm-mek-jdi-wuxga-lvds1-panel.dtb \
