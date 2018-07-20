@@ -292,9 +292,6 @@ framegen_cfg_videomode(struct dpu_framegen *fg, struct drm_display_mode *m,
 	if (devtype->has_disp_sel_clk && encoder_type_has_tmds) {
 		clk_set_parent(fg->clk_disp_sel, fg->clk_bypass);
 
-		clk_get_rate(fg->clk_disp);
-		clk_set_rate(fg->clk_disp, disp_clock_rate);
-
 		fg->use_bypass_clk = true;
 	} else {
 		/* find an even divisor for PLL */
