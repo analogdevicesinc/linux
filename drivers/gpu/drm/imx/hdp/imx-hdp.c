@@ -125,8 +125,6 @@ int imx8qm_pixel_link_init(state_struct *state)
 		return -EINVAL;
 	}
 
-	/* config dpu1 di0 to hdmi/dp mode */
-	sc_misc_set_control(hdp->ipcHndl, SC_R_DC_0, SC_C_PXL_LINK_MST1_ADDR, 1);
 	sc_misc_set_control(hdp->ipcHndl, SC_R_DC_0, SC_C_PXL_LINK_MST1_VLD, 1);
 	sc_misc_set_control(hdp->ipcHndl, SC_R_DC_0, SC_C_SYNC_CTRL0, 1);
 
@@ -137,8 +135,6 @@ void imx8qm_pixel_link_deinit(state_struct *state)
 {
 	struct imx_hdp *hdp = state_to_imx_hdp(state);
 
-	/* config dpu1 di0 to default mode */
-	sc_misc_set_control(hdp->ipcHndl, SC_R_DC_0, SC_C_PXL_LINK_MST1_ADDR, 0);
 	sc_misc_set_control(hdp->ipcHndl, SC_R_DC_0, SC_C_PXL_LINK_MST1_VLD, 0);
 	sc_misc_set_control(hdp->ipcHndl, SC_R_DC_0, SC_C_SYNC_CTRL0, 0);
 
