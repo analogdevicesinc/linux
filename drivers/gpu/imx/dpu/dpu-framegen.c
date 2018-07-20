@@ -192,6 +192,42 @@ static void dpu_pixel_link_disable(int dpu_id, int stream_id)
 	sc_ipc_close(mu_id);
 }
 
+/* FIXME: set MST address for pixel link in a proper manner */
+static void dpu_pixel_link_set_mst_addr(int dpu_id, int stream_id, int mst_addr)
+{
+	sc_err_t sciErr;
+	sc_ipc_t ipcHndl = 0;
+	u32 mu_id;
+
+	sciErr = sc_ipc_getMuID(&mu_id);
+	if (sciErr != SC_ERR_NONE) {
+		pr_err("Cannot obtain MU ID\n");
+		return;
+	}
+
+	sciErr = sc_ipc_open(&ipcHndl, mu_id);
+	if (sciErr != SC_ERR_NONE) {
+		pr_err("sc_ipc_open failed! (sciError = %d)\n", sciErr);
+		return;
+	}
+
+	if (dpu_id == 0) {
+		sciErr = sc_misc_set_control(ipcHndl, SC_R_DC_0, stream_id ?
+			SC_C_PXL_LINK_MST2_ADDR : SC_C_PXL_LINK_MST1_ADDR,
+								mst_addr);
+		if (sciErr != SC_ERR_NONE)
+			pr_err("SC_R_DC_0:SC_C_PXL_LINK_MST%d_ADDR sc_misc_set_control failed! (sciError = %d)\n", stream_id + 1, sciErr);
+	} else if (dpu_id == 1) {
+		sciErr = sc_misc_set_control(ipcHndl, SC_R_DC_1, stream_id ?
+			SC_C_PXL_LINK_MST2_ADDR : SC_C_PXL_LINK_MST1_ADDR,
+								mst_addr);
+		if (sciErr != SC_ERR_NONE)
+			pr_err("SC_R_DC_1:SC_C_PXL_LINK_MST%d_ADDR sc_misc_set_control failed! (sciError = %d)\n", stream_id + 1, sciErr);
+	}
+
+	sc_ipc_close(mu_id);
+}
+
 void framegen_enable(struct dpu_framegen *fg)
 {
 	struct dpu_soc *dpu = fg->dpu;
@@ -232,7 +268,8 @@ void
 framegen_cfg_videomode(struct dpu_framegen *fg, struct drm_display_mode *m,
 		       bool encoder_type_has_tmds, bool encoder_type_has_lvds)
 {
-	const struct dpu_devtype *devtype = fg->dpu->devtype;
+	struct dpu_soc *dpu = fg->dpu;
+	const struct dpu_devtype *devtype = dpu->devtype;
 	u32 hact, htotal, hsync, hsbp;
 	u32 vact, vtotal, vsync, vsbp;
 	u32 val;
@@ -290,10 +327,14 @@ framegen_cfg_videomode(struct dpu_framegen *fg, struct drm_display_mode *m,
 	 * will fail.
 	 */
 	if (devtype->has_disp_sel_clk && encoder_type_has_tmds) {
+		dpu_pixel_link_set_mst_addr(dpu->id, fg->id, 1);
+
 		clk_set_parent(fg->clk_disp_sel, fg->clk_bypass);
 
 		fg->use_bypass_clk = true;
 	} else {
+		dpu_pixel_link_set_mst_addr(dpu->id, fg->id, 0);
+
 		/* find an even divisor for PLL */
 		do {
 			div += 2;
