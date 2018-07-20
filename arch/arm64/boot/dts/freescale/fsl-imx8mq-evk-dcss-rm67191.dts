@@ -132,6 +132,7 @@
 		pinctrl-0 = <&pinctrl_i2c1_synaptics_dsx_io>;
 		interrupt-parent = <&gpio5>;
 		interrupts = <7 8>;
+		synaptics,diagonal-rotation;
 		status = "okay";
 	};
 };
