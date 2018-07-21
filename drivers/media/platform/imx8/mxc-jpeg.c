@@ -367,6 +367,7 @@ static void mxc_jpeg_device_run(void *priv)
 
 	if (ctx->mode == MXC_JPEG_ENCODE) {
 		dev_dbg(dev, "Encoding on slot %d\n", slot);
+		mxc_jpeg_sw_reset(jpeg->base_reg);
 		ctx->enc_state = MXC_JPEG_ENC_CONF;
 		mxc_jpeg_config_enc(dst_buf, slot, jpeg);
 	} else {
