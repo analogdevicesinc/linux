@@ -203,7 +203,7 @@ static int imx_gpc_pd_power_on(struct generic_pm_domain *domain)
 	int index, ret = 0;
 
 	/* power on the external supply */
-	if (!IS_ERR(pd->reg)) {
+	if (pd->reg) {
 		ret = regulator_enable(pd->reg);
 		if (ret) {
 			dev_warn(pd->dev, "failed to power up the reg%d\n", ret);
@@ -237,7 +237,7 @@ static int imx_gpc_pd_power_off(struct generic_pm_domain *domain)
 	mutex_unlock(&gpc_pd_mutex);
 
 	/* power off the external supply */
-	if (!IS_ERR(pd->reg)) {
+	if (pd->reg) {
 		ret = regulator_disable(pd->reg);
 		if (ret) {
 			dev_warn(pd->dev, "failed to power off the reg%d\n", ret);
@@ -254,14 +254,106 @@ static int imx_gpc_pd_power_off(struct generic_pm_domain *domain)
 	return ret;
 };
 
+static int imx8m_pd_clk_init(struct device_node *np,
+			     struct imx_gpc_pm_domain *domain)
+{
+	struct property *pp;
+	struct clk **clks;
+	int index;
+
+	pp = of_find_property(np, "clocks", NULL);
+	if (pp)
+		domain->num_clks = pp->length / 8;
+	else
+		domain->num_clks = 0;
+
+	if (domain->num_clks) {
+		clks = kcalloc(domain->num_clks, sizeof(*clks), GFP_KERNEL);
+		if (!clks) {
+			domain->num_clks = 0;
+			domain->clks = NULL;
+			return -ENOMEM;
+		}
+
+		domain->clks = clks;
+	}
+
+	for (index = 0; index < domain->num_clks; index++) {
+		clks[index] = of_clk_get(np, index);
+		if (IS_ERR(clks[index])) {
+			for (index = 0; index < domain->num_clks; index++) {
+				if (!IS_ERR(clks[index]))
+					clk_put(clks[index]);
+			}
+
+			domain->num_clks = 0;
+			domain->clks = NULL;
+			kfree(clks);
+			pr_warn("imx8m domain clock init failed\n");
+			return -ENODEV;
+		}
+	}
+
+	return 0;
+}
+
+static int imx8m_add_subdomain(struct device_node *parent,
+			       struct generic_pm_domain *parent_pd)
+{
+	struct device_node *child_node;
+	struct imx_gpc_pm_domain *child_domain;
+	int ret = 0;
+
+	/* add each of the child domain of parent */
+	for_each_child_of_node(parent, child_node) {
+		if (!of_device_is_available(child_node))
+			continue;
+
+		child_domain = kzalloc(sizeof(*child_domain), GFP_KERNEL);
+		if (!child_domain)
+			return -ENOMEM;
+
+		ret = of_property_read_string(child_node, "domain-name",
+					      &child_domain->pd.name);
+		if (ret)
+			goto exit;
+
+		ret = of_property_read_u32(child_node, "domain-id",
+					   &child_domain->gpc_domain_id);
+		if (ret)
+			goto exit;
+
+		child_domain->pd.power_off = imx_gpc_pd_power_off;
+		child_domain->pd.power_on = imx_gpc_pd_power_on;
+		/* no reg for subdomains */
+		child_domain->reg = NULL;
+
+		imx8m_pd_clk_init(child_node, child_domain);
+
+		/* power domains as off at boot */
+		pm_genpd_init(&child_domain->pd, NULL, true);
+
+		/* add subdomain of parent power domain */
+		pm_genpd_add_subdomain(parent_pd, &child_domain->pd);
+
+		ret = of_genpd_add_provider_simple(child_node,
+						 &child_domain->pd);
+		if (ret)
+			pr_err("failed to add subdomain\n");
+	}
+
+	return 0;
+exit:
+	kfree(child_domain);
+	return ret;
+};
+
 static int imx_gpc_pm_domain_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct device_node *np = dev->of_node;
 	struct imx_gpc_pm_domain *imx_pm_domain;
-	struct property *pp;
-	struct clk **clks;
-	int index, clk_num, ret;
+	int ret = 0;
 
 	if (!np) {
 		dev_err(dev, "power domain device tree node not found\n");
@@ -286,29 +378,14 @@ static int imx_gpc_pm_domain_probe(struct platform_device *pdev)
 	}
 
 	imx_pm_domain->reg = devm_regulator_get_optional(dev, "power");
-	if (PTR_ERR(imx_pm_domain->reg) == -EPROBE_DEFER)
-		return -EPROBE_DEFER;
+	if (IS_ERR(imx_pm_domain->reg)) {
+		if (PTR_ERR(imx_pm_domain->reg) == -EPROBE_DEFER)
+			return -EPROBE_DEFER;
 
-	pp = of_find_property(np, "clocks", NULL);
-	if (pp) {
-		clk_num = pp->length / 8;
-		imx_pm_domain->num_clks = clk_num;
-	} else {
-		clk_num = 0;
-		imx_pm_domain->num_clks = clk_num;
+		imx_pm_domain->reg = NULL;
 	}
 
-	if (clk_num) {
-		clks = devm_kcalloc(dev, clk_num, sizeof(*clks), GFP_KERNEL);
-		imx_pm_domain->clks = clks;
-		for (index = 0; index < clk_num; index++) {
-			clks[index] = of_clk_get(np, index);
-			if (IS_ERR(clks[index])) {
-				ret = -ENODEV;
-				goto exit;
-			}
-		}
-	}
+	imx8m_pd_clk_init(np, imx_pm_domain);
 
 	imx_pm_domain->pd.power_off = imx_gpc_pd_power_off;
 	imx_pm_domain->pd.power_on = imx_gpc_pd_power_on;
@@ -317,15 +394,13 @@ static int imx_gpc_pm_domain_probe(struct platform_device *pdev)
 
 	ret = of_genpd_add_provider_simple(np,
 				 &imx_pm_domain->pd);
-	return ret;
 
-exit:
-	for (index = 0; index < clk_num; index++) {
-		if (!IS_ERR(clks[index]))
-			clk_put(clks[index]);
-	}
+	/* add subdomain */
+	ret = imx8m_add_subdomain(np, &imx_pm_domain->pd);
+	if (ret)
+		dev_warn(dev, "please check the child power domain init\n");
 
-	return ret;
+	return 0;
 }
 
 static const struct of_device_id imx_gpc_pm_domain_ids[] = {
