@@ -288,6 +288,32 @@ static int const clks_init_on[] __initconst = {
 
 static struct clk_onecell_data clk_data;
 
+static int __init imx_clk_init_on(struct device_node *np,
+				  struct clk * const clks[])
+{
+	u32 *array;
+	int i, ret, elems;
+
+	elems = of_property_count_u32_elems(np, "init-on-array");
+	if (elems < 0)
+		return elems;
+	array = kzalloc(elems * sizeof(elems), GFP_KERNEL);
+	if (IS_ERR_OR_NULL(array))
+		return PTR_ERR(array);
+
+	ret = of_property_read_u32_array(np, "init-on-array", array, elems);
+	if (ret)
+		return ret;
+
+	for (i = 0; i < elems; i++) {
+		ret = clk_prepare_enable(clks[array[i]]);
+		if (ret)
+			pr_err("clk_prepare_enable failed %d\n", array[i]);
+	}
+
+	return 0;
+}
+
 static void __init imx8mq_clocks_init(struct device_node *ccm_node)
 {
 	struct device_node *np;
@@ -835,8 +861,10 @@ static void __init imx8mq_clocks_init(struct device_node *ccm_node)
 	of_clk_add_provider(np, of_clk_src_onecell_get, &clk_data);
 
 	/* enable all the clocks just for bringup */
-	for (i = 0; i < ARRAY_SIZE(clks_init_on);  i++)
-		clk_prepare_enable(clks[clks_init_on[i]]);
+	if (imx_clk_init_on(ccm_node, clks)) {
+		for (i = 0; i < ARRAY_SIZE(clks_init_on);  i++)
+			clk_prepare_enable(clks[clks_init_on[i]]);
+	}
 
 	clk_set_parent(clks[IMX8MQ_VIDEO2_PLL1_OUT], clks[IMX8MQ_VIDEO2_PLL1]);
 	clk_set_parent(clks[IMX8MQ_VIDEO2_PLL2_OUT], clks[IMX8MQ_VIDEO2_PLL2_DIV]);
