@@ -501,7 +501,8 @@ _UserMemoryAttach(
 
     Mdl->priv = userMemory;
     Mdl->numPages = userMemory->pageCount + userMemory->extraPage;
-    Mdl->contiguous = (userMemory->chunk_count == 1);
+    /* Not contiguous with extra pages */
+    Mdl->contiguous = gcvFALSE;
 
     gcmkFOOTER_NO();
     return gcvSTATUS_OK;
