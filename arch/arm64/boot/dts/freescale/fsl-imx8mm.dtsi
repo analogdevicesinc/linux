@@ -187,6 +187,101 @@
 		};
 	};
 
+	power-domains {
+		compatible = "simple-bus";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		/* HSIOMIX */
+		hsio_pd: power-domain@0 {
+			compatible = "fsl,imx8mm-pm-domain";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			domain-id = <0>;
+			#power-domain-cells = <0>;
+			domain-name = "HSIO_PD";
+			clocks = <&clk IMX8MM_CLK_USB1_CTRL_ROOT>;
+
+			pcie0_pd: power-domain@1 {
+				domain-id = <1>;
+				#power-domain-cells = <0>;
+				domain-name = "PCIE0_PD";
+				clocks = <&clk IMX8MM_CLK_PCIE1_ROOT>;
+			};
+
+			usb_otg1_pd: power-domain@2 {
+				domain-id = <2>;
+				#power-domain-cells = <0>;
+				domain-name = "USB_OTG1_PD";
+			};
+
+			usb_otg2_pd: power-domain@3 {
+				domain-id = <3>;
+				#power-domain-cells = <0>;
+				domain-name = "USB_OTG2_PD";
+			};
+		};
+
+		/* GPU2D&3D */
+		gpumix_pd: power-domain@4 {
+			compatible = "fsl,imx8mm-pm-domain";
+			domain-id = <4>;
+			#power-domain-cells = <0>;
+			domain-name = "GPUMIX_PD";
+			clocks = <&clk IMX8MM_CLK_GPU_BUS_ROOT>,
+				 <&clk IMX8MM_CLK_GPU2D_ROOT>,
+				 <&clk IMX8MM_CLK_GPU3D_ROOT>,
+				 <&clk IMX8MM_CLK_GPU_AHB_DIV>;
+		};
+
+		vpumix_pd: power-domain@5 {
+			compatible = "fsl,imx8mm-pm-domain";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			domain-id = <5>;
+			#power-domain-cells = <0>;
+			domain-name = "VPUMIX_PD";
+			clocks =  <&clk IMX8MM_CLK_VPU_DEC_ROOT>;
+
+			vpu_g1_pd: power-domain@6 {
+				domain-id = <6>;
+				#power-domain-cells = <0>;
+				domain-name = "VPU_G1_PD";
+				clocks = <&clk IMX8MM_CLK_VPU_G1_ROOT>;
+			};
+
+			vpu_g2_pd: power-domain@7 {
+				domain-id = <7>;
+				#power-domain-cells = <0>;
+				domain-name = "VPU_G2_PD";
+				clocks = <&clk IMX8MM_CLK_VPU_G2_ROOT>;
+			};
+
+			vpu_h1_pd: power-domain@8 {
+				domain-id = <8>;
+				#power-domain-cells = <0>;
+				domain-name = "VPU_H1_PD";
+				clocks = <&clk IMX8MM_CLK_VPU_H1_ROOT>;
+			};
+		};
+
+		dispmix_pd: power-domain@9 {
+			compatible = "fsl,imx8mm-pm-domain";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			domain-id = <9>;
+			#power-domain-cells = <0>;
+			domain-name = "DISPMIX_PD";
+			clocks = <&clk IMX8MM_CLK_DISP_ROOT>;
+
+			mipi_pd: power-domain@10 {
+				domain-id = <10>;
+				#power-domain-cells = <0>;
+				domain-name = "MIPI_PD";
+			};
+		};
+	};
+
 	csi1_bridge: csi1_bridge@32e20000 {
 		compatible = "fsl,imx8mm-csi", "fsl,imx8mq-csi", "fsl,imx6s-csi";
 		reg = <0x0 0x32e20000 0x0 0x10000>;
@@ -195,6 +290,7 @@
 			<&clk IMX8MM_CLK_CSI1_ROOT>,
 			<&clk IMX8MM_CLK_DISP_APB_ROOT>;
 		clock-names = "disp-axi", "csi_mclk", "disp_dcic";
+		power-domains = <&dispmix_pd>;
 		status = "disabled";
 	};
 
@@ -209,84 +305,8 @@
 			<&clk IMX8MM_CLK_DISP_APB_ROOT>;
 		clock-names = "mipi_clk", "phy_clk", "disp_axi", "disp_apb";
 		bus-width = <4>;
+		power-domains = <&mipi_pd>;
 		status = "disabled";
-	};
-
-	mipi_pd: gpc_power_domain@0 {
-		compatible = "fsl,imx8mm-pm-domain";
-		#power-domain-cells = <0>;
-		domain-id = <0>;
-		domain-name = "MIPI_PD";
-	};
-
-	pcie0_pd: gpc_power_domain@1 {
-		compatible = "fsl,imx8mm-pm-domain";
-		#power-domain-cells = <0>;
-		domain-id = <1>;
-		domain-name = "PCIE0_PD";
-	};
-
-	usb_otg1_pd: gpc_power_domain@2 {
-		compatible = "fsl,imx8mm-pm-domain";
-		#power-domain-cells = <0>;
-		domain-id = <2>;
-		domain-name = "USB_OTG1_PD";
-	};
-
-	usb_otg2_pd: gpc_power_domain@3 {
-		compatible = "fsl,imx8mm-pm-domain";
-		#power-domain-cells = <0>;
-		domain-id = <3>;
-		domain-name = "USB_OTG2_PD";
-	};
-
-	gpu_2d_pd: gpc_power_domain@4 {
-		compatible = "fsl,imx8mm-pm-domain";
-		#power-domain-cells = <0>;
-		domain-id = <4>;
-		domain-name = "GPU_2D_PD";
-	};
-
-	gpu_mix_pd: gpc_power_domain@5 {
-		compatible = "fsl,imx8mm-pm-domain";
-		#power-domain-cells = <0>;
-		domain-id = <5>;
-		domain-name = "GPU_MIX_PD";
-	};
-
-	vpu_mix_pd: gpc_power_domain@6 {
-		compatible = "fsl,imx8mm-pm-domain";
-		#power-domain-cells = <0>;
-		domain-id = <6>;
-		domain-name = "VPU_MIX_PD";
-	};
-
-	disp_mix_pd: gpc_power_domain@7 {
-		compatible = "fsl,imx8mm-pm-domain";
-		#power-domain-cells = <0>;
-		domain-id = <7>;
-		domain-name = "DISP_MIX_PD";
-	};
-
-	vpu_g1_pd: gpc_power_domain@8 {
-		compatible = "fsl,imx8mm-pm-domain";
-		#power-domain-cells = <0>;
-		domain-id = <8>;
-		domain-name = "VPU_G1_PD";
-	};
-
-	vpu_g2_pd: gpc_power_domain@9 {
-		compatible = "fsl,imx8mm-pm-domain";
-		#power-domain-cells = <0>;
-		domain-id = <9>;
-		domain-name = "VPU_G2_PD";
-	};
-
-	vpu_h1_pd: gpc_power_domain@10 {
-		compatible = "fsl,imx8mm-pm-domain";
-		#power-domain-cells = <0>;
-		domain-id = <10>;
-		domain-name = "VPU_H1_PD";
 	};
 
 	gpio1: gpio@30200000 {
@@ -595,6 +615,7 @@
 					 <&clk IMX8MM_SYS_PLL1_100M>;
 		fsl,usbphy = <&usbphynop1>;
 		fsl,usbmisc = <&usbmisc1 0>;
+		power-domains = <&usb_otg1_pd>;
 		status = "disabled";
 	};
 
@@ -624,6 +645,7 @@
 				<&clk IMX8MM_SYS_PLL1_100M>;
 		fsl,usbphy = <&usbphynop2>;
 		fsl,usbmisc = <&usbmisc2 0>;
+		power-domains = <&usb_otg2_pd>;
 		status = "disabled";
 	};
 
@@ -969,6 +991,7 @@
 		assigned-clock-rate = <594000000>, <500000000>, <200000000>;
 		interrupts = <GIC_SPI 5 IRQ_TYPE_LEVEL_HIGH>;
 		lcdif-gpr = <&dispmix_gpr>;
+		power-domains = <&dispmix_pd>;
 		status = "disabled";
 
 		lcdif_disp0: port@0 {
@@ -998,6 +1021,7 @@
 		assigned-clock-rates = <266000000>, <594000000>;
 		interrupts = <GIC_SPI 18 IRQ_TYPE_LEVEL_HIGH>;
 		dsi-gpr = <&dispmix_gpr>;
+		power-domains = <&mipi_pd>;
 		status = "disabled";
 
 		port@0 {
@@ -1152,7 +1176,7 @@
 		assigned-clock-parents = <&clk IMX8MM_GPU_PLL_OUT>,<&clk IMX8MM_GPU_PLL_OUT>, <&clk IMX8MM_SYS_PLL1_800M>, <&clk IMX8MM_SYS_PLL1_800M>;
 		assigned-clock-rates = <0>, <0>, <0>,<0>,<1000000000>, <400000000>;
 
-		power-domains = <&gpu_mix_pd>;
+		power-domains = <&gpumix_pd>;
 
 		status = "disabled";
 	};
