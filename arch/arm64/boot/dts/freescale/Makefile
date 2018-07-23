@@ -57,6 +57,8 @@ dtb-$(CONFIG_ARCH_FSL_IMX8QXP) += fsl-imx8qxp-lpddr4-arm2.dtb \
 				  fsl-imx8qxp-mek-it6263-lvds1-dual-channel.dtb \
 				  fsl-imx8qxp-mek-jdi-wuxga-lvds0-panel.dtb \
 				  fsl-imx8qxp-mek-jdi-wuxga-lvds1-panel.dtb \
+				  fsl-imx8qxp-mek-root.dtb \
+				  fsl-imx8qxp-mek-inmate.dtb \
 				  fsl-imx8qxp-lpddr4-arm2-enet2.dtb \
 				  fsl-imx8qxp-lpddr4-arm2-enet2-tja1100.dtb \
 				  fsl-imx8qxp-lpddr4-arm2-gpmi-nand.dtb \
