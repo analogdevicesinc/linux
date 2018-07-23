@@ -1,7 +1,7 @@
 /*****************************************************************************
  *    The GPL License (GPL)
  *
- *    Copyright (c) 2015-2017, VeriSilicon Inc.
+ *    Copyright (c) 2015-2018, VeriSilicon Inc.
  *    Copyright (c) 2011-2014, Google Inc.
  *
  *    This program is free software; you can redistribute it and/or
@@ -48,6 +48,8 @@
 #include <linux/pm_runtime.h>
 #include <linux/clk.h>
 #include <linux/busfreq-imx.h>
+
+#include <linux/delay.h>
 
 #ifdef CONFIG_DEVICE_THERMAL_XXX
 #include <linux/device_cooling.h>
@@ -265,8 +267,13 @@ static int hantro_ctrlblk_reset(hantrodec_t *dev)
 	iobase = (volatile u8 *)ioremap_nocache(BLK_CTL_BASE, 0x10000);
 	if (dev->core_id == 0) {
 		val = ioread32(iobase);
+		val &= (~0x2);
+		iowrite32(val, iobase);  //assert G1 block soft reset  control
+		udelay(2);
+		val = ioread32(iobase);
 		val |= 0x2;
-		iowrite32(val, iobase);  //VPUMIX G1 block soft reset  control
+		iowrite32(val, iobase);  //desert G1 block soft reset  control
+
 		val = ioread32(iobase+4);
 		val |= 0x2;
 		iowrite32(val, iobase+4); //VPUMIX G1 block clock enable control
@@ -274,8 +281,13 @@ static int hantro_ctrlblk_reset(hantrodec_t *dev)
 		iowrite32(0xFFFFFFFF, iobase + 0xC); // all G1 fuse pp enable
 	} else {
 		val = ioread32(iobase);
+		val &= (~0x1);
+		iowrite32(val, iobase);  //assert G2 block soft reset  control
+		udelay(2);
+		val = ioread32(iobase);
 		val |= 0x1;
-		iowrite32(val, iobase);  //VPUMIX G2 block soft reset  control
+		iowrite32(val, iobase);  //desert G2 block soft reset  control
+
 		val = ioread32(iobase+4);
 		val |= 0x1;
 		iowrite32(val, iobase+4); //VPUMIX G2 block clock enable control

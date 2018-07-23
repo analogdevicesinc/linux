@@ -71,6 +71,8 @@ static struct clk *hantro_clk_h1_bus;
 #define IRQF_DISABLED 0x0
 #endif
 
+#include <linux/delay.h>
+
 /* module description */
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Google Finland Oy");
@@ -186,6 +188,11 @@ static int hantro_h1_ctrlblk_reset(struct device *dev)
 	//config H1
 	hantro_h1_clk_enable(dev);
 	iobase = (volatile u8 *)ioremap_nocache(BLK_CTL_BASE, 0x10000);
+
+	val = ioread32(iobase);
+	val &= (~0x4);
+	iowrite32(val, iobase); // assert soft reset
+	udelay(2);
 
 	val = ioread32(iobase);
 	val |= 0x4;
