@@ -1,0 +1,113 @@
+/*
+ * Copyright 2018 NXP
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "fsl-imx8qm-mek.dts"
+
+/ {
+	domu {
+		/*
+		 * There are 5 MUs, 0A is used by root cell, 1A is used
+		 * by ATF, so for non-root cell, 2A/3A/4A could be used.
+		 * SC_R_MU_0A
+		 * SC_R_MU_1A
+		 * SC_R_MU_2A
+		 * SC_R_MU_3A
+		 * SC_R_MU_4A
+		 * The rsrcs and pads will be configured by uboot scu_rm cmd
+		 */
+		#address-cells = <1>;
+		#size-cells = <0>;
+		doma {
+			/*
+			 * This is not for domu, this is just reuse
+			 * the method for jailhouse inmate non root cell
+			 * Linux.
+			 */
+			compatible = "xen,domu";
+			/*
+			 * The reg property will be updated by U-Boot to
+			 * reflect the partition id.
+			 */
+			reg = <0>;
+			init_on_rsrcs = <
+				SC_R_MU_2A
+			>;
+			rsrcs = <
+				SC_R_SDHC_0
+				SC_R_DMA_0_CH16
+				SC_R_DMA_0_CH17
+				SC_R_UART_2
+				SC_R_MU_2A
+			>;
+			pads = <
+				/* emmc */
+				SC_P_EMMC0_CLK
+				SC_P_EMMC0_CMD
+				SC_P_EMMC0_DATA0
+				SC_P_EMMC0_DATA1
+				SC_P_EMMC0_DATA2
+				SC_P_EMMC0_DATA3
+				SC_P_EMMC0_DATA4
+				SC_P_EMMC0_DATA5
+				SC_P_EMMC0_DATA6
+				SC_P_EMMC0_DATA7
+				SC_P_EMMC0_STROBE
+				SC_P_EMMC0_RESET_B
+				/* lpuart2 */
+				SC_P_UART0_RTS_B
+				SC_P_UART0_CTS_B
+			>;
+		};
+	};
+
+};
+
+&{/reserved-memory} {
+
+	jh_reserved: jh@0xffc00000 {
+		no-map;
+		reg = <0x0 0xffc00000 0x0 0x400000>;
+	};
+
+	loader_reserved: loader@0xffb00000 {
+		no-map;
+		reg = <0x0 0xffb00000 0x0 0x00100000>;
+	};
+
+	ivshmem_reserved: ivshmem@0xff900000 {
+		no-map;
+		reg = <0x0 0xff900000 0x0 0x00200000>;
+	};
+
+	pci_reserved: pci@0xff700000 {
+		no-map;
+		reg = <0x0 0xff700000 0x0 0x00200000>;
+	};
+
+	/* Decrease if no need such big memory */
+	inmate_reserved: inmate@0xdf7000000 {
+		no-map;
+		reg = <0x0 0xdf700000 0x0 0x20000000>;
+	};
+};
+
+&usdhc1 {
+	/delete-property/ compatible;
+	/delete-property/ iommus;
+};
+
+&lpuart2 {
+	/* Let inmate linux use this for console */
+	status = "disabled";
+};
