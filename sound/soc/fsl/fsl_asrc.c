@@ -541,28 +541,59 @@ struct dma_chan *fsl_asrc_get_dma_channel(struct fsl_asrc_pair *pair, bool dir)
 }
 EXPORT_SYMBOL_GPL(fsl_asrc_get_dma_channel);
 
-static int fsl_asrc_select_clk(struct fsl_asrc *asrc_priv, int rate, int index)
+static int fsl_asrc_select_clk(struct fsl_asrc *asrc_priv,
+				struct fsl_asrc_pair *pair,
+				int in_rate,
+				int out_rate)
 {
+	struct asrc_config *config = pair->config;
 	int clk_rate;
 	int clk_index;
-	int i = 0;
+	int i = 0, j = 0;
+	int rate[2];
+	int select_clk[2];
+	bool clk_sel[2];
+
+	rate[0] = in_rate;
+	rate[1] = out_rate;
 
 	/*select proper clock for asrc p2p mode*/
-	for (i = 0; i < CLK_MAP_NUM; i++) {
-		clk_index = asrc_priv->clk_map[index][i];
-		clk_rate = clk_get_rate(asrc_priv->asrck_clk[clk_index]);
-		if (clk_rate != 0 && clk_rate/rate <= 1024 &&
-						clk_rate%rate == 0)
-			break;
+	for (j = 0; j < 2; j++) {
+		for (i = 0; i < CLK_MAP_NUM; i++) {
+			clk_index = asrc_priv->clk_map[j][i];
+			clk_rate = clk_get_rate(asrc_priv->asrck_clk[clk_index]);
+			if (clk_rate != 0 && (clk_rate / rate[j]) <= 1024 &&
+						(clk_rate % rate[j]) == 0)
+				break;
+		}
+
+		if (i == CLK_MAP_NUM) {
+			select_clk[j] = OUTCLK_ASRCK1_CLK;
+			clk_sel[j] = false;
+		} else {
+			select_clk[j] = i;
+			clk_sel[j] = true;
+		}
 	}
 
-	if (i == CLK_MAP_NUM)
-		clk_index = index ? OUTCLK_ASRCK1_CLK : INCLK_NONE;
-	else
-		clk_index = i;
+	if (clk_sel[0] != true || clk_sel[1] != true)
+		select_clk[IN] = INCLK_NONE;
 
+	config->inclk = select_clk[IN];
+	config->outclk = select_clk[OUT];
 
-	return clk_index;
+	/*
+	 * FIXME: workaroud for 176400/192000 with 8 channel input case
+	 * the output sample rate is 48kHz.
+	 * with ideal ratio mode, the asrc seems has performance issue
+	 * that the output sound is not correct. so switch to non-ideal
+	 * ratio mode
+	 */
+	if (config->channel_num >= 8 && config->input_sample_rate >= 176400
+		&& config->inclk == INCLK_NONE)
+		config->inclk = INCLK_ASRCK1_CLK;
+
+	return 0;
 }
 
 static int fsl_asrc_dai_hw_params(struct snd_pcm_substream *substream,
@@ -606,10 +637,13 @@ static int fsl_asrc_dai_hw_params(struct snd_pcm_substream *substream,
 		config.input_sample_rate  = rate;
 		config.output_sample_rate = asrc_priv->asrc_rate;
 
-		config.inclk = fsl_asrc_select_clk(asrc_priv,
-				config.input_sample_rate, IN);
-		config.outclk = fsl_asrc_select_clk(asrc_priv,
-				config.output_sample_rate, OUT);
+		ret = fsl_asrc_select_clk(asrc_priv, pair,
+				config.input_sample_rate,
+				config.output_sample_rate);
+		if (ret) {
+			dev_err(dai->dev, "fail to select clock\n");
+			return ret;
+		}
 
 		ret = fsl_asrc_config_pair(pair, false, true);
 		if (ret) {
@@ -623,10 +657,13 @@ static int fsl_asrc_dai_hw_params(struct snd_pcm_substream *substream,
 		config.input_sample_rate  = asrc_priv->asrc_rate;
 		config.output_sample_rate = rate;
 
-		config.inclk = fsl_asrc_select_clk(asrc_priv,
-				config.input_sample_rate, IN);
-		config.outclk = fsl_asrc_select_clk(asrc_priv,
-				config.output_sample_rate, OUT);
+		ret = fsl_asrc_select_clk(asrc_priv, pair,
+				config.input_sample_rate,
+				config.output_sample_rate);
+		if (ret) {
+			dev_err(dai->dev, "fail to select clock\n");
+			return ret;
+		}
 
 		ret = fsl_asrc_config_pair(pair, true, false);
 		if (ret) {
