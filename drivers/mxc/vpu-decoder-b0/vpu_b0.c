@@ -50,6 +50,11 @@
 
 unsigned int vpu_dbg_level_decoder = 1;
 
+/* Generic End of content startcodes to differentiate from those naturally in the stream/file */
+#define EOS_GENERIC_HEVC 0x7c010000
+#define EOS_GENERIC_JPEG 0xefff0000
+#define EOS_GENERIC_MPEG 0xCC010000
+
 static void vpu_api_event_handler(struct vpu_ctx *ctx, u_int32 uStrIdx, u_int32 uEvent, u_int32 *event_data);
 static void v4l2_vpu_send_cmd(struct vpu_ctx *ctx, uint32_t idx, uint32_t cmdid, uint32_t cmdnum, uint32_t *local_cmddata);
 static bool add_eos(struct vpu_ctx *ctx, u_int32 uStrBufIdx);
@@ -896,8 +901,7 @@ static int v4l2_ioctl_streamoff(struct file *file,
 	} else if (ctx->firmware_stopped) {
 		vpu_dbg(LVL_ERR, "%s(): not succeed and firmware is stopped\n", __func__);
 		return -EINVAL;
-	}
-	else
+	} else
 		return ret;
 }
 
@@ -1095,7 +1099,8 @@ static bool add_eos(struct vpu_ctx *ctx, u_int32 uStrBufIdx)
 		last = 0x0a010000;
 		break;
 	case VPU_VIDEO_MPEG2:
-		last = 0xb7010000;
+		//last = 0xb7010000;
+		last = EOS_GENERIC_MPEG;
 		break;
 	case VPU_VIDEO_ASP:
 		last = 0xb1010000;
@@ -1106,6 +1111,9 @@ static bool add_eos(struct vpu_ctx *ctx, u_int32 uStrBufIdx)
 	case VPU_VIDEO_RV8:
 	case VPU_VIDEO_RV9:
 		last = 0x34010000;
+		break;
+	case VPU_VIDEO_JPEG:
+		last = EOS_GENERIC_JPEG;
 		break;
 	case VPU_VIDEO_HEVC:
 		last = 0x4A010000;
