@@ -279,8 +279,11 @@ static int fsl_asrc_prepare_io_buffer(struct fsl_asrc_pair *pair,
 		return -EFAULT;
 
 	*dma_len = buf_len;
-	if (dir == OUT)
+	if (dir == OUT) {
 		*dma_len -= last_period_size * word_size * pair->channels;
+		*dma_len = *dma_len / (word_size * pair->channels) *
+				(word_size * pair->channels);
+	}
 
 	*sg_nodes = *dma_len / ASRC_MAX_BUFFER_SIZE + 1;
 
