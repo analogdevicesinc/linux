@@ -108,7 +108,7 @@ static void imx8qm_pixel_link_mux(state_struct *state, struct drm_display_mode *
 	writel(val, hdp->mem.ss_base + CSR_PIXEL_LINK_MUX_CTL);
 }
 
-int imx8qm_pixel_link_init(state_struct *state)
+static int imx8qm_pixel_link_validate(state_struct *state)
 {
 	struct imx_hdp *hdp = state_to_imx_hdp(state);
 	sc_err_t sciErr;
@@ -125,20 +125,100 @@ int imx8qm_pixel_link_init(state_struct *state)
 		return -EINVAL;
 	}
 
-	sc_misc_set_control(hdp->ipcHndl, SC_R_DC_0, SC_C_PXL_LINK_MST1_VLD, 1);
-	sc_misc_set_control(hdp->ipcHndl, SC_R_DC_0, SC_C_SYNC_CTRL0, 1);
-
-	return true;
-}
-
-void imx8qm_pixel_link_deinit(state_struct *state)
-{
-	struct imx_hdp *hdp = state_to_imx_hdp(state);
-
-	sc_misc_set_control(hdp->ipcHndl, SC_R_DC_0, SC_C_PXL_LINK_MST1_VLD, 0);
-	sc_misc_set_control(hdp->ipcHndl, SC_R_DC_0, SC_C_SYNC_CTRL0, 0);
+	sciErr = sc_misc_set_control(hdp->ipcHndl, SC_R_DC_0,
+					SC_C_PXL_LINK_MST1_VLD, 1);
+	if (sciErr != SC_ERR_NONE) {
+		DRM_ERROR("SC_R_DC_0:SC_C_PXL_LINK_MST1_VLD sc_misc_set_control failed! (sciError = %d)\n", sciErr);
+		return -EINVAL;
+	}
 
 	sc_ipc_close(hdp->mu_id);
+
+	return 0;
+}
+
+static int imx8qm_pixel_link_invalidate(state_struct *state)
+{
+	struct imx_hdp *hdp = state_to_imx_hdp(state);
+	sc_err_t sciErr;
+
+	sciErr = sc_ipc_getMuID(&hdp->mu_id);
+	if (sciErr != SC_ERR_NONE) {
+		DRM_ERROR("Cannot obtain MU ID\n");
+		return -EINVAL;
+	}
+
+	sciErr = sc_ipc_open(&hdp->ipcHndl, hdp->mu_id);
+	if (sciErr != SC_ERR_NONE) {
+		DRM_ERROR("sc_ipc_open failed! (sciError = %d)\n", sciErr);
+		return -EINVAL;
+	}
+
+	sciErr = sc_misc_set_control(hdp->ipcHndl, SC_R_DC_0, SC_C_PXL_LINK_MST1_VLD, 0);
+	if (sciErr != SC_ERR_NONE) {
+		DRM_ERROR("SC_R_DC_0:SC_C_PXL_LINK_MST1_VLD sc_misc_set_control failed! (sciError = %d)\n", sciErr);
+		return -EINVAL;
+	}
+
+	sc_ipc_close(hdp->mu_id);
+
+	return 0;
+}
+
+static int imx8qm_pixel_link_sync_ctrl_enable(state_struct *state)
+{
+	struct imx_hdp *hdp = state_to_imx_hdp(state);
+	sc_err_t sciErr;
+
+	sciErr = sc_ipc_getMuID(&hdp->mu_id);
+	if (sciErr != SC_ERR_NONE) {
+		DRM_ERROR("Cannot obtain MU ID\n");
+		return -EINVAL;
+	}
+
+	sciErr = sc_ipc_open(&hdp->ipcHndl, hdp->mu_id);
+	if (sciErr != SC_ERR_NONE) {
+		DRM_ERROR("sc_ipc_open failed! (sciError = %d)\n", sciErr);
+		return -EINVAL;
+	}
+
+	sciErr = sc_misc_set_control(hdp->ipcHndl, SC_R_DC_0, SC_C_SYNC_CTRL0, 1);
+	if (sciErr != SC_ERR_NONE) {
+		DRM_ERROR("SC_R_DC_0:SC_C_SYNC_CTRL0 sc_misc_set_control failed! (sciError = %d)\n", sciErr);
+		return -EINVAL;
+	}
+
+	sc_ipc_close(hdp->mu_id);
+
+	return 0;
+}
+
+static int imx8qm_pixel_link_sync_ctrl_disable(state_struct *state)
+{
+	struct imx_hdp *hdp = state_to_imx_hdp(state);
+	sc_err_t sciErr;
+
+	sciErr = sc_ipc_getMuID(&hdp->mu_id);
+	if (sciErr != SC_ERR_NONE) {
+		DRM_ERROR("Cannot obtain MU ID\n");
+		return -EINVAL;
+	}
+
+	sciErr = sc_ipc_open(&hdp->ipcHndl, hdp->mu_id);
+	if (sciErr != SC_ERR_NONE) {
+		DRM_ERROR("sc_ipc_open failed! (sciError = %d)\n", sciErr);
+		return -EINVAL;
+	}
+
+	sciErr = sc_misc_set_control(hdp->ipcHndl, SC_R_DC_0, SC_C_SYNC_CTRL0, 0);
+	if (sciErr != SC_ERR_NONE) {
+		DRM_ERROR("SC_R_DC_0:SC_C_SYNC_CTRL0 sc_misc_set_control failed! (sciError = %d)\n", sciErr);
+		return -EINVAL;
+	}
+
+	sc_ipc_close(hdp->mu_id);
+
+	return 0;
 }
 
 void imx8qm_phy_reset(sc_ipc_t ipcHndl, struct hdp_mem *mem, u8 reset)
@@ -788,6 +868,10 @@ static const struct drm_bridge_funcs imx_hdp_bridge_funcs = {
 
 static void imx_hdp_imx_encoder_disable(struct drm_encoder *encoder)
 {
+	struct imx_hdp *hdp = container_of(encoder, struct imx_hdp, encoder);
+
+	imx_hdp_call(hdp, pixel_link_sync_ctrl_disable, &hdp->state);
+	imx_hdp_call(hdp, pixel_link_invalidate, &hdp->state);
 }
 
 static void imx_hdp_imx_encoder_enable(struct drm_encoder *encoder)
@@ -799,7 +883,7 @@ static void imx_hdp_imx_encoder_enable(struct drm_encoder *encoder)
 	int ret = 0;
 
 	if (!hdp->ops->write_hdr_metadata)
-		return;
+		goto out;
 
 	if (hdp->hdr_metadata_present) {
 		hdr_metadata = (struct hdr_static_metadata *)
@@ -825,6 +909,10 @@ static void imx_hdp_imx_encoder_enable(struct drm_encoder *encoder)
 	}
 
 	hdp->ops->write_hdr_metadata(&hdp->state, &frame);
+
+out:
+	imx_hdp_call(hdp, pixel_link_validate, &hdp->state);
+	imx_hdp_call(hdp, pixel_link_sync_ctrl_enable , &hdp->state);
 }
 
 static int imx_hdp_imx_encoder_atomic_check(struct drm_encoder *encoder,
@@ -954,8 +1042,10 @@ static struct hdp_ops imx8qm_dp_ops = {
 	.get_hpd_state = dp_get_hpd_state,
 
 	.phy_reset = imx8qm_phy_reset,
-	.pixel_link_init = imx8qm_pixel_link_init,
-	.pixel_link_deinit = imx8qm_pixel_link_deinit,
+	.pixel_link_validate = imx8qm_pixel_link_validate,
+	.pixel_link_invalidate = imx8qm_pixel_link_invalidate,
+	.pixel_link_sync_ctrl_enable = imx8qm_pixel_link_sync_ctrl_enable,
+	.pixel_link_sync_ctrl_disable = imx8qm_pixel_link_sync_ctrl_disable,
 	.pixel_link_mux = imx8qm_pixel_link_mux,
 
 	.clock_init = imx8qm_clock_init,
@@ -978,8 +1068,10 @@ static struct hdp_ops imx8qm_hdmi_ops = {
 	.get_hpd_state = hdmi_get_hpd_state,
 
 	.phy_reset = imx8qm_phy_reset,
-	.pixel_link_init = imx8qm_pixel_link_init,
-	.pixel_link_deinit = imx8qm_pixel_link_deinit,
+	.pixel_link_validate = imx8qm_pixel_link_validate,
+	.pixel_link_invalidate = imx8qm_pixel_link_invalidate,
+	.pixel_link_sync_ctrl_enable = imx8qm_pixel_link_sync_ctrl_enable,
+	.pixel_link_sync_ctrl_disable = imx8qm_pixel_link_sync_ctrl_disable,
 	.pixel_link_mux = imx8qm_pixel_link_mux,
 
 	.clock_init = imx8qm_clock_init,
@@ -1199,12 +1291,6 @@ static int imx_hdp_imx_bind(struct device *dev, struct device *master,
 
 	hdp->dual_mode = false;
 
-	ret = imx_hdp_call(hdp, pixel_link_init, &hdp->state);
-	if (ret < 0) {
-		DRM_ERROR("Failed to initialize clock %d\n", ret);
-		return ret;
-	}
-
 	ret = imx_hdp_call(hdp, clock_init, &hdp->clks);
 	if (ret < 0) {
 		DRM_ERROR("Failed to initialize clock\n");
@@ -1344,7 +1430,6 @@ static void imx_hdp_imx_unbind(struct device *dev, struct device *master,
 		imx_cec_unregister(&hdp->cec);
 #endif
 	imx_hdp_call(hdp, pixel_clock_disable, &hdp->clks);
-	imx_hdp_call(hdp, pixel_link_deinit, &hdp->state);
 }
 
 static const struct component_ops imx_hdp_imx_ops = {

@@ -96,8 +96,10 @@ struct hdp_ops {
 				  union hdmi_infoframe *hdr_infoframe);
 
 	void (*phy_reset)(sc_ipc_t ipcHndl, struct hdp_mem *mem, u8 reset);
-	int (*pixel_link_init)(state_struct *state);
-	void (*pixel_link_deinit)(state_struct *state);
+	int (*pixel_link_validate)(state_struct *state);
+	int (*pixel_link_invalidate)(state_struct *state);
+	int (*pixel_link_sync_ctrl_enable)(state_struct *state);
+	int (*pixel_link_sync_ctrl_disable)(state_struct *state);
 	void (*pixel_link_mux)(state_struct *state, struct drm_display_mode *mode);
 	void (*pixel_engine_reset)(state_struct *state);
 
