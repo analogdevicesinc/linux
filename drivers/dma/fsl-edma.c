@@ -996,6 +996,13 @@ fsl_edma2_irq_init(struct platform_device *pdev,
 	return 0;
 }
 
+static void fsl_edma_synchronize(struct dma_chan *chan)
+{
+	struct fsl_edma_chan *fsl_chan = to_fsl_edma_chan(chan);
+
+	vchan_synchronize(&fsl_chan->vchan);
+}
+
 static int fsl_edma_probe(struct platform_device *pdev)
 {
 	struct device_node *np = pdev->dev.of_node;
@@ -1123,6 +1130,7 @@ static int fsl_edma_probe(struct platform_device *pdev)
 	fsl_edma->dma_dev.device_resume = fsl_edma_device_resume;
 	fsl_edma->dma_dev.device_terminate_all = fsl_edma_terminate_all;
 	fsl_edma->dma_dev.device_issue_pending = fsl_edma_issue_pending;
+	fsl_edma->dma_dev.device_synchronize = fsl_edma_synchronize;
 
 	fsl_edma->dma_dev.src_addr_widths = FSL_EDMA_BUSWIDTHS;
 	fsl_edma->dma_dev.dst_addr_widths = FSL_EDMA_BUSWIDTHS;
