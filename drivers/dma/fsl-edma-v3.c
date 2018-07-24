@@ -812,6 +812,13 @@ static void fsl_edma3_free_chan_resources(struct dma_chan *chan)
 	fsl_chan->used = false;
 }
 
+static void fsl_edma3_synchronize(struct dma_chan *chan)
+{
+	struct fsl_edma3_chan *fsl_chan = to_fsl_edma3_chan(chan);
+
+	vchan_synchronize(&fsl_chan->vchan);
+}
+
 static int fsl_edma3_probe(struct platform_device *pdev)
 {
 	struct device_node *np = pdev->dev.of_node;
@@ -927,6 +934,7 @@ static int fsl_edma3_probe(struct platform_device *pdev)
 	fsl_edma3->dma_dev.device_resume = fsl_edma3_resume;
 	fsl_edma3->dma_dev.device_terminate_all = fsl_edma3_terminate_all;
 	fsl_edma3->dma_dev.device_issue_pending = fsl_edma3_issue_pending;
+	fsl_edma3->dma_dev.device_synchronize = fsl_edma3_synchronize;
 
 	fsl_edma3->dma_dev.src_addr_widths = FSL_EDMA_BUSWIDTHS;
 	fsl_edma3->dma_dev.dst_addr_widths = FSL_EDMA_BUSWIDTHS;
