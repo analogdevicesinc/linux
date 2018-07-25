@@ -49,6 +49,7 @@ struct lcdif_soc {
 	int irq;
 	void __iomem *base;
 	struct regmap *gpr;
+	bool rpm_suspended;
 
 	struct clk *clk_pix;
 	struct clk *clk_disp_axi;
@@ -612,6 +613,7 @@ static int imx_lcdif_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, lcdif);
 
 	pm_runtime_enable(dev);
+	lcdif->rpm_suspended = true;
 
 	dev_dbg(dev, "%s: probe end\n", __func__);
 
@@ -651,9 +653,14 @@ static int imx_lcdif_runtime_suspend(struct device *dev)
 {
 	struct lcdif_soc *lcdif = dev_get_drvdata(dev);
 
+	if (lcdif->rpm_suspended == true)
+		return 0;
+
 	lcdif_disable_clocks(lcdif);
 
 	release_bus_freq(BUS_FREQ_HIGH);
+
+	lcdif->rpm_suspended = true;
 
 	return 0;
 }
@@ -662,6 +669,9 @@ static int imx_lcdif_runtime_resume(struct device *dev)
 {
 	int ret = 0;
 	struct lcdif_soc *lcdif = dev_get_drvdata(dev);
+
+	if (lcdif->rpm_suspended == false)
+		return 0;
 
 	request_bus_freq(BUS_FREQ_HIGH);
 
@@ -676,6 +686,8 @@ static int imx_lcdif_runtime_resume(struct device *dev)
 
 	/* Pull LCDIF out of reset */
 	writel(0x0, lcdif->base + LCDIF_CTRL);
+
+	lcdif->rpm_suspended = false;
 
 	return ret;
 }
