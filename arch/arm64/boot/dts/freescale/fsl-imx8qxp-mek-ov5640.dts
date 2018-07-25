@@ -78,12 +78,12 @@
 	};
 };
 
-&isi_1 {
+&isi_2 {
 	interface = <2 0 2>;
 	status = "okay";
 };
 
-&isi_2 {
+&isi_1 {
 	status = "disabled";
 };
 
