@@ -1691,15 +1691,23 @@ gckKERNEL_SetVidMemMetadata(
     else
     {
         nodeObj->metadata.ts_fd             = Interface->u.SetVidMemMetadata.ts_fd;
-        if (nodeObj->metadata.ts_fd > 0)
+
+        if (nodeObj->metadata.ts_fd >= 0)
         {
             nodeObj->metadata.ts_dma_buf    = dma_buf_get(nodeObj->metadata.ts_fd);
+
             if (IS_ERR(nodeObj->metadata.ts_dma_buf))
             {
                 gcmkONERROR(gcvSTATUS_NOT_FOUND);
             }
+
             dma_buf_put(nodeObj->metadata.ts_dma_buf);
         }
+        else
+        {
+            nodeObj->metadata.ts_dma_buf    = NULL;
+        }
+
         nodeObj->metadata.fc_enabled        = Interface->u.SetVidMemMetadata.fc_enabled;
         nodeObj->metadata.fc_value          = Interface->u.SetVidMemMetadata.fc_value;
         nodeObj->metadata.fc_value_upper    = Interface->u.SetVidMemMetadata.fc_value_upper;
@@ -1707,9 +1715,8 @@ gckKERNEL_SetVidMemMetadata(
         nodeObj->metadata.compress_format   = Interface->u.SetVidMemMetadata.compress_format;
     }
 
-    gcmkFOOTER();
-
 OnError:
+    gcmkFOOTER();
     return status;
 }
 
