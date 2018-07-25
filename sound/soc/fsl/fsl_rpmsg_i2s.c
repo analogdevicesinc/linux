@@ -30,10 +30,10 @@
 				SNDRV_PCM_RATE_48000)
 #define FSL_RPMSG_I2S_FORMATS	SNDRV_PCM_FMTBIT_S16_LE
 
-static int i2s_send_message(struct i2s_rpmsg_s *msg,
+static int i2s_send_message(struct i2s_rpmsg *msg,
 			       struct i2s_info *info)
 {
-	int err;
+	int err = 0;
 
 	mutex_lock(&info->tx_lock);
 	if (!info->rpdev) {
@@ -42,10 +42,12 @@ static int i2s_send_message(struct i2s_rpmsg_s *msg,
 		return -EINVAL;
 	}
 
-	dev_dbg(&info->rpdev->dev, "send cmd %d\n", msg->header.cmd);
+	dev_dbg(&info->rpdev->dev, "send cmd %d\n", msg->send_msg.header.cmd);
 
-	reinit_completion(&info->cmd_complete);
-	err = rpmsg_send(info->rpdev->ept, (void *)msg,
+	if (!(msg->send_msg.header.type == I2S_TYPE_C))
+		reinit_completion(&info->cmd_complete);
+
+	err = rpmsg_send(info->rpdev->ept, (void *)&msg->send_msg,
 			 sizeof(struct i2s_rpmsg_s));
 	if (err) {
 		dev_err(&info->rpdev->dev, "rpmsg_send failed: %d\n", err);
@@ -53,20 +55,25 @@ static int i2s_send_message(struct i2s_rpmsg_s *msg,
 		return err;
 	}
 
-	/* wait response from rpmsg */
-	err = wait_for_completion_timeout(&info->cmd_complete,
+	if (!(msg->send_msg.header.type == I2S_TYPE_C)) {
+		/* wait response from rpmsg */
+		err = wait_for_completion_timeout(&info->cmd_complete,
 					  msecs_to_jiffies(RPMSG_TIMEOUT));
-	if (!err) {
-		dev_err(&info->rpdev->dev, "rpmsg_send cmd %d timeout!\n",
-							msg->header.cmd);
-		mutex_unlock(&info->tx_lock);
-		return -ETIMEDOUT;
+		if (!err) {
+			dev_err(&info->rpdev->dev,
+					"rpmsg_send cmd %d timeout!\n",
+					msg->send_msg.header.cmd);
+			mutex_unlock(&info->tx_lock);
+			return -ETIMEDOUT;
+		}
+		memcpy(&msg->recv_msg, &info->recv_msg,
+					sizeof(struct i2s_rpmsg_r));
+		memcpy(&info->rpmsg[msg->recv_msg.header.cmd].recv_msg,
+			&msg->recv_msg, sizeof(struct i2s_rpmsg_r));
 	}
 
-	if (msg->header.cmd == GET_CODEC_VALUE)
-		msg->param.buffer_size = info->recv_msg.param.reg_data;
-
-	dev_dbg(&info->rpdev->dev, "cmd:%d, resp %d\n", msg->header.cmd,
+	dev_dbg(&info->rpdev->dev, "cmd:%d, resp %d\n",
+						msg->send_msg.header.cmd,
 						info->recv_msg.param.resp);
 	mutex_unlock(&info->tx_lock);
 
@@ -99,6 +106,7 @@ static const struct snd_soc_component_driver fsl_component = {
 
 static const struct of_device_id fsl_rpmsg_i2s_ids[] = {
 	{ .compatible = "fsl,imx7ulp-rpmsg-i2s"},
+	{ .compatible = "fsl,imx8mq-rpmsg-i2s"},
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, fsl_rpmsg_i2s_ids);
@@ -149,16 +157,55 @@ static int fsl_rpmsg_i2s_probe(struct platform_device *pdev)
 		i2s_info->work_list[i].i2s_info = i2s_info;
 	}
 
-	for (i = 0; i < RPMSG_AUDIO_NUM; i++) {
-		i2s_info->send_msg[i].header.cate  = IMX_RPMSG_AUDIO;
-		i2s_info->send_msg[i].header.major = IMX_RMPSG_MAJOR;
-		i2s_info->send_msg[i].header.minor = IMX_RMPSG_MINOR;
-		i2s_info->send_msg[i].header.type  = I2S_TYPE_A;
-		i2s_info->send_msg[i].param.audioindex = audioindex;
+	for (i = 0; i < I2S_CMD_MAX_NUM ; i++) {
+		i2s_info->rpmsg[i].send_msg.header.cate  = IMX_RPMSG_AUDIO;
+		i2s_info->rpmsg[i].send_msg.header.major = IMX_RMPSG_MAJOR;
+		i2s_info->rpmsg[i].send_msg.header.minor = IMX_RMPSG_MINOR;
+		i2s_info->rpmsg[i].send_msg.header.type  = I2S_TYPE_A;
+		i2s_info->rpmsg[i].send_msg.param.audioindex = audioindex;
 	}
 
 	mutex_init(&i2s_info->tx_lock);
 	mutex_init(&i2s_info->i2c_lock);
+
+	if (of_device_is_compatible(pdev->dev.of_node,
+				    "fsl,imx7ulp-rpmsg-i2s")) {
+		rpmsg_i2s->codec = 1;
+		rpmsg_i2s->version = 1;
+		rpmsg_i2s->rates = SNDRV_PCM_RATE_8000 |
+				SNDRV_PCM_RATE_16000 |
+				SNDRV_PCM_RATE_48000;
+		rpmsg_i2s->formats =  SNDRV_PCM_FMTBIT_S16_LE;
+		fsl_rpmsg_i2s_dai.playback.rates = rpmsg_i2s->rates;
+		fsl_rpmsg_i2s_dai.playback.formats = rpmsg_i2s->formats;
+		fsl_rpmsg_i2s_dai.capture.rates = rpmsg_i2s->rates;
+		fsl_rpmsg_i2s_dai.capture.formats = rpmsg_i2s->formats;
+	}
+
+	if (of_device_is_compatible(pdev->dev.of_node,
+				    "fsl,imx8mq-rpmsg-i2s")) {
+		rpmsg_i2s->codec = 0;
+		rpmsg_i2s->version = 2;
+		rpmsg_i2s->rates = SNDRV_PCM_RATE_32000 |
+				SNDRV_PCM_RATE_48000 |
+				SNDRV_PCM_RATE_96000 |
+				SNDRV_PCM_RATE_192000;
+		rpmsg_i2s->formats = SNDRV_PCM_FMTBIT_S16_LE |
+					SNDRV_PCM_FMTBIT_S24_LE |
+					SNDRV_PCM_FMTBIT_S32_LE |
+					SNDRV_PCM_FMTBIT_S24_3LE;
+		fsl_rpmsg_i2s_dai.playback.rates = rpmsg_i2s->rates;
+		fsl_rpmsg_i2s_dai.playback.formats = rpmsg_i2s->formats;
+		fsl_rpmsg_i2s_dai.capture.rates = rpmsg_i2s->rates;
+		fsl_rpmsg_i2s_dai.capture.formats = rpmsg_i2s->formats;
+	}
+
+	if (of_property_read_bool(pdev->dev.of_node, "fsl,enable-lpa"))
+		rpmsg_i2s->enable_lpa = 1;
+
+	if (of_property_read_u32(np, "fsl,dma-buffer-size",
+					&i2s_info->prealloc_buffer_size))
+		i2s_info->prealloc_buffer_size = IMX_DEFAULT_DMABUF_SIZE;
 
 	platform_set_drvdata(pdev, rpmsg_i2s);
 	pm_runtime_enable(&pdev->dev);
@@ -205,17 +252,17 @@ static int fsl_rpmsg_i2s_suspend(struct device *dev)
 {
 	struct fsl_rpmsg_i2s *rpmsg_i2s = dev_get_drvdata(dev);
 	struct i2s_info  *i2s_info =  &rpmsg_i2s->i2s_info;
-	struct i2s_rpmsg_s *rpmsg_tx;
-	struct i2s_rpmsg_s *rpmsg_rx;
+	struct i2s_rpmsg *rpmsg_tx;
+	struct i2s_rpmsg *rpmsg_rx;
 
 	flush_workqueue(i2s_info->rpmsg_wq);
-	rpmsg_tx = &i2s_info->send_msg[SNDRV_PCM_STREAM_PLAYBACK];
-	rpmsg_rx = &i2s_info->send_msg[SNDRV_PCM_STREAM_CAPTURE];
+	rpmsg_tx = &i2s_info->rpmsg[I2S_TX_SUSPEND];
+	rpmsg_rx = &i2s_info->rpmsg[I2S_RX_SUSPEND];
 
-	rpmsg_tx->header.cmd = I2S_TX_SUSPEND;
+	rpmsg_tx->send_msg.header.cmd = I2S_TX_SUSPEND;
 	i2s_send_message(rpmsg_tx, i2s_info);
 
-	rpmsg_rx->header.cmd = I2S_RX_SUSPEND;
+	rpmsg_rx->send_msg.header.cmd = I2S_RX_SUSPEND;
 	i2s_send_message(rpmsg_rx, i2s_info);
 
 	return 0;
@@ -225,16 +272,16 @@ static int fsl_rpmsg_i2s_resume(struct device *dev)
 {
 	struct fsl_rpmsg_i2s *rpmsg_i2s = dev_get_drvdata(dev);
 	struct i2s_info  *i2s_info =  &rpmsg_i2s->i2s_info;
-	struct i2s_rpmsg_s *rpmsg_tx;
-	struct i2s_rpmsg_s *rpmsg_rx;
+	struct i2s_rpmsg *rpmsg_tx;
+	struct i2s_rpmsg *rpmsg_rx;
 
-	rpmsg_tx = &i2s_info->send_msg[SNDRV_PCM_STREAM_PLAYBACK];
-	rpmsg_rx = &i2s_info->send_msg[SNDRV_PCM_STREAM_CAPTURE];
+	rpmsg_tx = &i2s_info->rpmsg[I2S_TX_RESUME];
+	rpmsg_rx = &i2s_info->rpmsg[I2S_RX_RESUME];
 
-	rpmsg_tx->header.cmd = I2S_TX_RESUME;
+	rpmsg_tx->send_msg.header.cmd = I2S_TX_RESUME;
 	i2s_send_message(rpmsg_tx, i2s_info);
 
-	rpmsg_rx->header.cmd = I2S_RX_RESUME;
+	rpmsg_rx->send_msg.header.cmd = I2S_RX_RESUME;
 	i2s_send_message(rpmsg_rx, i2s_info);
 
 	return 0;

@@ -304,10 +304,19 @@
 #define		I2S_RX_RESUME		0x13
 #define         SET_CODEC_VALUE         0x14
 #define         GET_CODEC_VALUE         0x15
-#define         WORK_MAX_NUM		0x16
+#define		I2S_TX_POINTER		0x16
+#define		I2S_RX_POINTER		0x17
+
+#define         I2S_TYPE_A_NUM          0x18
+
+#define         WORK_MAX_NUM		0x18
 
 #define		I2S_TX_PERIOD_DONE	0x0
 #define		I2S_RX_PERIOD_DONE	0x1
+
+#define         I2S_TYPE_C_NUM          0x2
+
+#define         I2S_CMD_MAX_NUM	        (I2S_TYPE_A_NUM + I2S_TYPE_C_NUM)
 
 #define         I2S_TYPE_A		0x0
 #define         I2S_TYPE_B		0x1
@@ -320,6 +329,7 @@
 
 #define		RPMSG_S16_LE		0x0
 #define		RPMSG_S24_LE		0x1
+#define		RPMSG_S32_LE		0x2
 
 #define		RPMSG_CH_LEFT		0x0
 #define		RPMSG_CH_RIGHT		0x1
@@ -339,10 +349,12 @@ struct i2s_param_s {
 struct i2s_param_r {
 	unsigned char audioindex;
 	unsigned char resp;
-	unsigned char reserved1[5];
+	unsigned char reserved1[1];
+	unsigned int  buffer_offset;	/* the consumed offset of buffer*/
 	unsigned int  reg_addr;
 	unsigned int  reg_data;
-	unsigned char reserved2[8];
+	unsigned char reserved2[4];
+	unsigned int  buffer_tail;
 } __packed;
 
 /* struct of send message */
@@ -357,18 +369,16 @@ struct i2s_rpmsg_r {
 	struct i2s_param_r    param;
 };
 
+struct i2s_rpmsg {
+	struct i2s_rpmsg_s       send_msg;
+	struct i2s_rpmsg_r       recv_msg;
+};
+
 struct work_of_rpmsg {
 	struct i2s_info		*i2s_info;
 	/* sent msg for each work */
-	struct i2s_rpmsg_s       msg;
+	struct i2s_rpmsg         msg;
 	struct work_struct       work;
-};
-
-enum {
-	RPMSG_AUDIO_TX = 0,
-	RPMSG_AUDIO_RX = 1,
-	RPMSG_AUDIO_I2C = 2,
-	RPMSG_AUDIO_NUM = 3,
 };
 
 typedef void (*dma_callback)(void *arg);
@@ -376,27 +386,36 @@ struct i2s_info {
 	struct rpmsg_device     *rpdev;
 	struct device            *dev;
 	struct completion        cmd_complete;
-	/* received msg */
+
+	/* received msg (global) */
 	struct i2s_rpmsg_r       recv_msg;
-	/* backup sent msg */
-	struct i2s_rpmsg_s       send_msg[RPMSG_AUDIO_NUM];
+
+	struct i2s_rpmsg         rpmsg[I2S_CMD_MAX_NUM];
 
 	struct workqueue_struct  *rpmsg_wq;
 	struct work_of_rpmsg	 work_list[WORK_MAX_NUM];
 	int                      work_index;
 	int                      num_period[2];
 	void                     *callback_param[2];
-	int (*send_message)(struct i2s_rpmsg_s *msg, struct i2s_info *info);
+	int (*send_message)(struct i2s_rpmsg *msg, struct i2s_info *info);
 	dma_callback             callback[2];
 	spinlock_t               lock[2];
 	struct mutex             tx_lock;
 	struct mutex             i2c_lock;
+	struct timer_list        stream_timer[2];
+	int                      prealloc_buffer_size;
 };
 
 struct fsl_rpmsg_i2s {
 	struct platform_device *pdev;
 	struct i2s_info        i2s_info;
 	struct pm_qos_request pm_qos_req;
+	int codec;
+	int force_lpa;
+	int version;
+	int rates;
+	u64 formats;
+	int enable_lpa;
 };
 
 #define RPMSG_CODEC_DRV_NAME "rpmsg-audio-codec"
