@@ -34,6 +34,7 @@ static int imx_rpmsg_probe(struct platform_device *pdev)
 	struct device_node *cpu_np;
 	struct platform_device *cpu_pdev;
 	struct imx_rpmsg_data *data;
+	struct fsl_rpmsg_i2s         *rpmsg_i2s;
 	int ret;
 
 	cpu_np = of_parse_phandle(pdev->dev.of_node, "cpu-dai", 0);
@@ -56,10 +57,17 @@ static int imx_rpmsg_probe(struct platform_device *pdev)
 		goto fail;
 	}
 
+	rpmsg_i2s = platform_get_drvdata(cpu_pdev);
+
 	data->dai[0].name = "rpmsg hifi";
 	data->dai[0].stream_name = "rpmsg hifi";
-	data->dai[0].codec_dai_name = "rpmsg-wm8960-hifi";
-	data->dai[0].codec_name = "rpmsg-audio-codec";
+	if (rpmsg_i2s->codec) {
+		data->dai[0].codec_dai_name = "rpmsg-wm8960-hifi";
+		data->dai[0].codec_name = "rpmsg-audio-codec";
+	} else {
+		data->dai[0].codec_dai_name = "snd-soc-dummy-dai";
+		data->dai[0].codec_name = "snd-soc-dummy";
+	}
 	data->dai[0].cpu_dai_name = dev_name(&cpu_pdev->dev);
 	data->dai[0].platform_of_node = cpu_np;
 	data->dai[0].playback_only = false;
