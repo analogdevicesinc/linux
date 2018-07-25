@@ -30,6 +30,25 @@
 	sound-wm8524 {
 		status = "disabled";
 	};
+
+	wm8524: wm8524 {
+		status = "disabled";
+	};
+
+	rpmsg_i2s: rpmsg-i2s {
+		compatible = "fsl,imx8mq-rpmsg-i2s";
+		/* the audio device index in m4 domain */
+		fsl,audioindex = <0> ;
+		fsl,dma-buffer-size = <0x6000000>;
+		status = "okay";
+	};
+
+	sound-rpmsg {
+		compatible = "fsl,imx-audio-rpmsg";
+		model = "rpmsg-audio";
+		cpu-dai = <&rpmsg_i2s>;
+	};
+
 };
 
 /*
@@ -46,5 +65,17 @@
 };
 
 &uart4 {
+	status = "disabled";
+};
+
+&sai3 {
+	status = "disabled";
+};
+
+&sdma3 {
+	status = "disabled";
+};
+
+&sai1 {
 	status = "disabled";
 };
