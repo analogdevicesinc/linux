@@ -113,14 +113,14 @@ static unsigned int rpmsg_wm8960_read(struct snd_soc_codec *codec, unsigned int 
 {
 	struct fsl_rpmsg_i2s *rpmsg_i2s = snd_soc_codec_get_drvdata(codec);
 	struct i2s_info      *i2s_info =  &rpmsg_i2s->i2s_info;
-	struct i2s_rpmsg_s   *rpmsg = &i2s_info->send_msg[RPMSG_AUDIO_I2C];
+	struct i2s_rpmsg_s   *rpmsg = &i2s_info->rpmsg[GET_CODEC_VALUE].send_msg;
 	int err, reg_val;
 
 	mutex_lock(&i2s_info->i2c_lock);
 	rpmsg->param.buffer_addr = reg;
 	rpmsg->header.cmd = GET_CODEC_VALUE;
-	err = i2s_info->send_message(rpmsg, i2s_info);
-	reg_val = rpmsg->param.buffer_size;
+	err = i2s_info->send_message(&i2s_info->rpmsg[GET_CODEC_VALUE], i2s_info);
+	reg_val = i2s_info->rpmsg[GET_CODEC_VALUE].recv_msg.param.reg_data;
 	mutex_unlock(&i2s_info->i2c_lock);
 	if (err)
 		return 0;
@@ -132,14 +132,14 @@ static int rpmsg_wm8960_write(struct snd_soc_codec *codec, unsigned int reg, uns
 {
 	struct fsl_rpmsg_i2s *rpmsg_i2s = snd_soc_codec_get_drvdata(codec);
 	struct i2s_info      *i2s_info =  &rpmsg_i2s->i2s_info;
-	struct i2s_rpmsg_s   *rpmsg = &i2s_info->send_msg[RPMSG_AUDIO_I2C];
+	struct i2s_rpmsg_s   *rpmsg = &i2s_info->rpmsg[SET_CODEC_VALUE].send_msg;
 	int err;
 
 	mutex_lock(&i2s_info->i2c_lock);
 	rpmsg->param.buffer_addr = reg;
 	rpmsg->param.buffer_size = val;
 	rpmsg->header.cmd = SET_CODEC_VALUE;
-	err = i2s_info->send_message(rpmsg, i2s_info);
+	err = i2s_info->send_message(&i2s_info->rpmsg[SET_CODEC_VALUE], i2s_info);
 	mutex_unlock(&i2s_info->i2c_lock);
 	if (err)
 		return err;
