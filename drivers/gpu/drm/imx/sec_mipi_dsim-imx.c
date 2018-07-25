@@ -49,6 +49,8 @@ struct imx_sec_dsim_device {
 	struct device *dev;
 	struct drm_encoder encoder;
 	struct regmap *gpr;
+
+	bool rpm_suspended;
 };
 
 #define enc_to_dsim(enc) container_of(enc, struct imx_sec_dsim_device, encoder)
@@ -229,6 +231,7 @@ static int imx_sec_dsim_bind(struct device *dev, struct device *master,
 	}
 
 	pm_runtime_enable(dev);
+	dsim_dev->rpm_suspended = true;
 
 	dev_dbg(dev, "%s: dsim bind end\n", __func__);
 
@@ -288,15 +291,23 @@ static int imx_sec_dsim_resume(struct device *dev)
 #ifdef CONFIG_PM
 static int imx_sec_dsim_runtime_suspend(struct device *dev)
 {
+	if (dsim_dev->rpm_suspended == true)
+		return 0;
+
 	sec_mipi_dsim_suspend(dev);
 
 	release_bus_freq(BUS_FREQ_HIGH);
+
+	dsim_dev->rpm_suspended = true;
 
 	return 0;
 }
 
 static int imx_sec_dsim_runtime_resume(struct device *dev)
 {
+	if (dsim_dev->rpm_suspended == false)
+		return 0;
+
 	request_bus_freq(BUS_FREQ_HIGH);
 
 	/* Pull dsim out of reset */
@@ -305,6 +316,8 @@ static int imx_sec_dsim_runtime_resume(struct device *dev)
 	imx_sec_dsim_lanes_reset(dsim_dev->gpr, false);
 
 	sec_mipi_dsim_resume(dev);
+
+	dsim_dev->rpm_suspended = false;
 
 	return 0;
 }
