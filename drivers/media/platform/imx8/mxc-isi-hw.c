@@ -104,6 +104,23 @@ static bool is_yuv(u32 pix_fmt)
 	}
 }
 
+static void chain_buf(struct mxc_isi_dev *mxc_isi)
+{
+	struct mxc_isi_frame *src_f = &mxc_isi->isi_cap.src_f;
+	u32 val;
+
+	if (src_f->o_width > 2048) {
+		val = readl(mxc_isi->regs + CHNL_CTRL);
+		val &= ~CHNL_CTRL_CHAIN_BUF_MASK;
+		val |= (CHNL_CTRL_CHAIN_BUF_2_CHAIN << CHNL_CTRL_CHAIN_BUF_OFFSET);
+		writel(val, mxc_isi->regs + CHNL_CTRL);
+	} else if (!mxc_isi->chain_buf) {
+		val = readl(mxc_isi->regs + CHNL_CTRL);
+		val &= ~CHNL_CTRL_CHAIN_BUF_MASK;
+		writel(val, mxc_isi->regs + CHNL_CTRL);
+	}
+}
+
 void mxc_isi_channel_set_outbuf(struct mxc_isi_dev *mxc_isi, struct mxc_isi_buffer *buf)
 {
 	struct vb2_buffer *vb2_buf = &buf->v4l2_buf.vb2_buf;
@@ -508,6 +525,9 @@ void mxc_isi_channel_config(struct mxc_isi_dev *mxc_isi)
 	struct mxc_isi_frame *dst_f = &mxc_isi->isi_cap.dst_f;
 	struct mxc_isi_frame *src_f = &mxc_isi->isi_cap.src_f;
 	u32 val;
+
+	/* images having higher than 2048 horizontal resolution */
+	chain_buf(mxc_isi);
 
 	/* config output frame size and format */
 	val = src_f->o_width | (src_f->o_height << CHNL_IMG_CFG_HEIGHT_OFFSET);
