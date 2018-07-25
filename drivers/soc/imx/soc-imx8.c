@@ -148,7 +148,7 @@ static u32 imx8qm_soc_revision(void)
 {
 	u32 rev = imx_init_revision_from_scu();
 
-	if (rev == IMX_CHIP_REVISION_1_0)
+	if (rev == IMX_CHIP_REVISION_1_0 || rev == IMX_CHIP_REVISION_1_1)
 		TKT340553_SW_WORKAROUND = true;
 
 	return rev;
