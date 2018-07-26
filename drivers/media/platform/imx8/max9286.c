@@ -2792,6 +2792,36 @@ static const struct media_entity_operations max9286_sd_media_ops = {
 	.link_setup = max9286_link_setup,
 };
 
+ssize_t analog_show(struct device *dev,
+			struct device_attribute *attr, char *buf)
+{
+	struct v4l2_subdev *sd = dev_get_drvdata(dev);
+	struct sensor_data *max9286_data = subdev_to_sensor_data(sd);
+	u8 val = 0;
+
+	ov10635_read_reg(max9286_data, 0, 0x370A, &val);
+	return sprintf(buf, "%s\n", (val & 0x4) ? "enabled" : "disabled");
+}
+
+static ssize_t analog_store(struct device *dev,
+			struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct v4l2_subdev *sd = dev_get_drvdata(dev);
+	struct sensor_data *max9286_data = subdev_to_sensor_data(sd);
+	char enabled[32];
+
+	if (sscanf(buf, "%s", enabled) > 0) {
+		if (strcmp(enabled, "enable") == 0)
+			ov10635_write_reg(max9286_data, 0, 0x370A, 0x4);
+		else
+			ov10635_write_reg(max9286_data, 0, 0x370A, 0x0);
+		return count;
+	}
+	return -EINVAL;
+}
+
+static DEVICE_ATTR(analog_test_pattern, 0644, analog_show, analog_store);
+
 /*!
  * max9286 I2C probe function
  *
@@ -2941,6 +2971,13 @@ static int max9286_probe(struct i2c_client *client,
 	/* Disable CSI Output */
 	max9286_write_reg(max9286_data, 0x15, 0x03);
 
+	/*Create device attr in sys */
+	retval = device_create_file(&client->dev, &dev_attr_analog_test_pattern);
+	if (retval < 0) {
+		dev_err(&client->dev, "%s: create device file fail\n", __func__);
+		return retval;
+	}
+
 	dev_info(&max9286_data->i2c_client->dev,
 			"max9286_mipi is found, name %s\n", sd->name);
 	return retval;
@@ -2958,6 +2995,7 @@ static int max9286_remove(struct i2c_client *client)
 	struct sensor_data *max9286_data = subdev_to_sensor_data(sd);
 
 	clk_disable_unprepare(max9286_data->sensor_clk);
+	device_remove_file(&client->dev, &dev_attr_analog_test_pattern);
 	media_entity_cleanup(&sd->entity);
 	v4l2_async_unregister_subdev(sd);
 
