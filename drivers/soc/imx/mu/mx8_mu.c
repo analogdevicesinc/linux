@@ -8,6 +8,7 @@
 #include <linux/err.h>
 #include <linux/io.h>
 #include <linux/mx8_mu.h>
+#include <linux/of.h>
 
 static int version;
 
@@ -136,9 +137,18 @@ void MU_Init(void __iomem *base)
 			  ? MU_V10_ACR_OFFSET1 : MU_ACR_OFFSET1;
 
 	reg = readl_relaxed(base + offset);
-	/* Clear GIEn, RIEn, TIEn, GIRn and ABFn. */
-	reg &= ~(MU_CR_GIEn_MASK1 | MU_CR_RIEn_MASK1 | MU_CR_TIEn_MASK1
+	/* Clear GIEn, TIEn, GIRn and ABFn. */
+	reg &= ~(MU_CR_GIEn_MASK1 | MU_CR_TIEn_MASK1
 		 | MU_CR_GIRn_MASK1 | MU_CR_NMI_MASK1 | MU_CR_Fn_MASK1);
+
+	/*
+	 * i.MX6SX and i.MX7D have multi-core power management which need
+	 * to use RIE interrupts.
+	 */
+	if (!(of_machine_is_compatible("fsl,imx6sx") ||
+		of_machine_is_compatible("fsl,imx7d")))
+		reg &= ~MU_CR_RIEn_MASK1;
+
 	writel_relaxed(reg, base + offset);
 }
 
