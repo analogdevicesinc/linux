@@ -201,8 +201,11 @@ static int dt_gpio_assert_pinctrl(struct pinctrl *p)
 	for (;; index++) {
 		gpio = of_get_named_gpio_flags(np, "pinctrl-assert-gpios",
 					       index, &flags);
-		if (gpio < 0)
+		if (gpio < 0) {
+			if (gpio == -EPROBE_DEFER)
+				return gpio;
 			break; /* End of the phandle list */
+		}
 
 		if (!gpio_is_valid(gpio))
 			return -EINVAL;
