@@ -401,17 +401,17 @@ static int fsl_dsp_close(struct inode *inode, struct file *file)
 		return PTR_ERR(client);
 
 	proxy = client->proxy;
-	if (proxy) {
-		/* ...release all pending messages */
-		xf_msg_free_all(proxy, &client->queue);
 
-		/* ...recycle client id and release memory */
-		xf_client_free(client);
-	}
+	/* release all pending messages */
+	if (proxy)
+		xf_msg_free_all(proxy, &client->queue);
 
 	dsp_priv = (struct fsl_dsp *)client->global;
 	dev = dsp_priv->dev;
 	pm_runtime_put_sync(dev);
+
+	/* ...recycle client id and release memory */
+	xf_client_free(client);
 
 	mutex_lock(&dsp_priv->dsp_mutex);
 	/* decrease reference counter when closing device */
