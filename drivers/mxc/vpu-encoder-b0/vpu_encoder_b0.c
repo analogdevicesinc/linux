@@ -465,6 +465,7 @@ static int v4l2_ioctl_try_fmt(struct file *file,
 		struct v4l2_format *f
 		)
 {
+	struct v4l2_pix_format_mplane   *pix_mp = &f->fmt.pix_mp;
 	unsigned int table_size;
 
 	if (f->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
@@ -472,6 +473,8 @@ static int v4l2_ioctl_try_fmt(struct file *file,
 		if (!format_is_support(formats_compressed_enc, table_size, f))
 			return -EINVAL;
 	} else if (f->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
+		pix_mp->field = V4L2_FIELD_ANY;
+		pix_mp->colorspace = V4L2_COLORSPACE_REC709;
 		table_size = ARRAY_SIZE(formats_yuv_enc);
 		if (!format_is_support(formats_yuv_enc, table_size, f))
 			return -EINVAL;
