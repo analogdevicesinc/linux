@@ -575,7 +575,7 @@ static ssize_t sec_mipi_dsim_host_transfer(struct mipi_dsi_host *host,
 						   packet.header,
 						   use_lpm);
 
-		ret = wait_for_completion_timeout(&dsim->pl_tx_done,
+		ret = wait_for_completion_timeout(&dsim->ph_tx_done,
 						  MIPI_FIFO_TIMEOUT);
 		if (!ret) {
 			dev_err(dsim->dev, "wait payload tx done time out\n");
