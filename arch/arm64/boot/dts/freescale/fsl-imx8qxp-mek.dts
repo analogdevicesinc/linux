@@ -192,6 +192,16 @@
 				    100>;
 		default-brightness-level = <80>;
 	};
+
+	lcdif_backlight: lcdif_backlight {
+		compatible = "pwm-backlight";
+		pwms = <&pwm_adma_lcdif 0 100000 0>;
+
+		brightness-levels = <0 4 8 16 32 64 128 255>;
+		default-brightness-level = <6>;
+		status = "disabled";
+	};
+
 };
 
 &acm {
@@ -254,7 +264,9 @@
 	imx8qxp-mek {
 		pinctrl_hog: hoggrp {
 			fsl,pins = <
+				/* TODO: conflicts with LCDIF!!!
 				SC_P_MCLK_OUT0_ADMA_ACM_MCLK_OUT0	0x0600004c
+				 */
 				SC_P_COMP_CTL_GPIO_1V8_3V3_GPIORHB_PAD	0x000514a0
 			>;
 		};
@@ -360,6 +372,46 @@
 			fsl,pins = <
 				SC_P_FLEXCAN1_TX_ADMA_FLEXCAN1_TX		0x21
 				SC_P_FLEXCAN1_RX_ADMA_FLEXCAN1_RX		0x21
+			>;
+		};
+
+		pinctrl_lcdif: lcdif_grp {
+			fsl,pins = <
+				SC_P_ESAI0_FSR_ADMA_LCDIF_D00		0x00000060
+				SC_P_ESAI0_FST_ADMA_LCDIF_D01		0x00000060
+				SC_P_ESAI0_SCKR_ADMA_LCDIF_D02		0x00000060
+				SC_P_ESAI0_SCKT_ADMA_LCDIF_D03		0x00000060
+				SC_P_ESAI0_TX0_ADMA_LCDIF_D04		0x00000060
+				SC_P_ESAI0_TX1_ADMA_LCDIF_D05		0x00000060
+				SC_P_ESAI0_TX2_RX3_ADMA_LCDIF_D06	0x00000060
+				SC_P_ESAI0_TX3_RX2_ADMA_LCDIF_D07	0x00000060
+				SC_P_ESAI0_TX4_RX1_ADMA_LCDIF_D08	0x00000060
+				SC_P_ESAI0_TX5_RX0_ADMA_LCDIF_D09	0x00000060
+				SC_P_SPDIF0_RX_ADMA_LCDIF_D10		0x00000060
+				SC_P_SPDIF0_TX_ADMA_LCDIF_D11		0x00000060
+				SC_P_SPDIF0_EXT_CLK_ADMA_LCDIF_D12	0x00000060
+				SC_P_SPI3_SCK_ADMA_LCDIF_D13		0x00000060
+				SC_P_SPI3_SDO_ADMA_LCDIF_D14		0x00000060
+				SC_P_SPI3_SDI_ADMA_LCDIF_D15		0x00000060
+				SC_P_UART1_RTS_B_ADMA_LCDIF_D16		0x00000060
+				SC_P_UART1_CTS_B_ADMA_LCDIF_D17		0x00000060
+				SC_P_SAI0_TXD_ADMA_LCDIF_D18		0x00000060
+				SC_P_SAI0_TXC_ADMA_LCDIF_D19		0x00000060
+				SC_P_SAI0_RXD_ADMA_LCDIF_D20		0x00000060
+				SC_P_SAI1_RXD_ADMA_LCDIF_D21		0x00000060
+				SC_P_SAI1_RXC_ADMA_LCDIF_D22		0x00000060
+				SC_P_SAI1_RXFS_ADMA_LCDIF_D23		0x00000060
+				SC_P_SPI3_CS0_ADMA_LCDIF_HSYNC		0x00000060
+				SC_P_SPI3_CS1_ADMA_LCDIF_RESET		0x00000060
+				SC_P_MCLK_IN1_ADMA_LCDIF_EN		0x00000060
+				SC_P_MCLK_IN0_ADMA_LCDIF_VSYNC		0x00000060
+				SC_P_MCLK_OUT0_ADMA_LCDIF_CLK		0x00000060
+			>;
+		};
+
+		pinctrl_lcdif_pwm: lcdif_pwm_grp {
+			fsl,pins = <
+				SC_P_SPI0_CS1_ADMA_LCD_PWM0_OUT		0x00000060
 			>;
 		};
 
@@ -1147,6 +1199,13 @@
 	pinctrl-0 = <&pinctrl_pwm_mipi_lvds1>;
 	status = "okay";
 };
+
+&pwm_adma_lcdif {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_lcdif_pwm>;
+	status = "okay";
+};
+
 
 /* DSI/LVDS port 1 */
 &i2c0_mipi_lvds1 {

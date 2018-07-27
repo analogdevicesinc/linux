@@ -821,6 +821,20 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 
+			pd_dma_elcdif_pll: PD_DMA_ELCDIF_PLL {
+				reg = <SC_R_ELCDIF_PLL>;
+				#power-domain-cells = <0>;
+				power-domains = <&pd_dma>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				pd_dma_lcd0: PD_DMA_LCD_0 {
+					reg = <SC_R_LCD_0>;
+					#power-domain-cells = <0>;
+					power-domains = <&pd_dma_elcdif_pll>;
+				};
+			};
+
 			pd_dma_flexcan0: PD_DMA_CAN_0 {
 				reg = <SC_R_CAN_0>;
 				#power-domain-cells = <0>;
@@ -981,20 +995,6 @@
 				reg = <SC_R_LCD_0_PWM_0>;
 				#power-domain-cells = <0>;
 				power-domains = <&pd_dma>;
-			};
-
-			pd_dma_elcdif_pll: PD_DMA_ELCDIF_PLL {
-				reg = <SC_R_ELCDIF_PLL>;
-				#power-domain-cells = <0>;
-				power-domains = <&pd_dma>;
-				#address-cells = <1>;
-				#size-cells = <0>;
-
-				pd_dma_lcd0: PD_DMA_LCD_0 {
-					reg = <SC_R_LCD_0>;
-					#power-domain-cells = <0>;
-					power-domains = <&pd_dma_elcdif_pll>;
-				};
 			};
 		};
 
@@ -1745,6 +1745,32 @@
 		clocks = <&clk IMX8QXP_MIPI0_LIS_IPG_CLK>;
 		clock-names = "ipg";
 		power-domains = <&pd_mipi_dsi0>;
+	};
+
+	adma_lcdif: lcdif@5a180000 {
+		compatible = "fsl,imx8qxp-lcdif", "fsl,imx28-lcdif";
+		reg = <0x0 0x5a180000 0x0 0x10000>;
+		clocks = <&clk IMX8QXP_LCD_CLK>, <&clk IMX8QXP_LCD_IPG_CLK>;
+		clock-names = "pix", "disp_axi";
+		assigned-clocks = <&clk IMX8QXP_LCD_SEL>, <&clk IMX8QXP_ELCDIF_PLL>;
+		assigned-clock-rates = <804000000>, <804000000>;
+		assigned-clock-parents = <&clk IMX8QXP_ELCDIF_PLL>;
+		interrupts = <GIC_SPI 62 IRQ_TYPE_LEVEL_HIGH>;
+		power-domains = <&pd_dma_lcd0>;
+		status = "disabled";
+	};
+
+	pwm_adma_lcdif: pwm@5a190000 {
+		compatible = "fsl,imx8qxp-pwm", "fsl,imx27-pwm";
+		reg = <0x0 0x5a190000 0 0x1000>;
+		clocks = <&clk IMX8QXP_PWM_IPG_CLK>,
+			 <&clk IMX8QXP_PWM_CLK>;
+		clock-names = "ipg", "per";
+		assigned-clocks = <&clk IMX8QXP_PWM_CLK>;
+		assigned-clock-rates = <24000000>;
+		#pwm-cells = <2>;
+		power-domains = <&pd_dma_pwm0>;
+		status = "disabled";
 	};
 
 	mipi_dsi_csr1: csr@56221000 {

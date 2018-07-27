@@ -1,0 +1,85 @@
+/*
+ * Copyright 2018 NXP
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "fsl-imx8qxp-mek.dts"
+
+/ {
+	display-subsystem {
+		status = "disabled";
+	};
+
+	panel {
+		compatible = "sii,43wvf1g";
+		backlight = <&lcdif_backlight>;
+
+		port {
+			panel_in: endpoint {
+				remote-endpoint = <&adapter_out>;
+			};
+		};
+	};
+
+	seiko_adapter: seiko-adapter {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "nxp,seiko-43wvfig";
+		bus_mode = <18>;
+
+		port@0 {
+			reg = <0>;
+			adapter_in: endpoint {
+				remote-endpoint = <&lcdif_out>;
+			};
+		};
+		port@1 {
+			reg = <1>;
+			adapter_out: endpoint {
+				remote-endpoint = <&panel_in>;
+			};
+		};
+	};
+
+};
+
+&esai0 {
+	status = "disabled";
+};
+
+&sai1 {
+	status = "disabled";
+};
+
+&lpuart1 {
+	status = "disabled";
+};
+
+&lcdif_backlight {
+	status = "okay";
+};
+
+&adma_lcdif {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_lcdif>;
+	status = "okay";
+
+	port@0 {
+		lcdif_out: lcdif-endpoint {
+			remote-endpoint = <&adapter_in>;
+		};
+	};
+};
+
+&pwm_adma_lcdif {
+	status = "okay";
+};
