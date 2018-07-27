@@ -1377,7 +1377,7 @@
 			thermal-sensors = <&tsens 0>;
 			trips {
 				cpu_alert0: trip0 {
-					temperature = <85000>;
+					temperature = <107000>;
 					hysteresis = <2000>;
 					type = "passive";
 				};
@@ -1403,7 +1403,7 @@
 			status = "disabled";
 			trips {
 				drc_alert0: trip0 {
-					temperature = <85000>;
+					temperature = <107000>;
 					hysteresis = <2000>;
 					type = "passive";
 				};
