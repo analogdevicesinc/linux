@@ -23,6 +23,7 @@
 		model = "imx-audio-dp";
 		audio-cpu = <&sai_hdmi_tx>;
 		protocol = <1>;
+		hdmi-out;
 	};
 };
 
