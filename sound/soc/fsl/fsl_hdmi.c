@@ -692,8 +692,8 @@ static int fsl_hdmi_dai_probe(struct platform_device *pdev)
 	}
 
 	hdmi_data->dma_dev = platform_device_alloc("imx-hdmi-audio", -1);
-	if (IS_ERR(hdmi_data->dma_dev)) {
-		ret = PTR_ERR(hdmi_data->dma_dev);
+	if (!hdmi_data->dma_dev) {
+		ret = -ENOMEM;
 		goto fail_dma;
 	}
 
