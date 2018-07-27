@@ -482,6 +482,12 @@ _Import(
     UserMemory->pageCount = pageCount;
     UserMemory->extraPage = extraPage;
 
+    if (extraPage && UserMemory->type == UM_PAGE_MAP)
+    {
+        /*Add the padding pages */
+        UserMemory->chunk_count++;
+    }
+
     /* Success. */
     gcmkFOOTER();
     return gcvSTATUS_OK;
@@ -516,8 +522,7 @@ _UserMemoryAttach(
 
     Mdl->priv = userMemory;
     Mdl->numPages = userMemory->pageCount + userMemory->extraPage;
-    /* Not contiguous with extra pages */
-    Mdl->contiguous = gcvFALSE;
+    Mdl->contiguous = (userMemory->chunk_count == 1);
 
     gcmkFOOTER_NO();
     return gcvSTATUS_OK;
