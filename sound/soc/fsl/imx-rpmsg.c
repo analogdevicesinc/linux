@@ -70,13 +70,25 @@ static int imx_rpmsg_probe(struct platform_device *pdev)
 	}
 	data->dai[0].cpu_dai_name = dev_name(&cpu_pdev->dev);
 	data->dai[0].platform_of_node = cpu_np;
-	data->dai[0].playback_only = false;
-	data->dai[0].capture_only = false;
+	data->dai[0].playback_only = true;
+	data->dai[0].capture_only = true;
 	data->dai[0].dai_fmt = SND_SOC_DAIFMT_I2S |
 			    SND_SOC_DAIFMT_NB_NF |
 			    SND_SOC_DAIFMT_CBM_CFM;
 	data->card.num_links = 1;
 	data->card.dai_link = data->dai;
+
+	if (of_property_read_bool(pdev->dev.of_node, "rpmsg-out"))
+		data->dai[0].capture_only = false;
+
+	if (of_property_read_bool(pdev->dev.of_node, "rpmsg-in"))
+		data->dai[0].playback_only = false;
+
+	if (data->dai[0].playback_only && data->dai[0].capture_only) {
+		dev_err(&pdev->dev, "no enabled rpmsg DAI link\n");
+		ret = -EINVAL;
+		goto fail;
+	}
 
 	data->card.dev = &pdev->dev;
 	data->card.owner = THIS_MODULE;
