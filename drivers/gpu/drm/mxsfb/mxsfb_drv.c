@@ -266,7 +266,7 @@ static int mxsfb_load(struct drm_device *drm, unsigned long flags)
 	if (IS_ERR(mxsfb->base))
 		return PTR_ERR(mxsfb->base);
 
-	mxsfb->clk = devm_clk_get(drm->dev, NULL);
+	mxsfb->clk = devm_clk_get(drm->dev, "pix");
 	if (IS_ERR(mxsfb->clk))
 		return PTR_ERR(mxsfb->clk);
 
@@ -282,12 +282,10 @@ static int mxsfb_load(struct drm_device *drm, unsigned long flags)
 	if (ret)
 		return ret;
 
-	pm_runtime_enable(drm->dev);
-
 	ret = drm_vblank_init(drm, MAX_CRTCS);
 	if (ret < 0) {
 		dev_err(drm->dev, "Failed to initialise vblank\n");
-		goto err_vblank;
+		return ret;
 	}
 
 	/* Modeset init */
@@ -296,7 +294,7 @@ static int mxsfb_load(struct drm_device *drm, unsigned long flags)
 	ret = mxsfb_create_output(drm);
 	if (ret < 0) {
 		dev_err(drm->dev, "Failed to create outputs\n");
-		goto err_vblank;
+		return ret;
 	}
 
 	ret = drm_simple_display_pipe_init(drm, &mxsfb->pipe, &mxsfb_funcs,
@@ -304,7 +302,7 @@ static int mxsfb_load(struct drm_device *drm, unsigned long flags)
 			mxsfb->connector);
 	if (ret < 0) {
 		dev_err(drm->dev, "Cannot setup simple display pipe\n");
-		goto err_vblank;
+		return ret;
 	}
 
 	drm_crtc_vblank_off(&mxsfb->pipe.crtc);
@@ -321,14 +319,14 @@ static int mxsfb_load(struct drm_device *drm, unsigned long flags)
 		ret = drm_panel_attach(mxsfb->panel, mxsfb->connector);
 		if (ret) {
 			dev_err(drm->dev, "Cannot connect panel\n");
-			goto err_vblank;
+			return ret;
 		}
 	} else if (mxsfb->bridge) {
 		ret = drm_simple_display_pipe_attach_bridge(&mxsfb->pipe,
 				mxsfb->bridge);
 		if (ret) {
 			dev_err(drm->dev, "Cannot connect bridge\n");
-			goto err_vblank;
+			return ret;
 		}
 	}
 
@@ -347,9 +345,7 @@ static int mxsfb_load(struct drm_device *drm, unsigned long flags)
 
 	drm_mode_config_reset(drm);
 
-	pm_runtime_get_sync(drm->dev);
 	ret = drm_irq_install(drm, platform_get_irq(pdev, 0));
-	pm_runtime_put_sync(drm->dev);
 
 	if (ret < 0) {
 		dev_err(drm->dev, "Failed to install IRQ handler\n");
@@ -370,14 +366,14 @@ static int mxsfb_load(struct drm_device *drm, unsigned long flags)
 
 	drm_helper_hpd_irq_event(drm);
 
+	pm_runtime_enable(drm->dev);
+
 	return 0;
 
 err_cma:
 	drm_irq_uninstall(drm);
 err_irq:
 	drm_panel_detach(mxsfb->panel);
-err_vblank:
-	pm_runtime_disable(drm->dev);
 
 	return ret;
 }
