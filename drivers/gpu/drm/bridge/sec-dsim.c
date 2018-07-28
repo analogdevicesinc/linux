@@ -395,7 +395,7 @@ static int sec_mipi_dsim_bridge_attach(struct drm_bridge *bridge)
 
 	dsim->next = next;
 	next->encoder = encoder;
-	ret = drm_bridge_attach(encoder, bridge, next);
+	ret = drm_bridge_attach(encoder, next, bridge);
 	if (ret) {
 		dev_err(dev, "Unable to attach bridge %s: %d\n",
 			remote->name, ret);
