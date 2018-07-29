@@ -102,7 +102,6 @@ static void lcdif_plane_atomic_update(struct drm_plane *plane,
 	struct lcdif_soc *lcdif = lcdif_plane->lcdif;
 	struct drm_plane_state *state = plane->state;
 	struct drm_framebuffer *fb = state->fb;
-	struct drm_framebuffer *old_fb = old_state->fb;
 	struct drm_gem_cma_object *gem_obj = NULL;
 	u32 fb_addr, src_off, fb_idx;
 
@@ -114,8 +113,7 @@ static void lcdif_plane_atomic_update(struct drm_plane *plane,
 	 * and the fb pixel format, since the mode set will
 	 * be done in crtc's ->enable() helper func
 	 */
-	if (plane->type == DRM_PLANE_TYPE_PRIMARY &&
-	    (!old_fb || fb->format->format != old_fb->format->format))
+	if (plane->type == DRM_PLANE_TYPE_PRIMARY)
 		lcdif_set_pix_fmt(lcdif, fb->format->format);
 
 	switch (plane->type) {
