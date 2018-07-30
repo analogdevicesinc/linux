@@ -511,8 +511,7 @@ int init_gpu_opp_table(struct device *dev)
 
     prop = of_find_property(dev->of_node, "operating-points", NULL);
     if (!prop) {
-	dev_err(dev, "operating-points missing. Frequency scaling will not work\n");
-        return -ENODEV;
+        return 0;
     }
 
     if (!prop->value) {
