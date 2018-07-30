@@ -303,9 +303,26 @@ static int hmc7044_write_raw(struct iio_dev *indio_dev,
 	return 0;
 }
 
+static int hmc7044_reg_access(struct iio_dev *indio_dev, unsigned int reg,
+			      unsigned int writeval, unsigned int *readval)
+{
+	struct hmc7044 *hmc = iio_priv(indio_dev);
+	int ret;
+
+	if (readval)
+		return -EINVAL;
+
+	mutex_lock(&hmc->lock);
+	ret = hmc7044_write(indio_dev, reg, writeval);
+	mutex_unlock(&hmc->lock);
+
+	return ret;
+}
+
 static const struct iio_info hmc7044_iio_info = {
 	.read_raw = &hmc7044_read_raw,
 	.write_raw = &hmc7044_write_raw,
+	.debugfs_reg_access = &hmc7044_reg_access,
 };
 
 static long hmc7044_get_clk_attr(struct clk_hw *hw,
