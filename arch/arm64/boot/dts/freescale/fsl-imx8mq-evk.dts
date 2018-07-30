@@ -204,7 +204,7 @@
 
 		pinctrl_pcie0: pcie0grp {
 			fsl,pins = <
-				MX8MQ_IOMUXC_I2C4_SCL_GPIO5_IO20	0x16
+				MX8MQ_IOMUXC_I2C4_SCL_PCIE1_CLKREQ_B	0x76 /* open drain, pull up */
 				MX8MQ_IOMUXC_UART4_TXD_GPIO5_IO29	0x16
 				MX8MQ_IOMUXC_UART4_RXD_GPIO5_IO28	0x16
 			>;
@@ -212,7 +212,7 @@
 
 		pinctrl_pcie1: pcie1grp {
 			fsl,pins = <
-				MX8MQ_IOMUXC_I2C4_SDA_GPIO5_IO21	0x16
+				MX8MQ_IOMUXC_I2C4_SDA_PCIE2_CLKREQ_B	0x76 /* open drain, pull up */
 				MX8MQ_IOMUXC_ECSPI2_SCLK_GPIO5_IO10	0x16
 				MX8MQ_IOMUXC_ECSPI2_MISO_GPIO5_IO12	0x16
 			>;
@@ -658,7 +658,6 @@
 &pcie0{
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_pcie0>;
-	clkreq-gpio = <&gpio5 20 GPIO_ACTIVE_LOW>;
 	disable-gpio = <&gpio5 29 GPIO_ACTIVE_LOW>;
 	reset-gpio = <&gpio5 28 GPIO_ACTIVE_LOW>;
 	ext_osc = <1>;
@@ -669,7 +668,6 @@
 &pcie1{
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_pcie1>;
-	clkreq-gpio = <&gpio5 21 GPIO_ACTIVE_LOW>;
 	disable-gpio = <&gpio5 10 GPIO_ACTIVE_LOW>;
 	reset-gpio = <&gpio5 12 GPIO_ACTIVE_LOW>;
 	ext_osc = <1>;
