@@ -52,7 +52,7 @@
 #include <linux/ioport.h>
 
 #include <asm/irq.h>
-
+#include <linux/of_irq.h>
 #include <linux/version.h>
 
 /* our own stuff */
@@ -141,6 +141,8 @@ typedef struct {
 
 	volatile u8 *hwregs;
 	struct fasync_struct *async_queue;
+	struct device *dev;
+	struct mutex dev_mutex;
 } hx280enc_t;
 
 /* dynamic allocation? */
@@ -205,6 +207,18 @@ static int hantro_h1_ctrlblk_reset(struct device *dev)
 	iowrite32(0xFFFFFFFF, iobase + 0x14); // H1 fuse encoder enable
 	iounmap(iobase);
 	hantro_h1_clk_disable(dev);
+	return 0;
+}
+
+static int hantro_h1_power_on_disirq(hx280enc_t *hx280enc)
+{
+	//spin_lock_irq(&owner_lock);
+	mutex_lock(&hx280enc->dev_mutex);
+	disable_irq(hx280enc->irq);
+	pm_runtime_get_sync(hx280enc->dev);
+	enable_irq(hx280enc->irq);
+	mutex_unlock(&hx280enc->dev_mutex);
+	//spin_unlock_irq(&owner_lock);
 	return 0;
 }
 
@@ -391,8 +405,8 @@ static int hx280enc_open(struct inode *inode, struct file *filp)
 	filp->private_data = (void *) dev;
 
 #ifndef VSI
-	hantro_h1_clk_enable(hantro_h1_dev);
-	pm_runtime_get_sync(hantro_h1_dev);
+	hantro_h1_clk_enable(dev->dev);
+	hantro_h1_power_on_disirq(dev);
 #endif
 
 	PDEBUG("dev opened\n");
@@ -544,7 +558,8 @@ static int __init hx280enc_init(void)
 			goto err;
 		}
 	} else
-		PDEBUG(KERN_INFO "hx280enc: IRQ not in use!\n");
+	PDEBUG(KERN_INFO "hx280enc: IRQ not in use!\n");
+	irq_set_status_flags(irq, IRQ_DISABLE_UNLAZY);
 
 	pr_info("hx280enc: module inserted. Major <%d>\n", hx280enc_major);
 	return 0;
@@ -762,6 +777,9 @@ static int hantro_h1_probe(struct platform_device *pdev)
 		err = PTR_ERR(temp_class);
 		goto err_out_class;
 	}
+	hx280enc_data.dev = &pdev->dev;
+	platform_set_drvdata(pdev, &hx280enc_data);
+	mutex_init(&hx280enc_data.dev_mutex);
 
 	goto out;
 
@@ -801,7 +819,9 @@ static int hantro_h1_suspend(struct device *dev)
 }
 static int hantro_h1_resume(struct device *dev)
 {
-	pm_runtime_get_sync(dev);     //power on
+	hx280enc_t *hx280enc = dev_get_drvdata(dev);
+
+	hantro_h1_power_on_disirq(hx280enc);
 	hantro_h1_ctrlblk_reset(dev);
 	return 0;
 }

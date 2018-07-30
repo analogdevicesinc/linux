@@ -185,6 +185,7 @@ typedef struct {
 	atomic_t irq_rx;
 	atomic_t irq_tx;
 	struct device *dev;
+	struct mutex dev_mutex;
 } hantrodec_t;
 
 static hantrodec_t hantrodec_data[HXDEC_MAX_CORES]; /* dynamic allocation? */
@@ -295,6 +296,18 @@ static int hantro_ctrlblk_reset(hantrodec_t *dev)
 	}
 	iounmap(iobase);
 	hantro_clk_disable(&dev->clk);
+	return 0;
+}
+
+static int hantro_power_on_disirq(hantrodec_t *hantrodev)
+{
+	//spin_lock_irq(&owner_lock);
+	mutex_lock(&hantrodev->dev_mutex);
+	disable_irq(hantrodev->irq);
+	pm_runtime_get_sync(hantrodev->dev);
+	enable_irq(hantrodev->irq);
+	mutex_unlock(&hantrodev->dev_mutex);
+	//spin_unlock_irq(&owner_lock);
 	return 0;
 }
 
@@ -1356,12 +1369,14 @@ static long hantrodec_ioctl32(struct file *filp, unsigned int cmd, unsigned long
  */
 static int hantrodec_open(struct inode *inode, struct file *filp)
 {
+	int i;
+
 	PDEBUG("dev opened\n");
-#if 1 //1 FIXME
-	hantro_clk_enable(&hantrodec_data[0].clk);
-	hantro_clk_enable(&hantrodec_data[1].clk);
-	pm_runtime_get_sync(hantrodec_data[0].dev);
-	pm_runtime_get_sync(hantrodec_data[1].dev);
+#if 1 // FIXME: need to identify core id
+	for (i = 0; i < 2; i++) {
+		hantro_clk_enable(&hantrodec_data[i].clk);
+		hantro_power_on_disirq(&hantrodec_data[i]);
+	}
 #endif
 	return 0;
 }
@@ -1379,7 +1394,7 @@ static int hantrodec_release(struct inode *inode, struct file *filp)
 	//hantrodec_t *dev = &hantrodec_data;
 
 	PDEBUG("closing ...\n");
-#if 1 //1 FIXME
+#if 1 // FIXME: need to identify core id
 	for (n = 0; n < cores; n++) {
 		if (hantrodec_data[n].dec_owner == filp) {
 			PDEBUG("releasing dec Core %i lock\n", n);
@@ -1528,6 +1543,7 @@ static int hantrodec_init(struct platform_device *pdev, int id)
 
 	hantrodec_data[id].irq_rx.counter = 0;
 	hantrodec_data[id].irq_tx.counter = 0;
+	irq_set_status_flags(irq, IRQ_DISABLE_UNLAZY);
 	pr_info("hantrodec %d : module inserted. Major = %d\n", id, hantrodec_major);
 
 	return 0;
@@ -1843,6 +1859,8 @@ printk("power enable done\n");
 	hantro_dynamic_clock = 0;
 #endif
 	hantrodec_data[id].timeout = 0;
+	mutex_init(&hantrodec_data[id].dev_mutex);
+
 	goto out;
 
 error:
@@ -1861,7 +1879,7 @@ static int hantro_dev_remove(struct platform_device *pdev)
 	pm_runtime_get_sync(&pdev->dev);
 
 	hantrodec_cleanup(dev->core_id);
-#if 1 //1 FIXME
+#if 1 // FIXME: need to identify core id
 	if (hantrodec_major > 0) {
 		device_destroy(hantro_class, MKDEV(hantrodec_major, 0));
 		class_destroy(hantro_class);
@@ -1890,7 +1908,7 @@ static int hantro_resume(struct device *dev)
 {
 	hantrodec_t *hantrodev = dev_get_drvdata(dev);
 
-	pm_runtime_get_sync(dev);     //power on
+	hantro_power_on_disirq(hantrodev);
 	hantro_ctrlblk_reset(hantrodev);
 	return 0;
 }
