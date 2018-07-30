@@ -230,8 +230,8 @@ static int hmc7044_write(struct iio_dev *indio_dev,
 	return spi_write(hmc->spi, buf, ARRAY_SIZE(buf));
 }
 
-unsigned int hmc7044_calc_out_div(unsigned long rate,
-				  unsigned long parent_rate)
+unsigned int hmc7044_calc_out_div(unsigned long parent_rate,
+				  unsigned long rate)
 {
 	unsigned int div;
 
