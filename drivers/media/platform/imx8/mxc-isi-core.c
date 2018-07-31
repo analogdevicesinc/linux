@@ -259,3 +259,9 @@ static struct platform_driver mxc_isi_driver = {
 };
 
 module_platform_driver(mxc_isi_driver);
+
+MODULE_AUTHOR("Freescale Semiconductor, Inc.");
+MODULE_DESCRIPTION("MXC Image Subsystem driver");
+MODULE_LICENSE("GPL");
+MODULE_ALIAS("ISI");
+MODULE_VERSION("1.0");
