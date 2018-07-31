@@ -652,6 +652,8 @@ static int mxc_isi_capture_open(struct file *file)
 
 	dev_dbg(&mxc_isi->pdev->dev, "%s, ISI%d\n", __func__, mxc_isi->id);
 
+	atomic_inc(&mxc_isi->open_count);
+
 	/* Get remote source pad */
 	source_pad = mxc_isi_get_remote_source_pad(mxc_isi);
 	if (source_pad == NULL) {
@@ -717,7 +719,8 @@ static int mxc_isi_capture_release(struct file *file)
 	}
 	mutex_unlock(&mxc_isi->lock);
 
-	mxc_isi_channel_deinit(mxc_isi);
+	if (atomic_dec_and_test(&mxc_isi->open_count))
+		mxc_isi_channel_deinit(mxc_isi);
 
 	ret = v4l2_subdev_call(sd, core, s_power, 0);
 	if (ret < 0 && ret != -ENOIOCTLCMD) {

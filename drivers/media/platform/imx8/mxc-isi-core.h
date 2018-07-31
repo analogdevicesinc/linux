@@ -274,6 +274,8 @@ struct mxc_isi_dev {
 	u32 flags;
 	u8 chain_buf;
 
+	atomic_t open_count;
+
 	/* scale factor */
 	u32	xfactor;
 	u32	yfactor;

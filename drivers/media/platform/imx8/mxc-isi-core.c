@@ -133,6 +133,7 @@ static int mxc_isi_probe(struct platform_device *pdev)
 	init_waitqueue_head(&mxc_isi->irq_queue);
 	spin_lock_init(&mxc_isi->slock);
 	mutex_init(&mxc_isi->lock);
+	atomic_set(&mxc_isi->open_count, 0);
 
 	mxc_isi->clk = devm_clk_get(dev, NULL);
 	if (IS_ERR(mxc_isi->clk)) {
