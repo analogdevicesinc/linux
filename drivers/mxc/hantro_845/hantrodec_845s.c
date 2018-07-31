@@ -190,6 +190,14 @@ typedef struct {
 
 static hantrodec_t hantrodec_data[HXDEC_MAX_CORES]; /* dynamic allocation? */
 
+typedef struct {
+	char inst_id;
+	char core_id;	//1:g1; 2:g2; 3:unknow
+} hantrodec_instance;
+static unsigned long instance_mask;
+#define MAX_HANTRODEC_INSTANCE 32
+static hantrodec_instance hantrodec_ctx[MAX_HANTRODEC_INSTANCE];
+
 static int ReserveIO(int);
 static void ReleaseIO(int);
 
@@ -308,6 +316,30 @@ static int hantro_power_on_disirq(hantrodec_t *hantrodev)
 	enable_irq(hantrodev->irq);
 	mutex_unlock(&hantrodev->dev_mutex);
 	//spin_unlock_irq(&owner_lock);
+	return 0;
+}
+
+static int hantro_new_instance(void)
+{
+	int idx;
+
+	spin_lock(&owner_lock);
+	if (instance_mask  == ((1UL << MAX_HANTRODEC_INSTANCE) - 1)) {
+		spin_unlock(&owner_lock);
+		return -1;
+	}
+	idx = ffz(instance_mask);
+	set_bit(idx, &instance_mask);
+	spin_unlock(&owner_lock);
+	return idx;
+}
+
+static int hantro_free_instance(int idx)
+{
+	spin_lock(&owner_lock);
+	clear_bit(idx, &instance_mask);
+	spin_unlock(&owner_lock);
+
 	return 0;
 }
 
@@ -1240,8 +1272,25 @@ static long hantrodec_ioctl(struct file *filp, unsigned int cmd, unsigned long a
 		return 0;
 	}
 	case _IOC_NR(HANTRODEC_IOCG_CORE_ID): {
+		int id;
+		hantrodec_instance *ctx = (hantrodec_instance *)filp->private_data;
+
 		PDEBUG("Get DEC Core_id, format = %li\n", arg);
-		return GetDecCoreID(arg);
+		id = GetDecCoreID(arg);
+		if ((ctx->core_id == 3) && (id >= 0)) {
+			if (id == 0) {
+				ctx->core_id = 1; //g1
+				/*power off g2*/
+				pm_runtime_put_sync(hantrodec_data[1].dev);
+				hantro_clk_disable(&hantrodec_data[1].clk);
+			} else if (id == 1) {
+				ctx->core_id = 2; //g2
+				/*power off g1*/
+				pm_runtime_put_sync(hantrodec_data[0].dev);
+				hantro_clk_disable(&hantrodec_data[0].clk);
+			}
+		}
+		return id;
 	}
 	case _IOC_NR(HANTRODEC_DEBUG_STATUS): {
 		PDEBUG("hantrodec: dec_irq     = 0x%08x\n", dec_irq);
@@ -1370,14 +1419,22 @@ static long hantrodec_ioctl32(struct file *filp, unsigned int cmd, unsigned long
 static int hantrodec_open(struct inode *inode, struct file *filp)
 {
 	int i;
+	int idx;
 
-	PDEBUG("dev opened\n");
-#if 1 // FIXME: need to identify core id
+	idx = hantro_new_instance();
+	if (idx < 0)
+		return -ENOMEM;
+
+	PDEBUG("dev opened: id: %d\n", idx);
+	hantrodec_ctx[idx].core_id = 3;  //unknow
+	hantrodec_ctx[idx].inst_id = idx;
+	filp->private_data = (void *)(&hantrodec_ctx[idx]);
+
+	/*not yet know which core id, so power on both g1 and g2 firstly*/
 	for (i = 0; i < 2; i++) {
 		hantro_clk_enable(&hantrodec_data[i].clk);
 		hantro_power_on_disirq(&hantrodec_data[i]);
 	}
-#endif
 	return 0;
 }
 
@@ -1392,9 +1449,9 @@ static int hantrodec_release(struct inode *inode, struct file *filp)
 {
 	int n;
 	//hantrodec_t *dev = &hantrodec_data;
+	hantrodec_instance *ctx = (hantrodec_instance *)filp->private_data;
 
 	PDEBUG("closing ...\n");
-#if 1 // FIXME: need to identify core id
 	for (n = 0; n < cores; n++) {
 		if (hantrodec_data[n].dec_owner == filp) {
 			PDEBUG("releasing dec Core %i lock\n", n);
@@ -1409,12 +1466,17 @@ static int hantrodec_release(struct inode *inode, struct file *filp)
 		}
 	}
 
-	pm_runtime_put_sync(hantrodec_data[0].dev);
-	hantro_clk_disable(&hantrodec_data[0].clk);
-	pm_runtime_put_sync(hantrodec_data[1].dev);
-	hantro_clk_disable(&hantrodec_data[1].clk);
-#endif
-	PDEBUG("closed\n");
+	if (ctx->core_id & 0x1) {
+		pm_runtime_put_sync(hantrodec_data[0].dev);
+		hantro_clk_disable(&hantrodec_data[0].clk);
+	}
+	if (ctx->core_id & 0x2) {
+		pm_runtime_put_sync(hantrodec_data[1].dev);
+		hantro_clk_disable(&hantrodec_data[1].clk);
+	}
+	hantro_free_instance(ctx->inst_id);
+
+	PDEBUG("closed: id: %d\n", n);
 	return 0;
 }
 
@@ -1860,6 +1922,7 @@ printk("power enable done\n");
 #endif
 	hantrodec_data[id].timeout = 0;
 	mutex_init(&hantrodec_data[id].dev_mutex);
+	instance_mask = 0;
 
 	goto out;
 
