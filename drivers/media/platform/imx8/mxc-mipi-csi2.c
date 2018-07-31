@@ -40,7 +40,7 @@ MODULE_PARM_DESC(debug, "Debug level (0-2)");
 /* 0~ 80Mbps: 0xB
  * 80~250Mbps: 0x8
  * 250~1.5Gbps: 0x6*/
-static u8 rxhs_settle[3] = {0xB, 0x8, 0x6};
+static u8 rxhs_settle[3] = {0xD, 0xA, 0x7};
 
 static struct mxc_mipi_csi2_dev *sd_to_mxc_mipi_csi2_dev(struct v4l2_subdev *sdev)
 {
@@ -61,7 +61,7 @@ static int calc_hs_settle(struct mxc_mipi_csi2_dev *csi2dev, u32 dphy_clk)
 	u32 rxhs_settle;
 
 	esc_rate = clk_get_rate(csi2dev->clk_esc) / 1000000;
-	hs_settle = 115 + 8 * 1000 / dphy_clk;
+	hs_settle = 140 + 8 * 1000 / dphy_clk;
 	rxhs_settle = hs_settle / (1000 / esc_rate) - 1;
 	return rxhs_settle;
 }

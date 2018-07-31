@@ -39,7 +39,7 @@
 #define MIPI_CSI2_SENS_VCX_PADS_NUM		4
 
 #define MAX_FPS		30
-#define MIN_FPS		30
+#define MIN_FPS		15
 #define DEFAULT_FPS		30
 
 #define ADDR_OV_SENSOR	0x30
@@ -112,9 +112,6 @@ struct sensor_data {
 	int pwn_gpio;
 };
 
-static unsigned int g_max9286_width = 1280;
-static unsigned int g_max9286_height = 800;
-
 #define OV10635_REG_PID		0x300A
 #define OV10635_REG_VER		0x300B
 
@@ -124,8 +121,25 @@ struct reg_value {
 	unsigned int delay_ms;
 };
 
+enum ov10635_mode {
+	ov10635_mode_MIN = 0,
+	ov10635_mode_WXGA_1280_800 = 0,
+	ov10635_mode_720P_1280_720 = 1,
+	ov10635_mode_WVGA_752_480 = 2,
+	ov10635_mode_VGA_640_480 = 3,
+	ov10635_mode_CIF_352_288 = 4,
+	ov10635_mode_QVGA_320_240 = 5,
+	ov10635_mode_MAX = 5,
+};
+
 enum ov10635_frame_rate {
+	OV10635_15_FPS,
 	OV10635_30_FPS,
+};
+
+static int ov10635_framerates[] = {
+	[OV10635_15_FPS] = 15,
+	[OV10635_30_FPS] = 30,
 };
 
 static struct reg_value ov10635_init_data[] = {
@@ -2055,6 +2069,131 @@ static struct reg_value ov10635_init_data[] = {
 	{ 0x302E, 0x01, 0 },
 };
 
+struct ov10635_mode_info {
+	enum ov10635_mode mode;
+	u32 width;
+	u32 height;
+	struct reg_value *init_data_ptr;
+	u32 init_data_size;
+};
+
+static struct reg_value  ov10635_setting_30fps_WXGA_1280_800[] = {
+	{ 0x3024, 0x01, 0 },
+	{ 0x3003, 0x20, 0 },
+	{ 0x3004, 0x21, 0 },
+	{ 0x3005, 0x20, 0 },
+	{ 0x3006, 0x91, 0 },
+	/* 1280x800 */
+	{ 0x3808, 0x05, 0 },
+	{ 0x3809, 0x00, 0 },
+	{ 0x380a, 0x03, 0 },
+	{ 0x380b, 0x20, 0 },
+};
+
+static struct reg_value  ov10635_setting_30fps_720P_1280_720[] = {
+	{ 0x3024, 0x01, 0 },
+	{ 0x3003, 0x20, 0 },
+	{ 0x3004, 0x21, 0 },
+	{ 0x3005, 0x20, 0 },
+	{ 0x3006, 0x91, 0 },
+	/* 1280x720 */
+	{ 0x3808, 0x05, 0 },
+	{ 0x3809, 0x00, 0 },
+	{ 0x380a, 0x02, 0 },
+	{ 0x380b, 0xD0, 0 },
+};
+
+static struct reg_value  ov10635_setting_30fps_WVGA_752_480[] = {
+	{ 0x3024, 0x01, 0 },
+	{ 0x3003, 0x20, 0 },
+	{ 0x3004, 0x21, 0 },
+	{ 0x3005, 0x20, 0 },
+	{ 0x3006, 0x91, 0 },
+	/* 752x480 */
+	{ 0x3808, 0x02, 0 },
+	{ 0x3809, 0xF0, 0 },
+	{ 0x380a, 0x01, 0 },
+	{ 0x380b, 0xE0, 0 },
+};
+
+static struct reg_value  ov10635_setting_30fps_VGA_640_480[] = {
+	{ 0x3024, 0x01, 0 },
+	{ 0x3003, 0x20, 0 },
+	{ 0x3004, 0x21, 0 },
+	{ 0x3005, 0x20, 0 },
+	{ 0x3006, 0x91, 0 },
+	/* 640x480 */
+	{ 0x3808, 0x02, 0 },
+	{ 0x3809, 0x80, 0 },
+	{ 0x380a, 0x01, 0 },
+	{ 0x380b, 0xE0, 0 },
+};
+
+static struct reg_value  ov10635_setting_30fps_CIF_352_288[] = {
+	{ 0x3024, 0x01, 0 },
+	{ 0x3003, 0x20, 0 },
+	{ 0x3004, 0x21, 0 },
+	{ 0x3005, 0x20, 0 },
+	{ 0x3006, 0x91, 0 },
+	/* 352x288 */
+	{ 0x3808, 0x01, 0 },
+	{ 0x3809, 0x60, 0 },
+	{ 0x380a, 0x01, 0 },
+	{ 0x380b, 0x20, 0 },
+};
+
+static struct reg_value  ov10635_setting_30fps_QVGA_320_240[] = {
+	{ 0x3024, 0x01, 0 },
+	{ 0x3003, 0x20, 0 },
+	{ 0x3004, 0x21, 0 },
+	{ 0x3005, 0x20, 0 },
+	{ 0x3006, 0x91, 0 },
+	/* 320x240 */
+	{ 0x3808, 0x01, 0 },
+	{ 0x3809, 0x40, 0 },
+	{ 0x380a, 0x00, 0 },
+	{ 0x380b, 0xF0, 0 },
+};
+
+static struct ov10635_mode_info ov10635_mode_info_data[2][ov10635_mode_MAX + 1] = {
+	/* 15fps not support */
+	{
+		{ ov10635_mode_WXGA_1280_800, 0, 0, NULL, 0 },
+		{ ov10635_mode_720P_1280_720, 0, 0, NULL, 0 },
+		{ ov10635_mode_WVGA_752_480, 0, 0, NULL, 0 },
+		{ ov10635_mode_VGA_640_480, 0, 0, NULL, 0 },
+		{ ov10635_mode_CIF_352_288, 0, 0, NULL, 0},
+		{ ov10635_mode_QVGA_320_240, 0, 0, NULL, 0},
+	},
+	/* 30fps */
+	{
+		{ ov10635_mode_WXGA_1280_800, 1280, 800,
+		  ov10635_setting_30fps_WXGA_1280_800,
+		  ARRAY_SIZE(ov10635_setting_30fps_WXGA_1280_800)
+		},
+		{ ov10635_mode_720P_1280_720, 1280, 720,
+		  ov10635_setting_30fps_720P_1280_720,
+		  ARRAY_SIZE(ov10635_setting_30fps_720P_1280_720)
+		},
+		{ ov10635_mode_WVGA_752_480, 752, 480,
+		  ov10635_setting_30fps_WVGA_752_480,
+		  ARRAY_SIZE(ov10635_setting_30fps_WVGA_752_480)
+		},
+		{ ov10635_mode_VGA_640_480, 640, 480,
+		  ov10635_setting_30fps_VGA_640_480,
+		  ARRAY_SIZE(ov10635_setting_30fps_VGA_640_480)
+		},
+		{ ov10635_mode_CIF_352_288, 352, 288,
+		  ov10635_setting_30fps_CIF_352_288,
+		  ARRAY_SIZE(ov10635_setting_30fps_CIF_352_288)
+		},
+		{ ov10635_mode_QVGA_320_240, 320, 240,
+		  ov10635_setting_30fps_QVGA_320_240,
+		  ARRAY_SIZE(ov10635_setting_30fps_QVGA_320_240)
+		},
+	}
+};
+
 static inline struct sensor_data *subdev_to_sensor_data(struct v4l2_subdev *sd)
 {
 	return container_of(sd, struct sensor_data, subdev);
@@ -2151,6 +2290,30 @@ static int ov10635_check_device(struct sensor_data *max9286_data, int index)
 	dev_info(&max9286_data->i2c_client->dev, "%s: OV10635 index=%d was found.\n", __func__, index);
 
 	return 0;
+}
+
+static int ov10635_download_firmware(struct sensor_data *max9286_data,
+			int index, struct reg_value *pModeSetting, s32 ArySize)
+{
+	register u32 Delay_ms = 0;
+	register u16 RegAddr = 0;
+	register u8 Val = 0;
+	int i, retval = 0;
+
+	for (i = 0; i < ArySize; ++i, ++pModeSetting) {
+		Delay_ms = pModeSetting->delay_ms;
+		RegAddr = pModeSetting->reg_addr;
+		Val = pModeSetting->val;
+
+		retval = ov10635_write_reg(max9286_data, index, RegAddr, Val);
+		if (retval < 0)
+			goto err;
+
+		if (Delay_ms)
+			msleep(Delay_ms);
+	}
+err:
+	return retval;
 }
 
 static int ov10635_initialize(struct sensor_data *max9286_data, int index)
@@ -2515,6 +2678,36 @@ static int max9286_hardware_init(struct sensor_data *max9286_data)
 	return retval;
 }
 
+static int ov10635_change_mode(struct sensor_data *max9286_data, int index,
+				enum ov10635_frame_rate rate, enum ov10635_mode mode)
+{
+	struct reg_value *pModeSetting = NULL;
+	int ArySize = 0, retval = 0;
+
+	if (mode > ov10635_mode_MAX || mode < ov10635_mode_MIN) {
+		pr_err("Wrong ov10635 mode detected!\n");
+		return -1;
+	}
+
+	pModeSetting = ov10635_mode_info_data[rate][mode].init_data_ptr;
+	ArySize = ov10635_mode_info_data[rate][mode].init_data_size;
+
+	max9286_data->format.width = ov10635_mode_info_data[rate][mode].width;
+	max9286_data->format.height = ov10635_mode_info_data[rate][mode].height;
+
+	if (max9286_data->format.width == 0 ||
+		max9286_data->format.height == 0 ||
+	    pModeSetting == NULL || ArySize == 0) {
+		pr_err("Not support mode=%d %s\n", mode,
+						(rate == 0) ? "15(fps)" : "30(fps)");
+		return -EINVAL;
+	}
+
+	retval = ov10635_download_firmware(max9286_data, 0, pModeSetting, ArySize);
+
+	return retval;
+}
+
 static int max9286_g_parm(struct v4l2_subdev *sd, struct v4l2_streamparm *a)
 {
 	struct v4l2_captureparm *cparm = &a->parm.capture;
@@ -2565,6 +2758,7 @@ static int max9286_s_parm(struct v4l2_subdev *sd, struct v4l2_streamparm *a)
 	struct sensor_data *max9286_data = subdev_to_sensor_data(sd);
 	struct v4l2_fract *timeperframe = &a->parm.capture.timeperframe;
 	enum ov10635_frame_rate frame_rate;
+	enum ov10635_mode mode = a->parm.capture.capturemode;
 	u32 tgt_fps;
 	int ret = 0;
 
@@ -2594,19 +2788,28 @@ static int max9286_s_parm(struct v4l2_subdev *sd, struct v4l2_streamparm *a)
 		tgt_fps = timeperframe->denominator /
 			  timeperframe->numerator;
 
-		if (tgt_fps ==  30)
+		if (tgt_fps == 30)
 			frame_rate = OV10635_30_FPS;
+		if (tgt_fps == 15)
+			frame_rate = OV10635_15_FPS;
 
-		if (frame_rate != OV10635_30_FPS) {
+		if (frame_rate != OV10635_30_FPS && frame_rate != OV10635_15_FPS) {
 			pr_err(" The camera %d frame rate is not supported!\n", frame_rate);
 			return -EINVAL;
 		}
 
 		 /* TODO Reserved to extension */
+		ret = ov10635_change_mode(max9286_data, 0, frame_rate, mode);
+		if (ret < 0)
+			goto error;
 
 		max9286_data->streamcap.timeperframe = *timeperframe;
 		max9286_data->streamcap.capturemode = a->parm.capture.capturemode;
-
+		max9286_data->format.width =
+			ov10635_mode_info_data[frame_rate][mode].width;
+		max9286_data->format.height =
+			ov10635_mode_info_data[frame_rate][mode].height;
+		max9286_data->format.reserved[0] = 72 * 8;
 
 		break;
 
@@ -2629,6 +2832,7 @@ static int max9286_s_parm(struct v4l2_subdev *sd, struct v4l2_streamparm *a)
 		break;
 	}
 
+error:
 	return ret;
 }
 
@@ -2654,23 +2858,28 @@ static int max9286_enum_framesizes(struct v4l2_subdev *sd,
 			       struct v4l2_subdev_pad_config *cfg,
 			       struct v4l2_subdev_frame_size_enum *fse)
 {
-	struct sensor_data *max9286_data = subdev_to_sensor_data(sd);
-
-	if (fse->index > 1)
+	if (fse->index > ov10635_mode_MAX)
 		return -EINVAL;
 
-	fse->max_width = max9286_data->format.width;
+	fse->max_width =
+			max(ov10635_mode_info_data[0][fse->index].width,
+			    ov10635_mode_info_data[1][fse->index].width);
 	fse->min_width = fse->max_width;
 
-	fse->max_height = max9286_data->format.height;
+	fse->max_height =
+			max(ov10635_mode_info_data[0][fse->index].height,
+			    ov10635_mode_info_data[1][fse->index].height);
 	fse->min_height = fse->max_height;
+
 	return 0;
 }
 static int max9286_enum_frame_interval(struct v4l2_subdev *sd,
 				   struct v4l2_subdev_pad_config *cfg,
 				   struct v4l2_subdev_frame_interval_enum *fie)
 {
-	if (fie->index < 0 || fie->index > 8)
+	int i, j, count;
+
+	if (fie->index < 0 || fie->index > ov10635_mode_MAX)
 		return -EINVAL;
 
 	if (fie->width == 0 || fie->height == 0 ||
@@ -2682,9 +2891,22 @@ static int max9286_enum_frame_interval(struct v4l2_subdev *sd,
 	fie->interval.numerator = 1;
 
 	 /* TODO Reserved to extension */
+	count = 0;
+	for (i = 0; i < ARRAY_SIZE(ov10635_framerates); i++) {
+		for (j = 0; j < (ov10635_mode_MAX + 1); j++) {
+			if (fie->width == ov10635_mode_info_data[i][j].width
+			 && fie->height == ov10635_mode_info_data[i][j].height
+			 && ov10635_mode_info_data[i][j].init_data_ptr != NULL) {
+				count++;
+			}
+			if (fie->index == (count - 1)) {
+				fie->interval.denominator = ov10635_framerates[i];
+				return 0;
+			}
+		}
+	}
 
-	fie->interval.denominator = 30;
-	return 0;
+	return -EINVAL;
 }
 
 static int max9286_get_fmt(struct v4l2_subdev *sd,
@@ -2702,6 +2924,7 @@ static int max9286_get_fmt(struct v4l2_subdev *sd,
 	mf->height = max9286_data->format.height;
 	mf->colorspace = max9286_data->format.colorspace;
 	mf->field = max9286_data->format.field;
+	mf->reserved[0] = max9286_data->format.reserved[0];
 
 	return 0;
 }
@@ -2710,6 +2933,19 @@ static int max9286_set_fmt(struct v4l2_subdev *sd,
 			 struct v4l2_subdev_pad_config *cfg,
 			 struct v4l2_subdev_format *fmt)
 {
+	struct sensor_data *max9286_data = subdev_to_sensor_data(sd);
+	struct v4l2_mbus_framefmt *mf = &fmt->format;
+
+	if (fmt->pad)
+		return -EINVAL;
+
+	mf->code = max9286_data->format.code;
+	mf->colorspace = max9286_data->format.colorspace;
+	mf->field = V4L2_FIELD_NONE;
+
+	if (fmt->which == V4L2_SUBDEV_FORMAT_TRY)
+		return 0;
+
 	return 0;
 }
 
@@ -2878,8 +3114,8 @@ static int max9286_probe(struct i2c_client *client,
 
 	max9286_data->i2c_client = client;
 	max9286_data->format.code = MEDIA_BUS_FMT_YUYV8_1X16;
-	max9286_data->format.width = g_max9286_width;
-	max9286_data->format.height = g_max9286_height;
+	max9286_data->format.width = ov10635_mode_info_data[1][0].width;
+	max9286_data->format.height = ov10635_mode_info_data[1][0].height;
 	max9286_data->format.colorspace = V4L2_COLORSPACE_JPEG;
 	/*****************************************
 	 * Pass mipi phy clock rate Mbps
