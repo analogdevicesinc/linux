@@ -2,7 +2,7 @@
  * \file talise_types.h
  * \brief Contains Talise API configuration and run-time type definitions
  *
- * Talise API version: 3.4.0.0
+ * Talise API version: 3.5.0.2
  *
  * Copyright 2015-2017 Analog Devices Inc.
  * Released under the AD9378-AD9379 API license, for more information see the "LICENSE.txt" file in this zip file.
@@ -244,7 +244,7 @@ typedef struct
 typedef struct
 {
     taliseGainMode_t gainMode; /*!< Current Rx gain control mode setting */
-	uint8_t orx1GainIndex;      /*!< ORx1 Gain Index, can be used in different ways for manual and AGC gain control */
+    uint8_t orx1GainIndex;      /*!< ORx1 Gain Index, can be used in different ways for manual and AGC gain control */
     uint8_t orx2GainIndex;      /*!< ORx2 Gain Index, can be used in different ways for manual and AGC gain control */
     uint8_t orx1MaxGainIndex;       /*!< Max gain index for the currently loaded ORx1 Gain table */
     uint8_t orx1MinGainIndex;       /*!< Min gain index for the currently loaded ORx1 Gain table */
@@ -257,7 +257,7 @@ typedef struct
  */
 typedef struct
 {
-	taliseGainMode_t gainMode;  /*!< Current Rx gain control mode setting */
+    taliseGainMode_t gainMode;  /*!< Current Rx gain control mode setting */
     uint8_t rx1GainIndex;       /*!< Rx1 Gain Index, can be used in different ways for manual and AGC gain control */
     uint8_t rx2GainIndex;       /*!< Rx2 Gain Index, can be used in different ways for manual and AGC gain control */
     uint8_t rx1MaxGainIndex;    /*!< Max gain index for the currently loaded Rx1 Gain table */

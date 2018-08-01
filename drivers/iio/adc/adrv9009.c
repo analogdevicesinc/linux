@@ -687,20 +687,7 @@ static int adrv9009_setup(struct adrv9009_rf_phy *phy)
 	 * the obsRx path is set to OBS_INTERNAL_CALS   *
 	 * **********************************************/
 
-	TALISE_setGpIntMask(phy->talDevice,
-			    // 				TAL_GP_MASK_STREAM_ERROR |
-			    // 				TAL_GP_MASK_ARM_CALIBRATION_ERROR |
-			    // 				TAL_GP_MASK_ARM_SYSTEM_ERROR |
-			    // 				TAL_GP_MASK_ARM_FORCE_INTERRPUT |
-			    // 				TAL_GP_MASK_WATCHDOG_TIMEOUT |
-			    // 				TAL_GP_MASK_PA_PROTECTION_TX2_ERROR |
-			    // 				TAL_GP_MASK_PA_PROTECTION_TX1_ERROR |
-			    // 				TAL_GP_MASK_JESD_DEFRMER_IRQ |
-			    // 				TAL_GP_MASK_JESD_FRAMER_IRQ);
-			    // TAL_GP_MASK_CLK_SYNTH_LOCK |
-			    TAL_GP_MASK_AUX_SYNTH_LOCK);
-	//TAL_GP_MASK_RF_SYNTH_LOCK);
-
+	TALISE_setGpIntMask(phy->talDevice, TAL_GP_MASK_AUX_SYNTH_UNLOCK);
 
 	ret = TALISE_enableTrackingCals(phy->talDevice, trackingCalMask);
 	if (ret != TALACT_NO_ACTION)

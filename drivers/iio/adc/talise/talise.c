@@ -3,7 +3,7 @@
  * \brief Contains top level functions to support initialization and ctrol of
  *         the Talise transceiver device.
  *
- * Talise API version: 3.4.0.0
+ * Talise API version: 3.5.0.2
  *
  * Copyright 2015-2017 Analog Devices Inc.
  * Released under the AD9378-AD9379 API license, for more information see the "LICENSE.txt" file in this zip file.
@@ -388,6 +388,7 @@ uint32_t TALISE_initialize(taliseDevice_t *device, taliseInit_t *init)
     uint16_t syncbPadCfgAddr = 0;
     uint8_t framerSyncPadCfg = 0;
     uint8_t sysrefCfg = 0;
+    uint8_t regData = 0;
 
     static const uint8_t ULB_THRESHOLD = 0x27;
     static const uint8_t ULB2_THRESHOLD = 0x37;
@@ -395,6 +396,8 @@ uint32_t TALISE_initialize(taliseDevice_t *device, taliseInit_t *init)
     static const uint8_t LLB2_THRESHOLD = 0x27;
     static const uint8_t GPINT_MASK_AUXPLL = 1;
     static const uint8_t MIN_SUPPORTED_SIREV = 0xB1;
+    static const uint8_t TPC_MODE_TX1_SPI = 0x01;
+    static const uint8_t TPC_MODE_TX2_SPI = 0x04;
 
     /* Verify pointers to *device and *init are not NULL */
     if (device == NULL)
@@ -767,12 +770,12 @@ uint32_t TALISE_initialize(taliseDevice_t *device, taliseInit_t *init)
     retVal = talApiErrHandler(device,TAL_ERRHDL_HAL_SPI, halError, retVal, TALACT_ERR_RESET_SPI);
     IF_ERR_RETURN_U32(retVal);
 
-    /* Enable SPI Tx Atten mode */
-    halError = talSpiWriteField(device->devHalInfo, TALISE_ADDR_TX_TPC_CONFIG, 0x01, 0x03, 0);
-    retVal = talApiErrHandler(device,TAL_ERRHDL_HAL_SPI, halError, retVal, TALACT_ERR_RESET_SPI);
-    IF_ERR_RETURN_U32(retVal);
-
-    halError = talSpiWriteField(device->devHalInfo, TALISE_ADDR_TX_TPC_CONFIG, 0x01, 0x0C, 2);
+    /* Enable SPI Tx Atten mode and set Atten step size. Only write bottom 6 bits */
+    regData = 0;
+    regData |= TPC_MODE_TX1_SPI;
+    regData |= TPC_MODE_TX2_SPI;
+    regData |= (init->tx.txAttenStepSize << 4);
+    halError = talSpiWriteField(device->devHalInfo, TALISE_ADDR_TX_TPC_CONFIG, regData, 0x3F, 0);
     retVal = talApiErrHandler(device,TAL_ERRHDL_HAL_SPI, halError, retVal, TALACT_ERR_RESET_SPI);
     IF_ERR_RETURN_U32(retVal);
 
@@ -1346,6 +1349,32 @@ uint32_t TALISE_shutdown(taliseDevice_t *device)
     return (uint32_t)retVal;
 }
 
+uint32_t TALISE_getMultiChipSyncStatus(taliseDevice_t *device, uint8_t *mcsStatus)
+{
+	talRecoveryActions_t retVal   = TALACT_NO_ACTION;
+	adiHalErr_t          halError = ADIHAL_OK;
+
+#if TALISE_VERBOSE
+	halError = talWriteToLog(device->devHalInfo, ADIHAL_LOG_MSG, TAL_ERR_OK, "TALISE_getMultiChipSyncStatus()\n");
+
+	retVal   = talApiErrHandler(device, TAL_ERRHDL_HAL_LOG, halError, retVal, TALACT_WARN_RESET_LOG);
+#endif
+
+	/* null pointer check */
+	if (mcsStatus == NULL)
+	{
+		return (uint32_t)talApiErrHandler(device, TAL_ERRHDL_INVALID_PARAM, TAL_ERR_CHECKGETMCS_STATUS_NULL_PARM, retVal, TALACT_ERR_CHECK_PARAM);
+	}
+	else
+	{
+		halError = talSpiReadByte(device->devHalInfo, TALISE_ADDR_MCS_STATUS, mcsStatus);
+		retVal   = talApiErrHandler(device, TAL_ERRHDL_HAL_SPI, halError, retVal, TALACT_ERR_RESET_SPI);
+		IF_ERR_RETURN_U32(retVal);
+	}
+
+	return (uint32_t)retVal;
+}
+
 uint32_t TALISE_enableMultichipSync(taliseDevice_t *device, uint8_t enableMcs, uint8_t *mcsStatus)
 {
     talRecoveryActions_t retVal = TALACT_NO_ACTION;
@@ -1874,7 +1903,7 @@ static talRecoveryActions_t talVerifyOrxProfile(taliseDevice_t *device, taliseOR
     /* Check for a valid ORx profile */
     /********************************/
     if ((orxProfile->orxOutputRate_kHz < 15000) ||
-        (orxProfile->orxOutputRate_kHz > 492000))
+        (orxProfile->orxOutputRate_kHz > 500000))
     {
         return talApiErrHandler(device, TAL_ERRHDL_INVALID_PARAM,
               TAL_ERR_VERORXPFILE_INV_IQRATE, retVal, TALACT_ERR_CHECK_PARAM);
@@ -1970,7 +1999,7 @@ static talRecoveryActions_t talVerifyTxProfile(taliseDevice_t *device, taliseTxP
     /********************************/
 
     if ((txProfile->txInputRate_kHz < 15000) ||
-        (txProfile->txInputRate_kHz > 492000))
+        (txProfile->txInputRate_kHz > 500000))
     {
         return talApiErrHandler(device, TAL_ERRHDL_INVALID_PARAM,
               TAL_ERR_VERTXPFILE_INV_IQRATE, retVal, TALACT_ERR_CHECK_PARAM);
