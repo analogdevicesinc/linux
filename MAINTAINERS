@@ -839,6 +839,12 @@ F:	Documentation/devicetree/bindings/power/supply/adp5061.txt
 F:	drivers/power/supply/adp5061.c
 F:	Documentation/ABI/testing/sysfs-class-power-adp5061
 
+ANALOG DEVICES INC ADGS1408 DRIVER
+M:	Mircea Caprioru <mircea.caprioru@analog.com>
+S:	Supported
+F:	drivers/mux/adgs1408.c
+F:	Documentation/devicetree/bindings/mux/adgs1408.txt
+
 ANALOG DEVICES INC ADV7180 DRIVER
 M:	Lars-Peter Clausen <lars@metafoo.de>
 L:	linux-media@vger.kernel.org
