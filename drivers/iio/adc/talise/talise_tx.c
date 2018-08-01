@@ -2,7 +2,7 @@
  * \file talise_tx.c
  * \brief Contains functions to support Talise Tx data path control
  *
- * Talise API version: 3.4.0.0
+ * Talise API version: 3.5.0.2
  *
  * Copyright 2015-2017 Analog Devices Inc.
  * Released under the AD9378-AD9379 API license, for more information see the "LICENSE.txt" file in this zip file.
@@ -338,7 +338,7 @@ uint32_t TALISE_enableTxNco(taliseDevice_t *device, taliseTxNcoTestToneCfg_t *tx
 
 static talRecoveryActions_t talSetTx1AttenCtrlPin(taliseDevice_t *device, uint8_t enable, taliseGpioPinSel_t txAttenIncPin, taliseGpioPinSel_t txAttenDecPin)
 {
-	static const uint8_t TAL_TX1_INC_ATTEN_GPIO4   = 0x00;
+    static const uint8_t TAL_TX1_INC_ATTEN_GPIO4   = 0x00;
     static const uint8_t TAL_TX1_INC_ATTEN_GPIO12  = 0x01;
     static const uint8_t TAL_TX1_INC_ATTEN_DISABLE = 0x03;
     static const uint8_t TAL_TX1_DEC_ATTEN_GPIO5   = 0x00;

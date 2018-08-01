@@ -2,7 +2,7 @@
  * \file talise_jesd204_types.h
  * \brief Contains Talise API JESD data types
  *
- * Talise API version: 3.4.0.0
+ * Talise API version: 3.5.0.2
  *
  * Copyright 2015-2017 Analog Devices Inc.
  * Released under the AD9378-AD9379 API license, for more information see the "LICENSE.txt" file in this zip file.
@@ -83,9 +83,7 @@ typedef enum
     TAL_FTD_PRBS15,                 /*!< Framer test data PRBS15 data source */
     TAL_FTD_PRBS9,                  /*!< Framer test data PRBS9 data source */
     TAL_FTD_PRBS7,                  /*!< Framer test data PRBS7 data source */
-    TAL_FTD_RAMP,                   /*!< Framer test data ramp data source */
-    TAL_FTD_PATTERN_REPEAT = 14,    /*!< Framer test data 16-bit programmed pattern repeat source */
-    TAL_FTD_PATTERN_ONCE = 15       /*!< Framer test data 16-bit programmed pattern executed once source */
+    TAL_FTD_RAMP                   /*!< Framer test data ramp data source */
 
 } taliseFramerDataSource_t;
 

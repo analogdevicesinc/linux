@@ -2,7 +2,7 @@
  * \file talise_agc.c
  * \brief Contains Talise API AGC function calls
  *
- * Talise API version: 3.4.0.0
+ * Talise API version: 3.5.0.2
  *
  * Copyright 2015-2017 Analog Devices Inc.
  * Released under the AD9378-AD9379 API license, for more information see the "LICENSE.txt" file in this zip file.
@@ -28,52 +28,58 @@ uint32_t TALISE_setupRxAgc(taliseDevice_t *device, taliseAgcCfg_t *rxAgcCtrl)
     uint32_t adcClock_Hz = 0;
     uint8_t minAgcSlowLoopSettlingDelay = 0;
 
-    const uint8_t agcPeakWaitTimeBitMask = 0x1F;
-    const uint32_t agcGainUpdateCounterBitMask = 0x003FFFFF;
-    const uint8_t powerEnableMeasurementBitMask = 0x01;
-    const uint8_t powerUseRfirOutBitMask = 0x02;
-    const uint8_t powerUseBBDC2BitMask = 0x08;
-    const uint8_t underRangeHighPowerThreshBitMask = 0x7F;
-    const uint8_t underRangeLowPowerThreshBitMask = 0x1F;
-    const uint8_t underRangeHighPowerGainStepRecoveryBitMask = 0x1F;
-    const uint8_t underRangeLowPowerGainStepRecoveryBitMask = 0x1F;
-    const uint8_t powerMeasurementDurationBitMask = 0x1F;
-    const uint8_t agcSlowLoopSettlingDelayBitMask = 0x7F;
-    const uint8_t ip3OverRangeThreshBitMask = 0x3F;
-    const uint8_t apdHighThreshBitMask = 0x3F;
-    const uint8_t apdLowGainModeHighThreshBitMask = 0x3F;
-    const uint8_t apdLowThreshBitMask = 0x3F;
-    const uint8_t apdLowGainModeLowThreshBitMask = 0x3F;
-    const uint8_t apdGainStepAttackBitMask = 0x1F;
-    const uint8_t apdGainStepRecoveryBitMask = 0x1F;
-    const uint8_t enableHb2OverloadBitMask = 0x80;
-    const uint8_t hb2OverloadDurationCntBitMask = 0x70;
-    const uint8_t hb2OverloadThreshCntBitMask = 0x0F;
-    const uint8_t hb2GainStepHighRecoveryBitMask = 0x1F;
-    const uint8_t hb2GainStepLowRecoveryBitMask = 0x1F;
-    const uint8_t hb2GainStepAttackBitMask = 0x1F;
-    const uint8_t hb2GainStepMidRecoveryBitMask = 0x1F;
-    const uint8_t hb2OverloadPowerModeBitMask = 0x04;
-    const uint8_t agcMsbGainUpdateTimeBitMask = 0x3F;
-    const uint8_t hb2OvrgSelBitMask = 0x20;
-    const uint8_t hb2ThreshConfigBitMask = 0x03;
-    const uint8_t upper0PowerThreshBitMask = 0x7F;
-    const uint8_t upper1PowerThreshBitMask = 0x0F;
-    const uint8_t powerLogShiftBitMask = 0x04;
+    static const uint8_t agcPeakWaitTimeBitMask = 0x1F;
+    static const uint32_t agcGainUpdateCounterBitMask = 0x003FFFFF;
+    static const uint8_t powerEnableMeasurementBitMask = 0x01;
+    static const uint8_t powerUseRfirOutBitMask = 0x02;
+    static const uint8_t powerUseBBDC2BitMask = 0x08;
+    static const uint8_t underRangeHighPowerThreshBitMask = 0x7F;
+    static const uint8_t underRangeLowPowerThreshBitMask = 0x1F;
+    static const uint8_t underRangeHighPowerGainStepRecoveryBitMask = 0x1F;
+    static const uint8_t underRangeLowPowerGainStepRecoveryBitMask = 0x1F;
+    static const uint8_t powerMeasurementDurationBitMask = 0x1F;
+    static const uint8_t agcSlowLoopSettlingDelayBitMask = 0x7F;
+    static const uint8_t ip3OverRangeThreshBitMask = 0x3F;    
+    static const uint8_t apdHighThreshMin = 0x07;
+    static const uint8_t apdHighThreshMax = 0x31;
+    static const uint8_t apdLowGainModeHighThreshMin = 0x07;
+    static const uint8_t apdLowGainModeHighThreshMax = 0x31;
+    static const uint8_t apdLowThreshMin = 0x07;
+    static const uint8_t apdLowThreshMax = 0x31;
+    static const uint8_t apdLowGainModeLowThreshMin = 0x07;
+    static const uint8_t apdLowGainModeLowThreshMax = 0x31;
+    static const uint8_t apdGainStepAttackBitMask = 0x1F;
+    static const uint8_t apdGainStepRecoveryBitMask = 0x1F;
+    static const uint8_t enableHb2OverloadBitMask = 0x80;
+    static const uint8_t hb2OverloadDurationCntBitMask = 0x70;
+    static const uint8_t hb2OverloadThreshCntBitMask = 0x0F;
+    static const uint8_t hb2GainStepHighRecoveryBitMask = 0x1F;
+    static const uint8_t hb2GainStepLowRecoveryBitMask = 0x1F;
+    static const uint8_t hb2GainStepAttackBitMask = 0x1F;
+    static const uint8_t hb2GainStepMidRecoveryBitMask = 0x1F;
+    static const uint8_t hb2OverloadPowerModeBitMask = 0x04;
+    static const uint8_t agcMsbGainUpdateTimeBitMask = 0x3F;
+    static const uint8_t hb2OvrgSelBitMask = 0x20;
+    static const uint8_t hb2ThreshConfigBitMask = 0x03;
+    static const uint8_t upper0PowerThreshBitMask = 0x7F;
+    static const uint8_t upper1PowerThreshBitMask = 0x0F;
+    static const uint8_t powerLogShiftBitMask = 0x04;
+    static const uint8_t overRangeLowPowerGainStepAttackBitMask = 0x1F;
+    static const uint8_t overRangeHighPowerGainStepAttackBitMask = 0x1F;
 
-    const uint8_t agcLowThreshPreventGainBitMask = 0x20;
-    const uint8_t agcChangeGainIfThreshHighBitMask = 0x18;
-    const uint8_t agcPeakThreshGainControlModeBitMask = 0x04;
-    const uint8_t agcResetOnRxonBitMask = 0x02;
-    const uint8_t agcEnableSyncPulseForGainCounterBitMask = 0x01;
-    const uint8_t agcEnableIp3OptimizationThreshBitMask = 0x80;
-    const uint8_t agcEnableFastRecoveryLoopBitMask = 0x40;
-    const uint8_t agcRx1AttackDelayBitMask = 0x3F;
-    const uint8_t agcRx2AttackDelayBitMask = 0x3F;
-    const uint32_t agcUnderRangeLowIntervalMask = 0x0000FFFF;
-    const uint8_t agcClock_HzBitMask = 0x03;
-    const uint8_t agcUnderRangeMidIntervalMask = 0x3F;
-    const uint8_t agcUnderRangeHighIntervalMask = 0x3F;
+    static const uint8_t agcLowThreshPreventGainBitMask = 0x20;
+    static const uint8_t agcChangeGainIfThreshHighBitMask = 0x18;
+    static const uint8_t agcPeakThreshGainControlModeBitMask = 0x04;
+    static const uint8_t agcResetOnRxonBitMask = 0x02;
+    static const uint8_t agcEnableSyncPulseForGainCounterBitMask = 0x01;
+    static const uint8_t agcEnableIp3OptimizationThreshBitMask = 0x80;
+    static const uint8_t agcEnableFastRecoveryLoopBitMask = 0x40;
+    static const uint8_t agcRx1AttackDelayBitMask = 0x3F;
+    static const uint8_t agcRx2AttackDelayBitMask = 0x3F;
+    static const uint32_t agcUnderRangeLowIntervalMask = 0x0000FFFF;
+    static const uint8_t agcClock_HzBitMask = 0x03;
+    static const uint8_t agcUnderRangeMidIntervalMask = 0x3F;
+    static const uint8_t agcUnderRangeHighIntervalMask = 0x3F;
 
     static const uint8_t MIN_SUPPORTED_SIREV = 0xC0;
     static const uint8_t ENABLE_IP3_OPTIMIZATION_MASK = 0x80;
@@ -382,10 +388,16 @@ uint32_t TALISE_setupRxAgc(taliseDevice_t *device, taliseAgcCfg_t *rxAgcCtrl)
         }
     }
 
-    if (rxAgcCtrl->agcPeak.apdHighThresh & ~apdHighThreshBitMask)
+    if ((rxAgcCtrl->agcPeak.apdHighThresh < apdHighThreshMin) ||
+        (rxAgcCtrl->agcPeak.apdHighThresh > apdHighThreshMax))
     {
         return (uint32_t)talApiErrHandler(device, TAL_ERRHDL_INVALID_PARAM,
                 TAL_ERR_INV_AGC_PKK_HIGHTHRSH_PARAM, retVal, TALACT_ERR_CHECK_PARAM);
+    }
+    else if ((rxAgcCtrl->agcPeak.apdHighThresh < rxAgcCtrl->agcPeak.apdLowThresh))
+    {
+        return (uint32_t)talApiErrHandler(device, TAL_ERRHDL_INVALID_PARAM,
+                TAL_ERR_INV_AGC_RX_APD_HIGH_LOW_THRESH, retVal, TALACT_ERR_CHECK_PARAM);
     }
     else
     {
@@ -394,7 +406,8 @@ uint32_t TALISE_setupRxAgc(taliseDevice_t *device, taliseAgcCfg_t *rxAgcCtrl)
         IF_ERR_RETURN_U32(retVal);
     }
 
-    if (rxAgcCtrl->agcPeak.apdLowGainModeHighThresh & ~apdLowGainModeHighThreshBitMask)
+    if ((rxAgcCtrl->agcPeak.apdLowGainModeHighThresh < apdLowGainModeHighThreshMin) ||
+        (rxAgcCtrl->agcPeak.apdLowGainModeHighThresh > apdLowGainModeHighThreshMax))
     {
         return (uint32_t)talApiErrHandler(device, TAL_ERRHDL_INVALID_PARAM,
                 TAL_ERR_INV_AGC_PKK_LOWGAINMODEHIGHTHRSH_PARAM, retVal, TALACT_ERR_CHECK_PARAM);
@@ -406,7 +419,8 @@ uint32_t TALISE_setupRxAgc(taliseDevice_t *device, taliseAgcCfg_t *rxAgcCtrl)
         IF_ERR_RETURN_U32(retVal);
     }
 
-    if (rxAgcCtrl->agcPeak.apdLowThresh & ~apdLowThreshBitMask)
+    if ((rxAgcCtrl->agcPeak.apdLowThresh < apdLowThreshMin) ||
+        (rxAgcCtrl->agcPeak.apdLowThresh > apdLowThreshMax))
     {
         return (uint32_t)talApiErrHandler(device, TAL_ERRHDL_INVALID_PARAM,
                 TAL_ERR_INV_AGC_PKK_LOWGAINHIGHTHRSH_PARAM, retVal, TALACT_ERR_CHECK_PARAM);
@@ -418,7 +432,8 @@ uint32_t TALISE_setupRxAgc(taliseDevice_t *device, taliseAgcCfg_t *rxAgcCtrl)
         IF_ERR_RETURN_U32(retVal);
     }
 
-    if (rxAgcCtrl->agcPeak.apdLowGainModeLowThresh & ~apdLowGainModeLowThreshBitMask)
+    if ((rxAgcCtrl->agcPeak.apdLowGainModeLowThresh < apdLowGainModeLowThreshMin) || 
+        (rxAgcCtrl->agcPeak.apdLowGainModeLowThresh > apdLowGainModeLowThreshMax))
     {
         return (uint32_t)talApiErrHandler(device, TAL_ERRHDL_INVALID_PARAM,
                 TAL_ERR_INV_AGC_PKK_LOWGAINTHRSH_PARAM, retVal, TALACT_ERR_CHECK_PARAM);
@@ -442,14 +457,6 @@ uint32_t TALISE_setupRxAgc(taliseDevice_t *device, taliseAgcCfg_t *rxAgcCtrl)
     {
         return (uint32_t)talApiErrHandler(device, TAL_ERRHDL_INVALID_PARAM,
                 TAL_ERR_INV_AGC_PKK_GAINSTEPATTACK_PARAM, retVal, TALACT_ERR_CHECK_PARAM);
-    }
-
-    /* performing gain step check against APD high and low threshold difference - difference must be greater than gain steps to avoid oscillation */
-    if ((rxAgcCtrl->agcPeak.apdHighThresh - rxAgcCtrl->agcPeak.apdLowThresh < rxAgcCtrl->agcPeak.apdGainStepAttack)
-         || (rxAgcCtrl->agcPeak.apdHighThresh - rxAgcCtrl->agcPeak.apdLowThresh < rxAgcCtrl->agcPeak.hb2GainStepAttack))
-    {
-        return (uint32_t)talApiErrHandler(device, TAL_ERRHDL_INVALID_PARAM,
-                TAL_ERR_INV_AGC_RX_APD_THRESH_DIFF_VS_ATTACK_GAIN_STEP, retVal, TALACT_ERR_CHECK_PARAM);
     }
     else
     {
@@ -599,6 +606,24 @@ uint32_t TALISE_setupRxAgc(taliseDevice_t *device, taliseAgcCfg_t *rxAgcCtrl)
         return (uint32_t)talApiErrHandler(device, TAL_ERRHDL_INVALID_PARAM,
                 TAL_ERR_INV_AGC_PKK_HB2THRSHCFG_PARAM, retVal, TALACT_ERR_CHECK_PARAM);
     }
+    
+    /* Because this field was added after production, preserve the past behavior if 0 is passed by setting to default */
+    if (rxAgcCtrl->agcPeak.hb2UnderRangeLowThreshExceededCnt == 0)
+    {
+        rxAgcCtrl->agcPeak.hb2UnderRangeLowThreshExceededCnt = 3;
+    }
+    halError = talSpiWriteByte(device->devHalInfo, TALISE_ADDR_AGC_ADCOVRG_LOW_INT0_COUNTER, rxAgcCtrl->agcPeak.hb2UnderRangeLowThreshExceededCnt);
+    retVal = talApiErrHandler(device, TAL_ERRHDL_HAL_SPI, halError, retVal, TALACT_ERR_RESET_SPI);
+    IF_ERR_RETURN_U32(retVal);
+    
+    /* Because this field was added after production, preserve the past behavior if 0 is passed by setting to default */
+    if (rxAgcCtrl->agcPeak.hb2UnderRangeMidThreshExceededCnt == 0)
+    {
+        rxAgcCtrl->agcPeak.hb2UnderRangeMidThreshExceededCnt = 3;
+    }
+    halError = talSpiWriteByte(device->devHalInfo, TALISE_ADDR_AGC_ADCOVRG_LOW_INT1_COUNTER, rxAgcCtrl->agcPeak.hb2UnderRangeMidThreshExceededCnt);
+    retVal = talApiErrHandler(device, TAL_ERRHDL_HAL_SPI, halError, retVal, TALACT_ERR_RESET_SPI);
+    IF_ERR_RETURN_U32(retVal);
 
     if (&rxAgcCtrl->agcPower == NULL) /* Check for null power data structure pointer */
     {
@@ -745,11 +770,11 @@ uint32_t TALISE_setupRxAgc(taliseDevice_t *device, taliseAgcCfg_t *rxAgcCtrl)
         retVal = talApiErrHandler(device, TAL_ERRHDL_HAL_SPI, halError, retVal, TALACT_ERR_RESET_SPI);
         IF_ERR_RETURN_U32(retVal);
     }
-
+    
     if ((rxAgcCtrl->agcPower.powerLogShift << 2) & ~powerLogShiftBitMask)
     {
-       return (uint32_t)talApiErrHandler(device, TAL_ERRHDL_INVALID_PARAM,
-               TAL_ERR_INV_AGC_PWR_LOGSHIFT_PARAM, retVal, TALACT_ERR_CHECK_PARAM);
+        return (uint32_t)talApiErrHandler(device, TAL_ERRHDL_INVALID_PARAM,
+                TAL_ERR_INV_AGC_PWR_LOGSHIFT_PARAM, retVal, TALACT_ERR_CHECK_PARAM);
     }
     else
     {
@@ -757,7 +782,43 @@ uint32_t TALISE_setupRxAgc(taliseDevice_t *device, taliseAgcCfg_t *rxAgcCtrl)
         retVal = talApiErrHandler(device, TAL_ERRHDL_HAL_SPI, halError, retVal, TALACT_ERR_RESET_SPI);
         IF_ERR_RETURN_U32(retVal);
     }
-
+    
+    /* Because this field was added after production, preserve the past behavior if 0 is passed by setting to default */
+    if (rxAgcCtrl->agcPower.overRangeLowPowerGainStepAttack == 0)
+    {
+        rxAgcCtrl->agcPower.overRangeLowPowerGainStepAttack = 4;
+    }
+    
+    if ((rxAgcCtrl->agcPower.overRangeLowPowerGainStepAttack) & ~overRangeLowPowerGainStepAttackBitMask)
+    {
+       return (uint32_t)talApiErrHandler(device, TAL_ERRHDL_INVALID_PARAM,
+            TAL_ERR_INV_AGC_PWR_UPPWR0GAINSTEP_PARAM, retVal, TALACT_ERR_CHECK_PARAM);
+    }
+    else
+    {
+        halError = talSpiWriteByte(device->devHalInfo, TALISE_ADDR_UPPER0_THRESHOLD_GAIN_STEP, rxAgcCtrl->agcPower.overRangeLowPowerGainStepAttack);
+        retVal = talApiErrHandler(device, TAL_ERRHDL_HAL_SPI, halError, retVal, TALACT_ERR_RESET_SPI);
+        IF_ERR_RETURN_U32(retVal);
+    }
+    
+    /* Because this field was added after production, preserve the past behavior if 0 is passed by setting to default */
+    if (rxAgcCtrl->agcPower.overRangeHighPowerGainStepAttack == 0)
+    {
+        rxAgcCtrl->agcPower.overRangeHighPowerGainStepAttack = 4;
+    }
+    
+    if ((rxAgcCtrl->agcPower.overRangeHighPowerGainStepAttack) & ~overRangeHighPowerGainStepAttackBitMask)
+    {
+        return (uint32_t)talApiErrHandler(device, TAL_ERRHDL_INVALID_PARAM,
+            TAL_ERR_INV_AGC_PWR_UPPWR1GAINSTEP_PARAM, retVal, TALACT_ERR_CHECK_PARAM);
+    }
+    else
+    {
+        halError = talSpiWriteByte(device->devHalInfo, TALISE_ADDR_UPPER1_THRESHOLD_GAIN_STEP, rxAgcCtrl->agcPower.overRangeHighPowerGainStepAttack);
+        retVal = talApiErrHandler(device, TAL_ERRHDL_HAL_SPI, halError, retVal, TALACT_ERR_RESET_SPI);
+        IF_ERR_RETURN_U32(retVal);
+    }
+    
     return (uint32_t)retVal;
 }
 
@@ -770,20 +831,20 @@ uint32_t TALISE_getAgcCtrlRegisters(taliseDevice_t *device, taliseAgcCfg_t *agcC
     uint32_t agcGainUpdateCounter = 0;
 
 
-    const uint8_t agcPeakWaitTimeMask = 0x1F;
-    const uint8_t agcGainUpdateCounterMask = 0x3F;
-    const uint8_t agcLowThreshPreventGainMask = 0x20;
-    const uint8_t agcChangeGainIfThreshHighMask = 0x18;
-    const uint8_t agcPeakThreshGainControlModeMask = 0x04;
-    const uint8_t agcResetOnRxonMask = 0x02;
-    const uint8_t agcEnableSyncPulseForGainCounterMask = 0x01;
-    const uint8_t agcEnableIp3OptimizationThreshMask = 0x80;
-    const uint8_t agcEnableFastRecoveryLoopBitMask = 0x40;
-    const uint8_t ip3OverRangeThreshMask = 0x3F;
-    const uint8_t agcClock_HzBitMask = 0x03;
-    const uint8_t agcRx1AttackDelayBitMask = 0x3F;
-    const uint8_t agcRx2AttackDelayBitMask = 0x3F;
-    const uint8_t agcSlowLoopSettlingDelayBitMask = 0x7F;
+    static const uint8_t agcPeakWaitTimeMask = 0x1F;
+    static const uint8_t agcGainUpdateCounterMask = 0x3F;
+    static const uint8_t agcLowThreshPreventGainMask = 0x20;
+    static const uint8_t agcChangeGainIfThreshHighMask = 0x18;
+    static const uint8_t agcPeakThreshGainControlModeMask = 0x04;
+    static const uint8_t agcResetOnRxonMask = 0x02;
+    static const uint8_t agcEnableSyncPulseForGainCounterMask = 0x01;
+    static const uint8_t agcEnableIp3OptimizationThreshMask = 0x80;
+    static const uint8_t agcEnableFastRecoveryLoopBitMask = 0x40;
+    static const uint8_t ip3OverRangeThreshMask = 0x3F;
+    static const uint8_t agcClock_HzBitMask = 0x03;
+    static const uint8_t agcRx1AttackDelayBitMask = 0x3F;
+    static const uint8_t agcRx2AttackDelayBitMask = 0x3F;
+    static const uint8_t agcSlowLoopSettlingDelayBitMask = 0x7F;
 
 #if TALISE_VERBOSE
     halError = talWriteToLog(device->devHalInfo, ADIHAL_LOG_MSG, TAL_ERR_OK, "TALISE_getAgcCtrlRegisters()\n");
@@ -915,25 +976,25 @@ uint32_t TALISE_getAgcPeakRegisters(taliseDevice_t *device, taliseAgcPeak_t *agc
     uint32_t agcClock_Hz = 0;
     uint16_t agcUnderRangeLowInterval = 0;
 
-    const uint8_t apdHighThreshMask = 0x3F;
-    const uint8_t apdLowGainModeHighThreshMask = 0x3F;
-    const uint8_t apdLowThreshMask = 0x3F;
-    const uint8_t apdLowGainModeLowThreshMask = 0x3F;
-    const uint8_t apdGainStepAttackMask = 0x1F;
-    const uint8_t apdGainStepRecoveryMask = 0x1F;
-    const uint8_t enableHb2OverloadMask = 0x80;
-    const uint8_t hb2OverloadDurationCntMask = 0x70;
-    const uint8_t hb2OverloadThreshCntMask = 0x0F;
-    const uint8_t hb2GainStepHighRecoveryMask = 0x1F;
-    const uint8_t hb2GainStepLowRecoveryMask = 0x1F;
-    const uint8_t hb2GainStepMidRecoveryMask = 0x1F;
-    const uint8_t hb2GainStepAttackMask = 0x1F;
-    const uint8_t hb2OverloadPowerModeMask = 0x04;
-    const uint8_t hb2OvrgSelMask = 0x20;
-    const uint8_t hb2ThreshConfigMask = 0x03;
-    const uint8_t agcClock_HzBitMask = 0x03;
-    const uint8_t agcUnderRangeMidIntervalMask = 0x3F;
-    const uint8_t agcUnderRangeHighIntervalMask = 0x3F;
+    static const uint8_t apdHighThreshMask = 0x3F;
+    static const uint8_t apdLowGainModeHighThreshMask = 0x3F;
+    static const uint8_t apdLowThreshMask = 0x3F;
+    static const uint8_t apdLowGainModeLowThreshMask = 0x3F;
+    static const uint8_t apdGainStepAttackMask = 0x1F;
+    static const uint8_t apdGainStepRecoveryMask = 0x1F;
+    static const uint8_t enableHb2OverloadMask = 0x80;
+    static const uint8_t hb2OverloadDurationCntMask = 0x70;
+    static const uint8_t hb2OverloadThreshCntMask = 0x0F;
+    static const uint8_t hb2GainStepHighRecoveryMask = 0x1F;
+    static const uint8_t hb2GainStepLowRecoveryMask = 0x1F;
+    static const uint8_t hb2GainStepMidRecoveryMask = 0x1F;
+    static const uint8_t hb2GainStepAttackMask = 0x1F;
+    static const uint8_t hb2OverloadPowerModeMask = 0x04;
+    static const uint8_t hb2OvrgSelMask = 0x20;
+    static const uint8_t hb2ThreshConfigMask = 0x03;
+    static const uint8_t agcClock_HzBitMask = 0x03;
+    static const uint8_t agcUnderRangeMidIntervalMask = 0x3F;
+    static const uint8_t agcUnderRangeHighIntervalMask = 0x3F;
 
 #if TALISE_VERBOSE
     halError = talWriteToLog(device->devHalInfo, ADIHAL_LOG_MSG, TAL_ERR_OK, "TALISE_getAgcPeakRegisters()\n");
@@ -1090,6 +1151,14 @@ uint32_t TALISE_getAgcPeakRegisters(taliseDevice_t *device, taliseAgcPeak_t *agc
     halError = talSpiReadField(device->devHalInfo, TALISE_ADDR_AGC_CONFIG1, &agcPeak->hb2OvrgSel, hb2OvrgSelMask, 5);
     retVal = talApiErrHandler(device, TAL_ERRHDL_HAL_SPI, halError, retVal, TALACT_ERR_RESET_SPI);
     IF_ERR_RETURN_U32(retVal);
+    
+    halError = talSpiReadByte(device->devHalInfo, TALISE_ADDR_AGC_ADCOVRG_LOW_INT0_COUNTER, &agcPeak->hb2UnderRangeLowThreshExceededCnt);
+    retVal = talApiErrHandler(device, TAL_ERRHDL_HAL_SPI, halError, retVal, TALACT_ERR_RESET_SPI);
+    IF_ERR_RETURN_U32(retVal);
+    
+    halError = talSpiReadByte(device->devHalInfo, TALISE_ADDR_AGC_ADCOVRG_LOW_INT1_COUNTER, &agcPeak->hb2UnderRangeMidThreshExceededCnt);
+    retVal = talApiErrHandler(device, TAL_ERRHDL_HAL_SPI, halError, retVal, TALACT_ERR_RESET_SPI);
+    IF_ERR_RETURN_U32(retVal);
 
     return (uint32_t)retVal;
 }
@@ -1100,17 +1169,19 @@ uint32_t TALISE_getAgcPowerRegisters(taliseDevice_t *device, taliseAgcPower_t *a
     adiHalErr_t halError = ADIHAL_OK;
     uint8_t agcRegister[3] = {0};
 
-    const uint8_t powerEnableMeasurementMask = 0x01;
-    const uint8_t powerUseRfirOutMask = 0x02;
-    const uint8_t powerUseBBDC2Mask = 0x08;
-    const uint8_t underRangeHighPowerThreshMask = 0x7F;
-    const uint8_t underRangeLowPowerThreshMask = 0x1F;
-    const uint8_t underRangeHighPowerGainStepRecoveryMask = 0x1F;
-    const uint8_t underRangeLowPowerGainStepRecoveryMask = 0x1F;
-    const uint8_t powerMeasurementDurationMask = 0x1F;
-    const uint8_t upper0PowerThreshMask = 0x7F;
-    const uint8_t upper1PowerThreshMask = 0x0F;
-    const uint8_t powerLogShiftMask = 0x04;
+    static const uint8_t powerEnableMeasurementMask = 0x01;
+    static const uint8_t powerUseRfirOutMask = 0x02;
+    static const uint8_t powerUseBBDC2Mask = 0x08;
+    static const uint8_t underRangeHighPowerThreshMask = 0x7F;
+    static const uint8_t underRangeLowPowerThreshMask = 0x1F;
+    static const uint8_t underRangeHighPowerGainStepRecoveryMask = 0x1F;
+    static const uint8_t underRangeLowPowerGainStepRecoveryMask = 0x1F;
+    static const uint8_t powerMeasurementDurationMask = 0x1F;
+    static const uint8_t upper0PowerThreshMask = 0x7F;
+    static const uint8_t upper1PowerThreshMask = 0x0F;
+    static const uint8_t powerLogShiftMask = 0x04;
+    static const uint8_t overRangeLowPowerGainStepAttackBitMask = 0x1F;
+    static const uint8_t overRangeHighPowerGainStepAttackBitMask = 0x1F;
 
 #if TALISE_VERBOSE
     halError = talWriteToLog(device->devHalInfo, ADIHAL_LOG_MSG, TAL_ERR_OK, "TALISE_getAgcPowerRegisters()\n");
@@ -1189,6 +1260,14 @@ uint32_t TALISE_getAgcPowerRegisters(taliseDevice_t *device, taliseAgcPower_t *a
     IF_ERR_RETURN_U32(retVal);
 
     halError = talSpiReadField(device->devHalInfo, TALISE_ADDR_AGC_UPPER_POWER_THRESHOLD, &agcPower->upper1PowerThresh, upper1PowerThreshMask, 0);
+    retVal = talApiErrHandler(device, TAL_ERRHDL_HAL_SPI, halError, retVal, TALACT_ERR_RESET_SPI);
+    IF_ERR_RETURN_U32(retVal);
+    
+    halError = talSpiReadField(device->devHalInfo, TALISE_ADDR_UPPER0_THRESHOLD_GAIN_STEP, &agcPower->overRangeLowPowerGainStepAttack, overRangeLowPowerGainStepAttackBitMask, 0);
+    retVal = talApiErrHandler(device, TAL_ERRHDL_HAL_SPI, halError, retVal, TALACT_ERR_RESET_SPI);
+    IF_ERR_RETURN_U32(retVal);
+    
+    halError = talSpiReadField(device->devHalInfo, TALISE_ADDR_UPPER1_THRESHOLD_GAIN_STEP, &agcPower->overRangeHighPowerGainStepAttack, overRangeHighPowerGainStepAttackBitMask, 0);
     retVal = talApiErrHandler(device, TAL_ERRHDL_HAL_SPI, halError, retVal, TALACT_ERR_RESET_SPI);
     IF_ERR_RETURN_U32(retVal);
 

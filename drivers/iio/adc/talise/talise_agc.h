@@ -2,7 +2,7 @@
  * \file talise_agc.h
  * \brief Contains Talise API AGC function prototypes for talise_agc.c
  *
- * Talise API version: 3.4.0.0
+ * Talise API version: 3.5.0.2
  *
  * Copyright 2015-2017 Analog Devices Inc.
  * Released under the AD9378-AD9379 API license, for more information see the "LICENSE.txt" file in this zip file.
@@ -183,7 +183,7 @@ uint32_t TALISE_getDualBandLnaControls (taliseDevice_t *device, taliseRxChannels
  * \param device Pointer to the Talise device data structure
  * \param rxChannel taliseRxChannels_t enum type to select either Rx1 or Rx2 or both Rx1 and Rx2
  * \param maxGainIndex AGC Max gain index setting
- * \param maxGainIndex AGC Min gain index setting
+ * \param minGainIndex AGC Min gain index setting
  *
  * \retval TALACT_WARN_RESET_LOG recovery action for log reset
  * \retval TALACT_ERR_CHECK_PARAM recovery action for bad parameter check

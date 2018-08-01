@@ -4,7 +4,7 @@
  *        These functions are public to the customer for getting more details on
  *        errors and debugging.
  *
- * Talise API version: 3.4.0.0
+ * Talise API version: 3.5.0.2
  *
  * Copyright 2015-2017 Analog Devices Inc.
  * Released under the AD9378-AD9379 API license, for more information see the "LICENSE.txt" file in this zip file.
@@ -263,10 +263,10 @@ const char* TALISE_getErrorMessage(uint32_t errSrc, uint32_t errCode)
             case TAL_ERR_TALFINDDFRMRLANEERROR_NULL_PARAM: return "talFindDfrmrLaneErr: Null deframerInputsMask function parameter\n";
             case TAL_ERR_RXGAINTABLE_INV_PROFILE: return "TALISE_programRxGainTable(): RX gain table channel chosen, but the Rx profile is not valid in the device data structure\n";
             case TAL_ERR_RXGAINTABLE_INV_CHANNEL: return "TALISE_programRxGainTable(): Invalid channel specified\n";
-            case TAL_ERR_RXGAINTABLE_INV_GAIN_INDEX_RANGE: return "TALISE_programRxGainTable(): Invalid numGainIndicesinTable greater than possible number of gain indices for channel, max is 255 indices. \n";
+            case TAL_ERR_RXGAINTABLE_INV_GAIN_INDEX_RANGE: return "TALISE_programRxGainTable(): Invalid numGainIndicesinTable greater than possible number of gain indices for channel, max is 128 indices. \n";
             case TAL_ERR_ORXGAINTABLE_INV_PROFILE: return "TALISE_programOrxGainTable(): RX gain table channel chosen, but the Rx profile is not valid in the device data structure\n";
             case TAL_ERR_ORXGAINTABLE_INV_CHANNEL: return "TALISE_programOrxGainTable(): Invalid channel specified\n";
-            case TAL_ERR_ORXGAINTABLE_INV_GAIN_INDEX_RANGE: return "TALISE_programOrxGainTable(): Invalid numGainIndicesinTable greater than possible number of gain indices for channel, max is 255 indices. \n";
+            case TAL_ERR_ORXGAINTABLE_INV_GAIN_INDEX_RANGE: return "TALISE_programOrxGainTable(): Invalid numGainIndicesinTable greater than possible number of gain indices for channel, max is 124 indices. \n";
             case TAL_ERR_RXFRAMER_INV_FK_PARAM: return "Invalid FK parameter detected in TALISE_setupJesd204bFramer()\n";
             case TAL_ERR_RXFRAMER_INV_L_PARAM: return "Invalid L parameter detected in TALISE_setupJesd204bFramer\n";
             case TAL_ERR_INV_RX_GAIN_MODE_PARM: return "Invalid gain control mode detected in TALISE_setRxGainControlMode()\n";
@@ -279,7 +279,7 @@ const char* TALISE_getErrorMessage(uint32_t errSrc, uint32_t errCode)
             case TAL_ERR_INV_AGC_PKK_LOWGAINMODEHIGHTHRSH_PARAM: return "Invalid APD peak detect low threshold at device->rx->rxAgcCtrl->agcPeak->apdLowGainModeHighThresh in TALISE_setupRxAgc()\n";
             case TAL_ERR_INV_AGC_PKK_LOWGAINTHRSH_PARAM: return "Invalid  APD peak detect low threshold at device->rx->rxAgcCtrl->agcPeak->apdLowGainModeLowThresh in TALISE_setupRxAgc()\n";
             case TAL_ERR_INV_AGC_PKK_GAINSTEPATTACK_PARAM : return "Invalid  APD peak detect attack gain step at device->rx->rxAgcCtrl->agcPeak->apdGainStepAttack in TALISE_setupRxAgc()\n";
-            case TAL_ERR_INV_AGC_RX_APD_THRESH_DIFF_VS_ATTACK_GAIN_STEP: return "Difference between APD High/Low thresholds less than APD or HB2 gain step attack in TALISE_setupRxAgc()\n";
+            case TAL_ERR_INV_AGC_RX_APD_HIGH_LOW_THRESH: return "APD High threshold less than APD Low threshold in TALISE_setupRxAgc()\n";
             case TAL_ERR_INV_AGC_PKK_GAINSTEPRECOVERY_PARAM: return "Invalid   APD gain index step size at device->rx->rxAgcCtrl->agcPeak->apdGainStepRecovery in TALISE_setupRxAgc()\n";
             case TAL_ERR_INV_AGC_PKK_HB2OVRLD_PARAM: return "Invalid HB2 overload detector setting at device->rx->rxAgcCtrl->agcPeak->enableHb2Overload in TALISE_setupRxAgc()\n";
             case TAL_ERR_INV_AGC_PKK_HB2OVRLDDURATION_PARAM: return "Invalid HB2 Overload Duration Cnt at device->rx->rxAgcCtrl->agcPeak->hb2OverloadDurationCnt in TALISE_setupRxAgc()\n";
@@ -299,6 +299,8 @@ const char* TALISE_getErrorMessage(uint32_t errSrc, uint32_t errCode)
             case TAL_ERR_INV_AGC_PWR_UPPWR0THRSH_PARAM: return "Invalid AGC  device->rx->rxAgcCtrl->agcPower->upper0PowerThresh in TALISE_setupRxAgc()\n";
             case TAL_ERR_INV_AGC_PWR_UPPWR1THRSH_PARAM: return "Invalid AGC device->rx->rxAgcCtrl->agcPower->upper1PowerThresh in TALISE_setupRxAgc()\n";
             case TAL_ERR_INV_AGC_PWR_LOGSHIFT_PARAM: return "Invalid dynamic range increase of the power measurement from 40dB to ~60dB at device->rx->rxAgcCtrl->agcPower in TALISE_setupRxAgc()\n";
+            case TAL_ERR_INV_AGC_PWR_UPPWR0GAINSTEP_PARAM: return "Invalid inner upper attack gain step at device->rx->rxAgcCtrl->agcPower->overRangeLowPowerGainStepAttack in TALISE_setupRxAgc()\n";
+            case TAL_ERR_INV_AGC_PWR_UPPWR1GAINSTEP_PARAM: return "Invalid outer high power attack gain step at device->rx->rxAgcCtrl->agcPower->overRangeHighPowerGainStepAttack in TALISE_setupRxAgc()\n";
             case TAL_ERR_INV_AGC_RX_PEAK_WAIT_TIME_PARM: return "device->rx->rxAgcCtrl->agcPeakWaitTime out of range in TALISE_setupRxAgc()\n";
             case TAL_ERR_INV_AGC_RX_MIN_MAX_GAIN_PARM: return "TALISE_setupRxAgc(): RX1 or RX2 min or max gain index in AGC structure is out of range of the values programmed in the gain table\n";
             case TAL_ERR_INV_AGC_RX_GAIN_UPDATE_TIME_PARM: return "device->rx->rxAgcCtrl->agcGainUpdateTime_us out of range in TALISE_setupRxAgc()\n";
@@ -320,6 +322,9 @@ const char* TALISE_getErrorMessage(uint32_t errSrc, uint32_t errCode)
             case TAL_ERR_INV_AGC_RX_GAIN_UNDERRANGE_UPDATE_TIME_PARM: return "AGC Under Range time interval is not valid. Parameter agcUnderRangeLowInterval_us is out of range in TALISE_setupRxAgc()\n";
             case TAL_ERR_INV_AGC_RX_GAIN_UNDERRANGE_MID_INTERVAL_PARM: return "AGC Under Range time interval is not valid. Parameter agcUnderRangeMidInterval is out of range in TALISE_setupRxAgc()\n";
             case TAL_ERR_INV_AGC_RX_GAIN_UNDERRANGE_HIGH_INTERVAL_PARM: return "AGC Under Range time interval is not valid. Parameter agcUnderRangeHighInterval is out of range in TALISE_setupRxAgc()\n";
+            case TAL_ERR_INV_RX_DEC_POWER_PARAM: return "TALISE_getRxDecPower: Null rxDecPower_mdBFS function parameter\n";
+            case TAL_ERR_GETRXDECPOWER_INV_PROFILE: return "TALISE_getRxDecPower: Dec Power read requested for an Rx channel, but Rx profile is invalid or channel not initialized in device structure\n";
+            case TAL_ERR_GETRXDECPOWER_INV_CHANNEL: return "TALISE_getRxDecPower: Invalid rxChannel parameter\n";
             case TAL_ERR_WAITFOREVENT_TIMEDOUT_CLKPLLCP: return "Clock PLL Charge Pump Cal event timed out in TALISE_waitForEvent()\n";
             case TAL_ERR_WAITFOREVENT_TIMEDOUT_CLKPLL_LOCK: return "Clock PLL Lock event timed out in TALISE_waitForEvent()\n";
             case TAL_ERR_WAITFOREVENT_TIMEDOUT_RFPLLCP: return "RF PLL Charge Pump Cal event timed out in TALISE_waitForEvent()\n";
@@ -337,6 +342,7 @@ const char* TALISE_getErrorMessage(uint32_t errSrc, uint32_t errCode)
             case TAL_ERR_SET_ARMGPIO_PINS_INV_SIGNALID: return "Invalid ARM GPIO Signal ID detected\n";
             case TAL_ERR_SET_ARMGPIO_PINS_INV_GPIOPIN: return "Out of range ARM GPIO pin detected\n";
             case TAL_ERR_GETRADIOSTATE_NULL_PARAM: return "TALISE_getRadioState() has null *radioStatus parameter\n";
+            case TAL_ERR_CHECKGETMCS_STATUS_NULL_PARM: return "TALISE_getMultiChipSyncStatus() has null *mcsStatus parameter\n";
             case TAL_ERR_WAIT_INITCALS_ARMERROR: return "TALISE_waitInitCals() returned an ARM error\n";
             case TAL_ERR_WAIT_INITCALS_NULL_PARAM: return "TALISE_waitInitCals() has one or more null parameters\n";
             case TAL_ERR_CHECK_PLL_LOCK_NULL_PARM: return "TALISE_checkPllsLockStatus() has a null *pllLockStatus parameter\n";
@@ -360,8 +366,9 @@ const char* TALISE_getErrorMessage(uint32_t errSrc, uint32_t errCode)
             case TAL_ERR_RXFRAMER_INV_PCLKFREQ: return "Could not find a valid PCLK divider setting when setting up the Talise framers\n";
             case TAL_ERR_RXFRAMER_INV_OUTPUT_RATE: return "Output rate was 0 during framer configuration.\n";
             case TAL_ERR_BBIC_INV_CHN: return "Invalid channel parameter passed to TALISE_enableRxTx().\n";
-            case TAL_ERR_INV_GP_INT_MASK_PARM: return "Invalid general purpose interrupt mask parameter passed to TALISE_configGpInterrupt().\n";
-            case TAL_ERR_GP_INT_STATUS_NULL_PARAM: return "TALISE_readGpInterruptStatus() has a null *status parameter\n";
+            case TAL_ERR_INV_GP_INT_MASK_PARM: return "Invalid general purpose interrupt mask parameter passed to TALISE_setGpIntMask().\n";
+            case TAL_ERR_INV_GP_INT_MASK_NULL_PARM: return "TALISE_getGpIntMask() has a null *gpIntMask parameter.\n";
+            case TAL_ERR_GP_INT_STATUS_NULL_PARAM: return "TALISE_getGpIntStatus() has a null *gpIntStatus parameter\n";
             case TAL_ERR_INV_DAC_SAMP_XBAR_CHANNEL_SEL: return "Invalid channel selection for TALISE_setupDacSampleXbar()\n";
             case TAL_ERR_INV_ADC_SAMP_XBAR_FRAMER_SEL: return "Invalid framer selection for TALISE_setupAdcSampleXbar()\n";
             case TAL_ERR_INV_ADC_SAMP_XBAR_SELECT_PARAM: return "talCheckAdcSampleXbarSelectEnum(): Invalid ENUM for the ADC sample crossbar select\n";
@@ -559,7 +566,6 @@ const char* TALISE_getErrorMessage(uint32_t errSrc, uint32_t errCode)
             case TAL_ERR_GETPAERRFLAGS_NULL_PARAM: return "TALISE_getPaProtectErrorFlags(): NULL function parameter: errorFlags\n";
             case TAL_ERR_GETPAPRO_NULL_PARAM: return "TALISE_getPaProtectionCfg: NULL function parameter: txPaProtectCfg\n";
             case TAL_ERR_SETRFPLL_INITCALS_INPROGRESS: return "TALISE_setRfPllFrequency(): Can not set RF PLL while InitCals are running\n";
-            case TAL_ERR_INITCALS_INPROGRESS: return "TALISE_setGpIntMask(): Can not set GP_INT mask while InitCals are running\n";
             case TAL_ERR_DEFSTATUS_INV_COUNTERERRTHRESHOLD_PARAM: return "TALISE_enableDfrmErrCounter(): Selected error counter threshold out of range\n";
             case TAL_ERR_RFPLLFREQ_TX_OUT_OF_RANGE : return "TALISE_setRfPllFrequency() : Invalid rfpllLoFreq, rfPllLoFreq - TxProfileRFBW/2 must be > 0 (DC)\n";
             case TAL_ERR_RFPLLFREQ_RX_OUT_OF_RANGE : return "TALISE_setRfPllFrequency() : Invalid rfpllLoFreq, rfPllLoFreq - RxProfileRFBW/2 must be > 0 (DC)\n";
@@ -710,12 +716,12 @@ talRecoveryActions_t talApiErrHandler(taliseDevice_t *device, taliseErrHdls_t er
             return recAction;
 
         case TAL_ERRHDL_API_GPIO:
-        	/*Ignore Error from log as lower priority than error being handled*/
-        	talWriteToLog(device->devHalInfo, ADIHAL_LOG_ERR, detErr,
-        			TALISE_getErrorMessage(TAL_ERRSRC_TAL_API_GPIO, detErr));
-			device->devStateInfo.errSource = TAL_ERRSRC_TAL_API_GPIO;
-			device->devStateInfo.errCode = detErr;
-			return recAction;
+            /*Ignore Error from log as lower priority than error being handled*/
+            talWriteToLog(device->devHalInfo, ADIHAL_LOG_ERR, detErr,
+                    TALISE_getErrorMessage(TAL_ERRSRC_TAL_API_GPIO, detErr));
+            device->devStateInfo.errSource = TAL_ERRSRC_TAL_API_GPIO;
+            device->devStateInfo.errCode = detErr;
+            return recAction;
 
         case TAL_ERRHDL_API_C0_PCA:
             talWriteToLog(device->devHalInfo, ADIHAL_LOG_ERR, detErr,
