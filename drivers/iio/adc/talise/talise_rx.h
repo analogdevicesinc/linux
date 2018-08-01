@@ -3,7 +3,7 @@
  * \brief Contains Talise receive related function prototypes for
  *        talise_rx.c
  *
- * Talise API version: 3.4.0.0
+ * Talise API version: 3.5.0.2
  *
  * Copyright 2015-2017 Analog Devices Inc.
  * Released under the AD9378-AD9379 API license, for more information see the "LICENSE.txt" file in this zip file.
@@ -501,6 +501,37 @@ talRecoveryActions_t talSetupNcoShifter(taliseDevice_t *device, taliseInit_t *in
  * \retval TALACT_NO_ACTION Function completed successfully, no action required
  */
 uint32_t TALISE_setGainTableExtCtrlPins(taliseDevice_t *device, taliseRxChannels_t rxChannel, uint8_t enable3p3vGpios);
+
+/**
+ * \brief Performs a power measurement in the Rx digital data path for the channel specified.
+ *
+ * Due to interdependencies between the AGC and power measurement the power measurement duration and
+ * where the measurement is taken is variable. Call TALISE_setupRxAgc() to configure power measurement.
+ * The location of the power measurement is given by rxAgcCtrl->agcPower->[powerUseRfirOut/powerUseBBDC2].
+ * The number of samples the power measurement uses is given by 8*2^(rxAgcCtrl->agcPower->powerMeasurementDuration) at the IQ rate,
+ * if measured at RFIR output. This number of samples must be less than the agcGainUpdateCounter.
+ * If the receiver is disabled during the power measurement, this function returns a 0 value for rx1DecPower_mdBFS
+ *
+ * The resolution of this function is 0.25dB.
+ * When the measurement location is HB2 (i.e., powerUseRfirOut == powerUseBBDC2 == 0) the dynamic range of this function is 40dB. 
+ * Signals lower than -40dBFS may not be measured accurately. When measuring from RfirOut or BBDC2, the dynamic range of this
+ * function is 60dB. Signals lower than -60 dBFS may not be measured accurately.
+ *
+ * \dep_begin
+ * \dep{device->devHalInfo}
+ * \dep{rxAgcCtrl->agcPower}
+ * \dep_end
+ *
+ * \param device Pointer to the Talise data structure containing settings
+ * \param rxChannel taliseRxChannels_t enum type to select either Rx1 or Rx2
+ * \param rxDecPower_mdBFS Pointer to store the Rx decimated power return. Value returned in mdBFS
+ *
+ * \retval TALACT_WARN_RESET_LOG recovery action for log reset
+ * \retval TALACT_ERR_CHECK_PARAM recovery action for bad parameter check
+ * \retval TALACT_ERR_RESET_SPI recovery action for SPI reset required
+ * \retval TALACT_NO_ACTION function completed successfully, no action required
+ */
+uint32_t TALISE_getRxDecPower(taliseDevice_t *device, taliseRxChannels_t rxChannel, uint16_t *rxDecPower_mdBFS);
 
 /****************************************************************************
  * Helper functions

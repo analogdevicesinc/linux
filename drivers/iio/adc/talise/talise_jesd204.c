@@ -2,7 +2,7 @@
  * \file talise_jesd204.c
  * \brief Contains functions to support Talise JESD204b data interface
  *
- * Talise API version: 3.4.0.0
+ * Talise API version: 3.5.0.2
  *
  * Copyright 2015-2017 Analog Devices Inc.
  * Released under the AD9378-AD9379 API license, for more information see the "LICENSE.txt" file in this zip file.
@@ -1565,7 +1565,7 @@ uint32_t TALISE_readFramerStatus(taliseDevice_t *device, taliseFramerSel_t frame
 
 uint32_t TALISE_readDeframerStatus(taliseDevice_t *device, taliseDeframerSel_t deframerSel, uint16_t *deframerStatus)
 {
-	talRecoveryActions_t retVal = TALACT_NO_ACTION;
+    talRecoveryActions_t retVal = TALACT_NO_ACTION;
     adiHalErr_t halError = ADIHAL_OK;
     uint16_t deframerOffset = 0;
     uint16_t configStatus3Addr = TALISE_ADDR_JESD_DEFRAMER_CFG3_0;
@@ -1773,10 +1773,7 @@ uint32_t TALISE_enableFramerTestData(taliseDevice_t *device, taliseFramerSel_t f
     retVal = talApiErrHandler(device, TAL_ERRHDL_HAL_LOG, halError, retVal, TALACT_WARN_RESET_LOG);
 #endif
 
-    if ((testDataSource > TAL_FTD_RAMP) &&
-        (testDataSource != TAL_FTD_PATTERN_REPEAT) &&
-        (testDataSource != TAL_FTD_PATTERN_ONCE)
-       )
+    if (testDataSource > TAL_FTD_RAMP)
     {
         return (uint32_t)talApiErrHandler(device, TAL_ERRHDL_INVALID_PARAM,
                 TAL_ERR_FRAMER_INV_TESTDATA_SOURCE_PARAM, retVal, TALACT_ERR_CHECK_PARAM);
@@ -2031,7 +2028,7 @@ uint32_t TALISE_getDfrmIlasMismatch(taliseDevice_t *device, taliseDeframerSel_t 
 
     if (mismatch == NULL)
     {
-		return (uint32_t)talApiErrHandler(device, TAL_ERRHDL_INVALID_PARAM,
+        return (uint32_t)talApiErrHandler(device, TAL_ERRHDL_INVALID_PARAM,
                 TAL_ERR_JESD204B_ILAS_MISMATCH_NULLPARAM, retVal, TALACT_ERR_CHECK_PARAM);        
     }
 

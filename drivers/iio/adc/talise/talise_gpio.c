@@ -2,7 +2,7 @@
  * \file talise_gpio.c
  * \brief Talise GPIO functions
  *
- * Talise API version: 3.4.0.0
+ * Talise API version: 3.5.0.2
  *
  * Copyright 2015-2017 Analog Devices Inc.
  * Released under the AD9378-AD9379 API license, for more information see the "LICENSE.txt" file in this zip file.
@@ -342,52 +342,59 @@ uint32_t TALISE_setGpIntMask(taliseDevice_t *device, uint16_t gpIntMask)
     talRecoveryActions_t retVal = TALACT_NO_ACTION;
     adiHalErr_t halError = ADIHAL_OK;
 
-    uint8_t areCalsRunning = 0;
-    uint8_t errorFlag = 0;
-
-    static const uint16_t gpMaskMsb = (uint16_t)(TAL_GP_MASK_STREAM_ERROR |
-                                          TAL_GP_MASK_ARM_CALIBRATION_ERROR |
-                                          TAL_GP_MASK_ARM_SYSTEM_ERROR |
-                                          TAL_GP_MASK_ARM_FORCE_INTERRPUT |
-                                          TAL_GP_MASK_WATCHDOG_TIMEOUT);
-
-    static const uint16_t gpMaskLsb = (uint16_t)(TAL_GP_MASK_PA_PROTECTION_TX1_ERROR |
-                                          TAL_GP_MASK_PA_PROTECTION_TX2_ERROR |
-                                          TAL_GP_MASK_JESD_DEFRMER_IRQ |
-                                          TAL_GP_MASK_JESD_FRAMER_IRQ |
-                                          TAL_GP_MASK_CLK_SYNTH_LOCK |
-                                          TAL_GP_MASK_AUX_SYNTH_LOCK |
-                                          TAL_GP_MASK_RF_SYNTH_LOCK);
-
 #if TALISE_VERBOSE
     halError = talWriteToLog(device->devHalInfo, ADIHAL_LOG_MSG, TAL_ERR_OK, "TALISE_setGpIntMask()\n");
     retVal = talApiErrHandler(device, TAL_ERRHDL_HAL_LOG, halError, retVal, TALACT_WARN_RESET_LOG);
 #endif
 
-    /* return error if init cals are in progress */
-    retVal = (talRecoveryActions_t)TALISE_checkInitCalComplete(device, &areCalsRunning, &errorFlag);
-    IF_ERR_RETURN_U32(retVal);
-
-    if (areCalsRunning == 1)
-    {
-        return (uint32_t)talApiErrHandler(device, TAL_ERRHDL_API_FAIL,
-                         TAL_ERR_INITCALS_INPROGRESS, retVal, TALACT_NO_ACTION);
-    }
-
     /* checking for valid mask setting */
-    if (gpIntMask & ~(gpMaskMsb | gpMaskLsb))
+    if (gpIntMask & ~(TAL_GPMASK_MSB | TAL_GPMASK_LSB))
     {
         return (uint32_t)talApiErrHandler(device, TAL_ERRHDL_INVALID_PARAM, TAL_ERR_INV_GP_INT_MASK_PARM, retVal, TALACT_ERR_CHECK_PARAM);
     }
     else
     {
-        halError = talSpiWriteByte(device->devHalInfo, TALISE_ADDR_GP_INTERRUPT_MASK_1, (uint8_t)(gpIntMask & gpMaskLsb));
+        halError = talSpiWriteByte(device->devHalInfo, TALISE_ADDR_GP_INTERRUPT_MASK_1, (uint8_t)(gpIntMask & TAL_GPMASK_LSB));
         retVal = talApiErrHandler(device,TAL_ERRHDL_HAL_SPI, halError, retVal, TALACT_ERR_RESET_SPI);
         IF_ERR_RETURN_U32(retVal);
 
-        halError = talSpiWriteByte(device->devHalInfo, TALISE_ADDR_GP_INTERRUPT_MASK_0, (uint8_t)((gpIntMask & gpMaskMsb) >> 8));
+        halError = talSpiWriteByte(device->devHalInfo, TALISE_ADDR_GP_INTERRUPT_MASK_0, (uint8_t)((gpIntMask & TAL_GPMASK_MSB) >> 8));
         retVal = talApiErrHandler(device,TAL_ERRHDL_HAL_SPI, halError, retVal, TALACT_ERR_RESET_SPI);
         IF_ERR_RETURN_U32(retVal);
+    }
+
+    return (uint32_t)retVal;
+}
+
+uint32_t TALISE_getGpIntMask(taliseDevice_t *device, uint16_t *gpIntMask)
+{
+    talRecoveryActions_t retVal = TALACT_NO_ACTION;
+    adiHalErr_t halError = ADIHAL_OK;
+    uint8_t gpIntLsb = 0;
+    uint8_t gpIntMsb = 0;
+
+#if TALISE_VERBOSE
+    halError = talWriteToLog(device->devHalInfo, ADIHAL_LOG_MSG, TAL_ERR_OK, "TALISE_getGpIntMask()\n");
+    retVal = talApiErrHandler(device, TAL_ERRHDL_HAL_LOG, halError, retVal, TALACT_WARN_RESET_LOG);
+#endif
+    
+    /* checking for null pointer */
+    if (gpIntMask == NULL)
+    {
+        return (uint32_t)talApiErrHandler(device, TAL_ERRHDL_INVALID_PARAM, TAL_ERR_INV_GP_INT_MASK_NULL_PARM, retVal, TALACT_ERR_CHECK_PARAM);
+    }
+    else
+    {
+        /* Read the current GpInt Mask */
+        halError = talSpiReadByte(device->devHalInfo, TALISE_ADDR_GP_INTERRUPT_MASK_1, &gpIntLsb);
+        retVal = talApiErrHandler(device, TAL_ERRHDL_HAL_SPI, halError, retVal, TALACT_ERR_RESET_SPI);
+        IF_ERR_RETURN_U32(retVal);
+        
+        halError = talSpiReadByte(device->devHalInfo, TALISE_ADDR_GP_INTERRUPT_MASK_0, &gpIntMsb);
+        retVal = talApiErrHandler(device, TAL_ERRHDL_HAL_SPI, halError, retVal, TALACT_ERR_RESET_SPI);
+        IF_ERR_RETURN_U32(retVal);
+        
+        *gpIntMask = ((((uint16_t)gpIntMsb) << 8) & TAL_GPMASK_MSB) | ((uint16_t)gpIntLsb & TAL_GPMASK_LSB);
     }
 
     return (uint32_t)retVal;
@@ -397,22 +404,8 @@ uint32_t TALISE_getGpIntStatus(taliseDevice_t *device, uint16_t *gpIntStatus)
 {
     talRecoveryActions_t retVal = TALACT_NO_ACTION;
     adiHalErr_t halError = ADIHAL_OK;
-    uint8_t statByte = 0;
     uint8_t lsbByte = 0;
-
-    static const uint8_t gpClkMask = (uint8_t)(TAL_GP_MASK_CLK_SYNTH_LOCK |
-                                        TAL_GP_MASK_AUX_SYNTH_LOCK |
-                                        TAL_GP_MASK_RF_SYNTH_LOCK);
-    static const uint8_t gpMaskLsb = (uint8_t)(TAL_GP_MASK_PA_PROTECTION_TX1_ERROR |
-                                        TAL_GP_MASK_PA_PROTECTION_TX2_ERROR |
-                                        TAL_GP_MASK_JESD_DEFRMER_IRQ |
-                                        TAL_GP_MASK_JESD_FRAMER_IRQ);
-
-    static const uint16_t gpMaskMsb = (uint16_t)(TAL_GP_MASK_STREAM_ERROR |
-                                        TAL_GP_MASK_ARM_CALIBRATION_ERROR |
-                                        TAL_GP_MASK_ARM_SYSTEM_ERROR |
-                                        TAL_GP_MASK_ARM_FORCE_INTERRPUT |
-                                        TAL_GP_MASK_WATCHDOG_TIMEOUT);
+    uint8_t msbByte = 0;
 
 #if TALISE_VERBOSE
     halError = talWriteToLog(device->devHalInfo, ADIHAL_LOG_MSG, TAL_ERR_OK, "TALISE_getGpIntStatus()\n");
@@ -426,18 +419,15 @@ uint32_t TALISE_getGpIntStatus(taliseDevice_t *device, uint16_t *gpIntStatus)
     }
     else
     {
-        halError = talSpiReadByte(device->devHalInfo, TALISE_ADDR_GP_INTERRUPT_READ_1, &statByte);
+        halError = talSpiReadField(device->devHalInfo, TALISE_ADDR_GP_INTERRUPT_READ_1, &lsbByte, (uint8_t)TAL_GPMASK_LSB, 0);
         retVal = talApiErrHandler(device,TAL_ERRHDL_HAL_SPI, halError, retVal, TALACT_ERR_RESET_SPI);
         IF_ERR_RETURN_U32(retVal);
 
-        /* PLL Lock status bits are high when locked, invert to match up with other bits */
-        lsbByte = (~statByte & gpClkMask) | (statByte & gpMaskLsb);
-
-        halError = talSpiReadByte(device->devHalInfo, TALISE_ADDR_GP_INTERRUPT_READ_0, &statByte);
+        halError = talSpiReadField(device->devHalInfo, TALISE_ADDR_GP_INTERRUPT_READ_0, &msbByte, (uint8_t)(TAL_GPMASK_MSB >> 8), 0);
         retVal = talApiErrHandler(device,TAL_ERRHDL_HAL_SPI, halError, retVal, TALACT_ERR_RESET_SPI);
         IF_ERR_RETURN_U32(retVal);
 
-        *gpIntStatus = ((((uint16_t)statByte) << 8) & gpMaskMsb) | ((uint16_t)lsbByte);
+        *gpIntStatus = (((uint16_t)msbByte) << 8) | ((uint16_t)lsbByte);
     }
 
     return (uint32_t)retVal;
@@ -899,6 +889,163 @@ uint32_t TALISE_getGpio3v3Oe(taliseDevice_t *device, uint16_t *gpio3v3OutEn)
     return (uint32_t)retVal;
 }
 
+uint32_t TALISE_setGpio3v3SourceCtrl(taliseDevice_t *device, uint16_t gpio3v3SrcCtrl)
+{
+    talRecoveryActions_t retVal = TALACT_NO_ACTION;
+    adiHalErr_t halError = ADIHAL_OK;
+
+    static const uint16_t GPIO_SRC_MASK = 0x0FFF;
+
+#if TALISE_VERBOSE
+    halError = talWriteToLog(device->devHalInfo, ADIHAL_LOG_MSG, TAL_ERR_OK, "TALISE_setGpio3v3SourceCtrl()\n");
+    retVal = talApiErrHandler(device, TAL_ERRHDL_HAL_LOG, halError, retVal, TALACT_WARN_RESET_LOG);
+#endif
+
+    /* performing gpio3v3SrcCtrl range check */
+    if (gpio3v3SrcCtrl > GPIO_SRC_MASK)
+    {
+        return (uint32_t)talApiErrHandler(device, TAL_ERRHDL_API_GPIO, TALISE_ERR_GPIO3V3_SRC_INV_PARM, retVal, TALACT_ERR_CHECK_PARAM);
+    }
+
+    /* Writing 3.3V GPIO configuration registers */
+    halError = talSpiWriteByte(device->devHalInfo, TALISE_ADDR_GPIO_3P3V_LOWER_BYTE_SOURCE_CONTROL, (gpio3v3SrcCtrl & 0xFF));
+    retVal = talApiErrHandler(device, TAL_ERRHDL_HAL_SPI, halError, retVal, TALACT_ERR_RESET_SPI);
+    IF_ERR_RETURN(retVal);
+
+    halError = talSpiWriteByte(device->devHalInfo, TALISE_ADDR_GPIO_3P3V_UPPER_BYTE_SOURCE_CONTROL, ((gpio3v3SrcCtrl >> 8) & 0x0F));
+    retVal = talApiErrHandler(device, TAL_ERRHDL_HAL_SPI, halError, retVal, TALACT_ERR_RESET_SPI);
+    IF_ERR_RETURN(retVal);
+
+    return (uint32_t)retVal;
+}
+
+uint32_t TALISE_getGpio3v3SourceCtrl(taliseDevice_t *device, uint16_t *gpio3v3SrcCtrl)
+{
+    talRecoveryActions_t retVal = TALACT_NO_ACTION;
+    adiHalErr_t halError = ADIHAL_OK;
+    uint8_t readBytes[2] = {0};
+
+#if TALISE_VERBOSE
+    halError = talWriteToLog(device->devHalInfo, ADIHAL_LOG_MSG, TAL_ERR_OK, "TALISE_getGpio3v3SourceCtrl()\n");
+    retVal = talApiErrHandler(device, TAL_ERRHDL_HAL_LOG, halError, retVal, TALACT_WARN_RESET_LOG);
+#endif
+
+    if (gpio3v3SrcCtrl == NULL)
+    {
+        return (uint32_t)talApiErrHandler(device, TAL_ERRHDL_API_GPIO,
+                TALISE_ERR_GETGPIO3V3_SRC_NULL_PARM, retVal, TALACT_ERR_CHECK_PARAM);
+    }
+
+    /* Reading GPIO source control registers */
+    halError = talSpiReadByte(device->devHalInfo, TALISE_ADDR_GPIO_3P3V_LOWER_BYTE_SOURCE_CONTROL, &readBytes[0]);
+    retVal = talApiErrHandler(device,TAL_ERRHDL_HAL_SPI, halError, retVal, TALACT_ERR_RESET_SPI);
+    IF_ERR_RETURN_U32(retVal);
+
+    halError = talSpiReadByte(device->devHalInfo, TALISE_ADDR_GPIO_3P3V_UPPER_BYTE_SOURCE_CONTROL, &readBytes[1]);
+    retVal = talApiErrHandler(device,TAL_ERRHDL_HAL_SPI, halError, retVal, TALACT_ERR_RESET_SPI);
+    IF_ERR_RETURN_U32(retVal);
+
+    /* reconstructing byte reads into gpioSrcCtrl word */
+    *gpio3v3SrcCtrl = ((uint16_t)(readBytes[1]) << 8) | (uint16_t)(readBytes[0]);
+
+    return (uint32_t)retVal;
+}
+
+uint32_t TALISE_setGpio3v3PinLevel(taliseDevice_t *device, uint16_t gpio3v3PinLevel)
+{
+    talRecoveryActions_t retVal = TALACT_NO_ACTION;
+    adiHalErr_t halError = ADIHAL_OK;
+
+    static const uint16_t GPIO_PIN_MASK = 0x0FFF;
+
+#if TALISE_VERBOSE
+    halError = talWriteToLog(device->devHalInfo, ADIHAL_LOG_MSG, TAL_ERR_OK, "TALISE_setGpio3v3PinLevel()\n");
+    retVal = talApiErrHandler(device, TAL_ERRHDL_HAL_LOG, halError, retVal, TALACT_WARN_RESET_LOG);
+#endif
+
+    /* performing range check on gpioPinLevel */
+    if (gpio3v3PinLevel > GPIO_PIN_MASK)
+    {
+        return (uint32_t)talApiErrHandler(device, TAL_ERRHDL_API_GPIO,
+                TALISE_ERR_GPIO3V3_LEVEL_INV_PARM, retVal, TALACT_ERR_CHECK_PARAM);
+    }
+
+    /* writing GPIO configuration registers */
+    halError = talSpiWriteByte(device->devHalInfo, TALISE_ADDR_GPIO_3P3V_SPI_SOURCE_0, (gpio3v3PinLevel & 0xFF));
+    retVal = talApiErrHandler(device, TAL_ERRHDL_HAL_SPI, halError, retVal, TALACT_ERR_RESET_SPI);
+    IF_ERR_RETURN_U32(retVal);
+
+    halError = talSpiWriteByte(device->devHalInfo, TALISE_ADDR_GPIO_3P3V_SPI_SOURCE_1, ((gpio3v3PinLevel >> 8) & 0x0F));
+    retVal = talApiErrHandler(device, TAL_ERRHDL_HAL_SPI, halError, retVal, TALACT_ERR_RESET_SPI);
+    IF_ERR_RETURN_U32(retVal);
+
+    return (uint32_t)retVal;
+}
+
+uint32_t TALISE_getGpio3v3PinLevel(taliseDevice_t *device, uint16_t *gpio3v3PinLevel)
+{
+    talRecoveryActions_t retVal = TALACT_NO_ACTION;
+    adiHalErr_t halError = ADIHAL_OK;
+    uint8_t readBytes[2] = {0};
+
+#if TALISE_VERBOSE
+    halError = talWriteToLog(device->devHalInfo, ADIHAL_LOG_MSG, TAL_ERR_OK, "TALISE_getGpio3v3PinLevel()\n");
+    retVal = talApiErrHandler(device, TAL_ERRHDL_HAL_LOG, halError, retVal, TALACT_WARN_RESET_LOG);
+#endif
+
+    if (gpio3v3PinLevel == NULL)
+    {
+        return (uint32_t)talApiErrHandler(device, TAL_ERRHDL_API_GPIO,
+                TALISE_ERR_GETGPIO3V3_LEVEL_NULL_PARM, retVal, TALACT_ERR_CHECK_PARAM);
+    }
+
+    /* reading the registers into 2-byte array */
+    halError = talSpiReadByte(device->devHalInfo, TALISE_ADDR_GPIO_3P3V_SPI_READ_0, &readBytes[0]);
+    retVal = talApiErrHandler(device,TAL_ERRHDL_HAL_SPI, halError, retVal, TALACT_ERR_RESET_SPI);
+    IF_ERR_RETURN_U32(retVal);
+
+    halError = talSpiReadByte(device->devHalInfo, TALISE_ADDR_GPIO_3P3V_SPI_READ_1, &readBytes[1]);
+    retVal = talApiErrHandler(device,TAL_ERRHDL_HAL_SPI, halError, retVal, TALACT_ERR_RESET_SPI);
+    IF_ERR_RETURN_U32(retVal);
+
+    /* reconstructing byte reads into gpioPinLevel word */
+    *gpio3v3PinLevel = ((uint16_t)(readBytes[1]) << 8) | (uint16_t)(readBytes[0]);
+
+    return (uint32_t)retVal;
+}
+
+uint32_t TALISE_getGpio3v3SetLevel(taliseDevice_t *device, uint16_t *gpio3v3PinSetLevel)
+{
+    talRecoveryActions_t retVal = TALACT_NO_ACTION;
+    adiHalErr_t halError = ADIHAL_OK;
+    uint8_t readBytes[2] = {0};
+
+#if TALISE_VERBOSE
+    halError = talWriteToLog(device->devHalInfo, ADIHAL_LOG_MSG, TAL_ERR_OK, "TALISE_getGpio3v3SetLevel()\n");
+    retVal = talApiErrHandler(device, TAL_ERRHDL_HAL_LOG, halError, retVal, TALACT_WARN_RESET_LOG);
+#endif
+
+    if (gpio3v3PinSetLevel == NULL)
+    {
+        return (uint32_t)talApiErrHandler(device, TAL_ERRHDL_API_GPIO,
+                TALISE_ERR_GETGPIO3V3_SETLEVEL_NULL_PARM, retVal, TALACT_ERR_CHECK_PARAM);
+    }
+
+    /* reading the registers into 2-byte array */
+    halError = talSpiReadByte(device->devHalInfo, TALISE_ADDR_GPIO_3P3V_SPI_SOURCE_0, &readBytes[0]);
+    retVal = talApiErrHandler(device,TAL_ERRHDL_HAL_SPI, halError, retVal, TALACT_ERR_RESET_SPI);
+    IF_ERR_RETURN_U32(retVal);
+
+    halError = talSpiReadByte(device->devHalInfo, TALISE_ADDR_GPIO_3P3V_SPI_SOURCE_1, &readBytes[1]);
+    retVal = talApiErrHandler(device,TAL_ERRHDL_HAL_SPI, halError, retVal, TALACT_ERR_RESET_SPI);
+    IF_ERR_RETURN_U32(retVal);
+
+    /* reconstructing byte reads into gpioPinSetLevel word */
+    *gpio3v3PinSetLevel = ((uint16_t)(readBytes[1]) << 8) | (uint16_t)(readBytes[0]);
+
+    return (uint32_t)retVal;
+}
+
 void talSimGpSources(taliseDevice_t *device, uint32_t *gpIntStatus, uint32_t *gpIntDeframerSources, uint16_t *gpIntFramerSources)
 {
     /* GP_INT source masks */
@@ -1246,7 +1393,7 @@ uint32_t TALISE_gpIntHandler(taliseDevice_t *device, uint32_t *gpIntStatus, tali
     /* bit12  - TAL_GP_MASK_STREAM_ERROR */
     /* bit11  - TAL_GP_MASK_ARM_CALIBRATION_ERROR */
     /* bit10  - TAL_GP_MASK_ARM_SYSTEM_ERROR */
-    /* bit9   - TAL_GP_MASK_ARM_FORCE_INTERRPUT */
+    /* bit9   - TAL_GP_MASK_ARM_FORCE_INTERRUPT */
     /* bit8   - TAL_GP_MASK_WATCHDOG_TIMEOUT */
     /* bit7   - TAL_GP_MASK_PA_PROTECTION_TX2_ERROR */
     /* bit6   - TAL_GP_MASK_PA_PROTECTION_TX1_ERROR */
@@ -2212,6 +2359,11 @@ const char* talGetGpioErrorMessage(uint32_t errSrc, uint32_t errCode)
              case TALISE_ERR_SETUPAUXDAC_INV_RESOLUTION: return "Invalid AuxDac resolution for 10bit DACs - use ENUM\n";
              case TALISE_ERR_GPIO3V3_OE_INV_PARM: return "TALISE_setGpio3v3Oe(): Invalid value for gpio3v3OutEn\n";
              case TALISE_ERR_GETGPIO3V3_OE_NULL_PARM: return "TALISE_getGpio3v3Oe(): Invalid NULL pointer for gpio3v3OutEn\n";
+             case TALISE_ERR_GPIO3V3_SRC_INV_PARM: return "TALISE_setGpio3v3SourceCtrl(): Invalid value for gpio3v3SrcCtrl\n";
+             case TALISE_ERR_GETGPIO3V3_SRC_NULL_PARM: return "TALISE_getGpio3v3SourceCtrl(): Invalid NULL pointer for gpio3v3SrcCtrl\n";
+             case TALISE_ERR_GPIO3V3_LEVEL_INV_PARM: return "TALISE_setGpio3v3PinLevel(): Invalid value for gpio3v3PinLevel\n";
+             case TALISE_ERR_GETGPIO3V3_LEVEL_NULL_PARM: return "TALISE_getGpio3v3PinLevel(): Invalid NULL pointer for gpio3v3PinLevel\n";
+             case TALISE_ERR_GETGPIO3V3_SETLEVEL_NULL_PARM: return "TALISE_getGpio3v3SetLevel(): Invalid NULL pointer for gpio3v3PinSetLevel\n";
              case TALISE_ERR_STARTAUXADC_INV_CHANNEL: return "TALISE_startAuxAdc(): Invalid Aux ADC channel selected. Valid Channels Ch0,Ch1,Ch2,Ch3";
              case TALISE_ERR_STARTAUXADC_INV_MODE: return "TALISE_startAuxAdc(): Invalid Aux ADC mode. Valid Modes - Pin Mode, Non-Pin Mode";
              case TALISE_ERR_STARTAUXADC_INV_NUM_SAMPLES: return "TALISE_startAuxAdc(): Aux ADC config number of samples out of range. Valid range 1-1000";
