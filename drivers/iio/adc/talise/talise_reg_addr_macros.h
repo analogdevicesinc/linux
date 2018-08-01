@@ -2,7 +2,7 @@
  * \file talise_reg_addr_macros.h
  * \brief Contains Talise API address macro definitions
  *
- * Talise API version: 3.4.0.0
+ * Talise API version: 3.5.0.2
  *
  * Copyright 2015-2017 Analog Devices Inc.
  * Released under the AD9378-AD9379 API license, for more information see the "LICENSE.txt" file in this zip file.
@@ -162,6 +162,8 @@ extern "C" {
 #define TALISE_ADDR_LLB_COUNT_THRESHOLD                            0x0642
 #define TALISE_ADDR_ADC_HIGH_OVRG_COUNT_THRESHOLD                  0x0643
 #define TALISE_ADDR_ADC_LOW_OVRG_COUNT_THRESHOLD                   0x0644
+#define TALISE_ADDR_UPPER0_THRESHOLD_GAIN_STEP                     0x0646
+#define TALISE_ADDR_UPPER1_THRESHOLD_GAIN_STEP                     0x0648
 #define TALISE_ADDR_LOWER0_THRESHOLD_GAIN_STEP                     0x0647
 #define TALISE_ADDR_LOWER1_THRESHOLD_GAIN_STEP                     0x0649
 #define TALISE_ADDR_GAIN_UPDATE_COUNTER1                           0x064A
@@ -184,6 +186,8 @@ extern "C" {
 #define TALISE_ADDR_AGC_UNDERRANGE2                                0x065B
 #define TALISE_ADDR_AGC_IP3_OVERRANGE_THRESHOLD                    0x065C
 #define TALISE_ADDR_AGC_ADCOVRG_IP3_HIGH_COUNTER                   0x065D
+#define TALISE_ADDR_AGC_ADCOVRG_LOW_INT0_COUNTER                   0X065E
+#define TALISE_ADDR_AGC_ADCOVRG_LOW_INT1_COUNTER                   0X065F
 #define TALISE_ADDR_AGC_OVRG_LOW_INT0_GAIN_STEP                    0x0660
 #define TALISE_ADDR_AGC_OVRG_LOW_INT1_GAIN_STEP                    0x0661
 #define TALISE_ADDR_SLOWLOOP_CONFIG2                               0x0662
@@ -206,6 +210,8 @@ extern "C" {
 #define TALISE_ADDR_DEC_POWER_DURATION                             0x070C
 #define TALISE_ADDR_DDC_DEC_POWER_CONFIG                           0x0720
 #define TALISE_ADDR_DDC_DEC_POWER_MEAS                             0x0721
+#define TALISE_ADDR_DEC_POWER_CH1                                  0x0745
+#define TALISE_ADDR_DEC_POWER_CH2                                  0x0746
 #define TALISE_ADDR_DIGITAL_GAIN_CONFIG                            0x0780
 #define TALISE_ADDR_GAIN_COMPENATION_AND_SLICER_CONFIG             0x0781
 #define TALISE_ADDR_RX1_SLICER_GPIO_CONFIG                         0x0782
@@ -270,6 +276,10 @@ extern "C" {
 #define TALISE_ADDR_TX_ABBF_FREQCAL_NCO_Q_LSBS                     0x0F20
 #define TALISE_ADDR_GPIO_3P3V_DIRECTION_CONTROL_0                  0x1080
 #define TALISE_ADDR_GPIO_3P3V_DIRECTION_CONTROL_1                  0x1081
+#define TALISE_ADDR_GPIO_3P3V_SPI_SOURCE_0                         0x1082
+#define TALISE_ADDR_GPIO_3P3V_SPI_SOURCE_1                         0x1083
+#define TALISE_ADDR_GPIO_3P3V_SPI_READ_0                           0x1084
+#define TALISE_ADDR_GPIO_3P3V_SPI_READ_1                           0x1085
 #define TALISE_ADDR_GPIO_3P3V_LOWER_BYTE_SOURCE_CONTROL            0x1086
 #define TALISE_ADDR_GPIO_3P3V_UPPER_BYTE_SOURCE_CONTROL            0x1087
 #define TALISE_ADDR_GPIO_DIRECTION_CONTROL_7DOWNTO0                0x10C0

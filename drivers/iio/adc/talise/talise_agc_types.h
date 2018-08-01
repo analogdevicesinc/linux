@@ -2,7 +2,7 @@
  * \file talise_agc_types.h
  * \brief Contains Talise API AGC data types
  *
- * Talise API version: 3.4.0.0
+ * Talise API version: 3.5.0.2
  *
  * Copyright 2015-2017 Analog Devices Inc.
  * Released under the AD9378-AD9379 API license, for more information see the "LICENSE.txt" file in this zip file.
@@ -24,10 +24,10 @@ typedef struct
     uint32_t    agcUnderRangeLowInterval_ns;        /*!< Update interval for AGC loop mode in nanoseconds */
     uint8_t     agcUnderRangeMidInterval;           /*!< 2nd update interval for multiple time constant AGC mode. Calculated as (agcUnderRangeMidInterval+1)*agcUnderRangeLowInterval_ns. Valid range is 0 to 63 */
     uint8_t     agcUnderRangeHighInterval;          /*!< 3rd update interval for multiple time constant AGC mode. Calculated as (agcUnderRangeHighInterval+1)*2nd update interval. Valid range is 0 to 63 */
-    uint8_t     apdHighThresh;                      /*!< AGC APD high threshold. Valid range is 0 to 63 */
-    uint8_t     apdLowGainModeHighThresh;           /*!< AGC APD high threshold in low gain mode. Valid range is 0 to 63. Recommended to be 3dB above apdHighThresh */
-    uint8_t     apdLowThresh;                       /*!< AGC APD low threshold. Valid range is 0 to 63. Recommended to be 3dB below apdHighThresh */
-    uint8_t     apdLowGainModeLowThresh;            /*!< AGC APD low threshold in low gain mode. Valid range is 0 to 63. Recommended to be 3dB above apdLowThresh */
+    uint8_t     apdHighThresh;                      /*!< AGC APD high threshold. Valid range is 7 to 49 */
+    uint8_t     apdLowGainModeHighThresh;           /*!< AGC APD high threshold in low gain mode. Valid range is 7 to 49. Recommended to be 3dB above apdHighThresh */
+    uint8_t     apdLowThresh;                       /*!< AGC APD low threshold. Valid range is 7 to 49. Recommended to be 3dB below apdHighThresh */
+    uint8_t     apdLowGainModeLowThresh;            /*!< AGC APD low threshold in low gain mode. Valid range is 7 to 49. Recommended to be 3dB above apdLowThresh */
     uint8_t     apdUpperThreshPeakExceededCnt;      /*!< AGC APD peak detect upper threshold count. Valid range is 0 to 255 */
     uint8_t     apdLowerThreshPeakExceededCnt;      /*!< AGC APD peak detect lower threshold count. Valid range is 0 to 255 */
     uint8_t     apdGainStepAttack;                  /*!< AGC APD peak detect attack gain step. Valid range is 0 to 31 */
@@ -48,6 +48,8 @@ typedef struct
     uint8_t     hb2OverloadPowerMode;               /*!< When this bit is set, the dynamic range of the power measurement increases from -40dB to ~-60dB (that is, all signal levels from 0dBFS to -60dBFS are accurately detected */
     uint8_t     hb2OvrgSel;                         /*!< To be used in fast recovery mode. Clearing this bit enables the decimated data overload detection functionality */
     uint8_t     hb2ThreshConfig;                    /*!< Not User Modifiable   Initialized to 0x03 */
+    uint8_t     hb2UnderRangeLowThreshExceededCnt;  /*!< AGC HB2 low overrange interval 0 threshold count. Optional. Valid range from 1 to 255. Passing 0 will result in the reset value of 3. */
+    uint8_t     hb2UnderRangeMidThreshExceededCnt;  /*!< AGC HB2 mid overrange interval 1 threshold count. Optional. Valid range from 1 to 255. Passing 0 will result in the reset value of 3. */
 
 } taliseAgcPeak_t;
 
@@ -71,7 +73,11 @@ typedef struct
     uint16_t    rx2TddPowerMeasDelay;                   /*!< Measurement delay to detect power for specific slice of the gain update counter. */
     uint8_t     upper0PowerThresh;                      /*!< AGC upper 0 (overRangeHighPowerThreshold) threshold for power measurement. Valid Range from 0 to 127.*/
     uint8_t     upper1PowerThresh;                      /*!< AGC upper 1 (overRangeLowPowerThreshold)  threshold for power measurement. Valid offset from 0 to 15 */
-    uint8_t     powerLogShift;                          /*!< Enable Increase in dynamic range of the power measurement from 40dB to ~60dB. Provides higher accuracy. */
+    uint8_t     powerLogShift;                          /*!< Enable Increase in dynamic range of the power measurement from 40dB to ~60dB. Provides higher accuracy.
+                                                         *   NOTE: If you input a signal below -60dBFS while enabled, TALISE_getRxDecPower() may return an incorrect reading of 0dBFS.
+                                                         *   When disabled, TALISE_getRxDecPower() will bottom out around -40dBFS. */
+    uint8_t     overRangeLowPowerGainStepAttack;        /*!< AGC inner upper threshold exceeded attack gain step. Optional. Valid range from  1 to 31. Passing 0 will result in the reset value of 4. */
+    uint8_t     overRangeHighPowerGainStepAttack;       /*!< AGC outer high power threshold exceeded attack gain step. Optional. Valid range from  1 to 31. Passing 0 will result in the reset value of 4. */
 
 } taliseAgcPower_t;
 

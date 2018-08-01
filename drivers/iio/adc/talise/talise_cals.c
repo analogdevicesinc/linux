@@ -2,7 +2,7 @@
  * \file talise_cals.c
  * \brief Contains functions to support Talise init and tracking calibrations
  *
- * Talise API version: 3.4.0.0
+ * Talise API version: 3.5.0.2
  *
  * Copyright 2015-2017 Analog Devices Inc.
  * Released under the AD9378-AD9379 API license, for more information see the "LICENSE.txt" file in this zip file.

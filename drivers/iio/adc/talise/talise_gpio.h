@@ -2,7 +2,7 @@
  * \file talise_gpio.h
  * \brief Talise GPIO header file
  *
- * Talise API version: 3.4.0.0
+ * Talise API version: 3.5.0.2
  *
  * Copyright 2015-2017 Analog Devices Inc.
  * Released under the AD9378-AD9379 API license, for more information see the "LICENSE.txt" file in this zip file.
@@ -252,7 +252,10 @@ uint32_t TALISE_setGpioMonitorOut(taliseDevice_t *device, uint8_t monitorIndex, 
 uint32_t TALISE_getGpioMonitorOut(taliseDevice_t *device, uint8_t *monitorIndex, uint8_t *monitorMask);
 
 /**
- * \brief Sets the General Purpose (GP) interrupt register bit mask
+ * \brief Sets the General Purpose (GP) interrupt register bit mask (1 = disable IRQ from asserting GP interrupt pin)
+ * 
+ * To enable just the JESD deframer IRQ signal:
+ * TALISE_setGpIntMask(device, ~TAL_GP_MASK_JESD_DEFRMER_IRQ);
  *
  * \pre This function can be called any time after device initialization
  *
@@ -261,18 +264,78 @@ uint32_t TALISE_getGpioMonitorOut(taliseDevice_t *device, uint8_t *monitorIndex,
  * \dep_end
  *
  * \param device Pointer to the Talise data structure
- * \param gpIntMask uint16_t value is passed to set General Purpose interrupt masking bits
- * enum type taliseGpIntMask_t is or'd as required to mask an interrupt:
- * NOTE: The AUXPLL Interrupt is masked in Talise_Initialize() since the ARM routinely
+ * \param gpIntMask The bit-mask which masks (1=disable) the signals that may assert the GP interrupt pin. 
+ * taliseGpIntMask_t enumerated types are or'd together to form the GP interrupt mask word.
+ * A bit value of 1 prevents the corresponding signal from asserting the GP interrupt
+ * 
+ *       gpIntMask[bit] | Bit description
+ *     -----------------|-----------------------
+ *                 [15] | Reserved
+ *                 [14] | Reserved
+ *                 [13] | Reserved
+ *                 [12] | TAL_GP_MASK_STREAM_ERROR
+ *                 [11] | TAL_GP_MASK_ARM_CALIBRATION_ERROR
+ *                 [10] | TAL_GP_MASK_ARM_SYSTEM_ERROR
+ *                  [9] | TAL_GP_MASK_ARM_FORCE_INTERRUPT
+ *                  [8] | TAL_GP_MASK_WATCHDOG_TIMEOUT
+ *                  [7] | TAL_GP_MASK_PA_PROTECTION_TX2_ERROR
+ *                  [6] | TAL_GP_MASK_PA_PROTECTION_TX1_ERROR
+ *                  [5] | TAL_GP_MASK_JESD_DEFRMER_IRQ
+ *                  [4] | TAL_GP_MASK_JESD_FRAMER_IRQ
+ *                  [3] | TAL_GP_MASK_CLK_SYNTH_NONLOCK_ERROR
+ *                  [2] | TAL_GP_MASK_AUX_SYNTH_NONLOCK_ERROR
+ *                  [1] | TAL_GP_MASK_RF_SYNTH_NONLOCK_ERROR
+ *                  [0] | Reserved
+ * 
+ * \note The AUXPLL Interrupt is masked in TALISE_Initialize() since the ARM routinely
  * re-locks the AUXPLL.  If this interrupt is enabled, the user will observe spurious
  * GP_INT signal assertions approximately every 2 seconds.  It is recommended for the user
  * to NOT enable the AUXPLL interrupt.
+ * 
  * \retval TALACT_WARN_RESET_LOG Recovery action for log reset
  * \retval TALACT_ERR_CHECK_PARAM Recovery action for bad parameter check
  * \retval TALACT_ERR_RESET_SPI Recovery action for SPI reset required
  * \retval TALACT_NO_ACTION Function completed successfully, no action required
  */
 uint32_t TALISE_setGpIntMask(taliseDevice_t *device, uint16_t gpIntMask);
+
+/**
+ * \brief Reads back which General Purpose (GP) interrupt signals are masked (disabled)
+ *
+ * \pre This function can be called any time after device initialization
+ *
+ * \dep_begin
+ * \dep{device->devHalInfo}
+ * \dep_end
+ *
+ * \param device Pointer to the Talise data structure
+ * \param gpIntMask Bit-mask specifying which IRQ sources are masked from asserting the GP interrupt (1=disable IRQ).
+ * 
+ *      enableMask[bit] | Bit description
+ *     -----------------|-----------------------
+ *                 [15] | Reserved
+ *                 [14] | Reserved
+ *                 [13] | Reserved
+ *                 [12] | TAL_GP_MASK_STREAM_ERROR (1 = IRQ output masked (disabled); 0 = IRQ output unmasked (enabled))
+ *                 [11] | TAL_GP_MASK_ARM_CALIBRATION_ERROR (1 = IRQ output masked (disabled); 0 = IRQ output unmasked (enabled))
+ *                 [10] | TAL_GP_MASK_ARM_SYSTEM_ERROR (1 = IRQ output masked (disabled); 0 = IRQ output unmasked (enabled))
+ *                  [9] | TAL_GP_MASK_ARM_FORCE_INTERRUPT (1 = IRQ output masked (disabled); 0 = IRQ output unmasked (enabled))
+ *                  [8] | TAL_GP_MASK_WATCHDOG_TIMEOUT (1 = IRQ output masked (disabled); 0 = IRQ output unmasked (enabled))
+ *                  [7] | TAL_GP_MASK_PA_PROTECTION_TX2_ERROR (1 = IRQ output masked (disabled); 0 = IRQ output unmasked (enabled))
+ *                  [6] | TAL_GP_MASK_PA_PROTECTION_TX1_ERROR (1 = IRQ output masked (disabled); 0 = IRQ output unmasked (enabled))
+ *                  [5] | TAL_GP_MASK_JESD_DEFRMER_IRQ (1 = IRQ output masked (disabled); 0 = IRQ output unmasked (enabled))
+ *                  [4] | TAL_GP_MASK_JESD_FRAMER_IRQ (1 = IRQ output masked (disabled); 0 = IRQ output unmasked (enabled))
+ *                  [3] | TAL_GP_MASK_CLK_SYNTH_NONLOCK_ERROR (1 = IRQ output masked (disabled); 0 = IRQ output unmasked (enabled))
+ *                  [2] | TAL_GP_MASK_AUX_SYNTH_NONLOCK_ERROR (1 = IRQ output masked (disabled); 0 = IRQ output unmasked (enabled))
+ *                  [1] | TAL_GP_MASK_RF_SYNTH_NONLOCK_ERROR (1 = IRQ output masked (disabled); 0 = IRQ output unmasked (enabled))
+ *                  [0] | Reserved
+ * 
+ * \retval TALACT_WARN_RESET_LOG Recovery action for log reset
+ * \retval TALACT_ERR_CHECK_PARAM Recovery action for bad parameter check
+ * \retval TALACT_ERR_RESET_SPI Recovery action for SPI reset required
+ * \retval TALACT_NO_ACTION Function completed successfully, no action required
+ */
+uint32_t TALISE_getGpIntMask(taliseDevice_t *device, uint16_t *gpIntMask);
 
 /**
  * \brief Reads the General Purpose (GP) interrupt status to determine what caused the GP Interrupt pin to assert
@@ -296,23 +359,24 @@ uint32_t TALISE_setGpIntMask(taliseDevice_t *device, uint16_t gpIntMask);
  * \param device Pointer to the Talise data structure
  * \param gpIntStatus Pointer to status read-back word
  *
- *     bit[n] | GP Interrupt Mask Bit
- *     -------|-----------------------
- *     bit14  | 15 Reserved
- *     bit13  | TAL_GP_MASK_ARM_PARITY_ERROR
- *     bit12  | TAL_GP_MASK_STREAM_ERROR
- *     bit11  | TAL_GP_MASK_ARM_CALIBRATION_ERROR
- *     bit10  | TAL_GP_MASK_ARM_SYSTEM_ERROR
- *     bit9   | TAL_GP_MASK_ARM_FORCE_INTERRPUT
- *     bit8   | TAL_GP_MASK_WATCHDOG_TIMEOUT
- *     bit7   | TAL_GP_MASK_PA_PROTECTION_TX2_ERROR
- *     bit6   | TAL_GP_MASK_PA_PROTECTION_TX1_ERROR
- *     bit5   | TAL_GP_MASK_JESD_DEFRMER_IRQ
- *     bit4   | TAL_GP_MASK_JESD_FRAMER_IRQ
- *     bit3   | TAL_GP_MASK_CLK_SYNTH_LOCK
- *     bit2   | TAL_GP_MASK_AUX_SYNTH_LOCK
- *     bit1   | TAL_GP_MASK_RF_SYNTH_LOCK
- *     bit0   | Reserved
+ *     gpIntStatus[bit] | Bit description
+ *     -----------------|-----------------------
+ *                 [15] | Reserved
+ *                 [14] | Reserved
+ *                 [13] | Reserved
+ *                 [12] | TAL_GP_MASK_STREAM_ERROR
+ *                 [11] | TAL_GP_MASK_ARM_CALIBRATION_ERROR
+ *                 [10] | TAL_GP_MASK_ARM_SYSTEM_ERROR
+ *                  [9] | TAL_GP_MASK_ARM_FORCE_INTERRUPT
+ *                  [8] | TAL_GP_MASK_WATCHDOG_TIMEOUT
+ *                  [7] | TAL_GP_MASK_PA_PROTECTION_TX2_ERROR
+ *                  [6] | TAL_GP_MASK_PA_PROTECTION_TX1_ERROR
+ *                  [5] | TAL_GP_MASK_JESD_DEFRMER_IRQ
+ *                  [4] | TAL_GP_MASK_JESD_FRAMER_IRQ
+ *                  [3] | TAL_GP_MASK_CLK_SYNTH_NONLOCK_ERROR (1 = unlocked)
+ *                  [2] | TAL_GP_MASK_AUX_SYNTH_NONLOCK_ERROR (1 = unlocked)
+ *                  [1] | TAL_GP_MASK_RF_SYNTH_NONLOCK_ERROR (1 = unlocked)
+ *                  [0] | Reserved
  *
  * \retval TALACT_WARN_RESET_LOG Recovery action for log reset
  * \retval TALACT_ERR_CHECK_PARAM Recovery action for bad parameter check
@@ -483,15 +547,15 @@ uint32_t TALISE_getSpi2Enable(taliseDevice_t *device, uint8_t *spi2Enable, talis
  * \dep_end
  *
  * \param device Pointer to the Talise data structure
- * \param gpioOutEn (valid range 0 - 0x0FFF), bit per GPIO pin, the direction is
+ * \param gpio3v3OutEn (valid range 0 - 0x0FFF), bit per GPIO pin, the direction is
  *
- * gpioOutEn[bit]  |  3.3V GPIO direction
- * ----------------|-------------------
- *        0        |        input
- *        1        |        output
+ * gpio3v3OutEn[bit]  |  3.3V GPIO direction
+ * -------------------|-------------------
+ *        0           |        input
+ *        1           |        output
  *
- * \param gpioUsedMask Mask used to control which Oe bits are set/cleared.  If
- *                     mask bit =1, that bit will be modified by gpioOutEn bit
+ * \param gpio3v3UsedMask Mask used to control which Oe bits are set/cleared.  If
+ *                        mask bit =1, that bit will be modified by gpioOutEn bit
  *
  * \retval TALACT_WARN_RESET_LOG Recovery action for log reset
  * \retval TALACT_ERR_CHECK_PARAM Recovery action for bad parameter check
@@ -514,13 +578,13 @@ uint32_t TALISE_setGpio3v3Oe(taliseDevice_t *device, uint16_t gpio3v3OutEn, uint
  * \dep_end
  *
  * \param device Pointer to the Talise data structure
- * \param gpioOutEn Pointer to a single uint16_t variable that returns the
+ * \param gpio3v3OutEn Pointer to a single uint16_t variable that returns the
  *                  output enable reading per GPIO pin
  *
- * gpioOutEn[bit]  |  3.3V GPIO direction
- * ----------------|-------------------
- *        0        |        input
- *        1        |        output
+ * gpio3v3OutEn[bit]  |  3.3V GPIO direction
+ * -------------------|-------------------
+ *        0           |        input
+ *        1           |        output
  *
  * \retval TALACT_WARN_RESET_LOG Recovery action for log reset
  * \retval TALACT_ERR_CHECK_PARAM Recovery action for bad parameter check
@@ -528,6 +592,124 @@ uint32_t TALISE_setGpio3v3Oe(taliseDevice_t *device, uint16_t gpio3v3OutEn, uint
  * \retval TALACT_NO_ACTION Function completed successfully, no action required
  */
 uint32_t TALISE_getGpio3v3Oe(taliseDevice_t *device, uint16_t *gpio3v3OutEn);
+
+/**
+ * \brief Sets the Talise 3.3V GPIO output source for different GPIO functionality
+ *
+ * This function will only affect the GPIO pins that have their OE direction
+ * set to output. Each group of four GPIO pins can be assigned a GPIO source.  Each
+ * GPIO nibble (4 pins) must share that same GPIO output source. ENUM
+ * taliseGpio3v3Mode_t can be bitshifted and bitwise OR-ed together to create the
+ * value for the gpioSrcCtrl function parameter.
+ *
+ * \dep_begin
+ * \dep{device->devHalInfo}
+ * \dep_end
+ *
+ * \param device Pointer to the Talise data structure
+ * \param gpio3v3SrcCtrl Nibble based source control, this is a 12 bit value
+ *                    containing 3 nibbles that will set the output source
+ *                    control for each set of four GPIO pins.
+ *
+ * \retval TALACT_WARN_RESET_LOG Recovery action for log reset
+ * \retval TALACT_ERR_CHECK_PARAM Recovery action for bad parameter check
+ * \retval TALACT_ERR_RESET_SPI Recovery action for SPI reset required
+ * \retval TALACT_NO_ACTION Function completed successfully, no action required
+ */
+uint32_t TALISE_setGpio3v3SourceCtrl(taliseDevice_t *device, uint16_t gpio3v3SrcCtrl);
+
+/**
+ * \brief Reads the Talise 3.3V GPIO output source for different GPIO functionality
+ *
+ *  See ENUM taliseGpio3v3Mode_t for possible GPIO output sources.
+ *
+ * \dep_begin
+ * \dep{device->devHalInfo}
+ * \dep_end
+ *
+ * \param device Pointer to the Talise data structure
+ * \param gpio3v3SrcCtrl Pointer to a single uint16_t variable where nibble based
+ *          GPIO source is returned.  Each nibble of this return value describes
+ *          the GPIO source for the GPIO output pins based on the table below
+ *          gpio3v3SrcCtrl[bits]  |  Description
+ *          ----------------------|---------------------
+ *                         [3:0]  | GPIO output source for GPIO[3:0] pins
+ *                         [7:4]  | GPIO output source for GPIO[7:4] pins
+ *                        [11:8]  | GPIO output source for GPIO[11:8] pins
+ *
+ * \retval TALACT_WARN_RESET_LOG Recovery action for log reset
+ * \retval TALACT_ERR_CHECK_PARAM Recovery action for bad parameter check
+ * \retval TALACT_ERR_RESET_SPI Recovery action for SPI reset required
+ * \retval TALACT_NO_ACTION Function completed successfully, no action required
+ */
+uint32_t TALISE_getGpio3v3SourceCtrl(taliseDevice_t *device, uint16_t *gpio3v3SrcCtrl);
+
+/**
+ * \brief Sets the Talise 3.3V GPIO output pins level
+ *
+ * This function will only affect the GPIO pins that have their OE direction set to output and
+ * that have the correct source control for the nibbles in TAL_GPIO3V3_BITBANG_MODE
+ *
+ * \dep_begin
+ * \dep{device->devHalInfo}
+ * \dep_end
+ *
+ * \param device Pointer to the Talise data structure
+ * \param gpio3v3PinLevel Bit per GPIO pin, level to output for each GPIO pin. 0 = low output, 1 = high output
+ *
+ * \retval TALACT_WARN_RESET_LOG Recovery action for log reset
+ * \retval TALACT_ERR_CHECK_PARAM Recovery action for bad parameter check
+ * \retval TALACT_ERR_RESET_SPI Recovery action for SPI reset required
+ * \retval TALACT_NO_ACTION Function completed successfully, no action required
+ */
+uint32_t TALISE_setGpio3v3PinLevel(taliseDevice_t *device, uint16_t gpio3v3PinLevel);
+    
+/**
+ * \brief Reads the Talise 3.3V GPIO pin levels
+ *
+ *  The GPIO pins that are set to be inputs will read back and
+ *  be returned in the gpioPinLevel parameter. The return value is a bit per
+ *  pin.  GPIO 0 returns on bit 0 of the gpioPinLevel parameter.  A logic low
+ *  level returns a 0, a logic high level returns a 1.
+ *
+ * \dep_begin
+ * \dep{device->devHalInfo}
+ * \dep_end
+ *
+ * \param device Pointer to the Talise data structure
+ * \param gpio3v3PinLevel Pointer to a single uint16_t variable which returns the
+ *                     GPIO pin levels read back on the pins assigned as
+ *                     inputs (bit per pin)
+ *
+ * \retval TALACT_WARN_RESET_LOG Recovery action for log reset
+ * \retval TALACT_ERR_CHECK_PARAM Recovery action for bad parameter check
+ * \retval TALACT_ERR_RESET_SPI Recovery action for SPI reset required
+ * \retval TALACT_NO_ACTION Function completed successfully, no action required
+ */
+uint32_t TALISE_getGpio3v3PinLevel(taliseDevice_t *device, uint16_t *gpio3v3PinLevel);
+    
+/**
+ * \brief Reads the Talise GPIO pin output levels for BITBANG mode
+ *
+ *  This function allows reading the value that the GPIO output pins are
+ *  set to drive out the pins.
+ *
+ * \dep_begin
+ * \dep{device->devHalInfo}
+ * \dep_end
+ *
+ * \param device Pointer to the Talise data structure
+ * \param gpio3v3PinSetLevel Pointer to a single uint16_t variable which returns
+ *                        the level set to output of each output GPIO pin
+ *                        (bit per pin)
+ *
+ * \retval TALACT_WARN_RESET_LOG Recovery action for log reset
+ * \retval TALACT_ERR_CHECK_PARAM Recovery action for bad parameter check
+ * \retval TALACT_ERR_RESET_SPI Recovery action for SPI reset required
+ * \retval TALACT_NO_ACTION Function completed successfully, no action required
+ *
+ */
+uint32_t TALISE_getGpio3v3SetLevel(taliseDevice_t *device, uint16_t *gpio3v3PinSetLevel);
 
 /**
  * \brief Called whenever the BBIC detects a GP_INT assertion to find the source and clear it.
@@ -556,7 +738,7 @@ uint32_t TALISE_getGpio3v3Oe(taliseDevice_t *device, uint16_t *gpio3v3OutEn);
  *     bit12  | TAL_GP_MASK_STREAM_ERROR
  *     bit11  | TAL_GP_MASK_ARM_CALIBRATION_ERROR
  *     bit10  | TAL_GP_MASK_ARM_SYSTEM_ERROR
- *     bit9   | TAL_GP_MASK_ARM_FORCE_INTERRPUT
+ *     bit9   | TAL_GP_MASK_ARM_FORCE_INTERRUPT
  *     bit8   | TAL_GP_MASK_WATCHDOG_TIMEOUT
  *     bit7   | TAL_GP_MASK_PA_PROTECTION_TX2_ERROR
  *     bit6   | TAL_GP_MASK_PA_PROTECTION_TX1_ERROR
