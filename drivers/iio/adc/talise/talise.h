@@ -3,7 +3,7 @@
  * \brief Contains top level Talise related function prototypes for
  *        talise.c
  *
- * Talise API version: 3.4.0.0
+ * Talise API version: 3.5.0.2
  *
  * Copyright 2015-2017 Analog Devices Inc.
  * Released under the AD9378-AD9379 API license, for more information see the "LICENSE.txt" file in this zip file.
@@ -145,6 +145,41 @@ uint32_t TALISE_initialize(taliseDevice_t *device, taliseInit_t *init);
  * \retval TALACT_NO_ACTION Function completed successfully, no action required
  */
 uint32_t TALISE_shutdown(taliseDevice_t *device);
+
+/**
+ * \brief Reads back the multi-chip sync status
+ *
+ * This function returns the status of the Talise MCS state machine via the mcsStatus pointer.
+ * The 4 LSBs of the uint8_t value at mcsStatus represent the sync status
+ * of JESD, Digital Clocks, CLK PLL and Device Clock divider.
+
+ *  mcsStatus | bit Description
+ * -----------|--------------------------------------------------------
+ *       [0]  | MCS JESD SYSREF Status
+ *       [1]  | MCS Digital Clocks Sync Status
+ *       [2]  | MCS CLKPLL SDM Sync Status
+ *       [3]  | MCS Device Clock divider Sync Status
+ *
+ * A bit value of 1 indicates that the sync occured
+ * A bit value of 0 indicates that the sync has not occured.
+ *
+ *
+ * \pre This function can be called any time after the device has been initialized and PLL lock status has 
+ * been verified.
+ *
+ * \dep_begin
+ * \dep{device->devHalInfo}
+ * \dep_end
+ *
+ * \param device is a pointer to the device settings structure
+ * \param mcsStatus Returns the mcsStatus word described in the table above.
+ *
+ * \retval TALACT_WARN_RESET_LOG Recovery action for log reset
+ * \retval TALACT_ERR_CHECK_PARAM Recovery action for bad parameter check
+ * \retval TALACT_ERR_RESET_SPI Recovery action for SPI reset required
+ * \retval TALACT_NO_ACTION Function completed successfully, no action required
+ */
+uint32_t TALISE_getMultiChipSyncStatus(taliseDevice_t *device, uint8_t *mcsStatus);
 
 /**
  * \brief Sets up the chip for multichip sync, and cleans up after MCS.
@@ -332,6 +367,7 @@ uint32_t TALISE_setSpiSettings(taliseDevice_t *device, taliseSpiSettings_t *spi)
  *
  * \dep_begin
  * \dep{device->devHalInfo}
+ * \dep_end
  *
  * \param device Structure pointer to Talise device data structure
  *
@@ -437,13 +473,20 @@ uint32_t TALISE_getApiVersion (taliseDevice_t *device, uint32_t *siVer, uint32_t
 
 /**
  * \brief Reads back the silicon revision for the Talise Device
+ * 
+ * revision's bit  |  Description
+ * ----------------|-----------------
+ *       3:0       |  minor revision
+ *       7:4       |  major revision
  *
  * \dep_begin
  * \dep{device->devHalInfo}
  * \dep_end
  *
  * \param device Structure pointer to the Talise data structure containing settings
- * \param revision Return value of the Talise silicon revision
+ * \param revision Return value of the Talise silicon revision in hex where 
+        upper nibble (4 bits) indicates the major revision and the lower nibble 
+        indicates the minor revision.
  *
  * \retval TALACT_WARN_RESET_LOG recovery action for log reset
  * \retval TALACT_ERR_CHECK_PARAM recovery action for bad parameter check

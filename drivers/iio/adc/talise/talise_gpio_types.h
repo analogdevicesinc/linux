@@ -2,7 +2,7 @@
  * \file talise_gpio_types.h
  * \brief Contains functions to allow control of the General Purpose IO functions on the Talise device
  *
- * Talise API version: 3.4.0.0
+ * Talise API version: 3.5.0.2
  *
  * Copyright 2015-2017 Analog Devices Inc.
  * Released under the AD9378-AD9379 API license, for more information see the "LICENSE.txt" file in this zip file.
@@ -20,11 +20,22 @@ extern "C" {
  */
 typedef enum
 {
-    TAL_GPIO_MONITOR_MODE = 0, /*!< Allows a choice of debug signals to output from Talise to monitor the state of the device */
-    TAL_GPIO_BITBANG_MODE = 3, /*!< Manual mode, API function sets output pin levels and reads input pin levels */
-    TAL_GPIO_ARM_OUT_MODE = 9,  /*!< Allows internal ARM processor to output on GPIO pins */
-    TAL_GPIO_SLICER_OUT_MODE = 10  /*!< Allows Slicer active configuration to the GPIO output  pins */
+    TAL_GPIO_MONITOR_MODE = 0,      /*!< Allows a choice of debug signals to output from Talise to monitor the state of the device */
+    TAL_GPIO_BITBANG_MODE = 3,      /*!< Manual mode, API function sets output pin levels and reads input pin levels */
+    TAL_GPIO_ARM_OUT_MODE = 9,      /*!< Allows internal ARM processor to output on GPIO pins */
+    TAL_GPIO_SLICER_OUT_MODE = 10   /*!< Allows Slicer active configuration to the GPIO output  pins */
 } taliseGpioMode_t;
+    
+/**
+ *  \brief Enum to set the GPIO3v3 mode
+ */
+typedef enum
+{
+    TAL_GPIO3V3_LEVELTRANSLATE_MODE     = 1,    /*!< Level translate mode, signal level on low voltage GPIO output on GPIO3v3 pins */
+    TAL_GPIO3V3_INVLEVELTRANSLATE_MODE  = 2,    /*!< Inverted Level translate mode, inverse of signal level on low voltage GPIO output on GPIO3v3 pins */
+    TAL_GPIO3V3_BITBANG_MODE            = 3,    /*!< Manual mode, API function sets output pin levels and reads input pin levels */
+    TAL_GPIO3V3_EXTATTEN_LUT_MODE       = 4     /*!< GPIO3v3 output level follows Rx1/Rx2 gain table external control 6bit field. */
+} taliseGpio3v3Mode_t;
 
 /**
  *  \brief Enum of unique error codes for the Talise GPIO API functions.
@@ -53,6 +64,11 @@ typedef enum
     TALISE_ERR_SETUPAUXDAC_INV_RESOLUTION,
     TALISE_ERR_GPIO3V3_OE_INV_PARM,
     TALISE_ERR_GETGPIO3V3_OE_NULL_PARM,
+    TALISE_ERR_GPIO3V3_SRC_INV_PARM,
+    TALISE_ERR_GETGPIO3V3_SRC_NULL_PARM,
+    TALISE_ERR_GPIO3V3_LEVEL_INV_PARM,
+    TALISE_ERR_GETGPIO3V3_LEVEL_NULL_PARM,
+    TALISE_ERR_GETGPIO3V3_SETLEVEL_NULL_PARM,
     TALISE_ERR_GPINT_OK,
     TALISE_ERR_GPINT_STATUS_NULL_PARM,
     TALISE_ERR_GPINT_GPINTDIAG_NULL_PARM,
@@ -96,6 +112,9 @@ typedef enum
     TAL_AUXDACVREF_2P5V = 3 /*!< AuxDAC reference at 2.5V */
 } taliseAuxDacVref_t;
 
+/**
+ * \brief Enumeration for AuxDAC resolution modes.
+ */
 typedef enum
 {
     TAL_AUXDACRES_12BIT = 0, /*!< 12bit DAC resolution for a subset of the output voltage range centered around VREF */
@@ -122,17 +141,30 @@ typedef enum
     TAL_GP_MASK_STREAM_ERROR            = 0x1000,   /*!< Stream processor error GP Interrupt mask bit */
     TAL_GP_MASK_ARM_CALIBRATION_ERROR   = 0x0800,   /*!< ARM calibration error GP Interrupt mask bit */
     TAL_GP_MASK_ARM_SYSTEM_ERROR        = 0x0400,   /*!< ARM System error GP Interrupt mask bit */
-    TAL_GP_MASK_ARM_FORCE_INTERRPUT     = 0x0200,   /*!< ARM force GP Interrupt mask bit */
+    TAL_GP_MASK_ARM_FORCE_INTERRUPT     = 0x0200,   /*!< ARM force GP Interrupt mask bit */
     TAL_GP_MASK_WATCHDOG_TIMEOUT        = 0x0100,   /*!< Watchdog GP Interrupt mask bit */
     TAL_GP_MASK_PA_PROTECTION_TX2_ERROR = 0x0080,   /*!< Tx2 PA protection error GP Interrupt mask bit */
     TAL_GP_MASK_PA_PROTECTION_TX1_ERROR = 0x0040,   /*!< Tx1 PA protection error GP Interrupt mask bit */
     TAL_GP_MASK_JESD_DEFRMER_IRQ        = 0x0020,   /*!< JESD204B Deframer IRQ error GP Interrupt mask bit */
     TAL_GP_MASK_JESD_FRAMER_IRQ         = 0x0010,   /*!< JESD204B Framer IRQ error GP Interrupt mask bit */
-    TAL_GP_MASK_CLK_SYNTH_LOCK          = 0x0008,   /*!< Device clock PLL non-lock error GP Interrupt mask bit */
-    TAL_GP_MASK_AUX_SYNTH_LOCK          = 0x0004,   /*!< Auxiliary PLL non-lock error GP Interrupt mask bit */
-    TAL_GP_MASK_RF_SYNTH_LOCK           = 0x0002    /*!< RF PLL non-lock error GP Interrupt mask bit */
+    TAL_GP_MASK_CLK_SYNTH_UNLOCK        = 0x0008,   /*!< Device clock PLL non-lock error GP Interrupt mask bit */
+    TAL_GP_MASK_AUX_SYNTH_UNLOCK        = 0x0004,   /*!< Auxiliary PLL non-lock error GP Interrupt mask bit */
+    TAL_GP_MASK_RF_SYNTH_UNLOCK         = 0x0002    /*!< RF PLL non-lock error GP Interrupt mask bit */
 } taliseGpIntMask_t;
 
+#define TAL_GPMASK_MSB (uint16_t)(TAL_GP_MASK_STREAM_ERROR | \
+                                  TAL_GP_MASK_ARM_CALIBRATION_ERROR | \
+                                  TAL_GP_MASK_ARM_SYSTEM_ERROR | \
+                                  TAL_GP_MASK_ARM_FORCE_INTERRUPT | \
+                                  TAL_GP_MASK_WATCHDOG_TIMEOUT)
+
+#define TAL_GPMASK_LSB (uint16_t)(TAL_GP_MASK_PA_PROTECTION_TX1_ERROR | \
+                                  TAL_GP_MASK_PA_PROTECTION_TX2_ERROR | \
+                                  TAL_GP_MASK_JESD_DEFRMER_IRQ | \
+                                  TAL_GP_MASK_JESD_FRAMER_IRQ | \
+                                  TAL_GP_MASK_CLK_SYNTH_UNLOCK | \
+                                  TAL_GP_MASK_AUX_SYNTH_UNLOCK | \
+                                  TAL_GP_MASK_RF_SYNTH_UNLOCK)
 /**
  * \brief GPIO settings for SPI2 TxAtten select
  */

@@ -3,7 +3,7 @@
  * \brief Contains functions to support Talise Rx and Observation Rx data path
  *        control
  *
- * Talise API version: 3.4.0.0
+ * Talise API version: 3.5.0.2
  *
  * Copyright 2015-2017 Analog Devices Inc.
  * Released under the AD9378-AD9379 API license, for more information see the "LICENSE.txt" file in this zip file.
@@ -1002,6 +1002,13 @@ uint32_t TALISE_setRxDataFormat (taliseDevice_t *device, taliseRxDataFormat_t *r
               intConfig |= SIGNED_MAGNITUDE_BITM;   /* signed */
               npCheck = 24;
          }
+        
+        if (rxDataFormat->formatSelect == TAL_GAIN_COMPENSATION_DISABLED)
+        {
+            intConfig &= ~SLICER_NUMBERBITS_BITM;   /* 2 bit on I, 2 bit on Q */
+            intConfig &= ~SLICER_BIT_POSITION_BITM; /* bits after sign at MSB */
+            intConfig &= ~SLICER_EMBED_EN_BITM;     /* slicer embed disable */
+        }
 
          /* JESD204 Framer Nprime must be greater than or equal to the intSampleResolution */
          if (((device->devStateInfo.profilesValid & RX_PROFILE_VALID) > 0) &&
@@ -1086,14 +1093,14 @@ uint32_t TALISE_setRxDataFormat (taliseDevice_t *device, taliseRxDataFormat_t *r
               if (rxDataFormat->rx1GpioSelect == TAL_EXTSLICER_RX1_GPIO_DISABLE)
               {
                   return (uint32_t)talApiErrHandler(device, TAL_ERRHDL_INVALID_PARAM,
-                		  TAL_ERR_SET_RXDATAFRMT_EXTSLICER_RX1GPIO_INVPARAM, retVal, TALACT_ERR_CHECK_PARAM);
+                          TAL_ERR_SET_RXDATAFRMT_EXTSLICER_RX1GPIO_INVPARAM, retVal, TALACT_ERR_CHECK_PARAM);
               }
 
               /* verify that rx2 GPIOs are not disabled */
               if (rxDataFormat->rx2GpioSelect == TAL_EXTSLICER_RX2_GPIO_DISABLE)
               {
                   return (uint32_t)talApiErrHandler(device, TAL_ERRHDL_INVALID_PARAM,
-                		  TAL_ERR_SET_RXDATAFRMT_EXTSLICER_RX2GPIO_INVPARAM, retVal, TALACT_ERR_CHECK_PARAM);
+                          TAL_ERR_SET_RXDATAFRMT_EXTSLICER_RX2GPIO_INVPARAM, retVal, TALACT_ERR_CHECK_PARAM);
               }
 
               slicerConfig = 0;
@@ -1188,11 +1195,6 @@ uint32_t TALISE_setRxDataFormat (taliseDevice_t *device, taliseRxDataFormat_t *r
 
              /* write gain configuration register */
              halError = talSpiWriteField(device->devHalInfo, TALISE_ADDR_GAIN_COMPENATION_AND_SLICER_CONFIG, gainConfig, 0xE1, 0);
-             retVal = talApiErrHandler(device, TAL_ERRHDL_HAL_SPI, halError, retVal, TALACT_ERR_RESET_SPI);
-             IF_ERR_RETURN_U32(retVal);
-
-             /* write integer configuration register to default */
-             halError = talSpiWriteByte(device->devHalInfo, TALISE_ADDR_INTEGER_FORMAT_CONFIG, 0x02);
              retVal = talApiErrHandler(device, TAL_ERRHDL_HAL_SPI, halError, retVal, TALACT_ERR_RESET_SPI);
              IF_ERR_RETURN_U32(retVal);
          }
@@ -1404,7 +1406,7 @@ uint32_t TALISE_getSlicerPosition(taliseDevice_t *device, uint8_t *rx1SlicerPosi
     talRecoveryActions_t retVal = TALACT_NO_ACTION;
     adiHalErr_t halError = ADIHAL_OK;
     uint8_t slicerPosition = 0;
-	static const uint8_t POSITION_MASK = 0x07;
+    static const uint8_t POSITION_MASK = 0x07;
 
 #if TALISE_VERBOSE
     halError = talWriteToLog(device->devHalInfo, ADIHAL_LOG_MSG, TAL_ERR_OK, "TALISE_getSlicerPosition()\n");
@@ -1890,10 +1892,10 @@ talRecoveryActions_t talSetDualBandSettings(taliseDevice_t *device, taliseInit_t
     upperBandNco2FreqUnsigned_kHz = (upperBandNco2Freq_kHz > 0) ? upperBandNco2Freq_kHz : (outFs_kHz + upperBandNco2Freq_kHz);
 
     /* Convert positive frequencies to their FTW equivalents */
-    lowerBandNco1Ftw = DIV_U64(((uint64_t)lowerBandNco1FreqUnsigned_kHz) * POW_2_32, pfirFs_kHz);
-    upperBandNco1Ftw = DIV_U64(((uint64_t)upperBandNco1FreqUnsigned_kHz) * POW_2_32, pfirFs_kHz);
-    lowerBandNco2Ftw = DIV_U64(((uint64_t)lowerBandNco2FreqUnsigned_kHz) * POW_2_32, outFs_kHz);
-    upperBandNco2Ftw = DIV_U64(((uint64_t)upperBandNco2FreqUnsigned_kHz) * POW_2_32, outFs_kHz);
+    lowerBandNco1Ftw = DIV_U64((((uint64_t)lowerBandNco1FreqUnsigned_kHz * POW_2_32) << 1) + pfirFs_kHz, pfirFs_kHz << 1); /* integer rounding */
+    upperBandNco1Ftw = DIV_U64((((uint64_t)upperBandNco1FreqUnsigned_kHz * POW_2_32) << 1) + pfirFs_kHz, pfirFs_kHz << 1); /* integer rounding */
+    lowerBandNco2Ftw = DIV_U64((((uint64_t)lowerBandNco2FreqUnsigned_kHz * POW_2_32) << 1) + outFs_kHz, outFs_kHz << 1); /* integer rounding */
+    upperBandNco2Ftw = DIV_U64((((uint64_t)upperBandNco2FreqUnsigned_kHz * POW_2_32) << 1) + outFs_kHz, outFs_kHz << 1); /* integer rounding */
 
     /* Check FTW is not more than 32 bits */
     if ((lowerBandNco1Ftw >= POW_2_32) || (upperBandNco1Ftw >= POW_2_32) ||
@@ -2193,7 +2195,7 @@ talRecoveryActions_t talSetupNcoShifter(taliseDevice_t *device, taliseInit_t *in
                 : (pfirFs_kHz + init->rx.rxProfile.rxNcoShifterCfg.bandANco1Freq_kHz) ;
 
         /* Convert positive frequencies to their FTW equivalents */
-        nco1Ftw = DIV_U64(((uint64_t)nco1FreqUnsigned_kHz) * POW_2_32, pfirFs_kHz);
+	nco1Ftw = DIV_U64((((uint64_t)nco1FreqUnsigned_kHz * POW_2_32) << 1) + pfirFs_kHz, pfirFs_kHz << 1); /* integer rounding */
 
         /* Check FTW is not more than 32 bits */
         if (nco1Ftw >= POW_2_32)
@@ -2221,7 +2223,7 @@ talRecoveryActions_t talSetupNcoShifter(taliseDevice_t *device, taliseInit_t *in
                 : (outFs_kHz + init->rx.rxProfile.rxNcoShifterCfg.bandANco2Freq_kHz);
 
         /* Convert positive frequencies to their FTW equivalents */
-        nco2Ftw = DIV_U64(((uint64_t)nco2FreqUnsigned_kHz) * POW_2_32, outFs_kHz);
+	nco2Ftw = DIV_U64((((uint64_t)nco2FreqUnsigned_kHz * POW_2_32) << 1) + outFs_kHz, outFs_kHz << 1); /* integer rounding */
 
         /* Check FTW is not more than 32 bits */
         if (nco2Ftw >= POW_2_32)
@@ -2495,5 +2497,61 @@ uint32_t TALISE_setGainTableExtCtrlPins(taliseDevice_t *device, taliseRxChannels
     /* Update used and freed GPIO's */
     device->devStateInfo.usedGpio3p3pins = usedGpio3p3pins;
 
+    return (uint32_t)retVal;
+}
+
+uint32_t TALISE_getRxDecPower(taliseDevice_t *device, taliseRxChannels_t rxChannel, uint16_t *rxDecPower_mdBFS)
+{
+    talRecoveryActions_t retVal = TALACT_NO_ACTION;
+    adiHalErr_t halError = ADIHAL_OK;
+    uint16_t decPowerAddr = 0;
+    uint8_t rxDecPower_dBFS = 0;
+
+#if TALISE_VERBOSE
+    halError = talWriteToLog(device->devHalInfo, ADIHAL_LOG_MSG, TAL_ERR_OK, "TALISE_getRxDecPower()\n");
+    retVal = talApiErrHandler(device, TAL_ERRHDL_HAL_LOG, halError, retVal, TALACT_WARN_RESET_LOG);
+#endif
+
+    /* null pointer check */
+    if (rxDecPower_mdBFS == NULL)
+    {
+        return (uint32_t)talApiErrHandler(device, TAL_ERRHDL_INVALID_PARAM,
+            TAL_ERR_INV_RX_DEC_POWER_PARAM, retVal, TALACT_ERR_CHECK_PARAM);
+    }
+    
+    if (rxChannel == TAL_RX1)
+    {
+        decPowerAddr = TALISE_ADDR_DEC_POWER_CH1;
+    }
+    else if (rxChannel == TAL_RX2)
+    {
+        decPowerAddr = TALISE_ADDR_DEC_POWER_CH2;
+    }
+    else
+    {
+        return (uint32_t)talApiErrHandler(device, TAL_ERRHDL_INVALID_PARAM,
+            TAL_ERR_GETRXDECPOWER_INV_CHANNEL, retVal, TALACT_ERR_CHECK_PARAM);
+    }
+    
+    /* Check that rx profile is valid in current config */
+    if (((device->devStateInfo.profilesValid & RX_PROFILE_VALID) == 0)
+        || (device->devStateInfo.initializedChannels & (uint32_t)rxChannel) == 0)
+    {
+        return (uint32_t)talApiErrHandler(device, TAL_ERRHDL_INVALID_PARAM,
+            TAL_ERR_GETRXDECPOWER_INV_PROFILE, retVal, TALACT_ERR_CHECK_PARAM);
+    }
+    
+    /* Write some value to generate a strobe to latch the value */
+    halError = talSpiWriteByte(device->devHalInfo, decPowerAddr, 0x01);
+    retVal = talApiErrHandler(device, TAL_ERRHDL_HAL_SPI, halError, retVal, TALACT_ERR_RESET_SPI);
+    IF_ERR_RETURN_U32(retVal);
+    
+    /* Read Rx1 Dec Power register */
+    halError = talSpiReadByte(device->devHalInfo, decPowerAddr, &rxDecPower_dBFS);
+    retVal = talApiErrHandler(device, TAL_ERRHDL_HAL_SPI, halError, retVal, TALACT_ERR_RESET_SPI);
+    IF_ERR_RETURN_U32(retVal);
+    
+    *rxDecPower_mdBFS = ((uint16_t)rxDecPower_dBFS) * 250; /* 250 = 1000 * 0.25dB */
+    
     return (uint32_t)retVal;
 }
