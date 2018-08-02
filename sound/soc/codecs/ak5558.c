@@ -29,6 +29,7 @@
 #include <linux/of_gpio.h>
 #include <linux/regmap.h>
 #include <linux/pm_runtime.h>
+#include <linux/regulator/consumer.h>
 
 #include "ak5558.h"
 
@@ -36,6 +37,12 @@
 
 /* enable debug */
 /* #define AK5558_DEBUG */
+
+#define AK5558_NUM_SUPPLIES 2
+static const char *ak5558_supply_names[AK5558_NUM_SUPPLIES] = {
+	"DVDD",
+	"AVDD",
+};
 
 /* AK5558 Codec Private Data */
 struct ak5558_priv {
@@ -47,6 +54,7 @@ struct ak5558_priv {
 	int pdn_gpio;	/* Power on / Reset GPIO */
 	int slots;
 	int slot_width;
+	struct regulator_bulk_data supplies[AK5558_NUM_SUPPLIES];
 };
 
 /* ak5558 register cache & default register settings */
@@ -744,8 +752,9 @@ static int ak5558_i2c_probe(struct i2c_client *i2c,
 	struct device_node *np = i2c->dev.of_node;
 	struct ak5558_priv *ak5558;
 	int ret = 0;
+	int i;
 
-	dev_err(&i2c->dev, "%s(%d)\n", __func__, __LINE__);
+	dev_dbg(&i2c->dev, "%s(%d)\n", __func__, __LINE__);
 
 	ak5558 = devm_kzalloc(&i2c->dev, sizeof(struct ak5558_priv),
 			      GFP_KERNEL);
@@ -767,6 +776,23 @@ static int ak5558_i2c_probe(struct i2c_client *i2c,
 			dev_err(&i2c->dev, "unable to get pdn gpio\n");
 			return ret;
 		}
+	}
+
+	for (i = 0; i < ARRAY_SIZE(ak5558->supplies); i++)
+		ak5558->supplies[i].supply = ak5558_supply_names[i];
+
+	ret = devm_regulator_bulk_get(&i2c->dev, ARRAY_SIZE(ak5558->supplies),
+				 ak5558->supplies);
+	if (ret != 0) {
+		dev_err(&i2c->dev, "Failed to request supplies: %d\n", ret);
+		return ret;
+	}
+
+	ret = regulator_bulk_enable(ARRAY_SIZE(ak5558->supplies),
+				    ak5558->supplies);
+	if (ret != 0) {
+		dev_err(&i2c->dev, "Failed to enable supplies: %d\n", ret);
+		return ret;
 	}
 
 	ret = snd_soc_register_codec(&i2c->dev, &soc_codec_dev_ak5558,
