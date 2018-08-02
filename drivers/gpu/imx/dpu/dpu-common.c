@@ -542,7 +542,6 @@ static const struct dpu_devtype dpu_type_v1 = {
 	.plane_src_na_mask = 0xffffff80,
 	.has_capture = true,
 	.has_prefetch = false,
-	.has_prefetch_fixup = false,
 	.has_disp_sel_clk = false,
 	.has_dual_ldb = false,
 	.pixel_link_quirks = false,
@@ -573,7 +572,6 @@ static const struct dpu_devtype dpu_type_v2_qm = {
 	.plane_src_na_mask = 0xffffffe2,
 	.has_capture = false,
 	.has_prefetch = true,
-	.has_prefetch_fixup = false,
 	.has_disp_sel_clk = true,
 	.has_dual_ldb = false,
 	.pixel_link_quirks = true,
@@ -604,7 +602,6 @@ static const struct dpu_devtype dpu_type_v2_qxp = {
 	.plane_src_na_mask = 0xffffffe2,
 	.has_capture = false,
 	.has_prefetch = true,
-	.has_prefetch_fixup = true,
 	.has_disp_sel_clk = false,
 	.has_dual_ldb = true,
 	.pixel_link_quirks = true,
@@ -624,12 +621,6 @@ static const struct of_device_id dpu_dt_ids[] = {
 	}
 };
 MODULE_DEVICE_TABLE(of, dpu_dt_ids);
-
-bool dpu_has_prefetch_fixup(struct dpu_soc *dpu)
-{
-	return dpu->devtype->has_prefetch_fixup;
-}
-EXPORT_SYMBOL_GPL(dpu_has_prefetch_fixup);
 
 bool dpu_vproc_has_fetcheco_cap(u32 cap_mask)
 {

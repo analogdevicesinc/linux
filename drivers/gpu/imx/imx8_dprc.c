@@ -146,21 +146,8 @@ enum {
 #define ROWS_0_6				BIT(0)
 #define ROWS_0_4				0
 
-struct dprc_devtype {
-	bool has_fixup;
-};
-
-static const struct dprc_devtype dprc_type_v1 = {
-	.has_fixup = false,
-};
-
-static const struct dprc_devtype dprc_type_v2 = {
-	.has_fixup = true,
-};
-
 struct dprc {
 	struct device *dev;
-	const struct dprc_devtype *devtype;
 	void __iomem *base;
 	struct list_head list;
 	struct clk *clk_apb;
@@ -410,34 +397,23 @@ void dprc_configure(struct dprc *dprc, unsigned int stream_id,
 		preq = modifier ? BYTE_64 : BYTE_1K;
 
 		dprc_write(dprc, preq, FRAME_2P_CTRL0);
-		if (!dprc->devtype->has_fixup) {
-			dprc_write(dprc,
-				NUM_X_PIX_WIDE(p2_w), FRAME_2P_PIX_X_CTRL);
-			dprc_write(dprc,
-				NUM_Y_PIX_HIGH(p2_h), FRAME_2P_PIX_Y_CTRL);
-		} else {
-			if (dprc->sc_resource == SC_R_DC_0_BLIT1) {
-				dprc_prg_sel_configure(dprc,
-						       SC_R_DC_0_BLIT0, true);
-				prg_set_auxiliary(dprc->prgs[1]);
-				dprc->has_aux_prg = true;
-			}
+		if (dprc->sc_resource == SC_R_DC_0_BLIT1) {
+			dprc_prg_sel_configure(dprc, SC_R_DC_0_BLIT0, true);
+			prg_set_auxiliary(dprc->prgs[1]);
+			dprc->has_aux_prg = true;
 		}
 		dprc_write(dprc, uv_baddr, FRAME_2P_BASE_ADDR_CTRL0);
 	} else {
-		if (dprc->devtype->has_fixup) {
-			switch (dprc->sc_resource) {
-			case SC_R_DC_0_BLIT0:
-				dprc_prg_sel_configure(dprc,
-						       SC_R_DC_0_BLIT0, false);
-				prg_set_primary(dprc->prgs[0]);
-				break;
-			case SC_R_DC_0_BLIT1:
-				dprc->has_aux_prg = false;
-				break;
-			default:
-				break;
-			}
+		switch (dprc->sc_resource) {
+		case SC_R_DC_0_BLIT0:
+			dprc_prg_sel_configure(dprc, SC_R_DC_0_BLIT0, false);
+			prg_set_primary(dprc->prgs[0]);
+			break;
+		case SC_R_DC_0_BLIT1:
+			dprc->has_aux_prg = false;
+			break;
+		default:
+			break;
 		}
 
 		switch (modifier) {
@@ -445,7 +421,7 @@ void dprc_configure(struct dprc *dprc, unsigned int stream_id,
 			p1_w = round_up(dprc_width, info->cpp[0] == 2 ? 8 : 4);
 			break;
 		case DRM_FORMAT_MOD_VIVANTE_SUPER_TILED:
-			if (dprc->is_blit_chan && dprc->devtype->has_fixup)
+			if (dprc->is_blit_chan)
 				p1_w = round_up(dprc_width,
 						info->cpp[0] == 2 ? 8 : 4);
 			else
@@ -472,10 +448,7 @@ void dprc_configure(struct dprc *dprc, unsigned int stream_id,
 			preq = BYTE_64;
 			mt_w = 8;
 		} else {
-			if (dprc->devtype->has_fixup)
-				preq = (x_offset % 8) ? BYTE_64 : BYTE_128;
-			else
-				preq = BYTE_128;
+			preq = (x_offset % 8) ? BYTE_64 : BYTE_128;
 			mt_w = 4;
 		}
 		mt_h = 4;
@@ -488,7 +461,7 @@ void dprc_configure(struct dprc *dprc, unsigned int stream_id,
 	dprc_write(dprc, NUM_X_PIX_WIDE(p1_w), FRAME_1P_PIX_X_CTRL);
 	dprc_write(dprc, NUM_Y_PIX_HIGH(p1_h), FRAME_1P_PIX_Y_CTRL);
 	dprc_write(dprc, baddr, FRAME_1P_BASE_ADDR_CTRL0);
-	if (dprc->devtype->has_fixup && modifier) {
+	if (modifier) {
 		dprc_write(dprc, CROP_ULC_X(round_down(x_offset, mt_w)),
 							FRAME_PIX_X_ULC_CTRL);
 		dprc_write(dprc, CROP_ULC_Y(round_down(y_offset, mt_h)),
@@ -719,9 +692,6 @@ bool dprc_format_supported(struct dprc *dprc, u32 format, u64 modifier)
 		case SC_R_DC_1_WARP:
 			return false;
 		case SC_R_DC_0_BLIT1:
-			if (!dprc->devtype->has_fixup)
-				break;
-
 			return (modifier == DRM_FORMAT_MOD_NONE ||
 				modifier == DRM_FORMAT_MOD_AMPHION_TILED);
 		}
@@ -801,15 +771,13 @@ dprc_lookup_by_phandle(struct device *dev, const char *name, int index)
 EXPORT_SYMBOL_GPL(dprc_lookup_by_phandle);
 
 static const struct of_device_id dprc_dt_ids[] = {
-	{ .compatible = "fsl,imx8qm-dpr-channel", .data = &dprc_type_v1, },
-	{ .compatible = "fsl,imx8qxp-dpr-channel", .data = &dprc_type_v2, },
+	{ .compatible = "fsl,imx8qm-dpr-channel", },
+	{ .compatible = "fsl,imx8qxp-dpr-channel", },
 	{ /* sentinel */ },
 };
 
 static int dprc_probe(struct platform_device *pdev)
 {
-	const struct of_device_id *of_id =
-			of_match_device(dprc_dt_ids, &pdev->dev);
 	struct device *dev = &pdev->dev;
 	struct resource *res;
 	struct dprc *dprc;
@@ -818,8 +786,6 @@ static int dprc_probe(struct platform_device *pdev)
 	dprc = devm_kzalloc(dev, sizeof(*dprc), GFP_KERNEL);
 	if (!dprc)
 		return -ENOMEM;
-
-	dprc->devtype = of_id->data;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	dprc->base = devm_ioremap_resource(&pdev->dev, res);
@@ -850,8 +816,7 @@ static int dprc_probe(struct platform_device *pdev)
 
 	switch (dprc->sc_resource) {
 	case SC_R_DC_0_BLIT1:
-		if (dprc->devtype->has_fixup)
-			dprc->has_aux_prg = true;
+		dprc->has_aux_prg = true;
 		/* fall-through */
 	case SC_R_DC_0_BLIT0:
 	case SC_R_DC_1_BLIT0:

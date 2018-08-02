@@ -67,21 +67,8 @@ enum {
 #define PRG_WIDTH		0x70
 #define WIDTH(n)		(((n) - 1) & 0xffff)
 
-struct prg_devtype {
-	bool has_dprc_fixup;
-};
-
-static const struct prg_devtype prg_type_v1 = {
-	.has_dprc_fixup = false,
-};
-
-static const struct prg_devtype prg_type_v2 = {
-	.has_dprc_fixup = true,
-};
-
 struct prg {
 	struct device *dev;
-	const struct prg_devtype *devtype;
 	void __iomem *base;
 	struct list_head list;
 	struct clk *clk_apb;
@@ -163,7 +150,7 @@ void prg_configure(struct prg *prg, unsigned int width, unsigned int height,
 		return;
 	}
 
-	if (prg->devtype->has_dprc_fixup && modifier) {
+	if (modifier) {
 		x_offset %= mt_w;
 		y_offset %= mt_h;
 
@@ -187,7 +174,7 @@ void prg_configure(struct prg *prg, unsigned int width, unsigned int height,
 	 * address TKT339017:
 	 * fixup for burst size vs stride mismatch
 	 */
-	if (prg->devtype->has_dprc_fixup && modifier)
+	if (modifier)
 		stride = round_up(stride + round_up(_baddr % 8, 8), burst_size);
 	else
 		stride = round_up(stride, burst_size);
@@ -199,7 +186,7 @@ void prg_configure(struct prg *prg, unsigned int width, unsigned int height,
 	 */
 	if (prg->is_auxiliary && stride <= burst_size) {
 		height /= 2;
-		if (prg->devtype->has_dprc_fixup && modifier)
+		if (modifier)
 			y_offset /= 2;
 	}
 
@@ -307,7 +294,7 @@ bool prg_stride_double_check(struct prg *prg,
 		return false;
 	}
 
-	if (prg->devtype->has_dprc_fixup && modifier) {
+	if (modifier) {
 		x_offset %= mt_w;
 
 		/* consider x offset to calculate stride */
@@ -328,7 +315,7 @@ bool prg_stride_double_check(struct prg *prg,
 	 * address TKT339017:
 	 * fixup for burst size vs stride mismatch
 	 */
-	if (prg->devtype->has_dprc_fixup && modifier)
+	if (modifier)
 		stride = round_up(stride + round_up(_baddr % 8, 8), burst_size);
 	else
 		stride = round_up(stride, burst_size);
@@ -386,15 +373,13 @@ prg_lookup_by_phandle(struct device *dev, const char *name, int index)
 EXPORT_SYMBOL_GPL(prg_lookup_by_phandle);
 
 static const struct of_device_id prg_dt_ids[] = {
-	{ .compatible = "fsl,imx8qm-prg", .data = &prg_type_v1, },
-	{ .compatible = "fsl,imx8qxp-prg", .data = &prg_type_v2, },
+	{ .compatible = "fsl,imx8qm-prg", },
+	{ .compatible = "fsl,imx8qxp-prg", },
 	{ /* sentinel */ },
 };
 
 static int prg_probe(struct platform_device *pdev)
 {
-	const struct of_device_id *of_id =
-			of_match_device(prg_dt_ids, &pdev->dev);
 	struct device *dev = &pdev->dev;
 	struct resource *res;
 	struct prg *prg;
@@ -402,8 +387,6 @@ static int prg_probe(struct platform_device *pdev)
 	prg = devm_kzalloc(dev, sizeof(*prg), GFP_KERNEL);
 	if (!prg)
 		return -ENOMEM;
-
-	prg->devtype = of_id->data;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	prg->base = devm_ioremap_resource(&pdev->dev, res);
