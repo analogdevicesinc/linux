@@ -23,6 +23,7 @@
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
 #include <linux/regmap.h>
+#include <linux/types.h>
 #include <drm/drm_fourcc.h>
 #include <video/imx-lcdif.h>
 #include <video/videomode.h>
@@ -49,7 +50,7 @@ struct lcdif_soc {
 	int irq;
 	void __iomem *base;
 	struct regmap *gpr;
-	bool rpm_suspended;
+	atomic_t rpm_suspended;
 
 	struct clk *clk_pix;
 	struct clk *clk_disp_axi;
@@ -612,8 +613,9 @@ static int imx_lcdif_probe(struct platform_device *pdev)
 	lcdif->dev = dev;
 	platform_set_drvdata(pdev, lcdif);
 
+	atomic_set(&lcdif->rpm_suspended, 0);
 	pm_runtime_enable(dev);
-	lcdif->rpm_suspended = true;
+	atomic_inc(&lcdif->rpm_suspended);
 
 	dev_dbg(dev, "%s: probe end\n", __func__);
 
@@ -653,14 +655,12 @@ static int imx_lcdif_runtime_suspend(struct device *dev)
 {
 	struct lcdif_soc *lcdif = dev_get_drvdata(dev);
 
-	if (lcdif->rpm_suspended == true)
+	if (atomic_inc_return(&lcdif->rpm_suspended) > 1)
 		return 0;
 
 	lcdif_disable_clocks(lcdif);
 
 	release_bus_freq(BUS_FREQ_HIGH);
-
-	lcdif->rpm_suspended = true;
 
 	return 0;
 }
@@ -670,7 +670,12 @@ static int imx_lcdif_runtime_resume(struct device *dev)
 	int ret = 0;
 	struct lcdif_soc *lcdif = dev_get_drvdata(dev);
 
-	if (lcdif->rpm_suspended == false)
+	if (unlikely(!atomic_read(&lcdif->rpm_suspended))) {
+		dev_warn(lcdif->dev, "Unbalanced %s!\n", __func__);
+		return 0;
+	}
+
+	if (!atomic_dec_and_test(&lcdif->rpm_suspended))
 		return 0;
 
 	request_bus_freq(BUS_FREQ_HIGH);
@@ -686,8 +691,6 @@ static int imx_lcdif_runtime_resume(struct device *dev)
 
 	/* Pull LCDIF out of reset */
 	writel(0x0, lcdif->base + LCDIF_CTRL);
-
-	lcdif->rpm_suspended = false;
 
 	return ret;
 }
