@@ -317,7 +317,7 @@
 		adi,rxagc-peak-hb2-ovrg-sel = <0>;
 		adi,rxagc-peak-hb2-thresh-config = <3>;
 
-		adi,rxagc-power-power-enable-measurement = <0>;
+		adi,rxagc-power-power-enable-measurement = <1>;
 		adi,rxagc-power-power-use-rfir-out = <1>;
 		adi,rxagc-power-power-use-bbdc2 = <0>;
 		adi,rxagc-power-under-range-high-power-thresh = <9>;
