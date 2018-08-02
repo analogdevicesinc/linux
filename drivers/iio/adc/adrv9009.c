@@ -1182,9 +1182,8 @@ static ssize_t adrv9009_phy_rx_write(struct iio_dev *indio_dev,
 	mutex_lock(&indio_dev->mlock);
 
 	switch (private) {
-// 		case RSSI:
-//
-// 			break;
+		case RSSI:
+			break;
 	case RX_QEC:
 
 		switch (chan->channel) {
@@ -1325,33 +1324,34 @@ static ssize_t adrv9009_phy_rx_read(struct iio_dev *indio_dev,
 	taliseTxChannels_t txchan;
 	taliseRxORxChannels_t rxchan;
 	taliseRxGainCtrlPin_t rxGainCtrlPin;
+	taliseRxChannels_t rxChannel;
 	int ret = 0;
-//	u16 dec_pwr_mdb;
-//	s16 val_s16;
+	u16 dec_pwr_mdb;
 	u32 mask;
 
 	mutex_lock(&indio_dev->mlock);
 
 	switch (private) {
-// 		case RSSI:
-// 			switch (chan->channel) {
-// 				case CHAN_RX1:
-// 					ret = TALISE_getRx1DecPower(phy->talDevice, &dec_pwr_mdb);
-// 					break;
-// 				case CHAN_RX2:
-// 					ret = TALISE_getRx2DecPower(phy->talDevice, &dec_pwr_mdb);
-// 					break;
-// 				case CHAN_OBS:
-// 					ret = TALISE_getObsRxDecPower(phy->talDevice, &dec_pwr_mdb);
-// 					break;
-// 				default:
-// 					ret = -EINVAL;
-// 			}
-//
-// 			if (ret == 0)
-// 				ret = sprintf(buf, "%u.%02u dB\n", dec_pwr_mdb / 1000,
-// 					      dec_pwr_mdb % 1000);
-// 				break;
+	case RSSI:
+		switch (chan->channel) {
+		case CHAN_RX1:
+			rxChannel = TAL_RX1;
+			break;
+		case CHAN_RX2:
+			rxChannel = TAL_RX2;
+			break;
+		default:
+			ret = -EINVAL;
+		}
+
+		if (ret == 0)
+			ret = TALISE_getRxDecPower(phy->talDevice, rxChannel,
+						   &dec_pwr_mdb);
+
+		if (ret == 0)
+			ret = sprintf(buf, "%u.%02u dB\n", dec_pwr_mdb / 1000,
+					      dec_pwr_mdb % 1000);
+		break;
 	case RX_QEC:
 		switch (chan->channel) {
 		case CHAN_RX1:
@@ -1659,7 +1659,7 @@ static const struct iio_chan_spec_ext_info adrv9009_phy_rx_ext_info[] = {
 	 */
 	IIO_ENUM_AVAILABLE_SHARED("gain_control_mode", 0,  &adrv9009_agc_modes_available),
 	IIO_ENUM("gain_control_mode", false, &adrv9009_agc_modes_available),
-//	_ADRV9009_EXT_RX_INFO("rssi", RSSI),
+	_ADRV9009_EXT_RX_INFO("rssi", RSSI),
 	_ADRV9009_EXT_RX_INFO("quadrature_tracking_en", RX_QEC),
 	_ADRV9009_EXT_RX_INFO("hd2_tracking_en", RX_HD2), /* 2nd Harmonic Distortion */
 	_ADRV9009_EXT_RX_INFO("rf_bandwidth", RX_RF_BANDWIDTH),
@@ -1676,7 +1676,6 @@ static const struct iio_chan_spec_ext_info adrv9009_phy_obs_rx_ext_info[] = {
 	IIO_ENUM_AVAILABLE_SHARED("rf_port_select", 0, &adrv9009_rf_obs_rx_port_available),
 	IIO_ENUM("rf_port_select", false, &adrv9009_rf_obs_rx_port_available),
 	_ADRV9009_EXT_RX_INFO("quadrature_tracking_en", RX_QEC),
-//	_ADRV9009_EXT_RX_INFO("rssi", RSSI),
 	_ADRV9009_EXT_RX_INFO("rf_bandwidth", RX_RF_BANDWIDTH),
 	_ADRV9009_EXT_RX_INFO("powerdown", RX_POWERDOWN),
 	{ },
@@ -2627,7 +2626,7 @@ static int adrv9009_phy_parse_dt(struct iio_dev *iodev, struct device *dev)
 			 &phy->rxAgcCtrl.agcPeak.hb2ThreshConfig, 3);
 
 	ADRV9009_OF_PROP("adi,rxagc-power-power-enable-measurement",
-			 &phy->rxAgcCtrl.agcPower.powerEnableMeasurement, 0);
+			 &phy->rxAgcCtrl.agcPower.powerEnableMeasurement, 1);
 	ADRV9009_OF_PROP("adi,rxagc-power-power-use-rfir-out",
 			 &phy->rxAgcCtrl.agcPower.powerUseRfirOut, 1);
 	ADRV9009_OF_PROP("adi,rxagc-power-power-use-bbdc2",
