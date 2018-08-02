@@ -203,6 +203,7 @@ struct imx_hdp {
 	u8 is_4kp60;
 	u8 is_cec;
 	u8 is_edp;
+	u8 is_digpll_dp_pclock;
 	u8 audio_type;
 	u32 lane_mapping;
 	u32 edp_link_rate;
