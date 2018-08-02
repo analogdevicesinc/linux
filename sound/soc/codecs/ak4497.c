@@ -26,10 +26,16 @@
 #include <linux/regmap.h>
 #include <sound/pcm_params.h>
 #include <linux/pm_runtime.h>
+#include <linux/regulator/consumer.h>
 
 #include "ak4497.h"
 
 //#define AK4497_DEBUG   //used at debug mode
+#define AK4497_NUM_SUPPLIES 2
+static const char *ak4497_supply_names[AK4497_NUM_SUPPLIES] = {
+	"DVDD",
+	"AVDD",
+};
 
 /* AK4497 Codec Private Data */
 struct ak4497_priv {
@@ -41,6 +47,7 @@ struct ak4497_priv {
 	int pdn_gpio;
 	int mute_gpio;
 	int fmt;
+	struct regulator_bulk_data supplies[AK4497_NUM_SUPPLIES];
 };
 
 /* ak4497 register cache & default register settings */
@@ -1008,6 +1015,7 @@ static int ak4497_i2c_probe(struct i2c_client *i2c,
 {
 	struct ak4497_priv *ak4497;
 	int ret = 0;
+	int i;
 
 	ak4497 = devm_kzalloc(&i2c->dev,
 			      sizeof(struct ak4497_priv), GFP_KERNEL);
@@ -1021,12 +1029,27 @@ static int ak4497_i2c_probe(struct i2c_client *i2c,
 	i2c_set_clientdata(i2c, ak4497);
 	ak4497->i2c = i2c;
 
-	ret = snd_soc_register_codec(&i2c->dev, &soc_codec_dev_ak4497,
-				     &ak4497_dai[0], ARRAY_SIZE(ak4497_dai));
-	if (ret < 0) {
-		kfree(ak4497);
+	for (i = 0; i < ARRAY_SIZE(ak4497->supplies); i++)
+		ak4497->supplies[i].supply = ak4497_supply_names[i];
+
+	ret = devm_regulator_bulk_get(&i2c->dev, ARRAY_SIZE(ak4497->supplies),
+				 ak4497->supplies);
+	if (ret != 0) {
+		dev_err(&i2c->dev, "Failed to request supplies: %d\n", ret);
 		return ret;
 	}
+
+	ret = regulator_bulk_enable(ARRAY_SIZE(ak4497->supplies),
+				    ak4497->supplies);
+	if (ret != 0) {
+		dev_err(&i2c->dev, "Failed to enable supplies: %d\n", ret);
+		return ret;
+	}
+
+	ret = snd_soc_register_codec(&i2c->dev, &soc_codec_dev_ak4497,
+				     &ak4497_dai[0], ARRAY_SIZE(ak4497_dai));
+	if (ret < 0)
+		return ret;
 
 	pm_runtime_enable(&i2c->dev);
 
