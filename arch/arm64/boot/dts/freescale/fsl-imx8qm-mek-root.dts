@@ -102,9 +102,15 @@
 	};
 };
 
+&smmu {
+	/* Jailhouse hypervisor will initialize SMMU and use it. */
+	status = "disabled";
+};
+
 &usdhc1 {
+	/* Let U-Boot program SID */
+	iommus = <&smmu 0x10 0x7f80>;
 	/delete-property/ compatible;
-	/delete-property/ iommus;
 };
 
 &lpuart2 {
