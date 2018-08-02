@@ -580,7 +580,7 @@
 #define MX8MM_IOMUXC_I2C3_SDA_TPSMP_HDATA21                                 0x228 0x490 0x000 0x7 0x0
 #define MX8MM_IOMUXC_I2C4_SCL_I2C4_SCL                                      0x22C 0x494 0x000 0x0 0x0
 #define MX8MM_IOMUXC_I2C4_SCL_PWM2_OUT                                      0x22C 0x494 0x000 0x1 0x0
-#define MX8MM_IOMUXC_I2C4_SCL_PCIE1_CLKREQ_B                                0x22C 0x494 0x524 0x2 0x0
+#define MX8MM_IOMUXC_I2C4_SCL_PCIE1_CLKREQ_B                                0x22C 0x494 0x524 0x12 0x0
 #define MX8MM_IOMUXC_I2C4_SCL_GPIO5_IO20                                    0x22C 0x494 0x000 0x5 0x0
 #define MX8MM_IOMUXC_I2C4_SCL_TPSMP_HDATA22                                 0x22C 0x494 0x000 0x7 0x0
 #define MX8MM_IOMUXC_I2C4_SDA_I2C4_SDA                                      0x230 0x498 0x000 0x0 0x0
