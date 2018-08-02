@@ -475,7 +475,7 @@ static int adrv9009_setup(struct adrv9009_rf_phy *phy)
 	/**** Verify MCS ***/
 	/*******************/
 	ret = TALISE_enableMultichipSync(phy->talDevice, 0, &mcsStatus);
-	if ((mcsStatus & 0x0A) != 0x0A)
+	if ((mcsStatus & 0x0B) != 0x0B)
 		dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
 
 	/*******************************************************/
