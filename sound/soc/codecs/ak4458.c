@@ -32,8 +32,15 @@
 #include <sound/tlv.h>
 #include <sound/pcm_params.h>
 #include <linux/pm_runtime.h>
+#include <linux/regulator/consumer.h>
 
 #include "ak4458.h"
+
+#define AK4458_NUM_SUPPLIES 2
+static const char *ak4458_supply_names[AK4458_NUM_SUPPLIES] = {
+	"DVDD",
+	"AVDD",
+};
 
 /* AK4458 Codec Private Data */
 struct ak4458_priv {
@@ -48,6 +55,7 @@ struct ak4458_priv {
 	int fmt;
 	int slots;
 	int slot_width;
+	struct regulator_bulk_data supplies[AK4458_NUM_SUPPLIES];
 };
 
 static const struct reg_default ak4458_reg_defaults[] = {
@@ -1111,6 +1119,7 @@ int ak4458_probe(struct device *dev, struct regmap *regmap)
 	struct ak4458_priv *ak4458;
 	struct device_node *np = dev->of_node;
 	int ret;
+	int i;
 
 	ak4458 = devm_kzalloc(dev, sizeof(*ak4458), GFP_KERNEL);
 	if (!ak4458)
@@ -1139,6 +1148,23 @@ int ak4458_probe(struct device *dev, struct regmap *regmap)
 			dev_err(dev, "unable to get mute gpio\n");
 			return ret;
 		}
+	}
+
+	for (i = 0; i < ARRAY_SIZE(ak4458->supplies); i++)
+		ak4458->supplies[i].supply = ak4458_supply_names[i];
+
+	ret = devm_regulator_bulk_get(dev, ARRAY_SIZE(ak4458->supplies),
+				 ak4458->supplies);
+	if (ret != 0) {
+		dev_err(dev, "Failed to request supplies: %d\n", ret);
+		return ret;
+	}
+
+	ret = regulator_bulk_enable(ARRAY_SIZE(ak4458->supplies),
+				    ak4458->supplies);
+	if (ret != 0) {
+		dev_err(dev, "Failed to enable supplies: %d\n", ret);
+		return ret;
 	}
 
 	ret = snd_soc_register_codec(dev, &soc_codec_dev_ak4458,
