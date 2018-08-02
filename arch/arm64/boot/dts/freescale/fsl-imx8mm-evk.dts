@@ -69,6 +69,16 @@
 			gpio = <&gpio2 19 GPIO_ACTIVE_HIGH>;
 			enable-active-high;
 		};
+
+		reg_audio_board: regulator-audio-board {
+			compatible = "regulator-fixed";
+			regulator-name = "EXT_PWREN";
+			regulator-min-microvolt = <3300000>;
+			regulator-max-microvolt = <3300000>;
+			enable-active-high;
+			startup-delay-us = <300000>;
+			gpio = <&pca6416 1 GPIO_ACTIVE_HIGH>;
+		};
 	};
 
 	wm8524: wm8524 {
@@ -93,7 +103,7 @@
 		model = "ak4458-audio";
 		audio-cpu = <&sai1>;
 		audio-codec = <&ak4458_1>, <&ak4458_2>;
-		ak4458,pdn-gpio = <&pca6416 2 GPIO_ACTIVE_HIGH>;
+		ak4458,pdn-gpio = <&pca6416 4 GPIO_ACTIVE_HIGH>;
 	};
 
 	sound-ak5558 {
@@ -729,23 +739,31 @@
 	ak4458_1: ak4458@10 {
 		compatible = "asahi-kasei,ak4458";
 		reg = <0x10>;
+		AVDD-supply = <&reg_audio_board>;
+		DVDD-supply = <&reg_audio_board>;
 	};
 
 	ak4458_2: ak4458@12 {
 		compatible = "asahi-kasei,ak4458";
 		reg = <0x12>;
+		AVDD-supply = <&reg_audio_board>;
+		DVDD-supply = <&reg_audio_board>;
 	};
 
 	ak5558: ak5558@13 {
 		compatible = "asahi-kasei,ak5558";
 		reg = <0x13>;
-		ak5558,pdn-gpio = <&pca6416 1 GPIO_ACTIVE_HIGH>;
+		ak5558,pdn-gpio = <&pca6416 3 GPIO_ACTIVE_HIGH>;
+		AVDD-supply = <&reg_audio_board>;
+		DVDD-supply = <&reg_audio_board>;
 	};
 
 	ak4497: ak4497@11 {
 		compatible = "asahi-kasei,ak4497";
 		reg = <0x11>;
-		ak4497,pdn-gpio = <&pca6416 3 GPIO_ACTIVE_HIGH>;
+		ak4497,pdn-gpio = <&pca6416 5 GPIO_ACTIVE_HIGH>;
+		AVDD-supply = <&reg_audio_board>;
+		DVDD-supply = <&reg_audio_board>;
 	};
 
 	ov5640_mipi: ov5640_mipi@3c {
