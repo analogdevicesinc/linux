@@ -64,6 +64,20 @@
 &soc {
 #include "qoriq-dpaa-eth.dtsi"
 #include "qoriq-fman3-0-6oh.dtsi"
+
+pcie@3400000 {
+	/delete-property/ iommu-map;
+};
+
+pcie@3500000 {
+	/delete-property/ iommu-map;
+};
+
+pcie@3600000 {
+	/delete-property/ iommu-map;
+};
+
+/delete-node/ iommu@9000000;
 };
 
 &fman0 {
