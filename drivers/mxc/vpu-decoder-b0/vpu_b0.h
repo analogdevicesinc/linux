@@ -42,7 +42,7 @@ extern unsigned int vpu_dbg_level_decoder;
 #define v4l2_ctrl_to_ctx(__ctrl) \
 	container_of((__ctrl)->handler, struct vpu_ctx, ctrl_handler)
 
-#define MIN_SPACE 4096
+#define MIN_SPACE (4096+64)
 
 #define VPU_MAX_FORMATS 4
 #define VPU_MAX_BUFFER 32
@@ -108,6 +108,11 @@ enum vpu_video_standard {
 	VPU_VIDEO_AVC_MVC = 11,
 	VPU_VIDEO_HEVC = 12,
 };
+
+typedef enum{
+	EOS_PADDING_TYPE = 1,
+	BUFFLUSH_PADDING_TYPE = 2
+} VPU_PADDING_SCODE_TYPE;
 
 #define VPU_PIX_FMT_AVS         v4l2_fourcc('A', 'V', 'S', '0')
 #define VPU_PIX_FMT_ASP         v4l2_fourcc('A', 'S', 'P', '0')
@@ -234,6 +239,7 @@ struct vpu_ctx {
 	struct completion stop_cmp;
 	struct completion eos_cmp;
 	MediaIPFW_Video_SeqInfo *pSeqinfo;
+	bool b_dis_reorder;
 	bool b_firstseq;
 	bool start_flag;
 	bool wait_abort_done;
@@ -262,11 +268,14 @@ struct vpu_ctx {
 	void *udata_buffer_virt;
 	u_int32 udata_buffer_size;
 	dma_addr_t udata_buffer_phy;
+	int frm_dis_delay;
+	int frm_dec_delay;
+	int frm_total_num;
 };
 
 #define LVL_INFO 3
-#define LVL_IRQ  2
-#define LVL_ALL  1
+#define LVL_EVENT  2
+#define LVL_WARN  1
 #define LVL_ERR  0
 
 #define vpu_dbg(level, fmt, arg...) \
