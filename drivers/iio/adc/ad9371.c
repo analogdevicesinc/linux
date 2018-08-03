@@ -333,6 +333,8 @@ static int ad9371_set_radio_state(struct ad9371_rf_phy *phy, enum ad9371_radio_s
 				phy->radio_state = false;
 		}
 		break;
+	default:
+		ret = -EINVAL;
 	}
 
 	return ret;
