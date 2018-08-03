@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-2018 NXP
+ * Copyright 2018 NXP
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -41,12 +41,6 @@
 
 &hdmi {
 	compatible = "fsl,imx8qm-dp";
-	assigned-clocks = <&clk IMX8QM_HDMI_PXL_SEL>,
-					<&clk IMX8QM_HDMI_PXL_LINK_SEL>,
-					<&clk IMX8QM_HDMI_PXL_MUX_SEL>;
-	assigned-clock-parents = <&clk IMX8QM_HDMI_AV_PLL_CLK>,
-					<&clk IMX8QM_HDMI_AV_PLL_CLK>,
-					<&clk IMX8QM_HDMI_AV_PLL_CLK>;
-
+ 	fsl,use_digpll_pclock;
 	status = "okay";
 };

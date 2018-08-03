@@ -47,7 +47,8 @@ dtb-$(CONFIG_ARCH_FSL_IMX8QM) += fsl-imx8qm-lpddr4-arm2.dtb \
 				 fsl-imx8qm-lpddr4-arm2-enet2-tja1100.dtb \
 				 fsl-imx8qm-lpddr4-arm2-hsic.dtb \
 				 fsl-imx8dm-lpddr4-arm2.dtb \
-				 fsl-imx8qp-lpddr4-arm2.dtb
+				 fsl-imx8qp-lpddr4-arm2.dtb \
+				 fsl-imx8qm-lpddr4-arm2-dp-dig-pll.dtb
 dtb-$(CONFIG_ARCH_FSL_IMX8QXP) += fsl-imx8qxp-lpddr4-arm2.dtb \
 				  fsl-imx8qxp-mek.dtb \
 				  fsl-imx8qxp-mek-dom0.dtb \
