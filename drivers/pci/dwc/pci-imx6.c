@@ -1621,7 +1621,9 @@ static int imx_pcie_host_init(struct pcie_port *pp)
 		 * controlled by HW when link is up.
 		 * Otherwise, turn off the REF_CLK to save power consumption.
 		 */
-		if (imx_pcie->variant == IMX8MQ) {
+		switch (imx_pcie->variant) {
+		case IMX8MQ:
+		case IMX8MM:
 			if (imx_pcie->ctrl_id == 0)
 				val = IOMUXC_GPR14;
 			else
@@ -1630,6 +1632,9 @@ static int imx_pcie_host_init(struct pcie_port *pp)
 			regmap_update_bits(imx_pcie->iomuxc_gpr, val,
 					IMX8MQ_GPR_PCIE_CLK_REQ_OVERRIDE_EN,
 					0);
+			break;
+		default:
+			break;
 		}
 		if (ret < 0)
 			return ret;
