@@ -139,10 +139,19 @@ static bool check_m4_sleep(void)
 	return  true;
 }
 
+static bool busfreq_notified_low = false;
+
 static int busfreq_notify(enum busfreq_event event)
 {
 	int ret;
 
+	if (event == LOW_BUSFREQ_ENTER) {
+		WARN_ON(busfreq_notified_low);
+		busfreq_notified_low = true;
+	} else if (event == LOW_BUSFREQ_EXIT) {
+		WARN_ON(!busfreq_notified_low);
+		busfreq_notified_low = false;
+	}
 	ret = raw_notifier_call_chain(&busfreq_notifier_chain, event, NULL);
 
 	return notifier_to_errno(ret);
