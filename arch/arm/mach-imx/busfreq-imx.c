@@ -695,12 +695,20 @@ static void reduce_bus_freq(void)
 			high_bus_count, med_bus_count, audio_bus_count);
 }
 
+static inline void cancel_low_bus_freq_handler(void)
+{
+	cancel_delayed_work(&low_bus_freq_handler);
+	cancel_reduce_bus_freq = true;
+}
+
 static void reduce_bus_freq_handler(struct work_struct *work)
 {
 	mutex_lock(&bus_freq_mutex);
 
-	if (!cancel_reduce_bus_freq)
+	if (!cancel_reduce_bus_freq) {
 		reduce_bus_freq();
+		cancel_low_bus_freq_handler();
+	}
 
 	mutex_unlock(&bus_freq_mutex);
 }
@@ -736,12 +744,6 @@ static int set_low_bus_freq(void)
 		schedule_delayed_work(&low_bus_freq_handler,
 					usecs_to_jiffies(3000000));
 	return 0;
-}
-
-static inline void cancel_low_bus_freq_handler(void)
-{
-	cancel_delayed_work(&low_bus_freq_handler);
-	cancel_reduce_bus_freq = true;
 }
 
 /*
