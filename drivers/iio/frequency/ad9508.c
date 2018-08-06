@@ -5,7 +5,6 @@
  *
  * Licensed under the GPL-2.
  */
-#define DEBUG
 #include <linux/device.h>
 #include <linux/kernel.h>
 #include <linux/slab.h>
@@ -270,7 +269,8 @@ static int ad9508_read_raw(struct iio_dev *indio_dev,
 	case IIO_CHAN_INFO_PHASE:
 		ret = ad9508_read(indio_dev, AD9508_CHANNEL_OUT_PHASE(chan->channel));
 		div = ad9508_read(indio_dev, AD9508_CHANNEL_OUT_DIV(chan->channel));
-		code = (ret * 3141592) / div;
+		div += 1;
+		code = DIV_ROUND_CLOSEST(ret * 3141592, div);
 		*val = code / 1000000;
 		*val2 = (code % 1000000) * 10;
 		mutex_unlock(&st->lock);
@@ -308,8 +308,9 @@ static int ad9508_write_raw(struct iio_dev *indio_dev,
 		break;
 	case IIO_CHAN_INFO_PHASE:
 		ret = ad9508_read(indio_dev, AD9508_CHANNEL_OUT_DIV(chan->channel));
+		ret += 1;
 		code = val * 1000000 + val2 % 1000000;
-		tmp = (code * ret) / 3141592;
+		tmp = DIV_ROUND_CLOSEST(code * ret, 3141592);
 		tmp = clamp(tmp, 0, 2047);
 		ret = ad9508_write(indio_dev, AD9508_CHANNEL_OUT_PHASE(chan->channel), tmp);
 		break;
@@ -393,7 +394,7 @@ static long ad9508_clk_round_rate(struct clk_hw *hw, unsigned long rate,
 	tmp = DIV_ROUND_CLOSEST(*prate, rate);
 	tmp = clamp(tmp, 1UL, 1024UL);
 
-	return *prate / (tmp - 1);
+	return *prate / tmp;
 }
 
 static int ad9508_clk_set_rate(struct clk_hw *hw, unsigned long rate,
@@ -421,18 +422,24 @@ static struct clk *ad9508_clk_register(struct iio_dev *indio_dev, unsigned num,
 				bool is_enabled)
 {
 	struct ad9508_state *st = iio_priv(indio_dev);
+	struct device_node *of_node = st->spi->dev.of_node;
 	struct clk_init_data init;
 	struct ad9508_outputs *output = &st->output[num];
 	struct clk *clk;
 	const char *parent_name;
 	char name[SPI_NAME_SIZE + 8];
+	int ret;
 
-	sprintf(name, "%s_out%d", indio_dev->name, num);
+	ret = of_property_read_string_index(of_node, "clock-output-names",
+		num, &init.name);
+	if (ret < 0) {
+		sprintf(name, "%s_out%d", indio_dev->name, num);
+		init.name = name;
+	}
 
-	init.name = name;
 	init.ops = &ad9508_clk_ops;
 
-	parent_name = of_clk_get_parent_name(indio_dev->dev.parent->of_node, 0);
+	parent_name = of_clk_get_parent_name(of_node, 0);
 	init.parent_names = &parent_name;
 	init.num_parents = 1;
 
@@ -442,7 +449,7 @@ static struct clk *ad9508_clk_register(struct iio_dev *indio_dev, unsigned num,
 	output->is_enabled = is_enabled;
 
 	/* register the clock */
-	clk = clk_register(&st->spi->dev, &output->hw);
+	clk = devm_clk_register(&st->spi->dev, &output->hw);
 	st->clk_data.clks[num] = clk;
 
 	return clk;
@@ -455,7 +462,7 @@ static int ad9508_setup(struct iio_dev *indio_dev)
 	struct ad9508_channel_spec *chan;
 	int ret, i;
 
-	dev_info(&indio_dev->dev, "ad9508 setup\n");
+	dev_dbg(&indio_dev->dev, "ad9508 setup\n");
 
 	ret = ad9508_write(indio_dev, AD9508_SERIAL_PORT_CONFIG,
 			AD9508_SER_CONF_SOFT_RESET |
@@ -465,15 +472,14 @@ static int ad9508_setup(struct iio_dev *indio_dev)
 		return ret;
 
 
-// 	ret = ad9508_read(indio_dev, AD9508_CHIP_ID);
-// 	if (ret < 0)
-// 		return ret;
-//
-// 	if ((ret & 0xFFFFFF) != AD9508_SPI_MAGIC) {
-// 		dev_err(&indio_dev->dev,
-// 				"SPI Read Verify failed (0x%X)\n", ret);
-// 		return -EIO;
-// 	}
+	ret = ad9508_read(indio_dev, AD9508_PART_ID);
+	if (ret < 0)
+		return ret;
+
+	if (ret != 0x0500) {
+		dev_err(&st->spi->dev, "Unexpected device ID (0x%.2x)\n", ret);
+		return -ENODEV;
+	}
 
 	st->clk_data.clks = st->clks;
 	st->clk_data.clk_num = AD9508_NUM_CHAN;
@@ -664,7 +670,7 @@ static int ad9508_probe(struct spi_device *spi)
 	if (ret)
 		goto error_disable_reg;
 
-	dev_info(&spi->dev, "probed %s\n", indio_dev->name);
+	dev_dbg(&spi->dev, "probed %s\n", indio_dev->name);
 
 	return 0;
 

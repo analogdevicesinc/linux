@@ -1160,6 +1160,8 @@ static int ad6676_probe(struct spi_device *spi)
 		return -EINVAL;
 	}
 
+	phy->pdata->base.attenuation = 0x0C;
+
 	ad6676_gpio_config(conv);
 
 	/* RESET here */

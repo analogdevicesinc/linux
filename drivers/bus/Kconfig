@@ -183,5 +183,4 @@ config DA8XX_MSTPRI
 	  Driver for Texas Instruments da8xx master peripheral priority
 	  configuration. Allows to adjust the priorities of all master
 	  peripherals.
-
 endmenu

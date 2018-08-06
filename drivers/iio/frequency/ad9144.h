@@ -94,6 +94,7 @@
 #define REG_CAL_ADDR                             0x0EA /* Calibration DAC Address */
 #define REG_CAL_DATA                             0x0EB /* Calibration DAC Data */
 #define REG_CAL_UPDATE                           0x0EC /* Calibration DAC Write Update */
+#define REG_CAL_INIT                             0x0ED /* Calibration DAC initial value */
 #define REG_DATA_FORMAT                          0x110 /* Data format */
 #define REG_DATAPATH_CTRL                        0x111 /* Datapath Control */
 #define REG_INTERP_MODE                          0x112 /* Interpolation Mode */
@@ -179,10 +180,7 @@
 #define REG_LMFC_DELAY_1                         0x305 /* Register 4 description */
 #define REG_LMFC_VAR_0                           0x306 /* Register 5 description */
 #define REG_LMFC_VAR_1                           0x307 /* Register 6 description */
-#define REG_XBAR_LN_0_1                          0x308 /* Register 7 description */
-#define REG_XBAR_LN_2_3                          0x309 /* Register 8 description */
-#define REG_XBAR_LN_4_5                          0x30A /* Register 9 description */
-#define REG_XBAR_LN_6_7                          0x30B /* Register 10 description */
+#define REG_XBAR(x)                              (0x308 + (x))
 #define REG_FIFO_STATUS_REG_0                    0x30C /* Register 11 description */
 #define REG_FIFO_STATUS_REG_1                    0x30D /* Register 12 description */
 #define REG_FIFO_STATUS_REG_2                    0x30E /* Register 13 description */
@@ -243,6 +241,7 @@
 #define REG_ILS_BID                              0x451 /* Reg 81 Description */
 #define REG_ILS_LID0                             0x452 /* Reg 82 Description */
 #define REG_ILS_SCR_L                            0x453 /* Reg 83 Description */
+#define REG_ILS_F                                0x454 /* Reg 84 Description */
 #define REG_ILS_K                                0x455 /* Reg 85 Description */
 #define REG_ILS_M                                0x456 /* Reg 86 Description */
 #define REG_ILS_CS_N                             0x457 /* Reg 87 Description */

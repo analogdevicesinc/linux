@@ -471,7 +471,7 @@ static int adf5355_set_freq(struct adf5355_state *st, unsigned long long freq,
 	st->regs[ADF5355_REG6] =
 		ADF5355_REG6_OUTPUT_PWR(pdata->outa_power) |
 		ADF5355_REG6_RF_OUT_EN(pdata->outa_en) |
-		(st->is_5355 ? ADF5355_REG6_RF_OUTB_EN(pdata->outb_en) :
+		(st->is_5355 ? ADF5355_REG6_RF_OUTB_EN(!pdata->outb_en) :
 			ADF4355_REG6_OUTPUTB_PWR(pdata->outb_power) |
 			ADF4355_REG6_RF_OUTB_EN(pdata->outb_en)) |
 		ADF5355_REG6_MUTE_TILL_LOCK_EN(pdata->mute_till_lock_detect_en) |
@@ -501,7 +501,7 @@ static ssize_t adf5355_write(struct iio_dev *indio_dev,
 {
 	struct adf5355_state *st = iio_priv(indio_dev);
 	unsigned long long readin;
-	unsigned long tmp;
+	unsigned long tmp = 0;
 	int ret;
 
 	ret = kstrtoull(buf, 10, &readin);
@@ -542,7 +542,7 @@ static ssize_t adf5355_write(struct iio_dev *indio_dev,
 				ADF5355_REG6_RF_OUTB_EN(1) :
 				ADF4355_REG6_RF_OUTB_EN(1));
 			st->regs[ADF5355_REG6] |= (st->is_5355 ?
-				ADF5355_REG6_RF_OUTB_EN(!!!readin) :
+				ADF5355_REG6_RF_OUTB_EN(!!readin) :
 				ADF4355_REG6_RF_OUTB_EN(!!!readin));
 		}
 		adf5355_sync_config(st, false);
@@ -588,9 +588,12 @@ static ssize_t adf5355_read(struct iio_dev *indio_dev,
 		if (chan->channel == 0) {
 			val = !(st->regs[ADF5355_REG6] & ADF5355_REG6_RF_OUT_EN(1));
 		} else {
-			val = ! (st->regs[ADF5355_REG6] & (st->is_5355 ?
-				ADF5355_REG6_RF_OUTB_EN(1) :
-				ADF4355_REG6_RF_OUTB_EN(1)));
+			if (st->is_5355)
+				val = st->regs[ADF5355_REG6] &
+					ADF5355_REG6_RF_OUTB_EN(1);
+			else
+				val = !(st->regs[ADF5355_REG6] &
+					ADF4355_REG6_RF_OUTB_EN(1));
 		}
 		break;
 	default:
@@ -847,8 +850,6 @@ static int adf5355_probe(struct spi_device *spi)
 	st->spi = spi;
 	st->pdata = pdata;
 	st->clk = clk;
-
-	st->is_5355 = (spi_get_device_id(spi)->driver_data == 5355);
 
 	switch (spi_get_device_id(spi)->driver_data) {
 	case ADF5355:
