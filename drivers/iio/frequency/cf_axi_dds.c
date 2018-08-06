@@ -1182,6 +1182,7 @@ static void dds_converter_put(struct device *conv_dev)
 struct axidds_core_info {
 	unsigned int version;
 	bool standalone;
+	bool rate_format_skip_en;
 	struct cf_axi_dds_chip_info *chip_info;
 	unsigned int data_format;
 	unsigned int rate;
@@ -1196,6 +1197,7 @@ static const struct axidds_core_info ad9122_6_00_a_info = {
 static const struct axidds_core_info ad9361_6_00_a_info = {
 	.version = PCORE_VERSION(9, 0, 'a'),
 	.standalone = true,
+	.rate_format_skip_en = true, /* Set by the ad936x_conv driver */
 	.rate = 3,
 	.chip_info = &cf_axi_dds_chip_info_ad9361,
 };
@@ -1203,6 +1205,7 @@ static const struct axidds_core_info ad9361_6_00_a_info = {
 static const struct axidds_core_info ad9364_6_00_a_info = {
 	.version = PCORE_VERSION(9, 0, 'a'),
 	.standalone = true,
+	.rate_format_skip_en = true, /* Set by the ad936x_conv driver */
 	.rate = 1,
 	.chip_info = &cf_axi_dds_chip_info_ad9364,
 };
@@ -1210,6 +1213,7 @@ static const struct axidds_core_info ad9364_6_00_a_info = {
 static const struct axidds_core_info ad9361x2_6_00_a_info = {
 	.version = PCORE_VERSION(9, 0, 'a'),
 	.standalone = true,
+	.rate_format_skip_en = true, /* Set by the ad936x_conv driver */
 	.rate = 3,
 	.chip_info = &cf_axi_dds_chip_info_ad9361x2,
 };
@@ -1406,7 +1410,8 @@ static int cf_axi_dds_probe(struct platform_device *pdev)
 	else
 		rate = 1;
 
-	dds_write(st, ADI_REG_RATECNTRL, ADI_RATE(rate));
+	if (info && !info->rate_format_skip_en)
+		dds_write(st, ADI_REG_RATECNTRL, ADI_RATE(rate));
 
 	if (conv) {
 		ret = conv->setup(conv);
@@ -1428,7 +1433,9 @@ static int cf_axi_dds_probe(struct platform_device *pdev)
 		ctrl_2 |= ADI_DATA_FORMAT;
 
 	cf_axi_dds_stop(st);
-	dds_write(st, ADI_REG_CNTRL_2, ctrl_2);
+
+	if (info && !info->rate_format_skip_en)
+		dds_write(st, ADI_REG_CNTRL_2, ctrl_2);
 
 	cf_axi_dds_datasel(st, -1, DATA_SEL_DDS);
 
