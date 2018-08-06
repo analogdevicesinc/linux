@@ -101,7 +101,9 @@ dtb-$(CONFIG_ARCH_FSL_IMX8MM) += fsl-imx8mm-evk.dtb \
 				 fsl-imx8mm-evk-ak5558.dtb \
 				 fsl-imx8mm-evk-audio-tdm.dtb \
 				 fsl-imx8mm-ddr4-val.dtb \
-				 fsl-imx8mm-evk-rm67191.dtb
+				 fsl-imx8mm-evk-rm67191.dtb \
+				 fsl-imx8mm-evk-root.dtb \
+				 fsl-imx8mm-evk-inmate.dtb
 always		:= $(dtb-y)
 subdir-y	:= $(dts-dirs)
 clean-files	:= *.dtb

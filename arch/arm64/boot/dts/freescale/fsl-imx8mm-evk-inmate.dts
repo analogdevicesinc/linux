@@ -1,0 +1,224 @@
+/*
+ * Copyright 2018 NXP
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+#include "fsl-imx8mm.dtsi"
+
+/ {
+	model = "Freescale i.MX8MM EVK";
+	compatible = "fsl,imx8mm-evk", "fsl,imx8mm";
+	interrupt-parent = <&gic>;
+
+	timer {
+		compatible = "arm,armv8-timer";
+		interrupts = <GIC_PPI 13 (GIC_CPU_MASK_SIMPLE(6) | IRQ_TYPE_LEVEL_LOW)>, /* Physical Secure */
+			     <GIC_PPI 14 (GIC_CPU_MASK_SIMPLE(6) | IRQ_TYPE_LEVEL_LOW)>, /* Physical Non-Secure */
+			     <GIC_PPI 11 (GIC_CPU_MASK_SIMPLE(6) | IRQ_TYPE_LEVEL_LOW)>, /* Virtual */
+			     <GIC_PPI 10 (GIC_CPU_MASK_SIMPLE(6) | IRQ_TYPE_LEVEL_LOW)>; /* Hypervisor */
+		clock-frequency = <8333333>;
+	};
+
+	clocks {
+		clk_dummy: clock@7 {
+			compatible = "fixed-clock";
+			reg = <7>;
+			#clock-cells = <0>;
+			clock-frequency = <0>;
+			clock-output-names = "clk_dummy";
+		};
+
+		/* The clocks are configured by 1st OS */
+		clk_200m: clock@8 {
+			compatible = "fixed-clock";
+			reg = <8>;
+			#clock-cells = <0>;
+			clock-frequency = <200000000>;
+			clock-output-names = "200m";
+		};
+		clk_266m: clock@9 {
+			compatible = "fixed-clock";
+			reg = <9>;
+			#clock-cells = <0>;
+			clock-frequency = <266000000>;
+			clock-output-names = "266m";
+		};
+		clk_80m: clock@10 {
+			compatible = "fixed-clock";
+			reg = <10>;
+			#clock-cells = <0>;
+			clock-frequency = <80000000>;
+			clock-output-names = "80m";
+		};
+	};
+
+	display-subsystem {
+		/delete-property/ compatible;
+	};
+
+	pci@bfb00000 {
+		compatible = "pci-host-ecam-generic";
+		device_type = "pci";
+		bus-range = <0 0>;
+		#address-cells = <3>;
+		#size-cells = <2>;
+		#interrupt-cells = <1>;
+		interrupt-map-mask = <0 0 0 7>;
+		interrupt-map = <0 0 0 1 &gic GIC_SPI 76 IRQ_TYPE_EDGE_RISING>;
+		reg = <0x0 0x7fb00000 0x0 0x100000>;
+		ranges = <0x02000000 0x00 0x10000000 0x0 0x10000000 0x00 0x10000>;
+	};
+};
+
+/delete-node/ &{/memory@40000000};
+/delete-node/ &{/reserved-memory};
+/delete-node/ &{/busfreq};
+/delete-node/ &ddr_pmu0;
+
+&hsio_pd {
+	status = "disabled";
+};
+
+&pcie0_pd {
+	status = "disabled";
+};
+
+&usb_otg1_pd {
+	status = "disabled";
+};
+
+&usb_otg2_pd {
+	status = "disabled";
+};
+
+&gpumix_pd {
+	status = "disabled";
+};
+
+&vpumix_pd {
+	status = "disabled";
+};
+
+&vpu_g1_pd {
+	status = "disabled";
+};
+
+&vpu_g2_pd {
+	status = "disabled";
+};
+
+&vpu_h1_pd {
+	status = "disabled";
+};
+
+&dispmix_pd {
+	status = "disabled";
+};
+
+&mipi_pd {
+	status = "disabled";
+};
+
+&gpio1 {
+	status = "disabled";
+};
+&gpio2 {
+	status = "disabled";
+};
+&gpio3 {
+	status = "disabled";
+};
+&gpio4 {
+	status = "disabled";
+};
+&gpio5 {
+	status = "disabled";
+};
+
+/delete-node/ &tmu;
+/delete-node/ &{/thermal-zones};
+/delete-node/ &iomuxc;
+
+&gpr {
+	/delete-property/ compatible;
+};
+
+/delete-node/ &anatop;
+/delete-node/ &snvs;
+
+&clk {
+	/delete-property/ compatible;
+};
+
+&src {
+	/delete-property/ compatible;
+};
+
+/delete-node/ &system_counter;
+
+/delete-node/ &imx_rpmsg;
+/delete-node/ &ocotp;
+
+&dispmix_gpr {
+	/delete-property/ compatible;
+};
+
+&sdma1 {
+	status = "disabled";
+};
+
+&sdma2 {
+	status = "disabled";
+};
+
+&sdma3 {
+	status = "disabled";
+};
+
+/delete-node/ &{/imx_ion};
+/delete-node/ &pcie0;
+/delete-node/ &crypto;
+/delete-node/ &caam_sm;
+/delete-node/ &caam_snvs;
+/delete-node/ &irq_sec_vio;
+
+/delete-node/ &{/cpus/cpu@0};
+/delete-node/ &{/cpus/cpu@1};
+/delete-node/ &{/pmu};
+
+&gic {
+	reg = <0x0 0x38800000 0 0x10000>, /* GIC Dist */
+	      <0x0 0x38880000 0 0xC0000>; /* GICR (RD_base + SGI_base) */
+};
+
+&uart4 {
+	clocks = <&osc_24m>,
+		<&osc_24m>;
+	clock-names = "ipg", "per";
+	/delete-property/ dmas;
+	/delete-property/ dmas-names;
+	status = "okay";
+};
+
+&usdhc3 {
+	clocks = <&clk_dummy>,
+		<&clk_266m>,
+		<&clk_200m>;
+	/delete-property/assigned-clocks;
+	/delete-property/assigned-clock-rates;
+	clock-names = "ipg", "ahb", "per";
+	bus-width = <8>;
+	non-removable;
+	status = "okay";
+};
