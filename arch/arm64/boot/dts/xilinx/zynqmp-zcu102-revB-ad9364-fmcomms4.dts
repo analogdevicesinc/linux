@@ -77,8 +77,6 @@
 		cf_ad9361_dac_core_0: cf-ad9361-dds-core-lpc@80004000 {
 			compatible = "adi,axi-ad9364-dds-6.00.a";
 			reg = <0x0 0x80004000 0x1000>;
-			adi,axi-dds-rate = <1>; /* use 1 for 1RX1TX mode */
-			adi,axi-dds-1-rf-channel;
 			clocks = <&adc0_ad9364 13>;
 			clock-names = "sampl_clk";
 			dmas = <&tx_dma 0>;
