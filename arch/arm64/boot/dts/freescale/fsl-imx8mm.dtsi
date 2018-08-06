@@ -479,7 +479,6 @@
 			     "fsl,imx6q-uart", "fsl,imx21-uart";
 		reg = <0x0 0x30860000 0x0 0x10000>;
 		interrupts = <GIC_SPI 26 IRQ_TYPE_LEVEL_HIGH>;
-		interrupt-parent = <&gpc>;
 		clocks = <&clk IMX8MM_CLK_UART1_ROOT>,
 			<&clk IMX8MM_CLK_UART1_ROOT>;
 		clock-names = "ipg", "per";
@@ -493,7 +492,6 @@
 			     "fsl,imx6q-uart", "fsl,imx21-uart";
 		reg = <0x0 0x30880000 0x0 0x10000>;
 		interrupts = <GIC_SPI 28 IRQ_TYPE_LEVEL_HIGH>;
-		interrupt-parent = <&gpc>;
 		clocks = <&clk IMX8MM_CLK_UART3_ROOT>,
 			<&clk IMX8MM_CLK_UART3_ROOT>;
 		clock-names = "ipg", "per";
@@ -507,7 +505,6 @@
 			     "fsl,imx6q-uart", "fsl,imx21-uart";
 		reg = <0x0 0x30890000 0x0 0x10000>;
 		interrupts = <GIC_SPI 27 IRQ_TYPE_LEVEL_HIGH>;
-		interrupt-parent = <&gpc>;
 		clocks = <&clk IMX8MM_CLK_UART2_ROOT>,
 			<&clk IMX8MM_CLK_UART2_ROOT>;
 		clock-names = "ipg", "per";
