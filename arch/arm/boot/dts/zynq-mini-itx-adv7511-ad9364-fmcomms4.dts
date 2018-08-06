@@ -53,9 +53,6 @@
 		clock-names = "sampl_clk";
 		dmas = <&tx_dma 0>;
 		dma-names = "tx";
-
-		adi,axi-dds-rate = <1>; /* use 1 for 1RX1TX mode */
-		adi,axi-dds-1-rf-channel;
 	};
 };
 
