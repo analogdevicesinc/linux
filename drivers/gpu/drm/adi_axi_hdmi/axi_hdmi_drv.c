@@ -98,10 +98,12 @@ static int axi_hdmi_init(struct drm_driver *ddrv, struct device *dev)
 	/* init kms poll for handling hpd */
 	drm_kms_helper_poll_init(ddev);
 
-	return 0;
+	return drm_dev_register(ddev, 0);
 
 err_crtc:
 	drm_mode_config_cleanup(ddev);
+	drm_dev_unref(ddev);
+
 	return ret;
 }
 
