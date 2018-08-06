@@ -1020,6 +1020,7 @@ static int adv7511_probe(struct i2c_client *i2c, const struct i2c_device_id *id)
 
 	adv7511->powered = false;
 	adv7511->status = connector_status_disconnected;
+	adv7511->i2c_main = i2c;
 
 	if (dev->of_node)
 		adv7511->type = (enum adv7511_type)of_device_get_match_data(dev);
@@ -1083,7 +1084,6 @@ static int adv7511_probe(struct i2c_client *i2c, const struct i2c_device_id *id)
 
 	adv7511_packet_disable(adv7511, 0xffff);
 
-	adv7511->i2c_main = i2c;
 	adv7511->i2c_edid = i2c_new_secondary_device(i2c, "edid",
 						     edid_i2c_addr >> 1);
 	if (!adv7511->i2c_edid) {
