@@ -69,6 +69,23 @@
  * - xlnx_crtc: Xilinx DRM specific crtc functions
  */
 
+/* The default value is ZYNQMP_DISP_AV_BUF_GFX_FMT_RGB565 */
+static uint zynqmp_disp_gfx_init_fmt;
+module_param_named(gfx_init_fmt, zynqmp_disp_gfx_init_fmt, uint, 0444);
+MODULE_PARM_DESC(gfx_init_fmt, "The initial format of the graphics layer\n"
+			       "\t\t0 = rgb565 (default)\n"
+			       "\t\t1 = rgb888\n"
+			       "\t\t2 = argb8888\n");
+/* These value should be mapped to index of av_buf_gfx_fmts[] */
+#define ZYNQMP_DISP_AV_BUF_GFX_FMT_RGB565		10
+#define ZYNQMP_DISP_AV_BUF_GFX_FMT_RGB888		5
+#define ZYNQMP_DISP_AV_BUF_GFX_FMT_ARGB8888		1
+static const u32 zynqmp_disp_gfx_init_fmts[] = {
+	ZYNQMP_DISP_AV_BUF_GFX_FMT_RGB565,
+	ZYNQMP_DISP_AV_BUF_GFX_FMT_RGB888,
+	ZYNQMP_DISP_AV_BUF_GFX_FMT_ARGB8888,
+};
+
 /* Blender registers */
 #define ZYNQMP_DISP_V_BLEND_BG_CLR_0			0x0
 #define ZYNQMP_DISP_V_BLEND_BG_CLR_1			0x4
@@ -1007,7 +1024,6 @@ static const struct zynqmp_disp_fmt av_buf_vid_fmts[] = {
 };
 
 /* List of graphics layer formats */
-#define ZYNQMP_DISP_AV_BUF_GFX_FMT_RGB565	10
 static const struct zynqmp_disp_fmt av_buf_gfx_fmts[] = {
 	{
 		.drm_fmt	= DRM_FORMAT_ABGR8888,
@@ -2655,6 +2671,9 @@ zynqmp_disp_plane_atomic_async_update(struct drm_plane *plane,
 	struct drm_plane_state *old_state =
 		drm_atomic_get_old_plane_state(new_state->state, plane);
 
+	if (plane->state->fb == new_state->fb)
+		return;
+
 	 /* Update the current state with new configurations */
 	drm_atomic_set_fb_for_plane(plane->state, new_state->fb);
 	plane->state->crtc = new_state->crtc;
@@ -2860,6 +2879,7 @@ zynqmp_disp_crtc_atomic_disable(struct drm_crtc *crtc,
 	zynqmp_disp_clk_disable(disp->pclk, &disp->pclk_en);
 	zynqmp_disp_plane_disable(crtc->primary);
 	zynqmp_disp_disable(disp, true);
+	drm_crtc_vblank_off(crtc);
 	pm_runtime_put_sync(disp->dev);
 }
 
@@ -2873,6 +2893,7 @@ static void
 zynqmp_disp_crtc_atomic_begin(struct drm_crtc *crtc,
 			      struct drm_crtc_state *old_crtc_state)
 {
+	drm_crtc_vblank_on(crtc);
 	/* Don't rely on vblank when disabling crtc */
 	spin_lock_irq(&crtc->dev->event_lock);
 	if (crtc->primary->state->fb && crtc->state->event) {
@@ -3077,6 +3098,7 @@ static int zynqmp_disp_enumerate_fmts(struct zynqmp_disp *disp)
 	struct zynqmp_disp_layer *layer;
 	u32 *bus_fmts;
 	u32 i, size, num_bus_fmts;
+	u32 gfx_fmt = ZYNQMP_DISP_AV_BUF_GFX_FMT_RGB565;
 
 	num_bus_fmts = ARRAY_SIZE(av_buf_live_fmts);
 	bus_fmts = devm_kzalloc(disp->dev, sizeof(*bus_fmts) * num_bus_fmts,
@@ -3113,7 +3135,9 @@ static int zynqmp_disp_enumerate_fmts(struct zynqmp_disp *disp)
 
 	for (i = 0; i < layer->num_fmts; i++)
 		layer->drm_fmts[i] = av_buf_gfx_fmts[i].drm_fmt;
-	layer->fmt = &av_buf_gfx_fmts[ZYNQMP_DISP_AV_BUF_GFX_FMT_RGB565];
+	if (zynqmp_disp_gfx_init_fmt < ARRAY_SIZE(zynqmp_disp_gfx_init_fmts))
+		gfx_fmt = zynqmp_disp_gfx_init_fmts[zynqmp_disp_gfx_init_fmt];
+	layer->fmt = &av_buf_gfx_fmts[gfx_fmt];
 
 	return 0;
 }

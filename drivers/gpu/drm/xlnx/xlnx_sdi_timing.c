@@ -28,6 +28,7 @@
 #define XSTC_GVBH_F1	0x88
 #define XSTC_GVSYNC_F1	0x8C
 #define XSTC_GVSH_F1	0x90
+#define XSTC_GASIZE_F1	0x94
 #define XSTC_OFFSET	0x10000
 
 /* timing controller register bit */
@@ -223,11 +224,13 @@ static void xlnx_stc_polarity(void __iomem *base,
  * xlnx_stc_hori_off - Configure horzontal timing offset
  * @base:	Base address of SDI Tx subsystem
  * @hori_off:	horizontal offset configuration data
+ * @flags:	Display flags
  *
  * This function configure horizontal offset
  */
 static void xlnx_stc_hori_off(void __iomem *base,
-			      struct xlnx_stc_hori_off *hori_off)
+			      struct xlnx_stc_hori_off *hori_off,
+			      enum display_flags flags)
 {
 	u32 reg;
 
@@ -244,16 +247,20 @@ static void xlnx_stc_hori_off(void __iomem *base,
 	xlnx_stc_writel(base, XSTC_GVSH_F0, reg);
 
 	/* Calculate and update Generator VBlank Hori field 1 */
-	reg = hori_off->v1blank_hori_start & XSTC_XVXHOX_HSTART_MASK;
-	reg |= (hori_off->v1blank_hori_end << XSTC_XVXHOX_HEND_SHIFT) &
-		XSTC_XVXHOX_HEND_MASK;
-	xlnx_stc_writel(base, XSTC_GVBH_F1, reg);
+	if (flags & DISPLAY_FLAGS_INTERLACED) {
+		reg = hori_off->v1blank_hori_start & XSTC_XVXHOX_HSTART_MASK;
+		reg |= (hori_off->v1blank_hori_end << XSTC_XVXHOX_HEND_SHIFT) &
+			XSTC_XVXHOX_HEND_MASK;
+		xlnx_stc_writel(base, XSTC_GVBH_F1, reg);
+	}
 
 	/* Calculate and update Generator VBlank Hori field 1 */
-	reg =  hori_off->v1sync_hori_start & XSTC_XVXHOX_HSTART_MASK;
-	reg |= (hori_off->v1sync_hori_end << XSTC_XVXHOX_HEND_SHIFT) &
-		XSTC_XVXHOX_HEND_MASK;
-	xlnx_stc_writel(base, XSTC_GVSH_F1, reg);
+	if (flags & DISPLAY_FLAGS_INTERLACED) {
+		reg = hori_off->v1sync_hori_start & XSTC_XVXHOX_HSTART_MASK;
+		reg |= (hori_off->v1sync_hori_end << XSTC_XVXHOX_HEND_SHIFT) &
+			XSTC_XVXHOX_HEND_MASK;
+		xlnx_stc_writel(base, XSTC_GVSH_F1, reg);
+	}
 }
 
 /**
@@ -317,11 +324,24 @@ void xlnx_stc_sig(void __iomem *base, struct videomode *vm)
 	reg = htotal & XSTC_GHFRAME_HSIZE;
 	xlnx_stc_writel(base, XSTC_GHSIZE, reg);
 	reg = vtotal & XSTC_GVFRAME_HSIZE_F1;
-	reg |= reg << XSTC_GV1_BPSTART_SHIFT;
+	if (vm->flags & DISPLAY_FLAGS_INTERLACED) {
+		if (vm->pixelclock == 148500000)
+			reg |= (reg + 2) <<
+				XSTC_GV1_BPSTART_SHIFT;
+		else
+			reg |= (reg + 1) <<
+				XSTC_GV1_BPSTART_SHIFT;
+	} else {
+		reg |= reg << XSTC_GV1_BPSTART_SHIFT;
+	}
 	xlnx_stc_writel(base, XSTC_GVSIZE, reg);
 	reg = hactive & XSTC_GA_ACTSIZE_MASK;
 	reg |= (vactive & XSTC_GA_ACTSIZE_MASK) << 16;
 	xlnx_stc_writel(base, XSTC_GASIZE, reg);
+
+	if (vm->flags & DISPLAY_FLAGS_INTERLACED)
+		xlnx_stc_writel(base, XSTC_GASIZE_F1, reg);
+
 	reg = hsync_start & XSTC_GH1_SYNCSTART_MASK;
 	reg |= (hbackporch_start << XSTC_GH1_BPSTART_SHIFT) &
 	       XSTC_GH1_BPSTART_MASK;
@@ -329,7 +349,37 @@ void xlnx_stc_sig(void __iomem *base, struct videomode *vm)
 	reg = vsync_start & XSTC_GV1_SYNCSTART_MASK;
 	reg |= (vbackporch_start << XSTC_GV1_BPSTART_SHIFT) &
 	       XSTC_GV1_BPSTART_MASK;
+
+	/*
+	 * Fix the Vsync_vstart and vsync_vend of Field 0
+	 * for all interlaced modes including 3GB.
+	 */
+	if (vm->flags & DISPLAY_FLAGS_INTERLACED)
+		reg = ((((reg & XSTC_GV1_BPSTART_MASK) >>
+			XSTC_GV1_BPSTART_SHIFT) - 1) <<
+			XSTC_GV1_BPSTART_SHIFT) |
+			((reg & XSTC_GV1_SYNCSTART_MASK) - 1);
+
 	xlnx_stc_writel(base, XSTC_GVSYNC_F0, reg);
+
+	/*
+	 * Fix the Vsync_vstart and vsync_vend of Field 1
+	 * for interlaced and 3GB modes.
+	 */
+	if (vm->flags & DISPLAY_FLAGS_INTERLACED) {
+		if (vm->pixelclock == 148500000)
+			/* Revert and increase by 1 for 3GB mode */
+			reg = ((((reg & XSTC_GV1_BPSTART_MASK) >>
+				XSTC_GV1_BPSTART_SHIFT) + 2) <<
+				XSTC_GV1_BPSTART_SHIFT) |
+				((reg & XSTC_GV1_SYNCSTART_MASK) + 2);
+		else
+			/* Only revert the reduction */
+			reg = ((((reg & XSTC_GV1_BPSTART_MASK) >>
+				XSTC_GV1_BPSTART_SHIFT) + 1) <<
+				XSTC_GV1_BPSTART_SHIFT) |
+				((reg & XSTC_GV1_SYNCSTART_MASK) + 1);
+	}
 
 	hori_off.v0blank_hori_start = hactive;
 	hori_off.v0blank_hori_end = hactive;
@@ -353,7 +403,7 @@ void xlnx_stc_sig(void __iomem *base, struct videomode *vm)
 		xlnx_stc_writel(base, XSTC_GENC, reg);
 	}
 
-	xlnx_stc_hori_off(base, &hori_off);
+	xlnx_stc_hori_off(base, &hori_off, vm->flags);
 	/* set up polarity */
 	memset(&polarity, 0x0, sizeof(polarity));
 	polarity.hsync = !!(vm->flags & DISPLAY_FLAGS_HSYNC_LOW);

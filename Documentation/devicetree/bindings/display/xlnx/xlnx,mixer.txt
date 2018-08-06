@@ -16,6 +16,7 @@ Required properties:
  - xlnx,dma-addr-width: dma address width, valid values are 32 and 64
  - xlnx,bpc: bits per component for mixer
  - xlnx,ppc: pixel per clock for mixer
+ - xlnx,num-layers: Total number of layers (excluding logo)
  - layer_[x]: node for [x] layer
  - xlnx,layer-id: layer identifier number
  - xlnx,vformat: video format for layer. See list of supported formats below.
@@ -24,6 +25,8 @@ Required properties:
    not required for overlay layers
  - xlnx,layer-max-height: max layer height, mandatory for master layer
    Not required for overlay layers
+ - xlnx,layer-primary: denotes the primary layer, should be mentioned in node
+   of layer which is expected to be constructing the primary plane
 
 Optional properties:
  - dmas: dma attach to layer, mandatory for master layer
@@ -37,6 +40,8 @@ Optional properties:
  - xlnx,layer-scale: denotes layer can be scale to 2x and 4x
  - xlnx,logo-layer: denotes logo layer is enable
  - logo: logo layer
+ - xlnx,bridge: phandle to bridge node.
+   This handle is required only when VTC is connected as bridge.
 
 Supported Formats:
 	Mixer IP Format		Driver supported Format String
@@ -76,6 +81,7 @@ Example:
 		xlnx,ppc = <2>;
 		xlnx,num-layers = <8>;
 		xlnx,logo-layer;
+		xlnx,bridge = <&v_tc_0>;
 
 		mixer_port: mixer_port@0 {
 			reg = <0>;
@@ -91,6 +97,7 @@ Example:
 			dmas = <&axi_vdma_0 0>;
 			dma-names = "dma0";
 			xlnx,layer-streaming;
+			xlnx,layer-primary;
 		};
 		xv_mix_overlay_1: layer_1 {
 			xlnx,layer-id = <1>;

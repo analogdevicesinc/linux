@@ -12,7 +12,6 @@
  * GNU General Public License for more details.
  */
 
-#include <asm/cacheflush.h>
 #include <linux/dma-mapping.h>
 #include <linux/fpga/fpga-mgr.h>
 #include <linux/io.h>
@@ -26,6 +25,11 @@
 #define IXR_FPGA_DONE_MASK	0X00000008U
 #define IXR_FPGA_ENCRYPTION_EN	0x00000008U
 
+/**
+ * struct zynqmp_fpga_priv - Private data structure
+ * @dev:	Device data structure
+ * @flags:	flags which is used to identify the bitfile type
+ */
 struct zynqmp_fpga_priv {
 	struct device *dev;
 	u32 flags;
@@ -72,10 +76,14 @@ static int zynqmp_fpga_ops_write(struct fpga_manager *mgr,
 	if (mgr->flags & IXR_FPGA_ENCRYPTION_EN)
 		memcpy(kbuf + size, mgr->key, ENCRYPTED_KEY_LEN);
 
-	__flush_cache_user_range((unsigned long)kbuf,
-				 (unsigned long)kbuf + dma_size);
+	wmb(); /* ensure all writes are done before initiate FW call */
 
-	ret = eemi_ops->fpga_load(dma_addr, dma_addr + size, mgr->flags);
+	if (mgr->flags & IXR_FPGA_ENCRYPTION_EN)
+		ret = eemi_ops->fpga_load(dma_addr, dma_addr + size,
+							mgr->flags);
+	else
+		ret = eemi_ops->fpga_load(dma_addr, size,
+						mgr->flags);
 
 	dma_free_coherent(priv->dev, dma_size, kbuf, dma_addr);
 

@@ -196,7 +196,7 @@ static int zynqmp_pll_set_rate(struct clk_hw *hw, unsigned long rate,
 	struct zynqmp_pll *clk = to_zynqmp_pll(hw);
 	u32 clk_id = clk->clk_id;
 	const char *clk_name = clk_hw_get_name(hw);
-	u32 fbdiv, data;
+	u32 fbdiv;
 	long rate_div, frac, m, f;
 	int ret;
 	const struct zynqmp_eemi_ops *eemi_ops = zynqmp_pm_get_eemi_ops();
@@ -215,7 +215,7 @@ static int zynqmp_pll_set_rate(struct clk_hw *hw, unsigned long rate,
 
 		/* Account for vpll_to_lpd and dp_video_ref */
 		if (children > 2)
-			WARN(1, "Two devices are using vpll which is forbidden\n");
+			WARN(1, "More than two devices are using the vpll, which is forbidden\n");
 
 		rate_div = ((rate * FRAC_DIV) / parent_rate);
 		m = rate_div / FRAC_DIV;
@@ -229,8 +229,7 @@ static int zynqmp_pll_set_rate(struct clk_hw *hw, unsigned long rate,
 			pr_warn_once("%s() set divider failed for %s, ret = %d\n",
 				     __func__, clk_name, ret);
 
-		data = (FRAC_DIV * f) / FRAC_DIV;
-		eemi_ops->ioctl(0, IOCTL_SET_PLL_FRAC_DATA, clk_id, data, NULL);
+		eemi_ops->ioctl(0, IOCTL_SET_PLL_FRAC_DATA, clk_id, f, NULL);
 
 		return (rate + frac);
 	}

@@ -397,6 +397,11 @@ static int stop_host(struct dwc3_otg *otg)
 	otg_dbg(otg, "%s: turn off host %s\n",
 		__func__, otg->otg.host->bus_name);
 
+	if (work_pending(&otg->hp_work.work)) {
+		while (!cancel_delayed_work(&otg->hp_work))
+			msleep(20);
+	}
+
 	hcd = container_of(otg->otg.host, struct usb_hcd, self);
 	xhci = hcd_to_xhci(hcd);
 
@@ -505,6 +510,8 @@ static void start_peripheral(struct dwc3_otg *otg)
 		return;
 	}
 
+	set_capabilities(otg);
+
 	dwc3_otg_setup_event_buffers(otg);
 
 	if (dwc->gadget_driver) {
@@ -542,7 +549,12 @@ static void start_peripheral(struct dwc3_otg *otg)
 
 	otg->peripheral_started = 1;
 
-	msleep(20);
+	/*
+	 * During HNP the bus shouldn't be idle for more than 155 ms, so
+	 * give enough time for the host to load the stack before start
+	 * triggerring events
+	 */
+	msleep(500);
 
 	return;
 err1:

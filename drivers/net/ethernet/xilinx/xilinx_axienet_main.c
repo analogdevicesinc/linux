@@ -924,10 +924,7 @@ static void axienet_device_reset(struct net_device *ndev)
 					 val, (val & XXV_RX_BLKLCK_MASK),
 					 10, DELAY_OF_ONE_MILLISEC);
 		if (err) {
-			netdev_err(ndev, "%s: Block lock bit of XXV MAC didn't",
-				   __func__);
-			netdev_err(ndev, "Got Set cross check the ref clock");
-			netdev_err(ndev, "Configuration for the mac");
+			netdev_err(ndev, "XXV MAC block lock not complete! Cross-check the MAC ref clock configuration\n");
 		}
 #ifdef CONFIG_XILINX_AXI_EMAC_HWTSTAMP
 		if (!lp->is_tsn) {
@@ -999,6 +996,7 @@ static void axienet_adjust_link(struct net_device *ndev)
 			switch (phy->speed) {
 			case SPEED_2500:
 				emmc_reg |= XAE_EMMC_LINKSPD_2500;
+				break;
 			case SPEED_1000:
 				emmc_reg |= XAE_EMMC_LINKSPD_1000;
 				break;
@@ -2215,7 +2213,7 @@ static int axienet_mii_init(struct net_device *ndev)
  */
 static int axienet_open(struct net_device *ndev)
 {
-	int ret = 0, i;
+	int ret = 0, i = 0;
 	struct axienet_local *lp = netdev_priv(ndev);
 	struct phy_device *phydev = NULL;
 	struct axienet_dma_q *q;
@@ -3470,7 +3468,7 @@ static int __maybe_unused axienet_dma_probe(struct platform_device *pdev,
 	int i, ret;
 	struct axienet_local *lp = netdev_priv(ndev);
 	struct axienet_dma_q *q;
-	struct device_node *np;
+	struct device_node *np = NULL;
 	struct resource dmares;
 #ifdef CONFIG_XILINX_TSN
 	char dma_name[10];

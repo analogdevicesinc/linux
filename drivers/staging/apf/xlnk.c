@@ -52,22 +52,11 @@
 #include <linux/semaphore.h>
 
 #include "xlnk-ioctl.h"
-#include "xlnk-config.h"
 #include "xlnk-sysdef.h"
 #include "xlnk.h"
 
 #ifdef CONFIG_XILINX_DMA_APF
 #include "xilinx-dma-apf.h"
-#endif
-
-#ifdef CONFIG_XILINX_MCDMA
-#include "xdma-if.h"
-#include "xdma.h"
-
-static void xdma_if_device_release(struct device *op)
-{
-}
-
 #endif
 
 #define DRIVER_NAME  "xlnk"
@@ -140,11 +129,6 @@ struct xlnk_device_pack {
 	struct xdma_channel_config dma_chan_cfg[4];  /* for xidane dma only */
 	struct xdma_device_config dma_dev_cfg;	   /* for xidane dma only */
 #endif
-
-#ifdef CONFIG_XILINX_MCDMA
-	struct xdma_device_info mcdma_dev_cfg;	 /* for mcdma only */
-#endif
-
 };
 
 static struct semaphore xlnk_devpack_sem;
@@ -158,27 +142,33 @@ static void xlnk_devpacks_init(void)
 		xlnk_devpacks[i] = NULL;
 }
 
+static struct xlnk_device_pack *xlnk_devpacks_alloc(void)
+{
+	unsigned int i;
+
+	for (i = 0; i < MAX_XLNK_DMAS; i++) {
+		if (!xlnk_devpacks[i]) {
+			struct xlnk_device_pack *ret;
+
+			ret = kzalloc(sizeof(*ret), GFP_KERNEL);
+			ret->pdev.id = i;
+			xlnk_devpacks[i] = ret;
+
+			return ret;
+		}
+	}
+
+	return NULL;
+}
+
 static void xlnk_devpacks_delete(struct xlnk_device_pack *devpack)
 {
 	unsigned int i;
 
-	for (i = 0; i < MAX_XLNK_DMAS; i++) {
+	for (i = 0; i < MAX_XLNK_DMAS; i++)
 		if (xlnk_devpacks[i] == devpack)
 			xlnk_devpacks[i] = NULL;
-	}
-}
-
-static void xlnk_devpacks_add(struct xlnk_device_pack *devpack)
-{
-	unsigned int i;
-
-	devpack->refs = 1;
-	for (i = 0; i < MAX_XLNK_DMAS; i++) {
-		if (!xlnk_devpacks[i]) {
-			xlnk_devpacks[i] = devpack;
-			break;
-		}
-	}
+	kfree(devpack);
 }
 
 static struct xlnk_device_pack *xlnk_devpacks_find(xlnk_intptr_type base)
@@ -234,29 +224,6 @@ static void xlnk_devpacks_free_all(void)
 	}
 }
 
-static void xlnk_load_config_from_dt(struct platform_device *pdev)
-{
-	const char *dma_name = NULL;
-	struct xlnk_config_block block;
-
-	xlnk_init_config();
-	xlnk_get_config(&block);
-
-	if (of_property_read_string(xlnk_dev->of_node,
-				    "config-dma-type",
-				    &dma_name) == 0) {
-		if (strcmp(dma_name, "manual") == 0) {
-			block.valid_mask[xlnk_config_valid_dma_type] = 1;
-			block.dma_type = xlnk_config_dma_manual;
-		} else if (strcmp(dma_name, "standard") == 0) {
-			block.valid_mask[xlnk_config_valid_dma_type] = 1;
-		} else
-			pr_err("%s: Unrecognized DMA type %s\n",
-			       __func__, dma_name);
-	}
-	xlnk_set_config(&block);
-}
-
 static int xlnk_probe(struct platform_device *pdev)
 {
 	int err;
@@ -306,8 +273,6 @@ static int xlnk_probe(struct platform_device *pdev)
 
 	xlnk_pdev = pdev;
 	xlnk_dev = &pdev->dev;
-
-	xlnk_load_config_from_dt(pdev);
 
 	if (xlnk_pdev)
 		dev_info(&pdev->dev, "xlnk_pdev is not null\n");
@@ -566,13 +531,15 @@ static int xlnk_devregister(char *name,
 
 		nres = nirq + 1;
 
-		devpack = kzalloc(sizeof(*devpack),
-				  GFP_KERNEL);
+		devpack = xlnk_devpacks_alloc();
+		if (!devpack) {
+			up(&xlnk_devpack_sem);
+			pr_err("Failed to allocate device %s\n", name);
+			return -ENOMEM;
+		}
 		devpack->io_ptr = NULL;
 		strcpy(devpack->name, name);
 		devpack->pdev.name = devpack->name;
-
-		devpack->pdev.id = id;
 
 		devpack->pdev.dev.dma_mask = &dma_mask;
 		devpack->pdev.dev.coherent_dma_mask = dma_mask;
@@ -592,10 +559,9 @@ static int xlnk_devregister(char *name,
 
 		status = platform_device_register(&devpack->pdev);
 		if (status) {
-			kfree(devpack);
+			xlnk_devpacks_delete(devpack);
 			*handle = 0;
 		} else {
-			xlnk_devpacks_add(devpack);
 			*handle = (xlnk_intptr_type)devpack;
 		}
 	}
@@ -640,8 +606,7 @@ static int xlnk_dmaregister(char *name,
 		devpack->refs++;
 		status = 0;
 	} else {
-		devpack = kzalloc(sizeof(*devpack),
-				  GFP_KERNEL);
+		devpack = xlnk_devpacks_alloc();
 		if (!devpack) {
 			up(&xlnk_devpack_sem);
 			return -ENOMEM;
@@ -651,12 +616,10 @@ static int xlnk_dmaregister(char *name,
 
 		devpack->io_ptr = NULL;
 
-		devpack->pdev.id = id;
-
 		devpack->dma_chan_cfg[0].include_dre = chan0_include_dre;
-		devpack->dma_chan_cfg[0].datawidth   = chan0_data_width;
+		devpack->dma_chan_cfg[0].datawidth = chan0_data_width;
 		devpack->dma_chan_cfg[0].irq = chan0_irq;
-		devpack->dma_chan_cfg[0].poll_mode   = chan0_poll_mode;
+		devpack->dma_chan_cfg[0].poll_mode = chan0_poll_mode;
 		devpack->dma_chan_cfg[0].type =
 			(chan0_dir == XLNK_DMA_FROM_DEVICE) ?
 				"axi-dma-s2mm-channel" :
@@ -692,87 +655,17 @@ static int xlnk_dmaregister(char *name,
 
 		devpack->pdev.resource = devpack->res;
 		devpack->pdev.num_resources = 1;
-		if (xlnk_config_dma_type(xlnk_config_dma_manual))
-			status = platform_device_register(&devpack->pdev);
+		status = platform_device_register(&devpack->pdev);
 		if (status) {
-			kfree(devpack);
+			xlnk_devpacks_delete(devpack);
 			*handle = 0;
 		} else {
-			xlnk_devpacks_add(devpack);
 			*handle = (xlnk_intptr_type)devpack;
 		}
 	}
 	up(&xlnk_devpack_sem);
 
 #endif
-	return status;
-}
-
-static int xlnk_mcdmaregister(char *name, unsigned int id,
-			      xlnk_intptr_type base, unsigned int size,
-			      unsigned int mm2s_chan_num,
-			      unsigned int mm2s_chan_irq,
-			      unsigned int s2mm_chan_num,
-			      unsigned int s2mm_chan_irq,
-			      xlnk_intptr_type *handle)
-{
-	int status = -1;
-
-#ifdef CONFIG_XILINX_MCDMA
-	struct xlnk_device_pack *devpack;
-
-	if (strcmp(name, "xdma"))
-		return -EINVAL;
-
-	devpack = xlnk_devpacks_find(base);
-	if (devpack)
-		devpack->refs++;
-	if (devpack) {
-		*handle = (xlnk_intptr_type)devpack;
-		return 0;
-	}
-
-	devpack = kzalloc(sizeof(*devpack),
-			  GFP_KERNEL);
-	if (!devpack)
-		return -ENOMEM;
-
-	strcpy(devpack->name, name);
-	devpack->pdev.name = devpack->name;
-	devpack->pdev.id = id;
-
-	devpack->mcdma_dev_cfg.tx_chans	= mm2s_chan_num;
-	devpack->mcdma_dev_cfg.rx_chans	= s2mm_chan_num;
-	devpack->mcdma_dev_cfg.legacy_mode = XDMA_MCHAN_MODE;
-	devpack->mcdma_dev_cfg.device_id   = id;
-
-	devpack->pdev.dev.platform_data	 = &devpack->mcdma_dev_cfg;
-	devpack->pdev.dev.dma_mask = &dma_mask;
-	devpack->pdev.dev.coherent_dma_mask = dma_mask;
-	devpack->pdev.dev.release = xdma_if_device_release,
-
-	devpack->res[0].start = base;
-	devpack->res[0].end   = base + size - 1;
-	devpack->res[0].flags = IORESOURCE_MEM;
-
-	devpack->res[1].start = mm2s_chan_irq;
-	devpack->res[1].end   = s2mm_chan_irq;
-	devpack->res[1].flags = IORESOURCE_IRQ;
-
-	devpack->pdev.resource	  = devpack->res;
-	devpack->pdev.num_resources = 2;
-
-	status = platform_device_register(&devpack->pdev);
-	if (status) {
-		kfree(devpack);
-		*handle = 0;
-	} else {
-		xlnk_devpacks_add(devpack);
-		*handle = (xlnk_intptr_type)devpack;
-	}
-
-#endif
-
 	return status;
 }
 
@@ -1173,33 +1066,6 @@ static int xlnk_dmaregister_ioctl(struct file *filp, unsigned int code,
 	return status;
 }
 
-static int xlnk_mcdmaregister_ioctl(struct file *filp,
-				    unsigned int code,
-				    unsigned long args)
-{
-	union xlnk_args temp_args;
-	int status;
-	xlnk_intptr_type handle;
-
-	status = copy_from_user(&temp_args, (void __user *)args,
-				sizeof(union xlnk_args));
-
-	if (status)
-		return -ENOMEM;
-
-	status = xlnk_mcdmaregister(temp_args.mcdmaregister.name,
-				    temp_args.mcdmaregister.id,
-				    temp_args.mcdmaregister.base,
-				    temp_args.mcdmaregister.size,
-				    temp_args.mcdmaregister.mm2s_chan_num,
-				    temp_args.mcdmaregister.mm2s_chan_irq,
-				    temp_args.mcdmaregister.s2mm_chan_num,
-				    temp_args.mcdmaregister.s2mm_chan_irq,
-				    &handle);
-
-	return status;
-}
-
 static int xlnk_devunregister_ioctl(struct file *filp,
 				    unsigned int code,
 				    unsigned long args)
@@ -1269,31 +1135,6 @@ static int xlnk_cachecontrol_ioctl(struct file *filp, unsigned int code,
 		__dma_map_area(kaddr, size, DMA_TO_DEVICE);
 #endif
 	return 0;
-}
-
-static int xlnk_config_ioctl(struct file *filp, unsigned long args)
-{
-	struct xlnk_config_block block;
-	int status, setting = 0, i;
-
-	xlnk_config_clear_block(&block);
-	status = copy_from_user(&block, (void __user *)args,
-				sizeof(struct xlnk_config_block));
-	if (status) {
-		pr_err("Error in copy_from_user. status= %d\n", status);
-		return -ENOMEM;
-	}
-	for (i = 0; i < xlnk_config_valid_size; i++)
-		if (block.valid_mask[i])
-			setting = 1;
-	if (setting) {
-		status = xlnk_set_config(&block);
-	} else {
-		xlnk_get_config(&block);
-		status = copy_to_user((void __user *)args, &block,
-				      sizeof(struct xlnk_config_block));
-	}
-	return status;
 }
 
 static int xlnk_memop_ioctl(struct file *filp, unsigned long arg_addr)
@@ -1453,8 +1294,6 @@ static long xlnk_ioctl(struct file *filp,
 		return xlnk_devregister_ioctl(filp, code, args);
 	case XLNK_IOCDMAREGISTER:
 		return xlnk_dmaregister_ioctl(filp, code, args);
-	case XLNK_IOCMCDMAREGISTER:
-		return xlnk_mcdmaregister_ioctl(filp, code, args);
 	case XLNK_IOCDEVUNREGISTER:
 		return xlnk_devunregister_ioctl(filp, code, args);
 	case XLNK_IOCCACHECTRL:
@@ -1463,8 +1302,6 @@ static long xlnk_ioctl(struct file *filp,
 		return xlnk_shutdown(args);
 	case XLNK_IOCRECRES:
 		return xlnk_recover_resource(args);
-	case XLNK_IOCCONFIG:
-		return xlnk_config_ioctl(filp, args);
 	case XLNK_IOCMEMOP:
 		return xlnk_memop_ioctl(filp, args);
 	default:
@@ -1506,8 +1343,8 @@ static int xlnk_mmap(struct file *filp, struct vm_area_struct *vma)
 		xlnk_buf_process[bufid] = current->pid;
 	}
 	if (status) {
-		pr_err("xlnk_mmap failed with code %d\n", EAGAIN);
-		return -EAGAIN;
+		pr_err("%s failed with code %d\n", __func__, status);
+		return status;
 	}
 
 	xlnk_vma_open(vma);
