@@ -78,7 +78,6 @@ static int ehci_ci_portpower(struct usb_hcd *hcd, int portnum, bool enable)
 		hw_port_test_set(ci, 5);
 		hw_port_test_set(ci, 0);
 	}
-
 	return 0;
 };
 
