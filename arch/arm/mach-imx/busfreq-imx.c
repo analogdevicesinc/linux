@@ -618,6 +618,16 @@ static void exit_lpm_imx6sl(void)
 
 static void enter_lpm_imx7d(void)
 {
+	/*
+	 * The AHB clock parent switch and divider change
+	 * needs to keep previous/current parent enabled
+	 * per design requirement, but when we switch the
+	 * clock parent, previous AHB clock parent may be
+	 * disabled by common clock framework, so here we
+	 * have to make sure AHB's previous parent pfd2_270m
+	 * is enabled during AHB set rate.
+	 */
+	clk_prepare_enable(pfd2_270m);
 	if (audio_bus_count) {
 		clk_prepare_enable(pfd0_392m);
 		update_ddr_freq_imx_smp(HIGH_AUDIO_CLK);
@@ -647,6 +657,7 @@ static void enter_lpm_imx7d(void)
 		audio_bus_freq_mode = 0;
 		cur_bus_freq_mode = BUS_FREQ_LOW;
 	}
+	clk_disable_unprepare(pfd2_270m);
 }
 
 static void exit_lpm_imx7d(void)
