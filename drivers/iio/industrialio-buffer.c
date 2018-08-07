@@ -26,8 +26,10 @@
 
 #include <linux/iio/iio.h>
 #include "iio_core.h"
+#include "iio_core_trigger.h"
 #include <linux/iio/sysfs.h>
 #include <linux/iio/buffer.h>
+#include <linux/iio/trigger.h>
 #include <linux/iio/buffer_impl.h>
 
 static const char * const iio_endian_prefix[] = {
@@ -1013,6 +1015,7 @@ static int iio_enable_buffers(struct iio_dev *indio_dev,
 	indio_dev->active_scan_mask = config->scan_mask;
 	indio_dev->scan_timestamp = config->scan_timestamp;
 	indio_dev->scan_bytes = config->scan_bytes;
+	indio_dev->currentmode = config->mode;
 
 	if (indio_dev->direction == IIO_DEVICE_DIRECTION_IN)
 		iio_update_demux(indio_dev);
@@ -1049,28 +1052,32 @@ static int iio_enable_buffers(struct iio_dev *indio_dev,
 			goto err_disable_buffers;
 	}
 
-	indio_dev->currentmode = config->mode;
+	ret = iio_trigger_attach_poll_func(indio_dev);
+	if (ret)
+		goto err_disable_buffers;
 
 	if (indio_dev->setup_ops->postenable) {
 		ret = indio_dev->setup_ops->postenable(indio_dev);
 		if (ret) {
 			dev_dbg(&indio_dev->dev,
 			       "Buffer not started: postenable failed (%d)\n", ret);
-			goto err_disable_buffers;
+			goto err_detach_pollfunc;
 		}
 	}
 
 	return 0;
 
+err_detach_pollfunc:
+	iio_trigger_detach_poll_func(indio_dev);
 err_disable_buffers:
 	list_for_each_entry_continue_reverse(buffer, &indio_dev->buffer_list,
 					     buffer_list)
 		iio_buffer_disable(buffer, indio_dev);
 err_run_postdisable:
-	indio_dev->currentmode = INDIO_DIRECT_MODE;
 	if (indio_dev->setup_ops->postdisable)
 		indio_dev->setup_ops->postdisable(indio_dev);
 err_undo_config:
+	indio_dev->currentmode = INDIO_DIRECT_MODE;
 	indio_dev->active_scan_mask = NULL;
 
 	return ret;
@@ -1105,7 +1112,7 @@ static int iio_disable_buffers(struct iio_dev *indio_dev)
 			ret = ret2;
 	}
 
-	indio_dev->currentmode = INDIO_DIRECT_MODE;
+	iio_trigger_detach_poll_func(indio_dev);
 
 	if (indio_dev->setup_ops->postdisable) {
 		ret2 = indio_dev->setup_ops->postdisable(indio_dev);
@@ -1115,6 +1122,7 @@ static int iio_disable_buffers(struct iio_dev *indio_dev)
 
 	iio_free_scan_mask(indio_dev, indio_dev->active_scan_mask);
 	indio_dev->active_scan_mask = NULL;
+	indio_dev->currentmode = INDIO_DIRECT_MODE;
 
 	return ret;
 }
