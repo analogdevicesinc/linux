@@ -707,8 +707,6 @@ static int sx9500_buffer_predisable(struct iio_dev *indio_dev)
 	struct sx9500_data *data = iio_priv(indio_dev);
 	int ret = 0, i;
 
-	iio_triggered_buffer_predisable(indio_dev);
-
 	mutex_lock(&data->mutex);
 
 	for (i = 0; i < SX9500_NUM_CHANNELS; i++)
@@ -730,7 +728,6 @@ static int sx9500_buffer_predisable(struct iio_dev *indio_dev)
 
 static const struct iio_buffer_setup_ops sx9500_buffer_setup_ops = {
 	.preenable = sx9500_buffer_preenable,
-	.postenable = iio_triggered_buffer_postenable,
 	.predisable = sx9500_buffer_predisable,
 };
 

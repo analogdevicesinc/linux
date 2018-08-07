@@ -295,7 +295,6 @@ static int lmp91000_buffer_predisable(struct iio_dev *indio_dev)
 
 static const struct iio_buffer_setup_ops lmp91000_buffer_setup_ops = {
 	.preenable = lmp91000_buffer_preenable,
-	.postenable = iio_triggered_buffer_postenable,
 	.predisable = lmp91000_buffer_predisable,
 };
 
