@@ -309,10 +309,6 @@ else
 EXTRA_CFLAGS += -DgcdENABLE_DRM=0
 endif
 
-ifeq ($(ANDROID_NATIVE_FENCE_SYNC), 1)
-EXTRA_CFLAGS += -DgcdANDROID_NATIVE_FENCE_SYNC=1
-endif
-
 EXTRA_CFLAGS += -I$(AQROOT)/hal/kernel/inc
 EXTRA_CFLAGS += -I$(AQROOT)/hal/kernel
 EXTRA_CFLAGS += -I$(AQROOT)/hal/kernel/arch

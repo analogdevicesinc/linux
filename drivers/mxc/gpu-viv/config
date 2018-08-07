@@ -67,7 +67,6 @@ NONPAGED_MEMORY_CACHEABLE         ?= 0
 NONPAGED_MEMORY_BUFFERABLE        ?= 1
 CACHE_FUNCTION_UNIMPLEMENTED      ?= 0
 USE_BANK_ALIGNMENT                ?= 1
-ANDROID_NATIVE_FENCE_SYNC         ?= 1
 BANK_BIT_START                    ?= 13
 BANK_BIT_END                      ?= 15
 BANK_CHANNEL_BIT                  ?= 12
