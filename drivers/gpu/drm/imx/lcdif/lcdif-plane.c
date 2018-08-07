@@ -48,7 +48,9 @@ static int lcdif_plane_atomic_check(struct drm_plane *plane,
 	uint32_t bus_fmt;
 	struct lcdif_plane *lcdif_plane = to_lcdif_plane(plane);
 	struct lcdif_soc *lcdif = lcdif_plane->lcdif;
+	struct drm_plane_state *old_state = plane->state;
 	struct drm_framebuffer *fb = plane_state->fb;
+	struct drm_framebuffer *old_fb = old_state->fb;
 	struct drm_crtc_state *crtc_state;
 	struct drm_display_mode *mode;
 	struct drm_rect clip = { 0 };
@@ -91,6 +93,15 @@ static int lcdif_plane_atomic_check(struct drm_plane *plane,
 
 	if (!plane_state->visible)
 		return -EINVAL;
+
+	/* force 'mode_changed' when fb width changed, since
+	 * the pitch related registers configuration of LCDIF
+	 * can not be done when LCDIF is running.
+	 */
+	if (old_fb && likely(!crtc_state->mode_changed)) {
+		if (old_fb->width != fb->width)
+			crtc_state->mode_changed = true;
+	}
 
 	return 0;
 }
