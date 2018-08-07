@@ -1144,24 +1144,28 @@ static int fsl_asrc_probe(struct platform_device *pdev)
 				sizeof(asrc_priv->name) - 1);
 		asrc_priv->clk_map[IN] = input_clk_map_imx35;
 		asrc_priv->clk_map[OUT] = output_clk_map_imx35;
+		asrc_priv->dma_type = DMA_SDMA;
 	} else if (of_device_is_compatible(np, "fsl,imx53-asrc")) {
 		asrc_priv->channel_bits = 4;
 		strncpy(asrc_priv->name, "mxc_asrc",
 				sizeof(asrc_priv->name) - 1);
 		asrc_priv->clk_map[IN] = input_clk_map_imx53;
 		asrc_priv->clk_map[OUT] = output_clk_map_imx53;
+		asrc_priv->dma_type = DMA_SDMA;
 	} else if (of_device_is_compatible(np, "fsl,imx8qm-asrc0")) {
 		asrc_priv->channel_bits = 4;
 		strncpy(asrc_priv->name, "mxc_asrc",
 				sizeof(asrc_priv->name) - 1);
 		asrc_priv->clk_map[IN] = input_clk_map_imx8_0;
 		asrc_priv->clk_map[OUT] = output_clk_map_imx8_0;
+		asrc_priv->dma_type = DMA_EDMA;
 	} else if (of_device_is_compatible(np, "fsl,imx8qm-asrc1")) {
 		asrc_priv->channel_bits = 4;
 		strncpy(asrc_priv->name, "mxc_asrc1",
 				sizeof(asrc_priv->name) - 1);
 		asrc_priv->clk_map[IN] = input_clk_map_imx8_1;
 		asrc_priv->clk_map[OUT] = output_clk_map_imx8_1;
+		asrc_priv->dma_type = DMA_EDMA;
 	}
 
 	ret = fsl_asrc_init(asrc_priv);

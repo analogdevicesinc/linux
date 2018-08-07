@@ -371,10 +371,14 @@ struct fsl_asrc {
 
 	int asrc_rate;
 	int asrc_width;
+	int dma_type;  /* 0 is sdma, 1 is edma */
 
 	u32 regcache_cfg;
 	char name[20];
 };
+
+#define DMA_SDMA 0
+#define DMA_EDMA 1
 
 extern struct snd_soc_platform_driver fsl_asrc_platform;
 struct dma_chan *fsl_asrc_get_dma_channel(struct fsl_asrc_pair *pair, bool dir);
