@@ -3,12 +3,12 @@
  */
 
 /*
- * The code contained herein is licensed under the GNU Lesser General
- * Public License.  You may obtain a copy of the GNU Lesser General
- * Public License Version 2.1 or later at the following locations:
+ * The code contained herein is licensed under the GNU General Public
+ * License. You may obtain a copy of the GNU General Public License
+ * Version 2 or later at the following locations:
  *
- * http://www.opensource.org/licenses/lgpl-license.html
- * http://www.gnu.org/copyleft/lgpl.html
+ * http://www.opensource.org/licenses/gpl-license.html
+ * http://www.gnu.org/copyleft/gpl.html
  */
 
 /*!
@@ -61,7 +61,7 @@ extern unsigned int vpu_dbg_level_encoder;
 #define VPU_REG_BASE 0x40000000
 #endif
 #define ENC_REG_BASE 0x2c000000
-#define MIN_BUFFER_COUNT 6
+#define MIN_BUFFER_COUNT 3
 #define V4L2_MAX_CTRLS 12
 struct vpu_v4l2_control {
 	uint32_t id;
@@ -151,6 +151,7 @@ struct vb2_data_req {
 	struct list_head  list;
 	struct vb2_buffer *vb2_buf;
 	int id;
+	u_int32 buffer_flags;
 };
 
 struct queue_data {

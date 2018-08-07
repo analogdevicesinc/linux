@@ -199,10 +199,10 @@ static int v4l2_ioctl_g_fmt(struct file *file,
 		for (i = 0; i < pix_mp->num_planes; i++)
 			pix_mp->plane_fmt[i].sizeimage = ctx->q_data[V4L2_SRC].sizeimage[i];
 	} else if (f->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
-		pix_mp->width = 0;
-		pix_mp->height = 0;
+		pix_mp->width = ctx->q_data[V4L2_DST].width;
+		pix_mp->height = ctx->q_data[V4L2_DST].height;
 		pix_mp->field = V4L2_FIELD_ANY;
-		pix_mp->plane_fmt[0].bytesperline = 0;
+		pix_mp->plane_fmt[0].bytesperline = ctx->q_data[V4L2_DST].width;
 		pix_mp->plane_fmt[0].sizeimage = ctx->q_data[V4L2_DST].sizeimage[0];
 		pix_mp->pixelformat = V4L2_PIX_FMT_H264;
 		pix_mp->num_planes = 1;
@@ -293,6 +293,8 @@ static int v4l2_ioctl_s_fmt(struct file *file,
 	} else if (f->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
 		q_data = &ctx->q_data[V4L2_DST];
 		q_data->fourcc = pix_mp->pixelformat;
+		q_data->width = pix_mp->width;
+		q_data->height = pix_mp->height;
 		q_data->sizeimage[0] = pix_mp->plane_fmt[0].sizeimage;
 	} else
 		ret = -EINVAL;
@@ -443,6 +445,9 @@ static int v4l2_ioctl_dqbuf(struct file *file,
 		return -EINVAL;
 
 	ret = vb2_dqbuf(&q_data->vb2_q, buf, file->f_flags & O_NONBLOCK);
+
+	if (buf->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE)
+		buf->flags = q_data->vb2_reqs[buf->index].buffer_flags;
 
 	return ret;
 }
@@ -984,6 +989,13 @@ static void report_stream_done(struct vpu_ctx *ctx,  MEDIAIP_ENC_PIC_INFO *pEncP
 
 	list_del(&p_data_req->list);
 	up(&This->drv_q_lock);
+
+	if (pEncPicInfo->ePicType == MEDIAIP_ENC_PIC_TYPE_IDR_FRAME || pEncPicInfo->ePicType == MEDIAIP_ENC_PIC_TYPE_I_FRAME)
+		p_data_req->buffer_flags = V4L2_BUF_FLAG_KEYFRAME;
+	else if (pEncPicInfo->ePicType == MEDIAIP_ENC_PIC_TYPE_P_FRAME)
+		p_data_req->buffer_flags = V4L2_BUF_FLAG_PFRAME;
+	else if (pEncPicInfo->ePicType == MEDIAIP_ENC_PIC_TYPE_B_FRAME)
+		p_data_req->buffer_flags = V4L2_BUF_FLAG_BFRAME;
 	//memcpy to vb2 buffer from encpicinfo
 	if (p_data_req->vb2_buf->state == VB2_BUF_STATE_ACTIVE)
 		vb2_buffer_done(p_data_req->vb2_buf, VB2_BUF_STATE_DONE);
@@ -1777,7 +1789,7 @@ static unsigned int v4l2_poll(struct file *filp, poll_table *wait)
 			rc |= POLLOUT | POLLWRNORM;
 		poll_wait(filp, &dst_q->done_wq, wait);
 		if (!list_empty(&dst_q->done_list))
-			rc |= POLLIN | POLLWRNORM;
+			rc |= POLLIN | POLLRDNORM;
 	} else
 		rc = POLLERR;
 

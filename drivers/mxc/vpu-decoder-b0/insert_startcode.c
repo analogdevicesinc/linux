@@ -152,7 +152,6 @@ static int VC1CreateNALSeqHeader(unsigned char *pHeader, int *pHeaderLen,
 
 	nHeaderLen = nCodecSize - 1;
 	if ((4+nHeaderLen) > nMaxHeader) {
-		//for case: WVC1_stress_a0_stress06.wmv: header size is 176, In fact, it is also OK if we only copy 128 bytes
 		nHeaderLen = nMaxHeader - 4;
 		vpu_dbg(LVL_ERR, "error: header length %d overrun !!! \r\n", nCodecSize);
 	}
