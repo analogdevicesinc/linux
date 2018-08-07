@@ -560,7 +560,7 @@ static int dln2_adc_triggered_buffer_postenable(struct iio_dev *indio_dev)
 		mutex_unlock(&dln2->mutex);
 	}
 
-	return iio_triggered_buffer_postenable(indio_dev);
+	return 0;
 }
 
 static int dln2_adc_triggered_buffer_predisable(struct iio_dev *indio_dev)
@@ -585,7 +585,7 @@ static int dln2_adc_triggered_buffer_predisable(struct iio_dev *indio_dev)
 		return ret;
 	}
 
-	return iio_triggered_buffer_predisable(indio_dev);
+	return 0;
 }
 
 static const struct iio_buffer_setup_ops dln2_adc_buffer_setup_ops = {
