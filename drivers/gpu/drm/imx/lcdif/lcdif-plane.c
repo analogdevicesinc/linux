@@ -114,7 +114,8 @@ static void lcdif_plane_atomic_update(struct drm_plane *plane,
 	struct drm_plane_state *state = plane->state;
 	struct drm_framebuffer *fb = state->fb;
 	struct drm_gem_cma_object *gem_obj = NULL;
-	u32 fb_addr, src_off, fb_idx;
+	u32 fb_addr, src_off, src_w, fb_idx;
+	bool crop;
 
 	/* plane and crtc is disabling */
 	if (!fb)
@@ -142,6 +143,15 @@ static void lcdif_plane_atomic_update(struct drm_plane *plane,
 	}
 
 	lcdif_set_fb_addr(lcdif, fb_idx, fb_addr);
+
+	/* config horizontal cropping if crtc needs modeset */
+	if (unlikely(drm_atomic_crtc_needs_modeset(state->crtc->state))) {
+		src_w = state->src_w >> 16;
+		WARN_ON(src_w > fb->width);
+
+		crop  = src_w != fb->width ? true : false;
+		lcdif_set_fb_hcrop(lcdif, src_w, fb->width, crop);
+	}
 
 	lcdif_enable_controller(lcdif);
 }
