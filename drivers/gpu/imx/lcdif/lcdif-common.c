@@ -377,6 +377,64 @@ void lcdif_set_fb_addr(struct lcdif_soc *lcdif, int id, u32 addr)
 }
 EXPORT_SYMBOL(lcdif_set_fb_addr);
 
+void lcdif_set_fb_hcrop(struct lcdif_soc *lcdif, u32 src_w,
+			u32 fb_w, bool crop)
+{
+	u32 mask_cnt, htotal, hcount;
+	u32 vdctrl2, vdctrl3, vdctrl4, transfer_count;
+	u32 pigeon_12_0, pigeon_12_1, pigeon_12_2;
+
+	if (!crop) {
+		writel(0x0, lcdif->base + HW_EPDC_PIGEON_12_0);
+		writel(0x0, lcdif->base + HW_EPDC_PIGEON_12_1);
+
+		return;
+	}
+
+	/* transfer_count's hcount, vdctrl2's htotal and vdctrl4's
+	 * H_VALID_DATA_CNT should use fb width instead of hactive
+	 * when requires cropping.
+	 * */
+	transfer_count = readl(lcdif->base + LCDIF_TRANSFER_COUNT);
+	hcount = TRANSFER_COUNT_GET_HCOUNT(transfer_count);
+
+	transfer_count &= ~TRANSFER_COUNT_SET_HCOUNT(0xffff);
+	transfer_count |= TRANSFER_COUNT_SET_HCOUNT(fb_w);
+	writel(transfer_count, lcdif->base + LCDIF_TRANSFER_COUNT);
+
+	vdctrl2 = readl(lcdif->base + LCDIF_VDCTRL2);
+	htotal  = VDCTRL2_GET_HSYNC_PERIOD(vdctrl2);
+	htotal  += fb_w - hcount;
+	vdctrl2 &= ~VDCTRL2_SET_HSYNC_PERIOD(0x3ffff);
+	vdctrl2 |= VDCTRL2_SET_HSYNC_PERIOD(htotal);
+	writel(vdctrl2, lcdif->base + LCDIF_VDCTRL2);
+
+	vdctrl4 = readl(lcdif->base + LCDIF_VDCTRL4);
+	vdctrl4 &= ~SET_DOTCLK_H_VALID_DATA_CNT(0x3ffff);
+	vdctrl4 |= SET_DOTCLK_H_VALID_DATA_CNT(fb_w);
+	writel(vdctrl4, lcdif->base + LCDIF_VDCTRL4);
+
+	/* configure related pigeon registers */
+	vdctrl3  = readl(lcdif->base + LCDIF_VDCTRL3);
+	mask_cnt = GET_HOR_WAIT_CNT(vdctrl3) - 5;
+
+	pigeon_12_0 = PIGEON_12_0_SET_STATE_MASK(0x24)		|
+		      PIGEON_12_0_SET_MASK_CNT(mask_cnt)	|
+		      PIGEON_12_0_SET_MASK_CNT_SEL(0x6)		|
+		      PIGEON_12_0_POL_ACTIVE_LOW		|
+		      PIGEON_12_0_EN;
+	writel(pigeon_12_0, lcdif->base + HW_EPDC_PIGEON_12_0);
+
+	pigeon_12_1 = PIGEON_12_1_SET_CLR_CNT(src_w) |
+		      PIGEON_12_1_SET_SET_CNT(0x0);
+	writel(pigeon_12_1, lcdif->base + HW_EPDC_PIGEON_12_1);
+
+	pigeon_12_2 = 0x0;
+	writel(pigeon_12_2, lcdif->base + HW_EPDC_PIGEON_12_2);
+}
+EXPORT_SYMBOL(lcdif_set_fb_hcrop);
+
+
 void lcdif_set_mode(struct lcdif_soc *lcdif, struct videomode *vmode)
 {
 	const struct of_device_id *of_id =
