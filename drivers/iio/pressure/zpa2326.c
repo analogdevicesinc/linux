@@ -1263,11 +1263,6 @@ static int zpa2326_postenable_buffer(struct iio_dev *indio_dev)
 			goto err;
 	}
 
-	/* Plug our own trigger event handler. */
-	err = iio_triggered_buffer_postenable(indio_dev);
-	if (err)
-		goto err;
-
 	return 0;
 
 err:
@@ -1286,7 +1281,6 @@ static int zpa2326_postdisable_buffer(struct iio_dev *indio_dev)
 static const struct iio_buffer_setup_ops zpa2326_buffer_setup_ops = {
 	.preenable   = zpa2326_preenable_buffer,
 	.postenable  = zpa2326_postenable_buffer,
-	.predisable  = iio_triggered_buffer_predisable,
 	.postdisable = zpa2326_postdisable_buffer
 };
 

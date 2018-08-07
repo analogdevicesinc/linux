@@ -286,18 +286,13 @@ static int hdc100x_buffer_postenable(struct iio_dev *indio_dev)
 	if (ret)
 		return ret;
 
-	return iio_triggered_buffer_postenable(indio_dev);
+	return 0;
 }
 
 static int hdc100x_buffer_predisable(struct iio_dev *indio_dev)
 {
 	struct hdc100x_data *data = iio_priv(indio_dev);
 	int ret;
-
-	/* First detach poll func, then reset ACQ mode. OK to disable buffer */
-	ret = iio_triggered_buffer_predisable(indio_dev);
-	if (ret)
-		return ret;
 
 	mutex_lock(&data->lock);
 	ret = hdc100x_update_config(data, HDC100X_REG_CONFIG_ACQ_MODE, 0);
