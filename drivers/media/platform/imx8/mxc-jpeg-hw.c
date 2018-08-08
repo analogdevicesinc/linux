@@ -20,26 +20,26 @@
 #define internal_print_wrapper_reg(dev, base_address, reg_name, reg_offset) {\
 		int val;\
 		val = readl((base_address) + (reg_offset));\
-		dev_info(dev, "Wrapper reg %s = 0x%x\n", reg_name, val);\
+		dev_dbg(dev, "Wrapper reg %s = 0x%x\n", reg_name, val);\
 }
 
 void print_descriptor_info(struct device *dev, struct mxc_jpeg_desc *desc)
 {
-	dev_info(dev, " MXC JPEG NEXT_DESCPT_PTR 0x%x\n",
+	dev_dbg(dev, " MXC JPEG NEXT_DESCPT_PTR 0x%x\n",
 		desc->next_descpt_ptr);
-	dev_info(dev, " MXC JPEG BUF_BASE0 0x%x\n", desc->buf_base0);
-	dev_info(dev, " MXC JPEG BUF_BASE1 0x%x\n", desc->buf_base1);
-	dev_info(dev, " MXC JPEG LINE_PITCH %d\n", desc->line_pitch);
-	dev_info(dev, " MXC JPEG STM_BUFBASE 0x%x\n", desc->stm_bufbase);
-	dev_info(dev, " MXC JPEG STM_BUFSIZE %d\n", desc->stm_bufsize);
-	dev_info(dev, " MXC JPEG IMGSIZE %x (%d x %d)\n", desc->imgsize,
+	dev_dbg(dev, " MXC JPEG BUF_BASE0 0x%x\n", desc->buf_base0);
+	dev_dbg(dev, " MXC JPEG BUF_BASE1 0x%x\n", desc->buf_base1);
+	dev_dbg(dev, " MXC JPEG LINE_PITCH %d\n", desc->line_pitch);
+	dev_dbg(dev, " MXC JPEG STM_BUFBASE 0x%x\n", desc->stm_bufbase);
+	dev_dbg(dev, " MXC JPEG STM_BUFSIZE %d\n", desc->stm_bufsize);
+	dev_dbg(dev, " MXC JPEG IMGSIZE %x (%d x %d)\n", desc->imgsize,
 		desc->imgsize >> 16, desc->imgsize & 0xFFFF);
-	dev_info(dev, " MXC JPEG STM_CTRL 0x%x\n", desc->stm_ctrl);
+	dev_dbg(dev, " MXC JPEG STM_CTRL 0x%x\n", desc->stm_ctrl);
 }
 
-void print_cast_decoder_info(struct device *dev, void __iomem *reg)
+void print_cast_status(struct device *dev, void __iomem *reg, unsigned int mode)
 {
-	dev_info(dev, "CAST IP decoder regs:\n");
+	dev_dbg(dev, "CAST IP status regs:\n");
 	print_wrapper_reg(dev, reg, CAST_STATUS0);
 	print_wrapper_reg(dev, reg, CAST_STATUS1);
 	print_wrapper_reg(dev, reg, CAST_STATUS2);
@@ -54,27 +54,19 @@ void print_cast_decoder_info(struct device *dev, void __iomem *reg)
 	print_wrapper_reg(dev, reg, CAST_STATUS11);
 	print_wrapper_reg(dev, reg, CAST_STATUS12);
 	print_wrapper_reg(dev, reg, CAST_STATUS13);
-}
-
-void print_cast_encoder_info(struct device *dev, void __iomem *reg)
-{
-	dev_info(dev, "CAST IP encoder regs:\n");
-	print_wrapper_reg(dev, reg, CAST_MODE);
-	print_wrapper_reg(dev, reg, CAST_CFG_MODE);
-	print_wrapper_reg(dev, reg, CAST_QUALITY);
-	print_wrapper_reg(dev, reg, CAST_RSVD);
-	print_wrapper_reg(dev, reg, CAST_REC_REGS_SEL);
-	print_wrapper_reg(dev, reg, CAST_LUMTH);
-	print_wrapper_reg(dev, reg, CAST_CHRTH);
-	print_wrapper_reg(dev, reg, CAST_NOMFRSIZE_LO);
-	print_wrapper_reg(dev, reg, CAST_NOMFRSIZE_HI);
-	print_wrapper_reg(dev, reg, CAST_OFBSIZE_LO);
-	print_wrapper_reg(dev, reg, CAST_OFBSIZE_HI);
+	if (mode == MXC_JPEG_DECODE)
+		return;
+	print_wrapper_reg(dev, reg, CAST_STATUS14);
+	print_wrapper_reg(dev, reg, CAST_STATUS15);
+	print_wrapper_reg(dev, reg, CAST_STATUS16);
+	print_wrapper_reg(dev, reg, CAST_STATUS17);
+	print_wrapper_reg(dev, reg, CAST_STATUS18);
+	print_wrapper_reg(dev, reg, CAST_STATUS19);
 }
 
 void print_wrapper_info(struct device *dev, void __iomem *reg)
 {
-	dev_info(dev, "Wrapper regs:\n");
+	dev_dbg(dev, "Wrapper regs:\n");
 	print_wrapper_reg(dev, reg, GLB_CTRL);
 	print_wrapper_reg(dev, reg, COM_STATUS);
 	print_wrapper_reg(dev, reg, BUF_BASE0);
@@ -91,14 +83,15 @@ void mxc_jpeg_enable_irq(void __iomem *reg, int slot)
 	writel(0xFFFFFFFF, reg + MXC_SLOT_OFFSET(slot, SLOT_IRQ_EN));
 }
 
-void mxc_jpeg_reset(void __iomem *reg)
-{
-	writel(GLB_CTRL_JPG_EN, reg + GLB_CTRL);
-}
-
 void mxc_jpeg_sw_reset(void __iomem *reg)
 {
-	writel(GLB_CTRL_SFT_RST | GLB_CTRL_JPG_EN, reg + GLB_CTRL);
+	/*
+	 * engine soft reset, internal state machine reset
+	 * this will not reset registers, however, it seems
+	 * the registers may remain inconsistent with the internal state
+	 * so, on purpose, at least let GLB_CTRL bits clear after this reset
+	 */
+	writel(GLB_CTRL_SFT_RST, reg + GLB_CTRL);
 }
 
 u32 mxc_jpeg_get_offset(void __iomem *reg, int slot)
@@ -106,12 +99,9 @@ u32 mxc_jpeg_get_offset(void __iomem *reg, int slot)
 	return readl(reg + MXC_SLOT_OFFSET(slot, SLOT_BUF_PTR));
 }
 
-void mxc_jpeg_enc_config(struct device *dev,
-			 void __iomem *reg, struct mxc_jpeg_desc *cfg_desc,
-			 u32 cfg_handle, u32 cfg_stream_handle, u32 jpg_handle)
+void mxc_jpeg_go_enc(struct device *dev, void __iomem *reg)
 {
-	u32 slot;
-
+	dev_dbg(dev, "CAST Encoder GO...\n");
 	/*
 	 * "Config_Mode" enabled, "Config_Mode auto clear enabled",
 	 * "GO" enabled, "GO bit auto clear" enabled
@@ -123,28 +113,6 @@ void mxc_jpeg_enc_config(struct device *dev,
 
 	/* quality factor */
 	writel(0x4b, reg + CAST_QUALITY);
-
-	cfg_desc->next_descpt_ptr = 0;
-	cfg_desc->buf_base0 = cfg_stream_handle;
-	cfg_desc->buf_base1 = 0;
-	cfg_desc->line_pitch = 0;
-	cfg_desc->stm_bufbase = 0;
-	cfg_desc->stm_bufsize = 0x2000;
-	cfg_desc->imgsize = 0;
-	cfg_desc->stm_ctrl = STM_CTRL_CONFIG_MOD(1) | STM_CTRL_AUTO_START(1);
-
-	slot = 0; /* TODO get slot*/
-	writel(GLB_CTRL_SLOT_EN(slot) | GLB_CTRL_L_ENDIAN | GLB_CTRL_JPG_EN,
-	       reg + GLB_CTRL);
-
-	mxc_jpeg_enable_irq(reg, slot);
-
-	print_descriptor_info(dev, cfg_desc);
-	print_wrapper_info(dev, reg);
-	print_cast_encoder_info(dev, reg);
-
-	mxc_jpeg_set_desc(cfg_handle, reg, slot);
-	mxc_jpeg_go_auto(reg);
 }
 
 void wait_frmdone(struct device *dev, void __iomem *reg)
@@ -171,25 +139,10 @@ int mxc_jpeg_enable(void __iomem *reg)
 	return regval;
 }
 
-void mxc_jpeg_go(void __iomem *reg)
+void mxc_jpeg_go_dec(struct device *dev, void __iomem *reg)
 {
-	u32 val;
-
-	val = readl(reg + GLB_CTRL);
-	writel(GLB_CTRL_L_ENDIAN | GLB_CTRL_DEC_GO | val, reg + GLB_CTRL);
-	writel(MXC_DEC_EXIT_IDLE_MODE, reg + CAST_STATUS13);
-}
-
-void mxc_jpeg_go_auto(void __iomem *reg)
-{
-	u32 val;
-
-	/* Automatically start the CAST encoder/decoder */
-	val = readl(reg + STM_CTRL);
-	writel(STM_CTRL_AUTO_START(1) | val, reg + STM_CTRL);
-
-	val = readl(reg + GLB_CTRL);
-	writel(GLB_CTRL_L_ENDIAN | GLB_CTRL_DEC_GO | val, reg + GLB_CTRL);
+	dev_dbg(dev, "CAST Decoder GO...\n");
+	writel(MXC_DEC_EXIT_IDLE_MODE, reg + CAST_CTRL);
 }
 
 int mxc_jpeg_get_slot(void __iomem *reg)
@@ -216,6 +169,15 @@ void mxc_jpeg_enable_slot(void __iomem *reg, int slot)
 
 	regval = readl(reg + GLB_CTRL);
 	writel(GLB_CTRL_SLOT_EN(slot) | regval, reg + GLB_CTRL);
+}
+
+void mxc_jpeg_set_l_endian(void __iomem *reg, int le)
+{
+	u32 regval;
+
+	regval = readl(reg + GLB_CTRL);
+	regval &= ~GLB_CTRL_L_ENDIAN(1); /* clear */
+	writel(GLB_CTRL_L_ENDIAN(le) | regval, reg + GLB_CTRL); /* set */
 }
 
 void mxc_jpeg_set_config_mode(void __iomem *reg, int config_mode)

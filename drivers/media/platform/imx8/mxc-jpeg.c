@@ -242,8 +242,6 @@ static irqreturn_t mxc_jpeg_dec_irq(int irq, void *priv)
 	void __iomem *reg = jpeg->base_reg;
 	struct device *dev = jpeg->dev;
 	struct vb2_buffer *src_buf, *dst_buf;
-	struct mxc_jpeg_desc *desc;
-	dma_addr_t dma_handle;
 	u32 dec_ret;
 	int slot = 0; /* TODO remove hardcoded slot 0 */
 
@@ -277,36 +275,7 @@ static irqreturn_t mxc_jpeg_dec_irq(int irq, void *priv)
 			goto job_finish;
 		}
 
-		dev_dbg(dev, "Encoder config finished.\n");
-
-		/* get out of config mode*/
-		mxc_jpeg_set_config_mode(reg, 0);
-
-		slot = 0; /* TODO get slot*/
-
-		desc = jpeg->slot_data[slot].desc;
-		dma_handle = jpeg->slot_data[slot].desc_handle;
-
-		mxc_jpeg_addrs(desc, src_buf, dst_buf, 0);
-
-		/* TODO remove hardcodings*/
-		mxc_jpeg_set_bufsize(desc, 0x1000);
-		mxc_jpeg_set_res(desc, 64, 64);
-		mxc_jpeg_set_line_pitch(desc, 64 * 2);
-		desc->stm_ctrl = STM_CTRL_CONFIG_MOD(0) |
-				 STM_CTRL_AUTO_START(1) |
-				 STM_CTRL_IMAGE_FORMAT(MXC_JPEG_YUV422);
-
-		mxc_jpeg_enable_slot(jpeg->base_reg, slot);
-		mxc_jpeg_enable_irq(jpeg->base_reg, slot);
-		mxc_jpeg_set_desc(dma_handle, jpeg->base_reg, slot);
-
-		print_descriptor_info(dev, desc);
-		print_wrapper_info(dev, jpeg->base_reg);
-		print_cast_encoder_info(dev, jpeg->base_reg);
-
-		dev_dbg(dev, "Encoder starts encoding...\n");
-		mxc_jpeg_go_auto(jpeg->base_reg);
+		dev_dbg(dev, "Encoder config finished. Start encoding...\n");
 		goto job_unlock;
 	}
 	if (ctx->mode == MXC_JPEG_ENCODE)
@@ -315,9 +284,9 @@ static irqreturn_t mxc_jpeg_dec_irq(int irq, void *priv)
 		dev_dbg(dev, "Decoding finished\n");
 
 	/* short preview of the results */
-	dev_dbg(dev, "src_buf: ");
+	dev_dbg(dev, "src_buf preview: ");
 	print_buf(dev, src_buf);
-	dev_dbg(dev, "dst_buf: ");
+	dev_dbg(dev, "dst_buf preview: ");
 	print_buf(dev, dst_buf);
 
 	v4l2_m2m_src_buf_remove(ctx->fh.m2m_ctx);
@@ -331,29 +300,76 @@ job_unlock:
 	return IRQ_HANDLED;
 }
 
-static void mxc_jpeg_config_enc(struct vb2_buffer *out_buf,
+static void mxc_jpeg_config_dec_desc(struct vb2_buffer *out_buf,
 			 int slot,
-			 struct mxc_jpeg_dev *jpeg)
+			 struct mxc_jpeg_dev *jpeg,
+			 struct vb2_buffer *src_buf, struct vb2_buffer *dst_buf)
 {
-	dma_addr_t jpg_handle;
+	void __iomem *reg = jpeg->base_reg;
+	struct mxc_jpeg_desc *desc = jpeg->slot_data[slot].desc;
+	dma_addr_t desc_handle = jpeg->slot_data[slot].desc_handle;
 
-	jpg_handle = vb2_dma_contig_plane_dma_addr(out_buf, 0);
-	mxc_jpeg_enc_config(jpeg->dev,
-		jpeg->base_reg,
-		jpeg->slot_data[slot].desc, jpeg->slot_data[slot].desc_handle,
-		jpeg->slot_data[slot].cfg_stream_handle, jpg_handle);
+	mxc_jpeg_addrs(desc, dst_buf, src_buf, 0);
+	mxc_jpeg_set_bufsize(desc,
+			mxc_jpeg_align(vb2_plane_size(src_buf, 0), 1024));
+	print_descriptor_info(jpeg->dev, desc);
+
+	/* validate the decoding descriptor */
+	mxc_jpeg_set_desc(desc_handle, reg, slot);
+}
+
+static void mxc_jpeg_config_enc_desc(struct vb2_buffer *out_buf,
+			 int slot,
+			 struct mxc_jpeg_dev *jpeg,
+			 struct vb2_buffer *src_buf, struct vb2_buffer *dst_buf)
+{
+	void __iomem *reg = jpeg->base_reg;
+	struct mxc_jpeg_desc *desc = jpeg->slot_data[slot].desc;
+	struct mxc_jpeg_desc *cfg_desc = jpeg->slot_data[slot].cfg_desc;
+	dma_addr_t desc_handle = jpeg->slot_data[slot].desc_handle;
+	dma_addr_t cfg_desc_handle = jpeg->slot_data[slot].cfg_desc_handle;
+
+
+	/* chain the config descriptor with the encoding descriptor */
+	cfg_desc->next_descpt_ptr = desc_handle | MXC_NXT_DESCPT_EN;
+
+	cfg_desc->buf_base0 = jpeg->slot_data[slot].cfg_stream_handle;
+	cfg_desc->buf_base1 = 0;
+	cfg_desc->line_pitch = 0;
+	cfg_desc->stm_bufbase = 0;
+	cfg_desc->stm_bufsize = 0x2000;
+	cfg_desc->imgsize = 0;
+	cfg_desc->stm_ctrl = STM_CTRL_CONFIG_MOD(1);
+
+	desc->next_descpt_ptr = 0; /* end of chain */
+	mxc_jpeg_addrs(desc, src_buf, dst_buf, 0);
+	/* TODO remove hardcodings*/
+	mxc_jpeg_set_bufsize(desc, 0x1000);
+	mxc_jpeg_set_res(desc, 64, 64);
+	mxc_jpeg_set_line_pitch(desc, 64 * 2);
+	desc->stm_ctrl = STM_CTRL_CONFIG_MOD(0) |
+			 STM_CTRL_IMAGE_FORMAT(MXC_JPEG_YUV422);
+
+	dev_dbg(jpeg->dev, "cfg_desc - 0x%llx:\n", cfg_desc_handle);
+	print_descriptor_info(jpeg->dev, cfg_desc);
+	dev_dbg(jpeg->dev, "enc desc - 0x%llx:\n", desc_handle);
+	print_descriptor_info(jpeg->dev, desc);
+	print_wrapper_info(jpeg->dev, reg);
+	print_cast_status(jpeg->dev, reg, MXC_JPEG_ENCODE);
+
+	/* validate the configuration descriptor */
+	mxc_jpeg_set_desc(cfg_desc_handle, reg, slot);
 }
 
 static void mxc_jpeg_device_run(void *priv)
 {
 	struct mxc_jpeg_ctx *ctx = priv;
 	struct mxc_jpeg_dev *jpeg = ctx->mxc_jpeg;
+	void __iomem *reg = jpeg->base_reg;
 	struct device *dev = jpeg->dev;
 	struct vb2_buffer *src_buf, *dst_buf;
 	unsigned long flags;
 	int slot = 0;
-	dma_addr_t dma_handle;
-	struct mxc_jpeg_desc *desc;
 
 	spin_lock_irqsave(&ctx->mxc_jpeg->hw_lock, flags);
 	src_buf = v4l2_m2m_next_src_buf(ctx->fh.m2m_ctx);
@@ -362,28 +378,24 @@ static void mxc_jpeg_device_run(void *priv)
 		dev_err(dev, "Null src or dst buf\n");
 		goto end;
 	}
+
+	mxc_jpeg_sw_reset(reg);
+	mxc_jpeg_enable(reg);
+	mxc_jpeg_set_l_endian(reg, 1);
+
 	slot = 0; /* TODO get slot */
-	mxc_jpeg_enable(jpeg->base_reg);
+	mxc_jpeg_enable_slot(reg, slot);
+	mxc_jpeg_enable_irq(reg, slot);
 
 	if (ctx->mode == MXC_JPEG_ENCODE) {
 		dev_dbg(dev, "Encoding on slot %d\n", slot);
-		mxc_jpeg_sw_reset(jpeg->base_reg);
 		ctx->enc_state = MXC_JPEG_ENC_CONF;
-		mxc_jpeg_config_enc(dst_buf, slot, jpeg);
+		mxc_jpeg_config_enc_desc(dst_buf, slot, jpeg, src_buf, dst_buf);
+		mxc_jpeg_go_enc(dev, reg);
 	} else {
 		dev_dbg(dev, "Decoding on slot %d\n", slot);
-		desc = jpeg->slot_data[slot].desc;
-		dma_handle = jpeg->slot_data[slot].desc_handle;
-
-		mxc_jpeg_addrs(desc, dst_buf, src_buf, 0);
-
-		mxc_jpeg_enable_slot(jpeg->base_reg, slot);
-		mxc_jpeg_set_bufsize(desc,
-			mxc_jpeg_align(vb2_plane_size(src_buf, 0), 1024));
-		mxc_jpeg_enable_irq(jpeg->base_reg, slot);
-		print_descriptor_info(dev, desc);
-		mxc_jpeg_set_desc(dma_handle, jpeg->base_reg, slot);
-		mxc_jpeg_go(jpeg->base_reg);
+		mxc_jpeg_config_dec_desc(dst_buf, slot, jpeg, src_buf, dst_buf);
+		mxc_jpeg_go_dec(dev, reg);
 	}
 end:
 	spin_unlock_irqrestore(&ctx->mxc_jpeg->hw_lock, flags);
@@ -493,8 +505,7 @@ static u8 get_sof(struct device *dev,
 	_bswap16(&sof->length);
 	_bswap16(&sof->height);
 	_bswap16(&sof->width);
-	dev_info(dev, "JPEG SOF: length=%d, precision=%d\n",
-		sof->length, sof->precision);
+	dev_info(dev, "JPEG SOF: precision=%d\n", sof->precision);
 	dev_info(dev, "JPEG SOF: height=%d, width=%d\n",
 		sof->height, sof->width);
 	for (i = 0; i < sof->components_no; i++) {
@@ -1345,4 +1356,3 @@ static struct platform_driver mxc_jpeg_driver = {
 };
 module_platform_driver(mxc_jpeg_driver);
 MODULE_LICENSE("GPL v2");
-
