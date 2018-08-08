@@ -441,7 +441,7 @@ struct fsl_flexspi {
 	u32 memmap_phy;
 	u32 memmap_offs;
 	u32 memmap_len;
-	struct clk *clk, *clk_en;
+	struct clk *clk;
 	struct device *dev;
 	struct completion c;
 	struct fsl_flexspi_devtype_data *devtype_data;
@@ -501,60 +501,59 @@ static void fsl_flexspi_init_lut(struct fsl_flexspi *flex)
 	op = nor->read_opcode;
 	dm = nor->read_dummy;
 
-	/* Octal DDR read */
-	if (op == SPINOR_OP_READ_1_1_8_D) {
+	/* Normal Read */
+	if (op == SPINOR_OP_READ) {
 		writel(LUT0(CMD, PAD1, op) |
-		       LUT1(ADDR_DDR, PAD1, addrlen),
+		       LUT1(ADDR, PAD1, addrlen),
+		       base + FLEXSPI_LUT(lut_base));
+
+		writel(LUT0(FSL_READ, PAD1, 0),
+		       base + FLEXSPI_LUT(lut_base + 1));
+	/* Octal DDR Read */
+	} else if (op == SPINOR_OP_READ_1_1_8_D) {
+		writel(LUT0(CMD, PAD1, op) |
+		       LUT1(ADDR_DDR, PAD8, addrlen),
 		       base + FLEXSPI_LUT(lut_base));
 
 		writel(LUT0(DUMMY_DDR, PAD8, dm * 2)
 			| LUT1(READ_DDR, PAD8, rxfifo),
 			base + FLEXSPI_LUT(lut_base + 1));
+	/* QUAD Fast Read */
+	} else if (op == SPINOR_OP_READ_1_1_4 || op == SPINOR_OP_READ_1_1_4_4B) {
+		/* read mode : 1-1-4 */
+		writel(LUT0(CMD, PAD1, op) | LUT1(ADDR, PAD1, addrlen),
+		       base + FLEXSPI_LUT(lut_base));
 
-	}
+		writel(LUT0(DUMMY, PAD1, dm) |
+		       LUT1(FSL_READ, PAD4, rxfifo),
+		       base + FLEXSPI_LUT(lut_base + 1));
+	/* DDR Quad I/O Read 	 */
+	} else if (op == SPINOR_OP_READ_1_4_4_D || op == SPINOR_OP_READ_1_4_4_D_4B) {
+		/* read mode : 1-4-4, such as Spansion s25fl128s. */
+		writel(LUT0(CMD_DDR, PAD1, op) |
+		       LUT1(ADDR_DDR, PAD4, addrlen),
+		       base + FLEXSPI_LUT(lut_base));
 
-	if (nor->flash_read == SPI_NOR_QUAD) {
-		if (op == SPINOR_OP_READ_1_1_4 || op == SPINOR_OP_READ4_1_1_4) {
-			/* read mode : 1-1-4 */
-			writel(LUT0(CMD, PAD1, op) | LUT1(ADDR, PAD1, addrlen),
-				base + FLEXSPI_LUT(lut_base));
+		writel(LUT0(MODE_DDR, PAD4, 0xff) |
+		       LUT1(DUMMY, PAD1, dm),
+		       base + FLEXSPI_LUT(lut_base + 1));
 
-			writel(LUT0(DUMMY, PAD1, dm) |
-			       LUT1(FSL_READ, PAD4, rxfifo),
-			       base + FLEXSPI_LUT(lut_base + 1));
-		} else {
-			dev_err(nor->dev, "Unsupported opcode : 0x%.2x\n", op);
-		}
-	} else if (nor->flash_read == SPI_NOR_DDR_QUAD) {
-		if (op == SPINOR_OP_READ_1_4_4_D ||
-			 op == SPINOR_OP_READ4_1_4_4_D) {
-			/* read mode : 1-4-4, such as Spansion s25fl128s. */
-			writel(LUT0(CMD_DDR, PAD1, op)
-				| LUT1(ADDR_DDR, PAD4, addrlen),
-				base + FLEXSPI_LUT(lut_base));
+		writel(LUT0(READ_DDR, PAD4, rxfifo) |
+		       LUT1(JMP_ON_CS, PAD1, 0),
+		       base + FLEXSPI_LUT(lut_base + 2));
+	/* DDR Quad Fast Read 	 */
+	} else if (op == SPINOR_OP_READ_1_1_4_D) {
+		/* read mode : 1-1-4, such as Micron N25Q256A. */
+		writel(LUT0(CMD_DDR, PAD1, op) |
+		       LUT1(ADDR_DDR, PAD1, addrlen),
+		       base + FLEXSPI_LUT(lut_base));
 
-			writel(LUT0(MODE_DDR, PAD4, 0xff)
-				| LUT1(DUMMY, PAD1, dm),
-				base + FLEXSPI_LUT(lut_base + 1));
+		writel(LUT0(DUMMY, PAD1, dm) |
+		       LUT1(READ_DDR, PAD4, rxfifo),
+		       base + FLEXSPI_LUT(lut_base + 1));
 
-			writel(LUT0(READ_DDR, PAD4, rxfifo)
-				| LUT1(JMP_ON_CS, PAD1, 0),
-				base + FLEXSPI_LUT(lut_base + 2));
-		} else if (op == SPINOR_OP_READ_1_1_4_D) {
-			/* read mode : 1-1-4, such as Micron N25Q256A. */
-			writel(LUT0(CMD_DDR, PAD1, op)
-				| LUT1(ADDR_DDR, PAD1, addrlen),
-				base + FLEXSPI_LUT(lut_base));
-
-			writel(LUT0(DUMMY, PAD1, dm)
-				| LUT1(READ_DDR, PAD4, rxfifo),
-				base + FLEXSPI_LUT(lut_base + 1));
-
-			writel(LUT0(JMP_ON_CS, PAD1, 0),
-				base + FLEXSPI_LUT(lut_base + 2));
-		} else {
-			dev_err(nor->dev, "Unsupported opcode : 0x%.2x\n", op);
-		}
+		writel(LUT0(JMP_ON_CS, PAD1, 0),
+		       base + FLEXSPI_LUT(lut_base + 2));
 	}
 
 	/* Write enable */
@@ -629,10 +628,11 @@ static int fsl_flexspi_get_seqid(struct fsl_flexspi *flex, u8 cmd)
 	case SPINOR_OP_READ_1_1_4_D:
 	case SPINOR_OP_READ_1_1_8_D:
 	case SPINOR_OP_READ_1_4_4_D:
-	case SPINOR_OP_READ4_1_4_4_D:
-	case SPINOR_OP_READ4_1_1_4:
+	case SPINOR_OP_READ_1_4_4_D_4B:
+	case SPINOR_OP_READ_1_1_4_4B:
 	case SPINOR_OP_READ_1_1_4:
-	case SPINOR_OP_READ4:
+	case SPINOR_OP_READ_4B:
+	case SPINOR_OP_READ:
 		return SEQID_QUAD_READ;
 	case SPINOR_OP_WREN:
 		return SEQID_WREN;
@@ -890,13 +890,8 @@ static int fsl_flexspi_clk_prep_enable(struct fsl_flexspi *flex)
 {
 	int ret;
 
-	ret = clk_prepare_enable(flex->clk_en);
-	if (ret)
-		return ret;
-
 	ret = clk_prepare_enable(flex->clk);
 	if (ret) {
-		clk_disable_unprepare(flex->clk_en);
 		return ret;
 	}
 
@@ -907,7 +902,6 @@ static int fsl_flexspi_clk_prep_enable(struct fsl_flexspi *flex)
 static void fsl_flexspi_clk_disable_unprep(struct fsl_flexspi *flex)
 {
 	clk_disable_unprepare(flex->clk);
-	clk_disable_unprepare(flex->clk_en);
 }
 
 /* We use this function to do some basic init for spi_nor_scan(). */
@@ -1119,6 +1113,9 @@ MODULE_DEVICE_TABLE(of, fsl_flexspi_dt_ids);
 
 static int fsl_flexspi_probe(struct platform_device *pdev)
 {
+	struct spi_nor_hwcaps hwcaps = {
+		.mask = SNOR_HWCAPS_PP,
+	};
 	struct device_node *np = pdev->dev.of_node;
 	struct device *dev = &pdev->dev;
 	struct fsl_flexspi *flex;
@@ -1170,11 +1167,7 @@ static int fsl_flexspi_probe(struct platform_device *pdev)
 	flex->memmap_phy = res->start;
 
 	/* find the clocks */
-	flex->clk_en = devm_clk_get(dev, "qspi_en");
-	if (IS_ERR(flex->clk_en))
-		return PTR_ERR(flex->clk_en);
-
-	flex->clk = devm_clk_get(dev, "qspi");
+	flex->clk = devm_clk_get(dev, "fspi");
 	if (IS_ERR(flex->clk))
 		return PTR_ERR(flex->clk);
 
@@ -1215,7 +1208,6 @@ static int fsl_flexspi_probe(struct platform_device *pdev)
 
 	/* iterate the subnodes. */
 	for_each_available_child_of_node(dev->of_node, np) {
-		enum read_mode mode = SPI_NOR_DDR_OCTAL;
 		u32 dummy = 0;
 
 		/* skip the holes */
@@ -1248,13 +1240,15 @@ static int fsl_flexspi_probe(struct platform_device *pdev)
 		ret = of_property_read_u32(np, "spi-nor,ddr-quad-read-dummy",
 					&dummy);
 		if (!ret && dummy > 0)
-			mode = SPI_NOR_DDR_OCTAL;
+			hwcaps.mask |= SNOR_HWCAPS_READ;
+		else
+			hwcaps.mask |= SNOR_HWCAPS_READ;
 
 		/* set the chip address for READID */
 		fsl_flexspi_set_base_addr(flex, nor);
 
 
-		ret = spi_nor_scan(nor, NULL, mode);
+		ret = spi_nor_scan(nor, NULL, &hwcaps);
 		if (ret)
 			goto mutex_failed;
 
