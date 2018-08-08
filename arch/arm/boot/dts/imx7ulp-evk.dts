@@ -537,7 +537,7 @@
 };
 
 &usbphy1 {
-	tx-d-cal = <0xc>;
+	fsl,tx-d-cal = <88>;
 };
 
 &usdhc0 {

@@ -23,9 +23,6 @@ Optional properties:
   that terminates the DP output signal. Default: 45
 - fsl,tx-d-cal: Integer [79-119]. Current trimming value (as a percentage) of
   the 17.78mA TX reference current. Default: 100
-- tx-d-cal: Try to adjust this value to improve signal quality, and pass
-  USB Certification, the value is from 0x0 to 0xf, and the register offset
-  is 0x10 (USBPHY_TX).
 
 Example:
 usbphy1: usbphy@020c9000 {
@@ -33,5 +30,5 @@ usbphy1: usbphy@020c9000 {
 	reg = <0x020c9000 0x1000>;
 	interrupts = <0 44 0x04>;
 	fsl,anatop = <&anatop>;
-	tx-d-cal = <0x5>;
+	fsl,tx-d-cal = <106>;
 };
