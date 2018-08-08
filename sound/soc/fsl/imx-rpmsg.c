@@ -61,9 +61,9 @@ static int imx_rpmsg_probe(struct platform_device *pdev)
 
 	data->dai[0].name = "rpmsg hifi";
 	data->dai[0].stream_name = "rpmsg hifi";
-	if (rpmsg_i2s->codec) {
+	if (rpmsg_i2s->codec_wm8960) {
 		data->dai[0].codec_dai_name = "rpmsg-wm8960-hifi";
-		data->dai[0].codec_name = "rpmsg-audio-codec";
+		data->dai[0].codec_name = "rpmsg-audio-codec-wm8960";
 	} else {
 		data->dai[0].codec_dai_name = "snd-soc-dummy-dai";
 		data->dai[0].codec_name = "snd-soc-dummy";
