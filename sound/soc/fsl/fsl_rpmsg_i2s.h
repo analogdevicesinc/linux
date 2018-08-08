@@ -410,7 +410,8 @@ struct fsl_rpmsg_i2s {
 	struct platform_device *pdev;
 	struct i2s_info        i2s_info;
 	struct pm_qos_request pm_qos_req;
-	int codec;
+	int codec_wm8960;
+	int codec_cs42888;
 	int force_lpa;
 	int version;
 	int rates;
@@ -418,6 +419,20 @@ struct fsl_rpmsg_i2s {
 	int enable_lpa;
 };
 
-#define RPMSG_CODEC_DRV_NAME "rpmsg-audio-codec"
+#define RPMSG_CODEC_DRV_NAME_WM8960 "rpmsg-audio-codec-wm8960"
+#define RPMSG_CODEC_DRV_NAME_CS42888 "rpmsg-audio-codec-cs42888"
+
+struct fsl_rpmsg_codec {
+	int audioindex;
+
+	/*property for wm8960*/
+	bool capless;
+	bool shared_lrclk;
+
+	/*property for cs42xx8*/
+
+	char name[32];
+	int num_adcs;
+};
 
 #endif /* __FSL_RPMSG_I2S_H */

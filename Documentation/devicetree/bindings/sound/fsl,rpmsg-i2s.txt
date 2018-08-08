@@ -7,7 +7,7 @@ serial interfaces with frame synchronization such as I2S.
 Required properties:
 
   - compatible		: Compatible list, contains "fsl,imx7ulp-rpmsg-i2s".
-				"fsl,imx8mq-rpmsg-i2s"
+				"fsl,imx8mq-rpmsg-i2s", "fsl,imx8qxp-rpmsg-i2s"
 
   - fsl,audioindex      : This is an index indicating the audio device index in
 			  the M4 side.
