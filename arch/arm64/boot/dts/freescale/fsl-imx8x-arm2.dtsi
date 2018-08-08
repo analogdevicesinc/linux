@@ -515,7 +515,7 @@
 	status = "okay";
 };
 
-&&flexspi0 {
+&flexspi0 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_flexspi0>;
 	status = "okay";
@@ -530,7 +530,7 @@
 	};
 };
 
-i2c0_csi0 {
+&i2c0_csi0 {
 	#address-cells = <1>;
 	#size-cells = <0>;
 	pinctrl-names = "default";
