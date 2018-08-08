@@ -41,6 +41,7 @@ struct imx_priv {
 	u32 asrc_rate;
 	u32 asrc_format;
 	bool is_codec_master;
+	bool is_codec_rpmsg;
 };
 
 static struct imx_priv card_priv;
@@ -291,13 +292,15 @@ static int imx_cs42888_probe(struct platform_device *pdev)
 	struct device_node *asrc_np = NULL;
 	struct platform_device *esai_pdev;
 	struct platform_device *asrc_pdev = NULL;
-	struct i2c_client *codec_dev;
 	struct imx_priv *priv = &card_priv;
 	int ret;
 	u32 width;
 
 	priv->pdev = pdev;
 	priv->asrc_pdev = NULL;
+
+	if (of_property_read_bool(pdev->dev.of_node, "codec-rpmsg"))
+		priv->is_codec_rpmsg = true;
 
 	esai_np = of_parse_phandle(pdev->dev.of_node, "esai-controller", 0);
 	codec_np = of_parse_phandle(pdev->dev.of_node, "audio-codec", 0);
@@ -319,16 +322,50 @@ static int imx_cs42888_probe(struct platform_device *pdev)
 		ret = -EINVAL;
 		goto fail;
 	}
-	codec_dev = of_find_i2c_device_by_node(codec_np);
-	if (!codec_dev || !codec_dev->dev.driver) {
-		dev_err(&pdev->dev, "failed to find codec platform device\n");
-		ret = -EINVAL;
-		goto fail;
+
+	if (priv->is_codec_rpmsg) {
+		struct platform_device *codec_dev;
+
+		codec_dev = of_find_device_by_node(codec_np);
+		if (!codec_dev || !codec_dev->dev.driver) {
+			dev_err(&pdev->dev, "failed to find codec platform device\n");
+			ret = -EINVAL;
+			goto fail;
+		}
+
+		priv->codec_clk = devm_clk_get(&codec_dev->dev, NULL);
+		if (IS_ERR(priv->codec_clk)) {
+			ret = PTR_ERR(priv->codec_clk);
+			dev_err(&codec_dev->dev, "failed to get codec clk: %d\n", ret);
+			goto fail;
+		}
+
+	} else {
+		struct i2c_client *codec_dev;
+
+		codec_dev = of_find_i2c_device_by_node(codec_np);
+		if (!codec_dev || !codec_dev->dev.driver) {
+			dev_err(&pdev->dev, "failed to find codec platform device\n");
+			ret = -EINVAL;
+			goto fail;
+		}
+
+		priv->codec_clk = devm_clk_get(&codec_dev->dev, NULL);
+		if (IS_ERR(priv->codec_clk)) {
+			ret = PTR_ERR(priv->codec_clk);
+			dev_err(&codec_dev->dev, "failed to get codec clk: %d\n", ret);
+			goto fail;
+		}
 	}
 
 	/*if there is no asrc controller, we only enable one device*/
 	if (!asrc_pdev) {
-		imx_cs42888_dai[0].codec_of_node   = codec_np;
+		if (priv->is_codec_rpmsg) {
+			imx_cs42888_dai[0].codec_name     = "rpmsg-audio-codec-cs42888";
+			imx_cs42888_dai[0].codec_dai_name = "cs42888";
+		} else {
+			imx_cs42888_dai[0].codec_of_node   = codec_np;
+		}
 		imx_cs42888_dai[0].cpu_dai_name    = dev_name(&esai_pdev->dev);
 		imx_cs42888_dai[0].platform_of_node = esai_np;
 		snd_soc_card_imx_cs42888.num_links = 1;
@@ -363,13 +400,6 @@ static int imx_cs42888_probe(struct platform_device *pdev)
 			priv->asrc_format = SNDRV_PCM_FORMAT_S24_LE;
 		else
 			priv->asrc_format = SNDRV_PCM_FORMAT_S16_LE;
-	}
-
-	priv->codec_clk = devm_clk_get(&codec_dev->dev, NULL);
-	if (IS_ERR(priv->codec_clk)) {
-		ret = PTR_ERR(priv->codec_clk);
-		dev_err(&codec_dev->dev, "failed to get codec clk: %d\n", ret);
-		goto fail;
 	}
 
 	priv->esai_clk = devm_clk_get(&esai_pdev->dev, "extal");

@@ -422,6 +422,7 @@ config SND_SOC_IMX_RPMSG
 	select SND_SOC_IMX_PCM_RPMSG
 	select SND_SOC_FSL_RPMSG_I2S
 	select SND_SOC_RPMSG_WM8960
+	select SND_SOC_RPMSG_CS42XX8
 	help
 	  SoC Audio support for i.MX boards with rpmsg.
 	  There should be rpmsg devices defined in other core
