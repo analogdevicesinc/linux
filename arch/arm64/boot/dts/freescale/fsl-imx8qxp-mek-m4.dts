@@ -1,0 +1,104 @@
+/*
+ * Copyright 2018 NXP
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "fsl-imx8qxp-mek.dts"
+
+/ {
+	sound: sound {
+		status = "disabled";
+	};
+
+	sound-cs42888 {
+		status = "disabled";
+	};
+
+	rpmsg_i2s: rpmsg-i2s {
+		compatible = "fsl,imx8qxp-rpmsg-i2s";
+		/* the audio device index in m4 domain */
+		fsl,audioindex = <0>;
+		clocks = <&clk IMX8QXP_AUD_MCLKOUT0>;
+		clock-names = "mclk";
+		power-domains = <&pd_mclk_out0>;
+		assigned-clocks = <&clk IMX8QXP_AUD_PLL0_DIV>,
+				<&clk IMX8QXP_AUD_ACM_AUD_PLL_CLK0_DIV>,
+				<&clk IMX8QXP_AUD_ACM_AUD_REC_CLK0_DIV>,
+				<&clk IMX8QXP_AUD_MCLKOUT0>;
+		assigned-clock-rates = <786432000>, <49152000>, <12288000>, <12288000>;
+		VA-supply = <&reg_audio>;
+		VD-supply = <&reg_audio>;
+		VLS-supply = <&reg_audio>;
+		VLC-supply = <&reg_audio>;
+		reset-gpio = <&pca9557_b 1 1>;
+		status = "okay";
+	};
+
+	sound_rpmsg_wm8960: sound-rpmsg-wm8960 {
+		compatible = "fsl,imx7d-evk-wm8960",
+			   "fsl,imx-audio-wm8960";
+		model = "wm8960-audio";
+		cpu-dai = <&sai1>;
+		audio-codec = <&rpmsg_i2s>;
+		codec-master;
+		codec-rpmsg;
+		/*
+		 * hp-det = <hp-det-pin hp-det-polarity>;
+		 * hp-det-pin: JD1 JD2  or JD3
+		 * hp-det-polarity = 0: hp detect high for headphone
+		 * hp-det-polarity = 1: hp detect high for speaker
+		 */
+		hp-det = <2 0>;
+		hp-det-gpios = <&gpio1 0 0>;
+		mic-det-gpios = <&gpio1 0 0>;
+		audio-routing =
+			"Headphone Jack", "HP_L",
+			"Headphone Jack", "HP_R",
+			"Ext Spk", "SPK_LP",
+			"Ext Spk", "SPK_LN",
+			"Ext Spk", "SPK_RP",
+			"Ext Spk", "SPK_RN",
+			"LINPUT2", "Mic Jack",
+			"LINPUT3", "Mic Jack",
+			"RINPUT1", "Main MIC",
+			"RINPUT2", "Main MIC",
+			"Mic Jack", "MICB",
+			"Main MIC", "MICB",
+			"CPU-Playback", "ASRC-Playback",
+			"Playback", "CPU-Playback",
+			"ASRC-Capture", "CPU-Capture",
+			"CPU-Capture", "Capture";
+	};
+
+	sound-rpmsg-cs42888 {
+		compatible = "fsl,imx8qm-sabreauto-cs42888",
+				"fsl,imx-audio-cs42888";
+		model = "imx-cs42888";
+		esai-controller = <&esai0>;
+		asrc-controller = <&asrc0>;
+		audio-codec = <&rpmsg_i2s>;
+		codec-rpmsg;
+		status = "okay";
+	};
+};
+
+&i2c0_cm40 {
+	status = "disabled";
+};
+
+&flexcan1 {
+	status = "disabled";
+};
+
+&flexcan2 {
+	status = "disabled";
+};
