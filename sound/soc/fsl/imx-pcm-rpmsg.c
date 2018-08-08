@@ -61,7 +61,7 @@ static int imx_rpmsg_pcm_hw_params(struct snd_pcm_substream *substream,
 
 	if (params_format(params) == SNDRV_PCM_FORMAT_S16_LE)
 		rpmsg->send_msg.param.format   = RPMSG_S16_LE;
-	else if (params_format(params) == SNDRV_PCM_FORMAT_S24_3LE)
+	else if (params_format(params) == SNDRV_PCM_FORMAT_S24_LE)
 		rpmsg->send_msg.param.format   = RPMSG_S24_LE;
 	else
 		rpmsg->send_msg.param.format   = RPMSG_S32_LE;

@@ -192,8 +192,7 @@ static int fsl_rpmsg_i2s_probe(struct platform_device *pdev)
 				SNDRV_PCM_RATE_192000;
 		rpmsg_i2s->formats = SNDRV_PCM_FMTBIT_S16_LE |
 					SNDRV_PCM_FMTBIT_S24_LE |
-					SNDRV_PCM_FMTBIT_S32_LE |
-					SNDRV_PCM_FMTBIT_S24_3LE;
+					SNDRV_PCM_FMTBIT_S32_LE;
 		fsl_rpmsg_i2s_dai.playback.rates = rpmsg_i2s->rates;
 		fsl_rpmsg_i2s_dai.playback.formats = rpmsg_i2s->formats;
 		fsl_rpmsg_i2s_dai.capture.rates = rpmsg_i2s->rates;
