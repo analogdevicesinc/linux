@@ -971,6 +971,8 @@
 #define SC_P_ENET1_RGMII_RXD3_DMA_UART3_RX                      SC_P_ENET1_RGMII_RXD3              1
 #define SC_P_ENET1_RGMII_RXD3_VPU_TSI_S1_CLK                    SC_P_ENET1_RGMII_RXD3              2
 #define SC_P_ENET1_RGMII_RXD3_LSIO_GPIO6_IO21                   SC_P_ENET1_RGMII_RXD3              3
+#define SC_P_COMP_CTL_GPIO_1V8_3V3_ENET_ENETB_PAD               SC_P_COMP_CTL_GPIO_1V8_3V3_ENET_ENETB              0
+#define SC_P_COMP_CTL_GPIO_1V8_3V3_ENET_ENETA_PAD               SC_P_COMP_CTL_GPIO_1V8_3V3_ENET_ENETA              0
 /*@}*/
 
 #endif				/* _SC_PADS_H */
