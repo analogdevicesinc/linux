@@ -1302,24 +1302,15 @@ static int spi_imx_transfer(struct spi_device *spi,
 
 static int spi_imx_setup(struct spi_device *spi)
 {
-	int ret;
-
 	dev_dbg(&spi->dev, "%s: mode %d, %u bpw, %d hz\n", __func__,
 		 spi->mode, spi->bits_per_word, spi->max_speed_hz);
 
 	if (spi->mode & SPI_NO_CS)
 		return 0;
 
-	if (gpio_is_valid(spi->cs_gpio)) {
-		ret = devm_gpio_request(&spi->master->dev, spi->cs_gpio,
-					dev_name(&spi->master->dev));
-		if (ret) {
-			dev_err(&spi->master->dev, "Can't get CS GPIO \n");
-			return ret;
-		}
+	if (gpio_is_valid(spi->cs_gpio))
 		gpio_direction_output(spi->cs_gpio,
 				      spi->mode & SPI_CS_HIGH ? 0 : 1);
-	}
 
 	spi_imx_chipselect(spi, BITBANG_CS_INACTIVE);
 
@@ -1369,11 +1360,19 @@ static int spi_imx_probe(struct platform_device *pdev)
 	struct spi_master *master;
 	struct spi_imx_data *spi_imx;
 	struct resource *res;
-	int i, ret, irq, spi_drctl;
+	int i, ret, irq, spi_drctl, num_cs;
 
 	if (!np && !mxc_platform_info) {
 		dev_err(&pdev->dev, "can't get the platform data\n");
 		return -EINVAL;
+	}
+
+	ret = of_property_read_u32(np, "fsl,spi-num-chipselects", &num_cs);
+	if (ret < 0) {
+		if (mxc_platform_info)
+			num_cs = mxc_platform_info->num_chipselect;
+		else
+			return ret;
 	}
 
 	master = spi_alloc_master(&pdev->dev, sizeof(struct spi_imx_data));
@@ -1390,6 +1389,7 @@ static int spi_imx_probe(struct platform_device *pdev)
 
 	master->bits_per_word_mask = SPI_BPW_RANGE_MASK(1, 32);
 	master->bus_num = np ? -1 : pdev->id;
+	master->num_chipselect = num_cs;
 
 	spi_imx = spi_master_get_devdata(master);
 	spi_imx->bitbang.master = master;
@@ -1398,16 +1398,32 @@ static int spi_imx_probe(struct platform_device *pdev)
 	spi_imx->devtype_data = of_id ? of_id->data :
 		(struct spi_imx_devtype_data *)pdev->id_entry->driver_data;
 
-	if (mxc_platform_info) {
-		master->num_chipselect = mxc_platform_info->num_chipselect;
-		master->cs_gpios = devm_kzalloc(&master->dev,
+	master->cs_gpios = devm_kzalloc(&master->dev,
 			sizeof(int) * master->num_chipselect, GFP_KERNEL);
-		if (!master->cs_gpios)
-			return -ENOMEM;
 
-		for (i = 0; i < master->num_chipselect; i++)
-			master->cs_gpios[i] = mxc_platform_info->chipselect[i];
- 	}
+	if (!master->cs_gpios) {
+		dev_err(&pdev->dev, "No CS GPIOs available\n");
+		ret = -EINVAL;
+		goto out_master_put;
+	}
+
+	for (i = 0; i < master->num_chipselect; i++) {
+		int cs_gpio = of_get_named_gpio(np, "cs-gpios", i);
+		if (!gpio_is_valid(cs_gpio) && mxc_platform_info)
+			cs_gpio = mxc_platform_info->chipselect[i];
+
+		master->cs_gpios[i] = cs_gpio;
+		if (!gpio_is_valid(cs_gpio))
+			continue;
+
+		ret = devm_gpio_request(&pdev->dev, master->cs_gpios[i],
+					DRIVER_NAME);
+		if (ret) {
+			dev_err(&pdev->dev, "Can't get CS GPIO %i\n",
+				master->cs_gpios[i]);
+			goto out_master_put;
+		}
+	}
 
 	spi_imx->bitbang.chipselect = spi_imx_chipselect;
 	spi_imx->bitbang.setup_transfer = spi_imx_setupxfer;
