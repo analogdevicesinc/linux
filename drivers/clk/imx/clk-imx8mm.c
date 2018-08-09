@@ -956,7 +956,9 @@ static void __init imx8mm_clocks_init(struct device_node *ccm_node)
 			clk_prepare_enable(clks[clks_init_on[i]]);
 	}
 
-	clk_set_parent(clks[IMX8MM_CLK_AUDIO_AHB_SRC], clks[IMX8MM_SYS_PLL2_500M]);
+	clk_set_parent(clks[IMX8MM_CLK_AUDIO_AHB_SRC], clks[IMX8MM_SYS_PLL1_800M]);
+	clk_set_rate(clks[IMX8MM_CLK_AUDIO_AHB_DIV], 400000000);
+	clk_set_rate(clks[IMX8MM_CLK_IPG_AUDIO_ROOT], 400000000);
 
 	/* increase NOC clock to design target */
 	clk_set_rate(clks[IMX8MM_SYS_PLL3], 750000000);
