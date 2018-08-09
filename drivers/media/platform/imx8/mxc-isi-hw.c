@@ -71,7 +71,7 @@ static const u32 coeffs[2][6] = {
 	/* YUV2RGB */
 	{ 0x0000012A, 0x012A0198, 0x0730079C, 0x0204012A, 0x01F00000, 0x01800180 },
 	/* RGB->YUV */
-	{ 0x0096004D, 0x05DA001D, 0x007005B6, 0x057C009E, 0x000005E6, 0x00000000 },
+	{ 0x00810041, 0x07db0019, 0x007007b6, 0x07a20070, 0x001007ee, 0x00800080 },
 };
 
 static void printk_pixelformat(char *prefix, int val)
@@ -292,7 +292,7 @@ void mxc_isi_channel_set_csc(struct mxc_isi_dev *mxc_isi)
 	} else if (is_rgb(src_fmt->fourcc) && is_yuv(dst_fmt->fourcc)) {
 		/* RGB2YUV */
 		csc = RGB2YUV;
-		val |= (CHNL_IMG_CTRL_CSC_MODE_RGB2YUV << CHNL_IMG_CTRL_CSC_MODE_OFFSET);
+		val |= (CHNL_IMG_CTRL_CSC_MODE_RGB2YCBCR << CHNL_IMG_CTRL_CSC_MODE_OFFSET);
 	} else {
 		/* Bypass CSC */
 		printk("bypass csc\n");
