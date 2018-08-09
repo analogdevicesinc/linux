@@ -2428,16 +2428,19 @@ static int gpmi_nand_probe(struct platform_device *pdev)
 
 	ret = init_hardware(this);
 	if (ret)
-		goto exit_nfc_init;
+		goto exit_rpm;
 
 	ret = gpmi_nand_init(this);
 	if (ret)
-		goto exit_nfc_init;
+		goto exit_rpm;
 
 	dev_info(this->dev, "driver registered.\n");
 
 	return 0;
 
+exit_rpm:
+	pm_runtime_dont_use_autosuspend(this->dev);
+	pm_runtime_disable(this->dev);
 exit_nfc_init:
 	release_resources(this);
 exit_acquire_resources:
@@ -2449,6 +2452,7 @@ static int gpmi_nand_remove(struct platform_device *pdev)
 {
 	struct gpmi_nand_data *this = platform_get_drvdata(pdev);
 
+	release_bus_freq(BUS_FREQ_HIGH);
 	nand_release(nand_to_mtd(&this->nand));
 	gpmi_free_dma_buffer(this);
 	pm_runtime_disable(this->dev);
