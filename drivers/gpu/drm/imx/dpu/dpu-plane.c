@@ -478,8 +478,8 @@ static void dpu_plane_atomic_update(struct drm_plane *plane,
 
 	src_w = state->src_w >> 16;
 	src_h = state->src_h >> 16;
-	src_x = state->src_x >> 16;
-	src_y = state->src_y >> 16;
+	src_x = fb->modifier ? (state->src_x >> 16) : 0;
+	src_y = fb->modifier ? (state->src_y >> 16) : 0;
 
 	if (fetchunit_is_fetchdecode(fu)) {
 		if (fetchdecode_need_fetcheco(fu, fb->format->format)) {
