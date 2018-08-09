@@ -50,10 +50,6 @@
 #define SPINOR_OP_READ_1_2_2	0xbb	/* Read data bytes (Dual I/O SPI) */
 #define SPINOR_OP_READ_1_1_4	0x6b	/* Read data bytes (Quad Output SPI) */
 #define SPINOR_OP_READ_1_4_4	0xeb	/* Read data bytes (Quad I/O SPI) */
-#define SPINOR_OP_READ_1_1_4_D  0x6d    /* Read data bytes (DDR Quad SPI) */
-#define SPINOR_OP_READ_1_4_4_D  0xed    /* Read data bytes (DDR Quad SPI) */
-#define SPINOR_OP_READ_1_1_8_D	0x9d	/* Read data bytes (Octal Output SPI) */
-#define SPINOR_OP_READ_1_8_8_D	0xfd	/* Read data bytes (DDR Octal I/O SPI) */
 #define SPINOR_OP_PP		0x02	/* Page program (up to 256 bytes) */
 #define SPINOR_OP_PP_1_1_4	0x32	/* Quad page program */
 #define SPINOR_OP_PP_1_4_4	0x38	/* Quad page program */
@@ -85,11 +81,13 @@
 /* Double Transfer Rate opcodes - defined in JEDEC JESD216B. */
 #define SPINOR_OP_READ_1_1_1_DTR	0x0d
 #define SPINOR_OP_READ_1_2_2_DTR	0xbd
+#define SPINOR_OP_READ_1_1_4_DTR	0x6d
 #define SPINOR_OP_READ_1_4_4_DTR	0xed
 
 #define SPINOR_OP_READ_1_1_1_DTR_4B	0x0e
 #define SPINOR_OP_READ_1_2_2_DTR_4B	0xbe
 #define SPINOR_OP_READ_1_4_4_DTR_4B	0xee
+#define SPINOR_OP_READ_1_8_8_DTR_4B	0x9d
 
 /* Used for SST flashes only. */
 #define SPINOR_OP_BP		0x02	/* Byte program */

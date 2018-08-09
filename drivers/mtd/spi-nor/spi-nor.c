@@ -1059,7 +1059,7 @@ static const struct flash_info spi_nor_ids[] = {
 	{ "n25q512ax3",  INFO(0x20ba20, 0, 64 * 1024, 1024, SECT_4K | USE_FSR | SPI_NOR_QUAD_READ) },
 	{ "n25q00",      INFO(0x20ba21, 0, 64 * 1024, 2048, SECT_4K | USE_FSR | SPI_NOR_QUAD_READ | NO_CHIP_ERASE) },
 	{ "n25q00a",     INFO(0x20bb21, 0, 64 * 1024, 2048, SECT_4K | USE_FSR | SPI_NOR_QUAD_READ | NO_CHIP_ERASE) },
-	{"mt35xu512aba", INFO(0x2c5b1a, 0, 128 * 1024, 512, SECT_4K | SPI_NOR_OCTAL_READ) },
+	{"mt35xu512aba", INFO(0x2c5b1a, 0, 128 * 1024, 512, SECT_4K | SPI_NOR_OCTAL_READ | SPI_NOR_SKIP_SFDP) },
 
 	/* PMC */
 	{ "pm25lv512",   INFO(0,        0, 32 * 1024,    2, SECT_4K_PMC) },
@@ -2440,6 +2440,13 @@ static int spi_nor_init_params(struct spi_nor *nor,
 		spi_nor_set_read_settings(&params->reads[SNOR_CMD_READ_1_1_4],
 					  0, 8, SPINOR_OP_READ_1_1_4,
 					  SNOR_PROTO_1_1_4);
+	}
+
+	if (info->flags & SPI_NOR_OCTAL_READ) {
+		params->hwcaps.mask |= SNOR_HWCAPS_READ_1_8_8_DTR;
+		spi_nor_set_read_settings(&params->reads[SNOR_CMD_READ_1_8_8_DTR],
+					  0, 8, SPINOR_OP_READ_1_8_8_DTR_4B,
+					  SNOR_PROTO_1_8_8_DTR);
 	}
 
 	/* Page Program settings. */
