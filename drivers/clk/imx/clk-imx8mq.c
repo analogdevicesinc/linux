@@ -286,6 +286,14 @@ static int const clks_init_on[] __initconst = {
 	IMX8MQ_CLK_DRAM_APB_DIV,
 };
 
+static struct clk ** const uart_clks[] __initconst = {
+	&clks[IMX8MQ_CLK_UART1_ROOT],
+	&clks[IMX8MQ_CLK_UART2_ROOT],
+	&clks[IMX8MQ_CLK_UART3_ROOT],
+	&clks[IMX8MQ_CLK_UART4_ROOT],
+	NULL
+};
+
 static struct clk_onecell_data clk_data;
 
 static int __init imx_clk_init_on(struct device_node *np,
@@ -892,6 +900,8 @@ static void __init imx8mq_clocks_init(struct device_node *ccm_node)
 	clk_set_parent(clks[IMX8MQ_CLK_CSI2_CORE_SRC], clks[IMX8MQ_SYS1_PLL_266M]);
 	clk_set_parent(clks[IMX8MQ_CLK_CSI2_PHY_REF_SRC], clks[IMX8MQ_SYS2_PLL_1000M]);
 	clk_set_parent(clks[IMX8MQ_CLK_CSI2_ESC_SRC], clks[IMX8MQ_SYS1_PLL_800M]);
+
+	imx_register_uart_clocks(uart_clks);
 
 	pr_info("i.MX8MQ clock driver init done\n");
 }

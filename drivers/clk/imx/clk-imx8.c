@@ -18,7 +18,6 @@
 
 #include "clk-imx8.h"
 
-DEFINE_SPINLOCK(imx_ccm_lock);
 sc_ipc_t ccm_ipc_handle;
 
 int imx8_clk_mu_init(void)

@@ -379,6 +379,9 @@ static const char *imx8mm_vpu_h1_sels[] = {"osc_24m", "vpu_pll_out", "sys_pll1_8
 
 static const char *imx8mm_dram_core_sels[] = {"dram_pll_out", "dram_alt_root", };
 
+static struct clk *clks[IMX8MM_CLK_END];
+static struct clk_onecell_data clk_data;
+
 static int const clks_init_on[] __initconst = {
 	IMX8MM_CLK_AHB_CG, IMX8MM_CLK_DRAM_CORE,
 	IMX8MM_CLK_NOC_CG, IMX8MM_CLK_NOC_APB_CG,
@@ -389,11 +392,16 @@ static int const clks_init_on[] __initconst = {
 	IMX8MM_CLK_DISP_APB_CG,
 };
 
+static struct clk ** const uart_clks[] __initconst = {
+	&clks[IMX8MM_CLK_UART1_ROOT],
+	&clks[IMX8MM_CLK_UART2_ROOT],
+	&clks[IMX8MM_CLK_UART3_ROOT],
+	&clks[IMX8MM_CLK_UART4_ROOT],
+	NULL
+};
+
 static const char *imx8mm_clko1_sels[] = {"osc_24m", "sys_pll1_800m", "osc_27m", "sys_pll1_200m", "audio_pll2_clk",
 					 "vpu_pll", "sys_pll1_80m", };
-
-static struct clk *clks[IMX8MM_CLK_END];
-static struct clk_onecell_data clk_data;
 
 static int __init imx_clk_init_on(struct device_node *np,
 				  struct clk * const clks[])
@@ -966,6 +974,8 @@ static void __init imx8mm_clocks_init(struct device_node *ccm_node)
 	clk_set_rate(clks[IMX8MM_CLK_DISP_AXI_PRE_DIV], 500000000);
 	clk_set_parent(clks[IMX8MM_CLK_DISP_APB_SRC], clks[IMX8MM_SYS_PLL1_800M]);
 	clk_set_rate(clks[IMX8MM_CLK_DISP_APB_PRE_DIV], 200000000);
+
+	imx_register_uart_clocks(uart_clks);
 
 	pr_info("i.MX8MM clock driver init done\n");
 }
