@@ -1067,6 +1067,23 @@ static int gpu_suspend(struct platform_device *dev, pm_message_t state)
                 return -1;
             }
 
+            /* need pull up power to flush gpu command buffer before suspend */
+#if gcdENABLE_VG
+            if (i == gcvCORE_VG)
+            {
+                status = gckVGHARDWARE_SetPowerManagementState(device->kernels[i]->vg->hardware, gcvPOWER_ON);
+            }
+            else
+#endif
+            {
+                status = gckHARDWARE_SetPowerManagementState(device->kernels[i]->hardware, gcvPOWER_ON);
+            }
+
+            if (gcmIS_ERROR(status))
+            {
+                return -1;
+            }
+
 #if gcdENABLE_VG
             if (i == gcvCORE_VG)
             {
