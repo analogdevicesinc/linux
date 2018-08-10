@@ -1518,6 +1518,8 @@ static int sdhci_esdhc_imx_probe(struct platform_device *pdev)
 		writel(0x0, host->ioaddr + ESDHC_TUNE_CTRL_STATUS);
 	}
 
+	host->tuning_delay = 1;
+
 	if (imx_data->socdata->flags & ESDHC_FLAG_MAN_TUNING)
 		sdhci_esdhc_ops.platform_execute_tuning =
 					esdhc_executing_tuning;
