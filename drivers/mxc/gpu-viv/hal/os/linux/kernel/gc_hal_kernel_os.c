@@ -1151,8 +1151,7 @@ gckOS_UnmapMemoryEx(
 
         BUG_ON(!allocator || !allocator->ops->UnmapUser);
 
-        allocator->ops->UnmapUser(allocator, mdl, mdlMap,
-                mdl->numPages * PAGE_SIZE);
+        allocator->ops->UnmapUser(allocator, mdl, mdlMap, mdl->bytes);
 
         gcmkVERIFY_OK(_DestroyMdlMap(mdl, mdlMap));
 
@@ -1339,6 +1338,7 @@ gckOS_AllocateNonPagedMemory(
     /* Check status. */
     gcmkONERROR(status);
 
+    mdl->bytes    = bytes;
     mdl->numPages = numPages;
 
     mdl->contiguous = gcvTRUE;
@@ -1510,6 +1510,7 @@ gckOS_RequestReservedMemory(
 
     /* Assign alloator. */
     mdl->allocator  = allocator;
+    mdl->bytes      = Size;
     mdl->numPages   = Size >> PAGE_SHIFT;
     mdl->contiguous = gcvTRUE;
     mdl->addr       = gcvNULL;
@@ -2059,7 +2060,7 @@ _ConvertLogical2Physical(
     /* Is the given address within that range. */
     if ((vBase != gcvNULL)
     &&  ((gctINT8_PTR) Logical >= vBase)
-    &&  ((gctINT8_PTR) Logical <  vBase + Mdl->numPages * PAGE_SIZE)
+    &&  ((gctINT8_PTR) Logical <  vBase + Mdl->bytes)
     )
     {
         offset = (gctINT8_PTR) Logical - vBase;
@@ -2123,7 +2124,7 @@ gckOS_MapPhysical(
         if (mdl->dmaHandle != 0)
         {
             if ((physical >= mdl->dmaHandle)
-            &&  (physical <  mdl->dmaHandle + mdl->numPages * PAGE_SIZE)
+            &&  (physical <  mdl->dmaHandle + mdl->bytes)
             )
             {
                 *Logical = mdl->addr + (physical - mdl->dmaHandle);
@@ -2257,7 +2258,7 @@ gckOS_UnmapPhysical(
         if (mdl->addr != gcvNULL)
         {
             if ((Logical >= (gctPOINTER)mdl->addr) &&
-                (Logical < (gctPOINTER)((gctSTRING)mdl->addr + mdl->numPages * PAGE_SIZE)))
+                (Logical < (gctPOINTER)((gctSTRING)mdl->addr + mdl->bytes)))
             {
                 found = gcvTRUE;
                 break;
@@ -3097,6 +3098,7 @@ gckOS_AllocatePagedMemoryEx(
 
     mdl->dmaHandle  = 0;
     mdl->addr       = 0;
+    mdl->bytes      = bytes;
     mdl->numPages   = numPages;
     mdl->contiguous = Flag & gcvALLOC_FLAG_CONTIGUOUS;
 
@@ -3578,7 +3580,7 @@ gckOS_UnlockPages(
                     allocator,
                     mdl,
                     mdlMap,
-                    mdl->numPages * PAGE_SIZE);
+                    mdl->bytes);
 
                 mdlMap->vmaAddr = gcvNULL;
             }
@@ -7535,7 +7537,8 @@ gckOS_WrapMemory(
     mdl->dmaHandle  = 0;
     mdl->addr       = 0;
 
-    *Bytes = bytes ? bytes : mdl->numPages * PAGE_SIZE;
+    mdl->bytes = bytes ? bytes : mdl->numPages * PAGE_SIZE;
+    *Bytes = mdl->bytes;
 
     /* Return physical address. */
     *Physical = (gctPHYS_ADDR) mdl;
