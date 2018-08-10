@@ -281,6 +281,12 @@ typedef struct soc_platform_ops
 }
 gcsPLATFORM_OPERATIONS;
 
+enum
+{
+    /* GPU can't issue more that 32bit physical address */
+    gcvPLATFORM_FLAG_LIMIT_4G_ADDRESS = 1 << 0,
+};
+
 struct soc_platform
 {
 #if USE_LINUX_PCIE
@@ -293,6 +299,8 @@ struct soc_platform
 
     const char *name;
     gcsPLATFORM_OPERATIONS* ops;
+    /* PLATFORM specific flags */
+    gctUINT32  flagBits;
 };
 
 #if USE_LINUX_PCIE

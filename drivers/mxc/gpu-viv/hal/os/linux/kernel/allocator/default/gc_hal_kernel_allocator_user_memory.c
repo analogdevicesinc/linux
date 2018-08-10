@@ -463,6 +463,47 @@ _Import(
         gcmkONERROR(gcvSTATUS_OUT_OF_RESOURCES);
     }
 
+    if(Os->device->platform->flagBits & gcvPLATFORM_FLAG_LIMIT_4G_ADDRESS )
+    {
+        gctPHYS_ADDR_T addr;
+
+        if (Physical != gcvINVALID_PHYSICAL_ADDRESS)
+        {
+            if(Physical >0xFFFFFFFFu || Physical + Size > 0xFFFFFFFFu )
+            {
+                gcmkONERROR(gcvSTATUS_INVALID_ARGUMENT);
+            }
+        }
+        else if (vm_flags & VM_PFNMAP)
+        {
+            for(i = 0; i < pageCount; i++)
+            {
+                addr =  UserMemory->pfns[i] << PAGE_SHIFT;
+                if( addr > 0xFFFFFFFFu)
+                {
+                    kfree(UserMemory->pfns);
+                    UserMemory->pfns = gcvNULL;
+                    kfree(UserMemory->refs) ;
+                    UserMemory->refs = gcvNULL;
+                    gcmkONERROR(gcvSTATUS_INVALID_ARGUMENT);
+                }
+            }
+        }
+        else
+        {
+            for (i = 0; i< pageCount; i++)
+            {
+                addr = page_to_phys(UserMemory->pages[i]);
+                if(addr > 0xFFFFFFFFu )
+                {
+                    kfree(UserMemory->pages);
+                    UserMemory->pages = gcvNULL;
+                    gcmkONERROR(gcvSTATUS_INVALID_ARGUMENT);
+                }
+            }
+        }
+    }
+
     UserMemory->vm_flags = vm_flags;
     UserMemory->user_vaddr = (unsigned long)Memory;
     UserMemory->size  = Size;
