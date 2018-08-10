@@ -338,7 +338,7 @@ static int imx8qxp_clk_probe(struct platform_device *pdev)
 	clks[IMX8QXP_SPI2_DIV] = imx_clk_divider_scu("spi2_div", SC_R_SPI_2, SC_PM_CLK_PER);
 	clks[IMX8QXP_SPI3_DIV] = imx_clk_divider_scu("spi3_div", SC_R_SPI_3, SC_PM_CLK_PER);
 	clks[IMX8QXP_SPI0_CLK] = imx_clk_gate_scu("spi0_clk", "spi0_div", SC_R_SPI_0, SC_PM_CLK_PER, (void __iomem *)(LPSPI_0_LPCG), 0, 0);
-	clks[IMX8QXP_SPI1_CLK] = imx_clk_gate_scu("spi1_clk", "spi1_div", SC_R_SPI_2, SC_PM_CLK_PER, (void __iomem *)(LPSPI_1_LPCG), 0, 0);
+	clks[IMX8QXP_SPI1_CLK] = imx_clk_gate_scu("spi1_clk", "spi1_div", SC_R_SPI_1, SC_PM_CLK_PER, (void __iomem *)(LPSPI_1_LPCG), 0, 0);
 	clks[IMX8QXP_SPI2_CLK] = imx_clk_gate_scu("spi2_clk", "spi2_div", SC_R_SPI_2, SC_PM_CLK_PER, (void __iomem *)(LPSPI_2_LPCG), 0, 0);
 	clks[IMX8QXP_SPI3_CLK] = imx_clk_gate_scu("spi3_clk", "spi3_div", SC_R_SPI_3, SC_PM_CLK_PER, (void __iomem *)(LPSPI_3_LPCG), 0, 0);
 	clks[IMX8QXP_CAN0_IPG_CHI_CLK]   = imx_clk_gate2_scu("can0_ipg_chi_clk", "ipg_dma_clk_root", (void __iomem *)(FLEX_CAN_0_LPCG), 20, FUNCTION_NAME(PD_DMA_CAN_0));

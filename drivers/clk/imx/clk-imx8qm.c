@@ -449,7 +449,7 @@ static int imx8qm_clk_probe(struct platform_device *pdev)
 	clks[IMX8QM_SPI2_IPG_CLK]   = imx_clk_gate2_scu("spi2_ipg_clk", "ipg_dma_clk_root", LPCG_ADDR(LPSPI_2_LPCG), 16, FUNCTION_NAME(PD_DMA_SPI_2));
 	clks[IMX8QM_SPI3_IPG_CLK]   = imx_clk_gate2_scu("spi3_ipg_clk", "ipg_dma_clk_root", LPCG_ADDR(LPSPI_3_LPCG), 16, FUNCTION_NAME(PD_DMA_SPI_3));
 	clks[IMX8QM_SPI0_CLK] = imx_clk_gate_scu("spi0_clk", "spi0_div", SC_R_SPI_0, SC_PM_CLK_PER, LPCG_ADDR(LPSPI_0_LPCG), 0, 0);
-	clks[IMX8QM_SPI1_CLK] = imx_clk_gate_scu("spi1_clk", "spi1_div", SC_R_SPI_2, SC_PM_CLK_PER, LPCG_ADDR(LPSPI_1_LPCG), 0, 0);
+	clks[IMX8QM_SPI1_CLK] = imx_clk_gate_scu("spi1_clk", "spi1_div", SC_R_SPI_1, SC_PM_CLK_PER, LPCG_ADDR(LPSPI_1_LPCG), 0, 0);
 	clks[IMX8QM_SPI2_CLK] = imx_clk_gate_scu("spi2_clk", "spi2_div", SC_R_SPI_2, SC_PM_CLK_PER, LPCG_ADDR(LPSPI_2_LPCG), 0, 0);
 	clks[IMX8QM_SPI3_CLK] = imx_clk_gate_scu("spi3_clk", "spi3_div", SC_R_SPI_3, SC_PM_CLK_PER, LPCG_ADDR(LPSPI_3_LPCG), 0, 0);
 	clks[IMX8QM_EMVSIM0_IPG_CLK]   = imx_clk_gate2_scu("emvsim0_ipg_clk", "ipg_dma_clk_root", LPCG_ADDR(EMVSIM_0_LPCG), 16, FUNCTION_NAME(PD_DMA_EMVSIM_0));
