@@ -101,8 +101,13 @@ struct sync_pt * viv_sync_pt_create(struct viv_sync_timeline *obj,
 #else /* v4.9.0 */
 
 #include <linux/sync_file.h>
-#include <linux/dma-fence.h>
-#include <linux/dma-fence-array.h>
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,10,0)
+#  include <linux/fence.h>
+#  include <linux/fence-array.h>
+#else
+#  include <linux/dma-fence.h>
+#  include <linux/dma-fence-array.h>
+#endif
 
 #include <gc_hal.h>
 #include <gc_hal_base.h>
