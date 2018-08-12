@@ -317,7 +317,9 @@ int lcdif_set_pix_fmt(struct lcdif_soc *lcdif, u32 format)
 		ctrl1 |= CTRL1_SET_BYTE_PACKAGING(0xf);
 
 		/* 'BGR' order */
-		if (format == DRM_FORMAT_BGR565)
+		if (format == DRM_FORMAT_BGR565		||
+		    format == DRM_FORMAT_ABGR1555	||
+		    format == DRM_FORMAT_XBGR1555)
 			writel(CTRL2_ODD_LINE_PATTERN(0x5) |
 			       CTRL2_EVEN_LINE_PATTERN(0x5),
 			       lcdif->base + LCDIF_CTRL2 + REG_SET);
