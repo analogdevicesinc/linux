@@ -45,16 +45,12 @@ static int lcdif_plane_atomic_check(struct drm_plane *plane,
 				    struct drm_plane_state *plane_state)
 {
 	int ret;
-	uint32_t bus_fmt;
-	struct lcdif_plane *lcdif_plane = to_lcdif_plane(plane);
-	struct lcdif_soc *lcdif = lcdif_plane->lcdif;
 	struct drm_plane_state *old_state = plane->state;
 	struct drm_framebuffer *fb = plane_state->fb;
 	struct drm_framebuffer *old_fb = old_state->fb;
 	struct drm_crtc_state *crtc_state;
 	struct drm_display_mode *mode;
 	struct drm_rect clip = { 0 };
-	unsigned int flags;
 
 	/* 'fb' should also be NULL which has been checked in
 	 * the core sanity check function 'drm_atomic_plane_check()'
@@ -71,15 +67,6 @@ static int lcdif_plane_atomic_check(struct drm_plane *plane,
 	crtc_state = drm_atomic_get_existing_crtc_state(plane_state->state,
 							plane_state->crtc);
 	mode = &crtc_state->adjusted_mode;
-
-	bus_fmt = lcdif_get_bus_fmt_from_pix_fmt(lcdif, fb->format->format);
-	if (bus_fmt < 0)
-		return -EINVAL;
-
-	/* check fb pixel format matches bus format */
-	flags = mode->private_flags & 0xffff;
-	if (flags != bus_fmt)
-		return -EINVAL;
 
 	clip.x2 = mode->hdisplay;
 	clip.y2 = mode->vdisplay;
