@@ -140,6 +140,9 @@ static void lcdif_crtc_atomic_enable(struct drm_crtc *crtc,
 
 	lcdif_set_mode(lcdif, &vm);
 
+	/* config LCDIF output bus format */
+	lcdif_set_bus_fmt(lcdif, imx_crtc_state->bus_format);
+
 	/* defer the lcdif controller enable to plane update,
 	 * since until then the lcdif config is complete to
 	 * enable the controller to run actually.

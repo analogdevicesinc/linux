@@ -289,8 +289,7 @@ int lcdif_set_pix_fmt(struct lcdif_soc *lcdif, u32 format)
 
 	/* clear pixel format related bits */
 	ctrl  &= ~(CTRL_SHIFT_NUM(0x3f)  | CTRL_INPUT_SWIZZLE(0x3) |
-		   CTRL_CSC_SWIZZLE(0x3) | CTRL_SET_BUS_WIDTH(0x3) |
-		   CTRL_SET_WORD_LENGTH(0x3));
+		   CTRL_CSC_SWIZZLE(0x3) | CTRL_SET_WORD_LENGTH(0x3));
 
 	ctrl1 &= ~CTRL1_SET_BYTE_PACKAGING(0xf);
 
@@ -312,7 +311,6 @@ int lcdif_set_pix_fmt(struct lcdif_soc *lcdif, u32 format)
 			format == DRM_FORMAT_BGR565) ?
 			(ctrl & ~CTRL_DF16) : (ctrl | CTRL_DF16);
 
-		ctrl |= CTRL_SET_BUS_WIDTH(0x0);
 		ctrl |= CTRL_SET_WORD_LENGTH(0x0);
 
 		/* Byte packing */
@@ -333,7 +331,6 @@ int lcdif_set_pix_fmt(struct lcdif_soc *lcdif, u32 format)
 	case DRM_FORMAT_RGBX8888:
 		/*Data format */
 		ctrl &= ~CTRL_DF24;
-		ctrl |= CTRL_SET_BUS_WIDTH(3);
 		ctrl |= CTRL_SET_WORD_LENGTH(3);
 
 		if (format == DRM_FORMAT_RGBA8888 ||
@@ -362,6 +359,30 @@ int lcdif_set_pix_fmt(struct lcdif_soc *lcdif, u32 format)
 	return 0;
 }
 EXPORT_SYMBOL(lcdif_set_pix_fmt);
+
+void lcdif_set_bus_fmt(struct lcdif_soc *lcdif, u32 bus_format)
+{
+	u32 bus_width;
+
+	switch (bus_format) {
+	case MEDIA_BUS_FMT_RGB565_1X16:
+		bus_width = CTRL_SET_BUS_WIDTH(STMLCDIF_16BIT);
+		break;
+	case MEDIA_BUS_FMT_RGB666_1X18:
+		bus_width = CTRL_SET_BUS_WIDTH(STMLCDIF_18BIT);
+		break;
+	case MEDIA_BUS_FMT_RGB888_1X24:
+		bus_width = CTRL_SET_BUS_WIDTH(STMLCDIF_24BIT);
+		break;
+	default:
+		dev_err(lcdif->dev, "unknown bus format: %#x\n", bus_format);
+		return;
+	}
+
+	writel(CTRL_SET_BUS_WIDTH(0x3), lcdif->base + LCDIF_CTRL + REG_CLR);
+	writel(bus_width, lcdif->base + LCDIF_CTRL + REG_SET);
+}
+EXPORT_SYMBOL(lcdif_set_bus_fmt);
 
 void lcdif_set_fb_addr(struct lcdif_soc *lcdif, int id, u32 addr)
 {
