@@ -50,7 +50,7 @@
 #include "insert_startcode.h"
 
 unsigned int vpu_dbg_level_decoder = 1;
-static unsigned int vpu_frm_depth = 100;
+static int vpu_frm_depth = 100;
 
 /* Generic End of content startcodes to differentiate from those naturally in the stream/file */
 #define EOS_GENERIC_HEVC 0x7c010000
@@ -1301,9 +1301,15 @@ static void transfer_buffer_to_firmware(struct vpu_ctx *ctx, void *input_buffer,
 	if (ctx->b_dis_reorder) {
 		/* set the shared memory space control with this */
 		MediaIPFW_Video_CodecParams *pCodecPara;
+
 		add_scode(ctx, 0, BUFFLUSH_PADDING_TYPE);
 		pCodecPara = (MediaIPFW_Video_CodecParams *)ctx->dev->shared_mem.codec_mem_vir;
 		pCodecPara[ctx->str_index].uDispImm = 1;
+	} else {
+		MediaIPFW_Video_CodecParams *pCodecPara;
+
+		pCodecPara = (MediaIPFW_Video_CodecParams *)ctx->dev->shared_mem.codec_mem_vir;
+		pCodecPara[ctx->str_index].uDispImm = 0;
 	}
 
 	/*initialize frame count*/
