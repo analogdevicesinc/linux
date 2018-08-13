@@ -650,8 +650,6 @@ static int ad9517_setup(struct ad9517_state *st, unsigned int num_outputs)
 
 	if (st->regs[AD9517_INPUT_CLKS] & AD9517_VCO_DIVIDER_BP)
 		uses_clkin = true;
-	else
-		uses_vco = true;
 
 	if (uses_vco) {
 		if (st->refin_freq == 0) {
@@ -678,7 +676,7 @@ static int ad9517_setup(struct ad9517_state *st, unsigned int num_outputs)
 	}
 
 	/* Internal clock distribution */
-	if (st->regs[AD9517_INPUT_CLKS] & AD9517_VCO_DIVIDER_SEL) {
+	if (uses_vco) {
 		vco_divin_freq = vco_freq;
 		vco_divin_parent_name = ad9517_get_parent_name(st, "refclk");
 	} else {
