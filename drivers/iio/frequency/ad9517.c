@@ -96,6 +96,7 @@
 #define AD9517_SDO_ACTIVE	(0x81)
 #define AD9517_LONG_INSTR	(0x18)
 
+#define MAX_NUM_DIVIDERS 5
 #define MAX_NUM_OUTPUTS 10
 
 /*
@@ -118,6 +119,13 @@ struct ad9517_platform_data {
 	unsigned num_regs;
 };
 
+struct ad9517_clk_div {
+	struct ad9517_state *st;
+	unsigned int address;
+
+	struct clk_hw hw;
+};
+
 struct ad9517_outputs {
 	struct ad9517_state *st;
 	struct clk_hw hw;
@@ -128,6 +136,8 @@ struct ad9517_outputs {
 struct ad9517_state {
 	struct spi_device *spi;
 	unsigned char regs[AD9517_TRANSFER+1];
+
+	struct ad9517_clk_div clk_divs[MAX_NUM_DIVIDERS];
 
 	struct ad9517_outputs output[MAX_NUM_OUTPUTS];
 	struct clk *clks[MAX_NUM_OUTPUTS];
@@ -158,6 +168,11 @@ static const unsigned char to_prescaler[] = {
 };
 
 #define to_ad9517_clk_output(_hw) container_of(_hw, struct ad9517_outputs, hw)
+
+static inline struct ad9517_clk_div *clk_to_ad9517_clk_div(struct clk_hw *hw)
+{
+	return container_of(hw, struct ad9517_clk_div, hw);
+}
 
 static int ad9517_read(struct spi_device *spi, unsigned reg)
 {
@@ -725,21 +740,15 @@ static int ad9517_setup(struct ad9517_state *st, unsigned int num_outputs)
 static unsigned long ad9517_recalc_rate(struct clk_hw *hw,
 		unsigned long parent_rate)
 {
-	return ad9517_get_frequency(to_ad9517_clk_output(hw)->st,
-				    to_ad9517_clk_output(hw)->address);
-}
-
-static int ad9517_clk_is_enabled(struct clk_hw *hw)
-{
-	return ad9517_is_enabled(to_ad9517_clk_output(hw)->st,
-				 to_ad9517_clk_output(hw)->address);
+	return ad9517_get_frequency(clk_to_ad9517_clk_div(hw)->st,
+				    clk_to_ad9517_clk_div(hw)->address);
 }
 
 static long ad9517_clk_round_rate(struct clk_hw *hw, unsigned long rate,
 				  unsigned long *prate)
 {
-	struct ad9517_state *st = to_ad9517_clk_output(hw)->st;
-	unsigned int address = to_ad9517_clk_output(hw)->address;
+	struct ad9517_state *st = clk_to_ad9517_clk_div(hw)->st;
+	unsigned int address = clk_to_ad9517_clk_div(hw)->address;
 	long rrate;
 	unsigned d1, d2;
 
@@ -762,10 +771,16 @@ static long ad9517_clk_round_rate(struct clk_hw *hw, unsigned long rate,
 static int ad9517_clk_set_rate(struct clk_hw *hw, unsigned long rate,
 			       unsigned long prate)
 {
-	struct ad9517_state *st = to_ad9517_clk_output(hw)->st;
-	unsigned int address = to_ad9517_clk_output(hw)->address;
+	struct ad9517_state *st = clk_to_ad9517_clk_div(hw)->st;
+	unsigned int address = clk_to_ad9517_clk_div(hw)->address;
 
 	return ad9517_set_frequency(st, address, rate);
+}
+
+static int ad9517_clk_is_enabled(struct clk_hw *hw)
+{
+	return ad9517_is_enabled(to_ad9517_clk_output(hw)->st,
+				 to_ad9517_clk_output(hw)->address);
 }
 
 static int ad9517_clk_prepare(struct clk_hw *hw)
@@ -782,11 +797,14 @@ static void ad9517_clk_unprepare(struct clk_hw *hw)
 	ad9517_out_enable(st, to_ad9517_clk_output(hw)->address, 0);
 }
 
-static const struct clk_ops ad9517_clk_ops = {
+static const struct clk_ops ad9517_clk_div_ops = {
 	.recalc_rate = ad9517_recalc_rate,
-	.is_enabled = ad9517_clk_is_enabled,
 	.set_rate = ad9517_clk_set_rate,
 	.round_rate = ad9517_clk_round_rate,
+};
+
+static const struct clk_ops ad9517_clk_ops = {
+	.is_enabled = ad9517_clk_is_enabled,
 	.prepare = ad9517_clk_prepare,
 	.unprepare = ad9517_clk_unprepare,
 };
@@ -794,15 +812,43 @@ static const struct clk_ops ad9517_clk_ops = {
 static struct clk *ad9517_clk_register(struct ad9517_state *st,
 	unsigned int num)
 {
-	struct clk_init_data init;
 	struct ad9517_outputs *output = &st->output[num];
+	struct clk_init_data init;
+	unsigned int div_num;
+	char div_name[128];
+	const char *parent_name;
 	struct clk *clk;
 	char name[8];
 	int ret;
 
+	div_num = num / 2;
+
+	snprintf(div_name, sizeof(div_name), "%s-div%d",
+		dev_name(&st->spi->dev), div_num);
+	parent_name = div_name;
+
+	/* Register a clock divider for every second clock */
+	if (num % 2 == 0) {
+		init.ops = &ad9517_clk_div_ops;
+		init.parent_names = &output->parent_name;
+		init.num_parents = 1;
+		init.name = div_name;
+		init.flags = 0;
+
+		st->clk_divs[div_num].st = st;
+		st->clk_divs[div_num].hw.init = &init;
+		st->clk_divs[div_num].address = output->address;
+
+		clk = devm_clk_register(&st->spi->dev,
+			&st->clk_divs[div_num].hw);
+		if (IS_ERR(clk))
+			return clk;
+	}
+
 	init.ops = &ad9517_clk_ops;
-	init.parent_names = &output->parent_name;
+	init.parent_names = &parent_name;
 	init.num_parents = 1;
+	init.flags = CLK_SET_RATE_PARENT;
 
 	ret = of_property_read_string_index(st->spi->dev.of_node,
 		"clock-output-names", num, &init.name);
