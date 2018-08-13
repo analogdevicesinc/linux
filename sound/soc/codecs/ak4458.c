@@ -674,10 +674,12 @@ static int ak4458_hw_params(struct snd_pcm_substream *substream,
 		dfs1 |= AK4458_DFS01_192KHZ;
 		dfs2 |= AK4458_DFS2__192KHZ;
 		break;
+	case 352800:
 	case 384000:
 		dfs1 |= AK4458_DFS01_384KHZ;
 		dfs2 |= AK4458_DFS2__384KHZ;
 		break;
+	case 705600:
 	case 768000:
 		dfs1 |= AK4458_DFS01_768KHZ;
 		dfs2 |= AK4458_DFS2__768KHZ;
