@@ -154,6 +154,37 @@ struct ad9517_state {
 	struct mutex lock;
 };
 
+/* Registers not listed are implicitly initialized to 0x00 */
+static const unsigned char ad9517_default_regs[AD9517_TRANSFER+1] = {
+	[AD9517_PFD_CP] = 0x7d,
+	[AD9517_RCNT_L] = 0x01,
+	[AD9517_BCNT_L] = 0x03,
+	[AD9517_PLL1] = 0x06,
+	[AD9517_PLL3] = 0x06,
+	[AD9517_OUT_DELAY_BP(0)] = 0x01,
+	[AD9517_OUT_DELAY_BP(1)] = 0x01,
+	[AD9517_OUT_DELAY_BP(2)] = 0x01,
+	[AD9517_OUT_DELAY_BP(3)] = 0x01,
+	[AD9517_OUT_LVPECL(0)] = 0x0a,
+	[AD9517_OUT_LVPECL(1)] = 0x0a,
+	[AD9517_OUT_LVPECL(2)] = 0x0a,
+	[AD9517_OUT_LVPECL(3)] = 0x0a,
+	[AD9517_OUT_LVPECL(4)] = 0x0a,
+	[AD9517_OUT_LVPECL(5)] = 0x0a,
+	[AD9517_OUT_CMOS(0)] = 0x43,
+	[AD9517_OUT_CMOS(1)] = 0x43,
+	[AD9517_OUT_CMOS(2)] = 0x43,
+	[AD9517_OUT_CMOS(3)] = 0x43,
+	[AD9517_PECLDIV_2(0)] = 0x80,
+	[AD9517_PECLDIV_2(1)] = 0x80,
+	[AD9517_PECLDIV_2(2)] = 0x80,
+	[AD9517_CMOSDIV_1(0)] = 0x22,
+	[AD9517_CMOSDIV_2(0)] = 0x11,
+	[AD9517_CMOSDIV_1(1)] = 0x22,
+	[AD9517_CMOSDIV_2(1)] = 0x11,
+	[AD9517_VCO_DIVIDER] = 0x02,
+};
+
 #define IS_FD				(1 << 7)
 #define AD9517_PLL1_PRESCALER_MASK	0x7
 static const unsigned char to_prescaler[] = {
@@ -1058,19 +1089,23 @@ static int ad9517_probe(struct spi_device *spi)
 		const char *name;
 		if (spi->dev.of_node) {
 			if (of_property_read_string(spi->dev.of_node, "firmware", &name))
-				name = FIRMWARE;
+				name = NULL;
 		} else {
 			name = FIRMWARE;
 		}
 
-		ret = request_firmware(&fw, name, &spi->dev);
-		if (ret) {
-			dev_err(&spi->dev,
-				"request_firmware() failed with %i\n", ret);
-			return ret;
+		if (name) {
+			ret = request_firmware(&fw, name, &spi->dev);
+			if (ret) {
+				dev_err(&spi->dev,
+					"request_firmware() failed with %i\n", ret);
+				return ret;
+			}
+			ad9517_parse_firmware(st, fw->data, fw->size);
+			release_firmware(fw);
+		} else {
+			memcpy(st->regs, ad9517_default_regs, sizeof(st->regs));
 		}
-		ad9517_parse_firmware(st, fw->data, fw->size);
-		release_firmware(fw);
 	} else {
 		ret = ad9517_parse_pdata(st, pdata);
 		if (ret < 0) {
