@@ -61,8 +61,8 @@
 			compatible = "regulator-fixed";
 			reg = <0>;
 			pinctrl-names = "default", "sleep";
-			pinctrl-0 = <&pinctrl_usb_otg1>;
-			pinctrl-1 = <&pinctrl_usb_otg1>;
+			pinctrl-0 = <&pinctrl_usbotg1_vbus>;
+			pinctrl-1 = <&pinctrl_usbotg1_vbus>;
 			regulator-name = "usb_otg1_vbus";
 			regulator-min-microvolt = <5000000>;
 			regulator-max-microvolt = <5000000>;
@@ -90,14 +90,6 @@
 			startup-delay-us = <100>;
 			enable-active-high;
 		};
-	};
-
-	extcon_usb1: extcon_usb1 {
-		compatible = "linux,extcon-usb-gpio";
-		id-gpio = <&gpio_ptc 13 GPIO_ACTIVE_HIGH>;
-		pinctrl-names = "default", "sleep";
-		pinctrl-0 = <&pinctrl_extcon_usb1>;
-		pinctrl-1 = <&pinctrl_extcon_usb1>;
 	};
 
 	pf1550-rpmsg {
@@ -323,15 +315,15 @@
 			>;
 		};
 
-		pinctrl_usb_otg1: usbotg1grp {
+		pinctrl_usbotg1_vbus: otg1vbusgrp {
 			fsl,pins = <
 				IMX7ULP_PAD_PTC0__PTC0		0x20000
 			>;
 		};
 
-		pinctrl_extcon_usb1: extcon1grp {
+		pinctrl_usbotg1_id: otg1idgrp {
 			fsl,pins = <
-				IMX7ULP_PAD_PTC13__PTC13	0x10003
+				IMX7ULP_PAD_PTC13__USB0_ID	0x10003
 			>;
 		};
 
@@ -531,7 +523,8 @@
 
 &usbotg1 {
 	vbus-supply = <&reg_usb_otg1_vbus>;
-	extcon = <0>, <&extcon_usb1>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_usbotg1_id>;
 	srp-disable;
 	hnp-disable;
 	adp-disable;
