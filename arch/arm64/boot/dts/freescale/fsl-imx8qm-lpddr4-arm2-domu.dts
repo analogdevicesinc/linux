@@ -361,10 +361,6 @@
 	status = "okay";
 };
 
-/delete-node/ &flexcan1;
-/delete-node/ &flexcan2;
-/delete-node/ &flexcan3;
-
 &i2c1_lvds1 {
 	reg = <0x1 0x57247000 0x0 0x1000>;
 	status = "okay";
