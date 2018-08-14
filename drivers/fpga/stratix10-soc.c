@@ -462,6 +462,7 @@ static const struct fpga_manager_ops s10_ops = {
 static int s10_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
+	struct fpga_manager *mgr;
 	struct s10_priv *priv;
 	int ret;
 
@@ -483,11 +484,20 @@ static int s10_probe(struct platform_device *pdev)
 
 	init_completion(&priv->status_return_completion);
 
-	ret = fpga_mgr_register(dev, "Stratix10 SOC FPGA Manager",
-				&s10_ops, priv);
-
-	if (ret)
+	mgr = fpga_mgr_create(dev, "Stratix10 SOC FPGA Manager",
+			      &s10_ops, priv);
+	if (!mgr) {
 		free_svc_channel(priv->chan);
+		return -ENOMEM;
+	}
+
+	platform_set_drvdata(pdev, mgr);
+
+	ret = fpga_mgr_register(mgr);
+	if (ret) {
+		fpga_mgr_free(mgr);
+		free_svc_channel(priv->chan);
+	}
 
 	return ret;
 }
@@ -497,7 +507,7 @@ static int s10_remove(struct platform_device *pdev)
 	struct fpga_manager *mgr = platform_get_drvdata(pdev);
 	struct s10_priv *priv = mgr->priv;
 
-	fpga_mgr_unregister(&pdev->dev);
+	fpga_mgr_unregister(mgr);
 	free_svc_channel(priv->chan);
 
 	return 0;
