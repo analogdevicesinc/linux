@@ -605,6 +605,10 @@ struct aximcdma_bd {
 #define XAE_TSN_MIN_QUEUES	2
 #endif
 
+#ifdef CONFIG_XILINX_TSN
+#define XAE_MAX_TSN_TC		3
+#endif
+
 enum axienet_tsn_ioctl {
 	SIOCCHIOCTL = SIOCDEVPRIVATE,
 	SIOC_GET_SCHED,
