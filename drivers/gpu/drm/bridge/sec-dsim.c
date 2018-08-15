@@ -367,6 +367,13 @@ static int sec_mipi_dsim_host_attach(struct mipi_dsi_host *host,
 		dsim->panel = panel;
 	}
 
+	/* TODO: DSIM 3 lanes has some display issue, so
+	 * avoid 3 lanes enable, and force data lanes to
+	 * be 2.
+	 */
+	if (dsi->lanes == 3)
+		dsi->lanes = 2;
+
 	dsim->lanes	 = dsi->lanes;
 	dsim->channel	 = dsi->channel;
 	dsim->format	 = dsi->format;
