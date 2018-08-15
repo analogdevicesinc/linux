@@ -1157,9 +1157,11 @@ static bool fsl_sai_volatile_reg(struct device *dev, unsigned int reg)
 	if (reg == FSL_SAI_TCSR(offset) || reg == FSL_SAI_RCSR(offset))
 		return true;
 
+	if (sai->soc->reg_offset == 8 && (reg == FSL_SAI_VERID ||
+				reg == FSL_SAI_PARAM))
+		return true;
+
 	switch (reg) {
-	case FSL_SAI_VERID:
-	case FSL_SAI_PARAM:
 	case FSL_SAI_TFR0:
 	case FSL_SAI_TFR1:
 	case FSL_SAI_TFR2:
