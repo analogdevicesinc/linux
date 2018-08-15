@@ -26,6 +26,8 @@
 #include "imx-dp.h"
 #include "../imx-drm.h"
 
+#define B0_SILICON_ID			0x11
+
 struct drm_display_mode *g_mode;
 
 static struct drm_display_mode edid_cea_modes[] = {
@@ -1246,6 +1248,10 @@ static int imx_hdp_imx_bind(struct device *dev, struct device *master,
 	hdp->is_edp = of_property_read_bool(pdev->dev.of_node, "fsl,edp");
 
 	hdp->no_edid = of_property_read_bool(pdev->dev.of_node, "fsl,no_edid");
+
+	/* EDID function is not supported by iMX8QM A0 */
+	if (cpu_is_imx8qm() && (imx8_get_soc_revision() < B0_SILICON_ID))
+		hdp->no_edid = true;
 
 	ret = of_property_read_u32(pdev->dev.of_node,
 				       "lane_mapping",
