@@ -1776,7 +1776,9 @@
 		#size-cells = <0>;
 		reg = <0x0 0x56268000 0x0 0x100000>, /* HDP Controller */
 				<0x0 0x56261000 0x0 0x1000>; /* HDP SubSystem CSR  */
-		interrupts = <10 IRQ_TYPE_LEVEL_HIGH>;
+		interrupts = <10 IRQ_TYPE_LEVEL_HIGH>,
+						<13 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "plug_in", "plug_out";
 		interrupt-parent = <&irqsteer_hdmi>;
 		status = "disabled";
 		clocks = <&clk IMX8QM_HDMI_DIG_PLL_CLK>,
