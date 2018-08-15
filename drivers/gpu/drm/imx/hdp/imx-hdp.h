@@ -114,7 +114,6 @@ struct hdp_ops {
 };
 
 struct hdp_devtype {
-	u8 is_edid;
 	u8 is_4kp60;
 	u8 audio_type;
 	struct hdp_ops *ops;
@@ -203,11 +202,11 @@ struct imx_hdp {
 
 	struct hdp_mem mem;
 
-	u8 is_edid;
 	u8 is_4kp60;
 	u8 is_cec;
 	u8 is_edp;
 	u8 is_digpll_dp_pclock;
+	u8 no_edid;
 	u8 audio_type;
 	u32 lane_mapping;
 	u32 edp_link_rate;

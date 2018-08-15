@@ -735,7 +735,7 @@ static int imx_hdp_connector_get_modes(struct drm_connector *connector)
 	struct edid *edid;
 	int num_modes = 0;
 
-	if (hdp->is_edid == true) {
+	if (!hdp->no_edid) {
 		edid = drm_do_get_edid(connector, hdp->ops->get_edid_block, &hdp->state);
 		if (edid) {
 			dev_dbg(hdp->dev, "%x,%x,%x,%x,%x,%x,%x,%x\n",
@@ -775,7 +775,7 @@ imx_hdp_connector_mode_valid(struct drm_connector *connector,
 	cmdline_mode = &connector->cmdline_mode;
 
 	/* cmdline mode is the max support video mode when edid disabled */
-	if (!hdp->is_edid) {
+	if (hdp->no_edid) {
 		if (cmdline_mode->xres != 0 &&
 			cmdline_mode->xres < mode->hdisplay)
 			return MODE_BAD_HVALUE;
@@ -1084,7 +1084,6 @@ static struct hdp_ops imx8qm_hdmi_ops = {
 };
 
 static struct hdp_devtype imx8qm_dp_devtype = {
-	.is_edid = false,
 	.is_4kp60 = false,
 	.audio_type = CDN_DPTX,
 	.ops = &imx8qm_dp_ops,
@@ -1092,7 +1091,6 @@ static struct hdp_devtype imx8qm_dp_devtype = {
 };
 
 static struct hdp_devtype imx8qm_hdmi_devtype = {
-	.is_edid = false,
 	.is_4kp60 = false,
 	.audio_type = CDN_HDMITX_TYPHOON,
 	.ops = &imx8qm_hdmi_ops,
@@ -1117,7 +1115,6 @@ static struct hdp_ops imx8mq_ops = {
 };
 
 static struct hdp_devtype imx8mq_hdmi_devtype = {
-	.is_edid = true,
 	.is_4kp60 = true,
 	.audio_type = CDN_HDMITX_KIRAN,
 	.ops = &imx8mq_ops,
@@ -1133,7 +1130,6 @@ static struct hdp_ops imx8mq_dp_ops = {
 };
 
 static struct hdp_devtype imx8mq_dp_devtype = {
-	.is_edid = true,
 	.is_4kp60 = true,
 	.audio_type = CDN_DPTX,
 	.ops = &imx8mq_dp_ops,
@@ -1249,6 +1245,8 @@ static int imx_hdp_imx_bind(struct device *dev, struct device *master,
 
 	hdp->is_edp = of_property_read_bool(pdev->dev.of_node, "fsl,edp");
 
+	hdp->no_edid = of_property_read_bool(pdev->dev.of_node, "fsl,no_edid");
+
 	ret = of_property_read_u32(pdev->dev.of_node,
 				       "lane_mapping",
 				       &hdp->lane_mapping);
@@ -1276,7 +1274,6 @@ static int imx_hdp_imx_bind(struct device *dev, struct device *master,
 	}
 	dev_info(dev, "dp_num_lanes 0x%02x\n", hdp->edp_num_lanes);
 
-	hdp->is_edid = devtype->is_edid;
 	hdp->is_4kp60 = devtype->is_4kp60;
 	hdp->audio_type = devtype->audio_type;
 	hdp->ops = devtype->ops;
