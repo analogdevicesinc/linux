@@ -265,7 +265,7 @@ typedef struct {
 	u_int32 uHeapBase;
 	u_int32 uHeapSize;
 
-	u_int32 uFSLCacheBaseAddr;
+	u_int32 uFSLCacheBaseAddr[2];
 
 } MEDIAIP_FW_SYSTEM_CONFIG, *pMEDIAIP_FW_SYSTEM_CONFIG;
 

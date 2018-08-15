@@ -197,7 +197,8 @@ void rpc_set_system_cfg_value(void *Interface, u_int32 regs_base)
 	pSystemCfg->uDPVBaseAddr = 0x0;
 	pSystemCfg->uDPVIrqPin = 0x0;
 	pSystemCfg->uPixIfBaseAddr = (unsigned int)(regs_base + 0x180000 + 0x20000);
-	pSystemCfg->uFSLCacheBaseAddr = (unsigned int)(regs_base + 0x60000);
+	pSystemCfg->uFSLCacheBaseAddr[0] = (unsigned int)(regs_base + 0x60000);
+	pSystemCfg->uFSLCacheBaseAddr[1] = (unsigned int)(regs_base + 0x68000);
 }
 
 u_int32 rpc_MediaIPFW_Video_buffer_space_check(MediaIPFW_Video_BufDesc *pBufDesc,

@@ -22,3 +22,14 @@
         model = "Freescale i.MX8QM LPDDR4 ARM2";
         compatible = "fsl,imx8qm-lpddr4-arm2", "fsl,imx8qm";
 };
+
+&vpu_decoder {
+	core_type = <2>;
+	status = "okay";
+};
+
+&vpu_encoder {
+	core_type = <2>;
+	status = "okay";
+};
+

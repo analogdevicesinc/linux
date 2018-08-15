@@ -125,7 +125,7 @@ void rpc_init_shared_memory_encoder(struct shared_addr *This,
 	}
 }
 
-void rpc_set_system_cfg_value_encoder(void *Interface, u_int32 regs_base)
+void rpc_set_system_cfg_value_encoder(void *Interface, u_int32 regs_base, u_int32 core_id)
 {
 	pENC_RPC_HOST_IFACE pSharedInterface;
 	MEDIAIP_FW_SYSTEM_CONFIG *pSystemCfg;
@@ -136,7 +136,10 @@ void rpc_set_system_cfg_value_encoder(void *Interface, u_int32 regs_base)
 	pSystemCfg->uWindsorIrqPin[0x0][0x0] = 0x4; // PAL_IRQ_WINDSOR_LOW
 	pSystemCfg->uWindsorIrqPin[0x0][0x1] = 0x5; // PAL_IRQ_WINDSOR_HI
 	pSystemCfg->uMaloneBaseAddress[0] = (unsigned int)(regs_base + 0x180000);
-	pSystemCfg->uWindsorBaseAddress[0] = (unsigned int)(regs_base + 0x800000);
+	if (core_id == 0)
+		pSystemCfg->uWindsorBaseAddress[0] = (unsigned int)(regs_base + 0x800000);
+	else
+		pSystemCfg->uWindsorBaseAddress[0] = (unsigned int)(regs_base + 0xa00000);
 	pSystemCfg->uMaloneBaseAddress[0x1] = 0x0;
 	pSystemCfg->uHifOffset[0x0] = 0x1C000;
 	pSystemCfg->uHifOffset[0x1] = 0x0;
@@ -144,7 +147,8 @@ void rpc_set_system_cfg_value_encoder(void *Interface, u_int32 regs_base)
 	pSystemCfg->uDPVBaseAddr = 0x0;
 	pSystemCfg->uDPVIrqPin = 0x0;
 	pSystemCfg->uPixIfBaseAddr = (unsigned int)(regs_base + 0x180000 + 0x20000);
-	pSystemCfg->uFSLCacheBaseAddr = (unsigned int)(regs_base + 0x60000);
+	pSystemCfg->uFSLCacheBaseAddr[0] = (unsigned int)(regs_base + 0x60000);
+	pSystemCfg->uFSLCacheBaseAddr[1] = (unsigned int)(regs_base + 0x68000);
 }
 
 u_int32 rpc_MediaIPFW_Video_buffer_space_check_encoder(BUFFER_DESCRIPTOR_TYPE *pBufDesc,

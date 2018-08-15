@@ -83,6 +83,11 @@ typedef enum{
 	EVENT
 } MSG_Type;
 
+enum PLAT_TYPE {
+	IMX8QXP = 0,
+	IMX8QM  = 1,
+};
+
 enum QUEUE_TYPE {
 	V4L2_SRC = 0,
 	V4L2_DST = 1,
@@ -171,17 +176,13 @@ struct queue_data {
 	enum QUEUE_TYPE type;
 };
 struct vpu_ctx;
-struct vpu_dev {
-	struct device *generic_dev;
-	struct v4l2_device v4l2_dev;
-	struct video_device *pvpu_encoder_dev;
-	struct platform_device *plat_dev;
+struct core_device {
 	struct firmware *m0_pfw;
 	void *m0_p_fw_space_vir;
 	u_int32 m0_p_fw_space_phy;
 	void *m0_rpc_virt;
 	u_int32 m0_rpc_phy;
-	struct mutex dev_mutex;
+	struct mutex core_mutex;
 	struct mutex cmd_mutex;
 	bool fw_is_ready;
 	bool firmware_started;
@@ -191,17 +192,27 @@ struct vpu_dev {
 	struct work_struct msg_work;
 	unsigned long instance_mask;
 	unsigned long hang_mask; //this is used to deal with hang issue to reset firmware
-	sc_ipc_t mu_ipcHandle;
-	struct clk *vpu_clk;
 	void __iomem *mu_base_virtaddr;
 	unsigned int vpu_mu_id;
 	int vpu_mu_init;
 
-	struct clk *clk_m0;
-	void __iomem *regs_base;
-
-	struct shared_addr shared_mem;
 	struct vpu_ctx *ctx[VPU_MAX_NUM_STREAMS];
+	struct shared_addr shared_mem;
+};
+struct vpu_dev {
+	struct device *generic_dev;
+	struct v4l2_device v4l2_dev;
+	struct video_device *pvpu_encoder_dev;
+	struct platform_device *plat_dev;
+	sc_ipc_t mu_ipcHandle;
+	struct clk *clk_m0;
+	struct firmware *m0_pfw;
+	struct clk *vpu_clk;
+	void __iomem *regs_base;
+	struct mutex dev_mutex;
+	struct core_device core_dev[2];
+	u_int32 plat_type;
+//	struct vpu_ctx *ctx[VPU_MAX_NUM_STREAMS];
 };
 
 struct buffer_addr {
@@ -239,6 +250,7 @@ struct vpu_ctx {
 	struct buffer_addr encFrame[MEDIAIP_MAX_NUM_WINDSOR_SRC_FRAMES];
 	struct buffer_addr refFrame[MEDIAIP_MAX_NUM_WINDSOR_REF_FRAMES];
 	struct buffer_addr actFrame;
+	u_int32 core_id;
 
 };
 

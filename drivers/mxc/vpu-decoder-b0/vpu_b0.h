@@ -87,6 +87,10 @@ typedef enum{
 	EVENT
 } MSG_Type;
 
+enum PLAT_TYPE {
+	IMX8QXP = 0,
+	IMX8QM  = 1,
+};
 
 enum QUEUE_TYPE {
 	V4L2_SRC = 0,
@@ -212,6 +216,7 @@ struct vpu_dev {
 	void __iomem *mu_base_virtaddr;
 	unsigned int vpu_mu_id;
 	int vpu_mu_init;
+	u_int32 plat_type;
 
 	struct clk *clk_m0;
 	void __iomem *regs_base;
