@@ -851,6 +851,18 @@ static void adv7511_bridge_mode_set(struct drm_bridge *bridge,
 	adv7511_mode_set(adv, mode, adj_mode);
 }
 
+static bool adv7511_bridge_mode_fixup(struct drm_bridge *bridge,
+				      const struct drm_display_mode *mode,
+				      struct drm_display_mode *adjusted_mode)
+{
+	struct adv7511 *adv = bridge_to_adv7511(bridge);
+
+	if (adv->type == ADV7533 || adv->type == ADV7535)
+		return adv7533_mode_fixup(adv, adjusted_mode);
+
+	return true;
+}
+
 static int adv7511_bridge_attach(struct drm_bridge *bridge)
 {
 	struct adv7511 *adv = bridge_to_adv7511(bridge);
@@ -888,6 +900,7 @@ static const struct drm_bridge_funcs adv7511_bridge_funcs = {
 	.enable = adv7511_bridge_enable,
 	.disable = adv7511_bridge_disable,
 	.mode_set = adv7511_bridge_mode_set,
+	.mode_fixup = adv7511_bridge_mode_fixup,
 	.attach = adv7511_bridge_attach,
 };
 

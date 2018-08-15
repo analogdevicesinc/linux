@@ -355,6 +355,7 @@ struct adv7511 {
 void adv7533_dsi_power_on(struct adv7511 *adv);
 void adv7533_dsi_power_off(struct adv7511 *adv);
 void adv7533_mode_set(struct adv7511 *adv, struct drm_display_mode *mode);
+bool adv7533_mode_fixup(struct adv7511 *adv, struct drm_display_mode *mode);
 int adv7533_patch_registers(struct adv7511 *adv);
 void adv7533_uninit_cec(struct adv7511 *adv);
 int adv7533_init_cec(struct adv7511 *adv);
@@ -373,6 +374,12 @@ static inline void adv7533_dsi_power_off(struct adv7511 *adv)
 static inline void adv7533_mode_set(struct adv7511 *adv,
 				    struct drm_display_mode *mode)
 {
+}
+
+static inline bool adv7533_mode_fixup(struct adv7511 *adv,
+				      struct drm_display_mode *mode)
+{
+	return true;
 }
 
 static inline int adv7533_patch_registers(struct adv7511 *adv)
