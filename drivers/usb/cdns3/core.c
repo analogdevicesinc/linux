@@ -134,6 +134,7 @@ static void cdns_set_role(struct cdns3 *cdns, enum cdns3_roles role)
 {
 	u32 value;
 	int timeout_us = 100000;
+	void __iomem *xhci_regs = cdns->xhci_regs;
 
 	if (role == CDNS3_ROLE_END)
 		return;
@@ -189,6 +190,10 @@ static void cdns_set_role(struct cdns3 *cdns, enum cdns3_roles role)
 
 		if (timeout_us <= 0)
 			dev_err(cdns->dev, "wait xhci_power_on_ready timeout\n");
+
+		value = readl(xhci_regs + XECP_PORT_CAP_REG);
+		value |= LPM_2_STB_SWITCH_EN;
+		writel(value, xhci_regs + XECP_PORT_CAP_REG);
 
 		mdelay(1);
 
@@ -704,23 +709,9 @@ static void cdns3_enter_suspend(struct cdns3 *cdns, bool suspend, bool wakeup)
 
 	disable_irq(cdns->irq);
 	if (suspend) {
-		value = readl(otg_regs + OTGREFCLK);
-		value |= OTG_STB_CLK_SWITCH_EN;
-		writel(value, otg_regs + OTGREFCLK);
-
-		value = readl(xhci_regs + XECP_PORT_CAP_REG);
-		value |= LPM_2_STB_SWITCH_EN;
-		writel(value, xhci_regs + XECP_PORT_CAP_REG);
 		if (cdns3_role(cdns)->suspend)
 			cdns3_role(cdns)->suspend(cdns, wakeup);
 
-		/*
-		 * SW should ensure LPM_2_STB_SWITCH_EN and RXDET_IN_P3_32KHZ
-		 * are aligned before setting CFG_RXDET_P3_EN
-		 */
-		value = readl(xhci_regs + XECP_AUX_CTRL_REG1);
-		value |= CFG_RXDET_P3_EN;
-		writel(value, xhci_regs + XECP_AUX_CTRL_REG1);
 		/* SW request low power when all usb ports allow to it ??? */
 		value = readl(xhci_regs + XECP_PM_PMCSR);
 		value |= PS_D0;
