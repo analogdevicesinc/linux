@@ -1671,6 +1671,7 @@ struct xhci_driver_overrides {
 			    struct usb_tt *tt, gfp_t mem_flags);
 	int (*hub_control)(struct usb_hcd *hcd, u16 typeReq, u16 wValue,
 			   u16 wIndex, char *buf, u16 wLength);
+	int (*bus_suspend)(struct usb_hcd *hcd);
 };
 
 #define	XHCI_CFC_DELAY		10

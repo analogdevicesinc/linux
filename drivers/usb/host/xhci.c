@@ -5427,6 +5427,8 @@ void xhci_init_driver(struct hc_driver *drv,
 			drv->update_hub_device = over->update_hub_device;
 		if (over->hub_control)
 			drv->hub_control = over->hub_control;
+		if (over->bus_suspend)
+			drv->bus_suspend = over->bus_suspend;
 	}
 }
 EXPORT_SYMBOL_GPL(xhci_init_driver);
