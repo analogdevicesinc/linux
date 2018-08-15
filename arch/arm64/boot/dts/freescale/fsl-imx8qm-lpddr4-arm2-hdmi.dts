@@ -60,7 +60,7 @@
 	assigned-clock-parents = <&clk IMX8QM_HDMI_AV_PLL_CLK>,
 							<&clk IMX8QM_HDMI_AV_PLL_CLK>,
 							<&clk IMX8QM_HDMI_AV_PLL_CLK>;
-	fsl,cec;
+	fsl,no_edid;
 	status = "okay";
 };
 
