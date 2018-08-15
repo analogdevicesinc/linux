@@ -25,6 +25,8 @@ struct sec_mipi_dsim_plat_data {
 					   struct drm_display_mode *mode);
 };
 
+int sec_mipi_dsim_check_pll_out(void *driver_private,
+				const struct drm_display_mode *mode);
 int sec_mipi_dsim_bind(struct device *dev, struct device *master, void *data,
 		       struct drm_encoder *encoder, struct resource *res,
 		       int irq, const struct sec_mipi_dsim_plat_data *pdata);

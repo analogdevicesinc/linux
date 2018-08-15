@@ -938,11 +938,12 @@ static void sec_mipi_dsim_set_standby(struct sec_mipi_dsim *dsim,
 	dsim_write(dsim, mdresol, DSIM_MDRESOL);
 }
 
-static int sec_mipi_dsim_check_pll_out(struct sec_mipi_dsim *dsim,
-				       const struct drm_display_mode *mode)
+int sec_mipi_dsim_check_pll_out(void *driver_private,
+				const struct drm_display_mode *mode)
 {
 	int bpp;
 	uint64_t pix_clk, bit_clk, ref_clk;
+	struct sec_mipi_dsim *dsim = driver_private;
 	const struct sec_mipi_dsim_plat_data *pdata = dsim->pdata;
 
 	bpp = mipi_dsi_pixel_format_to_bpp(dsim->format);
@@ -973,6 +974,7 @@ static int sec_mipi_dsim_check_pll_out(struct sec_mipi_dsim *dsim,
 
 	return 0;
 }
+EXPORT_SYMBOL(sec_mipi_dsim_check_pll_out);
 
 static void sec_mipi_dsim_bridge_enable(struct drm_bridge *bridge)
 {
@@ -1093,12 +1095,8 @@ static bool sec_mipi_dsim_bridge_mode_fixup(struct drm_bridge *bridge,
 					    const struct drm_display_mode *mode,
 					    struct drm_display_mode *adjusted_mode)
 {
-	int ret, private_flags;
+	int private_flags;
 	struct sec_mipi_dsim *dsim = bridge->driver_private;
-
-	ret = sec_mipi_dsim_check_pll_out(dsim, mode);
-	if (ret)
-		return false;
 
 	/* Since mipi dsi cannot do color conversion,
 	 * so the pixel format output by mipi dsi should
