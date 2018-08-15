@@ -5039,6 +5039,8 @@ void xhci_init_driver(struct hc_driver *drv,
 			drv->reset = over->reset;
 		if (over->start)
 			drv->start = over->start;
+		if (over->bus_suspend)
+			drv->bus_suspend = over->bus_suspend;
 	}
 }
 EXPORT_SYMBOL_GPL(xhci_init_driver);
