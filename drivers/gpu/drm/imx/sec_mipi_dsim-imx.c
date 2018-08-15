@@ -132,10 +132,11 @@ static int imx_sec_dsim_encoder_helper_atomic_check(struct drm_encoder *encoder,
 						    struct drm_crtc_state *crtc_state,
 						    struct drm_connector_state *conn_state)
 {
-	int i;
+	int i, ret;
 	u32 bus_format;
 	unsigned int num_bus_formats;
 	struct imx_sec_dsim_device *dsim_dev = enc_to_dsim(encoder);
+	struct drm_bridge *bridge = encoder->bridge;
 	struct drm_display_mode *adjusted_mode = &crtc_state->adjusted_mode;
 	struct imx_crtc_state *imx_crtc_state = to_imx_crtc_state(crtc_state);
 	struct drm_display_info *display_info = &conn_state->connector->display_info;
@@ -156,6 +157,12 @@ static int imx_sec_dsim_encoder_helper_atomic_check(struct drm_encoder *encoder,
 		dev_err(dsim_dev->dev, "invalid bus format for connector\n");
 		return -EINVAL;
 	}
+
+	/* check pll out */
+	ret = sec_mipi_dsim_check_pll_out(bridge->driver_private,
+					  adjusted_mode);
+	if (ret)
+		return ret;
 
 	/* sec dsim can only accept active hight DE */
 	imx_crtc_state->bus_flags |= DRM_BUS_FLAG_DE_HIGH;
