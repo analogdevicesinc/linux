@@ -699,7 +699,7 @@
 		max-snk-mw = <15000>;
 		port-type = "drp";
 		default-role = "sink";
-		status = "disabled";
+		status = "okay";
 	};
 };
 
@@ -934,7 +934,7 @@
 &usbotg2 {
 	dr_mode = "otg";
 	extcon = <0>, <&typec2_ptn5110>;
-	status = "disabled";
+	status = "okay";
 };
 
 &usdhc1 {
