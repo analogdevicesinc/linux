@@ -205,6 +205,9 @@
 #define PLLCTRL_DPDNSWAP_DAT		BIT(24)
 #define PLLCTRL_PLLEN			BIT(23)
 #define PLLCTRL_SET_PMS(x)		REG_PUT(x, 19,  1)
+   #define PLLCTRL_SET_P(x)		REG_PUT(x, 18, 13)
+   #define PLLCTRL_SET_M(x)		REG_PUT(x, 12,  3)
+   #define PLLCTRL_SET_S(x)		REG_PUT(x,  2,  0)
 
 #define PHYTIMING_SET_M_TLPXCTL(x)	REG_PUT(x, 15,  8)
 #define PHYTIMING_SET_M_THSEXITCTL(x)	REG_PUT(x,  7,  0)
@@ -285,6 +288,13 @@ struct dsim_hblank_par {
 	int lanes;
 };
 
+struct dsim_pll_pms {
+	uint64_t bit_clk;	/* kHz */
+	uint32_t p;
+	uint32_t m;
+	uint32_t s;
+};
+
 struct sec_mipi_dsim {
 	struct mipi_dsi_host dsi_host;
 	struct drm_connector connector;
@@ -333,6 +343,12 @@ struct sec_mipi_dsim {
 	.hsa_wc   = (hsa),				\
 	.lanes	  = (num)
 
+#define DSIM_PLL_PMS(c, pp, mm, ss)			\
+	.bit_clk = (c),					\
+	.p = (pp),					\
+	.m = (mm),					\
+	.s = (ss)
+
 static const struct dsim_hblank_par hblank_4lanes[] = {
 	/* {  88, 148, 44 } */
 	{ DSIM_HBLANK_PARAM("1920x1080", 60,  60, 105,  27, 4), },
@@ -365,6 +381,19 @@ static const struct dsim_hblank_par hblank_2lanes[] = {
 	{ DSIM_HBLANK_PARAM("720x576"  , 50,  12,  96,  72, 2), },
 	/* {  16,  48, 96 } */
 	{ DSIM_HBLANK_PARAM("640x480"  , 60,  18,  66, 138, 2), },
+};
+
+static const struct dsim_pll_pms pll_pms[] = {
+	{ DSIM_PLL_PMS(891000, 1, 66, 1), },
+	{ DSIM_PLL_PMS(890112, 1, 66, 1), },
+	{ DSIM_PLL_PMS(594000, 3, 66, 0), },
+	{ DSIM_PLL_PMS(593408, 3, 66, 0), },
+	{ DSIM_PLL_PMS(445500, 1, 66, 2), },
+	{ DSIM_PLL_PMS(445056, 1, 66, 2), },
+	{ DSIM_PLL_PMS(324000, 3, 72, 1), },
+	{ DSIM_PLL_PMS(324324, 3, 72, 1), },
+	{ DSIM_PLL_PMS(162000, 3, 72, 2), },
+	{ DSIM_PLL_PMS(162162, 3, 72, 2), },
 };
 
 static const struct dsim_hblank_par *sec_mipi_dsim_get_hblank_par(const char *name,
@@ -402,6 +431,21 @@ static const struct dsim_hblank_par *sec_mipi_dsim_get_hblank_par(const char *na
 			/* found */
 			return hpar;
 		}
+	}
+
+	return NULL;
+}
+
+static const struct dsim_pll_pms *sec_mipi_dsim_get_pms(uint64_t bit_clk)
+{
+	int i;
+	const struct dsim_pll_pms *pms;
+
+	for (i = 0; i < ARRAY_SIZE(pll_pms); i++) {
+		pms = &pll_pms[i];
+
+		if (bit_clk == pms->bit_clk)
+			return pms;
 	}
 
 	return NULL;
@@ -1046,6 +1090,7 @@ int sec_mipi_dsim_check_pll_out(void *driver_private,
 	struct sec_mipi_dsim *dsim = driver_private;
 	const struct sec_mipi_dsim_plat_data *pdata = dsim->pdata;
 	const struct dsim_hblank_par *hpar;
+	const struct dsim_pll_pms *pms;
 
 	bpp = mipi_dsi_pixel_format_to_bpp(dsim->format);
 	if (bpp < 0)
@@ -1076,12 +1121,18 @@ int sec_mipi_dsim_check_pll_out(void *driver_private,
 			return -EINVAL;
 		dsim->hpar = hpar;
 
+		pms = sec_mipi_dsim_get_pms(dsim->bit_clk);
+		if (WARN_ON(!pms))
+			return -EINVAL;
+
 		ref_clk = PHY_REF_CLK / 1000;
 		/* TODO: add PMS calculate and check
 		 * Only support '1080p@60Hz' for now,
 		 * add other modes support later
 		 */
-		dsim->pms = 0x4210;
+		dsim->pms = PLLCTRL_SET_P(pms->p) |
+			    PLLCTRL_SET_M(pms->m) |
+			    PLLCTRL_SET_S(pms->s);
 	}
 
 	return 0;
