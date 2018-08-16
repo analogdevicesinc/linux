@@ -13,7 +13,7 @@
  */
 
 #include "fsl-imx8qxp-mek.dts"
-
+#include "fsl-imx8qxp-xen.dtsi"
 
 / {
 	chosen {
@@ -28,17 +28,10 @@
                        reg = <0x00000000 0x80a00000 0x00000000 0xf93a00>;
                };
 	};
-};
 
-&lpuart0 {
-	interrupt-parent = <&gic>;
 };
 
 &imx8_gpu_ss {
 	/delete-property/ reg;
 	/delete-property/ reg-names;
-};
-
-&rtc {
-	status = "disabled";
 };

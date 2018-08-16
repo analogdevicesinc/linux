@@ -1,0 +1,61 @@
+/*
+ * Copyright 2018 NXP
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/ {
+	/delete-node/ wu;
+};
+
+&usbotg1 {
+	interrupt-parent = <&gic>;
+};
+
+&flexcan1 {
+	interrupt-parent = <&gic>;
+};
+
+&flexcan2 {
+	interrupt-parent = <&gic>;
+};
+
+&flexcan3 {
+	interrupt-parent = <&gic>;
+};
+
+&usbotg3 {
+	interrupt-parent = <&gic>;
+};
+
+&lpuart0 {
+	interrupt-parent = <&gic>;
+};
+
+&lpuart1 {
+	interrupt-parent = <&gic>;
+};
+
+&lpuart2 {
+	interrupt-parent = <&gic>;
+};
+
+&lpuart3 {
+	interrupt-parent = <&gic>;
+};
+
+&fec1 {
+	interrupt-parent = <&gic>;
+};
+
+&fec2 {
+	interrupt-parent = <&gic>;
+};
