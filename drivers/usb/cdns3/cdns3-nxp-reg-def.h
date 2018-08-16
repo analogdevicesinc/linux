@@ -168,5 +168,7 @@
 #define CFG_RXDET_P3_EN		(1 << 15)
 
 /* XECP_PM_PMCSR */
-#define PS_D0			(1 << 0)
+#define PS_MASK			(3 << 0)
+#define PS_D0			0
+#define PS_D1			(1 << 0)
 #endif /* __DRIVERS_USB_CDNS3_NXP_H */

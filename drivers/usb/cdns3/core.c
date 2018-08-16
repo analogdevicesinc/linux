@@ -714,7 +714,8 @@ static void cdns3_enter_suspend(struct cdns3 *cdns, bool suspend, bool wakeup)
 
 		/* SW request low power when all usb ports allow to it ??? */
 		value = readl(xhci_regs + XECP_PM_PMCSR);
-		value |= PS_D0;
+		value &= ~PS_MASK;
+		value |= PS_D1;
 		writel(value, xhci_regs + XECP_PM_PMCSR);
 
 		/* mdctrl_clk_sel */
@@ -774,7 +775,8 @@ static void cdns3_enter_suspend(struct cdns3 *cdns, bool suspend, bool wakeup)
 
 		/* SW request D0 */
 		value = readl(xhci_regs + XECP_PM_PMCSR);
-		value &= ~PS_D0;
+		value &= ~PS_MASK;
+		value |= PS_D0;
 		writel(value, xhci_regs + XECP_PM_PMCSR);
 
 		/* clr CFG_RXDET_P3_EN */
