@@ -708,6 +708,7 @@ static void dpu_plane_atomic_update(struct drm_plane *plane,
 }
 
 static const struct drm_plane_helper_funcs dpu_plane_helper_funcs = {
+	.prepare_fb = drm_fb_cma_prepare_fb,
 	.atomic_check = dpu_plane_atomic_check,
 	.atomic_update = dpu_plane_atomic_update,
 };
