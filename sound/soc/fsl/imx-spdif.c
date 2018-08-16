@@ -12,10 +12,36 @@
 #include <linux/module.h>
 #include <linux/of_platform.h>
 #include <sound/soc.h>
+#include "fsl_spdif.h"
 
 struct imx_spdif_data {
 	struct snd_soc_dai_link dai;
 	struct snd_soc_card card;
+};
+
+#define CLK_8K_FREQ    24576000
+#define CLK_11K_FREQ   22579200
+
+static int imx_spdif_hw_params(struct snd_pcm_substream *substream,
+		struct snd_pcm_hw_params *params)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct device *dev = rtd->card->dev;
+	int ret;
+	u64 rate = params_rate(params);
+	unsigned int freq;
+
+	freq = do_div(rate, 8000) ? CLK_11K_FREQ : CLK_8K_FREQ;
+	ret = snd_soc_dai_set_sysclk(rtd->cpu_dai, STC_TXCLK_SPDIF_ROOT,
+		freq, SND_SOC_CLOCK_OUT);
+	if (ret)
+		dev_err(dev, "failed to set cpu sysclk: %d\n", ret);
+
+	return ret;
+}
+
+static struct snd_soc_ops imx_spdif_ops = {
+	.hw_params = imx_spdif_hw_params,
 };
 
 static int imx_spdif_audio_probe(struct platform_device *pdev)
@@ -45,6 +71,7 @@ static int imx_spdif_audio_probe(struct platform_device *pdev)
 	data->dai.platform_of_node = spdif_np;
 	data->dai.playback_only = true;
 	data->dai.capture_only = true;
+	data->dai.ops = &imx_spdif_ops;
 
 	if (of_property_read_bool(np, "spdif-out"))
 		data->dai.capture_only = false;
