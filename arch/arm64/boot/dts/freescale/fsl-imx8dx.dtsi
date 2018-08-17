@@ -2443,7 +2443,7 @@
 		power-domains = <&pd_conn_usb2_phy>;
 	};
 
-	usbotg3: cdns3@5b110000 {
+	usbotg3: usb3@5b110000 {
 		compatible = "Cadence,usb3";
 		reg = <0x0 0x5B110000 0x0 0x10000>,
 			<0x0 0x5B130000 0x0 0x10000>,
