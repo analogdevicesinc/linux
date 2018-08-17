@@ -2460,6 +2460,7 @@ static void __cdns3_gadget_stop(struct cdns3 *cdns)
 	usb_gadget_disconnect(&usb_ss->gadget);
 	spin_lock_irqsave(&usb_ss->lock, flags);
 	usb_ss->gadget.speed = USB_SPEED_UNKNOWN;
+	usb_gadget_set_state(&usb_ss->gadget, USB_STATE_NOTATTACHED);
 	/* disable interrupt for device */
 	gadget_writel(usb_ss, &usb_ss->regs->usb_ien, 0);
 	gadget_writel(usb_ss, &usb_ss->regs->usb_conf, USB_CONF__DEVDS__MASK);
