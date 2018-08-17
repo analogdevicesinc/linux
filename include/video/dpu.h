@@ -546,6 +546,7 @@ u32 extdst_last_control_word(struct dpu_extdst *ed);
 void extdst_pixel_cnt(struct dpu_extdst *ed, u16 *x, u16 *y);
 void extdst_last_pixel_cnt(struct dpu_extdst *ed, u16 *x, u16 *y);
 u32 extdst_perfresult(struct dpu_extdst *ed);
+bool extdst_is_master(struct dpu_extdst *ed);
 struct dpu_extdst *dpu_ed_get(struct dpu_soc *dpu, int id);
 void dpu_ed_put(struct dpu_extdst *ed);
 struct dpu_extdst *dpu_aux_ed_peek(struct dpu_extdst *ed);

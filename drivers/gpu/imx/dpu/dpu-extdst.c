@@ -401,6 +401,12 @@ u32 extdst_perfresult(struct dpu_extdst *ed)
 }
 EXPORT_SYMBOL_GPL(extdst_perfresult);
 
+bool extdst_is_master(struct dpu_extdst *ed)
+{
+	return ed->id == 0;
+}
+EXPORT_SYMBOL_GPL(extdst_is_master);
+
 struct dpu_extdst *dpu_ed_get(struct dpu_soc *dpu, int id)
 {
 	struct dpu_extdst *ed;
