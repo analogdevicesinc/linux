@@ -425,6 +425,20 @@ void framegen_disable_clock(struct dpu_framegen *fg)
 }
 EXPORT_SYMBOL_GPL(framegen_disable_clock);
 
+bool framegen_is_master(struct dpu_framegen *fg)
+{
+	const struct dpu_data *data = fg->dpu->data;
+
+	return fg->id == data->master_stream_id;
+}
+EXPORT_SYMBOL_GPL(framegen_is_master);
+
+bool framegen_is_slave(struct dpu_framegen *fg)
+{
+	return !framegen_is_master(fg);
+}
+EXPORT_SYMBOL_GPL(framegen_is_slave);
+
 struct dpu_framegen *dpu_fg_get(struct dpu_soc *dpu, int id)
 {
 	struct dpu_framegen *fg;

@@ -507,6 +507,8 @@ bool framegen_secondary_is_syncup(struct dpu_framegen *fg);
 void framegen_wait_for_secondary_syncup(struct dpu_framegen *fg);
 void framegen_enable_clock(struct dpu_framegen *fg);
 void framegen_disable_clock(struct dpu_framegen *fg);
+bool framegen_is_master(struct dpu_framegen *fg);
+bool framegen_is_slave(struct dpu_framegen *fg);
 struct dpu_framegen *dpu_fg_get(struct dpu_soc *dpu, int id);
 void dpu_fg_put(struct dpu_framegen *fg);
 struct dpu_framegen *dpu_aux_fg_peek(struct dpu_framegen *fg);
