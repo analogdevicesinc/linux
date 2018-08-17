@@ -380,6 +380,14 @@ u32 extdst_perfresult(struct dpu_extdst *ed)
 }
 EXPORT_SYMBOL_GPL(extdst_perfresult);
 
+bool extdst_is_master(struct dpu_extdst *ed)
+{
+	const struct dpu_data *data = ed->dpu->data;
+
+	return ed->id == data->master_stream_id;
+}
+EXPORT_SYMBOL_GPL(extdst_is_master);
+
 struct dpu_extdst *dpu_ed_get(struct dpu_soc *dpu, int id)
 {
 	struct dpu_extdst *ed;
