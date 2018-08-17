@@ -1,7 +1,7 @@
 /*
  * AD9371
  *
- * Copyright 2016 Analog Devices Inc.
+ * Copyright 2016-2018 Analog Devices Inc.
  *
  * Licensed under the GPL-2.
  */
