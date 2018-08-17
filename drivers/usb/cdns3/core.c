@@ -1001,7 +1001,7 @@ static void __exit cdns3_driver_platform_unregister(void)
 }
 module_exit(cdns3_driver_platform_unregister);
 
-MODULE_ALIAS("platform:cdns3");
+MODULE_ALIAS("platform:cdns-usb3");
 MODULE_AUTHOR("Peter Chen <peter.chen@nxp.com>");
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("Cadence USB3 DRD Controller Driver");
