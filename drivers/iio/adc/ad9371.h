@@ -38,6 +38,7 @@ enum debugfs_cmd {
 	DBGFS_BIST_PRBS_RX,
 	DBGFS_BIST_PRBS_OBS,
 	DBGFS_BIST_TONE,
+	DBGFS_MONITOR_OUT,
 };
 
 
@@ -190,7 +191,7 @@ struct ad9371_rf_phy {
 	struct ad9371_clock	clk_priv[NUM_AD9371_CLKS];
 	struct clk_onecell_data	clk_data;
 	struct ad9371_phy_platform_data *pdata;
-	struct ad9371_debugfs_entry debugfs_entry[338];
+	struct ad9371_debugfs_entry debugfs_entry[339];
 	struct bin_attribute 	bin;
 	struct bin_attribute 	bin_gt;
 	struct iio_dev 		*indio_dev;

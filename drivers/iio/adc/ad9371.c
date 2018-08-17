@@ -823,6 +823,7 @@ static int ad9371_setup(struct ad9371_rf_phy *phy)
 
 	MYKONOS_setupAuxAdcs(mykDevice, 4, 1);
 	MYKONOS_setupAuxDacs(mykDevice);
+	MYKONOS_setupGpio(mykDevice);
 
 	clk_set_rate(phy->clks[RX_SAMPL_CLK],
 		     mykDevice->rx->rxProfile->iqRate_kHz * 1000);
@@ -2319,6 +2320,7 @@ static ssize_t ad9371_debugfs_read(struct file *file, char __user *userbuf,
 				   size_t count, loff_t *ppos)
 {
 	struct ad9371_debugfs_entry *entry = file->private_data;
+	struct ad9371_rf_phy *phy = entry->phy;
 	char buf[700];
 	u64 val = 0;
 	ssize_t len = 0;
@@ -2342,11 +2344,29 @@ static ssize_t ad9371_debugfs_read(struct file *file, char __user *userbuf,
 			val = *(u64*)entry->out_value;
 			break;
 		default:
-			ret = -EINVAL;
+			return -EINVAL;
 		}
 
 	} else if (entry->cmd) {
-		val = entry->val;
+		u8 index, mask;
+
+		switch (entry->cmd) {
+		case DBGFS_MONITOR_OUT:
+			mutex_lock(&phy->indio_dev->mlock);
+			ret = MYKONOS_getGpioMonitorOut(phy->mykDevice,
+							&index, &mask);
+			mutex_unlock(&phy->indio_dev->mlock);
+			if (ret < 0)
+				return ret;
+
+			len = snprintf(buf, sizeof(buf), "%u %u\n",
+				       index, mask);
+			break;
+		default:
+			val = entry->val;
+			break;
+		}
+
 	} else
 		return -EFAULT;
 
@@ -2455,6 +2475,16 @@ static ssize_t ad9371_debugfs_write(struct file *file,
 
 		entry->val = val;
 		return count;
+	case DBGFS_MONITOR_OUT:
+		if (ret != 2)
+			return -EINVAL;
+		mutex_lock(&phy->indio_dev->mlock);
+		ret = MYKONOS_setGpioMonitorOut(phy->mykDevice, val, val2);
+		mutex_unlock(&phy->indio_dev->mlock);
+		if (ret < 0)
+			return ret;
+
+		return count;
 	default:
 		break;
 	}
@@ -2520,6 +2550,7 @@ static int ad9371_register_debugfs(struct iio_dev *indio_dev)
 	ad9371_add_debugfs_entry(phy, "bist_prbs_rx", DBGFS_BIST_PRBS_RX);
 	ad9371_add_debugfs_entry(phy, "bist_prbs_obs", DBGFS_BIST_PRBS_OBS);
 	ad9371_add_debugfs_entry(phy, "bist_tone", DBGFS_BIST_TONE);
+	ad9371_add_debugfs_entry(phy, "monitor_out", DBGFS_MONITOR_OUT);
 
 	for (i = 0; i < phy->ad9371_debugfs_entry_index; i++)
 		d = debugfs_create_file(
