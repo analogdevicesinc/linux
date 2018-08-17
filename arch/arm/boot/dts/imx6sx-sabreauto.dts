@@ -235,7 +235,6 @@
 	pinctrl-0 = <&pinctrl_enet1_1>;
 	phy-mode = "rgmii";
 	phy-handle = <&ethphy1>;
-	pinctrl-assert-gpios = <&max7322 0 GPIO_ACTIVE_HIGH>;
 	fsl,magic-packet;
 	status = "okay";
 
@@ -331,6 +330,7 @@
 		reg = <0x68>;
 		gpio-controller;
 		#gpio-cells = <2>;
+		out-default = /bits/ 16 <0x1 0x1>;
 	};
 
 	pmic: pfuze100@08 {
