@@ -32,6 +32,7 @@ Optional properties:
     - second cell is used to specify flags
   - interrupt-parent: phandle of the parent interrupt controller.
   - interrupts: Interrupt specifier for the controllers interrupt.
+  - out-default: set the output IO default voltage. Exp: out-default = /bits/ 16 <mask val>;
 
 Please refer to gpio.txt in this directory for details of the common GPIO
 bindings used by client devices.

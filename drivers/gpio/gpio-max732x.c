@@ -81,6 +81,12 @@
 #define INT_CAPS(x)	(((uint64_t)(x)) << 32)
 
 enum {
+	OUTPUT_MASK,
+	OUTPUT_VAL,
+	OUTPUT_NUM,
+};
+
+enum {
 	MAX7319,
 	MAX7320,
 	MAX7321,
@@ -626,6 +632,8 @@ static int max732x_probe(struct i2c_client *client,
 	struct i2c_client *c;
 	uint16_t addr_a, addr_b;
 	int ret, nr_port;
+	u16 out_set[OUTPUT_NUM];
+	unsigned long mask, val;
 
 	pdata = dev_get_platdata(&client->dev);
 	node = client->dev.of_node;
@@ -711,6 +719,15 @@ static int max732x_probe(struct i2c_client *client,
 	}
 
 	i2c_set_clientdata(client, chip);
+
+	/* set the output IO default voltage */
+	if (!of_property_read_u16_array(node, "out-default", out_set,
+					ARRAY_SIZE(out_set))) {
+		mask = out_set[OUTPUT_MASK] & chip->dir_output;
+		val = out_set[OUTPUT_VAL];
+		max732x_gpio_set_multiple(&chip->gpio_chip, &mask, &val);
+	}
+
 	return 0;
 
 out_failed:
