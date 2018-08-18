@@ -431,20 +431,20 @@ static ssize_t gpu_govern_show(struct device_driver *dev, char *buf)
     struct imx_priv *priv = &imxPriv;
     int i;
     ssize_t len;
-    int nr_modes;
+    int max_modes;
 
     unsigned long core_freq;
     unsigned long shader_freq;
 
     if (priv->imx_gpu_govern.num_modes == GOVERN_COUNT)
-	    nr_modes = priv->imx_gpu_govern.num_modes - 1;
+	    max_modes = priv->imx_gpu_govern.num_modes - 1;
     else
-	    nr_modes = priv->imx_gpu_govern.num_modes;
+	    max_modes = priv->imx_gpu_govern.num_modes;
 
     len = sprintf(buf, "GPU support %d modes\n", priv->imx_gpu_govern.num_modes);
 
 
-    for (i = priv->imx_gpu_govern.current_mode; i <= nr_modes; i++)
+    for (i = priv->imx_gpu_govern.current_mode; i <= max_modes; i++)
     {
 	    core_freq   = priv->imx_gpu_govern.core_clk_freq[i];
 	    shader_freq = priv->imx_gpu_govern.shader_clk_freq[i];
@@ -634,14 +634,18 @@ int remove_gpu_opp_table(void)
     struct imx_priv *priv = &imxPriv;
     struct device* dev = priv->imx_gpu_govern.dev;
     int i = 0;
-    int nr_modes;
+    int max_modes;
 
     if (priv->imx_gpu_govern.num_modes == GOVERN_COUNT)
-	    nr_modes = priv->imx_gpu_govern.num_modes - 1;
+	    max_modes = priv->imx_gpu_govern.num_modes - 1;
     else
-	    nr_modes = priv->imx_gpu_govern.num_modes;
+	    max_modes = priv->imx_gpu_govern.num_modes;
 
-    for (i = priv->imx_gpu_govern.current_mode; i <= nr_modes; i++)
+    /* if we don't have any modes available we don't have OPP */
+    if (max_modes == 0)
+	    return 0;
+
+    for (i = priv->imx_gpu_govern.current_mode; i <= max_modes; i++)
     {
         unsigned long core_freq;
 
