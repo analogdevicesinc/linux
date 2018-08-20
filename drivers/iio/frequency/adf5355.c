@@ -416,7 +416,7 @@ static int adf5355_setup(struct adf5355_state *st, unsigned long parent_rate)
 
 	st->regs[ADF5355_REG11] = ADF5355_REG11_DEFAULT;
 
-	st->regs[ADF5355_REG12] = ADF5355_REG12_PHASE_RESYNC_CLK_DIV(0) |
+	st->regs[ADF5355_REG12] = ADF5355_REG12_PHASE_RESYNC_CLK_DIV(1) |
 		ADF5355_REG12_DEFAULT;
 
 	st->all_synced = false;
