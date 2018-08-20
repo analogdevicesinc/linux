@@ -186,6 +186,20 @@ void tcon_cfg_videomode(struct dpu_tcon *tcon, struct drm_display_mode *m)
 }
 EXPORT_SYMBOL_GPL(tcon_cfg_videomode);
 
+bool tcon_is_master(struct dpu_tcon *tcon)
+{
+	const struct dpu_data *data = tcon->dpu->data;
+
+	return tcon->id == data->master_stream_id;
+}
+EXPORT_SYMBOL_GPL(tcon_is_master);
+
+bool tcon_is_slave(struct dpu_tcon *tcon)
+{
+	return !tcon_is_master(tcon);
+}
+EXPORT_SYMBOL_GPL(tcon_is_slave);
+
 struct dpu_tcon *dpu_tcon_get(struct dpu_soc *dpu, int id)
 {
 	struct dpu_tcon *tcon;
