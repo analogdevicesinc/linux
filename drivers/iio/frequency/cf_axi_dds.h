@@ -192,6 +192,12 @@ enum {
 	ID_AD9162_COMPLEX,
 };
 
+enum fifo_ctrl {
+	FIFO_UNSET,
+	FIFO_DISABLE,
+	FIFO_ENABLE,
+};
+
 struct cf_axi_dds_chip_info {
 	const char *name;
 	unsigned int num_channels;
@@ -213,6 +219,7 @@ struct cf_axi_dds_state {
 	bool			dp_disable;
 	bool			enable;
 	bool			pl_dma_fifo_en;
+	enum fifo_ctrl		gpio_dma_fifo_ctrl;
 
 	struct iio_info		iio_info;
 	size_t			regs_size;
@@ -292,6 +299,7 @@ int cf_axi_dds_datasel(struct cf_axi_dds_state *st,
 			       int channel, enum dds_data_select sel);
 void cf_axi_dds_stop(struct cf_axi_dds_state *st);
 void cf_axi_dds_start_sync(struct cf_axi_dds_state *st, bool force_on);
+int cf_axi_dds_pl_ddr_fifo_ctrl(struct cf_axi_dds_state *st, bool enable);
 
 /*
  * IO accessors
