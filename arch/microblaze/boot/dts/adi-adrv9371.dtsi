@@ -117,14 +117,27 @@
 		adi,rx-profile-rx-dec5-decimation = <5>;
 		adi,rx-profile-rx-fir-decimation = <2>;
 
+		adi,rx-profile-rx-fir-gain_db = <(-6)>;
+		adi,rx-profile-rx-fir-num-fir-coefs = <48>;
+		adi,rx-profile-rx-fir-coefs = /bits/ 16 <(-5) (-26) (32) (51) (-67) (-116) (140) (212) (-252) (-367) (429) (595) (-688) (-931) (1072) (1427) (-1650) (-2188) (2612) (3496) (-4802) (-7591) (9656) (32317) (32317) (9656) (-7591) (-4802) (3496) (2612) (-2188) (-1650) (1427) (1072) (-931) (-688) (595) (429) (-367) (-252) (212) (140) (-116) (-67) (51) (32) (-26) (-5)>;
+
+		adi,rx-profile-custom-adc-profile = /bits/ 16  <534 386 201 98 1280 491 1591 279 1306 104 792 28 48 39 23 187>;
+
 		adi,obs-profile-adc-div = <1>;
-		adi,obs-profile-en-high-rej-dec5 = <0>;
+		adi,obs-profile-en-high-rej-dec5 = <1>;
 		adi,obs-profile-iq-rate_khz = <245760>;
 		adi,obs-profile-rf-bandwidth_hz = <200000000>;
 		adi,obs-profile-rhb1-decimation = <1>;
 		adi,obs-profile-rx-bbf-3db-corner_khz = <100000>;
 		adi,obs-profile-rx-dec5-decimation = <5>;
 		adi,obs-profile-rx-fir-decimation = <1>;
+
+		adi,obs-profile-rx-fir-gain_db = <6>;
+		adi,obs-profile-rx-fir-num-fir-coefs = <24>;
+		adi,obs-profile-rx-fir-coefs = /bits/ 16 <(-289) (81) (-23) (-86) (229) (-354) (397) (-233) (-657) (1699) (-4172) (23010) (-4172) (1699) (-657) (-233) (397) (-354) (229) (-86) (-23) (81) (-289) (0)>;
+
+		adi,obs-profile-custom-adc-profile = /bits/ 16  <450 349 201 98 1280 730 1626 818 1476 732 834 20 41 36 24 200>;
+		adi,obs-settings-custom-loopback-adc-profile = /bits/ 16  <569 369 201 98 1280 291 1541 149 1320 58 807 34 48 40 23 189>;
 
 		adi,tx-profile-dac-div = <1>;
 		adi,tx-profile-iq-rate_khz = <245760>;
@@ -133,9 +146,13 @@
 		adi,tx-profile-thb1-interpolation = <2>;
 		adi,tx-profile-thb2-interpolation = <1>;
 		adi,tx-profile-tx-bbf-3db-corner_khz = <100000>;
-		adi,tx-profile-tx-dac-3db-corner_khz = <189477>;
+		adi,tx-profile-tx-dac-3db-corner_khz = <187000>;
 		adi,tx-profile-tx-fir-interpolation = <1>;
 		adi,tx-profile-tx-input-hb-interpolation = <1>;
+
+		adi,tx-profile-tx-fir-gain_db = <6>;
+		adi,tx-profile-tx-fir-num-fir-coefs = <16>;
+		adi,tx-profile-tx-fir-coefs = /bits/ 16 <(6) (-270) (203) (-168) (-84) (983) (-3222) (21143) (-3222) (983) (-84) (-168) (203) (-270) (6) (0)>;
 
 		adi,sniffer-profile-adc-div = <1>;
 		adi,sniffer-profile-en-high-rej-dec5 = <0>;
