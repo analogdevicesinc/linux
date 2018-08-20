@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 NXP
+ * Copyright 2017-2018 NXP
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -84,6 +84,8 @@ void dcss_dpr_format_set(struct dcss_soc *dcss, int ch_num, u32 pix_format,
 void dcss_dpr_tile_derive(struct dcss_soc *dcss,
 			  int ch_num,
 			  uint64_t modifier);
+void dcss_dpr_set_rotation(struct dcss_soc *dcss, int ch_num, u32 rotation);
+
 /* DTG */
 void dcss_dtg_sync_set(struct dcss_soc *dcss, struct videomode *vm);
 void dcss_dtg_plane_pos_set(struct dcss_soc *dcss, int ch_num,

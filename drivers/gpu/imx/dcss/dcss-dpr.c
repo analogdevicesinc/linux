@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 NXP
+ * Copyright (C) 2017-2018 NXP
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -18,6 +18,7 @@
 #include <linux/interrupt.h>
 #include <linux/sizes.h>
 #include <linux/io.h>
+#include <drm/drmP.h>
 #include <drm/drm_fourcc.h>
 
 #include <video/imx-dcss.h>
@@ -733,3 +734,21 @@ void dcss_dpr_irq_enable(struct dcss_soc *dcss, bool en)
 	dcss_writel(en ? 0xfe : 0xff, dpr->ch[1].base_reg + DCSS_DPR_IRQ_MASK);
 	dcss_writel(en ? 0xfe : 0xff, dpr->ch[2].base_reg + DCSS_DPR_IRQ_MASK);
 }
+
+void dcss_dpr_set_rotation(struct dcss_soc *dcss, int ch_num, u32 rotation)
+{
+	struct dcss_dpr_ch *ch = &dcss->dpr_priv->ch[ch_num];
+
+	ch->frame_ctrl &= ~(HFLIP_EN | VFLIP_EN | ROT_ENC_MASK);
+
+	ch->frame_ctrl |= rotation & DRM_MODE_REFLECT_X ? HFLIP_EN : 0;
+	ch->frame_ctrl |= rotation & DRM_MODE_REFLECT_Y ? VFLIP_EN : 0;
+
+	if (rotation & DRM_MODE_ROTATE_90)
+		ch->frame_ctrl |= 1 << ROT_ENC_POS;
+	else if (rotation & DRM_MODE_ROTATE_180)
+		ch->frame_ctrl |= 2 << ROT_ENC_POS;
+	else if (rotation & DRM_MODE_ROTATE_270)
+		ch->frame_ctrl |= 3 << ROT_ENC_POS;
+}
+EXPORT_SYMBOL(dcss_dpr_set_rotation);
