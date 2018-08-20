@@ -120,6 +120,26 @@ static int cf_axi_dds_twos_fmt_to_iio(s16 val, int *r_val, int *r_val2)
 }
 #endif
 
+int cf_axi_dds_pl_ddr_fifo_ctrl(struct cf_axi_dds_state *st, bool enable)
+{
+	enum fifo_ctrl mode;
+	int ret;
+
+	if (IS_ERR(st->plddrbypass_gpio))
+		return -ENODEV;
+
+	mode = (enable ? FIFO_ENABLE : FIFO_DISABLE);
+
+	if (st->gpio_dma_fifo_ctrl == mode)
+		return 0;
+
+	ret = gpiod_direction_output(st->plddrbypass_gpio, !enable);
+	if (ret == 0)
+		st->gpio_dma_fifo_ctrl = mode;
+
+	return ret;
+}
+
 static int cf_axi_get_parent_sampling_frequency(struct cf_axi_dds_state *st, unsigned long *freq)
 {
 	struct cf_axi_converter *conv;
@@ -1139,9 +1159,9 @@ static ssize_t cf_axi_dds_debugfs_write(struct file *file,
 	if (ret < 0)
 		return -EINVAL;
 
-	if (!IS_ERR(st->plddrbypass_gpio)) {
-		gpiod_direction_output(st->plddrbypass_gpio, !st->pl_dma_fifo_en);
-	}
+	ret = cf_axi_dds_pl_ddr_fifo_ctrl(st, st->pl_dma_fifo_en);
+	if (ret)
+		return ret;
 
 	return count;
 }
@@ -1531,16 +1551,10 @@ static int cf_axi_dds_probe(struct platform_device *pdev)
 		(unsigned long long)res->start, st->regs, st->chip_info->name);
 
 	st->plddrbypass_gpio = devm_gpiod_get(&pdev->dev, "plddrbypass", GPIOD_ASIS);
-	if (!IS_ERR(st->plddrbypass_gpio)) {
-
-		if (iio_get_debugfs_dentry(indio_dev))
-				debugfs_create_file("pl_ddr_fifo_enable", 0644,
-				iio_get_debugfs_dentry(indio_dev),
-				indio_dev, &cf_axi_dds_debugfs_fops);
-
-		ret = gpiod_direction_output(st->plddrbypass_gpio, !st->pl_dma_fifo_en);
-	}
-
+	if (!IS_ERR(st->plddrbypass_gpio) && iio_get_debugfs_dentry(indio_dev))
+		debugfs_create_file("pl_ddr_fifo_enable", 0644,
+				    iio_get_debugfs_dentry(indio_dev),
+				    indio_dev, &cf_axi_dds_debugfs_fops);
 
 	platform_set_drvdata(pdev, indio_dev);
 
