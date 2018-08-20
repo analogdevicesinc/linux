@@ -40,6 +40,8 @@
 #define AXI_HDMI_REG_STATUS		0x05c
 #define AXI_HDMI_REG_VDMA_STATUS	0x060
 #define AXI_HDMI_REG_TPM_STATUS		0x064
+#define AXI_HDMI_REG_CLIPP_MAX  	0x068
+#define AXI_HDMI_REG_CLIPP_MIN  	0x06c
 #define AXI_HDMI_REG_HTIMING1		0x400
 #define AXI_HDMI_REG_HTIMING2		0x404
 #define AXI_HDMI_REG_HTIMING3		0x408
@@ -110,6 +112,13 @@ static const struct drm_encoder_slave_funcs *get_slave_funcs(
 		return NULL;
 
 	return to_encoder_slave(enc)->slave_funcs;
+}
+
+static void axi_hdmi_set_color_range(struct axi_hdmi_private *private,
+	unsigned int low, unsigned int high)
+{
+	writel(high, private->base + AXI_HDMI_REG_CLIPP_MAX);
+	writel(low, private->base + AXI_HDMI_REG_CLIPP_MIN);
 }
 
 #ifdef CONFIG_DEBUG_FS
@@ -190,13 +199,17 @@ static ssize_t axi_hdmi_set_mode(struct file *file, const char __user *userbuf,
 	writel(i, private->base + AXI_HDMI_REG_SOURCE_SEL);
 
 	if (i == AXI_HDMI_SOURCE_SEL_TESTPATTERN) {
+		axi_hdmi_set_color_range(private, 0, 0xffffff);
 		ctrl = AXI_HDMI_CTRL_CSC_BYPASS | AXI_HDMI_CTRL_SS_BYPASS |
 			AXI_HDMI_CTRL_FULL_RANGE;
 	} else {
-		if (private->is_rgb)
+		if (private->is_rgb) {
+			axi_hdmi_set_color_range(private, 0, 0xffffff);
 			ctrl = AXI_HDMI_CTRL_CSC_BYPASS;
-		else
+		} else {
+			axi_hdmi_set_color_range(private, 0x101010, 0xf0ebf0);
 			ctrl = 0;
+		}
 	}
 
 	writel(ctrl, private->base + AXI_HDMI_REG_CTRL);
@@ -403,8 +416,12 @@ struct drm_encoder *axi_hdmi_encoder_create(struct drm_device *dev)
 	axi_hdmi_debugfs_init(axi_hdmi_encoder);
 
 	writel(AXI_HDMI_SOURCE_SEL_NORMAL, priv->base + AXI_HDMI_REG_SOURCE_SEL);
-	if (priv->is_rgb)
+	if (priv->is_rgb) {
 		writel(AXI_HDMI_CTRL_CSC_BYPASS, priv->base + AXI_HDMI_REG_CTRL);
+		axi_hdmi_set_color_range(priv, 0, 0xffffff);
+	} else {
+		axi_hdmi_set_color_range(priv, 0x101010, 0xf0ebf0);
+	}
 
 	return encoder;
 }
