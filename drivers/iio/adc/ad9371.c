@@ -2578,12 +2578,34 @@ static struct ad9371_phy_platform_data
 	struct device_node *np = dev->of_node;
 	struct ad9371_phy_platform_data *pdata;
 	struct ad9371_rf_phy *phy = iio_priv(iodev);
+	int ret;
 
 #define ad9371_of_get_u32(iodev, dnp, name, def, outp) \
 	__ad9371_of_get_u32(iodev, dnp, name, def, outp, sizeof(*outp))
 
 #define AD9371_OF_PROP(_dt_name, _member_, _default) \
 	__ad9371_of_get_u32(iodev, np, _dt_name, _default, _member_, sizeof(*_member_))
+
+#define AD9371_GET_FIR(_dt_base_name, _member) \
+	if (of_find_property(np, _dt_base_name"-coefs", NULL)) {\
+	AD9371_OF_PROP(_dt_base_name"-gain_db", &_member->gain_dB, 0); \
+	AD9371_OF_PROP(_dt_base_name"-num-fir-coefs", &_member->numFirCoefs, 0); \
+	ret = of_property_read_u16_array(np, _dt_base_name"-coefs", _member->coefs, _member->numFirCoefs); \
+	if (ret < 0) { \
+		dev_err(dev, "Failed to read %d FIR coefficients (%d)\n", _member->numFirCoefs, ret); \
+		return NULL; \
+	} } \
+
+#define AD9371_GET_PROFILE(_dt_name, _member) \
+	if (of_find_property(np, _dt_name, NULL)) {\
+	if (_member == NULL) { \
+		_member = devm_kzalloc(dev, 37 * sizeof(u16), GFP_KERNEL); \
+	} \
+	ret = of_property_read_u16_array(np, _dt_name, _member, 16); \
+	if (ret < 0) { \
+		dev_err(dev, "Failed to read %d coefficients\n", 16); \
+		return NULL; \
+	} } \
 
 	pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
 	if (!pdata) {
@@ -2636,7 +2658,6 @@ static struct ad9371_phy_platform_data
 	AD9371_OF_PROP("adi,jesd204-obs-framer-obs-rx-syncb-select", &phy->mykDevice->obsRx->framer->obsRxSyncbSelect, 1);
 	AD9371_OF_PROP("adi,jesd204-obs-framer-rx-syncb-mode", &phy->mykDevice->obsRx->framer->rxSyncbMode, 0);
 	AD9371_OF_PROP("adi,jesd204-obs-framer-over-sample", &phy->mykDevice->obsRx->framer->overSample, 0);
-
 
 	AD9371_OF_PROP("adi,jesd204-deframer-bank-id", &phy->mykDevice->tx->deframer->bankId, 0);
 	AD9371_OF_PROP("adi,jesd204-deframer-device-id", &phy->mykDevice->tx->deframer->deviceId, 0);
@@ -2769,6 +2790,9 @@ static struct ad9371_phy_platform_data
 	AD9371_OF_PROP("adi,rx-profile-rf-bandwidth_hz", &phy->mykDevice->rx->rxProfile->rfBandwidth_Hz, 100000000);
 	AD9371_OF_PROP("adi,rx-profile-rx-bbf-3db-corner_khz", &phy->mykDevice->rx->rxProfile->rxBbf3dBCorner_kHz, 100000);
 
+	AD9371_GET_FIR("adi,rx-profile-rx-fir", phy->mykDevice->rx->rxProfile->rxFir);
+	AD9371_GET_PROFILE("adi,rx-profile-custom-adc-profile", phy->mykDevice->rx->rxProfile->customAdcProfile);
+
 	AD9371_OF_PROP("adi,obs-profile-adc-div", &phy->mykDevice->obsRx->orxProfile->adcDiv, 1);
 	AD9371_OF_PROP("adi,obs-profile-rx-fir-decimation", &phy->mykDevice->obsRx->orxProfile->rxFirDecimation, 1);
 	AD9371_OF_PROP("adi,obs-profile-rx-dec5-decimation", &phy->mykDevice->obsRx->orxProfile->rxDec5Decimation, 5);
@@ -2778,6 +2802,9 @@ static struct ad9371_phy_platform_data
 	AD9371_OF_PROP("adi,obs-profile-rf-bandwidth_hz", &phy->mykDevice->obsRx->orxProfile->rfBandwidth_Hz, 200000000);
 	AD9371_OF_PROP("adi,obs-profile-rx-bbf-3db-corner_khz", &phy->mykDevice->obsRx->orxProfile->rxBbf3dBCorner_kHz, 100000);
 
+	AD9371_GET_FIR("adi,obs-profile-rx-fir", phy->mykDevice->obsRx->orxProfile->rxFir);
+	AD9371_GET_PROFILE("adi,obs-profile-custom-adc-profile", phy->mykDevice->obsRx->orxProfile->customAdcProfile);
+
 	AD9371_OF_PROP("adi,sniffer-profile-adc-div", &phy->mykDevice->obsRx->snifferProfile->adcDiv, 1);
 	AD9371_OF_PROP("adi,sniffer-profile-rx-fir-decimation", &phy->mykDevice->obsRx->snifferProfile->rxFirDecimation, 4);
 	AD9371_OF_PROP("adi,sniffer-profile-rx-dec5-decimation", &phy->mykDevice->obsRx->snifferProfile->rxDec5Decimation, 5);
@@ -2786,6 +2813,9 @@ static struct ad9371_phy_platform_data
 	AD9371_OF_PROP("adi,sniffer-profile-iq-rate_khz", &phy->mykDevice->obsRx->snifferProfile->iqRate_kHz, 30720);
 	AD9371_OF_PROP("adi,sniffer-profile-rf-bandwidth_hz", &phy->mykDevice->obsRx->snifferProfile->rfBandwidth_Hz, 20000000);
 	AD9371_OF_PROP("adi,sniffer-profile-rx-bbf-3db-corner_khz", &phy->mykDevice->obsRx->snifferProfile->rxBbf3dBCorner_kHz, 100000);
+
+	AD9371_GET_FIR("adi,sniffer-profile-rx-fir", phy->mykDevice->obsRx->snifferProfile->rxFir);
+	AD9371_GET_PROFILE("adi,sniffer-profile-custom-adc-profile", phy->mykDevice->obsRx->snifferProfile->customAdcProfile);
 
 	AD9371_OF_PROP("adi,tx-profile-dac-div", &phy->mykDevice->tx->txProfile->dacDiv, 1);
 	AD9371_OF_PROP("adi,tx-profile-tx-fir-interpolation", &phy->mykDevice->tx->txProfile->txFirInterpolation, 1);
@@ -2799,6 +2829,8 @@ static struct ad9371_phy_platform_data
 	AD9371_OF_PROP("adi,tx-profile-tx-bbf-3db-corner_khz", &phy->mykDevice->tx->txProfile->txBbf3dBCorner_kHz, 100000);
 	if (IS_AD9375(phy))
 		AD9371_OF_PROP("adi,tx-profile-enable-dpd-data-path", &phy->mykDevice->tx->txProfile->enableDpdDataPath, 1);
+
+	AD9371_GET_FIR("adi,tx-profile-tx-fir", phy->mykDevice->tx->txProfile->txFir);
 
 	AD9371_OF_PROP("adi,clocks-device-clock_khz", &phy->mykDevice->clocks->deviceClock_kHz, 122880);
 	AD9371_OF_PROP("adi,clocks-clk-pll-vco-freq_khz", &phy->mykDevice->clocks->clkPllVcoFreq_kHz, 9830400);
@@ -2865,6 +2897,8 @@ static struct ad9371_phy_platform_data
 	AD9371_OF_PROP("adi,obs-settings-sniffer-pll-lo-frequency_hz", &phy->mykDevice->obsRx->snifferPllLoFrequency_Hz, 2600000000U);
 	AD9371_OF_PROP("adi,obs-settings-real-if-data", &phy->mykDevice->obsRx->realIfData, 0);
 	AD9371_OF_PROP("adi,obs-settings-default-obs-rx-channel", &phy->mykDevice->obsRx->defaultObsRxChannel, OBS_INTERNALCALS);
+
+	AD9371_GET_PROFILE("adi,obs-settings-custom-loopback-adc-profile", phy->mykDevice->obsRx->customLoopbackAdcProfile);
 
 	AD9371_OF_PROP("adi,arm-gpio-use-rx2-enable-pin", &phy->mykDevice->auxIo->armGpio->useRx2EnablePin, 0);
 	AD9371_OF_PROP("adi,arm-gpio-use-tx2-enable-pin", &phy->mykDevice->auxIo->armGpio->useTx2EnablePin, 0);
