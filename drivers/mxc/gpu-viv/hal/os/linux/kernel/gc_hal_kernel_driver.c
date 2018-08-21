@@ -1169,7 +1169,21 @@ static int gpu_resume(struct platform_device *dev)
             else
 #endif
             {
-                status = gckHARDWARE_SetPowerManagementState(device->kernels[i]->hardware, statesStored);
+                gctINT j = 0;
+
+                for (; j < 100; j++)
+                {
+                    status = gckHARDWARE_SetPowerManagementState(device->kernels[i]->hardware, statesStored);
+
+                    if (( statesStored != gcvPOWER_OFF_BROADCAST
+                       && statesStored != gcvPOWER_SUSPEND_BROADCAST)
+                       || status != gcvSTATUS_CHIP_NOT_READY)
+                    {
+                        break;
+                    }
+
+                    gcmkVERIFY_OK(gckOS_Delay(device->kernels[i]->os, 10));
+                };
             }
 
             if (gcmIS_ERROR(status))
