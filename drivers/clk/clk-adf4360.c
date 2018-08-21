@@ -89,6 +89,8 @@ struct adf4360 {
 	unsigned int pfd_freq;
 	unsigned int cpi;
 
+	unsigned int val_ctrl;
+
 	struct clk_hw clk_hw;
 
 	u8 spi_data[3] ____cacheline_aligned;
@@ -177,37 +179,16 @@ static unsigned long adf4360_recalc_rate(struct clk_hw *clk_hw,
 #define ADF4360_MAX_PFD_RATE 8000000 /* 8 MHz */
 #define ADF4360_MAX_COUNTER_RATE 300000000 /* 300 MHz */
 
-static long adf4360_round_rate(struct clk_hw *clk_hw,
-	unsigned long rate, unsigned long *parent_rate)
+static unsigned int adf4360_calc_prescaler(unsigned int pfd_freq,
+		unsigned int n, unsigned int *out_p, unsigned int *out_a,
+		unsigned int *out_b)
 {
-	struct adf4360 *adf4360 = clk_hw_to_adf4360(clk_hw);
-	unsigned int r, n, a, b, p, pfd_freq;
-
-	if (*parent_rate == 0)
-		return 0;
-
-	if (adf4360->part_id == 9)
-		return *parent_rate * adf4360->n / adf4360->r;
-
-	if (rate < adf4360->vco_min / 2)
-		return adf4360->vco_min / 2;
-	if (rate > adf4360->vco_max)
-		return adf4360->vco_max;
-	if (rate < adf4360->vco_min && rate > adf4360->vco_max / 2) {
-		if (adf4360->vco_min - rate < rate - adf4360->vco_max / 2)
-			return adf4360->vco_min;
-		else
-			return adf4360->vco_max / 2;
-	}
-
-	r = DIV_ROUND_CLOSEST(*parent_rate, adf4360->pfd_freq);
-	pfd_freq = *parent_rate / r;
-	n = DIV_ROUND_CLOSEST(rate, pfd_freq);
-	rate = pfd_freq * n;
+	unsigned int rate = pfd_freq * n;
+	unsigned int p, a, b;
 
 	/* Make sure divider counter input frequency is low enough */
 	p = 8;
-	while (rate / p > ADF4360_MAX_COUNTER_RATE && p < 32)
+	while (p < 32 && rate / p > ADF4360_MAX_COUNTER_RATE)
 		p *= 2;
 
 	/*
@@ -229,7 +210,53 @@ static long adf4360_round_rate(struct clk_hw *clk_hw,
 			b++;
 		}
 	}
-	n = p * b + a;
+
+	if (out_p)
+		*out_p = p;
+	if (out_a)
+		*out_a = a;
+	if (out_b)
+		*out_b = b;
+
+	return p * b + a;
+}
+
+static long adf4360_round_rate(struct clk_hw *clk_hw,
+	unsigned long rate, unsigned long *parent_rate)
+{
+	struct adf4360 *adf4360 = clk_hw_to_adf4360(clk_hw);
+	unsigned int r, n, pfd_freq;
+
+	if (*parent_rate == 0)
+		return 0;
+
+	if (adf4360->part_id == 9)
+		return *parent_rate * adf4360->n / adf4360->r;
+
+	if (rate > adf4360->vco_max)
+		return adf4360->vco_max;
+
+	/* ADF4360-0 to AD4370-7 have an optional by two divider */
+	if (adf4360->part_id <= 7) {
+		if (rate < adf4360->vco_min / 2)
+			return adf4360->vco_min / 2;
+		if (rate < adf4360->vco_min && rate > adf4360->vco_max / 2) {
+			if (adf4360->vco_min - rate < rate - adf4360->vco_max / 2)
+				return adf4360->vco_min;
+			else
+				return adf4360->vco_max / 2;
+		}
+	} else {
+		if (rate < adf4360->vco_min)
+			return adf4360->vco_min;
+	}
+
+	r = DIV_ROUND_CLOSEST(*parent_rate, adf4360->pfd_freq);
+	pfd_freq = *parent_rate / r;
+	n = DIV_ROUND_CLOSEST(rate, pfd_freq);
+
+	if (adf4360->part_id <= 7)
+		n = adf4360_calc_prescaler(pfd_freq, n, NULL, NULL, NULL);
 
 	return pfd_freq * n;
 }
@@ -240,9 +267,7 @@ static int adf4360_set_rate(struct clk_hw *clk_hw,
 	struct adf4360 *adf4360 = clk_hw_to_adf4360(clk_hw);
 	unsigned int val_r, val_n, val_ctrl;
 	unsigned int pfd_freq;
-	unsigned int p, a, b;
 	unsigned long r, n;
-	bool fb_div_by_two = false;
 
 	if (parent_rate == 0)
 		return -EINVAL;
@@ -250,33 +275,6 @@ static int adf4360_set_rate(struct clk_hw *clk_hw,
 	r = DIV_ROUND_CLOSEST(parent_rate, adf4360->pfd_freq);
 	pfd_freq = parent_rate / r;
 	n = DIV_ROUND_CLOSEST(rate, pfd_freq);
-	rate = pfd_freq * n;
-
-	/* Make sure divider counter input frequency is low enough */
-	p = 8;
-	while (rate / p > ADF4360_MAX_COUNTER_RATE && p < 32)
-		p *= 2;
-
-	/*
-	 * The range of dividers that can be produced using the dual-modulus
-	 * pre-scaler is not continuous for values of n < p*(p-1). If we end up with
-	 * a non supported divider value, pick the next closest one.
-	 */
-	a = n % p;
-	b = n / p;
-
-	if (b < 3) {
-		b = 3;
-		a = 0;
-	} else if (a > b) {
-		if (a - b < p - a) {
-			a = b;
-		} else {
-			a = 0;
-			b++;
-		}
-	}
-	n = p * b + a;
 
 	val_ctrl = adf4360_part_info[adf4360->part_id].default_cpl;
 	val_ctrl |= ADF4360_CTRL_CPI1(adf4360->cpi);
@@ -284,37 +282,43 @@ static int adf4360_set_rate(struct clk_hw *clk_hw,
 	val_ctrl |= ADF4360_CTRL_PL_11;
 	val_ctrl |= ADF4360_CTRL_MTLD;
 
-	switch (p) {
-	case 8:
-		val_ctrl |= ADF4360_CTRL_PRESCALER_8;
-		break;
-	case 16:
-		val_ctrl |= ADF4360_CTRL_PRESCALER_16;
-		break;
-	default:
-		val_ctrl |= ADF4360_CTRL_PRESCALER_32;
-		break;
-	}
-
 	if (!adf4360->pdp)
 		val_ctrl |= ADF4360_CTRL_PDP;
 	val_ctrl |= ADF4360_CTRL_MUXOUT_LOCK_DETECT;
 
-	val_n = ADF4360_NDIV_A_COUNTER(a);
-	val_n |= ADF4360_NDIV_B_COUNTER(b);
+	/* ADF4360-0 to ADF4360-7 have a dual-modulous prescaler */
+	if (adf4360->part_id <= 7) {
+		unsigned int p, a, b;
 
-	if (fb_div_by_two) {
-	    val_n |= ADF4360_NDIV_PRESCALER_DIV2;
-		val_n |= ADF4360_NDIV_OUT_DIV2;
+		n = adf4360_calc_prescaler(pfd_freq, n, &p, &a, &b);
+
+		switch (p) {
+		case 8:
+			val_ctrl |= ADF4360_CTRL_PRESCALER_8;
+			break;
+		case 16:
+			val_ctrl |= ADF4360_CTRL_PRESCALER_16;
+			break;
+		default:
+			val_ctrl |= ADF4360_CTRL_PRESCALER_32;
+			break;
+		}
+
+		val_n = ADF4360_NDIV_A_COUNTER(a);
+		val_n |= ADF4360_NDIV_B_COUNTER(b);
+
+		if (rate < adf4360->vco_min)
+			val_n |= ADF4360_NDIV_PRESCALER_DIV2 |
+				 ADF4360_NDIV_OUT_DIV2;
+	} else {
+		val_n = ADF4360_NDIV_B_COUNTER(n);
 	}
-
-	val_r = ADF4360_RDIV_R_COUNTER(r);
 
 	/*
 	 * Always use BSC divider of 8, see Analog Devices AN-1347. 
 	 * http://www.analog.com/media/en/technical-documentation/application-notes/AN-1347.pdf
 	 */
-	val_r |= ADF4360_RDIV_BSC_8;
+	val_r = ADF4360_RDIV_R_COUNTER(r) | ADF4360_RDIV_BSC_8;;
 
 	adf4360_write_reg(adf4360, ADF4360_REG_RDIV, val_r);
 	adf4360_write_reg(adf4360, ADF4360_REG_CTRL, val_ctrl);
@@ -398,19 +402,29 @@ static int adf4360_probe(struct spi_device *spi)
 	adf4360->part_id = id->driver_data;
 	info = &adf4360_part_info[adf4360->part_id];
 
-	ret = of_property_read_u32(of_node, "adi,vco-minimum-frequency-hz",
-		&tmp);
-	if (ret == 0)
-		adf4360->vco_min = max(info->vco_min, tmp);
-	else
-		adf4360->vco_min = info->vco_min;
+	if (adf4360->part_id >= 7) {
+	    /*
+	     * A ADF4360-7 to ADF4360-9 have VCO that is tuned to a specific
+	     * range using an external inductor. These properties describe the
+	     * range selected by the external inductor.
+	     */
+	    ret = of_property_read_u32(of_node, "adi,vco-minimum-frequency-hz",
+		    &tmp);
+	    if (ret == 0)
+		    adf4360->vco_min = max(info->vco_min, tmp);
+	    else
+		    adf4360->vco_min = info->vco_min;
 
-	ret = of_property_read_u32(of_node, "adi,vco-maximum-frequency-hz",
-		&tmp);
-	if (ret == 0)
-		adf4360->vco_max = min(info->vco_max, tmp);
-	else
-		adf4360->vco_max = info->vco_max;
+	    ret = of_property_read_u32(of_node, "adi,vco-maximum-frequency-hz",
+		    &tmp);
+	    if (ret == 0)
+		    adf4360->vco_max = min(info->vco_max, tmp);
+	    else
+		    adf4360->vco_max = info->vco_max;
+	} else {
+	    adf4360->vco_min = info->vco_min;
+	    adf4360->vco_max = info->vco_max;
+	}
 
 	adf4360->pdp = of_property_read_bool(of_node,
 		"adi,loop-filter-inverting");
