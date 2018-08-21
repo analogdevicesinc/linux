@@ -294,6 +294,7 @@ struct fsl_qspi {
 	unsigned int chip_base_addr; /* We may support two chips. */
 	bool has_second_chip;
 	bool big_endian;
+	u32 ddr_smp; /* ddr sample point */
 	bool ddr_enabled;
 	struct mutex lock;
 	struct pm_qos_request pm_qos_req;
@@ -918,8 +919,7 @@ static ssize_t fsl_qspi_write(struct spi_nor *nor, loff_t to,
 static void __fsl_qspi_enable_ddr_mode(struct spi_nor *nor, bool v)
 {
 	struct fsl_qspi *q = nor->priv;
-	u32 reg;
-	/* u32 reg, reg2; */
+	u32 reg, reg2;
 
 	reg = qspi_readl(q, q->iobase + QUADSPI_MCR);
 
@@ -927,15 +927,15 @@ static void __fsl_qspi_enable_ddr_mode(struct spi_nor *nor, bool v)
 	qspi_writel(q, reg | QUADSPI_MCR_MDIS_MASK,
 		    q->iobase + QUADSPI_MCR);
 
-	/* reg2 = qspi_readl(q, q->iobase + QUADSPI_SMPR); */
-	/* reg2 &= ~QUADSPI_SMPR_DDRSMP_MASK; */
+	reg2 = qspi_readl(q, q->iobase + QUADSPI_SMPR);
+	reg2 &= ~QUADSPI_SMPR_DDRSMP_MASK;
 
 	/* Set the Sampling Register for DDR, if to enable it */
-	/* if (v) */
-		/* reg2 |= ((q->ddr_smp << QUADSPI_SMPR_DDRSMP_SHIFT) & */
-			  /* QUADSPI_SMPR_DDRSMP_MASK); */
+	if (v)
+		reg2 |= ((q->ddr_smp << QUADSPI_SMPR_DDRSMP_SHIFT) &
+			  QUADSPI_SMPR_DDRSMP_MASK);
 
-	/* qspi_writel(q, reg2, q->iobase + QUADSPI_SMPR); */
+	qspi_writel(q, reg2, q->iobase + QUADSPI_SMPR);
 
 	/* Enable the module again and enable the DDR, if need */
 	if (v) {
@@ -1138,10 +1138,10 @@ static int fsl_qspi_probe(struct platform_device *pdev)
 		return PTR_ERR(q->clk);
 
 	/* find ddrsmp value */
-	/* ret = of_property_read_u32(dev->of_node, "ddrsmp", */
-				   /* &q->ddr_smp); */
-	/* if (ret) */
-		/* q->ddr_smp = 0; */
+	ret = of_property_read_u32(dev->of_node, "ddrsmp",
+				   &q->ddr_smp);
+	if (ret)
+		q->ddr_smp = 0;
 
 	ret = fsl_qspi_clk_prep_enable(q);
 	if (ret) {
