@@ -16,14 +16,69 @@
 #define __SEC_MIPI_DSIM_H__
 
 #include <drm/drmP.h>
+#include <linux/bsearch.h>
+
+struct sec_mipi_dsim_dphy_timing;
 
 struct sec_mipi_dsim_plat_data {
 	uint32_t version;
 	uint32_t max_data_lanes;
 	uint64_t max_data_rate;
+	const struct sec_mipi_dsim_dphy_timing *dphy_timing;
+	uint32_t num_dphy_timing;
+	int (*dphy_timing_cmp)(const void *key, const void *elt);
 	enum drm_mode_status (*mode_valid)(struct drm_connector *connector,
 					   struct drm_display_mode *mode);
 };
+
+/* DPHY timings structure */
+struct sec_mipi_dsim_dphy_timing {
+	uint32_t bit_clk;	/* MHz */
+
+	uint32_t clk_prepare;
+	uint32_t clk_zero;
+	uint32_t clk_post;
+	uint32_t clk_trail;
+
+	uint32_t hs_prepare;
+	uint32_t hs_zero;
+	uint32_t hs_trail;
+
+	uint32_t lpx;
+	uint32_t hs_exit;
+};
+
+#define DSIM_DPHY_TIMING(bclk, cpre, czero, cpost, ctrail,	\
+			 hpre, hzero, htrail, lp, hexit)	\
+	.bit_clk	= bclk,					\
+	.clk_prepare	= cpre,					\
+	.clk_zero	= czero,				\
+	.clk_post	= cpost,				\
+	.hs_prepare	= hpre,					\
+	.hs_zero	= hzero,				\
+	.hs_trail	= htrail,				\
+	.lpx		= lp,					\
+	.hs_exit	= hexit
+
+static inline int dphy_timing_default_cmp(const void *key, const void *elt)
+{
+	const struct sec_mipi_dsim_dphy_timing *_key = key;
+	const struct sec_mipi_dsim_dphy_timing *_elt = elt;
+
+	/* find an element whose 'bit_clk' is equal to the
+	 * the key's 'bit_clk' value or, the difference
+	 * between them is less than 5.
+	 */
+	if (abs((int)(_elt->bit_clk - _key->bit_clk)) <= 5)
+		return 0;
+
+	if (_key->bit_clk < _elt->bit_clk)
+		/* search bottom half */
+		return 1;
+	else
+		/* search top half */
+		return -1;
+}
 
 int sec_mipi_dsim_check_pll_out(void *driver_private,
 				const struct drm_display_mode *mode);

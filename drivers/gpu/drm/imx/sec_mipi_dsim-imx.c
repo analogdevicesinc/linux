@@ -31,6 +31,7 @@
 #include <drm/drm_modeset_helper_vtables.h>
 
 #include "imx-drm.h"
+#include "sec_mipi_dphy_ln14lpp.h"
 
 #define DRIVER_NAME "imx_sec_dsim_drv"
 
@@ -196,6 +197,9 @@ static const struct sec_mipi_dsim_plat_data imx8mm_mipi_dsim_plat_data = {
 	.version	= 0x1060200,
 	.max_data_lanes = 4,
 	.max_data_rate  = 1500000000ULL,
+	.dphy_timing	= dphy_timing_ln14lpp_v1p2,
+	.num_dphy_timing = ARRAY_SIZE(dphy_timing_ln14lpp_v1p2),
+	.dphy_timing_cmp = dphy_timing_default_cmp,
 	.mode_valid	= NULL,
 };
 

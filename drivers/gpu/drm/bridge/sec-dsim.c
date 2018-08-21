@@ -991,23 +991,32 @@ static void sec_mipi_dsim_config_dpi(struct sec_mipi_dsim *dsim)
 
 static void sec_mipi_dsim_config_dphy(struct sec_mipi_dsim *dsim)
 {
+	struct sec_mipi_dsim_dphy_timing key = { 0 };
+	const struct sec_mipi_dsim_dphy_timing *match = NULL;
+	const struct sec_mipi_dsim_plat_data *pdata = dsim->pdata;
 	uint32_t phytiming = 0, phytiming1 = 0, phytiming2 = 0, timeout = 0;
 
-	/* TODO: add a PHY timing table arranged by the pll Fout */
+	key.bit_clk = DIV_ROUND_CLOSEST_ULL(dsim->bit_clk, 1000);
 
-	phytiming  |= PHYTIMING_SET_M_TLPXCTL(6)	|
-		      PHYTIMING_SET_M_THSEXITCTL(11);
+	match = bsearch(&key, pdata->dphy_timing, pdata->num_dphy_timing,
+			sizeof(struct sec_mipi_dsim_dphy_timing),
+			pdata->dphy_timing_cmp);
+	if (WARN_ON(!match))
+		return;
+
+	phytiming  |= PHYTIMING_SET_M_TLPXCTL(match->lpx)	|
+		      PHYTIMING_SET_M_THSEXITCTL(match->hs_exit);
 	dsim_write(dsim, phytiming, DSIM_PHYTIMING);
 
-	phytiming1 |= PHYTIMING1_SET_M_TCLKPRPRCTL(7)	|
-		      PHYTIMING1_SET_M_TCLKZEROCTL(38)	|
-		      PHYTIMING1_SET_M_TCLKPOSTCTL(13)	|
-		      PHYTIMING1_SET_M_TCLKTRAILCTL(8);
+	phytiming1 |= PHYTIMING1_SET_M_TCLKPRPRCTL(match->clk_prepare)	|
+		      PHYTIMING1_SET_M_TCLKZEROCTL(match->clk_zero)	|
+		      PHYTIMING1_SET_M_TCLKPOSTCTL(match->clk_post)	|
+		      PHYTIMING1_SET_M_TCLKTRAILCTL(match->clk_trail);
 	dsim_write(dsim, phytiming1, DSIM_PHYTIMING1);
 
-	phytiming2 |= PHYTIMING2_SET_M_THSPRPRCTL(8)	|
-		      PHYTIMING2_SET_M_THSZEROCTL(13)	|
-		      PHYTIMING2_SET_M_THSTRAILCTL(11);
+	phytiming2 |= PHYTIMING2_SET_M_THSPRPRCTL(match->hs_prepare)	|
+		      PHYTIMING2_SET_M_THSZEROCTL(match->hs_zero)	|
+		      PHYTIMING2_SET_M_THSTRAILCTL(match->hs_trail);
 	dsim_write(dsim, phytiming2, DSIM_PHYTIMING2);
 
 	timeout |= TIMEOUT_SET_BTAOUT(0xff)	|
