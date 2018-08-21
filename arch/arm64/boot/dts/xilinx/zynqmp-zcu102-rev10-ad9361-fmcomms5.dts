@@ -82,7 +82,7 @@
 		};
 
 		/* Master HDL cores with DMA */
-		cf_ad9361_adc_core_0: cf-ad9361-lpc@99020000 {
+		cf_ad9361_adc_core_0: cf-ad9361-A@99020000 {
 			compatible = "adi,axi-ad9361-6.00.a";
 			reg = <0x0 0x99020000 0x6000>;
 			dmas = <&rx_dma 0>;
