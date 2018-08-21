@@ -117,6 +117,12 @@
 #define MX7D_USB_TERMSEL_OVERRIDE	BIT(4)
 #define MX7D_USB_TERMSEL_OVERRIDE_EN	BIT(5)
 
+#define MX7D_USB_OTG_PHY_CFG1		0x30
+#define TXPREEMPAMPTUNE0_BIT		28
+#define TXPREEMPAMPTUNE0_MASK		(3 << 28)
+#define TXVREFTUNE0_BIT			20
+#define TXVREFTUNE0_MASK		(0xf << 20)
+
 #define MX7D_USB_OTG_PHY_CFG2_CHRG_DCDENB	BIT(3)
 #define MX7D_USB_OTG_PHY_CFG2_CHRG_VDATSRCENB0	BIT(2)
 #define MX7D_USB_OTG_PHY_CFG2_CHRG_VDATDETENB0	BIT(1)
@@ -649,6 +655,24 @@ static int usbmisc_imx7d_init(struct imx_usbmisc_data *data)
 		writel(reg | MX7D_USBNC_HSIC_AUTO_RESUME,
 			usbmisc->base + MX7D_USBNC_USB_CTRL2);
 	}
+
+	if (data->picophy) {
+		reg = readl(usbmisc->base + MX7D_USB_OTG_PHY_CFG1);
+		if (data->emp_curr_control && data->emp_curr_control <=
+			(TXPREEMPAMPTUNE0_MASK >> TXPREEMPAMPTUNE0_BIT)) {
+			reg &= ~TXPREEMPAMPTUNE0_MASK;
+			reg |= (data->emp_curr_control << TXPREEMPAMPTUNE0_BIT);
+		}
+
+		if (data->dc_vol_level_adjust && data->dc_vol_level_adjust <=
+			(TXVREFTUNE0_MASK >> TXVREFTUNE0_BIT)) {
+			reg &= ~TXVREFTUNE0_MASK;
+			reg |= (data->dc_vol_level_adjust << TXVREFTUNE0_BIT);
+		}
+
+		writel(reg, usbmisc->base + MX7D_USB_OTG_PHY_CFG1);
+	}
+
 	spin_unlock_irqrestore(&usbmisc->lock, flags);
 
 	usbmisc_imx7d_set_wakeup(data, false);

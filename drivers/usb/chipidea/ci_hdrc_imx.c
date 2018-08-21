@@ -215,6 +215,11 @@ static struct imx_usbmisc_data *usbmisc_get_init_data(struct device *dev)
 		}
 	}
 
+	of_property_read_u32(np, "picophy,pre-emp-curr-control",
+			&data->emp_curr_control);
+	of_property_read_u32(np, "picophy,dc-vol-level-adjust",
+			&data->dc_vol_level_adjust);
+
 	return data;
 }
 
@@ -590,6 +595,7 @@ static int ci_hdrc_imx_probe(struct platform_device *pdev)
 			dev_dbg(dev, "USB Charger is created\n");
 	}
 
+	data->usbmisc_data->picophy = (imx_platform_flag == &imx7d_usb_data);
 	ret = imx_usbmisc_init(data->usbmisc_data);
 	if (ret) {
 		dev_err(dev, "usbmisc init failed, ret=%d\n", ret);
