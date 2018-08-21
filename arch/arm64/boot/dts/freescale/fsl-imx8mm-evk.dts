@@ -936,12 +936,16 @@
 &usbotg1 {
 	dr_mode = "otg";
 	extcon = <0>, <&typec1_ptn5110>;
+	picophy,pre-emp-curr-control = <3>;
+	picophy,dc-vol-level-adjust = <7>;
 	status = "okay";
 };
 
 &usbotg2 {
 	dr_mode = "otg";
 	extcon = <0>, <&typec2_ptn5110>;
+	picophy,pre-emp-curr-control = <3>;
+	picophy,dc-vol-level-adjust = <7>;
 	status = "okay";
 };
 
