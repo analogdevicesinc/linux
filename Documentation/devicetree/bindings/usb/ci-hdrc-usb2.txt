@@ -102,6 +102,11 @@ i.mx specific properties
 - power-polarity-active-high: add this property if port power function of ehci
   is used to enable vbus, and the vbus power supply chip enable signal is high
   active.
+- picophy,pre-emp-curr-control: picophy is used for imx7d and imx845.
+  HS Treansmitter Pre-Emphasis Current Control may need to tune for USB signal
+  See USBNC_n_PHY_CFG1 for detail.
+- picophy,dc-vol-level-adjust: HS DC Voltage Level Adjustment may need to
+  turn for USB signal, see USBNC_n_PHY_CFG1 for detail.
 
 Examples:
 
