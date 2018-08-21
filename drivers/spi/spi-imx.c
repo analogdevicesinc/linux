@@ -539,7 +539,7 @@ static int mx51_ecspi_config(struct spi_device *spi)
 		tx_wml = spi_imx->wml;
 
 	if (spi_imx->usedma)
-		writel(MX51_ECSPI_DMA_RX_WML(spi_imx->wml) |
+		writel(MX51_ECSPI_DMA_RX_WML(spi_imx->wml - 1) |
 			MX51_ECSPI_DMA_TX_WML(tx_wml) |
 			MX51_ECSPI_DMA_RXT_WML(spi_imx->wml) |
 			MX51_ECSPI_DMA_TEDEN | MX51_ECSPI_DMA_RXDEN |
