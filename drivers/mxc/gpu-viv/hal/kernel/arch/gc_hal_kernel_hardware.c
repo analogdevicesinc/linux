@@ -9178,7 +9178,7 @@ gckHARDWARE_QueryIdle(
 
             /* Test if address is inside the last WAIT/LINK sequence. */
             if ((address >= Hardware->lastWaitLink)
-            &&  (address <= Hardware->lastWaitLink + 16)
+            &&  (address <= Hardware->lastWaitLink + (Hardware->hasL2Cache ? 16 : 8))
             )
             {
                 /* FE is in last WAIT/LINK and the pipe is idle. */
