@@ -30,6 +30,10 @@
 #include <linux/mutex.h>
 #include <linux/pm_qos.h>
 #include <linux/sizes.h>
+#include <linux/pm_runtime.h>
+
+/* runtime pm timeout */
+#define QUADSPI_RPM_TIMEOUT 50 /* 50ms */
 
 /* Controller needs driver to swap endian */
 #define QUADSPI_QUIRK_SWAP_ENDIAN	(1 << 0)
@@ -298,6 +302,8 @@ struct fsl_qspi {
 	bool ddr_enabled;
 	struct mutex lock;
 	struct pm_qos_request pm_qos_req;
+#define FSL_QUADSPI_INITIALIZED	(1 << 0)
+	int flags;
 };
 
 static inline int needs_swap_endian(struct fsl_qspi *q)
@@ -770,12 +776,24 @@ static void fsl_qspi_clk_disable_unprep(struct fsl_qspi *q)
 
 }
 
+static int fsl_qspi_init_rpm(struct fsl_qspi *q)
+{
+	struct device *dev = q->dev;
+
+	pm_runtime_enable(dev);
+	pm_runtime_set_autosuspend_delay(dev, QUADSPI_RPM_TIMEOUT);
+	pm_runtime_use_autosuspend(dev);
+
+	return 0;
+}
+
 /* We use this function to do some basic init for spi_nor_scan(). */
 static int fsl_qspi_nor_setup(struct fsl_qspi *q)
 {
 	void __iomem *base = q->iobase;
 	u32 reg;
 	int ret;
+
 	/* disable and unprepare clock to avoid glitch pass to controller */
 	fsl_qspi_clk_disable_unprep(q);
 
@@ -1054,9 +1072,11 @@ static int fsl_qspi_prep(struct spi_nor *nor, enum spi_nor_ops ops)
 
 	mutex_lock(&q->lock);
 
-	ret = fsl_qspi_clk_prep_enable(q);
-	if (ret)
+	ret = pm_runtime_get_sync(q->dev);
+	if (ret < 0) {
+		dev_err(q->dev, "Failed to enable clock\n");
 		goto err_mutex;
+	}
 
 	fsl_qspi_set_base_addr(q, nor);
 	return 0;
@@ -1070,7 +1090,8 @@ static void fsl_qspi_unprep(struct spi_nor *nor, enum spi_nor_ops ops)
 {
 	struct fsl_qspi *q = nor->priv;
 
-	fsl_qspi_clk_disable_unprep(q);
+	pm_runtime_mark_last_busy(q->dev);
+	pm_runtime_put_autosuspend(q->dev);
 	mutex_unlock(&q->lock);
 }
 
@@ -1101,6 +1122,7 @@ static int fsl_qspi_probe(struct platform_device *pdev)
 	if (!q->devtype_data)
 		return -ENODEV;
 	platform_set_drvdata(pdev, q);
+	dev_set_drvdata(dev, q);
 
 	/* find the resources */
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "QuadSPI");
@@ -1143,7 +1165,7 @@ static int fsl_qspi_probe(struct platform_device *pdev)
 	if (ret)
 		q->ddr_smp = 0;
 
-	ret = fsl_qspi_clk_prep_enable(q);
+	ret = fsl_qspi_init_rpm(q);
 	if (ret) {
 		dev_err(dev, "can not enable the clock\n");
 		goto clk_failed;
@@ -1153,19 +1175,25 @@ static int fsl_qspi_probe(struct platform_device *pdev)
 	ret = platform_get_irq(pdev, 0);
 	if (ret < 0) {
 		dev_err(dev, "failed to get the irq: %d\n", ret);
-		goto irq_failed;
+		goto clk_failed;
 	}
 
 	ret = devm_request_irq(dev, ret,
 			fsl_qspi_irq_handler, 0, pdev->name, q);
 	if (ret) {
 		dev_err(dev, "failed to request irq: %d\n", ret);
-		goto irq_failed;
+		goto clk_failed;
+	}
+
+	ret = pm_runtime_get_sync(q->dev);
+	if (ret < 0) {
+		dev_err(q->dev, "Failed to enable clock\n");
+		return ret;
 	}
 
 	ret = fsl_qspi_nor_setup(q);
 	if (ret)
-		goto irq_failed;
+		goto clk_failed;
 
 	if (of_get_property(np, "fsl,qspi-has-second-chip", NULL))
 		q->has_second_chip = true;
@@ -1239,7 +1267,12 @@ static int fsl_qspi_probe(struct platform_device *pdev)
 	if (ret)
 		goto last_init_failed;
 
-	fsl_qspi_clk_disable_unprep(q);
+	pm_runtime_mark_last_busy(q->dev);
+	pm_runtime_put_autosuspend(q->dev);
+
+	/* indicate the controller has been initialized */
+	q->flags |= FSL_QUADSPI_INITIALIZED;
+
 	return 0;
 
 last_init_failed:
@@ -1251,10 +1284,10 @@ last_init_failed:
 	}
 mutex_failed:
 	mutex_destroy(&q->lock);
-irq_failed:
-	fsl_qspi_clk_disable_unprep(q);
 clk_failed:
 	dev_err(dev, "Freescale QuadSPI probe failed\n");
+	pm_runtime_dont_use_autosuspend(q->dev);
+	pm_runtime_disable(q->dev);
 	return ret;
 }
 
@@ -1282,42 +1315,67 @@ static int fsl_qspi_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static int fsl_qspi_suspend(struct platform_device *pdev, pm_message_t state)
+static int fsl_qspi_initialized(struct fsl_qspi *q)
 {
-	pinctrl_pm_select_sleep_state(&pdev->dev);
-	return 0;
+	return q->flags & FSL_QUADSPI_INITIALIZED;
 }
 
-static int fsl_qspi_resume(struct platform_device *pdev)
+static int fsl_qspi_need_reinit(struct fsl_qspi *q)
 {
-	int ret;
-	struct fsl_qspi *q = platform_get_drvdata(pdev);
+	/* we always enable AHB data transfer bit for best performance, */
+	/* so check this register bit to determine if the controller */
+	/* once lost power, such as suspend/resume and need to be re-init */
 
-	pinctrl_pm_select_default_state(&pdev->dev);
+	return !(readl(q->iobase + QUADSPI_BUF3CR)
+		& QUADSPI_BUF3CR_ADATSZ_MASK);
+}
 
-	ret = fsl_qspi_clk_prep_enable(q);
-	if (ret)
-		return ret;
+static int fsl_qspi_runtime_suspend(struct device *dev)
+{
+	struct fsl_qspi *q = dev_get_drvdata(dev);
 
-	fsl_qspi_nor_setup(q);
-	fsl_qspi_set_map_addr(q);
-	fsl_qspi_nor_setup_last(q);
-
+	pinctrl_pm_select_sleep_state(dev);
 	fsl_qspi_clk_disable_unprep(q);
 
 	return 0;
 }
 
+static int fsl_qspi_runtime_resume(struct device *dev)
+{
+	int ret;
+	struct fsl_qspi *q = dev_get_drvdata(dev);
+
+	pinctrl_pm_select_default_state(dev);
+
+	ret = fsl_qspi_clk_prep_enable(q);
+	if (ret)
+		return ret;
+
+	if (fsl_qspi_initialized(q) &&
+	   fsl_qspi_need_reinit(q)) {
+		fsl_qspi_nor_setup(q);
+		fsl_qspi_set_map_addr(q);
+		fsl_qspi_nor_setup_last(q);
+		q->ddr_enabled = false;
+	}
+
+	return 0;
+}
+
+static const struct dev_pm_ops fsl_qspi_pm_ops = {
+	SET_RUNTIME_PM_OPS(fsl_qspi_runtime_suspend, fsl_qspi_runtime_resume, NULL)
+	SET_SYSTEM_SLEEP_PM_OPS(pm_runtime_force_suspend, pm_runtime_force_resume)
+};
+
 static struct platform_driver fsl_qspi_driver = {
 	.driver = {
 		.name	= "fsl-quadspi",
 		.bus	= &platform_bus_type,
+		.pm	= &fsl_qspi_pm_ops,
 		.of_match_table = fsl_qspi_dt_ids,
 	},
 	.probe          = fsl_qspi_probe,
 	.remove		= fsl_qspi_remove,
-	.suspend	= fsl_qspi_suspend,
-	.resume		= fsl_qspi_resume,
 };
 module_platform_driver(fsl_qspi_driver);
 
