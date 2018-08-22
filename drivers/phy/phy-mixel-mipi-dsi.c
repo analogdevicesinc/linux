@@ -207,72 +207,120 @@ static int mixel_mipi_phy_enable(struct phy *phy, u32 reset)
 static void mixel_phy_set_prg_regs(struct phy *phy)
 {
 	struct mixel_mipi_phy_priv *priv = phy_get_drvdata(phy);
+	unsigned int hs_reg;
 
-	/* MC_PRG_HS_PREPARE */
-	if (priv->data_rate < MBPS(1000))
-		phy_write(phy, 0x01, DPHY_MC_PRG_HS_PREPARE);
-	else
-		phy_write(phy, 0x00, DPHY_MC_PRG_HS_PREPARE);
+	/* MC_PRG_HS_PREPARE = 1.0 * Ttxescape if DPHY_MC_PRG_HS_PREPARE = 0
+	 *
+	 * MC_PRG_HS_PREPARE = 1.5 * Ttxescape if DPHY_MC_PRG_HS_PREPARE = 1
+	 *
+	 * Assume Ftxescape is 18-20 MHz with DPHY_MC_PRG_HS_PREPARE = 0,
+	 * this gives 55-50 ns.
+	 * The specification is 38 to 95 ns.
+	 */
+	phy_write(phy, 0x00, DPHY_MC_PRG_HS_PREPARE);
 
-	/* M_PRG_HS_PREPARE */
-	if (priv->data_rate < MBPS(250))
+	/* PRG_HS_PREPARE
+	 * for  PRG_HS_PREPARE = 00, THS-PREPARE = 1   * TxClkEsc Period
+	 *      PRG_HS_PREPARE = 01, THS-PREPARE = 1.5 * TxClkEsc Period
+	 *      PRG_HS_PREPARE = 10, THS-PREPARE = 2   * TxClkEsc Period
+	 *      PRG_HS_PREPARE = 11, THS-PREPARE = 2.5 * TxClkEsc Period
+	 *
+	 *      The specification for THS-PREPARE is
+	 *	     Min (40ns + 4*UI)
+	 *           Max 85ns +6*UI
+	 */
+	if (priv->data_rate <= MBPS(61))
 		phy_write(phy, 0x03, DPHY_M_PRG_HS_PREPARE);
-	else if (priv->data_rate < MBPS(500))
+	else if (priv->data_rate <= MBPS(90))
 		phy_write(phy, 0x02, DPHY_M_PRG_HS_PREPARE);
-	else if (priv->data_rate < MBPS(1000))
+	else if (priv->data_rate <= MBPS(500))
 		phy_write(phy, 0x01, DPHY_M_PRG_HS_PREPARE);
 	else
 		phy_write(phy, 0x00, DPHY_M_PRG_HS_PREPARE);
 
-	/* MC_PRG_HS_ZERO */
-	if (priv->data_rate < MBPS(250))
-		phy_write(phy, 0x01, DPHY_MC_PRG_HS_ZERO);
-	else if (priv->data_rate < MBPS(500))
-		phy_write(phy, 0x06, DPHY_MC_PRG_HS_ZERO);
-	else if (priv->data_rate < MBPS(1000))
-		phy_write(phy, 0x0F, DPHY_MC_PRG_HS_ZERO);
-	else if (priv->data_rate < MBPS(1500))
-		phy_write(phy, 0x20, DPHY_MC_PRG_HS_ZERO);
-	else
-		phy_write(phy, 0x30, DPHY_MC_PRG_HS_ZERO);
+	/* MC_PRG_HS_ZERO
+	 *
+	 *  T-CLK-ZERO = ( MC_PRG_HS_ZERO + 3) * (TxByteClkHS Period)
+	 *
+	 *  The minimum specification for THS-PREPARE is 262 ns.
+	 *
+	 */
+	hs_reg =
+		/* simplified equation y = .034x - 2.5
+		 *
+		 * This a linear interpolation of the values from the
+		 * PHY user guide
+		 */
+		(34 * (priv->data_rate/1000000) - 2500) / 1000;
 
-	/* M_PRG_HS_ZERO */
-	if (priv->data_rate < MBPS(500))
-		phy_write(phy, 0x01, DPHY_M_PRG_HS_ZERO);
-	else if (priv->data_rate < MBPS(1000))
-		phy_write(phy, 0x02, DPHY_M_PRG_HS_ZERO);
-	else if (priv->data_rate < MBPS(1500))
-		phy_write(phy, 0x09, DPHY_M_PRG_HS_ZERO);
-	else
-		phy_write(phy, 0x10, DPHY_M_PRG_HS_ZERO);
+	if (hs_reg < 1)
+		hs_reg = 1;
+	phy_write(phy, hs_reg, DPHY_MC_PRG_HS_ZERO);
 
-	/* MC_PRG_HS_TRAIL and M_PRG_HS_TRAIL */
-	if (priv->data_rate < MBPS(250)) {
-		phy_write(phy, 0x02, DPHY_MC_PRG_HS_TRAIL);
-		phy_write(phy, 0x02, DPHY_M_PRG_HS_TRAIL);
-	} else if (priv->data_rate < MBPS(500)) {
-		phy_write(phy, 0x04, DPHY_MC_PRG_HS_TRAIL);
-		phy_write(phy, 0x04, DPHY_M_PRG_HS_TRAIL);
-	} else if (priv->data_rate < MBPS(1000)) {
-		phy_write(phy, 0x05, DPHY_MC_PRG_HS_TRAIL);
-		phy_write(phy, 0x05, DPHY_M_PRG_HS_TRAIL);
-	} else if (priv->data_rate < MBPS(1500)) {
-		phy_write(phy, 0x0C, DPHY_MC_PRG_HS_TRAIL);
-		phy_write(phy, 0x0C, DPHY_M_PRG_HS_TRAIL);
-	} else {
-		phy_write(phy, 0x0F, DPHY_MC_PRG_HS_TRAIL);
-		phy_write(phy, 0x0F, DPHY_M_PRG_HS_TRAIL);
-	}
+	/* M_PRG_HS_ZERO
+	 *
+	 *  TT-HS-ZERO =(M_PRG_HS_ZERO + 6) * (TxByteClkHS Period)
+	 *
+	 *  The minimum specification for THS-ZERO 105ns + 6*UI.
+	 *
+	 */
+	hs_reg =
+		/* simplified equation y = .0144x - 4.75
+		 *
+		 * This a linear interpolation of the values from the
+		 * PHY user guide
+		 */
+
+		(144 * (priv->data_rate/1000000) - 47500) / 10000;
+
+	if (hs_reg < 1)
+		hs_reg = 1;
+	phy_write(phy, hs_reg, DPHY_M_PRG_HS_ZERO);
+
+	/* MC_PRG_HS_TRAIL and M_PRG_HS_TRAIL
+	 *
+	 *  THS-TRAIL =(PRG_HS_TRAIL) * (TxByteClkHS Period)
+	 *
+	 *  The specification for THS-TRAIL is
+	 *	     Min     (60ns   + 4*UI)
+	 *           Typical (82.5ns + 8*UI)
+	 *           Max     (105ns  + 12*UI)
+	 *
+	 */
+
+	hs_reg =
+		/* simplified equation y = .0103x + 1
+		 *
+		 * This a linear interpolation of the values from the
+		 * PHY user guide
+		 */
+		(103 * (priv->data_rate/1000000) + 10000) / 10000;
+
+	if (hs_reg > 15)
+		hs_reg = 15;
+	if (hs_reg < 1)
+		hs_reg = 1;
+
+	phy_write(phy, hs_reg, DPHY_MC_PRG_HS_TRAIL);
+	phy_write(phy, hs_reg, DPHY_M_PRG_HS_TRAIL);
 
 	/* M_PRG_RXHS_SETTLE */
 	if (priv->plat_data->reg_rxhs_settle == 0xFF)
 		return;
-	if (priv->data_rate < MBPS(250))
-		phy_write(phy, 0x0B, priv->plat_data->reg_rxhs_settle);
+	if (priv->data_rate < MBPS(80))
+		phy_write(phy, 0x0d, priv->plat_data->reg_rxhs_settle);
+	else if (priv->data_rate < MBPS(90))
+		phy_write(phy, 0x0c, priv->plat_data->reg_rxhs_settle);
+	else if (priv->data_rate < MBPS(125))
+		phy_write(phy, 0x0b, priv->plat_data->reg_rxhs_settle);
+	else if (priv->data_rate < MBPS(150))
+		phy_write(phy, 0x0a, priv->plat_data->reg_rxhs_settle);
+	else if (priv->data_rate < MBPS(225))
+		phy_write(phy, 0x09, priv->plat_data->reg_rxhs_settle);
 	else if (priv->data_rate < MBPS(500))
 		phy_write(phy, 0x08, priv->plat_data->reg_rxhs_settle);
 	else
-		phy_write(phy, 0x06, priv->plat_data->reg_rxhs_settle);
+		phy_write(phy, 0x07, priv->plat_data->reg_rxhs_settle);
 
 }
 
