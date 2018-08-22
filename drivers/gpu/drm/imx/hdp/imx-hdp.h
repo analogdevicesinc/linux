@@ -59,6 +59,7 @@
 
 #define HOTPLUG_DEBOUNCE_MS		200
 
+#define VIC_MODE_96_50Hz 96
 #define VIC_MODE_97_60Hz 97
 /**
  * imx_hdp_call - Calls a struct imx hdp_operations operation on
