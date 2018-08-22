@@ -24,8 +24,8 @@
 #define ADF4360_REG_NDIV	0x02
 
 #define ADF4360_GEN1_CTRL_PC_5		(0x0 << 2)
-#define ADF4360_GEN1_CTRL_PC_15		(0x1 << 2)
-#define ADF4360_GEN1_CTRL_PC_10		(0x2 << 2)
+#define ADF4360_GEN1_CTRL_PC_10		(0x1 << 2)
+#define ADF4360_GEN1_CTRL_PC_15		(0x2 << 2)
 #define ADF4360_GEN1_CTRL_PC_20		(0x3 << 2)
 
 #define ADF4360_GEN2_CTRL_PC_2_5	(0x0 << 2)
