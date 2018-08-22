@@ -173,7 +173,11 @@ static unsigned long adf4360_recalc_rate(struct clk_hw *clk_hw,
 	if (adf4360->r == 0)
 		return 0;
 
-	return parent_rate * adf4360->n / adf4360->r;
+	/*
+	 * The result is garuanteed to fit in 32-bit, but the intermediate
+	 * result might require 64-bit.
+	 */
+	return DIV_ROUND_CLOSEST_ULL((uint64_t)parent_rate * adf4360->n, adf4360->r);
 }
 
 #define ADF4360_MAX_PFD_RATE 8000000 /* 8 MHz */
