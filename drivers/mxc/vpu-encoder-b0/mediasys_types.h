@@ -604,6 +604,7 @@ typedef enum {
 typedef struct {
 	MEDIAIP_ENC_FMT           eCodecMode;
 	MEDIAIP_ENC_PROFILE       eProfile;
+	u_int32                   uLevel;
 
 	MEDIAIP_ENC_MEM_RESOURCE  tEncMemDesc;
 

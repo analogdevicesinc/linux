@@ -58,6 +58,9 @@ static char *mu_cmp[] = {
 	"fsl,imx8-mu2-vpu-m0"
 };
 
+// H264 level is maped like level 5.1 to uLevel 51, except level 1b to uLevel 14
+u_int32 h264_lvl[] = {10, 14, 11, 12, 13, 20, 21, 22, 30, 31, 32, 40, 41, 42, 50, 51};
+
 static char *cmd2str[] = {
 	"GTB_ENC_CMD_NOOP",   /*0x0*/
 	"GTB_ENC_CMD_STREAM_START",
@@ -546,7 +549,7 @@ static int v4l2_ioctl_streamon(struct file *file,
 	struct queue_data *q_data;
 	int ret;
 
-	vpu_dbg(LVL_INFO, "%s()\n", __func__);
+	vpu_dbg(LVL_INFO, "%s(), type=%d\n", __func__, i);
 
 	if (i == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
 		q_data = &ctx->q_data[V4L2_SRC];
@@ -556,6 +559,7 @@ static int v4l2_ioctl_streamon(struct file *file,
 		return -EINVAL;
 	ret = vb2_streamon(&q_data->vb2_q,
 			i);
+	ctx->forceStop = false;
 	return ret;
 }
 
@@ -568,7 +572,7 @@ static int v4l2_ioctl_streamoff(struct file *file,
 	struct queue_data *q_data;
 	int ret;
 
-	vpu_dbg(LVL_INFO, "%s()\n", __func__);
+	vpu_dbg(LVL_INFO, "%s(), type=%d\n", __func__, i);
 
 	if (i == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
 		q_data = &ctx->q_data[V4L2_SRC];
@@ -576,6 +580,20 @@ static int v4l2_ioctl_streamoff(struct file *file,
 		q_data = &ctx->q_data[V4L2_DST];
 	else
 		return -EINVAL;
+
+	if (!ctx->start_flag) {
+		if (!ctx->forceStop) {
+			ctx->forceStop = true;
+			v4l2_vpu_send_cmd(ctx, ctx->str_index, GTB_ENC_CMD_STREAM_STOP, 0, NULL);
+			wake_up_interruptible(&ctx->buffer_wq_input);
+			wake_up_interruptible(&ctx->buffer_wq_output);
+		}
+
+		if (!ctx->firmware_stopped)
+			wait_for_completion(&ctx->stop_cmp);
+
+		ctx->start_flag = true;
+	}
 	ret = vb2_streamoff(&q_data->vb2_q,
 			i);
 	return ret;
@@ -658,6 +676,7 @@ static int v4l2_enc_s_ctrl(struct v4l2_ctrl *ctrl)
 		}
 		break;
 	case V4L2_CID_MPEG_VIDEO_H264_LEVEL:
+		pEncParam->uLevel = h264_lvl[ctrl->val];
 		vpu_dbg(LVL_INFO, "V4L2_CID_MPEG_VIDEO_H264_LEVEL set val = %d\n", ctrl->val);
 		break;
 	case V4L2_CID_MPEG_VIDEO_BITRATE:
@@ -856,11 +875,17 @@ static bool update_yuv_addr(struct vpu_ctx *ctx, u_int32 uStrIdx)
 	while (1) {
 		if (!wait_event_interruptible_timeout(ctx->buffer_wq_input,
 				(!list_empty(&This->drv_q)) || ctx->forceStop,
-				msecs_to_jiffies(5000)))
-			vpu_dbg(LVL_ERR, " warn: wait_event_interruptible_timeout wait 5s timeout\n");
+				msecs_to_jiffies(5000))) {
+			if (!ctx->forceStop)
+				vpu_dbg(LVL_ERR, " warn: yuv wait_event_interruptible_timeout wait 5s timeout\n");
+			else
+				break;
+		}
 		else
 			break;
 	}
+	if (ctx->forceStop)
+		return false;
 
 	down(&This->drv_q_lock);
 	if (!list_empty(&This->drv_q)) {
@@ -933,14 +958,16 @@ static void report_stream_done(struct vpu_ctx *ctx,  MEDIAIP_ENC_PIC_INFO *pEncP
 	vpu_dbg(LVL_INFO, "report_stream_done eptr=%x, rptr=%x, start=%x, end=%x\n", wptr, rptr, start, end);
 	while (1) {
 		if (!wait_event_interruptible_timeout(ctx->buffer_wq_output,
-				(!list_empty(&This->drv_q)) || ctx->forceStop,
-				msecs_to_jiffies(5000)))
-			vpu_dbg(LVL_ERR, " warn: wait_event_interruptible_timeout wait 5s timeout\n");
+				(!list_empty(&This->drv_q)),
+				msecs_to_jiffies(5000))) {
+			if (!ctx->forceStop)
+				vpu_dbg(LVL_ERR, " warn: stream wait_event_interruptible_timeout wait 5s timeout\n");
+			else
+				break;
+		}
 		else
 			break;
 	}
-	if (ctx->forceStop)
-		return;
 
 	if (!list_empty(&This->drv_q)) {
 		down(&This->drv_q_lock);
@@ -1031,15 +1058,17 @@ static void enc_mem_alloc(struct vpu_ctx *ctx, MEDIAIP_ENC_MEM_REQ_DATA *req_dat
 
 	for (i = 0; i < req_data->uEncFrmNum; i++) {
 		ctx->encFrame[i].size = req_data->uEncFrmSize;
-		ctx->encFrame[i].virt_addr = dma_alloc_coherent(&ctx->dev->plat_dev->dev,
-				ctx->encFrame[i].size,
-				(dma_addr_t *)&ctx->encFrame[i].phy_addr,
-				GFP_KERNEL | GFP_DMA32
-				);
-		if (!ctx->encFrame[i].virt_addr)
-		vpu_dbg(LVL_ERR, "%s() encFrame alloc size(%x) fail!\n", __func__, ctx->encFrame[i].size);
-		else
-			vpu_dbg(LVL_INFO, "%s() encFrame size(%d) encFrame virt(%p) encFrame phy(%p)\n", __func__, ctx->encFrame[i].size, ctx->encFrame[i].virt_addr, (void *)ctx->encFrame[i].phy_addr);
+		if (!ctx->encFrame[i].virt_addr) {
+			ctx->encFrame[i].virt_addr = dma_alloc_coherent(&ctx->dev->plat_dev->dev,
+					ctx->encFrame[i].size,
+					(dma_addr_t *)&ctx->encFrame[i].phy_addr,
+					GFP_KERNEL | GFP_DMA32
+					);
+			if (!ctx->encFrame[i].virt_addr)
+			vpu_dbg(LVL_ERR, "%s() encFrame alloc size(%x) fail!\n", __func__, ctx->encFrame[i].size);
+			else
+				vpu_dbg(LVL_INFO, "%s() encFrame size(%d) encFrame virt(%p) encFrame phy(%p)\n", __func__, ctx->encFrame[i].size, ctx->encFrame[i].virt_addr, (void *)ctx->encFrame[i].phy_addr);
+		}
 
 		pEncMemPool->tEncFrameBuffers[i].uMemPhysAddr = ctx->encFrame[i].phy_addr;
 #ifdef CM4
@@ -1052,16 +1081,18 @@ static void enc_mem_alloc(struct vpu_ctx *ctx, MEDIAIP_ENC_MEM_REQ_DATA *req_dat
 
 	for (i = 0; i < req_data->uRefFrmNum; i++) {
 		ctx->refFrame[i].size = req_data->uRefFrmSize;
-		ctx->refFrame[i].virt_addr = dma_alloc_coherent(&ctx->dev->plat_dev->dev,
-				ctx->refFrame[i].size,
-				(dma_addr_t *)&ctx->refFrame[i].phy_addr,
-				GFP_KERNEL | GFP_DMA32
-				);
+		if (!ctx->refFrame[i].virt_addr) {
+			ctx->refFrame[i].virt_addr = dma_alloc_coherent(&ctx->dev->plat_dev->dev,
+					ctx->refFrame[i].size,
+					(dma_addr_t *)&ctx->refFrame[i].phy_addr,
+					GFP_KERNEL | GFP_DMA32
+					);
 
-		if (!ctx->refFrame[i].virt_addr)
-		vpu_dbg(LVL_ERR, "%s() refFrame alloc size(%x) fail!\n", __func__, ctx->refFrame[i].size);
-		else
-			vpu_dbg(LVL_INFO, "%s() refFrame size(%d) refFrame virt(%p) refFrame phy(%p)\n", __func__, ctx->refFrame[i].size, ctx->refFrame[i].virt_addr, (void *)ctx->refFrame[i].phy_addr);
+			if (!ctx->refFrame[i].virt_addr)
+			vpu_dbg(LVL_ERR, "%s() refFrame alloc size(%x) fail!\n", __func__, ctx->refFrame[i].size);
+			else
+				vpu_dbg(LVL_INFO, "%s() refFrame size(%d) refFrame virt(%p) refFrame phy(%p)\n", __func__, ctx->refFrame[i].size, ctx->refFrame[i].virt_addr, (void *)ctx->refFrame[i].phy_addr);
+		}
 
 		pEncMemPool->tRefFrameBuffers[i].uMemPhysAddr = ctx->refFrame[i].phy_addr;
 #ifdef CM4
@@ -1073,16 +1104,18 @@ static void enc_mem_alloc(struct vpu_ctx *ctx, MEDIAIP_ENC_MEM_REQ_DATA *req_dat
 	}
 
 	ctx->actFrame.size = req_data->uActBufSize;
-	ctx->actFrame.virt_addr = dma_alloc_coherent(&ctx->dev->plat_dev->dev,
-			ctx->actFrame.size,
-			(dma_addr_t *)&ctx->actFrame.phy_addr,
-			GFP_KERNEL | GFP_DMA32
-			);
+	if (!ctx->actFrame.virt_addr) {
+		ctx->actFrame.virt_addr = dma_alloc_coherent(&ctx->dev->plat_dev->dev,
+				ctx->actFrame.size,
+				(dma_addr_t *)&ctx->actFrame.phy_addr,
+				GFP_KERNEL | GFP_DMA32
+				);
 
-	if (!ctx->actFrame.virt_addr)
-		vpu_dbg(LVL_ERR, "%s() actFrame alloc size(%x) fail!\n", __func__, ctx->actFrame.size);
-	else
-		vpu_dbg(LVL_INFO, "%s() actFrame size(%d) actFrame virt(%p) actFrame phy(%p)\n", __func__, ctx->actFrame.size, ctx->actFrame.virt_addr, (void *)ctx->actFrame.phy_addr);
+		if (!ctx->actFrame.virt_addr)
+			vpu_dbg(LVL_ERR, "%s() actFrame alloc size(%x) fail!\n", __func__, ctx->actFrame.size);
+		else
+			vpu_dbg(LVL_INFO, "%s() actFrame size(%d) actFrame virt(%p) actFrame phy(%p)\n", __func__, ctx->actFrame.size, ctx->actFrame.virt_addr, (void *)ctx->actFrame.phy_addr);
+	}
 
 	pEncMemPool->tActFrameBufferArea.uMemPhysAddr = ctx->actFrame.phy_addr;
 #ifdef CM4
@@ -1100,8 +1133,8 @@ static void vpu_api_event_handler(struct vpu_ctx *ctx, u_int32 uStrIdx, u_int32 
 	if (uStrIdx < VID_API_NUM_STREAMS) {
 		switch (uEvent) {
 		case VID_API_ENC_EVENT_START_DONE: {
-		update_yuv_addr(ctx, uStrIdx);
-		v4l2_vpu_send_cmd(ctx, uStrIdx, GTB_ENC_CMD_FRAME_ENCODE, 0, NULL);
+		if (update_yuv_addr(ctx, uStrIdx))
+			v4l2_vpu_send_cmd(ctx, uStrIdx, GTB_ENC_CMD_FRAME_ENCODE, 0, NULL);
 		} break;
 		case VID_API_ENC_EVENT_MEM_REQUEST: {
 			MEDIAIP_ENC_MEM_REQ_DATA *req_data = (MEDIAIP_ENC_MEM_REQ_DATA *)event_data;
@@ -1152,13 +1185,13 @@ static void vpu_api_event_handler(struct vpu_ctx *ctx, u_int32 uStrIdx, u_int32 
 			.type = V4L2_EVENT_EOS
 		};
 		ctx->firmware_stopped = true;
-		complete(&ctx->stop_cmp);
+		complete_all(&ctx->stop_cmp);
 		v4l2_event_queue_fh(&ctx->fh, &ev);
 		}
 		break;
 		case VID_API_ENC_EVENT_FRAME_INPUT_DONE: {
-		update_yuv_addr(ctx, uStrIdx);
-		v4l2_vpu_send_cmd(ctx, uStrIdx, GTB_ENC_CMD_FRAME_ENCODE, 0, NULL);
+		if (update_yuv_addr(ctx, uStrIdx))
+			v4l2_vpu_send_cmd(ctx, uStrIdx, GTB_ENC_CMD_FRAME_ENCODE, 0, NULL);
 		} break;
 		case VID_API_ENC_EVENT_TERMINATE_DONE:
 		break;
