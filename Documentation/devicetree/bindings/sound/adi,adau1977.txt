@@ -23,6 +23,21 @@ Optional properties:
  - DVDD-supply: supply voltage for the digital core, please consult
                 Documentation/devicetree/bindings/regulator/regulator.txt
 
+ - MICBIAS-supply: only for ADAU1977, specifies the voltage settings via
+                the regulator framework. Please consult
+                Documentation/devicetree/bindings/regulator/regulator.txt
+
+                The supported voltages are 5.0V, 5.5V, 6.0V, 6.5V, 7.0V,
+                7.5V, 8.0V, 8.5V, 9.0V.
+                When specifying a value in the regulator (e.g. 5400000 uV) the
+                closest or rounded value from the supported voltages will
+                be used.
+                Examples:
+                  for anything lower than 5000000 uV, 5.0V will be used
+                  for values in range 5750001 - 6249000 uV, 6.0V will be used
+                  for values in range 6250001 - 6500000 uV, 6.5V will be used
+                  for anything above 9000000 uV, 9.0V will be used
+
 For required properties on SPI, please consult
 Documentation/devicetree/bindings/spi/spi-bus.txt
 
@@ -39,6 +54,7 @@ Examples:
 
 		AVDD-supply = <&regulator>;
 		DVDD-supply = <&regulator_digital>;
+		MICBIAS-supply = <&regulator_micbias>;
 
 		reset_gpio = <&gpio 10 GPIO_ACTIVE_LOW>;
 	};
@@ -49,6 +65,7 @@ Examples:
 
 		AVDD-supply = <&regulator>;
 		DVDD-supply = <&regulator_digital>;
+		MICBIAS-supply = <&regulator_micbias>;
 
 		reset_gpio = <&gpio 10 GPIO_ACTIVE_LOW>;
 	};
