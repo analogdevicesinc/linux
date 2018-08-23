@@ -131,7 +131,6 @@ struct fsl_spdif_priv {
 	u32 regcache_srpc;
 	struct clk *pll8k_clk;
 	struct clk *pll11k_clk;
-	u8 streams;
 };
 
 static struct fsl_spdif_soc_data fsl_spdif_vf610 = {
@@ -638,9 +637,6 @@ static int fsl_spdif_hw_params(struct snd_pcm_substream *substream,
 		ret = spdif_set_rx_clksrc(spdif_priv, SPDIF_DEFAULT_GAINSEL, 1);
 	}
 
-	if (!ret)
-		spdif_priv->streams |= BIT(substream->stream);
-
 	return ret;
 }
 
@@ -682,8 +678,6 @@ static int fsl_spdif_hw_free(struct snd_pcm_substream *substream,
 
 	if (spdif_priv->soc->dma_workaround)
 		clear_gpt_dma(substream, spdif_priv->dma_info);
-
-	spdif_priv->streams &= ~BIT(substream->stream);
 
 	return 0;
 }
@@ -827,18 +821,11 @@ static int fsl_spdif_set_dai_sysclk(struct snd_soc_dai *cpu_dai,
 	if (pll) {
 		npll = (do_div(ratio, 8000) ? data->pll11k_clk : data->pll8k_clk);
 		if (!clk_is_match(pll, npll)) {
-			if (!data->streams) {
-				ret = clk_set_parent(p, npll);
-				if (ret < 0)
-					dev_warn(cpu_dai->dev,
-						"failed to set parent %s: %d\n",
-						__clk_get_name(npll), ret);
-			} else {
-				dev_err(cpu_dai->dev,
-					"PLL %s is in use by a running stream.\n",
-					__clk_get_name(pll));
-				return -EINVAL;
-			}
+			ret = clk_set_parent(p, npll);
+			if (ret < 0)
+				dev_warn(cpu_dai->dev,
+					"failed to set parent %s: %d\n",
+					__clk_get_name(npll), ret);
 		}
 	}
 
