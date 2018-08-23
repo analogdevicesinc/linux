@@ -695,7 +695,7 @@ static bool nwl_dsi_read_packet(struct nwl_mipi_dsi *dsi, u32 status)
 			payload[1] = (val >>  8) & 0xff;
 			++xfer->rx_len;
 			/* Fall through */
-		case 0:
+		case 1:
 			payload[0] = (val >>  0) & 0xff;
 			++xfer->rx_len;
 			break;
