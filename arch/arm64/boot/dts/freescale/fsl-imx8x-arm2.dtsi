@@ -34,6 +34,25 @@
 			enable-active-high;
 		};
 
+		reg_can_en: regulator-can-gen {
+			compatible = "regulator-fixed";
+			regulator-name = "can-en";
+			regulator-min-microvolt = <3300000>;
+			regulator-max-microvolt = <3300000>;
+			gpio = <&pca9557_b 5 GPIO_ACTIVE_HIGH>;
+			enable-active-high;
+		};
+
+		reg_can_stby: regulator-can-stby {
+			compatible = "regulator-fixed";
+			regulator-name = "can-stby";
+			regulator-min-microvolt = <3300000>;
+			regulator-max-microvolt = <3300000>;
+			gpio = <&pca9557_b 4 GPIO_ACTIVE_HIGH>;
+			enable-active-high;
+			vin-supply = <&reg_can_en>;
+		};
+
 		reg_audio: fixedregulator@0 {
 			compatible = "regulator-fixed";
 			reg = <2>;
@@ -230,6 +249,27 @@
 				SC_P_ESAI0_TX3_RX2_CONN_ENET1_RGMII_RXD1	0x00000060
 				SC_P_ESAI0_TX2_RX3_CONN_ENET1_RGMII_RXD2	0x00000060
 				SC_P_ESAI0_TX1_CONN_ENET1_RGMII_RXD3		0x00000060
+			>;
+		};
+
+		pinctrl_flexcan1: flexcan0grp {
+			fsl,pins = <
+				SC_P_FLEXCAN0_TX_ADMA_FLEXCAN0_TX		0x21
+				SC_P_FLEXCAN0_RX_ADMA_FLEXCAN0_RX		0x21
+			>;
+		};
+
+		pinctrl_flexcan2: flexcan1grp {
+			fsl,pins = <
+				SC_P_FLEXCAN1_TX_ADMA_FLEXCAN1_TX		0x21
+				SC_P_FLEXCAN1_RX_ADMA_FLEXCAN1_RX		0x21
+			>;
+		};
+
+		pinctrl_flexcan3: flexcan2grp {
+			fsl,pins = <
+				SC_P_FLEXCAN2_TX_ADMA_FLEXCAN2_TX		0x21
+				SC_P_FLEXCAN2_RX_ADMA_FLEXCAN2_RX		0x21
 			>;
 		};
 
@@ -478,6 +518,27 @@
 	status = "disabled";
 };
 
+&flexcan1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_flexcan1>;
+	xceiver-supply = <&reg_can_stby>;
+	status = "okay";
+};
+
+&flexcan2 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_flexcan2>;
+	xceiver-supply = <&reg_can_stby>;
+	status = "okay";
+};
+
+&flexcan3 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_flexcan3>;
+	xceiver-supply = <&reg_can_stby>;
+	status = "okay";
+};
+
 &mipi_csi_0 {
 	#address-cells = <1>;
 	#size-cells = <0>;
@@ -606,6 +667,13 @@
 	pca9557_a: gpio@18 {
 		compatible = "nxp,pca9557";
 		reg = <0x18>;
+		gpio-controller;
+		#gpio-cells = <2>;
+	};
+		
+	pca9557_b: gpio@19 {
+		compatible = "nxp,pca9557";
+		reg = <0x19>;
 		gpio-controller;
 		#gpio-cells = <2>;
 	};
