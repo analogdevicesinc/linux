@@ -13,7 +13,6 @@
 #include <linux/i2c.h>
 #include <linux/init.h>
 #include <linux/module.h>
-#include <linux/platform_data/adau1977.h>
 #include <linux/regmap.h>
 #include <linux/regulator/consumer.h>
 #include <linux/slab.h>
@@ -118,6 +117,7 @@ struct adau1977 {
 
 	struct regulator *avdd_reg;
 	struct regulator *dvdd_reg;
+	struct regulator *micbias_reg;
 
 	struct snd_pcm_hw_constraint_list constraints;
 
@@ -396,10 +396,52 @@ static int adau1977_power_disable(struct adau1977 *adau1977)
 	regulator_disable(adau1977->avdd_reg);
 	if (adau1977->dvdd_reg)
 		regulator_disable(adau1977->dvdd_reg);
+	if (adau1977->micbias_reg)
+		regulator_disable(adau1977->micbias_reg);
 
 	adau1977->enabled = false;
 
 	return 0;
+}
+
+static int adau1977_setup_micbias(struct adau1977 *adau1977)
+{
+	unsigned int micbias;
+	int ret;
+
+	if (adau1977->type == ADAU1977)
+		return 0;
+
+	/* If no regulator configured, use default */
+	if (!adau1977->micbias_reg) {
+		micbias = ADAU1977_MICBIAS_8V5;
+		goto setup_micbias;
+	}
+
+	ret = regulator_enable(adau1977->micbias_reg);
+	if (ret)
+		return ret;
+
+	ret = regulator_get_voltage(adau1977->micbias_reg);
+	if (ret < 0)
+		return ret;
+
+	if (ret <= 5000000) {
+		micbias = ADAU1977_MICBIAS_5V0;
+	} else if (ret >= 9000000) {
+		micbias = ADAU1977_MICBIAS_9V0;
+	} else {
+		/* between 5000001 && 8999999 uV, do a rounding to nearest
+		 * value in "enum adau1977_micbias"
+		 */
+		ret = ((ret - 5000000) + 250000) / 500000;
+		micbias = ret;
+	}
+
+setup_micbias:
+	return regmap_update_bits(adau1977->regmap, ADAU1977_REG_MICBIAS,
+		ADAU1977_MICBIAS_MB_VOLTS_MASK,
+		micbias << ADAU1977_MICBIAS_MB_VOLTS_OFFSET);
 }
 
 static int adau1977_power_enable(struct adau1977 *adau1977)
@@ -420,6 +462,10 @@ static int adau1977_power_enable(struct adau1977 *adau1977)
 			goto err_disable_avdd;
 	}
 
+	ret = adau1977_setup_micbias(adau1977);
+	if (ret)
+		goto err_disable_dvdd;
+
 	if (adau1977->reset_gpio)
 		gpiod_set_value_cansleep(adau1977->reset_gpio, 1);
 
@@ -430,16 +476,16 @@ static int adau1977_power_enable(struct adau1977 *adau1977)
 
 	ret = adau1977_reset(adau1977);
 	if (ret)
-		goto err_disable_dvdd;
+		goto err_disable_micbias;
 
 	ret = regmap_update_bits(adau1977->regmap, ADAU1977_REG_POWER,
 		ADAU1977_POWER_PWUP, ADAU1977_POWER_PWUP);
 	if (ret)
-		goto err_disable_dvdd;
+		goto err_disable_micbias;
 
 	ret = regcache_sync(adau1977->regmap);
 	if (ret)
-		goto err_disable_dvdd;
+		goto err_disable_micbias;
 
 	/*
 	 * The PLL register is not affected by the software reset. It is
@@ -450,14 +496,14 @@ static int adau1977_power_enable(struct adau1977 *adau1977)
 	 */
 	ret = regmap_read(adau1977->regmap, ADAU1977_REG_PLL, &val);
 	if (ret)
-		goto err_disable_dvdd;
+		goto err_disable_micbias;
 
 	if (val == 0x41) {
 		regcache_cache_bypass(adau1977->regmap, true);
 		ret = regmap_write(adau1977->regmap, ADAU1977_REG_PLL,
 			0x41);
 		if (ret)
-			goto err_disable_dvdd;
+			goto err_disable_micbias;
 		regcache_cache_bypass(adau1977->regmap, false);
 	}
 
@@ -465,6 +511,9 @@ static int adau1977_power_enable(struct adau1977 *adau1977)
 
 	return ret;
 
+err_disable_micbias:
+	if (adau1977->micbias_reg)
+		regulator_disable(adau1977->micbias_reg);
 err_disable_dvdd:
 	if (adau1977->dvdd_reg)
 		regulator_disable(adau1977->dvdd_reg);
@@ -883,25 +932,6 @@ static struct snd_soc_codec_driver adau1977_codec_driver = {
 	},
 };
 
-static int adau1977_setup_micbias(struct adau1977 *adau1977)
-{
-	struct adau1977_platform_data *pdata = adau1977->dev->platform_data;
-	unsigned int micbias;
-
-	if (pdata) {
-		micbias = pdata->micbias;
-		if (micbias > ADAU1977_MICBIAS_9V0)
-			return -EINVAL;
-
-	} else {
-		micbias = ADAU1977_MICBIAS_8V5;
-	}
-
-	return regmap_update_bits(adau1977->regmap, ADAU1977_REG_MICBIAS,
-		ADAU1977_MICBIAS_MB_VOLTS_MASK,
-		micbias << ADAU1977_MICBIAS_MB_VOLTS_OFFSET);
-}
-
 int adau1977_probe(struct device *dev, struct regmap *regmap,
 	enum adau1977_type type, void (*switch_mode)(struct device *dev))
 {
@@ -936,6 +966,12 @@ int adau1977_probe(struct device *dev, struct regmap *regmap,
 		adau1977->dvdd_reg = NULL;
 	}
 
+	if (type == ADAU1977) {
+		adau1977->micbias_reg = devm_regulator_get_optional(dev, "MICBIAS");
+		if (IS_ERR(adau1977->micbias_reg))
+			return PTR_ERR(adau1977->micbias_reg);
+	}
+
 	adau1977->reset_gpio = devm_gpiod_get_optional(dev, "reset",
 						       GPIOD_OUT_LOW);
 	if (IS_ERR(adau1977->reset_gpio))
@@ -949,12 +985,6 @@ int adau1977_probe(struct device *dev, struct regmap *regmap,
 	ret = adau1977_power_enable(adau1977);
 	if (ret)
 		return ret;
-
-	if (type == ADAU1977) {
-		ret = adau1977_setup_micbias(adau1977);
-		if (ret)
-			goto err_poweroff;
-	}
 
 	if (adau1977->dvdd_reg)
 		power_off_mask = ~0;
