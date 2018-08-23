@@ -6946,7 +6946,7 @@ gckOS_CreateNativeFence(
 {
     struct dma_fence *fence = NULL;
     struct sync_file *sync = NULL;
-    int fd;
+    int fd = -1;
     struct viv_sync_timeline *timeline;
     gcsSIGNAL_PTR signal = gcvNULL;
     gceSTATUS status = gcvSTATUS_OK;

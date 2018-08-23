@@ -236,7 +236,7 @@ struct viv_sync_timeline * viv_sync_timeline_create(const char *name, gckOS Os)
     if (!timeline)
         return NULL;
 
-    strncpy(timeline->name, name, sizeof(timeline->name));
+    strncpy(timeline->name, name, sizeof(timeline->name) - 1);
     timeline->context = dma_fence_context_alloc(1);
     atomic64_set(&timeline->seqno, 0);
     timeline->os = Os;

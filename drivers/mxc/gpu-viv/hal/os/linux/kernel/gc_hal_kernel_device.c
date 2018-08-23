@@ -2102,7 +2102,7 @@ gckGALDEVICE_QueryFrequency(
     IN gckGALDEVICE Device
     )
 {
-    gctUINT64 mcStart[gcvCORE_COUNT], shStart[gcvCORE_COUNT];
+    gctUINT64 mcStart[gcvCORE_COUNT] = { 0 }, shStart[gcvCORE_COUNT];
     gctUINT32 mcClk[gcvCORE_COUNT], shClk[gcvCORE_COUNT];
     gckHARDWARE hardware = gcvNULL;
     gceSTATUS status;
