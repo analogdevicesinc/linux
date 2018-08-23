@@ -273,6 +273,7 @@ config ARCH_FSL_IMX8QM
 	select PINCTRL_IMX8QM
 	select PM
 	select SOC_BUS
+	select GPIO_MXC_PAD_WAKEUP
 	help
 	  This enables support for Freescale i.MX8QM SOC.
 
@@ -283,6 +284,7 @@ config ARCH_FSL_IMX8QP
 	select PINCTRL_IMX8QM
 	select PM
 	select SOC_BUS
+	select GPIO_MXC_PAD_WAKEUP
 	help
 	  This enables support for Freescale i.MX8QP SOC.
 
@@ -294,6 +296,7 @@ config ARCH_FSL_IMX8QXP
 	select PINCTRL_IMX8QXP
 	select PM
 	select SOC_BUS
+	select GPIO_MXC_PAD_WAKEUP
 	help
 	  This enables support for Freescale i.MX8QXP SOC.
 
