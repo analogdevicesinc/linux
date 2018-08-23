@@ -13,7 +13,6 @@
 #include <linux/i2c.h>
 #include <linux/init.h>
 #include <linux/module.h>
-#include <linux/platform_data/adau1977.h>
 #include <linux/regmap.h>
 #include <linux/regulator/consumer.h>
 #include <linux/slab.h>
@@ -407,20 +406,11 @@ static int adau1977_power_disable(struct adau1977 *adau1977)
 
 static int adau1977_setup_micbias(struct adau1977 *adau1977)
 {
-	struct adau1977_platform_data *pdata = adau1977->dev->platform_data;
 	unsigned int micbias;
 	int ret;
 
 	if (adau1977->type == ADAU1977)
 		return 0;
-
-	/* Prefer platform data, if it exists */
-	if (pdata) {
-		micbias = pdata->micbias;
-		if (micbias > ADAU1977_MICBIAS_9V0)
-			return -EINVAL;
-		goto setup_micbias;
-	}
 
 	/* If no regulator configured, use default */
 	if (!adau1977->micbias_reg) {
