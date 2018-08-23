@@ -408,6 +408,11 @@ int __init imx8_mu_init(void)
 	if (sciErr)
 		pr_info("Cannot request WDOG interrupt\n");
 
+	sciErr = sc_irq_enable(mu_ipcHandle, SC_R_MU_1A, SC_IRQ_GROUP_WAKE,
+			       SC_IRQ_PAD, true);
+	if (sciErr)
+		pr_info("Cannot request PAD interrupt\n");
+
 	register_syscore_ops(&imx8_mu_syscore_ops);
 
 	pr_info("*****Initialized MU\n");

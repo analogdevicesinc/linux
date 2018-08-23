@@ -70,6 +70,7 @@
  */
 /*@{*/
 #define SC_IRQ_WDOG              (1 << 0)	/* Watchdog interrupt */
+#define SC_IRQ_PAD               (1U << 1U)     /*!< Pad wakeup */
 /*@}*/
 
 /*!
