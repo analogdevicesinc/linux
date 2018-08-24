@@ -597,6 +597,19 @@ static void imx_hdp_bridge_disable(struct drm_bridge *bridge)
 
 static void imx_hdp_bridge_enable(struct drm_bridge *bridge)
 {
+	struct imx_hdp *hdp = bridge->driver_private;
+
+	/*
+	 * When switching from 10-bit to 8-bit color depths, iMX8MQ needs the
+	 * PHY pixel engine to be reset after all clocks are ON, not before.
+	 * So, we do it in the enable callback.
+	 *
+	 * Since the reset does not do any harm when switching from a 8-bit mode
+	 * to another 8-bit mode, or from 8-bit to 10-bit, we can safely do it
+	 * all the time.
+	 */
+	if (cpu_is_imx8mq())
+		imx_hdp_call(hdp, pixel_engine_reset, &hdp->state);
 }
 
 static enum drm_connector_status
@@ -1012,6 +1025,7 @@ static struct hdp_ops imx8mq_ops = {
 	.get_hpd_state = hdmi_get_hpd_state,
 	.write_hdr_metadata = hdmi_write_hdr_metadata,
 	.pixel_clock_range = pixel_clock_range_t28hpc,
+	.pixel_engine_reset = hdmi_phy_pix_engine_reset_t28hpc,
 };
 
 static struct hdp_devtype imx8mq_hdmi_devtype = {

@@ -29,5 +29,6 @@ int hdmi_get_hpd_state(state_struct *state, u8 *hpd);
 int hdmi_write_hdr_metadata(state_struct *state,
 			    union hdmi_infoframe *hdr_infoframe);
 int pixel_clock_range_t28hpc(struct drm_display_mode *mode);
+void hdmi_phy_pix_engine_reset_t28hpc(state_struct *state);
 
 #endif

@@ -279,6 +279,21 @@ int hdmi_phy_init_t28hpc(state_struct *state, struct drm_display_mode *mode, int
 	return true;
 }
 
+void hdmi_phy_pix_engine_reset_t28hpc(state_struct *state)
+{
+	GENERAL_Read_Register_response regresp;
+
+	CDN_API_General_Read_Register_blocking(state, ADDR_SOURCE_CAR +
+					       (SOURCE_HDTX_CAR << 2),
+					       &regresp);
+	CDN_API_General_Write_Register_blocking(state, ADDR_SOURCE_CAR +
+						(SOURCE_HDTX_CAR << 2),
+						regresp.val & 0xFD);
+	CDN_API_General_Write_Register_blocking(state, ADDR_SOURCE_CAR +
+						(SOURCE_HDTX_CAR << 2),
+						regresp.val);
+}
+
 void hdmi_mode_set_vswing(state_struct *state)
 {
 	GENERAL_Read_Register_response regresp[12];
