@@ -831,12 +831,11 @@ static int __maybe_unused mxc_gpio_noirq_resume(struct device *dev)
 	writel(port->suspend_saved_reg[3], port->base + GPIO_GDIR);
 	writel(port->suspend_saved_reg[4], port->base + GPIO_EDGE_SEL);
 	writel(port->suspend_saved_reg[5], port->base + GPIO_DR);
-	spin_unlock_irqrestore(&port->gc.bgpio_lock, flags);
-
 #ifdef CONFIG_GPIO_MXC_PAD_WAKEUP
-	if (wakeup_line > 0)
+	if (wakeup_line >= 0)
 		mxc_gpio_handle_pad_wakeup(port, wakeup_line);
 #endif
+	spin_unlock_irqrestore(&port->gc.bgpio_lock, flags);
 	clk_disable_unprepare(port->clk);
 
 	return 0;
