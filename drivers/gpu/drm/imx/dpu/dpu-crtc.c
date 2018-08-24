@@ -22,6 +22,7 @@
 #include <linux/device.h>
 #include <linux/errno.h>
 #include <linux/export.h>
+#include <linux/irq.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <video/dpu.h>
@@ -685,6 +686,7 @@ static int dpu_crtc_init(struct dpu_crtc *dpu_crtc,
 	dpu_crtc->vbl_irq = dpu_map_inner_irq(dpu, stream_id ?
 				IRQ_DISENGCFG_FRAMECOMPLETE1 :
 				IRQ_DISENGCFG_FRAMECOMPLETE0);
+	irq_set_status_flags(dpu_crtc->vbl_irq, IRQ_DISABLE_UNLAZY);
 	ret = devm_request_irq(dev, dpu_crtc->vbl_irq, dpu_vbl_irq_handler, 0,
 				"imx_drm", dpu_crtc);
 	if (ret < 0) {
@@ -695,6 +697,7 @@ static int dpu_crtc_init(struct dpu_crtc *dpu_crtc,
 
 	dpu_crtc->safety_shdld_irq = dpu_map_inner_irq(dpu, stream_id ?
 			IRQ_EXTDST5_SHDLOAD : IRQ_EXTDST4_SHDLOAD);
+	irq_set_status_flags(dpu_crtc->safety_shdld_irq, IRQ_DISABLE_UNLAZY);
 	ret = devm_request_irq(dev, dpu_crtc->safety_shdld_irq,
 				dpu_safety_shdld_irq_handler, 0, "imx_drm",
 				dpu_crtc);
@@ -708,6 +711,7 @@ static int dpu_crtc_init(struct dpu_crtc *dpu_crtc,
 
 	dpu_crtc->content_shdld_irq = dpu_map_inner_irq(dpu, stream_id ?
 			IRQ_EXTDST1_SHDLOAD : IRQ_EXTDST0_SHDLOAD);
+	irq_set_status_flags(dpu_crtc->content_shdld_irq, IRQ_DISABLE_UNLAZY);
 	ret = devm_request_irq(dev, dpu_crtc->content_shdld_irq,
 				dpu_content_shdld_irq_handler, 0, "imx_drm",
 				dpu_crtc);
@@ -721,6 +725,7 @@ static int dpu_crtc_init(struct dpu_crtc *dpu_crtc,
 
 	dpu_crtc->dec_shdld_irq = dpu_map_inner_irq(dpu, stream_id ?
 			IRQ_DISENGCFG_SHDLOAD1 : IRQ_DISENGCFG_SHDLOAD0);
+	irq_set_status_flags(dpu_crtc->dec_shdld_irq, IRQ_DISABLE_UNLAZY);
 	ret = devm_request_irq(dev, dpu_crtc->dec_shdld_irq,
 				dpu_dec_shdld_irq_handler, 0, "imx_drm",
 				dpu_crtc);
