@@ -722,7 +722,7 @@
 			 <&clk IMX8MM_CLK_SAI1_ROOT>,
 			 <&clk IMX8MM_CLK_DUMMY>, <&clk IMX8MM_CLK_DUMMY>;
 		clock-names = "bus", "mclk0", "mclk1", "mclk2", "mclk3";
-		dmas = <&sdma2 0 24 0>, <&sdma2 1 24 0>;
+		dmas = <&sdma2 0 2 0>, <&sdma2 1 2 0>;
 		dma-names = "rx", "tx";
 		fsl,dataline = <0xff 0xff>;
 		status = "disabled";
@@ -738,7 +738,7 @@
 			<&clk IMX8MM_CLK_SAI2_ROOT>,
 			<&clk IMX8MM_CLK_DUMMY>, <&clk IMX8MM_CLK_DUMMY>;
 		clock-names = "bus", "mclk0", "mclk1", "mclk2", "mclk3";
-		dmas = <&sdma2 2 24 0>, <&sdma2 3 24 0>;
+		dmas = <&sdma2 2 2 0>, <&sdma2 3 2 0>;
 		dma-names = "rx", "tx";
 		status = "disabled";
 	};
@@ -752,7 +752,7 @@
 			 <&clk IMX8MM_CLK_SAI3_ROOT>,
 			 <&clk IMX8MM_CLK_DUMMY>, <&clk IMX8MM_CLK_DUMMY>;
 		clock-names = "bus", "mclk0", "mclk1", "mclk2", "mclk3";
-		dmas = <&sdma2 4 24 0>, <&sdma2 5 24 0>;
+		dmas = <&sdma2 4 2 0>, <&sdma2 5 2 0>;
 		dma-names = "rx", "tx";
 		status = "disabled";
 	};
@@ -766,7 +766,7 @@
 			 <&clk IMX8MM_CLK_SAI5_ROOT>,
 			 <&clk IMX8MM_CLK_DUMMY>, <&clk IMX8MM_CLK_DUMMY>;
 		clock-names = "bus", "mclk0", "mclk1", "mclk2", "mclk3";
-		dmas = <&sdma2 8 24 0>, <&sdma2 9 24 0>;
+		dmas = <&sdma2 8 2 0>, <&sdma2 9 2 0>;
 		dma-names = "rx", "tx";
 		fsl,shared-interrupt;
 		fsl,dataline = <0xf 0xf>;
@@ -783,7 +783,7 @@
 			 <&clk IMX8MM_CLK_SAI6_ROOT>,
 			 <&clk IMX8MM_CLK_DUMMY>, <&clk IMX8MM_CLK_DUMMY>;
 		clock-names = "bus", "mclk0", "mclk1", "mclk2", "mclk3";
-		dmas = <&sdma2 10 24 0>, <&sdma2 11 24 0>;
+		dmas = <&sdma2 10 2 0>, <&sdma2 11 2 0>;
 		dma-names = "rx", "tx";
 		fsl,shared-interrupt;
 		status = "disabled";
