@@ -1,26 +1,22 @@
-#
-# Xilinx ZYNQ MPSoC configuration
-#
-menuconfig SOC_XILINX_ZYNQMP
-	bool "Xilinx Zynq MPSoC driver support"
-	depends on ARCH_ZYNQMP
+# SPDX-License-Identifier: GPL-2.0
+menu "Xilinx SoC drivers"
 
-if SOC_XILINX_ZYNQMP
-
-config ZYNQMP_PM_API_DEBUGFS
-	bool "Enable Xilinx Zynq MPSoC Power Management API debugfs functionality"
-	depends on DEBUG_FS && PM
+config XILINX_VCU
+	tristate "Xilinx VCU logicoreIP Init"
+	depends on HAS_IOMEM
 	help
-	  Say yes to enable power domain management API requests through debugfs
-	  In doubt, say N
+	  Provides the driver to enable and disable the isolation between the
+	  processing system and programmable logic part by using the logicoreIP
+	  register set. This driver also configures the frequency based on the
+	  clock information from the logicoreIP register set.
 
-config ZYNQMP_PM_DOMAINS
-	bool "Enable Zynq MPSoC generic PM domains"
-	default y
-	depends on PM
-	select PM_GENERIC_DOMAINS
-	help
-	  Say yes to enable device power management through PM domains
-	  In doubt, say N
+	  If you say yes here you get support for the logicoreIP.
 
-endif #SOC_XILINX_ZYNQMP
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called xlnx_vcu.
+
+source "drivers/soc/xilinx/zynqmp/Kconfig"
+
+endmenu

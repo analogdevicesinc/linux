@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-2.0 */
 /*
  * Definitions for Xilinx Axi Ethernet device driver.
  *
@@ -371,13 +372,17 @@
 #endif
 
 /* XXV MAC Register Definitions */
+#define XXV_GT_RESET_OFFSET		0x00000000
 #define XXV_TC_OFFSET			0x0000000C
 #define XXV_RCW1_OFFSET			0x00000014
 #define XXV_JUM_OFFSET			0x00000018
 #define XXV_TICKREG_OFFSET		0x00000020
 #define XXV_STATRX_BLKLCK_OFFSET	0x0000040C
+#define XXV_USXGMII_AN_OFFSET		0x000000C8
+#define XXV_USXGMII_AN_STS_OFFSET	0x00000458
 
 /* XXV MAC Register Mask Definitions */
+#define XXV_GT_RESET_MASK	BIT(0)
 #define XXV_TC_TX_MASK		BIT(0)
 #define XXV_RCW1_RX_MASK	BIT(0)
 #define XXV_RCW1_FCS_MASK	BIT(1)
@@ -387,6 +392,24 @@
 #define XXV_RX_BLKLCK_MASK	BIT(0)
 #define XXV_TICKREG_STATEN_MASK BIT(0)
 #define XXV_MAC_MIN_PKT_LEN	64
+
+/* USXGMII Register Mask Definitions  */
+#define USXGMII_AN_EN		BIT(5)
+#define USXGMII_AN_RESET	BIT(6)
+#define USXGMII_AN_RESTART	BIT(7)
+#define USXGMII_EN		BIT(16)
+#define USXGMII_RATE_MASK	0x0E000700
+#define USXGMII_RATE_1G		0x04000200
+#define USXGMII_RATE_2G5	0x08000400
+#define USXGMII_RATE_10M	0x0
+#define USXGMII_RATE_100M	0x02000100
+#define USXGMII_RATE_5G		0x0A000500
+#define USXGMII_RATE_10G	0x06000300
+#define USXGMII_FD		BIT(28)
+#define USXGMII_LINK_STS	BIT(31)
+
+/* USXGMII AN STS register mask definitions */
+#define USXGMII_AN_STS_COMP_MASK	BIT(16)
 
 /* MCDMA Register Definitions */
 #define XMCDMA_CR_OFFSET	0x00
@@ -560,22 +583,23 @@ struct aximcdma_bd {
 #define DESC_DMA_MAP_SINGLE 0
 #define DESC_DMA_MAP_PAGE 1
 
-#ifdef CONFIG_XILINX_TSN
-enum XAE_QUEUE {
-	XAE_BE = 0, /* best effort */
-	XAE_RE,	   /* reserved(cbs) */
-	XAE_ST,    /* Scheduled */
-	XAE_MAX_QUEUES,
-};
-#elif defined(CONFIG_AXIENET_HAS_MCDMA)
+#if defined(CONFIG_AXIENET_HAS_MCDMA)
 #define XAE_MAX_QUEUES   16
 #else
-#define XAE_MAX_QUEUES   1
+#define XAE_MAX_QUEUES   3
 #endif
 
-#ifdef CONFIG_XILINX_TSN_PTP
-#define SIOCCHIOCTL SIOCDEVPRIVATE
-#endif
+enum axienet_tsn_ioctl {
+	SIOCCHIOCTL = SIOCDEVPRIVATE,
+	SIOC_GET_SCHED,
+	SIOC_PREEMPTION_CFG,
+	SIOC_PREEMPTION_CTRL,
+	SIOC_PREEMPTION_STS,
+	SIOC_PREEMPTION_COUNTER,
+	SIOC_QBU_USER_OVERRIDE,
+	SIOC_QBU_STS,
+};
+
 /**
  * struct axienet_local - axienet private per device data
  * @ndev:	Pointer for net_device to which it will be attached.
@@ -587,8 +611,8 @@ enum XAE_QUEUE {
  * @napi:	Napi Structure array for all dma queues
  * @num_queues: Total number of DMA queues
  * @dq:		DMA queues data
+ * @phy_mode:	Phy type to identify between MII/GMII/RGMII/SGMII/1000 Base-X
  * @is_tsn:	Denotes a tsn port
- * @num_q:	Denotes number of queue in current TSN design
  * @temac_no:	Denotes the port number in TSN IP
  * @timer_priv: PTP timer private data pointer
  * @ptp_tx_irq: PTP tx irq
@@ -602,7 +626,6 @@ enum XAE_QUEUE {
  * @ptp_tx_lock: PTP tx lock
  * @dma_err_tasklet: Tasklet structure to process Axi DMA errors
  * @eth_irq:	Axi Ethernet IRQ number
- * @phy_type:	Phy type to identify between MII/GMII/RGMII/SGMII/1000 Base-X
  * @options:	AxiEthernet option word
  * @last_link:	Phy link state in which the PHY was negotiated earlier
  * @features:	Stores the extended features supported by the axienet hw
@@ -630,6 +653,7 @@ enum XAE_QUEUE {
  * @chan_num: MCDMA Channel number to be operate on.
  * @chan_id:  MCMDA Channel id used in conjunction with weight parameter.
  * @weight:   MCDMA Channel weight value to be configured for.
+ * @usxgmii_rate: USXGMII PHY speed.
  */
 struct axienet_local {
 	struct net_device *ndev;
@@ -654,9 +678,11 @@ struct axienet_local {
 	u8     temac_no;
 	u16    num_queues;	/* Number of DMA queues */
 	struct axienet_dma_q *dq[XAE_MAX_QUEUES];	/* DAM queue data*/
+
+	phy_interface_t phy_mode;
+
 	bool is_tsn;
 #ifdef CONFIG_XILINX_TSN
-	int num_q;
 #ifdef CONFIG_XILINX_TSN_PTP
 	void *timer_priv;
 	int ptp_tx_irq;
@@ -671,7 +697,6 @@ struct axienet_local {
 #endif
 #endif
 	int eth_irq;
-	u32 phy_type;
 
 	u32 options;			/* Current options word */
 	u32 last_link;
@@ -706,6 +731,8 @@ struct axienet_local {
 	/* WRR Fields */
 	u16 chan_id;
 	u16 weight;
+
+	u32 usxgmii_rate;
 };
 
 /**
@@ -917,6 +944,18 @@ void axienet_tx_tstamp(struct work_struct *work);
 int axienet_qbv_init(struct net_device *ndev);
 void axienet_qbv_remove(struct net_device *ndev);
 int axienet_set_schedule(struct net_device *ndev, void __user *useraddr);
+int axienet_get_schedule(struct net_device *ndev, void __user *useraddr);
+#endif
+
+#ifdef CONFIG_XILINX_TSN_QBR
+int axienet_preemption(struct net_device *ndev, void __user *useraddr);
+int axienet_preemption_ctrl(struct net_device *ndev, void __user *useraddr);
+int axienet_preemption_sts(struct net_device *ndev, void __user *useraddr);
+int axienet_preemption_cnt(struct net_device *ndev, void __user *useraddr);
+#ifdef CONFIG_XILINX_TSN_QBV
+int axienet_qbu_user_override(struct net_device *ndev, void __user *useraddr);
+int axienet_qbu_sts(struct net_device *ndev, void __user *useraddr);
+#endif
 #endif
 
 #endif /* XILINX_AXI_ENET_H */

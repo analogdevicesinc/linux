@@ -384,7 +384,7 @@ where to put them)
     - The descriptor should be prepared for reuse by invoking
       dmaengine_desc_set_reuse() which will set DMA_CTRL_REUSE.
     - dmaengine_desc_set_reuse() will succeed only when channel support
-      reusable descriptor as exhibited by capablities
+      reusable descriptor as exhibited by capabilities
     - As a consequence, if a device driver wants to skip the dma_map_sg() and
       dma_unmap_sg() in between 2 transfers, because the DMA'd data wasn't used,
       it can resubmit the transfer right after its completion.
@@ -395,6 +395,13 @@ where to put them)
 	  when DMA_CTRL_REUSE is already set
 	- Terminating the channel
 
+  * DMA_PREP_CMD
+    - If set, the client driver tells DMA controller that passed data in DMA
+      API is command data.
+    - Interpretation of command data is DMA controller specific. It can be
+      used for issuing commands to other peripherals/register reads/register
+      writes for which the descriptor should be in different format from
+      normal data descriptors.
 
 General Design Notes
 --------------------

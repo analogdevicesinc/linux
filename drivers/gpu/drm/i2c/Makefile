@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: GPL-2.0
+
 ccflags-y := -Iinclude/drm
 
 adv7511-y := adv7511_core.o adv7511_audio.o

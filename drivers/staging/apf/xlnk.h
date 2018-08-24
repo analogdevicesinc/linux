@@ -31,8 +31,6 @@ struct xlnk_dma_transfer_handle {
 	void *kern_addr;
 	unsigned long user_addr;
 	enum dma_data_direction transfer_direction;
-	struct scatterlist *sg_list;
-	int sg_list_size;
 	int sg_effective_length;
 	int flags;
 	struct dma_chan *channel;
@@ -47,8 +45,6 @@ struct xlnk_dmabuf_reg {
 	struct dma_buf *dbuf;
 	struct dma_buf_attachment *dbuf_attach;
 	struct sg_table *dbuf_sg_table;
-	struct scatterlist *sg_list;
-	int sg_list_cnt;
 	int is_mapped;
 	int dma_direction;
 	struct list_head list;
@@ -131,16 +127,6 @@ union xlnk_args {
 		xlnk_uint_type chan1_include_dre;
 		xlnk_uint_type chan1_data_width;
 	} dmaregister;
-	struct __attribute__ ((__packed__)) {
-		xlnk_char_type name[32];
-		xlnk_uint_type id;
-		xlnk_intptr_type base;
-		xlnk_uint_type size;
-		xlnk_uint_type mm2s_chan_num;
-		xlnk_uint_type mm2s_chan_irq;
-		xlnk_uint_type s2mm_chan_num;
-		xlnk_uint_type s2mm_chan_irq;
-	} mcdmaregister;
 	struct __attribute__ ((__packed__)) {
 		xlnk_intptr_type phys_addr;
 		xlnk_uint_type size;

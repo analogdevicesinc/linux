@@ -9,7 +9,7 @@
 #include "zynqmp-zcu102-rev1.0.dts"
 
 &i2c1 {
-	i2cswitch@75 {
+	i2c-mux@75 {
 		i2c@0 {
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -43,7 +43,7 @@
 			#dma-cells = <1>;
 			#clock-cells = <0>;
 			interrupts = <0 109 0>;
-			clocks = <&clkc 71>;
+			clocks = <&clk 71>;
 
 			adi,channels {
 				#size-cells = <0>;
@@ -66,7 +66,7 @@
 			#dma-cells = <1>;
 			#clock-cells = <0>;
 			interrupts = <0 108 0>;
-			clocks = <&clkc 71>;
+			clocks = <&clk 71>;
 
 			adi,channels {
 				#size-cells = <0>;
@@ -99,14 +99,17 @@
 			clock-names = "sampl_clk";
 			dmas = <&tx_dma 0>;
 			dma-names = "tx";
-			adi,axi-dds-rate = <1>; /* use 1 for 1RX1TX mode */
-			adi,axi-dds-1-rf-channel;
 		};
 	};
 };
 
 &spi0 {
 	status = "okay";
+};
+
+&dwc3_0 {
+	status = "okay";
+	dr_mode = "otg";
 };
 
 #define fmc_spi spi0

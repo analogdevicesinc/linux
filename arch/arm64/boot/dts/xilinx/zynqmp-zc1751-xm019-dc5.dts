@@ -1,15 +1,11 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
  * dts file for Xilinx ZynqMP zc1751-xm019-dc5
  *
- * (C) Copyright 2015, Xilinx, Inc.
+ * (C) Copyright 2015 - 2018, Xilinx, Inc.
  *
  * Siva Durga Prasad <siva.durga.paladugu@xilinx.com>
  * Michal Simek <michal.simek@xilinx.com>
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License as
- * published by the Free Software Foundation; either version 2 of
- * the License, or (at your option) any later version.
  */
 
 /dts-v1/;
@@ -44,19 +40,12 @@
 	};
 };
 
-/* fpd_dma clk 667MHz, lpd_dma 500MHz */
 &fpd_dma_chan1 {
 	status = "okay";
-	xlnx,include-sg; /* for testing purpose */
-	xlnx,overfetch; /* for testing purpose */
-	xlnx,ratectrl = <0>; /* for testing purpose */
-	xlnx,src-issue = <31>;
 };
 
 &fpd_dma_chan2 {
 	status = "okay";
-	xlnx,ratectrl = <100>; /* for testing purpose */
-	xlnx,src-issue = <4>; /* for testing purpose */
 };
 
 &fpd_dma_chan3 {
@@ -65,7 +54,6 @@
 
 &fpd_dma_chan4 {
 	status = "okay";
-	xlnx,include-sg; /* for testing purpose */
 };
 
 &fpd_dma_chan5 {
@@ -74,7 +62,6 @@
 
 &fpd_dma_chan6 {
 	status = "okay";
-	xlnx,include-sg; /* for testing purpose */
 };
 
 &fpd_dma_chan7 {
@@ -83,7 +70,6 @@
 
 &fpd_dma_chan8 {
 	status = "okay";
-	xlnx,include-sg; /* for testing purpose */
 };
 
 &gem1 {
@@ -101,7 +87,6 @@
 	status = "okay";
 };
 
-/* FIXME: Add device */
 &i2c0 {
 	status = "okay";
 	pinctrl-names = "default", "gpio";
@@ -111,7 +96,6 @@
 	sda-gpios = <&gpio 75 GPIO_ACTIVE_HIGH>;
 };
 
-/* FIXME: Add device */
 &i2c1 {
 	status = "okay";
 	pinctrl-names = "default", "gpio";
@@ -120,54 +104,6 @@
 	scl-gpios = <&gpio 76 GPIO_ACTIVE_HIGH>;
 	sda-gpios = <&gpio 77 GPIO_ACTIVE_HIGH>;
 
-};
-
-&sdhci0 {
-	status = "okay";
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_sdhci0_default>;
-};
-
-&uart0 {
-	status = "okay";
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_uart0_default>;
-};
-
-&uart1 {
-	status = "okay";
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_uart1_default>;
-};
-
-&watchdog0 {
-	status = "okay";
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_watchdog0_default>;
-};
-
-&ttc0 {
-	status = "okay";
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_ttc0_default>;
-};
-
-&ttc1 {
-	status = "okay";
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_ttc1_default>;
-};
-
-&ttc2 {
-	status = "okay";
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_ttc2_default>;
-};
-
-&ttc3 {
-	status = "okay";
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_ttc3_default>;
 };
 
 &pinctrl0 {
@@ -325,12 +261,12 @@
 		};
 
 		mux-cd {
-			groups = "sdio0_0_cd_grp";
+			groups = "sdio0_cd_0_grp";
 			function = "sdio0_cd";
 		};
 
 		conf-cd {
-			groups = "sdio0_0_cd_grp";
+			groups = "sdio0_cd_0_grp";
 			bias-high-impedance;
 			bias-pull-up;
 			slew-rate = <SLEW_RATE_SLOW>;
@@ -338,12 +274,12 @@
 		};
 
 		mux-wp {
-			groups = "sdio0_0_wp_grp";
+			groups = "sdio0_wp_0_grp";
 			function = "sdio0_wp";
 		};
 
 		conf-wp {
-			groups = "sdio0_0_wp_grp";
+			groups = "sdio0_wp_0_grp";
 			bias-high-impedance;
 			bias-pull-up;
 			slew-rate = <SLEW_RATE_SLOW>;
@@ -353,22 +289,22 @@
 
 	pinctrl_watchdog0_default: watchdog0-default {
 		mux-clk {
-			groups = "swdt0_1_clk_grp";
+			groups = "swdt0_clk_1_grp";
 			function = "swdt0_clk";
 		};
 
 		conf-clk {
-			groups = "swdt0_1_clk_grp";
+			groups = "swdt0_clk_1_grp";
 			bias-pull-up;
 		};
 
 		mux-rst {
-			groups = "swdt0_1_rst_grp";
+			groups = "swdt0_rst_1_grp";
 			function = "swdt0_rst";
 		};
 
 		conf-rst {
-			groups = "swdt0_1_rst_grp";
+			groups = "swdt0_rst_1_grp";
 			bias-disable;
 			slew-rate = <SLEW_RATE_SLOW>;
 		};
@@ -376,22 +312,22 @@
 
 	pinctrl_ttc0_default: ttc0-default {
 		mux-clk {
-			groups = "ttc0_0_clk_grp";
+			groups = "ttc0_clk_0_grp";
 			function = "ttc0_clk";
 		};
 
 		conf-clk {
-			groups = "ttc0_0_clk_grp";
+			groups = "ttc0_clk_0_grp";
 			bias-pull-up;
 		};
 
 		mux-wav {
-			groups = "ttc0_0_wav_grp";
+			groups = "ttc0_wav_0_grp";
 			function = "ttc0_wav";
 		};
 
 		conf-wav {
-			groups = "ttc0_0_wav_grp";
+			groups = "ttc0_wav_0_grp";
 			bias-disable;
 			slew-rate = <SLEW_RATE_SLOW>;
 		};
@@ -399,22 +335,22 @@
 
 	pinctrl_ttc1_default: ttc1-default {
 		mux-clk {
-			groups = "ttc1_0_clk_grp";
+			groups = "ttc1_clk_0_grp";
 			function = "ttc1_clk";
 		};
 
 		conf-clk {
-			groups = "ttc1_0_clk_grp";
+			groups = "ttc1_clk_0_grp";
 			bias-pull-up;
 		};
 
 		mux-wav {
-			groups = "ttc1_0_wav_grp";
+			groups = "ttc1_wav_0_grp";
 			function = "ttc1_wav";
 		};
 
 		conf-wav {
-			groups = "ttc1_0_wav_grp";
+			groups = "ttc1_wav_0_grp";
 			bias-disable;
 			slew-rate = <SLEW_RATE_SLOW>;
 		};
@@ -422,22 +358,22 @@
 
 	pinctrl_ttc2_default: ttc2-default {
 		mux-clk {
-			groups = "ttc2_0_clk_grp";
+			groups = "ttc2_clk_0_grp";
 			function = "ttc2_clk";
 		};
 
 		conf-clk {
-			groups = "ttc2_0_clk_grp";
+			groups = "ttc2_clk_0_grp";
 			bias-pull-up;
 		};
 
 		mux-wav {
-			groups = "ttc2_0_wav_grp";
+			groups = "ttc2_wav_0_grp";
 			function = "ttc2_wav";
 		};
 
 		conf-wav {
-			groups = "ttc2_0_wav_grp";
+			groups = "ttc2_wav_0_grp";
 			bias-disable;
 			slew-rate = <SLEW_RATE_SLOW>;
 		};
@@ -445,24 +381,74 @@
 
 	pinctrl_ttc3_default: ttc3-default {
 		mux-clk {
-			groups = "ttc3_0_clk_grp";
+			groups = "ttc3_clk_0_grp";
 			function = "ttc3_clk";
 		};
 
 		conf-clk {
-			groups = "ttc3_0_clk_grp";
+			groups = "ttc3_clk_0_grp";
 			bias-pull-up;
 		};
 
 		mux-wav {
-			groups = "ttc3_0_wav_grp";
+			groups = "ttc3_wav_0_grp";
 			function = "ttc3_wav";
 		};
 
 		conf-wav {
-			groups = "ttc3_0_wav_grp";
+			groups = "ttc3_wav_0_grp";
 			bias-disable;
 			slew-rate = <SLEW_RATE_SLOW>;
 		};
 	};
+};
+
+&sdhci0 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_sdhci0_default>;
+	no-1-8-v;
+	xlnx,mio_bank = <0>;
+};
+
+&ttc0 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_ttc0_default>;
+};
+
+&ttc1 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_ttc1_default>;
+};
+
+&ttc2 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_ttc2_default>;
+};
+
+&ttc3 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_ttc3_default>;
+};
+
+&uart0 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_uart0_default>;
+};
+
+&uart1 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_uart1_default>;
+};
+
+&watchdog0 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_watchdog0_default>;
 };

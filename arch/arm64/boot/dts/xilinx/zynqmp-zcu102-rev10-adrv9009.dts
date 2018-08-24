@@ -1,7 +1,7 @@
 #include "zynqmp-zcu102-rev1.0.dts"
 
 &i2c1 {
-	i2cswitch@75 {
+	i2c-mux@75 {
 // 		i2c@0 { /* HPC0 */
 // 			#address-cells = <1>;
 // 			#size-cells = <0>;
@@ -52,7 +52,7 @@
 			#dma-cells = <1>;
 			#clock-cells = <0>;
 			interrupts = <0 109 0>;
-			clocks = <&clkc 73>;
+			clocks = <&clk 73>;
 
 			adi,channels {
 				#size-cells = <0>;
@@ -74,7 +74,7 @@
 			#dma-cells = <1>;
 			#clock-cells = <0>;
 			interrupts = <0 107 0>;
-			clocks = <&clkc 73>;
+			clocks = <&clk 73>;
 
 			adi,channels {
 				#size-cells = <0>;
@@ -96,7 +96,7 @@
 			#dma-cells = <1>;
 			#clock-cells = <0>;
 			interrupts = <0 108 0>;
-			clocks = <&clkc 73>;
+			clocks = <&clk 73>;
 
 			adi,channels {
 				#size-cells = <0>;
@@ -147,7 +147,7 @@
 
 			interrupts = <0 106 0>;
 
-			clocks = <&clkc 71>, <&axi_rx_clkgen>, <&axi_adrv9009_adxcvr_rx 0>;
+			clocks = <&clk 71>, <&axi_rx_clkgen>, <&axi_adrv9009_adxcvr_rx 0>;
 			clock-names = "s_axi_aclk", "device_clk", "lane_clk";
 
 			#clock-cells = <0>;
@@ -163,7 +163,7 @@
 
 			interrupts = <0 105 0>;
 
-			clocks = <&clkc 71>, <&axi_tx_clkgen>, <&axi_adrv9009_adxcvr_tx 0>;
+			clocks = <&clk 71>, <&axi_tx_clkgen>, <&axi_adrv9009_adxcvr_tx 0>;
 			clock-names = "s_axi_aclk", "device_clk", "lane_clk";
 
 			#clock-cells = <0>;
@@ -183,7 +183,7 @@
 
 			interrupts = <0 104 0>;
 
-			clocks = <&clkc 71>, <&axi_rx_os_clkgen>, <&axi_adrv9009_adxcvr_rx_os 0>;
+			clocks = <&clk 71>, <&axi_rx_os_clkgen>, <&axi_adrv9009_adxcvr_rx_os 0>;
 			clock-names = "s_axi_aclk", "device_clk", "lane_clk";
 
 			#clock-cells = <0>;

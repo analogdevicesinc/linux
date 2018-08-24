@@ -286,148 +286,13 @@ static int compare_of(struct device *dev, void *data)
 	return dev->of_node == np;
 }
 
-/* load xilinx drm */
-static int xilinx_drm_load(struct drm_device *drm, unsigned long flags)
-{
-	struct xilinx_drm_private *private;
-	struct drm_encoder *encoder;
-	struct drm_connector *connector;
-	struct device_node *encoder_node, *ep = NULL, *remote;
-	struct platform_device *pdev = drm->platformdev;
-	struct component_match *match = NULL;
-	unsigned int align, depth, i = 0;
-	int bpp, ret;
-
-	private = devm_kzalloc(drm->dev, sizeof(*private), GFP_KERNEL);
-	if (!private)
-		return -ENOMEM;
-
-	drm_mode_config_init(drm);
-
-	/* create a xilinx crtc */
-	private->crtc = xilinx_drm_crtc_create(drm);
-	if (IS_ERR(private->crtc)) {
-		DRM_DEBUG_DRIVER("failed to create xilinx crtc\n");
-		ret = PTR_ERR(private->crtc);
-		goto err_out;
-	}
-
-	while ((encoder_node = of_parse_phandle(drm->dev->of_node,
-						"xlnx,encoder-slave", i))) {
-		encoder = xilinx_drm_encoder_create(drm, encoder_node);
-		of_node_put(encoder_node);
-		if (IS_ERR(encoder)) {
-			DRM_DEBUG_DRIVER("failed to create xilinx encoder\n");
-			ret = PTR_ERR(encoder);
-			goto err_out;
-		}
-
-		connector = xilinx_drm_connector_create(drm, encoder, i);
-		if (IS_ERR(connector)) {
-			DRM_DEBUG_DRIVER("failed to create xilinx connector\n");
-			ret = PTR_ERR(connector);
-			goto err_out;
-		}
-
-		i++;
-	}
-
-	while (1) {
-		ep = of_graph_get_next_endpoint(drm->dev->of_node, ep);
-		if (!ep)
-			break;
-
-		of_node_put(ep);
-		remote = of_graph_get_remote_port_parent(ep);
-		if (!remote || !of_device_is_available(remote)) {
-			of_node_put(remote);
-			continue;
-		}
-
-		component_match_add(drm->dev, &match, compare_of, remote);
-		of_node_put(remote);
-		i++;
-	}
-
-	if (i == 0) {
-		DRM_ERROR("failed to get an encoder slave node\n");
-		return -ENODEV;
-	}
-
-	ret = drm_vblank_init(drm, 1);
-	if (ret) {
-		dev_err(&pdev->dev, "failed to initialize vblank\n");
-		goto err_master;
-	}
-
-	/* enable irq to enable vblank feature */
-	drm->irq_enabled = 1;
-
-	drm->dev_private = private;
-	private->drm = drm;
-	xilinx_drm_mode_config_init(drm);
-
-	/* initialize xilinx framebuffer */
-	drm_fb_get_bpp_depth(xilinx_drm_crtc_get_format(private->crtc),
-			     &depth, &bpp);
-	if (bpp) {
-		align = xilinx_drm_crtc_get_align(private->crtc);
-		private->fb = xilinx_drm_fb_init(drm, bpp, 1, 1, align,
-						 xilinx_drm_fbdev_vres);
-		if (IS_ERR(private->fb)) {
-			DRM_ERROR("failed to initialize drm fb\n");
-			private->fb = NULL;
-		}
-	}
-	if (!private->fb)
-		dev_info(&pdev->dev, "fbdev is not initialized\n");
-
-	drm_kms_helper_poll_init(drm);
-
-	drm_helper_disable_unused_functions(drm);
-
-	platform_set_drvdata(pdev, private);
-
-	if (match) {
-		ret = component_master_add_with_match(drm->dev,
-						      &xilinx_drm_ops, match);
-		if (ret)
-			goto err_fb;
-	}
-
-	return 0;
-
-err_fb:
-	drm_vblank_cleanup(drm);
-err_master:
-	component_master_del(drm->dev, &xilinx_drm_ops);
-err_out:
-	drm_mode_config_cleanup(drm);
-	if (ret == -EPROBE_DEFER)
-		DRM_INFO("load() is defered & will be called again\n");
-	return ret;
-}
-
-/* unload xilinx drm */
-static int xilinx_drm_unload(struct drm_device *drm)
-{
-	struct xilinx_drm_private *private = drm->dev_private;
-
-	drm_vblank_cleanup(drm);
-	component_master_del(drm->dev, &xilinx_drm_ops);
-	drm_kms_helper_poll_fini(drm);
-	xilinx_drm_fb_fini(private->fb);
-	drm_mode_config_cleanup(drm);
-
-	return 0;
-}
-
 static int xilinx_drm_open(struct drm_device *dev, struct drm_file *file)
 {
 	struct xilinx_drm_private *private = dev->dev_private;
 
+	/* This is a hack way to allow the root user to run as a master */
 	if (!(drm_is_primary_client(file) && !dev->master) &&
-	    capable(CAP_SYS_ADMIN)) {
+	    !file->is_master && capable(CAP_SYS_ADMIN)) {
 		file->is_master = 1;
 		private->is_master = true;
 	}
@@ -435,18 +300,19 @@ static int xilinx_drm_open(struct drm_device *dev, struct drm_file *file)
 	return 0;
 }
 
-/* preclose */
-static void xilinx_drm_preclose(struct drm_device *drm, struct drm_file *file)
+static int xilinx_drm_release(struct inode *inode, struct file *filp)
 {
+	struct drm_file *file = filp->private_data;
+	struct drm_minor *minor = file->minor;
+	struct drm_device *drm = minor->dev;
 	struct xilinx_drm_private *private = drm->dev_private;
-
-	/* cancel pending page flip request */
-	xilinx_drm_crtc_cancel_page_flip(private->crtc, file);
 
 	if (private->is_master) {
 		private->is_master = false;
 		file->is_master = 0;
 	}
+
+	return drm_release(inode, filp);
 }
 
 /* restore the default mode when xilinx drm is released */
@@ -462,7 +328,7 @@ static void xilinx_drm_lastclose(struct drm_device *drm)
 static const struct file_operations xilinx_drm_fops = {
 	.owner		= THIS_MODULE,
 	.open		= drm_open,
-	.release	= drm_release,
+	.release	= xilinx_drm_release,
 	.unlocked_ioctl	= drm_ioctl,
 	.mmap		= drm_gem_cma_mmap,
 	.poll		= drm_poll,
@@ -475,14 +341,10 @@ static const struct file_operations xilinx_drm_fops = {
 
 static struct drm_driver xilinx_drm_driver = {
 	.driver_features		= DRIVER_MODESET | DRIVER_GEM |
-					  DRIVER_PRIME,
-	.load				= xilinx_drm_load,
-	.unload				= xilinx_drm_unload,
+					  DRIVER_PRIME | DRIVER_LEGACY,
 	.open				= xilinx_drm_open,
-	.preclose			= xilinx_drm_preclose,
 	.lastclose			= xilinx_drm_lastclose,
 
-	.get_vblank_counter		= drm_vblank_no_hw_counter,
 	.enable_vblank			= xilinx_drm_enable_vblank,
 	.disable_vblank			= xilinx_drm_disable_vblank,
 
@@ -498,8 +360,6 @@ static struct drm_driver xilinx_drm_driver = {
 	.gem_free_object		= drm_gem_cma_free_object,
 	.gem_vm_ops			= &drm_gem_cma_vm_ops,
 	.dumb_create			= xilinx_drm_gem_cma_dumb_create,
-	.dumb_map_offset		= drm_gem_cma_dumb_map_offset,
-	.dumb_destroy			= drm_gem_dumb_destroy,
 
 	.fops				= &xilinx_drm_fops,
 
@@ -555,7 +415,7 @@ static int xilinx_drm_pm_resume(struct device *dev)
 	drm_helper_resume_force_mode(drm);
 
 	drm_modeset_lock_all(drm);
-	drm_kms_helper_poll_enable_locked(drm);
+	drm_kms_helper_poll_enable(drm);
 	drm_modeset_unlock_all(drm);
 
 	return 0;
@@ -569,15 +429,155 @@ static const struct dev_pm_ops xilinx_drm_pm_ops = {
 /* init xilinx drm platform */
 static int xilinx_drm_platform_probe(struct platform_device *pdev)
 {
-	return drm_platform_init(&xilinx_drm_driver, pdev);
+	struct xilinx_drm_private *private;
+	struct drm_device *drm;
+	struct drm_encoder *encoder;
+	struct drm_connector *connector;
+	const struct drm_format_info *info;
+	struct device_node *encoder_node, *ep = NULL, *remote;
+	struct component_match *match = NULL;
+	unsigned int align, i = 0;
+	int ret;
+	u32 format;
+
+	drm = drm_dev_alloc(&xilinx_drm_driver, &pdev->dev);
+	if (IS_ERR(drm))
+		return PTR_ERR(drm);
+
+	private = devm_kzalloc(drm->dev, sizeof(*private), GFP_KERNEL);
+	if (!private) {
+		ret = -ENOMEM;
+		goto err_drm;
+	}
+
+	drm_mode_config_init(drm);
+
+	/* create a xilinx crtc */
+	private->crtc = xilinx_drm_crtc_create(drm);
+	if (IS_ERR(private->crtc)) {
+		DRM_DEBUG_DRIVER("failed to create xilinx crtc\n");
+		ret = PTR_ERR(private->crtc);
+		goto err_config;
+	}
+
+	while ((encoder_node = of_parse_phandle(drm->dev->of_node,
+						"xlnx,encoder-slave", i))) {
+		encoder = xilinx_drm_encoder_create(drm, encoder_node);
+		of_node_put(encoder_node);
+		if (IS_ERR(encoder)) {
+			DRM_DEBUG_DRIVER("failed to create xilinx encoder\n");
+			ret = PTR_ERR(encoder);
+			goto err_config;
+		}
+
+		connector = xilinx_drm_connector_create(drm, encoder, i);
+		if (IS_ERR(connector)) {
+			DRM_DEBUG_DRIVER("failed to create xilinx connector\n");
+			ret = PTR_ERR(connector);
+			goto err_config;
+		}
+
+		i++;
+	}
+
+	while (1) {
+		ep = of_graph_get_next_endpoint(drm->dev->of_node, ep);
+		if (!ep)
+			break;
+
+		of_node_put(ep);
+		remote = of_graph_get_remote_port_parent(ep);
+		if (!remote || !of_device_is_available(remote)) {
+			of_node_put(remote);
+			continue;
+		}
+
+		component_match_add(drm->dev, &match, compare_of, remote);
+		of_node_put(remote);
+		i++;
+	}
+
+	if (i == 0) {
+		DRM_ERROR("failed to get an encoder slave node\n");
+		return -ENODEV;
+	}
+
+	ret = drm_vblank_init(drm, 1);
+	if (ret) {
+		dev_err(&pdev->dev, "failed to initialize vblank\n");
+		goto err_master;
+	}
+
+	/* enable irq to enable vblank feature */
+	drm->irq_enabled = 1;
+
+	drm->dev_private = private;
+	private->drm = drm;
+	xilinx_drm_mode_config_init(drm);
+
+	format = xilinx_drm_crtc_get_format(private->crtc);
+	info = drm_format_info(format);
+	if (info && info->depth && info->cpp[0]) {
+		align = xilinx_drm_crtc_get_align(private->crtc);
+		private->fb = xilinx_drm_fb_init(drm, info->cpp[0] * 8, 1,
+						 align, xilinx_drm_fbdev_vres);
+		if (IS_ERR(private->fb)) {
+			DRM_ERROR("failed to initialize drm fb\n");
+			private->fb = NULL;
+		}
+	} else {
+		dev_info(&pdev->dev, "fbdev is not initialized\n");
+	}
+
+	drm_kms_helper_poll_init(drm);
+
+	drm_helper_disable_unused_functions(drm);
+
+	platform_set_drvdata(pdev, private);
+
+	if (match) {
+		ret = component_master_add_with_match(drm->dev,
+						      &xilinx_drm_ops, match);
+		if (ret)
+			goto err_master;
+	}
+
+	ret = dma_set_coherent_mask(&pdev->dev,
+				    DMA_BIT_MASK(sizeof(dma_addr_t) * 8));
+	if (ret) {
+		dev_info(&pdev->dev, "failed to set coherent mask (%zu)\n",
+			 sizeof(dma_addr_t));
+	}
+
+	ret = drm_dev_register(drm, 0);
+	if (ret < 0)
+		goto err_master;
+
+	return 0;
+
+err_master:
+	component_master_del(drm->dev, &xilinx_drm_ops);
+err_config:
+	drm_mode_config_cleanup(drm);
+	if (ret == -EPROBE_DEFER)
+		DRM_INFO("load() is defered & will be called again\n");
+err_drm:
+	drm_dev_unref(drm);
+	return ret;
 }
 
 /* exit xilinx drm platform */
 static int xilinx_drm_platform_remove(struct platform_device *pdev)
 {
 	struct xilinx_drm_private *private = platform_get_drvdata(pdev);
+	struct drm_device *drm = private->drm;
 
-	drm_put_dev(private->drm);
+	component_master_del(drm->dev, &xilinx_drm_ops);
+	drm_kms_helper_poll_fini(drm);
+	xilinx_drm_fb_fini(private->fb);
+	drm_mode_config_cleanup(drm);
+	drm->dev_private = NULL;
+	drm_dev_unref(private->drm);
 
 	return 0;
 }

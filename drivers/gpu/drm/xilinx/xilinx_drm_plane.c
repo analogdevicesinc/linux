@@ -253,6 +253,8 @@ int xilinx_drm_plane_mode_set(struct drm_plane *base_plane,
 {
 	struct xilinx_drm_plane *plane = to_xilinx_plane(base_plane);
 	struct drm_gem_cma_object *obj;
+	const struct drm_format_info *info;
+	struct drm_format_name_buf format_name;
 	size_t offset;
 	unsigned int hsub, vsub, i;
 
@@ -268,18 +270,25 @@ int xilinx_drm_plane_mode_set(struct drm_plane *base_plane,
 
 	DRM_DEBUG_KMS("h: %d(%d), v: %d(%d)\n",
 		      src_w, crtc_x, src_h, crtc_y);
-	DRM_DEBUG_KMS("bpp: %d\n", fb->bits_per_pixel / 8);
+	DRM_DEBUG_KMS("bpp: %d\n", fb->format->cpp[0] * 8);
 
-	hsub = drm_format_horz_chroma_subsampling(fb->pixel_format);
-	vsub = drm_format_vert_chroma_subsampling(fb->pixel_format);
+	info = fb->format;
+	if (!info) {
+		DRM_ERROR("Unsupported framebuffer format %s\n",
+			  drm_get_format_name(info->format, &format_name));
+		return -EINVAL;
+	}
 
-	for (i = 0; i < drm_format_num_planes(fb->pixel_format); i++) {
+	hsub = info->hsub;
+	vsub = info->vsub;
+
+	for (i = 0; i < info->num_planes; i++) {
 		unsigned int width = src_w / (i ? hsub : 1);
 		unsigned int height = src_h / (i ? vsub : 1);
-		unsigned int cpp = drm_format_plane_cpp(fb->pixel_format, i);
+		unsigned int cpp = info->cpp[i];
 
 		if (!cpp)
-			cpp = xilinx_drm_format_bpp(fb->pixel_format) >> 3;
+			cpp = xilinx_drm_format_bpp(fb->format->format) >> 3;
 
 		obj = xilinx_drm_fb_get_gem_obj(fb, i);
 		if (!obj) {
@@ -288,10 +297,13 @@ int xilinx_drm_plane_mode_set(struct drm_plane *base_plane,
 		}
 
 		plane->dma[i].xt.numf = height;
-		plane->dma[i].sgl[0].size = width * cpp;
+		plane->dma[i].sgl[0].size = drm_format_plane_width_bytes(info,
+									 i,
+									 width);
 		plane->dma[i].sgl[0].icg = fb->pitches[i] -
 					   plane->dma[i].sgl[0].size;
-		offset = src_x * cpp + src_y * fb->pitches[i];
+		offset = drm_format_plane_width_bytes(info, i, src_x);
+		offset += src_y * fb->pitches[i];
 		offset += fb->offsets[i];
 		plane->dma[i].xt.src_start = obj->paddr + offset;
 		plane->dma[i].xt.frame_size = 1;
@@ -325,7 +337,7 @@ int xilinx_drm_plane_mode_set(struct drm_plane *base_plane,
 
 		ret = xilinx_drm_dp_sub_layer_set_fmt(plane->manager->dp_sub,
 						      plane->dp_layer,
-						      fb->pixel_format);
+						      fb->format->format);
 		if (ret) {
 			DRM_ERROR("failed to set dp_sub layer fmt\n");
 			return ret;
@@ -342,7 +354,8 @@ static int xilinx_drm_plane_update(struct drm_plane *base_plane,
 				   int crtc_x, int crtc_y,
 				   unsigned int crtc_w, unsigned int crtc_h,
 				   u32 src_x, u32 src_y,
-				   u32 src_w, u32 src_h)
+				   u32 src_w, u32 src_h,
+				   struct drm_modeset_acquire_ctx *ctx)
 {
 	struct xilinx_drm_plane *plane = to_xilinx_plane(base_plane);
 	int ret;
@@ -366,7 +379,8 @@ static int xilinx_drm_plane_update(struct drm_plane *base_plane,
 }
 
 /* disable a plane */
-static int xilinx_drm_plane_disable(struct drm_plane *base_plane)
+static int xilinx_drm_plane_disable(struct drm_plane *base_plane,
+				    struct drm_modeset_acquire_ctx *ctx)
 {
 	xilinx_drm_plane_dpms(base_plane, DRM_MODE_DPMS_OFF);
 
@@ -453,9 +467,6 @@ static void xilinx_drm_plane_set_zpos(struct drm_plane *base_plane,
 	bool update = false;
 	int i;
 
-	if (plane->zpos == zpos)
-		return;
-
 	for (i = 0; i < manager->num_planes; i++) {
 		if (manager->planes[i] != plane &&
 		    manager->planes[i]->prio == zpos) {
@@ -480,9 +491,6 @@ static void xilinx_drm_plane_set_alpha(struct drm_plane *base_plane,
 	struct xilinx_drm_plane *plane = to_xilinx_plane(base_plane);
 	struct xilinx_drm_plane_manager *manager = plane->manager;
 
-	if (plane->alpha == alpha)
-		return;
-
 	plane->alpha = alpha;
 
 	if (plane->osd_layer)
@@ -496,9 +504,6 @@ static void xilinx_drm_plane_enable_alpha(struct drm_plane *base_plane,
 {
 	struct xilinx_drm_plane *plane = to_xilinx_plane(base_plane);
 	struct xilinx_drm_plane_manager *manager = plane->manager;
-
-	if (plane->alpha_enable == enable)
-		return;
 
 	plane->alpha_enable = enable;
 
@@ -915,7 +920,8 @@ xilinx_drm_plane_create(struct xilinx_drm_plane_manager *manager,
 	ret = drm_universal_plane_init(manager->drm, &plane->base,
 				       possible_crtcs, &xilinx_drm_plane_funcs,
 				       fmts ? fmts : &plane->format,
-				       num_fmts ? num_fmts : 1, type, NULL);
+				       num_fmts ? num_fmts : 1, NULL, type,
+				       NULL);
 	if (ret) {
 		DRM_ERROR("failed to initialize plane\n");
 		goto err_init;

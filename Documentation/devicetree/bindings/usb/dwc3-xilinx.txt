@@ -22,13 +22,14 @@ Optional properties for snps,dwc3:
 - dma-coherent:	Enable this flag if CCI is enabled in design. Adding this
 		flag configures Global SoC bus Configuration Register and
 		Xilinx USB 3.0 IP - USB coherency register to enable CCI.
+- snps,enable-hibernation: Add this flag to enable hibernation support for
+		peripheral mode
 
 Example device node:
 
 		usb@0 {
 			#address-cells = <0x2>;
 			#size-cells = <0x1>;
-			status = "okay";
 			compatible = "xlnx,zynqmp-dwc3";
 			reg = <0x0 0xff9d0000 0x0 0x100>;
 			clock-names = "bus_clk" "ref_clk";
@@ -43,5 +44,6 @@ Example device node:
 				interrupts = <0x0 0x41 0x4>;
 				dr_mode = "host";
 				dma-coherent;
+				snps,enable-hibernation
 			};
 		};

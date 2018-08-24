@@ -46,6 +46,7 @@ static int xilinx_dp_pcm_probe(struct platform_device *pdev)
 {
 	int ret;
 
+	dev_set_name(&pdev->dev, pdev->dev.of_node->name);
 	ret = devm_snd_dmaengine_pcm_register(&pdev->dev,
 					      &xilinx_dmaengine_pcm_config, 0);
 	if (ret)
@@ -53,11 +54,6 @@ static int xilinx_dp_pcm_probe(struct platform_device *pdev)
 
 	dev_info(&pdev->dev, "Xilinx DisplayPort Sound PCM probed\n");
 
-	return 0;
-}
-
-static int xilinx_dp_pcm_dev_remove(struct platform_device *pdev)
-{
 	return 0;
 }
 
@@ -73,7 +69,6 @@ static struct platform_driver xilinx_dp_pcm_driver = {
 		.of_match_table	= xilinx_dp_pcm_of_match,
 	},
 	.probe	= xilinx_dp_pcm_probe,
-	.remove	= xilinx_dp_pcm_dev_remove,
 };
 module_platform_driver(xilinx_dp_pcm_driver);
 

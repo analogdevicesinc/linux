@@ -117,6 +117,12 @@ config FB_TFT_SEPS525
 	help
 	  Generic Framebuffer support for SEPS525
 
+config FB_TFT_SH1106
+	tristate "FB driver for the SH1106 OLED Controller"
+	depends on FB_TFT
+	help
+	  Framebuffer support for SH1106
+
 config FB_TFT_SSD1289
 	tristate "FB driver for the SSD1289 LCD Controller"
 	depends on FB_TFT

@@ -26,7 +26,7 @@
 #include <linux/of.h>
 #include <linux/of_platform.h>
 
-#include "edac_core.h"
+#include "edac_module.h"
 
 #define ZYNQMP_OCM_EDAC_MSG_SIZE	256
 
@@ -280,7 +280,7 @@ static ssize_t zynqmp_ocm_edac_inject_fault_count_store(
 	if (!data)
 		return -EFAULT;
 
-	if (kstrtoint(data, 0, &ficount))
+	if (kstrtouint(data, 0, &ficount))
 		return -EINVAL;
 
 	ficount &= OCM_FICOUNT_MASK;

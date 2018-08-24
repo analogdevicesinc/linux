@@ -29,7 +29,7 @@
 #define ULITE_NAME		"ttyUL"
 #define ULITE_MAJOR		204
 #define ULITE_MINOR		187
-#define ULITE_NR_UARTS		16
+#define ULITE_NR_UARTS		CONFIG_SERIAL_UARTLITE_NR_UARTS
 
 /* ---------------------------------------------------------------------
  * Register definitions
@@ -57,6 +57,9 @@
 #define ULITE_CONTROL_RST_TX	0x01
 #define ULITE_CONTROL_RST_RX	0x02
 #define ULITE_CONTROL_IE	0x10
+
+/* Static pointer to console port */
+static struct uart_port *console_port;
 
 struct uartlite_data {
 	const struct uartlite_reg_ops *reg_ops;
@@ -475,7 +478,7 @@ static void ulite_console_putchar(struct uart_port *port, int ch)
 static void ulite_console_write(struct console *co, const char *s,
 				unsigned int count)
 {
-	struct uart_port *port = &ulite_ports[co->index];
+	struct uart_port *port = console_port;
 	unsigned long flags;
 	unsigned int ier;
 	int locked = 1;
@@ -509,10 +512,8 @@ static int ulite_console_setup(struct console *co, char *options)
 	int parity = 'n';
 	int flow = 'n';
 
-	if (co->index < 0 || co->index >= ULITE_NR_UARTS)
-		return -EINVAL;
 
-	port = &ulite_ports[co->index];
+	port = console_port;
 
 	/* Has the device been initialized yet? */
 	if (!port->mapbase) {
@@ -543,14 +544,6 @@ static struct console ulite_console = {
 	.index	= -1, /* Specified on the cmdline (e.g. console=ttyUL0 ) */
 	.data	= &ulite_uart_driver,
 };
-
-static int __init ulite_console_init(void)
-{
-	register_console(&ulite_console);
-	return 0;
-}
-
-console_initcall(ulite_console_init);
 
 static void early_uartlite_putc(struct uart_port *port, int c)
 {
@@ -663,6 +656,17 @@ static int ulite_assign(struct device *dev, int id, u32 base, int irq,
 
 	dev_set_drvdata(dev, port);
 
+#ifdef CONFIG_SERIAL_UARTLITE_CONSOLE
+	/*
+	 * If console hasn't been found yet try to assign this port
+	 * because it is required to be assigned for console setup function.
+	 * If register_console() don't assign value, then console_port pointer
+	 * is cleanup.
+	 */
+	if (ulite_uart_driver.cons->index == -1)
+		console_port = port;
+#endif
+
 	/* Register the port */
 	rc = uart_add_one_port(&ulite_uart_driver, port);
 	if (rc) {
@@ -671,6 +675,12 @@ static int ulite_assign(struct device *dev, int id, u32 base, int irq,
 		dev_set_drvdata(dev, NULL);
 		return rc;
 	}
+
+#ifdef CONFIG_SERIAL_UARTLITE_CONSOLE
+	/* This is not port which is used for console that's why clean it up */
+	if (ulite_uart_driver.cons->index == -1)
+		console_port = NULL;
+#endif
 
 	return 0;
 }
@@ -754,6 +764,15 @@ static int ulite_probe(struct platform_device *pdev)
 	if (prop)
 		id = be32_to_cpup(prop);
 #endif
+	if (!ulite_uart_driver.state) {
+		dev_dbg(&pdev->dev, "uartlite: calling uart_register_driver()\n");
+		ret = uart_register_driver(&ulite_uart_driver);
+		if (ret < 0) {
+			dev_err(&pdev->dev, "Failed to register driver\n");
+			return ret;
+		}
+	}
+
 	pdata = devm_kzalloc(&pdev->dev, sizeof(struct uartlite_data),
 			GFP_KERNEL);
 	if (!pdata)
@@ -767,7 +786,7 @@ static int ulite_probe(struct platform_device *pdev)
 	if (irq <= 0)
 		return -ENXIO;
 
-	pdata->clk = devm_clk_get(&pdev->dev, "ulite_clk");
+	pdata->clk = devm_clk_get(&pdev->dev, "s_axi_aclk");
 	if (IS_ERR(pdata->clk)) {
 		if (PTR_ERR(pdata->clk) != -ENOENT)
 			return PTR_ERR(pdata->clk);
@@ -779,13 +798,17 @@ static int ulite_probe(struct platform_device *pdev)
 		pdata->clk = NULL;
 	}
 
-	ret = clk_prepare(pdata->clk);
+	ret = clk_prepare_enable(pdata->clk);
 	if (ret) {
 		dev_err(&pdev->dev, "Failed to prepare clock\n");
 		return ret;
 	}
 
-	return ulite_assign(&pdev->dev, id, res->start, irq, pdata);
+	ret = ulite_assign(&pdev->dev, id, res->start, irq, pdata);
+
+	clk_disable(pdata->clk);
+
+	return ret;
 }
 
 static int ulite_remove(struct platform_device *pdev)
@@ -816,25 +839,8 @@ static struct platform_driver ulite_platform_driver = {
 
 static int __init ulite_init(void)
 {
-	int ret;
-
-	pr_debug("uartlite: calling uart_register_driver()\n");
-	ret = uart_register_driver(&ulite_uart_driver);
-	if (ret)
-		goto err_uart;
-
 	pr_debug("uartlite: calling platform_driver_register()\n");
-	ret = platform_driver_register(&ulite_platform_driver);
-	if (ret)
-		goto err_plat;
-
-	return 0;
-
-err_plat:
-	uart_unregister_driver(&ulite_uart_driver);
-err_uart:
-	pr_err("registering uartlite driver failed: err=%i", ret);
-	return ret;
+	return platform_driver_register(&ulite_platform_driver);
 }
 
 static void __exit ulite_exit(void)

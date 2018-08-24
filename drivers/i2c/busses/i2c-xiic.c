@@ -721,7 +721,7 @@ static const struct i2c_algorithm xiic_algorithm = {
 	.functionality = xiic_func,
 };
 
-static struct i2c_adapter xiic_adapter = {
+static const struct i2c_adapter xiic_adapter = {
 	.owner = THIS_MODULE,
 	.name = DRIVER_NAME,
 	.class = I2C_CLASS_DEPRECATED,
@@ -765,7 +765,8 @@ static int xiic_i2c_probe(struct platform_device *pdev)
 
 	i2c->clk = devm_clk_get(&pdev->dev, NULL);
 	if (IS_ERR(i2c->clk)) {
-		dev_err(&pdev->dev, "input clock not found.\n");
+		if (PTR_ERR(i2c->clk) != -EPROBE_DEFER)
+			dev_err(&pdev->dev, "input clock not found.\n");
 		return PTR_ERR(i2c->clk);
 	}
 	ret = clk_prepare_enable(i2c->clk);
@@ -853,8 +854,7 @@ MODULE_DEVICE_TABLE(of, xiic_of_match);
 
 static int __maybe_unused cdns_i2c_runtime_suspend(struct device *dev)
 {
-	struct platform_device *pdev = to_platform_device(dev);
-	struct xiic_i2c *i2c = platform_get_drvdata(pdev);
+	struct xiic_i2c *i2c = dev_get_drvdata(dev);
 
 	clk_disable(i2c->clk);
 
@@ -863,8 +863,7 @@ static int __maybe_unused cdns_i2c_runtime_suspend(struct device *dev)
 
 static int __maybe_unused cdns_i2c_runtime_resume(struct device *dev)
 {
-	struct platform_device *pdev = to_platform_device(dev);
-	struct xiic_i2c *i2c = platform_get_drvdata(pdev);
+	struct xiic_i2c *i2c = dev_get_drvdata(dev);
 	int ret;
 
 	ret = clk_enable(i2c->clk);
