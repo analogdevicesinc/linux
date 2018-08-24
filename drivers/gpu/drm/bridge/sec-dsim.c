@@ -1330,6 +1330,23 @@ static void sec_mipi_dsim_bridge_mode_set(struct drm_bridge *bridge,
 	 * so it is called not every time atomic commit.
 	 */
 
+	/* workaround for CEA standard mode "1280x720@60"
+	 * display on 4 data lanes with Non-burst with sync
+	 * pulse DSI mode, since use the standard horizontal
+	 * timings cannot display correctly. And this code
+	 * cannot be put into the dsim Bridge's mode_fixup,
+	 * since the DSI device lane number change always
+	 * happens after that.
+	 */
+	if (!strcmp(mode->name, "1280x720") &&
+	    mode->vrefresh == 60	    &&
+	    dsim->lanes == 4		    &&
+	    dsim->mode_flags & MIPI_DSI_MODE_VIDEO_SYNC_PULSE) {
+		adjusted_mode->hsync_start += 2;
+		adjusted_mode->hsync_end   += 2;
+		adjusted_mode->htotal      += 2;
+	}
+
 	drm_display_mode_to_videomode(adjusted_mode, &dsim->vmode);
 }
 
