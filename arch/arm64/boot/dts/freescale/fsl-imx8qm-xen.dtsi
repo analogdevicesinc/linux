@@ -122,6 +122,18 @@
 	interrupt-parent = <&gic>;
 };
 
+&flexcan1 {
+	interrupt-parent = <&gic>;
+};
+
+&flexcan2 {
+	interrupt-parent = <&gic>;
+};
+
+&flexcan3 {
+	interrupt-parent = <&gic>;
+};
+
 &lpuart0 {
 	interrupt-parent = <&gic>;
 };
