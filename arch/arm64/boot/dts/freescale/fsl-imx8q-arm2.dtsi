@@ -53,6 +53,25 @@
 			regulator-always-on;
 		};
 
+		reg_can_en: regulator-can-gen {
+			compatible = "regulator-fixed";
+			regulator-name = "can-en";
+			regulator-min-microvolt = <3300000>;
+			regulator-max-microvolt = <3300000>;
+			gpio = <&pca9557_b 5 GPIO_ACTIVE_HIGH>;
+			enable-active-high;
+		};
+
+		reg_can_stby: regulator-can-stby {
+			compatible = "regulator-fixed";
+			regulator-name = "can-stby";
+			regulator-min-microvolt = <3300000>;
+			regulator-max-microvolt = <3300000>;
+			gpio = <&pca9557_b 4 GPIO_ACTIVE_HIGH>;
+			enable-active-high;
+			vin-supply = <&reg_can_en>;
+		};
+
 		reg_fec2_supply: fec2_nvcc {
 			compatible = "regulator-fixed";
 			regulator-name = "fec2_nvcc";
@@ -456,6 +475,27 @@
 			>;
 		};
 
+		pinctrl_flexcan1: flexcan0grp {
+			fsl,pins = <
+				SC_P_FLEXCAN0_TX_DMA_FLEXCAN0_TX	0x21
+				SC_P_FLEXCAN0_RX_DMA_FLEXCAN0_RX	0x21
+			>;
+		};
+
+		pinctrl_flexcan2: flexcan1grp {
+			fsl,pins = <
+				SC_P_FLEXCAN1_TX_DMA_FLEXCAN1_TX	0x21
+				SC_P_FLEXCAN1_RX_DMA_FLEXCAN1_RX	0x21
+			>;
+		};
+
+		pinctrl_flexcan3: flexcan2grp {
+			fsl,pins = <
+				SC_P_FLEXCAN2_TX_DMA_FLEXCAN2_TX	0x21
+				SC_P_FLEXCAN2_RX_DMA_FLEXCAN2_RX	0x21
+			>;
+		};
+
 		pinctrl_flexspi0: flexspi0grp {
 			fsl,pins = <
 				SC_P_QSPI0A_DATA0_LSIO_QSPI0A_DATA0	0x0600004c
@@ -617,6 +657,27 @@
 	phy-supply = <&reg_fec2_supply>;
 	fsl,magic-packet;
 	fsl,rgmii_rxc_dly;
+	status = "okay";
+};
+
+&flexcan1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_flexcan1>;
+	xceiver-supply = <&reg_can_stby>;
+	status = "okay";
+};
+
+&flexcan2 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_flexcan2>;
+	xceiver-supply = <&reg_can_stby>;
+	status = "okay";
+};
+
+&flexcan3 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_flexcan3>;
+	xceiver-supply = <&reg_can_stby>;
 	status = "okay";
 };
 
