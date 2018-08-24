@@ -2996,7 +2996,7 @@
 			<&clk IMX8QXP_CLK_DUMMY>;
 		clock-names = "ipg", "per", "ahb";
 		assigned-clocks = <&clk IMX8QXP_SDHC0_SEL>, <&clk IMX8QXP_SDHC0_DIV>;
-		assigned-clock-parents = <&clk IMX8QXP_CONN_PLL0_CLK>;
+		assigned-clock-parents = <&clk IMX8QXP_CONN_PLL1_CLK>;
 		assigned-clock-rates = <0>, <400000000>;
 		power-domains = <&pd_conn_sdch0>;
 		fsl,tuning-start-tap = <20>;
@@ -3014,7 +3014,7 @@
 			<&clk IMX8QXP_CLK_DUMMY>;
 		clock-names = "ipg", "per", "ahb";
 		assigned-clocks = <&clk IMX8QXP_SDHC1_SEL>, <&clk IMX8QXP_SDHC1_DIV>;
-		assigned-clock-parents = <&clk IMX8QXP_CONN_PLL0_CLK>;
+		assigned-clock-parents = <&clk IMX8QXP_CONN_PLL1_CLK>;
 		assigned-clock-rates = <0>, <200000000>;
 		power-domains = <&pd_conn_sdch1>;
 		fsl,tuning-start-tap = <20>;
@@ -3032,7 +3032,7 @@
 			<&clk IMX8QXP_CLK_DUMMY>;
 		clock-names = "ipg", "per", "ahb";
 		assigned-clocks = <&clk IMX8QXP_SDHC2_SEL>, <&clk IMX8QXP_SDHC2_DIV>;
-		assigned-clock-parents = <&clk IMX8QXP_CONN_PLL0_CLK>;
+		assigned-clock-parents = <&clk IMX8QXP_CONN_PLL1_CLK>;
 		assigned-clock-rates = <0>, <200000000>;
 		power-domains = <&pd_conn_sdch2>;
 		status = "disabled";
