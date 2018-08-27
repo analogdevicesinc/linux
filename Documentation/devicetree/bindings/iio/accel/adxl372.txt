@@ -8,9 +8,8 @@ Required properties:
  - spi-max-frequency: Max SPI frequency to use
 
 Optional properties:
- - interrupt-parent: phandle to the parent interrupt controller
- - interrupts: interrupt mapping for GPIO IRQ, it should by configured with
- 		flag IRQ_TYPE_EDGE_FALLING
+ - interrupts: interrupt mapping for IRQ as documented in
+   Documentation/devicetree/bindings/interrupt-controller/interrupts.txt
 
 Example:
 
