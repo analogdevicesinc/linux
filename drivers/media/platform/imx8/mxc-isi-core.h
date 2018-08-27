@@ -235,6 +235,20 @@ struct mxc_isi_m2m_dev {
 
 	struct mxc_isi_frame	src_f;
 	struct mxc_isi_frame	dst_f;
+
+	unsigned int	vflip:1;
+	unsigned int	hflip:1;
+	unsigned int	alphaen:1;
+
+	unsigned int aborting;
+	unsigned int read_done;
+
+	u8 alpha;
+};
+
+struct mxc_isi_ctx {
+	struct mxc_isi_dev *isi_dev;
+	struct v4l2_fh		fh;
 };
 
 struct mxc_isi_cap_dev {
@@ -291,6 +305,7 @@ struct mxc_isi_dev {
 	unsigned int		crop:1;
 	unsigned int		deinterlace:1;
 	unsigned int		parallel_csi:1;
+	unsigned int		is_m2m:1;
 
 	struct mxc_isi_ctrls ctrls;
 	u8			alpha;		/* goable alpha */

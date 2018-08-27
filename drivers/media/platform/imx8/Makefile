@@ -1,4 +1,4 @@
-mxc-capture-objs := mxc-isi-core.o mxc-isi-cap.o mxc-isi-hw.o
+mxc-capture-objs := mxc-isi-core.o mxc-isi-cap.o mxc-isi-hw.o mxc-isi-m2m.o
 
 obj-$(CONFIG_IMX8_CAPTURE_DRIVER) += mxc-capture.o
 obj-$(CONFIG_IMX8_MIPI_CSI2) += mxc-mipi-csi2.o

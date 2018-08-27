@@ -9,7 +9,6 @@
  * http://www.opensource.org/licenses/gpl-license.html
  * http://www.gnu.org/copyleft/gpl.html
  */
-
 #include "mxc-media-dev.h"
 
 static irqreturn_t mxc_isi_irq_handler(int irq, void *priv)
@@ -18,13 +17,21 @@ static irqreturn_t mxc_isi_irq_handler(int irq, void *priv)
 	struct device *dev = &mxc_isi->pdev->dev;
 	u32 status;
 
+
 	spin_lock(&mxc_isi->slock);
 
 	status = mxc_isi_get_irq_status(mxc_isi);
 	mxc_isi_clean_irq_status(mxc_isi, status);
 
-	if (status & CHNL_STS_FRM_STRD_MASK)
-		mxc_isi_frame_write_done(mxc_isi);
+	if (status & CHNL_STS_MEM_RD_DONE_MASK)
+		mxc_isi_m2m_frame_read_done(mxc_isi);
+
+	if (status & CHNL_STS_FRM_STRD_MASK) {
+		if (mxc_isi->is_m2m)
+			mxc_isi_m2m_frame_write_done(mxc_isi);
+		else
+			mxc_isi_cap_frame_write_done(mxc_isi);
+	}
 
 	if (status & (CHNL_STS_AXI_WR_ERR_Y_MASK |
 					CHNL_STS_AXI_WR_ERR_U_MASK |

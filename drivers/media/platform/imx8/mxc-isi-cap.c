@@ -118,25 +118,6 @@ struct mxc_isi_fmt mxc_isi_src_formats[] = {
 	}
 };
 
-struct mxc_isi_fmt mxc_isi_m2m_in_formats[] = {
-	{
-		.name		= "RGB565",
-		.fourcc		= V4L2_PIX_FMT_RGB565,
-		.depth		= { 16 },
-		.color		= MXC_ISI_M2M_IN_FMT_RGB565,
-		.memplanes	= 1,
-		.colplanes	= 1,
-	}, {
-		.name		= "YUV 4:2:2 packed, YCbYCr",
-		.fourcc		= V4L2_PIX_FMT_YUYV,
-		.depth		= { 16 },
-		.color		= MXC_ISI_M2M_IN_FMT_YUV422_1P8P,
-		.memplanes	= 1,
-		.colplanes	= 1,
-		.mbus_code	= MEDIA_BUS_FMT_YUYV8_1X16,
-	},
-};
-
 struct mxc_isi_fmt *mxc_isi_get_format(unsigned int index)
 {
 	return &mxc_isi_out_formats[index];
@@ -262,7 +243,7 @@ static int mxc_isi_update_buf_paddr(struct mxc_isi_buffer *buf, int memplanes)
 	return ret;
 }
 
-void mxc_isi_frame_write_done(struct mxc_isi_dev *mxc_isi)
+void mxc_isi_cap_frame_write_done(struct mxc_isi_dev *mxc_isi)
 {
 	struct mxc_isi_buffer *buf;
 	struct vb2_buffer *vb2;
@@ -352,7 +333,7 @@ static int cap_vb2_buffer_prepare(struct vb2_buffer *vb2)
 {
 	struct vb2_queue *q = vb2->vb2_queue;
 	struct mxc_isi_dev *mxc_isi = q->drv_priv;
-	struct mxc_isi_frame	*dst_f = &mxc_isi->isi_cap.dst_f;
+	struct mxc_isi_frame *dst_f = &mxc_isi->isi_cap.dst_f;
 	int i;
 
 	dev_dbg(&mxc_isi->pdev->dev, "%s\n", __func__);
@@ -653,6 +634,7 @@ static int mxc_isi_capture_open(struct file *file)
 	dev_dbg(&mxc_isi->pdev->dev, "%s, ISI%d\n", __func__, mxc_isi->id);
 
 	atomic_inc(&mxc_isi->open_count);
+	mxc_isi->is_m2m = 0;
 
 	/* Get remote source pad */
 	source_pad = mxc_isi_get_remote_source_pad(mxc_isi);
@@ -1631,7 +1613,23 @@ err_free_ctx:
 	return ret;
 }
 
-static int mxc_isi_capture_subdev_registered(struct v4l2_subdev *sd)
+static int mxc_isi_register_cap_and_m2m_device(struct mxc_isi_dev *mxc_isi,
+				 struct v4l2_device *v4l2_dev)
+{
+	int ret;
+
+	if (mxc_isi->id == 0) {
+		ret = mxc_isi_register_m2m_device(mxc_isi, v4l2_dev);
+		if (ret < 0)
+			return ret;
+	}
+
+	ret = mxc_isi_register_cap_device(mxc_isi, v4l2_dev);
+
+	return ret;
+}
+
+static int mxc_isi_subdev_registered(struct v4l2_subdev *sd)
 {
 	struct mxc_isi_dev *mxc_isi = v4l2_get_subdevdata(sd);
 	int ret;
@@ -1649,14 +1647,14 @@ static int mxc_isi_capture_subdev_registered(struct v4l2_subdev *sd)
 	}
 #endif
 
-	ret = mxc_isi_register_cap_device(mxc_isi, sd->v4l2_dev);
+	ret = mxc_isi_register_cap_and_m2m_device(mxc_isi, sd->v4l2_dev);
 	if (ret < 0)
 		return ret;
 
 	return ret;
 }
 
-static void mxc_isi_capture_subdev_unregistered(struct v4l2_subdev *sd)
+static void mxc_isi_subdev_unregistered(struct v4l2_subdev *sd)
 {
 	struct mxc_isi_dev *mxc_isi = v4l2_get_subdevdata(sd);
 	struct video_device *vdev;
@@ -1666,6 +1664,9 @@ static void mxc_isi_capture_subdev_unregistered(struct v4l2_subdev *sd)
 
 	dev_dbg(&mxc_isi->pdev->dev, "%s\n", __func__);
 	mutex_lock(&mxc_isi->lock);
+
+	if (mxc_isi->id == 0)
+		mxc_isi_unregister_m2m_device(mxc_isi);
 
 	vdev = &mxc_isi->isi_cap.vdev;
 	if (video_is_registered(vdev)) {
@@ -1678,8 +1679,8 @@ static void mxc_isi_capture_subdev_unregistered(struct v4l2_subdev *sd)
 }
 
 static const struct v4l2_subdev_internal_ops mxc_isi_capture_sd_internal_ops = {
-	.registered = mxc_isi_capture_subdev_registered,
-	.unregistered = mxc_isi_capture_subdev_unregistered,
+	.registered = mxc_isi_subdev_registered,
+	.unregistered = mxc_isi_subdev_unregistered,
 };
 
 int mxc_isi_initialize_capture_subdev(struct mxc_isi_dev *mxc_isi)
