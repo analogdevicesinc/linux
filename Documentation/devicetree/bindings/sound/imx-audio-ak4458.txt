@@ -2,7 +2,7 @@ Freescale i.MX audio complex with AK4458 DAC
 
 Required properties:
 
-- compatible	: "fsl,imx-audio-ak4458"
+- compatible	: "fsl,imx-audio-ak4458", "fsl,imx-audio-ak4458-mq"
 - model		: The user-visible name of this sound complex
 - audio-cpu	: The phandle of CPU DAI
 - audio-codec	: The phandle of the AK4458 audio DAC
