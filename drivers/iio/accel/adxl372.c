@@ -11,7 +11,6 @@
 #include <linux/module.h>
 #include <linux/regmap.h>
 #include <linux/spi/spi.h>
-#include <linux/gpio/consumer.h>
 
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
@@ -82,9 +81,6 @@
 #define ADXL372_PARTID_VAL		0xFA
 #define ADXL372_RESET_CODE		0x52
 
-#define ADXL372_RD_FLAG_MSK(x)		((((x) & 0xFF) << 1) | 0x01)
-#define ADXL372_WR_FLAG_MSK(x)		(((x) & 0xFF) << 1)
-
 /* ADXL372_POWER_CTL */
 #define ADXL372_POWER_CTL_MODE_MSK		GENMASK_ULL(1, 0)
 #define ADXL372_POWER_CTL_MODE(x)		(((x) & 0x3) << 0)
@@ -134,6 +130,7 @@
 #define ADXL372_INT1_MAP_LOW_MSK		BIT(7)
 #define ADXL372_INT1_MAP_LOW_MODE(x)		(((x) & 0x1) << 7)
 
+/* The ADXL372 includes a deep, 512 sample FIFO buffer */
 #define ADXL372_FIFO_SIZE			512
 
 /*
@@ -177,6 +174,12 @@ enum adxl372_bandwidth {
 	ADXL372_BW_3200HZ,
 };
 
+static const unsigned int adxl372_th_reg_high_addr[3] = {
+	[ADXL372_ACTIVITY] = ADXL372_X_THRESH_ACT_H,
+	[ADXL372_ACTIVITY2] = ADXL372_X_THRESH_ACT2_H,
+	[ADXL372_INACTIVITY] = ADXL372_X_THRESH_INACT_H,
+};
+
 enum adxl372_fifo_format {
 	ADXL372_XYZ_FIFO,
 	ADXL372_X_FIFO,
@@ -203,6 +206,21 @@ static const int adxl372_bw_freq_tbl[5] = {
 	200, 400, 800, 1600, 3200,
 };
 
+struct adxl372_axis_lookup {
+	unsigned int bits;
+	enum adxl372_fifo_format fifo_format;
+};
+
+static const struct adxl372_axis_lookup adxl372_axis_lookup_table[] = {
+	{ BIT(0), ADXL372_X_FIFO },
+	{ BIT(1), ADXL372_Y_FIFO },
+	{ BIT(2), ADXL372_Z_FIFO },
+	{ BIT(0) | BIT(1), ADXL372_XY_FIFO },
+	{ BIT(0) | BIT(2), ADXL372_XZ_FIFO },
+	{ BIT(1) | BIT(2), ADXL372_YZ_FIFO },
+	{ BIT(0) | BIT(1) | BIT(2), ADXL372_XYZ_FIFO },
+};
+
 #define ADXL372_ACCEL_CHANNEL(index, reg, axis) {			\
 	.type = IIO_ACCEL,						\
 	.address = reg,							\
@@ -218,7 +236,6 @@ static const int adxl372_bw_freq_tbl[5] = {
 		.realbits = 12,						\
 		.storagebits = 16,					\
 		.shift = 4,						\
-		.endianness = IIO_CPU,					\
 	},								\
 }
 
@@ -238,27 +255,30 @@ struct adxl372_state {
 	enum adxl372_act_proc_mode	act_proc_mode;
 	enum adxl372_odr		odr;
 	enum adxl372_bandwidth		bw;
+	u32				act_time_ms;
+	u32				inact_time_ms;
 	u8				fifo_set_size;
 	u8				int1_bitmask;
 	u8				int2_bitmask;
 	u16				watermark;
-	__be16				fifo_buf[512];
+	__be16				fifo_buf[ADXL372_FIFO_SIZE];
 };
 
-static int adxl372_read_fifo(struct adxl372_state *st, u16 fifo_entries)
-{
-	return regmap_bulk_read(st->regmap,
-				ADXL372_RD_FLAG_MSK(ADXL372_FIFO_DATA),
-				st->fifo_buf, fifo_entries * 2);
-}
+static const unsigned long adxl372_channel_masks[] = {
+	BIT(0), BIT(1), BIT(2),
+	BIT(0) | BIT(1),
+	BIT(0) | BIT(2),
+	BIT(1) | BIT(2),
+	BIT(0) | BIT(1) | BIT(2),
+	0
+};
 
 static int adxl372_read_axis(struct adxl372_state *st, u8 addr)
 {
 	__be16 regval;
 	int ret;
 
-	ret = regmap_bulk_read(st->regmap, ADXL372_RD_FLAG_MSK(addr),
-			       &regval, sizeof(regval));
+	ret = regmap_bulk_read(st->regmap, addr, &regval, sizeof(regval));
 	if (ret < 0)
 		return ret;
 
@@ -354,18 +374,7 @@ static int adxl372_set_activity_threshold(struct adxl372_state *st,
 	/* scale factor is 100 mg/code */
 	th_reg_high_val = (threshold / 100) >> 3;
 	th_reg_low_val = ((threshold / 100) << 5) | (ref_en << 1) | enable;
-
-	switch (act) {
-	case ADXL372_ACTIVITY:
-		th_reg_high_addr = ADXL372_X_THRESH_ACT_H;
-		break;
-	case ADXL372_ACTIVITY2:
-		th_reg_high_addr = ADXL372_X_THRESH_ACT2_H;
-		break;
-	case ADXL372_INACTIVITY:
-		th_reg_high_addr = ADXL372_X_THRESH_INACT_H;
-		break;
-	}
+	th_reg_high_addr = adxl372_th_reg_high_addr[act];
 
 	buf[0] = th_reg_high_val;
 	buf[1] = th_reg_low_val;
@@ -374,37 +383,88 @@ static int adxl372_set_activity_threshold(struct adxl372_state *st,
 	buf[4] = th_reg_high_val;
 	buf[5] = th_reg_low_val;
 
-	return regmap_bulk_write(st->regmap,
-				 ADXL372_WR_FLAG_MSK(th_reg_high_addr),
+	return regmap_bulk_write(st->regmap, th_reg_high_addr,
 				 buf, ARRAY_SIZE(buf));
+}
+
+static int adxl372_set_activity_time_ms(struct adxl372_state *st,
+					unsigned int act_time_ms)
+{
+	unsigned int reg_val, scale_factor;
+	int ret;
+
+	/*
+	 * 3.3 ms per code is the scale factor of the TIME_ACT register for
+	 * ODR = 6400 Hz. It is 6.6 ms per code for ODR = 3200 Hz and below.
+	 */
+	if (st->odr == ADXL372_ODR_6400HZ)
+		scale_factor = 3300;
+	else
+		scale_factor = 6600;
+
+	reg_val = DIV_ROUND_CLOSEST(act_time_ms * 1000, scale_factor);
+
+	/* TIME_ACT register is 8 bits wide */
+	if (reg_val > 0xFF)
+		reg_val = 0xFF;
+
+	ret = regmap_write(st->regmap, ADXL372_TIME_ACT, reg_val);
+	if (ret < 0)
+		return ret;
+
+	st->act_time_ms = act_time_ms;
+
+	return ret;
+}
+
+static int adxl372_set_inactivity_time_ms(struct adxl372_state *st,
+					  unsigned int inact_time_ms)
+{
+	unsigned int reg_val_h, reg_val_l, res, scale_factor;
+	int ret;
+
+	/*
+	 * 13 ms per code is the scale factor of the TIME_INACT register for
+	 * ODR = 6400 Hz. It is 26 ms per code for ODR = 3200 Hz and below.
+	 */
+	if (st->odr == ADXL372_ODR_6400HZ)
+		scale_factor = 13;
+	else
+		scale_factor = 26;
+
+	res = DIV_ROUND_CLOSEST(inact_time_ms, scale_factor);
+	reg_val_h = (res >> 8) & 0xFF;
+	reg_val_l = res & 0xFF;
+
+	ret = regmap_write(st->regmap, ADXL372_TIME_INACT_H, reg_val_h);
+	if (ret < 0)
+		return ret;
+
+	ret = regmap_write(st->regmap, ADXL372_TIME_INACT_L, reg_val_l);
+	if (ret < 0)
+		return ret;
+
+	st->inact_time_ms = inact_time_ms;
+
+	return ret;
 }
 
 static int adxl372_set_interrupts(struct adxl372_state *st,
 				  unsigned char int1_bitmask,
 				  unsigned char int2_bitmask)
 {
-	unsigned char buf[2];
 	int ret;
 
-	buf[0] = int1_bitmask;
-	buf[1] = int2_bitmask;
-
-	/* INT1_MAP and INT2_MAP are adjacent registers */
-	ret = regmap_bulk_write(st->regmap,
-				ADXL372_WR_FLAG_MSK(ADXL372_INT1_MAP),
-				buf, ARRAY_SIZE(buf));
+	ret = regmap_write(st->regmap, ADXL372_INT1_MAP, int1_bitmask);
 	if (ret < 0)
 		return ret;
 
-	st->int1_bitmask = int1_bitmask;
-	st->int2_bitmask = int2_bitmask;
-
-	return ret;
+	return regmap_write(st->regmap, ADXL372_INT2_MAP, int2_bitmask);
 }
 
 static int adxl372_configure_fifo(struct adxl372_state *st)
 {
-	unsigned char buf[2];
+	unsigned int fifo_samples, fifo_ctl;
 	int ret;
 
 	/* FIFO must be configured while in standby mode */
@@ -412,15 +472,16 @@ static int adxl372_configure_fifo(struct adxl372_state *st)
 	if (ret < 0)
 		return ret;
 
-	buf[0] = st->watermark & 0xFF;
-	buf[1] = ADXL372_FIFO_CTL_FORMAT_MODE(st->fifo_format) |
-		 ADXL372_FIFO_CTL_MODE_MODE(st->fifo_mode) |
-		 ADXL372_FIFO_CTL_SAMPLES_MODE(st->watermark);
+	fifo_samples = st->watermark & 0xFF;
+	fifo_ctl = ADXL372_FIFO_CTL_FORMAT_MODE(st->fifo_format) |
+		   ADXL372_FIFO_CTL_MODE_MODE(st->fifo_mode) |
+		   ADXL372_FIFO_CTL_SAMPLES_MODE(st->watermark);
 
-	/* FIFO_SAMPLES and FIFO_CTL are adjacent registers */
-	ret = regmap_bulk_write(st->regmap,
-				ADXL372_WR_FLAG_MSK(ADXL372_FIFO_SAMPLES),
-				buf, ARRAY_SIZE(buf));
+	ret = regmap_write(st->regmap, ADXL372_FIFO_SAMPLES, fifo_samples);
+	if (ret < 0)
+		return ret;
+
+	ret = regmap_write(st->regmap, ADXL372_FIFO_CTL, fifo_ctl);
 	if (ret < 0)
 		return ret;
 
@@ -431,23 +492,25 @@ static int adxl372_get_status(struct adxl372_state *st,
 			      u8 *status1, u8 *status2,
 			      u16 *fifo_entries)
 {
-	unsigned char buf[4];
+	__be32 buf;
+	u32 val;
 	int ret;
 
-	/* STATUS, STATUS2, FIFO_ENTRIES2 and FIFO_ENTRIES are adjacent regs */
-	ret = regmap_bulk_read(st->regmap,
-			       ADXL372_RD_FLAG_MSK(ADXL372_STATUS_1),
-			       buf, ARRAY_SIZE(buf));
+	/* STATUS1, STATUS2, FIFO_ENTRIES2 and FIFO_ENTRIES are adjacent regs */
+	ret = regmap_bulk_read(st->regmap, ADXL372_STATUS_1,
+			       &buf, sizeof(buf));
 	if (ret < 0)
 		return ret;
 
-	*status1 = buf[0];
-	*status2 = buf[1];
+	val = be32_to_cpu(buf);
+
+	*status1 = (val >> 24) & 0x0F;
+	*status2 = (val >> 16) & 0x0F;
 	/*
 	 * FIFO_ENTRIES contains the least significant byte, and FIFO_ENTRIES2
 	 * contains the two most significant bits
 	 */
-	*fifo_entries = ((buf[2] & 0x3) << 8) | buf[3];
+	*fifo_entries = val & 0x3FF;
 
 	return ret;
 }
@@ -458,15 +521,15 @@ static irqreturn_t adxl372_trigger_handler(int irq, void  *p)
 	struct iio_dev *indio_dev = pf->indio_dev;
 	struct adxl372_state *st = iio_priv(indio_dev);
 	u8 status1, status2;
-	u16 fifo_entries, i;
-	int ret;
+	u16 fifo_entries;
+	int i, ret;
 
 	ret = adxl372_get_status(st, &status1, &status2, &fifo_entries);
 	if (ret < 0)
 		goto err;
 
-	if ((st->fifo_mode != ADXL372_FIFO_BYPASSED) &&
-	    (ADXL372_STATUS_1_FIFO_FULL(status1))) {
+	if (st->fifo_mode != ADXL372_FIFO_BYPASSED &&
+	    ADXL372_STATUS_1_FIFO_FULL(status1)) {
 		/*
 		 * When reading data from multiple axes from the FIFO,
 		 * to ensure that data is not overwritten and stored out
@@ -475,11 +538,16 @@ static irqreturn_t adxl372_trigger_handler(int irq, void  *p)
 		 */
 		fifo_entries -= st->fifo_set_size;
 
-		ret = adxl372_read_fifo(st, fifo_entries);
+		/* Read data from the FIFO */
+		ret = regmap_noinc_read(st->regmap, ADXL372_FIFO_DATA,
+					st->fifo_buf,
+					fifo_entries * sizeof(u16));
 		if (ret < 0)
 			goto err;
 
-		for (i = 0; i < fifo_entries * 2; i += st->fifo_set_size * 2)
+		/* Each sample is 2 bytes */
+		for (i = 0; i < fifo_entries * sizeof(u16);
+		     i += st->fifo_set_size * sizeof(u16))
 			iio_push_to_buffers(indio_dev, &st->fifo_buf[i]);
 	}
 err:
@@ -492,8 +560,7 @@ static int adxl372_setup(struct adxl372_state *st)
 	unsigned int regval;
 	int ret;
 
-	ret = regmap_read(st->regmap, ADXL372_RD_FLAG_MSK(ADXL372_DEVID),
-			  &regval);
+	ret = regmap_read(st->regmap, ADXL372_DEVID, &regval);
 	if (ret < 0)
 		return ret;
 
@@ -506,15 +573,15 @@ static int adxl372_setup(struct adxl372_state *st)
 	if (ret < 0)
 		return ret;
 
-	/* Set threshold for activity detection to 500mg */
+	/* Set threshold for activity detection to 1g */
 	ret = adxl372_set_activity_threshold(st, ADXL372_ACTIVITY,
-					     true, true, 500);
+					     true, true, 1000);
 	if (ret < 0)
 		return ret;
 
-	/* Set threshold for inactivity detection to 500mg */
+	/* Set threshold for inactivity detection to 100mg */
 	ret = adxl372_set_activity_threshold(st, ADXL372_INACTIVITY,
-					     true, true, 500);
+					     true, true, 100);
 	if (ret < 0)
 		return ret;
 
@@ -531,15 +598,13 @@ static int adxl372_setup(struct adxl372_state *st)
 	if (ret < 0)
 		return ret;
 
-	/* Set activity timer */
-	ret = regmap_write(st->regmap,
-			   ADXL372_WR_FLAG_MSK(ADXL372_TIME_ACT), 1);
+	/* Set activity timer to 1ms */
+	ret = adxl372_set_activity_time_ms(st, 1);
 	if (ret < 0)
 		return ret;
 
-	/* Set inactivity timer to 1s */
-	ret = regmap_write(st->regmap,
-			   ADXL372_WR_FLAG_MSK(ADXL372_TIME_INACT_L), 0x28);
+	/* Set inactivity timer to 10s */
+	ret = adxl372_set_inactivity_time_ms(st, 10000);
 	if (ret < 0)
 		return ret;
 
@@ -555,11 +620,9 @@ static int adxl372_reg_access(struct iio_dev *indio_dev,
 	struct adxl372_state *st = iio_priv(indio_dev);
 
 	if (readval)
-		return regmap_read(st->regmap, ADXL372_RD_FLAG_MSK(reg),
-				   readval);
+		return regmap_read(st->regmap, reg, readval);
 	else
-		return regmap_write(st->regmap, ADXL372_WR_FLAG_MSK(reg),
-				    writeval);
+		return regmap_write(st->regmap, reg, writeval);
 }
 
 static int adxl372_read_raw(struct iio_dev *indio_dev,
@@ -611,6 +674,20 @@ static int adxl372_write_raw(struct iio_dev *indio_dev,
 					ARRAY_SIZE(adxl372_samp_freq_tbl),
 					val);
 		ret = adxl372_set_odr(st, odr_index);
+		if (ret < 0)
+			return ret;
+		/*
+		 * The timer period depends on the ODR selected.
+		 * At 3200 Hz and below, it is 6.6 ms; at 6400 Hz, it is 3.3 ms
+		 */
+		ret = adxl372_set_activity_time_ms(st, st->act_time_ms);
+		if (ret < 0)
+			return ret;
+		/*
+		 * The timer period depends on the ODR selected.
+		 * At 3200 Hz and below, it is 26 ms; at 6400 Hz, it is 13 ms
+		 */
+		ret = adxl372_set_inactivity_time_ms(st, st->inact_time_ms);
 		if (ret < 0)
 			return ret;
 		/*
@@ -700,69 +777,45 @@ static int adxl372_set_watermark(struct iio_dev *indio_dev, unsigned int val)
 static int adxl372_buffer_postenable(struct iio_dev *indio_dev)
 {
 	struct adxl372_state *st = iio_priv(indio_dev);
-	u8 fifo_set_size, accel_axis_en;
-	int bit, ret;
+	unsigned int mask;
+	int i, ret;
 
-	if (!st->watermark)
-		return -EINVAL;
-
-	ret = adxl372_set_interrupts(st,
-				     ADXL372_INT1_MAP_FIFO_FULL_MSK,
-				     0);
+	ret = adxl372_set_interrupts(st, ADXL372_INT1_MAP_FIFO_FULL_MSK, 0);
 	if (ret < 0)
 		return ret;
 
-	fifo_set_size = 0;
-	accel_axis_en = 0;
-	for_each_set_bit(bit, indio_dev->active_scan_mask,
-			 indio_dev->masklength) {
-		accel_axis_en |= bit;
-		fifo_set_size++;
+	mask = *indio_dev->active_scan_mask;
+
+	for (i = 0; i < ARRAY_SIZE(adxl372_axis_lookup_table); i++) {
+		if (mask == adxl372_axis_lookup_table[i].bits)
+			break;
 	}
 
-	switch (accel_axis_en) {
-	case 0:
-		st->fifo_format = ADXL372_X_FIFO;
-		break;
-	case 1:
-		if (fifo_set_size == 1)
-			st->fifo_format = ADXL372_Y_FIFO;
-		else
-			st->fifo_format = ADXL372_XY_FIFO;
-		break;
-	case 2:
-		if (fifo_set_size == 1)
-			st->fifo_format = ADXL372_Z_FIFO;
-		else
-			st->fifo_format = ADXL372_XZ_FIFO;
-		break;
-	default: /* case 3 */
-		if (fifo_set_size == 3)
-			st->fifo_format = ADXL372_XYZ_PEAK_FIFO;
-		else
-			st->fifo_format = ADXL372_YZ_FIFO;
-		break;
-	}
+	if (i == ARRAY_SIZE(adxl372_axis_lookup_table))
+		return -EINVAL;
 
+	st->fifo_format = adxl372_axis_lookup_table[i].fifo_format;
+	st->fifo_set_size = bitmap_weight(indio_dev->active_scan_mask,
+					  indio_dev->masklength);
 	/*
 	 * The 512 FIFO samples can be allotted in several ways, such as:
 	 * 170 sample sets of concurrent 3-axis data
 	 * 256 sample sets of concurrent 2-axis data (user selectable)
 	 * 512 sample sets of single-axis data
 	 */
-	if ((st->watermark * fifo_set_size) > ADXL372_FIFO_SIZE)
-		st->watermark = (ADXL372_FIFO_SIZE  / fifo_set_size);
+	if ((st->watermark * st->fifo_set_size) > ADXL372_FIFO_SIZE)
+		st->watermark = (ADXL372_FIFO_SIZE  / st->fifo_set_size);
 
-	st->fifo_set_size = fifo_set_size;
 	st->fifo_mode = ADXL372_FIFO_STREAMED;
 
 	ret = adxl372_configure_fifo(st);
 	if (ret < 0) {
 		st->fifo_mode = ADXL372_FIFO_BYPASSED;
 		adxl372_set_interrupts(st, 0, 0);
+		return ret;
 	}
 
-	return ret;
+	return 0;
 }
 
 static int adxl372_buffer_predisable(struct iio_dev *indio_dev)
@@ -794,7 +847,19 @@ static int adxl372_dready_trig_set_state(struct iio_trigger *trig,
 	return adxl372_set_interrupts(st, mask, 0);
 }
 
+static int adxl372_validate_trigger(struct iio_dev *indio_dev,
+				    struct iio_trigger *trig)
+{
+	struct adxl372_state *st = iio_priv(indio_dev);
+
+	if (st->dready_trig != trig)
+		return -EINVAL;
+
+	return 0;
+}
+
 static const struct iio_trigger_ops adxl372_trigger_ops = {
+	.validate_device = &iio_trigger_validate_own_device,
 	.set_trigger_state = adxl372_dready_trig_set_state,
 };
 
@@ -813,6 +878,7 @@ static const struct attribute_group adxl372_attrs_group = {
 };
 
 static const struct iio_info adxl372_info = {
+	.validate_trigger = &adxl372_validate_trigger,
 	.attrs = &adxl372_attrs_group,
 	.read_raw = adxl372_read_raw,
 	.write_raw = adxl372_write_raw,
@@ -820,10 +886,17 @@ static const struct iio_info adxl372_info = {
 	.hwfifo_set_watermark = adxl372_set_watermark,
 };
 
+static bool adxl372_readable_noinc_reg(struct device *dev, unsigned int reg)
+{
+	return (reg == ADXL372_FIFO_DATA);
+}
+
 static const struct regmap_config adxl372_spi_regmap_config = {
-	.reg_bits = 8,
+	.reg_bits = 7,
+	.pad_bits = 1,
 	.val_bits = 8,
 	.read_flag_mask = BIT(0),
+	.readable_noinc_reg = adxl372_readable_noinc_reg,
 };
 
 static int adxl372_probe(struct spi_device *spi)
@@ -850,6 +923,7 @@ static int adxl372_probe(struct spi_device *spi)
 
 	indio_dev->channels = adxl372_channels;
 	indio_dev->num_channels = ARRAY_SIZE(adxl372_channels);
+	indio_dev->available_scan_masks = adxl372_channel_masks;
 	indio_dev->dev.parent = &spi->dev;
 	indio_dev->name = spi_get_device_id(spi)->name;
 	indio_dev->info = &adxl372_info;
@@ -868,32 +942,33 @@ static int adxl372_probe(struct spi_device *spi)
 	if (ret < 0)
 		return ret;
 
-	st->dready_trig = devm_iio_trigger_alloc(&st->spi->dev,
-			  "%s-dev%d",
-			  indio_dev->name);
-	if (st->dready_trig == NULL)
-		return -ENOMEM;
+	iio_buffer_set_attrs(indio_dev->buffer, adxl372_fifo_attributes);
 
-	st->dready_trig->ops = &adxl372_trigger_ops;
-	st->dready_trig->dev.parent = &st->spi->dev;
-	iio_trigger_set_drvdata(st->dready_trig, indio_dev);
-	ret = devm_iio_trigger_register(&st->spi->dev, st->dready_trig);
-	if (ret < 0)
-		return ret;
+	if (st->spi->irq) {
+		st->dready_trig = devm_iio_trigger_alloc(&st->spi->dev,
+							 "%s-dev%d",
+							 indio_dev->name,
+							 indio_dev->id);
+		if (st->dready_trig == NULL)
+			return -ENOMEM;
 
-	indio_dev->trig = iio_trigger_get(st->dready_trig);
+		st->dready_trig->ops = &adxl372_trigger_ops;
+		st->dready_trig->dev.parent = &st->spi->dev;
+		iio_trigger_set_drvdata(st->dready_trig, indio_dev);
+		ret = devm_iio_trigger_register(&st->spi->dev, st->dready_trig);
+		if (ret < 0)
+			return ret;
 
-	ret = devm_request_threaded_irq(&st->spi->dev, st->spi->irq,
+		indio_dev->trig = iio_trigger_get(st->dready_trig);
+
+		ret = devm_request_threaded_irq(&st->spi->dev, st->spi->irq,
 					iio_trigger_generic_data_rdy_poll,
 					NULL,
-					IRQF_TRIGGER_RISING |
-					IRQF_ONESHOT,
-					indio_dev->name,
-					st->dready_trig);
-	if (ret < 0)
-		return ret;
-
-	iio_buffer_set_attrs(indio_dev->buffer, adxl372_fifo_attributes);
+					IRQF_TRIGGER_RISING | IRQF_ONESHOT,
+					indio_dev->name, st->dready_trig);
+		if (ret < 0)
+			return ret;
+	}
 
 	return devm_iio_device_register(&st->spi->dev, indio_dev);
 }
@@ -916,4 +991,4 @@ module_spi_driver(adxl372_driver);
 
 MODULE_AUTHOR("Stefan Popa <stefan.popa@analog.com>");
 MODULE_DESCRIPTION("Analog Devices ADXL372 3-axis accelerometer driver");
-MODULE_LICENSE("GPL v2");
+MODULE_LICENSE("GPL");
