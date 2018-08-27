@@ -30,23 +30,22 @@ static bool fsl_is_dsd(struct snd_pcm_hw_params *params)
 }
 
 static struct pinctrl_state *fsl_get_pins_state(struct pinctrl *pinctrl,
-	struct snd_pcm_hw_params *params)
+	struct snd_pcm_hw_params *params, u32 bclk)
 {
-	int dsd_bclk;
 	struct pinctrl_state *state = 0;
 
 	if (fsl_is_dsd(params)) {
-		dsd_bclk = params_rate(params) * params_physical_width(params);
-
-		switch (dsd_bclk) {
-		case 22579200: /* DSD512 */
+		/* DSD512@44.1kHz, DSD512@48kHz */
+		if (bclk >= 22579200)
 			state = pinctrl_lookup_state(pinctrl, "dsd512");
-			break;
-		}
 
 		/* Get default DSD state */
 		if (IS_ERR_OR_NULL(state))
 			state = pinctrl_lookup_state(pinctrl, "dsd");
+	} else {
+		/* 706k32b2c, 768k32b2c, etc */
+		if (bclk >= 45158400)
+			state = pinctrl_lookup_state(pinctrl, "pcm_b2m");
 	}
 
 	/* Get default state */

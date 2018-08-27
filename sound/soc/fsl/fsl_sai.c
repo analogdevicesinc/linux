@@ -624,7 +624,7 @@ static int fsl_sai_hw_params(struct snd_pcm_substream *substream,
 	u32 val_cr4 = 0, val_cr5 = 0;
 	u32 slots = (channels == 1) ? 2 : channels;
 	u32 slot_width = word_width;
-	u32 pins;
+	u32 pins, bclk;
 	int ret;
 	int i;
 	int trce_mask = 0;
@@ -634,9 +634,16 @@ static int fsl_sai_hw_params(struct snd_pcm_substream *substream,
 
 	pins = DIV_ROUND_UP(channels, slots);
 	sai->is_dsd = fsl_is_dsd(params);
+	if (sai->is_dsd)
+		pins = channels;
+
+	if (sai->slot_width)
+		slot_width = sai->slot_width;
+
+	bclk = rate*(sai->bitclk_ratio ? sai->bitclk_ratio : slots * slot_width);
 
 	if (!IS_ERR_OR_NULL(sai->pinctrl)) {
-		sai->pins_state = fsl_get_pins_state(sai->pinctrl, params);
+		sai->pins_state = fsl_get_pins_state(sai->pinctrl, params, bclk);
 
 		if (!IS_ERR_OR_NULL(sai->pins_state)) {
 			ret = pinctrl_select_state(sai->pinctrl, sai->pins_state);
@@ -648,19 +655,8 @@ static int fsl_sai_hw_params(struct snd_pcm_substream *substream,
 		}
 	}
 
-	if (sai->is_dsd)
-		pins = channels;
-
-	if (sai->slot_width)
-		slot_width = sai->slot_width;
-
 	if (!sai->slave_mode[tx]) {
-		if (sai->bitclk_ratio)
-			ret = fsl_sai_set_bclk(cpu_dai, tx,
-					rate * sai->bitclk_ratio);
-		else
-			ret = fsl_sai_set_bclk(cpu_dai, tx,
-					rate * slots * slot_width);
+		ret = fsl_sai_set_bclk(cpu_dai, tx, bclk);
 		if (ret)
 			return ret;
 
