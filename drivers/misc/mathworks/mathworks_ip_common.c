@@ -200,8 +200,9 @@ static void mathworks_ip_mmap_close(struct vm_area_struct *vma)
 }
 
 
-static int mathworks_ip_mmap_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
+static int mathworks_ip_mmap_fault(struct vm_fault *vmf)
 {
+    struct vm_area_struct *vma = vmf->vma;
     struct mathworks_ip_info * thisIpcore = vma->vm_private_data;
     struct page *thisPage;
     unsigned long offset;
