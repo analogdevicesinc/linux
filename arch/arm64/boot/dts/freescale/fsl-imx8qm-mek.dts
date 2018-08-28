@@ -1354,3 +1354,15 @@
 		};
 	};
 };
+
+&vpu_decoder {
+	core_type = <2>;
+	status = "okay";
+};
+
+&vpu_encoder {
+	core_type = <2>;
+	status = "okay";
+};
+
+
