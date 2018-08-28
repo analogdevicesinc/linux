@@ -23,7 +23,7 @@
 struct can_rx_offload {
 	struct net_device *dev;
 
-	unsigned int (*mailbox_read)(struct can_rx_offload *offload, struct can_frame *cf,
+	unsigned int (*mailbox_read)(struct can_rx_offload *offload, struct canfd_frame *cf,
 				     u32 *timestamp, unsigned int mb);
 
 	struct sk_buff_head skb_queue;
