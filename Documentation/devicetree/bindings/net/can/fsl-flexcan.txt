@@ -27,6 +27,7 @@ Optional properties:
 - trx_en_gpio : enable gpio
 - trx_stby_gpio : standby gpio
 - trx_nerr_gpio : NERR gpio
+- disable-fd-mode : disable CAN FD mode support. Valid since i.MX8 series.
 
 Example:
 
