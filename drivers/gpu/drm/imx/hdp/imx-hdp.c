@@ -13,6 +13,7 @@
  */
 #include <linux/clk.h>
 #include <linux/kthread.h>
+#include <linux/mutex.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/component.h>
@@ -947,57 +948,80 @@ static const struct drm_encoder_funcs imx_hdp_imx_encoder_funcs = {
 static int imx8mq_hdp_read(struct hdp_mem *mem, unsigned int addr, unsigned int *value)
 {
 	unsigned int temp;
-	void *tmp_addr = mem->regs_base + addr;
+	void *tmp_addr;
+
+	mutex_lock(&mem->mutex);
+	tmp_addr = mem->regs_base + addr;
 	temp = __raw_readl((volatile unsigned int *)tmp_addr);
 	*value = temp;
+	mutex_unlock(&mem->mutex);
 	return 0;
 }
 
 static int imx8mq_hdp_write(struct hdp_mem *mem, unsigned int addr, unsigned int value)
 {
-	void *tmp_addr = mem->regs_base + addr;
+	void *tmp_addr;
 
+	mutex_lock(&mem->mutex);
+	tmp_addr = mem->regs_base + addr;
 	__raw_writel(value, (volatile unsigned int *)tmp_addr);
+	mutex_unlock(&mem->mutex);
 	return 0;
 }
 
 static int imx8mq_hdp_sread(struct hdp_mem *mem, unsigned int addr, unsigned int *value)
 {
 	unsigned int temp;
-	void *tmp_addr = mem->ss_base + addr;
+	void *tmp_addr;
+
+	mutex_lock(&mem->mutex);
+	tmp_addr = mem->ss_base + addr;
 	temp = __raw_readl((volatile unsigned int *)tmp_addr);
 	*value = temp;
+	mutex_unlock(&mem->mutex);
 	return 0;
 }
 
 static int imx8mq_hdp_swrite(struct hdp_mem *mem, unsigned int addr, unsigned int value)
 {
-	void *tmp_addr = mem->ss_base + addr;
+	void *tmp_addr;
+
+	mutex_lock(&mem->mutex);
+	tmp_addr = mem->ss_base + addr;
 	__raw_writel(value, (volatile unsigned int *)tmp_addr);
+	mutex_unlock(&mem->mutex);
 	return 0;
 }
 
 static int imx8qm_hdp_read(struct hdp_mem *mem, unsigned int addr, unsigned int *value)
 {
 	unsigned int temp;
-	void *tmp_addr = (addr & 0xfff) + mem->regs_base;
-	void *off_addr = 0x8 + mem->ss_base;;
+	void *tmp_addr;
+	void *off_addr;
 
+	mutex_lock(&mem->mutex);
+	tmp_addr = (addr & 0xfff) + mem->regs_base;
+	off_addr = 0x8 + mem->ss_base;;
 	__raw_writel(addr >> 12, off_addr);
 	temp = __raw_readl((volatile unsigned int *)tmp_addr);
 
 	*value = temp;
+	mutex_unlock(&mem->mutex);
 	return 0;
 }
 
 static int imx8qm_hdp_write(struct hdp_mem *mem, unsigned int addr, unsigned int value)
 {
-	void *tmp_addr = (addr & 0xfff) + mem->regs_base;
-	void *off_addr = 0x8 + mem->ss_base;;
+	void *tmp_addr;
+	void *off_addr;
 
+	mutex_lock(&mem->mutex);
+	tmp_addr = (addr & 0xfff) + mem->regs_base;
+	off_addr = 0x8 + mem->ss_base;
 	__raw_writel(addr >> 12, off_addr);
 
 	__raw_writel(value, (volatile unsigned int *) tmp_addr);
+	mutex_unlock(&mem->mutex);
 
 	return 0;
 }
@@ -1005,23 +1029,31 @@ static int imx8qm_hdp_write(struct hdp_mem *mem, unsigned int addr, unsigned int
 static int imx8qm_hdp_sread(struct hdp_mem *mem, unsigned int addr, unsigned int *value)
 {
 	unsigned int temp;
-	void *tmp_addr = (addr & 0xfff) + mem->regs_base;
-	void *off_addr = 0xc + mem->ss_base;;
+	void *tmp_addr;
+	void *off_addr;
 
+	mutex_lock(&mem->mutex);
+	tmp_addr = (addr & 0xfff) + mem->regs_base;
+	off_addr = 0xc + mem->ss_base;
 	__raw_writel(addr >> 12, off_addr);
 
 	temp = __raw_readl((volatile unsigned int *)tmp_addr);
 	*value = temp;
+	mutex_unlock(&mem->mutex);
 	return 0;
 }
 
 static int imx8qm_hdp_swrite(struct hdp_mem *mem, unsigned int addr, unsigned int value)
 {
-	void *tmp_addr = (addr & 0xfff) + mem->regs_base;
-	void *off_addr = 0xc + mem->ss_base;
+	void *tmp_addr;
+	void *off_addr;
 
+	mutex_lock(&mem->mutex);
+	tmp_addr = (addr & 0xfff) + mem->regs_base;
+	off_addr = 0xc + mem->ss_base;
 	__raw_writel(addr >> 12, off_addr);
 	__raw_writel(value, (volatile unsigned int *)tmp_addr);
+	mutex_unlock(&mem->mutex);
 
 	return 0;
 }
@@ -1220,6 +1252,8 @@ static int imx_hdp_imx_bind(struct device *dev, struct device *master,
 	if (hdp->irq[HPD_IRQ_OUT] < 0)
 		dev_info(&pdev->dev, "No plug_out irq number\n");
 
+
+	mutex_init(&hdp->mem.mutex);
 	/* register map */
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	hdp->mem.regs_base = devm_ioremap_resource(dev, res);
