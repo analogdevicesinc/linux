@@ -583,24 +583,6 @@
 		};
 	};
 
-	adv_bridge: adv7535@3d {
-		compatible = "adi,adv7533";
-		reg = <0x3d>;
-		adi,addr-cec = <0x3b>;
-		adi,dsi-lanes = <4>;
-		pinctrl-0 = <&pinctrl_i2c1_dsi_ts_int>;
-		interrupt-parent = <&gpio5>;
-		interrupts = <7 IRQ_TYPE_LEVEL_LOW>;
-
-		status = "disabled";
-
-		port {
-			adv7535_in: endpoint {
-				remote-endpoint = <&mipi_dsi_bridge_adv>;
-			};
-		};
-	};
-
 	dsi_touch: synaptics_dsx_ts@20 {
 		compatible = "synaptics_dsx";
 		reg = <0x20>;
@@ -669,6 +651,24 @@
 		compatible = "asahi-kasei,ak4497";
 		reg = <0x11>;
 		ak4497,pdn-gpio = <&gpio3 16 GPIO_ACTIVE_HIGH>;
+	};
+
+	adv_bridge: adv7535@3d {
+		compatible = "adi,adv7533";
+		reg = <0x3d>;
+		adi,addr-cec = <0x3b>;
+		adi,dsi-lanes = <4>;
+		pinctrl-0 = <&pinctrl_i2c1_dsi_ts_int>;
+		interrupt-parent = <&gpio5>;
+		interrupts = <7 IRQ_TYPE_LEVEL_LOW>;
+
+		status = "disabled";
+
+		port {
+			adv7535_in: endpoint {
+				remote-endpoint = <&mipi_dsi_bridge_adv>;
+			};
+		};
 	};
 };
 

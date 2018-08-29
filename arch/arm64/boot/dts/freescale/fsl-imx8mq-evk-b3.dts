@@ -16,6 +16,7 @@
 
 /delete-node/ &ov5640_mipi;
 /delete-node/ &ov5640_mipi2;
+/delete-node/ &adv_bridge;
 
 &i2c1 {
 	ov5640_mipi: ov5640_mipi@1c {
@@ -60,6 +61,24 @@
 		port {
 			ov5640_mipi2_ep: endpoint {
 				remote-endpoint = <&mipi2_sensor_ep>;
+			};
+		};
+	};
+
+	adv_bridge: adv7535@3d {
+		compatible = "adi,adv7533";
+		reg = <0x3d>;
+		adi,addr-cec = <0x3b>;
+		adi,dsi-lanes = <4>;
+		pinctrl-0 = <&pinctrl_i2c1_dsi_ts_int>;
+		interrupt-parent = <&gpio5>;
+		interrupts = <7 IRQ_TYPE_LEVEL_LOW>;
+
+		status = "disabled";
+
+		port {
+			adv7535_in: endpoint {
+				remote-endpoint = <&mipi_dsi_bridge_adv>;
 			};
 		};
 	};
