@@ -333,7 +333,7 @@ CDN_API_STATUS CDN_API_AudioAutoConfig(state_struct *state,
 	default:
 		return ret;
 	}
-	if (state->tmp == 9) {
+	if (state->tmp == 8) {
 		state->tmp = 0;
 		return CDN_OK;
 	}
