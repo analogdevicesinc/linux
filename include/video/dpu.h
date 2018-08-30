@@ -613,6 +613,7 @@ framegen_cfg_videomode(struct dpu_framegen *fg,
 		       struct drm_display_mode *m, bool side_by_side,
 		       bool encoder_type_has_tmds, bool encoder_type_has_lvds);
 void framegen_pkickconfig(struct dpu_framegen *fg, bool enable);
+void framegen_syncmode_fixup(struct dpu_framegen *fg, bool enable);
 void framegen_sacfg(struct dpu_framegen *fg, unsigned int x, unsigned int y);
 void framegen_displaymode(struct dpu_framegen *fg, fgdm_t mode);
 void framegen_panic_displaymode(struct dpu_framegen *fg, fgdm_t mode);

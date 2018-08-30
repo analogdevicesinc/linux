@@ -434,6 +434,25 @@ void framegen_pkickconfig(struct dpu_framegen *fg, bool enable)
 }
 EXPORT_SYMBOL_GPL(framegen_pkickconfig);
 
+void framegen_syncmode_fixup(struct dpu_framegen *fg, bool enable)
+{
+	struct dpu_soc *dpu = fg->dpu;
+	u32 val;
+
+	if (!dpu->devtype->has_syncmode_fixup)
+		return;
+
+	mutex_lock(&fg->mutex);
+	val = dpu_fg_read(fg, SECSTATCONFIG);
+	if (enable)
+		val |= BIT(7);
+	else
+		val &= ~BIT(7);
+	dpu_fg_write(fg, val, SECSTATCONFIG);
+	mutex_unlock(&fg->mutex);
+}
+EXPORT_SYMBOL_GPL(framegen_syncmode_fixup);
+
 void framegen_sacfg(struct dpu_framegen *fg, unsigned int x, unsigned int y)
 {
 	mutex_lock(&fg->mutex);
