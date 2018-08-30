@@ -875,9 +875,9 @@ static bool update_yuv_addr(struct vpu_ctx *ctx, u_int32 uStrIdx)
 	while (1) {
 		if (!wait_event_interruptible_timeout(ctx->buffer_wq_input,
 				(!list_empty(&This->drv_q)) || ctx->forceStop,
-				msecs_to_jiffies(5000))) {
+				msecs_to_jiffies(1000))) {
 			if (!ctx->forceStop)
-				vpu_dbg(LVL_ERR, " warn: yuv wait_event_interruptible_timeout wait 5s timeout\n");
+				vpu_dbg(LVL_ERR, " warn: yuv wait_event_interruptible_timeout wait 1s timeout\n");
 			else
 				break;
 		}
@@ -959,9 +959,9 @@ static void report_stream_done(struct vpu_ctx *ctx,  MEDIAIP_ENC_PIC_INFO *pEncP
 	while (1) {
 		if (!wait_event_interruptible_timeout(ctx->buffer_wq_output,
 				(!list_empty(&This->drv_q)),
-				msecs_to_jiffies(5000))) {
+				msecs_to_jiffies(1000))) {
 			if (!ctx->forceStop)
-				vpu_dbg(LVL_ERR, " warn: stream wait_event_interruptible_timeout wait 5s timeout\n");
+				vpu_dbg(LVL_ERR, " warn: stream wait_event_interruptible_timeout wait 1s timeout\n");
 			else
 				break;
 		}
@@ -1286,14 +1286,22 @@ static int vpu_next_free_instance(struct vpu_dev *dev, struct vpu_ctx *ctx)
 	int idx0 = hweight32(dev->core_dev[0].instance_mask);
 	int idx1 = hweight32(dev->core_dev[1].instance_mask);
 
-	if (idx0 <= idx1 && idx0 < VPU_MAX_NUM_STREAMS) {
-		idx = ffz(dev->core_dev[0].instance_mask);
-		ctx->core_id = 0;
-	} else if (idx1 < VPU_MAX_NUM_STREAMS) {
-		idx = ffz(dev->core_dev[1].instance_mask);
-		ctx->core_id = 1;
-	} else
-		return -EBUSY;
+	if (dev->plat_type == IMX8QM) {
+		if (idx0 <= idx1 && idx0 < VPU_MAX_NUM_STREAMS) {
+			idx = ffz(dev->core_dev[0].instance_mask);
+			ctx->core_id = 0;
+		} else if (idx1 < VPU_MAX_NUM_STREAMS) {
+			idx = ffz(dev->core_dev[1].instance_mask);
+			ctx->core_id = 1;
+		} else
+			return -EBUSY;
+	} else {
+		if (idx0 < VPU_MAX_NUM_STREAMS) {
+			idx = ffz(dev->core_dev[0].instance_mask);
+			ctx->core_id = 0;
+		} else
+			return -EBUSY;
+	}
 
 	return idx;
 }
@@ -2297,7 +2305,6 @@ static int vpu_suspend(struct device *dev)
 		core_num = 1;
 
 	for (i = 0; i < core_num; i++) {
-		vpu_set_power(vpudev, false, i);
 		core_dev = &vpudev->core_dev[i];
 		if (core_dev->hang_mask != core_dev->instance_mask) {
 
@@ -2309,9 +2316,8 @@ static int vpu_suspend(struct device *dev)
 				return -1;
 			}
 		}
+		vpu_set_power(vpudev, false, i);
 	}
-
-//	vpu_set_power(vpudev, false);
 
 	return 0;
 }

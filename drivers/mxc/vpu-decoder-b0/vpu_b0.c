@@ -2186,12 +2186,15 @@ static int vpu_start_streaming(struct vb2_queue *q,
 static void vpu_stop_streaming(struct vb2_queue *q)
 {
 	struct queue_data *This = (struct queue_data *)q->drv_priv;
+#if 0
 	struct vb2_data_req *p_data_req = NULL;
 	struct vb2_data_req *p_temp;
+#endif
 	struct vb2_buffer *vb;
 
 	vpu_dbg(LVL_INFO, "%s() is called\n", __func__);
 	down(&This->drv_q_lock);
+#if 0
 	if (!list_empty(&This->drv_q)) {
 		list_for_each_entry_safe(p_data_req, p_temp, &This->drv_q, list) {
 			vpu_dbg(LVL_INFO, "%s(%d) - list_del(%p)\n",
@@ -2201,6 +2204,7 @@ static void vpu_stop_streaming(struct vb2_queue *q)
 			list_del(&p_data_req->list);
 		}
 	}
+#endif
 	if (!list_empty(&q->queued_list))
 		list_for_each_entry(vb, &q->queued_list, queued_entry) {
 			if (vb->state == VB2_BUF_STATE_ACTIVE)
