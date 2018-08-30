@@ -1187,7 +1187,7 @@ static void sec_mipi_dsim_bridge_enable(struct drm_bridge *bridge)
 	ret = sec_mipi_dsim_config_pll(dsim);
 	if (ret) {
 		dev_err(dsim->dev, "dsim pll config failed: %d\n", ret);
-		goto panel_unprepare;
+		return;
 	}
 
 	/* config dphy timings */
