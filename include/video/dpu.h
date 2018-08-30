@@ -529,6 +529,7 @@ void extdst_pixengcfg_powerdown(struct dpu_extdst *ed, bool powerdown);
 void extdst_pixengcfg_sync_mode(struct dpu_extdst *ed, ed_sync_mode_t mode);
 void extdst_pixengcfg_reset(struct dpu_extdst *ed, bool reset);
 void extdst_pixengcfg_div(struct dpu_extdst *ed, u16 div);
+void extdst_pixengcfg_syncmode_master(struct dpu_extdst *ed, bool enable);
 int extdst_pixengcfg_src_sel(struct dpu_extdst *ed, extdst_src_sel_t src);
 void extdst_pixengcfg_sel_shdldreq(struct dpu_extdst *ed);
 void extdst_pixengcfg_shdldreq(struct dpu_extdst *ed, u32 req_mask);
