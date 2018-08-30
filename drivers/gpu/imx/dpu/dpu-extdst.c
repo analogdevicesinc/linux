@@ -170,6 +170,21 @@ void extdst_pixengcfg_div(struct dpu_extdst *ed, u16 div)
 }
 EXPORT_SYMBOL_GPL(extdst_pixengcfg_div);
 
+void extdst_pixengcfg_syncmode_master(struct dpu_extdst *ed, bool enable)
+{
+	u32 val;
+
+	mutex_lock(&ed->mutex);
+	val = dpu_pec_ed_read(ed, PIXENGCFG_STATIC);
+	if (enable)
+		val |= BIT(16);
+	else
+		val &= ~BIT(16);
+	dpu_pec_ed_write(ed, PIXENGCFG_STATIC, val);
+	mutex_unlock(&ed->mutex);
+}
+EXPORT_SYMBOL_GPL(extdst_pixengcfg_syncmode_master);
+
 int extdst_pixengcfg_src_sel(struct dpu_extdst *ed, extdst_src_sel_t src)
 {
 	mutex_lock(&ed->mutex);
