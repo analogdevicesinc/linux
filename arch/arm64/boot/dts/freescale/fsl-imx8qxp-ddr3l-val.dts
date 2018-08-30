@@ -15,6 +15,9 @@
 #include "fsl-imx8qxp-lpddr4-arm2.dts"
 
 / {
+	model = "Freescale i.MX8QXP DDR3L VALIDATION";
+	compatible = "fsl,imx8qxp-ddr3l-val", "fsl,imx8qxp";
+
 	reserved-memory {
 		linux,cma {
 			compatible = "shared-dma-pool";
