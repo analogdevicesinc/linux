@@ -654,7 +654,7 @@
 		};
 
 		gpu: gpu@41800000 {
-			compatible = "fsl,imx6q-gpu";
+			compatible = "fsl,imx7ulp-gpu", "fsl,imx6q-gpu";
 			reg = <0x41800000 0x80000>, <0x41880000 0x80000>,
 				<0x60000000 0x40000000>, <0x0 0x4000000>;
 			reg-names = "iobase_3d", "iobase_2d",
