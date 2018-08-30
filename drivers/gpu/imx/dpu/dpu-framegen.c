@@ -78,6 +78,7 @@
 #define FRAMEINDEX_MASK		0xFFFFC000
 #define FRAMEINDEX_SHIFT	14
 #define FGCHSTAT		0x78
+#define SECSYNCSTAT		BIT(24)
 #define FGCHSTATCLR		0x7C
 #define FGSKEWMON		0x80
 #define FGSFIFOMIN		0x84
@@ -580,6 +581,36 @@ void framegen_wait_for_frame_counter_moving(struct dpu_framegen *fg)
 			fg->id, last_frame_index, frame_index);
 }
 EXPORT_SYMBOL_GPL(framegen_wait_for_frame_counter_moving);
+
+bool framegen_secondary_is_syncup(struct dpu_framegen *fg)
+{
+	u32 val;
+
+	mutex_lock(&fg->mutex);
+	val = dpu_fg_read(fg, FGCHSTAT);
+	mutex_unlock(&fg->mutex);
+
+	return val & SECSYNCSTAT;
+}
+EXPORT_SYMBOL_GPL(framegen_secondary_is_syncup);
+
+void framegen_wait_for_secondary_syncup(struct dpu_framegen *fg)
+{
+	unsigned long timeout = jiffies + msecs_to_jiffies(50);
+	bool syncup;
+
+	do {
+		syncup = framegen_secondary_is_syncup(fg);
+	} while (!syncup && time_before(jiffies, timeout));
+
+	if (syncup)
+		dev_dbg(fg->dpu->dev, "FrameGen%d secondary syncup\n", fg->id);
+	else
+		dev_err(fg->dpu->dev,
+			"failed to wait for FrameGen%d secondary syncup\n",
+			fg->id);
+}
+EXPORT_SYMBOL_GPL(framegen_wait_for_secondary_syncup);
 
 void framegen_enable_clock(struct dpu_framegen *fg)
 {

@@ -621,6 +621,8 @@ void framegen_wait_done(struct dpu_framegen *fg, struct drm_display_mode *m);
 void framegen_read_timestamp(struct dpu_framegen *fg,
 			     u32 *frame_index, u32 *line_index);
 void framegen_wait_for_frame_counter_moving(struct dpu_framegen *fg);
+bool framegen_secondary_is_syncup(struct dpu_framegen *fg);
+void framegen_wait_for_secondary_syncup(struct dpu_framegen *fg);
 void framegen_enable_clock(struct dpu_framegen *fg);
 void framegen_disable_clock(struct dpu_framegen *fg);
 bool framegen_is_master(struct dpu_framegen *fg);
