@@ -48,6 +48,21 @@
 #include "API_AFE_mcu1_dp.h"
 #include "../../../../mxc/hdp/all.h"
 
+/* values of TX_TXCC_MGNFS_MULT_000 register for [voltage_swing][pre_emphasis]
+ * 0xFF means, that the combination is forbidden.
+static u16 mgnfsValues[4][4] = {{0x2B, 0x19, 0x0E, 0x02},
+						{0x21, 0x10, 0x01, 0xFF},
+						{0x18, 0x02, 0xFF, 0xFF},
+						{0x04, 0xFF, 0xFF, 0xFF}};
+
+* values of TX_TXCC_CPOST_MULT_00 register for [voltage_swing][pre_emphasis]
+* 0xFF means, that the combination is forbidden.
+static u16 cpostValues[4][4] = {{0x00, 0x14, 0x21, 0x29},
+						{0x00, 0x15, 0x20, 0xFF},
+						{0x00, 0x15, 0xFF, 0xFF},
+						{0x00, 0xFF, 0xFF, 0xFF}};
+*/
+
 static void AFE_WriteReg(state_struct *state, ENUM_AFE_LINK_RATE link_rate,
 			 unsigned int addr,
 			 unsigned int val1_6,

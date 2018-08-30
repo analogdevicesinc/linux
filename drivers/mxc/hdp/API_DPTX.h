@@ -434,6 +434,32 @@ CDN_API_STATUS CDN_API_DPTX_ForceLanes_blocking(state_struct *state,
 						u8 voltageSwing_l3,
 						u8 preemphasis_l3, u8 pattern,
 						u8 ssc);
+/**
+ * \brief Set custom PHY coefficients (values) for voltage-swing and pre-emphasis related registers.
+ * \param [in] mgnfsValues Array of values to use for TX_TXCC_MGNFS_MULT_000 registers
+ * \param [in] cpostValues Array of values to use for TX_TXCC_CPOST_MULT_00 registers
+ *
+ * Each array shall contain set of values to be used for respective PHY register
+ * (if used PHY has such registers). First index represents voltage swing,
+ * second - pre-emphasis.
+ * For example, mgnfsValues[2][0] will be used for TX_TXCC_MGNFS_MULT_000
+ * register, for voltage swing level = 2 and pre-emphasis level = 0.
+ * Similarly, cpostValues[1][2] will be used for TX_TXCC_CPOST_MULT_00 register,
+ * for voltage swing level = 1 and pre-emphasis level = 2.
+ * Default values (one that Firmware starts with) can be acquired using
+ * API_DPTX_GetDefaultCoefficients() - if applicable for given PHY.
+ * Values, where sum of indexes (for voltage swing and pre-emphasis) are
+ * greater than 3 are ignored, as such levels are forbidden by DP standard.
+ */
+CDN_API_STATUS CDN_API_DPTX_SetPhyCoefficients(state_struct *state,
+						u16 mgnfsValues[4][4],
+						u16 cpostValues[4][4]);
+/**
+ * \brief blocking version of #CDN_API_DPTX_SetPhyCoefficients
+ */
+CDN_API_STATUS CDN_API_DPTX_SetPhyCoefficients_blocking(state_struct *state,
+						u16 mgnfsValues[4][4],
+						u16 cpostValues[4][4]);
 
 /**
  * \brief Sets DP TX debug related features.
