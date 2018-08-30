@@ -496,6 +496,7 @@ void framegen_syncmode(struct dpu_framegen *fg, fgsyncmode_t mode);
 void framegen_cfg_videomode(struct dpu_framegen *fg, struct drm_display_mode *m,
 			    bool side_by_side, unsigned int encoder_type);
 void framegen_pkickconfig(struct dpu_framegen *fg, bool enable);
+void framegen_syncmode_fixup(struct dpu_framegen *fg, bool enable);
 void framegen_displaymode(struct dpu_framegen *fg, fgdm_t mode);
 void framegen_panic_displaymode(struct dpu_framegen *fg, fgdm_t mode);
 void framegen_wait_done(struct dpu_framegen *fg, struct drm_display_mode *m);

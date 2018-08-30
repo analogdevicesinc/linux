@@ -270,6 +270,19 @@ void framegen_pkickconfig(struct dpu_framegen *fg, bool enable)
 }
 EXPORT_SYMBOL_GPL(framegen_pkickconfig);
 
+void framegen_syncmode_fixup(struct dpu_framegen *fg, bool enable)
+{
+	u32 val;
+
+	val = dpu_fg_read(fg, SECSTATCONFIG);
+	if (enable)
+		val |= BIT(7);
+	else
+		val &= ~BIT(7);
+	dpu_fg_write(fg, SECSTATCONFIG, val);
+}
+EXPORT_SYMBOL_GPL(framegen_syncmode_fixup);
+
 void framegen_displaymode(struct dpu_framegen *fg, fgdm_t mode)
 {
 	u32 val;
