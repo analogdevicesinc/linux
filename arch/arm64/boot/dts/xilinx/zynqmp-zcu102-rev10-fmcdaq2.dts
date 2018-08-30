@@ -97,7 +97,7 @@
 			compatible = "adi,axi-jesd204-tx-1.0";
 			reg = <0x0 0x84a90000 0x4000>;
 
-			interrupts = <0 54 0>;
+			interrupts = <0 106 0>;
 
 			clocks = <&clk 71>, <&axi_ad9144_adxcvr 1>, <&axi_ad9144_adxcvr 0>;
 			clock-names = "s_axi_aclk", "device_clk", "lane_clk";
@@ -124,7 +124,7 @@
 			compatible = "adi,axi-jesd204-rx-1.0";
 			reg = <0x0 0x84aa0000 0x4000>;
 
-			interrupts = <0 55 0>;
+			interrupts = <0 107 0>;
 
 			clocks = <&clk 71>, <&axi_ad9680_adxcvr 1>, <&axi_ad9680_adxcvr 0>;
 			clock-names = "s_axi_aclk", "device_clk", "lane_clk";
