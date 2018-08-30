@@ -29,6 +29,9 @@
 #include "../../../../mxc/hdp/all.h"
 #include "../../../../mxc/hdp-cec/imx-hdp-cec.h"
 
+#define HDP_DUAL_MODE_MIN_PCLK_RATE	300000	/* KHz */
+#define HDP_SINGLE_MODE_MAX_WIDTH	1920
+
 /* For testing hdp firmware define DEBUG_FW_LOAD */
 #undef DEBUG_FW_LOAD
 #define PLL_1188MHZ (1188000000)
