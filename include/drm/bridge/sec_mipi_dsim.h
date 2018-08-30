@@ -54,6 +54,7 @@ struct sec_mipi_dsim_dphy_timing {
 	.clk_prepare	= cpre,					\
 	.clk_zero	= czero,				\
 	.clk_post	= cpost,				\
+	.clk_trail	= ctrail,				\
 	.hs_prepare	= hpre,					\
 	.hs_zero	= hzero,				\
 	.hs_trail	= htrail,				\
