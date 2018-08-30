@@ -201,6 +201,12 @@ static const unsigned long lb_pec_ofss_v1[] = {0xd00, 0xd20, 0xd40, 0xd60,
 					       0xd80, 0xda0, 0xdc0};
 static const unsigned long lb_pec_ofss_v2[] = {0xba0, 0xbc0, 0xbe0, 0xc00};
 
+/* Store Unit */
+static const unsigned long st_ofss_v1[] = {0x4000};
+static const unsigned long st_ofss_v2[] = {0x4000};
+static const unsigned long st_pec_ofss_v1[] = {0x960};
+static const unsigned long st_pec_ofss_v2[] = {0x940};
+
 /* Timing Controller Unit */
 static const unsigned long tcon_ofss_v1[] = {0x12000, 0x13c00};
 static const unsigned long tcon_ofss_v2[] = {0xcc00, 0xe800};
@@ -374,6 +380,22 @@ static const struct dpu_unit lbs_v2 = {
 	.ofss = lb_ofss_v2,
 };
 
+static const struct dpu_unit sts_v1 = {
+	.name = "Store",
+	.num = ARRAY_SIZE(st_ids),
+	.ids = st_ids,
+	.pec_ofss = st_pec_ofss_v1,
+	.ofss = st_ofss_v1,
+};
+
+static const struct dpu_unit sts_v2 = {
+	.name = "Store",
+	.num = ARRAY_SIZE(st_ids),
+	.ids = st_ids,
+	.pec_ofss = st_pec_ofss_v2,
+	.ofss = st_ofss_v2,
+};
+
 static const struct dpu_unit tcons_v1 = {
 	.name = "TCon",
 	.num = ARRAY_SIZE(tcon_ids),
@@ -534,6 +556,7 @@ static const struct dpu_devtype dpu_type_v1 = {
 	.fws = &fws_v1,
 	.hss = &hss_v1,
 	.lbs = &lbs_v1,
+	.sts = &sts_v1,
 	.tcons = &tcons_v1,
 	.vss = &vss_v1,
 	.cm_reg_ofs = &cm_reg_ofs_v1,
@@ -564,6 +587,7 @@ static const struct dpu_devtype dpu_type_v2_qm = {
 	.fws = &fws_v2,
 	.hss = &hss_v2,
 	.lbs = &lbs_v2,
+	.sts = &sts_v2,
 	.tcons = &tcons_v2,
 	.vss = &vss_v2,
 	.cm_reg_ofs = &cm_reg_ofs_v2,
@@ -598,6 +622,7 @@ static const struct dpu_devtype dpu_type_v2_qxp = {
 	.fws = &fws_v2,
 	.hss = &hss_v2,
 	.lbs = &lbs_v2,
+	.sts = &sts_v2,
 	.tcons = &tcons_v2,
 	.vss = &vss_v2,
 	.cm_reg_ofs = &cm_reg_ofs_v2,
@@ -838,6 +863,7 @@ static int dpu_submodules_init(struct dpu_soc *dpu,
 	DPU_UNITS_INIT(fw);
 	DPU_UNITS_INIT(hs);
 	DPU_UNITS_INIT(lb);
+	DPU_UNITS_INIT(st);
 	DPU_UNITS_INIT(tcon);
 	DPU_UNITS_INIT(vs);
 
@@ -1766,6 +1792,7 @@ static int dpu_probe(struct platform_device *pdev)
 	DPU_UNITS_ADDR_DBG(fw);
 	DPU_UNITS_ADDR_DBG(hs);
 	DPU_UNITS_ADDR_DBG(lb);
+	DPU_UNITS_ADDR_DBG(st);
 	DPU_UNITS_ADDR_DBG(tcon);
 	DPU_UNITS_ADDR_DBG(vs);
 

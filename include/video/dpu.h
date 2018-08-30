@@ -667,6 +667,12 @@ u32 layerblend_perfresult(struct dpu_layerblend *lb);
 struct dpu_layerblend *dpu_lb_get(struct dpu_soc *dpu, int id);
 void dpu_lb_put(struct dpu_layerblend *lb);
 
+/* Store Unit */
+struct dpu_store;
+void store_pixengcfg_syncmode_fixup(struct dpu_store *st, bool enable);
+struct dpu_store *dpu_st_get(struct dpu_soc *dpu, int id);
+void dpu_st_put(struct dpu_store *st);
+
 /* Timing Controller Unit */
 struct dpu_tcon;
 int tcon_set_fmt(struct dpu_tcon *tcon, u32 bus_format);

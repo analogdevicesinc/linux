@@ -192,6 +192,7 @@ struct dpu_devtype {
 	const struct dpu_unit *fws;
 	const struct dpu_unit *hss;
 	const struct dpu_unit *lbs;
+	const struct dpu_unit *sts;
 	const struct dpu_unit *tcons;
 	const struct dpu_unit *vss;
 	const struct cm_reg_ofs *cm_reg_ofs;
@@ -253,6 +254,7 @@ struct dpu_soc {
 	struct dpu_fetchunit	*fw_priv[1];
 	struct dpu_hscaler	*hs_priv[3];
 	struct dpu_layerblend	*lb_priv[7];
+	struct dpu_store	*st_priv[1];
 	struct dpu_tcon		*tcon_priv[2];
 	struct dpu_vscaler	*vs_priv[3];
 };
@@ -293,6 +295,7 @@ DECLARE_DPU_UNIT_INIT_FUNC(fl);
 DECLARE_DPU_UNIT_INIT_FUNC(fw);
 DECLARE_DPU_UNIT_INIT_FUNC(hs);
 DECLARE_DPU_UNIT_INIT_FUNC(lb);
+DECLARE_DPU_UNIT_INIT_FUNC(st);
 DECLARE_DPU_UNIT_INIT_FUNC(tcon);
 DECLARE_DPU_UNIT_INIT_FUNC(vs);
 
@@ -340,6 +343,7 @@ static const unsigned int fl_ids[] = {0, 1};
 static const unsigned int fw_ids[] = {2};
 static const unsigned int hs_ids[] = {4, 5, 9};
 static const unsigned int lb_ids[] = {0, 1, 2, 3, 4, 5, 6};
+static const unsigned int st_ids[] = {9};
 static const unsigned int tcon_ids[] = {0, 1};
 static const unsigned int vs_ids[] = {4, 5, 9};
 
