@@ -209,6 +209,7 @@ struct dpu_devtype {
 	bool has_prefetch;
 	bool has_disp_sel_clk;
 	bool has_dual_ldb;
+	bool has_syncmode_fixup;
 	bool pixel_link_quirks;
 	bool pixel_link_nhvsync;	/* HSYNC and VSYNC high active */
 	unsigned int version;
