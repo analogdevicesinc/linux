@@ -995,8 +995,28 @@ static void sec_mipi_dsim_config_dphy(struct sec_mipi_dsim *dsim)
 	const struct sec_mipi_dsim_dphy_timing *match = NULL;
 	const struct sec_mipi_dsim_plat_data *pdata = dsim->pdata;
 	uint32_t phytiming = 0, phytiming1 = 0, phytiming2 = 0, timeout = 0;
+	uint32_t hactive, vactive;
+	struct videomode *vmode = &dsim->vmode;
+	struct drm_display_mode mode;
 
 	key.bit_clk = DIV_ROUND_CLOSEST_ULL(dsim->bit_clk, 1000);
+
+	/* '1280x720@60Hz' mode with 2 data lanes
+	 * requires special fine tuning for DPHY
+	 * TIMING config according to the tests.
+	 */
+	if (dsim->lanes == 2) {
+		hactive = vmode->hactive;
+		vactive = vmode->vactive;
+
+		if (hactive == 1280 && vactive == 720) {
+			memset(&mode, 0x0, sizeof(mode));
+			drm_display_mode_from_videomode(vmode, &mode);
+
+			if (drm_mode_vrefresh(&mode) == 60)
+				key.bit_clk >>= 1;
+		}
+	}
 
 	match = bsearch(&key, pdata->dphy_timing, pdata->num_dphy_timing,
 			sizeof(struct sec_mipi_dsim_dphy_timing),
