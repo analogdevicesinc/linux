@@ -157,7 +157,7 @@ static bool dcss_plane_format_mod_supported(struct drm_plane *plane,
 			       modifier == DRM_FORMAT_MOD_VSI_G2_TILED ||
 			       modifier == DRM_FORMAT_MOD_VSI_G2_TILED_COMPRESSED;
 		default:
-			return false;
+			return modifier == DRM_FORMAT_MOD_LINEAR;
 		}
 		break;
 	default:
