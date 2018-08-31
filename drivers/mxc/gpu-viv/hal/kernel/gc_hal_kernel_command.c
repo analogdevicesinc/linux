@@ -3006,7 +3006,7 @@ gckCOMMAND_Stall(
     do
     {
         /* Wait for the signal. */
-        status = gckOS_WaitSignal(os, signal, gcvTRUE, gcdGPU_ADVANCETIMER);
+        status = gckOS_WaitSignal(os, signal, !FromPower, gcdGPU_ADVANCETIMER);
 
         if (status == gcvSTATUS_TIMEOUT)
         {
