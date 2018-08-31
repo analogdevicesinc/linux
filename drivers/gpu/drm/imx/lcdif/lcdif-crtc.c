@@ -94,6 +94,13 @@ static int lcdif_crtc_atomic_check(struct drm_crtc *crtc,
 	struct lcdif_crtc *lcdif_crtc = to_lcdif_crtc(crtc);
 	struct imx_crtc_state *imx_crtc_state = to_imx_crtc_state(state);
 
+	/* return directly when no devices attached
+	 * to LCDIF to avoid below error messsage to
+	 * make noises in this case.
+	 */
+	if (!imx_crtc_state->bus_format)
+		return -EINVAL;
+
 	/* check the requested bus format can be
 	 * supported by LCDIF CTRC or not
 	 */
