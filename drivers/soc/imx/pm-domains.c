@@ -84,8 +84,11 @@ static int imx8_pd_power(struct generic_pm_domain *domain, bool power_on)
 	sci_err = sc_pm_set_resource_power_mode(pm_ipc_handle, pd->rsrc_id,
 		(power_on) ? SC_PM_PW_MODE_ON :
 		pd->pd.state_idx ? SC_PM_PW_MODE_OFF : SC_PM_PW_MODE_LP);
-	if (sci_err)
-		pr_err("Failed power operation on resource %d\n", pd->rsrc_id);
+	if (sci_err) {
+		pr_err("Failed power operation on resource %d sc_err %d\n",
+				pd->rsrc_id, sci_err);
+		return -EINVAL;
+	}
 
 	return 0;
 }
@@ -99,6 +102,8 @@ static int imx8_pd_power_on(struct generic_pm_domain *domain)
 	pd = container_of(domain, struct imx8_pm_domain, pd);
 
 	ret = imx8_pd_power(domain, true);
+	if (ret)
+		return ret;
 
 	if (!list_empty(&pd->clks) && (pd->pd.state_idx == PD_OFF)) {
 
@@ -172,7 +177,7 @@ static int imx8_pd_power_on(struct generic_pm_domain *domain)
 		}
 	}
 
-	return ret;
+	return 0;
 }
 
 static int imx8_pd_power_off(struct generic_pm_domain *domain)
