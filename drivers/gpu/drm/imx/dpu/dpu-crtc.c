@@ -575,10 +575,10 @@ static void dpu_crtc_put_resources(struct dpu_crtc *dpu_crtc)
 		dpu_tcon_put(dpu_crtc->tcon);
 }
 
-static int dpu_crtc_get_resources(struct dpu_crtc *dpu_crtc,
-				  unsigned int stream_id)
+static int dpu_crtc_get_resources(struct dpu_crtc *dpu_crtc)
 {
 	struct dpu_soc *dpu = dev_get_drvdata(dpu_crtc->dev->parent);
+	unsigned int stream_id = dpu_crtc->stream_id;
 	int ret;
 
 	dpu_crtc->cf = dpu_cf_get(dpu, stream_id + 4);
@@ -640,7 +640,7 @@ static int dpu_crtc_init(struct dpu_crtc *dpu_crtc,
 	if (!dpu_crtc->plane)
 		return -ENOMEM;
 
-	ret = dpu_crtc_get_resources(dpu_crtc, stream_id);
+	ret = dpu_crtc_get_resources(dpu_crtc);
 	if (ret) {
 		dev_err(dev, "getting resources failed with %d.\n", ret);
 		return ret;
