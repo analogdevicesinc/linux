@@ -547,33 +547,21 @@
 		clocks = <&clk IMX8MQ_CLK_DISP_APB_ROOT>,
 			 <&clk IMX8MQ_CLK_DISP_AXI_ROOT>,
 			 <&clk IMX8MQ_CLK_DISP_RTRM_ROOT>,
-			 <&clk IMX8MQ_VIDEO2_PLL2_DIV>,
-			 <&clk IMX8MQ_VIDEO2_PLL_OUT>,
+			 <&clk IMX8MQ_CLK_DUMMY>,
+			 <&clk IMX8MQ_CLK_DUMMY>,
 			 <&clk IMX8MQ_CLK_DISP_DTRC_DIV>;
 		clock-names = "apb", "axi", "rtrm", "pix_div", "pix_out", "dtrc";
 		assigned-clocks = <&clk IMX8MQ_CLK_DC_PIXEL_SRC>,
 				  <&clk IMX8MQ_CLK_DISP_AXI_SRC>,
 				  <&clk IMX8MQ_CLK_DISP_RTRM_SRC>,
-				  <&clk IMX8MQ_VIDEO2_PLL1_REF_SEL>,
-				  <&clk IMX8MQ_CLK_DISP_RTRM_PRE_DIV>,
-				  <&clk IMX8MQ_VIDEO2_PLL_OUT>,
-				  <&clk IMX8MQ_VIDEO2_PLL1>,
-				  <&clk IMX8MQ_VIDEO2_PLL1_OUT_DIV>,
-				  <&clk IMX8MQ_VIDEO2_PLL2>;
+				  <&clk IMX8MQ_CLK_DISP_RTRM_PRE_DIV>;
 		assigned-clock-parents = <&clk IMX8MQ_VIDEO_PLL1_OUT>,
 					 <&clk IMX8MQ_SYS1_PLL_800M>,
-					 <&clk IMX8MQ_SYS1_PLL_800M>,
-					 <&clk IMX8MQ_CLK_PHY_27MHZ>;
+					 <&clk IMX8MQ_SYS1_PLL_800M>;
 		assigned-clock-rates = <594000000>,
 				       <800000000>,
 				       <400000000>,
-					   <27000000>,
-				       <400000000>,
-					   <297000000>,
-					   <1728000000>,
-					   <54000000>,
-					   <2376000000>;
-
+				       <400000000>;
 		status = "disabled";
 
 		dcss_disp0: port@0 {
