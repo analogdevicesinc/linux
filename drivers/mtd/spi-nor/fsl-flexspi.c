@@ -945,13 +945,6 @@ static int fsl_flexspi_nor_setup(struct fsl_flexspi *flex)
 {
 	void __iomem *base = flex->iobase;
 	u32 reg;
-	int ret;
-
-	ret = pm_runtime_get_sync(flex->dev);
-	if (ret < 0) {
-		dev_err(flex->dev, "Failed to enable clock %d\n", __LINE__);
-		return ret;
-	}
 
 	/* Reset the module */
 	writel(FLEXSPI_MCR0_SWRST_MASK, base + FLEXSPI_MCR0);
@@ -975,9 +968,6 @@ static int fsl_flexspi_nor_setup(struct fsl_flexspi *flex)
 	/* enable the interrupt */
 	writel(FLEXSPI_INTEN_IPCMDDONE_MASK, flex->iobase + FLEXSPI_INTEN);
 
-	pm_runtime_mark_last_busy(flex->dev);
-	pm_runtime_put_autosuspend(flex->dev);
-
 	return 0;
 }
 
@@ -985,12 +975,6 @@ static int fsl_flexspi_nor_setup_last(struct fsl_flexspi *flex)
 {
 	unsigned long rate = flex->clk_rate;
 	int ret;
-
-	ret = pm_runtime_get_sync(flex->dev);
-	if (ret < 0) {
-		dev_err(flex->dev, "Failed to enable clock %d\n", __LINE__);
-		return ret;
-	}
 
 	/* disable and unprepare clock to avoid glitch pass to controller */
 	fsl_flexspi_clk_disable_unprep(flex);
@@ -1008,9 +992,6 @@ static int fsl_flexspi_nor_setup_last(struct fsl_flexspi *flex)
 
 	/* Init for AHB read */
 	fsl_flexspi_init_ahb_read(flex);
-
-	pm_runtime_mark_last_busy(flex->dev);
-	pm_runtime_put_autosuspend(flex->dev);
 
 	return 0;
 }
@@ -1249,7 +1230,7 @@ static int fsl_flexspi_probe(struct platform_device *pdev)
 	if (ret)
 		flex->ddr_smp = 0;
 
-	/* enable the clock */
+	/* enable the rpm*/
 	ret = fsl_flexspi_init_rpm(flex);
 	if (ret) {
 		dev_err(dev, "can not enable the clock\n");
@@ -1260,19 +1241,27 @@ static int fsl_flexspi_probe(struct platform_device *pdev)
 	ret = platform_get_irq(pdev, 0);
 	if (ret < 0) {
 		dev_err(dev, "failed to get the irq: %d\n", ret);
-		goto clk_failed;
+		goto rpm_failed;
 	}
 
 	ret = devm_request_irq(dev, ret,
 			fsl_flexspi_irq_handler, 0, pdev->name, flex);
 	if (ret) {
 		dev_err(dev, "failed to request irq: %d\n", ret);
-		goto clk_failed;
+		goto rpm_failed;
 	}
+
+	/* enable the clock*/
+	ret = pm_runtime_get_sync(flex->dev);
+	if (ret < 0) {
+		dev_err(flex->dev, "Failed to enable clock %d\n", __LINE__);
+		goto rpm_failed;
+	}
+
 
 	ret = fsl_flexspi_nor_setup(flex);
 	if (ret)
-		goto clk_failed;
+		goto rpm_failed;
 
 	if (of_get_property(np, "fsl,qspi-has-second-chip", NULL))
 		flex->has_second_chip = true;
@@ -1358,6 +1347,9 @@ static int fsl_flexspi_probe(struct platform_device *pdev)
 	if (ret)
 		goto last_init_failed;
 
+	pm_runtime_mark_last_busy(flex->dev);
+	pm_runtime_put_autosuspend(flex->dev);
+
 	/* indicate the controller has been initialized */
 	flex->flags |= FLEXSPI_INITILIZED;
 
@@ -1372,6 +1364,9 @@ last_init_failed:
 	}
 mutex_failed:
 	mutex_destroy(&flex->lock);
+rpm_failed:
+	pm_runtime_dont_use_autosuspend(flex->dev);
+	pm_runtime_disable(flex->dev);
 clk_failed:
 	dev_err(dev, "Freescale FlexSPI probe failed\n");
 	return ret;
