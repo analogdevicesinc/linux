@@ -870,7 +870,8 @@ static long WaitDecReadyAndRefreshRegs(hantrodec_t *dev, struct core_desc *Core)
 
 	PDEBUG("wait_event_interruptible DEC[%d]\n", dev->core_id);
 
-	ret = wait_event_interruptible_timeout(dec_wait_queue, CheckDecIrq(dev), msecs_to_jiffies(200));
+	//ret = wait_event_interruptible_timeout(dec_wait_queue, CheckDecIrq(dev), msecs_to_jiffies(200));
+	ret = wait_event_timeout(dec_wait_queue, CheckDecIrq(dev), msecs_to_jiffies(200));
 	if (ret == -ERESTARTSYS) {
 		pr_err("DEC[%d]  failed to wait_event_interruptible interrupted\n", dev->core_id);
 		return -ERESTARTSYS;
@@ -1779,7 +1780,8 @@ static irqreturn_t hantrodec_isr(int irq, void *dev_id)
 
 			dec_irq |= (1 << dev->core_id);
 
-			wake_up_interruptible_all(&dec_wait_queue);
+			//wake_up_interruptible_all(&dec_wait_queue);
+			wake_up_all(&dec_wait_queue);
 			handled++;
 		}
 	//}
