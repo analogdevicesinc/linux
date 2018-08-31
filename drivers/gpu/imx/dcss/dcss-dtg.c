@@ -16,6 +16,7 @@
 #include <linux/bitops.h>
 #include <linux/io.h>
 #include <linux/clk.h>
+#include <linux/of.h>
 #include <linux/delay.h>
 #include <linux/platform_device.h>
 #include <linux/interrupt.h>
@@ -130,6 +131,7 @@ struct dcss_dtg_priv {
 	u32 ctx_id;
 
 	bool in_use;
+	bool hdmi_output;
 
 	u32 dis_ulc_x;
 	u32 dis_ulc_y;
@@ -220,7 +222,10 @@ static int dcss_dtg_irq_config(struct dcss_dtg_priv *dtg)
 
 int dcss_dtg_init(struct dcss_soc *dcss, unsigned long dtg_base)
 {
+	struct device_node *node = dcss->dev->of_node;
 	struct dcss_dtg_priv *dtg;
+	int len;
+	const char *disp_dev;
 
 	dtg = devm_kzalloc(dcss->dev, sizeof(*dtg), GFP_KERNEL);
 	if (!dtg)
@@ -240,6 +245,10 @@ int dcss_dtg_init(struct dcss_soc *dcss, unsigned long dtg_base)
 #if defined(USE_CTXLD)
 	dtg->ctx_id = CTX_DB;
 #endif
+
+	disp_dev = of_get_property(node, "disp-dev", &len);
+	if (!disp_dev || !strncmp(disp_dev, "hdmi_disp", 9))
+		dtg->hdmi_output = true;
 
 	dtg->alpha = 255;
 	dtg->use_global = 0;
@@ -265,6 +274,7 @@ void dcss_dtg_sync_set(struct dcss_soc *dcss, struct videomode *vm)
 	u16 dis_ulc_x, dis_ulc_y;
 	u16 dis_lrc_x, dis_lrc_y;
 	u32 sb_ctxld_trig, db_ctxld_trig;
+	u32 actual_clk;
 
 	dev_dbg(dcss->dev, "hfront_porch = %d\n", vm->hfront_porch);
 	dev_dbg(dcss->dev, "hback_porch = %d\n", vm->hback_porch);
@@ -274,6 +284,7 @@ void dcss_dtg_sync_set(struct dcss_soc *dcss, struct videomode *vm)
 	dev_dbg(dcss->dev, "vback_porch = %d\n", vm->vback_porch);
 	dev_dbg(dcss->dev, "vsync_len = %d\n", vm->vsync_len);
 	dev_dbg(dcss->dev, "vactive = %d\n", vm->vactive);
+	dev_dbg(dcss->dev, "pixelclock = %lu\n", vm->pixelclock);
 
 	dtg_lrc_x = vm->hfront_porch + vm->hback_porch + vm->hsync_len +
 		    vm->hactive - 1;
@@ -285,11 +296,25 @@ void dcss_dtg_sync_set(struct dcss_soc *dcss, struct videomode *vm)
 	dis_lrc_y = vm->vsync_len + vm->vfront_porch + vm->vback_porch +
 		    vm->vactive - 1;
 
-	clk_disable_unprepare(dcss->pout_clk);
-	clk_disable_unprepare(dcss->pdiv_clk);
-	clk_set_rate(dcss->pdiv_clk, vm->pixelclock);
-	clk_prepare_enable(dcss->pdiv_clk);
-	clk_prepare_enable(dcss->pout_clk);
+	if (dtg->hdmi_output) {
+		dcss_pll_disable(dcss);
+		dcss_pll_set_rate(dcss, vm->pixelclock, 2, &actual_clk);
+		dcss_pll_enable(dcss);
+	} else {
+		clk_disable_unprepare(dcss->pout_clk);
+		clk_disable_unprepare(dcss->pdiv_clk);
+		clk_set_rate(dcss->pdiv_clk, vm->pixelclock);
+		actual_clk = clk_get_rate(dcss->pdiv_clk);
+		clk_prepare_enable(dcss->pdiv_clk);
+		clk_prepare_enable(dcss->pout_clk);
+	}
+
+	if (vm->pixelclock != actual_clk) {
+		dev_info(dcss->dev,
+			 "pixel clock set to %u Hz instead of %lu Hz, error is %d Hz\n",
+			 actual_clk, vm->pixelclock,
+			 (int)actual_clk - (int)vm->pixelclock);
+	}
 
 	msleep(50);
 
