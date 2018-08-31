@@ -329,12 +329,12 @@ struct dpu_layerblend *dpu_lb_get(struct dpu_soc *dpu, int id)
 	mutex_lock(&lb->mutex);
 
 	if (lb->inuse) {
-		lb = ERR_PTR(-EBUSY);
-		goto out;
+		mutex_unlock(&lb->mutex);
+		return ERR_PTR(-EBUSY);
 	}
 
 	lb->inuse = true;
-out:
+
 	mutex_unlock(&lb->mutex);
 
 	return lb;

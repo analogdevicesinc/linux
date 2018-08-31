@@ -529,12 +529,12 @@ struct dpu_framegen *dpu_fg_get(struct dpu_soc *dpu, int id)
 	mutex_lock(&fg->mutex);
 
 	if (fg->inuse) {
-		fg = ERR_PTR(-EBUSY);
-		goto out;
+		mutex_unlock(&fg->mutex);
+		return ERR_PTR(-EBUSY);
 	}
 
 	fg->inuse = true;
-out:
+
 	mutex_unlock(&fg->mutex);
 
 	return fg;

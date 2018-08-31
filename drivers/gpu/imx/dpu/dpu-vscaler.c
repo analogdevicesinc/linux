@@ -365,12 +365,12 @@ struct dpu_vscaler *dpu_vs_get(struct dpu_soc *dpu, int id)
 	mutex_lock(&vs->mutex);
 
 	if (vs->inuse) {
-		vs = ERR_PTR(-EBUSY);
-		goto out;
+		mutex_unlock(&vs->mutex);
+		return ERR_PTR(-EBUSY);
 	}
 
 	vs->inuse = true;
-out:
+
 	mutex_unlock(&vs->mutex);
 
 	return vs;

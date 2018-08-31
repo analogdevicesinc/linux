@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2016 Freescale Semiconductor, Inc.
- * Copyright 2017 NXP
+ * Copyright 2017-2018 NXP
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -418,12 +418,12 @@ struct dpu_extdst *dpu_ed_get(struct dpu_soc *dpu, int id)
 	mutex_lock(&ed->mutex);
 
 	if (ed->inuse) {
-		ed = ERR_PTR(-EBUSY);
-		goto out;
+		mutex_unlock(&ed->mutex);
+		return ERR_PTR(-EBUSY);
 	}
 
 	ed->inuse = true;
-out:
+
 	mutex_unlock(&ed->mutex);
 
 	return ed;

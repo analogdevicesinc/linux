@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2016 Freescale Semiconductor, Inc.
- * Copyright 2017 NXP
+ * Copyright 2017-2018 NXP
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -93,12 +93,12 @@ struct dpu_disengcfg *dpu_dec_get(struct dpu_soc *dpu, int id)
 	mutex_lock(&dec->mutex);
 
 	if (dec->inuse) {
-		dec = ERR_PTR(-EBUSY);
-		goto out;
+		mutex_unlock(&dec->mutex);
+		return ERR_PTR(-EBUSY);
 	}
 
 	dec->inuse = true;
-out:
+
 	mutex_unlock(&dec->mutex);
 
 	return dec;

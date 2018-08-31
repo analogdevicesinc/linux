@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 NXP
+ * Copyright 2017-2018 NXP
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -316,12 +316,12 @@ struct dpu_hscaler *dpu_hs_get(struct dpu_soc *dpu, int id)
 	mutex_lock(&hs->mutex);
 
 	if (hs->inuse) {
-		hs = ERR_PTR(-EBUSY);
-		goto out;
+		mutex_unlock(&hs->mutex);
+		return ERR_PTR(-EBUSY);
 	}
 
 	hs->inuse = true;
-out:
+
 	mutex_unlock(&hs->mutex);
 
 	return hs;

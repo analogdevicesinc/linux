@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2016 Freescale Semiconductor, Inc.
- * Copyright 2017 NXP
+ * Copyright 2017-2018 NXP
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -207,12 +207,12 @@ struct dpu_tcon *dpu_tcon_get(struct dpu_soc *dpu, int id)
 	mutex_lock(&tcon->mutex);
 
 	if (tcon->inuse) {
-		tcon = ERR_PTR(-EBUSY);
-		goto out;
+		mutex_unlock(&tcon->mutex);
+		return ERR_PTR(-EBUSY);
 	}
 
 	tcon->inuse = true;
-out:
+
 	mutex_unlock(&tcon->mutex);
 
 	return tcon;
