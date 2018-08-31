@@ -139,6 +139,7 @@ struct dcss_dtg_priv {
 	u32 use_global;
 
 	int ctxld_kick_irq;
+	bool ctxld_kick_irq_en;
 
 	/*
 	 * This will be passed on by DRM CRTC so that we can signal when DTG has
@@ -207,6 +208,12 @@ static int dcss_dtg_irq_config(struct dcss_dtg_priv *dtg)
 		dev_err(dcss->dev, "dtg: irq request failed.\n");
 		return ret;
 	}
+
+	disable_irq(dtg->ctxld_kick_irq);
+
+	dtg->ctxld_kick_irq_en = false;
+
+	dcss_update(LINE1_IRQ, LINE1_IRQ, dtg->base_reg + DCSS_DTG_INT_MASK);
 
 	return 0;
 }
@@ -469,20 +476,37 @@ EXPORT_SYMBOL(dcss_dtg_ch_enable);
 
 void dcss_dtg_vblank_irq_enable(struct dcss_soc *dcss, bool en)
 {
-	void __iomem *reg;
 	struct dcss_dtg_priv *dtg = dcss->dtg_priv;
-	u32 val = en ? (LINE0_IRQ | LINE1_IRQ) : 0;
+	u32 status;
+
+	dcss_update(LINE0_IRQ, LINE0_IRQ, dtg->base_reg + DCSS_DTG_INT_MASK);
+
+	dcss_dpr_irq_enable(dcss, en);
 
 	/* need to keep the CTXLD kick interrupt ON if DTRC is used */
 	if (!en && (dcss_dtrc_is_running(dcss, 1) ||
 		    dcss_dtrc_is_running(dcss, 2)))
-		val |= LINE1_IRQ;
+		return;
 
-	reg = dtg->base_reg + DCSS_DTG_INT_MASK;
+	if (en) {
+		status = dcss_readl(dtg->base_reg + DCSS_DTG_INT_STATUS);
 
-	dcss_update(val, LINE0_IRQ | LINE1_IRQ, reg);
+		if (!dtg->ctxld_kick_irq_en) {
+			dcss_writel(status & (LINE0_IRQ | LINE1_IRQ),
+				    dtg->base_reg + DCSS_DTG_INT_CONTROL);
+			enable_irq(dtg->ctxld_kick_irq);
+			dtg->ctxld_kick_irq_en = true;
+			return;
+		}
 
-	dcss_dpr_irq_enable(dcss, en);
+		dcss_writel(status & LINE0_IRQ,
+			    dtg->base_reg + DCSS_DTG_INT_CONTROL);
+
+		return;
+	}
+
+	disable_irq(dtg->ctxld_kick_irq);
+	dtg->ctxld_kick_irq_en = false;
 }
 
 void dcss_dtg_vblank_irq_clear(struct dcss_soc *dcss)

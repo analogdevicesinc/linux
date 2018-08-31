@@ -219,6 +219,10 @@ static int dcss_dpr_irq_config(struct dcss_soc *dcss, int ch_num)
 		return ret;
 	}
 
+	disable_irq(ch->irq);
+
+	dcss_writel(0xfe, ch->base_reg + DCSS_DPR_IRQ_MASK);
+
 	return 0;
 }
 
@@ -730,9 +734,21 @@ void dcss_dpr_irq_enable(struct dcss_soc *dcss, bool en)
 {
 	struct dcss_dpr_priv *dpr = dcss->dpr_priv;
 
-	dcss_writel(en ? 0xfe : 0xff, dpr->ch[0].base_reg + DCSS_DPR_IRQ_MASK);
-	dcss_writel(en ? 0xfe : 0xff, dpr->ch[1].base_reg + DCSS_DPR_IRQ_MASK);
-	dcss_writel(en ? 0xfe : 0xff, dpr->ch[2].base_reg + DCSS_DPR_IRQ_MASK);
+	if (!en) {
+		disable_irq(dpr->ch[0].irq);
+		disable_irq(dpr->ch[1].irq);
+		disable_irq(dpr->ch[2].irq);
+
+		return;
+	}
+
+	dcss_clr(1, dpr->ch[0].base_reg + DCSS_DPR_IRQ_NONMASK_STATUS);
+	dcss_clr(1, dpr->ch[1].base_reg + DCSS_DPR_IRQ_NONMASK_STATUS);
+	dcss_clr(1, dpr->ch[2].base_reg + DCSS_DPR_IRQ_NONMASK_STATUS);
+
+	enable_irq(dpr->ch[0].irq);
+	enable_irq(dpr->ch[1].irq);
+	enable_irq(dpr->ch[2].irq);
 }
 
 void dcss_dpr_set_rotation(struct dcss_soc *dcss, int ch_num, u32 rotation)
