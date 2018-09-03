@@ -221,6 +221,10 @@ struct imx_pcie {
 #define PCIE_PHY_CMN_REG64_AUX_RX_TX_TERM	0x8C
 #define PCIE_PHY_CMN_REG75			0x1D4
 #define PCIE_PHY_CMN_REG75_PLL_DONE		0x3
+#define PCIE_PHY_TRSV_REG5			0x414
+#define PCIE_PHY_TRSV_REG5_GEN1_DEEMP		0x2D
+#define PCIE_PHY_TRSV_REG6			0x418
+#define PCIE_PHY_TRSV_REG6_GEN2_DEEMP		0xF
 
 /* iMX8 HSIO registers */
 #define IMX8QM_LPCG_PHYX2_OFFSET		0x00000
@@ -579,9 +583,10 @@ static void imx_pcie_assert_core_reset(struct imx_pcie *imx_pcie)
 
 static int imx_pcie_enable_ref_clk(struct imx_pcie *imx_pcie)
 {
+	u32 val;
+	int ret = 0;
 	struct dw_pcie *pci = imx_pcie->pci;
 	struct device *dev = pci->dev;
-	int ret = 0;
 
 	switch (imx_pcie->variant) {
 	case IMX6SX:
@@ -610,8 +615,25 @@ static int imx_pcie_enable_ref_clk(struct imx_pcie *imx_pcie)
 				   IMX6Q_GPR1_PCIE_REF_CLK_EN, 1 << 16);
 		break;
 	case IMX7D:
+		break;
 	case IMX8MQ:
 	case IMX8MM:
+		/*
+		 * Set the over ride low and enabled
+		 * make sure that REF_CLK is turned on.
+		 */
+		if (imx_pcie->ctrl_id == 0)
+			val = IOMUXC_GPR14;
+		else
+			val = IOMUXC_GPR16;
+
+		regmap_update_bits(imx_pcie->iomuxc_gpr, val,
+				IMX8MQ_GPR_PCIE_CLK_REQ_OVERRIDE,
+				0);
+		regmap_update_bits(imx_pcie->iomuxc_gpr, val,
+				IMX8MQ_GPR_PCIE_CLK_REQ_OVERRIDE_EN,
+				IMX8MQ_GPR_PCIE_CLK_REQ_OVERRIDE_EN);
+
 		break;
 	case IMX8QXP:
 	case IMX8QM:
@@ -661,8 +683,8 @@ static int imx8_pcie_wait_for_phy_pll_lock(struct imx_pcie *imx_pcie)
 	struct device *dev = pci->dev;
 
 	if (imx_pcie->variant == IMX8MM) {
-		tmp = readl(imx_pcie->phy_base + PCIE_PHY_CMN_REG75);
 		for (retries = 0; retries < 100; retries++) {
+			tmp = readl(imx_pcie->phy_base + PCIE_PHY_CMN_REG75);
 			if (tmp == PCIE_PHY_CMN_REG75_PLL_DONE)
 				break;
 			udelay(10);
@@ -901,10 +923,6 @@ static int imx_pcie_deassert_core_reset(struct imx_pcie *imx_pcie)
 			break;
 		}
 
-		regmap_update_bits(imx_pcie->reg_src, val,
-				IMX8MQ_PCIE_CTRL_APPS_EN |
-				IMX8MQ_PCIEPHY_DOMAIN_EN,
-				IMX8MQ_PCIEPHY_DOMAIN_EN);
 		/*
 		 * Configure the CLK_REQ# high, let the L1SS
 		 * automatically controlled by HW.
@@ -912,21 +930,10 @@ static int imx_pcie_deassert_core_reset(struct imx_pcie *imx_pcie)
 		regmap_update_bits(imx_pcie->reg_src, val,
 				IMX8MQ_PCIE_CTRL_APPS_CLK_REQ,
 				IMX8MQ_PCIE_CTRL_APPS_CLK_REQ);
-		/*
-		 * Set the over ride low and enabled
-		 * make sure that REF_CLK is turned on.
-		 */
-		if (imx_pcie->ctrl_id == 0)
-			val = IOMUXC_GPR14;
-		else
-			val = IOMUXC_GPR16;
-
-		regmap_update_bits(imx_pcie->iomuxc_gpr, val,
-				IMX8MQ_GPR_PCIE_CLK_REQ_OVERRIDE,
-				0);
-		regmap_update_bits(imx_pcie->iomuxc_gpr, val,
-				IMX8MQ_GPR_PCIE_CLK_REQ_OVERRIDE_EN,
-				IMX8MQ_GPR_PCIE_CLK_REQ_OVERRIDE_EN);
+		regmap_update_bits(imx_pcie->reg_src, val,
+				IMX8MQ_PCIE_CTRL_APPS_EN |
+				IMX8MQ_PCIEPHY_DOMAIN_EN,
+				IMX8MQ_PCIEPHY_DOMAIN_EN);
 
 		if (dw_pcie_readl_dbi(pci, PCIE_MISC_CTRL) == 0)
 			dw_pcie_writel_dbi(pci, PCIE_MISC_CTRL,
@@ -1273,6 +1280,16 @@ static void imx_pcie_init_phy(struct imx_pcie *imx_pcie)
 				writel(val, base + IMX8MQ_ANA_PLLOUT_REG);
 			}
 		}
+		/*
+		 * In order to pass the compliance tests.
+		 * Configure the TRSV regiser of iMX8MM PCIe PHY.
+		 */
+		if (imx_pcie->variant == IMX8MM) {
+			writel(PCIE_PHY_TRSV_REG5_GEN1_DEEMP,
+			       imx_pcie->phy_base + PCIE_PHY_TRSV_REG5);
+			writel(PCIE_PHY_TRSV_REG6_GEN2_DEEMP,
+			       imx_pcie->phy_base + PCIE_PHY_TRSV_REG6);
+		}
 	} else if (imx_pcie->variant == IMX7D) {
 		/* Enable PCIe PHY 1P0D */
 		regulator_set_voltage(imx_pcie->pcie_phy_regulator,
@@ -1432,6 +1449,7 @@ static irqreturn_t imx_pcie_msi_handler(int irq, void *arg)
 
 static void pci_imx_clk_disable(struct device *dev)
 {
+	u32 val;
 	struct imx_pcie *imx_pcie = dev_get_drvdata(dev);
 
 	clk_disable_unprepare(imx_pcie->pcie);
@@ -1455,8 +1473,22 @@ static void pci_imx_clk_disable(struct device *dev)
 		regmap_update_bits(imx_pcie->iomuxc_gpr, IOMUXC_GPR12,
 				BIT(5), BIT(5));
 		break;
+	/*
+	 * Disable the over ride.
+	 * Configure the CLK_REQ# high, let the L1SS automatically
+	 * controlled by HW when link is up.
+	 * Otherwise, turn off the REF_CLK to save power consumption.
+	 */
 	case IMX8MQ:
 	case IMX8MM:
+		if (imx_pcie->ctrl_id == 0)
+			val = IOMUXC_GPR14;
+		else
+			val = IOMUXC_GPR16;
+
+		regmap_update_bits(imx_pcie->iomuxc_gpr, val,
+				IMX8MQ_GPR_PCIE_CLK_REQ_OVERRIDE_EN,
+				0);
 		break;
 	case IMX8QXP:
 	case IMX8QM:
@@ -1615,11 +1647,12 @@ static int imx_pcie_host_init(struct pcie_port *pp)
 	if (!IS_ENABLED(CONFIG_EP_MODE_IN_EP_RC_SYS)) {
 		dw_pcie_setup_rc(pp);
 		ret = imx_pcie_establish_link(imx_pcie);
+		if (ret < 0)
+			return ret;
 		/*
-		 * Disable the over ride.
-		 * Configure the CLK_REQ# high, let the L1SS automatically
-		 * controlled by HW when link is up.
-		 * Otherwise, turn off the REF_CLK to save power consumption.
+		 * Disable the over ride after link up.
+		 * Let the the CLK_REQ# controlled by HW L1SS
+		 * automatically.
 		 */
 		switch (imx_pcie->variant) {
 		case IMX8MQ:
@@ -1636,8 +1669,6 @@ static int imx_pcie_host_init(struct pcie_port *pp)
 		default:
 			break;
 		}
-		if (ret < 0)
-			return ret;
 
 		if (IS_ENABLED(CONFIG_PCI_MSI))
 			dw_pcie_msi_init(pp);
