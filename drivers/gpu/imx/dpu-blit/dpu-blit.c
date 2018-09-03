@@ -388,7 +388,7 @@ int dpu_bliteng_init(struct dpu_bliteng *dpu_bliteng)
 	dpu_base = res->start;
 
 	/* remap with bigger size */
-	base = devm_ioremap(dpu->dev, dpu_base, 64*SZ_1K);
+	base = devm_ioremap(dpu->dev, dpu_base, COMMAND_BUFFER_SIZE);
 	dpu_bliteng->base = base;
 	dpu_bliteng->dpu = dpu;
 
