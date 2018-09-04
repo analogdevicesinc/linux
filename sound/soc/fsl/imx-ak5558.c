@@ -30,6 +30,7 @@ struct imx_ak5558_data {
 	bool tdm_mode;
 	unsigned long slots;
 	unsigned long slot_width;
+	bool one2one_ratio;
 };
 
 /*
@@ -52,8 +53,8 @@ static const struct imx_ak5558_fs_mul fs_mul[] = {
 	{ .min = 44100,  .max = 48000,  .mul = 512  },
 	{ .min = 88200,  .max = 96000,  .mul = 256  },
 	{ .min = 176400, .max = 192000, .mul = 128  },
-	{ .min = 352800, .max = 384000, .mul = 2*64 },
-	{ .min = 705600, .max = 768000, .mul = 2*32 },
+	{ .min = 352800, .max = 384000, .mul = 64 },
+	{ .min = 705600, .max = 768000, .mul = 32 },
 };
 
 /*
@@ -196,6 +197,35 @@ static int imx_aif_hw_params(struct snd_pcm_substream *substream,
 	return ret;
 }
 
+static int imx_ak5558_hw_rule_rate(struct snd_pcm_hw_params *p,
+				struct snd_pcm_hw_rule *r)
+{
+	struct imx_ak5558_data *data = r->private;
+	struct snd_interval t = { .min = 8000, .max = 8000, };
+	unsigned int fs;
+	unsigned long mclk_freq;
+	int i;
+
+	fs = hw_param_interval(p, SNDRV_PCM_HW_PARAM_SAMPLE_BITS)->min;
+	fs *= data->tdm_mode ? 8 : 2;
+
+	/* Identify maximum supported rate */
+	for (i = 0; i < ARRAY_SIZE(ak5558_rates); i++) {
+		mclk_freq = fs * ak5558_rates[i];
+		/* Adjust SAI bclk:mclk ratio */
+		mclk_freq *= data->one2one_ratio ? 1 : 2;
+
+		/* Skip rates for which MCLK is beyond supported value */
+		if (mclk_freq > 36864000)
+			continue;
+
+		if (t.max < ak5558_rates[i])
+			t.max = ak5558_rates[i];
+	}
+
+	return snd_interval_refine(hw_param_interval(p, r->var), &t);
+}
+
 static int imx_aif_startup(struct snd_pcm_substream *substream)
 {
 	struct snd_pcm_runtime *runtime = substream->runtime;
@@ -224,10 +254,12 @@ static int imx_aif_startup(struct snd_pcm_substream *substream)
 	constraint_channels.count = ARRAY_SIZE(ak5558_channels);
 	ret = snd_pcm_hw_constraint_list(runtime, 0, SNDRV_PCM_HW_PARAM_CHANNELS,
 							&constraint_channels);
-	if (ret)
+	if (ret < 0)
 		return ret;
 
-	return 0;
+	return snd_pcm_hw_rule_add(substream->runtime, 0,
+		SNDRV_PCM_HW_PARAM_RATE, imx_ak5558_hw_rule_rate, data,
+		SNDRV_PCM_HW_PARAM_SAMPLE_BITS, -1);
 }
 
 static struct snd_soc_ops imx_aif_ops = {
@@ -289,6 +321,8 @@ static int imx_ak5558_probe(struct platform_device *pdev)
 	priv->card.owner = THIS_MODULE;
 	priv->card.dapm_widgets = imx_ak5558_dapm_widgets;
 	priv->card.num_dapm_widgets = ARRAY_SIZE(imx_ak5558_dapm_widgets);
+	priv->one2one_ratio = !of_device_is_compatible(pdev->dev.of_node,
+					"fsl,imx-audio-ak5558-mq");
 
 	ret = snd_soc_of_parse_card_name(&priv->card, "model");
 	if (ret)
@@ -314,6 +348,7 @@ fail:
 
 static const struct of_device_id imx_ak5558_dt_ids[] = {
 	{ .compatible = "fsl,imx-audio-ak5558", },
+	{ .compatible = "fsl,imx-audio-ak5558-mq", },
 	{ },
 };
 MODULE_DEVICE_TABLE(of, imx_ak5558_dt_ids);

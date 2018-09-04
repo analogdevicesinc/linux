@@ -2,7 +2,7 @@ Freescale i.MX audio complex with AK5558 ADC
 
 Required properties:
 
-- compatible	: "fsl,imx-audio-ak5558"
+- compatible	: "fsl,imx-audio-ak5558", "fsl,imx-audio-ak5558-mq"
 - model		: The user-visible name of this sound complex
 - audio-cpu	: The phandle of CPU DAI
 - audio-codec	: The phandle of the AK5558 audio ADC
