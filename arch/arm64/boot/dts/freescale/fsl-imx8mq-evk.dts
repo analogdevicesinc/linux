@@ -110,7 +110,7 @@
 	};
 
 	sound-ak5558 {
-		compatible = "fsl,imx-audio-ak5558";
+		compatible = "fsl,imx-audio-ak5558-mq";
 		model = "ak5558-audio";
 		audio-cpu = <&sai5>;
 		audio-codec = <&ak5558>;
