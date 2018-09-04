@@ -17,7 +17,6 @@ static irqreturn_t mxc_isi_irq_handler(int irq, void *priv)
 	struct device *dev = &mxc_isi->pdev->dev;
 	u32 status;
 
-
 	spin_lock(&mxc_isi->slock);
 
 	status = mxc_isi_get_irq_status(mxc_isi);
