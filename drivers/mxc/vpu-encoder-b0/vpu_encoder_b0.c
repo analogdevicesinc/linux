@@ -875,9 +875,9 @@ static bool update_yuv_addr(struct vpu_ctx *ctx, u_int32 uStrIdx)
 	while (1) {
 		if (!wait_event_interruptible_timeout(ctx->buffer_wq_input,
 				(!list_empty(&This->drv_q)) || ctx->forceStop,
-				msecs_to_jiffies(1000))) {
+				msecs_to_jiffies(10))) {
 			if (!ctx->forceStop)
-				vpu_dbg(LVL_ERR, " warn: yuv wait_event_interruptible_timeout wait 1s timeout\n");
+				vpu_dbg(LVL_INFO, " warn: yuv wait_event_interruptible_timeout wait 10ms timeout\n");
 			else
 				break;
 		}
@@ -959,9 +959,9 @@ static void report_stream_done(struct vpu_ctx *ctx,  MEDIAIP_ENC_PIC_INFO *pEncP
 	while (1) {
 		if (!wait_event_interruptible_timeout(ctx->buffer_wq_output,
 				(!list_empty(&This->drv_q)),
-				msecs_to_jiffies(1000))) {
+				msecs_to_jiffies(10))) {
 			if (!ctx->forceStop)
-				vpu_dbg(LVL_ERR, " warn: stream wait_event_interruptible_timeout wait 1s timeout\n");
+				vpu_dbg(LVL_INFO, " warn: stream wait_event_interruptible_timeout wait 10ms timeout\n");
 			else
 				break;
 		}
@@ -2160,8 +2160,7 @@ static int vpu_probe(struct platform_device *pdev)
 	if (core_type == 2) {
 		vpu_set_power(dev, true, 0);
 		vpu_set_power(dev, true, 1);
-	} else
-		vpu_set_power(dev, true, 0);
+	}
 
 	vpu_enable_hw(dev);
 
