@@ -531,16 +531,16 @@
 			     <4 IRQ_TYPE_LEVEL_HIGH>,
 			     <5 IRQ_TYPE_LEVEL_HIGH>,
 			     <6 IRQ_TYPE_LEVEL_HIGH>,
-			     <8 IRQ_TYPE_EDGE_RISING>,
-				 <9 IRQ_TYPE_LEVEL_HIGH>,
+			     <8 IRQ_TYPE_LEVEL_HIGH>,
+				 <9 IRQ_TYPE_EDGE_RISING>,
 				 <16 IRQ_TYPE_LEVEL_HIGH>,
 				 <17 IRQ_TYPE_LEVEL_HIGH>;
 		interrupt-names = "dpr_dc_ch0",
 				  "dpr_dc_ch1",
 				  "dpr_dc_ch2",
 				  "ctx_ld",
-				  "dtg_prg1",
 				  "ctxld_kick",
+				  "dtg_prg1",
 				  "dtrc_ch1",
 				  "dtrc_ch2";
 		interrupt-parent = <&irqsteer_dcss>;
