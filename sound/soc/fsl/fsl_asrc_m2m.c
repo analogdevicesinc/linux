@@ -1021,3 +1021,28 @@ static void fsl_asrc_m2m_suspend(struct fsl_asrc *asrc_priv)
 		spin_unlock_irqrestore(&asrc_priv->lock, lock_flags);
 	}
 }
+
+static void fsl_asrc_m2m_resume(struct fsl_asrc *asrc_priv)
+{
+	struct fsl_asrc_pair *pair;
+	struct fsl_asrc_m2m *m2m;
+	unsigned long lock_flags;
+	enum asrc_pair_index index;
+	int i, j;
+
+	for (i = 0; i < ASRC_PAIR_MAX_NUM; i++) {
+		spin_lock_irqsave(&asrc_priv->lock, lock_flags);
+		pair = asrc_priv->pair[i];
+		if (!pair || !pair->private) {
+			spin_unlock_irqrestore(&asrc_priv->lock, lock_flags);
+			continue;
+		}
+		m2m = pair->private;
+		index = pair->index;
+
+		for (j = 0; j < pair->channels * 4; j++)
+			regmap_write(asrc_priv->regmap, REG_ASRDI(index), 0);
+
+		spin_unlock_irqrestore(&asrc_priv->lock, lock_flags);
+	}
+}

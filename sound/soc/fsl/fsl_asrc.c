@@ -1320,9 +1320,12 @@ static int fsl_asrc_suspend(struct device *dev)
 
 static int fsl_asrc_resume(struct device *dev)
 {
+	struct fsl_asrc *asrc_priv = dev_get_drvdata(dev);
 	int ret;
 
 	ret = pm_runtime_force_resume(dev);
+
+	fsl_asrc_m2m_resume(asrc_priv);
 
 	return ret;
 }
