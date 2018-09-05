@@ -969,6 +969,9 @@ static void report_stream_done(struct vpu_ctx *ctx,  MEDIAIP_ENC_PIC_INFO *pEncP
 			break;
 	}
 
+	if (ctx->forceStop)
+		return;
+
 	if (!list_empty(&This->drv_q)) {
 		down(&This->drv_q_lock);
 
@@ -982,9 +985,7 @@ static void report_stream_done(struct vpu_ctx *ctx,  MEDIAIP_ENC_PIC_INFO *pEncP
 		// Calculate length - the amount of space remaining in output stream buffer
 		length = p_data_req->vb2_buf->planes[0].length;
 		data_mapped = (void *)vb2_plane_vaddr(p_data_req->vb2_buf, 0);
-		if (wptr == rptr && rptr != start)
-			data_length = end - start;
-		else if (rptr < wptr)
+		if (rptr <= wptr)
 			data_length = wptr - rptr;
 		else if (rptr > wptr)
 			data_length = (end - rptr) + (wptr - start);
