@@ -329,7 +329,7 @@ int fsl_asrc_process_buffer_pre(struct completion *complete,
 		return -ETIME;
 	} else if (signal_pending(current)) {
 		pr_err("%sput task forcibly aborted\n", DIR_STR(dir));
-		return -EBUSY;
+		return -ERESTARTSYS;
 	}
 
 	return 0;
@@ -723,7 +723,8 @@ static long fsl_asrc_ioctl_convert(struct fsl_asrc_pair *pair,
 
 	ret = fsl_asrc_process_buffer(pair, &buf);
 	if (ret) {
-		pair_err("failed to process buffer: %ld\n", ret);
+		if (ret != -ERESTARTSYS)
+			pair_err("failed to process buffer: %ld\n", ret);
 		return ret;
 	}
 
