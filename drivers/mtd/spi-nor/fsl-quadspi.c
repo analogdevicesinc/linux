@@ -1098,7 +1098,8 @@ static void fsl_qspi_unprep(struct spi_nor *nor, enum spi_nor_ops ops)
 static int fsl_qspi_probe(struct platform_device *pdev)
 {
 	const struct spi_nor_hwcaps hwcaps = {
-		.mask = SNOR_HWCAPS_READ_1_4_4_DTR |
+		.mask = SNOR_HWCAPS_READ_1_1_4 |
+			SNOR_HWCAPS_READ_1_4_4_DTR |
 			SNOR_HWCAPS_PP,
 	};
 	struct device_node *np = pdev->dev.of_node;
@@ -1165,12 +1166,6 @@ static int fsl_qspi_probe(struct platform_device *pdev)
 	if (ret)
 		q->ddr_smp = 0;
 
-	ret = fsl_qspi_init_rpm(q);
-	if (ret) {
-		dev_err(dev, "can not enable the clock\n");
-		goto clk_failed;
-	}
-
 	/* find the irq */
 	ret = platform_get_irq(pdev, 0);
 	if (ret < 0) {
@@ -1185,15 +1180,21 @@ static int fsl_qspi_probe(struct platform_device *pdev)
 		goto clk_failed;
 	}
 
+	ret = fsl_qspi_init_rpm(q);
+	if (ret) {
+		dev_err(dev, "can not enable the clock\n");
+		goto clk_failed;
+	}
+
 	ret = pm_runtime_get_sync(q->dev);
 	if (ret < 0) {
 		dev_err(q->dev, "Failed to enable clock\n");
-		return ret;
+		goto rpm_init_failed;
 	}
 
 	ret = fsl_qspi_nor_setup(q);
 	if (ret)
-		goto clk_failed;
+		goto rpm_failed;
 
 	if (of_get_property(np, "fsl,qspi-has-second-chip", NULL))
 		q->has_second_chip = true;
@@ -1284,10 +1285,14 @@ last_init_failed:
 	}
 mutex_failed:
 	mutex_destroy(&q->lock);
-clk_failed:
-	dev_err(dev, "Freescale QuadSPI probe failed\n");
+rpm_failed:
+	pm_runtime_mark_last_busy(q->dev);
+	pm_runtime_put_autosuspend(q->dev);
+rpm_init_failed:
 	pm_runtime_dont_use_autosuspend(q->dev);
 	pm_runtime_disable(q->dev);
+clk_failed:
+	dev_err(dev, "Freescale QuadSPI probe failed\n");
 	return ret;
 }
 
