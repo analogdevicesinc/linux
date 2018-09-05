@@ -191,7 +191,7 @@
 		adi,use-cpll-enable;
 	};
 
-	axi_ad9371_adxcvr_rx_os: axi-adxcvr-rx-os@44a70000 {
+	axi_ad9371_adxcvr_rx_os: axi-adxcvr-rx-os@44a50000 {
 		#address-cells = <1>;
 		#size-cells = <0>;
 		compatible = "adi,axi-adxcvr-1.0";

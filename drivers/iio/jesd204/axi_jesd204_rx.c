@@ -50,14 +50,22 @@
 #define JESD204_RX_REG_LINK_CONF0			0x210
 #define JESD204_RX_REG_LINK_CONF1			0x214
 #define JESD204_RX_REG_LINK_CONF2			0x240
+#define JESD204_RX_REG_LINK_CONF3			0x244
 
 #define JESD204_RX_REG_LINK_STATUS			0x280
 
 #define JESD204_RX_REG_LANE_STATUS(x)		(((x) * 32) + 0x300)
 #define JESD204_RX_REG_LANE_LATENCY(x)		(((x) * 32) + 0x304)
+#define JESD204_RX_REG_LANE_ERRORS(x)		(((x) * 32) + 0x308)
 #define JESD204_RX_REG_ILAS(x, y)		(((x) * 32 + (y) * 4) + 0x310)
 
 #define JESD204_RX_MAGIC (('2' << 24) | ('0' << 16) | ('4' << 8) | ('R'))
+
+/* JESD204_RX_REG_SYSREF_CONF */
+#define JESD204_RX_REG_SYSREF_CONF_SYSREF_DISABLE	BIT(0)
+
+/* JESD204_RX_REG_LINK_CONF2 */
+#define JESD204_RX_LINK_CONF2_BUFFER_EARLY_RELEASE	BIT(16)
 
 struct jesd204_rx_config {
 	uint8_t device_id;
@@ -87,6 +95,7 @@ struct axi_jesd204_rx {
 
 	unsigned int num_lanes;
 	unsigned int data_path_width;
+	unsigned int version;
 
 	struct delayed_work watchdog_work;
 
@@ -173,6 +182,12 @@ static const char *const axi_jesd204_rx_lane_status_label[] = {
 	"UNKNOWN",
 };
 
+static unsigned int axi_jesd204_rx_get_lane_errors(struct axi_jesd204_rx *jesd,
+	unsigned int lane)
+{
+	return readl_relaxed(jesd->base + JESD204_RX_REG_LANE_ERRORS(lane));
+}
+
 /* FIXME: This violates every single sysfs ABI recommendation */
 static ssize_t axi_jesd204_rx_laneinfo_read(struct device *dev,
 			struct device_attribute *attr,
@@ -183,11 +198,18 @@ static ssize_t axi_jesd204_rx_laneinfo_read(struct device *dev,
 	unsigned int lane_latency;
 	unsigned int octets_per_multiframe;
 	unsigned int val[4];
-	int ret;
+	unsigned int errors;
+	int ret = 0;
 
 	lane_status = readl_relaxed(jesd->base + JESD204_RX_REG_LANE_STATUS(lane));
 
-	ret = scnprintf(buf, PAGE_SIZE, "CGS state: %s\n",
+	if (PCORE_VERSION_MINOR(jesd->version) >= 2) {
+		errors = axi_jesd204_rx_get_lane_errors(jesd, lane);
+		ret += scnprintf(buf + ret, PAGE_SIZE - ret, "Errors: %u\n",
+				 errors);
+	}
+
+	ret += scnprintf(buf + ret, PAGE_SIZE - ret, "CGS state: %s\n",
 		axi_jesd204_rx_lane_status_label[lane_status & 0x3]);
 
 	ret += scnprintf(buf + ret, PAGE_SIZE - ret,
@@ -315,6 +337,13 @@ static int axi_jesd204_rx_apply_config(struct axi_jesd204_rx *jesd,
 
 	writel_relaxed(val, jesd->base + JESD204_RX_REG_LINK_CONF0);
 
+	if (config->subclass_version == 0) {
+		writel_relaxed(JESD204_RX_REG_SYSREF_CONF_SYSREF_DISABLE,
+			       jesd->base + JESD204_RX_REG_SYSREF_CONF);
+		writel_relaxed(JESD204_RX_LINK_CONF2_BUFFER_EARLY_RELEASE,
+			       jesd->base + JESD204_RX_REG_LINK_CONF2);
+	}
+
 	return 0;
 }
 
@@ -343,6 +372,11 @@ static int axi_jesd204_rx_parse_dt_config(struct device_node *np,
 	config->enable_scrambling = true;
 	config->lanes_per_device = jesd->num_lanes;
 	config->jesd_version = 1;
+	config->subclass_version = 1;
+
+	ret = of_property_read_u32(np, "adi,subclass", &val);
+	if (ret == 0)
+		config->subclass_version = val;
 
 	return 0;
 }
@@ -369,6 +403,7 @@ static bool axi_jesd_rx_regmap_rdwr(struct device *dev, unsigned int reg)
 	case JESD204_RX_REG_LINK_CONF0:
 	case JESD204_RX_REG_LINK_CONF1:
 	case JESD204_RX_REG_LINK_CONF2:
+	case JESD204_RX_REG_LINK_CONF3:
 	case JESD204_RX_REG_LANES_ENABLE:
 	case JESD204_RX_REG_LINK_STATUS:
 	case JESD204_RX_REG_SYSREF_CONF:
@@ -382,6 +417,7 @@ static bool axi_jesd_rx_regmap_rdwr(struct device *dev, unsigned int reg)
 	for (i = 0; i < jesd->num_lanes; i++) {
 		if (reg == JESD204_RX_REG_LANE_STATUS(i) ||
 			reg == JESD204_RX_REG_LANE_LATENCY(i) ||
+			reg == JESD204_RX_REG_LANE_ERRORS(i) ||
 			reg == JESD204_RX_REG_ILAS(i, 0) ||
 			reg == JESD204_RX_REG_ILAS(i, 1) ||
 			reg == JESD204_RX_REG_ILAS(i, 2) ||
@@ -401,13 +437,39 @@ static const struct regmap_config axi_jesd_rx_regmap_config = {
 	.writeable_reg = axi_jesd_rx_regmap_rdwr,
 };
 
+/* Returns true if the link should be restarted */
+static bool axi_jesd204_rx_check_lane_status(struct axi_jesd204_rx *jesd,
+	unsigned int lane)
+{
+	unsigned int status;
+	unsigned int errors;
+	char error_str[sizeof(" (4294967295 errors)")];
+
+	status = readl_relaxed(jesd->base + JESD204_RX_REG_LANE_STATUS(lane));
+	status &= 0x3;
+	if (status != 0x0)
+		return false;
+
+
+	if (PCORE_VERSION_MINOR(jesd->version) >= 2) {
+		errors = axi_jesd204_rx_get_lane_errors(jesd, lane);
+		scnprintf(error_str, sizeof(error_str), " (%u errors)", errors);
+	} else {
+		error_str[0] = '\0';
+	}
+
+	dev_err(jesd->dev, "Lane %d desynced%s, restarting link\n", lane,
+		error_str);
+
+	return true;
+}
+
 static void axi_jesd204_rx_watchdog(struct work_struct *work)
 {
 	struct axi_jesd204_rx *jesd =
 		container_of(work, struct axi_jesd204_rx, watchdog_work.work);
 	unsigned int link_disabled;
 	unsigned int link_status;
-	unsigned int lane_status;
 	bool restart = false;
 	unsigned int i;
 
@@ -417,14 +479,8 @@ static void axi_jesd204_rx_watchdog(struct work_struct *work)
 
 	link_status = readl_relaxed(jesd->base + JESD204_RX_REG_LINK_STATUS);
 	if (link_status == 3) {
-		for (i = 0; i < jesd->num_lanes; i++) {
-			lane_status = readl_relaxed(jesd->base + JESD204_RX_REG_LANE_STATUS(i));
-			lane_status &= 0x3;
-			if (lane_status == 0x0) {
-				dev_err(jesd->dev, "Lane %d desynced, restarting link\n", i);
-				restart = true;
-			}
-		}
+		for (i = 0; i < jesd->num_lanes; i++)
+			restart |= axi_jesd204_rx_check_lane_status(jesd, i);
 
 		if (restart) {
 			writel_relaxed(0x1, jesd->base + JESD204_RX_REG_LINK_DISABLE);
@@ -499,7 +555,7 @@ static int axi_jesd204_rx_probe(struct platform_device *pdev)
 {
 	struct jesd204_rx_config config;
 	struct axi_jesd204_rx *jesd;
-	unsigned int version, magic;
+	unsigned int magic;
 	struct resource *res;
 	int irq;
 	int ret;
@@ -554,12 +610,12 @@ static int axi_jesd204_rx_probe(struct platform_device *pdev)
 		goto err_axi_clk_disable;
 	}
 
-	version = readl_relaxed(jesd->base + JESD204_RX_REG_VERSION);
-	if (PCORE_VERSION_MAJOR(version) != 1) {
+	jesd->version = readl_relaxed(jesd->base + JESD204_RX_REG_VERSION);
+	if (PCORE_VERSION_MAJOR(jesd->version) != 1) {
 		dev_err(&pdev->dev, "Unsupported peripheral version %u.%u.%c\n",
-			PCORE_VERSION_MAJOR(version),
-			PCORE_VERSION_MINOR(version),
-			PCORE_VERSION_PATCH(version));
+			PCORE_VERSION_MAJOR(jesd->version),
+			PCORE_VERSION_MINOR(jesd->version),
+			PCORE_VERSION_PATCH(jesd->version));
 		ret = -ENODEV;
 		goto err_axi_clk_disable;
 	}

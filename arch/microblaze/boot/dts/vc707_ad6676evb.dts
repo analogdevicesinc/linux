@@ -1,23 +1,11 @@
 
 /dts-v1/;
-/include/ "vc707_ad6676evb_pl.dtsi"
+/include/ "vc707.dtsi"
+
+#define fmc_i2c fmc1_hpc_iic
+#define fmc_spi axi_spi
+
 / {
-	chosen {
-		bootargs = "console=ttyUL0,115200";
-		linux,stdout-path = &axi_uart;
-		stdout-path = &axi_uart;
-	};
-	aliases {
-		ethernet0 = &axi_ethernet_eth_buf;
-		i2c0 = &axi_iic_main;
-		serial0 = &axi_uart;
-		serial1 = &sys_mb_debug;
-		spi0 = &axi_spi;
-	};
-	memory {
-		device_type = "memory";
-		reg = <0x80000000 0x40000000>;
-	};
 	clocks {
 		ad6676_clkin: clock@1 {
 			#clock-cells = <0>;
@@ -27,26 +15,70 @@
 		};
 	};
 };
-&axi_ethernet_eth_buf {
-	local-mac-address = [00 0a 35 00 00 03];
-	phy-handle = <&phy0 &phy1>;
-	phy-mode = "sgmii";
+
+&amba_pl {
+	axi_ad6676_core: axi-ad6676-hpc@44a10000 {
+		compatible = "adi,axi-ad6676-1.0";
+		reg = <0x44a10000 0x10000>;
+		dmas = <&axi_ad6676_dma 0>;
+		dma-names = "rx";
+		spibus-connected = <&adc0_ad6676>;
+	};
+	axi_ad6676_dma: axi_dmac@7c420000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		interrupt-parent = <&axi_intc>;
+		interrupts = <13 2>;
+		reg = <0x7c420000 0x10000>;
+		#dma-cells = <1>;
+		clocks = <&clk_bus_0>;
+
+		adi,channels {
+			#size-cells = <0>;
+			#address-cells = <1>;
+
+			dma-channel@0 {
+				reg = <0>;
+				adi,source-bus-width = <64>;
+				adi,source-bus-type = <2>;
+				adi,destination-bus-width = <64>;
+				adi,destination-bus-type = <0>;
+			};
+		};
+	};
+	axi_ad6676_jesd: axi-jesd204-rx@44aa0000 {
+		compatible = "adi,axi-jesd204-rx-1.0";
+		reg = <0x44aa0000 0x1000>;
+
+		interrupt-parent = <&axi_intc>;
+		interrupts = <12 2>;
+
+		clocks = <&clk_bus_0>, <&axi_adxcvr 1>, <&axi_adxcvr 0>;
+		clock-names = "s_axi_aclk", "device_clk", "lane_clk";
+
+		#clock-cells = <0>;
+		clock-output-names = "jesd_adc_lane_clk";
+
+		adi,octets-per-frame = <2>;
+		adi,frames-per-multiframe = <16>;
+	};
+
+	axi_adxcvr: axi-adxcvr@44a60000 {
+		compatible = "adi,axi-adxcvr-1.0";
+		reg = <0x44a60000 0x1000>;
+
+		clocks = <&ad6676_clkin>;
+		clock-names = "conv";
+
+		#clock-cells = <1>;
+		clock-output-names = "adc_gt_clk", "rx_out_clk";
+
+		adi,sys-clk-select = <0>;
+		adi,out-clk-select = <4>;
+		adi,use-cpll-enable;
+	};
 };
 
-&axi_ethernet_eth_buf_mdio {
-	phy0: phy@7 {
-		device_type = "ethernet-phy";
-		reg = <7>;
-	};
-	phy1: phy@1 {
-		device_type = "ethernet-phy";
-		reg = <1>;
-	};
-};
-
-&axi_spi {
-	status = "okay";
-
+&fmc_spi {
 	adc0_ad6676: ad6676@0 {
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -94,48 +126,6 @@
 	};
 };
 
-&axi_ad6676_dma {
-	#dma-cells = <1>;
-	clocks = <&clk_bus_0>;
-	dma-channel {
-		adi,source-bus-width = <64>;
-		adi,destination-bus-width = <64>;
-		adi,type = <0>;
-	};
-};
-
-&axi_ad6676_core {
-	dmas = <&axi_ad6676_dma 0>;
-	dma-names = "rx";
-	spibus-connected = <&adc0_ad6676>;
-};
-
-&axi_ad6676_jesd {
-		#clock-cells = <0>;
-		clocks = <&axi_adxcvr 0>;
-		clock-names = "gt_clk";
-		clock-output-names = "jesd_clk";
-
-		xlnx,lanes = <0x2>;
-		xlnx,frames-per-multiframe = <16>;
-		xlnx,bytes-per-frame = <2>;
-		xlnx,subclass = <1>;
-		xlnx,lanesync-enable;
-		xlnx,scramble-enable;
-};
-
-&axi_adxcvr {
-	#clock-cells = <0>;
-
-	clocks = <&ad6676_clkin>;
-	clock-names = "conv";
-	clock-output-names = "adc_gt_clk";
-
-	adi,sys-clk-select = <0>;
-	adi,out-clk-select = <4>;
-	adi,use-cpll-enable;
-};
-
 &axi_gpio {
 	sysref_enable {
 		gpio-hog;
@@ -145,55 +135,14 @@
 	};
 };
 
-&axi_iic_main {
-	mux@74 {
-		#address-cells = <1>;
-		#size-cells = <0>;
-		compatible = "pca9548";
-		reg = <0x74>;
-
-		fmc_i2c: i2c@1 { /* HPC */
-			#size-cells = <0>;
-			#address-cells = <1>;
-			reg = <1>;
-			eeprom@50 {
-				compatible = "at24,24c02";
-				reg = <0x50>;
-			};
-
-			eeprom@54 {
-				compatible = "at24,24c02";
-				reg = <0x54>;
-			};
-		};
-
-		mux2: i2c@2 { /* LPC */
-			#size-cells = <0>;
-			#address-cells = <1>;
-			reg = <2>;
-
-
-		};
+&fmc_i2c {
+	eeprom@50 {
+		compatible = "at24,24c02";
+		reg = <0x50>;
 	};
-};
 
-&axi_linear_flash {
-	#address-cells = <1>;
-	#size-cells = <1>;
-	partition@0x00000000 {
-		label = "fpga";
-		reg = <0x00000000 0x1380000>;
-	};
-	partition@0x01380000 {
-		label = "boot";
-		reg = <0x01380000 0x80000>;
-	};
-	partition@0x01400000 {
-		label = "bootenv";
-		reg = <0x01400000 0x40000>;
-	};
-	partition@0x01440000 {
-		label = "image";
-		reg = <0x01440000 0xBC0000>;
+	eeprom@54 {
+		compatible = "at24,24c02";
+		reg = <0x54>;
 	};
 };

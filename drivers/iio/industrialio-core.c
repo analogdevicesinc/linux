@@ -27,7 +27,6 @@
 #include <linux/debugfs.h>
 #include <linux/mutex.h>
 #include <linux/iio/iio.h>
-#include <linux/iio/buffer.h>
 #include "iio_core.h"
 #include "iio_core_trigger.h"
 #include <linux/iio/sysfs.h>
@@ -621,9 +620,9 @@ static ssize_t __iio_format_value(char *buf, size_t len, unsigned int type,
 		tmp1 = vals[1];
 		tmp0 = div_s64_rem(stmp, 1000000000LL, &tmp1);
 		if (vals[1] < 0)
-			return snprintf(buf, len, "-%d.%09u\n", abs(tmp0), -tmp1);
+			return snprintf(buf, len, "-%d.%09u", abs(tmp0), -tmp1);
 		else
-			return snprintf(buf, len,  "%d.%09u\n", tmp0, tmp1);
+			return snprintf(buf, len,  "%d.%09u", tmp0, tmp1);
 	case IIO_VAL_INT_MULTIPLE:
 	{
 		int i;
@@ -1672,6 +1671,16 @@ static const struct file_operations iio_buffer_in_fileops = {
 	.mmap = iio_buffer_mmap,
 };
 
+static bool iio_chan_same_size(const struct iio_chan_spec *a,
+	const struct iio_chan_spec *b)
+{
+	if (a->scan_type.storagebits != b->scan_type.storagebits)
+		return false;
+	if (a->scan_type.repeat != b->scan_type.repeat)
+		return false;
+	return true;
+}
+
 static int iio_check_unique_scan_index(struct iio_dev *indio_dev)
 {
 	int i, j;
@@ -1683,13 +1692,16 @@ static int iio_check_unique_scan_index(struct iio_dev *indio_dev)
 	for (i = 0; i < indio_dev->num_channels - 1; i++) {
 		if (channels[i].scan_index < 0)
 			continue;
-		for (j = i + 1; j < indio_dev->num_channels; j++)
-			if (channels[i].scan_index == channels[j].scan_index) {
-				dev_err(&indio_dev->dev,
-					"Duplicate scan index %d\n",
-					channels[i].scan_index);
-				return -EINVAL;
-			}
+		for (j = i + 1; j < indio_dev->num_channels; j++) {
+			if (channels[i].scan_index != channels[j].scan_index)
+				continue;
+			if (iio_chan_same_size(&channels[i], &channels[j]))
+				continue;
+			dev_err(&indio_dev->dev,
+				"Duplicate scan index %d\n",
+				channels[i].scan_index);
+			return -EINVAL;
+		}
 	}
 
 	return 0;

@@ -45,6 +45,8 @@ struct iio_buffer_block {
 
 struct iio_buffer;
 
+void iio_buffer_set_attrs(struct iio_buffer *buffer,
+			 const struct attribute **attrs);
 /**
  * INDIO_BUFFER_FLAG_FIXED_WATERMARK - Watermark level of the buffer can not be
  *   configured. It has a fixed value which will be buffer specific.
@@ -141,6 +143,7 @@ struct iio_buffer {
 	int					length;
 	int					bytes_per_datum;
 	struct attribute_group			*scan_el_attrs;
+	long					*channel_mask;
 	long					*scan_mask;
 	bool					scan_timestamp;
 	const struct iio_buffer_access_funcs	*access;
@@ -244,6 +247,10 @@ static inline void iio_device_attach_buffer(struct iio_dev *indio_dev,
 	indio_dev->buffer = iio_buffer_get(buffer);
 }
 
+
+int iio_buffer_alloc_scanmask(struct iio_buffer *buffer,
+	struct iio_dev *indio_dev);
+void iio_buffer_free_scanmask(struct iio_buffer *buffer);
 #else /* CONFIG_IIO_BUFFER */
 
 static inline void iio_buffer_get(struct iio_buffer *buffer) {}

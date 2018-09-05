@@ -85,26 +85,11 @@ static int ad9162_setup(struct ad9162_state *st)
 	struct device *dev = regmap_get_device(map);
 	uint8_t revision[3] = {0,0,0};
 	ad916x_chip_id_t dac_chip_id;
-
-	jesd_param_t appJesdConfig = { 8, 1, 2, 4, 1,32,16,16,0,0, 0,0,0,0};
+	jesd_param_t appJesdConfig = {8, 1, 2, 4, 1, 32, 16, 16, 0, 0, 0, 0, 0, 0};
 	uint8_t pll_lock_status = 0x0;
-// 	ad916x_event_t jesd_event_list[EVENT_NOF_EVENTS] = {
-// 		EVENT_SYSREF_JITTER,
-// 		EVENT_DATA_RDY,
-// 		EVENT_JESD_LANE_FIFO_ERR,
-// 		EVENT_JESD_PRBS_IMG_ERR,
-// 		EVENT_JESD_PRBS_REAL_ERR,
-// 		EVENT_JESD_NOT_IN_TBL_ERR,
-// 		EVENT_JESD_K_ERR,
-// 		EVENT_JESD_ILD_ERR,
-// 		EVENT_JESD_ILS_ERR,
-// 		EVENT_JESD_CKSUM_ERR,
-// 		EVENT_JESD_FS_ERR,
-// 		EVENT_JESD_CGS_ERR,
-// 		EVENT_JESD_ILAS_ERR};
-
 	int ret;
-	u64 jesdLaneRate;
+	u64 jesdLaneRate, dac_rate_Hz;
+	unsigned long lane_rate_kHz;
 	ad916x_jesd_link_stat_t link_status;
 
 	ad916x_handle_t *ad916x_h = &st->dac_h;
@@ -130,9 +115,10 @@ static int ad9162_setup(struct ad9162_state *st)
 
 	ad916x_dac_set_full_scale_current(ad916x_h, 20);
 
-	ad916x_dac_set_clk_frequency(ad916x_h,
-				     clk_get_rate_scaled(st->conv.clk[CLK_DAC],
-				     &st->conv.clkscale[CLK_DAC]));
+	dac_rate_Hz = clk_get_rate_scaled(st->conv.clk[CLK_DAC],
+					  &st->conv.clkscale[CLK_DAC]);
+
+	ad916x_dac_set_clk_frequency(ad916x_h, dac_rate_Hz);
 	if (ret != 0)
 		return ret;
 
@@ -146,6 +132,9 @@ static int ad9162_setup(struct ad9162_state *st)
 	appJesdConfig.jesd_S = 2;
 	appJesdConfig.jesd_HD = ((appJesdConfig.jesd_F == 1) ? 1 : 0);
 
+	if (appJesdConfig.jesd_M == 2)
+		st->conv.id = ID_AD9162_COMPLEX;
+
 	ad916x_jesd_config_datapath(ad916x_h, appJesdConfig,
 				    st->interpolation, &jesdLaneRate);
 	if (ret != 0)
@@ -158,12 +147,24 @@ static int ad9162_setup(struct ad9162_state *st)
 	msleep(100);
 
 	ret = ad916x_jesd_get_pll_status(ad916x_h, &pll_lock_status);
-	dev_info(dev, "Serdes PLL %s (stat: %x)\n", ((pll_lock_status & 0x39) == 0x9) ? "Locked" : "Unlocked",  pll_lock_status);
+	dev_info(dev, "Serdes PLL %s (stat: %x)\n",
+		 ((pll_lock_status & 0x39) == 0x9) ?
+		 "Locked" : "Unlocked",  pll_lock_status);
 
 	if (ret != 0)
 		return ret;
 
-	ret = clk_prepare_enable(st->conv.clk[0]);
+	lane_rate_kHz = div_u64(dac_rate_Hz * 20 * appJesdConfig.jesd_M,
+				appJesdConfig.jesd_L * st->interpolation * 1000);
+
+	ret = clk_set_rate(st->conv.clk[CLK_DATA], lane_rate_kHz);
+	if (ret < 0) {
+		dev_err(dev, "Failed to set lane rate to %lu kHz: %d\n",
+			lane_rate_kHz, ret);
+		return ret;
+	}
+
+	ret = clk_prepare_enable(st->conv.clk[CLK_DATA]);
 	if (ret) {
 		dev_err(dev, "Failed to enable JESD204 link: %d\n", ret);
 		return ret;
@@ -199,21 +200,27 @@ static int ad9162_get_clks(struct cf_axi_converter *conv)
 	struct clk *clk;
 	int i, ret;
 
-	for (i = 0; i < 3; i++) {
+	for (i = 0; i < ARRAY_SIZE(clk_names); i++) {
 		clk = devm_clk_get(&conv->spi->dev, clk_names[i]);
-		if (IS_ERR(clk))
+		if (IS_ERR(clk) && PTR_ERR(clk) != -ENOENT)
 			return PTR_ERR(clk);
 
-		if (i > 0) {
+		if (PTR_ERR(clk) == -ENOENT) {
+			/* sysref might be optional */
+			conv->clk[i] = NULL;
+			continue;
+		}
+
+		if (i > CLK_DATA) {
 			ret = clk_prepare_enable(clk);
 			if (ret < 0)
 				return ret;
 		}
 
 		of_clk_get_scale(conv->spi->dev.of_node, clk_names[i], &conv->clkscale[i]);
-
 		conv->clk[i] = clk;
 	}
+
 	return 0;
 }
 
@@ -412,9 +419,9 @@ static int ad9162_probe(struct spi_device *spi)
 	if (IS_ERR(conv->reset_gpio))
 		return PTR_ERR(conv->reset_gpio);
 
-	conv->txen_gpio = devm_gpiod_get_optional(&spi->dev, "txen", GPIOD_OUT_HIGH);
-	if (IS_ERR(conv->txen_gpio))
-		return PTR_ERR(conv->txen_gpio);
+	conv->txen_gpio[0] = devm_gpiod_get_optional(&spi->dev, "txen", GPIOD_OUT_HIGH);
+	if (IS_ERR(conv->txen_gpio[0]))
+		return PTR_ERR(conv->txen_gpio[0]);
 
 	st->map = devm_regmap_init_spi(spi, &ad9162_regmap_config);
 	if (IS_ERR(st->map))
@@ -461,6 +468,13 @@ out:
 
 static int ad9162_remove(struct spi_device *spi)
 {
+	struct cf_axi_converter *conv = spi_get_drvdata(spi);
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(clk_names); i++)
+		if (conv->clk[i])
+			clk_disable_unprepare(conv->clk[i]);
+
 	spi_set_drvdata(spi, NULL);
 	return 0;
 }

@@ -85,6 +85,16 @@ config AD7476
 	  To compile this driver as a module, choose M here: the
 	  module will be called ad7476.
 
+config AD7768
+	tristate "Analog Devices AD7768 ADC driver"
+	depends on SPI
+	help
+	  Say yes here to build support for Analog Devices AD7768 SPI analog to
+	  digital converter (ADC).
+
+	  To compile this driver as a module, choose M here: the module will be
+	  called ad7768.
+
 config AD7791
 	tristate "Analog Devices AD7791 ADC driver"
 	depends on SPI
@@ -145,6 +155,17 @@ config AD799X
 	  To compile this driver as a module, choose M here: the module will be
 	  called ad799x.
 
+config AD9963
+	tristate "Analog Devices AD9963 ADC driver"
+	depends on SPI
+	select IIO_BUFFER
+	select IIO_TRIGGERED_BUFFER
+	help
+	  Say yes here to build support for Analog Devices AD9963 ADC driver
+
+	  To compile this driver as a module, choose M here: the module will be
+	  called ad9963.
+
 config ADM1177
 	tristate "Analog Devices ADM1177 Digital Power Monitor driver"
 	depends on I2C
@@ -194,12 +215,33 @@ config AD9361
 	  AD9361, AD9364 RF Agile Transceivers. Provides direct access
 	  via sysfs.
 
+config AD9361_EXT_BAND_CONTROL
+	bool "Support for controlling RX/TX band selection by the driver"
+	depends on AD9361
+	help
+	  Say yes here if you want to enable support in the AD9361 driver
+	  for controlling GPIOs and chip settings to select different bands
+	  based on the RX/TX LO frequency.
+	  The GPIOs would usually control external filter banks (high & low
+	  pass filters for RX filters, and low pass for TX filters).
+
+	  The functionality aims at trying to be a generic approach that would
+	  potentially benefit as many designs as possible.
+
 config AD9371
 	tristate "Analog Devices AD9371 RF Transceiver driver"
 	depends on SPI
 	help
 	  Say yes here to build support for Analog Devices:
 	  AD9371 RF Transceivers. Provides direct access
+	  via sysfs.
+
+config ADRV9009
+	tristate "Analog Devices ADRV9009/ADRV9008 RF Transceiver driver"
+	depends on SPI
+	help
+	  Say yes here to build support for Analog Devices:
+	  ADRV9009/ADRV9008 RF Transceivers. Provides direct access
 	  via sysfs.
 
 config AD6676

@@ -199,6 +199,11 @@ static int axiadc_reg_access(struct iio_dev *indio_dev,
 	struct axiadc_state *st = iio_priv(indio_dev);
 	int ret;
 
+	/* Check that the register is in range and aligned */
+	if ((reg & DEBUGFS_DRA_PCORE_REG_MAGIC) &&
+	    ((reg & 0xffff) >= st->regs_size || (reg & 0x3)))
+		return -EINVAL;
+
 	mutex_lock(&indio_dev->mlock);
 
 	if (!(reg & DEBUGFS_DRA_PCORE_REG_MAGIC)) {
@@ -709,6 +714,7 @@ static const struct of_device_id axiadc_of_match[] = {
 	{ .compatible = "adi,axi-ad6676-1.0", .data = &ad9680_6_00_a_info },
 	{ .compatible = "adi,axi-ad9371-rx-1.0", .data = &ad9361_6_00_a_info },
 	{ .compatible = "adi,axi-ad9684-1.0", .data = &ad9680_6_00_a_info },
+	{ .compatible = "adi,axi-adrv9009-rx-1.0", .data = &ad9361_6_00_a_info },
 	{ /* end of list */ },
 };
 MODULE_DEVICE_TABLE(of, axiadc_of_match);
@@ -772,6 +778,7 @@ static int axiadc_probe(struct platform_device *pdev)
 	st = iio_priv(indio_dev);
 
 	mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	st->regs_size = resource_size(mem);
 	st->regs = devm_ioremap_resource(&pdev->dev, mem);
 	if (IS_ERR(st->regs))
 		return PTR_ERR(st->regs);
@@ -859,10 +866,6 @@ static int axiadc_probe(struct platform_device *pdev)
 	ret = iio_device_register(indio_dev);
 	if (ret)
 		goto err_unconfigure_ring;
-
-	if (indio_dev->buffer && indio_dev->buffer->scan_mask)
-		*indio_dev->buffer->scan_mask =
-			(1UL << conv->chip_info->num_channels) - 1;
 
 	dev_info(&pdev->dev, "ADI AIM (%d.%.2d.%c) at 0x%08llX mapped to 0x%p,"
 		 " probed ADC %s as %s\n",

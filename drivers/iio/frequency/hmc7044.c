@@ -230,8 +230,8 @@ static int hmc7044_write(struct iio_dev *indio_dev,
 	return spi_write(hmc->spi, buf, ARRAY_SIZE(buf));
 }
 
-unsigned int hmc7044_calc_out_div(unsigned long parent_rate,
-				  unsigned long rate)
+static unsigned int hmc7044_calc_out_div(unsigned long parent_rate,
+					 unsigned long rate)
 {
 	unsigned int div;
 
@@ -380,7 +380,7 @@ static long hmc7044_clk_round_rate(struct clk_hw *hw,
 	struct hmc7044_output *out = to_output(hw);
 	struct iio_dev *indio_dev = out->indio_dev;
 	struct hmc7044 *hmc = iio_priv(indio_dev);
-	int div;
+	unsigned int div;
 
 	div = hmc7044_calc_out_div(hmc->pll2_freq, rate);
 
@@ -417,7 +417,7 @@ static int hmc7044_clk_register(struct iio_dev *indio_dev,
 	hmc->outputs[num].indio_dev = indio_dev;
 	hmc->outputs[num].address = address;
 
-	clk = clk_register(&hmc->spi->dev, &hmc->outputs[num].hw);
+	clk = devm_clk_register(&hmc->spi->dev, &hmc->outputs[num].hw);
 	if (IS_ERR(clk))
 		return PTR_ERR(clk);
 
@@ -449,10 +449,9 @@ static int hmc7044_setup(struct iio_dev *indio_dev)
 
 	lcm_freq = vcxo_freq;
 	for (i = 0; i < ARRAY_SIZE(clkin_freq); i++) {
-		if (clkin_freq[i]) {
-			clkin_freq[i] = hmc->clkin_freq[i] / 1000;
+		clkin_freq[i] = hmc->clkin_freq[i] / 1000;
+		if (clkin_freq[i])
 			lcm_freq = gcd(clkin_freq[i], lcm_freq);
-		}
 	}
 
 	while (lcm_freq > HMC7044_RECOMM_LCM_MAX)
@@ -806,15 +805,10 @@ static int hmc7044_probe(struct spi_device *spi)
 static int hmc7044_remove(struct spi_device *spi)
 {
 	struct iio_dev *indio_dev = spi_get_drvdata(spi);
-	struct hmc7044 *hmc = iio_priv(indio_dev);
-	unsigned int i;
-
-	of_clk_del_provider(spi->dev.of_node);
-
-	for (i = 0; i < hmc->num_channels; i++)
-		clk_unregister(hmc->clks[hmc->channels[i].num]);
 
 	iio_device_unregister(indio_dev);
+
+	of_clk_del_provider(spi->dev.of_node);
 
 	return 0;
 }

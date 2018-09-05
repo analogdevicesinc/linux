@@ -1,161 +1,133 @@
 
 /dts-v1/;
-/include/ "kcu105_fmcdaq2_pl.dtsi"
+/include/ "kcu105.dtsi"
 
-/ {
-	chosen {
-		bootargs = "console=ttyUL0,115200";
-		linux,stdout-path = &axi_uart;
-		stdout-path = &axi_uart;
-	};
-	aliases {
-		ethernet0 = &axi_ethernet_eth_buf;
-		i2c0 = &axi_iic_main;
-		serial0 = &axi_uart;
-		serial1 = &sys_mb_debug;
-		fmc_spi = &axi_spi;
-	};
-	memory {
-		device_type = "memory";
-		reg = <0x80000000 0x80000000>;
-	};
-};
-&axi_ethernet_eth_buf {
-	local-mac-address = [00 0a 35 00 00 01];
-	phy-handle = <&phy0 &phy1>;
-	phy-mode = "sgmii";
-};
-
-&axi_ethernet_eth_buf_mdio {
-	phy0: phy@7 {
-		device_type = "ethernet-phy";
-		reg = <7>;
-	};
-	phy1: phy@1 {
-		device_type = "ethernet-phy";
-		reg = <1>;
-	};
-};
-
-&axi_ad9144_core {
-	dmas = <&axi_ad9144_dma 0>;
-	dma-names = "tx";
-	spibus-connected = <&dac0_ad9144>;
-};
-
-&axi_ad9144_dma {
-	#dma-cells = <1>;
-	clocks = <&clk_bus_0>;
-
-	dma-channel {
-		adi,source-bus-width = <128>;
-		adi,destination-bus-width = <128>;
-		adi,type = <1>;
-		adi,cyclic;
-	};
-
-};
-
-&axi_ad9144_jesd {
-	#clock-cells = <0>;
-	clocks = <&axi_ad9144_adxcvr>;
-	clock-names = "dac_gt_clk";
-	clock-output-names = "jesd_dac_clk";
-
-	xlnx,frames-per-multiframe = <32>;
-	xlnx,bytes-per-frame = <1>;
-	xlnx,subclass = <1>;
-	xlnx,lanesync-enable;
-	xlnx,scramble-enable;
-
-};
-
-&axi_ad9680_core {
-	dmas = <&axi_ad9680_dma 0>;
-	dma-names = "rx";
-	spibus-connected = <&adc0_ad9680>;
-};
-
-&axi_ad9680_dma {
-	#dma-cells = <1>;
-	clocks = <&clk_bus_0>;
-
-	dma-channel {
-		adi,source-bus-width = <64>;
-		adi,destination-bus-width = <64>;
-		adi,type = <0>;
-	};
-
-};
-
-&axi_ad9680_jesd {
-	#clock-cells = <0>;
-	clocks = <&axi_ad9680_adxcvr>;
-	clock-names = "adc_gt_clk";
-	clock-output-names = "jesd_adc_clk";
-
-	xlnx,frames-per-multiframe = <32>;
-	xlnx,bytes-per-frame = <1>;
-	xlnx,subclass = <1>;
-	xlnx,lanesync-enable;
-	xlnx,scramble-enable;
-};
-
-&axi_ad9680_adxcvr {
-	#clock-cells = <0>;
-	clocks = <&clk0_ad9523 4>;
-	clock-names = "conv";
-	clock-output-names = "adc_gt_clk";
-	adi,sys-clk-select = <3>;
-	adi,out-clk-select = <4>;
-	adi,use-lpm-enable;
-};
-
-&axi_ad9144_adxcvr {
-	#clock-cells = <0>;
-	clocks = <&clk0_ad9523 9>;
-	clock-names = "conv";
-	clock-output-names = "dac_gt_clk";
-	adi,link-is-transmit-enable;
-	adi,sys-clk-select = <3>;
-	adi,out-clk-select = <4>;
-	adi,use-lpm-enable;
-};
-
-&axi_iic_main {
-
-	mux@75 {
-		#address-cells = <1>;
-		#size-cells = <0>;
-		compatible = "pca9544";
-		reg = <0x75>;
-
-		mux1: i2c@1 { /* HPC */
-			#size-cells = <0>;
-			#address-cells = <1>;
-			reg = <1>;
-
-			eeprom@50 {
-				compatible = "at24,24c02";
-				reg = <0x50>;
-			};
-
-			ad7291@2f {
-				compatible = "adi,ad7291";
-				reg = <0x2f>;
-			};
-
-		};
-
-		fmc_i2c: i2c@2 { /* LPC */
-			#size-cells = <0>;
-			#address-cells = <1>;
-			reg = <2>;
-		};
-	};
-};
-
+#define fmc_i2c fmc_hpc_iic
 #define fmc_spi axi_spi
+
+&amba_pl {
+	rx_dma: rx-dmac@7c400000 {
+		#dma-cells = <1>;
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x7c400000 0x1000>;
+		interrupt-parent = <&axi_intc>;
+		interrupts = <12 2>;
+		clocks = <&clk_bus_0>;
+
+		adi,channels {
+			#size-cells = <0>;
+			#address-cells = <1>;
+
+			dma-channel@0 {
+				reg = <0>;
+				adi,source-bus-width = <64>;
+				adi,source-bus-type = <1>;
+				adi,destination-bus-width = <64>;
+				adi,destination-bus-type = <0>;
+			};
+		};
+	};
+	tx_dma: tx-dmac@7c420000 {
+		#dma-cells = <1>;
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x7c420000 0x1000>;
+		interrupt-parent = <&axi_intc>;
+		interrupts = <13 2>;
+		clocks = <&clk_bus_0>;
+
+		adi,channels {
+			#size-cells = <0>;
+			#address-cells = <1>;
+
+			dma-channel@0 {
+				reg = <0>;
+				adi,source-bus-width = <128>;
+				adi,source-bus-type = <0>;
+				adi,destination-bus-width = <128>;
+				adi,destination-bus-type = <1>;
+				adi,cyclic;
+			};
+		};
+	};
+	axi_ad9680_core: axi-ad9680-hpc@44a10000 {
+		compatible = "adi,axi-ad9680-1.0";
+		reg = <0x44a10000 0x10000>;
+		dmas = <&rx_dma 0>;
+		dma-names = "rx";
+		spibus-connected = <&adc0_ad9680>;
+	};
+	axi_ad9144_core: axi-ad9144-hpc@44a04000 {
+		compatible = "adi,axi-ad9144-1.0";
+		reg = <0x44a04000 0x10000>;
+		dmas = <&tx_dma 0>;
+		dma-names = "tx";
+		spibus-connected = <&dac0_ad9144>;
+		adi,axi-pl-fifo-enable;
+	};
+	axi_ad9680_jesd: axi-jesd204-rx@44aa0000 {
+		compatible = "adi,axi-jesd204-rx-1.0";
+		reg = <0x44aa0000 0x4000>;
+		interrupt-parent = <&axi_intc>;
+		interrupts = <14 2>;
+
+		clocks = <&clk_bus_0>, <&axi_ad9680_adxcvr 1>, <&axi_ad9680_adxcvr 0>;
+		clock-names = "s_axi_aclk", "device_clk", "lane_clk";
+
+		adi,octets-per-frame = <1>;
+		adi,frames-per-multiframe = <32>;
+
+		#clock-cells = <0>;
+		clock-output-names = "jesd_adc_lane_clk";
+	};
+	axi_ad9680_adxcvr: axi-ad9680-adxcvr@44a50000 {
+		compatible = "adi,axi-adxcvr-1.0";
+		reg = <0x44a50000 0x10000>;
+
+		clocks = <&clk0_ad9523 4>;
+		clock-names = "conv";
+
+		adi,sys-clk-select = <0>;
+		adi,out-clk-select = <4>;
+		adi,use-lpm-enable;
+		adi,use-cpll-enable;
+
+		#clock-cells = <1>;
+		clock-output-names = "adc_gt_clk", "rx_out_clk";
+	};
+	axi_ad9144_jesd: axi-jesd204-tx@44a90000 {
+		compatible = "adi,axi-jesd204-tx-1.0";
+		reg = <0x44a90000 0x4000>;
+		interrupt-parent = <&axi_intc>;
+		interrupts = <15 2>;
+
+		clocks = <&clk_bus_0>, <&axi_ad9144_adxcvr 1>, <&axi_ad9144_adxcvr 0>;
+		clock-names = "s_axi_aclk", "device_clk", "lane_clk";
+
+		adi,octets-per-frame = <1>;
+		adi,frames-per-multiframe = <32>;
+		adi,converter-resolution = <16>;
+		adi,bits-per-sample = <16>;
+		adi,converters-per-device = <2>;
+
+		#clock-cells = <0>;
+		clock-output-names = "jesd_dac_lane_clk";
+	};
+	axi_ad9144_adxcvr: axi-ad9144-adxcvr@44a60000 {
+		compatible = "adi,axi-adxcvr-1.0";
+		reg = <0x44a60000 0x10000>;
+
+		clocks = <&clk0_ad9523 9>;
+		clock-names = "conv";
+
+		adi,sys-clk-select = <3>;
+		adi,out-clk-select = <4>;
+		adi,use-lpm-enable;
+
+		#clock-cells = <1>;
+		clock-output-names = "dac_gt_clk", "tx_out_clk";
+	};
+};
+
 #include "adi-daq2.dtsi"
 
 &adc0_ad9680 {
@@ -177,4 +149,16 @@
 	sync-gpios = <&axi_gpio 38 8>;
 	status0-gpios = <&axi_gpio 32 8>;
 	status1-gpios = <&axi_gpio 33 8>;
+};
+
+&fmc_i2c {
+	ad7291@2f {
+		compatible = "adi,ad7291";
+		reg = <0x2f>;
+	};
+
+	eeprom@50 {
+		compatible = "at24,24c02";
+		reg = <0x50>;
+	};
 };

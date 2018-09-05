@@ -145,8 +145,6 @@ static int axiadc_probe(struct platform_device *pdev)
 	if (ret)
 		goto err_unconfigure_ring;
 
-	*indio_dev->buffer->scan_mask = (1UL << indio_dev->num_channels) - 1;
-
 	dev_info(&pdev->dev, "ADI AIM (0x%X) at 0x%08llX mapped to 0x%p, probed ADC %s as %s\n",
 		 st->pcore_version,
 		 (unsigned long long)mem->start, st->regs, chip_info->name,

@@ -1,31 +1,30 @@
 
 /dts-v1/;
-/include/ "vc707_fmcadc5_pl.dtsi"
+/include/ "vc707.dtsi"
+
+#define fmc_i2c fmc1_hpc_iic
+#define fmc_spi axi_spi
+
 / {
-	chosen {
-		bootargs = "console=ttyUL0,115200";
-		linux,stdout-path = &axi_uart;
-		stdout-path = &axi_uart;
-	};
-	aliases {
-		ethernet0 = &axi_ethernet_eth_buf;
-		i2c0 = &axi_iic_main;
-		serial0 = &axi_uart;
-		serial1 = &sys_mb_debug;
-		spi0 = &axi_spi;
-	};
-	memory {
-		device_type = "memory";
-		reg = <0x80000000 0x40000000>;
-	};
-  	clocks {
+	clocks {
 		ad9625_clkin: clock@0 {
 			#clock-cells = <0>;
 			compatible = "fixed-clock";
 			clock-frequency = <2500000000>;
 			clock-output-names = "clkin";
 		};
-  	};
+
+		ad9625_divclk: clock@1 {
+			compatible = "fixed-factor-clock";
+
+			clocks = <&ad9625_clkin>;
+			clock-div = <4>;
+			clock-mult = <1>;
+
+			#clock-cells = <0>;
+			clock-output-names = "divclk";
+		};
+	};
 
 	vcc5v0: fixedregulator@0 {
 		compatible = "regulator-fixed";
@@ -35,26 +34,109 @@
 		regulator-boot-on;
 		regulator-always-on;
 	};
-
-};
-&axi_ethernet_eth_buf {
-	local-mac-address = [00 0a 35 00 00 05];
-	phy-handle = <&phy0 &phy1>;
-	phy-mode = "sgmii";
 };
 
-&axi_ethernet_eth_buf_mdio {
-	phy0: phy@7 {
-		device_type = "ethernet-phy";
-		reg = <7>;
+&amba_pl {
+	axi_fmcadc5_sync: axi-fmcadc5-sync@44a20000 {
+		compatible = "adi,axi-fmcadc5-sync-1.0";
+		reg = <0x44a20000 0x10000>;
+		adi,ad9625-device-select-0 = <1>;
+		adi,ad9625-device-select-1 = <2>;
 	};
-	phy1: phy@1 {
-		device_type = "ethernet-phy";
-		reg = <1>;
+	axi_ad9625_0_core: axi-ad9625-0@44a10000 {
+		compatible = "adi,axi-ad9625-1.0";
+		reg = <0x44a10000 0x10000>;
+		dmas = <&axi_ad9625_dma 0>;
+		dma-names = "rx";
+		spibus-connected = <&adc0_ad9625>;
+	};
+	axi_ad9625_0_jesd: axi-jesd204-0-rx@44a90000 {
+		compatible = "adi,axi-jesd204-rx-1.0";
+		reg = <0x44a90000 0x10000>;
+		interrupt-parent = <&axi_intc>;
+		interrupts = <13 2>;
+		clocks = <&clk_bus_0>, <&axi_ad9625_0_adxcvr 1>, <&axi_ad9625_0_adxcvr 0>;
+		clock-names = "s_axi_aclk", "device_clk", "lane_clk";
+
+		adi,octets-per-frame = <1>;
+		adi,frames-per-multiframe = <32>;
+		adi,high-density = <1>;
+
+		#clock-cells = <0>;
+		clock-output-names = "jesd_adc_lane_clk_0";
+	};
+	axi_ad9625_0_adxcvr: axi-ad9625-0-adxcvr@44a60000 {
+		compatible = "adi,axi-adxcvr-1.0";
+		reg = <0x44a60000 0x10000>;
+		clocks = <&ad9625_divclk>;
+		clock-names = "conv";
+
+		#clock-cells = <1>;
+		clock-output-names = "ad50_gt_clk", "rx_out0_clk";
+
+		adi,sys-clk-select = <0>;
+		adi,out-clk-select = <2>;
+		adi,use-cpll-enable;
+		adi,use-lpm-enable;
+	};
+	axi_ad9625_1_core: axi-ad9625-1@44b10000 {
+		compatible = "adi,axi-ad9625-1.0";
+		reg = <0x44b10000 0x10000>;
+		spibus-connected = <&adc1_ad9625>;
+	};
+	axi_ad9625_1_jesd: axi-jesd204-1-rx@44b90000 {
+		compatible = "adi,axi-jesd204-rx-1.0";
+		reg = <0x44b90000 0x10000>;
+		interrupt-parent = <&axi_intc>;
+		interrupts = <14 2>;
+		clocks = <&clk_bus_0>, <&axi_ad9625_1_adxcvr 1>, <&axi_ad9625_1_adxcvr 0>;
+		clock-names = "s_axi_aclk", "device_clk", "lane_clk";
+
+		adi,octets-per-frame = <1>;
+		adi,frames-per-multiframe = <32>;
+		adi,high-density = <1>;
+
+		#clock-cells = <0>;
+		clock-output-names = "jesd_adc_lane_clk_1";
+	};
+	axi_ad9625_1_adxcvr: axi-ad9625-1-adxcvr@44b60000 {
+		compatible = "adi,axi-adxcvr-1.0";
+		reg = <0x44b60000 0x10000>;
+		clocks = <&ad9625_divclk>;
+		clock-names = "conv";
+
+		#clock-cells = <1>;
+		clock-output-names = "adc1_gt_clk", "rx_out1_clk";
+
+		adi,sys-clk-select = <0>;
+		adi,out-clk-select = <2>;
+		adi,use-cpll-enable;
+		adi,use-lpm-enable;
+	};
+	axi_ad9625_dma: axi_dmac@7c420000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		interrupt-parent = <&axi_intc>;
+		interrupts = <12 2>;
+		reg = <0x7c420000 0x10000>;
+		#dma-cells = <1>;
+		clocks = <&clk_bus_0>;
+
+		adi,channels {
+			#size-cells = <0>;
+			#address-cells = <1>;
+
+			dma-channel@0 {
+				reg = <0>;
+				adi,source-bus-width = <64>;
+				adi,source-bus-type = <1>;
+				adi,destination-bus-width = <64>;
+				adi,destination-bus-type = <0>;
+			};
+		};
 	};
 };
 
-&axi_spi {
+&fmc_spi {
 	adc0_ad9625: ad9625@0 {
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -100,125 +182,14 @@
 	};
 };
 
-&axi_ad9625_0_core {
-	dmas = <&axi_ad9625_dma 0>;
-	dma-names = "rx";
-	spibus-connected = <&adc0_ad9625>;
-};
-
-&axi_ad9625_0_jesd {
-	clocks = <&clk_bus_0>, <&axi_ad9625_0_adxcvr 1>, <&axi_ad9625_0_adxcvr 0>;
-	clock-names = "s_axi_aclk", "device_clk", "lane_clk";
-
-	adi,octets-per-frame = <1>;
-	adi,frames-per-multiframe = <32>;
-	adi,high-density = <1>;
-
-	#clock-cells = <0>;
-	clock-output-names = "jesd_adc_lane_clk_0";
-};
-
-&axi_ad9625_0_adxcvr {
-	clocks = <&ad9625_clkin>;
-	clock-names = "conv";
-
-	#clock-cells = <1>;
-	clock-output-names = "ad50_gt_clk", "rx_out0_clk";
-
-	adi,sys-clk-select = <0>;
-	adi,out-clk-select = <2>;
-	adi,use-cpll-enable;
-	adi,use-lpm-enable;
-};
-
-&axi_ad9625_1_core {
-	spibus-connected = <&adc1_ad9625>;
-};
-
-&axi_ad9625_1_jesd {
-	clocks = <&clk_bus_0>, <&axi_ad9625_1_adxcvr 1>, <&axi_ad9625_1_adxcvr 0>;
-	clock-names = "s_axi_aclk", "device_clk", "lane_clk";
-
-	adi,octets-per-frame = <1>;
-	adi,frames-per-multiframe = <32>;
-	adi,high-density = <1>;
-
-	#clock-cells = <0>;
-	clock-output-names = "jesd_adc_lane_clk_1";
-};
-
-&axi_ad9625_1_adxcvr {
-	clocks = <&ad9625_clkin>;
-	clock-names = "conv";
-
-	#clock-cells = <1>;
-	clock-output-names = "adc1_gt_clk", "rx_out1_clk";
-
-	adi,sys-clk-select = <0>;
-	adi,out-clk-select = <2>;
-	adi,use-cpll-enable;
-	adi,use-lpm-enable;
-};
-
-&axi_ad9625_dma {
-	#dma-cells = <1>;
-	clocks = <&clk_bus_0>;
-	dma-channel {
-		adi,source-bus-width = <64>;
-		adi,destination-bus-width = <64>;
-		adi,type = <0>;
+&fmc_i2c {
+	eeprom@50 {
+		compatible = "at24,24c02";
+		reg = <0x50>;
 	};
-};
 
-&axi_iic_main {
-	mux@74 {
-		#address-cells = <1>;
-		#size-cells = <0>;
-		compatible = "pca9548";
-		reg = <0x74>;
-
-		fmc_i2c: i2c@1 { /* HPC */
-			#size-cells = <0>;
-			#address-cells = <1>;
-			reg = <1>;
-			eeprom@50 {
-				compatible = "at24,24c02";
-				reg = <0x50>;
-			};
-
-			eeprom@54 {
-				compatible = "at24,24c02";
-				reg = <0x54>;
-			};
-		};
-
-		mux2: i2c@2 { /* LPC */
-			#size-cells = <0>;
-			#address-cells = <1>;
-			reg = <2>;
-
-
-		};
-	};
-};
-
-&axi_linear_flash {
-	#address-cells = <1>;
-	#size-cells = <1>;
-	partition@00000000 {
-		label = "fpga";
-		reg = <0x00000000 0x1380000>;
-	};
-	partition@1380000 {
-		label = "boot";
-		reg = <0x01380000 0x80000>;
-	};
-	partition@1400000 {
-		label = "bootenv";
-		reg = <0x01400000 0x40000>;
-	};
-	partition@1440000 {
-		label = "image";
-		reg = <0x01440000 0xBC0000>;
+	eeprom@54 {
+		compatible = "at24,24c02";
+		reg = <0x54>;
 	};
 };

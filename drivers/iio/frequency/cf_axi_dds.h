@@ -184,9 +184,12 @@ enum dds_data_select {
 enum {
 	ID_AD9122,
 	ID_AD9739A,
+	ID_AD9135,
+	ID_AD9136,
 	ID_AD9144,
 	ID_AD9152,
 	ID_AD9162,
+	ID_AD9162_COMPLEX,
 };
 
 struct cf_axi_dds_chip_info {
@@ -212,6 +215,7 @@ struct cf_axi_dds_state {
 	bool			pl_dma_fifo_en;
 
 	struct iio_info		iio_info;
+	size_t			regs_size;
 	void __iomem		*regs;
 	void __iomem		*slave_regs;
 	void __iomem		*master_regs;
@@ -238,7 +242,7 @@ struct cf_axi_converter {
 	void		*phy;
 	struct gpio_desc			*pwrdown_gpio;
 	struct gpio_desc			*reset_gpio;
-	struct gpio_desc			*txen_gpio;
+	struct gpio_desc			*txen_gpio[2];
 	unsigned		id;
 	unsigned		interp_factor;
 	unsigned		fcenter_shift;

@@ -154,12 +154,15 @@
 
 /* AD9528_CHANNEL_OUTPUT */
 #define AD9528_CLK_DIST_DIV(x)			((((x) - 1) & 0xFF) << 16)
+#define AD9528_CLK_DIST_DIV_MASK		(0xFF << 16)
 #define AD9528_CLK_DIST_DIV_REV(x)		((((x) >> 16) & 0xFF) + 1)
 #define AD9528_CLK_DIST_DRIVER_MODE(x)		(((x) & 0x3) << 13)
 #define AD9528_CLK_DIST_DRIVER_MODE_REV(x)	(((x) >> 13) & 0x3)
 #define AD9528_CLK_DIST_DIV_PHASE(x)		(((x) & 0x3F) << 8)
+#define AD9528_CLK_DIST_DIV_PHASE_MASK		(0x3F << 8)
 #define AD9528_CLK_DIST_DIV_PHASE_REV(x)	(((x) >> 8) & 0x3F)
 #define AD9528_CLK_DIST_CTRL(x)			(((x) & 0x7) << 5)
+#define AD9528_CLK_DIST_CTRL_MASK		(0x7 << 5)
 #define AD9528_CLK_DIST_CTRL_REV(x)		(((x) >> 5) & 0x7)
 
 #if 0
@@ -591,7 +594,7 @@ static int ad9528_write_raw(struct iio_dev *indio_dev,
 		tmp = DIV_ROUND_CLOSEST(st->vco_out_freq[output->source], val);
 		tmp = clamp(tmp, 1, 256);
 
-		reg_val &= ~(AD9528_CLK_DIST_CTRL(~0) | AD9528_CLK_DIST_DIV(~0));
+		reg_val &= ~(AD9528_CLK_DIST_CTRL_MASK | AD9528_CLK_DIST_DIV_MASK);
 		reg_val |= AD9528_CLK_DIST_DIV(tmp);
 		reg_val |= AD9528_CLK_DIST_CTRL(output->source);
 		break;
@@ -599,7 +602,7 @@ static int ad9528_write_raw(struct iio_dev *indio_dev,
 		code = val * 1000000 + val2 % 1000000;
 		tmp = (code * AD9528_CLK_DIST_DIV_REV(reg_val)) / 3141592;
 		tmp = clamp(tmp, 0, 63);
-		reg_val &= ~AD9528_CLK_DIST_DIV_PHASE(~0);
+		reg_val &= ~AD9528_CLK_DIST_DIV_PHASE_MASK;
 		reg_val |= AD9528_CLK_DIST_DIV_PHASE(tmp);
 		break;
 	default:

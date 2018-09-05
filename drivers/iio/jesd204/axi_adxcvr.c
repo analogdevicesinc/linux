@@ -82,6 +82,7 @@ struct adxcvr_state {
 
 	bool				cpll_enable;
 	bool				lpm_enable;
+	bool				ref_is_div40;
 
 	unsigned int			num_lanes;
 };
@@ -306,6 +307,9 @@ static long adxcvr_clk_round_rate(struct clk_hw *hw, unsigned long rate,
 		container_of(hw, struct adxcvr_state, lane_clk_hw);
 	int ret;
 
+	if (st->ref_is_div40)
+		*prate = rate * (1000 / 40);
+
 	dev_dbg(st->dev, "%s: Rate %lu Hz Parent Rate %lu Hz",
 		__func__, rate, *prate);
 
@@ -419,7 +423,7 @@ static int adxcvr_clk_register(struct device *dev, struct device_node *node,
 
 	init.name = clk_names[0];
 	init.ops = &clkout_ops;
-	init.flags = CLK_SET_RATE_GATE;
+	init.flags = CLK_SET_RATE_GATE | CLK_SET_RATE_PARENT;
 
 	init.parent_names = (parent_name ? &parent_name : NULL);
 	init.num_parents = (parent_name ? 1 : 0);
@@ -516,6 +520,7 @@ static void adxcvr_enforce_settings(struct adxcvr_state *st)
 static const char *adxcvr_gt_names[] = {
 	[XILINX_XCVR_TYPE_S7_GTX2] = "GTX2",
 	[XILINX_XCVR_TYPE_US_GTH3] = "GTH3",
+	[XILINX_XCVR_TYPE_US_GTH4] = "GTH4",
 };
 
 static int adxcvr_probe(struct platform_device *pdev)
@@ -539,6 +544,17 @@ static int adxcvr_probe(struct platform_device *pdev)
 	if (IS_ERR(st->lane_rate_div40_clk)) {
 		if (PTR_ERR(st->lane_rate_div40_clk) != -ENOENT)
 			return PTR_ERR(st->lane_rate_div40_clk);
+	}
+
+	if (clk_is_match(st->conv_clk, st->lane_rate_div40_clk)) {
+		/*
+		 * In this case we need to make sure that the reference clock
+		 * runs at lanerate / 40. No need to keep two references to the
+		 * same clock around.
+		 */
+		st->ref_is_div40 = true;
+		devm_clk_put(&pdev->dev, st->lane_rate_div40_clk);
+		st->lane_rate_div40_clk = ERR_PTR(-ENOENT);
 	}
 
 	ret = clk_prepare_enable(st->conv_clk);
@@ -567,10 +583,18 @@ static int adxcvr_probe(struct platform_device *pdev)
 	st->tx_enable = (synth_conf >> 8) & 1;
 	st->num_lanes = synth_conf & 0xff;
 
-	if (synth_conf & 0x1000)
-		st->xcvr.type = XILINX_XCVR_TYPE_US_GTH3;
-	else
-		st->xcvr.type = XILINX_XCVR_TYPE_S7_GTX2;
+	st->xcvr.type = (synth_conf >> 16) & 0xf;
+
+	switch (st->xcvr.type) {
+	case XILINX_XCVR_TYPE_S7_GTX2:
+	case XILINX_XCVR_TYPE_US_GTH3:
+	case XILINX_XCVR_TYPE_US_GTH4:
+		break;
+	default:
+		dev_err(&pdev->dev, "Unknown transceiver type: %d\n",
+			st->xcvr.type);
+		return -EINVAL;
+	}
 	st->xcvr.encoding = ENC_8B10B;
 	st->xcvr.refclk_ppm = PM_200; /* TODO use clock accuracy */
 

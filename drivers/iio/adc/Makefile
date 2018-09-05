@@ -4,6 +4,7 @@
 
 # When adding new entries keep the list in alphabetical order
 obj-$(CONFIG_AD_SIGMA_DELTA) += ad_sigma_delta.o
+obj-$(CONFIG_AD6676) += ad6676.o
 obj-$(CONFIG_AD7091R5) += ad7091r5.o ad7091r-base.o
 obj-$(CONFIG_AD7173) += ad7173.o
 obj-$(CONFIG_AD7266) += ad7266.o
@@ -12,22 +13,40 @@ obj-$(CONFIG_AD7298) += ad7298.o
 obj-$(CONFIG_AD738X) += ad738x.o
 obj-$(CONFIG_AD7923) += ad7923.o
 obj-$(CONFIG_AD7476) += ad7476.o
+obj-$(CONFIG_AD7768) += ad7768.o
 obj-$(CONFIG_AD7791) += ad7791.o
 obj-$(CONFIG_AD7793) += ad7793.o
 obj-$(CONFIG_AD7887) += ad7887.o
 obj-$(CONFIG_AD799X) += ad799x.o
+obj-$(CONFIG_AD9963) += ad9963.o
 obj-$(CONFIG_ADM1177) += adm1177.o
 
 cf_axi_adc-y := cf_axi_adc_core.o cf_axi_adc_ring_stream.o
 obj-$(CONFIG_CF_AXI_ADC) += cf_axi_adc.o
 
-obj-$(CONFIG_AD6676) += ad6676.o
-
 ad9361_drv-y := ad9361.o ad9361_conv.o
+ad9361_drv-$(CONFIG_AD9361_EXT_BAND_CONTROL) += ad9361_ext_band_ctrl.o
 obj-$(CONFIG_AD9361) += ad9361_drv.o
 
 ad9371_drv-y := ad9371.o ad9371_conv.o mykonos/common.o  mykonos/mykonos.o  mykonos/mykonos_gpio.o  mykonos/mykonos_user.o
 obj-$(CONFIG_AD9371) += ad9371_drv.o
+
+adrv9009_drv-y := adrv9009.o adrv9009_conv.o \
+	talise/talise_agc.o \
+	talise/talise_arm.o \
+	talise/talise.o \
+	talise/talise_cals.o \
+	talise/talise_error.o \
+	talise/talise_gpio.o \
+	talise/talise_hal.o \
+	talise/talise_jesd204.o \
+	talise/talise_radioctrl.o \
+	talise/talise_rx.o \
+	talise/talise_tx.o \
+	talise/talise_user.o \
+	talise/linux_hal.o
+
+obj-$(CONFIG_ADRV9009) += adrv9009_drv.o
 
 obj-$(CONFIG_AD9467) += ad9467.o
 obj-$(CONFIG_AD9680) += ad9680.o

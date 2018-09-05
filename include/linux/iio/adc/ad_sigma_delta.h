@@ -95,7 +95,7 @@ struct ad_sigma_delta {
 	 * DMA (thus cache coherency maintenance) requires the
 	 * transfer buffers to live in their own cache lines.
 	 */
-	uint8_t				reg_data[4] ____cacheline_aligned;
+	uint8_t				data[4] ____cacheline_aligned;
 };
 
 static inline int ad_sigma_delta_prepare_channel(struct ad_sigma_delta *sd,
@@ -115,6 +115,7 @@ static inline int ad_sigma_delta_set_channel(struct ad_sigma_delta *sd,
 
 	return 0;
 }
+
 static inline int ad_sigma_delta_set_mode(struct ad_sigma_delta *sd,
 	unsigned int mode)
 {

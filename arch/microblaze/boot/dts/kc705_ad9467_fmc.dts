@@ -1,107 +1,53 @@
 
 /dts-v1/;
-/include/ "kc705_ad9467_fmc_pl.dtsi"
-/ {
-	chosen {
-		bootargs = "console=ttyUL0,115200";
-		linux,stdout-path = &axi_uart;
-		stdout-path = &axi_uart;
-	};
-	aliases {
-		ethernet0 = &axi_ethernet;
-		i2c0 = &axi_iic_main;
-		serial0 = &axi_uart;
-		serial1 = &sys_mb_debug;
-		spi0 = &axi_spi;
-	};
-	memory {
-		device_type = "memory";
-		reg = <0x80000000 0x40000000>;
-	};
-};
-&axi_ethernet {
-	local-mac-address = [00 0a 35 00 00 11];
-	phy-handle = <&phy0>;
-};
+/include/ "kc705.dtsi"
 
-&axi_ethernet_mdio {
-	phy0: phy@7 {
-		device_type = "ethernet-phy";
-		reg = <7>;
-	};
-};
-
-&axi_ad9467 {
-	dmas = <&axi_ad9467_dma 0>;
-	dma-names = "rx";
-	spibus-connected = <&adc_ad9467>;
-};
-
-
-
-&axi_ad9467_dma {
-	#dma-cells = <1>;
-	clocks = <&clk_bus_0>;
-
-	dma-channel {
-		adi,buswidth = <64>;
-		adi,type = <0>;
-	};
-};
-
-&axi_iic_main {
-	mux@74 {
-		#address-cells = <1>;
-		#size-cells = <0>;
-		compatible = "pca9548";
-		reg = <0x74>;
-
-		mux1: i2c@1 { /* HPC */
-			#size-cells = <0>;
-			#address-cells = <1>;
-			reg = <1>;
-
-		};
-
-		fmc_i2c: i2c@2 { /* LPC */
-			#size-cells = <0>;
-			#address-cells = <1>;
-			reg = <2>;
-
-			eeprom@50 {
-				compatible = "at24,24c02";
-				reg = <0x50>;
-			};
-
-			eeprom@54 {
-				compatible = "at24,24c02";
-				reg = <0x54>;
-			};
-
-		};
-	};
-};
-
-&axi_linear_flash {
-	#address-cells = <1>;
-	#size-cells = <1>;
-	partition@0x00000000 {
-		label = "fpga";
-		reg = <0x00000000 0x1380000>;
-	};
-	partition@0x01380000 {
-		label = "boot";
-		reg = <0x01380000 0x80000>;
-	};
-	partition@0x01400000 {
-		label = "bootenv";
-		reg = <0x01400000 0x40000>;
-	};
-	partition@0x01440000 {
-		label = "image";
-		reg = <0x01440000 0xBC0000>;
-	};
-};
-
+#define fmc_i2c fmc_lpc_iic
 #define fmc_spi axi_spi
+
+&amba_pl {
+	axi_ad9467: cf-ad9467-core-lpc@44a00000 {
+		compatible = "xlnx,cf-ad9467-core-1.00.a";
+		reg = <0x44a00000 0x10000>;
+		xlnx,s-axi-min-size = <0x0000FFFF>;
+		dmas = <&rx_dma 0>;
+		dma-names = "rx";
+		spibus-connected = <&adc_ad9467>;
+	};
+
+	rx_dma: dma@44a30000 {
+		#dma-cells = <1>;
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x44a30000 0x10000>;
+		interrupt-parent = <&axi_intc>;
+		interrupts = <12 2>;
+		clocks = <&clk_bus_0>;
+
+		adi,channels {
+			#size-cells = <0>;
+			#address-cells = <1>;
+
+			dma-channel@0 {
+				reg = <0>;
+				adi,source-bus-width = <16>;
+				adi,source-bus-type = <2>;
+				adi,destination-bus-width = <64>;
+				adi,destination-bus-type = <0>;
+			};
+		};
+	};
+};
+
+&fmc_i2c {
+	eeprom@50 {
+		compatible = "at24,24c02";
+		reg = <0x50>;
+	};
+
+	eeprom@54 {
+		compatible = "at24,24c02";
+		reg = <0x54>;
+	};
+};
+
 #include "adi-ad9467-fmc-250ebz.dtsi"
