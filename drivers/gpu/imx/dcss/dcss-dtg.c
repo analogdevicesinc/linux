@@ -307,7 +307,7 @@ void dcss_dtg_sync_set(struct dcss_soc *dcss, struct videomode *vm)
 	dcss_dtg_write(dtg, 0, DCSS_DTG_LINE0_INT);
 
 	/* CTXLD trigger */
-	dcss_dtg_write(dtg, ((98 * dis_lrc_y) / 100) << 16, DCSS_DTG_LINE1_INT);
+	dcss_dtg_write(dtg, ((95 * dis_lrc_y) / 100) << 16, DCSS_DTG_LINE0_INT);
 }
 EXPORT_SYMBOL(dcss_dtg_sync_set);
 
