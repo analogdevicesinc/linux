@@ -618,23 +618,6 @@ static int dcss_remove(struct platform_device *pdev)
 	return 0;
 }
 
-void dcss_req_pm_qos(struct dcss_soc *dcss, bool en)
-{
-	if (en && !dcss->pm_req_active) {
-		pm_qos_add_request(&dcss->pm_qos_req,
-				   PM_QOS_CPU_DMA_LATENCY, 0);
-		dcss->pm_req_active = true;
-		return;
-	}
-
-	if (dcss_dtrc_is_running(dcss, 1) || dcss_dtrc_is_running(dcss, 2))
-		return;
-
-	pm_qos_remove_request(&dcss->pm_qos_req);
-	dcss->pm_req_active = false;
-}
-EXPORT_SYMBOL(dcss_req_pm_qos);
-
 #ifdef CONFIG_PM_SLEEP
 static int dcss_suspend(struct device *dev)
 {
