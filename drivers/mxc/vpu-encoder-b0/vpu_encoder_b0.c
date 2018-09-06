@@ -900,9 +900,9 @@ static bool update_yuv_addr(struct vpu_ctx *ctx, u_int32 uStrIdx)
 		vpu_dbg(LVL_INFO, "\n");
  #endif
 		pphy_address = (u_int32 *)vb2_plane_cookie(p_data_req->vb2_buf, 0);
-		pParamYuvBuffDesc->uLumaBase = *pphy_address;
+		pParamYuvBuffDesc->uLumaBase = *pphy_address + p_data_req->vb2_buf->planes[0].data_offset;
 		pphy_address = (u_int32 *)vb2_plane_cookie(p_data_req->vb2_buf, 1);
-		pParamYuvBuffDesc->uChromaBase = *pphy_address;
+		pParamYuvBuffDesc->uChromaBase = *pphy_address + p_data_req->vb2_buf->planes[1].data_offset;
     /* Not sure what the test should be here for a valid frame return from vb2_plane_cookie */
 		if (pParamYuvBuffDesc->uLumaBase != 0)
 			bGotAFrame = TRUE;
