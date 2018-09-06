@@ -2559,6 +2559,10 @@ static int sdma_resume(struct device *dev)
 		if (i > SDMA_XTRIG_CONF2 / 4)
 			writel_relaxed(sdma->save_regs[i], sdma->regs +
 				       MXC_SDMA_RESERVED_REG + 4 * i);
+		/* set static context switch  mode before channel0 running */
+		else if (i == SDMA_H_CONFIG / 4)
+			writel_relaxed(sdma->save_regs[i] & ~SDMA_H_CONFIG_CSM,
+					sdma->regs + SDMA_H_CONFIG);
 		else
 			writel_relaxed(sdma->save_regs[i] , sdma->regs + 4 * i);
 	}
