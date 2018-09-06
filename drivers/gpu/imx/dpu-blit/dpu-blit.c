@@ -42,7 +42,7 @@ static void dpu_cs_wait_fifo_space(struct dpu_bliteng *dpu_be)
 {
 	while ((dpu_be_read(dpu_be, CMDSEQ_STATUS) &
 		CMDSEQ_STATUS_FIFOSPACE_MASK) < CMDSEQ_FIFO_SPACE_THRESHOLD)
-		usleep_range(1000, 2000);
+		usleep_range(10, 20);
 }
 
 static void dpu_cs_wait_idle(struct dpu_bliteng *dpu_be)
@@ -246,7 +246,7 @@ void dpu_be_wait(struct dpu_bliteng *dpu_be)
 
 	while ((dpu_be_read(dpu_be, COMCTRL_INTERRUPTSTATUS0) &
 		STORE9_SEQCOMPLETE_IRQ_MASK) == 0)
-		usleep_range(1000, 2000);
+		usleep_range(10, 20);
 
 	dpu_be_write(dpu_be, STORE9_SEQCOMPLETE_IRQ_MASK,
 		COMCTRL_INTERRUPTCLEAR0);

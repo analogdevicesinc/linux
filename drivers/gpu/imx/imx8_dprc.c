@@ -256,7 +256,12 @@ static inline void dprc_write(struct dprc *dprc, u32 value, unsigned int offset)
 static void dprc_reset(struct dprc *dprc)
 {
 	dprc_write(dprc, SOFT_RESET, SYSTEM_CTRL0 + SET);
-	usleep_range(1000, 2000);
+
+	if (dprc->is_blit_chan)
+		usleep_range(10, 20);
+	else
+		usleep_range(1000, 2000);
+
 	dprc_write(dprc, SOFT_RESET, SYSTEM_CTRL0 + CLR);
 }
 

@@ -92,8 +92,16 @@ static inline void prg_write(struct prg *prg, u32 value, unsigned int offset)
 
 static void prg_reset(struct prg *prg)
 {
+	if (prg->is_blit)
+		usleep_range(10, 20);
+
 	prg_write(prg, SOFTRST, PRG_CTRL + SET);
-	usleep_range(1000, 2000);
+
+	if (prg->is_blit)
+		usleep_range(10, 20);
+	else
+		usleep_range(1000, 2000);
+
 	prg_write(prg, SOFTRST, PRG_CTRL + CLR);
 }
 
