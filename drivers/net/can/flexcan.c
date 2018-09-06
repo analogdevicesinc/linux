@@ -35,7 +35,6 @@
 #include <linux/list.h>
 #include <linux/mfd/syscon.h>
 #include <linux/mfd/syscon/imx6q-iomuxc-gpr.h>
-#include <linux/mfd/syscon.h>
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/of_device.h>
@@ -43,7 +42,6 @@
 #include <linux/pm_runtime.h>
 #include <linux/regmap.h>
 #include <linux/regulator/consumer.h>
-#include <linux/regmap.h>
 
 #define DRV_NAME			"flexcan"
 
@@ -237,19 +235,12 @@
 #define FLEXCAN_QUIRK_BROKEN_PERR_STATE	BIT(6) /* No interrupt for error passive */
 #define FLEXCAN_QUIRK_TIMESTAMP_SUPPORT_FD BIT(7) /* Use timestamp then support can fd mode */
 
-/* Structure of the message buffer */
-struct flexcan_mb {
-	u32 can_ctrl;
-	u32 can_id;
-	u32 data[2];
-};
-
 /* Message Buffer */
-#define FLEXCAN_MB			0x80
 #define FLEXCAN_MB_CTRL		0x0
 #define FLEXCAN_MB_ID		0x4
 #define FLEXCAN_MB_DATA(n)	(0x8 + ((n) << 2))
 
+#define FLEXCAN_MB			0x80
 #define FLEXCAN_MB_NUM		64
 #define FLEXCAN_MB_FD_NUM	14
 #define FLEXCAN_MB_SIZE		16
@@ -317,17 +308,7 @@ struct flexcan_regs {
 	u32 rxfir;		/* 0x4c */
 	u32 cbt;		/* 0x50 */
 	u32 _reserved3[11];	/* 0x54 */
-	struct flexcan_mb mb[64];	/* 0x80 */
-	/* FIFO-mode:
-	 *			MB
-	 * 0x080...0x08f	0	RX message buffer
-	 * 0x090...0x0df	1-5	reserverd
-	 * 0x0e0...0x0ff	6-7	8 entry ID table
-	 *				(mx25, mx28, mx35, mx53)
-	 * 0x0e0...0x2df	6-7..37	8..128 entry ID table
-	 *				size conf'ed via ctrl2::RFFN
-	 *				(mx6, vf610)
-	 */
+	u32 _reserved8[64*4]; /* 0x80 */ /* 64 mailbox */
 	u32 _reserved4[256];	/* 0x480 */
 	u32 rximr[64];		/* 0x880 */
 	u32 _reserved5[24];	/* 0x980 */
@@ -363,8 +344,6 @@ struct flexcan_priv {
 	struct can_rx_offload offload;
 
 	struct flexcan_regs __iomem *regs;
-	struct flexcan_mb __iomem *tx_mb;
-	struct flexcan_mb __iomem *tx_mb_reserved;
 	void __iomem *base;
 	u8 tx_mb_reserved_idx;
 	u8 tx_mb_idx;
@@ -1704,11 +1683,9 @@ static int flexcan_probe(struct platform_device *pdev)
 
 			priv->tx_mb_reserved_idx = FLEXCAN_TX_MB_RESERVED_OFF_TIMESTAMP_FD;
 			priv->tx_mb_idx = FLEXCAN_TX_MB_OFF_TIMESTAMP_FD;
-			priv->tx_mb_reserved = &regs->mb[FLEXCAN_TX_MB_RESERVED_OFF_TIMESTAMP_FD];
 		} else {
 			priv->tx_mb_reserved_idx = FLEXCAN_TX_MB_RESERVED_OFF_TIMESTAMP;
 			priv->tx_mb_idx = FLEXCAN_TX_MB_OFF_TIMESTAMP;
-			priv->tx_mb_reserved = &regs->mb[FLEXCAN_TX_MB_RESERVED_OFF_TIMESTAMP];
 		}
 	} else {
 		if (priv->devtype_data->quirks & FLEXCAN_QUIRK_TIMESTAMP_SUPPORT_FD) {
@@ -1719,9 +1696,7 @@ static int flexcan_probe(struct platform_device *pdev)
 
 		priv->tx_mb_reserved_idx = FLEXCAN_TX_MB_RESERVED_OFF_FIFO;
 		priv->tx_mb_idx = FLEXCAN_TX_MB_OFF_FIFO;
-		priv->tx_mb_reserved = &regs->mb[FLEXCAN_TX_MB_RESERVED_OFF_FIFO];
 	}
-	priv->tx_mb = &regs->mb[priv->tx_mb_idx];
 
 	priv->reg_imask1_default = FLEXCAN_IFLAG_MB(priv->tx_mb_idx);
 	priv->reg_imask2_default = 0;
