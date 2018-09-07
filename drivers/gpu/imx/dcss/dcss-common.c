@@ -353,7 +353,7 @@ void dcss_trace_write(u64 tag)
 	if (!dcss_tracing)
 		return;
 
-	trace = kzalloc(sizeof(*trace), GFP_KERNEL);
+	trace = kzalloc(sizeof(*trace), GFP_ATOMIC);
 	if (!trace)
 		return;
 
