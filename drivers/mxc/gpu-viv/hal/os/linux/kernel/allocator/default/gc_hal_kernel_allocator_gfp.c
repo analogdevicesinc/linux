@@ -310,6 +310,11 @@ _GFPAlloc(
 
     mdlPriv = kzalloc(sizeof(struct gfp_mdl_priv), GFP_KERNEL | __GFP_NORETRY);
 
+    if (!mdlPriv)
+    {
+        gcmkONERROR(gcvSTATUS_OUT_OF_MEMORY);
+    }
+
 #if defined(CONFIG_ZONE_DMA32) && LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,37)
     if ((Flags & gcvALLOC_FLAG_4GB_ADDR) || (Allocator->os->device->platform->flagBits & gcvPLATFORM_FLAG_LIMIT_4G_ADDRESS))
     {
