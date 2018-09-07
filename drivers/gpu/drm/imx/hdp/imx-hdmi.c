@@ -98,7 +98,7 @@ static int hdmi_avi_info_set(struct imx_hdp *hdp,
 	int ret;
 
 	/* Initialise info frame from DRM mode */
-	drm_hdmi_avi_infoframe_from_display_mode(&frame, mode, false);
+	drm_hdmi_avi_infoframe_from_display_mode(&frame, mode, true);
 
 	/* Set up colorimetry */
 	allowed_colorimetry = format == PXL_RGB ? RGB_ALLOWED_COLORIMETRY :
@@ -151,6 +151,33 @@ static int hdmi_avi_info_set(struct imx_hdp *hdp,
 	buf[0] = 0;
 	return CDN_API_InfoframeSet(&hdp->state, 0, sizeof(buf),
 				    (u32 *)buf, HDMI_INFOFRAME_TYPE_AVI);
+
+}
+
+static int hdmi_vendor_info_set(struct imx_hdp *hdp,
+				struct drm_display_mode *mode,
+				int format)
+{
+	struct hdmi_vendor_infoframe frame;
+	u8 buf[32];
+	int ret;
+
+	/* Initialise vendor frame from DRM mode */
+	ret = drm_hdmi_vendor_infoframe_from_display_mode(&frame, mode);
+	if (ret < 0) {
+		DRM_DEBUG("Unable to init vendor infoframe: %d\n", ret);
+		return -1;
+	}
+
+	ret = hdmi_vendor_infoframe_pack(&frame, buf + 1, sizeof(buf) - 1);
+	if (ret < 0) {
+		DRM_DEBUG("Unable to pack vendor infoframe: %d\n", ret);
+		return -1;
+	}
+
+	buf[0] = 0;
+	return CDN_API_InfoframeSet(&hdp->state, 0, sizeof(buf),
+				    (u32 *)buf, HDMI_INFOFRAME_TYPE_VENDOR);
 
 }
 
@@ -213,11 +240,12 @@ void hdmi_mode_set_ss28fdsoi(state_struct *state, struct drm_display_mode *mode,
 	}
 
 	ret = hdmi_avi_info_set(hdp, mode, format);
-	if (ret != CDN_OK) {
+	if (ret < 0) {
 		DRM_ERROR("hdmi avi info set ret = %d\n", ret);
 		return;
 	}
 
+	hdmi_vendor_info_set(hdp, mode, format);
 
 	ret =  CDN_API_HDMITX_SetVic_blocking(state, mode, color_depth, format);
 	if (ret != CDN_OK) {
@@ -386,10 +414,14 @@ void hdmi_mode_set_t28hpc(state_struct *state, struct drm_display_mode *mode, in
 	}
 
 	ret = hdmi_avi_info_set(hdp, mode, format);
-	if (ret != CDN_OK) {
+	if (ret < 0) {
 		DRM_ERROR("hdmi avi info set ret = %d\n", ret);
 		return;
 	}
+
+	ret = hdmi_vendor_info_set(hdp, mode, format);
+	if (ret < 0)
+		DRM_WARN("Unable to configure VS infoframe\n");
 
 	ret = CDN_API_HDMITX_SetVic_blocking(state, mode, color_depth, format);
 	if (ret != CDN_OK) {
