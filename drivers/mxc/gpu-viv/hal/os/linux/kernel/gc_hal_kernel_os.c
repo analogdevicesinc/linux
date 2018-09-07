@@ -1597,6 +1597,8 @@ gckOS_ReadRegisterEx(
 {
     if (in_irq())
     {
+        uint32_t data;
+
         spin_lock(&Os->registerAccessLock);
 
         if (unlikely(Os->clockStates[Core] == gcvFALSE))
@@ -1604,8 +1606,25 @@ gckOS_ReadRegisterEx(
             spin_unlock(&Os->registerAccessLock);
 
             /*
-             * Read register when power off:
+             * Read register when external clock off:
              * 1. In shared IRQ, read register may be called and that's not our irq.
+             */
+            return gcvSTATUS_GENERIC_IO;
+        }
+
+        data = readl(Os->device->registerBases[Core]);
+
+        if (unlikely((data & 0x3) == 0x3))
+        {
+            spin_unlock(&Os->registerAccessLock);
+
+            /*
+             * Read register when internal clock off:
+             * a. In shared IRQ, read register may be called and that's not our irq.
+             * b. In some condition, when ISR handled normal FE/PE, PM thread could
+             *    trun off internal clock before ISR read register of async FE. And
+             *    then IRQ handler will call read register with internal clock off.
+             *    So here we just skip for such case.
              */
             return gcvSTATUS_GENERIC_IO;
         }
@@ -1624,7 +1643,7 @@ gckOS_ReadRegisterEx(
             spin_unlock_irqrestore(&Os->registerAccessLock, flags);
 
             /*
-             * Read register when power off:
+             * Read register when external clock off:
              * 2. In non-irq context, register access should not be called,
              *    otherwise it's driver bug.
              */
