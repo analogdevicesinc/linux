@@ -66,7 +66,41 @@
 	memory@80000000 {
 		device_type = "memory";
 		/* Will be updated by U-Boot or XEN TOOL */
-		reg = <0x00000000 0x40000000 0 0x40000000>;
+		reg = <0x00000000 0x80000000 0 0x80000000>;
+	};
+
+	/*
+	 * The reserved memory will be used when using U-Boot loading android
+	 * image. For booting kernel using xl tool, pass args:
+	 * cma=960M@2400M-3584M
+	 * For the rpmsg_reserved area, need xl tool to create for non-android.
+	 */
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+		passthrough;
+
+		/*
+		 * reserved-memory layout
+		 * 0x8800_0000 ~ 0x8FFF_FFFF is reserved for M4
+		 * Shouldn't be used at A core and Linux side.
+		 *
+		 */
+
+		rpmsg_reserved: rpmsg@0x90100000 {
+			no-map;
+			reg = <0 0x90100000 0 0x10000>;
+		};
+
+		/* global autoconfigured region for contiguous allocations */
+		linux,cma {
+			compatible = "shared-dma-pool";
+			reusable;
+			size = <0 0x3c000000>;
+			alloc-ranges = <0 0x96000000 0 0x3c000000>;
+			linux,cma-default;
+		};
 	};
 
 	gic: interrupt-controller@3001000 {
@@ -128,11 +162,10 @@
 			};
 		};
 
-
 		clk: clk {
 			compatible = "fsl,imx8qm-clk";
 			#clock-cells = <1>;
-			fsl,lpcg_base_offset = <0x00000001 0x00000000>;
+			fsl,lpcg_base_offset = <0x00000000 0x00000000>;
 		};
 
 		iomuxc: iomuxc {
@@ -141,22 +174,22 @@
 
 		#include "fsl-imx8qm-device.dtsi"
 
-		mu2: mu@15d1d0000 {
+		mu2: mu@5d1d0000 {
 			compatible = "fsl,imx8-mu";
-			reg = <0x1 0x5d1d0000 0x0 0x10000>;
+			reg = <0x0 0x5d1d0000 0x0 0x10000>;
 			interrupts = <GIC_SPI 178 IRQ_TYPE_LEVEL_HIGH>;
 			fsl,scu_ap_mu_id = <0>;
 			status = "okay";
 		};
 
 		usb_lpcg {
-			reg = <0x1 0x5b270000 0x0 0x10000>;
+			reg = <0x0 0x5b270000 0x0 0x10000>;
 		};
 
 		edma01: dma-controller1@5a1f0000 {
 			compatible = "fsl,imx8qm-edma";
-			reg = <0x1 0x5a2e0000 0x0 0x10000>, /* channel14 UART1 rx */
-			      <0x1 0x5a2f0000 0x0 0x10000>; /* channel15 UART1 tx */
+			reg = <0x0 0x5a2e0000 0x0 0x10000>, /* channel14 UART1 rx */
+			      <0x0 0x5a2f0000 0x0 0x10000>; /* channel15 UART1 tx */
 			#dma-cells = <3>;
 			dma-channels = <2>;
 			interrupts = <GIC_SPI 436 IRQ_TYPE_LEVEL_HIGH>,
@@ -176,87 +209,87 @@
 };
 
 &dpu2_intsteer {
-	reg = <0x1 0x57000000 0x0 0x10000>;
+	reg = <0x0 0x57000000 0x0 0x10000>;
 	status = "okay";
 };
 
 &prg10 {
-	reg = <0x1 0x57040000 0x0 0x10000>;
+	reg = <0x0 0x57040000 0x0 0x10000>;
 	status = "okay";
 };
 
 &prg11 {
-	reg = <0x1 0x57050000 0x0 0x10000>;
+	reg = <0x0 0x57050000 0x0 0x10000>;
 	status = "okay";
 };
 
 &prg12 {
-	reg = <0x1 0x57060000 0x0 0x10000>;
+	reg = <0x0 0x57060000 0x0 0x10000>;
 	status = "okay";
 };
 
 &prg13 {
-	reg = <0x1 0x57070000 0x0 0x10000>;
+	reg = <0x0 0x57070000 0x0 0x10000>;
 	status = "okay";
 };
 
 &prg14 {
-	reg = <0x1 0x57080000 0x0 0x10000>;
+	reg = <0x0 0x57080000 0x0 0x10000>;
 	status = "okay";
 };
 
 &prg15 {
-	reg = <0x1 0x57090000 0x0 0x10000>;
+	reg = <0x0 0x57090000 0x0 0x10000>;
 	status = "okay";
 };
 
 &prg16 {
-	reg = <0x1 0x570a0000 0x0 0x10000>;
+	reg = <0x0 0x570a0000 0x0 0x10000>;
 	status = "okay";
 };
 
 &prg17 {
-	reg = <0x1 0x570b0000 0x0 0x10000>;
+	reg = <0x0 0x570b0000 0x0 0x10000>;
 	status = "okay";
 };
 
 &prg18 {
-	reg = <0x1 0x570c0000 0x0 0x10000>;
+	reg = <0x0 0x570c0000 0x0 0x10000>;
 	status = "okay";
 };
 
 &dpr3_channel1 {
-	reg = <0x1 0x570d0000 0x0 0x10000>;
+	reg = <0x0 0x570d0000 0x0 0x10000>;
 	status = "okay";
 };
 
 &dpr3_channel2 {
-	reg = <0x1 0x570e0000 0x0 0x10000>;
+	reg = <0x0 0x570e0000 0x0 0x10000>;
 	status = "okay";
 };
 
 &dpr3_channel3 {
-	reg = <0x1 0x570f0000 0x0 0x10000>;
+	reg = <0x0 0x570f0000 0x0 0x10000>;
 	status = "okay";
 };
 
 &dpr4_channel1 {
-	reg = <0x1 0x57100000 0x0 0x10000>;
+	reg = <0x0 0x57100000 0x0 0x10000>;
 	status = "okay";
 };
 
 &dpr4_channel2 {
-	reg = <0x1 0x57110000 0x0 0x10000>;
+	reg = <0x0 0x57110000 0x0 0x10000>;
 	status = "okay";
 };
 
 &dpr4_channel3 {
-	reg = <0x1 0x57120000 0x0 0x10000>;
+	reg = <0x0 0x57120000 0x0 0x10000>;
 	status = "okay";
 };
 
 &dpu2 {
-	reg = <0x1 0x57180000 0x0 0x40000>;
+	reg = <0x0 0x57180000 0x0 0x40000>;
 	status = "okay";
 
 	dpu2_disp0: port@0 {
@@ -277,6 +310,10 @@
 	};
 };
 
+&pixel_combiner2 {
+	status = "okay";
+};
+
 /delete-node/ &hdmi;
 /delete-node/ &irqsteer_dsi0;
 /delete-node/ &i2c0_mipi_dsi0;
@@ -286,12 +323,12 @@
 /delete-node/ &mipi_dsi_bridge1;
 
 &lvds_region2 {
-	reg = <0x1 0x57240000 0x0 0x10000>;
+	reg = <0x0 0x57240000 0x0 0x10000>;
 	status = "okay";
 };
 
 &ldb2_phy {
-	reg = <0x1 0x57241000 0x0 0x100>;
+	reg = <0x0 0x57241000 0x0 0x100>;
 	status = "okay";
 };
 
@@ -331,6 +368,7 @@
 /delete-node/ &dpr2_channel2;
 /delete-node/ &dpr2_channel3;
 /delete-node/ &dpu1;
+/delete-node/ &pixel_combiner1;
 /delete-node/ &dsp;
 /delete-node/ &irqsteer_dsi1;
 /delete-node/ &i2c0_mipi_dsi1;
@@ -356,7 +394,7 @@
 /delete-node/ &i2c0_hdmi;
 
 &irqsteer_lvds1 {
-	reg = <0x1 0x57240000 0x0 0x1000>;
+	reg = <0x0 0x57240000 0x0 0x1000>;
 	/delete-property/ interrupt-parent;
 	status = "okay";
 };
@@ -366,7 +404,7 @@
 /delete-node/ &flexcan3;
 
 &i2c1_lvds1 {
-	reg = <0x1 0x57247000 0x0 0x1000>;
+	reg = <0x0 0x57247000 0x0 0x1000>;
 	status = "okay";
 };
 
@@ -381,7 +419,7 @@
 
 &lpuart1 {
 	/delete-property/ interrupt-parent;
-	reg = <0x1 0x5a070000 0 0x1000>;
+	reg = <0x0 0x5a070000 0 0x1000>;
 	dmas = <&edma01 15 0 0>, <&edma01 14 0 1>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_lpuart1>;
@@ -416,15 +454,15 @@
 /delete-node/ &pwm7;
 
 &gpu_3d1 {
-	reg = <0x0 0x24100000 0 0x40000>;
+	reg = <0x0 0x54100000 0 0x40000>;
 	status = "okay";
 };
 
 /delete-node/ &gpu_3d0;
 
 &imx8_gpu_ss {
-	/* xen guests have 3GB of low RAM @ 1GB */
-	reg = <0x0 0x40000000 0x0 0xc0000000>;
+	/* xen guests have 2GB of low RAM @ 2GB */
+	reg = <0x0 0x80000000 0x0 0x80000000>;
 	reg-names = "phys_baseaddr";
 	cores = <&gpu_3d1>;
 	status = "okay";
@@ -436,7 +474,7 @@
 	compatible = "fsl,imx8qm-usdhc", "fsl,imx6sl-usdhc";
 	/*interrupt-parent = <&gic>;*/
 	/delete-property/ interrupt-parent;
-	reg = <0x1 0x5b010000 0x0 0x10000>;
+	reg = <0x0 0x5b010000 0x0 0x10000>;
 };
 
 /delete-node/ &usdhc2;
@@ -445,13 +483,13 @@
 /delete-node/ &fec2;
 
 &usbmisc1 {
-	reg = <0x1 0x5b0d0200 0x0 0x200>;
+	reg = <0x0 0x5b0d0200 0x0 0x200>;
 };
 
 /delete-node/ &usbmisc2;
 
 &usbphy1 {
-	reg = <0x1 0x5b100000 0x0 0x200>;
+	reg = <0x0 0x5b100000 0x0 0x200>;
 };
 
 /delete-node/ &usbh1;
@@ -460,7 +498,7 @@
 /delete-node/ &usbphynop2;
 
 &usbotg1 {
-	reg = <0x1 0x5b0d0000 0x0 0x200>;
+	reg = <0x0 0x5b0d0000 0x0 0x200>;
 	/delete-property/ interrupt-parent;
 };
 
@@ -499,7 +537,20 @@
 
 /delete-node/ &intmux_cm40;
 /delete-node/ &intmux_cm41;
-/delete-node/ &imx_rpmsg;
+
+&rpmsg1{
+	/*
+	 * 64K for one rpmsg instance:
+	 */
+	vdev-nums = <1>;
+	reg = <0x0 0x90100000 0x0 0x10000>;
+	status = "okay";
+};
+
+&mu_rpmsg1 {
+	reg = <0x0 0x5d210000 0x0 0x10000>;
+};
+
 /delete-node/ &crypto;
 /delete-node/ &caam_sm;
 /delete-node/ &sc_pwrkey;

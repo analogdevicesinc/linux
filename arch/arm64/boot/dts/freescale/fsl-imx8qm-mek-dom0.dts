@@ -12,10 +12,21 @@
  * GNU General Public License for more details.
  */
 
-#include "fsl-imx8qm-mek.dts"
+/dts-v1/;
+
+/memreserve/ 0x84000000 0x4000000;
+/memreserve/ 0x90000000 0x400000;
+/memreserve/ 0x90400000 0x2000000;
+/memreserve/ 0x92400000 0x2000000;
+/memreserve/ 0x94400000 0x1800000;
+
+#include "fsl-imx8qm-mek.dtsi"
 #include "fsl-imx8qm-xen.dtsi"
 
 / {
+	model = "Freescale i.MX8QM MEK DOM0";
+	compatible = "fsl,imx8qm-mek", "fsl,imx8qm";
+
 	chosen {
 		#address-cells = <2>;
 		#size-cells = <2>;
@@ -57,6 +68,7 @@
 				SC_R_MU_2A
 			>;
 			rsrcs = <
+				SC_R_MU_6A
 				SC_R_GPU_1_PID0
 				SC_R_GPU_1_PID1
 				SC_R_GPU_1_PID2
@@ -129,7 +141,7 @@
 			compatible = "shared-dma-pool";
 			reusable;
 			size = <0 0x28000000>;
-			alloc-ranges = <0 0xd0000000 0 0x28000000>;
+			alloc-ranges = <0 0xa0000000 0 0x40000000>;
 			linux,cma-default;
 		};
 	};
@@ -149,6 +161,46 @@
 		status = "disabled";
 	};
 
+	cm41: cm41@1 {
+		fsl,sc_rsrc_id = <SC_R_M4_1_PID0>,
+				 <SC_R_M4_1_PID1>,
+				 <SC_R_M4_1_PID2>,
+				 <SC_R_M4_1_PID3>,
+				 <SC_R_M4_1_PID4>;
+		#stream-id-cells = <1>;
+		iommus = <&smmu>;
+		xen,passthrough;
+	};
+
+	irqsteer_cm41: irqsteer_cm41@0x51080000 {
+		reg = <0x0 0x51080000 0x0 0x10000>;
+		xen,passthrough;
+	};
+
+	mu_rpmsg1_b: mu_rpmsg1_b@0x5d2a0000 {
+		reg = <0x0 0x5d2a0000 0x0 0x10000>;
+		xen,passthrough;
+	};
+};
+
+&mu_rpmsg1 {
+	xen,passthrough;
+};
+
+&rpmsg1 {
+	status = "disabled";
+};
+
+&mu_6_lpcg {
+	xen,passthrough;
+};
+
+&mu_6_lpcg_b {
+	xen,passthrough;
+};
+
+&mu_7_lpcg_b {
+	xen,passthrough;
 };
 
 &usbotg1_lpcg {
@@ -164,6 +216,19 @@
 };
 
 &lpuart1_lpcg {
+	xen,passthrough;
+};
+
+/*
+ * DomU CM41 use this, but DomU OS not need this,
+ * because smmu is enabled for CM41, so need to
+ *create the lpuart2 mapping in SMMU
+ */
+&lpuart2 {
+	xen,passthrough;
+};
+
+&lpuart2_lpcg {
 	xen,passthrough;
 };
 
@@ -186,7 +251,7 @@
 &smmu {
 	mmu-masters = <&dpu2 0x13>, <&gpu_3d1 0x15>,
 		      <&usdhc1 0x12>, <&usbotg1 0x11>,
-		      <&edma01 0x10>;
+		      <&edma01 0x10>, <&cm41 0x09>;
 };
 
 &lvds_region2 {
@@ -222,6 +287,10 @@
 	xen,passthrough;
 	#stream-id-cells = <1>;
 	iommus = <&smmu>;
+};
+
+&pixel_combiner2 {
+	xen,passthrough;
 };
 
 &prg10 {
@@ -328,4 +397,24 @@
 &usbphy1 {
 	reg = <0x0 0x5b100000 0x0 0x1000>;
 	xen,passthrough;
+};
+
+&pciea {
+       xen,passthrough;
+};
+
+&pcieb {
+       xen,passthrough;
+};
+
+&dsp {
+       xen,passthrough;
+};
+
+&vpu_decoder {
+       xen,passthrough;
+};
+
+&vpu_encoder {
+       xen,passthrough;
 };
