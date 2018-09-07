@@ -9127,10 +9127,14 @@ gckHARDWARE_QueryIdle(
     )
 {
     gceSTATUS status;
-    gctUINT32 idle, address;
-    gctBOOL   isIdle;
+    gctUINT32 idle;
+#if !gcdSECURITY
+    gctUINT32 address;
+#endif
+    gctBOOL isIdle = gcvFALSE;
 
 #if gcdINTERRUPT_STATISTIC
+    gckEVENT eventObj = Hardware->kernel->eventObj;
     gctINT32 pendingInterrupt;
 #endif
 
@@ -9140,14 +9144,15 @@ gckHARDWARE_QueryIdle(
     gcmkVERIFY_OBJECT(Hardware, gcvOBJ_HARDWARE);
     gcmkVERIFY_ARGUMENT(IsIdle != gcvNULL);
 
-    /* We are idle when the power is not ON. */
-    if (Hardware->chipPowerState != gcvPOWER_ON)
+    do
     {
-        isIdle = gcvTRUE;
-    }
+        /* We are idle when the power is not ON. */
+        if (Hardware->chipPowerState != gcvPOWER_ON)
+        {
+            isIdle = gcvTRUE;
+            break;
+        }
 
-    else
-    {
         /* Read idle register. */
         gcmkONERROR(
             gckOS_ReadRegisterEx(Hardware->os, Hardware->core, 0x00004, &idle));
@@ -9156,55 +9161,68 @@ gckHARDWARE_QueryIdle(
         if ((idle | (1 << 14)) != 0x7ffffffe)
         {
             /* Something is busy. */
-            isIdle = gcvFALSE;
+            break;
         }
 
-        else
-        {
 #if gcdSECURITY
-            isIdle = gcvTRUE;
-            address = 0;
+        isIdle = gcvTRUE;
+        break;
 #else
-            /* Read the current FE address. */
-            gcmkONERROR(gckOS_ReadRegisterEx(Hardware->os,
-                                             Hardware->core,
-                                             0x00664,
-                                             &address));
+        /* Read the current FE address. */
+        gcmkONERROR(gckOS_ReadRegisterEx(Hardware->os,
+                                         Hardware->core,
+                                         0x00664,
+                                         &address));
 
-            gcmkONERROR(gckOS_ReadRegisterEx(Hardware->os,
-                                             Hardware->core,
-                                             0x00664,
-                                             &address));
+        gcmkONERROR(gckOS_ReadRegisterEx(Hardware->os,
+                                         Hardware->core,
+                                         0x00664,
+                                         &address));
 
-            /* Test if address is inside the last WAIT/LINK sequence. */
-            if ((address >= Hardware->lastWaitLink)
-            &&  (address <= Hardware->lastWaitLink + (Hardware->hasL2Cache ? 16 : 8))
-            )
-            {
-                /* FE is in last WAIT/LINK and the pipe is idle. */
-                isIdle = gcvTRUE;
-            }
-            else
-            {
-                /* FE is not in WAIT/LINK yet. */
-                isIdle = gcvFALSE;
-            }
-#endif
+        /* Test if address is inside the last WAIT/LINK sequence. */
+        if ((address < Hardware->lastWaitLink) ||
+            (address >= (gctUINT64)Hardware->lastWaitLink + 16))
+        {
+            /* FE is not in WAIT/LINK yet. */
+            break;
         }
-    }
+#endif
 
 #if gcdINTERRUPT_STATISTIC
-    gcmkONERROR(gckOS_AtomGet(
-        Hardware->os,
-        Hardware->kernel->eventObj->interruptCount,
-        &pendingInterrupt
-        ));
+        gcmkONERROR(gckOS_AtomGet(
+            Hardware->os,
+            eventObj->interruptCount,
+            &pendingInterrupt
+            ));
 
-    if (pendingInterrupt)
-    {
-        isIdle = gcvFALSE;
-    }
+        if (pendingInterrupt)
+        {
+            /* Pending interrupts, not idle. */
+            break;
+        }
+
+        if (Hardware->hasAsyncFe)
+        {
+            gckEVENT asyncEvent = Hardware->kernel->asyncEvent;
+
+            gcmkONERROR(gckOS_AtomGet(
+                Hardware->os,
+                asyncEvent->interruptCount,
+                &pendingInterrupt
+                ));
+
+            if (pendingInterrupt)
+            {
+                /* Pending async FE interrupts, not idle. */
+                break;
+            }
+        }
 #endif
+
+        /* Is really idle. */
+        isIdle = gcvTRUE;
+    }
+    while (gcvFALSE);
 
     *IsIdle = isIdle;
 
