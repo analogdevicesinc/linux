@@ -3129,6 +3129,24 @@ gckKERNEL_Dispatch(
                               gcmNAME_TO_PTR(Interface->u.Detach.context)));
 
         gcmRELEASE_NAME(Interface->u.Detach.context);
+        gcmkONERROR(gckOS_AcquireMutex(Kernel->os,
+             Kernel->device->commitMutex,
+             gcvINFINITE
+             ));
+
+        commitMutexAcquired = gcvTRUE;
+
+        gcmkONERROR(gckEVENT_Submit(
+            Kernel->eventObj,
+            gcvTRUE,
+            gcvFALSE
+            ));
+
+        gcmkONERROR(gckOS_ReleaseMutex(Kernel->os,
+            Kernel->device->commitMutex
+            ));
+
+        commitMutexAcquired = gcvFALSE;
         break;
 
     case gcvHAL_GET_FRAME_INFO:
