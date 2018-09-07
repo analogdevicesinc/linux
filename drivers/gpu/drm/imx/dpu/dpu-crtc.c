@@ -101,8 +101,8 @@ static void dpu_crtc_atomic_enable(struct drm_crtc *crtc,
 			m_plane_ed = plane_ed;
 			s_plane_ed = aux_plane_ed;
 		} else {
-			m_plane_ed = plane_ed;
-			s_plane_ed = aux_plane_ed;
+			m_plane_ed = aux_plane_ed;
+			s_plane_ed = plane_ed;
 		}
 		extdst_pixengcfg_syncmode_master(m_plane_ed, true);
 		extdst_pixengcfg_syncmode_master(s_plane_ed, false);
