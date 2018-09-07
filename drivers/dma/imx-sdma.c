@@ -1116,23 +1116,6 @@ static int sdma_disable_channel(struct dma_chan *chan)
 	return 0;
 }
 
-static int sdma_terminate_all(struct dma_chan *chan);
-
-static int sdma_terminate_all_with_delay(struct dma_chan *chan)
-{
-	sdma_terminate_all(chan);
-
-	/*
-	 * According to NXP R&D team a delay of one BD SDMA cost time
-	 * (maximum is 1ms) should be added after disable of the channel
-	 * bit, to ensure SDMA core has really been stopped after SDMA
-	 * clients call .device_terminate_all.
-	 */
-	mdelay(1);
-
-	return 0;
-}
-
 static void sdma_set_watermarklevel_for_p2p(struct sdma_channel *sdmac)
 {
 	struct sdma_engine *sdma = sdmac->sdma;
@@ -2398,7 +2381,7 @@ static int sdma_probe(struct platform_device *pdev)
 	sdma->dma_device.device_prep_slave_sg = sdma_prep_slave_sg;
 	sdma->dma_device.device_prep_dma_cyclic = sdma_prep_dma_cyclic;
 	sdma->dma_device.device_config = sdma_config;
-	sdma->dma_device.device_terminate_all = sdma_terminate_all_with_delay;
+	sdma->dma_device.device_terminate_all = sdma_terminate_all;
 	sdma->dma_device.device_pause = sdma_channel_pause;
 	sdma->dma_device.device_resume = sdma_channel_resume;
 	sdma->dma_device.src_addr_widths = SDMA_DMA_BUSWIDTHS;
