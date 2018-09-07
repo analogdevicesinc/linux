@@ -197,10 +197,13 @@ void tcon_cfg_videomode(struct dpu_tcon *tcon,
 	y = m->vdisplay;
 	/*
 	 * If sync mode fixup is present, the kachuck signal from slave tcon
-	 * should be one line later than the one from master tcon.
+	 * should be two lines later than the one from master tcon.
 	 */
-	if (side_by_side && tcon_is_slave(tcon) && devtype->has_syncmode_fixup)
+	if (side_by_side && tcon_is_slave(tcon) &&
+	    devtype->has_syncmode_fixup) {
 		y++;
+		y++;
+	}
 	dpu_tcon_write(tcon, X(0xa) | Y(y), SPGPOSON(4));
 	dpu_tcon_write(tcon, 0x0, SPGMASKON(4));
 
