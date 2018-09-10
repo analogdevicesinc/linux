@@ -418,7 +418,7 @@ static int register_isi_entity(struct mxc_md *mxc_md, struct mxc_isi_dev *mxc_is
 	int ret;
 
 	dev_dbg(&mxc_md->pdev->dev, "%s\n", __func__);
-	if (WARN_ON(mxc_isi->id >= MXC_ISI_MAX_DEVS || mxc_md->mxc_isi[mxc_isi->id]))
+	if (WARN_ON(mxc_isi->id >= MXC_ISI_MAX_DEVS))
 		return -EBUSY;
 
 	sd->grp_id = GRP_ID_MXC_ISI;
@@ -563,6 +563,34 @@ static int mxc_md_register_platform_entities(struct mxc_md *mxc_md,
 	return ret;
 }
 
+static void mxc_md_prepare_for_m2m(struct mxc_md *mxc_md,
+							struct device_node *parent)
+{
+	struct device *dev = &mxc_md->pdev->dev;
+	struct device_node *node;
+
+	for_each_available_child_of_node(parent, node) {
+		if (!strcmp(node->name, ISI_OF_NODE_NAME)) {
+			mxc_md->nr_isi++;
+
+			/* achive ISI channel0 driver data */
+			if (of_alias_get_id(node, "isi") == 0) {
+				struct platform_device *pdev =
+								of_find_device_by_node(node);
+
+				if (pdev && pdev->dev.driver) {
+					device_lock(&pdev->dev);
+					mxc_md->mxc_isi[0] = dev_get_drvdata(&pdev->dev);
+					device_unlock(&pdev->dev);
+				}
+				put_device(&pdev->dev);
+			}
+		}
+	}
+
+	dev_dbg(dev, "%s: nr_isi = %d\n", __func__, mxc_md->nr_isi);
+}
+
 static void mxc_md_unregister_entities(struct mxc_md *mxc_md)
 {
 	int i;
@@ -635,6 +663,9 @@ static int mxc_md_probe(struct platform_device *pdev)
 		v4l2_err(v4l2_dev, "Failed to register v4l2_device: %d\n", ret);
 		goto err_md;
 	}
+
+	/* prepare for registration m2m */
+	mxc_md_prepare_for_m2m(mxc_md, dev->of_node);
 
 	ret = mxc_md_register_platform_entities(mxc_md, dev->of_node);
 	if (ret < 0)

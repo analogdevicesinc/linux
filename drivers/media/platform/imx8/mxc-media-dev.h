@@ -97,6 +97,7 @@ struct mxc_md {
 	struct mxc_mjpeg_enc  *mjpeg_enc;
 
 	int num_sensors;
+	unsigned int nr_isi;
 	bool parallel_csi;
 
 	struct media_device media_dev;

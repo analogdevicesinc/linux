@@ -1616,15 +1616,20 @@ err_free_ctx:
 static int mxc_isi_register_cap_and_m2m_device(struct mxc_isi_dev *mxc_isi,
 				 struct v4l2_device *v4l2_dev)
 {
+	struct mxc_md *mxc_md = container_of(v4l2_dev, struct mxc_md, v4l2_dev);
 	int ret;
 
-	if (mxc_isi->id == 0) {
-		ret = mxc_isi_register_m2m_device(mxc_isi, v4l2_dev);
+	ret = mxc_isi_register_cap_device(mxc_isi, v4l2_dev);
+	if (ret)
+		return ret;
+
+	/* register m2m at last */
+	if (!(--mxc_md->nr_isi) && mxc_md->mxc_isi[0]) {
+		ret = mxc_isi_register_m2m_device(mxc_md->mxc_isi[0], v4l2_dev);
 		if (ret < 0)
 			return ret;
+		dev_info(&mxc_isi->pdev->dev, "register m2m device success\n");
 	}
-
-	ret = mxc_isi_register_cap_device(mxc_isi, v4l2_dev);
 
 	return ret;
 }
@@ -1638,20 +1643,12 @@ static int mxc_isi_subdev_registered(struct v4l2_subdev *sd)
 		return -ENXIO;
 
 	dev_dbg(&mxc_isi->pdev->dev, "%s\n", __func__);
-#if 0
-	if (mxc_isi->id == 0) {
-		/* ISI channel 0 support source input image from memory  */
-		ret = mxc_isi_register_m2m_device(mxc_isi, sd->v4l2_dev);
-		if (ret < 0)
-			return ret;
-	}
-#endif
 
 	ret = mxc_isi_register_cap_and_m2m_device(mxc_isi, sd->v4l2_dev);
 	if (ret < 0)
 		return ret;
 
-	return ret;
+	return 0;
 }
 
 static void mxc_isi_subdev_unregistered(struct v4l2_subdev *sd)
