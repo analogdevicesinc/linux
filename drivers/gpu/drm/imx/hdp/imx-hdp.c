@@ -826,9 +826,13 @@ imx_hdp_connector_mode_valid(struct drm_connector *connector,
 			return MODE_BAD_HVALUE;
 	}
 
-	if (hdp->is_4kp60 && mode->clock > 594000)
-		return MODE_CLOCK_HIGH;
-	else if (!hdp->is_4kp60 && mode->clock > 297000)
+	/* For iMX8QM A0 Max support video mode is 4kp30 */
+	if (cpu_is_imx8qm() && (imx8_get_soc_revision() < B0_SILICON_ID))
+		if (mode->clock > 297000)
+			return MODE_CLOCK_HIGH;
+
+	/* MAX support pixel clock rate 594MHz */
+	if (mode->clock > 594000)
 		return MODE_CLOCK_HIGH;
 
 	ret = imx_hdp_call(hdp, pixel_clock_range, mode);
@@ -843,7 +847,6 @@ imx_hdp_connector_mode_valid(struct drm_connector *connector,
 
 	if (mode->vdisplay > 2160)
 		return MODE_BAD_VVALUE;
-
 
 	return mode_status;
 }
@@ -1160,14 +1163,12 @@ static struct hdp_ops imx8qm_hdmi_ops = {
 };
 
 static struct hdp_devtype imx8qm_dp_devtype = {
-	.is_4kp60 = false,
 	.audio_type = CDN_DPTX,
 	.ops = &imx8qm_dp_ops,
 	.rw = &imx8qm_rw,
 };
 
 static struct hdp_devtype imx8qm_hdmi_devtype = {
-	.is_4kp60 = false,
 	.audio_type = CDN_HDMITX_TYPHOON,
 	.ops = &imx8qm_hdmi_ops,
 	.rw = &imx8qm_rw,
@@ -1191,7 +1192,6 @@ static struct hdp_ops imx8mq_ops = {
 };
 
 static struct hdp_devtype imx8mq_hdmi_devtype = {
-	.is_4kp60 = true,
 	.audio_type = CDN_HDMITX_KIRAN,
 	.ops = &imx8mq_ops,
 	.rw = &imx8mq_rw,
@@ -1206,7 +1206,6 @@ static struct hdp_ops imx8mq_dp_ops = {
 };
 
 static struct hdp_devtype imx8mq_dp_devtype = {
-	.is_4kp60 = true,
 	.audio_type = CDN_DPTX,
 	.ops = &imx8mq_dp_ops,
 	.rw = &imx8mq_rw,
@@ -1356,7 +1355,6 @@ static int imx_hdp_imx_bind(struct device *dev, struct device *master,
 	}
 	dev_info(dev, "dp_num_lanes 0x%02x\n", hdp->edp_num_lanes);
 
-	hdp->is_4kp60 = devtype->is_4kp60;
 	hdp->audio_type = devtype->audio_type;
 	hdp->ops = devtype->ops;
 	hdp->rw = devtype->rw;
