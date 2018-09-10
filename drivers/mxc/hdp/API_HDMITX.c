@@ -55,6 +55,8 @@
 #include "general_handler.h"
 #include <soc/imx8/soc.h>
 
+#define B0_SILICON_ID			0x11
+
 CDN_API_STATUS CDN_API_HDMITX_DDC_READ(state_struct *state,
 				       HDMITX_TRANS_DATA *data_in,
 				       HDMITX_TRANS_DATA *data_out)
@@ -146,23 +148,28 @@ CDN_API_HDMITX_Set_Mode_blocking(state_struct *state,
 	u32 clk_reg_0, clk_reg_1;
 	u8 buff = 1;
 
-	/* enable/disable  scrambler; */
+	/* enable/disable  scrambler */
 	if (protocol == HDMI_TX_MODE_HDMI_2_0) {
-		if (character_rate >= 340000) {
-			buff = 3;	/* enable scrambling + TMDS_Bit_Clock_Ratio */
-		} else {
-			buff = 1;	/* enable scrambling */
-		}
-	} else {
-		buff = 0;	/* disable scrambling */
-	}
+		if (character_rate >= 340000)
+			/* enable scrambling + TMDS_Bit_Clock_Ratio */
+			buff = 3;
+		else
+			/* enable scrambling */
+			buff = 1;
+	} else
+		/* disable scrambling */
+		buff = 0;
 
 	data_in.buff = &buff;
 	data_in.len = 1;
 	data_in.slave = 0x54;
-	data_in.offset = 0x20;	/* TMDS config */
-	/* Workaround for imx8qm DDC R/W failed issue */
-	if (!cpu_is_imx8qm()) {
+	/* TMDS config */
+	data_in.offset = 0x20;
+
+	/* Workaround for imx8qm A0 SOC DDC R/W failed issue */
+	if (cpu_is_imx8qm() && (imx8_get_soc_revision() < B0_SILICON_ID))
+		pr_info("Skip DDC Write for iMX8QM A0 SOC\n");
+	else {
 		ret = CDN_API_HDMITX_DDC_WRITE_blocking(state, &data_in, &data_out);
 		pr_info("CDN_API_HDMITX_DDC_WRITE_blocking ret = %d\n", ret);
 		if (ret != CDN_OK)
