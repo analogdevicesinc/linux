@@ -819,11 +819,14 @@ imx_hdp_connector_mode_valid(struct drm_connector *connector,
 
 	cmdline_mode = &connector->cmdline_mode;
 
-	/* cmdline mode is the max support video mode when edid disabled */
+	/* cmdline mode is the max support video mode when edid disabled
+	 * Add max support pixel rate to 297MHz in case no DDC function with no EDID */
 	if (hdp->no_edid) {
 		if (cmdline_mode->xres != 0 &&
 			cmdline_mode->xres < mode->hdisplay)
 			return MODE_BAD_HVALUE;
+		if (mode->clock > 297000)
+			return MODE_CLOCK_HIGH;
 	}
 
 	/* For iMX8QM A0 Max support video mode is 4kp30 */
