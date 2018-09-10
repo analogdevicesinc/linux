@@ -1095,7 +1095,6 @@
 				reg = <SC_R_M4_0_INTMUX>;
 				#power-domain-cells = <0>;
 				power-domains =<&pd_cm40>;
-				early_power_on;
 			};
 		};
 

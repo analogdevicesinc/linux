@@ -669,6 +669,10 @@
 	};
 };
 
+&pd_cm40_intmux {
+	early_power_on;
+};
+
 &intmux_cm40 {
 	status = "okay";
 };
