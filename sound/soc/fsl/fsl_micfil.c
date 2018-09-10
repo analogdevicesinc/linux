@@ -121,6 +121,10 @@ static const char * const micfil_hwvad_zcdauto_enable[] = {
 	"OFF", "ON",
 };
 
+static const char * const micfil_hwvad_noise_decimation[] = {
+	"Disabled", "Enabled",
+};
+
 
 static const struct soc_enum fsl_micfil_enum[] = {
 	SOC_ENUM_SINGLE(REG_MICFIL_CTRL2,
@@ -135,6 +139,10 @@ static const struct soc_enum fsl_micfil_enum[] = {
 			    micfil_hwvad_zcd_enable),
 	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(micfil_hwvad_zcdauto_enable),
 			    micfil_hwvad_zcd_enable),
+	SOC_ENUM_SINGLE(REG_MICFIL_VAD0_NCONFIG,
+			MICFIL_VAD0_NCONFIG_NOREN_SHIFT,
+			ARRAY_SIZE(micfil_hwvad_noise_decimation),
+			micfil_hwvad_noise_decimation),
 };
 
 static int set_quality(struct snd_kcontrol *kcontrol,
@@ -549,7 +557,8 @@ static const struct snd_kcontrol_new fsl_micfil_snd_controls[] = {
 		     hwvad_get_zcd_en, hwvad_put_zcd_en),
 	SOC_ENUM_EXT("HWVAD Zero-Crossing Detector Auto Threshold", fsl_micfil_enum[4],
 		     hwvad_get_zcd_auto, hwvad_put_zcd_auto),
-
+	SOC_ENUM_EXT("HWVAD Noise OR Enable", fsl_micfil_enum[5],
+		     snd_soc_get_enum_double, snd_soc_put_enum_double),
 	{
 		.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
 		.name = "HWVAD Input Gain",
