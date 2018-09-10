@@ -820,10 +820,6 @@ static const struct regmap_config it6263_lvds_regmap_config = {
 	.cache_type = REGCACHE_NONE,
 };
 
-static const struct i2c_board_info it6263_lvds_i2c = {
-	I2C_BOARD_INFO("it6263_LVDS_i2c", LVDS_INPUT_CTRL_I2C_ADDR),
-};
-
 static int it6263_probe(struct i2c_client *client,
 			const struct i2c_device_id *id)
 {
@@ -844,7 +840,8 @@ static int it6263_probe(struct i2c_client *client,
 	it6263->split_mode = of_property_read_bool(np, "split-mode");
 
 	it6263->hdmi_i2c = client;
-	it6263->lvds_i2c = i2c_new_device(client->adapter, &it6263_lvds_i2c);
+	it6263->lvds_i2c = i2c_new_dummy(client->adapter,
+						LVDS_INPUT_CTRL_I2C_ADDR);
 	if (!it6263->lvds_i2c) {
 		ret = -ENODEV;
 		goto of_reconfig;
