@@ -171,9 +171,8 @@ CDN_API_HDMITX_Set_Mode_blocking(state_struct *state,
 		pr_info("Skip DDC Write for iMX8QM A0 SOC\n");
 	else {
 		ret = CDN_API_HDMITX_DDC_WRITE_blocking(state, &data_in, &data_out);
-		pr_info("CDN_API_HDMITX_DDC_WRITE_blocking ret = %d\n", ret);
 		if (ret != CDN_OK)
-			return ret;
+			pr_warn("CDN_API_HDMITX_DDC_WRITE_blocking ret = %d\n", ret);
 	}
 
 	ret = CDN_API_General_Read_Register_blocking(
