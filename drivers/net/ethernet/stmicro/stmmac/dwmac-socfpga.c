@@ -15,7 +15,7 @@
  * Adopted from dwmac-sti.c
  */
 
-#ifdef CONFIG_HAVE_ARM_SMCCC
+#if defined CONFIG_HAVE_ARM_SMCCC && defined CONFIG_ARCH_STRATIX10
 #include <linux/arm-smccc.h>
 #endif
 #include <linux/mfd/syscon.h>
@@ -55,7 +55,9 @@ struct socfpga_dwmac {
 	int	interface;
 	u32	reg_offset;
 	u32	reg_shift;
+#if defined CONFIG_HAVE_ARM_SMCCC && defined CONFIG_ARCH_STRATIX10
 	u32	sysmgr_reg;
+#endif
 	struct	device *dev;
 	struct regmap *sys_mgr_base_addr;
 	struct reset_control *stmmac_rst;
@@ -65,7 +67,7 @@ struct socfpga_dwmac {
 	struct tse_pcs pcs;
 };
 
-#ifdef CONFIG_HAVE_ARM_SMCCC
+#if defined CONFIG_HAVE_ARM_SMCCC && defined CONFIG_ARCH_STRATIX10
 /* Functions specified by ARM SMC Calling convention:
  *
  * FAST call executes atomic operations, returns when the requested operation
@@ -224,18 +226,23 @@ static int socfpga_dwmac_parse_data(struct socfpga_dwmac *dwmac, struct device *
 {
 	struct device_node *np = dev->of_node;
 	struct regmap *sys_mgr_base_addr;
-	u32 reg_offset, reg_shift, sysmgr_reg = 0;
+	u32 reg_offset, reg_shift;
+#if defined CONFIG_HAVE_ARM_SMCCC && defined CONFIG_ARCH_STRATIX10
+	u32 sysmgr_reg = 0;
+#endif
 	int ret, index;
 	struct device_node *np_splitter = NULL;
 	struct device_node *np_sgmii_adapter = NULL;
+#if defined CONFIG_HAVE_ARM_SMCCC && defined CONFIG_ARCH_STRATIX10
 	struct device_node *np_sysmgr = NULL;
+#endif
 	struct resource res_splitter;
 	struct resource res_tse_pcs;
 	struct resource res_sgmii_adapter;
 
 	dwmac->interface = of_get_phy_mode(np);
 
-#ifdef CONFIG_HAVE_ARM_SMCCC
+#if defined CONFIG_HAVE_ARM_SMCCC && defined CONFIG_ARCH_STRATIX10
 	sys_mgr_base_addr = devm_regmap_init(dev, NULL, (void *)dwmac,
 					     &s10_emac_regmap_cfg);
 	if (IS_ERR(sys_mgr_base_addr))
@@ -360,7 +367,9 @@ static int socfpga_dwmac_parse_data(struct socfpga_dwmac *dwmac, struct device *
 	dwmac->reg_offset = reg_offset;
 	dwmac->reg_shift = reg_shift;
 	dwmac->sys_mgr_base_addr = sys_mgr_base_addr;
+#if defined CONFIG_HAVE_ARM_SMCCC && defined CONFIG_ARCH_STRATIX10
 	dwmac->sysmgr_reg = sysmgr_reg;
+#endif
 	dwmac->dev = dev;
 	of_node_put(np_sgmii_adapter);
 
@@ -377,7 +386,9 @@ static int socfpga_dwmac_set_phy_mode(struct socfpga_dwmac *dwmac)
 	int phymode = dwmac->interface;
 	u32 reg_offset = dwmac->reg_offset;
 	u32 reg_shift = dwmac->reg_shift;
+#if defined CONFIG_HAVE_ARM_SMCCC && defined CONFIG_ARCH_STRATIX10
 	u32 sysmgr_reg = dwmac->sysmgr_reg;
+#endif
 	u32 ctrl, val, module;
 
 	switch (phymode) {
@@ -406,7 +417,11 @@ static int socfpga_dwmac_set_phy_mode(struct socfpga_dwmac *dwmac)
 	reset_control_assert(dwmac->stmmac_ocp_rst);
 	reset_control_assert(dwmac->stmmac_rst);
 
+#if defined CONFIG_HAVE_ARM_SMCCC && defined CONFIG_ARCH_STRATIX10
 	regmap_read(sys_mgr_base_addr, sysmgr_reg + reg_offset, &ctrl);
+#else
+	regmap_read(sys_mgr_base_addr, reg_offset, &ctrl);
+#endif
 	ctrl &= ~(SYSMGR_EMACGRP_CTRL_PHYSEL_MASK << reg_shift);
 	ctrl |= val << reg_shift;
 
@@ -424,7 +439,11 @@ static int socfpga_dwmac_set_phy_mode(struct socfpga_dwmac *dwmac)
 		ctrl &= ~(SYSMGR_EMACGRP_CTRL_PTP_REF_CLK_MASK << (reg_shift / 2));
 	}
 
+#if defined CONFIG_HAVE_ARM_SMCCC && defined CONFIG_ARCH_STRATIX10
 	regmap_write(sys_mgr_base_addr, sysmgr_reg + reg_offset, ctrl);
+#else
+	regmap_write(sys_mgr_base_addr, reg_offset, ctrl);
+#endif
 
 	/* Deassert reset for the phy configuration to be sampled by
 	 * the enet controller, and operation to start in requested mode
