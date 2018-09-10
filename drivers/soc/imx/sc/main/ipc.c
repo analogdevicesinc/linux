@@ -344,10 +344,6 @@ int __init imx8_mu_init(void)
 					irq, err);
 			return err;
 		}
-
-		err = irq_set_irq_wake(irq, 1);
-		if (err)
-			pr_err("imx8mu_init: set_irq_wake failed: %d\n", err);
 	}
 
 	if (!scu_mu_init) {
