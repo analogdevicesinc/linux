@@ -1081,6 +1081,10 @@
 	status = "okay";
 };
 
+&pd_cm40_intmux {
+	early_power_on;
+};
+
 &intmux_cm40 {
 	status = "okay";
 };
@@ -1092,6 +1096,10 @@
 	vdev-nums = <1>;
 	reg = <0x0 0x90000000 0x0 0x10000>;
 	status = "okay";
+};
+
+&pd_cm41_intmux {
+	early_power_on;
 };
 
 &intmux_cm41 {
