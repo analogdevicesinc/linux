@@ -1237,6 +1237,14 @@ static int mipi_csis_pm_resume(struct device *dev, bool runtime)
 #ifdef CONFIG_PM_SLEEP
 static int mipi_csis_suspend(struct device *dev)
 {
+	struct platform_device *pdev = to_platform_device(dev);
+	struct csi_state *state = platform_get_drvdata(pdev);
+
+	if (state->flags & ST_STREAMING) {
+		dev_warn(dev, "running, prevent entering suspend.\n");
+		return -EAGAIN;
+	}
+
 	return mipi_csis_pm_suspend(dev, false);
 }
 
