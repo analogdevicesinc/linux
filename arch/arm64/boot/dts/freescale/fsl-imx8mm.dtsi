@@ -306,6 +306,7 @@
 			<&clk IMX8MM_CLK_DISP_APB_ROOT>;
 		clock-names = "mipi_clk", "phy_clk", "disp_axi", "disp_apb";
 		bus-width = <4>;
+		csi-gpr = <&dispmix_gpr>;
 		power-domains = <&mipi_pd>;
 		status = "disabled";
 	};
