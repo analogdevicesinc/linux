@@ -382,7 +382,7 @@ void dcss_ctxld_kick(struct dcss_soc *dcss)
 	dcss_trace_module(TRACE_CTXLD, TRACE_KICK);
 
 	spin_lock_irqsave(&ctxld->lock, flags);
-	if (ctxld->armed) {
+	if (ctxld->armed && !ctxld->in_use) {
 		ctxld->armed = false;
 		__dcss_ctxld_enable(dcss->ctxld_priv);
 	}
