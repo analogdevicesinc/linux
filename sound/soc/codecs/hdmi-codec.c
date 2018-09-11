@@ -513,13 +513,11 @@ static int hdmi_codec_hw_params(struct snd_pcm_substream *substream,
 	/* Select a channel allocation that matches with ELD and pcm channels */
 	idx = hdmi_codec_get_ch_alloc_table_idx(hcp, hp.cea.channels);
 	if (idx < 0) {
-		dev_err(dai->dev, "Not able to map channels to speakers (%d)\n",
-			idx);
 		hcp->chmap_idx = HDMI_CODEC_CHMAP_IDX_UNKNOWN;
-		return idx;
+	} else {
+		hp.cea.channel_allocation = hdmi_codec_channel_alloc[idx].ca_id;
+		hcp->chmap_idx = hdmi_codec_channel_alloc[idx].ca_id;
 	}
-	hp.cea.channel_allocation = hdmi_codec_channel_alloc[idx].ca_id;
-	hcp->chmap_idx = hdmi_codec_channel_alloc[idx].ca_id;
 
 	hp.sample_width = params_width(params);
 	hp.sample_rate = params_rate(params);
