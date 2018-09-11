@@ -1621,24 +1621,13 @@ static int ov5640_set_mode_exposure_calc(struct ov5640_dev *sensor,
  * change mode directly
  */
 static int ov5640_set_mode_direct(struct ov5640_dev *sensor,
-				  const struct ov5640_mode_info *mode,
-				  bool auto_exp)
+				  const struct ov5640_mode_info *mode)
 {
 	if (!mode->reg_data)
 		return -EINVAL;
 
 	/* Write capture setting */
-	ret = ov5640_load_regs(sensor, mode);
-	if (ret < 0)
-		return ret;
-
-	/* turn auto gain/exposure back on for direct mode */
-	ret = __v4l2_ctrl_s_ctrl(sensor->ctrls.auto_gain, 1);
-	if (ret)
-		return ret;
-
-	return __v4l2_ctrl_s_ctrl(sensor->ctrls.auto_exp, auto_exp ?
-				  V4L2_EXPOSURE_AUTO : V4L2_EXPOSURE_MANUAL);
+	return ov5640_load_regs(sensor, mode);
 }
 
 static int ov5640_set_mode(struct ov5640_dev *sensor)
@@ -1678,7 +1667,7 @@ static int ov5640_set_mode(struct ov5640_dev *sensor)
 		 * change inside subsampling or scaling
 		 * download firmware directly
 		 */
-		ret = ov5640_set_mode_direct(sensor, mode, auto_exp);
+		ret = ov5640_set_mode_direct(sensor, mode);
 	}
 	if (ret < 0)
 		goto restore_auto_exp_gain;
