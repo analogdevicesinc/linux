@@ -680,7 +680,8 @@ bool imx_hdp_bridge_mode_fixup(struct drm_bridge *bridge,
 	if (vic < 0)
 		return false;
 
-	if (vic == VIC_MODE_97_60Hz &&
+	/* force output 10bit YUV420 if HDMI sink support HDR10 */
+	if (vic == VIC_MODE_97_60Hz && cpu_is_imx8mq() &&
 	    (di->color_formats & DRM_COLOR_FORMAT_YCRCB420) &&
 	    (di->hdmi.y420_dc_modes & DRM_EDID_YCBCR420_DC_30)) {
 		hdp->bpc = 10;
