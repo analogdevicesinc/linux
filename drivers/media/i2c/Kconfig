@@ -222,6 +222,7 @@ config VIDEO_ADV7604
 	depends on GPIOLIB || COMPILE_TEST
 	select HDMI
 	select V4L2_FWNODE
+	select CEC_CORE
 	---help---
 	  Support for the Analog Devices ADV7604 video decoder.
 
@@ -234,7 +235,6 @@ config VIDEO_ADV7604
 config VIDEO_ADV7604_CEC
 	bool "Enable Analog Devices ADV7604 CEC support"
 	depends on VIDEO_ADV7604
-	select CEC_CORE
 	---help---
 	  When selected the adv7604 will support the optional
 	  HDMI CEC feature.
