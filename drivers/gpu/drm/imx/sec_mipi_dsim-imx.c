@@ -101,12 +101,12 @@ static void imx_sec_dsim_lanes_reset(struct regmap *gpr, bool reset)
 	if (!reset)
 		/* release lanes reset */
 		regmap_update_bits(gpr, GPR_MIPI_RESET_DIV,
-				   GPR_MIPI_S_RESETN | GPR_MIPI_M_RESETN,
-				   GPR_MIPI_S_RESETN | GPR_MIPI_M_RESETN);
+				   GPR_MIPI_M_RESETN,
+				   GPR_MIPI_M_RESETN);
 	else
 		/* reset lanes */
 		regmap_update_bits(gpr, GPR_MIPI_RESET_DIV,
-				   GPR_MIPI_S_RESETN | GPR_MIPI_M_RESETN,
+				   GPR_MIPI_M_RESETN,
 				   0x0);
 }
 
