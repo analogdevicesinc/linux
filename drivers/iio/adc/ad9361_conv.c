@@ -677,7 +677,7 @@ static int ad9361_post_setup(struct iio_dev *indio_dev)
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
 	struct ad9361_rf_phy *phy = conv->phy;
 	bool rx2tx2 = ad9361_uses_rx2tx2(phy);
-	bool half_rate = phy->pdata->axi_half_dac_rate_en;
+	bool half_rate = ad9361_axi_half_dac_rate(phy);
 	unsigned tmp, num_chan, flags;
 	int i, ret;
 

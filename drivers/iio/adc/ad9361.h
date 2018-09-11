@@ -176,6 +176,7 @@ int ad9361_dig_tune(struct ad9361_rf_phy *phy, unsigned long max_freq,
 int ad9361_tx_mute(struct ad9361_rf_phy *phy, u32 state);
 int ad9361_write_bist_reg(struct ad9361_rf_phy *phy, u32 val);
 bool ad9361_uses_rx2tx2(struct ad9361_rf_phy *phy);
+bool ad9361_axi_half_dac_rate(struct ad9361_rf_phy *phy);
 int ad9361_get_dig_tune_data(struct ad9361_rf_phy *phy,
 			     struct ad9361_dig_tune_data *data);
 int ad9361_read_clock_data_delays(struct ad9361_rf_phy *phy);
