@@ -28,6 +28,9 @@ Optional properties:
 - trx_stby_gpio : standby gpio
 - trx_nerr_gpio : NERR gpio
 - disable-fd-mode : disable CAN FD mode support. Valid since i.MX8 series.
+- clk-src : Selects the clock source to the CAN Protocol Engine (PE). It's SoC
+	    Implementation dependent. Refer to RM for detailed definition.
+	    0: clock source 0 1: clock source 1
 
 Example:
 
