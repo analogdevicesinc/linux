@@ -146,7 +146,7 @@
 					vendor {
 						compatible = "android,vendor";
 						/* emmc node which used if androidboot.storage_type=emmc */
-						dev_emmc = "/dev/block/platform/passthrough/15b010000.usdhc/by-name/vendor";
+						dev_emmc = "/dev/block/platform/passthrough/5b010000.usdhc/by-name/vendor";
 						type = "ext4";
 						mnt_flags = "ro,barrier=1,inode_readahead_blks=8";
 						fsmgr_flags = "wait,slotselect,avb";
@@ -553,7 +553,7 @@
 
 /delete-node/ &crypto;
 /delete-node/ &caam_sm;
-/delete-node/ &sc_pwrkey;
+/*/delete-node/ &sc_pwrkey;*/
 /delete-node/ &wdog;
 /delete-node/ &wu;
 
