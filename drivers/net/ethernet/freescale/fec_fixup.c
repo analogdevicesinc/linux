@@ -256,7 +256,8 @@ void fec_enet_get_mac_from_fuse(struct device_node *np, unsigned char *mac)
 	else if (of_machine_is_compatible("fsl,imx8qxp"))
 		imx8qm_get_mac_from_fuse(idx, mac,
 					 &imx8_fuse_mapping[IMX8QXP_FUSE]);
-	else if (of_machine_is_compatible("fsl,imx8mq"))
+	else if (of_machine_is_compatible("fsl,imx8mq") ||
+		 of_machine_is_compatible("fsl,imx8mm"))
 		imx8mq_get_mac_from_fuse(idx, mac);
 }
 
