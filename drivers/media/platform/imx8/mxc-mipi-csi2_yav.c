@@ -406,11 +406,10 @@ static int mipi_csi2_set_fmt(struct v4l2_subdev *sd,
 
 	if (fmt->format.width * fmt->format.height > 720 * 480) {
 		csi2dev->hs_settle = rxhs_settle[1];
-		csi2dev->send_level = 0x300;
 	} else {
 		csi2dev->hs_settle = rxhs_settle[0];
-		csi2dev->send_level = 0x240;
 	}
+	csi2dev->send_level = 64;
 
 	return v4l2_subdev_call(sensor_sd, pad, set_fmt, NULL, fmt);
 }
