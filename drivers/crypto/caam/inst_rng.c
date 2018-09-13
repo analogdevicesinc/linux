@@ -230,7 +230,11 @@ static void kick_trng(struct device *ctrldev, int ent_delay)
 	r4tst = &ctrl->r4tst[0];
 
 	/* put RNG4 into program mode */
-	clrsetbits_32(&r4tst->rtmctl, 0, RTMCTL_PRGM);
+	/* Setting both RTMCTL:PRGM and RTMCTL:TRNG_ACC causes TRNG to
+	 * properly invalidate the entropy in the entropy register and
+	 * force re-generation.
+	 */
+	clrsetbits_32(&r4tst->rtmctl, 0, RTMCTL_PRGM | RTMCTL_ACC);
 
 	/*
 	 * Performance-wise, it does not make sense to
@@ -244,7 +248,7 @@ static void kick_trng(struct device *ctrldev, int ent_delay)
 	      >> RTSDCTL_ENT_DLY_SHIFT;
 	if (ent_delay <= val) {
 		/* put RNG4 into run mode */
-		clrsetbits_32(&r4tst->rtmctl, RTMCTL_PRGM, 0);
+		clrsetbits_32(&r4tst->rtmctl, RTMCTL_PRGM | RTMCTL_ACC, 0);
 		return;
 	}
 
@@ -264,7 +268,7 @@ static void kick_trng(struct device *ctrldev, int ent_delay)
 	 */
 	clrsetbits_32(&val, 0, RTMCTL_SAMP_MODE_RAW_ES_SC);
 	/* put RNG4 into run mode */
-	clrsetbits_32(&val, RTMCTL_PRGM, 0);
+	clrsetbits_32(&val, RTMCTL_PRGM | RTMCTL_ACC, 0);
 	/* write back the control register */
 	wr_reg32(&r4tst->rtmctl, val);
 }
