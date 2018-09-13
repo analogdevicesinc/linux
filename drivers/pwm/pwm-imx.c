@@ -1,4 +1,6 @@
 /*
+ * Copyright 2017-2018 NXP
+ *
  * simple driver for PWM (Pulse Width Modulator) controller
  *
  * This program is free software; you can redistribute it and/or modify
