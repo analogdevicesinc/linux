@@ -50,7 +50,7 @@
 #include "insert_startcode.h"
 
 unsigned int vpu_dbg_level_decoder = 1;
-static int vpu_frm_depth = 100;
+static int vpu_frm_depth = INVALID_FRAME_DEPTH;
 
 /* Generic End of content startcodes to differentiate from those naturally in the stream/file */
 #define EOS_GENERIC_HEVC 0x7c010000
@@ -1450,7 +1450,10 @@ static void v4l2_update_stream_addr(struct vpu_ctx *ctx, uint32_t uStrBufIdx)
 	uint32_t buffer_size;
 
 	down(&This->drv_q_lock);
-	while (!list_empty(&This->drv_q) && (ctx->frm_dec_delay < vpu_frm_depth)) {
+	while (!list_empty(&This->drv_q)) {
+		if (vpu_frm_depth != INVALID_FRAME_DEPTH) //frame depth need to be set by user and then the condition works
+			if (ctx->frm_dec_delay >= vpu_frm_depth)
+				break;
 		p_data_req = list_first_entry(&This->drv_q,
 				typeof(*p_data_req), list);
 
