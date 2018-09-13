@@ -92,6 +92,15 @@ static struct mxc_isi_buffer *vb2_to_isi_buffer(struct vb2_buffer *vb2)
 	return buf;
 }
 
+static struct v4l2_m2m_buffer *to_v4l2_m2m_buffer(struct vb2_buffer *vb2)
+{
+	struct vb2_v4l2_buffer *vbuf = to_vb2_v4l2_buffer(vb2);
+	struct v4l2_m2m_buffer *b;
+
+	b = container_of(vbuf, struct v4l2_m2m_buffer, vb);
+	return b;
+}
+
 static void mxc_isi_m2m_device_run(void *priv)
 {
 	struct mxc_isi_ctx *mxc_ctx = priv;
@@ -252,6 +261,7 @@ static int m2m_vb2_start_streaming(struct vb2_queue *q, unsigned int count)
 	struct mxc_isi_dev *mxc_isi = mxc_ctx->isi_dev;
 	struct v4l2_fh *fh = &mxc_ctx->fh;
 	struct vb2_buffer *dst_vb2;
+	struct  v4l2_m2m_buffer *b;
 	struct mxc_isi_buffer *dst_buf;
 	unsigned long flags;
 
@@ -277,7 +287,9 @@ static int m2m_vb2_start_streaming(struct vb2_queue *q, unsigned int count)
 	dst_buf = vb2_to_isi_buffer(dst_vb2);
 	dst_buf->v4l2_buf.sequence = 0;
 	mxc_isi_channel_set_m2m_out_addr(mxc_isi, dst_buf);
-	list_move_tail(fh->m2m_ctx->cap_q_ctx.rdy_queue.next, &mxc_isi->m2m.out_active);
+	v4l2_m2m_dst_buf_remove(fh->m2m_ctx);
+	b = to_v4l2_m2m_buffer(dst_vb2);
+	list_add_tail(&b->list, &mxc_isi->m2m.out_active);
 
 	/* BUF2 */
 	dst_vb2 = v4l2_m2m_next_dst_buf(fh->m2m_ctx);
@@ -289,7 +301,9 @@ static int m2m_vb2_start_streaming(struct vb2_queue *q, unsigned int count)
 	dst_buf = vb2_to_isi_buffer(dst_vb2);
 	dst_buf->v4l2_buf.sequence = 1;
 	mxc_isi_channel_set_m2m_out_addr(mxc_isi, dst_buf);
-	list_move_tail(fh->m2m_ctx->cap_q_ctx.rdy_queue.next, &mxc_isi->m2m.out_active);
+	v4l2_m2m_dst_buf_remove(fh->m2m_ctx);
+	b = to_v4l2_m2m_buffer(dst_vb2);
+	list_add_tail(&b->list, &mxc_isi->m2m.out_active);
 
 	mxc_isi->m2m.frame_count = 1;
 unlock:
@@ -906,6 +920,7 @@ void mxc_isi_m2m_frame_write_done(struct mxc_isi_dev *mxc_isi)
 	struct mxc_isi_ctx *curr_mxc_ctx;
 	struct vb2_buffer *src_vb2, *dst_vb2;
 	struct mxc_isi_buffer *src_buf, *dst_buf;
+	struct v4l2_m2m_buffer *b;
 
 	dev_dbg(&mxc_isi->pdev->dev, "%s\n", __func__);
 
@@ -967,8 +982,9 @@ void mxc_isi_m2m_frame_write_done(struct mxc_isi_dev *mxc_isi)
 		dst_buf = vb2_to_isi_buffer(dst_vb2);
 		dst_buf->v4l2_buf.sequence = mxc_isi->m2m.frame_count;
 		mxc_isi_channel_set_m2m_out_addr(mxc_isi, dst_buf);
-		list_move_tail(fh->m2m_ctx->cap_q_ctx.rdy_queue.next,
-						&mxc_isi->m2m.out_active);
+		v4l2_m2m_dst_buf_remove(fh->m2m_ctx);
+		b = to_v4l2_m2m_buffer(dst_vb2);
+		list_add_tail(&b->list, &mxc_isi->m2m.out_active);
 	}
 
 job_finish:
