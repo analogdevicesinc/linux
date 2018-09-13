@@ -402,8 +402,12 @@ void dprc_configure(struct dprc *dprc, unsigned int stream_id,
 		preq = modifier ? BYTE_64 : BYTE_1K;
 
 		dprc_write(dprc, preq, FRAME_2P_CTRL0);
-		if (dprc->sc_resource == SC_R_DC_0_BLIT1) {
-			dprc_prg_sel_configure(dprc, SC_R_DC_0_BLIT0, true);
+		if (dprc->sc_resource == SC_R_DC_0_BLIT1 ||
+		    dprc->sc_resource == SC_R_DC_1_BLIT1) {
+			dprc_prg_sel_configure(dprc,
+					dprc->sc_resource == SC_R_DC_0_BLIT1 ?
+					SC_R_DC_0_BLIT0 : SC_R_DC_1_BLIT0,
+					true);
 			prg_set_auxiliary(dprc->prgs[1]);
 			dprc->has_aux_prg = true;
 		}
@@ -411,10 +415,12 @@ void dprc_configure(struct dprc *dprc, unsigned int stream_id,
 	} else {
 		switch (dprc->sc_resource) {
 		case SC_R_DC_0_BLIT0:
-			dprc_prg_sel_configure(dprc, SC_R_DC_0_BLIT0, false);
+		case SC_R_DC_1_BLIT0:
+			dprc_prg_sel_configure(dprc, dprc->sc_resource, false);
 			prg_set_primary(dprc->prgs[0]);
 			break;
 		case SC_R_DC_0_BLIT1:
+		case SC_R_DC_1_BLIT1:
 			dprc->has_aux_prg = false;
 			break;
 		default:
@@ -694,6 +700,7 @@ bool dprc_format_supported(struct dprc *dprc, u32 format, u64 modifier)
 		case SC_R_DC_1_WARP:
 			return false;
 		case SC_R_DC_0_BLIT1:
+		case SC_R_DC_1_BLIT1:
 			return (modifier == DRM_FORMAT_MOD_NONE ||
 				modifier == DRM_FORMAT_MOD_AMPHION_TILED);
 		}
@@ -818,11 +825,11 @@ static int dprc_probe(struct platform_device *pdev)
 
 	switch (dprc->sc_resource) {
 	case SC_R_DC_0_BLIT1:
+	case SC_R_DC_1_BLIT1:
 		dprc->has_aux_prg = true;
 		/* fall-through */
 	case SC_R_DC_0_BLIT0:
 	case SC_R_DC_1_BLIT0:
-	case SC_R_DC_1_BLIT1:
 		dprc->is_blit_chan = true;
 		/* fall-through */
 	case SC_R_DC_0_FRAC0:
