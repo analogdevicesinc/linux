@@ -108,6 +108,7 @@ static const struct of_device_id fsl_rpmsg_i2s_ids[] = {
 	{ .compatible = "fsl,imx7ulp-rpmsg-i2s"},
 	{ .compatible = "fsl,imx8mq-rpmsg-i2s"},
 	{ .compatible = "fsl,imx8qxp-rpmsg-i2s"},
+	{ .compatible = "fsl,imx8qm-rpmsg-i2s"},
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, fsl_rpmsg_i2s_ids);
@@ -188,6 +189,13 @@ static int fsl_rpmsg_i2s_probe(struct platform_device *pdev)
 		rpmsg_i2s->codec_wm8960 = 1 + (1 << 16);
 		rpmsg_i2s->version = 1;
 		rpmsg_i2s->codec_cs42888 = 1 + (2 << 16);
+	}
+
+	if (of_device_is_compatible(pdev->dev.of_node,
+				    "fsl,imx8qm-rpmsg-i2s")) {
+		rpmsg_i2s->codec_wm8960 = 0;
+		rpmsg_i2s->version = 1;
+		rpmsg_i2s->codec_cs42888 = 1 + (0 << 16);
 	}
 
 	if (of_device_is_compatible(pdev->dev.of_node,
