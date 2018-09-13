@@ -1887,7 +1887,7 @@ static struct caam_alg_template driver_algs[] = {
 			.geniv = "eseqiv",
 			.min_keysize = AES_MIN_KEY_SIZE,
 			.max_keysize = AES_MAX_KEY_SIZE,
-			.ivsize = AES_BLOCK_SIZE,
+			.ivsize = 0,
 			},
 		.class1_alg_type = OP_ALG_ALGSEL_AES | OP_ALG_AAI_ECB,
 	},
