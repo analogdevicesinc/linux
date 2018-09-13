@@ -1384,6 +1384,9 @@ static int imx_hdp_imx_bind(struct device *dev, struct device *master,
 		DRM_ERROR("Failed to initialize IPG clock\n");
 		return ret;
 	}
+
+	imx_hdp_call(hdp, pixel_clock_set_rate, &hdp->clks);
+
 	imx_hdp_call(hdp, pixel_clock_enable, &hdp->clks);
 
 	imx_hdp_call(hdp, phy_reset, hdp->ipcHndl, &hdp->mem, 0);
