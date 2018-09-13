@@ -1,7 +1,7 @@
 /*****************************************************************************
  *    The GPL License (GPL)
  *
- *    Copyright (c) 2015-2017, VeriSilicon Inc.
+ *    Copyright (c) 2015-2018, VeriSilicon Inc.
  *    Copyright (c) 2011-2014, Google Inc.
  *
  *    This program is free software; you can redistribute it and/or
@@ -817,12 +817,13 @@ long WaitDecReadyAndRefreshRegs(hantrodec_t *dev, struct core_desc *Core)
 
 	PDEBUG("wait_event_interruptible DEC[%d]\n", id);
 
-	ret = wait_event_interruptible_timeout(dec_wait_queue, CheckDecIrq(dev, id), msecs_to_jiffies(200));
+	//ret = wait_event_interruptible_timeout(dec_wait_queue, CheckDecIrq(dev, id), msecs_to_jiffies(200));
+	ret = wait_event_timeout(dec_wait_queue, CheckDecIrq(dev, id), msecs_to_jiffies(200));
 	if (ret == -ERESTARTSYS) {
-		pr_err("DEC[%d]  failed to wait_event_interruptible interrupted\n", id);
+		pr_err("DEC[%d]  failed to wait_event interrupted\n", id);
 		return -ERESTARTSYS;
 	} else if (ret == 0) {
-		pr_err("DEC[%d]  wait_event_interruptible timeout\n", id);
+		pr_err("DEC[%d]  wait_event timeout\n", id);
 		timeout = 1;
 	}
 
@@ -1669,7 +1670,8 @@ irqreturn_t hantrodec_isr(int irq, void *dev_id)
 
 			dec_irq |= (1 << i);
 
-			wake_up_interruptible_all(&dec_wait_queue);
+			//wake_up_interruptible_all(&dec_wait_queue);
+			wake_up_all(&dec_wait_queue);
 			handled++;
 		}
 	}
