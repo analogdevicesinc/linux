@@ -1,0 +1,78 @@
+/*
+ * Copyright 2018 NXP
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "fsl-imx8qm-mek.dts"
+
+/ {
+	sound-cs42888 {
+		status = "disabled";
+	};
+
+	rpmsg_i2s: rpmsg-i2s {
+		compatible = "fsl,imx8qm-rpmsg-i2s";
+		/* the audio device index in m4 domain */
+		fsl,audioindex = <0>;
+		clocks = <&clk IMX8QM_AUD_MCLKOUT0>;
+		clock-names = "mclk";
+		power-domains = <&pd_mclk_out0>;
+		assigned-clocks = <&clk IMX8QM_AUD_PLL0_DIV>,
+				<&clk IMX8QM_AUD_ACM_AUD_PLL_CLK0_DIV>,
+				<&clk IMX8QM_AUD_ACM_AUD_REC_CLK0_DIV>,
+				<&clk IMX8QM_AUD_MCLKOUT0>;
+		assigned-clock-rates = <786432000>, <49152000>, <12288000>, <12288000>;
+		VA-supply = <&reg_audio>;
+		VD-supply = <&reg_audio>;
+		VLS-supply = <&reg_audio>;
+		VLC-supply = <&reg_audio>;
+		reset-gpio = <&gpio4 25 1>;
+		status = "okay";
+	};
+
+	sound-rpmsg-cs42888 {
+		compatible = "fsl,imx8qm-sabreauto-cs42888",
+				"fsl,imx-audio-cs42888";
+		model = "imx-cs42888";
+		esai-controller = <&esai0>;
+		asrc-controller = <&asrc0>;
+		audio-codec = <&rpmsg_i2s>;
+		codec-rpmsg;
+		status = "okay";
+	};
+};
+
+&i2c0_cm41 {
+	status = "disabled";
+};
+
+&flexcan1 {
+	status = "disabled";
+};
+
+&flexcan2 {
+	status = "disabled";
+};
+
+&flexcan3 {
+	status = "disabled";
+};
+
+&rpmsg1{
+	/*
+	 * 64K for one rpmsg instance, using 2 instance
+	 * 0x90110000 - 0x9011FFFF: audio
+	 */
+	vdev-nums = <2>;
+	reg = <0x0 0x90100000 0x0 0x20000>;
+	status = "okay";
+};
