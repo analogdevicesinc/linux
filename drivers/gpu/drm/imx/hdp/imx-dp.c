@@ -311,7 +311,6 @@ void dp_mode_set(state_struct *state,
 	u8 transfer_unit = 64;
 	VIC_SYMBOL_RATE sym_rate;
 	u8 link_rate;
-	GENERAL_Read_Register_response regresp;
 
 	if (hdp->is_edp) {
 		/* eDP uses device tree link rate and number of lanes */
@@ -384,16 +383,6 @@ void dp_mode_set(state_struct *state,
 		transfer_unit
 		);
 	DRM_INFO("CDN_API_DPTX_Set_VIC_blocking (ret = %d)\n", ret);
-
-	CDN_API_General_Read_Register_blocking(state, ADDR_DPTX_FRAMER +
-					       (DP_FRAMER_SP << 2), &regresp);
-	DRM_INFO("Initial DP_FRAMER_SP: 0x%.2X\n", regresp.val);
-	regresp.val &= ~0x03; // clear HSP and VSP bits
-
-	DRM_INFO("Final DP_FRAMER_SP: 0x%.2X\n", regresp.val);
-	CDN_API_General_Write_Register_blocking(state, ADDR_DPTX_FRAMER +
-						(DP_FRAMER_SP << 2),
-						regresp.val);
 
 	do {
 		ret = CDN_API_DPTX_TrainingControl_blocking(state, 1);

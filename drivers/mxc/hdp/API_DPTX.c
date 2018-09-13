@@ -522,7 +522,7 @@ CDN_API_STATUS CDN_API_DPTX_Set_VIC(state_struct *state,
 
 	MSA_HORIZONTAL_1_Param =
 	    mode->hsync_end - mode->hsync_start +
-	    ((mode->flags & DRM_MODE_FLAG_NHSYNC ? 0 : 1) << 15) + (mode->hdisplay << 16);
+	    ((mode->flags & DRM_MODE_FLAG_NHSYNC ? 1 : 0) << 15) + (mode->hdisplay << 16);
 
 	MSA_VERTICAL_0_Param =
 	    (mode->flags & DRM_MODE_FLAG_INTERLACE ? (mode->vtotal / 2) : mode->vtotal) +
@@ -530,7 +530,7 @@ CDN_API_STATUS CDN_API_DPTX_Set_VIC(state_struct *state,
 
 	MSA_VERTICAL_1_Param =
 	    (mode->vsync_end - mode->vsync_start +
-		 ((mode->flags & DRM_MODE_FLAG_NVSYNC ? 0 : 1) << 15)) +
+		 ((mode->flags & DRM_MODE_FLAG_NVSYNC ? 1 : 0) << 15)) +
 		((mode->flags & DRM_MODE_FLAG_INTERLACE ? mode->vdisplay / 2 : mode->vdisplay) << 16);
 
 	DP_HORIZONTAL_ADDR_Param = (mode->hdisplay << 16) + mode->hsync;
