@@ -31,6 +31,7 @@ static u32 share_count_sai5;
 static u32 share_count_sai6;
 static u32 share_count_dcss;
 static u32 share_count_pdm;
+static u32 share_count_nand;
 
 /* IDs of PLLs available on i.MX8 Mini */
 enum {
@@ -888,7 +889,8 @@ static void __init imx8mm_clocks_init(struct device_node *ccm_node)
 	clks[IMX8MM_CLK_PWM3_ROOT] = imx_clk_gate4("pwm3_root_clk", "pwm3_div", base + 0x42a0, 0);
 	clks[IMX8MM_CLK_PWM4_ROOT] = imx_clk_gate4("pwm4_root_clk", "pwm4_div", base + 0x42b0, 0);
 	clks[IMX8MM_CLK_QSPI_ROOT] = imx_clk_gate4("qspi_root_clk", "qspi_div", base + 0x42f0, 0);
-	clks[IMX8MM_CLK_NAND_ROOT] = imx_clk_gate4("nand_root_clk", "nand_div", base + 0x4300, 0);
+	clks[IMX8MM_CLK_NAND_ROOT] = imx_clk_gate2_shared2("nand_root_clk", "nand_div", base + 0x4300, 0, &share_count_nand);
+	clks[IMX8MM_CLK_NAND_USDHC_BUS_RAWNAND_CLK] = imx_clk_gate2_shared2("nand_usdhc_rawnand_clk", "nand_usdhc_bus_div", base + 0x4300, 0, &share_count_nand);
 	clks[IMX8MM_CLK_SAI1_ROOT] = imx_clk_gate2_shared2("sai1_root_clk", "sai1_div", base + 0x4330, 0, &share_count_sai1);
 	clks[IMX8MM_CLK_SAI1_IPG] = imx_clk_gate2_shared2("sai1_ipg_clk", "ipg_audio_root", base + 0x4330, 0, &share_count_sai1);
 	clks[IMX8MM_CLK_SAI2_ROOT] = imx_clk_gate2_shared2("sai2_root_clk", "sai2_div", base + 0x4340, 0, &share_count_sai2);
