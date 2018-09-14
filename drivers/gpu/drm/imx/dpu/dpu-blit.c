@@ -88,10 +88,7 @@ static int imx_drm_dpu_set_cmdlist_ioctl(struct drm_device *drm_dev, void *data,
 
 	dpu_be = bliteng->dpu_be;
 
-retry:
 	ret = dpu_be_get(dpu_be);
-	if (ret == -EBUSY)
-		goto retry;
 
 	cmd_nr = req->cmd_nr;
 	cmd = (u32 *)(unsigned long)req->cmd;
@@ -145,10 +142,7 @@ static int imx_drm_dpu_wait_ioctl(struct drm_device *drm_dev, void *data,
 
 	dpu_be = bliteng->dpu_be;
 
-retry:
 	ret = dpu_be_get(dpu_be);
-	if (ret == -EBUSY)
-		goto retry;
 
 	dpu_be_wait(dpu_be);
 
@@ -279,10 +273,7 @@ static int dpu_bliteng_suspend(struct device *dev)
 	if (dpu_bliteng == NULL)
 		return 0;
 
-retry:
 	ret = dpu_be_get(dpu_bliteng);
-	if (ret == -EBUSY)
-		goto retry;
 
 	dpu_be_wait(dpu_bliteng);
 

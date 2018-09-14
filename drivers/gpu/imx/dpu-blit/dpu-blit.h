@@ -25,7 +25,6 @@ struct dpu_bliteng {
 	void __iomem *base;
 	s32 id;
 	struct mutex mutex;
-	bool inuse;
 	s32 irq_store9_shdload;
 	s32 irq_store9_framecomplete;
 	s32 irq_store9_seqcomplete;

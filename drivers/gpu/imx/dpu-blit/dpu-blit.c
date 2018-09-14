@@ -199,13 +199,6 @@ EXPORT_SYMBOL(dpu_bliteng_set_dev);
 int dpu_be_get(struct dpu_bliteng *dpu_be)
 {
 	mutex_lock(&dpu_be->mutex);
-	if (dpu_be->inuse) {
-		mutex_unlock(&dpu_be->mutex);
-		return -EBUSY;
-	}
-
-	dpu_be->inuse = true;
-	mutex_unlock(&dpu_be->mutex);
 
 	return 0;
 }
@@ -213,10 +206,6 @@ EXPORT_SYMBOL(dpu_be_get);
 
 void dpu_be_put(struct dpu_bliteng *dpu_be)
 {
-	mutex_lock(&dpu_be->mutex);
-
-	dpu_be->inuse = false;
-
 	mutex_unlock(&dpu_be->mutex);
 }
 EXPORT_SYMBOL(dpu_be_put);
