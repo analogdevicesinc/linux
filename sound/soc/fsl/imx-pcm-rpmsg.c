@@ -63,6 +63,10 @@ static int imx_rpmsg_pcm_hw_params(struct snd_pcm_substream *substream,
 		rpmsg->send_msg.param.format   = RPMSG_S16_LE;
 	else if (params_format(params) == SNDRV_PCM_FORMAT_S24_LE)
 		rpmsg->send_msg.param.format   = RPMSG_S24_LE;
+	else if (params_format(params) == SNDRV_PCM_FORMAT_DSD_U16_LE)
+		rpmsg->send_msg.param.format   = SNDRV_PCM_FORMAT_DSD_U16_LE;
+	else if (params_format(params) == SNDRV_PCM_FORMAT_DSD_U32_LE)
+		rpmsg->send_msg.param.format   = SNDRV_PCM_FORMAT_DSD_U32_LE;
 	else
 		rpmsg->send_msg.param.format   = RPMSG_S32_LE;
 
@@ -704,7 +708,7 @@ static int i2s_rpmsg_probe(struct rpmsg_device *rpdev)
 {
 	struct platform_device *codec_pdev;
 	struct fsl_rpmsg_i2s *rpmsg_i2s = NULL;
-	struct fsl_rpmsg_codec  rpmsg_codec[2];
+	struct fsl_rpmsg_codec  rpmsg_codec[3];
 	int ret;
 
 	if (!i2s_info_g)
@@ -753,6 +757,22 @@ static int i2s_rpmsg_probe(struct rpmsg_device *rpdev)
 			return ret;
 		}
 	}
+
+	if (rpmsg_i2s->codec_ak4497) {
+		rpmsg_codec[2].audioindex = rpmsg_i2s->codec_ak4497 >> 16;
+		codec_pdev = platform_device_register_data(
+					&rpmsg_i2s->pdev->dev,
+					RPMSG_CODEC_DRV_NAME_AK4497,
+					PLATFORM_DEVID_NONE,
+					&rpmsg_codec[2], sizeof(struct fsl_rpmsg_codec));
+		if (IS_ERR(codec_pdev)) {
+			dev_err(&rpdev->dev,
+				"failed to register rpmsg audio codec\n");
+			ret = PTR_ERR(codec_pdev);
+			return ret;
+		}
+	}
+
 	return 0;
 }
 
