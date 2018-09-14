@@ -407,6 +407,14 @@
        xen,passthrough;
 };
 
+&gpio1 {
+	xen,shared;
+};
+
+&gpio4 {
+	xen,shared;
+};
+
 &dsp {
        xen,passthrough;
 };

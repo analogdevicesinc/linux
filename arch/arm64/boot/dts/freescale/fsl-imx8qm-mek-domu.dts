@@ -433,14 +433,40 @@
 /delete-node/ &edma0;
 /delete-node/ &edma2;
 /delete-node/ &edma3;
-/delete-node/ &gpio0;
-/delete-node/ &gpio1;
-/delete-node/ &gpio2;
-/delete-node/ &gpio3;
-/delete-node/ &gpio4;
-/delete-node/ &gpio5;
-/delete-node/ &gpio6;
-/delete-node/ &gpio7;
+
+&gpio0 {
+	/delete-property/ power-domains;
+	status = "disabled";
+};
+&gpio1 {
+	/delete-property/ power-domains;
+	status = "okay";
+};
+&gpio2 {
+	/delete-property/ power-domains;
+	status = "disabled";
+};
+&gpio3 {
+	/delete-property/ power-domains;
+	status = "disabled";
+};
+&gpio4 {
+	/delete-property/ power-domains;
+	status = "okay";
+};
+&gpio5 {
+	/delete-property/ power-domains;
+	status = "disabled";
+};
+&gpio6 {
+	/delete-property/ power-domains;
+	status = "disabled";
+};
+&gpio7 {
+	/delete-property/ power-domains;
+	status = "disabled";
+};
+
 /delete-node/ &gpio0_mipi_csi0;
 /delete-node/ &gpio0_mipi_csi1;
 /delete-node/ &gpt0;
