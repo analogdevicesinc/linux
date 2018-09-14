@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 NXP
+ * Copyright 2017-2018 NXP
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -111,6 +111,8 @@ static int dcss_enable_vblank(struct drm_crtc *crtc)
 
 	dcss_vblank_irq_enable(dcss, true);
 
+	dcss_dtg_ctxld_kick_irq_enable(dcss, true);
+
 	enable_irq(dcss_crtc->irq);
 
 	return 0;
@@ -125,6 +127,8 @@ static void dcss_disable_vblank(struct drm_crtc *crtc)
 	disable_irq_nosync(dcss_crtc->irq);
 
 	dcss_vblank_irq_enable(dcss, false);
+
+	dcss_dtg_ctxld_kick_irq_enable(dcss, false);
 
 	dcss_crtc->irq_enabled = false;
 }
@@ -244,7 +248,7 @@ static void dcss_crtc_atomic_enable(struct drm_crtc *crtc,
 
 	pm_runtime_get_sync(dcss_crtc->dev->parent);
 
-	dcss_enable_vblank(crtc);
+	dcss_dtg_ctxld_kick_irq_enable(dcss, true);
 
 	dcss_dtg_sync_set(dcss, &vm);
 
@@ -281,6 +285,8 @@ static void dcss_crtc_atomic_disable(struct drm_crtc *crtc,
 	}
 	spin_unlock_irq(&crtc->dev->event_lock);
 
+	dcss_dtg_ctxld_kick_irq_enable(dcss, true);
+
 	dcss_ss_enable(dcss, false);
 	dcss_dtg_enable(dcss, false, &dcss_crtc->en_dis_completion);
 	dcss_ctxld_enable(dcss);
@@ -292,6 +298,8 @@ static void dcss_crtc_atomic_disable(struct drm_crtc *crtc,
 				    msecs_to_jiffies(100));
 
 	drm_crtc_vblank_off(crtc);
+
+	dcss_dtg_ctxld_kick_irq_enable(dcss, false);
 
 	pm_runtime_put_sync(dcss_crtc->dev->parent);
 }

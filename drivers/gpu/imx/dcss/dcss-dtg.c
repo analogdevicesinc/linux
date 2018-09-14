@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 NXP
+ * Copyright (C) 2017-2018 NXP
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -483,6 +483,18 @@ void dcss_dtg_vblank_irq_enable(struct dcss_soc *dcss, bool en)
 
 	dcss_dpr_irq_enable(dcss, en);
 
+	if (en) {
+		status = dcss_readl(dtg->base_reg + DCSS_DTG_INT_STATUS);
+		dcss_writel(status & LINE1_IRQ,
+			    dtg->base_reg + DCSS_DTG_INT_CONTROL);
+	}
+}
+
+void dcss_dtg_ctxld_kick_irq_enable(struct dcss_soc *dcss, bool en)
+{
+	struct dcss_dtg_priv *dtg = dcss->dtg_priv;
+	u32 status;
+
 	/* need to keep the CTXLD kick interrupt ON if DTRC is used */
 	if (!en && (dcss_dtrc_is_running(dcss, 1) ||
 		    dcss_dtrc_is_running(dcss, 2)))
@@ -492,22 +504,23 @@ void dcss_dtg_vblank_irq_enable(struct dcss_soc *dcss, bool en)
 		status = dcss_readl(dtg->base_reg + DCSS_DTG_INT_STATUS);
 
 		if (!dtg->ctxld_kick_irq_en) {
-			dcss_writel(status & (LINE0_IRQ | LINE1_IRQ),
+			dcss_writel(status & LINE0_IRQ,
 				    dtg->base_reg + DCSS_DTG_INT_CONTROL);
 			enable_irq(dtg->ctxld_kick_irq);
 			dtg->ctxld_kick_irq_en = true;
 			return;
 		}
 
-		dcss_writel(status & LINE1_IRQ,
-			    dtg->base_reg + DCSS_DTG_INT_CONTROL);
-
 		return;
 	}
+
+	if (!dtg->ctxld_kick_irq_en)
+		return;
 
 	disable_irq(dtg->ctxld_kick_irq);
 	dtg->ctxld_kick_irq_en = false;
 }
+EXPORT_SYMBOL(dcss_dtg_ctxld_kick_irq_enable);
 
 void dcss_dtg_vblank_irq_clear(struct dcss_soc *dcss)
 {
