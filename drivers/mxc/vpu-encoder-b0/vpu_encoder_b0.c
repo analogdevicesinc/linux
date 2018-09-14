@@ -61,49 +61,58 @@ static char *mu_cmp[] = {
 // H264 level is maped like level 5.1 to uLevel 51, except level 1b to uLevel 14
 u_int32 h264_lvl[] = {10, 14, 11, 12, 13, 20, 21, 22, 30, 31, 32, 40, 41, 42, 50, 51};
 
+#define ITEM_NAME(name)		\
+				[name] = #name
+
 static char *cmd2str[] = {
-	"GTB_ENC_CMD_NOOP",   /*0x0*/
-	"GTB_ENC_CMD_STREAM_START",
-	"GTB_ENC_CMD_FRAME_ENCODE",
-	"GTB_ENC_CMD_FRAME_SKIP",
-	"GTB_ENC_CMD_STREAM_STOP",
-	"GTB_ENC_CMD_PARAMETER_UPD",
-	"GTB_ENC_CMD_TERMINATE",
-	"GTB_ENC_CMD_SNAPSHOT",
-	"GTB_ENC_CMD_ROLL_SNAPSHOT",
-	"GTB_ENC_CMD_LOCK_SCHEDULER",
-	"GTB_ENC_CMD_UNLOCK_SCHEDULER",
-	"GTB_ENC_CMD_CONFIGURE_CODEC",
-	"GTB_ENC_CMD_DEAD_MARK",
+	ITEM_NAME(GTB_ENC_CMD_NOOP),
+	ITEM_NAME(GTB_ENC_CMD_STREAM_START),
+	ITEM_NAME(GTB_ENC_CMD_FRAME_ENCODE),
+	ITEM_NAME(GTB_ENC_CMD_FRAME_SKIP),
+	ITEM_NAME(GTB_ENC_CMD_STREAM_STOP),
+	ITEM_NAME(GTB_ENC_CMD_PARAMETER_UPD),
+	ITEM_NAME(GTB_ENC_CMD_TERMINATE),
+	ITEM_NAME(GTB_ENC_CMD_SNAPSHOT),
+	ITEM_NAME(GTB_ENC_CMD_ROLL_SNAPSHOT),
+	ITEM_NAME(GTB_ENC_CMD_LOCK_SCHEDULER),
+	ITEM_NAME(GTB_ENC_CMD_UNLOCK_SCHEDULER),
+	ITEM_NAME(GTB_ENC_CMD_CONFIGURE_CODEC),
+	ITEM_NAME(GTB_ENC_CMD_DEAD_MARK),
+	ITEM_NAME(GTB_ENC_CMD_RESERVED)
 };
 
 static char *event2str[] = {
-	"VID_API_EVENT_UNDEFINED", /*0x1*/
-	"VID_API_ENC_EVENT_RESET_DONE", /*0x1*/
-	"VID_API_ENC_EVENT_START_DONE",
-	"VID_API_ENC_EVENT_STOP_DONE",
-	"VID_API_ENC_EVENT_TERMINATE_DONE",
-	"VID_API_ENC_EVENT_FRAME_INPUT_DONE",
-	"VID_API_ENC_EVENT_FRAME_DONE",
-	"VID_API_ENC_EVENT_FRAME_RELEASE",
-	"VID_API_ENC_EVENT_PARA_UPD_DONE",
-	"VID_API_ENC_EVENT_MEM_REQUEST",
+	ITEM_NAME(VID_API_EVENT_UNDEFINED),
+	ITEM_NAME(VID_API_ENC_EVENT_RESET_DONE),
+	ITEM_NAME(VID_API_ENC_EVENT_START_DONE),
+	ITEM_NAME(VID_API_ENC_EVENT_STOP_DONE),
+	ITEM_NAME(VID_API_ENC_EVENT_TERMINATE_DONE),
+	ITEM_NAME(VID_API_ENC_EVENT_FRAME_INPUT_DONE),
+	ITEM_NAME(VID_API_ENC_EVENT_FRAME_DONE),
+	ITEM_NAME(VID_API_ENC_EVENT_FRAME_RELEASE),
+	ITEM_NAME(VID_API_ENC_EVENT_PARA_UPD_DONE),
+	ITEM_NAME(VID_API_ENC_EVENT_MEM_REQUEST),
+	ITEM_NAME(VID_API_ENC_EVENT_RESERVED)
 };
 
 static void vpu_log_event(u_int32 uEvent, u_int32 ctxid)
 {
-	if (uEvent > ARRAY_SIZE(event2str)-1)
-		vpu_dbg(LVL_INFO, "reveive event: 0x%X, ctx id:%d\n", uEvent, ctxid);
+	if (uEvent >= VID_API_ENC_EVENT_RESERVED)
+		vpu_dbg(LVL_ERR, "reveive event: 0x%X, ctx id:%d\n",
+				uEvent, ctxid);
 	else
-		vpu_dbg(LVL_INFO, "recevie event: %s, ctx id:%d\n", event2str[uEvent], ctxid);
+		vpu_dbg(LVL_INFO, "recevie event: %s, ctx id:%d\n",
+				event2str[uEvent], ctxid);
 }
 
 static void vpu_log_cmd(u_int32 cmdid, u_int32 ctxid)
 {
-	if (cmdid > ARRAY_SIZE(cmd2str)-1)
-		vpu_dbg(LVL_INFO, "send cmd: 0x%X, ctx id:%d\n", cmdid, ctxid);
+	if (cmdid >= GTB_ENC_CMD_RESERVED)
+		vpu_dbg(LVL_ERR, "send cmd: 0x%X, ctx id:%d\n",
+				cmdid, ctxid);
 	else
-		vpu_dbg(LVL_INFO, "send cmd: %s ctx id:%d\n", cmd2str[cmdid], ctxid);
+		vpu_dbg(LVL_INFO, "send cmd: %s ctx id:%d\n",
+				cmd2str[cmdid], ctxid);
 }
 
 /*
@@ -116,6 +125,7 @@ static struct vpu_v4l2_fmt  formats_compressed_enc[] = {
 		.fourcc     = V4L2_PIX_FMT_H264,
 		.num_planes = 1,
 		.venc_std   = VPU_VIDEO_AVC,
+		.is_yuv     = 0,
 	},
 };
 
@@ -125,6 +135,7 @@ static struct vpu_v4l2_fmt  formats_yuv_enc[] = {
 		.fourcc     = V4L2_PIX_FMT_NV12,
 		.num_planes	= 2,
 		.venc_std   = VPU_PF_YUV420_SEMIPLANAR,
+		.is_yuv     = 1,
 	},
 };
 static void v4l2_vpu_send_cmd(struct vpu_ctx *ctx, uint32_t idx, uint32_t cmdid, uint32_t cmdnum, uint32_t *local_cmddata);
@@ -145,7 +156,10 @@ static int v4l2_ioctl_querycap(struct file *file,
 	strlcpy(cap->card, "vpu encoder", sizeof(cap->card));
 	strlcpy(cap->bus_info, "platform:", sizeof(cap->bus_info));
 	cap->version = KERNEL_VERSION(0, 0, 1);
-	cap->device_caps = V4L2_CAP_VIDEO_M2M_MPLANE | V4L2_CAP_STREAMING;
+	cap->device_caps = V4L2_CAP_VIDEO_M2M_MPLANE |
+				V4L2_CAP_STREAMING |
+				V4L2_CAP_VIDEO_CAPTURE_MPLANE |
+				V4L2_CAP_VIDEO_OUTPUT_MPLANE;
 	cap->capabilities = cap->device_caps | V4L2_CAP_DEVICE_CAPS;
 	return 0;
 }
@@ -259,6 +273,97 @@ static void *phy_to_virt(u_int32 src, unsigned long long offset)
 	return result;
 }
 
+static struct vpu_v4l2_fmt *find_fmt_by_fourcc(struct vpu_v4l2_fmt *fmts,
+						unsigned int size,
+						u32 fourcc)
+{
+	unsigned int i;
+
+	if (!fmts || !size)
+		return NULL;
+
+	for (i = 0; i < size; i++) {
+		if (fmts[i].fourcc == fourcc)
+			return &fmts[i];
+	}
+
+	return NULL;
+}
+
+static char *cvrt_fourcc_to_str(u32 pixelformat)
+{
+	static char str[5];
+
+	str[0] = pixelformat & 0xff;
+	str[1] = (pixelformat >> 8) & 0xff;
+	str[2] = (pixelformat >> 16) & 0xff;
+	str[3] = (pixelformat >> 24) & 0xff;
+	str[4] = '\0';
+
+	return str;
+}
+
+static int set_yuv_queue_fmt(struct queue_data *q_data, struct v4l2_format *f)
+{
+	struct vpu_v4l2_fmt *fmt = NULL;
+	struct v4l2_pix_format_mplane *pix_mp = &f->fmt.pix_mp;
+	int i;
+
+	if (!q_data || !f)
+		return -EINVAL;
+
+	fmt = find_fmt_by_fourcc(q_data->supported_fmts, q_data->fmt_count,
+				pix_mp->pixelformat);
+	if (!fmt) {
+		vpu_dbg(LVL_ERR, "unsupport yuv fmt : %s\n",
+				cvrt_fourcc_to_str(pix_mp->pixelformat));
+		return -EINVAL;
+	}
+
+	q_data->fourcc = pix_mp->pixelformat;
+	q_data->width = pix_mp->width;
+	q_data->height = pix_mp->height;
+	q_data->rect.left = 0;
+	q_data->rect.top = 0;
+	q_data->rect.width = pix_mp->width;
+	q_data->rect.height = pix_mp->height;
+	q_data->sizeimage[0] = pix_mp->width * pix_mp->height;
+	q_data->sizeimage[1] = pix_mp->width * pix_mp->height / 2;
+	pix_mp->num_planes = fmt->num_planes;
+	for (i = 0; i < pix_mp->num_planes; i++)
+		pix_mp->plane_fmt[i].sizeimage = q_data->sizeimage[i];
+
+	q_data->current_fmt = fmt;
+
+	return 0;
+}
+
+static int set_enc_queue_fmt(struct queue_data *q_data, struct v4l2_format *f)
+{
+	struct vpu_v4l2_fmt *fmt = NULL;
+	struct v4l2_pix_format_mplane *pix_mp = &f->fmt.pix_mp;
+
+	if (!q_data || !f)
+		return -EINVAL;
+
+	fmt = find_fmt_by_fourcc(q_data->supported_fmts, q_data->fmt_count,
+				pix_mp->pixelformat);
+	if (!fmt) {
+		vpu_dbg(LVL_ERR, "unsupport encode fmt : %s\n",
+				cvrt_fourcc_to_str(pix_mp->pixelformat));
+		return -EINVAL;
+	}
+
+	q_data->fourcc = pix_mp->pixelformat;
+	q_data->width = pix_mp->width;
+	q_data->height = pix_mp->height;
+	q_data->sizeimage[0] = pix_mp->plane_fmt[0].sizeimage;
+
+	q_data->current_fmt = fmt;
+
+	return 0;
+}
+
 static int v4l2_ioctl_s_fmt(struct file *file,
 		void *fh,
 		struct v4l2_format *f
@@ -273,7 +378,6 @@ static int v4l2_ioctl_s_fmt(struct file *file,
 	pMEDIA_ENC_API_CONTROL_INTERFACE pEncCtrlInterface;
 	pMEDIAIP_ENC_PARAM  pEncParam;
 	pMEDIAIP_ENC_EXPERT_MODE_PARAM pEncExpertModeParam;
-	u_int32 i;
 
 	pEncCtrlInterface = (pMEDIA_ENC_API_CONTROL_INTERFACE)phy_to_virt(pSharedInterface->pEncCtrlInterface[ctx->str_index],
 			dev->shared_mem.base_offset);
@@ -283,30 +387,20 @@ static int v4l2_ioctl_s_fmt(struct file *file,
 			dev->shared_mem.base_offset);
 	vpu_dbg(LVL_INFO, "%s()\n", __func__);
 
-	if (f->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
+	switch (f->type) {
+	case V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE:
 		q_data = &ctx->q_data[V4L2_SRC];
-
 		get_param_from_v4l2(pEncParam, pix_mp, ctx);
-		q_data->fourcc = pix_mp->pixelformat;
-		q_data->width = pix_mp->width;
-		q_data->height = pix_mp->height;
-		q_data->rect.left = 0;
-		q_data->rect.top = 0;
-		q_data->rect.width = pix_mp->width;
-		q_data->rect.height = pix_mp->height;
-		q_data->sizeimage[0] = pix_mp->width * pix_mp->height;
-		q_data->sizeimage[1] = pix_mp->width * pix_mp->height / 2;
-		pix_mp->num_planes = 2;
-		for (i = 0; i < pix_mp->num_planes; i++)
-			pix_mp->plane_fmt[i].sizeimage = q_data->sizeimage[i];
-	} else if (f->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
+		ret = set_yuv_queue_fmt(q_data, f);
+		break;
+	case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE:
 		q_data = &ctx->q_data[V4L2_DST];
-		q_data->fourcc = pix_mp->pixelformat;
-		q_data->width = pix_mp->width;
-		q_data->height = pix_mp->height;
-		q_data->sizeimage[0] = pix_mp->plane_fmt[0].sizeimage;
-	} else
+		ret = set_enc_queue_fmt(q_data, f);
+		break;
+	default:
 		ret = -EINVAL;
+		break;
+	}
 
 	return ret;
 }
@@ -408,6 +502,83 @@ static int v4l2_ioctl_querybuf(struct file *file,
 	return ret;
 }
 
+static struct vb2_buffer *cvrt_v4l2_to_vb2_buffer(struct vb2_queue *vq,
+						struct v4l2_buffer *buf)
+{
+	if (!vq || !buf)
+		return NULL;
+
+	if (buf->index < 0 || buf->index >= vq->num_buffers)
+		return NULL;
+
+	return vq->bufs[buf->index];
+}
+
+static int is_valid_output_mplane_buf(struct queue_data *q_data,
+					struct vpu_v4l2_fmt *fmt,
+					struct v4l2_buffer *buf)
+{
+	int i;
+
+	for (i = 0; i < fmt->num_planes; i++) {
+		if (!buf->m.planes[i].bytesused)
+			return 0;
+		if (fmt->is_yuv &&
+			buf->m.planes[i].bytesused != q_data->sizeimage[i])
+			return 0;
+	}
+
+	return 1;
+}
+
+static int is_valid_output_buf(struct queue_data *q_data,
+				struct vpu_v4l2_fmt *fmt,
+				struct v4l2_buffer *buf)
+{
+	if (!buf->bytesused)
+		return 0;
+	if (fmt->is_yuv && buf->bytesused != q_data->sizeimage[0])
+		return 0;
+
+	return 1;
+}
+
+static int precheck_qbuf(struct queue_data *q_data, struct v4l2_buffer *buf)
+{
+	struct vb2_buffer *vb = NULL;
+	struct vpu_v4l2_fmt *fmt;
+	int ret;
+
+	if (!q_data || !buf)
+		return -EINVAL;
+
+	if (!q_data->current_fmt)
+		return -EINVAL;
+
+	vb = cvrt_v4l2_to_vb2_buffer(&q_data->vb2_q, buf);
+	if (!vb) {
+		vpu_dbg(LVL_ERR, "invalid v4l2 buffer index:%d\n", buf->index);
+		return -EINVAL;
+	}
+	if (vb->state != VB2_BUF_STATE_DEQUEUED) {
+		vpu_dbg(LVL_ERR, "invalid buffer state:%d\n", vb->state);
+		return -EINVAL;
+	}
+
+	if (!V4L2_TYPE_IS_OUTPUT(buf->type))
+		return 0;
+
+	fmt = q_data->current_fmt;
+	if (V4L2_TYPE_IS_MULTIPLANAR(buf->type))
+		ret = is_valid_output_mplane_buf(q_data, fmt, buf);
+	else
+		ret = is_valid_output_buf(q_data, fmt, buf);
+	if (!ret)
+		return -EINVAL;
+
+	return 0;
+}
+
 static int v4l2_ioctl_qbuf(struct file *file,
 		void *fh,
 		struct v4l2_buffer *buf
@@ -425,6 +596,10 @@ static int v4l2_ioctl_qbuf(struct file *file,
 		q_data = &ctx->q_data[V4L2_DST];
 	else
 		return -EINVAL;
+
+	ret = precheck_qbuf(q_data, buf);
+	if (ret < 0)
+		return ret;
 
 	ret = vb2_qbuf(&q_data->vb2_q, buf);
 	if (buf->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE)
@@ -594,8 +769,7 @@ static int v4l2_ioctl_streamoff(struct file *file,
 
 		ctx->start_flag = true;
 	}
-	ret = vb2_streamoff(&q_data->vb2_q,
-			i);
+	ret = vb2_streamoff(&q_data->vb2_q, i);
 	return ret;
 }
 
@@ -1749,6 +1923,11 @@ static int v4l2_open(struct file *filp)
 	ctx->actFrame.virt_addr = NULL;
 	ctx->actFrame.phy_addr = 0;
 	ctx->actFrame.size = 0;
+
+	ctx->q_data[V4L2_SRC].supported_fmts = formats_yuv_enc;
+	ctx->q_data[V4L2_SRC].fmt_count = ARRAY_SIZE(formats_yuv_enc);
+	ctx->q_data[V4L2_DST].supported_fmts = formats_compressed_enc;
+	ctx->q_data[V4L2_DST].fmt_count = ARRAY_SIZE(formats_compressed_enc);
 
 	return 0;
 

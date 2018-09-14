@@ -150,6 +150,7 @@ struct vpu_v4l2_fmt {
 	unsigned int fourcc;
 	unsigned int num_planes;
 	unsigned int venc_std;
+	unsigned int is_yuv;
 };
 
 struct vb2_data_req {
@@ -163,7 +164,7 @@ struct queue_data {
 	unsigned int width;
 	unsigned int height;
 	unsigned int bytesperline;
-	unsigned int sizeimage[2];
+	unsigned int sizeimage[3];
 	unsigned int fourcc;
 	unsigned int vdec_std;
 	struct v4l2_rect rect;
@@ -174,6 +175,9 @@ struct queue_data {
 	struct semaphore drv_q_lock;
 	struct vb2_data_req vb2_reqs[VPU_MAX_BUFFER];
 	enum QUEUE_TYPE type;
+	struct vpu_v4l2_fmt *supported_fmts;
+	unsigned int fmt_count;
+	struct vpu_v4l2_fmt *current_fmt;
 };
 struct vpu_ctx;
 struct core_device {
@@ -254,15 +258,21 @@ struct vpu_ctx {
 
 };
 
-#define LVL_INFO 3
-#define LVL_IRQ  2
-#define LVL_ALL  1
-#define LVL_ERR  0
+#define LVL_DEBUG	4
+#define LVL_INFO	3
+#define LVL_IRQ		2
+#define LVL_ALL		1
+#define LVL_WARN	1
+#define LVL_ERR		0
+
+#ifndef TAG
+#define TAG	"[DEBUG]\t "
+#endif
 
 #define vpu_dbg(level, fmt, arg...) \
 	do { \
 		if (vpu_dbg_level_encoder >= (level)) \
-			printk("[DEBUG]\t " fmt, ## arg); \
+			pr_info(TAG""fmt, ## arg); \
 	} while (0)
 
 #endif
