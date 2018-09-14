@@ -482,16 +482,21 @@ ssize_t iio_enum_write(struct iio_dev *indio_dev,
 	size_t len)
 {
 	const struct iio_enum *e = (const struct iio_enum *)priv;
+	unsigned int i;
 	int ret;
 
 	if (!e->set)
 		return -EINVAL;
 
-	ret = __sysfs_match_string(e->items, e->num_items, buf);
-	if (ret < 0)
-		return ret;
+	for (i = 0; i < e->num_items; i++) {
+		if (e->items[i] && sysfs_streq(buf, e->items[i]))
+			break;
+	}
 
-	ret = e->set(indio_dev, chan, ret);
+	if (i == e->num_items)
+		return -EINVAL;
+
+	ret = e->set(indio_dev, chan, i);
 	return ret ? ret : len;
 }
 EXPORT_SYMBOL_GPL(iio_enum_write);
