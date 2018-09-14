@@ -138,7 +138,8 @@ static int imx6q_set_target(struct cpufreq_policy *policy, unsigned int index)
 	 *  - Disable pll2_pfd2_396m_clk
 	 */
 	if (of_machine_is_compatible("fsl,imx6ul") ||
-	    of_machine_is_compatible("fsl,imx6ull")) {
+	    of_machine_is_compatible("fsl,imx6ull") ||
+	    of_machine_is_compatible("fsl,imx6ulz")) {
 		/*
 		 * When changing pll1_sw_clk's parent to pll1_sys_clk,
 		 * CPU may run at higher than 528MHz, this will lead to
@@ -321,7 +322,8 @@ static int imx6q_cpufreq_probe(struct platform_device *pdev)
 	}
 
 	if (of_machine_is_compatible("fsl,imx6ul") ||
-	    of_machine_is_compatible("fsl,imx6ull")) {
+	    of_machine_is_compatible("fsl,imx6ull") ||
+	    of_machine_is_compatible("fsl,imx6ulz")) {
 		pll2_bus_clk = clk_get(cpu_dev, "pll2_bus");
 		secondary_sel_clk = clk_get(cpu_dev, "secondary_sel");
 		if (IS_ERR(pll2_bus_clk) || IS_ERR(secondary_sel_clk)) {
