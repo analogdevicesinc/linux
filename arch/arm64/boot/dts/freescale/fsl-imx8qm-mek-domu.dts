@@ -88,9 +88,13 @@
 		 *
 		 */
 
-		rpmsg_reserved: rpmsg@0x90100000 {
+		/*
+		 * CM40 rpmsg memory is still for Dom0, the domu.cfg
+		 * not map 0x90000000 - 0x90100000 to DomU.
+		 */
+		rpmsg_reserved: rpmsg@0x90000000 {
 			no-map;
-			reg = <0 0x90100000 0 0x20000>;
+			reg = <0 0x90000000 0 0x400000>;
 		};
 
 		/* global autoconfigured region for contiguous allocations */
@@ -170,6 +174,21 @@
 
 		iomuxc: iomuxc {
 			compatible = "fsl,imx8qm-iomuxc";
+		};
+
+		regulators {
+			compatible = "simple-bus";
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			epdev_on: fixedregulator@100 {
+				compatible = "regulator-fixed";
+				regulator-min-microvolt = <3300000>;
+				regulator-max-microvolt = <3300000>;
+				regulator-name = "epdev_on";
+				gpio = <&gpio4 9 0>;
+				enable-active-high;
+			};
 		};
 
 		#include "fsl-imx8qm-device.dtsi"
@@ -433,7 +452,6 @@
 /delete-node/ &edma0;
 /delete-node/ &edma2;
 /delete-node/ &edma3;
-
 &gpio0 {
 	/delete-property/ power-domains;
 	status = "disabled";
@@ -555,9 +573,17 @@
 	only-dma-mask32 = <1>;
 };
 
-/delete-node/ &hsio;
 /delete-node/ &ocotp;
-/delete-node/ &pciea;
+&pciea {
+	ext_osc = <1>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_pciea>;
+	disable-gpio = <&gpio1 13 GPIO_ACTIVE_LOW>;
+	reset-gpio = <&gpio4 29 GPIO_ACTIVE_LOW>;
+	clkreq-gpio = <&gpio4 27 GPIO_ACTIVE_LOW>;
+	epdev_on-supply = <&epdev_on>;
+	status = "okay";
+};
 /delete-node/ &pcieb;
 /delete-node/ &sata;
 
@@ -656,6 +682,16 @@
 				SC_P_UART1_CTS_B_DMA_UART1_CTS_B	0x06000020
 				SC_P_UART1_RTS_B_DMA_UART1_RTS_B	0x06000020
 				SC_P_QSPI1A_DQS_LSIO_GPIO4_IO22		0x00000021
+			>;
+		};
+
+		pinctrl_pciea: pcieagrp{
+			fsl,pins = <
+				SC_P_PCIE_CTRL0_CLKREQ_B_LSIO_GPIO4_IO27	0x04000021
+				SC_P_PCIE_CTRL0_WAKE_B_LSIO_GPIO4_IO28		0x04000021
+				SC_P_PCIE_CTRL0_PERST_B_LSIO_GPIO4_IO29		0x04000021
+				SC_P_LVDS1_I2C0_SDA_LSIO_GPIO1_IO13		0x06000000
+				SC_P_USDHC2_RESET_B_LSIO_GPIO4_IO09		0x04000021
 			>;
 		};
 	};

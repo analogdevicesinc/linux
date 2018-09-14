@@ -144,6 +144,22 @@
 		compatible = "fsl,imx8qm-mu-lpcg";
 		reg = <0x0 0x5d6b0000 0x0 0x10000>;
 	};
+
+	hsio_pcie_x2_lpcg: hsio_pcie_x2_lpcg@5f050000 {
+		reg = <0x0 0x5f050000 0x0 0x10000>;
+	};
+
+	hsio_pcie_x1_lpcg: hsio_pcie_x1_lpcg@5f060000 {
+		reg = <0x0 0x5f060000 0x0 0x10000>;
+	};
+
+	hsio_phy_x2_lpcg: hsio_phy_x2_lpcg@5f080000 {
+		reg = <0x0 0x5f080000 0x0 0x10000>;
+	};
+
+	hsio_pcie_x2_crr2_lpcg: hsio_phy_x2_lpcg@5f0c0000 {
+		reg = <0x0 0x5f0c0000 0x0 0x10000>;
+	};
 };
 
 /delete-node/ &edma0;
