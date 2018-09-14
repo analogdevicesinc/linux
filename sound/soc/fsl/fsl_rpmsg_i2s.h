@@ -330,6 +330,9 @@
 #define		RPMSG_S16_LE		0x0
 #define		RPMSG_S24_LE		0x1
 #define		RPMSG_S32_LE		0x2
+#define		RPMSG_DSD_U16_LE	0x3
+#define		RPMSG_DSD_U24_LE	0x4
+#define		RPMSG_DSD_U32_LE	0x5
 
 #define		RPMSG_CH_LEFT		0x0
 #define		RPMSG_CH_RIGHT		0x1
@@ -410,8 +413,10 @@ struct fsl_rpmsg_i2s {
 	struct platform_device *pdev;
 	struct i2s_info        i2s_info;
 	struct pm_qos_request pm_qos_req;
+	int codec_dummy;
 	int codec_wm8960;
 	int codec_cs42888;
+	int codec_ak4497;
 	int force_lpa;
 	int version;
 	int rates;
@@ -421,6 +426,7 @@ struct fsl_rpmsg_i2s {
 
 #define RPMSG_CODEC_DRV_NAME_WM8960 "rpmsg-audio-codec-wm8960"
 #define RPMSG_CODEC_DRV_NAME_CS42888 "rpmsg-audio-codec-cs42888"
+#define RPMSG_CODEC_DRV_NAME_AK4497 "rpmsg-audio-codec-ak4497"
 
 struct fsl_rpmsg_codec {
 	int audioindex;

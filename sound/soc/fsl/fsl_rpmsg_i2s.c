@@ -80,24 +80,50 @@ static int i2s_send_message(struct i2s_rpmsg *msg,
 	return 0;
 }
 
+static const unsigned int fsl_rpmsg_rates[] = {
+	32000, 48000, 96000, 88200, 176400, 192000,
+	352800, 384000, 705600, 768000, 1411200, 2822400,
+};
+
+static const struct snd_pcm_hw_constraint_list fsl_rpmsg_rate_constraints = {
+	.count = ARRAY_SIZE(fsl_rpmsg_rates),
+	.list = fsl_rpmsg_rates,
+};
+
+static int fsl_rpmsg_startup(struct snd_pcm_substream *substream,
+		struct snd_soc_dai *cpu_dai)
+{
+	int ret;
+
+	ret = snd_pcm_hw_constraint_list(substream->runtime, 0,
+			SNDRV_PCM_HW_PARAM_RATE, &fsl_rpmsg_rate_constraints);
+
+	return ret;
+}
+
+static const struct snd_soc_dai_ops fsl_rpmsg_dai_ops = {
+	.startup	= fsl_rpmsg_startup,
+};
+
 static struct snd_soc_dai_driver fsl_rpmsg_i2s_dai = {
 	.playback = {
 		.stream_name = "CPU-Playback",
 		.channels_min = 2,
 		.channels_max = 2,
-		.rates = FSL_RPMSG_I2S_RATES,
+		.rates = SNDRV_PCM_RATE_KNOT,
 		.formats = FSL_RPMSG_I2S_FORMATS,
 	},
 	.capture = {
 		.stream_name = "CPU-Capture",
 		.channels_min = 2,
 		.channels_max = 2,
-		.rates = FSL_RPMSG_I2S_RATES,
+		.rates = SNDRV_PCM_RATE_KNOT,
 		.formats = FSL_RPMSG_I2S_FORMATS,
 	},
 	.symmetric_rates      = 1,
 	.symmetric_channels   = 1,
 	.symmetric_samplebits = 1,
+	.ops = &fsl_rpmsg_dai_ops,
 };
 
 static const struct snd_soc_component_driver fsl_component = {
@@ -200,15 +226,17 @@ static int fsl_rpmsg_i2s_probe(struct platform_device *pdev)
 
 	if (of_device_is_compatible(pdev->dev.of_node,
 				    "fsl,imx8mq-rpmsg-i2s")) {
-		rpmsg_i2s->codec_wm8960 = 0;
+		rpmsg_i2s->codec_dummy = 0;
+		rpmsg_i2s->codec_ak4497 = 1;
 		rpmsg_i2s->version = 2;
-		rpmsg_i2s->rates = SNDRV_PCM_RATE_32000 |
-				SNDRV_PCM_RATE_48000 |
-				SNDRV_PCM_RATE_96000 |
-				SNDRV_PCM_RATE_192000;
+		rpmsg_i2s->rates = SNDRV_PCM_RATE_KNOT;
 		rpmsg_i2s->formats = SNDRV_PCM_FMTBIT_S16_LE |
 					SNDRV_PCM_FMTBIT_S24_LE |
-					SNDRV_PCM_FMTBIT_S32_LE;
+					SNDRV_PCM_FMTBIT_S32_LE |
+					SNDRV_PCM_FMTBIT_DSD_U8 |
+					SNDRV_PCM_FMTBIT_DSD_U16_LE |
+					SNDRV_PCM_FMTBIT_DSD_U32_LE;
+
 		fsl_rpmsg_i2s_dai.playback.rates = rpmsg_i2s->rates;
 		fsl_rpmsg_i2s_dai.playback.formats = rpmsg_i2s->formats;
 		fsl_rpmsg_i2s_dai.capture.rates = rpmsg_i2s->rates;
