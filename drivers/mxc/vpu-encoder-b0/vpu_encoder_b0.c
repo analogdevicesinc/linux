@@ -59,7 +59,24 @@ static char *mu_cmp[] = {
 };
 
 // H264 level is maped like level 5.1 to uLevel 51, except level 1b to uLevel 14
-u_int32 h264_lvl[] = {10, 14, 11, 12, 13, 20, 21, 22, 30, 31, 32, 40, 41, 42, 50, 51};
+const u_int32 h264_level[] = {
+	[V4L2_MPEG_VIDEO_H264_LEVEL_1_0] = 10,
+	[V4L2_MPEG_VIDEO_H264_LEVEL_1B]  = 14,
+	[V4L2_MPEG_VIDEO_H264_LEVEL_1_1] = 11,
+	[V4L2_MPEG_VIDEO_H264_LEVEL_1_2] = 12,
+	[V4L2_MPEG_VIDEO_H264_LEVEL_1_3] = 13,
+	[V4L2_MPEG_VIDEO_H264_LEVEL_2_0] = 20,
+	[V4L2_MPEG_VIDEO_H264_LEVEL_2_1] = 21,
+	[V4L2_MPEG_VIDEO_H264_LEVEL_2_2] = 22,
+	[V4L2_MPEG_VIDEO_H264_LEVEL_3_0] = 30,
+	[V4L2_MPEG_VIDEO_H264_LEVEL_3_1] = 31,
+	[V4L2_MPEG_VIDEO_H264_LEVEL_3_2] = 32,
+	[V4L2_MPEG_VIDEO_H264_LEVEL_4_0] = 40,
+	[V4L2_MPEG_VIDEO_H264_LEVEL_4_1] = 41,
+	[V4L2_MPEG_VIDEO_H264_LEVEL_4_2] = 42,
+	[V4L2_MPEG_VIDEO_H264_LEVEL_5_0] = 50,
+	[V4L2_MPEG_VIDEO_H264_LEVEL_5_1] = 51
+};
 
 #define ITEM_NAME(name)		\
 				[name] = #name
@@ -850,7 +867,7 @@ static int v4l2_enc_s_ctrl(struct v4l2_ctrl *ctrl)
 		}
 		break;
 	case V4L2_CID_MPEG_VIDEO_H264_LEVEL:
-		pEncParam->uLevel = h264_lvl[ctrl->val];
+		pEncParam->uLevel = h264_level[ctrl->val];
 		vpu_dbg(LVL_INFO, "V4L2_CID_MPEG_VIDEO_H264_LEVEL set val = %d\n", ctrl->val);
 		break;
 	case V4L2_CID_MPEG_VIDEO_BITRATE:
@@ -907,7 +924,7 @@ static void vpu_encoder_ctrls(struct vpu_ctx *ctx)
 	v4l2_ctrl_new_std_menu(&ctx->ctrl_handler, &vpu_enc_ctrl_ops,
 			V4L2_CID_MPEG_VIDEO_H264_LEVEL,
 			V4L2_MPEG_VIDEO_H264_LEVEL_5_1, 0x0,
-			V4L2_MPEG_VIDEO_H264_LEVEL_1_0
+			V4L2_MPEG_VIDEO_H264_LEVEL_4_0
 			);
 	v4l2_ctrl_new_std(&ctx->ctrl_handler, &vpu_enc_ctrl_ops,
 		V4L2_CID_MPEG_VIDEO_BITRATE, 0, 32767000, 1, 0);
