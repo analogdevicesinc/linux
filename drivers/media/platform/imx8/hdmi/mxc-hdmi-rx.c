@@ -11,7 +11,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-
+#include <linux/irq.h>
 #include "mxc-hdmi-rx.h"
 #include "API_AFE_ss28fdsoi_hdmirx.h"
 
@@ -243,7 +243,7 @@ static void mxc_hdmi_clock_disable(struct mxc_hdmi_rx_dev *hdmi_rx)
 	clk_disable_unprepare(hdmi_rx->pxl_link_clk);
 }
 
-static void imx8qm_pixel_link_encoder(struct mxc_hdmi_rx_dev *hdmi_rx)
+static void mxc_hdmi_pixel_link_encoder(struct mxc_hdmi_rx_dev *hdmi_rx)
 {
 	u32 val;
 
@@ -276,6 +276,15 @@ static void imx8qm_pixel_link_encoder(struct mxc_hdmi_rx_dev *hdmi_rx)
 /* -----------------------------------------------------------------------------
  * v4l2_subdev_video_ops
  */
+static int mxc_hdmi_s_parm(struct v4l2_subdev *sd, struct v4l2_streamparm *a)
+{
+	struct mxc_hdmi_rx_dev *hdmi_rx = imx_sd_to_hdmi(sd);
+	struct device *dev = &hdmi_rx->pdev->dev;
+
+	dev_dbg(dev, "%s\n", __func__);
+
+	return 0;
+}
 
 static int mxc_hdmi_g_parm(struct v4l2_subdev *sd, struct v4l2_streamparm *a)
 {
@@ -318,7 +327,7 @@ static int mxc_hdmi_s_stream(struct v4l2_subdev *sd, int enable)
 	u32 val;
 
 	dev_dbg(&hdmi_rx->pdev->dev, "%s\n", __func__);
-	imx8qm_pixel_link_encoder(hdmi_rx);
+	mxc_hdmi_pixel_link_encoder(hdmi_rx);
 
 	if (enable) {
 		val = readl(hdmi_rx->mem.ss_base);
@@ -346,6 +355,7 @@ static int mxc_hdmi_s_stream(struct v4l2_subdev *sd, int enable)
 static const struct v4l2_subdev_video_ops imx_video_ops_hdmi = {
 	.s_stream = mxc_hdmi_s_stream,
 	.g_parm =	mxc_hdmi_g_parm,
+	.s_parm =	mxc_hdmi_s_parm,
 };
 
 /* -----------------------------------------------------------------------------
@@ -578,24 +588,32 @@ void imx8qm_hdmi_phy_reset(state_struct *state, u8 reset)
 static int imx8qm_hdp_read(struct hdp_mem *mem, u32 addr, u32 *value)
 {
 	u32 temp;
-	void *tmp_addr = (addr & 0xfff) + mem->regs_base;
-	void *off_addr = 0x4 + mem->ss_base;;
+	void *tmp_addr;
+	void *off_addr;
 
+	mutex_lock(&mem->mutex);
+	tmp_addr = (addr & 0xfff) + mem->regs_base;
+	off_addr = 0x4 + mem->ss_base;
 	__raw_writel(addr >> 12, off_addr);
 	temp = __raw_readl((volatile u32 *)tmp_addr);
 
 	*value = temp;
+	mutex_unlock(&mem->mutex);
 	return 0;
 }
 
 static int imx8qm_hdp_write(struct hdp_mem *mem, u32 addr, u32 value)
 {
-	void *tmp_addr = (addr & 0xfff) + mem->regs_base;
-	void *off_addr = 0x4 + mem->ss_base;;
+	void *tmp_addr;
+	void *off_addr;
 
+	mutex_lock(&mem->mutex);
+	tmp_addr = (addr & 0xfff) + mem->regs_base;
+	off_addr = 0x4 + mem->ss_base;;
 	__raw_writel(addr >> 12, off_addr);
 
 	__raw_writel(value, (volatile u32 *) tmp_addr);
+	mutex_unlock(&mem->mutex);
 
 	return 0;
 }
@@ -603,23 +621,31 @@ static int imx8qm_hdp_write(struct hdp_mem *mem, u32 addr, u32 value)
 static int imx8qm_hdp_sread(struct hdp_mem *mem, u32 addr, u32 *value)
 {
 	u32 temp;
-	void *tmp_addr = (addr & 0xfff) + mem->regs_base;
-	void *off_addr = 0xc + mem->ss_base;;
+	void *tmp_addr;
+	void *off_addr;
 
+	mutex_lock(&mem->mutex);
+	tmp_addr = (addr & 0xfff) + mem->regs_base;
+	off_addr = 0xc + mem->ss_base;
 	__raw_writel(addr >> 12, off_addr);
 
 	temp = __raw_readl((volatile u32 *)tmp_addr);
 	*value = temp;
+	mutex_unlock(&mem->mutex);
 	return 0;
 }
 
 static int imx8qm_hdp_swrite(struct hdp_mem *mem, u32 addr, u32 value)
 {
-	void *tmp_addr = (addr & 0xfff) + mem->regs_base;
-	void *off_addr = 0xc + mem->ss_base;
+	void *tmp_addr;
+	void *off_addr;
 
+	mutex_lock(&mem->mutex);
+	tmp_addr = (addr & 0xfff) + mem->regs_base;
+	off_addr = 0xc + mem->ss_base;
 	__raw_writel(addr >> 12, off_addr);
 	__raw_writel(value, (volatile u32 *)tmp_addr);
+	mutex_unlock(&mem->mutex);
 
 	return 0;
 }
@@ -662,7 +688,6 @@ static void mxc_hdmi_cec_init(struct mxc_hdmi_rx_dev *hdmi_rx)
 int mxc_hdmi_init(struct mxc_hdmi_rx_dev *hdmi_rx)
 {
 	sc_err_t sciErr;
-	u32 ret = 0;
 
 	dev_dbg(&hdmi_rx->pdev->dev, "%s\n", __func__);
 	mxc_hdmi_state_init(hdmi_rx);
@@ -679,9 +704,59 @@ int mxc_hdmi_init(struct mxc_hdmi_rx_dev *hdmi_rx)
 		return -EINVAL;
 	}
 
-	ret = hdmi_rx_init(&hdmi_rx->state);
 
-	return ret;
+	return 0;
+}
+
+static void hpd5v_work_func(struct work_struct *work)
+{
+	struct mxc_hdmi_rx_dev *hdmi_rx = container_of(work, struct mxc_hdmi_rx_dev,
+								hpd5v_work.work);
+	char event_string[32];
+	char *envp[] = { event_string, NULL };
+	int hpd5v;
+
+	/* Check cable states before enable irq */
+	hpd5v = hdmirx_check5v(&hdmi_rx->state);
+	if (hpd5v == 0) {
+		pr_info("HDMI RX Cable Plug In\n");
+		hdmirx_hotplug_trigger(&hdmi_rx->state);
+		hdmirx_startup(&hdmi_rx->state);
+		enable_irq(hdmi_rx->irq[HPD5V_IRQ_OUT]);
+		sprintf(event_string, "EVENT=hdmirxin");
+		kobject_uevent_env(&hdmi_rx->pdev->dev.kobj, KOBJ_CHANGE, envp);
+#ifdef CONFIG_IMX_HDP_CEC
+		if (hdmi_rx->is_cec) {
+			mxc_hdmi_cec_init(hdmi_rx);
+			imx_cec_register(&hdmi_rx->cec);
+		}
+#endif
+	} else {
+		pr_info("HDMI RX Cable Plug Out\n");
+		hdmirx_stop(&hdmi_rx->state);
+#ifdef CONFIG_IMX_HDP_CEC
+		if (hdmi_rx->is_cec) {
+			imx_cec_unregister(&hdmi_rx->cec);
+		}
+#endif
+		hdmirx_phy_pix_engine_reset(&hdmi_rx->state);
+		sprintf(event_string, "EVENT=hdmirxout");
+		kobject_uevent_env(&hdmi_rx->pdev->dev.kobj, KOBJ_CHANGE, envp);
+		enable_irq(hdmi_rx->irq[HPD5V_IRQ_IN]);
+	}
+}
+
+#define HOTPLUG_DEBOUNCE_MS		200
+static irqreturn_t mxc_hdp5v_irq_thread(int irq, void *data)
+{
+	struct mxc_hdmi_rx_dev *hdmi_rx =  data;
+
+	disable_irq_nosync(irq);
+
+	mod_delayed_work(system_wq, &hdmi_rx->hpd5v_work,
+			msecs_to_jiffies(HOTPLUG_DEBOUNCE_MS));
+
+	return IRQ_HANDLED;
 }
 
 static int mxc_hdmi_probe(struct platform_device *pdev)
@@ -690,6 +765,7 @@ static int mxc_hdmi_probe(struct platform_device *pdev)
 	struct mxc_hdmi_rx_dev *hdmi_rx;
 	struct resource *res;
 	int ret = 0;
+	int hpd5v;
 
 	dev_dbg(dev, "%s\n", __func__);
 	hdmi_rx = devm_kzalloc(dev, sizeof(*hdmi_rx), GFP_KERNEL);
@@ -698,8 +774,7 @@ static int mxc_hdmi_probe(struct platform_device *pdev)
 
 	hdmi_rx->pdev = pdev;
 
-	spin_lock_init(&hdmi_rx->slock);
-
+	mutex_init(&hdmi_rx->mem.mutex);
 	/* register map */
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	hdmi_rx->mem.regs_base = devm_ioremap_resource(dev, res);
@@ -715,21 +790,16 @@ static int mxc_hdmi_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-#if 0
-	/* TODO B0 */
-	res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
-	if (res == NULL) {
-		dev_warn(dev, "Failed to get IRQ resource\n");
-		return -EINVAL;
-	}
+	hdmi_rx->irq[HPD5V_IRQ_IN] = platform_get_irq_byname(pdev, "plug_in");
+	if (hdmi_rx->irq[HPD5V_IRQ_IN] < 0)
+		dev_info(&pdev->dev, "No plug_in irq number\n");
 
-	ret = devm_request_irq(dev, res->start, mxc_hdmi_irq_handler,
-			       0, dev_name(dev), mxc_hdmi);
-	if (ret < 0) {
-		dev_err(dev, "failed to install irq (%d)\n", ret);
-		return -EINVAL;
-	}
-#endif
+	hdmi_rx->irq[HPD5V_IRQ_OUT] = platform_get_irq_byname(pdev, "plug_out");
+	if (hdmi_rx->irq[HPD5V_IRQ_OUT] < 0)
+		dev_info(&pdev->dev, "No plug_out irq number\n");
+
+	INIT_DELAYED_WORK(&hdmi_rx->hpd5v_work, hpd5v_work_func);
+
 
 	v4l2_subdev_init(&hdmi_rx->sd, &imx_ops_hdmi);
 	/* sd.dev may use by match_of */
@@ -775,25 +845,56 @@ static int mxc_hdmi_probe(struct platform_device *pdev)
 	pm_runtime_enable(dev);
 	pm_runtime_get_sync(dev);
 	ret = mxc_hdmi_init(hdmi_rx);
-	if (ret) {
-		dev_info(dev, "mxc hdmi rx init failed\n");
+	if (ret < 0) {
+		dev_err(dev, "mxc hdmi init failed\n");
 		goto failed;
 	}
-	ret = hdmirx_startup(&hdmi_rx->state);
-	if (ret) {
-		dev_info(dev, "mxc hdmi rx startup failed\n");
+	ret = hdmirx_init(&hdmi_rx->state);
+	if (ret < 0) {
+		dev_err(dev, "mxc hdmi rx init failed\n");
 		goto failed;
 	}
-#ifdef CONFIG_IMX_HDP_CEC
-	if (hdmi_rx->is_cec) {
-		mxc_hdmi_cec_init(hdmi_rx);
-		imx_cec_register(&hdmi_rx->cec);
+
+	/* Check cable states before enable irq */
+	hpd5v = hdmirx_check5v(&hdmi_rx->state);
+
+	/* Enable Hotplug Detect IRQ thread */
+	if (hdmi_rx->irq[HPD5V_IRQ_IN] > 0) {
+		irq_set_status_flags(hdmi_rx->irq[HPD5V_IRQ_IN], IRQ_NOAUTOEN);
+		ret = devm_request_threaded_irq(dev, hdmi_rx->irq[HPD5V_IRQ_IN],
+						NULL, mxc_hdp5v_irq_thread,
+						IRQF_ONESHOT, dev_name(dev), hdmi_rx);
+		if (ret) {
+			dev_err(&pdev->dev, "can't claim irq %d\n",
+							hdmi_rx->irq[HPD5V_IRQ_IN]);
+			goto failed;
+		}
+		/* Cable Disconnedted, enable Plug in IRQ */
+		if (hpd5v < 0)
+			enable_irq(hdmi_rx->irq[HPD5V_IRQ_IN]);
 	}
-#endif
+	if (hdmi_rx->irq[HPD5V_IRQ_OUT] > 0) {
+		irq_set_status_flags(hdmi_rx->irq[HPD5V_IRQ_OUT], IRQ_NOAUTOEN);
+		ret = devm_request_threaded_irq(dev, hdmi_rx->irq[HPD5V_IRQ_OUT],
+						NULL, mxc_hdp5v_irq_thread,
+						IRQF_ONESHOT, dev_name(dev), hdmi_rx);
+		if (ret) {
+			dev_err(&pdev->dev, "can't claim irq %d\n",
+							hdmi_rx->irq[HPD5V_IRQ_OUT]);
+			goto failed;
+		}
+		if (hpd5v == 0) {
+			hdmirx_hotplug_trigger(&hdmi_rx->state);
+			hdmirx_startup(&hdmi_rx->state);
+			/* Cable Connected, enable Plug out IRQ */
+			enable_irq(hdmi_rx->irq[HPD5V_IRQ_OUT]);
+		}
+	}
+
 
 	mxc_hdmi_rx_register_audio_driver(dev);
 
-	dev_info(dev, "mxc hdmi rx probe successfully\n");
+	dev_info(dev, "iMX8 HDMI RX probe successfully\n");
 
 	return ret;
 failed:
