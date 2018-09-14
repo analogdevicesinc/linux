@@ -66,7 +66,18 @@ struct crypto_gcm_ghash_ctx {
 
 struct crypto_gcm_req_priv_ctx {
 	u8 iv[16];
-	u8 auth_tag[16];
+
+	/*
+	 * We need to force auth_tag to be on its own cacheline.
+	 *
+	 * We put it on its cacheline with the macro ____cacheline_aligned.
+	 * The next fields must be on another cacheline so we add a dummy field
+	 * which is located on another cacheline to enforce that.
+	 */
+	u8 auth_tag[16] ____cacheline_aligned;
+
+	u8 dummy_align_auth_tag ____cacheline_aligned;
+
 	u8 iauth_tag[16];
 	struct scatterlist src[3];
 	struct scatterlist dst[3];
