@@ -2583,7 +2583,10 @@
 			compatible = "fsl,imx-hdmi-rx";
 			reg = <0x0 0x58268000 0x0 0x10000>, /* HDP Controller */
 					<0x0 0x58261000 0x0 0x1000>; /* HDP SubSystem CSR  */
-			interrupts = <10 IRQ_TYPE_LEVEL_HIGH>;
+			interrupts = <10 IRQ_TYPE_LEVEL_HIGH>,
+							<13 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "plug_in", "plug_out";
+
 			interrupt-parent = <&irqsteer_hdmi_rx>;
 			clocks = <&clk IMX8QM_HDMI_RX_HD_REF_CLK>,
 						<&clk IMX8QM_HDMI_RX_HD_CORE_CLK>,
