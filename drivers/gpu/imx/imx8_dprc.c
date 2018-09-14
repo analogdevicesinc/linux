@@ -591,8 +591,8 @@ void dprc_first_frame_handle(struct dprc *dprc)
 
 	if (dprc->is_blit_chan)
 		return;
-	else
-		dprc_write(dprc, REPEAT_EN, SYSTEM_CTRL0);
+
+	dprc_write(dprc, REPEAT_EN, SYSTEM_CTRL0);
 
 	prg_shadow_enable(dprc->prgs[0]);
 	if (dprc->use_aux_prg)
