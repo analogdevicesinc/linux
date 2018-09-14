@@ -39,6 +39,7 @@
 
 void MU_Init(void __iomem *base);
 void MU_SendMessage(void __iomem *base, uint32_t regIndex, uint32_t msg);
+void MU_SendMessageTimeout(void __iomem *base, uint32_t regIndex, uint32_t msg, uint32_t t);
 void MU_ReceiveMsg(void __iomem *base, uint32_t regIndex, uint32_t *msg);
 void MU_EnableGeneralInt(void __iomem *base, uint32_t index);
 void MU_EnableRxFullInt(void __iomem *base, uint32_t index);

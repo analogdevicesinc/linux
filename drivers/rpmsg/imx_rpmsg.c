@@ -121,8 +121,13 @@ static bool imx_rpmsg_notify(struct virtqueue *vq)
 
 	mu_rpmsg = rpvq->vq_id << 16;
 	mutex_lock(&rpvq->rpdev->lock);
-	/* send the index of the triggered virtqueue as the mu payload */
-	MU_SendMessage(rpvq->rpdev->mu_base, 1, mu_rpmsg);
+	/*
+	 * Send the index of the triggered virtqueue as the mu payload.
+	 * Use the timeout MU send message here.
+	 * Since that M4 core may not be loaded, and the first MSG may
+	 * not be handled by M4 when multi-vdev is enabled.
+	 */
+	MU_SendMessageTimeout(rpvq->rpdev->mu_base, 1, mu_rpmsg, 200);
 	mutex_unlock(&rpvq->rpdev->lock);
 
 	return true;
