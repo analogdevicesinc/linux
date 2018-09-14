@@ -803,15 +803,9 @@ static int v4l2_ioctl_decoder_cmd(struct file *file,
 		break;
 	case V4L2_DEC_CMD_STOP: {
 		vpu_dbg(LVL_EVENT, "ctx[%d]: receive V4L2_DEC_CMD_STOP\n", ctx->str_index);
-		if (!ctx->firmware_stopped)	{
-			vpu_dbg(LVL_EVENT, "ctx[%d]: insert eos directly\n", ctx->str_index);
-			ctx->eos_stop_added = true;
-			v4l2_update_stream_addr(ctx, 0);
-			add_scode(ctx, 0, EOS_PADDING_TYPE);
-		} else	{
-			vpu_dbg(LVL_ERR, "Firmware already stopped !\n");
-		}
-	} break;
+		ctx->eos_stop_received = true;
+		v4l2_update_stream_addr(ctx, 0);
+		} break;
 	case V4L2_DEC_CMD_PAUSE:
 		break;
 	case V4L2_DEC_CMD_RESUME:
@@ -1482,8 +1476,18 @@ static void v4l2_update_stream_addr(struct vpu_ctx *ctx, uint32_t uStrBufIdx)
 				VB2_BUF_STATE_DONE
 			       );
 	}
+	if (list_empty(&This->drv_q) && ctx->eos_stop_received) {
+		if (!ctx->firmware_stopped)	{
+			vpu_dbg(LVL_EVENT, "ctx[%d]: insert eos directly\n", ctx->str_index);
+			if (add_scode(ctx, 0, EOS_PADDING_TYPE)) {
+				ctx->eos_stop_received = false;
+				ctx->eos_stop_added = true;
+			}
+		} else	{
+			vpu_dbg(LVL_ERR, "Firmware already stopped !\n");
+		}
+	}
 	up(&This->drv_q_lock);
-
 }
 
 static void report_buffer_done(struct vpu_ctx *ctx, void *frame_info)
@@ -1943,6 +1947,7 @@ static void vpu_api_event_handler(struct vpu_ctx *ctx, u_int32 uStrIdx, u_int32 
 
 		if (ctx->eos_stop_added == false)
 			vpu_dbg(LVL_ERR, "warning: receive VID_API_EVENT_FINISHED before eos_stop_added set\n");
+		ctx->eos_stop_added = false;
 		if (ctx->firmware_finished == true)
 			vpu_dbg(LVL_ERR, "warning: receive VID_API_EVENT_FINISHED when firmware_finished == true\n");
 		ctx->firmware_finished = true;
@@ -2512,7 +2517,8 @@ static int v4l2_open(struct file *filp)
 	ctx->wait_rst_done = false;
 	ctx->firmware_stopped = false;
 	ctx->firmware_finished = false;
-	ctx->eos_stop_added    = false;
+	ctx->eos_stop_received = false;
+	ctx->eos_stop_added = false;
 	ctx->buffer_null = true; //this flag is to judge whether the buffer is null is not, it is used for the workaround that when send stop command still can receive buffer ready event, and true means buffer is null, false not
 	ctx->ctx_released = false;
 	ctx->b_dis_reorder = false;
