@@ -639,6 +639,7 @@ dtb-$(CONFIG_SOC_IMX7D) += \
 dtb-$(CONFIG_SOC_IMX7ULP) += \
 	imx7ulp-14x14-arm2.dtb \
 	imx7ulp-evk.dtb \
+	imx7ulp-evk-spi-slave.dtb \
 	imx7ulp-evk-emmc.dtb \
 	imx7ulp-evk-emmc-qspi.dtb \
 	imx7ulp-evk-ft5416.dtb \
