@@ -207,8 +207,9 @@ void __init imx_init_revision_from_anatop(void)
 {
 	struct device_node *np;
 	void __iomem *anatop_base;
+	void __iomem *src_base;
 	unsigned int revision;
-	u32 digprog;
+	u32 digprog, sbmr2 = 0;
 	u16 offset = ANADIG_DIGPROG;
 	u16 major_part, minor_part;
 
@@ -221,6 +222,20 @@ void __init imx_init_revision_from_anatop(void)
 		offset = ANADIG_DIGPROG_IMX7D;
 	digprog = readl_relaxed(anatop_base + offset);
 	iounmap(anatop_base);
+
+	if ((digprog >> 16) == MXC_CPU_IMX6ULL) {
+		np = of_find_compatible_node(NULL, NULL, "fsl,imx6ul-src");
+		if (np) {
+			src_base = of_iomap(np, 0);
+			WARN_ON(!src_base);
+			sbmr2 = readl_relaxed(src_base + 0x1c);
+			iounmap(src_base);
+		}
+		if (sbmr2 & (1 << 6)) {
+			digprog &= ~(0xff << 16);
+			digprog |= (MXC_CPU_IMX6ULZ << 16);
+		}
+	}
 
 	/*
 	 * On i.MX7D digprog value match linux version format, so
