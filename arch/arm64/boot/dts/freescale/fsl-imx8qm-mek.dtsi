@@ -1110,7 +1110,7 @@
 	/*
 	 * 64K for one rpmsg instance:
 	 */
-	vdev-nums = <1>;
+	vdev-nums = <2>;
 	reg = <0x0 0x90100000 0x0 0x20000>;
 	status = "okay";
 };
