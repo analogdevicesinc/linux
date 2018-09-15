@@ -118,6 +118,8 @@
 		      <0x0 0x3020000 0 0x1000000>; /* GICR */
 		interrupts = <GIC_PPI 9 (GIC_CPU_MASK_SIMPLE(6) | IRQ_TYPE_LEVEL_HIGH)>;
 		interrupt-parent = <&gic>;
+		linux,phandle = <0xfde8>;
+		phandle = <0xfde8>;
 	};
 
 	timer {
