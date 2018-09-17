@@ -167,6 +167,10 @@ static const struct drm_mode_config_funcs mxsfb_mode_config_funcs = {
 	.atomic_commit		= drm_atomic_helper_commit,
 };
 
+static const struct drm_mode_config_helper_funcs mxsfb_mode_config_helpers = {
+	.atomic_commit_tail = drm_atomic_helper_commit_tail_rpm,
+};
+
 static void mxsfb_pipe_enable(struct drm_simple_display_pipe *pipe,
 			      struct drm_crtc_state *crtc_state)
 {
@@ -200,20 +204,22 @@ static void mxsfb_pipe_enable(struct drm_simple_display_pipe *pipe,
 static void mxsfb_pipe_disable(struct drm_simple_display_pipe *pipe)
 {
 	struct mxsfb_drm_private *mxsfb = drm_pipe_to_mxsfb_drm_private(pipe);
-	struct drm_crtc *crtc = &pipe->crtc;
 	struct drm_device *drm = pipe->plane.dev;
-
-	spin_lock_irq(&crtc->dev->event_lock);
-	if (crtc->state->event) {
-		drm_crtc_send_vblank_event(crtc, crtc->state->event);
-		crtc->state->event = NULL;
-	}
-	spin_unlock_irq(&crtc->dev->event_lock);
+	struct drm_crtc *crtc = &pipe->crtc;
+	struct drm_pending_vblank_event *event;
 
 	drm_panel_disable(mxsfb->panel);
 	mxsfb_crtc_disable(mxsfb);
 	drm_panel_unprepare(mxsfb->panel);
 	pm_runtime_put_sync(drm->dev);
+
+	spin_lock_irq(&drm->event_lock);
+	event = crtc->state->event;
+	if (event) {
+		crtc->state->event = NULL;
+		drm_crtc_send_vblank_event(crtc, event);
+	}
+	spin_unlock_irq(&drm->event_lock);
 
 	if (mxsfb->connector != &mxsfb->panel_connector)
 		mxsfb->connector = NULL;
@@ -343,6 +349,7 @@ static int mxsfb_load(struct drm_device *drm, unsigned long flags)
 	drm->mode_config.max_width	= max_res[0];
 	drm->mode_config.max_height	= max_res[1];
 	drm->mode_config.funcs		= &mxsfb_mode_config_funcs;
+	drm->mode_config.helper_private	= &mxsfb_mode_config_helpers;
 
 	drm_mode_config_reset(drm);
 
