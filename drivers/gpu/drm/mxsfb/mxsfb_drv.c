@@ -191,16 +191,17 @@ static void mxsfb_pipe_enable(struct drm_simple_display_pipe *pipe,
 
 	drm_crtc_vblank_on(&mxsfb->pipe.crtc);
 
+	pm_runtime_get_sync(drm->dev);
 	drm_panel_prepare(mxsfb->panel);
 	mxsfb_crtc_enable(mxsfb);
 	drm_panel_enable(mxsfb->panel);
-	pm_runtime_get_sync(mxsfb->dev);
 }
 
 static void mxsfb_pipe_disable(struct drm_simple_display_pipe *pipe)
 {
 	struct mxsfb_drm_private *mxsfb = drm_pipe_to_mxsfb_drm_private(pipe);
 	struct drm_crtc *crtc = &pipe->crtc;
+	struct drm_device *drm = pipe->plane.dev;
 
 	spin_lock_irq(&crtc->dev->event_lock);
 	if (crtc->state->event) {
@@ -212,7 +213,7 @@ static void mxsfb_pipe_disable(struct drm_simple_display_pipe *pipe)
 	drm_panel_disable(mxsfb->panel);
 	mxsfb_crtc_disable(mxsfb);
 	drm_panel_unprepare(mxsfb->panel);
-	pm_runtime_put_sync(mxsfb->dev);
+	pm_runtime_put_sync(drm->dev);
 
 	if (mxsfb->connector != &mxsfb->panel_connector)
 		mxsfb->connector = NULL;
