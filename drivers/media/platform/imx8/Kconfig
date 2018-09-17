@@ -23,6 +23,7 @@ config IMX8_PARALLEL_CSI
 
 config IMX8_MIPI_CSI2_YAV
 	tristate "IMX8 MIPI CSI2 Controller Yet Another Version"
+	select V4L2_FWNODE
 	default y
 
 config MXC_CAMERA_OV5640_V3
