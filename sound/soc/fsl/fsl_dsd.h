@@ -29,7 +29,7 @@ static bool fsl_is_dsd(struct snd_pcm_hw_params *params)
 	}
 }
 
-static struct pinctrl_state *fsl_get_pins_state(struct pinctrl *pinctrl,
+static inline struct pinctrl_state *fsl_get_pins_state(struct pinctrl *pinctrl,
 	struct snd_pcm_hw_params *params, u32 bclk)
 {
 	struct pinctrl_state *state = 0;
