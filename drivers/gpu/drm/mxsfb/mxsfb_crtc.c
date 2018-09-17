@@ -230,7 +230,6 @@ static void mxsfb_enable_controller(struct mxsfb_drm_private *mxsfb)
 	if (mxsfb->clk_disp_axi)
 		clk_prepare_enable(mxsfb->clk_disp_axi);
 	clk_prepare_enable(mxsfb->clk);
-	mxsfb_enable_axi_clk(mxsfb);
 
 	if (mxsfb->devdata->ipversion >= 4) {
 		writel(CTRL2_OUTSTANDING_REQS(REQ_16),
@@ -281,11 +280,9 @@ static void mxsfb_disable_controller(struct mxsfb_drm_private *mxsfb)
 	reg &= ~VDCTRL4_SYNC_SIGNALS_ON;
 	writel(reg, mxsfb->base + LCDC_VDCTRL4);
 
-	mxsfb_disable_axi_clk(mxsfb);
-
+	clk_disable_unprepare(mxsfb->clk);
 	if (mxsfb->clk_disp_axi)
 		clk_disable_unprepare(mxsfb->clk_disp_axi);
-	clk_disable_unprepare(mxsfb->clk);
 }
 
 /*
@@ -330,7 +327,6 @@ static void mxsfb_crtc_mode_set_nofb(struct mxsfb_drm_private *mxsfb)
 	 * running. This may lead to shifted pictures (FIFO issue?), so
 	 * first stop the controller and drain its FIFOs.
 	 */
-	mxsfb_enable_axi_clk(mxsfb);
 
 	/* Mandatory eLCDIF reset as per the Reference Manual */
 	err = mxsfb_reset_block(mxsfb->base);
@@ -405,7 +401,6 @@ static void mxsfb_crtc_mode_set_nofb(struct mxsfb_drm_private *mxsfb)
 		mxsfb->gem = NULL;
 	}
 
-	mxsfb_disable_axi_clk(mxsfb);
 }
 
 void mxsfb_crtc_enable(struct mxsfb_drm_private *mxsfb)
@@ -416,6 +411,7 @@ void mxsfb_crtc_enable(struct mxsfb_drm_private *mxsfb)
 	if (mxsfb->devdata->flags & MXSFB_FLAG_BUSFREQ)
 		request_bus_freq(BUS_FREQ_HIGH);
 
+	mxsfb_enable_axi_clk(mxsfb);
 	writel(0, mxsfb->base + LCDC_CTRL);
 	mxsfb_crtc_mode_set_nofb(mxsfb);
 	mxsfb_enable_controller(mxsfb);
@@ -429,6 +425,7 @@ void mxsfb_crtc_disable(struct mxsfb_drm_private *mxsfb)
 		return;
 
 	mxsfb_disable_controller(mxsfb);
+	mxsfb_disable_axi_clk(mxsfb);
 
 	if (mxsfb->devdata->flags & MXSFB_FLAG_BUSFREQ)
 		release_bus_freq(BUS_FREQ_HIGH);
