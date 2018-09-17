@@ -730,17 +730,6 @@ static int configure_hwvad_interrupts(struct device *dev,
 	u32 vadie_reg = enable ? MICFIL_VAD0_CTRL1_IE : 0;
 	u32 vaderie_reg = enable ? MICFIL_VAD0_CTRL1_ERIE : 0;
 
-	/* Voice Activity Detector Interruption Enable */
-	ret = regmap_update_bits(micfil->regmap, REG_MICFIL_VAD0_CTRL1,
-				 MICFIL_VAD0_CTRL1_IE_MASK,
-				 vadie_reg);
-	if (ret) {
-		dev_err(dev,
-			"Failed to set/clear VADIE in CTRL1_VAD0 [%d]\n",
-			ret);
-		return ret;
-	}
-
 	/* Voice Activity Detector Error Interruption Enable */
 	ret = regmap_update_bits(micfil->regmap, REG_MICFIL_VAD0_CTRL1,
 				 MICFIL_VAD0_CTRL1_ERIE_MASK,
@@ -748,6 +737,17 @@ static int configure_hwvad_interrupts(struct device *dev,
 	if (ret) {
 		dev_err(dev,
 			"Failed to set/clear VADERIE in CTRL1_VAD0 [%d]\n",
+			ret);
+		return ret;
+	}
+
+	/* Voice Activity Detector Interruption Enable */
+	ret = regmap_update_bits(micfil->regmap, REG_MICFIL_VAD0_CTRL1,
+				 MICFIL_VAD0_CTRL1_IE_MASK,
+				 vadie_reg);
+	if (ret) {
+		dev_err(dev,
+			"Failed to set/clear VADIE in CTRL1_VAD0 [%d]\n",
 			ret);
 		return ret;
 	}
@@ -1026,7 +1026,7 @@ static int init_hwvad_envelope_mode(struct device *dev)
 
 	/* Voice Activity Detector Reset */
 	ret = regmap_update_bits(micfil->regmap, REG_MICFIL_VAD0_CTRL1,
-				 MICFIL_VAD0_CTRL1_RST_SHIFT,
+				 MICFIL_VAD0_CTRL1_RST_MASK,
 				 MICFIL_VAD0_CTRL1_RST);
 	if (ret) {
 		dev_err(dev, "Failed to set VADRST in CTRL1_VAD0 [%d]\n", ret);
@@ -1670,13 +1670,12 @@ static irqreturn_t hwvad_isr(int irq, void *devid)
 	int old_flag;
 
 	regmap_read(micfil->regmap, REG_MICFIL_VAD0_STAT, &vad0_reg);
-
 	old_flag = atomic_cmpxchg(&micfil->voice_detected, 0, 1);
 	if ((vad0_reg & MICFIL_VAD0_STAT_IF_MASK) && !old_flag) {
 		dev_info(dev, "Detected voice\n");
 
 		/* Write 1 to clear */
-		regmap_update_bits(micfil->regmap, REG_MICFIL_VAD0_STAT,
+		regmap_write_bits(micfil->regmap, REG_MICFIL_VAD0_STAT,
 				   MICFIL_VAD0_STAT_IF_MASK,
 				   MICFIL_VAD0_STAT_IF);
 
@@ -1767,9 +1766,9 @@ static int enable_hwvad(struct device *dev)
 	 * suspend function will mark regmap as cache only
 	 * and reads/writes in volatile regs will fail
 	 */
+	regcache_cache_only(micfil->regmap, false);
 	regcache_mark_dirty(micfil->regmap);
 	regcache_sync(micfil->regmap);
-	regcache_cache_only(micfil->regmap, false);
 
 	/* clear voice detected flag */
 	atomic_set(&micfil->voice_detected, 0);
@@ -1967,9 +1966,9 @@ static int fsl_micfil_probe(struct platform_device *pdev)
 	if (of_property_read_bool(np, "fsl,shared-interrupt"))
 		irqflag = IRQF_SHARED;
 
-	ret = devm_request_threaded_irq(&pdev->dev, irq, micfil_isr,
-					hwvad_isr, irqflag,
-					micfil->name, micfil);
+	ret = devm_request_irq(&pdev->dev, irq,
+			       hwvad_isr, irqflag,
+			       micfil->name, micfil);
 	if (ret) {
 		dev_err(&pdev->dev, "failed to claim irq %u\n", irq);
 		return ret;
