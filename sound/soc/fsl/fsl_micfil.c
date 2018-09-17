@@ -43,6 +43,7 @@ struct fsl_micfil {
 	unsigned int channels;
 	unsigned int dataline;
 	char name[32];
+	int irq[MICFIL_IRQ_LINES];
 	unsigned int mclk_streams;
 	int quality;	/*QUALITY 2-0 bits */
 	bool slave_mode;
@@ -1671,6 +1672,12 @@ static irqreturn_t hwvad_isr(int irq, void *devid)
 
 	regmap_read(micfil->regmap, REG_MICFIL_VAD0_STAT, &vad0_reg);
 	old_flag = atomic_cmpxchg(&micfil->voice_detected, 0, 1);
+
+	/* The only difference between MICFIL_VAD0_STAT_EF and
+	 * MICFIL_VAD0_STAT_IF is that the former requires Write
+	 * 1 to Clear. Since both flags are set, it is enough
+	 * to only read one of them
+	 */
 	if ((vad0_reg & MICFIL_VAD0_STAT_IF_MASK) && !old_flag) {
 		dev_info(dev, "Detected voice\n");
 
@@ -1685,33 +1692,76 @@ static irqreturn_t hwvad_isr(int irq, void *devid)
 	return IRQ_HANDLED;
 }
 
+static irqreturn_t hwvad_err_isr(int irq, void *devid)
+{
+	struct fsl_micfil *micfil = (struct fsl_micfil *)devid;
+	struct device *dev = &micfil->pdev->dev;
+	u32 vad0_reg;
+
+	regmap_read(micfil->regmap, REG_MICFIL_VAD0_STAT, &vad0_reg);
+
+	if (vad0_reg & MICFIL_VAD0_STAT_INSATF_MASK)
+		dev_dbg(dev, "voice activity input overflow/underflow detected\n");
+
+	if (vad0_reg & MICFIL_VAD0_STAT_INITF_MASK)
+		dev_dbg(dev, "voice activity dectector is initializing\n");
+
+	return IRQ_HANDLED;
+}
+
 static irqreturn_t micfil_isr(int irq, void *devid)
 {
 	struct fsl_micfil *micfil = (struct fsl_micfil *)devid;
 	struct platform_device *pdev = micfil->pdev;
-	irqreturn_t ret = IRQ_HANDLED;
 	u32 stat_reg;
+	u32 fifo_stat_reg;
 	u32 ctrl1_reg;
-	u32 vad0_reg;
 	bool dma_enabled;
 	int i;
 
 	regmap_read(micfil->regmap, REG_MICFIL_STAT, &stat_reg);
 	regmap_read(micfil->regmap, REG_MICFIL_CTRL1, &ctrl1_reg);
-	regmap_read(micfil->regmap, REG_MICFIL_VAD0_STAT, &vad0_reg);
+	regmap_read(micfil->regmap, REG_MICFIL_FIFO_STAT, &fifo_stat_reg);
+
 	dma_enabled = MICFIL_DMA_ENABLED(ctrl1_reg);
 
-	if (vad0_reg & MICFIL_VAD0_STAT_IF_MASK)
-		ret = IRQ_WAKE_THREAD;
+	/* Channel 0-7 Output Data Flags */
+	for (i = 0; i < MICFIL_OUTPUT_CHANNELS; i++) {
+		if (stat_reg & MICFIL_STAT_CHXF_MASK(i))
+			dev_dbg(&pdev->dev,
+				"Data available in Data Channel %d\n", i);
+		/* if DMA is not enabled, field must be written with 1
+		 * to clear
+		 */
+		if (!dma_enabled)
+			regmap_write_bits(micfil->regmap,
+					  REG_MICFIL_STAT,
+					  MICFIL_STAT_CHXF_MASK(i),
+					  1);
+	}
 
-	if (vad0_reg & MICFIL_VAD0_STAT_EF_MASK)
-		dev_dbg(&pdev->dev, "isr: voice activity event detected\n");
+	for (i = 0; i < MICFIL_FIFO_NUM; i++) {
+		if (fifo_stat_reg & MICFIL_FIFO_STAT_FIFOX_OVER_MASK(i))
+			dev_dbg(&pdev->dev,
+				"FIFO Overflow Exception flag for channel %d\n",
+				i);
 
-	if (vad0_reg & MICFIL_VAD0_STAT_INSATF_MASK)
-		dev_dbg(&pdev->dev, "isr: voice activity input overflow/underflow detected\n");
+		if (fifo_stat_reg & MICFIL_FIFO_STAT_FIFOX_UNDER_MASK(i))
+			dev_dbg(&pdev->dev,
+				"FIFO Underflow Exception flag for channel %d\n",
+				i);
+	}
 
-	if (vad0_reg & MICFIL_VAD0_STAT_INITF_MASK)
-		dev_dbg(&pdev->dev, "isr: voice activity dectector is initializing\n");
+	return IRQ_HANDLED;
+}
+
+static irqreturn_t micfil_err_isr(int irq, void *devid)
+{
+	struct fsl_micfil *micfil = (struct fsl_micfil *)devid;
+	struct platform_device *pdev = micfil->pdev;
+	u32 stat_reg;
+
+	regmap_read(micfil->regmap, REG_MICFIL_STAT, &stat_reg);
 
 	if (stat_reg & MICFIL_STAT_BSY_FIL_MASK)
 		dev_dbg(&pdev->dev, "isr: Decimation Filter is running\n");
@@ -1721,26 +1771,11 @@ static irqreturn_t micfil_isr(int irq, void *devid)
 
 	if (stat_reg & MICFIL_STAT_LOWFREQF_MASK) {
 		dev_dbg(&pdev->dev, "isr: ipg_clk_app is too low\n");
-		regmap_update_bits(micfil->regmap, REG_MICFIL_STAT,
-				   MICFIL_STAT_LOWFREQF_MASK, 1);
+		regmap_write_bits(micfil->regmap, REG_MICFIL_STAT,
+				  MICFIL_STAT_LOWFREQF_MASK, 1);
 	}
 
-	/* Channel 0-7 Output Data Flags */
-	for (i = 0; i < MICFIL_OUTPUT_CHANNELS; i++) {
-		if (stat_reg & MICFIL_STAT_CHXF_MASK(i))
-			dev_dbg(&pdev->dev,
-				"isr: Data available in Data Channel %d\n", i);
-		/* if DMA is not enabled, field must be written with 1
-		 * to clear
-		 */
-		if (!dma_enabled)
-			regmap_update_bits(micfil->regmap,
-					   REG_MICFIL_STAT,
-					   MICFIL_STAT_CHXF_MASK(i),
-					   1);
-	}
-
-	return ret;
+	return IRQ_HANDLED;
 }
 
 static int fsl_set_clock_params(struct device *, unsigned int);
@@ -1900,7 +1935,7 @@ static int fsl_micfil_probe(struct platform_device *pdev)
 	struct fsl_micfil *micfil;
 	struct resource *res;
 	void __iomem *regs;
-	int irq, ret;
+	int ret, i;
 	unsigned long irqflag = 0;
 
 	micfil = devm_kzalloc(&pdev->dev, sizeof(*micfil), GFP_KERNEL);
@@ -1957,20 +1992,59 @@ static int fsl_micfil_probe(struct platform_device *pdev)
 	}
 
 	/* get IRQs */
-	irq = platform_get_irq(pdev, 0);
-	if (irq < 0) {
-		dev_err(&pdev->dev, "no irq for node %s\n", pdev->name);
-		return irq;
+	for (i = 0; i < MICFIL_IRQ_LINES; i++) {
+		micfil->irq[i] = platform_get_irq(pdev, i);
+		dev_err(&pdev->dev, "GET IRQ: %d\n", micfil->irq[i]);
+		if (micfil->irq[i] < 0) {
+			dev_err(&pdev->dev, "no irq for node %s\n", pdev->name);
+			return micfil->irq[i];
+		}
 	}
 
 	if (of_property_read_bool(np, "fsl,shared-interrupt"))
 		irqflag = IRQF_SHARED;
 
-	ret = devm_request_irq(&pdev->dev, irq,
+	/* Digital Microphone interface voice activity detector event
+	 * interrupt - IRQ 44
+	 */
+	ret = devm_request_irq(&pdev->dev, micfil->irq[0],
 			       hwvad_isr, irqflag,
 			       micfil->name, micfil);
 	if (ret) {
-		dev_err(&pdev->dev, "failed to claim irq %u\n", irq);
+		dev_err(&pdev->dev, "failed to claim hwvad event irq %u\n",
+			micfil->irq[0]);
+		return ret;
+	}
+
+	/* Digital Microphone interface voice activity detector error
+	 * interrupt - IRQ 45
+	 */
+	ret = devm_request_irq(&pdev->dev, micfil->irq[1],
+			       hwvad_err_isr, irqflag,
+			       micfil->name, micfil);
+	if (ret) {
+		dev_err(&pdev->dev, "failed to claim hwvad error irq %u\n",
+			micfil->irq[1]);
+		return ret;
+	}
+
+	/* Digital Microphone interface interrupt - IRQ 109 */
+	ret = devm_request_irq(&pdev->dev, micfil->irq[2],
+			       micfil_isr, irqflag,
+			       micfil->name, micfil);
+	if (ret) {
+		dev_err(&pdev->dev, "failed to claim mic interface irq %u\n",
+			micfil->irq[2]);
+		return ret;
+	}
+
+	/* Digital Microphone interface error interrupt - IRQ 110 */
+	ret = devm_request_irq(&pdev->dev, micfil->irq[3],
+			       micfil_err_isr, irqflag,
+			       micfil->name, micfil);
+	if (ret) {
+		dev_err(&pdev->dev, "failed to claim mic interface error irq %u\n",
+			micfil->irq[3]);
 		return ret;
 	}
 
