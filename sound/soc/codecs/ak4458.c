@@ -637,9 +637,10 @@ static int ak4458_hw_params(struct snd_pcm_substream *substream,
 {
 	struct snd_soc_codec *codec = dai->codec;
 	struct ak4458_priv *ak4458 = snd_soc_codec_get_drvdata(codec);
-	u8 format;
+	u8 format, dsdsel0, dsdsel1;
 	int pcm_width = max(params_physical_width(params), ak4458->slot_width);
-	int ret;
+	int ret, dsd_bclk;
+	bool is_dsd = false;
 
 #ifdef AK4458_ACKS_USE_MANUAL_MODE
 	u8 dfs1, dfs2;
@@ -648,11 +649,51 @@ static int ak4458_hw_params(struct snd_pcm_substream *substream,
 
 	dev_dbg(dai->dev, "%s(%d)\n", __func__, __LINE__);
 
+	switch (params_format(params)) {
+	case SNDRV_PCM_FORMAT_DSD_U8:
+	case SNDRV_PCM_FORMAT_DSD_U16_LE:
+	case SNDRV_PCM_FORMAT_DSD_U16_BE:
+	case SNDRV_PCM_FORMAT_DSD_U32_LE:
+	case SNDRV_PCM_FORMAT_DSD_U32_BE:
+		is_dsd = true;
+		dsd_bclk = params_rate(params) * params_physical_width(params);
+		break;
+	}
+
 	format = snd_soc_read(codec, AK4458_00_CONTROL1);
 	format &= ~AK4458_DIF_MASK;
 
 	nfs1 = params_rate(params);
 	ak4458->fs = nfs1;
+
+	dsdsel0 = snd_soc_read(codec, AK4458_06_DSD1);
+	dsdsel0 &= ~AK4458_DSDSEL_MASK;
+
+	dsdsel1 = snd_soc_read(codec, AK4458_09_DSD2);
+	dsdsel1 &= ~AK4458_DSDSEL_MASK;
+
+	if (is_dsd) {
+		switch (dsd_bclk) {
+		case 2822400:
+			dsdsel0 |= 0;
+			dsdsel1 |= 0;
+			break;
+		case 5644800:
+			dsdsel0 |= 1;
+			dsdsel1 |= 0;
+			break;
+		case 11289600:
+			dsdsel0 |= 0;
+			dsdsel1 |= 1;
+			break;
+		default:
+			dev_err(dai->dev, "DSD512 not supported.\n");
+			return -EINVAL;
+		}
+
+		snd_soc_write(codec, AK4458_06_DSD1, dsdsel0);
+		snd_soc_write(codec, AK4458_09_DSD2, dsdsel1);
+	}
 
 #ifdef AK4458_ACKS_USE_MANUAL_MODE
 	dfs1 = snd_soc_read(codec, AK4458_01_CONTROL2);
@@ -726,6 +767,8 @@ static int ak4458_hw_params(struct snd_pcm_substream *substream,
 			format |= AK4458_DIF_32BIT_LSB;
 		else if (ak4458->fmt == SND_SOC_DAIFMT_DSP_B)
 			format |= AK4458_DIF_32BIT_MSB;
+		else if (ak4458->fmt == SND_SOC_DAIFMT_PDM)
+			format |= AK4458_DIF_32BIT_MSB;
 		else
 			return -EINVAL;
 		break;
@@ -758,7 +801,7 @@ static int ak4458_set_dai_fmt(struct snd_soc_dai *dai, unsigned int fmt)
 {
 	struct snd_soc_codec *codec = dai->codec;
 	struct ak4458_priv *ak4458 = snd_soc_codec_get_drvdata(codec);
-	u8 format;
+	u8 format, dp = 0;
 	int ret;
 
 	/* set master/slave audio interface */
@@ -789,6 +832,10 @@ static int ak4458_set_dai_fmt(struct snd_soc_dai *dai, unsigned int fmt)
 	case SND_SOC_DAIFMT_DSP_B:
 		ak4458->fmt = fmt & SND_SOC_DAIFMT_FORMAT_MASK;
 		break;
+	case SND_SOC_DAIFMT_PDM:
+		ak4458->fmt = fmt & SND_SOC_DAIFMT_FORMAT_MASK;
+		dp = AK4458_DP_MASK; /* DSD mode */;
+		break;
 	default:
 		dev_err(codec->dev, "Audio format 0x%02X unsupported\n",
 			fmt & SND_SOC_DAIFMT_FORMAT_MASK);
@@ -798,7 +845,9 @@ static int ak4458_set_dai_fmt(struct snd_soc_dai *dai, unsigned int fmt)
 	/* set format */
 	dev_dbg(dai->dev, "%s(%d) addr 00H = %02X\n",
 		__func__, __LINE__, format);
+
 	snd_soc_write(codec, AK4458_00_CONTROL1, format);
+	snd_soc_update_bits(codec, AK4458_02_CONTROL3, AK4458_DP_MASK, dp);
 
 	ret = ak4458_rstn_control(codec, 0);
 	if (ret)
@@ -917,19 +966,12 @@ static int ak4458_set_tdm_slot(struct snd_soc_dai *dai, unsigned int tx_mask,
 	return 0;
 }
 
-
-
-#define AK4458_RATES	(SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_11025 |\
-	SNDRV_PCM_RATE_16000 | SNDRV_PCM_RATE_22050 |\
-	SNDRV_PCM_RATE_32000 | SNDRV_PCM_RATE_44100 |\
-	SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_88200 |\
-	SNDRV_PCM_RATE_96000 | SNDRV_PCM_RATE_176400 |\
-	SNDRV_PCM_RATE_192000)
-	/* | SNDRV_PCM_RATE_384000 | SNDRV_PCM_RATE_768000 */
-
 #define AK4458_FORMATS	(SNDRV_PCM_FMTBIT_S16_LE |\
 			 SNDRV_PCM_FMTBIT_S24_LE |\
-			 SNDRV_PCM_FMTBIT_S32_LE)
+			 SNDRV_PCM_FMTBIT_S32_LE |\
+			 SNDRV_PCM_FMTBIT_DSD_U8 |\
+			 SNDRV_PCM_FMTBIT_DSD_U16_LE |\
+			 SNDRV_PCM_FMTBIT_DSD_U32_LE)
 
 static const unsigned int ak4458_rates[] = {
 	8000, 11025,  16000, 22050,
@@ -946,7 +988,7 @@ static const struct snd_pcm_hw_constraint_list ak4458_rate_constraints = {
 
 static int ak4458_startup(struct snd_pcm_substream *substream,
 		struct snd_soc_dai *dai) {
-		int ret;
+	int ret;
 
 	ret = snd_pcm_hw_constraint_list(substream->runtime, 0,
 		SNDRV_PCM_HW_PARAM_RATE, &ak4458_rate_constraints);
