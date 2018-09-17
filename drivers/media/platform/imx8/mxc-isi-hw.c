@@ -445,6 +445,17 @@ void mxc_isi_channel_set_crop(struct mxc_isi_dev *mxc_isi)
 	writel(val, mxc_isi->regs + CHNL_IMG_CTRL);
 }
 
+static void mxc_isi_channel_clear_scaling(struct mxc_isi_dev *mxc_isi)
+{
+	u32 val0;
+
+	writel(0x10001000, mxc_isi->regs + CHNL_SCALE_FACTOR);
+
+	val0 = readl(mxc_isi->regs + CHNL_IMG_CTRL);
+	val0 &= ~(CHNL_IMG_CTRL_DEC_X_MASK | CHNL_IMG_CTRL_DEC_Y_MASK);
+	writel(val0, mxc_isi->regs + CHNL_IMG_CTRL);
+}
+
 void mxc_isi_channel_set_scaling(struct mxc_isi_dev *mxc_isi)
 {
 	struct mxc_isi_frame *dst_f = &mxc_isi->isi_cap.dst_f;
@@ -462,6 +473,7 @@ void mxc_isi_channel_set_scaling(struct mxc_isi_dev *mxc_isi)
 	if (dst_f->height == src_f->height ||
 			dst_f->width == src_f->width) {
 		mxc_isi->scale = 0;
+		mxc_isi_channel_clear_scaling(mxc_isi);
 		dev_dbg(&mxc_isi->pdev->dev, "%s: no scale\n", __func__);
 		return;
 	}
@@ -521,6 +533,11 @@ void mxc_isi_channel_set_scaling(struct mxc_isi_dev *mxc_isi)
 	val1 = xscale | (yscale << CHNL_SCALE_FACTOR_Y_SCALE_OFFSET);
 
 	writel(val1, mxc_isi->regs + CHNL_SCALE_FACTOR);
+
+	/* Update scale config if scaling enabled */
+	val1 = dst_f->o_width | (dst_f->o_height << CHNL_SCL_IMG_CFG_HEIGHT_OFFSET);
+	writel(val1, mxc_isi->regs + CHNL_SCL_IMG_CFG);
+
 	writel(0, mxc_isi->regs + CHNL_SCALE_OFFSET);
 
 	return;
@@ -566,6 +583,9 @@ void mxc_isi_channel_config(struct mxc_isi_dev *mxc_isi)
 	/* config output frame size and format */
 	val = src_f->o_width | (src_f->o_height << CHNL_IMG_CFG_HEIGHT_OFFSET);
 	writel(val, mxc_isi->regs + CHNL_IMG_CFG);
+
+	/* scale size need to equal input size when scaling disabled*/
+	writel(val, mxc_isi->regs + CHNL_SCL_IMG_CFG);
 
 	/* check csc and scaling  */
 	mxc_isi_channel_set_csc(mxc_isi);

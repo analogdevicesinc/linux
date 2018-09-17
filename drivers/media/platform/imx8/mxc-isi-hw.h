@@ -447,6 +447,13 @@
 /* Channel Chroma (V/Cr) Output Buffer 2 Address   */
 #define  CHNL_OUT_BUF2_ADDR_V		0x94
 
+/* Channel scale image config */
+#define  CHNL_SCL_IMG_CFG					0x98
+#define  CHNL_SCL_IMG_CFG_HEIGHT_OFFSET		16
+#define  CHNL_SCL_IMG_CFG_HEIGHT_MASK		0x1FFF0000
+#define  CHNL_SCL_IMG_CFG_WIDTH_OFFSET		0
+#define  CHNL_SCL_IMG_CFG_WIDTH_MASK		0x1FFF
+
 enum isi_csi_coeff {
 	YUV2RGB = 0,
 	RGB2YUV,
