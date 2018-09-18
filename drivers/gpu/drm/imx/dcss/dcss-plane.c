@@ -218,11 +218,8 @@ static int dcss_plane_atomic_check(struct drm_plane *plane,
 	int hdisplay, vdisplay;
 	struct drm_rect crtc_rect, disp_rect;
 
-	if (!fb)
+	if (!fb || !state->crtc)
 		return 0;
-
-	if (!state->crtc)
-		return -EINVAL;
 
 	cma_obj = drm_fb_cma_get_gem_obj(fb, 0);
 	WARN_ON(!cma_obj);
@@ -244,8 +241,12 @@ static int dcss_plane_atomic_check(struct drm_plane *plane,
 	disp_rect.y2 = vdisplay;
 
 	/* make sure the crtc is visible */
-	if (!drm_rect_intersect(&crtc_rect, &disp_rect))
-		return -EINVAL;
+	if (!drm_rect_intersect(&crtc_rect, &disp_rect)) {
+		state->visible = false;
+		return 0;
+	}
+
+	state->visible = true;
 
 	if (!dcss_plane_can_rotate(fb->format->format,
 				   !!(fb->flags & DRM_MODE_FB_MODIFIERS),
@@ -480,7 +481,7 @@ static void dcss_plane_atomic_update(struct drm_plane *plane,
 	struct dcss_hdr10_pipe_cfg ipipe_cfg, opipe_cfg;
 	bool enable = true;
 
-	if (!fb || !state->crtc)
+	if (!fb || !state->crtc || !state->visible)
 		return;
 
 	pixel_format = state->fb->format->format;
