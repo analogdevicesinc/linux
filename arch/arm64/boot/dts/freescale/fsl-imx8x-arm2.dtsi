@@ -1009,5 +1009,6 @@
 	};
 
 &vpu_encoder {
+	core_type = <1>;
 	status = "okay";
 };
