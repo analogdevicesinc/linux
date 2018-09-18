@@ -26,6 +26,7 @@ struct platform_device;
 struct imx8_pm_rsrc_clks {
 	struct clk *clk;
 	struct clk *parent;
+	struct device *dev;
 	u32 rate;
 	struct list_head node;
 };

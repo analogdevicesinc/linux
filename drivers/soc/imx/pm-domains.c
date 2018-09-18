@@ -243,6 +243,7 @@ static int imx8_attach_dev(struct generic_pm_domain *genpd, struct device *dev)
 		if (!imx8_rsrc_clk)
 			return -ENOMEM;
 
+		imx8_rsrc_clk->dev = dev;
 		imx8_rsrc_clk->clk = of_clk_get_from_provider(&clkspec);
 		if (!IS_ERR(imx8_rsrc_clk->clk))
 			list_add_tail(&imx8_rsrc_clk->node, &pd->clks);
@@ -262,6 +263,9 @@ static void imx8_detach_dev(struct generic_pm_domain *genpd, struct device *dev)
 		return;
 
 	list_for_each_entry_safe(imx8_rsrc_clk, tmp, &pd->clks, node) {
+		/* only delete those clocks belonged to this devive */
+		if (imx8_rsrc_clk->dev != dev)
+			continue;
 		list_del(&imx8_rsrc_clk->node);
 		devm_kfree(dev, imx8_rsrc_clk);
 	}
