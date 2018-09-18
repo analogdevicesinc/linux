@@ -549,6 +549,11 @@ static struct vb2_buffer *cvrt_v4l2_to_vb2_buffer(struct vb2_queue *vq,
 	return vq->bufs[buf->index];
 }
 
+static u32 get_v4l2_plane_payload(struct v4l2_plane *plane)
+{
+	return plane->bytesused - plane->data_offset;
+}
+
 static int is_valid_output_mplane_buf(struct queue_data *q_data,
 					struct vpu_v4l2_fmt *fmt,
 					struct v4l2_buffer *buf)
@@ -556,10 +561,11 @@ static int is_valid_output_mplane_buf(struct queue_data *q_data,
 	int i;
 
 	for (i = 0; i < fmt->num_planes; i++) {
-		if (!buf->m.planes[i].bytesused)
+		u32 bytesused = get_v4l2_plane_payload(&buf->m.planes[i]);
+
+		if (!bytesused)
 			return 0;
-		if (fmt->is_yuv &&
-			buf->m.planes[i].bytesused != q_data->sizeimage[i])
+		if (fmt->is_yuv && bytesused != q_data->sizeimage[i])
 			return 0;
 	}
 
