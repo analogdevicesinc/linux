@@ -274,7 +274,10 @@ static void get_param_from_v4l2(pMEDIAIP_ENC_PARAM pEncParam,
 	pEncParam->uOutHeight           = pix_mp->height;
 	pEncParam->uLowLatencyMode      = 0;
 
-	pEncParam->uIFrameInterval      = 10;
+	if (!pEncParam->uIFrameInterval)
+		pEncParam->uIFrameInterval = 30;
+	if (!pEncParam->uGopBLength)
+		pEncParam->uGopBLength = 30;
 
 	vpu_dbg(LVL_INFO, "eCodecMode(%d) eProfile(%d) uSrcStride(%d) uSrcWidth(%d) uSrcHeight(%d) uSrcOffset_x(%d) uSrcOffset_y(%d) uSrcCropWidth(%d) uSrcCropHeight(%d) uOutWidth(%d) uOutHeight(%d) uGopBLength(%d) uLowLatencyMode(%d) uInitSliceQP(%d) uIFrameInterval(%d) eBitRateMode(%d) uTargetBitrate(%d) uMaxBitRate(%d) uMinBitRate(%d) uFrameRate(%d)\n",
 			pEncParam->eCodecMode, pEncParam->eProfile, pEncParam->uSrcStride, pEncParam->uSrcWidth,
@@ -875,6 +878,7 @@ static int v4l2_enc_s_ctrl(struct v4l2_ctrl *ctrl)
 		break;
 	case V4L2_CID_MPEG_VIDEO_GOP_SIZE:
 		pEncParam->uIFrameInterval = ctrl->val;
+		pEncParam->uGopBLength = ctrl->val;
 		break;
 	case V4L2_CID_MPEG_VIDEO_H264_I_FRAME_QP:
 		pEncParam->uInitSliceQP = ctrl->val;
