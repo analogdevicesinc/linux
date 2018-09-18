@@ -358,10 +358,23 @@ static int set_yuv_queue_fmt(struct queue_data *q_data, struct v4l2_format *f)
 	return 0;
 }
 
+static u32 get_enc_minimum_sizeimage(u32 width, u32 height)
+{
+	const u32 THRESHOLD = 256 * 1024;
+	u32 sizeimage;
+
+	sizeimage = width * height / 2;
+	if (sizeimage < THRESHOLD)
+		sizeimage = THRESHOLD;
+
+	return sizeimage;
+}
+
 static int set_enc_queue_fmt(struct queue_data *q_data, struct v4l2_format *f)
 {
 	struct vpu_v4l2_fmt *fmt = NULL;
 	struct v4l2_pix_format_mplane *pix_mp = &f->fmt.pix_mp;
+	u32 sizeimage;
 
 	if (!q_data || !f)
 		return -EINVAL;
@@ -377,7 +390,9 @@ static int set_enc_queue_fmt(struct queue_data *q_data, struct v4l2_format *f)
 	q_data->fourcc = pix_mp->pixelformat;
 	q_data->width = pix_mp->width;
 	q_data->height = pix_mp->height;
-	q_data->sizeimage[0] = pix_mp->plane_fmt[0].sizeimage;
+	sizeimage = get_enc_minimum_sizeimage(pix_mp->width, pix_mp->height);
+	q_data->sizeimage[0] = max(sizeimage, pix_mp->plane_fmt[0].sizeimage);
+	pix_mp->plane_fmt[0].sizeimage = q_data->sizeimage[0];
 
 	q_data->current_fmt = fmt;
 
