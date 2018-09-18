@@ -98,6 +98,7 @@ MODULE_DEVICE_TABLE(of, fsl_micfil_dt_ids);
  */
 static const char * const micfil_quality_select_texts[] = {
 	"Medium", "High",
+	"N/A", "N/A",
 	"VLow2", "VLow1",
 	"VLow0", "Low",
 };
@@ -144,42 +145,6 @@ static const struct soc_enum fsl_micfil_enum[] = {
 			ARRAY_SIZE(micfil_hwvad_noise_decimation),
 			micfil_hwvad_noise_decimation),
 };
-
-static int set_quality(struct snd_kcontrol *kcontrol,
-		       struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_component *comp = snd_kcontrol_chip(kcontrol);
-	struct soc_enum *e = (struct soc_enum *)kcontrol->private_value;
-	unsigned int *item = ucontrol->value.enumerated.item;
-	struct fsl_micfil *micfil = snd_soc_component_get_drvdata(comp);
-	int val = snd_soc_enum_item_to_val(e, item[0]);
-	int ret;
-
-	switch (val) {
-	case 0:
-	case 1:
-		micfil->quality = val;
-		break;
-	case 2:
-	case 3:
-	case 4:
-	case 5:
-		micfil->quality = val + 2;
-		break;
-	default:
-		dev_err(comp->dev, "Undefined value %d\n", val);
-		return -EINVAL;
-	}
-
-	ret = snd_soc_component_update_bits(comp,
-					    REG_MICFIL_CTRL2,
-					    MICFIL_CTRL2_QSEL_MASK,
-					    micfil->quality << MICFIL_CTRL2_QSEL_SHIFT);
-	if (ret)
-		return ret;
-
-	return 0;
-}
 
 static int hwvad_put_init_mode(struct snd_kcontrol *kcontrol,
 			       struct snd_ctl_elem_value *ucontrol)
@@ -548,7 +513,7 @@ static const struct snd_kcontrol_new fsl_micfil_snd_controls[] = {
 	SOC_SINGLE_RANGE("CH8 Gain", REG_MICFIL_OUT_CTRL,
 			 MICFIL_OUTGAIN_CHX_SHIFT(7), 0x0, 0xF, 0),
 	SOC_ENUM_EXT("MICFIL Quality Select", fsl_micfil_enum[0],
-		     snd_soc_get_enum_double, set_quality),
+		     snd_soc_get_enum_double, snd_soc_put_enum_double),
 	SOC_ENUM_EXT("HWVAD Initialization Mode", fsl_micfil_enum[1],
 		     hwvad_get_init_mode, hwvad_put_init_mode),
 	SOC_ENUM_EXT("HWVAD High-Pass Filter", fsl_micfil_enum[2],
