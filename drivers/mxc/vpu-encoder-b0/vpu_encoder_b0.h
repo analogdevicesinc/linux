@@ -63,6 +63,7 @@ extern unsigned int vpu_dbg_level_encoder;
 #define ENC_REG_BASE 0x2c000000
 #define MIN_BUFFER_COUNT 3
 #define V4L2_MAX_CTRLS 12
+#define ENCODER_NODE_NUMBER 13 //use /dev/video13 as encoder node
 struct vpu_v4l2_control {
 	uint32_t id;
 	enum v4l2_ctrl_type type;

@@ -2352,7 +2352,7 @@ static int vpu_probe(struct platform_device *pdev)
 
 		if (video_register_device(dev->pvpu_encoder_dev,
 					VFL_TYPE_GRABBER,
-					-1)) {
+					ENCODER_NODE_NUMBER)) {
 			vpu_dbg(LVL_ERR, "%s unable to register video encoder device\n",
 					__func__
 					);

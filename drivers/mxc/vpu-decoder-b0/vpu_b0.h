@@ -67,6 +67,7 @@ extern unsigned int vpu_dbg_level_decoder;
 #define V4L2_MAX_CTRLS 12
 #define V4L2_PIX_FMT_NV12_10BIT    v4l2_fourcc('N', 'T', '1', '2') /*  Y/CbCr 4:2:0 for 10bit  */
 #define INVALID_FRAME_DEPTH -1
+#define DECODER_NODE_NUMBER 12 // use /dev/video12 as vpu decoder
 
 struct vpu_v4l2_control {
 	uint32_t id;
