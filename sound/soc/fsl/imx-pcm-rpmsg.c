@@ -22,6 +22,7 @@
 
 #include "imx-pcm.h"
 #include "fsl_rpmsg_i2s.h"
+#include "../../core/pcm_local.h"
 
 struct i2s_info *i2s_info_g;
 
@@ -297,8 +298,17 @@ static void imx_rpmsg_pcm_dma_complete(void *arg)
 	rpmsg->recv_msg.param.buffer_offset =
 		rpmsg2->recv_msg.param.buffer_tail
 				* snd_pcm_lib_period_bytes(substream);
-
-	snd_pcm_period_elapsed(substream);
+	/*
+	 * With suspend state, which is not running state, M4 will trigger
+	 * system resume with PERIOD_DONE command, at this moment, the
+	 * snd_pcm_period_elapsed can't update the hw ptr. so call
+	 * snd_pcm_update_hw_ptr directly for this special case.
+	 *
+	 */
+	if (!snd_pcm_running(substream) && rpmsg_i2s->force_lpa)
+		snd_pcm_update_hw_ptr(substream);
+	else
+		snd_pcm_period_elapsed(substream);
 }
 
 static int imx_rpmsg_pcm_prepare_and_submit(struct snd_pcm_substream *substream)
@@ -466,7 +476,9 @@ int imx_rpmsg_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct snd_soc_dai     *cpu_dai = rtd->cpu_dai;
 	struct fsl_rpmsg_i2s   *rpmsg_i2s = dev_get_drvdata(cpu_dai->dev);
+	struct i2s_info        *i2s_info =  &rpmsg_i2s->i2s_info;
 	int ret;
+	int time_msec;
 
 	switch (cmd) {
 	case SNDRV_PCM_TRIGGER_START:
@@ -476,8 +488,13 @@ int imx_rpmsg_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 		imx_rpmsg_async_issue_pending(substream);
 		break;
 	case SNDRV_PCM_TRIGGER_RESUME:
-		if (rpmsg_i2s->force_lpa)
+		if (rpmsg_i2s->force_lpa) {
+			time_msec = min(500,
+			    (int)(runtime->period_size*1000/runtime->rate));
+			mod_timer(&i2s_info->stream_timer[substream->stream],
+			     jiffies + msecs_to_jiffies(time_msec));
 			break;
+		}
 	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
 		imx_rpmsg_restart(substream);
 		break;
@@ -487,7 +504,8 @@ int imx_rpmsg_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 				imx_rpmsg_pause(substream);
 			else
 				imx_rpmsg_terminate_all(substream);
-		}
+		} else
+			del_timer(&i2s_info->stream_timer[substream->stream]);
 		break;
 	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
 		imx_rpmsg_pause(substream);
