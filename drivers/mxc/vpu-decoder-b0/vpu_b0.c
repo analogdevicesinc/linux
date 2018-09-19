@@ -1374,6 +1374,14 @@ static int update_stream_addr(struct vpu_ctx *ctx, void *input_buffer, uint32_t 
 
 	start = pStrBufDesc->start;
 	end = pStrBufDesc->end;
+	if (wptr < start || wptr > end) {
+		vpu_dbg(LVL_ERR, "%s(), wptr pointer cross-border\n", __func__);
+		return 0;
+	}
+	if (rptr < start || rptr > end) {
+		vpu_dbg(LVL_ERR, "%s(), rptr pointer cross-border\n", __func__);
+		return 0;
+	}
 	wptr_virt = (void *)ctx->stream_buffer_virt + wptr - start;
 
 	vpu_dbg(LVL_INFO, "update_stream_addr down\n");
