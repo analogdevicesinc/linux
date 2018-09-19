@@ -217,6 +217,7 @@ struct vpu_dev {
 	struct mutex dev_mutex;
 	struct core_device core_dev[2];
 	u_int32 plat_type;
+	u_int32 core_num;
 //	struct vpu_ctx *ctx[VPU_MAX_NUM_STREAMS];
 };
 
@@ -249,7 +250,6 @@ struct vpu_ctx {
 	bool forceStop;
 	wait_queue_head_t buffer_wq_output;
 	wait_queue_head_t buffer_wq_input;
-	struct buffer_addr encoder_buffer;
 	struct buffer_addr encoder_stream;
 	struct buffer_addr encoder_mem;
 	struct buffer_addr encFrame[MEDIAIP_MAX_NUM_WINDSOR_SRC_FRAMES];
