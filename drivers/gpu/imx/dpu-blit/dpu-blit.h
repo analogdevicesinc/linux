@@ -41,6 +41,8 @@ struct dpu_bliteng {
 
 	bool start;
 	bool sync;
+
+	u64 modifier;
 };
 
 #endif
