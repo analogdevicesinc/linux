@@ -6,6 +6,10 @@ menu "MXC VPU(Video Processing Unit) B0 ENCODER support"
 
 config MXC_VPU_ENCODER
 	  tristate "Support for MXC VPU(Video Processing Unit) ENCODER"
+	  select VIDEO_DEV
+	  select VIDEO_V4L2
+	  select VIDEOBUF2_DMA_CONTIG
+	  select VIDEOBUF2_VMALLOC
 	  default y
 	---help---
 	  The VPU codec device provides codec function for H.264 etc.

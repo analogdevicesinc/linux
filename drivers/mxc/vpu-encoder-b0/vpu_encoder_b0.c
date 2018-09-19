@@ -44,7 +44,7 @@
 #include <media/v4l2-mem2mem.h>
 #include <media/videobuf2-v4l2.h>
 #include <media/videobuf2-dma-contig.h>
-#include <media/videobuf2-dma-sg.h>
+#include <media/videobuf2-vmalloc.h>
 
 #include "vpu_encoder_b0.h"
 
@@ -1697,7 +1697,9 @@ static struct vb2_ops v4l2_qops = {
 	.buf_queue          = vpu_buf_queue,
 };
 
-static void init_vb2_queue(struct queue_data *This, unsigned int type, struct vpu_ctx *ctx)
+static void init_vb2_queue(struct queue_data *This, unsigned int type,
+				struct vpu_ctx *ctx,
+				const struct vb2_mem_ops *mem_ops)
 {
 	struct vb2_queue  *vb2_q = &This->vb2_q;
 	int ret;
@@ -1712,7 +1714,10 @@ static void init_vb2_queue(struct queue_data *This, unsigned int type, struct vp
 	vb2_q->gfp_flags = GFP_DMA32;
 	vb2_q->ops = &v4l2_qops;
 	vb2_q->drv_priv = This;
-	vb2_q->mem_ops = (struct vb2_mem_ops *)&vb2_dma_contig_memops;
+	if (mem_ops)
+		vb2_q->mem_ops = mem_ops;
+	else
+		vb2_q->mem_ops = &vb2_dma_contig_memops;
 	vb2_q->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_COPY;
 	vb2_q->dev = &ctx->dev->plat_dev->dev;
 	ret = vb2_queue_init(vb2_q);
@@ -1727,10 +1732,16 @@ static void init_vb2_queue(struct queue_data *This, unsigned int type, struct vp
 
 static void init_queue_data(struct vpu_ctx *ctx)
 {
-	init_vb2_queue(&ctx->q_data[V4L2_SRC], V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE, ctx);
+	init_vb2_queue(&ctx->q_data[V4L2_SRC],
+			V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE,
+			ctx,
+			&vb2_dma_contig_memops);
 	ctx->q_data[V4L2_SRC].type = V4L2_SRC;
 	sema_init(&ctx->q_data[V4L2_SRC].drv_q_lock, 1);
-	init_vb2_queue(&ctx->q_data[V4L2_DST], V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE, ctx);
+	init_vb2_queue(&ctx->q_data[V4L2_DST],
+			V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE,
+			ctx,
+			&vb2_vmalloc_memops);
 	ctx->q_data[V4L2_DST].type = V4L2_DST;
 	sema_init(&ctx->q_data[V4L2_DST].drv_q_lock, 1);
 }
