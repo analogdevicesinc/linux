@@ -75,8 +75,7 @@ static char *check[] = {
 	"cast6", "arc4", "michael_mic", "deflate", "crc32c", "tea", "xtea",
 	"khazad", "wp512", "wp384", "wp256", "tnepres", "xeta",  "fcrypt",
 	"camellia", "seed", "salsa20", "rmd128", "rmd160", "rmd256", "rmd320",
-	"lzo", "cts", "zlib", "sha3-224", "sha3-256", "sha3-384", "sha3-512",
-	NULL
+	"lzo", "cts", "sha3-224", "sha3-256", "sha3-384", "sha3-512", NULL
 };
 
 struct tcrypt_result {
@@ -1242,10 +1241,6 @@ static int do_test(const char *alg, u32 type, u32 mask, int m)
 
 	case 43:
 		ret += tcrypt_test("ecb(seed)");
-		break;
-
-	case 44:
-		ret += tcrypt_test("zlib");
 		break;
 
 	case 45:
