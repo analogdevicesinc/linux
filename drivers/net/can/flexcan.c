@@ -1821,19 +1821,18 @@ static int __maybe_unused flexcan_resume(struct device *device)
 
 	priv->can.state = CAN_STATE_ERROR_ACTIVE;
 	if (netif_running(dev)) {
-		err = pm_runtime_force_resume(device);
-		if (err)
-			return err;
-
 		netif_device_attach(dev);
 		netif_start_queue(dev);
 
 		if (device_may_wakeup(device)) {
 			disable_irq_wake(dev->irq);
 			flexcan_exit_stop_mode(priv);
+		} else {
+			err = pm_runtime_force_resume(device);
+			if (err)
+				return err;
+			err = flexcan_chip_start(dev);
 		}
-
-		err = flexcan_chip_start(dev);
 	}
 
 	return err;
