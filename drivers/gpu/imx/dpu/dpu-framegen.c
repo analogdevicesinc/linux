@@ -347,15 +347,15 @@ framegen_cfg_videomode(struct dpu_framegen *fg,
 	dpu_fg_write(fg, VACT(vact) | VTOTAL(vtotal), VTCFG1);
 	dpu_fg_write(fg, VSYNC(vsync) | VSBP(vsbp) | VSEN, VTCFG2);
 
-	kick_col = hact;
+	kick_col = hact + 1;
 	kick_row = vact;
 	/*
 	 * FrameGen as slave needs to be kicked later for
-	 * more than 64 pixels comparing to the master.
+	 * one line comparing to the master.
 	 */
 	if (side_by_side && framegen_is_slave(fg) &&
 	    devtype->has_syncmode_fixup)
-		kick_col += 65;
+		kick_row++;
 
 	/* pkickconfig */
 	dpu_fg_write(fg, COL(kick_col) | ROW(kick_row) | EN, PKICKCONFIG);
