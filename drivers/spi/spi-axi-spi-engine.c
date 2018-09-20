@@ -63,6 +63,7 @@
 
 #define SPI_ENGINE_CMD_REG_CLK_DIV		0x0
 #define SPI_ENGINE_CMD_REG_CONFIG		0x1
+#define SPI_ENGINE_CMD_REG_WORD_LENGTH		0x2
 
 #define SPI_ENGINE_MISC_SYNC			0x0
 #define SPI_ENGINE_MISC_SLEEP			0x1
@@ -161,6 +162,18 @@ static unsigned int spi_engine_get_clk_div(struct spi_engine *spi_engine,
 	return clk_div;
 }
 
+static unsigned int spi_engine_get_word_length(struct spi_engine *spi_engine,
+	struct spi_device *spi, struct spi_transfer *xfer)
+{
+	/* if bits_per_word is 0 this will default to 8 bit words */
+	if (xfer->bits_per_word)
+		return xfer->bits_per_word;
+	else if (spi->bits_per_word)
+		return spi->bits_per_word;
+	else
+		return 8;
+}
+
 static void spi_engine_gen_xfer(struct spi_engine_program *p, bool dry,
 	struct spi_transfer *xfer)
 {
@@ -216,9 +229,11 @@ static int spi_engine_compile_message(struct spi_engine *spi_engine,
 	struct spi_device *spi = msg->spi;
 	struct spi_transfer *xfer;
 	int clk_div, new_clk_div;
+	int word_len, new_word_len;
 	bool cs_change = true;
 
 	clk_div = -1;
+	word_len = -1;
 
 	spi_engine_program_add_cmd(p, dry,
 		SPI_ENGINE_CMD_WRITE(SPI_ENGINE_CMD_REG_CONFIG,
@@ -231,6 +246,14 @@ static int spi_engine_compile_message(struct spi_engine *spi_engine,
 			spi_engine_program_add_cmd(p, dry,
 				SPI_ENGINE_CMD_WRITE(SPI_ENGINE_CMD_REG_CLK_DIV,
 					clk_div));
+		}
+
+		new_word_len = spi_engine_get_word_length(spi_engine, spi, xfer);
+		if (new_word_len != word_len) {
+			word_len = new_word_len;
+			spi_engine_program_add_cmd(p, dry,
+				SPI_ENGINE_CMD_WRITE(SPI_ENGINE_CMD_REG_WORD_LENGTH,
+					word_len));
 		}
 
 		if (cs_change)
