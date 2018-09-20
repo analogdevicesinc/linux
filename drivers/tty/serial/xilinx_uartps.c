@@ -184,7 +184,6 @@ MODULE_PARM_DESC(rx_timeout, "Rx timeout, 1-255");
  * @port:		Pointer to the UART port
  * @uartclk:		Reference clock
  * @pclk:		APB clock
- * @cdns_uart_driver:	Pointer to UART driver
  * @baud:		Current baud rate
  * @clk_rate_change_nb:	Notifier block for clock changes
  * @quirks:		Flags for RXBS support.
@@ -193,7 +192,6 @@ struct cdns_uart {
 	struct uart_port	*port;
 	struct clk		*uartclk;
 	struct clk		*pclk;
-	struct uart_driver	*cdns_uart_driver;
 	unsigned int		baud;
 	struct notifier_block	clk_rate_change_nb;
 	u32			quirks;
@@ -1311,7 +1309,6 @@ static struct uart_driver cdns_uart_uart_driver = {
 static int cdns_uart_suspend(struct device *device)
 {
 	struct uart_port *port = dev_get_drvdata(device);
-	struct cdns_uart *cdns_uart = port->private_data;
 	int may_wake;
 
 	may_wake = device_may_wakeup(device);
@@ -1335,7 +1332,7 @@ static int cdns_uart_suspend(struct device *device)
 	 * Call the API provided in serial_core.c file which handles
 	 * the suspend.
 	 */
-	return uart_suspend_port(cdns_uart->cdns_uart_driver, port);
+	return uart_suspend_port(&cdns_uart_uart_driver, port);
 }
 
 /**
@@ -1347,7 +1344,6 @@ static int cdns_uart_suspend(struct device *device)
 static int cdns_uart_resume(struct device *device)
 {
 	struct uart_port *port = dev_get_drvdata(device);
-	struct cdns_uart *cdns_uart = port->private_data;
 	unsigned long flags = 0;
 	u32 ctrl_reg;
 	int may_wake;
@@ -1355,6 +1351,8 @@ static int cdns_uart_resume(struct device *device)
 	may_wake = device_may_wakeup(device);
 
 	if (console_suspend_enabled && !may_wake) {
+		struct cdns_uart *cdns_uart = port->private_data;
+
 		clk_enable(cdns_uart->pclk);
 		clk_enable(cdns_uart->uartclk);
 
@@ -1388,7 +1386,7 @@ static int cdns_uart_resume(struct device *device)
 		spin_unlock_irqrestore(&port->lock, flags);
 	}
 
-	return uart_resume_port(cdns_uart->cdns_uart_driver, port);
+	return uart_resume_port(&cdns_uart_uart_driver, port);
 }
 #endif /* ! CONFIG_PM_SLEEP */
 static int __maybe_unused cdns_runtime_suspend(struct device *dev)
@@ -1450,8 +1448,6 @@ static int cdns_uart_probe(struct platform_device *pdev)
 			GFP_KERNEL);
 	if (!cdns_uart_data)
 		return -ENOMEM;
-
-	cdns_uart_data->cdns_uart_driver = &cdns_uart_uart_driver;
 
 	match = of_match_node(cdns_uart_of_match, pdev->dev.of_node);
 	if (match && match->data) {
@@ -1587,7 +1583,7 @@ static int cdns_uart_remove(struct platform_device *pdev)
 	clk_notifier_unregister(cdns_uart_data->uartclk,
 			&cdns_uart_data->clk_rate_change_nb);
 #endif
-	rc = uart_remove_one_port(cdns_uart_data->cdns_uart_driver, port);
+	rc = uart_remove_one_port(&cdns_uart_uart_driver, port);
 	port->mapbase = 0;
 	clk_disable_unprepare(cdns_uart_data->uartclk);
 	clk_disable_unprepare(cdns_uart_data->pclk);
