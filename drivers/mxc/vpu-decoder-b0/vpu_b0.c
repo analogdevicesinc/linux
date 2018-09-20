@@ -2472,7 +2472,7 @@ static int v4l2_open(struct file *filp)
 	struct vpu_dev *dev = video_get_drvdata(vdev);
 	struct vpu_ctx *ctx = NULL;
 	int idx;
-	int ret;
+	int ret = 0;
 	u_int32 i;
 
 	pm_runtime_get_sync(dev->generic_dev);
@@ -2505,7 +2505,7 @@ static int v4l2_open(struct file *filp)
 	if (!ctx->instance_wq) {
 		vpu_dbg(LVL_ERR, "error: %s unable to alloc workqueue for ctx\n", __func__);
 		ret = -ENOMEM;
-		goto err_alloc;
+		goto err_alloc_wq;
 	}
 	INIT_WORK(&ctx->instance_work, vpu_msg_instance_work);
 
@@ -2515,7 +2515,7 @@ static int v4l2_open(struct file *filp)
 				GFP_KERNEL)) {
 		vpu_dbg(LVL_ERR, "fail to alloc fifo when open\n");
 		ret = -ENOMEM;
-		goto err_alloc;
+		goto err_alloc_fifo;
 	}
 	ctx->dev = dev;
 	ctx->str_index = idx;
@@ -2531,8 +2531,10 @@ static int v4l2_open(struct file *filp)
 	ctx->ctx_released = false;
 	ctx->b_dis_reorder = false;
 	ctx->pSeqinfo = kzalloc(sizeof(MediaIPFW_Video_SeqInfo), GFP_KERNEL);
-	if (!ctx->pSeqinfo)
+	if (!ctx->pSeqinfo) {
 		vpu_dbg(LVL_ERR, "error: pSeqinfo alloc fail\n");
+		goto err_alloc_seq;
+	}
 	init_queue_data(ctx);
 	init_waitqueue_head(&ctx->buffer_wq);
 	mutex_lock(&dev->dev_mutex);
@@ -2571,8 +2573,11 @@ static int v4l2_open(struct file *filp)
 			(dma_addr_t *)&ctx->stream_buffer_phy,
 			GFP_KERNEL | GFP_DMA32
 			);
-	if (!ctx->stream_buffer_virt)
+	if (!ctx->stream_buffer_virt) {
 		vpu_dbg(LVL_ERR, "error: %s() stream buffer alloc size(%x) fail!\n", __func__, ctx->stream_buffer_size);
+		ret = -ENOMEM;
+		goto err_firmware_load;
+	}
 	else
 		vpu_dbg(LVL_INFO, "%s() stream_buffer_size(%d) stream_buffer_virt(%p) stream_buffer_phy(%p), index(%d)\n",
 				__func__, ctx->stream_buffer_size, ctx->stream_buffer_virt, (void *)ctx->stream_buffer_phy, ctx->str_index);
@@ -2588,29 +2593,43 @@ static int v4l2_open(struct file *filp)
 			GFP_KERNEL | GFP_DMA32
 			);
 
-	if (!ctx->udata_buffer_virt)
+	if (!ctx->udata_buffer_virt) {
 		vpu_dbg(LVL_ERR, "error: %s() udata buffer alloc size(%x) fail!\n", __func__, ctx->udata_buffer_size);
+		ret = -ENOMEM;
+		goto err_alloc_udata;
+	}
 	else
 		vpu_dbg(LVL_INFO, "%s() udata_buffer_size(%d) udata_buffer_virt(%p) udata_buffer_phy(%p)\n",
 				__func__, ctx->udata_buffer_size, ctx->udata_buffer_virt, (void *)ctx->udata_buffer_phy);
 
 	return 0;
 
+err_alloc_udata:
+#ifdef DYNAMIC_MEM
+	if (ctx->stream_buffer_virt)
+		dma_free_coherent(&ctx->dev->plat_dev->dev,
+				ctx->stream_buffer_size,
+				ctx->stream_buffer_virt,
+				ctx->stream_buffer_phy
+				);
+#endif
 err_firmware_load:
+	kfree(ctx->pSeqinfo);
+	ctx->pSeqinfo = NULL;
 	release_queue_data(ctx);
+err_alloc_seq:
+	kfifo_free(&ctx->msg_fifo);
+err_alloc_fifo:
+	destroy_workqueue(ctx->instance_wq);
+err_alloc_wq:
 	ctrls_delete_decoder(ctx);
 	v4l2_fh_del(&ctx->fh);
 	v4l2_fh_exit(&ctx->fh);
 	clear_bit(ctx->str_index, &dev->instance_mask);
-	kfree(ctx);
-	return ret;
 err_find_index:
-	pm_runtime_put_sync(dev->generic_dev);
 	kfree(ctx);
-	return ret;
-err_alloc:
 	pm_runtime_put_sync(dev->generic_dev);
-	kfree(ctx);
+
 	return ret;
 }
 
@@ -2921,130 +2940,108 @@ static int reset_vpu_firmware(struct vpu_dev *dev)
 	return ret;
 }
 
-static int vpu_probe(struct platform_device *pdev)
+static int parse_dt_info(struct vpu_dev *dev, struct device_node *np)
 {
-	struct vpu_dev *dev;
-	struct resource *res;
-	struct device_node *np = pdev->dev.of_node;
-	struct device_node *reserved_node;
-	struct resource reserved_res;
-	unsigned int mu_id;
 	u_int32 core_type;
+	struct resource reserved_res;
+	struct device_node *reserved_node;
 	int ret;
 
-	dev = devm_kzalloc(&pdev->dev, sizeof(*dev), GFP_KERNEL);
-	if (!dev)
-		return -ENOMEM;
+	if (!dev || !np)
+		return -EINVAL;
 
-	dev->plat_dev = pdev;
-	dev->generic_dev = &pdev->dev;
-
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	dev->regs_base = devm_ioremap_resource(&pdev->dev, res);
-	if (IS_ERR(dev->regs_base)) {
-		vpu_dbg(LVL_ERR, "error: %s could not map regs_base\n", __func__);
-		return PTR_ERR(dev->regs_base);
+	ret = of_property_read_u32(np, "core_type", &core_type);
+	if (ret) {
+		vpu_dbg(LVL_ERR, "error: Cannot get core num %d\n", ret);
+		return -EINVAL;
+	}
+	if (core_type == 2)
+		dev->plat_type = IMX8QM;
+	else
+		dev->plat_type = IMX8QXP;
+	reserved_node = of_parse_phandle(np, "boot-region", 0);
+	if (!reserved_node) {
+		vpu_dbg(LVL_ERR, "error: boot-region of_parse_phandle error\n");
+		return -ENODEV;
 	}
 
-	if (np) {
-		ret = of_property_read_u32(np, "core_type", &core_type);
-		if (ret) {
-			vpu_dbg(LVL_ERR, "error: Cannot get core num %d\n", ret);
-			return -EINVAL;
-		}
-		if (core_type == 2)
-			dev->plat_type = IMX8QM;
-		else
-			dev->plat_type = IMX8QXP;
-		reserved_node = of_parse_phandle(np, "boot-region", 0);
-		if (!reserved_node) {
-			vpu_dbg(LVL_ERR, "error: boot-region of_parse_phandle error\n");
-			return -ENODEV;
-		}
+	if (of_address_to_resource(reserved_node, 0, &reserved_res)) {
+		vpu_dbg(LVL_ERR, "error: boot-region of_address_to_resource error\n");
+		return -EINVAL;
+	}
+	dev->m0_p_fw_space_phy = reserved_res.start;
+	dev->cm_offset = 0;
+	reserved_node = of_parse_phandle(np, "rpc-region", 0);
+	if (!reserved_node) {
+		vpu_dbg(LVL_ERR, "error: rpc-region of_parse_phandle error\n");
+		return -ENODEV;
+	}
 
-		if (of_address_to_resource(reserved_node, 0, &reserved_res)) {
-			vpu_dbg(LVL_ERR, "error: boot-region of_address_to_resource error\n");
-			return -EINVAL;
-		}
-		dev->m0_p_fw_space_phy = reserved_res.start;
-		dev->cm_offset = 0;
-		reserved_node = of_parse_phandle(np, "rpc-region", 0);
-		if (!reserved_node) {
-			vpu_dbg(LVL_ERR, "error: rpc-region of_parse_phandle error\n");
-			return -ENODEV;
-		}
-
-		if (of_address_to_resource(reserved_node, 0, &reserved_res)) {
-			vpu_dbg(LVL_ERR, "error: rpc-region of_address_to_resource error\n");
-			return -EINVAL;
-		}
-		dev->m0_rpc_phy = reserved_res.start;
+	if (of_address_to_resource(reserved_node, 0, &reserved_res)) {
+		vpu_dbg(LVL_ERR, "error: rpc-region of_address_to_resource error\n");
+		return -EINVAL;
+	}
+	dev->m0_rpc_phy = reserved_res.start;
 #ifndef DYNAMIC_MEM
-		reserved_node = of_parse_phandle(np, "str-region", 0);
-		if (!reserved_node) {
-			vpu_dbg(LVL_ERR, "error: str-region of_parse_phandle error\n");
-			return -ENODEV;
-		}
+	reserved_node = of_parse_phandle(np, "str-region", 0);
+	if (!reserved_node) {
+		vpu_dbg(LVL_ERR, "error: str-region of_parse_phandle error\n");
+		return -ENODEV;
+	}
 
-		if (of_address_to_resource(reserved_node, 0, &reserved_res)) {
-			vpu_dbg(LVL_ERR, "error: str-region of_address_to_resource error\n");
-			return -EINVAL;
-		}
-		dev->str_base_phy = reserved_res.start;
-		dev->str_size = resource_size(&reserved_res);
+	if (of_address_to_resource(reserved_node, 0, &reserved_res)) {
+		vpu_dbg(LVL_ERR, "error: str-region of_address_to_resource error\n");
+		return -EINVAL;
+	}
+	dev->str_base_phy = reserved_res.start;
+	dev->str_size = resource_size(&reserved_res);
 #endif
-	} else
-		vpu_dbg(LVL_ERR, "error: %s of_node is NULL\n", __func__);
 
-	ret = v4l2_device_register(&pdev->dev, &dev->v4l2_dev);
+	return 0;
+}
+
+static int create_vpu_video_device(struct vpu_dev *dev)
+{
+	int ret;
+
+	if (!dev)
+		return -EINVAL;
+
+	dev->pvpu_decoder_dev = video_device_alloc();
+	if (!dev->pvpu_decoder_dev) {
+		vpu_dbg(LVL_ERR, "video device alloc for decoder fail\n");
+		return -ENOMEM;
+	}
+	strncpy(dev->pvpu_decoder_dev->name, v4l2_videodevice_decoder.name, sizeof(v4l2_videodevice_decoder.name));
+	dev->pvpu_decoder_dev->fops = v4l2_videodevice_decoder.fops;
+	dev->pvpu_decoder_dev->ioctl_ops = v4l2_videodevice_decoder.ioctl_ops;
+	dev->pvpu_decoder_dev->release = video_device_release;
+	dev->pvpu_decoder_dev->vfl_dir = v4l2_videodevice_decoder.vfl_dir;
+	dev->pvpu_decoder_dev->v4l2_dev = &dev->v4l2_dev;
+
+	video_set_drvdata(dev->pvpu_decoder_dev, dev);
+
+	ret = video_register_device(dev->pvpu_decoder_dev,
+			VFL_TYPE_GRABBER,
+			DECODER_NODE_NUMBER);
 	if (ret) {
-		vpu_dbg(LVL_ERR, "error: %s unable to register v4l2 dev\n", __func__);
+		vpu_dbg(LVL_ERR, "error: %s unable to register video decoder device\n",
+				__func__
+				);
+		video_device_release(dev->pvpu_decoder_dev);
+		dev->pvpu_decoder_dev = NULL;
 		return ret;
 	}
 
-	platform_set_drvdata(pdev, dev);
+	return 0;
+}
 
-	dev->pvpu_decoder_dev = video_device_alloc();
-	if (dev->pvpu_decoder_dev) {
-		strncpy(dev->pvpu_decoder_dev->name, v4l2_videodevice_decoder.name, sizeof(v4l2_videodevice_decoder.name));
-		dev->pvpu_decoder_dev->fops = v4l2_videodevice_decoder.fops;
-		dev->pvpu_decoder_dev->ioctl_ops = v4l2_videodevice_decoder.ioctl_ops;
-		dev->pvpu_decoder_dev->release = video_device_release;
-		dev->pvpu_decoder_dev->vfl_dir = v4l2_videodevice_decoder.vfl_dir;
-		dev->pvpu_decoder_dev->v4l2_dev = &dev->v4l2_dev;
+static int init_vpudev_parameters(struct vpu_dev *dev)
+{
+	int ret;
 
-		video_set_drvdata(dev->pvpu_decoder_dev, dev);
-
-		if (video_register_device(dev->pvpu_decoder_dev,
-					VFL_TYPE_GRABBER,
-					DECODER_NODE_NUMBER)) {
-			vpu_dbg(LVL_ERR, "error: %s unable to register video decoder device\n",
-					__func__
-					);
-			video_device_release(dev->pvpu_decoder_dev);
-			dev->pvpu_decoder_dev = NULL;
-		} else {
-			vpu_dbg(LVL_INFO, "%s  register video decoder device\n",
-					__func__
-				   );
-		}
-	}
-
-	if (!dev->mu_ipcHandle) {
-		ret = sc_ipc_getMuID(&mu_id);
-		if (ret) {
-			vpu_dbg(LVL_ERR, "error: --- sc_ipc_getMuID() cannot obtain mu id SCI error! (%d)\n", ret);
-			return ret;
-		}
-
-		ret = sc_ipc_open(&dev->mu_ipcHandle, mu_id);
-		if (ret) {
-			vpu_dbg(LVL_ERR, "error: --- sc_ipc_getMuID() cannot open MU channel to SCU error! (%d)\n", ret);
-			return ret;
-		}
-	}
-
-	vpu_enable_hw(dev);
+	if (!dev)
+		return -EINVAL;
 
 	mutex_init(&dev->dev_mutex);
 	mutex_init(&dev->cmd_mutex);
@@ -3055,23 +3052,6 @@ static int vpu_probe(struct platform_device *pdev)
 	dev->instance_mask = 0;
 
 	dev->fw_is_ready = false;
-	dev->workqueue = alloc_workqueue("vpu", WQ_UNBOUND | WQ_MEM_RECLAIM, 1);
-	if (!dev->workqueue) {
-		vpu_dbg(LVL_ERR, "error: %s unable to alloc workqueue\n", __func__);
-		ret = -ENOMEM;
-		return ret;
-	}
-
-	INIT_WORK(&dev->msg_work, vpu_msg_run_work);
-	pm_runtime_enable(&pdev->dev);
-	pm_runtime_get_sync(&pdev->dev);
-#ifdef CM4
-	ret = power_CM4_up(dev);
-	if (ret) {
-		vpu_dbg(LVL_ERR, "error: failed to power on CM4\n");
-		return ret;
-	}
-#endif
 
 	ret = vpu_mu_init(dev);
 	if (ret) {
@@ -3083,8 +3063,10 @@ static int vpu_probe(struct platform_device *pdev)
 	dev->m0_p_fw_space_vir = ioremap_wc(dev->m0_p_fw_space_phy,
 			M0_BOOT_SIZE
 			);
-	if (!dev->m0_p_fw_space_vir)
+	if (!dev->m0_p_fw_space_vir) {
 		vpu_dbg(LVL_ERR, "error: failed to remap space for M0 firmware\n");
+		return -ENOMEM;
+	}
 
 	memset_io(dev->m0_p_fw_space_vir, 0, M0_BOOT_SIZE);
 
@@ -3108,16 +3090,114 @@ static int vpu_probe(struct platform_device *pdev)
 
 	memset_io(dev->str_base_vir, 0, dev->str_size);
 #endif
-#ifdef CM4
-	rpc_init_shared_memory(&dev->shared_mem, dev->m0_rpc_phy, dev->m0_rpc_virt, SHARED_SIZE);
-#else
 	rpc_init_shared_memory(&dev->shared_mem, dev->m0_rpc_phy - dev->m0_p_fw_space_phy, dev->m0_rpc_virt, SHARED_SIZE);
-#endif
 	rpc_set_system_cfg_value(dev->shared_mem.pSharedInterface, VPU_REG_BASE);
+
+	return 0;
+}
+
+static int vpu_probe(struct platform_device *pdev)
+{
+	struct vpu_dev *dev;
+	struct resource *res;
+	struct device_node *np = pdev->dev.of_node;
+	unsigned int mu_id;
+	int ret;
+
+	dev = devm_kzalloc(&pdev->dev, sizeof(*dev), GFP_KERNEL);
+	if (!dev)
+		return -ENOMEM;
+
+	dev->plat_dev = pdev;
+	dev->generic_dev = get_device(&pdev->dev);
+
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	dev->regs_base = devm_ioremap_resource(&pdev->dev, res);
+	if (IS_ERR(dev->regs_base)) {
+		vpu_dbg(LVL_ERR, "error: %s could not map regs_base\n", __func__);
+		ret = PTR_ERR(dev->regs_base);
+		goto err_put_dev;
+	}
+
+	ret = parse_dt_info(dev, np);
+	if (ret) {
+		vpu_dbg(LVL_ERR, "error: %s parse device tree fail\n", __func__);
+		goto err_dev_iounmap;
+	}
+
+	ret = v4l2_device_register(&pdev->dev, &dev->v4l2_dev);
+	if (ret) {
+		vpu_dbg(LVL_ERR, "error: %s unable to register v4l2 dev\n", __func__);
+		goto err_dev_iounmap;
+	}
+
+	platform_set_drvdata(pdev, dev);
+
+	ret = create_vpu_video_device(dev);
+	if (ret) {
+		vpu_dbg(LVL_ERR, "error: %s create vpu video device fail\n", __func__);
+		goto err_unreg_v4l2;
+	}
+
+	if (!dev->mu_ipcHandle) {
+		ret = sc_ipc_getMuID(&mu_id);
+		if (ret) {
+			vpu_dbg(LVL_ERR, "error: --- sc_ipc_getMuID() cannot obtain mu id SCI error! (%d)\n", ret);
+			goto err_rm_vdev;
+		}
+
+		ret = sc_ipc_open(&dev->mu_ipcHandle, mu_id);
+		if (ret) {
+			vpu_dbg(LVL_ERR, "error: --- sc_ipc_getMuID() cannot open MU channel to SCU error! (%d)\n", ret);
+			goto err_rm_vdev;
+		}
+	}
+
+	dev->workqueue = alloc_workqueue("vpu", WQ_UNBOUND | WQ_MEM_RECLAIM, 1);
+	if (!dev->workqueue) {
+		vpu_dbg(LVL_ERR, "error: %s unable to alloc workqueue\n", __func__);
+		ret = -ENOMEM;
+		goto err_rm_vdev;
+	}
+
+	INIT_WORK(&dev->msg_work, vpu_msg_run_work);
+
+	vpu_enable_hw(dev);
+	pm_runtime_enable(&pdev->dev);
+	pm_runtime_get_sync(&pdev->dev);
+
+	ret = init_vpudev_parameters(dev);
+	if (ret) {
+		vpu_dbg(LVL_ERR, "error: failed to init parameters for vpudev\n");
+		goto err_poweroff;
+	}
 
 	pm_runtime_put_sync(&pdev->dev);
 
 	return 0;
+
+err_poweroff:
+	destroy_workqueue(dev->workqueue);
+	vpu_disable_hw(dev);
+	pm_runtime_put_sync(&pdev->dev);
+	pm_runtime_disable(&pdev->dev);
+err_rm_vdev:
+	if (dev->pvpu_decoder_dev) {
+		video_unregister_device(dev->pvpu_decoder_dev);
+		dev->pvpu_decoder_dev = NULL;
+	}
+err_unreg_v4l2:
+	v4l2_device_unregister(&dev->v4l2_dev);
+err_dev_iounmap:
+	if (dev->regs_base)
+		iounmap(dev->regs_base);
+err_put_dev:
+	if (dev->generic_dev) {
+		put_device(dev->generic_dev);
+		dev->generic_dev = NULL;
+	}
+
+	return ret;
 }
 
 static int vpu_remove(struct platform_device *pdev)
@@ -3192,8 +3272,6 @@ static int vpu_suspend(struct device *dev)
 		}
 	}
 
-	vpu_set_power(vpudev, false);
-
 	return 0;
 }
 
@@ -3202,7 +3280,6 @@ static int vpu_resume(struct device *dev)
 	struct vpu_dev *vpudev = (struct vpu_dev *)dev_get_drvdata(dev);
 	void *csr_offset, *csr_cpuwait;
 
-	vpu_set_power(vpudev, true);
 	vpu_enable_hw(vpudev);
 
 	MU_Init(vpudev->mu_base_virtaddr);
