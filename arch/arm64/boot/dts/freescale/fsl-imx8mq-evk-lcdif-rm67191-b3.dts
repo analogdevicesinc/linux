@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-2018 NXP
+ * Copyright 2018 NXP
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -12,5 +12,5 @@
  * GNU General Public License for more details.
  */
 
-#include "fsl-imx8mq-evk.dts"
-#include "fsl-imx8mq-evk-dcss-rm67191.dtsi"
+#include "fsl-imx8mq-evk-b3.dts"
+#include "fsl-imx8mq-evk-lcdif-rm67191.dtsi"

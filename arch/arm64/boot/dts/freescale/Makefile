@@ -90,11 +90,15 @@ dtb-$(CONFIG_ARCH_FSL_IMX8MQ) += fsl-imx8mq-ddr3l-arm2.dtb \
 				 fsl-imx8mq-evk-m4.dtb \
 				 fsl-imx8mq-evk-pcie1-m2.dtb \
 				 fsl-imx8mq-evk-lcdif-adv7535.dtb \
+				 fsl-imx8mq-evk-lcdif-adv7535-b3.dtb \
 				 fsl-imx8mq-evk-lcdif-rm67191.dtb \
+				 fsl-imx8mq-evk-lcdif-rm67191-b3.dtb \
 				 fsl-imx8mq-evk-mipi-csi2.dtb \
 				 fsl-imx8mq-evk-pdm.dtb \
 				 fsl-imx8mq-evk-dcss-adv7535.dtb \
+				 fsl-imx8mq-evk-dcss-adv7535-b3.dtb \
 				 fsl-imx8mq-evk-dcss-rm67191.dtb \
+				 fsl-imx8mq-evk-dcss-rm67191-b3.dtb \
 				 fsl-imx8mq-evk-dual-display.dtb \
 				 fsl-imx8mq-evk-ak4497.dtb \
 				 fsl-imx8mq-evk-audio-tdm.dtb \

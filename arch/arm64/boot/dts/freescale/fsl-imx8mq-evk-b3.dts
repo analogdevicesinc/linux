@@ -16,6 +16,7 @@
 
 /delete-node/ &ov5640_mipi;
 /delete-node/ &ov5640_mipi2;
+/delete-node/ &synaptics_dsx_ts;
 /delete-node/ &adv_bridge;
 
 &i2c1 {
@@ -63,6 +64,17 @@
 				remote-endpoint = <&mipi2_sensor_ep>;
 			};
 		};
+	};
+
+	synaptics_dsx_ts: synaptics_dsx_ts@20 {
+		compatible = "synaptics_dsx";
+		reg = <0x20>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_i2c1_dsi_ts_int>;
+		interrupt-parent = <&gpio5>;
+		interrupts = <7 IRQ_TYPE_LEVEL_LOW>;
+		synaptics,diagonal-rotation;
+		status = "disabled";
 	};
 
 	adv_bridge: adv7535@3d {

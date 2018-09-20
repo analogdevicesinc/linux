@@ -1,0 +1,117 @@
+/*
+ * Copyright 2018 NXP
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/ {
+	display-subsystem {
+		status = "disabled";
+	};
+};
+
+&irqsteer_dcss {
+	status = "disabled";
+};
+
+&dcss {
+	status = "disabled";
+};
+
+&hdmi {
+	status = "disabled";
+};
+
+&lcdif {
+	status = "okay";
+	max-res = <1080>, <1920>;
+
+	assigned-clocks = <&clk IMX8MQ_CLK_LCDIF_PIXEL_SRC>,
+			  <&clk IMX8MQ_VIDEO_PLL1_REF_SEL>,
+			  <&clk IMX8MQ_VIDEO_PLL1>;
+	assigned-clock-parents = <&clk IMX8MQ_VIDEO_PLL1_OUT>,
+				 <&clk IMX8MQ_CLK_25M>;
+	assigned-clock-rate = <120000000>,
+			      <0>,
+			      <599999999>;
+
+	port@0 {
+		lcdif_mipi_dsi: mipi-dsi-endpoint {
+			remote-endpoint = <&mipi_dsi_in>;
+		};
+	};
+};
+
+&mipi_dsi_phy {
+	status = "okay";
+};
+
+&mipi_dsi {
+	status = "okay";
+	as_bridge;
+	sync-pol = <1>;
+	assigned-clocks = <&clk IMX8MQ_CLK_DSI_PHY_REF_SRC>,
+			  <&clk IMX8MQ_CLK_DSI_CORE_SRC>,
+			  <&clk IMX8MQ_VIDEO_PLL1_REF_SEL>,
+			  <&clk IMX8MQ_VIDEO_PLL1>;
+	assigned-clock-parents = <&clk IMX8MQ_VIDEO_PLL1_OUT>,
+				 <&clk IMX8MQ_SYS1_PLL_266M>,
+				 <&clk IMX8MQ_CLK_25M>;
+	assigned-clock-rates = <24000000>,
+			       <266000000>,
+			       <0>,
+			       <599999999>;
+
+	port@1 {
+		mipi_dsi_in: endpoint {
+			remote-endpoint = <&lcdif_mipi_dsi>;
+		};
+	};
+};
+
+&mipi_dsi_bridge {
+	status = "okay";
+
+	panel@0 {
+		compatible = "raydium,rm67191";
+		reg = <0>;
+		pinctrl-0 = <&pinctrl_mipi_dsi_en>;
+		reset-gpio = <&gpio5 6 GPIO_ACTIVE_HIGH>;
+		dsi-lanes = <4>;
+		panel-width-mm = <68>;
+		panel-height-mm = <121>;
+		port {
+			panel1_in: endpoint {
+				remote-endpoint = <&mipi_dsi_bridge_out>;
+			};
+		};
+	};
+
+	port@2 {
+		mipi_dsi_bridge_out: endpoint {
+			remote-endpoint = <&panel1_in>;
+		};
+	};
+};
+
+&iomuxc {
+	imx8mq-evk {
+		pinctrl_mipi_dsi_en: mipi_dsi_en {
+			fsl,pins = <
+				MX8MQ_IOMUXC_ECSPI1_SCLK_GPIO5_IO6	0x16
+			>;
+		};
+	};
+};
+
+&synaptics_dsx_ts {
+	status = "okay";
+};

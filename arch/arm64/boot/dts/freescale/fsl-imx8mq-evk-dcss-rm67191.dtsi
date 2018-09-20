@@ -1,0 +1,121 @@
+/*
+ * Copyright 2018 NXP
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&hdmi {
+	status = "disabled";
+};
+
+&dcss {
+	status = "okay";
+	disp-dev = "mipi_disp";
+
+	clocks = <&clk IMX8MQ_CLK_DISP_APB_ROOT>,
+		 <&clk IMX8MQ_CLK_DISP_AXI_ROOT>,
+		 <&clk IMX8MQ_CLK_DISP_RTRM_ROOT>,
+		 <&clk IMX8MQ_CLK_DC_PIXEL_DIV>,
+		 <&clk IMX8MQ_CLK_DUMMY>,
+		 <&clk IMX8MQ_CLK_DISP_DTRC_DIV>;
+	clock-names = "apb", "axi", "rtrm", "pix_div", "pix_out", "dtrc";
+
+	assigned-clocks = <&clk IMX8MQ_CLK_DC_PIXEL_SRC>,
+			  <&clk IMX8MQ_CLK_DISP_AXI_SRC>,
+			  <&clk IMX8MQ_CLK_DISP_RTRM_SRC>,
+			  <&clk IMX8MQ_VIDEO_PLL1_REF_SEL>,
+			  <&clk IMX8MQ_CLK_DISP_RTRM_PRE_DIV>,
+			  <&clk IMX8MQ_VIDEO_PLL1>;
+	assigned-clock-parents = <&clk IMX8MQ_VIDEO_PLL1_OUT>,
+				 <&clk IMX8MQ_SYS1_PLL_800M>,
+				 <&clk IMX8MQ_SYS1_PLL_800M>,
+				 <&clk IMX8MQ_CLK_25M>;
+	assigned-clock-rates = <600000000>,
+			       <800000000>,
+			       <400000000>,
+			       <0>,
+			       <400000000>,
+			       <599999999>;
+
+	dcss_disp0: port@0 {
+		reg = <0>;
+
+		dcss_disp0_mipi_dsi: mipi_dsi {
+			remote-endpoint = <&mipi_dsi_in>;
+		};
+	};
+};
+
+&mipi_dsi_phy {
+	status = "okay";
+};
+
+&mipi_dsi {
+	status = "okay";
+	assigned-clocks = <&clk IMX8MQ_CLK_DSI_PHY_REF_SRC>,
+			  <&clk IMX8MQ_CLK_DSI_CORE_SRC>,
+			  <&clk IMX8MQ_VIDEO_PLL1_REF_SEL>,
+			  <&clk IMX8MQ_VIDEO_PLL1>;
+	assigned-clock-parents = <&clk IMX8MQ_VIDEO_PLL1_OUT>,
+				 <&clk IMX8MQ_SYS1_PLL_266M>,
+				 <&clk IMX8MQ_CLK_25M>;
+	assigned-clock-rates = <24000000>,
+			       <266000000>,
+			       <0>,
+			       <599999999>;
+
+	port@1 {
+		mipi_dsi_in: endpoint {
+			remote-endpoint = <&dcss_disp0_mipi_dsi>;
+		};
+	};
+
+};
+
+&mipi_dsi_bridge {
+	status = "okay";
+
+	panel@0 {
+		compatible = "raydium,rm67191";
+		reg = <0>;
+		pinctrl-0 = <&pinctrl_mipi_dsi_en>;
+		reset-gpio = <&gpio5 6 GPIO_ACTIVE_HIGH>;
+		dsi-lanes = <4>;
+		panel-width-mm = <68>;
+		panel-height-mm = <121>;
+		port {
+			panel1_in: endpoint {
+				remote-endpoint = <&mipi_dsi_bridge_out>;
+			};
+		};
+	};
+
+	port@2 {
+		mipi_dsi_bridge_out: endpoint {
+			remote-endpoint = <&panel1_in>;
+		};
+	};
+};
+
+&iomuxc {
+	imx8mq-evk {
+		pinctrl_mipi_dsi_en: mipi_dsi_en {
+			fsl,pins = <
+				MX8MQ_IOMUXC_ECSPI1_SCLK_GPIO5_IO6	0x16
+			>;
+		};
+
+	};
+};
+
+&synaptics_dsx_ts {
+	status = "okay";
+};

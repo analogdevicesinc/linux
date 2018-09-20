@@ -600,16 +600,6 @@
 		};
 	};
 
-	dsi_touch: synaptics_dsx_ts@20 {
-		compatible = "synaptics_dsx";
-		reg = <0x20>;
-		pinctrl-names = "default";
-		pinctrl-0 = <&pinctrl_i2c1_dsi_ts_int>;
-		interrupt-parent = <&gpio5>;
-		interrupts = <7 IRQ_TYPE_LEVEL_LOW>;
-	/*	rest-gpios = <&gpio5 6 GPIO_ACTIVE_HIGH>;  */
-		status = "disabled";
-	};
 };
 
 &i2c2 {
@@ -668,6 +658,17 @@
 		compatible = "asahi-kasei,ak4497";
 		reg = <0x11>;
 		ak4497,pdn-gpio = <&gpio3 16 GPIO_ACTIVE_HIGH>;
+	};
+
+	synaptics_dsx_ts: synaptics_dsx_ts@20 {
+		compatible = "synaptics_dsx";
+		reg = <0x20>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_i2c1_dsi_ts_int>;
+		interrupt-parent = <&gpio5>;
+		interrupts = <7 IRQ_TYPE_LEVEL_LOW>;
+		synaptics,diagonal-rotation;
+		status = "disabled";
 	};
 
 	adv_bridge: adv7535@3d {
