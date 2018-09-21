@@ -286,7 +286,6 @@ static int initialize_enc_param(struct vpu_ctx *ctx)
 	param->tEncMemDesc.uMemSize     = ctx->encoder_mem.size;
 	param->uFrameRate = 30;
 	param->uMinBitRate = BITRATE_LOW_THRESHOLD;
-	param->uLowLatencyMode = 0;
 
 	return 0;
 }

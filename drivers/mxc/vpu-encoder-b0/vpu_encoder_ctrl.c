@@ -160,6 +160,19 @@ static int get_min_buffers_for_output(struct v4l2_ctrl *ctrl)
 	return 0;
 }
 
+static int set_display_re_ordering(struct v4l2_ctrl *ctrl)
+{
+	struct vpu_ctx *ctx = v4l2_ctrl_to_ctx(ctrl);
+	pMEDIAIP_ENC_PARAM  param = get_enc_param(ctx);
+
+	if (ctrl->val)
+		param->uLowLatencyMode = 1;
+	else
+		param->uLowLatencyMode = 0;
+
+	return 0;
+}
+
 static int add_ctrl_h264_profile(struct vpu_ctx *ctx)
 {
 	static const struct v4l2_ctrl_ops ctrl_h264_profile_ops = {
@@ -402,6 +415,25 @@ static int add_ctrl_min_buffers_for_output(struct vpu_ctx *ctx)
 	return 0;
 }
 
+static int add_ctrl_display_re_ordering(struct vpu_ctx *ctx)
+{
+	static const struct v4l2_ctrl_ops re_ordering_ops = {
+		.s_ctrl = set_display_re_ordering,
+	};
+	struct v4l2_ctrl *ctrl;
+
+	ctrl = v4l2_ctrl_new_std(&ctx->ctrl_handler,
+			&re_ordering_ops,
+			V4L2_CID_MPEG_VIDEO_H264_ASO,
+			0, 1, 1, 0);
+	if (!ctrl) {
+		vpu_dbg(LVL_ERR, "add ctrl display re ordering fail\n");
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 static int vpu_enc_register_ctrls(struct vpu_ctx *ctx)
 {
 	add_ctrl_h264_profile(ctx);
@@ -415,6 +447,7 @@ static int vpu_enc_register_ctrls(struct vpu_ctx *ctx)
 	add_ctrl_p_frame_qp(ctx);
 	add_ctrl_b_frame_qp(ctx);
 	add_ctrl_min_buffers_for_output(ctx);
+	add_ctrl_display_re_ordering(ctx);
 
 	return 0;
 }
