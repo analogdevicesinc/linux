@@ -61,8 +61,17 @@ extern unsigned int vpu_dbg_level_encoder;
 #define VPU_REG_BASE 0x40000000
 #endif
 #define ENC_REG_BASE 0x2c000000
-#define MIN_BUFFER_COUNT 3
-#define V4L2_MAX_CTRLS 12
+
+#define MIN_BUFFER_COUNT		3
+#define BITRATE_LOW_THRESHOLD		64
+#define BITRATE_HIGH_THRESHOLD		1048576
+#define GOP_H_THRESHOLD			300
+#define GOP_L_THRESHOLD			1
+#define GOP_DEFAULT			30
+#define QP_MAX				51
+#define QP_MIN				0
+#define QP_DEFAULT			25
+
 #define ENCODER_NODE_NUMBER 13 //use /dev/video13 as encoder node
 struct vpu_v4l2_control {
 	uint32_t id;
@@ -231,7 +240,6 @@ struct vpu_ctx {
 	struct vpu_dev *dev;
 	struct v4l2_fh fh;
 
-	struct v4l2_ctrl *ctrls[V4L2_MAX_CTRLS];
 	struct v4l2_ctrl_handler ctrl_handler;
 	bool ctrl_inited;
 
@@ -275,5 +283,8 @@ struct vpu_ctx {
 		if (vpu_dbg_level_encoder >= (level)) \
 			pr_info(TAG""fmt, ## arg); \
 	} while (0)
+
+
+pMEDIAIP_ENC_PARAM get_enc_param(struct vpu_ctx *ctx);
 
 #endif

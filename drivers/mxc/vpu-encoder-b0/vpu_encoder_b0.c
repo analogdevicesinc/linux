@@ -47,6 +47,7 @@
 #include <media/videobuf2-vmalloc.h>
 
 #include "vpu_encoder_b0.h"
+#include "vpu_encoder_ctrl.h"
 
 unsigned int vpu_dbg_level_encoder = 1;
 #ifdef DUMP_DATA
@@ -56,26 +57,6 @@ unsigned int vpu_dbg_level_encoder = 1;
 static char *mu_cmp[] = {
 	"fsl,imx8-mu1-vpu-m0",
 	"fsl,imx8-mu2-vpu-m0"
-};
-
-// H264 level is maped like level 5.1 to uLevel 51, except level 1b to uLevel 14
-const u_int32 h264_level[] = {
-	[V4L2_MPEG_VIDEO_H264_LEVEL_1_0] = 10,
-	[V4L2_MPEG_VIDEO_H264_LEVEL_1B]  = 14,
-	[V4L2_MPEG_VIDEO_H264_LEVEL_1_1] = 11,
-	[V4L2_MPEG_VIDEO_H264_LEVEL_1_2] = 12,
-	[V4L2_MPEG_VIDEO_H264_LEVEL_1_3] = 13,
-	[V4L2_MPEG_VIDEO_H264_LEVEL_2_0] = 20,
-	[V4L2_MPEG_VIDEO_H264_LEVEL_2_1] = 21,
-	[V4L2_MPEG_VIDEO_H264_LEVEL_2_2] = 22,
-	[V4L2_MPEG_VIDEO_H264_LEVEL_3_0] = 30,
-	[V4L2_MPEG_VIDEO_H264_LEVEL_3_1] = 31,
-	[V4L2_MPEG_VIDEO_H264_LEVEL_3_2] = 32,
-	[V4L2_MPEG_VIDEO_H264_LEVEL_4_0] = 40,
-	[V4L2_MPEG_VIDEO_H264_LEVEL_4_1] = 41,
-	[V4L2_MPEG_VIDEO_H264_LEVEL_4_2] = 42,
-	[V4L2_MPEG_VIDEO_H264_LEVEL_5_0] = 50,
-	[V4L2_MPEG_VIDEO_H264_LEVEL_5_1] = 51
 };
 
 #define ITEM_NAME(name)		\
@@ -256,13 +237,6 @@ static void get_param_from_v4l2(pMEDIAIP_ENC_PARAM pEncParam,
 		)
 {
 	//get the param and update gpParameters
-	pEncParam->eCodecMode           = MEDIAIP_ENC_FMT_H264;
-
-	pEncParam->tEncMemDesc.uMemPhysAddr = ctx->encoder_mem.phy_addr;
-	pEncParam->tEncMemDesc.uMemVirtAddr = ctx->encoder_mem.phy_addr;
-	pEncParam->tEncMemDesc.uMemSize     = ctx->encoder_mem.size;
-
-	pEncParam->uFrameRate           = 30;
 	pEncParam->uSrcStride           = pix_mp->width;
 	pEncParam->uSrcWidth            = pix_mp->width;
 	pEncParam->uSrcHeight           = pix_mp->height;
@@ -272,12 +246,6 @@ static void get_param_from_v4l2(pMEDIAIP_ENC_PARAM pEncParam,
 	pEncParam->uSrcCropHeight       = pix_mp->height;
 	pEncParam->uOutWidth            = pix_mp->width;
 	pEncParam->uOutHeight           = pix_mp->height;
-	pEncParam->uLowLatencyMode      = 0;
-
-	if (!pEncParam->uIFrameInterval)
-		pEncParam->uIFrameInterval = 30;
-	if (!pEncParam->uGopBLength)
-		pEncParam->uGopBLength = 30;
 
 	vpu_dbg(LVL_INFO, "eCodecMode(%d) eProfile(%d) uSrcStride(%d) uSrcWidth(%d) uSrcHeight(%d) uSrcOffset_x(%d) uSrcOffset_y(%d) uSrcCropWidth(%d) uSrcCropHeight(%d) uOutWidth(%d) uOutHeight(%d) uGopBLength(%d) uLowLatencyMode(%d) uInitSliceQP(%d) uIFrameInterval(%d) eBitRateMode(%d) uTargetBitrate(%d) uMaxBitRate(%d) uMinBitRate(%d) uFrameRate(%d)\n",
 			pEncParam->eCodecMode, pEncParam->eProfile, pEncParam->uSrcStride, pEncParam->uSrcWidth,
@@ -291,6 +259,36 @@ static void *phy_to_virt(u_int32 src, unsigned long long offset)
 
 	result = (void *)(src + offset);
 	return result;
+}
+
+pMEDIAIP_ENC_PARAM get_enc_param(struct vpu_ctx *ctx)
+{
+	struct core_device  *dev = &ctx->dev->core_dev[ctx->core_id];
+	pENC_RPC_HOST_IFACE iface = dev->shared_mem.pSharedInterface;
+	pMEDIA_ENC_API_CONTROL_INTERFACE ctrl_interface;
+	pMEDIAIP_ENC_PARAM  pEncParam;
+
+	ctrl_interface = phy_to_virt(iface->pEncCtrlInterface[ctx->str_index],
+					dev->shared_mem.base_offset);
+	pEncParam = phy_to_virt(ctrl_interface->pEncParam,
+				dev->shared_mem.base_offset);
+
+	return pEncParam;
+}
+
+static int initialize_enc_param(struct vpu_ctx *ctx)
+{
+	pMEDIAIP_ENC_PARAM param = get_enc_param(ctx);
+
+	param->eCodecMode = MEDIAIP_ENC_FMT_H264;
+	param->tEncMemDesc.uMemPhysAddr = ctx->encoder_mem.phy_addr;
+	param->tEncMemDesc.uMemVirtAddr = ctx->encoder_mem.phy_addr;
+	param->tEncMemDesc.uMemSize     = ctx->encoder_mem.size;
+	param->uFrameRate = 30;
+	param->uMinBitRate = BITRATE_LOW_THRESHOLD;
+	param->uLowLatencyMode = 0;
+
+	return 0;
 }
 
 static struct vpu_v4l2_fmt *find_fmt_by_fourcc(struct vpu_v4l2_fmt *fmts,
@@ -836,161 +834,6 @@ static const struct v4l2_ioctl_ops v4l2_encoder_ioctl_ops = {
 	.vidioc_streamon                = v4l2_ioctl_streamon,
 	.vidioc_streamoff               = v4l2_ioctl_streamoff,
 };
-
-static int v4l2_enc_s_ctrl(struct v4l2_ctrl *ctrl)
-{
-	struct vpu_ctx *ctx = v4l2_ctrl_to_ctx(ctrl);
-	struct core_device  *dev = &ctx->dev->core_dev[ctx->core_id];
-	pENC_RPC_HOST_IFACE pSharedInterface = dev->shared_mem.pSharedInterface;
-	pMEDIA_ENC_API_CONTROL_INTERFACE pEncCtrlInterface;
-	pMEDIAIP_ENC_PARAM  pEncParam;
-	pMEDIAIP_ENC_EXPERT_MODE_PARAM pEncExpertModeParam;
-
-	pEncCtrlInterface = (pMEDIA_ENC_API_CONTROL_INTERFACE)phy_to_virt(pSharedInterface->pEncCtrlInterface[ctx->str_index],
-			dev->shared_mem.base_offset);
-	pEncParam = (pMEDIAIP_ENC_PARAM)phy_to_virt(pEncCtrlInterface->pEncParam,
-			dev->shared_mem.base_offset);
-	pEncExpertModeParam = (pMEDIAIP_ENC_EXPERT_MODE_PARAM)phy_to_virt(pEncCtrlInterface->pEncExpertModeParam,
-			dev->shared_mem.base_offset);
-
-	vpu_dbg(LVL_INFO, "s_ctrl: id = %d, val = %d\n", ctrl->id, ctrl->val);
-
-	switch (ctrl->id) {
-	case V4L2_CID_MPEG_VIDEO_BITRATE_MODE: {
-		if (ctrl->val == V4L2_MPEG_VIDEO_BITRATE_MODE_VBR) {
-			pEncParam->eBitRateMode = MEDIAIP_ENC_BITRATECONTROLMODE_CONSTANT_QP;
-
-			// Not used for CQ mode - set zero
-			pEncParam->uTargetBitrate       = 0;
-			pEncParam->uMaxBitRate          = 0;
-			pEncParam->uMinBitRate          = 0;
-		} else if (ctrl->val == V4L2_MPEG_VIDEO_BITRATE_MODE_CBR) {
-			pEncParam->eBitRateMode = MEDIAIP_ENC_BITRATECONTROLMODE_CBR;
-			if (!pEncParam->uTargetBitrate) {
-				// Setup some default values if not set, these should really be
-				// resolution specific
-				pEncParam->uTargetBitrate = ctx->q_data[V4L2_SRC].height * ctx->q_data[V4L2_SRC].width * 12 * 30 / 100000;
-				pEncParam->uMaxBitRate    = ctx->q_data[V4L2_SRC].height * ctx->q_data[V4L2_SRC].width * 12 * 30 / 10000;
-				pEncParam->uMinBitRate    = ctx->q_data[V4L2_SRC].height * ctx->q_data[V4L2_SRC].width * 12 * 30 / 1000000;
-			}
-		} else
-			// Only CQ and CBR supported at present, force CQ mode
-			pEncParam->eBitRateMode = MEDIAIP_ENC_BITRATECONTROLMODE_CONSTANT_QP;
-	}
-		break;
-	case V4L2_CID_MPEG_VIDEO_H264_PROFILE:
-		if ((V4L2_MPEG_VIDEO_H264_PROFILE_BASELINE == ctrl->val) || (V4L2_MPEG_VIDEO_H264_PROFILE_CONSTRAINED_BASELINE == ctrl->val))
-			pEncParam->eProfile = MEDIAIP_ENC_PROF_H264_BP;
-		else if (V4L2_MPEG_VIDEO_H264_PROFILE_MAIN == ctrl->val)
-			pEncParam->eProfile = MEDIAIP_ENC_PROF_H264_MP;
-		else if (V4L2_MPEG_VIDEO_H264_PROFILE_HIGH == ctrl->val)
-			pEncParam->eProfile = MEDIAIP_ENC_PROF_H264_HP;
-		else {
-			vpu_dbg(LVL_INFO, "not support h264 profile %d, set default: BP\n", ctrl->val);
-			pEncParam->eProfile = MEDIAIP_ENC_PROF_H264_BP;
-		}
-		break;
-	case V4L2_CID_MPEG_VIDEO_H264_LEVEL:
-		pEncParam->uLevel = h264_level[ctrl->val];
-		vpu_dbg(LVL_INFO, "V4L2_CID_MPEG_VIDEO_H264_LEVEL set val = %d\n", ctrl->val);
-		break;
-	case V4L2_CID_MPEG_VIDEO_BITRATE:
-		pEncParam->uTargetBitrate = ctrl->val;
-		break;
-	case V4L2_CID_MPEG_VIDEO_GOP_SIZE:
-		pEncParam->uIFrameInterval = ctrl->val;
-		pEncParam->uGopBLength = ctrl->val;
-		break;
-	case V4L2_CID_MPEG_VIDEO_H264_I_FRAME_QP:
-		pEncParam->uInitSliceQP = ctrl->val;
-		break;
-	case V4L2_CID_MPEG_VIDEO_H264_P_FRAME_QP:
-		pEncParam->uInitSliceQP = ctrl->val;
-		break;
-	case V4L2_CID_MPEG_VIDEO_H264_B_FRAME_QP:
-		pEncParam->uInitSliceQP = ctrl->val;
-		break;
-	}
-	return 0;
-}
-
-static int v4l2_enc_g_ctrl(struct v4l2_ctrl *ctrl)
-{
-	vpu_dbg(LVL_INFO, "g_ctrl: id = %d\n", ctrl->id);
-
-	switch (ctrl->id) {
-	case V4L2_CID_MIN_BUFFERS_FOR_OUTPUT:
-		ctrl->val = MIN_BUFFER_COUNT;
-		break;
-	default:
-		vpu_dbg(LVL_INFO, "%s() Invalid control(%d)\n",
-				__func__, ctrl->id);
-		return -EINVAL;
-	}
-	return 0;
-}
-
-static const struct v4l2_ctrl_ops   vpu_enc_ctrl_ops = {
-	.s_ctrl             = v4l2_enc_s_ctrl,
-	.g_volatile_ctrl    = v4l2_enc_g_ctrl,
-};
-
-static void vpu_encoder_ctrls(struct vpu_ctx *ctx)
-{
-	v4l2_ctrl_new_std_menu(&ctx->ctrl_handler, &vpu_enc_ctrl_ops,
-			V4L2_CID_MPEG_VIDEO_BITRATE_MODE,
-			V4L2_MPEG_VIDEO_BITRATE_MODE_CBR, 0x0,
-			V4L2_MPEG_VIDEO_BITRATE_MODE_VBR);
-	v4l2_ctrl_new_std_menu(&ctx->ctrl_handler, &vpu_enc_ctrl_ops,
-			V4L2_CID_MPEG_VIDEO_H264_PROFILE,
-			V4L2_MPEG_VIDEO_H264_PROFILE_MULTIVIEW_HIGH, 0x0,
-			V4L2_MPEG_VIDEO_H264_PROFILE_CONSTRAINED_BASELINE
-			);
-	v4l2_ctrl_new_std_menu(&ctx->ctrl_handler, &vpu_enc_ctrl_ops,
-			V4L2_CID_MPEG_VIDEO_H264_LEVEL,
-			V4L2_MPEG_VIDEO_H264_LEVEL_5_1, 0x0,
-			V4L2_MPEG_VIDEO_H264_LEVEL_4_0
-			);
-	v4l2_ctrl_new_std(&ctx->ctrl_handler, &vpu_enc_ctrl_ops,
-		V4L2_CID_MPEG_VIDEO_BITRATE, 0, 32767000, 1, 0);
-	v4l2_ctrl_new_std(&ctx->ctrl_handler, &vpu_enc_ctrl_ops,
-		V4L2_CID_MPEG_VIDEO_GOP_SIZE, 1, 60, 1, 16);
-	v4l2_ctrl_new_std(&ctx->ctrl_handler, &vpu_enc_ctrl_ops,
-		V4L2_CID_MPEG_VIDEO_H264_I_FRAME_QP, 0, 51, 1, 25);
-	v4l2_ctrl_new_std(&ctx->ctrl_handler, &vpu_enc_ctrl_ops,
-		V4L2_CID_MPEG_VIDEO_H264_P_FRAME_QP, 0, 51, 1, 25);
-	v4l2_ctrl_new_std(&ctx->ctrl_handler, &vpu_enc_ctrl_ops,
-		V4L2_CID_MPEG_VIDEO_H264_B_FRAME_QP, 0, 51, 1, 25);
-	v4l2_ctrl_new_std(&ctx->ctrl_handler, &vpu_enc_ctrl_ops,
-		V4L2_CID_MIN_BUFFERS_FOR_OUTPUT, 0, 32, 1, MIN_BUFFER_COUNT);
-}
-
-static int ctrls_setup_encoder(struct vpu_ctx *ctx)
-{
-	v4l2_ctrl_handler_init(&ctx->ctrl_handler, 2);
-	vpu_encoder_ctrls(ctx);
-	if (ctx->ctrl_handler.error) {
-		vpu_dbg(LVL_ERR,
-			"control initialization error (%d)",
-			ctx->ctrl_handler.error);
-		return -EINVAL;
-	} else
-		ctx->ctrl_inited = true;
-
-	return v4l2_ctrl_handler_setup(&ctx->ctrl_handler);
-}
-
-static void ctrls_delete_encoder(struct vpu_ctx *This)
-{
-	int i;
-
-	if (This->ctrl_inited) {
-		v4l2_ctrl_handler_free(&This->ctrl_handler);
-		This->ctrl_inited = false;
-	}
-	for (i = 0; i < 2; i++)
-		This->ctrls[i] = NULL;
-}
 
 static void v4l2_vpu_send_cmd(struct vpu_ctx *ctx, uint32_t idx, uint32_t cmdid, uint32_t cmdnum, uint32_t *local_cmddata)
 {
@@ -1905,7 +1748,8 @@ static int v4l2_open(struct file *filp)
 	ctx->str_index = idx;
 	ctx->dev = dev;
 	ctx->ctrl_inited = false;
-	ctrls_setup_encoder(ctx);
+	vpu_enc_setup_ctrls(ctx);
+
 	ctx->fh.ctrl_handler = &ctx->ctrl_handler;
 
 	ctx->instance_wq = alloc_workqueue("vpu_instance", WQ_UNBOUND | WQ_MEM_RECLAIM, 1);
@@ -1983,11 +1827,13 @@ static int v4l2_open(struct file *filp)
 	ctx->q_data[V4L2_DST].supported_fmts = formats_compressed_enc;
 	ctx->q_data[V4L2_DST].fmt_count = ARRAY_SIZE(formats_compressed_enc);
 
+	initialize_enc_param(ctx);
+
 	return 0;
 
 err_firmware_load:
 	release_queue_data(ctx);
-	ctrls_delete_encoder(ctx);
+	vpu_enc_free_ctrls(ctx);
 	v4l2_fh_del(&ctx->fh);
 	v4l2_fh_exit(&ctx->fh);
 	clear_bit(ctx->str_index, &dev->core_dev[ctx->core_id].instance_mask);
@@ -2024,7 +1870,7 @@ static int v4l2_release(struct file *filp)
 		wait_for_completion(&ctx->stop_cmp);
 
 	release_queue_data(ctx);
-	ctrls_delete_encoder(ctx);
+	vpu_enc_free_ctrls(ctx);
 	v4l2_fh_del(&ctx->fh);
 	v4l2_fh_exit(&ctx->fh);
 
@@ -2419,7 +2265,7 @@ static int init_vpu_core_dev(struct vpu_dev *dev, u32 id)
 	ret = vpu_mu_init(dev, id);
 	if (ret) {
 		vpu_dbg(LVL_ERR, "%s vpu mu init failed\n", __func__);
-		return ret;
+		goto error;
 	}
 	//firmware space for M0
 	core_dev->m0_p_fw_space_vir =
@@ -2442,6 +2288,12 @@ static int init_vpu_core_dev(struct vpu_dev *dev, u32 id)
 			VPU_REG_BASE, id);
 
 	return 0;
+error:
+	if (core_dev->workqueue) {
+		destroy_workqueue(core_dev->workqueue);
+		core_dev->workqueue = NULL;
+	}
+	return ret;
 }
 
 static int vpu_probe(struct platform_device *pdev)
