@@ -110,6 +110,24 @@
 				SC_R_PCIE_A
 				SC_R_SERDES_0
 				SC_R_HSIO_GPIO
+				/*vpu*/
+				SC_R_VPU
+				SC_R_VPU_PID0
+				SC_R_VPU_PID1
+				SC_R_VPU_PID2
+				SC_R_VPU_PID3
+				SC_R_VPU_PID4
+				SC_R_VPU_PID5
+				SC_R_VPU_PID6
+				SC_R_VPU_PID7
+				SC_R_VPU_DEC_0
+				SC_R_VPU_ENC_0
+				SC_R_VPU_ENC_1
+				SC_R_VPU_TS_0
+				SC_R_VPU_MU_0
+				SC_R_VPU_MU_1
+				SC_R_VPU_MU_2
+				SC_R_VPU_MU_3
 				>;
 			pads = <
 				/* i2c1_lvds1 */
@@ -194,9 +212,34 @@
 		xen,passthrough;
 	};
 
+	decoder_boot_mem: decoder_boot_mem@0x84000000 {
+		xen,passthrough;
+		reg = <0 0x84000000 0 0x2000000>;
+	};
+
+	encoder_boot_mem: encoder_boot_mem@0x86000000 {
+		xen,passthrough;
+		reg = <0 0x86000000 0 0x2000000>;
+	};
+
 	rpmsg_reserved_mem: rpmsg_reserved_mem@90000000 {
 		reg = <0x0 0x90000000 0x0 0x400000>;
 		xen,passthrough;
+	};
+
+	decoder_rpc_mem: decoder_rpc_mem@0x90400000 {
+		xen,passthrough;
+		reg = <0 0x90400000 0 0x1000000>;
+	};
+
+	encoder_rpc_mem: encoder_rpc_mem@0x91400000 {
+		xen,passthrough;
+		reg = <0 0x91400000 0 0x1000000>;
+	};
+
+	decoder_str_mem: str_mem@0x94400000 {
+		xen,passthrough;
+		reg = <0 0x94400000 0 0x1800000>;
 	};
 };
 
@@ -266,11 +309,16 @@
 			 <SC_R_DMA_0_CH15>;
 };
 
-/* SMMU */
+/*
+ * SMMU, for simplity, we put all all the resources needs to programmed
+ * for VPU under vpu_decoder node, then in cfg file only add vpu_decoder
+ * in dt_dev is enough.
+ */
 &smmu {
 	mmu-masters = <&dpu2 0x13>, <&gpu_3d1 0x15>,
 		      <&usdhc1 0x12>, <&usbotg1 0x11>,
-		      <&edma01 0x10>, <&cm41 0x09>, <&pciea 0x08>;
+		      <&edma01 0x10>, <&cm41 0x09>, <&pciea 0x08>,
+		      <&vpu_decoder 0x7>;
 };
 
 &lvds_region2 {
@@ -460,10 +508,43 @@
        xen,passthrough;
 };
 
+&mu_m0 {
+	xen,passthrough;
+};
+
+&mu1_m0 {
+	xen,passthrough;
+};
+
+&mu2_m0 {
+	xen,passthrough;
+};
+
 &vpu_decoder {
+       #stream-id-cells = <1>;
+       iommus = <&smmu>;
        xen,passthrough;
+       fsl,sc_rsrc_id = <SC_R_VPU>,
+			<SC_R_VPU_PID0>,
+			<SC_R_VPU_PID1>,
+			<SC_R_VPU_PID2>,
+			<SC_R_VPU_PID3>,
+			<SC_R_VPU_PID4>,
+			<SC_R_VPU_PID5>,
+			<SC_R_VPU_PID6>,
+			<SC_R_VPU_PID7>,
+			<SC_R_VPU_DEC_0>,
+			<SC_R_VPU_ENC_0>,
+			<SC_R_VPU_ENC_1>,
+			<SC_R_VPU_TS_0>,
+			<SC_R_VPU_MU_0>,
+			<SC_R_VPU_MU_1>,
+			<SC_R_VPU_MU_2>,
+			<SC_R_VPU_MU_3>;
 };
 
 &vpu_encoder {
+       iommus = <&smmu>;
+       #stream-id-cells = <1>;
        xen,passthrough;
 };

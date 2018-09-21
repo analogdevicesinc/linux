@@ -88,6 +88,14 @@
 		 *
 		 */
 
+		decoder_boot: decoder_boot@0x84000000 {
+			no-map;
+			reg = <0 0x84000000 0 0x2000000>;
+		};
+		encoder_boot: encoder_boot@0x86000000 {
+			no-map;
+			reg = <0 0x86000000 0 0x2000000>;
+		};
 		/*
 		 * CM40 rpmsg memory is still for Dom0, the domu.cfg
 		 * not map 0x90000000 - 0x90100000 to DomU.
@@ -95,6 +103,20 @@
 		rpmsg_reserved: rpmsg@0x90000000 {
 			no-map;
 			reg = <0 0x90000000 0 0x400000>;
+		};
+
+		decoder_rpc: decoder_rpc@0x90400000 {
+			no-map;
+			reg = <0 0x90400000 0 0x1000000>;
+		};
+		encoder_rpc: encoder_rpc@0x91400000 {
+			no-map;
+			reg = <0 0x91400000 0 0x1000000>;
+		};
+
+		decoder_str: str@0x94400000 {
+			no-map;
+			reg = <0 0x94400000 0 0x1800000>;
 		};
 
 		/* global autoconfigured region for contiguous allocations */
@@ -166,6 +188,50 @@
 					parts = "vbmeta,boot,system,vendor";
 				};
 			};
+		};
+
+		mu_m0: mu_m0@2d000000 {
+			compatible = "fsl,imx8-mu0-vpu-m0";
+			reg = <0x0 0x2d000000 0x0 0x10000>;
+			interrupts = <GIC_SPI 472 IRQ_TYPE_LEVEL_HIGH>;
+			fsl,vpu_ap_mu_id = <16>;
+			status = "okay";
+		};
+
+		mu1_m0: mu1_m0@2d020000 {
+			compatible = "fsl,imx8-mu1-vpu-m0";
+			reg = <0x0 0x2d020000 0x0 0x10000>;
+			interrupts = <GIC_SPI 473 IRQ_TYPE_LEVEL_HIGH>;
+			fsl,vpu_ap_mu_id = <17>;
+			status = "okay";
+		};
+		mu2_m0: mu2_m0@2d040000 {
+			compatible = "fsl,imx8-mu2-vpu-m0";
+			reg = <0x0 0x2d040000 0x0 0x10000>;
+			interrupts = <GIC_SPI 474 IRQ_TYPE_LEVEL_HIGH>;
+			fsl,vpu_ap_mu_id = <18>;
+			status = "okay";
+		};
+
+		vpu_decoder: vpu_decoder@2c000000 {
+			compatible = "nxp,imx8qm-b0-vpudec", "nxp,imx8qxp-b0-vpudec";
+			boot-region = <&decoder_boot>;
+			rpc-region = <&decoder_rpc>;
+			str-region = <&decoder_str>;
+			reg = <0x0 0x2c000000 0x0 0x1000000>;
+			reg-names = "vpu_regs";
+			power-domains = <&pd_vpu_dec>;
+			status = "disabled";
+		};
+
+		vpu_encoder: vpu_encoder@2d000000 {
+			compatible = "nxp,imx8qm-b0-vpuenc", "nxp,imx8qxp-b0-vpuenc";
+			boot-region = <&encoder_boot>;
+			rpc-region = <&encoder_rpc>;
+			reg = <0x0 0x2d000000 0x0 0x1000000>;
+			reg-names = "vpu_regs";
+			power-domains = <&pd_vpu_enc>;
+			status = "disabled";
 		};
 
 		clk: clk {
@@ -741,4 +807,14 @@
 			};
 		};
 	};
+};
+
+&vpu_decoder {
+	core_type = <2>;
+	status = "okay";
+};
+
+&vpu_encoder {
+	core_type = <2>;
+	status = "okay";
 };
