@@ -128,6 +128,11 @@
 				SC_R_VPU_MU_1
 				SC_R_VPU_MU_2
 				SC_R_VPU_MU_3
+				/* crypto */
+				SC_R_CAAM_JR2
+				SC_R_CAAM_JR2_OUT
+				SC_R_CAAM_JR3
+				SC_R_CAAM_JR3_OUT
 				>;
 			pads = <
 				/* i2c1_lvds1 */
@@ -318,7 +323,7 @@
 	mmu-masters = <&dpu2 0x13>, <&gpu_3d1 0x15>,
 		      <&usdhc1 0x12>, <&usbotg1 0x11>,
 		      <&edma01 0x10>, <&cm41 0x09>, <&pciea 0x08>,
-		      <&vpu_decoder 0x7>;
+		      <&vpu_decoder 0x7>, <&crypto 0x6>;
 };
 
 &lvds_region2 {
@@ -339,11 +344,6 @@
 
 &ldb2 {
 	xen,passthrough;
-};
-
-&crypto {
-	/* Met CAAM failure on A0, disable it first */
-	status = "disabled";
 };
 
 &dpu2_intsteer {
@@ -547,4 +547,25 @@
        iommus = <&smmu>;
        #stream-id-cells = <1>;
        xen,passthrough;
+};
+
+&crypto {
+	xen,passthrough;
+	iommus = <&smmu>;
+	#stream-id-cells = <1>;
+	/* JR1 is not used by Linux */
+	fsl,sc_rsrc_id = <SC_R_CAAM_JR2>, <SC_R_CAAM_JR2_OUT>,
+			 <SC_R_CAAM_JR3>, <SC_R_CAAM_JR3_OUT>;
+};
+
+&sec_jr2 {
+	xen,passthrough;
+};
+
+&sec_jr3 {
+	xen,passthrough;
+};
+
+&caam_sm {
+	xen,passthrough;
 };

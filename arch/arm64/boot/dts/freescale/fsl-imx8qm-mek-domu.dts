@@ -671,8 +671,8 @@
 	reg = <0x0 0x5d210000 0x0 0x10000>;
 };
 
-/delete-node/ &crypto;
-/delete-node/ &caam_sm;
+/*/delete-node/ &crypto;*/
+/*/delete-node/ &caam_sm;*/
 /*/delete-node/ &sc_pwrkey;*/
 /delete-node/ &wdog;
 /delete-node/ &wu;
