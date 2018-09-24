@@ -26,6 +26,7 @@
 #include <sound/dmaengine_pcm.h>
 #include <sound/pcm.h>
 #include <sound/soc.h>
+#include <sound/tlv.h>
 
 #include "fsl_micfil.h"
 #include "imx-pcm.h"
@@ -47,6 +48,7 @@ struct fsl_micfil {
 	unsigned int mclk_streams;
 	int quality;	/*QUALITY 2-0 bits */
 	bool slave_mode;
+	int channel_gain[8];
 	int vad_sound_gain;
 	int vad_noise_gain;
 	int vad_input_gain;
@@ -254,13 +256,69 @@ static int hwvad_get_zcd_auto(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
-static int hwvad_gain_info(struct snd_kcontrol *kcontrol,
+static int gain_info(struct snd_kcontrol *kcontrol,
 			   struct snd_ctl_elem_info *uinfo)
 {
 	uinfo->type = SNDRV_CTL_ELEM_TYPE_INTEGER;
 	uinfo->count = 1;
 	uinfo->value.integer.min = 0;
 	uinfo->value.integer.max = 0xf;
+
+	return 0;
+}
+
+static int put_channel_gain(struct snd_kcontrol *kcontrol,
+			    struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *comp = snd_kcontrol_chip(kcontrol);
+	struct fsl_micfil *micfil = snd_soc_component_get_drvdata(comp);
+	struct soc_mixer_control *mc =
+		(struct soc_mixer_control *)kcontrol->private_value;
+	unsigned int shift = mc->shift;
+	int index = shift / 4;
+	int val = ucontrol->value.integer.value[0];
+	int remapped_value;
+	int ret;
+	u32 reg_val;
+
+	/* a value remapping must be done since the gain field have
+	 * the following meaning:
+	 * * 0 : no gain
+	 * * 1 - 7 : +1 to +7 bits gain
+	 * * 8 - 15 : -8 to -1 bits gain
+	 * After the remapp, the scale should start from -8 to +7
+	 */
+
+	micfil->channel_gain[index] = val;
+
+	remapped_value = (val - 8) & 0xF;
+
+	reg_val = remapped_value << shift;
+
+	ret = snd_soc_component_update_bits(comp,
+					    REG_MICFIL_OUT_CTRL,
+					    0xF << shift,
+					    reg_val);
+
+	if (ret < 0)
+		return ret;
+
+	return 0;
+}
+
+static int get_channel_gain(struct snd_kcontrol *kcontrol,
+			    struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *comp = snd_kcontrol_chip(kcontrol);
+	struct fsl_micfil *micfil = snd_soc_component_get_drvdata(comp);
+	struct soc_mixer_control *mc =
+		(struct soc_mixer_control *)kcontrol->private_value;
+	int index;
+
+	/* gain bitfield is 4 bits wide */
+	index = mc->shift / 4;
+
+	ucontrol->value.enumerated.item[0] = micfil->channel_gain[index];
 
 	return 0;
 }
@@ -496,23 +554,34 @@ static int hwvad_get_zcd_adj(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+static DECLARE_TLV_DB_SCALE(gain_tlv, 0, 100, 0);
+
 static const struct snd_kcontrol_new fsl_micfil_snd_controls[] = {
-	SOC_SINGLE_RANGE("CH1 Gain", REG_MICFIL_OUT_CTRL,
-			 MICFIL_OUTGAIN_CHX_SHIFT(0), 0x0, 0xF, 0),
-	SOC_SINGLE_RANGE("CH2 Gain", REG_MICFIL_OUT_CTRL,
-			 MICFIL_OUTGAIN_CHX_SHIFT(1), 0x0, 0xF, 0),
-	SOC_SINGLE_RANGE("CH3 Gain", REG_MICFIL_OUT_CTRL,
-			 MICFIL_OUTGAIN_CHX_SHIFT(2), 0x0, 0xF, 0),
-	SOC_SINGLE_RANGE("CH4 Gain", REG_MICFIL_OUT_CTRL,
-			 MICFIL_OUTGAIN_CHX_SHIFT(3), 0x0, 0xF, 0),
-	SOC_SINGLE_RANGE("CH5 Gain", REG_MICFIL_OUT_CTRL,
-			 MICFIL_OUTGAIN_CHX_SHIFT(4), 0x0, 0xF, 0),
-	SOC_SINGLE_RANGE("CH6 Gain", REG_MICFIL_OUT_CTRL,
-			 MICFIL_OUTGAIN_CHX_SHIFT(5), 0x0, 0xF, 0),
-	SOC_SINGLE_RANGE("CH7 Gain", REG_MICFIL_OUT_CTRL,
-			 MICFIL_OUTGAIN_CHX_SHIFT(6), 0x0, 0xF, 0),
-	SOC_SINGLE_RANGE("CH8 Gain", REG_MICFIL_OUT_CTRL,
-			 MICFIL_OUTGAIN_CHX_SHIFT(7), 0x0, 0xF, 0),
+	SOC_SINGLE_RANGE_EXT_TLV("CH0 Gain", -1, MICFIL_OUTGAIN_CHX_SHIFT(0),
+				 0x0, 0xF, 0,
+				 get_channel_gain, put_channel_gain, gain_tlv),
+	SOC_SINGLE_RANGE_EXT_TLV("CH1 Gain", -1, MICFIL_OUTGAIN_CHX_SHIFT(1),
+				 0x0, 0xF, 0,
+				 get_channel_gain, put_channel_gain, gain_tlv),
+	SOC_SINGLE_RANGE_EXT_TLV("CH2 Gain", -1, MICFIL_OUTGAIN_CHX_SHIFT(2),
+				 0x0, 0xF, 0,
+				 get_channel_gain, put_channel_gain, gain_tlv),
+	SOC_SINGLE_RANGE_EXT_TLV("CH3 Gain", -1, MICFIL_OUTGAIN_CHX_SHIFT(3),
+				 0x0, 0xF, 0,
+				 get_channel_gain, put_channel_gain, gain_tlv),
+	SOC_SINGLE_RANGE_EXT_TLV("CH4 Gain", -1, MICFIL_OUTGAIN_CHX_SHIFT(4),
+				 0x0, 0xF, 0,
+				 get_channel_gain, put_channel_gain, gain_tlv),
+	SOC_SINGLE_RANGE_EXT_TLV("CH5 Gain", -1, MICFIL_OUTGAIN_CHX_SHIFT(5),
+				 0x0, 0xF, 0,
+				 get_channel_gain, put_channel_gain, gain_tlv),
+	SOC_SINGLE_RANGE_EXT_TLV("CH6 Gain", -1, MICFIL_OUTGAIN_CHX_SHIFT(6),
+				 0x0, 0xF, 0,
+				 get_channel_gain, put_channel_gain, gain_tlv),
+	SOC_SINGLE_RANGE_EXT_TLV("CH7 Gain", -1, MICFIL_OUTGAIN_CHX_SHIFT(7),
+				 0x0, 0xF, 0,
+				 get_channel_gain, put_channel_gain, gain_tlv),
+
 	SOC_ENUM_EXT("MICFIL Quality Select", fsl_micfil_enum[0],
 		     snd_soc_get_enum_double, snd_soc_put_enum_double),
 	SOC_ENUM_EXT("HWVAD Initialization Mode", fsl_micfil_enum[1],
@@ -530,7 +599,7 @@ static const struct snd_kcontrol_new fsl_micfil_snd_controls[] = {
 		.name = "HWVAD Input Gain",
 		.access = SNDRV_CTL_ELEM_ACCESS_READ |
 			  SNDRV_CTL_ELEM_ACCESS_WRITE,
-		.info = hwvad_gain_info,
+		.info = gain_info,
 		.get = hwvad_get_input_gain,
 		.put = hwvad_put_input_gain,
 	},
@@ -539,7 +608,7 @@ static const struct snd_kcontrol_new fsl_micfil_snd_controls[] = {
 		.name = "HWVAD Sound Gain",
 		.access = SNDRV_CTL_ELEM_ACCESS_READ |
 			  SNDRV_CTL_ELEM_ACCESS_WRITE,
-		.info = hwvad_gain_info,
+		.info = gain_info,
 		.get = hwvad_get_sound_gain,
 		.put = hwvad_put_sound_gain,
 	},
@@ -548,7 +617,7 @@ static const struct snd_kcontrol_new fsl_micfil_snd_controls[] = {
 		.name = "HWVAD Noise Gain",
 		.access = SNDRV_CTL_ELEM_ACCESS_READ |
 			  SNDRV_CTL_ELEM_ACCESS_WRITE,
-		.info = hwvad_gain_info,
+		.info = gain_info,
 		.get = hwvad_get_noise_gain,
 		.put = hwvad_put_noise_gain,
 	},
@@ -1470,6 +1539,7 @@ static int fsl_micfil_dai_probe(struct snd_soc_dai *cpu_dai)
 	struct device *dev = cpu_dai->dev;
 	unsigned int val;
 	int ret;
+	int i;
 
 	/* set qsel to medium */
 	ret = regmap_update_bits(micfil->regmap, REG_MICFIL_CTRL2,
@@ -1480,7 +1550,10 @@ static int fsl_micfil_dai_probe(struct snd_soc_dai *cpu_dai)
 		return ret;
 	}
 
+	/* set default gain to max_gain */
 	regmap_write(micfil->regmap, REG_MICFIL_OUT_CTRL, 0x77777777);
+	for (i = 0; i < 8; i++)
+		micfil->channel_gain[i] = 0xF;
 
 	snd_soc_dai_init_dma_data(cpu_dai, NULL,
 				  &micfil->dma_params_rx);
