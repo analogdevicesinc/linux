@@ -1440,7 +1440,7 @@ static ssize_t adrv9009_phy_rx_read(struct iio_dev *indio_dev,
 			ret = TALISE_getRxGainCtrlPin(phy->talDevice, TAL_RX1, &rxGainCtrlPin);
 			break;
 		case CHAN_RX2:
-			ret = TALISE_getRxGainCtrlPin(phy->talDevice, TAL_RX1, &rxGainCtrlPin);
+			ret = TALISE_getRxGainCtrlPin(phy->talDevice, TAL_RX2, &rxGainCtrlPin);
 			break;
 		default:
 			ret = -EINVAL;
