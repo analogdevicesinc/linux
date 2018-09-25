@@ -55,16 +55,14 @@ extern unsigned int vpu_dbg_level_encoder;
 #define MEM_SIZE  0x2800000
 #define YUV_SIZE  0x4000000
 #define STREAM_SIZE 0x300000
-#ifdef CM4
-#define VPU_REG_BASE 0x2c000000
-#else
 #define VPU_REG_BASE 0x40000000
-#endif
 #define ENC_REG_BASE 0x2c000000
 
 #define MIN_BUFFER_COUNT		3
 #define BITRATE_LOW_THRESHOLD		64
 #define BITRATE_HIGH_THRESHOLD		1048576
+#define BITRATE_DEFAULT_TARGET		2048
+#define BITRATE_DEFAULT_PEAK		4096
 #define GOP_H_THRESHOLD			300
 #define GOP_L_THRESHOLD			1
 #define GOP_DEFAULT			30
@@ -251,7 +249,6 @@ struct vpu_ctx {
 	struct workqueue_struct *instance_wq;
 	struct completion completion;
 	struct completion stop_cmp;
-	bool b_firstseq;
 	bool start_flag;
 	bool firmware_stopped;
 	bool ctx_released;

@@ -249,7 +249,7 @@ static int add_ctrl_bitrate(struct vpu_ctx *ctx)
 				 BITRATE_LOW_THRESHOLD,
 				 BITRATE_HIGH_THRESHOLD,
 				 1,
-				 1024);
+				 BITRATE_DEFAULT_TARGET);
 	if (!ctrl) {
 		vpu_dbg(LVL_ERR, "add ctrl bitrate fail\n");
 		return -EINVAL;
@@ -271,7 +271,7 @@ static int add_ctrl_bitrate_peak(struct vpu_ctx *ctx)
 				 BITRATE_LOW_THRESHOLD,
 				 BITRATE_HIGH_THRESHOLD,
 				 1,
-				 2048);
+				 BITRATE_DEFAULT_PEAK);
 	if (!ctrl) {
 		vpu_dbg(LVL_ERR, "add ctrl bitrate peak fail\n");
 		return -EINVAL;

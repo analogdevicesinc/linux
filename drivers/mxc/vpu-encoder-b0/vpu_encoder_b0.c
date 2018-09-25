@@ -253,6 +253,11 @@ static void get_param_from_v4l2(pMEDIAIP_ENC_PARAM pEncParam,
 			pEncParam->uOutWidth, pEncParam->uOutHeight, pEncParam->uGopBLength, pEncParam->uLowLatencyMode, pEncParam->uInitSliceQP, pEncParam->uIFrameInterval, pEncParam->eBitRateMode, pEncParam->uTargetBitrate, pEncParam->uMaxBitRate, pEncParam->uMinBitRate, pEncParam->uFrameRate);
 }
 
+static u32 cpu_phy_to_mu(struct core_device *dev, u32 addr)
+{
+	return addr - dev->m0_p_fw_space_phy;
+}
+
 static void *phy_to_virt(u_int32 src, unsigned long long offset)
 {
 	void *result;
@@ -1131,11 +1136,7 @@ static void enc_mem_alloc(struct vpu_ctx *ctx, MEDIAIP_ENC_MEM_REQ_DATA *req_dat
 		}
 
 		pEncMemPool->tEncFrameBuffers[i].uMemPhysAddr = ctx->encFrame[i].phy_addr;
-#ifdef CM4
-		pEncMemPool->tEncFrameBuffers[i].uMemVirtAddr = ctx->encFrame[i].phy_addr;
-#else
-		pEncMemPool->tEncFrameBuffers[i].uMemVirtAddr = ctx->encFrame[i].phy_addr - core_dev->m0_p_fw_space_phy;
-#endif
+		pEncMemPool->tEncFrameBuffers[i].uMemVirtAddr = cpu_phy_to_mu(core_dev, ctx->encFrame[i].phy_addr);
 		pEncMemPool->tEncFrameBuffers[i].uMemSize = ctx->encFrame[i].size;
 	}
 
@@ -1155,11 +1156,7 @@ static void enc_mem_alloc(struct vpu_ctx *ctx, MEDIAIP_ENC_MEM_REQ_DATA *req_dat
 		}
 
 		pEncMemPool->tRefFrameBuffers[i].uMemPhysAddr = ctx->refFrame[i].phy_addr;
-#ifdef CM4
-		pEncMemPool->tRefFrameBuffers[i].uMemVirtAddr = ctx->refFrame[i].phy_addr;
-#else
-		pEncMemPool->tRefFrameBuffers[i].uMemVirtAddr = ctx->refFrame[i].phy_addr - core_dev->m0_p_fw_space_phy;
-#endif
+		pEncMemPool->tRefFrameBuffers[i].uMemVirtAddr = cpu_phy_to_mu(core_dev, ctx->refFrame[i].phy_addr);
 		pEncMemPool->tRefFrameBuffers[i].uMemSize = ctx->refFrame[i].size;
 	}
 
@@ -1178,11 +1175,7 @@ static void enc_mem_alloc(struct vpu_ctx *ctx, MEDIAIP_ENC_MEM_REQ_DATA *req_dat
 	}
 
 	pEncMemPool->tActFrameBufferArea.uMemPhysAddr = ctx->actFrame.phy_addr;
-#ifdef CM4
-	pEncMemPool->tActFrameBufferArea.uMemVirtAddr = ctx->actFrame.phy_addr;
-#else
-	pEncMemPool->tActFrameBufferArea.uMemVirtAddr = ctx->actFrame.phy_addr - core_dev->m0_p_fw_space_phy;
-#endif
+	pEncMemPool->tActFrameBufferArea.uMemVirtAddr = cpu_phy_to_mu(core_dev, ctx->actFrame.phy_addr);
 	pEncMemPool->tActFrameBufferArea.uMemSize = ctx->actFrame.size;
 
 }
@@ -1262,6 +1255,20 @@ static void vpu_api_event_handler(struct vpu_ctx *ctx, u_int32 uStrIdx, u_int32 
 	}
 }
 
+static void enable_mu(struct core_device *dev)
+{
+	MU_sendMesgToFW(dev->mu_base_virtaddr,
+			PRINT_BUF_OFFSET,
+			cpu_phy_to_mu(dev,  dev->m0_rpc_phy + M0_PRINT_OFFSET));
+	MU_sendMesgToFW(dev->mu_base_virtaddr,
+			RPC_BUF_OFFSET,
+			cpu_phy_to_mu(dev, dev->m0_rpc_phy));
+	MU_sendMesgToFW(dev->mu_base_virtaddr,
+			BOOT_ADDRESS,
+			dev->m0_p_fw_space_phy);
+	MU_sendMesgToFW(dev->mu_base_virtaddr, INIT_DONE, 2);
+}
+
 //This code is added for MU
 static irqreturn_t fsl_vpu_mu_isr(int irq, void *This)
 {
@@ -1270,10 +1277,7 @@ static irqreturn_t fsl_vpu_mu_isr(int irq, void *This)
 
 	MU_ReceiveMsg(dev->mu_base_virtaddr, 0, &msg);
 	if (msg == 0xaa) {
-		MU_sendMesgToFW(dev->mu_base_virtaddr, PRINT_BUF_OFFSET, dev->m0_rpc_phy - dev->m0_p_fw_space_phy + M0_PRINT_OFFSET);
-		MU_sendMesgToFW(dev->mu_base_virtaddr, RPC_BUF_OFFSET, dev->m0_rpc_phy - dev->m0_p_fw_space_phy); //CM0 use relative address
-		MU_sendMesgToFW(dev->mu_base_virtaddr, BOOT_ADDRESS, dev->m0_p_fw_space_phy);
-		MU_sendMesgToFW(dev->mu_base_virtaddr, INIT_DONE, 2);
+		enable_mu(dev);
 	} else if (msg == 0x55) {
 		dev->firmware_started = true;
 		complete(&dev->start_cmp);
@@ -1297,19 +1301,11 @@ static int vpu_mu_init(struct vpu_dev *dev, u_int32 id)
 	/*
 	 * Get the address of MU to be used for communication with the M0 core
 	 */
-#ifdef CM4
-	np = of_find_compatible_node(NULL, NULL, "fsl,imx8-mu0-vpu-m4");
-	if (!np) {
-		vpu_dbg(LVL_ERR, "error: Cannot find MU entry in device tree\n");
-		return -EINVAL;
-	}
-#else
 	np = of_find_compatible_node(NULL, NULL, mu_cmp[id]);
 	if (!np) {
 		vpu_dbg(LVL_ERR, "error: Cannot find MU entry in device tree\n");
 		return -EINVAL;
 	}
-#endif
 	core_dev->mu_base_virtaddr = of_iomap(np, 0);
 	WARN_ON(!core_dev->mu_base_virtaddr);
 
@@ -1599,61 +1595,6 @@ static void release_queue_data(struct vpu_ctx *ctx)
 		vb2_queue_release(&This->vb2_q);
 }
 
-#ifdef CM4
-static int power_CM4_up(struct vpu_dev *dev)
-{
-	sc_ipc_t ipcHndl;
-	sc_rsrc_t core_rsrc, mu_rsrc = -1;
-
-	ipcHndl = dev->mu_ipcHandle;
-	core_rsrc = SC_R_M4_0_PID0;
-	mu_rsrc = SC_R_M4_0_MU_1A;
-
-	if (sc_pm_set_resource_power_mode(ipcHndl, core_rsrc, SC_PM_PW_MODE_ON) != SC_ERR_NONE) {
-		vpu_dbg(LVL_ERR, "error: failed to power up core_rsrc\n");
-		return -EIO;
-	}
-
-	if (mu_rsrc != -1) {
-		if (sc_pm_set_resource_power_mode(ipcHndl, mu_rsrc, SC_PM_PW_MODE_ON) != SC_ERR_NONE) {
-			vpu_dbg(LVL_ERR, "error: failed to power up mu_rsrc\n");
-			return -EIO;
-		}
-	}
-
-	return 0;
-}
-
-static int boot_CM4_up(struct vpu_dev *dev, void *boot_addr)
-{
-	sc_ipc_t ipcHndl;
-	sc_rsrc_t core_rsrc;
-	sc_faddr_t aux_core_ram;
-	void *core_ram_vir;
-	u32 size;
-
-	ipcHndl = dev->mu_ipcHandle;
-	core_rsrc = SC_R_M4_0_PID0;
-	aux_core_ram = 0x34FE0000;
-	size = SZ_128K;
-
-	core_ram_vir = ioremap_wc(aux_core_ram,
-			size
-			);
-	if (!core_ram_vir)
-		vpu_dbg(LVL_ERR, "error: failed to remap space for core ram\n");
-
-	memcpy((void *)core_ram_vir, (void *)boot_addr, size);
-
-	if (sc_pm_cpu_start(ipcHndl, core_rsrc, true, aux_core_ram) != SC_ERR_NONE) {
-		vpu_dbg(LVL_ERR, "error: failed to start core_rsrc\n");
-		return -EIO;
-	}
-
-	return 0;
-}
-#endif
-
 static int vpu_firmware_download(struct vpu_dev *This, u_int32 core_id)
 {
 	unsigned char *image;
@@ -1768,7 +1709,6 @@ static int v4l2_open(struct file *filp)
 		goto err_alloc;
 	}
 	dev->core_dev[ctx->core_id].ctx[idx] = ctx;
-	ctx->b_firstseq = true;
 	ctx->start_flag = true;
 	ctx->forceStop = false;
 	ctx->firmware_stopped = false;
@@ -2281,7 +2221,7 @@ static int init_vpu_core_dev(struct vpu_dev *dev, u32 id)
 	memset_io(core_dev->m0_rpc_virt, 0, SHARED_SIZE);
 
 	rpc_init_shared_memory_encoder(&core_dev->shared_mem,
-			core_dev->m0_rpc_phy - core_dev->m0_p_fw_space_phy,
+			cpu_phy_to_mu(core_dev, core_dev->m0_rpc_phy),
 			core_dev->m0_rpc_virt, SHARED_SIZE);
 	rpc_set_system_cfg_value_encoder(core_dev->shared_mem.pSharedInterface,
 			VPU_REG_BASE, id);
@@ -2444,17 +2384,7 @@ static int vpu_runtime_resume(struct device *dev)
 {
 	return 0;
 }
-#if 0
-static int vpu_suspend(struct device *dev)
-{
-	return 0;
-}
 
-static int vpu_resume(struct device *dev)
-{
-	return 0;
-}
-#endif
 #define CHECK_BIT(var, pos) (((var) >> (pos)) & 1)
 static void v4l2_vpu_send_snapshot(struct core_device *dev)
 {
@@ -2513,7 +2443,7 @@ static int vpu_resume(struct device *dev)
 			core_dev->fw_is_ready = false;
 			core_dev->firmware_started = false;
 
-			rpc_init_shared_memory_encoder(&core_dev->shared_mem, core_dev->m0_rpc_phy - core_dev->m0_p_fw_space_phy, core_dev->m0_rpc_virt, SHARED_SIZE);
+			rpc_init_shared_memory_encoder(&core_dev->shared_mem, cpu_phy_to_mu(core_dev, core_dev->m0_rpc_phy), core_dev->m0_rpc_virt, SHARED_SIZE);
 			rpc_set_system_cfg_value_encoder(core_dev->shared_mem.pSharedInterface, VPU_REG_BASE, i);
 		} else {
 			/*resume*/
