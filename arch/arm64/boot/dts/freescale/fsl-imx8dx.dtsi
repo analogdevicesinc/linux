@@ -3282,10 +3282,8 @@
 		rpc-region = <&encoder_rpc>;
 		reg = <0x0 0x2d000000 0x0 0x1000000>;
 		reg-names = "vpu_regs";
-		clocks = <&clk IMX8QXP_VPU_ENC_CLK>;
-		clock-names = "vpu_encoder_clk";
-		assigned-clocks = <&clk IMX8QXP_VPU_ENC_CLK>;
 		power-domains = <&pd_vpu_enc>;
+		reg-fw-base = <0x50000>;
 		status = "disabled";
 	};
 	imx_rpmsg: imx_rpmsg {

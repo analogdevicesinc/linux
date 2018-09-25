@@ -211,6 +211,7 @@ struct core_device {
 	struct vpu_ctx *ctx[VPU_MAX_NUM_STREAMS];
 	struct shared_addr shared_mem;
 	u32 id;
+	off_t reg_fw_base;
 	struct device *generic_dev;
 };
 struct vpu_dev {
@@ -220,8 +221,8 @@ struct vpu_dev {
 	struct platform_device *plat_dev;
 	struct clk *clk_m0;
 	struct firmware *m0_pfw;
-	struct clk *vpu_clk;
 	void __iomem *regs_base;
+	void __iomem *regs_enc;
 	struct mutex dev_mutex;
 	struct core_device core_dev[2];
 	u_int32 plat_type;

@@ -113,6 +113,11 @@ static void vpu_log_cmd(u_int32 cmdid, u_int32 ctxid)
 				cmd2str[cmdid], ctxid);
 }
 
+static void write_enc_reg(struct vpu_dev *dev, u32 val, off_t reg)
+{
+	writel(val, dev->regs_enc + reg);
+}
+
 /*
  * v4l2 ioctl() operation
  *
@@ -1594,11 +1599,21 @@ static void release_queue_data(struct vpu_ctx *ctx)
 		vb2_queue_release(&This->vb2_q);
 }
 
+static int set_vpu_fw_addr(struct vpu_dev *dev, struct core_device *core_dev)
+{
+	if (!dev || !core_dev)
+		return -EINVAL;
+
+	write_enc_reg(dev, core_dev->m0_p_fw_space_phy, core_dev->reg_fw_base);
+	write_enc_reg(dev, 0x0, core_dev->reg_fw_base + 4);
+
+	return 0;
+}
+
 static int vpu_firmware_download(struct vpu_dev *This, u_int32 core_id)
 {
 	unsigned char *image;
 	unsigned int FW_Size = 0;
-	void *csr_offset, *csr_cpuwait;
 	int ret = 0;
 	char *p = This->core_dev[core_id].m0_p_fw_space_vir;
 
@@ -1625,30 +1640,9 @@ static int vpu_firmware_download(struct vpu_dev *This, u_int32 core_id)
 			image,
 			FW_Size
 			);
-	if (This->plat_type == IMX8QM) { //encoder use core 1,2
-		if (core_id == 0) {
-			p[16] = IMX8QM;
-			p[17] = core_id + 1;
-			csr_offset = ioremap(0x2d090000, 4);
-			writel(This->core_dev[core_id].m0_p_fw_space_phy, csr_offset);
-			csr_cpuwait = ioremap(0x2d090004, 4);
-			writel(0x0, csr_cpuwait);
-		} else {
-			p[16] = IMX8QM;
-			p[17] = core_id + 1;
-			csr_offset = ioremap(0x2d0a0000, 4);
-			writel(This->core_dev[core_id].m0_p_fw_space_phy, csr_offset);
-			csr_cpuwait = ioremap(0x2d0a0004, 4);
-			writel(0x0, csr_cpuwait);
-		}
-	} else {
-		p[16] = IMX8QXP;
-		p[17] = core_id + 1;
-		csr_offset = ioremap(0x2d050000, 4);
-		writel(This->core_dev[core_id].m0_p_fw_space_phy, csr_offset);
-		csr_cpuwait = ioremap(0x2d050004, 4);
-		writel(0x0, csr_cpuwait);
-	}
+	p[16] = This->plat_type;
+	p[17] = core_id + 1;
+	set_vpu_fw_addr(This, &This->core_dev[core_id]);
 
 	return ret;
 }
@@ -1962,14 +1956,8 @@ static void vpu_reset(struct vpu_dev *This)
 static int vpu_enable_hw(struct vpu_dev *This)
 {
 	vpu_dbg(LVL_INFO, "%s()\n", __func__);
-#if 0
-	This->vpu_clk = clk_get(&This->plat_dev->dev, "vpu_encoder_clk");
-	if (IS_ERR(This->vpu_clk)) {
-		vpu_dbg(LVL_ERR, "vpu_clk get error\n");
-		return -ENOENT;
-	}
-#endif
 	vpu_setup(This);
+
 	return 0;
 }
 
@@ -1977,14 +1965,9 @@ static void vpu_disable_hw(struct vpu_dev *This)
 {
 	vpu_reset(This);
 	if (This->regs_base) {
-		devm_iounmap(&This->plat_dev->dev,
-				This->regs_base);
+		iounmap(This->regs_base);
+		This->regs_base = NULL;
 	}
-#if 0
-	if (This->vpu_clk) {
-		clk_put(This->vpu_clk);
-	}
-#endif
 }
 
 static int get_platform_info_by_core_type(struct vpu_dev *dev, u32 core_type)
@@ -2017,6 +2000,7 @@ static int parse_dt_info(struct vpu_dev *dev, struct device_node *np)
 	struct device_node *reserved_node = NULL;
 	struct resource reserved_res;
 	u_int32 core_type;
+	u32 i;
 
 	if (!dev || !np)
 		return -EINVAL;
@@ -2058,6 +2042,18 @@ static int parse_dt_info(struct vpu_dev *dev, struct device_node *np)
 	}
 	dev->core_dev[0].m0_rpc_phy = reserved_res.start;
 	dev->core_dev[1].m0_rpc_phy = reserved_res.start + SHARED_SIZE;
+
+	for (i = 0; i < dev->core_num; i++) {
+		u32 val;
+
+		ret = of_property_read_u32_index(np, "reg-fw-base", i, &val);
+		if (ret) {
+			vpu_dbg(LVL_ERR,
+				"find reg-fw-base for core[%d] fail\n", i);
+			return ret;
+		}
+		dev->core_dev[i].reg_fw_base = val;
+	}
 
 	return 0;
 }
@@ -2217,6 +2213,17 @@ static int vpu_probe(struct platform_device *pdev)
 	dev->generic_dev = get_device(&pdev->dev);
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	if (!res) {
+		vpu_dbg(LVL_ERR, "Missing platform resource data\n");
+		ret = -EINVAL;
+		goto error_put_dev;
+	}
+	dev->regs_enc = devm_ioremap_resource(dev->generic_dev, res);
+	if (!dev->regs_enc) {
+		vpu_dbg(LVL_ERR, "couldn't map encoder reg\n");
+		ret = PTR_ERR(dev->regs_enc);
+		goto error_put_dev;
+	}
 	dev->regs_base = ioremap(ENC_REG_BASE, 0x1000000);
 	if (!dev->regs_base) {
 		vpu_dbg(LVL_ERR, "%s could not map regs_base\n", __func__);
@@ -2365,7 +2372,6 @@ static int vpu_suspend(struct device *dev)
 static int vpu_resume(struct device *dev)
 {
 	struct vpu_dev *vpudev = (struct vpu_dev *)dev_get_drvdata(dev);
-	void *csr_offset, *csr_cpuwait;
 	struct core_device *core_dev;
 	u_int32 i;
 
@@ -2381,24 +2387,7 @@ static int vpu_resume(struct device *dev)
 			reset_vpu_core_dev(core_dev);
 		} else {
 			/*resume*/
-			if (vpudev->plat_type == IMX8QXP) {
-				csr_offset = ioremap(0x2d050000, 4);
-				writel(core_dev->m0_p_fw_space_phy, csr_offset);
-				csr_cpuwait = ioremap(0x2d050004, 4);
-				writel(0x0, csr_cpuwait);
-			} else {
-				if (i == 0) {
-					csr_offset = ioremap(0x2d090000, 4);
-					writel(core_dev->m0_p_fw_space_phy, csr_offset);
-					csr_cpuwait = ioremap(0x2d090004, 4);
-					writel(0x0, csr_cpuwait);
-				} else {
-					csr_offset = ioremap(0x2d0a0000, 4);
-					writel(core_dev->m0_p_fw_space_phy, csr_offset);
-					csr_cpuwait = ioremap(0x2d0a0004, 4);
-					writel(0x0, csr_cpuwait);
-				}
-			}
+			set_vpu_fw_addr(vpudev, core_dev);
 			/*wait for firmware resotre done*/
 			if (!wait_for_completion_timeout(&core_dev->start_cmp, msecs_to_jiffies(1000))) {
 				vpu_dbg(LVL_ERR, "error: wait for vpu encoder resume done timeout!\n");
