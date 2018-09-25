@@ -210,13 +210,14 @@ struct core_device {
 
 	struct vpu_ctx *ctx[VPU_MAX_NUM_STREAMS];
 	struct shared_addr shared_mem;
+	u32 id;
+	struct device *generic_dev;
 };
 struct vpu_dev {
 	struct device *generic_dev;
 	struct v4l2_device v4l2_dev;
 	struct video_device *pvpu_encoder_dev;
 	struct platform_device *plat_dev;
-	sc_ipc_t mu_ipcHandle;
 	struct clk *clk_m0;
 	struct firmware *m0_pfw;
 	struct clk *vpu_clk;

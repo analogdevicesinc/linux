@@ -1290,18 +1290,17 @@ static irqreturn_t fsl_vpu_mu_isr(int irq, void *This)
 }
 
 /* Initialization of the MU code. */
-static int vpu_mu_init(struct vpu_dev *dev, u_int32 id)
+static int vpu_mu_init(struct core_device *core_dev)
 {
 	struct device_node *np;
 	unsigned int	vpu_mu_id;
 	u32 irq;
-	struct core_device *core_dev = &dev->core_dev[id];
 	int ret = 0;
 
 	/*
 	 * Get the address of MU to be used for communication with the M0 core
 	 */
-	np = of_find_compatible_node(NULL, NULL, mu_cmp[id]);
+	np = of_find_compatible_node(NULL, NULL, mu_cmp[core_dev->id]);
 	if (!np) {
 		vpu_dbg(LVL_ERR, "error: Cannot find MU entry in device tree\n");
 		return -EINVAL;
@@ -1320,7 +1319,7 @@ static int vpu_mu_init(struct vpu_dev *dev, u_int32 id)
 
 	irq = of_irq_get(np, 0);
 
-	ret = devm_request_irq(&dev->plat_dev->dev, irq, fsl_vpu_mu_isr,
+	ret = devm_request_irq(core_dev->generic_dev, irq, fsl_vpu_mu_isr,
 				IRQF_EARLY_RESUME, "vpu_mu_isr", (void *)core_dev);
 	if (ret) {
 		vpu_dbg(LVL_ERR, "request_irq failed %d, error = %d\n", irq, ret);
@@ -1935,84 +1934,6 @@ static struct video_device v4l2_videodevice_encoder = {
 	.ioctl_ops = &v4l2_encoder_ioctl_ops,
 	.vfl_dir = VFL_DIR_M2M,
 };
-#if 0
-static int set_vpu_pwr(sc_ipc_t ipcHndl,
-		sc_pm_power_mode_t pm,
-		u_int32 core_id
-		)
-{
-	int rv = -1;
-	sc_err_t sciErr;
-
-	vpu_dbg(LVL_INFO, "%s()\n", __func__);
-	if (!ipcHndl) {
-		vpu_dbg(LVL_ERR, "error: --- set_vpu_pwr no IPC handle\n");
-		goto set_vpu_pwrexit;
-	}
-
-	// Power on or off VPU, ENC and MU1
-	sciErr = sc_pm_set_resource_power_mode(ipcHndl, SC_R_VPU, pm);
-	if (sciErr != SC_ERR_NONE) {
-		vpu_dbg(LVL_ERR, "error: --- sc_pm_set_resource_power_mode(SC_R_VPU,%d) SCI error! (%d)\n", sciErr, pm);
-		goto set_vpu_pwrexit;
-	}
-#ifdef TEST_BUILD
-	sciErr = sc_pm_set_resource_power_mode(ipcHndl, SC_R_VPU_ENC, pm);
-	if (sciErr != SC_ERR_NONE) {
-		vpu_dbg(LVL_ERR, "error: --- sc_pm_set_resource_power_mode(SC_R_VPU_ENC,%d) SCI error! (%d)\n", sciErr, pm);
-		goto set_vpu_pwrexit;
-	}
-#else
-	if (core_id == 0) {
-		sciErr = sc_pm_set_resource_power_mode(ipcHndl, SC_R_VPU_ENC_0, pm);
-		if (sciErr != SC_ERR_NONE) {
-			vpu_dbg(LVL_ERR, "error: --- sc_pm_set_resource_power_mode(SC_R_VPU_ENC_0,%d) SCI error! (%d)\n", sciErr, pm);
-			goto set_vpu_pwrexit;
-		}
-	} else {
-		sciErr = sc_pm_set_resource_power_mode(ipcHndl, SC_R_VPU_ENC_1, pm);
-		if (sciErr != SC_ERR_NONE) {
-			vpu_dbg(LVL_ERR, "error: --- sc_pm_set_resource_power_mode(SC_R_VPU_ENC_1,%d) SCI error! (%d)\n", sciErr, pm);
-			goto set_vpu_pwrexit;
-		}
-	}
-#endif
-	if (core_id == 0) {
-		sciErr = sc_pm_set_resource_power_mode(ipcHndl, SC_R_VPU_MU_1, pm);
-		if (sciErr != SC_ERR_NONE) {
-			vpu_dbg(LVL_ERR, "error: --- sc_pm_set_resource_power_mode(SC_R_VPU_MU_1,%d) SCI error! (%d)\n", sciErr, pm);
-			goto set_vpu_pwrexit;
-		}
-	} else {
-		sciErr = sc_pm_set_resource_power_mode(ipcHndl, SC_R_VPU_MU_2, pm);
-		if (sciErr != SC_ERR_NONE) {
-			vpu_dbg(LVL_ERR, "error: --- sc_pm_set_resource_power_mode(SC_R_VPU_MU_2,%d) SCI error! (%d)\n", sciErr, pm);
-			goto set_vpu_pwrexit;
-		}
-	}
-	rv = 0;
-
-set_vpu_pwrexit:
-	return rv;
-}
-
-static void vpu_set_power(struct vpu_dev *dev, bool on, u_int32 core_id)
-{
-	int ret;
-
-	if (on) {
-		ret = set_vpu_pwr(dev->mu_ipcHandle, SC_PM_PW_MODE_ON, core_id);
-		if (ret)
-			vpu_dbg(LVL_ERR, "error: failed to power on\n");
-		pm_runtime_get_sync(dev->generic_dev);
-	} else {
-		pm_runtime_put_sync_suspend(dev->generic_dev);
-		ret = set_vpu_pwr(dev->mu_ipcHandle, SC_PM_PW_MODE_OFF, core_id);
-		if (ret)
-			vpu_dbg(LVL_ERR, "error: failed to power off\n");
-	}
-}
-#endif
 
 static void vpu_setup(struct vpu_dev *This)
 {
@@ -2174,23 +2095,33 @@ static int create_vpu_video_device(struct vpu_dev *dev)
 	return 0;
 }
 
-static int init_vpu_core_dev(struct vpu_dev *dev, u32 id)
+static int reset_vpu_core_dev(struct core_device *core_dev)
 {
-	int ret;
-	struct core_device *core_dev = &dev->core_dev[id];
-
-	if (!dev)
+	if (!core_dev)
 		return -EINVAL;
 
-	core_dev = &dev->core_dev[id];
+	core_dev->fw_is_ready = false;
+	core_dev->firmware_started = false;
+	rpc_init_shared_memory_encoder(&core_dev->shared_mem,
+				cpu_phy_to_mu(core_dev, core_dev->m0_rpc_phy),
+				core_dev->m0_rpc_virt, SHARED_SIZE);
+	rpc_set_system_cfg_value_encoder(core_dev->shared_mem.pSharedInterface,
+				VPU_REG_BASE, core_dev->id);
+	return 0;
+}
+
+static int init_vpu_core_dev(struct core_device *core_dev)
+{
+	int ret;
+
+	if (!core_dev)
+		return -EINVAL;
 
 	mutex_init(&core_dev->core_mutex);
 	mutex_init(&core_dev->cmd_mutex);
 	init_completion(&core_dev->start_cmp);
 	init_completion(&core_dev->snap_done_cmp);
-	core_dev->firmware_started = false;
 
-	core_dev->fw_is_ready = false;
 	core_dev->workqueue = alloc_workqueue("vpu",
 					WQ_UNBOUND | WQ_MEM_RECLAIM, 1);
 	if (!core_dev->workqueue) {
@@ -2201,7 +2132,7 @@ static int init_vpu_core_dev(struct vpu_dev *dev, u32 id)
 
 	INIT_WORK(&core_dev->msg_work, vpu_msg_run_work);
 
-	ret = vpu_mu_init(dev, id);
+	ret = vpu_mu_init(core_dev);
 	if (ret) {
 		vpu_dbg(LVL_ERR, "%s vpu mu init failed\n", __func__);
 		goto error;
@@ -2220,11 +2151,7 @@ static int init_vpu_core_dev(struct vpu_dev *dev, u32 id)
 
 	memset_io(core_dev->m0_rpc_virt, 0, SHARED_SIZE);
 
-	rpc_init_shared_memory_encoder(&core_dev->shared_mem,
-			cpu_phy_to_mu(core_dev, core_dev->m0_rpc_phy),
-			core_dev->m0_rpc_virt, SHARED_SIZE);
-	rpc_set_system_cfg_value_encoder(core_dev->shared_mem.pSharedInterface,
-			VPU_REG_BASE, id);
+	reset_vpu_core_dev(core_dev);
 
 	return 0;
 error:
@@ -2235,12 +2162,46 @@ error:
 	return ret;
 }
 
+static int uninit_vpu_core_dev(struct core_device *core_dev)
+{
+	if (!core_dev)
+		return -EINVAL;
+
+	if (core_dev->workqueue) {
+		destroy_workqueue(core_dev->workqueue);
+		core_dev->workqueue = NULL;
+	}
+
+	if (core_dev->m0_p_fw_space_vir) {
+		iounmap(core_dev->m0_p_fw_space_vir);
+		core_dev->m0_p_fw_space_vir = NULL;
+	}
+	core_dev->m0_p_fw_space_phy = 0;
+
+	if (core_dev->m0_rpc_virt) {
+		iounmap(core_dev->m0_rpc_virt);
+		core_dev->m0_rpc_virt = NULL;
+	}
+	core_dev->m0_rpc_phy = 0;
+
+	if (core_dev->mu_base_virtaddr) {
+		iounmap(core_dev->mu_base_virtaddr);
+		core_dev->mu_base_virtaddr = NULL;
+	}
+
+	if (core_dev->generic_dev) {
+		put_device(core_dev->generic_dev);
+		core_dev->generic_dev = NULL;
+	}
+
+	return 0;
+}
+
 static int vpu_probe(struct platform_device *pdev)
 {
 	struct vpu_dev *dev;
 	struct resource *res;
 	struct device_node *np = pdev->dev.of_node;
-	unsigned int mu_id;
 	u_int32 i;
 	int ret;
 
@@ -2283,24 +2244,6 @@ static int vpu_probe(struct platform_device *pdev)
 		goto error_unreg_v4l2;
 	}
 
-	if (!dev->mu_ipcHandle) {
-		ret = sc_ipc_getMuID(&mu_id);
-		if (ret) {
-			vpu_dbg(LVL_ERR,
-				"-- cannot obtain mu id SCI error!(%d)\n",
-				ret);
-			goto error_rm_vdev;
-		}
-
-		ret = sc_ipc_open(&dev->mu_ipcHandle, mu_id);
-		if (ret) {
-			vpu_dbg(LVL_ERR,
-				"-- cannot open MU channel to SCU error!(%d)\n",
-				ret);
-			goto error_rm_vdev;
-		}
-	}
-
 	vpu_enable_hw(dev);
 
 	pm_runtime_enable(&pdev->dev);
@@ -2308,20 +2251,24 @@ static int vpu_probe(struct platform_device *pdev)
 
 	mutex_init(&dev->dev_mutex);
 	for (i = 0; i < dev->core_num; i++) {
-		ret = init_vpu_core_dev(dev, i);
+		dev->core_dev[i].id = i;
+		dev->core_dev[i].generic_dev = get_device(dev->generic_dev);
+		ret = init_vpu_core_dev(&dev->core_dev[i]);
 		if (ret)
-			goto error_pwoff;
+			goto error_init_core;
 	}
 	pm_runtime_put_sync(&pdev->dev);
 
 	return 0;
 
-error_pwoff:
+error_init_core:
+	for (i = 0; i < dev->core_num; i++)
+		uninit_vpu_core_dev(&dev->core_dev[i]);
+
 	pm_runtime_put_sync(&pdev->dev);
 	pm_runtime_disable(&pdev->dev);
 	vpu_disable_hw(dev);
 
-error_rm_vdev:
 	if (dev->pvpu_encoder_dev) {
 		video_unregister_device(dev->pvpu_encoder_dev);
 		dev->pvpu_encoder_dev = NULL;
@@ -2344,18 +2291,9 @@ static int vpu_remove(struct platform_device *pdev)
 	struct vpu_dev *dev = platform_get_drvdata(pdev);
 	u_int32 i;
 
-	for (i = 0; i < dev->core_num; i++) {
-		destroy_workqueue(dev->core_dev[i].workqueue);
+	for (i = 0; i < dev->core_num; i++)
+		uninit_vpu_core_dev(&dev->core_dev[i]);
 
-		if (dev->core_dev[i].m0_p_fw_space_vir)
-			iounmap(dev->core_dev[i].m0_p_fw_space_vir);
-		dev->core_dev[i].m0_p_fw_space_vir = NULL;
-		dev->core_dev[i].m0_p_fw_space_phy = 0;
-		if (dev->core_dev[i].shared_mem.shared_mem_vir)
-			iounmap(dev->core_dev[i].shared_mem.shared_mem_vir);
-		dev->core_dev[i].shared_mem.shared_mem_vir = NULL;
-		dev->core_dev[i].shared_mem.shared_mem_phy = 0;
-	}
 	if (dev->m0_pfw) {
 		release_firmware(dev->m0_pfw);
 		dev->m0_pfw = NULL;
@@ -2440,11 +2378,7 @@ static int vpu_resume(struct device *dev)
 
 		if (core_dev->hang_mask == core_dev->instance_mask) {
 			/*no instance is active before suspend, do reset*/
-			core_dev->fw_is_ready = false;
-			core_dev->firmware_started = false;
-
-			rpc_init_shared_memory_encoder(&core_dev->shared_mem, cpu_phy_to_mu(core_dev, core_dev->m0_rpc_phy), core_dev->m0_rpc_virt, SHARED_SIZE);
-			rpc_set_system_cfg_value_encoder(core_dev->shared_mem.pSharedInterface, VPU_REG_BASE, i);
+			reset_vpu_core_dev(core_dev);
 		} else {
 			/*resume*/
 			if (vpudev->plat_type == IMX8QXP) {
