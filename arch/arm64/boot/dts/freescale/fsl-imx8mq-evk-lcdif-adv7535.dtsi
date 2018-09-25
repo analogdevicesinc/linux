@@ -36,7 +36,7 @@
 
 &lcdif {
 	status = "okay";
-	max-res = <1920>, <1080>;
+	max-res = <1280>, <720>;
 
 	port@0 {
 		lcdif_mipi_dsi: mipi-dsi-endpoint {
