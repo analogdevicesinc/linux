@@ -16,6 +16,10 @@
 	display-subsystem {
 		status = "disabled";
 	};
+
+	sound-hdmi {
+		status = "disabled";
+	};
 };
 
 &irqsteer_dcss {

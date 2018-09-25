@@ -12,6 +12,12 @@
  * GNU General Public License for more details.
  */
 
+/ {
+	sound-hdmi {
+		status = "disabled";
+	};
+};
+
 &hdmi {
 	status = "disabled";
 };
