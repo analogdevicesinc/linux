@@ -25,11 +25,12 @@
 #define MXC_JPEG_RUNNING		1
 #define MXC_JPEG_FMT_TYPE_ENC		0
 #define MXC_JPEG_FMT_TYPE_RAW		1
-#define MXC_JPEG_NUM_FORMATS		4
 #define MXC_JPEG_MIN_HEIGHT		0x8
 #define MXC_JPEG_MIN_WIDTH		0x8
 #define MXC_JPEG_MAX_HEIGHT		0x2000
 #define MXC_JPEG_MAX_WIDTH		0x2000
+#define MXC_JPEG_H_ALIGN		3
+#define MXC_JPEG_W_ALIGN		3
 #define MXC_JPEG_DEFAULT_SIZEIMAGE	10000
 #define MXC_JPEG_ENC_CONF		1
 #define MXC_JPEG_ENC_DONE		0
@@ -135,7 +136,7 @@ struct mxc_jpeg_sof {
 	u8 precision;
 	u16 height, width;
 	u8 components_no;
-	struct mxc_jpeg_sof_comp comp[3];
+	struct mxc_jpeg_sof_comp comp[4];
 } __packed;
 
 #endif

@@ -85,6 +85,7 @@
 /* STM_CTRL fields */
 #define STM_CTRL_PIXEL_PRECISION		(0x1 << 2)
 #define STM_CTRL_IMAGE_FORMAT(img_fmt)		((img_fmt) << 3)
+#define STM_CTRL_IMAGE_FORMAT_MASK		(0xF << 3)
 #define STM_CTRL_BITBUF_PTR_CLR(clr)		((clr) << 7)
 #define STM_CTRL_AUTO_START(go)			((go) << 8)
 #define STM_CTRL_CONFIG_MOD(mod)		((mod) << 9)
@@ -101,6 +102,7 @@
 /* JPEG-Decoder Wrapper - STM_CTRL Register Fields */
 #define MXC_PIXEL_PRECISION(precision) ((precision)/8 << 2)
 enum mxc_jpeg_image_format {
+	MXC_JPEG_INVALID = -1,
 	MXC_JPEG_YUV420 = 0x0, /* 2 Plannar, Y=1st plane UV=2nd plane */
 	MXC_JPEG_YUV422 = 0x1, /* 1 Plannar, YUYV sequence */
 	MXC_JPEG_RGB	= 0x2, /* RGBRGB packed format */
