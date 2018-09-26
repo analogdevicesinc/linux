@@ -1326,4 +1326,24 @@ config I2C_ZX2967
 	  This driver can also be built as a module. If so, the module will be
 	  called i2c-zx2967.
 
+config XEN_I2C_FRONTEND
+	tristate "Xen virtual i2c device support"
+	depends on XEN
+	default y
+	select XEN_XENBUS_FRONTEND
+	help
+	  This driver implements the front-end of the Xen virtual
+	  i2c device driver.  It communicates with a back-end driver
+	  in another domain which drives the actual i2c device.
+
+config XEN_I2C_BACKEND
+	tristate "Xen i2c-device backend driver"
+	depends on XEN_BACKEND
+	help
+	  The i2c-device backend driver allows the kernel to export its
+	  block devices to other guests.
+
+	  The corresponding Linux frontend driver is enabled by the
+	  CONFIG_XEN_I2C_FRONTEND configuration option.
+
 endmenu
