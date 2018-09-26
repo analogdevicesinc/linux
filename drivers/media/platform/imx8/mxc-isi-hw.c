@@ -84,7 +84,7 @@ static bool is_rgb(u32 pix_fmt)
 {
 	if ((pix_fmt == V4L2_PIX_FMT_RGB565) ||
 		(pix_fmt == V4L2_PIX_FMT_RGB24) ||
-		(pix_fmt == V4L2_PIX_FMT_RGB32) ||
+		(pix_fmt == V4L2_PIX_FMT_XRGB32) ||
 		(pix_fmt == V4L2_PIX_FMT_BGR24) ||
 	    (pix_fmt == V4L2_PIX_FMT_ARGB32)) {
 		return true;

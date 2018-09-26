@@ -52,7 +52,7 @@ struct mxc_isi_fmt mxc_isi_out_formats[] = {
 		.mbus_code  = MEDIA_BUS_FMT_RGB888_1X24,
 	}, {
 		.name		= "RGB32",
-		.fourcc		= V4L2_PIX_FMT_RGB32,
+		.fourcc		= V4L2_PIX_FMT_XRGB32,
 		.depth		= { 32 },
 		.color		= MXC_ISI_OUT_FMT_XRGB32,
 		.memplanes	= 1,
