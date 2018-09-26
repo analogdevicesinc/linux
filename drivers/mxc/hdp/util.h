@@ -203,6 +203,7 @@ typedef struct {
 	CDN_BUS_TYPE bus_type;
 	u32 tmp;
 	u32 edp; /* use eDP */
+	u8 phy_init;
 
 	struct mutex mutex;	//mutex may replace running
 	struct hdp_mem *mem;
