@@ -1763,8 +1763,9 @@ static const struct regmap_config fsl_micfil_regmap_config = {
 
 /* END OF REGMAP */
 
-static void voice_detected_irq(struct fsl_micfil *micfil)
+static irqreturn_t voice_detected_fn(int irq, void *devid)
 {
+	struct fsl_micfil *micfil = (struct fsl_micfil *)devid;
 	struct device *dev = &micfil->pdev->dev;
 	int ret;
 
@@ -1780,6 +1781,8 @@ static void voice_detected_irq(struct fsl_micfil *micfil)
 
 	/* notify userspace that voice was detected */
 	kobject_uevent_env(&dev->kobj, KOBJ_CHANGE, envp);
+
+	return IRQ_HANDLED;
 }
 
 static irqreturn_t hwvad_isr(int irq, void *devid)
@@ -1805,10 +1808,9 @@ static irqreturn_t hwvad_isr(int irq, void *devid)
 				   MICFIL_VAD0_STAT_IF_MASK,
 				   MICFIL_VAD0_STAT_IF);
 
-		voice_detected_irq(micfil);
 	}
 
-	return IRQ_HANDLED;
+	return IRQ_WAKE_THREAD;
 }
 
 static irqreturn_t hwvad_err_isr(int irq, void *devid)
@@ -2136,9 +2138,9 @@ static int fsl_micfil_probe(struct platform_device *pdev)
 	/* Digital Microphone interface voice activity detector event
 	 * interrupt - IRQ 44
 	 */
-	ret = devm_request_irq(&pdev->dev, micfil->irq[0],
-			       hwvad_isr, irqflag,
-			       micfil->name, micfil);
+	ret = devm_request_threaded_irq(&pdev->dev, micfil->irq[0],
+					hwvad_isr, voice_detected_fn,
+					irqflag, micfil->name, micfil);
 	if (ret) {
 		dev_err(&pdev->dev, "failed to claim hwvad event irq %u\n",
 			micfil->irq[0]);
