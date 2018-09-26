@@ -91,8 +91,10 @@ struct hdp_clks;
 struct hdp_ops {
 	void (*fw_load)(state_struct *state);
 	int (*fw_init)(state_struct *state);
-	int (*phy_init)(state_struct *state, struct drm_display_mode *mode, int format, int color_depth);
-	void (*mode_set)(state_struct *state, struct drm_display_mode *mode, int format, int color_depth, int max_link);
+	int (*phy_init)(state_struct *state, struct drm_display_mode *mode,
+			int format, int color_depth);
+	void (*mode_set)(state_struct *state, struct drm_display_mode *mode,
+			 int format, int color_depth, int max_link);
 	int (*get_edid_block)(void *data, u8 *buf, u32 block, size_t len);
 	int (*get_hpd_state)(state_struct *state, u8 *hpd);
 	int (*write_hdr_metadata)(state_struct *state,
@@ -103,7 +105,8 @@ struct hdp_ops {
 	int (*pixel_link_invalidate)(state_struct *state);
 	int (*pixel_link_sync_ctrl_enable)(state_struct *state);
 	int (*pixel_link_sync_ctrl_disable)(state_struct *state);
-	void (*pixel_link_mux)(state_struct *state, struct drm_display_mode *mode);
+	void (*pixel_link_mux)(state_struct *state,
+			       struct drm_display_mode *mode);
 	void (*pixel_engine_reset)(state_struct *state);
 
 	int (*clock_init)(struct hdp_clks *clks);
@@ -120,6 +123,7 @@ struct hdp_devtype {
 	u8 audio_type;
 	struct hdp_ops *ops;
 	struct hdp_rw_func *rw;
+	u32 connector_type;
 };
 
 struct hdp_video {
@@ -209,9 +213,9 @@ struct imx_hdp {
 	u8 is_digpll_dp_pclock;
 	u8 no_edid;
 	u8 audio_type;
-	u32 lane_mapping;
-	u32 edp_link_rate;
-	u32 edp_num_lanes;
+	u32 dp_lane_mapping;
+	u32 dp_link_rate;
+	u32 dp_num_lanes;
 
 	struct mutex mutex;		/* for state below and previous_mode */
 	enum drm_connector_force force;	/* mutex-protected force state */

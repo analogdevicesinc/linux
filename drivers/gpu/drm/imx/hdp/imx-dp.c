@@ -13,9 +13,12 @@
  */
 #include <linux/clk.h>
 #include <linux/kernel.h>
+#include <drm/drm_dp_helper.h>
+
 #ifdef DEBUG_FW_LOAD
 #include "mhdp_firmware.h"
 #endif
+
 #include "imx-hdp.h"
 #include "imx-hdmi.h"
 #include "imx-dp.h"
@@ -75,7 +78,8 @@ int dp_fw_init(state_struct *state)
 	CDN_API_General_Write_Register_blocking(state,
 						ADDR_SOURCD_PHY +
 						(LANES_CONFIG << 2),
-						0x00400000 | hdp->lane_mapping);
+						0x00400000 |
+						hdp->dp_lane_mapping);
 	DRM_INFO("CDN_API_General_Write_Register_blockin ... setting LANES_CONFIG\n");
 
 	return 0;
@@ -112,6 +116,7 @@ int dp_phy_init(state_struct *state, struct drm_display_mode *mode, int format,
 }
 
 #ifdef DEBUG
+
 void print_header(void)
 {
 	/*       "0x00000000: 00 01 02 03 04 05 06 07 08 09 0a 0b 0c 0d 0e 0f"*/
@@ -153,6 +158,14 @@ int dump_dpcd(state_struct *state)
 	print_bytes(resp_dpcd.addr, resp_dpcd.buff, resp_dpcd.size);
 
 	ret = CDN_API_DPTX_Read_DPCD_blocking(state, 0x10, 0x100, &resp_dpcd,
+					      CDN_BUS_TYPE_APB);
+	if (ret) {
+		DRM_INFO("_debug: function returned with status %d\n", ret);
+		return -1;
+	}
+	print_bytes(resp_dpcd.addr, resp_dpcd.buff, resp_dpcd.size);
+
+	ret = CDN_API_DPTX_Read_DPCD_blocking(state, 0x10, 0x110, &resp_dpcd,
 					      CDN_BUS_TYPE_APB);
 	if (ret) {
 		DRM_INFO("_debug: function returned with status %d\n", ret);
@@ -269,6 +282,79 @@ int dp_get_training_status(state_struct *state)
 	return 0;
 }
 
+#define aux_to_hdp(x) container_of(x, struct imx_hdp, aux)
+
+/*
+ * This function only implements native DPDC reads and writes
+ */
+static ssize_t dp_aux_transfer(struct drm_dp_aux *aux,
+		struct drm_dp_aux_msg *msg)
+{
+	struct imx_hdp *hdp = aux_to_hdp(aux);
+	bool native = msg->request & (DP_AUX_NATIVE_WRITE & DP_AUX_NATIVE_READ);
+	CDN_API_STATUS status;
+
+	DRM_DEBUG("\n");
+	DRM_INFO("%s() msg->request 0x%x msg->size 0x%x\n",
+	       __func__, msg->request, (unsigned int)msg->size);
+
+
+	/* Ignore address only message */
+	if ((msg->size == 0) || (msg->buffer == NULL)) {
+		msg->reply = native ?
+			DP_AUX_NATIVE_REPLY_ACK : DP_AUX_I2C_REPLY_ACK;
+		return msg->size;
+	}
+
+	if (!native) {
+		pr_err("%s: only native messages supported\n",
+			__func__);
+		return -EINVAL;
+	}
+
+	/* msg sanity check */
+	if (msg->size > DP_AUX_MAX_PAYLOAD_BYTES) {
+		pr_err("%s: invalid msg: size(%zu), request(%x)\n",
+			__func__, msg->size, (unsigned int)msg->request);
+		return -EINVAL;
+	}
+
+	if (msg->request == DP_AUX_NATIVE_WRITE) {
+		DPTX_Write_DPCD_response write_resp;
+
+		status = CDN_API_DPTX_Write_DPCD_blocking(&hdp->state,
+							  msg->size,
+							  msg->address,
+							  (u8 *)msg->buffer,
+							  &write_resp,
+							  CDN_BUS_TYPE_APB);
+
+		if (status != CDN_OK)
+			return -EIO;
+		/* fixme: is this right? */
+		//return  msg->size;
+	}
+
+	if (msg->request == DP_AUX_NATIVE_READ) {
+		DPTX_Read_DPCD_response read_resp;
+
+		status = CDN_API_DPTX_Read_DPCD_blocking(&hdp->state,
+						      msg->size,
+						      msg->address,
+						      &read_resp,
+						      CDN_BUS_TYPE_APB);
+		if (status != CDN_OK)
+			return -EIO;
+		memcpy(msg->buffer, read_resp.buff, read_resp.size);
+		msg->reply = DP_AUX_NATIVE_REPLY_ACK;
+#ifdef DEBUG
+		print_bytes(read_resp.addr, read_resp.buff, read_resp.size);
+#endif
+		return  msg->size;
+	}
+	return 0;
+}
+
 /* Max Link Rate: 06h (1.62Gbps), 0Ah (2.7Gbps), 14h (5.4Gbps),
  * 1Eh (8.1Gbps)--N/A
  */
@@ -297,8 +383,7 @@ void dp_mode_set(state_struct *state,
 	/* AUX training? */
 	u8 no_aux_training = 0;
 	/* Lane mapping */
-	u8 lane_mapping = hdp->lane_mapping; /*  we have 4 lane, so it's OK */
-
+	u8 lane_mapping = hdp->dp_lane_mapping;
 	/* Extended Host capabilities */
 	u8 ext_host_cap = 1;
 	/* Bits per sub-pixel */
@@ -310,15 +395,47 @@ void dp_mode_set(state_struct *state,
 	/* Transfer Unit */
 	u8 transfer_unit = 64;
 	VIC_SYMBOL_RATE sym_rate;
-	u8 link_rate;
+	u8 link_rate = RATE_1_6;
+	struct drm_dp_link link;
+
+#ifdef DEBUG
+	S_LINK_STAT rls;
+#endif
+	char linkid[6];
+
+	DRM_INFO("dp_mode_set()\n");
+
+	drm_dp_downstream_id(&hdp->aux, linkid);
+	DRM_INFO("DP link id: %s, 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x\n",
+		 linkid, linkid[0], linkid[1], linkid[2], linkid[3], linkid[4],
+		 linkid[5]);
+
+	drm_dp_link_probe(&hdp->aux, &link);
+	DRM_INFO("DP revision: 0x%x\n", link.revision);
+	DRM_INFO("DP rate: %d Mbps\n", link.rate/100);
+	DRM_INFO("DP number of lanes: %d\n", link.num_lanes);
+	DRM_INFO("DP capabilities: 0x%lx\n", link.capabilities);
+
+	/* always use the number of lanes from the display*/
+	num_lanes = link.num_lanes;
+
+	/* Use the lower link rate if dp_link_rate is set */
+	if (hdp->dp_link_rate != 0) {
+		link_rate = min(hdp->dp_link_rate,
+			(u32)(drm_dp_link_rate_to_bw_code(link.rate)));
+		DRM_INFO("DP actual link rate:  0x%x\n", link_rate);
+		hdp->link_rate = link_rate;
+
+		/* need change the link rate */
+		hdp->ops->phy_init(state,
+				   mode,
+				   format,
+				   color_depth);
+	}
 
 	if (hdp->is_edp) {
-		/* eDP uses device tree link rate and number of lanes */
-		link_rate = hdp->edp_link_rate;
-		num_lanes = hdp->edp_num_lanes;
-
 		/* use the eDP supported rates */
-		switch (max_link_rate) {
+		switch (link_rate) {
 		case AFE_LINK_RATE_1_6:
 			sym_rate = RATE_1_6;
 			break;
@@ -345,9 +462,7 @@ void dp_mode_set(state_struct *state,
 			sym_rate = RATE_1_6;
 		}
 	} else {
-		link_rate = max_link_rate;
-
-		switch (max_link_rate) {
+		switch (link_rate) {
 		case 0x0a:
 			sym_rate = RATE_2_7;
 			break;
@@ -371,7 +486,6 @@ void dp_mode_set(state_struct *state,
 		);
 	DRM_INFO("CDN_API_DPTX_SetHostCap_blocking (ret = %d)\n", ret);
 
-
 	ret = CDN_API_DPTX_Set_VIC_blocking(state,
 		mode,
 		bits_per_subpixel,
@@ -386,14 +500,14 @@ void dp_mode_set(state_struct *state,
 
 	do {
 		ret = CDN_API_DPTX_TrainingControl_blocking(state, 1);
-		DRM_DEBUG("CDN_API_DPTX_TrainingControl_blocking (ret = %d) start\n",
+		DRM_DEBUG("CDN_API_DPTX_TrainingControl_* (ret = %d) start\n",
 			   ret);
 		if (dp_get_training_status(state) == 0)
 			break;
 		training_retries--;
 
 		ret = CDN_API_DPTX_TrainingControl_blocking(state, 0);
-		DRM_DEBUG("CDN_API_DPTX_TrainingControl_blocking (ret = %d) stop\n",
+		DRM_DEBUG("CDN_API_DPTX_TrainingControl_* (ret = %d) stop\n",
 			   ret);
 		udelay(1000);
 
@@ -414,7 +528,6 @@ void dp_mode_set(state_struct *state,
 		 rls.preemphasis[2]);
 	dump_dpcd(state);
 #endif
-
 }
 
 int dp_get_edid_block(void *data, u8 *buf, unsigned int block, size_t len)
@@ -441,6 +554,8 @@ int dp_get_edid_block(void *data, u8 *buf, unsigned int block, size_t len)
 		DRM_WARN("EDID block %x read not support\n", block);
 	}
 
+	DRM_INFO("dp_get_edid_block (ret = %d) block %d\n", ret, block);
+
 	memcpy(buf, edidResp.buff, 128);
 
 	return ret;
@@ -454,6 +569,22 @@ int dp_get_hpd_state(state_struct *state, u8 *hpd)
 	return ret;
 }
 
+void dp_phy_pix_engine_reset_t28hpc(state_struct *state)
+{
+	GENERAL_Read_Register_response regresp;
+
+	CDN_API_General_Read_Register_blocking(state, ADDR_SOURCE_CAR +
+					       (SOURCE_HDTX_CAR << 2),
+					       &regresp);
+	CDN_API_General_Write_Register_blocking(state, ADDR_SOURCE_CAR +
+						(SOURCE_HDTX_CAR << 2),
+						regresp.val & 0xFD);
+	CDN_API_General_Write_Register_blocking(state, ADDR_SOURCE_CAR +
+						(SOURCE_HDTX_CAR << 2),
+						regresp.val);
+}
+
+
 int dp_phy_init_t28hpc(state_struct *state,
 		       struct drm_display_mode *mode,
 		       int format,
@@ -463,21 +594,21 @@ int dp_phy_init_t28hpc(state_struct *state,
 	int max_link_rate = hdp->link_rate;
 	int num_lanes = 4;
 	int ret;
-	u8 lane_mapping = hdp->lane_mapping;
+	u8 lane_mapping = hdp->dp_lane_mapping;
+
 	/* reset phy */
 	imx_hdp_call(hdp, phy_reset, 0, &hdp->mem, 0);
+	DRM_INFO("asserted HDP PHY reset\n");
 
-	if (hdp->is_edp) {
-		max_link_rate = hdp->edp_link_rate;
-		num_lanes = hdp->edp_num_lanes;
-	}
+	dp_phy_pix_engine_reset_t28hpc(state);
+	DRM_INFO("pixel engine reset\n");
 
 	/* Line swaping */
 	CDN_API_General_Write_Register_blocking(state,
 						ADDR_SOURCD_PHY +
 						(LANES_CONFIG << 2),
 						0x00400000 | lane_mapping);
-	DRM_INFO("CDN_API_General_Write_Register_blocking ... setting LANES_CONFIG %x\n",
+	DRM_INFO("CDN_*_Write_Register_blocking ... setting LANES_CONFIG %x\n",
 		 lane_mapping);
 
 	/* PHY initialization while phy reset pin is active */
@@ -486,7 +617,7 @@ int dp_phy_init_t28hpc(state_struct *state,
 
 	/* In this point the phy reset should be deactivated */
 	imx_hdp_call(hdp, phy_reset, 0, &hdp->mem, 1);
-	DRM_INFO("deasserted reset\n");
+	DRM_INFO("deasserted HDP PHY reset\n");
 
 	/* PHY power set */
 	afe_power_t28hpc(state, num_lanes, (ENUM_AFE_LINK_RATE)max_link_rate);
@@ -497,4 +628,29 @@ int dp_phy_init_t28hpc(state_struct *state,
 	DRM_INFO("CDN_API_DPTX_SetVideo_blocking (ret = %d)\n", ret);
 
 	return true;
+}
+
+
+int dp_aux_init(state_struct *state,
+		  struct device *dev)
+{
+	struct imx_hdp *hdp = state_to_imx_hdp(state);
+	int ret;
+
+	hdp->aux.name = "imx_dp_aux";
+	hdp->aux.dev = dev;
+	hdp->aux.transfer = dp_aux_transfer;
+
+	ret = drm_dp_aux_register(&hdp->aux);
+
+	return ret;
+}
+
+int dp_aux_destroy(state_struct *state)
+{
+	struct imx_hdp *hdp = state_to_imx_hdp(state);
+
+	drm_dp_aux_unregister(&hdp->aux);
+
+	return 0;
 }
