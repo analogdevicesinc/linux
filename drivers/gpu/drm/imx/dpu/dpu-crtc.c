@@ -404,6 +404,8 @@ static irqreturn_t dpu_dec_shdld_irq_handler(int irq, void *dev_id)
 static int dpu_crtc_atomic_check(struct drm_crtc *crtc,
 				 struct drm_crtc_state *crtc_state)
 {
+	struct drm_device *dev = crtc->dev;
+	struct drm_encoder *encoder;
 	struct drm_plane *plane;
 	struct drm_plane_state *plane_state;
 	struct dpu_plane_state *dpstate;
@@ -411,14 +413,29 @@ static int dpu_crtc_atomic_check(struct drm_crtc *crtc,
 	struct dpu_crtc_state *dcstate = to_dpu_crtc_state(imx_crtc_state);
 	struct drm_display_mode *mode = &crtc_state->adjusted_mode;
 	struct videomode vm;
+	unsigned long encoder_types = 0;
+	u32 encoder_mask;
 	int i = 0;
 
-	if (crtc_state->enable) {
-		drm_display_mode_to_videomode(mode, &vm);
+	list_for_each_entry(encoder, &dev->mode_config.encoder_list, head) {
+		encoder_mask = 1 << drm_encoder_index(encoder);
 
-		if (dcstate->use_pc &&
-		    ((vm.hactive % 2)   || (vm.hfront_porch % 2) ||
-		     (vm.hsync_len % 2) || (vm.hback_porch % 2)))
+		if (!(crtc_state->encoder_mask & encoder_mask))
+			continue;
+
+		encoder_types |= BIT(encoder->encoder_type);
+	}
+
+	if (crtc_state->enable && dcstate->use_pc) {
+		if (encoder_types & BIT(DRM_MODE_ENCODER_LVDS))
+			return -EINVAL;
+
+		if (encoder_types & BIT(DRM_MODE_ENCODER_DSI))
+			return -EINVAL;
+
+		drm_display_mode_to_videomode(mode, &vm);
+		if ((vm.hactive % 2)   || (vm.hfront_porch % 2) ||
+		    (vm.hsync_len % 2) || (vm.hback_porch % 2))
 			return -EINVAL;
 	}
 
