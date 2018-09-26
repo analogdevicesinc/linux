@@ -671,16 +671,16 @@ static const struct snd_kcontrol_new fsl_micfil_snd_controls[] = {
 
 static int disable_hwvad(struct device *dev);
 
-static inline unsigned int get_pdm_clk(struct fsl_micfil *micfil,
-				       unsigned int rate);
+static inline int get_pdm_clk(struct fsl_micfil *micfil,
+			      unsigned int rate);
 
-static inline unsigned int get_clk_div(struct fsl_micfil *micfil,
-				       unsigned int rate)
+static inline int get_clk_div(struct fsl_micfil *micfil,
+			      unsigned int rate)
 {
 	u32 ctrl2_reg;
-	unsigned long mclk_rate;
-	unsigned int clk_div;
-	unsigned int osr;
+	long mclk_rate;
+	int osr;
+	int clk_div;
 
 	regmap_read(micfil->regmap, REG_MICFIL_CTRL2, &ctrl2_reg);
 	osr = 16 - ((ctrl2_reg & MICFIL_CTRL2_CICOSR_MASK)
@@ -693,12 +693,12 @@ static inline unsigned int get_clk_div(struct fsl_micfil *micfil,
 	return clk_div;
 }
 
-static inline unsigned int get_pdm_clk(struct fsl_micfil *micfil,
-				       unsigned int rate)
+static inline int get_pdm_clk(struct fsl_micfil *micfil,
+			      unsigned int rate)
 {
 	u32 ctrl2_reg;
-	unsigned int qsel, osr;
-	unsigned int bclk;
+	int qsel, osr;
+	int bclk;
 
 	regmap_read(micfil->regmap, REG_MICFIL_CTRL2, &ctrl2_reg);
 	osr = 16 - ((ctrl2_reg & MICFIL_CTRL2_CICOSR_MASK)
@@ -724,7 +724,9 @@ static inline unsigned int get_pdm_clk(struct fsl_micfil *micfil,
 		bclk = rate * osr;
 		break;
 	default:
-		bclk = 0;
+		dev_err(&micfil->pdev->dev,
+			"Please make sure you select a valid quality.\n");
+		bclk = -1;
 		break;
 	}
 
@@ -1394,7 +1396,7 @@ static int fsl_micfil_trigger(struct snd_pcm_substream *substream, int cmd,
 static int fsl_set_clock_params(struct device *dev, unsigned int rate)
 {
 	struct fsl_micfil *micfil = dev_get_drvdata(dev);
-	unsigned int clk_div;
+	int clk_div;
 	int ret;
 
 	if (fsl_micfil_bsy(dev))
@@ -1412,6 +1414,8 @@ static int fsl_set_clock_params(struct device *dev, unsigned int rate)
 
 	/* set CLK_DIV */
 	clk_div = get_clk_div(micfil, rate);
+	if (clk_div < 0)
+		return -EINVAL;
 
 	ret = regmap_update_bits(micfil->regmap, REG_MICFIL_CTRL2,
 				 MICFIL_CTRL2_CLKDIV_MASK, clk_div);
@@ -1456,8 +1460,10 @@ static int fsl_micfil_hw_params(struct snd_pcm_substream *substream,
 	}
 
 	ret = fsl_set_clock_params(dev, rate);
-	if (ret)
+	if (ret < 0) {
+		dev_err(dev, "Failed to set clock parameters [%d]\n", ret);
 		return ret;
+	}
 
 	micfil->dma_params_rx.fifo_num = channels;
 	micfil->dma_params_rx.maxburst = channels * MICFIL_DMA_MAXBURST_RX;
