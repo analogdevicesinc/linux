@@ -352,3 +352,20 @@
 	vmmc-supply = <&reg_usdhc2_vmmc>;
 	status = "okay";
 };
+
+&dcss {
+	status = "okay";
+
+	disp-dev = "hdmi_disp";
+};
+
+&hdmi {
+	compatible = "fsl,imx8mq-dp";
+
+	dp-lane-mapping = <0x4e>;
+	dp-link-rate = <0x14>;
+	dp-num-lanes = <0x4>;
+
+	status = "okay";
+};
+

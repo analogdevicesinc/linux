@@ -16,7 +16,11 @@
 
 &hdmi {
 	compatible = "fsl,imx8mq-dp";
-	lane_mapping = <0xc6>;
+
+	dp-lane-mapping = <0xc6>;
+	dp-link-rate = <0xa>;
+	dp-num-lanes = <0x4>;
+
 	status = "okay";
 };
 
