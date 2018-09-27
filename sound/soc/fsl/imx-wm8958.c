@@ -46,8 +46,6 @@ struct imx_priv {
 	int hp_active_low;
 	struct snd_soc_codec *codec;
 	struct platform_device *pdev;
-	struct snd_kcontrol *headphone_kctl;
-	struct snd_card *snd_card;
 };
 
 static struct imx_priv card_priv;
@@ -89,12 +87,10 @@ static int hpjack_status_check(void *data)
 		snprintf(buf, 32, "STATE=%d", 2);
 		snd_soc_dapm_disable_pin(snd_soc_codec_get_dapm(priv->codec), "Ext Spk");
 		ret = imx_hp_jack_gpio.report;
-		snd_kctl_jack_report(priv->snd_card, priv->headphone_kctl, 1);
 	} else {
 		snprintf(buf, 32, "STATE=%d", 0);
 		snd_soc_dapm_enable_pin(snd_soc_codec_get_dapm(priv->codec), "Ext Spk");
 		ret = 0;
-		snd_kctl_jack_report(priv->snd_card, priv->headphone_kctl, 0);
 	}
 
 	envp[0] = "NAME=headphone";
@@ -528,13 +524,6 @@ static int imx_wm8958_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "snd_soc_register_card failed (%d)\n", ret);
 		goto fail;
 	}
-
-	priv->snd_card = data->card.snd_card;
-
-	priv->headphone_kctl = snd_kctl_jack_new("Headphone", NULL);
-	ret = snd_ctl_add(data->card.snd_card, priv->headphone_kctl);
-	if (ret)
-		goto fail;
 
 	ret = imx_wm8958_gpio_init(&data->card);
 
