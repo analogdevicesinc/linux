@@ -5,7 +5,7 @@
  * LTC2617, LTC2619, LTC2626, LTC2627, LTC2629, LTC2631, LTC2633, LTC2635
  * Digital to analog converters driver
  *
- * Copyright 2011, 2014 Analog Devices Inc.
+ * Copyright 2011 Analog Devices Inc.
  *
  * Licensed under the GPL-2.
  */
@@ -23,8 +23,6 @@
 
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
-
-#include <linux/platform_data/ad5064.h>
 
 #define AD5064_MAX_DAC_CHANNELS			8
 #define AD5064_MAX_VREFS			4
