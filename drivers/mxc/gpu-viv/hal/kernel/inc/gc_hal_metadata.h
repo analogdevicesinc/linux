@@ -100,6 +100,9 @@ typedef struct _VIV_VIDMEM_METADATA
 
     int32_t  ts_fd;
     void *   ts_dma_buf;
+#ifdef ANDROID
+    dma_addr_t ts_address;
+#endif
 
     uint32_t fc_enabled;
     uint32_t fc_value;
