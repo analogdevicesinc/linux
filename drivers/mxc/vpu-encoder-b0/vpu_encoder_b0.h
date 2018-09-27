@@ -188,6 +188,7 @@ struct queue_data {
 	struct vpu_v4l2_fmt *current_fmt;
 };
 struct vpu_ctx;
+struct vpu_dev;
 struct core_device {
 	struct firmware *m0_pfw;
 	void *m0_p_fw_space_vir;
@@ -202,8 +203,6 @@ struct core_device {
 	struct completion snap_done_cmp;
 	struct workqueue_struct *workqueue;
 	struct work_struct msg_work;
-	unsigned long instance_mask;
-	unsigned long hang_mask; //this is used to deal with hang issue to reset firmware
 	void __iomem *mu_base_virtaddr;
 	unsigned int vpu_mu_id;
 	int vpu_mu_init;
@@ -213,7 +212,9 @@ struct core_device {
 	u32 id;
 	off_t reg_fw_base;
 	struct device *generic_dev;
+	struct vpu_dev *vdev;
 };
+
 struct vpu_dev {
 	struct device *generic_dev;
 	struct v4l2_device v4l2_dev;
@@ -236,6 +237,10 @@ struct buffer_addr {
 	u_int32 size;
 };
 
+enum {
+	VPU_ENC_STATUS_HANG = 31
+};
+
 struct vpu_ctx {
 	struct vpu_dev *dev;
 	struct v4l2_fh fh;
@@ -244,6 +249,7 @@ struct vpu_ctx {
 	bool ctrl_inited;
 
 	int str_index;
+	unsigned long status;
 	struct queue_data q_data[2];
 	struct kfifo msg_fifo;
 	struct mutex instance_mutex;
@@ -262,8 +268,7 @@ struct vpu_ctx {
 	struct buffer_addr encFrame[MEDIAIP_MAX_NUM_WINDSOR_SRC_FRAMES];
 	struct buffer_addr refFrame[MEDIAIP_MAX_NUM_WINDSOR_REF_FRAMES];
 	struct buffer_addr actFrame;
-	u_int32 core_id;
-
+	struct core_device *core_dev;
 };
 
 #define LVL_DEBUG	4
