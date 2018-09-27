@@ -1350,6 +1350,14 @@ _QueryFeatureDatabase(
         available = database->PE_TILE_CACHE_FLUSH_FIX;
         break;
 
+    case gcvFEATURE_TILE_STATUS_2BITS:
+        available = database->REG_TileStatus2Bits;
+        break;
+
+    case gcvFEATURE_COMPRESSION_DEC400:
+        available = database->DEC400;
+        break;
+
     default:
         gcmkFATAL("Invalid feature has been requested.");
         available = gcvFALSE;
