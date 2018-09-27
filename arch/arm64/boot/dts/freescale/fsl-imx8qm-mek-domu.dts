@@ -285,6 +285,12 @@
 			interrupt-names = "edma0-chan14-rx", "edma0-chan15-tx";
 			status = "okay";
 		};
+
+		xen_i2c1: xen_i2c@1 {
+			compatible = "xen,i2c";
+			be-adapter = "5a800000.i2c";
+			status = "okay";
+		};
 	};
 };
 
@@ -818,4 +824,29 @@
 &vpu_encoder {
 	core_type = <2>;
 	status = "okay";
+};
+
+&xen_i2c1 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	clock-frequency = <100000>;
+	status = "okay";
+
+	fxos8700@1e {
+		compatible = "fsl,fxos8700";
+		reg = <0x1e>;
+		interrupt-open-drain;
+	};
+
+	fxas2100x@20 {
+		compatible = "fsl,fxas2100x";
+		reg = <0x20>;
+		interrupt-open-drain;
+	};
+
+	mpl3115@60 {
+		compatible = "fsl,mpl3115";
+		reg = <0x60>;
+		interrupt-open-drain;
+	};
 };

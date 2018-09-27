@@ -569,3 +569,17 @@
 &caam_sm {
 	xen,passthrough;
 };
+
+&i2c0 {
+	fxos8700@1e {
+		xen,passthrough;
+	};
+
+	fxas2100x@20 {
+		xen,passthrough;
+	};
+
+	mpl3115@60 {
+		xen,passthrough;
+	};
+};
