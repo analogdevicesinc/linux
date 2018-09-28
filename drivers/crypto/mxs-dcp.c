@@ -381,9 +381,15 @@ static int mxs_dcp_aes_block_crypt(struct crypto_async_request *arq)
 		if (limit_hit)
 			break;
 	}
-	if (last_out_len >= AES_BLOCK_SIZE) {
-		memcpy(req->info, out_buf+(last_out_len-AES_BLOCK_SIZE),
-		       AES_BLOCK_SIZE);
+
+	/* Copy the IV for CBC for chaining */
+	if (!rctx->ecb) {
+		if (rctx->enc)
+			memcpy(req->info, out_buf+(last_out_len-AES_BLOCK_SIZE),
+				AES_BLOCK_SIZE);
+		else
+			memcpy(req->info, in_buf+(last_out_len-AES_BLOCK_SIZE),
+				AES_BLOCK_SIZE);
 	}
 
 	return ret;
