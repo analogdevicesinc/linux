@@ -1653,7 +1653,7 @@ static gceSTATUS _CommandStall(
         gcmkERR_BREAK(gckOS_WaitSignal(
             command->os,
             command->powerStallSignal,
-            gcvTRUE,
+            gcvFALSE,
             command->kernel->kernel->timeOut));
 
 
