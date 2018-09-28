@@ -63,7 +63,7 @@
 
 			dma-channel@0 {
 				reg = <0>;
-				adi,source-bus-width = <64>;
+				adi,source-bus-width = <128>;
 				adi,source-bus-type = <2>;
 				adi,destination-bus-width = <64>;
 				adi,destination-bus-type = <0>;
@@ -168,7 +168,7 @@
 		#clock-cells = <0>;
 		clock-output-names = "jesd_rx_os_lane_clk";
 
-		adi,octets-per-frame = <2>;
+		adi,octets-per-frame = <4>;
 		adi,frames-per-multiframe = <32>;
 	};
 
