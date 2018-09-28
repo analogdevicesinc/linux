@@ -113,6 +113,23 @@ static void vpu_log_cmd(u_int32 cmdid, u_int32 ctxid)
 				cmd2str[cmdid], ctxid);
 }
 
+static void count_event(struct vpu_statistic *statistic, u32 event)
+{
+	if (!statistic || event >= VID_API_ENC_EVENT_RESERVED)
+		return;
+
+	statistic->event[event]++;
+}
+
+static void count_cmd(struct vpu_statistic *statistic, u32 cmdid)
+{
+	if (!statistic || cmdid >= GTB_ENC_CMD_RESERVED)
+		return;
+
+	statistic->cmd[cmdid]++;
+}
+
+
 static void write_enc_reg(struct vpu_dev *dev, u32 val, off_t reg)
 {
 	writel(val, dev->regs_enc + reg);
@@ -848,7 +865,10 @@ static void v4l2_vpu_send_cmd(struct vpu_ctx *ctx, uint32_t idx, uint32_t cmdid,
 {
 
 	struct core_device  *dev = ctx->core_dev;
+
 	vpu_log_cmd(cmdid, idx);
+	count_cmd(&ctx->statistic, cmdid);
+
 	mutex_lock(&dev->cmd_mutex);
 	rpc_send_cmd_buf_encoder(&dev->shared_mem, idx, cmdid, cmdnum, local_cmddata);
 	mutex_unlock(&dev->cmd_mutex);
@@ -1206,6 +1226,7 @@ static void enc_mem_alloc(struct vpu_ctx *ctx, MEDIAIP_ENC_MEM_REQ_DATA *req_dat
 static void vpu_api_event_handler(struct vpu_ctx *ctx, u_int32 uStrIdx, u_int32 uEvent, u_int32 *event_data)
 {
 	vpu_log_event(uEvent, uStrIdx);
+	count_event(&ctx->statistic, uEvent);
 	if (uStrIdx < VID_API_NUM_STREAMS) {
 		switch (uEvent) {
 		case VID_API_ENC_EVENT_START_DONE: {
@@ -1858,6 +1879,118 @@ error:
 	return ret;
 }
 
+static ssize_t show_instance_info(struct device *dev,
+			struct device_attribute *attr, char *buf)
+{
+	struct vpu_ctx *ctx;
+	struct vpu_statistic *statistic;
+	pMEDIAIP_ENC_PARAM param;
+	int i;
+	int num = 0;
+	int size;
+
+	ctx = container_of(attr, struct vpu_ctx, dev_attr_instance);
+	statistic = &ctx->statistic;
+	param = get_enc_param(ctx);
+
+	num += snprintf(buf, PAGE_SIZE, "cmd:\n");
+
+	for (i = GTB_ENC_CMD_NOOP; i < GTB_ENC_CMD_RESERVED; i++) {
+		size = snprintf(buf + num, PAGE_SIZE - num,
+				"\t%40s(%2d):%16ld\n",
+				cmd2str[i], i, statistic->cmd[i]);
+		num += size;
+	}
+
+	num += snprintf(buf + num, PAGE_SIZE - num, "event:\n");
+	for (i = VID_API_EVENT_UNDEFINED; i < VID_API_ENC_EVENT_RESERVED; i++) {
+		size = snprintf(buf + num, PAGE_SIZE - num,
+				"\t%40s(%2d):%16ld\n",
+				event2str[i], i, statistic->event[i]);
+		num += size;
+	}
+
+	num += snprintf(buf + num, PAGE_SIZE - num, "encoder param:\n");
+	num += snprintf(buf + num, PAGE_SIZE - num, "\t%40s:%16d\n",
+			"Codec Mode", param->eCodecMode);
+	num += snprintf(buf + num, PAGE_SIZE - num, "\t%40s:%16d\n",
+			"Profile", param->eProfile);
+	num += snprintf(buf + num, PAGE_SIZE - num, "\t%40s:%16d\n",
+			"Level", param->uLevel);
+	num += snprintf(buf + num, PAGE_SIZE - num, "\t%40s:%16d\n",
+			"Mem Phys Addr", param->tEncMemDesc.uMemPhysAddr);
+	num += snprintf(buf + num, PAGE_SIZE - num, "\t%40s:%16d\n",
+			"Mem Virt Addr", param->tEncMemDesc.uMemVirtAddr);
+	num += snprintf(buf + num, PAGE_SIZE - num, "\t%40s:%16d\n",
+			"Mem Size", param->tEncMemDesc.uMemSize);
+	num += snprintf(buf + num, PAGE_SIZE - num, "\t%40s:%16d\n",
+			"Frame Rate", param->uFrameRate);
+	num += snprintf(buf + num, PAGE_SIZE - num, "\t%40s:%16d\n",
+			"Source Stride", param->uSrcStride);
+	num += snprintf(buf + num, PAGE_SIZE - num, "\t%40s:%16d\n",
+			"Source Width", param->uSrcWidth);
+	num += snprintf(buf + num, PAGE_SIZE - num, "\t%40s:%16d\n",
+			"Source Height", param->uSrcHeight);
+	num += snprintf(buf + num, PAGE_SIZE - num, "\t%40s:%16d\n",
+			"Source Offset x", param->uSrcOffset_x);
+	num += snprintf(buf + num, PAGE_SIZE - num, "\t%40s:%16d\n",
+			"Source Offset y", param->uSrcOffset_y);
+	num += snprintf(buf + num, PAGE_SIZE - num, "\t%40s:%16d\n",
+			"Source Crop Width", param->uSrcCropWidth);
+	num += snprintf(buf + num, PAGE_SIZE - num, "\t%40s:%16d\n",
+			"Source Crop Height", param->uSrcCropHeight);
+	num += snprintf(buf + num, PAGE_SIZE - num, "\t%40s:%16d\n",
+			"Out Width", param->uOutWidth);
+	num += snprintf(buf + num, PAGE_SIZE - num, "\t%40s:%16d\n",
+			"Out Height", param->uOutHeight);
+	num += snprintf(buf + num, PAGE_SIZE - num, "\t%40s:%16d\n",
+			"I Frame Interval", param->uIFrameInterval);
+	num += snprintf(buf + num, PAGE_SIZE - num, "\t%40s:%16d\n",
+			"GOP Length", param->uGopBLength);
+	num += snprintf(buf + num, PAGE_SIZE - num, "\t%40s:%16d\n",
+			"Low Latency Mode", param->uLowLatencyMode);
+	num += snprintf(buf + num, PAGE_SIZE - num, "\t%40s:%16d\n",
+			"Bitrate Mode", param->eBitRateMode);
+	num += snprintf(buf + num, PAGE_SIZE - num, "\t%40s:%16d\n",
+			"Target Bitrate", param->uTargetBitrate);
+	num += snprintf(buf + num, PAGE_SIZE - num, "\t%40s:%16d\n",
+			"Min Bitrate", param->uMinBitRate);
+	num += snprintf(buf + num, PAGE_SIZE - num, "\t%40s:%16d\n",
+			"Max Bitrate", param->uMaxBitRate);
+	num += snprintf(buf + num, PAGE_SIZE - num, "\t%40s:%16d\n",
+			"QP", param->uInitSliceQP);
+
+	return num;
+}
+
+static int create_instance_file(struct vpu_ctx *ctx)
+{
+	static char name[64];
+
+	if (!ctx || !ctx->dev || !ctx->dev->generic_dev || !ctx->core_dev)
+		return -EINVAL;
+
+	snprintf(name, sizeof(name) - 1, "instance.%d.%d",
+			ctx->core_dev->id, ctx->str_index);
+	ctx->dev_attr_instance.attr.name = name;
+	ctx->dev_attr_instance.attr.mode = VERIFY_OCTAL_PERMISSIONS(0444);
+	ctx->dev_attr_instance.show = show_instance_info;
+
+	device_create_file(ctx->dev->generic_dev, &ctx->dev_attr_instance);
+
+	return 0;
+}
+
+static int remove_instance_file(struct vpu_ctx *ctx)
+{
+	if (!ctx || !ctx->dev || !ctx->dev->generic_dev)
+		return -EINVAL;
+
+	device_remove_file(ctx->dev->generic_dev, &ctx->dev_attr_instance);
+
+	return 0;
+}
+
 static int v4l2_open(struct file *filp)
 {
 	struct video_device *vdev = video_devdata(filp);
@@ -1889,6 +2022,7 @@ static int v4l2_open(struct file *filp)
 	if (ret)
 		goto err_firmware_load;
 
+	create_instance_file(ctx);
 	initialize_enc_param(ctx);
 
 	filp->private_data = &ctx->fh;
@@ -1927,9 +2061,10 @@ static int v4l2_release(struct file *filp)
 	if (!ctx->firmware_stopped && ctx->start_flag == false)
 		wait_for_completion(&ctx->stop_cmp);
 
-	release_queue_data(ctx);
+	remove_instance_file(ctx);
 	vpu_enc_free_ctrls(ctx);
 	uninit_vpu_ctx_fh(ctx);
+	release_queue_data(ctx);
 	uninit_vpu_ctx(ctx);
 
 	for (i = 0; i < MEDIAIP_MAX_NUM_WINDSOR_SRC_FRAMES; i++)

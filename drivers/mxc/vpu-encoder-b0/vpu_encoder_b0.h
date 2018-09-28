@@ -241,6 +241,11 @@ enum {
 	VPU_ENC_STATUS_HANG = 31
 };
 
+struct vpu_statistic {
+	unsigned long cmd[GTB_ENC_CMD_RESERVED];
+	unsigned long event[VID_API_ENC_EVENT_RESERVED];
+};
+
 struct vpu_ctx {
 	struct vpu_dev *dev;
 	struct v4l2_fh fh;
@@ -269,6 +274,9 @@ struct vpu_ctx {
 	struct buffer_addr refFrame[MEDIAIP_MAX_NUM_WINDSOR_REF_FRAMES];
 	struct buffer_addr actFrame;
 	struct core_device *core_dev;
+
+	struct vpu_statistic statistic;
+	struct device_attribute dev_attr_instance;
 };
 
 #define LVL_DEBUG	4
