@@ -821,6 +821,10 @@ static int fsl_qspi_nor_setup(struct fsl_qspi *q)
 			| QUADSPI_SMPR_HSENA_MASK
 			| QUADSPI_SMPR_DDRSMP_MASK), base + QUADSPI_SMPR);
 
+	/* disable the TDH bit of FLSHCR if it's been set*/
+	reg = qspi_readl(q, base + QUADSPI_FLSHCR);
+	qspi_writel(q, reg & ~QUADSPI_FLSHCR_TDH_MASK, base + QUADSPI_FLSHCR);
+
 	/* Enable the module */
 	qspi_writel(q, QUADSPI_MCR_RESERVED_MASK | QUADSPI_MCR_END_CFG_MASK,
 			base + QUADSPI_MCR);
