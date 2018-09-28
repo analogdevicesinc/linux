@@ -2366,7 +2366,7 @@
 
 	usbphy1: usbphy@0x5b100000 {
 		compatible = "fsl,imx8qm-usbphy", "fsl,imx7ulp-usbphy", "fsl,imx6ul-usbphy", "fsl,imx23-usbphy";
-		reg = <0x0 0x5b100000 0x0 0x200>;
+		reg = <0x0 0x5b100000 0x0 0x1000>;
 		clocks = <&clk IMX8QXP_USB2_PHY_IPG_CLK>;
 		power-domains = <&pd_conn_usbotg0_phy>;
 	};
