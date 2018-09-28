@@ -1246,6 +1246,10 @@ static bool update_yuv_addr(struct vpu_ctx *ctx, u_int32 uStrIdx)
 
     /* keeps increasing, so just a frame input count rather than a Frame buffer ID */
 		pParamYuvBuffDesc->uFrameID = p_data_req->id;
+		if (test_and_clear_bit(VPU_ENC_STATUS_KEY_FRAME, &ctx->status))
+			pParamYuvBuffDesc->uKeyFrame = 1;
+		else
+			pParamYuvBuffDesc->uKeyFrame = 0;
 		list_del(&p_data_req->list);
 	}
 	up(&This->drv_q_lock);

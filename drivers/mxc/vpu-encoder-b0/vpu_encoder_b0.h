@@ -239,7 +239,8 @@ struct buffer_addr {
 
 enum {
 	VPU_ENC_STATUS_CONFIGURED = 29,
-	VPU_ENC_STATUS_HANG = 30
+	VPU_ENC_STATUS_HANG = 30,
+	VPU_ENC_STATUS_KEY_FRAME = 31
 };
 
 struct vpu_statistic {

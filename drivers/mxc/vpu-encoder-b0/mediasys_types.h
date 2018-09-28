@@ -276,7 +276,7 @@ typedef struct {
 	u_int32   uLumaBase;
 	u_int32   uChromaBase;
 	u_int32   uParamIdx;
-
+	u_int32   uKeyFrame;
 } MEDIAIP_ENC_YUV_BUFFER_DESC, *pMEDIAIP_ENC_YUV_BUFFER_DESC;
 
 typedef struct {

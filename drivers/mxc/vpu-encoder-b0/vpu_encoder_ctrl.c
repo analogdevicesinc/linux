@@ -192,6 +192,15 @@ static int set_display_re_ordering(struct v4l2_ctrl *ctrl)
 	return 0;
 }
 
+static int set_force_key_frame(struct v4l2_ctrl *ctrl)
+{
+	struct vpu_ctx *ctx = v4l2_ctrl_to_ctx(ctrl);
+
+	set_bit(VPU_ENC_STATUS_KEY_FRAME, &ctx->status);
+
+	return 0;
+}
+
 static int add_ctrl_h264_profile(struct vpu_ctx *ctx)
 {
 	static const struct v4l2_ctrl_ops ctrl_h264_profile_ops = {
@@ -453,6 +462,25 @@ static int add_ctrl_display_re_ordering(struct vpu_ctx *ctx)
 	return 0;
 }
 
+static int add_ctrl_force_key_frame(struct vpu_ctx *ctx)
+{
+	static const struct v4l2_ctrl_ops force_key_frame_ops = {
+		.s_ctrl = set_force_key_frame,
+	};
+	struct v4l2_ctrl *ctrl;
+
+	ctrl = v4l2_ctrl_new_std(&ctx->ctrl_handler,
+			&force_key_frame_ops,
+			V4L2_CID_MPEG_VIDEO_FORCE_KEY_FRAME,
+			0, 0, 0, 0);
+	if (!ctrl) {
+		vpu_dbg(LVL_ERR, "add ctrl force key frame fail\n");
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 static int vpu_enc_register_ctrls(struct vpu_ctx *ctx)
 {
 	add_ctrl_h264_profile(ctx);
@@ -467,6 +495,7 @@ static int vpu_enc_register_ctrls(struct vpu_ctx *ctx)
 	add_ctrl_b_frame_qp(ctx);
 	add_ctrl_min_buffers_for_output(ctx);
 	add_ctrl_display_re_ordering(ctx);
+	add_ctrl_force_key_frame(ctx);
 
 	return 0;
 }
