@@ -268,11 +268,6 @@ static void get_param_from_v4l2(pMEDIAIP_ENC_PARAM pEncParam,
 	pEncParam->uSrcCropHeight       = pix_mp->height;
 	pEncParam->uOutWidth            = pix_mp->width;
 	pEncParam->uOutHeight           = pix_mp->height;
-
-	vpu_dbg(LVL_INFO, "eCodecMode(%d) eProfile(%d) uSrcStride(%d) uSrcWidth(%d) uSrcHeight(%d) uSrcOffset_x(%d) uSrcOffset_y(%d) uSrcCropWidth(%d) uSrcCropHeight(%d) uOutWidth(%d) uOutHeight(%d) uGopBLength(%d) uLowLatencyMode(%d) uInitSliceQP(%d) uIFrameInterval(%d) eBitRateMode(%d) uTargetBitrate(%d) uMaxBitRate(%d) uMinBitRate(%d) uFrameRate(%d)\n",
-			pEncParam->eCodecMode, pEncParam->eProfile, pEncParam->uSrcStride, pEncParam->uSrcWidth,
-			pEncParam->uSrcHeight, pEncParam->uSrcOffset_x, pEncParam->uSrcOffset_y, pEncParam->uSrcCropWidth, pEncParam->uSrcCropHeight,
-			pEncParam->uOutWidth, pEncParam->uOutHeight, pEncParam->uGopBLength, pEncParam->uLowLatencyMode, pEncParam->uInitSliceQP, pEncParam->uIFrameInterval, pEncParam->eBitRateMode, pEncParam->uTargetBitrate, pEncParam->uMaxBitRate, pEncParam->uMinBitRate, pEncParam->uFrameRate);
 }
 
 static u32 cpu_phy_to_mu(struct core_device *dev, u32 addr)
@@ -876,6 +871,68 @@ static void v4l2_vpu_send_cmd(struct vpu_ctx *ctx, uint32_t idx, uint32_t cmdid,
 	MU_SendMessage(dev->mu_base_virtaddr, 0, COMMAND);
 }
 
+static void show_codec_configure(struct vpu_ctx *ctx)
+{
+	pMEDIAIP_ENC_PARAM param;
+
+	if (!ctx)
+		return;
+
+	param = get_enc_param(ctx);
+	if (!param)
+		return;
+
+	vpu_dbg(LVL_INFO, "Encoder Parameter:\n");
+	vpu_dbg(LVL_INFO, "\t%20s:%16d\n",
+			"Codec Mode", param->eCodecMode);
+	vpu_dbg(LVL_INFO, "\t%20s:%16d\n",
+			"Profile", param->eProfile);
+	vpu_dbg(LVL_INFO, "\t%20s:%16d\n",
+			"Level", param->uLevel);
+	vpu_dbg(LVL_INFO, "\t%20s:%16d\n",
+			"Mem Phys Addr", param->tEncMemDesc.uMemPhysAddr);
+	vpu_dbg(LVL_INFO, "\t%20s:%16d\n",
+			"Mem Virt Addr", param->tEncMemDesc.uMemVirtAddr);
+	vpu_dbg(LVL_INFO, "\t%20s:%16d\n",
+			"Mem Size", param->tEncMemDesc.uMemSize);
+	vpu_dbg(LVL_INFO, "\t%20s:%16d\n",
+			"Frame Rate", param->uFrameRate);
+	vpu_dbg(LVL_INFO, "\t%20s:%16d\n",
+			"Source Stride", param->uSrcStride);
+	vpu_dbg(LVL_INFO, "\t%20s:%16d\n",
+			"Source Width", param->uSrcWidth);
+	vpu_dbg(LVL_INFO, "\t%20s:%16d\n",
+			"Source Height", param->uSrcHeight);
+	vpu_dbg(LVL_INFO, "\t%20s:%16d\n",
+			"Source Offset x", param->uSrcOffset_x);
+	vpu_dbg(LVL_INFO, "\t%20s:%16d\n",
+			"Source Offset y", param->uSrcOffset_y);
+	vpu_dbg(LVL_INFO, "\t%20s:%16d\n",
+			"Source Crop Width", param->uSrcCropWidth);
+	vpu_dbg(LVL_INFO, "\t%20s:%16d\n",
+			"Source Crop Height", param->uSrcCropHeight);
+	vpu_dbg(LVL_INFO, "\t%20s:%16d\n",
+			"Out Width", param->uOutWidth);
+	vpu_dbg(LVL_INFO, "\t%20s:%16d\n",
+			"Out Height", param->uOutHeight);
+	vpu_dbg(LVL_INFO, "\t%20s:%16d\n",
+			"I Frame Interval", param->uIFrameInterval);
+	vpu_dbg(LVL_INFO, "\t%20s:%16d\n",
+			"GOP Length", param->uGopBLength);
+	vpu_dbg(LVL_INFO, "\t%20s:%16d\n",
+			"Low Latency Mode", param->uLowLatencyMode);
+	vpu_dbg(LVL_INFO, "\t%20s:%16d\n",
+			"Bitrate Mode", param->eBitRateMode);
+	vpu_dbg(LVL_INFO, "\t%20s:%16d\n",
+			"Target Bitrate", param->uTargetBitrate);
+	vpu_dbg(LVL_INFO, "\t%20s:%16d\n",
+			"Min Bitrate", param->uMinBitRate);
+	vpu_dbg(LVL_INFO, "\t%20s:%16d\n",
+			"Max Bitrate", param->uMaxBitRate);
+	vpu_dbg(LVL_INFO, "\t%20s:%16d\n",
+			"QP", param->uInitSliceQP);
+}
+
 static void v4l2_transfer_buffer_to_firmware(struct queue_data *This, struct vb2_buffer *vb)
 {
 	struct vpu_ctx *ctx = container_of(This, struct vpu_ctx, q_data[V4L2_SRC]);
@@ -933,6 +990,7 @@ static void v4l2_transfer_buffer_to_firmware(struct queue_data *This, struct vb2
 
 		v4l2_vpu_send_cmd(ctx, ctx->str_index, GTB_ENC_CMD_CONFIGURE_CODEC, 0, NULL);
 		vpu_dbg(LVL_INFO, "send command GTB_ENC_CMD_CONFIGURE_CODEC\n");
+		show_codec_configure(ctx);
 
 		ctx->start_flag = false;
 	}

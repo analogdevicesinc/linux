@@ -287,7 +287,7 @@ struct vpu_ctx {
 #define LVL_ERR		0
 
 #ifndef TAG
-#define TAG	"[DEBUG]\t "
+#define TAG	"[VPU Encoder]\t "
 #endif
 
 #define vpu_dbg(level, fmt, arg...) \
