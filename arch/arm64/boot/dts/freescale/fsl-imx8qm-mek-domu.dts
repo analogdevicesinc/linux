@@ -37,6 +37,11 @@
 		dpu1 = &dpu2;
 		ldb1 = &ldb2;
 		serial1 = &lpuart1;
+		isi0 = &isi_0;
+		isi1 = &isi_1;
+		isi2 = &isi_2;
+		isi3 = &isi_3;
+		csi0 = &mipi_csi_0;
 	};
 
 	cpus {
@@ -286,7 +291,7 @@
 			status = "okay";
 		};
 
-		xen_i2c1: xen_i2c@1 {
+		xen_i2c0: xen_i2c@0 {
 			compatible = "xen,i2c";
 			be-adapter = "5a800000.i2c";
 			status = "okay";
@@ -474,7 +479,7 @@
 /delete-node/ &ldb1_phy;
 /delete-node/ &ldb1;
 /delete-node/ &lvds1_pwm;
-/delete-node/ &camera;
+/*/delete-node/ &camera;*/
 /delete-node/ &adc0;
 /delete-node/ &adc1;
 /delete-node/ &i2c0;
@@ -504,8 +509,8 @@
 
 /delete-node/ &irqsteer_lvds0;
 /delete-node/ &i2c1_lvds0;
-/delete-node/ &irqsteer_csi0;
-/delete-node/ &i2c0_mipi_csi0;
+/*/delete-node/ &irqsteer_csi0;*/
+/*/delete-node/ &i2c0_mipi_csi0;*/
 /delete-node/ &irqsteer_csi1;
 /delete-node/ &i2c0_mipi_csi1;
 /delete-node/ &lpspi0;
@@ -560,7 +565,7 @@
 	status = "disabled";
 };
 
-/delete-node/ &gpio0_mipi_csi0;
+/*/delete-node/ &gpio0_mipi_csi0;*/
 /delete-node/ &gpio0_mipi_csi1;
 /delete-node/ &gpt0;
 /delete-node/ &pwm0;
@@ -826,7 +831,7 @@
 	status = "okay";
 };
 
-&xen_i2c1 {
+&xen_i2c0 {
 	#address-cells = <1>;
 	#size-cells = <0>;
 	clock-frequency = <100000>;
@@ -848,5 +853,78 @@
 		compatible = "fsl,mpl3115";
 		reg = <0x60>;
 		interrupt-open-drain;
+	};
+};
+
+/* Camera */
+/delete-node/ &isi_4;
+/delete-node/ &isi_5;
+/delete-node/ &isi_6;
+/delete-node/ &isi_7;
+/delete-node/ &mipi_csi_1;
+
+&gpio0_mipi_csi0 {
+	status = "okay";
+};
+
+&irqsteer_csi0 {
+	status = "okay";
+};
+
+&isi_0 {
+	status = "okay";
+};
+
+&isi_1 {
+	status = "okay";
+};
+
+&isi_2 {
+	status = "okay";
+};
+
+&isi_3 {
+	status = "okay";
+};
+
+&mipi_csi_0 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	virtual-channel;
+	status = "okay";
+
+	/* Camera 0  MIPI CSI-2 (CSIS0) */
+	port@0 {
+		reg = <0>;
+		mipi_csi0_ep: endpoint {
+			remote-endpoint = <&max9286_0_ep>;
+			data-lanes = <1 2 3 4>;
+		};
+	};
+};
+
+&i2c0_mipi_csi0 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	pinctrl-names = "default";
+	clock-frequency = <100000>;
+	status = "okay";
+
+
+	max9286_mipi@6A	 {
+		compatible = "maxim,max9286_mipi";
+		reg = <0x6A>;
+		clocks = <&clk IMX8QM_CLK_DUMMY>;
+		clock-names = "capture_mclk";
+		mclk = <27000000>;
+		mclk_source = <0>;
+		pwn-gpios = <&gpio1 27 GPIO_ACTIVE_HIGH>;
+		virtual-channel;
+		port {
+			max9286_0_ep: endpoint {
+			remote-endpoint = <&mipi_csi0_ep>;
+			data-lanes = <1 2 3 4>;
+			};
+		};
 	};
 };

@@ -160,6 +160,30 @@
 	hsio_pcie_x2_crr2_lpcg: hsio_phy_x2_lpcg@5f0c0000 {
 		reg = <0x0 0x5f0c0000 0x0 0x10000>;
 	};
+
+	mipi_csi_0_lpcg: mipi_csi_0_lpcg@58223000 {
+		reg = <0x0 0x58223000 0x0 0x1000>;
+	};
+
+	img_pxl_link_csi0_lpcg: img_pxl_link_csi0_lpcg@58580000 {
+		reg = <0x0 0x58580000 0x0 0x1000>;
+	};
+
+	img_pdma_0_lpcg: img_pdma_0_lpcg@58500000 {
+		reg = <0x0 0x58500000 0x0 0x1000>;
+	};
+
+	img_pdma_1_lpcg: img_pdma_1_lpcg@58510000 {
+		reg = <0x0 0x58510000 0x0 0x1000>;
+	};
+
+	img_pdma_2_lpcg: img_pdma_2_lpcg@58520000 {
+		reg = <0x0 0x58520000 0x0 0x1000>;
+	};
+
+	img_pdma_3_lpcg: img_pdma_3_lpcg@58530000 {
+		reg = <0x0 0x58530000 0x0 0x1000>;
+	};
 };
 
 /delete-node/ &edma0;
