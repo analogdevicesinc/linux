@@ -231,7 +231,7 @@
 			reg = <0x0 0x2d000000 0x0 0x1000000>;
 			reg-names = "vpu_regs";
 			power-domains = <&pd_vpu_enc>;
-			reg-fw-addr = <0x90000 0xa0000>;
+			reg-fw-base = <0x90000 0xa0000>;
 			status = "disabled";
 		};
 
