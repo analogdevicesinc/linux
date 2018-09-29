@@ -222,6 +222,7 @@ struct vpu_dev {
 
 	struct clk *clk_m0;
 	void __iomem *regs_base;
+	void __iomem *csr_base;
 	u_int32 cm_offset;
 
 	struct shared_addr shared_mem;

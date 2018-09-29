@@ -1134,11 +1134,6 @@ static bool add_scode(struct vpu_ctx *ctx, u_int32 uStrBufIdx, VPU_PADDING_SCODE
 	plbuffer[0] = last;
 	plbuffer[1] = last2;
 
-#if 0
-	for (i = 2; i < MIN_SPACE >> 2;  i++)
-		plbuffer[i] = 0;
-#endif
-
 	if ((wptr == rptr) || (wptr > rptr)) {
 		if (end - wptr >= MIN_SPACE) {
 			memcpy(pbbuffer, buffer, MIN_SPACE);
@@ -1991,13 +1986,9 @@ static irqreturn_t fsl_vpu_mu_isr(int irq, void *This)
 
 	MU_ReceiveMsg(dev->mu_base_virtaddr, 0, &msg);
 	if (msg == 0xaa) {
-#ifdef CM4
-		MU_sendMesgToFW(dev->mu_base_virtaddr, RPC_BUF_OFFSET, dev->m0_rpc_phy); //CM4 use absolute address
-#else
 		MU_sendMesgToFW(dev->mu_base_virtaddr, PRINT_BUF_OFFSET, dev->m0_rpc_phy - dev->m0_p_fw_space_phy + M0_PRINT_OFFSET);
 		MU_sendMesgToFW(dev->mu_base_virtaddr, RPC_BUF_OFFSET, dev->m0_rpc_phy - dev->m0_p_fw_space_phy); //CM0 use relative address
 		MU_sendMesgToFW(dev->mu_base_virtaddr, BOOT_ADDRESS, dev->m0_p_fw_space_phy);
-#endif
 		MU_sendMesgToFW(dev->mu_base_virtaddr, INIT_DONE, 2);
 
 	} else if (msg == 0x55) {
@@ -2023,19 +2014,11 @@ static int vpu_mu_init(struct vpu_dev *dev)
 	/*
 	 * Get the address of MU to be used for communication with the M0 core
 	 */
-#ifdef CM4
-	np = of_find_compatible_node(NULL, NULL, "fsl,imx8-mu0-vpu-m4");
-	if (!np) {
-		vpu_dbg(LVL_ERR, "error: Cannot find MU entry in device tree\n");
-		return -EINVAL;
-	}
-#else
 	np = of_find_compatible_node(NULL, NULL, "fsl,imx8-mu0-vpu-m0");
 	if (!np) {
 		vpu_dbg(LVL_ERR, "error: Cannot find MU entry in device tree\n");
 		return -EINVAL;
 	}
-#endif
 	dev->mu_base_virtaddr = of_iomap(np, 0);
 	WARN_ON(!dev->mu_base_virtaddr);
 
@@ -2202,25 +2185,11 @@ static int vpu_start_streaming(struct vb2_queue *q,
 static void vpu_stop_streaming(struct vb2_queue *q)
 {
 	struct queue_data *This = (struct queue_data *)q->drv_priv;
-#if 0
-	struct vb2_data_req *p_data_req = NULL;
-	struct vb2_data_req *p_temp;
-#endif
 	struct vb2_buffer *vb;
 
 	vpu_dbg(LVL_INFO, "%s() is called\n", __func__);
 	down(&This->drv_q_lock);
-#if 0
-	if (!list_empty(&This->drv_q)) {
-		list_for_each_entry_safe(p_data_req, p_temp, &This->drv_q, list) {
-			vpu_dbg(LVL_INFO, "%s(%d) - list_del(%p)\n",
-					__func__,
-					p_data_req->id,
-					p_data_req);
-			list_del(&p_data_req->list);
-		}
-	}
-#endif
+
 	if (!list_empty(&q->queued_list))
 		list_for_each_entry(vb, &q->queued_list, queued_entry) {
 			if (vb->state == VB2_BUF_STATE_ACTIVE)
@@ -2360,66 +2329,16 @@ static void release_queue_data(struct vpu_ctx *ctx)
 	}
 }
 
-#ifdef CM4
-static int power_CM4_up(struct vpu_dev *dev)
+static void enable_csr_reg(struct vpu_dev *This)
 {
-	sc_ipc_t ipcHndl;
-	sc_rsrc_t core_rsrc, mu_rsrc = -1;
-
-	ipcHndl = dev->mu_ipcHandle;
-	core_rsrc = SC_R_M4_0_PID0;
-	mu_rsrc = SC_R_M4_0_MU_1A;
-
-	if (sc_pm_set_resource_power_mode(ipcHndl, core_rsrc, SC_PM_PW_MODE_ON) != SC_ERR_NONE) {
-		vpu_dbg(LVL_ERR, "error: failed to power up core_rsrc\n");
-		return -EIO;
-	}
-
-	if (mu_rsrc != -1) {
-		if (sc_pm_set_resource_power_mode(ipcHndl, mu_rsrc, SC_PM_PW_MODE_ON) != SC_ERR_NONE) {
-			vpu_dbg(LVL_ERR, "error: failed to power up mu_rsrc\n");
-			return -EIO;
-		}
-	}
-
-	return 0;
+	writel(This->m0_p_fw_space_phy, This->csr_base);
+	writel(0x0, This->csr_base + 4);
 }
-
-static int boot_CM4_up(struct vpu_dev *dev, void *boot_addr)
-{
-	sc_ipc_t ipcHndl;
-	sc_rsrc_t core_rsrc;
-	sc_faddr_t aux_core_ram;
-	void *core_ram_vir;
-	u32 size;
-
-	ipcHndl = dev->mu_ipcHandle;
-	core_rsrc = SC_R_M4_0_PID0;
-	aux_core_ram = 0x34FE0000;
-	size = SZ_128K;
-
-	core_ram_vir = ioremap_wc(aux_core_ram,
-			size
-			);
-	if (!core_ram_vir)
-		vpu_dbg(LVL_ERR, "error: failed to remap space for core ram\n");
-
-	memcpy((void *)core_ram_vir, (void *)boot_addr, size);
-
-	if (sc_pm_cpu_start(ipcHndl, core_rsrc, true, aux_core_ram) != SC_ERR_NONE) {
-		vpu_dbg(LVL_ERR, "error: failed to start core_rsrc\n");
-		return -EIO;
-	}
-
-	return 0;
-}
-#endif
 
 static int vpu_firmware_download(struct vpu_dev *This)
 {
 	unsigned char *image;
 	unsigned int FW_Size = 0;
-	void *csr_offset, *csr_cpuwait;
 	int ret = 0;
 	char *p = This->m0_p_fw_space_vir;
 
@@ -2447,22 +2366,10 @@ static int vpu_firmware_download(struct vpu_dev *This)
 			image,
 			FW_Size
 			);
-#ifdef CM4
-	boot_CM4_up(This, This->m0_p_fw_space_vir);
-#else
-	if (This->plat_type == IMX8QM) { //decoder use M core 0
-		p[16] = IMX8QM;
-		csr_offset = ioremap(0x2d080000, 4);
-		writel(This->m0_p_fw_space_phy, csr_offset);
-		csr_cpuwait = ioremap(0x2d080004, 4);
-		writel(0x0, csr_cpuwait);
-	} else {
-		csr_offset = ioremap(0x2d040000, 4);
-		writel(This->m0_p_fw_space_phy, csr_offset);
-		csr_cpuwait = ioremap(0x2d040004, 4);
-		writel(0x0, csr_cpuwait);
-	}
-#endif
+
+	p[16] = This->plat_type;
+	enable_csr_reg(This);
+
 	return ret;
 }
 
@@ -2897,26 +2804,12 @@ static void vpu_reset(struct vpu_dev *This)
 static int vpu_enable_hw(struct vpu_dev *This)
 {
 	vpu_dbg(LVL_INFO, "%s()\n", __func__);
-#if 0
-	This->vpu_clk = clk_get(&This->plat_dev->dev, "vpu_clk");
-	if (IS_ERR(This->vpu_clk)) {
-		vpu_dbg(LVL_ERR, "vpu_clk get error\n");
-		return -ENOENT;
-	}
-	clk_set_rate(This->vpu_clk, 600000000);
-	clk_prepare_enable(This->vpu_clk);
-#endif
 	vpu_setup(This);
 	return 0;
 }
 static void vpu_disable_hw(struct vpu_dev *This)
 {
 	vpu_reset(This);
-#if 0
-	if (This->vpu_clk) {
-		clk_put(This->vpu_clk);
-	}
-#endif
 }
 
 static int reset_vpu_firmware(struct vpu_dev *dev)
@@ -2945,6 +2838,7 @@ static int parse_dt_info(struct vpu_dev *dev, struct device_node *np)
 	u_int32 core_type;
 	struct resource reserved_res;
 	struct device_node *reserved_node;
+	u_int32 csr_base;
 	int ret;
 
 	if (!dev || !np)
@@ -2996,6 +2890,13 @@ static int parse_dt_info(struct vpu_dev *dev, struct device_node *np)
 	dev->str_base_phy = reserved_res.start;
 	dev->str_size = resource_size(&reserved_res);
 #endif
+
+	ret = of_property_read_u32(np, "reg-csr", &csr_base);
+	if (ret) {
+		vpu_dbg(LVL_ERR, "error: Cannot get csr offset %d\n", ret);
+		return -EINVAL;
+	}
+	dev->csr_base = ioremap(csr_base, 8); //for csr0 offset and cpuwait
 
 	return 0;
 }
@@ -3278,7 +3179,6 @@ static int vpu_suspend(struct device *dev)
 static int vpu_resume(struct device *dev)
 {
 	struct vpu_dev *vpudev = (struct vpu_dev *)dev_get_drvdata(dev);
-	void *csr_offset, *csr_cpuwait;
 
 	vpu_enable_hw(vpudev);
 
@@ -3294,10 +3194,7 @@ static int vpu_resume(struct device *dev)
 		rpc_set_system_cfg_value(vpudev->shared_mem.pSharedInterface, VPU_REG_BASE);
 	} else {
 		/*resume*/
-		csr_offset = ioremap(0x2d040000, 4);
-		writel(vpudev->m0_p_fw_space_phy, csr_offset);
-		csr_cpuwait = ioremap(0x2d040004, 4);
-		writel(0x0, csr_cpuwait);
+		enable_csr_reg(vpudev);
 		/*wait for firmware resotre done*/
 		if (!wait_for_completion_timeout(&vpudev->start_cmp, msecs_to_jiffies(1000))) {
 			vpu_dbg(LVL_ERR, "error: wait for vpu decoder resume done timeout!\n");

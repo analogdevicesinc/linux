@@ -3269,10 +3269,8 @@
 		str-region = <&decoder_str>;
 		reg = <0x0 0x2c000000 0x0 0x1000000>;
 		reg-names = "vpu_regs";
-		clocks = <&clk IMX8QXP_VPU_DEC_CLK>;
-		clock-names = "vpu_clk";
-		assigned-clocks = <&clk IMX8QXP_VPU_DEC_CLK>;
 		power-domains = <&pd_vpu_dec>;
+		reg-csr = <0x2d040000>;
 		status = "disabled";
 	};
 
