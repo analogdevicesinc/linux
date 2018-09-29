@@ -50,9 +50,6 @@
 #include "vpu_encoder_ctrl.h"
 
 unsigned int vpu_dbg_level_encoder = LVL_WARN;
-#ifdef DUMP_DATA
-#define DATA_NUM 10
-#endif
 
 static char *mu_cmp[] = {
 	"fsl,imx8-mu1-vpu-m0",
@@ -115,20 +112,25 @@ static void vpu_log_cmd(u_int32 cmdid, u_int32 ctxid)
 
 static void count_event(struct vpu_statistic *statistic, u32 event)
 {
-	if (!statistic || event >= VID_API_ENC_EVENT_RESERVED)
+	if (!statistic)
 		return;
 
-	statistic->event[event]++;
+	if (event < VID_API_ENC_EVENT_RESERVED)
+		statistic->event[event]++;
+	else
+		statistic->event[VID_API_ENC_EVENT_RESERVED]++;
 }
 
 static void count_cmd(struct vpu_statistic *statistic, u32 cmdid)
 {
-	if (!statistic || cmdid >= GTB_ENC_CMD_RESERVED)
+	if (!statistic)
 		return;
 
-	statistic->cmd[cmdid]++;
+	if (cmdid < GTB_ENC_CMD_RESERVED)
+		statistic->cmd[cmdid]++;
+	else
+		statistic->cmd[GTB_ENC_CMD_RESERVED]++;
 }
-
 
 static void write_enc_reg(struct vpu_dev *dev, u32 val, off_t reg)
 {
@@ -258,6 +260,8 @@ static void get_param_from_v4l2(pMEDIAIP_ENC_PARAM pEncParam,
 		struct vpu_ctx *ctx
 		)
 {
+	mutex_lock(&ctx->instance_mutex);
+
 	//get the param and update gpParameters
 	pEncParam->uSrcStride           = pix_mp->width;
 	pEncParam->uSrcWidth            = pix_mp->width;
@@ -268,6 +272,8 @@ static void get_param_from_v4l2(pMEDIAIP_ENC_PARAM pEncParam,
 	pEncParam->uSrcCropHeight       = pix_mp->height;
 	pEncParam->uOutWidth            = pix_mp->width;
 	pEncParam->uOutHeight           = pix_mp->height;
+
+	mutex_unlock(&ctx->instance_mutex);
 }
 
 static u32 cpu_phy_to_mu(struct core_device *dev, u32 addr)
@@ -275,32 +281,11 @@ static u32 cpu_phy_to_mu(struct core_device *dev, u32 addr)
 	return addr - dev->m0_p_fw_space_phy;
 }
 
-static void *phy_to_virt(u_int32 src, unsigned long long offset)
-{
-	void *result;
-
-	result = (void *)(src + offset);
-	return result;
-}
-
-pMEDIAIP_ENC_PARAM get_enc_param(struct vpu_ctx *ctx)
-{
-	struct core_device *dev = ctx->core_dev;
-	pENC_RPC_HOST_IFACE iface = dev->shared_mem.pSharedInterface;
-	pMEDIA_ENC_API_CONTROL_INTERFACE ctrl_interface;
-	pMEDIAIP_ENC_PARAM  pEncParam;
-
-	ctrl_interface = phy_to_virt(iface->pEncCtrlInterface[ctx->str_index],
-					dev->shared_mem.base_offset);
-	pEncParam = phy_to_virt(ctrl_interface->pEncParam,
-				dev->shared_mem.base_offset);
-
-	return pEncParam;
-}
-
 static int initialize_enc_param(struct vpu_ctx *ctx)
 {
-	pMEDIAIP_ENC_PARAM param = get_enc_param(ctx);
+	pMEDIAIP_ENC_PARAM param = ctx->enc_param;
+
+	mutex_lock(&ctx->instance_mutex);
 
 	param->eCodecMode = MEDIAIP_ENC_FMT_H264;
 	param->tEncMemDesc.uMemPhysAddr = ctx->encoder_mem.phy_addr;
@@ -308,6 +293,8 @@ static int initialize_enc_param(struct vpu_ctx *ctx)
 	param->tEncMemDesc.uMemSize     = ctx->encoder_mem.size;
 	param->uFrameRate = 30;
 	param->uMinBitRate = BITRATE_LOW_THRESHOLD;
+
+	mutex_unlock(&ctx->instance_mutex);
 
 	return 0;
 }
@@ -427,18 +414,9 @@ static int v4l2_ioctl_s_fmt(struct file *file,
 	int                             ret = 0;
 	struct v4l2_pix_format_mplane   *pix_mp = &f->fmt.pix_mp;
 	struct queue_data               *q_data;
-	struct core_device              *dev = ctx->core_dev;
-	pENC_RPC_HOST_IFACE pSharedInterface = dev->shared_mem.pSharedInterface;
-	pMEDIA_ENC_API_CONTROL_INTERFACE pEncCtrlInterface;
 	pMEDIAIP_ENC_PARAM  pEncParam;
-	pMEDIAIP_ENC_EXPERT_MODE_PARAM pEncExpertModeParam;
 
-	pEncCtrlInterface = (pMEDIA_ENC_API_CONTROL_INTERFACE)phy_to_virt(pSharedInterface->pEncCtrlInterface[ctx->str_index],
-			dev->shared_mem.base_offset);
-	pEncParam = (pMEDIAIP_ENC_PARAM)phy_to_virt(pEncCtrlInterface->pEncParam,
-			dev->shared_mem.base_offset);
-	pEncExpertModeParam = (pMEDIAIP_ENC_EXPERT_MODE_PARAM)phy_to_virt(pEncCtrlInterface->pEncExpertModeParam,
-			dev->shared_mem.base_offset);
+	pEncParam = ctx->enc_param;
 	vpu_dbg(LVL_DEBUG, "%s()\n", __func__);
 
 	switch (f->type) {
@@ -816,7 +794,7 @@ static int v4l2_ioctl_streamoff(struct file *file,
 	else
 		return -EINVAL;
 
-	if (!ctx->start_flag) {
+	if (test_and_clear_bit(VPU_ENC_STATUS_CONFIGURED, &ctx->status)) {
 		if (!ctx->forceStop) {
 			ctx->forceStop = true;
 			v4l2_vpu_send_cmd(ctx, ctx->str_index, GTB_ENC_CMD_STREAM_STOP, 0, NULL);
@@ -826,8 +804,6 @@ static int v4l2_ioctl_streamoff(struct file *file,
 
 		if (!ctx->firmware_stopped)
 			wait_for_completion(&ctx->stop_cmp);
-
-		ctx->start_flag = true;
 	}
 	ret = vb2_streamoff(&q_data->vb2_q, i);
 	return ret;
@@ -878,7 +854,7 @@ static void show_codec_configure(struct vpu_ctx *ctx)
 	if (!ctx)
 		return;
 
-	param = get_enc_param(ctx);
+	param = ctx->enc_param;
 	if (!param)
 		return;
 
@@ -933,67 +909,98 @@ static void show_codec_configure(struct vpu_ctx *ctx)
 			"QP", param->uInitSliceQP);
 }
 
-static void v4l2_transfer_buffer_to_firmware(struct queue_data *This, struct vb2_buffer *vb)
+static void show_firmware_version(struct core_device *core_dev)
 {
-	struct vpu_ctx *ctx = container_of(This, struct vpu_ctx, q_data[V4L2_SRC]);
+	pENC_RPC_HOST_IFACE pSharedInterface;
+
+	if (!core_dev)
+		return;
+
+	pSharedInterface = core_dev->shared_mem.pSharedInterface;
+
+	vpu_dbg(LVL_ALL, "vpu encoder firmware version is %d.%d.%d\n",
+			(pSharedInterface->FWVersion & 0x00ff0000) >> 16,
+			(pSharedInterface->FWVersion & 0x0000ff00) >> 8,
+			pSharedInterface->FWVersion & 0x000000ff);
+}
+
+static int configure_codec(struct vpu_ctx *ctx)
+{
+	pBUFFER_DESCRIPTOR_TYPE pEncStrBuffDesc = NULL;
+	pMEDIAIP_ENC_EXPERT_MODE_PARAM pEncExpertModeParam = NULL;
+
+	if (!ctx || !ctx->core_dev)
+		return -EINVAL;
+
+	pEncStrBuffDesc = ctx->stream_buffer_desc;
+	pEncStrBuffDesc->start = ctx->encoder_stream.phy_addr;
+	pEncStrBuffDesc->wptr = pEncStrBuffDesc->start;
+	pEncStrBuffDesc->rptr = pEncStrBuffDesc->start;
+	pEncStrBuffDesc->end = ctx->encoder_stream.phy_addr +
+				ctx->encoder_stream.size;
+
+	vpu_dbg(LVL_INFO,
+		"pEncStrBuffDesc:start=%x, wptr=0x%x, rptr=%x, end=%x\n",
+		pEncStrBuffDesc->start,
+		pEncStrBuffDesc->wptr,
+		pEncStrBuffDesc->rptr,
+		pEncStrBuffDesc->end);
+
+	pEncExpertModeParam = ctx->expert_mode_param;
+	pEncExpertModeParam->Calib.mem_chunk_phys_addr =
+					ctx->encoder_mem.phy_addr;
+	pEncExpertModeParam->Calib.mem_chunk_virt_addr =
+					ctx->encoder_mem.phy_addr;
+	pEncExpertModeParam->Calib.mem_chunk_size = ctx->encoder_mem.size;
+	pEncExpertModeParam->Calib.cb_base = ctx->encoder_stream.phy_addr;
+	pEncExpertModeParam->Calib.cb_size = ctx->encoder_stream.size;
+
+	show_firmware_version(ctx->core_dev);
+	memcpy(&ctx->actual_param, ctx->enc_param, sizeof(ctx->actual_param));
+	v4l2_vpu_send_cmd(ctx, ctx->str_index,
+			GTB_ENC_CMD_CONFIGURE_CODEC, 0, NULL);
+	vpu_dbg(LVL_INFO, "send command GTB_ENC_CMD_CONFIGURE_CODEC\n");
+
+	show_codec_configure(ctx);
+
+	return 0;
+}
+
+static void dump_vb2_data(struct vb2_buffer *vb)
+{
 #ifdef DUMP_DATA
+	const int DATA_NUM = 10;
 	char *read_data;
 	u_int32 read_idx;
+	char data_str[1024];
+	int num = 0;
+
+	if (!vb)
+		return;
+
+	read_data = vb2_plane_vaddr(vb, 0);
+	num = snprintf(data_str, sizeof(data_str),
+			"transfer data from virt 0x%p: ", read_data);
+	for (read_idx = 0; read_idx < DATA_NUM; read_idx++)
+		num += snprintf(data_str + num, sizeof(data_str) - num,
+				" 0x%x", read_data[read_idx]);
+
+	vpu_dbg(LVL_DEBUG, "%s\n", data_str);
 #endif
-	pBUFFER_DESCRIPTOR_TYPE pEncStrBuffDesc;
-	pMEDIAIP_ENC_EXPERT_MODE_PARAM pEncExpertModeParam;
-	struct core_device *dev = ctx->core_dev;
-	pENC_RPC_HOST_IFACE pSharedInterface = dev->shared_mem.pSharedInterface;
-	pMEDIA_ENC_API_CONTROL_INTERFACE pEncCtrlInterface;
-	u_int32 uStrIdx = ctx->str_index;
+}
 
-	vpu_dbg(LVL_DEBUG, "ENC_RPC_HOST_IFACE(%ld)MEDIA_ENC_API_CONTROL_INTERFACE(%ld) EncYUVBufferDesc(%ld) expertParam(%ld) encparam(%ld) MEDIAIP_ENC_FMT(%ld)\n",
-			sizeof(ENC_RPC_HOST_IFACE), sizeof(MEDIA_ENC_API_CONTROL_INTERFACE),
-			sizeof(BUFFER_DESCRIPTOR_TYPE), sizeof(MEDIAIP_ENC_EXPERT_MODE_PARAM),
-			sizeof(MEDIAIP_ENC_PARAM), sizeof(MEDIAIP_ENC_FMT)
-			);
-	if (ctx->start_flag == true) {
-		pEncCtrlInterface = (pMEDIA_ENC_API_CONTROL_INTERFACE)phy_to_virt(pSharedInterface->pEncCtrlInterface[uStrIdx],
-				dev->shared_mem.base_offset);
-		pEncStrBuffDesc = (pBUFFER_DESCRIPTOR_TYPE)phy_to_virt(pEncCtrlInterface->pEncStreamBufferDesc,
-				dev->shared_mem.base_offset);
-		pEncStrBuffDesc->start = ctx->encoder_stream.phy_addr;
-		pEncStrBuffDesc->wptr = pEncStrBuffDesc->start;
-		pEncStrBuffDesc->rptr = pEncStrBuffDesc->start;
-		pEncStrBuffDesc->end = ctx->encoder_stream.phy_addr + ctx->encoder_stream.size;
+static void v4l2_transfer_buffer_to_firmware(struct queue_data *This,
+					struct vb2_buffer *vb)
+{
+	struct vpu_ctx *ctx =
+		container_of(This, struct vpu_ctx, q_data[V4L2_SRC]);
 
-		vpu_dbg(LVL_INFO, "pEncStrBuffDesc->start=%x, pEncStrBuffDesc->wptr=0x%x, pEncStrBuffDesc->rptr=%x, pEncStrBuffDesc->end=%x\n", pEncStrBuffDesc->start, pEncStrBuffDesc->wptr, pEncStrBuffDesc->rptr, pEncStrBuffDesc->end);
-
-		pEncExpertModeParam = (pMEDIAIP_ENC_EXPERT_MODE_PARAM)phy_to_virt(pEncCtrlInterface->pEncExpertModeParam,
-				dev->shared_mem.base_offset);
-		pEncExpertModeParam->Calib.mem_chunk_phys_addr = ctx->encoder_mem.phy_addr;
-		pEncExpertModeParam->Calib.mem_chunk_virt_addr = ctx->encoder_mem.phy_addr;
-		pEncExpertModeParam->Calib.mem_chunk_size = ctx->encoder_mem.size;
-		pEncExpertModeParam->Calib.cb_base = ctx->encoder_stream.phy_addr;
-		pEncExpertModeParam->Calib.cb_size = ctx->encoder_stream.size;
-
-#ifdef DUMP_DATA
-		read_data = (char *)vb2_plane_vaddr(vb, 0);
-		vpu_dbg(LVL_DEBUG, "transfer data from virt 0x%p: ", read_data);
-		for (read_idx = 0; read_idx < DATA_NUM; read_idx++)
-			vpu_dbg(LVL_DEBUG, " 0x%x", read_data[read_idx]);
-		vpu_dbg(LVL_DEBUG, "\n");
- #endif
-		vpu_dbg(LVL_INFO, "enter %s, start_flag %d, index=%d,firmware_started=%d\n",
-					__func__, ctx->start_flag, ctx->str_index,
-				dev->firmware_started);
-
-		vpu_dbg(LVL_ALL, "vpu encoder firmware version is %d.%d.%d\n",
-				(pSharedInterface->FWVersion & 0x00ff0000) >> 16,
-				(pSharedInterface->FWVersion & 0x0000ff00) >> 8,
-				pSharedInterface->FWVersion & 0x000000ff);
-
-		v4l2_vpu_send_cmd(ctx, ctx->str_index, GTB_ENC_CMD_CONFIGURE_CODEC, 0, NULL);
-		vpu_dbg(LVL_INFO, "send command GTB_ENC_CMD_CONFIGURE_CODEC\n");
-		show_codec_configure(ctx);
-
-		ctx->start_flag = false;
+	mutex_lock(&ctx->instance_mutex);
+	if (!test_and_set_bit(VPU_ENC_STATUS_CONFIGURED, &ctx->status)) {
+		configure_codec(ctx);
+		dump_vb2_data(vb);
 	}
+	mutex_unlock(&ctx->instance_mutex);
 }
 
 static bool update_yuv_addr(struct vpu_ctx *ctx, u_int32 uStrIdx)
@@ -1003,20 +1010,10 @@ static bool update_yuv_addr(struct vpu_ctx *ctx, u_int32 uStrIdx)
 	struct vb2_data_req *p_data_req;
 	struct queue_data *This = &ctx->q_data[V4L2_SRC];
 
-	struct core_device *dev = ctx->core_dev;
-	pENC_RPC_HOST_IFACE pSharedInterface = dev->shared_mem.pSharedInterface;
-	pMEDIA_ENC_API_CONTROL_INTERFACE pEncCtrlInterface;
 	pMEDIAIP_ENC_YUV_BUFFER_DESC pParamYuvBuffDesc;
 	u_int32 *pphy_address;
-#ifdef DUMP_DATA
-	char *read_data;
-	u_int32 read_idx;
-#endif
 
-	pEncCtrlInterface = (pMEDIA_ENC_API_CONTROL_INTERFACE)phy_to_virt(pSharedInterface->pEncCtrlInterface[uStrIdx],
-			dev->shared_mem.base_offset);
-	pParamYuvBuffDesc = (pMEDIAIP_ENC_YUV_BUFFER_DESC)phy_to_virt(pEncCtrlInterface->pEncYUVBufferDesc,
-			dev->shared_mem.base_offset);
+	pParamYuvBuffDesc = ctx->yuv_buffer_desc;
 
 	while (1) {
 		if (!wait_event_interruptible_timeout(ctx->buffer_wq_input,
@@ -1038,13 +1035,8 @@ static bool update_yuv_addr(struct vpu_ctx *ctx, u_int32 uStrIdx)
 		p_data_req = list_first_entry(&This->drv_q,
 				typeof(*p_data_req), list);
 
-#ifdef DUMP_DATA
-		read_data = (char *)vb2_plane_vaddr(p_data_req->vb2_buf, 0);
-		vpu_dbg(LVL_DEBUG, "transfer data from virt 0x%p: ", read_data);
-		for (read_idx = 0; read_idx < DATA_NUM; read_idx++)
-			vpu_dbg(LVL_DEBUG, " 0x%x", read_data[read_idx]);
-		vpu_dbg(LVL_DEBUG, "\n");
- #endif
+		dump_vb2_data(p_data_req->vb2_buf);
+
 		pphy_address = (u_int32 *)vb2_plane_cookie(p_data_req->vb2_buf, 0);
 		pParamYuvBuffDesc->uLumaBase = *pphy_address + p_data_req->vb2_buf->planes[0].data_offset;
 		pphy_address = (u_int32 *)vb2_plane_cookie(p_data_req->vb2_buf, 1);
@@ -1077,9 +1069,6 @@ static void report_stream_done(struct vpu_ctx *ctx,  MEDIAIP_ENC_PIC_INFO *pEncP
 	void *rptr_virt;
 
 	pBUFFER_DESCRIPTOR_TYPE pEncStrBuffDesc;
-	pMEDIA_ENC_API_CONTROL_INTERFACE pEncCtrlInterface;
-	struct core_device *dev = ctx->core_dev;
-	pENC_RPC_HOST_IFACE pSharedInterface = dev->shared_mem.pSharedInterface;
 
 	/* Windsor stream buffer descriptor
 	 * pEncStrBuffDesc = &RecCmdData.tEncStreamBufferDesc;
@@ -1089,10 +1078,7 @@ static void report_stream_done(struct vpu_ctx *ctx,  MEDIAIP_ENC_PIC_INFO *pEncP
 	 * *
 	 * Note the wprt is updated prior to calling this function
 	 */
-	pEncCtrlInterface = (pMEDIA_ENC_API_CONTROL_INTERFACE)phy_to_virt(pSharedInterface->pEncCtrlInterface[ctx->str_index],
-			dev->shared_mem.base_offset);
-	pEncStrBuffDesc = (pBUFFER_DESCRIPTOR_TYPE)phy_to_virt(pEncCtrlInterface->pEncStreamBufferDesc,
-			dev->shared_mem.base_offset);
+	pEncStrBuffDesc = ctx->stream_buffer_desc;
 
 
 	wptr = pEncStrBuffDesc->wptr | 0x80000000;
@@ -1211,16 +1197,16 @@ static int alloc_dma_buffer(struct vpu_dev *dev, struct buffer_addr *buffer)
 
 static void enc_mem_alloc(struct vpu_ctx *ctx, MEDIAIP_ENC_MEM_REQ_DATA *req_data)
 {
-	pMEDIA_ENC_API_CONTROL_INTERFACE pEncCtrlInterface;
+	struct core_device *core_dev;
 	pMEDIAIP_ENC_MEM_POOL pEncMemPool;
-	struct core_device *core_dev = ctx->core_dev;
-	pENC_RPC_HOST_IFACE pSharedInterface = core_dev->shared_mem.pSharedInterface;
 	u_int32 i;
 
-	pEncCtrlInterface = (pMEDIA_ENC_API_CONTROL_INTERFACE)phy_to_virt(pSharedInterface->pEncCtrlInterface[ctx->str_index],
-			core_dev->shared_mem.base_offset);
-	pEncMemPool = (pMEDIAIP_ENC_MEM_POOL)phy_to_virt(pEncCtrlInterface->pEncMemPool,
-			core_dev->shared_mem.base_offset);
+	if (!ctx || !ctx->core_dev || !req_data)
+		return;
+
+	core_dev = ctx->core_dev;
+
+	pEncMemPool = ctx->mem_pool;
 
 	for (i = 0; i < req_data->uEncFrmNum; i++) {
 		ctx->encFrame[i].size = req_data->uEncFrmSize;
@@ -1815,6 +1801,9 @@ static int request_instanct(struct vpu_dev *dev, struct vpu_ctx *ctx)
 
 static int construct_vpu_ctx(struct vpu_ctx *ctx)
 {
+	struct shared_addr *shared_mem = NULL;
+	int idx;
+
 	if (!ctx)
 		return -EINVAL;
 
@@ -1822,12 +1811,21 @@ static int construct_vpu_ctx(struct vpu_ctx *ctx)
 	init_completion(&ctx->completion);
 	init_completion(&ctx->stop_cmp);
 	mutex_init(&ctx->instance_mutex);
-	ctx->start_flag = true;
 	ctx->forceStop = false;
 	ctx->firmware_stopped = false;
 	ctx->ctx_released = false;
 	init_waitqueue_head(&ctx->buffer_wq_output);
 	init_waitqueue_head(&ctx->buffer_wq_input);
+
+	shared_mem = &ctx->core_dev->shared_mem;
+	idx = ctx->str_index;
+	ctx->yuv_buffer_desc = rpc_get_yuv_buffer_desc(shared_mem, idx);
+	ctx->stream_buffer_desc = rpc_get_stream_buffer_desc(shared_mem, idx);
+	ctx->expert_mode_param = rpc_get_expert_mode_param(shared_mem, idx);
+	ctx->enc_param = rpc_get_enc_param(shared_mem, idx);
+	ctx->mem_pool = rpc_get_mem_pool(shared_mem, idx);
+	ctx->encoding_status = rpc_get_encoding_status(shared_mem, idx);
+	ctx->dsa_status = rpc_get_dsa_status(shared_mem, idx);
 
 	return 0;
 }
@@ -1949,7 +1947,7 @@ static ssize_t show_instance_info(struct device *dev,
 
 	ctx = container_of(attr, struct vpu_ctx, dev_attr_instance);
 	statistic = &ctx->statistic;
-	param = get_enc_param(ctx);
+	param = ctx->enc_param;
 
 	num += snprintf(buf, PAGE_SIZE, "cmd:\n");
 
@@ -1959,6 +1957,8 @@ static ssize_t show_instance_info(struct device *dev,
 				cmd2str[i], i, statistic->cmd[i]);
 		num += size;
 	}
+	num += snprintf(buf + num, PAGE_SIZE - num, "\t%40s    :%16ld\n",
+			"UNKNOWN CMD", statistic->cmd[GTB_ENC_CMD_RESERVED]);
 
 	num += snprintf(buf + num, PAGE_SIZE - num, "event:\n");
 	for (i = VID_API_EVENT_UNDEFINED; i < VID_API_ENC_EVENT_RESERVED; i++) {
@@ -1967,56 +1967,78 @@ static ssize_t show_instance_info(struct device *dev,
 				event2str[i], i, statistic->event[i]);
 		num += size;
 	}
+	num += snprintf(buf + num, PAGE_SIZE - num, "\t%40s    :%16ld\n",
+			"UNKNOWN EVENT",
+			statistic->event[VID_API_ENC_EVENT_RESERVED]);
 
 	num += snprintf(buf + num, PAGE_SIZE - num, "encoder param:\n");
-	num += snprintf(buf + num, PAGE_SIZE - num, "\t%40s:%16d\n",
-			"Codec Mode", param->eCodecMode);
-	num += snprintf(buf + num, PAGE_SIZE - num, "\t%40s:%16d\n",
-			"Profile", param->eProfile);
-	num += snprintf(buf + num, PAGE_SIZE - num, "\t%40s:%16d\n",
-			"Level", param->uLevel);
-	num += snprintf(buf + num, PAGE_SIZE - num, "\t%40s:%16d\n",
-			"Mem Phys Addr", param->tEncMemDesc.uMemPhysAddr);
-	num += snprintf(buf + num, PAGE_SIZE - num, "\t%40s:%16d\n",
-			"Mem Virt Addr", param->tEncMemDesc.uMemVirtAddr);
-	num += snprintf(buf + num, PAGE_SIZE - num, "\t%40s:%16d\n",
-			"Mem Size", param->tEncMemDesc.uMemSize);
-	num += snprintf(buf + num, PAGE_SIZE - num, "\t%40s:%16d\n",
-			"Frame Rate", param->uFrameRate);
-	num += snprintf(buf + num, PAGE_SIZE - num, "\t%40s:%16d\n",
-			"Source Stride", param->uSrcStride);
-	num += snprintf(buf + num, PAGE_SIZE - num, "\t%40s:%16d\n",
-			"Source Width", param->uSrcWidth);
-	num += snprintf(buf + num, PAGE_SIZE - num, "\t%40s:%16d\n",
-			"Source Height", param->uSrcHeight);
-	num += snprintf(buf + num, PAGE_SIZE - num, "\t%40s:%16d\n",
-			"Source Offset x", param->uSrcOffset_x);
-	num += snprintf(buf + num, PAGE_SIZE - num, "\t%40s:%16d\n",
-			"Source Offset y", param->uSrcOffset_y);
-	num += snprintf(buf + num, PAGE_SIZE - num, "\t%40s:%16d\n",
-			"Source Crop Width", param->uSrcCropWidth);
-	num += snprintf(buf + num, PAGE_SIZE - num, "\t%40s:%16d\n",
-			"Source Crop Height", param->uSrcCropHeight);
-	num += snprintf(buf + num, PAGE_SIZE - num, "\t%40s:%16d\n",
-			"Out Width", param->uOutWidth);
-	num += snprintf(buf + num, PAGE_SIZE - num, "\t%40s:%16d\n",
-			"Out Height", param->uOutHeight);
-	num += snprintf(buf + num, PAGE_SIZE - num, "\t%40s:%16d\n",
-			"I Frame Interval", param->uIFrameInterval);
-	num += snprintf(buf + num, PAGE_SIZE - num, "\t%40s:%16d\n",
-			"GOP Length", param->uGopBLength);
-	num += snprintf(buf + num, PAGE_SIZE - num, "\t%40s:%16d\n",
-			"Low Latency Mode", param->uLowLatencyMode);
-	num += snprintf(buf + num, PAGE_SIZE - num, "\t%40s:%16d\n",
-			"Bitrate Mode", param->eBitRateMode);
-	num += snprintf(buf + num, PAGE_SIZE - num, "\t%40s:%16d\n",
-			"Target Bitrate", param->uTargetBitrate);
-	num += snprintf(buf + num, PAGE_SIZE - num, "\t%40s:%16d\n",
-			"Min Bitrate", param->uMinBitRate);
-	num += snprintf(buf + num, PAGE_SIZE - num, "\t%40s:%16d\n",
-			"Max Bitrate", param->uMaxBitRate);
-	num += snprintf(buf + num, PAGE_SIZE - num, "\t%40s:%16d\n",
-			"QP", param->uInitSliceQP);
+	num += snprintf(buf + num, PAGE_SIZE - num,
+			"\t%40s:%10d;%10d\n", "Codec Mode",
+			ctx->actual_param.eCodecMode, param->eCodecMode);
+	num += snprintf(buf + num, PAGE_SIZE - num,
+			"\t%40s:%10d;%10d\n", "Profile",
+			ctx->actual_param.eProfile, param->eProfile);
+	num += snprintf(buf + num, PAGE_SIZE - num,
+			"\t%40s:%10d;%10d\n", "Level",
+			ctx->actual_param.uLevel, param->uLevel);
+	num += snprintf(buf + num, PAGE_SIZE - num,
+			"\t%40s:%10d;%10d\n", "Frame Rate",
+			ctx->actual_param.uFrameRate, param->uFrameRate);
+	num += snprintf(buf + num, PAGE_SIZE - num,
+			"\t%40s:%10d;%10d\n", "Source Stride",
+			ctx->actual_param.uSrcStride, param->uSrcStride);
+	num += snprintf(buf + num, PAGE_SIZE - num,
+			"\t%40s:%10d;%10d\n", "Source Width",
+			ctx->actual_param.uSrcWidth, param->uSrcWidth);
+	num += snprintf(buf + num, PAGE_SIZE - num,
+			"\t%40s:%10d;%10d\n", "Source Height",
+			ctx->actual_param.uSrcHeight, param->uSrcHeight);
+	num += snprintf(buf + num, PAGE_SIZE - num,
+			"\t%40s:%10d;%10d\n", "Source Offset x",
+			ctx->actual_param.uSrcOffset_x, param->uSrcOffset_x);
+	num += snprintf(buf + num, PAGE_SIZE - num,
+			"\t%40s:%10d;%10d\n", "Source Offset y",
+			ctx->actual_param.uSrcOffset_y, param->uSrcOffset_y);
+	num += snprintf(buf + num, PAGE_SIZE - num,
+			"\t%40s:%10d;%10d\n", "Source Crop Width",
+			ctx->actual_param.uSrcCropWidth, param->uSrcCropWidth);
+	num += snprintf(buf + num, PAGE_SIZE - num,
+			"\t%40s:%10d;%10d\n", "Source Crop Height",
+			ctx->actual_param.uSrcCropHeight,
+			param->uSrcCropHeight);
+	num += snprintf(buf + num, PAGE_SIZE - num,
+			"\t%40s:%10d;%10d\n", "Out Width",
+			ctx->actual_param.uOutWidth, param->uOutWidth);
+	num += snprintf(buf + num, PAGE_SIZE - num,
+			"\t%40s:%10d;%10d\n", "Out Height",
+			ctx->actual_param.uOutHeight, param->uOutHeight);
+	num += snprintf(buf + num, PAGE_SIZE - num,
+			"\t%40s:%10d;%10d\n", "I Frame Interval",
+			ctx->actual_param.uIFrameInterval,
+			param->uIFrameInterval);
+	num += snprintf(buf + num, PAGE_SIZE - num,
+			"\t%40s:%10d;%10d\n", "GOP Length",
+			ctx->actual_param.uGopBLength, param->uGopBLength);
+	num += snprintf(buf + num, PAGE_SIZE - num,
+			"\t%40s:%10d;%10d\n", "Low Latency Mode",
+			ctx->actual_param.uLowLatencyMode,
+			param->uLowLatencyMode);
+	num += snprintf(buf + num, PAGE_SIZE - num,
+			"\t%40s:%10d;%10d\n", "Bitrate Mode",
+			ctx->actual_param.eBitRateMode, param->eBitRateMode);
+	num += snprintf(buf + num, PAGE_SIZE - num,
+			"\t%40s:%10d;%10d\n", "Target Bitrate",
+			ctx->actual_param.uTargetBitrate,
+			param->uTargetBitrate);
+	num += snprintf(buf + num, PAGE_SIZE - num,
+			"\t%40s:%10d;%10d\n", "Min Bitrate",
+			ctx->actual_param.uMinBitRate, param->uMinBitRate);
+	num += snprintf(buf + num, PAGE_SIZE - num,
+			"\t%40s:%10d;%10d\n", "Max Bitrate",
+			ctx->actual_param.uMaxBitRate, param->uMaxBitRate);
+	num += snprintf(buf + num, PAGE_SIZE - num,
+			"\t%40s:%10d;%10d\n", "QP",
+			ctx->actual_param.uInitSliceQP, param->uInitSliceQP);
 
 	return num;
 }
@@ -2108,7 +2130,8 @@ static int v4l2_release(struct file *filp)
 
 	vpu_dbg(LVL_DEBUG, "%s()\n", __func__);
 
-	if (!ctx->forceStop && !ctx->start_flag) {
+	if (!ctx->forceStop &&
+		test_bit(VPU_ENC_STATUS_CONFIGURED, &ctx->status)) {
 		//need send stop if app call release without calling of V4L2_ENC_CMD_STOP
 		ctx->forceStop = true;
 		v4l2_vpu_send_cmd(ctx, ctx->str_index, GTB_ENC_CMD_STREAM_STOP, 0, NULL);
@@ -2116,7 +2139,8 @@ static int v4l2_release(struct file *filp)
 		wake_up_interruptible(&ctx->buffer_wq_output);
 	}
 
-	if (!ctx->firmware_stopped && ctx->start_flag == false)
+	if (!ctx->firmware_stopped &&
+		test_bit(VPU_ENC_STATUS_CONFIGURED, &ctx->status))
 		wait_for_completion(&ctx->stop_cmp);
 
 	remove_instance_file(ctx);

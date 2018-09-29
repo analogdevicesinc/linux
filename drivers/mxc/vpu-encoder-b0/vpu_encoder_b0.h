@@ -238,12 +238,13 @@ struct buffer_addr {
 };
 
 enum {
-	VPU_ENC_STATUS_HANG = 31
+	VPU_ENC_STATUS_CONFIGURED = 29,
+	VPU_ENC_STATUS_HANG = 30
 };
 
 struct vpu_statistic {
-	unsigned long cmd[GTB_ENC_CMD_RESERVED];
-	unsigned long event[VID_API_ENC_EVENT_RESERVED];
+	unsigned long cmd[GTB_ENC_CMD_RESERVED + 1];
+	unsigned long event[VID_API_ENC_EVENT_RESERVED + 1];
 };
 
 struct vpu_ctx {
@@ -262,7 +263,6 @@ struct vpu_ctx {
 	struct workqueue_struct *instance_wq;
 	struct completion completion;
 	struct completion stop_cmp;
-	bool start_flag;
 	bool firmware_stopped;
 	bool ctx_released;
 	bool forceStop;
@@ -277,6 +277,16 @@ struct vpu_ctx {
 
 	struct vpu_statistic statistic;
 	struct device_attribute dev_attr_instance;
+
+	pMEDIAIP_ENC_YUV_BUFFER_DESC yuv_buffer_desc;
+	pBUFFER_DESCRIPTOR_TYPE stream_buffer_desc;
+	pMEDIAIP_ENC_EXPERT_MODE_PARAM expert_mode_param;
+	pMEDIAIP_ENC_PARAM enc_param;
+	pMEDIAIP_ENC_MEM_POOL mem_pool;
+	pENC_ENCODING_STATUS encoding_status;
+	pENC_DSA_STATUS_t dsa_status;
+
+	MEDIAIP_ENC_PARAM actual_param;
 };
 
 #define LVL_DEBUG	4
@@ -296,7 +306,5 @@ struct vpu_ctx {
 			pr_info(TAG""fmt, ## arg); \
 	} while (0)
 
-
-pMEDIAIP_ENC_PARAM get_enc_param(struct vpu_ctx *ctx);
 
 #endif

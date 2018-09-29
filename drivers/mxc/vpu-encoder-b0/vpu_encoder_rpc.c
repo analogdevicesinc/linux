@@ -52,6 +52,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <linux/stddef.h>
 #include "vpu_encoder_rpc.h"
 
 void rpc_init_shared_memory_encoder(struct shared_addr *This,
@@ -300,4 +301,94 @@ void rpc_receive_msg_buf_encoder(struct shared_addr *This, struct event_msg *msg
 		msg->msgdata[i] = *((u_int32 *)(This->msg_mem_vir+pMsgDesc->rptr - pMsgDesc->start));
 		rpc_update_msg_buffer_ptr_encoder(pMsgDesc);
 	}
+}
+
+static void *phy_to_virt(u_int32 src, unsigned long long offset)
+{
+	void *result;
+
+	result = (void *)(src + offset);
+	return result;
+}
+
+#define GET_CTRL_INTERFACE_MEMBER(shared_mem, index, name, member) \
+	do {\
+		pENC_RPC_HOST_IFACE iface = shared_mem->pSharedInterface; \
+		pMEDIA_ENC_API_CONTROL_INTERFACE ctrl_interface =\
+			phy_to_virt(iface->pEncCtrlInterface[index],\
+					shared_mem->base_offset);\
+		name = phy_to_virt(ctrl_interface->member,\
+				shared_mem->base_offset);\
+	} while (0)
+
+pMEDIAIP_ENC_YUV_BUFFER_DESC rpc_get_yuv_buffer_desc(
+		struct shared_addr *shared_mem, int index)
+{
+	pMEDIAIP_ENC_YUV_BUFFER_DESC desc = NULL;
+
+	GET_CTRL_INTERFACE_MEMBER(shared_mem, index, desc, pEncYUVBufferDesc);
+
+	return desc;
+}
+
+pBUFFER_DESCRIPTOR_TYPE rpc_get_stream_buffer_desc(
+		struct shared_addr *shared_mem, int index)
+{
+	pBUFFER_DESCRIPTOR_TYPE desc = NULL;
+
+	GET_CTRL_INTERFACE_MEMBER(shared_mem, index,
+				desc, pEncStreamBufferDesc);
+
+	return desc;
+}
+
+pMEDIAIP_ENC_EXPERT_MODE_PARAM rpc_get_expert_mode_param(
+		struct shared_addr *shared_mem, int index)
+{
+	pMEDIAIP_ENC_EXPERT_MODE_PARAM param = NULL;
+
+	GET_CTRL_INTERFACE_MEMBER(shared_mem, index,
+				param, pEncExpertModeParam);
+
+	return param;
+}
+
+pMEDIAIP_ENC_PARAM rpc_get_enc_param(
+		struct shared_addr *shared_mem, int index)
+{
+	pMEDIAIP_ENC_PARAM param = NULL;
+
+	GET_CTRL_INTERFACE_MEMBER(shared_mem, index, param, pEncParam);
+
+	return param;
+}
+
+pMEDIAIP_ENC_MEM_POOL rpc_get_mem_pool(
+		struct shared_addr *shared_mem, int index)
+{
+	pMEDIAIP_ENC_MEM_POOL pool = NULL;
+
+	GET_CTRL_INTERFACE_MEMBER(shared_mem, index, pool, pEncMemPool);
+
+	return pool;
+}
+
+pENC_ENCODING_STATUS rpc_get_encoding_status(
+		struct shared_addr *shared_mem, int index)
+{
+	pENC_ENCODING_STATUS encoding_status = NULL;
+
+	GET_CTRL_INTERFACE_MEMBER(shared_mem, index,
+				encoding_status, pEncEncodingStatus);
+
+	return encoding_status;
+}
+
+pENC_DSA_STATUS_t rpc_get_dsa_status(struct shared_addr *shared_mem, int index)
+{
+	pENC_DSA_STATUS_t dsa_status = NULL;
+
+	GET_CTRL_INTERFACE_MEMBER(shared_mem, index, dsa_status, pEncDSAStatus);
+
+	return dsa_status;
 }

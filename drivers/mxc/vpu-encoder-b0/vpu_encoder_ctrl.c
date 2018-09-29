@@ -41,8 +41,9 @@ const u_int32 h264_level[] = {
 static int set_h264_profile(struct v4l2_ctrl *ctrl)
 {
 	struct vpu_ctx *ctx = v4l2_ctrl_to_ctx(ctrl);
-	pMEDIAIP_ENC_PARAM  param = get_enc_param(ctx);
+	pMEDIAIP_ENC_PARAM  param = ctx->enc_param;
 
+	mutex_lock(&ctx->instance_mutex);
 	switch (ctrl->val) {
 	case V4L2_MPEG_VIDEO_H264_PROFILE_BASELINE:
 		param->eProfile = MEDIAIP_ENC_PROF_H264_BP;
@@ -59,6 +60,7 @@ static int set_h264_profile(struct v4l2_ctrl *ctrl)
 		param->eProfile = MEDIAIP_ENC_PROF_H264_MP;
 		break;
 	}
+	mutex_unlock(&ctx->instance_mutex);
 
 	return 0;
 }
@@ -66,9 +68,12 @@ static int set_h264_profile(struct v4l2_ctrl *ctrl)
 static int set_h264_level(struct v4l2_ctrl *ctrl)
 {
 	struct vpu_ctx *ctx = v4l2_ctrl_to_ctx(ctrl);
-	pMEDIAIP_ENC_PARAM  param = get_enc_param(ctx);
+	pMEDIAIP_ENC_PARAM  param = ctx->enc_param;
 
+	mutex_lock(&ctx->instance_mutex);
 	param->uLevel = h264_level[ctrl->val];
+	mutex_unlock(&ctx->instance_mutex);
+
 	vpu_dbg(LVL_DEBUG, "set h264 level to %d\n", ctrl->val);
 
 	return 0;
@@ -77,8 +82,9 @@ static int set_h264_level(struct v4l2_ctrl *ctrl)
 static int set_bitrate_mode(struct v4l2_ctrl *ctrl)
 {
 	struct vpu_ctx *ctx = v4l2_ctrl_to_ctx(ctrl);
-	pMEDIAIP_ENC_PARAM  param = get_enc_param(ctx);
+	pMEDIAIP_ENC_PARAM  param = ctx->enc_param;
 
+	mutex_lock(&ctx->instance_mutex);
 	switch (ctrl->val) {
 	case V4L2_MPEG_VIDEO_BITRATE_MODE_VBR:
 		param->eBitRateMode =
@@ -93,6 +99,7 @@ static int set_bitrate_mode(struct v4l2_ctrl *ctrl)
 		param->eBitRateMode = MEDIAIP_ENC_BITRATECONTROLMODE_CBR;
 		break;
 	}
+	mutex_unlock(&ctx->instance_mutex);
 
 	return 0;
 }
@@ -100,11 +107,13 @@ static int set_bitrate_mode(struct v4l2_ctrl *ctrl)
 static int set_bitrate(struct v4l2_ctrl *ctrl)
 {
 	struct vpu_ctx *ctx = v4l2_ctrl_to_ctx(ctrl);
-	pMEDIAIP_ENC_PARAM  param = get_enc_param(ctx);
+	pMEDIAIP_ENC_PARAM  param = ctx->enc_param;
 
+	mutex_lock(&ctx->instance_mutex);
 	param->uTargetBitrate = ctrl->val;
 	if (param->uMaxBitRate < param->uTargetBitrate)
 		param->uMaxBitRate = param->uTargetBitrate;
+	mutex_unlock(&ctx->instance_mutex);
 
 	return 0;
 }
@@ -112,11 +121,13 @@ static int set_bitrate(struct v4l2_ctrl *ctrl)
 static int set_bitrate_peak(struct v4l2_ctrl *ctrl)
 {
 	struct vpu_ctx *ctx = v4l2_ctrl_to_ctx(ctrl);
-	pMEDIAIP_ENC_PARAM  param = get_enc_param(ctx);
+	pMEDIAIP_ENC_PARAM  param = ctx->enc_param;
 
+	mutex_lock(&ctx->instance_mutex);
 	param->uMaxBitRate = ctrl->val;
 	if (param->uTargetBitrate > param->uMaxBitRate)
 		param->uTargetBitrate = param->uMaxBitRate;
+	mutex_unlock(&ctx->instance_mutex);
 
 	return 0;
 }
@@ -124,9 +135,11 @@ static int set_bitrate_peak(struct v4l2_ctrl *ctrl)
 static int set_gop_size(struct v4l2_ctrl *ctrl)
 {
 	struct vpu_ctx *ctx = v4l2_ctrl_to_ctx(ctrl);
-	pMEDIAIP_ENC_PARAM  param = get_enc_param(ctx);
+	pMEDIAIP_ENC_PARAM  param = ctx->enc_param;
 
+	mutex_lock(&ctx->instance_mutex);
 	param->uGopBLength = ctrl->val;
+	mutex_unlock(&ctx->instance_mutex);
 
 	return 0;
 }
@@ -134,9 +147,11 @@ static int set_gop_size(struct v4l2_ctrl *ctrl)
 static int set_i_period(struct v4l2_ctrl *ctrl)
 {
 	struct vpu_ctx *ctx = v4l2_ctrl_to_ctx(ctrl);
-	pMEDIAIP_ENC_PARAM  param = get_enc_param(ctx);
+	pMEDIAIP_ENC_PARAM  param = ctx->enc_param;
 
+	mutex_lock(&ctx->instance_mutex);
 	param->uIFrameInterval = ctrl->val;
+	mutex_unlock(&ctx->instance_mutex);
 
 	return 0;
 }
@@ -144,9 +159,11 @@ static int set_i_period(struct v4l2_ctrl *ctrl)
 static int set_qp(struct v4l2_ctrl *ctrl)
 {
 	struct vpu_ctx *ctx = v4l2_ctrl_to_ctx(ctrl);
-	pMEDIAIP_ENC_PARAM  param = get_enc_param(ctx);
+	pMEDIAIP_ENC_PARAM  param = ctx->enc_param;
 
+	mutex_lock(&ctx->instance_mutex);
 	param->uInitSliceQP = ctrl->val;
+	mutex_unlock(&ctx->instance_mutex);
 
 	return 0;
 }
@@ -163,12 +180,14 @@ static int get_min_buffers_for_output(struct v4l2_ctrl *ctrl)
 static int set_display_re_ordering(struct v4l2_ctrl *ctrl)
 {
 	struct vpu_ctx *ctx = v4l2_ctrl_to_ctx(ctrl);
-	pMEDIAIP_ENC_PARAM  param = get_enc_param(ctx);
+	pMEDIAIP_ENC_PARAM  param = ctx->enc_param;
 
+	mutex_lock(&ctx->instance_mutex);
 	if (ctrl->val)
 		param->uLowLatencyMode = 1;
 	else
 		param->uLowLatencyMode = 0;
+	mutex_unlock(&ctx->instance_mutex);
 
 	return 0;
 }

@@ -111,4 +111,18 @@ void rpc_send_cmd_buf_encoder(struct shared_addr *This,
 		u_int32 *local_cmddata);
 void rpc_receive_msg_buf_encoder(struct shared_addr *This, struct event_msg *msg);
 
+pMEDIAIP_ENC_YUV_BUFFER_DESC rpc_get_yuv_buffer_desc(
+		struct shared_addr *shared_mem, int index);
+pBUFFER_DESCRIPTOR_TYPE rpc_get_stream_buffer_desc(
+		struct shared_addr *shared_mem, int index);
+pMEDIAIP_ENC_EXPERT_MODE_PARAM rpc_get_expert_mode_param(
+		struct shared_addr *shared_mem, int index);
+pMEDIAIP_ENC_PARAM rpc_get_enc_param(
+		struct shared_addr *shared_mem, int index);
+pMEDIAIP_ENC_MEM_POOL rpc_get_mem_pool(
+		struct shared_addr *shared_mem, int index);
+pENC_ENCODING_STATUS rpc_get_encoding_status(
+		struct shared_addr *shared_mem, int index);
+pENC_DSA_STATUS_t rpc_get_dsa_status(struct shared_addr *shared_mem, int index);
+
 #endif
