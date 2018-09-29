@@ -49,7 +49,7 @@
 #include "vpu_encoder_b0.h"
 #include "vpu_encoder_ctrl.h"
 
-unsigned int vpu_dbg_level_encoder = 1;
+unsigned int vpu_dbg_level_encoder = LVL_WARN;
 #ifdef DUMP_DATA
 #define DATA_NUM 10
 #endif
@@ -99,7 +99,7 @@ static void vpu_log_event(u_int32 uEvent, u_int32 ctxid)
 		vpu_dbg(LVL_ERR, "reveive event: 0x%X, ctx id:%d\n",
 				uEvent, ctxid);
 	else
-		vpu_dbg(LVL_INFO, "recevie event: %s, ctx id:%d\n",
+		vpu_dbg(LVL_DEBUG, "recevie event: %s, ctx id:%d\n",
 				event2str[uEvent], ctxid);
 }
 
@@ -109,7 +109,7 @@ static void vpu_log_cmd(u_int32 cmdid, u_int32 ctxid)
 		vpu_dbg(LVL_ERR, "send cmd: 0x%X, ctx id:%d\n",
 				cmdid, ctxid);
 	else
-		vpu_dbg(LVL_INFO, "send cmd: %s ctx id:%d\n",
+		vpu_dbg(LVL_DEBUG, "send cmd: %s ctx id:%d\n",
 				cmd2str[cmdid], ctxid);
 }
 
@@ -171,7 +171,7 @@ static int v4l2_ioctl_querycap(struct file *file,
 		struct v4l2_capability *cap
 		)
 {
-	vpu_dbg(LVL_INFO, "%s()\n", __func__);
+	vpu_dbg(LVL_DEBUG, "%s()\n", __func__);
 	strncpy(cap->driver, "vpu encoder", sizeof(cap->driver) - 1);
 	strlcpy(cap->card, "vpu encoder", sizeof(cap->card));
 	strlcpy(cap->bus_info, "platform:", sizeof(cap->bus_info));
@@ -191,7 +191,7 @@ static int v4l2_ioctl_enum_fmt_vid_cap_mplane(struct file *file,
 {
 	struct vpu_v4l2_fmt *fmt;
 
-	vpu_dbg(LVL_INFO, "%s()\n", __func__);
+	vpu_dbg(LVL_DEBUG, "%s()\n", __func__);
 	if (f->index >= ARRAY_SIZE(formats_compressed_enc))
 		return -EINVAL;
 
@@ -208,7 +208,7 @@ static int v4l2_ioctl_enum_fmt_vid_out_mplane(struct file *file,
 {
 	struct vpu_v4l2_fmt *fmt;
 
-	vpu_dbg(LVL_INFO, "%s()\n", __func__);
+	vpu_dbg(LVL_DEBUG, "%s()\n", __func__);
 
 	if (f->index >= ARRAY_SIZE(formats_yuv_enc))
 		return -EINVAL;
@@ -228,7 +228,7 @@ static int v4l2_ioctl_g_fmt(struct file *file,
 	struct v4l2_pix_format_mplane   *pix_mp = &f->fmt.pix_mp;
 	unsigned int i;
 
-	vpu_dbg(LVL_INFO, "%s()\n", __func__);
+	vpu_dbg(LVL_DEBUG, "%s()\n", __func__);
 
 	if (f->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
 		pix_mp->pixelformat = V4L2_PIX_FMT_NV12;
@@ -439,7 +439,7 @@ static int v4l2_ioctl_s_fmt(struct file *file,
 			dev->shared_mem.base_offset);
 	pEncExpertModeParam = (pMEDIAIP_ENC_EXPERT_MODE_PARAM)phy_to_virt(pEncCtrlInterface->pEncExpertModeParam,
 			dev->shared_mem.base_offset);
-	vpu_dbg(LVL_INFO, "%s()\n", __func__);
+	vpu_dbg(LVL_DEBUG, "%s()\n", __func__);
 
 	switch (f->type) {
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE:
@@ -467,7 +467,7 @@ static int v4l2_ioctl_expbuf(struct file *file,
 	struct vpu_ctx *ctx = v4l2_fh_to_ctx(fh);
 	struct queue_data *q_data;
 
-	vpu_dbg(LVL_INFO, "%s()\n", __func__);
+	vpu_dbg(LVL_DEBUG, "%s()\n", __func__);
 
 	if (buf->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
 		q_data = &ctx->q_data[V4L2_SRC];
@@ -485,7 +485,7 @@ static int v4l2_ioctl_subscribe_event(struct v4l2_fh *fh,
 		const struct v4l2_event_subscription *sub
 		)
 {
-	vpu_dbg(LVL_INFO, "%s()\n", __func__);
+	vpu_dbg(LVL_DEBUG, "%s()\n", __func__);
 
 	switch (sub->type) {
 	case V4L2_EVENT_EOS:
@@ -506,7 +506,7 @@ static int v4l2_ioctl_reqbufs(struct file *file,
 	struct queue_data *q_data;
 	int ret;
 
-	vpu_dbg(LVL_INFO, "%s()\n", __func__);
+	vpu_dbg(LVL_DEBUG, "%s()\n", __func__);
 
 	if (reqbuf->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
 		q_data = &ctx->q_data[V4L2_SRC];
@@ -517,7 +517,7 @@ static int v4l2_ioctl_reqbufs(struct file *file,
 
 	ret = vb2_reqbufs(&q_data->vb2_q, reqbuf);
 
-	vpu_dbg(LVL_INFO, "%s() c_port_req_buf(%d)\n",
+	vpu_dbg(LVL_DEBUG, "%s() c_port_req_buf(%d)\n",
 			__func__, ret);
 
 	return ret;
@@ -533,7 +533,7 @@ static int v4l2_ioctl_querybuf(struct file *file,
 	unsigned int i;
 	int ret;
 
-	vpu_dbg(LVL_INFO, "%s()\n", __func__);
+	vpu_dbg(LVL_DEBUG, "%s()\n", __func__);
 
 	if (buf->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
 		q_data = &ctx->q_data[V4L2_SRC];
@@ -648,7 +648,7 @@ static int v4l2_ioctl_qbuf(struct file *file,
 	struct queue_data *q_data;
 	int ret;
 
-	vpu_dbg(LVL_INFO, "%s()\n", __func__);
+	vpu_dbg(LVL_DEBUG, "%s()\n", __func__);
 
 	if (buf->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
 		q_data = &ctx->q_data[V4L2_SRC];
@@ -679,7 +679,7 @@ static int v4l2_ioctl_dqbuf(struct file *file,
 	struct queue_data *q_data;
 	int ret;
 
-	vpu_dbg(LVL_INFO, "%s()\n", __func__);
+	vpu_dbg(LVL_DEBUG, "%s()\n", __func__);
 
 	if (buf->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
 		q_data = &ctx->q_data[V4L2_SRC];
@@ -738,7 +738,7 @@ static int v4l2_ioctl_g_crop(struct file *file,
 		struct v4l2_crop *cr
 		)
 {
-	vpu_dbg(LVL_INFO, "%s()\n", __func__);
+	vpu_dbg(LVL_DEBUG, "%s()\n", __func__);
 	cr->c.left = 0;
 	cr->c.top = 0;
 	cr->c.width = 0;
@@ -754,7 +754,7 @@ static int v4l2_ioctl_encoder_cmd(struct file *file,
 {
 	struct vpu_ctx *ctx = v4l2_fh_to_ctx(fh);
 	u_int32 uStrIdx = ctx->str_index;
-	vpu_dbg(LVL_INFO, "%s()\n", __func__);
+	vpu_dbg(LVL_DEBUG, "%s()\n", __func__);
 
 	switch (cmd->cmd) {
 	case V4L2_ENC_CMD_START:
@@ -784,7 +784,7 @@ static int v4l2_ioctl_streamon(struct file *file,
 	struct queue_data *q_data;
 	int ret;
 
-	vpu_dbg(LVL_INFO, "%s(), type=%d\n", __func__, i);
+	vpu_dbg(LVL_DEBUG, "%s(), type=%d\n", __func__, i);
 
 	if (i == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
 		q_data = &ctx->q_data[V4L2_SRC];
@@ -807,7 +807,7 @@ static int v4l2_ioctl_streamoff(struct file *file,
 	struct queue_data *q_data;
 	int ret;
 
-	vpu_dbg(LVL_INFO, "%s(), type=%d\n", __func__, i);
+	vpu_dbg(LVL_DEBUG, "%s(), type=%d\n", __func__, i);
 
 	if (i == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
 		q_data = &ctx->q_data[V4L2_SRC];
@@ -947,7 +947,7 @@ static void v4l2_transfer_buffer_to_firmware(struct queue_data *This, struct vb2
 	pMEDIA_ENC_API_CONTROL_INTERFACE pEncCtrlInterface;
 	u_int32 uStrIdx = ctx->str_index;
 
-	vpu_dbg(LVL_INFO, "ENC_RPC_HOST_IFACE(%ld)MEDIA_ENC_API_CONTROL_INTERFACE(%ld) EncYUVBufferDesc(%ld) expertParam(%ld) encparam(%ld) MEDIAIP_ENC_FMT(%ld)\n",
+	vpu_dbg(LVL_DEBUG, "ENC_RPC_HOST_IFACE(%ld)MEDIA_ENC_API_CONTROL_INTERFACE(%ld) EncYUVBufferDesc(%ld) expertParam(%ld) encparam(%ld) MEDIAIP_ENC_FMT(%ld)\n",
 			sizeof(ENC_RPC_HOST_IFACE), sizeof(MEDIA_ENC_API_CONTROL_INTERFACE),
 			sizeof(BUFFER_DESCRIPTOR_TYPE), sizeof(MEDIAIP_ENC_EXPERT_MODE_PARAM),
 			sizeof(MEDIAIP_ENC_PARAM), sizeof(MEDIAIP_ENC_FMT)
@@ -974,10 +974,10 @@ static void v4l2_transfer_buffer_to_firmware(struct queue_data *This, struct vb2
 
 #ifdef DUMP_DATA
 		read_data = (char *)vb2_plane_vaddr(vb, 0);
-		vpu_dbg(LVL_INFO, "transfer data from virt 0x%p: ", read_data);
+		vpu_dbg(LVL_DEBUG, "transfer data from virt 0x%p: ", read_data);
 		for (read_idx = 0; read_idx < DATA_NUM; read_idx++)
-			vpu_dbg(LVL_INFO, " 0x%x", read_data[read_idx]);
-		vpu_dbg(LVL_INFO, "\n");
+			vpu_dbg(LVL_DEBUG, " 0x%x", read_data[read_idx]);
+		vpu_dbg(LVL_DEBUG, "\n");
  #endif
 		vpu_dbg(LVL_INFO, "enter %s, start_flag %d, index=%d,firmware_started=%d\n",
 					__func__, ctx->start_flag, ctx->str_index,
@@ -1023,7 +1023,7 @@ static bool update_yuv_addr(struct vpu_ctx *ctx, u_int32 uStrIdx)
 				(!list_empty(&This->drv_q)) || ctx->forceStop,
 				msecs_to_jiffies(10))) {
 			if (!ctx->forceStop)
-				vpu_dbg(LVL_INFO, " warn: yuv wait_event_interruptible_timeout wait 10ms timeout\n");
+				vpu_dbg(LVL_DEBUG, " warn: yuv wait_event_interruptible_timeout wait 10ms timeout\n");
 			else
 				break;
 		}
@@ -1040,10 +1040,10 @@ static bool update_yuv_addr(struct vpu_ctx *ctx, u_int32 uStrIdx)
 
 #ifdef DUMP_DATA
 		read_data = (char *)vb2_plane_vaddr(p_data_req->vb2_buf, 0);
-		vpu_dbg(LVL_INFO, "transfer data from virt 0x%p: ", read_data);
+		vpu_dbg(LVL_DEBUG, "transfer data from virt 0x%p: ", read_data);
 		for (read_idx = 0; read_idx < DATA_NUM; read_idx++)
-			vpu_dbg(LVL_INFO, " 0x%x", read_data[read_idx]);
-		vpu_dbg(LVL_INFO, "\n");
+			vpu_dbg(LVL_DEBUG, " 0x%x", read_data[read_idx]);
+		vpu_dbg(LVL_DEBUG, "\n");
  #endif
 		pphy_address = (u_int32 *)vb2_plane_cookie(p_data_req->vb2_buf, 0);
 		pParamYuvBuffDesc->uLumaBase = *pphy_address + p_data_req->vb2_buf->planes[0].data_offset;
@@ -1101,13 +1101,13 @@ static void report_stream_done(struct vpu_ctx *ctx,  MEDIAIP_ENC_PIC_INFO *pEncP
 	end = pEncStrBuffDesc->end | 0x80000000;
 	rptr_virt = ctx->encoder_stream.virt_addr + rptr - start;
 
-	vpu_dbg(LVL_INFO, "report_stream_done eptr=%x, rptr=%x, start=%x, end=%x\n", wptr, rptr, start, end);
+	vpu_dbg(LVL_DEBUG, "report_stream_done eptr=%x, rptr=%x, start=%x, end=%x\n", wptr, rptr, start, end);
 	while (1) {
 		if (!wait_event_interruptible_timeout(ctx->buffer_wq_output,
 				(!list_empty(&This->drv_q)),
 				msecs_to_jiffies(10))) {
 			if (!ctx->forceStop)
-				vpu_dbg(LVL_INFO, " warn: stream wait_event_interruptible_timeout wait 10ms timeout\n");
+				vpu_dbg(LVL_DEBUG, " warn: stream wait_event_interruptible_timeout wait 10ms timeout\n");
 			else
 				break;
 		}
@@ -1121,12 +1121,12 @@ static void report_stream_done(struct vpu_ctx *ctx,  MEDIAIP_ENC_PIC_INFO *pEncP
 	if (!list_empty(&This->drv_q)) {
 		down(&This->drv_q_lock);
 
-		vpu_dbg(LVL_INFO, "report_stream_done down\n");
+		vpu_dbg(LVL_DEBUG, "report_stream_done down\n");
 
 		p_data_req = list_first_entry(&This->drv_q, typeof(*p_data_req), list);
 
-		vpu_dbg(LVL_INFO, "%s :p_data_req(%p)\n", __func__, p_data_req);
-		vpu_dbg(LVL_INFO, "%s buf_id %d\n", __func__, p_data_req->vb2_buf->index);
+		vpu_dbg(LVL_DEBUG, "%s :p_data_req(%p)\n", __func__, p_data_req);
+		vpu_dbg(LVL_DEBUG, "%s buf_id %d\n", __func__, p_data_req->vb2_buf->index);
 
 		// Calculate length - the amount of space remaining in output stream buffer
 		length = p_data_req->vb2_buf->planes[0].length;
@@ -1143,7 +1143,7 @@ static void report_stream_done(struct vpu_ctx *ctx,  MEDIAIP_ENC_PIC_INFO *pEncP
 		p_data_req->vb2_buf->planes[0].bytesused = data_length;
 	length = p_data_req->vb2_buf->planes[0].bytesused;
 
-	vpu_dbg(LVL_INFO, "%s data_length %d, length %d\n", __func__, data_length, length);
+	vpu_dbg(LVL_DEBUG, "%s data_length %d, length %d\n", __func__, data_length, length);
 	/* Following calculations determine how much data we can transfer into p_vb2_buf
 	 * and then only copy that ammount, so rptr is the actual consumed ammount at the end*/
 	if ((wptr == rptr) || (rptr > wptr)) {
@@ -1188,7 +1188,7 @@ static void report_stream_done(struct vpu_ctx *ctx,  MEDIAIP_ENC_PIC_INFO *pEncP
 	if (p_data_req->vb2_buf->state == VB2_BUF_STATE_ACTIVE)
 		vb2_buffer_done(p_data_req->vb2_buf, VB2_BUF_STATE_DONE);
 	}
-	vpu_dbg(LVL_INFO, "report_buffer_done return\n");
+	vpu_dbg(LVL_DEBUG, "report_buffer_done return\n");
 }
 
 static int alloc_dma_buffer(struct vpu_dev *dev, struct buffer_addr *buffer)
@@ -1303,18 +1303,18 @@ static void vpu_api_event_handler(struct vpu_ctx *ctx, u_int32 uStrIdx, u_int32 
 		case VID_API_ENC_EVENT_FRAME_DONE: {
 		MEDIAIP_ENC_PIC_INFO *pEncPicInfo = (MEDIAIP_ENC_PIC_INFO *)event_data;
 
-		vpu_dbg(LVL_INFO, "VID_API_ENC_EVENT_FRAME_DONE pEncPicInfo->uPicEncodDone=%d: Encode picture done\n", pEncPicInfo->uPicEncodDone);
+		vpu_dbg(LVL_DEBUG, "VID_API_ENC_EVENT_FRAME_DONE pEncPicInfo->uPicEncodDone=%d: Encode picture done\n", pEncPicInfo->uPicEncodDone);
 		if (pEncPicInfo->uPicEncodDone) {
 #ifdef TB_REC_DBG
-		vpu_dbg(LVL_INFO, "       - Frame ID      : 0x%x\n", pEncPicInfo->uFrameID);
+		vpu_dbg(LVL_DEBUG, "       - Frame ID      : 0x%x\n", pEncPicInfo->uFrameID);
 
-		vpu_dbg(LVL_INFO, "       - Picture Type  : %s\n", pEncPicInfo->ePicType == MEDIAIP_ENC_PIC_TYPE_B_FRAME ? "B picture" :
+		vpu_dbg(LVL_DEBUG, "       - Picture Type  : %s\n", pEncPicInfo->ePicType == MEDIAIP_ENC_PIC_TYPE_B_FRAME ? "B picture" :
 		pEncPicInfo->ePicType == MEDIAIP_ENC_PIC_TYPE_P_FRAME ? "P picture" :
 		pEncPicInfo->ePicType == MEDIAIP_ENC_PIC_TYPE_I_FRAME ? "I picture" :
 		pEncPicInfo->ePicType == MEDIAIP_ENC_PIC_TYPE_IDR_FRAME ? "IDR picture" : "BI picture");
-		vpu_dbg(LVL_INFO, "       - Skipped frame : 0x%x\n", pEncPicInfo->uSkippedFrame);
-		vpu_dbg(LVL_INFO, "       - Frame size    : 0x%x\n", pEncPicInfo->uFrameSize);
-		vpu_dbg(LVL_INFO, "       - Frame CRC     : 0x%x\n", pEncPicInfo->uFrameCrc);
+		vpu_dbg(LVL_DEBUG, "       - Skipped frame : 0x%x\n", pEncPicInfo->uSkippedFrame);
+		vpu_dbg(LVL_DEBUG, "       - Frame size    : 0x%x\n", pEncPicInfo->uFrameSize);
+		vpu_dbg(LVL_DEBUG, "       - Frame CRC     : 0x%x\n", pEncPicInfo->uFrameCrc);
 #endif
 
 		/* Sync the write pointer to the local view of it */
@@ -1327,7 +1327,7 @@ static void vpu_api_event_handler(struct vpu_ctx *ctx, u_int32 uStrIdx, u_int32 
 		u_int32 *uFrameID = (u_int32 *)event_data;
 		struct vb2_data_req *p_data_req;
 
-		vpu_dbg(LVL_INFO, "VID_API_ENC_EVENT_FRAME_RELEASE : Frame release - uFrameID = 0x%x\n", *uFrameID);
+		vpu_dbg(LVL_DEBUG, "VID_API_ENC_EVENT_FRAME_RELEASE : Frame release - uFrameID = 0x%x\n", *uFrameID);
 		p_data_req = &This->vb2_reqs[*uFrameID];
 		if (p_data_req->vb2_buf->state == VB2_BUF_STATE_ACTIVE)
 			vb2_buffer_done(p_data_req->vb2_buf,
@@ -1351,7 +1351,7 @@ static void vpu_api_event_handler(struct vpu_ctx *ctx, u_int32 uStrIdx, u_int32 
 		case VID_API_ENC_EVENT_TERMINATE_DONE:
 		break;
 		default:
-		vpu_dbg(LVL_INFO, "........unknown event : 0x%x\n", uEvent);
+		vpu_dbg(LVL_ERR, "........unknown event : 0x%x\n", uEvent);
 		break;
 		}
 	}
@@ -1504,7 +1504,7 @@ static int vpu_queue_setup(struct vb2_queue *vq,
 {
 	struct queue_data  *This = (struct queue_data *)vq->drv_priv;
 
-	vpu_dbg(LVL_INFO, "%s() is called\n", __func__);
+	vpu_dbg(LVL_DEBUG, "%s() is called\n", __func__);
 
 	if ((vq->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) ||
 		(vq->type == V4L2_BUF_TYPE_VIDEO_CAPTURE)
@@ -1526,7 +1526,7 @@ static int vpu_queue_setup(struct vb2_queue *vq,
 
 static int vpu_buf_prepare(struct vb2_buffer *vb)
 {
-	vpu_dbg(LVL_INFO, "%s() is called\n", __func__);
+	vpu_dbg(LVL_DEBUG, "%s() is called\n", __func__);
 	return 0;
 }
 
@@ -1535,7 +1535,7 @@ static int vpu_start_streaming(struct vb2_queue *q,
 		unsigned int count
 		)
 {
-	vpu_dbg(LVL_INFO, "%s() is called\n", __func__);
+	vpu_dbg(LVL_DEBUG, "%s() is called\n", __func__);
 	return 0;
 }
 
@@ -1547,12 +1547,12 @@ static void vpu_stop_streaming(struct vb2_queue *q)
 	struct vb2_data_req *p_temp;
 	struct vb2_buffer *vb;
 
-	vpu_dbg(LVL_INFO, "%s() is called\n", __func__);
+	vpu_dbg(LVL_DEBUG, "%s() is called\n", __func__);
 
 	down(&This->drv_q_lock);
 	if (!list_empty(&This->drv_q)) {
 		list_for_each_entry_safe(p_data_req, p_temp, &This->drv_q, list) {
-			vpu_dbg(LVL_INFO, "%s(%d) - list_del(%p)\n",
+			vpu_dbg(LVL_DEBUG, "%s(%d) - list_del(%p)\n",
 					__func__,
 					p_data_req->id,
 					p_data_req
@@ -1574,17 +1574,17 @@ static void vpu_buf_queue(struct vb2_buffer *vb)
 	struct queue_data   *This = (struct queue_data *)vq->drv_priv;
 	struct vb2_data_req *data_req;
 
-	vpu_dbg(LVL_INFO, "%s() is called\n", __func__);
+	vpu_dbg(LVL_DEBUG, "%s() is called\n", __func__);
 
 	down(&This->drv_q_lock);
-	vpu_dbg(LVL_INFO, "c_port_buf_queue down\n");
+	vpu_dbg(LVL_DEBUG, "c_port_buf_queue down\n");
 	data_req = &This->vb2_reqs[vb->index];
 	data_req->vb2_buf = vb;
 	data_req->id = vb->index;
 	list_add_tail(&data_req->list, &This->drv_q);
 
 	up(&This->drv_q_lock);
-	vpu_dbg(LVL_INFO, "c_port_buf_queue up vq->type=%d\n", vq->type);
+	vpu_dbg(LVL_DEBUG, "c_port_buf_queue up vq->type=%d\n", vq->type);
 
 	if (vq->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
 		v4l2_transfer_buffer_to_firmware(This, vb);
@@ -1592,12 +1592,12 @@ static void vpu_buf_queue(struct vb2_buffer *vb)
 
 static void vpu_prepare(struct vb2_queue *q)
 {
-	vpu_dbg(LVL_INFO, "%s() is called\n", __func__);
+	vpu_dbg(LVL_DEBUG, "%s() is called\n", __func__);
 }
 
 static void vpu_finish(struct vb2_queue *q)
 {
-	vpu_dbg(LVL_INFO, "%s() is called\n", __func__);
+	vpu_dbg(LVL_DEBUG, "%s() is called\n", __func__);
 }
 
 static struct vb2_ops v4l2_qops = {
@@ -1617,7 +1617,7 @@ static void init_vb2_queue(struct queue_data *This, unsigned int type,
 	struct vb2_queue  *vb2_q = &This->vb2_q;
 	int ret;
 
-	vpu_dbg(LVL_INFO, "%s()\n", __func__);
+	vpu_dbg(LVL_DEBUG, "%s()\n", __func__);
 
 	// initialze driver queue
 	INIT_LIST_HEAD(&This->drv_q);
@@ -1707,7 +1707,7 @@ static int vpu_firmware_download(struct vpu_dev *This, u_int32 core_id)
 		}
 		return ret;
 	} else {
-		vpu_dbg(LVL_INFO, "%s() request fw %s got size(%d)\n",
+		vpu_dbg(LVL_DEBUG, "%s() request fw %s got size(%d)\n",
 			__func__, M0FW_FILENAME, (int)This->m0_pfw->size);
 		image = (uint8_t *)This->m0_pfw->data;
 		FW_Size = This->m0_pfw->size;
@@ -2056,7 +2056,7 @@ static int v4l2_open(struct file *filp)
 	struct vpu_ctx *ctx = NULL;
 	int ret;
 
-	vpu_dbg(LVL_INFO, "%s()\n", __func__);
+	vpu_dbg(LVL_DEBUG, "%s()\n", __func__);
 
 	ctx = create_and_request_instance(dev);
 	if (!ctx) {
@@ -2106,7 +2106,7 @@ static int v4l2_release(struct file *filp)
 	struct vpu_ctx *ctx = v4l2_fh_to_ctx(filp->private_data);
 	u_int32 i;
 
-	vpu_dbg(LVL_INFO, "%s()\n", __func__);
+	vpu_dbg(LVL_DEBUG, "%s()\n", __func__);
 
 	if (!ctx->forceStop && !ctx->start_flag) {
 		//need send stop if app call release without calling of V4L2_ENC_CMD_STOP
@@ -2157,13 +2157,13 @@ static unsigned int v4l2_poll(struct file *filp, poll_table *wait)
 	struct vb2_queue *src_q, *dst_q;
 	unsigned int rc = 0;
 
-	vpu_dbg(LVL_INFO, "%s()\n", __func__);
+	vpu_dbg(LVL_DEBUG, "%s()\n", __func__);
 
 	if (ctx) {
 		poll_wait(filp, &ctx->fh.wait, wait);
 
 		if (v4l2_event_pending(&ctx->fh)) {
-			vpu_dbg(LVL_INFO, "%s() v4l2_event_pending\n", __func__);
+			vpu_dbg(LVL_DEBUG, "%s() v4l2_event_pending\n", __func__);
 			rc |= POLLPRI;
 		}
 
@@ -2196,7 +2196,7 @@ static int v4l2_mmap(struct file *filp, struct vm_area_struct *vma)
 
 	struct vpu_ctx *ctx = v4l2_fh_to_ctx(filp->private_data);
 
-	vpu_dbg(LVL_INFO, "%s()\n", __func__);
+	vpu_dbg(LVL_DEBUG, "%s()\n", __func__);
 
 	if (ctx) {
 		type = offset >> MMAP_BUF_TYPE_SHIFT;
