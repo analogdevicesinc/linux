@@ -15,4 +15,6 @@
 #define VPU_ENC_WIDTH_STEP		2
 #define VPU_ENC_HEIGHT_STEP		2
 
+#define VPU_ENC_FRAMERATE_DEFAULT	30
+
 #endif

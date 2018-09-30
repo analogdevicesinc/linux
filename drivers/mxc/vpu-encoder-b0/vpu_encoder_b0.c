@@ -161,6 +161,40 @@ static struct vpu_v4l2_fmt  formats_yuv_enc[] = {
 		.is_yuv     = 1,
 	},
 };
+
+static struct v4l2_fract vpu_fps_list[] = {
+	{1, 30},
+	{1, 29},
+	{1, 28},
+	{1, 27},
+	{1, 26},
+	{1, 25},
+	{1, 24},
+	{1, 23},
+	{1, 22},
+	{1, 21},
+	{1, 20},
+	{1, 19},
+	{1, 18},
+	{1, 17},
+	{1, 16},
+	{1, 15},
+	{1, 14},
+	{1, 13},
+	{1, 12},
+	{1, 11},
+	{1, 10},
+	{1, 9},
+	{1, 8},
+	{1, 7},
+	{1, 6},
+	{1, 5},
+	{1, 4},
+	{1, 3},
+	{1, 2},
+	{1, 1},
+};
+
 static void v4l2_vpu_send_cmd(struct vpu_ctx *ctx, uint32_t idx, uint32_t cmdid, uint32_t cmdnum, uint32_t *local_cmddata);
 
 static void MU_sendMesgToFW(void __iomem *base, MSG_Type type, uint32_t value)
@@ -242,6 +276,22 @@ static int v4l2_ioctl_enum_framesizes(struct file *file, void *fh,
 	return 0;
 }
 
+static int v4l2_ioctl_enum_frameintervals(struct file *file, void *fh,
+						struct v4l2_frmivalenum *fival)
+{
+	if (!fival)
+		return -EINVAL;
+
+	if (fival->index >= ARRAY_SIZE(vpu_fps_list))
+		return -EINVAL;
+
+	fival->type = V4L2_FRMIVAL_TYPE_DISCRETE;
+	fival->discrete.numerator = vpu_fps_list[fival->index].numerator;
+	fival->discrete.denominator = vpu_fps_list[fival->index].denominator;
+
+	return 0;
+}
+
 static int v4l2_ioctl_g_fmt(struct file *file,
 		void *fh,
 		struct v4l2_format *f
@@ -312,7 +362,7 @@ static int initialize_enc_param(struct vpu_ctx *ctx)
 	param->tEncMemDesc.uMemPhysAddr = ctx->encoder_mem.phy_addr;
 	param->tEncMemDesc.uMemVirtAddr = ctx->encoder_mem.phy_addr;
 	param->tEncMemDesc.uMemSize     = ctx->encoder_mem.size;
-	param->uFrameRate = 30;
+	param->uFrameRate = VPU_ENC_FRAMERATE_DEFAULT;
 	param->uMinBitRate = BITRATE_LOW_THRESHOLD;
 
 	mutex_unlock(&ctx->instance_mutex);
@@ -496,6 +546,90 @@ static int v4l2_ioctl_s_fmt(struct file *file,
 	}
 
 	return ret;
+}
+
+static int v4l2_ioctl_g_parm(struct file *file, void *fh,
+				struct v4l2_streamparm *parm)
+{
+	struct vpu_ctx *ctx = v4l2_fh_to_ctx(fh);
+	pMEDIAIP_ENC_PARAM param = NULL;
+
+	if (!parm || !ctx || !ctx->enc_param)
+		return -EINVAL;
+
+	param = ctx->enc_param;
+
+	parm->parm.capture.capability = V4L2_CAP_TIMEPERFRAME;
+	parm->parm.capture.capturemode = V4L2_CAP_TIMEPERFRAME;
+	parm->parm.capture.timeperframe.numerator = 1;
+	parm->parm.capture.timeperframe.denominator = param->uFrameRate;
+	parm->parm.capture.readbuffers = 0;
+
+	return 0;
+}
+
+static int find_proper_framerate(struct v4l2_fract *fival)
+{
+	int i;
+	u32 min_delta = INT_MAX;
+	struct v4l2_fract target_fival = {0, 0};
+
+	if (!fival)
+		return -EINVAL;
+
+	for (i = 0; i < ARRAY_SIZE(vpu_fps_list); i++) {
+		struct v4l2_fract *f = &vpu_fps_list[i];
+		u32 delta;
+
+		delta = abs(fival->numerator * f->denominator -
+				fival->denominator * f->numerator);
+		if (!delta)
+			return 0;
+		if (delta < min_delta) {
+			target_fival.numerator = f->numerator;
+			target_fival.denominator = f->denominator;
+			min_delta = delta;
+		}
+	}
+	if (!target_fival.numerator || !target_fival.denominator)
+		return -EINVAL;
+
+	fival->numerator = target_fival.numerator;
+	fival->denominator = target_fival.denominator;
+
+	return 0;
+}
+
+static int v4l2_ioctl_s_parm(struct file *file, void *fh,
+				struct v4l2_streamparm *parm)
+{
+	struct vpu_ctx *ctx = v4l2_fh_to_ctx(fh);
+	struct v4l2_fract fival;
+	int ret;
+
+	if (!parm || !ctx || !ctx->enc_param)
+		return -EINVAL;
+
+	fival.numerator = parm->parm.capture.timeperframe.numerator;
+	fival.denominator = parm->parm.capture.timeperframe.denominator;
+	if (!fival.numerator || !fival.denominator)
+		return -EINVAL;
+
+	ret = find_proper_framerate(&fival);
+	if (ret) {
+		vpu_dbg(LVL_ERR, "Unsupported FPS : %d / %d\n",
+				fival.numerator, fival.denominator);
+		return ret;
+	}
+
+	mutex_lock(&ctx->instance_mutex);
+	ctx->enc_param->uFrameRate = fival.denominator / fival.numerator;
+	mutex_unlock(&ctx->instance_mutex);
+
+	parm->parm.capture.timeperframe.numerator = fival.numerator;
+	parm->parm.capture.timeperframe.denominator = fival.denominator;
+
+	return 0;
 }
 
 static int v4l2_ioctl_expbuf(struct file *file,
@@ -875,12 +1009,15 @@ static const struct v4l2_ioctl_ops v4l2_encoder_ioctl_ops = {
 	.vidioc_enum_fmt_vid_cap_mplane = v4l2_ioctl_enum_fmt_vid_cap_mplane,
 	.vidioc_enum_fmt_vid_out_mplane = v4l2_ioctl_enum_fmt_vid_out_mplane,
 	.vidioc_enum_framesizes		= v4l2_ioctl_enum_framesizes,
+	.vidioc_enum_frameintervals	= v4l2_ioctl_enum_frameintervals,
 	.vidioc_g_fmt_vid_cap_mplane    = v4l2_ioctl_g_fmt,
 	.vidioc_g_fmt_vid_out_mplane    = v4l2_ioctl_g_fmt,
 	.vidioc_try_fmt_vid_cap_mplane  = v4l2_ioctl_try_fmt,
 	.vidioc_try_fmt_vid_out_mplane  = v4l2_ioctl_try_fmt,
 	.vidioc_s_fmt_vid_cap_mplane    = v4l2_ioctl_s_fmt,
 	.vidioc_s_fmt_vid_out_mplane    = v4l2_ioctl_s_fmt,
+	.vidioc_g_parm			= v4l2_ioctl_g_parm,
+	.vidioc_s_parm			= v4l2_ioctl_s_parm,
 	.vidioc_expbuf                  = v4l2_ioctl_expbuf,
 	.vidioc_g_crop                  = v4l2_ioctl_g_crop,
 	.vidioc_encoder_cmd             = v4l2_ioctl_encoder_cmd,
