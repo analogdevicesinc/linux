@@ -145,6 +145,9 @@
 				SC_R_CSI_0
 				SC_R_CSI_0_PWM_0
 				SC_R_CSI_0_I2C_0
+				/* usbotg3 */
+				SC_R_USB_2
+				SC_R_USB_2_PHY
 			>;
 			pads = <
 				/* i2c1_lvds1 */
@@ -177,10 +180,17 @@
 				SC_P_PCIE_CTRL0_PERST_B
 				SC_P_LVDS1_I2C0_SDA
 				SC_P_USDHC2_RESET_B
+				/*usbotgs typec */
+				SC_P_QSPI1A_SS0_B
+				SC_P_USB_SS3_TC3
+				SC_P_QSPI1A_DATA0
 				>;
 			gpios = <&gpio1 13 GPIO_ACTIVE_LOW>,
 				<&gpio1 27 GPIO_ACTIVE_LOW>,
+				<&gpio4 6 GPIO_ACTIVE_LOW>,
 				<&gpio4 9 GPIO_ACTIVE_LOW>,
+				<&gpio4 19 GPIO_ACTIVE_HIGH>,
+				<&gpio4 26 GPIO_ACTIVE_HIGH>,
 				<&gpio4 27 GPIO_ACTIVE_LOW>,
 				<&gpio4 29 GPIO_ACTIVE_LOW>;
 		};
@@ -262,6 +272,12 @@
 		xen,passthrough;
 		reg = <0 0x94400000 0 0x1800000>;
 	};
+
+	gpio4_dummy: gpio4_dummy@0{
+		/* Passthrough gpio4 interrupt to DomU */
+		interrupts = <GIC_SPI 140 IRQ_TYPE_LEVEL_HIGH>;
+		xen,passthrough;
+	};
 };
 
 &mu_rpmsg1 {
@@ -339,7 +355,8 @@
 	mmu-masters = <&dpu2 0x13>, <&gpu_3d1 0x15>,
 		      <&usdhc1 0x12>, <&usbotg1 0x11>,
 		      <&edma01 0x10>, <&cm41 0x09>, <&pciea 0x08>,
-		      <&vpu_decoder 0x7>, <&crypto 0x6>, <&isi_0 0x5>;
+		      <&vpu_decoder 0x7>, <&crypto 0x6>, <&isi_0 0x5>,
+		      <&usbotg3 0x4>;
 };
 
 &lvds_region2 {
@@ -516,7 +533,18 @@
 	xen,shared;
 };
 
+&gpt0 {
+	/delete-property/ interrupts;
+	status = "disabled";
+};
+
 &gpio4 {
+	/*
+	 * Use GPT0 interrupt for hack
+	 * This could be removed when interrupt sharing be supported.
+	 */
+	interrupts = <GIC_SPI 80 IRQ_TYPE_LEVEL_HIGH>;
+	xen,domu-irq;
 	xen,shared;
 };
 
@@ -596,6 +624,10 @@
 	};
 
 	mpl3115@60 {
+		xen,passthrough;
+	};
+
+	typec_ptn5110: typec@50 {
 		xen,passthrough;
 	};
 };
@@ -685,4 +717,14 @@
 
 &i2c0_mipi_csi1 {
 	status = "okay";
+};
+
+&usbotg3_lpcg {
+	xen,passthrough;
+};
+
+&usbotg3 {
+	xen,passthrough;
+	#stream-id-cells = <1>;
+	iommus = <&smmu>;
 };

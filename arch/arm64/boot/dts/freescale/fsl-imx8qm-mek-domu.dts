@@ -610,15 +610,27 @@
 	reg = <0x0 0x5b0d0200 0x0 0x200>;
 };
 
-/delete-node/ &usbmisc2;
+&usbmisc2 {
+	status = "okay";
+};
 
 &usbphy1 {
 	reg = <0x0 0x5b100000 0x0 0x200>;
 };
 
 /delete-node/ &usbh1;
-/delete-node/ &usbotg3;
-/delete-node/ &usbphynop1;
+
+&usbotg3 {
+	/delete-property/ interrupt-parent;
+	dr_mode = "otg";
+	extcon = <&typec_ptn5110>;
+	status = "okay";
+};
+
+&usbphynop1 {
+	status = "okay";
+};
+
 /delete-node/ &usbphynop2;
 
 &usbotg1 {
@@ -774,6 +786,15 @@
 				SC_P_USDHC2_RESET_B_LSIO_GPIO4_IO09		0x04000021
 			>;
 		};
+
+		pinctrl_typec: typecgrp {
+			fsl,pins = <
+				SC_P_QSPI1A_SS0_B_LSIO_GPIO4_IO19	0x60
+				SC_P_USB_SS3_TC3_LSIO_GPIO4_IO06	0x60
+				SC_P_QSPI1A_DATA0_LSIO_GPIO4_IO26	0x00000021
+			>;
+		};
+
 	};
 };
 
@@ -853,6 +874,22 @@
 		compatible = "fsl,mpl3115";
 		reg = <0x60>;
 		interrupt-open-drain;
+	};
+
+	typec_ptn5110: typec@50 {
+		compatible = "usb,tcpci";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_typec>;
+		reg = <0x51>;
+		interrupt-parent = <&gpio4>;
+		interrupts = <26 IRQ_TYPE_LEVEL_LOW>;
+		ss-sel-gpios = <&gpio4 6 GPIO_ACTIVE_LOW>;
+		reset-gpios = <&gpio4 19 GPIO_ACTIVE_HIGH>;
+		src-pdos = <0x380190c8 0x3803c0c8>;
+		port-type = "drp";
+		sink-disable;
+		default-role = "source";
+		status = "okay";
 	};
 };
 

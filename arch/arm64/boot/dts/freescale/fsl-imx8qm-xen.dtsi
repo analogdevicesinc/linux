@@ -85,6 +85,10 @@
 		reg = <0x0 0x5b270000 0x0 0x10000>;
 	};
 
+	usbotg3_lpcg: usbotg3_lpcg@5b280000 {
+		reg = <0x0 0x5b280000 0x0 0x1000>;
+	};
+
 	sdhc1_lpcg: sdhc1_lpcg@5b200000 {
 		compatible = "fsl,imx8qm-lpuart-lpcg";
 		reg = <0x0 0x5b200000 0x0 0x10000>;
