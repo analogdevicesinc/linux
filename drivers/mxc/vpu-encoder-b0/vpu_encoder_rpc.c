@@ -52,7 +52,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <linux/stddef.h>
+#include <linux/kernel.h>
 #include "vpu_encoder_rpc.h"
 
 void rpc_init_shared_memory_encoder(struct shared_addr *This,

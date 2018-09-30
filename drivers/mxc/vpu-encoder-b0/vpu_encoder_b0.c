@@ -48,6 +48,7 @@
 
 #include "vpu_encoder_b0.h"
 #include "vpu_encoder_ctrl.h"
+#include "vpu_encoder_config.h"
 
 unsigned int vpu_dbg_level_encoder = LVL_WARN;
 
@@ -221,6 +222,26 @@ static int v4l2_ioctl_enum_fmt_vid_out_mplane(struct file *file,
 	return 0;
 }
 
+static int v4l2_ioctl_enum_framesizes(struct file *file, void *fh,
+					struct v4l2_frmsizeenum *fsize)
+{
+	if (!fsize)
+		return -EINVAL;
+
+	if (fsize->index)
+		return -EINVAL;
+
+	fsize->type = V4L2_FRMSIZE_TYPE_STEPWISE;
+	fsize->stepwise.max_width = VPU_ENC_WIDTH_MAX;
+	fsize->stepwise.max_height = VPU_ENC_HEIGHT_MAX;
+	fsize->stepwise.min_width = VPU_ENC_WIDTH_MIN;
+	fsize->stepwise.min_height = VPU_ENC_HEIGHT_MIN;
+	fsize->stepwise.step_width = VPU_ENC_WIDTH_STEP;
+	fsize->stepwise.step_height = VPU_ENC_HEIGHT_STEP;
+
+	return 0;
+}
+
 static int v4l2_ioctl_g_fmt(struct file *file,
 		void *fh,
 		struct v4l2_format *f
@@ -297,6 +318,42 @@ static int initialize_enc_param(struct vpu_ctx *ctx)
 	mutex_unlock(&ctx->instance_mutex);
 
 	return 0;
+}
+
+static int check_size(u32 width, u32 height)
+{
+	if (width < VPU_ENC_WIDTH_MIN ||
+			width > VPU_ENC_WIDTH_MAX ||
+			((width - VPU_ENC_WIDTH_MIN) % VPU_ENC_WIDTH_STEP) ||
+			height < VPU_ENC_HEIGHT_MIN ||
+			height > VPU_ENC_HEIGHT_MAX ||
+			((height - VPU_ENC_HEIGHT_MIN) % VPU_ENC_HEIGHT_STEP)) {
+		vpu_dbg(LVL_ERR, "Unsupported frame size : %dx%d\n",
+				width, height);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static int check_v4l2_fmt(struct v4l2_format *f)
+{
+	int ret = -EINVAL;
+
+	switch (f->type) {
+	case V4L2_BUF_TYPE_VIDEO_CAPTURE:
+	case V4L2_BUF_TYPE_VIDEO_OUTPUT:
+		ret = check_size(f->fmt.pix.width, f->fmt.pix.height);
+		break;
+	case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE:
+	case V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE:
+		ret = check_size(f->fmt.pix_mp.width, f->fmt.pix_mp.height);
+		break;
+	default:
+		break;
+	}
+
+	return ret;
 }
 
 static struct vpu_v4l2_fmt *find_fmt_by_fourcc(struct vpu_v4l2_fmt *fmts,
@@ -418,6 +475,10 @@ static int v4l2_ioctl_s_fmt(struct file *file,
 
 	pEncParam = ctx->enc_param;
 	vpu_dbg(LVL_DEBUG, "%s()\n", __func__);
+
+	ret = check_v4l2_fmt(f);
+	if (ret)
+		return ret;
 
 	switch (f->type) {
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE:
@@ -813,6 +874,7 @@ static const struct v4l2_ioctl_ops v4l2_encoder_ioctl_ops = {
 	.vidioc_querycap                = v4l2_ioctl_querycap,
 	.vidioc_enum_fmt_vid_cap_mplane = v4l2_ioctl_enum_fmt_vid_cap_mplane,
 	.vidioc_enum_fmt_vid_out_mplane = v4l2_ioctl_enum_fmt_vid_out_mplane,
+	.vidioc_enum_framesizes		= v4l2_ioctl_enum_framesizes,
 	.vidioc_g_fmt_vid_cap_mplane    = v4l2_ioctl_g_fmt,
 	.vidioc_g_fmt_vid_out_mplane    = v4l2_ioctl_g_fmt,
 	.vidioc_try_fmt_vid_cap_mplane  = v4l2_ioctl_try_fmt,
