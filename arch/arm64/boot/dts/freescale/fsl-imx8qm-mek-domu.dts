@@ -795,6 +795,11 @@
 			>;
 		};
 
+		pinctrl_isl29023: isl29023grp {
+			fsl,pins = <
+				SC_P_USDHC2_WP_LSIO_GPIO4_IO11		0x00000021
+			>;
+		};
 	};
 };
 
@@ -857,6 +862,16 @@
 	#size-cells = <0>;
 	clock-frequency = <100000>;
 	status = "okay";
+
+	isl29023@44 {
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_isl29023>;
+		compatible = "fsl,isl29023";
+		reg = <0x44>;
+		rext = <499>;
+		interrupt-parent = <&gpio4>;
+		interrupts = <11 2>;
+	};
 
 	fxos8700@1e {
 		compatible = "fsl,fxos8700";

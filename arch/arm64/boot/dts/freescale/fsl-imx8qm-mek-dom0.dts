@@ -184,11 +184,15 @@
 				SC_P_QSPI1A_SS0_B
 				SC_P_USB_SS3_TC3
 				SC_P_QSPI1A_DATA0
+				/* isl29023 */
+				SC_P_USDHC2_WP
+
 				>;
 			gpios = <&gpio1 13 GPIO_ACTIVE_LOW>,
 				<&gpio1 27 GPIO_ACTIVE_LOW>,
 				<&gpio4 6 GPIO_ACTIVE_LOW>,
 				<&gpio4 9 GPIO_ACTIVE_LOW>,
+				<&gpio4 11 GPIO_ACTIVE_HIGH>,
 				<&gpio4 19 GPIO_ACTIVE_HIGH>,
 				<&gpio4 26 GPIO_ACTIVE_HIGH>,
 				<&gpio4 27 GPIO_ACTIVE_LOW>,
@@ -615,6 +619,10 @@
 };
 
 &i2c0 {
+	isl29023@44 {
+		xen,passthrough;
+	};
+
 	fxos8700@1e {
 		xen,passthrough;
 	};
