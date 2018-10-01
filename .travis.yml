@@ -18,6 +18,8 @@ env:
     DTS_FILES=arch/arm/boot/dts/zynq-*.dts IMAGE=uImage
   - DEFCONFIG_NAME=adi_zynqmp_defconfig ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu-
     DTS_FILES=arch/arm64/boot/dts/xilinx/zynqmp-*.dts DTS_PREFIX=xilinx/ IMAGE=Image
+  - COMPILE_TEST=y DEFCONFIG_NAME=zynq_xcomm_adv7511_defconfig ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf-
+  - COMPILE_TEST=y DEFCONFIG_NAME=adi_zynqmp_defconfig ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu-
 
 before_install:
   - sudo apt-get update -qq
