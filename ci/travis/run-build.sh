@@ -22,6 +22,15 @@ build_default() {
 		--ignore LONG_LINE_COMMENT
 }
 
+build_compile_test() {
+	make ${DEFCONFIG_NAME}
+	make -j`getconf _NPROCESSORS_ONLN`
+}
+
 BUILD_TYPE=default
+
+if [ "$COMPILE_TEST" == "y" ] ; then
+	BUILD_TYPE=compile_test
+fi
 
 build_${BUILD_TYPE}
