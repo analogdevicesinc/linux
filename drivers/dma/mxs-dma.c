@@ -31,6 +31,7 @@
 #include <linux/list.h>
 #include <asm/irq.h>
 #include <linux/pm_runtime.h>
+#include <linux/dmapool.h>
 
 #include "dmaengine.h"
 
@@ -123,6 +124,7 @@ struct mxs_dma_chan {
 	enum dma_status			status;
 	unsigned int			flags;
 	bool				reset;
+	struct dma_pool			*ccw_pool;
 #define MXS_DMA_SG_LOOP			(1 << 0)
 #define MXS_DMA_USE_SEMAPHORE		(1 << 1)
 };
@@ -441,9 +443,9 @@ static int mxs_dma_alloc_chan_resources(struct dma_chan *chan)
 	struct device *dev = &mxs_dma->pdev->dev;
 	int ret;
 
-	mxs_chan->ccw = dma_zalloc_coherent(mxs_dma->dma_device.dev,
-					    CCW_BLOCK_SIZE,
-					    &mxs_chan->ccw_phys, GFP_KERNEL);
+	mxs_chan->ccw = dma_pool_zalloc(mxs_chan->ccw_pool,
+				       GFP_ATOMIC,
+				       &mxs_chan->ccw_phys);
 	if (!mxs_chan->ccw) {
 		ret = -ENOMEM;
 		goto err_alloc;
@@ -473,8 +475,8 @@ static int mxs_dma_alloc_chan_resources(struct dma_chan *chan)
 err_clk:
 	free_irq(mxs_chan->chan_irq, mxs_dma);
 err_irq:
-	dma_free_coherent(mxs_dma->dma_device.dev, CCW_BLOCK_SIZE,
-			mxs_chan->ccw, mxs_chan->ccw_phys);
+	dma_pool_free(mxs_chan->ccw_pool, mxs_chan->ccw,
+		      mxs_chan->ccw_phys);
 err_alloc:
 	return ret;
 }
@@ -489,8 +491,8 @@ static void mxs_dma_free_chan_resources(struct dma_chan *chan)
 
 	free_irq(mxs_chan->chan_irq, mxs_dma);
 
-	dma_free_coherent(mxs_dma->dma_device.dev, CCW_BLOCK_SIZE,
-			mxs_chan->ccw, mxs_chan->ccw_phys);
+	dma_pool_free(mxs_chan->ccw_pool, mxs_chan->ccw,
+		      mxs_chan->ccw_phys);
 
 	pm_runtime_mark_last_busy(dev);
 	pm_runtime_put_autosuspend(dev);
@@ -814,7 +816,7 @@ static struct dma_chan *mxs_dma_xlate(struct of_phandle_args *dma_spec,
 	return dma_request_channel(mask, mxs_dma_filter_fn, &param);
 }
 
-static int __init mxs_dma_probe(struct platform_device *pdev)
+static int mxs_dma_probe(struct platform_device *pdev)
 {
 	struct device_node *np = pdev->dev.of_node;
 	const struct platform_device_id *id_entry;
@@ -822,6 +824,7 @@ static int __init mxs_dma_probe(struct platform_device *pdev)
 	const struct mxs_dma_type *dma_type;
 	struct mxs_dma_engine *mxs_dma;
 	struct resource *iores;
+	struct dma_pool *ccw_pool;
 	int ret, i;
 
 	mxs_dma = devm_kzalloc(&pdev->dev, sizeof(*mxs_dma), GFP_KERNEL);
@@ -869,7 +872,6 @@ static int __init mxs_dma_probe(struct platform_device *pdev)
 		tasklet_init(&mxs_chan->tasklet, mxs_dma_tasklet,
 			     (unsigned long) mxs_chan);
 
-
 		/* Add the channel to mxs_chan list */
 		list_add_tail(&mxs_chan->chan.device_node,
 			&mxs_dma->dma_device.channels);
@@ -884,6 +886,16 @@ static int __init mxs_dma_probe(struct platform_device *pdev)
 
 	mxs_dma->dma_device.dev = &pdev->dev;
 	dev_set_drvdata(&pdev->dev, mxs_dma);
+
+	/* create the dma pool */
+	ccw_pool = dma_pool_create("ccw_pool",
+					     mxs_dma->dma_device.dev,
+					     CCW_BLOCK_SIZE, 32, 0);
+
+	for (i = 0; i < MXS_DMA_CHANNELS; i++) {
+		struct mxs_dma_chan *mxs_chan = &mxs_dma->mxs_chans[i];
+		mxs_chan->ccw_pool = ccw_pool;
+	}
 
 	/* mxs_dma gets 65535 bytes maximum sg size */
 	mxs_dma->dma_device.dev->dma_parms = &mxs_dma->dma_parms;
@@ -917,6 +929,23 @@ static int __init mxs_dma_probe(struct platform_device *pdev)
 	}
 
 	dev_info(mxs_dma->dma_device.dev, "initialized\n");
+
+	return 0;
+}
+
+static int mxs_dma_remove(struct platform_device *pdev)
+{
+	struct mxs_dma_engine *mxs_dma = platform_get_drvdata(pdev);
+	int i;
+
+	dma_async_device_unregister(&mxs_dma->dma_device);
+	dma_pool_destroy(mxs_dma->mxs_chans[0].ccw_pool);
+
+	for (i = 0; i < MXS_DMA_CHANNELS; i++) {
+		struct mxs_dma_chan *mxs_chan = &mxs_dma->mxs_chans[i];
+		tasklet_kill(&mxs_chan->tasklet);
+		mxs_chan->ccw_pool = NULL;
+	}
 
 	return 0;
 }
@@ -977,10 +1006,8 @@ static struct platform_driver mxs_dma_driver = {
 		.of_match_table = mxs_dma_dt_ids,
 	},
 	.id_table	= mxs_dma_ids,
+	.remove		= mxs_dma_remove,
+	.probe		= mxs_dma_probe,
 };
 
-static int __init mxs_dma_module_init(void)
-{
-	return platform_driver_probe(&mxs_dma_driver, mxs_dma_probe);
-}
-subsys_initcall(mxs_dma_module_init);
+module_platform_driver(mxs_dma_driver);
