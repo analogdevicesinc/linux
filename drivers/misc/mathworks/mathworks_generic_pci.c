@@ -73,7 +73,7 @@ static int mathworks_generic_pci_probe(struct pci_dev *pdev,
 
     thisIpcore->nirq = pci_msi_vec_count(pdev);
     if (thisIpcore->nirq > 0){
-    	thisIpcore->nirq = pci_enable_msi_range(pdev, 1, thisIpcore->nirq);
+    	thisIpcore->nirq = pci_alloc_irq_vectors(pdev, 1, thisIpcore->nirq, PCI_IRQ_MSI);
 		if(thisIpcore->nirq < 1) {
 			dev_err(&pdev->dev, "Failed to allocate at least 1 MSI\n");
 			return thisIpcore->nirq;
@@ -86,6 +86,7 @@ static int mathworks_generic_pci_probe(struct pci_dev *pdev,
 	if(status)
 	{
 		dev_err(&pdev->dev, "device registration failed: %d\n", status);
+		pci_free_irq_vectors(pdev);
 		return status;
 	}
 
@@ -99,6 +100,7 @@ static void mathworks_generic_pci_remove(struct pci_dev *pdev)
     struct mathworks_ip_info *thisIpcore = dev_get_drvdata(&pdev->dev);
     dev_info(thisIpcore->dev, "%s : free and release memory\n", thisIpcore->name);
     pci_clear_master(pdev);
+    pci_free_irq_vectors(pdev);
 }
 
 static struct pci_device_id mathworks_generic_pci_ids[ ] = {
