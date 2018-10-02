@@ -1,0 +1,14 @@
+* XEN frontend i2c controller
+
+Required properties:
+- compatible :
+  - "xen,i2c" for xen i2c frontend
+- be-adapter : the backend i2c adapter name
+
+Examples:
+
+xen_i2c0: xen_i2c@0 {
+	compatible = "xen,i2c";
+	be-adapter = "5a800000.i2c";
+	status = "okay";
+};
