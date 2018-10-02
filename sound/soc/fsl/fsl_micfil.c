@@ -745,8 +745,7 @@ static inline int get_pdm_clk(struct fsl_micfil *micfil,
 		    >> MICFIL_CTRL2_CICOSR_SHIFT);
 
 	regmap_read(micfil->regmap, REG_MICFIL_CTRL2, &ctrl2_reg);
-	qsel = ((ctrl2_reg & MICFIL_CTRL2_QSEL_MASK)
-		>> MICFIL_CTRL2_QSEL_SHIFT);
+	qsel = ctrl2_reg & MICFIL_CTRL2_QSEL_MASK;
 
 	switch (qsel) {
 	case MICFIL_HIGH_QUALITY:
