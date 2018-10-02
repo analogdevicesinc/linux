@@ -38,7 +38,7 @@
 	status = "okay";
 	max-res = <1080>, <1920>;
 
-	assigned-clocks = <&clk IMX8MQ_CLK_LCDIF_PIXEL_SRC>,
+	assigned-clocks = <&clk IMX8MQ_CLK_LCDIF_PIXEL>,
 			  <&clk IMX8MQ_VIDEO_PLL1_REF_SEL>,
 			  <&clk IMX8MQ_VIDEO_PLL1>;
 	assigned-clock-parents = <&clk IMX8MQ_VIDEO_PLL1_OUT>,
@@ -62,8 +62,8 @@
 	status = "okay";
 	as_bridge;
 	sync-pol = <1>;
-	assigned-clocks = <&clk IMX8MQ_CLK_DSI_PHY_REF_SRC>,
-			  <&clk IMX8MQ_CLK_DSI_CORE_SRC>,
+	assigned-clocks = <&clk IMX8MQ_CLK_DSI_PHY_REF>,
+			  <&clk IMX8MQ_CLK_DSI_CORE>,
 			  <&clk IMX8MQ_VIDEO_PLL1_REF_SEL>,
 			  <&clk IMX8MQ_VIDEO_PLL1>;
 	assigned-clock-parents = <&clk IMX8MQ_VIDEO_PLL1_OUT>,

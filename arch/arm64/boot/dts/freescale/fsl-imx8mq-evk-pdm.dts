@@ -39,9 +39,8 @@
 &sai3 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_sai3>;
-	assigned-clocks = <&clk IMX8MQ_CLK_SAI3_SRC>,
-			<&clk IMX8MQ_CLK_SAI3_DIV>;
+	assigned-clocks = <&clk IMX8MQ_CLK_SAI3>;
 	assigned-clock-parents = <&clk IMX8MQ_AUDIO_PLL1_OUT>;
-	assigned-clock-rates = <0>, <24576000>;
+	assigned-clock-rates = <24576000>;
 	status = "okay";
 };

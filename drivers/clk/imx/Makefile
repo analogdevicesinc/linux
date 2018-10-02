@@ -36,5 +36,5 @@ obj-$(CONFIG_SOC_VF610)  += clk-vf610.o
 #
 obj-$(CONFIG_ARCH_FSL_IMX8QM)	+= clk.o clk-imx8qm.o clk-imx8.o clk-divider-scu.o clk-gate-scu.o clk-mux-scu.o
 obj-$(CONFIG_ARCH_FSL_IMX8QXP)	+= clk.o clk-imx8qxp.o clk-imx8.o clk-divider-scu.o clk-gate-scu.o clk-mux-scu.o
-obj-$(CONFIG_ARCH_FSL_IMX8MQ)	+= clk.o clk-imx8mq.o clk-frac-pll.o clk-sccg-pll.o clk-gate2.o
+obj-$(CONFIG_ARCH_FSL_IMX8MQ)	+= clk.o clk-imx8mq.o clk-frac-pll.o clk-sccg-pll.o clk-gate2.o clk-composite-8m.o
 obj-$(CONFIG_ARCH_FSL_IMX8MM)	+= clk.o clk-imx8mm.o clk-intpll.o clk-gate2.o clk-cpu.o

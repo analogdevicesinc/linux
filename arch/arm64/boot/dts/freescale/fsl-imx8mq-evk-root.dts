@@ -26,14 +26,13 @@
 };
 
 &clk {
-	init-on-array = <IMX8MQ_CLK_DRAM_CORE IMX8MQ_CLK_AHB_CG
-			 IMX8MQ_CLK_NOC_CG IMX8MQ_CLK_NOC_APB_CG
-			 IMX8MQ_CLK_USB_BUS_CG
-			 IMX8MQ_CLK_MAIN_AXI_CG IMX8MQ_CLK_A53_CG
-			 IMX8MQ_CLK_AUDIO_AHB_DIV IMX8MQ_CLK_TMU_ROOT
-			 IMX8MQ_CLK_DRAM_APB_DIV
-			 IMX8MQ_CLK_NOC_CG IMX8MQ_CLK_NOC_APB_CG
-			 IMX8MQ_CLK_NAND_USDHC_BUS_CG>;
+	init-on-array = <IMX8MQ_CLK_DRAM_CORE IMX8MQ_CLK_AHB
+			 IMX8MQ_CLK_NOC IMX8MQ_CLK_NOC_APB
+			 IMX8MQ_CLK_USB_BUS
+			 IMX8MQ_CLK_MAIN_AXI IMX8MQ_CLK_A53_CG
+			 IMX8MQ_CLK_AUDIO_AHB IMX8MQ_CLK_TMU_ROOT
+			 IMX8MQ_CLK_DRAM_APB
+			 IMX8MQ_CLK_NAND_USDHC_BUS>;
 };
 
 &iomuxc {
@@ -91,8 +90,8 @@
 &uart1 {
 	/* uart2 is used by the 2nd OS, so configure pin and clk */
 	pinctrl-0 = <&pinctrl_uart1>, <&pinctrl_uart2>;
-	assigned-clocks = <&clk IMX8MQ_CLK_UART1_SRC>,
-			<&clk IMX8MQ_CLK_UART2_SRC>;
+	assigned-clocks = <&clk IMX8MQ_CLK_UART1>,
+			<&clk IMX8MQ_CLK_UART2>;
 	assigned-clock-parents = <&clk IMX8MQ_CLK_25M>,
 			<&clk IMX8MQ_CLK_25M>;
 };

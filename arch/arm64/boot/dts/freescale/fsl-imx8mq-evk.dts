@@ -584,12 +584,11 @@
 		status = "okay";
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_csi2_pwn>, <&pinctrl_csi_rst>;
-		clocks = <&clk IMX8MQ_CLK_CLKO2_DIV>;
+		clocks = <&clk IMX8MQ_CLK_CLKO2>;
 		clock-names = "csi_mclk";
-		assigned-clocks = <&clk IMX8MQ_CLK_CLKO2_SRC>,
-				  <&clk IMX8MQ_CLK_CLKO2_DIV>;
+		assigned-clocks = <&clk IMX8MQ_CLK_CLKO2>;
 		assigned-clock-parents = <&clk IMX8MQ_SYS2_PLL_200M>;
-		assigned-clock-rates = <0>, <20000000>;
+		assigned-clock-rates = <20000000>;
 		csi_id = <1>;
 		pwn-gpios = <&gpio1 5 GPIO_ACTIVE_HIGH>;
 		mclk = <20000000>;
@@ -615,12 +614,11 @@
 		status = "okay";
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_csi1_pwn>;
-		clocks = <&clk IMX8MQ_CLK_CLKO2_DIV>;
+		clocks = <&clk IMX8MQ_CLK_CLKO2>;
 		clock-names = "csi_mclk";
-		assigned-clocks = <&clk IMX8MQ_CLK_CLKO2_SRC>,
-				  <&clk IMX8MQ_CLK_CLKO2_DIV>;
+		assigned-clocks = <&clk IMX8MQ_CLK_CLKO2>;
 		assigned-clock-parents = <&clk IMX8MQ_SYS2_PLL_200M>;
-		assigned-clock-rates = <0>, <20000000>;
+		assigned-clock-rates = <20000000>;
 		csi_id = <0>;
 		pwn-gpios = <&gpio1 3 GPIO_ACTIVE_HIGH>;
 		mclk = <20000000>;
@@ -713,7 +711,7 @@
 &uart1 { /* console */
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_uart1>;
-	assigned-clocks = <&clk IMX8MQ_CLK_UART1_SRC>;
+	assigned-clocks = <&clk IMX8MQ_CLK_UART1>;
 	assigned-clock-parents = <&clk IMX8MQ_CLK_25M>;
 	status = "okay";
 };
@@ -736,7 +734,7 @@
 &uart3 { /* BT */
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_uart3>;
-	assigned-clocks = <&clk IMX8MQ_CLK_UART3_SRC>;
+	assigned-clocks = <&clk IMX8MQ_CLK_UART3>;
 	assigned-clock-parents = <&clk IMX8MQ_SYS1_PLL_80M>;
 	fsl,uart-has-rtscts;
 	resets = <&modem_reset>;
@@ -799,10 +797,9 @@
 	pinctrl-0 = <&pinctrl_sai1_pcm>;
 	pinctrl-1 = <&pinctrl_sai1_pcm_b2m>;
 	pinctrl-2 = <&pinctrl_sai1_dsd>;
-	assigned-clocks = <&clk IMX8MQ_CLK_SAI1_SRC>,
-			<&clk IMX8MQ_CLK_SAI1_DIV>;
+	assigned-clocks = <&clk IMX8MQ_CLK_SAI1>;
 	assigned-clock-parents = <&clk IMX8MQ_AUDIO_PLL1_OUT>;
-	assigned-clock-rates = <0>, <49152000>;
+	assigned-clock-rates = <49152000>;
 	clocks = <&clk IMX8MQ_CLK_SAI1_IPG>, <&clk IMX8MQ_CLK_DUMMY>,
 		<&clk IMX8MQ_CLK_SAI1_ROOT>, <&clk IMX8MQ_CLK_DUMMY>,
 		<&clk IMX8MQ_CLK_DUMMY>, <&clk IMX8MQ_AUDIO_PLL1_OUT>,
@@ -817,28 +814,25 @@
 &sai2 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_sai2>;
-	assigned-clocks = <&clk IMX8MQ_CLK_SAI2_SRC>,
-			<&clk IMX8MQ_CLK_SAI2_DIV>;
+	assigned-clocks = <&clk IMX8MQ_CLK_SAI2>;
 	assigned-clock-parents = <&clk IMX8MQ_AUDIO_PLL1_OUT>;
-	assigned-clock-rates = <0>, <24576000>;
+	assigned-clock-rates = <24576000>;
 	status = "okay";
 };
 
 &sai4 {
-	assigned-clocks = <&clk IMX8MQ_CLK_SAI4_SRC>,
-			<&clk IMX8MQ_CLK_SAI4_DIV>;
+	assigned-clocks = <&clk IMX8MQ_CLK_SAI4>;
 	assigned-clock-parents = <&clk IMX8MQ_AUDIO_PLL1_OUT>;
-	assigned-clock-rates = <0>, <24576000>;
+	assigned-clock-rates = <24576000>;
 	status = "okay";
 };
 
 &sai5 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_sai5>;
-	assigned-clocks = <&clk IMX8MQ_CLK_SAI5_SRC>,
-			<&clk IMX8MQ_CLK_SAI5_DIV>;
+	assigned-clocks = <&clk IMX8MQ_CLK_SAI5>;
 	assigned-clock-parents = <&clk IMX8MQ_AUDIO_PLL1_OUT>;
-	assigned-clock-rates = <0>, <49152000>;
+	assigned-clock-rates = <49152000>;
 	clocks = <&clk IMX8MQ_CLK_SAI5_IPG>, <&clk IMX8MQ_CLK_DUMMY>,
 		<&clk IMX8MQ_CLK_SAI5_ROOT>, <&clk IMX8MQ_CLK_DUMMY>,
 		<&clk IMX8MQ_CLK_DUMMY>, <&clk IMX8MQ_AUDIO_PLL1_OUT>,
@@ -851,18 +845,16 @@
 &spdif1 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_spdif1>;
-	assigned-clocks = <&clk IMX8MQ_CLK_SPDIF1_SRC>,
-			<&clk IMX8MQ_CLK_SPDIF1_DIV>;
+	assigned-clocks = <&clk IMX8MQ_CLK_SPDIF1>;
 	assigned-clock-parents = <&clk IMX8MQ_AUDIO_PLL1_OUT>;
-	assigned-clock-rates = <0>, <24576000>;
+	assigned-clock-rates = <24576000>;
 	status = "okay";
 };
 
 &spdif2 {
-	assigned-clocks = <&clk IMX8MQ_CLK_SPDIF2_SRC>,
-			<&clk IMX8MQ_CLK_SPDIF2_DIV>;
+	assigned-clocks = <&clk IMX8MQ_CLK_SPDIF2>;
 	assigned-clock-parents = <&clk IMX8MQ_AUDIO_PLL1_OUT>;
-	assigned-clock-rates = <0>, <24576000>;
+	assigned-clock-rates = <24576000>;
 	status = "okay";
 };
 

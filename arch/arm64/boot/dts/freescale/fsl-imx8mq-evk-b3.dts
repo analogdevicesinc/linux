@@ -26,12 +26,11 @@
 		status = "okay";
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_csi1_pwn>, <&pinctrl_csi_rst>;
-		clocks = <&clk IMX8MQ_CLK_CLKO2_DIV>;
+		clocks = <&clk IMX8MQ_CLK_CLKO2>;
 		clock-names = "csi_mclk";
-		assigned-clocks = <&clk IMX8MQ_CLK_CLKO2_SRC>,
-				  <&clk IMX8MQ_CLK_CLKO2_DIV>;
+		assigned-clocks = <&clk IMX8MQ_CLK_CLKO2>;
 		assigned-clock-parents = <&clk IMX8MQ_SYS2_PLL_200M>;
-		assigned-clock-rates = <0>, <20000000>;
+		assigned-clock-rates = <20000000>;
 		csi_id = <0>;
 		pwn-gpios = <&gpio1 3 GPIO_ACTIVE_HIGH>;
 		mclk = <20000000>;
@@ -49,12 +48,11 @@
 		status = "okay";
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_csi2_pwn>;
-		clocks = <&clk IMX8MQ_CLK_CLKO2_DIV>;
+		clocks = <&clk IMX8MQ_CLK_CLKO2>;
 		clock-names = "csi_mclk";
-		assigned-clocks = <&clk IMX8MQ_CLK_CLKO2_SRC>,
-				  <&clk IMX8MQ_CLK_CLKO2_DIV>;
+		assigned-clocks = <&clk IMX8MQ_CLK_CLKO2>;
 		assigned-clock-parents = <&clk IMX8MQ_SYS2_PLL_200M>;
-		assigned-clock-rates = <0>, <20000000>;
+		assigned-clock-rates = <20000000>;
 		csi_id = <1>;
 		pwn-gpios = <&gpio1 5 GPIO_ACTIVE_HIGH>;
 		mclk = <20000000>;

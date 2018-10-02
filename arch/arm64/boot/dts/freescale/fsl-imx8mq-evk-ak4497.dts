@@ -85,10 +85,9 @@
 	pinctrl-0 = <&pinctrl_sai1_pcm>;
 	pinctrl-1 = <&pinctrl_sai1_dsd>;
 	pinctrl-2 = <&pinctrl_sai1_dsd512>;
-	assigned-clocks = <&clk IMX8MQ_CLK_SAI1_SRC>,
-			<&clk IMX8MQ_CLK_SAI1_DIV>;
+	assigned-clocks = <&clk IMX8MQ_CLK_SAI1>;
 	assigned-clock-parents = <&clk IMX8MQ_AUDIO_PLL2_OUT>;
-	assigned-clock-rates = <0>, <45158400>;
+	assigned-clock-rates = <45158400>;
 	fsl,sai-multi-lane;
 	fsl,dataline,dsd = <0xff 0x11>;
 	dmas = <&sdma2 8 26 0>, <&sdma2 9 26 0>;

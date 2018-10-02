@@ -29,20 +29,18 @@
 	clocks = <&clk IMX8MQ_CLK_DISP_APB_ROOT>,
 		 <&clk IMX8MQ_CLK_DISP_AXI_ROOT>,
 		 <&clk IMX8MQ_CLK_DISP_RTRM_ROOT>,
-		 <&clk IMX8MQ_CLK_DC_PIXEL_DIV>,
+		 <&clk IMX8MQ_CLK_DC_PIXEL>,
 		 <&clk IMX8MQ_CLK_DUMMY>,
-		 <&clk IMX8MQ_CLK_DISP_DTRC_DIV>;
+		 <&clk IMX8MQ_CLK_DISP_DTRC>;
 	clock-names = "apb", "axi", "rtrm", "pix_div", "pix_out", "dtrc";
-	assigned-clocks = <&clk IMX8MQ_CLK_DC_PIXEL_SRC>,
-			  <&clk IMX8MQ_CLK_DISP_AXI_SRC>,
-			  <&clk IMX8MQ_CLK_DISP_RTRM_SRC>,
-			  <&clk IMX8MQ_CLK_DISP_RTRM_PRE_DIV>;
+	assigned-clocks = <&clk IMX8MQ_CLK_DC_PIXEL>,
+			  <&clk IMX8MQ_CLK_DISP_AXI>,
+			  <&clk IMX8MQ_CLK_DISP_RTRM>;
 	assigned-clock-parents = <&clk IMX8MQ_VIDEO_PLL1_OUT>,
 				 <&clk IMX8MQ_SYS1_PLL_800M>,
 				 <&clk IMX8MQ_SYS1_PLL_800M>;
 	assigned-clock-rates = <594000000>,
 			       <800000000>,
-			       <400000000>,
 			       <400000000>;
 
 	dcss_disp0: port@0 {
