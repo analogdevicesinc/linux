@@ -369,7 +369,7 @@ static inline int clk_on_imx6sx(void)
 	return of_machine_is_compatible("fsl,imx6sx");
 }
 
-struct clk *imx_clk_composite(const char *name, const char **parent_name,
+struct clk *imx7ulp_clk_composite(const char *name, const char **parent_name,
 			      int num_parents, bool mux_present, bool rate_present,
 			      bool gate_present, void __iomem *reg);
 

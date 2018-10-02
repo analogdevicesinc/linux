@@ -9,10 +9,13 @@
  * http://www.opensource.org/licenses/gpl-license.html
  * http://www.gnu.org/copyleft/gpl.html
  */
-
-#include <linux/clk-provider.h>
-#include <linux/err.h>
+#include <linux/errno.h>
 #include <linux/slab.h>
+#include <linux/clk-provider.h>
+#include <linux/clk.h>
+#include <linux/err.h>
+
+#include "clk.h"
 
 #define PCG_PCS_SHIFT	24
 #define PCG_PCS_MASK	0x7
@@ -24,7 +27,17 @@
 #define PCG_PCD_WIDTH	3
 #define PCG_PCD_MASK	0x7
 
-struct clk *imx_clk_composite(const char *name, const char **parent_names,
+#define PCG_PREDIV_SHIFT	16
+#define PCG_PREDIV_WIDTH	3
+#define PCG_PREDIV_MAX		8
+
+#define PCG_DIV_SHIFT		0
+#define PCG_DIV_WIDTH		6
+#define PCG_DIV_MAX		64
+
+#define clk_div_mask(width) ((1 << (width)) - 1)
+
+struct clk *imx7ulp_clk_composite(const char *name, const char **parent_names,
 			      int num_parents, bool mux_present,
 			      bool rate_present, bool gate_present,
 			      void __iomem *reg)
@@ -87,3 +100,4 @@ struct clk *imx_clk_composite(const char *name, const char **parent_names,
 
 	return clk;
 }
+
