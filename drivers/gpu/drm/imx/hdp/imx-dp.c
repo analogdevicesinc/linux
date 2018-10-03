@@ -534,7 +534,11 @@ int dp_get_edid_block(void *data, u8 *buf, unsigned int block, size_t len)
 {
 	DPTX_Read_EDID_response edidResp;
 	state_struct *state = data;
-	CDN_API_STATUS ret = 0;
+	CDN_API_STATUS ret = CDN_ERROR_NOT_SUPPORTED;
+
+	if (buf == NULL) {
+		return -EINVAL;
+	}
 
 	memset(&edidResp, 0, sizeof(edidResp));
 	switch (block) {
@@ -555,10 +559,13 @@ int dp_get_edid_block(void *data, u8 *buf, unsigned int block, size_t len)
 	}
 
 	DRM_INFO("dp_get_edid_block (ret = %d) block %d\n", ret, block);
+	if (ret == CDN_OK) {
+		memcpy(buf, edidResp.buff, 128);
+		return 0;
+	}
 
-	memcpy(buf, edidResp.buff, 128);
-
-	return ret;
+	memset(buf, 0, 128);
+	return -EIO;
 }
 
 int dp_get_hpd_state(state_struct *state, u8 *hpd)
