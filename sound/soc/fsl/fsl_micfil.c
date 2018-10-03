@@ -749,18 +749,18 @@ static inline int get_pdm_clk(struct fsl_micfil *micfil,
 
 	switch (qsel) {
 	case MICFIL_HIGH_QUALITY:
-		bclk = rate * 8 * osr;
+		bclk = rate * 8 * osr / 2; /* kfactor = 0.5 */
 		break;
 	case MICFIL_MEDIUM_QUALITY:
 	case MICFIL_VLOW0_QUALITY:
-		bclk = rate * 4 * osr;
+		bclk = rate * 4 * osr * 1; /* kfactor = 1 */
 		break;
 	case MICFIL_LOW_QUALITY:
 	case MICFIL_VLOW1_QUALITY:
-		bclk = rate * 2 * osr;
+		bclk = rate * 2 * osr * 2; /* kfactor = 2 */
 		break;
 	case MICFIL_VLOW2_QUALITY:
-		bclk = rate * osr;
+		bclk = rate * osr * 4; /* kfactor = 4 */
 		break;
 	default:
 		dev_err(&micfil->pdev->dev,
