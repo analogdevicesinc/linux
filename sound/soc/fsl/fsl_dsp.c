@@ -369,6 +369,7 @@ int fsl_dsp_open_func(struct fsl_dsp *dsp_priv, struct xf_client *client)
 	atomic_set(&client->vm_use, 0);
 
 	client->global = (void *)dsp_priv;
+	dsp_priv->proxy.is_loaded = 0;
 
 	pm_runtime_get_sync(dev);
 
@@ -688,10 +689,12 @@ static void dsp_load_firmware(const struct firmware *fw, void *context)
 				(!strcmp(&strtab[shdr->sh_name], ".data"))   ||
 				(!strcmp(&strtab[shdr->sh_name], ".bss"))
 			) {
-				memcpy_dsp((void *)(dsp_priv->sdram_vir_addr
-				  + (sh_addr - dsp_priv->sdram_phys_addr)),
-				  (const void *)image,
-				  shdr->sh_size);
+				if (!dsp_priv->proxy.is_loaded) {
+					memcpy_dsp((void *)(dsp_priv->sdram_vir_addr
+				  	+ (sh_addr - dsp_priv->sdram_phys_addr)),
+				  	(const void *)image,
+				  	shdr->sh_size);
+				}
 			} else {
 				/* sh_addr is from DSP view, we need to
 				 * fixup addr because we load the firmware from
@@ -710,6 +713,7 @@ static void dsp_load_firmware(const struct firmware *fw, void *context)
 	/* start the core */
 	sc_pm_cpu_start(dsp_priv->dsp_ipcHandle,
 					SC_R_DSP, true, dsp_priv->iram);
+	dsp_priv->proxy.is_loaded = 1;
 }
 
 /* Initialization of the MU code. */
