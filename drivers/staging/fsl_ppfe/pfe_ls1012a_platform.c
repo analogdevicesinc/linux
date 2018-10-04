@@ -89,11 +89,12 @@ static int pfe_get_gemac_if_proprties(struct device_node *parent, int port, int
 	}
 
 	addr = of_get_property(gem, "fsl,mdio-mux-val", &size);
-	if (!addr)
+	if (!addr) {
 		pr_err("%s: Invalid mdio-mux-val....\n", __func__);
-	else
+	} else {
 		phy_id = be32_to_cpup(addr);
 		pdata->ls1012a_eth_pdata[port].mdio_muxval = phy_id;
+	}
 
 	if (pdata->ls1012a_eth_pdata[port].phy_id < 32)
 		pfe->mdio_muxval[pdata->ls1012a_eth_pdata[port].phy_id] =
