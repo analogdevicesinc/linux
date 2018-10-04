@@ -61,6 +61,7 @@ struct ls1012a_eth_platform_data {
 	u32 phy_id;
 	u32 mdio_muxval;
 	u8 mac_addr[ETH_ALEN];
+	struct device_node	*phy_node;
 };
 
 struct ls1012a_mdio_platform_data {
@@ -144,6 +145,7 @@ struct  pfe_eth_priv_s {
 	int			oldspeed;
 	int			oldduplex;
 	int			oldlink;
+	struct device_node	*phy_node;
 	/* mdio info */
 	int			mdc_div;
 	struct mii_bus		*mii_bus;

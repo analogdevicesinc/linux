@@ -39,6 +39,9 @@
 #include <net/ip.h>
 #include <net/sock.h>
 
+#include <linux/of.h>
+#include <linux/of_mdio.h>
+
 #include <linux/io.h>
 #include <asm/irq.h>
 #include <linux/delay.h>
@@ -1263,6 +1266,8 @@ static int pfe_phy_init(struct net_device *ndev)
 	char phy_id[MII_BUS_ID_SIZE + 3];
 	char bus_id[MII_BUS_ID_SIZE];
 	phy_interface_t interface;
+	struct device_node *phy_node;
+	int rc;
 
 	priv->oldlink = 0;
 	priv->oldspeed = 0;
@@ -1293,7 +1298,20 @@ static int pfe_phy_init(struct net_device *ndev)
 	priv->oldspeed = 0;
 	priv->oldduplex = -1;
 	pr_info("%s interface %x\n", __func__, interface);
-	phydev = phy_connect(ndev, phy_id, &pfe_eth_adjust_link, interface);
+
+	if (of_phy_is_fixed_link(priv->phy_node)) {
+		rc = of_phy_register_fixed_link(priv->phy_node);
+		if (rc)
+			return rc;
+		phy_node = of_node_get(priv->phy_node);
+		phydev = of_phy_connect(ndev, phy_node, pfe_eth_adjust_link, 0,
+					priv->einfo->mii_config);
+		of_node_put(phy_node);
+
+	} else {
+		phydev = phy_connect(ndev, phy_id,
+				     &pfe_eth_adjust_link, interface);
+	}
 
 	if (IS_ERR(phydev)) {
 		netdev_err(ndev, "phy_connect() failed\n");
@@ -2371,6 +2389,7 @@ static int pfe_eth_init_one(struct pfe *pfe, int id)
 	priv->ndev = ndev;
 	priv->id = einfo[id].gem_id;
 	priv->pfe = pfe;
+	priv->phy_node = einfo[id].phy_node;
 
 	SET_NETDEV_DEV(priv->ndev, priv->pfe->dev);
 
