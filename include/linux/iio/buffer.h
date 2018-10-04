@@ -52,7 +52,4 @@ bool iio_validate_scan_mask_onehot(struct iio_dev *indio_dev,
 void iio_device_attach_buffer(struct iio_dev *indio_dev,
 			      struct iio_buffer *buffer);
 
-/* FIXME: this is a temp hack (during the merge) until stuff will be better sorted out */
-#include <linux/iio/buffer_impl.h>
-
 #endif /* _IIO_BUFFER_GENERIC_H_ */
