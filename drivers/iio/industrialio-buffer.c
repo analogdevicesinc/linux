@@ -1532,6 +1532,11 @@ int iio_push_to_buffers(struct iio_dev *indio_dev, const void *data)
 }
 EXPORT_SYMBOL_GPL(iio_push_to_buffers);
 
+int iio_buffer_remove_sample(struct iio_buffer *buffer, u8 *data)
+{
+	return buffer->access->remove_from(buffer, data);
+}
+
 /**
  * iio_buffer_release() - Free a buffer's resources
  * @ref: Pointer to the kref embedded in the iio_buffer struct
