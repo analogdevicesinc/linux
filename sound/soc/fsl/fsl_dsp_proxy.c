@@ -766,3 +766,90 @@ int xf_cmd_send_resume(struct xf_proxy *proxy)
 
 	return ret;
 }
+
+/* ...open component handle */
+int xf_open(struct xf_client *client, struct xf_proxy *proxy,
+	    struct xf_handle *handle, const char *id, u32 core,
+	    xf_response_cb response)
+{
+	void *b;
+	struct xf_message   msg;
+	struct xf_message   *rmsg;
+
+	/* ...retrieve auxiliary control buffer from proxy - need I */
+	handle->aux = xf_buffer_get(proxy->aux);
+
+	b = xf_handle_aux(handle);
+
+	msg.id = __XF_MSG_ID(__XF_AP_PROXY(0), __XF_DSP_PROXY(0));
+	msg.id = XF_MSG_AP_FROM_USER(msg.id, client->id);
+	msg.opcode = XF_REGISTER;
+	msg.buffer = b;
+	msg.length = strlen(id) + 1;
+	msg.ret = 0;
+
+	/* ...copy component identifier */
+	memcpy(b, (void *)id, xf_buffer_length(handle->aux));
+
+	/* ...execute command synchronously */
+	rmsg = xf_cmd_send_recv_complete(client, proxy, msg.id, msg.opcode,
+					 msg.buffer, msg.length, &client->work,
+					 &client->compr_complete);
+
+	if (IS_ERR(rmsg)) {
+		xf_buffer_put(handle->aux), handle->aux = NULL;
+		return PTR_ERR(rmsg);
+	}
+	/* ...save received component global client-id */
+	handle->id = XF_MSG_SRC(rmsg->id);
+	/* TODO: review cleanup */
+	/* xf_msg_free(proxy, rmsg);
+	 * xf_unlock(&proxy->lock); */
+
+	/* ...if failed, release buffer handle */
+	/* ...operation completed successfully; assign handle data */
+	handle->response = response;
+	handle->proxy = proxy;
+
+	return 0;
+}
+
+/* ...close component handle */
+int xf_close(struct xf_client *client, struct xf_handle *handle)
+{
+	struct xf_proxy *proxy = handle->proxy;
+	struct xf_message   msg;
+	struct xf_message *rmsg;
+
+	/* ...do I need to take component lock here? guess no - tbd */
+
+	/* ...buffers and stuff? - tbd */
+
+	/* ...acquire global proxy lock */
+	/* ...unregister component from remote DSP proxy (ignore result code) */
+
+	msg.id = __XF_MSG_ID(__XF_AP_PROXY(0), handle->id);
+	msg.id = XF_MSG_AP_FROM_USER(msg.id, client->id);
+	msg.opcode = XF_UNREGISTER;
+	msg.buffer = NULL;
+	msg.length = 0;
+	msg.ret = 0;
+
+	/* ...execute command synchronously */
+	rmsg = xf_cmd_send_recv_complete(client, proxy, msg.id, msg.opcode,
+					 msg.buffer, msg.length, &client->work,
+					 &client->compr_complete);
+
+	if (IS_ERR(rmsg)) {
+		xf_buffer_put(handle->aux), handle->aux = NULL;
+		return PTR_ERR(rmsg);
+	}
+	/* TODO: review cleanup */
+	/* xf_msg_free(proxy, rmsg);
+	 * xf_unlock(&proxy->lock); */
+
+	/* ...wipe out proxy pointer */
+	handle->proxy = NULL;
+
+	return 0;
+}
