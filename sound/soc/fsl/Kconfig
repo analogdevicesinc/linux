@@ -94,6 +94,7 @@ config SND_SOC_FSL_RPMSG_I2S
 
 config SND_SOC_FSL_DSP
 	tristate "dsp module support"
+	select SND_SOC_COMPRESS
 	help
 	  Say Y if you want to add hifi 4 support for the Freescale CPUs.
 	  which is a DSP core for audio processing.
