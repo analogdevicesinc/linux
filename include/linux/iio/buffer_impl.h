@@ -184,11 +184,6 @@ static inline int iio_buffer_write(struct iio_buffer *buffer, size_t n,
 	return buffer->access->write(buffer, n, buf);
 }
 
-static inline int iio_buffer_remove_sample(struct iio_buffer *buffer, u8 *data)
-{
-	return buffer->access->remove_from(buffer, data);
-}
-
 /**
  * iio_update_buffers() - add or remove buffer from active list
  * @indio_dev:		device to add buffer to
