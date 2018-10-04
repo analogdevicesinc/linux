@@ -615,6 +615,7 @@ int xf_cmd_alloc(struct xf_proxy *proxy, void **buffer, u32 length)
 
 	/* ...free message and release proxy lock */
 	xf_msg_free(proxy, m);
+	xf_unlock(&proxy->lock);
 
 	return ret;
 }
@@ -641,6 +642,7 @@ int xf_cmd_free(struct xf_proxy *proxy, void *buffer, u32 length)
 
 	/* ...free message and release proxy lock */
 	xf_msg_free(proxy, m);
+	xf_unlock(&proxy->lock);
 
 	return ret;
 }
