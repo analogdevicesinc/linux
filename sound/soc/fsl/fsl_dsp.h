@@ -37,6 +37,9 @@ struct xf_client {
 	/* ...global structure pointer */
 	void	*global;
 	struct xf_message m;
+
+	struct work_struct work;
+	struct completion compr_complete;
 };
 
 union xf_client_link {

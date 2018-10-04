@@ -309,6 +309,9 @@ struct xf_proxy {
 
 	/* ...pointer to first free message in the pool */
 	struct xf_message       *free;
+
+        /* ...auxiliary buffer pool for clients */
+	struct xf_pool          *aux;
 };
 
 union icm_header_t {
