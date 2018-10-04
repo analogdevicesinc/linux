@@ -1875,7 +1875,7 @@ static const struct of_device_id hantro_of_match[] = {
 	{ .compatible = "nxp,imx8mq-hantro", },
 	{/* sentinel */}
 };
-MODULE_DEVICE_TABLE(of, vpu_of_match);
+MODULE_DEVICE_TABLE(of, hantro_of_match);
 
 
 static struct platform_driver mxchantro_driver = {
