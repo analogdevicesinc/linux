@@ -1,15 +1,10 @@
-/* SPDX-License-Identifier: (GPL-2.0+ OR MIT)*/
-/*******************************************************************************
+/* SPDX-License-Identifier: (GPL-2.0+ OR MIT) */
+/*
+ * DSP proxy header - commands/responses from DSP driver to DSP ramework
  *
- * Copyright (c) 2017 Cadence Design Systems, Inc.
  * Copyright 2018 NXP
- *
- ************************************************************/
-/************************************************************
- * fsl_dsp_proxy.h
- *
- * Proxy commmand/response messages
- ************************************************************/
+ * Copyright (c) 2017 Cadence Design Systems, Inc.
+ */
 
 #ifndef __FSL_DSP_PROXY_H
 #define __FSL_DSP_PROXY_H

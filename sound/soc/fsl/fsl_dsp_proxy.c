@@ -1,23 +1,13 @@
 // SPDX-License-Identifier: (GPL-2.0+ OR MIT)
-/*******************************************************************************
- *
- * Copyright (C) 2017 Cadence Design Systems, Inc.
- * Copyright 2018 NXP
- *
- ******************************************************************************/
-/*******************************************************************************
- * fsl_dsp_proxy.c
- *
- * DSP proxy driver
- *
- * DSP proxy driver is used to transfer messages between dsp driver
- * and dsp framework
- ******************************************************************************/
+//
+// DSP proxy driver transfers messages between DSP driver and DSP framework
+//
+// Copyright 2018 NXP
+// Copyright (C) 2017 Cadence Design Systems, Inc.
 
 #include <soc/imx8/sc/ipc.h>
 #include "fsl_dsp_proxy.h"
 #include "fsl_dsp.h"
-
 
 /* ...initialize message queue */
 void xf_msg_queue_init(struct xf_msg_queue *queue)
