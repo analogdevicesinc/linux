@@ -21,6 +21,8 @@
 
 #define XF_CFG_MESSAGE_POOL_SIZE        256
 
+struct xf_client;
+
 /*******************************************************************************
  * Local proxy data
  ******************************************************************************/
@@ -284,8 +286,8 @@ struct xf_proxy {
 	/* ...shared memory status change processing item */
 	struct work_struct      work;
 
-	struct completion		cmd_complete;
-	int						is_ready;
+	struct completion	cmd_complete;
+	int			is_ready;
 
 	/* ...internal lock */
 	spinlock_t              lock;
@@ -365,6 +367,25 @@ struct xf_message *xf_cmd_recv(struct xf_proxy *proxy,
 					wait_queue_head_t *wq,
 					struct xf_msg_queue *queue,
 					int wait);
+
+struct xf_message*
+xf_cmd_recv_timeout(struct xf_proxy *proxy, wait_queue_head_t *wq,
+		    struct xf_msg_queue *queue, int wait);
+
+struct xf_message*
+xf_cmd_send_recv(struct xf_proxy *proxy, u32 id, u32 opcode,
+		 void *buffer, u32 length);
+
+struct xf_message*
+xf_cmd_send_recv_wq(struct xf_proxy *proxy, u32 id, u32 opcode, void *buffer,
+		    u32 length, wait_queue_head_t *wq,
+		    struct xf_msg_queue *queue);
+
+struct xf_message*
+xf_cmd_send_recv_complete(struct xf_client *client, struct xf_proxy *proxy,
+			  u32 id, u32 opcode, void *buffer, u32 length,
+			  struct work_struct *work,
+			  struct completion *completion);
 
 /* ...mu interrupt handle */
 irqreturn_t fsl_dsp_mu_isr(int irq, void *dev_id);

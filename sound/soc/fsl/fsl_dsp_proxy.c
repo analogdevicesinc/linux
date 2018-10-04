@@ -571,6 +571,27 @@ struct xf_message *xf_cmd_recv(struct xf_proxy *proxy,
 	return m;
 }
 
+struct xf_message *xf_cmd_recv_timeout(struct xf_proxy *proxy,
+				       wait_queue_head_t *wq,
+				       struct xf_msg_queue *queue, int wait)
+{
+	struct xf_message *m;
+	int ret;
+
+	/* ...wait for message reception (take lock on success) */
+	ret = wait_event_interruptible_timeout(*wq,
+			(m = xf_msg_received(proxy, queue)) != NULL || !wait,
+			msecs_to_jiffies(1000));
+	if (ret < 0)
+		return ERR_PTR(-EINTR);
+
+	if (ret == 0)
+		return ERR_PTR(-ETIMEDOUT);
+
+	/* ...return message with a lock taken */
+	return m;
+}
+
 /* ...helper function for synchronous command execution */
 struct xf_message *xf_cmd_send_recv(struct xf_proxy *proxy,
 							   u32 id, u32 opcode,
@@ -588,6 +609,62 @@ struct xf_message *xf_cmd_send_recv(struct xf_proxy *proxy,
 	return xf_cmd_recv(proxy, &proxy->wait, &proxy->response, 1);
 }
 
+struct xf_message *xf_cmd_send_recv_wq(struct xf_proxy *proxy, u32 id,
+				       u32 opcode, void *buffer, u32 length,
+				       wait_queue_head_t *wq,
+				       struct xf_msg_queue *queue)
+{
+	int ret;
+
+	/* ...send command to remote proxy */
+	ret = xf_cmd_send(proxy, id, opcode, buffer, length);
+	if (ret)
+		return ERR_PTR(ret);
+
+	/* ...wait for message delivery */
+	return xf_cmd_recv(proxy, wq, queue, 1);
+}
+
+struct xf_message *xf_cmd_send_recv_complete(struct xf_client *client,
+					     struct xf_proxy *proxy,
+					     u32 id, u32 opcode, void *buffer,
+					     u32 length,
+					     struct work_struct *work,
+					     struct completion *completion)
+{
+	struct xf_message *m;
+	int ret;
+
+	/* ...retrieve message handle (take the lock on success) */
+	m = xf_msg_available(proxy);
+	if (!m)
+		return ERR_PTR(-EBUSY);
+
+	/* ...fill-in message parameters (lock is taken) */
+	m->id = id;
+	m->opcode = opcode;
+	m->length = length;
+	m->buffer = buffer;
+	m->ret = 0;
+
+	init_completion(completion);
+
+	/* ...submit command to the proxy */
+	xf_proxy_command(proxy, m);
+
+	schedule_work(work);
+
+	/* ...wait for message reception (take lock on success) */
+	ret = wait_for_completion_timeout(completion,
+					  msecs_to_jiffies(1000));
+	if (!ret)
+		return ERR_PTR(-ETIMEDOUT);
+
+	m = &client->m;
+
+	/* ...return message with a lock taken */
+	return m;
+}
 /*
  * Proxy allocate and free memory functions
  */

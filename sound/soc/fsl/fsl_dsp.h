@@ -22,22 +22,21 @@ struct xf_client {
 	struct xf_proxy     *proxy;
 
 	/* ...allocated proxy client id */
-	u32                 id;
+	u32 id;
 
 	/* ...pending response queue */
-	struct xf_msg_queue queue;
-
+	struct xf_msg_queue	queue;
 	/* ...response waiting queue */
-	wait_queue_head_t   wait;
+	wait_queue_head_t	wait;
 
 	/* ...virtual memory mapping */
-	unsigned long       vm_start;
-
+	unsigned long	vm_start;
 	/* ...counter of memory mappings (no real use of it yet - tbd) */
-	atomic_t            vm_use;
+	atomic_t	vm_use;
 
 	/* ...global structure pointer */
-	void				*global;
+	void	*global;
+	struct xf_message m;
 };
 
 union xf_client_link {
