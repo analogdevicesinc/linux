@@ -15,6 +15,7 @@
 
 struct iio_dev;
 struct iio_chan_spec;
+struct iio_buffer;
 struct device;
 
 /**
