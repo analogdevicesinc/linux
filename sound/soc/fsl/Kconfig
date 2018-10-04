@@ -548,6 +548,15 @@ config SND_SOC_IMX_CDNHDMI
 	  Say Y if you want to add support for SoC audio on an i.MX board with
 	  IMX CDN HDMI.
 
+config SND_SOC_IMX_DSP
+	tristate "SoC Audio support for i.MX boards with DSP port"
+	select SND_SOC_FSL_DSP
+	select SND_SOC_COMPRESS
+	help
+	  SoC Audio support for i.MX boards with DSP audio
+	  Say Y if you want to add support for SoC audio on an i.MX board with
+	  IMX DSP.
+
 config SND_SOC_IMX_PDM_MIC
 	tristate "SoC Audio support for i.MX boards with PDM mic on SAI"
 	depends on OF
