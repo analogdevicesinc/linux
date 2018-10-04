@@ -10,7 +10,7 @@
 #include <uapi/linux/mxc_dsp.h>
 #include <soc/imx8/sc/ipc.h>
 #include "fsl_dsp_proxy.h"
-
+#include "fsl_dsp_platform.h"
 
 typedef void (*memcpy_func) (void *dest, const void *src, size_t n);
 typedef void (*memset_func) (void *s, int c, size_t n);
@@ -41,8 +41,13 @@ struct xf_client {
 	void	*global;
 	struct xf_message m;
 
+	struct snd_compr_stream *cstream;
+
 	struct work_struct work;
 	struct completion compr_complete;
+
+	int input_bytes;
+	int consume_bytes;
 };
 
 union xf_client_link {
@@ -88,6 +93,8 @@ struct fsl_dsp {
 
 	/* ...mutex lock */
 	struct mutex dsp_mutex;
+
+	struct dsp_data dsp_data;
 
 	/* ...global clients pool (item[0] serves as list terminator) */
 	union xf_client_link xf_client_map[XF_CFG_MAX_IPC_CLIENTS];
