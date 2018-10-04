@@ -44,9 +44,6 @@ static inline int iio_push_to_buffers_with_timestamp(struct iio_dev *indio_dev,
 	return iio_push_to_buffers(indio_dev, data);
 }
 
-int iio_buffer_alloc_scanmask(struct iio_buffer *buffer,
-	struct iio_dev *indio_dev);
-void iio_buffer_free_scanmask(struct iio_buffer *buffer);
 
 bool iio_validate_scan_mask_onehot(struct iio_dev *indio_dev,
 				   const unsigned long *mask);
