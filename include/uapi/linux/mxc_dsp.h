@@ -46,6 +46,9 @@
 #define CODEC_SBC_ENC		8
 #define CODEC_DEMO_DEC		9
 
+#define RENDER_ESAI		0x10
+#define RENDER_SAI		0x11
+
 enum DSP_ERROR_TYPE {
 	XA_SUCCESS = 0,
 
