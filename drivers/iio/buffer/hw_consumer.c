@@ -9,7 +9,7 @@
 #include <linux/iio/driver.h>
 #include <linux/iio/consumer.h>
 #include <linux/iio/hw_consumer.h>
-#include <linux/iio/buffer.h>
+#include <linux/iio/buffer_impl.h>
 
 struct iio_hw_consumer {
 	struct list_head buffers;
