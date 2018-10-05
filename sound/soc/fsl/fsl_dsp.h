@@ -123,4 +123,7 @@ void *memset_dsp(void *dest, int c, size_t count);
 struct xf_client *xf_client_lookup(struct fsl_dsp *dsp_priv, u32 id);
 struct xf_client *xf_client_alloc(struct fsl_dsp *dsp_priv);
 
+int fsl_dsp_open_func(struct fsl_dsp *dsp_priv, struct xf_client *client);
+int fsl_dsp_close_func(struct xf_client *client);
+
 #endif

@@ -351,21 +351,10 @@ void resource_release(struct fsl_dsp *dsp_priv)
 	xf_proxy_init(&dsp_priv->proxy);
 }
 
-static int fsl_dsp_open(struct inode *inode, struct file *file)
+int fsl_dsp_open_func(struct fsl_dsp *dsp_priv, struct xf_client *client)
 {
-	struct fsl_dsp *dsp_priv = dev_get_drvdata(dsp_miscdev.parent);
 	struct device *dev = dsp_priv->dev;
-	struct xf_client *client;
 	int ret = 0;
-
-	/* ...basic sanity checks */
-	if (!inode || !file)
-		return -EINVAL;
-
-	/* ...allocate new proxy client object */
-	client = xf_client_alloc(dsp_priv);
-	if (IS_ERR(client))
-		return PTR_ERR(client);
 
 	/* ...initialize waiting queue */
 	init_waitqueue_head(&client->wait);
@@ -381,8 +370,6 @@ static int fsl_dsp_open(struct inode *inode, struct file *file)
 
 	client->global = (void *)dsp_priv;
 
-	file->private_data = (void *)client;
-
 	pm_runtime_get_sync(dev);
 
 	mutex_lock(&dsp_priv->dsp_mutex);
@@ -393,18 +380,35 @@ static int fsl_dsp_open(struct inode *inode, struct file *file)
 	return ret;
 }
 
-static int fsl_dsp_close(struct inode *inode, struct file *file)
+static int fsl_dsp_open(struct inode *inode, struct file *file)
+{
+	struct fsl_dsp *dsp_priv = dev_get_drvdata(dsp_miscdev.parent);
+	struct xf_client *client;
+	int ret = 0;
+
+	/* ...basic sanity checks */
+	if (!inode || !file)
+		return -EINVAL;
+
+	/* ...allocate new proxy client object */
+	client = xf_client_alloc(dsp_priv);
+	if (IS_ERR(client))
+		return PTR_ERR(client);
+
+	fsl_dsp_open_func(dsp_priv, client);
+
+	file->private_data = (void *)client;
+
+	return ret;
+}
+
+int fsl_dsp_close_func(struct xf_client *client)
 {
 	struct fsl_dsp *dsp_priv;
 	struct device *dev;
 	struct xf_proxy *proxy;
-	struct xf_client *client;
 
 	/* ...basic sanity checks */
-	client = xf_get_client(file);
-	if (IS_ERR(client))
-		return PTR_ERR(client);
-
 	proxy = client->proxy;
 
 	/* release all pending messages */
@@ -428,6 +432,20 @@ static int fsl_dsp_close(struct inode *inode, struct file *file)
 		resource_release(dsp_priv);
 
 	mutex_unlock(&dsp_priv->dsp_mutex);
+
+	return 0;
+}
+
+static int fsl_dsp_close(struct inode *inode, struct file *file)
+{
+	struct xf_client *client;
+
+	/* ...basic sanity checks */
+	client = xf_get_client(file);
+	if (IS_ERR(client))
+		return PTR_ERR(client);
+
+	fsl_dsp_close_func(client);
 
 	return 0;
 }
