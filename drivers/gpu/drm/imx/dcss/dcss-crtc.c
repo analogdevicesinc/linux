@@ -440,9 +440,6 @@ static int dcss_crtc_bind(struct device *dev, struct device *master,
 	if (!drm->mode_config.funcs)
 		drm->mode_config.funcs = &dcss_drm_mode_config_funcs;
 
-	if (!drm->mode_config.helper_private)
-		drm->mode_config.helper_private = &dcss_drm_mode_config_helpers;
-
 	dev_set_drvdata(dev, crtc);
 
 	return 0;

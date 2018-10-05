@@ -76,9 +76,21 @@ static void dcss_kms_setup_output_pipe(struct drm_atomic_state *state)
 	}
 }
 
-static void dcss_drm_atomic_commit_tail(struct drm_atomic_state *state)
+struct dcss_drm_commit {
+	struct work_struct work;
+	struct drm_device *dev;
+	struct drm_atomic_state *state;
+};
+
+static void dcss_drm_atomic_commit_tail(struct dcss_drm_commit *commit)
 {
-	struct drm_device *dev = state->dev;
+	struct drm_atomic_state *state = commit->state;
+	struct drm_device *dev = commit->dev;
+	struct imx_drm_device *imxdrm = dev->dev_private;
+
+	drm_atomic_helper_wait_for_fences(dev, state, false);
+
+	drm_atomic_helper_wait_for_dependencies(state);
 
 	drm_atomic_helper_commit_modeset_disables(dev, state);
 
@@ -94,15 +106,103 @@ static void dcss_drm_atomic_commit_tail(struct drm_atomic_state *state)
 	drm_atomic_helper_wait_for_vblanks(dev, state);
 
 	drm_atomic_helper_cleanup_planes(dev, state);
+
+	drm_atomic_helper_commit_cleanup_done(state);
+
+	drm_atomic_state_put(state);
+
+	spin_lock(&imxdrm->commit.wait.lock);
+	imxdrm->commit.pending = false;
+	wake_up_all_locked(&imxdrm->commit.wait);
+	spin_unlock(&imxdrm->commit.wait.lock);
+
+	kfree(commit);
+}
+
+static void dcss_commit_work(struct work_struct *work)
+{
+	struct dcss_drm_commit *commit = container_of(work,
+						      struct dcss_drm_commit,
+						      work);
+
+	dcss_drm_atomic_commit_tail(commit);
+}
+
+static int dcss_drm_atomic_commit(struct drm_device *dev,
+				  struct drm_atomic_state *state,
+				  bool nonblock)
+{
+	int ret;
+	struct imx_drm_device *imxdrm = dev->dev_private;
+	struct dcss_drm_commit *commit;
+
+	if (state->async_update) {
+		ret = drm_atomic_helper_prepare_planes(dev, state);
+		if (ret)
+			return ret;
+
+		drm_atomic_helper_async_commit(dev, state);
+		drm_atomic_helper_cleanup_planes(dev, state);
+
+		return 0;
+	}
+
+	commit = kzalloc(sizeof(*commit), GFP_KERNEL);
+	if (!commit)
+		return -ENOMEM;
+
+	commit->dev = dev;
+	commit->state = state;
+
+	ret = drm_atomic_helper_setup_commit(state, nonblock);
+	if (ret)
+		goto err_free;
+
+	INIT_WORK(&commit->work, dcss_commit_work);
+
+	ret = drm_atomic_helper_prepare_planes(dev, state);
+	if (ret)
+		goto err_free;
+
+	if (!nonblock) {
+		ret = drm_atomic_helper_wait_for_fences(dev, state, true);
+		if (ret)
+			goto err;
+	}
+
+	spin_lock(&imxdrm->commit.wait.lock);
+	ret = wait_event_interruptible_locked(imxdrm->commit.wait,
+					      !imxdrm->commit.pending);
+	if (ret == 0)
+		imxdrm->commit.pending = true;
+	spin_unlock(&imxdrm->commit.wait.lock);
+
+	if (ret)
+		goto err;
+
+	ret = drm_atomic_helper_swap_state(state, true);
+	if (ret)
+		goto err;
+
+	drm_atomic_state_get(state);
+	if (nonblock)
+		queue_work(imxdrm->wq, &commit->work);
+	else
+		dcss_drm_atomic_commit_tail(commit);
+
+	return 0;
+
+err:
+	drm_atomic_helper_cleanup_planes(dev, state);
+
+err_free:
+	kfree(commit);
+	return ret;
 }
 
 const struct drm_mode_config_funcs dcss_drm_mode_config_funcs = {
 	.fb_create = drm_fb_cma_create,
 	.output_poll_changed = dcss_drm_output_poll_changed,
 	.atomic_check = dcss_drm_atomic_check,
-	.atomic_commit = drm_atomic_helper_commit,
-};
-
-struct drm_mode_config_helper_funcs dcss_drm_mode_config_helpers = {
-	.atomic_commit_tail = dcss_drm_atomic_commit_tail,
+	.atomic_commit = dcss_drm_atomic_commit,
 };
