@@ -245,19 +245,19 @@ static ssize_t axi_jesd204_rx_laneinfo_read(struct device *dev,
 		(val[0] >> 16) & 0xff,
 		(val[0] >> 24) & 0xf,
 		(val[1] >> 0) & 0x1f,
-		(val[1] >> 8) & 0x1f,
+		((val[1] >> 8) & 0x1f) + 1,
 		(val[1] >> 15) & 0x1,
-		(val[1] >> 16) & 0xff
+		((val[1] >> 16) & 0xff) + 1
 	);
 
 	ret += scnprintf(buf + ret, PAGE_SIZE - ret,
 		"K: %d, M: %d, N: %d, CS: %d, N': %d, S: %d, HD: %d\n",
-		(val[1] >> 24) & 0x1f,
-		(val[2] >> 0) & 0xff,
-		(val[2] >> 8) & 0x1f,
+		((val[1] >> 24) & 0x1f) + 1,
+		((val[2] >> 0) & 0xff) + 1,
+		((val[2] >> 8) & 0x1f) + 1,
 		(val[2] >> 14) & 0x3,
-		(val[2] >> 16) & 0x1f,
-		(val[2] >> 24) & 0x1f,
+		((val[2] >> 16) & 0x1f) + 1,
+		((val[2] >> 24) & 0x1f) + 1,
 		(val[3] >> 7) & 0x1
 	);
 
