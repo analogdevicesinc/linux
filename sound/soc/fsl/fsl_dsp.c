@@ -62,11 +62,16 @@
 #include <soc/imx8/sc/svc/irq/api.h>
 #include <soc/imx8/sc/ipc.h>
 #include <soc/imx8/sc/sci.h>
-#include "fsl_dsp.h"
 
+#include <sound/pcm.h>
+#include <sound/soc.h>
+
+#include "fsl_dsp.h"
+#include "fsl_dsp_pool.h"
+#include "fsl_dsp_xaf_api.h"
 
 /* ...allocate new client */
-static inline struct xf_client *xf_client_alloc(struct fsl_dsp *dsp_priv)
+struct xf_client *xf_client_alloc(struct fsl_dsp *dsp_priv)
 {
 	struct xf_client *client;
 	u32             id;
