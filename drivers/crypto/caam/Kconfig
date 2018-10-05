@@ -143,6 +143,16 @@ config CRYPTO_DEV_FSL_CAAM_RNG_API
 	  To compile this as a module, choose M here: the module
 	  will be called caamrng.
 
+config CRYPTO_DEV_FSL_CAAM_TK_API
+	bool "Register tagged key cryptography implementations with Crypto API"
+	depends on CRYPTO_DEV_FSL_CAAM_CRYPTO_API
+	help
+	  Selecting this will register algorithms supporting tagged
+	  key.
+
+	  Tagged key are keys that contains metadata indicating what
+	  they are and how to handle them.
+
 config CRYPTO_DEV_FSL_CAAM_RNG_TEST
 	boolean "Test caam rng"
 	depends on CRYPTO_DEV_FSL_CAAM_RNG_API

@@ -25,3 +25,5 @@ ifneq ($(CONFIG_CRYPTO_DEV_FSL_CAAM_CRYPTO_API_QI),)
 	ccflags-y += -DCONFIG_CAAM_QI
 	caam-objs += qi.o
 endif
+
+obj-$(CONFIG_CRYPTO_DEV_FSL_CAAM_TK_API) += tag_object.o
