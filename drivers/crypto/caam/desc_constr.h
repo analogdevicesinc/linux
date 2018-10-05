@@ -501,6 +501,8 @@ do { \
  * @key_virt: virtual address where algorithm key resides
  * @key_inline: true - key can be inlined in the descriptor; false - key is
  *              referenced by the descriptor
+ * @key_real_len: size of the key to be loaded by the CAAM
+ * @key_cmd_opt: optional parameters for KEY command
  */
 struct alginfo {
 	u32 algtype;
@@ -509,6 +511,8 @@ struct alginfo {
 	dma_addr_t key_dma;
 	const void *key_virt;
 	bool key_inline;
+	u32 key_real_len;
+	u32 key_cmd_opt;
 };
 
 /**

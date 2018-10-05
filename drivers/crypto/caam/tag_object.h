@@ -80,7 +80,7 @@ bool is_valid_tag_object_conf(const struct tag_object_conf *tag_obj_conf);
 void init_tag_object_header(struct conf_header *conf_header,
 			    enum tag_type type);
 
-int get_tag_object_conf(void *buffer, size_t buffer_size,
+int get_tag_object_conf(const void *buffer, size_t buffer_size,
 			struct tag_object_conf **tag_obj_conf);
 
 int set_tag_object_conf(const struct tag_object_conf *tag_obj_conf,
@@ -94,7 +94,7 @@ void get_blackey_conf(const struct blackey_conf *blackey_conf,
 void init_blackey_conf(struct blackey_conf *blackey_conf,
 		       size_t len, bool ccm, bool tk);
 
-int get_tagged_data(void *buffer, size_t buffer_size,
-		    void **data, u32 *data_size);
+int get_tagged_data(const void *buffer, size_t buffer_size,
+		    const void **data, u32 *data_size);
 
 #endif /* _TAG_OBJECT_H_ */

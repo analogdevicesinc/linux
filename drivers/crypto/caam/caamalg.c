@@ -69,6 +69,10 @@
 #include <linux/slab.h>
 #include <linux/string.h>
 
+#ifdef CONFIG_CRYPTO_DEV_FSL_CAAM_TK_API
+#include "tag_object.h"
+#endif /* CONFIG_CRYPTO_DEV_FSL_CAAM_TK_API */
+
 /*
  * crypto alg
  */
@@ -95,6 +99,7 @@ struct caam_alg_entry {
 	bool rfc3686;
 	bool geniv;
 	bool nodkp;
+	bool support_tagged_key;
 };
 
 struct caam_aead_alg {
@@ -755,6 +760,44 @@ static int skcipher_setkey(struct crypto_skcipher *skcipher, const u8 *key,
 	ctx->cdata.key_virt = key;
 	ctx->cdata.key_inline = true;
 
+#ifdef CONFIG_CRYPTO_DEV_FSL_CAAM_TK_API
+	/*
+	 * Check if the key is not in plaintext format
+	 */
+	if (alg->caam.support_tagged_key) {
+		struct tag_object_conf *tagged_key_conf;
+		int ret;
+
+		/* Get the configuration */
+		ret = get_tag_object_conf(ctx->cdata.key_virt,
+					  ctx->cdata.keylen, &tagged_key_conf);
+		if (ret) {
+			dev_err(jrdev,
+				"caam algorithms can't process tagged key\n");
+			return ret;
+		}
+
+		/* Only support black key */
+		if (!is_bk_conf(tagged_key_conf)) {
+			dev_err(jrdev,
+				"The tagged key provided is not a black key\n");
+			return -EINVAL;
+		}
+
+		get_blackey_conf(&tagged_key_conf->conf.bk_conf,
+				 &ctx->cdata.key_real_len,
+				 &ctx->cdata.key_cmd_opt);
+
+		ret = get_tagged_data(ctx->cdata.key_virt, ctx->cdata.keylen,
+				      &ctx->cdata.key_virt, &ctx->cdata.keylen);
+		if (ret) {
+			dev_err(jrdev,
+				"caam algorithms wrong data from tagged key\n");
+			return ret;
+		}
+	}
+#endif /* CONFIG_CRYPTO_DEV_FSL_CAAM_TK_API */
+
 	/* skcipher_encrypt shared descriptor */
 	desc = ctx->sh_desc_enc;
 	cnstr_shdsc_skcipher_encap(desc, &ctx->cdata, ivsize, is_rfc3686,
@@ -824,6 +867,15 @@ static int ctr_skcipher_setkey(struct crypto_skcipher *skcipher,
 
 	return skcipher_setkey(skcipher, key, keylen, ctx1_iv_off);
 }
+
+
+#ifdef CONFIG_CRYPTO_DEV_FSL_CAAM_TK_API
+static int tk_skcipher_setkey(struct crypto_skcipher *skcipher,
+				const u8 *key, unsigned int keylen)
+{
+	return skcipher_setkey(skcipher, key, keylen, 0);
+}
+#endif /* CONFIG_CRYPTO_DEV_FSL_CAAM_TK_API */
 
 static int des_skcipher_setkey(struct crypto_skcipher *skcipher,
 			       const u8 *key, unsigned int keylen)
@@ -1904,6 +1956,25 @@ static struct caam_skcipher_alg driver_algs[] = {
 		},
 		.caam.class1_alg_type = OP_ALG_ALGSEL_AES | OP_ALG_AAI_CBC,
 	},
+#ifdef CONFIG_CRYPTO_DEV_FSL_CAAM_TK_API
+	{
+		.skcipher = {
+			.base = {
+				.cra_name = "tk(cbc(aes))",
+				.cra_driver_name = "tk-cbc-aes-caam",
+				.cra_blocksize = AES_BLOCK_SIZE,
+			},
+			.setkey = tk_skcipher_setkey,
+			.encrypt = skcipher_encrypt,
+			.decrypt = skcipher_decrypt,
+			.min_keysize = TAG_MIN_SIZE,
+			.max_keysize = CAAM_MAX_KEY_SIZE,
+			.ivsize = AES_BLOCK_SIZE,
+		},
+		.caam.class1_alg_type = OP_ALG_ALGSEL_AES | OP_ALG_AAI_CBC,
+		.caam.support_tagged_key = true,
+	},
+#endif /* CONFIG_CRYPTO_DEV_FSL_CAAM_TK_API */
 	{
 		.skcipher.base = {
 			.base = {
@@ -2045,6 +2116,24 @@ static struct caam_skcipher_alg driver_algs[] = {
 		},
 		.caam.class1_alg_type = OP_ALG_ALGSEL_AES | OP_ALG_AAI_ECB,
 	},
+#ifdef CONFIG_CRYPTO_DEV_FSL_CAAM_TK_API
+	{
+		.skcipher = {
+			.base = {
+				.cra_name = "tk(ecb(aes))",
+				.cra_driver_name = "tk-ecb-aes-caam",
+				.cra_blocksize = AES_BLOCK_SIZE,
+			},
+			.setkey = tk_skcipher_setkey,
+			.encrypt = skcipher_encrypt,
+			.decrypt = skcipher_decrypt,
+			.min_keysize = TAG_MIN_SIZE,
+			.max_keysize = CAAM_MAX_KEY_SIZE,
+		},
+		.caam.class1_alg_type = OP_ALG_ALGSEL_AES | OP_ALG_AAI_ECB,
+		.caam.support_tagged_key = true,
+	},
+#endif /* CONFIG_CRYPTO_DEV_FSL_CAAM_TK_API */
 	{
 		.skcipher.base = {
 			.base = {
@@ -3711,7 +3800,8 @@ static void caam_skcipher_alg_init(struct caam_skcipher_alg *t_alg)
 	struct skcipher_alg *alg = &t_alg->skcipher.base;
 
 	alg->base.cra_module = THIS_MODULE;
-	alg->base.cra_priority = CAAM_CRA_PRIORITY;
+	alg->base.cra_priority =
+		t_alg->caam.support_tagged_key ? 1 : CAAM_CRA_PRIORITY;
 	alg->base.cra_ctxsize = sizeof(struct caam_ctx) + crypto_dma_padding();
 	alg->base.cra_flags |= (CRYPTO_ALG_ASYNC | CRYPTO_ALG_ALLOCATES_MEMORY |
 			      CRYPTO_ALG_KERN_DRIVER_ONLY);

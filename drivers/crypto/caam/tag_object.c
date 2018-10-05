@@ -128,7 +128,7 @@ EXPORT_SYMBOL(is_valid_tag_object_conf);
  *
  * Return: 0 if success, else error code
  */
-int get_tag_object_conf(void *buffer, size_t size,
+int get_tag_object_conf(const void *buffer, size_t size,
 			struct tag_object_conf **tag_obj_conf)
 {
 	bool is_valid;
@@ -240,8 +240,8 @@ EXPORT_SYMBOL(get_blackey_conf);
  *
  * Return: 0 if success, else error code
  */
-int get_tagged_data(void *tagged_object, size_t tagged_object_size,
-		    void **data, u32 *data_size)
+int get_tagged_data(const void *tagged_object, size_t tagged_object_size,
+		    const void **data, u32 *data_size)
 {
 	struct tagged_object *tago =
 		(struct tagged_object *)tagged_object;

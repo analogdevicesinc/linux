@@ -1390,8 +1390,14 @@ void cnstr_shdsc_skcipher_encap(u32 * const desc, struct alginfo *cdata,
 				   JUMP_COND_SHRD);
 
 	/* Load class1 key only */
-	append_key_as_imm(desc, cdata->key_virt, cdata->keylen,
-			  cdata->keylen, CLASS_1 | KEY_DEST_CLASS_REG);
+	if (IS_ENABLED(CONFIG_CRYPTO_DEV_FSL_CAAM_TK_API) &&
+	    cdata->key_cmd_opt)
+		append_key_as_imm(desc, cdata->key_virt, cdata->keylen,
+				  cdata->key_real_len, CLASS_1 |
+				  KEY_DEST_CLASS_REG | cdata->key_cmd_opt);
+	else
+		append_key_as_imm(desc, cdata->key_virt, cdata->keylen,
+				  cdata->keylen, CLASS_1 | KEY_DEST_CLASS_REG);
 
 	/* Load nonce into CONTEXT1 reg */
 	if (is_rfc3686) {
@@ -1465,8 +1471,14 @@ void cnstr_shdsc_skcipher_decap(u32 * const desc, struct alginfo *cdata,
 				   JUMP_COND_SHRD);
 
 	/* Load class1 key only */
-	append_key_as_imm(desc, cdata->key_virt, cdata->keylen,
-			  cdata->keylen, CLASS_1 | KEY_DEST_CLASS_REG);
+	if (IS_ENABLED(CONFIG_CRYPTO_DEV_FSL_CAAM_TK_API) &&
+	    cdata->key_cmd_opt)
+		append_key_as_imm(desc, cdata->key_virt, cdata->keylen,
+				  cdata->key_real_len, CLASS_1 |
+				  KEY_DEST_CLASS_REG | cdata->key_cmd_opt);
+	else
+		append_key_as_imm(desc, cdata->key_virt, cdata->keylen,
+				  cdata->keylen, CLASS_1 | KEY_DEST_CLASS_REG);
 
 	/* Load nonce into CONTEXT1 reg */
 	if (is_rfc3686) {
