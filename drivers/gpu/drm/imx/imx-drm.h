@@ -21,6 +21,12 @@ struct imx_drm_device {
 	unsigned int				pipes;
 	struct drm_fbdev_cma			*fbhelper;
 	struct drm_atomic_state			*state;
+
+	struct workqueue_struct *wq;
+	struct {
+		wait_queue_head_t wait;
+		bool pending;
+	} commit;
 };
 
 struct imx_crtc_state {

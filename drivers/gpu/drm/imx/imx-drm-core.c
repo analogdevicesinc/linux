@@ -285,6 +285,14 @@ static int imx_drm_bind(struct device *dev)
 	imxdrm->drm = drm;
 	drm->dev_private = imxdrm;
 
+	imxdrm->wq = alloc_ordered_workqueue("imxdrm", 0);
+	if (!imxdrm->wq) {
+		ret = -ENOMEM;
+		goto err_unref;
+	}
+
+	init_waitqueue_head(&imxdrm->commit.wait);
+
 	/*
 	 * enable drm irq mode.
 	 * - with irq_enabled = true, we can use the vblank feature.
@@ -367,6 +375,7 @@ err_unbind:
 err_kms:
 	dev_set_drvdata(dev, NULL);
 	drm_mode_config_cleanup(drm);
+	destroy_workqueue(imxdrm->wq);
 err_unref:
 	drm_dev_unref(drm);
 
@@ -381,6 +390,8 @@ static void imx_drm_unbind(struct device *dev)
 	if (has_dpu(dev))
 		imx_drm_driver.driver_features &= ~DRIVER_RENDER;
 
+	flush_workqueue(imxdrm->wq);
+
 	drm_dev_unregister(drm);
 
 	drm_kms_helper_poll_fini(drm);
@@ -392,6 +403,8 @@ static void imx_drm_unbind(struct device *dev)
 
 	component_unbind_all(drm->dev, drm);
 	dev_set_drvdata(dev, NULL);
+
+	destroy_workqueue(imxdrm->wq);
 
 	drm_dev_unref(drm);
 }
