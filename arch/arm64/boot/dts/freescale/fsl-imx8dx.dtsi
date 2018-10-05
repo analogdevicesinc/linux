@@ -3117,6 +3117,9 @@
 			<&clk IMX8QXP_AUD_DSP_CORE_CLK>;
 		clock-names = "ipg", "ocram", "core";
 		fsl,dsp-firmware = "imx/dsp/hifi4.bin";
+		fsl,dsp-wrap = "imx/dsp/lib_dsp_codec_wrap.so";
+		fsl,dsp-codec-mp3 = "imx/dsp/lib_dsp_mp3_dec.so";
+		fsl,dsp-codec-aac = "imx/dsp/lib_dsp_aac_dec.so";
 		power-domains = <&pd_dsp>;
 	};
 
