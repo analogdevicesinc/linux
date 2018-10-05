@@ -1,0 +1,83 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR BSD-3-Clause)
+/*
+ * Copyright 2017-2018 NXP
+ */
+
+#include "t2080rdb.dts"
+
+/include/ "qoriq-fman3-0-sdk.dtsi"
+/include/ "qoriq-bman-portals-sdk.dtsi"
+/include/ "qoriq-qman3-portals-sdk.dtsi"
+/include/ "qoriq-qman3-ceetm0-32-sdk.dtsi"
+
+&soc {
+	fsldpaa: fsl,dpaa {
+		compatible = "simple-bus", "fsl,dpaa";
+		ethernet@0 {
+			compatible = "fsl,dpa-ethernet";
+			fsl,fman-mac = <&enet0>;
+		};
+		ethernet@1 {
+			compatible = "fsl,dpa-ethernet";
+			fsl,fman-mac = <&enet1>;
+		};
+		ethernet@2 {
+			compatible = "fsl,dpa-ethernet";
+			fsl,fman-mac = <&enet2>;
+		};
+		ethernet@3 {
+			compatible = "fsl,dpa-ethernet";
+			fsl,fman-mac = <&enet3>;
+		};
+		ethernet@4 {
+			compatible = "fsl,dpa-ethernet";
+			fsl,fman-mac = <&enet4>;
+		};
+		ethernet@5 {
+			compatible = "fsl,dpa-ethernet";
+			fsl,fman-mac = <&enet5>;
+		};
+		ethernet@6 {
+			compatible = "fsl,dpa-ethernet";
+			fsl,fman-mac = <&enet6>;
+		};
+		ethernet@7 {
+			compatible = "fsl,dpa-ethernet";
+			fsl,fman-mac = <&enet7>;
+		};
+	};
+};
+
+&bportals {
+	bman-portal@28000 {
+		cell-index = <0xa>;
+	};
+
+	bman-portal@2c000 {
+		cell-index = <0xb>;
+	};
+
+	bman-portal@30000 {
+		cell-index = <0xc>;
+	};
+
+	bman-portal@34000 {
+		cell-index = <0xd>;
+	};
+
+	bman-portal@38000 {
+		cell-index = <0xe>;
+	};
+
+	bman-portal@3c000 {
+		cell-index = <0xf>;
+	};
+
+	bman-portal@40000 {
+		cell-index = <0x10>;
+	};
+
+	bman-portal@44000 {
+		cell-index = <0x11>;
+	};
+};

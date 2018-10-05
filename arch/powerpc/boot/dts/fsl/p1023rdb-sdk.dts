@@ -1,0 +1,126 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR BSD-3-Clause)
+/*
+ * Copyright 2017-2018 NXP
+ */
+
+/include/ "p1023rdb.dts"
+
+&soc {
+	fman0: fman@100000 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		cell-index = <0>;
+		compatible = "fsl,fman", "simple-bus";
+		ranges = <0 0x100000 0x100000>;
+		reg = <0x100000 0x100000>;
+		clock-frequency = <0>;
+		interrupts = <
+		24 2 0 0
+		16 2 0 0>;
+		cc@0 {
+			compatible = "fsl,fman-cc";
+		};
+		muram@0 {
+			compatible = "fsl,fman-muram";
+			reg = <0x0 0x10000>;
+		};
+		bmi@80000 {
+			compatible = "fsl,fman-bmi";
+			reg = <0x80000 0x400>;
+		};
+		qmi@80400 {
+			compatible = "fsl,fman-qmi";
+			reg = <0x80400 0x400>;
+		};
+		policer@c0000 {
+			compatible = "fsl,fman-policer";
+			reg = <0xc0000 0x1000>;
+		};
+		keygen@c1000 {
+			compatible = "fsl,fman-keygen";
+			reg = <0xc1000 0x1000>;
+		};
+		dma@c2000 {
+			compatible = "fsl,fman-dma";
+			reg = <0xc2000 0x1000>;
+		};
+		fpm@c3000 {
+			compatible = "fsl,fman-fpm";
+			reg = <0xc3000 0x1000>;
+		};
+		parser@c7000 {
+			compatible = "fsl,fman-parser";
+			reg = <0xc7000 0x1000>;
+		};
+		fman0_rx0: port@88000 {
+			cell-index = <0>;
+			compatible = "fsl,fman-port-1g-rx";
+			reg = <0x88000 0x1000>;
+		};
+		fman0_rx1: port@89000 {
+			cell-index = <1>;
+			compatible = "fsl,fman-port-1g-rx";
+			reg = <0x89000 0x1000>;
+		};
+		fman0_tx0: port@a8000 {
+			cell-index = <0>;
+			compatible = "fsl,fman-port-1g-tx";
+			reg = <0xa8000 0x1000>;
+			fsl,qman-channel-id = <0x40>;
+		};
+		fman0_tx1: port@a9000 {
+			cell-index = <1>;
+			compatible = "fsl,fman-port-1g-tx";
+			reg = <0xa9000 0x1000>;
+			fsl,qman-channel-id = <0x41>;
+		};
+		fman0_oh1: port@82000 {
+			cell-index = <1>;
+			compatible = "fsl,fman-port-oh";
+			reg = <0x82000 0x1000>;
+			fsl,qman-channel-id = <0x43>;
+		};
+		fman0_oh2: port@83000 {
+			cell-index = <2>;
+			compatible = "fsl,fman-port-oh";
+			reg = <0x83000 0x1000>;
+			fsl,qman-channel-id = <0x44>;
+		};
+		fman0_oh3: port@84000 {
+			cell-index = <3>;
+			compatible = "fsl,fman-port-oh";
+			reg = <0x84000 0x1000>;
+			fsl,qman-channel-id = <0x45>;
+		};
+		fman0_oh4: port@85000 {
+			cell-index = <4>;
+			compatible = "fsl,fman-port-oh";
+			reg = <0x85000 0x1000>;
+			fsl,qman-channel-id = <0x46>;
+		};
+		enet0: ethernet@e0000 {
+			cell-index = <0>;
+			compatible = "fsl,fman-dtsec";
+			reg = <0xe0000 0x1000>;
+			fsl,port-handles = <&fman0_rx0 &fman0_tx0>;
+		};
+		enet1: ethernet@e2000 {
+			cell-index = <1>;
+			compatible = "fsl,fman-dtsec";
+			reg = <0xe2000 0x1000>;
+			fsl,port-handles = <&fman0_rx1 &fman0_tx1>;
+		};
+		mdio0: mdio@e1120 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "fsl,fman-mdio";
+			reg = <0xe1120 0xee0>;
+			interrupts = <26 1 0 0>;
+		};
+	};
+};
+
+&bportals {
+	compatible = "fsl,bpid-range";
+	fsl,bpid-range = <32 32>;
+};

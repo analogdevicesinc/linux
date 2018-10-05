@@ -1,0 +1,68 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR BSD-3-Clause)
+/*
+ * Copyright 2017-2018 NXP
+ */
+
+/include/ "p5040ds.dts"
+
+/include/ "qoriq-fman-0-sdk.dtsi"
+/include/ "qoriq-fman-1-sdk.dtsi"
+/include/ "qoriq-bman-portals-sdk.dtsi"
+/include/ "qoriq-qman1-portals-sdk.dtsi"
+
+&soc {
+	fsldpaa: fsl,dpaa {
+		compatible = "simple-bus", "fsl,dpaa";
+		ethernet@0 {
+			compatible = "fsl,dpa-ethernet";
+			fsl,fman-mac = <&enet0>;
+			status = "disabled";
+		};
+		ethernet@1 {
+			compatible = "fsl,dpa-ethernet";
+			fsl,fman-mac = <&enet1>;
+		};
+		ethernet@2 {
+			compatible = "fsl,dpa-ethernet";
+			fsl,fman-mac = <&enet2>;
+		};
+		ethernet@3 {
+			compatible = "fsl,dpa-ethernet";
+			fsl,fman-mac = <&enet3>;
+		};
+		ethernet@4 {
+			compatible = "fsl,dpa-ethernet";
+			fsl,fman-mac = <&enet4>;
+		};
+		ethernet@5 {
+			compatible = "fsl,dpa-ethernet";
+			fsl,fman-mac = <&enet5>;
+		};
+		ethernet@6 {
+			compatible = "fsl,dpa-ethernet";
+			fsl,fman-mac = <&enet6>;
+			status = "disabled";
+		};
+		ethernet@7 {
+			compatible = "fsl,dpa-ethernet";
+			fsl,fman-mac = <&enet7>;
+		};
+		ethernet@8 {
+			compatible = "fsl,dpa-ethernet";
+			fsl,fman-mac = <&enet8>;
+		};
+		ethernet@9 {
+			compatible = "fsl,dpa-ethernet";
+			fsl,fman-mac = <&enet9>;
+		};
+		ethernet@10 {
+			compatible = "fsl,dpa-ethernet";
+			fsl,fman-mac = <&enet10>;
+		};
+		ethernet@11 {
+			compatible = "fsl,dpa-ethernet";
+			fsl,fman-mac = <&enet11>;
+		};
+	};
+};
+

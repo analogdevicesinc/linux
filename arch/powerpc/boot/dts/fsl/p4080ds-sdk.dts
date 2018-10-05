@@ -1,0 +1,74 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR BSD-3-Clause)
+/*
+ * Copyright 2017-2018 NXP
+ */
+
+/include/ "p4080ds.dts"
+
+/ {
+
+	aliases {
+		phy_rgmii = &phyrgmii;
+		phy5_slot3 = &phy5slot3;
+		phy6_slot3 = &phy6slot3;
+		phy7_slot3 = &phy7slot3;
+		phy8_slot3 = &phy8slot3;
+		emi1_slot3 = &p4080mdio2;
+		emi1_slot4 = &p4080mdio1;
+		emi1_slot5 = &p4080mdio3;
+		emi1_rgmii = &p4080mdio0;
+		emi2_slot4 = &p4080xmdio1;
+		emi2_slot5 = &p4080xmdio3;
+	};
+};
+
+/include/ "qoriq-fman-0-sdk.dtsi"
+/include/ "qoriq-fman-1-sdk.dtsi"
+/include/ "qoriq-bman-portals-sdk.dtsi"
+/include/ "qoriq-qman1-portals-sdk.dtsi"
+
+&soc {
+	fsldpaa: fsl,dpaa {
+		compatible = "simple-bus", "fsl,dpaa";
+		ethernet@0 {
+			compatible = "fsl,dpa-ethernet";
+			fsl,fman-mac = <&enet0>;
+		};
+		ethernet@1 {
+			compatible = "fsl,dpa-ethernet";
+			fsl,fman-mac = <&enet1>;
+		};
+		ethernet@2 {
+			compatible = "fsl,dpa-ethernet";
+			fsl,fman-mac = <&enet2>;
+		};
+		ethernet@3 {
+			compatible = "fsl,dpa-ethernet";
+			fsl,fman-mac = <&enet3>;
+		};
+		ethernet@4 {
+			compatible = "fsl,dpa-ethernet";
+			fsl,fman-mac = <&enet4>;
+		};
+		ethernet@5 {
+			compatible = "fsl,dpa-ethernet";
+			fsl,fman-mac = <&enet5>;
+		};
+		ethernet@6 {
+			compatible = "fsl,dpa-ethernet";
+			fsl,fman-mac = <&enet6>;
+		};
+		ethernet@7 {
+			compatible = "fsl,dpa-ethernet";
+			fsl,fman-mac = <&enet7>;
+		};
+		ethernet@8 {
+			compatible = "fsl,dpa-ethernet";
+			fsl,fman-mac = <&enet8>;
+		};
+		ethernet@9 {
+			compatible = "fsl,dpa-ethernet";
+			fsl,fman-mac = <&enet9>;
+		};
+	};
+};
