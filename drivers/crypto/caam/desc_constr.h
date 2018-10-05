@@ -447,16 +447,20 @@ do { \
  *       is true, dma (bus) address if key_inline is false.
  * @key_inline: true - key can be inlined in the descriptor; false - key is
  *              referenced by the descriptor
+ * @key_real_len: Size of the key to be loaded by the CAAM
+ * @key_cmd_opt: Optional parameters for KEY command
  */
 struct alginfo {
 	u32 algtype;
-	unsigned int keylen;
-	unsigned int keylen_pad;
+	u32 keylen;
+	u32 keylen_pad;
 	union {
 		caam_dma_addr_t key_dma;
 		void *key_virt;
 	};
 	bool key_inline;
+	u32 key_real_len;
+	u32 key_cmd_opt;
 };
 
 /**
