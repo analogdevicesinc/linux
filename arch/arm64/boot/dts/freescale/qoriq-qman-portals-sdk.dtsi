@@ -1,0 +1,38 @@
+/*
+ * QorIQ QMan SDK Portals device tree nodes
+ *
+ * Copyright 2011-2016 Freescale Semiconductor Inc.
+ * Copyright 2017 NXP
+ *
+ * SPDX-License-Identifier: (GPL-2.0+ OR BSD-3-Clause)
+ */
+
+&qportals {
+	qman-fqids@0 {
+		compatible = "fsl,fqid-range";
+		fsl,fqid-range = <256 256>;
+	};
+
+	qman-fqids@1 {
+		compatible = "fsl,fqid-range";
+		fsl,fqid-range = <32768 32768>;
+	};
+
+	qman-pools@0 {
+		compatible = "fsl,pool-channel-range";
+		fsl,pool-channel-range = <0x401 0xf>;
+	};
+
+	qman-cgrids@0 {
+		compatible = "fsl,cgrid-range";
+		fsl,cgrid-range = <0 256>;
+	};
+
+	qman-ceetm@0 {
+		compatible = "fsl,qman-ceetm";
+		fsl,ceetm-lfqid-range = <0xf00000 0x1000>;
+		fsl,ceetm-sp-range = <0 16>;
+		fsl,ceetm-lni-range = <0 8>;
+		fsl,ceetm-channel-range = <0 32>;
+	};
+};
