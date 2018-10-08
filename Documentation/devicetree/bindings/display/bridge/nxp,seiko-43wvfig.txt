@@ -1,0 +1,40 @@
+Legacy Freescale RA169Z20 adapter card for Seiko 43WVFIG panel, driver bindings
+
+This is an adapter card made for the 4.3", 800x480, LCD panel Seiko 43WVFIG.
+The LCD panel is a 24bit DPI bus, while the adapter card has two ports:
+18-bit and 24-bit data input. For the 18-bit data input, the adapter card
+is demuxing some of the data lines, in order to feed all of the 24 lines
+needed by the LCD.
+
+Required properties:
+- compatible: 	"nxp,seiko-43wvfig"
+- bus_mode:	must be one of <18> or <24>, depending on the input port
+		used (18-bit or 24-bit)
+- port:		input and output port nodes with endpoint definitions as
+		defined in Documentation/devicetree/bindings/graph.txt;
+		the input port should be connected to an lcd controller
+		while the output port should be connected to the Seiko
+		43wvfig LCD panel
+
+Example:
+	seiko_adapter: seiko-adapter {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "nxp,seiko-43wvfig";
+		bus_mode = <18>;
+
+		port@0 {
+			reg = <0>;
+			adapter_in: endpoint {
+				remote-endpoint = <&lcdif_out>;
+			};
+		};
+		port@1 {
+			reg = <1>;
+			adapter_out: endpoint {
+				remote-endpoint = <&panel_in>;
+			};
+		};
+	};
+
+-
