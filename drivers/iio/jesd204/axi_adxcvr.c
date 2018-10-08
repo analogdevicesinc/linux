@@ -13,79 +13,10 @@
 #include <linux/clk.h>
 #include <linux/clk-provider.h>
 
+#include "axi_adxcvr.h"
 #include "xilinx_transceiver.h"
+#include "axi_adxcvr_eyescan.h"
 
-#define PCORE_VER(major, minor, letter)	((major << 16) | (minor << 8) | letter)
-#define PCORE_VER_MAJOR(version)		(version >> 16)
-#define PCORE_VER_MINOR(version)		((version >> 8) & 0xff)
-#define PCORE_VER_LETTER(version)		(version & 0xff)
-
-#define ADXCVR_REG_VERSION			0x0000
-#define ADXCVR_VERSION(x)			(((x) & 0xffffffff) << 0)
-#define ADXCVR_VERSION_IS(x, y, z)	((x) << 16 | (y) << 8 | (z))
-#define ADXCVR_VERSION_MAJOR(x)		((x) >> 16)
-
-#define ADXCVR_REG_ID				0x0004
-
-#define ADXCVR_REG_SCRATCH			0x0008
-
-#define ADXCVR_REG_RESETN			0x0010
-#define ADXCVR_RESETN				(1 << 0)
-
-#define ADXCVR_REG_STATUS			0x0014
-#define ADXCVR_STATUS				(1 << 0)
-
-#define ADXCVR_REG_CONTROL			0x0020
-#define ADXCVR_LPM_DFE_N			(1 << 12)
-#define ADXCVR_RATE(x)				(((x) & 0x7) << 8)
-#define ADXCVR_SYSCLK_SEL(x)		(((x) & 0x3) << 4)
-#define ADXCVR_OUTCLK_SEL(x)		(((x) & 0x7) << 0)
-
-#define ADXCVR_REG_SYNTH		0x24
-
-#define ADXCVR_REG_DRP_SEL(x)		(0x0040 + (x))
-
-#define ADXCVR_REG_DRP_CTRL(x)		(0x0044 + (x))
-#define ADXCVR_DRP_CTRL_WR			(1 << 28)
-#define ADXCVR_DRP_CTRL_ADDR(x)		(((x) & 0xFFF) << 16)
-#define ADXCVR_DRP_CTRL_WDATA(x)	(((x) & 0xFFFF) << 0)
-
-#define ADXCVR_REG_DRP_STATUS(x)	(0x0048 + (x))
-#define ADXCVR_DRP_STATUS_BUSY		(1 << 16)
-#define ADXCVR_DRP_STATUS_RDATA(x)	(((x) & 0xFFFF) << 0)
-
-#define ADXCVR_DRP_PORT_ADDR_COMMON	0x00
-#define ADXCVR_DRP_PORT_ADDR_CHANNEL	0x20
-
-#define ADXCVR_DRP_PORT_COMMON		0x00
-#define ADXCVR_DRP_PORT_CHANNEL(x)	(0x1 + x)
-#define ADXCVR_DRP_PORT_CHANNEL_BCAST	0xff
-
-#define ADXCVR_BROADCAST			0xff
-
-struct adxcvr_state {
-	struct device		*dev;
-	void __iomem		*regs;
-	struct clk			*conv_clk;
-	struct clk			*lane_rate_div40_clk;
-	struct clk_hw		lane_clk_hw;
-	struct work_struct	work;
-	unsigned long		lane_rate;
-	bool				tx_enable;
-	u32					sys_clk_sel;
-	u32					out_clk_sel;
-
-	struct clk *clks[2];
-	struct clk_onecell_data clk_lookup;
-
-	struct xilinx_xcvr	xcvr;
-
-	bool				cpll_enable;
-	bool				lpm_enable;
-	bool				ref_is_div40;
-
-	unsigned int			num_lanes;
-};
 
 static struct adxcvr_state *xcvr_to_adxcvr(struct xilinx_xcvr *xcvr)
 {
@@ -615,6 +546,10 @@ static int adxcvr_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
+	ret = adxcvr_eyescan_register(st);
+	if (ret)
+		return ret;
+
 	dev_info(&pdev->dev, "AXI-ADXCVR-%s (%d.%.2d.%c) using %s at 0x%08llX mapped to 0x%p. Number of lanes: %d.",
 		st->tx_enable ? "TX" : "RX",
 		PCORE_VER_MAJOR(version),
@@ -644,6 +579,7 @@ static int adxcvr_remove(struct platform_device *pdev)
 {
 	struct adxcvr_state *st = platform_get_drvdata(pdev);
 
+	adxcvr_eyescan_unregister(st);
 	of_clk_del_provider(pdev->dev.of_node);
 	clk_disable_unprepare(st->conv_clk);
 
