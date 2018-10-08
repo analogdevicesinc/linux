@@ -181,7 +181,7 @@ struct cm_reg_ofs {
 };
 
 struct dpu_devtype {
-	const unsigned long cm_ofs;	/* common */
+	unsigned long cm_ofs;			/* common */
 	const struct dpu_unit *cfs;
 	const struct dpu_unit *decs;
 	const struct dpu_unit *eds;
@@ -197,19 +197,19 @@ struct dpu_devtype {
 	const struct dpu_unit *vss;
 	const struct cm_reg_ofs *cm_reg_ofs;
 	const unsigned int *intsteer_map;
-	const unsigned int intsteer_map_size;
+	unsigned int intsteer_map_size;
 	const unsigned long *unused_irq;
 	const unsigned int *sw2hw_irq_map;	/* NULL means linear */
 	const unsigned int *sw2hw_block_id_map;	/* NULL means linear */
 
-	const unsigned int syncmode_min_prate;	/* need pixel combiner, KHz */
-	const unsigned int singlemode_max_width;
+	unsigned int syncmode_min_prate;	/* need pixel combiner, KHz */
+	unsigned int singlemode_max_width;
 
 	/*
 	 * index:     0         1         2       3   4   5   6
 	 * source: fl0(sub0) fl1(sub0) fw2(sub0) fd0 fd1 fd2 fd3
 	 */
-	const u32 plane_src_na_mask;
+	u32 plane_src_na_mask;
 	bool has_capture;
 	bool has_prefetch;
 	bool has_disp_sel_clk;
