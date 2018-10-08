@@ -2016,6 +2016,9 @@ int ci_usb_charger_connect(struct ci_hdrc *ci, int is_active)
 	if (is_active)
 		pm_runtime_get_sync(ci->dev);
 
+	if (!(ci->platdata->flags & CI_HDRC_PHY_CHARGER_DETECTION))
+		goto out;
+
 	if (ci->usb_phy->charger_detect) {
 		usb_phy_set_charger_state(ci->usb_phy, is_active ?
 			USB_CHARGER_PRESENT : USB_CHARGER_ABSENT);
@@ -2036,6 +2039,7 @@ int ci_usb_charger_connect(struct ci_hdrc *ci, int is_active)
 		}
 		schedule_work(&ci->usb_phy->chg_work);
 	}
+out:
 
 	if (!is_active)
 		pm_runtime_put_sync(ci->dev);

@@ -690,6 +690,12 @@ static int ci_get_platdata(struct device *dev,
 	if (of_find_property(dev->of_node, "non-zero-ttctrl-ttha", NULL))
 		platdata->flags |= CI_HDRC_SET_NON_ZERO_TTHA;
 
+	/* "imx-usb-charger-detection is legacy compatible */
+	if (of_find_property(dev->of_node, "phy-charger-detection", NULL) ||
+		of_find_property(dev->of_node, "imx-usb-charger-detection",
+			NULL))
+		platdata->flags |= CI_HDRC_PHY_CHARGER_DETECTION;
+
 	ext_id = ERR_PTR(-ENODEV);
 	ext_vbus = ERR_PTR(-ENODEV);
 	if (of_property_read_bool(dev->of_node, "extcon")) {

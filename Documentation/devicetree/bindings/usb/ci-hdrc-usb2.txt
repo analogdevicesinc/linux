@@ -79,6 +79,7 @@ Optional properties:
   maximum_periodic_data_per_frame. The use case is multiple transactions, but
   less frame rate.
 - ci-disable-lpm: Some chipidea hardware need to disable low power mode
+- phy-charger-detection: enable USB PHY charger detection function
 
 i.mx specific properties
 - fsl,usbmisc: phandler of non-core register device, with one
