@@ -1201,6 +1201,7 @@ static int dpu_add_client_devices(struct dpu_soc *dpu)
 	struct device *dev = dpu->dev;
 	struct dpu_platform_reg *reg;
 	struct dpu_plane_grp *plane_grp;
+	struct dpu_store *st9 = NULL;
 	size_t client_num, reg_size;
 	int i, id, ret;
 
@@ -1237,6 +1238,18 @@ static int dpu_add_client_devices(struct dpu_soc *dpu)
 	if (ret)
 		goto err_get_plane_res;
 
+	/*
+	 * Store9 is shared bewteen display engine(for sync mode
+	 * fixup) and blit engine.
+	 */
+	if (devtype->has_syncmode_fixup) {
+		st9 = dpu_st_get(dpu, 9);
+		if (IS_ERR(st9)) {
+			ret = PTR_ERR(st9);
+			goto err_get_plane_res;
+		}
+	}
+
 	for (i = 0; i < client_num; i++) {
 		struct platform_device *pdev;
 		struct device_node *of_node = NULL;
@@ -1270,6 +1283,7 @@ static int dpu_add_client_devices(struct dpu_soc *dpu)
 		if (is_disp) {
 			reg[i].pdata.plane_grp = plane_grp;
 			reg[i].pdata.di_grp_id = plane_grp->id;
+			reg[i].pdata.st9 = st9;
 		}
 
 		pdev = platform_device_alloc(reg[i].name, id++);
@@ -1295,6 +1309,8 @@ static int dpu_add_client_devices(struct dpu_soc *dpu)
 
 err_register:
 	platform_device_unregister_children(to_platform_device(dev));
+	if (devtype->has_syncmode_fixup)
+		dpu_st_put(st9);
 err_get_plane_res:
 	dpu_put_plane_resource(&plane_grp->res);
 

@@ -840,6 +840,9 @@ struct dpu_client_platformdata {
 	unsigned int		di_grp_id;
 	struct dpu_plane_grp	*plane_grp;
 
+	/* Store9 could be shared bewteen display engine and blit engine */
+	struct dpu_store	*st9;
+
 	struct device_node	*of_node;
 };
 #endif /* __DRM_DPU_H__ */

@@ -852,8 +852,6 @@ static void dpu_crtc_put_resources(struct dpu_crtc *dpu_crtc)
 		dpu_fg_put(dpu_crtc->fg);
 	if (!IS_ERR_OR_NULL(dpu_crtc->tcon))
 		dpu_tcon_put(dpu_crtc->tcon);
-	if (!IS_ERR_OR_NULL(dpu_crtc->st))
-		dpu_st_put(dpu_crtc->st);
 }
 
 static int dpu_crtc_get_resources(struct dpu_crtc *dpu_crtc)
@@ -896,14 +894,6 @@ static int dpu_crtc_get_resources(struct dpu_crtc *dpu_crtc)
 		goto err_out;
 	}
 	dpu_crtc->aux_tcon = dpu_aux_tcon_peek(dpu_crtc->tcon);
-
-	if (stream_id == 0) {
-		dpu_crtc->st = dpu_st_get(dpu, 9);
-		if (IS_ERR(dpu_crtc->st)) {
-			ret = PTR_ERR(dpu_crtc->st);
-			goto err_out;
-		}
-	}
 
 	if (stream_id) {
 		dpu_crtc->m_cf   = dpu_crtc->aux_cf;
@@ -958,6 +948,7 @@ static int dpu_crtc_init(struct dpu_crtc *dpu_crtc,
 	dpu_crtc->has_pc = dpu_has_pc(dpu);
 	dpu_crtc->syncmode_min_prate = dpu_get_syncmode_min_prate(dpu);
 	dpu_crtc->singlemode_max_width = dpu_get_singlemode_max_width(dpu);
+	dpu_crtc->st = pdata->st9;
 
 	dpu_crtc->plane = devm_kcalloc(dev, dpu_crtc->hw_plane_num,
 					sizeof(*dpu_crtc->plane), GFP_KERNEL);
