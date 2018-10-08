@@ -3412,7 +3412,7 @@ static int adrv9009_parse_profile(struct adrv9009_rf_phy *phy,
 			GET_TOKEN(phy->talInit.clocks, clkPllVcoFreq_kHz);
 			ret = sscanf(line, " <clkPllHsDiv=%u.%u>", &int32, &int32_2);
 			if (ret > 0) {
-				if (ret == 1) {
+				if (ret == 1 || ((ret == 2) && (int32_2 == 0))) {
 					switch (int32) {
 					case 2:
 						num = TAL_HSDIV_2;
