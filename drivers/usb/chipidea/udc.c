@@ -1583,10 +1583,10 @@ static int ci_udc_vbus_session(struct usb_gadget *_gadget, int is_active)
 		gadget_ready = 1;
 	spin_unlock_irqrestore(&ci->lock, flags);
 
-	/* Charger Detection */
-	ci_usb_charger_connect(ci, is_active);
-
 	if (ci->usb_phy) {
+		/* Charger Detection */
+		ci_usb_charger_connect(ci, is_active);
+
 		if (is_active)
 			usb_phy_set_event(ci->usb_phy, USB_EVENT_VBUS);
 		else
@@ -2016,7 +2016,10 @@ int ci_usb_charger_connect(struct ci_hdrc *ci, int is_active)
 	if (is_active)
 		pm_runtime_get_sync(ci->dev);
 
-	if (ci->platdata->notify_event) {
+	if (ci->usb_phy->charger_detect) {
+		usb_phy_set_charger_state(ci->usb_phy, is_active ?
+			USB_CHARGER_PRESENT : USB_CHARGER_ABSENT);
+	} else if (ci->platdata->notify_event) {
 		if (is_active)
 			hw_write(ci, OP_USBCMD, USBCMD_RS, 0);
 
@@ -2031,6 +2034,7 @@ int ci_usb_charger_connect(struct ci_hdrc *ci, int is_active)
 			/* Pull down dp */
 			hw_write(ci, OP_USBCMD, USBCMD_RS, 0);
 		}
+		schedule_work(&ci->usb_phy->chg_work);
 	}
 
 	if (!is_active)
