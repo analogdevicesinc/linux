@@ -66,6 +66,11 @@ config DRM_SEC_MIPI_DSIM
 	help
 	  The Samsung MPI DSIM Bridge driver.
 
+config DRM_NXP_SEIKO_43WVFIG
+	tristate "Legacy Freescale Seiko 43WVFIG panel DPI adapter bridge"
+	select DRM_KMS_HELPER
+	select DRM_PANEL
+
 config DRM_NXP_PTN3460
 	tristate "NXP PTN3460 DP/LVDS bridge"
 	depends on OF
