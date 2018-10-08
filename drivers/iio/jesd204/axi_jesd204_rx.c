@@ -501,6 +501,7 @@ static int axi_jesd204_rx_lane_clk_enable(struct clk_hw *clk)
 	struct axi_jesd204_rx *jesd =
 		container_of(clk, struct axi_jesd204_rx, dummy_clk);
 
+	writel_relaxed(0x3, jesd->base + JESD204_RX_REG_SYSREF_STATUS);
 	writel_relaxed(0x0, jesd->base + JESD204_RX_REG_LINK_DISABLE);
 
 	schedule_delayed_work(&jesd->watchdog_work, HZ);
