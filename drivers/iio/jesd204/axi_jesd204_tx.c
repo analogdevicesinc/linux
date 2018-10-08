@@ -401,6 +401,7 @@ static int axi_jesd204_tx_lane_clk_enable(struct clk_hw *clk)
 	struct axi_jesd204_tx *jesd =
 		container_of(clk, struct axi_jesd204_tx, dummy_clk);
 
+	writel_relaxed(0x3, jesd->base + JESD204_TX_REG_SYSREF_STATUS);
 	writel_relaxed(0x0, jesd->base + JESD204_TX_REG_LINK_DISABLE);
 
 	return 0;
