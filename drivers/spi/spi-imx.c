@@ -900,6 +900,7 @@ static struct spi_imx_devtype_data imx6ul_ecspi_devtype_data = {
 	.trigger = mx51_ecspi_trigger,
 	.rx_available = mx51_ecspi_rx_available,
 	.reset = mx51_ecspi_reset,
+	.setup_wml = mx51_setup_wml,
 	.fifo_size = 64,
 	.has_dmamode = true,
 	.dynamic_burst = true,
@@ -1212,6 +1213,11 @@ static int spi_imx_dma_transfer(struct spi_imx_data *spi_imx,
 	ret = spi_imx_dma_configure(master);
 	if (ret)
 		return ret;
+
+	if (!spi_imx->devtype_data->setup_wml) {
+		dev_err(spi_imx->dev, "No setup_wml()?\n");
+		return -EINVAL;
+	}
 
 	spi_imx->devtype_data->setup_wml(spi_imx);
 
