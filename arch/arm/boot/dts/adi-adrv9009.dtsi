@@ -457,11 +457,11 @@
 
 		adi,tx-pa-protection-avg-duration = <3>;
 		adi,tx-pa-protection-tx-atten-step = <2>;
-		adi,tx-pa-protection-tx1-power-threshold = <128>;
-		adi,tx-pa-protection-tx2-power-threshold = <128>;
+		adi,tx-pa-protection-tx1-power-threshold = <4096>;
+		adi,tx-pa-protection-tx2-power-threshold = <4096>;
 		adi,tx-pa-protection-peak-count = <4>;
-		adi,tx-pa-protection-tx1-peak-threshold = <16>;
-		adi,tx-pa-protection-tx2-peak-threshold = <16>;
+		adi,tx-pa-protection-tx1-peak-threshold = <130>;
+		adi,tx-pa-protection-tx2-peak-threshold = <130>;
 	};
 };
 
