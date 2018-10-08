@@ -129,7 +129,7 @@ static void dpu_crtc_atomic_enable(struct drm_crtc *crtc,
 		framegen_enable(dpu_crtc->s_fg);
 		framegen_enable(dpu_crtc->m_fg);
 
-		if (dpu_crtc->stream_id) {
+		if (dpu_crtc->aux_is_master) {
 			m_safety_shdld_done  = &aux_dpu_crtc->safety_shdld_done;
 			m_content_shdld_done = &aux_dpu_crtc->content_shdld_done;
 			m_dec_shdld_done     = &aux_dpu_crtc->dec_shdld_done;
@@ -600,7 +600,7 @@ static void dpu_crtc_atomic_flush(struct drm_crtc *crtc,
 	if (dcstate->use_pc) {
 		aux_dpu_crtc = dpu_crtc_get_aux_dpu_crtc(dpu_crtc);
 
-		if (dpu_crtc->stream_id) {
+		if (dpu_crtc->aux_is_master) {
 			m_content_shdld_done = &aux_dpu_crtc->content_shdld_done;
 			s_content_shdld_done = &dpu_crtc->content_shdld_done;
 		} else {
@@ -897,7 +897,7 @@ static int dpu_crtc_get_resources(struct dpu_crtc *dpu_crtc)
 	}
 	dpu_crtc->aux_tcon = dpu_aux_tcon_peek(dpu_crtc->tcon);
 
-	if (stream_id) {
+	if (dpu_crtc->aux_is_master) {
 		dpu_crtc->m_cf   = dpu_crtc->aux_cf;
 		dpu_crtc->m_dec  = dpu_crtc->aux_dec;
 		dpu_crtc->m_ed   = dpu_crtc->aux_ed;
@@ -950,6 +950,9 @@ static int dpu_crtc_init(struct dpu_crtc *dpu_crtc,
 	dpu_crtc->has_pc = dpu_has_pc(dpu);
 	dpu_crtc->syncmode_min_prate = dpu_get_syncmode_min_prate(dpu);
 	dpu_crtc->singlemode_max_width = dpu_get_singlemode_max_width(dpu);
+	dpu_crtc->master_stream_id = dpu_get_master_stream_id(dpu);
+	dpu_crtc->aux_is_master = dpu_crtc->has_pc ?
+			!(dpu_crtc->master_stream_id == stream_id) : false;
 	dpu_crtc->st = pdata->st9;
 
 	dpu_crtc->plane = devm_kcalloc(dev, dpu_crtc->hw_plane_num,

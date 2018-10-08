@@ -204,6 +204,7 @@ struct dpu_devtype {
 
 	unsigned int syncmode_min_prate;	/* need pixel combiner, KHz */
 	unsigned int singlemode_max_width;
+	unsigned int master_stream_id;
 
 	/*
 	 * index:     0         1         2       3   4   5   6

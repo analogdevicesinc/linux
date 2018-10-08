@@ -422,7 +422,9 @@ EXPORT_SYMBOL_GPL(extdst_perfresult);
 
 bool extdst_is_master(struct dpu_extdst *ed)
 {
-	return ed->id == 0;
+	const struct dpu_devtype *devtype = ed->dpu->devtype;
+
+	return ed->id == devtype->master_stream_id;
 }
 EXPORT_SYMBOL_GPL(extdst_is_master);
 

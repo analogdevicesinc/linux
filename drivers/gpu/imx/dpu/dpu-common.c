@@ -605,6 +605,7 @@ static const struct dpu_devtype dpu_type_v2_qm = {
 	.has_syncmode_fixup = true,
 	.syncmode_min_prate = 300000,
 	.singlemode_max_width = 1920,
+	.master_stream_id = 0,
 	.pixel_link_quirks = true,
 	.pixel_link_nhvsync = true,
 	.version = DPU_V2,
@@ -681,6 +682,15 @@ unsigned int dpu_get_singlemode_max_width(struct dpu_soc *dpu)
 		return UINT_MAX;
 }
 EXPORT_SYMBOL_GPL(dpu_get_singlemode_max_width);
+
+unsigned int dpu_get_master_stream_id(struct dpu_soc *dpu)
+{
+	if (dpu->devtype->has_pc)
+		return dpu->devtype->master_stream_id;
+	else
+		return UINT_MAX;
+}
+EXPORT_SYMBOL_GPL(dpu_get_master_stream_id);
 
 bool dpu_vproc_has_fetcheco_cap(u32 cap_mask)
 {

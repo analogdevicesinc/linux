@@ -52,12 +52,14 @@ struct dpu_crtc {
 	unsigned int		crtc_grp_id;
 	unsigned int		syncmode_min_prate;
 	unsigned int		singlemode_max_width;
+	unsigned int		master_stream_id;
 	int			vbl_irq;
 	int			safety_shdld_irq;
 	int			content_shdld_irq;
 	int			dec_shdld_irq;
 
 	bool			has_pc;
+	bool			aux_is_master;
 
 	struct completion	safety_shdld_done;
 	struct completion	content_shdld_done;

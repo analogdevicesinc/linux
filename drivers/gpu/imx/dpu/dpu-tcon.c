@@ -216,13 +216,15 @@ EXPORT_SYMBOL_GPL(tcon_cfg_videomode);
 
 bool tcon_is_master(struct dpu_tcon *tcon)
 {
-	return tcon->id == 0;
+	const struct dpu_devtype *devtype = tcon->dpu->devtype;
+
+	return tcon->id == devtype->master_stream_id;
 }
 EXPORT_SYMBOL_GPL(tcon_is_master);
 
 bool tcon_is_slave(struct dpu_tcon *tcon)
 {
-	return tcon->id == 1;
+	return !tcon_is_master(tcon);
 }
 EXPORT_SYMBOL_GPL(tcon_is_slave);
 

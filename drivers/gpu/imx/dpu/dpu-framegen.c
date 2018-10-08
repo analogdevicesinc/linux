@@ -630,13 +630,15 @@ EXPORT_SYMBOL_GPL(framegen_disable_clock);
 
 bool framegen_is_master(struct dpu_framegen *fg)
 {
-	return fg->id == 0;
+	const struct dpu_devtype *devtype = fg->dpu->devtype;
+
+	return fg->id == devtype->master_stream_id;
 }
 EXPORT_SYMBOL_GPL(framegen_is_master);
 
 bool framegen_is_slave(struct dpu_framegen *fg)
 {
-	return fg->id == 1;
+	return !framegen_is_master(fg);
 }
 EXPORT_SYMBOL_GPL(framegen_is_slave);
 
