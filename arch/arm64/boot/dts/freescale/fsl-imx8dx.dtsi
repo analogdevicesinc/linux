@@ -61,6 +61,9 @@
 		mmc0 = &usdhc1;
 		mmc1 = &usdhc2;
 		mmc2 = &usdhc3;
+		can0 = &flexcan1;
+		can1 = &flexcan2;
+		can2 = &flexcan3;
 	};
 
 	memory@80000000 {
