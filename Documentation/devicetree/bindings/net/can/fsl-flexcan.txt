@@ -24,6 +24,8 @@ Optional properties:
   req_bit is the bit offset of CAN stop request.
   ack_gpr is the gpr register offset of CAN stop acknowledge.
   ack_bit is the bit offset of CAN stop acknowledge.
+  stop-mode = <&gpr req_gpr req_bit ack_gpr ack_bit>, this format is for i.MX6/7
+  series to set stop mode. For i.MX8 series, stop mode feature is supported by default.
 - trx_en_gpio : enable gpio
 - trx_stby_gpio : standby gpio
 - trx_nerr_gpio : NERR gpio
