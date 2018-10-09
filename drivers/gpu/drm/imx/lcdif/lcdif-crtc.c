@@ -100,13 +100,6 @@ static int lcdif_crtc_atomic_check(struct drm_crtc *crtc,
 	if (!state->enable)
 		return 0;
 
-	/* return directly when no devices attached
-	 * to LCDIF to avoid below error messsage to
-	 * make noises in this case.
-	 */
-	if (!imx_crtc_state->bus_format)
-		return -EINVAL;
-
 	/* check the requested bus format can be
 	 * supported by LCDIF CTRC or not
 	 */
