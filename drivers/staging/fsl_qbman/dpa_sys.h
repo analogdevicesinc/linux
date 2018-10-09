@@ -36,7 +36,6 @@
 #include <linux/errno.h>
 #include <linux/io.h>
 #include <linux/dma-mapping.h>
-#include <linux/bootmem.h>
 #include <linux/slab.h>
 #include <linux/module.h>
 #include <linux/init.h>
