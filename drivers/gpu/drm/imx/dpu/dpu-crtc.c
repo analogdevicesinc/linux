@@ -120,7 +120,8 @@ static void dpu_crtc_atomic_enable(struct drm_crtc *crtc,
 	}
 
 	if (dcstate->use_pc) {
-		framegen_enable_clock(dpu_crtc->m_fg);
+		framegen_enable_clock(dpu_crtc->stream_id ?
+					dpu_crtc->aux_fg : dpu_crtc->fg);
 		extdst_pixengcfg_sync_trigger(m_plane_ed);
 		framegen_shdtokgen(dpu_crtc->m_fg);
 
@@ -248,7 +249,8 @@ static void dpu_crtc_atomic_disable(struct drm_crtc *crtc,
 		framegen_wait_done(dpu_crtc->m_fg, adjusted_mode);
 		framegen_wait_done(dpu_crtc->s_fg, adjusted_mode);
 
-		framegen_disable_clock(dpu_crtc->m_fg);
+		framegen_disable_clock(dpu_crtc->stream_id ?
+					dpu_crtc->aux_fg : dpu_crtc->fg);
 	} else {
 		framegen_disable(dpu_crtc->fg);
 		framegen_wait_done(dpu_crtc->fg, adjusted_mode);
