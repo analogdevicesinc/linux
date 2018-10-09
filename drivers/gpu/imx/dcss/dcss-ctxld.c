@@ -451,6 +451,8 @@ int dcss_ctxld_suspend(struct dcss_soc *dcss)
 	int wait_time_ms = 0;
 	unsigned long flags;
 
+	dcss_ctxld_kick(dcss);
+
 	while (ctxld->in_use && wait_time_ms < 500) {
 		msleep(20);
 		wait_time_ms += 20;
