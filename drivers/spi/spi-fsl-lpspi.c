@@ -90,7 +90,8 @@ struct lpspi_config {
 struct fsl_lpspi_data {
 	struct device *dev;
 	void __iomem *base;
-	struct clk *clk;
+	struct clk *clk_ipg;
+	struct clk *clk_per;
 	bool is_slave;
 
 	void *rx_buf;
@@ -157,8 +158,19 @@ static int lpspi_prepare_xfer_hardware(struct spi_controller *controller)
 {
 	struct fsl_lpspi_data *fsl_lpspi =
 				spi_controller_get_devdata(controller);
+	int ret;
 
-	return clk_prepare_enable(fsl_lpspi->clk);
+	ret = clk_prepare_enable(fsl_lpspi->clk_ipg);
+	if (ret)
+		return ret;
+
+	ret = clk_prepare_enable(fsl_lpspi->clk_per);
+	if (ret) {
+		clk_disable_unprepare(fsl_lpspi->clk_ipg);
+		return ret;
+	}
+
+	return 0;
 }
 
 static int lpspi_unprepare_xfer_hardware(struct spi_controller *controller)
@@ -166,7 +178,8 @@ static int lpspi_unprepare_xfer_hardware(struct spi_controller *controller)
 	struct fsl_lpspi_data *fsl_lpspi =
 				spi_controller_get_devdata(controller);
 
-	clk_disable_unprepare(fsl_lpspi->clk);
+	clk_disable_unprepare(fsl_lpspi->clk_ipg);
+	clk_disable_unprepare(fsl_lpspi->clk_per);
 
 	return 0;
 }
@@ -258,7 +271,7 @@ static int fsl_lpspi_set_bitrate(struct fsl_lpspi_data *fsl_lpspi)
 	unsigned int perclk_rate, scldiv;
 	u8 prescale;
 
-	perclk_rate = clk_get_rate(fsl_lpspi->clk);
+	perclk_rate = clk_get_rate(fsl_lpspi->clk_per);
 	for (prescale = 0; prescale < 8; prescale++) {
 		scldiv = perclk_rate /
 			 (clkdivs[prescale] * config.speed_hz) - 2;
@@ -534,15 +547,28 @@ static int fsl_lpspi_probe(struct platform_device *pdev)
 		goto out_controller_put;
 	}
 
-	fsl_lpspi->clk = devm_clk_get(&pdev->dev, "ipg");
-	if (IS_ERR(fsl_lpspi->clk)) {
-		ret = PTR_ERR(fsl_lpspi->clk);
+	fsl_lpspi->clk_per = devm_clk_get(&pdev->dev, "per");
+	if (IS_ERR(fsl_lpspi->clk_per)) {
+		ret = PTR_ERR(fsl_lpspi->clk_per);
 		goto out_controller_put;
 	}
 
-	ret = clk_prepare_enable(fsl_lpspi->clk);
+	fsl_lpspi->clk_ipg = devm_clk_get(&pdev->dev, "ipg");
+	if (IS_ERR(fsl_lpspi->clk_ipg)) {
+		ret = PTR_ERR(fsl_lpspi->clk_ipg);
+		goto out_controller_put;
+	}
+
+	ret = clk_prepare_enable(fsl_lpspi->clk_ipg);
 	if (ret) {
-		dev_err(&pdev->dev, "can't enable lpspi clock, ret=%d\n", ret);
+		dev_err(&pdev->dev, "can't enable lpspi ipg clock, ret=%d\n", ret);
+		clk_disable_unprepare(fsl_lpspi->clk_per);
+		goto out_controller_put;
+	}
+
+	ret = clk_prepare_enable(fsl_lpspi->clk_per);
+	if (ret) {
+		dev_err(&pdev->dev, "can't enable lpspi per clock, ret=%d\n", ret);
 		goto out_controller_put;
 	}
 
@@ -550,7 +576,8 @@ static int fsl_lpspi_probe(struct platform_device *pdev)
 	fsl_lpspi->txfifosize = 1 << (temp & 0x0f);
 	fsl_lpspi->rxfifosize = 1 << ((temp >> 8) & 0x0f);
 
-	clk_disable_unprepare(fsl_lpspi->clk);
+	clk_disable_unprepare(fsl_lpspi->clk_per);
+	clk_disable_unprepare(fsl_lpspi->clk_ipg);
 
 	ret = devm_spi_register_controller(&pdev->dev, controller);
 	if (ret < 0) {
@@ -572,7 +599,8 @@ static int fsl_lpspi_remove(struct platform_device *pdev)
 	struct fsl_lpspi_data *fsl_lpspi =
 				spi_controller_get_devdata(controller);
 
-	clk_disable_unprepare(fsl_lpspi->clk);
+	clk_disable_unprepare(fsl_lpspi->clk_ipg);
+	clk_disable_unprepare(fsl_lpspi->clk_per);
 
 	return 0;
 }
