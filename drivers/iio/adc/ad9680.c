@@ -732,7 +732,7 @@ static int ad9680_setup_link(struct spi_device *spi,
 {
 	unsigned int val;
 	unsigned int i;
-	int ret;
+	int ret = 0;
 
 	val = ilog2(config->octets_per_frame);
 	val |= ilog2(config->num_converters) << 3;
