@@ -1801,7 +1801,8 @@ static struct vb2_ops v4l2_qops = {
 
 static void init_vb2_queue(struct queue_data *This, unsigned int type,
 				struct vpu_ctx *ctx,
-				const struct vb2_mem_ops *mem_ops)
+				const struct vb2_mem_ops *mem_ops,
+				gfp_t gfp_flags)
 {
 	struct vb2_queue  *vb2_q = &This->vb2_q;
 	int ret;
@@ -1813,7 +1814,7 @@ static void init_vb2_queue(struct queue_data *This, unsigned int type,
 	// initialize vb2 queue
 	vb2_q->type = type;
 	vb2_q->io_modes = VB2_MMAP | VB2_USERPTR | VB2_DMABUF;
-	vb2_q->gfp_flags = GFP_DMA32;
+	vb2_q->gfp_flags = gfp_flags;
 	vb2_q->ops = &v4l2_qops;
 	vb2_q->drv_priv = This;
 	if (mem_ops)
@@ -1837,13 +1838,14 @@ static void init_queue_data(struct vpu_ctx *ctx)
 	init_vb2_queue(&ctx->q_data[V4L2_SRC],
 			V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE,
 			ctx,
-			&vb2_dma_contig_memops);
+			&vb2_dma_contig_memops,
+			GFP_DMA32);
 	ctx->q_data[V4L2_SRC].type = V4L2_SRC;
 	sema_init(&ctx->q_data[V4L2_SRC].drv_q_lock, 1);
 	init_vb2_queue(&ctx->q_data[V4L2_DST],
 			V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE,
 			ctx,
-			&vb2_vmalloc_memops);
+			&vb2_vmalloc_memops, 0);
 	ctx->q_data[V4L2_DST].type = V4L2_DST;
 	sema_init(&ctx->q_data[V4L2_DST].drv_q_lock, 1);
 
@@ -2248,14 +2250,12 @@ static ssize_t show_instance_info(struct device *dev,
 
 static int create_instance_file(struct vpu_ctx *ctx)
 {
-	static char name[64];
-
 	if (!ctx || !ctx->dev || !ctx->dev->generic_dev || !ctx->core_dev)
 		return -EINVAL;
 
-	snprintf(name, sizeof(name) - 1, "instance.%d.%d",
+	snprintf(ctx->name, sizeof(ctx->name) - 1, "instance.%d.%d",
 			ctx->core_dev->id, ctx->str_index);
-	ctx->dev_attr_instance.attr.name = name;
+	ctx->dev_attr_instance.attr.name = ctx->name;
 	ctx->dev_attr_instance.attr.mode = VERIFY_OCTAL_PERMISSIONS(0444);
 	ctx->dev_attr_instance.show = show_instance_info;
 

@@ -278,6 +278,7 @@ struct vpu_ctx {
 
 	struct vpu_statistic statistic;
 	struct device_attribute dev_attr_instance;
+	char name[64];
 
 	pMEDIAIP_ENC_YUV_BUFFER_DESC yuv_buffer_desc;
 	pBUFFER_DESCRIPTOR_TYPE stream_buffer_desc;
