@@ -188,6 +188,10 @@
 	img_pdma_3_lpcg: img_pdma_3_lpcg@58530000 {
 		reg = <0x0 0x58530000 0x0 0x1000>;
 	};
+
+	vpu_decoder_csr: vpu_decoder_csr@0x2d080000 {
+		reg = <0x0 0x2d080000 0x0 0x1000>;
+	};
 };
 
 /delete-node/ &edma0;

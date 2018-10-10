@@ -591,6 +591,10 @@
 			<SC_R_VPU_MU_3>;
 };
 
+&vpu_decoder_csr {
+	xen,passthrough;
+};
+
 &vpu_encoder {
        iommus = <&smmu>;
        #stream-id-cells = <1>;
