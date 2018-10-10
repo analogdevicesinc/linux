@@ -29,6 +29,17 @@ config AD7091R5
 	help
 	  Say yes here to build support for Analog Devices AD7091R-5 ADC.
 
+config AD7124
+	tristate "Analog Devices AD7124 and similar sigma-delta ADCs driver"
+	depends on SPI_MASTER
+	select AD_SIGMA_DELTA
+	help
+	  Say yes here to build support for Analog Devices AD7124-4 and AD7124-8
+	  SPI analog to digital converters (ADC).
+
+	  To compile this driver as a module, choose M here: the module will be
+	  called ad7124.
+
 config AD7173
 	tristate "Analog Devices AD7173 driver"
 	depends on SPI_MASTER
