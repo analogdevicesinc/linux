@@ -140,7 +140,10 @@ adxcvr_eyescan_bin_read(struct file *filp, struct kobject *kobj,
 	if (unlikely(!count))
 		return count;
 
-	wait_for_completion(&st->eye->complete);
+	if (wait_for_completion_interruptible(&st->eye->complete)) {
+		adxcvr_eyescan_write(st, ADXCVR_REG_ES_REQ, 0);
+		return -EINTR;
+	}
 
 	memcpy(buf, st->eye->buf_virt + off, count);
 
