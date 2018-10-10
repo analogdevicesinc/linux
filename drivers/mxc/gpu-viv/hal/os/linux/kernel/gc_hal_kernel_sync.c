@@ -349,7 +349,6 @@ struct dma_fence * viv_fence_create(struct viv_sync_timeline *timeline,
 
     if (!signal->done) {
         signal->fence = (struct dma_fence*)fence;
-        dma_fence_get((struct dma_fence*)fence);
     }
 
     spin_unlock(&signal->lock);
