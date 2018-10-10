@@ -511,7 +511,7 @@
 
 	pmic: bd71837@4b {
 		reg = <0x4b>;
-		compatible = "rohm,bd71837";
+		compatible = "rohm,bd71840", "rohm,bd71837";
 		/* PMIC BD71837 PMIC_nINT GPIO1_IO3 */
 		pinctrl-0 = <&pinctrl_pmic>;
 		gpio_intr = <&gpio1 3 GPIO_ACTIVE_LOW>;
