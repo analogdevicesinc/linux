@@ -5,6 +5,7 @@
  */
 
 #include <linux/fsl/mc.h>
+#include <soc/fsl/dpaa2-io.h>
 #include "dpseci.h"
 #include "dpseci_cmd.h"
 
@@ -671,6 +672,90 @@ int dpseci_get_api_version(struct fsl_mc_io *mc_io, u32 cmd_flags,
 	rsp_params = (struct dpseci_rsp_get_api_version *)cmd.params;
 	*major_ver = le16_to_cpu(rsp_params->major);
 	*minor_ver = le16_to_cpu(rsp_params->minor);
+
+	return 0;
+}
+
+/**
+ * dpseci_set_opr() - Set Order Restoration configuration
+ * @mc_io:	Pointer to MC portal's I/O object
+ * @cmd_flags:	Command flags; one or more of 'MC_CMD_FLAG_'
+ * @token:	Token of DPSECI object
+ * @index:	The queue index
+ * @options:	Configuration mode options; can be OPR_OPT_CREATE or
+ *		OPR_OPT_RETIRE
+ * @cfg:	Configuration options for the OPR
+ *
+ * Return:	'0' on success, error code otherwise
+ */
+int dpseci_set_opr(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token, u8 index,
+		   u8 options, struct opr_cfg *cfg)
+{
+	struct fsl_mc_command cmd = { 0 };
+	struct dpseci_cmd_opr *cmd_params;
+
+	cmd.header = mc_encode_cmd_header(
+			DPSECI_CMDID_SET_OPR,
+			cmd_flags,
+			token);
+	cmd_params = (struct dpseci_cmd_opr *)cmd.params;
+	cmd_params->index = index;
+	cmd_params->options = options;
+	cmd_params->oloe = cfg->oloe;
+	cmd_params->oeane = cfg->oeane;
+	cmd_params->olws = cfg->olws;
+	cmd_params->oa = cfg->oa;
+	cmd_params->oprrws = cfg->oprrws;
+
+	return mc_send_command(mc_io, &cmd);
+}
+
+/**
+ * dpseci_get_opr() - Retrieve Order Restoration config and query
+ * @mc_io:	Pointer to MC portal's I/O object
+ * @cmd_flags:	Command flags; one or more of 'MC_CMD_FLAG_'
+ * @token:	Token of DPSECI object
+ * @index:	The queue index
+ * @cfg:	Returned OPR configuration
+ * @qry:	Returned OPR query
+ *
+ * Return:	'0' on success, error code otherwise
+ */
+int dpseci_get_opr(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token, u8 index,
+		   struct opr_cfg *cfg, struct opr_qry *qry)
+{
+	struct fsl_mc_command cmd = { 0 };
+	struct dpseci_cmd_opr *cmd_params;
+	struct dpseci_rsp_get_opr *rsp_params;
+	int err;
+
+	cmd.header = mc_encode_cmd_header(DPSECI_CMDID_GET_OPR,
+					  cmd_flags,
+					  token);
+	cmd_params = (struct dpseci_cmd_opr *)cmd.params;
+	cmd_params->index = index;
+	err = mc_send_command(mc_io, &cmd);
+	if (err)
+		return err;
+
+	rsp_params = (struct dpseci_rsp_get_opr *)cmd.params;
+	qry->rip = dpseci_get_field(rsp_params->flags, OPR_RIP);
+	qry->enable = dpseci_get_field(rsp_params->flags, OPR_ENABLE);
+	cfg->oloe = rsp_params->oloe;
+	cfg->oeane = rsp_params->oeane;
+	cfg->olws = rsp_params->olws;
+	cfg->oa = rsp_params->oa;
+	cfg->oprrws = rsp_params->oprrws;
+	qry->nesn = le16_to_cpu(rsp_params->nesn);
+	qry->ndsn = le16_to_cpu(rsp_params->ndsn);
+	qry->ea_tseq = le16_to_cpu(rsp_params->ea_tseq);
+	qry->tseq_nlis = dpseci_get_field(rsp_params->tseq_nlis, OPR_TSEQ_NLIS);
+	qry->ea_hseq = le16_to_cpu(rsp_params->ea_hseq);
+	qry->hseq_nlis = dpseci_get_field(rsp_params->hseq_nlis, OPR_HSEQ_NLIS);
+	qry->ea_hptr = le16_to_cpu(rsp_params->ea_hptr);
+	qry->ea_tptr = le16_to_cpu(rsp_params->ea_tptr);
+	qry->opr_vid = le16_to_cpu(rsp_params->opr_vid);
+	qry->opr_id = le16_to_cpu(rsp_params->opr_id);
 
 	return 0;
 }

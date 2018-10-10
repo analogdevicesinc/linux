@@ -12,6 +12,8 @@
  */
 
 struct fsl_mc_io;
+struct opr_cfg;
+struct opr_qry;
 
 /**
  * General DPSECI macros
@@ -38,9 +40,21 @@ int dpseci_close(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token);
 #define DPSECI_OPT_HAS_CG		0x000020
 
 /**
+ * Enable the Order Restoration support
+ */
+#define DPSECI_OPT_HAS_OPR		0x000040
+
+/**
+ * Order Point Records are shared for the entire DPSECI
+ */
+#define DPSECI_OPT_OPR_SHARED		0x000080
+
+/**
  * struct dpseci_cfg - Structure representing DPSECI configuration
- * @options: Any combination of the following flags:
+ * @options: Any combination of the following options:
  *		DPSECI_OPT_HAS_CG
+ *		DPSECI_OPT_HAS_OPR
+ *		DPSECI_OPT_OPR_SHARED
  * @num_tx_queues: num of queues towards the SEC
  * @num_rx_queues: num of queues back from the SEC
  * @priorities: Priorities for the SEC hardware processing;
@@ -93,8 +107,10 @@ int dpseci_clear_irq_status(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
  * @id: DPSECI object ID
  * @num_tx_queues: number of queues towards the SEC
  * @num_rx_queues: number of queues back from the SEC
- * @options: any combination of the following flags:
+ * @options: any combination of the following options:
  *		DPSECI_OPT_HAS_CG
+ *		DPSECI_OPT_HAS_OPR
+ *		DPSECI_OPT_OPR_SHARED
  */
 struct dpseci_attr {
 	int id;
@@ -300,6 +316,12 @@ int dpseci_get_sec_counters(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
 
 int dpseci_get_api_version(struct fsl_mc_io *mc_io, u32 cmd_flags,
 			   u16 *major_ver, u16 *minor_ver);
+
+int dpseci_set_opr(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token, u8 index,
+		   u8 options, struct opr_cfg *cfg);
+
+int dpseci_get_opr(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token, u8 index,
+		   struct opr_cfg *cfg, struct opr_qry *qry);
 
 /**
  * enum dpseci_congestion_unit - DPSECI congestion units

@@ -54,6 +54,8 @@
 #define DPSECI_CMDID_GET_TX_QUEUE			DPSECI_CMD_V1(0x197)
 #define DPSECI_CMDID_GET_SEC_ATTR			DPSECI_CMD_V2(0x198)
 #define DPSECI_CMDID_GET_SEC_COUNTERS			DPSECI_CMD_V1(0x199)
+#define DPSECI_CMDID_SET_OPR				DPSECI_CMD_V1(0x19A)
+#define DPSECI_CMDID_GET_OPR				DPSECI_CMD_V1(0x19B)
 #define DPSECI_CMDID_SET_CONGESTION_NOTIFICATION	DPSECI_CMD_V1(0x170)
 #define DPSECI_CMDID_GET_CONGESTION_NOTIFICATION	DPSECI_CMD_V1(0x171)
 
@@ -187,6 +189,55 @@ struct dpseci_rsp_get_sec_counters {
 struct dpseci_rsp_get_api_version {
 	__le16 major;
 	__le16 minor;
+};
+
+struct dpseci_cmd_opr {
+	__le16 pad;
+	u8 index;
+	u8 options;
+	u8 pad1[7];
+	u8 oloe;
+	u8 oeane;
+	u8 olws;
+	u8 oa;
+	u8 oprrws;
+};
+
+#define DPSECI_OPR_RIP_SHIFT		0
+#define DPSECI_OPR_RIP_SIZE		1
+#define DPSECI_OPR_ENABLE_SHIFT		1
+#define DPSECI_OPR_ENABLE_SIZE		1
+#define DPSECI_OPR_TSEQ_NLIS_SHIFT	0
+#define DPSECI_OPR_TSEQ_NLIS_SIZE	1
+#define DPSECI_OPR_HSEQ_NLIS_SHIFT	0
+#define DPSECI_OPR_HSEQ_NLIS_SIZE	1
+
+struct dpseci_rsp_get_opr {
+	__le64 pad;
+	u8 flags;
+	u8 pad0[2];
+	u8 oloe;
+	u8 oeane;
+	u8 olws;
+	u8 oa;
+	u8 oprrws;
+	__le16 nesn;
+	__le16 pad1;
+	__le16 ndsn;
+	__le16 pad2;
+	__le16 ea_tseq;
+	u8 tseq_nlis;
+	u8 pad3;
+	__le16 ea_hseq;
+	u8 hseq_nlis;
+	u8 pad4;
+	__le16 ea_hptr;
+	__le16 pad5;
+	__le16 ea_tptr;
+	__le16 pad6;
+	__le16 opr_vid;
+	__le16 pad7;
+	__le16 opr_id;
 };
 
 #define DPSECI_CGN_DEST_TYPE_SHIFT	0
