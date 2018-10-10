@@ -210,16 +210,19 @@ err1:
 static void cdns3_host_stop(struct cdns3 *cdns)
 {
 	struct device *dev = cdns->host_dev;
-	struct usb_hcd	*hcd;
+	struct usb_hcd	*hcd, *shared_hcd;
 	struct xhci_hcd	*xhci;
 
 	if (dev) {
 		hcd = dev_get_drvdata(dev);
 		xhci = hcd_to_xhci(hcd);
-		usb_remove_hcd(xhci->shared_hcd);
+		shared_hcd = xhci->shared_hcd;
+		xhci->xhc_state |= XHCI_STATE_REMOVING;
+		usb_remove_hcd(shared_hcd);
+		xhci->shared_hcd = NULL;
 		usb_remove_hcd(hcd);
 		synchronize_irq(cdns->irq);
-		usb_put_hcd(xhci->shared_hcd);
+		usb_put_hcd(shared_hcd);
 		usb_put_hcd(hcd);
 		cdns->host_dev = NULL;
 		pm_runtime_set_suspended(dev);
