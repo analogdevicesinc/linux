@@ -1607,6 +1607,11 @@ static void handle_port_status(struct xhci_hcd *xhci,
 	if ((major_revision == 0x03) != (hcd->speed >= HCD_USB3))
 		hcd = xhci->shared_hcd;
 
+	if (!hcd) {
+		bogus_port_status = true;
+		goto cleanup;
+	}
+
 	if (major_revision == 0) {
 		xhci_warn(xhci, "Event for port %u not in "
 				"Extended Capabilities, ignoring.\n",
