@@ -57,7 +57,10 @@ static __init int qbman_init(void)
 		};
 		struct qm_mcr_queryfq_np np;
 		int err, retry = CONFIG_FSL_QMAN_INIT_TIMEOUT;
-		struct timespec nowts, diffts, startts = current_kernel_time();
+		struct timespec64 nowts, diffts, startts;
+
+		ktime_get_coarse_real_ts64(&startts);
+
 		/* Loop while querying given fqid succeeds or time out */
 		while (1) {
 			err = qman_query_fq_np(&fq, &np);
@@ -68,8 +71,8 @@ static __init int qbman_init(void)
 				pr_err("QMan: I/O error, continuing anyway\n");
 				break;
 			}
-			nowts = current_kernel_time();
-			diffts = timespec_sub(nowts, startts);
+			ktime_get_coarse_real_ts64(&nowts);
+			diffts = timespec64_sub(nowts, startts);
 			if (diffts.tv_sec > 0) {
 				if (!retry--) {
 					pr_err("QMan: time out, control-plane"
