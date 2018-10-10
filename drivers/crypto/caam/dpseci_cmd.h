@@ -17,6 +17,7 @@
 /* Command versioning */
 #define DPSECI_CMD_BASE_VERSION		1
 #define DPSECI_CMD_BASE_VERSION_V2	2
+#define DPSECI_CMD_BASE_VERSION_V3	3
 #define DPSECI_CMD_ID_OFFSET		4
 
 #define DPSECI_CMD_V1(id)	(((id) << DPSECI_CMD_ID_OFFSET) | \
@@ -25,9 +26,14 @@
 #define DPSECI_CMD_V2(id)	(((id) << DPSECI_CMD_ID_OFFSET) | \
 				 DPSECI_CMD_BASE_VERSION_V2)
 
+#define DPSECI_CMD_V3(id)	(((id) << DPSECI_CMD_ID_OFFSET) | \
+				 DPSECI_CMD_BASE_VERSION_V3)
+
 /* Command IDs */
 #define DPSECI_CMDID_CLOSE				DPSECI_CMD_V1(0x800)
 #define DPSECI_CMDID_OPEN				DPSECI_CMD_V1(0x809)
+#define DPSECI_CMDID_CREATE				DPSECI_CMD_V3(0x909)
+#define DPSECI_CMDID_DESTROY				DPSECI_CMD_V1(0x989)
 #define DPSECI_CMDID_GET_API_VERSION			DPSECI_CMD_V1(0xa09)
 
 #define DPSECI_CMDID_ENABLE				DPSECI_CMD_V1(0x002)
@@ -36,10 +42,18 @@
 #define DPSECI_CMDID_RESET				DPSECI_CMD_V1(0x005)
 #define DPSECI_CMDID_IS_ENABLED				DPSECI_CMD_V1(0x006)
 
+#define DPSECI_CMDID_SET_IRQ_ENABLE			DPSECI_CMD_V1(0x012)
+#define DPSECI_CMDID_GET_IRQ_ENABLE			DPSECI_CMD_V1(0x013)
+#define DPSECI_CMDID_SET_IRQ_MASK			DPSECI_CMD_V1(0x014)
+#define DPSECI_CMDID_GET_IRQ_MASK			DPSECI_CMD_V1(0x015)
+#define DPSECI_CMDID_GET_IRQ_STATUS			DPSECI_CMD_V1(0x016)
+#define DPSECI_CMDID_CLEAR_IRQ_STATUS			DPSECI_CMD_V1(0x017)
+
 #define DPSECI_CMDID_SET_RX_QUEUE			DPSECI_CMD_V1(0x194)
 #define DPSECI_CMDID_GET_RX_QUEUE			DPSECI_CMD_V1(0x196)
 #define DPSECI_CMDID_GET_TX_QUEUE			DPSECI_CMD_V1(0x197)
 #define DPSECI_CMDID_GET_SEC_ATTR			DPSECI_CMD_V2(0x198)
+#define DPSECI_CMDID_GET_SEC_COUNTERS			DPSECI_CMD_V1(0x199)
 #define DPSECI_CMDID_SET_CONGESTION_NOTIFICATION	DPSECI_CMD_V1(0x170)
 #define DPSECI_CMDID_GET_CONGESTION_NOTIFICATION	DPSECI_CMD_V1(0x171)
 
@@ -58,11 +72,45 @@ struct dpseci_cmd_open {
 	__le32 dpseci_id;
 };
 
+struct dpseci_cmd_create {
+	u8 priorities[8];
+	u8 num_tx_queues;
+	u8 num_rx_queues;
+	u8 pad0[6];
+	__le32 options;
+	__le32 pad1;
+	u8 priorities2[8];
+};
+
+struct dpseci_cmd_destroy {
+	__le32 object_id;
+};
+
 #define DPSECI_ENABLE_SHIFT	0
 #define DPSECI_ENABLE_SIZE	1
 
 struct dpseci_rsp_is_enabled {
 	u8 is_enabled;
+};
+
+struct dpseci_cmd_irq_enable {
+	u8 enable_state;
+	u8 pad[3];
+	u8 irq_index;
+};
+
+struct dpseci_rsp_get_irq_enable {
+	u8 enable_state;
+};
+
+struct dpseci_cmd_irq_mask {
+	__le32 mask;
+	u8 irq_index;
+};
+
+struct dpseci_cmd_irq_status {
+	__le32 status;
+	u8 irq_index;
 };
 
 struct dpseci_rsp_get_attributes {
@@ -124,6 +172,16 @@ struct dpseci_rsp_get_sec_attr {
 	u8 aes_acc_num;
 	u8 ccha_acc_num;
 	u8 ptha_acc_num;
+};
+
+struct dpseci_rsp_get_sec_counters {
+	__le64 dequeued_requests;
+	__le64 ob_enc_requests;
+	__le64 ib_dec_requests;
+	__le64 ob_enc_bytes;
+	__le64 ob_prot_bytes;
+	__le64 ib_dec_bytes;
+	__le64 ib_valid_bytes;
 };
 
 struct dpseci_rsp_get_api_version {

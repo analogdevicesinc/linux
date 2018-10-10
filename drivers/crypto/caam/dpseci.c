@@ -16,8 +16,8 @@
  * @token:	Returned token; use in subsequent API calls
  *
  * This function can be used to open a control session for an already created
- * object; an object may have been declared statically in the DPL
- * or created dynamically.
+ * object; an object may have been declared in the DPL or by calling the
+ * dpseci_create() function.
  * This function returns a unique authentication token, associated with the
  * specific object ID and the specific MC portal; this token must be used in all
  * subsequent commands for this specific object.
@@ -63,6 +63,85 @@ int dpseci_close(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token)
 	cmd.header = mc_encode_cmd_header(DPSECI_CMDID_CLOSE,
 					  cmd_flags,
 					  token);
+	return mc_send_command(mc_io, &cmd);
+}
+
+/**
+ * dpseci_create() - Create the DPSECI object
+ * @mc_io:	Pointer to MC portal's I/O object
+ * @dprc_token:	Parent container token; '0' for default container
+ * @cmd_flags:	Command flags; one or more of 'MC_CMD_FLAG_'
+ * @cfg:	Configuration structure
+ * @obj_id:	returned object id
+ *
+ * Create the DPSECI object, allocate required resources and perform required
+ * initialization.
+ *
+ * The object can be created either by declaring it in the DPL file, or by
+ * calling this function.
+ *
+ * The function accepts an authentication token of a parent container that this
+ * object should be assigned to. The token can be '0' so the object will be
+ * assigned to the default container.
+ * The newly created object can be opened with the returned object id and using
+ * the container's associated tokens and MC portals.
+ *
+ * Return:	'0' on success, error code otherwise
+ */
+int dpseci_create(struct fsl_mc_io *mc_io, u16 dprc_token, u32 cmd_flags,
+		  const struct dpseci_cfg *cfg, u32 *obj_id)
+{
+	struct fsl_mc_command cmd = { 0 };
+	struct dpseci_cmd_create *cmd_params;
+	int i, err;
+
+	cmd.header = mc_encode_cmd_header(DPSECI_CMDID_CREATE,
+					  cmd_flags,
+					  dprc_token);
+	cmd_params = (struct dpseci_cmd_create *)cmd.params;
+	for (i = 0; i < 8; i++)
+		cmd_params->priorities[i] = cfg->priorities[i];
+	for (i = 0; i < 8; i++)
+		cmd_params->priorities2[i] = cfg->priorities[8 + i];
+	cmd_params->num_tx_queues = cfg->num_tx_queues;
+	cmd_params->num_rx_queues = cfg->num_rx_queues;
+	cmd_params->options = cpu_to_le32(cfg->options);
+	err = mc_send_command(mc_io, &cmd);
+	if (err)
+		return err;
+
+	*obj_id = mc_cmd_read_object_id(&cmd);
+
+	return 0;
+}
+
+/**
+ * dpseci_destroy() - Destroy the DPSECI object and release all its resources
+ * @mc_io:	Pointer to MC portal's I/O object
+ * @dprc_token: Parent container token; '0' for default container
+ * @cmd_flags:	Command flags; one or more of 'MC_CMD_FLAG_'
+ * @object_id:	The object id; it must be a valid id within the container that
+ *		created this object
+ *
+ * The function accepts the authentication token of the parent container that
+ * created the object (not the one that currently owns the object). The object
+ * is searched within parent using the provided 'object_id'.
+ * All tokens to the object must be closed before calling destroy.
+ *
+ * Return:	'0' on success, error code otherwise
+ */
+int dpseci_destroy(struct fsl_mc_io *mc_io, u16 dprc_token, u32 cmd_flags,
+		   u32 object_id)
+{
+	struct fsl_mc_command cmd = { 0 };
+	struct dpseci_cmd_destroy *cmd_params;
+
+	cmd.header = mc_encode_cmd_header(DPSECI_CMDID_DESTROY,
+					  cmd_flags,
+					  dprc_token);
+	cmd_params = (struct dpseci_cmd_destroy *)cmd.params;
+	cmd_params->object_id = cpu_to_le32(object_id);
+
 	return mc_send_command(mc_io, &cmd);
 }
 
@@ -148,6 +227,198 @@ int dpseci_is_enabled(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
 	*en = dpseci_get_field(rsp_params->is_enabled, ENABLE);
 
 	return 0;
+}
+
+/**
+ * dpseci_get_irq_enable() - Get overall interrupt state
+ * @mc_io:	Pointer to MC portal's I/O object
+ * @cmd_flags:	Command flags; one or more of 'MC_CMD_FLAG_'
+ * @token:	Token of DPSECI object
+ * @irq_index:	The interrupt index to configure
+ * @en:		Returned Interrupt state - enable = 1, disable = 0
+ *
+ * Return:	'0' on success, error code otherwise
+ */
+int dpseci_get_irq_enable(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
+			  u8 irq_index, u8 *en)
+{
+	struct fsl_mc_command cmd = { 0 };
+	struct dpseci_cmd_irq_enable *cmd_params;
+	struct dpseci_rsp_get_irq_enable *rsp_params;
+	int err;
+
+	cmd.header = mc_encode_cmd_header(DPSECI_CMDID_GET_IRQ_ENABLE,
+					  cmd_flags,
+					  token);
+	cmd_params = (struct dpseci_cmd_irq_enable *)cmd.params;
+	cmd_params->irq_index = irq_index;
+	err = mc_send_command(mc_io, &cmd);
+	if (err)
+		return err;
+
+	rsp_params = (struct dpseci_rsp_get_irq_enable *)cmd.params;
+	*en = rsp_params->enable_state;
+
+	return 0;
+}
+
+/**
+ * dpseci_set_irq_enable() - Set overall interrupt state.
+ * @mc_io:	Pointer to MC portal's I/O object
+ * @cmd_flags:	Command flags; one or more of 'MC_CMD_FLAG_'
+ * @token:	Token of DPSECI object
+ * @irq_index:	The interrupt index to configure
+ * @en:		Interrupt state - enable = 1, disable = 0
+ *
+ * Allows GPP software to control when interrupts are generated.
+ * Each interrupt can have up to 32 causes. The enable/disable control's the
+ * overall interrupt state. If the interrupt is disabled no causes will cause
+ * an interrupt.
+ *
+ * Return:	'0' on success, error code otherwise
+ */
+int dpseci_set_irq_enable(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
+			  u8 irq_index, u8 en)
+{
+	struct fsl_mc_command cmd = { 0 };
+	struct dpseci_cmd_irq_enable *cmd_params;
+
+	cmd.header = mc_encode_cmd_header(DPSECI_CMDID_SET_IRQ_ENABLE,
+					  cmd_flags,
+					  token);
+	cmd_params = (struct dpseci_cmd_irq_enable *)cmd.params;
+	cmd_params->irq_index = irq_index;
+	cmd_params->enable_state = en;
+
+	return mc_send_command(mc_io, &cmd);
+}
+
+/**
+ * dpseci_get_irq_mask() - Get interrupt mask.
+ * @mc_io:	Pointer to MC portal's I/O object
+ * @cmd_flags:	Command flags; one or more of 'MC_CMD_FLAG_'
+ * @token:	Token of DPSECI object
+ * @irq_index:	The interrupt index to configure
+ * @mask:	Returned event mask to trigger interrupt
+ *
+ * Every interrupt can have up to 32 causes and the interrupt model supports
+ * masking/unmasking each cause independently.
+ *
+ * Return:	'0' on success, error code otherwise
+ */
+int dpseci_get_irq_mask(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
+			u8 irq_index, u32 *mask)
+{
+	struct fsl_mc_command cmd = { 0 };
+	struct dpseci_cmd_irq_mask *cmd_params;
+	int err;
+
+	cmd.header = mc_encode_cmd_header(DPSECI_CMDID_GET_IRQ_MASK,
+					  cmd_flags,
+					  token);
+	cmd_params = (struct dpseci_cmd_irq_mask *)cmd.params;
+	cmd_params->irq_index = irq_index;
+	err = mc_send_command(mc_io, &cmd);
+	if (err)
+		return err;
+
+	*mask = le32_to_cpu(cmd_params->mask);
+
+	return 0;
+}
+
+/**
+ * dpseci_set_irq_mask() - Set interrupt mask.
+ * @mc_io:	Pointer to MC portal's I/O object
+ * @cmd_flags:	Command flags; one or more of 'MC_CMD_FLAG_'
+ * @token:	Token of DPSECI object
+ * @irq_index:	The interrupt index to configure
+ * @mask:	event mask to trigger interrupt;
+ *		each bit:
+ *			0 = ignore event
+ *			1 = consider event for asserting IRQ
+ *
+ * Every interrupt can have up to 32 causes and the interrupt model supports
+ * masking/unmasking each cause independently
+ *
+ * Return:	'0' on success, error code otherwise
+ */
+int dpseci_set_irq_mask(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
+			u8 irq_index, u32 mask)
+{
+	struct fsl_mc_command cmd = { 0 };
+	struct dpseci_cmd_irq_mask *cmd_params;
+
+	cmd.header = mc_encode_cmd_header(DPSECI_CMDID_SET_IRQ_MASK,
+					  cmd_flags,
+					  token);
+	cmd_params = (struct dpseci_cmd_irq_mask *)cmd.params;
+	cmd_params->mask = cpu_to_le32(mask);
+	cmd_params->irq_index = irq_index;
+
+	return mc_send_command(mc_io, &cmd);
+}
+
+/**
+ * dpseci_get_irq_status() - Get the current status of any pending interrupts
+ * @mc_io:	Pointer to MC portal's I/O object
+ * @cmd_flags:	Command flags; one or more of 'MC_CMD_FLAG_'
+ * @token:	Token of DPSECI object
+ * @irq_index:	The interrupt index to configure
+ * @status:	Returned interrupts status - one bit per cause:
+ *			0 = no interrupt pending
+ *			1 = interrupt pending
+ *
+ * Return:	'0' on success, error code otherwise
+ */
+int dpseci_get_irq_status(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
+			  u8 irq_index, u32 *status)
+{
+	struct fsl_mc_command cmd = { 0 };
+	struct dpseci_cmd_irq_status *cmd_params;
+	int err;
+
+	cmd.header = mc_encode_cmd_header(DPSECI_CMDID_GET_IRQ_STATUS,
+					  cmd_flags,
+					  token);
+	cmd_params = (struct dpseci_cmd_irq_status *)cmd.params;
+	cmd_params->status = cpu_to_le32(*status);
+	cmd_params->irq_index = irq_index;
+	err = mc_send_command(mc_io, &cmd);
+	if (err)
+		return err;
+
+	*status = le32_to_cpu(cmd_params->status);
+
+	return 0;
+}
+
+/**
+ * dpseci_clear_irq_status() - Clear a pending interrupt's status
+ * @mc_io:	Pointer to MC portal's I/O object
+ * @cmd_flags:	Command flags; one or more of 'MC_CMD_FLAG_'
+ * @token:	Token of DPSECI object
+ * @irq_index:	The interrupt index to configure
+ * @status:	bits to clear (W1C) - one bit per cause:
+ *			0 = don't change
+ *			1 = clear status bit
+ *
+ * Return:	'0' on success, error code otherwise
+ */
+int dpseci_clear_irq_status(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
+			    u8 irq_index, u32 status)
+{
+	struct fsl_mc_command cmd = { 0 };
+	struct dpseci_cmd_irq_status *cmd_params;
+
+	cmd.header = mc_encode_cmd_header(DPSECI_CMDID_CLEAR_IRQ_STATUS,
+					  cmd_flags,
+					  token);
+	cmd_params = (struct dpseci_cmd_irq_status *)cmd.params;
+	cmd_params->status = cpu_to_le32(status);
+	cmd_params->irq_index = irq_index;
+
+	return mc_send_command(mc_io, &cmd);
 }
 
 /**
@@ -335,6 +606,42 @@ int dpseci_get_sec_attr(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
 	attr->aes_acc_num = rsp_params->aes_acc_num;
 	attr->ccha_acc_num = rsp_params->ccha_acc_num;
 	attr->ptha_acc_num = rsp_params->ptha_acc_num;
+
+	return 0;
+}
+
+/**
+ * dpseci_get_sec_counters() - Retrieve SEC accelerator counters
+ * @mc_io:	Pointer to MC portal's I/O object
+ * @cmd_flags:	Command flags; one or more of 'MC_CMD_FLAG_'
+ * @token:	Token of DPSECI object
+ * @counters:	Returned SEC counters
+ *
+ * Return:	'0' on success, error code otherwise
+ */
+int dpseci_get_sec_counters(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
+			    struct dpseci_sec_counters *counters)
+{
+	struct fsl_mc_command cmd = { 0 };
+	struct dpseci_rsp_get_sec_counters *rsp_params;
+	int err;
+
+	cmd.header = mc_encode_cmd_header(DPSECI_CMDID_GET_SEC_COUNTERS,
+					  cmd_flags,
+					  token);
+	err = mc_send_command(mc_io, &cmd);
+	if (err)
+		return err;
+
+	rsp_params = (struct dpseci_rsp_get_sec_counters *)cmd.params;
+	counters->dequeued_requests =
+		le64_to_cpu(rsp_params->dequeued_requests);
+	counters->ob_enc_requests = le64_to_cpu(rsp_params->ob_enc_requests);
+	counters->ib_dec_requests = le64_to_cpu(rsp_params->ib_dec_requests);
+	counters->ob_enc_bytes = le64_to_cpu(rsp_params->ob_enc_bytes);
+	counters->ob_prot_bytes = le64_to_cpu(rsp_params->ob_prot_bytes);
+	counters->ib_dec_bytes = le64_to_cpu(rsp_params->ib_dec_bytes);
+	counters->ib_valid_bytes = le64_to_cpu(rsp_params->ib_valid_bytes);
 
 	return 0;
 }
