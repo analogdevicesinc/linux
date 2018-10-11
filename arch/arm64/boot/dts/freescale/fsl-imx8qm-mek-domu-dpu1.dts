@@ -1,0 +1,956 @@
+/*
+ * Copyright 2018 NXP
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/clock/imx8qm-clock.h>
+#include <dt-bindings/input/input.h>
+#include <dt-bindings/soc/imx_rsrc.h>
+#include <dt-bindings/soc/imx8_hsio.h>
+#include <dt-bindings/soc/imx8_pd.h>
+#include <dt-bindings/pinctrl/pads-imx8qm.h>
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/thermal/thermal.h>
+
+/ {
+	model = "Freescale i.MX8QM DOMU";
+	compatible = "fsl,imx8qm-mek", "fsl,imx8qm", "xen,xenvm-4.10", "xen,xenvm";
+	interrupt-parent = <&gic>;
+	#address-cells = <0x2>;
+	#size-cells = <0x2>;
+
+	/delete-node/ aliases;
+
+	aliases {
+		mmc0 = &usdhc1;
+		dpu0 = &dpu1;
+		ldb0 = &ldb1;
+		serial1 = &lpuart1;
+		isi0 = &isi_0;
+		isi1 = &isi_1;
+		isi2 = &isi_2;
+		isi3 = &isi_3;
+		csi0 = &mipi_csi_0;
+	};
+
+	cpus {
+		#address-cells = <0x2>;
+		#size-cells = <0x0>;
+
+		cpu@0 {
+			device_type = "cpu";
+			compatible = "arm,armv8";
+			enable-method = "psci";
+			reg = <0x0 0x0>;
+		};
+
+		cpu@1 {
+			device_type = "cpu";
+			compatible = "arm,armv8";
+			enable-method = "psci";
+			reg = <0x0 0x1>;
+		};
+	};
+
+	psci {
+		compatible = "arm,psci-1.0";
+		method = "hvc";
+	};
+
+	memory@80000000 {
+		device_type = "memory";
+		/* Will be updated by U-Boot or XEN TOOL */
+		reg = <0x00000000 0x80000000 0 0x80000000>;
+	};
+
+	/*
+	 * The reserved memory will be used when using U-Boot loading android
+	 * image. For booting kernel using xl tool, pass args:
+	 * cma=960M@2400M-3584M
+	 * For the rpmsg_reserved area, need xl tool to create for non-android.
+	 */
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+		passthrough;
+
+		/*
+		 * reserved-memory layout
+		 * 0x8800_0000 ~ 0x8FFF_FFFF is reserved for M4
+		 * Shouldn't be used at A core and Linux side.
+		 *
+		 */
+
+		decoder_boot: decoder_boot@0x84000000 {
+			no-map;
+			reg = <0 0x84000000 0 0x2000000>;
+		};
+		encoder_boot: encoder_boot@0x86000000 {
+			no-map;
+			reg = <0 0x86000000 0 0x2000000>;
+		};
+		/*
+		 * CM40 rpmsg memory is still for Dom0, the domu.cfg
+		 * not map 0x90000000 - 0x90100000 to DomU.
+		 */
+		rpmsg_reserved: rpmsg@0x90000000 {
+			no-map;
+			reg = <0 0x90000000 0 0x400000>;
+		};
+
+		decoder_rpc: decoder_rpc@0x90400000 {
+			no-map;
+			reg = <0 0x90400000 0 0x1000000>;
+		};
+		encoder_rpc: encoder_rpc@0x91400000 {
+			no-map;
+			reg = <0 0x91400000 0 0x1000000>;
+		};
+
+		decoder_str: str@0x94400000 {
+			no-map;
+			reg = <0 0x94400000 0 0x1800000>;
+		};
+
+		/* global autoconfigured region for contiguous allocations */
+		linux,cma {
+			compatible = "shared-dma-pool";
+			reusable;
+			size = <0 0x3c000000>;
+			alloc-ranges = <0 0x96000000 0 0x3c000000>;
+			linux,cma-default;
+		};
+	};
+
+	gic: interrupt-controller@3001000 {
+		compatible = "arm,gic-v3";
+		#interrupt-cells = <3>;
+		#address-cells = <0x0>;
+		interrupt-controller;
+		redistributor-stride = <0x20000>;
+		#redistributor-regions = <0x1>;
+		reg = <0x0 0x3001000 0 0x10000>, /* GIC Dist */
+		      <0x0 0x3020000 0 0x1000000>; /* GICR */
+		interrupts = <GIC_PPI 9 (GIC_CPU_MASK_SIMPLE(6) | IRQ_TYPE_LEVEL_HIGH)>;
+		interrupt-parent = <&gic>;
+		linux,phandle = <0xfde8>;
+		phandle = <0xfde8>;
+	};
+
+	timer {
+		compatible = "arm,armv8-timer";
+		interrupts = <GIC_PPI 13 (GIC_CPU_MASK_SIMPLE(6) | IRQ_TYPE_LEVEL_LOW)>,
+			     <GIC_PPI 14 (GIC_CPU_MASK_SIMPLE(6) | IRQ_TYPE_LEVEL_LOW)>,
+			     <GIC_PPI 11 (GIC_CPU_MASK_SIMPLE(6) | IRQ_TYPE_LEVEL_LOW)>;
+		interrupt-parent = <&gic>;
+		clock-frequency = <8000000>;
+	};
+
+	hypervisor {
+		compatible = "xen,xen-4.10", "xen,xen";
+		reg = <0x0 0x38000000 0x0 0x1000000>;
+		interrupts = <GIC_PPI 15 (GIC_CPU_MASK_SIMPLE(6) | IRQ_TYPE_LEVEL_LOW)>;
+		interrupt-parent = <&gic>;
+	};
+
+	passthrough {
+		compatible = "simple-bus";
+		ranges;
+		#address-cells = <2>;
+		#size-cells = <2>;
+
+		firmware {
+			android {
+				compatible = "android,firmware";
+				fstab {
+					compatible = "android,fstab";
+					vendor {
+						compatible = "android,vendor";
+						/* emmc node which used if androidboot.storage_type=emmc */
+						dev_emmc = "/dev/block/platform/passthrough/5b010000.usdhc/by-name/vendor";
+						type = "ext4";
+						mnt_flags = "ro,barrier=1,inode_readahead_blks=8";
+						fsmgr_flags = "wait,slotselect,avb";
+					};
+				};
+
+				vbmeta {
+					/*we need use FirstStageMountVBootV2 if we enable avb*/
+					compatible = "android,vbmeta";
+					/*parts means the partition witch can be mount in first stage*/
+					parts = "vbmeta,boot,system,vendor";
+				};
+			};
+		};
+
+		mu_m0: mu_m0@2d000000 {
+			compatible = "fsl,imx8-mu0-vpu-m0";
+			reg = <0x0 0x2d000000 0x0 0x10000>;
+			interrupts = <GIC_SPI 472 IRQ_TYPE_LEVEL_HIGH>;
+			fsl,vpu_ap_mu_id = <16>;
+			status = "okay";
+		};
+
+		mu1_m0: mu1_m0@2d020000 {
+			compatible = "fsl,imx8-mu1-vpu-m0";
+			reg = <0x0 0x2d020000 0x0 0x10000>;
+			interrupts = <GIC_SPI 473 IRQ_TYPE_LEVEL_HIGH>;
+			fsl,vpu_ap_mu_id = <17>;
+			status = "okay";
+		};
+		mu2_m0: mu2_m0@2d040000 {
+			compatible = "fsl,imx8-mu2-vpu-m0";
+			reg = <0x0 0x2d040000 0x0 0x10000>;
+			interrupts = <GIC_SPI 474 IRQ_TYPE_LEVEL_HIGH>;
+			fsl,vpu_ap_mu_id = <18>;
+			status = "okay";
+		};
+
+		vpu_decoder: vpu_decoder@2c000000 {
+			compatible = "nxp,imx8qm-b0-vpudec", "nxp,imx8qxp-b0-vpudec";
+			boot-region = <&decoder_boot>;
+			rpc-region = <&decoder_rpc>;
+			str-region = <&decoder_str>;
+			reg = <0x0 0x2c000000 0x0 0x1000000>;
+			reg-names = "vpu_regs";
+			reg-csr = <0x2d080000>;
+			power-domains = <&pd_vpu_dec>;
+			status = "disabled";
+		};
+
+		vpu_encoder: vpu_encoder@2d000000 {
+			compatible = "nxp,imx8qm-b0-vpuenc", "nxp,imx8qxp-b0-vpuenc";
+			boot-region = <&encoder_boot>;
+			rpc-region = <&encoder_rpc>;
+			reg = <0x0 0x2d000000 0x0 0x1000000>;
+			reg-names = "vpu_regs";
+			power-domains = <&pd_vpu_enc>;
+			reg-fw-base = <0x90000 0xa0000>;
+			status = "disabled";
+		};
+
+		clk: clk {
+			compatible = "fsl,imx8qm-clk";
+			#clock-cells = <1>;
+			fsl,lpcg_base_offset = <0x00000000 0x00000000>;
+		};
+
+		iomuxc: iomuxc {
+			compatible = "fsl,imx8qm-iomuxc";
+		};
+
+		regulators {
+			compatible = "simple-bus";
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			epdev_on: fixedregulator@100 {
+				compatible = "regulator-fixed";
+				regulator-min-microvolt = <3300000>;
+				regulator-max-microvolt = <3300000>;
+				regulator-name = "epdev_on";
+				gpio = <&gpio4 9 0>;
+				enable-active-high;
+			};
+		};
+
+		#include "fsl-imx8qm-device.dtsi"
+
+		mu2: mu@5d1d0000 {
+			compatible = "fsl,imx8-mu";
+			reg = <0x0 0x5d1d0000 0x0 0x10000>;
+			interrupts = <GIC_SPI 178 IRQ_TYPE_LEVEL_HIGH>;
+			fsl,scu_ap_mu_id = <0>;
+			status = "okay";
+		};
+
+		usb_lpcg {
+			reg = <0x0 0x5b270000 0x0 0x10000>;
+		};
+
+		edma01: dma-controller1@5a1f0000 {
+			compatible = "fsl,imx8qm-edma";
+			reg = <0x0 0x5a2e0000 0x0 0x10000>, /* channel14 UART1 rx */
+			      <0x0 0x5a2f0000 0x0 0x10000>; /* channel15 UART1 tx */
+			#dma-cells = <3>;
+			dma-channels = <2>;
+			interrupts = <GIC_SPI 436 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 437 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "edma0-chan14-rx", "edma0-chan15-tx";
+			status = "okay";
+		};
+
+		xen_i2c0: xen_i2c@0 {
+			compatible = "xen,i2c";
+			be-adapter = "5a800000.i2c";
+			status = "okay";
+		};
+	};
+};
+
+/delete-node/ &tsens;
+/delete-node/ &thermal_zones;
+/delete-node/ &rtc;
+
+&display {
+	ports = <&dpu1_disp0>, <&dpu1_disp1>;
+};
+
+&dpu1_intsteer {
+	status = "okay";
+};
+
+&prg1 {
+	status = "okay";
+};
+
+&prg2 {
+	status = "okay";
+};
+
+&prg3 {
+	status = "okay";
+};
+
+&prg4 {
+	status = "okay";
+};
+
+&prg5 {
+	status = "okay";
+};
+
+&prg6 {
+	status = "okay";
+};
+
+&prg7 {
+	status = "okay";
+};
+
+&prg8 {
+	status = "okay";
+};
+
+&prg9 {
+	status = "okay";
+};
+
+&dpr1_channel1 {
+	status = "okay";
+};
+
+&dpr1_channel2 {
+	status = "okay";
+};
+
+&dpr1_channel3 {
+	status = "okay";
+};
+
+&dpr2_channel1 {
+	status = "okay";
+};
+
+&dpr2_channel2 {
+	status = "okay";
+};
+
+&dpr2_channel3 {
+	status = "okay";
+};
+
+&dpu1 {
+	status = "okay";
+};
+
+&pixel_combiner1 {
+	status = "okay";
+};
+
+&hdmi {
+	status = "disabled";
+};
+
+/*/delete-node/ &irqsteer_dsi0;*/
+/*/delete-node/ &i2c0_mipi_dsi0;*/
+/*/delete-node/ &mipi_dsi_csr1;*/
+/*/delete-node/ &mipi_dsi_phy1;*/
+/*/delete-node/ &mipi_dsi1;*/
+/*/delete-node/ &mipi_dsi_bridge1;*/
+
+&lvds_region1 {
+	status = "okay";
+};
+
+&ldb1_phy {
+	status = "okay";
+};
+
+&ldb1 {
+	status = "okay";
+
+	lvds-channel@0 {
+		fsl,data-mapping = "jeida";
+		fsl,data-width = <24>;
+		status = "okay";
+
+		port@1 {
+			reg = <1>;
+
+			lvds0_out: endpoint {
+				remote-endpoint = <&it6263_0_in>;
+			};
+		};
+	};
+};
+
+/delete-node/ &dpu2_intsteer;
+/delete-node/ &prg10;
+/delete-node/ &prg11;
+/delete-node/ &prg12;
+/delete-node/ &prg13;
+/delete-node/ &prg14;
+/delete-node/ &prg15;
+/delete-node/ &prg16;
+/delete-node/ &prg17;
+/delete-node/ &prg18;
+/delete-node/ &dpr3_channel1;
+/delete-node/ &dpr3_channel2;
+/delete-node/ &dpr3_channel3;
+/delete-node/ &dpr4_channel1;
+/delete-node/ &dpr4_channel2;
+/delete-node/ &dpr4_channel3;
+/delete-node/ &dpu2;
+/delete-node/ &pixel_combiner2;
+/delete-node/ &dsp;
+/delete-node/ &irqsteer_dsi1;
+/delete-node/ &i2c0_mipi_dsi1;
+/delete-node/ &mipi_dsi_csr2;
+/delete-node/ &mipi_dsi_phy2;
+/delete-node/ &mipi_dsi2;
+/delete-node/ &mipi_dsi_bridge2;
+/delete-node/ &lvds_region2;
+/delete-node/ &ldb2_phy;
+/delete-node/ &ldb2;
+/delete-node/ &lvds1_pwm;
+/*/delete-node/ &camera;*/
+/delete-node/ &adc0;
+/delete-node/ &adc1;
+/delete-node/ &i2c0;
+/delete-node/ &i2c1;
+/delete-node/ &i2c2;
+/delete-node/ &i2c3;
+/delete-node/ &i2c4;
+/delete-node/ &i2c0_cm40;
+/delete-node/ &i2c0_cm41;
+&irqsteer_hdmi {
+	status = "disabled";
+};
+/delete-node/ &i2c0_hdmi;
+/delete-node/ &irqsteer_lvds1;
+/delete-node/ &flexcan1;
+/delete-node/ &flexcan2;
+/delete-node/ &flexcan3;
+/delete-node/ &i2c1_lvds1;
+&irqsteer_lvds0 {
+	/delete-property/ interrupt-parent;
+	status = "okay";
+};
+
+&i2c1_lvds0 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_lvds0_lpi2c1>;
+	clock-frequency = <100000>;
+	status = "okay";
+
+	lvds-to-hdmi-bridge@4c {
+		compatible = "ite,it6263";
+		reg = <0x4c>;
+
+		port {
+			it6263_0_in: endpoint {
+				clock-lanes = <3>;
+				data-lanes = <0 1 2 4>;
+				remote-endpoint = <&lvds0_out>;
+			};
+		};
+	};
+};
+
+&lvds0_pwm {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_lvds0_pwm0>;
+	status = "okay";
+};
+
+/*/delete-node/ &irqsteer_csi0;*/
+/*/delete-node/ &i2c0_mipi_csi0;*/
+/delete-node/ &irqsteer_csi1;
+/delete-node/ &i2c0_mipi_csi1;
+/delete-node/ &lpspi0;
+/delete-node/ &lpuart0;
+
+&lpuart1 {
+	/delete-property/ interrupt-parent;
+	reg = <0x0 0x5a070000 0 0x1000>;
+	dmas = <&edma01 15 0 0>, <&edma01 14 0 1>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_lpuart1>;
+	status = "okay";
+};
+
+/delete-node/ &lpuart2;
+/delete-node/ &lpuart3;
+/delete-node/ &lpuart4;
+/delete-node/ &emvsim0;
+/delete-node/ &edma0;
+/delete-node/ &edma2;
+/delete-node/ &edma3;
+&gpio0 {
+	/delete-property/ power-domains;
+	status = "disabled";
+};
+&gpio1 {
+	/delete-property/ power-domains;
+	status = "okay";
+};
+&gpio2 {
+	/delete-property/ power-domains;
+	status = "disabled";
+};
+&gpio3 {
+	/delete-property/ power-domains;
+	status = "disabled";
+};
+&gpio4 {
+	/delete-property/ power-domains;
+	status = "okay";
+};
+&gpio5 {
+	/delete-property/ power-domains;
+	status = "disabled";
+};
+&gpio6 {
+	/delete-property/ power-domains;
+	status = "disabled";
+};
+&gpio7 {
+	/delete-property/ power-domains;
+	status = "disabled";
+};
+
+/*/delete-node/ &gpio0_mipi_csi0;*/
+/delete-node/ &gpio0_mipi_csi1;
+/delete-node/ &gpt0;
+/delete-node/ &pwm0;
+/delete-node/ &pwm1;
+/delete-node/ &pwm2;
+/delete-node/ &pwm3;
+/delete-node/ &pwm4;
+/delete-node/ &pwm5;
+/delete-node/ &pwm6;
+/delete-node/ &pwm7;
+
+&gpu_3d0 {
+	status = "okay";
+};
+
+/delete-node/ &gpu_3d1;
+
+&imx8_gpu_ss {
+	/* xen guests have 2GB of low RAM @ 2GB */
+	reg = <0x0 0x80000000 0x0 0x80000000>;
+	reg-names = "phys_baseaddr";
+	cores = <&gpu_3d0>;
+	status = "okay";
+};
+
+/delete-node/ &mlb;
+
+&usdhc1 {
+	compatible = "fsl,imx8qm-usdhc", "fsl,imx6sl-usdhc";
+	/*interrupt-parent = <&gic>;*/
+	/delete-property/ interrupt-parent;
+	reg = <0x0 0x5b010000 0x0 0x10000>;
+};
+
+/delete-node/ &usdhc2;
+/delete-node/ &usdhc3;
+/delete-node/ &fec1;
+/delete-node/ &fec2;
+
+&usbmisc1 {
+	reg = <0x0 0x5b0d0200 0x0 0x200>;
+};
+
+&usbmisc2 {
+	status = "okay";
+};
+
+&usbphy1 {
+	reg = <0x0 0x5b100000 0x0 0x200>;
+};
+
+/delete-node/ &usbh1;
+
+&usbotg3 {
+	/delete-property/ interrupt-parent;
+	dr_mode = "otg";
+	extcon = <&typec_ptn5110>;
+	status = "okay";
+};
+
+&usbphynop1 {
+	status = "okay";
+};
+
+/delete-node/ &usbphynop2;
+
+&usbotg1 {
+	reg = <0x0 0x5b0d0000 0x0 0x200>;
+	/delete-property/ interrupt-parent;
+};
+
+/delete-node/ &ddr_pmu0;
+/delete-node/ &ddr_pmu1;
+/delete-node/ &vpu;
+/delete-node/ &acm;
+/delete-node/ &esai0;
+/delete-node/ &esai1;
+/delete-node/ &spdif0;
+/delete-node/ &spdif1;
+/delete-node/ &sai1;
+/delete-node/ &sai0;
+/delete-node/ &sai2;
+/delete-node/ &sai3;
+/delete-node/ &sai_hdmi_rx;
+/delete-node/ &sai_hdmi_tx;
+/delete-node/ &sai6;
+/delete-node/ &sai7;
+/delete-node/ &amix;
+/delete-node/ &asrc0;
+/delete-node/ &asrc1;
+/delete-node/ &mqs;
+/delete-node/ &flexspi0;
+
+&dma_cap {
+	compatible = "dma-capability";
+	only-dma-mask32 = <1>;
+};
+
+/delete-node/ &ocotp;
+&pciea {
+	ext_osc = <1>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_pciea>;
+	disable-gpio = <&gpio1 13 GPIO_ACTIVE_LOW>;
+	reset-gpio = <&gpio4 29 GPIO_ACTIVE_LOW>;
+	clkreq-gpio = <&gpio4 27 GPIO_ACTIVE_LOW>;
+	epdev_on-supply = <&epdev_on>;
+	status = "okay";
+};
+/delete-node/ &pcieb;
+/delete-node/ &sata;
+
+/delete-node/ &intmux_cm40;
+/delete-node/ &intmux_cm41;
+
+&rpmsg1{
+	/*
+	 * 64K for one rpmsg instance:
+	 */
+	vdev-nums = <2>;
+	reg = <0x0 0x90100000 0x0 0x20000>;
+	status = "okay";
+};
+
+&mu_rpmsg1 {
+	reg = <0x0 0x5d210000 0x0 0x10000>;
+};
+
+/*/delete-node/ &crypto;*/
+/*/delete-node/ &caam_sm;*/
+/*/delete-node/ &sc_pwrkey;*/
+/delete-node/ &wdog;
+/delete-node/ &wu;
+
+&iomuxc {
+	imx8qm-mek {
+		pinctrl_usdhc1: usdhc1grp {
+			fsl,pins = <
+				SC_P_EMMC0_CLK_CONN_EMMC0_CLK		0x06000041
+				SC_P_EMMC0_CMD_CONN_EMMC0_CMD		0x00000021
+				SC_P_EMMC0_DATA0_CONN_EMMC0_DATA0	0x00000021
+				SC_P_EMMC0_DATA1_CONN_EMMC0_DATA1	0x00000021
+				SC_P_EMMC0_DATA2_CONN_EMMC0_DATA2	0x00000021
+				SC_P_EMMC0_DATA3_CONN_EMMC0_DATA3	0x00000021
+				SC_P_EMMC0_DATA4_CONN_EMMC0_DATA4	0x00000021
+				SC_P_EMMC0_DATA5_CONN_EMMC0_DATA5	0x00000021
+				SC_P_EMMC0_DATA6_CONN_EMMC0_DATA6	0x00000021
+				SC_P_EMMC0_DATA7_CONN_EMMC0_DATA7	0x00000021
+				SC_P_EMMC0_STROBE_CONN_EMMC0_STROBE	0x06000041
+				SC_P_EMMC0_RESET_B_CONN_EMMC0_RESET_B	0x00000021
+			>;
+		};
+
+		pinctrl_usdhc1_100mhz: usdhc1grp100mhz {
+			fsl,pins = <
+				SC_P_EMMC0_CLK_CONN_EMMC0_CLK		0x06000040
+				SC_P_EMMC0_CMD_CONN_EMMC0_CMD		0x00000020
+				SC_P_EMMC0_DATA0_CONN_EMMC0_DATA0	0x00000020
+				SC_P_EMMC0_DATA1_CONN_EMMC0_DATA1	0x00000020
+				SC_P_EMMC0_DATA2_CONN_EMMC0_DATA2	0x00000020
+				SC_P_EMMC0_DATA3_CONN_EMMC0_DATA3	0x00000020
+				SC_P_EMMC0_DATA4_CONN_EMMC0_DATA4	0x00000020
+				SC_P_EMMC0_DATA5_CONN_EMMC0_DATA5	0x00000020
+				SC_P_EMMC0_DATA6_CONN_EMMC0_DATA6	0x00000020
+				SC_P_EMMC0_DATA7_CONN_EMMC0_DATA7	0x00000020
+				SC_P_EMMC0_STROBE_CONN_EMMC0_STROBE	0x06000040
+				SC_P_EMMC0_RESET_B_CONN_EMMC0_RESET_B	0x00000020
+			>;
+		};
+
+		pinctrl_usdhc1_200mhz: usdhc1grp200mhz {
+			fsl,pins = <
+				SC_P_EMMC0_CLK_CONN_EMMC0_CLK		0x06000040
+				SC_P_EMMC0_CMD_CONN_EMMC0_CMD		0x00000020
+				SC_P_EMMC0_DATA0_CONN_EMMC0_DATA0	0x00000020
+				SC_P_EMMC0_DATA1_CONN_EMMC0_DATA1	0x00000020
+				SC_P_EMMC0_DATA2_CONN_EMMC0_DATA2	0x00000020
+				SC_P_EMMC0_DATA3_CONN_EMMC0_DATA3	0x00000020
+				SC_P_EMMC0_DATA4_CONN_EMMC0_DATA4	0x00000020
+				SC_P_EMMC0_DATA5_CONN_EMMC0_DATA5	0x00000020
+				SC_P_EMMC0_DATA6_CONN_EMMC0_DATA6	0x00000020
+				SC_P_EMMC0_DATA7_CONN_EMMC0_DATA7	0x00000020
+				SC_P_EMMC0_STROBE_CONN_EMMC0_STROBE	0x06000040
+				SC_P_EMMC0_RESET_B_CONN_EMMC0_RESET_B	0x00000020
+			>;
+		};
+
+		pinctrl_usbotg1: usbotg1 {
+			fsl,pins = <
+				SC_P_USB_SS3_TC0_CONN_USB_OTG1_PWR		0x00000021
+			>;
+		};
+
+		pinctrl_lvds0_lpi2c1: lvds0lpi2c1grp {
+			fsl,pins = <
+				SC_P_LVDS0_I2C1_SCL_LVDS0_I2C1_SCL	0xc600004c
+				SC_P_LVDS0_I2C1_SDA_LVDS0_I2C1_SDA	0xc600004c
+			>;
+		};
+
+		pinctrl_lpuart1: lpuart1grp {
+			fsl,pins = <
+				SC_P_UART1_RX_DMA_UART1_RX		0x06000020
+				SC_P_UART1_TX_DMA_UART1_TX		0x06000020
+				SC_P_UART1_CTS_B_DMA_UART1_CTS_B	0x06000020
+				SC_P_UART1_RTS_B_DMA_UART1_RTS_B	0x06000020
+				SC_P_QSPI1A_DQS_LSIO_GPIO4_IO22		0x00000021
+			>;
+		};
+
+		pinctrl_pciea: pcieagrp{
+			fsl,pins = <
+				SC_P_PCIE_CTRL0_CLKREQ_B_LSIO_GPIO4_IO27	0x04000021
+				SC_P_PCIE_CTRL0_WAKE_B_LSIO_GPIO4_IO28		0x04000021
+				SC_P_PCIE_CTRL0_PERST_B_LSIO_GPIO4_IO29		0x04000021
+				SC_P_LVDS1_I2C0_SDA_LSIO_GPIO1_IO13		0x06000000
+				SC_P_USDHC2_RESET_B_LSIO_GPIO4_IO09		0x04000021
+			>;
+		};
+
+		pinctrl_typec: typecgrp {
+			fsl,pins = <
+				SC_P_QSPI1A_SS0_B_LSIO_GPIO4_IO19	0x60
+				SC_P_USB_SS3_TC3_LSIO_GPIO4_IO06	0x60
+				SC_P_QSPI1A_DATA0_LSIO_GPIO4_IO26	0x00000021
+			>;
+		};
+
+		pinctrl_isl29023: isl29023grp {
+			fsl,pins = <
+				SC_P_USDHC2_WP_LSIO_GPIO4_IO11		0x00000021
+			>;
+		};
+
+		pinctrl_lvds0_pwm0: lvds0pwm0grp {
+			fsl,pins = <
+				SC_P_LVDS0_GPIO00_LVDS0_PWM0_OUT	0x00000020
+			>;
+		};
+	};
+};
+
+&usdhc1 {
+	/delete-property/ iommus;
+	pinctrl-names = "default", "state_100mhz", "state_200mhz";
+	pinctrl-0 = <&pinctrl_usdhc1>;
+	pinctrl-1 = <&pinctrl_usdhc1_100mhz>;
+	pinctrl-2 = <&pinctrl_usdhc1_200mhz>;
+	bus-width = <8>;
+	non-removable;
+	status = "okay";
+};
+
+&usbotg1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_usbotg1>;
+	srp-disable;
+	hnp-disable;
+	adp-disable;
+	power-polarity-active-high;
+	disable-over-current;
+	status = "okay";
+};
+
+&vpu_decoder {
+	core_type = <2>;
+	status = "okay";
+};
+
+&vpu_encoder {
+	core_type = <2>;
+	status = "okay";
+};
+
+&xen_i2c0 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	clock-frequency = <100000>;
+	status = "okay";
+
+	isl29023@44 {
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_isl29023>;
+		compatible = "fsl,isl29023";
+		reg = <0x44>;
+		rext = <499>;
+		interrupt-parent = <&gpio4>;
+		interrupts = <11 2>;
+	};
+
+	fxos8700@1e {
+		compatible = "fsl,fxos8700";
+		reg = <0x1e>;
+		interrupt-open-drain;
+	};
+
+	fxas2100x@20 {
+		compatible = "fsl,fxas2100x";
+		reg = <0x20>;
+		interrupt-open-drain;
+	};
+
+	mpl3115@60 {
+		compatible = "fsl,mpl3115";
+		reg = <0x60>;
+		interrupt-open-drain;
+	};
+
+	typec_ptn5110: typec@50 {
+		compatible = "usb,tcpci";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_typec>;
+		reg = <0x51>;
+		interrupt-parent = <&gpio4>;
+		interrupts = <26 IRQ_TYPE_LEVEL_LOW>;
+		ss-sel-gpios = <&gpio4 6 GPIO_ACTIVE_LOW>;
+		reset-gpios = <&gpio4 19 GPIO_ACTIVE_HIGH>;
+		src-pdos = <0x380190c8 0x3803c0c8>;
+		port-type = "drp";
+		sink-disable;
+		default-role = "source";
+		status = "okay";
+	};
+};
+
+/* Camera */
+/delete-node/ &isi_4;
+/delete-node/ &isi_5;
+/delete-node/ &isi_6;
+/delete-node/ &isi_7;
+/delete-node/ &mipi_csi_1;
+/delete-node/ &jpegdec;
+/delete-node/ &jpegenc;
+
+&gpio0_mipi_csi0 {
+	status = "okay";
+};
+
+&irqsteer_csi0 {
+	status = "okay";
+};
+
+&isi_0 {
+	status = "okay";
+};
+
+&isi_1 {
+	status = "okay";
+};
+
+&isi_2 {
+	status = "okay";
+};
+
+&isi_3 {
+	status = "okay";
+};
+
+&mipi_csi_0 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	virtual-channel;
+	status = "okay";
+
+	/* Camera 0  MIPI CSI-2 (CSIS0) */
+	port@0 {
+		reg = <0>;
+		mipi_csi0_ep: endpoint {
+			remote-endpoint = <&max9286_0_ep>;
+			data-lanes = <1 2 3 4>;
+		};
+	};
+};
+
+&i2c0_mipi_csi0 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	pinctrl-names = "default";
+	clock-frequency = <100000>;
+	status = "okay";
+
+
+	max9286_mipi@6A	 {
+		compatible = "maxim,max9286_mipi";
+		reg = <0x6A>;
+		clocks = <&clk IMX8QM_CLK_DUMMY>;
+		clock-names = "capture_mclk";
+		mclk = <27000000>;
+		mclk_source = <0>;
+		pwn-gpios = <&gpio1 27 GPIO_ACTIVE_HIGH>;
+		virtual-channel;
+		port {
+			max9286_0_ep: endpoint {
+			remote-endpoint = <&mipi_csi0_ep>;
+			data-lanes = <1 2 3 4>;
+			};
+		};
+	};
+};

@@ -32,7 +32,9 @@ dtb-$(CONFIG_ARCH_FSL_IMX8QM) += fsl-imx8qm-lpddr4-arm2.dtb \
 				 fsl-imx8qm-mek-enet2-tja1100.dtb \
 				 fsl-imx8qm-mek-jdi-wuxga-lvds1-panel.dtb \
 				 fsl-imx8qm-mek-dom0.dtb \
+				 fsl-imx8qm-mek-dom0-dpu2.dtb \
 				 fsl-imx8qm-mek-domu.dtb \
+				 fsl-imx8qm-mek-domu-dpu1.dtb \
 				 fsl-imx8qm-mek-root.dtb \
 				 fsl-imx8qm-mek-inmate.dtb \
 				 fsl-imx8qm-mek-m4.dtb \
