@@ -448,6 +448,8 @@ static int imx_wm8960_probe(struct platform_device *pdev)
 	struct imx_wm8960_data *data;
 	struct platform_device *asrc_pdev = NULL;
 	struct device_node *asrc_np;
+	struct snd_soc_dai_link_component dlc = { 0 };
+	struct snd_soc_dai *codec_dai;
 	u32 width;
 	int ret;
 
@@ -537,6 +539,12 @@ static int imx_wm8960_probe(struct platform_device *pdev)
 	if (data->is_codec_rpmsg) {
 		imx_wm8960_dai[0].codec_name     = "rpmsg-audio-codec-wm8960";
 		imx_wm8960_dai[0].codec_dai_name = "rpmsg-wm8960-hifi";
+
+		dlc.name = "rpmsg-audio-codec-wm8960";
+		dlc.dai_name = "rpmsg-wm8960-hifi";
+		codec_dai = snd_soc_find_dai(&dlc);
+		if (!codec_dai)
+			return -ENODEV;
 	} else
 		imx_wm8960_dai[0].codec_of_node	= codec_np;
 
