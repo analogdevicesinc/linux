@@ -915,6 +915,8 @@
 /delete-node/ &isi_6;
 /delete-node/ &isi_7;
 /delete-node/ &mipi_csi_1;
+/delete-node/ &jpegdec;
+/delete-node/ &jpegenc;
 
 &gpio0_mipi_csi0 {
 	status = "okay";
