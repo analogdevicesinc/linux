@@ -255,7 +255,7 @@ static int add_ctrl_bitrate_mode(struct vpu_ctx *ctx)
 				      V4L2_CID_MPEG_VIDEO_BITRATE_MODE,
 				      V4L2_MPEG_VIDEO_BITRATE_MODE_CBR,
 				      0x0,
-				      V4L2_MPEG_VIDEO_BITRATE_MODE_CBR);
+				      V4L2_MPEG_VIDEO_BITRATE_MODE_VBR);
 	if (!ctrl) {
 		vpu_dbg(LVL_ERR, "add ctrl bitrate mode fail\n");
 		return -EINVAL;

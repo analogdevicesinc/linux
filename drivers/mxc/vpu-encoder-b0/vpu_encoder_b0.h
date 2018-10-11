@@ -246,6 +246,10 @@ enum {
 struct vpu_statistic {
 	unsigned long cmd[GTB_ENC_CMD_RESERVED + 1];
 	unsigned long event[VID_API_ENC_EVENT_RESERVED + 1];
+	unsigned long current_cmd;
+	unsigned long current_event;
+	struct timespec ts_cmd;
+	struct timespec ts_event;
 };
 
 struct vpu_ctx {

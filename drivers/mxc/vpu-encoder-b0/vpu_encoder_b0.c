@@ -91,6 +91,20 @@ static char *event2str[] = {
 	ITEM_NAME(VID_API_ENC_EVENT_RESERVED)
 };
 
+static char *get_event_str(u32 event)
+{
+	if (event >= VID_API_ENC_EVENT_RESERVED)
+		return "UNKNOWN EVENT";
+	return event2str[event];
+}
+
+static char *get_cmd_str(u32 cmdid)
+{
+	if (cmdid >= GTB_ENC_CMD_RESERVED)
+		return "UNKNOWN CMD";
+	return cmd2str[cmdid];
+}
+
 static void vpu_log_event(u_int32 uEvent, u_int32 ctxid)
 {
 	if (uEvent >= VID_API_ENC_EVENT_RESERVED)
@@ -120,6 +134,9 @@ static void count_event(struct vpu_statistic *statistic, u32 event)
 		statistic->event[event]++;
 	else
 		statistic->event[VID_API_ENC_EVENT_RESERVED]++;
+
+	statistic->current_event = event;
+	getrawmonotonic(&statistic->ts_event);
 }
 
 static void count_cmd(struct vpu_statistic *statistic, u32 cmdid)
@@ -131,6 +148,8 @@ static void count_cmd(struct vpu_statistic *statistic, u32 cmdid)
 		statistic->cmd[cmdid]++;
 	else
 		statistic->cmd[GTB_ENC_CMD_RESERVED]++;
+	statistic->current_cmd = cmdid;
+	getrawmonotonic(&statistic->ts_cmd);
 }
 
 static void write_enc_reg(struct vpu_dev *dev, u32 val, off_t reg)
@@ -2244,6 +2263,18 @@ static ssize_t show_instance_info(struct device *dev,
 	num += snprintf(buf + num, PAGE_SIZE - num,
 			"\t%40s:%10d;%10d\n", "QP",
 			ctx->actual_param.uInitSliceQP, param->uInitSliceQP);
+
+	num += snprintf(buf + num, PAGE_SIZE - num, "current status:\n");
+	num += snprintf(buf + num, PAGE_SIZE - num,
+			"%10s:%40s;%10ld.%06ld\n", "commond",
+			get_cmd_str(statistic->current_cmd),
+			statistic->ts_cmd.tv_sec,
+			statistic->ts_cmd.tv_nsec / 1000);
+	num += snprintf(buf + num, PAGE_SIZE - num,
+			"%10s:%40s;%10ld.%06ld\n", "event",
+			get_event_str(statistic->current_event),
+			statistic->ts_event.tv_sec,
+			statistic->ts_event.tv_nsec / 1000);
 
 	return num;
 }
