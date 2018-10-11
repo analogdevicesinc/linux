@@ -293,6 +293,8 @@ static int imx_cs42888_probe(struct platform_device *pdev)
 	struct platform_device *esai_pdev;
 	struct platform_device *asrc_pdev = NULL;
 	struct imx_priv *priv = &card_priv;
+	struct snd_soc_dai_link_component dlc = { 0 };
+	struct snd_soc_dai *codec_dai;
 	int ret;
 	u32 width;
 
@@ -358,28 +360,40 @@ static int imx_cs42888_probe(struct platform_device *pdev)
 		}
 	}
 
+	if (priv->is_codec_rpmsg) {
+		imx_cs42888_dai[0].codec_name     = "rpmsg-audio-codec-cs42888";
+		imx_cs42888_dai[0].codec_dai_name = "cs42888";
+
+		dlc.name = "rpmsg-audio-codec-cs42888";
+		dlc.dai_name = "cs42888";
+		codec_dai = snd_soc_find_dai(&dlc);
+		if (!codec_dai)
+			return -ENODEV;
+	} else {
+		imx_cs42888_dai[0].codec_of_node   = codec_np;
+	}
+
 	/*if there is no asrc controller, we only enable one device*/
 	if (!asrc_pdev) {
-		if (priv->is_codec_rpmsg) {
-			imx_cs42888_dai[0].codec_name     = "rpmsg-audio-codec-cs42888";
-			imx_cs42888_dai[0].codec_dai_name = "cs42888";
-		} else {
-			imx_cs42888_dai[0].codec_of_node   = codec_np;
-		}
 		imx_cs42888_dai[0].cpu_dai_name    = dev_name(&esai_pdev->dev);
 		imx_cs42888_dai[0].platform_of_node = esai_np;
 		snd_soc_card_imx_cs42888.num_links = 1;
 		snd_soc_card_imx_cs42888.num_dapm_routes =
 			ARRAY_SIZE(audio_map) - 2;
 	} else {
-		imx_cs42888_dai[0].codec_of_node   = codec_np;
 		imx_cs42888_dai[0].cpu_dai_name    = dev_name(&esai_pdev->dev);
 		imx_cs42888_dai[0].platform_of_node = esai_np;
 		imx_cs42888_dai[1].cpu_of_node    = asrc_np;
 		imx_cs42888_dai[1].platform_of_node   = asrc_np;
-		imx_cs42888_dai[2].codec_of_node   = codec_np;
 		imx_cs42888_dai[2].cpu_dai_name    = dev_name(&esai_pdev->dev);
 		snd_soc_card_imx_cs42888.num_links = 3;
+
+		if (priv->is_codec_rpmsg) {
+			imx_cs42888_dai[2].codec_name     = "rpmsg-audio-codec-cs42888";
+			imx_cs42888_dai[2].codec_dai_name = "cs42888";
+		} else {
+			imx_cs42888_dai[2].codec_of_node   = codec_np;
+		}
 
 		ret = of_property_read_u32(asrc_np, "fsl,asrc-rate",
 						&priv->asrc_rate);
