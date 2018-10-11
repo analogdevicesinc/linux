@@ -192,6 +192,27 @@
 	vpu_decoder_csr: vpu_decoder_csr@0x2d080000 {
 		reg = <0x0 0x2d080000 0x0 0x1000>;
 	};
+
+	/* hdmi */
+	di_hdmi_lpcg: di_hdmi_lpcg@0x56263000 {
+		reg = <0x0 0x56263000 0x0 0x1000>;
+	};
+
+	rx_hdmi_lpcg: rx_hdmi_lpcg@0x58263000 {
+		reg = <0x0 0x58263000 0x0 0x1000>;
+	};
+
+	img_pxl_link_hdmi_lpcg: img_pxl_link_hdmi_lpcg@0x585a0000 {
+		reg = <0x0 0x585a0000 0x0 0x1000>;
+	};
+
+	aud_hdmi_rx_sai_0_lpcg: aud_hdmi_rx_sai_0_lpcg@0x59480000 {
+		reg = <0x0 0x59480000 0x0 0x1000>;
+	};
+
+	aud_hdmi_tx_sai_0_lpcg: aud_hdmi_tx_sai_0_lpcg@0x59490000 {
+		reg = <0x0 0x59490000 0x0 0x1000>;
+	};
 };
 
 /delete-node/ &edma0;

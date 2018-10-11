@@ -457,9 +457,12 @@
 /delete-node/ &i2c0_cm40;
 /delete-node/ &i2c0_cm41;
 &irqsteer_hdmi {
-	status = "disabled";
+	status = "okay";
 };
-/delete-node/ &i2c0_hdmi;
+/*/delete-node/ &i2c0_hdmi;*/
+&irqsteer_hdmi_rx {
+	status = "okay";
+};
 /delete-node/ &irqsteer_lvds1;
 /delete-node/ &flexcan1;
 /delete-node/ &flexcan2;

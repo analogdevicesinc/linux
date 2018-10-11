@@ -1,0 +1,43 @@
+/*
+ * Copyright 2018 NXP
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "fsl-imx8qm-mek-domu-dpu1.dts"
+
+/ {
+	/* Sound not enabled */
+};
+
+&ldb1_phy {
+	status = "okay";
+};
+
+&ldb1 {
+	status = "okay";
+};
+
+&i2c1_lvds0 {
+	status = "okay";
+};
+
+&hdmi {
+	compatible = "fsl,imx8qm-hdmi";
+	assigned-clocks = <&clk IMX8QM_HDMI_PXL_SEL>,
+					<&clk IMX8QM_HDMI_PXL_LINK_SEL>,
+					<&clk IMX8QM_HDMI_PXL_MUX_SEL>;
+	assigned-clock-parents = <&clk IMX8QM_HDMI_AV_PLL_CLK>,
+							<&clk IMX8QM_HDMI_AV_PLL_CLK>,
+							<&clk IMX8QM_HDMI_AV_PLL_CLK>;
+	fsl,cec;
+	status = "okay";
+};
