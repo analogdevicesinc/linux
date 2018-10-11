@@ -136,6 +136,7 @@ static const struct regmap_config bd71837_regmap_config = {
 #ifdef CONFIG_OF
 static struct of_device_id bd71837_of_match[] = {
 	{ .compatible = "rohm,bd71837", .data = (void *)0},
+	{ .compatible = "rohm,bd71840", .data = (void *)0},
 	{ },
 };
 MODULE_DEVICE_TABLE(of, bd71837_of_match);
@@ -275,6 +276,7 @@ static int bd71837_i2c_remove(struct i2c_client *i2c)
 
 static const struct i2c_device_id bd71837_i2c_id[] = {
 	{ "bd71837", 0 },
+	{ "bd71840", 0 },
 	{ }
 };
 MODULE_DEVICE_TABLE(i2c, bd71837_i2c_id);
