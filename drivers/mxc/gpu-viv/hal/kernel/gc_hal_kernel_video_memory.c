@@ -2946,6 +2946,7 @@ gckVIDMEM_NODE_Export(
         {
             physical = node->VidMem.memory->physical;
             bytes = node->VidMem.bytes;
+            bytes = bytes & (~(PAGE_SIZE -1));
         }
         else
         {
