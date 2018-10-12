@@ -527,6 +527,7 @@
        #stream-id-cells = <1>;
        iommus = <&smmu>;
        xen,passthrough;
+       fsl,sc_rsrc_id = <SC_R_PCIE_A>;
 };
 
 &pcieb {
