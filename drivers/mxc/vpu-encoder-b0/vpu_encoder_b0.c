@@ -987,6 +987,7 @@ static int v4l2_ioctl_streamon(struct file *file,
 	ret = vb2_streamon(&q_data->vb2_q,
 			i);
 	ctx->forceStop = false;
+	ctx->firmware_stopped = false;
 	return ret;
 }
 
@@ -1322,9 +1323,6 @@ static void report_stream_done(struct vpu_ctx *ctx,  MEDIAIP_ENC_PIC_INFO *pEncP
 		else
 			break;
 	}
-
-	if (ctx->forceStop)
-		return;
 
 	if (!list_empty(&This->drv_q)) {
 		down(&This->drv_q_lock);
