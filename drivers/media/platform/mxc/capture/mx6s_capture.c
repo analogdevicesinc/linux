@@ -320,6 +320,8 @@ struct mx6s_csi_dev {
 	void __iomem *regbase;
 	int irq;
 
+	u32      nextfb;
+	u32      skipframe;
 	u32	 type;
 	u32 bytesperline;
 	v4l2_std_id std;
@@ -749,6 +751,7 @@ static int mx6s_csi_enable(struct mx6s_csi_dev *csi_dev)
 	unsigned long val;
 	int timeout, timeout2;
 
+	csi_dev->skipframe = 0;
 	csisw_reset(csi_dev);
 
 	if (pix->field == V4L2_FIELD_INTERLACED)
@@ -943,6 +946,8 @@ static int mx6s_start_streaming(struct vb2_queue *vq, unsigned int count)
 	mx6s_update_csi_buf(csi_dev, phys, buf->internal.bufnum);
 	list_move_tail(csi_dev->capture.next, &csi_dev->active_bufs);
 
+	csi_dev->nextfb = 0;
+
 	spin_unlock_irqrestore(&csi_dev->slock, flags);
 
 	return mx6s_csi_enable(csi_dev);
@@ -1048,6 +1053,7 @@ static void mx6s_csi_frame_done(struct mx6s_csi_dev *csi_dev,
 	}
 
 	csi_dev->frame_count++;
+	csi_dev->nextfb = (bufnum == 0 ? 1: 0);
 
 	/* Config discard buffer to active_bufs */
 	if (list_empty(&csi_dev->capture)) {
@@ -1130,6 +1136,7 @@ static irqreturn_t mx6s_csi_irq_handler(int irq, void *data)
 		cr18 |= BIT_CSI_ENABLE;
 		csi_write(csi_dev, cr18, CSI_CSICR18);
 
+		csi_dev->skipframe = 1;
 		pr_debug("base address switching Change Err.\n");
 	}
 
@@ -1144,9 +1151,22 @@ static irqreturn_t mx6s_csi_irq_handler(int irq, void *data)
 		 * PDM TKT230775 */
 		pr_debug("Skip two frames\n");
 	} else if (status & BIT_DMA_TSF_DONE_FB1) {
-		mx6s_csi_frame_done(csi_dev, 0, false);
+		if (csi_dev->nextfb == 0) {
+			if (csi_dev->skipframe > 0)
+				csi_dev->skipframe--;
+			else
+				mx6s_csi_frame_done(csi_dev, 0, false);
+		} else
+			pr_warn("skip frame 0 \n");
+
 	} else if (status & BIT_DMA_TSF_DONE_FB2) {
-		mx6s_csi_frame_done(csi_dev, 1, false);
+		if (csi_dev->nextfb == 1) {
+			if (csi_dev->skipframe > 0)
+				csi_dev->skipframe--;
+			else
+				mx6s_csi_frame_done(csi_dev, 1, false);
+		} else
+			pr_warn("skip frame 1 \n");
 	}
 
 	spin_unlock(&csi_dev->slock);
