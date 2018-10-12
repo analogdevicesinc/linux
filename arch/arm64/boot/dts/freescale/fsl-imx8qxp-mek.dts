@@ -264,9 +264,7 @@
 	imx8qxp-mek {
 		pinctrl_hog: hoggrp {
 			fsl,pins = <
-				/* TODO: conflicts with LCDIF!!!
 				SC_P_MCLK_OUT0_ADMA_ACM_MCLK_OUT0	0x0600004c
-				 */
 				SC_P_COMP_CTL_GPIO_1V8_3V3_GPIORHB_PAD	0x000514a0
 			>;
 		};

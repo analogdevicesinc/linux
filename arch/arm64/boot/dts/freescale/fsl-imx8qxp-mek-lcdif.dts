@@ -52,6 +52,16 @@
 
 };
 
+&iomuxc {
+	imx8qxp-mek {
+		pinctrl_hog: hoggrp {
+			fsl,pins = <
+				SC_P_COMP_CTL_GPIO_1V8_3V3_GPIORHB_PAD	0x000514a0
+			>;
+		};
+	};
+};
+
 &esai0 {
 	status = "disabled";
 };
