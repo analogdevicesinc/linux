@@ -81,5 +81,7 @@
 };
 
 &pwm_adma_lcdif {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_lcdif_pwm>;
 	status = "okay";
 };

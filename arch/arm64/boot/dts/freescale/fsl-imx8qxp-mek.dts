@@ -1200,13 +1200,6 @@
 	status = "okay";
 };
 
-&pwm_adma_lcdif {
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_lcdif_pwm>;
-	status = "okay";
-};
-
-
 /* DSI/LVDS port 1 */
 &i2c0_mipi_lvds1 {
 	#address-cells = <1>;
