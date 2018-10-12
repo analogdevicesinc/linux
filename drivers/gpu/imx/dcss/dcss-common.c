@@ -276,7 +276,7 @@ static int dcss_clks_init(struct dcss_soc *dcss)
 		{"axi",   &dcss->axi_clk},
 		{"pix_div", &dcss->pdiv_clk},
 		{"pix_out", &dcss->pout_clk},
-		{"rtrm",  &dcss->apb_clk},
+		{"rtrm",  &dcss->rtrm_clk},
 		{"dtrc",  &dcss->dtrc_clk},
 	};
 
