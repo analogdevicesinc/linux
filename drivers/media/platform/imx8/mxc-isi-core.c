@@ -113,6 +113,14 @@ static int mxc_isi_parse_dt(struct mxc_isi_dev *mxc_isi)
 	return 0;
 }
 
+static void mxc_isi_clean_registers(struct mxc_isi_dev *mxc_isi)
+{
+	u32 status;
+
+	status = mxc_isi_get_irq_status(mxc_isi);
+	mxc_isi_clean_irq_status(mxc_isi, status);
+}
+
 static int mxc_isi_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -164,6 +172,8 @@ static int mxc_isi_probe(struct platform_device *pdev)
 		dev_err(dev, "Failed to get IRQ resource\n");
 		return -ENXIO;
 	}
+
+	mxc_isi_clean_registers(mxc_isi);
 
 	ret = devm_request_irq(dev, res->start, mxc_isi_irq_handler,
 			       0, dev_name(dev), mxc_isi);
