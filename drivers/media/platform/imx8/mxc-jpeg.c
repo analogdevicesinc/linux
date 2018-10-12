@@ -692,6 +692,23 @@ static u8 get_sof(struct device *dev,
 	return 0;
 }
 
+static int mxc_jpeg_valid_comp_id(
+	struct device *dev,
+	const struct mxc_jpeg_sof *sof)
+{
+	int valid = 1;
+	int i;
+
+	for (i = 0; i < sof->components_no; i++)
+		if (sof->comp[i].id > MXC_JPEG_MAX_COMPONENTS) {
+			valid = 0;
+			dev_err(dev, "Component %d has invalid ID: %d",
+				i, sof->comp[i].id);
+		}
+
+	return valid;
+}
+
 static enum mxc_jpeg_image_format mxc_jpeg_get_image_format(
 	struct device *dev,
 	const struct mxc_jpeg_sof *sof)
@@ -823,6 +840,15 @@ static int mxc_jpeg_parse(struct mxc_jpeg_ctx *ctx,
 	if (sof.width > 0x2000 || sof.height > 0x2000) {
 		dev_err(dev, "JPEG width or height should be <= 8192: %dx%d\n",
 			sof.width, sof.height);
+		return -EINVAL;
+	}
+	if (sof.components_no > MXC_JPEG_MAX_COMPONENTS) {
+		dev_err(dev, "JPEG number of components should be <=%d",
+			MXC_JPEG_MAX_COMPONENTS);
+		return -EINVAL;
+	}
+	if (!mxc_jpeg_valid_comp_id(dev, &sof)) {
+		dev_err(dev, "JPEG component identifiers should be 0-3 or 1-4");
 		return -EINVAL;
 	}
 	desc->imgsize = sof.width << 16 | sof.height;

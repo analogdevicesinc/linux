@@ -123,6 +123,7 @@ struct mxc_jpeg_dev {
 	struct mxc_jpeg_slot_data slot_data[MXC_MAX_SLOTS];
 };
 
+#define MXC_JPEG_MAX_COMPONENTS 4
 /* JPEG Start Of Frame marker fields*/
 struct mxc_jpeg_sof_comp {
 	u8 id; /*component id*/
@@ -136,7 +137,7 @@ struct mxc_jpeg_sof {
 	u8 precision;
 	u16 height, width;
 	u8 components_no;
-	struct mxc_jpeg_sof_comp comp[4];
+	struct mxc_jpeg_sof_comp comp[MXC_JPEG_MAX_COMPONENTS];
 } __packed;
 
 #endif
