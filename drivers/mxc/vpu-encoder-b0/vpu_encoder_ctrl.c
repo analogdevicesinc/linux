@@ -213,7 +213,7 @@ static int add_ctrl_h264_profile(struct vpu_ctx *ctx)
 				      V4L2_CID_MPEG_VIDEO_H264_PROFILE,
 				      V4L2_MPEG_VIDEO_H264_PROFILE_HIGH,
 				      0xa,
-				      V4L2_MPEG_VIDEO_H264_PROFILE_MAIN);
+				      V4L2_MPEG_VIDEO_H264_PROFILE_BASELINE);
 	if (!ctrl) {
 		vpu_dbg(LVL_ERR, "add ctrl h264 profile fail\n");
 		return -EINVAL;
