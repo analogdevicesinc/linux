@@ -9,10 +9,6 @@
 
 / {
 	model = "FSL i.MX8MM DDR4 EVK board";
-
-	busfreq {
-		status = "disabled";
-	};
 };
 
 &iomuxc {
