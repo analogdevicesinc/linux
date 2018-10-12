@@ -344,6 +344,8 @@ int __init imx8_mu_init(void)
 					irq, err);
 			return err;
 		}
+
+		irq_set_irq_wake(irq, 1);
 	}
 
 	if (!scu_mu_init) {
