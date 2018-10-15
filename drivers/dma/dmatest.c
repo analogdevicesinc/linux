@@ -100,6 +100,7 @@ struct dmatest_params {
 	unsigned int	buf_size;
 	char		channel[20];
 	char		device[32];
+	u8		align;
 	unsigned int	threads_per_chan;
 	unsigned int	max_channels;
 	unsigned int	iterations;
@@ -437,6 +438,39 @@ static unsigned long long dmatest_KBs(s64 runtime, unsigned long long len)
 	return dmatest_persec(runtime, len >> 10);
 }
 
+static int dmatest_init_sizes(struct dmatest_thread *t)
+{
+	struct dma_device *dev = t->chan->device;
+	struct dmatest_params *p = &t->info->params;
+	struct dmatest_data *src = &t->src;
+	struct dmatest_data *dst = &t->dst;
+
+	switch (t->type) {
+	case DMA_MEMCPY:
+		p->align = dev->copy_align;
+		src->cnt = dst->cnt = 1;
+		return 0;
+	case DMA_XOR:
+		/* force odd to ensure dst = src */
+		src->cnt = min_odd(p->xor_sources | 1, dev->max_xor);
+		dst->cnt = 1;
+		p->align = dev->xor_align;
+		return 0;
+	case DMA_PQ:
+		/* force odd to ensure dst = src */
+		src->cnt = min_odd(p->pq_sources | 1, dma_maxpq(dev, 0));
+		dst->cnt = 2;
+		p->align = dev->pq_align;
+		return 0;
+	case DMA_MEMSET:
+		p->align = dev->fill_align;
+		src->cnt = dst->cnt = 1;
+		return 0;
+	default:
+		return -EINVAL;
+	}
+}
+
 static void __dmatest_free_test_data(struct dmatest_data *d, unsigned int cnt)
 {
 	unsigned int i;
@@ -588,46 +622,35 @@ static int dmatest_func(void *data)
 	ktime_t			comparetime = 0;
 	s64			runtime = 0;
 	unsigned long long	total_len = 0;
-	u8			align = 0;
-	bool			is_memset = false;
+	u8			align;
+	bool			is_memset;
 
 	set_freezable();
 
 	ret = -ENOMEM;
 
 	smp_rmb();
+
+	chan = thread->chan;
+	if (dmatest_init_sizes(thread) < 0)
+		goto err_thread_type;
+
 	info = thread->info;
 	params = &info->params;
-	chan = thread->chan;
 	dev = chan->device;
 	src = &thread->src;
 	dst = &thread->dst;
-	if (thread->type == DMA_MEMCPY) {
-		align = dev->copy_align;
-		src->cnt = dst->cnt = 1;
-	} else if (thread->type == DMA_MEMSET) {
-		align = dev->fill_align;
-		src->cnt = dst->cnt = 1;
-		is_memset = true;
-	} else if (thread->type == DMA_XOR) {
-		/* force odd to ensure dst = src */
-		src->cnt = min_odd(params->xor_sources | 1, dev->max_xor);
-		dst->cnt = 1;
-		align = dev->xor_align;
-	} else if (thread->type == DMA_PQ) {
-		/* force odd to ensure dst = src */
-		src->cnt = min_odd(params->pq_sources | 1, dma_maxpq(dev, 0));
-		dst->cnt = 2;
-		align = dev->pq_align;
+	is_memset = (thread->type == DMA_MEMSET);
+	align = params->align;
 
+	if (thread->type == DMA_PQ) {
 		pq_coefs = kmalloc(params->pq_sources + 1, GFP_KERNEL);
 		if (!pq_coefs)
 			goto err_thread_type;
 
 		for (i = 0; i < src->cnt; i++)
 			pq_coefs[i] = 1;
-	} else
-		goto err_thread_type;
+	}
 
 	/* Check if buffer count fits into map count variable (u8) */
 	if ((src->cnt + dst->cnt) >= 255) {
