@@ -14,6 +14,7 @@
 #include <linux/device.h>
 #include <linux/interrupt.h>
 #include <linux/kobject.h>
+#include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
@@ -27,6 +28,7 @@
 #include <sound/pcm.h>
 #include <sound/soc.h>
 #include <sound/tlv.h>
+#include <sound/core.h>
 
 #include "fsl_micfil.h"
 #include "imx-pcm.h"
@@ -39,6 +41,7 @@ struct fsl_micfil {
 	struct regmap *regmap;
 	const struct fsl_micfil_soc_data *soc;
 	struct clk *mclk;
+	struct clk *clk_src[MICFIL_CLK_SRC_NUM];
 	struct snd_dmaengine_dai_dma_data dma_params_rx;
 	struct kobject *hwvad_kobject;
 	unsigned int channels;
@@ -1516,13 +1519,94 @@ static int fsl_micfil_hw_free(struct snd_pcm_substream *substream,
 {
 	struct fsl_micfil *micfil = snd_soc_dai_get_drvdata(dai);
 
-	if (!micfil->slave_mode &&
-	    micfil->mclk_streams & BIT(substream->stream)) {
-		clk_disable_unprepare(micfil->mclk);
-		micfil->mclk_streams &= ~BIT(substream->stream);
-	}
+	clk_disable_unprepare(micfil->mclk);
 
 	return 0;
+}
+
+static inline bool clk_in_list(struct clk *p, struct clk *clk_src[])
+{
+	int i;
+
+	for (i = 0; i < MICFIL_CLK_SRC_NUM; i++)
+		if (clk_is_match(p, clk_src[i]))
+			return true;
+
+	return false;
+}
+
+static int fsl_micfil_set_mclk_rate(struct snd_soc_dai *dai, int clk_id,
+				    unsigned int freq)
+{
+	struct fsl_micfil *micfil = snd_soc_dai_get_drvdata(dai);
+	struct clk *p = micfil->mclk, *pll = 0, *npll = 0;
+	u64 ratio = freq;
+	u64 clk_rate;
+	int ret;
+	int i;
+
+	/* check if all clock sources are valid */
+	for (i = 0; i < MICFIL_CLK_SRC_NUM; i++) {
+		if (micfil->clk_src[i])
+			continue;
+
+		dev_err(dai->dev, "Clock Source %d is not valid.\n", i);
+		return -EINVAL;
+	}
+
+	while(p) {
+		struct clk *pp = clk_get_parent(p);
+
+		if (clk_in_list(pp, micfil->clk_src)) {
+			pll = pp;
+			break;
+		}
+		p = pp;
+	}
+
+	if (!pll) {
+		dev_err(dai->dev, "reached a null clock\n");
+		return -EINVAL;
+	}
+
+	if (micfil->clk_src_id == MICFIL_CLK_AUTO) {
+		for (i = 0; i < MICFIL_CLK_SRC_NUM; i++) {
+			clk_rate = clk_get_rate(micfil->clk_src[i]);
+			/* This is an workaround since audio_pll2 clock
+			 * has 722534399 rate and this will never divide
+			 * to any known frequency ???
+			 */
+			clk_rate = round_up(clk_rate, 10);
+			if (do_div(clk_rate, ratio) == 0) {
+				npll = micfil->clk_src[i];
+			}
+		}
+	} else {
+		/* clock id is offseted by 1 since ID=0 means
+		 * auto clock selection
+		 */
+		npll = micfil->clk_src[micfil->clk_src_id - 1];
+	}
+
+	if (!npll) {
+		dev_err(dai->dev,
+			"failed to find a suitable clock source\n");
+		return -EINVAL;
+	}
+
+	if (!clk_is_match(pll, npll)) {
+		ret = clk_set_parent(p, npll);
+		if (ret < 0)
+			dev_warn(dai->dev,
+				 "failed to set parrent %d\n", ret);
+	}
+
+	ret = clk_set_rate(micfil->mclk, freq * 1024);
+	if (ret)
+		dev_warn(dai->dev, "failed to set rate (%u): %d\n",
+			 freq * 1024, ret);
+
+	return ret;
 }
 
 static int fsl_micfil_set_dai_sysclk(struct snd_soc_dai *dai, int clk_id,
@@ -1536,7 +1620,7 @@ static int fsl_micfil_set_dai_sysclk(struct snd_soc_dai *dai, int clk_id,
 	if (!freq)
 		return 0;
 
-	ret = clk_set_rate(micfil->mclk, freq);
+	ret = fsl_micfil_set_mclk_rate(dai, clk_id, freq);
 	if (ret < 0)
 		dev_err(dev, "failed to set mclk[%lu] to rate %u\n",
 			clk_get_rate(micfil->mclk), freq);
@@ -2090,6 +2174,19 @@ static int fsl_micfil_probe(struct platform_device *pdev)
 			PTR_ERR(micfil->mclk));
 		return PTR_ERR(micfil->mclk);
 	}
+
+	/* get audio pll1 and pll2 */
+	micfil->clk_src[MICFIL_AUDIO_PLL1] = devm_clk_get(&pdev->dev, "pll8k");
+	if (IS_ERR(micfil->clk_src[MICFIL_AUDIO_PLL1]))
+		micfil->clk_src[MICFIL_AUDIO_PLL1] = NULL;
+
+	micfil->clk_src[MICFIL_AUDIO_PLL2] = devm_clk_get(&pdev->dev, "pll11k");
+	if (IS_ERR(micfil->clk_src[MICFIL_AUDIO_PLL2]))
+		micfil->clk_src[MICFIL_AUDIO_PLL2] = NULL;
+
+	micfil->clk_src[MICFIL_CLK_EXT3] = devm_clk_get(&pdev->dev, "clkext3");
+	if (IS_ERR(micfil->clk_src[MICFIL_CLK_EXT3]))
+		micfil->clk_src[MICFIL_CLK_EXT3] = NULL;
 
 	/* init regmap */
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);

@@ -304,6 +304,14 @@
 #define MICFIL_DMA_MAXBURST_RX		6
 #define MICFIL_CTRL2_OSR_DEFAULT	(0 << MICFIL_CTRL2_CICOSR_SHIFT)
 #define MICFIL_DEFAULT_RATE		48000
+#define MICFIL_CLK_SRC_NUM		3
+#define MICFIL_CLK_AUTO			0
+
+/* clock source ids */
+#define MICFIL_AUDIO_PLL1		0
+#define MICFIL_AUDIO_PLL2		1
+#define MICFIL_CLK_EXT3			2
+
 
 /* States of micfil */
 #define RECORDING_OFF_HWVAD_OFF		0
