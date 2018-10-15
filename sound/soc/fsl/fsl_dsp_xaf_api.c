@@ -183,8 +183,8 @@ int xaf_comp_create(struct xf_client *client, struct xf_proxy *proxy,
 
 	memset((void *)p_comp, 0, sizeof(struct xaf_comp));
 
-	strcpy(lib_path, "/lib/firmware/imx/dsp/");
-	strcpy(lib_wrap_path, "/lib/firmware/imx/dsp/");
+	strcpy(lib_path, "/usr/lib/imx-mm/audio-codec/dsp/");
+	strcpy(lib_wrap_path, "/usr/lib/imx-mm/audio-codec/dsp/");
 
 	p_handle = &p_comp->handle;
 
