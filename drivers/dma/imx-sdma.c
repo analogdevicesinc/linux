@@ -1400,6 +1400,7 @@ static int sdma_terminate_all(struct dma_chan *chan)
 		spin_unlock_irqrestore(&sdmac->vc.lock, flags);
 		sdmac->vc.desc_free(&desc->vd);
 		spin_lock_irqsave(&sdmac->vc.lock, flags);
+		sdmac->vc.cyclic = NULL;
 	}
 	if (sdmac->desc)
 		sdmac->desc = NULL;
