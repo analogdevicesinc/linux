@@ -156,7 +156,7 @@
 		adi,control-bits-per-sample = <0>;
 	};
 
-	axi_adrv9009_rx_os_jesd: axi-jesd204-rx@44ab0000 {
+	axi_adrv9009_rx_os_jesd: axi-jesd204-rx-os@44ab0000 {
 		compatible = "adi,axi-jesd204-rx-1.0";
 		reg = <0x44ab0000 0x1000>;
 
