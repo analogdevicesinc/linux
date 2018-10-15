@@ -52,10 +52,20 @@ module_param(iterations, uint, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(iterations,
 		"Iterations before stopping test (default: infinite)");
 
-static unsigned int dmatest;
-module_param(dmatest, uint, S_IRUGO | S_IWUSR);
+static int param_set_dmatest_type(const char *val,
+				  const struct kernel_param *kp);
+static int param_get_dmatest_type(char *buffer,
+				  const struct kernel_param *kp);
+#define param_check_dmatest_type(a, b)
+const struct kernel_param_ops param_ops_dmatest_type = {
+	.set = param_set_dmatest_type,
+	.get = param_get_dmatest_type,
+};
+
+static unsigned int dmatest = BIT(DMA_MEMCPY);
+module_param(dmatest, dmatest_type, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(dmatest,
-		"dmatest 0-memcpy 1-memset (default: 0)");
+		"dmatest type (default: memcpy)");
 
 static unsigned int xor_sources = 3;
 module_param(xor_sources, uint, S_IRUGO | S_IWUSR);
@@ -206,6 +216,27 @@ struct dmatest_chan {
 
 static DECLARE_WAIT_QUEUE_HEAD(thread_wait);
 static bool wait;
+
+const static char *transaction_type_names[DMA_TX_TYPE_END] = {
+	[DMA_MEMCPY]     = "memcpy",
+	[DMA_XOR]        = "xor",
+	[DMA_PQ]         = "pq",
+	[DMA_MEMSET]     = "memset",
+};
+
+static int find_string(const char *name, const char *names[], int names_cnt)
+{
+	int i;
+	if (!name || !names || names_cnt <= 0)
+		return -EINVAL;
+	for (i = 0; i < names_cnt; i++) {
+		if (!names[i])
+			continue;
+		if (!strcmp(names[i], name))
+			return i;
+	}
+	return -ENOENT;
+}
 
 static bool is_threaded_test_run(struct dmatest_info *info)
 {
@@ -941,19 +972,8 @@ static int dmatest_add_threads(struct dmatest_info *info,
 	struct dmatest_params *params = &info->params;
 	struct dmatest_thread *thread;
 	struct dma_chan *chan = dtc->chan;
-	char *op;
+	const char *op = transaction_type_names[type];
 	unsigned int i;
-
-	if (type == DMA_MEMCPY)
-		op = "copy";
-	else if (type == DMA_MEMSET)
-		op = "set";
-	else if (type == DMA_XOR)
-		op = "xor";
-	else if (type == DMA_PQ)
-		op = "pq";
-	else
-		return -EINVAL;
 
 	for (i = 0; i < params->threads_per_chan; i++) {
 		thread = kzalloc(sizeof(struct dmatest_thread), GFP_KERNEL);
@@ -987,12 +1007,20 @@ static int dmatest_add_threads(struct dmatest_info *info,
 }
 
 static int dmatest_add_channel(struct dmatest_info *info,
-		struct dma_chan *chan)
+		struct dma_chan *chan,
+		enum dma_transaction_type type)
 {
-	struct dmatest_chan	*dtc;
 	struct dma_device	*dma_dev = chan->device;
+	struct dmatest_chan	*dtc;
 	unsigned int		thread_count = 0;
 	int cnt;
+
+	/* Test operation is undefined in this test (yet) */
+        if (!transaction_type_names[type])
+		return 0;
+
+	if (!dma_has_cap(type, dma_dev->cap_mask))
+		return 0;
 
 	dtc = kmalloc(sizeof(struct dmatest_chan), GFP_KERNEL);
 	if (!dtc) {
@@ -1003,28 +1031,8 @@ static int dmatest_add_channel(struct dmatest_info *info,
 	dtc->chan = chan;
 	INIT_LIST_HEAD(&dtc->threads);
 
-	if (dma_has_cap(DMA_MEMCPY, dma_dev->cap_mask)) {
-		if (dmatest == 0) {
-			cnt = dmatest_add_threads(info, dtc, DMA_MEMCPY);
-			thread_count += cnt > 0 ? cnt : 0;
-		}
-	}
-
-	if (dma_has_cap(DMA_MEMSET, dma_dev->cap_mask)) {
-		if (dmatest == 1) {
-			cnt = dmatest_add_threads(info, dtc, DMA_MEMSET);
-			thread_count += cnt > 0 ? cnt : 0;
-		}
-	}
-
-	if (dma_has_cap(DMA_XOR, dma_dev->cap_mask)) {
-		cnt = dmatest_add_threads(info, dtc, DMA_XOR);
-		thread_count += cnt > 0 ? cnt : 0;
-	}
-	if (dma_has_cap(DMA_PQ, dma_dev->cap_mask)) {
-		cnt = dmatest_add_threads(info, dtc, DMA_PQ);
-		thread_count += cnt > 0 ? cnt : 0;
-	}
+	cnt = dmatest_add_threads(info, dtc, type);
+	thread_count += cnt > 0 ? cnt : 0;
 
 	pr_info("Started %u threads using %s\n",
 		thread_count, dma_chan_name(chan));
@@ -1059,7 +1067,7 @@ static void request_channels(struct dmatest_info *info,
 
 		chan = dma_request_channel(mask, filter, params);
 		if (chan) {
-			if (dmatest_add_channel(info, chan)) {
+			if (dmatest_add_channel(info, chan, type)) {
 				dma_release_channel(chan);
 				break; /* add_channel failed, punt */
 			}
@@ -1074,6 +1082,7 @@ static void request_channels(struct dmatest_info *info,
 static void run_threaded_test(struct dmatest_info *info)
 {
 	struct dmatest_params *params = &info->params;
+	unsigned int i;
 
 	/* Copy test parameters */
 	params->buf_size = test_buf_size;
@@ -1088,10 +1097,14 @@ static void run_threaded_test(struct dmatest_info *info)
 	params->noverify = noverify;
 	params->norandom = norandom;
 
-	request_channels(info, DMA_MEMCPY);
-	request_channels(info, DMA_MEMSET);
-	request_channels(info, DMA_XOR);
-	request_channels(info, DMA_PQ);
+	for (i = 0; i < DMA_TX_TYPE_END; i++) {
+		if (!transaction_type_names[i])
+			continue;
+		/* skip if this test hasn't been selected */
+		if (!(BIT(i) & dmatest))
+			continue;
+		request_channels(info, i);
+	}
 }
 
 static void stop_threaded_test(struct dmatest_info *info)
@@ -1161,6 +1174,50 @@ static int dmatest_run_set(const char *val, const struct kernel_param *kp)
 	mutex_unlock(&info->lock);
 
 	return ret;
+}
+
+static int param_set_dmatest_type(const char *val,
+				  const struct kernel_param *kp)
+{
+	unsigned int mask;
+	char val_buf[32], *p;
+	int ret, en = 1;
+
+	strlcpy(val_buf, val, sizeof(val_buf));
+
+	if ((p = strchr(val_buf, '='))) {
+		*p = 0;
+		p++;
+		kstrtoint(p, 10, &en);
+	}
+
+	ret = find_string(strim(val_buf), transaction_type_names,
+			  ARRAY_SIZE(transaction_type_names));
+	if (ret < 0)
+		return ret;
+	mask = BIT(ret);
+	if (en)
+		dmatest |= mask;
+	else
+		dmatest &= ~mask;
+	return 0;
+}
+
+static int param_get_dmatest_type(char *buffer,
+				  const struct kernel_param *kp)
+{
+	int i, ret, off = 0;
+	for (i = 0; i < ARRAY_SIZE(transaction_type_names); i++) {
+		const char *n = transaction_type_names[i];
+		if (!n)
+			continue;
+		ret = scnprintf(&buffer[off], PAGE_SIZE - off, "%16s - %s\n",
+			n, (dmatest & BIT(i)) ? "on" : "off");
+		if (ret < 0)
+			return ret;
+		off += ret;
+	}
+	return off;
 }
 
 static int __init dmatest_init(void)
