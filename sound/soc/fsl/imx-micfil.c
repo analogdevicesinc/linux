@@ -59,6 +59,7 @@ static int imx_micfil_hw_params(struct snd_pcm_substream *substream,
 	bool tx = substream->stream == SNDRV_PCM_STREAM_PLAYBACK;
 	struct device *dev = rtd->card->dev;
 	unsigned int fmt = SND_SOC_DAIFMT_I2S | SND_SOC_DAIFMT_NB_NF;
+	unsigned int rate = params_rate(params);
 	int ret, dir;
 
 	/* For playback the XTOR is slave, and for record is master */
@@ -74,7 +75,7 @@ static int imx_micfil_hw_params(struct snd_pcm_substream *substream,
 
 	/* Specific configurations of DAIs starts from here */
 	ret = snd_soc_dai_set_sysclk(rtd->cpu_dai, 0,
-				     0, dir);
+				     rate, dir);
 	if (ret) {
 		dev_err(dev,
 			"%s: failed to set cpu sysclk: %d\n", __func__,
