@@ -19,6 +19,7 @@ config ARCH_FSL_IMX8QXP
 	select HAVE_IMX_MU
 	select HAVE_IMX_RPMSG
 	select HAVE_IMX8_SOC
+	select CLKSRC_IMX_GPT
 
 config ARCH_FSL_IMX8MQ
 	bool "i.MX8MQ"
