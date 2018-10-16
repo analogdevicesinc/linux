@@ -52,6 +52,7 @@ struct fsl_micfil {
 	int quality;	/*QUALITY 2-0 bits */
 	bool slave_mode;
 	int channel_gain[8];
+	int clk_src_id;
 	int vad_sound_gain;
 	int vad_noise_gain;
 	int vad_input_gain;
@@ -144,6 +145,10 @@ static const int micfil_hwvad_rate_ints[] = {
 	48000, 44100,
 };
 
+static const char * const micfil_clk_src_texts[] = {
+	"Auto", "AudioPLL1", "AudioPLL2", "ExtClk3",
+};
+
 static const struct soc_enum fsl_micfil_enum[] = {
 	SOC_ENUM_SINGLE(REG_MICFIL_CTRL2,
 			MICFIL_CTRL2_QSEL_SHIFT,
@@ -163,7 +168,34 @@ static const struct soc_enum fsl_micfil_enum[] = {
 			micfil_hwvad_noise_decimation),
 	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(micfil_hwvad_rate),
 			    micfil_hwvad_rate),
+	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(micfil_clk_src_texts),
+			    micfil_clk_src_texts),
 };
+
+static int micfil_put_clk_src(struct snd_kcontrol *kcontrol,
+			      struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *comp = snd_kcontrol_chip(kcontrol);
+	struct soc_enum *e = (struct soc_enum *)kcontrol->private_value;
+	unsigned int *item = ucontrol->value.enumerated.item;
+	struct fsl_micfil *micfil = snd_soc_component_get_drvdata(comp);
+	int val = snd_soc_enum_item_to_val(e, item[0]);
+
+	micfil->clk_src_id = val;
+
+	return 0;
+}
+
+static int micfil_get_clk_src(struct snd_kcontrol *kcontrol,
+			      struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *comp = snd_kcontrol_chip(kcontrol);
+	struct fsl_micfil *micfil = snd_soc_component_get_drvdata(comp);
+
+	ucontrol->value.enumerated.item[0] = micfil->clk_src_id;
+
+	return 0;
+}
 
 static int hwvad_put_init_mode(struct snd_kcontrol *kcontrol,
 			       struct snd_ctl_elem_value *ucontrol)
@@ -637,6 +669,8 @@ static const struct snd_kcontrol_new fsl_micfil_snd_controls[] = {
 		     snd_soc_get_enum_double, snd_soc_put_enum_double),
 	SOC_ENUM_EXT("HWVAD Sampling Rate", fsl_micfil_enum[6],
 		     hwvad_get_rate, hwvad_put_rate),
+	SOC_ENUM_EXT("Clock Source", fsl_micfil_enum[7],
+		     micfil_get_clk_src, micfil_put_clk_src),
 	{
 		.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
 		.name = "HWVAD Input Gain",
