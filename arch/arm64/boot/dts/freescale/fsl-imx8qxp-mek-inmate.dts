@@ -45,6 +45,7 @@
 			compatible = "arm,armv8";
 			enable-method = "psci";
 			reg = <0x0 0x2>;
+			/delete-property/ cpu-idle-states;
 		};
 
 		cpu@1 {
@@ -52,6 +53,15 @@
 			compatible = "arm,armv8";
 			enable-method = "psci";
 			reg = <0x0 0x3>;
+			/delete-property/ cpu-idle-states;
+		};
+
+		cpu@2 {
+			/delete-property/ cpu-idle-states;
+		};
+
+		cpu@3 {
+			/delete-property/ cpu-idle-states;
 		};
 	};
 

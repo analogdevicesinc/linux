@@ -14,7 +14,7 @@
 
 /dts-v1/;
 #include <dt-bindings/interrupt-controller/arm-gic.h>
-#include "fsl-imx8-ca35.dtsi"
+#include "fsl-imx8-ca53.dtsi"
 #include <dt-bindings/soc/imx_rsrc.h>
 #include <dt-bindings/soc/imx8_hsio.h>
 #include <dt-bindings/soc/imx8_pd.h>

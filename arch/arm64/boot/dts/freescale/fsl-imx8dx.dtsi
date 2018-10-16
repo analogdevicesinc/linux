@@ -66,6 +66,30 @@
 		can2 = &flexcan3;
 	};
 
+	cpus {
+		idle-states {
+			entry-method = "psci";
+
+			CPU_SLEEP: cpu-sleep {
+				compatible = "arm,idle-state";
+				arm,psci-suspend-param = <0x10000>;
+				local-timer-stop;
+				entry-latency-us = <500>;
+				exit-latency-us = <500>;
+				min-residency-us = <5000>;
+			};
+
+			CLUSTER_SLEEP: cluster-sleep {
+				compatible = "arm,idle-state";
+				arm,psci-suspend-param = <0x10033>;
+				local-timer-stop;
+				entry-latency-us = <500>;
+				exit-latency-us = <2300>;
+				min-residency-us = <14000>;
+			};
+		};
+	};
+
 	memory@80000000 {
 		device_type = "memory";
 		reg = <0x00000000 0x80000000 0 0x40000000>;
@@ -3132,6 +3156,15 @@
 		assigned-clock-rates = <333333333>, <333333333>, <83333333>;
 		power-domains = <&pd_conn_mlb0>;
 		status = "disabled";
+	};
+
+	gpt0: gpt0@5d140000 {
+		compatible = "fsl,imx8qxp-gpt";
+		reg = <0x0 0x5d140000 0x0 0x4000>;
+		interrupts = <GIC_SPI 80 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clk IMX8QXP_CLK_DUMMY>, <&clk IMX8QXP_GPT_3M>;
+		clock-names = "ipg", "per";
+		power-domains = <&pd_lsio_gpt0>;
 	};
 
 	dsp: dsp@586e8000 {
