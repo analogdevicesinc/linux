@@ -761,9 +761,9 @@ static int dmatest_func(void *data)
 	}
 
 	buf_size = params->buf_size;
-	if (1 << align > params->buf_size) {
+	if (1 << align > buf_size) {
 		pr_err("%u-byte buffer too small for %d-byte alignment\n",
-		       params->buf_size, 1 << align);
+		       buf_size, 1 << align);
 		goto err_thread_type;
 	}
 
@@ -783,9 +783,9 @@ static int dmatest_func(void *data)
 		total_tests++;
 
 		if (params->norandom)
-			len = params->buf_size;
+			len = buf_size;
 		else
-			len = dmatest_random() % params->buf_size + 1;
+			len = dmatest_random() % buf_size + 1;
 
 		len = (len >> align) << align;
 		if (!len)
@@ -797,8 +797,8 @@ static int dmatest_func(void *data)
 			src->off = 0;
 			dst->off = 0;
 		} else {
-			src->off = dmatest_random() % (params->buf_size - len + 1);
-			dst->off = dmatest_random() % (params->buf_size - len + 1);
+			src->off = dmatest_random() % (buf_size - len + 1);
+			dst->off = dmatest_random() % (buf_size - len + 1);
 
 			src->off = (src->off >> align) << align;
 			dst->off = (dst->off >> align) << align;
@@ -807,9 +807,9 @@ static int dmatest_func(void *data)
 		if (!params->noverify) {
 			start = ktime_get();
 			dmatest_init_srcs(src->aligned, src->off, len,
-					  params->buf_size, is_memset);
+					  buf_size, is_memset);
 			dmatest_init_dsts(dst->aligned, dst->off, len,
-					  params->buf_size, is_memset);
+					  buf_size, is_memset);
 
 			diff = ktime_sub(ktime_get(), start);
 			filltime = ktime_add(filltime, diff);
@@ -891,7 +891,7 @@ static int dmatest_func(void *data)
 				src->off + len, src->off,
 				PATTERN_SRC | PATTERN_COPY, true, is_memset);
 		error_count += dmatest_verify(src->aligned, src->off + len,
-				params->buf_size, src->off + len,
+				buf_size, src->off + len,
 				PATTERN_SRC, true, is_memset);
 
 		pr_debug("%s: verifying dest buffer...\n", current->comm);
@@ -903,7 +903,7 @@ static int dmatest_func(void *data)
 				PATTERN_SRC | PATTERN_COPY, false, is_memset);
 
 		error_count += dmatest_verify(dst->aligned, dst->off + len,
-				params->buf_size, dst->off + len,
+				buf_size, dst->off + len,
 				PATTERN_DST, false, is_memset);
 
 		diff = ktime_sub(ktime_get(), start);
