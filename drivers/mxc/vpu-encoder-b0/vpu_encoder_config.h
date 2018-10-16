@@ -17,4 +17,6 @@
 
 #define VPU_ENC_FRAMERATE_DEFAULT	30
 
+#define VPU_MEM_PATTERN		0x5a5a5a5a
+
 #endif

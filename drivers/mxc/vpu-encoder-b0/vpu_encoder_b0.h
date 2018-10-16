@@ -278,6 +278,7 @@ struct vpu_ctx {
 	struct buffer_addr encFrame[MEDIAIP_MAX_NUM_WINDSOR_SRC_FRAMES];
 	struct buffer_addr refFrame[MEDIAIP_MAX_NUM_WINDSOR_REF_FRAMES];
 	struct buffer_addr actFrame;
+	struct buffer_addr enc_buffer;
 	struct core_device *core_dev;
 
 	struct vpu_statistic statistic;
@@ -311,6 +312,8 @@ struct vpu_ctx {
 		if (vpu_dbg_level_encoder >= (level)) \
 			pr_info(TAG""fmt, ## arg); \
 	} while (0)
+
+#define vpu_err(fmt, arg...)	vpu_dbg(LVL_ERR, fmt, ##arg)
 
 
 #endif
