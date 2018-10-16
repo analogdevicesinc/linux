@@ -157,21 +157,25 @@ static u64 notrace mxc_read_sched_clock(void)
 	return sched_clock_reg ? readl_relaxed(sched_clock_reg) : 0;
 }
 
+#ifndef CONFIG_ARM64
 static struct delay_timer imx_delay_timer;
 
 static unsigned long imx_read_current_timer(void)
 {
 	return readl_relaxed(sched_clock_reg);
 }
+#endif
 
 static int __init mxc_clocksource_init(struct imx_timer *imxtm)
 {
 	unsigned int c = clk_get_rate(imxtm->clk_per);
 	void __iomem *reg = imxtm->base + imxtm->gpt->reg_tcn;
 
+#ifndef CONFIG_ARM64
 	imx_delay_timer.read_current_timer = &imx_read_current_timer;
 	imx_delay_timer.freq = c;
 	register_current_timer_delay(&imx_delay_timer);
+#endif
 
 	sched_clock_reg = reg;
 
@@ -545,6 +549,19 @@ static int __init imx6dl_timer_init_dt(struct device_node *np)
 	return mxc_timer_init_dt(np, GPT_TYPE_IMX6DL);
 }
 
+#ifdef CONFIG_ARM64
+static int __init imx8qxp_timer_init(void)
+{
+	struct device_node *np;
+
+	np = of_find_compatible_node(NULL, NULL, "fsl,imx8qxp-gpt");
+	if (!np)
+		return -ENOENT;
+
+	return mxc_timer_init_dt(np, GPT_TYPE_IMX6DL);
+}
+#endif
+
 TIMER_OF_DECLARE(imx1_timer, "fsl,imx1-gpt", imx1_timer_init_dt);
 TIMER_OF_DECLARE(imx21_timer, "fsl,imx21-gpt", imx21_timer_init_dt);
 TIMER_OF_DECLARE(imx27_timer, "fsl,imx27-gpt", imx21_timer_init_dt);
@@ -560,3 +577,6 @@ TIMER_OF_DECLARE(imx6sll_timer, "fsl,imx6sll-gpt", imx6dl_timer_init_dt);
 TIMER_OF_DECLARE(imx6sx_timer, "fsl,imx6sx-gpt", imx6dl_timer_init_dt);
 TIMER_OF_DECLARE(imx6ul_timer, "fsl,imx6ul-gpt", imx6dl_timer_init_dt);
 TIMER_OF_DECLARE(mx7d_timer, "fsl,imx7d-gpt", imx6dl_timer_init_dt);
+#ifdef CONFIG_ARM64
+subsys_initcall(imx8qxp_timer_init);
+#endif
