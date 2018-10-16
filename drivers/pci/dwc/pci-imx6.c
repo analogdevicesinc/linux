@@ -1649,25 +1649,27 @@ static int imx_pcie_host_init(struct pcie_port *pp)
 		ret = imx_pcie_establish_link(imx_pcie);
 		if (ret < 0)
 			return ret;
-		/*
-		 * Disable the over ride after link up.
-		 * Let the the CLK_REQ# controlled by HW L1SS
-		 * automatically.
-		 */
-		switch (imx_pcie->variant) {
-		case IMX8MQ:
-		case IMX8MM:
-			if (imx_pcie->ctrl_id == 0)
-				val = IOMUXC_GPR14;
-			else
-				val = IOMUXC_GPR16;
+		if (!IS_ENABLED(CONFIG_RC_MODE_IN_EP_RC_SYS)) {
+			/*
+			 * Disable the over ride after link up.
+			 * Let the the CLK_REQ# controlled by HW L1SS
+			 * automatically.
+			 */
+			switch (imx_pcie->variant) {
+			case IMX8MQ:
+			case IMX8MM:
+				if (imx_pcie->ctrl_id == 0)
+					val = IOMUXC_GPR14;
+				else
+					val = IOMUXC_GPR16;
 
-			regmap_update_bits(imx_pcie->iomuxc_gpr, val,
+				regmap_update_bits(imx_pcie->iomuxc_gpr, val,
 					IMX8MQ_GPR_PCIE_CLK_REQ_OVERRIDE_EN,
 					0);
-			break;
-		default:
-			break;
+				break;
+			default:
+				break;
+			}
 		}
 
 		if (IS_ENABLED(CONFIG_PCI_MSI))
