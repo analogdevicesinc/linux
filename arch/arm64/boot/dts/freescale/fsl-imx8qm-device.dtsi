@@ -4059,10 +4059,10 @@
 			<0x0 0x08000000 0x0 0x19ffffff>;
 		reg-names = "FlexSPI", "FlexSPI-memory";
 		interrupts = <GIC_SPI 92 IRQ_TYPE_LEVEL_HIGH>;
-		clocks = <&clk IMX8QM_FSPI0_CLK>,
-		<&clk IMX8QM_FSPI0_CLK>;
-		assigned-clock-rates = <29000000>,<29000000>;
-		clock-names = "qspi_en", "qspi";
+		clocks = <&clk IMX8QM_FSPI0_CLK>;
+		assigned-clock-rates = <29000000>;
+		power-domains = <&pd_lsio_flexspi0>;
+		clock-names = "fspi";
 		status = "disabled";
 	};
 
