@@ -1766,7 +1766,7 @@ static irqreturn_t fsl_vpu_mu_isr(int irq, void *This)
 		/*receive snapshot done msg and wakeup complete to suspend*/
 		complete(&dev->snap_done_cmp);
 	} else
-		schedule_work(&dev->msg_work);
+		queue_work(dev->workqueue, &dev->msg_work);
 	return IRQ_HANDLED;
 }
 
@@ -2276,6 +2276,11 @@ static void uninit_vpu_ctx(struct vpu_ctx *ctx)
 		return;
 
 	mutex_lock(&ctx->instance_mutex);
+	if (ctx->instance_wq) {
+		cancel_work_sync(&ctx->instance_work);
+		destroy_workqueue(ctx->instance_wq);
+		ctx->instance_wq = NULL;
+	}
 	if (ctx->encoder_stream.virt_addr) {
 		dma_free_coherent(ctx->dev->generic_dev,
 				ctx->encoder_stream.size,
@@ -2287,10 +2292,6 @@ static void uninit_vpu_ctx(struct vpu_ctx *ctx)
 	}
 
 	kfifo_free(&ctx->msg_fifo);
-	if (ctx->instance_wq) {
-		destroy_workqueue(ctx->instance_wq);
-		ctx->instance_wq = NULL;
-	}
 	ctx->ctx_released = true;
 	mutex_unlock(&ctx->instance_mutex);
 }
@@ -2552,12 +2553,12 @@ static int v4l2_release(struct file *filp)
 		test_bit(VPU_ENC_STATUS_CONFIGURED, &ctx->status))
 		wait_for_completion(&ctx->stop_cmp);
 
+	uninit_vpu_ctx(ctx);
 	remove_instance_file(ctx);
 	vpu_enc_free_ctrls(ctx);
 	uninit_vpu_ctx_fh(ctx);
 	release_queue_data(ctx);
 	enc_mem_free(ctx);
-	uninit_vpu_ctx(ctx);
 
 	pm_runtime_put_sync(dev->generic_dev);
 	free_instance(ctx);
@@ -2878,6 +2879,7 @@ static int uninit_vpu_core_dev(struct core_device *core_dev)
 		return -EINVAL;
 
 	if (core_dev->workqueue) {
+		cancel_work_sync(&core_dev->msg_work);
 		destroy_workqueue(core_dev->workqueue);
 		core_dev->workqueue = NULL;
 	}
