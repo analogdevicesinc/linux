@@ -185,6 +185,7 @@ struct dmatest_thread {
 	struct dma_chan		*chan;
 	struct dmatest_data	src;
 	struct dmatest_data	dst;
+	struct dma_async_tx_descriptor	*tx;
 	enum dma_transaction_type type;
 	wait_queue_head_t done_wait;
 	struct dmatest_done test_done;
@@ -583,6 +584,52 @@ static void dmatest_unmap_data(struct dmatest_data *s,
 
 }
 
+static int dmatest_prep_tx_desc(struct dmatest_thread *t,
+		unsigned int len,
+		u8 *pq_coefs)
+{
+	struct dma_chan *chan = t->chan;
+	struct dma_device *dev = chan->device;
+	struct dmatest_data *src = &t->src;
+	struct dmatest_data *dst = &t->dst;
+	enum dma_ctrl_flags flags;
+	dma_addr_t *srcs = src->dma_addrs;
+	dma_addr_t *dsts = dst->dma_addrs;
+
+	flags = DMA_CTRL_ACK | DMA_PREP_INTERRUPT;
+
+	switch (t->type) {
+	case DMA_MEMCPY:
+		t->tx = dev->device_prep_dma_memcpy(chan,
+						    dsts[0],
+						    srcs[0], len, flags);
+		break;
+	case DMA_XOR:
+		t->tx = dev->device_prep_dma_xor(chan,
+						 dsts[0],
+						 srcs, src->cnt,
+						 len, flags);
+		break;
+	case DMA_PQ:
+		t->tx = dev->device_prep_dma_pq(chan, dsts, srcs,
+						src->cnt, pq_coefs,
+						len, flags);
+		break;
+	case DMA_MEMSET:
+		t->tx = dev->device_prep_dma_memset(chan,
+						  dsts[0],
+						  *(src->aligned[0]),
+						  len, flags);
+		break;
+	default:
+		return -EINVAL;
+	}
+	if (!t->tx)
+		return -1;
+
+	return 0;
+}
+
 /*
  * This function repeatedly tests DMA transfers of various lengths and
  * offsets for a given operation type until it is told to exit by
@@ -610,7 +657,6 @@ static int dmatest_func(void *data)
 	unsigned int		total_tests = 0;
 	dma_cookie_t		cookie;
 	enum dma_status		status;
-	enum dma_ctrl_flags 	flags;
 	u8			*pq_coefs = NULL;
 	int			ret;
 	unsigned int 		buf_size;
@@ -674,17 +720,9 @@ static int dmatest_func(void *data)
 
 	set_user_nice(current, 10);
 
-	/*
-	 * src and dst buffers are freed by ourselves below
-	 */
-	flags = DMA_CTRL_ACK | DMA_PREP_INTERRUPT;
-
 	ktime = ktime_get();
 	while (!kthread_should_stop()
 	       && !(params->iterations && total_tests >= params->iterations)) {
-		struct dma_async_tx_descriptor *tx = NULL;
-		dma_addr_t *srcs;
-		dma_addr_t *dsts;
 		unsigned int len;
 
 		total_tests++;
@@ -741,30 +779,8 @@ static int dmatest_func(void *data)
 			continue;
 		}
 
-		srcs = src->dma_addrs;
-		dsts = dst->dma_addrs;
-
-		if (thread->type == DMA_MEMCPY)
-			tx = dev->device_prep_dma_memcpy(chan,
-							 dsts[0],
-							 srcs[0], len, flags);
-		else if (thread->type == DMA_MEMSET)
-			tx = dev->device_prep_dma_memset(chan,
-						dsts[0],
-						*(src->aligned[0]),
-						len, flags);
-		else if (thread->type == DMA_XOR)
-			tx = dev->device_prep_dma_xor(chan,
-						      dsts[0],
-						      srcs, src->cnt,
-						      len, flags);
-		else if (thread->type == DMA_PQ) {
-			tx = dev->device_prep_dma_pq(chan, dsts, srcs,
-						     src->cnt, pq_coefs,
-						     len, flags);
-		}
-
-		if (!tx) {
+		ret = dmatest_prep_tx_desc(thread, len, pq_coefs);
+		if (ret < 0) {
 			dmatest_unmap_data(src, dst);
 			result("prep error", total_tests, src->off,
 			       dst->off, len, ret);
@@ -774,9 +790,9 @@ static int dmatest_func(void *data)
 		}
 
 		done->done = false;
-		tx->callback = dmatest_callback;
-		tx->callback_param = done;
-		cookie = tx->tx_submit(tx);
+		thread->tx->callback = dmatest_callback;
+		thread->tx->callback_param = done;
+		cookie = thread->tx->tx_submit(thread->tx);
 
 		if (dma_submit_error(cookie)) {
 			dmatest_unmap_data(src, dst);
