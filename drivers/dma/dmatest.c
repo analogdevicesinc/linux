@@ -178,6 +178,12 @@ struct dmatest_data {
 	enum dma_data_direction	dir;
 };
 
+struct dmatest_xfer {
+	struct dma_async_tx_descriptor	*tx;
+	struct dma_chan			*chan;
+	dma_cookie_t			cookie;
+};
+
 struct dmatest_thread {
 	struct list_head	node;
 	struct dmatest_info	*info;
@@ -185,7 +191,7 @@ struct dmatest_thread {
 	struct dma_chan		*chan;
 	struct dmatest_data	src;
 	struct dmatest_data	dst;
-	struct dma_async_tx_descriptor	*tx;
+	struct dmatest_xfer	xfer;
 	enum dma_transaction_type type;
 	wait_queue_head_t done_wait;
 	struct dmatest_done test_done;
@@ -590,6 +596,7 @@ static int dmatest_prep_tx_desc(struct dmatest_thread *t,
 {
 	struct dma_chan *chan = t->chan;
 	struct dma_device *dev = chan->device;
+	struct dmatest_xfer *x = &t->xfer;
 	struct dmatest_data *src = &t->src;
 	struct dmatest_data *dst = &t->dst;
 	enum dma_ctrl_flags flags;
@@ -600,23 +607,23 @@ static int dmatest_prep_tx_desc(struct dmatest_thread *t,
 
 	switch (t->type) {
 	case DMA_MEMCPY:
-		t->tx = dev->device_prep_dma_memcpy(chan,
+		x->tx = dev->device_prep_dma_memcpy(chan,
 						    dsts[0],
 						    srcs[0], len, flags);
 		break;
 	case DMA_XOR:
-		t->tx = dev->device_prep_dma_xor(chan,
+		x->tx = dev->device_prep_dma_xor(chan,
 						 dsts[0],
 						 srcs, src->cnt,
 						 len, flags);
 		break;
 	case DMA_PQ:
-		t->tx = dev->device_prep_dma_pq(chan, dsts, srcs,
+		x->tx = dev->device_prep_dma_pq(chan, dsts, srcs,
 						src->cnt, pq_coefs,
 						len, flags);
 		break;
 	case DMA_MEMSET:
-		t->tx = dev->device_prep_dma_memset(chan,
+		x->tx = dev->device_prep_dma_memset(chan,
 						  dsts[0],
 						  *(src->aligned[0]),
 						  len, flags);
@@ -624,9 +631,27 @@ static int dmatest_prep_tx_desc(struct dmatest_thread *t,
 	default:
 		return -EINVAL;
 	}
-	if (!t->tx)
+	if (!x->tx)
 		return -1;
+	x->chan = chan;
 
+	return 0;
+}
+
+static int dmatest_run_transaction(struct dmatest_xfer *x,
+		struct dmatest_done *done)
+{
+	dma_cookie_t cookie;
+
+	x->tx->callback = dmatest_callback;
+	x->tx->callback_param = done;
+	cookie = x->tx->tx_submit(x->tx);
+
+	if (dma_submit_error(cookie))
+		return -1;
+	x->cookie = cookie;
+
+	dma_async_issue_pending(x->chan);
 	return 0;
 }
 
@@ -655,7 +680,6 @@ static int dmatest_func(void *data)
 	unsigned int		error_count;
 	unsigned int		failed_tests = 0;
 	unsigned int		total_tests = 0;
-	dma_cookie_t		cookie;
 	enum dma_status		status;
 	u8			*pq_coefs = NULL;
 	int			ret;
@@ -790,11 +814,8 @@ static int dmatest_func(void *data)
 		}
 
 		done->done = false;
-		thread->tx->callback = dmatest_callback;
-		thread->tx->callback_param = done;
-		cookie = thread->tx->tx_submit(thread->tx);
-
-		if (dma_submit_error(cookie)) {
+		ret = dmatest_run_transaction(&thread->xfer, done);
+		if (ret < 0) {
 			dmatest_unmap_data(src, dst);
 			result("submit error", total_tests, src->off,
 			       dst->off, len, ret);
@@ -802,12 +823,12 @@ static int dmatest_func(void *data)
 			failed_tests++;
 			continue;
 		}
-		dma_async_issue_pending(chan);
 
 		wait_event_freezable_timeout(thread->done_wait, done->done,
 					     msecs_to_jiffies(params->timeout));
 
-		status = dma_async_is_tx_complete(chan, cookie, NULL, NULL);
+		status = dma_async_is_tx_complete(chan, thread->xfer.cookie,
+						  NULL, NULL);
 
 		dmatest_unmap_data(src, dst);
 
