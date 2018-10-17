@@ -3284,6 +3284,9 @@ gckVIDMEM_NODE_WrapUserMemory(
             /* Import dma buf handle. */
             dmabuf = dma_buf_get(fd);
 
+            if (IS_ERR(dmabuf))
+                return PTR_ERR(dmabuf);
+
             Desc->handle = -1;
             Desc->dmabuf = gcmPTR_TO_UINT64(dmabuf);
 
