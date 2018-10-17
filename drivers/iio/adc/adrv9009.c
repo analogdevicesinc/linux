@@ -2558,7 +2558,7 @@ static int adrv9009_phy_parse_dt(struct iio_dev *iodev, struct device *dev)
 #define ADRV9009_GET_PROFILE(_dt_name, _member) \
 	ret = of_property_read_u16_array(np, _dt_name, _member, ARRAY_SIZE(_member)); \
 	if (ret < 0) { \
-		dev_err(dev, "Failed to read %lu coefficients\n", ARRAY_SIZE(_member)); \
+		dev_err(dev, "Failed to read %u coefficients\n", (u32) ARRAY_SIZE(_member)); \
 		return ret; \
 	} \
 
