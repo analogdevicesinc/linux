@@ -87,6 +87,7 @@ struct adxcvr_state {
 	bool			ref_is_div40;
 
 	unsigned int		num_lanes;
+	unsigned int		addr;
 };
 
 #endif /* AXI_ADXCVR_H_ */
