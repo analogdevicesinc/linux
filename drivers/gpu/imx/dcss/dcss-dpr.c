@@ -339,6 +339,7 @@ void dcss_dpr_set_res(struct dcss_soc *dcss, int ch_num, u32 xres, u32 yres,
 
 	for (plane = 0; plane < max_planes; plane++) {
 		yres = plane == 1 ? yres >> 1 : yres;
+		adj_h = plane == 1 ? adj_h >> 1 : adj_h;
 
 		pix_x_wide = dcss_dpr_x_pix_wide_adjust(ch, xres, pix_format);
 		pix_y_high = dcss_dpr_y_pix_high_adjust(ch, yres, pix_format);
@@ -347,8 +348,8 @@ void dcss_dpr_set_res(struct dcss_soc *dcss, int ch_num, u32 xres, u32 yres,
 		if (pix_x_wide < adj_w)
 			pix_x_wide = adj_w;
 
-		if (pix_y_high != adj_h)
-			pix_y_high = plane == 0 ? adj_h : adj_h >> 1;
+		if (pix_y_high < adj_h)
+			pix_y_high = adj_h;
 
 		if (plane == 0)
 			ch->pitch = pix_x_wide;
