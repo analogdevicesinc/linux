@@ -453,8 +453,8 @@
 		adi,tx-pa-protection-tx1-power-threshold = <4096>;
 		adi,tx-pa-protection-tx2-power-threshold = <4096>;
 		adi,tx-pa-protection-peak-count = <4>;
-		adi,tx-pa-protection-tx1-peak-threshold = <130>;
-		adi,tx-pa-protection-tx2-peak-threshold = <130>;
+		adi,tx-pa-protection-tx1-peak-threshold = <140>;
+		adi,tx-pa-protection-tx2-peak-threshold = <140>;
 	};
 };
 
