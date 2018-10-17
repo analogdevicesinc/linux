@@ -341,7 +341,7 @@ static const char * const adrv9009_ilas_mismatch_table[] = {
 	"checksum"
 };
 
-static int adrv9009_setup(struct adrv9009_rf_phy *phy)
+static int adrv9009_do_setup(struct adrv9009_rf_phy *phy)
 {
 	uint8_t mcsStatus = 0;
 	uint8_t pllLockStatus = 0;
@@ -365,6 +365,7 @@ static int adrv9009_setup(struct adrv9009_rf_phy *phy)
 	phy->talInit.spiSettings.autoIncAddrUp = 1;
 	phy->talInit.spiSettings.fourWireMode = 1;
 	phy->talInit.spiSettings.cmosPadDrvStrength = TAL_CMOSPAD_DRV_2X;
+
 
 
 	/**********************************************************/
@@ -723,6 +724,55 @@ static int adrv9009_setup(struct adrv9009_rf_phy *phy)
 
 	return 0;
 
+}
+
+static int adrv9009_setup(struct adrv9009_rf_phy *phy)
+{
+	int ret;
+	unsigned int framer_b_m, framer_b_f, orx_channel_enabled;
+
+	bool orx_adc_stitching_enabled =
+		(phy->talInit.obsRx.orxProfile.rfBandwidth_Hz > 200000000) ?
+		1 : 0;
+
+	framer_b_m = phy->talInit.jesd204Settings.framerB.M;
+	framer_b_f = phy->talInit.jesd204Settings.framerB.F;
+	orx_channel_enabled = phy->talInit.obsRx.obsRxChannelsEnable;
+
+	/*
+	 * When using ORx ADC stitching the framer must not be configured for
+	 * 4 converters. In addition we also must not enable both ORx channel
+	 * pairs. This temporary workaround (until the JESD204 framework is
+	 * complete) will fixup these options. You can successfully load a
+	 * TX 491.52 MSPS profile, however the ORx samples will be out of
+	 * sequence due to the incompatible link parameter settings
+	 * on the JESD RX IP.
+	 */
+
+	if (orx_adc_stitching_enabled) {
+		if (phy->talInit.obsRx.framerSel != 1) {
+			dev_warn(&phy->spi->dev, "%s:%d: Can't apply fixup",
+				 __func__, __LINE__);
+		} else {
+			if (framer_b_m != 2 || framer_b_f != 2 ||
+				orx_channel_enabled != 1)
+				dev_warn(&phy->spi->dev,
+					 "%s:%d: ORx samples might be incorrect",
+					 __func__, __LINE__);
+
+			phy->talInit.jesd204Settings.framerB.M = 2;
+			phy->talInit.jesd204Settings.framerB.F = 2;
+			phy->talInit.obsRx.obsRxChannelsEnable = 1;
+		}
+	}
+
+	ret = adrv9009_do_setup(phy);
+
+	phy->talInit.jesd204Settings.framerB.M = framer_b_m;
+	phy->talInit.jesd204Settings.framerB.F = framer_b_f;
+	phy->talInit.obsRx.obsRxChannelsEnable = orx_channel_enabled;
+
+	return ret;
 }
 
 static void adrv9009_shutdown(struct adrv9009_rf_phy *phy)
