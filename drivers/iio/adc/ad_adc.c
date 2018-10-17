@@ -139,6 +139,12 @@ static const struct adc_chip_info adrv9009_obs_rx_chip_info = {
 	.ctrl_flags = ADI_FORMAT_SIGNEXT | ADI_FORMAT_ENABLE,
 };
 
+static const struct adc_chip_info adrv9009_obs_rx_single_chip_info = {
+	.channels = adrv9009_obs_rx_channels,
+	.num_channels = 2,
+	.ctrl_flags = ADI_FORMAT_SIGNEXT | ADI_FORMAT_ENABLE,
+};
+
 static int axiadc_hw_consumer_postenable(struct iio_dev *indio_dev)
 {
 	struct axiadc_state *st = iio_priv(indio_dev);
@@ -239,6 +245,7 @@ static const struct of_device_id adc_of_match[] = {
 	{ .compatible = "adi,axi-ad9371-obs-1.0", .data = &ad9371_obs_rx_chip_info },
 	{ .compatible = "adi,m2k-adc-1.00.a", .data = &m2k_adc_chip_info },
 	{ .compatible = "adi,axi-adrv9009-obs-1.0", .data = &adrv9009_obs_rx_chip_info },
+	{ .compatible = "adi,axi-adrv9009-obs-single-1.0", .data = &adrv9009_obs_rx_single_chip_info },
 	{ /* end of list */ },
 };
 MODULE_DEVICE_TABLE(of, adc_of_match);
