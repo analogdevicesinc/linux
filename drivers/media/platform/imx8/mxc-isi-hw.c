@@ -186,63 +186,6 @@ void mxc_isi_channel_set_m2m_src_addr(struct mxc_isi_dev *mxc_isi,
 	writel(paddr->y, mxc_isi->regs + CHNL_IN_BUF_ADDR);
 }
 
-void mxc_isi_channel_hw_reset(struct mxc_isi_dev *mxc_isi)
-{
-	sc_ipc_t ipcHndl;
-	sc_err_t sciErr;
-	uint32_t mu_id, ch_id, i;
-	uint8_t chan_mask = 0, temp_mask;
-	struct device_node *parent, *node;
-
-	sciErr = sc_ipc_getMuID(&mu_id);
-	if (sciErr != SC_ERR_NONE) {
-		pr_err("Cannot obtain MU ID\n");
-		return;
-	}
-
-	sciErr = sc_ipc_open(&ipcHndl, mu_id);
-	if (sciErr != SC_ERR_NONE) {
-		pr_err("sc_ipc_open failed! (sciError = %d)\n", sciErr);
-		return;
-	}
-
-	parent = of_get_parent(mxc_isi->pdev->dev.of_node);
-	if (!parent) {
-		dev_err(&mxc_isi->pdev->dev, "get parent device fail\n");
-		return;
-	}
-
-	for_each_available_child_of_node(parent, node) {
-		if (!strcmp(node->name, ISI_OF_NODE_NAME)) {
-			ch_id = of_alias_get_id(node, "isi");
-			chan_mask |= 1 << ch_id;
-		}
-	}
-
-	temp_mask = chan_mask;
-	for (i = 0; i < 8; i++) {
-		if (chan_mask & 0x1) {
-			sciErr = sc_pm_set_resource_power_mode(ipcHndl, SC_R_ISI_CH0 + i, SC_PM_PW_MODE_OFF);
-			if (sciErr != SC_ERR_NONE)
-				pr_err("power on ISI%d failed! (sciError = %d)\n", i, sciErr);
-		}
-		chan_mask >>= 1;
-	}
-
-	chan_mask = temp_mask;
-	for (i = 0; i < 8; i++) {
-		if (chan_mask & 0x1) {
-			sciErr = sc_pm_set_resource_power_mode(ipcHndl, SC_R_ISI_CH0 + i, SC_PM_PW_MODE_ON);
-			if (sciErr != SC_ERR_NONE)
-				pr_err("power off ISI%d failed! (sciError = %d)\n", i, sciErr);
-		}
-		chan_mask >>= 1;
-	}
-
-	udelay(500);
-	sc_ipc_close(mu_id);
-}
-
 void mxc_isi_channel_sw_reset(struct mxc_isi_dev *mxc_isi)
 {
 	u32 val;
@@ -572,9 +515,6 @@ void mxc_isi_channel_set_scaling(struct mxc_isi_dev *mxc_isi)
 void mxc_isi_channel_init(struct mxc_isi_dev *mxc_isi)
 {
 	u32 val;
-
-	/* hw reset */
-	mxc_isi_channel_hw_reset(mxc_isi);
 
 	/* sw reset */
 	mxc_isi_channel_sw_reset(mxc_isi);
