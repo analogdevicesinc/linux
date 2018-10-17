@@ -283,11 +283,6 @@ int dcss_pll_set_rate(struct dcss_soc *dcss, u32 freq, u32 ref_clk,
 		/* use hdmi 27 mhz */
 		pll_control_reg = readl(reg + VIDEO_PLL2_CFG0_OFFSET);
 		pll_control_reg &= ~SSCG_PLL_REFCLK_SEL_MASK;
-		writel(pll_control_reg, reg + VIDEO_PLL2_CFG0_OFFSET);
-		dev_dbg(pll->dcss->dev, "pll reg offset %x data %x\n",
-			 VIDEO_PLL2_CFG0_OFFSET, pll_control_reg);
-
-		pll_control_reg = readl(reg + VIDEO_PLL2_CFG0_OFFSET);
 		pll_control_reg |= ref_clk & SSCG_PLL_REFCLK_SEL_MASK;
 		writel(pll_control_reg, reg + VIDEO_PLL2_CFG0_OFFSET);
 		dev_dbg(pll->dcss->dev, "pll reg offset %x data %x\n",
@@ -318,11 +313,6 @@ int dcss_pll_set_rate(struct dcss_soc *dcss, u32 freq, u32 ref_clk,
 		/* reference 2 requires HDMI to be initialized */
 		pll_control_reg = readl(reg + VIDEO_PLL2_CFG0_OFFSET);
 		pll_control_reg &= ~SSCG_PLL_REFCLK_SEL_MASK;
-		writel(pll_control_reg, reg + VIDEO_PLL2_CFG0_OFFSET);
-		dev_dbg(pll->dcss->dev, "pll reg offset %x data %x\n",
-			 VIDEO_PLL2_CFG0_OFFSET, pll_control_reg);
-
-		pll_control_reg = readl(reg + VIDEO_PLL2_CFG0_OFFSET);
 		pll_control_reg |= ref_clk & SSCG_PLL_REFCLK_SEL_MASK;
 		writel(pll_control_reg, reg + VIDEO_PLL2_CFG0_OFFSET);
 		dev_dbg(pll->dcss->dev, "pll reg offset %x data %x\n",
@@ -353,62 +343,43 @@ int dcss_pll_enable(struct dcss_soc *dcss)
 	struct dcss_pll_priv *pll = dcss->pll_priv;
 	void __iomem *base_reg = pll->base_reg;
 	u32 reg;
+	int lock_count = 0;
+
+	reg = readl(base_reg + VIDEO_PLL2_CFG0_OFFSET);
 
 	if (pll->data.fout != 27000000) {
-		int lock_count = 0;
-
-		/* Clear power down bit */
-		reg = readl(base_reg + VIDEO_PLL2_CFG0_OFFSET);
-		reg &= ~SSCG_PLL_PD_MASK;
-		writel(reg, base_reg + VIDEO_PLL2_CFG0_OFFSET);
-		dev_dbg(dcss->dev, "pll reg offset %x data %x\n",
-			 VIDEO_PLL2_CFG0_OFFSET, reg);
-
-		/* Enable clk output  */
-		reg = readl(base_reg + VIDEO_PLL2_CFG0_OFFSET);
-		reg |= SSCG_PLL_VIDEO_PLL2_CLKE_MASK;
-		writel(reg, base_reg + VIDEO_PLL2_CFG0_OFFSET);
-		dev_dbg(dcss->dev, "pll reg offset %x data %x\n",
-			 VIDEO_PLL2_CFG0_OFFSET, reg);
-
 		/* Clear bypass */
-		reg = readl(base_reg + VIDEO_PLL2_CFG0_OFFSET);
 		reg &= ~SSCG_PLL_BYPASS1_MASK;
-		writel(reg, base_reg + VIDEO_PLL2_CFG0_OFFSET);
-		dev_dbg(dcss->dev, "pll reg offset %x data %x\n",
-			 VIDEO_PLL2_CFG0_OFFSET, reg);
-
-		udelay(100);
-
-		reg = readl(base_reg + VIDEO_PLL2_CFG0_OFFSET);
 		reg &= ~SSCG_PLL_BYPASS2_MASK;
-		writel(reg, base_reg + VIDEO_PLL2_CFG0_OFFSET);
-		dev_dbg(dcss->dev, "pll reg offset %x data %x\n",
-			 VIDEO_PLL2_CFG0_OFFSET, reg);
-		/* Wait until lock */
-
-		while (!(readl(base_reg + VIDEO_PLL2_CFG0_OFFSET) &
-			 SSCG_PLL_LOCK_MASK)) {
-			udelay(100);
-			if (lock_count++ > (10 * 1000)) {
-				dev_err(dcss->dev,
-					"failed to lock video pll 2!\n");
-				return 1;
-			}
-		}
 	} else {
 		/* use bypass mode for 27000000 */
-		reg = readl(base_reg + VIDEO_PLL2_CFG0_OFFSET);
 		reg |= SSCG_PLL_BYPASS1_MASK;
-		writel(reg, base_reg + VIDEO_PLL2_CFG0_OFFSET);
-		dev_dbg(dcss->dev, "pll reg offset %x data %x\n",
-			 VIDEO_PLL2_CFG0_OFFSET, reg);
-
-		reg = readl(base_reg + VIDEO_PLL2_CFG0_OFFSET);
 		reg |= SSCG_PLL_BYPASS2_MASK;
-		writel(reg, base_reg + VIDEO_PLL2_CFG0_OFFSET);
-		dev_dbg(dcss->dev, "pll reg offset %x data %x\n",
-			 VIDEO_PLL2_CFG0_OFFSET, reg);
+	}
+
+	writel(reg, base_reg + VIDEO_PLL2_CFG0_OFFSET);
+	dev_dbg(dcss->dev, "pll reg offset %x data %x\n",
+		VIDEO_PLL2_CFG0_OFFSET, reg);
+
+	/* Clear power down bit */
+	reg = readl(base_reg + VIDEO_PLL2_CFG0_OFFSET);
+	reg &= ~SSCG_PLL_PD_MASK;
+
+	/* Enable clk output  */
+	reg |= SSCG_PLL_VIDEO_PLL2_CLKE_MASK;
+	writel(reg, base_reg + VIDEO_PLL2_CFG0_OFFSET);
+	dev_dbg(dcss->dev, "pll reg offset %x data %x\n",
+		VIDEO_PLL2_CFG0_OFFSET, reg);
+
+	/* Wait until lock */
+	while (!(readl(base_reg + VIDEO_PLL2_CFG0_OFFSET) &
+		 SSCG_PLL_LOCK_MASK) && pll->data.fout != 27000000) {
+		udelay(100);
+		if (lock_count++ > (10 * 1000)) {
+			dev_err(dcss->dev,
+				"failed to lock video pll 2!\n");
+			return 1;
+		}
 	}
 
 	return 0;

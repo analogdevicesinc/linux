@@ -264,7 +264,7 @@ static void dcss_crtc_atomic_enable(struct drm_crtc *crtc,
 
 	reinit_completion(&dcss_crtc->en_dis_completion);
 	wait_for_completion_timeout(&dcss_crtc->en_dis_completion,
-				    msecs_to_jiffies(100));
+				    msecs_to_jiffies(500));
 
 	crtc->enabled = true;
 }
