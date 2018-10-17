@@ -281,6 +281,8 @@ struct vpu_ctx {
 	struct buffer_addr enc_buffer;
 	struct core_device *core_dev;
 
+	pid_t pid;
+	pid_t tgid;
 	struct vpu_statistic statistic;
 	struct device_attribute dev_attr_instance;
 	char name[64];

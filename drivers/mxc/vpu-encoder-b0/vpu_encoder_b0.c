@@ -2347,8 +2347,9 @@ static ssize_t show_instance_info(struct device *dev,
 	param = ctx->enc_param;
 	fw = ctx->core_dev->m0_p_fw_space_vir;
 
-	num += snprintf(buf + num, PAGE_SIZE, "pid:%d\n", current->pid);
-	num += snprintf(buf + num, PAGE_SIZE, "fw:%d, %d\n", fw[16], fw[17]);
+	num += snprintf(buf + num, PAGE_SIZE,
+			"pid: %d; tgid: %d\n", ctx->pid, ctx->tgid);
+	num += snprintf(buf + num, PAGE_SIZE, "fw: %d, %d\n", fw[16], fw[17]);
 
 	num += snprintf(buf + num, PAGE_SIZE, "cmd:\n");
 
@@ -2515,6 +2516,9 @@ static int v4l2_open(struct file *filp)
 
 	create_instance_file(ctx);
 	initialize_enc_param(ctx);
+
+	ctx->pid = current->pid;
+	ctx->tgid = current->tgid;
 
 	filp->private_data = &ctx->fh;
 
