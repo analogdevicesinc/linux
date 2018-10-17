@@ -2952,16 +2952,16 @@ static int adrv9009_phy_parse_dt(struct iio_dev *iodev, struct device *dev)
 
 	ADRV9009_OF_PROP("adi,fhm-config-fhm-gpio-pin", &phy->fhm_config.fhmGpioPin, 0);
 	ADRV9009_OF_PROP("adi,fhm-config-fhm-min-freq_mhz",
-			 &phy->fhm_config.fhmMinFreq_MHz, 100);
+			 &phy->fhm_config.fhmMinFreq_MHz, 2400);
 	ADRV9009_OF_PROP("adi,fhm-config-fhm-max-freq_mhz",
-			 &phy->fhm_config.fhmMaxFreq_MHz, 100);
+			 &phy->fhm_config.fhmMaxFreq_MHz, 2500);
 
 	ADRV9009_OF_PROP("adi,fhm-mode-fhm-enable", &phy->fhm_mode.fhmEnable, 0);
 	ADRV9009_OF_PROP("adi,fhm-mode-enable-mcs-sync", &phy->fhm_mode.enableMcsSync,
 			 0);
 	ADRV9009_OF_PROP("adi,fhm-mode-fhm-trigger-mode", &phy->fhm_mode.fhmTriggerMode,
 			 0);
-	ADRV9009_OF_PROP("adi,fhm-mode-fhm-exit-mode", &phy->fhm_mode.fhmExitMode, 0);
+	ADRV9009_OF_PROP("adi,fhm-mode-fhm-exit-mode", &phy->fhm_mode.fhmExitMode, 1);
 	ADRV9009_OF_PROP("adi,fhm-mode-fhm-init-frequency_hz",
 			 &phy->fhm_mode.fhmInitFrequency_Hz, 2450000000ULL);
 
