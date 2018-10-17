@@ -119,6 +119,72 @@ static const struct xilinx_xcvr_drp_ops adxcvr_drp_ops = {
 	.write = adxcvr_drp_write,
 };
 
+static ssize_t adxcvr_debug_reg_write(struct device *dev,
+				struct device_attribute *attr,
+				const char *buf, size_t count)
+{
+	struct adxcvr_state *st = dev_get_drvdata(dev);
+	int ret, val, val2, val3;
+	char dest[] = "axi";
+
+	ret = sscanf(buf, "%3s %i %i %i", dest, &val, &val2, &val3);
+
+	if (ret > 1) {
+		if (strncmp(dest, "axi", sizeof(dest)) == 0) {
+
+			st->addr = val & 0xFFFF;
+
+			if (ret == 3)
+				adxcvr_write(st, st->addr, val2);
+
+		} else if (strncmp(dest, "drp", sizeof(dest)) == 0 && ret > 2) {
+			st->addr = BIT(31) | (val & ADXCVR_BROADCAST) << 16 |
+				   (val2 & 0xFFFF);
+
+			if (ret == 4) {
+				ret = adxcvr_drp_write(&st->xcvr,
+							val & ADXCVR_BROADCAST,
+							val2 & 0xFFFF, val3);
+				if (ret)
+					return ret;
+			}
+
+		} else {
+			return -EINVAL;
+		}
+	} else {
+		return -EINVAL;
+	}
+
+	return count;
+}
+
+static ssize_t adxcvr_debug_reg_read(struct device *dev,
+				     struct device_attribute *attr,
+				     char *buf)
+{
+	struct adxcvr_state *st = dev_get_drvdata(dev);
+	unsigned int val;
+	int ret;
+
+	if (st->addr & BIT(31)) {
+		ret = adxcvr_drp_read(&st->xcvr,
+				      (st->addr >> 16) & ADXCVR_BROADCAST,
+				      st->addr & 0xFFFF);
+		if (ret < 0)
+			return ret;
+
+		val = ret;
+	} else {
+		val = adxcvr_read(st, st->addr);
+	}
+
+	return sprintf(buf, "0x%X\n", val);
+}
+
+static DEVICE_ATTR(reg_access, 0600, adxcvr_debug_reg_read,
+		   adxcvr_debug_reg_write);
+
 static int adxcvr_status_error(struct device *dev)
 {
 	struct adxcvr_state *st = dev_get_drvdata(dev);
@@ -550,6 +616,8 @@ static int adxcvr_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
+	device_create_file(st->dev, &dev_attr_reg_access);
+
 	dev_info(&pdev->dev, "AXI-ADXCVR-%s (%d.%.2d.%c) using %s at 0x%08llX mapped to 0x%p. Number of lanes: %d.",
 		st->tx_enable ? "TX" : "RX",
 		PCORE_VER_MAJOR(version),
@@ -579,6 +647,7 @@ static int adxcvr_remove(struct platform_device *pdev)
 {
 	struct adxcvr_state *st = platform_get_drvdata(pdev);
 
+	device_remove_file(st->dev, &dev_attr_reg_access);
 	adxcvr_eyescan_unregister(st);
 	of_clk_del_provider(pdev->dev.of_node);
 	clk_disable_unprepare(st->conv_clk);
