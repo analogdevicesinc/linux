@@ -148,37 +148,43 @@ static int dsp_platform_compr_set_params(struct snd_compr_stream *cstream,
 	ret = xaf_pipeline_create(&drv->pipeline);
 	if (ret) {
 		dev_err(platform->dev, "create pipeline error\n");
-		goto failed;
+		goto err_pool_alloc;
 	}
 
 	/* ...create component */
-	ret = xaf_comp_create(drv->client, p_proxy, &drv->component[0], drv->codec_type);
+	ret = xaf_comp_create(drv->client, p_proxy, &drv->component[0],
+			      drv->codec_type);
 	if (ret) {
-		dev_err(platform->dev, "create component failed, type = %d, err = %d\n",
-							drv->codec_type, ret);
-		goto failed;
+		dev_err(platform->dev,
+			"create component failed type = %d, err = %d\n",
+			drv->codec_type, ret);
+		goto err_pool_alloc;
 	}
 
-	ret = xaf_comp_create(drv->client, p_proxy, &drv->component[1], RENDER_ESAI);
+	ret = xaf_comp_create(drv->client, p_proxy, &drv->component[1],
+			      RENDER_ESAI);
 	if (ret) {
-		dev_err(platform->dev, "create component failed, type = %d, err = %d\n",
-				RENDER_ESAI, ret);
-		goto failed;
+		dev_err(platform->dev,
+			"create component failed, type = %d, err = %d\n",
+			RENDER_ESAI, ret);
+		goto err_comp0_create;
 	}
 
 	/* ...add component into pipeline */
 	ret = xaf_comp_add(&drv->pipeline, &drv->component[0]);
 	if (ret) {
-		dev_err(platform->dev, "add component failed, type = %d, err = %d\n",
-				drv->codec_type, ret);
-		goto failed;
+		dev_err(platform->dev,
+			"add component failed, type = %d, err = %d\n",
+			drv->codec_type, ret);
+		goto err_comp1_create;
 	}
 
 	ret = xaf_comp_add(&drv->pipeline, &drv->component[1]);
 	if (ret) {
-		dev_err(platform->dev, "add component failed, type = %d, err = %d\n",
-				drv->codec_type, ret);
-		goto failed;
+		dev_err(platform->dev,
+			"add component failed, type = %d, err = %d\n",
+			drv->codec_type, ret);
+		goto err_comp1_create;
 	}
 
 	drv->client->input_bytes = 0;
@@ -188,31 +194,41 @@ static int dsp_platform_compr_set_params(struct snd_compr_stream *cstream,
 	s_param.value = params->codec.sample_rate;
 	ret = xaf_comp_set_config(drv->client, &drv->component[1], 1, &s_param);
 	if (ret) {
-		dev_err(platform->dev, "set param[cmd:0x%x|val:0x%x] error, err = %d\n",
+		dev_err(platform->dev,
+			"set param[cmd:0x%x|val:0x%x] error, err = %d\n",
 			s_param.id, s_param.value, ret);
-		goto failed;
+		goto err_comp1_create;
 	}
 
 	s_param.id = XA_RENDERER_CONFIG_PARAM_CHANNELS;
 	s_param.value = params->codec.ch_out;
 	ret = xaf_comp_set_config(drv->client, &drv->component[1], 1, &s_param);
 	if (ret) {
-		dev_err(platform->dev, "set param[cmd:0x%x|val:0x%x] error, err = %d\n",
+		dev_err(platform->dev,
+			"set param[cmd:0x%x|val:0x%x] error, err = %d\n",
 			s_param.id, s_param.value, ret);
-		goto failed;
+		goto err_comp1_create;
 	}
 
 	s_param.id = XA_RENDERER_CONFIG_PARAM_PCM_WIDTH;
 	s_param.value = 16;
 	ret = xaf_comp_set_config(drv->client, &drv->component[1], 1, &s_param);
 	if (ret) {
-		dev_err(platform->dev, "set param[cmd:0x%x|val:0x%x] error, err = %d\n",
+		dev_err(platform->dev,
+			"set param[cmd:0x%x|val:0x%x] error, err = %d\n",
 			s_param.id, s_param.value, ret);
-		goto failed;
+		goto err_comp1_create;
 	}
-
-failed:
 	return 0;
+
+err_comp1_create:
+	xaf_comp_delete(drv->client, &drv->component[1]);
+err_comp0_create:
+	xaf_comp_delete(drv->client, &drv->component[0]);
+err_pool_alloc:
+	xf_pool_free(drv->client, p_proxy->aux);
+
+	return ret;
 }
 
 static int dsp_platform_compr_trigger_start(struct snd_compr_stream *cstream)
