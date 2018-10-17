@@ -417,13 +417,13 @@
 		adi,orx-lo-cfg-gpio-select = <19>;
 
 		adi,fhm-config-fhm-gpio-pin = <0>;
-		adi,fhm-config-fhm-min-freq_mhz = <100>;
-		adi,fhm-config-fhm-max-freq_mhz = <100>;
+		adi,fhm-config-fhm-min-freq_mhz = <2400>;
+		adi,fhm-config-fhm-max-freq_mhz = <2500>;
 
 		adi,fhm-mode-fhm-enable = <0>;
 		adi,fhm-mode-enable-mcs-sync = <0>;
 		adi,fhm-mode-fhm-trigger-mode = <0>;
-		adi,fhm-mode-fhm-exit-mode = <0>;
+		adi,fhm-mode-fhm-exit-mode = <1>;
 		adi,fhm-mode-fhm-init-frequency_hz = <2450000000>;
 
 		adi,rx1-gain-ctrl-pin-inc-step = <1>;
