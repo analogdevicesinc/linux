@@ -2597,6 +2597,7 @@ static int imx_pcie_probe(struct platform_device *pdev)
 		unsigned long timeout = jiffies + msecs_to_jiffies(300000);
 
 		/* add attributes for device */
+		imx_pcie_attrgroup.attrs = imx_pcie_ep_attrs;
 		ret = sysfs_create_group(&pdev->dev.kobj, &imx_pcie_attrgroup);
 		if (ret)
 			return -EINVAL;
