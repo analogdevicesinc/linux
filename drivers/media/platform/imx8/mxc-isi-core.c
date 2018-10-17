@@ -113,13 +113,6 @@ static int mxc_isi_parse_dt(struct mxc_isi_dev *mxc_isi)
 	return 0;
 }
 
-static void mxc_isi_clean_registers(struct mxc_isi_dev *mxc_isi)
-{
-	u32 status;
-
-	status = mxc_isi_get_irq_status(mxc_isi);
-	mxc_isi_clean_irq_status(mxc_isi, status);
-}
 
 static int mxc_isi_probe(struct platform_device *pdev)
 {

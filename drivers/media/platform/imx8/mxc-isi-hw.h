@@ -495,6 +495,7 @@ void mxc_isi_m2m_start_read(struct mxc_isi_dev *mxc_isi);
 
 void mxc_isi_clean_irq_status(struct mxc_isi_dev *mxc_isi, u32 val);
 u32 mxc_isi_get_irq_status(struct mxc_isi_dev *mxc_isi);
+void mxc_isi_clean_registers(struct mxc_isi_dev *mxc_isi);
 void mxc_isi_enable_irq(struct mxc_isi_dev *mxc_isi);
 void mxc_isi_disable_irq(struct mxc_isi_dev *mxc_isi);
 void mxc_isi_channel_set_m2m_out_addr(struct mxc_isi_dev *mxc_isi,

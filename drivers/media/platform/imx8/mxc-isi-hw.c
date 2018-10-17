@@ -645,6 +645,14 @@ void mxc_isi_channel_config(struct mxc_isi_dev *mxc_isi)
 	writel(val, mxc_isi->regs + CHNL_CTRL);
 }
 
+void mxc_isi_clean_registers(struct mxc_isi_dev *mxc_isi)
+{
+	u32 status;
+
+	status = mxc_isi_get_irq_status(mxc_isi);
+	mxc_isi_clean_irq_status(mxc_isi, status);
+}
+
 void mxc_isi_channel_enable(struct mxc_isi_dev *mxc_isi)
 {
 	u32 val;
@@ -654,7 +662,7 @@ void mxc_isi_channel_enable(struct mxc_isi_dev *mxc_isi)
 	val |= 0xff << CHNL_CTRL_BLANK_PXL_OFFSET;
 	writel(val, mxc_isi->regs + CHNL_CTRL);
 
-	mxc_isi_clean_irq_status(mxc_isi, 0);
+	mxc_isi_clean_registers(mxc_isi);
 	mxc_isi_enable_irq(mxc_isi);
 	msleep(300);
 	dump_isi_regs(mxc_isi);
@@ -764,7 +772,7 @@ void mxc_isi_m2m_channel_enable(struct mxc_isi_dev *mxc_isi)
 			CHNL_CTRL_CHNL_EN_ENABLE << CHNL_CTRL_CHNL_EN_OFFSET);
 	writel(reg, mxc_isi->regs + CHNL_CTRL);
 
-	mxc_isi_clean_irq_status(mxc_isi, 0);
+	mxc_isi_clean_registers(mxc_isi);
 	mxc_isi_enable_irq(mxc_isi);
 	mxc_isi_m2m_start_read(mxc_isi);
 
