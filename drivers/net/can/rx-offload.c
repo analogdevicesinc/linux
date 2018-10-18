@@ -125,8 +125,12 @@ static struct sk_buff *can_rx_offload_offload_one(struct can_rx_offload *offload
 
 	/* If queue is full or skb not available, read to discard mailbox */
 	if (likely(skb_queue_len(&offload->skb_queue) <=
-		   offload->skb_queue_len_max))
-		skb = alloc_canfd_skb(offload->dev, &cf);
+		   offload->skb_queue_len_max)) {
+		if (offload->is_canfd)
+			skb = alloc_canfd_skb(offload->dev, &cf);
+		else
+			skb = alloc_can_skb(offload->dev, (struct can_frame **)&cf);
+	}
 
 	if (!skb) {
 		struct canfd_frame cf_overflow;

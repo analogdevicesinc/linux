@@ -35,6 +35,8 @@ struct can_rx_offload {
 	struct napi_struct napi;
 
 	bool inc;
+
+	bool is_canfd;
 };
 
 int can_rx_offload_add_timestamp(struct net_device *dev, struct can_rx_offload *offload);

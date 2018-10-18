@@ -1737,12 +1737,14 @@ static int flexcan_probe(struct platform_device *pdev)
 	priv->pdata = dev_get_platdata(&pdev->dev);
 	priv->devtype_data = devtype_data;
 	priv->reg_xceiver = reg_xceiver;
+	priv->offload.is_canfd = false;
 
 	if (priv->devtype_data->quirks & FLEXCAN_QUIRK_USE_OFF_TIMESTAMP) {
 		if (priv->devtype_data->quirks & FLEXCAN_QUIRK_TIMESTAMP_SUPPORT_FD) {
 			if (!(of_find_property(np, "disable-fd-mode", NULL))) {
 				priv->can.ctrlmode_supported |= CAN_CTRLMODE_FD;
 				priv->can.bittiming_const = &flexcan_fd_bittiming_const;
+				priv->offload.is_canfd = true;
 			}
 
 			priv->tx_mb_reserved_idx = FLEXCAN_TX_MB_RESERVED_OFF_TIMESTAMP_FD;
