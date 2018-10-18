@@ -737,21 +737,19 @@ static int dmatest_func(void *data)
 
 		status = dma_async_is_tx_complete(chan, cookie, NULL, NULL);
 
+		dmaengine_unmap_put(um);
+
 		if (!done->done) {
-			dmaengine_unmap_put(um);
 			result("test timed out", total_tests, src_off, dst_off,
 			       len, 0);
 			goto error_unmap_continue;
 		} else if (status != DMA_COMPLETE) {
-			dmaengine_unmap_put(um);
 			result(status == DMA_ERROR ?
 			       "completion error status" :
 			       "completion busy status", total_tests, src_off,
 			       dst_off, len, ret);
 			goto error_unmap_continue;
 		}
-
-		dmaengine_unmap_put(um);
 
 		if (params->noverify) {
 			verbose_result("test passed", total_tests, src_off,
