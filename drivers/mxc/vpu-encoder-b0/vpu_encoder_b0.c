@@ -1277,6 +1277,78 @@ static bool update_yuv_addr(struct vpu_ctx *ctx, u_int32 uStrIdx)
 
 }
 
+static void get_kmp_next(const u8 *p, int *next, int size)
+{
+	int k = -1;
+	int j = 0;
+
+	next[0] = -1;
+	while (j < size - 1) {
+		if (k == -1 || p[j] == p[k]) {
+			++k;
+			++j;
+			next[j] = k;
+		} else {
+			k = next[k];
+		}
+	}
+}
+
+static int kmp_serach(u8 *s, int s_len, const u8 *p, int p_len, int *next)
+{
+	int i = 0;
+	int j = 0;
+
+	while (i < s_len && j < p_len) {
+		if (j == -1 || s[i] == p[j]) {
+			i++;
+			j++;
+		} else {
+			j = next[j];
+		}
+	}
+	if (j == p_len)
+		return i - j;
+	else
+		return -1;
+}
+
+static int get_stuff_data_size(u8 *data, int size)
+{
+	const u8 pattern[] = VPU_STRM_END_PATTERN;
+	int next[] = VPU_STRM_END_PATTERN;
+	int index;
+
+	if (size < ARRAY_SIZE(pattern))
+		return 0;
+
+	get_kmp_next(pattern, next, ARRAY_SIZE(pattern));
+	index =  kmp_serach(data, size, pattern, ARRAY_SIZE(pattern), next);
+	if (index < 0)
+		return 0;
+	return size - index - ARRAY_SIZE(pattern);
+}
+
+static void strip_stuff_data_on_tail(struct vb2_buffer *vb)
+{
+	u8 *ptr = vb2_plane_vaddr(vb, 0);
+	unsigned long bytesused = vb2_get_plane_payload(vb, 0);
+	int count = VPU_TAIL_SERACH_SIZE;
+	int stuff_size;
+
+	if (count > bytesused)
+		count = bytesused;
+
+	if (!count)
+		return;
+
+	stuff_size = get_stuff_data_size(ptr + bytesused - count, count);
+	if (stuff_size) {
+		vpu_dbg(LVL_WARN, "strip %d bytes stuff data\n", stuff_size);
+		vb2_set_plane_payload(vb, 0, bytesused - stuff_size);
+	}
+}
+
 static void report_stream_done(struct vpu_ctx *ctx,  MEDIAIP_ENC_PIC_INFO *pEncPicInfo)
 {
 	struct vb2_data_req *p_data_req;
@@ -1342,56 +1414,80 @@ static void report_stream_done(struct vpu_ctx *ctx,  MEDIAIP_ENC_PIC_INFO *pEncP
 		else if (rptr > wptr)
 			data_length = (end - rptr) + (wptr - start);
 
-	//update the bytesused for the output buffer
-	if (data_length >= length)
-		p_data_req->vb2_buf->planes[0].bytesused = length;
-	else
-		p_data_req->vb2_buf->planes[0].bytesused = data_length;
-	length = p_data_req->vb2_buf->planes[0].bytesused;
+		if (!data_length) {
+			up(&This->drv_q_lock);
+			return;
+		}
 
-	vpu_dbg(LVL_DEBUG, "%s data_length %d, length %d\n", __func__, data_length, length);
-	/* Following calculations determine how much data we can transfer into p_vb2_buf
-	 * and then only copy that ammount, so rptr is the actual consumed ammount at the end*/
-	if ((wptr == rptr) || (rptr > wptr)) {
-		if (end - rptr >= length) {
-			memcpy(data_mapped, rptr_virt, length);
-			rptr += length;
-			if (rptr == end)
-				rptr = start;
-		} else {
-			memcpy(data_mapped, rptr_virt, end-rptr);
-			if ((length-(end-rptr)) >= (wptr-start)) {
-				memcpy(data_mapped + (end-rptr), ctx->encoder_stream.virt_addr, wptr-start);
-				rptr = wptr;
+		//update the bytesused for the output buffer
+		if (data_length >= length)
+			p_data_req->vb2_buf->planes[0].bytesused = length;
+		else
+			p_data_req->vb2_buf->planes[0].bytesused = data_length;
+		length = p_data_req->vb2_buf->planes[0].bytesused;
+
+		vpu_dbg(LVL_DEBUG, "%s data_length %d, length %d\n", __func__,
+				data_length, length);
+		/*
+		 * Following calculations determine
+		 * how much data we can transfer into p_vb2_buf and
+		 * then only copy that ammount,
+		 * so rptr is the actual consumed ammount at the end
+		 */
+		if ((wptr == rptr) || (rptr > wptr)) {
+			if (end - rptr >= length) {
+				memcpy(data_mapped, rptr_virt, length);
+				rptr += length;
+				if (rptr == end)
+					rptr = start;
 			} else {
-				memcpy(data_mapped + (end-rptr), ctx->encoder_stream.virt_addr, length-(end-rptr));
-				rptr = start+length-(end-rptr);
+				memcpy(data_mapped, rptr_virt, end-rptr);
+				if ((length-(end-rptr)) >= (wptr-start)) {
+					memcpy(data_mapped + (end-rptr),
+						ctx->encoder_stream.virt_addr,
+						wptr-start);
+					rptr = wptr;
+				} else {
+					memcpy(data_mapped + (end-rptr),
+						ctx->encoder_stream.virt_addr,
+						length-(end-rptr));
+					rptr = start+length-(end-rptr);
+				}
+			}
+		} else {
+			if (wptr - rptr >= length) {
+				memcpy(data_mapped, rptr_virt, length);
+				rptr += length;
+			} else {
+				memcpy(data_mapped, rptr_virt, wptr - rptr);
+				rptr = wptr;
 			}
 		}
-	} else {
-		if (wptr - rptr >= length) {
-			memcpy(data_mapped, rptr_virt, length);
-			rptr += length;
-		} else {
-			memcpy(data_mapped, rptr_virt, wptr - rptr);
-			rptr = wptr;
+
+		/*
+		 * Update VPU stream buffer descriptor and
+		 * Windsor FW stream buffer descriptors respectively
+		 */
+		pEncStrBuffDesc->rptr = rptr;
+
+		list_del(&p_data_req->list);
+		up(&This->drv_q_lock);
+
+		switch (pEncPicInfo->ePicType) {
+		case MEDIAIP_ENC_PIC_TYPE_IDR_FRAME:
+		case MEDIAIP_ENC_PIC_TYPE_I_FRAME:
+			p_data_req->buffer_flags = V4L2_BUF_FLAG_KEYFRAME;
+			break;
+		case MEDIAIP_ENC_PIC_TYPE_P_FRAME:
+			p_data_req->buffer_flags = V4L2_BUF_FLAG_PFRAME;
+			break;
+		case MEDIAIP_ENC_PIC_TYPE_B_FRAME:
+			p_data_req->buffer_flags = V4L2_BUF_FLAG_BFRAME;
+			break;
+		default:
+			break;
 		}
-	}
-
-	/* Update VPU stream buffer descriptor and Windsor FW stream buffer descriptors respectively*/
-	pEncStrBuffDesc->rptr = rptr;
-
-	list_del(&p_data_req->list);
-	up(&This->drv_q_lock);
-
-	if (pEncPicInfo->ePicType == MEDIAIP_ENC_PIC_TYPE_IDR_FRAME || pEncPicInfo->ePicType == MEDIAIP_ENC_PIC_TYPE_I_FRAME)
-		p_data_req->buffer_flags = V4L2_BUF_FLAG_KEYFRAME;
-	else if (pEncPicInfo->ePicType == MEDIAIP_ENC_PIC_TYPE_P_FRAME)
-		p_data_req->buffer_flags = V4L2_BUF_FLAG_PFRAME;
-	else if (pEncPicInfo->ePicType == MEDIAIP_ENC_PIC_TYPE_B_FRAME)
-		p_data_req->buffer_flags = V4L2_BUF_FLAG_BFRAME;
-	//memcpy to vb2 buffer from encpicinfo
-	if (p_data_req->vb2_buf->state == VB2_BUF_STATE_ACTIVE)
+		strip_stuff_data_on_tail(p_data_req->vb2_buf);
 		vb2_buffer_done(p_data_req->vb2_buf, VB2_BUF_STATE_DONE);
 	}
 	vpu_dbg(LVL_DEBUG, "report_buffer_done return\n");
@@ -1729,6 +1825,8 @@ static void vpu_api_event_handler(struct vpu_ctx *ctx, u_int32 uStrIdx, u_int32 
 		} break;
 		case VID_API_ENC_EVENT_TERMINATE_DONE:
 		break;
+		case VID_API_ENC_EVENT_RESET_DONE:
+			break;
 		default:
 		vpu_dbg(LVL_ERR, "........unknown event : 0x%x\n", uEvent);
 		break;
