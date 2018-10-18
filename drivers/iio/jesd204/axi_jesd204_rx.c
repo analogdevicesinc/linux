@@ -118,10 +118,12 @@ static ssize_t axi_jesd204_rx_status_read(struct device *dev,
 	unsigned int sysref_status;
 	unsigned int link_disabled;
 	unsigned int link_status;
+	unsigned int link_config0;
 	unsigned int clock_ratio;
 	unsigned int clock_rate;
 	unsigned int link_rate;
 	unsigned int sysref_config;
+	unsigned int lmfc_rate;
 	int ret;
 
 	link_disabled = readl_relaxed(jesd->base + JESD204_RX_REG_LINK_STATE);
@@ -129,6 +131,7 @@ static ssize_t axi_jesd204_rx_status_read(struct device *dev,
 	sysref_status = readl_relaxed(jesd->base + JESD204_RX_REG_SYSREF_STATUS);
 	clock_ratio = readl_relaxed(jesd->base + JESD204_RX_REG_LINK_CLK_RATIO);
 	sysref_config = readl_relaxed(jesd->base + JESD204_RX_REG_SYSREF_CONF);
+	link_config0 = readl_relaxed(jesd->base + JESD204_RX_REG_LINK_CONF0);
 
 	ret = scnprintf(buf, PAGE_SIZE, "Link is %s\n",
 		(link_disabled & 0x1) ? "disabled" : "enabled");
@@ -154,11 +157,14 @@ static ssize_t axi_jesd204_rx_status_read(struct device *dev,
 
 		clock_rate = clk_get_rate(jesd->lane_clk);
 		link_rate = DIV_ROUND_CLOSEST(clock_rate, 40);
+		lmfc_rate = clock_rate / (10 * ((link_config0 & 0xFF) + 1));
 		ret += scnprintf(buf + ret, PAGE_SIZE - ret,
 			"Lane rate: %d.%.3d MHz\n"
-			"Lane rate / 40: %d.%.3d MHz\n",
+			"Lane rate / 40: %d.%.3d MHz\n"
+			"LMFC rate: %d.%.3d MHz\n",
 			clock_rate / 1000, clock_rate % 1000,
-			link_rate / 1000, link_rate % 1000);
+			link_rate / 1000, link_rate % 1000,
+			lmfc_rate / 1000, lmfc_rate % 1000);
 
 		ret += scnprintf(buf + ret, PAGE_SIZE - ret,
 			"Link status: %s\n"
