@@ -552,11 +552,12 @@ static int viv_ioctl_gem_attach_aux(struct drm_device *drm, void *data,
     if (args->ts_handle)
     {
         struct viv_gem_object *viv_ts_obj;
+        size_t num = 0;
         gckKERNEL kernel = gal_dev->device->map[gal_dev->device->defaultHwType].kernels[0];
         gcsHAL_INTERFACE iface;
         gctBOOL is2BitPerTile = gckHARDWARE_IsFeatureAvailable(kernel->hardware , gcvFEATURE_TILE_STATUS_2BITS);
         gctBOOL isCompressionDEC400 = gckHARDWARE_IsFeatureAvailable(kernel->hardware , gcvFEATURE_COMPRESSION_DEC400);
-        gctPOINTER entry = gcvNULL;
+        char __user* entry = gcvNULL;
         gctUINT32 tileStatusFiller = (isCompressionDEC400 || ((kernel->hardware->identity.chipModel == gcv500) && (kernel->hardware->identity.chipRevision > 2)))
                                   ? 0xFFFFFFFF
                                   : is2BitPerTile ? 0x55555555 : 0x11111111;
@@ -580,10 +581,11 @@ static int viv_ioctl_gem_attach_aux(struct drm_device *drm, void *data,
         iface.u.LockVideoMemory.cacheable = viv_ts_obj->cacheable;
         gcmkONERROR(gckDEVICE_Dispatch(gal_dev->device, &iface));
 
-        gcmkONERROR(gckOS_MapPhysical(kernel->os, (gctUINT32) iface.u.LockVideoMemory.physicalAddress, (__u64)gem_ts_obj->size, &entry));
-
         /* Fill tile status node with tileStatusFiller. */
-        memset(entry , tileStatusFiller , (__u64)gem_ts_obj->size);
+        entry = (char __user*)iface.u.LockVideoMemory.memory;
+        for (num=0; num<gem_ts_obj->size; num++) {
+            put_user(tileStatusFiller, entry+num);
+        }
 
         /* UnLock tile status node. */
         memset(&iface, 0, sizeof(iface));
