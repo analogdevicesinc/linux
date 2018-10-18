@@ -90,3 +90,8 @@ obj-$(CONFIG_SOC_IMXRT) += mach-imxrt.o
 obj-$(CONFIG_SOC_VF610) += mach-vf610.o
 
 obj-$(CONFIG_SOC_LS1021A) += mach-ls1021a.o
+
+ifneq ($(CONFIG_SOC_IMX6)$(CONFIG_SOC_IMX7),)
+# Bus frequency by OPTEE OS
+obj-$(CONFIG_OPTEE) += busfreq_optee.o
+endif

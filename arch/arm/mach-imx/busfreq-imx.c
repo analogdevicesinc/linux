@@ -84,6 +84,13 @@ extern int update_ddr_freq_imx6_up(int ddr_rate);
 extern int update_lpddr2_freq(int ddr_rate);
 extern int update_lpddr2_freq_smp(int ddr_rate);
 
+#ifdef CONFIG_OPTEE
+/*
+ * Bus frequency management by OPTEE OS
+ */
+extern int update_freq_optee(int ddr_rate);
+extern int init_freq_optee(struct platform_device *busfreq_pdev);
+#endif
 
 /**
  * @brief  Functions to init and update the busfreq function of
@@ -1097,6 +1104,10 @@ static DEVICE_ATTR(enable, 0644, bus_freq_scaling_enable_show,
 static int busfreq_probe(struct platform_device *pdev)
 {
 	u32 err;
+#ifdef CONFIG_OPTEE
+	struct device_node *node_optee = 0;
+	uint32_t busfreq_val;
+#endif
 
 	busfreq_dev = &pdev->dev;
 
@@ -1299,6 +1310,7 @@ static int busfreq_probe(struct platform_device *pdev)
 		}
 		busfreq_func.init   = &init_ddrc_ddr_settings;
 		busfreq_func.update = &update_ddr_freq_imx_smp;
+
 	} else if (cpu_is_imx6sx() || cpu_is_imx6ul() || cpu_is_imx6ull() || cpu_is_imx6ulz() ||
 		   cpu_is_imx6sll()) {
 		ddr_type = imx_mmdc_get_ddr_type();
@@ -1323,6 +1335,28 @@ static int busfreq_probe(struct platform_device *pdev)
 		busfreq_func.init   = &init_mmdc_lpddr2_settings;
 		busfreq_func.update = &update_lpddr2_freq;
 	}
+
+#ifdef CONFIG_OPTEE
+	/*
+	 * Find the OPTEE node in the DT and look for the
+	 * busfreq property.
+	 * If property present and set to 1, busfreq is done by
+	 * calling the OPTEE OS
+	 */
+	node_optee = of_find_compatible_node(NULL, NULL, "linaro,optee-tz");
+
+	if (node_optee) {
+		if (of_property_read_u32(node_optee, "busfreq",
+			    &busfreq_val) == 0) {
+			pr_info("OPTEE busfreq %s",
+				(busfreq_val ? "Supported" : "Not Supported"));
+			if (busfreq_val) {
+				busfreq_func.init   = &init_freq_optee;
+				busfreq_func.update = &update_freq_optee;
+			}
+		}
+	}
+#endif
 
 	if (busfreq_func.init)
 		err = busfreq_func.init(pdev);
