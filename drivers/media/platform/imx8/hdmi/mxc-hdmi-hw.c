@@ -270,24 +270,12 @@ static void get_color_depth(struct mxc_hdmi_rx_dev *hdmi_rx,
 void hdmirx_edid_set(state_struct *state)
 {
 	struct mxc_hdmi_rx_dev *hdmi_rx = state_to_mxc_hdmirx(state);
-	GENERAL_Read_Register_response regresp;
 
 	/* Set EDID - block 0 */
 	CDN_API_HDMIRX_SET_EDID_blocking(state, 0, 0, &block0[0]);
 	/* Set EDID - block 1 */
 	CDN_API_HDMIRX_SET_EDID_blocking(state, 0, 1, &block1[0]);
 	dev_dbg(&hdmi_rx->pdev->dev, "EDID block 0/1 set complete.\n");
-
-	/* Read the current value of the CTRL register */
-	CDN_API_General_Read_Register_blocking(state, 0xb000, &regresp);
-	/* Clear the 'divisor_a' and 'divisor_b' values - bits 15:8 */
-	regresp.val &= ~0xFF00;
-	/* Set the 'divisor_a' value */
-	regresp.val |= 0x4 << 14;
-	/* Set the 'divisor_b' value */
-	regresp.val |= 0x32 << 8;
-	/* Write the CTRL register back */
-	CDN_API_General_Write_Register_blocking(state, 0xb000, regresp.val);
 }
 
 /* Set SCDC data sample */
