@@ -489,7 +489,7 @@ void hdmirx_phy_pix_engine_reset(state_struct *state)
 					       &regresp);
 	CDN_API_General_Write_Register_blocking(state, ADDR_SINK_CAR +
 						(SINK_MHL_HD_CAR << 2),
-						regresp.val & 0x3F);
+						regresp.val & 0x3D);
 	CDN_API_General_Write_Register_blocking(state, ADDR_SINK_CAR +
 						(SINK_MHL_HD_CAR << 2),
 						regresp.val);
