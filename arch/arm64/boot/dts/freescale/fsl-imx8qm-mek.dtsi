@@ -604,15 +604,19 @@
 			>;
 		};
 
-		pinctrl_gpio1: mipi_csi_en_rst{
+		pinctrl_mipi_csi0_en_rst: mipi_csi0_en_rst {
 			fsl,pins = <
 				SC_P_MIPI_CSI0_GPIO0_00_LSIO_GPIO1_IO27		0x00000021
 				SC_P_MIPI_CSI0_GPIO0_01_LSIO_GPIO1_IO28		0x00000021
-				SC_P_MIPI_CSI1_GPIO0_00_LSIO_GPIO1_IO30		0x00000021
-				SC_P_MIPI_CSI1_GPIO0_01_LSIO_GPIO1_IO31		0x00000021
 			>;
-		};
+                };
 
+		pinctrl_mipi_csi1_en_rst: mipi_csi1_en_rst {
+			fsl,pins = <
+				SC_P_MIPI_CSI1_GPIO0_00_LSIO_GPIO1_IO30         0x00000021
+				SC_P_MIPI_CSI1_GPIO0_01_LSIO_GPIO1_IO31         0x00000021
+			>;
+                };
 	};
 };
 
@@ -1154,21 +1158,20 @@
 };
 
 &gpio1 {
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_gpio1>;
 	status = "okay";
 };
 
 &i2c0_mipi_csi0 {
 	#address-cells = <1>;
 	#size-cells = <0>;
-	pinctrl-names = "default";
 	clock-frequency = <100000>;
 	status = "okay";
 
 	max9286_mipi@6A	 {
 		compatible = "maxim,max9286_mipi";
 		reg = <0x6A>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_mipi_csi0_en_rst>;
 		clocks = <&clk IMX8QM_CLK_DUMMY>;
 		clock-names = "capture_mclk";
 		mclk = <27000000>;
@@ -1187,13 +1190,14 @@
 &i2c0_mipi_csi1 {
 	#address-cells = <1>;
 	#size-cells = <0>;
-	pinctrl-names = "default";
 	clock-frequency = <100000>;
 	status = "disabled";
 
 	max9286_mipi@6A	 {
 		compatible = "maxim,max9286_mipi";
 		reg = <0x6A>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_mipi_csi1_en_rst>;
 		clocks = <&clk IMX8QM_CLK_DUMMY>;
 		clock-names = "capture_mclk";
 		mclk = <27000000>;
