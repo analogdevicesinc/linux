@@ -233,14 +233,14 @@ int xaf_comp_create(struct xf_client *client, struct xf_proxy *proxy,
 		ret = xf_load_lib(client, p_handle, &p_comp->codec_wrap_lib);
 		if (ret) {
 			dev_err(dsp_priv->dev, "load codec wrap lib error\n");
-			return ret;
+			goto err_wrap_load;
 		}
 
 		/* ...load codec lib */
 		ret = xf_load_lib(client, p_handle, &p_comp->codec_lib);
 		if (ret) {
 			dev_err(dsp_priv->dev, "load codec lib error\n");
-			return ret;
+			goto err_codec_load;
 		}
 
 		/* ...allocate input buffer */
@@ -248,13 +248,24 @@ int xaf_comp_create(struct xf_client *client, struct xf_proxy *proxy,
 				    XF_POOL_INPUT, &p_comp->inpool);
 		if (ret) {
 			dev_err(dsp_priv->dev, "alloc input buf error\n");
-			return ret;
+			goto err_pool_alloc;
 		}
 
 		/* ...initialize input buffer pointer */
 		buf = xf_buffer_get(p_comp->inpool);
 		p_comp->inptr = xf_buffer_data(buf);
 	}
+
+	p_comp->active = true;
+
+	return ret;
+
+err_pool_alloc:
+	xf_unload_lib(client, p_handle, &p_comp->codec_lib);
+err_codec_load:
+	xf_unload_lib(client, p_handle, &p_comp->codec_wrap_lib);
+err_wrap_load:
+	xf_close(client, p_handle);
 
 	return ret;
 }
@@ -265,6 +276,12 @@ int xaf_comp_delete(struct xf_client *client, struct xaf_comp *p_comp)
 	struct xf_handle *p_handle;
 	bool   loadlib = true;
 	u32 ret = 0;
+
+	if (!p_comp->active)
+		return ret;
+
+	/* mark component as unusable from this point */
+	p_comp->active = false;
 
 	if (p_comp->comp_type == RENDER_ESAI)
 		loadlib = false;

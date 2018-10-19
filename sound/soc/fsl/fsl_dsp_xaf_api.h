@@ -45,6 +45,8 @@ struct xaf_comp {
 
 	struct lib_info codec_lib;
 	struct lib_info codec_wrap_lib;
+
+	int active; /* component fully initialized */
 };
 
 struct xaf_pipeline {
