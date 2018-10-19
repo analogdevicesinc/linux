@@ -238,6 +238,11 @@ struct buffer_addr {
 };
 
 enum {
+	VPU_ENC_STATUS_INITIALIZED,
+	VPU_ENC_STATUS_STOP_REQ = 25,
+	VPU_ENC_STATUS_STOP_SEND = 26,
+	VPU_ENC_STATUS_STOP_DONE = 27,
+	VPU_ENC_STATUS_CLOSED = 28,
 	VPU_ENC_STATUS_CONFIGURED = 29,
 	VPU_ENC_STATUS_HANG = 30,
 	VPU_ENC_STATUS_KEY_FRAME = 31
@@ -267,7 +272,6 @@ struct vpu_ctx {
 	struct work_struct instance_work;
 	struct workqueue_struct *instance_wq;
 	struct completion completion;
-	struct completion stop_cmp;
 	bool firmware_stopped;
 	bool ctx_released;
 	bool forceStop;

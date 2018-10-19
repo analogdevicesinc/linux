@@ -350,8 +350,6 @@ static void get_param_from_v4l2(pMEDIAIP_ENC_PARAM pEncParam,
 		struct vpu_ctx *ctx
 		)
 {
-	mutex_lock(&ctx->instance_mutex);
-
 	//get the param and update gpParameters
 	pEncParam->uSrcStride           = pix_mp->width;
 	pEncParam->uSrcWidth            = pix_mp->width;
@@ -362,8 +360,6 @@ static void get_param_from_v4l2(pMEDIAIP_ENC_PARAM pEncParam,
 	pEncParam->uSrcCropHeight       = pix_mp->height;
 	pEncParam->uOutWidth            = pix_mp->width;
 	pEncParam->uOutHeight           = pix_mp->height;
-
-	mutex_unlock(&ctx->instance_mutex);
 }
 
 static u32 cpu_phy_to_mu(struct core_device *dev, u32 addr)
@@ -549,6 +545,7 @@ static int v4l2_ioctl_s_fmt(struct file *file,
 	if (ret)
 		return ret;
 
+	mutex_lock(&ctx->instance_mutex);
 	switch (f->type) {
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE:
 		q_data = &ctx->q_data[V4L2_SRC];
@@ -563,6 +560,7 @@ static int v4l2_ioctl_s_fmt(struct file *file,
 		ret = -EINVAL;
 		break;
 	}
+	mutex_unlock(&ctx->instance_mutex);
 
 	return ret;
 }
@@ -939,23 +937,51 @@ static int v4l2_ioctl_g_crop(struct file *file,
 	return 0;
 }
 
+static void notify_eos(struct vpu_ctx *ctx)
+{
+	const struct v4l2_event ev = {
+		.type = V4L2_EVENT_EOS
+	};
+
+	if (!test_bit(VPU_ENC_STATUS_CLOSED, &ctx->status))
+		v4l2_event_queue_fh(&ctx->fh, &ev);
+}
+
+static int send_eos(struct vpu_ctx *ctx)
+{
+	if (!ctx)
+		return -EINVAL;
+
+	if (!test_bit(VPU_ENC_STATUS_CONFIGURED, &ctx->status)) {
+		notify_eos(ctx);
+		return 0;
+	} else if (!test_and_set_bit(VPU_ENC_STATUS_STOP_SEND, &ctx->status)) {
+		ctx->forceStop = true;
+		v4l2_vpu_send_cmd(ctx, ctx->str_index,
+					GTB_ENC_CMD_STREAM_STOP, 0, NULL);
+		wake_up_interruptible(&ctx->buffer_wq_input);
+		wake_up_interruptible(&ctx->buffer_wq_output);
+	}
+
+	return 0;
+}
+
 static int v4l2_ioctl_encoder_cmd(struct file *file,
 		void *fh,
 		struct v4l2_encoder_cmd *cmd
 		)
 {
 	struct vpu_ctx *ctx = v4l2_fh_to_ctx(fh);
-	u_int32 uStrIdx = ctx->str_index;
 	vpu_dbg(LVL_DEBUG, "%s()\n", __func__);
 
 	switch (cmd->cmd) {
 	case V4L2_ENC_CMD_START:
 		break;
 	case V4L2_ENC_CMD_STOP:
+		set_bit(VPU_ENC_STATUS_STOP_REQ, &ctx->status);
 		ctx->forceStop = true;
-		v4l2_vpu_send_cmd(ctx, uStrIdx, GTB_ENC_CMD_STREAM_STOP, 0, NULL);
-		wake_up_interruptible(&ctx->buffer_wq_input);
-		wake_up_interruptible(&ctx->buffer_wq_output);
+		if (test_and_clear_bit(VPU_ENC_STATUS_STOP_REQ, &ctx->status))
+			send_eos(ctx);
 		break;
 	case V4L2_ENC_CMD_PAUSE:
 		break;
@@ -987,7 +1013,6 @@ static int v4l2_ioctl_streamon(struct file *file,
 	ret = vb2_streamon(&q_data->vb2_q,
 			i);
 	ctx->forceStop = false;
-	ctx->firmware_stopped = false;
 	return ret;
 }
 
@@ -1009,17 +1034,8 @@ static int v4l2_ioctl_streamoff(struct file *file,
 	else
 		return -EINVAL;
 
-	if (test_and_clear_bit(VPU_ENC_STATUS_CONFIGURED, &ctx->status)) {
-		if (!ctx->forceStop) {
-			ctx->forceStop = true;
-			v4l2_vpu_send_cmd(ctx, ctx->str_index, GTB_ENC_CMD_STREAM_STOP, 0, NULL);
-			wake_up_interruptible(&ctx->buffer_wq_input);
-			wake_up_interruptible(&ctx->buffer_wq_output);
-		}
+	send_eos(ctx);
 
-		if (!ctx->firmware_stopped)
-			wait_for_completion(&ctx->stop_cmp);
-	}
 	ret = vb2_streamoff(&q_data->vb2_q, i);
 	return ret;
 }
@@ -1810,14 +1826,9 @@ static void vpu_api_event_handler(struct vpu_ctx *ctx, u_int32 uStrIdx, u_int32 
 				);
 
 		} break;
-		case VID_API_ENC_EVENT_STOP_DONE: {
-		const struct v4l2_event ev = {
-			.type = V4L2_EVENT_EOS
-		};
-		ctx->firmware_stopped = true;
-		complete_all(&ctx->stop_cmp);
-		v4l2_event_queue_fh(&ctx->fh, &ev);
-		}
+		case VID_API_ENC_EVENT_STOP_DONE:
+			set_bit(VPU_ENC_STATUS_STOP_DONE, &ctx->status);
+			notify_eos(ctx);
 		break;
 		case VID_API_ENC_EVENT_FRAME_INPUT_DONE: {
 		if (update_yuv_addr(ctx, uStrIdx))
@@ -2250,11 +2261,8 @@ static void free_instance(struct vpu_ctx *ctx)
 	if (!ctx)
 		return;
 
-	if (ctx->dev && ctx->core_dev && ctx->str_index < VPU_MAX_NUM_STREAMS) {
-		mutex_lock(&ctx->dev->dev_mutex);
+	if (ctx->dev && ctx->core_dev && ctx->str_index < VPU_MAX_NUM_STREAMS)
 		ctx->core_dev->ctx[ctx->str_index] = NULL;
-		mutex_unlock(&ctx->dev->dev_mutex);
-	}
 	kfree(ctx);
 }
 
@@ -2267,7 +2275,6 @@ static int request_instanct(struct vpu_dev *dev, struct vpu_ctx *ctx)
 	if (!dev || !ctx)
 		return -EINVAL;
 
-	mutex_lock(&dev->dev_mutex);
 	for (idx = 0; idx < VPU_MAX_NUM_STREAMS; idx++) {
 		for (i = 0; i < dev->core_num; i++) {
 			if (!dev->core_dev[i].ctx[idx]) {
@@ -2282,7 +2289,6 @@ static int request_instanct(struct vpu_dev *dev, struct vpu_ctx *ctx)
 		if (found)
 			break;
 	}
-	mutex_unlock(&dev->dev_mutex);
 
 	if (!found) {
 		vpu_dbg(LVL_ERR, "cann't request any instance\n");
@@ -2302,10 +2308,8 @@ static int construct_vpu_ctx(struct vpu_ctx *ctx)
 
 	ctx->ctrl_inited = false;
 	init_completion(&ctx->completion);
-	init_completion(&ctx->stop_cmp);
 	mutex_init(&ctx->instance_mutex);
 	ctx->forceStop = false;
-	ctx->firmware_stopped = false;
 	ctx->ctx_released = false;
 	init_waitqueue_head(&ctx->buffer_wq_output);
 	init_waitqueue_head(&ctx->buffer_wq_input);
@@ -2356,6 +2360,7 @@ static int init_vpu_ctx_fh(struct vpu_ctx *ctx, struct vpu_dev *dev)
 
 	ctx->fh.ctrl_handler = &ctx->ctrl_handler;
 
+	clear_bit(VPU_ENC_STATUS_CLOSED, &ctx->status);
 	return 0;
 }
 
@@ -2364,6 +2369,7 @@ static void uninit_vpu_ctx_fh(struct vpu_ctx *ctx)
 	if (!ctx)
 		return;
 
+	set_bit(VPU_ENC_STATUS_CLOSED, &ctx->status);
 	v4l2_fh_del(&ctx->fh);
 	v4l2_fh_exit(&ctx->fh);
 }
@@ -2422,6 +2428,8 @@ static int init_vpu_ctx(struct vpu_ctx *ctx)
 		vpu_dbg(LVL_ERR, "alloc encoder stream buffer fail\n");
 		goto error;
 	}
+
+	set_bit(VPU_ENC_STATUS_INITIALIZED, &ctx->status);
 
 	return 0;
 error:
@@ -2581,6 +2589,51 @@ static int remove_instance_file(struct vpu_ctx *ctx)
 	return 0;
 }
 
+static int release_instance(struct vpu_ctx *ctx)
+{
+	struct vpu_dev *dev;
+
+	if (!ctx || !ctx->dev)
+		return -EINVAL;
+
+	if (!test_bit(VPU_ENC_STATUS_CLOSED, &ctx->status))
+		return 0;
+	if (test_bit(VPU_ENC_STATUS_CONFIGURED, &ctx->status) &&
+		!test_bit(VPU_ENC_STATUS_STOP_DONE, &ctx->status))
+		return -EINVAL;
+	if (test_bit(VPU_ENC_STATUS_HANG, &ctx->status))
+		return -EINVAL;
+
+	dev = ctx->dev;
+
+	uninit_vpu_ctx(ctx);
+	remove_instance_file(ctx);
+	vpu_enc_free_ctrls(ctx);
+	release_queue_data(ctx);
+	enc_mem_free(ctx);
+
+	pm_runtime_put_sync(dev->generic_dev);
+	free_instance(ctx);
+
+	return 0;
+}
+
+static int try_to_release_idle_instance(struct vpu_dev *dev)
+{
+	int i;
+	int j;
+
+	if (!dev)
+		return -EINVAL;
+
+	for (i = 0; i < dev->core_num; i++) {
+		for (j = 0; j < VPU_MAX_NUM_STREAMS; j++)
+			release_instance(dev->core_dev[i].ctx[j]);
+	}
+
+	return 0;
+}
+
 static int v4l2_open(struct file *filp)
 {
 	struct video_device *vdev = video_devdata(filp);
@@ -2590,7 +2643,10 @@ static int v4l2_open(struct file *filp)
 
 	vpu_dbg(LVL_DEBUG, "%s()\n", __func__);
 
+	mutex_lock(&dev->dev_mutex);
+	try_to_release_idle_instance(dev);
 	ctx = create_and_request_instance(dev);
+	mutex_unlock(&dev->dev_mutex);
 	if (!ctx) {
 		vpu_dbg(LVL_ERR, "failed to create encoder ctx\n");
 		return -ENOMEM;
@@ -2601,16 +2657,15 @@ static int v4l2_open(struct file *filp)
 	ret = init_vpu_ctx(ctx);
 	if (ret) {
 		vpu_dbg(LVL_ERR, "init vpu ctx fail\n");
-		goto err_alloc;
+		goto error;
 	}
 
 	init_queue_data(ctx);
-	init_vpu_ctx_fh(ctx, dev);
 	vpu_enc_setup_ctrls(ctx);
 
 	ret = download_vpu_firmware(dev, ctx->core_dev);
 	if (ret)
-		goto err_firmware_load;
+		goto error;
 
 	create_instance_file(ctx);
 	initialize_enc_param(ctx);
@@ -2618,52 +2673,28 @@ static int v4l2_open(struct file *filp)
 	ctx->pid = current->pid;
 	ctx->tgid = current->tgid;
 
+	init_vpu_ctx_fh(ctx, dev);
 	filp->private_data = &ctx->fh;
 
 	return 0;
 
-err_firmware_load:
-	vpu_enc_free_ctrls(ctx);
-	uninit_vpu_ctx_fh(ctx);
-	release_queue_data(ctx);
-	uninit_vpu_ctx(ctx);
-
-err_alloc:
-	pm_runtime_put_sync(dev->generic_dev);
-	free_instance(ctx);
+error:
+	mutex_lock(&dev->dev_mutex);
+	release_instance(ctx);
+	mutex_unlock(&dev->dev_mutex);
 	return ret;
 }
 
 static int v4l2_release(struct file *filp)
 {
-	struct video_device *vdev = video_devdata(filp);
-	struct vpu_dev *dev = video_get_drvdata(vdev);
 	struct vpu_ctx *ctx = v4l2_fh_to_ctx(filp->private_data);
 
 	vpu_dbg(LVL_DEBUG, "%s()\n", __func__);
 
-	if (!ctx->forceStop &&
-		test_bit(VPU_ENC_STATUS_CONFIGURED, &ctx->status)) {
-		//need send stop if app call release without calling of V4L2_ENC_CMD_STOP
-		ctx->forceStop = true;
-		v4l2_vpu_send_cmd(ctx, ctx->str_index, GTB_ENC_CMD_STREAM_STOP, 0, NULL);
-		wake_up_interruptible(&ctx->buffer_wq_input);
-		wake_up_interruptible(&ctx->buffer_wq_output);
-	}
+	send_eos(ctx);
 
-	if (!ctx->firmware_stopped &&
-		test_bit(VPU_ENC_STATUS_CONFIGURED, &ctx->status))
-		wait_for_completion(&ctx->stop_cmp);
-
-	uninit_vpu_ctx(ctx);
-	remove_instance_file(ctx);
-	vpu_enc_free_ctrls(ctx);
 	uninit_vpu_ctx_fh(ctx);
-	release_queue_data(ctx);
-	enc_mem_free(ctx);
-
-	pm_runtime_put_sync(dev->generic_dev);
-	free_instance(ctx);
+	filp->private_data = NULL;
 
 	return 0;
 }
