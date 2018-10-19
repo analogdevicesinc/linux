@@ -272,7 +272,6 @@ struct vpu_ctx {
 	struct work_struct instance_work;
 	struct workqueue_struct *instance_wq;
 	struct completion completion;
-	bool firmware_stopped;
 	bool ctx_released;
 	bool forceStop;
 	wait_queue_head_t buffer_wq_output;

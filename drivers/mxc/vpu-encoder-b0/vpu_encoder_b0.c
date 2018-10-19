@@ -214,7 +214,8 @@ static struct v4l2_fract vpu_fps_list[] = {
 	{1, 1},
 };
 
-static void v4l2_vpu_send_cmd(struct vpu_ctx *ctx, uint32_t idx, uint32_t cmdid, uint32_t cmdnum, uint32_t *local_cmddata);
+static void v4l2_vpu_send_cmd(struct vpu_ctx *ctx, uint32_t cmdid,
+				uint32_t cmdnum, uint32_t *local_cmddata);
 
 static void MU_sendMesgToFW(void __iomem *base, MSG_Type type, uint32_t value)
 {
@@ -956,12 +957,33 @@ static int send_eos(struct vpu_ctx *ctx)
 		notify_eos(ctx);
 		return 0;
 	} else if (!test_and_set_bit(VPU_ENC_STATUS_STOP_SEND, &ctx->status)) {
+		vpu_dbg(LVL_ALL, "stop stream\n");
 		ctx->forceStop = true;
-		v4l2_vpu_send_cmd(ctx, ctx->str_index,
-					GTB_ENC_CMD_STREAM_STOP, 0, NULL);
+		v4l2_vpu_send_cmd(ctx, GTB_ENC_CMD_STREAM_STOP, 0, NULL);
 		wake_up_interruptible(&ctx->buffer_wq_input);
 		wake_up_interruptible(&ctx->buffer_wq_output);
 	}
+
+	return 0;
+}
+
+static int response_stop_stream(struct vpu_ctx *ctx)
+{
+	struct queue_data *queue;
+
+	if (!ctx)
+		return -EINVAL;
+
+	queue = &ctx->q_data[V4L2_SRC];
+
+	if (!list_empty(&queue->drv_q))
+		return 0;
+
+	if (ctx->statistic.cmd[GTB_ENC_CMD_FRAME_ENCODE] !=
+		ctx->statistic.event[VID_API_ENC_EVENT_FRAME_INPUT_DONE])
+		return 0;
+	if (test_and_clear_bit(VPU_ENC_STATUS_STOP_REQ, &ctx->status))
+		send_eos(ctx);
 
 	return 0;
 }
@@ -979,9 +1001,7 @@ static int v4l2_ioctl_encoder_cmd(struct file *file,
 		break;
 	case V4L2_ENC_CMD_STOP:
 		set_bit(VPU_ENC_STATUS_STOP_REQ, &ctx->status);
-		ctx->forceStop = true;
-		if (test_and_clear_bit(VPU_ENC_STATUS_STOP_REQ, &ctx->status))
-			send_eos(ctx);
+		response_stop_stream(ctx);
 		break;
 	case V4L2_ENC_CMD_PAUSE:
 		break;
@@ -1067,11 +1087,14 @@ static const struct v4l2_ioctl_ops v4l2_encoder_ioctl_ops = {
 	.vidioc_streamoff               = v4l2_ioctl_streamoff,
 };
 
-static void v4l2_vpu_send_cmd(struct vpu_ctx *ctx, uint32_t idx, uint32_t cmdid, uint32_t cmdnum, uint32_t *local_cmddata)
+static void v4l2_vpu_send_cmd(struct vpu_ctx *ctx, uint32_t cmdid,
+				uint32_t cmdnum, uint32_t *local_cmddata)
 {
 
 	struct core_device  *dev = ctx->core_dev;
+	u32 idx;
 
+	idx = ctx->str_index;
 	vpu_log_cmd(cmdid, idx);
 	count_cmd(&ctx->statistic, cmdid);
 
@@ -1192,8 +1215,7 @@ static int configure_codec(struct vpu_ctx *ctx)
 
 	show_firmware_version(ctx->core_dev);
 	memcpy(&ctx->actual_param, ctx->enc_param, sizeof(ctx->actual_param));
-	v4l2_vpu_send_cmd(ctx, ctx->str_index,
-			GTB_ENC_CMD_CONFIGURE_CODEC, 0, NULL);
+	v4l2_vpu_send_cmd(ctx, GTB_ENC_CMD_CONFIGURE_CODEC, 0, NULL);
 	vpu_dbg(LVL_INFO, "send command GTB_ENC_CMD_CONFIGURE_CODEC\n");
 
 	show_codec_configure(ctx);
@@ -1238,7 +1260,7 @@ static void v4l2_transfer_buffer_to_firmware(struct queue_data *This,
 	mutex_unlock(&ctx->instance_mutex);
 }
 
-static bool update_yuv_addr(struct vpu_ctx *ctx, u_int32 uStrIdx)
+static bool update_yuv_addr(struct vpu_ctx *ctx)
 {
 	bool bGotAFrame = FALSE;
 
@@ -1252,7 +1274,7 @@ static bool update_yuv_addr(struct vpu_ctx *ctx, u_int32 uStrIdx)
 
 	while (1) {
 		if (!wait_event_interruptible_timeout(ctx->buffer_wq_input,
-				(!list_empty(&This->drv_q)) || ctx->forceStop,
+				(!list_empty(&This->drv_q)),
 				msecs_to_jiffies(10))) {
 			if (!ctx->forceStop)
 				vpu_dbg(LVL_DEBUG, " warn: yuv wait_event_interruptible_timeout wait 10ms timeout\n");
@@ -1262,8 +1284,6 @@ static bool update_yuv_addr(struct vpu_ctx *ctx, u_int32 uStrIdx)
 		else
 			break;
 	}
-	if (ctx->forceStop)
-		return false;
 
 	down(&This->drv_q_lock);
 	if (!list_empty(&This->drv_q)) {
@@ -1504,7 +1524,8 @@ static void report_stream_done(struct vpu_ctx *ctx,  MEDIAIP_ENC_PIC_INFO *pEncP
 			break;
 		}
 		strip_stuff_data_on_tail(p_data_req->vb2_buf);
-		vb2_buffer_done(p_data_req->vb2_buf, VB2_BUF_STATE_DONE);
+		if (p_data_req->vb2_buf->state == VB2_BUF_STATE_ACTIVE)
+			vb2_buffer_done(p_data_req->vb2_buf, VB2_BUF_STATE_DONE);
 	}
 	vpu_dbg(LVL_DEBUG, "report_buffer_done return\n");
 }
@@ -1697,6 +1718,13 @@ static int enc_mem_alloc(struct vpu_ctx *ctx,
 	if (!ctx || !ctx->core_dev || !req_data)
 		return -EINVAL;
 
+	vpu_dbg(LVL_INFO, "encFrame:%d,%d; refFrame:%d,%d; actFrame:%d\n",
+			req_data->uEncFrmSize,
+			req_data->uEncFrmNum,
+			req_data->uRefFrmSize,
+			req_data->uRefFrmNum,
+			req_data->uActBufSize);
+
 	ctx->enc_buffer.size = calc_enc_mem_size(req_data);
 	ret = alloc_dma_buffer(ctx->dev, &ctx->enc_buffer);
 	if (ret) {
@@ -1771,77 +1799,125 @@ static int enc_mem_free(struct vpu_ctx *ctx)
 	return 0;
 }
 
-static void vpu_api_event_handler(struct vpu_ctx *ctx, u_int32 uStrIdx, u_int32 uEvent, u_int32 *event_data)
+static int submit_input_and_encode(struct vpu_ctx *ctx)
+{
+	if (!ctx)
+		return -EINVAL;
+
+	response_stop_stream(ctx);
+
+	if (update_yuv_addr(ctx))
+		v4l2_vpu_send_cmd(ctx, GTB_ENC_CMD_FRAME_ENCODE, 0, NULL);
+
+	return 0;
+}
+
+static int handle_event_frame_done(struct vpu_ctx *ctx,
+				MEDIAIP_ENC_PIC_INFO *pEncPicInfo)
+{
+	if (!ctx || !pEncPicInfo)
+		return -EINVAL;
+
+	vpu_dbg(LVL_DEBUG, "pEncPicInfo->uPicEncodDone=%d\n",
+			pEncPicInfo->uPicEncodDone);
+
+	if (!pEncPicInfo->uPicEncodDone) {
+		vpu_err("Pic Encoder Not Done\n");
+		return -EINVAL;
+	}
+#ifdef TB_REC_DBG
+	vpu_dbg(LVL_DEBUG, "       - Frame ID      : 0x%x\n",
+			pEncPicInfo->uFrameID);
+
+	switch (pEncPicInfo->ePicType) {
+	case MEDIAIP_ENC_PIC_TYPE_IDR_FRAME:
+		vpu_dbg(LVL_DEBUG, "       - Picture Type  : IDR picture\n");
+		break;
+	case MEDIAIP_ENC_PIC_TYPE_I_FRAME:
+		vpu_dbg(LVL_DEBUG, "       - Picture Type  : I picture\n");
+		break;
+	case MEDIAIP_ENC_PIC_TYPE_P_FRAME:
+		vpu_dbg(LVL_DEBUG, "       - Picture Type  : P picture\n");
+		break;
+	case MEDIAIP_ENC_PIC_TYPE_B_FRAME:
+		vpu_dbg(LVL_DEBUG, "       - Picture Type  : B picture\n");
+		break;
+	default:
+		vpu_dbg(LVL_DEBUG, "       - Picture Type  : BI picture\n");
+		break;
+	}
+	vpu_dbg(LVL_DEBUG, "       - Skipped frame : 0x%x\n",
+			pEncPicInfo->uSkippedFrame);
+	vpu_dbg(LVL_DEBUG, "       - Frame size    : 0x%x\n",
+			pEncPicInfo->uFrameSize);
+	vpu_dbg(LVL_DEBUG, "       - Frame CRC     : 0x%x\n",
+			pEncPicInfo->uFrameCrc);
+#endif
+
+	/* Sync the write pointer to the local view of it */
+	report_stream_done(ctx, pEncPicInfo);
+
+	return 0;
+}
+
+static int handle_event_frame_release(struct vpu_ctx *ctx, u_int32 *uFrameID)
+{
+	struct queue_data *This = &ctx->q_data[V4L2_SRC];
+	struct vb2_data_req *p_data_req;
+
+	if (!ctx || !uFrameID)
+		return -EINVAL;
+
+	This = &ctx->q_data[V4L2_SRC];
+	vpu_dbg(LVL_DEBUG, "Frame release - uFrameID = 0x%x\n", *uFrameID);
+	p_data_req = &This->vb2_reqs[*uFrameID];
+	if (p_data_req->vb2_buf->state == VB2_BUF_STATE_ACTIVE)
+		vb2_buffer_done(p_data_req->vb2_buf, VB2_BUF_STATE_DONE);
+
+	return 0;
+}
+
+static void vpu_api_event_handler(struct vpu_ctx *ctx, u_int32 uStrIdx,
+				u_int32 uEvent, u_int32 *event_data)
 {
 	vpu_log_event(uEvent, uStrIdx);
 	count_event(&ctx->statistic, uEvent);
 	check_enc_mem_overstep(ctx);
-	if (uStrIdx < VID_API_NUM_STREAMS) {
-		switch (uEvent) {
-		case VID_API_ENC_EVENT_START_DONE: {
-		if (update_yuv_addr(ctx, uStrIdx))
-			v4l2_vpu_send_cmd(ctx, uStrIdx, GTB_ENC_CMD_FRAME_ENCODE, 0, NULL);
-		} break;
-		case VID_API_ENC_EVENT_MEM_REQUEST: {
-			MEDIAIP_ENC_MEM_REQ_DATA *req_data = (MEDIAIP_ENC_MEM_REQ_DATA *)event_data;
-			vpu_dbg(LVL_INFO, "uEncFrmSize = %d, uEncFrmNum=%d, uRefFrmSize=%d, uRefFrmNum=%d, uActBufSize=%d\n", req_data->uEncFrmSize, req_data->uEncFrmNum, req_data->uRefFrmSize, req_data->uRefFrmNum, req_data->uActBufSize);
-			enc_mem_alloc(ctx, req_data);
-			//update_yuv_addr(ctx,0);
-			v4l2_vpu_send_cmd(ctx, uStrIdx, GTB_ENC_CMD_STREAM_START, 0, NULL);
-		} break;
-		case VID_API_ENC_EVENT_PARA_UPD_DONE:
+
+	if (uStrIdx >= VID_API_NUM_STREAMS)
+		return;
+
+	switch (uEvent) {
+	case VID_API_ENC_EVENT_START_DONE:
+		submit_input_and_encode(ctx);
 		break;
-		case VID_API_ENC_EVENT_FRAME_DONE: {
-		MEDIAIP_ENC_PIC_INFO *pEncPicInfo = (MEDIAIP_ENC_PIC_INFO *)event_data;
-
-		vpu_dbg(LVL_DEBUG, "VID_API_ENC_EVENT_FRAME_DONE pEncPicInfo->uPicEncodDone=%d: Encode picture done\n", pEncPicInfo->uPicEncodDone);
-		if (pEncPicInfo->uPicEncodDone) {
-#ifdef TB_REC_DBG
-		vpu_dbg(LVL_DEBUG, "       - Frame ID      : 0x%x\n", pEncPicInfo->uFrameID);
-
-		vpu_dbg(LVL_DEBUG, "       - Picture Type  : %s\n", pEncPicInfo->ePicType == MEDIAIP_ENC_PIC_TYPE_B_FRAME ? "B picture" :
-		pEncPicInfo->ePicType == MEDIAIP_ENC_PIC_TYPE_P_FRAME ? "P picture" :
-		pEncPicInfo->ePicType == MEDIAIP_ENC_PIC_TYPE_I_FRAME ? "I picture" :
-		pEncPicInfo->ePicType == MEDIAIP_ENC_PIC_TYPE_IDR_FRAME ? "IDR picture" : "BI picture");
-		vpu_dbg(LVL_DEBUG, "       - Skipped frame : 0x%x\n", pEncPicInfo->uSkippedFrame);
-		vpu_dbg(LVL_DEBUG, "       - Frame size    : 0x%x\n", pEncPicInfo->uFrameSize);
-		vpu_dbg(LVL_DEBUG, "       - Frame CRC     : 0x%x\n", pEncPicInfo->uFrameCrc);
-#endif
-
-		/* Sync the write pointer to the local view of it */
-
-		report_stream_done(ctx, pEncPicInfo);
-		}
-		} break;
-		case VID_API_ENC_EVENT_FRAME_RELEASE: {
-		struct queue_data *This = &ctx->q_data[V4L2_SRC];
-		u_int32 *uFrameID = (u_int32 *)event_data;
-		struct vb2_data_req *p_data_req;
-
-		vpu_dbg(LVL_DEBUG, "VID_API_ENC_EVENT_FRAME_RELEASE : Frame release - uFrameID = 0x%x\n", *uFrameID);
-		p_data_req = &This->vb2_reqs[*uFrameID];
-		if (p_data_req->vb2_buf->state == VB2_BUF_STATE_ACTIVE)
-			vb2_buffer_done(p_data_req->vb2_buf,
-					VB2_BUF_STATE_DONE
-				);
-
-		} break;
-		case VID_API_ENC_EVENT_STOP_DONE:
-			set_bit(VPU_ENC_STATUS_STOP_DONE, &ctx->status);
-			notify_eos(ctx);
+	case VID_API_ENC_EVENT_MEM_REQUEST:
+		enc_mem_alloc(ctx, (MEDIAIP_ENC_MEM_REQ_DATA *)event_data);
+		v4l2_vpu_send_cmd(ctx, GTB_ENC_CMD_STREAM_START, 0, NULL);
 		break;
-		case VID_API_ENC_EVENT_FRAME_INPUT_DONE: {
-		if (update_yuv_addr(ctx, uStrIdx))
-			v4l2_vpu_send_cmd(ctx, uStrIdx, GTB_ENC_CMD_FRAME_ENCODE, 0, NULL);
-		} break;
-		case VID_API_ENC_EVENT_TERMINATE_DONE:
+	case VID_API_ENC_EVENT_PARA_UPD_DONE:
 		break;
-		case VID_API_ENC_EVENT_RESET_DONE:
-			break;
-		default:
+	case VID_API_ENC_EVENT_FRAME_DONE:
+		handle_event_frame_done(ctx,
+					(MEDIAIP_ENC_PIC_INFO *)event_data);
+		break;
+	case VID_API_ENC_EVENT_FRAME_RELEASE:
+		handle_event_frame_release(ctx, (u_int32 *)event_data);
+		break;
+	case VID_API_ENC_EVENT_STOP_DONE:
+		set_bit(VPU_ENC_STATUS_STOP_DONE, &ctx->status);
+		notify_eos(ctx);
+		break;
+	case VID_API_ENC_EVENT_FRAME_INPUT_DONE:
+		submit_input_and_encode(ctx);
+		break;
+	case VID_API_ENC_EVENT_TERMINATE_DONE:
+		break;
+	case VID_API_ENC_EVENT_RESET_DONE:
+		break;
+	default:
 		vpu_dbg(LVL_ERR, "........unknown event : 0x%x\n", uEvent);
 		break;
-		}
 	}
 }
 
@@ -3204,7 +3280,7 @@ static void v4l2_vpu_send_snapshot(struct core_device *dev)
 	if (!ctx)
 		return;
 
-	v4l2_vpu_send_cmd(ctx, ctx->str_index, GTB_ENC_CMD_SNAPSHOT, 0, NULL);
+	v4l2_vpu_send_cmd(ctx, GTB_ENC_CMD_SNAPSHOT, 0, NULL);
 }
 
 static int vpu_snapshot(struct core_device *core_dev)
