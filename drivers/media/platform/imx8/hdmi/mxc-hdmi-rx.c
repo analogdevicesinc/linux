@@ -714,12 +714,15 @@ static void hpd5v_work_func(struct work_struct *work)
 								hpd5v_work.work);
 	char event_string[32];
 	char *envp[] = { event_string, NULL };
-	int hpd5v;
+	u8 sts;
+	u8 hpd;
 
 	/* Check cable states before enable irq */
-	hpd5v = hdmirx_check5v(&hdmi_rx->state);
-	if (hpd5v == 0) {
+	hdmirx_get_hpd_state(&hdmi_rx->state, &hpd);
+	if (hpd == 1) {
 		pr_info("HDMI RX Cable Plug In\n");
+
+		CDN_API_MainControl_blocking(&hdmi_rx->state, 1, &sts);
 		hdmirx_hotplug_trigger(&hdmi_rx->state);
 		hdmirx_startup(&hdmi_rx->state);
 		enable_irq(hdmi_rx->irq[HPD5V_IRQ_OUT]);
@@ -731,7 +734,7 @@ static void hpd5v_work_func(struct work_struct *work)
 			imx_cec_register(&hdmi_rx->cec);
 		}
 #endif
-	} else {
+	} else if (hpd == 0){
 		pr_info("HDMI RX Cable Plug Out\n");
 		hdmirx_stop(&hdmi_rx->state);
 #ifdef CONFIG_IMX_HDP_CEC
@@ -743,7 +746,10 @@ static void hpd5v_work_func(struct work_struct *work)
 		sprintf(event_string, "EVENT=hdmirxout");
 		kobject_uevent_env(&hdmi_rx->pdev->dev.kobj, KOBJ_CHANGE, envp);
 		enable_irq(hdmi_rx->irq[HPD5V_IRQ_IN]);
-	}
+		CDN_API_MainControl_blocking(&hdmi_rx->state, 0, &sts);
+	} else
+		pr_warn("HDMI RX Cable State unknow\n");
+
 }
 
 #define HOTPLUG_DEBOUNCE_MS		200
@@ -764,8 +770,8 @@ static int mxc_hdmi_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct mxc_hdmi_rx_dev *hdmi_rx;
 	struct resource *res;
+	u8 hpd;
 	int ret = 0;
-	int hpd5v;
 
 	dev_dbg(dev, "%s\n", __func__);
 	hdmi_rx = devm_kzalloc(dev, sizeof(*hdmi_rx), GFP_KERNEL);
@@ -856,7 +862,7 @@ static int mxc_hdmi_probe(struct platform_device *pdev)
 	}
 
 	/* Check cable states before enable irq */
-	hpd5v = hdmirx_check5v(&hdmi_rx->state);
+	hdmirx_get_hpd_state(&hdmi_rx->state, &hpd);
 
 	/* Enable Hotplug Detect IRQ thread */
 	if (hdmi_rx->irq[HPD5V_IRQ_IN] > 0) {
@@ -870,7 +876,7 @@ static int mxc_hdmi_probe(struct platform_device *pdev)
 			goto failed;
 		}
 		/* Cable Disconnedted, enable Plug in IRQ */
-		if (hpd5v < 0)
+		if (hpd == 0)
 			enable_irq(hdmi_rx->irq[HPD5V_IRQ_IN]);
 	}
 	if (hdmi_rx->irq[HPD5V_IRQ_OUT] > 0) {
@@ -883,14 +889,13 @@ static int mxc_hdmi_probe(struct platform_device *pdev)
 							hdmi_rx->irq[HPD5V_IRQ_OUT]);
 			goto failed;
 		}
-		if (hpd5v == 0) {
+		if (hpd == 1) {
 			hdmirx_hotplug_trigger(&hdmi_rx->state);
 			hdmirx_startup(&hdmi_rx->state);
 			/* Cable Connected, enable Plug out IRQ */
 			enable_irq(hdmi_rx->irq[HPD5V_IRQ_OUT]);
 		}
 	}
-
 
 	mxc_hdmi_rx_register_audio_driver(dev);
 

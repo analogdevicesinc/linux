@@ -324,28 +324,9 @@ int hdmirx_init(state_struct *state)
 	return ret;
 }
 
-int hdmirx_check5v(state_struct *state)
+int hdmirx_get_hpd_state(state_struct *state, u8 *hpd)
 {
-	struct mxc_hdmi_rx_dev *hdmi_rx = state_to_mxc_hdmirx(state);
-	u8 event5V = 0;
-	u32 i;
-
-	/* check for 5v to get hdmi cable state */
-	CDN_API_HDMIRX_ReadEvent(state, &event5V);
-	for (i = 0; i < 5; i++) {
-		if (event5V & (1 << HDMI_RX_EVENT_5V_VAL)) {
-			dev_dbg(&hdmi_rx->pdev->dev, "HDMI 5V present\n");
-			break;
-		}
-		msleep(20);
-		CDN_API_HDMIRX_ReadEvent(state, &event5V);
-	}
-	if (i == 5) {
-		dev_dbg(&hdmi_rx->pdev->dev, "No HDMI 5V present!!!\n");
-		return -1;
-	}
-
-	return 0;
+	return CDN_API_General_GetHpdState_blocking(state, hpd);
 }
 
 void hdmirx_hotplug_trigger(state_struct *state)

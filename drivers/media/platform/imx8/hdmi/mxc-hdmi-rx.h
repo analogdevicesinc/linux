@@ -143,7 +143,7 @@ void hdmirx_hotplug_trigger(state_struct *state);
 void hdmirx_phy_pix_engine_reset(state_struct *state);
 int hdmirx_startup(state_struct *state);
 int hdmirx_init(state_struct *state);
-int hdmirx_check5v(state_struct *state);
+int hdmirx_get_hpd_state(state_struct *state, u8 *hpd);
 int mxc_hdmi_frame_timing(struct mxc_hdmi_rx_dev *hdmi_rx);
 void mxc_hdmi_rx_register_audio_driver(struct device *dev);
 void imx8qm_hdmi_phy_reset(state_struct *state, u8 reset);
