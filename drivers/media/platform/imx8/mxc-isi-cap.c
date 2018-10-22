@@ -873,6 +873,7 @@ static int mxc_isi_cap_s_fmt_mplane(struct file *file, void *priv,
 	struct mxc_isi_dev *mxc_isi = video_drvdata(file);
 	struct v4l2_pix_format_mplane *pix = &f->fmt.pix_mp;
 	struct mxc_isi_frame *dst_f = &mxc_isi->isi_cap.dst_f;
+	struct mxc_isi_frame *src_f = &mxc_isi->isi_cap.src_f;
 	struct mxc_isi_fmt *fmt;
 	int bpl;
 	int i;
@@ -946,6 +947,12 @@ static int mxc_isi_cap_s_fmt_mplane(struct file *file, void *priv,
 	set_frame_bounds(dst_f, pix->width, pix->height);
 
 	mxc_isi_source_fmt_init(mxc_isi);
+
+	if ((dst_f->width  > src_f->width) ||
+		(dst_f->height > src_f->height)) {
+		dev_err(&mxc_isi->pdev->dev, "%s: Not support upscale\n", __func__);
+		return -EINVAL;
+	}
 
 	mxc_isi_channel_init(mxc_isi);
 	/* configure mxc isi channel */

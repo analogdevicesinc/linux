@@ -800,7 +800,16 @@ static int mxc_isi_m2m_streamon(struct file *file, void *priv,
 			     enum v4l2_buf_type type)
 {
 	struct mxc_isi_dev *mxc_isi = video_drvdata(file);
+	struct mxc_isi_frame *src_f, *dst_f;
 	int ret;
+
+	src_f = &mxc_isi->m2m.src_f;
+	dst_f = &mxc_isi->m2m.dst_f;
+	if ((dst_f->width  > src_f->width) ||
+		(dst_f->height > src_f->height)) {
+		dev_err(&mxc_isi->pdev->dev, "%s Not support upscale\n", __func__);
+		return -EINVAL;
+	}
 
 	if (type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
 		mxc_isi->m2m.frame_count = 0;
