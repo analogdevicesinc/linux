@@ -633,6 +633,11 @@ static int mxc_isi_capture_open(struct file *file)
 
 	dev_dbg(&mxc_isi->pdev->dev, "%s, ISI%d\n", __func__, mxc_isi->id);
 
+	if (mxc_isi->is_m2m) {
+		v4l2_err(mxc_isi->v4l2_dev, "%s: ISI channel[%d] is busy\n",
+					__func__, mxc_isi->id);
+		return -EBUSY;
+	}
 	atomic_inc(&mxc_isi->open_count);
 	mxc_isi->is_m2m = 0;
 

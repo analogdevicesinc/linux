@@ -396,6 +396,11 @@ static int mxc_isi_m2m_open(struct file *file)
 
 	dev_dbg(dev, "%s, ISI%d\n", __func__, mxc_isi->id);
 
+	if (atomic_read(&mxc_isi->open_count) > 0) {
+		dev_err(dev, "%s: ISI channel[%d] is busy\n", __func__, mxc_isi->id);
+		return -EBUSY;
+	}
+
 	if (mutex_lock_interruptible(&mxc_isi->lock))
 		return -ERESTARTSYS;
 	mxc_ctx = kzalloc(sizeof(*mxc_ctx), GFP_KERNEL);
