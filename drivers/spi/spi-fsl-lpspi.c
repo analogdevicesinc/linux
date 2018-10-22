@@ -62,9 +62,11 @@
 #define CR_RST		BIT(1)
 #define CR_MEN		BIT(0)
 #define SR_TCF		BIT(10)
+#define SR_FCF		BIT(9)
 #define SR_RDF		BIT(1)
 #define SR_TDF		BIT(0)
 #define IER_TCIE	BIT(10)
+#define IER_FCIE	BIT(9)
 #define IER_RDIE	BIT(1)
 #define IER_TDIE	BIT(0)
 #define CFGR1_PCSCFG	BIT(27)
@@ -183,38 +185,30 @@ static int lpspi_unprepare_xfer_hardware(struct spi_controller *controller)
 	return 0;
 }
 
-static int fsl_lpspi_txfifo_empty(struct fsl_lpspi_data *fsl_lpspi)
-{
-	u32 txcnt;
-	unsigned long orig_jiffies = jiffies;
-
-	do {
-		txcnt = readl(fsl_lpspi->base + IMX7ULP_FSR) & 0xff;
-
-		if (time_after(jiffies, orig_jiffies + msecs_to_jiffies(500))) {
-			dev_dbg(fsl_lpspi->dev, "txfifo empty timeout\n");
-			return -ETIMEDOUT;
-		}
-		cond_resched();
-
-	} while (txcnt);
-
-	return 0;
-}
-
 static void fsl_lpspi_write_tx_fifo(struct fsl_lpspi_data *fsl_lpspi)
 {
 	u8 txfifo_cnt;
+	u32 temp;
 
 	txfifo_cnt = readl(fsl_lpspi->base + IMX7ULP_FSR) & 0xff;
 
-	while (txfifo_cnt < fsl_lpspi->watermark) {
-		if (fsl_lpspi->remain == 0)
-			writel(0, fsl_lpspi->base + IMX7ULP_TDR);
-		else
-			fsl_lpspi->tx(fsl_lpspi);
+	while (txfifo_cnt < fsl_lpspi->txfifosize) {
+		if (!fsl_lpspi->remain)
+			break;
+		fsl_lpspi->tx(fsl_lpspi);
 		txfifo_cnt++;
 	}
+
+	if (txfifo_cnt < fsl_lpspi->txfifosize) {
+		if (!fsl_lpspi->is_slave) {
+			temp = readl(fsl_lpspi->base + IMX7ULP_TCR);
+			temp &= ~TCR_CONTC;
+			writel(temp, fsl_lpspi->base + IMX7ULP_TCR);
+		}
+
+		fsl_lpspi_intctrl(fsl_lpspi, IER_FCIE);
+	} else
+		fsl_lpspi_intctrl(fsl_lpspi, IER_TDIE);
 }
 
 static void fsl_lpspi_read_rx_fifo(struct fsl_lpspi_data *fsl_lpspi)
@@ -419,17 +413,10 @@ static int fsl_lpspi_transfer_one(struct spi_controller *controller,
 	fsl_lpspi->slave_aborted = false;
 
 	fsl_lpspi_write_tx_fifo(fsl_lpspi);
-	fsl_lpspi_intctrl(fsl_lpspi, IER_TDIE);
 
 	ret = fsl_lpspi_wait_for_completion(controller);
 	if (ret)
 		return ret;
-
-	ret = fsl_lpspi_txfifo_empty(fsl_lpspi);
-	if (ret)
-		return ret;
-
-	fsl_lpspi_read_rx_fifo(fsl_lpspi);
 
 	fsl_lpspi_reset(fsl_lpspi);
 
@@ -444,7 +431,6 @@ static int fsl_lpspi_transfer_one_msg(struct spi_controller *controller,
 	struct spi_device *spi = msg->spi;
 	struct spi_transfer *xfer;
 	bool is_first_xfer = true;
-	u32 temp;
 	int ret = 0;
 
 	msg->status = 0;
@@ -464,13 +450,6 @@ static int fsl_lpspi_transfer_one_msg(struct spi_controller *controller,
 	}
 
 complete:
-	if (!fsl_lpspi->is_slave) {
-		/* de-assert SS, then finalize current message */
-		temp = readl(fsl_lpspi->base + IMX7ULP_TCR);
-		temp &= ~TCR_CONTC;
-		writel(temp, fsl_lpspi->base + IMX7ULP_TCR);
-	}
-
 	msg->status = ret;
 	spi_finalize_current_message(controller);
 
@@ -479,21 +458,23 @@ complete:
 
 static irqreturn_t fsl_lpspi_isr(int irq, void *dev_id)
 {
+	u32 temp_SR, temp_IER;
 	struct fsl_lpspi_data *fsl_lpspi = dev_id;
-	u32 temp;
 
+	temp_IER = readl(fsl_lpspi->base + IMX7ULP_IER);
 	fsl_lpspi_intctrl(fsl_lpspi, 0);
+	temp_SR = readl(fsl_lpspi->base + IMX7ULP_SR);
+
 	fsl_lpspi_read_rx_fifo(fsl_lpspi);
-	temp = readl(fsl_lpspi->base + IMX7ULP_SR);
 
-	if (temp & SR_TDF) {
+	if ((temp_SR & SR_TDF) && (temp_IER & IER_TDIE)) {
 		fsl_lpspi_write_tx_fifo(fsl_lpspi);
+		return IRQ_HANDLED;
+	}
 
-		if (fsl_lpspi->remain != 0)
-			fsl_lpspi_intctrl(fsl_lpspi, IER_TDIE);
-		else
-			complete(&fsl_lpspi->xfer_done);
-
+	if (temp_SR & SR_FCF && (temp_IER & IER_FCIE)) {
+		writel(SR_FCF, fsl_lpspi->base + IMX7ULP_SR);
+		complete(&fsl_lpspi->xfer_done);
 		return IRQ_HANDLED;
 	}
 
