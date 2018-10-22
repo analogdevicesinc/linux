@@ -67,6 +67,10 @@
 	status = "disabled";
 };
 
+&flexspi0 {
+	status = "disabled";
+};
+
 &rpmsg1{
 	/*
 	 * 64K for one rpmsg instance, using 2 instance

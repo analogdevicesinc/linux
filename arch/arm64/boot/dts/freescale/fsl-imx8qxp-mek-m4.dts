@@ -102,3 +102,7 @@
 &flexcan2 {
 	status = "disabled";
 };
+
+&flexspi0 {
+	status = "disabled";
+};
