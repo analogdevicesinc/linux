@@ -153,6 +153,8 @@ enum vpu_pixel_format {
 	VPU_PF_TILED_10BPP = 0x00100000 | VPU_IS_TILED | VPU_IS_SEMIPLANAR | VPU_HAS_10BPP,
 };
 
+struct vpu_ctx;
+struct vpu_dev;
 struct vpu_v4l2_fmt {
 	char *name;
 	unsigned int fourcc;
@@ -166,6 +168,11 @@ struct vb2_data_req {
 	struct vb2_buffer *vb2_buf;
 	int id;
 	u_int32 buffer_flags;
+};
+
+enum ENC_RW_FLAG {
+	VPU_ENC_FLAG_WRITEABLE,
+	VPU_ENC_FLAG_READABLE
 };
 
 struct queue_data {
@@ -186,9 +193,10 @@ struct queue_data {
 	struct vpu_v4l2_fmt *supported_fmts;
 	unsigned int fmt_count;
 	struct vpu_v4l2_fmt *current_fmt;
+	unsigned long rw_flag;
+	struct list_head frame_q;
+	struct vpu_ctx *ctx;
 };
-struct vpu_ctx;
-struct vpu_dev;
 struct core_device {
 	struct firmware *m0_pfw;
 	void *m0_p_fw_space_vir;
@@ -259,6 +267,7 @@ struct vpu_statistic {
 	struct timespec ts_cmd;
 	struct timespec ts_event;
 	unsigned long yuv_count;
+	unsigned long encoded_count;
 	unsigned long h264_count;
 };
 
@@ -278,9 +287,6 @@ struct vpu_ctx {
 	struct workqueue_struct *instance_wq;
 	struct completion completion;
 	bool ctx_released;
-	bool forceStop;
-	wait_queue_head_t buffer_wq_output;
-	wait_queue_head_t buffer_wq_input;
 	struct buffer_addr encoder_stream;
 	struct buffer_addr encoder_mem;
 	struct buffer_addr encFrame[MEDIAIP_MAX_NUM_WINDSOR_SRC_FRAMES];
