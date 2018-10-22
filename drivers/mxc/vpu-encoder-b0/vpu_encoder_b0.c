@@ -1256,6 +1256,8 @@ static void v4l2_transfer_buffer_to_firmware(struct queue_data *This,
 	if (!test_and_set_bit(VPU_ENC_STATUS_CONFIGURED, &ctx->status)) {
 		configure_codec(ctx);
 		dump_vb2_data(vb);
+		clear_bit(VPU_ENC_STATUS_STOP_SEND, &ctx->status);
+		clear_bit(VPU_ENC_STATUS_STOP_DONE, &ctx->status);
 	}
 	mutex_unlock(&ctx->instance_mutex);
 }
@@ -3261,10 +3263,22 @@ static struct vpu_ctx *first_available_instance(struct core_device *core_dev)
 	int idx;
 
 	for (idx = 0; idx < VPU_MAX_NUM_STREAMS; idx++) {
-		if (!core_dev->ctx[idx])
+		struct vpu_ctx *ctx = core_dev->ctx[idx];
+
+		if (!ctx)
 			continue;
-		if (!test_bit(VPU_ENC_STATUS_HANG, &core_dev->ctx[idx]->status))
-			return core_dev->ctx[idx];
+		if (!test_bit(VPU_ENC_STATUS_INITIALIZED, &ctx->status))
+			continue;
+		if (!test_bit(VPU_ENC_STATUS_CONFIGURED, &ctx->status))
+			continue;
+		if (test_bit(VPU_ENC_STATUS_CLOSED, &ctx->status))
+			continue;
+		if (test_bit(VPU_ENC_STATUS_STOP_SEND, &ctx->status))
+			continue;
+		if (test_bit(VPU_ENC_STATUS_STOP_DONE, &ctx->status))
+			continue;
+
+		return ctx;
 	}
 
 	return NULL;
