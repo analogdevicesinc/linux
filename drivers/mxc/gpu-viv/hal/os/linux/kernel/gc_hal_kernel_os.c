@@ -1345,9 +1345,6 @@ gckOS_AllocateNonPagedMemory(
 
     gcmkONERROR(allocator->ops->MapKernel(allocator, mdl, &addr));
 
-    /* Trigger a page fault. */
-    memset(addr, 0, numPages * PAGE_SIZE);
-
     mdl->addr = addr;
 
     if (InUserSpace)

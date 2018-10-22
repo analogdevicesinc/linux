@@ -926,6 +926,12 @@ _GFPMapKernel(
 
     addr = vmap(pages, numPages, 0, pgprot_writecombine(PAGE_KERNEL));
 
+    /* Trigger a page fault. */
+    for (i = 0; i < numPages; i++)
+    {
+        *(gctINT *)(addr + PAGE_SIZE * i) = 0;
+    }
+
     if (free)
     {
         kfree(pages);
