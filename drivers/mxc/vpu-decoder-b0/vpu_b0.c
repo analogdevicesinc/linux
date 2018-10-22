@@ -148,6 +148,20 @@ static char *bufstat[] = {
 	"FRAME_RELEASE",
 };
 
+static char *get_event_str(u32 event)
+{
+	if (event >= ARRAY_SIZE(event2str))
+		return "UNKNOWN EVENT";
+	return event2str[event];
+}
+
+static char *get_cmd_str(u32 cmdid)
+{
+	if (cmdid >= ARRAY_SIZE(cmd2str))
+		return "UNKNOWN CMD";
+	return cmd2str[cmdid];
+}
+
 static void vpu_log_event(u_int32 uEvent, u_int32 ctxid)
 {
 	if (uEvent > ARRAY_SIZE(event2str)-1)
@@ -176,6 +190,32 @@ static void vpu_log_buffer_state(struct vpu_ctx *ctx)
 	}
 }
 
+static void count_event(struct vpu_statistic *statistic, u32 event)
+{
+	if (!statistic)
+		return;
+
+	if (event < ARRAY_SIZE(event2str))
+		statistic->event[event]++;
+	else
+		statistic->event[VID_API_EVENT_DEC_CFG_INFO + 1]++;
+
+	statistic->current_event = event;
+	getrawmonotonic(&statistic->ts_event);
+}
+
+static void count_cmd(struct vpu_statistic *statistic, u32 cmdid)
+{
+	if (!statistic)
+		return;
+
+	if (cmdid < ARRAY_SIZE(cmd2str))
+		statistic->cmd[cmdid]++;
+	else
+		statistic->cmd[VID_API_CMD_YUV_READY + 1]++;
+	statistic->current_cmd = cmdid;
+	getrawmonotonic(&statistic->ts_cmd);
+}
 static int find_buffer_id(struct vpu_ctx *ctx, u_int32 addr)
 {
 	struct vb2_data_req *p_data_req;
@@ -1232,6 +1272,7 @@ TB_API_DEC_FMT vpu_format_remap(uint32_t vdec_std)
 static void v4l2_vpu_send_cmd(struct vpu_ctx *ctx, uint32_t idx, uint32_t cmdid, uint32_t cmdnum, uint32_t *local_cmddata)
 {
 	vpu_log_cmd(cmdid, idx);
+	count_cmd(&ctx->statistic, cmdid);
 	mutex_lock(&ctx->dev->cmd_mutex);
 	rpc_send_cmd_buf(&ctx->dev->shared_mem, idx, cmdid, cmdnum, local_cmddata);
 	mutex_unlock(&ctx->dev->cmd_mutex);
@@ -1565,6 +1606,7 @@ static void vpu_api_event_handler(struct vpu_ctx *ctx, u_int32 uStrIdx, u_int32 
 	pDEC_RPC_HOST_IFACE pSharedInterface;
 
 	vpu_log_event(uEvent, uStrIdx);
+	count_event(&ctx->statistic, uEvent);
 
 	if (ctx == NULL) {
 		vpu_dbg(LVL_ERR, "receive event: 0x%X after instance released, ignore it\n", uEvent);
@@ -2373,6 +2415,162 @@ static int vpu_firmware_download(struct vpu_dev *This)
 	return ret;
 }
 
+static ssize_t show_instance_command_info(struct device *dev,
+			struct device_attribute *attr, char *buf)
+{
+	struct vpu_ctx *ctx;
+	struct vpu_statistic *statistic;
+	int i, size, num = 0;
+
+	ctx = container_of(attr, struct vpu_ctx, dev_attr_instance_command);
+	statistic = &ctx->statistic;
+
+	num += snprintf(buf + num, PAGE_SIZE - num, "command number:\n");
+	for (i = VID_API_CMD_NULL; i < VID_API_CMD_YUV_READY + 1; i++) {
+		size = snprintf(buf + num, PAGE_SIZE - num,
+				"\t%40s(%2d):%16ld\n",
+				cmd2str[i], i, statistic->cmd[i]);
+		num += size;
+	}
+
+	num += snprintf(buf + num, PAGE_SIZE - num, "\t%40s    :%16ld\n",
+			"UNKNOWN COMMAND", statistic->cmd[VID_API_CMD_YUV_READY + 1]);
+
+	num += snprintf(buf + num, PAGE_SIZE - num, "current command:\n");
+	num += snprintf(buf + num, PAGE_SIZE - num,
+			"%10s:%40s;%10ld.%06ld\n", "command",
+			get_cmd_str(statistic->current_cmd),
+			statistic->ts_cmd.tv_sec,
+			statistic->ts_cmd.tv_nsec / 1000);
+
+	return num;
+}
+
+static ssize_t show_instance_event_info(struct device *dev,
+			struct device_attribute *attr, char *buf)
+{
+	struct vpu_ctx *ctx;
+	struct vpu_statistic *statistic;
+	int i, size, num = 0;
+
+	ctx = container_of(attr, struct vpu_ctx, dev_attr_instance_event);
+	statistic = &ctx->statistic;
+
+	num += snprintf(buf + num, PAGE_SIZE - num, "event number:\n");
+	for (i = VID_API_EVENT_NULL; i < VID_API_EVENT_DEC_CFG_INFO + 1; i++) {
+		size = snprintf(buf + num, PAGE_SIZE - num,
+				"\t%40s(%2d):%16ld\n",
+				event2str[i], i, statistic->event[i]);
+		num += size;
+	}
+
+	num += snprintf(buf + num, PAGE_SIZE - num, "\t%40s    :%16ld\n",
+			"UNKNOWN EVENT",
+			statistic->event[VID_API_EVENT_DEC_CFG_INFO + 1]);
+
+	num += snprintf(buf + num, PAGE_SIZE - num, "current event:\n");
+	num += snprintf(buf + num, PAGE_SIZE - num,
+			"%10s:%40s;%10ld.%06ld\n", "event",
+			get_event_str(statistic->current_event),
+			statistic->ts_event.tv_sec,
+			statistic->ts_event.tv_nsec / 1000);
+
+	return num;
+}
+
+
+static ssize_t show_instance_buffer_info(struct device *dev,
+			struct device_attribute *attr, char *buf)
+{
+	struct vpu_ctx *ctx;
+	struct vpu_statistic *statistic;
+	struct vb2_data_req *p_data_req;
+	int i, size, num = 0;
+
+	ctx = container_of(attr, struct vpu_ctx, dev_attr_instance_buffer);
+	statistic = &ctx->statistic;
+
+	num += snprintf(buf + num, PAGE_SIZE - num, "buffer status:\n");
+
+	for (i = 0; i < VPU_MAX_BUFFER; i++) {
+		p_data_req = &ctx->q_data[V4L2_DST].vb2_reqs[i];
+		if (p_data_req->vb2_buf != NULL) {
+			size = snprintf(buf + num, PAGE_SIZE - num,
+					"\t%40s(%2d):%16s\n",
+					"buffer", i, bufstat[p_data_req->status]);
+			num += size;
+		}
+	}
+
+	return num;
+}
+
+static int create_instance_command_file(struct vpu_ctx *ctx)
+{
+	snprintf(ctx->command_name, sizeof(ctx->command_name) - 1,
+			"instance%d_command",
+			ctx->str_index);
+	ctx->dev_attr_instance_command.attr.name = ctx->command_name;
+	ctx->dev_attr_instance_command.attr.mode = VERIFY_OCTAL_PERMISSIONS(0444);
+	ctx->dev_attr_instance_command.show = show_instance_command_info;
+
+	device_create_file(ctx->dev->generic_dev, &ctx->dev_attr_instance_command);
+
+	return 0;
+}
+
+static int create_instance_event_file(struct vpu_ctx *ctx)
+{
+	snprintf(ctx->event_name, sizeof(ctx->event_name) - 1,
+			"instance%d_event",
+			ctx->str_index);
+	ctx->dev_attr_instance_event.attr.name = ctx->event_name;
+	ctx->dev_attr_instance_event.attr.mode = VERIFY_OCTAL_PERMISSIONS(0444);
+	ctx->dev_attr_instance_event.show = show_instance_event_info;
+
+	device_create_file(ctx->dev->generic_dev, &ctx->dev_attr_instance_event);
+
+	return 0;
+}
+
+static int create_instance_buffer_file(struct vpu_ctx *ctx)
+{
+	snprintf(ctx->buffer_name, sizeof(ctx->buffer_name) - 1,
+			"instance%d_buffer",
+			ctx->str_index);
+	ctx->dev_attr_instance_buffer.attr.name = ctx->buffer_name;
+	ctx->dev_attr_instance_buffer.attr.mode = VERIFY_OCTAL_PERMISSIONS(0444);
+	ctx->dev_attr_instance_buffer.show = show_instance_buffer_info;
+
+	device_create_file(ctx->dev->generic_dev, &ctx->dev_attr_instance_buffer);
+
+	return 0;
+}
+
+static int create_instance_file(struct vpu_ctx *ctx)
+{
+	if (!ctx || !ctx->dev || !ctx->dev->generic_dev)
+		return -EINVAL;
+
+	create_instance_command_file(ctx);
+	create_instance_event_file(ctx);
+	create_instance_buffer_file(ctx);
+
+	return 0;
+}
+
+static int remove_instance_file(struct vpu_ctx *ctx)
+{
+	if (!ctx || !ctx->dev || !ctx->dev->generic_dev)
+		return -EINVAL;
+
+	device_remove_file(ctx->dev->generic_dev, &ctx->dev_attr_instance_command);
+	device_remove_file(ctx->dev->generic_dev, &ctx->dev_attr_instance_event);
+	device_remove_file(ctx->dev->generic_dev, &ctx->dev_attr_instance_buffer);
+
+	return 0;
+}
+
 static int v4l2_open(struct file *filp)
 {
 	struct video_device *vdev = video_devdata(filp);
@@ -2458,7 +2656,7 @@ static int v4l2_open(struct file *filp)
 		dev->fw_is_ready = true;
 	}
 	mutex_unlock(&dev->dev_mutex);
-
+	create_instance_file(ctx);
 	rpc_set_stream_cfg_value(dev->shared_mem.pSharedInterface, ctx->str_index);
 
 	for (i = 0; i < MAX_DCP_NUM; i++) {
@@ -2569,7 +2767,7 @@ static int v4l2_release(struct file *filp)
 	ctrls_delete_decoder(ctx);
 	v4l2_fh_del(&ctx->fh);
 	v4l2_fh_exit(&ctx->fh);
-
+	remove_instance_file(ctx);
 	for (i = 0; i < MAX_DCP_NUM; i++)
 		if (ctx->dcp_dma_virt[i] != NULL)
 		dma_free_coherent(&ctx->dev->plat_dev->dev,

@@ -229,10 +229,26 @@ struct vpu_dev {
 	struct vpu_ctx *ctx[VPU_MAX_NUM_STREAMS];
 };
 
+struct vpu_statistic {
+	unsigned long cmd[VID_API_CMD_YUV_READY + 2];
+	unsigned long event[VID_API_EVENT_DEC_CFG_INFO + 2];
+	unsigned long current_cmd;
+	unsigned long current_event;
+	struct timespec ts_cmd;
+	struct timespec ts_event;
+};
+
 struct vpu_ctx {
 	struct vpu_dev *dev;
 	struct v4l2_fh fh;
 
+	struct vpu_statistic statistic;
+	struct device_attribute dev_attr_instance_command;
+	char command_name[64];
+	struct device_attribute dev_attr_instance_event;
+	char event_name[64];
+	struct device_attribute dev_attr_instance_buffer;
+	char buffer_name[64];
 	struct v4l2_ctrl *ctrls[V4L2_MAX_CTRLS];
 	struct v4l2_ctrl_handler ctrl_handler;
 	bool ctrl_inited;
