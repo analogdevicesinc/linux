@@ -239,6 +239,9 @@ struct buffer_addr {
 
 enum {
 	VPU_ENC_STATUS_INITIALIZED,
+	VPU_ENC_STATUS_EOS_SEND = 22,
+	VPU_ENC_STATUS_START_SEND = 23,
+	VPU_ENC_STATUS_START_DONE = 24,
 	VPU_ENC_STATUS_STOP_REQ = 25,
 	VPU_ENC_STATUS_STOP_SEND = 26,
 	VPU_ENC_STATUS_STOP_DONE = 27,
@@ -255,6 +258,8 @@ struct vpu_statistic {
 	unsigned long current_event;
 	struct timespec ts_cmd;
 	struct timespec ts_event;
+	unsigned long yuv_count;
+	unsigned long h264_count;
 };
 
 struct vpu_ctx {

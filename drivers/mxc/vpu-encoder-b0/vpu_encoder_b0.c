@@ -858,7 +858,40 @@ static int v4l2_ioctl_qbuf(struct file *file,
 	else
 		wake_up_interruptible(&ctx->buffer_wq_input);
 
+	if (!ret && buf->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
+		ctx->statistic.yuv_count++;
+
 	return ret;
+}
+
+static void notify_eos(struct vpu_ctx *ctx)
+{
+	const struct v4l2_event ev = {
+		.type = V4L2_EVENT_EOS
+	};
+
+	if (!test_and_set_bit(VPU_ENC_STATUS_EOS_SEND, &ctx->status) &&
+		!test_bit(VPU_ENC_STATUS_CLOSED, &ctx->status))
+		v4l2_event_queue_fh(&ctx->fh, &ev);
+}
+
+static int send_eos(struct vpu_ctx *ctx)
+{
+	if (!ctx)
+		return -EINVAL;
+
+	if (!test_bit(VPU_ENC_STATUS_START_SEND, &ctx->status)) {
+		notify_eos(ctx);
+		return 0;
+	} else if (!test_and_set_bit(VPU_ENC_STATUS_STOP_SEND, &ctx->status)) {
+		vpu_dbg(LVL_ALL, "stop stream\n");
+		ctx->forceStop = true;
+		v4l2_vpu_send_cmd(ctx, GTB_ENC_CMD_STREAM_STOP, 0, NULL);
+		wake_up_interruptible(&ctx->buffer_wq_input);
+		wake_up_interruptible(&ctx->buffer_wq_output);
+	}
+
+	return 0;
 }
 
 static int v4l2_ioctl_dqbuf(struct file *file,
@@ -881,8 +914,15 @@ static int v4l2_ioctl_dqbuf(struct file *file,
 
 	ret = vb2_dqbuf(&q_data->vb2_q, buf, file->f_flags & O_NONBLOCK);
 
-	if (buf->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE)
+	if (buf->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
+		if (!ret)
+			ctx->statistic.h264_count++;
 		buf->flags = q_data->vb2_reqs[buf->index].buffer_flags;
+
+		if (test_bit(VPU_ENC_STATUS_STOP_DONE, &ctx->status) &&
+			list_empty(&q_data->vb2_q.done_list))
+			buf->flags |= V4L2_BUF_FLAG_LAST;
+	}
 
 	return ret;
 }
@@ -934,35 +974,6 @@ static int v4l2_ioctl_g_crop(struct file *file,
 	cr->c.top = 0;
 	cr->c.width = 0;
 	cr->c.height = 0;
-
-	return 0;
-}
-
-static void notify_eos(struct vpu_ctx *ctx)
-{
-	const struct v4l2_event ev = {
-		.type = V4L2_EVENT_EOS
-	};
-
-	if (!test_bit(VPU_ENC_STATUS_CLOSED, &ctx->status))
-		v4l2_event_queue_fh(&ctx->fh, &ev);
-}
-
-static int send_eos(struct vpu_ctx *ctx)
-{
-	if (!ctx)
-		return -EINVAL;
-
-	if (!test_bit(VPU_ENC_STATUS_CONFIGURED, &ctx->status)) {
-		notify_eos(ctx);
-		return 0;
-	} else if (!test_and_set_bit(VPU_ENC_STATUS_STOP_SEND, &ctx->status)) {
-		vpu_dbg(LVL_ALL, "stop stream\n");
-		ctx->forceStop = true;
-		v4l2_vpu_send_cmd(ctx, GTB_ENC_CMD_STREAM_STOP, 0, NULL);
-		wake_up_interruptible(&ctx->buffer_wq_input);
-		wake_up_interruptible(&ctx->buffer_wq_output);
-	}
 
 	return 0;
 }
@@ -1033,6 +1044,13 @@ static int v4l2_ioctl_streamon(struct file *file,
 	ret = vb2_streamon(&q_data->vb2_q,
 			i);
 	ctx->forceStop = false;
+	if (i == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
+		clear_bit(VPU_ENC_STATUS_START_SEND, &ctx->status);
+		clear_bit(VPU_ENC_STATUS_START_DONE, &ctx->status);
+		clear_bit(VPU_ENC_STATUS_STOP_SEND, &ctx->status);
+		clear_bit(VPU_ENC_STATUS_STOP_DONE, &ctx->status);
+		clear_bit(VPU_ENC_STATUS_EOS_SEND, &ctx->status);
+	}
 	return ret;
 }
 
@@ -1256,8 +1274,6 @@ static void v4l2_transfer_buffer_to_firmware(struct queue_data *This,
 	if (!test_and_set_bit(VPU_ENC_STATUS_CONFIGURED, &ctx->status)) {
 		configure_codec(ctx);
 		dump_vb2_data(vb);
-		clear_bit(VPU_ENC_STATUS_STOP_SEND, &ctx->status);
-		clear_bit(VPU_ENC_STATUS_STOP_DONE, &ctx->status);
 	}
 	mutex_unlock(&ctx->instance_mutex);
 }
@@ -1891,11 +1907,13 @@ static void vpu_api_event_handler(struct vpu_ctx *ctx, u_int32 uStrIdx,
 
 	switch (uEvent) {
 	case VID_API_ENC_EVENT_START_DONE:
+		set_bit(VPU_ENC_STATUS_START_DONE, &ctx->status);
 		submit_input_and_encode(ctx);
 		break;
 	case VID_API_ENC_EVENT_MEM_REQUEST:
 		enc_mem_alloc(ctx, (MEDIAIP_ENC_MEM_REQ_DATA *)event_data);
 		v4l2_vpu_send_cmd(ctx, GTB_ENC_CMD_STREAM_START, 0, NULL);
+		set_bit(VPU_ENC_STATUS_START_SEND, &ctx->status);
 		break;
 	case VID_API_ENC_EVENT_PARA_UPD_DONE:
 		break;
@@ -2637,6 +2655,12 @@ static ssize_t show_instance_info(struct device *dev,
 			get_event_str(statistic->current_event),
 			statistic->ts_event.tv_sec,
 			statistic->ts_event.tv_nsec / 1000);
+
+	num += snprintf(buf + num, PAGE_SIZE - num,
+			"dbuf input yuv count:    %ld\n", statistic->yuv_count);
+	num += snprintf(buf + num, PAGE_SIZE - num,
+			"dqbuf output h264 count: %ld\n",
+			statistic->h264_count);
 
 	return num;
 }
