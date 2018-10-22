@@ -355,6 +355,11 @@ gckHARDWARE_ExitQueryClock(
     OUT gctUINT32 *ShClk
     );
 
+gceSTATUS
+gckHARDWARE_QueryFrequency(
+    IN gckHARDWARE Hardware
+    );
+
 #define gcmkWRITE_MEMORY(logical, data) \
     do { \
     gcmkVERIFY_OK(gckOS_WriteMemory(os, logical, data)); \

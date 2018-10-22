@@ -2097,6 +2097,13 @@ gckGALDEVICE_Stop_Threads(
     return gcvSTATUS_OK;
 }
 
+/*******************************************************************************
+**
+**  gckGALDEVICE_QueryFrequency
+**
+**  Query frequency for all the hardwares.
+**
+*/
 gceSTATUS
 gckGALDEVICE_QueryFrequency(
     IN gckGALDEVICE Device
@@ -2154,9 +2161,19 @@ gckGALDEVICE_QueryFrequency(
         }
 #endif
 
-        if (Device->kernels[i] && mcStart[i])
+        if (Device->kernels[i])
         {
             hardware = Device->kernels[i]->hardware;
+
+            if (mcStart[i])
+            {
+                gckHARDWARE_ExitQueryClock(hardware,
+                                           mcStart[i], shStart[i],
+                                           &mcClk[i], &shClk[i]);
+            }
+
+            hardware->mcClk = mcClk[i];
+            hardware->shClk = shClk[i];
 
             if (Device->args.powerManagement)
             {
@@ -2164,18 +2181,15 @@ gckGALDEVICE_QueryFrequency(
                     hardware, gcvTRUE
                     ));
             }
-
-            gckHARDWARE_ExitQueryClock(hardware,
-                                       mcStart[i], shStart[i],
-                                       &mcClk[i], &shClk[i]);
-
-            hardware->mcClk = mcClk[i];
-            hardware->shClk = shClk[i];
         }
     }
 
-OnError:
     gcmkFOOTER_NO();
+
+    return gcvSTATUS_OK;
+
+OnError:
+    gcmkFOOTER();
 
     return status;
 }
@@ -2213,8 +2227,6 @@ gckGALDEVICE_Start(
 
     /* Start the kernel thread. */
     gcmkONERROR(gckGALDEVICE_Start_Threads(Device));
-
-    gcmkONERROR(gckGALDEVICE_QueryFrequency(Device));
 
     for (i = 0; i < gcvCORE_COUNT; i++)
     {

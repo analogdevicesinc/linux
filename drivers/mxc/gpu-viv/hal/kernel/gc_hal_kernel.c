@@ -2331,6 +2331,9 @@ gckKERNEL_Dispatch(
 
     case gcvHAL_QUERY_CHIP_FREQUENCY:
         /* Query chip clock. */
+        gcmkONERROR(
+            gckHARDWARE_QueryFrequency(Kernel->hardware));
+
         Interface->u.QueryChipFrequency.mcClk = Kernel->hardware->mcClk;
         Interface->u.QueryChipFrequency.shClk = Kernel->hardware->shClk;
         break;
