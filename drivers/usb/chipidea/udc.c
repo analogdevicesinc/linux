@@ -2023,20 +2023,8 @@ int ci_usb_charger_connect(struct ci_hdrc *ci, int is_active)
 		usb_phy_set_charger_state(ci->usb_phy, is_active ?
 			USB_CHARGER_PRESENT : USB_CHARGER_ABSENT);
 	} else if (ci->platdata->notify_event) {
-		if (is_active)
-			hw_write(ci, OP_USBCMD, USBCMD_RS, 0);
-
 		ret = ci->platdata->notify_event(ci,
 				CI_HDRC_CONTROLLER_VBUS_EVENT);
-		if (ret == CI_HDRC_NOTIFY_RET_DEFER_EVENT) {
-			hw_device_reset(ci);
-			/* Pull up dp */
-			hw_write(ci, OP_USBCMD, USBCMD_RS, USBCMD_RS);
-			ci->platdata->notify_event(ci,
-				CI_HDRC_CONTROLLER_CHARGER_POST_EVENT);
-			/* Pull down dp */
-			hw_write(ci, OP_USBCMD, USBCMD_RS, 0);
-		}
 		schedule_work(&ci->usb_phy->chg_work);
 	}
 out:
