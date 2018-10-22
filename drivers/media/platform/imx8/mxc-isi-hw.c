@@ -691,6 +691,10 @@ void mxc_isi_m2m_channel_config(struct mxc_isi_dev *mxc_isi)
 			mxc_isi->m2m.alphaen << CHNL_IMG_CTRL_GBL_ALPHA_EN_OFFSET);
 	writel(reg, mxc_isi->regs + CHNL_IMG_CTRL);
 
+	/* scale size need to equal input size when scaling disabled*/
+	reg = src_f->o_width | (src_f->o_height << CHNL_IMG_CFG_HEIGHT_OFFSET);
+	writel(reg, mxc_isi->regs + CHNL_SCL_IMG_CFG);
+
 	/* CSC */
 	mxc_isi_channel_set_csc(mxc_isi);
 
