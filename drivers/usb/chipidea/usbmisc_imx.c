@@ -102,10 +102,19 @@
 #define VF610_OVER_CUR_DIS		BIT(7)
 
 #define MX7D_USBNC_USB_CTRL2		0x4
+/* The default DM/DP value is pull-down */
+#define MX7D_USBNC_USB_CTRL2_DM_OVERRIDE_EN		BIT(15)
+#define MX7D_USBNC_USB_CTRL2_DM_OVERRIDE_VAL		BIT(14)
+#define MX7D_USBNC_USB_CTRL2_DP_OVERRIDE_EN		BIT(13)
+#define MX7D_USBNC_USB_CTRL2_DP_OVERRIDE_VAL		BIT(12)
+#define MX7D_USBNC_USB_CTRL2_DP_DM_MASK			(BIT(12) | BIT(13) | \
+							BIT(14) | BIT(15))
 #define MX7D_USBNC_USB_CTRL2_OPMODE_OVERRIDE_EN		BIT(8)
 #define MX7D_USBNC_USB_CTRL2_OPMODE_OVERRIDE_MASK	(BIT(7) | BIT(6))
 #define MX7D_USBNC_USB_CTRL2_OPMODE(v)			(v << 6)
 #define MX7D_USBNC_USB_CTRL2_OPMODE_NON_DRIVING	MX7D_USBNC_USB_CTRL2_OPMODE(1)
+#define MX7D_USBNC_USB_CTRL2_TERMSEL_OVERRIDE_EN	BIT(5)
+#define MX7D_USBNC_USB_CTRL2_TERMSEL_OVERRIDE_VAL	BIT(4)
 #define MX7D_USBNC_HSIC_AUTO_RESUME	BIT(2)
 
 #define MX7D_USB_VBUS_WAKEUP_SOURCE_MASK	0x3
@@ -160,10 +169,8 @@ struct usbmisc_ops {
 	int (*post)(struct imx_usbmisc_data *data);
 	/* It's called when we need to enable/disable usb wakeup */
 	int (*set_wakeup)(struct imx_usbmisc_data *data, bool enabled);
-	/* usb charger contact and primary detection */
-	int (*charger_primary_detection)(struct imx_usbmisc_data *data);
-	/* usb charger secondary detection */
-	int (*charger_secondary_detection)(struct imx_usbmisc_data *data);
+	/* usb charger detection */
+	int (*charger_detection)(struct imx_usbmisc_data *data);
 	/* It's called when system resume from usb power lost */
 	int (*power_lost_check)(struct imx_usbmisc_data *data);
 	/* It's called before setting portsc.suspendM */
@@ -720,6 +727,37 @@ static int usbmisc_imx6sx_power_lost_check(struct imx_usbmisc_data *data)
 		return 0;
 }
 
+static int imx7d_charger_secondary_detection(struct imx_usbmisc_data *data)
+{
+	struct imx_usbmisc *usbmisc = dev_get_drvdata(data->dev);
+	struct usb_phy *usb_phy = data->usb_phy;
+	int val, bak_val;
+
+	/* Pull up DP */
+	val = readl(usbmisc->base + MX7D_USBNC_USB_CTRL2);
+	bak_val = val;
+	val &= ~MX7D_USBNC_USB_CTRL2_DP_DM_MASK;
+	val |= MX7D_USBNC_USB_CTRL2_DM_OVERRIDE_EN |
+		MX7D_USBNC_USB_CTRL2_DP_OVERRIDE_EN;
+	val |= MX7D_USBNC_USB_CTRL2_TERMSEL_OVERRIDE_EN |
+		MX7D_USBNC_USB_CTRL2_TERMSEL_OVERRIDE_VAL;
+	writel(val, usbmisc->base + MX7D_USBNC_USB_CTRL2);
+
+	msleep(80);
+
+	val = readl(usbmisc->base + MX7D_USB_OTG_PHY_STATUS);
+	if (val & MX7D_USB_OTG_PHY_STATUS_LINE_STATE1) {
+		dev_dbg(data->dev, "It is a dedicate charging port\n");
+		usb_phy->chg_type = DCP_TYPE;
+	} else {
+		dev_dbg(data->dev, "It is a charging downstream port\n");
+		usb_phy->chg_type = CDP_TYPE;
+	}
+	writel(bak_val, usbmisc->base + MX7D_USBNC_USB_CTRL2);
+
+	return 0;
+}
+
 static void imx7_disable_charger_detector(struct imx_usbmisc_data *data)
 {
 	struct imx_usbmisc *usbmisc = dev_get_drvdata(data->dev);
@@ -845,28 +883,19 @@ static int imx7d_charger_primary_detection(struct imx_usbmisc_data *data)
 	return 0;
 }
 
-/*
- * It must be called after dp is pulled up (from USB controller driver),
- * That is used to differentiate DCP and CDP
- */
-int imx7d_charger_secondary_detection(struct imx_usbmisc_data *data)
+static int imx7d_charger_detection(struct imx_usbmisc_data *data)
 {
-	struct imx_usbmisc *usbmisc = dev_get_drvdata(data->dev);
 	struct usb_phy *usb_phy = data->usb_phy;
-	int val;
+	int ret;
 
-	msleep(80);
+	ret = imx7d_charger_primary_detection(data);
+	if (ret)
+		return ret;
 
-	val = readl(usbmisc->base + MX7D_USB_OTG_PHY_STATUS);
-	if (val & MX7D_USB_OTG_PHY_STATUS_LINE_STATE1) {
-		dev_dbg(data->dev, "It is a dedicate charging port\n");
-		usb_phy->chg_type = DCP_TYPE;
-	} else {
-		dev_dbg(data->dev, "It is a charging downstream port\n");
-		usb_phy->chg_type = CDP_TYPE;
-	}
+	if (usb_phy->chg_type != SDP_TYPE)
+		ret = imx7d_charger_secondary_detection(data);
 
-	return 0;
+	return ret;
 }
 
 static int usbmisc_term_select_override(struct imx_usbmisc_data *data,
@@ -940,8 +969,7 @@ static const struct usbmisc_ops imx7d_usbmisc_ops = {
 	.init = usbmisc_imx7d_init,
 	.set_wakeup = usbmisc_imx7d_set_wakeup,
 	.power_lost_check = usbmisc_imx7d_power_lost_check,
-	.charger_primary_detection = imx7d_charger_primary_detection,
-	.charger_secondary_detection = imx7d_charger_secondary_detection,
+	.charger_detection = imx7d_charger_detection,
 	.term_select_override = usbmisc_term_select_override,
 	.hsic_set_connect = usbmisc_imx6_hsic_set_connect,
 	.hsic_set_clk   = usbmisc_imx6_hsic_set_clk,
@@ -1015,12 +1043,12 @@ int imx_usbmisc_charger_detection(struct imx_usbmisc_data *data, bool connect)
 
 	usbmisc = dev_get_drvdata(data->dev);
 	usb_phy = data->usb_phy;
-	if (!usbmisc->ops->charger_primary_detection)
+	if (!usbmisc->ops->charger_detection)
 		return -ENOTSUPP;
 
 	mutex_lock(&usbmisc->mutex);
 	if (connect) {
-		ret = usbmisc->ops->charger_primary_detection(data);
+		ret = usbmisc->ops->charger_detection(data);
 		if (ret) {
 			dev_err(data->dev,
 					"Error occurs during detection: %d\n",
@@ -1037,25 +1065,6 @@ int imx_usbmisc_charger_detection(struct imx_usbmisc_data *data, bool connect)
 	return ret;
 }
 EXPORT_SYMBOL_GPL(imx_usbmisc_charger_detection);
-
-int imx_usbmisc_charger_secondary_detection(struct imx_usbmisc_data *data)
-{
-	struct imx_usbmisc *usbmisc;
-	int ret;
-
-	if (!data)
-		return 0;
-
-	usbmisc = dev_get_drvdata(data->dev);
-	if (!usbmisc->ops->charger_secondary_detection)
-		return 0;
-
-	mutex_lock(&usbmisc->mutex);
-	ret = usbmisc->ops->charger_secondary_detection(data);
-	mutex_unlock(&usbmisc->mutex);
-	return ret;
-}
-EXPORT_SYMBOL_GPL(imx_usbmisc_charger_secondary_detection);
 
 int imx_usbmisc_power_lost_check(struct imx_usbmisc_data *data)
 {
