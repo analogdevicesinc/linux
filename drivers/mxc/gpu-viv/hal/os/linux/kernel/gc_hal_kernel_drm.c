@@ -582,7 +582,7 @@ static int viv_ioctl_gem_attach_aux(struct drm_device *drm, void *data,
         gcmkONERROR(gckDEVICE_Dispatch(gal_dev->device, &iface));
 
         /* Fill tile status node with tileStatusFiller. */
-        entry = (char __user*)iface.u.LockVideoMemory.memory;
+        entry = (char __user*)(uintptr_t)iface.u.LockVideoMemory.memory;
         for (num=0; num<gem_ts_obj->size; num++) {
             put_user(tileStatusFiller, entry+num);
         }
