@@ -14046,6 +14046,7 @@ gckHARDWARE_QueryFrequency(
     gctUINT32 mcClk, shClk;
     gceSTATUS status;
     gctUINT32 powerManagement = 0;
+    gctBOOL globalAcquired = gcvFALSE, idle = gcvFALSE;
 
     gcmkHEADER_ARG("Hardware=0x%p", Hardware);
 
@@ -14067,6 +14068,13 @@ gckHARDWARE_QueryFrequency(
         Hardware, gcvPOWER_ON_AUTO
         ));
 
+    /* Grab the global semaphore. */
+    gcmkONERROR(gckOS_AcquireSemaphore(
+        Hardware->os, Hardware->globalSemaphore
+        ));
+
+    globalAcquired = gcvTRUE;
+
     gckHARDWARE_EnterQueryClock(Hardware, &mcStart, &shStart);
 
     gcmkONERROR(gckOS_Delay(Hardware->os, 50));
@@ -14081,6 +14089,15 @@ gckHARDWARE_QueryFrequency(
         Hardware->shClk = shClk;
     }
 
+    /* Query whether the hardware is idle. */
+    gcmkONERROR(gckHARDWARE_QueryIdle(Hardware, &idle));
+
+    /* Release the global semaphore. */
+    gcmkONERROR(gckOS_ReleaseSemaphore(
+        Hardware->os, Hardware->globalSemaphore
+        ));
+    globalAcquired = gcvFALSE;
+
     if (powerManagement)
     {
         gcmkONERROR(gckHARDWARE_SetPowerManagement(
@@ -14088,14 +14105,28 @@ gckHARDWARE_QueryFrequency(
             ));
     }
 
+    if (idle)
+    {
+        /* Inform the system of idle GPU. */
+        gcmkONERROR(gckOS_Broadcast(Hardware->os,
+                                    Hardware,
+                                    gcvBROADCAST_GPU_IDLE));
+    }
+
     gcmkFOOTER_NO();
 
     return gcvSTATUS_OK;
 
 OnError:
+    if (globalAcquired)
+    {
+        /* Release the global semaphore. */
+        gcmkVERIFY_OK(gckOS_ReleaseSemaphore(
+            Hardware->os, Hardware->globalSemaphore
+            ));
+    }
+
     gcmkFOOTER();
 
     return status;
 }
-
-
