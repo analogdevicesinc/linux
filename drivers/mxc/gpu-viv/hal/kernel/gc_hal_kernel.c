@@ -2558,12 +2558,15 @@ gckKERNEL_Dispatch(
         break;
 
     case gcvHAL_EVENT_COMMIT:
-        gcmkONERROR(gckOS_AcquireMutex(Kernel->os,
-            Kernel->device->commitMutex,
-            gcvINFINITE
-            ));
+        if (!Interface->commitMutex)
+        {
+            gcmkONERROR(gckOS_AcquireMutex(Kernel->os,
+                Kernel->device->commitMutex,
+                gcvINFINITE
+                ));
 
-        commitMutexAcquired = gcvTRUE;
+            commitMutexAcquired = gcvTRUE;
+        }
         /* Commit an event queue. */
         if (Interface->engine == gcvENGINE_BLT)
         {
@@ -2581,16 +2584,22 @@ gckKERNEL_Dispatch(
                 Kernel->eventObj, gcmUINT64_TO_PTR(Interface->u.Event.queue), gcvFALSE));
         }
 
-        gcmkONERROR(gckOS_ReleaseMutex(Kernel->os, Kernel->device->commitMutex));
-        commitMutexAcquired = gcvFALSE;
+        if (!Interface->commitMutex)
+        {
+            gcmkONERROR(gckOS_ReleaseMutex(Kernel->os, Kernel->device->commitMutex));
+            commitMutexAcquired = gcvFALSE;
+        }
         break;
 
     case gcvHAL_COMMIT:
-        gcmkONERROR(gckOS_AcquireMutex(Kernel->os,
-            Kernel->device->commitMutex,
-            gcvINFINITE
-            ));
-        commitMutexAcquired = gcvTRUE;
+        if (!Interface->commitMutex)
+        {
+            gcmkONERROR(gckOS_AcquireMutex(Kernel->os,
+                Kernel->device->commitMutex,
+                gcvINFINITE
+                ));
+            commitMutexAcquired = gcvTRUE;
+        }
 
         /* Commit a command and context buffer. */
         if (Interface->engine == gcvENGINE_BLT)
@@ -2715,9 +2724,12 @@ gckKERNEL_Dispatch(
                 }
             }
         }
-        gcmkONERROR(gckOS_ReleaseMutex(Kernel->os, Kernel->device->commitMutex));
-        commitMutexAcquired = gcvFALSE;
 
+        if (!Interface->commitMutex)
+        {
+            gcmkONERROR(gckOS_ReleaseMutex(Kernel->os, Kernel->device->commitMutex));
+            commitMutexAcquired = gcvFALSE;
+        }
         break;
 
     case gcvHAL_STALL:
@@ -3437,6 +3449,20 @@ gckKERNEL_Dispatch(
             Interface->u.WaitFence.handle,
             Interface->u.WaitFence.timeOut
             ));
+        break;
+
+    case gcvHAL_DEVICE_MUTEX:
+        if (Interface->u.DeviceMutex.isMutexLocked)
+        {
+            gcmkONERROR(gckOS_AcquireMutex(Kernel->os,
+                Kernel->device->commitMutex,
+                gcvINFINITE
+                ));
+        }
+        else
+        {
+            gcmkONERROR(gckOS_ReleaseMutex(Kernel->os, Kernel->device->commitMutex));
+        }
         break;
 
 #if gcdDEC_ENABLE_AHB

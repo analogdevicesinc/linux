@@ -388,6 +388,7 @@ static int drv_open(
 
     data->device             = galDevice;
     data->pidOpen            = _GetProcessID();
+    data->isLocked           = gcvFALSE;
 
     /* Attached the process. */
     for (i = 0; i < gcdMAX_GPU_COUNT; i++)
@@ -473,6 +474,13 @@ static int drv_release(
             );
 
         gcmkONERROR(gcvSTATUS_INVALID_ARGUMENT);
+    }
+
+    if (data->isLocked)
+    {
+        /* Release the mutex. */
+        gcmkONERROR(gckOS_ReleaseMutex(gcvNULL, device->device->commitMutex));
+        data->isLocked = gcvFALSE;
     }
 
     /* A process gets detached. */
@@ -608,6 +616,18 @@ static long drv_ioctl(
             );
 
         gcmkONERROR(gcvSTATUS_INVALID_ARGUMENT);
+    }
+
+    if (iface.command == gcvHAL_DEVICE_MUTEX)
+    {
+        if (iface.u.DeviceMutex.isMutexLocked == gcvTRUE)
+        {
+            data->isLocked = gcvTRUE;
+        }
+        else
+        {
+            data->isLocked = gcvFALSE;
+        }
     }
 
     status = gckDEVICE_Dispatch(device->device, &iface);
