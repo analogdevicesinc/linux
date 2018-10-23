@@ -169,15 +169,13 @@
 #define DWC3_GDBGFIFOSPACE_TYPE(n)	(((n) << 5) & 0x1e0)
 #define DWC3_GDBGFIFOSPACE_SPACE_AVAILABLE(n) (((n) >> 16) & 0xffff)
 
-#define DWC3_TXFIFOQ		0
-#define DWC3_RXFIFOQ		1
-#define DWC3_TXREQQ		2
-#define DWC3_RXREQQ		3
-#define DWC3_RXINFOQ		4
-#define DWC3_PSTATQ		5
-#define DWC3_DESCFETCHQ		6
-#define DWC3_EVENTQ		7
-#define DWC3_AUXEVENTQ		8
+#define DWC3_TXFIFOQ		1
+#define DWC3_RXFIFOQ		3
+#define DWC3_TXREQQ		5
+#define DWC3_RXREQQ		7
+#define DWC3_RXINFOQ		9
+#define DWC3_DESCFETCHQ		13
+#define DWC3_EVENTQ		15
 
 /* Global SoC Bus Configuration Register */
 #define DWC3_GSBUSCFG0_DATRDREQINFO	(0xf << 28)
@@ -258,8 +256,6 @@
 #define DWC3_GUSB3PIPECTL_TX_DEEPH(n)	((n) << 1)
 
 /* Global TX Fifo Size Register */
-#define DWC31_GTXFIFOSIZ_TXFRAMNUM	BIT(15)		/* DWC_usb31 only */
-#define DWC31_GTXFIFOSIZ_TXFDEF(n)	((n) & 0x7fff)	/* DWC_usb31 only */
 #define DWC3_GTXFIFOSIZ_TXFDEF(n)	((n) & 0xffff)
 #define DWC3_GTXFIFOSIZ_TXFSTADDR(n)	((n) & 0xffff0000)
 
@@ -536,6 +532,9 @@ struct dwc3_event_buffer {
  * @pending_list: list of pending requests for this endpoint
  * @started_list: list of started requests on this endpoint
  * @wait_end_transfer: wait_queue_head_t for waiting on End Transfer complete
+ * @aborted_trbs: Pointer to the first aborted TRB. These will be cleared at the
+ *                End of Transfer complete.
+ * @num_aborted_trbs: Number of aborted TRBs.
  * @lock: spinlock for endpoint request queue traversal
  * @regs: pointer to first endpoint register
  * @trb_pool: array of transaction buffers
@@ -561,6 +560,9 @@ struct dwc3_ep {
 	struct list_head	started_list;
 
 	wait_queue_head_t	wait_end_transfer;
+
+	struct dwc3_trb		*aborted_trbs;
+	unsigned int		num_aborted_trbs;
 
 	spinlock_t		lock;
 	void __iomem		*regs;
