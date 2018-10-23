@@ -186,10 +186,13 @@
 				SC_P_QSPI1A_DATA0
 				/* isl29023 */
 				SC_P_USDHC2_WP
+				SC_P_MIPI_CSI0_GPIO0_00
+				SC_P_MIPI_CSI0_GPIO0_01
 
 				>;
 			gpios = <&gpio1 13 GPIO_ACTIVE_LOW>,
 				<&gpio1 27 GPIO_ACTIVE_LOW>,
+				<&gpio1 28 GPIO_ACTIVE_LOW>,
 				<&gpio4 6 GPIO_ACTIVE_LOW>,
 				<&gpio4 9 GPIO_ACTIVE_LOW>,
 				<&gpio4 11 GPIO_ACTIVE_HIGH>,
@@ -235,6 +238,8 @@
 		#stream-id-cells = <1>;
 		iommus = <&smmu>;
 		xen,passthrough;
+		/* This will be parased by xen smmu driver */
+		init-smmu-bypass;
 	};
 
 	irqsteer_cm41: irqsteer_cm41@0x51080000 {
@@ -275,6 +280,12 @@
 	decoder_str_mem: str_mem@0x94400000 {
 		xen,passthrough;
 		reg = <0 0x94400000 0 0x1800000>;
+	};
+
+	/* This piece memory is used by M41, M40 is not covered */
+	m41_mem: m41_mem@0x94400000 {
+		xen,passthrough;
+		reg = <0 0x88800000 0 0x7800000>;
 	};
 
 	gpio4_dummy: gpio4_dummy@0{
