@@ -33,7 +33,7 @@ struct dwc3;
 #define DWC3_DEPCFG_XFER_IN_PROGRESS_EN	BIT(9)
 #define DWC3_DEPCFG_XFER_NOT_READY_EN	BIT(10)
 #define DWC3_DEPCFG_FIFO_ERROR_EN	BIT(11)
-#define DWC3_DEPCFG_STREAM_EVENT_EN	BIT(13)
+#define DWC3_DEPCFG_STREAM_EVENT_EN	BIT(12)
 #define DWC3_DEPCFG_BINTERVAL_M1(n)	(((n) & 0xff) << 16)
 #define DWC3_DEPCFG_STREAM_CAPABLE	BIT(24)
 #define DWC3_DEPCFG_EP_NUMBER(n)	(((n) & 0x1f) << 25)
@@ -96,7 +96,7 @@ static inline void dwc3_gadget_move_started_request(struct dwc3_request *req)
 }
 
 void dwc3_gadget_giveback(struct dwc3_ep *dep, struct dwc3_request *req,
-		int status);
+		int status, bool giveback);
 
 void dwc3_ep0_interrupt(struct dwc3 *dwc,
 		const struct dwc3_event_depevt *event);
@@ -110,7 +110,7 @@ int dwc3_gadget_ep0_queue(struct usb_ep *ep, struct usb_request *request,
 int __dwc3_gadget_ep_set_halt(struct dwc3_ep *dep, int value, int protocol);
 int __dwc3_gadget_ep_enable(struct dwc3_ep *dep, bool modify, bool restore);
 int __dwc3_gadget_ep_disable(struct dwc3_ep *dep);
-int __dwc3_gadget_kick_transfer(struct dwc3_ep *dep, u16 cmd_param);
+int __dwc3_gadget_kick_transfer(struct dwc3_ep *dep, u16 cmd_param, bool giveback);
 void dwc3_stop_active_transfer(struct dwc3 *dwc, u32 epnum, bool force);
 int dwc3_gadget_run_stop(struct dwc3 *dwc, int is_on, int suspend);
 dma_addr_t dwc3_trb_dma_offset(struct dwc3_ep *dep, struct dwc3_trb *trb);
