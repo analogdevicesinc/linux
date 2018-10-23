@@ -301,6 +301,8 @@ struct vpu_ctx {
 	struct device_attribute dev_attr_instance;
 	char name[64];
 
+	struct completion stop_cmp;
+
 	pMEDIAIP_ENC_YUV_BUFFER_DESC yuv_buffer_desc;
 	pBUFFER_DESCRIPTOR_TYPE stream_buffer_desc;
 	pMEDIAIP_ENC_EXPERT_MODE_PARAM expert_mode_param;

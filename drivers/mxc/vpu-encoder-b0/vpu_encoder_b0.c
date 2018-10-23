@@ -57,6 +57,7 @@ struct vpu_frame_info {
 	u32 rptr;
 	u32 start;
 	u32 end;
+	bool eos;
 };
 
 unsigned int vpu_dbg_level_encoder = LVL_WARN;
@@ -926,10 +927,6 @@ static int v4l2_ioctl_dqbuf(struct file *file,
 		if (!ret)
 			ctx->statistic.h264_count++;
 		buf->flags = q_data->vb2_reqs[buf->index].buffer_flags;
-
-		if (test_bit(VPU_ENC_STATUS_STOP_DONE, &ctx->status) &&
-			list_empty(&q_data->frame_q))
-			buf->flags |= V4L2_BUF_FLAG_LAST;
 	}
 
 	return ret;
@@ -1019,6 +1016,18 @@ static int request_eos(struct vpu_ctx *ctx)
 	return 0;
 }
 
+static void wait_for_stop_done(struct vpu_ctx *ctx)
+{
+	WARN_ON(!ctx);
+
+	if (!test_bit(VPU_ENC_STATUS_START_SEND, &ctx->status))
+		return;
+	if (test_bit(VPU_ENC_STATUS_STOP_DONE, &ctx->status))
+		return;
+
+	wait_for_completion_timeout(&ctx->stop_cmp, msecs_to_jiffies(100));
+}
+
 static int v4l2_ioctl_encoder_cmd(struct file *file,
 		void *fh,
 		struct v4l2_encoder_cmd *cmd
@@ -1073,8 +1082,7 @@ static int v4l2_ioctl_streamon(struct file *file,
 
 static int v4l2_ioctl_streamoff(struct file *file,
 		void *fh,
-		enum v4l2_buf_type i
-		)
+		enum v4l2_buf_type i)
 {
 	struct vpu_ctx *ctx = v4l2_fh_to_ctx(fh);
 	struct queue_data *q_data;
@@ -1090,6 +1098,7 @@ static int v4l2_ioctl_streamoff(struct file *file,
 		return -EINVAL;
 
 	request_eos(ctx);
+	wait_for_stop_done(ctx);
 
 	ret = vb2_streamoff(&q_data->vb2_q, i);
 	return ret;
@@ -1817,7 +1826,13 @@ static u32 calc_frame_length(struct vpu_frame_info *frame)
 
 	WARN_ON(!frame);
 
+	if (frame->eos)
+		return 0;
+
 	buffer_size = frame->end - frame->start;
+	if (!buffer_size)
+		return 0;
+
 	length = (frame->wptr - frame->rptr + buffer_size) % buffer_size;
 
 	return length;
@@ -1835,43 +1850,22 @@ static void *get_rptr_virt(struct vpu_ctx *ctx, struct vpu_frame_info *frame)
 	return ctx->encoder_stream.virt_addr + frame->rptr - frame->start;
 }
 
-static int report_stream_output(struct vpu_ctx *ctx)
+static int transfer_stream_output(struct vpu_ctx *ctx,
+					struct vpu_frame_info *frame,
+					struct vb2_data_req *p_data_req)
 {
-	struct queue_data *queue = NULL;
-	struct vb2_data_req *p_data_req = NULL;
 	struct vb2_buffer *vb = NULL;
-	struct vpu_frame_info *frame = NULL;
 	u32 length;
 	void *pdst;
-	void *pvirt;
 
-	if (!ctx)
-		return -EINVAL;
-
-	queue = &ctx->q_data[V4L2_DST];
-
-	down(&queue->drv_q_lock);
-	if (list_empty(&queue->drv_q))
-		goto exit;
-	if (list_empty(&queue->frame_q))
-		goto exit;
-
-	p_data_req = list_first_entry(&queue->drv_q, typeof(*p_data_req), list);
-	frame = list_first_entry(&queue->frame_q, typeof(*frame), list);
-	frame->rptr = get_ptr(ctx->stream_buffer_desc->rptr);
+	WARN_ON(!ctx || !frame || !p_data_req);
 
 	length = calc_frame_length(frame);
 	if (!length)
-		goto exit;
+		return 0;
 
 	vb = p_data_req->vb2_buf;
-	if (length > vb->planes[0].length) {
-		length = vb->planes[0].length;
-		vpu_err("v4l2 buffer's size isn't enough for a frame, split\n");
-	}
-
 	vb2_set_plane_payload(vb, 0, length);
-	pvirt = ctx->encoder_stream.virt_addr + frame->rptr - frame->start;
 	pdst = vb2_plane_vaddr(vb, 0);
 	if (frame->rptr + length <= frame->end) {
 		memcpy(pdst, get_rptr_virt(ctx, frame), length);
@@ -1885,22 +1879,73 @@ static int report_stream_output(struct vpu_ctx *ctx)
 		memcpy(pdst + offset, get_rptr_virt(ctx, frame), length);
 		add_rptr(frame, length);
 	}
-	ctx->stream_buffer_desc->rptr = frame->rptr;
-	list_del(&p_data_req->list);
 	report_frame_type(p_data_req, frame);
 
-exit:
+	return 0;
+}
+
+static int append_empty_end_frame(struct vb2_data_req *p_data_req)
+{
+	WARN_ON(!p_data_req);
+
+	vb2_set_plane_payload(p_data_req->vb2_buf, 0, 0);
+	p_data_req->buffer_flags = V4L2_BUF_FLAG_LAST;
+
+	vpu_dbg(LVL_INFO, "append en empty frame as the last frame\n");
+
+	return 0;
+}
+
+static void process_frame_done(struct queue_data *queue)
+{
+	struct vpu_ctx *ctx;
+	struct vb2_data_req *p_data_req = NULL;
+	struct vpu_frame_info *frame = NULL;
+
+	WARN_ON(!queue || !queue->ctx);
+
+	ctx = queue->ctx;
+
+	if (list_empty(&queue->drv_q))
+		return;
+	if (list_empty(&queue->frame_q))
+		return;
+
+	p_data_req = list_first_entry(&queue->drv_q, typeof(*p_data_req), list);
+	frame = list_first_entry(&queue->frame_q, typeof(*frame), list);
+	frame->rptr = get_ptr(ctx->stream_buffer_desc->rptr);
+
+	if (frame->eos)
+		append_empty_end_frame(p_data_req);
+	else if (calc_frame_length(frame))
+		transfer_stream_output(ctx, frame, p_data_req);
+	else
+		return;
+
+	ctx->stream_buffer_desc->rptr = frame->rptr;
+	list_del(&p_data_req->list);
 	if (frame && !calc_frame_length(frame)) {
 		list_del(&frame->list);
 		vfree(frame);
 	}
-	up(&queue->drv_q_lock);
 
-	if (vb) {
-		strip_stuff_data_on_tail(vb);
-		if (vb->state == VB2_BUF_STATE_ACTIVE)
-			vb2_buffer_done(vb, VB2_BUF_STATE_DONE);
-	}
+	strip_stuff_data_on_tail(p_data_req->vb2_buf);
+	if (p_data_req->vb2_buf->state == VB2_BUF_STATE_ACTIVE)
+		vb2_buffer_done(p_data_req->vb2_buf, VB2_BUF_STATE_DONE);
+}
+
+static int process_stream_output(struct vpu_ctx *ctx)
+{
+	struct queue_data *queue = NULL;
+
+	if (!ctx)
+		return -EINVAL;
+
+	queue = &ctx->q_data[V4L2_DST];
+
+	down(&queue->drv_q_lock);
+	process_frame_done(queue);
+	up(&queue->drv_q_lock);
 
 	return 0;
 }
@@ -1965,6 +2010,7 @@ static int handle_event_frame_done(struct vpu_ctx *ctx,
 		frame->rptr = get_ptr(ctx->stream_buffer_desc->rptr);
 		frame->start = get_ptr(ctx->stream_buffer_desc->start);
 		frame->end = get_ptr(ctx->stream_buffer_desc->end);
+		frame->eos = false;
 
 		down(&queue->drv_q_lock);
 		list_add_tail(&frame->list, &queue->frame_q);
@@ -1974,7 +2020,7 @@ static int handle_event_frame_done(struct vpu_ctx *ctx,
 	}
 
 	/* Sync the write pointer to the local view of it */
-	report_stream_output(ctx);
+	process_stream_output(ctx);
 
 	return 0;
 }
@@ -1992,6 +2038,36 @@ static int handle_event_frame_release(struct vpu_ctx *ctx, u_int32 *uFrameID)
 	p_data_req = &This->vb2_reqs[*uFrameID];
 	if (p_data_req->vb2_buf->state == VB2_BUF_STATE_ACTIVE)
 		vb2_buffer_done(p_data_req->vb2_buf, VB2_BUF_STATE_DONE);
+
+	return 0;
+}
+
+static int handle_event_stop_done(struct vpu_ctx *ctx)
+{
+	struct vpu_frame_info *frame;
+
+	WARN_ON(!ctx);
+
+	set_bit(VPU_ENC_STATUS_STOP_DONE, &ctx->status);
+	notify_eos(ctx);
+
+	frame = vmalloc(sizeof(*frame));
+	if (frame) {
+		struct queue_data *queue = &ctx->q_data[V4L2_DST];
+
+		memset(frame, 0, sizeof(*frame));
+		frame->eos = true;
+
+		down(&queue->drv_q_lock);
+		list_add_tail(&frame->list, &queue->frame_q);
+		up(&queue->drv_q_lock);
+	} else {
+		vpu_err("fail to alloc memory for last frame\n");
+	}
+
+	process_stream_output(ctx);
+
+	complete(&ctx->stop_cmp);
 
 	return 0;
 }
@@ -2028,8 +2104,7 @@ static void vpu_api_event_handler(struct vpu_ctx *ctx, u_int32 uStrIdx,
 		handle_event_frame_release(ctx, (u_int32 *)event_data);
 		break;
 	case VID_API_ENC_EVENT_STOP_DONE:
-		set_bit(VPU_ENC_STATUS_STOP_DONE, &ctx->status);
-		notify_eos(ctx);
+		handle_event_stop_done(ctx);
 		break;
 	case VID_API_ENC_EVENT_FRAME_INPUT_DONE:
 		set_queue_rw_flag(&ctx->q_data[V4L2_SRC],
@@ -2307,7 +2382,7 @@ static void vpu_buf_queue(struct vb2_buffer *vb)
 
 		submit_input_and_encode(ctx);
 	} else if (vq->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
-		report_stream_output(This->ctx);
+		process_stream_output(This->ctx);
 	}
 }
 
@@ -2688,6 +2763,7 @@ static int init_vpu_ctx(struct vpu_ctx *ctx)
 	}
 
 	init_queue_data(ctx);
+	init_completion(&ctx->stop_cmp);
 
 	set_bit(VPU_ENC_STATUS_INITIALIZED, &ctx->status);
 
@@ -2970,6 +3046,7 @@ static int v4l2_release(struct file *filp)
 	vpu_dbg(LVL_DEBUG, "%s()\n", __func__);
 
 	request_eos(ctx);
+	wait_for_stop_done(ctx);
 
 	uninit_vpu_ctx_fh(ctx);
 	filp->private_data = NULL;
