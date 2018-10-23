@@ -536,7 +536,7 @@ static void start_peripheral(struct dwc3_otg *otg)
 		struct dwc3_ep		*dep;
 		int			ret;
 
-		spin_lock(&otg->lock);
+		spin_lock_irq(&otg->lock);
 		dep = dwc->eps[0];
 
 		ret = __dwc3_gadget_ep_enable(dep, DWC3_DEPCFG_ACTION_INIT);
@@ -559,7 +559,7 @@ static void start_peripheral(struct dwc3_otg *otg)
 
 		otg_write(otg, DCTL, otg_read(otg, DCTL) | DCTL_RUN_STOP);
 		otg_dbg(otg, "Setting DCTL_RUN_STOP to 1 in DCTL\n");
-		spin_unlock(&otg->lock);
+		spin_unlock_irq(&otg->lock);
 	}
 
 	gadget->b_hnp_enable = 0;
@@ -598,13 +598,13 @@ static void stop_peripheral(struct dwc3_otg *otg)
 		return;
 
 	otg_dbg(otg, "disabled ep in gadget driver\n");
-	spin_lock(&otg->lock);
+	spin_lock_irq(&otg->lock);
 
 	dwc3_gadget_disable_irq(dwc);
 	__dwc3_gadget_ep_disable(dwc->eps[0]);
 	__dwc3_gadget_ep_disable(dwc->eps[1]);
 
-	spin_unlock(&otg->lock);
+	spin_unlock_irq(&otg->lock);
 
 	otg->peripheral_started = 0;
 	msleep(20);
