@@ -177,7 +177,7 @@ static void dwc3_gadget_del_and_unmap_request(struct dwc3_ep *dep,
 {
 	struct dwc3			*dwc = dep->dwc;
 
-	list_del(&req->list);
+	list_del_init(&req->list);
 	req->remaining = 0;
 	req->needs_extra_trb = false;
 
@@ -896,6 +896,7 @@ static struct usb_request *dwc3_gadget_ep_alloc_request(struct usb_ep *ep,
 	req->epnum	= dep->number;
 	req->dep	= dep;
 	req->status	= DWC3_REQUEST_STATUS_UNKNOWN;
+	INIT_LIST_HEAD(&req->list);
 
 	trace_dwc3_alloc_request(req);
 
@@ -1786,6 +1787,10 @@ static int dwc3_gadget_ep_dequeue(struct usb_ep *ep,
 
 	if (dep->stream_capable && timer_pending(&req->stream_timeout_timer))
 		del_timer(&req->stream_timeout_timer);
+
+	/* Not queued, nothing to do */
+	if (list_empty(&req->list))
+		goto out;
 
 	list_for_each_entry(r, &dep->cancelled_list, list) {
 		if (r == req)
