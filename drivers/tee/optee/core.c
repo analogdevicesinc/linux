@@ -29,6 +29,10 @@
 #include "optee_private.h"
 #include "optee_smc.h"
 
+#ifdef CONFIG_OUTER_CACHE
+#include <asm/outercache.h>
+#endif
+
 #define DRIVER_NAME "optee"
 
 #define OPTEE_SHM_NUM_PRIV_PAGES	1
@@ -404,6 +408,70 @@ out:
 	return pool;
 }
 
+#ifdef CONFIG_OUTER_CACHE
+/**
+ * @brief   Call the TEE to get a shared mutex between TEE and Linux to
+ *          do Outer Cache maintenance
+ *
+ * @param[in] invoke_fn  Reference to the SMC call function
+ *
+ * @retval 0         Success
+ * @retval -EINVAL   Invalid value
+ * @retval -ENOMEM   Not enought memory
+ */
+static int optee_outercache_mutex(optee_invoke_fn *invoke_fn)
+{
+	struct arm_smccc_res res;
+
+	int         ret    = -EINVAL;
+	void        *vaddr = NULL;
+	phys_addr_t paddr  = 0;
+
+	/* Get the Physical Address of the mutex allocated in the SHM */
+	invoke_fn(OPTEE_SMC_L2CC_MUTEX,
+			OPTEE_SMC_L2CC_MUTEX_GET_ADDR, 0, 0, 0, 0, 0, 0, &res);
+
+	if (res.a0 != OPTEE_SMC_RETURN_OK) {
+		pr_warn("no TZ l2cc mutex service supported\n");
+		goto out;
+	}
+
+	paddr = (unsigned long)reg_pair_to_ptr(res.a2, res.a3);
+	pr_debug("outer cache shared mutex paddr 0x%lx\n", (unsigned long)paddr);
+
+	/* Remap the Mutex into a cacheable area */
+	vaddr = memremap(paddr, sizeof(u32), MEMREMAP_WB);
+	if (vaddr == NULL) {
+		pr_warn("TZ l2cc mutex: ioremap failed\n");
+		ret = -ENOMEM;
+		goto out;
+	}
+
+	pr_debug("outer cache shared mutex vaddr %p\n", vaddr);
+
+	if (outer_mutex(vaddr)) {
+		pr_warn("TZ l2cc mutex: outer cache refused\n");
+		goto out;
+	}
+
+	invoke_fn(OPTEE_SMC_L2CC_MUTEX,
+			OPTEE_SMC_L2CC_MUTEX_ENABLE, 0, 0, 0, 0, 0, 0, &res);
+
+	if (res.a0 != OPTEE_SMC_RETURN_OK) {
+		pr_warn("TZ l2cc mutex disabled: TZ enable failed\n");
+		goto out;
+	}
+
+	ret = 0;
+
+out:
+	pr_info("teetz outer mutex: ret=%d pa=0x%lx va=0x%p\n",
+		ret, (unsigned long)paddr, vaddr);
+
+	return ret;
+}
+#endif
+
 /* Simple wrapper functions to be able to use a function pointer */
 static void optee_smccc_smc(unsigned long a0, unsigned long a1,
 			    unsigned long a2, unsigned long a3,
@@ -482,6 +550,17 @@ static struct optee *optee_probe(struct device_node *np)
 	pool = optee_config_shm_memremap(invoke_fn, &memremaped_shm);
 	if (IS_ERR(pool))
 		return (void *)pool;
+
+#ifdef CONFIG_OUTER_CACHE
+
+	/* Try to get a Share Mutex to do L2 Cache maintenance */
+	if (of_find_compatible_node(NULL, NULL, "arm,pl310-cache")) {
+		rc = optee_outercache_mutex(invoke_fn);
+		if (rc)
+			goto err;
+	}
+
+#endif
 
 	optee = kzalloc(sizeof(*optee), GFP_KERNEL);
 	if (!optee) {

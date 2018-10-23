@@ -39,6 +39,11 @@ struct outer_cache_fns {
 	/* This is an ARM L2C thing */
 	void (*write_sec)(unsigned long, unsigned);
 	void (*configure)(const struct l2x0_regs *);
+
+#ifdef CONFIG_OPTEE
+	/* Set a mutex with OPTEE for maintenance */
+	int (*set_mutex)(void *mutex);
+#endif
 };
 
 extern struct outer_cache_fns outer_cache;
@@ -114,6 +119,24 @@ static inline void outer_resume(void)
 	if (outer_cache.resume)
 		outer_cache.resume();
 }
+
+#ifdef CONFIG_OPTEE
+/**
+ * @brief  Setup the Cache Mutex
+ *
+ * @param[in] Reference to the Mutex object
+ *
+ * @retval  0       Success
+ * @retval -EINVAL  Invalid value
+ */
+static inline int outer_mutex(void *mutex)
+{
+	if (outer_cache.set_mutex)
+		return outer_cache.set_mutex(mutex);
+
+	return -EINVAL;
+}
+#endif
 
 #else
 
