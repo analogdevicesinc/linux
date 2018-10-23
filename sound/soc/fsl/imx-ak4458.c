@@ -201,6 +201,8 @@ static int imx_aif_hw_params(struct snd_pcm_substream *substream,
 
 	/* set MCLK freq */
 	mclk_freq = ak4458_get_mclk_rate(substream, params);
+	if (is_dsd)
+		mclk_freq = 22579200;
 	ret = snd_soc_dai_set_sysclk(cpu_dai, FSL_SAI_CLK_MAST1, mclk_freq,
 				     SND_SOC_CLOCK_OUT);
 	if (ret < 0)
