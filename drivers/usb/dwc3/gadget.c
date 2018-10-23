@@ -185,7 +185,7 @@ static void dwc3_ep_inc_deq(struct dwc3_ep *dep)
  * layers that it has completed.
  */
 void dwc3_gadget_giveback(struct dwc3_ep *dep, struct dwc3_request *req,
-		int status)
+		int status, bool giveback)
 {
 	struct dwc3			*dwc = dep->dwc;
 
@@ -204,9 +204,11 @@ void dwc3_gadget_giveback(struct dwc3_ep *dep, struct dwc3_request *req,
 
 	trace_dwc3_gadget_giveback(req);
 
-	spin_unlock(&dwc->lock);
-	usb_gadget_giveback_request(&dep->endpoint, &req->request);
-	spin_lock(&dwc->lock);
+	if (giveback) {
+		spin_unlock(&dwc->lock);
+		usb_gadget_giveback_request(&dep->endpoint, &req->request);
+		spin_lock(&dwc->lock);
+	}
 
 	if (dep->number > 1)
 		pm_runtime_put(dwc->dev);
@@ -530,7 +532,7 @@ static void stream_timeout_function(unsigned long arg)
 
 	spin_lock_irqsave(&dwc->lock, flags);
 	dwc3_stop_active_transfer(dwc, dep->number, true);
-	__dwc3_gadget_kick_transfer(dep, 0);
+	__dwc3_gadget_kick_transfer(dep, 0, true);
 	spin_unlock_irqrestore(&dwc->lock, flags);
 }
 
@@ -732,13 +734,13 @@ static void dwc3_remove_requests(struct dwc3 *dwc, struct dwc3_ep *dep)
 	while (!list_empty(&dep->started_list)) {
 		req = next_request(&dep->started_list);
 
-		dwc3_gadget_giveback(dep, req, -ESHUTDOWN);
+		dwc3_gadget_giveback(dep, req, -ESHUTDOWN, true);
 	}
 
 	while (!list_empty(&dep->pending_list)) {
 		req = next_request(&dep->pending_list);
 
-		dwc3_gadget_giveback(dep, req, -ESHUTDOWN);
+		dwc3_gadget_giveback(dep, req, -ESHUTDOWN, true);
 	}
 }
 
@@ -1246,7 +1248,7 @@ static void dwc3_prepare_trbs(struct dwc3_ep *dep)
 	}
 }
 
-int __dwc3_gadget_kick_transfer(struct dwc3_ep *dep, u16 cmd_param)
+int __dwc3_gadget_kick_transfer(struct dwc3_ep *dep, u16 cmd_param, bool giveback)
 {
 	struct dwc3_gadget_ep_cmd_params params;
 	struct dwc3_request		*req;
@@ -1289,7 +1291,7 @@ int __dwc3_gadget_kick_transfer(struct dwc3_ep *dep, u16 cmd_param)
 		if (req->trb)
 			memset(req->trb, 0, sizeof(struct dwc3_trb));
 		dep->queued_requests--;
-		dwc3_gadget_giveback(dep, req, ret);
+		dwc3_gadget_giveback(dep, req, ret, giveback);
 		return ret;
 	}
 
@@ -1334,7 +1336,7 @@ static void __dwc3_gadget_start_isoc(struct dwc3 *dwc,
 	 */
 	uf = cur_uf + max_t(u32, 4, dep->interval);
 
-	__dwc3_gadget_kick_transfer(dep, uf);
+	__dwc3_gadget_kick_transfer(dep, uf, true);
 }
 
 static void dwc3_gadget_start_isoc(struct dwc3 *dwc,
@@ -1410,7 +1412,7 @@ static int __dwc3_gadget_ep_queue(struct dwc3_ep *dep, struct dwc3_request *req)
 		    !(dep->flags & DWC3_EP_MISSED_ISOC)) {
 			WARN_ON_ONCE(!dep->resource_index);
 			ret = __dwc3_gadget_kick_transfer(dep,
-							  dep->resource_index);
+							  dep->resource_index, false);
 		}
 
 		goto out;
@@ -1419,7 +1421,7 @@ static int __dwc3_gadget_ep_queue(struct dwc3_ep *dep, struct dwc3_request *req)
 	if (!dwc3_calc_trbs_left(dep))
 		return 0;
 
-	ret = __dwc3_gadget_kick_transfer(dep, 0);
+	ret = __dwc3_gadget_kick_transfer(dep, 0, false);
 out:
 	if (ret == -EBUSY)
 		ret = 0;
@@ -1550,7 +1552,7 @@ static int dwc3_gadget_ep_dequeue(struct usb_ep *ep,
 out1:
 	/* giveback the request */
 	dep->queued_requests--;
-	dwc3_gadget_giveback(dep, req, -ECONNRESET);
+	dwc3_gadget_giveback(dep, req, -ECONNRESET, true);
 
 out0:
 	spin_unlock_irqrestore(&dwc->lock, flags);
@@ -2459,10 +2461,10 @@ static int dwc3_cleanup_done_reqs(struct dwc3 *dwc, struct dwc3_ep *dep,
 			 * to kick transfer again if (req->num_pending_sgs > 0)
 			 */
 			if (req->num_pending_sgs)
-				return __dwc3_gadget_kick_transfer(dep, 0);
+				return __dwc3_gadget_kick_transfer(dep, 0, true);
 		}
 
-		dwc3_gadget_giveback(dep, req, status);
+		dwc3_gadget_giveback(dep, req, status, true);
 
 		if (ret) {
 			if ((event->status & DEPEVT_STATUS_IOC) &&
@@ -2563,7 +2565,7 @@ static void dwc3_endpoint_transfer_complete(struct dwc3 *dwc,
 	if (!usb_endpoint_xfer_isoc(dep->endpoint.desc)) {
 		int ret;
 
-		ret = __dwc3_gadget_kick_transfer(dep, 0);
+		ret = __dwc3_gadget_kick_transfer(dep, 0, true);
 		if (!ret || ret == -EBUSY)
 			return;
 	}
@@ -2612,7 +2614,7 @@ static void dwc3_endpoint_interrupt(struct dwc3 *dwc,
 		} else {
 			int ret;
 
-			ret = __dwc3_gadget_kick_transfer(dep, 0);
+			ret = __dwc3_gadget_kick_transfer(dep, 0, true);
 			if (!ret || ret == -EBUSY)
 				return;
 		}
