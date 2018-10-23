@@ -926,7 +926,7 @@
 	pinctrl-0 = <&pinctrl_pcie0>;
 	disable-gpio = <&gpio1 5 GPIO_ACTIVE_LOW>;
 	reset-gpio = <&gpio4 21 GPIO_ACTIVE_LOW>;
-	ext_osc = <0>;
+	ext_osc = <1>;
 	status = "okay";
 };
 
