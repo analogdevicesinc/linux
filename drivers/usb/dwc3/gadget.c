@@ -1472,6 +1472,9 @@ static int dwc3_gadget_ep_dequeue(struct usb_ep *ep,
 				break;
 		}
 		if (r == req) {
+			if (dep->stream_capable)
+				del_timer(&dep->stream_timeout_timer);
+
 			/* wait until it is processed */
 			dwc3_stop_active_transfer(dwc, dep->number, true);
 
