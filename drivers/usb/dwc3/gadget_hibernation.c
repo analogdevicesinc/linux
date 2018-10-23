@@ -217,7 +217,7 @@ static int restore_eps(struct dwc3 *dwc)
 				dep->resource_index =
 					dwc3_gadget_ep_get_transfer_index(dep);
 			} else {
-				ret = __dwc3_gadget_kick_transfer(dep, 0);
+				ret = __dwc3_gadget_kick_transfer(dep, 0, true);
 				if (ret) {
 					dev_err(dwc->dev,
 						"%s: restart transfer failed\n",

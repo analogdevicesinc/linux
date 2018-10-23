@@ -246,7 +246,7 @@ static void dwc3_ep0_stall_and_restart(struct dwc3 *dwc)
 		struct dwc3_request	*req;
 
 		req = next_request(&dep->pending_list);
-		dwc3_gadget_giveback(dep, req, -ECONNRESET);
+		dwc3_gadget_giveback(dep, req, -ECONNRESET, true);
 	}
 
 	dwc->ep0state = EP0_SETUP_PHASE;
@@ -906,7 +906,7 @@ static void dwc3_ep0_complete_data(struct dwc3 *dwc,
 	if (status == DWC3_TRBSTS_SETUP_PENDING) {
 		dwc->setup_packet_pending = true;
 		if (r)
-			dwc3_gadget_giveback(ep0, r, -ECONNRESET);
+			dwc3_gadget_giveback(ep0, r, -ECONNRESET, true);
 
 		return;
 	}
@@ -932,7 +932,7 @@ static void dwc3_ep0_complete_data(struct dwc3 *dwc,
 	if ((epnum & 1) && ur->actual < ur->length)
 		dwc3_ep0_stall_and_restart(dwc);
 	else
-		dwc3_gadget_giveback(ep0, r, 0);
+		dwc3_gadget_giveback(ep0, r, 0, true);
 }
 
 static void dwc3_ep0_complete_status(struct dwc3 *dwc,
@@ -951,7 +951,7 @@ static void dwc3_ep0_complete_status(struct dwc3 *dwc,
 	if (!list_empty(&dep->pending_list)) {
 		r = next_request(&dep->pending_list);
 
-		dwc3_gadget_giveback(dep, r, 0);
+		dwc3_gadget_giveback(dep, r, 0, true);
 	}
 
 	if (dwc->test_mode) {
