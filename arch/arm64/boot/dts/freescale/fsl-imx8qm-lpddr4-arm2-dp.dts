@@ -49,7 +49,7 @@
 					<&clk IMX8QM_HDMI_AV_PLL_CLK>;
 
 	dp-lane-mapping = <0x1b>;
-	dp-link-rate = <0xa>;
+	dp-link-rate = <0x14>;
 	dp-num-lanes = <0x4>;
 
 	status = "okay";
