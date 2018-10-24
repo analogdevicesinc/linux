@@ -45,8 +45,8 @@ struct mxc_isi_fmt mxc_isi_out_formats[] = {
 	}, {
 		.name		= "RGB24",
 		.fourcc		= V4L2_PIX_FMT_RGB24,
-		.depth		= { 32 },
-		.color		= MXC_ISI_OUT_FMT_XRGB32,
+		.depth		= { 24 },
+		.color		= MXC_ISI_OUT_FMT_RGB32P,
 		.memplanes	= 1,
 		.colplanes	= 1,
 		.mbus_code  = MEDIA_BUS_FMT_RGB888_1X24,
@@ -61,8 +61,8 @@ struct mxc_isi_fmt mxc_isi_out_formats[] = {
 	}, {
 		.name		= "BGR24",
 		.fourcc		= V4L2_PIX_FMT_BGR24,
-		.depth		= { 32 },
-		.color		= MXC_ISI_OUT_FMT_XBGR32,
+		.depth		= { 24 },
+		.color		= MXC_ISI_OUT_FMT_BGR32P,
 		.memplanes	= 1,
 		.colplanes	= 1,
 		.mbus_code  = MEDIA_BUS_FMT_BGR888_1X24,
