@@ -1299,7 +1299,8 @@ int __dwc3_gadget_kick_transfer(struct dwc3_ep *dep, u16 cmd_param, bool givebac
 	dep->flags |= DWC3_EP_BUSY;
 
 	if (starting) {
-		if (dep->stream_capable) {
+		/* FIXME: Enable this again once it works properly */
+		if (dep->stream_capable && 0) {
 			dep->stream_timeout_timer.expires = jiffies +
 					msecs_to_jiffies(STREAM_TIMEOUT);
 			add_timer(&dep->stream_timeout_timer);
