@@ -20,7 +20,7 @@
 
 	/delete-node/ wu;
 
-	edma00: dma-controller0@5a1f0000 {
+	edma00: dma-controller0@5a2c0000 {
 		compatible = "fsl,imx8qm-edma";
 		reg = <0x0 0x5a2c0000 0x0 0x10000>, /* channel12 UART0 rx */
 		      <0x0 0x5a2d0000 0x0 0x10000>; /* channel13 UART0 tx */
@@ -29,10 +29,12 @@
 		interrupts = <GIC_SPI 434 IRQ_TYPE_LEVEL_HIGH>,
 			     <GIC_SPI 435 IRQ_TYPE_LEVEL_HIGH>;
 		interrupt-names = "edma0-chan12-rx", "edma0-chan13-tx";
+		fsl,sc_rsrc_id = <SC_R_DMA_0_CH12>,
+				 <SC_R_DMA_0_CH13>;
 		status = "okay";
 	};
 
-	edma01: dma-controller1@5a1f0000 {
+	edma01: dma-controller1@5a2e0000 {
 		compatible = "fsl,imx8qm-edma";
 		reg = <0x0 0x5a2e0000 0x0 0x10000>, /* channel14 UART1 rx */
 		      <0x0 0x5a2f0000 0x0 0x10000>; /* channel15 UART1 tx */
@@ -41,10 +43,12 @@
 		interrupts = <GIC_SPI 436 IRQ_TYPE_LEVEL_HIGH>,
 			     <GIC_SPI 437 IRQ_TYPE_LEVEL_HIGH>;
 		interrupt-names = "edma0-chan14-rx", "edma0-chan15-tx";
+		fsl,sc_rsrc_id = <SC_R_DMA_0_CH14>,
+				 <SC_R_DMA_0_CH15>;
 		status = "okay";
 	};
 
-	edma02: dma-controller2@5a1f0000 {
+	edma02: dma-controller2@5a300000 {
 		compatible = "fsl,imx8qm-edma";
 		reg = <0x0 0x5a300000 0x0 0x10000>, /* channel16 UART2 rx */
 		      <0x0 0x5a310000 0x0 0x10000>; /* channel17 UART2 tx */
@@ -53,10 +57,12 @@
 		interrupts = <GIC_SPI 438 IRQ_TYPE_LEVEL_HIGH>,
 			     <GIC_SPI 439 IRQ_TYPE_LEVEL_HIGH>;
 		interrupt-names = "edma0-chan16-rx", "edma0-chan17-tx";
+		fsl,sc_rsrc_id = <SC_R_DMA_0_CH16>,
+				 <SC_R_DMA_0_CH17>;
 		status = "okay";
 	};
 
-	edma03: dma-controller3@5a1f0000 {
+	edma03: dma-controller3@5a320000 {
 		compatible = "fsl,imx8qm-edma";
 		reg = <0x0 0x5a320000 0x0 0x10000>, /* channel18 UART3 rx */
 		      <0x0 0x5a330000 0x0 0x10000>; /* channel19 UART3 tx */
@@ -65,10 +71,12 @@
 		interrupts = <GIC_SPI 440 IRQ_TYPE_LEVEL_HIGH>,
 			     <GIC_SPI 441 IRQ_TYPE_LEVEL_HIGH>;
 		interrupt-names = "edma0-chan18-rx", "edma0-chan19-tx";
+		fsl,sc_rsrc_id = <SC_R_DMA_0_CH18>,
+				 <SC_R_DMA_0_CH19>;
 		status = "okay";
 	};
 
-	edma04: dma-controller4@5a1f0000 {
+	edma04: dma-controller4@5a340000 {
 		compatible = "fsl,imx8qm-edma";
 		reg = <0x0 0x5a340000 0x0 0x10000>, /* channel20 UART4 rx */
 		      <0x0 0x5a350000 0x0 0x10000>; /* channel21 UART4 tx */
@@ -77,6 +85,127 @@
 		interrupts = <GIC_SPI 442 IRQ_TYPE_LEVEL_HIGH>,
 			     <GIC_SPI 443 IRQ_TYPE_LEVEL_HIGH>;
 		interrupt-names = "edma0-chan20-rx", "edma0-chan21-tx";
+		fsl,sc_rsrc_id = <SC_R_DMA_0_CH20>,
+				 <SC_R_DMA_0_CH21>;
+		status = "okay";
+	};
+
+	edma20: dma-controller@59200000 {
+		compatible = "fsl,imx8qm-adma";
+		reg = <0x0 0x59200000 0x0 0x10000>, /* asrc0 */
+			<0x0 0x59210000 0x0 0x10000>,
+			<0x0 0x59220000 0x0 0x10000>,
+			<0x0 0x59230000 0x0 0x10000>,
+			<0x0 0x59240000 0x0 0x10000>,
+			<0x0 0x59250000 0x0 0x10000>;
+		#dma-cells = <3>;
+		shared-interrupt;
+		dma-channels = <6>;
+		interrupts = <GIC_SPI 374 IRQ_TYPE_LEVEL_HIGH>, /* asrc0 */
+				<GIC_SPI 375 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 376 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 377 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 378 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 379 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "edma2-chan0-rx", "edma2-chan1-rx", /* asrc0 */
+				"edma2-chan2-rx", "edma2-chan3-tx",
+				"edma2-chan4-tx", "edma2-chan5-tx";
+		fsl,sc_rsrc_id = <SC_R_DMA_2_CH0>,
+				 <SC_R_DMA_2_CH1>,
+				 <SC_R_DMA_2_CH2>,
+				 <SC_R_DMA_2_CH3>,
+				 <SC_R_DMA_2_CH4>,
+				 <SC_R_DMA_2_CH5>;
+		status = "okay";
+	};
+
+	edma21: dma-controller@0x59260000 {
+		compatible = "fsl,imx8qm-adma";
+		reg = <0x0 0x59260000 0x0 0x10000>, /* esai0 rx */
+		      <0x0 0x59270000 0x0 0x10000>; /* esai0 tx */
+		#dma-cells = <3>;
+		shared-interrupt;
+		dma-channels = <2>;
+		interrupts = <GIC_SPI 410 IRQ_TYPE_LEVEL_HIGH>, /* esai0 */
+			     <GIC_SPI 410 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "edma2-chan6-rx", "edma2-chan7-tx"; /* esai0 */
+		fsl,sc_rsrc_id = <SC_R_DMA_2_CH6>,
+				 <SC_R_DMA_2_CH7>;
+		status = "okay";
+	};
+
+	edma22: dma-controller@0x59280000 {
+		compatible = "fsl,imx8qm-adma";
+		reg = <0x0 0x59280000 0x0 0x10000>, /* spdif0 rx */
+		      <0x0 0x59290000 0x0 0x10000>; /* spdif0 tx */
+		#dma-cells = <3>;
+		shared-interrupt;
+		dma-channels = <2>;
+		interrupts = <GIC_SPI 457 IRQ_TYPE_LEVEL_HIGH>, /* spdif0 */
+			     <GIC_SPI 459 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "edma2-chan8-rx", "edma2-chan9-tx"; /* spdif0 */
+		fsl,sc_rsrc_id = <SC_R_DMA_2_CH8>,
+				 <SC_R_DMA_2_CH9>;
+		status = "okay";
+	};
+
+	edma23: dma-controller@0x592a0000 {
+		compatible = "fsl,imx8qm-adma";
+		reg = <0x0 0x592A0000 0x0 0x10000>, /* spdif1 rx */
+		      <0x0 0x592B0000 0x0 0x10000>; /* spdif1 tx */
+		#dma-cells = <3>;
+		shared-interrupt;
+		dma-channels = <2>;
+		interrupts = <GIC_SPI 461 IRQ_TYPE_LEVEL_HIGH>, /* spdif1 */
+			     <GIC_SPI 463 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "edma2-chan10-rx", "edma2-chan11-tx"; /* spdif1 */
+		fsl,sc_rsrc_id = <SC_R_DMA_2_CH10>,
+				 <SC_R_DMA_2_CH11>;
+		status = "okay";
+	};
+
+	edma24: dma-controller@0x592c0000 {
+		compatible = "fsl,imx8qm-adma";
+		reg = <0x0 0x592c0000 0x0 0x10000>, /* sai0 rx */
+		      <0x0 0x592d0000 0x0 0x10000>; /* sai0 tx */
+		#dma-cells = <3>;
+		shared-interrupt;
+		dma-channels = <2>;
+		interrupts = <GIC_SPI 315 IRQ_TYPE_LEVEL_HIGH>, /* sai0 */
+			     <GIC_SPI 315 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "edma2-chan12-rx", "edma2-chan13-tx"; /* sai0 */
+		fsl,sc_rsrc_id = <SC_R_DMA_2_CH12>,
+				 <SC_R_DMA_2_CH13>;
+		status = "okay";
+	};
+
+	edma25: dma-controller@0x592e0000 {
+		compatible = "fsl,imx8qm-adma";
+		reg = <0x0 0x592e0000 0x0 0x10000>, /* sai1 rx */
+		      <0x0 0x592f0000 0x0 0x10000>; /* sai1 tx */
+		#dma-cells = <3>;
+		shared-interrupt;
+		dma-channels = <2>;
+		interrupts = <GIC_SPI 317 IRQ_TYPE_LEVEL_HIGH>, /* sai1 */
+			     <GIC_SPI 317 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "edma2-chan14-rx", "edma2-chan15-tx"; /* sai1 */
+		fsl,sc_rsrc_id = <SC_R_DMA_2_CH14>,
+				 <SC_R_DMA_2_CH15>;
+		status = "okay";
+	};
+
+	edma26: dma-controller@0x59320000 {
+		compatible = "fsl,imx8qm-adma";
+		reg = <0x0 0x59320000 0x0 0x10000>, /* sai4 rx */
+		      <0x0 0x59330000 0x0 0x10000>; /* sai5 tx */
+		#dma-cells = <3>;
+		shared-interrupt;
+		dma-channels = <2>;
+		interrupts = <GIC_SPI 326 IRQ_TYPE_LEVEL_HIGH>, /* sai4 */
+			     <GIC_SPI 328 IRQ_TYPE_LEVEL_HIGH>; /* sai5 */
+		interrupt-names = "edma2-chan18-rx", "edma2-chan19-tx"; /* sai1 */
+		fsl,sc_rsrc_id = <SC_R_DMA_2_CH18>,
+				 <SC_R_DMA_2_CH19>;
 		status = "okay";
 	};
 
@@ -213,9 +342,42 @@
 	aud_hdmi_tx_sai_0_lpcg: aud_hdmi_tx_sai_0_lpcg@0x59490000 {
 		reg = <0x0 0x59490000 0x0 0x1000>;
 	};
+
+	aud_asrc_0_lpcg: aud_asrc_0_lpcg@0x59400000 {
+		reg = <0x0 0x59400000 0x0 0x1000>;
+	};
+
+	aud_esai_0_lpcg: aud_esai_0_lpcg@0x59410000 {
+		reg = <0x0 0x59410000 0x0 0x1000>;
+	};
+
+	aud_pll_clk0_lpcg: aud_pll_clk0_lpcg {
+		reg = <0x0 0x59d20000 0x0 0x1000>;
+	};
+
+	aud_pll_clk1_lpcg: aud_pll_clk1_lpcg {
+		reg = <0x0 0x59d30000 0x0 0x1000>;
+	};
+
+	aud_mclkout0_lpcg: aud_mclkout0_lpcg {
+		reg = <0x0 0x59d50000 0x0 0x1000>;
+	};
+
+	aud_mclkout1_lpcg: aud_mclkout1_lpcg {
+		reg = <0x0 0x59d60000 0x0 0x1000>;
+	};
+
+	aud_rec_clk0_lpcg: aud_rec_clk0_lpcg {
+		reg = <0x0 0x59d00000 0x0 0x1000>;
+	};
+
+	aud_rec_clk1_lpcg: aud_rec_clk1_lpcg {
+		reg = <0x0 0x59d10000 0x0 0x1000>;
+	};
 };
 
 /delete-node/ &edma0;
+/delete-node/ &edma2;
 
 &mu {
 	interrupt-parent = <&gic>;
@@ -322,4 +484,40 @@
 			 <SC_R_DC_1_VIDEO1>,
 			 <SC_R_DC_1_FRAC0>,
 			 <SC_R_DC_1>;
+};
+
+&esai0 {
+	dmas = <&edma21 6 0 1>, <&edma21 7 0 0>;
+};
+
+&spdif0 {
+	dmas = <&edma22 8 0 5>, <&edma22 9 0 4>;
+};
+
+&spdif1 {
+	dmas = <&edma23 10 0 5>, <&edma23 11 0 4>;
+};
+
+&sai0 {
+	dmas = <&edma24 12 0 1>, <&edma24 13 0 0>;
+};
+
+&sai1 {
+	dmas = <&edma25 14 0 1>, <&edma25 15 0 0>;
+};
+
+/delete-node/ &sai2;
+/delete-node/ &sai3;
+
+&sai_hdmi_rx {
+	dmas = <&edma26 18 0 1>;
+};
+
+&sai_hdmi_tx {
+	dmas = <&edma26 19 0 0>;
+};
+
+&asrc0 {
+	dmas = <&edma20 0 0 0>, <&edma20 1 0 0>, <&edma20 2 0 0>,
+	       <&edma20 3 0 1>, <&edma20 4 0 1>, <&edma20 5 0 1>;
 };

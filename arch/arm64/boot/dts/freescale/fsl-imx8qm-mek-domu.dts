@@ -282,6 +282,15 @@
 				gpio = <&gpio4 9 0>;
 				enable-active-high;
 			};
+
+			reg_audio: fixedregulator@2 {
+				compatible = "regulator-fixed";
+				reg = <2>;
+				regulator-name = "cs42888_supply";
+				regulator-min-microvolt = <3300000>;
+				regulator-max-microvolt = <3300000>;
+				regulator-always-on;
+			};
 		};
 
 		#include "fsl-imx8qm-device.dtsi"
@@ -310,9 +319,61 @@
 			status = "okay";
 		};
 
+		edma20: dma-controller@591f0000 {
+			compatible = "fsl,imx8qm-adma";
+			reg = <0x0 0x59200000 0x0 0x10000>, /* asrc0 */
+				<0x0 0x59210000 0x0 0x10000>,
+				<0x0 0x59220000 0x0 0x10000>,
+				<0x0 0x59230000 0x0 0x10000>,
+				<0x0 0x59240000 0x0 0x10000>,
+				<0x0 0x59250000 0x0 0x10000>;
+			#dma-cells = <3>;
+			shared-interrupt;
+			dma-channels = <6>;
+			interrupts = <GIC_SPI 374 IRQ_TYPE_LEVEL_HIGH>, /* asrc0 */
+					<GIC_SPI 375 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 376 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 377 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 378 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 379 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "edma2-chan0-rx", "edma2-chan1-rx", /* asrc0 */
+					"edma2-chan2-rx", "edma2-chan3-tx",
+					"edma2-chan4-tx", "edma2-chan5-tx";
+			status = "okay";
+		};
+
+		edma21: dma-controller@0x59260000 {
+			compatible = "fsl,imx8qm-adma";
+			reg = <0x0 0x59260000 0x0 0x10000>, /* esai0 rx */
+			      <0x0 0x59270000 0x0 0x10000>; /* esai0 tx */
+			#dma-cells = <3>;
+			shared-interrupt;
+			dma-channels = <2>;
+			interrupts = <GIC_SPI 410 IRQ_TYPE_LEVEL_HIGH>, /* esai0 */
+				     <GIC_SPI 410 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "edma2-chan6-rx", "edma2-chan7-tx"; /* esai0 */
+			status = "okay";
+		};
+
+		sound-cs42888 {
+			compatible = "fsl,imx8qm-sabreauto-cs42888",
+					 "fsl,imx-audio-cs42888";
+			model = "imx-cs42888";
+			esai-controller = <&esai0>;
+			audio-codec = <&cs42888>;
+			asrc-controller = <&asrc0>;
+			status = "okay";
+		};
+
 		xen_i2c0: xen_i2c@0 {
 			compatible = "xen,i2c";
 			be-adapter = "5a800000.i2c";
+			status = "okay";
+		};
+
+		xen_i2c1: xen_i2c@1 {
+			compatible = "xen,i2c";
+			be-adapter = "3b230000.i2c";
 			status = "okay";
 		};
 	};
@@ -660,8 +721,26 @@
 /delete-node/ &ddr_pmu0;
 /delete-node/ &ddr_pmu1;
 /delete-node/ &vpu;
-/delete-node/ &acm;
-/delete-node/ &esai0;
+
+&acm {
+	status = "okay";
+};
+
+&esai0 {
+	compatible = "fsl,imx8qm-esai";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_esai0>;
+	dmas = <&edma21 6 0 1>, <&edma21 7 0 0>;
+	assigned-clocks = <&clk IMX8QM_ACM_ESAI0_MCLK_SEL>,
+			<&clk IMX8QM_AUD_PLL0_DIV>,
+			<&clk IMX8QM_AUD_ACM_AUD_PLL_CLK0_DIV>,
+			<&clk IMX8QM_AUD_ACM_AUD_REC_CLK0_DIV>,
+			<&clk IMX8QM_AUD_ESAI_0_EXTAL_IPG>;
+	assigned-clock-parents = <&clk IMX8QM_AUD_ACM_AUD_PLL_CLK0_CLK>;
+	assigned-clock-rates = <0>, <786432000>, <49152000>, <12288000>, <49152000>;
+	status = "okay";
+};
+
 /delete-node/ &esai1;
 /delete-node/ &spdif0;
 /delete-node/ &spdif1;
@@ -674,7 +753,14 @@
 /delete-node/ &sai6;
 /delete-node/ &sai7;
 /delete-node/ &amix;
-/delete-node/ &asrc0;
+
+&asrc0 {
+	dmas = <&edma20 0 0 0>, <&edma20 1 0 0>, <&edma20 2 0 0>,
+	       <&edma20 3 0 1>, <&edma20 4 0 1>, <&edma20 5 0 1>;
+	fsl,asrc-rate  = <48000>;
+	status = "okay";
+};
+
 /delete-node/ &asrc1;
 /delete-node/ &mqs;
 /delete-node/ &flexspi0;
@@ -819,6 +905,21 @@
 				SC_P_USDHC2_WP_LSIO_GPIO4_IO11		0x00000021
 			>;
 		};
+
+		pinctrl_esai0: esai0grp {
+			fsl,pins = <
+				SC_P_ESAI0_FSR_AUD_ESAI0_FSR            0xc6000040
+				SC_P_ESAI0_FST_AUD_ESAI0_FST            0xc6000040
+				SC_P_ESAI0_SCKR_AUD_ESAI0_SCKR          0xc6000040
+				SC_P_ESAI0_SCKT_AUD_ESAI0_SCKT          0xc6000040
+				SC_P_ESAI0_TX0_AUD_ESAI0_TX0            0xc6000040
+				SC_P_ESAI0_TX1_AUD_ESAI0_TX1            0xc6000040
+				SC_P_ESAI0_TX2_RX3_AUD_ESAI0_TX2_RX3    0xc6000040
+				SC_P_ESAI0_TX3_RX2_AUD_ESAI0_TX3_RX2    0xc6000040
+				SC_P_ESAI0_TX4_RX1_AUD_ESAI0_TX4_RX1    0xc6000040
+				SC_P_ESAI0_TX5_RX0_AUD_ESAI0_TX5_RX0    0xc6000040
+			>;
+		};
 	};
 };
 
@@ -923,6 +1024,32 @@
 		port-type = "drp";
 		sink-disable;
 		default-role = "source";
+		status = "okay";
+	};
+};
+
+&xen_i2c1 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	clock-frequency = <100000>;
+	status = "okay";
+
+	cs42888: cs42888@48 {
+		compatible = "cirrus,cs42888";
+		reg = <0x48>;
+		clocks = <&clk IMX8QM_AUD_MCLKOUT0>;
+		clock-names = "mclk";
+		VA-supply = <&reg_audio>;
+		VD-supply = <&reg_audio>;
+		VLS-supply = <&reg_audio>;
+		VLC-supply = <&reg_audio>;
+		reset-gpio = <&gpio4 25 1>;
+		power-domains = <&pd_mclk_out0>;
+		assigned-clocks = <&clk IMX8QM_AUD_PLL0_DIV>,
+				<&clk IMX8QM_AUD_ACM_AUD_PLL_CLK0_DIV>,
+				<&clk IMX8QM_AUD_ACM_AUD_REC_CLK0_DIV>,
+				<&clk IMX8QM_AUD_MCLKOUT0>;
+		assigned-clock-rates = <786432000>, <49152000>, <12288000>, <12288000>;
 		status = "okay";
 	};
 };
