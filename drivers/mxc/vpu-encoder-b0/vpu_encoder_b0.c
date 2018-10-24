@@ -2072,15 +2072,12 @@ static int handle_event_stop_done(struct vpu_ctx *ctx)
 	return 0;
 }
 
-static void vpu_api_event_handler(struct vpu_ctx *ctx, u_int32 uStrIdx,
+static void vpu_api_event_handler(struct vpu_ctx *ctx,
 				u_int32 uEvent, u_int32 *event_data)
 {
-	vpu_log_event(uEvent, uStrIdx);
+	vpu_log_event(uEvent, ctx->str_index);
 	count_event(&ctx->statistic, uEvent);
 	check_enc_mem_overstep(ctx);
-
-	if (uStrIdx >= VID_API_NUM_STREAMS)
-		return;
 
 	switch (uEvent) {
 	case VID_API_ENC_EVENT_START_DONE:
@@ -2236,6 +2233,10 @@ static void vpu_msg_run_work(struct work_struct *work)
 
 	while (rpc_MediaIPFW_Video_message_check_encoder(This) == API_MSG_AVAILABLE) {
 		rpc_receive_msg_buf_encoder(This, &msg);
+		if (msg.idx >= VPU_MAX_NUM_STREAMS) {
+			vpu_err("msg idx(%d) is out of range\n", msg.idx);
+			continue;
+		}
 		mutex_lock(&dev->core_mutex);
 		ctx = dev->ctx[msg.idx];
 		if (ctx != NULL) {
@@ -2258,7 +2259,7 @@ static void vpu_msg_instance_work(struct work_struct *work)
 	struct event_msg msg;
 
 	while (receive_msg_queue(ctx, &msg))
-		vpu_api_event_handler(ctx, msg.idx, msg.msgid, msg.msgdata);
+		vpu_api_event_handler(ctx, msg.msgid, msg.msgdata);
 }
 
 static int vpu_queue_setup(struct vb2_queue *vq,
@@ -3042,6 +3043,7 @@ error:
 static int v4l2_release(struct file *filp)
 {
 	struct vpu_ctx *ctx = v4l2_fh_to_ctx(filp->private_data);
+	struct vpu_dev *dev = ctx->dev;
 
 	vpu_dbg(LVL_DEBUG, "%s()\n", __func__);
 
@@ -3050,6 +3052,10 @@ static int v4l2_release(struct file *filp)
 
 	uninit_vpu_ctx_fh(ctx);
 	filp->private_data = NULL;
+
+	mutex_lock(&dev->dev_mutex);
+	release_instance(ctx);
+	mutex_unlock(&dev->dev_mutex);
 
 	return 0;
 }
