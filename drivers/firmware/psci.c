@@ -19,6 +19,7 @@
 #include <linux/errno.h>
 #include <linux/linkage.h>
 #include <linux/of.h>
+#include <linux/of_gpio.h>
 #include <linux/pm.h>
 #include <linux/printk.h>
 #include <linux/psci.h>
@@ -53,6 +54,9 @@
  * require cooperation with a Trusted OS driver.
  */
 static int resident_cpu = -1;
+
+static int suspend_gpio = -EINVAL;
+static struct device_node *saved_np;
 
 bool psci_tos_resident_on(int cpu)
 {
@@ -443,7 +447,21 @@ static int psci_system_suspend(unsigned long unused)
 
 static int psci_system_suspend_enter(suspend_state_t state)
 {
-	return cpu_suspend(0, psci_system_suspend);
+	int ret;
+
+	if (suspend_gpio == -EINVAL) {
+		suspend_gpio = of_get_named_gpio(saved_np, "suspend-gpios", 0);
+	}
+
+	if (gpio_is_valid(suspend_gpio))
+		gpio_set_value_cansleep(suspend_gpio, 0);
+
+	ret = cpu_suspend(0, psci_system_suspend);
+
+	if (gpio_is_valid(suspend_gpio))
+		gpio_set_value_cansleep(suspend_gpio, 1);
+
+	return ret;
 }
 
 static const struct platform_suspend_ops psci_suspend_ops = {
@@ -679,6 +697,8 @@ int __init psci_dt_init(void)
 
 	if (!np || !of_device_is_available(np))
 		return -ENODEV;
+
+	saved_np = np;
 
 	init_fn = (psci_initcall_t)matched_np->data;
 	return init_fn(np);
