@@ -518,7 +518,7 @@ void afe_init_t28hpc(state_struct *state,
 	val = val | 0x0008;
 	Afe_write(state, PHY_PMA_CMN_CTRL1, val);
 
-	Afe_write(state, CMN_DIAG_PLL0_TEST_MODE, 0x0022);
+	Afe_write(state, CMN_DIAG_PLL0_TEST_MODE, 0x0020);
 	Afe_write(state, CMN_PSM_CLK_CTRL, 0x0016);
 
 	if (refclk == REFCLK_24MHZ) {
