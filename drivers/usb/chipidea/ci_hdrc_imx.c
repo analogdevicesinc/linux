@@ -494,7 +494,6 @@ static int ci_hdrc_imx_probe(struct platform_device *pdev)
 		data->usbmisc_data->anatop = data->anatop;
 	}
 
-	data->usbmisc_data->picophy = (imx_platform_flag == &imx7d_usb_data);
 	ret = imx_usbmisc_init(data->usbmisc_data);
 	if (ret) {
 		dev_err(dev, "usbmisc init failed, ret=%d\n", ret);

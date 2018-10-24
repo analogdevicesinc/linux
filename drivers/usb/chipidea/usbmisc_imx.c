@@ -115,7 +115,7 @@
 #define MX7D_USBNC_USB_CTRL2_OPMODE_NON_DRIVING	MX7D_USBNC_USB_CTRL2_OPMODE(1)
 #define MX7D_USBNC_USB_CTRL2_TERMSEL_OVERRIDE_EN	BIT(5)
 #define MX7D_USBNC_USB_CTRL2_TERMSEL_OVERRIDE_VAL	BIT(4)
-#define MX7D_USBNC_HSIC_AUTO_RESUME	BIT(2)
+#define MX7D_USBNC_AUTO_RESUME				BIT(2)
 
 #define MX7D_USB_VBUS_WAKEUP_SOURCE_MASK	0x3
 #define MX7D_USB_VBUS_WAKEUP_SOURCE(v)		(v << 0)
@@ -646,11 +646,6 @@ static int usbmisc_imx7d_init(struct imx_usbmisc_data *data)
 	reg = readl(usbmisc->base);
 	writel(reg | MX6_BM_NON_BURST_SETTING, usbmisc->base);
 
-	reg = readl(usbmisc->base + MX7D_USBNC_USB_CTRL2);
-	reg &= ~MX7D_USB_VBUS_WAKEUP_SOURCE_MASK;
-	writel(reg | MX7D_USB_VBUS_WAKEUP_SOURCE_BVALID,
-		 usbmisc->base + MX7D_USBNC_USB_CTRL2);
-
 	if (data->hsic) {
 		reg = readl(usbmisc->base);
 		writel(reg | MX6_BM_UTMI_ON_CLOCK, usbmisc->base);
@@ -658,13 +653,13 @@ static int usbmisc_imx7d_init(struct imx_usbmisc_data *data)
 		reg = readl(usbmisc->base + MX6_USB_HSIC_CTRL_OFFSET);
 		reg |= MX6_BM_HSIC_EN | MX6_BM_HSIC_CLK_ON;
 		writel(reg, usbmisc->base + MX6_USB_HSIC_CTRL_OFFSET);
-
+	} else {
 		reg = readl(usbmisc->base + MX7D_USBNC_USB_CTRL2);
-		writel(reg | MX7D_USBNC_HSIC_AUTO_RESUME,
+		reg &= ~MX7D_USB_VBUS_WAKEUP_SOURCE_MASK;
+		writel(reg | MX7D_USB_VBUS_WAKEUP_SOURCE_BVALID
+			| MX7D_USBNC_AUTO_RESUME,
 			usbmisc->base + MX7D_USBNC_USB_CTRL2);
-	}
-
-	if (data->picophy) {
+		/* PHY tuning for signal quality */
 		reg = readl(usbmisc->base + MX7D_USB_OTG_PHY_CFG1);
 		if (data->emp_curr_control && data->emp_curr_control <=
 			(TXPREEMPAMPTUNE0_MASK >> TXPREEMPAMPTUNE0_BIT)) {
@@ -929,6 +924,62 @@ static int usbmisc_term_select_override(struct imx_usbmisc_data *data,
 	return 0;
 }
 
+static int usbmisc_imx7ulp_init(struct imx_usbmisc_data *data)
+{
+	struct imx_usbmisc *usbmisc = dev_get_drvdata(data->dev);
+	unsigned long flags;
+	u32 reg;
+
+	if (data->index >= 1)
+		return -EINVAL;
+
+	spin_lock_irqsave(&usbmisc->lock, flags);
+	reg = readl(usbmisc->base);
+	if (data->disable_oc) {
+		reg |= MX6_BM_OVER_CUR_DIS;
+	} else if (data->oc_polarity == 1) {
+		/* High active */
+		reg &= ~(MX6_BM_OVER_CUR_DIS | MX6_BM_OVER_CUR_POLARITY);
+	}
+
+	if (data->pwr_polarity)
+		reg |= MX6_BM_PRW_POLARITY;
+
+	writel(reg, usbmisc->base);
+
+	/* SoC non-burst setting */
+	reg = readl(usbmisc->base);
+	writel(reg | MX6_BM_NON_BURST_SETTING, usbmisc->base);
+
+	if (data->hsic) {
+		reg = readl(usbmisc->base);
+		writel(reg | MX6_BM_UTMI_ON_CLOCK, usbmisc->base);
+
+		reg = readl(usbmisc->base + MX6_USB_HSIC_CTRL_OFFSET);
+		reg |= MX6_BM_HSIC_EN | MX6_BM_HSIC_CLK_ON;
+		writel(reg, usbmisc->base + MX6_USB_HSIC_CTRL_OFFSET);
+
+		/*
+		 * For non-HSIC controller, the autoresume is enabled
+		 * at MXS PHY driver (usbphy_ctrl bit18).
+		 */
+		reg = readl(usbmisc->base + MX7D_USBNC_USB_CTRL2);
+		writel(reg | MX7D_USBNC_AUTO_RESUME,
+			usbmisc->base + MX7D_USBNC_USB_CTRL2);
+	} else {
+		reg = readl(usbmisc->base + MX7D_USBNC_USB_CTRL2);
+		reg &= ~MX7D_USB_VBUS_WAKEUP_SOURCE_MASK;
+		writel(reg | MX7D_USB_VBUS_WAKEUP_SOURCE_BVALID,
+			 usbmisc->base + MX7D_USBNC_USB_CTRL2);
+	}
+
+	spin_unlock_irqrestore(&usbmisc->lock, flags);
+
+	usbmisc_imx7d_set_wakeup(data, false);
+
+	return 0;
+}
+
 static const struct usbmisc_ops imx25_usbmisc_ops = {
 	.init = usbmisc_imx25_init,
 	.post = usbmisc_imx25_post,
@@ -976,7 +1027,7 @@ static const struct usbmisc_ops imx7d_usbmisc_ops = {
 };
 
 static const struct usbmisc_ops imx7ulp_usbmisc_ops = {
-	.init = usbmisc_imx7d_init,
+	.init = usbmisc_imx7ulp_init,
 	.set_wakeup = usbmisc_imx7d_set_wakeup,
 	.power_lost_check = usbmisc_imx7d_power_lost_check,
 	.hsic_set_connect = usbmisc_imx6_hsic_set_connect,
