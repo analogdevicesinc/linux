@@ -161,6 +161,9 @@ typedef enum {
 	VID_API_CMD_DBG_DUMP_LOG      = 0x1F,
 	/* Begin Encode CMDs */
 	VID_API_CMD_YUV_READY         = 0x20,
+
+	VID_API_CMD_FIRM_RESET        = 0x40,
+
 #if BOOT_ARCH == REBOOT
 	VID_API_CMD_SNAPSHOT          = 0xAA,
 	VID_API_CMD_ROLL_SNAPSHOT     = 0xAB,
