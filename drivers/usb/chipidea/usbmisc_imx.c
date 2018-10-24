@@ -646,14 +646,7 @@ static int usbmisc_imx7d_init(struct imx_usbmisc_data *data)
 	reg = readl(usbmisc->base);
 	writel(reg | MX6_BM_NON_BURST_SETTING, usbmisc->base);
 
-	if (data->hsic) {
-		reg = readl(usbmisc->base);
-		writel(reg | MX6_BM_UTMI_ON_CLOCK, usbmisc->base);
-
-		reg = readl(usbmisc->base + MX6_USB_HSIC_CTRL_OFFSET);
-		reg |= MX6_BM_HSIC_EN | MX6_BM_HSIC_CLK_ON;
-		writel(reg, usbmisc->base + MX6_USB_HSIC_CTRL_OFFSET);
-	} else {
+	if (!data->hsic) {
 		reg = readl(usbmisc->base + MX7D_USBNC_USB_CTRL2);
 		reg &= ~MX7D_USB_VBUS_WAKEUP_SOURCE_MASK;
 		writel(reg | MX7D_USB_VBUS_WAKEUP_SOURCE_BVALID
@@ -1022,8 +1015,6 @@ static const struct usbmisc_ops imx7d_usbmisc_ops = {
 	.power_lost_check = usbmisc_imx7d_power_lost_check,
 	.charger_detection = imx7d_charger_detection,
 	.term_select_override = usbmisc_term_select_override,
-	.hsic_set_connect = usbmisc_imx6_hsic_set_connect,
-	.hsic_set_clk   = usbmisc_imx6_hsic_set_clk,
 };
 
 static const struct usbmisc_ops imx7ulp_usbmisc_ops = {
