@@ -126,7 +126,7 @@ void print_header(void)
 		 );
 }
 
-void print_bytes(unsigned int addr, unsigned char *buf, unsigned int size)
+static void print_bytes(unsigned int addr, unsigned char *buf, unsigned int size)
 {
 	int i, index = 0;
 	char line[160];
@@ -141,7 +141,7 @@ void print_bytes(unsigned int addr, unsigned char *buf, unsigned int size)
 
 }
 
-int dump_dpcd(state_struct *state)
+static int dump_dpcd(state_struct *state)
 {
 	int ret;
 
@@ -233,7 +233,33 @@ int dump_dpcd(state_struct *state)
 }
 #endif
 
-int dp_get_training_status(state_struct *state)
+static bool dp_check_link_status(state_struct *state, u8 num_lanes)
+{
+	u8 link_status[DP_LINK_STATUS_SIZE];
+	DPTX_Read_DPCD_response read_resp;
+	CDN_API_STATUS status;
+
+	status = CDN_API_DPTX_Read_DPCD_blocking(state,
+					      DP_LINK_STATUS_SIZE,
+					      DP_LANE0_1_STATUS,
+					      &read_resp,
+					      CDN_BUS_TYPE_APB);
+
+	memcpy(link_status, read_resp.buff, DP_LINK_STATUS_SIZE);
+
+	if (status != CDN_OK) {
+		return false;
+	}
+
+	DRM_DEBUG("link status 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x\n",
+		 link_status[0],link_status[1],link_status[2],
+		 link_status[3],link_status[4],link_status[5]);
+
+	/* if link training is requested we should perform it always */
+	return drm_dp_channel_eq_ok(link_status, num_lanes);
+}
+
+static int dp_get_training_status(state_struct *state)
 {
 	uint32_t evt;
 	uint8_t eventId;
@@ -366,7 +392,7 @@ void dp_mode_set(state_struct *state,
 {
 	struct imx_hdp *hdp = state_to_imx_hdp(state);
 	int ret;
-	u8 training_retries = 10;
+	u8 training_retries = 10, training_restarts = 10;
 	/* Set Host capabilities */
 	/* Number of lanes and SSC */
 	u8 num_lanes = 4;
@@ -498,20 +524,45 @@ void dp_mode_set(state_struct *state,
 		);
 	DRM_INFO("CDN_API_DPTX_Set_VIC_blocking (ret = %d)\n", ret);
 
+	training_restarts=5;
 	do {
-		ret = CDN_API_DPTX_TrainingControl_blocking(state, 1);
-		DRM_DEBUG("CDN_API_DPTX_TrainingControl_* (ret = %d) start\n",
-			   ret);
-		if (dp_get_training_status(state) == 0)
-			break;
-		training_retries--;
 
-		ret = CDN_API_DPTX_TrainingControl_blocking(state, 0);
-		DRM_DEBUG("CDN_API_DPTX_TrainingControl_* (ret = %d) stop\n",
-			   ret);
+		do {
+			ret = CDN_API_DPTX_TrainingControl_blocking(state, 1);
+			DRM_INFO("CDN_API_DPTX_TrainingControl_* (ret = %d) start\n",
+				   ret);
+			if ((dp_get_training_status(state) == 0) /*&&
+			     dp_check_link_status(state, num_lanes)*/)
+				break;
+			training_retries--;
+
+			ret = CDN_API_DPTX_TrainingControl_blocking(state, 0);
+			DRM_INFO("CDN_API_DPTX_TrainingControl_* (ret = %d) stop\n",
+				   ret);
+			udelay(1000);
+
+		} while (training_retries > 0);
+
 		udelay(1000);
 
-	} while (training_retries > 0);
+		if (dp_check_link_status(state, num_lanes) == true) {
+		        DRM_INFO("Link is good - Training complete\n");
+		        break;
+		} else {
+			DRM_INFO("Link is bad - need to restart training\n");
+			training_restarts--;
+			training_retries = 20;
+
+			ret = CDN_API_DPTX_TrainingControl_blocking(state, 0);
+			DRM_INFO("CDN_API_DPTX_TrainingControl_* (ret = %d) stop\n",
+				   ret);
+			udelay(1000);
+		}
+
+
+	} while (training_restarts > 0);
+
+	DRM_INFO("dp_check_link_status %d\n", dp_check_link_status(state, num_lanes));
 
 	/* Set video on */
 	ret = CDN_API_DPTX_SetVideo_blocking(state, 1);
