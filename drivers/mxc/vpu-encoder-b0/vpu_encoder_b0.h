@@ -154,6 +154,7 @@ enum vpu_pixel_format {
 };
 
 struct vpu_ctx;
+struct core_device;
 struct vpu_dev;
 struct vpu_v4l2_fmt {
 	char *name;
@@ -197,6 +198,34 @@ struct queue_data {
 	struct list_head frame_q;
 	struct vpu_ctx *ctx;
 };
+
+struct vpu_statistic {
+	unsigned long cmd[GTB_ENC_CMD_RESERVED + 1];
+	unsigned long event[VID_API_ENC_EVENT_RESERVED + 1];
+	unsigned long current_cmd;
+	unsigned long current_event;
+	struct timespec ts_cmd;
+	struct timespec ts_event;
+	unsigned long yuv_count;
+	unsigned long encoded_count;
+	unsigned long h264_count;
+};
+
+struct vpu_attr {
+	struct device_attribute dev_attr;
+	char name[64];
+	u32 index;
+	struct core_device *core;
+
+	pid_t pid;
+	pid_t tgid;
+
+	struct vpu_statistic statistic;
+	MEDIAIP_ENC_PARAM param;
+
+	bool created;
+};
+
 struct core_device {
 	struct firmware *m0_pfw;
 	void *m0_p_fw_space_vir;
@@ -216,6 +245,7 @@ struct core_device {
 	int vpu_mu_init;
 
 	struct vpu_ctx *ctx[VPU_MAX_NUM_STREAMS];
+	struct vpu_attr attr[VPU_MAX_NUM_STREAMS];
 	struct shared_addr shared_mem;
 	u32 id;
 	off_t reg_fw_base;
@@ -259,18 +289,6 @@ enum {
 	VPU_ENC_STATUS_KEY_FRAME = 31
 };
 
-struct vpu_statistic {
-	unsigned long cmd[GTB_ENC_CMD_RESERVED + 1];
-	unsigned long event[VID_API_ENC_EVENT_RESERVED + 1];
-	unsigned long current_cmd;
-	unsigned long current_event;
-	struct timespec ts_cmd;
-	struct timespec ts_event;
-	unsigned long yuv_count;
-	unsigned long encoded_count;
-	unsigned long h264_count;
-};
-
 struct vpu_ctx {
 	struct vpu_dev *dev;
 	struct v4l2_fh fh;
@@ -295,23 +313,7 @@ struct vpu_ctx {
 	struct buffer_addr enc_buffer;
 	struct core_device *core_dev;
 
-	pid_t pid;
-	pid_t tgid;
-	struct vpu_statistic statistic;
-	struct device_attribute dev_attr_instance;
-	char name[64];
-
 	struct completion stop_cmp;
-
-	pMEDIAIP_ENC_YUV_BUFFER_DESC yuv_buffer_desc;
-	pBUFFER_DESCRIPTOR_TYPE stream_buffer_desc;
-	pMEDIAIP_ENC_EXPERT_MODE_PARAM expert_mode_param;
-	pMEDIAIP_ENC_PARAM enc_param;
-	pMEDIAIP_ENC_MEM_POOL mem_pool;
-	pENC_ENCODING_STATUS encoding_status;
-	pENC_DSA_STATUS_t dsa_status;
-
-	MEDIAIP_ENC_PARAM actual_param;
 };
 
 #define LVL_DEBUG	4
@@ -333,5 +335,6 @@ struct vpu_ctx {
 
 #define vpu_err(fmt, arg...)	vpu_dbg(LVL_ERR, fmt, ##arg)
 
+struct vpu_attr *get_vpu_ctx_attr(struct vpu_ctx *ctx);
 
 #endif

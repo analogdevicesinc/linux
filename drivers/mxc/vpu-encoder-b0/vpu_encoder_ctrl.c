@@ -41,7 +41,8 @@ const u_int32 h264_level[] = {
 static int set_h264_profile(struct v4l2_ctrl *ctrl)
 {
 	struct vpu_ctx *ctx = v4l2_ctrl_to_ctx(ctrl);
-	pMEDIAIP_ENC_PARAM  param = ctx->enc_param;
+	struct vpu_attr *attr = get_vpu_ctx_attr(ctx);
+	pMEDIAIP_ENC_PARAM  param = &attr->param;
 
 	mutex_lock(&ctx->instance_mutex);
 	switch (ctrl->val) {
@@ -68,7 +69,8 @@ static int set_h264_profile(struct v4l2_ctrl *ctrl)
 static int set_h264_level(struct v4l2_ctrl *ctrl)
 {
 	struct vpu_ctx *ctx = v4l2_ctrl_to_ctx(ctrl);
-	pMEDIAIP_ENC_PARAM  param = ctx->enc_param;
+	struct vpu_attr *attr = get_vpu_ctx_attr(ctx);
+	pMEDIAIP_ENC_PARAM  param = &attr->param;
 
 	mutex_lock(&ctx->instance_mutex);
 	param->uLevel = h264_level[ctrl->val];
@@ -82,7 +84,8 @@ static int set_h264_level(struct v4l2_ctrl *ctrl)
 static int set_bitrate_mode(struct v4l2_ctrl *ctrl)
 {
 	struct vpu_ctx *ctx = v4l2_ctrl_to_ctx(ctrl);
-	pMEDIAIP_ENC_PARAM  param = ctx->enc_param;
+	struct vpu_attr *attr = get_vpu_ctx_attr(ctx);
+	pMEDIAIP_ENC_PARAM  param = &attr->param;
 
 	mutex_lock(&ctx->instance_mutex);
 	switch (ctrl->val) {
@@ -107,7 +110,8 @@ static int set_bitrate_mode(struct v4l2_ctrl *ctrl)
 static int set_bitrate(struct v4l2_ctrl *ctrl)
 {
 	struct vpu_ctx *ctx = v4l2_ctrl_to_ctx(ctrl);
-	pMEDIAIP_ENC_PARAM  param = ctx->enc_param;
+	struct vpu_attr *attr = get_vpu_ctx_attr(ctx);
+	pMEDIAIP_ENC_PARAM  param = &attr->param;
 
 	mutex_lock(&ctx->instance_mutex);
 	param->uTargetBitrate = ctrl->val;
@@ -121,7 +125,8 @@ static int set_bitrate(struct v4l2_ctrl *ctrl)
 static int set_bitrate_peak(struct v4l2_ctrl *ctrl)
 {
 	struct vpu_ctx *ctx = v4l2_ctrl_to_ctx(ctrl);
-	pMEDIAIP_ENC_PARAM  param = ctx->enc_param;
+	struct vpu_attr *attr = get_vpu_ctx_attr(ctx);
+	pMEDIAIP_ENC_PARAM  param = &attr->param;
 
 	mutex_lock(&ctx->instance_mutex);
 	param->uMaxBitRate = ctrl->val;
@@ -135,7 +140,8 @@ static int set_bitrate_peak(struct v4l2_ctrl *ctrl)
 static int set_gop_size(struct v4l2_ctrl *ctrl)
 {
 	struct vpu_ctx *ctx = v4l2_ctrl_to_ctx(ctrl);
-	pMEDIAIP_ENC_PARAM  param = ctx->enc_param;
+	struct vpu_attr *attr = get_vpu_ctx_attr(ctx);
+	pMEDIAIP_ENC_PARAM  param = &attr->param;
 
 	mutex_lock(&ctx->instance_mutex);
 	param->uGopBLength = ctrl->val;
@@ -147,7 +153,8 @@ static int set_gop_size(struct v4l2_ctrl *ctrl)
 static int set_i_period(struct v4l2_ctrl *ctrl)
 {
 	struct vpu_ctx *ctx = v4l2_ctrl_to_ctx(ctrl);
-	pMEDIAIP_ENC_PARAM  param = ctx->enc_param;
+	struct vpu_attr *attr = get_vpu_ctx_attr(ctx);
+	pMEDIAIP_ENC_PARAM  param = &attr->param;
 
 	mutex_lock(&ctx->instance_mutex);
 	param->uIFrameInterval = ctrl->val;
@@ -159,7 +166,8 @@ static int set_i_period(struct v4l2_ctrl *ctrl)
 static int set_qp(struct v4l2_ctrl *ctrl)
 {
 	struct vpu_ctx *ctx = v4l2_ctrl_to_ctx(ctrl);
-	pMEDIAIP_ENC_PARAM  param = ctx->enc_param;
+	struct vpu_attr *attr = get_vpu_ctx_attr(ctx);
+	pMEDIAIP_ENC_PARAM  param = &attr->param;
 
 	mutex_lock(&ctx->instance_mutex);
 	param->uInitSliceQP = ctrl->val;
@@ -180,7 +188,8 @@ static int get_min_buffers_for_output(struct v4l2_ctrl *ctrl)
 static int set_display_re_ordering(struct v4l2_ctrl *ctrl)
 {
 	struct vpu_ctx *ctx = v4l2_ctrl_to_ctx(ctrl);
-	pMEDIAIP_ENC_PARAM  param = ctx->enc_param;
+	struct vpu_attr *attr = get_vpu_ctx_attr(ctx);
+	pMEDIAIP_ENC_PARAM  param = &attr->param;
 
 	mutex_lock(&ctx->instance_mutex);
 	if (ctrl->val)
