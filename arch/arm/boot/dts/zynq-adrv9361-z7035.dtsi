@@ -153,7 +153,6 @@
 					adi,source-bus-type = <2>;
 					adi,destination-bus-width = <64>;
 					adi,destination-bus-type = <0>;
-					adi,length-width = <24>;
 				};
 			};
 		};
@@ -175,8 +174,6 @@
 					adi,source-bus-type = <0>;
 					adi,destination-bus-width = <64>;
 					adi,destination-bus-type = <2>;
-					adi,length-width = <24>;
-					adi,cyclic;
 				};
 			};
 		};
