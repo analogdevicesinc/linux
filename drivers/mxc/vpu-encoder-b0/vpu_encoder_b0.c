@@ -1373,7 +1373,7 @@ static u32 get_vb2_plane_phy_addr(struct vb2_buffer *vb, unsigned int plane_no)
 	dma_addr_t *dma_addr;
 
 	dma_addr = vb2_plane_cookie(vb, plane_no);
-	return *dma_addr + vb->planes[0].data_offset;
+	return *dma_addr + vb->planes[plane_no].data_offset;
 }
 
 static bool update_yuv_addr(struct vpu_ctx *ctx)
