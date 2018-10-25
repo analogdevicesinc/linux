@@ -78,9 +78,17 @@
 		interrupts = <0 57 0>;
 		clocks = <&clkc 16>;
 
-		dma-channel {
-			adi,buswidth = <64>;
-			adi,type = <0>;
+		adi,channels {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			dma-channel@0 {
+				reg = <0>;
+				adi,source-bus-width = <64>;
+				adi,source-bus-type = <1>;
+				adi,destination-bus-width = <64>;
+				adi,destination-bus-type = <0>;
+			};
 		};
 	};
 
