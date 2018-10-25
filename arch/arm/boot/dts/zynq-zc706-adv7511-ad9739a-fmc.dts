@@ -43,10 +43,18 @@
 		#dma-cells = <1>;
 		interrupts = <0 56 0>;
 		clocks = <&clkc 16>;
-			dma-channel {
-			adi,buswidth = <64>;
-			adi,type = <1>;
-			adi,cyclic;
+
+		adi,channels {
+			#size-cells = <0>;
+			#address-cells = <1>;
+
+			dma-channel@0 {
+				reg = <0>;
+				adi,source-bus-width = <256>;
+				adi,source-bus-type = <0>;
+				adi,destination-bus-width = <256>;
+				adi,destination-bus-type = <2>;
+			};
 		};
 	};
 

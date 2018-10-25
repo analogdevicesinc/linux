@@ -59,10 +59,6 @@
 		reg = <0x7c440000  0x10000>;
 		#dma-cells = <1>;
 		clocks = <&clk_bus_0>;
-		dma-channel {
-			adi,buswidth = <64>;
-			adi,type = <0>;
-		};
 
 		adi,channels {
 			#size-cells = <0>;
