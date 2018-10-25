@@ -35,10 +35,17 @@
 		interrupts = <0 57 0>;
 		clocks = <&clkc 16>;
 
-		dma-channel {
-			adi,source-bus-width = <64>;
-			adi,destination-bus-width = <64>;
-			adi,type = <0>;
+		adi,channels {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			dma-channel@0 {
+				reg = <0>;
+				adi,source-bus-width = <64>;
+				adi,source-bus-type = <2>;
+				adi,destination-bus-width = <64>;
+				adi,destination-bus-type = <0>;
+			};
 		};
 	};
 
@@ -49,11 +56,17 @@
 		interrupts = <0 56 0>;
 		clocks = <&clkc 16>;
 
-		dma-channel {
-			adi,source-bus-width = <128>;
-			adi,destination-bus-width = <128>;
-			adi,type = <1>;
-			adi,cyclic;
+		adi,channels {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			dma-channel@0 {
+				reg = <0>;
+				adi,source-bus-width = <128>;
+				adi,source-bus-type = <0>;
+				adi,destination-bus-width = <128>;
+				adi,destination-bus-type = <1>;
+			};
 		};
 	};
 
