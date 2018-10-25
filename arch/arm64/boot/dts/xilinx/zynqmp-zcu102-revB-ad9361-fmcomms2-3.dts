@@ -44,11 +44,19 @@
 			interrupts = <0 109 0>;
 			clocks = <&clk 71>;
 
-			dma-channel {
-				adi,source-bus-width = <64>;
-				adi,destination-bus-width = <128>;
-				adi,type = <0>;
+			adi,channels {
+				#size-cells = <0>;
+				#address-cells = <1>;
+
+				dma-channel@0 {
+					reg = <0>;
+					adi,source-bus-width = <64>;
+					adi,source-bus-type = <2>;
+					adi,destination-bus-width = <64>;
+					adi,destination-bus-type = <0>;
+				};
 			};
+
 		};
 
 		tx_dma: dma@9c420000  {
@@ -58,11 +66,17 @@
 			interrupts = <0 108 0>;
 			clocks = <&clk 71>;
 
-			dma-channel {
-				adi,source-bus-width = <128>;
-				adi,destination-bus-width = <64>;
-				adi,type = <1>;
-				adi,cyclic;
+			adi,channels {
+				#size-cells = <0>;
+				#address-cells = <1>;
+
+				dma-channel@0 {
+					reg = <0>;
+					adi,source-bus-width = <64>;
+					adi,source-bus-type = <0>;
+					adi,destination-bus-width = <64>;
+					adi,destination-bus-type = <2>;
+				};
 			};
 		};
 
