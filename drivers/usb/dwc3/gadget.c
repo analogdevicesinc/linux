@@ -2705,7 +2705,7 @@ void dwc3_stop_active_transfer(struct dwc3 *dwc, u32 epnum, bool force)
 	cmd |= DWC3_DEPCMD_PARAM(dep->resource_index);
 	memset(&params, 0, sizeof(params));
 	ret = dwc3_send_gadget_ep_cmd(dep, cmd, &params);
-	WARN_ON_ONCE(ret);
+	WARN_ON_ONCE(ret && ret != -ETIMEDOUT);
 	dep->flags &= ~DWC3_EP_BUSY;
 
 	/*
