@@ -45,7 +45,6 @@
 				adi,source-bus-type = <0>;
 				adi,destination-bus-width = <64>;
 				adi,destination-bus-type = <2>;
-				adi,cyclic;
 			};
 		};
 	};
