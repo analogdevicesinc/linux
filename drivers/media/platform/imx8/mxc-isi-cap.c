@@ -98,6 +98,14 @@ struct mxc_isi_fmt mxc_isi_out_formats[] = {
 		.memplanes	= 2,
 		.colplanes	= 2,
 		.mbus_code	= MEDIA_BUS_FMT_YUYV8_1X16,
+	}, {
+		.name		= "YUV444M (Y-U-V)",
+		.fourcc		= V4L2_PIX_FMT_YUV444M,
+		.depth		= { 8, 8, 8 },
+		.color		= MXC_ISI_OUT_FMT_YUV444_3P8P,
+		.memplanes	= 3,
+		.colplanes	= 3,
+		.mbus_code	= MEDIA_BUS_FMT_YUV8_1X24,
 	}
 };
 
