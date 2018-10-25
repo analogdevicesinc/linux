@@ -119,6 +119,11 @@
 			reg = <0 0x91400000 0 0x1000000>;
 		};
 
+		dsp_reserved: dsp@0x92400000 {
+			no-map;
+			reg = <0 0x92400000 0 0x2000000>;
+		};
+
 		decoder_str: str@0x94400000 {
 			no-map;
 			reg = <0 0x94400000 0 0x1800000>;
@@ -235,6 +240,15 @@
 			fsl,vpu_ap_mu_id = <18>;
 			status = "okay";
 		};
+
+		mu13: mu13@5d280000 {
+			compatible = "fsl,imx8-mu-dsp";
+			reg = <0x0 0x5d280000 0x0 0x10000>;
+			interrupts = <GIC_SPI 192 IRQ_TYPE_LEVEL_HIGH>;
+			fsl,dsp_ap_mu_id = <13>;
+			status = "okay";
+		};
+
 
 		vpu_decoder: vpu_decoder@2c000000 {
 			compatible = "nxp,imx8qm-b0-vpudec", "nxp,imx8qxp-b0-vpudec";
@@ -548,7 +562,11 @@
 /delete-node/ &dpr2_channel3;
 /delete-node/ &dpu1;
 /delete-node/ &pixel_combiner1;
-/delete-node/ &dsp;
+
+&dsp {
+	status = "okay";
+};
+
 /delete-node/ &irqsteer_dsi1;
 /delete-node/ &i2c0_mipi_dsi1;
 /delete-node/ &mipi_dsi_csr2;

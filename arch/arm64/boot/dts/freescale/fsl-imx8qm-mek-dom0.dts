@@ -167,6 +167,12 @@
 
 				SC_R_MCLK_OUT_0
 				SC_R_MCLK_OUT_1
+
+				/* HIFI DSP */
+				SC_R_DSP
+				SC_R_DSP_RAM
+				SC_R_MU_13B
+				SC_R_MU_13A
 			>;
 			pads = <
 				/* i2c1_lvds1 */
@@ -281,6 +287,11 @@
 
 	mu_rpmsg1_b: mu_rpmsg1_b@0x5d2a0000 {
 		reg = <0x0 0x5d2a0000 0x0 0x10000>;
+		xen,passthrough;
+	};
+
+	dsp_mu_b: dsp_mu_b@0x5d310000 {
+		reg = <0x0 0x5d310000 0x0 0x10000>;
 		xen,passthrough;
 	};
 
@@ -419,7 +430,7 @@
 		      <&usdhc1 0x12>, <&usbotg1 0x11>,
 		      <&edma01 0x10>, <&cm41 0x09>, <&pciea 0x08>,
 		      <&vpu_decoder 0x7>, <&crypto 0x6>, <&isi_0 0x5>,
-		      <&usbotg3 0x4>;
+		      <&usbotg3 0x4>, <&dsp 0x3>;
 };
 
 &lvds_region2 {
@@ -614,6 +625,12 @@
 
 &dsp {
        xen,passthrough;
+       #stream-id-cells = <1>;
+       iommus = <&smmu>;
+};
+
+&mu13 {
+	xen,passthrough;
 };
 
 &mu_m0 {

@@ -374,6 +374,13 @@
 	aud_rec_clk1_lpcg: aud_rec_clk1_lpcg {
 		reg = <0x0 0x59d10000 0x0 0x1000>;
 	};
+
+	aud_dsp_lpcg: aud_dsp_lpcg {
+		reg = <0x0 0x59580000 0x0 0x1000>;
+	};
+	aud_ocram_lpcg: aud_ocram_lpcg {
+		reg = <0x0 0x59590000 0x0 0x1000>;
+	};
 };
 
 /delete-node/ &edma0;
