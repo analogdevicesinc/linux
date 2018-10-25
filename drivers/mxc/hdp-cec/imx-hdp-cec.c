@@ -22,6 +22,7 @@
 #include <linux/version.h>
 #include <linux/workqueue.h>
 #include <linux/kthread.h>
+#include <linux/freezer.h>
 #include <media/cec.h>
 #include <soc/imx8/soc.h>
 
@@ -173,8 +174,10 @@ static int cec_poll_worker(void *_cec)
 	int num_rx_msgs, i;
 	int sts;
 
+	set_freezable();
+
 	for (;;) {
-		if (kthread_should_stop())
+		if (kthread_freezable_should_stop(NULL))
 			break;
 
 		/* Check TX State */
