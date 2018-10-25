@@ -133,6 +133,8 @@
 		 * hp-det-polarity = 1: hp detect high for speaker
 		 */
 		hp-det = <2 0>;
+		hp-det-gpios = <&gpio0 31 0>;
+		mic-det-gpios = <&gpio0 31 0>;
 		audio-routing =
 			"Headphone Jack", "HP_L",
 			"Headphone Jack", "HP_R",
@@ -249,6 +251,7 @@
 			fsl,pins = <
 				SC_P_MCLK_OUT0_AUD_ACM_MCLK_OUT0	0x0600004c
 				SC_P_QSPI1A_DATA1_LSIO_GPIO4_IO25	0x0600004c
+				SC_P_SCU_GPIO0_03_LSIO_GPIO0_IO31	0x0600004c
 			>;
 		};
 
