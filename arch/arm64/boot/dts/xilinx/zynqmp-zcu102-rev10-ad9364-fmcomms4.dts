@@ -33,13 +33,13 @@
 	fpga_axi: fpga-axi@0 {
 		interrupt-parent = <&gic>;
 		compatible = "simple-bus";
-		#address-cells = <0x2>;
+		#address-cells = <0x1>;
 		#size-cells = <0x1>;
-		ranges = <0 0 0 0 0xffffffff>;
+		ranges = <0 0 0 0xffffffff>;
 
 		rx_dma: dma@9c400000 {
 			compatible = "adi,axi-dmac-1.00.a";
-			reg = <0x0 0x9c400000 0x10000>;
+			reg = <0x9c400000 0x10000>;
 			#dma-cells = <1>;
 			#clock-cells = <0>;
 			interrupts = <0 109 0>;
@@ -61,7 +61,7 @@
 
 		tx_dma: dma@9c420000  {
 			compatible = "adi,axi-dmac-1.00.a";
-			reg = <0x0 0x9c420000 0x10000>;
+			reg = <0x9c420000 0x10000>;
 			#dma-cells = <1>;
 			#clock-cells = <0>;
 			interrupts = <0 108 0>;
@@ -83,7 +83,7 @@
 
 		cf_ad9361_adc_core_0: cf-ad9361-lpc@99020000 {
 			compatible = "adi,axi-ad9361-6.00.a";
-			reg = <0x0 0x99020000 0x6000>;
+			reg = <0x99020000 0x6000>;
 			dmas = <&rx_dma 0>;
 			dma-names = "rx";
 			spibus-connected = <&adc0_ad9364>;
@@ -91,7 +91,7 @@
 
 		cf_ad9361_dac_core_0: cf-ad9361-dds-core-lpc@99024000 {
 			compatible = "adi,axi-ad9361-dds-6.00.a";
-			reg = <0x0 0x99024000 0x1000>;
+			reg = <0x99024000 0x1000>;
 			clocks = <&adc0_ad9364 13>;
 			clock-names = "sampl_clk";
 			dmas = <&tx_dma 0>;
