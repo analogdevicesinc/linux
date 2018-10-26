@@ -2608,6 +2608,28 @@ static void release_queue_data(struct vpu_ctx *ctx)
 		vb2_queue_release(&This->vb2_q);
 }
 
+static void vpu_ctx_power_on(struct vpu_ctx *ctx)
+{
+	if (!ctx || !ctx->core_dev)
+		return;
+
+	if (ctx->power_status)
+		return;
+	pm_runtime_get_sync(ctx->core_dev->generic_dev);
+	ctx->power_status = true;
+}
+
+static void vpu_ctx_power_off(struct vpu_ctx *ctx)
+{
+	if (!ctx || !ctx->core_dev)
+		return;
+
+	if (!ctx->power_status)
+		return;
+	pm_runtime_put_sync(ctx->core_dev->generic_dev);
+	ctx->power_status = false;
+}
+
 static int set_vpu_fw_addr(struct vpu_dev *dev, struct core_device *core_dev)
 {
 	if (!dev || !core_dev)
@@ -2656,10 +2678,10 @@ static int vpu_firmware_download(struct vpu_dev *This, u_int32 core_id)
 	return ret;
 }
 
-static int do_download_vpu_firmware(struct vpu_dev *dev,
+static int download_vpu_firmware(struct vpu_dev *dev,
 				struct core_device *core_dev)
 {
-	int ret;
+	int ret = 0;
 
 	if (!dev || !core_dev)
 		return -EINVAL;
@@ -2667,35 +2689,23 @@ static int do_download_vpu_firmware(struct vpu_dev *dev,
 	if (core_dev->fw_is_ready)
 		return 0;
 
+	init_completion(&core_dev->start_cmp);
 	ret = vpu_firmware_download(dev, core_dev->id);
 	if (ret) {
 		vpu_dbg(LVL_ERR, "error: vpu_firmware_download fail\n");
-		return ret;
+		goto exit;
 	}
-	init_completion(&core_dev->start_cmp);
 	wait_for_completion_timeout(&core_dev->start_cmp,
 					msecs_to_jiffies(100));
 	if (!core_dev->firmware_started) {
-		vpu_dbg(LVL_ERR, "start firmware failed\n");
-		return -EINVAL;
+		vpu_err("core[%d] start firmware failed\n", core_dev->id);
+		ret = -EINVAL;
+		goto exit;
 	}
 
 	core_dev->fw_is_ready = true;
-
-	return 0;
-}
-
-static int download_vpu_firmware(struct vpu_dev *dev,
-				struct core_device *core_dev)
-{
-	int ret;
-
-	if (!dev || !core_dev)
-		return -EINVAL;
-	mutex_lock(&dev->dev_mutex);
-	ret = do_download_vpu_firmware(dev, core_dev);
-	mutex_unlock(&dev->dev_mutex);
-
+	core_dev->hang = false;
+exit:
 	return ret;
 }
 
@@ -2728,8 +2738,13 @@ static struct core_device *find_proper_core(struct vpu_dev *dev)
 	u32 minimum = VPU_MAX_NUM_STREAMS;
 	u32 count;
 	int i;
+	int ret;
 
 	for (i = 0; i < dev->core_num; i++) {
+		ret = download_vpu_firmware(dev, dev->core_dev + i);
+		if (ret)
+			continue;
+
 		count = count_core_instance_num(dev->core_dev + i);
 		if (count < minimum) {
 			minimum = count;
@@ -2740,25 +2755,20 @@ static struct core_device *find_proper_core(struct vpu_dev *dev)
 	return core;
 }
 
-static int request_instance(struct vpu_dev *dev, struct vpu_ctx *ctx)
+static int request_instance(struct core_device *core, struct vpu_ctx *ctx)
 {
-	struct core_device *core = NULL;
 	int found = 0;
 	int idx;
 
-	if (!dev || !ctx)
+	if (!core || !ctx)
 		return -EINVAL;
-
-	core = find_proper_core(dev);
-	if (!core)
-		return -EBUSY;
 
 	for (idx = 0; idx < VPU_MAX_NUM_STREAMS; idx++) {
 		if (!core->ctx[idx]) {
 			found = 1;
 			ctx->core_dev = core;
 			ctx->str_index = idx;
-			ctx->dev = dev;
+			ctx->dev = core->vdev;
 			core->ctx[idx] = ctx;
 			break;
 		}
@@ -2778,7 +2788,6 @@ static int construct_vpu_ctx(struct vpu_ctx *ctx)
 		return -EINVAL;
 
 	ctx->ctrl_inited = false;
-	init_completion(&ctx->completion);
 	mutex_init(&ctx->instance_mutex);
 	ctx->ctx_released = false;
 
@@ -2787,24 +2796,29 @@ static int construct_vpu_ctx(struct vpu_ctx *ctx)
 
 static struct vpu_ctx *create_and_request_instance(struct vpu_dev *dev)
 {
+	struct core_device *core = NULL;
 	struct vpu_ctx *ctx = NULL;
 	int ret;
 
 	if (!dev)
 		return NULL;
 
+	core = find_proper_core(dev);
+	if (!core)
+		return NULL;
+
 	ctx = kzalloc(sizeof(*ctx), GFP_KERNEL);
 	if (!ctx)
 		return NULL;
 
-	ret = request_instance(dev, ctx);
+	ret = request_instance(core, ctx);
 	if (ret < 0) {
 		kfree(ctx);
 		return NULL;
 	}
 
 	construct_vpu_ctx(ctx);
-
+	vpu_ctx_power_on(ctx);
 	vpu_dbg(LVL_INFO, "request encoder instance : %d.%d\n",
 			ctx->core_dev->id, ctx->str_index);
 
@@ -3025,6 +3039,19 @@ static ssize_t show_instance_info(struct device *dev,
 	num += snprintf(buf + num, PAGE_SIZE - num,
 			"dqbuf output h264 count: %ld\n",
 			statistic->h264_count);
+	if (!vpu_attr->core->ctx[vpu_attr->index])
+		num += snprintf(buf + num, PAGE_SIZE - num,
+			"<instance has been released>\n");
+	num += snprintf(buf + num, PAGE_SIZE - num,
+			"core[%d] info:\n", vpu_attr->core->id);
+	num += snprintf(buf + num, PAGE_SIZE - num,
+			"fw_is_ready:%d\n", vpu_attr->core->fw_is_ready);
+	num += snprintf(buf + num, PAGE_SIZE - num,
+			"firmware_started:%d\n",
+			vpu_attr->core->firmware_started);
+	num += snprintf(buf + num, PAGE_SIZE - num,
+			"hang:%d\n",
+			vpu_attr->core->hang);
 
 	return num;
 }
@@ -3053,13 +3080,15 @@ static int release_instance(struct vpu_ctx *ctx)
 	if (!ctx || !ctx->dev)
 		return -EINVAL;
 
-	if (!test_bit(VPU_ENC_STATUS_CLOSED, &ctx->status))
-		return 0;
-	if (test_bit(VPU_ENC_STATUS_START_SEND, &ctx->status) &&
-		!test_bit(VPU_ENC_STATUS_STOP_DONE, &ctx->status))
-		return -EINVAL;
-	if (is_ctx_hang(ctx))
-		return -EINVAL;
+	if (!test_bit(VPU_ENC_STATUS_FORCE_RELEASE, &ctx->status)) {
+		if (!test_bit(VPU_ENC_STATUS_CLOSED, &ctx->status))
+			return 0;
+		if (test_bit(VPU_ENC_STATUS_START_SEND, &ctx->status) &&
+			!test_bit(VPU_ENC_STATUS_STOP_DONE, &ctx->status))
+			return -EINVAL;
+		if (is_ctx_hang(ctx))
+			return -EINVAL;
+	}
 
 	dev = ctx->dev;
 
@@ -3071,7 +3100,7 @@ static int release_instance(struct vpu_ctx *ctx)
 	release_queue_data(ctx);
 	enc_mem_free(ctx);
 
-	pm_runtime_put_sync(dev->generic_dev);
+	vpu_ctx_power_off(ctx);
 	free_instance(ctx);
 
 	return 0;
@@ -3114,14 +3143,15 @@ static int v4l2_open(struct file *filp)
 
 	mutex_lock(&dev->dev_mutex);
 	try_to_release_idle_instance(dev);
+
+	pm_runtime_get_sync(dev->generic_dev);
 	ctx = create_and_request_instance(dev);
+	pm_runtime_put_sync(dev->generic_dev);
 	mutex_unlock(&dev->dev_mutex);
 	if (!ctx) {
 		vpu_dbg(LVL_ERR, "failed to create encoder ctx\n");
 		return -ENOMEM;
 	}
-
-	pm_runtime_get_sync(dev->generic_dev);
 
 	init_vpu_attr(get_vpu_ctx_attr(ctx));
 	ret = init_vpu_ctx(ctx);
@@ -3134,18 +3164,13 @@ static int v4l2_open(struct file *filp)
 	init_queue_data(ctx);
 	vpu_enc_setup_ctrls(ctx);
 
-	ret = download_vpu_firmware(dev, ctx->core_dev);
-	if (ret)
-		goto error;
-
-
 	init_vpu_ctx_fh(ctx, dev);
 	filp->private_data = &ctx->fh;
 
 	return 0;
-
 error:
 	mutex_lock(&dev->dev_mutex);
+	set_bit(VPU_ENC_STATUS_FORCE_RELEASE, &ctx->status);
 	release_instance(ctx);
 	mutex_unlock(&dev->dev_mutex);
 	return ret;
@@ -3616,10 +3641,11 @@ static int vpu_probe(struct platform_device *pdev)
 		goto error_unreg_v4l2;
 	}
 
-	vpu_enable_hw(dev);
 
 	pm_runtime_enable(&pdev->dev);
 	pm_runtime_get_sync(&pdev->dev);
+
+	vpu_enable_hw(dev);
 
 	mutex_init(&dev->dev_mutex);
 	mutex_lock(&dev->dev_mutex);
@@ -3702,114 +3728,189 @@ static int vpu_runtime_resume(struct device *dev)
 	return 0;
 }
 
-static struct vpu_ctx *first_available_instance(struct core_device *core_dev)
+static int set_core_hang(struct core_device *core)
 {
-	int idx;
+	int i;
 
-	for (idx = 0; idx < VPU_MAX_NUM_STREAMS; idx++) {
-		struct vpu_ctx *ctx = core_dev->ctx[idx];
+	if (!core)
+		return -EINVAL;
 
-		if (!ctx)
+	for (i = 0; i < VPU_MAX_NUM_STREAMS; i++) {
+		if (!core->ctx[i])
 			continue;
-		if (!test_bit(VPU_ENC_STATUS_INITIALIZED, &ctx->status))
-			continue;
-		if (!test_bit(VPU_ENC_STATUS_CONFIGURED, &ctx->status))
-			continue;
-		if (test_bit(VPU_ENC_STATUS_CLOSED, &ctx->status))
-			continue;
-		if (test_bit(VPU_ENC_STATUS_STOP_SEND, &ctx->status))
-			continue;
-		if (test_bit(VPU_ENC_STATUS_STOP_DONE, &ctx->status))
-			continue;
-		if (is_ctx_hang(ctx))
-			continue;
-
-		return ctx;
+		set_bit(VPU_ENC_STATUS_FORCE_RELEASE, &core->ctx[i]->status);
 	}
 
-	return NULL;
+	core->hang = true;
+
+	return 0;
 }
 
-static void v4l2_vpu_send_snapshot(struct core_device *dev)
+static int is_need_shapshot(struct vpu_ctx *ctx)
 {
-	struct vpu_ctx *ctx;
+	if (is_ctx_hang(ctx))
+		return 0;
+	if (!test_bit(VPU_ENC_STATUS_INITIALIZED, &ctx->status))
+		return 0;
+	if (!test_bit(VPU_ENC_STATUS_CONFIGURED, &ctx->status))
+		return 0;
+	if (test_bit(VPU_ENC_STATUS_CLOSED, &ctx->status))
+		return 0;
+	if (test_bit(VPU_ENC_STATUS_STOP_SEND, &ctx->status))
+		return 0;
+	if (test_bit(VPU_ENC_STATUS_STOP_DONE, &ctx->status))
+		return 0;
 
-	/*figure out the first available instance*/
-	ctx = first_available_instance(dev);
-
-	if (!ctx)
-		return;
-
-	v4l2_vpu_send_cmd(ctx, GTB_ENC_CMD_SNAPSHOT, 0, NULL);
+	return 1;
 }
 
-static int vpu_snapshot(struct core_device *core_dev)
+static int vpu_snapshot(struct vpu_ctx *ctx)
 {
 	int ret;
 
-	if (!first_available_instance(core_dev))
-		return 0;
-	/*if there is an available device, send snapshot command to firmware*/
-	v4l2_vpu_send_snapshot(core_dev);
+	if (!ctx)
+		return -EINVAL;
 
-	ret = wait_for_completion_timeout(&core_dev->snap_done_cmp,
-					msecs_to_jiffies(1000));
+	v4l2_vpu_send_cmd(ctx, GTB_ENC_CMD_SNAPSHOT, 0, NULL);
+	ret = wait_for_completion_timeout(&ctx->core_dev->snap_done_cmp,
+						msecs_to_jiffies(1000));
 	if (!ret) {
-		vpu_dbg(LVL_ERR,
-			"error:wait for vpu encoder snapdone event timeout!\n");
+		vpu_err("error:wait for snapdone event timeout!\n");
+		return -EINVAL;
+	}
+	ctx->core_dev->snapshot = true;
+
+	return 0;
+}
+
+static int resume_from_snapshot(struct core_device *core)
+{
+	int ret = 0;
+
+	if (!core)
+		return -EINVAL;
+	if (!core->snapshot)
+		return 0;
+
+	init_completion(&core->start_cmp);
+	set_vpu_fw_addr(core->vdev, core);
+	ret = wait_for_completion_timeout(&core->start_cmp,
+						msecs_to_jiffies(1000));
+	if (!ret) {
+		vpu_err("error: wait for resume done timeout!\n");
+		set_core_hang(core);
+		reset_vpu_core_dev(core);
 		return -EINVAL;
 	}
 
 	return 0;
 }
 
-static int vpu_suspend(struct device *dev)
+static int suspend_instance(struct vpu_ctx *ctx)
 {
-	struct vpu_dev *vpudev = (struct vpu_dev *)dev_get_drvdata(dev);
-	u_int32 i;
-	int ret;
+	int ret = 0;
 
-	for (i = 0; i < vpudev->core_num; i++) {
-		ret = vpu_snapshot(&vpudev->core_dev[i]);
+	if (!ctx)
+		return 0;
+
+	if (test_bit(VPU_ENC_STATUS_STOP_REQ, &ctx->status) ||
+		test_bit(VPU_ENC_STATUS_STOP_SEND, &ctx->status))
+		wait_for_stop_done(ctx);
+
+	if (!ctx->core_dev->snapshot && is_need_shapshot(ctx))
+		ret = vpu_snapshot(ctx);
+
+	return ret;
+}
+
+static int suspend_core(struct core_device *core)
+{
+	int i;
+	int ret = 0;
+
+	WARN_ON(!core);
+
+	core->snapshot = false;
+	for (i = 0; i < VPU_MAX_NUM_STREAMS; i++) {
+		ret = suspend_instance(core->ctx[i]);
 		if (ret)
 			return ret;
 	}
 
+	for (i = 0; i < VPU_MAX_NUM_STREAMS; i++)
+		vpu_ctx_power_off(core->ctx[i]);
+
+	core->suspend = true;
+
 	return 0;
 }
 
-static int vpu_resume(struct device *dev)
+static int resume_core(struct core_device *core)
+{
+	int ret = 0;
+	int i;
+
+	WARN_ON(!core);
+
+	if (!core->suspend)
+		return 0;
+
+	MU_Init(core->mu_base_virtaddr);
+	MU_EnableRxFullInt(core->mu_base_virtaddr, 0);
+
+	for (i = 0; i < VPU_MAX_NUM_STREAMS; i++)
+		vpu_ctx_power_on(core->ctx[i]);
+
+	if (core->snapshot)
+		ret = resume_from_snapshot(core);
+	else
+		reset_vpu_core_dev(core);
+
+	core->suspend = false;
+
+	return ret;
+}
+
+static int vpu_enc_suspend(struct device *dev)
 {
 	struct vpu_dev *vpudev = (struct vpu_dev *)dev_get_drvdata(dev);
-	struct core_device *core_dev;
-	u_int32 i;
+	int i;
+	int ret = 0;
+
+	pm_runtime_get_sync(dev);
+	for (i = 0; i < vpudev->core_num; i++) {
+		ret = suspend_core(&vpudev->core_dev[i]);
+		if (ret)
+			break;
+	}
+	pm_runtime_put_sync(dev);
+
+	return ret;
+}
+
+static int vpu_enc_resume(struct device *dev)
+{
+	struct vpu_dev *vpudev = (struct vpu_dev *)dev_get_drvdata(dev);
+	int i;
+	int ret = 0;
+
+	pm_runtime_get_sync(dev);
 
 	vpu_enable_hw(vpudev);
-
 	for (i = 0; i < vpudev->core_num; i++) {
-		core_dev = &vpudev->core_dev[i];
-		MU_Init(core_dev->mu_base_virtaddr);
-		MU_EnableRxFullInt(core_dev->mu_base_virtaddr, 0);
-
-		if (!first_available_instance(core_dev)) {
-			/*no instance is active before suspend, do reset*/
-			reset_vpu_core_dev(core_dev);
-		} else {
-			/*resume*/
-			set_vpu_fw_addr(vpudev, core_dev);
-			/*wait for firmware resotre done*/
-			if (!wait_for_completion_timeout(&core_dev->start_cmp, msecs_to_jiffies(1000))) {
-				vpu_dbg(LVL_ERR, "error: wait for vpu encoder resume done timeout!\n");
-				return -1;
-			}
-		}
+		ret = resume_core(&vpudev->core_dev[i]);
+		if (ret)
+			break;
 	}
-	return 0;
+
+	pm_runtime_put_sync(dev);
+
+	return ret;
 }
 
 static const struct dev_pm_ops vpu_pm_ops = {
 	SET_RUNTIME_PM_OPS(vpu_runtime_suspend, vpu_runtime_resume, NULL)
-	SET_SYSTEM_SLEEP_PM_OPS(vpu_suspend, vpu_resume)
+	SET_SYSTEM_SLEEP_PM_OPS(vpu_enc_suspend, vpu_enc_resume)
 };
 
 static const struct of_device_id vpu_of_match[] = {

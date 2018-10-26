@@ -251,6 +251,9 @@ struct core_device {
 	off_t reg_fw_base;
 	struct device *generic_dev;
 	struct vpu_dev *vdev;
+	bool snapshot;
+	bool suspend;
+	bool hang;
 };
 
 struct vpu_dev {
@@ -277,6 +280,7 @@ struct buffer_addr {
 
 enum {
 	VPU_ENC_STATUS_INITIALIZED,
+	VPU_ENC_STATUS_FORCE_RELEASE = 21,
 	VPU_ENC_STATUS_EOS_SEND = 22,
 	VPU_ENC_STATUS_START_SEND = 23,
 	VPU_ENC_STATUS_START_DONE = 24,
@@ -303,7 +307,6 @@ struct vpu_ctx {
 	struct mutex instance_mutex;
 	struct work_struct instance_work;
 	struct workqueue_struct *instance_wq;
-	struct completion completion;
 	bool ctx_released;
 	struct buffer_addr encoder_stream;
 	struct buffer_addr encoder_mem;
@@ -314,6 +317,7 @@ struct vpu_ctx {
 	struct core_device *core_dev;
 
 	struct completion stop_cmp;
+	bool power_status;
 };
 
 #define LVL_DEBUG	4
