@@ -260,6 +260,8 @@ int dcss_ctxld_init(struct dcss_soc *dcss, unsigned long ctxld_base)
 	dcss->ctxld_priv = priv;
 	priv->dcss = dcss;
 
+	spin_lock_init(&priv->lock);
+
 	ret = dcss_ctxld_alloc_ctx(priv);
 	if (ret) {
 		dev_err(dcss->dev, "ctxld: cannot allocate context memory.\n");
