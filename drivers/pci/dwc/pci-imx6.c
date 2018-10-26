@@ -280,6 +280,8 @@ struct imx_pcie {
 #define IMX8MQ_PCIE_CTRL_APPS_CLK_REQ		BIT(4)
 #define IMX8MQ_PCIE_CTRL_APPS_EN		BIT(6)
 #define IMX8MQ_PCIE_CTRL_APPS_TURNOFF		BIT(11)
+#define IMX8MQ_PCIE_L1SUB_CTRL1_REG_OFFSET	0x170
+#define IMX8MQ_PCIE_L1SUB_CTRL1_REG_EN_MASK	0xF
 
 #define IMX8MQ_GPC_PGC_CPU_0_1_MAPPING_OFFSET	0xEC
 #define IMX8MQ_GPC_PU_PGC_SW_PUP_REQ_OFFSET	0xF8
@@ -1630,7 +1632,6 @@ err_reset_phy:
 
 static int imx_pcie_host_init(struct pcie_port *pp)
 {
-	u32 val;
 	int ret;
 	struct dw_pcie *pci = to_dw_pcie_from_pp(pp);
 	struct imx_pcie *imx_pcie = to_imx_pcie(pci);
@@ -1649,28 +1650,6 @@ static int imx_pcie_host_init(struct pcie_port *pp)
 		ret = imx_pcie_establish_link(imx_pcie);
 		if (ret < 0)
 			return ret;
-		if (!IS_ENABLED(CONFIG_RC_MODE_IN_EP_RC_SYS)) {
-			/*
-			 * Disable the over ride after link up.
-			 * Let the the CLK_REQ# controlled by HW L1SS
-			 * automatically.
-			 */
-			switch (imx_pcie->variant) {
-			case IMX8MQ:
-			case IMX8MM:
-				if (imx_pcie->ctrl_id == 0)
-					val = IOMUXC_GPR14;
-				else
-					val = IOMUXC_GPR16;
-
-				regmap_update_bits(imx_pcie->iomuxc_gpr, val,
-					IMX8MQ_GPR_PCIE_CLK_REQ_OVERRIDE_EN,
-					0);
-				break;
-			default:
-				break;
-			}
-		}
 
 		if (IS_ENABLED(CONFIG_PCI_MSI))
 			dw_pcie_msi_init(pp);
@@ -2299,6 +2278,7 @@ static int imx_pcie_probe(struct platform_device *pdev)
 	struct resource *res, reserved_res;
 	struct device_node *reserved_node, *node = dev->of_node;
 	int ret;
+	u32 val;
 
 	imx_pcie = devm_kzalloc(dev, sizeof(*imx_pcie), GFP_KERNEL);
 	if (!imx_pcie)
@@ -2589,7 +2569,7 @@ static int imx_pcie_probe(struct platform_device *pdev)
 		dma_addr_t test_reg1_dma, test_reg2_dma;
 		void __iomem *pcie_arb_base_addr;
 		struct timeval tv1s, tv1e, tv2s, tv2e;
-		u32 val, tv_count1, tv_count2;
+		u32 tv_count1, tv_count2;
 		struct device_node *np = node;
 		struct pcie_port *pp = &pci->pp;
 		LIST_HEAD(res);
@@ -2812,6 +2792,32 @@ static int imx_pcie_probe(struct platform_device *pdev)
 			}
 			return ret;
 		}
+		/*
+		 * If the L1SS is enabled,
+		 * disable the over ride after link up.
+		 * Let the the CLK_REQ# controlled by HW L1SS
+		 * automatically.
+		 */
+		switch (imx_pcie->variant) {
+		case IMX8MQ:
+		case IMX8MM:
+			val = readl(pci->dbi_base +
+					IMX8MQ_PCIE_L1SUB_CTRL1_REG_OFFSET);
+			if (val & IMX8MQ_PCIE_L1SUB_CTRL1_REG_EN_MASK) {
+				if (imx_pcie->ctrl_id == 0)
+					val = IOMUXC_GPR14;
+				else
+					val = IOMUXC_GPR16;
+
+				regmap_update_bits(imx_pcie->iomuxc_gpr, val,
+					IMX8MQ_GPR_PCIE_CLK_REQ_OVERRIDE_EN,
+					0);
+			}
+			break;
+		default:
+			break;
+		}
+
 		if (IS_ENABLED(CONFIG_RC_MODE_IN_EP_RC_SYS)
 				&& (imx_pcie->hard_wired == 0))
 			imx_pcie_regions_setup(&pdev->dev);
