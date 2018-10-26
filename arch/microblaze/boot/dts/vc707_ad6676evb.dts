@@ -82,7 +82,7 @@
 	adc0_ad6676: ad6676@0 {
 		#address-cells = <1>;
 		#size-cells = <0>;
-		compatible = "ad6676";
+		compatible = "adi,ad6676";
 		reg = <0>;
 		spi-max-frequency = <10000000>;
 		clocks = <&axi_ad6676_jesd>, <&ad6676_clkin>;

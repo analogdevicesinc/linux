@@ -18,7 +18,7 @@
 &fmc_spi {
 
 	clk0_ad9528: ad9528-1@0 {
-		compatible = "ad9528";
+		compatible = "adi,ad9528";
 		reg = <1>;
 
 		#address-cells = <1>;
