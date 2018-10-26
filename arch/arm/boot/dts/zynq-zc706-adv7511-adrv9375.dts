@@ -2,7 +2,7 @@
 
 &trx0_ad9371 {
 
-	compatible = "ad9375";
+	compatible = "adi,ad9375";
 
 	adi,dpd-damping = <5>;
 	adi,dpd-num-weights = <1>;

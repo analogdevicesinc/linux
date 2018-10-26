@@ -12,7 +12,7 @@
 
 &fmc_spi {
 	adc0_ad9361: ad9361-phy@0 {
-		compatible = "ad9361";
+		compatible = "adi,ad9361";
 		reg = <0>;
 
 		/* SPI Setup */
