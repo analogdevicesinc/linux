@@ -18,7 +18,7 @@
 &fmc_spi {
 
 	clk0_ad9528: ad9528-1@0 {
-		compatible = "ad9528";
+		compatible = "adi,ad9528";
 		reg = <1>;
 
 		#address-cells = <1>;
@@ -103,7 +103,7 @@
 	};
 
 	trx0_adrv9009: adrv9009-phy@1 {
-		compatible = "adrv9009";
+		compatible = "adi,adrv9009";
 		reg = <0>;
 
 		#address-cells = <1>;
