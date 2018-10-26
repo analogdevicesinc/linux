@@ -542,7 +542,7 @@ void dcss_dtg_ctxld_kick_irq_enable(struct dcss_soc *dcss, bool en)
 	if (!dtg->ctxld_kick_irq_en)
 		return;
 
-	disable_irq(dtg->ctxld_kick_irq);
+	disable_irq_nosync(dtg->ctxld_kick_irq);
 	dtg->ctxld_kick_irq_en = false;
 }
 EXPORT_SYMBOL(dcss_dtg_ctxld_kick_irq_enable);

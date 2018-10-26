@@ -736,9 +736,9 @@ void dcss_dpr_irq_enable(struct dcss_soc *dcss, bool en)
 	struct dcss_dpr_priv *dpr = dcss->dpr_priv;
 
 	if (!en) {
-		disable_irq(dpr->ch[0].irq);
-		disable_irq(dpr->ch[1].irq);
-		disable_irq(dpr->ch[2].irq);
+		disable_irq_nosync(dpr->ch[0].irq);
+		disable_irq_nosync(dpr->ch[1].irq);
+		disable_irq_nosync(dpr->ch[2].irq);
 
 		return;
 	}
