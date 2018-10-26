@@ -33,14 +33,14 @@
 	fpga_axi: fpga-axi@0 {
 		interrupt-parent = <&gic>;
 		compatible = "simple-bus";
-		#address-cells = <0x2>;
+		#address-cells = <0x1>;
 		#size-cells = <0x1>;
-		ranges = <0 0 0 0 0xffffffff>;
+		ranges = <0 0 0 0xffffffff>;
 
 		rx_dma: rx-dmac@9c400000 {
 			#dma-cells = <1>;
 			compatible = "adi,axi-dmac-1.00.a";
-			reg = <0x0 0x9c400000 0x10000>;
+			reg = <0x9c400000 0x10000>;
 			interrupts = <0 109 0>;
 			clocks = <&clk 71>;
 
@@ -61,7 +61,7 @@
 		tx_dma: tx-dmac@9c420000 {
 			#dma-cells = <1>;
 			compatible = "adi,axi-dmac-1.00.a";
-			reg = <0x0 0x9c420000 0x10000>;
+			reg = <0x9c420000 0x10000>;
 			interrupts = <0 108 0>;
 			clocks = <&clk 71>;
 
@@ -81,7 +81,7 @@
 
 		axi_ad9680_core: axi-ad9680-hpc@84a10000 {
 			compatible = "adi,axi-ad9680-1.0";
-			reg = <0x0 0x84a10000 0x10000>;
+			reg = <0x84a10000 0x10000>;
 			dmas = <&rx_dma 0>;
 			dma-names = "rx";
 			spibus-connected = <&adc0_ad9680>;
@@ -89,7 +89,7 @@
 
 		axi_ad9152_core: axi-ad9152-hpc@84a04000 {
 			compatible = "adi,axi-ad9144-1.0";
-			reg = <0x0 0x84a04000 0x10000>;
+			reg = <0x84a04000 0x10000>;
 			dmas = <&tx_dma 0>;
 			dma-names = "tx";
 			spibus-connected = <&dac0_ad9152>;
@@ -98,7 +98,7 @@
 
 		axi_ad9680_jesd: axi-jesd204-rx@84aa0000 {
 			compatible = "adi,axi-jesd204-rx-1.0";
-			reg = <0x0 0x84aa0000 0x4000>;
+			reg = <0x84aa0000 0x4000>;
 			interrupts = <0 107 0>;
 
 			clocks = <&clk 71>, <&axi_ad9680_adxcvr 1>, <&axi_ad9680_adxcvr 0>;
@@ -113,7 +113,7 @@
 
 		axi_ad9680_adxcvr: axi-ad9680-adxcvr-rx@84a50000 {
 			compatible = "adi,axi-adxcvr-1.0";
-			reg = <0x0 0x84a50000 0x1000>;
+			reg = <0x84a50000 0x1000>;
 
 			clocks = <&clk0_ad9528 9>;
 			clock-names = "conv";
@@ -129,7 +129,7 @@
 
 		axi_ad9152_jesd: axi-jesd204-tx@84a90000 {
 			compatible = "adi,axi-jesd204-tx-1.0";
-			reg = <0x0 0x84a90000 0x4000>;
+			reg = <0x84a90000 0x4000>;
 
 			interrupts = <0 106 0>;
 
@@ -148,7 +148,7 @@
 
 		axi_ad9152_adxcvr: axi-ad9152-adxcvr-tx@84a60000 {
 			compatible = "adi,axi-adxcvr-1.0";
-			reg = <0x0 0x84a60000 0x1000>;
+			reg = <0x84a60000 0x1000>;
 
 			clocks = <&clk0_ad9528 4>;
 			clock-names = "conv";
