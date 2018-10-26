@@ -225,7 +225,7 @@ void iio_dma_buffer_block_done(struct iio_dma_buffer_block *block)
 	spin_unlock_irqrestore(&queue->list_lock, flags);
 
 	iio_buffer_block_put_atomic(block);
-	wake_up_interruptible_poll(&queue->buffer.pollq, queue->poll_wakup_flags);
+	wake_up_interruptible_poll(&queue->buffer.pollq, (uintptr_t)queue->poll_wakup_flags);
 }
 EXPORT_SYMBOL_GPL(iio_dma_buffer_block_done);
 
