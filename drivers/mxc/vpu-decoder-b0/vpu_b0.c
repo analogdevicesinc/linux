@@ -1886,8 +1886,11 @@ static void vpu_api_event_handler(struct vpu_ctx *ctx, u_int32 uStrIdx, u_int32 
 		if (fsrel->eType == MEDIAIP_FRAME_REQ) {
 			p_data_req = &This->vb2_reqs[fsrel->uFSIdx];
 
-			if (ctx->wait_rst_done != true && p_data_req->status != FRAME_READY)
-				vpu_dbg(LVL_ERR, "error: normal release need to set status to FRAME_RELEASE but previous status %s is not FRAME_READY\n", bufstat[p_data_req->status]);
+			if (ctx->wait_rst_done != true && p_data_req->status != FRAME_READY) {
+				vpu_dbg(LVL_WARN, "warning: normal release and previous status %s, frame not for display, queue the buffer to list again\n",
+						bufstat[p_data_req->status]);
+				list_add_tail(&p_data_req->list, &This->drv_q);
+			}
 			p_data_req->status = FRAME_RELEASE;
 		}
 		vpu_dbg(LVL_INFO, "VID_API_EVENT_REL_FRAME_BUFF uFSIdx=%d, eType=%d, size=%ld\n", fsrel->uFSIdx, fsrel->eType, sizeof(MEDIA_PLAYER_FSREL));
