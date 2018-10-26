@@ -4,7 +4,7 @@
 &fmc_spi {
 
 	clk0_ad9528: ad9528-1@0 {
-		compatible = "ad9528";
+		compatible = "adi,ad9528";
 		reg = <0>;
 
 		#address-cells = <1>;
@@ -89,7 +89,7 @@
 
 
 	trx0_ad9371: ad9371-phy@1 {
-		compatible = "ad9371";
+		compatible = "adi,ad9371";
 		reg = <1>;
 
 		/* SPI Setup */
