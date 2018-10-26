@@ -36,7 +36,6 @@ static struct regulator *arm_reg;
 static struct device *cpu_dev;
 static struct cpufreq_frequency_table *freq_table;
 static unsigned int transition_latency;
-static struct mutex set_cpufreq_lock;
 
 static int imx7ulp_set_target(struct cpufreq_policy *policy, unsigned int index)
 {
@@ -45,23 +44,18 @@ static int imx7ulp_set_target(struct cpufreq_policy *policy, unsigned int index)
 	unsigned int old_freq, new_freq;
 	int ret;
 
-	mutex_lock(&set_cpufreq_lock);
-
 	new_freq = freq_table[index].frequency;
 	freq_hz = new_freq * 1000;
 	old_freq = clk_get_rate(arm_clk) / 1000;
 
-	rcu_read_lock();
 	opp = dev_pm_opp_find_freq_ceil(cpu_dev, &freq_hz);
 	if (IS_ERR(opp)) {
-		rcu_read_unlock();
 		dev_err(cpu_dev, "failed to find OPP for %ld\n", freq_hz);
-		mutex_unlock(&set_cpufreq_lock);
 		return PTR_ERR(opp);
 	}
 	volt = dev_pm_opp_get_voltage(opp);
+	dev_pm_opp_put(opp);
 
-	rcu_read_unlock();
 	volt_old = regulator_get_voltage(arm_reg);
 
 	dev_dbg(cpu_dev, "%u MHz, %ld mV --> %u MHz, %ld mV\n",
@@ -73,7 +67,6 @@ static int imx7ulp_set_target(struct cpufreq_policy *policy, unsigned int index)
 		ret = regulator_set_voltage_tol(arm_reg, volt, 0);
 		if (ret) {
 			dev_err(cpu_dev, "failed to scale vddarm up: %d\n", ret);
-			mutex_unlock(&set_cpufreq_lock);
 			return ret;
 		}
 	}
@@ -111,7 +104,6 @@ static int imx7ulp_set_target(struct cpufreq_policy *policy, unsigned int index)
 		}
 	}
 
-	mutex_unlock(&set_cpufreq_lock);
 	return 0;
 }
 
@@ -202,7 +194,6 @@ static int imx7ulp_cpufreq_probe(struct platform_device *pdev)
 	if (of_property_read_u32(np, "clock-latency", &transition_latency))
 		transition_latency = CPUFREQ_ETERNAL;
 
-	mutex_init(&set_cpufreq_lock);
 	ret = cpufreq_register_driver(&imx7ulp_cpufreq_driver);
 	if (ret) {
 		dev_err(cpu_dev, "failed to register driver\n");
