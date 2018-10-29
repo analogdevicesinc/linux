@@ -462,7 +462,7 @@ static int add_ctrl_display_re_ordering(struct vpu_ctx *ctx)
 	ctrl = v4l2_ctrl_new_std(&ctx->ctrl_handler,
 			&re_ordering_ops,
 			V4L2_CID_MPEG_VIDEO_H264_ASO,
-			0, 1, 1, 0);
+			0, 1, 1, 1);
 	if (!ctrl) {
 		vpu_dbg(LVL_ERR, "add ctrl display re ordering fail\n");
 		return -EINVAL;
