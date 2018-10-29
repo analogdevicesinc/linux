@@ -127,21 +127,20 @@ static inline int source_to_id(lb_sec_sel_t source)
 	int type = source_to_type(source);
 
 	for (i = 0; i < ARRAY_SIZE(sources); i++) {
-		if (source == sources[i]) {
-			if (type == DPU_PLANE_SRC_FD ||
-			    type == DPU_PLANE_SRC_FW) {
-				while (offset < ARRAY_SIZE(sources)) {
-					if (source_to_type(sources[offset]) ==
-					    type)
-						break;
-					offset++;
-				}
+		if (source != sources[i])
+			continue;
 
-				i -= offset;
-			}
-
+		/* FetchLayer */
+		if (type == DPU_PLANE_SRC_FL)
 			return i;
+
+		/* FetchWarp or FetchDecode */
+		while (offset < ARRAY_SIZE(sources)) {
+			if (source_to_type(sources[offset]) == type)
+				break;
+			offset++;
 		}
+		return i - offset;
 	}
 
 	WARN_ON(1);
