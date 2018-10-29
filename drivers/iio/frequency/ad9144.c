@@ -87,6 +87,7 @@ struct ad9144_state {
 
 	unsigned int num_lanes;
 	unsigned int num_converters;
+	unsigned int octets_per_frame;
 
 	unsigned int pll_frequency;
 	bool pll_enable;
@@ -376,6 +377,75 @@ static unsigned long ad9144_get_lane_rate(struct ad9144_state *st,
 	 */
 	return DIV_ROUND_CLOSEST(sample_rate,
 		50 * st->num_lanes * st->interpolation / st->num_converters);
+}
+
+static unsigned long ad9144_get_lmfc(struct ad9144_state *st,
+	unsigned int sample_rate)
+{
+	/*
+	 * lmfc = ((samplerate_hz / interpolation) * 20 * M / (K * K * F * 10))
+	 * K is always 32
+	 */
+	return DIV_ROUND_CLOSEST(sample_rate,
+		16 * st->num_lanes * st->interpolation * st->octets_per_frame /
+		st->num_converters);
+}
+
+static bool ad9144_check_sysref_rate(unsigned int lmfc, unsigned int sysref)
+{
+	unsigned int div, mod;
+
+	div = lmfc / sysref;
+	mod = lmfc % sysref;
+
+	/* Ignore minor deviations that can be introduced by rounding. */
+	return mod <= div || mod >= sysref - div;
+}
+
+static int ad9144_update_sysref(struct ad9144_state *st,
+	unsigned int sample_rate)
+{
+	unsigned int lmfc = ad9144_get_lmfc(st, sample_rate);
+	unsigned int n;
+	int rate;
+	int ret;
+
+	/* No clock, no problem */
+	if (!st->conv.clk[CLK_REF])
+		return 0;
+
+	rate = clk_get_rate(st->conv.clk[CLK_REF]);
+	if (rate < 0)
+		return rate;
+
+	/* If the current rate is OK, keep it */
+	if (ad9144_check_sysref_rate(lmfc, rate))
+		return 0;
+
+	/*
+	 * Try to find a rate that integer divides the LMFC. Starting with a low
+	 * rate is a good idea and then slowly go up in case the clock generator
+	 * can't generate such slow rates.
+	 */
+	for (n = 32; n > 0; n--) {
+		rate = clk_round_rate(st->conv.clk[CLK_REF], lmfc / n);
+		if (ad9144_check_sysref_rate(lmfc, rate))
+			break;
+	}
+
+	if (n == 0) {
+		dev_err(&st->conv.spi->dev,
+			"Could not find suitable SYSREF rate for samplerate of %u and LMFC of %u\n",
+			sample_rate, lmfc);
+		return -EINVAL;
+	}
+
+	ret = clk_set_rate(st->conv.clk[CLK_REF], rate);
+	if (ret)
+		dev_err(&st->conv.spi->dev, "Failed to set SYSREF rate to %d kHz: %d\n",
+			rate, ret);
+
+	return ret;
 }
 
 static int ad9144_dac_calibrate(struct ad9144_state *st)
@@ -808,12 +878,9 @@ static int ad9144_set_sample_rate(struct cf_axi_converter *conv,
 	clk_disable_unprepare(conv->clk[CLK_DATA]);
 	clk_disable_unprepare(conv->clk[CLK_REF]);
 
-	ret = clk_set_rate(conv->clk[CLK_REF], sysref_rate);
-	if (ret < 0) {
-		dev_err(&conv->spi->dev, "Failed to set sysref rate to %ld kHz: %d\n",
-			sysref_rate, ret);
+	ret = ad9144_update_sysref(st, sample_rate);
+	if (ret < 0)
 		return ret;
-	}
 
 	ret = clk_set_rate(conv->clk[CLK_DATA], lane_rate_kHz);
 	if (ret < 0) {
@@ -1124,6 +1191,7 @@ static int ad9144_probe(struct spi_device *spi)
 
 	st->num_lanes = 4;
 	st->num_converters = 2;
+	st->octets_per_frame = 1;
 
 	memset(&link_config, 0x00, sizeof(link_config));
 
@@ -1131,7 +1199,7 @@ static int ad9144_probe(struct spi_device *spi)
 	link_config.bid = 0;
 	link_config.num_lanes = st->num_lanes;
 	link_config.num_converters = st->num_converters;
-	link_config.octets_per_frame = 1;
+	link_config.octets_per_frame = st->octets_per_frame;
 	link_config.frames_per_multiframe = 32;
 	link_config.samples_per_frame = 1;
 
@@ -1150,6 +1218,10 @@ static int ad9144_probe(struct spi_device *spi)
 			lane_rate_kHz, ret);
 		return ret;
 	}
+
+	ret = ad9144_update_sysref(st, ad9144_get_sample_rate(st));
+	if (ret < 0)
+		return ret;
 
 	ret = clk_prepare_enable(conv->clk[0]);
 	if (ret < 0) {
