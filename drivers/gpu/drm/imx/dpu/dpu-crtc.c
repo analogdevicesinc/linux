@@ -756,6 +756,10 @@ static void dpu_crtc_mode_set_nofb(struct drm_crtc *crtc)
 			mode->hdisplay);
 	dev_dbg(dpu_crtc->dev, "%s: mode->vdisplay: %d\n", __func__,
 			mode->vdisplay);
+	dev_dbg(dpu_crtc->dev, "%s: mode->clock: %dKHz\n", __func__,
+			mode->clock);
+	dev_dbg(dpu_crtc->dev, "%s: mode->vrefresh: %dHz\n", __func__,
+			drm_mode_vrefresh(mode));
 	if (dcstate->use_pc)
 		dev_dbg(dpu_crtc->dev, "%s: use pixel combiner\n", __func__);
 
