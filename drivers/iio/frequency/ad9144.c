@@ -87,6 +87,9 @@ struct ad9144_state {
 
 	unsigned int num_lanes;
 	unsigned int num_converters;
+
+	unsigned int pll_frequency;
+	bool pll_enable;
 };
 
 static const char * const clk_names[] = {
@@ -121,6 +124,111 @@ static int ad9144_get_temperature_code(struct cf_axi_converter *conv)
 	regmap_read(st->map, REG_DIE_TEMP0, &val1);
 	regmap_read(st->map, REG_DIE_TEMP1, &val2);
 	return ((val2 & 0xFF) << 8) | (val1 & 0xFF);
+}
+
+/* PLL fixed register writes according to datasheet */
+static const struct reg_sequence ad9144_pll_fixed_writes[] = {
+	{ 0x87, 0x62 },
+	{ 0x88, 0xc0 },
+	{ 0x89, 0x0e },
+	{ 0x8a, 0x12 },
+	{ 0x8d, 0x7b },
+	{ 0x1b0, 0x00 },
+	{ 0x1b9, 0x24 },
+	{ 0x1bc, 0x0d },
+	{ 0x1be, 0x02 },
+	{ 0x1bf, 0x8e },
+	{ 0x1c0, 0x2a },
+	{ 0x1c1, 0x2a },
+	{ 0x1c4, 0x7e },
+};
+
+static unsigned int ad9144_round_pll_rate(struct ad9144_state *st,
+	unsigned int fdac)
+{
+	unsigned int fref;
+
+	fref = clk_get_rate(st->conv.clk[CLK_DAC]);
+	if (fref == 0)
+		return fdac;
+
+	if (fdac > 2800000000U)
+		fdac = 2800000000U;
+	else if (fdac < 420000000U)
+		fdac = 420000000U;
+
+	while (fref > 80000000U)
+		fref /= 2;
+
+	return DIV_ROUND_CLOSEST(fdac, 2 * fref) * 2 * fref;
+}
+
+static int ad9144_setup_pll(struct ad9144_state *st)
+{
+	struct regmap *map = st->map;
+	unsigned int fref, fdac;
+	unsigned int lo_div_mode;
+	unsigned int ref_div_mode = 0;
+	unsigned int vco_param[3];
+	unsigned int bcount;
+	unsigned int fvco;
+
+	fref = clk_get_rate(st->conv.clk[CLK_DAC]) / 1000;
+	fdac = st->pll_frequency / 1000;
+
+	if (fref > 1000000 || fref < 35000)
+		return -EINVAL;
+
+	if (fdac > 2800000 || fdac < 420000)
+		return -EINVAL;
+
+	if (fdac >= 1500000)
+		lo_div_mode = 1;
+	else if (fdac >= 750000)
+		lo_div_mode = 2;
+	else
+		lo_div_mode = 3;
+
+	while (fref > 80000) {
+		ref_div_mode++;
+		fref /= 2;
+	}
+
+	fvco = fdac << (lo_div_mode + 1);
+	bcount = fdac / (2 * fref);
+	if (bcount < 6) {
+		bcount *= 2;
+		ref_div_mode++;
+	}
+
+	if (fvco < 6300000) {
+		vco_param[0] = 0x8;
+		vco_param[1] = 0x3;
+		vco_param[2] = 0x7;
+	} else if (fvco < 7250000) {
+		vco_param[0] = 0x9;
+		vco_param[1] = 0x3;
+		vco_param[2] = 0x6;
+	} else {
+		vco_param[0] = 0x9;
+		vco_param[1] = 0x13;
+		vco_param[2] = 0x6;
+	}
+
+	regmap_multi_reg_write(map, ad9144_pll_fixed_writes,
+		ARRAY_SIZE(ad9144_pll_fixed_writes));
+
+	regmap_write(map, REG_DACLOGENCNTRL, lo_div_mode);
+	regmap_write(map, REG_DACLDOCNTRL1, ref_div_mode);
+	regmap_write(map, REG_DACINTEGERWORD0, bcount);
+
+	regmap_write(map, REG_DACPLLT5, vco_param[0]);
+	regmap_write(map, REG_DACPLLTB, vco_param[1]);
+	regmap_write(map, REG_DACPLLT18, vco_param[2]);
+
+	regmap_write(map, REG_DACPLLCNTRL, 0x10);
+
+	return 0;
 }
 
 static int ad9144_setup_link(struct ad9144_state *st,
@@ -338,6 +446,14 @@ static int ad9144_dac_calibrate(struct ad9144_state *st)
 	return 0;
 }
 
+static unsigned int ad9144_get_sample_rate(struct ad9144_state *st)
+{
+	if (st->pll_enable)
+		return st->pll_frequency;
+	else
+		return clk_get_rate(st->conv.clk[CLK_DAC]);
+}
+
 static void ad9144_setup_samplerate(struct ad9144_state *st)
 {
 	struct regmap *map = st->map;
@@ -348,7 +464,7 @@ static void ad9144_setup_samplerate(struct ad9144_state *st)
 	unsigned int val;
 	unsigned long lane_rate_kHz;
 
-	sample_rate = clk_get_rate(st->conv.clk[1]);
+	sample_rate = ad9144_get_sample_rate(st);
 	lane_rate_kHz = ad9144_get_lane_rate(st, sample_rate);
 
 	ad9144_set_nco_freq(st, sample_rate, st->fcenter_shift);
@@ -406,7 +522,7 @@ static void ad9144_setup_samplerate(struct ad9144_state *st)
 
 	regmap_read(map, 0x281, &val);
 	if ((val & 0x01) == 0x00)
-		dev_err(dev, "PLL/link errors!!\n\r");
+		dev_err(dev, "SERDES PLL not locked.\n");
 
 	if (AD9144_ID_GET_PRODUCT_ID(st->id) == 0x9144)
 		ad9144_dac_calibrate(st);
@@ -509,6 +625,9 @@ static int ad9144_setup(struct ad9144_state *st,
 	regmap_multi_reg_write(map, ad9144_optimal_serdes_settings,
 		ARRAY_SIZE(ad9144_optimal_serdes_settings));
 
+	if (st->pll_enable)
+		ad9144_setup_pll(st);
+
 	// digital data path
 
 	switch (st->interpolation) {
@@ -598,7 +717,7 @@ static unsigned long long ad9144_get_data_clk(struct cf_axi_converter *conv)
 {
 	struct ad9144_state *st = container_of(conv, struct ad9144_state, conv);
 
-	return clk_get_rate(conv->clk[CLK_DAC]) / st->interpolation;
+	return ad9144_get_sample_rate(st) / st->interpolation;
 }
 
 static int ad9144_set_sample_rate(struct cf_axi_converter *conv,
@@ -674,14 +793,18 @@ static int ad9144_set_sample_rate(struct cf_axi_converter *conv,
 	min_sample_rate *= st->interpolation;
 
 	sample_rate = clamp(sample_rate, min_sample_rate, max_sample_rate);
-	sample_rate = clk_round_rate(conv->clk[CLK_DAC], sample_rate);
+	if (st->pll_enable)
+		sample_rate = ad9144_round_pll_rate(st, sample_rate);
+	else
+		sample_rate = clk_round_rate(conv->clk[CLK_DAC], sample_rate);
 
 	sysref_rate = DIV_ROUND_CLOSEST(sample_rate, 128);
 	lane_rate_kHz = ad9144_get_lane_rate(st, sample_rate);
 
 	regmap_write(map, 0x300, 0x00);	// disable link
 
-	clk_disable_unprepare(conv->clk[CLK_DAC]);
+	if (!st->pll_enable)
+		clk_disable_unprepare(conv->clk[CLK_DAC]);
 	clk_disable_unprepare(conv->clk[CLK_DATA]);
 	clk_disable_unprepare(conv->clk[CLK_REF]);
 
@@ -711,8 +834,25 @@ static int ad9144_set_sample_rate(struct cf_axi_converter *conv,
 		return ret;
 	}
 
-	clk_set_rate(conv->clk[CLK_DAC], sample_rate);
-	clk_prepare_enable(conv->clk[CLK_DAC]);
+	if (!st->pll_enable) {
+		ret = clk_set_rate(conv->clk[CLK_DAC], sample_rate);
+		if (ret < 0) {
+			dev_err(&conv->spi->dev,
+				"Failed to set sample rate: %d\n", ret);
+			return ret;
+		}
+
+		ret = clk_prepare_enable(conv->clk[CLK_DAC]);
+		if (ret < 0) {
+			dev_err(&conv->spi->dev,
+					"Failed to enable sample rate clock: %d\n",
+					ret);
+			return ret;
+		}
+	} else {
+		st->pll_frequency = sample_rate;
+		ad9144_setup_pll(st);
+	}
 
 	ad9144_setup_samplerate(st);
 	regmap_write(map, 0x300, 0x01);	// enable link
@@ -1003,7 +1143,7 @@ static int ad9144_probe(struct spi_device *spi)
 	for (i = 0; i < 8; i++)
 		link_config.lane_mux[i] = pdata->xbar_lane_sel[i];
 
-	lane_rate_kHz = ad9144_get_lane_rate(st, clk_get_rate(st->conv.clk[1]));
+	lane_rate_kHz = ad9144_get_lane_rate(st, ad9144_get_sample_rate(st));
 	ret = clk_set_rate(conv->clk[0], lane_rate_kHz);
 	if (ret < 0) {
 		dev_err(&spi->dev, "Failed to set lane rate to %ld kHz: %d\n",
