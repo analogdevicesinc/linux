@@ -797,6 +797,7 @@ L:	linux-iio@vger.kernel.org
 W:	http://ez.analog.com/community/linux-device-drivers
 S:	Supported
 F:	drivers/iio/dac/ad400x.c
+F:	Documentation/devicetree/bindings/iio/adc/ad400x.txt
 
 ANALOG DEVICES INC AD5758 DRIVER
 M:	Stefan Popa <stefan.popa@analog.com>
