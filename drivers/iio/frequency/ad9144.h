@@ -150,6 +150,7 @@
 #define REG_DACPLLTB                             0x1BB /* VCO Bias Control */
 #define REG_DACPLLTD                             0x1BD /* VCO Cal control */
 #define REG_DACPLLT17                            0x1C4 /* Varactor ControlV */
+#define REG_DACPLLT18                            0x1C5 /* Varactor ControlV */
 #define REG_ASPI_SPARE0                          0x1C6 /* Spare Register 0 */
 #define REG_ASPI_SPARE1                          0x1C7 /* Spare Register 1 */
 #define REG_SPISTRENGTH                          0x1DF /* Reg 70 Description */
