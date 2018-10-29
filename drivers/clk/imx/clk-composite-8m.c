@@ -166,6 +166,9 @@ struct clk *imx8m_clk_composite_flags(const char *name,
 	gate->reg = reg;
 	gate->bit_idx = PCG_CGC_SHIFT;
 
+	if (imx_src_is_m4_enabled())
+		flags |= CLK_IGNORE_UNUSED;
+
 	clk = clk_register_composite(NULL, name, parent_names, num_parents,
 					mux_hw, &clk_mux_ops, div_hw,
 					&imx8m_clk_composite_divider_ops,
