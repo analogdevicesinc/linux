@@ -58,11 +58,9 @@
 #define ADXCVR_DRP_PORT_ADDR_COMMON	0x00
 #define ADXCVR_DRP_PORT_ADDR_CHANNEL	0x20
 
-#define ADXCVR_DRP_PORT_COMMON		0x00
-#define ADXCVR_DRP_PORT_CHANNEL(x)	(0x1 + x)
-#define ADXCVR_DRP_PORT_CHANNEL_BCAST	0xff
+#define ADXCVR_DRP_PORT_COMMON(x)	(x)
+#define ADXCVR_DRP_PORT_CHANNEL(x)	(0x100 + (x))
 
-#define ADXCVR_BROADCAST		0xff
 
 struct adxcvr_state {
 	struct device		*dev;
