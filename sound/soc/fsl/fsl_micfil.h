@@ -314,8 +314,7 @@
 
 
 /* States of micfil */
-#define RECORDING_OFF_HWVAD_OFF		0
-#define RECORDING_OFF_HWVAD_ON		1
-#define RECORDING_ON_HWVAD_OFF		2
+#define MICFIL_RECORDING_OFF		0
+#define MICFIL_RECORDING_ON		1
 
 #endif /* _FSL_MICFIL_H */

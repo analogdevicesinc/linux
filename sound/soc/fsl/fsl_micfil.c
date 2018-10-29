@@ -66,8 +66,7 @@ struct fsl_micfil {
 	int vad_zcd_en;
 	int vad_zcd_adj;
 	int vad_rate_index;
-	atomic_t state;
-	atomic_t voice_detected;
+	atomic_t recording_state;
 	atomic_t init_hwvad_done;
 };
 
@@ -746,6 +745,16 @@ static const struct snd_kcontrol_new fsl_micfil_snd_controls[] = {
 
 };
 
+static bool inline is_hwvad_enabled(struct fsl_micfil *micfil)
+{
+	u32 reg;
+
+	/* Disable the clock only if the hwvad is not enabled */
+	regmap_read(micfil->regmap, REG_MICFIL_VAD0_CTRL1, &reg);
+
+	return !!(reg & MICFIL_VAD0_CTRL1_EN_MASK);
+}
+
 static int disable_hwvad(struct device *dev);
 
 static inline int get_pdm_clk(struct fsl_micfil *micfil,
@@ -1365,18 +1374,105 @@ static int __maybe_unused init_hwvad(struct device *dev)
 	return 0;
 }
 
+static inline bool clk_in_list(struct clk *p, struct clk *clk_src[])
+{
+	int i;
+
+	for (i = 0; i < MICFIL_CLK_SRC_NUM; i++)
+		if (clk_is_match(p, clk_src[i]))
+			return true;
+
+	return false;
+}
+
+static int fsl_micfil_set_mclk_rate(struct fsl_micfil *micfil, int clk_id,
+				    unsigned int freq)
+{
+	struct clk *p = micfil->mclk, *pll = 0, *npll = 0;
+	struct device *dev = &micfil->pdev->dev;
+	u64 ratio = freq;
+	u64 clk_rate;
+	int ret;
+	int i;
+
+	/* Do not touch the clock if hwvad is already enabled
+	 * since you can record only at hwvad rate and clock
+	 * has already been set to the required frequency
+	 */
+	if (is_hwvad_enabled(micfil)) {
+		dev_warn(dev, "Cannot change the clock parrent when HWVAD is enabled");
+		return 0;
+	}
+
+	/* check if all clock sources are valid */
+	for (i = 0; i < MICFIL_CLK_SRC_NUM; i++) {
+		if (micfil->clk_src[i])
+			continue;
+
+		dev_err(dev, "Clock Source %d is not valid.\n", i);
+		return -EINVAL;
+	}
+
+	while(p) {
+		struct clk *pp = clk_get_parent(p);
+
+		if (clk_in_list(pp, micfil->clk_src)) {
+			pll = pp;
+			break;
+		}
+		p = pp;
+	}
+
+	if (!pll) {
+		dev_err(dev, "reached a null clock\n");
+		return -EINVAL;
+	}
+
+	if (micfil->clk_src_id == MICFIL_CLK_AUTO) {
+		for (i = 0; i < MICFIL_CLK_SRC_NUM; i++) {
+			clk_rate = clk_get_rate(micfil->clk_src[i]);
+			/* This is an workaround since audio_pll2 clock
+			 * has 722534399 rate and this will never divide
+			 * to any known frequency ???
+			 */
+			clk_rate = round_up(clk_rate, 10);
+			if (do_div(clk_rate, ratio) == 0) {
+				npll = micfil->clk_src[i];
+			}
+		}
+	} else {
+		/* clock id is offseted by 1 since ID=0 means
+		 * auto clock selection
+		 */
+		npll = micfil->clk_src[micfil->clk_src_id - 1];
+	}
+
+	if (!npll) {
+		dev_err(dev,
+			"failed to find a suitable clock source\n");
+		return -EINVAL;
+	}
+
+	if (!clk_is_match(pll, npll)) {
+		ret = clk_set_parent(p, npll);
+		if (ret < 0)
+			dev_warn(dev,
+				 "failed to set parrent %d\n", ret);
+	}
+
+	ret = clk_set_rate(micfil->mclk, freq * 1024);
+	if (ret)
+		dev_warn(dev, "failed to set rate (%u): %d\n",
+			 freq * 1024, ret);
+
+	return ret;
+}
+
 static int fsl_micfil_startup(struct snd_pcm_substream *substream,
 			      struct snd_soc_dai *dai)
 {
 	struct fsl_micfil *micfil = snd_soc_dai_get_drvdata(dai);
 	struct device *dev = &micfil->pdev->dev;
-	int state;
-
-	state = atomic_read(&micfil->state);
-	if (state != RECORDING_OFF_HWVAD_OFF) {
-		dev_err(dev, "Cannot record while recording or hwvad is on\n");
-		return -EPERM;
-	}
 
 	if (!micfil) {
 		dev_err(dev, "micfil dai priv_data not set\n");
@@ -1392,24 +1488,11 @@ static int fsl_micfil_trigger(struct snd_pcm_substream *substream, int cmd,
 	struct fsl_micfil *micfil = snd_soc_dai_get_drvdata(dai);
 	struct device *dev = &micfil->pdev->dev;
 	int ret;
-	int old_state;
 
 	switch (cmd) {
 	case SNDRV_PCM_TRIGGER_START:
 	case SNDRV_PCM_TRIGGER_RESUME:
 	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
-		/* mark as stream open. Not allowed:
-		 *   - two paralel recordings
-		 *   - hwvad enabled while recording
-		 */
-		old_state = atomic_cmpxchg(&micfil->state,
-					   RECORDING_OFF_HWVAD_OFF,
-					   RECORDING_ON_HWVAD_OFF);
-		if (old_state != RECORDING_OFF_HWVAD_OFF) {
-			dev_err(dev, "Another record or hwvad is on\n");
-			return -EBUSY;
-		}
-
 		ret = fsl_micfil_reset(dev);
 		if (ret) {
 			dev_err(dev, "failed to soft reset\n");
@@ -1459,9 +1542,6 @@ static int fsl_micfil_trigger(struct snd_pcm_substream *substream, int cmd,
 			dev_err(dev, "failed to update DISEL bits\n");
 			return ret;
 		}
-
-		/* clear the stream open flag */
-		atomic_set(&micfil->state, RECORDING_OFF_HWVAD_OFF);
 		break;
 	default:
 		return -EINVAL;
@@ -1477,6 +1557,12 @@ static int fsl_set_clock_params(struct device *dev, unsigned int rate)
 
 	if (fsl_micfil_bsy(dev))
 		return -EBUSY;
+
+	ret = fsl_micfil_set_mclk_rate(micfil, 0, rate);
+	if (ret < 0)
+		dev_err(dev, "failed to set mclk[%lu] to rate %u\n",
+			clk_get_rate(micfil->mclk), rate);
+
 
 	/* set CICOSR */
 	ret = regmap_update_bits(micfil->regmap, REG_MICFIL_CTRL2,
@@ -1516,7 +1602,21 @@ static int fsl_micfil_hw_params(struct snd_pcm_substream *substream,
 	unsigned int channels = params_channels(params);
 	unsigned int rate = params_rate(params);
 	struct device *dev = &micfil->pdev->dev;
+	unsigned int hwvad_rate;
 	int ret;
+
+	hwvad_rate = micfil_hwvad_rate_ints[micfil->vad_rate_index];
+
+	/* if hwvad is enabled, make sure you are recording at
+	 * the same rate the hwvad is on or reject it to avoid
+	 * changing the clock rate.
+	*/
+	if (is_hwvad_enabled(micfil) && (rate != hwvad_rate)) {
+		dev_err(dev, "Record at hwvad rate %u\n", hwvad_rate);
+		return -EINVAL;
+	}
+
+	atomic_set(&micfil->recording_state, MICFIL_RECORDING_ON);
 
 	/* 1. Disable the module */
 	ret = regmap_update_bits(micfil->regmap, REG_MICFIL_CTRL1,
@@ -1553,94 +1653,12 @@ static int fsl_micfil_hw_free(struct snd_pcm_substream *substream,
 {
 	struct fsl_micfil *micfil = snd_soc_dai_get_drvdata(dai);
 
-	clk_disable_unprepare(micfil->mclk);
+	if (!is_hwvad_enabled(micfil))
+		clk_disable_unprepare(micfil->mclk);
+
+	atomic_set(&micfil->recording_state, MICFIL_RECORDING_OFF);
 
 	return 0;
-}
-
-static inline bool clk_in_list(struct clk *p, struct clk *clk_src[])
-{
-	int i;
-
-	for (i = 0; i < MICFIL_CLK_SRC_NUM; i++)
-		if (clk_is_match(p, clk_src[i]))
-			return true;
-
-	return false;
-}
-
-static int fsl_micfil_set_mclk_rate(struct snd_soc_dai *dai, int clk_id,
-				    unsigned int freq)
-{
-	struct fsl_micfil *micfil = snd_soc_dai_get_drvdata(dai);
-	struct clk *p = micfil->mclk, *pll = 0, *npll = 0;
-	u64 ratio = freq;
-	u64 clk_rate;
-	int ret;
-	int i;
-
-	/* check if all clock sources are valid */
-	for (i = 0; i < MICFIL_CLK_SRC_NUM; i++) {
-		if (micfil->clk_src[i])
-			continue;
-
-		dev_err(dai->dev, "Clock Source %d is not valid.\n", i);
-		return -EINVAL;
-	}
-
-	while(p) {
-		struct clk *pp = clk_get_parent(p);
-
-		if (clk_in_list(pp, micfil->clk_src)) {
-			pll = pp;
-			break;
-		}
-		p = pp;
-	}
-
-	if (!pll) {
-		dev_err(dai->dev, "reached a null clock\n");
-		return -EINVAL;
-	}
-
-	if (micfil->clk_src_id == MICFIL_CLK_AUTO) {
-		for (i = 0; i < MICFIL_CLK_SRC_NUM; i++) {
-			clk_rate = clk_get_rate(micfil->clk_src[i]);
-			/* This is an workaround since audio_pll2 clock
-			 * has 722534399 rate and this will never divide
-			 * to any known frequency ???
-			 */
-			clk_rate = round_up(clk_rate, 10);
-			if (do_div(clk_rate, ratio) == 0) {
-				npll = micfil->clk_src[i];
-			}
-		}
-	} else {
-		/* clock id is offseted by 1 since ID=0 means
-		 * auto clock selection
-		 */
-		npll = micfil->clk_src[micfil->clk_src_id - 1];
-	}
-
-	if (!npll) {
-		dev_err(dai->dev,
-			"failed to find a suitable clock source\n");
-		return -EINVAL;
-	}
-
-	if (!clk_is_match(pll, npll)) {
-		ret = clk_set_parent(p, npll);
-		if (ret < 0)
-			dev_warn(dai->dev,
-				 "failed to set parrent %d\n", ret);
-	}
-
-	ret = clk_set_rate(micfil->mclk, freq * 1024);
-	if (ret)
-		dev_warn(dai->dev, "failed to set rate (%u): %d\n",
-			 freq * 1024, ret);
-
-	return ret;
 }
 
 static int fsl_micfil_set_dai_sysclk(struct snd_soc_dai *dai, int clk_id,
@@ -1654,7 +1672,7 @@ static int fsl_micfil_set_dai_sysclk(struct snd_soc_dai *dai, int clk_id,
 	if (!freq)
 		return 0;
 
-	ret = fsl_micfil_set_mclk_rate(dai, clk_id, freq);
+	ret = fsl_micfil_set_mclk_rate(micfil, clk_id, freq);
 	if (ret < 0)
 		dev_err(dev, "failed to set mclk[%lu] to rate %u\n",
 			clk_get_rate(micfil->mclk), freq);
@@ -1907,17 +1925,15 @@ static irqreturn_t hwvad_isr(int irq, void *devid)
 	struct fsl_micfil *micfil = (struct fsl_micfil *)devid;
 	struct device *dev = &micfil->pdev->dev;
 	u32 vad0_reg;
-	int old_flag;
 
 	regmap_read(micfil->regmap, REG_MICFIL_VAD0_STAT, &vad0_reg);
-	old_flag = atomic_cmpxchg(&micfil->voice_detected, 0, 1);
 
 	/* The only difference between MICFIL_VAD0_STAT_EF and
 	 * MICFIL_VAD0_STAT_IF is that the former requires Write
 	 * 1 to Clear. Since both flags are set, it is enough
 	 * to only read one of them
 	 */
-	if ((vad0_reg & MICFIL_VAD0_STAT_IF_MASK) && !old_flag) {
+	if (vad0_reg & MICFIL_VAD0_STAT_IF_MASK) {
 		dev_info(dev, "Detected voice\n");
 
 		/* Write 1 to clear */
@@ -2022,24 +2038,11 @@ static int enable_hwvad(struct device *dev)
 {
 	struct fsl_micfil *micfil = dev_get_drvdata(dev);
 	int ret;
-	int old_state;
 	int rate;
-
-	/* go further with enablement only if both recording and
-	 * hwvad are not on
-	 */
-	old_state = atomic_cmpxchg(&micfil->state,
-				   RECORDING_OFF_HWVAD_OFF,
-				   RECORDING_OFF_HWVAD_ON);
-	if (old_state != RECORDING_OFF_HWVAD_OFF) {
-		dev_err(dev, "Another record or hwvad is on\n");
-		return -EBUSY;
-	}
 
 	if (micfil->vad_rate_index >= ARRAY_SIZE(micfil_hwvad_rate_ints)) {
 		dev_err(dev, "There are more select texts than rates\n");
-		ret = -EINVAL;
-		goto enable_err;
+		return -EINVAL;
 	}
 
 	rate = micfil_hwvad_rate_ints[micfil->vad_rate_index];
@@ -2052,12 +2055,9 @@ static int enable_hwvad(struct device *dev)
 	regcache_mark_dirty(micfil->regmap);
 	regcache_sync(micfil->regmap);
 
-	/* clear voice detected flag */
-	atomic_set(&micfil->voice_detected, 0);
-
 	ret = fsl_set_clock_params(dev, rate);
 	if (ret)
-		goto enable_err;
+		return ret;
 
 	ret = fsl_micfil_reset(dev);
 	if (ret)
@@ -2065,13 +2065,7 @@ static int enable_hwvad(struct device *dev)
 
 	/* Initialize Hardware Voice Activity */
 	ret = init_hwvad(dev);
-	if (ret)
-		goto enable_err;
 
-	return 0;
-
-enable_err:
-	atomic_cmpxchg(&micfil->state, RECORDING_OFF_HWVAD_ON, RECORDING_OFF_HWVAD_OFF);
 	return ret;
 }
 
@@ -2079,17 +2073,9 @@ static int disable_hwvad(struct device *dev)
 {
 	struct fsl_micfil *micfil = dev_get_drvdata(dev);
 	int ret = 0;
-	int old_state;
+	u32 state;
 
-	old_state = atomic_read(&micfil->state);
-
-	if (old_state == RECORDING_OFF_HWVAD_ON) {
-		/* Disable MICFIL module */
-		ret |= regmap_update_bits(micfil->regmap,
-					  REG_MICFIL_CTRL1,
-					  MICFIL_CTRL1_PDMIEN_MASK,
-					  0);
-
+	if (is_hwvad_enabled(micfil)) {
 		/* Voice Activity Detector Reset */
 		ret |= regmap_update_bits(micfil->regmap,
 					  REG_MICFIL_VAD0_CTRL1,
@@ -2126,10 +2112,20 @@ static int disable_hwvad(struct device *dev)
 					  MICFIL_VAD0_NCONFIG_NDECEN_MASK,
 					  0);
 
-		/* disable the clock */
-		clk_disable_unprepare(micfil->mclk);
+		/* disable the module and clock only if recording
+		 * is not done in parallel
+		 */
+		state = atomic_read(&micfil->recording_state);
+		if (state == MICFIL_RECORDING_OFF) {
+		/* Disable MICFIL module */
+			ret |= regmap_update_bits(micfil->regmap,
+						  REG_MICFIL_CTRL1,
+						  MICFIL_CTRL1_PDMIEN_MASK,
+						  0);
 
-		atomic_set(&micfil->state, RECORDING_OFF_HWVAD_OFF);
+			clk_disable_unprepare(micfil->mclk);
+		}
+
 	} else {
 		ret = -EPERM;
 		dev_err(dev, "HWVAD is not enabled %d\n", ret);
@@ -2357,11 +2353,6 @@ static int fsl_micfil_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int fsl_micfil_remove(struct platform_device *pdev)
-{
-	return 0;
-}
-
 #ifdef CONFIG_PM_SLEEP
 static int __maybe_unused fsl_micfil_runtime_suspend(struct device *dev)
 {
@@ -2369,7 +2360,9 @@ static int __maybe_unused fsl_micfil_runtime_suspend(struct device *dev)
 
 	regcache_cache_only(micfil->regmap, true);
 
-	if (micfil->mclk_streams & BIT(SNDRV_PCM_STREAM_CAPTURE))
+	/* Disable the clock only if the hwvad is not enabled */
+	if ((micfil->mclk_streams & BIT(SNDRV_PCM_STREAM_CAPTURE))
+	    && !is_hwvad_enabled(micfil))
 		clk_disable_unprepare(micfil->mclk);
 
 	return 0;
@@ -2379,9 +2372,16 @@ static int __maybe_unused fsl_micfil_runtime_resume(struct device *dev)
 {
 	struct fsl_micfil *micfil = dev_get_drvdata(dev);
 	int ret;
+	u32 reg;
 
-	/* enable mclk */
-	if (micfil->mclk_streams & BIT(SNDRV_PCM_STREAM_CAPTURE)) {
+	regmap_read(micfil->regmap, REG_MICFIL_VAD0_CTRL1, &reg);
+
+	/* enable mclk only if the hwvad is not enabled
+	 * When hwvad is enabled, clock won't be disabled
+	 * in suspend since hwvad and recording share the
+	 * same clock*/
+	if ((micfil->mclk_streams & BIT(SNDRV_PCM_STREAM_CAPTURE))
+	    && !is_hwvad_enabled(micfil)) {
 		ret = clk_prepare_enable(micfil->mclk);
 		if (ret < 0) {
 			dev_err(dev, "failed to enable mclk");
@@ -2407,7 +2407,6 @@ static const struct dev_pm_ops fsl_micfil_pm_ops = {
 
 static struct platform_driver fsl_micfil_driver = {
 	.probe = fsl_micfil_probe,
-	.remove = fsl_micfil_remove,
 	.driver = {
 		.name = "fsl-micfil-dai",
 		.pm = &fsl_micfil_pm_ops,
