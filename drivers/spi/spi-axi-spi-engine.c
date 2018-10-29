@@ -204,6 +204,8 @@ static void spi_engine_gen_sleep(struct spi_engine_program *p, bool dry,
 		return;
 
 	t = DIV_ROUND_UP(delay * spi_clk, (clk_div + 1) * 2);
+	/* spi_clk is in Hz while delay is usec, a division is required */
+	t /= 1000000;
 	while (t) {
 		unsigned int n = min(t, 256U);
 
