@@ -161,7 +161,7 @@ static ssize_t adxcvr_eyescan_set_enable(struct device *dev,
 	if (ret)
 		return ret;
 
-	if (st->eye->lane >= ADXCVR_BROADCAST || st->eye->lane < 0)
+	if (st->eye->lane >= 0xFF || st->eye->lane < 0)
 		return -EINVAL;
 
 	if (!completion_done(&st->eye->complete)) {
