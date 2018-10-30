@@ -2199,6 +2199,23 @@ static inline struct sensor_data *subdev_to_sensor_data(struct v4l2_subdev *sd)
 	return container_of(sd, struct sensor_data, subdev);
 }
 
+static enum ov10635_frame_rate to_ov10635_frame_rate(struct v4l2_fract *timeperframe)
+{
+	enum ov10635_frame_rate rate;
+	u32 tgt_fps;	/* target frames per secound */
+
+	tgt_fps = timeperframe->denominator / timeperframe->numerator;
+
+	if (tgt_fps == 30)
+		rate = OV10635_30_FPS;
+	else if (tgt_fps == 15)
+		rate = OV10635_15_FPS;
+	else
+		rate = -EINVAL;
+
+	return rate;
+}
+
 static inline int ov10635_read_reg(struct sensor_data *max9286_data, int index,
 											unsigned short reg, unsigned char *val)
 {
@@ -2678,10 +2695,12 @@ static int max9286_hardware_init(struct sensor_data *max9286_data)
 	return retval;
 }
 
-static int ov10635_change_mode(struct sensor_data *max9286_data, int index,
-				enum ov10635_frame_rate rate, enum ov10635_mode mode)
+static int ov10635_change_mode(struct sensor_data *max9286_data)
 {
 	struct reg_value *pModeSetting = NULL;
+	enum ov10635_mode mode = max9286_data->streamcap.capturemode;
+	enum ov10635_frame_rate rate =
+				to_ov10635_frame_rate(&max9286_data->streamcap.timeperframe);
 	int ArySize = 0, retval = 0;
 
 	if (mode > ov10635_mode_MAX || mode < ov10635_mode_MIN) {
@@ -2798,19 +2817,14 @@ static int max9286_s_parm(struct v4l2_subdev *sd, struct v4l2_streamparm *a)
 			return -EINVAL;
 		}
 
-		 /* TODO Reserved to extension */
-		ret = ov10635_change_mode(max9286_data, 0, frame_rate, mode);
-		if (ret < 0)
-			goto error;
+		if (mode > ov10635_mode_MAX || mode < ov10635_mode_MIN) {
+			pr_err("The camera mode[%d] is not supported!\n", mode);
+			return -EINVAL;
+		}
 
 		max9286_data->streamcap.timeperframe = *timeperframe;
 		max9286_data->streamcap.capturemode = a->parm.capture.capturemode;
-		max9286_data->format.width =
-			ov10635_mode_info_data[frame_rate][mode].width;
-		max9286_data->format.height =
-			ov10635_mode_info_data[frame_rate][mode].height;
 		max9286_data->format.reserved[0] = 72 * 8;
-
 		break;
 
 	/* These are all the possible cases. */
@@ -2832,7 +2846,6 @@ static int max9286_s_parm(struct v4l2_subdev *sd, struct v4l2_streamparm *a)
 		break;
 	}
 
-error:
 	return ret;
 }
 
@@ -2929,12 +2942,101 @@ static int max9286_get_fmt(struct v4l2_subdev *sd,
 	return 0;
 }
 
+static struct ov10635_mode_info *get_max_resolution(enum ov10635_frame_rate rate)
+{
+	u32 max_width;
+	enum ov10635_mode mode;
+	int i;
+
+	mode = 0;
+	max_width  = ov10635_mode_info_data[rate][0].width;
+
+	for (i = 0; i < (ov10635_mode_MAX + 1); i++) {
+		if (ov10635_mode_info_data[rate][i].width > max_width) {
+			max_width = ov10635_mode_info_data[rate][i].width;
+			mode = i;
+		}
+	}
+	return &ov10635_mode_info_data[rate][mode];
+}
+
+static struct ov10635_mode_info *match(struct v4l2_mbus_framefmt *fmt,
+			enum ov10635_frame_rate rate)
+{
+	struct ov10635_mode_info *info;
+	int i;
+
+	for (i = 0; i < (ov10635_mode_MAX + 1); i++) {
+		if (fmt->width == ov10635_mode_info_data[rate][i].width &&
+			fmt->height == ov10635_mode_info_data[rate][i].height) {
+			info = &ov10635_mode_info_data[rate][i];
+			break;
+		}
+	}
+	if (i == ov10635_mode_MAX + 1)
+		info = NULL;
+
+	return info;
+}
+
+static void try_to_find_resolution(struct sensor_data *sensor,
+			struct v4l2_mbus_framefmt *mf)
+{
+	enum ov10635_mode mode = sensor->streamcap.capturemode;
+	struct v4l2_fract *timeperframe = &sensor->streamcap.timeperframe;
+	enum ov10635_frame_rate frame_rate = to_ov10635_frame_rate(timeperframe);
+	struct device *dev = &sensor->i2c_client->dev;
+	struct ov10635_mode_info *info;
+	bool found = false;
+
+	/*printk("%s:%d mode=%d, frame_rate=%d, w/h=(%d,%d)\n", __func__, __LINE__,*/
+				/*mode, frame_rate, mf->width, mf->height);*/
+
+	if ((mf->width == ov10635_mode_info_data[frame_rate][mode].width) &&
+		(mf->height == ov10635_mode_info_data[frame_rate][mode].height)) {
+			info = &ov10635_mode_info_data[frame_rate][mode];
+			found = true;
+	} else {
+		/* get mode info according to frame user's width and height */
+		info = match(mf, frame_rate);
+		if (info == NULL) {
+			frame_rate ^= 0x1;
+			info = match(mf, frame_rate);
+			if (info) {
+				sensor->streamcap.capturemode = -1;
+				dev_err(dev, "%s %dx%d only support %s(fps)\n", __func__,
+						info->width, info->height,
+						(frame_rate == 0) ? "15fps" : "30fps");
+				return;
+			}
+			goto max_resolution;
+		}
+		found = true;
+	}
+
+	/* get max resolution to resize */
+max_resolution:
+	if (!found) {
+		frame_rate ^= 0x1;
+		info = get_max_resolution(frame_rate);
+	}
+
+	/*printk("%s:%d mode=%d, frame_rate=%d, w/h=(%d,%d)\n", __func__, __LINE__,*/
+				/*mode, frame_rate, mf->width, mf->height);*/
+
+	sensor->streamcap.capturemode = info->mode;
+	sensor->streamcap.timeperframe.denominator = (frame_rate) ? 30 : 15;
+	sensor->format.width  = info->width;
+	sensor->format.height = info->height;
+}
+
 static int max9286_set_fmt(struct v4l2_subdev *sd,
 			 struct v4l2_subdev_pad_config *cfg,
 			 struct v4l2_subdev_format *fmt)
 {
 	struct sensor_data *max9286_data = subdev_to_sensor_data(sd);
 	struct v4l2_mbus_framefmt *mf = &fmt->format;
+	int ret;
 
 	if (fmt->pad)
 		return -EINVAL;
@@ -2943,10 +3045,14 @@ static int max9286_set_fmt(struct v4l2_subdev *sd,
 	mf->colorspace = max9286_data->format.colorspace;
 	mf->field = V4L2_FIELD_NONE;
 
+	try_to_find_resolution(max9286_data, mf);
+
 	if (fmt->which == V4L2_SUBDEV_FORMAT_TRY)
 		return 0;
 
-	return 0;
+	ret = ov10635_change_mode(max9286_data);
+
+	return ret;
 }
 
 static int max9286_get_frame_desc(struct v4l2_subdev *sd, unsigned int pad,
