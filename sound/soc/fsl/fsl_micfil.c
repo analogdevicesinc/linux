@@ -44,7 +44,7 @@ struct fsl_micfil {
 	struct clk *clk_src[MICFIL_CLK_SRC_NUM];
 	struct snd_dmaengine_dai_dma_data dma_params_rx;
 	struct kobject *hwvad_kobject;
-	unsigned int channels;
+	unsigned int vad_channel;
 	unsigned int dataline;
 	char name[32];
 	int irq[MICFIL_IRQ_LINES];
@@ -1289,7 +1289,7 @@ static int __maybe_unused init_hwvad(struct device *dev)
 	/* configure source channel in VADCHSEL */
 	ret = regmap_update_bits(micfil->regmap, REG_MICFIL_VAD0_CTRL1,
 				 MICFIL_VAD0_CTRL1_CHSEL_MASK,
-				 MICFIL_VAD0_CTRL1_CHSEL(micfil->channels));
+				 MICFIL_VAD0_CTRL1_CHSEL(micfil->vad_channel));
 	if (ret) {
 		dev_err(dev, "Failed to set CHSEL in CTRL1_VAD0 [%d]\n", ret);
 		return ret;
@@ -1643,7 +1643,6 @@ static int fsl_micfil_hw_params(struct snd_pcm_substream *substream,
 
 	micfil->dma_params_rx.fifo_num = channels;
 	micfil->dma_params_rx.maxburst = channels * MICFIL_DMA_MAXBURST_RX;
-	micfil->channels = channels;
 
 	return 0;
 }
@@ -2142,27 +2141,24 @@ static ssize_t micfil_hwvad_handler(struct kobject *kobj,
 	struct kobject *nand_kobj = kobj->parent;
 	struct device *dev = container_of(nand_kobj, struct device, kobj);
 	struct fsl_micfil *micfil = dev_get_drvdata(dev);
-	unsigned long enabled_channels;
+	unsigned long vad_channel;
 	int ret;
 
-	ret = kstrtoul(buf, 16, &enabled_channels);
+	ret = kstrtoul(buf, 16, &vad_channel);
 	if (ret < 0)
 		return -EINVAL;
 
-	if (enabled_channels > 0 && enabled_channels <= 8) {
+	if (vad_channel >= 0 && vad_channel <= 7) {
 		dev_info(dev,
 			 "enabling hwvad with %lu channels at rate %d\n",
-			 enabled_channels,
+			 vad_channel,
 			 micfil_hwvad_rate_ints[micfil->vad_rate_index]);
-		micfil->channels = enabled_channels;
+		micfil->vad_channel = vad_channel;
 		ret = enable_hwvad(dev);
-	} else if (!enabled_channels) {
-		dev_info(dev, "disabling hwvad\n");
-		micfil->channels = 0;
-		ret = disable_hwvad(dev);
 	} else {
-		dev_err(dev, "Unsupported number of channels. Try 0,1..8\n");
-		ret = -EINVAL;
+		dev_info(dev, "disabling hwvad\n");
+		micfil->vad_channel = -1;
+		ret = disable_hwvad(dev);
 	}
 	if (ret)
 		return ret;
