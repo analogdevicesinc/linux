@@ -90,6 +90,14 @@ static int imx8_pd_power(struct generic_pm_domain *domain, bool power_on)
 		return -EINVAL;
 	}
 
+	/* keep HDMI TX resource power on */
+	if (power_on && (pd->rsrc_id == SC_R_HDMI ||
+					pd->rsrc_id == SC_R_HDMI_I2S ||
+					pd->rsrc_id == SC_R_HDMI_I2C_0 ||
+					pd->rsrc_id == SC_R_HDMI_PLL_0 ||
+					pd->rsrc_id == SC_R_HDMI_PLL_1))
+		pd->pd.flags |= GENPD_FLAG_ALWAYS_ON;
+
 	return 0;
 }
 
