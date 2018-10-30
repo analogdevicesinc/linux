@@ -3501,7 +3501,7 @@ static int __init caam_algapi_init(void)
 	struct device *ctrldev;
 	struct caam_drv_private *priv;
 	int i = 0, err = 0;
-	u32 cha_vid, cha_inst, des_inst, aes_inst, md_inst;
+	u32 cha_vid, cha_inst, des_inst, aes_inst, md_inst, arc4_inst;
 	unsigned int md_limit = SHA512_DIGEST_SIZE;
 	bool registered = false;
 
@@ -3557,6 +3557,7 @@ static int __init caam_algapi_init(void)
 	des_inst = (cha_inst & CHA_ID_LS_DES_MASK) >> CHA_ID_LS_DES_SHIFT;
 	aes_inst = (cha_inst & CHA_ID_LS_AES_MASK) >> CHA_ID_LS_AES_SHIFT;
 	md_inst = (cha_inst & CHA_ID_LS_MD_MASK) >> CHA_ID_LS_MD_SHIFT;
+	arc4_inst = (cha_inst & CHA_ID_LS_ARC4_MASK) >> CHA_ID_LS_ARC4_SHIFT;
 
 	/* If MD is present, limit digest size based on LP256 */
 	if (md_inst && ((cha_vid & CHA_ID_LS_MD_MASK) == CHA_ID_LS_MD_LP256))
@@ -3576,6 +3577,10 @@ static int __init caam_algapi_init(void)
 		/* Skip AES algorithms if not supported by device */
 		if (!aes_inst && (alg_sel == OP_ALG_ALGSEL_AES))
 				continue;
+
+		/* Skip ARC4 algorithms if not supported by device */
+		if (!arc4_inst && (alg_sel == OP_ALG_ALGSEL_ARC4))
+			continue;
 
 		/*
 		 * Check support for AES modes not available
