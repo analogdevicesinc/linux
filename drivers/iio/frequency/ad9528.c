@@ -273,6 +273,7 @@ struct ad9528_state {
 	struct gpio_desc			*reset_gpio;
 
 	unsigned long		vco_out_freq[AD9528_NUM_CLK_SRC];
+	unsigned long		sysref_src_pll2;
 
 	struct mutex		lock;
 
@@ -581,13 +582,24 @@ static int ad9528_write_raw(struct iio_dev *indio_dev,
 
 		break;
 	case IIO_CHAN_INFO_FREQUENCY:
-		if (output->source == AD9528_SYSREF) {
+		if (val <= 0) {
 			ret = -EINVAL;
 			goto out;
 		}
 
-		if (val <= 0) {
-			ret = -EINVAL;
+		if (output->source == AD9528_SYSREF) {
+			tmp = DIV_ROUND_CLOSEST(st->sysref_src_pll2, val);
+			tmp = clamp_t(unsigned long, tmp, 1UL, 65535UL);
+
+			ret = ad9528_write(indio_dev, AD9528_SYSREF_K_DIVIDER,
+					   AD9528_SYSREF_K_DIV(tmp));
+
+			if (!ret)
+				st->vco_out_freq[AD9528_SYSREF] =
+					DIV_ROUND_CLOSEST(st->sysref_src_pll2,
+							  tmp);
+
+			ad9528_io_update(indio_dev);
 			goto out;
 		}
 
@@ -777,11 +789,12 @@ static long ad9528_clk_round_rate(struct clk_hw *hw, unsigned long rate,
 	if (!rate)
 		return 0;
 
-	freq = st->vco_out_freq[output->source];
-
 	if (output->source == AD9528_SYSREF) {
-		div = 1;
+		freq = st->sysref_src_pll2;
+		div = DIV_ROUND_CLOSEST(freq, rate);
+		div = clamp_t(unsigned long, div, 1UL, 65535UL);
 	} else {
+		freq = st->vco_out_freq[output->source];
 		div = DIV_ROUND_CLOSEST(freq, rate);
 		div = clamp(div, 1UL, 256UL);
 	}
@@ -975,8 +988,10 @@ static int ad9528_setup(struct iio_dev *indio_dev)
 
 	st->vco_out_freq[AD9528_VCXO] = pdata->vcxo_freq;
 
-	st->vco_out_freq[AD9528_SYSREF] = vco_freq / (pll2_ndiv *
-					   pdata->sysref_k_div * 2);
+	st->sysref_src_pll2 = vco_freq / (pll2_ndiv * 2);
+
+	st->vco_out_freq[AD9528_SYSREF] = st->sysref_src_pll2 /
+					  pdata->sysref_k_div;
 
 	ret = ad9528_write(indio_dev, AD9528_PLL2_R1_DIVIDER,
 		AD9528_PLL2_R1_DIV(pdata->pll2_r1_div));
