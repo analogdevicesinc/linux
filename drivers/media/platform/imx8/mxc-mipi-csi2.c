@@ -603,6 +603,30 @@ static int mipi_csi2_set_fmt(struct v4l2_subdev *sd,
 			       struct v4l2_subdev_pad_config *cfg,
 			       struct v4l2_subdev_format *fmt)
 {
+	struct mxc_mipi_csi2_dev *csi2dev = sd_to_mxc_mipi_csi2_dev(sd);
+	struct v4l2_subdev *sen_sd;
+	struct media_pad *source_pad;
+	int ret;
+
+	/* Get remote source pad */
+	source_pad = mxc_csi2_get_remote_sensor_pad(csi2dev);
+	if (source_pad == NULL) {
+		v4l2_err(&csi2dev->v4l2_dev, "%s, No remote pad found!\n", __func__);
+		return -EINVAL;
+	}
+
+	/* Get remote source pad subdev */
+	sen_sd = media_entity_to_v4l2_subdev(source_pad->entity);
+	if (sen_sd == NULL) {
+		v4l2_err(&csi2dev->v4l2_dev, "%s, No remote subdev found!\n", __func__);
+		return -EINVAL;
+	}
+
+	fmt->pad = source_pad->index;
+	ret = v4l2_subdev_call(sen_sd, pad, set_fmt, NULL, fmt);
+	if (ret < 0 && ret != -ENOIOCTLCMD)
+		return -EINVAL;
+
 	return 0;
 }
 

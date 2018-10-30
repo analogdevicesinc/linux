@@ -840,6 +840,7 @@ static int mxc_isi_cap_try_fmt_mplane(struct file *file, void *fh,
 static int mxc_isi_source_fmt_init(struct mxc_isi_dev *mxc_isi)
 {
 	struct mxc_isi_frame *src_f = &mxc_isi->isi_cap.src_f;
+	struct mxc_isi_frame *dst_f = &mxc_isi->isi_cap.dst_f;
 	struct v4l2_subdev_format src_fmt;
 	struct media_pad *source_pad;
 	struct v4l2_subdev *src_sd;
@@ -861,9 +862,20 @@ static int mxc_isi_source_fmt_init(struct mxc_isi_dev *mxc_isi)
 
 	src_fmt.pad = source_pad->index;
 	src_fmt.which = V4L2_SUBDEV_FORMAT_ACTIVE;
+	src_fmt.format.width = dst_f->width;
+	src_fmt.format.height = dst_f->height;
+	ret = v4l2_subdev_call(src_sd, pad, set_fmt, NULL, &src_fmt);
+	if (ret < 0 && ret != -ENOIOCTLCMD) {
+		v4l2_err(mxc_isi->v4l2_dev, "%s, set remote fmt fail!\n", __func__);
+		return -EINVAL;
+	}
+
+	memset(&src_fmt, 0, sizeof(src_fmt));
+	src_fmt.pad = source_pad->index;
+	src_fmt.which = V4L2_SUBDEV_FORMAT_ACTIVE;
 	ret = v4l2_subdev_call(src_sd, pad, get_fmt, NULL, &src_fmt);
 	if (ret < 0 && ret != -ENOIOCTLCMD) {
-		v4l2_err(mxc_isi->v4l2_dev, "%s, get remote fmt faile!\n", __func__);
+		v4l2_err(mxc_isi->v4l2_dev, "%s, get remote fmt fail!\n", __func__);
 		return -EINVAL;
 	}
 
@@ -871,6 +883,14 @@ static int mxc_isi_source_fmt_init(struct mxc_isi_dev *mxc_isi)
 	src_f->fmt = mxc_isi_get_src_fmt(&src_fmt);
 
 	set_frame_bounds(src_f, src_fmt.format.width, src_fmt.format.height);
+
+	if (dst_f->width > src_f->width || dst_f->height > src_f->height) {
+		dev_err(&mxc_isi->pdev->dev,
+				"%s: src:(%d,%d), dst:(%d,%d) Not support upscale\n", __func__,
+				src_f->width, src_f->height,
+				dst_f->width, dst_f->height);
+		return -EINVAL;
+	}
 
 	return 0;
 }
@@ -881,7 +901,6 @@ static int mxc_isi_cap_s_fmt_mplane(struct file *file, void *priv,
 	struct mxc_isi_dev *mxc_isi = video_drvdata(file);
 	struct v4l2_pix_format_mplane *pix = &f->fmt.pix_mp;
 	struct mxc_isi_frame *dst_f = &mxc_isi->isi_cap.dst_f;
-	struct mxc_isi_frame *src_f = &mxc_isi->isi_cap.src_f;
 	struct mxc_isi_fmt *fmt;
 	int bpl;
 	int i;
@@ -954,16 +973,18 @@ static int mxc_isi_cap_s_fmt_mplane(struct file *file, void *priv,
 
 	set_frame_bounds(dst_f, pix->width, pix->height);
 
-	mxc_isi_source_fmt_init(mxc_isi);
+	return 0;
+}
 
-	if ((dst_f->width  > src_f->width) ||
-		(dst_f->height > src_f->height)) {
-		dev_err(&mxc_isi->pdev->dev, "%s: Not support upscale\n", __func__);
+static int mxc_isi_config_parm(struct mxc_isi_dev *mxc_isi)
+{
+	int ret;
+
+	ret = mxc_isi_source_fmt_init(mxc_isi);
+	if (ret < 0)
 		return -EINVAL;
-	}
 
 	mxc_isi_channel_init(mxc_isi);
-	/* configure mxc isi channel */
 	mxc_isi_channel_config(mxc_isi);
 
 	return 0;
@@ -976,6 +997,10 @@ static int mxc_isi_cap_streamon(struct file *file, void *priv,
 	int ret;
 
 	dev_dbg(&mxc_isi->pdev->dev, "%s\n", __func__);
+
+	ret = mxc_isi_config_parm(mxc_isi);
+	if (ret < 0)
+		return -EINVAL;
 
 	ret = vb2_ioctl_streamon(file, priv, type);
 	mxc_isi_channel_enable(mxc_isi);
