@@ -2787,6 +2787,7 @@
 							<&clk IMX8QM_HDMI_LIS_IPG_CLK>;
 		assigned-clock-rates = <675000000>, <84375000>;
 		power-domains = <&pd_hdmi>;
+		status = "disabled";
 	};
 
 	irqsteer_hdmi_rx: irqsteer@58260000 {

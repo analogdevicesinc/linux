@@ -52,6 +52,10 @@
 	status = "disabled";
 };
 
+&irqsteer_hdmi {
+	status = "okay";
+};
+
 &hdmi {
 	compatible = "fsl,imx8qm-hdmi";
 	assigned-clocks = <&clk IMX8QM_HDMI_PXL_SEL>,
