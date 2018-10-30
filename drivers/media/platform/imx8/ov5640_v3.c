@@ -51,14 +51,14 @@
 
 enum ov5640_mode {
 	ov5640_mode_MIN = 0,
-	ov5640_mode_VGA_640_480 = 0,
-	ov5640_mode_QCIF_176_144 = 1,
-	ov5640_mode_QVGA_320_240 = 2,
-	ov5640_mode_NTSC_720_480 = 3,
-	ov5640_mode_PAL_720_576 = 4,
-	ov5640_mode_XGA_1024_768 = 5,
-	ov5640_mode_720P_1280_720 = 6,
-	ov5640_mode_1080P_1920_1080 = 7,
+	ov5640_mode_1080P_1920_1080 = 0,
+	ov5640_mode_720P_1280_720 = 1,
+	ov5640_mode_XGA_1024_768 = 2,
+	ov5640_mode_PAL_720_576 = 3,
+	ov5640_mode_NTSC_720_480 = 4,
+	ov5640_mode_VGA_640_480 = 5,
+	ov5640_mode_QVGA_320_240 = 6,
+	ov5640_mode_QCIF_176_144 = 7,
 	ov5640_mode_QSXGA_2592_1944 = 8,
 	ov5640_mode_MAX = 8
 
@@ -734,72 +734,72 @@ static struct reg_value ov5640_setting_15fps_QSXGA_2592_1944[] = {
 
 static struct ov5640_mode_info ov5640_mode_info_data[2][ov5640_mode_MAX + 1] = {
 	{
-		{ov5640_mode_VGA_640_480,      640,  480,
-		ov5640_setting_15fps_VGA_640_480,
-		ARRAY_SIZE(ov5640_setting_15fps_VGA_640_480)},
-
-		{ov5640_mode_QCIF_176_144,     176,  144,
-		ov5640_setting_15fps_QCIF_176_144,
-		ARRAY_SIZE(ov5640_setting_15fps_QCIF_176_144)},
-
-		{ov5640_mode_QVGA_320_240,     320,  240,
-		ov5640_setting_15fps_QVGA_320_240,
-		ARRAY_SIZE(ov5640_setting_15fps_QVGA_320_240)},
-
-		{ov5640_mode_NTSC_720_480,     720,  480,
-		ov5640_setting_15fps_NTSC_720_480,
-		ARRAY_SIZE(ov5640_setting_15fps_NTSC_720_480)},
-
-		{ov5640_mode_PAL_720_576,      720,  576,
-		ov5640_setting_15fps_PAL_720_576,
-		ARRAY_SIZE(ov5640_setting_15fps_PAL_720_576)},
-
-		{ov5640_mode_XGA_1024_768,    1024,  768,
-		ov5640_setting_15fps_XGA_1024_768,
-		ARRAY_SIZE(ov5640_setting_15fps_XGA_1024_768)},
+		{ov5640_mode_1080P_1920_1080, 1920, 1080,
+		ov5640_setting_15fps_1080P_1920_1080,
+		ARRAY_SIZE(ov5640_setting_15fps_1080P_1920_1080)},
 
 		{ov5640_mode_720P_1280_720,   1280,  720,
 		ov5640_setting_15fps_720P_1280_720,
 		ARRAY_SIZE(ov5640_setting_15fps_720P_1280_720)},
 
-		{ov5640_mode_1080P_1920_1080, 1920, 1080,
-		ov5640_setting_15fps_1080P_1920_1080,
-		ARRAY_SIZE(ov5640_setting_15fps_1080P_1920_1080)},
+		{ov5640_mode_XGA_1024_768,    1024,  768,
+		ov5640_setting_15fps_XGA_1024_768,
+		ARRAY_SIZE(ov5640_setting_15fps_XGA_1024_768)},
+
+		{ov5640_mode_PAL_720_576,      720,  576,
+		ov5640_setting_15fps_PAL_720_576,
+		ARRAY_SIZE(ov5640_setting_15fps_PAL_720_576)},
+
+		{ov5640_mode_NTSC_720_480,     720,  480,
+		ov5640_setting_15fps_NTSC_720_480,
+		ARRAY_SIZE(ov5640_setting_15fps_NTSC_720_480)},
+
+		{ov5640_mode_VGA_640_480,      640,  480,
+		ov5640_setting_15fps_VGA_640_480,
+		ARRAY_SIZE(ov5640_setting_15fps_VGA_640_480)},
+
+		{ov5640_mode_QVGA_320_240,     320,  240,
+		ov5640_setting_15fps_QVGA_320_240,
+		ARRAY_SIZE(ov5640_setting_15fps_QVGA_320_240)},
+
+		{ov5640_mode_QCIF_176_144,     176,  144,
+		ov5640_setting_15fps_QCIF_176_144,
+		ARRAY_SIZE(ov5640_setting_15fps_QCIF_176_144)},
 
 		{ov5640_mode_QSXGA_2592_1944, 2592, 1944,
 		ov5640_setting_15fps_QSXGA_2592_1944,
 		ARRAY_SIZE(ov5640_setting_15fps_QSXGA_2592_1944)},
 	},
 	{
-		{ov5640_mode_VGA_640_480,      640,  480,
-		ov5640_setting_30fps_VGA_640_480,
-		ARRAY_SIZE(ov5640_setting_30fps_VGA_640_480)},
-
-		{ov5640_mode_QCIF_176_144,     176,  144,
-		ov5640_setting_30fps_QCIF_176_144,
-		ARRAY_SIZE(ov5640_setting_30fps_QCIF_176_144)},
-
-		{ov5640_mode_QVGA_320_240,     320,  240,
-		ov5640_setting_30fps_QVGA_320_240,
-		ARRAY_SIZE(ov5640_setting_30fps_QVGA_320_240)},
-
-		{ov5640_mode_NTSC_720_480,     720,  480,
-		ov5640_setting_30fps_NTSC_720_480,
-		ARRAY_SIZE(ov5640_setting_30fps_NTSC_720_480)},
-
-		{ov5640_mode_PAL_720_576,      720,  576,
-		ov5640_setting_30fps_PAL_720_576,
-		ARRAY_SIZE(ov5640_setting_30fps_PAL_720_576)},
-
-		{ov5640_mode_XGA_1024_768,    1024,  768,
-		ov5640_setting_30fps_XGA_1024_768,
-		ARRAY_SIZE(ov5640_setting_30fps_XGA_1024_768)},
+		{ov5640_mode_1080P_1920_1080, 0, 0, NULL, 0},
 
 		{ov5640_mode_720P_1280_720,   1280,  720,
 		ov5640_setting_30fps_720P_1280_720,
 		ARRAY_SIZE(ov5640_setting_30fps_720P_1280_720)},
 
-		{ov5640_mode_1080P_1920_1080, 0, 0, NULL, 0},
+		{ov5640_mode_XGA_1024_768,    1024,  768,
+		ov5640_setting_30fps_XGA_1024_768,
+		ARRAY_SIZE(ov5640_setting_30fps_XGA_1024_768)},
+
+		{ov5640_mode_PAL_720_576,      720,  576,
+		ov5640_setting_30fps_PAL_720_576,
+		ARRAY_SIZE(ov5640_setting_30fps_PAL_720_576)},
+
+		{ov5640_mode_NTSC_720_480,     720,  480,
+		ov5640_setting_30fps_NTSC_720_480,
+		ARRAY_SIZE(ov5640_setting_30fps_NTSC_720_480)},
+
+		{ov5640_mode_VGA_640_480,      640,  480,
+		ov5640_setting_30fps_VGA_640_480,
+		ARRAY_SIZE(ov5640_setting_30fps_VGA_640_480)},
+
+		{ov5640_mode_QVGA_320_240,     320,  240,
+		ov5640_setting_30fps_QVGA_320_240,
+		ARRAY_SIZE(ov5640_setting_30fps_QVGA_320_240)},
+
+		{ov5640_mode_QCIF_176_144,     176,  144,
+		ov5640_setting_30fps_QCIF_176_144,
+		ARRAY_SIZE(ov5640_setting_30fps_QCIF_176_144)},
 
 		{ov5640_mode_QSXGA_2592_1944, 0, 0, NULL, 0},
 	},
@@ -841,6 +841,23 @@ static const struct ov5640_datafmt ov5640_colour_fmts[] = {
 static struct ov5640 *to_ov5640(const struct i2c_client *client)
 {
 	return container_of(i2c_get_clientdata(client), struct ov5640, subdev);
+}
+
+static enum ov5640_frame_rate to_ov5640_frame_rate(struct v4l2_fract *timeperframe)
+{
+	enum ov5640_frame_rate rate;
+	u32 tgt_fps;	/* target frames per secound */
+
+	tgt_fps = timeperframe->denominator / timeperframe->numerator;
+
+	if (tgt_fps == 30)
+		rate = ov5640_30_fps;
+	else if (tgt_fps == 15)
+		rate = ov5640_15_fps;
+	else
+		rate = -EINVAL;
+
+	return rate;
 }
 
 /* Find a data format by a pixel code in an array */
@@ -1081,12 +1098,13 @@ static void ov5640_start(void)
 	msleep(1);
 }
 
-static int ov5640_change_mode(enum ov5640_frame_rate frame_rate,
-			enum ov5640_mode mode)
+static int ov5640_change_mode(struct ov5640 *sensor)
 {
 	struct reg_value *pModeSetting = NULL;
-	s32 ArySize = 0;
-	int retval;
+	enum ov5640_mode mode = sensor->streamcap.capturemode;
+	enum ov5640_frame_rate frame_rate =
+				to_ov5640_frame_rate(&sensor->streamcap.timeperframe);
+	int ArySize = 0, retval = 0;
 
 	if (mode > ov5640_mode_MAX || mode < ov5640_mode_MIN) {
 		pr_err("Wrong ov5640 mode detected!\n");
@@ -1212,7 +1230,6 @@ static int ov5640_s_parm(struct v4l2_subdev *sd, struct v4l2_streamparm *a)
 	struct ov5640 *sensor = to_ov5640(client);
 	struct v4l2_fract *timeperframe = &a->parm.capture.timeperframe;
 	u32 tgt_fps;	/* target frames per secound */
-	enum ov5640_frame_rate frame_rate;
 	enum ov5640_mode mode = a->parm.capture.capturemode;
 	int ret = 0;
 
@@ -1238,28 +1255,13 @@ static int ov5640_s_parm(struct v4l2_subdev *sd, struct v4l2_streamparm *a)
 			timeperframe->numerator = 1;
 		}
 
-		/* Actual frame rate we use */
-		tgt_fps = timeperframe->denominator /
-			  timeperframe->numerator;
-
-		if (tgt_fps == 30)
-			frame_rate = ov5640_30_fps;
-		else if (tgt_fps == 15)
-			frame_rate = ov5640_15_fps;
-		else {
-			pr_err(" The camera frame rate is not supported!\n");
-			goto error;
+		if (mode > ov5640_mode_MAX || mode < ov5640_mode_MIN) {
+			pr_err("The camera mode[%d] is not supported!\n", mode);
+			return -EINVAL;
 		}
-
-		ret = ov5640_change_mode(frame_rate, mode);
-		if (ret < 0)
-			goto error;
 
 		sensor->streamcap.timeperframe = *timeperframe;
 		sensor->streamcap.capturemode = mode;
-		sensor->pix.width = ov5640_mode_info_data[frame_rate][mode].width;
-		sensor->pix.height = ov5640_mode_info_data[frame_rate][mode].height;
-
 		break;
 
 	/* These are all the possible cases. */
@@ -1281,7 +1283,6 @@ static int ov5640_s_parm(struct v4l2_subdev *sd, struct v4l2_streamparm *a)
 		break;
 	}
 
-error:
 	return ret;
 }
 
@@ -1299,6 +1300,88 @@ static int ov5640_s_stream(struct v4l2_subdev *sd, int enable)
 	return 0;
 }
 
+static struct ov5640_mode_info *get_max_resolution(enum ov5640_frame_rate rate)
+{
+	u32 max_width;
+	enum ov5640_mode mode;
+	int i;
+
+	mode = 0;
+	max_width  = ov5640_mode_info_data[rate][0].width;
+
+	for (i = 0; i < (ov5640_mode_MAX + 1); i++) {
+		if (ov5640_mode_info_data[rate][i].width > max_width) {
+			max_width = ov5640_mode_info_data[rate][i].width;
+			mode = i;
+		}
+	}
+	return &ov5640_mode_info_data[rate][mode];
+}
+
+static struct ov5640_mode_info *match(struct v4l2_mbus_framefmt *fmt,
+			enum ov5640_frame_rate rate)
+{
+	struct ov5640_mode_info *info;
+	int i;
+
+	for (i = 0; i < (ov5640_mode_MAX + 1); i++) {
+		if (fmt->width == ov5640_mode_info_data[rate][i].width &&
+			fmt->height == ov5640_mode_info_data[rate][i].height) {
+			info = &ov5640_mode_info_data[rate][i];
+			break;
+		}
+	}
+	if (i == ov5640_mode_MAX + 1)
+		info = NULL;
+
+	return info;
+}
+
+static void try_to_find_resolution(struct ov5640 *sensor,
+			struct v4l2_mbus_framefmt *mf)
+{
+	enum ov5640_mode mode = sensor->streamcap.capturemode;
+	struct v4l2_fract *timeperframe = &sensor->streamcap.timeperframe;
+	enum ov5640_frame_rate frame_rate = to_ov5640_frame_rate(timeperframe);
+	struct device *dev = &sensor->i2c_client->dev;
+	struct ov5640_mode_info *info;
+	bool found = false;
+
+	if ((mf->width == ov5640_mode_info_data[frame_rate][mode].width) &&
+		(mf->height == ov5640_mode_info_data[frame_rate][mode].height)) {
+			info = &ov5640_mode_info_data[frame_rate][mode];
+			found = true;
+	} else {
+		/* get mode info according to frame user's width and height */
+		info = match(mf, frame_rate);
+		if (info == NULL) {
+			frame_rate ^= 0x1;
+			info = match(mf, frame_rate);
+			if (info) {
+				sensor->streamcap.capturemode = -1;
+				dev_err(dev, "%s %dx%d only support %s(fps)\n", __func__,
+						info->width, info->height,
+						(frame_rate == 0) ? "15fps" : "30fps");
+				return;
+			}
+			goto max_resolution;
+		}
+		found = true;
+	}
+
+	/* get max resolution to resize */
+max_resolution:
+	if (!found) {
+		frame_rate ^= 0x1;
+		info = get_max_resolution(frame_rate);
+	}
+
+	sensor->streamcap.capturemode = info->mode;
+	sensor->streamcap.timeperframe.denominator = (frame_rate) ? 30 : 15;
+	sensor->pix.width  = info->width;
+	sensor->pix.height = info->height;
+}
+
 static int ov5640_set_fmt(struct v4l2_subdev *sd,
 			  struct v4l2_subdev_pad_config *cfg,
 			  struct v4l2_subdev_format *format)
@@ -1307,6 +1390,7 @@ static int ov5640_set_fmt(struct v4l2_subdev *sd,
 	const struct ov5640_datafmt *fmt = ov5640_find_datafmt(mf->code);
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	struct ov5640 *sensor = to_ov5640(client);
+	int ret;
 
 	if (format->pad)
 		return -EINVAL;
@@ -1317,13 +1401,15 @@ static int ov5640_set_fmt(struct v4l2_subdev *sd,
 	}
 
 	mf->field	= V4L2_FIELD_NONE;
+	try_to_find_resolution(sensor, mf);
 
 	if (format->which == V4L2_SUBDEV_FORMAT_TRY)
 		return 0;
 
+	ret = ov5640_change_mode(sensor);
 	sensor->fmt = fmt;
 
-	return 0;
+	return ret;
 }
 
 static int ov5640_get_fmt(struct v4l2_subdev *sd,
@@ -1333,8 +1419,6 @@ static int ov5640_get_fmt(struct v4l2_subdev *sd,
 	struct v4l2_mbus_framefmt *mf = &format->format;
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	struct ov5640 *sensor = to_ov5640(client);
-	/*const struct ov5640_datafmt *fmt = sensor->fmt;*/
-
 	if (format->pad)
 		return -EINVAL;
 
@@ -1561,11 +1645,11 @@ static int ov5640_probe(struct i2c_client *client,
 	ov5640_data.i2c_client = client;
 
 	ov5640_data.pix.pixelformat = V4L2_PIX_FMT_YVYU;
-	ov5640_data.pix.width = ov5640_mode_info_data[1][0].width;
-	ov5640_data.pix.height =  ov5640_mode_info_data[1][0].height;
+	ov5640_data.pix.width = ov5640_mode_info_data[1][1].width;
+	ov5640_data.pix.height =  ov5640_mode_info_data[1][1].height;
 	ov5640_data.streamcap.capability = V4L2_MODE_HIGHQUALITY |
 					   V4L2_CAP_TIMEPERFRAME;
-	ov5640_data.streamcap.capturemode = 0;
+	ov5640_data.streamcap.capturemode = 1;
 	ov5640_data.streamcap.timeperframe.denominator = DEFAULT_FPS;
 	ov5640_data.streamcap.timeperframe.numerator = 1;
 

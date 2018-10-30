@@ -363,6 +363,30 @@ static int mxc_pcsi_set_fmt(struct v4l2_subdev *sd,
 			       struct v4l2_subdev_pad_config *cfg,
 			       struct v4l2_subdev_format *fmt)
 {
+	struct mxc_parallel_csi_dev *pcsidev = sd_to_mxc_pcsi_dev(sd);
+	struct v4l2_subdev *sen_sd;
+	struct media_pad *source_pad;
+	int ret;
+
+	/* Get remote source pad */
+	source_pad = mxc_pcsi_get_remote_sensor_pad(pcsidev);
+	if (source_pad == NULL) {
+		v4l2_err(&pcsidev->v4l2_dev, "%s, No remote pad found!\n", __func__);
+		return -EINVAL;
+	}
+
+	/* Get remote source pad subdev */
+	sen_sd = media_entity_to_v4l2_subdev(source_pad->entity);
+	if (sen_sd == NULL) {
+		v4l2_err(&pcsidev->v4l2_dev, "%s, No remote subdev found!\n", __func__);
+		return -EINVAL;
+	}
+
+	fmt->pad = source_pad->index;
+	ret = v4l2_subdev_call(sen_sd, pad, set_fmt, NULL, fmt);
+	if (ret < 0 && ret != -ENOIOCTLCMD)
+		return -EINVAL;
+
 	return 0;
 }
 
