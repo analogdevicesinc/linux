@@ -151,6 +151,7 @@ struct imx_ahci_priv {
 	bool first_time;
 	u32 phy_params;
 	u32 imped_ratio;
+	u32 ext_osc;
 };
 
 void *sg_io_buffer_hack;
@@ -560,18 +561,32 @@ static int imx8_sata_enable(struct ahci_host_priv *hpriv)
 			IMX8QM_PHY_MODE_MASK,
 			IMX8QM_PHY_MODE_SATA);
 
-	/*
-	 * bit0 rx ena 1, bit1 tx ena 0
-	 * bit12 PHY_X1_EPCS_SEL 1.
-	 */
-	regmap_update_bits(imxpriv->gpr,
-			IMX8QM_CSR_MISC_OFFSET,
-			IMX8QM_MISC_IOB_RXENA,
-			IMX8QM_MISC_IOB_RXENA);
-	regmap_update_bits(imxpriv->gpr,
-			IMX8QM_CSR_MISC_OFFSET,
-			IMX8QM_MISC_IOB_TXENA,
-			0);
+	if (imxpriv->ext_osc) {
+		dev_info(dev, "external osc is used.\n");
+		/*
+		 * bit0 rx ena 1, bit1 tx ena 0
+		 * bit12 PHY_X1_EPCS_SEL 1.
+		 */
+		regmap_update_bits(imxpriv->gpr,
+				IMX8QM_CSR_MISC_OFFSET,
+				IMX8QM_MISC_IOB_RXENA,
+				IMX8QM_MISC_IOB_RXENA);
+		regmap_update_bits(imxpriv->gpr,
+				IMX8QM_CSR_MISC_OFFSET,
+				IMX8QM_MISC_IOB_TXENA,
+				0);
+	} else {
+		dev_info(dev, "internal pll is used.\n");
+		regmap_update_bits(imxpriv->gpr,
+				IMX8QM_CSR_MISC_OFFSET,
+				IMX8QM_MISC_IOB_RXENA,
+				0);
+		regmap_update_bits(imxpriv->gpr,
+				IMX8QM_CSR_MISC_OFFSET,
+				IMX8QM_MISC_IOB_TXENA,
+				IMX8QM_MISC_IOB_TXENA);
+
+	}
 	regmap_update_bits(imxpriv->gpr,
 			IMX8QM_CSR_MISC_OFFSET,
 			IMX8QM_MISC_PHYX1_EPCS_SEL,
@@ -1076,6 +1091,12 @@ static int imx8_sata_probe(struct device *dev, struct imx_ahci_priv *imxpriv)
 	struct resource *phy_res;
 	struct platform_device *pdev = imxpriv->ahci_pdev;
 	struct device_node *np = dev->of_node;
+
+	if (of_property_read_u32(np, "ext_osc", &imxpriv->ext_osc) < 0) {
+		dev_info(dev, "ext_osc is not specified.\n");
+		/* Use the external osc as ref clk defaultly. */
+		imxpriv->ext_osc = 1;
+	}
 
 	if (of_property_read_u32(np, "fsl,phy-imp", &imxpriv->imped_ratio)) {
 		/*
