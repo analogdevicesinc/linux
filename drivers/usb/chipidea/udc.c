@@ -2013,11 +2013,10 @@ int ci_usb_charger_connect(struct ci_hdrc *ci, int is_active)
 {
 	int ret = 0;
 
-	if (is_active)
-		pm_runtime_get_sync(ci->dev);
-
 	if (!(ci->platdata->flags & CI_HDRC_PHY_CHARGER_DETECTION))
-		goto out;
+		return 0;
+
+	pm_runtime_get_sync(ci->dev);
 
 	if (ci->usb_phy->charger_detect) {
 		usb_phy_set_charger_state(ci->usb_phy, is_active ?
@@ -2027,10 +2026,8 @@ int ci_usb_charger_connect(struct ci_hdrc *ci, int is_active)
 				CI_HDRC_CONTROLLER_VBUS_EVENT);
 		schedule_work(&ci->usb_phy->chg_work);
 	}
-out:
 
-	if (!is_active)
-		pm_runtime_put_sync(ci->dev);
+	pm_runtime_put_sync(ci->dev);
 
 	return ret;
 }
