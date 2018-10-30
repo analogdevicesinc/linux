@@ -3312,7 +3312,7 @@ static void v4l2_vpu_send_snapshot(struct vpu_dev *dev)
 	int strIdx;
 
 	strIdx = find_first_available_instance(dev);
-	if (strIdx > 0 && strIdx < VPU_MAX_NUM_STREAMS)
+	if (strIdx >= 0 && strIdx < VPU_MAX_NUM_STREAMS)
 		v4l2_vpu_send_cmd(dev->ctx[strIdx], strIdx, VID_API_CMD_SNAPSHOT, 0, NULL);
 	else
 		vpu_dbg(LVL_WARN, "warning: all path hang, need to reset\n");
@@ -3339,6 +3339,9 @@ static int vpu_suspend(struct device *dev)
 static int vpu_resume(struct device *dev)
 {
 	struct vpu_dev *vpudev = (struct vpu_dev *)dev_get_drvdata(dev);
+	int ret = 0;
+
+	pm_runtime_get_sync(vpudev->generic_dev);
 
 	vpu_enable_hw(vpudev);
 
@@ -3358,10 +3361,13 @@ static int vpu_resume(struct device *dev)
 		/*wait for firmware resotre done*/
 		if (!wait_for_completion_timeout(&vpudev->start_cmp, msecs_to_jiffies(1000))) {
 			vpu_dbg(LVL_ERR, "error: wait for vpu decoder resume done timeout!\n");
-			return -1;
+			ret = -1;
 		}
 	}
-	return 0;
+
+	pm_runtime_put_sync(vpudev->generic_dev);
+
+	return ret;
 }
 
 static const struct dev_pm_ops vpu_pm_ops = {
