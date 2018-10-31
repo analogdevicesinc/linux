@@ -281,7 +281,7 @@ static int const clks_init_on[] __initconst = {
 	IMX8MQ_CLK_USB_BUS,
 	IMX8MQ_CLK_MAIN_AXI, IMX8MQ_CLK_A53_CG,
 	IMX8MQ_CLK_TMU_ROOT,
-	IMX8MQ_CLK_DRAM_APB,
+	IMX8MQ_CLK_DRAM_APB, IMX8MQ_DRAM_PLL_OUT,
 };
 
 static struct clk ** const uart_clks[] __initconst = {
