@@ -1138,13 +1138,7 @@ static int adrv9009_set_agc_mode(struct iio_dev *indio_dev,
 		val = TAL_MGC;
 		break;
 	case 1:
-		val = TAL_AGCFAST;
-		break;
-	case 2:
 		val = TAL_AGCSLOW;
-		break;
-	case 3:
-		val = TAL_HYBRID;
 		break;
 	default:
 		return -EINVAL;
@@ -1166,7 +1160,7 @@ static int adrv9009_get_agc_mode(struct iio_dev *indio_dev,
 }
 
 static const char * const adrv9009_agc_modes[] =
-{"manual", "fast_attack", "slow_attack", "hybrid"};
+	{"manual", "slow_attack"};
 
 static const struct iio_enum adrv9009_agc_modes_available = {
 	.items = adrv9009_agc_modes,
