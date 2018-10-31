@@ -114,7 +114,7 @@
 
 	busfreq { /* BUSFREQ */
 		compatible = "fsl,imx_busfreq";
-		clocks = <&clk IMX8MQ_DRAM_PLL1>, <&clk IMX8MQ_CLK_DRAM_ALT>,
+		clocks = <&clk IMX8MQ_DRAM_PLL_OUT>, <&clk IMX8MQ_CLK_DRAM_ALT>,
 			 <&clk IMX8MQ_CLK_DRAM_APB>, <&clk IMX8MQ_CLK_DRAM_APB>,
 		         <&clk IMX8MQ_CLK_DRAM_CORE>, <&clk IMX8MQ_CLK_DRAM_ALT_ROOT>,
 			 <&clk IMX8MQ_SYS1_PLL_40M>, <&clk IMX8MQ_SYS1_PLL_400M>,
