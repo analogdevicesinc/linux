@@ -1,0 +1,36 @@
+/*
+ * Copyright 2018 NXP
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "fsl-imx8mm-evk-revb.dts"
+
+&adv_bridge {
+	status = "disabled";
+};
+
+&mipi_dsi {
+	panel@0 {
+		compatible = "raydium,rm67191";
+		reg = <0>;
+		pinctrl-0 = <&pinctrl_mipi_dsi_en>;
+		reset-gpio = <&gpio1 8 GPIO_ACTIVE_HIGH>;
+		dsi-lanes = <4>;
+		video-mode = <2>;	/* 0: burst mode
+					 * 1: non-burst mode with sync event
+					 * 2: non-burst mode with sync pulse
+					 */
+		panel-width-mm = <68>;
+		panel-height-mm = <121>;
+		status = "okay";
+	};
+};
