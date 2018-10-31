@@ -50,3 +50,13 @@
 &flexspi {
 	status = "disabled";
 };
+
+/*
+ * External OSC is used as PCIe REFCLK on RevC board.
+ * DDR4 board is same to the RevB board, configure
+ * PCIe REFCLK to internal PLL.
+ */
+&pcie0{
+	ext_osc = <0>;
+	status = "okay";
+};
