@@ -1,0 +1,121 @@
+/*
+ * Copyright 2018 NXP
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "fsl-imx8qm-mek-domu.dts"
+
+/* Android Auto use bootargs */
+/delete-node/ &{/reserved-memory/linux,cma};
+
+/ {
+	/*
+	trusty {
+		compatible = "android,trusty-smc-v1";
+		ranges;
+		#address-cells = <2>;
+		#size-cells = <2>;
+		trusty-virtio {
+			compatible = "android,trusty-virtio-v1";
+		};
+	};
+	trusty_ipi: interrupt-controller@0 {
+		compatible = "android,CustomIPI";
+		interrupt-controller;
+		#interrupt-cells = <1>;
+	};
+	*/
+};
+
+&iomuxc {
+
+		pinctrl_mipi_csi0_en_rst: mipi_csi0_en_rst {
+			fsl,pins = <
+				SC_P_MIPI_CSI0_GPIO0_00_LSIO_GPIO1_IO27		0x00000021
+				SC_P_MIPI_CSI0_GPIO0_01_LSIO_GPIO1_IO28		0x00000021
+			>;
+		};
+};
+
+/delete-node/ &i2c1_lvds1;
+/delete-node/ &i2c0_mipi_csi0;
+
+&can_rpmsg {
+	#address-cells = <2>;
+	#size-cells = <2>;
+	status = "okay";
+	ranges;
+	i2c0_mipi_csi0: i2c@58226000 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "fsl,imx8qm-lpi2c";
+		reg = <0x0 0x58226000 0x0 0x1000>;
+		interrupts = <8 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-parent = <&irqsteer_csi0>;
+		clocks = <&clk IMX8QM_CSI0_I2C0_CLK>,
+			 <&clk IMX8QM_CSI0_I2C0_IPG_CLK>;
+		clock-names = "per", "ipg";
+		assigned-clocks = <&clk IMX8QM_CSI0_I2C0_CLK>;
+		assigned-clock-rates = <24000000>;
+		power-domains = <&pd_csi0_i2c0>;
+		pinctrl-names = "default";
+		status = "okay";
+		clock-frequency = <1000000>;
+		pinctrl-0 = <&pinctrl_mipi_csi0_en_rst>;
+		max9286_mipi@6A	 {
+			compatible = "maxim,max9286_mipi";
+			reg = <0x6A>;
+			clocks = <&clk IMX8QM_CLK_DUMMY>;
+			clock-names = "capture_mclk";
+			mclk = <27000000>;
+			mclk_source = <0>;
+			pwn-gpios = <&gpio1 27 GPIO_ACTIVE_HIGH>;
+			virtual-channel;
+			port {
+				max9286_0_ep: endpoint {
+				remote-endpoint = <&mipi_csi0_ep>;
+				data-lanes = <1 2 3 4>;
+				};
+			};
+		};
+	};
+
+	i2c1_lvds1: i2c@57247000 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "fsl,imx8qm-lpi2c";
+		reg = <0x0 0x57247000 0x0 0x1000>;
+		interrupts = <9 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-parent = <&irqsteer_lvds1>;
+		clocks = <&clk IMX8QM_LVDS1_I2C0_CLK>,
+			 <&clk IMX8QM_LVDS1_I2C0_IPG_CLK>;
+		clock-names = "per", "ipg";
+		assigned-clocks = <&clk IMX8QM_LVDS1_I2C0_CLK>;
+		assigned-clock-rates = <24000000>;
+		power-domains = <&pd_lvds1_i2c0>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_lvds1_lpi2c1>;
+		clock-frequency = <400000>;
+		status = "okay";
+		lvds-to-hdmi-bridge@4c {
+			compatible = "ite,it6263";
+			reg = <0x4c>;
+			port {
+				it6263_1_in: endpoint {
+					clock-lanes = <3>;
+					data-lanes = <0 1 2 4>;
+					remote-endpoint = <&lvds1_out>;
+				};
+			};
+		};
+	};
+};

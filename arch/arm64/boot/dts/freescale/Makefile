@@ -35,6 +35,7 @@ dtb-$(CONFIG_ARCH_FSL_IMX8QM) += fsl-imx8qm-lpddr4-arm2.dtb \
 				 fsl-imx8qm-mek-dom0.dtb \
 				 fsl-imx8qm-mek-dom0-dpu2.dtb \
 				 fsl-imx8qm-mek-domu.dtb \
+				 fsl-imx8qm-mek-domu-car.dtb \
 				 fsl-imx8qm-mek-domu-dpu1.dtb \
 				 fsl-imx8qm-mek-domu-dpu1-hdmi.dtb \
 				 fsl-imx8qm-mek-root.dtb \

@@ -1146,7 +1146,3 @@
 		};
 	};
 };
-
-&can_rpmsg {
-	status = "okay";
-};
