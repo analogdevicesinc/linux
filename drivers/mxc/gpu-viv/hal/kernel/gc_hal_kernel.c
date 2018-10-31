@@ -1690,7 +1690,7 @@ gckKERNEL_SetVidMemMetadata(
     }
     else
     {
-#ifdef ANDROID
+#ifdef gcdANDROID
         if (nodeObj->metadata.ts_address == 0 && nodeObj->tsNode != NULL)
         {
             gctUINT32 Address = 0;
