@@ -2251,14 +2251,15 @@ static void vpu_api_event_handler(struct vpu_ctx *ctx,
 
 static void enable_mu(struct core_device *dev)
 {
-	MU_sendMesgToFW(dev->mu_base_virtaddr,
-			PRINT_BUF_OFFSET,
-			cpu_phy_to_mu(dev,  dev->m0_rpc_phy + M0_PRINT_OFFSET));
-	MU_sendMesgToFW(dev->mu_base_virtaddr,
-			RPC_BUF_OFFSET,
-			cpu_phy_to_mu(dev, dev->m0_rpc_phy));
-	MU_sendMesgToFW(dev->mu_base_virtaddr,
-			BOOT_ADDRESS,
+	u32 mu_addr;
+
+	mu_addr = cpu_phy_to_mu(dev, dev->m0_rpc_phy + dev->rpc_buf_size);
+	MU_sendMesgToFW(dev->mu_base_virtaddr, PRINT_BUF_OFFSET, mu_addr);
+
+	mu_addr = cpu_phy_to_mu(dev, dev->m0_rpc_phy);
+	MU_sendMesgToFW(dev->mu_base_virtaddr, RPC_BUF_OFFSET, mu_addr);
+
+	MU_sendMesgToFW(dev->mu_base_virtaddr, BOOT_ADDRESS,
 			dev->m0_p_fw_space_phy);
 	MU_sendMesgToFW(dev->mu_base_virtaddr, INIT_DONE, 2);
 }
@@ -2643,37 +2644,33 @@ static int set_vpu_fw_addr(struct vpu_dev *dev, struct core_device *core_dev)
 
 static int vpu_firmware_download(struct vpu_dev *This, u_int32 core_id)
 {
-	unsigned char *image;
+	const struct firmware *m0_pfw = NULL;
+	const u8 *image;
 	unsigned int FW_Size = 0;
 	int ret = 0;
 	char *p = This->core_dev[core_id].m0_p_fw_space_vir;
 
-	ret = request_firmware((const struct firmware **)&This->m0_pfw,
-			M0FW_FILENAME,
-			This->generic_dev
-			);
+	ret = request_firmware(&m0_pfw, M0FW_FILENAME, This->generic_dev);
 	if (ret) {
 		vpu_dbg(LVL_ERR, "%s() request fw %s failed(%d)\n",
 			__func__, M0FW_FILENAME, ret);
 
-		if (This->m0_pfw) {
-			release_firmware(This->m0_pfw);
-			This->m0_pfw = NULL;
-		}
 		return ret;
-	} else {
-		vpu_dbg(LVL_DEBUG, "%s() request fw %s got size(%d)\n",
-			__func__, M0FW_FILENAME, (int)This->m0_pfw->size);
-		image = (uint8_t *)This->m0_pfw->data;
-		FW_Size = This->m0_pfw->size;
 	}
-	memcpy(This->core_dev[core_id].m0_p_fw_space_vir,
-			image,
-			FW_Size
-			);
+	vpu_dbg(LVL_DEBUG, "%s() request fw %s got size(%ld)\n",
+			__func__, M0FW_FILENAME, m0_pfw->size);
+
+	image = m0_pfw->data;
+	FW_Size = min_t(u32, m0_pfw->size, This->core_dev[core_id].fw_buf_size);
+	This->core_dev[core_id].fw_actual_size = FW_Size;
+
+	memcpy(This->core_dev[core_id].m0_p_fw_space_vir, image, FW_Size);
 	p[16] = This->plat_type;
 	p[17] = core_id + 1;
 	set_vpu_fw_addr(This, &This->core_dev[core_id]);
+
+	release_firmware(m0_pfw);
+	m0_pfw = NULL;
 
 	return ret;
 }
@@ -2750,6 +2747,8 @@ static struct core_device *find_proper_core(struct vpu_dev *dev)
 			minimum = count;
 			core = dev->core_dev + i;
 		}
+		if (minimum == 0)
+			break;
 	}
 
 	return core;
@@ -2915,14 +2914,12 @@ static ssize_t show_instance_info(struct device *dev,
 	int i;
 	int num = 0;
 	int size;
-	char *fw = NULL;
 
 	vpu_attr = container_of(attr, struct vpu_attr,  dev_attr);
 	vpudev = vpu_attr->core->vdev;
 
 	statistic = &vpu_attr->statistic;
 	param = rpc_get_enc_param(&vpu_attr->core->shared_mem, vpu_attr->index);
-	fw = vpu_attr->core->m0_p_fw_space_vir;
 
 	num += snprintf(buf + num, PAGE_SIZE,
 			"pid: %d; tgid: %d\n", vpu_attr->pid, vpu_attr->tgid);
@@ -3042,17 +3039,51 @@ static ssize_t show_instance_info(struct device *dev,
 	if (!vpu_attr->core->ctx[vpu_attr->index])
 		num += snprintf(buf + num, PAGE_SIZE - num,
 			"<instance has been released>\n");
-	num += snprintf(buf + num, PAGE_SIZE - num,
-			"core[%d] info:\n", vpu_attr->core->id);
-	num += snprintf(buf + num, PAGE_SIZE - num,
-			"fw_is_ready:%d\n", vpu_attr->core->fw_is_ready);
-	num += snprintf(buf + num, PAGE_SIZE - num,
-			"firmware_started:%d\n",
-			vpu_attr->core->firmware_started);
-	num += snprintf(buf + num, PAGE_SIZE - num,
-			"hang:%d\n",
-			vpu_attr->core->hang);
 
+	return num;
+}
+
+static ssize_t show_core_info(struct device *dev,
+			struct device_attribute *attr, char *buf)
+{
+	struct core_device *core = NULL;
+	char *fw = NULL;
+	int num = 0;
+
+	core = container_of(attr, struct core_device, core_attr);
+	fw = core->m0_p_fw_space_vir;
+
+	num += snprintf(buf + num, PAGE_SIZE - num,
+			"core[%d] info:\n", core->id);
+	num += snprintf(buf + num, PAGE_SIZE - num,
+			"vpu mu id       :%d\n", core->vpu_mu_id);
+	num += snprintf(buf + num, PAGE_SIZE - num,
+			"reg fw base     :0x%08lx\n", core->reg_fw_base);
+	num += snprintf(buf + num, PAGE_SIZE - num,
+			"fw space phy    :0x%08x\n", core->m0_p_fw_space_phy);
+	num += snprintf(buf + num, PAGE_SIZE - num,
+			"fw space size   :0x%08x\n", core->fw_buf_size);
+	num += snprintf(buf + num, PAGE_SIZE - num,
+			"fw actual size  :0x%08x\n", core->fw_actual_size);
+	num += snprintf(buf + num, PAGE_SIZE - num,
+			"rpc phy         :0x%08x\n", core->m0_rpc_phy);
+	num += snprintf(buf + num, PAGE_SIZE - num,
+			"rpc buf size    :0x%08x\n", core->rpc_buf_size);
+	num += snprintf(buf + num, PAGE_SIZE - num,
+			"rpc actual size :0x%08x\n", core->rpc_actual_size);
+	num += snprintf(buf + num, PAGE_SIZE - num,
+			"print buf phy   :0x%08x\n",
+			core->m0_rpc_phy + core->rpc_buf_size);
+	num += snprintf(buf + num, PAGE_SIZE - num,
+			"print buf size  :0x%08x\n", core->print_buf_size);
+	num += snprintf(buf + num, PAGE_SIZE - num,
+			"fw info         :0x%02x 0x%02x\n", fw[16], fw[17]);
+	num += snprintf(buf + num, PAGE_SIZE - num,
+			"fw_is_ready     :%d\n", core->fw_is_ready);
+	num += snprintf(buf + num, PAGE_SIZE - num,
+			"firmware_started:%d\n", core->firmware_started);
+	num += snprintf(buf + num, PAGE_SIZE - num,
+			"hang            :%d\n", core->hang);
 	return num;
 }
 
@@ -3339,12 +3370,59 @@ static int get_platform_info_by_core_type(struct vpu_dev *dev, u32 core_type)
 	return ret;
 }
 
+static int parse_core_info(struct core_device *core, struct device_node *np)
+{
+	int ret;
+	u32 val;
+
+	WARN_ON(!core || !np);
+
+	ret = of_property_read_u32_index(np, "reg-fw-base", core->id, &val);
+	if (ret) {
+		vpu_err("find reg-fw-base for core[%d] fail\n", core->id);
+		return ret;
+	}
+	core->reg_fw_base = val;
+
+	ret = of_property_read_u32_index(np, "fw-buf_size", core->id, &val);
+	if (ret) {
+		vpu_err("find fw-buf-size for core[%d] fail\n", core->id);
+		core->fw_buf_size = M0_BOOT_SIZE_DEFAULT;
+	} else {
+		core->fw_buf_size = val;
+	}
+	core->fw_buf_size = max_t(u32, core->fw_buf_size, M0_BOOT_SIZE_MIN);
+
+	ret = of_property_read_u32_index(np, "rpc-buf-size", core->id, &val);
+	if (ret) {
+		vpu_err("find rpc-buf-size for core[%d] fail\n", core->id);
+		core->rpc_buf_size = RPC_SIZE_DEFAULT;
+	} else {
+		core->rpc_buf_size = val;
+	}
+	core->rpc_buf_size = max_t(u32, core->rpc_buf_size, RPC_SIZE_MIN);
+
+	ret = of_property_read_u32_index(np, "print-buf-size", core->id, &val);
+	if (ret) {
+		vpu_err("find print-buf-size for core[%d] fail\n", core->id);
+		core->print_buf_size = PRINT_SIZE_DEFAULT;
+	} else {
+		core->print_buf_size = val;
+	}
+	core->print_buf_size = max_t(u32, core->print_buf_size, PRINT_SIZE_MIN);
+
+	return 0;
+}
+
 static int parse_dt_info(struct vpu_dev *dev, struct device_node *np)
 {
 	int ret;
 	struct device_node *reserved_node = NULL;
-	struct resource reserved_res;
+	struct resource reserved_fw;
+	struct resource reserved_rpc;
 	u_int32 core_type;
+	u32 fw_total_size = 0;
+	u32 rpc_total_size = 0;
 	u32 i;
 
 	if (!dev || !np)
@@ -3365,39 +3443,50 @@ static int parse_dt_info(struct vpu_dev *dev, struct device_node *np)
 		vpu_dbg(LVL_ERR, "error: boot-region of_parse_phandle error\n");
 		return -ENODEV;
 	}
-
-	if (of_address_to_resource(reserved_node, 0, &reserved_res)) {
+	if (of_address_to_resource(reserved_node, 0, &reserved_fw)) {
 		vpu_dbg(LVL_ERR,
 			"error: boot-region of_address_to_resource error\n");
 		return -EINVAL;
 	}
-	dev->core_dev[0].m0_p_fw_space_phy = reserved_res.start;
-	dev->core_dev[1].m0_p_fw_space_phy = reserved_res.start + M0_BOOT_SIZE;
+
 	reserved_node = of_parse_phandle(np, "rpc-region", 0);
 	if (!reserved_node) {
 		vpu_dbg(LVL_ERR,
 			"error: rpc-region of_parse_phandle error\n");
 		return -ENODEV;
 	}
-
-	if (of_address_to_resource(reserved_node, 0, &reserved_res)) {
+	if (of_address_to_resource(reserved_node, 0, &reserved_rpc)) {
 		vpu_dbg(LVL_ERR,
 			"error: rpc-region of_address_to_resource error\n");
 		return -EINVAL;
 	}
-	dev->core_dev[0].m0_rpc_phy = reserved_res.start;
-	dev->core_dev[1].m0_rpc_phy = reserved_res.start + SHARED_SIZE;
 
+	fw_total_size = 0;
+	rpc_total_size = 0;
 	for (i = 0; i < dev->core_num; i++) {
-		u32 val;
+		struct core_device *core = &dev->core_dev[i];
 
-		ret = of_property_read_u32_index(np, "reg-fw-base", i, &val);
-		if (ret) {
-			vpu_dbg(LVL_ERR,
-				"find reg-fw-base for core[%d] fail\n", i);
+		core->id = i;
+		ret = parse_core_info(core, np);
+		if (ret)
 			return ret;
-		}
-		dev->core_dev[i].reg_fw_base = val;
+
+		core->m0_p_fw_space_phy = reserved_fw.start + fw_total_size;
+		core->m0_rpc_phy = reserved_rpc.start + rpc_total_size;
+		fw_total_size += core->fw_buf_size;
+		rpc_total_size += core->rpc_buf_size;
+		rpc_total_size += core->print_buf_size;
+	}
+
+	if (fw_total_size > resource_size(&reserved_fw)) {
+		vpu_err("boot-region's size(0x%llx) is less than wanted:0x%x\n",
+				resource_size(&reserved_fw), fw_total_size);
+		return -EINVAL;
+	}
+	if (rpc_total_size > resource_size(&reserved_rpc)) {
+		vpu_err("rpc-region's size(0x%llx) is less than wanted:0x%x\n",
+				resource_size(&reserved_rpc), rpc_total_size);
+		return -EINVAL;
 	}
 
 	return 0;
@@ -3445,9 +3534,14 @@ static int reset_vpu_core_dev(struct core_device *core_dev)
 	core_dev->firmware_started = false;
 	rpc_init_shared_memory_encoder(&core_dev->shared_mem,
 				cpu_phy_to_mu(core_dev, core_dev->m0_rpc_phy),
-				core_dev->m0_rpc_virt, SHARED_SIZE);
+				core_dev->m0_rpc_virt, core_dev->rpc_buf_size,
+				&core_dev->rpc_actual_size);
 	rpc_set_system_cfg_value_encoder(core_dev->shared_mem.pSharedInterface,
 				VPU_REG_BASE, core_dev->id);
+
+	if (core_dev->rpc_actual_size > core_dev->rpc_buf_size)
+		vpu_err("rpc actual size(0x%x) > (0x%x), may occur overlay\n",
+			core_dev->rpc_actual_size, core_dev->rpc_buf_size);
 
 	return 0;
 }
@@ -3521,21 +3615,29 @@ static int init_vpu_core_dev(struct core_device *core_dev)
 	}
 	//firmware space for M0
 	core_dev->m0_p_fw_space_vir =
-		ioremap_wc(core_dev->m0_p_fw_space_phy, M0_BOOT_SIZE);
+		ioremap_wc(core_dev->m0_p_fw_space_phy, core_dev->fw_buf_size);
 	if (!core_dev->m0_p_fw_space_vir)
 		vpu_dbg(LVL_ERR, "failed to remap space for M0 firmware\n");
 
-	memset_io(core_dev->m0_p_fw_space_vir, 0, M0_BOOT_SIZE);
+	memset_io(core_dev->m0_p_fw_space_vir, 0, core_dev->fw_buf_size);
 
-	core_dev->m0_rpc_virt = ioremap_wc(core_dev->m0_rpc_phy, SHARED_SIZE);
+	core_dev->m0_rpc_virt =
+		ioremap_wc(core_dev->m0_rpc_phy, core_dev->rpc_buf_size);
 	if (!core_dev->m0_rpc_virt)
 		vpu_dbg(LVL_ERR, "failed to remap space for shared memory\n");
 
-	memset_io(core_dev->m0_rpc_virt, 0, SHARED_SIZE);
+	memset_io(core_dev->m0_rpc_virt, 0, core_dev->rpc_buf_size);
 
 	reset_vpu_core_dev(core_dev);
 
 	init_vpu_attrs(core_dev);
+
+	snprintf(core_dev->name, sizeof(core_dev->name) - 1,
+			"core.%d", core_dev->id);
+	core_dev->core_attr.attr.name = core_dev->name;
+	core_dev->core_attr.attr.mode = VERIFY_OCTAL_PERMISSIONS(0444);
+	core_dev->core_attr.show = show_core_info;
+	device_create_file(core_dev->generic_dev, &core_dev->core_attr);
 
 	return 0;
 error:
@@ -3551,6 +3653,7 @@ static int uninit_vpu_core_dev(struct core_device *core_dev)
 	if (!core_dev)
 		return -EINVAL;
 
+	device_remove_file(core_dev->generic_dev, &core_dev->core_attr);
 	release_vpu_attrs(core_dev);
 	if (core_dev->workqueue) {
 		cancel_work_sync(&core_dev->msg_work);
@@ -3660,6 +3763,8 @@ static int vpu_probe(struct platform_device *pdev)
 	mutex_unlock(&dev->dev_mutex);
 	pm_runtime_put_sync(&pdev->dev);
 
+	vpu_dbg(LVL_ALL, "VPU Encoder registered\n");
+
 	return 0;
 
 error_init_core:
@@ -3699,10 +3804,6 @@ static int vpu_remove(struct platform_device *pdev)
 		uninit_vpu_core_dev(&dev->core_dev[i]);
 	mutex_unlock(&dev->dev_mutex);
 
-	if (dev->m0_pfw) {
-		release_firmware(dev->m0_pfw);
-		dev->m0_pfw = NULL;
-	}
 	vpu_disable_hw(dev);
 	pm_runtime_disable(&pdev->dev);
 

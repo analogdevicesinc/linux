@@ -49,9 +49,12 @@ extern unsigned int vpu_dbg_level_encoder;
 #define M0FW_FILENAME "vpu/vpu_fw_imx8_enc.bin"
 #define MMAP_BUF_TYPE_SHIFT 28
 #define MMAP_BUF_TYPE_MASK 0xF0000000
-#define M0_BOOT_SIZE 0x1000000
-#define M0_PRINT_OFFSET 0x500000
-#define SHARED_SIZE 0x00400000
+#define M0_BOOT_SIZE_DEFAULT	0x1000000
+#define M0_BOOT_SIZE_MIN	0x100000
+#define RPC_SIZE_DEFAULT	0x500000
+#define RPC_SIZE_MIN		0x100000
+#define PRINT_SIZE_DEFAULT	0x300000
+#define PRINT_SIZE_MIN		0x100000
 #define MEM_SIZE  0x2800000
 #define YUV_SIZE  0x4000000
 #define STREAM_SIZE 0x300000
@@ -227,11 +230,15 @@ struct vpu_attr {
 };
 
 struct core_device {
-	struct firmware *m0_pfw;
 	void *m0_p_fw_space_vir;
 	u_int32 m0_p_fw_space_phy;
+	u32 fw_buf_size;
+	u32 fw_actual_size;
 	void *m0_rpc_virt;
 	u_int32 m0_rpc_phy;
+	u32 rpc_buf_size;
+	u32 print_buf_size;
+	u32 rpc_actual_size;
 	struct mutex core_mutex;
 	struct mutex cmd_mutex;
 	bool fw_is_ready;
@@ -254,6 +261,8 @@ struct core_device {
 	bool snapshot;
 	bool suspend;
 	bool hang;
+	struct device_attribute core_attr;
+	char name[64];
 };
 
 struct vpu_dev {
@@ -262,7 +271,6 @@ struct vpu_dev {
 	struct video_device *pvpu_encoder_dev;
 	struct platform_device *plat_dev;
 	struct clk *clk_m0;
-	struct firmware *m0_pfw;
 	void __iomem *regs_base;
 	void __iomem *regs_enc;
 	struct mutex dev_mutex;

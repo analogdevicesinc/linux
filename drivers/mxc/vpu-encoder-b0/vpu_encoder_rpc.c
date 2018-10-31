@@ -58,7 +58,8 @@
 void rpc_init_shared_memory_encoder(struct shared_addr *This,
 		unsigned long long base_phy_addr,
 		void *base_virt_addr,
-		u_int32 total_size)
+		u_int32 total_size,
+		u32 *actual_size)
 {
 	pENC_RPC_HOST_IFACE pSharedInterface;
 	unsigned int phy_addr;
@@ -124,6 +125,8 @@ void rpc_init_shared_memory_encoder(struct shared_addr *This,
 		pEncCtrlInterface->pEncDSAStatus = phy_addr;
 		phy_addr += sizeof(ENC_DSA_STATUS_t);
 	}
+	if (actual_size)
+		*actual_size = phy_addr - base_phy_addr;
 }
 
 void rpc_set_system_cfg_value_encoder(void *Interface, u_int32 regs_base, u_int32 core_id)
