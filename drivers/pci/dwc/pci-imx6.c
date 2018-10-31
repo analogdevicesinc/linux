@@ -669,8 +669,7 @@ static int imx7d_pcie_wait_for_phy_pll_lock(struct imx_pcie *imx_pcie)
 		if (val & IMX7D_GPR22_PCIE_PHY_PLL_LOCKED)
 			return 0;
 
-		usleep_range(PHY_PLL_LOCK_WAIT_USLEEP_MIN,
-			     PHY_PLL_LOCK_WAIT_USLEEP_MAX);
+		udelay(PHY_PLL_LOCK_WAIT_USLEEP_MIN);
 	}
 
 	dev_err(dev, "PCIe PLL lock timeout\n");
@@ -685,7 +684,8 @@ static int imx8_pcie_wait_for_phy_pll_lock(struct imx_pcie *imx_pcie)
 	struct device *dev = pci->dev;
 
 	if (imx_pcie->variant == IMX8MM) {
-		for (retries = 0; retries < 100; retries++) {
+		for (retries = 0; retries < PHY_PLL_LOCK_WAIT_MAX_RETRIES;
+				retries++) {
 			tmp = readl(imx_pcie->phy_base + PCIE_PHY_CMN_REG75);
 			if (tmp == PCIE_PHY_CMN_REG75_PLL_DONE)
 				break;
@@ -693,7 +693,8 @@ static int imx8_pcie_wait_for_phy_pll_lock(struct imx_pcie *imx_pcie)
 		}
 	} else if (imx_pcie->variant == IMX8QXP
 			|| imx_pcie->variant == IMX8QM) {
-		for (retries = 0; retries < 100; retries++) {
+		for (retries = 0; retries < PHY_PLL_LOCK_WAIT_MAX_RETRIES;
+				retries++) {
 			if (imx_pcie->hsio_cfg == PCIEAX1PCIEBX1SATA) {
 				regmap_read(imx_pcie->iomuxc_gpr,
 					    IMX8QM_CSR_PHYX2_OFFSET + 0x4,
