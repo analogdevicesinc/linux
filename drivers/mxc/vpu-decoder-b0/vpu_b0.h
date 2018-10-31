@@ -132,6 +132,8 @@ typedef enum{
 #define VPU_PIX_FMT_TILED_8     v4l2_fourcc('Z', 'T', '0', '8')
 #define VPU_PIX_FMT_TILED_10    v4l2_fourcc('Z', 'T', '1', '0')
 
+#define V4L2_CID_USER_RAW_BASE  (V4L2_CID_USER_BASE + 0x1100)
+
 enum vpu_pixel_format {
 	VPU_HAS_COLOCATED = 0x00000001,
 	VPU_HAS_SPLIT_FLD = 0x00000002,
@@ -274,6 +276,7 @@ struct vpu_ctx {
 	bool eos_stop_received;
 	bool eos_stop_added;
 	bool ctx_released;
+	bool start_code_bypass;
 	wait_queue_head_t buffer_wq;
 	void *dpb_dma_virt;
 	u_int32 uSize;

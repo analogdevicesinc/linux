@@ -56,7 +56,7 @@ static int vpu_frm_depth = INVALID_FRAME_DEPTH;
 #define EOS_GENERIC_HEVC 0x7c010000
 #define EOS_GENERIC_JPEG 0xefff0000
 #define EOS_GENERIC_MPEG 0xCC010000
-
+#define V4L2_CID_USER_RAW_BASE          (V4L2_CID_USER_BASE + 0x1100)
 static void vpu_api_event_handler(struct vpu_ctx *ctx, u_int32 uStrIdx, u_int32 uEvent, u_int32 *event_data);
 static void v4l2_vpu_send_cmd(struct vpu_ctx *ctx, uint32_t idx, uint32_t cmdid, uint32_t cmdnum, uint32_t *local_cmddata);
 static bool add_scode(struct vpu_ctx *ctx, u_int32 uStrBufIdx, VPU_PADDING_SCODE_TYPE eScodeType);
@@ -970,7 +970,6 @@ static const struct v4l2_ioctl_ops v4l2_decoder_ioctl_ops = {
 static struct vpu_v4l2_control vpu_controls_dec[] = {
 	{
 		.id = V4L2_CID_MIN_BUFFERS_FOR_CAPTURE,
-		.type = V4L2_CTRL_TYPE_INTEGER,
 		.minimum = 1,
 		.maximum = 32,
 		.step = 1,
@@ -981,11 +980,19 @@ static struct vpu_v4l2_control vpu_controls_dec[] = {
 
 #define NUM_CTRLS_DEC   ARRAY_SIZE(vpu_controls_dec)
 
-static int v4l2_dec_s_ctrl(struct v4l2_ctrl *ctrl)
+static int v4l2_custom_s_ctrl(struct v4l2_ctrl *ctrl)
 {
+	struct vpu_ctx *ctx = v4l2_ctrl_to_ctx(ctrl);
+
+	vpu_dbg(LVL_INFO, "%s() control(%d)\n",
+			__func__, ctrl->id);
+
 	switch (ctrl->id) {
+	case V4L2_CID_USER_RAW_BASE:
+		ctx->start_code_bypass = ctrl->val;
+		break;
 	default:
-		vpu_dbg(LVL_INFO, "%s() Invalid control(%d)\n",
+		vpu_dbg(LVL_INFO, "%s() Invalid costomer control(%d)\n",
 				__func__, ctrl->id);
 		return -EINVAL;
 	}
@@ -1011,14 +1018,69 @@ static int v4l2_dec_g_v_ctrl(struct v4l2_ctrl *ctrl)
 	return 0;
 }
 
-static const struct v4l2_ctrl_ops   vpu_dec_ctrl_ops = {
-	.s_ctrl             = v4l2_dec_s_ctrl,
-	.g_volatile_ctrl    = v4l2_dec_g_v_ctrl,
-};
+static int add_dec_ctrl(struct vpu_ctx *This)
+{
+	static const struct v4l2_ctrl_ops vpu_dec_ctrl_ops = {
+		.g_volatile_ctrl  = v4l2_dec_g_v_ctrl,
+	};
+	u_int32 i;
+
+	for (i = 0; i < NUM_CTRLS_DEC; i++) {
+		This->ctrls[i] = v4l2_ctrl_new_std(&This->ctrl_handler,
+				&vpu_dec_ctrl_ops,
+				vpu_controls_dec[i].id,
+				vpu_controls_dec[i].minimum,
+				vpu_controls_dec[i].maximum,
+				vpu_controls_dec[i].step,
+				vpu_controls_dec[i].default_value
+				);
+		if (This->ctrl_handler.error ||
+				!This->ctrls[i]) {
+			vpu_dbg(LVL_ERR, "%s() v4l2_ctrl_new_std failed(%d) This->ctrls[%d](%p)\n",
+					__func__, This->ctrl_handler.error, i, This->ctrls[i]);
+			return This->ctrl_handler.error;
+		}
+
+		if (vpu_controls_dec[i].is_volatile &&
+				This->ctrls[i])
+			This->ctrls[i]->flags |= V4L2_CTRL_FLAG_VOLATILE;
+	}
+
+	return 0;
+}
+
+static int add_custom_ctrl(struct vpu_ctx *This)
+{
+	static const struct v4l2_ctrl_ops vpu_custom_ctrl_ops = {
+		.s_ctrl = v4l2_custom_s_ctrl,
+	};
+	struct v4l2_ctrl_config cfg;
+	struct v4l2_ctrl *ctrl;
+
+	memset(&cfg, 0, sizeof(struct v4l2_ctrl_config));
+	cfg.ops = &vpu_custom_ctrl_ops;
+	cfg.id = V4L2_CID_USER_RAW_BASE;
+	cfg.name = "Raw Ctrl";
+	cfg.min = 0;
+	cfg.max = 1;
+	cfg.step = 1;
+	cfg.def = 0;
+	cfg.type = V4L2_CTRL_TYPE_INTEGER;
+
+	ctrl = v4l2_ctrl_new_custom(&This->ctrl_handler,
+			&cfg, NULL);
+	if (!ctrl) {
+		vpu_dbg(LVL_ERR, "Add custom ctrl fail\n");
+		return -EINVAL;
+	}
+
+	return 0;
+}
 
 static int ctrls_setup_decoder(struct vpu_ctx *This)
 {
-	int i;
+	if (!This)
+		return -EINVAL;
 
 	v4l2_ctrl_handler_init(&This->ctrl_handler,
 			NUM_CTRLS_DEC + 1
@@ -1034,28 +1096,8 @@ static int ctrls_setup_decoder(struct vpu_ctx *This)
 		This->ctrl_inited = true;
 	}
 
-	for (i = 0; i < NUM_CTRLS_DEC; i++) {
-		This->ctrls[i] = v4l2_ctrl_new_std(&This->ctrl_handler,
-				&vpu_dec_ctrl_ops,
-				vpu_controls_dec[i].id,
-				vpu_controls_dec[i].minimum,
-				vpu_controls_dec[i].maximum,
-				vpu_controls_dec[i].step,
-				vpu_controls_dec[i].default_value
-				);
-		if (This->ctrl_handler.error ||
-				!This->ctrls[i]
-				) {
-			vpu_dbg(LVL_ERR, "%s() v4l2_ctrl_new_std failed(%d) This->ctrls[%d](%p)\n",
-					__func__, This->ctrl_handler.error, i, This->ctrls[i]);
-			return This->ctrl_handler.error;
-		}
-
-		if (vpu_controls_dec[i].is_volatile &&
-				This->ctrls[i]
-				)
-			This->ctrls[i]->flags |= V4L2_CTRL_FLAG_VOLATILE;
-	}
+	add_dec_ctrl(This);
+	add_custom_ctrl(This);
 
 	v4l2_ctrl_handler_setup(&This->ctrl_handler);
 
@@ -1297,7 +1339,10 @@ static void transfer_buffer_to_firmware(struct vpu_ctx *ctx, void *input_buffer,
 
 	if (ctx->stream_buffer_size < buffer_size + MIN_SPACE)
 		vpu_dbg(LVL_INFO, "circular buffer size is too small\n");
-	length = insert_scode_4_seq(ctx, input_buffer, ctx->stream_buffer_virt, vdec_std, buffer_size);
+	if (!ctx->start_code_bypass)
+		length = insert_scode_4_seq(ctx, input_buffer, ctx->stream_buffer_virt, vdec_std, buffer_size);
+	else
+		length = 0;
 	if (length == 0) {
 		memcpy(ctx->stream_buffer_virt + length, input_buffer, buffer_size);
 		length = buffer_size;
@@ -1432,7 +1477,10 @@ static int update_stream_addr(struct vpu_ctx *ctx, void *input_buffer, uint32_t 
 	if (nfreespace-buffer_size < MIN_SPACE)
 			return 0;
 
-	length = insert_scode_4_pic(ctx, payload_header, input_buffer, q_data->vdec_std, buffer_size);
+	if (!ctx->start_code_bypass)
+		length = insert_scode_4_pic(ctx, payload_header, input_buffer, q_data->vdec_std, buffer_size);
+	else
+		length = 0;
 
 	if (nfreespace >= buffer_size + length) {
 		if ((wptr == rptr) || (wptr > rptr)) {
@@ -2004,11 +2052,12 @@ static void vpu_api_event_handler(struct vpu_ctx *ctx, u_int32 uStrIdx, u_int32 
 
 	}	break;
 	case VID_API_EVENT_FIRMWARE_XCPT: {
+		char *xcpt_info = (char*)event_data;
 		const struct v4l2_event ev = {
 			.type = V4L2_EVENT_EOS
 		};
+		vpu_dbg(LVL_ERR, "warning: VID_API_EVENT_FIRMWARE_XCPT,exception info: %s\n", xcpt_info);
 		v4l2_event_queue_fh(&ctx->fh, &ev);
-		vpu_dbg(LVL_ERR, "warning: FIRMWARE hang, and send event VID_API_EVENT_FIRMWARE_XCPT\n");
 		}
 		break;
 	case VID_API_EVENT_DEC_CFG_INFO:
@@ -2658,6 +2707,7 @@ static int v4l2_open(struct file *filp)
 	ctx->buffer_null = true; //this flag is to judge whether the buffer is null is not, it is used for the workaround that when send stop command still can receive buffer ready event, and true means buffer is null, false not
 	ctx->ctx_released = false;
 	ctx->b_dis_reorder = false;
+	ctx->start_code_bypass = false;
 	ctx->pSeqinfo = kzalloc(sizeof(MediaIPFW_Video_SeqInfo), GFP_KERNEL);
 	if (!ctx->pSeqinfo) {
 		vpu_dbg(LVL_ERR, "error: pSeqinfo alloc fail\n");
