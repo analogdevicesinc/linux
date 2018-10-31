@@ -36,6 +36,7 @@
 		VLS-supply = <&reg_audio>;
 		VLC-supply = <&reg_audio>;
 		reset-gpio = <&gpio4 25 1>;
+		fsl,txs-rxm;
 		status = "okay";
 	};
 
