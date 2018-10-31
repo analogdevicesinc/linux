@@ -2613,7 +2613,6 @@ static void run_state_machine(struct tcpm_port *port)
 		 * Do this only once.
 		 */
 		if (port->vbus_never_low) {
-			port->vbus_never_low = false;
 			tcpm_set_state(port, SOFT_RESET_SEND,
 				       PD_T_SINK_WAIT_CAP);
 		} else {
@@ -2748,11 +2747,23 @@ static void run_state_machine(struct tcpm_port *port)
 	case SOFT_RESET_SEND:
 		port->message_id = 0;
 		port->rx_msgid = -1;
-		if (tcpm_pd_send_control(port, PD_CTRL_SOFT_RESET))
-			tcpm_set_state_cond(port, hard_reset_state(port), 0);
-		else
+		if (tcpm_pd_send_control(port, PD_CTRL_SOFT_RESET)) {
+			if (port->vbus_never_low)
+				/*
+				 * No ack from source, we keep a
+				 * non-PD session as it is(only 5V)
+				 * because it may be the system power
+				 * source.
+				 */
+				tcpm_set_state(port, SNK_READY, 0);
+			else
+				tcpm_set_state_cond(port,
+						    hard_reset_state(port), 0);
+		} else {
 			tcpm_set_state_cond(port, hard_reset_state(port),
 					    PD_T_SENDER_RESPONSE);
+		}
+		port->vbus_never_low = false;
 		break;
 
 	/* DR_Swap states */
