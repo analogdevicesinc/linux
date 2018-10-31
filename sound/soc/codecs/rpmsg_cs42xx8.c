@@ -43,7 +43,7 @@ struct rpmsg_cs42xx8_priv {
 	struct regmap *regmap;
 	struct clk *clk;
 
-	bool slave_mode;
+	bool slave_mode[2];
 	unsigned long sysclk;
 	u32 tx_channels;
 	int rate[2];
@@ -226,17 +226,21 @@ static int cs42xx8_set_dai_fmt(struct snd_soc_dai *codec_dai,
 			   CS42XX8_INTF_DAC_DIF_MASK |
 			   CS42XX8_INTF_ADC_DIF_MASK, val);
 
-	/* Set master/slave audio interface */
-	switch (format & SND_SOC_DAIFMT_MASTER_MASK) {
-	case SND_SOC_DAIFMT_CBS_CFS:
-		cs42xx8->slave_mode = true;
-		break;
-	case SND_SOC_DAIFMT_CBM_CFM:
-		cs42xx8->slave_mode = false;
-		break;
-	default:
-		dev_err(codec->dev, "unsupported master/slave mode\n");
-		return -EINVAL;
+	if (cs42xx8->slave_mode[0] == cs42xx8->slave_mode[1]) {
+		/* Set master/slave audio interface */
+		switch (format & SND_SOC_DAIFMT_MASTER_MASK) {
+		case SND_SOC_DAIFMT_CBS_CFS:
+			cs42xx8->slave_mode[0] = true;
+			cs42xx8->slave_mode[1] = true;
+			break;
+		case SND_SOC_DAIFMT_CBM_CFM:
+			cs42xx8->slave_mode[0] = false;
+			cs42xx8->slave_mode[1] = false;
+			break;
+		default:
+			dev_err(codec->dev, "unsupported master/slave mode\n");
+			return -EINVAL;
+		}
 	}
 
 	return 0;
@@ -249,70 +253,62 @@ static int cs42xx8_hw_params(struct snd_pcm_substream *substream,
 	struct snd_soc_codec *codec = dai->codec;
 	struct rpmsg_cs42xx8_priv *cs42xx8 = snd_soc_codec_get_drvdata(codec);
 	bool tx = substream->stream == SNDRV_PCM_STREAM_PLAYBACK;
-	u32 rate = params_rate(params);
-	u32 ratio_tx, ratio_rx;
-	u32 rate_tx, rate_rx;
-	u32 fm_tx, fm_rx;
-	u32 i, fm, val, mask;
+	u32 ratio[2];
+	u32 rate[2];
+	u32 fm[2];
+	u32 i, val, mask;
+	bool condition1, condition2;
 
 	if (tx)
 		cs42xx8->tx_channels = params_channels(params);
 
-	rate_tx = tx ? rate : cs42xx8->rate[0];
-	rate_rx = tx ? cs42xx8->rate[1] : rate;
+	rate[tx]  = params_rate(params);
+	rate[!tx] = cs42xx8->rate[!tx];
 
-	ratio_tx = rate_tx > 0 ? cs42xx8->sysclk / rate_tx : 0;
-	ratio_rx = rate_rx > 0 ? cs42xx8->sysclk / rate_rx : 0;
+	ratio[tx] = rate[tx] > 0 ? cs42xx8->sysclk / rate[tx] : 0;
+	ratio[!tx] = rate[!tx] > 0 ? cs42xx8->sysclk / rate[!tx] : 0;
 
-	if (cs42xx8->slave_mode) {
-		fm_rx = CS42XX8_FM_AUTO;
-		fm_tx = CS42XX8_FM_AUTO;
-	} else {
-		if (rate_tx < 50000)
-			fm_tx = CS42XX8_FM_SINGLE;
-		else if (rate_tx > 50000 && rate_tx < 100000)
-			fm_tx = CS42XX8_FM_DOUBLE;
-		else if (rate_tx > 100000 && rate_tx < 200000)
-			fm_tx = CS42XX8_FM_QUAD;
-		else {
-			dev_err(codec->dev, "unsupported sample rate or rate combine\n");
-			return -EINVAL;
-		}
-
-		if (rate_rx < 50000)
-			fm_rx = CS42XX8_FM_SINGLE;
-		else if (rate_rx > 50000 && rate_rx < 100000)
-			fm_rx = CS42XX8_FM_DOUBLE;
-		else if (rate_rx > 100000 && rate_rx < 200000)
-			fm_rx = CS42XX8_FM_QUAD;
-		else {
-			dev_err(codec->dev, "unsupported sample rate or rate combine\n");
-			return -EINVAL;
+	for (i = 0; i < 2; i++) {
+		if (cs42xx8->slave_mode[i]) {
+			fm[i] = CS42XX8_FM_AUTO;
+		} else {
+			if (rate[i] < 50000)
+				fm[i] = CS42XX8_FM_SINGLE;
+			else if (rate[i] > 50000 && rate[i] < 100000)
+				fm[i] = CS42XX8_FM_DOUBLE;
+			else if (rate[i] > 100000 && rate[i] < 200000)
+				fm[i] = CS42XX8_FM_QUAD;
+			else {
+				dev_err(codec->dev,
+				"unsupported sample rate or rate combine\n");
+				return -EINVAL;
+			}
 		}
 	}
 
-	fm = tx ? fm_tx : fm_rx;
+	for (i = 0; i < ARRAY_SIZE(cs42xx8_ratios); i++) {
+		condition1 = ((fm[tx] == CS42XX8_FM_AUTO) ?
+			(cs42xx8_ratios[i].ratio[0] == ratio[tx] ||
+			cs42xx8_ratios[i].ratio[1] == ratio[tx] ||
+			cs42xx8_ratios[i].ratio[2] == ratio[tx]) :
+			(cs42xx8_ratios[i].ratio[fm[tx]] == ratio[tx])) &&
+			cs42xx8->sysclk >= cs42xx8_ratios[i].min_mclk &&
+			cs42xx8->sysclk <= cs42xx8_ratios[i].max_mclk;
 
-	if (fm == CS42XX8_FM_AUTO) {
-		for (i = 0; i < ARRAY_SIZE(cs42xx8_ratios); i++) {
-			if ((ratio_tx > 0 ? (cs42xx8_ratios[i].ratio[0] == ratio_tx ||
-				cs42xx8_ratios[i].ratio[1] == ratio_tx ||
-				cs42xx8_ratios[i].ratio[2] == ratio_tx) : true) &&
-			    (ratio_rx > 0 ? (cs42xx8_ratios[i].ratio[0] == ratio_rx ||
-				cs42xx8_ratios[i].ratio[1] == ratio_rx ||
-				cs42xx8_ratios[i].ratio[2] == ratio_rx) : true) &&
-			    cs42xx8->sysclk >= cs42xx8_ratios[i].min_mclk &&
-			    cs42xx8->sysclk <= cs42xx8_ratios[i].max_mclk)
-				break;
-		}
-	} else {
-		for (i = 0; i < ARRAY_SIZE(cs42xx8_ratios); i++) {
-			if ((ratio_tx > 0 ? (cs42xx8_ratios[i].ratio[fm_tx] == ratio_tx) : true) &&
-				(ratio_rx > 0 ? (cs42xx8_ratios[i].ratio[fm_rx] == ratio_rx) : true) &&
-				cs42xx8->sysclk >= cs42xx8_ratios[i].min_mclk &&
-				cs42xx8->sysclk <= cs42xx8_ratios[i].max_mclk)
-				break;
-		}
+		if (ratio[tx] <= 0)
+			condition1 = true;
+
+		condition2 = ((fm[!tx] == CS42XX8_FM_AUTO) ?
+			(cs42xx8_ratios[i].ratio[0] == ratio[!tx] ||
+			cs42xx8_ratios[i].ratio[1] == ratio[!tx] ||
+			cs42xx8_ratios[i].ratio[2] == ratio[!tx]) :
+			(cs42xx8_ratios[i].ratio[fm[!tx]] == ratio[!tx]));
+
+		if (ratio[!tx] <= 0)
+			condition2 = true;
+
+		if (condition1 && condition2)
+			break;
 	}
 
 	if (i == ARRAY_SIZE(cs42xx8_ratios)) {
@@ -320,14 +316,14 @@ static int cs42xx8_hw_params(struct snd_pcm_substream *substream,
 		return -EINVAL;
 	}
 
-	cs42xx8->rate[substream->stream] = rate;
+	cs42xx8->rate[tx] = params_rate(params);
 
 	mask = CS42XX8_FUNCMOD_MFREQ_MASK;
 	val = cs42xx8_ratios[i].mfreq;
 
 	regmap_update_bits(cs42xx8->regmap, CS42XX8_FUNCMOD,
 			   CS42XX8_FUNCMOD_xC_FM_MASK(tx) | mask,
-			   CS42XX8_FUNCMOD_xC_FM(tx, fm) | val);
+			   CS42XX8_FUNCMOD_xC_FM(tx, fm[tx]) | val);
 
 	return 0;
 }
@@ -340,7 +336,7 @@ static int cs42xx8_hw_free(struct snd_pcm_substream *substream,
 	struct rpmsg_cs42xx8_priv *cs42xx8 = snd_soc_codec_get_drvdata(codec);
 	bool tx = substream->stream == SNDRV_PCM_STREAM_PLAYBACK;
 
-	cs42xx8->rate[substream->stream] = 0;
+	cs42xx8->rate[tx] = 0;
 
 	regmap_update_bits(cs42xx8->regmap, CS42XX8_FUNCMOD,
 			   CS42XX8_FUNCMOD_xC_FM_MASK(tx),
@@ -581,6 +577,18 @@ static int rpmsg_cs42xx8_codec_probe(struct platform_device *pdev)
 	}
 
 	cs42xx8->sysclk = clk_get_rate(cs42xx8->clk);
+
+	if (of_property_read_bool(pdev->dev.parent->of_node, "fsl,txm-rxs")) {
+		/* 0 --  rx,  1 -- tx */
+		cs42xx8->slave_mode[0] = true;
+		cs42xx8->slave_mode[1] = false;
+	}
+
+	if (of_property_read_bool(pdev->dev.parent->of_node, "fsl,txs-rxm")) {
+		/* 0 --  rx,  1 -- tx */
+		cs42xx8->slave_mode[0] = false;
+		cs42xx8->slave_mode[1] = true;
+	}
 
 	for (i = 0; i < ARRAY_SIZE(cs42xx8->supplies); i++)
 		cs42xx8->supplies[i].supply = cs42xx8_supply_names[i];
