@@ -3336,6 +3336,50 @@ static int vpu_suspend(struct device *dev)
 	return 0;
 }
 
+static bool is_vpu_poweroff(struct vpu_dev *vpudev)
+{
+	void *mu_cr_addr;
+	u_int32 mu_cr;
+
+	if (!vpudev)
+		return false;
+
+	mu_cr_addr = vpudev->mu_base_virtaddr + 0x10000 + 0x24;
+	mu_cr = readl_relaxed(mu_cr_addr);
+
+	if (mu_cr == 0)// it mean M0+ is already power off/on
+		return true;
+	else
+		return false;
+
+}
+
+static int resume_vpu_register(struct vpu_dev *vpudev)
+{
+	if (!vpudev)
+		return -EINVAL;
+
+	vpu_enable_hw(vpudev);
+	MU_Init(vpudev->mu_base_virtaddr);
+	MU_EnableRxFullInt(vpudev->mu_base_virtaddr, 0);
+
+	return 0;
+}
+
+static int resume_from_vpu_poweroff(struct vpu_dev *vpudev)
+{
+	int ret = 0;
+
+	enable_csr_reg(vpudev);
+	/*wait for firmware resotre done*/
+	if (!wait_for_completion_timeout(&vpudev->start_cmp, msecs_to_jiffies(1000))) {
+		vpu_dbg(LVL_ERR, "error: wait for vpu decoder resume done timeout!\n");
+		ret = -1;
+	}
+
+	return ret;
+}
+
 static int vpu_resume(struct device *dev)
 {
 	struct vpu_dev *vpudev = (struct vpu_dev *)dev_get_drvdata(dev);
@@ -3343,27 +3387,15 @@ static int vpu_resume(struct device *dev)
 
 	pm_runtime_get_sync(vpudev->generic_dev);
 
-	vpu_enable_hw(vpudev);
+	resume_vpu_register(vpudev);
 
-	MU_Init(vpudev->mu_base_virtaddr);
-	MU_EnableRxFullInt(vpudev->mu_base_virtaddr, 0);
+	if (vpudev->fw_is_ready == false)
+		return 0;
 
-	if (vpudev->hang_mask == vpudev->instance_mask) {
-		/*no instance is active before suspend, do reset*/
-		vpudev->fw_is_ready = false;
-		vpudev->firmware_started = false;
-
-		rpc_init_shared_memory(&vpudev->shared_mem, vpudev->m0_rpc_phy - vpudev->m0_p_fw_space_phy, vpudev->m0_rpc_virt, SHARED_SIZE);
-		rpc_set_system_cfg_value(vpudev->shared_mem.pSharedInterface, VPU_REG_BASE);
-	} else {
-		/*resume*/
-		enable_csr_reg(vpudev);
-		/*wait for firmware resotre done*/
-		if (!wait_for_completion_timeout(&vpudev->start_cmp, msecs_to_jiffies(1000))) {
-			vpu_dbg(LVL_ERR, "error: wait for vpu decoder resume done timeout!\n");
-			ret = -1;
-		}
-	}
+	if (is_vpu_poweroff(vpudev))
+		ret = resume_from_vpu_poweroff(vpudev);
+	else if (vpudev->hang_mask != vpudev->instance_mask)
+		swreset_vpu_firmware(vpudev);
 
 	pm_runtime_put_sync(vpudev->generic_dev);
 
