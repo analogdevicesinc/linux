@@ -547,7 +547,7 @@ static void fsl_flexspi_init_lut(struct fsl_flexspi *flex)
 		writel(LUT0(CMD, PAD1, op) | LUT1(ADDR, PAD1, addrlen),
 		       base + FLEXSPI_LUT(lut_base));
 
-		writel(LUT0(DUMMY, PAD1, dm) |
+		writel(LUT0(DUMMY, PAD4, dm) |
 		       LUT1(FSL_READ, PAD4, 0),
 		       base + FLEXSPI_LUT(lut_base + 1));
 	/* DDR Quad I/O Read 	 */
@@ -558,7 +558,7 @@ static void fsl_flexspi_init_lut(struct fsl_flexspi *flex)
 		       base + FLEXSPI_LUT(lut_base));
 
 		writel(LUT0(MODE_DDR, PAD4, 0xff) |
-		       LUT1(DUMMY, PAD1, dm),
+		       LUT1(DUMMY, PAD4, dm),
 		       base + FLEXSPI_LUT(lut_base + 1));
 
 		writel(LUT0(READ_DDR, PAD4, 0) |
