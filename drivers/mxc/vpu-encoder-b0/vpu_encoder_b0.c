@@ -99,6 +99,7 @@ static char *event2str[] = {
 	ITEM_NAME(VID_API_ENC_EVENT_FRAME_RELEASE),
 	ITEM_NAME(VID_API_ENC_EVENT_PARA_UPD_DONE),
 	ITEM_NAME(VID_API_ENC_EVENT_MEM_REQUEST),
+	ITEM_NAME(VID_API_ENC_EVENT_FIRMWARE_XCPT),
 	ITEM_NAME(VID_API_ENC_EVENT_RESERVED)
 };
 
@@ -2322,6 +2323,9 @@ static void vpu_api_event_handler(struct vpu_ctx *ctx,
 	case VID_API_ENC_EVENT_TERMINATE_DONE:
 		break;
 	case VID_API_ENC_EVENT_RESET_DONE:
+		break;
+	case VID_API_ENC_EVENT_FIRMWARE_XCPT:
+		vpu_err("firmware exception:%s\n", (char *)event_data);
 		break;
 	default:
 		vpu_dbg(LVL_ERR, "........unknown event : 0x%x\n", uEvent);
