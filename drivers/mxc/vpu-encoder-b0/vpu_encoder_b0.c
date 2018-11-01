@@ -1323,6 +1323,8 @@ static int sw_reset_firmware(struct core_device *core)
 
 	WARN_ON(!core);
 
+	vpu_dbg(LVL_INFO, "sw reset firmware\n");
+
 	init_completion(&core->start_cmp);
 	vpu_core_send_cmd(core, 0, GTB_ENC_CMD_FIRM_RESET, 0, NULL);
 	ret = wait_for_completion_timeout(&core->start_cmp,
@@ -2727,6 +2729,9 @@ static int set_vpu_fw_addr(struct vpu_dev *dev, struct core_device *core_dev)
 	if (!dev || !core_dev)
 		return -EINVAL;
 
+	MU_Init(core_dev->mu_base_virtaddr);
+	MU_EnableRxFullInt(core_dev->mu_base_virtaddr, 0);
+
 	write_enc_reg(dev, core_dev->m0_p_fw_space_phy, core_dev->reg_fw_base);
 	write_enc_reg(dev, 0x0, core_dev->reg_fw_base + 4);
 
@@ -3256,7 +3261,7 @@ struct vpu_attr *get_vpu_ctx_attr(struct vpu_ctx *ctx)
 	return &ctx->core_dev->attr[ctx->str_index];
 }
 
-static int v4l2_open(struct file *filp)
+static int vpu_enc_v4l2_open(struct file *filp)
 {
 	struct video_device *vdev = video_devdata(filp);
 	struct vpu_dev *dev = video_get_drvdata(vdev);
@@ -3300,7 +3305,7 @@ error:
 	return ret;
 }
 
-static int v4l2_release(struct file *filp)
+static int vpu_enc_v4l2_release(struct file *filp)
 {
 	struct vpu_ctx *ctx = v4l2_fh_to_ctx(filp->private_data);
 	struct vpu_dev *dev = ctx->dev;
@@ -3320,7 +3325,7 @@ static int v4l2_release(struct file *filp)
 	return 0;
 }
 
-static unsigned int v4l2_poll(struct file *filp, poll_table *wait)
+static unsigned int vpu_enc_v4l2_poll(struct file *filp, poll_table *wait)
 {
 	struct vpu_ctx *ctx = v4l2_fh_to_ctx(filp->private_data);
 	struct vb2_queue *src_q, *dst_q;
@@ -3356,7 +3361,7 @@ static unsigned int v4l2_poll(struct file *filp, poll_table *wait)
 	return rc;
 }
 
-static int v4l2_mmap(struct file *filp, struct vm_area_struct *vma)
+static int vpu_enc_v4l2_mmap(struct file *filp, struct vm_area_struct *vma)
 {
 	long ret = -EPERM;
 	unsigned long offset = vma->vm_pgoff << PAGE_SHIFT;
@@ -3384,11 +3389,11 @@ static int v4l2_mmap(struct file *filp, struct vm_area_struct *vma)
 
 static const struct v4l2_file_operations v4l2_encoder_fops = {
 	.owner = THIS_MODULE,
-	.open  = v4l2_open,
+	.open  = vpu_enc_v4l2_open,
 	.unlocked_ioctl = video_ioctl2,
-	.release = v4l2_release,
-	.poll = v4l2_poll,
-	.mmap = v4l2_mmap,
+	.release = vpu_enc_v4l2_release,
+	.poll = vpu_enc_v4l2_poll,
+	.mmap = vpu_enc_v4l2_mmap,
 };
 
 static struct video_device v4l2_videodevice_encoder = {
@@ -3427,11 +3432,14 @@ static int vpu_enable_hw(struct vpu_dev *This)
 	vpu_dbg(LVL_INFO, "%s()\n", __func__);
 	vpu_setup(This);
 
+	This->hw_enable = true;
+
 	return 0;
 }
 
 static void vpu_disable_hw(struct vpu_dev *This)
 {
+	This->hw_enable = false;
 	vpu_reset(This);
 	if (This->regs_base) {
 		iounmap(This->regs_base);
@@ -3901,6 +3909,16 @@ static int vpu_runtime_resume(struct device *dev)
 	return 0;
 }
 
+static int is_core_activated(struct core_device *core)
+{
+	WARN_ON(!core);
+
+	if (readl_relaxed(core->mu_base_virtaddr + MU_B0_REG_CONTROL) == 0)
+		return false;
+	else
+		return true;
+}
+
 static int is_need_shapshot(struct vpu_ctx *ctx)
 {
 	if (is_ctx_hang(ctx))
@@ -3947,6 +3965,8 @@ static int resume_from_snapshot(struct core_device *core)
 	if (!core->snapshot)
 		return 0;
 
+	vpu_dbg(LVL_INFO, "resume from snapshot\n");
+
 	init_completion(&core->start_cmp);
 	set_vpu_fw_addr(core->vdev, core);
 	ret = wait_for_completion_timeout(&core->start_cmp,
@@ -3956,7 +3976,6 @@ static int resume_from_snapshot(struct core_device *core)
 		reset_vpu_core_dev(core);
 		return -EINVAL;
 	}
-	core->snapshot = false;
 
 	return 0;
 }
@@ -3986,6 +4005,10 @@ static int suspend_core(struct core_device *core)
 	WARN_ON(!core);
 
 	core->snapshot = false;
+
+	if (!core->fw_is_ready)
+		return 0;
+
 	for (i = 0; i < VPU_MAX_NUM_STREAMS; i++) {
 		ret = suspend_instance(core->ctx[i]);
 		if (ret)
@@ -4010,17 +4033,23 @@ static int resume_core(struct core_device *core)
 	if (!core->suspend)
 		return 0;
 
-	MU_Init(core->mu_base_virtaddr);
-	MU_EnableRxFullInt(core->mu_base_virtaddr, 0);
-
 	for (i = 0; i < VPU_MAX_NUM_STREAMS; i++)
 		vpu_ctx_power_on(core->ctx[i]);
 
-	if (core->snapshot)
-		ret = resume_from_snapshot(core);
-	else
-		reset_vpu_core_dev(core);
+	/* if the core isn't activated, it means it has been power off and on */
+	if (!is_core_activated(core)) {
+		if (!core->vdev->hw_enable)
+			vpu_enable_hw(core->vdev);
+		if (core->snapshot)
+			ret = resume_from_snapshot(core);
+		else
+			reset_vpu_core_dev(core);
+	} else {
+		if (core->snapshot)
+			ret = sw_reset_firmware(core);
+	}
 
+	core->snapshot = false;
 	core->suspend = false;
 
 	return ret;
@@ -4032,6 +4061,9 @@ static int vpu_enc_suspend(struct device *dev)
 	int i;
 	int ret = 0;
 
+	vpu_dbg(LVL_INFO, "suspend\n");
+
+	mutex_lock(&vpudev->dev_mutex);
 	pm_runtime_get_sync(dev);
 	for (i = 0; i < vpudev->core_num; i++) {
 		ret = suspend_core(&vpudev->core_dev[i]);
@@ -4039,6 +4071,9 @@ static int vpu_enc_suspend(struct device *dev)
 			break;
 	}
 	pm_runtime_put_sync(dev);
+	mutex_unlock(&vpudev->dev_mutex);
+
+	vpu_dbg(LVL_INFO, "suspend done\n");
 
 	return ret;
 }
@@ -4049,16 +4084,21 @@ static int vpu_enc_resume(struct device *dev)
 	int i;
 	int ret = 0;
 
-	pm_runtime_get_sync(dev);
+	vpu_dbg(LVL_INFO, "resume\n");
 
-	vpu_enable_hw(vpudev);
+	mutex_lock(&vpudev->dev_mutex);
+	pm_runtime_get_sync(dev);
+	vpudev->hw_enable = false;
 	for (i = 0; i < vpudev->core_num; i++) {
 		ret = resume_core(&vpudev->core_dev[i]);
 		if (ret)
 			break;
 	}
-
+	vpudev->hw_enable = true;
 	pm_runtime_put_sync(dev);
+	mutex_unlock(&vpudev->dev_mutex);
+
+	vpu_dbg(LVL_INFO, "resume done\n");
 
 	return ret;
 }

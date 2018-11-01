@@ -60,6 +60,7 @@ extern unsigned int vpu_dbg_level_encoder;
 #define STREAM_SIZE 0x300000
 #define VPU_REG_BASE 0x40000000
 #define ENC_REG_BASE 0x2c000000
+#define MU_B0_REG_CONTROL		(0x10000 + 0x24)
 
 #define MIN_BUFFER_COUNT		3
 #define BITRATE_LOW_THRESHOLD		64
@@ -277,7 +278,7 @@ struct vpu_dev {
 	struct core_device core_dev[2];
 	u_int32 plat_type;
 	u_int32 core_num;
-//	struct vpu_ctx *ctx[VPU_MAX_NUM_STREAMS];
+	bool hw_enable;
 };
 
 struct buffer_addr {

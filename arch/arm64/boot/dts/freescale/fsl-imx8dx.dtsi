@@ -191,7 +191,7 @@
 
 	mu1_m0: mu1_m0@2d020000 {
 		compatible = "fsl,imx8-mu1-vpu-m0";
-		reg = <0x0 0x2d020000 0x0 0x10000>;
+		reg = <0x0 0x2d020000 0x0 0x20000>;
 		interrupts = <GIC_SPI 470 IRQ_TYPE_LEVEL_HIGH>;
 		fsl,vpu_ap_mu_id = <17>;
 		status = "okay";
