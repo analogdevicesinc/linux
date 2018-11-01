@@ -348,6 +348,7 @@ int spi_engine_offload_load_msg(struct spi_device *spi,
 	spi_engine_program_add_cmd(p, false, SPI_ENGINE_CMD_SYNC(0));
 
 	writel(1, spi_engine->base + SPI_ENGINE_REG_OFFLOAD_RESET(0));
+	writel(0, spi_engine->base + SPI_ENGINE_REG_OFFLOAD_RESET(0));
 	j = 0;
 	list_for_each_entry(xfer, &msg->transfers, transfer_list) {
 		if (!xfer->tx_buf)
