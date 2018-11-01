@@ -40,6 +40,20 @@
 	pinctrl-names = "default";
 
 	imx8mm-val {
+		pinctrl_ecspi1: ecspi1grp {
+			fsl,pins = <
+				MX8MM_IOMUXC_ECSPI1_SCLK_ECSPI1_SCLK		0x82
+				MX8MM_IOMUXC_ECSPI1_MOSI_ECSPI1_MOSI		0x82
+				MX8MM_IOMUXC_ECSPI1_MISO_ECSPI1_MISO		0x82
+			>;
+		};
+
+		pinctrl_ecspi1_cs: ecspi1cs {
+			fsl,pins = <
+				MX8MM_IOMUXC_ECSPI1_SS0_GPIO5_IO9		0x40000
+			>;
+		};
+
 		pinctrl_fec1: fec1grp {
 			fsl,pins = <
 				MX8MM_IOMUXC_ENET_MDC_ENET1_MDC		0x3
@@ -144,6 +158,24 @@
 				MX8MM_IOMUXC_NAND_WP_B_RAWNAND_WP_B		0x00000096
 			>;
 		};
+	};
+};
+
+&ecspi1 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	fsl,spi-num-chipselects = <1>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_ecspi1 &pinctrl_ecspi1_cs>;
+	cs-gpios = <&gpio5 9 GPIO_ACTIVE_LOW>;
+	status = "okay";
+
+	flash: m25p80@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "gd25q16", "jedec,spi-nor";
+		spi-max-frequency = <20000000>;
+		reg = <0>;
 	};
 };
 
