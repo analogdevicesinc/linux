@@ -344,7 +344,6 @@ int spi_engine_offload_load_msg(struct spi_device *spi,
 	sdo_addr = spi_engine->base + SPI_ENGINE_REG_OFFLOAD_SDO_MEM(0);
 
 	spi_engine_compile_message(spi_engine, msg, false, p);
-	spi_engine_program_add_cmd(p, false, SPI_ENGINE_CMD_SLEEP(10));
 	spi_engine_program_add_cmd(p, false, SPI_ENGINE_CMD_SYNC(0));
 
 	writel(1, spi_engine->base + SPI_ENGINE_REG_OFFLOAD_RESET(0));
