@@ -515,6 +515,19 @@ static int dmatest_func(void *data)
 	} else
 		goto err_thread_type;
 
+	/* Check if buffer count fits into map count variable (u8) */
+	if ((src_cnt + dst_cnt) >= 255) {
+		pr_err("too many buffers (%d of 255 supported)\n",
+		       src_cnt + dst_cnt);
+		goto err_thread_type;
+	}
+
+	if (1 << align > params->buf_size) {
+		pr_err("%u-byte buffer too small for %d-byte alignment\n",
+		       params->buf_size, 1 << align);
+		goto err_thread_type;
+	}
+
 	thread->srcs = kcalloc(src_cnt + 1, sizeof(u8 *), GFP_KERNEL);
 	if (!thread->srcs)
 		goto err_srcs;
@@ -585,19 +598,6 @@ static int dmatest_func(void *data)
 		struct scatterlist rx_sg[src_cnt];
 
 		total_tests++;
-
-		/* Check if buffer count fits into map count variable (u8) */
-		if ((src_cnt + dst_cnt) >= 255) {
-			pr_err("too many buffers (%d of 255 supported)\n",
-			       src_cnt + dst_cnt);
-			break;
-		}
-
-		if (1 << align > params->buf_size) {
-			pr_err("%u-byte buffer too small for %d-byte alignment\n",
-			       params->buf_size, 1 << align);
-			break;
-		}
 
 		if (params->norandom)
 			len = params->buf_size;
