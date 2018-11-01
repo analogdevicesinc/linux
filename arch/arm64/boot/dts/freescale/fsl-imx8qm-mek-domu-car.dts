@@ -34,6 +34,12 @@
 		#interrupt-cells = <1>;
 	};
 	*/
+
+	bt_rfkill {
+		compatible = "fsl,mxc_bt_rfkill";
+		bt-power-gpios = <&gpio4 22 GPIO_ACTIVE_LOW>;
+		status ="okay";
+	};
 };
 
 &iomuxc {
