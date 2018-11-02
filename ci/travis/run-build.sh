@@ -2,19 +2,21 @@
 set -xe
 
 build_default() {
+	make ${DEFCONFIG_NAME}
+	make -j`getconf _NPROCESSORS_ONLN` $IMAGE UIMAGE_LOADADDR=0x8000
+}
+
+build_compile_test() {
+	export COMPILE_TEST=y
+	make ${DEFCONFIG_NAME}
+	make -j`getconf _NPROCESSORS_ONLN`
+}
+
+build_checkpatch() {
 	if [ -n "$TRAVIS_BRANCH" ]; then
 		git fetch origin +refs/heads/${TRAVIS_BRANCH}:${TRAVIS_BRANCH}
 	fi
-
 	COMMIT_RANGE=$([ "$TRAVIS_PULL_REQUEST" == "false" ] &&  echo HEAD || echo ${TRAVIS_BRANCH}..)
-
-	make ${DEFCONFIG_NAME}
-	make -j`getconf _NPROCESSORS_ONLN` $IMAGE UIMAGE_LOADADDR=0x8000
-
-	for file in $DTS_FILES; do
-		make ${DTS_PREFIX}`basename $file | sed  -e 's\dts\dtb\g'` || exit 1
-	done
-
 	scripts/checkpatch.pl --git ${COMMIT_RANGE} \
 		--ignore FILE_PATH_CHANGES \
 		--ignore LONG_LINE \
@@ -22,15 +24,12 @@ build_default() {
 		--ignore LONG_LINE_COMMENT
 }
 
-build_compile_test() {
-	make ${DEFCONFIG_NAME}
-	make -j`getconf _NPROCESSORS_ONLN`
+build_dtb_build_test() {
+	for file in $DTS_FILES; do
+		make ${DTS_PREFIX}`basename $file | sed  -e 's\dts\dtb\g'` || exit 1
+	done
 }
 
-BUILD_TYPE=default
-
-if [ "$COMPILE_TEST" == "y" ] ; then
-	BUILD_TYPE=compile_test
-fi
+BUILD_TYPE=${BUILD_TYPE:-default}
 
 build_${BUILD_TYPE}
