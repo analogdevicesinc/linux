@@ -236,39 +236,6 @@ static struct vpu_v4l2_fmt  formats_yuv_enc[] = {
 	},
 };
 
-static struct v4l2_fract vpu_fps_list[] = {
-	{1, 30},
-	{1, 29},
-	{1, 28},
-	{1, 27},
-	{1, 26},
-	{1, 25},
-	{1, 24},
-	{1, 23},
-	{1, 22},
-	{1, 21},
-	{1, 20},
-	{1, 19},
-	{1, 18},
-	{1, 17},
-	{1, 16},
-	{1, 15},
-	{1, 14},
-	{1, 13},
-	{1, 12},
-	{1, 11},
-	{1, 10},
-	{1, 9},
-	{1, 8},
-	{1, 7},
-	{1, 6},
-	{1, 5},
-	{1, 4},
-	{1, 3},
-	{1, 2},
-	{1, 1},
-};
-
 static void vpu_ctx_send_cmd(struct vpu_ctx *ctx, uint32_t cmdid,
 				uint32_t cmdnum, uint32_t *local_cmddata);
 
@@ -396,15 +363,21 @@ static int v4l2_ioctl_enum_framesizes(struct file *file, void *fh,
 static int v4l2_ioctl_enum_frameintervals(struct file *file, void *fh,
 						struct v4l2_frmivalenum *fival)
 {
+	u32 framerate;
+
 	if (!fival)
 		return -EINVAL;
 
-	if (fival->index >= ARRAY_SIZE(vpu_fps_list))
+	if (fival->index < 0)
+		return -EINVAL;
+	framerate = VPU_ENC_FRAMERATE_MIN +
+			fival->index * VPU_ENC_FRAMERATE_STEP;
+	if (framerate > VPU_ENC_FRAMERATE_MAX)
 		return -EINVAL;
 
 	fival->type = V4L2_FRMIVAL_TYPE_DISCRETE;
-	fival->discrete.numerator = vpu_fps_list[fival->index].numerator;
-	fival->discrete.denominator = vpu_fps_list[fival->index].denominator;
+	fival->discrete.numerator = 1;
+	fival->discrete.denominator = framerate;
 
 	return 0;
 }
@@ -699,26 +672,27 @@ static int v4l2_ioctl_g_parm(struct file *file, void *fh,
 
 static int find_proper_framerate(struct v4l2_fract *fival)
 {
-	int i;
 	u32 min_delta = INT_MAX;
 	struct v4l2_fract target_fival = {0, 0};
+	u32 framerate = VPU_ENC_FRAMERATE_MIN;
 
 	if (!fival)
 		return -EINVAL;
 
-	for (i = 0; i < ARRAY_SIZE(vpu_fps_list); i++) {
-		struct v4l2_fract *f = &vpu_fps_list[i];
+	while (framerate <= VPU_ENC_FRAMERATE_MAX) {
 		u32 delta;
 
-		delta = abs(fival->numerator * f->denominator -
-				fival->denominator * f->numerator);
+		delta = abs(fival->numerator * framerate -
+				fival->denominator);
 		if (!delta)
 			return 0;
 		if (delta < min_delta) {
-			target_fival.numerator = f->numerator;
-			target_fival.denominator = f->denominator;
+			target_fival.numerator = 1;
+			target_fival.denominator = framerate;
 			min_delta = delta;
 		}
+
+		framerate += VPU_ENC_FRAMERATE_STEP;
 	}
 	if (!target_fival.numerator || !target_fival.denominator)
 		return -EINVAL;
