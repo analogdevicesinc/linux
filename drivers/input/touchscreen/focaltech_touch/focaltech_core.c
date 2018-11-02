@@ -171,7 +171,7 @@ void fts_irq_disable(void)
 	spin_lock_irqsave(&fts_wq_data->irq_lock, irqflags);
 
 	if (!fts_wq_data->irq_disable) {
-		disable_irq(fts_wq_data->client->irq);
+		disable_irq_nosync(fts_wq_data->client->irq);
 		fts_wq_data->irq_disable = 1;
 	}
 
