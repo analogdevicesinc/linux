@@ -112,6 +112,10 @@
 		arm,no-tick-in-suspend;
 	};
 
+	pmu {
+		interrupt-parent = <&gic>;
+	};
+
 	busfreq { /* BUSFREQ */
 		compatible = "fsl,imx_busfreq";
 		clocks = <&clk IMX8MQ_DRAM_PLL_OUT>, <&clk IMX8MQ_CLK_DRAM_ALT>,
