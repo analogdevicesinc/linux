@@ -54,7 +54,7 @@ extern unsigned int vpu_dbg_level_encoder;
 #define RPC_SIZE_DEFAULT	0x500000
 #define RPC_SIZE_MIN		0x100000
 #define PRINT_SIZE_DEFAULT	0x300000
-#define PRINT_SIZE_MIN		0x100000
+#define PRINT_SIZE_MIN		0x200000
 #define MEM_SIZE  0x2800000
 #define YUV_SIZE  0x4000000
 #define STREAM_SIZE 0x300000
@@ -226,6 +226,8 @@ struct vpu_attr {
 
 	struct vpu_statistic statistic;
 	MEDIAIP_ENC_PARAM param;
+
+	unsigned long ts_start[2];
 
 	bool created;
 };

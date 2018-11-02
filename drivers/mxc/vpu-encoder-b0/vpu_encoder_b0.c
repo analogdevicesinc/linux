@@ -1212,6 +1212,7 @@ static int v4l2_ioctl_streamon(struct file *file,
 		)
 {
 	struct vpu_ctx *ctx = v4l2_fh_to_ctx(fh);
+	struct vpu_attr *attr;
 	struct queue_data *q_data;
 	int ret;
 
@@ -1223,6 +1224,13 @@ static int v4l2_ioctl_streamon(struct file *file,
 		q_data = &ctx->q_data[V4L2_DST];
 	else
 		return -EINVAL;
+
+	attr = get_vpu_ctx_attr(ctx);
+	if (attr) {
+		attr->ts_start[V4L2_SRC] = 0;
+		attr->ts_start[V4L2_DST] = 0;
+	}
+
 	ret = vb2_streamon(&q_data->vb2_q, i);
 	if (!ret && i == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
 		clear_bit(VPU_ENC_STATUS_START_SEND, &ctx->status);
@@ -1583,6 +1591,22 @@ static u32 get_vb2_plane_phy_addr(struct vb2_buffer *vb, unsigned int plane_no)
 
 	dma_addr = vb2_plane_cookie(vb, plane_no);
 	return *dma_addr + vb->planes[plane_no].data_offset;
+}
+
+static void record_start_time(struct vpu_ctx *ctx, enum QUEUE_TYPE type)
+{
+	struct vpu_attr *attr = get_vpu_ctx_attr(ctx);
+	struct timespec ts;
+
+	if (!attr)
+		return;
+
+	if (attr->ts_start[type])
+		return;
+
+	getrawmonotonic(&ts);
+	attr->ts_start[type] = ts.tv_sec * MSEC_PER_SEC +
+				ts.tv_nsec / NSEC_PER_MSEC;
 }
 
 static bool update_yuv_addr(struct vpu_ctx *ctx)
@@ -1992,6 +2016,7 @@ static int submit_input_and_encode(struct vpu_ctx *ctx)
 	if (update_yuv_addr(ctx)) {
 		vpu_ctx_send_cmd(ctx, GTB_ENC_CMD_FRAME_ENCODE, 0, NULL);
 		clear_queue_rw_flag(queue, VPU_ENC_FLAG_WRITEABLE);
+		record_start_time(ctx, V4L2_SRC);
 	}
 exit:
 	up(&queue->drv_q_lock);
@@ -2221,6 +2246,7 @@ static int handle_event_frame_done(struct vpu_ctx *ctx,
 	show_enc_pic_info(pEncPicInfo);
 
 	count_encoded_frame(ctx);
+	record_start_time(ctx, V4L2_DST);
 	frame = vmalloc(sizeof(*frame));
 	if (frame) {
 		struct queue_data *queue = &ctx->q_data[V4L2_DST];
@@ -3149,6 +3175,15 @@ static ssize_t show_instance_info(struct device *dev,
 	num += snprintf(buf + num, PAGE_SIZE - num,
 			"dqbuf output h264 count: %ld\n",
 			statistic->h264_count);
+	if (vpu_attr->ts_start[V4L2_SRC] && vpu_attr->ts_start[V4L2_DST]) {
+		unsigned long latency;
+
+		latency = vpu_attr->ts_start[V4L2_DST] -
+				vpu_attr->ts_start[V4L2_SRC];
+		num += snprintf(buf + num, PAGE_SIZE - num,
+				"latency(ms):%ld\n", latency);
+	}
+
 	if (!vpu_attr->core->ctx[vpu_attr->index])
 		num += snprintf(buf + num, PAGE_SIZE - num,
 			"<instance has been released>\n");
