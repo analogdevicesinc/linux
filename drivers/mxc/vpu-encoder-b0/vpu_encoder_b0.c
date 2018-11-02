@@ -999,7 +999,9 @@ static int send_eos(struct vpu_ctx *ctx)
 	if (!test_bit(VPU_ENC_STATUS_START_SEND, &ctx->status)) {
 		notify_eos(ctx);
 		return 0;
-	} else if (!test_and_set_bit(VPU_ENC_STATUS_STOP_SEND, &ctx->status)) {
+	}
+
+	if (!test_and_set_bit(VPU_ENC_STATUS_STOP_SEND, &ctx->status)) {
 		vpu_dbg(LVL_INFO, "stop stream\n");
 		vpu_ctx_send_cmd(ctx, GTB_ENC_CMD_STREAM_STOP, 0, NULL);
 	}
@@ -1671,7 +1673,8 @@ static int get_stuff_data_size(u8 *data, int size)
 	index =  kmp_serach(data, size, pattern, ARRAY_SIZE(pattern), next);
 	if (index < 0)
 		return 0;
-	return size - index - ARRAY_SIZE(pattern);
+	vpu_dbg(LVL_INFO, "find end_of_stream nal\n");
+	return size - index;
 }
 
 static void strip_stuff_data_on_tail(struct vb2_buffer *vb)
@@ -1689,7 +1692,7 @@ static void strip_stuff_data_on_tail(struct vb2_buffer *vb)
 
 	stuff_size = get_stuff_data_size(ptr + bytesused - count, count);
 	if (stuff_size) {
-		vpu_dbg(LVL_WARN, "strip %d bytes stuff data\n", stuff_size);
+		vpu_dbg(LVL_INFO, "strip %d bytes stuff data\n", stuff_size);
 		vb2_set_plane_payload(vb, 0, bytesused - stuff_size);
 	}
 }
@@ -2087,18 +2090,27 @@ static int transfer_stream_output(struct vpu_ctx *ctx,
 		add_rptr(frame, length);
 	}
 	report_frame_type(p_data_req, frame);
+	strip_stuff_data_on_tail(p_data_req->vb2_buf);
 
 	return 0;
 }
 
 static int append_empty_end_frame(struct vb2_data_req *p_data_req)
 {
+	struct vb2_buffer *vb = NULL;
+	const u8 pattern[] = VPU_STRM_END_PATTERN;
+	void *pdst;
+
 	WARN_ON(!p_data_req);
 
-	vb2_set_plane_payload(p_data_req->vb2_buf, 0, 0);
+	vb = p_data_req->vb2_buf;
+	pdst = vb2_plane_vaddr(vb, 0);
+	memcpy(pdst, pattern, ARRAY_SIZE(pattern));
+
+	vb2_set_plane_payload(vb, 0, ARRAY_SIZE(pattern));
 	p_data_req->buffer_flags = V4L2_BUF_FLAG_LAST;
 
-	vpu_dbg(LVL_INFO, "append en empty frame as the last frame\n");
+	vpu_dbg(LVL_INFO, "append the last frame\n");
 
 	return 0;
 }
@@ -2138,7 +2150,6 @@ static void process_frame_done(struct queue_data *queue)
 		vfree(frame);
 	}
 
-	strip_stuff_data_on_tail(p_data_req->vb2_buf);
 	if (p_data_req->vb2_buf->state == VB2_BUF_STATE_ACTIVE)
 		vb2_buffer_done(p_data_req->vb2_buf, VB2_BUF_STATE_DONE);
 }
