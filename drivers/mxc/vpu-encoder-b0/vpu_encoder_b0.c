@@ -2074,6 +2074,8 @@ static int transfer_stream_output(struct vpu_ctx *ctx,
 		return 0;
 
 	vb = p_data_req->vb2_buf;
+	if (length > vb->planes[0].length)
+		length = vb->planes[0].length;
 	vb2_set_plane_payload(vb, 0, length);
 	pdst = vb2_plane_vaddr(vb, 0);
 	if (frame->rptr + length <= frame->end) {
