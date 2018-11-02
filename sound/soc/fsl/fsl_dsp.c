@@ -60,6 +60,7 @@
 #endif
 #include <uapi/linux/mxc_dsp.h>
 #include <soc/imx8/sc/svc/irq/api.h>
+#include <soc/imx8/sc/types.h>
 #include <soc/imx8/sc/ipc.h>
 #include <soc/imx8/sc/sci.h>
 

@@ -120,11 +120,6 @@ struct fsl_dsp {
 #define OUTPUT_BUF_SIZE		16384
 #define DSP_CONFIG_SIZE    4096
 
-#define SC_C_OFS_SEL    39
-#define SC_C_OFS_AUDIO  40
-#define SC_C_OFS_PERIPH 41
-#define SC_C_OFS_IRQ    42
-
 void *memcpy_dsp(void *dest, const void *src, size_t count);
 void *memset_dsp(void *dest, int c, size_t count);
 struct xf_client *xf_client_lookup(struct fsl_dsp *dsp_priv, u32 id);
