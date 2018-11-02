@@ -607,7 +607,7 @@
 	};
 
 	usbotg1: usb@32e40000 {
-		compatible = "fsl,imx7d-usb", "fsl,imx27-usb";
+		compatible = "fsl,imx8mm-usb", "fsl,imx7d-usb", "fsl,imx27-usb";
 		reg = <0x0 0x32e40000 0x0 0x200>;
 		interrupts = <GIC_SPI 40 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&clk IMX8MM_CLK_USB1_CTRL_ROOT>;
@@ -637,7 +637,7 @@
 	};
 
 	usbotg2: usb@32e50000 {
-		compatible = "fsl,imx7d-usb", "fsl,imx27-usb";
+		compatible = "fsl,imx8mm-usb", "fsl,imx7d-usb", "fsl,imx27-usb";
 		reg = <0x0 0x32e50000 0x0 0x200>;
 		interrupts = <GIC_SPI 41 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&clk IMX8MM_CLK_USB1_CTRL_ROOT>;
