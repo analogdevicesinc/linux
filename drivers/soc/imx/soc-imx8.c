@@ -24,6 +24,7 @@
 #include <linux/platform_device.h>
 #include <linux/of.h>
 
+#include <soc/imx8/sc/types.h>
 #include <soc/imx8/sc/sci.h>
 #include <soc/imx8/soc.h>
 #include <soc/imx/revision.h>

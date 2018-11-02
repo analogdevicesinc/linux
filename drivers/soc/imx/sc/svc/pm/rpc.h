@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2016 Freescale Semiconductor, Inc.
- * Copyright 2017 NXP
+ * Copyright 2017-2018 NXP
  *
  * SPDX-License-Identifier:     GPL-2.0+
  */
@@ -12,40 +12,44 @@
  * @{
  */
 
-#ifndef _SC_PM_RPC_H
-#define _SC_PM_RPC_H
+#ifndef SC_PM_RPC_H
+#define SC_PM_RPC_H
 
 /* Includes */
 
 /* Defines */
 
-/* Types */
-
 /*!
- * This type is used to indicate RPC PM function calls.
+ * @name Defines for RPC PM function calls
  */
-typedef enum pm_func_e {
-	PM_FUNC_UNKNOWN = 0,	/* Unknown function */
-	PM_FUNC_SET_SYS_POWER_MODE = 19,	/* Index for pm_set_sys_power_mode() RPC call */
-	PM_FUNC_SET_PARTITION_POWER_MODE = 1,	/* Index for pm_set_partition_power_mode() RPC call */
-	PM_FUNC_GET_SYS_POWER_MODE = 2,	/* Index for pm_get_sys_power_mode() RPC call */
-	PM_FUNC_SET_RESOURCE_POWER_MODE = 3,	/* Index for pm_set_resource_power_mode() RPC call */
-	PM_FUNC_GET_RESOURCE_POWER_MODE = 4,	/* Index for pm_get_resource_power_mode() RPC call */
-	PM_FUNC_REQ_LOW_POWER_MODE = 16,	/* Index for pm_req_low_power_mode() RPC call */
-	PM_FUNC_SET_CPU_RESUME_ADDR = 17,	/* Index for pm_set_cpu_resume_addr() RPC call */
-	PM_FUNC_REQ_SYS_IF_POWER_MODE = 18,	/* Index for pm_req_sys_if_power_mode() RPC call */
-	PM_FUNC_SET_CLOCK_RATE = 5,	/* Index for pm_set_clock_rate() RPC call */
-	PM_FUNC_GET_CLOCK_RATE = 6,	/* Index for pm_get_clock_rate() RPC call */
-	PM_FUNC_CLOCK_ENABLE = 7,	/* Index for pm_clock_enable() RPC call */
-	PM_FUNC_SET_CLOCK_PARENT = 14,	/* Index for pm_set_clock_parent() RPC call */
-	PM_FUNC_GET_CLOCK_PARENT = 15,	/* Index for pm_get_clock_parent() RPC call */
-	PM_FUNC_RESET = 13,	/* Index for pm_reset() RPC call */
-	PM_FUNC_RESET_REASON = 10,	/* Index for pm_reset_reason() RPC call */
-	PM_FUNC_BOOT = 8,	/* Index for pm_boot() RPC call */
-	PM_FUNC_REBOOT = 9,	/* Index for pm_reboot() RPC call */
-	PM_FUNC_REBOOT_PARTITION = 12,	/* Index for pm_reboot_partition() RPC call */
-	PM_FUNC_CPU_START = 11,	/* Index for pm_cpu_start() RPC call */
-} pm_func_t;
+/*@{*/
+#define PM_FUNC_UNKNOWN 0	/* Unknown function */
+#define PM_FUNC_SET_SYS_POWER_MODE 19U	/* Index for pm_set_sys_power_mode() RPC call */
+#define PM_FUNC_SET_PARTITION_POWER_MODE 1U	/* Index for pm_set_partition_power_mode() RPC call */
+#define PM_FUNC_GET_SYS_POWER_MODE 2U	/* Index for pm_get_sys_power_mode() RPC call */
+#define PM_FUNC_SET_RESOURCE_POWER_MODE 3U	/* Index for pm_set_resource_power_mode() RPC call */
+#define PM_FUNC_SET_RESOURCE_POWER_MODE_ALL 22U	/* Index for pm_set_resource_power_mode_all() RPC call */
+#define PM_FUNC_GET_RESOURCE_POWER_MODE 4U	/* Index for pm_get_resource_power_mode() RPC call */
+#define PM_FUNC_REQ_LOW_POWER_MODE 16U	/* Index for pm_req_low_power_mode() RPC call */
+#define PM_FUNC_REQ_CPU_LOW_POWER_MODE 20U	/* Index for pm_req_cpu_low_power_mode() RPC call */
+#define PM_FUNC_SET_CPU_RESUME_ADDR 17U	/* Index for pm_set_cpu_resume_addr() RPC call */
+#define PM_FUNC_SET_CPU_RESUME 21U	/* Index for pm_set_cpu_resume() RPC call */
+#define PM_FUNC_REQ_SYS_IF_POWER_MODE 18U	/* Index for pm_req_sys_if_power_mode() RPC call */
+#define PM_FUNC_SET_CLOCK_RATE 5U	/* Index for pm_set_clock_rate() RPC call */
+#define PM_FUNC_GET_CLOCK_RATE 6U	/* Index for pm_get_clock_rate() RPC call */
+#define PM_FUNC_CLOCK_ENABLE 7U	/* Index for pm_clock_enable() RPC call */
+#define PM_FUNC_SET_CLOCK_PARENT 14U	/* Index for pm_set_clock_parent() RPC call */
+#define PM_FUNC_GET_CLOCK_PARENT 15U	/* Index for pm_get_clock_parent() RPC call */
+#define PM_FUNC_RESET 13U	/* Index for pm_reset() RPC call */
+#define PM_FUNC_RESET_REASON 10U	/* Index for pm_reset_reason() RPC call */
+#define PM_FUNC_BOOT 8U		/* Index for pm_boot() RPC call */
+#define PM_FUNC_REBOOT 9U	/* Index for pm_reboot() RPC call */
+#define PM_FUNC_REBOOT_PARTITION 12U	/* Index for pm_reboot_partition() RPC call */
+#define PM_FUNC_CPU_START 11U	/* Index for pm_cpu_start() RPC call */
+#define PM_FUNC_CPU_RESET 23U	/* Index for pm_cpu_reset() RPC call */
+/*@}*/
+
+/* Types */
 
 /* Functions */
 
@@ -57,14 +61,6 @@ typedef enum pm_func_e {
  */
 void pm_dispatch(sc_rm_pt_t caller_pt, sc_rpc_msg_t *msg);
 
-/*!
- * This function translates and dispatches an PM RPC request.
- *
- * @param[in]     ipc         IPC handle
- * @param[in]     msg         pointer to RPC message
- */
-void pm_xlate(sc_ipc_t ipc, sc_rpc_msg_t *msg);
-
-#endif				/* _SC_PM_RPC_H */
+#endif				/* SC_PM_RPC_H */
 
 /**@}*/

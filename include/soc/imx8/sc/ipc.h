@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2016 Freescale Semiconductor, Inc.
- * Copyright 2017 NXP
+ * Copyright 2017-2018 NXP
  *
  * SPDX-License-Identifier:     GPL-2.0+
  */
@@ -9,8 +9,8 @@
  * Header file for the IPC implementation.
  */
 
-#ifndef _SC_IPC_H
-#define _SC_IPC_H
+#ifndef SC_IPC_H
+#define SC_IPC_H
 
 /* Includes */
 
@@ -62,10 +62,9 @@ void sc_ipc_read(sc_ipc_t ipc, void *data);
  *
  * This function will block if the outgoing buffer is full.
  */
-void sc_ipc_write(sc_ipc_t ipc, void *data);
+void sc_ipc_write(sc_ipc_t ipc, const void *data);
 
 int register_scu_notifier(struct notifier_block *nb);
 int unregister_scu_notifier(struct notifier_block *nb);
 
-#endif /* _SC_IPC_H */
-
+#endif				/* SC_IPC_H */

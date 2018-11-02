@@ -54,7 +54,7 @@ EXPORT_SYMBOL(sc_pm_set_clock_rate);
 /*--------------------------------------------------------------------------*/
 /* RPC command/response                                                     */
 /*--------------------------------------------------------------------------*/
-void sc_call_rpc(sc_ipc_t handle, sc_rpc_msg_t *msg, bool no_resp)
+void sc_call_rpc(sc_ipc_t handle, sc_rpc_msg_t *msg, sc_bool_t no_resp)
 {
 	struct arm_smccc_res res;
 
@@ -214,7 +214,7 @@ void sc_ipc_read(sc_ipc_t handle, void *data)
  *
  * This function will block if the outgoing buffer is full.
  */
-void sc_ipc_write(sc_ipc_t handle, void *data)
+void sc_ipc_write(sc_ipc_t handle, const void *data)
 {
 	uint32_t *base;
 	uint8_t count = 0;

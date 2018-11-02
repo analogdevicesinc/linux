@@ -44,11 +44,6 @@
 #define IMX8MQ_PD_MIPI_CSI2	9
 #define IMX8MQ_PD_PCIE2		10
 
-#define SC_TIMER_WDOG_ACTION_PARTITION      0   /*!< Reset partition */
-#define SC_TIMER_WDOG_ACTION_WARM           1   /*!< Warm reset system */
-#define SC_TIMER_WDOG_ACTION_COLD           2   /*!< Cold reset system */
-#define SC_TIMER_WDOG_ACTION_BOARD          3   /*!< Reset board */
-
 #define FSL_SIP_DDR_DVFS		0xc2000004
 
 #define FSL_SIP_SRC			0xc2000005
