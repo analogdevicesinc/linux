@@ -558,12 +558,13 @@ struct xf_message *xf_cmd_recv(struct xf_proxy *proxy,
 						  struct xf_msg_queue *queue,
 						  int wait)
 {
-	struct xf_message *m;
+	struct xf_message *m = NULL;
 	int ret;
 
 	/* ...wait for message reception (take lock on success) */
 	ret = wait_event_interruptible(*wq,
-			(m = xf_msg_received(proxy, queue)) != NULL || !wait);
+			(m = xf_msg_received(proxy, queue)) != NULL || !wait
+			|| !proxy->is_active);
 	if (ret)
 		return ERR_PTR(-EINTR);
 

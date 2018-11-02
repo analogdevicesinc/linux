@@ -28,9 +28,9 @@ void dsp_platform_process(struct work_struct *w)
 
 	while (1) {
 		rmsg = xf_cmd_recv(proxy, &client->wait, &client->queue, 1);
-		if (IS_ERR(rmsg)) {
+
+		if (!proxy->is_active || IS_ERR(rmsg))
 			return;
-		}
 		if (rmsg->opcode == XF_EMPTY_THIS_BUFFER) {
 			client->consume_bytes += rmsg->length;
 			snd_compr_fragment_elapsed(client->cstream);
@@ -101,7 +101,9 @@ static int dsp_platform_compr_free(struct snd_compr_stream *cstream)
 
 	cpu_dai->driver->ops->shutdown(NULL, cpu_dai);
 
-	ret = cancel_work(&drv->client->work);
+	drv->client->proxy->is_active = 0;
+	wake_up(&drv->client->wait);
+	cancel_work_sync(&drv->client->work);
 
 	fsl_dsp_close_func(drv->client);
 

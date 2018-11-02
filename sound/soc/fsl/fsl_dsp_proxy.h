@@ -300,7 +300,7 @@ struct xf_proxy {
 	struct completion	cmd_complete;
 	int			is_ready;
 	int			is_loaded;
-
+	int			is_active;
 	/* ...internal lock */
 	spinlock_t              lock;
 
