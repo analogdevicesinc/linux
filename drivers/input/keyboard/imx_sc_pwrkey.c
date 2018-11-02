@@ -63,7 +63,7 @@ static int imx_sc_pwrkey_notify(struct notifier_block *nb,
 static void imx_sc_check_for_events(struct work_struct *work)
 {
 	struct input_dev *input = pdata->input;
-	bool state;
+	sc_bool_t state;
 
 	sc_misc_get_button_status(pdata->ipcHandle, &state);
 	/*
