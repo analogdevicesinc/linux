@@ -104,6 +104,8 @@ static void update_bus_freq(int target_freq)
 
 static void reduce_bus_freq(void)
 {
+	u32 rate;
+
 	high_bus_freq_mode = 0;
 
 	/*
@@ -142,7 +144,12 @@ static void reduce_bus_freq(void)
 					clk_disable_unprepare(dram_alt_root);
 				}
 				/* reduce the NOC & bus clock */
-				clk_set_rate(noc_div, clk_get_rate(noc_div) / 8);
+				rate = clk_get_rate(noc_div);
+				if (rate == 0) {
+					WARN_ON(1);
+					return;
+				}
+				clk_set_rate(noc_div, rate / 8);
 			} else {
 				/* prepare the necessary clk before frequency change */
 				clk_prepare_enable(sys1_pll_40m);
@@ -161,10 +168,19 @@ static void reduce_bus_freq(void)
 				clk_disable_unprepare(dram_alt_root);
 
 				/* change the NOC rate */
-				clk_set_rate(noc_div, clk_get_rate(noc_div) / 5);
+				rate = clk_get_rate(noc_div);
+				if (rate == 0) {
+					WARN_ON(1);
+					return;
+				}
+				clk_set_rate(noc_div, rate / 5);
 			}
-
-			clk_set_rate(ahb_div, clk_get_rate(ahb_div) / 6);
+			rate = clk_get_rate(ahb_div);
+			if (rate == 0) {
+				WARN_ON(1);
+				return;
+			}
+			clk_set_rate(ahb_div, rate / 6);
 			clk_set_parent(main_axi_src, osc_25m);
 		}
 
@@ -201,7 +217,12 @@ static void reduce_bus_freq(void)
 					clk_disable_unprepare(dram_alt_root);
 				}
 				/* reduce the NOC & bus clock */
-				clk_set_rate(noc_div, clk_get_rate(noc_div) / 8);
+				rate = clk_get_rate(noc_div);
+				if (rate == 0) {
+					WARN_ON(1);
+					return;
+				}
+				clk_set_rate(noc_div, rate / 8);
 			} else {
 				/* prepare the necessary clk before frequency change */
 				clk_prepare_enable(sys1_pll_40m);
@@ -220,10 +241,20 @@ static void reduce_bus_freq(void)
 				clk_disable_unprepare(dram_alt_root);
 
 				/* change the NOC clock rate  */
-				clk_set_rate(noc_div, clk_get_rate(noc_div) / 5);
+				rate = clk_get_rate(noc_div);
+				if (rate == 0) {
+					WARN_ON(1);
+					return;
+				}
+				clk_set_rate(noc_div, rate / 5);
 			}
 
-			clk_set_rate(ahb_div, clk_get_rate(ahb_div) / 6);
+			rate = clk_get_rate(ahb_div);
+			if (rate == 0) {
+				WARN_ON(1);
+				return;
+			}
+			clk_set_rate(ahb_div, rate / 6);
 			clk_set_parent(main_axi_src, osc_25m);
 		}
 
