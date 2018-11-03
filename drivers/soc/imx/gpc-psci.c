@@ -92,7 +92,7 @@ static int imx_gpc_psci_irq_set_affinity(struct irq_data *d,
 {
 	/* parse the cpu of irq affinity */
 	struct arm_smccc_res res;
-	unsigned int cpu = cpumask_any_and(dest, cpu_online_mask);
+	int cpu = cpumask_any_and(dest, cpu_online_mask);
 
 	irq_chip_set_affinity_parent(d, dest, force);
 
