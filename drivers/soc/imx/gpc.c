@@ -138,6 +138,11 @@ static void _imx6_pm_domain_power_on(struct generic_pm_domain *genpd)
 	int i;
 	u32 val, ipg_rate = clk_get_rate(ipg_clk);
 
+	if (ipg_rate == 0) {
+		WARN_ON(1);
+		return;
+	}
+
 	/* Enable reset clocks for all devices in the domain */
 	for (i = 0; i < pd->num_clks; i++)
 		clk_prepare_enable(pd->clk[i]);
@@ -186,6 +191,11 @@ static int imx6_pm_dispmix_on(struct generic_pm_domain *genpd)
 	u32 val = readl_relaxed(gpc_base + GPC_CNTR);
 	u32 ipg_rate = clk_get_rate(ipg_clk);
 	int i;
+
+	if (ipg_rate == 0) {
+		WARN_ON(1);
+		return -EINVAL;
+	}
 
 	if ((cpu_is_imx6sl() &&
 		imx_get_soc_revision() >= IMX_CHIP_REVISION_1_2) || cpu_is_imx6sx()) {
