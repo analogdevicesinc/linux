@@ -508,6 +508,10 @@ static void enter_lpm_imx6sl(void)
 	} else {
 		u32 arm_div, pll1_rate;
 		org_arm_rate = clk_get_rate(arm_clk);
+		if (org_arm_rate == 0) {
+			WARN_ON(1);
+			return;
+		}
 		if (low_bus_freq_mode && low_bus_count == 0) {
 			/*
 			 * We are already in DDR @ 24MHz state, but
