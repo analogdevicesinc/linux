@@ -47,6 +47,8 @@ static int imx7ulp_set_target(struct cpufreq_policy *policy, unsigned int index)
 	new_freq = freq_table[index].frequency;
 	freq_hz = new_freq * 1000;
 	old_freq = clk_get_rate(arm_clk) / 1000;
+	if (new_freq == 0 || old_freq == 0)
+		return -EINVAL;
 
 	opp = dev_pm_opp_find_freq_ceil(cpu_dev, &freq_hz);
 	if (IS_ERR(opp)) {
