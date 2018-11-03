@@ -301,6 +301,7 @@ static int __init imx8_soc_init(void)
 	struct soc_device_attribute *soc_dev_attr;
 	struct soc_device *soc_dev;
 	u32 soc_rev;
+	int ret;
 
 	soc_dev_attr = kzalloc(sizeof(*soc_dev_attr), GFP_KERNEL);
 	if (!soc_dev_attr)
@@ -324,7 +325,11 @@ static int __init imx8_soc_init(void)
 	if (IS_ERR(soc_dev))
 		goto free_rev;
 
-	device_create_file(soc_device_to_device(soc_dev), &imx8_uid);
+	ret = device_create_file(soc_device_to_device(soc_dev), &imx8_uid);
+	if (ret) {
+		pr_err("could not register sysfs entry\n");
+		return ret;
+	}
 
 	if (of_machine_is_compatible("fsl,imx8mq"))
 		imx8mq_noc_init();
