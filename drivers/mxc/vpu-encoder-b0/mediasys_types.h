@@ -62,7 +62,7 @@ typedef unsigned int BOOL;
 typedef int int32;
 #define FALSE 0
 #define TRUE 1
-#define VPU_MAX_NUM_STREAMS 3
+#define VPU_MAX_NUM_STREAMS 4
 #define VID_API_NUM_STREAMS 4
 #define VID_API_MAX_BUF_PER_STR 3
 #define VID_API_MAX_NUM_MVC_VIEWS 4

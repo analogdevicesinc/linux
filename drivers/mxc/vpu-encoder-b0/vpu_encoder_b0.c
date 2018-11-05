@@ -1115,7 +1115,7 @@ static int set_core_force_release(struct core_device *core)
 	if (!core)
 		return -EINVAL;
 
-	for (i = 0; i < VPU_MAX_NUM_STREAMS; i++) {
+	for (i = 0; i < core->supported_instance_count; i++) {
 		if (!core->ctx[i])
 			continue;
 		set_bit(VPU_ENC_STATUS_FORCE_RELEASE, &core->ctx[i]->status);
@@ -1270,7 +1270,7 @@ static const struct v4l2_ioctl_ops v4l2_encoder_ioctl_ops = {
 static void vpu_core_send_cmd(struct core_device *core, u32 idx,
 				u32 cmdid, u32 cmdnum, u32 *local_cmddata)
 {
-	WARN_ON(!core || idx >= VPU_MAX_NUM_STREAMS);
+	WARN_ON(!core || idx >= VID_API_NUM_STREAMS);
 
 	vpu_log_cmd(cmdid, idx);
 	count_cmd(&core->attr[idx], cmdid);
@@ -2475,7 +2475,7 @@ static void vpu_msg_run_work(struct work_struct *work)
 
 	while (rpc_MediaIPFW_Video_message_check_encoder(This) == API_MSG_AVAILABLE) {
 		rpc_receive_msg_buf_encoder(This, &msg);
-		if (msg.idx >= VPU_MAX_NUM_STREAMS) {
+		if (msg.idx >= ARRAY_SIZE(dev->ctx)) {
 			vpu_err("msg idx(%d) is out of range\n", msg.idx);
 			continue;
 		}
@@ -2820,23 +2820,35 @@ exit:
 	return ret;
 }
 
+static bool is_valid_ctx(struct vpu_ctx *ctx)
+{
+	if (!ctx)
+		return false;
+	if (!ctx->dev || !ctx->core_dev)
+		return false;
+	if (ctx->str_index >= ARRAY_SIZE(ctx->core_dev->ctx))
+		return false;
+
+	return true;
+}
+
 static void free_instance(struct vpu_ctx *ctx)
 {
 	if (!ctx)
 		return;
 
-	if (ctx->dev && ctx->core_dev && ctx->str_index < VPU_MAX_NUM_STREAMS)
+	if (is_valid_ctx(ctx))
 		ctx->core_dev->ctx[ctx->str_index] = NULL;
 	kfree(ctx);
 }
 
-static u32 count_core_instance_num(struct core_device *core)
+static u32 count_free_core_slot(struct core_device *core)
 {
-	int i;
 	u32 count = 0;
+	int i;
 
-	for (i = 0; i < VPU_MAX_NUM_STREAMS; i++) {
-		if (core->ctx[i])
+	for (i = 0; i < core->supported_instance_count; i++) {
+		if (!core->ctx[i])
 			count++;
 	}
 
@@ -2846,25 +2858,31 @@ static u32 count_core_instance_num(struct core_device *core)
 static struct core_device *find_proper_core(struct vpu_dev *dev)
 {
 	struct core_device *core = NULL;
-	u32 minimum = VPU_MAX_NUM_STREAMS;
+	u32 maximum = 0;
 	u32 count;
 	int i;
 	int ret;
 
 	for (i = 0; i < dev->core_num; i++) {
-		process_core_hang(dev->core_dev + i);
+		struct core_device *core_dev = &dev->core_dev[i];
 
-		ret = download_vpu_firmware(dev, dev->core_dev + i);
+		process_core_hang(core_dev);
+
+		ret = download_vpu_firmware(dev, core_dev);
 		if (ret)
 			continue;
 
-		count = count_core_instance_num(dev->core_dev + i);
-		if (count < minimum) {
-			minimum = count;
-			core = dev->core_dev + i;
+		if (core_dev->supported_instance_count == 0)
+			continue;
+
+		count = count_free_core_slot(core_dev);
+		if (count == core_dev->supported_instance_count)
+			return core_dev;
+
+		if (maximum < count) {
+			core = core_dev;
+			maximum = count;
 		}
-		if (minimum == 0)
-			break;
 	}
 
 	return core;
@@ -2878,7 +2896,7 @@ static int request_instance(struct core_device *core, struct vpu_ctx *ctx)
 	if (!core || !ctx)
 		return -EINVAL;
 
-	for (idx = 0; idx < VPU_MAX_NUM_STREAMS; idx++) {
+	for (idx = 0; idx < core->supported_instance_count; idx++) {
 		if (!core->ctx[idx]) {
 			found = 1;
 			ctx->core_dev = core;
@@ -3202,6 +3220,9 @@ static ssize_t show_core_info(struct device *dev,
 	num += snprintf(buf + num, PAGE_SIZE - num,
 			"print buf size  :0x%08x\n", core->print_buf_size);
 	num += snprintf(buf + num, PAGE_SIZE - num,
+			"max instance num:%d\n",
+			core->supported_instance_count);
+	num += snprintf(buf + num, PAGE_SIZE - num,
 			"fw info         :0x%02x 0x%02x\n", fw[16], fw[17]);
 	num += snprintf(buf + num, PAGE_SIZE - num,
 			"fw_is_ready     :%d\n", core->fw_is_ready);
@@ -3271,7 +3292,7 @@ static int try_to_release_idle_instance(struct vpu_dev *dev)
 		return -EINVAL;
 
 	for (i = 0; i < dev->core_num; i++) {
-		for (j = 0; j < VPU_MAX_NUM_STREAMS; j++)
+		for (j = 0; j < dev->core_dev[i].supported_instance_count; j++)
 			release_instance(dev->core_dev[i].ctx[j]);
 	}
 
@@ -3282,7 +3303,7 @@ struct vpu_attr *get_vpu_ctx_attr(struct vpu_ctx *ctx)
 {
 	WARN_ON(!ctx || !ctx->core_dev);
 
-	if (ctx->str_index >= VPU_MAX_NUM_STREAMS)
+	if (ctx->str_index >= ctx->core_dev->supported_instance_count)
 		return NULL;
 
 	return &ctx->core_dev->attr[ctx->str_index];
@@ -3659,7 +3680,7 @@ static int init_vpu_attrs(struct core_device *core)
 
 	WARN_ON(!core);
 
-	for (i = 0; i < VPU_MAX_NUM_STREAMS; i++) {
+	for (i = 0; i < ARRAY_SIZE(core->attr); i++) {
 		struct vpu_attr *attr = &core->attr[i];
 
 		attr->core = core;
@@ -3682,7 +3703,7 @@ static int release_vpu_attrs(struct core_device *core)
 
 	WARN_ON(!core);
 
-	for (i = 0; i < VPU_MAX_NUM_STREAMS; i++) {
+	for (i = 0; i < ARRAY_SIZE(core->attr); i++) {
 		struct vpu_attr *attr = &core->attr[i];
 
 		if (!attr->created)
@@ -3700,6 +3721,8 @@ static int init_vpu_core_dev(struct core_device *core_dev)
 	if (!core_dev)
 		return -EINVAL;
 
+	core_dev->supported_instance_count =
+		min(VPU_MAX_NUM_STREAMS, VID_API_NUM_STREAMS);
 	mutex_init(&core_dev->core_mutex);
 	mutex_init(&core_dev->cmd_mutex);
 	init_completion(&core_dev->start_cmp);
@@ -4036,13 +4059,13 @@ static int suspend_core(struct core_device *core)
 	if (!core->fw_is_ready)
 		return 0;
 
-	for (i = 0; i < VPU_MAX_NUM_STREAMS; i++) {
+	for (i = 0; i < core->supported_instance_count; i++) {
 		ret = suspend_instance(core->ctx[i]);
 		if (ret)
 			return ret;
 	}
 
-	for (i = 0; i < VPU_MAX_NUM_STREAMS; i++)
+	for (i = 0; i < core->supported_instance_count; i++)
 		vpu_ctx_power_off(core->ctx[i]);
 
 	core->suspend = true;
@@ -4060,7 +4083,7 @@ static int resume_core(struct core_device *core)
 	if (!core->suspend)
 		return 0;
 
-	for (i = 0; i < VPU_MAX_NUM_STREAMS; i++)
+	for (i = 0; i < core->supported_instance_count; i++)
 		vpu_ctx_power_on(core->ctx[i]);
 
 	/* if the core isn't activated, it means it has been power off and on */

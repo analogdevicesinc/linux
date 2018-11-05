@@ -254,8 +254,9 @@ struct core_device {
 	unsigned int vpu_mu_id;
 	int vpu_mu_init;
 
-	struct vpu_ctx *ctx[VPU_MAX_NUM_STREAMS];
-	struct vpu_attr attr[VPU_MAX_NUM_STREAMS];
+	u32 supported_instance_count;
+	struct vpu_ctx *ctx[VID_API_NUM_STREAMS];
+	struct vpu_attr attr[VID_API_NUM_STREAMS];
 	struct shared_addr shared_mem;
 	u32 id;
 	off_t reg_fw_base;

@@ -102,12 +102,12 @@ void rpc_init_shared_memory_encoder(struct shared_addr *This,
 
 	phy_addr += MSG_SIZE;
 
-	for (i = 0; i < VPU_MAX_NUM_STREAMS; i++) {
+	for (i = 0; i < VID_API_NUM_STREAMS; i++) {
 		pSharedInterface->pEncCtrlInterface[i] = phy_addr;
 		phy_addr += sizeof(MEDIA_ENC_API_CONTROL_INTERFACE);
 	}
 
-	for (i = 0; i < VPU_MAX_NUM_STREAMS; i++) {
+	for (i = 0; i < VID_API_NUM_STREAMS; i++) {
 		temp_addr = pSharedInterface->pEncCtrlInterface[i];
 		pEncCtrlInterface = (pMEDIA_ENC_API_CONTROL_INTERFACE)(temp_addr + This->base_offset);
 		pEncCtrlInterface->pEncYUVBufferDesc = phy_addr;
