@@ -2375,6 +2375,25 @@ static void enable_mu(struct core_device *dev)
 	MU_sendMesgToFW(dev->mu_base_virtaddr, INIT_DONE, 2);
 }
 
+static void get_core_supported_instance_count(struct core_device *core)
+{
+	pENC_RPC_HOST_IFACE iface;
+
+	iface = core->shared_mem.pSharedInterface;
+	core->supported_instance_count =
+		min_t(u32, iface->uMaxEncoderStreams, VID_API_NUM_STREAMS);
+}
+
+static void vpu_core_start_done(struct core_device *core)
+{
+	if (!core)
+		return;
+
+	get_core_supported_instance_count(core);
+	core->firmware_started = true;
+	complete(&core->start_cmp);
+}
+
 //This code is added for MU
 static irqreturn_t fsl_vpu_mu_isr(int irq, void *This)
 {
@@ -2385,8 +2404,7 @@ static irqreturn_t fsl_vpu_mu_isr(int irq, void *This)
 	if (msg == 0xaa) {
 		enable_mu(dev);
 	} else if (msg == 0x55) {
-		dev->firmware_started = true;
-		complete(&dev->start_cmp);
+		vpu_core_start_done(dev);
 	}  else if (msg == 0xA5) {
 		/*receive snapshot done msg and wakeup complete to suspend*/
 		complete(&dev->snap_done_cmp);
@@ -3757,8 +3775,6 @@ static int init_vpu_core_dev(struct core_device *core_dev)
 	if (!core_dev)
 		return -EINVAL;
 
-	core_dev->supported_instance_count =
-		min(VPU_MAX_NUM_STREAMS, VID_API_NUM_STREAMS);
 	mutex_init(&core_dev->core_mutex);
 	mutex_init(&core_dev->cmd_mutex);
 	init_completion(&core_dev->start_cmp);
