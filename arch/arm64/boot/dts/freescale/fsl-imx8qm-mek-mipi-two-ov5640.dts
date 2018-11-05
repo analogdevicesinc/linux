@@ -20,6 +20,8 @@
 		pinctrl_mipi_csi1: mipicsi1grp{
 			fsl,pins = <
 				SC_P_MIPI_CSI1_MCLK_OUT_MIPI_CSI1_ACM_MCLK_OUT	0xC0000041
+				SC_P_MIPI_CSI1_GPIO0_00_LSIO_GPIO1_IO30         0x00000021
+				SC_P_MIPI_CSI1_GPIO0_01_LSIO_GPIO1_IO31         0x00000021
 			>;
 		};
 	};
