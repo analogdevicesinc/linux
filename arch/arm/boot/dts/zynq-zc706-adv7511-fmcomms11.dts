@@ -123,7 +123,7 @@
 		clock-output-names = "jesd_adc_lane_clk";
 	};
 
-	rx_adxcvr: rx-adxcvr@44a50000 {
+	rx_adxcvr: axi-adxcvr-rx@44a50000 {
 		compatible = "adi,axi-adxcvr-1.0";
 		reg = <0x44a50000 0x1000>;
 
@@ -139,7 +139,7 @@
 		adi,use-lpm-enable;
 	};
 
-	tx_adxcvr: tx-adxcvr@44a60000 {
+	tx_adxcvr: axi-adxcvr-tx@44a60000 {
 		compatible = "adi,axi-adxcvr-1.0";
 		reg = <0x44a60000 0x1000>;
 		clocks = <&adc_divclk>;
