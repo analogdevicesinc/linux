@@ -664,17 +664,18 @@ typedef struct {
 } MEDIA_ENC_API_CONTROL_INTERFACE, *pMEDIA_ENC_API_CONTROL_INTERFACE;
 
 typedef struct {
-	u_int32                                FwExecBaseAddr;
-	u_int32                                FwExecAreaSize;
-	BUFFER_DESCRIPTOR_TYPE                 StreamCmdBufferDesc;
-	BUFFER_DESCRIPTOR_TYPE                 StreamMsgBufferDesc;
-	u_int32                                StreamCmdIntEnable[VID_API_NUM_STREAMS];
-	u_int32                                FWVersion;
-	u_int32                                uMVDFWOffset;
-	u_int32                                uMaxEncoderStreams;
-	u_int32                                pEncCtrlInterface[VID_API_NUM_STREAMS];
-	MEDIAIP_FW_SYSTEM_CONFIG               sSystemCfg;
-	u_int32                                uApiVersion;
+	u_int32					FwExecBaseAddr;
+	u_int32					FwExecAreaSize;
+	BUFFER_DESCRIPTOR_TYPE			StreamCmdBufferDesc;
+	BUFFER_DESCRIPTOR_TYPE			StreamMsgBufferDesc;
+	u_int32					StreamCmdIntEnable[VID_API_NUM_STREAMS];
+	u_int32					FWVersion;
+	u_int32					uMVDFWOffset;
+	u_int32					uMaxEncoderStreams;
+	u_int32					pEncCtrlInterface[VID_API_NUM_STREAMS];
+	MEDIAIP_FW_SYSTEM_CONFIG		sSystemCfg;
+	u_int32					uApiVersion;
+	BUFFER_DESCRIPTOR_TYPE			DebugBufferDesc;
 } ENC_RPC_HOST_IFACE, *pENC_RPC_HOST_IFACE;
 
 #define SCB_XREG_SLV_BASE                               0x00000000

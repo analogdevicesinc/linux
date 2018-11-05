@@ -395,3 +395,18 @@ pENC_DSA_STATUS_t rpc_get_dsa_status(struct shared_addr *shared_mem, int index)
 
 	return dsa_status;
 }
+
+void rpc_set_print_buffer(struct shared_addr *shared_mem,
+				unsigned long print_phy_addr, u32 size)
+{
+	pENC_RPC_HOST_IFACE pSharedInterface;
+	pBUFFER_DESCRIPTOR_TYPE debugBufDesc;
+
+
+	pSharedInterface = shared_mem->pSharedInterface;
+	debugBufDesc = &pSharedInterface->DebugBufferDesc;
+
+	debugBufDesc->start = print_phy_addr;
+	debugBufDesc->end = debugBufDesc->start + size;
+	debugBufDesc->wptr = debugBufDesc->rptr = debugBufDesc->start;
+}

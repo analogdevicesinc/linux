@@ -234,7 +234,7 @@
 			compatible = "nxp,imx8qm-b0-vpuenc", "nxp,imx8qxp-b0-vpuenc";
 			boot-region = <&encoder_boot>;
 			rpc-region = <&encoder_rpc>;
-			fw-buf_size = <0x1000000 0x1000000>;
+			fw-buf-size = <0x1000000 0x1000000>;
 			rpc-buf-size = <0x500000 0x500000>;
 			print-buf-size = <0x300000 0x300000>;
 			reg = <0x0 0x2d000000 0x0 0x1000000>;

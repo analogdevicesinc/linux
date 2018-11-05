@@ -125,5 +125,7 @@ pMEDIAIP_ENC_MEM_POOL rpc_get_mem_pool(
 pENC_ENCODING_STATUS rpc_get_encoding_status(
 		struct shared_addr *shared_mem, int index);
 pENC_DSA_STATUS_t rpc_get_dsa_status(struct shared_addr *shared_mem, int index);
+void rpc_set_print_buffer(struct shared_addr *shared_mem,
+				unsigned long print_phy_addr, u32 size);
 
 #endif

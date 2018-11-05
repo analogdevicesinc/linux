@@ -2364,6 +2364,7 @@ static void enable_mu(struct core_device *dev)
 			dev->rpc_actual_size, dev->rpc_buf_size);
 
 	mu_addr = cpu_phy_to_mu(dev, dev->m0_rpc_phy + dev->rpc_buf_size);
+	rpc_set_print_buffer(&dev->shared_mem, mu_addr, dev->print_buf_size);
 	MU_sendMesgToFW(dev->mu_base_virtaddr, PRINT_BUF_OFFSET, mu_addr);
 
 	mu_addr = cpu_phy_to_mu(dev, dev->m0_rpc_phy);
@@ -3511,7 +3512,7 @@ static int parse_core_info(struct core_device *core, struct device_node *np)
 	}
 	core->reg_fw_base = val;
 
-	ret = of_property_read_u32_index(np, "fw-buf_size", core->id, &val);
+	ret = of_property_read_u32_index(np, "fw-buf-size", core->id, &val);
 	if (ret) {
 		vpu_err("find fw-buf-size for core[%d] fail\n", core->id);
 		core->fw_buf_size = M0_BOOT_SIZE_DEFAULT;
