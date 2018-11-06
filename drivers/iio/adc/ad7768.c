@@ -398,6 +398,8 @@ error_disable_clk:
 error_disable_reg:
 	regulator_disable(st->vref);
 
+	iio_dmaengine_buffer_free(indio_dev->buffer);
+
 	return ret;
 }
 
@@ -406,6 +408,7 @@ static int ad7768_remove(struct spi_device *spi)
 	struct iio_dev *indio_dev = spi_get_drvdata(spi);
 	struct ad7768_state *st = iio_priv(indio_dev);
 
+	iio_dmaengine_buffer_free(indio_dev->buffer);
 	clk_disable_unprepare(st->mclk);
 	regulator_disable(st->vref);
 
