@@ -808,35 +808,6 @@ static inline int get_pdm_clk(struct fsl_micfil *micfil,
 	return bclk;
 }
 
-/* Check if BSY_FIL flag in STAT register is set.
- * Read this flag for max 10 times, sleep 100ms
- * after each read and return error if it's not
- * cleared after 10 retries.
- */
-static int fsl_micfil_bsy(struct device *dev)
-{
-	struct fsl_micfil *micfil = dev_get_drvdata(dev);
-	int i;
-	int ret;
-	u32 stat;
-
-	for (i = 0; i < MICFIL_MAX_RETRY; i++) {
-		ret = regmap_read(micfil->regmap, REG_MICFIL_STAT, &stat);
-		if (ret) {
-			dev_err(dev, "failed to read register %d\n",
-				REG_MICFIL_STAT);
-			return ret;
-		}
-
-		if (stat & MICFIL_STAT_BSY_FIL_MASK)
-			usleep_range(MICFIL_SLEEP_MIN, MICFIL_SLEEP_MAX);
-		else
-			return 0;
-	}
-
-	return -EINVAL;
-}
-
 /* The SRES is a self-negated bit which provides the CPU with the
  * capability to initialize the PDM Interface module through the
  * slave-bus interface. This bit always reads as zero, and this
@@ -948,10 +919,8 @@ static int __maybe_unused init_zcd(struct device *dev)
 	int ret;
 
 	/* exit if zcd is not enabled from userspace */
-	if (!micfil->vad_zcd_en) {
-		dev_info(dev, "Zero Crossing Detector is not enabled.\n");
+	if (!micfil->vad_zcd_en)
 		return 0;
-	}
 
 	if (micfil->vad_zcd_auto) {
 		/* Zero-Crossing Detector Adjustment */
@@ -1093,8 +1062,6 @@ static int init_hwvad_envelope_mode(struct device *dev)
 	int ret, i;
 	u32 stat;
 	u32 flag;
-
-	dev_info(dev, "Envelope-based mode initialization\n");
 
 	/* Frame energy disable */
 	ret = regmap_update_bits(micfil->regmap, REG_MICFIL_VAD0_CTRL2,
@@ -1259,10 +1226,6 @@ static int __maybe_unused init_hwvad(struct device *dev)
 	struct fsl_micfil *micfil = dev_get_drvdata(dev);
 	int ret;
 
-	ret = fsl_micfil_bsy(dev);
-	if (ret)
-		dev_warn(dev, "Device is busy\n");
-
 	/* configure CIC OSR in VADCICOSR */
 	ret = regmap_update_bits(micfil->regmap, REG_MICFIL_VAD0_CTRL1,
 				 MICFIL_VAD0_CTRL1_CICOSR_MASK,
@@ -1385,10 +1348,8 @@ static int fsl_micfil_set_mclk_rate(struct fsl_micfil *micfil, int clk_id,
 	 * since you can record only at hwvad rate and clock
 	 * has already been set to the required frequency
 	 */
-	if (atomic_read(&micfil->hwvad_state) == MICFIL_HWVAD_ON) {
-		dev_warn(dev, "Cannot change the clock parrent when HWVAD is enabled");
+	if (atomic_read(&micfil->hwvad_state) == MICFIL_HWVAD_ON)
 		return 0;
-	}
 
 	/* check if all clock sources are valid */
 	for (i = 0; i < MICFIL_CLK_SRC_NUM; i++) {
@@ -1542,9 +1503,6 @@ static int fsl_set_clock_params(struct device *dev, unsigned int rate)
 	struct fsl_micfil *micfil = dev_get_drvdata(dev);
 	int clk_div;
 	int ret = 0;
-
-	if (fsl_micfil_bsy(dev))
-		dev_warn(dev, "Device busy");
 
 	ret = fsl_micfil_set_mclk_rate(micfil, 0, rate);
 	if (ret < 0)
@@ -1925,8 +1883,6 @@ static irqreturn_t hwvad_isr(int irq, void *devid)
 		ret = configure_hwvad_interrupts(dev, 0);
 		if (ret)
 			dev_err(dev, "Failed to disable interrupts\n");
-
-		dev_info(dev, "Detected voice\n");
 	}
 
 	return IRQ_WAKE_THREAD;
@@ -2181,10 +2137,6 @@ static ssize_t micfil_hwvad_handler(struct kobject *kobj,
 		return -EINVAL;
 
 	if (vad_channel >= 0 && vad_channel <= 7) {
-		dev_info(dev,
-			 "enabling hwvad with %lu channels at rate %d\n",
-			 vad_channel,
-			 micfil_hwvad_rate_ints[micfil->vad_rate_index]);
 		micfil->vad_channel = vad_channel;
 		ret = enable_hwvad(dev, true);
 		if (ret) {
@@ -2192,7 +2144,6 @@ static ssize_t micfil_hwvad_handler(struct kobject *kobj,
 			atomic_set(&micfil->hwvad_state, MICFIL_HWVAD_OFF);
 		}
 	} else {
-		dev_info(dev, "disabling hwvad\n");
 		micfil->vad_channel = -1;
 		ret = disable_hwvad(dev, true);
 	}
