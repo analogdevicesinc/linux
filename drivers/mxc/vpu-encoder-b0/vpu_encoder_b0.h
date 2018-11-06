@@ -89,7 +89,6 @@ struct vpu_v4l2_control {
 typedef enum{
 	INIT_DONE = 1,
 	RPC_BUF_OFFSET,
-	PRINT_BUF_OFFSET,
 	BOOT_ADDRESS,
 	COMMAND,
 	EVENT

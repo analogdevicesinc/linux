@@ -2365,7 +2365,6 @@ static void enable_mu(struct core_device *dev)
 
 	mu_addr = cpu_phy_to_mu(dev, dev->m0_rpc_phy + dev->rpc_buf_size);
 	rpc_set_print_buffer(&dev->shared_mem, mu_addr, dev->print_buf_size);
-	MU_sendMesgToFW(dev->mu_base_virtaddr, PRINT_BUF_OFFSET, mu_addr);
 
 	mu_addr = cpu_phy_to_mu(dev, dev->m0_rpc_phy);
 	MU_sendMesgToFW(dev->mu_base_virtaddr, RPC_BUF_OFFSET, mu_addr);
