@@ -2392,6 +2392,7 @@ static irqreturn_t fsl_vpu_mu_isr(int irq, void *This)
 		complete(&dev->snap_done_cmp);
 	} else
 		queue_work(dev->workqueue, &dev->msg_work);
+
 	return IRQ_HANDLED;
 }
 
@@ -2465,6 +2466,35 @@ static bool receive_msg_queue(struct vpu_ctx *ctx, struct event_msg *msg)
 		return false;
 }
 
+static struct vpu_ctx *get_ctx_by_index(struct core_device *core, int index)
+{
+	struct vpu_ctx *ctx = NULL;
+
+	if (!core)
+		return NULL;
+
+	if (index < 0 || index >= core->supported_instance_count)
+		return NULL;
+
+	ctx = core->ctx[index];
+	if (!ctx)
+		return NULL;
+
+	if (!test_bit(VPU_ENC_STATUS_INITIALIZED, &ctx->status)) {
+		vpu_err("core[%d]'s ctx[%d] is not initialized\n",
+				core->id, index);
+		return NULL;
+	}
+
+	if (test_bit(VPU_ENC_STATUS_CLOSED, &ctx->status)) {
+		vpu_err("core[%d]'s ctx[%d] is closed\n",
+				core->id, index);
+		return NULL;
+	}
+
+	return ctx;
+}
+
 extern u_int32 rpc_MediaIPFW_Video_message_check_encoder(struct shared_addr *This);
 static void vpu_msg_run_work(struct work_struct *work)
 {
@@ -2479,8 +2509,8 @@ static void vpu_msg_run_work(struct work_struct *work)
 			vpu_err("msg idx(%d) is out of range\n", msg.idx);
 			continue;
 		}
-		mutex_lock(&dev->core_mutex);
-		ctx = dev->ctx[msg.idx];
+		mutex_lock(&dev->vdev->dev_mutex);
+		ctx = get_ctx_by_index(dev, msg.idx);
 		if (ctx != NULL) {
 			mutex_lock(&ctx->instance_mutex);
 			if (!ctx->ctx_released) {
@@ -2488,8 +2518,11 @@ static void vpu_msg_run_work(struct work_struct *work)
 				queue_work(ctx->instance_wq, &ctx->instance_work);
 			}
 			mutex_unlock(&ctx->instance_mutex);
+		} else {
+			vpu_err("msg[%d] of ctx[%d] is missed\n",
+					msg.msgid, msg.idx);
 		}
-		mutex_unlock(&dev->core_mutex);
+		mutex_unlock(&dev->vdev->dev_mutex);
 	}
 	if (rpc_MediaIPFW_Video_message_check_encoder(This) == API_MSG_BUFFER_ERROR)
 		vpu_dbg(LVL_ERR, "MSG num is too big to handle");
@@ -2902,7 +2935,6 @@ static int request_instance(struct core_device *core, struct vpu_ctx *ctx)
 			ctx->core_dev = core;
 			ctx->str_index = idx;
 			ctx->dev = core->vdev;
-			core->ctx[idx] = ctx;
 			break;
 		}
 	}
@@ -3031,6 +3063,7 @@ static int init_vpu_ctx(struct vpu_ctx *ctx)
 	init_completion(&ctx->stop_cmp);
 
 	set_bit(VPU_ENC_STATUS_INITIALIZED, &ctx->status);
+	ctx->core_dev->ctx[ctx->str_index] = ctx;
 
 	return 0;
 error:
@@ -3324,8 +3357,8 @@ static int vpu_enc_v4l2_open(struct file *filp)
 	pm_runtime_get_sync(dev->generic_dev);
 	ctx = create_and_request_instance(dev);
 	pm_runtime_put_sync(dev->generic_dev);
-	mutex_unlock(&dev->dev_mutex);
 	if (!ctx) {
+		mutex_unlock(&dev->dev_mutex);
 		vpu_dbg(LVL_ERR, "failed to create encoder ctx\n");
 		return -ENOMEM;
 	}
@@ -3333,6 +3366,7 @@ static int vpu_enc_v4l2_open(struct file *filp)
 	init_vpu_attr(get_vpu_ctx_attr(ctx));
 	ret = init_vpu_ctx(ctx);
 	if (ret) {
+		mutex_unlock(&dev->dev_mutex);
 		vpu_dbg(LVL_ERR, "init vpu ctx fail\n");
 		goto error;
 	}
@@ -3343,6 +3377,7 @@ static int vpu_enc_v4l2_open(struct file *filp)
 
 	init_vpu_ctx_fh(ctx, dev);
 	filp->private_data = &ctx->fh;
+	mutex_unlock(&dev->dev_mutex);
 
 	return 0;
 error:
@@ -3363,10 +3398,11 @@ static int vpu_enc_v4l2_release(struct file *filp)
 	request_eos(ctx);
 	wait_for_stop_done(ctx);
 
+	mutex_lock(&dev->dev_mutex);
+
 	uninit_vpu_ctx_fh(ctx);
 	filp->private_data = NULL;
 
-	mutex_lock(&dev->dev_mutex);
 	release_instance(ctx);
 	mutex_unlock(&dev->dev_mutex);
 
