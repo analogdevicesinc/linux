@@ -510,17 +510,26 @@ static void imx_ldb_encoder_enable(struct drm_encoder *encoder)
 
 	if (imx_ldb_ch == &ldb->channel[0] || dual) {
 		ldb->ldb_ctrl &= ~LDB_CH0_MODE_EN_MASK;
-		if (mux == 0 || ldb->lvds_mux)
+		if (ldb->has_mux) {
+			if (mux == 0 || ldb->lvds_mux)
+				ldb->ldb_ctrl |= LDB_CH0_MODE_EN_TO_DI0;
+			else if (mux == 1)
+				ldb->ldb_ctrl |= LDB_CH0_MODE_EN_TO_DI1;
+		} else {
 			ldb->ldb_ctrl |= LDB_CH0_MODE_EN_TO_DI0;
-		else if (mux == 1)
-			ldb->ldb_ctrl |= LDB_CH0_MODE_EN_TO_DI1;
+		}
 	}
 	if (imx_ldb_ch == &ldb->channel[1] || dual) {
 		ldb->ldb_ctrl &= ~LDB_CH1_MODE_EN_MASK;
-		if (mux == 1 || ldb->lvds_mux)
-			ldb->ldb_ctrl |= LDB_CH1_MODE_EN_TO_DI1;
-		else if (mux == 0)
-			ldb->ldb_ctrl |= LDB_CH1_MODE_EN_TO_DI0;
+		if (ldb->has_mux) {
+			if (mux == 1 || ldb->lvds_mux)
+				ldb->ldb_ctrl |= LDB_CH1_MODE_EN_TO_DI1;
+			else if (mux == 0)
+				ldb->ldb_ctrl |= LDB_CH1_MODE_EN_TO_DI0;
+		} else {
+			ldb->ldb_ctrl |= dual ?
+				LDB_CH1_MODE_EN_TO_DI0 : LDB_CH1_MODE_EN_TO_DI1;
+		}
 	}
 
 	if (ldb->lvds_mux) {
