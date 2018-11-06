@@ -366,6 +366,7 @@ struct flexcan_priv {
 #ifdef CONFIG_ARCH_MXC_ARM64
 	sc_ipc_t ipc_handle;
 #endif
+	bool wakeup;
 
 	u32 mb_size;
 	u32 mb_num;
@@ -1434,6 +1435,8 @@ static int flexcan_open(struct net_device *dev)
 	if (err)
 		goto out_free_irq;
 
+	device_set_wakeup_capable(priv->dev, priv->wakeup);
+
 	can_led_event(dev, CAN_LED_EVENT_OPEN);
 
 	can_rx_offload_enable(&priv->offload);
@@ -1463,6 +1466,8 @@ static int flexcan_close(struct net_device *dev)
 	free_irq(dev->irq, dev);
 
 	close_candev(dev);
+
+	device_set_wakeup_capable(priv->dev, false);
 
 	can_led_event(dev, CAN_LED_EVENT_STOP);
 
@@ -1659,7 +1664,6 @@ static int flexcan_probe(struct platform_device *pdev)
 	int err, irq;
 	u32 clock_freq = 0;
 	u32 clk_src = 1;
-	int wakeup = 1;
 
 	reg_xceiver = devm_regulator_get(&pdev->dev, "xceiver");
 	if (PTR_ERR(reg_xceiver) == -EPROBE_DEFER)
@@ -1808,21 +1812,20 @@ static int flexcan_probe(struct platform_device *pdev)
 
 	devm_can_led_init(dev);
 
+	priv->wakeup = true;
 	if (priv->devtype_data->quirks & FLEXCAN_QUIRK_TIMESTAMP_SUPPORT_FD) {
 		err = imx8_sc_ipc_fetch(pdev);
 		if (err) {
-			wakeup = 0;
+			priv->wakeup = false;
 			dev_dbg(&pdev->dev, "failed to fetch scu ipc\n");
 		}
 	} else if (priv->devtype_data->quirks & FLEXCAN_QUIRK_DISABLE_RXFG) {
 		err = flexcan_of_parse_stop_mode(pdev);
 		if (err) {
-			wakeup = 0;
+			priv->wakeup = false;;
 			dev_dbg(&pdev->dev, "failed to parse stop-mode\n");
 		}
 	}
-
-	device_set_wakeup_capable(&pdev->dev, wakeup);
 
 	pm_runtime_put(&pdev->dev);
 
