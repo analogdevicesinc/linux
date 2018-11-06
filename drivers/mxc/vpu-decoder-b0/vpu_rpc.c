@@ -133,12 +133,12 @@ void rpc_init_shared_memory(struct shared_addr *This,
 
 	phy_addr += QMETER_SIZE;
 	pDebugBufferDesc = &pSharedInterface->DebugBufferDesc;
-	pDebugBufferDesc->uWrPtr = phy_addr;
+	pDebugBufferDesc->uWrPtr = base_phy_addr + M0_PRINT_OFFSET;
 	pDebugBufferDesc->uRdPtr = pDebugBufferDesc->uWrPtr;
 	pDebugBufferDesc->uStart = pDebugBufferDesc->uWrPtr;
 	pDebugBufferDesc->uEnd = pDebugBufferDesc->uStart + DEBUG_SIZE;
 
-	phy_addr += DEBUG_SIZE;
+	phy_addr += sizeof(MediaIPFW_Video_BufDesc);
 	for (i = 0; i < VPU_MAX_NUM_STREAMS; i++) {
 		pEngAccessBufferDesc = &pSharedInterface->EngAccessBufferDesc[i];
 		pEngAccessBufferDesc->uWrPtr = phy_addr;

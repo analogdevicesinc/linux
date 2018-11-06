@@ -65,9 +65,10 @@
 #define GOP_SIZE 0x1000
 #define PIC_SIZE 0x1000
 #define QMETER_SIZE 0x1000
-#define DEBUG_SIZE 0x1000
+#define DEBUG_SIZE 0x200000
 #define ENG_SIZE 0x1000
 #define LOCAL_MSG_NUM VID_API_MESSAGE_LIMIT
+#define M0_PRINT_OFFSET 0x500000
 
 struct shared_addr {
 	pDEC_RPC_HOST_IFACE pSharedInterface;

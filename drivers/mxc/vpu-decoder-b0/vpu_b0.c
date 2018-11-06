@@ -2128,7 +2128,6 @@ static irqreturn_t fsl_vpu_mu_isr(int irq, void *This)
 		rpc_init_shared_memory(&dev->shared_mem, dev->m0_rpc_phy - dev->m0_p_fw_space_phy, dev->m0_rpc_virt, SHARED_SIZE);
 		rpc_set_system_cfg_value(dev->shared_mem.pSharedInterface, VPU_REG_BASE);
 
-		MU_sendMesgToFW(dev->mu_base_virtaddr, PRINT_BUF_OFFSET, dev->m0_rpc_phy - dev->m0_p_fw_space_phy + M0_PRINT_OFFSET);
 		MU_sendMesgToFW(dev->mu_base_virtaddr, RPC_BUF_OFFSET, dev->m0_rpc_phy - dev->m0_p_fw_space_phy); //CM0 use relative address
 		MU_sendMesgToFW(dev->mu_base_virtaddr, BOOT_ADDRESS, dev->m0_p_fw_space_phy);
 		MU_sendMesgToFW(dev->mu_base_virtaddr, INIT_DONE, 2);
@@ -3273,8 +3272,6 @@ static int init_vpudev_parameters(struct vpu_dev *dev)
 
 	memset_io(dev->str_base_vir, 0, dev->str_size);
 #endif
-	rpc_init_shared_memory(&dev->shared_mem, dev->m0_rpc_phy - dev->m0_p_fw_space_phy, dev->m0_rpc_virt, SHARED_SIZE);
-	rpc_set_system_cfg_value(dev->shared_mem.pSharedInterface, VPU_REG_BASE);
 
 	return 0;
 }
