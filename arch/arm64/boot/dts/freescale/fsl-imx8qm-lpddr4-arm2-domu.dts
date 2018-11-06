@@ -92,7 +92,7 @@
 	};
 
 	hypervisor {
-		compatible = "xen,xen-4.10", "xen,xen";
+		compatible = "xen,xen-4.11", "xen,xen";
 		reg = <0x0 0x38000000 0x0 0x1000000>;
 		interrupts = <GIC_PPI 15 (GIC_CPU_MASK_SIMPLE(6) | IRQ_TYPE_LEVEL_LOW)>;
 		interrupt-parent = <&gic>;
