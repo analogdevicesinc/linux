@@ -618,6 +618,11 @@
 			>;
 		};
 
+		pinctrl_wifi: wifigrp{
+			fsl,pins = <
+				SC_P_SCU_BOOT_MODE3_SCU_DSC_RTC_CLOCK_OUTPUT_32K	0x20
+			>;
+		};
 	};
 };
 
@@ -937,7 +942,7 @@
 &pcieb{
 	ext_osc = <1>;
 	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_pcieb>;
+	pinctrl-0 = <&pinctrl_pcieb &pinctrl_wifi>;
 	clkreq-gpio = <&gpio4 1 GPIO_ACTIVE_LOW>;
 	disable-gpio = <&pca9557_a 2 GPIO_ACTIVE_LOW>;
 	reset-gpio = <&gpio4 0 GPIO_ACTIVE_LOW>;
