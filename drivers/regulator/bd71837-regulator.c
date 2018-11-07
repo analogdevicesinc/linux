@@ -873,14 +873,15 @@ static int bd71837_probe(struct platform_device *pdev)
 		if (pdata) {
 			init_data = pdata->init_data[i];
 		} else {
-			init_data = matches[i].init_data;
+			init_data = bd71837_matches[i].init_data;
 		}
 
 		config.dev = pmic->dev;
 		config.init_data = init_data;
 		config.driver_data = pmic;
 		config.regmap = bd71837->regmap;
-		config.of_node = matches[i].of_node;
+		if (matches)
+			config.of_node = matches[i].of_node;
 		dev_info(config.dev, "regulator register name '%s'\n", desc->name);
 
 		rdev = regulator_register(desc, &config);
