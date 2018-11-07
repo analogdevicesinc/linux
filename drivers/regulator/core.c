@@ -1099,7 +1099,7 @@ static int set_machine_constraints(struct regulator_dev *rdev,
 		}
 	}
 
-	if ((rdev->constraints->ramp_delay || rdev->constraints->ramp_disable)
+	if ((rdev->constraints->ramp_delay && !rdev->constraints->ramp_disable)
 		&& ops->set_ramp_delay) {
 		ret = ops->set_ramp_delay(rdev, rdev->constraints->ramp_delay);
 		if (ret < 0) {
