@@ -418,7 +418,7 @@ void mxsfb_crtc_enable(struct mxsfb_drm_private *mxsfb)
 	if (mxsfb->devdata->flags & MXSFB_FLAG_BUSFREQ)
 		request_bus_freq(BUS_FREQ_HIGH);
 
-	mxsfb_enable_axi_clk(mxsfb);
+	clk_prepare_enable(mxsfb->clk_axi);
 	writel(0, mxsfb->base + LCDC_CTRL);
 	mxsfb_crtc_mode_set_nofb(mxsfb);
 
@@ -435,7 +435,7 @@ void mxsfb_crtc_enable(struct mxsfb_drm_private *mxsfb)
 void mxsfb_crtc_disable(struct mxsfb_drm_private *mxsfb)
 {
 	mxsfb_disable_controller(mxsfb);
-	mxsfb_disable_axi_clk(mxsfb);
+	clk_disable_unprepare(mxsfb->clk_axi);
 
 	if (mxsfb->devdata->flags & MXSFB_FLAG_BUSFREQ)
 		release_bus_freq(BUS_FREQ_HIGH);
@@ -466,9 +466,9 @@ void mxsfb_plane_atomic_update(struct mxsfb_drm_private *mxsfb,
 
 	paddr = mxsfb_get_fb_paddr(mxsfb);
 	if (paddr) {
-		mxsfb_enable_axi_clk(mxsfb);
+		clk_prepare_enable(mxsfb->clk_axi);
 		writel(paddr, mxsfb->base + mxsfb->devdata->next_buf);
-		mxsfb_disable_axi_clk(mxsfb);
+		clk_disable_unprepare(mxsfb->clk_axi);
 	}
 
 	if (!fb || !old_fb)
