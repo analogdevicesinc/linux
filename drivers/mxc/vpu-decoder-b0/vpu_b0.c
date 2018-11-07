@@ -2195,8 +2195,8 @@ static void send_msg_queue(struct vpu_ctx *ctx, struct event_msg *msg)
 {
 	u_int32 ret;
 
-	ret = kfifo_in(&ctx->msg_fifo, msg, sizeof(struct event_msg));
-	if (ret != sizeof(struct event_msg))
+	ret = kfifo_in(&ctx->msg_fifo, msg, sizeof(u_int32) * (MSG_WORD_LENGTH + msg->msgnum));
+	if (ret != sizeof(u_int32) * (MSG_WORD_LENGTH + msg->msgnum))
 		vpu_dbg(LVL_ERR, "There is no memory for msg fifo, ret=%d\n", ret);
 }
 
@@ -2204,13 +2204,25 @@ static bool receive_msg_queue(struct vpu_ctx *ctx, struct event_msg *msg)
 {
 	u_int32 ret;
 
-	if (kfifo_len(&ctx->msg_fifo) >= sizeof(*msg)) {
-		ret = kfifo_out(&ctx->msg_fifo, msg, sizeof(*msg));
-		if (ret != sizeof(*msg)) {
-			vpu_dbg(LVL_ERR, "kfifo_out has error, ret=%d\n", ret);
+	if (kfifo_len(&ctx->msg_fifo) >= sizeof(u_int32) * MSG_WORD_LENGTH) {
+		ret = kfifo_out(&ctx->msg_fifo, msg, sizeof(u_int32) * MSG_WORD_LENGTH);
+		if (ret != sizeof(u_int32) * MSG_WORD_LENGTH) {
+			vpu_dbg(LVL_ERR, "kfifo_out msg word has error, ret=%d\n", ret);
 			return false;
-		} else
-			return true;
+		} else {
+			if (msg->msgnum > 0) {
+				if (kfifo_len(&ctx->msg_fifo) >= sizeof(u_int32) * msg->msgnum) {
+					ret = kfifo_out(&ctx->msg_fifo, msg->msgdata, sizeof(u_int32) * msg->msgnum);
+					if (ret != sizeof(u_int32) * msg->msgnum) {
+						vpu_dbg(LVL_ERR, "kfifo_out msg data has error, ret=%d\n", ret);
+						return false;
+					} else
+						return true;
+				} else
+					return false;
+			} else
+				return true;
+		}
 	} else
 		return false;
 }
@@ -2222,6 +2234,11 @@ static void vpu_msg_run_work(struct work_struct *work)
 	struct vpu_ctx *ctx;
 	struct event_msg msg;
 	struct shared_addr *This = &dev->shared_mem;
+
+	if (!dev || !This)
+		return;
+
+	memset(&msg, 0, sizeof(struct event_msg));
 
 	while (rpc_MediaIPFW_Video_message_check(This) == API_MSG_AVAILABLE) {
 		rpc_receive_msg_buf(This, &msg);
@@ -2244,6 +2261,11 @@ static void vpu_msg_instance_work(struct work_struct *work)
 {
 	struct vpu_ctx *ctx = container_of(work, struct vpu_ctx, instance_work);
 	struct event_msg msg;
+
+	if (!ctx)
+		return;
+
+	memset(&msg, 0, sizeof(struct event_msg));
 
 	while (receive_msg_queue(ctx, &msg))
 		vpu_api_event_handler(ctx, msg.idx, msg.msgid, msg.msgdata);

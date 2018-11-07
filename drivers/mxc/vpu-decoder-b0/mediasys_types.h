@@ -75,6 +75,7 @@ typedef unsigned int BOOL;
 #define MEDIAIP_MAX_NUM_TIMER_IRQ_SLOTS 4
 #define VID_API_COMMAND_LIMIT    64
 #define VID_API_MESSAGE_LIMIT    256
+#define MSG_WORD_LENGTH 3
 
 #define API_CMD_AVAILABLE            0x0
 #define API_CMD_INCOMPLETE           0x1
