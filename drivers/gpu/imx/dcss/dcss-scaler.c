@@ -701,45 +701,6 @@ static void dcss_scaler_program_7_coef_set(struct dcss_soc *dcss, int ch_num,
 	}
 }
 
-static void dcss_scaler_program_5_coef_set(struct dcss_soc *dcss, int ch_num,
-					   int base_addr,
-					   int coef[][PSC_NUM_TAPS])
-{
-	int i, phase;
-
-	for (i = 0; i < PSC_STORED_PHASES; i++) {
-		dcss_scaler_write(dcss->scaler_priv, ch_num,
-				  ((coef[i][1] & 0xfff) << 16 |
-				   (coef[i][2] & 0xfff) << 4  |
-				   (coef[i][3] & 0xf00) >> 8),
-				  base_addr + i * sizeof(u32));
-		dcss_scaler_write(dcss->scaler_priv, ch_num,
-				  ((coef[i][3] & 0x0ff) << 20 |
-				   (coef[i][4] & 0xfff) << 8  |
-				   (coef[i][5] & 0xff0) >> 4),
-				  base_addr + 0x40 + i * sizeof(u32));
-		dcss_scaler_write(dcss->scaler_priv, ch_num,
-				  ((coef[i][5] & 0x00f) << 24),
-				  base_addr + 0x80 + i * sizeof(u32));
-	}
-	/* reverse both phase and tap orderings */
-	for (phase = (PSC_NUM_PHASES >> 1) - 1; i < PSC_NUM_PHASES; i++, phase--) {
-		dcss_scaler_write(dcss->scaler_priv, ch_num,
-				  ((coef[phase][5] & 0xfff) << 16 |
-				   (coef[phase][4] & 0xfff) << 4  |
-				   (coef[phase][3] & 0xf00) >> 8),
-				  base_addr + i * sizeof(u32));
-		dcss_scaler_write(dcss->scaler_priv, ch_num,
-				  ((coef[phase][3] & 0x0ff) << 20 |
-				   (coef[phase][2] & 0xfff) << 8  |
-				   (coef[phase][1] & 0xff0) >> 4),
-				  base_addr + 0x40 + i * sizeof(u32));
-		dcss_scaler_write(dcss->scaler_priv, ch_num,
-				  ((coef[phase][1] & 0x00f) << 24),
-				  base_addr + 0x80 + i * sizeof(u32));
-	}
-}
-
 static void dcss_scaler_yuv_coef_set(struct dcss_soc *dcss, int ch_num,
 				     enum buffer_format src_format,
 				     enum buffer_format dst_format,
@@ -749,9 +710,6 @@ static void dcss_scaler_yuv_coef_set(struct dcss_soc *dcss, int ch_num,
 {
 	struct dcss_scaler_ch *ch = &dcss->scaler_priv->ch[ch_num];
 	int coef[PSC_STORED_PHASES][PSC_NUM_TAPS];
-	bool program_5_taps = use_5_taps ||
-			      (dst_format == BUF_FMT_YUV422 &&
-			       src_format == BUF_FMT_ARGB8888_YUV444);
 
 	/* horizontal luma */
 	dcss_scaler_filter_design(src_xres, dst_xres, 0,
@@ -763,12 +721,8 @@ static void dcss_scaler_yuv_coef_set(struct dcss_soc *dcss, int ch_num,
 	dcss_scaler_filter_design(src_yres, dst_yres, use_5_taps,
 				  src_yres == dst_yres, coef);
 
-	if (program_5_taps)
-		dcss_scaler_program_5_coef_set(dcss, ch_num,
-					       DCSS_SCALER_COEF_VLUM, coef);
-	else
-		dcss_scaler_program_7_coef_set(dcss, ch_num,
-					       DCSS_SCALER_COEF_VLUM, coef);
+	dcss_scaler_program_7_coef_set(dcss, ch_num,
+				       DCSS_SCALER_COEF_VLUM, coef);
 
 	/* adjust chroma resolution */
 	if (src_format != BUF_FMT_ARGB8888_YUV444)
@@ -793,12 +747,8 @@ static void dcss_scaler_yuv_coef_set(struct dcss_soc *dcss, int ch_num,
 				  (src_yres == dst_yres) && (ch->c_vstart == 0),
 				  coef);
 
-	if (program_5_taps)
-		dcss_scaler_program_5_coef_set(dcss, ch_num,
-					       DCSS_SCALER_COEF_VCHR, coef);
-	else
-		dcss_scaler_program_7_coef_set(dcss, ch_num,
-					       DCSS_SCALER_COEF_VCHR, coef);
+	dcss_scaler_program_7_coef_set(dcss, ch_num,
+				       DCSS_SCALER_COEF_VCHR, coef);
 }
 
 static void dcss_scaler_rgb_coef_set(struct dcss_soc *dcss, int ch_num,
@@ -816,7 +766,7 @@ static void dcss_scaler_rgb_coef_set(struct dcss_soc *dcss, int ch_num,
 	/* vertical RGB */
 	dcss_scaler_filter_design(src_yres, dst_yres, 1,
 				  src_yres == dst_yres, coef);
-	dcss_scaler_program_5_coef_set(dcss, ch_num,
+	dcss_scaler_program_7_coef_set(dcss, ch_num,
 				       DCSS_SCALER_COEF_VLUM, coef);
 }
 
