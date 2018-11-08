@@ -52,9 +52,9 @@ extern unsigned int vpu_dbg_level_encoder;
 #define M0_BOOT_SIZE_DEFAULT	0x1000000
 #define M0_BOOT_SIZE_MIN	0x100000
 #define RPC_SIZE_DEFAULT	0x100000
-#define RPC_SIZE_MIN		0x100000
+#define RPC_SIZE_MIN		0x20000
 #define PRINT_SIZE_DEFAULT	0x200000
-#define PRINT_SIZE_MIN		0x200000
+#define PRINT_SIZE_MIN		0x20000
 #define MEM_SIZE  0x2800000
 #define YUV_SIZE  0x4000000
 #define STREAM_SIZE 0x300000

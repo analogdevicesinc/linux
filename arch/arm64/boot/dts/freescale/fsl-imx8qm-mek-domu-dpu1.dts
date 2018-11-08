@@ -99,7 +99,7 @@
 		};
 		encoder_boot: encoder_boot@0x86000000 {
 			no-map;
-			reg = <0 0x86000000 0 0x2000000>;
+			reg = <0 0x86000000 0 0x400000>;
 		};
 		/*
 		 * CM40 rpmsg memory is still for Dom0, the domu.cfg
@@ -116,7 +116,7 @@
 		};
 		encoder_rpc: encoder_rpc@0x91400000 {
 			no-map;
-			reg = <0 0x91400000 0 0x1000000>;
+			reg = <0 0x91400000 0 0x200000>;
 		};
 
 		decoder_str: str@0x94400000 {
@@ -234,9 +234,9 @@
 			compatible = "nxp,imx8qm-b0-vpuenc", "nxp,imx8qxp-b0-vpuenc";
 			boot-region = <&encoder_boot>;
 			rpc-region = <&encoder_rpc>;
-			fw-buf-size = <0x1000000 0x1000000>;
-			rpc-buf-size = <0x500000 0x500000>;
-			print-buf-size = <0x300000 0x300000>;
+			fw-buf-size = <0x200000 0x200000>;
+			rpc-buf-size = <0x80000 0x80000>;
+			print-buf-size = <0x80000 0x80000>;
 			reg = <0x0 0x2d000000 0x0 0x1000000>;
 			reg-names = "vpu_regs";
 			power-domains = <&pd_vpu_enc>;
