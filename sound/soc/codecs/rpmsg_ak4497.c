@@ -739,33 +739,6 @@ static int ak4497_set_bias_level(struct snd_soc_codec *codec,
 	return 0;
 }
 
-static int ak4497_set_dai_mute(struct snd_soc_dai *dai, int mute)
-{
-	struct snd_soc_codec *codec = dai->codec;
-	struct rpmsg_ak4497_priv *ak4497 = snd_soc_codec_get_drvdata(codec);
-	int nfs, ndt;
-
-	nfs = ak4497->fs1;
-
-	if (mute) { /* SMUTE: 1 , MUTE */
-		snd_soc_update_bits(codec, AK4497_01_CONTROL2, 0x01, 0x01);
-		ndt = 7424000 / nfs;
-		mdelay(ndt);
-
-		/* External Mute ON */
-		if (gpio_is_valid(ak4497->mute_gpio))
-			gpio_set_value_cansleep(ak4497->mute_gpio, 1);
-	} else { /* SMUTE: 0, NORMAL operation */
-
-		/* External Mute OFF */
-		if (gpio_is_valid(ak4497->mute_gpio))
-			gpio_set_value_cansleep(ak4497->mute_gpio, 0);
-		snd_soc_update_bits(codec, AK4497_01_CONTROL2, 0x01, 0x00);
-	}
-
-	return 0;
-}
-
 #define AK4497_RATES (SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_11025 |\
 		      SNDRV_PCM_RATE_16000 | SNDRV_PCM_RATE_22050 |\
 		      SNDRV_PCM_RATE_32000 | SNDRV_PCM_RATE_44100 |\
@@ -807,7 +780,6 @@ static struct snd_soc_dai_ops ak4497_dai_ops = {
 	.hw_params	= ak4497_hw_params,
 	.set_sysclk	= ak4497_set_dai_sysclk,
 	.set_fmt	= ak4497_set_dai_fmt,
-	.digital_mute   = ak4497_set_dai_mute,
 };
 
 struct snd_soc_dai_driver rpmsg_ak4497_dai[] = {
