@@ -44,17 +44,10 @@ extern struct mxc_isi_fmt mxc_isi_out_formats[9];
 struct mxc_isi_fmt mxc_isi_input_formats[] = {
 	/* Pixel link input format */
 	{
-		.name		= "RGB32",
-		.fourcc		= V4L2_PIX_FMT_XRGB32,
+		.name		= "XBGR32",
+		.fourcc		= V4L2_PIX_FMT_XBGR32,
 		.depth		= { 32 },
 		.color =	MXC_ISI_M2M_IN_FMT_XRGB8,
-		.memplanes	= 1,
-		.colplanes	= 1,
-	}, {
-		.name		= "BGR32",
-		.fourcc		= V4L2_PIX_FMT_BGR32,
-		.depth		= { 32 },
-		.color =	MXC_ISI_M2M_IN_FMT_XBGR8,
 		.memplanes	= 1,
 		.colplanes	= 1,
 	}, {
