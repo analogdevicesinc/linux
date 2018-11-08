@@ -27,14 +27,6 @@
 
 	};
 
-	sound-wm8524 {
-		status = "disabled";
-	};
-
-	wm8524: wm8524 {
-		status = "disabled";
-	};
-
 	rpmsg_i2s: rpmsg-i2s {
 		compatible = "fsl,imx8mq-rpmsg-i2s";
 		/* the audio device index in m4 domain */
@@ -67,10 +59,6 @@
 };
 
 &uart4 {
-	status = "disabled";
-};
-
-&sai3 {
 	status = "disabled";
 };
 
