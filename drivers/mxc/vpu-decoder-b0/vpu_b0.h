@@ -112,7 +112,8 @@ enum vpu_video_standard {
 
 typedef enum{
 	EOS_PADDING_TYPE = 1,
-	BUFFLUSH_PADDING_TYPE = 2
+	BUFFLUSH_PADDING_TYPE = 2,
+	BUFABORT_PADDING_TYPE = 3,
 } VPU_PADDING_SCODE_TYPE;
 
 #define VPU_PIX_FMT_AVS         v4l2_fourcc('A', 'V', 'S', '0')

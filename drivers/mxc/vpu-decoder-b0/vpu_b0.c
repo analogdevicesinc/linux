@@ -59,7 +59,7 @@ static int vpu_frm_depth = INVALID_FRAME_DEPTH;
 #define V4L2_CID_USER_RAW_BASE          (V4L2_CID_USER_BASE + 0x1100)
 static void vpu_api_event_handler(struct vpu_ctx *ctx, u_int32 uStrIdx, u_int32 uEvent, u_int32 *event_data);
 static void v4l2_vpu_send_cmd(struct vpu_ctx *ctx, uint32_t idx, uint32_t cmdid, uint32_t cmdnum, uint32_t *local_cmddata);
-static bool add_scode(struct vpu_ctx *ctx, u_int32 uStrBufIdx, VPU_PADDING_SCODE_TYPE eScodeType);
+static int add_scode(struct vpu_ctx *ctx, u_int32 uStrBufIdx, VPU_PADDING_SCODE_TYPE eScodeType, bool bUpdateWr);
 static void v4l2_update_stream_addr(struct vpu_ctx *ctx, uint32_t uStrBufIdx);
 static int swreset_vpu_firmware(struct vpu_dev *dev);
 
@@ -908,13 +908,17 @@ static int v4l2_ioctl_streamoff(struct file *file,
 
 	if (i == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
 		if (ctx->firmware_stopped) {
-			vpu_dbg(LVL_ERR, "v4l2_ioctl_streamoff() - IGNORE - stopped(%d), finished(%d), eos_added(%d)\n",
-					ctx->firmware_stopped, ctx->firmware_finished, ctx->eos_stop_added);
+			vpu_dbg(LVL_ERR, "%s() - IGNORE - stopped(%d), finished(%d), eos_added(%d)\n",
+					__func__, ctx->firmware_stopped, ctx->firmware_finished, ctx->eos_stop_added);
 		} else {
+			int size;
 			ctx->wait_rst_done = true;
-			vpu_dbg(LVL_INFO, "v4l2_ioctl_streamoff(): send VID_API_CMD_ABORT\n");
+			vpu_dbg(LVL_INFO, "%s(): send VID_API_CMD_ABORT\n", __func__);
 
-			v4l2_vpu_send_cmd(ctx, ctx->str_index, VID_API_CMD_ABORT, 0, NULL);
+			size = add_scode(ctx, 0, BUFABORT_PADDING_TYPE, false);
+			if (size < 0)
+				vpu_dbg(LVL_ERR, "%s(): failed to fill abort padding data\n", __func__);
+			v4l2_vpu_send_cmd(ctx, ctx->str_index, VID_API_CMD_ABORT, 1, &size);
 
 			wake_up_interruptible(&ctx->buffer_wq);
 			if (!wait_for_completion_timeout(&ctx->completion, msecs_to_jiffies(1000))) {
@@ -1117,7 +1121,7 @@ static void ctrls_delete_decoder(struct vpu_ctx *This)
 }
 
 /* Insert either the codec specific EOS type or a special scode to mark that this frame should be flushed/pushed directly for decode */
-static bool add_scode(struct vpu_ctx *ctx, u_int32 uStrBufIdx, VPU_PADDING_SCODE_TYPE eScodeType)
+static int add_scode(struct vpu_ctx *ctx, u_int32 uStrBufIdx, VPU_PADDING_SCODE_TYPE eScodeType, bool bUpdateWr)
 {
 	struct vpu_dev *dev = ctx->dev;
 	pSTREAM_BUFFER_DESCRIPTOR_TYPE pStrBufDesc;
@@ -1130,7 +1134,7 @@ static bool add_scode(struct vpu_ctx *ctx, u_int32 uStrBufIdx, VPU_PADDING_SCODE
 	uint32_t *plbuffer;
 	uint32_t last;
 	uint32_t last2 = 0x0;
-	uint32_t pad_bytes;
+	uint32_t pad_bytes = 0;
 	static uint8_t *buffer;
 
 	vpu_dbg(LVL_INFO, "enter %s\n", __func__);
@@ -1143,14 +1147,14 @@ static bool add_scode(struct vpu_ctx *ctx, u_int32 uStrBufIdx, VPU_PADDING_SCODE
 	buffer = kzalloc(MIN_SPACE, GFP_KERNEL); //for eos data
 	if (!buffer) {
 		vpu_dbg(LVL_ERR, "error:  eos buffer alloc fail\n");
-		return false;
+		return -1;
 	}
 	plbuffer = (uint32_t *)buffer;
 	if (wptr - start < ctx->stream_buffer_size)
 		pbbuffer = (uint8_t *)(ctx->stream_buffer_virt + wptr - start);
 	else {
 		vpu_dbg(LVL_ERR, "error: return wptr(0x%x), start(0x%x) is not valid\n", wptr, start);
-		return false;
+		return -1;
 	}
 
 	// Word align
@@ -1158,7 +1162,7 @@ static bool add_scode(struct vpu_ctx *ctx, u_int32 uStrBufIdx, VPU_PADDING_SCODE
 		int i;
 		if (end%4 != 0) {
 			vpu_dbg(LVL_ERR, "end address of stream not aligned by 4 bytes !\n");
-			return false;
+			return -1;
 		}
 		pad_bytes = 4 - (((u_int64)pbbuffer)%4);
 		for (i = 0; i < pad_bytes; i++)
@@ -1171,7 +1175,36 @@ static bool add_scode(struct vpu_ctx *ctx, u_int32 uStrBufIdx, VPU_PADDING_SCODE
 		}
 	}
 
-	if (eScodeType == EOS_PADDING_TYPE) {
+	if (eScodeType == BUFABORT_PADDING_TYPE) {
+		switch (q_data->vdec_std) {
+		case VPU_VIDEO_AVC:
+			last = 0x0B010000;
+			break;
+		case VPU_VIDEO_VC1:
+			last = 0x0a010000;
+			break;
+		case VPU_VIDEO_MPEG2:
+			last = 0xb7010000;
+			break;
+		case VPU_VIDEO_ASP:
+			last = 0xb1010000;
+			break;
+		case VPU_VIDEO_SPK:
+		case VPU_VIDEO_VP6:
+		case VPU_VIDEO_VP8:
+		case VPU_VIDEO_RV:
+			last = 0x34010000;
+			break;
+		case VPU_VIDEO_HEVC:
+			last = 0x4A010000;
+			last2 = 0x20;
+			break;
+		case VPU_VIDEO_JPEG:
+		default:
+			last = 0x0;
+			break;
+		}
+	} else if (eScodeType == EOS_PADDING_TYPE) {
 		switch (q_data->vdec_std) {
 		case VPU_VIDEO_AVC:
 			last = 0x0B010000;
@@ -1210,7 +1243,7 @@ static bool add_scode(struct vpu_ctx *ctx, u_int32 uStrBufIdx, VPU_PADDING_SCODE
 		} else {
 			/* all other standards do not support the frame flush mechanism so just return */
 			vpu_dbg(LVL_WARN, "warning: format(%d) not support frame flush mechanism !\n", q_data->vdec_std);
-			return true;
+			return 0;
 		}
 	}
 	plbuffer[0] = last;
@@ -1227,25 +1260,29 @@ static bool add_scode(struct vpu_ctx *ctx, u_int32 uStrBufIdx, VPU_PADDING_SCODE
 			memcpy(ctx->stream_buffer_virt, buffer + (end-wptr), MIN_SPACE - (end-wptr));
 			wptr = start + MIN_SPACE-(end-wptr);
 		}
+		pad_bytes += MIN_SPACE;
 	} else {
 		if (rptr - wptr >= MIN_SPACE) {
 			memcpy(pbbuffer, buffer, MIN_SPACE);
 			wptr += MIN_SPACE;
+			pad_bytes += MIN_SPACE;
 		} else	{
 			//shouldn't enter here: suppose space is enough since add_eos() only be called in FIFO LOW
 			memcpy(pbbuffer, buffer, rptr - wptr);
 			wptr += (rptr - wptr);
+			pad_bytes += (rptr - wptr);
 			vpu_dbg(LVL_ERR, "No enough space to insert EOS !\n");
 		}
 	}
 	mb();
 
-	pStrBufDesc->wptr = wptr;
+	if (bUpdateWr)
+		pStrBufDesc->wptr = wptr;
 	dev->shared_mem.pSharedInterface->pStreamBuffDesc[ctx->str_index][uStrBufIdx] =
 		(VPU_REG_BASE + DEC_MFD_XREG_SLV_BASE + MFD_MCX + MFD_MCX_OFF * ctx->str_index);
 	kfree(buffer);
 	vpu_dbg(LVL_INFO, "add_scode done type (%d) MCX address virt=%p, phy=0x%x, index=%d\n", eScodeType, pStrBufDesc, dev->shared_mem.pSharedInterface->pStreamBuffDesc[ctx->str_index][uStrBufIdx], ctx->str_index);
-	return true;
+	return pad_bytes;
 }
 
 TB_API_DEC_FMT vpu_format_remap(uint32_t vdec_std)
@@ -1377,7 +1414,7 @@ static void transfer_buffer_to_firmware(struct vpu_ctx *ctx, void *input_buffer,
 		/* set the shared memory space control with this */
 		MediaIPFW_Video_CodecParams *pCodecPara;
 
-		add_scode(ctx, 0, BUFFLUSH_PADDING_TYPE);
+		add_scode(ctx, 0, BUFFLUSH_PADDING_TYPE, true);
 		pCodecPara = (MediaIPFW_Video_CodecParams *)ctx->dev->shared_mem.codec_mem_vir;
 		pCodecPara[ctx->str_index].uDispImm = 1;
 	} else {
@@ -1553,7 +1590,7 @@ static void v4l2_update_stream_addr(struct vpu_ctx *ctx, uint32_t uStrBufIdx)
 			if (ctx->b_dis_reorder) {
 				/* frame successfully written into the stream buffer if in special low latency mode
 					mark that this frame should be flushed for decode immediately */
-				add_scode(ctx, 0, BUFFLUSH_PADDING_TYPE);
+				add_scode(ctx, 0, BUFFLUSH_PADDING_TYPE, true);
 			}
 			ctx->frm_dec_delay++;
 			ctx->frm_dis_delay++;
@@ -1571,7 +1608,7 @@ static void v4l2_update_stream_addr(struct vpu_ctx *ctx, uint32_t uStrBufIdx)
 	if (list_empty(&This->drv_q) && ctx->eos_stop_received) {
 		if (!ctx->firmware_stopped)	{
 			vpu_dbg(LVL_EVENT, "ctx[%d]: insert eos directly\n", ctx->str_index);
-			if (add_scode(ctx, 0, EOS_PADDING_TYPE)) {
+			if (add_scode(ctx, 0, EOS_PADDING_TYPE, true) >= 0) {
 				ctx->eos_stop_received = false;
 				ctx->eos_stop_added = true;
 			}
