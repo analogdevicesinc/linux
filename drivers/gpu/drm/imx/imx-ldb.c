@@ -1182,23 +1182,29 @@ static void ldb_pixel_link_init(int id, bool dual)
 
 again:
 	if (id == 0) {
-		sc_misc_set_control(ipcHndl, SC_R_MIPI_0, SC_C_MODE, 1);
+		sciErr = sc_misc_set_control(ipcHndl, SC_R_MIPI_0,
+						SC_C_MODE, 1);
 		if (sciErr != SC_ERR_NONE)
 			pr_err("SC_R_MIPI_%d MODE failed %d!\n", id, sciErr);
-		sc_misc_set_control(ipcHndl, SC_R_MIPI_0, SC_C_DUAL_MODE, is_aux);
+		sciErr = sc_misc_set_control(ipcHndl, SC_R_MIPI_0,
+						SC_C_DUAL_MODE, is_aux);
 		if (sciErr != SC_ERR_NONE)
 			pr_err("SC_R_MIPI_%d DUAL_MODE failed %d!\n", id, sciErr);
-		sc_misc_set_control(ipcHndl, SC_R_MIPI_0, SC_C_PXL_LINK_SEL, is_aux);
+		sciErr = sc_misc_set_control(ipcHndl, SC_R_MIPI_0,
+						SC_C_PXL_LINK_SEL, is_aux);
 		if (sciErr != SC_ERR_NONE)
 			pr_err("SC_R_MIPI_%d PXL_LINK_SEL failed %d!\n", id, sciErr);
 	} else {
-		sc_misc_set_control(ipcHndl, SC_R_MIPI_1, SC_C_MODE, 1);
+		sciErr = sc_misc_set_control(ipcHndl, SC_R_MIPI_1,
+						SC_C_MODE, 1);
 		if (sciErr != SC_ERR_NONE)
 			pr_err("SC_R_MIPI_%d MODE failed %d!\n", id, sciErr);
-		sc_misc_set_control(ipcHndl, SC_R_MIPI_1, SC_C_DUAL_MODE, is_aux);
+		sciErr = sc_misc_set_control(ipcHndl, SC_R_MIPI_1,
+						SC_C_DUAL_MODE, is_aux);
 		if (sciErr != SC_ERR_NONE)
 			pr_err("SC_R_MIPI_%d DUAL_MODE failed %d!\n", id, sciErr);
-		sc_misc_set_control(ipcHndl, SC_R_MIPI_1, SC_C_PXL_LINK_SEL, is_aux);
+		sciErr = sc_misc_set_control(ipcHndl, SC_R_MIPI_1,
+						SC_C_PXL_LINK_SEL, is_aux);
 		if (sciErr != SC_ERR_NONE)
 			pr_err("SC_R_MIPI_%d PXL_LINK_SEL failed %d!\n", id, sciErr);
 	}
