@@ -679,6 +679,7 @@ int xf_cmd_alloc(struct xf_proxy *proxy, void **buffer, u32 length)
 	/* ...send command to remote proxy */
 	m = xf_cmd_send_recv(proxy, id, XF_ALLOC, NULL, length);
 	if (IS_ERR(m)) {
+		xf_unlock(&proxy->lock);
 		ret = PTR_ERR(m);
 		return ret;
 	}
@@ -708,6 +709,7 @@ int xf_cmd_free(struct xf_proxy *proxy, void *buffer, u32 length)
 	/* ...synchronously execute freeing command */
 	m = xf_cmd_send_recv(proxy, id, XF_FREE, buffer, length);
 	if (IS_ERR(m)) {
+		xf_unlock(&proxy->lock);
 		ret = PTR_ERR(m);
 		return ret;
 	}
