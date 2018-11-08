@@ -1459,6 +1459,19 @@ static void v4l2_transfer_buffer_to_firmware(struct queue_data *This, struct vb2
 	}
 }
 
+static u_int32 got_free_space(u_int32 wptr, u_int32 rptr, u_int32 start, u_int32 end)
+{
+	u_int32 freespace = 0;
+
+	if (wptr == rptr)
+		freespace = end - start;
+	if (wptr < rptr)
+		freespace = rptr - wptr;
+	if (wptr > rptr)
+		freespace = (end - wptr) + (rptr - start);
+	return freespace;
+}
+
 static int update_stream_addr(struct vpu_ctx *ctx, void *input_buffer, uint32_t buffer_size, uint32_t uStrBufIdx)
 {
 	struct vpu_dev *dev = ctx->dev;
@@ -1504,12 +1517,7 @@ static int update_stream_addr(struct vpu_ctx *ctx, void *input_buffer, uint32_t 
 
 	vpu_dbg(LVL_INFO, "update_stream_addr down\n");
 
-	if (wptr == rptr)
-		nfreespace = end - start;
-	if (wptr < rptr)
-		nfreespace = rptr - wptr;
-	if (wptr > rptr)
-		nfreespace = (end - wptr) + (rptr - start);
+	nfreespace = got_free_space(wptr, rptr, start, end);
 
 	if (nfreespace-buffer_size < MIN_SPACE)
 			return 0;
@@ -2616,12 +2624,14 @@ static ssize_t show_instance_buffer_info(struct device *dev,
 	struct vpu_ctx *ctx;
 	struct vpu_statistic *statistic;
 	struct vb2_data_req *p_data_req;
+	pSTREAM_BUFFER_DESCRIPTOR_TYPE pStrBufDesc;
+	u_int32 stream_length = 0;
 	int i, size, num = 0;
 
 	ctx = container_of(attr, struct vpu_ctx, dev_attr_instance_buffer);
 	statistic = &ctx->statistic;
 
-	num += snprintf(buf + num, PAGE_SIZE - num, "buffer status:\n");
+	num += snprintf(buf + num, PAGE_SIZE - num, "frame buffer status:\n");
 
 	for (i = 0; i < VPU_MAX_BUFFER; i++) {
 		p_data_req = &ctx->q_data[V4L2_DST].vb2_reqs[i];
@@ -2633,6 +2643,24 @@ static ssize_t show_instance_buffer_info(struct device *dev,
 		}
 	}
 
+	num += snprintf(buf + num, PAGE_SIZE - num, "stream buffer status:\n");
+
+	pStrBufDesc = ctx->dev->regs_base + DEC_MFD_XREG_SLV_BASE + MFD_MCX
+		+ MFD_MCX_OFF * ctx->str_index;
+
+	num += snprintf(buf + num, PAGE_SIZE - num,
+			"\t%40s:%16x\n", "wptr", pStrBufDesc->wptr);
+	num += snprintf(buf + num, PAGE_SIZE - num,
+			"\t%40s:%16x\n", "rptr", pStrBufDesc->rptr);
+	num += snprintf(buf + num, PAGE_SIZE - num,
+			"\t%40s:%16x\n", "start", pStrBufDesc->start);
+	num += snprintf(buf + num, PAGE_SIZE - num,
+			"\t%40s:%16x\n", "end", pStrBufDesc->end);
+	stream_length = ctx->stream_buffer_size -
+		got_free_space(pStrBufDesc->wptr, pStrBufDesc->rptr, pStrBufDesc->start, pStrBufDesc->end);
+
+	num += snprintf(buf + num, PAGE_SIZE - num,
+			"\t%40s:%16x\n", "stream length", stream_length);
 	return num;
 }
 

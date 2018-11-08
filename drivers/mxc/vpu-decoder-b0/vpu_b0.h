@@ -51,7 +51,7 @@ extern unsigned int vpu_dbg_level_decoder;
 #define M0_BOOT_SIZE 0x1000000
 #define M0_PRINT_OFFSET 0x500000
 #define DCP_SIZE 0x3000000
-#define MAX_BUFFER_SIZE 5242880
+#define MAX_BUFFER_SIZE 0x800000
 #define UDATA_BUFFER_SIZE 0x1000
 #define SHARED_SIZE 0x00400000
 #define MAX_DCP_NUM 2
