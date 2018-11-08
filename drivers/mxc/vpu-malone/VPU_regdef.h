@@ -2,9 +2,6 @@
  * Copyright 2017 NXP
  */
 
-/* The following programs are the sole property of NXP Semiconductor Inc.,
- * and contain its proprietary and confidential information. */
-
 /*
  * The code contained herein is licensed under the GNU General Public
  * License. You may obtain a copy of the GNU General Public License
