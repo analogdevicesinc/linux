@@ -2072,8 +2072,6 @@ static int transfer_stream_output(struct vpu_ctx *ctx,
 	WARN_ON(!ctx || !frame || !p_data_req);
 
 	length = calc_frame_length(frame);
-	if (!length)
-		return 0;
 
 	vb = p_data_req->vb2_buf;
 	if (length > vb->planes[0].length)
@@ -2118,7 +2116,7 @@ static int append_empty_end_frame(struct vb2_data_req *p_data_req)
 	return 0;
 }
 
-static void process_frame_done(struct queue_data *queue)
+static bool process_frame_done(struct queue_data *queue)
 {
 	struct vpu_ctx *ctx;
 	struct vb2_data_req *p_data_req = NULL;
@@ -2129,32 +2127,48 @@ static void process_frame_done(struct queue_data *queue)
 
 	ctx = queue->ctx;
 
-	if (list_empty(&queue->drv_q))
-		return;
-	if (list_empty(&queue->frame_q))
-		return;
-
 	stream_buffer_desc = get_rpc_stream_buffer_desc(ctx);
-	p_data_req = list_first_entry(&queue->drv_q, typeof(*p_data_req), list);
+
+	if (list_empty(&queue->frame_q))
+		return false;
+
 	frame = list_first_entry(&queue->frame_q, typeof(*frame), list);
 	frame->rptr = get_ptr(stream_buffer_desc->rptr);
 
+	if (!frame->eos && !calc_frame_length(frame)) {
+		vpu_err("[%d][%d]'s frame length is 0, drop it\n",
+				ctx->core_dev->id, ctx->str_index);
+		list_del(&frame->list);
+		vfree(frame);
+		frame = NULL;
+		return true;
+	}
+
+	if (list_empty(&queue->drv_q))
+		return false;
+
+	p_data_req = list_first_entry(&queue->drv_q, typeof(*p_data_req), list);
+
 	if (frame->eos)
 		append_empty_end_frame(p_data_req);
-	else if (calc_frame_length(frame))
-		transfer_stream_output(ctx, frame, p_data_req);
 	else
-		return;
+		transfer_stream_output(ctx, frame, p_data_req);
 
 	stream_buffer_desc->rptr = frame->rptr;
-	list_del(&p_data_req->list);
 	if (frame && !calc_frame_length(frame)) {
 		list_del(&frame->list);
 		vfree(frame);
+		frame = NULL;
 	}
+	list_del(&p_data_req->list);
 
 	if (p_data_req->vb2_buf->state == VB2_BUF_STATE_ACTIVE)
 		vb2_buffer_done(p_data_req->vb2_buf, VB2_BUF_STATE_DONE);
+	else
+		vpu_err("vb2_buf's state is invalid(%d\n)",
+				p_data_req->vb2_buf->state);
+
+	return true;
 }
 
 static int process_stream_output(struct vpu_ctx *ctx)
@@ -2167,7 +2181,10 @@ static int process_stream_output(struct vpu_ctx *ctx)
 	queue = &ctx->q_data[V4L2_DST];
 
 	down(&queue->drv_q_lock);
-	process_frame_done(queue);
+	while (1) {
+		if (!process_frame_done(queue))
+			break;
+	}
 	up(&queue->drv_q_lock);
 
 	return 0;
