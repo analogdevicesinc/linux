@@ -232,6 +232,7 @@ static int fsl_dsp_ipc_msg_from_dsp(struct xf_client *client,
 
 	m = xf_cmd_recv(&dsp_priv->proxy, &client->wait, &client->queue, 0);
 	if (IS_ERR(m)) {
+		xf_unlock(&dsp_priv->proxy.lock);
 		dev_err(dev, "receiving failed: %d", (int)PTR_ERR(m));
 		return PTR_ERR(m);
 	}
