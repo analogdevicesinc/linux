@@ -449,6 +449,7 @@ static int imx_rpmsg_terminate_all(struct snd_pcm_substream *substream)
 	struct i2s_info            *i2s_info =  &rpmsg_i2s->i2s_info;
 	struct i2s_rpmsg     *rpmsg;
 	u8 index = i2s_info->work_index;
+	int cmd;
 
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
 		rpmsg = &i2s_info->rpmsg[I2S_TX_TERMINATE];
@@ -465,6 +466,18 @@ static int imx_rpmsg_terminate_all(struct snd_pcm_substream *substream)
 	queue_work(i2s_info->rpmsg_wq, &i2s_info->work_list[index].work);
 	i2s_info->work_index++;
 	i2s_info->work_index %= WORK_MAX_NUM;
+
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+		cmd = I2S_TX_PERIOD_DONE + I2S_TYPE_A_NUM;
+		i2s_info->rpmsg[cmd].send_msg.param.buffer_tail = 0;
+		i2s_info->rpmsg[cmd].recv_msg.param.buffer_tail = 0;
+		i2s_info->rpmsg[I2S_TX_POINTER].recv_msg.param.buffer_offset = 0;
+	} else {
+		cmd = I2S_RX_PERIOD_DONE + I2S_TYPE_A_NUM;
+		i2s_info->rpmsg[cmd].send_msg.param.buffer_tail = 0;
+		i2s_info->rpmsg[cmd].recv_msg.param.buffer_tail = 0;
+		i2s_info->rpmsg[I2S_RX_POINTER].recv_msg.param.buffer_offset = 0;
+	}
 
 	del_timer(&i2s_info->stream_timer[substream->stream]);
 	return 0;
