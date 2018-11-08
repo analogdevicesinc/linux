@@ -438,11 +438,6 @@ xtlib_load_split_pi_library_common(struct xtlib_packaged_library *library,
 				  xtlib_globals->byteswap),
 		  lib_info);
 
-	if (err != XTLIB_NO_ERR) {
-		xtlib_globals->err = err;
-		return 0;
-	}
-
 	return (xt_ptr)xtlib_host_word((Elf32_Word)info->start_sym,
 				       xtlib_globals->byteswap);
 }
