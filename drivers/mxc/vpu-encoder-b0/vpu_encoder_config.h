@@ -1,6 +1,9 @@
 /*
  * Copyright(c) 2018 NXP. All rights reserved.
  *
+ * This file is provided under a dual BSD/GPLv2 license.  When using or
+ * redistributing this file, you may do so under either license.
+ *
  * vpu_encoder_config.h
  *
  * Author Ming Qian<ming.qian@nxp.com>
@@ -26,5 +29,9 @@
 
 #define VPU_TAIL_SERACH_SIZE		32
 #define VPU_STRM_END_PATTERN		{0x0, 0x0, 0x1, 0xb}
+
+#define MSG_DATA_DEFAULT_SIZE		256
+#define MSG_DEFAULT_COUNT		4
+#define MSG_COUNT_THD			16
 
 #endif

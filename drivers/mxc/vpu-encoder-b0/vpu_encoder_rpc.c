@@ -53,6 +53,7 @@
  */
 
 #include <linux/kernel.h>
+#include <linux/errno.h>
 #include "vpu_encoder_rpc.h"
 
 void rpc_init_shared_memory_encoder(struct shared_addr *This,
@@ -288,22 +289,55 @@ static void rpc_update_msg_buffer_ptr_encoder(BUFFER_DESCRIPTOR_TYPE *pMsgDesc)
 	pMsgDesc->rptr = uReadPtr;
 }
 
-void rpc_receive_msg_buf_encoder(struct shared_addr *This, struct event_msg *msg)
+u32 rpc_read_msg_u32(struct shared_addr *shared_mem)
 {
-	unsigned int i;
-	pENC_RPC_HOST_IFACE pSharedInterface = (pENC_RPC_HOST_IFACE)This->shared_mem_vir;
-	BUFFER_DESCRIPTOR_TYPE *pMsgDesc = &pSharedInterface->StreamMsgBufferDesc;
-	u_int32 msgword = *((u_int32 *)(This->msg_mem_vir+pMsgDesc->rptr - pMsgDesc->start));
+	u32 msgword;
+	u32 *ptr = NULL;
+	pENC_RPC_HOST_IFACE iface = NULL;
+	BUFFER_DESCRIPTOR_TYPE *msg_buf = NULL;
 
+	if (!shared_mem)
+		return 0;
+
+	iface = shared_mem->pSharedInterface;
+	msg_buf = &iface->StreamMsgBufferDesc;
+	ptr = shared_mem->msg_mem_vir + msg_buf->rptr - msg_buf->start;
+	rpc_update_msg_buffer_ptr_encoder(msg_buf);
+	msgword = *ptr;
+
+	return msgword;
+}
+
+int rpc_read_msg_array(struct shared_addr *shared_mem, u32 *buf, u32 number)
+{
+	int i;
+	u32 val;
+
+	if (!shared_mem)
+		return -EINVAL;
+
+	for (i = 0; i < number; i++) {
+		val = rpc_read_msg_u32(shared_mem);
+		if (buf)
+			buf[i] = val;
+	}
+
+	return 0;
+}
+
+int rpc_get_msg_header(struct shared_addr *shared_mem, struct msg_header *msg)
+{
+	u32 msgword;
+
+	if (!shared_mem || !msg)
+		return -EINVAL;
+
+	msgword = rpc_read_msg_u32(shared_mem);
 	msg->idx = ((msgword & 0xff000000) >> 24);
 	msg->msgnum = ((msgword & 0x00ff0000) >> 16);
 	msg->msgid = ((msgword & 0x00003fff) >> 0);
-	rpc_update_msg_buffer_ptr_encoder(pMsgDesc);
 
-	for (i = 0; i < msg->msgnum; i++) {
-		msg->msgdata[i] = *((u_int32 *)(This->msg_mem_vir+pMsgDesc->rptr - pMsgDesc->start));
-		rpc_update_msg_buffer_ptr_encoder(pMsgDesc);
-	}
+	return 0;
 }
 
 static void *phy_to_virt(u_int32 src, unsigned long long offset)

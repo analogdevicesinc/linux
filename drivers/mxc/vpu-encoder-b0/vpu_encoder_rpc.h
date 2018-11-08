@@ -92,11 +92,10 @@ struct shared_addr {
 	unsigned long long base_offset;
 };
 
-struct event_msg {
-	u_int32 idx;
-	u_int32 msgnum;
-	u_int32 msgid;
-	u_int32 msgdata[LOCAL_MSG_NUM];
+struct msg_header {
+	u32 idx;
+	u32 msgnum;
+	u32 msgid;
 };
 
 void rpc_init_shared_memory_encoder(struct shared_addr *This,
@@ -110,7 +109,9 @@ void rpc_send_cmd_buf_encoder(struct shared_addr *This,
 		u_int32 cmdid,
 		u_int32 cmdnum,
 		u_int32 *local_cmddata);
-void rpc_receive_msg_buf_encoder(struct shared_addr *This, struct event_msg *msg);
+u32 rpc_read_msg_u32(struct shared_addr *shared_mem);
+int rpc_read_msg_array(struct shared_addr *shared_mem, u32 *buf, u32 number);
+int rpc_get_msg_header(struct shared_addr *shared_mem, struct msg_header *msg);
 
 pMEDIAIP_ENC_YUV_BUFFER_DESC rpc_get_yuv_buffer_desc(
 		struct shared_addr *shared_mem, int index);

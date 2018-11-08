@@ -227,6 +227,7 @@ struct vpu_attr {
 	MEDIAIP_ENC_PARAM param;
 
 	unsigned long ts_start[2];
+	unsigned long msg_count;
 
 	bool created;
 };
@@ -241,7 +242,7 @@ struct core_device {
 	u32 rpc_buf_size;
 	u32 print_buf_size;
 	u32 rpc_actual_size;
-	struct mutex core_mutex;
+
 	struct mutex cmd_mutex;
 	bool fw_is_ready;
 	bool firmware_started;
@@ -314,7 +315,6 @@ struct vpu_ctx {
 	int str_index;
 	unsigned long status;
 	struct queue_data q_data[2];
-	struct kfifo msg_fifo;
 	struct mutex instance_mutex;
 	struct work_struct instance_work;
 	struct workqueue_struct *instance_wq;
@@ -329,6 +329,9 @@ struct vpu_ctx {
 
 	struct completion stop_cmp;
 	bool power_status;
+
+	struct list_head msg_q;
+	struct list_head idle_q;
 };
 
 #define LVL_DEBUG	4

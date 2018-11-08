@@ -49,6 +49,7 @@
 #include "vpu_encoder_b0.h"
 #include "vpu_encoder_ctrl.h"
 #include "vpu_encoder_config.h"
+#include "vpu_event_msg.h"
 
 struct vpu_frame_info {
 	struct list_head list;
@@ -1394,7 +1395,8 @@ static void show_codec_configure(pMEDIAIP_ENC_PARAM param)
 			"QP", param->uInitSliceQP);
 }
 
-static void show_firmware_version(struct core_device *core_dev)
+static void show_firmware_version(struct core_device *core_dev,
+				unsigned int level)
 {
 	pENC_RPC_HOST_IFACE pSharedInterface;
 
@@ -1403,7 +1405,7 @@ static void show_firmware_version(struct core_device *core_dev)
 
 	pSharedInterface = core_dev->shared_mem.pSharedInterface;
 
-	vpu_dbg(LVL_ALL, "vpu encoder firmware version is %d.%d.%d\n",
+	vpu_dbg(level, "vpu encoder firmware version is %d.%d.%d\n",
 			(pSharedInterface->FWVersion & 0x00ff0000) >> 16,
 			(pSharedInterface->FWVersion & 0x0000ff00) >> 8,
 			pSharedInterface->FWVersion & 0x000000ff);
@@ -1526,7 +1528,7 @@ static int configure_codec(struct vpu_ctx *ctx)
 	pEncExpertModeParam->Calib.cb_base = ctx->encoder_stream.phy_addr;
 	pEncExpertModeParam->Calib.cb_size = ctx->encoder_stream.size;
 
-	show_firmware_version(ctx->core_dev);
+	show_firmware_version(ctx->core_dev, LVL_INFO);
 	memcpy(enc_param, &attr->param, sizeof(attr->param));
 	vpu_ctx_send_cmd(ctx, GTB_ENC_CMD_CONFIGURE_CODEC, 0, NULL);
 	vpu_dbg(LVL_INFO, "send command GTB_ENC_CMD_CONFIGURE_CODEC\n");
@@ -2459,30 +2461,6 @@ static int vpu_mu_init(struct core_device *core_dev)
 	return ret;
 }
 
-static void send_msg_queue(struct vpu_ctx *ctx, struct event_msg *msg)
-{
-	u_int32 ret;
-
-	ret = kfifo_in(&ctx->msg_fifo, msg, sizeof(struct event_msg));
-	if (ret != sizeof(struct event_msg))
-		vpu_dbg(LVL_ERR, "There is no memory for msg fifo, ret=%d\n", ret);
-}
-
-static bool receive_msg_queue(struct vpu_ctx *ctx, struct event_msg *msg)
-{
-	u_int32 ret;
-
-	if (kfifo_len(&ctx->msg_fifo) >= sizeof(*msg)) {
-		ret = kfifo_out(&ctx->msg_fifo, msg, sizeof(*msg));
-		if (ret != sizeof(*msg)) {
-			vpu_dbg(LVL_ERR, "kfifo_out has error, ret=%d\n", ret);
-			return false;
-		} else
-			return true;
-	} else
-		return false;
-}
-
 static struct vpu_ctx *get_ctx_by_index(struct core_device *core, int index)
 {
 	struct vpu_ctx *ctx = NULL;
@@ -2512,46 +2490,106 @@ static struct vpu_ctx *get_ctx_by_index(struct core_device *core, int index)
 	return ctx;
 }
 
+static int process_ctx_msg(struct vpu_ctx *ctx, struct msg_header *header)
+{
+	int ret = 0;
+	struct vpu_event_msg *msg = NULL;
+	u32 *pdata = NULL;
+
+	if (!ctx || !header)
+		return -EINVAL;
+
+	if (ctx->ctx_released)
+		return -EINVAL;
+
+	msg = get_idle_msg(ctx);
+	if (!msg) {
+		vpu_err("get idle msg fail\n");
+		return -ENOMEM;
+	}
+
+	msg->idx = header->idx;
+	msg->msgid = header->msgid;
+	msg->number = header->msgnum;
+	pdata = msg->data;
+	ret = 0;
+	if (msg->number > ARRAY_SIZE(msg->data)) {
+		ret = alloc_msg_ext_buffer(msg, header->msgnum);
+		pdata = msg->ext_data;
+	}
+	rpc_read_msg_array(&ctx->core_dev->shared_mem, pdata, msg->number);
+	if (ret) {
+		put_idle_msg(ctx, msg);
+		return ret;
+	}
+
+	push_back_event_msg(ctx, msg);
+
+	return ret;
+}
+
+static int process_msg(struct core_device *core)
+{
+	struct msg_header header;
+	struct vpu_ctx *ctx = NULL;
+	int ret;
+
+	ret = rpc_get_msg_header(&core->shared_mem, &header);
+	if (ret)
+		return ret;
+
+	if (header.idx >= ARRAY_SIZE(core->ctx)) {
+		vpu_err("msg idx(%d) is out of range\n", header.idx);
+		return -EINVAL;
+	}
+
+	mutex_lock(&core->vdev->dev_mutex);
+	ctx = get_ctx_by_index(core, header.idx);
+	if (ctx != NULL) {
+		process_ctx_msg(ctx, &header);
+		queue_work(ctx->instance_wq, &ctx->instance_work);
+	} else {
+		vpu_err("msg[%d] of ctx[%d] is missed\n",
+				header.msgid, header.idx);
+		rpc_read_msg_array(&core->shared_mem, NULL, header.msgnum);
+	}
+	mutex_unlock(&core->vdev->dev_mutex);
+
+	return 0;
+}
+
 extern u_int32 rpc_MediaIPFW_Video_message_check_encoder(struct shared_addr *This);
 static void vpu_msg_run_work(struct work_struct *work)
 {
 	struct core_device *dev = container_of(work, struct core_device, msg_work);
-	struct vpu_ctx *ctx;
-	struct event_msg msg;
+	/*struct vpu_ctx *ctx;*/
+	/*struct event_msg msg;*/
 	struct shared_addr *This = &dev->shared_mem;
 
 	while (rpc_MediaIPFW_Video_message_check_encoder(This) == API_MSG_AVAILABLE) {
-		rpc_receive_msg_buf_encoder(This, &msg);
-		if (msg.idx >= ARRAY_SIZE(dev->ctx)) {
-			vpu_err("msg idx(%d) is out of range\n", msg.idx);
-			continue;
-		}
-		mutex_lock(&dev->vdev->dev_mutex);
-		ctx = get_ctx_by_index(dev, msg.idx);
-		if (ctx != NULL) {
-			mutex_lock(&ctx->instance_mutex);
-			if (!ctx->ctx_released) {
-				send_msg_queue(ctx, &msg);
-				queue_work(ctx->instance_wq, &ctx->instance_work);
-			}
-			mutex_unlock(&ctx->instance_mutex);
-		} else {
-			vpu_err("msg[%d] of ctx[%d] is missed\n",
-					msg.msgid, msg.idx);
-		}
-		mutex_unlock(&dev->vdev->dev_mutex);
+		process_msg(dev);
 	}
 	if (rpc_MediaIPFW_Video_message_check_encoder(This) == API_MSG_BUFFER_ERROR)
 		vpu_dbg(LVL_ERR, "MSG num is too big to handle");
 
 }
+
 static void vpu_msg_instance_work(struct work_struct *work)
 {
 	struct vpu_ctx *ctx = container_of(work, struct vpu_ctx, instance_work);
-	struct event_msg msg;
+	struct vpu_event_msg *msg;
 
-	while (receive_msg_queue(ctx, &msg))
-		vpu_api_event_handler(ctx, msg.msgid, msg.msgdata);
+	while (1) {
+		msg = pop_event_msg(ctx);
+		if (!msg)
+			break;
+		if (msg->ext_data)
+			vpu_api_event_handler(ctx, msg->msgid, msg->ext_data);
+		else
+			vpu_api_event_handler(ctx, msg->msgid, msg->data);
+
+		put_idle_msg(ctx, msg);
+	}
 }
 
 static int vpu_queue_setup(struct vb2_queue *vq,
@@ -2866,6 +2904,7 @@ static int download_vpu_firmware(struct vpu_dev *dev,
 
 	core_dev->fw_is_ready = true;
 	clear_core_hang(core_dev);
+	show_firmware_version(core_dev, LVL_ALL);
 exit:
 	return ret;
 }
@@ -3043,23 +3082,21 @@ static void uninit_vpu_ctx(struct vpu_ctx *ctx)
 	if (!ctx)
 		return;
 
-	mutex_lock(&ctx->instance_mutex);
 	if (ctx->instance_wq) {
 		cancel_work_sync(&ctx->instance_work);
 		destroy_workqueue(ctx->instance_wq);
 		ctx->instance_wq = NULL;
 	}
+	cleanup_ctx_msg_queue(ctx);
+	mutex_lock(&ctx->instance_mutex);
 	free_encoder_stream(ctx);
 
-	kfifo_free(&ctx->msg_fifo);
 	ctx->ctx_released = true;
 	mutex_unlock(&ctx->instance_mutex);
 }
 
 static int init_vpu_ctx(struct vpu_ctx *ctx)
 {
-	int ret;
-
 	INIT_WORK(&ctx->instance_work, vpu_msg_instance_work);
 	ctx->instance_wq = alloc_workqueue("vpu_instance",
 				WQ_UNBOUND | WQ_MEM_RECLAIM, 1);
@@ -3068,13 +3105,7 @@ static int init_vpu_ctx(struct vpu_ctx *ctx)
 		return -ENOMEM;
 	}
 
-	ret = kfifo_alloc(&ctx->msg_fifo,
-			sizeof(struct event_msg) * VID_API_MESSAGE_LIMIT,
-			GFP_KERNEL);
-	if (ret) {
-		vpu_dbg(LVL_ERR, "fail to alloc fifo when open\n");
-		goto error;
-	}
+	init_ctx_msg_queue(ctx);
 
 	init_queue_data(ctx);
 	init_completion(&ctx->stop_cmp);
@@ -3083,9 +3114,6 @@ static int init_vpu_ctx(struct vpu_ctx *ctx)
 	ctx->core_dev->ctx[ctx->str_index] = ctx;
 
 	return 0;
-error:
-	uninit_vpu_ctx(ctx);
-	return ret;
 }
 
 static ssize_t show_instance_info(struct device *dev,
@@ -3229,6 +3257,11 @@ static ssize_t show_instance_info(struct device *dev,
 				"latency(ms):%ld\n", latency);
 	}
 
+	num += snprintf(buf + num, PAGE_SIZE - num,
+			"total event msg obj count:%ld\n", vpu_attr->msg_count);
+	num += snprintf(buf + num, PAGE_SIZE - num,
+			"total msg ext data count:%lld\n",
+			get_total_ext_data_number());
 	if (!vpu_attr->core->ctx[vpu_attr->index])
 		num += snprintf(buf + num, PAGE_SIZE - num,
 			"<instance has been released>\n");
@@ -3273,13 +3306,23 @@ static ssize_t show_core_info(struct device *dev,
 			"max instance num:%d\n",
 			core->supported_instance_count);
 	num += snprintf(buf + num, PAGE_SIZE - num,
-			"fw info         :0x%02x 0x%02x\n", fw[16], fw[17]);
-	num += snprintf(buf + num, PAGE_SIZE - num,
 			"fw_is_ready     :%d\n", core->fw_is_ready);
 	num += snprintf(buf + num, PAGE_SIZE - num,
 			"firmware_started:%d\n", core->firmware_started);
 	num += snprintf(buf + num, PAGE_SIZE - num,
 			"hang            :%d\n", core->hang);
+	if (core->fw_is_ready) {
+		pENC_RPC_HOST_IFACE iface = core->shared_mem.pSharedInterface;
+
+		num += snprintf(buf + num, PAGE_SIZE - num,
+			"firmware version:%d.%d.%d\n",
+			(iface->FWVersion & 0x00ff0000) >> 16,
+			(iface->FWVersion & 0x0000ff00) >> 8,
+			iface->FWVersion & 0x000000ff);
+		num += snprintf(buf + num, PAGE_SIZE - num,
+			"fw info         :0x%02x 0x%02x\n", fw[16], fw[17]);
+	}
+
 	return num;
 }
 
@@ -3774,7 +3817,6 @@ static int init_vpu_core_dev(struct core_device *core_dev)
 	if (!core_dev)
 		return -EINVAL;
 
-	mutex_init(&core_dev->core_mutex);
 	mutex_init(&core_dev->cmd_mutex);
 	init_completion(&core_dev->start_cmp);
 	init_completion(&core_dev->snap_done_cmp);
