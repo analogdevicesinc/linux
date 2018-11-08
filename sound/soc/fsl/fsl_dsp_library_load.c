@@ -484,7 +484,9 @@ load_dpu_with_library(struct xf_client *client, struct xf_proxy *proxy,
 		return -ENOMEM;
 
 	vfs_llseek(file, 0, SEEK_SET);
-	kernel_read(file, srambuf, filesize, &pos);
+	ret_val = kernel_read(file, srambuf, filesize, &pos);
+	if (ret_val < 0)
+		return ret_val;
 	filp_close(file, NULL);
 
 	ret_val = xtlib_split_pi_library_size(
