@@ -503,7 +503,7 @@ static void dsp_mmap_close(struct vm_area_struct *vma)
 	pr_debug("xf_mmap_close: vma = %p, b = %p", vma, client);
 
 	/* ...decrement number of mapping */
-	atomic_dec_return(&client->vm_use);
+	atomic_dec(&client->vm_use);
 }
 
 /* ...memory map operations */
