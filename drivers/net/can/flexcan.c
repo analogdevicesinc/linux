@@ -547,6 +547,26 @@ static void flexcan_clks_disable(const struct flexcan_priv *priv)
 	clk_disable_unprepare(priv->clk_per);
 }
 
+static void flexcan_wake_mask_enable(struct flexcan_priv *priv)
+{
+	struct flexcan_regs __iomem *regs = priv->regs;
+	u32 reg_mcr;
+
+	reg_mcr = flexcan_read(&regs->mcr);
+	reg_mcr |= FLEXCAN_MCR_WAK_MSK;
+	flexcan_write(reg_mcr, &regs->mcr);
+}
+
+static void flexcan_wake_mask_disable(struct flexcan_priv *priv)
+{
+	struct flexcan_regs __iomem *regs = priv->regs;
+	u32 reg_mcr;
+
+	reg_mcr = flexcan_read(&regs->mcr);
+	reg_mcr &= ~FLEXCAN_MCR_WAK_MSK;
+	flexcan_write(reg_mcr, &regs->mcr);
+}
+
 #ifdef CONFIG_ARCH_MXC_ARM64
 static void imx8_ipg_stop_enable(struct flexcan_priv *priv, bool enabled)
 {
@@ -1229,7 +1249,7 @@ static int flexcan_chip_start(struct net_device *dev)
 	}
 
 	/* enable self wakeup */
-	reg_mcr |= FLEXCAN_MCR_WAK_MSK | FLEXCAN_MCR_SLF_WAK;
+	reg_mcr |= FLEXCAN_MCR_SLF_WAK;
 
 	netdev_dbg(dev, "%s: writing mcr=0x%08x", __func__, reg_mcr);
 	flexcan_write(reg_mcr, &regs->mcr);
@@ -1899,7 +1919,9 @@ static int __maybe_unused flexcan_resume(struct device *device)
 		netif_device_attach(dev);
 		netif_start_queue(dev);
 
-		if (!device_may_wakeup(device)) {
+		if (device_may_wakeup(device)) {
+			flexcan_wake_mask_disable(priv);
+		} else {
 			pinctrl_pm_select_default_state(device);
 
 			err = pm_runtime_force_resume(device);
@@ -1932,6 +1954,18 @@ static int __maybe_unused flexcan_runtime_resume(struct device *device)
 	return 0;
 }
 
+static int __maybe_unused flexcan_noirq_suspend(struct device *device)
+{
+	struct net_device *dev = dev_get_drvdata(device);
+	struct flexcan_priv *priv = netdev_priv(dev);
+
+	if (netif_running(dev) && device_may_wakeup(device)) {
+		flexcan_wake_mask_enable(priv);
+	}
+
+	return 0;
+}
+
 static int __maybe_unused flexcan_noirq_resume(struct device *device)
 {
 	struct net_device *dev = dev_get_drvdata(device);
@@ -1948,7 +1982,7 @@ static int __maybe_unused flexcan_noirq_resume(struct device *device)
 static const struct dev_pm_ops flexcan_pm_ops = {
 	SET_SYSTEM_SLEEP_PM_OPS(flexcan_suspend, flexcan_resume)
 	SET_RUNTIME_PM_OPS(flexcan_runtime_suspend, flexcan_runtime_resume, NULL)
-	SET_NOIRQ_SYSTEM_SLEEP_PM_OPS(NULL, flexcan_noirq_resume)
+	SET_NOIRQ_SYSTEM_SLEEP_PM_OPS(flexcan_noirq_suspend, flexcan_noirq_resume)
 };
 
 static struct platform_driver flexcan_driver = {
