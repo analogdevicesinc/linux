@@ -572,12 +572,11 @@ void mxc_isi_channel_config(struct mxc_isi_dev *mxc_isi)
 
 	/* TODO */
 	mxc_isi_channel_set_flip(mxc_isi);
-#if 0
-	mxc_isi_channel_set_crop(mxc_isi);
 
 	if (mxc_isi->alphaen)
 		mxc_isi_channel_set_alpha(mxc_isi);
-
+#if 0
+	mxc_isi_channel_set_crop(mxc_isi);
 #endif
 
 	val = readl(mxc_isi->regs + CHNL_CTRL);

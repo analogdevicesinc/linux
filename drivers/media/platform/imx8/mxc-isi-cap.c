@@ -559,7 +559,10 @@ static int mxc_isi_s_ctrl(struct v4l2_ctrl *ctrl)
 		break;
 
 	case V4L2_CID_ALPHA_COMPONENT:
+		if (ctrl->val < 0 || ctrl->val > 255)
+			return -EINVAL;
 		mxc_isi->alpha = ctrl->val;
+		mxc_isi->alphaen = 1;
 		break;
 
 	default:
