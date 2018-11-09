@@ -144,9 +144,9 @@ _CMAFSLAlloc(
 
     gcmkHEADER_ARG("Mdl=%p NumPages=0x%zx", Mdl, NumPages);
 
-    if (os->allocatorLimitMarker)
+    if (os->allocatorLimitMarker && !(Flags & gcvALLOC_FLAG_CMA_PREEMPT))
     {
-        if ((Flags & gcvALLOC_FLAG_CMA_LIMIT) && !(Flags & gcvALLOC_FLAG_CMA_PREEMPT))
+        if (Flags & gcvALLOC_FLAG_CMA_LIMIT)
         {
             priv->cmaLimitRequest = gcvTRUE;
         }
@@ -585,8 +585,9 @@ _CMAFSLAlloctorInit(
     if (Os->allocatorLimitMarker)
     {
         allocator->capability |= gcvALLOC_FLAG_CMA_LIMIT;
-        allocator->capability |= gcvALLOC_FLAG_CMA_PREEMPT;
     }
+
+    allocator->capability |= gcvALLOC_FLAG_CMA_PREEMPT;
 
     *Allocator = allocator;
 

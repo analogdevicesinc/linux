@@ -106,11 +106,12 @@ _DmaAlloctorInit(
 
 gcsALLOCATOR_DESC allocatorArray[] =
 {
+    /* GFP allocator. */
+    gcmkDEFINE_ALLOCATOR_DESC("gfp", _GFPAlloctorInit),
+
 #if LINUX_CMA_FSL
     gcmkDEFINE_ALLOCATOR_DESC("cmafsl", _CMAFSLAlloctorInit),
 #endif
-    /* GFP allocator. */
-    gcmkDEFINE_ALLOCATOR_DESC("gfp", _GFPAlloctorInit),
 
     /* User memory importer. */
     gcmkDEFINE_ALLOCATOR_DESC("user", _UserMemoryAlloctorInit),
