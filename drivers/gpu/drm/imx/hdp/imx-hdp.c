@@ -685,23 +685,13 @@ bool imx_hdp_bridge_mode_fixup(struct drm_bridge *bridge,
 			       struct drm_display_mode *adjusted_mode)
 {
 	struct imx_hdp *hdp = bridge->driver_private;
-	struct drm_display_info *di = &hdp->connector.display_info;
 	int vic = drm_match_cea_mode(mode);
 
 	if (vic < 0)
 		return false;
 
-	/* force output 10bit YUV420 if HDMI sink support HDR10 */
-	if (vic == VIC_MODE_97_60Hz && cpu_is_imx8mq() &&
-	    (di->color_formats & DRM_COLOR_FORMAT_YCRCB420) &&
-	    (di->hdmi.y420_dc_modes & DRM_EDID_YCBCR420_DC_30)) {
-		hdp->bpc = 10;
-		hdp->format = YCBCR_4_2_0;
-		return true;
-	}
-
-	hdp->bpc = 8;
-	hdp->format = PXL_RGB;
+	if (hdp && hdp->ops && hdp->ops->mode_fixup)
+		return hdp->ops->mode_fixup(&hdp->state, mode, adjusted_mode);
 
 	return true;
 }
@@ -1227,6 +1217,7 @@ static struct hdp_rw_func imx8mq_rw = {
 static struct hdp_ops imx8mq_ops = {
 	.phy_init = hdmi_phy_init_t28hpc,
 	.mode_set = hdmi_mode_set_t28hpc,
+	.mode_fixup = hdmi_mode_fixup_t28hpc,
 	.get_edid_block = hdmi_get_edid_block,
 	.get_hpd_state = hdmi_get_hpd_state,
 	.write_hdr_metadata = hdmi_write_hdr_metadata,

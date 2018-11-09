@@ -432,6 +432,50 @@ void hdmi_mode_set_t28hpc(state_struct *state, struct drm_display_mode *mode, in
 	hdmi_mode_set_vswing(state);
 }
 
+#define YUV_MODE		BIT(0)
+
+bool hdmi_mode_fixup_t28hpc(state_struct *state,
+			    const struct drm_display_mode *mode,
+			    struct drm_display_mode *adjusted_mode)
+{
+	struct imx_hdp *hdp = container_of(state, struct imx_hdp, state);
+	int vic = drm_match_cea_mode(mode);
+	struct drm_display_info *di = &hdp->connector.display_info;
+
+	hdp->bpc = 8;
+	hdp->format = PXL_RGB;
+
+	if ((vic == VIC_MODE_97_60Hz || vic == VIC_MODE_96_50Hz)) {
+		if (di->hdmi.y420_dc_modes & DRM_EDID_YCBCR420_DC_36)
+			hdp->bpc = 12;
+		else if (di->hdmi.y420_dc_modes & DRM_EDID_YCBCR420_DC_30)
+			hdp->bpc = 10;
+
+		if (drm_mode_is_420_only(di, mode) ||
+		    (drm_mode_is_420_also(di, mode) && hdp->bpc > 8)) {
+			hdp->format = YCBCR_4_2_0;
+
+			adjusted_mode->private_flags = YUV_MODE;
+		} else {
+			hdp->bpc = 8;
+		}
+
+		return true;
+	}
+
+	if (di->edid_hdmi_dc_modes & DRM_EDID_HDMI_DC_36)
+		hdp->bpc = 12;
+	else if (di->edid_hdmi_dc_modes & DRM_EDID_HDMI_DC_30)
+		hdp->bpc = 10;
+
+	/* 10-bit color depth for the following modes is not supported */
+	if ((vic == VIC_MODE_95_30Hz || vic == VIC_MODE_94_25Hz ||
+	     vic == VIC_MODE_93_24Hz) && hdp->bpc == 10)
+		hdp->bpc = 8;
+
+	return true;
+}
+
 int hdmi_get_edid_block(void *data, u8 *buf, u32 block, size_t len)
 {
 	HDMITX_TRANS_DATA edidResp;

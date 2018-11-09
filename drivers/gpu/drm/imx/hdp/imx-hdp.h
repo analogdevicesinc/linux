@@ -62,8 +62,12 @@
 
 #define HOTPLUG_DEBOUNCE_MS		200
 
-#define VIC_MODE_96_50Hz 96
 #define VIC_MODE_97_60Hz 97
+#define VIC_MODE_96_50Hz 96
+#define VIC_MODE_95_30Hz 95
+#define VIC_MODE_94_25Hz 94
+#define VIC_MODE_93_24Hz 93
+
 /**
  * imx_hdp_call - Calls a struct imx hdp_operations operation on
  *	an entity
@@ -95,6 +99,9 @@ struct hdp_ops {
 			int format, int color_depth);
 	void (*mode_set)(state_struct *state, struct drm_display_mode *mode,
 			 int format, int color_depth, int max_link);
+	bool (*mode_fixup)(state_struct *state,
+			   const struct drm_display_mode *mode,
+			   struct drm_display_mode *adjusted_mode);
 	int (*get_edid_block)(void *data, u8 *buf, u32 block, size_t len);
 	int (*get_hpd_state)(state_struct *state, u8 *hpd);
 	int (*write_hdr_metadata)(state_struct *state,
