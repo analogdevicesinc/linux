@@ -278,6 +278,130 @@ static int ad9371_sysref_req(struct ad9371_rf_phy *phy, enum ad9371_sysref_req_m
 	return ret;
 }
 
+static int ad9371_set_jesd_lanerate(u32 input_rate_khz,
+				    struct clk *link_clk,
+				    mykonosJesd204bFramerConfig_t *framer,
+				    mykonosJesd204bDeframerConfig_t *deframer,
+				    u32 *lmfc)
+{
+	unsigned long lane_rate_kHz;
+	u32 m, l, k, lmfc_tmp;
+	int ret;
+
+	if (!lmfc)
+		return -EINVAL;
+
+	if (framer) {
+		m = framer->M;
+		l = hweight8(framer->serializerLanesEnabled);
+		k = framer->K;
+	} else if (deframer) {
+		m = deframer->M;
+		l = hweight8(deframer->deserializerLanesEnabled);
+		k = deframer->K;
+	} else {
+		return -EINVAL;
+	}
+
+	lane_rate_kHz = input_rate_khz * m * 20 / l;
+
+	ret = clk_set_rate(link_clk, lane_rate_kHz);
+	if (ret < 0)
+		return ret;
+
+	lmfc_tmp = (lane_rate_kHz * 100) / (k * ((2 * m) / l));
+
+	if (*lmfc)
+		*lmfc = min(*lmfc, lmfc_tmp);
+	else
+		*lmfc = lmfc_tmp;
+
+	return 0;
+}
+
+static bool ad9371_check_sysref_rate(unsigned int lmfc, unsigned int sysref)
+{
+	unsigned int div, mod;
+
+	div = lmfc / sysref;
+	mod = lmfc % sysref;
+
+	/* Ignore minor deviations that can be introduced by rounding. */
+	return mod <= div || mod >= sysref - div;
+}
+
+static int ad9371_update_sysref(struct ad9371_rf_phy *phy, u32 lmfc)
+{
+	unsigned int n;
+	int rate_dev, rate_fmc, ret;
+
+	dev_dbg(&phy->spi->dev, "%s: setting SYSREF for LMFC rate %u Hz\n",
+		__func__, lmfc);
+
+	/* No clock - nothing to do */
+	if (IS_ERR(phy->sysref_dev_clk))
+		return 0;
+
+	rate_dev = clk_get_rate(phy->sysref_dev_clk);
+	if (rate_dev < 0) {
+		dev_err(&phy->spi->dev, "Failed to get DEV SYSREF rate\n");
+		return rate_dev;
+	}
+
+	/* Let's keep the second clock optional */
+	if (!IS_ERR(phy->sysref_fmc_clk)) {
+		rate_fmc = clk_get_rate(phy->sysref_fmc_clk);
+		if (rate_fmc < 0) {
+			dev_err(&phy->spi->dev,
+				"Failed to get FMC SYSREF rate\n");
+			return rate_fmc;
+		}
+	} else {
+		rate_fmc = rate_dev;
+	}
+	/* If the current rate is OK, keep it */
+	if (ad9371_check_sysref_rate(lmfc, rate_dev) &&
+		(rate_fmc == rate_dev))
+		return 0;
+
+	/*
+	 * Try to find a rate that integer divides the LMFC. Starting with a low
+	 * rate is a good idea and then slowly go up in case the clock generator
+	 * can't generate such slow rates.
+	 */
+	for (n = 64; n > 0; n--) {
+		rate_dev = clk_round_rate(phy->sysref_dev_clk, lmfc / n);
+		if (ad9371_check_sysref_rate(lmfc, rate_dev))
+			break;
+	}
+
+	if (n == 0) {
+		dev_err(&phy->spi->dev,
+			"Could not find suitable SYSREF rate for LMFC of %u\n",
+			lmfc);
+		return -EINVAL;
+	}
+
+	if (!IS_ERR(phy->sysref_fmc_clk)) {
+		ret = clk_set_rate(phy->sysref_fmc_clk, rate_dev);
+		if (ret)
+			dev_err(&phy->spi->dev,
+				"Failed to set FMC SYSREF rate to %d Hz: %d\n",
+				rate_dev, ret);
+	}
+
+	ret = clk_set_rate(phy->sysref_dev_clk, rate_dev);
+	if (ret)
+		dev_err(&phy->spi->dev,
+			"Failed to set DEV SYSREF rate to %d Hz: %d\n",
+			rate_dev, ret);
+
+	dev_dbg(&phy->spi->dev, "%s: setting SYSREF %u Hz\n",
+		__func__, rate_dev);
+
+	return ret;
+}
+
 static int ad9371_set_radio_state(struct ad9371_rf_phy *phy, enum ad9371_radio_states state)
 {
 	u32 radioStatus;
@@ -514,10 +638,10 @@ static int ad9371_setup(struct ad9371_rf_phy *phy)
 	uint16_t mismatch = 0;
 	uint8_t framerStatus = 0;
 	mykonosErr_t mykError;
-	unsigned long lane_rate_kHz;
 	long dev_clk, fmc_clk;
 	uint32_t initCalMask;
 	unsigned int i;
+	uint32_t lmfc = 0;
 
 	mykonosDevice_t *mykDevice = phy->mykDevice;
 
@@ -555,27 +679,25 @@ static int ad9371_setup(struct ad9371_rf_phy *phy)
 		return -EINVAL;
 	}
 
-	lane_rate_kHz = mykDevice->rx->rxProfile->iqRate_kHz *
-			mykDevice->rx->framer->M *
-			(20 / hweight8(mykDevice->rx->framer->serializerLanesEnabled));
-
-	ret = clk_set_rate(phy->jesd_rx_clk, lane_rate_kHz);
+	ret = ad9371_set_jesd_lanerate(
+		mykDevice->rx->rxProfile->iqRate_kHz, phy->jesd_rx_clk,
+		mykDevice->rx->framer, NULL, &lmfc);
 	if (ret < 0)
 		return ret;
 
-	lane_rate_kHz = mykDevice->obsRx->orxProfile->iqRate_kHz *
-			mykDevice->obsRx->framer->M *
-			(20 / hweight8(mykDevice->obsRx->framer->serializerLanesEnabled));
-
-	ret = clk_set_rate(phy->jesd_rx_os_clk, lane_rate_kHz);
+	ret = ad9371_set_jesd_lanerate(
+		mykDevice->obsRx->orxProfile->iqRate_kHz,
+		phy->jesd_rx_os_clk, mykDevice->obsRx->framer, NULL, &lmfc);
 	if (ret < 0)
 		return ret;
 
-	lane_rate_kHz = mykDevice->tx->txProfile->iqRate_kHz *
-			mykDevice->tx->deframer->M *
-			(20 / hweight8(mykDevice->tx->deframer->deserializerLanesEnabled));
+	ret = ad9371_set_jesd_lanerate(
+		mykDevice->tx->txProfile->iqRate_kHz, phy->jesd_tx_clk,
+		NULL, mykDevice->tx->deframer, &lmfc);
+	if (ret < 0)
+		return ret;
 
-	ret = clk_set_rate(phy->jesd_tx_clk, lane_rate_kHz);
+	ret = ad9371_update_sysref(phy, lmfc);
 	if (ret < 0)
 		return ret;
 
@@ -3795,6 +3917,9 @@ static int ad9371_probe(struct spi_device *spi)
 	phy->fmc_clk = devm_clk_get(&spi->dev, "fmc_clk");
 	if (IS_ERR(phy->fmc_clk))
 		return PTR_ERR(phy->fmc_clk);
+
+	phy->sysref_dev_clk = devm_clk_get(&spi->dev, "sysref_dev_clk");
+	phy->sysref_fmc_clk = devm_clk_get(&spi->dev, "sysref_fmc_clk");
 
 	ret = clk_prepare_enable(phy->fmc_clk);
 	if (ret)
