@@ -71,20 +71,6 @@ static const lb_prim_sel_t prim_sels[] = {
 #define PRIMCONTROLWORD				0x18
 #define SECCONTROLWORD				0x1C
 
-#define CONTROLWORD				0x18
-#define CURPIXELCNT				0x1C
-static u16 get_xval(u32 pixel_cnt)
-{
-	return pixel_cnt && 0xFF;
-}
-
-static u16 get_yval(u32 pixel_cnt)
-{
-	return pixel_cnt >> 16;
-}
-#define LASTPIXELCNT				0x20
-#define PERFCOUNTER				0x24
-
 struct dpu_layerblend {
 	void __iomem *pec_base;
 	void __iomem *base;
@@ -261,56 +247,6 @@ void layerblend_position(struct dpu_layerblend *lb, int x, int y)
 	mutex_unlock(&lb->mutex);
 }
 EXPORT_SYMBOL_GPL(layerblend_position);
-
-u32 layerblend_last_control_word(struct dpu_layerblend *lb)
-{
-	u32 val;
-
-	mutex_lock(&lb->mutex);
-	val = dpu_lb_read(lb, CONTROLWORD);
-	mutex_unlock(&lb->mutex);
-
-	return val;
-}
-EXPORT_SYMBOL_GPL(layerblend_last_control_word);
-
-void layerblend_pixel_cnt(struct dpu_layerblend *lb, u16 *x, u16 *y)
-{
-	u32 val;
-
-	mutex_lock(&lb->mutex);
-	val = dpu_lb_read(lb, CURPIXELCNT);
-	mutex_unlock(&lb->mutex);
-
-	*x = get_xval(val);
-	*y = get_yval(val);
-}
-EXPORT_SYMBOL_GPL(layerblend_pixel_cnt);
-
-void layerblend_last_pixel_cnt(struct dpu_layerblend *lb, u16 *x, u16 *y)
-{
-	u32 val;
-
-	mutex_lock(&lb->mutex);
-	val = dpu_lb_read(lb, LASTPIXELCNT);
-	mutex_unlock(&lb->mutex);
-
-	*x = get_xval(val);
-	*y = get_yval(val);
-}
-EXPORT_SYMBOL_GPL(layerblend_last_pixel_cnt);
-
-u32 layerblend_perfresult(struct dpu_layerblend *lb)
-{
-	u32 val;
-
-	mutex_lock(&lb->mutex);
-	val = dpu_lb_read(lb, PERFCOUNTER);
-	mutex_unlock(&lb->mutex);
-
-	return val;
-}
-EXPORT_SYMBOL_GPL(layerblend_perfresult);
 
 struct dpu_layerblend *dpu_lb_get(struct dpu_soc *dpu, int id)
 {

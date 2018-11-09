@@ -664,10 +664,6 @@ void layerblend_shdldsel(struct dpu_layerblend *lb, lb_shadow_sel_t sel);
 void layerblend_control(struct dpu_layerblend *lb, lb_mode_t mode);
 void layerblend_blendcontrol(struct dpu_layerblend *lb, bool sec_from_scaler);
 void layerblend_position(struct dpu_layerblend *lb, int x, int y);
-u32 layerblend_last_control_word(struct dpu_layerblend *lb);
-void layerblend_pixel_cnt(struct dpu_layerblend *lb, u16 *x, u16 *y);
-void layerblend_last_pixel_cnt(struct dpu_layerblend *lb, u16 *x, u16 *y);
-u32 layerblend_perfresult(struct dpu_layerblend *lb);
 struct dpu_layerblend *dpu_lb_get(struct dpu_soc *dpu, int id);
 void dpu_lb_put(struct dpu_layerblend *lb);
 
