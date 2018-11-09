@@ -794,7 +794,6 @@ static int __maybe_unused mxc_gpio_noirq_suspend(struct device *dev)
 	spin_lock_irqsave(&port->gc.bgpio_lock, flags);
 	port->suspend_saved_reg[0] = readl(port->base + GPIO_ICR1);
 	port->suspend_saved_reg[1] = readl(port->base + GPIO_ICR2);
-	port->suspend_saved_reg[2] = readl(port->base + GPIO_IMR);
 	port->suspend_saved_reg[3] = readl(port->base + GPIO_GDIR);
 	port->suspend_saved_reg[4] = readl(port->base + GPIO_EDGE_SEL);
 	port->suspend_saved_reg[5] = readl(port->base + GPIO_DR);
@@ -827,7 +826,6 @@ static int __maybe_unused mxc_gpio_noirq_resume(struct device *dev)
 	spin_lock_irqsave(&port->gc.bgpio_lock, flags);
 	writel(port->suspend_saved_reg[0], port->base + GPIO_ICR1);
 	writel(port->suspend_saved_reg[1], port->base + GPIO_ICR2);
-	writel(port->suspend_saved_reg[2], port->base + GPIO_IMR);
 	writel(port->suspend_saved_reg[3], port->base + GPIO_GDIR);
 	writel(port->suspend_saved_reg[4], port->base + GPIO_EDGE_SEL);
 	writel(port->suspend_saved_reg[5], port->base + GPIO_DR);
