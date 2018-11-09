@@ -124,7 +124,6 @@ dtb-$(CONFIG_ARCH_FSL_IMX8MM) += fsl-imx8mm-evk.dtb \
 				 fsl-imx8mm-ddr4-val.dtb \
 				 fsl-imx8mm-evk-rm67191.dtb \
 				 fsl-imx8mm-evk-root.dtb \
-				 fsl-imx8mm-evk-inmate.dtb \
 				 fsl-imx8mm-evk-revb.dtb \
 				 fsl-imx8mm-evk-revb-rm67191.dtb \
 				 fsl-imx8mm-ddr4-evk-rm67191.dtb
