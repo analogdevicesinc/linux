@@ -3608,6 +3608,33 @@ static void caam_aead_alg_init(struct caam_aead_alg *t_alg)
 	alg->exit = caam_aead_exit;
 }
 
+static bool caam_aes_support_gcm(const struct caam_drv_private *priv,
+				 u32 aes_vid, u32 aes_rn)
+{
+	/*
+	 * For ERA 10 and later, bit 9 of the AESA_VERSION register should be
+	 * used to detect presence of GCM.
+	 * For ERA 9 and earlier, the AESRNs 8, 9, and 10 with AESVID=3 all
+	 * have GCM.
+	 */
+	if (priv->era < 10) {
+		if (aes_vid == CHA_ID_LS_AES_LP) {
+			/* Only specific RN support GCM */
+			if (aes_rn >= 8)
+				return true;
+			else
+				return false;
+		} else {
+			/* AES HP support GCM */
+			return true;
+		}
+
+	} else {
+		/* We do not support ERA 10 for now */
+		return false;
+	}
+}
+
 static int __init caam_algapi_init(void)
 {
 	struct device_node *dev_node;
@@ -3616,6 +3643,7 @@ static int __init caam_algapi_init(void)
 	struct caam_drv_private *priv;
 	int i = 0, err = 0;
 	u32 cha_vid, cha_inst, des_inst, aes_inst, md_inst, arc4_inst;
+	u32 cha_rn;
 	unsigned int md_limit = SHA512_DIGEST_SIZE;
 	bool registered = false;
 
@@ -3664,9 +3692,11 @@ static int __init caam_algapi_init(void)
 		i = priv->first_jr_index;
 		cha_vid = rd_reg32(&priv->jr[i]->perfmon.cha_id_ls);
 		cha_inst = rd_reg32(&priv->jr[i]->perfmon.cha_num_ls);
+		cha_rn = rd_reg32(&priv->jr[i]->perfmon.cha_rev_ls);
 	} else {
 		cha_vid = rd_reg32(&priv->ctrl->perfmon.cha_id_ls);
 		cha_inst = rd_reg32(&priv->ctrl->perfmon.cha_num_ls);
+		cha_rn = rd_reg32(&priv->ctrl->perfmon.cha_rev_ls);
 	}
 	des_inst = (cha_inst & CHA_ID_LS_DES_MASK) >> CHA_ID_LS_DES_SHIFT;
 	aes_inst = (cha_inst & CHA_ID_LS_AES_MASK) >> CHA_ID_LS_AES_SHIFT;
@@ -3766,11 +3796,13 @@ static int __init caam_algapi_init(void)
 				continue;
 
 		/*
-		 * Check support for AES algorithms not available
-		 * on LP devices.
+		 * If we try to register gcm aes, check it is supported.
 		 */
-		if ((cha_vid & CHA_ID_LS_AES_MASK) == CHA_ID_LS_AES_LP)
-			if (alg_aai == OP_ALG_AAI_GCM)
+		if (c1_alg_sel == OP_ALG_ALGSEL_AES &&
+		    alg_aai == OP_ALG_AAI_GCM)
+			if (!caam_aes_support_gcm(priv,
+						  cha_vid & CHA_ID_LS_AES_MASK,
+						  cha_rn & CHA_ID_LS_AES_MASK))
 				continue;
 
 		/*
