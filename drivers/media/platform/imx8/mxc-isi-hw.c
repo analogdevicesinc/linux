@@ -665,6 +665,21 @@ void mxc_isi_clean_irq_status(struct mxc_isi_dev *mxc_isi, u32 val)
 	writel(val, mxc_isi->regs + CHNL_STS);
 }
 
+void mxc_isi_m2m_channel_set_filp(struct mxc_isi_dev *mxc_isi)
+{
+	u32 val;
+
+	val = readl(mxc_isi->regs + CHNL_IMG_CTRL);
+	val &= ~(CHNL_IMG_CTRL_VFLIP_EN_MASK | CHNL_IMG_CTRL_HFLIP_EN_MASK);
+
+	if (mxc_isi->m2m.vflip)
+		val |= (CHNL_IMG_CTRL_VFLIP_EN_ENABLE << CHNL_IMG_CTRL_VFLIP_EN_OFFSET);
+	if (mxc_isi->m2m.hflip)
+		val |= (CHNL_IMG_CTRL_HFLIP_EN_ENABLE << CHNL_IMG_CTRL_HFLIP_EN_OFFSET);
+
+	writel(val, mxc_isi->regs + CHNL_IMG_CTRL);
+}
+
 void mxc_isi_m2m_channel_init(struct mxc_isi_dev *mxc_isi)
 {
 	u32 val;
@@ -688,14 +703,6 @@ void mxc_isi_m2m_channel_config(struct mxc_isi_dev *mxc_isi)
 
 	chain_buf(mxc_isi);
 
-	/* image ctrl */
-	reg = 0;
-	reg |= (mxc_isi->m2m.vflip << CHNL_IMG_CTRL_VFLIP_EN_OFFSET |
-			mxc_isi->m2m.hflip << CHNL_IMG_CTRL_HFLIP_EN_OFFSET |
-			mxc_isi->m2m.alpha << CHNL_IMG_CTRL_GBL_ALPHA_VAL_OFFSET |
-			mxc_isi->m2m.alphaen << CHNL_IMG_CTRL_GBL_ALPHA_EN_OFFSET);
-	writel(reg, mxc_isi->regs + CHNL_IMG_CTRL);
-
 	/* scale size need to equal input size when scaling disabled*/
 	reg = src_f->o_width | (src_f->o_height << CHNL_IMG_CFG_HEIGHT_OFFSET);
 	writel(reg, mxc_isi->regs + CHNL_SCL_IMG_CFG);
@@ -705,6 +712,9 @@ void mxc_isi_m2m_channel_config(struct mxc_isi_dev *mxc_isi)
 
 	/* Scaling */
 	mxc_isi_channel_set_scaling(mxc_isi);
+
+	/* Horizonal and Vertical flip */
+	mxc_isi_m2m_channel_set_filp(mxc_isi);
 }
 
 void mxc_isi_m2m_channel_enable(struct mxc_isi_dev *mxc_isi)

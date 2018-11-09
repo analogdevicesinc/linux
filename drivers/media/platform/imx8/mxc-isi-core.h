@@ -245,6 +245,7 @@ struct mxc_isi_m2m_dev {
 	unsigned int frame_count;
 
 	struct list_head		out_active;
+	struct mxc_isi_ctrls	ctrls;
 
 	u8 alpha;
 };
