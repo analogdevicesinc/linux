@@ -547,16 +547,24 @@ static int mxc_isi_s_ctrl(struct v4l2_ctrl *ctrl)
 
 	switch (ctrl->id) {
 	case V4L2_CID_HFLIP:
-		mxc_isi->hflip = ctrl->val;
+		if (ctrl->val < 0)
+			return -EINVAL;
+		mxc_isi->hflip = (ctrl->val > 0) ? 1 : 0;
 		break;
 
 	case V4L2_CID_VFLIP:
-		mxc_isi->vflip = ctrl->val;
+		if (ctrl->val < 0)
+			return -EINVAL;
+		mxc_isi->vflip = (ctrl->val > 0) ? 1 : 0;
 		break;
 
 	case V4L2_CID_ALPHA_COMPONENT:
 		mxc_isi->alpha = ctrl->val;
 		break;
+
+	default:
+		dev_err(&mxc_isi->pdev->dev, "%s: Not support %d CID\n", __func__, ctrl->id);
+		return -EINVAL;
 	}
 
 	spin_unlock_irqrestore(&mxc_isi->slock, flags);
