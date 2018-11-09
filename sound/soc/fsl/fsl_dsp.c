@@ -658,8 +658,7 @@ static void dsp_load_firmware(const struct firmware *fw, void *context)
 	shdr = (Elf32_Shdr *)(addr + ehdr->e_shoff +
 			(ehdr->e_shstrndx * sizeof(Elf32_Shdr)));
 
-	if (shdr->sh_type == SHT_STRTAB)
-		strtab = (unsigned char *)(addr + shdr->sh_offset);
+	strtab = (unsigned char *)(addr + shdr->sh_offset);
 
 	/* Load each appropriate section */
 	for (i = 0; i < ehdr->e_shnum; ++i) {
