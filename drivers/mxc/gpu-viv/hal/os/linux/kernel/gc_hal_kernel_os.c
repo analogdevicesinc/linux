@@ -1374,14 +1374,11 @@ gckOS_AllocateNonPagedMemory(
 
     gcmkASSERT(Flag & gcvALLOC_FLAG_CONTIGUOUS);
 
-    if (Os->allocatorLimitMarker)
-    {
-        Flag |= gcvALLOC_FLAG_CMA_LIMIT;
-        Flag |= gcvALLOC_FLAG_CMA_PREEMPT;
 #if gcdENABLE_CACHEABLE_COMMAND_BUFFER
-        Flag &= ~gcvALLOC_FLAG_CACHEABLE;
+    Flag &= ~gcvALLOC_FLAG_CACHEABLE;
 #endif
-    }
+
+    Flag |= gcvALLOC_FLAG_CMA_PREEMPT;
 
     /* Walk all allocators. */
     list_for_each_entry(allocator, &Os->allocatorList, link)
