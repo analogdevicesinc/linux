@@ -179,14 +179,14 @@ static void dcss_crtc_atomic_flush(struct drm_crtc *crtc,
 		dcss_ctxld_enable(dcss);
 }
 
+#define YUV_MODE		BIT(0)
+
 void dcss_crtc_setup_opipe(struct drm_crtc *crtc, struct drm_connector *conn,
 			   u32 colorimetry, u32 eotf,
 			   enum hdmi_quantization_range qr)
 {
 	struct dcss_crtc *dcss_crtc = container_of(crtc, struct dcss_crtc,
 						   base);
-	struct drm_display_info *di = &conn->display_info;
-	int vic;
 
 	if ((colorimetry & BIT(HDMI_EXTENDED_COLORIMETRY_BT2020)) ||
 	    (colorimetry & BIT(HDMI_EXTENDED_COLORIMETRY_BT2020_CONST_LUM)))
@@ -206,15 +206,15 @@ void dcss_crtc_setup_opipe(struct drm_crtc *crtc, struct drm_connector *conn,
 	else
 		dcss_crtc->opipe_pr = PR_LIMITED;
 
-	vic = drm_match_cea_mode(&crtc->state->adjusted_mode);
-
-	/* FIXME: we should get the connector colorspace some other way */
-	if (vic == 97 &&
-	    (di->color_formats & DRM_COLOR_FORMAT_YCRCB420) &&
-	    (di->hdmi.y420_dc_modes & DRM_EDID_YCBCR420_DC_30))
+	/*
+	 * private_flags is set in the connector driver in the mode_fixup()
+	 * phase. Also, the DCSS HDR10 output pipe color depth is always
+	 * 10-bit.
+	 */
+	if (crtc->state->adjusted_mode.private_flags & YUV_MODE)
 		dcss_crtc->opipe_pix_format = DRM_FORMAT_P010;
 	else
-		dcss_crtc->opipe_pix_format = DRM_FORMAT_ARGB8888;
+		dcss_crtc->opipe_pix_format = DRM_FORMAT_ARGB2101010;
 
 	DRM_DEBUG_KMS("OPIPE_CFG: gamut = %d, nl = %d, pr = %d, pix_fmt = %d\n",
 		      dcss_crtc->opipe_g, dcss_crtc->opipe_nl,
