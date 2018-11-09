@@ -679,6 +679,18 @@ void mxc_isi_m2m_channel_set_filp(struct mxc_isi_dev *mxc_isi)
 	writel(val, mxc_isi->regs + CHNL_IMG_CTRL);
 }
 
+void mxc_isi_m2m_channel_set_alpha(struct mxc_isi_dev *mxc_isi)
+{
+	u32 val;
+
+	val = readl(mxc_isi->regs + CHNL_IMG_CTRL);
+	val &= ~(CHNL_IMG_CTRL_GBL_ALPHA_VAL_MASK | CHNL_IMG_CTRL_GBL_ALPHA_EN_MASK);
+	val |= ((mxc_isi->m2m.alpha << CHNL_IMG_CTRL_GBL_ALPHA_VAL_OFFSET) |
+			(CHNL_IMG_CTRL_GBL_ALPHA_EN_ENABLE << CHNL_IMG_CTRL_GBL_ALPHA_EN_OFFSET));
+
+	writel(val, mxc_isi->regs + CHNL_IMG_CTRL);
+}
+
 void mxc_isi_m2m_channel_init(struct mxc_isi_dev *mxc_isi)
 {
 	u32 val;
@@ -714,6 +726,9 @@ void mxc_isi_m2m_channel_config(struct mxc_isi_dev *mxc_isi)
 
 	/* Horizonal and Vertical flip */
 	mxc_isi_m2m_channel_set_filp(mxc_isi);
+
+	if (mxc_isi->m2m.alphaen)
+		mxc_isi_m2m_channel_set_alpha(mxc_isi);
 }
 
 void mxc_isi_m2m_channel_enable(struct mxc_isi_dev *mxc_isi)

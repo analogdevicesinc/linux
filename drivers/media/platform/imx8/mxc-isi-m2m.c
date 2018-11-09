@@ -886,6 +886,13 @@ static int mxc_isi_m2m_s_ctrl(struct v4l2_ctrl *ctrl)
 		mxc_isi->m2m.vflip = (ctrl->val > 0) ? 1 : 0;
 		break;
 
+	case V4L2_CID_ALPHA_COMPONENT:
+		if (ctrl->val < 0 || ctrl->val > 255)
+			return -EINVAL;
+		mxc_isi->m2m.alpha = ctrl->val;
+		mxc_isi->m2m.alphaen = 1;
+		break;
+
 	default:
 		dev_err(&mxc_isi->pdev->dev, "%s: Not support %d CID\n", __func__, ctrl->id);
 		return -EINVAL;
@@ -914,6 +921,8 @@ static int mxc_isi_m2m_ctrls_create(struct mxc_isi_dev *mxc_isi)
 					V4L2_CID_HFLIP, 0, 1, 1, 0);
 	ctrls->vflip = v4l2_ctrl_new_std(handler, &mxc_isi_m2m_ctrl_ops,
 					V4L2_CID_VFLIP, 0, 1, 1, 0);
+	ctrls->alpha = v4l2_ctrl_new_std(handler, &mxc_isi_m2m_ctrl_ops,
+					V4L2_CID_ALPHA_COMPONENT, 0, 0xff, 1, 0);
 
 	if (!handler->error)
 		ctrls->ready = true;
