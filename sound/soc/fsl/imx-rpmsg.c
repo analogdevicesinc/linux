@@ -35,6 +35,8 @@ static int imx_rpmsg_probe(struct platform_device *pdev)
 	struct platform_device *cpu_pdev;
 	struct imx_rpmsg_data *data;
 	struct fsl_rpmsg_i2s         *rpmsg_i2s;
+	struct snd_soc_dai_link_component dlc = { 0 };
+	struct snd_soc_dai *codec_dai;
 	int ret;
 
 	cpu_np = of_parse_phandle(pdev->dev.of_node, "cpu-dai", 0);
@@ -82,6 +84,12 @@ static int imx_rpmsg_probe(struct platform_device *pdev)
 			    SND_SOC_DAIFMT_NB_NF |
 			    SND_SOC_DAIFMT_CBS_CFS;
 	}
+
+	dlc.name = data->dai[0].codec_name;
+	dlc.dai_name = data->dai[0].codec_dai_name;
+	codec_dai = snd_soc_find_dai(&dlc);
+	if (!codec_dai)
+		return -ENODEV;
 
 	data->dai[0].cpu_dai_name = dev_name(&cpu_pdev->dev);
 	data->dai[0].platform_of_node = cpu_np;
