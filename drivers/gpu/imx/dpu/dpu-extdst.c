@@ -48,7 +48,7 @@
 #define CURPIXELCNT			0x1C
 static u16 get_xval(u32 pixel_cnt)
 {
-	return pixel_cnt && 0xFF;
+	return pixel_cnt & 0xFFFF;
 }
 
 static u16 get_yval(u32 pixel_cnt)
