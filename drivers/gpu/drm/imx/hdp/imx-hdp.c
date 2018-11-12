@@ -101,6 +101,94 @@ static void imx_hdp_cec_init(struct imx_hdp *hdp)
 }
 #endif
 
+#ifdef DEBUG_FW_LOAD
+void hdp_fw_load(state_struct *state)
+{
+	DRM_INFO("loading hdmi firmware\n");
+	CDN_API_LoadFirmware(state,
+		(u8 *)hdmitx_iram0_get_ptr(),
+		hdmitx_iram0_get_size(),
+		(u8 *)hdmitx_dram0_get_ptr(),
+		hdmitx_dram0_get_size());
+}
+#endif
+
+int hdp_fw_check(state_struct *state)
+{
+	u16 ver, verlib;
+	u8 echo_msg[] = "echo test";
+	u8 echo_resp[sizeof(echo_msg) + 1];
+	int ret;
+
+	ret = CDN_API_General_Test_Echo_Ext_blocking(state, echo_msg, echo_resp,
+		 sizeof(echo_msg), CDN_BUS_TYPE_APB);
+
+	if (0 != strncmp(echo_msg, echo_resp, sizeof(echo_msg))) {
+		DRM_ERROR("CDN_API_General_Test_Echo_Ext_blocking - echo test failed, check firmware!");
+		return -ENXIO;
+	}
+	DRM_INFO("CDN_API_General_Test_Echo_Ext_blocking - APB(ret = %d echo_resp = %s)\n",
+		  ret, echo_resp);
+
+	ret = CDN_API_General_getCurVersion(state, &ver, &verlib);
+	if (ret != 0) {
+		DRM_ERROR("CDN_API_General_getCurVersion - check firmware!\n");
+		return -ENXIO;
+	} else
+		DRM_INFO("CDN_API_General_getCurVersion - ver %d verlib %d\n",
+			 ver, verlib);
+	/* we can add a check here to reject older firmware
+	 * versions if needed */
+
+	return 0;
+}
+
+int hdp_fw_init(state_struct *state)
+{
+	struct imx_hdp *hdp = state_to_imx_hdp(state);
+	u32 core_rate;
+	int ret;
+	u8 sts;
+
+	core_rate = clk_get_rate(hdp->clks.clk_core);
+
+	/* configure the clock */
+	CDN_API_SetClock(state, core_rate/1000000);
+	pr_info("CDN_API_SetClock completed\n");
+
+	/* moved from CDN_API_LoadFirmware */
+	cdn_apb_write(state, APB_CTRL << 2, 0);
+	DRM_INFO("Started firmware!\n");
+
+	ret = CDN_API_CheckAlive_blocking(state);
+	if (ret != 0) {
+		DRM_ERROR("CDN_API_CheckAlive failed - check firmware!\n");
+		return -ENXIO;
+	} else
+		DRM_INFO("CDN_API_CheckAlive returned ret = %d\n", ret);
+
+	/* turn on IP activity */
+	ret = CDN_API_MainControl_blocking(state, 1, &sts);
+	DRM_INFO("CDN_API_MainControl_blocking ret = %d sts = %u\n", ret, sts);
+
+	ret = hdp_fw_check(state);
+	if (ret != 0) {
+		DRM_ERROR("hdmi_fw_check failed!\n");
+		return -ENXIO;
+	}
+
+	if (hdp->is_dp) {
+	/* Line swaping - DP only */
+	       CDN_API_General_Write_Register_blocking(state,
+						ADDR_SOURCD_PHY +
+						(LANES_CONFIG << 2),
+						0x00400000 |
+						hdp->dp_lane_mapping);
+	       DRM_INFO("CDN_API_General_Write_* ... setting LANES_CONFIG\n");
+	}
+	return 0;
+}
+
 static void imx8qm_pixel_link_mux(state_struct *state,
 				  struct drm_display_mode *mode)
 {
@@ -1143,9 +1231,9 @@ static struct hdp_rw_func imx8qm_rw = {
 
 static struct hdp_ops imx8qm_dp_ops = {
 #ifdef DEBUG_FW_LOAD
-	.fw_load = dp_fw_load,
+	.fw_load = hdp_fw_load,
 #endif
-	.fw_init = dp_fw_init,
+	.fw_init = hdp_fw_init,
 	.phy_init = dp_phy_init,
 	.mode_set = dp_mode_set,
 	.get_edid_block = dp_get_edid_block,
@@ -1169,9 +1257,9 @@ static struct hdp_ops imx8qm_dp_ops = {
 
 static struct hdp_ops imx8qm_hdmi_ops = {
 #ifdef DEBUG_FW_LOAD
-	.fw_load = hdmi_fw_load,
+	.fw_load = hdp_fw_load,
 #endif
-	.fw_init = hdmi_fw_init,
+	.fw_init = hdp_fw_init,
 	.phy_init = hdmi_phy_init_ss28fdsoi,
 	.mode_set = hdmi_mode_set_ss28fdsoi,
 	.get_edid_block = hdmi_get_edid_block,
@@ -1215,6 +1303,7 @@ static struct hdp_rw_func imx8mq_rw = {
 };
 
 static struct hdp_ops imx8mq_ops = {
+	.fw_init = hdp_fw_check,
 	.phy_init = hdmi_phy_init_t28hpc,
 	.mode_set = hdmi_mode_set_t28hpc,
 	.mode_fixup = hdmi_mode_fixup_t28hpc,
@@ -1234,6 +1323,7 @@ static struct hdp_devtype imx8mq_hdmi_devtype = {
 };
 
 static struct hdp_ops imx8mq_dp_ops = {
+	.fw_init = hdp_fw_check,
 	.phy_init = dp_phy_init_t28hpc,
 	.mode_set = dp_mode_set,
 	.get_edid_block = dp_get_edid_block,
@@ -1362,40 +1452,44 @@ static int imx_hdp_imx_bind(struct device *dev, struct device *master,
 
 	hdp->no_edid = of_property_read_bool(pdev->dev.of_node, "fsl,no_edid");
 
-	hdp->is_edp = of_property_read_bool(pdev->dev.of_node, "fsl,edp");
-
 	/* EDID function is not supported by iMX8QM A0 */
 	if (cpu_is_imx8qm() && (imx8_get_soc_revision() < B0_SILICON_ID))
 		hdp->no_edid = true;
 
-	ret = of_property_read_u32(pdev->dev.of_node,
-				       "dp-lane-mapping",
-				       &hdp->dp_lane_mapping);
-	if (ret) {
-		hdp->dp_lane_mapping = 0x1b;
-		dev_warn(dev, "Failed to get lane_mapping - using default\n");
-	}
-	dev_info(dev, "dp-lane-mapping 0x%02x\n", hdp->dp_lane_mapping);
+	if (devtype->connector_type == DRM_MODE_CONNECTOR_DisplayPort) {
+		hdp->is_dp = true;
+		hdp->is_edp = of_property_read_bool(pdev->dev.of_node, "fsl,edp");
 
-	ret = of_property_read_u32(pdev->dev.of_node,
-				       "dp-link-rate",
-				       &hdp->dp_link_rate);
-	if (ret) {
-		hdp->dp_link_rate = AFE_LINK_RATE_1_6;
-		hdp->link_rate = AFE_LINK_RATE_1_6;
-		dev_warn(dev, "Failed to get dp-link-rate - using default\n");
-	} else
-		hdp->link_rate = hdp->dp_link_rate;
-	dev_info(dev, "dp-link-rate 0x%02x\n", hdp->dp_link_rate);
+		ret = of_property_read_u32(pdev->dev.of_node,
+					       "dp-lane-mapping",
+					       &hdp->dp_lane_mapping);
+		if (ret) {
+			hdp->dp_lane_mapping = 0x1b;
+			dev_warn(dev, "Failed to get lane_mapping - using default\n");
+		}
+		dev_info(dev, "dp-lane-mapping 0x%02x\n", hdp->dp_lane_mapping);
 
-	ret = of_property_read_u32(pdev->dev.of_node,
-				       "dp-num-lanes",
-				       &hdp->dp_num_lanes);
-	if (ret) {
-		hdp->dp_num_lanes = 4;
-		dev_warn(dev, "Failed to get dp_num_lanes - using default\n");
+		ret = of_property_read_u32(pdev->dev.of_node,
+					       "dp-link-rate",
+					       &hdp->dp_link_rate);
+		if (ret) {
+			hdp->dp_link_rate = AFE_LINK_RATE_1_6;
+			hdp->link_rate = AFE_LINK_RATE_1_6;
+			dev_warn(dev, "Failed to get dp-link-rate - using default\n");
+		} else
+			hdp->link_rate = hdp->dp_link_rate;
+		dev_info(dev, "dp-link-rate 0x%02x\n", hdp->dp_link_rate);
+
+		ret = of_property_read_u32(pdev->dev.of_node,
+					       "dp-num-lanes",
+					       &hdp->dp_num_lanes);
+		if (ret) {
+			hdp->dp_num_lanes = 4;
+			dev_warn(dev, "Failed to get dp_num_lanes - using default\n");
+		}
+		dev_info(dev, "dp_num_lanes 0x%02x\n", hdp->dp_num_lanes);
+
 	}
-	dev_info(dev, "dp_num_lanes 0x%02x\n", hdp->dp_num_lanes);
 
 	hdp->audio_type = devtype->audio_type;
 	hdp->ops = devtype->ops;
@@ -1492,7 +1586,9 @@ static int imx_hdp_imx_bind(struct device *dev, struct device *master,
 
 	dev_set_drvdata(dev, hdp);
 
-	dp_aux_init(&hdp->state, dev);
+	if (hdp->is_dp) {
+		dp_aux_init(&hdp->state, dev);
+	}
 
 	INIT_DELAYED_WORK(&hdp->hotplug_work, hotplug_work_func);
 

@@ -23,68 +23,6 @@
 #include "imx-hdmi.h"
 #include "imx-dp.h"
 
-#ifdef DEBUG_FW_LOAD
-void dp_fw_load(state_struct *state)
-{
-	DRM_INFO("loading hdmi firmware\n");
-	CDN_API_LoadFirmware(state,
-		(u8 *)mhdp_iram0_get_ptr(),
-		mhdp_iram0_get_size(),
-		(u8 *)mhdp_dram0_get_ptr(),
-		mhdp_dram0_get_size());
-}
-#endif
-int dp_fw_init(state_struct *state)
-{
-	u8 echo_msg[] = "echo test";
-	u8 echo_resp[sizeof(echo_msg) + 1];
-	struct imx_hdp *hdp = state_to_imx_hdp(state);
-	u32 core_rate;
-	int ret;
-	u8 resp;
-
-	core_rate = clk_get_rate(hdp->clks.clk_core);
-
-	/* configure the clock */
-	CDN_API_SetClock(state, core_rate/1000000);
-	pr_info("CDN_API_SetClock completed\n");
-
-	cdn_apb_write(state, APB_CTRL << 2, 0);
-	DRM_INFO("Started firmware!\n");
-
-	ret = CDN_API_CheckAlive_blocking(state);
-	if (ret != 0) {
-		DRM_ERROR("CDN_API_CheckAlive failed - check firmware!\n");
-		return -ENXIO;
-	}
-
-	DRM_INFO("CDN_API_CheckAlive returned ret = %d\n", ret);
-
-	/* turn on IP activity */
-	ret = CDN_API_MainControl_blocking(state, 1, &resp);
-	DRM_INFO("CDN_API_MainControl_blocking (ret = %d resp = %u)\n",
-		ret, resp);
-
-	ret = CDN_API_General_Test_Echo_Ext_blocking(state, echo_msg, echo_resp,
-		sizeof(echo_msg), CDN_BUS_TYPE_APB);
-	if (strncmp(echo_msg, echo_resp, sizeof(echo_msg)) != 0) {
-		DRM_ERROR("CDN_API_General_Test_Echo_Ext_blocking - echo test failed, check firmware!");
-		return -ENXIO;
-	}
-	DRM_INFO("CDN_API_General_Test_Echo_Ext_blocking (ret = %d echo_resp = %s)\n",
-		ret, echo_resp);
-
-	/* Line swaping */
-	CDN_API_General_Write_Register_blocking(state,
-						ADDR_SOURCD_PHY +
-						(LANES_CONFIG << 2),
-						0x00400000 |
-						hdp->dp_lane_mapping);
-	DRM_INFO("CDN_API_General_Write_Register_blockin ... setting LANES_CONFIG\n");
-
-	return 0;
-}
-
 int dp_phy_init(state_struct *state, struct drm_display_mode *mode, int format,
 		int color_depth)
 {

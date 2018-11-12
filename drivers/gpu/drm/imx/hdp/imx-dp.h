@@ -14,8 +14,6 @@
 #ifndef _IMX_DP_H_
 #define _IMX_DP_H_
 
-void dp_fw_load(state_struct *state);
-int dp_fw_init(state_struct *state);
 void dp_mode_set(state_struct *state,
 		 struct drm_display_mode *mode,
 		 int format, int color_depth,

@@ -217,6 +217,7 @@ struct imx_hdp {
 
 	u8 is_cec;
 	u8 is_edp;
+	u8 is_dp;
 	u8 is_digpll_dp_pclock;
 	u8 no_edid;
 	u8 audio_type;
