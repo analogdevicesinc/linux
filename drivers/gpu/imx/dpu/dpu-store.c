@@ -118,6 +118,9 @@ int dpu_st_init(struct dpu_soc *dpu, unsigned int id,
 		if (st_ids[i] == id)
 			break;
 
+	if (i == ARRAY_SIZE(st_ids))
+		return -EINVAL;
+
 	dpu->st_priv[i] = st;
 
 	st->pec_base = devm_ioremap(dpu->dev, pec_base, SZ_32);

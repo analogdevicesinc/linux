@@ -258,6 +258,9 @@ int dpu_cf_init(struct dpu_soc *dpu, unsigned int id,
 		if (cf_ids[i] == id)
 			break;
 
+	if (i == ARRAY_SIZE(cf_ids))
+		return -EINVAL;
+
 	dpu->cf_priv[i] = cf;
 
 	cf->pec_base = devm_ioremap(dpu->dev, pec_base, SZ_16);

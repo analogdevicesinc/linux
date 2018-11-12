@@ -423,6 +423,9 @@ int dpu_vs_init(struct dpu_soc *dpu, unsigned int id,
 		if (vs_ids[i] == id)
 			break;
 
+	if (i == ARRAY_SIZE(vs_ids))
+		return -EINVAL;
+
 	dpu->vs_priv[i] = vs;
 
 	vs->pec_base = devm_ioremap(dpu->dev, pec_base, SZ_8);

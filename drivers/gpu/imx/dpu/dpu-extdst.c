@@ -519,6 +519,9 @@ int dpu_ed_init(struct dpu_soc *dpu, unsigned int id,
 		if (ed_ids[i] == id)
 			break;
 
+	if (i == ARRAY_SIZE(ed_ids))
+		return -EINVAL;
+
 	dpu->ed_priv[i] = ed;
 
 	ed->pec_base = devm_ioremap(dpu->dev, pec_base, SZ_32);

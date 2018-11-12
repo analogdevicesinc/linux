@@ -406,6 +406,9 @@ int dpu_fe_init(struct dpu_soc *dpu, unsigned int id,
 		if (fe_ids[i] == id)
 			break;
 
+	if (i == ARRAY_SIZE(fe_ids))
+		return -EINVAL;
+
 	fu = &fe->fu;
 	dpu->fe_priv[i] = fu;
 

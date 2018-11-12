@@ -299,6 +299,9 @@ int dpu_fw_init(struct dpu_soc *dpu, unsigned int id,
 		if (fw_ids[i] == id)
 			break;
 
+	if (i == ARRAY_SIZE(fw_ids))
+		return -EINVAL;
+
 	fu = &fw->fu;
 	dpu->fw_priv[i] = fu;
 
