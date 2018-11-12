@@ -50,7 +50,7 @@ extern unsigned int vpu_dbg_level_decoder;
 #define MMAP_BUF_TYPE_MASK 0xF0000000
 #define M0_BOOT_SIZE 0x1000000
 #define DCP_SIZE 0x3000000
-#define MAX_BUFFER_SIZE 0x800000
+#define MAX_BUFFER_SIZE 0xc00000
 #define UDATA_BUFFER_SIZE 0x1000
 #define SHARED_SIZE 0x00400000
 #define MAX_DCP_NUM 2

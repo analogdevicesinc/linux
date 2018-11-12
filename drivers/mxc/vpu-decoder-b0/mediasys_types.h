@@ -61,8 +61,8 @@ typedef unsigned long u_int64;
 typedef unsigned int BOOL;
 #define FALSE 0
 #define TRUE 1
-#define VPU_MAX_NUM_STREAMS 3
-#define VID_API_NUM_STREAMS 4
+#define VPU_MAX_NUM_STREAMS 8
+#define VID_API_NUM_STREAMS 8
 #define VID_API_MAX_BUF_PER_STR 3
 #define VID_API_MAX_NUM_MVC_VIEWS 4
 #define MEDIAIP_MAX_NUM_MALONES 2
