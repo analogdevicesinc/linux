@@ -1296,7 +1296,6 @@ static int reset_vpu_core_dev(struct core_device *core_dev)
 	if (!core_dev)
 		return -EINVAL;
 
-	set_core_force_release(core_dev);
 	core_dev->fw_is_ready = false;
 	core_dev->firmware_started = false;
 
@@ -2429,6 +2428,8 @@ static int re_configure_codecs(struct core_device *core)
 		mutex_lock(&ctx->instance_mutex);
 		queue = &ctx->q_data[V4L2_SRC];
 		if (!list_empty(&queue->drv_q)) {
+			vpu_dbg(LVL_INFO,
+				"re configure codec for core[%d]\n", core->id);
 			configure_codec(ctx);
 			submit_input_and_encode(ctx);
 		}
@@ -2448,7 +2449,8 @@ static int wait_for_start_done(struct core_device *core, int resume)
 	ret = wait_for_completion_timeout(&core->start_cmp,
 						msecs_to_jiffies(1000));
 	if (!ret) {
-		vpu_err("error: wait for resume done timeout!\n");
+		vpu_err("error: wait for core[%d] %s done timeout!\n",
+				core->id, resume ? "resume" : "start");
 		return -EINVAL;
 	}
 
@@ -2960,6 +2962,7 @@ static int download_vpu_firmware(struct vpu_dev *dev,
 	if (core_dev->fw_is_ready)
 		return 0;
 
+	vpu_dbg(LVL_INFO, "download firmware for core[%d]\n", core_dev->id);
 	init_completion(&core_dev->start_cmp);
 	ret = vpu_firmware_download(dev, core_dev->id);
 	if (ret) {
@@ -4139,6 +4142,8 @@ static int is_need_shapshot(struct vpu_ctx *ctx)
 		return 0;
 	if (!test_bit(VPU_ENC_STATUS_INITIALIZED, &ctx->status))
 		return 0;
+	if (!test_bit(VPU_ENC_STATUS_CONFIGURED, &ctx->status))
+		return 0;
 	if (test_bit(VPU_ENC_STATUS_CLOSED, &ctx->status))
 		return 0;
 	if (test_bit(VPU_ENC_STATUS_STOP_SEND, &ctx->status))
@@ -4165,7 +4170,6 @@ static int vpu_snapshot(struct vpu_ctx *ctx)
 		return -EINVAL;
 	}
 
-	set_bit(VPU_ENC_STATUS_SNAPSHOT, &ctx->status);
 	ctx->core_dev->snapshot = true;
 
 	return 0;
@@ -4180,17 +4184,29 @@ static int resume_from_snapshot(struct core_device *core)
 	if (!core->snapshot)
 		return 0;
 
-	vpu_dbg(LVL_INFO, "resume from snapshot\n");
+	vpu_dbg(LVL_INFO, "core[%d] resume from snapshot\n", core->id);
 
 	init_completion(&core->start_cmp);
 	set_vpu_fw_addr(core->vdev, core);
 	ret = wait_for_start_done(core, 1);
 	if (ret) {
+		set_core_force_release(core);
 		reset_vpu_core_dev(core);
 		return -EINVAL;
 	}
 
 	return 0;
+}
+
+static int re_download_firmware(struct core_device *core)
+{
+	if (!core)
+		return -EINVAL;
+
+	vpu_dbg(LVL_INFO, "re download firmware for core[%d]\n", core->id);
+
+	reset_vpu_core_dev(core);
+	return download_vpu_firmware(core->vdev, core);
 }
 
 static int suspend_instance(struct vpu_ctx *ctx)
@@ -4207,6 +4223,7 @@ static int suspend_instance(struct vpu_ctx *ctx)
 	mutex_lock(&ctx->instance_mutex);
 	if (!ctx->core_dev->snapshot && is_need_shapshot(ctx))
 		ret = vpu_snapshot(ctx);
+	set_bit(VPU_ENC_STATUS_SNAPSHOT, &ctx->status);
 	mutex_unlock(&ctx->instance_mutex);
 
 	return ret;
@@ -4235,6 +4252,8 @@ static int suspend_core(struct core_device *core)
 		return 0;
 
 	for (i = 0; i < core->supported_instance_count; i++) {
+		if (!core->ctx[i])
+			continue;
 		ret = suspend_instance(core->ctx[i]);
 		if (ret)
 			return ret;
@@ -4251,6 +4270,7 @@ static int suspend_core(struct core_device *core)
 static int resume_core(struct core_device *core)
 {
 	int ret = 0;
+	u32 instance_count = 0;
 	int i;
 
 	WARN_ON(!core);
@@ -4259,6 +4279,9 @@ static int resume_core(struct core_device *core)
 		return 0;
 
 	for (i = 0; i < core->supported_instance_count; i++) {
+		if (!core->ctx[i])
+			continue;
+		instance_count++;
 		vpu_ctx_power_on(core->ctx[i]);
 		resume_instance(core->ctx[i]);
 	}
@@ -4269,6 +4292,8 @@ static int resume_core(struct core_device *core)
 			vpu_enable_hw(core->vdev);
 		if (core->snapshot)
 			ret = resume_from_snapshot(core);
+		else if (instance_count)
+			ret = re_download_firmware(core);
 		else
 			reset_vpu_core_dev(core);
 	} else {
