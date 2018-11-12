@@ -76,6 +76,7 @@ static int i2cfront_do_req(struct i2c_adapter *adapter, struct i2c_msg *msg,
 	for (index = 0; index < num; index++) {
 		req->msg[index].addr = msg[index].addr;
 		req->msg[index].len = msg[index].len;
+		req->msg[index].flags = 0; 
 		if (msg[index].flags & I2C_M_RD)
 			req->msg[index].flags |= I2CIF_M_RD;
 		if (msg[index].flags & I2C_M_TEN)
