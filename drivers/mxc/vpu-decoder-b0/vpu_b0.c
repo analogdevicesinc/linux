@@ -61,7 +61,9 @@ static void vpu_api_event_handler(struct vpu_ctx *ctx, u_int32 uStrIdx, u_int32 
 static void v4l2_vpu_send_cmd(struct vpu_ctx *ctx, uint32_t idx, uint32_t cmdid, uint32_t cmdnum, uint32_t *local_cmddata);
 static int add_scode(struct vpu_ctx *ctx, u_int32 uStrBufIdx, VPU_PADDING_SCODE_TYPE eScodeType, bool bUpdateWr);
 static void v4l2_update_stream_addr(struct vpu_ctx *ctx, uint32_t uStrBufIdx);
-static int swreset_vpu_firmware(struct vpu_dev *dev);
+static int swreset_vpu_firmware(struct vpu_dev *dev, u_int32 idx);
+static int find_first_available_instance(struct vpu_dev *dev);
+#define CHECK_BIT(var, pos) (((var) >> (pos)) & 1)
 
 static char *cmd2str[] = {
 	"VID_API_CMD_NULL",   /*0x0*/
@@ -885,7 +887,14 @@ static int v4l2_ioctl_streamon(struct file *file,
 	} else
 		vpu_dbg(LVL_ERR, "error: %s() return ret=%d\n", __func__, ret);
 
-	return ret;
+	if (ctx->hang_status) {
+		vpu_dbg(LVL_ERR, "%s(): not succeed and some instance are blocked\n", __func__);
+		return -EINVAL;
+	} else if (ctx->firmware_stopped) {
+		vpu_dbg(LVL_ERR, "%s(): not succeed and firmware is stopped\n", __func__);
+		return -EINVAL;
+	} else
+		return ret;
 }
 
 static int v4l2_ioctl_streamoff(struct file *file,
@@ -922,12 +931,10 @@ static int v4l2_ioctl_streamoff(struct file *file,
 
 			wake_up_interruptible(&ctx->buffer_wq);
 			if (!wait_for_completion_timeout(&ctx->completion, msecs_to_jiffies(1000))) {
-				mutex_lock(&ctx->dev->dev_mutex);
-				set_bit(ctx->str_index, &ctx->dev->hang_mask);
-				mutex_unlock(&ctx->dev->dev_mutex);
-
-				vpu_dbg(LVL_ERR, "the path id:%d firmware hang after send VID_API_CMD_ABORT, stopped(%d), finished(%d), eos_added(%d)\n", ctx->str_index,
-					ctx->firmware_stopped, ctx->firmware_finished, ctx->eos_stop_added);
+				ctx->hang_status = true;
+				vpu_dbg(LVL_ERR, "the path id:%d firmware hang after send VID_API_CMD_ABORT, stopped(%d), finished(%d), eos_added(%d)\n",
+						ctx->str_index, ctx->firmware_stopped,
+						ctx->firmware_finished, ctx->eos_stop_added);
 			}
 			vpu_dbg(LVL_INFO, "receive abort done\n");
 		}
@@ -936,7 +943,7 @@ static int v4l2_ioctl_streamoff(struct file *file,
 	ret = vb2_streamoff(&q_data->vb2_q,
 			i);
 
-	if (ctx->dev->hang_mask & (1 << ctx->str_index)) {
+	if (ctx->hang_status) {
 		vpu_dbg(LVL_ERR, "%s(): not succeed and some instance are blocked\n", __func__);
 		return -EINVAL;
 	} else if (ctx->firmware_stopped) {
@@ -2198,12 +2205,23 @@ static int release_hang_instance(struct vpu_dev *dev)
 		return -EINVAL;
 
 	for (i = 0; i < VPU_MAX_NUM_STREAMS; i++)
-		if (!dev->ctx[i]) {
+		if (dev->ctx[i]) {
 			kfree(dev->ctx[i]);
 			dev->ctx[i] = NULL;
 		}
 
 	return 0;
+}
+
+static int get_reset_index(struct vpu_dev *dev)
+{
+	int idx;
+
+	for (idx = 0; idx < VPU_MAX_NUM_STREAMS; idx++)
+		if (CHECK_BIT(dev->instance_mask, idx))
+			break;
+
+	return idx;
 }
 
 /*
@@ -2212,20 +2230,19 @@ static int release_hang_instance(struct vpu_dev *dev)
  */
 static int vpu_next_free_instance(struct vpu_dev *dev)
 {
-	int count = 0;
-	unsigned long hang_mask = dev->hang_mask;
 	int idx;
 
-	while (hang_mask) {
-		if (hang_mask & 1)
-			count++;
-		hang_mask >>= 1;
-	}
-	if (count == VPU_MAX_NUM_STREAMS) {
+	if (dev->hang_mask == dev->instance_mask
+			&& dev->instance_mask != 0) {
+		idx = get_reset_index(dev);
+		if (idx < 0 || idx >= VPU_MAX_NUM_STREAMS)
+			return -EBUSY;
+		else {
+			swreset_vpu_firmware(dev, idx);
+			release_hang_instance(dev);
+		}
 		dev->hang_mask = 0;
 		dev->instance_mask = 0;
-		swreset_vpu_firmware(dev);
-		release_hang_instance(dev);
 	}
 
 	idx = ffz(dev->instance_mask);
@@ -2794,6 +2811,7 @@ static int v4l2_open(struct file *filp)
 	ctx->ctx_released = false;
 	ctx->b_dis_reorder = false;
 	ctx->start_code_bypass = false;
+	ctx->hang_status = false;
 	ctx->pSeqinfo = kzalloc(sizeof(MediaIPFW_Video_SeqInfo), GFP_KERNEL);
 	if (!ctx->pSeqinfo) {
 		vpu_dbg(LVL_ERR, "error: pSeqinfo alloc fail\n");
@@ -2913,9 +2931,7 @@ static int v4l2_release(struct file *filp)
 		vpu_dbg(LVL_INFO, "v4l2_release() - send VID_API_CMD_STOP\n");
 		v4l2_vpu_send_cmd(ctx, ctx->str_index, VID_API_CMD_STOP, 0, NULL);
 		if (!wait_for_completion_timeout(&ctx->stop_cmp, msecs_to_jiffies(1000))) {
-			mutex_lock(&dev->dev_mutex);
-			set_bit(ctx->str_index, &dev->hang_mask);
-			mutex_unlock(&dev->dev_mutex);
+			ctx->hang_status = true;
 			vpu_dbg(LVL_ERR, "the path id:%d firmware hang after send VID_API_CMD_STOP\n", ctx->str_index);
 		}
 	} else {
@@ -2971,10 +2987,14 @@ static int v4l2_release(struct file *filp)
 
 	pm_runtime_put_sync(ctx->dev->generic_dev);
 
-	if (!(dev->hang_mask & (1 << ctx->str_index))) { // judge the path is hang or not, if hang, don't clear
+	if (!ctx->hang_status) { // judge the path is hang or not, if hang, don't clear
 		clear_bit(ctx->str_index, &dev->instance_mask);
 		dev->ctx[ctx->str_index] = NULL;
 		kfree(ctx);
+	} else {
+		mutex_lock(&dev->dev_mutex);
+		set_bit(ctx->str_index, &dev->hang_mask);
+		mutex_unlock(&dev->dev_mutex);
 	}
 	return 0;
 }
@@ -3099,14 +3119,14 @@ static void vpu_disable_hw(struct vpu_dev *This)
 	vpu_reset(This);
 }
 
-static int swreset_vpu_firmware(struct vpu_dev *dev)
+static int swreset_vpu_firmware(struct vpu_dev *dev, u_int32 idx)
 {
 	int ret = 0;
 
 	vpu_dbg(LVL_WARN, "SWRESET: swreset_vpu_firmware\n");
 	dev->firmware_started = false;
 
-	v4l2_vpu_send_cmd(dev->ctx[0], 0, VID_API_CMD_FIRM_RESET, 0, NULL);
+	v4l2_vpu_send_cmd(dev->ctx[idx], 0, VID_API_CMD_FIRM_RESET, 0, NULL);
 
 	wait_for_completion(&dev->start_cmp);
 	dev->firmware_started = true;
@@ -3420,8 +3440,6 @@ static int vpu_runtime_resume(struct device *dev)
 	return 0;
 }
 
-#define CHECK_BIT(var, pos) (((var) >> (pos)) & 1)
-
 static int find_first_available_instance(struct vpu_dev *dev)
 {
 	int strIdx, i;
@@ -3518,6 +3536,7 @@ static int vpu_resume(struct device *dev)
 {
 	struct vpu_dev *vpudev = (struct vpu_dev *)dev_get_drvdata(dev);
 	int ret = 0;
+	u_int32 idx;
 
 	pm_runtime_get_sync(vpudev->generic_dev);
 
@@ -3528,8 +3547,13 @@ static int vpu_resume(struct device *dev)
 
 	if (is_vpu_poweroff(vpudev))
 		ret = resume_from_vpu_poweroff(vpudev);
-	else if (vpudev->hang_mask != vpudev->instance_mask)
-		swreset_vpu_firmware(vpudev);
+	else if (vpudev->hang_mask != vpudev->instance_mask) {
+		idx = get_reset_index(vpudev);
+		if (idx < VPU_MAX_NUM_STREAMS)
+			swreset_vpu_firmware(vpudev, idx);
+		else
+			return -EINVAL;
+	}
 
 	pm_runtime_put_sync(vpudev->generic_dev);
 

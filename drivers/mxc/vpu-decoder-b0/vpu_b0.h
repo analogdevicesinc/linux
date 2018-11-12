@@ -49,7 +49,6 @@ extern unsigned int vpu_dbg_level_decoder;
 #define MMAP_BUF_TYPE_SHIFT 28
 #define MMAP_BUF_TYPE_MASK 0xF0000000
 #define M0_BOOT_SIZE 0x1000000
-#define M0_PRINT_OFFSET 0x500000
 #define DCP_SIZE 0x3000000
 #define MAX_BUFFER_SIZE 0x800000
 #define UDATA_BUFFER_SIZE 0x1000
@@ -272,6 +271,7 @@ struct vpu_ctx {
 	bool eos_stop_added;
 	bool ctx_released;
 	bool start_code_bypass;
+	bool hang_status;
 	wait_queue_head_t buffer_wq;
 	void *dpb_dma_virt;
 	u_int32 uSize;
