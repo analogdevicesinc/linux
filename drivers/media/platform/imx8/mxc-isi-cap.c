@@ -664,14 +664,14 @@ static int mxc_isi_capture_open(struct file *file)
 	source_pad = mxc_isi_get_remote_source_pad(mxc_isi);
 	if (source_pad == NULL) {
 		v4l2_err(mxc_isi->v4l2_dev, "%s, No remote pad found!\n", __func__);
-		return -EINVAL;
+		goto fail;
 	}
 
 	/* Get remote source pad subdev */
 	sd = media_entity_to_v4l2_subdev(source_pad->entity);
 	if (sd == NULL) {
 		v4l2_err(mxc_isi->v4l2_dev, "%s, No remote subdev found!\n", __func__);
-		return -EINVAL;
+		goto fail;
 	}
 
 	mutex_lock(&mxc_isi->lock);
@@ -684,10 +684,14 @@ static int mxc_isi_capture_open(struct file *file)
 	if (ret) {
 		v4l2_err(mxc_isi->v4l2_dev, "%s, Call subdev s_power fail!\n", __func__);
 		pm_runtime_put(dev);
-		return ret;
+		goto fail;
 	}
 
 	return 0;
+
+fail:
+	atomic_dec(&mxc_isi->open_count);
+	return -EINVAL;
 }
 
 static int mxc_isi_capture_release(struct file *file)
@@ -725,7 +729,8 @@ static int mxc_isi_capture_release(struct file *file)
 	}
 	mutex_unlock(&mxc_isi->lock);
 
-	if (atomic_dec_and_test(&mxc_isi->open_count))
+	if (atomic_read(&mxc_isi->open_count) > 0 &&
+		atomic_dec_and_test(&mxc_isi->open_count))
 		mxc_isi_channel_deinit(mxc_isi);
 
 	ret = v4l2_subdev_call(sd, core, s_power, 0);
