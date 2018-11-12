@@ -128,7 +128,7 @@ EXPORT_SYMBOL_GPL(tcon_set_operation_mode);
 void tcon_cfg_videomode(struct dpu_tcon *tcon,
 			struct drm_display_mode *m, bool side_by_side)
 {
-	struct drm_display_mode tmp_m;
+	struct drm_display_mode tmp_m = { 0 };
 	struct dpu_soc *dpu = tcon->dpu;
 	const struct dpu_devtype *devtype = dpu->devtype;
 	u32 val;
