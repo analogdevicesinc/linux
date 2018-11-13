@@ -662,12 +662,13 @@ static int tcpci_parse_config(struct tcpci *tcpci)
 		goto sink;
 
 	/* Check source pdo array size */
-	tcfg->nr_src_pdo = device_property_read_u32_array(tcpci->dev,
-						"src-pdos", NULL, 0);
-	if (tcfg->nr_src_pdo <= 0) {
+	ret = device_property_read_u32_array(tcpci->dev, "src-pdos", NULL, 0);
+	if (ret <= 0) {
 		dev_err(tcpci->dev, "typec source pdo is missing!\n");
 		return -EINVAL;
 	}
+
+	tcfg->nr_src_pdo = ret;
 
 	/* Alloc src_pdo based on the array size */
 	tcfg->src_pdo = devm_kzalloc(tcpci->dev,
@@ -728,12 +729,14 @@ static int tcpci_parse_config(struct tcpci *tcpci)
 
 sink:
 	/* Check the num of snk pdo */
-	tcfg->nr_snk_pdo = device_property_read_u32_array(tcpci->dev,
-						"snk-pdos", NULL, 0);
-	if (tcfg->nr_snk_pdo <= 0) {
+	ret = device_property_read_u32_array(tcpci->dev,
+					     "snk-pdos", NULL, 0);
+	if (ret <= 0) {
 		dev_err(tcpci->dev, "typec sink pdo is missing!\n");
 		return -EINVAL;
 	}
+
+	tcfg->nr_snk_pdo = ret;
 
 	/* alloc snk_pdo based on the array size */
 	tcfg->snk_pdo = devm_kzalloc(tcpci->dev,
