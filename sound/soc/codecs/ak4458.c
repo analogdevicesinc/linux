@@ -744,7 +744,7 @@ static int ak4458_hw_params(struct snd_pcm_substream *substream,
 	if (ret)
 		return ret;
 
-	ak4458_rstn_control(codec, 1);
+	ret = ak4458_rstn_control(codec, 1);
 	if (ret)
 		return ret;
 #else
