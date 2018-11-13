@@ -2136,7 +2136,7 @@ static ssize_t micfil_hwvad_handler(struct kobject *kobj,
 	if (ret < 0)
 		return -EINVAL;
 
-	if (vad_channel >= 0 && vad_channel <= 7) {
+	if (vad_channel <= 7) {
 		micfil->vad_channel = vad_channel;
 		ret = enable_hwvad(dev, true);
 		if (ret) {
