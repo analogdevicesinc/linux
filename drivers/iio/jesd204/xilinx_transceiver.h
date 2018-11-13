@@ -95,4 +95,8 @@ int xilinx_xcvr_write_rx_clk25_div(struct xilinx_xcvr *xcvr,
 int xilinx_xcvr_write_tx_clk25_div(struct xilinx_xcvr *xcvr,
 	unsigned int drp_port, unsigned int div);
 
+int xilinx_xcvr_drp_update(struct xilinx_xcvr *xcvr,
+	unsigned int drp_port, unsigned int reg, unsigned int mask,
+	unsigned int val);
+
 #endif
