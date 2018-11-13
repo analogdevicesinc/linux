@@ -531,6 +531,7 @@
 };
 
 /delete-node/ &hdmi;
+/delete-node/ &hdmi_rx;
 /delete-node/ &irqsteer_dsi0;
 /delete-node/ &i2c0_mipi_dsi0;
 /delete-node/ &mipi_dsi_csr1;
@@ -611,6 +612,7 @@
 /delete-node/ &i2c0_cm40;
 /delete-node/ &i2c0_cm41;
 /delete-node/ &irqsteer_hdmi;
+/delete-node/ &irqsteer_hdmi_rx;
 /delete-node/ &i2c0_hdmi;
 
 &irqsteer_lvds1 {

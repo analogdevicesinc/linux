@@ -96,8 +96,6 @@
 				SC_R_MIPI_1_I2C_0
 				SC_R_MIPI_1_I2C_1
 				SC_R_MIPI_1_PWM_0
-				SC_R_HDMI
-				SC_R_HDMI_I2C_0
 				SC_R_SDHC_0
 				SC_R_USB_0
 				SC_R_USB_0_PHY
