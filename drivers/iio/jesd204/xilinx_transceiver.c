@@ -109,7 +109,7 @@ static int xilinx_xcvr_drp_write(struct xilinx_xcvr *xcvr,
 	return 0;
 }
 
-static int xilinx_xcvr_drp_update(struct xilinx_xcvr *xcvr,
+int xilinx_xcvr_drp_update(struct xilinx_xcvr *xcvr,
 	unsigned int drp_port, unsigned int reg, unsigned int mask,
 	unsigned int val)
 {
@@ -123,6 +123,7 @@ static int xilinx_xcvr_drp_update(struct xilinx_xcvr *xcvr,
 
 	return xilinx_xcvr_drp_write(xcvr, drp_port, reg, val);
 }
+EXPORT_SYMBOL_GPL(xilinx_xcvr_drp_update);
 
 static int xilinx_xcvr_gth3_configure_cdr(struct xilinx_xcvr *xcvr,
 	unsigned int drp_port, unsigned int out_div)
