@@ -669,13 +669,10 @@ static void dsp_load_firmware(const struct firmware *fw, void *context)
 			shdr->sh_addr == 0 || shdr->sh_size == 0)
 			continue;
 
-		if (strtab) {
-			dev_dbg(dev, "%sing %s @ 0x%08lx (%ld bytes)\n",
-			  (shdr->sh_type == SHT_NOBITS) ? "Clear" : "Load",
-				&strtab[shdr->sh_name],
-				(unsigned long)shdr->sh_addr,
-				(long)shdr->sh_size);
-		}
+		dev_dbg(dev, "%sing %s @ 0x%08lx (%ld bytes)\n",
+			(shdr->sh_type == SHT_NOBITS) ? "Clear" : "Load",
+			&strtab[shdr->sh_name], (unsigned long)shdr->sh_addr,
+			(long)shdr->sh_size);
 
 		sh_addr = shdr->sh_addr;
 
