@@ -194,11 +194,6 @@ struct vpu_dev {
 	u_int32 m0_p_fw_space_phy;
 	void *m0_rpc_virt;
 	u_int32 m0_rpc_phy;
-#ifndef DYNAMIC_MEM
-	void *str_base_vir;
-	u_int32 str_base_phy;
-	u_int32 str_size;
-#endif
 	struct mutex dev_mutex;
 	struct mutex cmd_mutex;
 	bool fw_is_ready;

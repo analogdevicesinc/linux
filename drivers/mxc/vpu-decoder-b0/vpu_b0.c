@@ -2848,7 +2848,7 @@ static int v4l2_open(struct file *filp)
 	ctx->mbi_count = 0;
 	ctx->mbi_num = 0;
 	ctx->mbi_size = 0;
-#ifdef DYNAMIC_MEM
+
 	ctx->stream_buffer_size = MAX_BUFFER_SIZE;
 	ctx->stream_buffer_virt = dma_alloc_coherent(&ctx->dev->plat_dev->dev,
 			ctx->stream_buffer_size,
@@ -2863,11 +2863,6 @@ static int v4l2_open(struct file *filp)
 	else
 		vpu_dbg(LVL_INFO, "%s() stream_buffer_size(%d) stream_buffer_virt(%p) stream_buffer_phy(%p), index(%d)\n",
 				__func__, ctx->stream_buffer_size, ctx->stream_buffer_virt, (void *)ctx->stream_buffer_phy, ctx->str_index);
-#else
-	ctx->stream_buffer_size = dev->str_size/VPU_MAX_NUM_STREAMS;
-	ctx->stream_buffer_phy = dev->str_base_phy + ctx->str_index * ctx->stream_buffer_size;
-	ctx->stream_buffer_virt = dev->str_base_vir + ctx->str_index * ctx->stream_buffer_size;
-#endif
 	ctx->udata_buffer_size = UDATA_BUFFER_SIZE;
 	ctx->udata_buffer_virt = dma_alloc_coherent(&ctx->dev->plat_dev->dev,
 			ctx->udata_buffer_size,
@@ -2887,14 +2882,12 @@ static int v4l2_open(struct file *filp)
 	return 0;
 
 err_alloc_udata:
-#ifdef DYNAMIC_MEM
 	if (ctx->stream_buffer_virt)
 		dma_free_coherent(&ctx->dev->plat_dev->dev,
 				ctx->stream_buffer_size,
 				ctx->stream_buffer_virt,
 				ctx->stream_buffer_phy
 				);
-#endif
 err_firmware_load:
 	kfree(ctx->pSeqinfo);
 	ctx->pSeqinfo = NULL;
@@ -2957,14 +2950,12 @@ static int v4l2_release(struct file *filp)
 				ctx->mbi_dma_virt[i],
 				ctx->mbi_dma_phy[i]
 				);
-#ifdef DYNAMIC_MEM
 	if (ctx->stream_buffer_virt)
 		dma_free_coherent(&ctx->dev->plat_dev->dev,
 				ctx->stream_buffer_size,
 				ctx->stream_buffer_virt,
 				ctx->stream_buffer_phy
 				);
-#endif
 	if (ctx->udata_buffer_virt)
 		dma_free_coherent(&ctx->dev->plat_dev->dev,
 				ctx->udata_buffer_size,
@@ -3177,20 +3168,6 @@ static int parse_dt_info(struct vpu_dev *dev, struct device_node *np)
 		return -EINVAL;
 	}
 	dev->m0_rpc_phy = reserved_res.start;
-#ifndef DYNAMIC_MEM
-	reserved_node = of_parse_phandle(np, "str-region", 0);
-	if (!reserved_node) {
-		vpu_dbg(LVL_ERR, "error: str-region of_parse_phandle error\n");
-		return -ENODEV;
-	}
-
-	if (of_address_to_resource(reserved_node, 0, &reserved_res)) {
-		vpu_dbg(LVL_ERR, "error: str-region of_address_to_resource error\n");
-		return -EINVAL;
-	}
-	dev->str_base_phy = reserved_res.start;
-	dev->str_size = resource_size(&reserved_res);
-#endif
 
 	ret = of_property_read_u32(np, "reg-csr", &csr_base);
 	if (ret) {
@@ -3281,17 +3258,6 @@ static int init_vpudev_parameters(struct vpu_dev *dev)
 	}
 
 	memset_io(dev->m0_rpc_virt, 0, SHARED_SIZE);
-#ifndef DYNAMIC_MEM
-	dev->str_base_vir = ioremap_wc(dev->str_base_phy,
-			dev->str_size
-			);
-	if (!dev->str_base_vir) {
-		vpu_dbg(LVL_ERR, "error: failed to remap space for stream memory\n");
-		return -ENOMEM;
-	}
-
-	memset_io(dev->str_base_vir, 0, dev->str_size);
-#endif
 
 	return 0;
 }

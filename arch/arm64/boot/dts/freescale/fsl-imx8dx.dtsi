@@ -121,19 +121,15 @@
 		};
 		decoder_rpc: decoder_rpc@0x90400000 {
 			no-map;
-			reg = <0 0x90400000 0 0x1000000>;
+			reg = <0 0x90400000 0 0x200000>;
 		};
-		encoder_rpc: encoder_rpc@0x91400000 {
+		encoder_rpc: encoder_rpc@0x90600000 {
 			no-map;
-			reg = <0 0x91400000 0 0x100000>;
+			reg = <0 0x90600000 0 0x100000>;
 		};
 		dsp_reserved: dsp@0x92400000 {
 			no-map;
 			reg = <0 0x92400000 0 0x2000000>;
-		};
-		decoder_str: str@0x94400000 {
-			no-map;
-			reg = <0 0x94400000 0 0x1800000>;
 		};
 		/* global autoconfigured region for contiguous allocations */
 		linux,cma {
@@ -3335,7 +3331,6 @@
 		compatible = "nxp,imx8qm-b0-vpudec", "nxp,imx8qxp-b0-vpudec";
 		boot-region = <&decoder_boot>;
 		rpc-region = <&decoder_rpc>;
-		str-region = <&decoder_str>;
 		reg = <0x0 0x2c000000 0x0 0x1000000>;
 		reg-names = "vpu_regs";
 		power-domains = <&pd_vpu_dec>;
