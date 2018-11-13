@@ -76,7 +76,7 @@ static int i2cfront_do_req(struct i2c_adapter *adapter, struct i2c_msg *msg,
 	for (index = 0; index < num; index++) {
 		req->msg[index].addr = msg[index].addr;
 		req->msg[index].len = msg[index].len;
-		req->msg[index].flags = 0; 
+		req->msg[index].flags = 0;
 		if (msg[index].flags & I2C_M_RD)
 			req->msg[index].flags |= I2CIF_M_RD;
 		if (msg[index].flags & I2C_M_TEN)
@@ -96,6 +96,7 @@ static int i2cfront_do_req(struct i2c_adapter *adapter, struct i2c_msg *msg,
 	}
 
 	req->num_msg = num;
+	req->is_smbus = false;
 
 	if ((num == 2) && !(msg[0].flags & I2C_M_RD) &&
 	    (msg[1].flags & I2C_M_RD)) {
@@ -186,13 +187,87 @@ err:
 	return (ret < 0) ? ret : num;
 }
 
+static int i2cfront_smbus_xfer(struct i2c_adapter *adapter, u16 addr,
+        unsigned short flags, char read_write,
+        u8 command, int size, union i2c_smbus_data *data)
+{
+	struct i2cfront_info *info = i2c_get_adapdata(adapter);
+	struct i2cif_response *res;
+	struct i2cif_request *req;
+	int more_to_do = 0;
+	RING_IDX i, rp;
+	int notify;
+	int ret;
+
+	if (!info || !info->i2cdev) {
+		dev_err(&adapter->dev, "Not initialized\n");
+		return -EIO;
+	}
+
+	if (info->i2cdev->state != XenbusStateConnected) {
+		dev_err(&adapter->dev, "Not connected\n");
+		return -EIO;
+	}
+
+	mutex_lock(&info->xferlock);
+	req = RING_GET_REQUEST(&info->i2c_ring, info->i2c_ring.req_prod_pvt);
+
+	req->is_smbus = true;
+	req->addr = addr;
+	req->flags = flags;
+	req->read_write = read_write;
+	req->command = command;
+	req->protocol = size;
+	if (data != NULL)
+		memcpy(&req->write_buf, data, sizeof(union i2c_smbus_data));
+
+	spin_lock(&info->lock);
+	info->i2c_ring.req_prod_pvt++;
+	RING_PUSH_REQUESTS_AND_CHECK_NOTIFY(&info->i2c_ring, notify);
+	spin_unlock(&info->lock);
+	if (notify)
+		notify_remote_via_irq(info->irq);
+
+	wait_for_completion(&info->completion);
+
+	spin_lock_irqsave(&info->lock, flags);
+	rp = info->i2c_ring.sring->rsp_prod;
+	rmb(); /* ensure we see queued responses up to "rp" */
+
+	ret = -EIO;
+	for (i = info->i2c_ring.rsp_cons; i != rp; i++) {
+		res = RING_GET_RESPONSE(&info->i2c_ring, i);
+
+		if (data != NULL && read_write == I2C_SMBUS_READ)
+			memcpy(data, &res->read_buf, sizeof(union i2c_smbus_data));
+
+		ret = res->result;
+	}
+
+	info->i2c_ring.rsp_cons = i;
+
+	if (i != info->i2c_ring.req_prod_pvt)
+		RING_FINAL_CHECK_FOR_RESPONSES(&info->i2c_ring, more_to_do);
+	else
+		info->i2c_ring.sring->rsp_event = i + 1;
+
+	spin_unlock_irqrestore(&info->lock, flags);
+
+	mutex_unlock(&info->xferlock);
+
+	return ret;
+}
+
 static u32 i2cfront_func(struct i2c_adapter *adapter)
 {
-	return I2C_FUNC_I2C | I2C_FUNC_SMBUS_EMUL;
+	return I2C_FUNC_I2C | I2C_FUNC_SMBUS_BYTE_DATA |
+			I2C_FUNC_SMBUS_BYTE | I2C_FUNC_SMBUS_WORD_DATA |
+			I2C_FUNC_SMBUS_BLOCK_DATA | I2C_FUNC_SMBUS_I2C_BLOCK;
 }
 
 static const struct i2c_algorithm i2cfront_algo = {
 	.master_xfer = i2cfront_xfer,
+	.smbus_xfer = i2cfront_smbus_xfer,
 	.functionality = i2cfront_func,
 };
 

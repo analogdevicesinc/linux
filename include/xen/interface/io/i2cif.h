@@ -32,7 +32,7 @@
 #include <xen/interface/io/ring.h>
 #include <xen/interface/grant_table.h>
 
-#define I2CIF_BUF_LEN	32
+#define I2CIF_BUF_LEN	I2C_SMBUS_BLOCK_MAX + 2
 #define I2CIF_MAX_MSG	2
 
 #define I2CIF_M_RD		0x0001	/* read data, from slave to master */
@@ -76,6 +76,13 @@ struct i2cif_request {
 	} msg[I2CIF_MAX_MSG];
 	int num_msg;
 	__u8 write_buf[I2CIF_BUF_LEN];
+
+	bool is_smbus;
+	__u16 addr;
+	__u16 flags;
+	__u8 read_write;
+	__u8 command;
+	int protocol;
 };
 
 struct i2cif_response {
