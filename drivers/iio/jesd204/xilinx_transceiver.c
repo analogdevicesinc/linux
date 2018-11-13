@@ -442,7 +442,7 @@ int xilinx_xcvr_gth34_cpll_read_config(struct xilinx_xcvr *xcvr,
 	else
 		conf->refclk_div = 2;
 
-	dev_err(xcvr->dev, "cpll: fb_div_N1=%d\ncpll: fb_div_N2=%d\ncpll: refclk_div=%d\n",
+	dev_dbg(xcvr->dev, "cpll: fb_div_N1=%d\ncpll: fb_div_N2=%d\ncpll: refclk_div=%d\n",
 		conf->fb_div_N1, conf->fb_div_N2, conf->refclk_div);
 
 	return 0;
@@ -684,7 +684,7 @@ static int xilinx_xcvr_gth34_qpll_read_config(struct xilinx_xcvr *xcvr,
 
 	conf->band = 0;
 
-	dev_err(xcvr->dev, "qpll: fb_div=%d, qpll: refclk_div=%d\n",
+	dev_dbg(xcvr->dev, "qpll: fb_div=%d, qpll: refclk_div=%d\n",
 		conf->fb_div, conf->refclk_div);
 
 	return 0;
