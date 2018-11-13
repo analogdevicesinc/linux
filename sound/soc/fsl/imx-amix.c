@@ -119,8 +119,8 @@ static int imx_amix_be_hw_params(struct snd_pcm_substream *substream,
 	if (!tx)
 		return 0;
 
-	/* For playback the AMIX is slave, and for record is master */
-	fmt |= tx ? SND_SOC_DAIFMT_CBM_CFM : SND_SOC_DAIFMT_CBS_CFS;
+	/* For playback the AMIX is slave */
+	fmt |= SND_SOC_DAIFMT_CBM_CFM;
 
 	/* set AMIX DAI configuration */
 	ret = snd_soc_dai_set_fmt(rtd->cpu_dai, fmt);
