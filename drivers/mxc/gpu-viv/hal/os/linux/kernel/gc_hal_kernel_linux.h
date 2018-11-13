@@ -225,9 +225,6 @@ struct _gckOS
 
     /* Signal management. */
 
-    /* Lock. */
-    struct mutex                signalMutex;
-
     /* signal id database. */
     gcsINTEGER_DB               signalDB;
 
@@ -274,7 +271,7 @@ typedef struct _gcsSIGNAL
     gctBOOL manualReset;
 
     /* The reference counter. */
-    atomic_t ref;
+    volatile int ref;
 
     /* The owner of the signal. */
     gctHANDLE process;

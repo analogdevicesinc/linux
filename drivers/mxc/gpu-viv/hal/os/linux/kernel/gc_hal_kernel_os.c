@@ -276,11 +276,12 @@ _AllocateIntegerId(
 {
     int result;
     gctINT next;
+    unsigned long flags;
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 9, 0)
     idr_preload(GFP_KERNEL | gcdNOWARN);
 
-    spin_lock(&Database->lock);
+    spin_lock_irqsave(&Database->lock, flags);
 
     next = (Database->curr + 1 <= 0) ? 1 : Database->curr + 1;
 
@@ -294,7 +295,7 @@ _AllocateIntegerId(
         Database->curr = *Id = result;
     }
 
-    spin_unlock(&Database->lock);
+    spin_unlock_irqrestore(&Database->lock, flags);
 
     idr_preload_end();
 
@@ -309,7 +310,7 @@ again:
         return gcvSTATUS_OUT_OF_MEMORY;
     }
 
-    spin_lock(&Database->lock);
+    spin_lock_irqsave(&Database->lock, flags);
 
     next = (Database->curr + 1 <= 0) ? 1 : Database->curr + 1;
 
@@ -321,7 +322,7 @@ again:
         Database->curr = *Id;
     }
 
-    spin_unlock(&Database->lock);
+    spin_unlock_irqstore(&Database->lock, flags);
 
     if (result == -EAGAIN)
     {
@@ -345,12 +346,13 @@ _QueryIntegerId(
     )
 {
     gctPOINTER pointer;
+    unsigned long flags;
 
-    spin_lock(&Database->lock);
+    spin_lock_irqsave(&Database->lock, flags);
 
     pointer = idr_find(&Database->idr, Id);
 
-    spin_unlock(&Database->lock);
+    spin_unlock_irqrestore(&Database->lock, flags);
 
     if (pointer)
     {
@@ -374,11 +376,7 @@ _DestroyIntegerId(
     IN gctUINT32 Id
     )
 {
-    spin_lock(&Database->lock);
-
     idr_remove(&Database->idr, Id);
-
-    spin_unlock(&Database->lock);
 
     return gcvSTATUS_OK;
 }
@@ -548,9 +546,6 @@ gckOS_Construct(
     /*
      * Initialize the signal manager.
      */
-
-    /* Initialize mutex. */
-    mutex_init(&os->signalMutex);
 
     /* Initialize signal id database lock. */
     spin_lock_init(&os->signalDB.lock);
@@ -5535,8 +5530,7 @@ gckOS_CreateSignal(
     init_waitqueue_head(&signal->wait);
     spin_lock_init(&signal->lock);
     signal->manualReset = ManualReset;
-
-    atomic_set(&signal->ref, 1);
+    signal->ref = 1;
 
 #if gcdANDROID_NATIVE_FENCE_SYNC
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4,9,0)
@@ -5589,7 +5583,7 @@ gckOS_DestroySignal(
 {
     gceSTATUS status;
     gcsSIGNAL_PTR signal;
-    gctBOOL acquired = gcvFALSE;
+    unsigned long flags;
 
     gcmkHEADER_ARG("Os=0x%X Signal=0x%X", Os, Signal);
 
@@ -5597,35 +5591,26 @@ gckOS_DestroySignal(
     gcmkVERIFY_OBJECT(Os, gcvOBJ_OS);
     gcmkVERIFY_ARGUMENT(Signal != gcvNULL);
 
-    mutex_lock(&Os->signalMutex);
-    acquired = gcvTRUE;
-
     gcmkONERROR(_QueryIntegerId(&Os->signalDB, (gctUINT32)(gctUINTPTR_T)Signal, (gctPOINTER)&signal));
 
+    spin_lock_irqsave(&Os->signalDB.lock, flags);
     gcmkASSERT(signal->id == (gctUINT32)(gctUINTPTR_T)Signal);
+    signal->ref--;
 
-    if (atomic_dec_and_test(&signal->ref))
+    if (signal->ref == 0)
     {
         gcmkVERIFY_OK(_DestroyIntegerId(&Os->signalDB, signal->id));
 
         /* Free the sgianl. */
         kfree(signal);
     }
-
-    mutex_unlock(&Os->signalMutex);
-    acquired = gcvFALSE;
+    spin_unlock_irqrestore(&Os->signalDB.lock, flags);
 
     /* Success. */
     gcmkFOOTER_NO();
     return gcvSTATUS_OK;
 
 OnError:
-    if (acquired)
-    {
-        /* Release the mutex. */
-        mutex_unlock(&Os->signalMutex);
-    }
-
     gcmkFOOTER();
     return status;
 }
@@ -5668,6 +5653,7 @@ gckOS_Signal(
     struct dma_fence * fence = gcvNULL;
 #  endif
 #endif
+    unsigned long flags;
 
     gcmkHEADER_ARG("Os=0x%X Signal=0x%X State=%d", Os, Signal, State);
 
@@ -5675,30 +5661,25 @@ gckOS_Signal(
     gcmkVERIFY_OBJECT(Os, gcvOBJ_OS);
     gcmkVERIFY_ARGUMENT(Signal != gcvNULL);
 
-    mutex_lock(&Os->signalMutex);
-
     status = _QueryIntegerId(&Os->signalDB,
                              (gctUINT32)(gctUINTPTR_T)Signal,
                              (gctPOINTER)&signal);
 
     if (gcmIS_ERROR(status))
     {
-        mutex_unlock(&Os->signalMutex);
         gcmkONERROR(status);
     }
 
+    spin_lock_irqsave(&Os->signalDB.lock, flags);
     /*
      * Signal saved in event is not referenced. Inc reference here to avoid
      * concurrent issue: signaling the signal while another thread is destroying
      * it.
      */
-    atomic_inc(&signal->ref);
-
-    mutex_unlock(&Os->signalMutex);
-
-    gcmkONERROR(status);
 
     gcmkASSERT(signal->id == (gctUINT32)(gctUINTPTR_T)Signal);
+    signal->ref++;
+    spin_unlock_irqrestore(&Os->signalDB.lock, flags);
 
     spin_lock(&signal->lock);
 
@@ -5740,17 +5721,17 @@ gckOS_Signal(
 #  endif
 #endif
 
-    mutex_lock(&Os->signalMutex);
+    spin_lock_irqsave(&Os->signalDB.lock, flags);
+    signal->ref --;
 
-    if (atomic_dec_and_test(&signal->ref))
+    if (signal->ref == 0)
     {
         gcmkVERIFY_OK(_DestroyIntegerId(&Os->signalDB, signal->id));
 
         /* Free the sgianl. */
         kfree(signal);
     }
-
-    mutex_unlock(&Os->signalMutex);
+    spin_unlock_irqrestore(&Os->signalDB.lock, flags);
 
     /* Success. */
     gcmkFOOTER_NO();
@@ -5975,32 +5956,32 @@ gckOS_MapSignal(
 {
     gceSTATUS status;
     gcsSIGNAL_PTR signal = gcvNULL;
+    unsigned long flags;
     gcmkHEADER_ARG("Os=0x%X Signal=0x%X Process=0x%X", Os, Signal, Process);
 
     gcmkVERIFY_ARGUMENT(Signal != gcvNULL);
     gcmkVERIFY_ARGUMENT(MappedSignal != gcvNULL);
 
-    mutex_lock(&Os->signalMutex);
-
     gcmkONERROR(_QueryIntegerId(&Os->signalDB, (gctUINT32)(gctUINTPTR_T)Signal, (gctPOINTER)&signal));
 
-    if (atomic_inc_return(&signal->ref) <= 1)
+    spin_lock_irqsave(&Os->signalDB.lock, flags);
+    signal->ref++;
+
+    if (signal->ref <= 1)
     {
+        spin_unlock_irqrestore(&Os->signalDB.lock, flags);
         /* The previous value is 0, it has been deleted. */
         gcmkONERROR(gcvSTATUS_INVALID_ARGUMENT);
     }
 
     *MappedSignal = (gctSIGNAL) Signal;
-
-    mutex_unlock(&Os->signalMutex);
+    spin_unlock_irqrestore(&Os->signalDB.lock, flags);
 
     /* Success. */
     gcmkFOOTER_ARG("*MappedSignal=0x%X", *MappedSignal);
     return gcvSTATUS_OK;
 
 OnError:
-    mutex_unlock(&Os->signalMutex);
-
     gcmkFOOTER_NO();
     return status;
 }
