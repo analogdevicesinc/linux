@@ -937,10 +937,6 @@ static int v4l2_ioctl_qbuf(struct file *file,
 	else
 		return -EINVAL;
 
-	if (V4L2_TYPE_IS_OUTPUT(buf->type) &&
-		test_bit(VPU_ENC_STATUS_STOP_SEND, &ctx->status))
-		return -EPIPE;
-
 	ret = precheck_qbuf(q_data, buf);
 	if (ret < 0)
 		return ret;
@@ -1208,8 +1204,6 @@ static int v4l2_ioctl_streamon(struct file *file,
 
 	ret = vb2_streamon(&q_data->vb2_q, i);
 	if (!ret && i == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
-		clear_bit(VPU_ENC_STATUS_START_SEND, &ctx->status);
-		clear_bit(VPU_ENC_STATUS_START_DONE, &ctx->status);
 		clear_bit(VPU_ENC_STATUS_STOP_SEND, &ctx->status);
 		clear_bit(VPU_ENC_STATUS_STOP_DONE, &ctx->status);
 		clear_bit(VPU_ENC_STATUS_EOS_SEND, &ctx->status);
@@ -1238,6 +1232,7 @@ static int v4l2_ioctl_streamoff(struct file *file,
 	wait_for_stop_done(ctx);
 
 	ret = vb2_streamoff(&q_data->vb2_q, i);
+
 	return ret;
 }
 
@@ -2324,6 +2319,10 @@ static int handle_event_stop_done(struct vpu_ctx *ctx)
 
 	complete(&ctx->stop_cmp);
 
+	clear_bit(VPU_ENC_STATUS_CONFIGURED, &ctx->status);
+	clear_bit(VPU_ENC_STATUS_START_SEND, &ctx->status);
+	clear_bit(VPU_ENC_STATUS_START_DONE, &ctx->status);
+
 	return 0;
 }
 
@@ -2715,6 +2714,9 @@ static void clear_queue(struct queue_data *queue)
 {
 	struct vpu_frame_info *frame;
 	struct vpu_frame_info *tmp;
+	struct vb2_data_req *p_data_req;
+	struct vb2_data_req *p_temp;
+	struct vb2_buffer *vb;
 
 	if (!queue)
 		return;
@@ -2722,10 +2724,22 @@ static void clear_queue(struct queue_data *queue)
 	down(&queue->drv_q_lock);
 
 	list_for_each_entry_safe(frame, tmp, &queue->frame_q, list) {
+		vpu_dbg(LVL_DEBUG, "drop frame\n");
 		list_del(&frame->list);
 		vfree(frame);
 	}
 
+	list_for_each_entry_safe(p_data_req, p_temp, &queue->drv_q, list) {
+		vpu_dbg(LVL_DEBUG, "%s(%d) - list_del(%p)\n", __func__,
+				p_data_req->id, p_data_req);
+		list_del(&p_data_req->list);
+	}
+	list_for_each_entry(vb, &queue->vb2_q.queued_list, queued_entry) {
+		if (vb->state == VB2_BUF_STATE_ACTIVE)
+			vb2_buffer_done(vb, VB2_BUF_STATE_ERROR);
+	}
+
+	INIT_LIST_HEAD(&queue->drv_q);
 	INIT_LIST_HEAD(&queue->frame_q);
 
 	up(&queue->drv_q_lock);
@@ -2734,30 +2748,8 @@ static void clear_queue(struct queue_data *queue)
 static void vpu_stop_streaming(struct vb2_queue *q)
 {
 	struct queue_data *This = (struct queue_data *)q->drv_priv;
-	struct vb2_data_req *p_data_req;
-	struct vb2_data_req *p_temp;
-	struct vb2_buffer *vb;
 
-	vpu_dbg(LVL_DEBUG, "%s() is called\n", __func__);
-
-	down(&This->drv_q_lock);
-	if (!list_empty(&This->drv_q)) {
-		list_for_each_entry_safe(p_data_req, p_temp, &This->drv_q, list) {
-			vpu_dbg(LVL_DEBUG, "%s(%d) - list_del(%p)\n",
-					__func__,
-					p_data_req->id,
-					p_data_req
-					);
-			list_del(&p_data_req->list);
-		}
-	}
-
-	if (!list_empty(&q->queued_list))
-		list_for_each_entry(vb, &q->queued_list, queued_entry)
-			if (vb->state == VB2_BUF_STATE_ACTIVE)
-				vb2_buffer_done(vb, VB2_BUF_STATE_ERROR);
-	INIT_LIST_HEAD(&This->drv_q);
-	up(&This->drv_q_lock);
+	clear_queue(This);
 }
 
 static void vpu_buf_queue(struct vb2_buffer *vb)
@@ -3156,6 +3148,7 @@ static void uninit_vpu_ctx(struct vpu_ctx *ctx)
 	if (!ctx)
 		return;
 
+	clear_bit(VPU_ENC_STATUS_INITIALIZED, &ctx->status);
 	if (ctx->instance_wq) {
 		cancel_work_sync(&ctx->instance_work);
 		destroy_workqueue(ctx->instance_wq);
