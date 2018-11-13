@@ -194,6 +194,7 @@ static int i2cfront_smbus_xfer(struct i2c_adapter *adapter, u16 addr,
 	struct i2cfront_info *info = i2c_get_adapdata(adapter);
 	struct i2cif_response *res;
 	struct i2cif_request *req;
+	unsigned long lock_flags;
 	int more_to_do = 0;
 	RING_IDX i, rp;
 	int notify;
@@ -230,7 +231,7 @@ static int i2cfront_smbus_xfer(struct i2c_adapter *adapter, u16 addr,
 
 	wait_for_completion(&info->completion);
 
-	spin_lock_irqsave(&info->lock, flags);
+	spin_lock_irqsave(&info->lock, lock_flags);
 	rp = info->i2c_ring.sring->rsp_prod;
 	rmb(); /* ensure we see queued responses up to "rp" */
 
@@ -251,7 +252,7 @@ static int i2cfront_smbus_xfer(struct i2c_adapter *adapter, u16 addr,
 	else
 		info->i2c_ring.sring->rsp_event = i + 1;
 
-	spin_unlock_irqrestore(&info->lock, flags);
+	spin_unlock_irqrestore(&info->lock, lock_flags);
 
 	mutex_unlock(&info->xferlock);
 
