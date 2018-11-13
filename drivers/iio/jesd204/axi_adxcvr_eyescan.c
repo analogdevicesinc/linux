@@ -69,6 +69,24 @@ static int adxcvr_get_eyescan_es_hsize(struct adxcvr_state *st, u32 *hsize)
 	return 0;
 }
 
+static void adxcvr_eyescan_es_realignment(struct adxcvr_state *st, u32 lane)
+{
+	/*
+	 * AR# 70872: Manual Eye Scan with UltraScale+ GTH
+	 */
+	if (st->xcvr.type == XILINX_XCVR_TYPE_US_GTH4) {
+		dev_dbg(st->dev, "Executing realignment sequence\n");
+
+		adxcvr_eyescan_write(st, ADXCVR_REG_ES_REQ, 0);
+		xilinx_xcvr_drp_update(&st->xcvr, ADXCVR_DRP_PORT_CHANNEL(lane),
+				       ES_DRP_HOFFSET_ADDR, 0xFFF0, 0x8800);
+		adxcvr_eyescan_write(st, ADXCVR_REG_ES_RESET, 1 << lane);
+		xilinx_xcvr_drp_update(&st->xcvr, ADXCVR_DRP_PORT_CHANNEL(lane),
+				       ES_DRP_HOFFSET_ADDR, 0xFFF0, 0x8000);
+		adxcvr_eyescan_write(st, ADXCVR_REG_ES_RESET, 0);
+	}
+}
+
 static int adxcvr_eyescan_es(struct adxcvr_state *st, u32 lane)
 {
 	u32 stat, hsize;
@@ -105,6 +123,24 @@ static int adxcvr_eyescan_es(struct adxcvr_state *st, u32 lane)
 
 	} while (stat & ADXCVR_ES_REQ);
 
+	if (st->xcvr.type == XILINX_XCVR_TYPE_US_GTH4) {
+		u32 midpoint = ((ES_VSIZE + 1) / 2) * hsize + hsize / 2;
+		u64 errors;
+
+		if (st->lpm_enable) {
+			u32 *buf32 = st->eye->buf_virt;
+
+			errors = buf32[midpoint] & 0xFFFF;
+		} else {
+			u64 *buf64 = st->eye->buf_virt;
+
+			errors = buf64[midpoint] & 0xFFFF0000FFFF;
+		}
+
+		if (errors)
+			return -EAGAIN;
+	}
+
 	return 0;
 }
 
@@ -115,6 +151,11 @@ static void adxcvr_eyescan_work_func(struct work_struct *work)
 	int ret;
 
 	ret = adxcvr_eyescan_es(eye->st, eye->lane);
+	if (ret == -EAGAIN) {
+		adxcvr_eyescan_es_realignment(eye->st, eye->lane);
+		ret = adxcvr_eyescan_es(eye->st, eye->lane);
+	}
+
 	if (ret)
 		dev_warn(eye->st->dev, "Eye Scan failed (%d)\n", ret);
 
