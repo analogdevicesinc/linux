@@ -1421,10 +1421,10 @@ static int fsl_micfil_startup(struct snd_pcm_substream *substream,
 			      struct snd_soc_dai *dai)
 {
 	struct fsl_micfil *micfil = snd_soc_dai_get_drvdata(dai);
-	struct device *dev = &micfil->pdev->dev;
 
 	if (!micfil) {
-		dev_err(dev, "micfil dai priv_data not set\n");
+		dev_err(dai->dev,
+			"micfil dai priv_data not set\n");
 		return -EINVAL;
 	}
 
