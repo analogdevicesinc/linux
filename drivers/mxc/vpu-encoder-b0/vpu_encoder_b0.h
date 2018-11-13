@@ -228,6 +228,7 @@ struct vpu_attr {
 
 	unsigned long ts_start[2];
 	unsigned long msg_count;
+	atomic64_t total_dma_size;
 
 	bool created;
 };
@@ -321,7 +322,6 @@ struct vpu_ctx {
 	struct workqueue_struct *instance_wq;
 	bool ctx_released;
 	struct buffer_addr encoder_stream;
-	struct buffer_addr encoder_mem;
 	struct buffer_addr encFrame[MEDIAIP_MAX_NUM_WINDSOR_SRC_FRAMES];
 	struct buffer_addr refFrame[MEDIAIP_MAX_NUM_WINDSOR_REF_FRAMES];
 	struct buffer_addr actFrame;

@@ -447,9 +447,9 @@ static int initialize_enc_param(struct vpu_ctx *ctx)
 	mutex_lock(&ctx->instance_mutex);
 
 	param->eCodecMode = MEDIAIP_ENC_FMT_H264;
-	param->tEncMemDesc.uMemPhysAddr = ctx->encoder_mem.phy_addr;
-	param->tEncMemDesc.uMemVirtAddr = ctx->encoder_mem.phy_addr;
-	param->tEncMemDesc.uMemSize     = ctx->encoder_mem.size;
+	param->tEncMemDesc.uMemPhysAddr = 0;
+	param->tEncMemDesc.uMemVirtAddr = 0;
+	param->tEncMemDesc.uMemSize     = 0;
 	param->uSrcStride = VPU_ENC_WIDTH_DEFAULT;
 	param->uSrcWidth = VPU_ENC_WIDTH_DEFAULT;
 	param->uSrcHeight = VPU_ENC_HEIGHT_DEFAULT;
@@ -1404,6 +1404,22 @@ static void show_firmware_version(struct core_device *core_dev,
 			pSharedInterface->FWVersion & 0x000000ff);
 }
 
+static void add_dma_size(struct vpu_attr *attr, unsigned long size)
+{
+	if (!attr)
+		return;
+
+	atomic64_add(size, &attr->total_dma_size);
+}
+
+static void sub_dma_size(struct vpu_attr *attr, unsigned long size)
+{
+	if (!attr)
+		return;
+
+	atomic64_sub(size, &attr->total_dma_size);
+}
+
 static int alloc_dma_buffer(struct vpu_dev *dev, struct buffer_addr *buffer)
 {
 	if (!dev || !buffer || !buffer->size)
@@ -1416,7 +1432,7 @@ static int alloc_dma_buffer(struct vpu_dev *dev, struct buffer_addr *buffer)
 	if (!buffer->virt_addr) {
 		vpu_dbg(LVL_ERR, "encoder alloc coherent dma(%d) fail\n",
 				buffer->size);
-		return PTR_ERR(buffer->virt_addr);
+		return -ENOMEM;
 	}
 	memset_io(buffer->virt_addr, 0, buffer->size);
 
@@ -1462,21 +1478,15 @@ static int alloc_encoder_stream(struct vpu_ctx *ctx)
 		vpu_dbg(LVL_ERR, "alloc encoder stream buffer fail\n");
 		return -ENOMEM;
 	}
+	add_dma_size(get_vpu_ctx_attr(ctx), ctx->encoder_stream.size);
 
 	return 0;
 }
 
 static void free_encoder_stream(struct vpu_ctx *ctx)
 {
-	if (ctx->encoder_stream.virt_addr) {
-		dma_free_coherent(ctx->dev->generic_dev,
-				ctx->encoder_stream.size,
-				ctx->encoder_stream.virt_addr,
-				ctx->encoder_stream.phy_addr);
-		ctx->encoder_stream.size = 0;
-		ctx->encoder_stream.virt_addr = NULL;
-		ctx->encoder_stream.phy_addr = 0;
-	}
+	sub_dma_size(get_vpu_ctx_attr(ctx), ctx->encoder_stream.size);
+	free_dma_buffer(ctx->dev, &ctx->encoder_stream);
 }
 
 static int do_configure_codec(struct vpu_ctx *ctx)
@@ -1513,11 +1523,9 @@ static int do_configure_codec(struct vpu_ctx *ctx)
 		pEncStrBuffDesc->end);
 
 	pEncExpertModeParam = get_rpc_expert_mode_param(ctx);
-	pEncExpertModeParam->Calib.mem_chunk_phys_addr =
-					ctx->encoder_mem.phy_addr;
-	pEncExpertModeParam->Calib.mem_chunk_virt_addr =
-					ctx->encoder_mem.phy_addr;
-	pEncExpertModeParam->Calib.mem_chunk_size = ctx->encoder_mem.size;
+	pEncExpertModeParam->Calib.mem_chunk_phys_addr = 0;
+	pEncExpertModeParam->Calib.mem_chunk_virt_addr = 0;
+	pEncExpertModeParam->Calib.mem_chunk_size = 0;
 	pEncExpertModeParam->Calib.cb_base = ctx->encoder_stream.phy_addr;
 	pEncExpertModeParam->Calib.cb_size = ctx->encoder_stream.size;
 
@@ -1848,6 +1856,7 @@ static int enc_mem_free(struct vpu_ctx *ctx)
 	if (!ctx)
 		return -EINVAL;
 
+	sub_dma_size(get_vpu_ctx_attr(ctx), ctx->enc_buffer.size);
 	free_dma_buffer(ctx->dev, &ctx->enc_buffer);
 
 	for (i = 0; i < MEDIAIP_MAX_NUM_WINDSOR_SRC_FRAMES; i++)
@@ -1888,6 +1897,7 @@ static int enc_mem_alloc(struct vpu_ctx *ctx,
 		vpu_dbg(LVL_ERR, "alloc encoder buffer fail\n");
 		return ret;
 	}
+	add_dma_size(get_vpu_ctx_attr(ctx), ctx->enc_buffer.size);
 
 	core_dev = ctx->core_dev;
 	pEncMemPool = get_rpc_mem_pool(ctx);
@@ -2783,6 +2793,49 @@ static void vpu_buf_queue(struct vb2_buffer *vb)
 	}
 }
 
+static bool is_enc_dma_buf(struct vb2_buffer *vb)
+{
+	struct vb2_queue *vq = vb->vb2_queue;
+
+	if (vb->memory != V4L2_MEMORY_MMAP)
+		return false;
+
+	if (vq->mem_ops != &vb2_dma_contig_memops)
+		return false;
+
+	return true;
+}
+
+static int vpu_enc_buf_init(struct vb2_buffer *vb)
+{
+	struct vb2_queue *vq = vb->vb2_queue;
+	struct queue_data *queue = vq->drv_priv;
+	struct vpu_ctx *ctx = queue->ctx;
+	int i;
+
+	if (!is_enc_dma_buf(vb))
+		return 0;
+
+	for (i = 0; i < vb->num_planes; i++)
+		add_dma_size(get_vpu_ctx_attr(ctx), vb->planes[i].length);
+
+	return 0;
+}
+
+static void vpu_enc_buf_cleanup(struct vb2_buffer *vb)
+{
+	struct vb2_queue *vq = vb->vb2_queue;
+	struct queue_data *queue = vq->drv_priv;
+	struct vpu_ctx *ctx = queue->ctx;
+	int i;
+
+	if (!is_enc_dma_buf(vb))
+		return;
+
+	for (i = 0; i < vb->num_planes; i++)
+		sub_dma_size(get_vpu_ctx_attr(ctx), vb->planes[i].length);
+}
+
 static void vpu_prepare(struct vb2_queue *q)
 {
 	vpu_dbg(LVL_DEBUG, "%s() is called\n", __func__);
@@ -2795,6 +2848,8 @@ static void vpu_finish(struct vb2_queue *q)
 
 static struct vb2_ops v4l2_qops = {
 	.queue_setup        = vpu_queue_setup,
+	.buf_init           = vpu_enc_buf_init,
+	.buf_cleanup        = vpu_enc_buf_cleanup,
 	.wait_prepare       = vpu_prepare,
 	.wait_finish        = vpu_finish,
 	.buf_prepare        = vpu_buf_prepare,
@@ -3325,6 +3380,9 @@ static ssize_t show_instance_info(struct device *dev,
 	}
 
 	num += snprintf(buf + num, PAGE_SIZE - num,
+			"total dma size:%ld\n",
+			atomic64_read(&vpu_attr->total_dma_size));
+	num += snprintf(buf + num, PAGE_SIZE - num,
 			"total event msg obj count:%ld\n", vpu_attr->msg_count);
 	num += snprintf(buf + num, PAGE_SIZE - num,
 			"total msg ext data count:%lld\n",
@@ -3392,6 +3450,39 @@ static ssize_t show_core_info(struct device *dev,
 
 	return num;
 }
+
+static ssize_t show_memory_info(struct device *dev,
+			struct device_attribute *attr, char *buf)
+{
+	struct vpu_dev *vdev = dev_get_drvdata(dev);
+	unsigned long total_dma_size = 0;
+	int num = 0;
+	int i;
+	int j;
+
+	num += snprintf(buf + num, PAGE_SIZE - num, "dma memory usage:\n");
+	for (i = 0; i < vdev->core_num; i++) {
+		struct core_device *core = &vdev->core_dev[i];
+
+		num += snprintf(buf + num, PAGE_SIZE - num, "core[%d]\n", i);
+
+		for (j = 0; j < ARRAY_SIZE(core->attr); j++) {
+			struct vpu_attr *attr = &core->attr[j];
+			unsigned long size;
+
+			size = atomic64_read(&attr->total_dma_size);
+			total_dma_size += size;
+			num += snprintf(buf + num, PAGE_SIZE - num,
+					"\t[%d] : %ld\n", j, size);
+		}
+	}
+
+	num += snprintf(buf + num, PAGE_SIZE - num,
+			"total : %ld\n", total_dma_size);
+
+	return num;
+}
+DEVICE_ATTR(meminfo, 0444, show_memory_info, NULL);
 
 static int init_vpu_attr(struct vpu_attr *attr)
 {
@@ -3854,6 +3945,8 @@ static int init_vpu_attrs(struct core_device *core)
 		attr->dev_attr.attr.mode = VERIFY_OCTAL_PERMISSIONS(0444);
 		attr->dev_attr.show = show_instance_info;
 
+		atomic64_set(&attr->total_dma_size, 0);
+
 		attr->created = false;
 	}
 
@@ -4053,6 +4146,7 @@ static int vpu_probe(struct platform_device *pdev)
 	mutex_unlock(&dev->dev_mutex);
 	pm_runtime_put_sync(&pdev->dev);
 
+	device_create_file(&pdev->dev, &dev_attr_meminfo);
 	vpu_dbg(LVL_ALL, "VPU Encoder registered\n");
 
 	return 0;
@@ -4089,6 +4183,7 @@ static int vpu_remove(struct platform_device *pdev)
 	struct vpu_dev *dev = platform_get_drvdata(pdev);
 	u_int32 i;
 
+	device_remove_file(&pdev->dev, &dev_attr_meminfo);
 	mutex_lock(&dev->dev_mutex);
 	for (i = 0; i < dev->core_num; i++)
 		uninit_vpu_core_dev(&dev->core_dev[i]);
