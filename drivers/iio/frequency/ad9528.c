@@ -832,7 +832,7 @@ static struct clk *ad9528_clk_register(struct iio_dev *indio_dev, unsigned num,
 	init.ops = &ad9528_clk_ops;
 
 	init.num_parents = 0;
-	init.flags = 0;
+	init.flags = CLK_GET_RATE_NOCACHE;
 	output->hw.init = &init;
 	output->indio_dev = indio_dev;
 	output->num = num;
