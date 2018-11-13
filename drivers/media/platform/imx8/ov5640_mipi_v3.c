@@ -48,8 +48,9 @@ enum ov5640_mode {
 	ov5640_mode_720P_1280_720 = 1,
 	ov5640_mode_NTSC_720_480 = 2,
 	ov5640_mode_VGA_640_480 = 3,
-	ov5640_mode_QSXGA_2592_1944 = 4,
-	ov5640_mode_MAX = 4,
+	ov5640_mode_QVGA_320_240 = 4,
+	ov5640_mode_QSXGA_2592_1944 = 5,
+	ov5640_mode_MAX = 5,
 	ov5640_mode_INIT = 0xff, /*only for sensor init*/
 };
 
@@ -245,6 +246,29 @@ static struct reg_value ov5640_setting_30fps_VGA_640_480[] = {
 	{0x4005, 0x1a, 0, 0}, {0x3008, 0x02, 0, 0}, {0x3503, 0x00, 0, 0},
 };
 
+static struct reg_value ov5640_setting_30fps_QVGA_320_240[] = {
+	{0x3008, 0x42, 0, 0},
+	{0x3035, 0x12, 0, 0}, {0x3036, 0x38, 0, 0}, {0x3c07, 0x08, 0, 0},
+	{0x3c09, 0x1c, 0, 0}, {0x3c0a, 0x9c, 0, 0}, {0x3c0b, 0x40, 0, 0},
+	{0x3820, 0x41, 0, 0}, {0x3821, 0x07, 0, 0}, {0x3814, 0x31, 0, 0},
+	{0x3815, 0x31, 0, 0}, {0x3800, 0x00, 0, 0}, {0x3801, 0x00, 0, 0},
+	{0x3802, 0x00, 0, 0}, {0x3803, 0x04, 0, 0}, {0x3804, 0x0a, 0, 0},
+	{0x3805, 0x3f, 0, 0}, {0x3806, 0x07, 0, 0}, {0x3807, 0x9b, 0, 0},
+	{0x3808, 0x01, 0, 0}, {0x3809, 0x40, 0, 0}, {0x380a, 0x00, 0, 0},
+	{0x380b, 0xF0, 0, 0}, {0x380c, 0x07, 0, 0}, {0x380d, 0x68, 0, 0},
+	{0x380e, 0x04, 0, 0}, {0x380f, 0x38, 0, 0}, {0x3810, 0x00, 0, 0},
+	{0x3811, 0x10, 0, 0}, {0x3812, 0x00, 0, 0}, {0x3813, 0x06, 0, 0},
+	{0x3618, 0x00, 0, 0}, {0x3612, 0x29, 0, 0}, {0x3708, 0x64, 0, 0},
+	{0x3709, 0x52, 0, 0}, {0x370c, 0x03, 0, 0}, {0x3a02, 0x03, 0, 0},
+	{0x3a03, 0xd8, 0, 0}, {0x3a08, 0x01, 0, 0}, {0x3a09, 0x0e, 0, 0},
+	{0x3a0a, 0x00, 0, 0}, {0x3a0b, 0xf6, 0, 0}, {0x3a0e, 0x03, 0, 0},
+	{0x3a0d, 0x04, 0, 0}, {0x3a14, 0x03, 0, 0}, {0x3a15, 0xd8, 0, 0},
+	{0x4001, 0x02, 0, 0}, {0x4004, 0x02, 0, 0}, {0x4713, 0x03, 0, 0},
+	{0x4407, 0x04, 0, 0}, {0x460b, 0x35, 0, 0}, {0x460c, 0x22, 0, 0},
+	{0x3824, 0x02, 0, 0}, {0x5001, 0xa3, 0, 0},
+	{0x4005, 0x1a, 0, 0}, {0x3008, 0x02, 0, 0}, {0x3503, 0x00, 0, 0},
+};
+
 static struct reg_value ov5640_setting_30fps_NTSC_720_480[] = {
 	{0x3008, 0x42, 0, 0},
 	{0x3035, 0x12, 0, 0}, {0x3036, 0x38, 0, 0}, {0x3c07, 0x08, 0, 0},
@@ -359,6 +383,7 @@ static struct ov5640_mode_info ov5640_mode_info_data[2][ov5640_mode_MAX + 1] = {
 		{ov5640_mode_720P_1280_720, -1, 0, 0, NULL, 0},
 		{ov5640_mode_NTSC_720_480, -1, 0, 0, NULL, 0},
 		{ov5640_mode_VGA_640_480, -1, 0, 0, NULL, 0},
+		{ov5640_mode_QVGA_320_240, -1, 0, 0, NULL, 0},
 		{ov5640_mode_QSXGA_2592_1944, SCALING, 2592, 1944,
 		ov5640_setting_15fps_QSXGA_2592_1944,
 		ARRAY_SIZE(ov5640_setting_15fps_QSXGA_2592_1944)},
@@ -376,6 +401,9 @@ static struct ov5640_mode_info ov5640_mode_info_data[2][ov5640_mode_MAX + 1] = {
 		{ov5640_mode_VGA_640_480, SUBSAMPLING, 640,  480,
 		ov5640_setting_30fps_VGA_640_480,
 		ARRAY_SIZE(ov5640_setting_30fps_VGA_640_480)},
+		{ov5640_mode_QVGA_320_240, SUBSAMPLING, 320,  240,
+		ov5640_setting_30fps_QVGA_320_240,
+		ARRAY_SIZE(ov5640_setting_30fps_QVGA_320_240)},
 		{ov5640_mode_QSXGA_2592_1944, -1, 0, 0, NULL, 0},
 	},
 };
