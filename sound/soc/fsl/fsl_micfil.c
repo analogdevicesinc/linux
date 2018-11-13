@@ -1998,7 +1998,7 @@ static int enable_hwvad(struct device *dev, bool sync)
 	 */
 	if (sync && state == MICFIL_HWVAD_ON) {
 		dev_err(dev, "hwvad already on\n");
-		ret = -EINVAL;
+		ret = -EBUSY;
 		goto enable_error;
 	}
 
@@ -2139,10 +2139,8 @@ static ssize_t micfil_hwvad_handler(struct kobject *kobj,
 	if (vad_channel <= 7) {
 		micfil->vad_channel = vad_channel;
 		ret = enable_hwvad(dev, true);
-		if (ret) {
+		if (ret)
 			dev_err(dev, "Failed to enable hwvad");
-			atomic_set(&micfil->hwvad_state, MICFIL_HWVAD_OFF);
-		}
 	} else {
 		micfil->vad_channel = -1;
 		ret = disable_hwvad(dev, true);
