@@ -542,7 +542,7 @@ void dcss_dtrc_enable(struct dcss_soc *dcss, int ch_num, bool enable)
 
 	dcss_dtrc_write(dtrc, ch_num, fdctl,
 			(curr_frame ^ 1) * DTRC_F1_OFS + DCSS_DTRC_DCTL);
-	dcss_dtrc_write(dtrc, ch_num, fdctl | (enable ? CONFIG_READY : 0),
+	dcss_dtrc_write(dtrc, ch_num, fdctl | CONFIG_READY,
 			curr_frame * DTRC_F1_OFS + DCSS_DTRC_DCTL);
 
 	ch->curr_frame = curr_frame;
