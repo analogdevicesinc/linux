@@ -390,7 +390,7 @@ void dcss_dpr_addr_set(struct dcss_soc *dcss, int ch_num, u32 luma_base_addr,
 		pitch = ch->pitch;
 
 	ch->frame_ctrl &= ~PITCH_MASK;
-	ch->frame_ctrl |= ((pitch << PITCH_POS) & PITCH_MASK);
+	ch->frame_ctrl |= (((u32)pitch << PITCH_POS) & PITCH_MASK);
 }
 EXPORT_SYMBOL(dcss_dpr_addr_set);
 

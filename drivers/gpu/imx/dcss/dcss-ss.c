@@ -194,19 +194,20 @@ void dcss_ss_sync_set(struct dcss_soc *dcss, struct videomode *vm,
 	hsync_end = vm->hsync_len - 1;
 
 	dcss_ss_write(ss, (phsync ? SYNC_POL : 0) |
-		      (hsync_end << SYNC_END_POS) | hsync_start,
+		      ((u32)hsync_end << SYNC_END_POS) | hsync_start,
 		      DCSS_SS_HSYNC);
 
 	vsync_start = vm->vfront_porch - 1;
 	vsync_end = vm->vfront_porch + vm->vsync_len - 1;
 
 	dcss_ss_write(ss, (pvsync ? SYNC_POL : 0) |
-		      (vsync_end << SYNC_END_POS) | vsync_start, DCSS_SS_VSYNC);
+		      ((u32)vsync_end << SYNC_END_POS) | vsync_start,
+		      DCSS_SS_VSYNC);
 
 	de_ulc_x = vm->hsync_len + vm->hback_porch - 1;
 	de_ulc_y = vm->vsync_len + vm->vfront_porch + vm->vback_porch;
 
-	dcss_ss_write(ss, SYNC_POL | (de_ulc_y << ULC_Y_POS) | de_ulc_x,
+	dcss_ss_write(ss, SYNC_POL | ((u32)de_ulc_y << ULC_Y_POS) | de_ulc_x,
 		      DCSS_SS_DE_ULC);
 
 	de_lrc_x = vm->hsync_len + vm->hback_porch + vm->hactive - 1;
