@@ -230,7 +230,7 @@ static bool roi_configure(struct dcic_data *dcic, struct roi_params *roi_param)
 	struct roi_regs *roi_reg;
 	u32 val;
 
-	if (roi_param->roi_n < 0 || roi_param->roi_n >= 16) {
+	if (roi_param->roi_n >= 16) {
 		printk(KERN_ERR "Error, Wrong ROI number %d\n", roi_param->roi_n);
 		return false;
 	}
