@@ -27,8 +27,6 @@
 #include <linux/iio/triggered_buffer.h>
 #include <linux/iio/adc/ad_sigma_delta.h>
 
-#include "ad7192.h"
-
 /* Registers */
 #define AD7192_REG_COMM		0 /* Communications Register (WO, 8-bit) */
 #define AD7192_REG_STAT		0 /* Status Register	     (RO, 8-bit) */
