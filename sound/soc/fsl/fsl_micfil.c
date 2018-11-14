@@ -1609,11 +1609,6 @@ static int fsl_micfil_hw_free(struct snd_pcm_substream *substream,
 {
 	struct fsl_micfil *micfil = snd_soc_dai_get_drvdata(dai);
 
-	/*
-	if (atomic_read(&micfil->hwvad_state) == MICFIL_HWVAD_OFF)
-		clk_disable_unprepare(micfil->mclk);
-
-	*/
 	atomic_set(&micfil->recording_state, MICFIL_RECORDING_OFF);
 
 	return 0;
