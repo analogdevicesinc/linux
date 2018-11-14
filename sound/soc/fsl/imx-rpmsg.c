@@ -29,6 +29,13 @@ struct imx_rpmsg_data {
 	struct snd_soc_card card;
 };
 
+static const struct snd_soc_dapm_widget imx_wm8960_dapm_widgets[] = {
+	SND_SOC_DAPM_HP("Headphone Jack", NULL),
+	SND_SOC_DAPM_SPK("Ext Spk", NULL),
+	SND_SOC_DAPM_MIC("Mic Jack", NULL),
+	SND_SOC_DAPM_MIC("Main MIC", NULL),
+};
+
 static int imx_rpmsg_probe(struct platform_device *pdev)
 {
 	struct device_node *cpu_np;
@@ -115,6 +122,17 @@ static int imx_rpmsg_probe(struct platform_device *pdev)
 	ret = snd_soc_of_parse_card_name(&data->card, "model");
 	if (ret)
 		goto fail;
+
+	if (rpmsg_i2s->codec_wm8960) {
+		ret = snd_soc_of_parse_audio_routing(&data->card,
+						"audio-routing");
+		if (ret)
+			goto fail;
+
+		data->card.dapm_widgets = imx_wm8960_dapm_widgets;
+		data->card.num_dapm_widgets =
+				ARRAY_SIZE(imx_wm8960_dapm_widgets);
+	}
 
 	platform_set_drvdata(pdev, &data->card);
 	snd_soc_card_set_drvdata(&data->card, data);
