@@ -1490,13 +1490,11 @@ static int dcss_dpr_config(uint32_t dpr_ch, struct dcss_info *info)
 	pix_size = ilog2(input->bits_per_pixel >> 3);
 
 	num_pix_x = dpr_pix_x_calc(pix_size, input->width, input->tile_type);
-	BUG_ON(num_pix_x < 0);
 	fill_sb(cb, chan_info->dpr_addr + 0xa0, num_pix_x);
 
 	switch (fmt_is_yuv(input->format)) {
 	case 0:         /* RGB */
 		num_pix_y = dpr_pix_y_calc(1, input->height, input->tile_type);
-		BUG_ON(num_pix_y < 0);
 		fill_sb(cb, chan_info->dpr_addr + 0xb0, num_pix_y);
 
 		if (!need_resolve)
@@ -1513,7 +1511,6 @@ static int dcss_dpr_config(uint32_t dpr_ch, struct dcss_info *info)
 	case 2:         /* YUV 2P */
 		/* Two planes YUV format */
 		num_pix_y = dpr_pix_y_calc(0, input->height, input->tile_type);
-		BUG_ON(num_pix_y < 0);
 		fill_sb(cb, chan_info->dpr_addr + 0xb0, num_pix_y);
 
 		fill_sb(cb, chan_info->dpr_addr + 0x50, 0xc1);
@@ -1532,7 +1529,6 @@ static int dcss_dpr_config(uint32_t dpr_ch, struct dcss_info *info)
 		 * UV height is 1/2 height of Luma.
 		 */
 		num_pix_y = dpr_pix_y_calc(0, input->height >> 1, input->tile_type);
-		BUG_ON(num_pix_y < 0);
 		fill_sb(cb, chan_info->dpr_addr + 0x100, num_pix_y);
 		break;
 	default:
