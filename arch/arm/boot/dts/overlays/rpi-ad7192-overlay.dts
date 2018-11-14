@@ -1,0 +1,76 @@
+/dts-v1/;
+/plugin/;
+
+/ {
+	compatible = "brcm,bcm2835", "brcm,bcm2708", "brcm,bcm2709";
+
+	fragment@0 {
+		target-path = "/";
+		__overlay__ {
+			avdd: fixedregulator@0 {
+				compatible = "regulator-fixed";
+				regulator-name = "fixed-supply";
+				regulator-min-microvolt = <3300000>;
+				regulator-max-microvolt = <3300000>;
+				regulator-boot-on;
+			};
+		};
+	};
+
+	fragment@1 {
+		target-path = "/";
+		__overlay__ {
+			vref2: fixedregulator@1 {
+				compatible = "regulator-fixed";
+				regulator-name = "fixed-supply2";
+				regulator-min-microvolt = <3300000>;
+				regulator-max-microvolt = <3300000>;
+				regulator-boot-on;
+			};
+		};
+	};
+
+	fragment@2 {
+		target-path = "/";
+		__overlay__ {
+			ad7190_clk: ad7190_clk {
+				#clock-cells = <0>;
+				compatible = "fixed-clock";
+				clock-frequency = <4961200>;
+			};
+		};
+	};
+
+	fragment@3 {
+		target = <&spi0>;
+		__overlay__ {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "okay";
+
+			ad7190@0 {
+				compatible = "adi,ad7190";
+				reg = <0>;
+				spi-max-frequency = <1000000>;
+				spi-cpol;
+				spi-cpha;
+				#interrupt-cells = <2>;
+				interrupts = <25 0x2>;
+				interrupt-parent = <&gpio>;
+				avdd-supply = <&avdd>;
+				vref-supply = <&vref2>;
+
+				clocks = <&ad7190_clk>;
+				clock-names = "clk";
+
+				adi,refin2-pins-enable;
+				adi,rejection-60-Hz-enable;
+				adi,chop-enable;
+				adi,buffer-enable;
+				adi,burnout-currents-enable;
+				adi,sinc3-filter-enable;
+				adi,unipolar-enable;
+			};
+		};
+	};
+};
