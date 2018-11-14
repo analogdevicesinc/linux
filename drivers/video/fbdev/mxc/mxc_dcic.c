@@ -360,7 +360,8 @@ static int dcic_release(struct inode *inode, struct file *file)
 
 static int dcic_init(struct device_node *np, struct dcic_data *dcic)
 {
-	u32 val, bus;
+	int val;
+	u32 bus;
 
 	val = of_get_dcic_val(np, dcic);
 	if (val < 0) {
