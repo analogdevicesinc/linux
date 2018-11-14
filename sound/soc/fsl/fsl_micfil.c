@@ -329,7 +329,7 @@ static int hwvad_get_zcd_auto(struct snd_kcontrol *kcontrol,
 }
 
 static int gain_info(struct snd_kcontrol *kcontrol,
-			   struct snd_ctl_elem_info *uinfo)
+		     struct snd_ctl_elem_info *uinfo)
 {
 	uinfo->type = SNDRV_CTL_ELEM_TYPE_INTEGER;
 	uinfo->count = 1;
@@ -396,7 +396,7 @@ static int get_channel_gain(struct snd_kcontrol *kcontrol,
 }
 
 static int hwvad_put_input_gain(struct snd_kcontrol *kcontrol,
-			        struct snd_ctl_elem_value *ucontrol)
+				struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_component *comp = snd_kcontrol_chip(kcontrol);
 	struct fsl_micfil *micfil = snd_soc_component_get_drvdata(comp);
@@ -407,7 +407,7 @@ static int hwvad_put_input_gain(struct snd_kcontrol *kcontrol,
 }
 
 static int hwvad_get_input_gain(struct snd_kcontrol *kcontrol,
-			        struct snd_ctl_elem_value *ucontrol)
+				struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_component *comp = snd_kcontrol_chip(kcontrol);
 	struct fsl_micfil *micfil = snd_soc_component_get_drvdata(comp);
@@ -418,7 +418,7 @@ static int hwvad_get_input_gain(struct snd_kcontrol *kcontrol,
 }
 
 static int hwvad_put_sound_gain(struct snd_kcontrol *kcontrol,
-			        struct snd_ctl_elem_value *ucontrol)
+				struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_component *comp = snd_kcontrol_chip(kcontrol);
 	struct fsl_micfil *micfil = snd_soc_component_get_drvdata(comp);
@@ -429,7 +429,7 @@ static int hwvad_put_sound_gain(struct snd_kcontrol *kcontrol,
 }
 
 static int hwvad_get_sound_gain(struct snd_kcontrol *kcontrol,
-			        struct snd_ctl_elem_value *ucontrol)
+				struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_component *comp = snd_kcontrol_chip(kcontrol);
 	struct fsl_micfil *micfil = snd_soc_component_get_drvdata(comp);
@@ -440,7 +440,7 @@ static int hwvad_get_sound_gain(struct snd_kcontrol *kcontrol,
 }
 
 static int hwvad_put_noise_gain(struct snd_kcontrol *kcontrol,
-			        struct snd_ctl_elem_value *ucontrol)
+				struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_component *comp = snd_kcontrol_chip(kcontrol);
 	struct fsl_micfil *micfil = snd_soc_component_get_drvdata(comp);
@@ -451,7 +451,7 @@ static int hwvad_put_noise_gain(struct snd_kcontrol *kcontrol,
 }
 
 static int hwvad_get_noise_gain(struct snd_kcontrol *kcontrol,
-			        struct snd_ctl_elem_value *ucontrol)
+				struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_component *comp = snd_kcontrol_chip(kcontrol);
 	struct fsl_micfil *micfil = snd_soc_component_get_drvdata(comp);
@@ -462,7 +462,7 @@ static int hwvad_get_noise_gain(struct snd_kcontrol *kcontrol,
 }
 
 static int hwvad_framet_info(struct snd_kcontrol *kcontrol,
-			   struct snd_ctl_elem_info *uinfo)
+			     struct snd_ctl_elem_info *uinfo)
 {
 	uinfo->type = SNDRV_CTL_ELEM_TYPE_INTEGER;
 	uinfo->count = 1;
@@ -473,7 +473,7 @@ static int hwvad_framet_info(struct snd_kcontrol *kcontrol,
 }
 
 static int hwvad_put_frame_time(struct snd_kcontrol *kcontrol,
-			        struct snd_ctl_elem_value *ucontrol)
+				struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_component *comp = snd_kcontrol_chip(kcontrol);
 	struct fsl_micfil *micfil = snd_soc_component_get_drvdata(comp);
@@ -484,7 +484,7 @@ static int hwvad_put_frame_time(struct snd_kcontrol *kcontrol,
 }
 
 static int hwvad_get_frame_time(struct snd_kcontrol *kcontrol,
-			        struct snd_ctl_elem_value *ucontrol)
+				struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_component *comp = snd_kcontrol_chip(kcontrol);
 	struct fsl_micfil *micfil = snd_soc_component_get_drvdata(comp);
@@ -495,7 +495,7 @@ static int hwvad_get_frame_time(struct snd_kcontrol *kcontrol,
 }
 
 static int hwvad_initt_info(struct snd_kcontrol *kcontrol,
-			   struct snd_ctl_elem_info *uinfo)
+			    struct snd_ctl_elem_info *uinfo)
 {
 	uinfo->type = SNDRV_CTL_ELEM_TYPE_INTEGER;
 	uinfo->count = 1;
@@ -506,7 +506,7 @@ static int hwvad_initt_info(struct snd_kcontrol *kcontrol,
 }
 
 static int hwvad_put_init_time(struct snd_kcontrol *kcontrol,
-			        struct snd_ctl_elem_value *ucontrol)
+			       struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_component *comp = snd_kcontrol_chip(kcontrol);
 	struct fsl_micfil *micfil = snd_soc_component_get_drvdata(comp);
@@ -517,7 +517,7 @@ static int hwvad_put_init_time(struct snd_kcontrol *kcontrol,
 }
 
 static int hwvad_get_init_time(struct snd_kcontrol *kcontrol,
-			        struct snd_ctl_elem_value *ucontrol)
+			       struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_component *comp = snd_kcontrol_chip(kcontrol);
 	struct fsl_micfil *micfil = snd_soc_component_get_drvdata(comp);
@@ -539,7 +539,7 @@ static int hwvad_nfiladj_info(struct snd_kcontrol *kcontrol,
 }
 
 static int hwvad_put_nfil_adjust(struct snd_kcontrol *kcontrol,
-			        struct snd_ctl_elem_value *ucontrol)
+				 struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_component *comp = snd_kcontrol_chip(kcontrol);
 	struct fsl_micfil *micfil = snd_soc_component_get_drvdata(comp);
@@ -550,7 +550,7 @@ static int hwvad_put_nfil_adjust(struct snd_kcontrol *kcontrol,
 }
 
 static int hwvad_get_nfil_adjust(struct snd_kcontrol *kcontrol,
-			        struct snd_ctl_elem_value *ucontrol)
+				 struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_component *comp = snd_kcontrol_chip(kcontrol);
 	struct fsl_micfil *micfil = snd_soc_component_get_drvdata(comp);
@@ -561,7 +561,7 @@ static int hwvad_get_nfil_adjust(struct snd_kcontrol *kcontrol,
 }
 
 static int hwvad_zcdth_info(struct snd_kcontrol *kcontrol,
-			      struct snd_ctl_elem_info *uinfo)
+			    struct snd_ctl_elem_info *uinfo)
 {
 	uinfo->type = SNDRV_CTL_ELEM_TYPE_INTEGER;
 	uinfo->count = 1;
@@ -594,7 +594,7 @@ static int hwvad_get_zcd_th(struct snd_kcontrol *kcontrol,
 }
 
 static int hwvad_zcdadj_info(struct snd_kcontrol *kcontrol,
-			      struct snd_ctl_elem_info *uinfo)
+			     struct snd_ctl_elem_info *uinfo)
 {
 	uinfo->type = SNDRV_CTL_ELEM_TYPE_INTEGER;
 	uinfo->count = 1;
@@ -1551,8 +1551,8 @@ static int fsl_micfil_hw_params(struct snd_pcm_substream *substream,
 	/* if hwvad is enabled, make sure you are recording at
 	 * the same rate the hwvad is on or reject it to avoid
 	 * changing the clock rate.
-	*/
-	if ((hwvad_state == MICFIL_HWVAD_ON) && (rate != hwvad_rate)) {
+	 */
+	if (hwvad_state == MICFIL_HWVAD_ON && rate != hwvad_rate) {
 		dev_err(dev, "Record at hwvad rate %u\n", hwvad_rate);
 		return -EINVAL;
 	}
@@ -1876,8 +1876,8 @@ static irqreturn_t hwvad_isr(int irq, void *devid)
 	if (vad0_reg & MICFIL_VAD0_STAT_IF_MASK) {
 		/* Write 1 to clear */
 		regmap_write_bits(micfil->regmap, REG_MICFIL_VAD0_STAT,
-				   MICFIL_VAD0_STAT_IF_MASK,
-				   MICFIL_VAD0_STAT_IF);
+				  MICFIL_VAD0_STAT_IF_MASK,
+				  MICFIL_VAD0_STAT_IF);
 
 		/* disable hwvad interrupts */
 		ret = configure_hwvad_interrupts(dev, 0);
@@ -2053,7 +2053,8 @@ static int disable_hwvad(struct device *dev, bool sync)
 	/* disable is called with sync = false only from
 	 * system suspend and in this case, you should not
 	 * change the hwvad_state so we know at system_resume
-	 * to reenable hwvad*/
+	 * to reenable hwvad
+	 */
 	if (sync)
 		state = atomic_cmpxchg(&micfil->hwvad_state,
 				       MICFIL_HWVAD_ON,
