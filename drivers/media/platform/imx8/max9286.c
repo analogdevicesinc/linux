@@ -2470,6 +2470,14 @@ static void max9271_dump_registers(struct sensor_data *max9286_data, int index)
 }
 #endif
 
+static void max9286_hw_reset(struct sensor_data *max9286_data)
+{
+	gpio_set_value(max9286_data->pwn_gpio, 0);
+	udelay(200);
+	gpio_set_value(max9286_data->pwn_gpio, 1);
+	msleep(1);
+}
+
 static int max9286_hardware_preinit(struct sensor_data *max9286_data)
 {
 	u8 reg;
@@ -3215,6 +3223,8 @@ static int max9286_probe(struct i2c_client *client,
 					"max9286_pwd");
 	if (retval < 0)
 		return retval;
+
+	max9286_hw_reset(max9286_data);
 
 	clk_prepare_enable(max9286_data->sensor_clk);
 
