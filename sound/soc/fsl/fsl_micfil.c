@@ -2236,7 +2236,7 @@ static int fsl_micfil_probe(struct platform_device *pdev)
 	if (ret)
 		micfil->dataline = 1;
 
-	if (micfil->dataline & (~micfil->soc->dataline)) {
+	if (micfil->dataline & ~micfil->soc->dataline) {
 		dev_err(&pdev->dev, "dataline setting error, Mask is 0x%X\n",
 			micfil->soc->dataline);
 		return -EINVAL;
