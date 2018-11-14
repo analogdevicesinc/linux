@@ -1377,7 +1377,7 @@ static int fsl_micfil_set_mclk_rate(struct fsl_micfil *micfil, int clk_id,
 		return -EINVAL;
 	}
 
-	while(p) {
+	while (p) {
 		struct clk *pp = clk_get_parent(p);
 
 		if (clk_in_list(pp, micfil->clk_src)) {
