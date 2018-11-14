@@ -654,21 +654,29 @@ static const struct snd_kcontrol_new fsl_micfil_snd_controls[] = {
 				 0x0, 0xF, 0,
 				 get_channel_gain, put_channel_gain, gain_tlv),
 
-	SOC_ENUM_EXT("MICFIL Quality Select", fsl_micfil_enum[0],
+	SOC_ENUM_EXT("MICFIL Quality Select",
+		     fsl_micfil_enum[0],
 		     snd_soc_get_enum_double, snd_soc_put_enum_double),
-	SOC_ENUM_EXT("HWVAD Initialization Mode", fsl_micfil_enum[1],
+	SOC_ENUM_EXT("HWVAD Initialization Mode",
+		     fsl_micfil_enum[1],
 		     hwvad_get_init_mode, hwvad_put_init_mode),
-	SOC_ENUM_EXT("HWVAD High-Pass Filter", fsl_micfil_enum[2],
+	SOC_ENUM_EXT("HWVAD High-Pass Filter",
+		     fsl_micfil_enum[2],
 		     hwvad_get_hpf, hwvad_put_hpf),
-	SOC_ENUM_EXT("HWVAD Zero-Crossing Detector Enable", fsl_micfil_enum[3],
+	SOC_ENUM_EXT("HWVAD Zero-Crossing Detector Enable",
+		     fsl_micfil_enum[3],
 		     hwvad_get_zcd_en, hwvad_put_zcd_en),
-	SOC_ENUM_EXT("HWVAD Zero-Crossing Detector Auto Threshold", fsl_micfil_enum[4],
+	SOC_ENUM_EXT("HWVAD Zero-Crossing Detector Auto Threshold",
+		     fsl_micfil_enum[4],
 		     hwvad_get_zcd_auto, hwvad_put_zcd_auto),
-	SOC_ENUM_EXT("HWVAD Noise OR Enable", fsl_micfil_enum[5],
+	SOC_ENUM_EXT("HWVAD Noise OR Enable",
+		     fsl_micfil_enum[5],
 		     snd_soc_get_enum_double, snd_soc_put_enum_double),
-	SOC_ENUM_EXT("HWVAD Sampling Rate", fsl_micfil_enum[6],
+	SOC_ENUM_EXT("HWVAD Sampling Rate",
+		     fsl_micfil_enum[6],
 		     hwvad_get_rate, hwvad_put_rate),
-	SOC_ENUM_EXT("Clock Source", fsl_micfil_enum[7],
+	SOC_ENUM_EXT("Clock Source",
+		     fsl_micfil_enum[7],
 		     micfil_get_clk_src, micfil_put_clk_src),
 	{
 		.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
@@ -1225,6 +1233,7 @@ static int __maybe_unused init_hwvad(struct device *dev)
 {
 	struct fsl_micfil *micfil = dev_get_drvdata(dev);
 	int ret;
+	u32 reg_val;
 
 	/* configure CIC OSR in VADCICOSR */
 	ret = regmap_update_bits(micfil->regmap, REG_MICFIL_VAD0_CTRL1,
@@ -1236,63 +1245,70 @@ static int __maybe_unused init_hwvad(struct device *dev)
 	}
 
 	/* configure source channel in VADCHSEL */
+	reg_val = MICFIL_VAD0_CTRL1_CHSEL(micfil->vad_channel);
 	ret = regmap_update_bits(micfil->regmap, REG_MICFIL_VAD0_CTRL1,
 				 MICFIL_VAD0_CTRL1_CHSEL_MASK,
-				 MICFIL_VAD0_CTRL1_CHSEL(micfil->vad_channel));
+				 reg_val);
 	if (ret) {
 		dev_err(dev, "Failed to set CHSEL in CTRL1_VAD0 [%d]\n", ret);
 		return ret;
 	}
 
 	/* configure detector frame time VADFRAMET */
+	reg_val = MICFIL_VAD0_CTRL2_FRAMET(micfil->vad_frame_time);
 	ret = regmap_update_bits(micfil->regmap, REG_MICFIL_VAD0_CTRL2,
 				 MICFIL_VAD0_CTRL2_FRAMET_MASK,
-				 MICFIL_VAD0_CTRL2_FRAMET(micfil->vad_frame_time));
+				 reg_val);
 	if (ret) {
 		dev_err(dev, "Failed to set FRAMET in CTRL2_VAD0 [%d]\n", ret);
 		return ret;
 	}
 
 	/* configure initialization time in VADINITT */
+	reg_val = MICFIL_VAD0_CTRL1_INITT(micfil->vad_init_time);
 	ret = regmap_update_bits(micfil->regmap, REG_MICFIL_VAD0_CTRL1,
 				 MICFIL_VAD0_CTRL1_INITT_MASK,
-				 MICFIL_VAD0_CTRL1_INITT(micfil->vad_init_time));
+				 reg_val);
 	if (ret) {
 		dev_err(dev, "Failed to set INITT in CTRL1_VAD0 [%d]\n", ret);
 		return ret;
 	}
 
 	/* configure input gain in VADINPGAIN */
+	reg_val = MICFIL_VAD0_CTRL2_INPGAIN(micfil->vad_input_gain);
 	ret = regmap_update_bits(micfil->regmap, REG_MICFIL_VAD0_CTRL2,
 				 MICFIL_VAD0_CTRL2_INPGAIN_MASK,
-				 MICFIL_VAD0_CTRL2_INPGAIN(micfil->vad_input_gain));
+				 reg_val);
 	if (ret) {
 		dev_err(dev, "Failed to set INPGAIN in CTRL2_VAD0 [%d]\n", ret);
 		return ret;
 	}
 
 	/* configure sound gain in SGAIN */
+	reg_val = MICFIL_VAD0_SCONFIG_SGAIN(micfil->vad_sound_gain);
 	ret = regmap_update_bits(micfil->regmap, REG_MICFIL_VAD0_SCONFIG,
 				 MICFIL_VAD0_SCONFIG_SGAIN_MASK,
-				 MICFIL_VAD0_SCONFIG_SGAIN(micfil->vad_sound_gain));
+				 reg_val);
 	if (ret) {
 		dev_err(dev, "Failed to set SGAIN in SCONFIG_VAD0 [%d]\n", ret);
 		return ret;
 	}
 
 	/* configure noise gain in NGAIN */
+	reg_val = MICFIL_VAD0_NCONFIG_NGAIN(micfil->vad_noise_gain);
 	ret = regmap_update_bits(micfil->regmap, REG_MICFIL_VAD0_NCONFIG,
 				 MICFIL_VAD0_NCONFIG_NGAIN_MASK,
-				 MICFIL_VAD0_NCONFIG_NGAIN(micfil->vad_noise_gain));
+				 reg_val);
 	if (ret) {
 		dev_err(dev, "Failed to set NGAIN in NCONFIG_VAD0 [%d]\n", ret);
 		return ret;
 	}
 
 	/* configure or clear the VADNFILADJ based on mode */
+	reg_val = MICFIL_VAD0_NCONFIG_NFILADJ(micfil->vad_nfil_adjust);
 	ret = regmap_update_bits(micfil->regmap, REG_MICFIL_VAD0_NCONFIG,
 				 MICFIL_VAD0_NCONFIG_NFILADJ_MASK,
-				 MICFIL_VAD0_NCONFIG_NFILADJ(micfil->vad_nfil_adjust));
+				 reg_val);
 	if (ret) {
 		dev_err(dev,
 			"Failed to set VADNFILADJ in NCONFIG_VAD0 [%d]\n",
@@ -1301,9 +1317,10 @@ static int __maybe_unused init_hwvad(struct device *dev)
 	}
 
 	/* enable the high-pass filter in VADHPF */
+	reg_val = MICFIL_VAD0_CTRL2_HPF(micfil->vad_hpf);
 	ret = regmap_update_bits(micfil->regmap, REG_MICFIL_VAD0_CTRL2,
 				 MICFIL_VAD0_CTRL2_HPF_MASK,
-				 MICFIL_VAD0_CTRL2_HPF(micfil->vad_hpf));
+				 reg_val);
 	if (ret) {
 		dev_err(dev, "Failed to set HPF in CTRL2_VAD0 [%d]\n", ret);
 		return ret;
@@ -2152,7 +2169,10 @@ static ssize_t micfil_hwvad_handler(struct kobject *kobj,
 	return count;
 }
 
-static struct kobj_attribute hwvad_enable_attribute = __ATTR(enable, 0660, NULL, micfil_hwvad_handler);
+static struct kobj_attribute hwvad_en_attr = __ATTR(enable,
+						   0660,
+						   NULL,
+						   micfil_hwvad_handler);
 
 static int fsl_micfil_probe(struct platform_device *pdev)
 {
@@ -2325,7 +2345,7 @@ static int fsl_micfil_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	ret = sysfs_create_file(micfil->hwvad_kobject,
-				&hwvad_enable_attribute.attr);
+				&hwvad_en_attr.attr);
 	if (ret) {
 		dev_err(&pdev->dev, "failed to create file for hwvad_enable\n");
 		kobject_put(micfil->hwvad_kobject);
