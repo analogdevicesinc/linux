@@ -1400,9 +1400,8 @@ static int fsl_micfil_set_mclk_rate(struct fsl_micfil *micfil, int clk_id,
 			 * to any known frequency ???
 			 */
 			clk_rate = round_up(clk_rate, 10);
-			if (do_div(clk_rate, ratio) == 0) {
+			if (do_div(clk_rate, ratio) == 0)
 				npll = micfil->clk_src[i];
-			}
 		}
 	} else {
 		/* clock id is offseted by 1 since ID=0 means
@@ -2385,14 +2384,14 @@ static int __maybe_unused fsl_micfil_runtime_resume(struct device *dev)
 	/* enable mclk only if the hwvad is not enabled
 	 * When hwvad is enabled, clock won't be disabled
 	 * in suspend since hwvad and recording share the
-	 * same clock*/
+	 * same clock
+	 */
 	if (state == MICFIL_HWVAD_ON)
 		return 0;
 
 	ret = clk_prepare_enable(micfil->mclk);
-	if (ret < 0) {
+	if (ret < 0)
 		return ret;
-	}
 
 	regcache_cache_only(micfil->regmap, false);
 	regcache_mark_dirty(micfil->regmap);
