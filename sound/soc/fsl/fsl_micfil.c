@@ -1525,7 +1525,6 @@ static int fsl_set_clock_params(struct device *dev, unsigned int rate)
 		dev_err(dev, "failed to set mclk[%lu] to rate %u\n",
 			clk_get_rate(micfil->mclk), rate);
 
-
 	/* set CICOSR */
 	ret |= regmap_update_bits(micfil->regmap, REG_MICFIL_CTRL2,
 				 MICFIL_CTRL2_CICOSR_MASK,
@@ -1533,7 +1532,6 @@ static int fsl_set_clock_params(struct device *dev, unsigned int rate)
 	if (ret)
 		dev_err(dev, "failed to set CICOSR in reg 0x%X\n",
 			REG_MICFIL_CTRL2);
-
 
 	/* set CLK_DIV */
 	clk_div = get_clk_div(micfil, rate);
