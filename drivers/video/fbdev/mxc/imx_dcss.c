@@ -1211,30 +1211,6 @@ static int dcss_clks_rate_set(struct dcss_info *info)
 	return 0;
 }
 
-static int dcss_dec400d_config(struct dcss_info *info,
-			       bool decompress, bool resolve)
-{
-	struct dcss_channel_info *chan_info;
-	struct cbuffer *cb;
-
-	if (resolve == true)
-		return -EINVAL;
-
-	/* dec400d always in channel 1 */
-	chan_info = &info->chans.chan_info[0];
-	cb = &chan_info->cb;
-
-	if (decompress == true) {
-		/* TODO: configure decompress */
-		;
-	} else {
-		/* TODO: configure bypass */
-		;
-	}
-
-	return 0;
-}
-
 static int dcss_dtrc_config(uint32_t dtrc_ch,
 			    struct dcss_info *info,
 			    bool decompress,
@@ -1311,7 +1287,6 @@ static int dcss_decomp_config(uint32_t decomp_ch, struct dcss_info *info)
 
 	switch (decomp_ch) {
 	case 0:		/* DEC400D */
-		dcss_dec400d_config(info, need_decomp, need_resolve);
 		break;
 	case 1:		/* DTRC1   */
 	case 2:		/* DTRC2   */
