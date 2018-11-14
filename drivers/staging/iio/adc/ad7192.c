@@ -168,6 +168,13 @@ struct ad7192_state {
 	u8				gpocon;
 	u8				devid;
 	u8				clock_sel;
+	bool				refin2_en;
+	bool				rej60_en;
+	bool				sinc3_en;
+	bool				chop_en;
+	bool				buf_en;
+	bool				unipolar_en;
+	bool				burnout_curr_en;
 
 	struct ad_sigma_delta		sd;
 };
@@ -230,8 +237,7 @@ static inline bool ad7192_valid_external_frequency(u32 freq)
 		freq <= AD7192_EXT_FREQ_MHZ_MAX);
 }
 
-static int ad7192_setup(struct ad7192_state *st,
-			const struct ad7192_platform_data *pdata)
+static int ad7192_setup(struct ad7192_state *st)
 {
 	struct iio_dev *indio_dev = spi_get_drvdata(st->sd.spi);
 	unsigned long long scale_uv;
@@ -260,18 +266,18 @@ static int ad7192_setup(struct ad7192_state *st,
 
 	st->conf = AD7192_CONF_GAIN(0);
 
-	if (pdata->rej60_en)
+	if (st->rej60_en)
 		st->mode |= AD7192_MODE_REJ60;
 
-	if (pdata->sinc3_en)
+	if (st->sinc3_en)
 		st->mode |= AD7192_MODE_SINC3;
 
-	if (pdata->refin2_en && (st->devid != ID_AD7195))
+	if (st->refin2_en && (st->devid != ID_AD7195))
 		st->conf |= AD7192_CONF_REFSEL;
 
-	if (pdata->chop_en) {
+	if (st->chop_en) {
 		st->conf |= AD7192_CONF_CHOP;
-		if (pdata->sinc3_en)
+		if (st->sinc3_en)
 			st->f_order = 3; /* SINC 3rd order */
 		else
 			st->f_order = 4; /* SINC 4th order */
@@ -279,13 +285,13 @@ static int ad7192_setup(struct ad7192_state *st,
 		st->f_order = 1;
 	}
 
-	if (pdata->buf_en)
+	if (st->buf_en)
 		st->conf |= AD7192_CONF_BUF;
 
-	if (pdata->unipolar_en)
+	if (st->unipolar_en)
 		st->conf |= AD7192_CONF_UNIPOLAR;
 
-	if (pdata->burnout_curr_en)
+	if (st->burnout_curr_en)
 		st->conf |= AD7192_CONF_BURN;
 
 	ret = ad_sd_write_reg(&st->sd, AD7192_REG_MODE, 3, st->mode);
@@ -605,18 +611,16 @@ static const struct iio_chan_spec ad7193_channels[] = {
 	IIO_CHAN_SOFT_TIMESTAMP(14),
 };
 
-static int ad7192_parse_dt(struct device_node *np,
-               struct ad7192_platform_data *pdata)
+static void ad7192_parse_dt(struct device_node *np,
+			    struct ad7192_state *st)
 {
-	pdata->refin2_en = of_property_read_bool(np, "adi,refin2-pins-enable");
-	pdata->rej60_en = of_property_read_bool(np, "adi,rejection-60-Hz-enable");
-	pdata->sinc3_en = of_property_read_bool(np, "adi,sinc3-filter-enable");
-	pdata->chop_en = of_property_read_bool(np, "adi,chop-enable");
-	pdata->buf_en = of_property_read_bool(np, "adi,buffer-enable");
-	pdata->unipolar_en = of_property_read_bool(np, "adi,unipolar-enable");
-	pdata->burnout_curr_en = of_property_read_bool(np, "adi,burnout-currents-enable");
-
-	return 0;
+	st->refin2_en = of_property_read_bool(np, "adi,refin2-pins-enable");
+	st->rej60_en = of_property_read_bool(np, "adi,rejection-60-Hz-enable");
+	st->sinc3_en = of_property_read_bool(np, "adi,sinc3-filter-enable");
+	st->chop_en = of_property_read_bool(np, "adi,chop-enable");
+	st->buf_en = of_property_read_bool(np, "adi,buffer-enable");
+	st->unipolar_en = of_property_read_bool(np, "adi,unipolar-enable");
+	st->burnout_curr_en = of_property_read_bool(np, "adi,burnout-currents-enable");
 }
 
 static int ad7192_clock_select(struct spi_device *spi, struct ad7192_state *st)
@@ -652,43 +656,23 @@ static int ad7192_clock_select(struct spi_device *spi, struct ad7192_state *st)
 
 static int ad7192_probe(struct spi_device *spi)
 {
-	struct ad7192_platform_data *pdata;
 	struct ad7192_state *st;
 	struct iio_dev *indio_dev;
 	int ret, voltage_uv = 0;
-
-	pdata = devm_kzalloc(&spi->dev, sizeof(struct ad7192_platform_data),
-				GFP_KERNEL);
-	if (!pdata) {
-		return -ENOMEM;
-	}
-	if(spi->dev.platform_data) {
-		pdata = spi->dev.platform_data;
-	}
-	else {
-		if (spi->dev.of_node) {
-			ret = ad7192_parse_dt(spi->dev.of_node, pdata);
-			if (ret) {
-				dev_err(&spi->dev, "no platform data?\n");
-				return -ENODEV;
-			}
-		}
-		else {
-			dev_err(&spi->dev, "no platform data?\n");
-			return -ENODEV;
-		}
-	}
-
-	if (!spi->irq) {
-		dev_err(&spi->dev, "no IRQ?\n");
-		return -ENODEV;
-	}
 
 	indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*st));
 	if (!indio_dev)
 		return -ENOMEM;
 
 	st = iio_priv(indio_dev);
+
+	/* Parse optional device tree options */
+	ad7192_parse_dt(spi->dev.of_node, st);
+
+	if (!spi->irq) {
+		dev_err(&spi->dev, "no IRQ?\n");
+		return -ENODEV;
+	}
 
 	st->avdd = devm_regulator_get(&spi->dev, "avdd");
 	if (IS_ERR(st->avdd))
@@ -718,9 +702,7 @@ static int ad7192_probe(struct spi_device *spi)
 
 	voltage_uv = regulator_get_voltage(st->avdd);
 
-	if (pdata->vref_mv)
-		st->int_vref_mv = pdata->vref_mv;
-	else if (voltage_uv)
+	if (voltage_uv)
 		st->int_vref_mv = voltage_uv / 1000;
 	else
 		dev_warn(&spi->dev, "reference voltage undefined\n");
@@ -753,7 +735,7 @@ static int ad7192_probe(struct spi_device *spi)
 	if (ret)
 		goto error_disable_dvdd;
 
-	ret = ad7192_setup(st, pdata);
+	ret = ad7192_setup(st);
 	if (ret)
 		goto error_remove_trigger;
 
