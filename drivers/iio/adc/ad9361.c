@@ -1413,6 +1413,9 @@ static int ad9361_trx_ext_lo_control(struct ad9361_rf_phy *phy,
 		ret = ad9361_spi_writef(phy->spi, REG_ENSM_CONFIG_2,
 					POWER_DOWN_TX_SYNTH, mcs_rf_enable ? 0 : enable);
 
+		ret = ad9361_spi_writef(phy->spi, REG_ENSM_CONFIG_2,
+					TX_SYNTH_READY_MASK, enable);
+
 		ret |= ad9361_spi_writef(phy->spi, REG_RFPLL_DIVIDERS,
 					 TX_VCO_DIVIDER(~0), enable ? 7 :
 					 st->cached_tx_rfpll_div);
@@ -1438,6 +1441,9 @@ static int ad9361_trx_ext_lo_control(struct ad9361_rf_phy *phy,
 	} else {
 		ret = ad9361_spi_writef(phy->spi, REG_ENSM_CONFIG_2,
 					POWER_DOWN_RX_SYNTH, mcs_rf_enable ? 0 : enable);
+
+		ret = ad9361_spi_writef(phy->spi, REG_ENSM_CONFIG_2,
+					RX_SYNTH_READY_MASK, enable);
 
 		ret |= ad9361_spi_writef(phy->spi, REG_RFPLL_DIVIDERS,
 					 RX_VCO_DIVIDER(~0), enable ? 7 :
@@ -4341,7 +4347,8 @@ static int ad9361_set_ensm_mode(struct ad9361_rf_phy *phy, bool fdd, bool pinctr
 	ad9361_spi_write(phy->spi, REG_ENSM_MODE, fdd ? FDD_MODE : 0);
 
 	val = ad9361_spi_read(phy->spi, REG_ENSM_CONFIG_2);
-	val &= POWER_DOWN_RX_SYNTH | POWER_DOWN_TX_SYNTH;
+	val &= POWER_DOWN_RX_SYNTH | POWER_DOWN_TX_SYNTH |
+		RX_SYNTH_READY_MASK | TX_SYNTH_READY_MASK;
 
 	if (fdd)
 		ret = ad9361_spi_write(phy->spi, REG_ENSM_CONFIG_2,
