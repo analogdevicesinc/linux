@@ -4385,7 +4385,7 @@ static int resume_core(struct core_device *core)
 		else
 			reset_vpu_core_dev(core);
 	} else {
-		if (core->snapshot)
+		if (core->snapshot || instance_count)
 			ret = sw_reset_firmware(core, 1);
 	}
 
