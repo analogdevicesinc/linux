@@ -168,6 +168,7 @@ static int viv_ioctl_gem_create(struct drm_device *drm, void *data,
     gckVIDMEM_NODE nodeObject;
     gctUINT32 flags = gcvALLOC_FLAG_DMABUF_EXPORTABLE;
     gceSTATUS status = gcvSTATUS_OK;
+    gcePOOL pool = gcvPOOL_DEFAULT;
 
     gal_dev = (gckGALDEVICE)drm->dev_private;
     if (!gal_dev)
@@ -191,6 +192,10 @@ static int viv_ioctl_gem_create(struct drm_device *drm, void *data,
     {
         flags |= gcvALLOC_FLAG_CMA_LIMIT;
     }
+    if (args->flags & DRM_VIV_GEM_VIRTUAL_POOL) {
+        flags &= ~(gcvALLOC_FLAG_CMA_LIMIT | gcvALLOC_FLAG_CONTIGUOUS);
+        pool = gcvPOOL_VIRTUAL;
+    }
 
     gckOS_ZeroMemory(&iface, sizeof(iface));
     iface.command = gcvHAL_ALLOCATE_LINEAR_VIDEO_MEMORY;
@@ -199,7 +204,7 @@ static int viv_ioctl_gem_create(struct drm_device *drm, void *data,
     iface.u.AllocateLinearVideoMemory.alignment = 256;
     iface.u.AllocateLinearVideoMemory.type = gcvSURF_RENDER_TARGET; /* should be general */
     iface.u.AllocateLinearVideoMemory.flag = flags;
-    iface.u.AllocateLinearVideoMemory.pool = gcvPOOL_DEFAULT;
+    iface.u.AllocateLinearVideoMemory.pool = pool;
     gcmkONERROR(gckDEVICE_Dispatch(gal_dev->device, &iface));
 
     kernel = gal_dev->device->map[gal_dev->device->defaultHwType].kernels[0];

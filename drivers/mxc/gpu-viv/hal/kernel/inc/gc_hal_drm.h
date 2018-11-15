@@ -68,6 +68,7 @@ extern "C" {
 #define DRM_VIV_GEM_CACHED          (1u << 1)
 #define DRM_VIV_GEM_SECURE          (1u << 2)
 #define DRM_VIV_GEM_CMA_LIMIT       (1u << 3)
+#define DRM_VIV_GEM_VIRTUAL_POOL    (1u << 4)
 
 struct drm_viv_gem_create {
     __u64 size;
