@@ -1180,86 +1180,6 @@ static u64 ad9361_from_clk(unsigned long freq)
 	return ((u64)freq << 1);
 }
 
-static int ad9361_load_gt(struct ad9361_rf_phy *phy, u64 freq, u32 dest)
-{
-	struct ad9361_rf_phy_state *st = phy->state;
-	struct spi_device *spi = phy->spi;
-	u8 (*tab)[3];
-	u32 band, index_max, i, lna, lpf_tia_mask, set_gain;
-
-	dev_dbg(&phy->spi->dev, "%s: frequency %llu", __func__, freq);
-
-	band = ad9361_gt_tableindex(phy, freq);
-
-	dev_dbg(&phy->spi->dev, "%s: frequency %llu (band %d)",
-		__func__, freq, band);
-
-	/* check if table is present */
-	if (st->current_table == band)
-		return 0;
-
-	tab = phy->gt_info[band].tab;
-	index_max = phy->gt_info[band].max_index;
-
-	ad9361_spi_writef(spi, REG_AGC_CONFIG_2,
-			  AGC_USE_FULL_GAIN_TABLE, !phy->pdata->split_gt);
-
-	ad9361_spi_write(spi, REG_MAX_LMT_FULL_GAIN, index_max - 1); /* Max Full/LMT Gain Table Index */
-
-	set_gain = ad9361_spi_readf(spi, REG_RX1_MANUAL_LMT_FULL_GAIN,
-				    RX_FULL_TBL_IDX_MASK);
-	if (set_gain > (index_max - 1))
-		ad9361_spi_writef(spi, REG_RX1_MANUAL_LMT_FULL_GAIN,
-				  RX_FULL_TBL_IDX_MASK,  index_max - 1); /* Rx1 Full/LMT Gain Index */
-
-	set_gain = ad9361_spi_readf(spi, REG_RX2_MANUAL_LMT_FULL_GAIN,
-				    RX_FULL_TBL_IDX_MASK);
-	if (set_gain > (index_max - 1))
-		ad9361_spi_write(spi, REG_RX2_MANUAL_LMT_FULL_GAIN,
-				 index_max - 1); /* Rx2 Full/LMT Gain Index */
-
-	lna = phy->pdata->elna_ctrl.elna_in_gaintable_all_index_en ?
-		EXT_LNA_CTRL : 0;
-
-	ad9361_spi_write(spi, REG_GAIN_TABLE_CONFIG, START_GAIN_TABLE_CLOCK |
-			RECEIVER_SELECT(dest)); /* Start Gain Table Clock */
-
-	/* TX QUAD Calibration */
-	if (phy->pdata->split_gt)
-		lpf_tia_mask = 0x20;
-	else
-		lpf_tia_mask = 0x3F;
-
-	st->tx_quad_lpf_tia_match = -EINVAL;
-
-	for (i = 0; i < index_max; i++) {
-		ad9361_spi_write(spi, REG_GAIN_TABLE_ADDRESS, i); /* Gain Table Index */
-		ad9361_spi_write(spi, REG_GAIN_TABLE_WRITE_DATA1, tab[i][0] | lna); /* Ext LNA, Int LNA, & Mixer Gain Word */
-		ad9361_spi_write(spi, REG_GAIN_TABLE_WRITE_DATA2, tab[i][1]); /* TIA & LPF Word */
-		ad9361_spi_write(spi, REG_GAIN_TABLE_WRITE_DATA3, tab[i][2]); /* DC Cal bit & Dig Gain Word */
-		ad9361_spi_write(spi, REG_GAIN_TABLE_CONFIG,
-				START_GAIN_TABLE_CLOCK |
-				WRITE_GAIN_TABLE |
-				RECEIVER_SELECT(dest)); /* Gain Table Index */
-		ad9361_spi_write(spi, REG_GAIN_TABLE_READ_DATA1, 0); /* Dummy Write to delay 3 ADCCLK/16 cycles */
-		ad9361_spi_write(spi, REG_GAIN_TABLE_READ_DATA1, 0); /* Dummy Write to delay ~1u */
-
-		if ((tab[i][1] & lpf_tia_mask) == 0x20)
-			st->tx_quad_lpf_tia_match = i;
-
-	}
-
-	ad9361_spi_write(spi, REG_GAIN_TABLE_CONFIG, START_GAIN_TABLE_CLOCK |
-			RECEIVER_SELECT(dest)); /* Clear Write Bit */
-	ad9361_spi_write(spi, REG_GAIN_TABLE_READ_DATA1, 0); /* Dummy Write to delay ~1u */
-	ad9361_spi_write(spi, REG_GAIN_TABLE_READ_DATA1, 0); /* Dummy Write to delay ~1u */
-	ad9361_spi_write(spi, REG_GAIN_TABLE_CONFIG, 0); /* Stop Gain Table Clock */
-
-	st->current_table = band;
-
-	return 0;
-}
-
 static int ad9361_setup_ext_lna(struct ad9361_rf_phy *phy,
 				struct elna_control *ctrl)
 {
@@ -1858,6 +1778,112 @@ static int find_table_index(struct ad9361_rf_phy *phy, int gain)
 	}
 
 	return -EINVAL;
+}
+
+static int ad9361_load_gt(struct ad9361_rf_phy *phy, u64 freq, u32 dest)
+{
+	struct ad9361_rf_phy_state *st = phy->state;
+	struct spi_device *spi = phy->spi;
+	u8 (*tab)[3];
+	u32 band, index_max, i, lna, lpf_tia_mask, set_gain;
+	int ret, rx1_gain, rx2_gain;
+
+	dev_dbg(&phy->spi->dev, "%s: frequency %llu", __func__, freq);
+
+	band = ad9361_gt_tableindex(phy, freq);
+
+	dev_dbg(&phy->spi->dev, "%s: frequency %llu (band %d)",
+		__func__, freq, band);
+
+	/* check if table is present */
+	if (st->current_table == band)
+		return 0;
+
+	tab = phy->gt_info[band].tab;
+	index_max = phy->gt_info[band].max_index;
+
+	ad9361_spi_writef(spi, REG_AGC_CONFIG_2,
+			  AGC_USE_FULL_GAIN_TABLE, !phy->pdata->split_gt);
+
+	ad9361_spi_write(spi, REG_MAX_LMT_FULL_GAIN, index_max - 1); /* Max Full/LMT Gain Table Index */
+
+	set_gain = ad9361_spi_readf(spi, REG_RX1_MANUAL_LMT_FULL_GAIN,
+				    RX_FULL_TBL_IDX_MASK);
+
+	if (st->current_table >= 0) {
+		rx1_gain = phy->gt_info[st->current_table].abs_gain_tbl[set_gain];
+	} else {
+		if (set_gain > (index_max - 1))
+			set_gain = index_max - 1;
+
+		rx1_gain = phy->gt_info[band].abs_gain_tbl[set_gain];
+	}
+
+	set_gain = ad9361_spi_readf(spi, REG_RX2_MANUAL_LMT_FULL_GAIN,
+				    RX_FULL_TBL_IDX_MASK);
+
+	if (st->current_table >= 0) {
+		rx2_gain = phy->gt_info[st->current_table].abs_gain_tbl[set_gain];
+	} else {
+		if (set_gain > (index_max - 1))
+			set_gain = index_max - 1;
+
+		rx2_gain = phy->gt_info[band].abs_gain_tbl[set_gain];
+	}
+
+	lna = phy->pdata->elna_ctrl.elna_in_gaintable_all_index_en ?
+		EXT_LNA_CTRL : 0;
+
+	ad9361_spi_write(spi, REG_GAIN_TABLE_CONFIG, START_GAIN_TABLE_CLOCK |
+			 RECEIVER_SELECT(dest)); /* Start Gain Table Clock */
+
+	/* TX QUAD Calibration */
+	if (phy->pdata->split_gt)
+		lpf_tia_mask = 0x20;
+	else
+		lpf_tia_mask = 0x3F;
+
+	st->tx_quad_lpf_tia_match = -EINVAL;
+
+	for (i = 0; i < index_max; i++) {
+		ad9361_spi_write(spi, REG_GAIN_TABLE_ADDRESS, i); /* Gain Table Index */
+		ad9361_spi_write(spi, REG_GAIN_TABLE_WRITE_DATA1, tab[i][0] | lna); /* Ext LNA, Int LNA, & Mixer Gain Word */
+		ad9361_spi_write(spi, REG_GAIN_TABLE_WRITE_DATA2, tab[i][1]); /* TIA & LPF Word */
+		ad9361_spi_write(spi, REG_GAIN_TABLE_WRITE_DATA3, tab[i][2]); /* DC Cal bit & Dig Gain Word */
+		ad9361_spi_write(spi, REG_GAIN_TABLE_CONFIG,
+				 START_GAIN_TABLE_CLOCK |
+				 WRITE_GAIN_TABLE |
+				 RECEIVER_SELECT(dest)); /* Gain Table Index */
+		ad9361_spi_write(spi, REG_GAIN_TABLE_READ_DATA1, 0); /* Dummy Write to delay 3 ADCCLK/16 cycles */
+		ad9361_spi_write(spi, REG_GAIN_TABLE_READ_DATA1, 0); /* Dummy Write to delay ~1u */
+
+		if ((tab[i][1] & lpf_tia_mask) == 0x20)
+			st->tx_quad_lpf_tia_match = i;
+
+	}
+
+	ad9361_spi_write(spi, REG_GAIN_TABLE_CONFIG, START_GAIN_TABLE_CLOCK |
+			 RECEIVER_SELECT(dest)); /* Clear Write Bit */
+	ad9361_spi_write(spi, REG_GAIN_TABLE_READ_DATA1, 0); /* Dummy Write to delay ~1u */
+	ad9361_spi_write(spi, REG_GAIN_TABLE_READ_DATA1, 0); /* Dummy Write to delay ~1u */
+	ad9361_spi_write(spi, REG_GAIN_TABLE_CONFIG, 0); /* Stop Gain Table Clock */
+
+	st->current_table = band;
+
+	ret = find_table_index(phy, rx1_gain);
+	if (ret < 0)
+		ret = phy->gt_info[band].max_index - 1;
+
+	ad9361_spi_writef(spi, REG_RX1_MANUAL_LMT_FULL_GAIN,
+			  RX_FULL_TBL_IDX_MASK, ret); /* Rx1 Full/LMT Gain Index */
+
+	ret = find_table_index(phy, rx2_gain);
+	if (ret < 0)
+		ret = phy->gt_info[band].max_index - 1;
+
+	ad9361_spi_write(spi, REG_RX2_MANUAL_LMT_FULL_GAIN, ret); /* Rx2 Full/LMT Gain Index */
+
+	return 0;
 }
 
 static int set_split_table_gain(struct ad9361_rf_phy *phy, u32 idx_reg,
