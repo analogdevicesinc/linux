@@ -262,7 +262,7 @@ static int i2cfront_smbus_xfer(struct i2c_adapter *adapter, u16 addr,
 static u32 i2cfront_func(struct i2c_adapter *adapter)
 {
 	return I2C_FUNC_I2C | I2C_FUNC_SMBUS_BYTE_DATA |
-			I2C_FUNC_SMBUS_BYTE | I2C_FUNC_SMBUS_WORD_DATA |
+			I2C_FUNC_SMBUS_BYTE | I2C_FUNC_SMBUS_WORD_DATA | I2C_FUNC_SMBUS_QUICK |
 			I2C_FUNC_SMBUS_BLOCK_DATA | I2C_FUNC_SMBUS_I2C_BLOCK;
 }
 
