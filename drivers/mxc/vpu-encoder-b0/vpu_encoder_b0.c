@@ -383,6 +383,28 @@ static int v4l2_ioctl_enum_frameintervals(struct file *file, void *fh,
 	return 0;
 }
 
+static struct queue_data *get_queue_by_v4l2_type(struct vpu_ctx *ctx, u32 type)
+{
+	struct queue_data *queue = NULL;
+
+	if (!ctx)
+		return NULL;
+
+	switch (type) {
+	case V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE:
+		queue = &ctx->q_data[V4L2_SRC];
+		break;
+	case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE:
+		queue = &ctx->q_data[V4L2_DST];
+		break;
+	default:
+		vpu_err("unsupport v4l2 buf type : %d\n", type);
+		break;
+	}
+
+	return queue;
+}
+
 static int v4l2_ioctl_g_fmt(struct file *file,
 		void *fh,
 		struct v4l2_format *f
@@ -415,23 +437,6 @@ static int v4l2_ioctl_g_fmt(struct file *file,
 	} else
 		return -EINVAL;
 	return 0;
-}
-
-static void get_param_from_v4l2(pMEDIAIP_ENC_PARAM pEncParam,
-		struct v4l2_pix_format_mplane *pix_mp,
-		struct vpu_ctx *ctx
-		)
-{
-	//get the param and update gpParameters
-	pEncParam->uSrcStride           = pix_mp->width;
-	pEncParam->uSrcWidth            = pix_mp->width;
-	pEncParam->uSrcHeight           = pix_mp->height;
-	pEncParam->uSrcOffset_x         = 0;
-	pEncParam->uSrcOffset_y         = 0;
-	pEncParam->uSrcCropWidth        = pix_mp->width;
-	pEncParam->uSrcCropHeight       = pix_mp->height;
-	pEncParam->uOutWidth            = pix_mp->width;
-	pEncParam->uOutHeight           = pix_mp->height;
 }
 
 static u32 cpu_phy_to_mu(struct core_device *dev, u32 addr)
@@ -479,6 +484,34 @@ static int check_size(u32 width, u32 height)
 				width, height);
 		return -EINVAL;
 	}
+
+	return 0;
+}
+
+static int valid_crop_info(struct queue_data *queue, struct v4l2_rect *rect)
+{
+	if (!queue || !rect)
+		return -EINVAL;
+
+	if (rect->left > queue->width - VPU_ENC_WIDTH_MIN ||
+		rect->top > queue->height - VPU_ENC_HEIGHT_MIN) {
+		rect->left = 0;
+		rect->top = 0;
+		rect->width = queue->width;
+		rect->height = queue->height;
+		return 0;
+	}
+
+	rect->width = min(rect->width, queue->width - rect->left);
+	if (rect->width)
+		rect->width = max_t(u32, rect->width, VPU_ENC_WIDTH_MIN);
+	else
+		rect->width = queue->width;
+	rect->height = min(rect->height, queue->height - rect->top);
+	if (rect->height)
+		rect->height = max_t(u32, rect->height, VPU_ENC_HEIGHT_MIN);
+	else
+		rect->height = queue->height;
 
 	return 0;
 }
@@ -616,7 +649,6 @@ static int v4l2_ioctl_s_fmt(struct file *file,
 {
 	struct vpu_ctx                  *ctx = v4l2_fh_to_ctx(fh);
 	int                             ret = 0;
-	struct v4l2_pix_format_mplane   *pix_mp = &f->fmt.pix_mp;
 	struct queue_data               *q_data;
 	pMEDIAIP_ENC_PARAM  pEncParam;
 	struct vpu_attr *attr;
@@ -633,7 +665,6 @@ static int v4l2_ioctl_s_fmt(struct file *file,
 	switch (f->type) {
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE:
 		q_data = &ctx->q_data[V4L2_SRC];
-		get_param_from_v4l2(pEncParam, pix_mp, ctx);
 		ret = set_yuv_queue_fmt(q_data, f);
 		break;
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE:
@@ -1046,16 +1077,47 @@ static int v4l2_ioctl_try_fmt(struct file *file,
 	return 0;
 }
 
-static int v4l2_ioctl_g_crop(struct file *file,
-		void *fh,
-		struct v4l2_crop *cr
-		)
+static int vpu_enc_ioctl_g_crop(struct file *file, void *fh,
+				struct v4l2_crop *cr)
 {
+	struct vpu_ctx *ctx = v4l2_fh_to_ctx(fh);
+	struct queue_data *src = &ctx->q_data[V4L2_SRC];
+
+	if (!cr)
+		return -EINVAL;
+
+	if (get_queue_by_v4l2_type(ctx, cr->type) != src)
+		return -EINVAL;
+
+
 	vpu_dbg(LVL_DEBUG, "%s()\n", __func__);
-	cr->c.left = 0;
-	cr->c.top = 0;
-	cr->c.width = 0;
-	cr->c.height = 0;
+	cr->c.left = src->rect.left;
+	cr->c.top = src->rect.top;
+	cr->c.width = src->rect.width;
+	cr->c.height = src->rect.height;
+
+	return 0;
+}
+
+static int vpu_enc_ioctl_s_crop(struct file *file, void *fh,
+				const struct v4l2_crop *cr)
+{
+	struct vpu_ctx *ctx = v4l2_fh_to_ctx(fh);
+	struct queue_data *src = &ctx->q_data[V4L2_SRC];
+
+	if (!cr)
+		return -EINVAL;
+
+	if (get_queue_by_v4l2_type(ctx, cr->type) != src)
+		return -EINVAL;
+
+	vpu_dbg(LVL_DEBUG, "%s()\n", __func__);
+
+	src->rect.left = ALIGN(cr->c.left, VPU_ENC_WIDTH_STEP);
+	src->rect.top = ALIGN(cr->c.top, VPU_ENC_HEIGHT_STEP);
+	src->rect.width = ALIGN(cr->c.width, VPU_ENC_WIDTH_STEP);
+	src->rect.height = ALIGN(cr->c.height, VPU_ENC_HEIGHT_STEP);
+	valid_crop_info(src, &src->rect);
 
 	return 0;
 }
@@ -1251,7 +1313,8 @@ static const struct v4l2_ioctl_ops v4l2_encoder_ioctl_ops = {
 	.vidioc_g_parm			= v4l2_ioctl_g_parm,
 	.vidioc_s_parm			= v4l2_ioctl_s_parm,
 	.vidioc_expbuf                  = v4l2_ioctl_expbuf,
-	.vidioc_g_crop                  = v4l2_ioctl_g_crop,
+	.vidioc_g_crop                  = vpu_enc_ioctl_g_crop,
+	.vidioc_s_crop			= vpu_enc_ioctl_s_crop,
 	.vidioc_encoder_cmd             = v4l2_ioctl_encoder_cmd,
 	.vidioc_subscribe_event         = v4l2_ioctl_subscribe_event,
 	.vidioc_unsubscribe_event       = v4l2_event_unsubscribe,
@@ -1304,7 +1367,7 @@ static int sw_reset_firmware(struct core_device *core, int resume)
 
 	WARN_ON(!core);
 
-	vpu_dbg(LVL_INFO, "sw reset firmware\n");
+	vpu_dbg(LVL_INFO, "core[%d] sw reset firmware\n", core->id);
 
 	init_completion(&core->start_cmp);
 	vpu_core_send_cmd(core, 0, GTB_ENC_CMD_FIRM_RESET, 0, NULL);
@@ -1489,6 +1552,35 @@ static void free_encoder_stream(struct vpu_ctx *ctx)
 	free_dma_buffer(ctx->dev, &ctx->encoder_stream);
 }
 
+static void update_encode_size(struct vpu_ctx *ctx)
+{
+	struct queue_data *src = NULL;
+	struct queue_data *dst = NULL;
+	struct vpu_attr *attr;
+	pMEDIAIP_ENC_PARAM  pEncParam;
+
+	if (!ctx)
+		return;
+
+	attr = get_vpu_ctx_attr(ctx);
+	if (!attr)
+		return;
+
+	src = &ctx->q_data[V4L2_SRC];
+	dst = &ctx->q_data[V4L2_DST];
+	pEncParam = &attr->param;
+
+	pEncParam->uSrcStride           = src->width;
+	pEncParam->uSrcWidth            = src->width;
+	pEncParam->uSrcHeight           = src->height;
+	pEncParam->uSrcOffset_x         = src->rect.left;
+	pEncParam->uSrcOffset_y         = src->rect.top;
+	pEncParam->uSrcCropWidth        = src->rect.width;
+	pEncParam->uSrcCropHeight       = src->rect.height;
+	pEncParam->uOutWidth            = min(dst->width, src->rect.width);
+	pEncParam->uOutHeight           = min(dst->height, src->rect.height);
+}
+
 static int do_configure_codec(struct vpu_ctx *ctx)
 {
 	pBUFFER_DESCRIPTOR_TYPE pEncStrBuffDesc = NULL;
@@ -1505,6 +1597,8 @@ static int do_configure_codec(struct vpu_ctx *ctx)
 
 	if (alloc_encoder_stream(ctx))
 		return -ENOMEM;
+
+	update_encode_size(ctx);
 
 	enc_param = get_rpc_enc_param(ctx);
 	pEncStrBuffDesc = get_rpc_stream_buffer_desc(ctx);
@@ -1543,6 +1637,9 @@ static int configure_codec(struct vpu_ctx *ctx)
 {
 	if (!ctx)
 		return -EINVAL;
+
+	if (ctx->core_dev->snapshot)
+		return 0;
 
 	if (test_bit(VPU_ENC_STATUS_SNAPSHOT, &ctx->status))
 		return 0;
@@ -2783,9 +2880,11 @@ static void vpu_buf_queue(struct vb2_buffer *vb)
 	if (vq->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
 		struct vpu_ctx *ctx = This->ctx;
 
+		mutex_lock(&ctx->dev->dev_mutex);
 		mutex_lock(&ctx->instance_mutex);
 		configure_codec(ctx);
 		mutex_unlock(&ctx->instance_mutex);
+		mutex_unlock(&ctx->dev->dev_mutex);
 
 		submit_input_and_encode(ctx);
 	} else if (vq->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
@@ -2916,6 +3015,16 @@ static void init_queue_data(struct vpu_ctx *ctx)
 	ctx->q_data[V4L2_SRC].fmt_count = ARRAY_SIZE(formats_yuv_enc);
 	ctx->q_data[V4L2_DST].supported_fmts = formats_compressed_enc;
 	ctx->q_data[V4L2_DST].fmt_count = ARRAY_SIZE(formats_compressed_enc);
+
+	ctx->q_data[V4L2_SRC].width = VPU_ENC_WIDTH_DEFAULT;
+	ctx->q_data[V4L2_SRC].height = VPU_ENC_HEIGHT_DEFAULT;
+	ctx->q_data[V4L2_SRC].rect.left = 0;
+	ctx->q_data[V4L2_SRC].rect.top = 0;
+	ctx->q_data[V4L2_SRC].rect.width = VPU_ENC_WIDTH_DEFAULT;
+	ctx->q_data[V4L2_SRC].rect.height = VPU_ENC_HEIGHT_DEFAULT;
+	ctx->q_data[V4L2_DST].width = VPU_ENC_WIDTH_DEFAULT;
+	ctx->q_data[V4L2_DST].height = VPU_ENC_HEIGHT_DEFAULT;
+
 }
 
 static void release_queue_data(struct vpu_ctx *ctx)
@@ -3590,7 +3699,6 @@ static int vpu_enc_v4l2_open(struct file *filp)
 	}
 
 	initialize_enc_param(ctx);
-	init_queue_data(ctx);
 	vpu_enc_setup_ctrls(ctx);
 
 	init_vpu_ctx_fh(ctx, dev);
