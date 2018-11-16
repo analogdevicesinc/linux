@@ -211,6 +211,8 @@ struct hw_bank {
  * @wakeup_int: if wakeup interrupt occur
  * @rev: The revision number for controller
  * @mutex: protect code from concorrent running
+ * @power_lost_work: work item when controller power is lost
+ * @power_lost_wq: work queue for controller power is lost
  */
 struct ci_hdrc {
 	struct device			*dev;
@@ -278,6 +280,7 @@ struct ci_hdrc {
 	u32				pm_portsc;
 	u32				pm_usbmode;
 	struct work_struct		power_lost_work;
+	struct workqueue_struct		*power_lost_wq;
 	struct mutex			mutex;
 };
 
