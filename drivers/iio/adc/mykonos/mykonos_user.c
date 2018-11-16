@@ -2,7 +2,7 @@
  * \file mykonos_user.c
  * \brief Contains Mykonos default gain table values for Rx, ObsRx, and SnRx
  *
- * Mykonos API version: 1.5.1.3565
+ * Mykonos API version: 1.5.2.3566
  */
 
 /**
@@ -12,7 +12,6 @@
 *
 */
 
-#include <linux/kernel.h>
 #include "t_mykonos.h"
 #include "mykonos_user.h"
 
