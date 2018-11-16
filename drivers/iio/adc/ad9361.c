@@ -1333,6 +1333,9 @@ static int ad9361_trx_ext_lo_control(struct ad9361_rf_phy *phy,
 		ret = ad9361_spi_writef(phy->spi, REG_ENSM_CONFIG_2,
 					POWER_DOWN_TX_SYNTH, mcs_rf_enable ? 0 : enable);
 
+		ret = ad9361_spi_writef(phy->spi, REG_ENSM_CONFIG_2,
+					TX_SYNTH_READY_MASK, enable);
+
 		ret |= ad9361_spi_writef(phy->spi, REG_RFPLL_DIVIDERS,
 					 TX_VCO_DIVIDER(~0), enable ? 7 :
 					 st->cached_tx_rfpll_div);
@@ -1358,6 +1361,9 @@ static int ad9361_trx_ext_lo_control(struct ad9361_rf_phy *phy,
 	} else {
 		ret = ad9361_spi_writef(phy->spi, REG_ENSM_CONFIG_2,
 					POWER_DOWN_RX_SYNTH, mcs_rf_enable ? 0 : enable);
+
+		ret = ad9361_spi_writef(phy->spi, REG_ENSM_CONFIG_2,
+					RX_SYNTH_READY_MASK, enable);
 
 		ret |= ad9361_spi_writef(phy->spi, REG_RFPLL_DIVIDERS,
 					 RX_VCO_DIVIDER(~0), enable ? 7 :
@@ -3964,13 +3970,22 @@ static int ad9361_ensm_set_state(struct ad9361_rf_phy *phy, u8 ensm_state,
 
 	 if (!phy->pdata->fdd && !pinctrl && !phy->pdata->tdd_use_dual_synth &&
 		 (ensm_state == ENSM_STATE_TX || ensm_state == ENSM_STATE_RX)) {
+		u32 reg, check;
+
+		if (ensm_state == ENSM_STATE_TX) {
+			reg = REG_TX_CP_OVERRANGE_VCO_LOCK;
+			check = !(st->cached_synth_pd[0] &
+				TX_SYNTH_VCO_POWER_DOWN);
+		} else {
+			reg = REG_RX_CP_OVERRANGE_VCO_LOCK;
+			check = !(st->cached_synth_pd[1] &
+				RX_SYNTH_VCO_POWER_DOWN);
+		}
+
 		ad9361_spi_writef(phy->spi, REG_ENSM_CONFIG_2,
 				  TXNRX_SPI_CTRL, ensm_state == ENSM_STATE_TX);
-
-		ad9361_check_cal_done(phy, (ensm_state == ENSM_STATE_TX) ?
-				      REG_TX_CP_OVERRANGE_VCO_LOCK :
-				      REG_RX_CP_OVERRANGE_VCO_LOCK,
-				      VCO_LOCK, 1);
+		if (check)
+			ad9361_check_cal_done(phy, reg, VCO_LOCK, 1);
 	}
 
 	rc = ad9361_spi_write(spi, REG_ENSM_CONFIG_1, val);
@@ -4358,7 +4373,8 @@ static int ad9361_set_ensm_mode(struct ad9361_rf_phy *phy, bool fdd, bool pinctr
 	ad9361_spi_write(phy->spi, REG_ENSM_MODE, fdd ? FDD_MODE : 0);
 
 	val = ad9361_spi_read(phy->spi, REG_ENSM_CONFIG_2);
-	val &= POWER_DOWN_RX_SYNTH | POWER_DOWN_TX_SYNTH;
+	val &= POWER_DOWN_RX_SYNTH | POWER_DOWN_TX_SYNTH |
+		RX_SYNTH_READY_MASK | TX_SYNTH_READY_MASK;
 
 	if (fdd)
 		ret = ad9361_spi_write(phy->spi, REG_ENSM_CONFIG_2,
