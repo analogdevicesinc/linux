@@ -155,7 +155,7 @@
 
 struct ad7192_state {
 	struct regulator		*avdd;
-	struct regulator		*dvdd;
+	struct regulator		*vref;
 	struct clk			*mclk;
 	u16				int_vref_mv;
 	u32				fclk;
@@ -270,8 +270,6 @@ static int ad7192_setup(struct ad7192_state *st)
 	if (st->sinc3_en)
 		st->mode |= AD7192_MODE_SINC3;
 
-	if (st->refin2_en && (st->devid != ID_AD7195))
-		st->conf |= AD7192_CONF_REFSEL;
 
 	if (st->chop_en) {
 		st->conf |= AD7192_CONF_CHOP;
@@ -285,6 +283,8 @@ static int ad7192_setup(struct ad7192_state *st)
 
 	if (st->buf_en)
 		st->conf |= AD7192_CONF_BUF;
+	if (st->refin2_en && (st->devid != ID_AD7195))
+		st->conf |= AD7192_CONF_REFSEL;
 
 	if (st->unipolar_en)
 		st->conf |= AD7192_CONF_UNIPOLAR;
@@ -612,7 +612,6 @@ static const struct iio_chan_spec ad7193_channels[] = {
 static void ad7192_parse_dt(struct device_node *np,
 			    struct ad7192_state *st)
 {
-	st->refin2_en = of_property_read_bool(np, "adi,refin2-pins-enable");
 	st->rej60_en = of_property_read_bool(np, "adi,rejection-60-Hz-enable");
 	st->sinc3_en = of_property_read_bool(np, "adi,sinc3-filter-enable");
 	st->chop_en = of_property_read_bool(np, "adi,chop-enable");
@@ -682,16 +681,20 @@ static int ad7192_probe(struct spi_device *spi)
 		return ret;
 	}
 
-	st->dvdd = devm_regulator_get(&spi->dev, "dvdd");
-	if (IS_ERR(st->dvdd)) {
-		ret = PTR_ERR(st->dvdd);
-		goto error_disable_avdd;
+	st->vref = devm_regulator_get_optional(&spi->dev, "vref1");
+	if (IS_ERR(st->vref)) {
+		st->vref = devm_regulator_get_optional(&spi->dev, "vref2");
+		if (IS_ERR(st->vref)) {
+			ret = PTR_ERR(st->vref);
+			goto error_disable_avdd;
+		}
+		st->refin2_en = true;
 	}
 
-	ret = regulator_enable(st->dvdd);
+	ret = regulator_enable(st->vref);
 	if (ret) {
-		dev_err(&spi->dev, "Failed to enable specified DVdd supply\n");
-		goto error_disable_avdd;
+		dev_err(&spi->dev, "Failed to enable specified reference\n");
+		goto error_disable_vref;
 	}
 
 	ret = ad7192_clock_select(spi, st);
@@ -731,7 +734,7 @@ static int ad7192_probe(struct spi_device *spi)
 
 	ret = ad_sd_setup_buffer_and_trigger(indio_dev);
 	if (ret)
-		goto error_disable_dvdd;
+		goto error_disable_vref;
 
 	ret = ad7192_setup(st);
 	if (ret)
@@ -746,8 +749,8 @@ error_remove_trigger:
 	ad_sd_cleanup_buffer_and_trigger(indio_dev);
 error_clk_disable_unprepare:
 	clk_disable_unprepare(st->mclk);
-error_disable_dvdd:
-	regulator_disable(st->dvdd);
+error_disable_vref:
+	regulator_disable(st->vref);
 error_disable_avdd:
 	regulator_disable(st->avdd);
 
@@ -763,7 +766,7 @@ static int ad7192_remove(struct spi_device *spi)
 	ad_sd_cleanup_buffer_and_trigger(indio_dev);
 	clk_disable_unprepare(st->mclk);
 
-	regulator_disable(st->dvdd);
+	regulator_disable(st->vref);
 	regulator_disable(st->avdd);
 
 	return 0;
