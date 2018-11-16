@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 NXP
+ * Copyright 2017-2018 NXP
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -12,23 +12,68 @@
  * GNU General Public License for more details.
  */
 
-#include "fsl-imx8qxp-mek.dts"
+/dts-v1/;
+
+/memreserve/ 0x84000000 0x2200000;
+/memreserve/ 0x90000000 0x400000;
+/memreserve/ 0x90400000 0x400000;
+/memreserve/ 0x92400000 0x2000000;
+
+#include "fsl-imx8qxp-mek.dtsi"
 #include "fsl-imx8qxp-xen.dtsi"
 
 / {
 	chosen {
 		#address-cells = <2>;
 		#size-cells = <2>;
-		/delete-property/ bootargs;
-		/delete-property/ stdout-path;
 		module@0 {
-			bootargs = "earlycon=xen console=hvc0 clk_ignore_unused loglevel=8 root=/dev/mmcblk1p2 rootwait rw video=imxdpufb5:off video=imxdpufb6:off video=imxdpufb7:off";
-                       compatible = "xen,linux-zimage", "xen,multiboot-module";
-		       /* The size will be override by uboot command */
-                       reg = <0x00000000 0x80a00000 0x00000000 0xf93a00>;
-               };
+			bootargs = "earlycon=xen console=hvc0 root=/dev/mmcblk1p2 rootwait rw";
+			compatible = "xen,linux-zimage", "xen,multiboot-module";
+			/* The size will be override by uboot command */
+			reg = <0x00000000 0x80a00000 0x00000000 0xf93a00>;
+		};
+
 	};
 
+	reserved-memory {
+		/* global autoconfigured region for contiguous allocations */
+		linux,cma {
+			compatible = "shared-dma-pool";
+			reusable;
+			size = <0 0x3c000000>;
+			alloc-ranges = <0 0xa0000000 0 0x40000000>;
+			linux,cma-default;
+		};
+	};
+
+	/*
+	 * Dom0 memory is from 0x90000000, so add reg to make sure
+	 * the memory is mapped as device, because they are used
+	 * for vpu boot code.
+	 */
+	decoder_boot_mem: decoder_boot_mem@0x84000000 {
+		reg = <0 0x84000000 0 0x2000000>;
+	};
+
+	encoder_boot_mem: encoder_boot_mem@0x86000000 {
+		reg = <0 0x86000000 0 0x200000>;
+	};
+
+	rpmsg_reserved_mem: rpmsg_reserved_mem@90000000 {
+		reg = <0x0 0x90000000 0x0 0x400000>;
+	};
+
+	decoder_rpc_mem: decoder_rpc_mem@0x90400000 {
+		reg = <0 0x90400000 0 0x200000>;
+	};
+
+	encoder_rpc_mem: encoder_rpc_mem@0x90600000 {
+		reg = <0 0x90600000 0 0x200000>;
+	};
+
+	dsp_reserved_mem: dsp_reserved_mem@0x92400000 {
+		reg = <0 0x92400000 0 0x2000000>;
+	};
 };
 
 &imx8_gpu_ss {
