@@ -3,7 +3,7 @@
  *
  *\brief Contains Mykonos APIs for transceiver configuration and control
  *
- * Mykonos API version: 1.5.1.3565
+ * Mykonos API version: 1.5.2.3566
  */
 
 /**
@@ -17110,8 +17110,8 @@ mykonosErr_t MYKONOS_setRadioControlPinMode(mykonosDevice_t *device)
 }
 
 /**
- * \brief Sets the measure count which is the number of samples taken before DC offset correction is applied for the given Rf channel.
- *   This value cannot be changed after ARM initialization.
+ * \brief Sets the measure count which is the number of samples taken before DC offset correction is applied for the given RF channel.
+ *   This value should be changed after ARM initialization.
  *   channel can be one of the following ( ::mykonosDcOffsetChannels_t ).
  *
  *     Channel             |  Channel description
@@ -17128,8 +17128,8 @@ mykonosErr_t MYKONOS_setRadioControlPinMode(mykonosDevice_t *device)
  * - device->spiSettings->chipSelectIndex
  *
  * \param device Pointer to the Mykonos device data structure containing settings
- * \param channel receive channel to be selected.
- * \param measureCount value to be configured for the selected channel which is the number of samples taken before DC offset correction is applied.
+ * \param channel Receive channel to be selected.
+ * \param measureCount Value to be configured for the selected channel which is the number of samples taken before DC offset correction is applied.
  *
  * \retval MYKONOS_ERR_DC_OFFSET_INV_CHAN channel passed to the function is invalid, refer mykonosDcOffsetChannels_t enum for valid channels.
  * \retval MYKONOS_ERR_SET_RF_DC_OFFSET_INV_MEASURECNT measurement count value passed is invalid
