@@ -278,7 +278,8 @@ static int ad9371_sysref_req(struct ad9371_rf_phy *phy, enum ad9371_sysref_req_m
 	return ret;
 }
 
-static int ad9371_set_jesd_lanerate(u32 input_rate_khz,
+static int ad9371_set_jesd_lanerate(struct ad9371_rf_phy *phy,
+				    u32 input_rate_khz,
 				    struct clk *link_clk,
 				    mykonosJesd204bFramerConfig_t *framer,
 				    mykonosJesd204bDeframerConfig_t *deframer,
@@ -306,8 +307,12 @@ static int ad9371_set_jesd_lanerate(u32 input_rate_khz,
 	lane_rate_kHz = input_rate_khz * m * 20 / l;
 
 	ret = clk_set_rate(link_clk, lane_rate_kHz);
-	if (ret < 0)
+	if (ret < 0) {
+		dev_err(&phy->spi->dev,
+			"Request %s lanerate %lu kHz failed (%d)\n",
+			framer ? "framer" : "deframer", lane_rate_kHz, ret);
 		return ret;
+	}
 
 	lmfc_tmp = (lane_rate_kHz * 100) / (k * ((2 * m) / l));
 
@@ -680,19 +685,19 @@ static int ad9371_setup(struct ad9371_rf_phy *phy)
 	}
 
 	ret = ad9371_set_jesd_lanerate(
-		mykDevice->rx->rxProfile->iqRate_kHz, phy->jesd_rx_clk,
+		phy, mykDevice->rx->rxProfile->iqRate_kHz, phy->jesd_rx_clk,
 		mykDevice->rx->framer, NULL, &lmfc);
 	if (ret < 0)
 		return ret;
 
 	ret = ad9371_set_jesd_lanerate(
-		mykDevice->obsRx->orxProfile->iqRate_kHz,
+		phy, mykDevice->obsRx->orxProfile->iqRate_kHz,
 		phy->jesd_rx_os_clk, mykDevice->obsRx->framer, NULL, &lmfc);
 	if (ret < 0)
 		return ret;
 
 	ret = ad9371_set_jesd_lanerate(
-		mykDevice->tx->txProfile->iqRate_kHz, phy->jesd_tx_clk,
+		phy, mykDevice->tx->txProfile->iqRate_kHz, phy->jesd_tx_clk,
 		NULL, mykDevice->tx->deframer, &lmfc);
 	if (ret < 0)
 		return ret;
