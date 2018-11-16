@@ -230,8 +230,6 @@ static const struct of_device_id imx8_soc_match[] = {
 	{ .compatible = "fsl,imx8qxp", .data = &imx8qxp_soc_data, },
 	{ .compatible = "fsl,imx8mq", .data = &imx8mq_soc_data, },
 	{ .compatible = "fsl,imx8mm", .data = &imx8mm_soc_data, },
-	/* Fixme: this is a hack for big/little xen guest, b0 no need this */
-	{ .compatible = "xen,xenvm", .data = &imx8qm_soc_data, },
 	{ }
 };
 
