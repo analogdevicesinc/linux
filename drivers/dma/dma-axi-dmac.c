@@ -105,6 +105,7 @@ struct axi_dmac_sg {
 struct axi_dmac_desc {
 	struct virt_dma_desc vdesc;
 	bool cyclic;
+	bool have_partial_xfer;
 
 	unsigned int num_submitted;
 	unsigned int num_completed;
@@ -234,7 +235,8 @@ static void axi_dmac_start_transfer(struct axi_dmac_chan *chan)
 	}
 
 	desc->num_submitted++;
-	if (desc->num_submitted == desc->num_sgs) {
+	if (desc->num_submitted == desc->num_sgs ||
+	    desc->have_partial_xfer) {
 		if (desc->cyclic) {
 			desc->num_submitted = 0; /* Start again */
 		} else {
@@ -309,6 +311,7 @@ static void axi_dmac_dequeue_partial_xfers(struct axi_dmac_chan *chan)
 				if (sg->id == AXI_DMAC_SG_UNUSED)
 					continue;
 				if (sg->id == id) {
+					desc->have_partial_xfer = true;
 					sg->partial_len = len;
 					found_sg = true;
 					break;
