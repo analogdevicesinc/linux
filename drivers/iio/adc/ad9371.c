@@ -256,7 +256,7 @@ err_out:
 
 static int ad9371_sysref_req(struct ad9371_rf_phy *phy, enum ad9371_sysref_req_mode mode)
 {
-	int ret;
+	int ret = -EINVAL;
 
 	if (!IS_ERR(phy->sysref_req_gpio)) {
 		if (mode == SYSREF_CONT_ON) {
