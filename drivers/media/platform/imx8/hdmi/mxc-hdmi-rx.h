@@ -121,6 +121,7 @@ struct mxc_hdmi_rx_dev {
 	u8 hdmi_vic;
     u8 pixel_encoding;
 	u8 color_depth;
+	bool cable_plugin;
 
 	u8 is_cec;
 	struct imx_cec_dev cec;

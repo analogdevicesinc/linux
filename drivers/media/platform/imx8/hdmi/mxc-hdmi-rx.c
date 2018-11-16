@@ -292,6 +292,11 @@ static int mxc_hdmi_g_parm(struct v4l2_subdev *sd, struct v4l2_streamparm *a)
 	struct mxc_hdmi_rx_dev *hdmi_rx = imx_sd_to_hdmi(sd);
 	int ret = 0;
 
+	if (hdmi_rx->cable_plugin == false) {
+		dev_warn(&hdmi_rx->pdev->dev, "No Cable Connected!\n");
+		return -EINVAL;
+	}
+
 	switch (a->type) {
 	/* This is the only case currently handled. */
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE:
@@ -327,6 +332,11 @@ static int mxc_hdmi_s_stream(struct v4l2_subdev *sd, int enable)
 	u32 val;
 
 	dev_dbg(&hdmi_rx->pdev->dev, "%s\n", __func__);
+	if (hdmi_rx->cable_plugin == false) {
+		dev_warn(&hdmi_rx->pdev->dev, "No Cable Connected!\n");
+		return -EINVAL;
+	}
+
 	mxc_hdmi_pixel_link_encoder(hdmi_rx);
 
 	if (enable) {
@@ -375,7 +385,7 @@ static int mxc_hdmi_enum_framesizes(struct v4l2_subdev *sd,
 {
 	struct mxc_hdmi_rx_dev *hdmi_rx = imx_sd_to_hdmi(sd);
 
-	if (fse->index > 1)
+	if (fse->index > 1 || hdmi_rx->cable_plugin == false)
 		return -EINVAL;
 
 	fse->min_width = hdmi_rx->timings->timings.bt.width;
@@ -425,6 +435,11 @@ static int mxc_hdmi_get_format(struct v4l2_subdev *sd,
 {
 	struct mxc_hdmi_rx_dev *hdmi_rx = imx_sd_to_hdmi(sd);
 	struct v4l2_mbus_framefmt *mbusformat = &sdformat->format;
+
+	if (hdmi_rx->cable_plugin == false) {
+		dev_warn(&hdmi_rx->pdev->dev, "No Cable Connected!\n");
+		return -EINVAL;
+	}
 
 	if (sdformat->pad != MXC_HDMI_RX_PAD_SOURCE)
 		return -EINVAL;
@@ -728,6 +743,7 @@ static void hpd5v_work_func(struct work_struct *work)
 		enable_irq(hdmi_rx->irq[HPD5V_IRQ_OUT]);
 		sprintf(event_string, "EVENT=hdmirxin");
 		kobject_uevent_env(&hdmi_rx->pdev->dev.kobj, KOBJ_CHANGE, envp);
+		hdmi_rx->cable_plugin = true;
 #ifdef CONFIG_IMX_HDP_CEC
 		if (hdmi_rx->is_cec) {
 			mxc_hdmi_cec_init(hdmi_rx);
@@ -747,6 +763,7 @@ static void hpd5v_work_func(struct work_struct *work)
 		kobject_uevent_env(&hdmi_rx->pdev->dev.kobj, KOBJ_CHANGE, envp);
 		enable_irq(hdmi_rx->irq[HPD5V_IRQ_IN]);
 		CDN_API_MainControl_blocking(&hdmi_rx->state, 0, &sts);
+		hdmi_rx->cable_plugin = false;
 	} else
 		pr_warn("HDMI RX Cable State unknow\n");
 
@@ -876,8 +893,10 @@ static int mxc_hdmi_probe(struct platform_device *pdev)
 			goto failed;
 		}
 		/* Cable Disconnedted, enable Plug in IRQ */
-		if (hpd == 0)
+		if (hpd == 0) {
 			enable_irq(hdmi_rx->irq[HPD5V_IRQ_IN]);
+			hdmi_rx->cable_plugin = false;
+		}
 	}
 	if (hdmi_rx->irq[HPD5V_IRQ_OUT] > 0) {
 		irq_set_status_flags(hdmi_rx->irq[HPD5V_IRQ_OUT], IRQ_NOAUTOEN);
@@ -894,6 +913,7 @@ static int mxc_hdmi_probe(struct platform_device *pdev)
 			hdmirx_startup(&hdmi_rx->state);
 			/* Cable Connected, enable Plug out IRQ */
 			enable_irq(hdmi_rx->irq[HPD5V_IRQ_OUT]);
+			hdmi_rx->cable_plugin = true;
 		}
 	}
 
