@@ -3162,7 +3162,7 @@ static int synaptics_rmi4_probe(struct i2c_client *client,
 		const struct i2c_device_id *dev_id)
 {
 	int retval, ret;
-	unsigned char attr_count;
+	signed char attr_count;
 	struct synaptics_rmi4_data *rmi4_data;
 	struct device_node *np = client->dev.of_node;
 #if 0
