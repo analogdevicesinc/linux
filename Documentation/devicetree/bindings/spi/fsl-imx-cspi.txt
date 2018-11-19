@@ -19,6 +19,8 @@ See the clock consumer binding,
 	Documentation/devicetree/bindings/clock/clock-bindings.txt
 - dmas: DMA specifiers for tx and rx dma. See the DMA client binding,
 		Documentation/devicetree/bindings/dma/dma.txt
+	For the description of the second cell of dma phandle, see this document,
+		Documentation/devicetree/bindings/dma/fsl-imx-sdma.txt
 - dma-names: DMA request names should include "tx" and "rx" if present.
 
 Obsolete properties:
