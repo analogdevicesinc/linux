@@ -1201,7 +1201,9 @@ static int ov5640_probe(struct i2c_client *client,
 	u8 chip_id_high, chip_id_low;
 	struct ov5640 *sensor;
 
-	sensor = kmalloc(sizeof(*sensor), GFP_KERNEL);
+	sensor = devm_kmalloc(dev, sizeof(*sensor), GFP_KERNEL);
+	if (!sensor)
+		return -ENOMEM;
 	/* Set initial values for the sensor struct. */
 	memset(sensor, 0, sizeof(*sensor));
 
