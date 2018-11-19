@@ -268,6 +268,7 @@ struct core_device {
 	bool hang;
 	struct device_attribute core_attr;
 	char name[64];
+	unsigned long reset_times;
 };
 
 struct vpu_dev {
@@ -283,6 +284,9 @@ struct vpu_dev {
 	u_int32 plat_type;
 	u_int32 core_num;
 	bool hw_enable;
+
+	struct delayed_work watchdog;
+	u8 heartbeat;
 };
 
 struct buffer_addr {
@@ -333,6 +337,9 @@ struct vpu_ctx {
 
 	struct list_head msg_q;
 	struct list_head idle_q;
+
+	struct vpu_statistic sts;
+	unsigned int frozen_count;
 };
 
 #define LVL_DEBUG	4
@@ -355,5 +362,6 @@ struct vpu_ctx {
 #define vpu_err(fmt, arg...)	vpu_dbg(LVL_ERR, fmt, ##arg)
 
 struct vpu_attr *get_vpu_ctx_attr(struct vpu_ctx *ctx);
+struct vpu_ctx *get_vpu_attr_ctx(struct vpu_attr *attr);
 
 #endif

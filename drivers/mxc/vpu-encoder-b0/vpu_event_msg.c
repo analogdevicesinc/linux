@@ -121,7 +121,6 @@ int init_ctx_msg_queue(struct vpu_ctx *ctx)
 	set_msg_count(ctx, 0);
 	INIT_LIST_HEAD(&ctx->msg_q);
 	INIT_LIST_HEAD(&ctx->idle_q);
-	increase_idle_msg(ctx, MSG_DEFAULT_COUNT);
 
 	mutex_unlock(&ctx->instance_mutex);
 

@@ -212,6 +212,8 @@ static void rpc_update_cmd_buffer_ptr_encoder(BUFFER_DESCRIPTOR_TYPE *pCmdDesc)
 {
 	u_int32 uWritePtr;
 
+	/*avoid sw reset fail*/
+	mb();
 	uWritePtr = pCmdDesc->wptr + 4;
 	if (uWritePtr >= pCmdDesc->end)
 		uWritePtr = pCmdDesc->start;

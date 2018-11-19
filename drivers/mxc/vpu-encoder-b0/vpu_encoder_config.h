@@ -31,7 +31,9 @@
 #define VPU_STRM_END_PATTERN		{0x0, 0x0, 0x1, 0xb}
 
 #define MSG_DATA_DEFAULT_SIZE		256
-#define MSG_DEFAULT_COUNT		4
 #define MSG_COUNT_THD			16
+
+#define VPU_WATCHDOG_INTERVAL_MS	1000
+#define VPU_ENC_HANG_THD		15
 
 #endif
