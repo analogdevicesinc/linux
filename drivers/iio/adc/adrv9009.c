@@ -490,7 +490,7 @@ static int adrv9009_do_setup(struct adrv9009_rf_phy *phy)
 	uint8_t errorFlag = 0;
 	uint16_t deframerStatus = 0;
 	uint8_t framerStatus = 0;
-	uint32_t ret = TALACT_NO_ACTION;
+	int ret = TALACT_NO_ACTION;
 	long dev_clk, fmc_clk;
 	uint32_t lmfc = 0;
 
@@ -498,8 +498,6 @@ static int adrv9009_do_setup(struct adrv9009_rf_phy *phy)
 	phy->talInit.spiSettings.autoIncAddrUp = 1;
 	phy->talInit.spiSettings.fourWireMode = 1;
 	phy->talInit.spiSettings.cmosPadDrvStrength = TAL_CMOSPAD_DRV_2X;
-
-
 
 	/**********************************************************/
 	/**********************************************************/
@@ -531,24 +529,24 @@ static int adrv9009_do_setup(struct adrv9009_rf_phy *phy)
 		phy->talInit.tx.txProfile.txInputRate_kHz, phy->jesd_tx_clk,
 		NULL, &phy->talInit.jesd204Settings.deframerA, &lmfc);
 	if (ret < 0)
-		return ret;
+		goto out;
 
 	ret = adrv9009_set_jesd_lanerate(phy,
 		phy->talInit.rx.rxProfile.rxOutputRate_kHz, phy->jesd_rx_clk,
 		&phy->talInit.jesd204Settings.framerA, NULL, &lmfc);
 	if (ret < 0)
-		return ret;
+		goto out;
 
 	ret = adrv9009_set_jesd_lanerate(phy,
 		phy->talInit.obsRx.orxProfile.orxOutputRate_kHz,
 		phy->jesd_rx_os_clk, &phy->talInit.jesd204Settings.framerB,
 		NULL, &lmfc);
 	if (ret < 0)
-		return ret;
+		goto out;
 
 	ret = adrv9009_update_sysref(phy, lmfc);
 	if (ret < 0)
-		return ret;
+		goto out;
 
 	/*** < Insert User BBIC JESD204B Initialization Code Here > ***/
 
@@ -558,20 +556,27 @@ static int adrv9009_do_setup(struct adrv9009_rf_phy *phy)
 
 	/*Open Talise Hw Device*/
 	ret = TALISE_openHw(phy->talDevice);
-	if (ret != TALACT_NO_ACTION)
+	if (ret != TALACT_NO_ACTION) {
 		dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
-
+		ret = -EFAULT;
+		goto out;
+	}
 	/* Toggle RESETB pin on Talise device */
 	ret = TALISE_resetDevice(phy->talDevice);
-	if (ret != TALACT_NO_ACTION)
+	if (ret != TALACT_NO_ACTION) {
 		dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
+		ret = -EFAULT;
+		goto out;
+	}
 
 	/* Fixme: Need to wait until TX DIV40 MMCM is enabled */
 	msleep(100);
 
 	ret = clk_prepare_enable(phy->jesd_tx_clk);
-	if (ret < 0)
-		return ret;
+	if (ret < 0) {
+		dev_err(&phy->spi->dev, "jesd_tx_clk enable failed (%d)", ret);
+		goto out;
+	}
 
 	/* TALISE_initialize() loads the Talise device data structure
 	 * settings for the Rx/Tx/ORx profiles, FIR filters, digital
@@ -580,26 +585,39 @@ static int adrv9009_do_setup(struct adrv9009_rf_phy *phy)
 	 * and deframers.
 	 */
 	ret = TALISE_initialize(phy->talDevice, &phy->talInit);
-	if (ret != TALACT_NO_ACTION)
+	if (ret != TALACT_NO_ACTION) {
 		dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
+		ret = -EFAULT;
+		goto out_disable_tx_clk;
+	}
 
 	/*******************************/
 	/***** CLKPLL Status Check *****/
 	/*******************************/
 	ret = TALISE_getPllsLockStatus(phy->talDevice, &pllLockStatus);
-	if (ret != TALACT_NO_ACTION)
+	if (ret != TALACT_NO_ACTION) {
 		dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
+		ret = -EFAULT;
+		goto out_disable_tx_clk;
+	}
 
 	/* Assert that Talise CLKPLL is locked */
-	if ((pllLockStatus & 0x01) == 0)
-		dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
+	if ((pllLockStatus & 0x01) == 0) {
+		dev_err(&phy->spi->dev, "%s:%d: CLKPLL is unlocked (0x%X)",
+			__func__, __LINE__, pllLockStatus);
+		ret = -EFAULT;
+		goto out_disable_tx_clk;
+	}
 
 	/*******************************************************/
 	/**** Perform MultiChip Sync (MCS) on Talise Device ***/
 	/*******************************************************/
 	ret = TALISE_enableMultichipSync(phy->talDevice, 1, &mcsStatus);
-	if (ret != TALACT_NO_ACTION)
+	if (ret != TALACT_NO_ACTION) {
 		dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
+		ret = -EFAULT;
+		goto out_disable_tx_clk;
+	}
 
 	/*< user code - Request minimum 3 SYSREF pulses from Clock Device - > */
 	adrv9009_sysref_req(phy, SYSREF_PULSE);
@@ -608,60 +626,89 @@ static int adrv9009_do_setup(struct adrv9009_rf_phy *phy)
 	/**** Verify MCS ***/
 	/*******************/
 	ret = TALISE_enableMultichipSync(phy->talDevice, 0, &mcsStatus);
-	if ((mcsStatus & 0x0B) != 0x0B)
-		dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
+	if ((mcsStatus & 0x0B) != 0x0B) {
+		dev_err(&phy->spi->dev, "%s:%d Unexpected MCS sync status (0x%X)",
+			__func__, __LINE__, mcsStatus);
+		ret = -EFAULT;
+		goto out_disable_tx_clk;
+	}
 
 	/*******************************************************/
 	/**** Prepare Talise Arm binary and Load Arm and    ****/
-	/**** Stream processor Binaryes 					****/
+	/**** Stream processor Binaryes                     ****/
 	/*******************************************************/
-	if (pllLockStatus & 0x01) {
-		ret = TALISE_initArm(phy->talDevice, &phy->talInit);
-		/*< user code- load Talise stream binary into streamBinary[4096] >*/
-		/*< user code- load ARM binary byte array into armBinary[114688] >*/
 
-		ret = TALISE_loadStreamFromBinary(phy->talDevice, (u8 *) phy->stream->data);
-		if (ret != TALACT_NO_ACTION)
-			dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
-
-		ret = TALISE_loadArmFromBinary(phy->talDevice, (u8 *) phy->fw->data,
-					       phy->fw->size);
-		if (ret != TALACT_NO_ACTION)
-			dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
-
-		/* TALISE_verifyArmChecksum() will timeout after 200ms
-		 * if ARM checksum is not computed
-		 */
-		ret = TALISE_verifyArmChecksum(phy->talDevice);
-		if (ret != TAL_ERR_OK)
-			dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
-
-	} else {
-		/*< user code- check settings for proper CLKPLL lock  > ***/
+	ret = TALISE_initArm(phy->talDevice, &phy->talInit);
+	if (ret != TALACT_NO_ACTION) {
 		dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
+		ret = -EFAULT;
+		goto out_disable_tx_clk;
 	}
 
+	ret = TALISE_loadStreamFromBinary(phy->talDevice, (u8 *) phy->stream->data);
+	if (ret != TALACT_NO_ACTION) {
+		dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
+		ret = -EFAULT;
+		goto out_disable_tx_clk;
+	}
 
-	TALISE_setArmGpioPins(phy->talDevice, &phy->arm_gpio_config);
+	ret = TALISE_loadArmFromBinary(phy->talDevice, (u8 *) phy->fw->data,
+				       phy->fw->size);
+	if (ret != TALACT_NO_ACTION) {
+		dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
+		ret = -EFAULT;
+		goto out_disable_tx_clk;
+	}
+
+	/* TALISE_verifyArmChecksum() will timeout after 200ms
+	 * if ARM checksum is not computed
+	 */
+	ret = TALISE_verifyArmChecksum(phy->talDevice);
+	if (ret != TALACT_NO_ACTION) {
+		dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
+		ret = -EFAULT;
+		goto out_disable_tx_clk;
+	}
+
+	ret = TALISE_setArmGpioPins(phy->talDevice, &phy->arm_gpio_config);
+	if (ret != TALACT_NO_ACTION) {
+		dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
+		ret = -EFAULT;
+		goto out_disable_tx_clk;
+	}
 
 	/*******************************/
 	/**Set RF PLL LO Frequencies ***/
 	/*******************************/
 	phy->current_loopBandwidth_kHz[0] = 50;
-	TALISE_setRfPllLoopFilter(phy->talDevice, phy->current_loopBandwidth_kHz[0],
+
+	ret = TALISE_setRfPllLoopFilter(phy->talDevice, phy->current_loopBandwidth_kHz[0],
 				  phy->loopFilter_stability);
+	if (ret != TALACT_NO_ACTION) {
+		dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
+		ret = -EFAULT;
+		goto out_disable_tx_clk;
+	}
 
 	ret = TALISE_setRfPllFrequency(phy->talDevice, TAL_RF_PLL,
 				       phy->trx_lo_frequency);
-
-	if (ret != TALACT_NO_ACTION)
+	if (ret != TALACT_NO_ACTION) {
 		dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
-
-	/*** < wait 200ms for PLLs to lock - user code here > ***/
+		ret = -EFAULT;
+		goto out_disable_tx_clk;
+	}
 
 	ret = TALISE_getPllsLockStatus(phy->talDevice, &pllLockStatus);
-	if ((pllLockStatus & 0x07) != 0x07)
-		dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
+	if ((pllLockStatus & 0x07) != 0x07) {
+		msleep(200);
+		ret = TALISE_getPllsLockStatus(phy->talDevice, &pllLockStatus);
+		if ((pllLockStatus & 0x07) != 0x07) {
+			dev_err(&phy->spi->dev, "%s:%d RF PLL unlocked (0x%x)",
+				__func__, __LINE__, pllLockStatus);
+			ret = -EFAULT;
+			goto out_disable_tx_clk;
+		}
+	}
 
 	/****************************************************/
 	/**** Run Talise ARM Initialization Calibrations ***/
@@ -670,17 +717,24 @@ static int adrv9009_do_setup(struct adrv9009_rf_phy *phy)
 	/*** < User: Open any switches on the Rx input (if used) to isolate Rx input and provide required VSWR at input > ***/
 	ret = TALISE_runInitCals(phy->talDevice,
 				 initCalMask & ~TAL_TX_LO_LEAKAGE_EXTERNAL);
-	if (ret != TALACT_NO_ACTION)
+	if (ret != TALACT_NO_ACTION) {
 		dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
+		ret = -EFAULT;
+		goto out_disable_tx_clk;
+	}
 
 	ret = TALISE_waitInitCals(phy->talDevice, 20000, &errorFlag);
-	if (ret != TALACT_NO_ACTION)
+	if (ret != TALACT_NO_ACTION) {
 		dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
+		ret = -EFAULT;
+		goto out_disable_tx_clk;
+	}
 
 	if (errorFlag) {
-		/*< user code - Check error flag to determine ARM  error> */
-		dev_err(&phy->spi->dev, "%s:%d (ret %d) errorFlag %x", __func__, __LINE__, ret,
-			errorFlag);
+		dev_err(&phy->spi->dev, "%s:%d Init Cal errorFlag (0x%X)",
+			__func__, __LINE__, errorFlag);
+		ret = -EFAULT;
+		goto out_disable_tx_clk;
 	}
 
 	/*************************************************************************/
@@ -693,11 +747,12 @@ static int adrv9009_do_setup(struct adrv9009_rf_phy *phy)
 			dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
 
 		ret = TALISE_waitInitCals(phy->talDevice, 20000, &errorFlag);
-		dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
+		if (ret != TALACT_NO_ACTION)
+			dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
 
 		if (errorFlag)
-			dev_err(&phy->spi->dev, "%s:%d (ret %d) errorFlag %x", __func__, __LINE__, ret,
-				errorFlag);
+			dev_err(&phy->spi->dev, "%s:%d Init Cal errorFlag (0x%X)",
+				__func__, __LINE__, errorFlag);
 	}
 
 	/***************************************************/
@@ -705,12 +760,18 @@ static int adrv9009_do_setup(struct adrv9009_rf_phy *phy)
 	/***************************************************/
 
 	ret = TALISE_enableFramerLink(phy->talDevice, TAL_FRAMER_A, 0);
-	if (ret != TALACT_NO_ACTION)
+	if (ret != TALACT_NO_ACTION) {
 		dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
+		ret = -EFAULT;
+		goto out_disable_tx_clk;
+	}
 
-	ret |= TALISE_enableFramerLink(phy->talDevice, TAL_FRAMER_A, 1);
-	if (ret != TALACT_NO_ACTION)
+	ret = TALISE_enableFramerLink(phy->talDevice, TAL_FRAMER_A, 1);
+	if (ret != TALACT_NO_ACTION) {
 		dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
+		ret = -EFAULT;
+		goto out_disable_tx_clk;
+	}
 
 	/*************************************************/
 	/**** Enable SYSREF to Talise JESD204B Framer ***/
@@ -718,20 +779,29 @@ static int adrv9009_do_setup(struct adrv9009_rf_phy *phy)
 	/*** < User: Make sure SYSREF is stopped/disabled > ***/
 
 	ret = TALISE_enableSysrefToFramer(phy->talDevice, TAL_FRAMER_A, 1);
-	if (ret != TALACT_NO_ACTION)
+	if (ret != TALACT_NO_ACTION) {
 		dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
+		ret = -EFAULT;
+		goto out_disable_tx_clk;
+	}
 
 	/***************************************************/
 	/**** Enable Talise JESD204B Framer ***/
 	/***************************************************/
 
 	ret = TALISE_enableFramerLink(phy->talDevice, TAL_FRAMER_B, 0);
-	if (ret != TALACT_NO_ACTION)
+	if (ret != TALACT_NO_ACTION) {
 		dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
+		ret = -EFAULT;
+		goto out_disable_tx_clk;
+	}
 
-	ret |= TALISE_enableFramerLink(phy->talDevice, TAL_FRAMER_B, 1);
-	if (ret != TALACT_NO_ACTION)
+	ret = TALISE_enableFramerLink(phy->talDevice, TAL_FRAMER_B, 1);
+	if (ret != TALACT_NO_ACTION) {
 		dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
+		ret = -EFAULT;
+		goto out_disable_tx_clk;
+	}
 
 	/*************************************************/
 	/**** Enable SYSREF to Talise JESD204B Framer ***/
@@ -739,27 +809,39 @@ static int adrv9009_do_setup(struct adrv9009_rf_phy *phy)
 	/*** < User: Make sure SYSREF is stopped/disabled > ***/
 
 	ret = TALISE_enableSysrefToFramer(phy->talDevice, TAL_FRAMER_B, 1);
-	if (ret != TALACT_NO_ACTION)
+	if (ret != TALACT_NO_ACTION) {
 		dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
+		ret = -EFAULT;
+		goto out_disable_tx_clk;
+	}
 
 	/***************************************************/
 	/**** Enable  Talise JESD204B Deframer ***/
 	/***************************************************/
 
 	ret = TALISE_enableDeframerLink(phy->talDevice, TAL_DEFRAMER_A, 0);
-	if (ret != TALACT_NO_ACTION)
+	if (ret != TALACT_NO_ACTION) {
 		dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
+		ret = -EFAULT;
+		goto out_disable_tx_clk;
+	}
 
 	ret |= TALISE_enableDeframerLink(phy->talDevice, TAL_DEFRAMER_A, 1);
-	if (ret != TALACT_NO_ACTION)
+	if (ret != TALACT_NO_ACTION) {
 		dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
+		ret = -EFAULT;
+		goto out_disable_tx_clk;
+	}
 
 	/***************************************************/
 	/**** Enable SYSREF to Talise JESD204B Deframer ***/
 	/***************************************************/
 	ret = TALISE_enableSysrefToDeframer(phy->talDevice, TAL_DEFRAMER_A, 1);
-	if (ret != TALACT_NO_ACTION)
+	if (ret != TALACT_NO_ACTION) {
 		dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
+		ret = -EFAULT;
+		goto out_disable_tx_clk;
+	}
 
 	/*** < User Sends SYSREF Here > ***/
 
@@ -767,12 +849,16 @@ static int adrv9009_do_setup(struct adrv9009_rf_phy *phy)
 	adrv9009_sysref_req(phy, SYSREF_CONT_ON);
 
 	ret = clk_prepare_enable(phy->jesd_rx_clk);
-	if (ret < 0)
-		return ret;
+	if (ret < 0) {
+		dev_err(&phy->spi->dev, "jesd_rx_clk enable failed (%d)", ret);
+		goto out_disable_tx_clk;
+	}
 
 	ret = clk_prepare_enable(phy->jesd_rx_os_clk);
-	if (ret < 0)
-		return ret;
+	if (ret < 0) {
+		dev_err(&phy->spi->dev, "jesd_rx_os_clk enable failed (%d)", ret);
+		goto out_disable_rx_clk;
+	}
 
 	adrv9009_sysref_req(phy, SYSREF_CONT_OFF);
 
@@ -785,8 +871,11 @@ static int adrv9009_do_setup(struct adrv9009_rf_phy *phy)
 	/**************************************/
 	ret = TALISE_readDeframerStatus(phy->talDevice, TAL_DEFRAMER_A,
 					&deframerStatus);
-	if (ret != TALACT_NO_ACTION)
+	if (ret != TALACT_NO_ACTION) {
 		dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
+		ret = -EFAULT;
+		goto out_disable_obs_rx_clk;
+	}
 
 	if ((deframerStatus & 0xF7) != 0x86)
 		dev_warn(&phy->spi->dev, "TAL_DEFRAMER_A deframerStatus 0x%X", deframerStatus);
@@ -795,8 +884,11 @@ static int adrv9009_do_setup(struct adrv9009_rf_phy *phy)
 	/**** Check Talise Framer Status ***/
 	/************************************/
 	ret = TALISE_readFramerStatus(phy->talDevice, TAL_FRAMER_A, &framerStatus);
-	if (ret != TALACT_NO_ACTION)
+	if (ret != TALACT_NO_ACTION) {
 		dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
+		ret = -EFAULT;
+		goto out_disable_obs_rx_clk;
+	}
 
 	if ((framerStatus & 0x07) != 0x05)
 		dev_warn(&phy->spi->dev, "TAL_FRAMER_A framerStatus 0x%X", framerStatus);
@@ -805,8 +897,11 @@ static int adrv9009_do_setup(struct adrv9009_rf_phy *phy)
 	/**** Check Talise Framer Status ***/
 	/************************************/
 	ret = TALISE_readFramerStatus(phy->talDevice, TAL_FRAMER_B, &framerStatus);
-	if (ret != TALACT_NO_ACTION)
+	if (ret != TALACT_NO_ACTION) {
 		dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
+		ret = -EFAULT;
+		goto out_disable_obs_rx_clk;
+	}
 
 	if ((framerStatus & 0x07) != 0x05)
 		dev_warn(&phy->spi->dev, "TAL_FRAMER_B framerStatus 0x%X", framerStatus);
@@ -820,21 +915,35 @@ static int adrv9009_do_setup(struct adrv9009_rf_phy *phy)
 	 * the obsRx path is set to OBS_INTERNAL_CALS   *
 	 * **********************************************/
 
-	TALISE_setGpIntMask(phy->talDevice, TAL_GP_MASK_AUX_SYNTH_UNLOCK);
+	ret = TALISE_setGpIntMask(phy->talDevice, TAL_GP_MASK_AUX_SYNTH_UNLOCK);
+	if (ret != TALACT_NO_ACTION) {
+		dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
+		ret = -EFAULT;
+		goto out_disable_obs_rx_clk;
+	}
 
 	ret = TALISE_enableTrackingCals(phy->talDevice, trackingCalMask);
-	if (ret != TALACT_NO_ACTION)
+	if (ret != TALACT_NO_ACTION) {
 		dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
+		ret = -EFAULT;
+		goto out_disable_obs_rx_clk;
+	}
 
 	ret = TALISE_setupRxAgc(phy->talDevice, &phy->rxAgcCtrl);
-	if (ret != TALACT_NO_ACTION)
+	if (ret != TALACT_NO_ACTION) {
 		dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
+		ret = -EFAULT;
+		goto out_disable_obs_rx_clk;
+	}
 
 	/* Function to turn radio on, Enables transmitters and receivers */
 	/* that were setup during TALISE_initialize() */
 	ret = TALISE_radioOn(phy->talDevice);
-	if (ret != TALACT_NO_ACTION)
+	if (ret != TALACT_NO_ACTION) {
 		dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
+		ret = -EFAULT;
+		goto out_disable_obs_rx_clk;
+	}
 
 
 	clk_set_rate(phy->clks[RX_SAMPL_CLK],
@@ -845,17 +954,44 @@ static int adrv9009_do_setup(struct adrv9009_rf_phy *phy)
 		     phy->talInit.tx.txProfile.txInputRate_kHz * 1000);
 
 
-	TALISE_setRxTxEnable(phy->talDevice, TAL_RX1RX2_EN, TAL_TX1TX2);
+	ret = TALISE_setRxTxEnable(phy->talDevice, TAL_RX1RX2_EN, TAL_TX1TX2);
+	if (ret != TALACT_NO_ACTION) {
+		dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
+		ret = -EFAULT;
+		goto out_disable_obs_rx_clk;
+	}
 
 	adrv9009_sysref_req(phy, SYSREF_CONT_ON);
 
-	TALISE_setupAuxDacs(phy->talDevice, &phy->auxdac);
-	TALISE_setPaProtectionCfg(phy->talDevice, &phy->tx_pa_protection);
+	ret = TALISE_setupAuxDacs(phy->talDevice, &phy->auxdac);
+	if (ret != TALACT_NO_ACTION) {
+		dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
+		ret = -EFAULT;
+		goto out_disable_obs_rx_clk;
+	}
 
+	ret = TALISE_setPaProtectionCfg(phy->talDevice, &phy->tx_pa_protection);
+	if (ret != TALACT_NO_ACTION) {
+		dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
+		ret = -EFAULT;
+		goto out_disable_obs_rx_clk;
+	}
 
+	phy->is_initialized = 1;
 
 	return 0;
 
+out_disable_obs_rx_clk:
+	clk_disable_unprepare(phy->jesd_rx_os_clk);
+out_disable_rx_clk:
+	clk_disable_unprepare(phy->jesd_rx_clk);
+out_disable_tx_clk:
+	clk_disable_unprepare(phy->jesd_tx_clk);
+
+out:
+	phy->is_initialized = 0;
+
+	return ret;
 }
 
 static int adrv9009_setup(struct adrv9009_rf_phy *phy)
@@ -919,9 +1055,11 @@ static void adrv9009_shutdown(struct adrv9009_rf_phy *phy)
 
 	adrv9009_sysref_req(phy, SYSREF_CONT_OFF);
 
-	clk_disable_unprepare(phy->jesd_rx_clk);
-	clk_disable_unprepare(phy->jesd_rx_os_clk);
-	clk_disable_unprepare(phy->jesd_tx_clk);
+	if (phy->is_initialized) {
+		clk_disable_unprepare(phy->jesd_rx_clk);
+		clk_disable_unprepare(phy->jesd_rx_os_clk);
+		clk_disable_unprepare(phy->jesd_tx_clk);
+	}
 
 	memset(&phy->talise_device.devStateInfo, 0,
 	       sizeof(phy->talise_device.devStateInfo));

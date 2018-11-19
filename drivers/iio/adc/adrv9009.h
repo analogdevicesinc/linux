@@ -217,6 +217,7 @@ struct adrv9009_rf_phy {
 	bool			saved_radio_state;
 	u32			init_cal_mask;
 	u32			cal_mask;
+	bool			is_initialized;
 };
 
 int adrv9009_hdl_loopback(struct adrv9009_rf_phy *phy, bool enable);
