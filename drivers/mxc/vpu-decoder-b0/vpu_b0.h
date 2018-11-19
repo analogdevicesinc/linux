@@ -42,7 +42,8 @@ extern unsigned int vpu_dbg_level_decoder;
 #define v4l2_ctrl_to_ctx(__ctrl) \
 	container_of((__ctrl)->handler, struct vpu_ctx, ctrl_handler)
 
-#define MIN_SPACE (4096+64)
+#define MIN_SPACE (SCODE_SIZE + 64)
+#define SCODE_SIZE (4096)
 
 #define VPU_MAX_BUFFER 32
 #define M0FW_FILENAME "vpu/vpu_fw_imx8_dec.bin"

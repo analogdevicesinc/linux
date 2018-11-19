@@ -52,6 +52,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <linux/uaccess.h>
 #include "vpu_rpc.h"
 
 void rpc_init_shared_memory(struct shared_addr *This,
@@ -257,6 +258,7 @@ static void rpc_update_cmd_buffer_ptr(MediaIPFW_Video_BufDesc *pCmdDesc)
 {
 	u_int32 uWritePtr;
 
+	mb();
 	uWritePtr = pCmdDesc->uWrPtr + 4;
 	if (uWritePtr >= pCmdDesc->uEnd)
 		uWritePtr = pCmdDesc->uStart;
@@ -328,6 +330,7 @@ static void rpc_update_msg_buffer_ptr(MediaIPFW_Video_BufDesc *pMsgDesc)
 {
 	u_int32 uReadPtr;
 
+	mb();
 	uReadPtr = pMsgDesc->uRdPtr + 4;
 	if (uReadPtr >= pMsgDesc->uEnd)
 		uReadPtr = pMsgDesc->uStart;
