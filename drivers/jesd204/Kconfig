@@ -1,0 +1,18 @@
+# SPDX-License-Identifier: GPL-2.0+
+#
+# JESD204 framework configuration
+#
+
+menuconfig JESD204
+	tristate "JESD204 High-Speed Serial Interface Framework"
+	depends on OF
+	help
+	  The JESD204 is a "Serial Interface for data converters"
+	  which describes a serialized interface between data converters
+	  and logic devices. It contains normative information to enable
+	  chip designers to implement devices that communicate with other
+	  devices covered by this specification.
+
+	  The JESD204 framework provides a unified model for supporting
+	  initialization and operation of JESD204 transceivers, which aims
+	  at reducing complexity when managing these types of devices.
