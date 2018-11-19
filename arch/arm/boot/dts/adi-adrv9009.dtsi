@@ -19,7 +19,7 @@
 
 	clk0_ad9528: ad9528-1@0 {
 		compatible = "adi,ad9528";
-		reg = <1>;
+		reg = <0>;
 
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -104,7 +104,7 @@
 
 	trx0_adrv9009: adrv9009-phy@1 {
 		compatible = "adi,adrv9009";
-		reg = <0>;
+		reg = <1>;
 
 		#address-cells = <1>;
 		#size-cells = <0>;
