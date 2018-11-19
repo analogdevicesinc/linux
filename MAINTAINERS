@@ -7972,6 +7972,14 @@ S:	Maintained
 F:	drivers/hwmon/jc42.c
 F:	Documentation/hwmon/jc42
 
+JESD204 SUBSYSTEM AND DRIVERS
+M:	Alexandru Ardelean <alexandru.ardelean@analog.com>
+L:	linux-iio@vger.kernel.org
+T:	git https://github.com/analogdevicesinc/linux
+S:	Maintained
+F:	Documentation/devicetree/bindings/iio/
+F:	drivers/jesd204/
+
 JFS FILESYSTEM
 M:	Dave Kleikamp <shaggy@kernel.org>
 L:	jfs-discussion@lists.sourceforge.net
