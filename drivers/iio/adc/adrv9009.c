@@ -277,7 +277,8 @@ static int adrv9009_sysref_req(struct adrv9009_rf_phy *phy,
 	return ret;
 }
 
-static int adrv9009_set_jesd_lanerate(u32 input_rate_khz,
+static int adrv9009_set_jesd_lanerate(struct adrv9009_rf_phy *phy,
+				      u32 input_rate_khz,
 				      struct clk *link_clk,
 				      taliseJesd204bFramerConfig_t *framer,
 				      taliseJesd204bDeframerConfig_t *deframer,
@@ -307,8 +308,12 @@ static int adrv9009_set_jesd_lanerate(u32 input_rate_khz,
 	lane_rate_kHz = input_rate_khz * m * 20 / l;
 
 	ret = clk_set_rate(link_clk, lane_rate_kHz);
-	if (ret < 0)
+	if (ret < 0) {
+		dev_err(&phy->spi->dev,
+			"Request %s lanerate %lu kHz failed (%d)\n",
+			framer ? "framer" : "deframer", lane_rate_kHz, ret);
 		return ret;
+	}
 
 	lmfc_tmp = (lane_rate_kHz * 100) / (k * f);
 
@@ -522,19 +527,19 @@ static int adrv9009_do_setup(struct adrv9009_rf_phy *phy)
 		return -EINVAL;
 	}
 
-	ret = adrv9009_set_jesd_lanerate(
+	ret = adrv9009_set_jesd_lanerate(phy,
 		phy->talInit.tx.txProfile.txInputRate_kHz, phy->jesd_tx_clk,
 		NULL, &phy->talInit.jesd204Settings.deframerA, &lmfc);
 	if (ret < 0)
 		return ret;
 
-	ret = adrv9009_set_jesd_lanerate(
+	ret = adrv9009_set_jesd_lanerate(phy,
 		phy->talInit.rx.rxProfile.rxOutputRate_kHz, phy->jesd_rx_clk,
 		&phy->talInit.jesd204Settings.framerA, NULL, &lmfc);
 	if (ret < 0)
 		return ret;
 
-	ret = adrv9009_set_jesd_lanerate(
+	ret = adrv9009_set_jesd_lanerate(phy,
 		phy->talInit.obsRx.orxProfile.orxOutputRate_kHz,
 		phy->jesd_rx_os_clk, &phy->talInit.jesd204Settings.framerB,
 		NULL, &lmfc);
