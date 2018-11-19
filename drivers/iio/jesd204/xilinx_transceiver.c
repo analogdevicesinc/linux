@@ -322,6 +322,10 @@ int xilinx_xcvr_calc_cpll_config(struct xilinx_xcvr *xcvr,
 		}
 	}
 
+	dev_dbg(xcvr->dev,
+		 "CPLL: failed to find setting for lane rate %u kHz with reference clock %u kHz\n",
+		lane_rate_khz, refclk_khz);
+
 	return -EINVAL;
 }
 EXPORT_SYMBOL_GPL(xilinx_xcvr_calc_cpll_config);
@@ -397,6 +401,10 @@ int xilinx_xcvr_calc_qpll_config(struct xilinx_xcvr *xcvr,
 			}
 		}
 	}
+
+	dev_dbg(xcvr->dev,
+		 "QPLL: failed to find setting for lane rate %u kHz with reference clock %u kHz\n",
+		 lane_rate_khz, refclk_khz);
 
 	return -EINVAL;
 }
