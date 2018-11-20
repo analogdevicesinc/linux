@@ -52,6 +52,8 @@
 #include "adrv9009.h"
 
 #define FIRMWARE	"TaliseTDDArmFirmware.bin"
+#define FIRMWARE_TX	"TaliseTxArmFirmware.bin"
+#define FIRMWARE_RX	"TaliseRxArmFirmware.bin"
 #define STREAM		"TaliseStream.bin"
 
 // 10 -bit:
@@ -291,6 +293,9 @@ static int adrv9009_set_jesd_lanerate(struct adrv9009_rf_phy *phy,
 	if (!lmfc)
 		return -EINVAL;
 
+	if (IS_ERR_OR_NULL(link_clk))
+		return 0;
+
 	if (framer) {
 		m = framer->M;
 		l = hweight8(framer->serializerLanesEnabled);
@@ -472,20 +477,11 @@ static const char * const adrv9009_ilas_mismatch_table[] = {
 	"checksum"
 };
 
-
-
 static int adrv9009_do_setup(struct adrv9009_rf_phy *phy)
 {
 	uint8_t mcsStatus = 0;
-	uint8_t pllLockStatus = 0;
-
-	uint32_t initCalMask = phy->init_cal_mask =
-		TAL_TX_BB_FILTER | TAL_ADC_TUNER | TAL_TIA_3DB_CORNER |
-		TAL_DC_OFFSET | TAL_RX_GAIN_DELAY | TAL_FLASH_CAL |
-		TAL_PATH_DELAY | TAL_TX_LO_LEAKAGE_INTERNAL | TAL_TX_QEC_INIT |
-		TAL_LOOPBACK_RX_LO_DELAY | TAL_LOOPBACK_RX_RX_QEC_INIT |
-		TAL_RX_QEC_INIT | TAL_ORX_QEC_INIT | TAL_TX_DAC | TAL_ADC_STITCHING;
-
+	uint8_t pllLockStatus_mask, pllLockStatus = 0;
+	uint32_t initCalMask;
 	uint32_t trackingCalMask = phy->tracking_cal_mask =  TAL_TRACK_NONE;
 	uint8_t errorFlag = 0;
 	uint16_t deframerStatus = 0;
@@ -498,6 +494,40 @@ static int adrv9009_do_setup(struct adrv9009_rf_phy *phy)
 	phy->talInit.spiSettings.autoIncAddrUp = 1;
 	phy->talInit.spiSettings.fourWireMode = 1;
 	phy->talInit.spiSettings.cmosPadDrvStrength = TAL_CMOSPAD_DRV_2X;
+
+	switch (phy->spi_device_id) {
+	case ID_ADRV9009:
+		initCalMask = TAL_TX_BB_FILTER | TAL_ADC_TUNER |  TAL_TIA_3DB_CORNER |
+			TAL_DC_OFFSET | TAL_RX_GAIN_DELAY | TAL_FLASH_CAL |
+			TAL_PATH_DELAY | TAL_TX_LO_LEAKAGE_INTERNAL |
+			TAL_TX_QEC_INIT | TAL_LOOPBACK_RX_LO_DELAY |
+			TAL_LOOPBACK_RX_RX_QEC_INIT | TAL_RX_QEC_INIT |
+			TAL_ORX_QEC_INIT | TAL_TX_DAC  | TAL_ADC_STITCHING;
+
+		pllLockStatus_mask = 0x7;
+		break;
+	case ID_ADRV90081:
+		initCalMask = TAL_ADC_TUNER | TAL_TIA_3DB_CORNER | TAL_DC_OFFSET |
+			TAL_RX_GAIN_DELAY | TAL_FLASH_CAL | TAL_RX_QEC_INIT;
+		phy->talInit.jesd204Settings.deframerA.M = 0;
+		phy->talInit.jesd204Settings.deframerB.M = 0;
+		phy->talInit.tx.txChannels = TAL_TXOFF;
+		phy->talInit.obsRx.obsRxChannelsEnable = TAL_ORXOFF;
+		pllLockStatus_mask = 0x3;
+		break;
+	case ID_ADRV90082:
+		initCalMask = TAL_TX_BB_FILTER | TAL_ADC_TUNER | TAL_TIA_3DB_CORNER |
+			TAL_DC_OFFSET | TAL_FLASH_CAL | TAL_PATH_DELAY |
+			TAL_TX_LO_LEAKAGE_INTERNAL | TAL_TX_QEC_INIT |
+			TAL_LOOPBACK_RX_LO_DELAY | TAL_LOOPBACK_RX_RX_QEC_INIT |
+			TAL_ORX_QEC_INIT | TAL_TX_DAC  | TAL_ADC_STITCHING;
+		phy->talInit.jesd204Settings.framerA.M = 0;
+		phy->talInit.rx.rxChannels = TAL_RXOFF;
+		pllLockStatus_mask = 0x7;
+		break;
+	default:
+		return -EINVAL;
+	}
 
 	/**********************************************************/
 	/**********************************************************/
@@ -569,15 +599,16 @@ static int adrv9009_do_setup(struct adrv9009_rf_phy *phy)
 		goto out;
 	}
 
-	/* Fixme: Need to wait until TX DIV40 MMCM is enabled */
-	msleep(100);
+	if (!IS_ERR_OR_NULL(phy->jesd_tx_clk)) {
+		/* Fixme: Need to wait until TX DIV40 MMCM is enabled */
+		msleep(100);
 
-	ret = clk_prepare_enable(phy->jesd_tx_clk);
-	if (ret < 0) {
-		dev_err(&phy->spi->dev, "jesd_tx_clk enable failed (%d)", ret);
-		goto out;
+		ret = clk_prepare_enable(phy->jesd_tx_clk);
+		if (ret < 0) {
+			dev_err(&phy->spi->dev, "jesd_tx_clk enable failed (%d)", ret);
+			goto out;
+		}
 	}
-
 	/* TALISE_initialize() loads the Talise device data structure
 	 * settings for the Rx/Tx/ORx profiles, FIR filters, digital
 	 * filter enables, calibrates the CLKPLL, loads the user provided Rx
@@ -699,10 +730,10 @@ static int adrv9009_do_setup(struct adrv9009_rf_phy *phy)
 	}
 
 	ret = TALISE_getPllsLockStatus(phy->talDevice, &pllLockStatus);
-	if ((pllLockStatus & 0x07) != 0x07) {
+	if ((pllLockStatus & pllLockStatus_mask) != pllLockStatus_mask) {
 		msleep(200);
 		ret = TALISE_getPllsLockStatus(phy->talDevice, &pllLockStatus);
-		if ((pllLockStatus & 0x07) != 0x07) {
+		if ((pllLockStatus & pllLockStatus_mask) != pllLockStatus_mask) {
 			dev_err(&phy->spi->dev, "%s:%d RF PLL unlocked (0x%x)",
 				__func__, __LINE__, pllLockStatus);
 			ret = -EFAULT;
@@ -759,88 +790,92 @@ static int adrv9009_do_setup(struct adrv9009_rf_phy *phy)
 	/**** Enable Talise JESD204B Framer ***/
 	/***************************************************/
 
-	ret = TALISE_enableFramerLink(phy->talDevice, TAL_FRAMER_A, 0);
-	if (ret != TALACT_NO_ACTION) {
-		dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
-		ret = -EFAULT;
-		goto out_disable_tx_clk;
-	}
+	if (!IS_ERR_OR_NULL(phy->jesd_rx_clk) && phy->talInit.jesd204Settings.framerA.M) {
+		ret = TALISE_enableFramerLink(phy->talDevice, TAL_FRAMER_A, 0);
+		if (ret != TALACT_NO_ACTION) {
+			dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
+			ret = -EFAULT;
+			goto out_disable_tx_clk;
+		}
 
-	ret = TALISE_enableFramerLink(phy->talDevice, TAL_FRAMER_A, 1);
-	if (ret != TALACT_NO_ACTION) {
-		dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
-		ret = -EFAULT;
-		goto out_disable_tx_clk;
-	}
+		ret = TALISE_enableFramerLink(phy->talDevice, TAL_FRAMER_A, 1);
+		if (ret != TALACT_NO_ACTION) {
+			dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
+			ret = -EFAULT;
+			goto out_disable_tx_clk;
+		}
 
-	/*************************************************/
-	/**** Enable SYSREF to Talise JESD204B Framer ***/
-	/*************************************************/
-	/*** < User: Make sure SYSREF is stopped/disabled > ***/
+		/*************************************************/
+		/**** Enable SYSREF to Talise JESD204B Framer ***/
+		/*************************************************/
+		/*** < User: Make sure SYSREF is stopped/disabled > ***/
 
-	ret = TALISE_enableSysrefToFramer(phy->talDevice, TAL_FRAMER_A, 1);
-	if (ret != TALACT_NO_ACTION) {
-		dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
-		ret = -EFAULT;
-		goto out_disable_tx_clk;
+		ret = TALISE_enableSysrefToFramer(phy->talDevice, TAL_FRAMER_A, 1);
+		if (ret != TALACT_NO_ACTION) {
+			dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
+			ret = -EFAULT;
+			goto out_disable_tx_clk;
+		}
 	}
 
 	/***************************************************/
 	/**** Enable Talise JESD204B Framer ***/
 	/***************************************************/
 
-	ret = TALISE_enableFramerLink(phy->talDevice, TAL_FRAMER_B, 0);
-	if (ret != TALACT_NO_ACTION) {
-		dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
-		ret = -EFAULT;
-		goto out_disable_tx_clk;
+	if (!IS_ERR_OR_NULL(phy->jesd_rx_os_clk) && phy->talInit.jesd204Settings.framerB.M) {
+		ret = TALISE_enableFramerLink(phy->talDevice, TAL_FRAMER_B, 0);
+		if (ret != TALACT_NO_ACTION) {
+			dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
+			ret = -EFAULT;
+			goto out_disable_tx_clk;
+		}
+
+		ret = TALISE_enableFramerLink(phy->talDevice, TAL_FRAMER_B, 1);
+		if (ret != TALACT_NO_ACTION) {
+			dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
+			ret = -EFAULT;
+			goto out_disable_tx_clk;
+		}
+
+		/*************************************************/
+		/**** Enable SYSREF to Talise JESD204B Framer ***/
+		/*************************************************/
+		/*** < User: Make sure SYSREF is stopped/disabled > ***/
+
+		ret = TALISE_enableSysrefToFramer(phy->talDevice, TAL_FRAMER_B, 1);
+		if (ret != TALACT_NO_ACTION) {
+			dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
+			ret = -EFAULT;
+			goto out_disable_tx_clk;
+		}
 	}
-
-	ret = TALISE_enableFramerLink(phy->talDevice, TAL_FRAMER_B, 1);
-	if (ret != TALACT_NO_ACTION) {
-		dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
-		ret = -EFAULT;
-		goto out_disable_tx_clk;
-	}
-
-	/*************************************************/
-	/**** Enable SYSREF to Talise JESD204B Framer ***/
-	/*************************************************/
-	/*** < User: Make sure SYSREF is stopped/disabled > ***/
-
-	ret = TALISE_enableSysrefToFramer(phy->talDevice, TAL_FRAMER_B, 1);
-	if (ret != TALACT_NO_ACTION) {
-		dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
-		ret = -EFAULT;
-		goto out_disable_tx_clk;
-	}
-
 	/***************************************************/
 	/**** Enable  Talise JESD204B Deframer ***/
 	/***************************************************/
+	if (!IS_ERR_OR_NULL(phy->jesd_tx_clk) && phy->talInit.jesd204Settings.deframerA.M) {
+		ret = TALISE_enableDeframerLink(phy->talDevice, TAL_DEFRAMER_A, 0);
+		if (ret != TALACT_NO_ACTION) {
+			dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
+			ret = -EFAULT;
+			goto out_disable_tx_clk;
+		}
 
-	ret = TALISE_enableDeframerLink(phy->talDevice, TAL_DEFRAMER_A, 0);
-	if (ret != TALACT_NO_ACTION) {
-		dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
-		ret = -EFAULT;
-		goto out_disable_tx_clk;
-	}
+		ret |= TALISE_enableDeframerLink(phy->talDevice, TAL_DEFRAMER_A, 1);
+		if (ret != TALACT_NO_ACTION) {
+			dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
+			ret = -EFAULT;
+			goto out_disable_tx_clk;
+		}
 
-	ret |= TALISE_enableDeframerLink(phy->talDevice, TAL_DEFRAMER_A, 1);
-	if (ret != TALACT_NO_ACTION) {
-		dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
-		ret = -EFAULT;
-		goto out_disable_tx_clk;
-	}
-
-	/***************************************************/
-	/**** Enable SYSREF to Talise JESD204B Deframer ***/
-	/***************************************************/
-	ret = TALISE_enableSysrefToDeframer(phy->talDevice, TAL_DEFRAMER_A, 1);
-	if (ret != TALACT_NO_ACTION) {
-		dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
-		ret = -EFAULT;
-		goto out_disable_tx_clk;
+		/***************************************************/
+		/**** Enable SYSREF to Talise JESD204B Deframer ***/
+		/***************************************************/
+		ret = TALISE_enableSysrefToDeframer(phy->talDevice, TAL_DEFRAMER_A, 1);
+		if (ret != TALACT_NO_ACTION) {
+			dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
+			ret = -EFAULT;
+			goto out_disable_tx_clk;
+		}
 	}
 
 	/*** < User Sends SYSREF Here > ***/
@@ -848,16 +883,20 @@ static int adrv9009_do_setup(struct adrv9009_rf_phy *phy)
 
 	adrv9009_sysref_req(phy, SYSREF_CONT_ON);
 
-	ret = clk_prepare_enable(phy->jesd_rx_clk);
-	if (ret < 0) {
-		dev_err(&phy->spi->dev, "jesd_rx_clk enable failed (%d)", ret);
-		goto out_disable_tx_clk;
+	if (!IS_ERR_OR_NULL(phy->jesd_rx_clk)) {
+		ret = clk_prepare_enable(phy->jesd_rx_clk);
+		if (ret < 0) {
+			dev_err(&phy->spi->dev, "jesd_rx_clk enable failed (%d)", ret);
+			goto out_disable_tx_clk;
+		}
 	}
 
-	ret = clk_prepare_enable(phy->jesd_rx_os_clk);
-	if (ret < 0) {
-		dev_err(&phy->spi->dev, "jesd_rx_os_clk enable failed (%d)", ret);
-		goto out_disable_rx_clk;
+	if (!IS_ERR_OR_NULL(phy->jesd_rx_os_clk)) {
+		ret = clk_prepare_enable(phy->jesd_rx_os_clk);
+		if (ret < 0) {
+			dev_err(&phy->spi->dev, "jesd_rx_os_clk enable failed (%d)", ret);
+			goto out_disable_rx_clk;
+		}
 	}
 
 	adrv9009_sysref_req(phy, SYSREF_CONT_OFF);
@@ -869,42 +908,47 @@ static int adrv9009_do_setup(struct adrv9009_rf_phy *phy)
 	/**************************************/
 	/**** Check Talise Deframer Status ***/
 	/**************************************/
-	ret = TALISE_readDeframerStatus(phy->talDevice, TAL_DEFRAMER_A,
-					&deframerStatus);
-	if (ret != TALACT_NO_ACTION) {
-		dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
-		ret = -EFAULT;
-		goto out_disable_obs_rx_clk;
-	}
+	if (!IS_ERR_OR_NULL(phy->jesd_tx_clk) && phy->talInit.jesd204Settings.deframerA.M) {
+		ret = TALISE_readDeframerStatus(phy->talDevice, TAL_DEFRAMER_A,
+						&deframerStatus);
+		if (ret != TALACT_NO_ACTION) {
+			dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
+			ret = -EFAULT;
+			goto out_disable_obs_rx_clk;
+		}
 
-	if ((deframerStatus & 0xF7) != 0x86)
-		dev_warn(&phy->spi->dev, "TAL_DEFRAMER_A deframerStatus 0x%X", deframerStatus);
+		if ((deframerStatus & 0xF7) != 0x86)
+			dev_warn(&phy->spi->dev, "TAL_DEFRAMER_A deframerStatus 0x%X", deframerStatus);
+	}
 
 	/************************************/
 	/**** Check Talise Framer Status ***/
 	/************************************/
-	ret = TALISE_readFramerStatus(phy->talDevice, TAL_FRAMER_A, &framerStatus);
-	if (ret != TALACT_NO_ACTION) {
-		dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
-		ret = -EFAULT;
-		goto out_disable_obs_rx_clk;
+	if (!IS_ERR_OR_NULL(phy->jesd_rx_clk) && phy->talInit.jesd204Settings.framerA.M) {
+		ret = TALISE_readFramerStatus(phy->talDevice, TAL_FRAMER_A, &framerStatus);
+		if (ret != TALACT_NO_ACTION) {
+			dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
+			ret = -EFAULT;
+			goto out_disable_obs_rx_clk;
+		}
+
+		if ((framerStatus & 0x07) != 0x05)
+			dev_warn(&phy->spi->dev, "TAL_FRAMER_A framerStatus 0x%X", framerStatus);
 	}
-
-	if ((framerStatus & 0x07) != 0x05)
-		dev_warn(&phy->spi->dev, "TAL_FRAMER_A framerStatus 0x%X", framerStatus);
-
 	/************************************/
 	/**** Check Talise Framer Status ***/
 	/************************************/
-	ret = TALISE_readFramerStatus(phy->talDevice, TAL_FRAMER_B, &framerStatus);
-	if (ret != TALACT_NO_ACTION) {
-		dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
-		ret = -EFAULT;
-		goto out_disable_obs_rx_clk;
-	}
+	if (!IS_ERR_OR_NULL(phy->jesd_rx_os_clk) && phy->talInit.jesd204Settings.framerB.M) {
+		ret = TALISE_readFramerStatus(phy->talDevice, TAL_FRAMER_B, &framerStatus);
+		if (ret != TALACT_NO_ACTION) {
+			dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
+			ret = -EFAULT;
+			goto out_disable_obs_rx_clk;
+		}
 
-	if ((framerStatus & 0x07) != 0x05)
-		dev_warn(&phy->spi->dev, "TAL_FRAMER_B framerStatus 0x%X", framerStatus);
+		if ((framerStatus & 0x07) != 0x05)
+			dev_warn(&phy->spi->dev, "TAL_FRAMER_B framerStatus 0x%X", framerStatus);
+	}
 
 	/*** < User: When links have been verified, proceed > ***/
 
@@ -929,13 +973,14 @@ static int adrv9009_do_setup(struct adrv9009_rf_phy *phy)
 		goto out_disable_obs_rx_clk;
 	}
 
-	ret = TALISE_setupRxAgc(phy->talDevice, &phy->rxAgcCtrl);
-	if (ret != TALACT_NO_ACTION) {
-		dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
-		ret = -EFAULT;
-		goto out_disable_obs_rx_clk;
+	if (has_rx(phy)) {
+		ret = TALISE_setupRxAgc(phy->talDevice, &phy->rxAgcCtrl);
+		if (ret != TALACT_NO_ACTION) {
+			dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
+			ret = -EFAULT;
+			goto out_disable_obs_rx_clk;
+		}
 	}
-
 	/* Function to turn radio on, Enables transmitters and receivers */
 	/* that were setup during TALISE_initialize() */
 	ret = TALISE_radioOn(phy->talDevice);
@@ -946,15 +991,20 @@ static int adrv9009_do_setup(struct adrv9009_rf_phy *phy)
 	}
 
 
-	clk_set_rate(phy->clks[RX_SAMPL_CLK],
-		     phy->talInit.rx.rxProfile.rxOutputRate_kHz * 1000);
-	clk_set_rate(phy->clks[OBS_SAMPL_CLK],
-		     phy->talInit.obsRx.orxProfile.orxOutputRate_kHz * 1000);
-	clk_set_rate(phy->clks[TX_SAMPL_CLK],
-		     phy->talInit.tx.txProfile.txInputRate_kHz * 1000);
+	if (has_rx(phy))
+		clk_set_rate(phy->clks[RX_SAMPL_CLK],
+			phy->talInit.rx.rxProfile.rxOutputRate_kHz * 1000);
 
+	if (has_tx(phy)) {
+		clk_set_rate(phy->clks[OBS_SAMPL_CLK],
+			phy->talInit.obsRx.orxProfile.orxOutputRate_kHz * 1000);
+		clk_set_rate(phy->clks[TX_SAMPL_CLK],
+			phy->talInit.tx.txProfile.txInputRate_kHz * 1000);
+	}
 
-	ret = TALISE_setRxTxEnable(phy->talDevice, TAL_RX1RX2_EN, TAL_TX1TX2);
+	ret = TALISE_setRxTxEnable(phy->talDevice,
+				   has_rx(phy) ? TAL_RX1RX2_EN : 0,
+				   has_tx(phy) ? TAL_TX1TX2 : 0);
 	if (ret != TALACT_NO_ACTION) {
 		dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
 		ret = -EFAULT;
@@ -970,11 +1020,13 @@ static int adrv9009_do_setup(struct adrv9009_rf_phy *phy)
 		goto out_disable_obs_rx_clk;
 	}
 
-	ret = TALISE_setPaProtectionCfg(phy->talDevice, &phy->tx_pa_protection);
-	if (ret != TALACT_NO_ACTION) {
-		dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
-		ret = -EFAULT;
-		goto out_disable_obs_rx_clk;
+	if (has_tx(phy)) {
+		ret = TALISE_setPaProtectionCfg(phy->talDevice, &phy->tx_pa_protection);
+		if (ret != TALACT_NO_ACTION) {
+			dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
+			ret = -EFAULT;
+			goto out_disable_obs_rx_clk;
+		}
 	}
 
 	phy->is_initialized = 1;
@@ -982,11 +1034,14 @@ static int adrv9009_do_setup(struct adrv9009_rf_phy *phy)
 	return 0;
 
 out_disable_obs_rx_clk:
-	clk_disable_unprepare(phy->jesd_rx_os_clk);
+	if (!IS_ERR(phy->jesd_rx_os_clk))
+		clk_disable_unprepare(phy->jesd_rx_os_clk);
 out_disable_rx_clk:
-	clk_disable_unprepare(phy->jesd_rx_clk);
+	if (!IS_ERR(phy->jesd_rx_clk))
+		clk_disable_unprepare(phy->jesd_rx_clk);
 out_disable_tx_clk:
-	clk_disable_unprepare(phy->jesd_tx_clk);
+	if (!IS_ERR(phy->jesd_tx_clk))
+		clk_disable_unprepare(phy->jesd_tx_clk);
 
 out:
 	phy->is_initialized = 0;
@@ -1056,9 +1111,12 @@ static void adrv9009_shutdown(struct adrv9009_rf_phy *phy)
 	adrv9009_sysref_req(phy, SYSREF_CONT_OFF);
 
 	if (phy->is_initialized) {
-		clk_disable_unprepare(phy->jesd_rx_clk);
-		clk_disable_unprepare(phy->jesd_rx_os_clk);
-		clk_disable_unprepare(phy->jesd_tx_clk);
+		if (!IS_ERR(phy->jesd_rx_os_clk))
+			clk_disable_unprepare(phy->jesd_rx_os_clk);
+		if (!IS_ERR(phy->jesd_rx_clk))
+			clk_disable_unprepare(phy->jesd_rx_clk);
+		if (!IS_ERR(phy->jesd_tx_clk))
+			clk_disable_unprepare(phy->jesd_tx_clk);
 	}
 
 	memset(&phy->talise_device.devStateInfo, 0,
@@ -1233,6 +1291,35 @@ static struct attribute *adrv9009_phy_attributes[] = {
 
 static const struct attribute_group adrv9009_phy_attribute_group = {
 	.attrs = adrv9009_phy_attributes,
+};
+
+static struct attribute *adrv90081_phy_attributes[] = {
+	&iio_dev_attr_ensm_mode.dev_attr.attr,
+	&iio_dev_attr_ensm_mode_available.dev_attr.attr,
+	&iio_dev_attr_calibrate.dev_attr.attr,
+	&iio_dev_attr_calibrate_rx_qec_en.dev_attr.attr,
+	&iio_dev_attr_calibrate_rx_phase_correction_en.dev_attr.attr,
+	&iio_dev_attr_calibrate_frm_en.dev_attr.attr,
+	NULL,
+};
+
+static const struct attribute_group adrv90081_phy_attribute_group = {
+	.attrs = adrv90081_phy_attributes,
+};
+
+static struct attribute *adrv90082_phy_attributes[] = {
+	&iio_dev_attr_ensm_mode.dev_attr.attr,
+	&iio_dev_attr_ensm_mode_available.dev_attr.attr,
+	&iio_dev_attr_calibrate.dev_attr.attr,
+	&iio_dev_attr_calibrate_tx_qec_en.dev_attr.attr,
+	&iio_dev_attr_calibrate_tx_lol_en.dev_attr.attr,
+	&iio_dev_attr_calibrate_tx_lol_ext_en.dev_attr.attr,
+	&iio_dev_attr_calibrate_frm_en.dev_attr.attr,
+	NULL,
+};
+
+static const struct attribute_group adrv90082_phy_attribute_group = {
+	.attrs = adrv90082_phy_attributes,
 };
 
 static int adrv9009_phy_reg_access(struct iio_dev *indio_dev,
@@ -2614,6 +2701,317 @@ static const struct iio_info adrv9009_phy_info = {
 	.write_raw = &adrv9009_phy_write_raw,
 	.debugfs_reg_access = &adrv9009_phy_reg_access,
 	.attrs = &adrv9009_phy_attribute_group,
+	.driver_module = THIS_MODULE,
+};
+
+static const struct iio_chan_spec adrv90081_phy_chan[] = {
+	{	/* RX LO */
+		.type = IIO_ALTVOLTAGE,
+		.indexed = 1,
+		.output = 1,
+		.channel = 0,
+		.extend_name = "RX_LO",
+		.ext_info = adrv9009_phy_ext_lo_info,
+	}, {	/* RX1 */
+		.type = IIO_VOLTAGE,
+		.indexed = 1,
+		.channel = CHAN_RX1,
+		.info_mask_separate = BIT(IIO_CHAN_INFO_HARDWAREGAIN) | BIT(IIO_CHAN_INFO_SAMP_FREQ),
+		.ext_info = adrv9009_phy_rx_ext_info,
+	}, {	/* RX2 */
+		.type = IIO_VOLTAGE,
+		.indexed = 1,
+		.channel = CHAN_RX2,
+		.info_mask_separate = BIT(IIO_CHAN_INFO_HARDWAREGAIN) | BIT(IIO_CHAN_INFO_SAMP_FREQ),
+		.ext_info = adrv9009_phy_rx_ext_info,
+	}, {	/* AUXADC0 */
+		.type = IIO_VOLTAGE,
+		.indexed = 1,
+		.channel = CHAN_AUXADC0,
+		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
+		BIT(IIO_CHAN_INFO_SCALE) | BIT(IIO_CHAN_INFO_OFFSET),
+	}, {	/* AUXADC1 */
+		.type = IIO_VOLTAGE,
+		.indexed = 1,
+		.channel = CHAN_AUXADC1,
+		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
+		BIT(IIO_CHAN_INFO_SCALE) | BIT(IIO_CHAN_INFO_OFFSET),
+	}, {	/* AUXADC2 */
+		.type = IIO_VOLTAGE,
+		.indexed = 1,
+		.channel = CHAN_AUXADC2,
+		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
+		BIT(IIO_CHAN_INFO_SCALE) | BIT(IIO_CHAN_INFO_OFFSET),
+	}, {	/* AUXADC3 */
+		.type = IIO_VOLTAGE,
+		.indexed = 1,
+		.channel = CHAN_AUXADC3,
+		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
+		BIT(IIO_CHAN_INFO_SCALE) | BIT(IIO_CHAN_INFO_OFFSET),
+	}, {	/* AUXDAC0 */
+		.type = IIO_VOLTAGE,
+		.indexed = 1,
+		.output = 1,
+		.channel = CHAN_AUXDAC0,
+		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
+		BIT(IIO_CHAN_INFO_SCALE) | BIT(IIO_CHAN_INFO_OFFSET),
+	}, {	/* AUXDAC1 */
+		.type = IIO_VOLTAGE,
+		.indexed = 1,
+		.output = 1,
+		.channel = CHAN_AUXDAC1,
+		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
+		BIT(IIO_CHAN_INFO_SCALE) | BIT(IIO_CHAN_INFO_OFFSET),
+	}, {	/* AUXDAC2 */
+		.type = IIO_VOLTAGE,
+		.indexed = 1,
+		.output = 1,
+		.channel = CHAN_AUXDAC2,
+		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
+		BIT(IIO_CHAN_INFO_SCALE) | BIT(IIO_CHAN_INFO_OFFSET),
+	}, {	/* AUXDAC3 */
+		.type = IIO_VOLTAGE,
+		.indexed = 1,
+		.output = 1,
+		.channel = CHAN_AUXDAC3,
+		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
+		BIT(IIO_CHAN_INFO_SCALE) | BIT(IIO_CHAN_INFO_OFFSET),
+	}, {	/* AUXDAC4 */
+		.type = IIO_VOLTAGE,
+		.indexed = 1,
+		.output = 1,
+		.channel = CHAN_AUXDAC4,
+		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
+		BIT(IIO_CHAN_INFO_SCALE) | BIT(IIO_CHAN_INFO_OFFSET),
+	}, {	/* AUXDAC5 */
+		.type = IIO_VOLTAGE,
+		.indexed = 1,
+		.output = 1,
+		.channel = CHAN_AUXDAC5,
+		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
+		BIT(IIO_CHAN_INFO_SCALE) | BIT(IIO_CHAN_INFO_OFFSET),
+	}, {	/* AUXDAC6 */
+		.type = IIO_VOLTAGE,
+		.indexed = 1,
+		.output = 1,
+		.channel = CHAN_AUXDAC6,
+		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
+		BIT(IIO_CHAN_INFO_SCALE) | BIT(IIO_CHAN_INFO_OFFSET),
+	}, {	/* AUXDAC7 */
+		.type = IIO_VOLTAGE,
+		.indexed = 1,
+		.output = 1,
+		.channel = CHAN_AUXDAC7,
+		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
+		BIT(IIO_CHAN_INFO_SCALE) | BIT(IIO_CHAN_INFO_OFFSET),
+	}, {	/* AUXDAC8 */
+		.type = IIO_VOLTAGE,
+		.indexed = 1,
+		.output = 1,
+		.channel = CHAN_AUXDAC8,
+		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
+		BIT(IIO_CHAN_INFO_SCALE) | BIT(IIO_CHAN_INFO_OFFSET),
+	}, {	/* AUXDAC9 */
+		.type = IIO_VOLTAGE,
+		.indexed = 1,
+		.output = 1,
+		.channel = CHAN_AUXDAC9,
+		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
+		BIT(IIO_CHAN_INFO_SCALE) | BIT(IIO_CHAN_INFO_OFFSET),
+	}, {	/* AUXDAC10 */
+		.type = IIO_VOLTAGE,
+		.indexed = 1,
+		.output = 1,
+		.channel = CHAN_AUXDAC10,
+		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
+		BIT(IIO_CHAN_INFO_SCALE),
+	}, {	/* AUXDAC11 */
+		.type = IIO_VOLTAGE,
+		.indexed = 1,
+		.output = 1,
+		.channel = CHAN_AUXDAC11,
+		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
+		BIT(IIO_CHAN_INFO_SCALE),
+	}, {
+		.type = IIO_TEMP,
+		.indexed = 1,
+		.channel = 0,
+		.info_mask_separate = BIT(IIO_CHAN_INFO_PROCESSED),
+	},
+};
+
+static const struct iio_info adrv90081_phy_info = {
+	.read_raw = &adrv9009_phy_read_raw,
+	.write_raw = &adrv9009_phy_write_raw,
+	.debugfs_reg_access = &adrv9009_phy_reg_access,
+	.attrs = &adrv90081_phy_attribute_group,
+	.driver_module = THIS_MODULE,
+};
+
+static const struct iio_chan_spec adrv90082_phy_chan[] = {
+	{	/* TX LO */
+		.type = IIO_ALTVOLTAGE,
+		.indexed = 1,
+		.output = 1,
+		.channel = 0,
+		.extend_name = "TX_LO",
+		.ext_info = adrv9009_phy_ext_lo_info,
+	}, {	/* AUX RX Observation LO */
+		.type = IIO_ALTVOLTAGE,
+		.indexed = 1,
+		.output = 1,
+		.channel = 1,
+		.extend_name = "AUX_OBS_RX_LO",
+		.ext_info = adrv9009_phy_ext_auxlo_info,
+	}, {	/* TX1 */
+		.type = IIO_VOLTAGE,
+		.indexed = 1,
+		.output = 1,
+		.channel = 0,
+		.info_mask_separate = BIT(IIO_CHAN_INFO_HARDWAREGAIN),
+		.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SAMP_FREQ),
+		.ext_info = adrv9009_phy_tx_ext_info,
+	}, {	/* TX2 */
+		.type = IIO_VOLTAGE,
+		.indexed = 1,
+		.output = 1,
+		.channel = 1,
+		.info_mask_separate = BIT(IIO_CHAN_INFO_HARDWAREGAIN),
+		.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SAMP_FREQ),
+		.ext_info = adrv9009_phy_tx_ext_info,
+	}, {	/* RX Sniffer/Observation */
+		.type = IIO_VOLTAGE,
+		.indexed = 1,
+		.channel = CHAN_OBS_RX1,
+		.info_mask_separate = BIT(IIO_CHAN_INFO_HARDWAREGAIN) | BIT(IIO_CHAN_INFO_SAMP_FREQ),
+		.ext_info = adrv9009_phy_obs_rx_ext_info,
+	}, {	/* RX Sniffer/Observation */
+		.type = IIO_VOLTAGE,
+		.indexed = 1,
+		.channel = CHAN_OBS_RX2,
+		.info_mask_separate = BIT(IIO_CHAN_INFO_HARDWAREGAIN) | BIT(IIO_CHAN_INFO_SAMP_FREQ),
+		.ext_info = adrv9009_phy_obs_rx_ext_info,
+	}, {	/* AUXADC0 */
+		.type = IIO_VOLTAGE,
+		.indexed = 1,
+		.channel = CHAN_AUXADC0,
+		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
+		BIT(IIO_CHAN_INFO_SCALE) | BIT(IIO_CHAN_INFO_OFFSET),
+	}, {	/* AUXADC1 */
+		.type = IIO_VOLTAGE,
+		.indexed = 1,
+		.channel = CHAN_AUXADC1,
+		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
+		BIT(IIO_CHAN_INFO_SCALE) | BIT(IIO_CHAN_INFO_OFFSET),
+	}, {	/* AUXADC2 */
+		.type = IIO_VOLTAGE,
+		.indexed = 1,
+		.channel = CHAN_AUXADC2,
+		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
+		BIT(IIO_CHAN_INFO_SCALE) | BIT(IIO_CHAN_INFO_OFFSET),
+	}, {	/* AUXADC3 */
+		.type = IIO_VOLTAGE,
+		.indexed = 1,
+		.channel = CHAN_AUXADC3,
+		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
+		BIT(IIO_CHAN_INFO_SCALE) | BIT(IIO_CHAN_INFO_OFFSET),
+	}, {	/* AUXDAC0 */
+		.type = IIO_VOLTAGE,
+		.indexed = 1,
+		.output = 1,
+		.channel = CHAN_AUXDAC0,
+		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
+		BIT(IIO_CHAN_INFO_SCALE) | BIT(IIO_CHAN_INFO_OFFSET),
+	}, {	/* AUXDAC1 */
+		.type = IIO_VOLTAGE,
+		.indexed = 1,
+		.output = 1,
+		.channel = CHAN_AUXDAC1,
+		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
+		BIT(IIO_CHAN_INFO_SCALE) | BIT(IIO_CHAN_INFO_OFFSET),
+	}, {	/* AUXDAC2 */
+		.type = IIO_VOLTAGE,
+		.indexed = 1,
+		.output = 1,
+		.channel = CHAN_AUXDAC2,
+		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
+		BIT(IIO_CHAN_INFO_SCALE) | BIT(IIO_CHAN_INFO_OFFSET),
+	}, {	/* AUXDAC3 */
+		.type = IIO_VOLTAGE,
+		.indexed = 1,
+		.output = 1,
+		.channel = CHAN_AUXDAC3,
+		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
+		BIT(IIO_CHAN_INFO_SCALE) | BIT(IIO_CHAN_INFO_OFFSET),
+	}, {	/* AUXDAC4 */
+		.type = IIO_VOLTAGE,
+		.indexed = 1,
+		.output = 1,
+		.channel = CHAN_AUXDAC4,
+		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
+		BIT(IIO_CHAN_INFO_SCALE) | BIT(IIO_CHAN_INFO_OFFSET),
+	}, {	/* AUXDAC5 */
+		.type = IIO_VOLTAGE,
+		.indexed = 1,
+		.output = 1,
+		.channel = CHAN_AUXDAC5,
+		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
+		BIT(IIO_CHAN_INFO_SCALE) | BIT(IIO_CHAN_INFO_OFFSET),
+	}, {	/* AUXDAC6 */
+		.type = IIO_VOLTAGE,
+		.indexed = 1,
+		.output = 1,
+		.channel = CHAN_AUXDAC6,
+		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
+		BIT(IIO_CHAN_INFO_SCALE) | BIT(IIO_CHAN_INFO_OFFSET),
+	}, {	/* AUXDAC7 */
+		.type = IIO_VOLTAGE,
+		.indexed = 1,
+		.output = 1,
+		.channel = CHAN_AUXDAC7,
+		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
+		BIT(IIO_CHAN_INFO_SCALE) | BIT(IIO_CHAN_INFO_OFFSET),
+	}, {	/* AUXDAC8 */
+		.type = IIO_VOLTAGE,
+		.indexed = 1,
+		.output = 1,
+		.channel = CHAN_AUXDAC8,
+		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
+		BIT(IIO_CHAN_INFO_SCALE) | BIT(IIO_CHAN_INFO_OFFSET),
+	}, {	/* AUXDAC9 */
+		.type = IIO_VOLTAGE,
+		.indexed = 1,
+		.output = 1,
+		.channel = CHAN_AUXDAC9,
+		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
+		BIT(IIO_CHAN_INFO_SCALE) | BIT(IIO_CHAN_INFO_OFFSET),
+	}, {	/* AUXDAC10 */
+		.type = IIO_VOLTAGE,
+		.indexed = 1,
+		.output = 1,
+		.channel = CHAN_AUXDAC10,
+		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
+		BIT(IIO_CHAN_INFO_SCALE),
+	}, {	/* AUXDAC11 */
+		.type = IIO_VOLTAGE,
+		.indexed = 1,
+		.output = 1,
+		.channel = CHAN_AUXDAC11,
+		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
+		BIT(IIO_CHAN_INFO_SCALE),
+	}, {
+		.type = IIO_TEMP,
+		.indexed = 1,
+		.channel = 0,
+		.info_mask_separate = BIT(IIO_CHAN_INFO_PROCESSED),
+	},
+};
+
+static const struct iio_info adrv90082_phy_info = {
+	.read_raw = &adrv9009_phy_read_raw,
+	.write_raw = &adrv9009_phy_write_raw,
+	.debugfs_reg_access = &adrv9009_phy_reg_access,
+	.attrs = &adrv90082_phy_attribute_group,
 	.driver_module = THIS_MODULE,
 };
 
@@ -4302,9 +4700,12 @@ static int adrv9009_probe(struct spi_device *spi)
 	taliseArmVersionInfo_t talArmVersionInfo;
 	u32 api_vers[4];
 
+	int id = spi_get_device_id(spi)->driver_data;
+
 	dev_info(&spi->dev, "%s : enter", __func__);
 
-	clk = devm_clk_get(&spi->dev, "jesd_rx_clk");
+	clk = devm_clk_get(&spi->dev, (id == ID_ADRV90082) ?
+			   "jesd_tx_clk" : "jesd_rx_clk");
 	if (IS_ERR(clk))
 		return PTR_ERR(clk);
 
@@ -4315,6 +4716,7 @@ static int adrv9009_probe(struct spi_device *spi)
 	phy = iio_priv(indio_dev);
 	phy->indio_dev = indio_dev;
 	phy->spi = spi;
+	phy->spi_device_id = id;
 
 	ret = adrv9009_phy_parse_dt(indio_dev, &spi->dev);
 	if (ret < 0)
@@ -4330,15 +4732,16 @@ static int adrv9009_probe(struct spi_device *spi)
 	phy->sysref_req_gpio = devm_gpiod_get(&spi->dev, "sysref-req",
 					      GPIOD_OUT_HIGH);
 
-	phy->jesd_rx_clk = clk;
+	if (id == ID_ADRV90082)
+		phy->jesd_tx_clk = clk;
+	else
+		phy->jesd_rx_clk = clk;
 
-	phy->jesd_tx_clk = devm_clk_get(&spi->dev, "jesd_tx_clk");
-	if (IS_ERR(phy->jesd_tx_clk))
-		return PTR_ERR(phy->jesd_tx_clk);
+	if (id == ID_ADRV9009)
+		phy->jesd_tx_clk = devm_clk_get(&spi->dev, "jesd_tx_clk");
 
-	phy->jesd_rx_os_clk = devm_clk_get(&spi->dev, "jesd_rx_os_clk");
-	if (IS_ERR(phy->jesd_rx_os_clk))
-		return PTR_ERR(phy->jesd_rx_os_clk);
+	if (id == ID_ADRV9009 || id == ID_ADRV90082)
+		phy->jesd_rx_os_clk = devm_clk_get(&spi->dev, "jesd_rx_os_clk");
 
 	phy->dev_clk = devm_clk_get(&spi->dev, "dev_clk");
 	if (IS_ERR(phy->dev_clk))
@@ -4360,7 +4763,19 @@ static int adrv9009_probe(struct spi_device *spi)
 		return ret;
 
 	if (of_property_read_string(spi->dev.of_node, "arm-firmware-name", &name))
-		name = FIRMWARE;
+		switch (id) {
+		case ID_ADRV9009:
+			name = FIRMWARE;
+			break;
+		case ID_ADRV90081:
+			name = FIRMWARE_RX;
+			break;
+		case ID_ADRV90082:
+			name = FIRMWARE_TX;
+			break;
+		default:
+			return -EINVAL;
+		}
 
 	ret = request_firmware(&phy->fw, name, &spi->dev);
 	if (ret) {
@@ -4387,14 +4802,20 @@ static int adrv9009_probe(struct spi_device *spi)
 			goto out_unregister_notifier;
 	}
 
-	adrv9009_clk_register(phy, "-rx_sampl_clk", NULL, NULL,
-			      CLK_GET_RATE_NOCACHE | CLK_IGNORE_UNUSED , RX_SAMPL_CLK);
+	if (has_rx(phy))
+		adrv9009_clk_register(phy, "-rx_sampl_clk", NULL, NULL,
+				CLK_GET_RATE_NOCACHE | CLK_IGNORE_UNUSED,
+				RX_SAMPL_CLK);
 
-	adrv9009_clk_register(phy, "-obs_sampl_clk", NULL, NULL,
-			      CLK_GET_RATE_NOCACHE | CLK_IGNORE_UNUSED, OBS_SAMPL_CLK);
+	if (has_tx(phy)) {
+		adrv9009_clk_register(phy, "-obs_sampl_clk", NULL, NULL,
+				CLK_GET_RATE_NOCACHE | CLK_IGNORE_UNUSED,
+				OBS_SAMPL_CLK);
 
-	adrv9009_clk_register(phy, "-tx_sampl_clk", NULL, NULL,
-			      CLK_GET_RATE_NOCACHE | CLK_IGNORE_UNUSED, TX_SAMPL_CLK);
+		adrv9009_clk_register(phy, "-tx_sampl_clk", NULL, NULL,
+				CLK_GET_RATE_NOCACHE | CLK_IGNORE_UNUSED,
+				TX_SAMPL_CLK);
+	}
 
 	phy->clk_data.clks = phy->clks;
 	phy->clk_data.clk_num = NUM_ADRV9009_CLKS;
@@ -4424,10 +4845,28 @@ static int adrv9009_probe(struct spi_device *spi)
 	else
 		indio_dev->name = "adrv9009-phy";
 
-	indio_dev->info = &adrv9009_phy_info;
 	indio_dev->modes = INDIO_DIRECT_MODE;
-	indio_dev->channels = adrv9009_phy_chan;
-	indio_dev->num_channels = ARRAY_SIZE(adrv9009_phy_chan);
+
+	switch (id) {
+	case ID_ADRV9009:
+		indio_dev->info = &adrv9009_phy_info;
+		indio_dev->channels = adrv9009_phy_chan;
+		indio_dev->num_channels = ARRAY_SIZE(adrv9009_phy_chan);
+		break;
+	case ID_ADRV90081:
+		indio_dev->info = &adrv90081_phy_info;
+		indio_dev->channels = adrv90081_phy_chan;
+		indio_dev->num_channels = ARRAY_SIZE(adrv90081_phy_chan);
+		break;
+	case ID_ADRV90082:
+		indio_dev->info = &adrv90082_phy_info;
+		indio_dev->channels = adrv90082_phy_chan;
+		indio_dev->num_channels = ARRAY_SIZE(adrv90082_phy_chan);
+		break;
+	default:
+		ret = -EINVAL;
+		goto out_clk_del_provider;
+	}
 
 	ret = iio_device_register(indio_dev);
 	if (ret < 0)
