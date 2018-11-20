@@ -1065,7 +1065,7 @@ static int ad9371_setup(struct ad9371_rf_phy *phy)
 	phy->rf_bandwith[1] = mykDevice->obsRx->orxProfile->rfBandwidth_Hz;
 	phy->rf_bandwith[2] = mykDevice->tx->txProfile->primarySigBandwidth_Hz;
 
-	phy->is_initalized = 1;
+	phy->is_initialized = 1;
 
 	return 0;
 
@@ -1077,7 +1077,7 @@ out_disable_tx_clk:
 	clk_disable_unprepare(phy->jesd_tx_clk);
 
 out:
-	phy->is_initalized = 0;
+	phy->is_initialized = 0;
 
 	return ret;
 }
@@ -1086,7 +1086,7 @@ static int ad9371_reinit(struct ad9371_rf_phy *phy)
 {
 	int ret;
 
-	if (phy->is_initalized) {
+	if (phy->is_initialized) {
 		clk_disable_unprepare(phy->jesd_rx_clk);
 		clk_disable_unprepare(phy->jesd_rx_os_clk);
 		clk_disable_unprepare(phy->jesd_tx_clk);
