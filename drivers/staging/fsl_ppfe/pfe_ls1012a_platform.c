@@ -20,12 +20,12 @@
 
 struct ls1012a_pfe_platform_data pfe_platform_data;
 
-static int pfe_get_gemac_if_proprties(struct device_node *parent, int port, int
+static int pfe_get_gemac_if_properties(struct device_node *parent, int port, int
 					if_cnt,
 					struct ls1012a_pfe_platform_data
 					*pdata)
 {
-	struct device_node *gem = NULL, *phy = NULL;
+	struct device_node *gem = NULL, *phy = NULL, *phy_node = NULL;
 	int size;
 	int ii = 0, phy_id = 0;
 	const u32 *addr;
@@ -49,17 +49,10 @@ static int pfe_get_gemac_if_proprties(struct device_node *parent, int port, int
 	pdata->ls1012a_eth_pdata[port].gem_id = port;
 
 	mac_addr = of_get_mac_address(gem);
-
 	if (mac_addr) {
 		memcpy(pdata->ls1012a_eth_pdata[port].mac_addr, mac_addr,
 		       ETH_ALEN);
 	}
-
-	pdata->ls1012a_eth_pdata[port].mii_config = of_get_phy_mode(gem);
-
-	if ((pdata->ls1012a_eth_pdata[port].mii_config) < 0)
-		pr_err("%s:%d Incorrect Phy mode....\n", __func__,
-		       __LINE__);
 
 	addr = of_get_property(gem, "fsl,gemac-bus-id", &size);
 	if (!addr)
@@ -68,15 +61,54 @@ static int pfe_get_gemac_if_proprties(struct device_node *parent, int port, int
 	else
 		pdata->ls1012a_eth_pdata[port].bus_id = be32_to_cpup(addr);
 
-	addr = of_get_property(gem, "fsl,gemac-phy-id", &size);
-	if (!addr) {
-		pr_err("%s:%d Invalid gemac-phy-id....\n", __func__,
-		       __LINE__);
+	phy_node = of_parse_phandle(gem, "phy-handle", 0);
+	pdata->ls1012a_eth_pdata[port].phy_node = phy_node;
+	if (phy_node) {
+		goto process_phynode;
+	} else if (of_phy_is_fixed_link(gem)) {
+		if (of_phy_register_fixed_link(gem) < 0) {
+			pr_err("broken fixed-link specification\n");
+			goto err;
+		}
+		phy_node = of_node_get(gem);
+		pdata->ls1012a_eth_pdata[port].phy_node = phy_node;
+	} else if (of_get_property(gem, "fsl,pfe-phy-if-flags", &size)) {
+		/* Use old dts properties for phy handling */
+		addr = of_get_property(gem, "fsl,pfe-phy-if-flags", &size);
+		pdata->ls1012a_eth_pdata[port].phy_flags = be32_to_cpup(addr);
+
+		addr = of_get_property(gem, "fsl,gemac-phy-id", &size);
+		if (!addr) {
+			pr_err("%s:%d Invalid gemac-phy-id....\n", __func__,
+			       __LINE__);
+		} else {
+			phy_id = be32_to_cpup(addr);
+			pdata->ls1012a_eth_pdata[port].phy_id = phy_id;
+			pdata->ls1012a_mdio_pdata[0].phy_mask &= ~(1 << phy_id);
+		}
+
+		/* If PHY is enabled, read mdio properties */
+		if (pdata->ls1012a_eth_pdata[port].phy_flags & GEMAC_NO_PHY)
+			goto done;
+
+		phy = of_get_next_child(gem, NULL);
+		addr = of_get_property(phy, "reg", &size);
+		if (!addr)
+			pr_err("%s:%d Invalid phy enable flag....\n",
+			       __func__, __LINE__);
+		else
+			pdata->ls1012a_mdio_pdata[port].enabled =
+							be32_to_cpup(addr);
 	} else {
-		phy_id = be32_to_cpup(addr);
-		pdata->ls1012a_eth_pdata[port].phy_id = phy_id;
-		pdata->ls1012a_mdio_pdata[0].phy_mask &= ~(1 << phy_id);
+		pr_info("%s: No PHY or fixed-link\n", __func__);
+		return 0;
 	}
+
+process_phynode:
+	pdata->ls1012a_eth_pdata[port].mii_config = of_get_phy_mode(gem);
+	if ((pdata->ls1012a_eth_pdata[port].mii_config) < 0)
+		pr_err("%s:%d Incorrect Phy mode....\n", __func__,
+		       __LINE__);
 
 	addr = of_get_property(gem, "fsl,mdio-mux-val", &size);
 	if (!addr) {
@@ -90,33 +122,10 @@ static int pfe_get_gemac_if_proprties(struct device_node *parent, int port, int
 		pfe->mdio_muxval[pdata->ls1012a_eth_pdata[port].phy_id] =
 			 pdata->ls1012a_eth_pdata[port].mdio_muxval;
 
-	addr = of_get_property(gem, "fsl,pfe-phy-if-flags", &size);
-	if (!addr)
-		pr_err("%s:%d Invalid pfe-phy-if-flags....\n",
-		       __func__, __LINE__);
-	else
-		pdata->ls1012a_eth_pdata[port].phy_flags = be32_to_cpup(addr);
-
-	/* If PHY is enabled, read mdio properties */
-	if (pdata->ls1012a_eth_pdata[port].phy_flags & GEMAC_NO_PHY)
-		goto done;
-
-	phy = of_get_next_child(gem, NULL);
-
-	addr = of_get_property(phy, "reg", &size);
-
-	if (!addr)
-		pr_err("%s:%d Invalid phy enable flag....\n",
-		       __func__, __LINE__);
-	else
-		pdata->ls1012a_mdio_pdata[port].enabled = be32_to_cpup(addr);
 
 	pdata->ls1012a_mdio_pdata[port].irq[0] = PHY_POLL;
 
 done:
-	if (of_phy_is_fixed_link(gem))
-		pdata->ls1012a_eth_pdata[port].phy_node = of_node_get(gem);
-
 	return 0;
 
 err:
@@ -218,8 +227,8 @@ static int pfe_platform_probe(struct platform_device *pdev)
 	pfe_platform_data.ls1012a_mdio_pdata[0].phy_mask = 0xffffffff;
 
 	for (ii = 0; ii < interface_count; ii++) {
-		pfe_get_gemac_if_proprties(np, ii, interface_count,
-					   &pfe_platform_data);
+		pfe_get_gemac_if_properties(np, ii, interface_count,
+					    &pfe_platform_data);
 	}
 
 	pfe->dev = &pdev->dev;
