@@ -167,10 +167,8 @@ struct ad7192_state {
 	u8				devid;
 	u8				clock_sel;
 	bool				refin2_en;
-	bool				rej60_en;
 	bool				sinc3_en;
 	bool				chop_en;
-	bool				buf_en;
 	bool				unipolar_en;
 	bool				burnout_curr_en;
 
@@ -264,9 +262,7 @@ static int ad7192_setup(struct ad7192_state *st)
 
 	st->conf = AD7192_CONF_GAIN(0);
 
-	if (st->rej60_en)
-		st->mode |= AD7192_MODE_REJ60;
-
+	st->mode |= AD7192_MODE_REJ60;
 	if (st->sinc3_en)
 		st->mode |= AD7192_MODE_SINC3;
 
@@ -281,8 +277,7 @@ static int ad7192_setup(struct ad7192_state *st)
 		st->f_order = 1;
 	}
 
-	if (st->buf_en)
-		st->conf |= AD7192_CONF_BUF;
+	st->conf |= AD7192_CONF_BUF;
 	if (st->refin2_en && (st->devid != ID_AD7195))
 		st->conf |= AD7192_CONF_REFSEL;
 
@@ -612,10 +607,8 @@ static const struct iio_chan_spec ad7193_channels[] = {
 static void ad7192_parse_dt(struct device_node *np,
 			    struct ad7192_state *st)
 {
-	st->rej60_en = of_property_read_bool(np, "adi,rejection-60-Hz-enable");
 	st->sinc3_en = of_property_read_bool(np, "adi,sinc3-filter-enable");
 	st->chop_en = of_property_read_bool(np, "adi,chop-enable");
-	st->buf_en = of_property_read_bool(np, "adi,buffer-enable");
 	st->unipolar_en = of_property_read_bool(np, "adi,unipolar-enable");
 	st->burnout_curr_en = of_property_read_bool(np, "adi,burnout-currents-enable");
 }
