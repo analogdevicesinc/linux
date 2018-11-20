@@ -9,6 +9,14 @@
 
 / {
 	model = "FSL i.MX8MM DDR4 EVK board";
+
+	leds {
+		pinctrl-0 = <&pinctrl_gpio_led_2>;
+
+		status {
+			gpios = <&gpio3 4 GPIO_ACTIVE_LOW>;
+		};
+	};
 };
 
 &iomuxc {
@@ -31,6 +39,12 @@
 				MX8MM_IOMUXC_NAND_READY_B_RAWNAND_READY_B	0x00000056
 				MX8MM_IOMUXC_NAND_WE_B_RAWNAND_WE_B		0x00000096
 				MX8MM_IOMUXC_NAND_WP_B_RAWNAND_WP_B		0x00000096
+			>;
+		};
+
+		pinctrl_gpio_led_2: gpioled2grp {
+			fsl,pins = <
+				MX8MM_IOMUXC_NAND_CE3_B_GPIO3_IO4	0x19
 			>;
 		};
 	};
