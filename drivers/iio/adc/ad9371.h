@@ -223,7 +223,7 @@ struct ad9371_rf_phy {
 	u32			init_cal_mask;
 	u32			cal_mask;
 	u32			rf_bandwith[3];
-	bool			is_initalized;
+	bool			is_initialized;
 };
 
 int ad9371_hdl_loopback(struct ad9371_rf_phy *phy, bool enable);
