@@ -96,6 +96,10 @@
 	status = "disabled";
 };
 
+&intmux_cm40 {
+	status = "disabled";
+};
+
 &flexcan1 {
 	status = "disabled";
 };
