@@ -2401,7 +2401,7 @@ static int __maybe_unused fsl_micfil_runtime_resume(struct device *dev)
 #endif /* CONFIG_PM*/
 
 #ifdef CONFIG_PM_SLEEP
-static int fsl_micfil_suspend(struct device *dev)
+static int __maybe_unused fsl_micfil_suspend(struct device *dev)
 {
 	struct fsl_micfil *micfil = dev_get_drvdata(dev);
 	int ret;
@@ -2421,7 +2421,7 @@ static int fsl_micfil_suspend(struct device *dev)
 	return 0;
 }
 
-static int fsl_micfil_resume(struct device *dev)
+static int __maybe_unused fsl_micfil_resume(struct device *dev)
 {
 	struct fsl_micfil *micfil = dev_get_drvdata(dev);
 	int ret;
