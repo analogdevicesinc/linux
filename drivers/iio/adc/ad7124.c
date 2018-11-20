@@ -128,18 +128,16 @@ static const struct iio_chan_spec ad7124_channel_template = {
 	.type = IIO_VOLTAGE,
 	.indexed = 1,
 	.differential = 1,
-	.channel = 0,
-	.address = 0,
 	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
 		BIT(IIO_CHAN_INFO_SCALE) |
 		BIT(IIO_CHAN_INFO_OFFSET) |
 		BIT(IIO_CHAN_INFO_SAMP_FREQ),
-	.scan_index = 0,
 	.scan_type = {
 		.sign = 'u',
 		.realbits = 24,
 		.storagebits = 32,
-		.shift = 0,
+		.shift = 8,
+		.endianness = IIO_BE,
 	},
 };
 
@@ -155,19 +153,26 @@ static struct ad7124_chip_info ad7124_chip_info_tbl[] = {
 static int ad7124_find_closest_match(const int *array,
 				     unsigned int size, int val)
 {
-	int i;
+	int i, idx;
+	unsigned int diff_new, diff_old;
+
+	diff_old = U32_MAX;
+	idx = 0;
 
 	for (i = 0; i < size; i++) {
-		if (val <= array[i])
-			return i;
+		diff_new = abs(val - array[i]);
+		if (diff_new < diff_old) {
+			diff_old = diff_new;
+			idx = i;
+		}
 	}
 
-	return size - 1;
+	return idx;
 }
 
 static int ad7124_spi_write_mask(struct ad7124_state *st,
 				 unsigned int addr,
-				 unsigned long int mask,
+				 unsigned long mask,
 				 unsigned int val,
 				 unsigned int bytes)
 {
@@ -249,6 +254,26 @@ static int ad7124_set_channel_odr(struct ad7124_state *st,
 	return 0;
 }
 
+static int ad7124_set_channel_gain(struct ad7124_state *st,
+				   unsigned int channel,
+				   unsigned int gain)
+{
+	unsigned int res;
+	int ret;
+
+	res = ad7124_find_closest_match(ad7124_gain,
+					ARRAY_SIZE(ad7124_gain), gain);
+	ret = ad7124_spi_write_mask(st, AD7124_CONFIG(channel),
+				    AD7124_CONFIG_PGA_MSK,
+				    AD7124_CONFIG_PGA(res), 2);
+	if (ret < 0)
+		return ret;
+
+	st->channel_config[channel].pga_bits = res;
+
+	return 0;
+}
+
 static int ad7124_read_raw(struct iio_dev *indio_dev,
 			   struct iio_chan_spec const *chan,
 			   int *val, int *val2, long info)
@@ -273,23 +298,18 @@ static int ad7124_read_raw(struct iio_dev *indio_dev,
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_SCALE:
 		idx = st->channel_config[chan->address].pga_bits;
-		*val = st->channel_config[chan->address].vref_mv /
-			ad7124_gain[idx];
+		*val = st->channel_config[chan->address].vref_mv;
 		if (st->channel_config[chan->address].bipolar)
-			*val2 = chan->scan_type.realbits - 1;
+			*val2 = chan->scan_type.realbits - 1 + idx;
 		else
-			*val2 = chan->scan_type.realbits;
+			*val2 = chan->scan_type.realbits + idx;
 
 		return IIO_VAL_FRACTIONAL_LOG2;
 	case IIO_CHAN_INFO_OFFSET:
-		if (st->channel_config[chan->address].bipolar) {
-			/* Code = 2^(n − 1) × ((Ain × Gain / Vref) + 1) */
-			idx = st->channel_config[chan->address].pga_bits;
-			*val = -(st->channel_config[chan->address].vref_mv /
-				 ad7124_gain[idx]);
-		} else {
+		if (st->channel_config[chan->address].bipolar)
+			*val = -(1 << (chan->scan_type.realbits - 1));
+		else
 			*val = 0;
-		}
 
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_SAMP_FREQ:
@@ -306,18 +326,50 @@ static int ad7124_write_raw(struct iio_dev *indio_dev,
 			    int val, int val2, long info)
 {
 	struct ad7124_state *st = iio_priv(indio_dev);
+	unsigned int res, gain, full_scale, vref;
 
 	switch (info) {
 	case IIO_CHAN_INFO_SAMP_FREQ:
+		if (val2 != 0)
+			return -EINVAL;
+
 		return ad7124_set_channel_odr(st, chan->address, val);
+	case IIO_CHAN_INFO_SCALE:
+		if (val != 0)
+			return -EINVAL;
+
+		if (st->channel_config[chan->address].bipolar)
+			full_scale = 1 << (chan->scan_type.realbits - 1);
+		else
+			full_scale = 1 << chan->scan_type.realbits;
+
+		vref = st->channel_config[chan->address].vref_mv * 1000000LL;
+		res = DIV_ROUND_CLOSEST(vref, full_scale);
+		gain = DIV_ROUND_CLOSEST(res, val2);
+
+		return ad7124_set_channel_gain(st, chan->address, gain);
 	default:
 		return -EINVAL;
 	}
 }
 
+static IIO_CONST_ATTR(in_voltage_scale_available,
+	"0.000001164 0.000002328 0.000004656 0.000009313 0.000018626 0.000037252 0.000074505 0.000149011 0.000298023");
+
+static struct attribute *ad7124_attributes[] = {
+	&iio_const_attr_in_voltage_scale_available.dev_attr.attr,
+	NULL,
+};
+
+static const struct attribute_group ad7124_attrs_group = {
+	.attrs = ad7124_attributes,
+};
+
 static const struct iio_info ad7124_info = {
 	.read_raw = ad7124_read_raw,
 	.write_raw = ad7124_write_raw,
+	.validate_trigger = ad_sd_validate_trigger,
+	.attrs = &ad7124_attrs_group,
 };
 
 static int ad7124_soft_reset(struct ad7124_state *st)
@@ -358,7 +410,7 @@ static int ad7124_init_channel_vref(struct ad7124_state *st,
 	case AD7124_AVDD_REF:
 		if (IS_ERR(st->vref[refsel])) {
 			dev_err(&st->sd.spi->dev,
-				"Error, trying to use external voltage reference without a %s regulator.",
+				"Error, trying to use external voltage reference without a %s regulator.\n",
 				ad7124_ref_names[refsel]);
 				return PTR_ERR(st->vref[refsel]);
 		}
@@ -382,19 +434,12 @@ static int ad7124_of_parse_channel_config(struct iio_dev *indio_dev,
 					  struct device_node *np)
 {
 	struct ad7124_state *st = iio_priv(indio_dev);
-	struct device_node *chan_node, *child;
+	struct device_node *child;
 	struct iio_chan_spec *chan;
 	unsigned int ain[2], channel = 0, tmp;
-	int ret, res;
+	int ret;
 
-	chan_node = of_get_child_by_name(np, "adi,channels");
-	if (!chan_node) {
-		dev_err(indio_dev->dev.parent,
-			"failed to find channels node\n");
-		return -ENODEV;
-	}
-
-	st->num_channels = of_get_available_child_count(chan_node);
+	st->num_channels = of_get_available_child_count(np);
 	if (!st->num_channels) {
 		dev_err(indio_dev->dev.parent, "no channel children\n");
 		return -ENODEV;
@@ -408,13 +453,13 @@ static int ad7124_of_parse_channel_config(struct iio_dev *indio_dev,
 	indio_dev->channels = chan;
 	indio_dev->num_channels = st->num_channels;
 
-	for_each_available_child_of_node(chan_node, child) {
-		ret = of_property_read_u32_array(child, "reg", ain, 2);
+	for_each_available_child_of_node(np, child) {
+		ret = of_property_read_u32(child, "reg", &channel);
 		if (ret)
 			goto err;
 
-		ret = of_property_read_u32(child,
-					   "adi,channel-number", &channel);
+		ret = of_property_read_u32_array(child, "diff-channels",
+						 ain, 2);
 		if (ret)
 			goto err;
 
@@ -428,32 +473,13 @@ static int ad7124_of_parse_channel_config(struct iio_dev *indio_dev,
 		st->channel_config[channel].ain = AD7124_CHANNEL_AINP(ain[0]) |
 						  AD7124_CHANNEL_AINM(ain[1]);
 		st->channel_config[channel].bipolar =
-			of_property_read_bool(child, "adi,bipolar");
+			of_property_read_bool(child, "bipolar");
 
 		ret = of_property_read_u32(child, "adi,reference-select", &tmp);
 		if (ret)
 			st->channel_config[channel].refsel = AD7124_INT_REF;
 		else
 			st->channel_config[channel].refsel = tmp;
-
-		ret = of_property_read_u32(child, "adi,gain", &tmp);
-		if (ret) {
-			st->channel_config[channel].pga_bits = 0;
-		} else {
-			res = ad7124_find_closest_match(ad7124_gain,
-						ARRAY_SIZE(ad7124_gain), tmp);
-			st->channel_config[channel].pga_bits = res;
-		}
-
-		ret = of_property_read_u32(child, "adi,odr-hz", &tmp);
-		if (ret)
-			/*
-			 * 9 SPS is the minimum output data rate supported
-			 * regardless of the selected power mode.
-			 */
-			st->channel_config[channel].odr = 9;
-		else
-			st->channel_config[channel].odr = tmp;
 
 		*chan = ad7124_channel_template;
 		chan->address = channel;
@@ -463,11 +489,9 @@ static int ad7124_of_parse_channel_config(struct iio_dev *indio_dev,
 
 		chan++;
 	}
-	of_node_put(chan_node);
 
 	return 0;
 err:
-	of_node_put(chan_node);
 	of_node_put(child);
 
 	return ret;
@@ -510,15 +534,16 @@ static int ad7124_setup(struct ad7124_state *st)
 			return ret;
 
 		val = AD7124_CONFIG_BIPOLAR(st->channel_config[i].bipolar) |
-		      AD7124_CONFIG_REF_SEL(st->channel_config[i].refsel) |
-		      AD7124_CONFIG_PGA(st->channel_config[i].pga_bits);
+		      AD7124_CONFIG_REF_SEL(st->channel_config[i].refsel);
 		ret = ad_sd_write_reg(&st->sd, AD7124_CONFIG(i), 2, val);
 		if (ret < 0)
 			return ret;
-
-		ret = ad7124_set_channel_odr(st, i, st->channel_config[i].odr);
-		if (ret < 0)
-			return ret;
+		/*
+		 * 9.38 SPS is the minimum output data rate supported
+		 * regardless of the selected power mode. Round it up to 10 and
+		 * set all the enabled channels to this default value.
+		 */
+		ret = ad7124_set_channel_odr(st, i, 10);
 	}
 
 	return ret;
@@ -554,11 +579,15 @@ static int ad7124_probe(struct spi_device *spi)
 		return ret;
 
 	for (i = 0; i < ARRAY_SIZE(st->vref); i++) {
-		if (i != AD7124_INT_REF)
-			st->vref[i] = devm_regulator_get_optional(&spi->dev,
-							ad7124_ref_names[i]);
-		if (IS_ERR_OR_NULL(st->vref[i]))
+		if (i == AD7124_INT_REF)
 			continue;
+
+		st->vref[i] = devm_regulator_get_optional(&spi->dev,
+						ad7124_ref_names[i]);
+		if (PTR_ERR(st->vref[i]) == -ENODEV)
+			continue;
+		else if (IS_ERR(st->vref[i]))
+			return PTR_ERR(st->vref[i]);
 
 		ret = regulator_enable(st->vref[i]);
 		if (ret)
