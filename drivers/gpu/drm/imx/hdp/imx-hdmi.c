@@ -128,6 +128,67 @@ static int hdmi_vendor_info_set(struct imx_hdp *hdp,
 
 }
 
+static void hdmi_mode_set_vswing(state_struct *state)
+{
+	GENERAL_Read_Register_response regresp[12];
+
+	Afe_write(state, 0x41e1, 0x7c0);
+	Afe_write(state, 0x43e1, 0x7c0);
+	Afe_write(state, 0x45e1, 0x7c0);
+	Afe_write(state, 0x47e1, 0x7c0);
+
+	Afe_write(state, 0x404C, 0x0);
+	Afe_write(state, 0x424C, 0x0);
+	Afe_write(state, 0x444C, 0x0);
+	Afe_write(state, 0x464C, 0x0);
+
+	Afe_write(state, 0x4047, 0x120);
+	Afe_write(state, 0x4247, 0x120);
+	Afe_write(state, 0x4447, 0x120);
+	Afe_write(state, 0x4647, 0x120);
+
+	regresp[0].val = Afe_read(state, 0x41e1);
+	regresp[1].val = Afe_read(state, 0x43e1);
+	regresp[2].val = Afe_read(state, 0x45e1);
+	regresp[3].val = Afe_read(state, 0x47e1);
+
+	regresp[4].val = Afe_read(state, 0x404C);
+	regresp[5].val = Afe_read(state, 0x424C);
+	regresp[6].val = Afe_read(state, 0x444C);
+	regresp[7].val = Afe_read(state, 0x464C);
+
+	regresp[8].val = Afe_read(state, 0x4047);
+	regresp[9].val = Afe_read(state, 0x4247);
+	regresp[10].val = Afe_read(state, 0x4447);
+	regresp[11].val = Afe_read(state, 0x4647);
+
+	DRM_DEBUG("LANE0_TX_DIAG_TX_DRV 0x%x \n"
+		  "LANE1_TX_DIAG_TX_DRV 0x%x \n"
+		  "LANE2_TX_DIAG_TX_DRV 0x%x \n"
+		  "LANE3_TX_DIAG_TX_DRV 0x%x \n"
+		  "Lane0_TX_TXCC_CPOST_MULT_00 0x%x \n"
+		  "Lane1_TX_TXCC_CPOST_MULT_00 0x%x \n"
+		  "Lane2_TX_TXCC_CPOST_MULT_00 0x%x \n"
+		  "Lane3_TX_TXCC_CPOST_MULT_00 0x%x \n"
+		  "Lane0_TX_TXCC_CAL_SCLR_MULT 0x%x \n"
+		  "Lane1_TX_TXCC_CAL_SCLR_MULT 0x%x \n"
+		  "Lane2_TX_TXCC_CAL_SCLR_MULT 0x%x \n"
+		  "Lane3_TX_TXCC_CAL_SCLR_MULT 0x%x \n",
+		  regresp[0].val,
+		  regresp[1].val,
+		  regresp[2].val,
+		  regresp[3].val,
+		  regresp[4].val,
+		  regresp[5].val,
+		  regresp[6].val,
+		  regresp[7].val,
+		  regresp[8].val,
+		  regresp[9].val,
+		  regresp[10].val,
+		  regresp[11].val
+		  );
+}
+
 int hdmi_phy_init_ss28fdsoi(state_struct *state, struct drm_display_mode *mode, int format, int color_depth)
 {
 	struct imx_hdp *hdp = state_to_imx_hdp(state);
@@ -199,6 +260,8 @@ void hdmi_mode_set_ss28fdsoi(state_struct *state, struct drm_display_mode *mode,
 		DRM_INFO("CDN_API_HDMITX_SetVic_blocking ret = %d\n", ret);
 		return;
 	}
+
+	hdmi_mode_set_vswing(state);
 }
 
 int hdmi_phy_init_t28hpc(state_struct *state, struct drm_display_mode *mode, int format, int color_depth)
@@ -265,67 +328,6 @@ void hdmi_phy_pix_engine_reset_t28hpc(state_struct *state)
 	CDN_API_General_Write_Register_blocking(state, ADDR_SOURCE_CAR +
 						(SOURCE_HDTX_CAR << 2),
 						regresp.val);
-}
-
-void hdmi_mode_set_vswing(state_struct *state)
-{
-	GENERAL_Read_Register_response regresp[12];
-
-	Afe_write(state, 0x41e1, 0x7c0);
-	Afe_write(state, 0x43e1, 0x7c0);
-	Afe_write(state, 0x45e1, 0x7c0);
-	Afe_write(state, 0x47e1, 0x7c0);
-
-	Afe_write(state, 0x404C, 0x0);
-	Afe_write(state, 0x424C, 0x0);
-	Afe_write(state, 0x444C, 0x0);
-	Afe_write(state, 0x464C, 0x0);
-
-	Afe_write(state, 0x4047, 0x120);
-	Afe_write(state, 0x4247, 0x120);
-	Afe_write(state, 0x4447, 0x120);
-	Afe_write(state, 0x4647, 0x120);
-
-	regresp[0].val = Afe_read(state, 0x41e1);
-	regresp[1].val = Afe_read(state, 0x43e1);
-	regresp[2].val = Afe_read(state, 0x45e1);
-	regresp[3].val = Afe_read(state, 0x47e1);
-
-	regresp[4].val = Afe_read(state, 0x404C);
-	regresp[5].val = Afe_read(state, 0x424C);
-	regresp[6].val = Afe_read(state, 0x444C);
-	regresp[7].val = Afe_read(state, 0x464C);
-
-	regresp[8].val = Afe_read(state, 0x4047);
-	regresp[9].val = Afe_read(state, 0x4247);
-	regresp[10].val = Afe_read(state, 0x4447);
-	regresp[11].val = Afe_read(state, 0x4647);
-
-	DRM_DEBUG("LANE0_TX_DIAG_TX_DRV 0x%x \n"
-		  "LANE1_TX_DIAG_TX_DRV 0x%x \n"
-		  "LANE2_TX_DIAG_TX_DRV 0x%x \n"
-		  "LANE3_TX_DIAG_TX_DRV 0x%x \n"
-		  "Lane0_TX_TXCC_CPOST_MULT_00 0x%x \n"
-		  "Lane1_TX_TXCC_CPOST_MULT_00 0x%x \n"
-		  "Lane2_TX_TXCC_CPOST_MULT_00 0x%x \n"
-		  "Lane3_TX_TXCC_CPOST_MULT_00 0x%x \n"
-		  "Lane0_TX_TXCC_CAL_SCLR_MULT 0x%x \n"
-		  "Lane1_TX_TXCC_CAL_SCLR_MULT 0x%x \n"
-		  "Lane2_TX_TXCC_CAL_SCLR_MULT 0x%x \n"
-		  "Lane3_TX_TXCC_CAL_SCLR_MULT 0x%x \n",
-		  regresp[0].val,
-		  regresp[1].val,
-		  regresp[2].val,
-		  regresp[3].val,
-		  regresp[4].val,
-		  regresp[5].val,
-		  regresp[6].val,
-		  regresp[7].val,
-		  regresp[8].val,
-		  regresp[9].val,
-		  regresp[10].val,
-		  regresp[11].val
-		  );
 }
 
 void hdmi_mode_set_t28hpc(state_struct *state, struct drm_display_mode *mode, int format, int color_depth, int temp)
