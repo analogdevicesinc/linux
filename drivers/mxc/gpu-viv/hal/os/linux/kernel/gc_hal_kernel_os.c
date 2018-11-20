@@ -346,14 +346,8 @@ _QueryIntegerId(
     )
 {
     gctPOINTER pointer;
-    unsigned long flags;
-
-    spin_lock_irqsave(&Database->lock, flags);
 
     pointer = idr_find(&Database->idr, Id);
-
-    spin_unlock_irqrestore(&Database->lock, flags);
-
     if (pointer)
     {
         *KernelPointer = pointer;
@@ -5587,9 +5581,14 @@ gckOS_DestroySignal(
     gcmkVERIFY_OBJECT(Os, gcvOBJ_OS);
     gcmkVERIFY_ARGUMENT(Signal != gcvNULL);
 
-    gcmkONERROR(_QueryIntegerId(&Os->signalDB, (gctUINT32)(gctUINTPTR_T)Signal, (gctPOINTER)&signal));
-
     spin_lock_irqsave(&Os->signalDB.lock, flags);
+    status = _QueryIntegerId(&Os->signalDB, (gctUINT32)(gctUINTPTR_T)Signal, (gctPOINTER)&signal);
+    if (gcmIS_ERROR(status))
+    {
+        spin_unlock_irqrestore(&Os->signalDB.lock, flags);
+        gcmkONERROR(status);
+    }
+
     gcmkASSERT(signal->id == (gctUINT32)(gctUINTPTR_T)Signal);
     signal->ref--;
 
@@ -5657,16 +5656,16 @@ gckOS_Signal(
     gcmkVERIFY_OBJECT(Os, gcvOBJ_OS);
     gcmkVERIFY_ARGUMENT(Signal != gcvNULL);
 
+    spin_lock_irqsave(&Os->signalDB.lock, flags);
     status = _QueryIntegerId(&Os->signalDB,
                              (gctUINT32)(gctUINTPTR_T)Signal,
                              (gctPOINTER)&signal);
-
     if (gcmIS_ERROR(status))
     {
+        spin_unlock_irqrestore(&Os->signalDB.lock, flags);
         gcmkONERROR(status);
     }
 
-    spin_lock_irqsave(&Os->signalDB.lock, flags);
     /*
      * Signal saved in event is not referenced. Inc reference here to avoid
      * concurrent issue: signaling the signal while another thread is destroying
@@ -5811,6 +5810,7 @@ gckOS_WaitSignal(
     gceSTATUS status;
     gcsSIGNAL_PTR signal;
     int done;
+    unsigned long flags;
 
     gcmkHEADER_ARG("Os=0x%X Signal=0x%X Wait=0x%08X", Os, Signal, Wait);
 
@@ -5818,7 +5818,11 @@ gckOS_WaitSignal(
     gcmkVERIFY_OBJECT(Os, gcvOBJ_OS);
     gcmkVERIFY_ARGUMENT(Signal != gcvNULL);
 
-    gcmkONERROR(_QueryIntegerId(&Os->signalDB, (gctUINT32)(gctUINTPTR_T)Signal, (gctPOINTER)&signal));
+    spin_lock_irqsave(&Os->signalDB.lock, flags);
+    status = _QueryIntegerId(&Os->signalDB, (gctUINT32)(gctUINTPTR_T)Signal, (gctPOINTER)&signal);
+    spin_unlock_irqrestore(&Os->signalDB.lock, flags);
+
+    gcmkONERROR(status);
 
     gcmkASSERT(signal->id == (gctUINT32)(gctUINTPTR_T)Signal);
 
@@ -5905,10 +5909,13 @@ _QuerySignal(
      */
     gceSTATUS status;
     gcsSIGNAL_PTR signal = gcvNULL;
+    unsigned long flags;
 
+    spin_lock_irqsave(&Os->signalDB.lock, flags);
     status = _QueryIntegerId(&Os->signalDB,
                              (gctUINT32)(gctUINTPTR_T)Signal,
                              (gctPOINTER)&signal);
+    spin_unlock_irqrestore(&Os->signalDB.lock, flags);
 
     if (gcmIS_SUCCESS(status))
     {
@@ -5958,9 +5965,14 @@ gckOS_MapSignal(
     gcmkVERIFY_ARGUMENT(Signal != gcvNULL);
     gcmkVERIFY_ARGUMENT(MappedSignal != gcvNULL);
 
-    gcmkONERROR(_QueryIntegerId(&Os->signalDB, (gctUINT32)(gctUINTPTR_T)Signal, (gctPOINTER)&signal));
-
     spin_lock_irqsave(&Os->signalDB.lock, flags);
+    status = _QueryIntegerId(&Os->signalDB, (gctUINT32)(gctUINTPTR_T)Signal, (gctPOINTER)&signal);
+    if (gcmIS_ERROR(status))
+    {
+        spin_unlock_irqrestore(&Os->signalDB.lock, flags);
+        gcmkONERROR(status);
+    }
+
     signal->ref++;
 
     if (signal->ref <= 1)
@@ -6671,14 +6683,21 @@ gckOS_CreateNativeFence(
     char name[32];
     gcsSIGNAL_PTR signal;
     gceSTATUS status;
+    unsigned long flags;
 
     gcmkHEADER_ARG("Os=0x%X Timeline=0x%X Signal=%d",
                    Os, Timeline, (gctUINT)(gctUINTPTR_T)Signal);
 
-    gcmkONERROR(
-        _QueryIntegerId(&Os->signalDB,
+    spin_lock_irqsave(&Os->signalDB.lock, flags);
+    status =  _QueryIntegerId(&Os->signalDB,
                         (gctUINT32)(gctUINTPTR_T)Signal,
-                        (gctPOINTER)&signal));
+                        (gctPOINTER)&signal);
+    if (gcmIS_ERROR(status))
+    {
+        spin_unlock_irqrestore(&Os->signalDB.lock, flags);
+        gcmkONERROR(status);
+    }
+    spin_unlock_irqrestore(&Os->signalDB.lock, flags);
 
     /* Cast timeline. */
     timeline = (struct viv_sync_timeline *) Timeline;
@@ -6943,14 +6962,29 @@ gckOS_CreateNativeFence(
     struct viv_sync_timeline *timeline;
     gcsSIGNAL_PTR signal = gcvNULL;
     gceSTATUS status = gcvSTATUS_OK;
+    unsigned long flags;
 
     /* Create fence. */
     timeline = (struct viv_sync_timeline *) Timeline;
 
-    gcmkONERROR(
-        _QueryIntegerId(&Os->signalDB,
+    spin_lock_irqsave(&Os->signalDB.lock, flags);
+    status =  _QueryIntegerId(&Os->signalDB,
                         (gctUINT32)(gctUINTPTR_T)Signal,
-                        (gctPOINTER)&signal));
+                        (gctPOINTER)&signal);
+    if (gcmIS_ERROR(status))
+    {
+        spin_unlock_irqrestore(&Os->signalDB.lock, flags);
+        gcmkONERROR(status);
+    }
+
+    signal->ref++;
+    if (signal->ref <= 1)
+    {
+        spin_unlock_irqrestore(&Os->signalDB.lock, flags);
+        /* The previous value is 0, it has been deleted. */
+        gcmkONERROR(gcvSTATUS_INVALID_ARGUMENT);
+    }
+    spin_unlock_irqrestore(&Os->signalDB.lock, flags);
 
     fence = viv_fence_create(timeline, signal);
 

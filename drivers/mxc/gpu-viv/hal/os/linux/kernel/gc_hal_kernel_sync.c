@@ -308,7 +308,6 @@ static struct dma_fence_ops viv_fence_ops =
 struct dma_fence * viv_fence_create(struct viv_sync_timeline *timeline,
                     gcsSIGNAL *signal)
 {
-    gceSTATUS status;
     struct viv_fence *fence;
     struct dma_fence *old_fence = NULL;
     unsigned seqno;
@@ -318,17 +317,9 @@ struct dma_fence * viv_fence_create(struct viv_sync_timeline *timeline,
     if (!fence)
         return NULL;
 
-    /* Reference signal in fence. */
-    status = gckOS_MapSignal(timeline->os, (gctSIGNAL)(uintptr_t)signal->id,
-                NULL, &fence->signal);
-
-    if (gcmIS_ERROR(status)) {
-        kfree(fence);
-        return NULL;
-    }
-
     spin_lock_init(&fence->lock);
 
+    fence->signal = signal;
     fence->parent = timeline;
 
     seqno = (unsigned)atomic64_inc_return(&timeline->seqno);
