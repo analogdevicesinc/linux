@@ -2437,9 +2437,6 @@ static int pfe_eth_init_one(struct pfe *pfe, int id)
 	else
 		ndev->max_mtu = JUMBO_FRAME_SIZE_V2 - ETH_HLEN - ETH_FCS_LEN;
 
-	/* supported features */
-	ndev->hw_features = NETIF_F_SG;
-
 	/*Enable after checksum offload is validated */
 	ndev->hw_features = NETIF_F_RXCSUM | NETIF_F_IP_CSUM |
 		NETIF_F_IPV6_CSUM | NETIF_F_SG;

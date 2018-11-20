@@ -3,6 +3,7 @@
 #
 config FSL_PPFE
 	bool "Freescale PPFE Driver"
+	select FSL_GUTS
 	default n
 	---help---
 	Freescale LS1012A SoC has a Programmable Packet Forwarding Engine.

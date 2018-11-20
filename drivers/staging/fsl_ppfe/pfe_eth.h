@@ -37,10 +37,6 @@
 #define GEMAC_NO_PHY            BIT(0)
 
 struct ls1012a_eth_platform_data {
-	/* device specific information */
-	u32 device_flags;
-	char name[16];
-
 	/* board specific information */
 	u32 mii_config;
 	u32 phy_flags;
