@@ -454,8 +454,9 @@
 
 		pinctrl_i2c0_mipi_lvds0: mipi_lvds0_i2c0_grp {
 			fsl,pins = <
-				SC_P_MIPI_DSI0_I2C0_SCL_MIPI_DSI0_I2C0_SCL 0xc6000020
-				SC_P_MIPI_DSI0_I2C0_SDA_MIPI_DSI0_I2C0_SDA 0xc6000020
+				SC_P_MIPI_DSI0_I2C0_SCL_MIPI_DSI0_I2C0_SCL	0xc6000020
+				SC_P_MIPI_DSI0_I2C0_SDA_MIPI_DSI0_I2C0_SDA	0xc6000020
+				SC_P_MIPI_DSI0_GPIO0_00_MIPI_DSI0_GPIO0_IO00	0x00000020
 			>;
 		};
 
@@ -467,8 +468,9 @@
 
 		pinctrl_i2c0_mipi_lvds1: mipi_lvds1_i2c0_grp {
 			fsl,pins = <
-				SC_P_MIPI_DSI1_I2C0_SCL_MIPI_DSI1_I2C0_SCL 0xc6000020
-				SC_P_MIPI_DSI1_I2C0_SDA_MIPI_DSI1_I2C0_SDA 0xc6000020
+				SC_P_MIPI_DSI1_I2C0_SCL_MIPI_DSI1_I2C0_SCL	0xc6000020
+				SC_P_MIPI_DSI1_I2C0_SDA_MIPI_DSI1_I2C0_SDA	0xc6000020
+				SC_P_MIPI_DSI1_GPIO0_00_MIPI_DSI1_GPIO0_IO00	0x00000020
 			>;
 		};
 
@@ -1145,6 +1147,8 @@
 		reg = <0x3d>;
 		adi,dsi-lanes = <4>;
 		adi,dsi-channel = <1>;
+		interrupt-parent = <&gpio0>;
+		interrupts = <1 IRQ_TYPE_LEVEL_LOW>;
 		status = "okay";
 
 		port {
@@ -1231,6 +1235,8 @@
 		reg = <0x3d>;
 		adi,dsi-lanes = <4>;
 		adi,dsi-channel = <1>;
+		interrupt-parent = <&gpio0>;
+		interrupts = <1 IRQ_TYPE_LEVEL_LOW>;
 		status = "okay";
 
 		port {
