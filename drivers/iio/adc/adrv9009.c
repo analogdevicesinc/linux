@@ -1426,7 +1426,7 @@ static int adrv9009_get_agc_mode(struct iio_dev *indio_dev,
 {
 	struct adrv9009_rf_phy *phy = iio_priv(indio_dev);
 
-	return phy->talDevice->devStateInfo.gainMode;
+	return phy->talDevice->devStateInfo.gainMode > 0;
 }
 
 static const char * const adrv9009_agc_modes[] =
