@@ -3884,7 +3884,7 @@
 		clock-names = "bus", "mclk0", "mclk1", "mclk2", "mclk3";
 		dma-names = "rx";
 		dmas = <&edma2 18 0 1>;
-		fsl,dataline = <0xf 0x0>;
+		fsl,dataline = <0 0xf 0x0>;
 		status = "disabled";
 		power-domains = <&pd_sai4>;
 	};
@@ -3901,7 +3901,7 @@
 		clock-names = "bus", "mclk0", "mclk1", "mclk2", "mclk3";
 		dma-names = "tx";
 		dmas = <&edma2 19 0 0>;
-		fsl,dataline = <0x0 0xf>;
+		fsl,dataline = <0 0x0 0xf>;
 		status = "disabled";
 		power-domains = <&pd_sai5>;
 	};
