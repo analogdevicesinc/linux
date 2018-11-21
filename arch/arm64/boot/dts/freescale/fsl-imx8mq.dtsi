@@ -1035,7 +1035,7 @@
 		clock-names = "bus", "mclk0", "mclk1", "mclk2", "mclk3";
 		dmas = <&sdma2 8 2 0>, <&sdma2 9 2 0>;
 		dma-names = "rx", "tx";
-		fsl,dataline = <0xff 0xff>;
+		fsl,dataline = <0 0xff 0xff>;
 		status = "disabled";
 	};
 
@@ -1068,7 +1068,7 @@
 		dmas = <&sdma2 2 24 0>, <&sdma2 3 24 0>;
 		dma-names = "rx", "tx";
 		fsl,shared-interrupt;
-		fsl,dataline = <0xf 0xf>;
+		fsl,dataline = <0 0xf 0xf>;
 		status = "disabled";
 	};
 
@@ -1084,7 +1084,7 @@
 		clock-names = "bus", "mclk0", "mclk1", "mclk2", "mclk3";
 		dmas = <&sdma2 0 24 0>, <&sdma2 1 24 0>;
 		dma-names = "rx", "tx";
-		fsl,dataline = <0x0 0xf>;
+		fsl,dataline = <0 0x0 0xf>;
 		status = "disabled";
 	};
 
