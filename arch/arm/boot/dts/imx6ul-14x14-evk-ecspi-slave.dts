@@ -1,0 +1,21 @@
+/*
+ * Copyright (C) 2018 NXP
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+/*
+ * DTS file for ECSPI Slave Certification at i.mx6ul 14x14 evk board.
+ * NOTE: Because Ethernet2 use the same pins with ecspi4, so disable
+ *       fec1/fec2 for ECSPI4 test.
+ */
+
+#include "imx6ul-14x14-evk-ecspi.dts"
+
+/delete-node/&spidev0;
+
+&ecspi4 {
+	spi-slave;
+};
