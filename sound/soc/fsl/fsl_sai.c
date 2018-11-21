@@ -625,17 +625,35 @@ static int fsl_sai_hw_params(struct snd_pcm_substream *substream,
 	u32 slots = (channels == 1) ? 2 : channels;
 	u32 slot_width = word_width;
 	u32 pins, bclk;
-	int ret;
-	int i;
-	int trce_mask = 0;
+	int ret, i, trce_mask = 0, dl_cfg_cnt, dl_cfg_idx = 0;
+	struct fsl_sai_dl_cfg *dl_cfg;
 
 	if (sai->slots)
 		slots = sai->slots;
 
 	pins = DIV_ROUND_UP(channels, slots);
 	sai->is_dsd = fsl_is_dsd(params);
-	if (sai->is_dsd)
+	if (sai->is_dsd) {
 		pins = channels;
+		dl_cfg = sai->dsd_dl_cfg;
+		dl_cfg_cnt = sai->dsd_dl_cfg_cnt;
+	} else {
+		dl_cfg = sai->pcm_dl_cfg;
+		dl_cfg_cnt = sai->pcm_dl_cfg_cnt;
+	}
+
+	for (i = 0; i < dl_cfg_cnt; i++) {
+		if (dl_cfg[i].pins == pins) {
+			dl_cfg_idx = i;
+			break;
+		}
+	}
+
+	if (dl_cfg_idx >= dl_cfg_cnt) {
+		dev_err(cpu_dai->dev, "fsl,dataline%s invalid or not provided.\n",
+			sai->is_dsd ? ",dsd" : "");
+		return -EINVAL;
+	}
 
 	if (sai->slot_width)
 		slot_width = sai->slot_width;
@@ -717,7 +735,7 @@ static int fsl_sai_hw_params(struct snd_pcm_substream *substream,
 
 	if (sai->soc->dataline != 0x1) {
 
-		if (sai->dataline[tx] <= 1 || sai->is_multi_lane)
+		if (dl_cfg[dl_cfg_idx].mask[tx] <= 1 || sai->is_multi_lane)
 			regmap_update_bits(sai->regmap, FSL_SAI_xCR4(tx, offset),
 				FSL_SAI_CR4_FCOMB_MASK, 0);
 		else
@@ -728,21 +746,13 @@ static int fsl_sai_hw_params(struct snd_pcm_substream *substream,
 			if (tx) {
 				sai->dma_params_tx.maxburst =
 						FSL_SAI_MAXBURST_TX * pins;
-				if (sai->is_dsd)
-					sai->dma_params_tx.fifo_num = pins +
-					   (sai->dataline_off_dsd[tx] << 4);
-				else
-					sai->dma_params_tx.fifo_num = pins +
-						(sai->dataline_off[tx] << 4);
+				sai->dma_params_tx.fifo_num = pins +
+					   (dl_cfg[dl_cfg_idx].offset[tx] << 4);
 			} else {
 				sai->dma_params_rx.maxburst =
 					FSL_SAI_MAXBURST_RX * pins;
-				if (sai->is_dsd)
-					sai->dma_params_rx.fifo_num = pins +
-					  (sai->dataline_off_dsd[tx] << 4);
-				else
-					sai->dma_params_rx.fifo_num = pins +
-						(sai->dataline_off[tx] << 4);
+				sai->dma_params_rx.fifo_num = pins +
+					  (dl_cfg[dl_cfg_idx].offset[tx] << 4);
 			}
 		}
 
@@ -750,37 +760,21 @@ static int fsl_sai_hw_params(struct snd_pcm_substream *substream,
 				&sai->dma_params_rx);
 	}
 
-	if (sai->is_dsd) {
-		if (__sw_hweight8(sai->dataline_dsd[tx] & 0xFF) < pins) {
-			dev_err(cpu_dai->dev, "channel not supported\n");
-			return -EINVAL;
-		}
-		/*find a proper tcre setting*/
-		for (i = 0; i < 8; i++) {
-			trce_mask = (1 << (i + 1)) - 1;
-			if (__sw_hweight8(sai->dataline_dsd[tx] & trce_mask) == pins)
-				break;
-		}
-
-		regmap_update_bits(sai->regmap, FSL_SAI_xCR3(tx, offset),
-			   FSL_SAI_CR3_TRCE_MASK,
-			   FSL_SAI_CR3_TRCE((sai->dataline_dsd[tx] & trce_mask)));
-	} else {
-		if (__sw_hweight8(sai->dataline[tx] & 0xFF) < pins) {
-			dev_err(cpu_dai->dev, "channel not supported\n");
-			return -EINVAL;
-		}
-		/*find a proper tcre setting*/
-		for (i = 0; i < 8; i++) {
-			trce_mask = (1 << (i + 1)) - 1;
-			if (__sw_hweight8(sai->dataline[tx] & trce_mask) == pins)
-				break;
-		}
-
-		regmap_update_bits(sai->regmap, FSL_SAI_xCR3(tx, offset),
-			   FSL_SAI_CR3_TRCE_MASK,
-			   FSL_SAI_CR3_TRCE((sai->dataline[tx] & trce_mask)));
+	if (__sw_hweight8(dl_cfg[dl_cfg_idx].mask[tx] & 0xFF) < pins) {
+		dev_err(cpu_dai->dev, "channel not supported\n");
+		return -EINVAL;
 	}
+
+	/*find a proper tcre setting*/
+	for (i = 0; i < 8; i++) {
+		trce_mask = (1 << (i + 1)) - 1;
+		if (__sw_hweight8(dl_cfg[dl_cfg_idx].mask[tx] & trce_mask) == pins)
+			break;
+	}
+
+	regmap_update_bits(sai->regmap, FSL_SAI_xCR3(tx, offset),
+		   FSL_SAI_CR3_TRCE_MASK,
+		   FSL_SAI_CR3_TRCE((dl_cfg[dl_cfg_idx].mask[tx] & trce_mask)));
 
 	regmap_update_bits(sai->regmap, FSL_SAI_xCR4(tx, offset),
 			   FSL_SAI_CR4_SYWD_MASK | FSL_SAI_CR4_FRSZ_MASK |
@@ -824,15 +818,32 @@ static int fsl_sai_trigger(struct snd_pcm_substream *substream, int cmd,
 	u32 slots = (channels == 1) ? 2 : channels;
 	u32 xcsr, count = 100;
 	u32 pins;
-	int i = 0, j = 0, k = 0;
+	int i = 0, j = 0, k = 0, dl_cfg_cnt, dl_cfg_idx = 0;
+	struct fsl_sai_dl_cfg *dl_cfg;
 
 	if (sai->slots)
 		slots = sai->slots;
 
 	pins = DIV_ROUND_UP(channels, slots);
 
-	if (sai->is_dsd)
+	if (sai->is_dsd) {
 		pins = channels;
+		dl_cfg = sai->dsd_dl_cfg;
+		dl_cfg_cnt = sai->dsd_dl_cfg_cnt;
+	} else {
+		dl_cfg = sai->pcm_dl_cfg;
+		dl_cfg_cnt = sai->pcm_dl_cfg_cnt;
+	}
+
+	for (i = 0; i < dl_cfg_cnt; i++) {
+		if (dl_cfg[i].pins == pins) {
+			dl_cfg_idx = i;
+			break;
+		}
+	}
+
+	i = 0;
+
 	/*
 	 * Asynchronous mode: Clear SYNC for both Tx and Rx.
 	 * Rx sync with Tx clocks: Clear SYNC for Tx, set it for Rx.
@@ -853,7 +864,7 @@ static int fsl_sai_trigger(struct snd_pcm_substream *substream, int cmd,
 	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
 
 		while (tx && i < channels) {
-			if ((sai->is_dsd ? sai->dataline_dsd[tx] : sai->dataline[tx]) & (1 << j)) {
+			if (dl_cfg[dl_cfg_idx].mask[tx] & (1 << j)) {
 				regmap_write(sai->regmap, FSL_SAI_TDR0 + j * 0x4, 0x0);
 				i++;
 				k++;
@@ -1257,6 +1268,77 @@ static const struct of_device_id fsl_sai_ids[] = {
 };
 MODULE_DEVICE_TABLE(of, fsl_sai_ids);
 
+static unsigned int fsl_sai_calc_dl_off(unsigned int* dl_mask)
+{
+	int fbidx, nbidx, offset;
+
+	fbidx = find_first_bit((const unsigned long *)dl_mask, 8);
+	nbidx = find_next_bit((const unsigned long *)dl_mask, 8, fbidx+1);
+	offset = nbidx - fbidx - 1;
+
+	return (offset < 0 || offset >= 7 ? 0 : offset);
+}
+
+static int fsl_sai_read_dlcfg(struct platform_device *pdev, char *pn,
+	struct fsl_sai_dl_cfg **rcfg, unsigned int soc_dl)
+{
+	int ret, elems, i, index, num_cfg;
+	struct device_node *np = pdev->dev.of_node;
+	struct fsl_sai_dl_cfg *cfg;
+	u32 rx, tx, pins;
+
+	*rcfg = NULL;
+
+	elems = of_property_count_u32_elems(np, pn);
+
+	/* consider default value "0 0x1 0x1" if property is missing */
+	if (elems <= 0)
+		elems = 3;
+
+	if (elems % 3) {
+		dev_err(&pdev->dev,
+			"Number of elements in %s must be divisible to 3.\n", pn);
+		return -EINVAL;
+	}
+
+	num_cfg = elems / 3;
+	cfg = devm_kzalloc(&pdev->dev, num_cfg * sizeof(*cfg), GFP_KERNEL);
+	if (cfg == NULL) {
+		dev_err(&pdev->dev, "Cannot allocate memory for %s.\n", pn);
+		return -ENOMEM;
+	}
+
+	for (i = 0, index = 0; i < num_cfg; i++) {
+		ret = of_property_read_u32_index(np, pn, index++, &pins);
+		if (ret)
+			pins = 0;
+
+		ret = of_property_read_u32_index(np, pn, index++, &rx);
+		if (ret)
+			rx = 1;
+
+		ret = of_property_read_u32_index(np, pn, index++, &tx);
+		if (ret)
+			tx = 1;
+
+		if ((rx & ~soc_dl) || (tx & ~soc_dl)) {
+			dev_err(&pdev->dev,
+				"%s: dataline cfg[%d] setting error, mask is 0x%x\n",
+				 pn, i, soc_dl);
+			return -EINVAL;
+		}
+
+		cfg[i].pins = pins;
+		cfg[i].mask[0] = rx;
+		cfg[i].offset[0] = fsl_sai_calc_dl_off(&rx);
+		cfg[i].mask[1] = tx;
+		cfg[i].offset[1] = fsl_sai_calc_dl_off(&tx);
+	}
+
+	*rcfg = cfg;
+	return num_cfg;
+}
+
 static int fsl_sai_probe(struct platform_device *pdev)
 {
 	struct device_node *np = pdev->dev.of_node;
@@ -1268,7 +1350,6 @@ static int fsl_sai_probe(struct platform_device *pdev)
 	char tmp[8];
 	int irq, ret, i;
 	int index;
-	int firstbitidx, nextbitidx, offset;
 	u32 buffer_size;
 	struct regmap_config fsl_sai_regmap_config = fsl_sai_v2_regmap_config;
 	unsigned long irqflags = 0;
@@ -1336,45 +1417,19 @@ static int fsl_sai_probe(struct platform_device *pdev)
 		sai->is_multi_lane = true;
 
 	/*dataline mask for rx and tx*/
-	ret = of_property_read_u32_index(np, "fsl,dataline", 0, &sai->dataline[0]);
-	if (ret)
-		sai->dataline[0] = 1;
+	ret = fsl_sai_read_dlcfg(pdev, "fsl,dataline", &sai->pcm_dl_cfg,
+					sai->soc->dataline);
+	if (ret < 0)
+		return ret;
 
-	ret = of_property_read_u32_index(np, "fsl,dataline", 1, &sai->dataline[1]);
-	if (ret)
-		sai->dataline[1] = 1;
+	sai->pcm_dl_cfg_cnt = ret;
 
-	if ((sai->dataline[0] & (~sai->soc->dataline)) || sai->dataline[1] & (~sai->soc->dataline)) {
-		dev_err(&pdev->dev, "dataline setting error, Mask is 0x%x\n", sai->soc->dataline);
-		return -EINVAL;
-	}
+	ret = fsl_sai_read_dlcfg(pdev, "fsl,dataline,dsd", &sai->dsd_dl_cfg,
+					sai->soc->dataline);
+	if (ret < 0)
+		return ret;
 
-	for (i = 0; i < 2; i++) {
-		firstbitidx = find_first_bit((const unsigned long *)&sai->dataline[i], 8);
-		nextbitidx = find_next_bit((const unsigned long *)&sai->dataline[i], 8, firstbitidx+1);
-		offset = nextbitidx - firstbitidx - 1;
-		sai->dataline_off[i] = (offset < 0 || offset >= 7 ? 0 : offset);
-	}
-
-	ret = of_property_read_u32_index(np, "fsl,dataline,dsd", 0, &sai->dataline_dsd[0]);
-	if (ret)
-		sai->dataline_dsd[0] = 1;
-
-	ret = of_property_read_u32_index(np, "fsl,dataline,dsd", 1, &sai->dataline_dsd[1]);
-	if (ret)
-		sai->dataline_dsd[1] = 1;
-
-	if ((sai->dataline_dsd[0] & (~sai->soc->dataline)) || sai->dataline_dsd[1] & (~sai->soc->dataline)) {
-		dev_err(&pdev->dev, "dataline setting error, Mask is 0x%x\n", sai->soc->dataline);
-		return -EINVAL;
-	}
-
-	for (i = 0; i < 2; i++) {
-		firstbitidx = find_first_bit((const unsigned long *)&sai->dataline_dsd[i], 8);
-		nextbitidx = find_next_bit((const unsigned long *)&sai->dataline_dsd[i], 8, firstbitidx+1);
-		offset = nextbitidx - firstbitidx - 1;
-		sai->dataline_off_dsd[i] = (offset < 0 || offset >= 7 ? 0 : offset);
-	}
+	sai->dsd_dl_cfg_cnt = ret;
 
 	if ((of_find_property(np, "fsl,i2s-xtor", NULL) != NULL) ||
 	    (of_find_property(np, "fsl,txm-rxs", NULL) != NULL))
