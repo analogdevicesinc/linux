@@ -814,7 +814,7 @@
 		<&clk IMX8MQ_AUDIO_PLL2_OUT>;
 	clock-names = "bus", "mclk0", "mclk1", "mclk2", "mclk3", "pll8k", "pll11k";
 	fsl,sai-multi-lane;
-	fsl,dataline,dsd = <0xff 0x11>;
+	fsl,dataline,dsd = <0 0xff 0xff 2 0xff 0x11>;
 	dmas = <&sdma2 8 26 0>, <&sdma2 9 26 0>;
 	status = "okay";
 };
