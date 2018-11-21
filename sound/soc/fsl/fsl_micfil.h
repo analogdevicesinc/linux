@@ -1,11 +1,7 @@
+/* SPDX-License-Identifier: GPL-2.0 */
 /*
- * fsl_micfil.h - PDM Microphone Interface for the NXP i.MX SoC
- *
- * Copyright (C) 2018 NXP
- *
- * This file is licensed under the terms of the GNU General Public License
- * version 2. This program is licensed "as is" without any warranty of any
- * kind, whether express or implied.
+ * PDM Microphone Interface for the NXP i.MX SoC
+ * Copyright 2018 NXP
  */
 
 #ifndef _FSL_MICFIL_H
