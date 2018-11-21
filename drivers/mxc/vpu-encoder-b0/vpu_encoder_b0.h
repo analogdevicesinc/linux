@@ -202,6 +202,12 @@ struct queue_data {
 	struct vpu_ctx *ctx;
 };
 
+struct vpu_strip_info {
+	unsigned long count;
+	unsigned long max;
+	unsigned long total;
+};
+
 struct vpu_statistic {
 	unsigned long cmd[GTB_ENC_CMD_RESERVED + 1];
 	unsigned long event[VID_API_ENC_EVENT_RESERVED + 1];
@@ -212,6 +218,11 @@ struct vpu_statistic {
 	unsigned long yuv_count;
 	unsigned long encoded_count;
 	unsigned long h264_count;
+	struct {
+		struct vpu_strip_info begin;
+		struct vpu_strip_info end;
+		struct vpu_strip_info eos;
+	} strip_sts;
 };
 
 struct vpu_attr {

@@ -54,11 +54,14 @@
 struct vpu_frame_info {
 	struct list_head list;
 	MEDIAIP_ENC_PIC_INFO info;
+	u32 bytesleft;
 	u32 wptr;
 	u32 rptr;
 	u32 start;
 	u32 end;
 	bool eos;
+	bool is_start;
+	unsigned long index;
 };
 
 unsigned int vpu_dbg_level_encoder = LVL_WARN;
@@ -1830,7 +1833,18 @@ static int get_stuff_data_size(u8 *data, int size)
 	return size - index;
 }
 
-static void strip_stuff_data_on_tail(struct vb2_buffer *vb)
+static void count_strip_info(struct vpu_strip_info *info, u32 bytes)
+{
+	if (!info)
+		return;
+
+	info->count++;
+	info->total += bytes;
+	if (info->max < bytes)
+		info->max = bytes;
+}
+
+static void strip_stuff_data_on_tail(struct vpu_ctx *ctx, struct vb2_buffer *vb)
 {
 	u8 *ptr = vb2_plane_vaddr(vb, 0);
 	unsigned long bytesused = vb2_get_plane_payload(vb, 0);
@@ -1845,6 +1859,12 @@ static void strip_stuff_data_on_tail(struct vb2_buffer *vb)
 
 	stuff_size = get_stuff_data_size(ptr + bytesused - count, count);
 	if (stuff_size) {
+		struct vpu_attr *attr = get_vpu_ctx_attr(ctx);
+
+		if (attr)
+			count_strip_info(&attr->statistic.strip_sts.eos,
+					stuff_size);
+
 		vpu_dbg(LVL_INFO, "strip %d bytes stuff data\n", stuff_size);
 		vb2_set_plane_payload(vb, 0, bytesused - stuff_size);
 	}
@@ -2201,7 +2221,7 @@ static u32 calc_frame_length(struct vpu_frame_info *frame)
 	if (!buffer_size)
 		return 0;
 
-	length = (frame->wptr - frame->rptr + buffer_size) % buffer_size;
+	length = (buffer_size + frame->wptr - frame->rptr) % buffer_size;
 
 	return length;
 }
@@ -2218,6 +2238,59 @@ static void *get_rptr_virt(struct vpu_ctx *ctx, struct vpu_frame_info *frame)
 	return ctx->encoder_stream.virt_addr + frame->rptr - frame->start;
 }
 
+static int find_nal_begin(u8 *data, u32 size)
+{
+	const u8 pattern[] = VPU_STRM_BEGIN_PATTERN;
+	int next[] = VPU_STRM_BEGIN_PATTERN;
+	u32 len;
+	int index;
+
+	len = ARRAY_SIZE(pattern);
+	get_kmp_next(pattern, next, len);
+	index = kmp_serach(data, size, pattern, len, next);
+	if (index > 0 && data[index - 1] == 0)
+		index--;
+
+	return index;
+}
+
+static int update_rptr(struct vpu_ctx *ctx, struct vpu_frame_info *frame)
+{
+	u32 length;
+	u32 bytesskiped = 0;
+	u8 *data = get_rptr_virt(ctx, frame);
+	int index;
+
+	length = calc_frame_length(frame);
+	if (frame->rptr + length <= frame->end) {
+		index = find_nal_begin(data, length);
+		if (index >= 0)
+			bytesskiped += index;
+		else
+			bytesskiped += length;
+	} else {
+		u32 size = frame->end - frame->rptr;
+
+		index = find_nal_begin(data, size);
+		if (index >= 0) {
+			bytesskiped += index;
+		} else {
+			bytesskiped += size;
+
+			data = ctx->encoder_stream.virt_addr;
+			size = length - size;
+			index = find_nal_begin(data, size);
+			if (index >= 0)
+				bytesskiped += index;
+			else
+				bytesskiped += size;
+		}
+	}
+
+	add_rptr(frame, bytesskiped);
+	return bytesskiped;
+}
+
 static int transfer_stream_output(struct vpu_ctx *ctx,
 					struct vpu_frame_info *frame,
 					struct vb2_data_req *p_data_req)
@@ -2225,30 +2298,50 @@ static int transfer_stream_output(struct vpu_ctx *ctx,
 	struct vb2_buffer *vb = NULL;
 	u32 length;
 	void *pdst;
+	int bytesskiped;
 
 	WARN_ON(!ctx || !frame || !p_data_req);
 
-	length = calc_frame_length(frame);
+	length = frame->bytesleft;
 
 	vb = p_data_req->vb2_buf;
 	if (length > vb->planes[0].length)
 		length = vb->planes[0].length;
 	vb2_set_plane_payload(vb, 0, length);
+
 	pdst = vb2_plane_vaddr(vb, 0);
 	if (frame->rptr + length <= frame->end) {
 		memcpy(pdst, get_rptr_virt(ctx, frame), length);
+		frame->bytesleft -= length;
 		add_rptr(frame, length);
 	} else {
 		u32 offset = frame->end - frame->rptr;
 
 		memcpy(pdst, get_rptr_virt(ctx, frame), offset);
+		frame->bytesleft -= offset;
 		add_rptr(frame, offset);
 		length -= offset;
 		memcpy(pdst + offset, get_rptr_virt(ctx, frame), length);
+		frame->bytesleft -= length;
 		add_rptr(frame, length);
 	}
 	report_frame_type(p_data_req, frame);
-	strip_stuff_data_on_tail(p_data_req->vb2_buf);
+	if (frame->bytesleft)
+		return 0;
+
+	strip_stuff_data_on_tail(ctx, p_data_req->vb2_buf);
+
+	bytesskiped = update_rptr(ctx, frame);
+	if (bytesskiped) {
+		struct vpu_attr *attr = get_vpu_ctx_attr(ctx);
+
+		if (attr)
+			count_strip_info(&attr->statistic.strip_sts.end,
+					bytesskiped);
+
+		vpu_dbg(LVL_DEBUG, "[%8ld][E]skip %d bytes\n",
+				frame->index, bytesskiped);
+	}
 
 	return 0;
 }
@@ -2273,6 +2366,47 @@ static int append_empty_end_frame(struct vb2_data_req *p_data_req)
 	return 0;
 }
 
+static int precheck_frame(struct vpu_ctx *ctx, struct vpu_frame_info *frame)
+{
+	struct vpu_attr *attr = get_vpu_ctx_attr(ctx);
+	u32 length;
+	int bytesskiped;
+
+	if (frame->eos)
+		return 0;
+	if (!frame->is_start)
+		return 0;
+
+	frame->is_start = false;
+	length = calc_frame_length(frame);
+	if (!length || length < frame->bytesleft) {
+		vpu_err("[%d][%d]'s frame is invalid, want %d but %d, drop\n",
+				ctx->core_dev->id, ctx->str_index,
+				frame->bytesleft, length);
+		return -EINVAL;
+	}
+
+	bytesskiped = update_rptr(ctx, frame);
+	if (!bytesskiped)
+		return 0;
+
+	length = calc_frame_length(frame);
+	if (frame->bytesleft > length)
+		frame->bytesleft = length;
+	vpu_dbg(LVL_DEBUG, "[%8ld][B]skip %d bytes\n",
+			frame->index, bytesskiped);
+	if (attr)
+		count_strip_info(&attr->statistic.strip_sts.begin, bytesskiped);
+
+	if (!frame->bytesleft) {
+		vpu_err("[%d][%d]'s frame is invalid, skip whole frame\n",
+				ctx->core_dev->id, ctx->str_index);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 static bool process_frame_done(struct queue_data *queue)
 {
 	struct vpu_ctx *ctx;
@@ -2292,9 +2426,7 @@ static bool process_frame_done(struct queue_data *queue)
 	frame = list_first_entry(&queue->frame_q, typeof(*frame), list);
 	frame->rptr = get_ptr(stream_buffer_desc->rptr);
 
-	if (!frame->eos && !calc_frame_length(frame)) {
-		vpu_err("[%d][%d]'s frame length is 0, drop it\n",
-				ctx->core_dev->id, ctx->str_index);
+	if (precheck_frame(ctx, frame)) {
 		list_del(&frame->list);
 		vfree(frame);
 		frame = NULL;
@@ -2312,7 +2444,7 @@ static bool process_frame_done(struct queue_data *queue)
 		transfer_stream_output(ctx, frame, p_data_req);
 
 	stream_buffer_desc->rptr = frame->rptr;
-	if (frame && !calc_frame_length(frame)) {
+	if (frame && !frame->bytesleft) {
 		list_del(&frame->list);
 		vfree(frame);
 		frame = NULL;
@@ -2397,20 +2529,24 @@ static int handle_event_frame_done(struct vpu_ctx *ctx,
 
 	show_enc_pic_info(pEncPicInfo);
 
-	count_encoded_frame(ctx);
 	record_start_time(ctx, V4L2_DST);
 	frame = vmalloc(sizeof(*frame));
 	if (frame) {
 		struct queue_data *queue = &ctx->q_data[V4L2_DST];
 		pBUFFER_DESCRIPTOR_TYPE stream_buffer_desc;
+		struct vpu_attr *attr = get_vpu_ctx_attr(ctx);
 
 		stream_buffer_desc = get_rpc_stream_buffer_desc(ctx);
 		memcpy(&frame->info, pEncPicInfo, sizeof(frame->info));
+		frame->bytesleft = frame->info.uFrameSize;
 		frame->wptr = get_ptr(stream_buffer_desc->wptr);
 		frame->rptr = get_ptr(stream_buffer_desc->rptr);
 		frame->start = get_ptr(stream_buffer_desc->start);
 		frame->end = get_ptr(stream_buffer_desc->end);
 		frame->eos = false;
+		frame->is_start = true;
+		if (attr)
+			frame->index = attr->statistic.encoded_count;
 
 		down(&queue->drv_q_lock);
 		list_add_tail(&frame->list, &queue->frame_q);
@@ -2418,6 +2554,7 @@ static int handle_event_frame_done(struct vpu_ctx *ctx,
 	} else {
 		vpu_err("fail to alloc memory for frame info\n");
 	}
+	count_encoded_frame(ctx);
 
 	/* Sync the write pointer to the local view of it */
 	process_stream_output(ctx);
@@ -3554,6 +3691,24 @@ static ssize_t show_instance_info(struct device *dev,
 	num += snprintf(buf + num, PAGE_SIZE - num,
 			"\tdqbuf output h264 count :%ld\n",
 			statistic->h264_count);
+
+	num += snprintf(buf + num, PAGE_SIZE - num,
+			"strip data frame count:\n");
+	num += snprintf(buf + num, PAGE_SIZE - num,
+			"\t begin   :%16ld (max : %ld;total : %ld)\n",
+			statistic->strip_sts.begin.count,
+			statistic->strip_sts.begin.max,
+			statistic->strip_sts.begin.total);
+	num += snprintf(buf + num, PAGE_SIZE - num,
+			"\t end     :%16ld (max : %ld; total : %ld)\n",
+			statistic->strip_sts.end.count,
+			statistic->strip_sts.end.max,
+			statistic->strip_sts.end.total);
+	num += snprintf(buf + num, PAGE_SIZE - num,
+			"\t eos     :%16ld (max : %ld; total : %ld)\n",
+			statistic->strip_sts.eos.count,
+			statistic->strip_sts.eos.max,
+			statistic->strip_sts.eos.total);
 
 	mutex_lock(&vpudev->dev_mutex);
 	ctx = get_vpu_attr_ctx(vpu_attr);
