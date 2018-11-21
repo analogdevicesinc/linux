@@ -195,6 +195,6 @@
 			  <&clks_m4 IMX7ULP_CM4_CLK_SAI0_DIV>;
 	assigned-clock-parents = <&clks_m4 IMX7ULP_CM4_CLK_APLL_PFD0_PRE_DIV>;
 	assigned-clock-rates = <0>, <12288000>;
-	fsl,dataline = <0x1 0x1>;
+	fsl,dataline = <0 0x1 0x1>;
 	status = "okay";
 };
