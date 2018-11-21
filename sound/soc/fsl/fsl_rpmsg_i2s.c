@@ -81,6 +81,7 @@ static int i2s_send_message(struct i2s_rpmsg *msg,
 }
 
 static const unsigned int fsl_rpmsg_rates[] = {
+	8000, 11025, 16000, 22050, 44100,
 	32000, 48000, 96000, 88200, 176400, 192000,
 	352800, 384000, 705600, 768000, 1411200, 2822400,
 };
