@@ -34,6 +34,11 @@
 #include "hardware.h"
 #include "smc_sip.h"
 
+
+extern unsigned int ddr_normal_rate;
+static int curr_ddr_rate;
+
+#ifdef CONFIG_SMP
 /*
  * External declaration
  */
@@ -41,7 +46,6 @@ extern void imx_smp_wfe_optee(u32 cpuid, u32 status_addr);
 extern unsigned long imx_smp_wfe_start asm("imx_smp_wfe_optee");
 extern unsigned long imx_smp_wfe_end asm("imx_smp_wfe_optee_end");
 
-extern unsigned int ddr_normal_rate;
 extern unsigned long ddr_freq_change_iram_base;
 
 
@@ -62,9 +66,6 @@ static void (*wfe_change_freq)(uint32_t *wfe_status, uint32_t *freq_done);
 static uint32_t *irqs_for_wfe;
 static void __iomem *gic_dist_base;
 
-static int curr_ddr_rate;
-
-#ifdef CONFIG_SMP
 /**
  * @brief  Switch all active cores, except the one changing the
  *         bus frequency, in WFE mode until completion of the
@@ -119,7 +120,7 @@ int update_freq_optee(int ddr_rate)
 	uint32_t all_cpus    = 0;
 #endif
 
-	pr_debug("\nBusfreq DDR3 OPTEE set from %d to %d start...\n",
+	pr_debug("\nBusfreq OPTEE set from %d to %d start...\n",
 			curr_ddr_rate, ddr_rate);
 
 	if (ddr_rate == curr_ddr_rate)
@@ -189,6 +190,7 @@ int update_freq_optee(int ddr_rate)
 	return 0;
 }
 
+#ifdef CONFIG_SMP
 static int init_freq_optee_smp(struct platform_device *busfreq_pdev)
 {
 	struct device_node *node = 0;
@@ -297,4 +299,11 @@ int init_freq_optee(struct platform_device *busfreq_pdev)
 
 	return err;
 }
+#else
+int init_freq_optee(struct platform_device *busfreq_pdev)
+{
+	curr_ddr_rate = ddr_normal_rate;
+	return 0;
+}
+#endif
 

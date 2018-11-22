@@ -60,6 +60,16 @@ static bool l2x0_bresp_disable;
 static bool l2x0_flz_disable;
 
 #ifdef CONFIG_OPTEE
+
+#ifndef CONFIG_SMP
+/*
+ * Redefine the arch_writelock/unlock functions not present
+ * in NO SMP mode
+ */
+#define arch_write_lock(lock)	raw_spin_lock(lock)
+#define arch_write_unlock(lock)	raw_spin_unlock(lock)
+#endif
+
 struct l2x0_mutex {
 	arch_rwlock_t *mutex;
 	arch_rwlock_t nomutex;
@@ -81,7 +91,9 @@ static struct l2x0_mutex l2x0_lock;
 static void spinlock_init(struct l2x0_mutex *spinlock)
 {
 	spinlock->mutex        = NULL;
+#ifdef CONFIG_SMP
 	spinlock->nomutex.lock = 0;
+#endif
 }
 
 static unsigned long local_lock(struct l2x0_mutex *spinlock)
