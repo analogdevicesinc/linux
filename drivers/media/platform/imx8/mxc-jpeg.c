@@ -216,20 +216,65 @@ static char *fourcc_to_str(u32 format)
 	return buf;
 }
 
-static void print_buf(struct device *dev, struct vb2_buffer *buf)
+static unsigned int mxc_jpeg_tracing;
+EXPORT_SYMBOL(mxc_jpeg_tracing);
+
+module_param_named(jpeg_tracing, mxc_jpeg_tracing, int, 0600);
+
+static void print_buf_preview(struct device *dev, struct vb2_buffer *buf)
 {
-	void *testaddri;
-	char *data;
+	unsigned char *data;
 	u32 dma_addr;
 
-	testaddri = vb2_plane_vaddr(buf, 0);
+	if (!mxc_jpeg_tracing)
+		return;
+
 	dma_addr = vb2_dma_contig_plane_dma_addr(buf, 0);
-	data = (char *)testaddri;
+	data = (char *)vb2_plane_vaddr(buf, 0);
 
 	/* print just the first 4 bytes from the beginning of the buffer */
 	dev_dbg(dev, "vaddr=%p dma_addr=%x: %x %x %x %x ...\n",
-		testaddri, dma_addr,
+		data, dma_addr,
 		data[0], data[1], data[2], data[3]);
+}
+
+static void print_nbuf_to_eoi(struct device *dev, struct vb2_buffer *buf, int n)
+{
+	unsigned char *data;
+	u32 dma_addr;
+	int i;
+	int items_per_line = 22;
+	char *bufstr = kmalloc(items_per_line * 6, GFP_ATOMIC);
+	char *bufptr = bufstr;
+
+	if (!mxc_jpeg_tracing)
+		return;
+
+	if (n == 0)
+		n = buf->planes[0].bytesused;
+
+	dma_addr = vb2_dma_contig_plane_dma_addr(buf, 0);
+	data = (unsigned char *)vb2_plane_vaddr(buf, 0);
+
+	dev_dbg(dev, "vaddr=%p dma_addr=%x bytesused=%d:",
+		 data, dma_addr, n);
+	for (i = 0; i < n; i++) {
+		snprintf(bufptr, 6, "0x%02x,", data[i]);
+		bufptr += 5;
+		if ((i+1) % items_per_line == 0) {
+			/* print the current line */
+			dev_dbg(dev, "%s", bufstr);
+			/* back to buffer start */
+			bufptr = bufstr;
+		}
+		/* stop at End of Image (EOI) marker*/
+		if (i > 0 && data[i-1] == 0xFF && data[i] == 0xD9)
+			break;
+	}
+	if (bufptr != bufstr)
+		dev_dbg(dev, "%s", bufstr);
+	dev_dbg(dev, "buffer size = %d", i);
+	kfree(bufstr);
 }
 
 static inline u32 mxc_jpeg_align(u32 val, u32 align)
@@ -237,12 +282,10 @@ static inline u32 mxc_jpeg_align(u32 val, u32 align)
 	return (val + align - 1) & ~(align - 1);
 }
 
-
 static inline struct mxc_jpeg_ctx *mxc_jpeg_fh_to_ctx(struct v4l2_fh *fh)
 {
 	return container_of(fh, struct mxc_jpeg_ctx, fh);
 }
-
 
 static int enum_fmt(struct mxc_jpeg_fmt *mxc_formats, int n,
 		    struct v4l2_fmtdesc *f, u32 type)
@@ -428,9 +471,9 @@ static irqreturn_t mxc_jpeg_dec_irq(int irq, void *priv)
 
 	/* short preview of the results */
 	dev_dbg(dev, "src_buf preview: ");
-	print_buf(dev, src_buf);
+	print_buf_preview(dev, src_buf);
 	dev_dbg(dev, "dst_buf preview: ");
-	print_buf(dev, dst_buf);
+	print_buf_preview(dev, dst_buf);
 	buf_state = VB2_BUF_STATE_DONE;
 
 buffers_done:
@@ -586,6 +629,7 @@ static void mxc_jpeg_device_run(void *priv)
 		mxc_jpeg_go_enc(dev, reg);
 	} else {
 		dev_dbg(dev, "Decoding on slot %d\n", slot);
+		print_nbuf_to_eoi(dev, src_buf, 0);
 		mxc_jpeg_config_dec_desc(dst_buf, slot, jpeg, src_buf, dst_buf);
 		mxc_jpeg_go_dec(dev, reg);
 	}
