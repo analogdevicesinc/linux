@@ -55,6 +55,7 @@ struct imx_rpmsg_vproc {
 	struct clk *mu_clk;
 	enum imx_rpmsg_variants variant;
 	int vdev_nums;
+	int first_notify;
 #define MAX_VDEV_NUMS	8
 	struct imx_virdev ivdev[MAX_VDEV_NUMS];
 	void __iomem *mu_base;
@@ -126,8 +127,17 @@ static bool imx_rpmsg_notify(struct virtqueue *vq)
 	 * Use the timeout MU send message here.
 	 * Since that M4 core may not be loaded, and the first MSG may
 	 * not be handled by M4 when multi-vdev is enabled.
+	 * To make sure that the message wound't be discarded when M4
+	 * is running normally or in the suspend mode. Only use
+	 * the timeout mechanism by the first notify when the vdev is
+	 * registered.
 	 */
-	MU_SendMessageTimeout(rpvq->rpdev->mu_base, 1, mu_rpmsg, 200);
+	if (unlikely(rpvq->rpdev->first_notify > 0)) {
+		rpvq->rpdev->first_notify--;
+		MU_SendMessageTimeout(rpvq->rpdev->mu_base, 1, mu_rpmsg, 200);
+	} else {
+		MU_SendMessage(rpvq->rpdev->mu_base, 1, mu_rpmsg);
+	}
 	mutex_unlock(&rpvq->rpdev->lock);
 
 	return true;
@@ -531,6 +541,7 @@ static int imx_rpmsg_probe(struct platform_device *pdev)
 		pr_err("vdev-nums exceed the max %d\n", MAX_VDEV_NUMS);
 		return -EINVAL;
 	}
+	rpdev->first_notify = rpdev->vdev_nums;
 
 	if (!strcmp(rpdev->rproc_name, "m4")) {
 		ret = set_vring_phy_buf(pdev, rpdev,
