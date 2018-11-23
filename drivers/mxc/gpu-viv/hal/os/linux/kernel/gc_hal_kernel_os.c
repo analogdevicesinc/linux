@@ -5808,7 +5808,7 @@ gckOS_WaitSignal(
     )
 {
     gceSTATUS status;
-    gcsSIGNAL_PTR signal;
+    gcsSIGNAL_PTR signal = gcvNULL;
     int done;
     unsigned long flags;
 
