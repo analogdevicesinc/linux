@@ -63,6 +63,7 @@ static int add_scode(struct vpu_ctx *ctx, u_int32 uStrBufIdx, VPU_PADDING_SCODE_
 static void v4l2_update_stream_addr(struct vpu_ctx *ctx, uint32_t uStrBufIdx);
 static int swreset_vpu_firmware(struct vpu_dev *dev, u_int32 idx);
 static int find_first_available_instance(struct vpu_dev *dev);
+static int remove_instance_file(struct vpu_ctx *ctx);
 #define CHECK_BIT(var, pos) (((var) >> (pos)) & 1)
 
 static char *cmd2str[] = {
@@ -167,17 +168,21 @@ static char *get_cmd_str(u32 cmdid)
 static void vpu_log_event(u_int32 uEvent, u_int32 ctxid)
 {
 	if (uEvent > ARRAY_SIZE(event2str)-1)
-		vpu_dbg(LVL_EVENT, "reveive event: 0x%X, ctx id:%d\n", uEvent, ctxid);
+		vpu_dbg(LVL_EVENT, "reveive event: 0x%X, ctx id:%d\n",
+				uEvent, ctxid);
 	else
-		vpu_dbg(LVL_EVENT, "recevie event: %s, ctx id:%d\n", event2str[uEvent], ctxid);
+		vpu_dbg(LVL_EVENT, "recevie event: %s, ctx id:%d\n",
+				event2str[uEvent], ctxid);
 }
 
 static void vpu_log_cmd(u_int32 cmdid, u_int32 ctxid)
 {
 	if (cmdid > ARRAY_SIZE(cmd2str)-1)
-		vpu_dbg(LVL_EVENT, "send cmd: 0x%X, ctx id:%d\n", cmdid, ctxid);
+		vpu_dbg(LVL_EVENT, "send cmd: 0x%X, ctx id:%d\n",
+				cmdid, ctxid);
 	else
-		vpu_dbg(LVL_EVENT, "send cmd: %s ctx id:%d\n", cmd2str[cmdid], ctxid);
+		vpu_dbg(LVL_EVENT, "send cmd: %s ctx id:%d\n",
+				cmd2str[cmdid], ctxid);
 }
 
 static void vpu_log_buffer_state(struct vpu_ctx *ctx)
@@ -188,7 +193,8 @@ static void vpu_log_buffer_state(struct vpu_ctx *ctx)
 	for (i = 0; i < VPU_MAX_BUFFER; i++) {
 		p_data_req = &ctx->q_data[V4L2_DST].vb2_reqs[i];
 		if (p_data_req->vb2_buf != NULL)
-			vpu_dbg(LVL_INFO, "ctx: %d, buffer[%d] status: %s\n", ctx->str_index, i, bufstat[p_data_req->status]);
+			vpu_dbg(LVL_INFO, "ctx: %d, buffer[%d] status: %s\n",
+					ctx->str_index, i, bufstat[p_data_req->status]);
 	}
 }
 
@@ -231,14 +237,16 @@ static int find_buffer_id(struct vpu_ctx *ctx, u_int32 addr)
 			pphy_address = (u_int32 *)vb2_plane_cookie(p_data_req->vb2_buf, 0);
 			if (pphy_address != NULL) {
 				LumaAddr = *pphy_address;
-				if (LumaAddr == addr - ctx->dev->cm_offset)
+				if (LumaAddr == addr)
 					return i;
 			} else
-				vpu_dbg(LVL_ERR, "error: %s() buffer (%d) is NULL\n", __func__, i);
+				vpu_dbg(LVL_ERR, "error: %s() buffer (%d) is NULL\n",
+						__func__, i);
 		}
 	}
 
-	vpu_dbg(LVL_ERR, "error: %s() can't find suitable id based on address(0x%x)\n", __func__, addr);
+	vpu_dbg(LVL_ERR, "error: %s() can't find suitable id based on address(0x%x)\n",
+			__func__, addr);
 	return -1;
 }
 
@@ -442,7 +450,8 @@ static void caculate_frame_size(struct vpu_ctx *ctx)
 	u_int32 chroma_size;
 	u_int32 chroma_height;
 	u_int32 uVertAlign = 256-1;
-	bool b10BitFormat = (ctx->pSeqinfo->uBitDepthLuma > 8) || (ctx->pSeqinfo->uBitDepthChroma > 8);
+	bool b10BitFormat = (ctx->pSeqinfo->uBitDepthLuma > 8) ||
+		(ctx->pSeqinfo->uBitDepthChroma > 8);
 
 	struct queue_data *q_data;
 
@@ -603,6 +612,52 @@ static int v4l2_ioctl_subscribe_event(struct v4l2_fh *fh,
 		return -EINVAL;
 	}
 }
+
+static void init_dma_buffer(struct dma_buffer *buffer)
+{
+	if (!buffer)
+		return;
+
+	buffer->dma_phy = 0;
+	buffer->dma_virt = NULL;
+	buffer->dma_size = 0;
+}
+
+static int alloc_dma_buffer(struct vpu_ctx *ctx, struct dma_buffer *buffer)
+{
+	if (!ctx || !ctx->dev || !buffer)
+		return -EINVAL;
+
+	buffer->dma_virt = dma_alloc_coherent(&ctx->dev->plat_dev->dev,
+			buffer->dma_size,
+			(dma_addr_t *)&buffer->dma_phy,
+			GFP_KERNEL | GFP_DMA32);
+
+	if (!buffer->dma_virt) {
+		vpu_dbg(LVL_ERR, "error: %s() dma buffer alloc size(%x) fail!\n",
+				__func__,  buffer->dma_size);
+		return -ENOMEM;
+	}
+
+	memset_io(buffer->dma_virt, 0, buffer->dma_size);
+	atomic64_add(buffer->dma_size, &ctx->statistic.total_dma_size);
+	return 0;
+}
+
+static int free_dma_buffer(struct vpu_ctx *ctx, struct dma_buffer *buffer)
+{
+	if (!ctx || !ctx->dev || !buffer)
+		return -EINVAL;
+
+	if (buffer->dma_virt)
+		dma_free_coherent(&ctx->dev->plat_dev->dev,
+				buffer->dma_size,
+				buffer->dma_virt,
+				buffer->dma_phy);
+
+	atomic64_sub(buffer->dma_size, &ctx->statistic.total_dma_size);
+	return 0;
+}
 static void alloc_mbi_buffer(struct vpu_ctx *ctx,
 		struct queue_data *This,
 		u_int32 count)
@@ -610,8 +665,8 @@ static void alloc_mbi_buffer(struct vpu_ctx *ctx,
 	u_int32 uAlign = 0x800-1;
 	u_int32 mbi_num;
 	u_int32 mbi_size;
+	u_int32 ret = 0;
 	u_int32 i;
-
 
 	if (count >= MAX_MBI_NUM)
 		mbi_num = MAX_MBI_NUM;
@@ -621,15 +676,11 @@ static void alloc_mbi_buffer(struct vpu_ctx *ctx,
 
 	mbi_size = (This->sizeimage[0]+This->sizeimage[1])/4;
 	mbi_size = ((mbi_size + uAlign) & ~uAlign);
-	ctx->mbi_size = mbi_size;
 	for (i = 0; i < mbi_num; i++) {
-		ctx->mbi_dma_virt[i] = dma_alloc_coherent(&ctx->dev->plat_dev->dev,
-			ctx->mbi_size,
-			(dma_addr_t *)&ctx->mbi_dma_phy[i],
-			GFP_KERNEL | GFP_DMA32
-			);
-		if (!ctx->mbi_dma_virt[i])
-			vpu_dbg(LVL_ERR, "error: %s() mbi buffer alloc size(%x) fail!\n", __func__,  mbi_size);
+		ctx->mbi_buffer[i].dma_size = mbi_size;
+		ret = alloc_dma_buffer(ctx, &ctx->mbi_buffer[i]);
+		if (ret)
+			vpu_dbg(LVL_ERR, "error: alloc mbi buffer fail\n");
 	}
 }
 static int v4l2_ioctl_reqbufs(struct file *file,
@@ -660,15 +711,10 @@ static int v4l2_ioctl_reqbufs(struct file *file,
 	if (!ret) {
 		if (reqbuf->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
 			if (reqbuf->count == 0) {
-				for (i = 0; i < MAX_MBI_NUM; i++)
-					if (ctx->mbi_dma_virt[i] != NULL) {
-						dma_free_coherent(&ctx->dev->plat_dev->dev,
-								ctx->mbi_size,
-								ctx->mbi_dma_virt[i],
-								ctx->mbi_dma_phy[i]
-								);
-						ctx->mbi_dma_virt[i] = NULL;
-					}
+				for (i = 0; i < MAX_MBI_NUM; i++) {
+					free_dma_buffer(ctx, &ctx->mbi_buffer[i]);
+					init_dma_buffer(&ctx->mbi_buffer[i]);
+				}
 			} else {
 				for (i = 0; i < reqbuf->count; i++)
 					q_data->vb2_reqs[i].status = FRAME_ALLOC;
@@ -676,7 +722,8 @@ static int v4l2_ioctl_reqbufs(struct file *file,
 			}
 		}
 	} else if (reqbuf->count != 0)
-		vpu_dbg(LVL_ERR, "error: %s() can't request (%d) buffer ret=%d\n", __func__, reqbuf->count, ret);
+		vpu_dbg(LVL_ERR, "error: %s() can't request (%d) buffer ret=%d\n",
+				__func__, reqbuf->count, ret);
 
 	return ret;
 }
@@ -1157,8 +1204,8 @@ static int add_scode(struct vpu_ctx *ctx, u_int32 uStrBufIdx, VPU_PADDING_SCODE_
 		return -1;
 	}
 	plbuffer = (uint32_t *)buffer;
-	if (wptr - start < ctx->stream_buffer_size)
-		pbbuffer = (uint8_t *)(ctx->stream_buffer_virt + wptr - start);
+	if (wptr - start < ctx->stream_buffer.dma_size)
+		pbbuffer = (uint8_t *)(ctx->stream_buffer.dma_virt + wptr - start);
 	else {
 		vpu_dbg(LVL_ERR, "error: return wptr(0x%x), start(0x%x) is not valid\n", wptr, start);
 		return -1;
@@ -1178,7 +1225,7 @@ static int add_scode(struct vpu_ctx *ctx, u_int32 uStrBufIdx, VPU_PADDING_SCODE_
 		wptr += pad_bytes;
 		if (wptr == end) {
 			wptr = start;
-			pbbuffer = (uint8_t *)ctx->stream_buffer_virt;
+			pbbuffer = (uint8_t *)ctx->stream_buffer.dma_virt;
 		}
 	}
 
@@ -1263,7 +1310,7 @@ static int add_scode(struct vpu_ctx *ctx, u_int32 uStrBufIdx, VPU_PADDING_SCODE_
 				wptr = start;
 		} else {
 			memcpy(pbbuffer, buffer, end-wptr);
-			memcpy(ctx->stream_buffer_virt, buffer + (end - wptr), SCODE_SIZE - (end - wptr));
+			memcpy(ctx->stream_buffer.dma_virt, buffer + (end - wptr), SCODE_SIZE - (end - wptr));
 			wptr = start + SCODE_SIZE - (end - wptr);
 		}
 		pad_bytes += SCODE_SIZE;
@@ -1385,26 +1432,25 @@ static void transfer_buffer_to_firmware(struct vpu_ctx *ctx, void *input_buffer,
 			pSharedInterface->FWVersion & 0x000000ff);
 
 
-	if (ctx->stream_buffer_size < buffer_size + MIN_SPACE)
+	if (ctx->stream_buffer.dma_size < buffer_size + MIN_SPACE)
 		vpu_dbg(LVL_INFO, "circular buffer size is too small\n");
 	if (!ctx->start_code_bypass)
-		length = insert_scode_4_seq(ctx, input_buffer, ctx->stream_buffer_virt, vdec_std, buffer_size);
+		length = insert_scode_4_seq(ctx, input_buffer, ctx->stream_buffer.dma_virt, vdec_std, buffer_size);
 	else
 		length = 0;
 	if (length == 0) {
-		memcpy(ctx->stream_buffer_virt + length, input_buffer, buffer_size);
+		memcpy(ctx->stream_buffer.dma_virt + length, input_buffer, buffer_size);
 		length = buffer_size;
 	}
-//	memcpy(ctx->stream_buffer_virt + length, input_buffer, buffer_size);
 	vpu_dbg(LVL_INFO, "transfer data from virt 0x%p: size:%d\n",
-			ctx->stream_buffer_virt, buffer_size);
+			ctx->stream_buffer.dma_virt, buffer_size);
 	mb();
 	pStrBufDesc = ctx->dev->regs_base + DEC_MFD_XREG_SLV_BASE + MFD_MCX + MFD_MCX_OFF * ctx->str_index;
 	// CAUTION: wptr must not be end
-	pStrBufDesc->wptr = ctx->stream_buffer_phy + length - ctx->dev->cm_offset;
-	pStrBufDesc->rptr = ctx->stream_buffer_phy - ctx->dev->cm_offset;
-	pStrBufDesc->start = ctx->stream_buffer_phy - ctx->dev->cm_offset;
-	pStrBufDesc->end = ctx->stream_buffer_phy + ctx->stream_buffer_size - ctx->dev->cm_offset;
+	pStrBufDesc->wptr = ctx->stream_buffer.dma_phy + length;
+	pStrBufDesc->rptr = ctx->stream_buffer.dma_phy;
+	pStrBufDesc->start = ctx->stream_buffer.dma_phy;
+	pStrBufDesc->end = ctx->stream_buffer.dma_phy + ctx->stream_buffer.dma_size;
 	pStrBufDesc->LWM = 0x01;
 
 	ctx->dev->shared_mem.pSharedInterface->pStreamBuffDesc[ctx->str_index][uStrBufIdx] =
@@ -1412,8 +1458,8 @@ static void transfer_buffer_to_firmware(struct vpu_ctx *ctx, void *input_buffer,
 
 	vpu_dbg(LVL_INFO, "transfer MCX address virt=%p, phy=0x%x, index=%d\n",
 			pStrBufDesc, ctx->dev->shared_mem.pSharedInterface->pStreamBuffDesc[ctx->str_index][uStrBufIdx], ctx->str_index);
-	pUdataBuf->uUDataBase = ctx->udata_buffer_phy - ctx->dev->cm_offset;
-	pUdataBuf->uUDataSlotSize = ctx->udata_buffer_size;
+	pUdataBuf->uUDataBase = ctx->udata_buffer.dma_phy;
+	pUdataBuf->uUDataSlotSize = ctx->udata_buffer.dma_size;
 	VID_STREAM_CONFIG_FORMAT_SET(vpu_format_remap(vdec_std), CurrStrfg);
 	if (vdec_std == VPU_VIDEO_JPEG) {
 		MediaIPFW_Video_JpegParams *pJpgPara;
@@ -1526,7 +1572,7 @@ static int update_stream_addr(struct vpu_ctx *ctx, void *input_buffer, uint32_t 
 		vpu_dbg(LVL_ERR, "%s(), rptr pointer cross-border\n", __func__);
 		return 0;
 	}
-	wptr_virt = (void *)ctx->stream_buffer_virt + wptr - start;
+	wptr_virt = (void *)ctx->stream_buffer.dma_virt + wptr - start;
 
 	vpu_dbg(LVL_INFO, "update_stream_addr down\n");
 
@@ -1548,13 +1594,13 @@ static int update_stream_addr(struct vpu_ctx *ctx, void *input_buffer, uint32_t 
 				wptr_virt += length;
 				if (wptr == end) {
 					wptr = start;
-					wptr_virt = (void *)ctx->stream_buffer_virt;
+					wptr_virt = (void *)ctx->stream_buffer.dma_virt;
 				}
 			} else {
 				memcpy(wptr_virt, payload_header, end-wptr);
-				memcpy(ctx->stream_buffer_virt, payload_header + (end-wptr), length - (end-wptr));
+				memcpy(ctx->stream_buffer.dma_virt, payload_header + (end-wptr), length - (end-wptr));
 				wptr = start + length - (end-wptr);
-				wptr_virt = (void *)ctx->stream_buffer_virt + length - (end-wptr);
+				wptr_virt = (void *)ctx->stream_buffer.dma_virt + length - (end-wptr);
 			}
 			if (end - wptr >= buffer_size) {
 				memcpy(wptr_virt, input_buffer, buffer_size);
@@ -1563,7 +1609,7 @@ static int update_stream_addr(struct vpu_ctx *ctx, void *input_buffer, uint32_t 
 					wptr = start;
 			} else {
 				memcpy(wptr_virt, input_buffer, end-wptr);
-				memcpy(ctx->stream_buffer_virt, input_buffer + (end-wptr), buffer_size - (end-wptr));
+				memcpy(ctx->stream_buffer.dma_virt, input_buffer + (end-wptr), buffer_size - (end-wptr));
 				wptr = start + buffer_size - (end-wptr);
 			}
 		} else {
@@ -1826,8 +1872,6 @@ static void vpu_api_event_handler(struct vpu_ctx *ctx, u_int32 uStrIdx, u_int32 
 		u_int32 LumaAddr, ChromaAddr;
 		u_int32 *pphy_address;
 		struct vb2_data_req;
-		void *dcp_dma_virt;
-		dma_addr_t dcp_dma_phy;
 		bool buffer_flag = false;
 
 		vpu_dbg(LVL_INFO, "VID_API_EVENT_REQ_FRAME_BUFF, type=%d, size=%ld\n", pFSREQ->eType, sizeof(MEDIA_PLAYER_FSREQ));
@@ -1836,19 +1880,11 @@ static void vpu_api_event_handler(struct vpu_ctx *ctx, u_int32 uStrIdx, u_int32 
 				vpu_dbg(LVL_ERR, "error: request dcp buffers number is over MAX_DCP_NUM\n");
 				break;
 			}
-			ctx->uDCPSize = DCP_SIZE;
-			dcp_dma_virt = dma_alloc_coherent(&ctx->dev->plat_dev->dev,
-					ctx->uDCPSize,
-					(dma_addr_t *)&dcp_dma_phy,
-					GFP_KERNEL | GFP_DMA32
-					);
-			if (!dcp_dma_virt)
-				vpu_dbg(LVL_ERR, "error: %s() dcp buffer alloc size(%x) fail!\n", __func__, DCP_SIZE);
-			ctx->dcp_dma_virt[ctx->dcp_count] = dcp_dma_virt;
-			ctx->dcp_dma_phy[ctx->dcp_count] = dcp_dma_phy;
+			ctx->dcp_buffer[ctx->dcp_count].dma_size = DCP_SIZE;
+			alloc_dma_buffer(ctx, &ctx->dcp_buffer[ctx->dcp_count]);
 
 			local_cmddata[0] = ctx->dcp_count;
-			local_cmddata[1] = dcp_dma_phy - ctx->dev->cm_offset;
+			local_cmddata[1] = ctx->dcp_buffer[ctx->dcp_count].dma_phy;
 			local_cmddata[2] = DCP_SIZE;
 			local_cmddata[3] = 0;
 			local_cmddata[4] = 0;
@@ -1864,8 +1900,8 @@ static void vpu_api_event_handler(struct vpu_ctx *ctx, u_int32 uStrIdx, u_int32 
 				break;
 			}
 			local_cmddata[0] = ctx->mbi_count;
-			local_cmddata[1] = ctx->mbi_dma_phy[ctx->mbi_count] - ctx->dev->cm_offset;
-			local_cmddata[2] = ctx->mbi_size;
+			local_cmddata[1] = ctx->mbi_buffer[ctx->mbi_count].dma_phy;
+			local_cmddata[2] = ctx->mbi_buffer[ctx->mbi_count].dma_size;
 			local_cmddata[3] = 0;
 			local_cmddata[4] = 0;
 			local_cmddata[5] = 0;
@@ -1912,9 +1948,9 @@ static void vpu_api_event_handler(struct vpu_ctx *ctx, u_int32 uStrIdx, u_int32 
 						}
 
 						local_cmddata[0] = p_data_req->id;
-						local_cmddata[1] = LumaAddr - ctx->dev->cm_offset;
+						local_cmddata[1] = LumaAddr;
 						local_cmddata[2] = local_cmddata[1] + This->sizeimage[0]/2;
-						local_cmddata[3] = ChromaAddr - ctx->dev->cm_offset;
+						local_cmddata[3] = ChromaAddr;
 						local_cmddata[4] = local_cmddata[3] + This->sizeimage[1]/2;
 						local_cmddata[5] = ctx->q_data[V4L2_DST].stride;
 						local_cmddata[6] = pFSREQ->eType;
@@ -1965,9 +2001,9 @@ static void vpu_api_event_handler(struct vpu_ctx *ctx, u_int32 uStrIdx, u_int32 
 					ChromaAddr = p_data_req->phy_addr[1];
 				}
 				local_cmddata[0] = p_data_req->id;
-				local_cmddata[1] = LumaAddr - ctx->dev->cm_offset;
+				local_cmddata[1] = LumaAddr;
 				local_cmddata[2] = local_cmddata[1] + This->sizeimage[0]/2;
-				local_cmddata[3] = ChromaAddr - ctx->dev->cm_offset;
+				local_cmddata[3] = ChromaAddr;
 				local_cmddata[4] = local_cmddata[3] + This->sizeimage[1]/2;
 				local_cmddata[5] = ctx->q_data[V4L2_DST].stride;
 				local_cmddata[6] = pFSREQ->eType;
@@ -2217,6 +2253,7 @@ static int release_hang_instance(struct vpu_dev *dev)
 
 	for (i = 0; i < VPU_MAX_NUM_STREAMS; i++)
 		if (dev->ctx[i]) {
+			remove_instance_file(dev->ctx[i]);
 			kfree(dev->ctx[i]);
 			dev->ctx[i] = NULL;
 		}
@@ -2249,7 +2286,8 @@ static int vpu_next_free_instance(struct vpu_dev *dev)
 		if (idx < 0 || idx >= VPU_MAX_NUM_STREAMS)
 			return -EBUSY;
 		else {
-			swreset_vpu_firmware(dev, idx);
+			if (swreset_vpu_firmware(dev, idx))
+				return -EINVAL;
 			release_hang_instance(dev);
 		}
 		dev->hang_mask = 0;
@@ -2641,7 +2679,6 @@ static ssize_t show_instance_event_info(struct device *dev,
 	return num;
 }
 
-
 static ssize_t show_instance_buffer_info(struct device *dev,
 			struct device_attribute *attr, char *buf)
 {
@@ -2680,7 +2717,7 @@ static ssize_t show_instance_buffer_info(struct device *dev,
 			"\t%40s:%16x\n", "start", pStrBufDesc->start);
 	num += snprintf(buf + num, PAGE_SIZE - num,
 			"\t%40s:%16x\n", "end", pStrBufDesc->end);
-	stream_length = ctx->stream_buffer_size -
+	stream_length = ctx->stream_buffer.dma_size -
 		got_free_space(pStrBufDesc->wptr, pStrBufDesc->rptr, pStrBufDesc->start, pStrBufDesc->end);
 
 	num += snprintf(buf + num, PAGE_SIZE - num,
@@ -2754,6 +2791,37 @@ static int remove_instance_file(struct vpu_ctx *ctx)
 	return 0;
 }
 
+static int alloc_vpu_buffer(struct vpu_ctx *ctx)
+{
+	u_int32 i;
+	u_int32 ret = 0;
+
+	if (!ctx)
+		return -EINVAL;
+
+	for (i = 0; i < MAX_DCP_NUM; i++)
+		init_dma_buffer(&ctx->dcp_buffer[i]);
+	ctx->dcp_count = 0;
+	for (i = 0; i < MAX_MBI_NUM; i++)
+		init_dma_buffer(&ctx->mbi_buffer[i]);
+	ctx->mbi_count = 0;
+	ctx->mbi_num = 0;
+	init_dma_buffer(&ctx->stream_buffer);
+	init_dma_buffer(&ctx->udata_buffer);
+
+	ctx->stream_buffer.dma_size = MAX_BUFFER_SIZE;
+	ret = alloc_dma_buffer(ctx, &ctx->stream_buffer);
+	if (ret)
+		vpu_dbg(LVL_ERR, "error: alloc stream buffer fail!\n");
+
+	ctx->udata_buffer.dma_size = UDATA_BUFFER_SIZE;
+	ret = alloc_dma_buffer(ctx, &ctx->udata_buffer);
+	if (ret)
+		vpu_dbg(LVL_ERR, "error: alloc udata buffer fail!\n");
+
+	return ret;
+}
+
 static int v4l2_open(struct file *filp)
 {
 	struct video_device *vdev = video_devdata(filp);
@@ -2761,7 +2829,6 @@ static int v4l2_open(struct file *filp)
 	struct vpu_ctx *ctx = NULL;
 	int idx;
 	int ret = 0;
-	u_int32 i;
 
 	pm_runtime_get_sync(dev->generic_dev);
 	ctx = kzalloc(sizeof(*ctx), GFP_KERNEL);
@@ -2834,68 +2901,29 @@ static int v4l2_open(struct file *filp)
 			vpu_dbg(LVL_ERR, "error: vpu_firmware_download fail\n");
 			mutex_unlock(&dev->dev_mutex);
 			goto err_firmware_load;
-		} else
-			vpu_dbg(LVL_INFO, "done: vpu_firmware_download\n");
+		}
+		vpu_dbg(LVL_INFO, "done: vpu_firmware_download\n");
 		if (!ctx->dev->firmware_started)
-			wait_for_completion(&ctx->dev->start_cmp);
+			if (!wait_for_completion_timeout(&ctx->dev->start_cmp, msecs_to_jiffies(10000))) {
+				vpu_dbg(LVL_ERR, "error: don't get start interrupt\n");
+				ret = -1;
+				goto err_firmware_load;
+			}
 		dev->fw_is_ready = true;
 	}
 	mutex_unlock(&dev->dev_mutex);
 	create_instance_file(ctx);
 	rpc_set_stream_cfg_value(dev->shared_mem.pSharedInterface, ctx->str_index);
-
-	for (i = 0; i < MAX_DCP_NUM; i++) {
-		ctx->dcp_dma_virt[i] = NULL;
-		ctx->dcp_dma_phy[i] = 0;
-	}
-	ctx->dcp_count = 0;
-	for (i = 0; i < MAX_MBI_NUM; i++) {
-		ctx->mbi_dma_virt[i] = NULL;
-		ctx->mbi_dma_phy[i] = 0;
-	}
-	ctx->mbi_count = 0;
-	ctx->mbi_num = 0;
-	ctx->mbi_size = 0;
-
-	ctx->stream_buffer_size = MAX_BUFFER_SIZE;
-	ctx->stream_buffer_virt = dma_alloc_coherent(&ctx->dev->plat_dev->dev,
-			ctx->stream_buffer_size,
-			(dma_addr_t *)&ctx->stream_buffer_phy,
-			GFP_KERNEL | GFP_DMA32
-			);
-	if (!ctx->stream_buffer_virt) {
-		vpu_dbg(LVL_ERR, "error: %s() stream buffer alloc size(%x) fail!\n", __func__, ctx->stream_buffer_size);
-		ret = -ENOMEM;
-		goto err_firmware_load;
-	}
-	else
-		vpu_dbg(LVL_INFO, "%s() stream_buffer_size(%d) stream_buffer_virt(%p) stream_buffer_phy(%p), index(%d)\n",
-				__func__, ctx->stream_buffer_size, ctx->stream_buffer_virt, (void *)ctx->stream_buffer_phy, ctx->str_index);
-	ctx->udata_buffer_size = UDATA_BUFFER_SIZE;
-	ctx->udata_buffer_virt = dma_alloc_coherent(&ctx->dev->plat_dev->dev,
-			ctx->udata_buffer_size,
-			(dma_addr_t *)&ctx->udata_buffer_phy,
-			GFP_KERNEL | GFP_DMA32
-			);
-
-	if (!ctx->udata_buffer_virt) {
-		vpu_dbg(LVL_ERR, "error: %s() udata buffer alloc size(%x) fail!\n", __func__, ctx->udata_buffer_size);
-		ret = -ENOMEM;
-		goto err_alloc_udata;
-	}
-	else
-		vpu_dbg(LVL_INFO, "%s() udata_buffer_size(%d) udata_buffer_virt(%p) udata_buffer_phy(%p)\n",
-				__func__, ctx->udata_buffer_size, ctx->udata_buffer_virt, (void *)ctx->udata_buffer_phy);
+	if (alloc_vpu_buffer(ctx))
+		goto err_alloc_buffer;
 
 	return 0;
 
-err_alloc_udata:
-	if (ctx->stream_buffer_virt)
-		dma_free_coherent(&ctx->dev->plat_dev->dev,
-				ctx->stream_buffer_size,
-				ctx->stream_buffer_virt,
-				ctx->stream_buffer_phy
-				);
+err_alloc_buffer:
+	free_dma_buffer(ctx, &ctx->stream_buffer);
+	free_dma_buffer(ctx, &ctx->udata_buffer);
+	init_dma_buffer(&ctx->stream_buffer);
+	init_dma_buffer(&ctx->udata_buffer);
 err_firmware_load:
 	kfree(ctx->pSeqinfo);
 	ctx->pSeqinfo = NULL;
@@ -2943,34 +2971,16 @@ static int v4l2_release(struct file *filp)
 	ctrls_delete_decoder(ctx);
 	v4l2_fh_del(&ctx->fh);
 	v4l2_fh_exit(&ctx->fh);
-	remove_instance_file(ctx);
 	for (i = 0; i < MAX_DCP_NUM; i++)
-		if (ctx->dcp_dma_virt[i] != NULL)
-		dma_free_coherent(&ctx->dev->plat_dev->dev,
-				ctx->uDCPSize,
-				ctx->dcp_dma_virt[i],
-				ctx->dcp_dma_phy[i]
-				);
-	for (i = 0; i < MAX_MBI_NUM; i++)
-		if (ctx->mbi_dma_virt[i] != NULL)
-		dma_free_coherent(&ctx->dev->plat_dev->dev,
-				ctx->mbi_size,
-				ctx->mbi_dma_virt[i],
-				ctx->mbi_dma_phy[i]
-				);
-	if (ctx->stream_buffer_virt)
-		dma_free_coherent(&ctx->dev->plat_dev->dev,
-				ctx->stream_buffer_size,
-				ctx->stream_buffer_virt,
-				ctx->stream_buffer_phy
-				);
-	if (ctx->udata_buffer_virt)
-		dma_free_coherent(&ctx->dev->plat_dev->dev,
-				ctx->udata_buffer_size,
-				ctx->udata_buffer_virt,
-				ctx->udata_buffer_phy
-				);
+		free_dma_buffer(ctx, &ctx->dcp_buffer[i]);
 
+	for (i = 0; i < MAX_MBI_NUM; i++)
+		free_dma_buffer(ctx, &ctx->mbi_buffer[i]);
+
+	free_dma_buffer(ctx, &ctx->stream_buffer);
+	free_dma_buffer(ctx, &ctx->udata_buffer);
+	if (atomic64_read(&ctx->statistic.total_dma_size) != 0)
+		vpu_dbg(LVL_ERR, "error: memory leak for vpu buffer\n");
 	if (ctx->pSeqinfo) {
 		kfree(ctx->pSeqinfo);
 		ctx->pSeqinfo = NULL;
@@ -2980,13 +2990,13 @@ static int v4l2_release(struct file *filp)
 	kfifo_free(&ctx->msg_fifo);
 	destroy_workqueue(ctx->instance_wq);
 	mutex_unlock(&ctx->instance_mutex);
-	ctx->stream_buffer_virt = NULL;
 	mutex_lock(&dev->dev_mutex);
 	mutex_unlock(&dev->dev_mutex);
 
 	pm_runtime_put_sync(ctx->dev->generic_dev);
 
 	if (!ctx->hang_status) { // judge the path is hang or not, if hang, don't clear
+		remove_instance_file(ctx);
 		clear_bit(ctx->str_index, &dev->instance_mask);
 		dev->ctx[ctx->str_index] = NULL;
 		kfree(ctx);
@@ -3056,8 +3066,7 @@ static int v4l2_mmap(struct file *filp, struct vm_area_struct *vma)
 		offset = offset >> PAGE_SHIFT;
 		vma->vm_pgoff = offset;
 		ret = vb2_mmap(&q_data->vb2_q,
-						vma
-						);
+						vma);
 	}
 
 	return ret;
@@ -3127,7 +3136,10 @@ static int swreset_vpu_firmware(struct vpu_dev *dev, u_int32 idx)
 
 	v4l2_vpu_send_cmd(dev->ctx[idx], 0, VID_API_CMD_FIRM_RESET, 0, NULL);
 
-	wait_for_completion(&dev->start_cmp);
+	if (!wait_for_completion_timeout(&dev->start_cmp, msecs_to_jiffies(10000))) {
+		vpu_dbg(LVL_ERR, "error: %s() fail\n", __func__);
+		return -1;
+	}
 	dev->firmware_started = true;
 
 	return ret;
@@ -3164,7 +3176,6 @@ static int parse_dt_info(struct vpu_dev *dev, struct device_node *np)
 		return -EINVAL;
 	}
 	dev->m0_p_fw_space_phy = reserved_res.start;
-	dev->cm_offset = 0;
 	reserved_node = of_parse_phandle(np, "rpc-region", 0);
 	if (!reserved_node) {
 		vpu_dbg(LVL_ERR, "error: rpc-region of_parse_phandle error\n");

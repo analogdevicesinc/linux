@@ -228,6 +228,13 @@ struct vpu_statistic {
 	unsigned long current_event;
 	struct timespec ts_cmd;
 	struct timespec ts_event;
+	atomic64_t total_dma_size;
+};
+
+struct dma_buffer {
+	dma_addr_t dma_phy;
+	void *dma_virt;
+	u_int32 dma_size;
 };
 
 struct vpu_ctx {
@@ -269,24 +276,15 @@ struct vpu_ctx {
 	bool start_code_bypass;
 	bool hang_status;
 	wait_queue_head_t buffer_wq;
-	void *dpb_dma_virt;
-	u_int32 uSize;
-	dma_addr_t dpb_dma_phy;
-	void *dcp_dma_virt[MAX_DCP_NUM];
-	u_int32 uDCPSize;
-	dma_addr_t dcp_dma_phy[MAX_DCP_NUM];
-	u_int32 dcp_count;
-	void *mbi_dma_virt[MAX_MBI_NUM];
-	u_int32 mbi_size;
-	dma_addr_t mbi_dma_phy[MAX_MBI_NUM];
 	u_int32 mbi_count;
 	u_int32 mbi_num;
-	void *stream_buffer_virt;
-	u_int32 stream_buffer_size;
-	dma_addr_t stream_buffer_phy;
-	void *udata_buffer_virt;
-	u_int32 udata_buffer_size;
-	dma_addr_t udata_buffer_phy;
+	u_int32 dcp_count;
+	struct dma_buffer dpb_buffer;
+	struct dma_buffer dcp_buffer[MAX_DCP_NUM];
+	struct dma_buffer mbi_buffer[MAX_MBI_NUM];
+	struct dma_buffer stream_buffer;
+	struct dma_buffer udata_buffer;
+
 	int frm_dis_delay;
 	int frm_dec_delay;
 	int frm_total_num;
