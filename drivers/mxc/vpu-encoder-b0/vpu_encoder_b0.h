@@ -34,6 +34,7 @@
 #include <media/v4l2-event.h>
 #include <linux/kfifo.h>
 #include "vpu_encoder_rpc.h"
+#include "vpu_encoder_config.h"
 
 extern unsigned int vpu_dbg_level_encoder;
 
@@ -208,6 +209,14 @@ struct vpu_strip_info {
 	unsigned long total;
 };
 
+struct vpu_fps_sts {
+	unsigned int thd;
+	unsigned int times;
+	unsigned long frame_number;
+	struct timespec ts;
+	unsigned long fps;
+};
+
 struct vpu_statistic {
 	unsigned long cmd[GTB_ENC_CMD_RESERVED + 1];
 	unsigned long event[VID_API_ENC_EVENT_RESERVED + 1];
@@ -223,6 +232,8 @@ struct vpu_statistic {
 		struct vpu_strip_info end;
 		struct vpu_strip_info eos;
 	} strip_sts;
+	bool fps_sts_enable;
+	struct vpu_fps_sts fps[VPU_FPS_STS_CNT];
 };
 
 struct vpu_attr {

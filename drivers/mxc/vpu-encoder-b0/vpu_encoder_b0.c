@@ -112,6 +112,8 @@ static int wait_for_start_done(struct core_device *core, int resume);
 static void wait_for_stop_done(struct vpu_ctx *ctx);
 static int sw_reset_firmware(struct core_device *core, int resume);
 static void reset_fw_statistic(struct vpu_attr *attr);
+static int enable_fps_sts(struct vpu_attr *attr);
+static int disable_fps_sts(struct vpu_attr *attr);
 
 static char *get_event_str(u32 event)
 {
@@ -2511,6 +2513,20 @@ static void show_enc_pic_info(MEDIAIP_ENC_PIC_INFO *pEncPicInfo)
 #endif
 }
 
+static int handle_event_start_done(struct vpu_ctx *ctx)
+{
+	if (!ctx)
+		return -EINVAL;
+
+	set_bit(VPU_ENC_STATUS_START_DONE, &ctx->status);
+	set_queue_rw_flag(&ctx->q_data[V4L2_SRC], VPU_ENC_FLAG_WRITEABLE);
+	submit_input_and_encode(ctx);
+
+	enable_fps_sts(get_vpu_ctx_attr(ctx));
+
+	return 0;
+}
+
 static int handle_event_frame_done(struct vpu_ctx *ctx,
 				MEDIAIP_ENC_PIC_INFO *pEncPicInfo)
 {
@@ -2585,6 +2601,8 @@ static int handle_event_stop_done(struct vpu_ctx *ctx)
 
 	WARN_ON(!ctx);
 
+	disable_fps_sts(get_vpu_ctx_attr(ctx));
+
 	set_bit(VPU_ENC_STATUS_STOP_DONE, &ctx->status);
 	notify_eos(ctx);
 
@@ -2619,10 +2637,7 @@ static void vpu_api_event_handler(struct vpu_ctx *ctx,
 
 	switch (uEvent) {
 	case VID_API_ENC_EVENT_START_DONE:
-		set_bit(VPU_ENC_STATUS_START_DONE, &ctx->status);
-		set_queue_rw_flag(&ctx->q_data[V4L2_SRC],
-				VPU_ENC_FLAG_WRITEABLE);
-		submit_input_and_encode(ctx);
+		handle_event_start_done(ctx);
 		break;
 	case VID_API_ENC_EVENT_MEM_REQUEST:
 		enc_mem_alloc(ctx, (MEDIAIP_ENC_MEM_REQ_DATA *)event_data);
@@ -3570,6 +3585,36 @@ static int show_cmd_event(struct vpu_statistic *statistic, int i,
 	return num;
 }
 
+static int show_single_fps_info(struct vpu_fps_sts *fps, char *buf, u32 size)
+{
+	const u32 COEF = VPU_FPS_COEF;
+	int num = 0;
+
+	num += snprintf(buf + num, size - num, "%3ld.", fps->fps / COEF);
+	num += snprintf(buf + num, size - num, "%02ld", fps->fps % COEF);
+	if (fps->thd)
+		num += snprintf(buf + num, size - num, "(%ds)", fps->thd);
+	else
+		num += snprintf(buf + num, size - num, "(avg)");
+
+	return num;
+}
+
+static int show_fps_info(struct vpu_fps_sts *fps, int count,
+			char *buf, u32 size)
+{
+	int i;
+	int num = 0;
+
+	for (i = 0; i < count; i++) {
+		if (i > 0)
+			num += snprintf(buf + num, size - num, "  ");
+		num += show_single_fps_info(&fps[i], buf + num, size - num);
+	}
+
+	return num;
+}
+
 static ssize_t show_instance_info(struct device *dev,
 			struct device_attribute *attr, char *buf)
 {
@@ -3693,9 +3738,15 @@ static ssize_t show_instance_info(struct device *dev,
 			statistic->h264_count);
 
 	num += snprintf(buf + num, PAGE_SIZE - num,
+			"\tactual fps              :");
+	num += show_fps_info(statistic->fps, ARRAY_SIZE(statistic->fps),
+				buf + num, PAGE_SIZE - num);
+	num += snprintf(buf + num, PAGE_SIZE - num, "\n");
+
+	num += snprintf(buf + num, PAGE_SIZE - num,
 			"strip data frame count:\n");
 	num += snprintf(buf + num, PAGE_SIZE - num,
-			"\t begin   :%16ld (max : %ld;total : %ld)\n",
+			"\t begin   :%16ld (max : %ld; total : %ld)\n",
 			statistic->strip_sts.begin.count,
 			statistic->strip_sts.begin.max,
 			statistic->strip_sts.begin.total);
@@ -3921,6 +3972,42 @@ static ssize_t show_buffer_info(struct device *dev,
 }
 DEVICE_ATTR(buffer, 0444, show_buffer_info, NULL);
 
+static ssize_t show_fpsinfo(struct device *dev,
+			struct device_attribute *attr, char *buf)
+{
+	struct vpu_dev *vdev = dev_get_drvdata(dev);
+	int num = 0;
+	int i;
+	int j;
+
+	for (i = 0; i < vdev->core_num; i++) {
+		struct core_device *core = &vdev->core_dev[i];
+
+		if (!core->supported_instance_count)
+			continue;
+
+		num += snprintf(buf + num, PAGE_SIZE - num, "core[%d]\n", i);
+		for (j = 0; j < core->supported_instance_count; j++) {
+			struct vpu_attr *attr = &core->attr[j];
+
+			if (!attr->created)
+				continue;
+			num += snprintf(buf + num, PAGE_SIZE - num,
+					"\t[%d]", j);
+			num += snprintf(buf + num, PAGE_SIZE - num,
+					"  %3d(setting)  ",
+					attr->param.uFrameRate);
+			num += show_fps_info(attr->statistic.fps,
+					ARRAY_SIZE(attr->statistic.fps),
+					buf + num, PAGE_SIZE - num);
+			num += snprintf(buf + num, PAGE_SIZE - num, "\n");
+		}
+	}
+
+	return num;
+}
+DEVICE_ATTR(fpsinfo, 0444, show_fpsinfo, NULL);
+
 static void reset_fw_statistic(struct vpu_attr *attr)
 {
 	int i;
@@ -3947,6 +4034,43 @@ static void reset_statistic(struct vpu_attr *attr)
 	memset(&attr->statistic, 0, sizeof(attr->statistic));
 }
 
+static int init_vpu_attr_fps_sts(struct vpu_attr *attr)
+{
+	const unsigned int THDS[] = VPU_FPS_STS_THDS;
+	int i;
+
+	for (i = 0; i < VPU_FPS_STS_CNT; i++) {
+		if (i < ARRAY_SIZE(THDS))
+			attr->statistic.fps[i].thd = THDS[i];
+		else
+			attr->statistic.fps[i].thd = 0;
+	}
+
+	return 0;
+}
+
+static int enable_fps_sts(struct vpu_attr *attr)
+{
+	int i;
+	struct vpu_statistic *sts = &attr->statistic;
+
+	sts->fps_sts_enable = true;
+
+	for (i = 0; i < VPU_FPS_STS_CNT; i++) {
+		getrawmonotonic(&sts->fps[i].ts);
+		sts->fps[i].frame_number = sts->encoded_count;
+	}
+
+	return 0;
+}
+
+static int disable_fps_sts(struct vpu_attr *attr)
+{
+	attr->statistic.fps_sts_enable = false;
+
+	return 0;
+}
+
 static int init_vpu_attr(struct vpu_attr *attr)
 {
 	if (!attr || !attr->core)
@@ -3960,6 +4084,8 @@ static int init_vpu_attr(struct vpu_attr *attr)
 		device_create_file(attr->core->generic_dev, &attr->dev_attr);
 		attr->created = true;
 	}
+
+	init_vpu_attr_fps_sts(attr);
 
 	return 0;
 }
@@ -4532,6 +4658,62 @@ static void handle_vpu_core_watchdog(struct core_device *core)
 	check_vpu_core_is_hang(core);
 }
 
+static unsigned long get_timestamp_ns(struct timespec *ts)
+{
+	if (!ts)
+		return 0;
+
+	return ts->tv_sec * NSEC_PER_SEC + ts->tv_nsec;
+}
+
+static void calc_rt_fps(struct vpu_fps_sts *fps,
+			unsigned long number, struct timespec *ts)
+{
+	unsigned long delta_num;
+	unsigned long delta_ts;
+
+	if (!fps || !ts)
+		return;
+
+	fps->times++;
+	if (fps->times < fps->thd)
+		return;
+
+	if (number >= fps->frame_number) {
+		delta_num = number - fps->frame_number;
+		delta_ts = get_timestamp_ns(ts) - get_timestamp_ns(&fps->ts);
+		if (!delta_ts)
+			return;
+		fps->fps = delta_num * NSEC_PER_SEC * VPU_FPS_COEF / delta_ts;
+	}
+	fps->times = 0;
+	if (fps->thd) {
+		fps->frame_number = number;
+		memcpy(&fps->ts, ts, sizeof(fps->ts));
+	}
+}
+
+static void statistic_fps_info(struct vpu_statistic *sts)
+{
+	unsigned long encoded_count = sts->encoded_count;
+	struct timespec ts;
+	int i;
+
+	if (!sts->fps_sts_enable)
+		return;
+	getrawmonotonic(&ts);
+	for (i = 0; i < VPU_FPS_STS_CNT; i++)
+		calc_rt_fps(&sts->fps[i], encoded_count, &ts);
+}
+
+static void handle_core_minors(struct core_device *core)
+{
+	int i;
+
+	for (i = 0; i < core->supported_instance_count; i++)
+		statistic_fps_info(&core->attr[i].statistic);
+}
+
 static void vpu_watchdog_handler(struct work_struct *work)
 {
 	struct delayed_work *dwork;
@@ -4547,9 +4729,12 @@ static void vpu_watchdog_handler(struct work_struct *work)
 	mutex_lock(&vdev->dev_mutex);
 	for (i = 0; i < vdev->core_num; i++)
 		handle_vpu_core_watchdog(&vdev->core_dev[i]);
-	vdev->heartbeat++;
 	mutex_unlock(&vdev->dev_mutex);
 
+	for (i = 0; i < vdev->core_num; i++)
+		handle_core_minors(&vdev->core_dev[i]);
+
+	vdev->heartbeat++;
 	schedule_delayed_work(&vdev->watchdog,
 			msecs_to_jiffies(VPU_WATCHDOG_INTERVAL_MS));
 }
@@ -4740,6 +4925,7 @@ static int vpu_probe(struct platform_device *pdev)
 
 	device_create_file(&pdev->dev, &dev_attr_meminfo);
 	device_create_file(&pdev->dev, &dev_attr_buffer);
+	device_create_file(&pdev->dev, &dev_attr_fpsinfo);
 	init_vpu_watchdog(dev);
 	vpu_dbg(LVL_ALL, "VPU Encoder registered\n");
 
@@ -4776,6 +4962,7 @@ static int vpu_remove(struct platform_device *pdev)
 	u_int32 i;
 
 	cancel_delayed_work_sync(&dev->watchdog);
+	device_remove_file(&pdev->dev, &dev_attr_fpsinfo);
 	device_remove_file(&pdev->dev, &dev_attr_buffer);
 	device_remove_file(&pdev->dev, &dev_attr_meminfo);
 	for (i = 0; i < dev->core_num; i++)

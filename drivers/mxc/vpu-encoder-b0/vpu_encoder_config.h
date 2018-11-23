@@ -25,7 +25,7 @@
 #define VPU_ENC_HEIGHT_DEFAULT		1080
 #define VPU_ENC_FRAMERATE_DEFAULT	30
 
-#define VPU_MEM_PATTERN		0x5a5a5a5a
+#define VPU_MEM_PATTERN			0x5a5a5a5a
 
 #define VPU_TAIL_SERACH_SIZE		16
 #define VPU_STRM_END_PATTERN		{0x0, 0x0, 0x1, 0xb}
@@ -36,5 +36,9 @@
 
 #define VPU_WATCHDOG_INTERVAL_MS	1000
 #define VPU_ENC_HANG_THD		15
+
+#define VPU_FPS_STS_CNT			3
+#define VPU_FPS_STS_THDS		{1, 3, 0}
+#define VPU_FPS_COEF			100
 
 #endif
