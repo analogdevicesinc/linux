@@ -85,10 +85,13 @@
 
 		epdev_on: fixedregulator@100 {
 			compatible = "regulator-fixed";
+			pinctrl-names = "default", "sleep";
+			pinctrl-0 = <&pinctrl_wlreg_on>;
+			pinctrl-1 = <&pinctrl_wlreg_on_sleep>;
 			regulator-min-microvolt = <3300000>;
 			regulator-max-microvolt = <3300000>;
 			regulator-name = "epdev_on";
-			gpio = <&gpio4 9 0>;
+			gpio = <&gpio1 13 0>;
 			enable-active-high;
 		};
 
@@ -438,7 +441,6 @@
 				SC_P_PCIE_CTRL0_CLKREQ_B_LSIO_GPIO4_IO27	0x04000021
 				SC_P_PCIE_CTRL0_WAKE_B_LSIO_GPIO4_IO28		0x04000021
 				SC_P_PCIE_CTRL0_PERST_B_LSIO_GPIO4_IO29		0x04000021
-				SC_P_LVDS1_I2C0_SDA_LSIO_GPIO1_IO13		0x06000000
 				SC_P_USDHC2_RESET_B_LSIO_GPIO4_IO09		0x04000021
 			>;
 		};
@@ -626,6 +628,18 @@
 		pinctrl_wifi: wifigrp{
 			fsl,pins = <
 				SC_P_SCU_GPIO0_07_SCU_DSC_RTC_CLOCK_OUTPUT_32K	0x20
+			>;
+		};
+
+		pinctrl_wlreg_on: wlregongrp{
+			fsl,pins = <
+				SC_P_LVDS1_I2C0_SDA_LSIO_GPIO1_IO13		0x06000000
+			>;
+		};
+
+		pinctrl_wlreg_on_sleep: wlregon_sleepgrp{
+			fsl,pins = <
+				SC_P_LVDS1_I2C0_SDA_LSIO_GPIO1_IO13		0x07800000
 			>;
 		};
 	};
@@ -1091,7 +1105,7 @@
 	ext_osc = <1>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_pciea &pinctrl_wifi>;
-	disable-gpio = <&gpio1 13 GPIO_ACTIVE_LOW>;
+	disable-gpio = <&gpio4 9 GPIO_ACTIVE_LOW>;
 	reset-gpio = <&gpio4 29 GPIO_ACTIVE_LOW>;
 	clkreq-gpio = <&gpio4 27 GPIO_ACTIVE_LOW>;
 	epdev_on-supply = <&epdev_on>;
