@@ -47,6 +47,7 @@
 
 #define LS1012A_REV_1_0		0x87040010
 
+bool pfe_use_old_dts_phy;
 bool pfe_errata_a010897;
 
 static void *cbus_emac_base[3];
@@ -950,7 +951,8 @@ static int pfe_eth_mdio_init(struct pfe_eth_priv_s *priv,
 			     struct ls1012a_mdio_platform_data *minfo)
 {
 	struct mii_bus *bus;
-	int rc, ii;
+	struct device_node *mdio_node;
+	int rc = 0, ii;
 	struct phy_device *phydev;
 
 	netif_info(priv, drv, priv->ndev, "%s\n", __func__);
@@ -964,25 +966,30 @@ static int pfe_eth_mdio_init(struct pfe_eth_priv_s *priv,
 	}
 
 	bus->name = "ls1012a MDIO Bus";
+	snprintf(bus->id, MII_BUS_ID_SIZE, "ls1012a-%x", priv->id);
+
+	bus->priv = priv;
 	bus->read = &pfe_eth_mdio_read;
 	bus->write = &pfe_eth_mdio_write;
 	bus->reset = &pfe_eth_mdio_reset;
-	snprintf(bus->id, MII_BUS_ID_SIZE, "ls1012a-%x", priv->id);
-	bus->priv = priv;
-
+	bus->parent = priv->pfe->dev;
 	bus->phy_mask = minfo->phy_mask;
-	priv->mdc_div = minfo->mdc_div;
-
-	if (!priv->mdc_div)
-		priv->mdc_div = 64;
-
 	bus->irq[0] = minfo->irq[0];
 
-	bus->parent = priv->pfe->dev;
-
+	priv->mdc_div = minfo->mdc_div;
+	if (!priv->mdc_div)
+		priv->mdc_div = 64;
 	netif_info(priv, drv, priv->ndev, "%s: mdc_div: %d, phy_mask: %x\n",
 		   __func__, priv->mdc_div, bus->phy_mask);
-	rc = mdiobus_register(bus);
+
+	mdio_node = of_get_child_by_name(priv->pfe->dev->of_node, "mdio");
+	if (mdio_node) {
+		rc = of_mdiobus_register(bus, mdio_node);
+		of_node_put(mdio_node);
+	} else {
+		rc = mdiobus_register(bus);
+	}
+
 	if (rc) {
 		netdev_err(priv->ndev, "mdiobus_register(%s) failed\n",
 			   bus->name);
@@ -995,7 +1002,6 @@ static int pfe_eth_mdio_init(struct pfe_eth_priv_s *priv,
 	 * 3rd argument as true and then register the phy device
 	 * via phy_device_register()
 	 */
-
 	if (priv->einfo->mii_config == PHY_INTERFACE_MODE_2500SGMII) {
 		for (ii = 0; ii < NUM_GEMAC_SUPPORT; ii++) {
 			phydev = get_phy_device(priv->mii_bus,
@@ -1268,8 +1274,6 @@ static int pfe_phy_init(struct net_device *ndev)
 	char phy_id[MII_BUS_ID_SIZE + 3];
 	char bus_id[MII_BUS_ID_SIZE];
 	phy_interface_t interface;
-	struct device_node *phy_node;
-	int rc;
 
 	priv->oldlink = 0;
 	priv->oldspeed = 0;
@@ -1278,7 +1282,6 @@ static int pfe_phy_init(struct net_device *ndev)
 	snprintf(bus_id, MII_BUS_ID_SIZE, "ls1012a-%d", 0);
 	snprintf(phy_id, MII_BUS_ID_SIZE + 3, PHY_ID_FMT, bus_id,
 		 priv->einfo->phy_id);
-
 	netif_info(priv, drv, ndev, "%s: %s\n", __func__, phy_id);
 	interface = priv->einfo->mii_config;
 	if ((interface == PHY_INTERFACE_MODE_SGMII) ||
@@ -1301,23 +1304,22 @@ static int pfe_phy_init(struct net_device *ndev)
 	priv->oldduplex = -1;
 	pr_info("%s interface %x\n", __func__, interface);
 
-	if (of_phy_is_fixed_link(priv->phy_node)) {
-		rc = of_phy_register_fixed_link(priv->phy_node);
-		if (rc)
-			return rc;
-		phy_node = of_node_get(priv->phy_node);
-		phydev = of_phy_connect(ndev, phy_node, pfe_eth_adjust_link, 0,
+	if (priv->phy_node) {
+		phydev = of_phy_connect(ndev, priv->phy_node,
+					pfe_eth_adjust_link, 0,
 					priv->einfo->mii_config);
-		of_node_put(phy_node);
+		if (!(phydev)) {
+			netdev_err(ndev, "Unable to connect to phy\n");
+			return -ENODEV;
+		}
 
 	} else {
 		phydev = phy_connect(ndev, phy_id,
 				     &pfe_eth_adjust_link, interface);
-	}
-
-	if (IS_ERR(phydev)) {
-		netdev_err(ndev, "phy_connect() failed\n");
-		return PTR_ERR(phydev);
+		if (IS_ERR(phydev)) {
+			netdev_err(ndev, "Unable to connect to phy\n");
+			return PTR_ERR(phydev);
+		}
 	}
 
 	priv->phydev = phydev;
@@ -2411,13 +2413,10 @@ static int pfe_eth_init_one(struct pfe *pfe, int id)
 	memcpy(ndev->dev_addr, einfo[id].mac_addr, ETH_ALEN);
 
 	/* Initialize mdio */
-	if (minfo[id].enabled) {
-		err = pfe_eth_mdio_init(priv, &minfo[id]);
-		if (err) {
-			netdev_err(ndev, "%s: pfe_eth_mdio_init() failed\n",
-				   __func__);
-			goto err2;
-		}
+	err = pfe_eth_mdio_init(priv, &minfo[id]);
+	if (err) {
+		netdev_err(ndev, "%s: pfe_eth_mdio_init() failed\n", __func__);
+		goto err1;
 	}
 
 	if (us)
@@ -2459,22 +2458,26 @@ static int pfe_eth_init_one(struct pfe *pfe, int id)
 	netif_napi_add(ndev, &priv->lro_napi, pfe_eth_lro_poll);
 
 	err = register_netdev(ndev);
-
 	if (err) {
 		netdev_err(ndev, "register_netdev() failed\n");
-		goto err3;
+		goto err2;
+	}
+
+	if ((!(pfe_use_old_dts_phy) && !(priv->phy_node)) ||
+	    ((pfe_use_old_dts_phy) &&
+	      (priv->einfo->phy_flags & GEMAC_NO_PHY))) {
+		pr_info("%s: No PHY or fixed-link\n", __func__);
+		goto skip_phy_init;
 	}
 
 phy_init:
 	device_init_wakeup(&ndev->dev, WAKE_MAGIC);
 
-	if (!(priv->einfo->phy_flags & GEMAC_NO_PHY)) {
-		err = pfe_phy_init(ndev);
-		if (err) {
-			netdev_err(ndev, "%s: pfe_phy_init() failed\n",
-				   __func__);
-			goto err4;
-		}
+	err = pfe_phy_init(ndev);
+	if (err) {
+		netdev_err(ndev, "%s: pfe_phy_init() failed\n",
+			   __func__);
+		goto err3;
 	}
 
 	if (us) {
@@ -2485,6 +2488,7 @@ phy_init:
 
 	netif_carrier_on(ndev);
 
+skip_phy_init:
 	/* Create all the sysfs files */
 	if (pfe_eth_sysfs_init(ndev))
 		goto err4;
@@ -2493,13 +2497,16 @@ phy_init:
 		   __func__, priv->EMAC_baseaddr);
 
 	return 0;
+
 err4:
-	if (us)
-		goto err3;
-	unregister_netdev(ndev);
+	pfe_phy_exit(priv->ndev);
 err3:
-	pfe_eth_mdio_exit(priv->mii_bus);
+	if (us)
+		goto err2;
+	unregister_netdev(ndev);
 err2:
+	pfe_eth_mdio_exit(priv->mii_bus);
+err1:
 	free_netdev(priv->ndev);
 err0:
 	return err;
@@ -2550,9 +2557,16 @@ static void pfe_eth_exit_one(struct pfe_eth_priv_s *priv)
 	if (!us)
 		pfe_eth_sysfs_exit(priv->ndev);
 
-	if (!(priv->einfo->phy_flags & GEMAC_NO_PHY))
-		pfe_phy_exit(priv->ndev);
+	if ((!(pfe_use_old_dts_phy) && !(priv->phy_node)) ||
+	    ((pfe_use_old_dts_phy) &&
+	      (priv->einfo->phy_flags & GEMAC_NO_PHY))) {
+		pr_info("%s: No PHY or fixed-link\n", __func__);
+		goto skip_phy_exit;
+	}
 
+	pfe_phy_exit(priv->ndev);
+
+skip_phy_exit:
 	if (!us)
 		unregister_netdev(priv->ndev);
 

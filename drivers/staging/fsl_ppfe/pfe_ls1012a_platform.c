@@ -18,6 +18,7 @@
 
 #include "pfe_mod.h"
 
+extern bool pfe_use_old_dts_phy;
 struct ls1012a_pfe_platform_data pfe_platform_data;
 
 static int pfe_get_gemac_if_properties(struct device_node *parent, int port, int
@@ -64,8 +65,10 @@ static int pfe_get_gemac_if_properties(struct device_node *parent, int port, int
 	phy_node = of_parse_phandle(gem, "phy-handle", 0);
 	pdata->ls1012a_eth_pdata[port].phy_node = phy_node;
 	if (phy_node) {
+		pfe_use_old_dts_phy = false;
 		goto process_phynode;
 	} else if (of_phy_is_fixed_link(gem)) {
+		pfe_use_old_dts_phy = false;
 		if (of_phy_register_fixed_link(gem) < 0) {
 			pr_err("broken fixed-link specification\n");
 			goto err;
@@ -73,6 +76,7 @@ static int pfe_get_gemac_if_properties(struct device_node *parent, int port, int
 		phy_node = of_node_get(gem);
 		pdata->ls1012a_eth_pdata[port].phy_node = phy_node;
 	} else if (of_get_property(gem, "fsl,pfe-phy-if-flags", &size)) {
+		pfe_use_old_dts_phy = true;
 		/* Use old dts properties for phy handling */
 		addr = of_get_property(gem, "fsl,pfe-phy-if-flags", &size);
 		pdata->ls1012a_eth_pdata[port].phy_flags = be32_to_cpup(addr);
