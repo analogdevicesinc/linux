@@ -48,9 +48,11 @@
 
 #include "vpu_b0.h"
 #include "insert_startcode.h"
+#include "vpu_debug_log.h"
 
 unsigned int vpu_dbg_level_decoder = 1;
 static int vpu_frm_depth = INVALID_FRAME_DEPTH;
+static int vpu_log_depth = 10;
 
 /* Generic End of content startcodes to differentiate from those naturally in the stream/file */
 #define EOS_GENERIC_HEVC 0x7c010000
@@ -972,6 +974,7 @@ static int v4l2_ioctl_streamoff(struct file *file,
 			vpu_dbg(LVL_INFO, "%s(): send VID_API_CMD_ABORT\n", __func__);
 
 			size = add_scode(ctx, 0, BUFABORT_PADDING_TYPE, false);
+			record_log_info(ctx, LOG_PADDING, 0, 0);
 			if (size < 0)
 				vpu_dbg(LVL_ERR, "%s(): failed to fill abort padding data\n", __func__);
 			v4l2_vpu_send_cmd(ctx, ctx->str_index, VID_API_CMD_ABORT, 1, &size);
@@ -1406,6 +1409,7 @@ static void v4l2_vpu_send_cmd(struct vpu_ctx *ctx, uint32_t idx, uint32_t cmdid,
 {
 	vpu_log_cmd(cmdid, idx);
 	count_cmd(&ctx->statistic, cmdid);
+	record_log_info(ctx, LOG_COMMAND, cmdid, 0);
 	mutex_lock(&ctx->dev->cmd_mutex);
 	rpc_send_cmd_buf(&ctx->dev->shared_mem, idx, cmdid, cmdnum, local_cmddata);
 	mutex_unlock(&ctx->dev->cmd_mutex);
@@ -1586,6 +1590,7 @@ static int update_stream_addr(struct vpu_ctx *ctx, void *input_buffer, uint32_t 
 	if (nfreespace - buffer_size - length < MIN_SPACE)
 		return 0;
 
+	record_log_info(ctx, LOG_UPDATE_STREAM, 0, buffer_size);
 	if (nfreespace >= buffer_size + length) {
 		if ((wptr == rptr) || (wptr > rptr)) {
 			if (end - wptr >= length) {
@@ -1677,6 +1682,7 @@ static void v4l2_update_stream_addr(struct vpu_ctx *ctx, uint32_t uStrBufIdx)
 		if (!ctx->firmware_stopped)	{
 			vpu_dbg(LVL_EVENT, "ctx[%d]: insert eos directly\n", ctx->str_index);
 			if (add_scode(ctx, 0, EOS_PADDING_TYPE, true) >= 0) {
+				record_log_info(ctx, LOG_EOS, 0, 0);
 				ctx->eos_stop_received = false;
 				ctx->eos_stop_added = true;
 			}
@@ -1762,6 +1768,7 @@ static void vpu_api_event_handler(struct vpu_ctx *ctx, u_int32 uStrIdx, u_int32 
 
 	vpu_log_event(uEvent, uStrIdx);
 	count_event(&ctx->statistic, uEvent);
+	record_log_info(ctx, LOG_EVENT, uEvent, 0);
 
 	if (ctx == NULL) {
 		vpu_dbg(LVL_ERR, "receive event: 0x%X after instance released, ignore it\n", uEvent);
@@ -2254,6 +2261,7 @@ static int release_hang_instance(struct vpu_dev *dev)
 	for (i = 0; i < VPU_MAX_NUM_STREAMS; i++)
 		if (dev->ctx[i]) {
 			remove_instance_file(dev->ctx[i]);
+			destroy_log_info_queue(dev->ctx[i]);
 			kfree(dev->ctx[i]);
 			dev->ctx[i] = NULL;
 		}
@@ -2725,6 +2733,58 @@ static ssize_t show_instance_buffer_info(struct device *dev,
 	return num;
 }
 
+static ssize_t show_instance_log_info(struct device *dev,
+			struct device_attribute *attr, char *buf)
+{
+	struct vpu_ctx *ctx;
+	struct vpu_statistic *statistic;
+	struct vpu_log_info *vpu_info;
+	struct vpu_log_info *tem_info;
+	int num = 0;
+
+	ctx = container_of(attr, struct vpu_ctx, dev_attr_instance_flow);
+	statistic = &ctx->statistic;
+
+	num += snprintf(buf + num, PAGE_SIZE - num, "log info under depth: %d\n",
+			vpu_log_depth);
+
+	mutex_lock(&ctx->instance_mutex);
+	if (list_empty(&ctx->log_q))
+		goto exit;
+
+	list_for_each_entry_safe(vpu_info, tem_info, &ctx->log_q, list) {
+		switch (vpu_info->type) {
+		case LOG_EVENT:
+			num += snprintf(buf + num, PAGE_SIZE - num,
+				"\t%20s:%26s\n", "event", event2str[vpu_info->log_info[vpu_info->type]]);
+			break;
+		case LOG_COMMAND:
+			num += snprintf(buf + num, PAGE_SIZE - num,
+				"\t%20s:%26s\n", "command", cmd2str[vpu_info->log_info[vpu_info->type]]);
+			break;
+		case LOG_EOS:
+			num += snprintf(buf + num, PAGE_SIZE - num,
+				"\t%20s:%26s\n", "add eos", "done");
+			break;
+		case LOG_PADDING:
+			num += snprintf(buf + num, PAGE_SIZE - num,
+				"\t%20s:%26s\n", "add padding", "done");
+			break;
+		case LOG_UPDATE_STREAM:
+			num += snprintf(buf + num, PAGE_SIZE - num,
+				"\t%20s:%16s %16d\n", "update stream data", "stream size", vpu_info->data);
+			break;
+		default:
+			break;
+		}
+	}
+
+exit:
+	mutex_unlock(&ctx->instance_mutex);
+	return num;
+}
+
+
 static int create_instance_command_file(struct vpu_ctx *ctx)
 {
 	snprintf(ctx->command_name, sizeof(ctx->command_name) - 1,
@@ -2767,6 +2827,19 @@ static int create_instance_buffer_file(struct vpu_ctx *ctx)
 	return 0;
 }
 
+static int create_instance_flow_file(struct vpu_ctx *ctx)
+{
+	snprintf(ctx->flow_name, sizeof(ctx->flow_name) - 1,
+			"instance%d_flow",
+			ctx->str_index);
+	ctx->dev_attr_instance_flow.attr.name = ctx->flow_name;
+	ctx->dev_attr_instance_flow.attr.mode = VERIFY_OCTAL_PERMISSIONS(0444);
+	ctx->dev_attr_instance_flow.show = show_instance_log_info;
+
+	device_create_file(ctx->dev->generic_dev, &ctx->dev_attr_instance_flow);
+
+	return 0;
+}
 static int create_instance_file(struct vpu_ctx *ctx)
 {
 	if (!ctx || !ctx->dev || !ctx->dev->generic_dev)
@@ -2775,6 +2848,7 @@ static int create_instance_file(struct vpu_ctx *ctx)
 	create_instance_command_file(ctx);
 	create_instance_event_file(ctx);
 	create_instance_buffer_file(ctx);
+	create_instance_flow_file(ctx);
 
 	return 0;
 }
@@ -2787,6 +2861,7 @@ static int remove_instance_file(struct vpu_ctx *ctx)
 	device_remove_file(ctx->dev->generic_dev, &ctx->dev_attr_instance_command);
 	device_remove_file(ctx->dev->generic_dev, &ctx->dev_attr_instance_event);
 	device_remove_file(ctx->dev->generic_dev, &ctx->dev_attr_instance_buffer);
+	device_remove_file(ctx->dev->generic_dev, &ctx->dev_attr_instance_flow);
 
 	return 0;
 }
@@ -2893,6 +2968,8 @@ static int v4l2_open(struct file *filp)
 		goto err_alloc_seq;
 	}
 	init_queue_data(ctx);
+	init_log_info_queue(ctx);
+	create_log_info_queue(ctx, vpu_log_depth);
 	init_waitqueue_head(&ctx->buffer_wq);
 	mutex_lock(&dev->dev_mutex);
 	if (!dev->fw_is_ready) {
@@ -2997,6 +3074,7 @@ static int v4l2_release(struct file *filp)
 
 	if (!ctx->hang_status) { // judge the path is hang or not, if hang, don't clear
 		remove_instance_file(ctx);
+		destroy_log_info_queue(ctx);
 		clear_bit(ctx->str_index, &dev->instance_mask);
 		dev->ctx[ctx->str_index] = NULL;
 		kfree(ctx);
@@ -3575,5 +3653,7 @@ MODULE_LICENSE("GPL");
 module_param(vpu_dbg_level_decoder, int, 0644);
 MODULE_PARM_DESC(vpu_dbg_level_decoder, "Debug level (0-2)");
 module_param(vpu_frm_depth, int, 0644);
-MODULE_PARM_DESC(vpu_frm_depth, "maxium frame number in data pool");
+MODULE_PARM_DESC(vpu_frm_depth, "maximum frame number in data pool");
+module_param(vpu_log_depth, int, 0644);
+MODULE_PARM_DESC(vpu_log_depth, "maximum log number in queue");
 

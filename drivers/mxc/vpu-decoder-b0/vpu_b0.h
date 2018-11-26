@@ -248,9 +248,12 @@ struct vpu_ctx {
 	char event_name[64];
 	struct device_attribute dev_attr_instance_buffer;
 	char buffer_name[64];
+	struct device_attribute dev_attr_instance_flow;
+	char flow_name[64];
 	struct v4l2_ctrl *ctrls[V4L2_MAX_CTRLS];
 	struct v4l2_ctrl_handler ctrl_handler;
 	bool ctrl_inited;
+	struct list_head log_q;
 
 	int str_index;
 	struct queue_data q_data[2];
