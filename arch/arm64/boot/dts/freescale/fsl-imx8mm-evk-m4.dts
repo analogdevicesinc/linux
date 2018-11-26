@@ -69,3 +69,7 @@
 &sai1 {
 	status = "disabled";
 };
+
+&flexspi {
+	status = "disabled";
+};
