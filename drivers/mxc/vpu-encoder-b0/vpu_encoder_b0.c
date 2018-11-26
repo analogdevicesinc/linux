@@ -50,6 +50,7 @@
 #include "vpu_encoder_ctrl.h"
 #include "vpu_encoder_config.h"
 #include "vpu_event_msg.h"
+#include "vpu_encoder_mem.h"
 
 struct vpu_frame_info {
 	struct list_head list;
@@ -450,7 +451,7 @@ static int v4l2_ioctl_g_fmt(struct file *file,
 	return 0;
 }
 
-static u32 cpu_phy_to_mu(struct core_device *dev, u32 addr)
+u32 cpu_phy_to_mu(struct core_device *dev, u32 addr)
 {
 	return addr - dev->m0_p_fw_space_phy;
 }
@@ -1512,91 +1513,6 @@ static void show_firmware_version(struct core_device *core_dev,
 			pSharedInterface->FWVersion & 0x000000ff);
 }
 
-static void add_dma_size(struct vpu_attr *attr, unsigned long size)
-{
-	if (!attr)
-		return;
-
-	atomic64_add(size, &attr->total_dma_size);
-}
-
-static void sub_dma_size(struct vpu_attr *attr, unsigned long size)
-{
-	if (!attr)
-		return;
-
-	atomic64_sub(size, &attr->total_dma_size);
-}
-
-static int alloc_dma_buffer(struct vpu_dev *dev, struct buffer_addr *buffer)
-{
-	if (!dev || !buffer || !buffer->size)
-		return -EINVAL;
-
-	buffer->virt_addr = dma_alloc_coherent(dev->generic_dev,
-						buffer->size,
-						(dma_addr_t *)&buffer->phy_addr,
-						GFP_KERNEL | GFP_DMA32);
-	if (!buffer->virt_addr) {
-		vpu_dbg(LVL_ERR, "encoder alloc coherent dma(%d) fail\n",
-				buffer->size);
-		return -ENOMEM;
-	}
-	memset_io(buffer->virt_addr, 0, buffer->size);
-
-	return 0;
-}
-
-static void init_dma_buffer(struct buffer_addr *buffer)
-{
-	if (!buffer)
-		return;
-
-	buffer->virt_addr = NULL;
-	buffer->phy_addr = 0;
-	buffer->size = 0;
-}
-
-static int free_dma_buffer(struct vpu_dev *dev, struct buffer_addr *buffer)
-{
-	if (!dev || !buffer)
-		return -EINVAL;
-
-	if (!buffer->virt_addr)
-		return 0;
-
-	dma_free_coherent(dev->generic_dev, buffer->size,
-				buffer->virt_addr, buffer->phy_addr);
-
-	init_dma_buffer(buffer);
-
-	return 0;
-}
-
-static int alloc_encoder_stream(struct vpu_ctx *ctx)
-{
-	int ret;
-
-	if (ctx->encoder_stream.virt_addr)
-		return 0;
-
-	ctx->encoder_stream.size = STREAM_SIZE;
-	ret = alloc_dma_buffer(ctx->dev, &ctx->encoder_stream);
-	if (ret) {
-		vpu_dbg(LVL_ERR, "alloc encoder stream buffer fail\n");
-		return -ENOMEM;
-	}
-	add_dma_size(get_vpu_ctx_attr(ctx), ctx->encoder_stream.size);
-
-	return 0;
-}
-
-static void free_encoder_stream(struct vpu_ctx *ctx)
-{
-	sub_dma_size(get_vpu_ctx_attr(ctx), ctx->encoder_stream.size);
-	free_dma_buffer(ctx->dev, &ctx->encoder_stream);
-}
-
 static void update_encode_size(struct vpu_ctx *ctx)
 {
 	struct queue_data *src = NULL;
@@ -1640,7 +1556,7 @@ static int do_configure_codec(struct vpu_ctx *ctx)
 	if (!attr)
 		return -EINVAL;
 
-	if (alloc_encoder_stream(ctx))
+	if (vpu_enc_alloc_stream(ctx))
 		return -ENOMEM;
 
 	update_encode_size(ctx);
@@ -1870,242 +1786,6 @@ static void strip_stuff_data_on_tail(struct vpu_ctx *ctx, struct vb2_buffer *vb)
 		vpu_dbg(LVL_INFO, "strip %d bytes stuff data\n", stuff_size);
 		vb2_set_plane_payload(vb, 0, bytesused - stuff_size);
 	}
-}
-
-static void fill_mem_resource(struct core_device *core_dev,
-				MEDIAIP_ENC_MEM_RESOURCE *resource,
-				struct buffer_addr *buffer)
-{
-	if (!resource || !buffer) {
-		vpu_dbg(LVL_ERR, "invalid arg in %s\n", __func__);
-		return;
-	}
-	resource->uMemPhysAddr =  buffer->phy_addr;
-	resource->uMemVirtAddr = cpu_phy_to_mu(core_dev, buffer->phy_addr);
-	resource->uMemSize = buffer->size;
-}
-
-static void set_mem_pattern(u32 *ptr)
-{
-	if (!ptr)
-		return;
-	*ptr = VPU_MEM_PATTERN;
-}
-
-static int check_mem_pattern(u32 *ptr)
-{
-	if (!ptr)
-		return -EINVAL;
-
-	if (*ptr != VPU_MEM_PATTERN)
-		return -EINVAL;
-
-	return 0;
-}
-
-static void set_enc_mem_pattern(struct vpu_ctx *ctx)
-{
-	u32 i;
-
-	if (!ctx)
-		return;
-
-	for (i = 0; i < MEDIAIP_MAX_NUM_WINDSOR_SRC_FRAMES; i++) {
-		set_mem_pattern(ctx->encFrame[i].virt_addr - sizeof(u32));
-		set_mem_pattern(ctx->encFrame[i].virt_addr +
-				ctx->encFrame[i].size);
-	}
-	for (i = 0; i < MEDIAIP_MAX_NUM_WINDSOR_REF_FRAMES; i++) {
-		set_mem_pattern(ctx->refFrame[i].virt_addr - sizeof(u32));
-		set_mem_pattern(ctx->refFrame[i].virt_addr +
-				ctx->refFrame[i].size);
-	}
-
-	set_mem_pattern(ctx->actFrame.virt_addr - sizeof(u32));
-	set_mem_pattern(ctx->actFrame.virt_addr + ctx->actFrame.size);
-}
-
-static void check_enc_mem_overstep(struct vpu_ctx *ctx)
-{
-	u32 i;
-	int flag = 0;
-	int ret;
-
-	if (!ctx || !ctx->enc_buffer.virt_addr)
-		return;
-
-	for (i = 0; i < MEDIAIP_MAX_NUM_WINDSOR_SRC_FRAMES; i++) {
-		ret = check_mem_pattern(ctx->encFrame[i].virt_addr -
-					sizeof(u32));
-		if (ret) {
-			vpu_err("***error:[%d][%d]encFrame[%d] is dirty\n",
-					ctx->core_dev->id, ctx->str_index, i);
-			flag = 1;
-		}
-		ret = check_mem_pattern(ctx->encFrame[i].virt_addr +
-					ctx->encFrame[i].size);
-		if (ret) {
-			vpu_err("***error:[%d][%d]encFrame[%d] out of bounds\n",
-					ctx->core_dev->id, ctx->str_index, i);
-			flag = 1;
-		}
-	}
-
-	for (i = 0; i < MEDIAIP_MAX_NUM_WINDSOR_REF_FRAMES; i++) {
-		ret = check_mem_pattern(ctx->refFrame[i].virt_addr -
-					sizeof(u32));
-		if (ret) {
-			vpu_err("***error:[%d][%d]refFrame[%d] is dirty\n",
-					ctx->core_dev->id, ctx->str_index, i);
-			flag = 1;
-		}
-		ret = check_mem_pattern(ctx->refFrame[i].virt_addr +
-					ctx->refFrame[i].size);
-		if (ret) {
-			vpu_err("***error:[%d][%d]refFrame[%d] out of bounds\n",
-					ctx->core_dev->id, ctx->str_index, i);
-			flag = 1;
-		}
-	}
-
-	ret = check_mem_pattern(ctx->actFrame.virt_addr - sizeof(u32));
-	if (ret) {
-		vpu_err("***error:[%d][%d]actFrame is dirty\n",
-				ctx->core_dev->id, ctx->str_index);
-		flag = 1;
-	}
-	ret = check_mem_pattern(ctx->actFrame.virt_addr + ctx->actFrame.size);
-	if (ret) {
-		vpu_err("***error:[%d][%d]actFrame out of bounds\n",
-				ctx->core_dev->id, ctx->str_index);
-		flag = 1;
-	}
-
-	if (flag) {
-		vpu_err("Error:Memory out of bounds in [%d][%d]\n",
-			ctx->core_dev->id, ctx->str_index);
-		set_enc_mem_pattern(ctx);
-	}
-}
-
-static u32 calc_enc_mem_size(MEDIAIP_ENC_MEM_REQ_DATA *req_data)
-{
-	u32 size = PAGE_SIZE;
-	u32 i;
-
-	for (i = 0; i < req_data->uEncFrmNum; i++) {
-		size += ALIGN(req_data->uEncFrmSize, PAGE_SIZE);
-		size += PAGE_SIZE;
-	}
-
-	for (i = 0; i < req_data->uRefFrmNum; i++) {
-		size += ALIGN(req_data->uRefFrmSize, PAGE_SIZE);
-		size += PAGE_SIZE;
-	}
-
-	size += ALIGN(req_data->uActBufSize, PAGE_SIZE);
-	size += PAGE_SIZE;
-
-	return size;
-}
-
-static int enc_mem_free(struct vpu_ctx *ctx)
-{
-	u32 i;
-
-	if (!ctx)
-		return -EINVAL;
-
-	sub_dma_size(get_vpu_ctx_attr(ctx), ctx->enc_buffer.size);
-	free_dma_buffer(ctx->dev, &ctx->enc_buffer);
-
-	for (i = 0; i < MEDIAIP_MAX_NUM_WINDSOR_SRC_FRAMES; i++)
-		init_dma_buffer(&ctx->encFrame[i]);
-	for (i = 0; i < MEDIAIP_MAX_NUM_WINDSOR_REF_FRAMES; i++)
-		init_dma_buffer(&ctx->refFrame[i]);
-	init_dma_buffer(&ctx->actFrame);
-
-	return 0;
-}
-
-static int enc_mem_alloc(struct vpu_ctx *ctx,
-			MEDIAIP_ENC_MEM_REQ_DATA *req_data)
-{
-	struct core_device *core_dev;
-	pMEDIAIP_ENC_MEM_POOL pEncMemPool;
-	int ret;
-	u_int32 i;
-	u32 offset = 0;
-
-	if (!ctx || !ctx->core_dev || !req_data)
-		return -EINVAL;
-
-	vpu_dbg(LVL_INFO, "encFrame:%d,%d; refFrame:%d,%d; actFrame:%d\n",
-			req_data->uEncFrmSize,
-			req_data->uEncFrmNum,
-			req_data->uRefFrmSize,
-			req_data->uRefFrmNum,
-			req_data->uActBufSize);
-
-	enc_mem_free(ctx);
-
-	ctx->enc_buffer.size = calc_enc_mem_size(req_data);
-	vpu_dbg(LVL_INFO, "alloc %d dma for encFrame/refFrame/actFrame\n",
-			ctx->enc_buffer.size);
-	ret = alloc_dma_buffer(ctx->dev, &ctx->enc_buffer);
-	if (ret) {
-		vpu_dbg(LVL_ERR, "alloc encoder buffer fail\n");
-		return ret;
-	}
-	add_dma_size(get_vpu_ctx_attr(ctx), ctx->enc_buffer.size);
-
-	core_dev = ctx->core_dev;
-	pEncMemPool = get_rpc_mem_pool(ctx);
-	offset = PAGE_SIZE;
-	for (i = 0; i < req_data->uEncFrmNum; i++) {
-		ctx->encFrame[i].size = req_data->uEncFrmSize;
-		ctx->encFrame[i].phy_addr = ctx->enc_buffer.phy_addr + offset;
-		ctx->encFrame[i].virt_addr = ctx->enc_buffer.virt_addr + offset;
-		offset += ALIGN(ctx->encFrame[i].size, PAGE_SIZE);
-		offset += PAGE_SIZE;
-
-		vpu_dbg(LVL_INFO, "encFrame[%d]: 0x%llx, 0x%x\n", i,
-			ctx->encFrame[i].phy_addr, ctx->encFrame[i].size);
-
-		fill_mem_resource(core_dev,
-				&pEncMemPool->tEncFrameBuffers[i],
-				&ctx->encFrame[i]);
-	}
-	for (i = 0; i < req_data->uRefFrmNum; i++) {
-		ctx->refFrame[i].size = req_data->uRefFrmSize;
-		ctx->refFrame[i].phy_addr = ctx->enc_buffer.phy_addr + offset;
-		ctx->refFrame[i].virt_addr = ctx->enc_buffer.virt_addr + offset;
-		offset += ALIGN(ctx->refFrame[i].size, PAGE_SIZE);
-		offset += PAGE_SIZE;
-
-		vpu_dbg(LVL_INFO, "refFrame[%d]: 0x%llx, 0x%x\n", i,
-			ctx->refFrame[i].phy_addr, ctx->refFrame[i].size);
-
-		fill_mem_resource(core_dev,
-				&pEncMemPool->tRefFrameBuffers[i],
-				&ctx->refFrame[i]);
-	}
-
-	ctx->actFrame.size = req_data->uActBufSize;
-	ctx->actFrame.phy_addr = ctx->enc_buffer.phy_addr + offset;
-	ctx->actFrame.virt_addr = ctx->enc_buffer.virt_addr + offset;
-	offset += ALIGN(ctx->actFrame.size, PAGE_SIZE);
-	offset += PAGE_SIZE;
-
-	vpu_dbg(LVL_INFO, "actFrame: 0x%llx, 0x%x\n",
-			ctx->actFrame.phy_addr, ctx->actFrame.size);
-
-	fill_mem_resource(core_dev,
-			&pEncMemPool->tActFrameBufferArea, &ctx->actFrame);
-
-	set_enc_mem_pattern(ctx);
-
-	return 0;
 }
 
 static int check_enc_rw_flag(int flag)
@@ -2527,6 +2207,25 @@ static int handle_event_start_done(struct vpu_ctx *ctx)
 	return 0;
 }
 
+static int handle_event_mem_request(struct vpu_ctx *ctx,
+				MEDIAIP_ENC_MEM_REQ_DATA *req_data)
+{
+	int ret;
+
+	if (!ctx || !req_data)
+		return -EINVAL;
+
+	ret = vpu_enc_alloc_mem(ctx, req_data, get_rpc_mem_pool(ctx));
+	if (ret) {
+		vpu_err("fail to alloc encoder memory\n");
+		return ret;
+	}
+	vpu_ctx_send_cmd(ctx, GTB_ENC_CMD_STREAM_START, 0, NULL);
+	set_bit(VPU_ENC_STATUS_START_SEND, &ctx->status);
+
+	return 0;
+}
+
 static int handle_event_frame_done(struct vpu_ctx *ctx,
 				MEDIAIP_ENC_PIC_INFO *pEncPicInfo)
 {
@@ -2633,16 +2332,15 @@ static void vpu_api_event_handler(struct vpu_ctx *ctx,
 {
 	vpu_log_event(uEvent, ctx->str_index);
 	count_event(ctx, uEvent);
-	check_enc_mem_overstep(ctx);
+	vpu_enc_check_mem_overstep(ctx);
 
 	switch (uEvent) {
 	case VID_API_ENC_EVENT_START_DONE:
 		handle_event_start_done(ctx);
 		break;
 	case VID_API_ENC_EVENT_MEM_REQUEST:
-		enc_mem_alloc(ctx, (MEDIAIP_ENC_MEM_REQ_DATA *)event_data);
-		vpu_ctx_send_cmd(ctx, GTB_ENC_CMD_STREAM_START, 0, NULL);
-		set_bit(VPU_ENC_STATUS_START_SEND, &ctx->status);
+		handle_event_mem_request(ctx,
+				(MEDIAIP_ENC_MEM_REQ_DATA *)event_data);
 		break;
 	case VID_API_ENC_EVENT_PARA_UPD_DONE:
 		break;
@@ -3110,7 +2808,8 @@ static int vpu_enc_buf_init(struct vb2_buffer *vb)
 		return 0;
 
 	for (i = 0; i < vb->num_planes; i++)
-		add_dma_size(get_vpu_ctx_attr(ctx), vb->planes[i].length);
+		vpu_enc_add_dma_size(get_vpu_ctx_attr(ctx),
+					vb->planes[i].length);
 
 	return 0;
 }
@@ -3126,7 +2825,8 @@ static void vpu_enc_buf_cleanup(struct vb2_buffer *vb)
 		return;
 
 	for (i = 0; i < vb->num_planes; i++)
-		sub_dma_size(get_vpu_ctx_attr(ctx), vb->planes[i].length);
+		vpu_enc_sub_dma_size(get_vpu_ctx_attr(ctx),
+					vb->planes[i].length);
 }
 
 static void vpu_prepare(struct vb2_queue *q)
@@ -3520,7 +3220,7 @@ static void uninit_vpu_ctx(struct vpu_ctx *ctx)
 		ctx->instance_wq = NULL;
 	}
 	mutex_lock(&ctx->instance_mutex);
-	free_encoder_stream(ctx);
+	vpu_enc_free_stream(ctx);
 
 	ctx->ctx_released = true;
 	mutex_unlock(&ctx->instance_mutex);
@@ -4113,7 +3813,7 @@ static int release_instance(struct vpu_ctx *ctx)
 	uninit_vpu_ctx(ctx);
 	vpu_enc_free_ctrls(ctx);
 	release_queue_data(ctx);
-	enc_mem_free(ctx);
+	vpu_enc_free_mem(ctx, get_rpc_mem_pool(ctx));
 
 	vpu_ctx_power_off(ctx);
 	free_instance(ctx);

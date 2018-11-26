@@ -8,6 +8,7 @@ obj-y = vpu-encoder.o
 vpu-encoder-objs = vpu_encoder_b0.o \
 	vpu_encoder_ctrl.o \
 	vpu_event_msg.o \
+	vpu_encoder_mem.o \
 	vpu_encoder_rpc.o
 
 clean:

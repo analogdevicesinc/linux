@@ -352,6 +352,7 @@ struct vpu_ctx {
 	struct buffer_addr refFrame[MEDIAIP_MAX_NUM_WINDSOR_REF_FRAMES];
 	struct buffer_addr actFrame;
 	struct buffer_addr enc_buffer;
+	MEDIAIP_ENC_MEM_REQ_DATA mem_req;
 	struct core_device *core_dev;
 
 	struct completion stop_cmp;
@@ -383,6 +384,7 @@ struct vpu_ctx {
 
 #define vpu_err(fmt, arg...)	vpu_dbg(LVL_ERR, fmt, ##arg)
 
+u32 cpu_phy_to_mu(struct core_device *dev, u32 addr);
 struct vpu_attr *get_vpu_ctx_attr(struct vpu_ctx *ctx);
 struct vpu_ctx *get_vpu_attr_ctx(struct vpu_attr *attr);
 
