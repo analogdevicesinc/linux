@@ -332,6 +332,7 @@ static void __adv7511_power_on(struct adv7511 *adv7511)
 {
 	adv7511->current_edid_segment = -1;
 
+	/* 01-02 Power */
 	regmap_update_bits(adv7511->regmap, ADV7511_REG_POWER,
 			   ADV7511_POWER_POWER_DOWN, 0);
 	if (adv7511->i2c_main->irq) {
@@ -349,6 +350,7 @@ static void __adv7511_power_on(struct adv7511 *adv7511)
 	}
 
 	/*
+	 * 01-01 HPD Manual Override
 	 * Per spec it is allowed to pulse the HPD signal to indicate that the
 	 * EDID information has changed. Some monitors do this when they wakeup
 	 * from standby or are enabled. When the HPD goes low the adv7511 is

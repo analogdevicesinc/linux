@@ -227,6 +227,9 @@
 #define ADV7511_REG_CEC_SOFT_RESET	0x50
 
 #define ADV7533_REG_CEC_OFFSET		0x70
+#define FORMAT_RATIO(x, y) (((x) * 100) / (y))
+#define RATIO_16_9 FORMAT_RATIO(16, 9)
+#define RATIO_4_3  FORMAT_RATIO(4, 3)
 
 enum adv7511_input_clock {
 	ADV7511_INPUT_CLOCK_1X,
