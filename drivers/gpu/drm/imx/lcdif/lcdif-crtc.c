@@ -100,6 +100,13 @@ static int lcdif_crtc_atomic_check(struct drm_crtc *crtc,
 	if (!state->enable)
 		return 0;
 
+	/* For the commit that the CRTC is active
+	 * without planes attached to it should be
+	 * invalid.
+	 */
+	if (state->active && !state->plane_mask)
+		return -EINVAL;
+
 	/* check the requested bus format can be
 	 * supported by LCDIF CTRC or not
 	 */
