@@ -17,6 +17,13 @@
 #include <linux/kdev_t.h>
 #include <linux/device.h>
 #include <linux/debugfs.h>
+#include <linux/err.h>
+#include <linux/slab.h>
+
+#include "jesd204-priv.h"
+
+/* IDA to assign each registered device a unique id */
+static DEFINE_IDA(jesd204_ida);
 
 static dev_t jesd204_devt;
 
@@ -25,7 +32,78 @@ static struct bus_type jesd204_bus_type = {
 	.name = "jesd204",
 };
 
+static void jesd204_dev_release(struct device *device);
+static struct device_type jesd204_dev_type = {
+	.name = "jesd204_dev",
+	.release = jesd204_dev_release,
+};
+
 static struct dentry *jesd204_debugfs_dentry;
+
+/**
+ * jesd204_dev_alloc() - allocate a jesd204_dev from a driver
+ * @sizeof_priv:	Space to allocate for private structure.
+ **/
+struct jesd204_dev *jesd204_dev_alloc(int sizeof_priv)
+{
+	struct jesd204_dev_priv *pdev;
+	struct jesd204_dev *jdev;
+	size_t alloc_size;
+	int id;
+
+	/* Try to get an ID before allocating anything */
+	id = ida_simple_get(&jesd204_ida, 0, 0, GFP_KERNEL);
+	if (id < 0) {
+		/* cannot use a dev_err as the name isn't available */
+		pr_err("jesd204-core: failed to get device id: %d\n", id);
+		return ERR_PTR(id);
+	}
+
+	alloc_size = sizeof(struct jesd204_dev_priv);
+	if (sizeof_priv) {
+		alloc_size = ALIGN(alloc_size, JESD204_ALIGN);
+		alloc_size += sizeof_priv;
+	}
+	/* ensure 32-byte alignment of whole construct ? */
+	alloc_size += JESD204_ALIGN - 1;
+
+	pdev = kzalloc(alloc_size, GFP_KERNEL);
+	if (!pdev)
+		return ERR_PTR(-ENOMEM);
+
+	pdev->id = id;
+
+	jdev = &pdev->jesd204_dev;
+	jdev->dev.type = &jesd204_dev_type;
+	jdev->dev.bus = &jesd204_bus_type;
+	device_initialize(&jdev->dev);
+	dev_set_drvdata(&jdev->dev, (void *)jdev);
+
+	dev_set_name(&jdev->dev, "jesd204:%d", pdev->id);
+
+	return jdev;
+}
+EXPORT_SYMBOL(jesd204_dev_alloc);
+
+/**
+ * jesd204_dev_free() - free a jesd204_dev from a driver
+ * @jdev:		the jesd204_dev associated with the device
+ **/
+void jesd204_dev_free(struct jesd204_dev *jdev)
+{
+	if (jdev)
+		put_device(&jdev->dev);
+}
+EXPORT_SYMBOL(jesd204_dev_free);
+
+static void jesd204_dev_release(struct device *device)
+{
+	struct jesd204_dev *jdev = dev_to_jesd204_dev(device);
+	struct jesd204_dev_priv *pdev = jesd204_dev_to_priv(jdev);
+
+	ida_simple_remove(&jesd204_ida, pdev->id);
+	kfree(pdev);
+}
 
 static int __init jesd204_init(void)
 {

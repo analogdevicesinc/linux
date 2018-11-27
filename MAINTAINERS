@@ -7442,6 +7442,7 @@ T:	git https://github.com/analogdevicesinc/linux
 S:	Maintained
 F:	Documentation/devicetree/bindings/iio/
 F:	drivers/jesd204/
+F:	include/linux/jesd204
 
 JFS FILESYSTEM
 M:	Dave Kleikamp <shaggy@kernel.org>
