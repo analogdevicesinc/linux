@@ -60,3 +60,8 @@
 	assigned-clock-rates = <0>, <0>, <400000000>;
 	status = "okay";
 };
+
+&sai_hdmi_rx {
+	fsl,sai-asynchronous;
+	status = "okay";
+};

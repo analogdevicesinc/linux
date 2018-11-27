@@ -79,11 +79,6 @@
 	status = "okay";
 };
 
-&sai_hdmi_rx {
-	fsl,sai-asynchronous;
-	status = "okay";
-};
-
 &spdif1 {
 	assigned-clocks =<&clk IMX8QM_AUD_PLL0_DIV>,
 			<&clk IMX8QM_AUD_ACM_AUD_PLL_CLK0_DIV>,
