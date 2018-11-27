@@ -52,9 +52,9 @@ extern unsigned int vpu_dbg_level_encoder;
 #define MMAP_BUF_TYPE_MASK 0xF0000000
 #define M0_BOOT_SIZE_DEFAULT	0x1000000
 #define M0_BOOT_SIZE_MIN	0x100000
-#define RPC_SIZE_DEFAULT	0x100000
+#define RPC_SIZE_DEFAULT	0x80000
 #define RPC_SIZE_MIN		0x20000
-#define PRINT_SIZE_DEFAULT	0x200000
+#define PRINT_SIZE_DEFAULT	0x80000
 #define PRINT_SIZE_MIN		0x20000
 #define MEM_SIZE  0x2800000
 #define YUV_SIZE  0x4000000
@@ -311,6 +311,20 @@ struct vpu_dev {
 
 	struct delayed_work watchdog;
 	u8 heartbeat;
+
+	struct {
+		u32 min_width;
+		u32 max_width;
+		u32 step_width;
+		u32 min_height;
+		u32 max_height;
+		u32 step_height;
+	} supported_size;
+	struct {
+		u32 min;
+		u32 max;
+		u32 step;
+	} supported_fps;
 };
 
 struct buffer_addr {

@@ -293,6 +293,8 @@
 			reg-names = "vpu_regs";
 			power-domains = <&pd_vpu_enc>;
 			reg-fw-base = <0x90000 0xa0000>;
+			resolution-max = <1920 1080>;
+			fps-max = <120>;
 			status = "disabled";
 		};
 

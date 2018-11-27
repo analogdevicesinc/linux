@@ -3349,6 +3349,8 @@
 		reg-names = "vpu_regs";
 		power-domains = <&pd_vpu_enc>;
 		reg-fw-base = <0x50000>;
+		resolution-max = <1920 1080>;
+		fps-max = <120>;
 		status = "disabled";
 	};
 	imx_rpmsg: imx_rpmsg {

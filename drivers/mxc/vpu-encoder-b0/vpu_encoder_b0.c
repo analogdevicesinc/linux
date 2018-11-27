@@ -357,19 +357,25 @@ static int v4l2_ioctl_enum_fmt_vid_out_mplane(struct file *file,
 static int v4l2_ioctl_enum_framesizes(struct file *file, void *fh,
 					struct v4l2_frmsizeenum *fsize)
 {
+	struct vpu_ctx *ctx = v4l2_fh_to_ctx(fh);
+	struct vpu_dev *vdev = ctx->dev;
+
 	if (!fsize)
 		return -EINVAL;
 
 	if (fsize->index)
 		return -EINVAL;
 
+	if (!vdev)
+		return -EINVAL;
+
 	fsize->type = V4L2_FRMSIZE_TYPE_STEPWISE;
-	fsize->stepwise.max_width = VPU_ENC_WIDTH_MAX;
-	fsize->stepwise.max_height = VPU_ENC_HEIGHT_MAX;
-	fsize->stepwise.min_width = VPU_ENC_WIDTH_MIN;
-	fsize->stepwise.min_height = VPU_ENC_HEIGHT_MIN;
-	fsize->stepwise.step_width = VPU_ENC_WIDTH_STEP;
-	fsize->stepwise.step_height = VPU_ENC_HEIGHT_STEP;
+	fsize->stepwise.max_width = vdev->supported_size.max_width;
+	fsize->stepwise.max_height = vdev->supported_size.max_height;
+	fsize->stepwise.min_width = vdev->supported_size.min_width;
+	fsize->stepwise.min_height = vdev->supported_size.min_height;
+	fsize->stepwise.step_width = vdev->supported_size.step_width;
+	fsize->stepwise.step_height = vdev->supported_size.step_height;
 
 	return 0;
 }
@@ -378,15 +384,20 @@ static int v4l2_ioctl_enum_frameintervals(struct file *file, void *fh,
 						struct v4l2_frmivalenum *fival)
 {
 	u32 framerate;
+	struct vpu_ctx *ctx = v4l2_fh_to_ctx(fh);
+	struct vpu_dev *vdev = ctx->dev;
+
 
 	if (!fival)
 		return -EINVAL;
-
 	if (fival->index < 0)
 		return -EINVAL;
-	framerate = VPU_ENC_FRAMERATE_MIN +
-			fival->index * VPU_ENC_FRAMERATE_STEP;
-	if (framerate > VPU_ENC_FRAMERATE_MAX)
+	if (!vdev)
+		return -EINVAL;
+
+	framerate = vdev->supported_fps.min +
+			fival->index * vdev->supported_fps.step;
+	if (framerate > vdev->supported_fps.max)
 		return -EINVAL;
 
 	fival->type = V4L2_FRMIVAL_TYPE_DISCRETE;
@@ -485,16 +496,39 @@ static int initialize_enc_param(struct vpu_ctx *ctx)
 	return 0;
 }
 
-static int check_size(u32 width, u32 height)
+static int check_stepwise(u32 val, u32 min, u32 max, u32 step)
 {
-	if (width < VPU_ENC_WIDTH_MIN ||
-			width > VPU_ENC_WIDTH_MAX ||
-			((width - VPU_ENC_WIDTH_MIN) % VPU_ENC_WIDTH_STEP) ||
-			height < VPU_ENC_HEIGHT_MIN ||
-			height > VPU_ENC_HEIGHT_MAX ||
-			((height - VPU_ENC_HEIGHT_MIN) % VPU_ENC_HEIGHT_STEP)) {
-		vpu_dbg(LVL_ERR, "Unsupported frame size : %dx%d\n",
-				width, height);
+	if (val < min)
+		return -EINVAL;
+	if (val > max)
+		return -EINVAL;
+	if ((val - min) % step)
+		return -EINVAL;
+
+	return 0;
+}
+
+static int check_size(struct vpu_dev *vdev, u32 width, u32 height)
+{
+	int ret;
+
+	if (!vdev)
+		return -EINVAL;
+
+	ret = check_stepwise(width,
+			vdev->supported_size.min_width,
+			vdev->supported_size.max_width,
+			vdev->supported_size.step_width);
+	if (ret) {
+		vpu_err("Unsupported frame size : %dx%d\n", width, height);
+		return -EINVAL;
+	}
+	ret = check_stepwise(height,
+			vdev->supported_size.min_height,
+			vdev->supported_size.max_height,
+			vdev->supported_size.step_height);
+	if (ret) {
+		vpu_err("Unsupported frame size : %dx%d\n", width, height);
 		return -EINVAL;
 	}
 
@@ -503,11 +537,19 @@ static int check_size(u32 width, u32 height)
 
 static int valid_crop_info(struct queue_data *queue, struct v4l2_rect *rect)
 {
-	if (!queue || !rect)
+	struct vpu_ctx *ctx;
+	u32 MIN_WIDTH;
+	u32 MIN_HEIGHT;
+
+	if (!queue || !rect || !queue->ctx)
 		return -EINVAL;
 
-	if (rect->left > queue->width - VPU_ENC_WIDTH_MIN ||
-		rect->top > queue->height - VPU_ENC_HEIGHT_MIN) {
+	ctx = queue->ctx;
+	MIN_WIDTH = ctx->dev->supported_size.min_width;
+	MIN_HEIGHT = ctx->dev->supported_size.min_height;
+
+	if (rect->left > queue->width - MIN_WIDTH ||
+		rect->top > queue->height - MIN_HEIGHT) {
 		rect->left = 0;
 		rect->top = 0;
 		rect->width = queue->width;
@@ -517,30 +559,31 @@ static int valid_crop_info(struct queue_data *queue, struct v4l2_rect *rect)
 
 	rect->width = min(rect->width, queue->width - rect->left);
 	if (rect->width)
-		rect->width = max_t(u32, rect->width, VPU_ENC_WIDTH_MIN);
+		rect->width = max_t(u32, rect->width, MIN_WIDTH);
 	else
 		rect->width = queue->width;
 	rect->height = min(rect->height, queue->height - rect->top);
 	if (rect->height)
-		rect->height = max_t(u32, rect->height, VPU_ENC_HEIGHT_MIN);
+		rect->height = max_t(u32, rect->height, MIN_HEIGHT);
 	else
 		rect->height = queue->height;
 
 	return 0;
 }
 
-static int check_v4l2_fmt(struct v4l2_format *f)
+static int check_v4l2_fmt(struct vpu_dev *dev, struct v4l2_format *f)
 {
 	int ret = -EINVAL;
 
 	switch (f->type) {
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE:
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT:
-		ret = check_size(f->fmt.pix.width, f->fmt.pix.height);
+		ret = check_size(dev, f->fmt.pix.width, f->fmt.pix.height);
 		break;
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE:
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE:
-		ret = check_size(f->fmt.pix_mp.width, f->fmt.pix_mp.height);
+		ret = check_size(dev, f->fmt.pix_mp.width,
+					f->fmt.pix_mp.height);
 		break;
 	default:
 		break;
@@ -670,7 +713,7 @@ static int v4l2_ioctl_s_fmt(struct file *file,
 	pEncParam = &attr->param;
 	vpu_dbg(LVL_DEBUG, "%s()\n", __func__);
 
-	ret = check_v4l2_fmt(f);
+	ret = check_v4l2_fmt(ctx->dev, f);
 	if (ret)
 		return ret;
 
@@ -715,16 +758,18 @@ static int v4l2_ioctl_g_parm(struct file *file, void *fh,
 	return 0;
 }
 
-static int find_proper_framerate(struct v4l2_fract *fival)
+static int find_proper_framerate(struct vpu_dev *dev, struct v4l2_fract *fival)
 {
 	u32 min_delta = INT_MAX;
 	struct v4l2_fract target_fival = {0, 0};
-	u32 framerate = VPU_ENC_FRAMERATE_MIN;
+	u32 framerate;
 
-	if (!fival)
+	if (!fival || !dev)
 		return -EINVAL;
 
-	while (framerate <= VPU_ENC_FRAMERATE_MAX) {
+	framerate = dev->supported_fps.min;
+
+	while (framerate <= dev->supported_fps.max) {
 		u32 delta;
 
 		delta = abs(fival->numerator * framerate -
@@ -737,7 +782,7 @@ static int find_proper_framerate(struct v4l2_fract *fival)
 			min_delta = delta;
 		}
 
-		framerate += VPU_ENC_FRAMERATE_STEP;
+		framerate += dev->supported_fps.step;
 	}
 	if (!target_fival.numerator || !target_fival.denominator)
 		return -EINVAL;
@@ -766,7 +811,7 @@ static int v4l2_ioctl_s_parm(struct file *file, void *fh,
 	if (!fival.numerator || !fival.denominator)
 		return -EINVAL;
 
-	ret = find_proper_framerate(&fival);
+	ret = find_proper_framerate(ctx->dev, &fival);
 	if (ret) {
 		vpu_dbg(LVL_ERR, "Unsupported FPS : %d / %d\n",
 				fival.numerator, fival.denominator);
@@ -1117,8 +1162,11 @@ static int vpu_enc_ioctl_s_crop(struct file *file, void *fh,
 {
 	struct vpu_ctx *ctx = v4l2_fh_to_ctx(fh);
 	struct queue_data *src = &ctx->q_data[V4L2_SRC];
+	struct vpu_dev *dev = ctx->dev;
 
 	if (!cr)
+		return -EINVAL;
+	if (!dev)
 		return -EINVAL;
 
 	if (get_queue_by_v4l2_type(ctx, cr->type) != src)
@@ -1126,10 +1174,10 @@ static int vpu_enc_ioctl_s_crop(struct file *file, void *fh,
 
 	vpu_dbg(LVL_DEBUG, "%s()\n", __func__);
 
-	src->rect.left = ALIGN(cr->c.left, VPU_ENC_WIDTH_STEP);
-	src->rect.top = ALIGN(cr->c.top, VPU_ENC_HEIGHT_STEP);
-	src->rect.width = ALIGN(cr->c.width, VPU_ENC_WIDTH_STEP);
-	src->rect.height = ALIGN(cr->c.height, VPU_ENC_HEIGHT_STEP);
+	src->rect.left = ALIGN(cr->c.left, dev->supported_size.step_width);
+	src->rect.top = ALIGN(cr->c.top, dev->supported_size.step_height);
+	src->rect.width = ALIGN(cr->c.width, dev->supported_size.step_width);
+	src->rect.height = ALIGN(cr->c.height, dev->supported_size.step_height);
 	valid_crop_info(src, &src->rect);
 
 	return 0;
@@ -3792,6 +3840,36 @@ static ssize_t show_fpsinfo(struct device *dev,
 }
 DEVICE_ATTR(fpsinfo, 0444, show_fpsinfo, NULL);
 
+static ssize_t show_vpuinfo(struct device *dev,
+			struct device_attribute *attr, char *buf)
+{
+	struct vpu_dev *vdev = dev_get_drvdata(dev);
+	int num = 0;
+
+	num += snprintf(buf + num, PAGE_SIZE - num,
+			"core number          : %d\n", vdev->core_num);
+	num += snprintf(buf + num, PAGE_SIZE - num,
+			"platform type        : %d\n", vdev->plat_type);
+	num += snprintf(buf + num, PAGE_SIZE - num, "supported resolution :");
+	num += snprintf(buf + num, PAGE_SIZE - num, " %dx%d(min);",
+			vdev->supported_size.min_width,
+			vdev->supported_size.min_height);
+	num += snprintf(buf + num, PAGE_SIZE - num, " %dx%d(step);",
+			vdev->supported_size.step_width,
+			vdev->supported_size.step_height);
+	num += snprintf(buf + num, PAGE_SIZE - num, " %dx%d(max)\n",
+			vdev->supported_size.max_width,
+			vdev->supported_size.max_height);
+	num += snprintf(buf + num, PAGE_SIZE - num,
+			"supported frame rate : %d(min); %d(step); %d(max)\n",
+			vdev->supported_fps.min,
+			vdev->supported_fps.step,
+			vdev->supported_fps.max);
+
+	return num;
+}
+DEVICE_ATTR(vpuinfo, 0444, show_vpuinfo, NULL);
+
 static void reset_fw_statistic(struct vpu_attr *attr)
 {
 	int i;
@@ -4208,6 +4286,7 @@ static int parse_dt_info(struct vpu_dev *dev, struct device_node *np)
 	u_int32 core_type;
 	u32 fw_total_size = 0;
 	u32 rpc_total_size = 0;
+	u32 val;
 	u32 i;
 
 	if (!dev || !np)
@@ -4273,6 +4352,29 @@ static int parse_dt_info(struct vpu_dev *dev, struct device_node *np)
 				resource_size(&reserved_rpc), rpc_total_size);
 		return -EINVAL;
 	}
+
+	dev->supported_size.min_width = VPU_ENC_WIDTH_MIN;
+	dev->supported_size.max_width = VPU_ENC_WIDTH_MAX;
+	dev->supported_size.step_width = VPU_ENC_WIDTH_STEP;
+	dev->supported_size.min_height = VPU_ENC_HEIGHT_MIN;
+	dev->supported_size.max_height = VPU_ENC_HEIGHT_MAX;
+	dev->supported_size.step_height = VPU_ENC_HEIGHT_STEP;
+
+	dev->supported_fps.min = VPU_ENC_FRAMERATE_MIN;
+	dev->supported_fps.max = VPU_ENC_FRAMERATE_MAX;
+	dev->supported_fps.step = VPU_ENC_FRAMERATE_STEP;
+
+	ret = of_property_read_u32_index(np, "resolution-max", 0, &val);
+	if (!ret)
+		dev->supported_size.max_width = val;
+
+	ret = of_property_read_u32_index(np, "resolution-max", 1, &val);
+	if (!ret)
+		dev->supported_size.max_height = val;
+
+	ret = of_property_read_u32_index(np, "fps-max", 0, &val);
+	if (!ret)
+		dev->supported_fps.max = val;
 
 	return 0;
 }
@@ -4710,6 +4812,7 @@ static int vpu_probe(struct platform_device *pdev)
 	device_create_file(&pdev->dev, &dev_attr_meminfo);
 	device_create_file(&pdev->dev, &dev_attr_buffer);
 	device_create_file(&pdev->dev, &dev_attr_fpsinfo);
+	device_create_file(&pdev->dev, &dev_attr_vpuinfo);
 	init_vpu_watchdog(dev);
 	vpu_dbg(LVL_ALL, "VPU Encoder registered\n");
 
@@ -4746,6 +4849,7 @@ static int vpu_remove(struct platform_device *pdev)
 	u_int32 i;
 
 	cancel_delayed_work_sync(&dev->watchdog);
+	device_remove_file(&pdev->dev, &dev_attr_vpuinfo);
 	device_remove_file(&pdev->dev, &dev_attr_fpsinfo);
 	device_remove_file(&pdev->dev, &dev_attr_buffer);
 	device_remove_file(&pdev->dev, &dev_attr_meminfo);
