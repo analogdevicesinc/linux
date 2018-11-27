@@ -54,6 +54,23 @@ static struct jesd204_dev *jesd204_dev_alloc(struct device_node *np)
 	return jdev;
 }
 
+static struct jesd204_dev *jesd204_dev_find_by_of_node(struct device_node *np)
+{
+	struct jesd204_dev *jdev = NULL, *jdev_it;
+
+	if (!np)
+		return NULL;
+
+	list_for_each_entry(jdev_it, &jesd204_device_list, list) {
+		if (jdev_it->np == np) {
+			jdev = jdev_it;
+			break;
+		}
+	}
+
+	return jdev;
+}
+
 static int jesd204_of_create_devices(void)
 {
 	struct jesd204_dev *jdev;
@@ -77,6 +94,38 @@ unlock:
 	return ret;
 }
 
+struct jesd204_dev *jesd204_dev_register(struct device *dev,
+					 const struct jesd204_dev_data *init)
+{
+	struct jesd204_dev *jdev;
+	int ret;
+
+	if (!dev || !init) {
+		dev_err(dev, "Invalid register arguments\n");
+		return ERR_PTR(-EINVAL);
+	}
+
+	mutex_lock(&jesd204_device_list_lock);
+
+	jdev = jesd204_dev_find_by_of_node(dev->of_node);
+	if (!jdev) {
+		dev_err(dev, "Device has no configuration node\n");
+		ret = -ENODEV;
+		goto err;
+	}
+
+	jdev->dev = get_device(dev);
+
+	mutex_unlock(&jesd204_device_list_lock);
+
+	return jdev;
+err:
+	mutex_unlock(&jesd204_device_list_lock);
+
+	return ERR_PTR(ret);
+}
+EXPORT_SYMBOL(jesd204_dev_register);
+
 static void jesd204_of_unregister_devices(void)
 {
 	struct jesd204_dev *jdev, *j;
@@ -93,6 +142,9 @@ static void __jesd204_dev_release(struct kref *ref)
 	struct jesd204_dev_top *jdev_top;
 
 	mutex_lock(&jesd204_device_list_lock);
+
+	if (jdev->dev)
+		put_device(jdev->dev);
 
 	if (jdev->is_top) {
 		jdev_top = jesd204_dev_top_dev(jdev);
