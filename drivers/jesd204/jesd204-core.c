@@ -196,6 +196,49 @@ void jesd204_dev_unregister(struct jesd204_dev *jdev)
 }
 EXPORT_SYMBOL(jesd204_dev_unregister);
 
+static void devm_jesd204_dev_unreg(struct device *dev, void *res)
+{
+	jesd204_dev_unregister(*(struct jesd204_dev **)res);
+}
+
+int __devm_jesd204_dev_register(struct device *dev, struct jesd204_dev *jdev,
+				struct module *this_mod)
+{
+	struct jesd204_dev **ptr;
+	int ret;
+
+	ptr = devres_alloc(devm_jesd204_dev_unreg, sizeof(*ptr), GFP_KERNEL);
+	if (!ptr)
+		return -ENOMEM;
+
+	*ptr = jdev;
+	ret = __jesd204_dev_register(jdev, this_mod);
+	if (!ret)
+		devres_add(dev, ptr);
+	else
+		devres_free(ptr);
+
+	return ret;
+}
+EXPORT_SYMBOL_GPL(__devm_jesd204_dev_register);
+
+/**
+ * devm_jesd204_dev_unregister - Resource-managed jesd204_dev_unregister()
+ * @dev:	Device this jesd204_dev belongs to
+ * @jdev:	the jesd204_dev associated with the device
+ *
+ * Unregister jesd204_dev registered with devm_jesd204_dev_register().
+ */
+void devm_jesd204_dev_unregister(struct device *dev, struct jesd204_dev *jdev)
+{
+	int rc;
+
+	rc = devres_release(dev, devm_jesd204_dev_unreg,
+			    devm_jesd204_dev_match, jdev);
+	WARN_ON(rc);
+}
+EXPORT_SYMBOL_GPL(devm_jesd204_dev_unregister);
+
 static int __init jesd204_init(void)
 {
 	int ret;
