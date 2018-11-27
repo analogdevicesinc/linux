@@ -65,6 +65,7 @@
 #define GOP_SIZE 0x1000
 #define PIC_SIZE 0x1000
 #define QMETER_SIZE 0x1000
+#define DBGLOG_SIZE 0x10000
 #define DEBUG_SIZE 0x80000
 #define ENG_SIZE 0x1000
 #define LOCAL_MSG_NUM VID_API_MESSAGE_LIMIT
@@ -90,6 +91,8 @@ struct shared_addr {
 	void *gop_mem_vir;
 	unsigned long long qmeter_mem_phy;
 	void *qmeter_mem_vir;
+	unsigned long long dbglog_mem_phy;
+	void *dbglog_mem_vir;
 };
 
 struct event_msg {

@@ -53,6 +53,7 @@
  */
 
 #include <linux/uaccess.h>
+#include <linux/fs.h>
 #include "vpu_rpc.h"
 
 void rpc_init_shared_memory(struct shared_addr *This,
@@ -139,7 +140,14 @@ void rpc_init_shared_memory(struct shared_addr *This,
 	pDebugBufferDesc->uStart = pDebugBufferDesc->uWrPtr;
 	pDebugBufferDesc->uEnd = pDebugBufferDesc->uStart + DEBUG_SIZE;
 
-	phy_addr += sizeof(MediaIPFW_Video_BufDesc);
+	This->dbglog_mem_phy = phy_addr;
+	This->dbglog_mem_vir = This->qmeter_mem_vir + QMETER_SIZE;
+
+	pSharedInterface->DbgLogDesc.uDecStatusLogBase = This->dbglog_mem_phy;
+	pSharedInterface->DbgLogDesc.uDecStatusLogSize = DBGLOG_SIZE;
+	phy_addr += DBGLOG_SIZE;
+
+//	phy_addr += sizeof(MediaIPFW_Video_BufDesc);
 	for (i = 0; i < VPU_MAX_NUM_STREAMS; i++) {
 		pEngAccessBufferDesc = &pSharedInterface->EngAccessBufferDesc[i];
 		pEngAccessBufferDesc->uWrPtr = phy_addr;

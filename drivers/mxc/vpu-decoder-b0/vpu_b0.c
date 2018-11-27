@@ -36,6 +36,7 @@
 #include <linux/pm_runtime.h>
 #include <linux/mx8_mu.h>
 #include <linux/uaccess.h>
+#include <linux/debugfs.h>
 
 #include <media/v4l2-ctrls.h>
 #include <media/v4l2-device.h>
@@ -53,6 +54,7 @@
 unsigned int vpu_dbg_level_decoder = 1;
 static int vpu_frm_depth = INVALID_FRAME_DEPTH;
 static int vpu_log_depth = DEFAULT_LOG_DEPTH;
+static int vpu_frmdbg_ena;
 
 /* Generic End of content startcodes to differentiate from those naturally in the stream/file */
 #define EOS_GENERIC_HEVC 0x7c010000
@@ -1426,6 +1428,7 @@ static void transfer_buffer_to_firmware(struct vpu_ctx *ctx, void *input_buffer,
 	pDEC_RPC_HOST_IFACE pSharedInterface = ctx->dev->shared_mem.pSharedInterface;
 	unsigned int *CurrStrfg = &pSharedInterface->StreamConfig[ctx->str_index];
 	u_int32 length;
+	MediaIPFW_Video_CodecParams *pCodecPara;
 
 	vpu_dbg(LVL_INFO, "enter %s, start_flag %d, index=%d, firmware_started=%d\n",
 			__func__, ctx->start_flag, ctx->str_index, ctx->dev->firmware_started);
@@ -1473,20 +1476,17 @@ static void transfer_buffer_to_firmware(struct vpu_ctx *ctx, void *input_buffer,
 		pJpgPara[ctx->str_index].uJpgMjpegInterlaced = 0; //0: JPGD_MJPEG_PROGRESSIVE
 	}
 
+	pCodecPara = (MediaIPFW_Video_CodecParams *)ctx->dev->shared_mem.codec_mem_vir;
 	if (ctx->b_dis_reorder) {
 		/* set the shared memory space control with this */
-		MediaIPFW_Video_CodecParams *pCodecPara;
-
 		add_scode(ctx, 0, BUFFLUSH_PADDING_TYPE, true);
-		pCodecPara = (MediaIPFW_Video_CodecParams *)ctx->dev->shared_mem.codec_mem_vir;
+		record_log_info(ctx, LOG_PADDING, 0, 0);
 		pCodecPara[ctx->str_index].uDispImm = 1;
 	} else {
-		MediaIPFW_Video_CodecParams *pCodecPara;
-
-		pCodecPara = (MediaIPFW_Video_CodecParams *)ctx->dev->shared_mem.codec_mem_vir;
 		pCodecPara[ctx->str_index].uDispImm = 0;
 	}
 
+	pCodecPara[ctx->str_index].uEnableDbgLog = vpu_frmdbg_ena ? 1 : 0;
 	/*initialize frame count*/
 	ctx->frm_dis_delay = 1;
 	ctx->frm_dec_delay = 1;
@@ -1670,6 +1670,7 @@ static void v4l2_update_stream_addr(struct vpu_ctx *ctx, uint32_t uStrBufIdx)
 				/* frame successfully written into the stream buffer if in special low latency mode
 					mark that this frame should be flushed for decode immediately */
 				add_scode(ctx, 0, BUFFLUSH_PADDING_TYPE, true);
+				record_log_info(ctx, LOG_PADDING, 0, 0);
 			}
 			ctx->frm_dec_delay++;
 			ctx->frm_dis_delay++;
@@ -2632,6 +2633,54 @@ static int vpu_firmware_download(struct vpu_dev *This)
 	return ret;
 }
 
+static int dbglog_show(struct seq_file *s, void *data)
+{
+#define DBG_UNIT_SIZE (7)
+
+	struct vpu_ctx *ctx = (struct vpu_ctx *)s->private;
+	u_int32 *pbuf;
+	u_int32 i, line;
+
+	seq_printf(s, "dbg log buffer:\n");
+	pbuf = (u_int32 *)ctx->dev->shared_mem.dbglog_mem_vir;
+	line = (DBGLOG_SIZE) / (DBG_UNIT_SIZE * 4);
+	for (i = 0; i < line; i++) {
+		seq_printf(s, "[%03d]:%08X %08X %08X %08X-%08X %08X %08X\n",
+			i, pbuf[0], pbuf[1], pbuf[2], pbuf[3], pbuf[4], pbuf[5], pbuf[6]);
+		pbuf += 7;
+	}
+	return 0;
+}
+
+static int dbglog_open(struct inode *inode, struct file *filp)
+{
+	return single_open(filp, dbglog_show, inode->i_private);
+}
+
+static struct file_operations dbglog_fops = {
+	.owner = THIS_MODULE,
+	.open = dbglog_open,
+	.read = seq_read,
+};
+
+static int create_instance_dbglog_file(struct vpu_ctx *ctx)
+{
+	if (ctx->dev->debugfs_root == NULL)
+		ctx->dev->debugfs_root = debugfs_create_dir("vpu", NULL);
+
+	snprintf(ctx->dbglog_name, sizeof(ctx->dbglog_name) - 1,
+			"instance%d",
+			ctx->str_index);
+
+	ctx->dbglog_dir = debugfs_create_dir(ctx->dbglog_name, ctx->dev->debugfs_root);
+
+	debugfs_create_file("dbglog", VERIFY_OCTAL_PERMISSIONS(0444),
+		ctx->dbglog_dir, ctx, &dbglog_fops);
+
+	return 0;
+}
+
+
 static ssize_t show_instance_command_info(struct device *dev,
 			struct device_attribute *attr, char *buf)
 {
@@ -2856,6 +2905,7 @@ static int create_instance_file(struct vpu_ctx *ctx)
 	create_instance_command_file(ctx);
 	create_instance_event_file(ctx);
 	create_instance_buffer_file(ctx);
+	create_instance_dbglog_file(ctx);
 	create_instance_flow_file(ctx);
 
 	return 0;
@@ -2869,6 +2919,7 @@ static int remove_instance_file(struct vpu_ctx *ctx)
 	device_remove_file(ctx->dev->generic_dev, &ctx->dev_attr_instance_command);
 	device_remove_file(ctx->dev->generic_dev, &ctx->dev_attr_instance_event);
 	device_remove_file(ctx->dev->generic_dev, &ctx->dev_attr_instance_buffer);
+	debugfs_remove_recursive(ctx->dbglog_dir);
 	device_remove_file(ctx->dev->generic_dev, &ctx->dev_attr_instance_flow);
 
 	return 0;
@@ -3666,4 +3717,5 @@ module_param(vpu_frm_depth, int, 0644);
 MODULE_PARM_DESC(vpu_frm_depth, "maximum frame number in data pool");
 module_param(vpu_log_depth, int, 0644);
 MODULE_PARM_DESC(vpu_log_depth, "maximum log number in queue");
-
+module_param(vpu_frmdbg_ena, int, 0644);
+MODULE_PARM_DESC(vpu_frmdbg_ena, "enable firmware dbg log bufferl");

@@ -549,7 +549,7 @@ typedef struct {
 	u_int32 uFourCC;
 	u_int32 uCodecVersion;
 	u_int32 uFrameRate;
-	u_int32 bbd_logo_width;
+	u_int32 uEnableDbgLog;
 	u_int32 bbd_lum_thr;
 	u_int32 bbd_coring;
 	u_int32 bbd_s_thr_row;
