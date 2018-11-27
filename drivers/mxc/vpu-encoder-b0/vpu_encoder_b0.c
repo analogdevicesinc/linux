@@ -63,6 +63,7 @@ struct vpu_frame_info {
 	bool eos;
 	bool is_start;
 	unsigned long index;
+	struct queue_data *queue;
 };
 
 unsigned int vpu_dbg_level_encoder = LVL_WARN;
@@ -2089,6 +2090,82 @@ static int precheck_frame(struct vpu_ctx *ctx, struct vpu_frame_info *frame)
 	return 0;
 }
 
+static int inc_frame(struct queue_data *queue)
+{
+	struct vpu_frame_info *frame = NULL;
+
+	if (!queue)
+		return -EINVAL;
+
+	frame = vzalloc(sizeof(*frame));
+	if (!frame)
+		return -EINVAL;
+
+	frame->queue = queue;
+	list_add_tail(&frame->list, &queue->frame_idle);
+	atomic64_inc(&queue->frame_count);
+
+	vpu_dbg(LVL_DEBUG, "++ frame : %ld\n",
+			atomic64_read(&queue->frame_count));
+
+	return 0;
+}
+
+static void dec_frame(struct vpu_frame_info *frame)
+{
+	if (!frame)
+		return;
+	list_del_init(&frame->list);
+	if (frame->queue) {
+		atomic64_dec(&frame->queue->frame_count);
+
+		vpu_dbg(LVL_DEBUG, "-- frame : %ld\n",
+				atomic64_read(&frame->queue->frame_count));
+	}
+	vfree(frame);
+}
+
+static struct vpu_frame_info *get_idle_frame(struct queue_data *queue)
+{
+	struct vpu_frame_info *frame = NULL;
+
+	if (!queue)
+		return NULL;
+
+	if (list_empty(&queue->frame_idle))
+		inc_frame(queue);
+	frame = list_first_entry(&queue->frame_idle,
+				struct vpu_frame_info, list);
+	if (frame)
+		list_del_init(&frame->list);
+
+	return frame;
+}
+
+static void put_frame_idle(struct vpu_frame_info *frame)
+{
+	struct queue_data *queue;
+
+	if (!frame)
+		return;
+
+	list_del_init(&frame->list);
+	memset(&frame->info, 0, sizeof(frame->info));
+	frame->bytesleft = 0;
+	frame->wptr = 0;
+	frame->rptr = 0;
+	frame->start = 0;
+	frame->end = 0;
+	frame->eos = false;
+	frame->is_start = false;
+	frame->index = 0;
+	queue = frame->queue;
+	if (queue && atomic64_read(&queue->frame_count) <= FRAME_COUNT_THD)
+		list_add_tail(&frame->list, &queue->frame_idle);
+	else
+		dec_frame(frame);
+}
+
 static bool process_frame_done(struct queue_data *queue)
 {
 	struct vpu_ctx *ctx;
@@ -2109,8 +2186,7 @@ static bool process_frame_done(struct queue_data *queue)
 	frame->rptr = get_ptr(stream_buffer_desc->rptr);
 
 	if (precheck_frame(ctx, frame)) {
-		list_del(&frame->list);
-		vfree(frame);
+		put_frame_idle(frame);
 		frame = NULL;
 		return true;
 	}
@@ -2127,8 +2203,7 @@ static bool process_frame_done(struct queue_data *queue)
 
 	stream_buffer_desc->rptr = frame->rptr;
 	if (frame && !frame->bytesleft) {
-		list_del(&frame->list);
-		vfree(frame);
+		put_frame_idle(frame);
 		frame = NULL;
 	}
 	list_del(&p_data_req->list);
@@ -2229,6 +2304,7 @@ static int handle_event_mem_request(struct vpu_ctx *ctx,
 static int handle_event_frame_done(struct vpu_ctx *ctx,
 				MEDIAIP_ENC_PIC_INFO *pEncPicInfo)
 {
+	struct queue_data *queue;
 	struct vpu_frame_info *frame;
 
 	if (!ctx || !pEncPicInfo)
@@ -2237,6 +2313,7 @@ static int handle_event_frame_done(struct vpu_ctx *ctx,
 	vpu_dbg(LVL_DEBUG, "pEncPicInfo->uPicEncodDone=%d\n",
 			pEncPicInfo->uPicEncodDone);
 
+	queue = &ctx->q_data[V4L2_DST];
 	if (!pEncPicInfo->uPicEncodDone) {
 		vpu_err("Pic Encoder Not Done\n");
 		return -EINVAL;
@@ -2245,9 +2322,10 @@ static int handle_event_frame_done(struct vpu_ctx *ctx,
 	show_enc_pic_info(pEncPicInfo);
 
 	record_start_time(ctx, V4L2_DST);
-	frame = vmalloc(sizeof(*frame));
+
+	down(&queue->drv_q_lock);
+	frame = get_idle_frame(queue);
 	if (frame) {
-		struct queue_data *queue = &ctx->q_data[V4L2_DST];
 		pBUFFER_DESCRIPTOR_TYPE stream_buffer_desc;
 		struct vpu_attr *attr = get_vpu_ctx_attr(ctx);
 
@@ -2263,12 +2341,11 @@ static int handle_event_frame_done(struct vpu_ctx *ctx,
 		if (attr)
 			frame->index = attr->statistic.encoded_count;
 
-		down(&queue->drv_q_lock);
 		list_add_tail(&frame->list, &queue->frame_q);
-		up(&queue->drv_q_lock);
 	} else {
 		vpu_err("fail to alloc memory for frame info\n");
 	}
+	up(&queue->drv_q_lock);
 	count_encoded_frame(ctx);
 
 	/* Sync the write pointer to the local view of it */
@@ -2296,28 +2373,26 @@ static int handle_event_frame_release(struct vpu_ctx *ctx, u_int32 *uFrameID)
 
 static int handle_event_stop_done(struct vpu_ctx *ctx)
 {
+	struct queue_data *queue;
 	struct vpu_frame_info *frame;
 
 	WARN_ON(!ctx);
+	queue = &ctx->q_data[V4L2_DST];
 
 	disable_fps_sts(get_vpu_ctx_attr(ctx));
 
 	set_bit(VPU_ENC_STATUS_STOP_DONE, &ctx->status);
 	notify_eos(ctx);
 
-	frame = vmalloc(sizeof(*frame));
+	down(&queue->drv_q_lock);
+	frame = get_idle_frame(queue);
 	if (frame) {
-		struct queue_data *queue = &ctx->q_data[V4L2_DST];
-
-		memset(frame, 0, sizeof(*frame));
 		frame->eos = true;
-
-		down(&queue->drv_q_lock);
 		list_add_tail(&frame->list, &queue->frame_q);
-		up(&queue->drv_q_lock);
 	} else {
 		vpu_err("fail to alloc memory for last frame\n");
 	}
+	up(&queue->drv_q_lock);
 
 	process_stream_output(ctx);
 
@@ -2723,10 +2798,12 @@ static void clear_queue(struct queue_data *queue)
 	down(&queue->drv_q_lock);
 
 	list_for_each_entry_safe(frame, tmp, &queue->frame_q, list) {
-		vpu_dbg(LVL_DEBUG, "drop frame\n");
-		list_del(&frame->list);
-		vfree(frame);
+		vpu_dbg(LVL_INFO, "drop frame\n");
+		put_frame_idle(frame);
 	}
+
+	list_for_each_entry_safe(frame, tmp, &queue->frame_idle, list)
+		dec_frame(frame);
 
 	list_for_each_entry_safe(p_data_req, p_temp, &queue->drv_q, list) {
 		vpu_dbg(LVL_DEBUG, "%s(%d) - list_del(%p)\n", __func__,
@@ -2740,6 +2817,7 @@ static void clear_queue(struct queue_data *queue)
 
 	INIT_LIST_HEAD(&queue->drv_q);
 	INIT_LIST_HEAD(&queue->frame_q);
+	INIT_LIST_HEAD(&queue->frame_idle);
 
 	up(&queue->drv_q_lock);
 }
@@ -2864,6 +2942,8 @@ static void init_vb2_queue(struct queue_data *This, unsigned int type,
 	// initialze driver queue
 	INIT_LIST_HEAD(&This->drv_q);
 	INIT_LIST_HEAD(&This->frame_q);
+	INIT_LIST_HEAD(&This->frame_idle);
+	atomic64_set(&This->frame_count, 0);
 	// initialize vb2 queue
 	vb2_q->type = type;
 	vb2_q->io_modes = VB2_MMAP | VB2_USERPTR | VB2_DMABUF;
@@ -3505,6 +3585,10 @@ static ssize_t show_instance_info(struct device *dev,
 	mutex_lock(&vpudev->dev_mutex);
 	ctx = get_vpu_attr_ctx(vpu_attr);
 	if (ctx) {
+		num += snprintf(buf + num, PAGE_SIZE - num,
+			"\ttotal frame obj count     :%ld\n",
+			atomic64_read(&ctx->q_data[V4L2_DST].frame_count));
+
 		if (test_bit(VPU_ENC_STATUS_HANG, &ctx->status))
 			num += snprintf(buf + num, PAGE_SIZE - num, "<hang>\n");
 	} else {

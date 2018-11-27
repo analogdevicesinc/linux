@@ -200,6 +200,8 @@ struct queue_data {
 	struct vpu_v4l2_fmt *current_fmt;
 	unsigned long rw_flag;
 	struct list_head frame_q;
+	atomic64_t frame_count;
+	struct list_head frame_idle;
 	struct vpu_ctx *ctx;
 };
 
