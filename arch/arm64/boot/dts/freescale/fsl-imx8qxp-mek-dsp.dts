@@ -17,8 +17,16 @@
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_esai0>;
 		clocks = <&clk IMX8QXP_AUD_ESAI_0_IPG>,
-			<&clk IMX8QXP_AUD_ESAI_0_EXTAL_IPG>;
-		clock-names = "bus", "mclk";
+			<&clk IMX8QXP_AUD_ESAI_0_EXTAL_IPG>,
+			<&clk IMX8QXP_AUD_ASRC_0_IPG>,
+			<&clk IMX8QXP_CLK_DUMMY>,
+			<&clk IMX8QXP_AUD_ACM_AUD_PLL_CLK0_CLK>,
+			<&clk IMX8QXP_AUD_ACM_AUD_PLL_CLK1_CLK>,
+			<&clk IMX8QXP_ACM_AUD_CLK0_SEL>,
+			<&clk IMX8QXP_ACM_AUD_CLK1_SEL>;
+
+		clock-names = "bus", "mclk", "ipg", "mem",
+				"asrck_0", "asrck_1", "asrck_2", "asrck_3";
 		assigned-clocks = <&clk IMX8QXP_ACM_ESAI0_MCLK_SEL>,
 			<&clk IMX8QXP_AUD_PLL0_DIV>,
 			<&clk IMX8QXP_AUD_ACM_AUD_PLL_CLK0_DIV>,
@@ -41,13 +49,7 @@
 
 &edma0 {
 	compatible = "fsl,imx8qm-edma";
-	reg = <0x0 0x59200000 0x0 0x10000>, /* asrc0 */
-		<0x0 0x59210000 0x0 0x10000>,
-		<0x0 0x59220000 0x0 0x10000>,
-		<0x0 0x59230000 0x0 0x10000>,
-		<0x0 0x59240000 0x0 0x10000>,
-		<0x0 0x59250000 0x0 0x10000>,
-		<0x0 0x59280000 0x0 0x10000>, /* spdif0 rx */
+	reg = <0x0 0x59280000 0x0 0x10000>, /* spdif0 rx */
 		<0x0 0x59290000 0x0 0x10000>, /* spdif0 tx */
 		<0x0 0x592c0000 0x0 0x10000>, /* sai0 rx */
 		<0x0 0x592d0000 0x0 0x10000>, /* sai0 tx */
@@ -57,14 +59,8 @@
 		<0x0 0x59370000 0x0 0x10000>;
 	#dma-cells = <3>;
 	shared-interrupt;
-	dma-channels = <14>;
-	interrupts = <GIC_SPI 374 IRQ_TYPE_LEVEL_HIGH>, /* asrc 0 */
-			<GIC_SPI 375 IRQ_TYPE_LEVEL_HIGH>,
-			<GIC_SPI 376 IRQ_TYPE_LEVEL_HIGH>,
-			<GIC_SPI 377 IRQ_TYPE_LEVEL_HIGH>,
-			<GIC_SPI 378 IRQ_TYPE_LEVEL_HIGH>,
-			<GIC_SPI 379 IRQ_TYPE_LEVEL_HIGH>,
-			<GIC_SPI 457 IRQ_TYPE_LEVEL_HIGH>, /* spdif0 */
+	dma-channels = <8>;
+	interrupts = <GIC_SPI 457 IRQ_TYPE_LEVEL_HIGH>, /* spdif0 */
 			<GIC_SPI 459 IRQ_TYPE_LEVEL_HIGH>,
 			<GIC_SPI 315 IRQ_TYPE_LEVEL_HIGH>, /* sai0 */
 			<GIC_SPI 315 IRQ_TYPE_LEVEL_HIGH>,
@@ -72,10 +68,7 @@
 			<GIC_SPI 317 IRQ_TYPE_LEVEL_HIGH>,
 			<GIC_SPI 391 IRQ_TYPE_LEVEL_HIGH>,
 			<GIC_SPI 393 IRQ_TYPE_LEVEL_HIGH>;
-	interrupt-names = "edma0-chan0-rx", "edma0-chan1-rx", /* asrc0 */
-			"edma0-chan2-rx", "edma0-chan3-tx",
-			"edma0-chan4-tx", "edma0-chan5-tx",
-			"edma0-chan8-rx", "edma0-chan9-tx", /* spdif0 */
+	interrupt-names = "edma0-chan8-rx", "edma0-chan9-tx", /* spdif0 */
 			"edma0-chan12-rx", "edma0-chan13-tx", /* sai0 */
 			"edma0-chan14-rx", "edma0-chan15-tx", /* sai1 */
 			"edma0-chan21-tx",		/* gpt5 */
@@ -84,6 +77,10 @@
 };
 
 &esai0 {
+	status = "disabled";
+};
+
+&asrc0 {
 	status = "disabled";
 };
 
