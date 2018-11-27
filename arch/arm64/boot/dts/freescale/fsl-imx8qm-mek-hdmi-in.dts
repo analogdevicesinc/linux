@@ -28,11 +28,7 @@
 };
 
 /* HDMI RX */
-&isi_0 {
-	status = "disabled";
-};
-
-&isi_1 {
+&isi_2 {
 	interface = <4 0 2>;  /* <Input MIPI_VCx Output>
 						Input:  0-DC0, 1-DC1, 2-MIPI CSI0, 3-MIPI CSI1, 4-HDMI, 5-MEM
 						VCx:    0-VC0, 1-VC1, 2-VC2, 3-VC3, MIPI CSI only
@@ -40,13 +36,10 @@
 	status = "okay";
 };
 
-&isi_2 {
-	status = "okay";
-	fsl,chain_buf;
-};
-
 &isi_3 {
-	status = "disabled";
+	/* For HDMI RX 4K chain buf */
+	interface = <4 0 2>;
+	status = "okay";
 };
 
 &mipi_csi_0 {
