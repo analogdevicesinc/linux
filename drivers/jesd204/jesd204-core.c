@@ -105,6 +105,75 @@ static void jesd204_dev_release(struct device *device)
 	kfree(pdev);
 }
 
+static void devm_jesd204_dev_release(struct device *dev, void *res)
+{
+	jesd204_dev_free(*(struct jesd204_dev **)res);
+}
+
+static int devm_jesd204_dev_match(struct device *dev, void *res, void *data)
+{
+	struct jesd204_dev **r = res;
+
+	if (!r || !*r) {
+		WARN_ON(!r || !*r);
+		return 0;
+	}
+
+	return *r == data;
+}
+
+/**
+ * devm_jesd204_dev_alloc - Resource-managed jesd204_dev_alloc()
+ * @dev:		Device to allocate jesd204_dev for
+ * @sizeof_priv:	Space to allocate for private structure.
+ *
+ * Managed jesd204_dev_alloc. jesd204_dev allocated with this function is
+ * automatically freed on driver detach.
+ *
+ * If an jesd204_dev allocated with this function needs to be freed separately,
+ * devm_jesd204_dev_free() must be used.
+ *
+ * RETURNS:
+ * Pointer to allocated jesd204_dev on success, NULL on failure.
+ */
+struct jesd204_dev *devm_jesd204_dev_alloc(struct device *dev, int sizeof_priv)
+{
+	struct jesd204_dev **ptr, *jesd204_dev;
+
+	ptr = devres_alloc(devm_jesd204_dev_release, sizeof(*ptr),
+			   GFP_KERNEL);
+	if (!ptr)
+		return NULL;
+
+	jesd204_dev = jesd204_dev_alloc(sizeof_priv);
+	if (jesd204_dev) {
+		*ptr = jesd204_dev;
+		devres_add(dev, ptr);
+	} else {
+		devres_free(ptr);
+	}
+
+	return jesd204_dev;
+}
+EXPORT_SYMBOL_GPL(devm_jesd204_dev_alloc);
+
+/**
+ * devm_jesd204_dev_free - Resource-managed jesd204_dev_free()
+ * @dev:		Device this jesd204_dev belongs to
+ * @jdev:		the jesd204_dev associated with the device
+ *
+ * Free jesd204_dev allocated with devm_jesd204_dev_alloc().
+ */
+void devm_jesd204_dev_free(struct device *dev, struct jesd204_dev *jdev)
+{
+	int rc;
+
+	rc = devres_release(dev, devm_jesd204_dev_release,
+			    devm_jesd204_dev_match, jdev);
+	WARN_ON(rc);
+}
+EXPORT_SYMBOL_GPL(devm_jesd204_dev_free);
+
 static int __init jesd204_init(void)
 {
 	int ret;

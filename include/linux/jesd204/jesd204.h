@@ -27,6 +27,9 @@ struct jesd204_dev {
 struct jesd204_dev *jesd204_dev_alloc(int sizeof_priv);
 void jesd204_dev_free(struct jesd204_dev *jdev);
 
+struct jesd204_dev *devm_jesd204_dev_alloc(struct device *dev, int sizeof_priv);
+void devm_jesd204_dev_free(struct device *dev, struct jesd204_dev *jdev);
+
 /**
  * dev_to_jesd204_dev() - Get jesd204_dev struct from a device struct
  * @dev:		The device embedded in jesd204_dev
