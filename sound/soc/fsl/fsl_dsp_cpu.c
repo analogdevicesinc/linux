@@ -47,7 +47,8 @@ static const struct snd_soc_component_driver audio_dsp_component = {
 static int dsp_audio_probe(struct platform_device *pdev)
 {
 	struct fsl_dsp_audio *dsp_audio;
-	int ret;
+	int i, ret;
+	char tmp[16];
 
 	dsp_audio = devm_kzalloc(&pdev->dev, sizeof(*dsp_audio), GFP_KERNEL);
 	if (dsp_audio == NULL)
@@ -71,6 +72,27 @@ static int dsp_audio_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "failed to get m clock: %ld\n",
 				PTR_ERR(dsp_audio->m_clk));
 		dsp_audio->m_clk = NULL;
+	}
+
+	dsp_audio->asrc_mem_clk = devm_clk_get(&pdev->dev, "mem");
+	if (IS_ERR(dsp_audio->asrc_mem_clk)) {
+		dev_err(&pdev->dev, "failed to get mem clock\n");
+		dsp_audio->asrc_mem_clk = NULL;
+	}
+
+	dsp_audio->asrc_ipg_clk = devm_clk_get(&pdev->dev, "ipg");
+	if (IS_ERR(dsp_audio->asrc_ipg_clk)) {
+		dev_err(&pdev->dev, "failed to get ipg clock\n");
+		dsp_audio->asrc_ipg_clk = NULL;
+	}
+
+	for (i = 0; i < ASRC_CLK_MAX_NUM; i++) {
+		sprintf(tmp, "asrck_%x", i);
+		dsp_audio->asrck_clk[i] = devm_clk_get(&pdev->dev, tmp);
+		if (IS_ERR(dsp_audio->asrck_clk[i])) {
+			dev_err(&pdev->dev, "failed to get %s clock\n", tmp);
+			dsp_audio->asrck_clk[i] = NULL;
+		}
 	}
 
 	pm_runtime_enable(&pdev->dev);
@@ -100,7 +122,7 @@ static int dsp_audio_remove(struct platform_device *pdev)
 static int dsp_runtime_resume(struct device *dev)
 {
 	struct fsl_dsp_audio *dsp_audio = dev_get_drvdata(dev);
-	int ret;
+	int i, ret;
 
 	ret = clk_prepare_enable(dsp_audio->bus_clk);
 	if (ret) {
@@ -114,12 +136,33 @@ static int dsp_runtime_resume(struct device *dev)
 		return ret;
 	}
 
+	ret = clk_prepare_enable(dsp_audio->asrc_mem_clk);
+	if (ret < 0)
+		dev_err(dev, "Failed to enable asrc_mem_clk ret = %d\n", ret);
+
+	ret = clk_prepare_enable(dsp_audio->asrc_ipg_clk);
+	if (ret < 0)
+		dev_err(dev, "Failed to enable asrc_ipg_clk ret = %d\n", ret);
+
+	for (i = 0; i < ASRC_CLK_MAX_NUM; i++) {
+		ret = clk_prepare_enable(dsp_audio->asrck_clk[i]);
+		if (ret < 0)
+			dev_err(dev, "failed to prepare arc clk %d\n", i);
+	}
+
 	return ret;
 }
 
 static int dsp_runtime_suspend(struct device *dev)
 {
+	int i;
 	struct fsl_dsp_audio *dsp_audio = dev_get_drvdata(dev);
+
+	for (i = 0; i < ASRC_CLK_MAX_NUM; i++)
+		clk_disable_unprepare(dsp_audio->asrck_clk[i]);
+
+	clk_disable_unprepare(dsp_audio->asrc_ipg_clk);
+	clk_disable_unprepare(dsp_audio->asrc_mem_clk);
 
 	clk_disable_unprepare(dsp_audio->m_clk);
 	clk_disable_unprepare(dsp_audio->bus_clk);
