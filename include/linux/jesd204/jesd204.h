@@ -31,6 +31,15 @@ struct jesd204_dev *devm_jesd204_dev_alloc(struct device *dev, int sizeof_priv);
 void devm_jesd204_dev_free(struct device *dev, struct jesd204_dev *jdev);
 
 /**
+ * jesd204_dev_register() - register a device with the JESD204 subsystem
+ * @jdev:		Device structure filled by the device driver
+ **/
+#define jesd204_dev_register(jdev) \
+	__jesd204_dev_register((jdev), THIS_MODULE)
+int __jesd204_dev_register(struct jesd204_dev *jdev, struct module *this_mod);
+void jesd204_dev_unregister(struct jesd204_dev *jdev);
+
+/**
  * dev_to_jesd204_dev() - Get jesd204_dev struct from a device struct
  * @dev:		The device embedded in jesd204_dev
  *

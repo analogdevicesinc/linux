@@ -174,6 +174,28 @@ void devm_jesd204_dev_free(struct device *dev, struct jesd204_dev *jdev)
 }
 EXPORT_SYMBOL_GPL(devm_jesd204_dev_free);
 
+int __jesd204_dev_register(struct jesd204_dev *jdev, struct module *this_mod)
+{
+	struct jesd204_dev_priv *pdev = jesd204_dev_to_priv(jdev);
+
+	pdev->driver_module = this_mod;
+	/* If the calling driver did not initialize of_node, do it here */
+	if (!jdev->dev.of_node && jdev->dev.parent)
+		jdev->dev.of_node = jdev->dev.parent->of_node;
+
+	return 0;
+}
+EXPORT_SYMBOL(__jesd204_dev_register);
+
+/**
+ * jesd204_dev_unregister() - unregister a device from the JESD204 subsystem
+ * @jdev:		Device structure representing the device.
+ **/
+void jesd204_dev_unregister(struct jesd204_dev *jdev)
+{
+}
+EXPORT_SYMBOL(jesd204_dev_unregister);
+
 static int __init jesd204_init(void)
 {
 	int ret;

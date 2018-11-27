@@ -11,11 +11,13 @@
 #ifndef _JESD204_PRIV_H_
 #define _JESD204_PRIV_H_
 
+#include <linux/module.h>
 #include <linux/jesd204/jesd204.h>
 
 /**
  * struct jesd204_dev_priv - JESD204 device private framework data
  * @id:			used to identify device internally
+ * @driver_module:		used to make it harder to undercut users
  */
 struct jesd204_dev_priv {
 	struct jesd204_dev		jesd204_dev;
@@ -26,6 +28,7 @@ struct jesd204_dev_priv {
 	 */
 
 	int				id;
+	struct module			*driver_module;
 };
 
 static inline struct jesd204_dev_priv *jesd204_dev_to_priv(
