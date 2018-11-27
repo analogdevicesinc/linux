@@ -20,6 +20,7 @@
 #include <drm/drm_plane_helper.h>
 #include <video/dpu.h>
 #include <video/imx8-prefetch.h>
+#include "dpu-crtc.h"
 #include "dpu-plane.h"
 #include "imx-drm.h"
 
@@ -245,7 +246,10 @@ static int dpu_plane_atomic_check(struct drm_plane *plane,
 	struct dpu_plane_state *old_dpstate = to_dpu_plane_state(plane->state);
 	struct dpu_plane_res *res = &dplane->grp->res;
 	struct drm_crtc_state *crtc_state;
+	struct imx_crtc_state *imx_crtc_state;
+	struct dpu_crtc_state *dcstate;
 	struct drm_framebuffer *fb = state->fb;
+	struct drm_framebuffer *old_fb = plane->state->fb;
 	struct dpu_fetchunit *fu;
 	struct dprc *dprc;
 	dma_addr_t baseaddr, uv_baseaddr = 0;
@@ -330,6 +334,22 @@ static int dpu_plane_atomic_check(struct drm_plane *plane,
 		if ((dpstate->base_x != old_dpstate->base_x) ||
 		    (dpstate->base_y != old_dpstate->base_y))
 			crtc_state->mode_changed = true;
+
+	/*
+	 * FIXME:
+	 * When pixel combiner is used, it turns out that on-the-fly
+	 * switch from tile fb to linear fb would cause hardware
+	 * malfunction - right half display would be missing and
+	 * master&slave content shadow load done event won't come.
+	 * Thus, go for a full modeset as a workaround.  This could
+	 * be over-kill for some cases, however, since we usually
+	 * don't do this kind of switch in real graphics, it should
+	 * be fine.
+	 */
+	imx_crtc_state = to_imx_crtc_state(crtc_state);
+	dcstate = to_dpu_crtc_state(imx_crtc_state);
+	if (dcstate->use_pc && old_fb && old_fb->modifier && !fb->modifier)
+		crtc_state->mode_changed = true;
 
 	if (state->crtc_x + state->crtc_w >
 	    crtc_state->adjusted_mode.hdisplay)
