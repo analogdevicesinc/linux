@@ -52,7 +52,7 @@
 
 unsigned int vpu_dbg_level_decoder = 1;
 static int vpu_frm_depth = INVALID_FRAME_DEPTH;
-static int vpu_log_depth = 10;
+static int vpu_log_depth = DEFAULT_LOG_DEPTH;
 
 /* Generic End of content startcodes to differentiate from those naturally in the stream/file */
 #define EOS_GENERIC_HEVC 0x7c010000
@@ -1568,12 +1568,18 @@ static int update_stream_addr(struct vpu_ctx *ctx, void *input_buffer, uint32_t 
 
 	start = pStrBufDesc->start;
 	end = pStrBufDesc->end;
+
+	if (start != ctx->stream_buffer.dma_phy ||
+			end != ctx->stream_buffer.dma_phy + ctx->stream_buffer.dma_size) {
+		vpu_dbg(LVL_ERR, "error: %s(), start or end pointer cross-border\n", __func__);
+		return 0;
+	}
 	if (wptr < start || wptr > end) {
-		vpu_dbg(LVL_ERR, "%s(), wptr pointer cross-border\n", __func__);
+		vpu_dbg(LVL_ERR, "error: %s(), wptr pointer cross-border\n", __func__);
 		return 0;
 	}
 	if (rptr < start || rptr > end) {
-		vpu_dbg(LVL_ERR, "%s(), rptr pointer cross-border\n", __func__);
+		vpu_dbg(LVL_ERR, "error: %s(), rptr pointer cross-border\n", __func__);
 		return 0;
 	}
 	wptr_virt = (void *)ctx->stream_buffer.dma_virt + wptr - start;
@@ -2163,6 +2169,7 @@ static void vpu_api_event_handler(struct vpu_ctx *ctx, u_int32 uStrIdx, u_int32 
 			.type = V4L2_EVENT_EOS
 		};
 		vpu_dbg(LVL_ERR, "warning: VID_API_EVENT_FIRMWARE_XCPT,exception info: %s\n", xcpt_info);
+		ctx->hang_status = true;
 		v4l2_event_queue_fh(&ctx->fh, &ev);
 		}
 		break;
@@ -2186,7 +2193,7 @@ static irqreturn_t fsl_vpu_mu_isr(int irq, void *This)
 
 	MU_ReceiveMsg(dev->mu_base_virtaddr, 0, &msg);
 	if (msg == 0xaa) {
-		rpc_init_shared_memory(&dev->shared_mem, dev->m0_rpc_phy - dev->m0_p_fw_space_phy, dev->m0_rpc_virt, SHARED_SIZE);
+		rpc_init_shared_memory(&dev->shared_mem, dev->m0_rpc_phy - dev->m0_p_fw_space_phy, dev->m0_rpc_virt, dev->m0_rpc_size);
 		rpc_set_system_cfg_value(dev->shared_mem.pSharedInterface, VPU_REG_BASE);
 
 		MU_sendMesgToFW(dev->mu_base_virtaddr, RPC_BUF_OFFSET, dev->m0_rpc_phy - dev->m0_p_fw_space_phy); //CM0 use relative address
@@ -2619,6 +2626,7 @@ static int vpu_firmware_download(struct vpu_dev *This)
 			);
 
 	p[16] = This->plat_type;
+	p[18] = 1;
 	enable_csr_reg(This);
 
 	return ret;
@@ -2756,23 +2764,23 @@ static ssize_t show_instance_log_info(struct device *dev,
 		switch (vpu_info->type) {
 		case LOG_EVENT:
 			num += snprintf(buf + num, PAGE_SIZE - num,
-				"\t%20s:%26s\n", "event", event2str[vpu_info->log_info[vpu_info->type]]);
+				"\t%20s:%40s\n", "event", event2str[vpu_info->log_info[vpu_info->type]]);
 			break;
 		case LOG_COMMAND:
 			num += snprintf(buf + num, PAGE_SIZE - num,
-				"\t%20s:%26s\n", "command", cmd2str[vpu_info->log_info[vpu_info->type]]);
+				"\t%20s:%40s\n", "command", cmd2str[vpu_info->log_info[vpu_info->type]]);
 			break;
 		case LOG_EOS:
 			num += snprintf(buf + num, PAGE_SIZE - num,
-				"\t%20s:%26s\n", "add eos", "done");
+				"\t%20s:%40s\n", "add eos", "done");
 			break;
 		case LOG_PADDING:
 			num += snprintf(buf + num, PAGE_SIZE - num,
-				"\t%20s:%26s\n", "add padding", "done");
+				"\t%20s:%40s\n", "add padding", "done");
 			break;
 		case LOG_UPDATE_STREAM:
 			num += snprintf(buf + num, PAGE_SIZE - num,
-				"\t%20s:%16s %16d\n", "update stream data", "stream size", vpu_info->data);
+				"\t%20s:%40s %16d\n", "update stream data", "stream size", vpu_info->data);
 			break;
 		default:
 			break;
@@ -3254,6 +3262,7 @@ static int parse_dt_info(struct vpu_dev *dev, struct device_node *np)
 		return -EINVAL;
 	}
 	dev->m0_p_fw_space_phy = reserved_res.start;
+	dev->m0_boot_size = reserved_res.end - reserved_res.start;
 	reserved_node = of_parse_phandle(np, "rpc-region", 0);
 	if (!reserved_node) {
 		vpu_dbg(LVL_ERR, "error: rpc-region of_parse_phandle error\n");
@@ -3265,6 +3274,7 @@ static int parse_dt_info(struct vpu_dev *dev, struct device_node *np)
 		return -EINVAL;
 	}
 	dev->m0_rpc_phy = reserved_res.start;
+	dev->m0_rpc_size = reserved_res.end - reserved_res.start;
 
 	ret = of_property_read_u32(np, "reg-csr", &csr_base);
 	if (ret) {
@@ -3337,24 +3347,24 @@ static int init_vpudev_parameters(struct vpu_dev *dev)
 
 	//firmware space for M0
 	dev->m0_p_fw_space_vir = ioremap_wc(dev->m0_p_fw_space_phy,
-			M0_BOOT_SIZE
+			dev->m0_boot_size
 			);
 	if (!dev->m0_p_fw_space_vir) {
 		vpu_dbg(LVL_ERR, "error: failed to remap space for M0 firmware\n");
 		return -ENOMEM;
 	}
 
-	memset_io(dev->m0_p_fw_space_vir, 0, M0_BOOT_SIZE);
+	memset_io(dev->m0_p_fw_space_vir, 0, dev->m0_boot_size);
 
 	dev->m0_rpc_virt = ioremap_wc(dev->m0_rpc_phy,
-			SHARED_SIZE
+			dev->m0_rpc_size
 			);
 	if (!dev->m0_rpc_virt) {
 		vpu_dbg(LVL_ERR, "error: failed to remap space for rpc shared memory\n");
 		return -ENOMEM;
 	}
 
-	memset_io(dev->m0_rpc_virt, 0, SHARED_SIZE);
+	memset_io(dev->m0_rpc_virt, 0, dev->m0_rpc_size);
 
 	return 0;
 }

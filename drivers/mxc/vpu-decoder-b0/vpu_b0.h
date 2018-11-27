@@ -49,11 +49,9 @@ extern unsigned int vpu_dbg_level_decoder;
 #define M0FW_FILENAME "vpu/vpu_fw_imx8_dec.bin"
 #define MMAP_BUF_TYPE_SHIFT 28
 #define MMAP_BUF_TYPE_MASK 0xF0000000
-#define M0_BOOT_SIZE 0x1000000
 #define DCP_SIZE 0x3000000
 #define MAX_BUFFER_SIZE 0xc00000
 #define UDATA_BUFFER_SIZE 0x1000
-#define SHARED_SIZE 0x00400000
 #define MAX_DCP_NUM 2
 #define MAX_MBI_NUM 18 // same with MEDIA_PLAYER_MAX_MBI_UNIT defined in firmware
 #define MAX_TIMEOUT_COUNT 10
@@ -63,6 +61,7 @@ extern unsigned int vpu_dbg_level_decoder;
 #define V4L2_PIX_FMT_NV12_10BIT    v4l2_fourcc('N', 'T', '1', '2') /*  Y/CbCr 4:2:0 for 10bit  */
 #define INVALID_FRAME_DEPTH -1
 #define DECODER_NODE_NUMBER 12 // use /dev/video12 as vpu decoder
+#define DEFAULT_LOG_DEPTH 20
 
 struct vpu_v4l2_control {
 	uint32_t id;
@@ -193,8 +192,10 @@ struct vpu_dev {
 	struct firmware *m0_pfw;
 	void *m0_p_fw_space_vir;
 	u_int32 m0_p_fw_space_phy;
+	u_int32 m0_boot_size;
 	void *m0_rpc_virt;
 	u_int32 m0_rpc_phy;
+	u_int32 m0_rpc_size;
 	struct mutex dev_mutex;
 	struct mutex cmd_mutex;
 	bool fw_is_ready;
