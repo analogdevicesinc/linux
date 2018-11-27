@@ -76,6 +76,38 @@
 	status = "okay";
 };
 
+/delete-node/ &pd_dma0_chan6;
+
+&pd_asrc0 {
+	reg = <SC_R_ASRC_0>;
+	power-domains =<&pd_dma0_chan5>;
+	#power-domain-cells = <0>;
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	pd_dma0_chan6: PD_ESAI_0_RX {
+		reg = <SC_R_DMA_0_CH6>;
+		power-domains =<&pd_asrc0>;
+		#power-domain-cells = <0>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		pd_dma0_chan7: PD_ESAI_0_TX {
+			reg = <SC_R_DMA_0_CH7>;
+			power-domains =<&pd_dma0_chan6>;
+			#power-domain-cells = <0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			pd_esai0: PD_AUD_ESAI_0 {
+				reg = <SC_R_ESAI_0>;
+				#power-domain-cells = <0>;
+				power-domains =<&pd_dma0_chan7>;
+			};
+		};
+	};
+};
+
 &esai0 {
 	status = "disabled";
 };
