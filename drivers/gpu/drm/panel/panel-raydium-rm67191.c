@@ -528,7 +528,7 @@ static const struct display_timing rad_default_timing = {
 	.hback_porch = { 34, 34, 34 },
 	.vactive = { 1920, 1920, 1920 },
 	.vfront_porch = { 10, 10, 10 },
-	.vsync_len = { 2, 2, 2 },
+	.vsync_len = { 4, 4, 4 },
 	.vback_porch = { 4, 4, 4 },
 	.flags = DISPLAY_FLAGS_HSYNC_LOW |
 		 DISPLAY_FLAGS_VSYNC_LOW |
