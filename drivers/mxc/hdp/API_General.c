@@ -51,8 +51,6 @@
 #include "general_handler.h"
 #include "util.h"
 
-static u32 alive;
-
 CDN_API_STATUS CDN_API_LoadFirmware(state_struct *state, u8 *iMem,
 				    int imemSize, u8 *dMem, int dmemSize)
 {
@@ -243,14 +241,24 @@ CDN_API_STATUS CDN_API_Get_Debug_Reg_Val(state_struct *state, u16 *val)
 
 CDN_API_STATUS CDN_API_CheckAlive(state_struct *state)
 {
-	u32 newalive;
-	if (cdn_apb_read(state, KEEP_ALIVE << 2, &newalive))
+	u32  alive, newalive;
+	u8 retries_left = 10;
+
+	if (cdn_apb_read(state, KEEP_ALIVE << 2, &alive))
 		return CDN_ERR;
-	if (alive == newalive)
-		return CDN_BSY;
-	alive = newalive;
-	return CDN_OK;
+
+	while (retries_left--) {
+		udelay(1);
+
+		if (cdn_apb_read(state, KEEP_ALIVE << 2, &newalive))
+			return CDN_ERR;
+		if (alive == newalive)
+			continue;
+		return CDN_OK;
+	}
+	return CDN_BSY;
 }
+
 
 CDN_API_STATUS CDN_API_CheckAlive_blocking(state_struct *state)
 {
