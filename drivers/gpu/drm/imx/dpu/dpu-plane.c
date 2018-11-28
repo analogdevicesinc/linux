@@ -988,8 +988,10 @@ struct dpu_plane *dpu_plane_init(struct drm_device *drm,
 		ret = -EINVAL;
 	}
 
-	if (ret)
+	if (ret) {
+		kfree(dpu_plane);
 		return ERR_PTR(ret);
+	}
 
 	return dpu_plane;
 }
