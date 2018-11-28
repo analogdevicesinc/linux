@@ -1482,6 +1482,14 @@ static void imx_ldb_unbind(struct device *dev, struct device *master,
 		if (channel->panel)
 			drm_panel_detach(channel->panel);
 
+		/* make sure the connector exists, and then cleanup */
+		if (channel->connector.dev)
+			imx_drm_connector_destroy(&channel->connector);
+
+		/* make sure the encoder exists, and then cleanup */
+		if (channel->encoder.dev)
+			imx_drm_encoder_destroy(&channel->encoder);
+
 		kfree(channel->edid);
 		i2c_put_adapter(channel->ddc);
 	}
