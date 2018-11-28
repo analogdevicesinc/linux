@@ -1104,7 +1104,7 @@
 &pciea{
 	ext_osc = <1>;
 	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_pciea &pinctrl_wifi>;
+	pinctrl-0 = <&pinctrl_pciea>;
 	disable-gpio = <&gpio4 9 GPIO_ACTIVE_LOW>;
 	reset-gpio = <&gpio4 29 GPIO_ACTIVE_LOW>;
 	clkreq-gpio = <&gpio4 27 GPIO_ACTIVE_LOW>;

@@ -942,7 +942,7 @@
 &pcieb{
 	ext_osc = <1>;
 	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_pcieb &pinctrl_wifi>;
+	pinctrl-0 = <&pinctrl_pcieb>;
 	clkreq-gpio = <&gpio4 1 GPIO_ACTIVE_LOW>;
 	disable-gpio = <&pca9557_a 2 GPIO_ACTIVE_LOW>;
 	reset-gpio = <&gpio4 0 GPIO_ACTIVE_LOW>;
