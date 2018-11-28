@@ -2114,6 +2114,7 @@ static int precheck_frame(struct vpu_ctx *ctx, struct vpu_frame_info *frame)
 		vpu_err("[%d][%d]'s frame is invalid, want %d but %d, drop\n",
 				ctx->core_dev->id, ctx->str_index,
 				frame->bytesleft, length);
+		add_rptr(frame, length);
 		return -EINVAL;
 	}
 
@@ -2234,6 +2235,7 @@ static bool process_frame_done(struct queue_data *queue)
 	frame->rptr = get_ptr(stream_buffer_desc->rptr);
 
 	if (precheck_frame(ctx, frame)) {
+		stream_buffer_desc->rptr = frame->rptr;
 		put_frame_idle(frame);
 		frame = NULL;
 		return true;
