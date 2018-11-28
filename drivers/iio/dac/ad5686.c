@@ -83,7 +83,7 @@ static ssize_t ad5686_write_dac_powerdown(struct iio_dev *indio_dev,
 	int ret;
 	struct ad5686_state *st = iio_priv(indio_dev);
 	unsigned int val, ref_bit_msk;
-	u8 shift;
+	u8 shift, address = 0;
 
 	ret = strtobool(buf, &readin);
 	if (ret)
@@ -106,6 +106,9 @@ static ssize_t ad5686_write_dac_powerdown(struct iio_dev *indio_dev,
 	case AD5686_REGMAP:
 		shift = 0;
 		ref_bit_msk = 0;
+		/* AD5674R/AD5679R have 16 channels and 2 powerdown registers */
+		if (chan->channel > 0x7)
+			address = 0x8;
 		break;
 	case AD5693_REGMAP:
 		shift = 13;
@@ -117,7 +120,8 @@ static ssize_t ad5686_write_dac_powerdown(struct iio_dev *indio_dev,
 	if (!st->use_internal_vref)
 		val |= ref_bit_msk;
 
-	ret = ad5686_write(st, AD5686_CMD_POWERDOWN_DAC, 0, val, 0);
+	ret = st->write(st, AD5686_CMD_POWERDOWN_DAC,
+			address, val >> (address * 2));
 
 	return ret ? ret : len;
 }
@@ -237,10 +241,32 @@ static struct iio_chan_spec name[] = { 				\
 		AD5868_CHANNEL(7, 7, bits, _shift), 		\
 }
 
+#define DECLARE_AD5679_CHANNELS(name, bits, _shift)		\
+static struct iio_chan_spec name[] = {				\
+		AD5868_CHANNEL(0, 0, bits, _shift),		\
+		AD5868_CHANNEL(1, 1, bits, _shift),		\
+		AD5868_CHANNEL(2, 2, bits, _shift),		\
+		AD5868_CHANNEL(3, 3, bits, _shift),		\
+		AD5868_CHANNEL(4, 4, bits, _shift),		\
+		AD5868_CHANNEL(5, 5, bits, _shift),		\
+		AD5868_CHANNEL(6, 6, bits, _shift),		\
+		AD5868_CHANNEL(7, 7, bits, _shift),		\
+		AD5868_CHANNEL(8, 8, bits, _shift),		\
+		AD5868_CHANNEL(9, 9, bits, _shift),		\
+		AD5868_CHANNEL(10, 10, bits, _shift),		\
+		AD5868_CHANNEL(11, 11, bits, _shift),		\
+		AD5868_CHANNEL(12, 12, bits, _shift),		\
+		AD5868_CHANNEL(13, 13, bits, _shift),		\
+		AD5868_CHANNEL(14, 14, bits, _shift),		\
+		AD5868_CHANNEL(15, 15, bits, _shift),		\
+}
+
 DECLARE_AD5693_CHANNELS(ad5310r_channels, 10, 2);
 DECLARE_AD5693_CHANNELS(ad5311r_channels, 10, 6);
 DECLARE_AD5676_CHANNELS(ad5672_channels, 12, 4);
+DECLARE_AD5679_CHANNELS(ad5674r_channels, 12, 4);
 DECLARE_AD5676_CHANNELS(ad5676_channels, 16, 0);
+DECLARE_AD5679_CHANNELS(ad5679r_channels, 16, 0);
 DECLARE_AD5686_CHANNELS(ad5684_channels, 12, 4);
 DECLARE_AD5686_CHANNELS(ad5685r_channels, 14, 2);
 DECLARE_AD5686_CHANNELS(ad5686_channels, 16, 0);
@@ -273,6 +299,12 @@ static const struct ad5686_chip_info ad5686_chip_info_tbl[] = {
 		.num_channels = 8,
 		.regmap_type = AD5686_REGMAP,
 	},
+	[ID_AD5674R] = {
+		.channels = ad5674r_channels,
+		.int_vref_mv = 2500,
+		.num_channels = 16,
+		.regmap_type = AD5686_REGMAP,
+	},
 	[ID_AD5675R] = {
 		.channels = ad5676_channels,
 		.int_vref_mv = 2500,
@@ -288,6 +320,12 @@ static const struct ad5686_chip_info ad5686_chip_info_tbl[] = {
 		.channels = ad5676_channels,
 		.int_vref_mv = 2500,
 		.num_channels = 8,
+		.regmap_type = AD5686_REGMAP,
+	},
+	[ID_AD5679R] = {
+		.channels = ad5679r_channels,
+		.int_vref_mv = 2500,
+		.num_channels = 16,
 		.regmap_type = AD5686_REGMAP,
 	},
 	[ID_AD5681R] = {
