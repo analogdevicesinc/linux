@@ -1099,6 +1099,10 @@ static void dpu_crtc_unbind(struct device *dev, struct device *master,
 	struct dpu_crtc *dpu_crtc = dev_get_drvdata(dev);
 
 	dpu_crtc_put_resources(dpu_crtc);
+
+	/* make sure the crtc exists, and then cleanup */
+	if (dpu_crtc->base.dev)
+		drm_crtc_cleanup(&dpu_crtc->base);
 }
 
 static const struct component_ops dpu_crtc_ops = {
