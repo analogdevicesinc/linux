@@ -34,10 +34,10 @@ static int ad5686_write(struct ad5686_state *st,
 	return st->write(st, cmd, addr, val);
 }
 
-static int ad5686_read(struct ad5686_state *st, u8 addr)
+static int ad5686_read(struct ad5686_state *st, u8 addr, u8 shift)
 {
 
-	return st->read(st, addr);
+	return st->read(st, addr) >> shift;
 }
 
 static int ad5686_get_powerdown_mode(struct iio_dev *indio_dev,
@@ -134,11 +134,11 @@ static int ad5686_read_raw(struct iio_dev *indio_dev,
 	switch (m) {
 	case IIO_CHAN_INFO_RAW:
 		mutex_lock(&indio_dev->mlock);
-		ret = ad5686_read(st, chan->address);
+		ret = ad5686_read(st, chan->address, chan->scan_type.shift);
 		mutex_unlock(&indio_dev->mlock);
 		if (ret < 0)
 			return ret;
-		*val = ret;
+		*val = ret & GENMASK(chan->scan_type.realbits - 1, 0);
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_SCALE:
 		*val = st->vref_mv;
