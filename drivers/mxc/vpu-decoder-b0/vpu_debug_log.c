@@ -64,8 +64,10 @@ int destroy_log_info_queue(struct vpu_ctx *ctx)
 		goto exit;
 	}
 	list_for_each_entry_safe(vpu_info, temp_info, &ctx->log_q, list)
-		if (!vpu_info)
+		if (!vpu_info) {
 			list_del_init(&vpu_info->list);
+			kfree(vpu_info);
+		}
 
 exit:
 	mutex_unlock(&ctx->instance_mutex);

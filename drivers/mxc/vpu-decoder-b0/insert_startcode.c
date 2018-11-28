@@ -453,7 +453,7 @@ u_int32 insert_scode_4_seq(struct vpu_ctx *ctx, u_int8 *src, u_int8 *dst, u_int3
 		vp8_ivf_sequence_header(seq_header, q_data->width, q_data->height);
 		memcpy(dst+length, seq_header, 32);
 		length += 32;
-		vp8_scd_frame_header(dst + length, q_data->width, q_data->height, uPayloadSize);
+		vp8_scd_frame_header(dst + length, q_data->width, q_data->height, uPayloadSize + 8);
 		length += 16;
 		vp8_ivf_frame_header(frame_header, uPayloadSize);
 		memcpy(dst+length, frame_header, 8);
@@ -517,7 +517,7 @@ u_int32 insert_scode_4_pic(struct vpu_ctx *ctx, u_int8 *dst, u_int8 *src, u_int3
 	case VPU_VIDEO_VP8: {
 		u_int8 frame_header[8];
 
-		vp8_scd_frame_header(dst, q_data->width, q_data->height, uPayloadSize);
+		vp8_scd_frame_header(dst, q_data->width, q_data->height, uPayloadSize + 8);
 		length = 16;
 		vp8_ivf_frame_header(frame_header, uPayloadSize);
 		memcpy(dst+length, frame_header, 8);

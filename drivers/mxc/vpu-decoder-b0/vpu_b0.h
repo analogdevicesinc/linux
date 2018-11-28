@@ -305,7 +305,7 @@ struct vpu_ctx {
 #define vpu_dbg(level, fmt, arg...) \
 	do { \
 		if (vpu_dbg_level_decoder >= (level)) \
-			printk("[DEBUG]\t " fmt, ## arg); \
+			printk("[VPU Decoder]\t " fmt, ## arg); \
 	} while (0)
 
 #endif

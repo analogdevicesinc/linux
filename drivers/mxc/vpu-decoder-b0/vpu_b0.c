@@ -194,6 +194,9 @@ static void vpu_log_buffer_state(struct vpu_ctx *ctx)
 	struct vb2_data_req *p_data_req;
 	int i;
 
+	if (!ctx)
+		return;
+
 	for (i = 0; i < VPU_MAX_BUFFER; i++) {
 		p_data_req = &ctx->q_data[V4L2_DST].vb2_reqs[i];
 		if (p_data_req->vb2_buf != NULL)
@@ -234,6 +237,9 @@ static int find_buffer_id(struct vpu_ctx *ctx, u_int32 addr)
 	u_int32 LumaAddr;
 	u_int32 *pphy_address;
 	u_int32 i;
+
+	if (!ctx)
+		return -1;
 
 	for (i = 0; i < VPU_MAX_BUFFER; i++) {
 		p_data_req = &ctx->q_data[V4L2_DST].vb2_reqs[i];
@@ -3024,6 +3030,7 @@ static int v4l2_open(struct file *filp)
 	ctx->pSeqinfo = kzalloc(sizeof(MediaIPFW_Video_SeqInfo), GFP_KERNEL);
 	if (!ctx->pSeqinfo) {
 		vpu_dbg(LVL_ERR, "error: pSeqinfo alloc fail\n");
+		ret = -ENOMEM;
 		goto err_alloc_seq;
 	}
 	init_queue_data(ctx);
@@ -3050,7 +3057,8 @@ static int v4l2_open(struct file *filp)
 	mutex_unlock(&dev->dev_mutex);
 	create_instance_file(ctx);
 	rpc_set_stream_cfg_value(dev->shared_mem.pSharedInterface, ctx->str_index);
-	if (alloc_vpu_buffer(ctx))
+	ret = alloc_vpu_buffer(ctx);
+	if (ret)
 		goto err_alloc_buffer;
 
 	return 0;
@@ -3099,9 +3107,8 @@ static int v4l2_release(struct file *filp)
 			ctx->hang_status = true;
 			vpu_dbg(LVL_ERR, "the path id:%d firmware hang after send VID_API_CMD_STOP\n", ctx->str_index);
 		}
-	} else {
-		vpu_dbg(LVL_WARN, "v4l2_release() - stopped(%d): skip VID_API_CMD_STOP\n", ctx->firmware_stopped);
-	}
+	} else
+		vpu_dbg(LVL_INFO, "v4l2_release() - stopped(%d): skip VID_API_CMD_STOP\n", ctx->firmware_stopped);
 
 	release_queue_data(ctx);
 	ctrls_delete_decoder(ctx);
