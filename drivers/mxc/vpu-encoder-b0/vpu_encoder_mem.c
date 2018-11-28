@@ -400,6 +400,8 @@ int vpu_enc_alloc_stream(struct vpu_ctx *ctx)
 		vpu_dbg(LVL_ERR, "alloc encoder stream buffer fail\n");
 		return -ENOMEM;
 	}
+	vpu_dbg(LVL_INFO, "encoder_stream: 0x%llx, %d\n",
+			ctx->encoder_stream.phy_addr, ctx->encoder_stream.size);
 
 	return 0;
 }
