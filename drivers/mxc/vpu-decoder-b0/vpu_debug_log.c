@@ -44,6 +44,7 @@ int create_log_info_queue(struct vpu_ctx *ctx, u_int32 vpu_log_depth)
 		if (!vpu_info)
 			continue;
 
+		atomic64_add(sizeof(*vpu_info), &ctx->statistic.total_alloc_size);
 		list_add_tail(&vpu_info->list, &ctx->log_q);
 	}
 
@@ -64,9 +65,10 @@ int destroy_log_info_queue(struct vpu_ctx *ctx)
 		goto exit;
 	}
 	list_for_each_entry_safe(vpu_info, temp_info, &ctx->log_q, list)
-		if (!vpu_info) {
+		if (vpu_info) {
 			list_del_init(&vpu_info->list);
 			kfree(vpu_info);
+			atomic64_sub(sizeof(*vpu_info), &ctx->statistic.total_alloc_size);
 		}
 
 exit:

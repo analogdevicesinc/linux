@@ -1214,6 +1214,7 @@ static int add_scode(struct vpu_ctx *ctx, u_int32 uStrBufIdx, VPU_PADDING_SCODE_
 		vpu_dbg(LVL_ERR, "error:  eos buffer alloc fail\n");
 		return -1;
 	}
+	atomic64_add(SCODE_SIZE, &ctx->statistic.total_alloc_size);
 	plbuffer = (uint32_t *)buffer;
 	if (wptr - start < ctx->stream_buffer.dma_size)
 		pbbuffer = (uint8_t *)(ctx->stream_buffer.dma_virt + wptr - start);
@@ -1345,6 +1346,7 @@ static int add_scode(struct vpu_ctx *ctx, u_int32 uStrBufIdx, VPU_PADDING_SCODE_
 	dev->shared_mem.pSharedInterface->pStreamBuffDesc[ctx->str_index][uStrBufIdx] =
 		(VPU_REG_BASE + DEC_MFD_XREG_SLV_BASE + MFD_MCX + MFD_MCX_OFF * ctx->str_index);
 	kfree(buffer);
+	atomic64_sub(SCODE_SIZE, &ctx->statistic.total_alloc_size);
 	vpu_dbg(LVL_INFO, "%s() done type (%d) MCX address virt=%p, phy=0x%x, index=%d\n",
 			__func__, eScodeType, pStrBufDesc, dev->shared_mem.pSharedInterface->pStreamBuffDesc[ctx->str_index][uStrBufIdx], ctx->str_index);
 	return pad_bytes;
@@ -1859,8 +1861,10 @@ static void vpu_api_event_handler(struct vpu_ctx *ctx, u_int32 uStrIdx, u_int32 
 		MediaIPFW_Video_PitchInfo   *pStreamPitchInfo = &pSharedInterface->StreamPitchInfo[uStrIdx];
 		unsigned int num = pSharedInterface->SeqInfoTabDesc.uNumSizeDescriptors;
 
-		if (ctx->pSeqinfo == NULL)
+		if (ctx->pSeqinfo == NULL) {
 			ctx->pSeqinfo = kzalloc(sizeof(MediaIPFW_Video_SeqInfo), GFP_KERNEL);
+			atomic64_add(sizeof(MediaIPFW_Video_SeqInfo), &ctx->statistic.total_alloc_size);
+		}
 		else
 			vpu_dbg(LVL_INFO, "pSeqinfo is not NULL, need not to realloc\n");
 		memcpy(ctx->pSeqinfo, &pSeqInfo[ctx->str_index], sizeof(MediaIPFW_Video_SeqInfo));
@@ -2276,6 +2280,8 @@ static int release_hang_instance(struct vpu_dev *dev)
 		if (dev->ctx[i]) {
 			remove_instance_file(dev->ctx[i]);
 			destroy_log_info_queue(dev->ctx[i]);
+			if (atomic64_read(&dev->ctx[i]->statistic.total_alloc_size) != 0)
+				vpu_dbg(LVL_ERR, "error: memory leak for vpu kalloc buffer\n");
 			kfree(dev->ctx[i]);
 			dev->ctx[i] = NULL;
 		}
@@ -2913,6 +2919,8 @@ static int create_instance_file(struct vpu_ctx *ctx)
 	create_instance_buffer_file(ctx);
 	create_instance_dbglog_file(ctx);
 	create_instance_flow_file(ctx);
+	atomic64_set(&ctx->statistic.total_dma_size, 0);
+	atomic64_set(&ctx->statistic.total_alloc_size, 0);
 
 	return 0;
 }
@@ -3027,12 +3035,14 @@ static int v4l2_open(struct file *filp)
 	ctx->b_dis_reorder = false;
 	ctx->start_code_bypass = false;
 	ctx->hang_status = false;
+	create_instance_file(ctx);
 	ctx->pSeqinfo = kzalloc(sizeof(MediaIPFW_Video_SeqInfo), GFP_KERNEL);
 	if (!ctx->pSeqinfo) {
 		vpu_dbg(LVL_ERR, "error: pSeqinfo alloc fail\n");
 		ret = -ENOMEM;
 		goto err_alloc_seq;
 	}
+	atomic64_add(sizeof(MediaIPFW_Video_SeqInfo), &ctx->statistic.total_alloc_size);
 	init_queue_data(ctx);
 	init_log_info_queue(ctx);
 	create_log_info_queue(ctx, vpu_log_depth);
@@ -3055,7 +3065,6 @@ static int v4l2_open(struct file *filp)
 		dev->fw_is_ready = true;
 	}
 	mutex_unlock(&dev->dev_mutex);
-	create_instance_file(ctx);
 	rpc_set_stream_cfg_value(dev->shared_mem.pSharedInterface, ctx->str_index);
 	ret = alloc_vpu_buffer(ctx);
 	if (ret)
@@ -3069,8 +3078,10 @@ err_alloc_buffer:
 	init_dma_buffer(&ctx->stream_buffer);
 	init_dma_buffer(&ctx->udata_buffer);
 err_firmware_load:
+	destroy_log_info_queue(ctx);
 	kfree(ctx->pSeqinfo);
 	ctx->pSeqinfo = NULL;
+	atomic64_sub(sizeof(MediaIPFW_Video_SeqInfo), &ctx->statistic.total_alloc_size);
 	release_queue_data(ctx);
 err_alloc_seq:
 	kfifo_free(&ctx->msg_fifo);
@@ -3082,6 +3093,8 @@ err_alloc_wq:
 	v4l2_fh_exit(&ctx->fh);
 	clear_bit(ctx->str_index, &dev->instance_mask);
 err_find_index:
+	if (atomic64_read(&ctx->statistic.total_alloc_size) != 0)
+		vpu_dbg(LVL_ERR, "error: memory leak for vpu kalloc buffer\n");
 	kfree(ctx);
 	pm_runtime_put_sync(dev->generic_dev);
 
@@ -3123,10 +3136,11 @@ static int v4l2_release(struct file *filp)
 	free_dma_buffer(ctx, &ctx->stream_buffer);
 	free_dma_buffer(ctx, &ctx->udata_buffer);
 	if (atomic64_read(&ctx->statistic.total_dma_size) != 0)
-		vpu_dbg(LVL_ERR, "error: memory leak for vpu buffer\n");
+		vpu_dbg(LVL_ERR, "error: memory leak for vpu dma alloc buffer\n");
 	if (ctx->pSeqinfo) {
 		kfree(ctx->pSeqinfo);
 		ctx->pSeqinfo = NULL;
+		atomic64_sub(sizeof(MediaIPFW_Video_SeqInfo), &ctx->statistic.total_alloc_size);
 	}
 	mutex_lock(&ctx->instance_mutex);
 	ctx->ctx_released = true;
@@ -3141,6 +3155,8 @@ static int v4l2_release(struct file *filp)
 	if (!ctx->hang_status) { // judge the path is hang or not, if hang, don't clear
 		remove_instance_file(ctx);
 		destroy_log_info_queue(ctx);
+		if (atomic64_read(&ctx->statistic.total_alloc_size) != 0)
+			vpu_dbg(LVL_ERR, "error: memory leak for vpu kalloc buffer\n");
 		clear_bit(ctx->str_index, &dev->instance_mask);
 		dev->ctx[ctx->str_index] = NULL;
 		kfree(ctx);

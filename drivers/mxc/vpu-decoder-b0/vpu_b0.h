@@ -231,6 +231,7 @@ struct vpu_statistic {
 	struct timespec ts_cmd;
 	struct timespec ts_event;
 	atomic64_t total_dma_size;
+	atomic64_t total_alloc_size;
 };
 
 struct dma_buffer {
@@ -244,6 +245,7 @@ struct vpu_ctx {
 	struct v4l2_fh fh;
 
 	struct vpu_statistic statistic;
+	atomic64_t total_alloc_size;
 	struct device_attribute dev_attr_instance_command;
 	char command_name[64];
 	struct device_attribute dev_attr_instance_event;
