@@ -1549,7 +1549,7 @@ static int update_stream_addr(struct vpu_ctx *ctx, void *input_buffer, uint32_t 
 	uint32_t index = ctx->str_index;
 	pSTREAM_BUFFER_DESCRIPTOR_TYPE pStrBufDesc;
 	struct queue_data *q_data = &ctx->q_data[V4L2_SRC];
-	u_int8 payload_header[256];
+	u_int8 payload_header[256] = {0};
 	uint32_t nfreespace = 0;
 	uint32_t wptr;
 	uint32_t rptr;
@@ -1632,6 +1632,9 @@ static int update_stream_addr(struct vpu_ctx *ctx, void *input_buffer, uint32_t 
 				wptr = start + buffer_size - (end-wptr);
 			}
 		} else {
+			memcpy(wptr_virt, payload_header, length);
+			wptr += length;
+			wptr_virt += length;
 			memcpy(wptr_virt, input_buffer, buffer_size);
 			wptr += buffer_size;
 		}
@@ -3084,6 +3087,7 @@ err_firmware_load:
 	atomic64_sub(sizeof(MediaIPFW_Video_SeqInfo), &ctx->statistic.total_alloc_size);
 	release_queue_data(ctx);
 err_alloc_seq:
+	remove_instance_file(ctx);
 	kfifo_free(&ctx->msg_fifo);
 err_alloc_fifo:
 	destroy_workqueue(ctx->instance_wq);
