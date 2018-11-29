@@ -540,7 +540,7 @@
 			adi,lo-freq-min = /bits/ 64 <0>;
 			adi,lo-freq-max = /bits/ 64 <450000000>;
 
-			adi,gpio-settings = <_ _ _ _ 0 1 1 0 _ _ _ 1 0 1 _ _ 0 1 1 0 0 _ _ 1 0 _ _ _ _>;
+			adi,gpio-settings = <_ _ _ _ 0 1 0 1 _ _ _ 1 0 1 _ _ 0 1 1 0 0 _ _ 1 0 _ _ _ _>;
 			adi,band-ctl-post = <&ad9361_rx_ant_port_c 0>;
 		};
 
@@ -548,7 +548,7 @@
 			adi,lo-freq-min = /bits/ 64 <450000000>;
 			adi,lo-freq-max = /bits/ 64 <700000000>;
 
-			adi,gpio-settings = <_ _ _ _ 0 1 1 0 _ _ _ 0 1 1 _ _ 1 1 0 1 0 _ _ 1 1 _ _ _ _>;
+			adi,gpio-settings = <_ _ _ _ 0 1 0 1 _ _ _ 0 1 1 _ _ 1 1 0 1 0 _ _ 1 1 _ _ _ _>;
 			adi,band-ctl-post = <&ad9361_rx_ant_port_c 0>;
 		};
 
@@ -556,7 +556,7 @@
 			adi,lo-freq-min = /bits/ 64 <700000000>;
 			adi,lo-freq-max = /bits/ 64 <1200000000>;
 
-			adi,gpio-settings = <_ _ _ _ 0 1 1 0 _ _ _ 0 0 1 _ _ 1 0 0 0 0 _ _ 0 1 _ _ _ _>;
+			adi,gpio-settings = <_ _ _ _ 0 1 0 1 _ _ _ 0 0 1 _ _ 1 0 0 0 0 _ _ 0 1 _ _ _ _>;
 			adi,band-ctl-post = <&ad9361_rx_ant_port_c 0>;
 		};
 
@@ -564,7 +564,7 @@
 			adi,lo-freq-min = /bits/ 64 <1200000000>;
 			adi,lo-freq-max = /bits/ 64 <1800000000>;
 
-			adi,gpio-settings = <_ _ _ _ 0 1 1 0 _ _ _ 0 0 0 0 1 _ _ 0 0 1 1 0 _ _ _ _ _ _>;
+			adi,gpio-settings = <_ _ _ _ 0 1 0 1 _ _ _ 0 0 0 0 1 _ _ 0 0 1 1 0 _ _ _ _ _ _>;
 			adi,band-ctl-post = <&ad9361_rx_ant_port_b 0>;
 		};
 
@@ -573,7 +573,7 @@
 			adi,lo-freq-min = /bits/ 64 <1800000000>;
 			adi,lo-freq-max = /bits/ 64 <2350000000>;
 
-			adi,gpio-settings = <_ _ _ _ 0 1 1 0 _ _ _ 0 1 0 1 1 _ _ 0 1 1 1 1 _ _ _ _ _ _>;
+			adi,gpio-settings = <_ _ _ _ 0 1 0 1 _ _ _ 0 1 0 1 1 _ _ 0 1 1 1 1 _ _ _ _ _ _>;
 			adi,band-ctl-post = <&ad9361_rx_ant_port_b 0>;
 		};
 
@@ -581,7 +581,7 @@
 			adi,lo-freq-min = /bits/ 64 <2350000000>;
 			adi,lo-freq-max = /bits/ 64 <2600000000>;
 
-			adi,gpio-settings = <_ _ _ _ 0 1 1 0 _ _ _ 1 0 0 1 0 _ _ 1 0 1 0 1 _ _ _ _ _ _>;
+			adi,gpio-settings = <_ _ _ _ 0 1 0 1 _ _ _ 1 0 0 1 0 _ _ 1 0 1 0 1 _ _ _ _ _ _>;
 			adi,band-ctl-post = <&ad9361_rx_ant_port_b 0>;
 
 		};
@@ -590,7 +590,7 @@
 			adi,lo-freq-min = /bits/ 64 <2600000000>;
 			adi,lo-freq-max = /bits/ 64 <6000000001>;
 
-			adi,gpio-settings = <_ _ _ _ 1 0 0 1 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _>;
+			adi,gpio-settings = <_ _ _ _ 1 0 1 0 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _>;
 			adi,band-ctl-post = <&ad9361_rx_ant_port_a 0>;
 		};
 
