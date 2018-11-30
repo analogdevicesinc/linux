@@ -118,8 +118,9 @@ struct clk *clk_register_adjustable_rate_with_accuracy(struct device *dev,
 
 	delta = (u64) adjustable_rate * (u64) fixed_accuracy;
 	do_div(delta, 1000000000U);
-	adjustable->max_rate = adjustable_rate + delta;
-	adjustable->min_rate = adjustable_rate - delta;
+
+	adjustable->max_rate = min_t(u64, adjustable_rate + delta, ULONG_MAX);
+	adjustable->min_rate = max_t(s64, adjustable_rate - delta, 0);
 
 	/* register the clock */
 	clk = clk_register(dev, &adjustable->hw);
