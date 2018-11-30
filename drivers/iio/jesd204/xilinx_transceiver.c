@@ -323,7 +323,7 @@ int xilinx_xcvr_calc_cpll_config(struct xilinx_xcvr *xcvr,
 	unsigned int *out_div)
 {
 	unsigned int n1, n2, d, m;
-	unsigned int refclk_khz = refclk_hz / 1000;
+	unsigned int refclk_khz = DIV_ROUND_CLOSEST(refclk_hz, 1000);
 	unsigned int vco_freq;
 	unsigned int vco_min;
 	unsigned int vco_max;
@@ -384,7 +384,7 @@ int xilinx_xcvr_calc_qpll_config(struct xilinx_xcvr *xcvr,
 	struct xilinx_xcvr_qpll_config *conf,
 	unsigned int *out_div)
 {
-	unsigned int refclk_khz = refclk_hz / 1000;
+	unsigned int refclk_khz = DIV_ROUND_CLOSEST(refclk_hz, 1000);
 	unsigned int n, d, m;
 	unsigned int vco_freq;
 	unsigned int band;
