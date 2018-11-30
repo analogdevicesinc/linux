@@ -68,6 +68,7 @@ struct vpu_frame_info {
 
 unsigned int vpu_dbg_level_encoder = LVL_WARN;
 static unsigned int reset_on_hang;
+static unsigned int show_detail_index = VPU_DETAIL_INDEX_DFT;
 
 static char *mu_cmp[] = {
 	"fsl,imx8-mu1-vpu-m0",
@@ -1674,10 +1675,10 @@ static void dump_vb2_data(struct vb2_buffer *vb)
 		return;
 
 	read_data = vb2_plane_vaddr(vb, 0);
-	num = snprintf(data_str, sizeof(data_str),
+	num = scnprintf(data_str, sizeof(data_str),
 			"transfer data from virt 0x%p: ", read_data);
 	for (read_idx = 0; read_idx < DATA_NUM; read_idx++)
-		num += snprintf(data_str + num, sizeof(data_str) - num,
+		num += scnprintf(data_str + num, sizeof(data_str) - num,
 				" 0x%x", read_data[read_idx]);
 
 	vpu_dbg(LVL_DEBUG, "%s\n", data_str);
@@ -1985,14 +1986,15 @@ static int find_nal_begin(u8 *data, u32 size)
 	return index;
 }
 
-static int update_rptr(struct vpu_ctx *ctx, struct vpu_frame_info *frame)
+static int find_frame_start_and_skip(struct vpu_ctx *ctx,
+			struct vpu_frame_info *frame, int skip)
 {
 	u32 length;
 	u32 bytesskiped = 0;
 	u8 *data = get_rptr_virt(ctx, frame);
 	int index;
 
-	length = calc_frame_length(frame);
+	length = frame->bytesleft;
 	if (frame->rptr + length <= frame->end) {
 		index = find_nal_begin(data, length);
 		if (index >= 0)
@@ -2018,7 +2020,11 @@ static int update_rptr(struct vpu_ctx *ctx, struct vpu_frame_info *frame)
 		}
 	}
 
-	add_rptr(frame, bytesskiped);
+	if (skip && bytesskiped) {
+		add_rptr(frame, bytesskiped);
+		frame->bytesleft -= bytesskiped;
+	}
+
 	return bytesskiped;
 }
 
@@ -2029,7 +2035,6 @@ static int transfer_stream_output(struct vpu_ctx *ctx,
 	struct vb2_buffer *vb = NULL;
 	u32 length;
 	void *pdst;
-	int bytesskiped;
 
 	WARN_ON(!ctx || !frame || !p_data_req);
 
@@ -2062,18 +2067,6 @@ static int transfer_stream_output(struct vpu_ctx *ctx,
 
 	strip_stuff_data_on_tail(ctx, p_data_req->vb2_buf);
 
-	bytesskiped = update_rptr(ctx, frame);
-	if (bytesskiped) {
-		struct vpu_attr *attr = get_vpu_ctx_attr(ctx);
-
-		if (attr)
-			count_strip_info(&attr->statistic.strip_sts.end,
-					bytesskiped);
-
-		vpu_dbg(LVL_DEBUG, "[%8ld][E]skip %d bytes\n",
-				frame->index, bytesskiped);
-	}
-
 	return 0;
 }
 
@@ -2097,11 +2090,25 @@ static int append_empty_end_frame(struct vb2_data_req *p_data_req)
 	return 0;
 }
 
+static bool is_valid_frame_read_pos(u32 ptr, struct vpu_frame_info *frame)
+{
+	if (ptr < frame->start || ptr >= frame->end)
+		return false;
+	if (ptr >= frame->rptr && ptr < frame->wptr)
+		return true;
+	if (frame->rptr > frame->wptr) {
+		if (ptr >= frame->rptr || ptr < frame->wptr)
+			return true;
+	}
+
+	return false;
+}
 static int precheck_frame(struct vpu_ctx *ctx, struct vpu_frame_info *frame)
 {
 	struct vpu_attr *attr = get_vpu_ctx_attr(ctx);
 	u32 length;
 	int bytesskiped;
+	u32 rptr;
 
 	if (frame->eos)
 		return 0;
@@ -2110,32 +2117,39 @@ static int precheck_frame(struct vpu_ctx *ctx, struct vpu_frame_info *frame)
 
 	add_rptr(frame, 0);
 	frame->is_start = false;
+	rptr = get_ptr(frame->info.uStrBuffWrPtr);
+	if (rptr == frame->end)
+		rptr = frame->start;
+
+	if (is_valid_frame_read_pos(rptr, frame)) {
+		if (rptr != frame->rptr) {
+			vpu_dbg(LVL_DEBUG, "frame skip %d bytes\n",
+					rptr - frame->rptr);
+			count_strip_info(&attr->statistic.strip_sts.fw,
+					rptr - frame->rptr);
+		}
+		frame->rptr = rptr;
+	} else {
+		vpu_err("[%ld]wrong uStrBuffWrPtr:0x%x\n", frame->index, rptr);
+	}
+
 	length = calc_frame_length(frame);
 	if (!length || length < frame->bytesleft) {
-		vpu_err("[%d][%d]'s frame is invalid, want %d but %d, drop\n",
+		vpu_err("[%d][%d]'s frame[%ld] invalid, want %d but %d, drop\n",
 				ctx->core_dev->id, ctx->str_index,
-				frame->bytesleft, length);
+				frame->index, frame->bytesleft, length);
+		vpu_err("uStrBuffWrPtr = 0x%x, uFrameSize = 0x%x\n",
+			frame->info.uStrBuffWrPtr, frame->info.uFrameSize);
 		add_rptr(frame, length);
 		return -EINVAL;
 	}
 
-	bytesskiped = update_rptr(ctx, frame);
+	bytesskiped = find_frame_start_and_skip(ctx, frame, 0);
 	if (!bytesskiped)
 		return 0;
 
-	length = calc_frame_length(frame);
-	if (frame->bytesleft > length)
-		frame->bytesleft = length;
-	vpu_dbg(LVL_DEBUG, "[%8ld][B]skip %d bytes\n",
-			frame->index, bytesskiped);
 	if (attr)
 		count_strip_info(&attr->statistic.strip_sts.begin, bytesskiped);
-
-	if (!frame->bytesleft) {
-		vpu_err("[%d][%d]'s frame is invalid, skip whole frame\n",
-				ctx->core_dev->id, ctx->str_index);
-		return -EINVAL;
-	}
 
 	return 0;
 }
@@ -3397,73 +3411,73 @@ static int show_encoder_param(struct vpu_attr *attr,
 {
 	int num = 0;
 
-	num += snprintf(buf + num, size - num,
+	num += scnprintf(buf + num, size - num,
 			"encoder param:[setting/take effect]\n");
-	num += snprintf(buf + num, size - num,
+	num += scnprintf(buf + num, size - num,
 			"\t%-18s:%10d;%10d\n", "Codec Mode",
 			attr->param.eCodecMode, param->eCodecMode);
-	num += snprintf(buf + num, size - num,
+	num += scnprintf(buf + num, size - num,
 			"\t%-18s:%10d;%10d\n", "Profile",
 			attr->param.eProfile, param->eProfile);
-	num += snprintf(buf + num, size - num,
+	num += scnprintf(buf + num, size - num,
 			"\t%-18s:%10d;%10d\n", "Level",
 			attr->param.uLevel, param->uLevel);
-	num += snprintf(buf + num, size - num,
+	num += scnprintf(buf + num, size - num,
 			"\t%-18s:%10d;%10d\n", "Frame Rate",
 			attr->param.uFrameRate, param->uFrameRate);
-	num += snprintf(buf + num, size - num,
+	num += scnprintf(buf + num, size - num,
 			"\t%-18s:%10d;%10d\n", "Source Stride",
 			attr->param.uSrcStride, param->uSrcStride);
-	num += snprintf(buf + num, size - num,
+	num += scnprintf(buf + num, size - num,
 			"\t%-18s:%10d;%10d\n", "Source Width",
 			attr->param.uSrcWidth, param->uSrcWidth);
-	num += snprintf(buf + num, size - num,
+	num += scnprintf(buf + num, size - num,
 			"\t%-18s:%10d;%10d\n", "Source Height",
 			attr->param.uSrcHeight, param->uSrcHeight);
-	num += snprintf(buf + num, size - num,
+	num += scnprintf(buf + num, size - num,
 			"\t%-18s:%10d;%10d\n", "Source Offset x",
 			attr->param.uSrcOffset_x, param->uSrcOffset_x);
-	num += snprintf(buf + num, size - num,
+	num += scnprintf(buf + num, size - num,
 			"\t%-18s:%10d;%10d\n", "Source Offset y",
 			attr->param.uSrcOffset_y, param->uSrcOffset_y);
-	num += snprintf(buf + num, size - num,
+	num += scnprintf(buf + num, size - num,
 			"\t%-18s:%10d;%10d\n", "Source Crop Width",
 			attr->param.uSrcCropWidth, param->uSrcCropWidth);
-	num += snprintf(buf + num, size - num,
+	num += scnprintf(buf + num, size - num,
 			"\t%-18s:%10d;%10d\n", "Source Crop Height",
 			attr->param.uSrcCropHeight,
 			param->uSrcCropHeight);
-	num += snprintf(buf + num, size - num,
+	num += scnprintf(buf + num, size - num,
 			"\t%-18s:%10d;%10d\n", "Out Width",
 			attr->param.uOutWidth, param->uOutWidth);
-	num += snprintf(buf + num, size - num,
+	num += scnprintf(buf + num, size - num,
 			"\t%-18s:%10d;%10d\n", "Out Height",
 			attr->param.uOutHeight, param->uOutHeight);
-	num += snprintf(buf + num, size - num,
+	num += scnprintf(buf + num, size - num,
 			"\t%-18s:%10d;%10d\n", "I Frame Interval",
 			attr->param.uIFrameInterval,
 			param->uIFrameInterval);
-	num += snprintf(buf + num, size - num,
+	num += scnprintf(buf + num, size - num,
 			"\t%-18s:%10d;%10d\n", "GOP Length",
 			attr->param.uGopBLength, param->uGopBLength);
-	num += snprintf(buf + num, size - num,
+	num += scnprintf(buf + num, size - num,
 			"\t%-18s:%10d;%10d\n", "Low Latency Mode",
 			attr->param.uLowLatencyMode,
 			param->uLowLatencyMode);
-	num += snprintf(buf + num, size - num,
+	num += scnprintf(buf + num, size - num,
 			"\t%-18s:%10d;%10d\n", "Bitrate Mode",
 			attr->param.eBitRateMode, param->eBitRateMode);
-	num += snprintf(buf + num, size - num,
+	num += scnprintf(buf + num, size - num,
 			"\t%-18s:%10d;%10d\n", "Target Bitrate",
 			attr->param.uTargetBitrate,
 			param->uTargetBitrate);
-	num += snprintf(buf + num, size - num,
+	num += scnprintf(buf + num, size - num,
 			"\t%-18s:%10d;%10d\n", "Min Bitrate",
 			attr->param.uMinBitRate, param->uMinBitRate);
-	num += snprintf(buf + num, size - num,
+	num += scnprintf(buf + num, size - num,
 			"\t%-18s:%10d;%10d\n", "Max Bitrate",
 			attr->param.uMaxBitRate, param->uMaxBitRate);
-	num += snprintf(buf + num, size - num,
+	num += scnprintf(buf + num, size - num,
 			"\t%-18s:%10d;%10d\n", "QP",
 			attr->param.uInitSliceQP,
 			param->uInitSliceQP);
@@ -3479,7 +3493,7 @@ static int show_queue_buffer_info(struct queue_data *queue, char *buf, u32 size)
 	for (i = 0; i < queue->vb2_q.num_buffers; i++) {
 		struct vb2_buffer *vb = queue->vb2_q.bufs[i];
 
-		num += snprintf(buf + num, size - num, " %d", vb->state);
+		num += scnprintf(buf + num, size - num, " %d", vb->state);
 	}
 
 	return num;
@@ -3490,21 +3504,21 @@ static int show_cmd_event(struct vpu_statistic *statistic, int i,
 {
 	int num = 0;
 
-	num += snprintf(buf + num, PAGE_SIZE - num, "\t(%2d) ", i);
+	num += scnprintf(buf + num, PAGE_SIZE - num, "\t(%2d) ", i);
 
 	if (i <= GTB_ENC_CMD_RESERVED)
-		num += snprintf(buf + num, PAGE_SIZE - num, "%-28s:%12ld;",
+		num += scnprintf(buf + num, PAGE_SIZE - num, "%-28s:%12ld;",
 				get_cmd_str(i), statistic->cmd[i]);
 	else
-		num += snprintf(buf + num, PAGE_SIZE - num, "%-28s:%12s;",
+		num += scnprintf(buf + num, PAGE_SIZE - num, "%-28s:%12s;",
 				"", "");
 
-	num += snprintf(buf + num, PAGE_SIZE - num, "    ");
+	num += scnprintf(buf + num, PAGE_SIZE - num, "    ");
 	if (i <= VID_API_ENC_EVENT_RESERVED)
-		num += snprintf(buf + num, PAGE_SIZE - num, "%-34s:%12ld;",
+		num += scnprintf(buf + num, PAGE_SIZE - num, "%-34s:%12ld;",
 				get_event_str(i), statistic->event[i]);
 
-	num += snprintf(buf + num, PAGE_SIZE - num, "\n");
+	num += scnprintf(buf + num, PAGE_SIZE - num, "\n");
 
 	return num;
 }
@@ -3516,19 +3530,19 @@ static int show_cmd_event_infos(struct vpu_statistic *statistic,
 	int i;
 	int count;
 
-	num += snprintf(buf + num, size - num, "command/event:\n");
+	num += scnprintf(buf + num, size - num, "command/event:\n");
 
 	count = max(GTB_ENC_CMD_RESERVED, VID_API_ENC_EVENT_RESERVED);
 	for (i = 0; i <= count; i++)
 		num += show_cmd_event(statistic, i, buf + num, size - num);
 
-	num += snprintf(buf + num, size - num, "current status:\n");
-	num += snprintf(buf + num, size - num,
+	num += scnprintf(buf + num, size - num, "current status:\n");
+	num += scnprintf(buf + num, size - num,
 			"\t%-10s:%36s;%10ld.%06ld\n", "commond",
 			get_cmd_str(statistic->current_cmd),
 			statistic->ts_cmd.tv_sec,
 			statistic->ts_cmd.tv_nsec / 1000);
-	num += snprintf(buf + num, size - num,
+	num += scnprintf(buf + num, size - num,
 			"\t%-10s:%36s;%10ld.%06ld\n", "event",
 			get_event_str(statistic->current_event),
 			statistic->ts_event.tv_sec,
@@ -3542,12 +3556,12 @@ static int show_single_fps_info(struct vpu_fps_sts *fps, char *buf, u32 size)
 	const u32 COEF = VPU_FPS_COEF;
 	int num = 0;
 
-	num += snprintf(buf + num, size - num, "%3ld.", fps->fps / COEF);
-	num += snprintf(buf + num, size - num, "%02ld", fps->fps % COEF);
+	num += scnprintf(buf + num, size - num, "%3ld.", fps->fps / COEF);
+	num += scnprintf(buf + num, size - num, "%02ld", fps->fps % COEF);
 	if (fps->thd)
-		num += snprintf(buf + num, size - num, "(%ds)", fps->thd);
+		num += scnprintf(buf + num, size - num, "(%ds)", fps->thd);
 	else
-		num += snprintf(buf + num, size - num, "(avg)");
+		num += scnprintf(buf + num, size - num, "(avg)");
 
 	return num;
 }
@@ -3560,7 +3574,7 @@ static int show_fps_info(struct vpu_fps_sts *fps, int count,
 
 	for (i = 0; i < count; i++) {
 		if (i > 0)
-			num += snprintf(buf + num, size - num, "  ");
+			num += scnprintf(buf + num, size - num, "  ");
 		num += show_single_fps_info(&fps[i], buf + num, size - num);
 	}
 
@@ -3571,19 +3585,19 @@ static int show_frame_sts(struct vpu_statistic *statistic, char *buf, u32 size)
 {
 	int num = 0;
 
-	num += snprintf(buf + num, size - num,
+	num += scnprintf(buf + num, size - num,
 			"frame count:\n");
-	num += snprintf(buf + num, size - num, "\t%-24s:%ld\n",
+	num += scnprintf(buf + num, size - num, "\t%-24s:%ld\n",
 			"dbuf input yuv count", statistic->yuv_count);
-	num += snprintf(buf + num, size - num, "\t%-24s:%ld\n",
+	num += scnprintf(buf + num, size - num, "\t%-24s:%ld\n",
 			"encode frame count", statistic->encoded_count);
-	num += snprintf(buf + num, size - num, "\t%-24s:%ld\n",
+	num += scnprintf(buf + num, size - num, "\t%-24s:%ld\n",
 			"dqbuf output h264 count", statistic->h264_count);
 
-	num += snprintf(buf + num, size - num, "\t%-24s:", "actual fps:");
+	num += scnprintf(buf + num, size - num, "\t%-24s:", "actual fps:");
 	num += show_fps_info(statistic->fps, ARRAY_SIZE(statistic->fps),
 				buf + num, PAGE_SIZE - num);
-	num += snprintf(buf + num, size - num, "\n");
+	num += scnprintf(buf + num, size - num, "\n");
 
 	return num;
 }
@@ -3592,19 +3606,19 @@ static int show_strip_info(struct vpu_statistic *statistic, char *buf, u32 size)
 {
 	int num = 0;
 
-	num += snprintf(buf + num, size - num,
+	num += scnprintf(buf + num, size - num,
 			"strip data frame count:\n");
-	num += snprintf(buf + num, size - num,
+	num += scnprintf(buf + num, size - num,
+			"\t fw      :%16ld (max : %ld; total : %ld)\n",
+			statistic->strip_sts.fw.count,
+			statistic->strip_sts.fw.max,
+			statistic->strip_sts.fw.total);
+	num += scnprintf(buf + num, size - num,
 			"\t begin   :%16ld (max : %ld; total : %ld)\n",
 			statistic->strip_sts.begin.count,
 			statistic->strip_sts.begin.max,
 			statistic->strip_sts.begin.total);
-	num += snprintf(buf + num, size - num,
-			"\t end     :%16ld (max : %ld; total : %ld)\n",
-			statistic->strip_sts.end.count,
-			statistic->strip_sts.end.max,
-			statistic->strip_sts.end.total);
-	num += snprintf(buf + num, size - num,
+	num += scnprintf(buf + num, size - num,
 			"\t eos     :%16ld (max : %ld; total : %ld)\n",
 			statistic->strip_sts.eos.count,
 			statistic->strip_sts.eos.max,
@@ -3617,16 +3631,16 @@ static int show_v4l2_buf_status(struct vpu_ctx *ctx, char *buf, u32 size)
 {
 	int num = 0;
 
-	num += snprintf(buf + num, size - num, "V4L2 Buffer Status:\n");
-	num += snprintf(buf + num, size - num, "\tOUTPUT:");
+	num += scnprintf(buf + num, size - num, "V4L2 Buffer Status:\n");
+	num += scnprintf(buf + num, size - num, "\tOUTPUT:");
 	num += show_queue_buffer_info(&ctx->q_data[V4L2_SRC],
 					buf + num,
 					size - num);
-	num += snprintf(buf + num, size - num, "    CAPTURE:");
+	num += scnprintf(buf + num, size - num, "    CAPTURE:");
 	num += show_queue_buffer_info(&ctx->q_data[V4L2_DST],
 					buf + num,
 					size - num);
-	num += snprintf(buf + num, size - num, "\n");
+	num += scnprintf(buf + num, size - num, "\n");
 
 	return num;
 }
@@ -3635,10 +3649,10 @@ static int show_instance_status(struct vpu_ctx *ctx, char *buf, u32 size)
 {
 	int num = 0;
 
-	num += snprintf(buf + num, size - num, "instance status:\n");
-	num += snprintf(buf + num, size - num,
+	num += scnprintf(buf + num, size - num, "instance status:\n");
+	num += scnprintf(buf + num, size - num,
 			"\t%-13s:0x%lx\n", "status", ctx->status);
-	num += snprintf(buf + num, size - num,
+	num += scnprintf(buf + num, size - num,
 			"\t%-13s:%d\n", "frozen count", ctx->frozen_count);
 
 	return num;
@@ -3650,36 +3664,36 @@ static int show_instance_others(struct vpu_attr *attr, char *buf, u32 size)
 	struct vpu_ctx *ctx = NULL;
 	struct vpu_dev *vpudev = attr->core->vdev;
 
-	num += snprintf(buf + num, size - num, "others:\n");
+	num += scnprintf(buf + num, size - num, "others:\n");
 	if (attr->ts_start[V4L2_SRC] && attr->ts_start[V4L2_DST]) {
 		unsigned long latency;
 
 		latency = attr->ts_start[V4L2_DST] - attr->ts_start[V4L2_SRC];
-		num += snprintf(buf + num, size - num,
+		num += scnprintf(buf + num, size - num,
 				"\tlatency(ms)               :%ld\n", latency);
 	}
 
-	num += snprintf(buf + num, size - num,
+	num += scnprintf(buf + num, size - num,
 			"\ttotal dma size            :%ld\n",
 			atomic64_read(&attr->total_dma_size));
-	num += snprintf(buf + num, size - num,
+	num += scnprintf(buf + num, size - num,
 			"\ttotal event msg obj count :%ld\n",
 			attr->msg_count);
-	num += snprintf(buf + num, size - num,
+	num += scnprintf(buf + num, size - num,
 			"\ttotal msg ext data count  :%lld\n",
 			get_total_ext_data_number());
 
 	mutex_lock(&vpudev->dev_mutex);
 	ctx = get_vpu_attr_ctx(attr);
 	if (ctx) {
-		num += snprintf(buf + num, size - num,
+		num += scnprintf(buf + num, size - num,
 			"\ttotal frame obj count     :%ld\n",
 			atomic64_read(&ctx->q_data[V4L2_DST].frame_count));
 
 		if (test_bit(VPU_ENC_STATUS_HANG, &ctx->status))
-			num += snprintf(buf + num, size - num, "<hang>\n");
+			num += scnprintf(buf + num, size - num, "<hang>\n");
 	} else {
-		num += snprintf(buf + num, size - num,
+		num += scnprintf(buf + num, size - num,
 			"<instance has been released>\n");
 	}
 	mutex_unlock(&vpudev->dev_mutex);
@@ -3700,7 +3714,7 @@ static ssize_t show_instance_info(struct device *dev,
 	vpu_attr = container_of(attr, struct vpu_attr,  dev_attr);
 	vpudev = vpu_attr->core->vdev;
 
-	num += snprintf(buf + num, PAGE_SIZE,
+	num += scnprintf(buf + num, PAGE_SIZE,
 			"pid: %d; tgid: %d\n", vpu_attr->pid, vpu_attr->tgid);
 
 	param = rpc_get_enc_param(&vpu_attr->core->shared_mem, vpu_attr->index);
@@ -3734,51 +3748,51 @@ static ssize_t show_core_info(struct device *dev,
 	core = container_of(attr, struct core_device, core_attr);
 	fw = core->m0_p_fw_space_vir;
 
-	num += snprintf(buf + num, PAGE_SIZE - num,
+	num += scnprintf(buf + num, PAGE_SIZE - num,
 			"core[%d] info:\n", core->id);
-	num += snprintf(buf + num, PAGE_SIZE - num,
+	num += scnprintf(buf + num, PAGE_SIZE - num,
 			"vpu mu id       :%d\n", core->vpu_mu_id);
-	num += snprintf(buf + num, PAGE_SIZE - num,
+	num += scnprintf(buf + num, PAGE_SIZE - num,
 			"reg fw base     :0x%08lx\n", core->reg_fw_base);
-	num += snprintf(buf + num, PAGE_SIZE - num,
+	num += scnprintf(buf + num, PAGE_SIZE - num,
 			"fw space phy    :0x%08x\n", core->m0_p_fw_space_phy);
-	num += snprintf(buf + num, PAGE_SIZE - num,
+	num += scnprintf(buf + num, PAGE_SIZE - num,
 			"fw space size   :0x%08x\n", core->fw_buf_size);
-	num += snprintf(buf + num, PAGE_SIZE - num,
+	num += scnprintf(buf + num, PAGE_SIZE - num,
 			"fw actual size  :0x%08x\n", core->fw_actual_size);
-	num += snprintf(buf + num, PAGE_SIZE - num,
+	num += scnprintf(buf + num, PAGE_SIZE - num,
 			"rpc phy         :0x%08x\n", core->m0_rpc_phy);
-	num += snprintf(buf + num, PAGE_SIZE - num,
+	num += scnprintf(buf + num, PAGE_SIZE - num,
 			"rpc buf size    :0x%08x\n", core->rpc_buf_size);
-	num += snprintf(buf + num, PAGE_SIZE - num,
+	num += scnprintf(buf + num, PAGE_SIZE - num,
 			"rpc actual size :0x%08x\n", core->rpc_actual_size);
-	num += snprintf(buf + num, PAGE_SIZE - num,
+	num += scnprintf(buf + num, PAGE_SIZE - num,
 			"print buf phy   :0x%08x\n",
 			core->m0_rpc_phy + core->rpc_buf_size);
-	num += snprintf(buf + num, PAGE_SIZE - num,
+	num += scnprintf(buf + num, PAGE_SIZE - num,
 			"print buf size  :0x%08x\n", core->print_buf_size);
-	num += snprintf(buf + num, PAGE_SIZE - num,
+	num += scnprintf(buf + num, PAGE_SIZE - num,
 			"max instance num:%d\n",
 			core->supported_instance_count);
-	num += snprintf(buf + num, PAGE_SIZE - num,
+	num += scnprintf(buf + num, PAGE_SIZE - num,
 			"fw_is_ready     :%d\n", core->fw_is_ready);
-	num += snprintf(buf + num, PAGE_SIZE - num,
+	num += scnprintf(buf + num, PAGE_SIZE - num,
 			"firmware_started:%d\n", core->firmware_started);
-	num += snprintf(buf + num, PAGE_SIZE - num,
+	num += scnprintf(buf + num, PAGE_SIZE - num,
 			"hang            :%d\n", core->hang);
-	num += snprintf(buf + num, PAGE_SIZE - num,
+	num += scnprintf(buf + num, PAGE_SIZE - num,
 			"reset times     :%ld\n", core->reset_times);
-	num += snprintf(buf + num, PAGE_SIZE - num,
+	num += scnprintf(buf + num, PAGE_SIZE - num,
 			"heartbeat       :%02x\n", core->vdev->heartbeat);
 	if (core->fw_is_ready) {
 		pENC_RPC_HOST_IFACE iface = core->shared_mem.pSharedInterface;
 
-		num += snprintf(buf + num, PAGE_SIZE - num,
+		num += scnprintf(buf + num, PAGE_SIZE - num,
 			"firmware version:%d.%d.%d\n",
 			(iface->FWVersion & 0x00ff0000) >> 16,
 			(iface->FWVersion & 0x0000ff00) >> 8,
 			iface->FWVersion & 0x000000ff);
-		num += snprintf(buf + num, PAGE_SIZE - num,
+		num += scnprintf(buf + num, PAGE_SIZE - num,
 			"fw info         :0x%02x 0x%02x\n", fw[16], fw[17]);
 	}
 
@@ -3791,13 +3805,13 @@ static int show_vb2_memory(struct vb2_buffer *vb, char *buf, u32 size)
 	int i;
 
 	for (i = 0; i < vb->num_planes; i++) {
-		num += snprintf(buf + num, size - num, "0x%8x 0x%x",
+		num += scnprintf(buf + num, size - num, "0x%8x 0x%x",
 				get_vb2_plane_phy_addr(vb, i),
 				vb->planes[i].length);
 		if (i == vb->num_planes - 1)
-			num += snprintf(buf + num, size - num, "\n");
+			num += scnprintf(buf + num, size - num, "\n");
 		else
-			num += snprintf(buf + num, size - num, "; ");
+			num += scnprintf(buf + num, size - num, "; ");
 	}
 
 	return num;
@@ -3809,13 +3823,13 @@ static int show_queue_memory(struct queue_data *queue, char *buf, u32 size,
 	int num = 0;
 	int i;
 
-	num += snprintf(buf + num, size - num, "%s%4s v4l2buf  :\n", prefix,
+	num += scnprintf(buf + num, size - num, "%s%4s v4l2buf  :\n", prefix,
 			queue->type == V4L2_SRC ? "YUV" : "H264");
 
 	for (i = 0; i < queue->vb2_q.num_buffers; i++) {
 		struct vb2_buffer *vb = queue->vb2_q.bufs[i];
 
-		num += snprintf(buf + num, size - num, "%s%18s", prefix, "");
+		num += scnprintf(buf + num, size - num, "%s%18s", prefix, "");
 		num += show_vb2_memory(vb, buf + num, size - num);
 	}
 
@@ -3831,33 +3845,33 @@ static int show_ctx_memory_details(struct vpu_ctx *ctx, char *buf, u32 size,
 	if (!ctx)
 		return 0;
 
-	num += snprintf(buf + num, size - num, "%smemory details:\n", prefix);
-	num += snprintf(buf + num, size - num, "%sencFrames    :\n", prefix);
+	num += scnprintf(buf + num, size - num, "%smemory details:\n", prefix);
+	num += scnprintf(buf + num, size - num, "%sencFrames    :\n", prefix);
 	for (i = 0; i < MEDIAIP_MAX_NUM_WINDSOR_SRC_FRAMES; i++) {
-		num += snprintf(buf + num, size - num, "%s%14s", prefix, "");
-		num += snprintf(buf + num, size - num, "[%d] 0x%8llx 0x%x\n",
+		num += scnprintf(buf + num, size - num, "%s%14s", prefix, "");
+		num += scnprintf(buf + num, size - num, "[%d] 0x%8llx 0x%x\n",
 				i,
 				ctx->encFrame[i].phy_addr,
 				ctx->encFrame[i].size);
 	}
 
-	num += snprintf(buf + num, size - num, "%srefFrames    :\n", prefix);
+	num += scnprintf(buf + num, size - num, "%srefFrames    :\n", prefix);
 	for (i = 0; i < MEDIAIP_MAX_NUM_WINDSOR_REF_FRAMES; i++) {
-		num += snprintf(buf + num, size - num, "%s%14s", prefix, "");
-		num += snprintf(buf + num, size - num, "[%d] 0x%8llx 0x%x\n",
+		num += scnprintf(buf + num, size - num, "%s%14s", prefix, "");
+		num += scnprintf(buf + num, size - num, "[%d] 0x%8llx 0x%x\n",
 				i,
 				ctx->refFrame[i].phy_addr,
 				ctx->refFrame[i].size);
 	}
 
-	num += snprintf(buf + num, size - num, "%sactFrames    :\n", prefix);
-	num += snprintf(buf + num, size - num, "%s%18s", prefix, "");
-	num += snprintf(buf + num, size - num, "0x%8llx 0x%x\n",
+	num += scnprintf(buf + num, size - num, "%sactFrames    :\n", prefix);
+	num += scnprintf(buf + num, size - num, "%s%18s", prefix, "");
+	num += scnprintf(buf + num, size - num, "0x%8llx 0x%x\n",
 			ctx->actFrame.phy_addr, ctx->actFrame.size);
 
-	num += snprintf(buf + num, size - num, "%sencoderStream:\n", prefix);
-	num += snprintf(buf + num, size - num, "%s%18s", prefix, "");
-	num += snprintf(buf + num, size - num, "0x%8llx 0x%x\n",
+	num += scnprintf(buf + num, size - num, "%sencoderStream:\n", prefix);
+	num += scnprintf(buf + num, size - num, "%s%18s", prefix, "");
+	num += scnprintf(buf + num, size - num, "0x%8llx 0x%x\n",
 			ctx->encoder_stream.phy_addr, ctx->encoder_stream.size);
 
 	for (i = 0; i < ARRAY_SIZE(ctx->q_data); i++) {
@@ -3882,12 +3896,14 @@ static ssize_t show_memory_info(struct device *dev,
 	int num = 0;
 	int i;
 	int j;
+	int core_id = (show_detail_index >> 8) & 0xff;
+	int ctx_id = show_detail_index & 0xff;
 
-	num += snprintf(buf + num, PAGE_SIZE - num, "dma memory usage:\n");
+	num += scnprintf(buf + num, PAGE_SIZE - num, "dma memory usage:\n");
 	for (i = 0; i < vdev->core_num; i++) {
 		struct core_device *core = &vdev->core_dev[i];
 
-		num += snprintf(buf + num, PAGE_SIZE - num, "core[%d]\n", i);
+		num += scnprintf(buf + num, PAGE_SIZE - num, "core[%d]\n", i);
 
 		for (j = 0; j < ARRAY_SIZE(core->attr); j++) {
 			struct vpu_attr *attr = &core->attr[j];
@@ -3895,8 +3911,10 @@ static ssize_t show_memory_info(struct device *dev,
 
 			size = atomic64_read(&attr->total_dma_size);
 			total_dma_size += size;
-			num += snprintf(buf + num, PAGE_SIZE - num,
+			num += scnprintf(buf + num, PAGE_SIZE - num,
 					"\t[%d] : %ld\n", j, size);
+			if (core_id != i || ctx_id != j)
+				continue;
 			mutex_lock(&vdev->dev_mutex);
 			num += show_ctx_memory_details(core->ctx[j],
 							buf + num,
@@ -3906,12 +3924,24 @@ static ssize_t show_memory_info(struct device *dev,
 		}
 	}
 
-	num += snprintf(buf + num, PAGE_SIZE - num,
+	num += scnprintf(buf + num, PAGE_SIZE - num,
 			"total : %ld\n", total_dma_size);
+	show_detail_index = VPU_DETAIL_INDEX_DFT;
 
 	return num;
 }
-DEVICE_ATTR(meminfo, 0444, show_memory_info, NULL);
+
+static ssize_t store_memory_info_index(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	long val = VPU_DETAIL_INDEX_DFT;
+
+	if (!kstrtol(buf, 0, &val))
+		show_detail_index = val;
+
+	return count;
+}
+DEVICE_ATTR(meminfo, 0664, show_memory_info, store_memory_info_index);
 
 static ssize_t show_buffer_info(struct device *dev,
 			struct device_attribute *attr, char *buf)
@@ -3922,25 +3952,25 @@ static ssize_t show_buffer_info(struct device *dev,
 	int j;
 
 	mutex_lock(&vdev->dev_mutex);
-	num += snprintf(buf + num, PAGE_SIZE - num, "vpu encoder buffers:\t");
-	num += snprintf(buf + num, PAGE_SIZE - num, "(");
-	num += snprintf(buf + num, PAGE_SIZE - num,
+	num += scnprintf(buf + num, PAGE_SIZE - num, "vpu encoder buffers:\t");
+	num += scnprintf(buf + num, PAGE_SIZE - num, "(");
+	num += scnprintf(buf + num, PAGE_SIZE - num,
 			" %d:dequeued,", VB2_BUF_STATE_DEQUEUED);
-	num += snprintf(buf + num, PAGE_SIZE - num,
+	num += scnprintf(buf + num, PAGE_SIZE - num,
 			" %d:preparing,", VB2_BUF_STATE_PREPARING);
-	num += snprintf(buf + num, PAGE_SIZE - num,
+	num += scnprintf(buf + num, PAGE_SIZE - num,
 			" %d:prepared,", VB2_BUF_STATE_PREPARED);
-	num += snprintf(buf + num, PAGE_SIZE - num,
+	num += scnprintf(buf + num, PAGE_SIZE - num,
 			" %d:queued,", VB2_BUF_STATE_QUEUED);
-	num += snprintf(buf + num, PAGE_SIZE - num,
+	num += scnprintf(buf + num, PAGE_SIZE - num,
 			" %d:requeueing,", VB2_BUF_STATE_REQUEUEING);
-	num += snprintf(buf + num, PAGE_SIZE - num,
+	num += scnprintf(buf + num, PAGE_SIZE - num,
 			" %d:active,", VB2_BUF_STATE_ACTIVE);
-	num += snprintf(buf + num, PAGE_SIZE - num,
+	num += scnprintf(buf + num, PAGE_SIZE - num,
 			" %d:done,", VB2_BUF_STATE_DONE);
-	num += snprintf(buf + num, PAGE_SIZE - num,
+	num += scnprintf(buf + num, PAGE_SIZE - num,
 			" %d:error", VB2_BUF_STATE_ERROR);
-	num += snprintf(buf + num, PAGE_SIZE - num, ")\n");
+	num += scnprintf(buf + num, PAGE_SIZE - num, ")\n");
 
 	for (i = 0; i < vdev->core_num; i++) {
 		struct core_device *core = &vdev->core_dev[i];
@@ -3948,25 +3978,25 @@ static ssize_t show_buffer_info(struct device *dev,
 		if (!core->supported_instance_count)
 			continue;
 
-		num += snprintf(buf + num, PAGE_SIZE - num, "core[%d]\n", i);
+		num += scnprintf(buf + num, PAGE_SIZE - num, "core[%d]\n", i);
 		for (j = 0; j < core->supported_instance_count; j++) {
 			struct vpu_ctx *ctx = core->ctx[j];
 
 			if (!ctx)
 				continue;
-			num += snprintf(buf + num, PAGE_SIZE - num,
+			num += scnprintf(buf + num, PAGE_SIZE - num,
 					"\t[%d]: ", j);
-			num += snprintf(buf + num,
+			num += scnprintf(buf + num,
 					PAGE_SIZE - num, "OUTPUT:");
 			num += show_queue_buffer_info(&ctx->q_data[V4L2_SRC],
 							buf + num,
 							PAGE_SIZE - num);
-			num += snprintf(buf + num,
+			num += scnprintf(buf + num,
 					PAGE_SIZE - num, "    CAPTURE:");
 			num += show_queue_buffer_info(&ctx->q_data[V4L2_DST],
 							buf + num,
 							PAGE_SIZE - num);
-			num += snprintf(buf + num, PAGE_SIZE - num, "\n");
+			num += scnprintf(buf + num, PAGE_SIZE - num, "\n");
 		}
 	}
 	mutex_unlock(&vdev->dev_mutex);
@@ -3989,21 +4019,21 @@ static ssize_t show_fpsinfo(struct device *dev,
 		if (!core->supported_instance_count)
 			continue;
 
-		num += snprintf(buf + num, PAGE_SIZE - num, "core[%d]\n", i);
+		num += scnprintf(buf + num, PAGE_SIZE - num, "core[%d]\n", i);
 		for (j = 0; j < core->supported_instance_count; j++) {
 			struct vpu_attr *attr = &core->attr[j];
 
 			if (!attr->created)
 				continue;
-			num += snprintf(buf + num, PAGE_SIZE - num,
+			num += scnprintf(buf + num, PAGE_SIZE - num,
 					"\t[%d]", j);
-			num += snprintf(buf + num, PAGE_SIZE - num,
+			num += scnprintf(buf + num, PAGE_SIZE - num,
 					"  %3d(setting)  ",
 					attr->param.uFrameRate);
 			num += show_fps_info(attr->statistic.fps,
 					ARRAY_SIZE(attr->statistic.fps),
 					buf + num, PAGE_SIZE - num);
-			num += snprintf(buf + num, PAGE_SIZE - num, "\n");
+			num += scnprintf(buf + num, PAGE_SIZE - num, "\n");
 		}
 	}
 
@@ -4017,21 +4047,21 @@ static ssize_t show_vpuinfo(struct device *dev,
 	struct vpu_dev *vdev = dev_get_drvdata(dev);
 	int num = 0;
 
-	num += snprintf(buf + num, PAGE_SIZE - num,
+	num += scnprintf(buf + num, PAGE_SIZE - num,
 			"core number          : %d\n", vdev->core_num);
-	num += snprintf(buf + num, PAGE_SIZE - num,
+	num += scnprintf(buf + num, PAGE_SIZE - num,
 			"platform type        : %d\n", vdev->plat_type);
-	num += snprintf(buf + num, PAGE_SIZE - num, "supported resolution :");
-	num += snprintf(buf + num, PAGE_SIZE - num, " %dx%d(min);",
+	num += scnprintf(buf + num, PAGE_SIZE - num, "supported resolution :");
+	num += scnprintf(buf + num, PAGE_SIZE - num, " %dx%d(min);",
 			vdev->supported_size.min_width,
 			vdev->supported_size.min_height);
-	num += snprintf(buf + num, PAGE_SIZE - num, " %dx%d(step);",
+	num += scnprintf(buf + num, PAGE_SIZE - num, " %dx%d(step);",
 			vdev->supported_size.step_width,
 			vdev->supported_size.step_height);
-	num += snprintf(buf + num, PAGE_SIZE - num, " %dx%d(max)\n",
+	num += scnprintf(buf + num, PAGE_SIZE - num, " %dx%d(max)\n",
 			vdev->supported_size.max_width,
 			vdev->supported_size.max_height);
-	num += snprintf(buf + num, PAGE_SIZE - num,
+	num += scnprintf(buf + num, PAGE_SIZE - num,
 			"supported frame rate : %d(min); %d(step); %d(max)\n",
 			vdev->supported_fps.min,
 			vdev->supported_fps.step,
@@ -4594,7 +4624,7 @@ static int init_vpu_attrs(struct core_device *core)
 
 		attr->core = core;
 		attr->index = i;
-		snprintf(attr->name, sizeof(attr->name) - 1, "instance.%d.%d",
+		scnprintf(attr->name, sizeof(attr->name) - 1, "instance.%d.%d",
 				core->id, attr->index);
 		attr->dev_attr.attr.name = attr->name;
 		attr->dev_attr.attr.mode = VERIFY_OCTAL_PERMISSIONS(0444);
@@ -4841,7 +4871,7 @@ static int init_vpu_core_dev(struct core_device *core_dev)
 
 	init_vpu_attrs(core_dev);
 
-	snprintf(core_dev->name, sizeof(core_dev->name) - 1,
+	scnprintf(core_dev->name, sizeof(core_dev->name) - 1,
 			"core.%d", core_dev->id);
 	core_dev->core_attr.attr.name = core_dev->name;
 	core_dev->core_attr.attr.mode = VERIFY_OCTAL_PERMISSIONS(0444);
@@ -5311,4 +5341,7 @@ MODULE_PARM_DESC(vpu_dbg_level_encoder, "Debug level (0-4)");
 
 module_param(reset_on_hang, int, 0644);
 MODULE_PARM_DESC(reset_on_hang, "reset on hang (0-1)");
+
+module_param(show_detail_index, int, 0644);
+MODULE_PARM_DESC(reset_on_hang, "show memory detail info index");
 

@@ -230,8 +230,8 @@ struct vpu_statistic {
 	unsigned long encoded_count;
 	unsigned long h264_count;
 	struct {
+		struct vpu_strip_info fw;
 		struct vpu_strip_info begin;
-		struct vpu_strip_info end;
 		struct vpu_strip_info eos;
 	} strip_sts;
 	bool fps_sts_enable;

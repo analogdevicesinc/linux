@@ -42,4 +42,6 @@
 #define VPU_FPS_STS_THDS		{1, 3, 0}
 #define VPU_FPS_COEF			100
 
+#define VPU_DETAIL_INDEX_DFT		0xffff
+
 #endif
