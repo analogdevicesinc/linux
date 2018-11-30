@@ -714,6 +714,7 @@ static const struct of_device_id axiadc_of_match[] = {
 	{ .compatible = "adi,axi-ad9371-rx-1.0", .data = &ad9361_6_00_a_info },
 	{ .compatible = "adi,axi-ad9684-1.0", .data = &ad9680_6_00_a_info },
 	{ .compatible = "adi,axi-adrv9009-rx-1.0", .data = &ad9361_6_00_a_info },
+	{ .compatible = "adi,axi-ad9208-1.0", .data = &ad9680_6_00_a_info },
 	{ /* end of list */ },
 };
 MODULE_DEVICE_TABLE(of, axiadc_of_match);
