@@ -477,6 +477,9 @@ void dprc_configure(struct dprc *dprc, unsigned int stream_id,
 							FRAME_PIX_X_ULC_CTRL);
 		dprc_write(dprc, CROP_ULC_Y(round_down(y_offset, mt_h)),
 							FRAME_PIX_Y_ULC_CTRL);
+	} else {
+		dprc_write(dprc, CROP_ULC_X(0), FRAME_PIX_X_ULC_CTRL);
+		dprc_write(dprc, CROP_ULC_Y(0), FRAME_PIX_Y_ULC_CTRL);
 	}
 
 	val = dprc_read(dprc, RTRAM_CTRL0);
