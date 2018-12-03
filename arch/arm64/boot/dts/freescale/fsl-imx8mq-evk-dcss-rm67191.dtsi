@@ -95,6 +95,25 @@
 		dsi-lanes = <4>;
 		panel-width-mm = <68>;
 		panel-height-mm = <121>;
+
+		display-timings {
+			timing {
+				clock-frequency = <132000000>;
+				hactive = <1080>;
+				vactive = <1920>;
+				hfront-porch = <20>;
+				hsync-len = <2>;
+				hback-porch = <34>;
+				vfront-porch = <10>;
+				vsync-len = <5>;
+				vback-porch = <4>;
+				hsync-active = <0>;
+				vsync-active = <0>;
+				de-active = <0>;
+				pixelclk-active = <0>;
+			};
+		};
+
 		port {
 			panel1_in: endpoint {
 				remote-endpoint = <&mipi_dsi_bridge_out>;
