@@ -87,8 +87,7 @@ static void imx_hdmi_audio_avi_set(state_struct *state,
 
 	buf[0] = 0;
 
-	CDN_API_InfoframeSet(state, 1, sizeof(buf),
-				    (u32 *)buf, HDMI_INFOFRAME_TYPE_AUDIO);
+	CDN_API_InfoframeSet(state, 1, sizeof(buf), buf, HDMI_INFOFRAME_TYPE_AUDIO);
 }
 
 static u32 imx_hdp_audio(struct imx_hdp *hdmi, AUDIO_TYPE type, u32 sample_rate, u32 channels, u32 width)

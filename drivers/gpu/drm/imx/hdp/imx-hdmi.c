@@ -97,7 +97,7 @@ static int hdmi_avi_info_set(struct imx_hdp *hdp,
 
 	buf[0] = 0;
 	return CDN_API_InfoframeSet(&hdp->state, 0, sizeof(buf),
-				    (u32 *)buf, HDMI_INFOFRAME_TYPE_AVI);
+				    buf, HDMI_INFOFRAME_TYPE_AVI);
 
 }
 
@@ -124,7 +124,7 @@ static int hdmi_vendor_info_set(struct imx_hdp *hdp,
 
 	buf[0] = 0;
 	return CDN_API_InfoframeSet(&hdp->state, 0, sizeof(buf),
-				    (u32 *)buf, HDMI_INFOFRAME_TYPE_VENDOR);
+				    buf, HDMI_INFOFRAME_TYPE_VENDOR);
 
 }
 
@@ -487,6 +487,5 @@ int hdmi_write_hdr_metadata(state_struct *state,
 	infoframe_size++;
 
 	return CDN_API_InfoframeSet(state, 2, infoframe_size,
-				    (u32 *)buffer,
-				    HDMI_INFOFRAME_TYPE_DRM);
+				    buffer, HDMI_INFOFRAME_TYPE_DRM);
 }
