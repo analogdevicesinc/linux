@@ -616,6 +616,20 @@ static const struct snd_soc_dapm_route ak4458_intercon[] = {
 
 };
 
+static int ak4458_get_tdm_mode(struct ak4458_priv *ak4458)
+{
+	switch(ak4458->slots * ak4458->slot_width) {
+	case 128:
+		return 1;
+	case 256:
+		return 2;
+	case 512:
+		return 3;
+	default:
+		return 0;
+	}
+}
+
 static int ak4458_rstn_control(struct snd_soc_codec *codec, int bit)
 {
 	u8 rstn;
@@ -637,10 +651,13 @@ static int ak4458_hw_params(struct snd_pcm_substream *substream,
 {
 	struct snd_soc_codec *codec = dai->codec;
 	struct ak4458_priv *ak4458 = snd_soc_codec_get_drvdata(codec);
-	u8 format, dsdsel0, dsdsel1;
+	u8 format, dsdsel0, dsdsel1, dchn;
 	int pcm_width = max(params_physical_width(params), ak4458->slot_width);
-	int ret, dsd_bclk;
+	int ret, dsd_bclk, channels, channels_max;
 	bool is_dsd = false;
+
+	channels = params_channels(params);
+	channels_max = dai->driver->playback.channels_max;
 
 #ifdef AK4458_ACKS_USE_MANUAL_MODE
 	u8 dfs1, dfs2;
@@ -777,6 +794,16 @@ static int ak4458_hw_params(struct snd_pcm_substream *substream,
 	}
 
 	snd_soc_write(codec, AK4458_00_CONTROL1, format);
+
+	/**
+	 * Enable/disable Daisy Chain if in TDM mode and the number of played
+	 * channels is bigger than the maximum supported number of channels
+	 */
+	dchn = ak4458_get_tdm_mode(ak4458) &&
+		(ak4458->fmt == SND_SOC_DAIFMT_DSP_B) &&
+		(channels > channels_max ) ? AK4458_DCHAIN_MASK : 0;
+
+	snd_soc_update_bits(codec, AK4458_0B_CONTROL7, AK4458_DCHAIN_MASK, dchn);
 
 	ret = ak4458_rstn_control(codec, 0);
 	if (ret)
@@ -934,33 +961,16 @@ static int ak4458_set_dai_mute(struct snd_soc_dai *dai, int mute)
 static int ak4458_set_tdm_slot(struct snd_soc_dai *dai, unsigned int tx_mask,
 			       unsigned int rx_mask, int slots, int slot_width)
 {
-
 	struct snd_soc_codec *codec = dai->codec;
 	struct ak4458_priv *ak4458 = snd_soc_codec_get_drvdata(codec);
-	int tdm_mode = 0;
 	int reg;
 
 	ak4458->slots = slots;
 	ak4458->slot_width = slot_width;
 
-	switch(slots * slot_width) {
-	case 128:
-		tdm_mode = 1;
-		break;
-	case 256:
-		tdm_mode = 2;
-		break;
-	case 512:
-		tdm_mode = 3;
-		break;
-	default:
-		tdm_mode = 0;
-		break;
-	}
-
 	reg = snd_soc_read(codec, AK4458_0A_CONTROL6);
 	reg &= ~(0x3 << 6);
-	reg |= tdm_mode << 6;
+	reg |= ak4458_get_tdm_mode(ak4458) << 6;
 	snd_soc_write(codec, AK4458_0A_CONTROL6, reg);
 
 	return 0;

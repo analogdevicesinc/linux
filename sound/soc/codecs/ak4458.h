@@ -123,6 +123,8 @@
 #define AK4458_DSDSEL_MASK		(0x1 << 0)
 #define AK4458_DP_MASK			(0x1 << 7)
 
+#define AK4458_DCHAIN_MASK		(0x1 << 1)
+
 extern const struct regmap_config ak4458_i2c_regmap_config;
 extern const struct regmap_config ak4458_spi_regmap_config;
 extern const struct dev_pm_ops ak4458_pm;
