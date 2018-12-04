@@ -25,7 +25,7 @@
 #include <linux/clk-provider.h>
 
 #include "axi_jesd204b_gt.h"
-#include "xilinx_transceiver.h"
+#include "transceiver/xilinx_transceiver.h"
 
 #define JESD204B_GT_ES_HSIZE_FULL 	65
 #define JESD204B_GT_ES_HSIZE_HALF 	129

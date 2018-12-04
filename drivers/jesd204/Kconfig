@@ -1,0 +1,29 @@
+#
+# JESD204 subsystem configuration
+#
+
+menuconfig JESD204
+	tristate "JESD204 High-Speed Serial Interface Support"
+	help
+	  The JESD204 is a "Serial Interface for data converters"
+	  which describes a serialized interface between data converters
+	  and logic devices. It contains normative information to enable
+	  chip designers to implement devices that communicate with other
+	  devices covered by this specification.
+
+	  The JESD204 subsystem provides a unified framework for
+	  supporting initialization and operation of JESD204 transceivers,
+	  which aims at reducing complexity when managing these types of
+	  devices.
+
+if JESD204
+
+config AXI_JESD204B
+	tristate "Generic AXI JESD204B configuration driver"
+	depends on COMMON_CLK
+	select XILINX_TRANSCEIVER
+
+source "drivers/jesd204/linklayer/Kconfig"
+source "drivers/jesd204/transceiver/Kconfig"
+
+endif # JESD204

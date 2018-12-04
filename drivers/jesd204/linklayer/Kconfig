@@ -1,0 +1,17 @@
+#
+# JESD204 Link Layer Peripheral drivers
+#
+
+menu "JESD204 Link Layer Peripheral drivers"
+
+config AXI_JESD204_TX
+	tristate "Analog Devices AXI JESD204B TX Support"
+	depends on COMMON_CLK
+	select REGMAP_MMIO
+
+config AXI_JESD204_RX
+	tristate "Analog Devices AXI JESD204B RX Support"
+	depends on COMMON_CLK
+	select REGMAP_MMIO
+
+endmenu
