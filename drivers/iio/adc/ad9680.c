@@ -591,6 +591,57 @@ static const struct axiadc_chip_info axiadc_chip_info_tbl[] = {
 	},
 };
 
+static bool ad9680_check_sysref_rate(unsigned int lmfc, unsigned int sysref)
+{
+	unsigned int div, mod;
+
+	div = lmfc / sysref;
+	mod = lmfc % sysref;
+
+	/* Ignore minor deviations that can be introduced by rounding. */
+	return mod <= div || mod >= sysref - div;
+}
+
+static int ad9680_update_sysref(struct axiadc_converter *conv,
+				unsigned int lmfc)
+{
+	unsigned int n;
+	int rate;
+	int ret;
+
+	/* No clock, no problem */
+	if (!conv->sysref_clk)
+		return 0;
+
+	rate = clk_get_rate(conv->sysref_clk);
+	if (rate < 0)
+		return rate;
+
+	/* If the current rate is OK, keep it */
+	if (ad9680_check_sysref_rate(lmfc, rate))
+		return 0;
+
+	/*
+	 * Try to find a rate that integer divides the LMFC. Starting with a low
+	 * rate is a good idea and then slowly go up in case the clock generator
+	 * can't generate such slow rates.
+	 */
+	for (n = 64; n > 0; n--) {
+		rate = clk_round_rate(conv->sysref_clk, lmfc / n);
+		if (ad9680_check_sysref_rate(lmfc, rate))
+			break;
+	}
+
+	if (n == 0) {
+		dev_err(&conv->spi->dev,
+			"Could not find suitable SYSREF rate for LMFC of %u\n",
+			lmfc);
+		return -EINVAL;
+	}
+
+	return clk_set_rate(conv->sysref_clk, rate);
+}
+
 static int ad9680_setup_jesd204_link(struct axiadc_converter *conv,
 	unsigned int sample_rate)
 {
@@ -612,7 +663,7 @@ static int ad9680_setup_jesd204_link(struct axiadc_converter *conv,
 	else
 		ad9680_spi_write(conv->spi, 0x56e, 0x00);	// low line rate mode must be disabled
 
-	ret = clk_set_rate(conv->sysref_clk, sysref_rate);
+	ret = ad9680_update_sysref(conv, sysref_rate);
 	if (ret < 0) {
 		dev_err(&conv->spi->dev, "Failed to set SYSREF clock to %lu kHz: %d\n",
 			sysref_rate / 1000, ret);
