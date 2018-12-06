@@ -1344,6 +1344,7 @@ static int adrv9009_phy_reg_access(struct iio_dev *indio_dev,
 enum lo_ext_info {
 	LOEXT_FREQ,
 	FHM_ENABLE,
+	FHM_HOP,
 };
 
 static ssize_t adrv9009_phy_lo_write(struct iio_dev *indio_dev,
@@ -1417,6 +1418,15 @@ static ssize_t adrv9009_phy_lo_write(struct iio_dev *indio_dev,
 			ret = -EPROTO;
 
 		break;
+	case FHM_HOP:
+		ret = kstrtoull(buf, 10, &readin);
+		if (ret)
+			return ret;
+
+		mutex_lock(&indio_dev->mlock);
+
+		ret = TALISE_setFhmHop(phy->talDevice, readin);
+		break;
 	default:
 		ret = -EINVAL;
 		break;
@@ -1448,6 +1458,9 @@ static ssize_t adrv9009_phy_lo_read(struct iio_dev *indio_dev,
 		ret = TALISE_getFhmMode(phy->talDevice, &fhm_mode);
 		val = fhm_mode.fhmEnable;
 		break;
+	case FHM_HOP:
+		ret = TALISE_getFhmRfPllFrequency(phy->talDevice, &val);
+		break;
 	default:
 		ret = 0;
 	}
@@ -1470,6 +1483,7 @@ static const struct iio_chan_spec_ext_info adrv9009_phy_ext_lo_info[] = {
 	 */
 	_ADRV9009_EXT_LO_INFO("frequency", LOEXT_FREQ),
 	_ADRV9009_EXT_LO_INFO("frequency_hopping_mode_enable", FHM_ENABLE),
+	_ADRV9009_EXT_LO_INFO("frequency_hopping_mode", FHM_HOP),
 	{ },
 };
 
