@@ -5642,8 +5642,8 @@ static int ad9361_validate_enable_fir(struct ad9361_rf_phy *phy)
 		ad9361_dig_tune(phy, 0, RESTORE_DEFAULT);
 
 	return ad9361_update_rf_bandwidth(phy,
-		valid ? st->filt_rx_bw_Hz : st->current_rx_bw_Hz,
-		valid ? st->filt_tx_bw_Hz : st->current_tx_bw_Hz);
+		(valid && st->filt_rx_bw_Hz) ? st->filt_rx_bw_Hz : st->current_rx_bw_Hz,
+		(valid && st->filt_tx_bw_Hz) ? st->filt_tx_bw_Hz : st->current_tx_bw_Hz);
 }
 
 static void ad9361_work_func(struct work_struct *work)
