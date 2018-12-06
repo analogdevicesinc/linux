@@ -381,6 +381,10 @@
 	aud_ocram_lpcg: aud_ocram_lpcg {
 		reg = <0x0 0x59590000 0x0 0x1000>;
 	};
+
+	aud_sai_0_lpcg: aud_sai_0_lpcg {
+		reg = <0x0 0x59440000 0x0 0x1000>;
+	};
 };
 
 /delete-node/ &edma0;

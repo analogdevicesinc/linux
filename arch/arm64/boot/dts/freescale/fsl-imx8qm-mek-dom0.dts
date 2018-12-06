@@ -146,6 +146,10 @@
 				/* usbotg3 */
 				SC_R_USB_2
 				SC_R_USB_2_PHY
+				/* SAI0 */
+				SC_R_DMA_2_CH12
+				SC_R_DMA_2_CH13
+				SC_R_SAI_0
 				/* ESAI0 */
 				SC_R_DMA_2_CH6
 				SC_R_DMA_2_CH7
@@ -211,6 +215,12 @@
 				SC_P_USDHC2_WP
 				SC_P_MIPI_CSI0_GPIO0_00
 				SC_P_MIPI_CSI0_GPIO0_01
+
+				/* SAI0 */
+				SC_P_SPI0_CS1
+				SC_P_SPI2_CS1
+				SC_P_SAI1_RXFS
+				SC_P_SAI1_RXC
 
 				/* ESAI0 */
 				SC_P_ESAI0_FSR
@@ -412,10 +422,16 @@
 			 <SC_R_DMA_2_CH4>,
 			 <SC_R_DMA_2_CH5>,
 			 <SC_R_DMA_2_CH6>,
-			 <SC_R_DMA_2_CH7>;
+			 <SC_R_DMA_2_CH7>,
+			 <SC_R_DMA_2_CH12>,
+			 <SC_R_DMA_2_CH13>;
 };
 
 &edma21 {
+	xen,passthrough;
+};
+
+&edma24 {
 	xen,passthrough;
 };
 
@@ -820,6 +836,14 @@
 /delete-node/ &{/sound-cs42888};
 
 &acm {
+	xen,passthrough;
+};
+
+&sai0 {
+	xen,passthrough;
+};
+
+&aud_sai_0_lpcg {
 	xen,passthrough;
 };
 

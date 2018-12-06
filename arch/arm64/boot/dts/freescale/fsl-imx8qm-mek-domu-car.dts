@@ -40,20 +40,48 @@
 		bt-power-gpios = <&gpio4 22 GPIO_ACTIVE_LOW>;
 		status ="okay";
 	};
+
+	sound-xtor {
+		compatible = "fsl,imx-audio-xtor";
+		model = "xtor-audio";
+		cpu-dai = <&sai0>;
+		status = "okay";
+	};
 };
 
 &iomuxc {
-
+	imx8qm-mek {
 		pinctrl_mipi_csi0_en_rst: mipi_csi0_en_rst {
 			fsl,pins = <
 				SC_P_MIPI_CSI0_GPIO0_00_LSIO_GPIO1_IO27		0x00000021
 				SC_P_MIPI_CSI0_GPIO0_01_LSIO_GPIO1_IO28		0x00000021
 			>;
 		};
+
+		pinctrl_sai0: sai0grp {
+			fsl,pins = <
+				SC_P_SPI0_CS1_AUD_SAI0_TXC		0x0600004c
+				SC_P_SPI2_CS1_AUD_SAI0_TXFS		0x0600004c
+				SC_P_SAI1_RXFS_AUD_SAI0_RXD		0x0600004c
+				SC_P_SAI1_RXC_AUD_SAI0_TXD		0x0600006c
+			>;
+		};
+	};
 };
 
 /delete-node/ &i2c1_lvds1;
 /delete-node/ &i2c0_mipi_csi0;
+
+&sai0 {
+	assigned-clocks = <&clk IMX8QM_AUD_PLL0_DIV>,
+			<&clk IMX8QM_AUD_ACM_AUD_PLL_CLK0_DIV>,
+			<&clk IMX8QM_AUD_ACM_AUD_REC_CLK0_DIV>,
+			<&clk IMX8QM_AUD_SAI_0_MCLK>;
+	assigned-clock-rates = <786432000>, <49152000>, <12288000>, <49152000>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_sai0>;
+	status = "okay";
+};
 
 &can_rpmsg {
 	#address-cells = <2>;

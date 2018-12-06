@@ -394,6 +394,21 @@
 			status = "okay";
 		};
 
+		edma24: dma-controller@0x592c0000 {
+			compatible = "fsl,imx8qm-adma";
+			reg = <0x0 0x592c0000 0x0 0x10000>, /* sai0 rx */
+			      <0x0 0x592d0000 0x0 0x10000>; /* sai0 tx */
+			#dma-cells = <3>;
+			shared-interrupt;
+			dma-channels = <2>;
+			interrupts = <GIC_SPI 315 IRQ_TYPE_LEVEL_HIGH>, /* sai0 */
+				     <GIC_SPI 315 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "edma2-chan12-rx", "edma2-chan13-tx"; /* sai0 */
+			fsl,sc_rsrc_id = <SC_R_DMA_2_CH12>,
+					 <SC_R_DMA_2_CH13>;
+			status = "okay";
+		};
+
 		sound-cs42888 {
 			compatible = "fsl,imx8qm-sabreauto-cs42888",
 					 "fsl,imx-audio-cs42888";
@@ -790,7 +805,9 @@
 /delete-node/ &spdif0;
 /delete-node/ &spdif1;
 /delete-node/ &sai1;
-/delete-node/ &sai0;
+&sai0 {
+	dmas = <&edma24 12 0 1>, <&edma24 13 0 0>;
+};
 /delete-node/ &sai2;
 /delete-node/ &sai3;
 /delete-node/ &sai_hdmi_rx;
