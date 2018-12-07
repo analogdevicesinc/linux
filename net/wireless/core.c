@@ -41,8 +41,6 @@ MODULE_ALIAS_GENL_FAMILY(NL80211_GENL_NAME);
 LIST_HEAD(cfg80211_rdev_list);
 int cfg80211_rdev_list_generation;
 
-static atomic_t wiphy_counter = ATOMIC_INIT(0);
-
 /* for debugfs */
 static struct dentry *ieee80211_debugfs_dir;
 
@@ -385,6 +383,8 @@ static void cfg80211_propagate_cac_done_wk(struct work_struct *work)
 struct wiphy *wiphy_new_nm(const struct cfg80211_ops *ops, int sizeof_priv,
 			   const char *requested_name)
 {
+	static atomic_t wiphy_counter = ATOMIC_INIT(0);
+
 	struct cfg80211_registered_device *rdev;
 	int alloc_size;
 
@@ -972,7 +972,6 @@ void cfg80211_dev_free(struct cfg80211_registered_device *rdev)
 	}
 	list_for_each_entry_safe(scan, tmp, &rdev->bss_list, list)
 		cfg80211_put_bss(&rdev->wiphy, &scan->pub);
-	atomic_dec(&wiphy_counter);
 	kfree(rdev);
 }
 
