@@ -55,13 +55,6 @@ static int pfe_get_gemac_if_properties(struct device_node *parent, int port, int
 		       ETH_ALEN);
 	}
 
-	addr = of_get_property(gem, "fsl,gemac-bus-id", &size);
-	if (!addr)
-		pr_err("%s:%d Invalid gemac-bus-id....\n", __func__,
-		       __LINE__);
-	else
-		pdata->ls1012a_eth_pdata[port].bus_id = be32_to_cpup(addr);
-
 	phy_node = of_parse_phandle(gem, "phy-handle", 0);
 	pdata->ls1012a_eth_pdata[port].phy_node = phy_node;
 	if (phy_node) {

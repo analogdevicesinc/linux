@@ -41,7 +41,6 @@ struct ls1012a_eth_platform_data {
 	u32 mii_config;
 	u32 phy_flags;
 	u32 gem_id;
-	u32 bus_id;
 	u32 phy_id;
 	u32 mdio_muxval;
 	u8 mac_addr[ETH_ALEN];

@@ -268,7 +268,6 @@ enum mac_loop {LB_NONE, LB_EXT, LB_LOCAL};
 void gemac_init(void *base, void *config);
 void gemac_disable_rx_checksum_offload(void *base);
 void gemac_enable_rx_checksum_offload(void *base);
-void gemac_set_mdc_div(void *base, int mdc_div);
 void gemac_set_speed(void *base, enum mac_speed gem_speed);
 void gemac_set_duplex(void *base, int duplex);
 void gemac_set_mode(void *base, int mode);
