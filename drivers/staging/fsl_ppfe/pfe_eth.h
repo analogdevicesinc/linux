@@ -48,7 +48,7 @@ struct ls1012a_eth_platform_data {
 };
 
 struct ls1012a_mdio_platform_data {
-	int enabled;
+	int id;
 	int irq[32];
 	u32 phy_mask;
 	int mdc_div;
@@ -120,8 +120,6 @@ struct  pfe_eth_priv_s {
 	unsigned int		event_status;
 	int			irq;
 	void			*EMAC_baseaddr;
-	/* This points to the EMAC base from where we access PHY */
-	void			*PHY_baseaddr;
 	void			*GPI_baseaddr;
 	/* PHY stuff */
 	struct phy_device	*phydev;
@@ -129,9 +127,6 @@ struct  pfe_eth_priv_s {
 	int			oldduplex;
 	int			oldlink;
 	struct device_node	*phy_node;
-	/* mdio info */
-	int			mdc_div;
-	struct mii_bus		*mii_bus;
 	struct clk		*gemtx_clk;
 	int			wol;
 	int			pause_flag;
@@ -159,6 +154,16 @@ struct  pfe_eth_priv_s {
 
 struct pfe_eth {
 	struct pfe_eth_priv_s *eth_priv[3];
+};
+
+struct pfe_mdio_priv_s {
+	void __iomem *mdio_base;
+	int			mdc_div;
+	struct mii_bus		*mii_bus;
+};
+
+struct pfe_mdio {
+	struct pfe_mdio_priv_s *mdio_priv[3];
 };
 
 int pfe_eth_init(struct pfe *pfe);

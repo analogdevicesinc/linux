@@ -52,6 +52,7 @@ struct pfe {
 	struct pfe_ctrl ctrl;
 	struct pfe_hif hif;
 	struct pfe_eth eth;
+	struct pfe_mdio mdio;
 	struct hif_client_s *hif_client[HIF_CLIENTS_MAX];
 #if defined(CFG_DIAGS)
 	struct pfe_diags diags;

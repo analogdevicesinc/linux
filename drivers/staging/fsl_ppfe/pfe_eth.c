@@ -790,10 +790,9 @@ const struct ethtool_ops pfe_ethtool_ops = {
  */
 int pfe_eth_mdio_reset(struct mii_bus *bus)
 {
-	struct pfe_eth_priv_s *priv = (struct pfe_eth_priv_s *)bus->priv;
+	struct pfe_mdio_priv_s *priv = (struct pfe_mdio_priv_s *)bus->priv;
 	u32 phy_speed;
 
-	netif_info(priv, hw, priv->ndev, "%s\n", __func__);
 
 	mutex_lock(&bus->mdio_lock);
 
@@ -806,25 +805,25 @@ int pfe_eth_mdio_reset(struct mii_bus *bus)
 	phy_speed = (DIV_ROUND_UP((pfe->ctrl.sys_clk * 1000), 4000000)
 		     << EMAC_MII_SPEED_SHIFT);
 	phy_speed |= EMAC_HOLDTIME(0x5);
-	__raw_writel(phy_speed, priv->PHY_baseaddr + EMAC_MII_CTRL_REG);
+	__raw_writel(phy_speed, priv->mdio_base + EMAC_MII_CTRL_REG);
 
 	mutex_unlock(&bus->mdio_lock);
 
 	return 0;
 }
 
-/* pfe_eth_gemac_phy_timeout
+/* pfe_eth_mdio_timeout
  *
  */
-static int pfe_eth_gemac_phy_timeout(struct pfe_eth_priv_s *priv, int timeout)
+static int pfe_eth_mdio_timeout(struct pfe_mdio_priv_s *priv, int timeout)
 {
-	while (!(__raw_readl(priv->PHY_baseaddr + EMAC_IEVENT_REG) &
+	while (!(__raw_readl(priv->mdio_base + EMAC_IEVENT_REG) &
 			EMAC_IEVENT_MII)) {
 		if (timeout-- <= 0)
 			return -1;
 		usleep_range(10, 20);
 	}
-	__raw_writel(EMAC_IEVENT_MII, priv->PHY_baseaddr + EMAC_IEVENT_REG);
+	__raw_writel(EMAC_IEVENT_MII, priv->mdio_base + EMAC_IEVENT_REG);
 	return 0;
 }
 
@@ -856,16 +855,15 @@ static int pfe_eth_mdio_mux(u8 muxval)
 static int pfe_eth_mdio_write_addr(struct mii_bus *bus, int mii_id,
 				   int dev_addr, int regnum)
 {
-	struct pfe_eth_priv_s *priv = (struct pfe_eth_priv_s *)bus->priv;
+	struct pfe_mdio_priv_s *priv = (struct pfe_mdio_priv_s *)bus->priv;
 
 	__raw_writel(EMAC_MII_DATA_PA(mii_id) |
 		     EMAC_MII_DATA_RA(dev_addr) |
 		     EMAC_MII_DATA_TA | EMAC_MII_DATA(regnum),
-		     priv->PHY_baseaddr + EMAC_MII_DATA_REG);
+		     priv->mdio_base + EMAC_MII_DATA_REG);
 
-	if (pfe_eth_gemac_phy_timeout(priv, EMAC_MDIO_TIMEOUT)) {
-		netdev_err(priv->ndev, "%s: phy MDIO address write timeout\n",
-			   __func__);
+	if (pfe_eth_mdio_timeout(priv, EMAC_MDIO_TIMEOUT)) {
+		dev_err(&bus->dev, "phy MDIO address write timeout\n");
 		return -1;
 	}
 
@@ -875,7 +873,7 @@ static int pfe_eth_mdio_write_addr(struct mii_bus *bus, int mii_id,
 static int pfe_eth_mdio_write(struct mii_bus *bus, int mii_id, int regnum,
 			      u16 value)
 {
-	struct pfe_eth_priv_s *priv = (struct pfe_eth_priv_s *)bus->priv;
+	struct pfe_mdio_priv_s *priv = (struct pfe_mdio_priv_s *)bus->priv;
 
 	/*To access external PHYs on QDS board mux needs to be configured*/
 	if ((mii_id) && (pfe->mdio_muxval[mii_id]))
@@ -888,30 +886,26 @@ static int pfe_eth_mdio_write(struct mii_bus *bus, int mii_id, int regnum,
 			     EMAC_MII_DATA_PA(mii_id) |
 			     EMAC_MII_DATA_RA((regnum >> 16) & 0x1f) |
 			     EMAC_MII_DATA_TA | EMAC_MII_DATA(value),
-			     priv->PHY_baseaddr + EMAC_MII_DATA_REG);
+			     priv->mdio_base + EMAC_MII_DATA_REG);
 	} else {
 		/* start a write op */
 		__raw_writel(EMAC_MII_DATA_ST | EMAC_MII_DATA_OP_WR |
 			     EMAC_MII_DATA_PA(mii_id) |
 			     EMAC_MII_DATA_RA(regnum) |
 			     EMAC_MII_DATA_TA | EMAC_MII_DATA(value),
-			     priv->PHY_baseaddr + EMAC_MII_DATA_REG);
+			     priv->mdio_base + EMAC_MII_DATA_REG);
 	}
 
-	if (pfe_eth_gemac_phy_timeout(priv, EMAC_MDIO_TIMEOUT)) {
-		netdev_err(priv->ndev, "%s: phy MDIO write timeout\n",
-			   __func__);
+	if (pfe_eth_mdio_timeout(priv, EMAC_MDIO_TIMEOUT)) {
+		dev_err(&bus->dev, "%s: phy MDIO write timeout\n", __func__);
 		return -1;
 	}
-	netif_info(priv, hw, priv->ndev, "%s: phy %x reg %x val %x\n", __func__,
-		   mii_id, regnum, value);
-
 	return 0;
 }
 
 static int pfe_eth_mdio_read(struct mii_bus *bus, int mii_id, int regnum)
 {
-	struct pfe_eth_priv_s *priv = (struct pfe_eth_priv_s *)bus->priv;
+	struct pfe_mdio_priv_s *priv = (struct pfe_mdio_priv_s *)bus->priv;
 	u16 value = 0;
 
 	/*To access external PHYs on QDS board mux needs to be configured*/
@@ -925,65 +919,67 @@ static int pfe_eth_mdio_read(struct mii_bus *bus, int mii_id, int regnum)
 			     EMAC_MII_DATA_PA(mii_id) |
 			     EMAC_MII_DATA_RA((regnum >> 16) & 0x1f) |
 			     EMAC_MII_DATA_TA,
-			     priv->PHY_baseaddr + EMAC_MII_DATA_REG);
+			     priv->mdio_base + EMAC_MII_DATA_REG);
 	} else {
 		/* start a read op */
 		__raw_writel(EMAC_MII_DATA_ST | EMAC_MII_DATA_OP_RD |
 			     EMAC_MII_DATA_PA(mii_id) |
 			     EMAC_MII_DATA_RA(regnum) |
-			     EMAC_MII_DATA_TA, priv->PHY_baseaddr +
+			     EMAC_MII_DATA_TA, priv->mdio_base +
 			     EMAC_MII_DATA_REG);
 	}
 
-	if (pfe_eth_gemac_phy_timeout(priv, EMAC_MDIO_TIMEOUT)) {
-		netdev_err(priv->ndev, "%s: phy MDIO read timeout\n", __func__);
+	if (pfe_eth_mdio_timeout(priv, EMAC_MDIO_TIMEOUT)) {
+		dev_err(&bus->dev, "%s: phy MDIO read timeout\n", __func__);
 		return -1;
 	}
 
-	value = EMAC_MII_DATA(__raw_readl(priv->PHY_baseaddr +
+	value = EMAC_MII_DATA(__raw_readl(priv->mdio_base +
 						EMAC_MII_DATA_REG));
-	netif_info(priv, hw, priv->ndev, "%s: phy %x reg %x val %x\n", __func__,
-		   mii_id, regnum, value);
 	return value;
 }
 
-static int pfe_eth_mdio_init(struct pfe_eth_priv_s *priv,
-			     struct ls1012a_mdio_platform_data *minfo)
+static int pfe_eth_mdio_init(struct pfe *pfe,
+			     struct ls1012a_pfe_platform_data *pfe_info,
+			     int ii)
 {
+	struct pfe_mdio_priv_s *priv = NULL;
+	struct ls1012a_mdio_platform_data *mdio_info;
 	struct mii_bus *bus;
 	struct device_node *mdio_node;
-	int rc = 0, ii;
-	struct phy_device *phydev;
+	int rc = 0;
 
-	netif_info(priv, drv, priv->ndev, "%s\n", __func__);
-	pr_info("%s\n", __func__);
+	mdio_info = (struct ls1012a_mdio_platform_data *)
+					pfe_info->ls1012a_mdio_pdata;
+	mdio_info->id = ii;
 
-	bus = mdiobus_alloc();
+	bus = mdiobus_alloc_size(sizeof(struct pfe_mdio_priv_s));
 	if (!bus) {
-		netdev_err(priv->ndev, "mdiobus_alloc() failed\n");
+		pr_err("mdiobus_alloc() failed\n");
 		rc = -ENOMEM;
-		goto err0;
+		goto err_mdioalloc;
 	}
 
 	bus->name = "ls1012a MDIO Bus";
-	snprintf(bus->id, MII_BUS_ID_SIZE, "ls1012a-%x", priv->id);
+	snprintf(bus->id, MII_BUS_ID_SIZE, "ls1012a-%x", mdio_info->id);
 
-	bus->priv = priv;
 	bus->read = &pfe_eth_mdio_read;
 	bus->write = &pfe_eth_mdio_write;
 	bus->reset = &pfe_eth_mdio_reset;
-	bus->parent = priv->pfe->dev;
-	bus->phy_mask = minfo->phy_mask;
-	bus->irq[0] = minfo->irq[0];
+	bus->parent = pfe->dev;
+	bus->phy_mask = mdio_info->phy_mask;
+	bus->irq[0] = mdio_info->irq[0];
+	priv = bus->priv;
+	priv->mdio_base = cbus_emac_base[ii];
 
-	priv->mdc_div = minfo->mdc_div;
+	priv->mdc_div = mdio_info->mdc_div;
 	if (!priv->mdc_div)
 		priv->mdc_div = 64;
-	netif_info(priv, drv, priv->ndev, "%s: mdc_div: %d, phy_mask: %x\n",
-		   __func__, priv->mdc_div, bus->phy_mask);
+		dev_info(bus->parent, "%s: mdc_div: %d, phy_mask: %x\n",
+			 __func__, priv->mdc_div, bus->phy_mask);
 
-	mdio_node = of_get_child_by_name(priv->pfe->dev->of_node, "mdio");
-	if (mdio_node) {
+	mdio_node = of_get_child_by_name(pfe->dev->of_node, "mdio");
+	if ((mdio_info->id == 0) && mdio_node) {
 		rc = of_mdiobus_register(bus, mdio_node);
 		of_node_put(mdio_node);
 	} else {
@@ -991,56 +987,34 @@ static int pfe_eth_mdio_init(struct pfe_eth_priv_s *priv,
 	}
 
 	if (rc) {
-		netdev_err(priv->ndev, "mdiobus_register(%s) failed\n",
-			   bus->name);
-		goto err1;
+		dev_err(bus->parent, "mdiobus_register(%s) failed\n",
+			bus->name);
+		goto err_mdioregister;
 	}
 
 	priv->mii_bus = bus;
-
-	/* For clause 45 we need to call get_phy_device() with it's
-	 * 3rd argument as true and then register the phy device
-	 * via phy_device_register()
-	 */
-	if (priv->einfo->mii_config == PHY_INTERFACE_MODE_2500SGMII) {
-		for (ii = 0; ii < NUM_GEMAC_SUPPORT; ii++) {
-			phydev = get_phy_device(priv->mii_bus,
-					priv->einfo->phy_id + ii, true);
-			if (!phydev || IS_ERR(phydev)) {
-				rc = -EIO;
-				netdev_err(priv->ndev, "fail to get device\n");
-				goto err1;
-			}
-			rc = phy_device_register(phydev);
-			if (rc) {
-				phy_device_free(phydev);
-				netdev_err(priv->ndev,
-					"phy_device_register() failed\n");
-				goto err1;
-			}
-		}
-	}
+	pfe->mdio.mdio_priv[ii] = priv;
 
 	pfe_eth_mdio_reset(bus);
 
 	return 0;
 
-err1:
+err_mdioregister:
 	mdiobus_free(bus);
-err0:
+err_mdioalloc:
 	return rc;
 }
 
 /* pfe_eth_mdio_exit
  */
-static void pfe_eth_mdio_exit(struct mii_bus *bus)
+static void pfe_eth_mdio_exit(struct pfe *pfe,
+			      int ii)
 {
+	struct pfe_mdio_priv_s *mdio_priv = pfe->mdio.mdio_priv[ii];
+	struct mii_bus *bus = mdio_priv->mii_bus;
+
 	if (!bus)
 		return;
-
-	netif_info((struct pfe_eth_priv_s *)bus->priv, drv, ((struct
-			pfe_eth_priv_s *)(bus->priv))->ndev, "%s\n", __func__);
-
 	mdiobus_unregister(bus);
 	mdiobus_free(bus);
 }
@@ -1221,15 +1195,16 @@ static int pfe_eth_start(struct pfe_eth_priv_s *priv)
  */
 static void ls1012a_configure_serdes(struct net_device *ndev)
 {
-	struct pfe_eth_priv_s *priv = pfe->eth.eth_priv[0];
+	struct pfe_eth_priv_s *eth_priv = netdev_priv(ndev);
+	struct pfe_mdio_priv_s *mdio_priv = pfe->mdio.mdio_priv[eth_priv->id];
 	int sgmii_2500 = 0;
-	struct mii_bus *bus = priv->mii_bus;
+	struct mii_bus *bus = mdio_priv->mii_bus;
 	u16 value = 0;
 
-	if (priv->einfo->mii_config == PHY_INTERFACE_MODE_2500SGMII)
+	if (eth_priv->einfo->mii_config == PHY_INTERFACE_MODE_2500SGMII)
 		sgmii_2500 = 1;
 
-	netif_info(priv, drv, ndev, "%s\n", __func__);
+	netif_info(eth_priv, drv, ndev, "%s\n", __func__);
 	/* PCS configuration done with corresponding GEMAC */
 
 	pfe_eth_mdio_read(bus, 0, MDIO_SGMII_CR);
@@ -2333,25 +2308,14 @@ static const struct net_device_ops pfe_netdev_ops = {
 
 /* pfe_eth_init_one
  */
-static int pfe_eth_init_one(struct pfe *pfe, int id)
+static int pfe_eth_init_one(struct pfe *pfe,
+			    struct ls1012a_pfe_platform_data *pfe_info,
+			    int id)
 {
 	struct net_device *ndev = NULL;
 	struct pfe_eth_priv_s *priv = NULL;
 	struct ls1012a_eth_platform_data *einfo;
-	struct ls1012a_mdio_platform_data *minfo;
-	struct ls1012a_pfe_platform_data *pfe_info;
 	int err;
-
-	/* Extract pltform data */
-	pfe_info = (struct ls1012a_pfe_platform_data *)
-					pfe->dev->platform_data;
-	if (!pfe_info) {
-		pr_err(
-			"%s: pfe missing additional platform data\n"
-			, __func__);
-		err = -ENODEV;
-		goto err0;
-	}
 
 	einfo = (struct ls1012a_eth_platform_data *)
 				pfe_info->ls1012a_eth_pdata;
@@ -2361,18 +2325,6 @@ static int pfe_eth_init_one(struct pfe *pfe, int id)
 		pr_err(
 			"%s: pfe missing additional gemacs platform data\n"
 			, __func__);
-		err = -ENODEV;
-		goto err0;
-	}
-
-	minfo = (struct ls1012a_mdio_platform_data *)
-				pfe_info->ls1012a_mdio_pdata;
-
-	/* einfo never be NULL, but no harm in having this check */
-	if (!minfo) {
-		pr_err(
-			"%s: pfe missing additional mdios platform data\n",
-			 __func__);
 		err = -ENODEV;
 		goto err0;
 	}
@@ -2402,7 +2354,6 @@ static int pfe_eth_init_one(struct pfe *pfe, int id)
 	/* Set the info in the priv to the current info */
 	priv->einfo = &einfo[id];
 	priv->EMAC_baseaddr = cbus_emac_base[id];
-	priv->PHY_baseaddr = cbus_emac_base[0];
 	priv->GPI_baseaddr = cbus_gpi_base[id];
 
 	spin_lock_init(&priv->lock);
@@ -2411,13 +2362,6 @@ static int pfe_eth_init_one(struct pfe *pfe, int id)
 
 	/* Copy the station address into the dev structure, */
 	memcpy(ndev->dev_addr, einfo[id].mac_addr, ETH_ALEN);
-
-	/* Initialize mdio */
-	err = pfe_eth_mdio_init(priv, &minfo[id]);
-	if (err) {
-		netdev_err(ndev, "%s: pfe_eth_mdio_init() failed\n", __func__);
-		goto err1;
-	}
 
 	if (us)
 		goto phy_init;
@@ -2460,7 +2404,7 @@ static int pfe_eth_init_one(struct pfe *pfe, int id)
 	err = register_netdev(ndev);
 	if (err) {
 		netdev_err(ndev, "register_netdev() failed\n");
-		goto err2;
+		goto err1;
 	}
 
 	if ((!(pfe_use_old_dts_phy) && !(priv->phy_node)) ||
@@ -2477,7 +2421,7 @@ phy_init:
 	if (err) {
 		netdev_err(ndev, "%s: pfe_phy_init() failed\n",
 			   __func__);
-		goto err3;
+		goto err2;
 	}
 
 	if (us) {
@@ -2491,21 +2435,19 @@ phy_init:
 skip_phy_init:
 	/* Create all the sysfs files */
 	if (pfe_eth_sysfs_init(ndev))
-		goto err4;
+		goto err3;
 
 	netif_info(priv, probe, ndev, "%s: created interface, baseaddr: %p\n",
 		   __func__, priv->EMAC_baseaddr);
 
 	return 0;
 
-err4:
-	pfe_phy_exit(priv->ndev);
 err3:
-	if (us)
-		goto err2;
-	unregister_netdev(ndev);
+	pfe_phy_exit(priv->ndev);
 err2:
-	pfe_eth_mdio_exit(priv->mii_bus);
+	if (us)
+		goto err1;
+	unregister_netdev(ndev);
 err1:
 	free_netdev(priv->ndev);
 err0:
@@ -2518,6 +2460,7 @@ int pfe_eth_init(struct pfe *pfe)
 {
 	int ii = 0;
 	int err;
+	struct ls1012a_pfe_platform_data *pfe_info;
 
 	pr_info("%s\n", __func__);
 
@@ -2527,24 +2470,43 @@ int pfe_eth_init(struct pfe *pfe)
 	cbus_gpi_base[0] = EGPI1_BASE_ADDR;
 	cbus_gpi_base[1] = EGPI2_BASE_ADDR;
 
+	pfe_info = (struct ls1012a_pfe_platform_data *)
+					pfe->dev->platform_data;
+	if (!pfe_info) {
+		pr_err("%s: pfe missing additional platform data\n", __func__);
+		err = -ENODEV;
+		goto err_pdata;
+	}
+
+	for (ii = 0; ii < NUM_GEMAC_SUPPORT; ii++) {
+		err = pfe_eth_mdio_init(pfe, pfe_info, ii);
+		if (err) {
+			pr_err("%s: pfe_eth_mdio_init() failed\n", __func__);
+			goto err_mdio_init;
+		}
+	}
+
 	if (fsl_guts_get_svr() == LS1012A_REV_1_0)
 		pfe_errata_a010897 = true;
 	else
 		pfe_errata_a010897 = false;
 
 	for (ii = 0; ii < NUM_GEMAC_SUPPORT; ii++) {
-		err = pfe_eth_init_one(pfe, ii);
+		err = pfe_eth_init_one(pfe, pfe_info, ii);
 		if (err)
-			goto err0;
+			goto err_eth_init;
 	}
 
 	return 0;
 
-err0:
-	while (ii--)
+err_eth_init:
+	while (ii--) {
 		pfe_eth_exit_one(pfe->eth.eth_priv[ii]);
+		pfe_eth_mdio_exit(pfe, ii);
+	}
 
-	/* Register three network devices in the kernel */
+err_mdio_init:
+err_pdata:
 	return err;
 }
 
@@ -2570,9 +2532,6 @@ skip_phy_exit:
 	if (!us)
 		unregister_netdev(priv->ndev);
 
-	if (priv->mii_bus)
-		pfe_eth_mdio_exit(priv->mii_bus);
-
 	free_netdev(priv->ndev);
 }
 
@@ -2586,4 +2545,7 @@ void pfe_eth_exit(struct pfe *pfe)
 
 	for (ii = NUM_GEMAC_SUPPORT - 1; ii >= 0; ii--)
 		pfe_eth_exit_one(pfe->eth.eth_priv[ii]);
+
+	for (ii = NUM_GEMAC_SUPPORT - 1; ii >= 0; ii--)
+		pfe_eth_mdio_exit(pfe, ii);
 }

@@ -21,31 +21,18 @@
 extern bool pfe_use_old_dts_phy;
 struct ls1012a_pfe_platform_data pfe_platform_data;
 
-static int pfe_get_gemac_if_properties(struct device_node *parent, int port, int
-					if_cnt,
-					struct ls1012a_pfe_platform_data
-					*pdata)
+static int pfe_get_gemac_if_properties(struct device_node *gem,
+				       int port,
+				       struct ls1012a_pfe_platform_data	*pdata)
 {
-	struct device_node *gem = NULL, *phy = NULL, *phy_node = NULL;
+	struct device_node *phy_node = NULL;
 	int size;
-	int ii = 0, phy_id = 0;
+	int phy_id = 0;
 	const u32 *addr;
 	const void *mac_addr;
 
-	for (ii = 0; ii < if_cnt; ii++) {
-		gem = of_get_next_child(parent, gem);
-		if (!gem)
-			goto err;
-		addr = of_get_property(gem, "reg", &size);
-		if (addr && (be32_to_cpup(addr) == port))
-			break;
-	}
-
-	if (ii >= if_cnt) {
-		pr_err("%s:%d Failed to find interface = %d\n",
-		       __func__, __LINE__, if_cnt);
-		goto err;
-	}
+	addr = of_get_property(gem, "reg", &size);
+	port = be32_to_cpup(addr);
 
 	pdata->ls1012a_eth_pdata[port].gem_id = port;
 
@@ -88,14 +75,6 @@ static int pfe_get_gemac_if_properties(struct device_node *parent, int port, int
 		if (pdata->ls1012a_eth_pdata[port].phy_flags & GEMAC_NO_PHY)
 			goto done;
 
-		phy = of_get_next_child(gem, NULL);
-		addr = of_get_property(phy, "reg", &size);
-		if (!addr)
-			pr_err("%s:%d Invalid phy enable flag....\n",
-			       __func__, __LINE__);
-		else
-			pdata->ls1012a_mdio_pdata[port].enabled =
-							be32_to_cpup(addr);
 	} else {
 		pr_info("%s: No PHY or fixed-link\n", __func__);
 		return 0;
@@ -140,7 +119,7 @@ static int pfe_platform_probe(struct platform_device *pdev)
 	struct resource res;
 	int ii, rc, interface_count = 0, size = 0;
 	const u32 *prop;
-	struct device_node  *np;
+	struct device_node *np, *gem = NULL;
 	struct clk *pfe_clk;
 
 	np = pdev->dev.of_node;
@@ -224,8 +203,13 @@ static int pfe_platform_probe(struct platform_device *pdev)
 	pfe_platform_data.ls1012a_mdio_pdata[0].phy_mask = 0xffffffff;
 
 	for (ii = 0; ii < interface_count; ii++) {
-		pfe_get_gemac_if_properties(np, ii, interface_count,
-					    &pfe_platform_data);
+		gem = of_get_next_child(np, gem);
+		if (gem)
+			pfe_get_gemac_if_properties(gem, ii,
+						    &pfe_platform_data);
+		else
+			pr_err("Unable to find interface %d\n", ii);
+
 	}
 
 	pfe->dev = &pdev->dev;
@@ -347,8 +331,8 @@ static int pfe_platform_resume(struct device *dev)
 	for (i = 0; i < (NUM_GEMAC_SUPPORT); i++) {
 		netdev = pfe->eth.eth_priv[i]->ndev;
 
-		if (pfe->eth.eth_priv[i]->mii_bus)
-			pfe_eth_mdio_reset(pfe->eth.eth_priv[i]->mii_bus);
+		if (pfe->mdio.mdio_priv[i]->mii_bus)
+			pfe_eth_mdio_reset(pfe->mdio.mdio_priv[i]->mii_bus);
 
 		if (netif_running(netdev))
 			pfe_eth_resume(netdev);
