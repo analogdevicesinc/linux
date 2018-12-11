@@ -345,6 +345,12 @@
 		interrupts = <GIC_SPI 140 IRQ_TYPE_LEVEL_HIGH>;
 		xen,passthrough;
 	};
+
+	/* Interrupt 33 is not used, use it virtual PL031 */
+	rtc0: rtc@23000000 {
+		interrupts = <GIC_SPI 1 IRQ_TYPE_LEVEL_HIGH>;
+		xen,passthrough;
+	};
 };
 
 &mu_rpmsg1 {
