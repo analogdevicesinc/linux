@@ -54,6 +54,7 @@
 unsigned int vpu_dbg_level_decoder = 1;
 static int vpu_frm_depth = INVALID_FRAME_DEPTH;
 static int vpu_log_depth = DEFAULT_LOG_DEPTH;
+static int vpu_max_bufsize = MAX_BUFFER_SIZE;
 static int vpu_frmdbg_ena;
 
 /* Generic End of content startcodes to differentiate from those naturally in the stream/file */
@@ -157,14 +158,20 @@ static char *bufstat[] = {
 
 static char *get_event_str(u32 event)
 {
-	if (event >= ARRAY_SIZE(event2str))
+	if (event == VID_API_EVENT_SNAPSHOT_DONE)
+		return "VID_API_EVENT_SNAPSHOT_DONE";
+	else if (event >= ARRAY_SIZE(event2str))
 		return "UNKNOWN EVENT";
 	return event2str[event];
 }
 
 static char *get_cmd_str(u32 cmdid)
 {
-	if (cmdid >= ARRAY_SIZE(cmd2str))
+	if (cmdid == VID_API_CMD_FIRM_RESET)
+		return "VID_API_CMD_FIRM_RESET";
+	else if (cmdid == VID_API_CMD_SNAPSHOT)
+		return "VID_API_CMD_SNAPSHOT";
+	else if (cmdid >= ARRAY_SIZE(cmd2str))
 		return "UNKNOWN CMD";
 	return cmd2str[cmdid];
 }
@@ -1491,21 +1498,22 @@ static void transfer_buffer_to_firmware(struct vpu_ctx *ctx, void *input_buffer,
 			pSharedInterface->FWVersion & 0x000000ff);
 
 
-	if (ctx->stream_buffer.dma_size < buffer_size + MIN_SPACE)
-		vpu_dbg(LVL_INFO, "circular buffer size is too small\n");
+	if (ctx->stream_buffer.dma_size < buffer_size + MIN_SPACE) {
+		vpu_dbg(LVL_ERR, "circular buffer size is set too small\n");
+		return;
+	}
 	if (!ctx->start_code_bypass)
 		length = insert_scode_4_seq(ctx, input_buffer, ctx->stream_buffer.dma_virt, vdec_std, buffer_size);
 	else
 		length = 0;
 	if (length == 0) {
-		memcpy(ctx->stream_buffer.dma_virt + length, input_buffer, buffer_size);
+		memcpy(ctx->stream_buffer.dma_virt, input_buffer, buffer_size);
 		length = buffer_size;
 	}
 	vpu_dbg(LVL_INFO, "transfer data from virt 0x%p: size:%d\n",
 			ctx->stream_buffer.dma_virt, buffer_size);
 	mb();
 	pStrBufDesc = ctx->dev->regs_base + DEC_MFD_XREG_SLV_BASE + MFD_MCX + MFD_MCX_OFF * ctx->str_index;
-	// CAUTION: wptr must not be end
 	pStrBufDesc->wptr = ctx->stream_buffer.dma_phy + length;
 	pStrBufDesc->rptr = ctx->stream_buffer.dma_phy;
 	pStrBufDesc->start = ctx->stream_buffer.dma_phy;
@@ -2715,13 +2723,19 @@ static int dbglog_show(struct seq_file *s, void *data)
 	struct vpu_ctx *ctx = (struct vpu_ctx *)s->private;
 	u_int32 *pbuf;
 	u_int32 i, line;
-
+#if 0
 	seq_printf(s, "dbg log buffer:\n");
+#endif
 	pbuf = (u_int32 *)ctx->dev->shared_mem.dbglog_mem_vir;
 	line = (DBGLOG_SIZE) / (DBG_UNIT_SIZE * 4);
 	for (i = 0; i < line; i++) {
+#if 0
 		seq_printf(s, "[%03d]:%08X %08X %08X %08X-%08X %08X %08X\n",
 			i, pbuf[0], pbuf[1], pbuf[2], pbuf[3], pbuf[4], pbuf[5], pbuf[6]);
+#else
+		seq_printf(s, "%08x %08x %08x %08x %08x %08x %08x\n",
+				pbuf[0], pbuf[1], pbuf[2], pbuf[3], pbuf[4], pbuf[5], pbuf[6]);
+#endif
 		pbuf += 7;
 	}
 	return 0;
@@ -2743,7 +2757,7 @@ static int create_instance_dbglog_file(struct vpu_ctx *ctx)
 	if (ctx->dev->debugfs_root == NULL)
 		ctx->dev->debugfs_root = debugfs_create_dir("vpu", NULL);
 
-	snprintf(ctx->dbglog_name, sizeof(ctx->dbglog_name) - 1,
+	scnprintf(ctx->dbglog_name, sizeof(ctx->dbglog_name) - 1,
 			"instance%d",
 			ctx->str_index);
 
@@ -2766,19 +2780,19 @@ static ssize_t show_instance_command_info(struct device *dev,
 	ctx = container_of(attr, struct vpu_ctx, dev_attr_instance_command);
 	statistic = &ctx->statistic;
 
-	num += snprintf(buf + num, PAGE_SIZE - num, "command number:\n");
+	num += scnprintf(buf + num, PAGE_SIZE - num, "command number:\n");
 	for (i = VID_API_CMD_NULL; i < VID_API_CMD_YUV_READY + 1; i++) {
-		size = snprintf(buf + num, PAGE_SIZE - num,
+		size = scnprintf(buf + num, PAGE_SIZE - num,
 				"\t%40s(%2d):%16ld\n",
 				cmd2str[i], i, statistic->cmd[i]);
 		num += size;
 	}
 
-	num += snprintf(buf + num, PAGE_SIZE - num, "\t%40s    :%16ld\n",
+	num += scnprintf(buf + num, PAGE_SIZE - num, "\t%40s    :%16ld\n",
 			"UNKNOWN COMMAND", statistic->cmd[VID_API_CMD_YUV_READY + 1]);
 
-	num += snprintf(buf + num, PAGE_SIZE - num, "current command:\n");
-	num += snprintf(buf + num, PAGE_SIZE - num,
+	num += scnprintf(buf + num, PAGE_SIZE - num, "current command:\n");
+	num += scnprintf(buf + num, PAGE_SIZE - num,
 			"%10s:%40s;%10ld.%06ld\n", "command",
 			get_cmd_str(statistic->current_cmd),
 			statistic->ts_cmd.tv_sec,
@@ -2797,20 +2811,20 @@ static ssize_t show_instance_event_info(struct device *dev,
 	ctx = container_of(attr, struct vpu_ctx, dev_attr_instance_event);
 	statistic = &ctx->statistic;
 
-	num += snprintf(buf + num, PAGE_SIZE - num, "event number:\n");
+	num += scnprintf(buf + num, PAGE_SIZE - num, "event number:\n");
 	for (i = VID_API_EVENT_NULL; i < VID_API_EVENT_DEC_CFG_INFO + 1; i++) {
-		size = snprintf(buf + num, PAGE_SIZE - num,
+		size = scnprintf(buf + num, PAGE_SIZE - num,
 				"\t%40s(%2d):%16ld\n",
 				event2str[i], i, statistic->event[i]);
 		num += size;
 	}
 
-	num += snprintf(buf + num, PAGE_SIZE - num, "\t%40s    :%16ld\n",
+	num += scnprintf(buf + num, PAGE_SIZE - num, "\t%40s    :%16ld\n",
 			"UNKNOWN EVENT",
 			statistic->event[VID_API_EVENT_DEC_CFG_INFO + 1]);
 
-	num += snprintf(buf + num, PAGE_SIZE - num, "current event:\n");
-	num += snprintf(buf + num, PAGE_SIZE - num,
+	num += scnprintf(buf + num, PAGE_SIZE - num, "current event:\n");
+	num += scnprintf(buf + num, PAGE_SIZE - num,
 			"%10s:%40s;%10ld.%06ld\n", "event",
 			get_event_str(statistic->current_event),
 			statistic->ts_event.tv_sec,
@@ -2833,14 +2847,14 @@ static ssize_t show_instance_buffer_info(struct device *dev,
 	ctx = container_of(attr, struct vpu_ctx, dev_attr_instance_buffer);
 	statistic = &ctx->statistic;
 
-	num += snprintf(buf + num, PAGE_SIZE - num, "frame buffer status:\n");
+	num += scnprintf(buf + num, PAGE_SIZE - num, "frame buffer status:\n");
 
 	This = &ctx->q_data[V4L2_DST];
 	down(&This->drv_q_lock);
 	for (i = 0; i < VPU_MAX_BUFFER; i++) {
 		p_data_req = &This->vb2_reqs[i];
 		if (p_data_req->vb2_buf != NULL) {
-			size = snprintf(buf + num, PAGE_SIZE - num,
+			size = scnprintf(buf + num, PAGE_SIZE - num,
 					"\t%40s(%2d):%16s\n",
 					"buffer", i, bufstat[p_data_req->status]);
 			num += size;
@@ -2848,23 +2862,23 @@ static ssize_t show_instance_buffer_info(struct device *dev,
 	}
 	up(&This->drv_q_lock);
 
-	num += snprintf(buf + num, PAGE_SIZE - num, "stream buffer status:\n");
+	num += scnprintf(buf + num, PAGE_SIZE - num, "stream buffer status:\n");
 
 	pStrBufDesc = ctx->dev->regs_base + DEC_MFD_XREG_SLV_BASE + MFD_MCX
 		+ MFD_MCX_OFF * ctx->str_index;
 
-	num += snprintf(buf + num, PAGE_SIZE - num,
+	num += scnprintf(buf + num, PAGE_SIZE - num,
 			"\t%40s:%16x\n", "wptr", pStrBufDesc->wptr);
-	num += snprintf(buf + num, PAGE_SIZE - num,
+	num += scnprintf(buf + num, PAGE_SIZE - num,
 			"\t%40s:%16x\n", "rptr", pStrBufDesc->rptr);
-	num += snprintf(buf + num, PAGE_SIZE - num,
+	num += scnprintf(buf + num, PAGE_SIZE - num,
 			"\t%40s:%16x\n", "start", pStrBufDesc->start);
-	num += snprintf(buf + num, PAGE_SIZE - num,
+	num += scnprintf(buf + num, PAGE_SIZE - num,
 			"\t%40s:%16x\n", "end", pStrBufDesc->end);
 	stream_length = ctx->stream_buffer.dma_size -
 		got_free_space(pStrBufDesc->wptr, pStrBufDesc->rptr, pStrBufDesc->start, pStrBufDesc->end);
 
-	num += snprintf(buf + num, PAGE_SIZE - num,
+	num += scnprintf(buf + num, PAGE_SIZE - num,
 			"\t%40s:%16x\n", "stream length", stream_length);
 	return num;
 }
@@ -2881,7 +2895,7 @@ static ssize_t show_instance_log_info(struct device *dev,
 	ctx = container_of(attr, struct vpu_ctx, dev_attr_instance_flow);
 	statistic = &ctx->statistic;
 
-	num += snprintf(buf + num, PAGE_SIZE - num, "log info under depth: %d\n",
+	num += scnprintf(buf + num, PAGE_SIZE - num, "log info under depth: %d\n",
 			vpu_log_depth);
 
 	mutex_lock(&ctx->instance_mutex);
@@ -2891,23 +2905,23 @@ static ssize_t show_instance_log_info(struct device *dev,
 	list_for_each_entry_safe(vpu_info, tem_info, &ctx->log_q, list) {
 		switch (vpu_info->type) {
 		case LOG_EVENT:
-			num += snprintf(buf + num, PAGE_SIZE - num,
-				"\t%20s:%40s\n", "event", event2str[vpu_info->log_info[vpu_info->type]]);
+			num += scnprintf(buf + num, PAGE_SIZE - num,
+				"\t%20s:%40s\n", "event", get_event_str(vpu_info->log_info[vpu_info->type]));
 			break;
 		case LOG_COMMAND:
-			num += snprintf(buf + num, PAGE_SIZE - num,
-				"\t%20s:%40s\n", "command", cmd2str[vpu_info->log_info[vpu_info->type]]);
+			num += scnprintf(buf + num, PAGE_SIZE - num,
+				"\t%20s:%40s\n", "command", get_cmd_str(vpu_info->log_info[vpu_info->type]));
 			break;
 		case LOG_EOS:
-			num += snprintf(buf + num, PAGE_SIZE - num,
+			num += scnprintf(buf + num, PAGE_SIZE - num,
 				"\t%20s:%40s\n", "add eos", "done");
 			break;
 		case LOG_PADDING:
-			num += snprintf(buf + num, PAGE_SIZE - num,
+			num += scnprintf(buf + num, PAGE_SIZE - num,
 				"\t%20s:%40s\n", "add padding", "done");
 			break;
 		case LOG_UPDATE_STREAM:
-			num += snprintf(buf + num, PAGE_SIZE - num,
+			num += scnprintf(buf + num, PAGE_SIZE - num,
 				"\t%20s:%40s %16d\n", "update stream data", "stream size", vpu_info->data);
 			break;
 		default:
@@ -2923,7 +2937,7 @@ exit:
 
 static int create_instance_command_file(struct vpu_ctx *ctx)
 {
-	snprintf(ctx->command_name, sizeof(ctx->command_name) - 1,
+	scnprintf(ctx->command_name, sizeof(ctx->command_name) - 1,
 			"instance%d_command",
 			ctx->str_index);
 	ctx->dev_attr_instance_command.attr.name = ctx->command_name;
@@ -2937,7 +2951,7 @@ static int create_instance_command_file(struct vpu_ctx *ctx)
 
 static int create_instance_event_file(struct vpu_ctx *ctx)
 {
-	snprintf(ctx->event_name, sizeof(ctx->event_name) - 1,
+	scnprintf(ctx->event_name, sizeof(ctx->event_name) - 1,
 			"instance%d_event",
 			ctx->str_index);
 	ctx->dev_attr_instance_event.attr.name = ctx->event_name;
@@ -2951,7 +2965,7 @@ static int create_instance_event_file(struct vpu_ctx *ctx)
 
 static int create_instance_buffer_file(struct vpu_ctx *ctx)
 {
-	snprintf(ctx->buffer_name, sizeof(ctx->buffer_name) - 1,
+	scnprintf(ctx->buffer_name, sizeof(ctx->buffer_name) - 1,
 			"instance%d_buffer",
 			ctx->str_index);
 	ctx->dev_attr_instance_buffer.attr.name = ctx->buffer_name;
@@ -2965,7 +2979,7 @@ static int create_instance_buffer_file(struct vpu_ctx *ctx)
 
 static int create_instance_flow_file(struct vpu_ctx *ctx)
 {
-	snprintf(ctx->flow_name, sizeof(ctx->flow_name) - 1,
+	scnprintf(ctx->flow_name, sizeof(ctx->flow_name) - 1,
 			"instance%d_flow",
 			ctx->str_index);
 	ctx->dev_attr_instance_flow.attr.name = ctx->flow_name;
@@ -3024,7 +3038,7 @@ static int alloc_vpu_buffer(struct vpu_ctx *ctx)
 	init_dma_buffer(&ctx->stream_buffer);
 	init_dma_buffer(&ctx->udata_buffer);
 
-	ctx->stream_buffer.dma_size = MAX_BUFFER_SIZE;
+	ctx->stream_buffer.dma_size = vpu_max_bufsize;
 	ret = alloc_dma_buffer(ctx, &ctx->stream_buffer);
 	if (ret)
 		vpu_dbg(LVL_ERR, "error: alloc stream buffer fail!\n");
@@ -3260,6 +3274,7 @@ static unsigned int v4l2_poll(struct file *filp, poll_table *wait)
 
 		if ((!src_q->streaming || list_empty(&src_q->queued_list))
 				&& (!dst_q->streaming || list_empty(&dst_q->queued_list))) {
+			rc = POLLERR;
 			return rc;
 		}
 
@@ -3803,10 +3818,12 @@ MODULE_DESCRIPTION("Linux VPU driver for Freescale i.MX/MXC");
 MODULE_LICENSE("GPL");
 
 module_param(vpu_dbg_level_decoder, int, 0644);
-MODULE_PARM_DESC(vpu_dbg_level_decoder, "Debug level (0-2)");
+MODULE_PARM_DESC(vpu_dbg_level_decoder, "Debug level (0-3)");
 module_param(vpu_frm_depth, int, 0644);
 MODULE_PARM_DESC(vpu_frm_depth, "maximum frame number in data pool");
 module_param(vpu_log_depth, int, 0644);
-MODULE_PARM_DESC(vpu_log_depth, "maximum log number in queue");
+MODULE_PARM_DESC(vpu_log_depth, "maximum log number in queue(0-60)");
 module_param(vpu_frmdbg_ena, int, 0644);
-MODULE_PARM_DESC(vpu_frmdbg_ena, "enable firmware dbg log bufferl");
+MODULE_PARM_DESC(vpu_frmdbg_ena, "enable firmware dbg log bufferl(0-1)");
+module_param(vpu_max_bufsize, int, 0644);
+MODULE_PARM_DESC(vpu_frmdbg_ena, "maximun stream buffer size");
