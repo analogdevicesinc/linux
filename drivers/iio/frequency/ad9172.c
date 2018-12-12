@@ -27,6 +27,8 @@
 
 #include "ad917x/AD917x.h"
 
+#define AD9172_SAMPLE_RATE_KHZ 3000000ULL /* 3 GSPS */
+
 
 enum chip_id {
 	CHIPID_AD9172 = 0x72,
@@ -75,11 +77,11 @@ static int ad9172_get_temperature_code(struct cf_axi_converter *conv)
 static unsigned long long ad9172_get_data_clk(struct cf_axi_converter *conv)
 {
 	struct ad9172_state *st = container_of(conv, struct ad9172_state, conv);
-	/* FIXME: Temp hack */
+	u64 dac_rate_Hz;
 
-	return div_u64(2949120000ULL, st->interpolation);
+	ad917x_get_dac_clk_freq(&st->dac_h, &dac_rate_Hz);
 
-	//return div_u64(clk_get_rate_scaled(conv->clk[CLK_DAC], &conv->clkscale[CLK_DAC]), st->interpolation);
+	return div_u64(dac_rate_Hz, st->interpolation);
 }
 
 static int ad9172_setup(struct ad9172_state *st)
@@ -91,10 +93,11 @@ static int ad9172_setup(struct ad9172_state *st)
 	jesd_param_t appJesdConfig;
 	uint8_t pll_lock_status = 0, dll_lock_stat = 0;
 	int ret;
-	u64 dac_rate_Hz;
+	u64 dac_clkin_Hz, dac_rate_Hz;
 	unsigned long lane_rate_kHz;
 	ad917x_jesd_link_stat_t link_status;
 	ad917x_handle_t *ad917x_h = &st->dac_h;
+	unsigned long pll_mult;
 
 	/*Initialise DAC Module*/
 	ret = ad917x_init(ad917x_h);
@@ -125,37 +128,20 @@ static int ad9172_setup(struct ad9172_state *st)
 	dev_info(dev, "AD916x DAC Product Revision: %d\n", dac_chip_id.dev_revision);
 	dev_info(dev, "AD916x Revision: %d.%d.%d\n", revision[0], revision[1], revision[2]);
 
-	dac_rate_Hz = clk_get_rate(st->conv.clk[CLK_DAC]);
+	dac_clkin_Hz = clk_get_rate(st->conv.clk[CLK_DAC]);
 
-	/* FIXME: The clock framework overflows by such numbers... */
-	dac_rate_Hz = 2949120000;
 
-	dev_info(dev, "dac_rate_Hz %llu\n",dac_rate_Hz);
+	dev_info(dev, "PLL Input rate %llu\n", dac_clkin_Hz);
 
-	ret = ad917x_set_dac_clk(ad917x_h, dac_rate_Hz, 0, dac_rate_Hz);
+	pll_mult = DIV_ROUND_CLOSEST(AD9172_SAMPLE_RATE_KHZ, dac_clkin_Hz / 1000);
+
+	ret = ad917x_set_dac_clk(ad917x_h, dac_clkin_Hz * pll_mult, 1, dac_clkin_Hz);
 	if (ret != 0) {
 		dev_err(dev, "ad917x_set_dac_clk failed (%d)\n", ret);
 		return ret;
 	}
 
-// 	ret = ad917x_set_dac_clk(ad917x_h, dac_rate_Hz * 16, 1, dac_rate_Hz);
-// 	if (ret != 0) {
-// 		dev_err(dev, "ad917x_set_dac_clk failed (%d)\n", ret);
-// 		return ret;
-// 	}
-
-	ret = ad917x_set_dac_clk_freq(ad917x_h, dac_rate_Hz);
-	if (ret != 0) {
-		dev_err(dev, "ad917x_set_dac_clk_freq failed (%d)\n", ret);
-		return ret;
-	}
-
-	/* DEBUG: route DAC clock to output, so we can meassure it */
-	ret = ad917x_set_clkout_config(ad917x_h, 1);
-	if (ret != 0) {
-		dev_err(dev, "ad917x_set_clkout_config failed (%d)\n", ret);
-		return ret;
-	}
+	msleep(100); /* Wait 100 ms for PLL to lock */
 
 	ret = ad917x_get_dac_clk_status(ad917x_h,
 				  &pll_lock_status, &dll_lock_stat);
@@ -168,9 +154,26 @@ static int ad9172_setup(struct ad9172_state *st)
 		 pll_lock_status, dll_lock_stat);
 
 
-	st->interpolation = 1;
-	//st->iq_swap = true;
+	/* DEBUG: route DAC clock to output, so we can meassure it */
+	ret = ad917x_set_clkout_config(ad917x_h, 1);
+	if (ret != 0) {
+		dev_err(dev, "ad917x_set_clkout_config failed (%d)\n", ret);
+		return ret;
+	}
+
+	st->interpolation = 1; /* JESD MODE 10, 11 only support INT 1 */
 	st->conv.id = ID_AD9172;
+
+	ad917x_jesd_set_lane_xbar(ad917x_h, 0, 1);
+	ad917x_jesd_set_lane_xbar(ad917x_h, 1, 0);
+
+	ad917x_jesd_set_lane_xbar(ad917x_h, 2, 3);
+	ad917x_jesd_set_lane_xbar(ad917x_h, 3, 2);
+
+	ad917x_jesd_set_lane_xbar(ad917x_h, 5, 7);
+	ad917x_jesd_set_lane_xbar(ad917x_h, 6, 5);
+
+	ad917x_jesd_set_lane_xbar(ad917x_h, 7, 6);
 
 
 	ret = ad917x_jesd_config_datapath(ad917x_h, 0, 10, 1, st->interpolation);
@@ -214,6 +217,7 @@ static int ad9172_setup(struct ad9172_state *st)
 		 ((pll_lock_status & 0x1) == 0x1) ?
 		 "Locked" : "Unlocked",  pll_lock_status);
 
+	ad917x_get_dac_clk_freq(ad917x_h, &dac_rate_Hz);
 
 	lane_rate_kHz = div_u64(dac_rate_Hz * 20 * appJesdConfig.jesd_M,
 				appJesdConfig.jesd_L * st->interpolation * 1000);
