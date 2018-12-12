@@ -25,8 +25,8 @@
 #define DAC_CLK_FREQ_MHZ_MIN 2900
 #define REF_CLK_FREQ_MHZ_MIN 30
 #define REF_CLK_FREQ_MHZ_MAX 2000
-#define PFD_CLK_FREQ_MHZ_MIN 30
-#define PFD_CLK_FREQ_MHZ_MAX 500
+#define PFD_CLK_FREQ_MHZ_MIN 25
+#define PFD_CLK_FREQ_MHZ_MAX 770
 #define DLL_CLK_FREQ_THRES_HZ 4500000000ull
 #define DAC_9171_CLK_FREQ_MAX_HZ 6000000000ull
 #define DAC_CLK_FREQ_MAX_HZ 12000000000ull
@@ -519,7 +519,7 @@ int ad917x_set_dac_clk(ad917x_handle_t *h,
 			       uint64_t dac_clk_freq_hz, uint8_t dac_pll_en, uint64_t ref_clk_freq_hz)
 {
 	int err;
-	uint8_t m_div, n_div, pll_vco_div;
+	uint8_t m_div, n_div, pll_vco_div, target_pfd;
 	uint16_t n_div_tmp, ref_clk_freq_mhz, pfd_clk_freq_mhz, fvco_freq_mhz = 0x0;
 	uint64_t dac_clk_freq_mhz;
 
@@ -561,9 +561,14 @@ int ad917x_set_dac_clk(ad917x_handle_t *h,
 		} else
 			return API_ERROR_INVALID_PARAM;
 
+		if ((fvco_freq_mhz >= 9960) && (fvco_freq_mhz <= 10870))
+			target_pfd = 220; /* less than 225 */
+		else
+			target_pfd = 500; /* less than 770 */
+
 		/*Determine divM and check PFD Frequency within Range*/
-		m_div = ref_clk_freq_mhz / 500;
-		if (ref_clk_freq_mhz % 500)
+		m_div = ref_clk_freq_mhz / target_pfd;
+		if (ref_clk_freq_mhz % target_pfd)
 			m_div++;
 
 		pfd_clk_freq_mhz = ref_clk_freq_mhz / m_div;
