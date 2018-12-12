@@ -36,7 +36,7 @@
  * Revision Data
  *=====================================*/
 static uint8_t api_revision[3] = {1, 1, 1};
-static uint16_t range_boundary[6] = {3000, 4170, 4500, 6250, 9000, 12500};
+static uint16_t range_boundary[6] = {2910, 4140, 4370, 6210, 8740, 12420};
 
 /*DataSheet Table 41*/
 /*Engineering Sample Data*/
