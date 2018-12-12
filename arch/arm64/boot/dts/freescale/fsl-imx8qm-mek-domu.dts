@@ -13,6 +13,16 @@
  */
 
 /dts-v1/;
+
+/*
+ * At current stage, M41 is not ready to communicate with XEN, so we
+ * we need a way to tell XEN uboot is running or linux is running.
+ * XEN will check the contents of this area.
+ * So reserve a page at the beginning of GUEST_RAM0_BASE to avoid Linux
+ * touch this area.
+ */
+/memreserve/ 0x80000000 0x1000;
+
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/clock/imx8qm-clock.h>
 #include <dt-bindings/input/input.h>
