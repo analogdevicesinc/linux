@@ -574,8 +574,8 @@ int ad917x_set_dac_clk(ad917x_handle_t *h,
 
 		/*Calculate N Divider using FVCO Frequency*/
 		n_div_tmp = (fvco_freq_mhz * (m_div));
-		n_div_tmp = (n_div_tmp * 1000) / (ref_clk_freq_hz / 1000);
-		n_div = n_div_tmp / 8;
+		n_div_tmp = DIV_ROUND_CLOSEST(n_div_tmp * 1000, ref_clk_freq_hz / 1000);
+		n_div = DIV_ROUND_CLOSEST(n_div_tmp, 8);
 
 		/*Initialise PLL*/
 		/*Call PLL Recommended Init Sequence*/
