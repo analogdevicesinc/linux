@@ -164,18 +164,6 @@ static int ad9172_setup(struct ad9172_state *st)
 	st->interpolation = 1; /* JESD MODE 10, 11 only support INT 1 */
 	st->conv.id = ID_AD9172;
 
-	ad917x_jesd_set_lane_xbar(ad917x_h, 0, 1);
-	ad917x_jesd_set_lane_xbar(ad917x_h, 1, 0);
-
-	ad917x_jesd_set_lane_xbar(ad917x_h, 2, 3);
-	ad917x_jesd_set_lane_xbar(ad917x_h, 3, 2);
-
-	ad917x_jesd_set_lane_xbar(ad917x_h, 5, 7);
-	ad917x_jesd_set_lane_xbar(ad917x_h, 6, 5);
-
-	ad917x_jesd_set_lane_xbar(ad917x_h, 7, 6);
-
-
 	ret = ad917x_jesd_config_datapath(ad917x_h, 0, 10, 1, st->interpolation);
 	if (ret != 0) {
 		dev_err(dev, "ad917x_jesd_config_datapath failed (%d)\n", ret);
