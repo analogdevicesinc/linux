@@ -108,7 +108,7 @@ static int jesd_get_link_count(ad917x_handle_t *h, uint8_t *link_count)
 	if (err != API_ERROR_OK)
 		return err;
 	tmp_reg &= ~(AD917X_LINK_PAGE(ALL));
-	*link_count = (tmp_reg & AD917X_LINK_MODE) ? 1 : 0;
+	*link_count = (tmp_reg & AD917X_LINK_MODE) ? 2 : 1;
 	return API_ERROR_OK;
 }
 
