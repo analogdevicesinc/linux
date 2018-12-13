@@ -34,3 +34,16 @@
 		status = "okay";
 	};
 };
+
+&i2c2 {
+	synaptics_dsx_ts@20 {
+		compatible = "synaptics_dsx";
+		reg = <0x20>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_i2c2_synaptics_dsx_io>;
+		interrupt-parent = <&gpio1>;
+		interrupts = <9 IRQ_TYPE_LEVEL_LOW>;
+		synaptics,diagonal-rotation;
+		status = "okay";
+	};
+};
