@@ -11,6 +11,7 @@
 #include <linux/module.h>
 #include <linux/device.h>
 #include <linux/of.h>
+#include <linux/property.h>
 #include <linux/slab.h>
 
 #include "jesd204-priv.h"
@@ -25,6 +26,11 @@ static LIST_HEAD(jesd204_topologies);
 
 static unsigned int jesd204_device_count;
 static unsigned int jesd204_topologies_count;
+
+static inline bool dev_is_jesd204_dev(struct device *dev)
+{
+	return device_property_read_bool(dev, "jesd204-device");
+}
 
 static struct jesd204_dev *jesd204_dev_alloc(struct device_node *np)
 {
@@ -108,6 +114,9 @@ struct jesd204_dev *jesd204_dev_register(struct device *dev,
 		dev_err(dev, "Invalid register arguments\n");
 		return ERR_PTR(-EINVAL);
 	}
+
+	if (!dev_is_jesd204_dev(dev))
+		return NULL;
 
 	mutex_lock(&jesd204_device_list_lock);
 
@@ -194,6 +203,9 @@ struct jesd204_dev *devm_jesd204_dev_register(struct device *dev,
 					      const struct jesd204_dev_data *i)
 {
 	struct jesd204_dev **jdevp, *jdev;
+
+	if (!dev_is_jesd204_dev(dev))
+		return NULL;
 
 	jdevp = devres_alloc(devm_jesd204_dev_unreg, sizeof(*jdevp),
 			     GFP_KERNEL);
