@@ -639,12 +639,7 @@ static int ad9680_update_sysref(struct axiadc_converter *conv,
 		return -EINVAL;
 	}
 
-	ret = clk_set_rate(conv->sysref_clk, rate);
-	if (ret)
-		dev_err(&conv->spi->dev,
-			"Failed to set SYSREF rate to %d kHz: %d\n", rate, ret);
-
-	return ret;
+	return clk_set_rate(conv->sysref_clk, rate);
 }
 
 static int ad9680_setup_jesd204_link(struct axiadc_converter *conv,
