@@ -818,15 +818,29 @@ static const struct clk_ops ad9528_clk_ops = {
 };
 
 static struct clk *ad9528_clk_register(struct iio_dev *indio_dev, unsigned num,
-				bool is_enabled)
+				bool is_enabled, bool have_clk_out_name)
 {
 	struct ad9528_state *st = iio_priv(indio_dev);
 	struct clk_init_data init;
 	struct ad9528_outputs *output = &st->output[num];
 	struct clk *clk;
-	char name[SPI_NAME_SIZE + 8];
+	const char *name = NULL;
+	char namebuf[SPI_NAME_SIZE + 8];
 
-	sprintf(name, "%s_out%d", indio_dev->name, num);
+	if (have_clk_out_name) {
+		struct device_node *np = st->spi->dev.of_node;
+
+		of_property_read_string_index(np, "clock-output-names",
+					      num, &name);
+		if (!name || !strlen(name))
+			have_clk_out_name = false;
+	}
+
+	if (!have_clk_out_name) {
+		snprintf(namebuf, sizeof(namebuf), "%s_out%d",
+			 indio_dev->name, num);
+		name = namebuf;
+	}
 
 	init.name = name;
 	init.ops = &ad9528_clk_ops;
@@ -849,9 +863,12 @@ static int ad9528_clks_register(struct iio_dev *indio_dev)
 {
 	struct ad9528_state *st = iio_priv(indio_dev);
 	struct ad9528_platform_data *pdata = st->pdata;
+	struct device_node *np = st->spi->dev.of_node;
 	struct ad9528_channel_spec *chan;
-	unsigned int i;
+	unsigned int i, count;
 	int ret;
+
+	count = of_property_count_strings(np, "clock-output-names");
 
 	for (i = 0; i < pdata->num_channels; i++) {
 		struct clk *clk;
@@ -861,13 +878,13 @@ static int ad9528_clks_register(struct iio_dev *indio_dev)
 			continue;
 
 		clk = ad9528_clk_register(indio_dev, chan->channel_num,
-					  !chan->output_dis);
+					  !chan->output_dis,
+					  count == AD9528_NUM_CHAN);
 		if (IS_ERR(clk))
 			return PTR_ERR(clk);
 	}
 
-	ret = of_clk_add_provider(st->spi->dev.of_node,
-				  of_clk_src_onecell_get, &st->clk_data);
+	ret = of_clk_add_provider(np, of_clk_src_onecell_get, &st->clk_data);
 	if (ret < 0)
 		return ret;
 
