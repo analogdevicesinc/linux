@@ -845,6 +845,35 @@ static struct clk *ad9528_clk_register(struct iio_dev *indio_dev, unsigned num,
 	return clk;
 }
 
+static int ad9528_clks_register(struct iio_dev *indio_dev)
+{
+	struct ad9528_state *st = iio_priv(indio_dev);
+	struct ad9528_platform_data *pdata = st->pdata;
+	struct ad9528_channel_spec *chan;
+	unsigned int i;
+	int ret;
+
+	for (i = 0; i < pdata->num_channels; i++) {
+		struct clk *clk;
+
+		chan = &pdata->channels[i];
+		if (chan->channel_num >= AD9528_NUM_CHAN || chan->output_dis)
+			continue;
+
+		clk = ad9528_clk_register(indio_dev, chan->channel_num,
+					  !chan->output_dis);
+		if (IS_ERR(clk))
+			return PTR_ERR(clk);
+	}
+
+	ret = of_clk_add_provider(st->spi->dev.of_node,
+				  of_clk_src_onecell_get, &st->clk_data);
+	if (ret < 0)
+		return ret;
+
+	return 0;
+}
+
 static int ad9528_setup(struct iio_dev *indio_dev)
 {
 	struct ad9528_state *st = iio_priv(indio_dev);
@@ -1145,21 +1174,9 @@ static int ad9528_setup(struct iio_dev *indio_dev)
 	if (ret < 0)
 		return ret;
 
-	for (i = 0; i < pdata->num_channels; i++) {
-		struct clk *clk;
-
-		chan = &pdata->channels[i];
-		if (chan->channel_num >= AD9528_NUM_CHAN || chan->output_dis)
-			continue;
-
-		clk = ad9528_clk_register(indio_dev, chan->channel_num,
-						  !chan->output_dis);
-		if (IS_ERR(clk))
-			return PTR_ERR(clk);
-	}
-
-	of_clk_add_provider(st->spi->dev.of_node,
-			    of_clk_src_onecell_get, &st->clk_data);
+	ret = ad9528_clks_register(indio_dev);
+	if (ret < 0)
+		return ret;
 
 	return 0;
 }
