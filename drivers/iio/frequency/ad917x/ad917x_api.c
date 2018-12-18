@@ -12,6 +12,7 @@
  */
 
 #include <linux/kernel.h>
+#include <linux/bug.h>
 #include "AD917x.h"
 #include "ad917x_reg.h"
 #include "api_errors.h"
