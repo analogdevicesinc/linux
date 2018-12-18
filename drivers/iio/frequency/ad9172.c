@@ -27,7 +27,7 @@
 
 #include "ad917x/AD917x.h"
 
-#define AD9172_SAMPLE_RATE_KHZ 3000000ULL /* 3 GSPS */
+#define AD9172_SAMPLE_RATE_KHZ 3000000UL /* 3 GSPS */
 
 
 enum chip_id {
@@ -93,8 +93,8 @@ static int ad9172_setup(struct ad9172_state *st)
 	jesd_param_t appJesdConfig;
 	uint8_t pll_lock_status = 0, dll_lock_stat = 0;
 	int ret;
-	u64 dac_clkin_Hz, dac_rate_Hz;
-	unsigned long lane_rate_kHz;
+	u64 dac_rate_Hz;
+	unsigned long dac_clkin_Hz, lane_rate_kHz;
 	ad917x_jesd_link_stat_t link_status;
 	ad917x_handle_t *ad917x_h = &st->dac_h;
 	unsigned long pll_mult;
@@ -131,7 +131,7 @@ static int ad9172_setup(struct ad9172_state *st)
 	dac_clkin_Hz = clk_get_rate(st->conv.clk[CLK_DAC]);
 
 
-	dev_info(dev, "PLL Input rate %llu\n", dac_clkin_Hz);
+	dev_info(dev, "PLL Input rate %lu\n", dac_clkin_Hz);
 
 	pll_mult = DIV_ROUND_CLOSEST(AD9172_SAMPLE_RATE_KHZ, dac_clkin_Hz / 1000);
 
