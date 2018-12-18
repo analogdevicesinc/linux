@@ -519,8 +519,8 @@ int ad917x_set_dac_clk(ad917x_handle_t *h,
 			       uint64_t dac_clk_freq_hz, uint8_t dac_pll_en, uint64_t ref_clk_freq_hz)
 {
 	int err;
-	uint8_t m_div, n_div, pll_vco_div, target_pfd;
-	uint16_t n_div_tmp, ref_clk_freq_mhz, pfd_clk_freq_mhz, fvco_freq_mhz = 0x0;
+	uint8_t m_div, n_div, pll_vco_div;
+	uint16_t n_div_tmp, ref_clk_freq_mhz, pfd_clk_freq_mhz, target_pfd, fvco_freq_mhz = 0x0;
 	uint64_t dac_clk_freq_mhz;
 
 	if (h == NULL)
@@ -536,11 +536,11 @@ int ad917x_set_dac_clk(ad917x_handle_t *h,
 				    AD917X_PLL_BYPASS_REG, AD917X_PLL_BYPASS(!dac_pll_en));
 	if (err != API_ERROR_OK)
 		return err;
-	dac_clk_freq_mhz = dac_clk_freq_hz / 1000000;
+	dac_clk_freq_mhz = DIV_U64(dac_clk_freq_hz, 1000000);
 	if (dac_pll_en) {
 		/*Generate On chip PLL Configuration*/
 		/*Check REF CLK within 30MHz to 2GHz Range*/
-		ref_clk_freq_mhz = (ref_clk_freq_hz / 1000000);
+		ref_clk_freq_mhz = DIV_U64(ref_clk_freq_hz, 1000000);
 		if ((ref_clk_freq_mhz < REF_CLK_FREQ_MHZ_MIN) ||
 		    (ref_clk_freq_mhz > REF_CLK_FREQ_MHZ_MAX))
 			return API_ERROR_INVALID_PARAM;
@@ -579,7 +579,8 @@ int ad917x_set_dac_clk(ad917x_handle_t *h,
 
 		/*Calculate N Divider using FVCO Frequency*/
 		n_div_tmp = (fvco_freq_mhz * (m_div));
-		n_div_tmp = DIV_ROUND_CLOSEST(n_div_tmp * 1000, ref_clk_freq_hz / 1000);
+		n_div_tmp = DIV_ROUND_CLOSEST(n_div_tmp * 1000,
+				(u32) DIV_U64(ref_clk_freq_hz, 1000));
 		n_div = DIV_ROUND_CLOSEST(n_div_tmp, 8);
 
 		/*Initialise PLL*/
