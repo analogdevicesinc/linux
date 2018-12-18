@@ -31,7 +31,12 @@
 
 
 enum chip_id {
+	CHIPID_AD9171 = 0x71,
 	CHIPID_AD9172 = 0x72,
+	CHIPID_AD9173 = 0x73,
+	CHIPID_AD9174 = 0x74,
+	CHIPID_AD9175 = 0x75,
+	CHIPID_AD9176 = 0x76,
 };
 
 struct ad9172_state {
@@ -529,7 +534,12 @@ static int ad9172_remove(struct spi_device *spi)
 }
 
 static const struct spi_device_id ad9172_id[] = {
+	{ "ad9171", CHIPID_AD9171 },
 	{ "ad9172", CHIPID_AD9172 },
+	{ "ad9173", CHIPID_AD9173 },
+	{ "ad9174", CHIPID_AD9174 },
+	{ "ad9175", CHIPID_AD9175 },
+	{ "ad9176", CHIPID_AD9176 },
 	{}
 };
 
