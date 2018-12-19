@@ -561,8 +561,8 @@
 
 &imx8_gpu_ss {
 	cores = <&gpu_3d0>;
-	/delete-property/ reg;
-	/delete-property/ reg-names;
+	reg = <0x0 0xa0000000 0x0 0x40000000>, <0x0 0x0 0x0 0x10000000>;
+	reg-names = "phys_baseaddr", "contiguous_mem";
 };
 
 &sata {

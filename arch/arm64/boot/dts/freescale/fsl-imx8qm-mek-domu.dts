@@ -736,8 +736,8 @@
 
 &imx8_gpu_ss {
 	/* xen guests have 2GB of low RAM @ 2GB */
-	reg = <0x0 0x80000000 0x0 0x80000000>;
-	reg-names = "phys_baseaddr";
+	reg = <0x0 0x80000000 0x0 0x80000000>, <0x0 0x0 0x0 0x10000000>;
+	reg-names = "phys_baseaddr", "contiguous_mem";
 	cores = <&gpu_3d1>;
 	status = "okay";
 };
