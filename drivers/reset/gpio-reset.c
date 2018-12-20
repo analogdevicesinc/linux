@@ -148,6 +148,25 @@ static struct of_device_id gpio_reset_dt_ids[] = {
 	{ }
 };
 
+#ifdef CONFIG_PM_SLEEP
+static int gpio_reset_suspend(struct device *dev)
+{
+	pinctrl_pm_select_sleep_state(dev);
+
+	return 0;
+}
+static int gpio_reset_resume(struct device *dev)
+{
+	pinctrl_pm_select_default_state(dev);
+
+	return 0;
+}
+#endif
+
+static const struct dev_pm_ops gpio_reset_pm_ops = {
+	SET_LATE_SYSTEM_SLEEP_PM_OPS(gpio_reset_suspend, gpio_reset_resume)
+};
+
 static struct platform_driver gpio_reset_driver = {
 	.probe = gpio_reset_probe,
 	.remove = gpio_reset_remove,
@@ -155,6 +174,7 @@ static struct platform_driver gpio_reset_driver = {
 		.name = "gpio-reset",
 		.owner = THIS_MODULE,
 		.of_match_table = of_match_ptr(gpio_reset_dt_ids),
+		.pm = &gpio_reset_pm_ops,
 	},
 };
 
