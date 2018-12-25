@@ -32,15 +32,6 @@
 };
 
 &{/reserved-memory} {
-	jh_reserved: jh@0xbfc00000 {
-		no-map;
-		reg = <0 0xbfc00000 0x0 0x400000>;
-	};
-
-	inmate_reserved: inmate@0xbbc00000 {
-		no-map;
-		reg = <0 0xbbc00000 0x0 0x4000000>;
-	};
 
 	ivshmem_reserved: ivshmem@0xbbb00000 {
 		no-map;
@@ -60,5 +51,15 @@
 	loader_reserved: loader@0xbb700000 {
 		no-map;
 		reg = <0 0xbb700000 0x0 0x00100000>;
+	};
+
+	jh_reserved: jh@0xb7c00000 {
+		no-map;
+		reg = <0 0xb7c00000 0x0 0x00400000>;
+	};
+
+	inmate_reserved: inmate@0xb3c00000 {
+		no-map;
+		reg = <0 0xb3c00000 0x0 0x04000000>;
 	};
 };
