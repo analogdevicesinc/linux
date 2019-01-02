@@ -116,6 +116,26 @@ static irqreturn_t egalax_ts_interrupt(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
+static int egalax_irq_request(struct egalax_ts *ts)
+{
+	int ret;
+	struct i2c_client *client = ts->client;
+
+	ret = devm_request_threaded_irq(&client->dev, client->irq, NULL,
+					egalax_ts_interrupt,
+					IRQF_ONESHOT,
+					"egalax_ts", ts);
+	if (ret < 0)
+		dev_err(&client->dev, "Failed to register interrupt\n");
+
+	return ret;
+}
+
+static void egalax_free_irq(struct egalax_ts *ts)
+{
+	devm_free_irq(&ts->client->dev, ts->client->irq, ts);
+}
+
 /* wake up controller by an falling edge of interrupt gpio.  */
 static int egalax_wake_up_device(struct i2c_client *client)
 {
@@ -216,17 +236,15 @@ static int egalax_ts_probe(struct i2c_client *client)
 			     ABS_MT_POSITION_Y, 0, EGALAX_MAX_Y, 0, 0);
 	input_mt_init_slots(input_dev, MAX_SUPPORT_POINTS, 0);
 
-	error = devm_request_threaded_irq(&client->dev, client->irq,
-					  NULL, egalax_ts_interrupt,
-					  IRQF_ONESHOT, "egalax_ts", ts);
-	if (error < 0) {
-		dev_err(&client->dev, "Failed to register interrupt\n");
+	error = egalax_irq_request(ts);
+	if (error)
 		return error;
-	}
 
 	error = input_register_device(ts->input_dev);
 	if (error)
 		return error;
+
+	i2c_set_clientdata(client, ts);
 
 	return 0;
 }
@@ -243,11 +261,10 @@ static int egalax_ts_suspend(struct device *dev)
 		0x3, 0x6, 0xa, 0x3, 0x36, 0x3f, 0x2, 0, 0, 0
 	};
 	struct i2c_client *client = to_i2c_client(dev);
+	struct egalax_ts *ts = i2c_get_clientdata(client);
 	int ret;
 
-	if (device_may_wakeup(dev))
-		return enable_irq_wake(client->irq);
-
+	egalax_free_irq(ts);
 	ret = i2c_master_send(client, suspend_cmd, MAX_I2C_DATA_LEN);
 	return ret > 0 ? 0 : ret;
 }
@@ -255,11 +272,14 @@ static int egalax_ts_suspend(struct device *dev)
 static int egalax_ts_resume(struct device *dev)
 {
 	struct i2c_client *client = to_i2c_client(dev);
+	struct egalax_ts *ts = i2c_get_clientdata(client);
+	int ret;
 
-	if (device_may_wakeup(dev))
-		return disable_irq_wake(client->irq);
+	ret = egalax_wake_up_device(client);
+	if (!ret)
+		ret = egalax_irq_request(ts);
 
-	return egalax_wake_up_device(client);
+	return ret;
 }
 
 static DEFINE_SIMPLE_DEV_PM_OPS(egalax_ts_pm_ops,
