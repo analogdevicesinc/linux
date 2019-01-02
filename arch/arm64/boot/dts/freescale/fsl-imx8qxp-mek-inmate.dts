@@ -159,7 +159,7 @@
 		status = "okay";
 	};
 
-	pci@ff700000 {
+	pci@fd700000 {
 		compatible = "pci-host-ecam-generic";
 		device_type = "pci";
 		bus-range = <0 0>;
@@ -168,7 +168,7 @@
 		#interrupt-cells = <1>;
 		interrupt-map-mask = <0 0 0 7>;
 		interrupt-map = <0 0 0 1 &gic GIC_SPI 90 IRQ_TYPE_EDGE_RISING>;
-		reg = <0x0 0xff700000 0x0 0x100000>;
+		reg = <0x0 0xfd700000 0x0 0x100000>;
 		ranges = <0x02000000 0x00 0x10000000 0x0 0x10000000 0x00 0x10000>;
 	};
 
