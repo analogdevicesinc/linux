@@ -170,8 +170,8 @@
 /delete-node/ &vpu;
 /delete-node/ &ddr_pmu0;
 /delete-node/ &imx_rpmsg;
-/*/delete-node/ &crypto;*/
-/*/delete-node/ &caam_sm;*/
+/delete-node/ &crypto;
+/delete-node/ &caam_sm;
 /delete-node/ &caam_snvs;
 /delete-node/ &irq_sec_vio;
 /delete-node/ &dma_apbh;
