@@ -79,7 +79,9 @@
 #define FRAMEINDEX_SHIFT	14
 #define FGCHSTAT		0x78
 #define SECSYNCSTAT		BIT(24)
+#define SFIFOEMPTY		BIT(16)
 #define FGCHSTATCLR		0x7C
+#define CLRSECSTAT		BIT(16)
 #define FGSKEWMON		0x80
 #define FGSFIFOMIN		0x84
 #define FGSFIFOMAX		0x88
@@ -359,6 +361,30 @@ void framegen_wait_for_frame_counter_moving(struct dpu_framegen *fg)
 			fg->id, last_frame_index, frame_index);
 }
 EXPORT_SYMBOL_GPL(framegen_wait_for_frame_counter_moving);
+
+bool framegen_secondary_requests_to_read_empty_fifo(struct dpu_framegen *fg)
+{
+	u32 val;
+	bool empty;
+
+	val = dpu_fg_read(fg, FGCHSTAT);
+
+	empty = !!(val & SFIFOEMPTY);
+
+	if (empty)
+		dev_dbg(fg->dpu->dev,
+			"FrameGen%d secondary requests to read empty FIFO\n",
+			fg->id);
+
+	return empty;
+}
+EXPORT_SYMBOL_GPL(framegen_secondary_requests_to_read_empty_fifo);
+
+void framegen_secondary_clear_channel_status(struct dpu_framegen *fg)
+{
+	dpu_fg_write(fg, FGCHSTATCLR, CLRSECSTAT);
+}
+EXPORT_SYMBOL_GPL(framegen_secondary_clear_channel_status);
 
 bool framegen_secondary_is_syncup(struct dpu_framegen *fg)
 {
