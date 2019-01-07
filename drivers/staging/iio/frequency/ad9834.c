@@ -99,6 +99,16 @@ enum ad9834_supported_device_ids {
 	ID_AD9838,
 };
 
+static struct ad9834_platform_data default_config = {
+	.mclk = 25000000,
+	.freq0 = 1000000,
+	.freq1 = 5000000,
+	.phase0 = 512,
+	.phase1 = 1024,
+	.en_div2 = false,
+	.en_signbit_msb_out = false,
+};
+
 static unsigned int ad9834_calc_freqreg(unsigned long mclk, unsigned long fout)
 {
 	unsigned long long freqreg = (u64)fout * (u64)BIT(AD9834_FREQ_BITS);
@@ -389,16 +399,13 @@ static const struct iio_info ad9833_info = {
 
 static int ad9834_probe(struct spi_device *spi)
 {
-	struct ad9834_platform_data *pdata = dev_get_platdata(&spi->dev);
+	struct ad9834_platform_data *pdata;
 	struct ad9834_state *st;
 	struct iio_dev *indio_dev;
 	struct regulator *reg;
 	int ret;
 
-	if (!pdata) {
-		dev_dbg(&spi->dev, "no platform data?\n");
-		return -ENODEV;
-	}
+	pdata = &default_config;
 
 	reg = devm_regulator_get(&spi->dev, "avdd");
 	if (IS_ERR(reg))
