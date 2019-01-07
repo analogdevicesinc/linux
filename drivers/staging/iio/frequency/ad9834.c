@@ -6,6 +6,7 @@
  * Licensed under the GPL-2.
  */
 
+#include <linux/clk.h>
 #include <linux/interrupt.h>
 #include <linux/workqueue.h>
 #include <linux/device.h>
@@ -71,7 +72,7 @@
 struct ad9834_state {
 	struct spi_device		*spi;
 	struct regulator		*reg;
-	unsigned int			mclk;
+	struct clk			*mclk;
 	unsigned short			control;
 	unsigned short			devid;
 	struct spi_transfer		xfer;
@@ -100,7 +101,6 @@ enum ad9834_supported_device_ids {
 };
 
 static struct ad9834_platform_data default_config = {
-	.mclk = 25000000,
 	.freq0 = 1000000,
 	.freq1 = 5000000,
 	.phase0 = 512,
@@ -120,12 +120,15 @@ static unsigned int ad9834_calc_freqreg(unsigned long mclk, unsigned long fout)
 static int ad9834_write_frequency(struct ad9834_state *st,
 				  unsigned long addr, unsigned long fout)
 {
+	unsigned long clk_freq;
 	unsigned long regval;
 
-	if (fout > (st->mclk / 2))
+	clk_freq = clk_get_rate(st->mclk);
+
+	if (fout > (clk_freq / 2))
 		return -EINVAL;
 
-	regval = ad9834_calc_freqreg(st->mclk, fout);
+	regval = ad9834_calc_freqreg(clk_freq, fout);
 
 	st->freq_data[0] = cpu_to_be16(addr | (regval &
 				       RES_MASK(AD9834_FREQ_BITS / 2)));
@@ -403,6 +406,7 @@ static int ad9834_probe(struct spi_device *spi)
 	struct ad9834_state *st;
 	struct iio_dev *indio_dev;
 	struct regulator *reg;
+	struct clk *clk;
 	int ret;
 
 	pdata = &default_config;
@@ -417,6 +421,14 @@ static int ad9834_probe(struct spi_device *spi)
 		return ret;
 	}
 
+	clk = devm_clk_get(&spi->dev, NULL);
+
+	ret = clk_prepare_enable(clk);
+	if (ret) {
+		dev_err(&spi->dev, "Failed to enable master clock\n");
+		return ret;
+	}
+
 	indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*st));
 	if (!indio_dev) {
 		ret = -ENOMEM;
@@ -425,7 +437,7 @@ static int ad9834_probe(struct spi_device *spi)
 	spi_set_drvdata(spi, indio_dev);
 	st = iio_priv(indio_dev);
 	mutex_init(&st->lock);
-	st->mclk = pdata->mclk;
+	st->mclk = clk;
 	st->spi = spi;
 	st->devid = spi_get_device_id(spi)->driver_data;
 	st->reg = reg;
@@ -499,6 +511,7 @@ static int ad9834_probe(struct spi_device *spi)
 
 error_disable_reg:
 	regulator_disable(reg);
+	clk_disable_unprepare(st->mclk);
 
 	return ret;
 }
@@ -510,6 +523,7 @@ static int ad9834_remove(struct spi_device *spi)
 
 	iio_device_unregister(indio_dev);
 	regulator_disable(st->reg);
+	clk_disable_unprepare(st->mclk);
 
 	return 0;
 }
