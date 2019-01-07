@@ -14,7 +14,6 @@
 
 /**
  * struct ad9834_platform_data - platform specific information
- * @mclk:		master clock in Hz
  * @freq0:		power up freq0 tuning word in Hz
  * @freq1:		power up freq1 tuning word in Hz
  * @phase0:		power up phase0 value [0..4095] correlates with 0..2PI
@@ -27,7 +26,6 @@
  */
 
 struct ad9834_platform_data {
-	unsigned int		mclk;
 	unsigned int		freq0;
 	unsigned int		freq1;
 	unsigned short		phase0;
