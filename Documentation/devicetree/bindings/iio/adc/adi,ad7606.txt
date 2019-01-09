@@ -7,6 +7,7 @@ Required properties for the AD7606:
 	* "adi,ad7606-8"
 	* "adi,ad7606-6"
 	* "adi,ad7606-4"
+	* "adi,ad7606b"
 - reg: SPI chip select number for the device
 - spi-max-frequency: Max SPI frequency to use
 	see: Documentation/devicetree/bindings/spi/spi-bus.txt
@@ -41,6 +42,12 @@ Optional properties:
 - adi,oversampling-ratio-gpios: must be the device tree identifier of the over-sampling
 				mode pins. As the line is active high, it should be marked
 				GPIO_ACTIVE_HIGH.
+- adi,sw-mode: Boolean, software mode of operation, so far available only for ad7606b.
+	Software mode is enabled when all three oversampling mode pins are connected to
+	high level. The AD7606B is configured by the corresponding registers. If the
+	adi,oversampling-ratio-gpios property is defined, then the driver will set the
+	oversampling gpios to high. Otherwise, it is assumed that the pins are hardwired
+	to VDD.
 
 Example:
 
@@ -62,4 +69,5 @@ Example:
 						&gpio 23 GPIO_ACTIVE_HIGH
 						&gpio 26 GPIO_ACTIVE_HIGH>;
 		standby-gpios = <&gpio 24 GPIO_ACTIVE_LOW>;
+		adi,sw-mode;
 	};
