@@ -13,11 +13,14 @@
  * @channels:		channel specification
  * @num_channels:	number of channels
  * @has_oversampling:   whether the device has oversampling support
+ * @sw_mode_config:	pointer to a function which configured the device
+ *			for software mode
  */
 struct ad7606_chip_info {
 	const struct iio_chan_spec	*channels;
 	unsigned int			num_channels;
 	bool				has_oversampling;
+	int (*sw_mode_config)(struct iio_dev *indio_dev);
 };
 
 /**
@@ -29,6 +32,7 @@ struct ad7606_chip_info {
  * @range		voltage range selection, selects which scale to apply
  * @oversampling	oversampling selection
  * @base_address	address from where to read data in parallel operation
+ * @sw_mode_en		software mode enabled
  * @scale_avail		pointer to the array which stores the available scales
  * @num_scales		number of elements stored in the scale_avail array
  * @oversampling_avail	pointer to the array which stores the available
@@ -52,9 +56,10 @@ struct ad7606_state {
 	const struct ad7606_chip_info	*chip_info;
 	struct regulator		*reg;
 	const struct ad7606_bus_ops	*bops;
-	unsigned int			range;
+	unsigned int			range[8];
 	unsigned int			oversampling;
 	void __iomem			*base_address;
+	bool				sw_mode_en;
 	const unsigned int		*scale_avail;
 	unsigned int			num_scales;
 	const unsigned int		*oversampling_avail;
@@ -95,7 +100,8 @@ enum ad7606_supported_device_ids {
 	ID_AD7605_4,
 	ID_AD7606_8,
 	ID_AD7606_6,
-	ID_AD7606_4
+	ID_AD7606_4,
+	ID_AD7606B
 };
 
 #ifdef CONFIG_PM_SLEEP
