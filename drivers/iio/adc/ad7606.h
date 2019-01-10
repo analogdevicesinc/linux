@@ -29,6 +29,11 @@ struct ad7606_chip_info {
  * @range		voltage range selection, selects which scale to apply
  * @oversampling	oversampling selection
  * @base_address	address from where to read data in parallel operation
+ * @scale_avail		pointer to the array which stores the available scales
+ * @num_scales		number of elements stored in the scale_avail array
+ * @oversampling_avail	pointer to the array which stores the available
+ *			oversampling ratios.
+ * @num_os_ratios	number of elements stored in oversampling_avail array
  * @lock		protect sensor state from concurrent accesses to GPIOs
  * @gpio_convst	GPIO descriptor for conversion start signal (CONVST)
  * @gpio_reset		GPIO descriptor for device hard-reset
@@ -50,6 +55,10 @@ struct ad7606_state {
 	unsigned int			range;
 	unsigned int			oversampling;
 	void __iomem			*base_address;
+	const unsigned int		*scale_avail;
+	unsigned int			num_scales;
+	const unsigned int		*oversampling_avail;
+	unsigned int			num_os_ratios;
 
 	struct mutex			lock; /* protect sensor state */
 	struct gpio_desc		*gpio_convst;
