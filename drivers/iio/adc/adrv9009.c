@@ -497,6 +497,7 @@ static int adrv9009_do_setup(struct adrv9009_rf_phy *phy)
 
 	switch (phy->spi_device_id) {
 	case ID_ADRV9009:
+	case ID_ADRV9009_X2:
 		initCalMask = TAL_TX_BB_FILTER | TAL_ADC_TUNER |  TAL_TIA_3DB_CORNER |
 			TAL_DC_OFFSET | TAL_RX_GAIN_DELAY | TAL_FLASH_CAL |
 			TAL_PATH_DELAY | TAL_TX_LO_LEAKAGE_INTERNAL |
@@ -4788,10 +4789,10 @@ static int adrv9009_probe(struct spi_device *spi)
 	else
 		phy->jesd_rx_clk = clk;
 
-	if (id == ID_ADRV9009)
+	if (id == ID_ADRV9009 || id == ID_ADRV9009_X2)
 		phy->jesd_tx_clk = devm_clk_get(&spi->dev, "jesd_tx_clk");
 
-	if (id == ID_ADRV9009 || id == ID_ADRV90082)
+	if (id == ID_ADRV9009 || id == ID_ADRV9009_X2 || id == ID_ADRV90082)
 		phy->jesd_rx_os_clk = devm_clk_get(&spi->dev, "jesd_rx_os_clk");
 
 	phy->dev_clk = devm_clk_get(&spi->dev, "dev_clk");
@@ -4816,6 +4817,7 @@ static int adrv9009_probe(struct spi_device *spi)
 	if (of_property_read_string(spi->dev.of_node, "arm-firmware-name", &name))
 		switch (id) {
 		case ID_ADRV9009:
+		case ID_ADRV9009_X2:
 			name = FIRMWARE;
 			break;
 		case ID_ADRV90081:
@@ -4900,6 +4902,7 @@ static int adrv9009_probe(struct spi_device *spi)
 
 	switch (id) {
 	case ID_ADRV9009:
+	case ID_ADRV9009_X2:
 		indio_dev->info = &adrv9009_phy_info;
 		indio_dev->channels = adrv9009_phy_chan;
 		indio_dev->num_channels = ARRAY_SIZE(adrv9009_phy_chan);
@@ -5005,6 +5008,7 @@ static const struct spi_device_id adrv9009_id[] = {
 	{"adrv9009", ID_ADRV9009},
 	{"adrv9008-1", ID_ADRV90081},
 	{"adrv9008-2", ID_ADRV90082},
+	{"adrv9009-x2", ID_ADRV9009_X2},
 	{}
 };
 MODULE_DEVICE_TABLE(spi, adrv9009_id);
