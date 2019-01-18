@@ -1,7 +1,7 @@
 /*
  * AD9172 SPI DAC driver for AXI DDS PCORE/COREFPGA Module
  *
- * Copyright 2018 Analog Devices Inc.
+ * Copyright 2018-2019 Analog Devices Inc.
  *
  * Licensed under the GPL-2.
  */
@@ -29,6 +29,14 @@
 
 #define AD9172_SAMPLE_RATE_KHZ 3000000UL /* 3 GSPS */
 
+#define AD9172_ATTR_CHAN_NCO(x) (2 << 8 | (x))
+#define AD9172_ATTR_CHAN_PHASE(x) (3 << 8 | (x))
+#define AD9172_ATTR_CHAN_TONE_AMP(x) (4 << 8 | (x))
+#define AD9172_ATTR_CHAN_NCO_EN(x) (5 << 8 | (x))
+
+#define AD9172_ATTR_MAIN_NCO(x) (6 << 8 | (x))
+#define AD9172_ATTR_MAIN_PHASE(x) (7 << 8 | (x))
+#define AD9172_ATTR_MAIN_NCO_EN(x) (8 << 8 | (x))
 
 enum chip_id {
 	CHIPID_AD9171 = 0x71,
@@ -44,10 +52,23 @@ struct ad9172_state {
 	enum chip_id id;
 	struct regmap *map;
 	ad917x_handle_t dac_h;
+	jesd_param_t appJesdConfig;
+
 	bool complex_mode;
 	bool iq_swap;
-	unsigned interpolation;
+	u32 dac_rate_khz;
+	u32 dac_interpolation;
+	u32 channel_interpolation;
+	u32 interpolation;
+	u32 jesd_link_mode;
+	u32 jesd_dual_link_mode;
+	u32 jesd_subclass;
+	u32 clock_output_config;
+	signal_type_t syncoutb_type;
+	signal_coupling_t sysref_coupling;
 
+	u8 nco_main_enable;
+	u8 nco_channel_enable;
 };
 
 static const char * const clk_names[] = {
@@ -74,11 +95,6 @@ static int ad9172_write(struct spi_device *spi, unsigned reg, unsigned val)
 	return regmap_write(st->map, reg, val);
 }
 
-static int ad9172_get_temperature_code(struct cf_axi_converter *conv)
-{
-	return 0;
-}
-
 static unsigned long long ad9172_get_data_clk(struct cf_axi_converter *conv)
 {
 	struct ad9172_state *st = container_of(conv, struct ad9172_state, conv);
@@ -95,7 +111,6 @@ static int ad9172_setup(struct ad9172_state *st)
 	struct device *dev = regmap_get_device(map);
 	uint8_t revision[3] = {0,0,0};
 	adi_chip_id_t dac_chip_id;
-	jesd_param_t appJesdConfig;
 	uint8_t pll_lock_status = 0, dll_lock_stat = 0;
 	int ret;
 	u64 dac_rate_Hz;
@@ -103,6 +118,10 @@ static int ad9172_setup(struct ad9172_state *st)
 	ad917x_jesd_link_stat_t link_status;
 	ad917x_handle_t *ad917x_h = &st->dac_h;
 	unsigned long pll_mult;
+	u8 dac_mask, chan_mask;
+
+	st->interpolation = st->dac_interpolation *
+			    st->channel_interpolation;
 
 	/*Initialise DAC Module*/
 	ret = ad917x_init(ad917x_h);
@@ -138,7 +157,7 @@ static int ad9172_setup(struct ad9172_state *st)
 
 	dev_info(dev, "PLL Input rate %lu\n", dac_clkin_Hz);
 
-	pll_mult = DIV_ROUND_CLOSEST(AD9172_SAMPLE_RATE_KHZ, dac_clkin_Hz / 1000);
+	pll_mult = DIV_ROUND_CLOSEST(st->dac_rate_khz, dac_clkin_Hz / 1000);
 
 	ret = ad917x_set_dac_clk(ad917x_h, dac_clkin_Hz * pll_mult, 1, dac_clkin_Hz);
 	if (ret != 0) {
@@ -158,23 +177,24 @@ static int ad9172_setup(struct ad9172_state *st)
 	dev_info(dev, "PLL lock status %x,  DLL lock status: %x\n",
 		 pll_lock_status, dll_lock_stat);
 
-
-	/* DEBUG: route DAC clock to output, so we can meassure it */
-	ret = ad917x_set_clkout_config(ad917x_h, 1);
-	if (ret != 0) {
-		dev_err(dev, "ad917x_set_clkout_config failed (%d)\n", ret);
-		return ret;
+	if (st->clock_output_config) {
+		/* DEBUG: route DAC clock to output, so we can meassure it */
+		ret = ad917x_set_clkout_config(ad917x_h, st->clock_output_config);
+		if (ret != 0) {
+			dev_err(dev, "ad917x_set_clkout_config failed (%d)\n", ret);
+			return ret;
+		}
 	}
 
-	st->interpolation = 1; /* JESD MODE 10, 11 only support INT 1 */
-	st->conv.id = ID_AD9172;
-
-	ret = ad917x_jesd_config_datapath(ad917x_h, 0, 10, 1, st->interpolation);
+	ret = ad917x_jesd_config_datapath(ad917x_h, st->jesd_dual_link_mode,
+					  st->jesd_link_mode,
+					  st->channel_interpolation,
+					  st->dac_interpolation);
 	if (ret != 0) {
 		dev_err(dev, "ad917x_jesd_config_datapath failed (%d)\n", ret);
 		return ret;
 	}
-	ret = ad917x_jesd_get_cfg_param(ad917x_h, &appJesdConfig);
+	ret = ad917x_jesd_get_cfg_param(ad917x_h, &st->appJesdConfig);
 	if (ret != 0) {
 		dev_err(dev, "ad917x_jesd_get_cfg_param failed (%d)\n", ret);
 		return ret;
@@ -212,8 +232,9 @@ static int ad9172_setup(struct ad9172_state *st)
 
 	ad917x_get_dac_clk_freq(ad917x_h, &dac_rate_Hz);
 
-	lane_rate_kHz = div_u64(dac_rate_Hz * 20 * appJesdConfig.jesd_M,
-				appJesdConfig.jesd_L * st->interpolation * 1000);
+	lane_rate_kHz = div_u64(dac_rate_Hz * 20 * st->appJesdConfig.jesd_M,
+				st->appJesdConfig.jesd_L *
+				st->interpolation * 1000);
 
 	ret = clk_set_rate(st->conv.clk[CLK_DATA], lane_rate_kHz);
 	if (ret < 0) {
@@ -249,9 +270,27 @@ static int ad9172_setup(struct ad9172_state *st)
 	dev_info(dev, "frame_sync_stat: %x \n", link_status.frame_sync_stat);
 	dev_info(dev, "good_checksum_stat: %x \n", link_status.good_checksum_stat);
 	dev_info(dev, "init_lane_sync_stat: %x \n", link_status.init_lane_sync_stat);
-	dev_info(dev, "%d lanes @ %lu kBps\n", appJesdConfig.jesd_L, lane_rate_kHz);
+	dev_info(dev, "%d lanes @ %lu kBps\n", st->appJesdConfig.jesd_L, lane_rate_kHz);
 
-	regmap_write(st->map, 0x008, 0xc0);
+
+	if (st->jesd_dual_link_mode || st->interpolation == 1)
+		dac_mask = AD917X_DAC0 | AD917X_DAC1;
+	else
+		dac_mask = AD917X_DAC0;
+
+	if (st->interpolation > 1) {
+		chan_mask = GENMASK(st->appJesdConfig.jesd_M / 2, 0);
+		ret = ad917x_set_page_idx(ad917x_h, AD917X_DAC_NONE, chan_mask);
+
+		ret = ad917x_set_channel_gain(ad917x_h, 2048); /* GAIN = 1 */
+
+		st->nco_main_enable = dac_mask;
+
+		ad917x_nco_enable(ad917x_h, st->nco_main_enable, 0);
+
+	}
+
+	ret = ad917x_set_page_idx(ad917x_h, dac_mask, AD917X_CH_NONE);
 	regmap_write(st->map, 0x596, 0x1c);
 
 	return 0;
@@ -291,26 +330,26 @@ static int ad9172_read_raw(struct iio_dev *indio_dev,
 			   int *val, int *val2, long m)
 {
 	struct cf_axi_converter *conv = iio_device_get_drvdata(indio_dev);
-	unsigned tmp;
+	struct ad9172_state *st = container_of(conv, struct ad9172_state, conv);
+	ad917x_handle_t *ad917x_h = &st->dac_h;
+	u16 val16 = 0;
+	int ret;
 
 	switch (m) {
 	case IIO_CHAN_INFO_SAMP_FREQ:
-
 		*val = ad9172_get_data_clk(conv);
 		return IIO_VAL_INT;
-	case IIO_CHAN_INFO_CALIBBIAS:
-		*val = conv->temp_calib_code;
-		return IIO_VAL_INT;
-	case IIO_CHAN_INFO_PROCESSED:
-		if (!conv->temp_calib_code)
-			return -EINVAL;
+	case IIO_CHAN_INFO_SCALE:
+		ret = ad917x_set_page_idx(ad917x_h, AD917X_DAC_NONE, BIT(chan->channel));
+		if (ret < 0)
+			return ret;
+		ret = ad917x_get_channel_gain(ad917x_h, &val16);
+		if (ret < 0)
+			return ret;
 
-		tmp = ad9172_get_temperature_code(conv);
-
-		*val = ((tmp - conv->temp_calib_code) * 77
-			+ conv->temp_calib * 10 + 10000) / 10;
-
-		return IIO_VAL_INT;
+		*val = val16;
+		*val2 = 11;
+		return IIO_VAL_FRACTIONAL_LOG2;
 	}
 	return -EINVAL;
 }
@@ -320,18 +359,20 @@ static int ad9172_write_raw(struct iio_dev *indio_dev,
 			    int val, int val2, long mask)
 {
 	struct cf_axi_converter *conv = iio_device_get_drvdata(indio_dev);
+	struct ad9172_state *st = container_of(conv, struct ad9172_state, conv);
+	ad917x_handle_t *ad917x_h = &st->dac_h;
+	u16 val16;
+	int ret;
 
 	switch (mask) {
-	case IIO_CHAN_INFO_CALIBBIAS:
-		conv->temp_calib_code = val;
-		break;
-	case IIO_CHAN_INFO_PROCESSED:
-		/*
-		 * Writing in_temp0_input with the device temperature in milli
-		 * degrees Celsius triggers the calibration.
-		 */
-		conv->temp_calib_code = ad9172_get_temperature_code(conv);
-		conv->temp_calib = val;
+	case IIO_CHAN_INFO_SCALE:
+		val16 = clamp_t(u16, val * 2048 + (val2 * 2048 / 1000000), 0, 4095);
+		ret = ad917x_set_page_idx(ad917x_h, AD917X_DAC_NONE, BIT(chan->channel));
+		if (ret < 0)
+			return ret;
+		ret = ad917x_set_channel_gain(ad917x_h, val16);
+		if (ret < 0)
+			return ret;
 		break;
 	default:
 		return -EINVAL;
@@ -342,12 +383,6 @@ static int ad9172_write_raw(struct iio_dev *indio_dev,
 
 static int ad9172_prepare(struct cf_axi_converter *conv)
 {
-//	struct cf_axi_dds_state *st = iio_priv(conv->indio_dev);
-//	struct ad9172_state *ad9172 = container_of(conv, struct ad9172_state, conv);
-
-// 	/* FIXME This needs documenation */
-// 	dds_write(st, 0x428, (ad9172->complex_mode ? 0x1 : 0x0) |
-// 		  (ad9172->iq_swap ? 0x2 : 0x0 ));
 	return 0;
 }
 
@@ -384,10 +419,11 @@ static ssize_t ad9172_attr_store(struct device *dev,
 {
 	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
 	struct iio_dev_attr *this_attr = to_iio_dev_attr(attr);
-//	struct cf_axi_converter *conv = iio_device_get_drvdata(indio_dev);
-//	struct ad9172_state *st = container_of(conv, struct ad9172_state, conv);
-//	ad917x_handle_t *ad917x_h = &st->dac_h;
+	struct cf_axi_converter *conv = iio_device_get_drvdata(indio_dev);
+	struct ad9172_state *st = container_of(conv, struct ad9172_state, conv);
+	ad917x_handle_t *ad917x_h = &st->dac_h;
 	unsigned long long readin;
+	u32 dest = (u32)this_attr->address & 0xFF;
 	int ret;
 
 	ret = kstrtoull(buf, 10, &readin);
@@ -396,12 +432,45 @@ static ssize_t ad9172_attr_store(struct device *dev,
 
 	mutex_lock(&indio_dev->mlock);
 
-	switch ((u32)this_attr->address) {
-		case 0:
-			//ret = ad917x_nco_set(ad917x_h, 0, readin, 0, 0);
-			break;
-		default:
-			ret = -EINVAL;
+	switch ((u32)this_attr->address & ~0xFF) {
+	case AD9172_ATTR_CHAN_NCO(0):
+		ret = ad917x_nco_set(ad917x_h, AD917X_DAC_NONE, BIT(dest),
+				     readin, 0x1FFF, 0, 0);
+		st->nco_channel_enable |= BIT(dest);
+		break;
+	case AD9172_ATTR_CHAN_PHASE(0):
+		ret = ad917x_nco_set_phase_offset(ad917x_h, AD917X_DAC_NONE, 0,
+						  BIT(dest), readin);
+		break;
+	case AD9172_ATTR_MAIN_NCO(0):
+		ret = ad917x_nco_set(ad917x_h, BIT(dest), AD917X_CH_NONE,
+				     readin, 0x1FFF, 0, 0);
+		st->nco_main_enable |= BIT(dest);
+		break;
+	case AD9172_ATTR_MAIN_PHASE(0):
+		ret = ad917x_nco_set_phase_offset(ad917x_h, BIT(dest), 0,
+						  AD917X_CH_NONE, readin);
+		break;
+	case AD9172_ATTR_CHAN_NCO_EN(0):
+		if (readin)
+			st->nco_channel_enable |= BIT(dest);
+		else
+			st->nco_channel_enable &= ~BIT(dest);
+
+		ret = ad917x_nco_enable(ad917x_h, st->nco_main_enable,
+					st->nco_channel_enable);
+		break;
+	case AD9172_ATTR_MAIN_NCO_EN(0):
+		if (readin)
+			st->nco_main_enable |= BIT(dest);
+		else
+			st->nco_main_enable &= ~BIT(dest);
+
+		ret = ad917x_nco_enable(ad917x_h, st->nco_main_enable,
+					st->nco_channel_enable);
+		break;
+	default:
+		ret = -EINVAL;
 	}
 
 	mutex_unlock(&indio_dev->mlock);
@@ -415,41 +484,343 @@ static ssize_t ad9172_attr_show(struct device *dev,
 {
 	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
 	struct iio_dev_attr *this_attr = to_iio_dev_attr(attr);
-//	struct cf_axi_converter *conv = iio_device_get_drvdata(indio_dev);
-//	struct ad9172_state *st = container_of(conv, struct ad9172_state, conv);
-//	ad917x_handle_t *ad917x_h = &st->dac_h;
+	struct cf_axi_converter *conv = iio_device_get_drvdata(indio_dev);
+	struct ad9172_state *st = container_of(conv, struct ad9172_state, conv);
+	ad917x_handle_t *ad917x_h = &st->dac_h;
+	u32 dest = (u32)this_attr->address & 0xFF;
 	int ret = 0;
-	u64 freq = 0;
-//	u16 ampl;
+	u64 val64 = 0;
+	u16 val16_2, val16 = 0;
 
 	mutex_lock(&indio_dev->mlock);
-	switch ((u32)this_attr->address) {
-		case 0:
-			//ad917x_nco_get(ad917x_h, 0, &freq, &ampl, &ret);
-			ret = sprintf(buf, "%llu\n", freq);
-			break;
-		default:
-			ret = -EINVAL;
+	switch ((u32)this_attr->address & ~0xFF) {
+	case AD9172_ATTR_CHAN_NCO(0):
+		ret = ad917x_nco_channel_freq_get(ad917x_h, BIT(dest),
+						  &val64);
+		break;
+	case AD9172_ATTR_CHAN_PHASE(0):
+		ret = ad917x_nco_get_phase_offset(ad917x_h, AD917X_DAC_NONE, &val16_2,
+						  BIT(dest), &val16);
+		val64 = val16;
+		break;
+	case AD9172_ATTR_MAIN_NCO(0):
+		ret = ad917x_nco_main_freq_get(ad917x_h, BIT(dest),
+						  &val64);
+		break;
+	case AD9172_ATTR_MAIN_PHASE(0):
+		ret = ad917x_nco_get_phase_offset(ad917x_h, BIT(dest), &val16,
+						  AD917X_CH_NONE, &val16_2);
+		val64 = val16;
+		break;
+	case AD9172_ATTR_CHAN_NCO_EN(0):
+		val64 = !!(st->nco_channel_enable & BIT(dest));
+		break;
+	case AD9172_ATTR_MAIN_NCO_EN(0):
+		val64 = !!(st->nco_main_enable & BIT(dest));
+		break;
+	default:
+		ret = -EINVAL;
 	}
+
 	mutex_unlock(&indio_dev->mlock);
+
+	if (ret >= 0)
+		ret = sprintf(buf, "%llu\n", val64);
 
 	return ret;
 }
 
-static IIO_DEVICE_ATTR(out_altvoltage4_frequency_nco, S_IRUGO | S_IWUSR,
+static IIO_DEVICE_ATTR(out_voltage0_nco_frequency, S_IRUGO | S_IWUSR,
 		       ad9172_attr_show,
 		       ad9172_attr_store,
-		       0);
+		       AD9172_ATTR_CHAN_NCO(0));
 
-static struct attribute *ad9172_attributes[] = {
-	&iio_dev_attr_out_altvoltage4_frequency_nco.dev_attr.attr,
+static IIO_DEVICE_ATTR(out_voltage1_nco_frequency, S_IRUGO | S_IWUSR,
+		       ad9172_attr_show,
+		       ad9172_attr_store,
+		       AD9172_ATTR_CHAN_NCO(1));
+
+static IIO_DEVICE_ATTR(out_voltage2_nco_frequency, S_IRUGO | S_IWUSR,
+		       ad9172_attr_show,
+		       ad9172_attr_store,
+		       AD9172_ATTR_CHAN_NCO(2));
+
+static IIO_DEVICE_ATTR(out_voltage3_nco_frequency, S_IRUGO | S_IWUSR,
+		       ad9172_attr_show,
+		       ad9172_attr_store,
+		       AD9172_ATTR_CHAN_NCO(3));
+
+static IIO_DEVICE_ATTR(out_voltage4_nco_frequency, S_IRUGO | S_IWUSR,
+		       ad9172_attr_show,
+		       ad9172_attr_store,
+		       AD9172_ATTR_CHAN_NCO(4));
+
+static IIO_DEVICE_ATTR(out_voltage5_nco_frequency, S_IRUGO | S_IWUSR,
+		       ad9172_attr_show,
+		       ad9172_attr_store,
+		       AD9172_ATTR_CHAN_NCO(5));
+
+static IIO_DEVICE_ATTR(out_voltage6_nco_frequency, S_IRUGO | S_IWUSR,
+		       ad9172_attr_show,
+		       ad9172_attr_store,
+		       AD9172_ATTR_MAIN_NCO(0));
+
+static IIO_DEVICE_ATTR(out_voltage7_nco_frequency, S_IRUGO | S_IWUSR,
+		       ad9172_attr_show,
+		       ad9172_attr_store,
+		       AD9172_ATTR_MAIN_NCO(1));
+
+
+static IIO_DEVICE_ATTR(out_voltage0_nco_enable, S_IRUGO | S_IWUSR,
+		       ad9172_attr_show,
+		       ad9172_attr_store,
+		       AD9172_ATTR_CHAN_NCO_EN(0));
+
+static IIO_DEVICE_ATTR(out_voltage1_nco_enable, S_IRUGO | S_IWUSR,
+		       ad9172_attr_show,
+		       ad9172_attr_store,
+		       AD9172_ATTR_CHAN_NCO_EN(1));
+
+static IIO_DEVICE_ATTR(out_voltage2_nco_enable, S_IRUGO | S_IWUSR,
+		       ad9172_attr_show,
+		       ad9172_attr_store,
+		       AD9172_ATTR_CHAN_NCO_EN(2));
+
+static IIO_DEVICE_ATTR(out_voltage3_nco_enable, S_IRUGO | S_IWUSR,
+		       ad9172_attr_show,
+		       ad9172_attr_store,
+		       AD9172_ATTR_CHAN_NCO_EN(3));
+
+static IIO_DEVICE_ATTR(out_voltage4_nco_enable, S_IRUGO | S_IWUSR,
+		       ad9172_attr_show,
+		       ad9172_attr_store,
+		       AD9172_ATTR_CHAN_NCO_EN(4));
+
+static IIO_DEVICE_ATTR(out_voltage5_nco_enable, S_IRUGO | S_IWUSR,
+		       ad9172_attr_show,
+		       ad9172_attr_store,
+		       AD9172_ATTR_CHAN_NCO_EN(5));
+
+static IIO_DEVICE_ATTR(out_voltage6_nco_enable, S_IRUGO | S_IWUSR,
+		       ad9172_attr_show,
+		       ad9172_attr_store,
+		       AD9172_ATTR_MAIN_NCO_EN(0));
+
+static IIO_DEVICE_ATTR(out_voltage7_nco_enable, S_IRUGO | S_IWUSR,
+		       ad9172_attr_show,
+		       ad9172_attr_store,
+		       AD9172_ATTR_MAIN_NCO_EN(1));
+
+
+static IIO_DEVICE_ATTR(out_voltage0_nco_phase, S_IRUGO | S_IWUSR,
+		       ad9172_attr_show,
+		       ad9172_attr_store,
+		       AD9172_ATTR_CHAN_PHASE(0));
+
+static IIO_DEVICE_ATTR(out_voltage1_nco_phase, S_IRUGO | S_IWUSR,
+		       ad9172_attr_show,
+		       ad9172_attr_store,
+		       AD9172_ATTR_CHAN_PHASE(1));
+
+static IIO_DEVICE_ATTR(out_voltage2_nco_phase, S_IRUGO | S_IWUSR,
+		       ad9172_attr_show,
+		       ad9172_attr_store,
+		       AD9172_ATTR_CHAN_PHASE(2));
+
+static IIO_DEVICE_ATTR(out_voltage3_nco_phase, S_IRUGO | S_IWUSR,
+		       ad9172_attr_show,
+		       ad9172_attr_store,
+		       AD9172_ATTR_CHAN_PHASE(3));
+
+static IIO_DEVICE_ATTR(out_voltage4_nco_phase, S_IRUGO | S_IWUSR,
+		       ad9172_attr_show,
+		       ad9172_attr_store,
+		       AD9172_ATTR_CHAN_PHASE(4));
+
+static IIO_DEVICE_ATTR(out_voltage5_nco_phase, S_IRUGO | S_IWUSR,
+		       ad9172_attr_show,
+		       ad9172_attr_store,
+		       AD9172_ATTR_CHAN_PHASE(5));
+
+
+static IIO_DEVICE_ATTR(out_voltage6_nco_phase, S_IRUGO | S_IWUSR,
+		       ad9172_attr_show,
+		       ad9172_attr_store,
+		       AD9172_ATTR_MAIN_PHASE(0));
+
+static IIO_DEVICE_ATTR(out_voltage7_nco_phase, S_IRUGO | S_IWUSR,
+		       ad9172_attr_show,
+		       ad9172_attr_store,
+		       AD9172_ATTR_MAIN_PHASE(1));
+
+static struct attribute *ad9172_attributes_dual_m2[] = {
+	&iio_dev_attr_out_voltage0_nco_frequency.dev_attr.attr,
+	&iio_dev_attr_out_voltage0_nco_phase.dev_attr.attr,
+	&iio_dev_attr_out_voltage0_nco_enable.dev_attr.attr,
+	&iio_dev_attr_out_voltage3_nco_frequency.dev_attr.attr,
+	&iio_dev_attr_out_voltage3_nco_phase.dev_attr.attr,
+	&iio_dev_attr_out_voltage3_nco_enable.dev_attr.attr,
+	&iio_dev_attr_out_voltage6_nco_frequency.dev_attr.attr, /* Main datapath */
+	&iio_dev_attr_out_voltage6_nco_phase.dev_attr.attr,
+	&iio_dev_attr_out_voltage6_nco_enable.dev_attr.attr,
+	&iio_dev_attr_out_voltage7_nco_frequency.dev_attr.attr,
+	&iio_dev_attr_out_voltage7_nco_phase.dev_attr.attr,
+	&iio_dev_attr_out_voltage7_nco_enable.dev_attr.attr,
 	NULL,
 };
 
-static const struct attribute_group ad9172_attribute_group = {
-	.attrs = ad9172_attributes,
+static struct attribute *ad9172_attributes_dual_m4[] = {
+	&iio_dev_attr_out_voltage0_nco_frequency.dev_attr.attr,
+	&iio_dev_attr_out_voltage0_nco_phase.dev_attr.attr,
+	&iio_dev_attr_out_voltage0_nco_enable.dev_attr.attr,
+	&iio_dev_attr_out_voltage1_nco_frequency.dev_attr.attr,
+	&iio_dev_attr_out_voltage1_nco_phase.dev_attr.attr,
+	&iio_dev_attr_out_voltage1_nco_enable.dev_attr.attr,
+	&iio_dev_attr_out_voltage3_nco_frequency.dev_attr.attr,
+	&iio_dev_attr_out_voltage3_nco_phase.dev_attr.attr,
+	&iio_dev_attr_out_voltage3_nco_enable.dev_attr.attr,
+	&iio_dev_attr_out_voltage4_nco_frequency.dev_attr.attr,
+	&iio_dev_attr_out_voltage4_nco_phase.dev_attr.attr,
+	&iio_dev_attr_out_voltage4_nco_enable.dev_attr.attr,
+	&iio_dev_attr_out_voltage6_nco_frequency.dev_attr.attr, /* Main datapath */
+	&iio_dev_attr_out_voltage6_nco_phase.dev_attr.attr,
+	&iio_dev_attr_out_voltage6_nco_enable.dev_attr.attr,
+	&iio_dev_attr_out_voltage7_nco_frequency.dev_attr.attr,
+	&iio_dev_attr_out_voltage7_nco_phase.dev_attr.attr,
+	&iio_dev_attr_out_voltage7_nco_enable.dev_attr.attr,
+	NULL,
 };
 
+static struct attribute *ad9172_attributes_dual_m6[] = {
+	&iio_dev_attr_out_voltage0_nco_frequency.dev_attr.attr,
+	&iio_dev_attr_out_voltage0_nco_phase.dev_attr.attr,
+	&iio_dev_attr_out_voltage0_nco_enable.dev_attr.attr,
+	&iio_dev_attr_out_voltage1_nco_frequency.dev_attr.attr,
+	&iio_dev_attr_out_voltage1_nco_phase.dev_attr.attr,
+	&iio_dev_attr_out_voltage1_nco_enable.dev_attr.attr,
+	&iio_dev_attr_out_voltage2_nco_frequency.dev_attr.attr,
+	&iio_dev_attr_out_voltage2_nco_phase.dev_attr.attr,
+	&iio_dev_attr_out_voltage2_nco_enable.dev_attr.attr,
+	&iio_dev_attr_out_voltage3_nco_frequency.dev_attr.attr,
+	&iio_dev_attr_out_voltage3_nco_phase.dev_attr.attr,
+	&iio_dev_attr_out_voltage3_nco_enable.dev_attr.attr,
+	&iio_dev_attr_out_voltage4_nco_frequency.dev_attr.attr,
+	&iio_dev_attr_out_voltage4_nco_phase.dev_attr.attr,
+	&iio_dev_attr_out_voltage4_nco_enable.dev_attr.attr,
+	&iio_dev_attr_out_voltage5_nco_frequency.dev_attr.attr,
+	&iio_dev_attr_out_voltage5_nco_phase.dev_attr.attr,
+	&iio_dev_attr_out_voltage5_nco_enable.dev_attr.attr,
+	&iio_dev_attr_out_voltage6_nco_frequency.dev_attr.attr, /* Main datapath */
+	&iio_dev_attr_out_voltage6_nco_phase.dev_attr.attr,
+	&iio_dev_attr_out_voltage6_nco_enable.dev_attr.attr,
+	&iio_dev_attr_out_voltage7_nco_frequency.dev_attr.attr,
+	&iio_dev_attr_out_voltage7_nco_phase.dev_attr.attr,
+	&iio_dev_attr_out_voltage7_nco_enable.dev_attr.attr,
+	NULL,
+};
+
+static struct attribute *ad9172_attributes_m2[] = {
+	&iio_dev_attr_out_voltage0_nco_frequency.dev_attr.attr,
+	&iio_dev_attr_out_voltage0_nco_phase.dev_attr.attr,
+	&iio_dev_attr_out_voltage0_nco_enable.dev_attr.attr,
+	&iio_dev_attr_out_voltage6_nco_frequency.dev_attr.attr, /* Main datapath */
+	&iio_dev_attr_out_voltage6_nco_phase.dev_attr.attr,
+	&iio_dev_attr_out_voltage6_nco_enable.dev_attr.attr,
+	NULL,
+};
+
+static struct attribute *ad9172_attributes_m4[] = {
+	&iio_dev_attr_out_voltage0_nco_frequency.dev_attr.attr,
+	&iio_dev_attr_out_voltage0_nco_phase.dev_attr.attr,
+	&iio_dev_attr_out_voltage0_nco_enable.dev_attr.attr,
+	&iio_dev_attr_out_voltage1_nco_frequency.dev_attr.attr,
+	&iio_dev_attr_out_voltage1_nco_phase.dev_attr.attr,
+	&iio_dev_attr_out_voltage1_nco_enable.dev_attr.attr,
+	&iio_dev_attr_out_voltage6_nco_frequency.dev_attr.attr, /* Main datapath */
+	&iio_dev_attr_out_voltage6_nco_phase.dev_attr.attr,
+	&iio_dev_attr_out_voltage6_nco_enable.dev_attr.attr,
+	NULL,
+};
+
+static struct attribute *ad9172_attributes_m6[] = {
+	&iio_dev_attr_out_voltage0_nco_frequency.dev_attr.attr,
+	&iio_dev_attr_out_voltage0_nco_phase.dev_attr.attr,
+	&iio_dev_attr_out_voltage0_nco_enable.dev_attr.attr,
+	&iio_dev_attr_out_voltage1_nco_frequency.dev_attr.attr,
+	&iio_dev_attr_out_voltage1_nco_phase.dev_attr.attr,
+	&iio_dev_attr_out_voltage1_nco_enable.dev_attr.attr,
+	&iio_dev_attr_out_voltage2_nco_frequency.dev_attr.attr,
+	&iio_dev_attr_out_voltage2_nco_phase.dev_attr.attr,
+	&iio_dev_attr_out_voltage2_nco_enable.dev_attr.attr,
+	&iio_dev_attr_out_voltage6_nco_frequency.dev_attr.attr, /* Main datapath */
+	&iio_dev_attr_out_voltage6_nco_phase.dev_attr.attr,
+	&iio_dev_attr_out_voltage6_nco_enable.dev_attr.attr,
+	NULL,
+};
+
+static const struct attribute_group ad9172_attribute_group_dual_m6 = {
+	.attrs = ad9172_attributes_dual_m6,
+};
+
+static const struct attribute_group ad9172_attribute_group_dual_m4 = {
+	.attrs = ad9172_attributes_dual_m4,
+};
+
+static const struct attribute_group ad9172_attribute_group_dual_m2 = {
+	.attrs = ad9172_attributes_dual_m2,
+};
+
+static const struct attribute_group ad9172_attribute_group_m6 = {
+	.attrs = ad9172_attributes_m6,
+};
+
+static const struct attribute_group ad9172_attribute_group_m4 = {
+	.attrs = ad9172_attributes_m4,
+};
+
+static const struct attribute_group ad9172_attribute_group_m2 = {
+	.attrs = ad9172_attributes_m2,
+};
+
+static int ad9172_parse_dt(struct spi_device *spi, struct ad9172_state *st)
+{
+	struct device_node *np = spi->dev.of_node;
+
+
+	st->dac_rate_khz = AD9172_SAMPLE_RATE_KHZ;
+	of_property_read_u32(np, "adi,dac-rate-khz", &st->dac_rate_khz);
+
+	st->jesd_link_mode = 10;
+	of_property_read_u32(np, "adi,jesd-link-mode", &st->jesd_link_mode);
+
+	st->jesd_subclass = 0;
+	of_property_read_u32(np, "adi,jesd-subclass", &st->jesd_subclass);
+
+	st->dac_interpolation = 1;
+	of_property_read_u32(np, "adi,dac-interpolation",
+			     &st->dac_interpolation);
+
+	st->channel_interpolation = 1;
+	of_property_read_u32(np, "adi,channel-interpolation",
+			     &st->channel_interpolation);
+
+	st->clock_output_config = 0;
+	of_property_read_u32(np, "adi,clock-output-divider",
+			     &st->clock_output_config);
+
+	if (of_property_read_bool(np, "adi,syncoutb-signal-type-lvds-enable"))
+		st->syncoutb_type = SIGNAL_LVDS;
+	else
+		st->syncoutb_type = SIGNAL_CMOS;
+
+
+	if (of_property_read_bool(np, "adi,sysref-coupling-dc-enable"))
+		st->sysref_coupling = COUPLING_DC;
+	else
+		st->sysref_coupling = COUPLING_AC;
+
+	return 0;
+}
 
 static int ad9172_probe(struct spi_device *spi)
 {
@@ -481,15 +852,18 @@ static int ad9172_probe(struct spi_device *spi)
 	if (IS_ERR(st->map))
 		return PTR_ERR(st->map);
 
+	ret = ad9172_parse_dt(spi, st);
+	if (ret < 0)
+		return ret;
+
 	conv->write = ad9172_write;
 	conv->read = ad9172_read;
 	conv->setup = ad9172_prepare;
 	conv->get_data_clk = ad9172_get_data_clk;
 	conv->write_raw = ad9172_write_raw;
 	conv->read_raw = ad9172_read_raw;
-	conv->attrs = &ad9172_attribute_group;
 	conv->spi = spi;
-	conv->id = ID_AD9172;
+	conv->id = ID_AD9172_M2;
 
 	ret = ad9172_get_clks(conv);
 	if (ret < 0) {
@@ -503,13 +877,47 @@ static int ad9172_probe(struct spi_device *spi)
 	st->dac_h.delay_us = delay_us;
 	st->dac_h.tx_en_pin_ctrl = NULL;
 	st->dac_h.reset_pin_ctrl = NULL;
-	st->dac_h.syncoutb = SIGNAL_LVDS;
-	st->dac_h.sysref = COUPLING_AC;
+	st->dac_h.syncoutb = st->syncoutb_type;
+	st->dac_h.sysref = st->sysref_coupling;
 
 	ret = ad9172_setup(st);
 	if (ret < 0) {
 		dev_err(&spi->dev, "Failed to setup device\n");
 		goto out;
+	}
+
+	if (st->interpolation == 1) {
+		conv->attrs = NULL;
+		conv->id = ID_AD9172_M2;
+	} else {
+		switch (st->appJesdConfig.jesd_M) {
+		case 2:
+			conv->id = ID_AD9172_M2;
+
+			if (st->jesd_dual_link_mode)
+				conv->attrs = &ad9172_attribute_group_dual_m2;
+			else
+				conv->attrs = &ad9172_attribute_group_m2;
+			break;
+		case 4:
+			conv->id = ID_AD9172_M4;
+
+			if (st->jesd_dual_link_mode)
+				conv->attrs = &ad9172_attribute_group_dual_m4;
+			else
+				conv->attrs = &ad9172_attribute_group_m4;
+			break;
+		case 6:
+			conv->id = ID_AD9172_M6;
+
+			if (st->jesd_dual_link_mode)
+				conv->attrs = &ad9172_attribute_group_dual_m6;
+			else
+				conv->attrs = &ad9172_attribute_group_m6;
+			break;
+		default:
+			return -EINVAL;
+		}
 	}
 
 	spi_set_drvdata(spi, conv);
