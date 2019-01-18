@@ -185,7 +185,7 @@ int ad917x_register_read_block(ad917x_handle_t *h,
 #define AD917X_CHNL_GAIN1_REG          0x147
 #define CHANNEL_GAIN0(x)               (uint8_t)((x) & 0xFF)
 #define CHANNEL_GAIN1(x)               (uint8_t)(((x) >> 8) & 0x0F)
-#define CHANNEL_GAIN(g0, g1)           (uint16_t)(((uint16_t)((g1) << 8) | (g0)) & 0x3FF)
+#define CHANNEL_GAIN(g0, g1)           (uint16_t)(((uint16_t)((g1) << 8) | (g0)) & 0xFFF)
 
 #define AD917X_DC_CAL_TONE0_REG          0x148
 #define AD917X_DC_CAL_TONE1_REG          0x149
