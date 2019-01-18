@@ -67,4 +67,285 @@ img_subsys: bus@58000000 {
 				     "img_jpeg_enc_lpcg_ipg_clk";
 		power-domains = <&pd IMX_SC_R_MJPEG_ENC_MP>;
 	};
+
+	img_lpcg: clock-controller@58500000 {
+		compatible = "fsl,imx8qxp-lpcg-img";
+		reg = <0x58500000 0xb0000>;
+		#clock-cells = <1>;
+	};
+
+	csi0_lpcg: clock-controller@58223000 {
+		compatible = "fsl,imx8qxp-lpcg-csi0";
+		reg = <0x58223000 0x1000>;
+		#clock-cells = <1>;
+		status = "disabled";
+	};
+
+	csi1_lpcg: clock-controller@58243000 {
+		compatible = "fsl,imx8qxp-lpcg-csi1";
+		reg = <0x58243000 0x1000>;
+		#clock-cells = <1>;
+		status = "disabled";
+	};
+
+	pi_lpcg: clock-controller@58263000 {
+		compatible = "fsl,imx8qxp-lpcg-pi";
+		reg = <0x58263000 0x1000>;
+		#clock-cells = <1>;
+		status = "disabled";
+	};
+
+	irqsteer_csi0: irqsteer@58220000 {
+		compatible = "fsl,imx-irqsteer";
+		reg = <0x58220000 0x1000>;
+		interrupts = <GIC_SPI 320 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-controller;
+		interrupt-parent = <&gic>;
+		#interrupt-cells = <1>;
+		clocks = <&clk IMX_CLK_DUMMY>;
+		clock-names = "ipg";
+		fsl,channel = <0>;
+		fsl,num-irqs = <32>;
+		power-domains = <&pd IMX_SC_R_CSI_0>, <&pd IMX_SC_R_ISI_CH0>;
+		power-domain-names = "pd_csi", "pd_isi_ch0";
+		status = "disabled";
+	};
+
+	irqsteer_csi1: irqsteer@58240000 {
+		compatible = "fsl,imx-irqsteer";
+		reg = <0x58240000 0x1000>;
+		interrupts = <GIC_SPI 321 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-controller;
+		interrupt-parent = <&gic>;
+		#interrupt-cells = <1>;
+		clocks = <&clk IMX_CLK_DUMMY>;
+		clock-names = "ipg";
+		fsl,channel = <0>;
+		fsl,num-irqs = <32>;
+		power-domains = <&pd IMX_SC_R_CSI_1>, <&pd IMX_SC_R_ISI_CH0>;
+		power-domain-names = "pd_csi", "pd_isi_ch0";
+		status = "disabled";
+	};
+
+	i2c_mipi_csi0: i2c@58226000 {
+		compatible = "fsl,imx8qxp-lpi2c", "fsl,imx7ulp-lpi2c";
+		reg = <0x58226000 0x1000>;
+		interrupts = <8>;
+		interrupt-parent = <&irqsteer_csi0>;
+		clocks = <&clk IMX_CSI0_I2C0_CLK>;
+		clock-names = "per";
+		assigned-clocks = <&clk IMX_CSI0_I2C0_CLK>;
+		assigned-clock-rates = <24000000>;
+		power-domains = <&pd IMX_SC_R_CSI_0_I2C_0>;
+		status = "disabled";
+	};
+
+	i2c_mipi_csi1: i2c@58246000 {
+		compatible = "fsl,imx8qxp-lpi2c", "fsl,imx7ulp-lpi2c";
+		reg = <0x58246000 0x1000>;
+		interrupts = <8>;
+		interrupt-parent = <&irqsteer_csi1>;
+		clocks = <&clk IMX_CSI1_I2C0_CLK>;
+		clock-names = "per";
+		assigned-clocks = <&clk IMX_CSI1_I2C0_CLK>;
+		assigned-clock-rates = <24000000>;
+		power-domains = <&pd IMX_SC_R_CSI_1_I2C_0>;
+		status = "disabled";
+	};
+
+	cameradev: camera {
+		compatible = "fsl,mxc-md", "simple-bus";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+
+		isi_0: isi@58100000 {
+			compatible = "fsl,imx8-isi";
+			reg = <0x58100000 0x10000>;
+			interrupts = <GIC_SPI 297 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-parent = <&gic>;
+			clocks = <&img_lpcg IMX_IMG_LPCG_PDMA0_CLK>;
+			clock-names = "per";
+			power-domains = <&pd IMX_SC_R_ISI_CH0>;
+			interface = <2 0 2>;
+			status = "disabled";
+
+			cap_device {
+				compatible = "imx-isi-capture";
+				status = "disabled";
+			};
+
+			m2m_device{
+				compatible = "imx-isi-m2m";
+				status = "disabled";
+			};
+		};
+
+		isi_1: isi@58110000 {
+			compatible = "fsl,imx8-isi";
+			reg = <0x58110000 0x10000>;
+			interrupts = <GIC_SPI 298 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-parent = <&gic>;
+			clocks = <&img_lpcg IMX_IMG_LPCG_PDMA1_CLK>;
+			clock-names = "per";
+			power-domains = <&pd IMX_SC_R_ISI_CH1>;
+			interface = <2 1 2>;
+			status = "disabled";
+
+			cap_device {
+				compatible = "imx-isi-capture";
+				status = "disabled";
+			};
+		};
+
+		isi_2: isi@58120000 {
+			compatible = "fsl,imx8-isi";
+			reg = <0x58120000 0x10000>;
+			interrupts = <GIC_SPI 299 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-parent = <&gic>;
+			clocks = <&img_lpcg IMX_IMG_LPCG_PDMA2_CLK>;
+			clock-names = "per";
+			power-domains = <&pd IMX_SC_R_ISI_CH2>;
+			interface = <2 2 2>;
+			status = "disabled";
+
+			cap_device {
+				compatible = "imx-isi-capture";
+				status = "disabled";
+			};
+		};
+
+		isi_3: isi@58130000 {
+			compatible = "fsl,imx8-isi";
+			reg = <0x58130000 0x10000>;
+			interrupts = <GIC_SPI 300 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-parent = <&gic>;
+			clocks = <&img_lpcg IMX_IMG_LPCG_PDMA3_CLK>;
+			clock-names = "per";
+			power-domains = <&pd IMX_SC_R_ISI_CH3>;
+			interface = <2 3 2>;
+			status = "disabled";
+
+			cap_device {
+				compatible = "imx-isi-capture";
+				status = "disabled";
+			};
+		};
+
+		isi_4: isi@58140000 {
+			compatible = "fsl,imx8-isi";
+			reg = <0x58140000 0x10000>;
+			interrupts = <GIC_SPI 301 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-parent = <&gic>;
+			clocks = <&img_lpcg IMX_IMG_LPCG_PDMA4_CLK>;
+			clock-names = "per";
+			power-domains = <&pd IMX_SC_R_ISI_CH4>;
+			interface = <3 0 2>;
+			status = "disabled";
+
+			cap_device {
+				compatible = "imx-isi-capture";
+				status = "disabled";
+			};
+		};
+
+		isi_5: isi@58150000 {
+			compatible = "fsl,imx8-isi";
+			reg = <0x58150000 0x10000>;
+			interrupts = <GIC_SPI 302 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-parent = <&gic>;
+			clocks = <&img_lpcg IMX_IMG_LPCG_PDMA5_CLK>;
+			clock-names = "per";
+			power-domains = <&pd IMX_SC_R_ISI_CH5>;
+			interface = <3 1 2>;
+			status = "disabled";
+
+			cap_device {
+				compatible = "imx-isi-capture";
+				status = "disabled";
+			};
+		};
+
+		isi_6: isi@58160000 {
+			compatible = "fsl,imx8-isi";
+			reg = <0x58160000 0x10000>;
+			interrupts = <GIC_SPI 303 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-parent = <&gic>;
+			clocks = <&img_lpcg IMX_IMG_LPCG_PDMA6_CLK>;
+			clock-names = "per";
+			power-domains = <&pd IMX_SC_R_ISI_CH6>;
+			interface = <3 2 2>;
+			status = "disabled";
+
+			cap_device {
+				compatible = "imx-isi-capture";
+				status = "disabled";
+			};
+		};
+
+		isi_7: isi@58170000 {
+			compatible = "fsl,imx8-isi";
+			reg = <0x58170000 0x10000>;
+			interrupts = <GIC_SPI 304 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-parent = <&gic>;
+			clocks = <&img_lpcg IMX_IMG_LPCG_PDMA7_CLK>;
+			clock-names = "per";
+			power-domains = <&pd IMX_SC_R_ISI_CH7>;
+			interface = <3 3 2>;
+			status = "disabled";
+
+			cap_device {
+				compatible = "imx-isi-capture";
+				status = "disabled";
+			};
+		};
+
+		mipi_csi_0: csi@58227000 {
+			compatible = "fsl,mxc-mipi-csi2";
+			reg = <0x58227000 0x1000>,
+			      <0x58221000 0x1000>;
+			clocks = <&csi0_lpcg IMX_CSI_LPCG_CSI0_CORE_CLK>,
+				 <&csi0_lpcg IMX_CSI_LPCG_CSI0_ESC_CLK>,
+				 <&img_lpcg IMX_IMG_LPCG_CSI0_PXL_LINK_CLK>;
+			clock-names = "clk_core", "clk_esc", "clk_pxl";
+			assigned-clocks = <&csi0_lpcg IMX_CSI_LPCG_CSI0_CORE_CLK>,
+					  <&csi0_lpcg IMX_CSI_LPCG_CSI0_ESC_CLK>;
+			assigned-clock-rates = <360000000>, <72000000>;
+			power-domains = <&pd IMX_SC_R_CSI_0>, <&pd IMX_SC_R_ISI_CH0>;
+			power-domain-names = "pd_csi", "pd_isi_ch0";
+			status = "disabled";
+		};
+
+		mipi_csi_1: csi@58247000{
+			compatible = "fsl,mxc-mipi-csi2";
+			reg = <0x58247000 0x1000>,
+			      <0x58241000 0x1000>;
+			clocks = <&csi1_lpcg IMX_CSI_LPCG_CSI1_CORE_CLK>,
+				 <&csi1_lpcg IMX_CSI_LPCG_CSI1_ESC_CLK>,
+				 <&img_lpcg IMX_IMG_LPCG_CSI1_PXL_LINK_CLK>;
+			clock-names = "clk_core", "clk_esc", "clk_pxl";
+			assigned-clocks = <&csi1_lpcg IMX_CSI_LPCG_CSI1_CORE_CLK>,
+					  <&csi1_lpcg IMX_CSI_LPCG_CSI1_ESC_CLK>;
+			assigned-clock-rates = <360000000>, <72000000>;
+			power-domains = <&pd IMX_SC_R_CSI_1>, <&pd IMX_SC_R_ISI_CH0>;
+			power-domain-names = "pd_csi", "pd_isi_ch0";
+			status = "disabled";
+		};
+
+		parallel_csi: pcsi@58261000 {
+			compatible = "fsl,mxc-parallel-csi";
+			reg = <0x58261000 0x1000>;
+			clocks = <&pi_lpcg IMX_PI_LPCG_PI0_PIXEL_CLK>,
+				 <&pi_lpcg IMX_PI_LPCG_PI0_IPG_CLK>,
+				 <&clk IMX_PARALLEL_PER_DIV_CLK>,
+				 <&clk IMX_PARALLEL_DPLL_CLK>;
+			clock-names = "pixel", "ipg", "div", "dpll";
+			assigned-clocks = <&clk IMX_PARALLEL_PER_DIV_CLK>;
+			assigned-clock-parents = <&clk IMX_PARALLEL_DPLL_CLK>;
+			assigned-clock-rates = <160000000>;  /* 160MHz */
+			power-domains = <&pd IMX_SC_R_PI_0>, <&pd IMX_SC_R_ISI_CH0>;
+			power-domain-names = "pd_pi", "pd_isi_ch0";
+			status = "disabled";
+		};
+	};
 };
