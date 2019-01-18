@@ -790,6 +790,9 @@ int ad917x_nco_set(ad917x_handle_t *h,
 	      (carrier_freq_hz < (int64_t)(h->dac_freq_hz / 2))))
 		return API_ERROR_INVALID_PARAM;
 
+	if (carrier_freq_hz == 0)
+		return API_ERROR_INVALID_PARAM;
+
 	tmp_freq = carrier_freq_hz;
 	while (tmp_freq <= h->dac_freq_hz) {
 		if ((tmp_freq) == h->dac_freq_hz) {
