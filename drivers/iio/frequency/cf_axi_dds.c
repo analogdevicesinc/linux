@@ -474,6 +474,15 @@ static int cf_axi_dds_read_raw(struct iio_dev *indio_dev,
 		mutex_unlock(&indio_dev->mlock);
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_SCALE:
+		if (chan->type == IIO_VOLTAGE) {
+			if (!st->standalone) {
+				conv = to_converter(st->dev_spi);
+				ret = conv->read_raw(indio_dev, chan, val, val2, m);
+				mutex_unlock(&indio_dev->mlock);
+				return ret;
+			}
+		}
+
 		reg = ADI_TO_DDS_SCALE(dds_read(st, ADI_REG_CHAN_CNTRL_1_IIOCHAN(chan->channel)));
 		if (PCORE_VERSION_MAJOR(st->version) > 6) {
 			cf_axi_dds_signed_mag_fmt_to_iio(reg, val, val2);
@@ -580,6 +589,15 @@ static int cf_axi_dds_write_raw(struct iio_dev *indio_dev,
 
 		break;
 	case IIO_CHAN_INFO_SCALE:
+		if (chan->type == IIO_VOLTAGE) {
+			if (!st->standalone) {
+				if (!IS_ERR(conv))
+					ret = conv->write_raw(indio_dev, chan, val, val2, mask);
+				mutex_unlock(&indio_dev->mlock);
+				return ret;
+			}
+		}
+
 		if (PCORE_VERSION_MAJOR(st->version) > 6) {
 			/*  format is 1.1.14 (sign, integer and fractional bits) */
 			switch (val) {
@@ -829,6 +847,7 @@ static void cf_axi_dds_update_chan_spec(struct cf_axi_dds_state *st,
 		}
 	}
 }
+
 
 #define CF_AXI_DDS_CHAN(_chan, _address, _extend_name) { \
 	.type = IIO_ALTVOLTAGE,	\
