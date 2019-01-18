@@ -971,7 +971,8 @@ static int ad9528_setup(struct iio_dev *indio_dev)
 		AD_IF(refa_cmos_neg_inp_en, AD9528_PLL1_REFA_CMOS_NEG_INP_EN) |
 		AD_IF(refb_cmos_neg_inp_en, AD9528_PLL1_REFB_CMOS_NEG_INP_EN) |
 		AD_IF(pll1_feedback_src_vcxo, AD9528_PLL1_SOURCE_VCXO) |
-		AD9528_PLL1_REF_MODE(pdata->ref_mode));
+		AD9528_PLL1_REF_MODE(pdata->ref_mode) |
+		AD9528_PLL1_OSC_CTRL_FAIL_VCC_BY2_EN);
 	if (ret < 0)
 		return ret;
 
@@ -1244,17 +1245,27 @@ static struct ad9528_platform_data *ad9528_parse_dt(struct device *dev)
 	tmp = 1;
 	of_property_read_u32(np, "adi,refb-r-div", &tmp);
 	pdata->refb_r_div = tmp;
+
+	tmp = 1;
 	of_property_read_u32(np, "adi,pll1-feedback-div", &tmp);
 	pdata->pll1_feedback_div = tmp;
+
+	tmp = 1;
 	of_property_read_u32(np, "adi,pll1-feedback-src-vcxo", &tmp);
 	pdata->pll1_feedback_src_vcxo = tmp;
+
+	tmp = 5000;
 	of_property_read_u32(np, "adi,pll1-charge-pump-current-nA", &tmp);
 	pdata->pll1_charge_pump_current_nA = tmp;
+
 	pdata->pll1_bypass_en = of_property_read_bool(np, "adi,pll1-bypass-enable");
 
 	/* Reference */
+	tmp = REF_MODE_EXT_REF;
 	of_property_read_u32(np, "adi,ref-mode", &tmp);
 	pdata->ref_mode = tmp;
+
+	tmp = SYSREF_SRC_INTERNAL;
 	of_property_read_u32(np, "adi,sysref-src", &tmp);
 	pdata->sysref_src = tmp;
 
@@ -1262,6 +1273,7 @@ static struct ad9528_platform_data *ad9528_parse_dt(struct device *dev)
 	of_property_read_u32(np, "adi,sysref-pattern-mode", &tmp);
 	pdata->sysref_pattern_mode = tmp;
 
+	tmp = 512;
 	of_property_read_u32(np, "adi,sysref-k-div", &tmp);
 	pdata->sysref_k_div = tmp;
 
@@ -1302,10 +1314,15 @@ static struct ad9528_platform_data *ad9528_parse_dt(struct device *dev)
 
 	/* Loop Filter PLL2 */
 
+	tmp = RPOLE2_900_OHM;
 	of_property_read_u32(np, "adi,rpole2", &tmp);
 	pdata->rpole2 = tmp;
+
+	tmp = RZERO_1850_OHM;
 	of_property_read_u32(np, "adi,rzero", &tmp);
 	pdata->rzero = tmp;
+
+	tmp = CPOLE1_16_PF;
 	of_property_read_u32(np, "adi,cpole1", &tmp);
 	pdata->cpole1 = tmp;
 
