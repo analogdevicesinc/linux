@@ -15,6 +15,7 @@
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
 #include <linux/spinlock.h>
+#include <linux/pm_domain.h>
 
 #define CTRL_STRIDE_OFF(_t, _r)	(_t * 4 * _r)
 #define CHANCTRL		0x0
@@ -37,12 +38,54 @@ struct irqsteer_data {
 	struct irq_domain	*domain;
 	u32			*saved_reg;
 	struct device		*dev;
+	struct device		*pd_csi;
+	struct device		*pd_isi;
 };
 
 static int imx_irqsteer_get_reg_index(struct irqsteer_data *data,
 				      unsigned long irqnum)
 {
 	return (data->reg_num - irqnum / 32 - 1);
+}
+
+static int imx_irqsteer_attach_pd(struct irqsteer_data *data)
+{
+	struct device *dev = data->dev;
+	struct device_link *link;
+
+	data->pd_csi = dev_pm_domain_attach_by_name(dev, "pd_csi");
+	if (IS_ERR(data->pd_csi )) {
+		if (PTR_ERR(data->pd_csi) != -EPROBE_DEFER)
+			return PTR_ERR(data->pd_csi);
+		else
+			return PTR_ERR(data->pd_csi);
+	} else if (!data->pd_csi) {
+		return 0;
+	}
+	link = device_link_add(dev, data->pd_csi,
+			DL_FLAG_STATELESS |
+			DL_FLAG_PM_RUNTIME |
+			DL_FLAG_RPM_ACTIVE);
+	if (IS_ERR(link))
+		return PTR_ERR(link);
+
+	data->pd_isi = dev_pm_domain_attach_by_name(dev, "pd_isi_ch0");
+	if (IS_ERR(data->pd_isi)) {
+		if (PTR_ERR(data->pd_isi) != -EPROBE_DEFER)
+			return PTR_ERR(data->pd_isi);
+		else
+			return PTR_ERR(data->pd_isi);
+	} else if (!data->pd_isi) {
+		return 0;
+	}
+	link = device_link_add(dev, data->pd_isi,
+			DL_FLAG_STATELESS |
+			DL_FLAG_PM_RUNTIME |
+			DL_FLAG_RPM_ACTIVE);
+	if (IS_ERR(link))
+		return PTR_ERR(link);
+
+	return 0;
 }
 
 static void imx_irqsteer_irq_unmask(struct irq_data *d)
@@ -178,6 +221,10 @@ static int imx_irqsteer_probe(struct platform_device *pdev)
 	if (IS_ERR(data->ipg_clk))
 		return dev_err_probe(&pdev->dev, PTR_ERR(data->ipg_clk),
 				     "failed to get ipg clk\n");
+
+	ret = imx_irqsteer_attach_pd(data);
+	if (ret < 0 && ret == -EPROBE_DEFER)
+		return ret;
 
 	raw_spin_lock_init(&data->lock);
 
