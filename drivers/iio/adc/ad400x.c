@@ -160,7 +160,8 @@ static int ad400x_set_mode(struct ad400x_state *st)
 		.type = IIO_VOLTAGE,					\
 		.indexed = 1,						\
 		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |		\
-			BIT(IIO_CHAN_INFO_SCALE),			\
+			BIT(IIO_CHAN_INFO_SCALE) |			\
+			BIT(IIO_CHAN_INFO_OFFSET),			\
 		.info_mask_shared_by_all = BIT(IIO_CHAN_INFO_SAMP_FREQ),\
 		.scan_type = {						\
 			.sign = 's',					\
@@ -230,6 +231,12 @@ static int ad400x_read_raw(struct iio_dev *indio_dev,
 		*val = 1800000;
 
 		return IIO_VAL_INT;
+	case IIO_CHAN_INFO_OFFSET:
+		*val = -(1 << chan->scan_type.realbits);
+
+		return IIO_VAL_INT;
+	default:
+		break;
 	}
 
 	return -EINVAL;
