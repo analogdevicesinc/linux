@@ -35,6 +35,8 @@
 		i2c1 = &i2c1;
 		i2c2 = &i2c2;
 		i2c3 = &i2c3;
+		ldb0 = &ldb1;
+		ldb1 = &ldb2;
 		mmc0 = &usdhc1;
 		mmc1 = &usdhc2;
 		mmc2 = &usdhc3;
@@ -374,6 +376,7 @@
 	#include "imx8-ss-img.dtsi"
 	#include "imx8-ss-vpu.dtsi"
 	#include "imx8-ss-dc.dtsi"
+	#include "imx8-ss-lvds.dtsi"
 	#include "imx8-ss-adma.dtsi"
 	#include "imx8-ss-conn.dtsi"
 	#include "imx8-ss-ddr.dtsi"

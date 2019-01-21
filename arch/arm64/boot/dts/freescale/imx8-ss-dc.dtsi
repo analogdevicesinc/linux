@@ -117,9 +117,11 @@ dc_subsys: bus@56000000 {
 			reg = <0>;
 
 			dpu_disp0_lvds0_ch0: endpoint@0 {
+				remote-endpoint = <&ldb1_ch0>;
 			};
 
 			dpu_disp0_lvds0_ch1: endpoint@1 {
+				remote-endpoint = <&ldb1_ch1>;
 			};
 
 			dpu_disp0_mipi_dsi: endpoint@2 {
@@ -130,9 +132,11 @@ dc_subsys: bus@56000000 {
 			reg = <1>;
 
 			dpu_disp1_lvds1_ch0: endpoint@0 {
+				remote-endpoint = <&ldb2_ch0>;
 			};
 
 			dpu_disp1_lvds1_ch1: endpoint@1 {
+				remote-endpoint = <&ldb2_ch1>;
 			};
 
 			dpu_disp1_mipi_dsi: endpoint@2 {
