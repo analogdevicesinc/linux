@@ -54,8 +54,6 @@ struct ad9172_state {
 	ad917x_handle_t dac_h;
 	jesd_param_t appJesdConfig;
 
-	bool complex_mode;
-	bool iq_swap;
 	u32 dac_rate_khz;
 	u32 dac_interpolation;
 	u32 channel_interpolation;
@@ -77,17 +75,17 @@ static const char * const clk_names[] = {
 	[CLK_REF] = "dac_sysref"
 };
 
-static int ad9172_read(struct spi_device *spi, unsigned reg)
+static int ad9172_read(struct spi_device *spi, u32 reg)
 {
 	struct cf_axi_converter *conv = spi_get_drvdata(spi);
 	struct ad9172_state *st = container_of(conv, struct ad9172_state, conv);
-	unsigned int val;
+	u32 val;
 	int ret = regmap_read(st->map, reg, &val);
 
 	return ret < 0 ? ret : val;
 }
 
-static int ad9172_write(struct spi_device *spi, unsigned reg, unsigned val)
+static int ad9172_write(struct spi_device *spi, u32 reg, u32 val)
 {
 	struct cf_axi_converter *conv = spi_get_drvdata(spi);
 	struct ad9172_state *st = container_of(conv, struct ad9172_state, conv);
@@ -109,7 +107,7 @@ static int ad9172_setup(struct ad9172_state *st)
 {
 	struct regmap *map = st->map;
 	struct device *dev = regmap_get_device(map);
-	uint8_t revision[3] = {0,0,0};
+	uint8_t revision[3] = {0, 0, 0};
 	adi_chip_id_t dac_chip_id;
 	uint8_t pll_lock_status = 0, dll_lock_stat = 0;
 	int ret;
@@ -142,24 +140,27 @@ static int ad9172_setup(struct ad9172_state *st)
 		return ret;
 	}
 
-	ret = ad917x_get_revision(ad917x_h, &revision[0], &revision[1], &revision[2]);
+	ret = ad917x_get_revision(ad917x_h, &revision[0], &revision[1],
+				  &revision[2]);
 	if (ret != 0)
 		return ret;
 
 	dev_info(dev, "AD916x DAC Chip ID: %d\n", dac_chip_id.chip_type);
 	dev_info(dev, "AD916x DAC Product ID: %x\n", dac_chip_id.prod_id);
 	dev_info(dev, "AD916x DAC Product Grade: %d\n", dac_chip_id.prod_grade);
-	dev_info(dev, "AD916x DAC Product Revision: %d\n", dac_chip_id.dev_revision);
-	dev_info(dev, "AD916x Revision: %d.%d.%d\n", revision[0], revision[1], revision[2]);
+	dev_info(dev, "AD916x DAC Product Revision: %d\n",
+		 dac_chip_id.dev_revision);
+	dev_info(dev, "AD916x Revision: %d.%d.%d\n",
+		 revision[0], revision[1], revision[2]);
 
 	dac_clkin_Hz = clk_get_rate(st->conv.clk[CLK_DAC]);
-
 
 	dev_info(dev, "PLL Input rate %lu\n", dac_clkin_Hz);
 
 	pll_mult = DIV_ROUND_CLOSEST(st->dac_rate_khz, dac_clkin_Hz / 1000);
 
-	ret = ad917x_set_dac_clk(ad917x_h, dac_clkin_Hz * pll_mult, 1, dac_clkin_Hz);
+	ret = ad917x_set_dac_clk(ad917x_h, dac_clkin_Hz * pll_mult,
+				 1, dac_clkin_Hz);
 	if (ret != 0) {
 		dev_err(dev, "ad917x_set_dac_clk failed (%d)\n", ret);
 		return ret;
@@ -179,9 +180,11 @@ static int ad9172_setup(struct ad9172_state *st)
 
 	if (st->clock_output_config) {
 		/* DEBUG: route DAC clock to output, so we can meassure it */
-		ret = ad917x_set_clkout_config(ad917x_h, st->clock_output_config);
+		ret = ad917x_set_clkout_config(ad917x_h,
+					       st->clock_output_config);
 		if (ret != 0) {
-			dev_err(dev, "ad917x_set_clkout_config failed (%d)\n", ret);
+			dev_err(dev, "ad917x_set_clkout_config failed (%d)\n",
+				ret);
 			return ret;
 		}
 	}
@@ -202,7 +205,8 @@ static int ad9172_setup(struct ad9172_state *st)
 
 	ret = ad917x_jesd_set_scrambler_enable(ad917x_h, 1);
 	if (ret != 0) {
-		dev_err(dev, "ad917x_jesd_set_scrambler_enable failed (%d)\n", ret);
+		dev_err(dev, "ad917x_jesd_set_scrambler_enable failed (%d)\n",
+			ret);
 		return ret;
 	}
 
@@ -214,7 +218,8 @@ static int ad9172_setup(struct ad9172_state *st)
 
 	ret = ad917x_jesd_set_syncoutb_enable(ad917x_h, SYNCOUTB_0, 1);
 	if (ret != 0) {
-		dev_err(dev, "ad917x_jesd_set_syncoutb_enable failed (%d)\n", ret);
+		dev_err(dev, "ad917x_jesd_set_syncoutb_enable failed (%d)\n",
+			ret);
 		return ret;
 	}
 
@@ -262,15 +267,19 @@ static int ad9172_setup(struct ad9172_state *st)
 
 	ret = ad917x_jesd_get_link_status(ad917x_h, JESD_LINK_0, &link_status);
 	if (ret != 0) {
-		dev_err(dev, "DAC:MODE:JESD: ERROR : Get Link status failed \r\n");
+		dev_err(dev,
+			"DAC:MODE:JESD: ERROR : Get Link status failed \r\n");
 		return -EIO;
 	}
 
-	dev_info(dev, "code_grp_sync: %x \n", link_status.code_grp_sync_stat);
-	dev_info(dev, "frame_sync_stat: %x \n", link_status.frame_sync_stat);
-	dev_info(dev, "good_checksum_stat: %x \n", link_status.good_checksum_stat);
-	dev_info(dev, "init_lane_sync_stat: %x \n", link_status.init_lane_sync_stat);
-	dev_info(dev, "%d lanes @ %lu kBps\n", st->appJesdConfig.jesd_L, lane_rate_kHz);
+	dev_info(dev, "code_grp_sync: %x\n", link_status.code_grp_sync_stat);
+	dev_info(dev, "frame_sync_stat: %x\n", link_status.frame_sync_stat);
+	dev_info(dev, "good_checksum_stat: %x\n",
+		 link_status.good_checksum_stat);
+	dev_info(dev, "init_lane_sync_stat: %x\n",
+		 link_status.init_lane_sync_stat);
+	dev_info(dev, "%d lanes @ %lu kBps\n",
+		 st->appJesdConfig.jesd_L, lane_rate_kHz);
 
 
 	if (st->jesd_dual_link_mode || st->interpolation == 1)
@@ -287,7 +296,6 @@ static int ad9172_setup(struct ad9172_state *st)
 		st->nco_main_enable = dac_mask;
 
 		ad917x_nco_enable(ad917x_h, st->nco_main_enable, 0);
-
 	}
 
 	ret = ad917x_set_page_idx(ad917x_h, dac_mask, AD917X_CH_NONE);
@@ -318,7 +326,8 @@ static int ad9172_get_clks(struct cf_axi_converter *conv)
 				return ret;
 		}
 
-		of_clk_get_scale(conv->spi->dev.of_node, clk_names[i], &conv->clkscale[i]);
+		of_clk_get_scale(conv->spi->dev.of_node,
+				 clk_names[i], &conv->clkscale[i]);
 		conv->clk[i] = clk;
 	}
 
@@ -340,7 +349,8 @@ static int ad9172_read_raw(struct iio_dev *indio_dev,
 		*val = ad9172_get_data_clk(conv);
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_SCALE:
-		ret = ad917x_set_page_idx(ad917x_h, AD917X_DAC_NONE, BIT(chan->channel));
+		ret = ad917x_set_page_idx(ad917x_h,
+					  AD917X_DAC_NONE, BIT(chan->channel));
 		if (ret < 0)
 			return ret;
 		ret = ad917x_get_channel_gain(ad917x_h, &val16);
@@ -366,8 +376,10 @@ static int ad9172_write_raw(struct iio_dev *indio_dev,
 
 	switch (mask) {
 	case IIO_CHAN_INFO_SCALE:
-		val16 = clamp_t(u16, val * 2048 + (val2 * 2048 / 1000000), 0, 4095);
-		ret = ad917x_set_page_idx(ad917x_h, AD917X_DAC_NONE, BIT(chan->channel));
+		val16 = clamp_t(u16, val * 2048 + (val2 * 2048 / 1000000),
+				0, 4095);
+		ret = ad917x_set_page_idx(ad917x_h,
+					  AD917X_DAC_NONE, BIT(chan->channel));
 		if (ret < 0)
 			return ret;
 		ret = ad917x_set_channel_gain(ad917x_h, val16);
@@ -390,7 +402,6 @@ static const struct regmap_config ad9172_regmap_config = {
 	.reg_bits = 16,
 	.val_bits = 8,
 	.read_flag_mask = 0x80,
-	/* TODO: Add volatile/writeable registers tables */
 	.cache_type = REGCACHE_NONE,
 };
 
@@ -400,7 +411,8 @@ static int delay_us(void *user_data, unsigned int us)
 	return 0;
 }
 
-static int ad9172_spi_xfer(void *user_data, uint8_t *wbuf, uint8_t *rbuf, int len)
+static int ad9172_spi_xfer(void *user_data, uint8_t *wbuf,
+			   uint8_t *rbuf, int len)
 {
 	struct spi_device *spi = user_data;
 
@@ -422,11 +434,12 @@ static ssize_t ad9172_attr_store(struct device *dev,
 	struct cf_axi_converter *conv = iio_device_get_drvdata(indio_dev);
 	struct ad9172_state *st = container_of(conv, struct ad9172_state, conv);
 	ad917x_handle_t *ad917x_h = &st->dac_h;
-	unsigned long long readin;
+	long long readin;
 	u32 dest = (u32)this_attr->address & 0xFF;
 	int ret;
+	s16 val16;
 
-	ret = kstrtoull(buf, 10, &readin);
+	ret = kstrtoll(buf, 10, &readin);
 	if (ret)
 		return ret;
 
@@ -439,8 +452,9 @@ static ssize_t ad9172_attr_store(struct device *dev,
 		st->nco_channel_enable |= BIT(dest);
 		break;
 	case AD9172_ATTR_CHAN_PHASE(0):
+		val16 = div_s64(readin * 32768, 180000);
 		ret = ad917x_nco_set_phase_offset(ad917x_h, AD917X_DAC_NONE, 0,
-						  BIT(dest), readin);
+						  BIT(dest), val16);
 		break;
 	case AD9172_ATTR_MAIN_NCO(0):
 		ret = ad917x_nco_set(ad917x_h, BIT(dest), AD917X_CH_NONE,
@@ -448,8 +462,9 @@ static ssize_t ad9172_attr_store(struct device *dev,
 		st->nco_main_enable |= BIT(dest);
 		break;
 	case AD9172_ATTR_MAIN_PHASE(0):
-		ret = ad917x_nco_set_phase_offset(ad917x_h, BIT(dest), 0,
-						  AD917X_CH_NONE, readin);
+		val16 = div_s64(readin * 32768, 180000);
+		ret = ad917x_nco_set_phase_offset(ad917x_h, BIT(dest), val16,
+						  AD917X_CH_NONE, 0);
 		break;
 	case AD9172_ATTR_CHAN_NCO_EN(0):
 		if (readin)
@@ -489,8 +504,8 @@ static ssize_t ad9172_attr_show(struct device *dev,
 	ad917x_handle_t *ad917x_h = &st->dac_h;
 	u32 dest = (u32)this_attr->address & 0xFF;
 	int ret = 0;
-	u64 val64 = 0;
-	u16 val16_2, val16 = 0;
+	s64 val64 = 0;
+	s16 val16_2, val16 = 0;
 
 	mutex_lock(&indio_dev->mlock);
 	switch ((u32)this_attr->address & ~0xFF) {
@@ -499,9 +514,10 @@ static ssize_t ad9172_attr_show(struct device *dev,
 						  &val64);
 		break;
 	case AD9172_ATTR_CHAN_PHASE(0):
-		ret = ad917x_nco_get_phase_offset(ad917x_h, AD917X_DAC_NONE, &val16_2,
+		ret = ad917x_nco_get_phase_offset(ad917x_h,
+						  AD917X_DAC_NONE, &val16_2,
 						  BIT(dest), &val16);
-		val64 = val16;
+		val64 = div_s64(val16 * 180000, 32768);
 		break;
 	case AD9172_ATTR_MAIN_NCO(0):
 		ret = ad917x_nco_main_freq_get(ad917x_h, BIT(dest),
@@ -510,7 +526,7 @@ static ssize_t ad9172_attr_show(struct device *dev,
 	case AD9172_ATTR_MAIN_PHASE(0):
 		ret = ad917x_nco_get_phase_offset(ad917x_h, BIT(dest), &val16,
 						  AD917X_CH_NONE, &val16_2);
-		val64 = val16;
+		val64 = div_s64(val16 * 180000, 32768);
 		break;
 	case AD9172_ATTR_CHAN_NCO_EN(0):
 		val64 = !!(st->nco_channel_enable & BIT(dest));
@@ -525,130 +541,127 @@ static ssize_t ad9172_attr_show(struct device *dev,
 	mutex_unlock(&indio_dev->mlock);
 
 	if (ret >= 0)
-		ret = sprintf(buf, "%llu\n", val64);
+		ret = sprintf(buf, "%lld\n", val64);
 
 	return ret;
 }
 
-static IIO_DEVICE_ATTR(out_voltage0_nco_frequency, S_IRUGO | S_IWUSR,
+static IIO_DEVICE_ATTR(out_voltage0_nco_frequency, 0644,
 		       ad9172_attr_show,
 		       ad9172_attr_store,
 		       AD9172_ATTR_CHAN_NCO(0));
 
-static IIO_DEVICE_ATTR(out_voltage1_nco_frequency, S_IRUGO | S_IWUSR,
+static IIO_DEVICE_ATTR(out_voltage1_nco_frequency, 0644,
 		       ad9172_attr_show,
 		       ad9172_attr_store,
 		       AD9172_ATTR_CHAN_NCO(1));
 
-static IIO_DEVICE_ATTR(out_voltage2_nco_frequency, S_IRUGO | S_IWUSR,
+static IIO_DEVICE_ATTR(out_voltage2_nco_frequency, 0644,
 		       ad9172_attr_show,
 		       ad9172_attr_store,
 		       AD9172_ATTR_CHAN_NCO(2));
 
-static IIO_DEVICE_ATTR(out_voltage3_nco_frequency, S_IRUGO | S_IWUSR,
+static IIO_DEVICE_ATTR(out_voltage3_nco_frequency, 0644,
 		       ad9172_attr_show,
 		       ad9172_attr_store,
 		       AD9172_ATTR_CHAN_NCO(3));
 
-static IIO_DEVICE_ATTR(out_voltage4_nco_frequency, S_IRUGO | S_IWUSR,
+static IIO_DEVICE_ATTR(out_voltage4_nco_frequency, 0644,
 		       ad9172_attr_show,
 		       ad9172_attr_store,
 		       AD9172_ATTR_CHAN_NCO(4));
 
-static IIO_DEVICE_ATTR(out_voltage5_nco_frequency, S_IRUGO | S_IWUSR,
+static IIO_DEVICE_ATTR(out_voltage5_nco_frequency, 0644,
 		       ad9172_attr_show,
 		       ad9172_attr_store,
 		       AD9172_ATTR_CHAN_NCO(5));
 
-static IIO_DEVICE_ATTR(out_voltage6_nco_frequency, S_IRUGO | S_IWUSR,
+static IIO_DEVICE_ATTR(out_voltage6_nco_frequency, 0644,
 		       ad9172_attr_show,
 		       ad9172_attr_store,
 		       AD9172_ATTR_MAIN_NCO(0));
 
-static IIO_DEVICE_ATTR(out_voltage7_nco_frequency, S_IRUGO | S_IWUSR,
+static IIO_DEVICE_ATTR(out_voltage7_nco_frequency, 0644,
 		       ad9172_attr_show,
 		       ad9172_attr_store,
 		       AD9172_ATTR_MAIN_NCO(1));
 
-
-static IIO_DEVICE_ATTR(out_voltage0_nco_enable, S_IRUGO | S_IWUSR,
+static IIO_DEVICE_ATTR(out_voltage0_nco_enable, 0644,
 		       ad9172_attr_show,
 		       ad9172_attr_store,
 		       AD9172_ATTR_CHAN_NCO_EN(0));
 
-static IIO_DEVICE_ATTR(out_voltage1_nco_enable, S_IRUGO | S_IWUSR,
+static IIO_DEVICE_ATTR(out_voltage1_nco_enable, 0644,
 		       ad9172_attr_show,
 		       ad9172_attr_store,
 		       AD9172_ATTR_CHAN_NCO_EN(1));
 
-static IIO_DEVICE_ATTR(out_voltage2_nco_enable, S_IRUGO | S_IWUSR,
+static IIO_DEVICE_ATTR(out_voltage2_nco_enable, 0644,
 		       ad9172_attr_show,
 		       ad9172_attr_store,
 		       AD9172_ATTR_CHAN_NCO_EN(2));
 
-static IIO_DEVICE_ATTR(out_voltage3_nco_enable, S_IRUGO | S_IWUSR,
+static IIO_DEVICE_ATTR(out_voltage3_nco_enable, 0644,
 		       ad9172_attr_show,
 		       ad9172_attr_store,
 		       AD9172_ATTR_CHAN_NCO_EN(3));
 
-static IIO_DEVICE_ATTR(out_voltage4_nco_enable, S_IRUGO | S_IWUSR,
+static IIO_DEVICE_ATTR(out_voltage4_nco_enable, 0644,
 		       ad9172_attr_show,
 		       ad9172_attr_store,
 		       AD9172_ATTR_CHAN_NCO_EN(4));
 
-static IIO_DEVICE_ATTR(out_voltage5_nco_enable, S_IRUGO | S_IWUSR,
+static IIO_DEVICE_ATTR(out_voltage5_nco_enable, 0644,
 		       ad9172_attr_show,
 		       ad9172_attr_store,
 		       AD9172_ATTR_CHAN_NCO_EN(5));
 
-static IIO_DEVICE_ATTR(out_voltage6_nco_enable, S_IRUGO | S_IWUSR,
+static IIO_DEVICE_ATTR(out_voltage6_nco_enable, 0644,
 		       ad9172_attr_show,
 		       ad9172_attr_store,
 		       AD9172_ATTR_MAIN_NCO_EN(0));
 
-static IIO_DEVICE_ATTR(out_voltage7_nco_enable, S_IRUGO | S_IWUSR,
+static IIO_DEVICE_ATTR(out_voltage7_nco_enable, 0644,
 		       ad9172_attr_show,
 		       ad9172_attr_store,
 		       AD9172_ATTR_MAIN_NCO_EN(1));
 
-
-static IIO_DEVICE_ATTR(out_voltage0_nco_phase, S_IRUGO | S_IWUSR,
+static IIO_DEVICE_ATTR(out_voltage0_nco_phase, 0644,
 		       ad9172_attr_show,
 		       ad9172_attr_store,
 		       AD9172_ATTR_CHAN_PHASE(0));
 
-static IIO_DEVICE_ATTR(out_voltage1_nco_phase, S_IRUGO | S_IWUSR,
+static IIO_DEVICE_ATTR(out_voltage1_nco_phase, 0644,
 		       ad9172_attr_show,
 		       ad9172_attr_store,
 		       AD9172_ATTR_CHAN_PHASE(1));
 
-static IIO_DEVICE_ATTR(out_voltage2_nco_phase, S_IRUGO | S_IWUSR,
+static IIO_DEVICE_ATTR(out_voltage2_nco_phase, 0644,
 		       ad9172_attr_show,
 		       ad9172_attr_store,
 		       AD9172_ATTR_CHAN_PHASE(2));
 
-static IIO_DEVICE_ATTR(out_voltage3_nco_phase, S_IRUGO | S_IWUSR,
+static IIO_DEVICE_ATTR(out_voltage3_nco_phase, 0644,
 		       ad9172_attr_show,
 		       ad9172_attr_store,
 		       AD9172_ATTR_CHAN_PHASE(3));
 
-static IIO_DEVICE_ATTR(out_voltage4_nco_phase, S_IRUGO | S_IWUSR,
+static IIO_DEVICE_ATTR(out_voltage4_nco_phase, 0644,
 		       ad9172_attr_show,
 		       ad9172_attr_store,
 		       AD9172_ATTR_CHAN_PHASE(4));
 
-static IIO_DEVICE_ATTR(out_voltage5_nco_phase, S_IRUGO | S_IWUSR,
+static IIO_DEVICE_ATTR(out_voltage5_nco_phase, 0644,
 		       ad9172_attr_show,
 		       ad9172_attr_store,
 		       AD9172_ATTR_CHAN_PHASE(5));
 
-
-static IIO_DEVICE_ATTR(out_voltage6_nco_phase, S_IRUGO | S_IWUSR,
+static IIO_DEVICE_ATTR(out_voltage6_nco_phase, 0644,
 		       ad9172_attr_show,
 		       ad9172_attr_store,
 		       AD9172_ATTR_MAIN_PHASE(0));
 
-static IIO_DEVICE_ATTR(out_voltage7_nco_phase, S_IRUGO | S_IWUSR,
+static IIO_DEVICE_ATTR(out_voltage7_nco_phase, 0644,
 		       ad9172_attr_show,
 		       ad9172_attr_store,
 		       AD9172_ATTR_MAIN_PHASE(1));
@@ -660,7 +673,7 @@ static struct attribute *ad9172_attributes_dual_m2[] = {
 	&iio_dev_attr_out_voltage3_nco_frequency.dev_attr.attr,
 	&iio_dev_attr_out_voltage3_nco_phase.dev_attr.attr,
 	&iio_dev_attr_out_voltage3_nco_enable.dev_attr.attr,
-	&iio_dev_attr_out_voltage6_nco_frequency.dev_attr.attr, /* Main datapath */
+	&iio_dev_attr_out_voltage6_nco_frequency.dev_attr.attr,
 	&iio_dev_attr_out_voltage6_nco_phase.dev_attr.attr,
 	&iio_dev_attr_out_voltage6_nco_enable.dev_attr.attr,
 	&iio_dev_attr_out_voltage7_nco_frequency.dev_attr.attr,
@@ -682,7 +695,7 @@ static struct attribute *ad9172_attributes_dual_m4[] = {
 	&iio_dev_attr_out_voltage4_nco_frequency.dev_attr.attr,
 	&iio_dev_attr_out_voltage4_nco_phase.dev_attr.attr,
 	&iio_dev_attr_out_voltage4_nco_enable.dev_attr.attr,
-	&iio_dev_attr_out_voltage6_nco_frequency.dev_attr.attr, /* Main datapath */
+	&iio_dev_attr_out_voltage6_nco_frequency.dev_attr.attr,
 	&iio_dev_attr_out_voltage6_nco_phase.dev_attr.attr,
 	&iio_dev_attr_out_voltage6_nco_enable.dev_attr.attr,
 	&iio_dev_attr_out_voltage7_nco_frequency.dev_attr.attr,
@@ -710,7 +723,7 @@ static struct attribute *ad9172_attributes_dual_m6[] = {
 	&iio_dev_attr_out_voltage5_nco_frequency.dev_attr.attr,
 	&iio_dev_attr_out_voltage5_nco_phase.dev_attr.attr,
 	&iio_dev_attr_out_voltage5_nco_enable.dev_attr.attr,
-	&iio_dev_attr_out_voltage6_nco_frequency.dev_attr.attr, /* Main datapath */
+	&iio_dev_attr_out_voltage6_nco_frequency.dev_attr.attr,
 	&iio_dev_attr_out_voltage6_nco_phase.dev_attr.attr,
 	&iio_dev_attr_out_voltage6_nco_enable.dev_attr.attr,
 	&iio_dev_attr_out_voltage7_nco_frequency.dev_attr.attr,
@@ -723,7 +736,7 @@ static struct attribute *ad9172_attributes_m2[] = {
 	&iio_dev_attr_out_voltage0_nco_frequency.dev_attr.attr,
 	&iio_dev_attr_out_voltage0_nco_phase.dev_attr.attr,
 	&iio_dev_attr_out_voltage0_nco_enable.dev_attr.attr,
-	&iio_dev_attr_out_voltage6_nco_frequency.dev_attr.attr, /* Main datapath */
+	&iio_dev_attr_out_voltage6_nco_frequency.dev_attr.attr,
 	&iio_dev_attr_out_voltage6_nco_phase.dev_attr.attr,
 	&iio_dev_attr_out_voltage6_nco_enable.dev_attr.attr,
 	NULL,
@@ -736,7 +749,7 @@ static struct attribute *ad9172_attributes_m4[] = {
 	&iio_dev_attr_out_voltage1_nco_frequency.dev_attr.attr,
 	&iio_dev_attr_out_voltage1_nco_phase.dev_attr.attr,
 	&iio_dev_attr_out_voltage1_nco_enable.dev_attr.attr,
-	&iio_dev_attr_out_voltage6_nco_frequency.dev_attr.attr, /* Main datapath */
+	&iio_dev_attr_out_voltage6_nco_frequency.dev_attr.attr,
 	&iio_dev_attr_out_voltage6_nco_phase.dev_attr.attr,
 	&iio_dev_attr_out_voltage6_nco_enable.dev_attr.attr,
 	NULL,
@@ -752,7 +765,7 @@ static struct attribute *ad9172_attributes_m6[] = {
 	&iio_dev_attr_out_voltage2_nco_frequency.dev_attr.attr,
 	&iio_dev_attr_out_voltage2_nco_phase.dev_attr.attr,
 	&iio_dev_attr_out_voltage2_nco_enable.dev_attr.attr,
-	&iio_dev_attr_out_voltage6_nco_frequency.dev_attr.attr, /* Main datapath */
+	&iio_dev_attr_out_voltage6_nco_frequency.dev_attr.attr,
 	&iio_dev_attr_out_voltage6_nco_phase.dev_attr.attr,
 	&iio_dev_attr_out_voltage6_nco_enable.dev_attr.attr,
 	NULL,
@@ -836,15 +849,18 @@ static int ad9172_probe(struct spi_device *spi)
 	st->id = (enum chip_id) dev_id->driver_data;
 	conv = &st->conv;
 
-	conv->reset_gpio = devm_gpiod_get_optional(&spi->dev, "reset", GPIOD_OUT_HIGH);
+	conv->reset_gpio = devm_gpiod_get_optional(&spi->dev, "reset",
+						   GPIOD_OUT_HIGH);
 	if (IS_ERR(conv->reset_gpio))
 		return PTR_ERR(conv->reset_gpio);
 
-	conv->txen_gpio[0] = devm_gpiod_get_optional(&spi->dev, "txen0", GPIOD_OUT_HIGH);
+	conv->txen_gpio[0] = devm_gpiod_get_optional(&spi->dev, "txen0",
+						     GPIOD_OUT_HIGH);
 	if (IS_ERR(conv->txen_gpio[0]))
 		return PTR_ERR(conv->txen_gpio[0]);
 
-	conv->txen_gpio[1] = devm_gpiod_get_optional(&spi->dev, "txen1", GPIOD_OUT_HIGH);
+	conv->txen_gpio[1] = devm_gpiod_get_optional(&spi->dev, "txen1",
+						     GPIOD_OUT_HIGH);
 	if (IS_ERR(conv->txen_gpio[1]))
 		return PTR_ERR(conv->txen_gpio[1]);
 
