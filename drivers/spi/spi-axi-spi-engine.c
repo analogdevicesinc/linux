@@ -455,11 +455,16 @@ static void spi_engine_write_buff(struct spi_engine *spi_engine,
 				   const uint8_t *buf)
 {
 	void __iomem *addr = spi_engine->base + SPI_ENGINE_REG_SDO_DATA_FIFO;
-	uint8_t len, i;
+	uint8_t len, i, word_len;
+	uint32_t val = 0;
 
-	len = DIV_ROUND_UP(spi_engine->word_length, 8);
+	word_len = spi_engine->word_length;
+	len = DIV_ROUND_DOWN_ULL(word_len, 8);
+
 	for (i = 0; i < len; i++)
-		writel_relaxed(buf[i], addr);
+		val |= buf[i] << (word_len - 8 * (i + 1));
+
+	writel_relaxed(val, addr);
 }
 
 static bool spi_engine_write_tx_fifo(struct spi_engine *spi_engine)
