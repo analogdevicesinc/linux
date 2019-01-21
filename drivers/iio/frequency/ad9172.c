@@ -452,7 +452,7 @@ static ssize_t ad9172_attr_store(struct device *dev,
 		st->nco_channel_enable |= BIT(dest);
 		break;
 	case AD9172_ATTR_CHAN_PHASE(0):
-		val16 = div_s64(readin * 32768, 180000);
+		val16 = div_s64(readin * 32768, 180000LL);
 		ret = ad917x_nco_set_phase_offset(ad917x_h, AD917X_DAC_NONE, 0,
 						  BIT(dest), val16);
 		break;
@@ -462,7 +462,7 @@ static ssize_t ad9172_attr_store(struct device *dev,
 		st->nco_main_enable |= BIT(dest);
 		break;
 	case AD9172_ATTR_MAIN_PHASE(0):
-		val16 = div_s64(readin * 32768, 180000);
+		val16 = div_s64(readin * 32768, 180000LL);
 		ret = ad917x_nco_set_phase_offset(ad917x_h, BIT(dest), val16,
 						  AD917X_CH_NONE, 0);
 		break;
@@ -517,7 +517,7 @@ static ssize_t ad9172_attr_show(struct device *dev,
 		ret = ad917x_nco_get_phase_offset(ad917x_h,
 						  AD917X_DAC_NONE, &val16_2,
 						  BIT(dest), &val16);
-		val64 = div_s64(val16 * 180000, 32768);
+		val64 = div_s64(val16 * 180000LL, 32768);
 		break;
 	case AD9172_ATTR_MAIN_NCO(0):
 		ret = ad917x_nco_main_freq_get(ad917x_h, BIT(dest),
@@ -526,7 +526,7 @@ static ssize_t ad9172_attr_show(struct device *dev,
 	case AD9172_ATTR_MAIN_PHASE(0):
 		ret = ad917x_nco_get_phase_offset(ad917x_h, BIT(dest), &val16,
 						  AD917X_CH_NONE, &val16_2);
-		val64 = div_s64(val16 * 180000, 32768);
+		val64 = div_s64(val16 * 180000LL, 32768);
 		break;
 	case AD9172_ATTR_CHAN_NCO_EN(0):
 		val64 = !!(st->nco_channel_enable & BIT(dest));
