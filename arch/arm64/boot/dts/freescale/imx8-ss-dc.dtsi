@@ -143,4 +143,9 @@ dc_subsys: bus@56000000 {
 			};
 		};
 	};
+
+	display-subsystem {
+		compatible = "fsl,imx-display-subsystem";
+		ports = <&dpu_disp0>, <&dpu_disp1>;
+	};
 };
