@@ -17,19 +17,34 @@
 
 static DEFINE_MUTEX(jesd204_device_list_lock);
 static LIST_HEAD(jesd204_device_list);
+static LIST_HEAD(jesd204_topologies);
 
 static unsigned int jesd204_device_count;
+static unsigned int jesd204_topologies_count;
 
 static struct jesd204_dev *jesd204_dev_alloc(struct device_node *np)
 {
+	struct jesd204_dev_top *jdev_top;
 	struct jesd204_dev *jdev;
+	bool is_top = of_property_read_bool(np, "jesd204-top-device");
 
-	jdev = kzalloc(sizeof(*jdev), GFP_KERNEL);
-	if (!jdev)
-		return ERR_PTR(-ENOMEM);
+	if (is_top) {
+		jdev_top = kzalloc(sizeof(*jdev_top), GFP_KERNEL);
+		if (!jdev_top)
+			return ERR_PTR(-ENOMEM);
+
+		jdev = &jdev_top->jdev;
+		list_add(&jdev_top->list, &jesd204_topologies);
+		jesd204_topologies_count++;
+	} else {
+		jdev = kzalloc(sizeof(*jdev), GFP_KERNEL);
+		if (!jdev)
+			return ERR_PTR(-ENOMEM);
+	}
 
 	kref_get(&jdev->ref);
 
+	jdev->is_top = is_top;
 	jdev->np = of_node_get(np);
 	kref_init(&jdev->ref);
 
@@ -75,13 +90,26 @@ static void jesd204_of_unregister_devices(void)
 static void __jesd204_dev_release(struct kref *ref)
 {
 	struct jesd204_dev *jdev = container_of(ref, struct jesd204_dev, ref);
+	struct jesd204_dev_top *jdev_top;
 
 	mutex_lock(&jesd204_device_list_lock);
+
+	if (jdev->is_top) {
+		jdev_top = jesd204_dev_top_dev(jdev);
+		if (jdev_top) {
+			list_del(&jdev_top->list);
+			jesd204_topologies_count--;
+		}
+	} else
+		jdev_top = NULL;
 
 	list_del(&jdev->list);
 	of_node_put(jdev->np);
 
-	kfree(jdev);
+	if (jdev_top)
+		kfree(jdev_top);
+	else
+		kfree(jdev);
 
 	jesd204_device_count--;
 
