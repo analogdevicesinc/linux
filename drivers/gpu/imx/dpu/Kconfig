@@ -1,0 +1,8 @@
+config IMX_DPU_CORE
+	tristate "i.MX DPU core support"
+	depends on ARCH_MXC
+	select GENERIC_IRQ_CHIP
+	help
+	  Choose this if you have a Freescale i.MX8QM or i.MX8QXP system and
+	  want to use the Display Processing Unit. This option only enables
+	  DPU base support.
