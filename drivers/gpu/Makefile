@@ -3,5 +3,5 @@
 # taken to initialize them in the correct order. Link order is the only way
 # to ensure this currently.
 obj-y			+= host1x/ drm/ vga/
-obj-$(CONFIG_IMX_IPUV3_CORE)	+= ipu-v3/
+obj-y			+= imx/
 obj-$(CONFIG_TRACE_GPU_MEM)		+= trace/
