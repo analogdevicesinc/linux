@@ -2802,10 +2802,10 @@ static int ov5640_get_fmt(struct v4l2_subdev *sd,
 	else
 		fmt = &sensor->fmt;
 
+	fmt->reserved[1] = (sensor->current_fr == OV5640_30_FPS) ? 30 : 15;
 	format->format = *fmt;
 
 	mutex_unlock(&sensor->lock);
-
 	return 0;
 }
 
@@ -3811,6 +3811,17 @@ static const struct v4l2_subdev_internal_ops ov5640_internal_ops = {
 	.init_state = ov5640_init_state,
 };
 
+static int ov5640_link_setup(struct media_entity *entity,
+			   const struct media_pad *local,
+			   const struct media_pad *remote, u32 flags)
+{
+	return 0;
+}
+
+static const struct media_entity_operations ov5640_sd_media_ops = {
+	.link_setup = ov5640_link_setup,
+};
+
 static int ov5640_get_regulators(struct ov5640_dev *sensor)
 {
 	int i;
@@ -3930,6 +3941,7 @@ static int ov5640_probe(struct i2c_client *client)
 	sensor->sd.flags |= V4L2_SUBDEV_FL_HAS_DEVNODE |
 			    V4L2_SUBDEV_FL_HAS_EVENTS;
 	sensor->pad.flags = MEDIA_PAD_FL_SOURCE;
+	sensor->sd.entity.ops = &ov5640_sd_media_ops;
 	sensor->sd.entity.function = MEDIA_ENT_F_CAM_SENSOR;
 	ret = media_entity_pads_init(&sensor->sd.entity, 1, &sensor->pad);
 	if (ret)
