@@ -13,3 +13,29 @@ config VIDEO_IMX_MEDIA
 	help
 	  Say yes here to enable support for video4linux media controller
 	  drivers for the i.MX5/6 SOC.
+
+config VIDEO_IMX_CAPTURE
+	tristate "i.MX V4L2 media core driver"
+	depends on ARCH_MXC || COMPILE_TEST
+	depends on MEDIA_CONTROLLER && VIDEO_V4L2
+	depends on VIDEO_V4L2_SUBDEV_API
+	depends on HAS_DMA
+	select VIDEOBUF2_DMA_CONTIG
+	select V4L2_FWNODE
+	help
+	  Say yes here to enable support for video4linux media controller
+	  driver for the i.MX5/6 SOC.
+
+if VIDEO_IMX_CAPTURE
+menu "i.MX8QXP/QM Camera ISI/MIPI Features support"
+
+config IMX8_MEDIA_DEVICE
+	tristate "IMX8 Media Device Driver"
+	select V4L2_FWNODE
+	default y
+	help
+	  This media device is a virtual device which used to manage
+	  all modules in image subsystem of imx8qxp/qm platform.
+
+endmenu
+endif  #VIDEO_IMX_CAPTURE
