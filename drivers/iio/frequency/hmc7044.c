@@ -17,6 +17,7 @@
 #include <linux/iio/iio.h>
 
 #define HMC7044_WRITE		(0 << 15)
+#define HMC7044_READ		(1 << 15)
 #define HMC7044_CNT(x)		(((x) - 1) << 13)
 #define HMC7044_ADDR(x)		((x) & 0xFFF)
 
@@ -238,6 +239,24 @@ static int hmc7044_write(struct iio_dev *indio_dev,
 	return spi_write(hmc->spi, buf, ARRAY_SIZE(buf));
 }
 
+static int hmc7044_read(struct iio_dev *indio_dev,
+			unsigned int reg,
+			unsigned int *val)
+{
+	struct hmc7044 *hmc = iio_priv(indio_dev);
+	unsigned char buf[3];
+	u16 cmd;
+	int ret;
+
+	cmd = HMC7044_READ | HMC7044_CNT(1) | HMC7044_ADDR(reg);
+	buf[0] = cmd >> 8;
+	buf[1] = cmd & 0xFF;
+
+	ret = spi_write_then_read(hmc->spi, &buf[0], 2, val, 1);
+
+	return ret;
+}
+
 static unsigned int hmc7044_calc_out_div(unsigned long parent_rate,
 					 unsigned long rate)
 {
@@ -336,11 +355,11 @@ static int hmc7044_reg_access(struct iio_dev *indio_dev, unsigned int reg,
 	struct hmc7044 *hmc = iio_priv(indio_dev);
 	int ret;
 
-	if (readval)
-		return -EINVAL;
-
 	mutex_lock(&hmc->lock);
-	ret = hmc7044_write(indio_dev, reg, writeval);
+	if (readval)
+		ret = hmc7044_read(indio_dev, reg, readval);
+	else
+		ret = hmc7044_write(indio_dev, reg, writeval);
 	mutex_unlock(&hmc->lock);
 
 	return ret;
