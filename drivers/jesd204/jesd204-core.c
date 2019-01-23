@@ -27,6 +27,11 @@ static LIST_HEAD(jesd204_topologies);
 static unsigned int jesd204_device_count;
 static unsigned int jesd204_topologies_count;
 
+struct list_head *jesd204_topologies_get(void)
+{
+	return &jesd204_topologies;
+}
+
 static inline bool dev_is_jesd204_dev(struct device *dev)
 {
 	return device_property_read_bool(dev, "jesd204-device");
@@ -195,6 +200,7 @@ static int jesd204_of_device_create_cons(struct jesd204_dev *jdev)
 
 static int jesd204_of_create_devices(void)
 {
+	struct jesd204_dev_top *jdev_top;
 	struct jesd204_dev *jdev;
 	struct device_node *np;
 	int ret;
@@ -212,6 +218,14 @@ static int jesd204_of_create_devices(void)
 
 	list_for_each_entry(jdev, &jesd204_device_list, entry) {
 		ret = jesd204_of_device_create_cons(jdev);
+		if (ret)
+			goto unlock;
+	}
+
+	list_for_each_entry(jdev_top, &jesd204_topologies, entry) {
+		jdev = &jdev_top->jdev;
+
+		ret = jesd204_init_topology(jdev_top);
 		if (ret)
 			goto unlock;
 	}
