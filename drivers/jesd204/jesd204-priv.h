@@ -13,6 +13,14 @@
 struct jesd204_dev;
 struct jesd204_dev_top;
 
+typedef int (*jesd204_cb_priv)(struct jesd204_dev *jdev, void *data);
+
+enum jesd204_dev_state {
+	JESD204_STATE_ERROR = -1,
+	JESD204_STATE_UNINIT = 0,
+	JESD204_STATE_INITIALIZED,
+};
+
 /**
  * struct jesd204_dev_list_entry - Entry for a JESD204 device in a list
  * @entry		list entry for a device to keep a list of devices
@@ -34,6 +42,8 @@ struct jesd204_dev_list_entry {
  *			as input
  * @dests_count		number of connected JESD204 devices to this output
  * @of			device-tree reference and arguments for this connection
+ * @error		error code for this connection
+ * @state		current state of this connection
  */
 struct jesd204_dev_con_out {
 	struct list_head		entry;
@@ -42,6 +52,8 @@ struct jesd204_dev_con_out {
 	struct list_head		dests;
 	unsigned int			dests_count;
 	struct of_phandle_args		of;
+	int				error;
+	enum jesd204_dev_state		state;
 };
 
 /**
@@ -80,12 +92,34 @@ struct jesd204_dev {
  * @entry		list entry for the framework to keep a list of top
  *			devices (and implicitly topologies)
  * @jdev		JESD204 device data
+ * @fsm_complete_cb	callback that gets called after a topology has finished
+ *			it's state transition, meaning that all JESD204 devices
+ *			have moved to the desired @nxt_state
+ * @cb_ref		kref which all JESD204 devices will increment when they
+ *			need to defer their state transition; an equivalent
+ *			notification must be called by the device to decrement
+ *			this and finally call the @fsm_complete_cb
+ *			callback (if provided)
+ * @cb_data		pointer to private data used during a state transition
+ * @nxt_state		next state this topology has to transition to
+ * @cur_state		current state of this topology
+ * @error		error code for this topology after a state has failed
+ *			to transition
  */
 struct jesd204_dev_top {
 	struct list_head		entry;
 
 	struct jesd204_dev		jdev;
+
+	jesd204_cb_priv			fsm_complete_cb;
+	struct kref			cb_ref;
+	void				*cb_data;
+	enum jesd204_dev_state		nxt_state;
+	enum jesd204_dev_state		cur_state;
+	int				error;
 };
+
+struct list_head *jesd204_topologies_get(void);
 
 static inline struct jesd204_dev_top *jesd204_dev_top_dev(
 		struct jesd204_dev *jdev)
@@ -94,5 +128,9 @@ static inline struct jesd204_dev_top *jesd204_dev_top_dev(
 		return NULL;
 	return container_of(jdev, struct jesd204_dev_top, jdev);
 }
+
+const char *jesd204_state_str(enum jesd204_dev_state state);
+
+int jesd204_init_topology(struct jesd204_dev_top *jdev_top);
 
 #endif /* _JESD204_PRIV_H_ */
