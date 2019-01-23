@@ -58,6 +58,8 @@ static struct jesd204_dev *jesd204_dev_alloc(struct device_node *np)
 	jdev->np = of_node_get(np);
 	kref_init(&jdev->ref);
 
+	INIT_LIST_HEAD(&jdev->outputs);
+
 	list_add(&jdev->entry, &jesd204_device_list);
 	jesd204_device_count++;
 
@@ -81,6 +83,116 @@ static struct jesd204_dev *jesd204_dev_find_by_of_node(struct device_node *np)
 	return jdev;
 }
 
+static struct jesd204_dev_con_out *jesd204_dev_find_output_con(
+		struct jesd204_dev *jdev,
+		struct of_phandle_args *args)
+{
+	struct jesd204_dev_con_out *con;
+	unsigned int i;
+
+	/* find an existing output connection for the current of args */
+	list_for_each_entry(con, &jdev->outputs, entry) {
+		if (args->np != con->of.np)
+			continue;
+		if (args->args_count != con->of.args_count)
+			continue;
+		for (i = 0; i < args->args_count; i++) {
+			if (args->args[i] != con->of.args[i])
+				break;
+		}
+		if (i != args->args_count)
+			continue;
+		return con;
+	}
+
+	return NULL;
+}
+
+static int jesd204_dev_create_con(struct jesd204_dev *jdev,
+				  struct of_phandle_args *args)
+{
+	struct jesd204_dev_con_out *con;
+	struct jesd204_dev *jdev_in;
+	struct jesd204_dev_list_entry *e;
+
+	jdev_in = jesd204_dev_find_by_of_node(args->np);
+	if (!jdev_in) {
+		pr_err("connection %pOF->%pOF invalid\n", args->np, jdev->np);
+		return -ENOENT;
+	}
+
+	e = kzalloc(sizeof(*e), GFP_KERNEL);
+	if (!e)
+		return -ENOMEM;
+
+	con = jesd204_dev_find_output_con(jdev_in, args);
+	if (!con) {
+		con = kzalloc(sizeof(*con), GFP_KERNEL);
+		if (!con) {
+			kfree(e);
+			return -ENOMEM;
+		}
+
+		con->owner = jdev_in;
+		INIT_LIST_HEAD(&con->dests);
+
+		memcpy(&con->of, args, sizeof(con->of));
+		list_add(&con->entry, &jdev_in->outputs);
+		jdev_in->outputs_count++;
+	}
+
+	e->jdev = jdev;
+	list_add(&e->entry, &con->dests);
+	con->dests_count++;
+
+	/* increment kref on both sides */
+	kref_get(&jdev_in->ref);
+	kref_get(&jdev->ref);
+
+	jdev->inputs[jdev->inputs_count] = con;
+	jdev->inputs_count++;
+
+	return 0;
+}
+
+static int jesd204_of_device_create_cons(struct jesd204_dev *jdev)
+{
+	struct device_node *np = jdev->np;
+	struct of_phandle_args args;
+	int i, c, ret;
+
+	c = of_count_phandle_with_args(np, "jesd204-inputs", "#jesd204-cells");
+	if (c == -ENOENT || c == 0)
+		return 0;
+	if (c < 0)
+		return c;
+
+	jdev->inputs = kcalloc(c, sizeof(*jdev->inputs), GFP_KERNEL);
+	if (!jdev->inputs)
+		return -ENOMEM;
+
+	for (i = 0; i < c; i++) {
+		ret = of_parse_phandle_with_args(np,
+						 "jesd204-inputs",
+						 "#jesd204-cells",
+						 i, &args);
+		/**
+		 * If one bad/non-existing connection is found, then all
+		 * JESD204 topologies won't be initialized. We may
+		 * improve this later, to allow the good configs
+		 */
+		if (ret < 0)
+			return ret;
+
+		ret = jesd204_dev_create_con(jdev, &args);
+		of_node_put(args.np);
+		if (ret)
+			return ret;
+	}
+
+	return 0;
+}
+
 static int jesd204_of_create_devices(void)
 {
 	struct jesd204_dev *jdev;
@@ -96,6 +208,12 @@ static int jesd204_of_create_devices(void)
 			ret = PTR_ERR(jdev);
 			goto unlock;
 		}
+	}
+
+	list_for_each_entry(jdev, &jesd204_device_list, entry) {
+		ret = jesd204_of_device_create_cons(jdev);
+		if (ret)
+			goto unlock;
 	}
 
 unlock:
@@ -148,6 +266,33 @@ static void jesd204_of_unregister_devices(void)
 	}
 }
 
+static void jesd204_dev_destroy_cons(struct jesd204_dev *jdev)
+{
+	struct jesd204_dev_con_out *c, *c1;
+	struct jesd204_dev_list_entry *e, *e1;
+	unsigned int i;
+
+	/* FIXME: not sure if this is correct ??? */
+
+	/* remove this device from the outputs of other devices */
+	for (i = 0; i < jdev->inputs_count; i++) {
+		c = jdev->inputs[i];
+		list_for_each_entry_safe(e, e1, &c->dests, entry) {
+			list_del(&e->entry);
+			jesd204_dev_unregister(e->jdev);
+			kfree(e);
+		}
+	}
+	kfree(jdev->inputs);
+	jdev->inputs_count = 0;
+
+	list_for_each_entry_safe(c, c1, &jdev->outputs, entry) {
+		list_del(&c->entry);
+		jesd204_dev_unregister(c->owner);
+		kfree(c);
+	}
+}
+
 /* Free memory allocated. */
 static void __jesd204_dev_release(struct kref *ref)
 {
@@ -190,6 +335,7 @@ void jesd204_dev_unregister(struct jesd204_dev *jdev)
 	if (IS_ERR_OR_NULL(jdev))
 		return;
 
+	jesd204_dev_destroy_cons(jdev);
 	kref_put(&jdev->ref, __jesd204_dev_release);
 }
 EXPORT_SYMBOL(jesd204_dev_unregister);
@@ -268,6 +414,9 @@ static int __init jesd204_init(void)
 	ret = jesd204_of_create_devices();
 	if (ret < 0)
 		goto error_unreg_devices;
+
+	pr_info("found %u devices and %u topologies\n",
+		jesd204_device_count, jesd204_topologies_count);
 
 	return 0;
 
