@@ -1213,7 +1213,7 @@
 			reg = <0x0 0x9c420000 0x10000>;
 			#dma-cells = <1>;
 			#clock-cells = <0>;
-			interrupts = <0 96 0>;
+			interrupts = <0 106 0>;
 			clocks = <&clk 73>;
 
 			adi,channels {
@@ -1235,7 +1235,7 @@
 			reg = <0x0 0x9c440000 0x10000>;
 			#dma-cells = <1>;
 			#clock-cells = <0>;
-			interrupts = <0 94 0>;
+			interrupts = <0 104 0>;
 			clocks = <&clk 73>;
 
 			adi,channels {
@@ -1257,7 +1257,7 @@
 			reg = <0x0 0x9c400000 0x10000>;
 			#dma-cells = <1>;
 			#clock-cells = <0>;
-			interrupts = <0 95 0>;
+			interrupts = <0 105 0>;
 			clocks = <&clk 73>;
 
 			adi,channels {
