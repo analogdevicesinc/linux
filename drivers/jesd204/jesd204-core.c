@@ -18,7 +18,7 @@
 
 static DEFINE_MUTEX(jesd204_device_list_lock);
 static LIST_HEAD(jesd204_device_list);
-static LIST_HEAD(jesd204_topologies);
+LIST_HEAD(jesd204_topologies);
 
 static unsigned int jesd204_device_count;
 static unsigned int jesd204_topologies_count;
@@ -192,6 +192,7 @@ static int jesd204_of_device_create_cons(struct jesd204_dev *jdev)
 
 static int jesd204_of_create_devices(void)
 {
+	struct jesd204_dev_top *jdev_top;
 	struct jesd204_dev *jdev;
 	struct device_node *np;
 	int ret;
@@ -209,6 +210,14 @@ static int jesd204_of_create_devices(void)
 
 	list_for_each_entry(jdev, &jesd204_device_list, list) {
 		ret = jesd204_of_device_create_cons(jdev);
+		if (ret)
+			goto unlock;
+	}
+
+	list_for_each_entry(jdev_top, &jesd204_topologies, list) {
+		jdev = &jdev_top->jdev;
+
+		ret = jesd204_init_topology(jdev_top);
 		if (ret)
 			goto unlock;
 	}
