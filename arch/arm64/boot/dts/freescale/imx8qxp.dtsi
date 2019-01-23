@@ -302,3 +302,7 @@
 #include "imx8qxp-ss-adma.dtsi"
 #include "imx8qxp-ss-conn.dtsi"
 #include "imx8qxp-ss-lsio.dtsi"
+
+&edma2 {
+	status = "okay";
+};
