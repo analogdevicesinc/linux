@@ -74,18 +74,6 @@
 	xlnx,mio_bank = <1>;
 };
 
-
-&xilinx_ams {
-	status = "okay";
-};
-
-&ams_ps {
-	status = "okay";
-};
-
-&ams_pl {
-	status = "okay";
-};
 &spi0 {
 	status = "okay";
 
