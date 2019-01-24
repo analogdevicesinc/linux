@@ -6,6 +6,38 @@
  * Licensed under the GPL-2.
  */
 
+/*
+ * FPGA Signal                GPIO#
+ * hmc7044_car_gpio_3,  27    105
+ * hmc7044_car_gpio_2,  26    104
+ * hmc7044_car_gpio_1,  25    103
+ * hmc7044_car_gpio_0,  24    102
+ * hmc7044_car_reset,   23    101
+ * resetb_ad9545,       22    100
+ * fan_tach,            21    99
+ * fan_pwrm,            20    98
+ * pmod0_d7,            19    97
+ * pmod0_d6,            18    96
+ * pmod0_d5,            17    95
+ * pmod0_d4,            16    94
+ * pmod0_d3,            15    93
+ * pmod0_d2,            14    92
+ * pmod0_d1,            13    91
+ * pmod0_d0,            12    90
+ * led_gpio_3,          11    89
+ * led_gpio_2,          10    88
+ * led_gpio_1,          9     87
+ * led_gpio_0,          8     86
+ * dip_gpio_3,          7     85
+ * dip_gpio_2,          6     84
+ * dip_gpio_1,          5     83
+ * dip_gpio_0,          4     82
+ * pb_gpio_3,           3     81
+ * pb_gpio_2,           2     80
+ * pb_gpio_1,           1     79
+ * pb_gpio_0}));        0     78
+ */
+
 #include "zynqmp-adrv9009-zu11eg.dts"
 
 / {
@@ -13,6 +45,88 @@
 		phy1: phy@1{
 			device_type = "ethernet-phy";
 			reg = <1>;
+		};
+	};
+
+	leds {
+		compatible = "gpio-leds";
+		led0 {
+			label = "led0:green";
+			gpios = <&gpio 86 0>;
+		};
+
+		led1 {
+			label = "led1:green";
+			gpios = <&gpio 87 0>;
+		};
+
+		led2 {
+			label = "led2:green";
+			gpios = <&gpio 88 0>;
+		};
+
+		led3 {
+			label = "led3:green";
+			gpios = <&gpio 89 0>;
+		};
+	};
+
+	gpio_keys {
+		compatible = "gpio-keys";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		autorepeat;
+
+		bt0 {
+			label = "BT0";
+			linux,code = <KEY_LEFT>;
+			gpios = <&gpio 78 0>;
+		};
+
+		bt1 {
+			label = "BT1";
+			linux,code = <KEY_RIGHT>;
+			gpios = <&gpio 79 0>;
+		};
+
+		bt2 {
+			label = "BT2";
+			linux,code = <KEY_ENTER>;
+			gpios = <&gpio 80 0>;
+		};
+
+		bt3 {
+			label = "BT3";
+			linux,code = <KEY_ESC>;
+			gpios = <&gpio 81 0>;
+		};
+
+		sw0 {
+			label = "SW0";
+			linux,input-type = <EV_SW>;
+			linux,code = <SW_LID>;
+			gpios = <&gpio 82 0>;
+		};
+
+		sw1 {
+			label = "SW1";
+			linux,input-type = <EV_SW>;
+			linux,code = <SW_TABLET_MODE>;
+			gpios = <&gpio 83 0>;
+		};
+
+		sw2 {
+			label = "SW2";
+			linux,input-type = <EV_SW>;
+			linux,code = <SW_HEADPHONE_INSERT>;
+			gpios = <&gpio 84 0>;
+		};
+
+		sw3 {
+			label = "SW3";
+			linux,input-type = <EV_SW>;
+			linux,code = <SW_RFKILL_ALL>;
+			gpios = <&gpio 85 0>;
 		};
 	};
 };
