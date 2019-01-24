@@ -66,6 +66,29 @@
 	pinctrl-1 = <&pinctrl_i2c0_gpio>;
 	scl-gpios = <&gpio 14 GPIO_ACTIVE_HIGH>;
 	sda-gpios = <&gpio 15 GPIO_ACTIVE_HIGH>;
+
+	current_limiter@58 { /* U12 */
+		compatible = "adi,adm1177";
+		reg = <0x58>;
+		adi,r-sense-mohm = <10>; /* 10 mOhm */
+		adi,shutdown-threshold-ma = <10000>; /* 10 A */
+		adi,vrange-high-enable;
+	};
+
+	ad9542@4b {
+		compatible = "adi,ad9542";
+		reg = <0x4b>;
+	};
+
+	adm1266@48 {
+		compatible = "adi,adm1266";
+		reg = <0x48>;
+	};
+
+	eeprom@2c { /* U49 */
+		compatible = "24c16";
+		reg = <0x2c>;
+	};
 };
 
 &sdhci1 {
@@ -943,6 +966,33 @@
 
 		conf {
 			groups = "gpio0_14_grp", "gpio0_15_grp";
+			slew-rate = <SLEW_RATE_SLOW>;
+			io-standard = <IO_STANDARD_LVCMOS18>;
+		};
+	};
+
+	pinctrl_i2c1_default: i2c1-default {
+		mux {
+			groups = "i2c1_9_grp";
+			function = "i2c1";
+		};
+
+		conf {
+			groups = "i2c1_9_grp";
+			bias-pull-up;
+			slew-rate = <SLEW_RATE_SLOW>;
+			io-standard = <IO_STANDARD_LVCMOS18>;
+		};
+	};
+
+	pinctrl_i2c1_gpio: i2c1-gpio {
+		mux {
+			groups = "gpio0_32_grp", "gpio0_33_grp";
+			function = "gpio0";
+		};
+
+		conf {
+			groups = "gpio0_32_grp", "gpio0_33_grp";
 			slew-rate = <SLEW_RATE_SLOW>;
 			io-standard = <IO_STANDARD_LVCMOS18>;
 		};
