@@ -188,6 +188,7 @@ struct hmc7044_output {
 struct hmc7044_chan_spec {
 	unsigned int		num;
 	bool			disable;
+	bool			high_performance_mode_dis;
 	unsigned int		divider;
 	unsigned int		driver_mode;
 	const char		*extended_name;
@@ -623,7 +624,8 @@ static int hmc7044_setup(struct iio_dev *indio_dev)
 			continue;
 
 		hmc7044_write(indio_dev, HMC7044_REG_CH_OUT_CRTL_0(chan->num),
-			      HMC7044_HI_PERF_MODE | HMC7044_SYNC_EN |
+			      (chan->high_performance_mode_dis ?
+			      0 : HMC7044_HI_PERF_MODE) | HMC7044_SYNC_EN |
 			      HMC7044_CH_EN);
 		hmc7044_write(indio_dev, HMC7044_REG_CH_OUT_CRTL_1(chan->num),
 			      HMC7044_DIV_LSB(chan->divider));
@@ -759,6 +761,9 @@ static int hmc7044_parse_dt(struct device *dev,
 				     &hmc->channels[cnt].driver_mode);
 		of_property_read_string(chan_np, "adi,extended-name",
 					&hmc->channels[cnt].extended_name);
+		hmc->channels[cnt].high_performance_mode_dis =
+			of_property_read_bool(chan_np,
+				"adi,high-performance-mode-disable");
 		cnt++;
 	}
 
