@@ -200,3 +200,84 @@
 	maximum-speed = "super-speed";
 };
 
+/*
+ * I2C1
+ */
+
+&i2c1 {
+	status = "okay";
+	clock-frequency = <400000>;
+	pinctrl-names = "default", "gpio";
+	pinctrl-0 = <&pinctrl_i2c1_default>;
+	pinctrl-1 = <&pinctrl_i2c1_gpio>;
+	scl-gpios = <&gpio 32 GPIO_ACTIVE_HIGH>;
+	sda-gpios = <&gpio 33 GPIO_ACTIVE_HIGH>;
+
+	i2c-mux@70 { /* u19 */
+		compatible = "nxp,pca9548"; /* TCA9548 */
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <0x70>;
+
+		i2c@0 { /* Audio ADAU1761 */
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0>;
+
+			/* 3B */
+
+		};
+		i2c@1 { /* AD9545 */
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <1>;
+
+			/* 4A */
+
+		};
+		i2c@2 { /* PTN5150 */
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <2>;
+
+			/* 1D */
+
+		};
+		i2c@3 { /* QSFP */
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <3>;
+
+			eeprom@50 {
+				compatible = "at24,24c02";
+				reg = <0x50>;
+			};
+		};
+		i2c@4 { /* SFP+ */
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <4>;
+
+			eeprom@50 {
+				compatible = "at24,24c02";
+				reg = <0x50>;
+			};
+
+		};
+		i2c@5 { /* FMC HPC */
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <5>;
+
+// 			ad7291@2f {
+// 				compatible = "adi,ad7291";
+// 				reg = <0x2f>;
+// 			};
+
+			eeprom@50 {
+				compatible = "at24,24c02";
+				reg = <0x50>;
+			};
+		};
+	};
+};
