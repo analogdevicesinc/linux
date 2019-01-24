@@ -24,6 +24,7 @@
 #include <drm/drm_vblank.h>
 
 #include "imx-drm.h"
+#include "ipuv3-kms.h"
 #include "ipuv3-plane.h"
 
 #define DRIVER_DESC		"i.MX IPUv3 Graphics"
