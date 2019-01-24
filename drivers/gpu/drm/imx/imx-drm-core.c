@@ -25,9 +25,6 @@
 #include <drm/drm_vblank.h>
 
 #include "imx-drm.h"
-#include "ipuv3-plane.h"
-
-#define MAX_CRTC	4
 
 static int legacyfb_depth = 16;
 module_param(legacyfb_depth, int, 0444);
@@ -40,81 +37,6 @@ void imx_drm_connector_destroy(struct drm_connector *connector)
 	drm_connector_cleanup(connector);
 }
 EXPORT_SYMBOL_GPL(imx_drm_connector_destroy);
-
-static int imx_drm_atomic_check(struct drm_device *dev,
-				struct drm_atomic_state *state)
-{
-	int ret;
-
-	ret = drm_atomic_helper_check(dev, state);
-	if (ret)
-		return ret;
-
-	/*
-	 * Check modeset again in case crtc_state->mode_changed is
-	 * updated in plane's ->atomic_check callback.
-	 */
-	ret = drm_atomic_helper_check_modeset(dev, state);
-	if (ret)
-		return ret;
-
-	/* Assign PRG/PRE channels and check if all constrains are satisfied. */
-	ret = ipu_planes_assign_pre(dev, state);
-	if (ret)
-		return ret;
-
-	return ret;
-}
-
-static const struct drm_mode_config_funcs imx_drm_mode_config_funcs = {
-	.fb_create = drm_gem_fb_create,
-	.atomic_check = imx_drm_atomic_check,
-	.atomic_commit = drm_atomic_helper_commit,
-};
-
-static void imx_drm_atomic_commit_tail(struct drm_atomic_state *state)
-{
-	struct drm_device *dev = state->dev;
-	struct drm_plane *plane;
-	struct drm_plane_state *old_plane_state, *new_plane_state;
-	bool plane_disabling = false;
-	int i;
-
-	drm_atomic_helper_commit_modeset_disables(dev, state);
-
-	drm_atomic_helper_commit_planes(dev, state,
-				DRM_PLANE_COMMIT_ACTIVE_ONLY |
-				DRM_PLANE_COMMIT_NO_DISABLE_AFTER_MODESET);
-
-	drm_atomic_helper_commit_modeset_enables(dev, state);
-
-	for_each_oldnew_plane_in_state(state, plane, old_plane_state, new_plane_state, i) {
-		if (drm_atomic_plane_disabling(old_plane_state, new_plane_state))
-			plane_disabling = true;
-	}
-
-	/*
-	 * The flip done wait is only strictly required by imx-drm if a deferred
-	 * plane disable is in-flight. As the core requires blocking commits
-	 * to wait for the flip it is done here unconditionally. This keeps the
-	 * workitem around a bit longer than required for the majority of
-	 * non-blocking commits, but we accept that for the sake of simplicity.
-	 */
-	drm_atomic_helper_wait_for_flip_done(dev, state);
-
-	if (plane_disabling) {
-		for_each_old_plane_in_state(state, plane, old_plane_state, i)
-			ipu_plane_disable_deferred(plane);
-
-	}
-
-	drm_atomic_helper_commit_hw_done(state);
-}
-
-static const struct drm_mode_config_helper_funcs imx_drm_mode_config_helpers = {
-	.atomic_commit_tail = imx_drm_atomic_commit_tail,
-};
-
 
 int imx_drm_encoder_parse_of(struct drm_device *drm,
 	struct drm_encoder *encoder, struct device_node *np)
@@ -143,9 +65,9 @@ static const struct drm_ioctl_desc imx_drm_ioctls[] = {
 	/* none so far */
 };
 
-static int imx_drm_dumb_create(struct drm_file *file_priv,
-			       struct drm_device *drm,
-			       struct drm_mode_create_dumb *args)
+static int imx_drm_ipu_dumb_create(struct drm_file *file_priv,
+				   struct drm_device *drm,
+				   struct drm_mode_create_dumb *args)
 {
 	u32 width = args->width;
 	int ret;
@@ -162,7 +84,21 @@ static int imx_drm_dumb_create(struct drm_file *file_priv,
 
 static const struct drm_driver imx_drm_driver = {
 	.driver_features	= DRIVER_MODESET | DRIVER_GEM | DRIVER_ATOMIC,
-	DRM_GEM_DMA_DRIVER_OPS_WITH_DUMB_CREATE(imx_drm_dumb_create),
+	DRM_GEM_DMA_DRIVER_OPS,
+	.ioctls			= imx_drm_ioctls,
+	.num_ioctls		= ARRAY_SIZE(imx_drm_ioctls),
+	.fops			= &imx_drm_driver_fops,
+	.name			= "imx-drm",
+	.desc			= "i.MX DRM graphics",
+	.date			= "20120507",
+	.major			= 1,
+	.minor			= 0,
+	.patchlevel		= 0,
+};
+
+static const struct drm_driver imx_drm_ipu_driver = {
+	.driver_features	= DRIVER_MODESET | DRIVER_GEM | DRIVER_ATOMIC,
+	DRM_GEM_DMA_DRIVER_OPS_WITH_DUMB_CREATE(imx_drm_ipu_dumb_create),
 	.ioctls			= imx_drm_ioctls,
 	.num_ioctls		= ARRAY_SIZE(imx_drm_ioctls),
 	.fops			= &imx_drm_driver_fops,
@@ -194,12 +130,57 @@ static int compare_of(struct device *dev, void *data)
 	return dev->of_node == np;
 }
 
+static const char *const imx_drm_ipu_comp_parents[] = {
+	"fsl,imx51-ipu",
+	"fsl,imx53-ipu",
+	"fsl,imx6q-ipu",
+	"fsl,imx6qp-ipu",
+};
+
+static bool imx_drm_parent_is_compatible(struct device *dev,
+					 const char *const comp_parents[],
+					 int comp_parents_size)
+{
+	struct device_node *port, *parent;
+	bool ret = false;
+	int i;
+
+	port = of_parse_phandle(dev->of_node, "ports", 0);
+	if (!port)
+		return ret;
+
+	parent = of_get_parent(port);
+
+	for (i = 0; i < comp_parents_size; i++) {
+		if (of_device_is_compatible(parent, comp_parents[i])) {
+			ret = true;
+			break;
+		}
+	}
+
+	of_node_put(parent);
+
+	of_node_put(port);
+
+	return ret;
+}
+
+static inline bool has_ipu(struct device *dev)
+{
+	return imx_drm_parent_is_compatible(dev, imx_drm_ipu_comp_parents,
+					    ARRAY_SIZE(imx_drm_ipu_comp_parents));
+}
+
 static int imx_drm_bind(struct device *dev)
 {
 	struct drm_device *drm;
 	int ret;
 
-	drm = drm_dev_alloc(&imx_drm_driver, dev);
+	if (has_ipu(dev))
+		drm = drm_dev_alloc(&imx_drm_ipu_driver, dev);
+	else
+		drm = drm_dev_alloc(&imx_drm_driver, dev);
+
 	if (IS_ERR(drm))
 		return PTR_ERR(drm);
 
@@ -212,8 +193,6 @@ static int imx_drm_bind(struct device *dev)
 	drm->mode_config.min_height = 1;
 	drm->mode_config.max_width = 4096;
 	drm->mode_config.max_height = 4096;
-	drm->mode_config.funcs = &imx_drm_mode_config_funcs;
-	drm->mode_config.helper_private = &imx_drm_mode_config_helpers;
 	drm->mode_config.normalize_zpos = true;
 
 	ret = drmm_mode_config_init(drm);
