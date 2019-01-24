@@ -1,3 +1,10 @@
+/*
+ * dts file for ADRV9009-ZU11EG System on Module
+ *
+ * Copyright (C) 2019 Analog Devices Inc.
+ *
+ * Licensed under the GPL-2.
+ */
 
 /dts-v1/;
 
@@ -50,11 +57,6 @@
 			device_type = "ethernet-phy";
 			reg = <0x0>;
 		};
-
-		phy1: phy@1{
-			device_type = "ethernet-phy";
-			reg = <1>;
-		};
 	};
 
 };
@@ -65,13 +67,6 @@
 	phy-mode = "rgmii-id";
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_gem3_default>;
-};
-
-&gem0 {
-	status = "okay";
-	phy-handle = <&phy1>;
-	phy-mode = "sgmii";
-	phys = <&lane0 PHY_TYPE_SGMII 0 1 125000000>;
 };
 
 &gpio {
@@ -98,50 +93,26 @@
 	xlnx,mio_bank = <1>;
 };
 
-&serdes {
-	status = "okay";
-};
-
-&zynqmp_dpsub {
-	status = "okay";
-	phy-names = "dp-phy0", "dp-phy1";
-	phys = <&lane3 PHY_TYPE_DP 0 2 27000000>,
-	<&lane2 PHY_TYPE_DP 1 2 27000000>;
-};
-
-&zynqmp_dp_snd_pcm0 {
-	status = "okay";
-};
-
-&zynqmp_dp_snd_pcm1 {
-	status = "okay";
-};
-
-&zynqmp_dp_snd_card0 {
-	status = "okay";
-};
-
-&zynqmp_dp_snd_codec0 {
-	status = "okay";
-};
-
-&xlnx_dpdma {
-	status = "okay";
-};
-
-&usb0 {
+&uart1 {
 	status = "okay";
 	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_usb0_default>;
+	pinctrl-0 = <&pinctrl_uart1_default>;
 };
 
-&dwc3_0 {
+&watchdog0 {
 	status = "okay";
-	dr_mode = "host";
-	phy-names = "usb3-phy";
-	//snps,usb3_lpm_capable;
-	phys = <&lane1 PHY_TYPE_USB3 0 3 26000000>;
-	maximum-speed = "super-speed";
+};
+
+&xilinx_ams {
+	status = "okay";
+};
+
+&ams_ps {
+	status = "okay";
+};
+
+&ams_pl {
+	status = "okay";
 };
 
 &spi0 {
@@ -962,28 +933,6 @@
 			adi,driver-mode = <2>;	// LVDS
 		};
 	};
-};
-
-&uart1 {
-	status = "okay";
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_uart1_default>;
-};
-
-&watchdog0 {
-	status = "okay";
-};
-
-&xilinx_ams {
-	status = "okay";
-};
-
-&ams_ps {
-	status = "okay";
-};
-
-&ams_pl {
-	status = "okay";
 };
 
 &pinctrl0 {
