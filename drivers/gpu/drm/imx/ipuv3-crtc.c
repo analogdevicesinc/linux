@@ -108,7 +108,7 @@ static void ipu_crtc_atomic_disable(struct drm_crtc *crtc,
 	spin_unlock_irq(&crtc->dev->event_lock);
 }
 
-static void imx_drm_crtc_reset(struct drm_crtc *crtc)
+static void ipu_drm_crtc_reset(struct drm_crtc *crtc)
 {
 	struct imx_crtc_state *state;
 
@@ -123,7 +123,7 @@ static void imx_drm_crtc_reset(struct drm_crtc *crtc)
 		__drm_atomic_helper_crtc_reset(crtc, &state->base);
 }
 
-static struct drm_crtc_state *imx_drm_crtc_duplicate_state(struct drm_crtc *crtc)
+static struct drm_crtc_state *ipu_drm_crtc_duplicate_state(struct drm_crtc *crtc)
 {
 	struct imx_crtc_state *state;
 
@@ -139,7 +139,7 @@ static struct drm_crtc_state *imx_drm_crtc_duplicate_state(struct drm_crtc *crtc
 	return &state->base;
 }
 
-static void imx_drm_crtc_destroy_state(struct drm_crtc *crtc,
+static void ipu_drm_crtc_destroy_state(struct drm_crtc *crtc,
 				       struct drm_crtc_state *state)
 {
 	__drm_atomic_helper_crtc_destroy_state(state);
@@ -165,9 +165,9 @@ static void ipu_disable_vblank(struct drm_crtc *crtc)
 static const struct drm_crtc_funcs ipu_crtc_funcs = {
 	.set_config = drm_atomic_helper_set_config,
 	.page_flip = drm_atomic_helper_page_flip,
-	.reset = imx_drm_crtc_reset,
-	.atomic_duplicate_state = imx_drm_crtc_duplicate_state,
-	.atomic_destroy_state = imx_drm_crtc_destroy_state,
+	.reset = ipu_drm_crtc_reset,
+	.atomic_duplicate_state = ipu_drm_crtc_duplicate_state,
+	.atomic_destroy_state = ipu_drm_crtc_destroy_state,
 	.enable_vblank = ipu_enable_vblank,
 	.disable_vblank = ipu_disable_vblank,
 };
