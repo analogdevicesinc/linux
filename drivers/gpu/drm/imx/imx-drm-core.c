@@ -339,23 +339,18 @@ static struct platform_driver imx_drm_pdrv = {
 	},
 };
 
-static struct platform_driver * const drivers[] = {
-	&imx_drm_pdrv,
-	&ipu_drm_driver,
-};
-
 static int __init imx_drm_init(void)
 {
 	if (drm_firmware_drivers_only())
 		return -ENODEV;
 
-	return platform_register_drivers(drivers, ARRAY_SIZE(drivers));
+	return platform_driver_register(&imx_drm_pdrv);
 }
 module_init(imx_drm_init);
 
 static void __exit imx_drm_exit(void)
 {
-	platform_unregister_drivers(drivers, ARRAY_SIZE(drivers));
+	platform_driver_unregister(&imx_drm_pdrv);
 }
 module_exit(imx_drm_exit);
 
