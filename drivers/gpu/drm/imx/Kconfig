@@ -33,13 +33,6 @@ config DRM_IMX_LDB
 	  Choose this to enable the internal LVDS Display Bridge (LDB)
 	  found on i.MX53 and i.MX6 processors.
 
-config DRM_IMX_IPUV3
-	tristate
-	depends on DRM_IMX
-	depends on IMX_IPUV3_CORE
-	default y if DRM_IMX=y
-	default m if DRM_IMX=m
-
 config DRM_IMX_HDMI
 	tristate "Freescale i.MX DRM HDMI"
 	select DRM_DW_HDMI
@@ -48,4 +41,5 @@ config DRM_IMX_HDMI
 	  Choose this if you want to use HDMI on i.MX6.
 
 source "drivers/gpu/drm/imx/dcss/Kconfig"
+source "drivers/gpu/drm/imx/ipuv3/Kconfig"
 source "drivers/gpu/drm/imx/lcdc/Kconfig"
