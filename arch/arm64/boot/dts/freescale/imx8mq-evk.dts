@@ -474,6 +474,18 @@
 	status = "okay";
 };
 
+&usb3_phy0 {
+	status = "okay";
+};
+
+&usb_dwc3_0 {
+	dr_mode = "otg";
+	hnp-disable;
+	srp-disable;
+	adp-disable;
+	status = "okay";
+};
+
 &usb3_phy1 {
 	status = "okay";
 };
