@@ -43,6 +43,20 @@
 		clock-frequency = <100000000>;
 	};
 
+	ptn36043 {
+		compatible = "nxp,ptn36043";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_ss_sel>;
+		switch-gpios = <&gpio3 15 GPIO_ACTIVE_HIGH>;
+		orientation-switch;
+
+		port {
+			usb3_data_ss: endpoint {
+				remote-endpoint = <&typec_con_ss>;
+			};
+		};
+	};
+
 	reg_pcie1: regulator-pcie {
 		compatible = "regulator-fixed";
 		pinctrl-names = "default";
@@ -370,6 +384,18 @@
 				     PDO_VAR(5000, 20000, 3000)>;
 			op-sink-microwatt = <15000000>;
 			self-powered;
+
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				port@1 {
+					reg = <1>;
+					typec_con_ss: endpoint {
+						remote-endpoint = <&usb3_data_ss>;
+					};
+				};
+			};
 		};
 	};
 };
@@ -670,6 +696,12 @@
 		fsl,pins = <
 			MX8MQ_IOMUXC_SPDIF_TX_SPDIF1_OUT	0xd6
 			MX8MQ_IOMUXC_SPDIF_RX_SPDIF1_IN		0xd6
+		>;
+	};
+
+	pinctrl_ss_sel: usb3ssgrp{
+		fsl,pins = <
+			MX8MQ_IOMUXC_NAND_RE_B_GPIO3_IO15		0x16
 		>;
 	};
 
