@@ -1590,6 +1590,7 @@
 			phy-names = "usb2-phy", "usb3-phy";
 			power-domains = <&pgc_otg1>;
 			snps,parkmode-disable-ss-quirk;
+			snps,power-down-scale = <2>;
 			status = "disabled";
 		};
 
@@ -1622,6 +1623,7 @@
 			phy-names = "usb2-phy", "usb3-phy";
 			power-domains = <&pgc_otg2>;
 			snps,parkmode-disable-ss-quirk;
+			snps,power-down-scale = <2>;
 			status = "disabled";
 		};
 
