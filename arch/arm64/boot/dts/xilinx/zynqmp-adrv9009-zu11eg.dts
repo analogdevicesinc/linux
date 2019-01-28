@@ -1356,7 +1356,7 @@
 		};
 
 		axi_adrv9009_core_tx: axi-adrv9009-tx-hpc@84a04000 {
-			compatible = "adi,axi-adrv9009-tx-1.0";
+			compatible = "adi,axi-adrv9009-x2-tx-1.0";
 			reg = <0x0 0x84a04000 0x4000>;
 			dmas = <&tx_dma 0>;
 			dma-names = "tx";
