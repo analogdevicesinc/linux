@@ -200,6 +200,15 @@
 	maximum-speed = "super-speed";
 };
 
+&gpio {
+	phy_reset {
+		gpio-hog;
+		gpios = <13 0>;
+		output-high;
+		line-name = "ulpi-phy-reset";
+	};
+};
+
 /*
  * I2C1
  */
