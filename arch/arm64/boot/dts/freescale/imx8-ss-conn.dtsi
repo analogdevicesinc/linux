@@ -71,6 +71,8 @@ conn_subsys: bus@5b000000 {
 			 <&sdhc0_lpcg IMX_LPCG_CLK_5>;
 		clock-names = "ipg", "ahb", "per";
 		power-domains = <&pd IMX_SC_R_SDHC_0>;
+		fsl,tuning-start-tap = <20>;
+		fsl,tuning-step= <2>;
 		status = "disabled";
 	};
 
@@ -95,6 +97,8 @@ conn_subsys: bus@5b000000 {
 			 <&sdhc2_lpcg IMX_LPCG_CLK_5>;
 		clock-names = "ipg", "ahb", "per";
 		power-domains = <&pd IMX_SC_R_SDHC_2>;
+		fsl,tuning-start-tap = <20>;
+		fsl,tuning-step= <2>;
 		status = "disabled";
 	};
 
