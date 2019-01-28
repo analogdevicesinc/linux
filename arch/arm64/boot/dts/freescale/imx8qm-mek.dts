@@ -92,6 +92,21 @@
 	status = "okay";
 };
 
+&usbphy1 {
+	status = "okay";
+};
+
+&usbotg1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_usbotg1>;
+	srp-disable;
+	hnp-disable;
+	adp-disable;
+	power-active-high;
+	disable-over-current;
+	status = "okay";
+};
+
 &usdhc1 {
 	pinctrl-names = "default", "state_100mhz", "state_200mhz";
 	pinctrl-0 = <&pinctrl_usdhc1>;
@@ -162,6 +177,12 @@
 			IMX8QM_PCIE_CTRL0_CLKREQ_B_LSIO_GPIO4_IO27		0x06000021
 			IMX8QM_PCIE_CTRL0_WAKE_B_LSIO_GPIO4_IO28		0x04000021
 			IMX8QM_PCIE_CTRL0_PERST_B_LSIO_GPIO4_IO29		0x06000021
+		>;
+	};
+
+	pinctrl_usbotg1: usbotg1 {
+		fsl,pins = <
+			IMX8QM_USB_SS3_TC0_CONN_USB_OTG1_PWR		0x00000021
 		>;
 	};
 
