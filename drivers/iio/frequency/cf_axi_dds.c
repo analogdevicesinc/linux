@@ -1416,6 +1416,13 @@ static const struct axidds_core_info ad9371_6_00_a_info = {
 	.chip_info = &cf_axi_dds_chip_info_ad9371,
 };
 
+static const struct axidds_core_info adrv9009_x2_9_00_a_info = {
+	.version = PCORE_VERSION(9, 0, 'a'),
+	.standalone = true,
+	.rate = 3,
+	.chip_info = &cf_axi_dds_chip_info_adrv9009_x2,
+};
+
 static const struct axidds_core_info ad9162_1_00_a_info = {
 	.version = PCORE_VERSION(9, 0, 'a'),
 	.rate = 1,
@@ -1449,6 +1456,9 @@ static const struct of_device_id cf_axi_dds_of_match[] = {
 	}, {
 	    .compatible = "adi,axi-adrv9009-tx-1.0",
 	    .data = &ad9371_6_00_a_info,
+	}, {
+	    .compatible = "adi,axi-adrv9009-x2-tx-1.0",
+	    .data = &adrv9009_x2_9_00_a_info,
 	}, {
 	    .compatible = "adi,axi-ad9162-1.0",
 	    .data = &ad9162_1_00_a_info,
