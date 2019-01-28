@@ -1,0 +1,10 @@
+menu "MXC Vivante GPU support"
+
+config MXC_GPU_VIV
+	tristate "MXC Vivante GPU support"
+	default y
+
+	---help---
+         Say Y to get the GPU driver support.
+
+endmenu
