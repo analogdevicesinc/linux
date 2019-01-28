@@ -103,6 +103,15 @@
 		enable-active-high;
 		vin-supply = <&reg_can_en>;
 	};
+
+	reg_usb_otg1_vbus: regulator-usbotg1-vbus {
+		compatible = "regulator-fixed";
+		regulator-name = "usb_otg1_vbus";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		gpio = <&pca9557_b 2 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+	};
 };
 
 &cm40_i2c {
@@ -352,6 +361,20 @@
 	disable2-gpio = <&pca9557_a 0 GPIO_ACTIVE_LOW>;
 	reset-gpio = <&lsio_gpio4 0 GPIO_ACTIVE_LOW>;
 	ext_osc = <1>;
+	status = "okay";
+};
+
+&usbphy1 {
+	status = "okay";
+};
+
+&usbotg1 {
+	vbus-supply = <&reg_usb_otg1_vbus>;
+	srp-disable;
+	hnp-disable;
+	adp-disable;
+	power-active-high;
+	disable-over-current;
 	status = "okay";
 };
 
