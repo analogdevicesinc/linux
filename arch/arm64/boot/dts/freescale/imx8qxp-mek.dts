@@ -427,6 +427,14 @@
 	};
 };
 
+&gpu_3d0 {
+	status = "okay";
+};
+
+&imx8_gpu_ss {
+	status = "okay";
+};
+
 &isi_0 {
 	status = "okay";
 };
