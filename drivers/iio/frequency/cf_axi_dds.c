@@ -1090,6 +1090,41 @@ static struct cf_axi_dds_chip_info cf_axi_dds_chip_info_ad9371 = {
 	.scan_masks = ad9361_available_scan_masks,
 };
 
+static struct cf_axi_dds_chip_info cf_axi_dds_chip_info_adrv9009_x2 = {
+	.name = "ADRV9009-X2",
+	.channel = {
+		CF_AXI_DDS_CHAN_BUF(0),
+		CF_AXI_DDS_CHAN_BUF(1),
+		CF_AXI_DDS_CHAN_BUF(2),
+		CF_AXI_DDS_CHAN_BUF(3),
+		CF_AXI_DDS_CHAN_BUF(4),
+		CF_AXI_DDS_CHAN_BUF(5),
+		CF_AXI_DDS_CHAN_BUF(6),
+		CF_AXI_DDS_CHAN_BUF(7),
+		CF_AXI_DDS_CHAN(0, 0, "TX1_I_F1"),
+		CF_AXI_DDS_CHAN(1, 0, "TX1_I_F2"),
+		CF_AXI_DDS_CHAN(2, 0, "TX1_Q_F1"),
+		CF_AXI_DDS_CHAN(3, 0, "TX1_Q_F2"),
+		CF_AXI_DDS_CHAN(4, 0, "TX2_I_F1"),
+		CF_AXI_DDS_CHAN(5, 0, "TX2_I_F2"),
+		CF_AXI_DDS_CHAN(6, 0, "TX2_Q_F1"),
+		CF_AXI_DDS_CHAN(7, 0, "TX2_Q_F2"),
+		CF_AXI_DDS_CHAN(8, 0, "TX3_I_F1"),
+		CF_AXI_DDS_CHAN(9, 0, "TX3_I_F2"),
+		CF_AXI_DDS_CHAN(10, 0, "TX3_Q_F1"),
+		CF_AXI_DDS_CHAN(11, 0, "TX3_Q_F2"),
+		CF_AXI_DDS_CHAN(12, 0, "TX4_I_F1"),
+		CF_AXI_DDS_CHAN(13, 0, "TX4_I_F2"),
+		CF_AXI_DDS_CHAN(14, 0, "TX4_Q_F1"),
+		CF_AXI_DDS_CHAN(15, 0, "TX4_Q_F2"),
+	},
+	.num_channels = 24,
+	.num_dds_channels = 16,
+	.num_buf_channels = 8,
+	.scan_masks = NULL, /* FIXME: later */
+};
+
+
 static struct cf_axi_dds_chip_info cf_axi_dds_chip_info_ad9364 = {
 	.name = "AD9364",
 	.channel = {
@@ -1281,6 +1316,13 @@ static const struct axidds_core_info ad9371_6_00_a_info = {
 	.chip_info = &cf_axi_dds_chip_info_ad9371,
 };
 
+static const struct axidds_core_info adrv9009_x2_9_00_a_info = {
+	.version = PCORE_VERSION(9, 0, 'a'),
+	.standalone = true,
+	.rate = 3,
+	.chip_info = &cf_axi_dds_chip_info_adrv9009_x2,
+};
+
 static const struct axidds_core_info ad9162_1_00_a_info = {
 	.version = PCORE_VERSION(9, 0, 'a'),
 	.rate = 1,
@@ -1314,6 +1356,9 @@ static const struct of_device_id cf_axi_dds_of_match[] = {
 	}, {
 	    .compatible = "adi,axi-adrv9009-tx-1.0",
 	    .data = &ad9371_6_00_a_info,
+	}, {
+	    .compatible = "adi,axi-adrv9009-x2-tx-1.0",
+	    .data = &adrv9009_x2_9_00_a_info,
 	}, {
 	    .compatible = "adi,axi-ad9162-1.0",
 	    .data = &ad9162_1_00_a_info,
