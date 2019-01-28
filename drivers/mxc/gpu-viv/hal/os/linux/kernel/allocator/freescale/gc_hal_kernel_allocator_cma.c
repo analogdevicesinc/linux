@@ -63,6 +63,9 @@
 #include <linux/dma-mapping.h>
 #include <linux/slab.h>
 #include <linux/platform_device.h>
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,19,0)
+#include <linux/dma-direct.h>
+#endif
 
 #define _GC_OBJ_ZONE    gcvZONE_OS
 
