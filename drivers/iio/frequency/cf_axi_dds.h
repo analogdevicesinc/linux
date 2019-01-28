@@ -209,7 +209,7 @@ struct cf_axi_dds_chip_info {
 	unsigned int num_buf_channels;
 	unsigned num_shadow_slave_channels;
 	const unsigned long *scan_masks;
-	struct iio_chan_spec channel[18];
+	struct iio_chan_spec channel[24];
 };
 
 struct cf_axi_dds_state {
