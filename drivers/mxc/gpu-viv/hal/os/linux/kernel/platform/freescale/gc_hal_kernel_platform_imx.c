@@ -88,7 +88,9 @@
 #    include <linux/busfreq-imx6.h>
 #    include <linux/reset.h>
 #  else
+#if 0
 #    include <linux/busfreq-imx.h>
+#endif
 #    include <linux/reset.h>
 #  endif
 #endif
@@ -1421,13 +1423,17 @@ int set_clock(int gpu, int enable)
 #ifdef CONFIG_PM
 static int gpu_runtime_suspend(struct device *dev)
 {
+#if 0
     release_bus_freq(BUS_FREQ_HIGH);
+#endif
     return 0;
 }
 
 static int gpu_runtime_resume(struct device *dev)
 {
+#if 0
     request_bus_freq(BUS_FREQ_HIGH);
+#endif
     return 0;
 }
 
