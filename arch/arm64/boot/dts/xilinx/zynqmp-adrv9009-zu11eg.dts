@@ -935,13 +935,13 @@
 			reg = <6>;
 			adi,extended-name = "CORE_CLK_A";
 			adi,divider = <24>;	// 122880000
-			adi,driver-mode = <1>;	// FIXME: LVPECL
+			adi,driver-mode = <2>;	// LVDS
 		};
 		hmc7044_c7: channel@7 {
 			reg = <7>;
 			adi,extended-name = "CORE_CLK_B";
 			adi,divider = <12>;	// 245760000
-			adi,driver-mode = <1>;	// FIXME: LVPECL
+			adi,driver-mode = <2>;	// LVDS
 		};
 		hmc7044_c8: channel@8 {
 			reg = <8>;
