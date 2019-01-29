@@ -82,6 +82,11 @@ config PHY_AIROHA_PCIE
 	  This driver create the basic PHY instance and provides initialize
 	  callback for PCIe GEN3 port.
 
+config PHY_MIXEL_LVDS
+	tristate "MIXEL LVDS PHY support"
+	depends on OF
+	select GENERIC_PHY
+
 source "drivers/phy/allwinner/Kconfig"
 source "drivers/phy/amlogic/Kconfig"
 source "drivers/phy/broadcom/Kconfig"
