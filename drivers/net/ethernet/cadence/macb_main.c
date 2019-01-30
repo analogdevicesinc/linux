@@ -1523,8 +1523,7 @@ static irqreturn_t macb_interrupt(int irq, void *dev_id)
 		 * section 16.7.4 for details. RXUBR is only enabled for
 		 * these two versions.
 		 */
-		if ((bp->errata & MACB_ERRATA_RXLOCKUP) &&
-		    (status & MACB_BIT(RXUBR))) {
+		if (status & MACB_BIT(RXUBR)) {
 			ctrl = macb_readl(bp, NCR);
 			macb_writel(bp, NCR, ctrl & ~MACB_BIT(RE));
 			wmb();
@@ -4113,7 +4112,6 @@ static const struct macb_config zynq_config = {
 	.dma_burst_length = 16,
 	.clk_init = macb_clk_init,
 	.init = macb_init,
-	.errata = MACB_ERRATA_RXLOCKUP,
 };
 
 static const struct of_device_id macb_dt_ids[] = {
@@ -4230,10 +4228,8 @@ static int macb_probe(struct platform_device *pdev)
 	if (tsu_clk)
 		bp->tsu_rate = clk_get_rate(tsu_clk);
 
-	if (macb_config) {
+	if (macb_config)
 		bp->jumbo_max_len = macb_config->jumbo_max_len;
-		bp->errata = macb_config->errata;
-	}
 
 	spin_lock_init(&bp->lock);
 
@@ -4446,7 +4442,7 @@ static int __maybe_unused macb_suspend(struct device *dev)
 		macb_writel(bp, IER, MACB_BIT(WOL));
 		for (q = 1, queue = bp->queues; q < bp->num_queues;
 		     ++q, ++queue) {
-			queue_writel(queue, IDR, MACB_RX_INT_FLAGS |
+			queue_writel(queue, IDR, bp->rx_intr_mask |
 						 MACB_TX_INT_FLAGS |
 						 MACB_BIT(HRESP));
 		}
