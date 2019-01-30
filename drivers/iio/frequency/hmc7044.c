@@ -139,6 +139,7 @@
 #define HMC7044_HI_PERF_MODE		BIT(7)
 #define HMC7044_SYNC_EN			BIT(6)
 #define HMC7044_CH_EN			BIT(0)
+#define HMC7044_START_UP_MODE_DYN_EN	(BIT(3) | BIT(2))
 
 #define HMC7044_REG_CH_OUT_CRTL_1(ch)	(0x00C9 + 0xA * (ch))
 #define HMC7044_DIV_LSB(x)		((x) & 0xFF)
@@ -154,6 +155,8 @@
 
 #define HMC7044_REG_CH_OUT_CRTL_8(ch)	(0x00D0 + 0xA * (ch))
 #define HMC7044_DRIVER_MODE(x)		(((x) & 0x3) << 3)
+#define HMC7044_DYN_DRIVER_EN		BIT(5)
+#define HMC7044_FORCE_MUTE_EN		BIT(7)
 
 #define HMC7044_NUM_CHAN	14
 
@@ -189,6 +192,8 @@ struct hmc7044_chan_spec {
 	unsigned int		num;
 	bool			disable;
 	bool			high_performance_mode_dis;
+	bool			start_up_mode_dynamic_enable;
+	bool			force_mute_enable;
 	unsigned int		divider;
 	unsigned int		driver_mode;
 	const char		*extended_name;
@@ -625,6 +630,8 @@ static int hmc7044_setup(struct iio_dev *indio_dev)
 			continue;
 
 		hmc7044_write(indio_dev, HMC7044_REG_CH_OUT_CRTL_0(chan->num),
+			      (chan->start_up_mode_dynamic_enable ?
+			      HMC7044_START_UP_MODE_DYN_EN : 0) |
 			      (chan->high_performance_mode_dis ?
 			      0 : HMC7044_HI_PERF_MODE) | HMC7044_SYNC_EN |
 			      HMC7044_CH_EN);
@@ -633,7 +640,11 @@ static int hmc7044_setup(struct iio_dev *indio_dev)
 		hmc7044_write(indio_dev, HMC7044_REG_CH_OUT_CRTL_2(chan->num),
 			      HMC7044_DIV_MSB(chan->divider));
 		hmc7044_write(indio_dev, HMC7044_REG_CH_OUT_CRTL_8(chan->num),
-			      HMC7044_DRIVER_MODE(chan->driver_mode));
+			      HMC7044_DRIVER_MODE(chan->driver_mode) |
+			      (chan->start_up_mode_dynamic_enable ?
+			      HMC7044_DYN_DRIVER_EN : 0) |
+			      (chan->force_mute_enable ?
+			      HMC7044_FORCE_MUTE_EN : 0));
 
 		hmc->iio_channels[i].type = IIO_ALTVOLTAGE;
 		hmc->iio_channels[i].output = 1;
@@ -765,6 +776,12 @@ static int hmc7044_parse_dt(struct device *dev,
 		hmc->channels[cnt].high_performance_mode_dis =
 			of_property_read_bool(chan_np,
 				"adi,high-performance-mode-disable");
+		hmc->channels[cnt].start_up_mode_dynamic_enable =
+			of_property_read_bool(chan_np,
+					      "adi,startup-mode-dynamic-enable");
+		hmc->channels[cnt].force_mute_enable =
+			of_property_read_bool(chan_np,
+					      "adi,force-mute-enable");
 		cnt++;
 	}
 
