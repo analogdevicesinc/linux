@@ -106,11 +106,16 @@
 		#size-cells = <2>;
 		ranges;
 
+		/* For legacy usdpaa based use-cases, update the size and
+		   alignment parameters. e.g. to allocate 256 MB memory:
+		   size = <0 0x10000000>;
+		   alignment = <0 0x10000000>;
+		*/
 		usdpaa_mem: usdpaa_mem {
 			compatible = "fsl,usdpaa-mem";
 			alloc-ranges = <0 0 0x10000 0>;
-			size = <0 0x10000000>;
-			alignment = <0 0x10000000>;
+			size = <0 0x1000>;
+			alignment = <0 0x1000>;
 		};
 	};
 };
