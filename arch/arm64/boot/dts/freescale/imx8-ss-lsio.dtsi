@@ -222,6 +222,7 @@ lsio_subsys: bus@5d000000 {
 		interrupts = <GIC_SPI 192 IRQ_TYPE_LEVEL_HIGH>;
 		#mbox-cells = <2>;
 		power-domains = <&pd IMX_SC_R_MU_13A>;
+		fsl,dsp_ap_mu_id = <13>;
 	};
 
 	/* LPCG clocks */
