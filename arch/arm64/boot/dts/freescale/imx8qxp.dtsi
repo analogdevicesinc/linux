@@ -238,6 +238,10 @@
 		};
 	};
 
+	soc {
+		compatible = "fsl,imx8qxp-soc";
+	};
+
 	timer {
 		compatible = "arm,armv8-timer";
 		interrupts = <GIC_PPI 13 IRQ_TYPE_LEVEL_LOW>, /* Physical Secure */
