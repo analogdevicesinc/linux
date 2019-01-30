@@ -865,7 +865,7 @@
 		adi,pll2-output-frequency = <2949120000>;
 
 		adi,sysref-timer-divider = <1024>;
-		adi,pulse-generator-mode = <0>;
+		adi,pulse-generator-mode = <7>;
 
 		adi,oscin-buffer-mode = <0x15>;
 
@@ -889,6 +889,9 @@
 			adi,extended-name = "DEV_SYSREF_A";
 			adi,divider = <512>;	// 5760000
 			adi,driver-mode = <2>;	// LVDS
+			adi,startup-mode-dynamic-enable;
+			adi,force-mute-enable;
+			adi,high-performance-mode-disable;
 		};
 		hmc7044_c2: channel@2 {
 			reg = <2>;
@@ -901,6 +904,9 @@
 			adi,extended-name = "DEV_SYSREF_B";
 			adi,divider = <512>;	// 5760000
 			adi,driver-mode = <2>;	// LVDS
+			adi,startup-mode-dynamic-enable;
+			adi,force-mute-enable;
+			adi,high-performance-mode-disable;
 		};
 		hmc7044_c4: channel@4 {
 			reg = <4>;
@@ -931,12 +937,18 @@
 			adi,extended-name = "FPGA_SYSREF_A";
 			adi,divider = <512>;	// 5760000
 			adi,driver-mode = <2>;	// LVDS
+			adi,startup-mode-dynamic-enable;
+			adi,force-mute-enable;
+			adi,high-performance-mode-disable;
 		};
 		hmc7044_c9: channel@9 {
 			reg = <9>;
 			adi,extended-name = "FPGA_SYSREF_B";
 			adi,divider = <512>;	// 5760000
 			adi,driver-mode = <2>;	// LVDS
+			adi,startup-mode-dynamic-enable;
+			adi,force-mute-enable;
+			adi,high-performance-mode-disable;
 		};
 	};
 };
@@ -1375,6 +1387,7 @@
 	rx2-enable-gpios = <&gpio 133 0>;
 	tx1-enable-gpios = <&gpio 134 0>;
 	tx2-enable-gpios = <&gpio 135 0>;
+	sysref-req-gpio = <&gpio 167 0>;
 };
 
 &trx1_adrv9009 {
