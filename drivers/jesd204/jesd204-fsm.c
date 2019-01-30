@@ -39,6 +39,8 @@ const char *jesd204_state_str(enum jesd204_dev_state state)
 		return "uninitialized";
 	case JESD204_STATE_INITIALIZED:
 		return "initialized";
+	case JESD204_STATE_PROBED:
+		return "probed";
 	default:
 		return "<unknown>";
 	}
@@ -344,4 +346,25 @@ int jesd204_init_topology(struct jesd204_dev_top *jdev_top)
 	return jesd204_fsm(&jdev_top->jdev,
 			   JESD204_STATE_UNINIT, JESD204_STATE_INITIALIZED,
 			   jesd204_dev_initialize_cb, jdev_top, NULL);
+}
+
+static int jesd204_fsm_probed_cb(struct jesd204_dev *jdev,
+				 struct jesd204_dev_con_out *con,
+				 void *data)
+{
+	if (!jdev->dev)
+		return JESD204_STATE_CHANGE_DEFER;
+	return JESD204_STATE_CHANGE_DONE;
+}
+
+static int jesd204_fsm_probe_done(struct jesd204_dev *jdev, void *data)
+{
+	return 0;
+}
+
+int jesd204_fsm_probe(struct jesd204_dev *jdev)
+{
+	return jesd204_fsm(jdev,
+			   JESD204_STATE_INITIALIZED, JESD204_STATE_PROBED,
+			   jesd204_fsm_probed_cb, NULL, jesd204_fsm_probe_done);
 }

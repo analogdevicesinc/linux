@@ -19,6 +19,7 @@ enum jesd204_dev_state {
 	JESD204_STATE_ERROR = -1,
 	JESD204_STATE_UNINIT = 0,
 	JESD204_STATE_INITIALIZED,
+	JESD204_STATE_PROBED,
 };
 
 /**
@@ -132,5 +133,7 @@ static inline struct jesd204_dev_top *jesd204_dev_top_dev(
 const char *jesd204_state_str(enum jesd204_dev_state state);
 
 int jesd204_init_topology(struct jesd204_dev_top *jdev_top);
+
+int jesd204_fsm_probe(struct jesd204_dev *jdev);
 
 #endif /* _JESD204_PRIV_H_ */
