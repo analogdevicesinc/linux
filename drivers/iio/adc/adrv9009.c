@@ -49,6 +49,8 @@
 
 #include "talise/linux_hal.h"
 
+#include "talise/talise_reg_addr_macros.h"
+
 #include "adrv9009.h"
 
 #define FIRMWARE	"TaliseTDDArmFirmware.bin"
@@ -209,6 +211,7 @@ enum adrv9009_iio_dev_attr {
 	ADRV9009_ENSM_MODE,
 	ADRV9009_ENSM_MODE_AVAIL,
 	ADRV9009_INIT_CAL,
+	ADRV9009_MCS,
 };
 
 int adrv9009_spi_read(struct spi_device *spi, unsigned reg)
@@ -273,8 +276,8 @@ static int adrv9009_sysref_req(struct adrv9009_rf_phy *phy,
 	} else
 		ret = -ENODEV;
 
-	if (ret)
-		dev_err(&phy->spi->dev, "%s: failed (%d)\n", __func__, ret);
+//	if (ret)
+//		dev_err(&phy->spi->dev, "%s: failed (%d)\n", __func__, ret);
 
 	return ret;
 }
@@ -1101,6 +1104,236 @@ static int adrv9009_setup(struct adrv9009_rf_phy *phy)
 	return ret;
 }
 
+static int adrv9009_multi_chip_sync(struct adrv9009_rf_phy *phy, int step)
+{
+	uint8_t mcsStatus = 0;
+	uint16_t deframerStatus = 0;
+	uint8_t framerStatus = 0;
+	int ret = 0;
+
+	switch (step) {
+	case 0:
+		adrv9009_sysref_req(phy, SYSREF_CONT_OFF);
+
+		if (phy->is_initialized) {
+			if (!IS_ERR(phy->jesd_rx_os_clk))
+				clk_disable_unprepare(phy->jesd_rx_os_clk);
+			if (!IS_ERR(phy->jesd_rx_clk))
+				clk_disable_unprepare(phy->jesd_rx_clk);
+			if (!IS_ERR(phy->jesd_tx_clk))
+				clk_disable_unprepare(phy->jesd_tx_clk);
+		}
+		break;
+	case 1:
+		/*******************************************************/
+		/**** Perform MultiChip Sync (MCS) on Talise Device ***/
+		/*******************************************************/
+		ret = TALISE_enableMultichipSync(phy->talDevice, 1, &mcsStatus);
+		if (ret != TALACT_NO_ACTION) {
+			dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
+			ret = -EFAULT;
+		}
+		break;
+	case 2:
+		/*< user code - Request minimum 3 SYSREF pulses from Clock Device - > */
+		adrv9009_sysref_req(phy, SYSREF_PULSE);
+		break;
+
+	case 3:
+		ret = TALISE_enableMultichipSync(phy->talDevice, 0, &mcsStatus);
+		if ((mcsStatus & 0x0B) != 0x0B) {
+			dev_err(&phy->spi->dev, "%s:%d Unexpected MCS sync status (0x%X)",
+				__func__, __LINE__, mcsStatus);
+			ret = -EFAULT;
+		}
+		break;
+
+	case 4:
+		/***************************************************/
+		/**** Enable Talise JESD204B Framer ***/
+		/***************************************************/
+
+		if (!IS_ERR_OR_NULL(phy->jesd_rx_clk) && phy->talInit.jesd204Settings.framerA.M) {
+			ret = TALISE_enableSysrefToFramer(phy->talDevice, TAL_FRAMER_A, 0);
+			if (ret != TALACT_NO_ACTION) {
+				dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
+				ret = -EFAULT;
+			}
+			ret = TALISE_enableFramerLink(phy->talDevice, TAL_FRAMER_A, 0);
+			if (ret != TALACT_NO_ACTION) {
+				dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
+				ret = -EFAULT;
+			}
+
+			ret = TALISE_enableFramerLink(phy->talDevice, TAL_FRAMER_A, 1);
+			if (ret != TALACT_NO_ACTION) {
+				dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
+				ret = -EFAULT;
+			}
+
+			/*************************************************/
+			/**** Enable SYSREF to Talise JESD204B Framer ***/
+			/*************************************************/
+			/*** < User: Make sure SYSREF is stopped/disabled > ***/
+
+			ret = TALISE_enableSysrefToFramer(phy->talDevice, TAL_FRAMER_A, 1);
+			if (ret != TALACT_NO_ACTION) {
+				dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
+				ret = -EFAULT;
+			}
+		}
+
+		/***************************************************/
+		/**** Enable Talise JESD204B Framer ***/
+		/***************************************************/
+
+		if (!IS_ERR_OR_NULL(phy->jesd_rx_os_clk) && phy->talInit.jesd204Settings.framerB.M) {
+			ret = TALISE_enableSysrefToFramer(phy->talDevice, TAL_FRAMER_B, 0);
+			if (ret != TALACT_NO_ACTION) {
+				dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
+				ret = -EFAULT;
+			}
+
+			ret = TALISE_enableFramerLink(phy->talDevice, TAL_FRAMER_B, 0);
+			if (ret != TALACT_NO_ACTION) {
+				dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
+				ret = -EFAULT;
+			}
+
+			ret = TALISE_enableFramerLink(phy->talDevice, TAL_FRAMER_B, 1);
+			if (ret != TALACT_NO_ACTION) {
+				dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
+				ret = -EFAULT;
+			}
+
+			/*************************************************/
+			/**** Enable SYSREF to Talise JESD204B Framer ***/
+			/*************************************************/
+			/*** < User: Make sure SYSREF is stopped/disabled > ***/
+
+			ret = TALISE_enableSysrefToFramer(phy->talDevice, TAL_FRAMER_B, 1);
+			if (ret != TALACT_NO_ACTION) {
+				dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
+				ret = -EFAULT;
+			}
+		}
+		/***************************************************/
+		/**** Enable  Talise JESD204B Deframer ***/
+		/***************************************************/
+		if (!IS_ERR_OR_NULL(phy->jesd_tx_clk) && phy->talInit.jesd204Settings.deframerA.M) {
+			ret = TALISE_enableSysrefToDeframer(phy->talDevice, TAL_DEFRAMER_A, 0);
+			if (ret != TALACT_NO_ACTION) {
+				dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
+				ret = -EFAULT;
+			}
+
+			ret = TALISE_enableDeframerLink(phy->talDevice, TAL_DEFRAMER_A, 0);
+			if (ret != TALACT_NO_ACTION) {
+				dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
+				ret = -EFAULT;
+			}
+
+			ret |= TALISE_enableDeframerLink(phy->talDevice, TAL_DEFRAMER_A, 1);
+			if (ret != TALACT_NO_ACTION) {
+				dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
+				ret = -EFAULT;
+			}
+
+			/***************************************************/
+			/**** Enable SYSREF to Talise JESD204B Deframer ***/
+			/***************************************************/
+			ret = TALISE_enableSysrefToDeframer(phy->talDevice, TAL_DEFRAMER_A, 1);
+			if (ret != TALACT_NO_ACTION) {
+				dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
+				ret = -EFAULT;
+			}
+
+		}
+		break;
+	case 5:
+		if (!IS_ERR_OR_NULL(phy->jesd_tx_clk)) {
+			u8 phy_ctrl;
+			ret = clk_prepare_enable(phy->jesd_tx_clk);
+			if (ret < 0) {
+				dev_err(&phy->spi->dev, "jesd_tx_clk enable failed (%d)", ret);
+			}
+			/* RESET CDR */
+			phy_ctrl = adrv9009_spi_read(phy->spi, TALISE_ADDR_DES_PHY_GENERAL_CTL_1);
+			adrv9009_spi_write(phy->spi, TALISE_ADDR_DES_PHY_GENERAL_CTL_1, phy_ctrl & ~BIT(7));
+			adrv9009_spi_write(phy->spi, TALISE_ADDR_DES_PHY_GENERAL_CTL_1, phy_ctrl);
+		}
+
+		if (!IS_ERR_OR_NULL(phy->jesd_rx_clk)) {
+			ret = clk_prepare_enable(phy->jesd_rx_clk);
+			if (ret < 0) {
+				dev_err(&phy->spi->dev, "jesd_rx_clk enable failed (%d)", ret);
+			}
+		}
+
+		if (!IS_ERR_OR_NULL(phy->jesd_rx_os_clk)) {
+			ret = clk_prepare_enable(phy->jesd_rx_os_clk);
+			if (ret < 0) {
+				dev_err(&phy->spi->dev, "jesd_rx_os_clk enable failed (%d)", ret);
+			}
+		}
+		break;
+	case 6:
+		/*** < User Sends SYSREF Here > ***/
+		adrv9009_sysref_req(phy, SYSREF_CONT_ON);
+		break;
+	case 7:
+		adrv9009_sysref_req(phy, SYSREF_CONT_OFF);
+		break;
+	case 8:
+		/**************************************/
+		/**** Check Talise Deframer Status ***/
+		/**************************************/
+		if (!IS_ERR_OR_NULL(phy->jesd_tx_clk) && phy->talInit.jesd204Settings.deframerA.M) {
+			ret = TALISE_readDeframerStatus(phy->talDevice, TAL_DEFRAMER_A,
+							&deframerStatus);
+			if (ret != TALACT_NO_ACTION) {
+				dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
+				ret = -EFAULT;
+			}
+
+			if ((deframerStatus & 0xF7) != 0x86)
+				dev_warn(&phy->spi->dev, "TAL_DEFRAMER_A deframerStatus 0x%X", deframerStatus);
+		}
+
+		/************************************/
+		/**** Check Talise Framer Status ***/
+		/************************************/
+		if (!IS_ERR_OR_NULL(phy->jesd_rx_clk) && phy->talInit.jesd204Settings.framerA.M) {
+			ret = TALISE_readFramerStatus(phy->talDevice, TAL_FRAMER_A, &framerStatus);
+			if (ret != TALACT_NO_ACTION) {
+				dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
+				ret = -EFAULT;
+			}
+
+			if ((framerStatus & 0x07) != 0x05)
+				dev_warn(&phy->spi->dev, "TAL_FRAMER_A framerStatus 0x%X", framerStatus);
+		}
+		/************************************/
+		/**** Check Talise Framer Status ***/
+		/************************************/
+		if (!IS_ERR_OR_NULL(phy->jesd_rx_os_clk) && phy->talInit.jesd204Settings.framerB.M) {
+			ret = TALISE_readFramerStatus(phy->talDevice, TAL_FRAMER_B, &framerStatus);
+			if (ret != TALACT_NO_ACTION) {
+				dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
+				ret = -EFAULT;
+			}
+
+			if ((framerStatus & 0x07) != 0x05)
+				dev_warn(&phy->spi->dev, "TAL_FRAMER_B framerStatus 0x%X", framerStatus);
+		}
+		break;
+	default:
+		ret = -EINVAL;
+	};
+
+	return ret;
+}
+
 static void adrv9009_shutdown(struct adrv9009_rf_phy *phy)
 {
 	/***********************************************
@@ -1134,6 +1367,7 @@ static ssize_t adrv9009_phy_store(struct device *dev,
 	struct iio_dev_attr *this_attr = to_iio_dev_attr(attr);
 	struct adrv9009_rf_phy *phy = iio_priv(indio_dev);
 	bool enable;
+	long readin;
 	int ret = 0;
 	u32 val;
 
@@ -1190,6 +1424,14 @@ static ssize_t adrv9009_phy_store(struct device *dev,
 			adrv9009_set_radio_state(phy, RADIO_RESTORE_STATE);
 		}
 		break;
+	case ADRV9009_MCS:
+		ret = kstrtol(buf, 10, &readin);
+		if (ret)
+			break;
+
+		ret = adrv9009_multi_chip_sync(phy, readin);
+		break;
+
 	default:
 		ret = -EINVAL;
 	}
@@ -1278,10 +1520,15 @@ static IIO_DEVICE_ATTR(calibrate_frm_en, S_IRUGO | S_IWUSR,
 		       adrv9009_phy_store,
 		       ADRV9009_INIT_CAL | (TAL_FHM_CALS << 8));
 
+static IIO_DEVICE_ATTR(multichip_sync, S_IWUSR,
+		       NULL,
+		       adrv9009_phy_store,
+		       ADRV9009_MCS);
 
 static struct attribute *adrv9009_phy_attributes[] = {
 	&iio_dev_attr_ensm_mode.dev_attr.attr,
 	&iio_dev_attr_ensm_mode_available.dev_attr.attr,
+	&iio_dev_attr_multichip_sync.dev_attr.attr,
 	&iio_dev_attr_calibrate.dev_attr.attr,
 	&iio_dev_attr_calibrate_rx_qec_en.dev_attr.attr,
 	&iio_dev_attr_calibrate_tx_qec_en.dev_attr.attr,
@@ -1299,6 +1546,7 @@ static const struct attribute_group adrv9009_phy_attribute_group = {
 static struct attribute *adrv90081_phy_attributes[] = {
 	&iio_dev_attr_ensm_mode.dev_attr.attr,
 	&iio_dev_attr_ensm_mode_available.dev_attr.attr,
+	&iio_dev_attr_multichip_sync.dev_attr.attr,
 	&iio_dev_attr_calibrate.dev_attr.attr,
 	&iio_dev_attr_calibrate_rx_qec_en.dev_attr.attr,
 	&iio_dev_attr_calibrate_rx_phase_correction_en.dev_attr.attr,
@@ -1313,6 +1561,7 @@ static const struct attribute_group adrv90081_phy_attribute_group = {
 static struct attribute *adrv90082_phy_attributes[] = {
 	&iio_dev_attr_ensm_mode.dev_attr.attr,
 	&iio_dev_attr_ensm_mode_available.dev_attr.attr,
+	&iio_dev_attr_multichip_sync.dev_attr.attr,
 	&iio_dev_attr_calibrate.dev_attr.attr,
 	&iio_dev_attr_calibrate_tx_qec_en.dev_attr.attr,
 	&iio_dev_attr_calibrate_tx_lol_en.dev_attr.attr,
