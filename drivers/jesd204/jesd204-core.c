@@ -256,15 +256,21 @@ struct jesd204_dev *jesd204_dev_register(struct device *dev,
 	if (!jdev) {
 		dev_err(dev, "Device has no configuration node\n");
 		ret = -ENODEV;
-		goto err;
+		goto err_unlock;
 	}
 
 	jdev->dev = get_device(dev);
 
+	ret = jesd204_fsm_probe(jdev);
+	if (ret)
+		goto err_put_device;
+
 	mutex_unlock(&jesd204_device_list_lock);
 
 	return jdev;
-err:
+err_put_device:
+	put_device(dev);
+err_unlock:
 	mutex_unlock(&jesd204_device_list_lock);
 
 	return ERR_PTR(ret);
