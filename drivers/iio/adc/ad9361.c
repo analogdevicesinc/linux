@@ -9241,28 +9241,34 @@ ad9361_gt_bin_read(struct file *filp, struct kobject *kobj,
 
 	struct iio_dev *indio_dev = dev_to_iio_dev(kobj_to_dev(kobj));
 	struct ad9361_rf_phy *phy = iio_priv(indio_dev);
-	int j, len = 0;
+	int ret, j, len = 0;
+	char *tab;
 
-	if (off)
-		return 0;
+	tab = kzalloc(bin_attr->size, GFP_KERNEL);
+	if (tab == NULL)
+		return -ENOMEM;
 
-	len += snprintf(buf + len, count - len,
+	len += snprintf(tab + len, bin_attr->size - len,
 		"<gaintable AD%i type=%s dest=%d start=%lli end=%lli>\n", 9361,
 		phy->gt_info[ad9361_gt(phy)].split_table ? "SPLIT" : "FULL", 3,
 		phy->gt_info[ad9361_gt(phy)].start,
 		phy->gt_info[ad9361_gt(phy)].end);
 
 	for (j = 0; j < phy->gt_info[ad9361_gt(phy)].max_index; j++)
-		len += snprintf(buf + len, count - len,
+		len += snprintf(tab + len, bin_attr->size - len,
 			"%d, 0x%.2X, 0x%.2X, 0x%.2X\n",
 			phy->gt_info[ad9361_gt(phy)].abs_gain_tbl[j],
 			phy->gt_info[ad9361_gt(phy)].tab[j][0],
 			phy->gt_info[ad9361_gt(phy)].tab[j][1],
 			phy->gt_info[ad9361_gt(phy)].tab[j][2]);
 
-	len += snprintf(buf + len, count - len,"</gaintable>\n\n");
+	len += snprintf(tab + len, bin_attr->size - len, "</gaintable>\n");
 
-	return len;
+	ret = memory_read_from_buffer(buf, count, &off, tab, bin_attr->size);
+
+	kfree(tab);
+
+	return ret;
 }
 
 static int ad9361_probe(struct spi_device *spi)
@@ -9377,7 +9383,7 @@ static int ad9361_probe(struct spi_device *spi)
 	phy->bin_gt.attr.mode = S_IWUSR | S_IRUGO;
 	phy->bin_gt.write = ad9361_gt_bin_write;
 	phy->bin_gt.read = ad9361_gt_bin_read;
-	phy->bin_gt.size = 32768;
+	phy->bin_gt.size = 4096;
 
 	indio_dev->dev.parent = &spi->dev;
 
