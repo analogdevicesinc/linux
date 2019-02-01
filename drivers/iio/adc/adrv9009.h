@@ -191,6 +191,7 @@ struct adrv9009_rf_phy {
 	struct adrv9009_hal	linux_hal;
 	struct clk 		*dev_clk;
 	struct clk 		*fmc_clk;
+	struct clk 		*fmc2_clk;
 	struct clk		*sysref_dev_clk;
 	struct clk		*sysref_fmc_clk;
 	struct clk 		*jesd_rx_clk;
