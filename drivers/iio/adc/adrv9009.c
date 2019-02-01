@@ -555,6 +555,10 @@ static int adrv9009_do_setup(struct adrv9009_rf_phy *phy)
 	    (dev_clk / 1000) == phy->talInit.clocks.deviceClock_kHz) {
 		clk_set_rate(phy->fmc_clk, (unsigned long) dev_clk);
 		clk_set_rate(phy->dev_clk, (unsigned long) dev_clk);
+		if (!IS_ERR(phy->fmc2_clk)) {
+			clk_set_rate(phy->fmc2_clk, (unsigned long) dev_clk);
+		}
+
 	} else {
 		dev_err(&phy->spi->dev, "Requesting device clock %u failed got %ld",
 			phy->talInit.clocks.deviceClock_kHz * 1000, dev_clk);
@@ -5052,12 +5056,20 @@ static int adrv9009_probe(struct spi_device *spi)
 	if (IS_ERR(phy->fmc_clk))
 		return PTR_ERR(phy->fmc_clk);
 
+	phy->fmc2_clk = devm_clk_get(&spi->dev, "fmc2_clk");
+
 	phy->sysref_dev_clk = devm_clk_get(&spi->dev, "sysref_dev_clk");
 	phy->sysref_fmc_clk = devm_clk_get(&spi->dev, "sysref_fmc_clk");
 
 	ret = clk_prepare_enable(phy->fmc_clk);
 	if (ret)
 		return ret;
+
+	if (!IS_ERR(phy->fmc2_clk)) {
+		ret = clk_prepare_enable(phy->fmc2_clk);
+		if (ret)
+			return ret;
+	}
 
 	ret = clk_prepare_enable(phy->dev_clk);
 	if (ret)
@@ -5228,6 +5240,8 @@ out_clk_del_provider:
 out_disable_clocks:
 	clk_disable_unprepare(phy->dev_clk);
 	clk_disable_unprepare(phy->fmc_clk);
+	if (!IS_ERR(phy->fmc2_clk))
+		clk_disable_unprepare(phy->fmc2_clk);
 out_unregister_notifier:
 	release_firmware(phy->fw);
 	release_firmware(phy->stream);
@@ -5247,6 +5261,8 @@ static int adrv9009_remove(struct spi_device *spi)
 	of_clk_del_provider(spi->dev.of_node);
 	clk_disable_unprepare(phy->dev_clk);
 	clk_disable_unprepare(phy->fmc_clk);
+	if (!IS_ERR(phy->fmc2_clk))
+		clk_disable_unprepare(phy->fmc2_clk);
 
 	adrv9009_shutdown(phy);
 
