@@ -140,10 +140,13 @@
 		/* Clocks */
 		clocks = <&axi_adrv9009_rx_jesd>, <&axi_adrv9009_tx_jesd>,
 			<&axi_adrv9009_rx_os_jesd>, <&hmc7044 0>,
-			<&hmc7044 4>, <&hmc7044 1>, <&hmc7044 8>;
+			<&hmc7044 4>, <&hmc7044 1>, <&hmc7044 8>,
+			<&hmc7044 5>;
+
 		clock-names = "jesd_rx_clk", "jesd_tx_clk", "jesd_rx_os_clk",
 			"dev_clk", "fmc_clk", "sysref_dev_clk",
-			"sysref_fmc_clk";
+			"sysref_fmc_clk", "fmc2_clk";
+
 
 		clock-output-names = "rx_sampl_clk", "rx_os_sampl_clk", "tx_sampl_clk";
 		#clock-cells = <1>;
@@ -502,10 +505,12 @@
 		/* Clocks */
 		clocks = <&axi_adrv9009_rx_jesd>, <&axi_adrv9009_tx_jesd>,
 			<&axi_adrv9009_rx_os_jesd>, <&hmc7044 2>,
-			<&hmc7044 5>, <&hmc7044 3>, <&hmc7044 9>;
+			<&hmc7044 5>, <&hmc7044 3>, <&hmc7044 9>,
+			<&hmc7044 4>;
+
 		clock-names = "jesd_rx_clk", "jesd_tx_clk", "jesd_rx_os_clk",
 			"dev_clk", "fmc_clk", "sysref_dev_clk",
-			"sysref_fmc_clk";
+			"sysref_fmc_clk", "fmc2_clk";
 
 		clock-output-names = "rx_sampl_clk", "rx_os_sampl_clk", "tx_sampl_clk";
 		#clock-cells = <1>;
@@ -872,11 +877,14 @@
 		adi,gpi-controls = <0x00 0x00 0x00 0x00>;
 		adi,gpo-controls = <0x1f 0x2b 0x00 0x00>;
 
-		clock-output-names = "hmc7044_out0", "hmc7044_out1", "hmc7044_out2",
-				     "hmc7044_out3", "hmc7044_out4", "hmc7044_out5",
-				     "hmc7044_out6", "hmc7044_out7", "hmc7044_out8",
-				     "hmc7044_out9", "hmc7044_out10", "hmc7044_out11",
-				     "hmc7044_out12", "hmc7044_out13";
+		clock-output-names =
+			"hmc7044_out0_DEV_REFCLK_A", "hmc7044_out1_DEV_SYSREF_A",
+			"hmc7044_out2_DEV_REFCLK_B", "hmc7044_out3_DEV_SYSREF_B",
+			"hmc7044_out4_JESD_REFCLK_RX_AB", "hmc7044_out5_JESD_REFCLK_TX_OBS_AB",
+			"hmc7044_out6_CORE_CLK_RX_AB", "hmc7044_out7_CORE_CLK_TX_OBS_AB",
+			"hmc7044_out8_FPGA_SYSREF_RX_AB","hmc7044_out9_FPGA_SYSREF_TX_OBS_AB",
+			"hmc7044_out10", "hmc7044_out11",
+			"hmc7044_out12", "hmc7044_out13";
 
 		hmc7044_c0: channel@0 {
 			reg = <0>;
@@ -910,31 +918,31 @@
 		};
 		hmc7044_c4: channel@4 {
 			reg = <4>;
-			adi,extended-name = "JESD_REFCLK_A";
+			adi,extended-name = "JESD_REFCLK_RX_AB";
 			adi,divider = <12>;	// 245760000
 			adi,driver-mode = <1>;	// LVPECL
 		};
 		hmc7044_c5: channel@5 {
 			reg = <5>;
-			adi,extended-name = "JESD_REFCLK_B";
+			adi,extended-name = "JESD_REFCLK_TX_OBS_AB";
 			adi,divider = <12>;	// 245760000
 			adi,driver-mode = <1>;	// LVPECL
 		};
 		hmc7044_c6: channel@6 {
 			reg = <6>;
-			adi,extended-name = "CORE_CLK_A";
+			adi,extended-name = "CORE_CLK_RX_AB";
 			adi,divider = <24>;	// 122880000
 			adi,driver-mode = <2>;	// LVDS
 		};
 		hmc7044_c7: channel@7 {
 			reg = <7>;
-			adi,extended-name = "CORE_CLK_B";
+			adi,extended-name = "CORE_CLK_TX_OBS_AB";
 			adi,divider = <12>;	// 245760000
 			adi,driver-mode = <2>;	// LVDS
 		};
 		hmc7044_c8: channel@8 {
 			reg = <8>;
-			adi,extended-name = "FPGA_SYSREF_A";
+			adi,extended-name = "FPGA_SYSREF_RX_AB";
 			adi,divider = <512>;	// 5760000
 			adi,driver-mode = <2>;	// LVDS
 			adi,startup-mode-dynamic-enable;
@@ -943,7 +951,7 @@
 		};
 		hmc7044_c9: channel@9 {
 			reg = <9>;
-			adi,extended-name = "FPGA_SYSREF_B";
+			adi,extended-name = "FPGA_SYSREF_TX_OBS_AB";
 			adi,divider = <512>;	// 5760000
 			adi,driver-mode = <2>;	// LVDS
 			adi,startup-mode-dynamic-enable;
