@@ -1113,36 +1113,15 @@
 	};
 
 	pinctrl_gpio_default: gpio-default {
-		mux-sw {
+		mux-usbsw {
 			function = "gpio0";
-			groups = "gpio0_22_grp", "gpio0_23_grp";
+			groups = "gpio0_35_grp", "gpio0_36_grp", "gpio0_37_grp", "gpio0_38_grp";
 		};
 
-		conf-sw {
-			groups = "gpio0_22_grp", "gpio0_23_grp";
+		conf-usbsw {
+			groups = "gpio0_35_grp", "gpio0_36_grp", "gpio0_37_grp", "gpio0_38_grp";
 			slew-rate = <SLEW_RATE_SLOW>;
 			io-standard = <IO_STANDARD_LVCMOS18>;
-		};
-
-		mux-msp {
-			function = "gpio0";
-			groups = "gpio0_13_grp", "gpio0_38_grp";
-		};
-
-		conf-msp {
-			groups = "gpio0_13_grp", "gpio0_38_grp";
-			slew-rate = <SLEW_RATE_SLOW>;
-			io-standard = <IO_STANDARD_LVCMOS18>;
-		};
-
-		conf-pull-up {
-			pins = "MIO22", "MIO23";
-			bias-pull-up;
-		};
-
-		conf-pull-none {
-			pins = "MIO13", "MIO38";
-			bias-disable;
 		};
 	};
 
