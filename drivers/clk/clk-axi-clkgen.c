@@ -10,6 +10,7 @@
 
 #include <linux/platform_device.h>
 #include <linux/clk-provider.h>
+#include <linux/fpga/adi-axi-common.h>
 #include <linux/slab.h>
 #include <linux/io.h>
 #include <linux/of.h>
@@ -51,6 +52,7 @@
 struct axi_clkgen {
 	void __iomem *base;
 	struct clk_hw clk_hw;
+	unsigned int pcore_version;
 };
 
 static uint32_t axi_clkgen_lookup_filter(unsigned int m)
@@ -103,15 +105,15 @@ static uint32_t axi_clkgen_lookup_lock(unsigned int m)
 }
 
 #ifdef ARCH_ZYNQMP
-static const unsigned int fpfd_min = 10000;
-static const unsigned int fpfd_max = 450000;
-static const unsigned int fvco_min = 800000;
-static const unsigned int fvco_max = 1600000;
+static unsigned int fpfd_min = 10000;
+static unsigned int fpfd_max = 450000;
+static unsigned int fvco_min = 800000;
+static unsigned int fvco_max = 1600000;
 #else
-static const unsigned int fpfd_min = 10000;
-static const unsigned int fpfd_max = 300000;
-static const unsigned int fvco_min = 600000;
-static const unsigned int fvco_max = 1200000;
+static unsigned int fpfd_min = 10000;
+static unsigned int fpfd_max = 300000;
+static unsigned int fvco_min = 600000;
+static unsigned int fvco_max = 1200000;
 #endif
 
 static void axi_clkgen_calc_params(unsigned long fin, unsigned long fout,
@@ -229,6 +231,49 @@ static void axi_clkgen_read(struct axi_clkgen *axi_clkgen,
 	unsigned int reg, unsigned int *val)
 {
 	*val = readl(axi_clkgen->base + reg);
+}
+
+static void axi_clkgen_setup_ranges(struct axi_clkgen *axi_clkgen)
+{
+	unsigned int reg_value;
+	unsigned int tech, family, speed_grade, voltage;
+
+	axi_clkgen_read(axi_clkgen, AXI_REG_FPGA_INFO, &reg_value);
+	tech = AXI_INFO_FPGA_TECH(reg_value);
+	family = AXI_INFO_FPGA_FAMILY(reg_value);
+	speed_grade = AXI_INFO_FPGA_SPEED_GRADE(reg_value);
+
+	axi_clkgen_read(axi_clkgen, AXI_REG_FPGA_VOLTAGE, &reg_value);
+	voltage = AXI_INFO_FPGA_VOLTAGE(reg_value);
+
+	switch (speed_grade) {
+	case AXI_FPGA_SPEED_1 ... AXI_FPGA_SPEED_1LV:
+		fvco_max = 1200000;
+		fpfd_max = 450000;
+		break;
+	case AXI_FPGA_SPEED_2 ... AXI_FPGA_SPEED_2LV:
+		fvco_max = 1440000;
+		fpfd_max = 500000;
+		if ((family == AXI_FPGA_FAMILY_KINTEX) |
+		    (family == AXI_FPGA_FAMILY_ARTIX)) {
+			if (voltage < 950) {
+				fvco_max = 1200000;
+				fpfd_max = 450000;
+			}
+		}
+		break;
+	case AXI_FPGA_SPEED_3:
+		fvco_max = 1600000;
+		fpfd_max = 550000;
+		break;
+	default:
+		break;
+	};
+
+	if (tech == AXI_FPGA_TECH_ULTRASCALE_PLUS) {
+		fvco_max = 1600000;
+		fvco_min = 800000;
+	}
 }
 
 static int axi_clkgen_wait_non_busy(struct axi_clkgen *axi_clkgen)
@@ -525,6 +570,11 @@ static int axi_clkgen_probe(struct platform_device *pdev)
 	axi_clkgen->base = devm_ioremap_resource(&pdev->dev, mem);
 	if (IS_ERR(axi_clkgen->base))
 		return PTR_ERR(axi_clkgen->base);
+
+	axi_clkgen_read(axi_clkgen, AXI_REG_VERSION, &axi_clkgen->pcore_version);
+
+	if (AXI_PCORE_VER_MAJOR(axi_clkgen->pcore_version) > 0x04)
+		axi_clkgen_setup_ranges(axi_clkgen);
 
 	init.num_parents = of_clk_get_parent_count(pdev->dev.of_node);
 	if (init.num_parents < 1 || init.num_parents > 2)
