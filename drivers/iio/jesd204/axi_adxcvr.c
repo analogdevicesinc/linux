@@ -511,6 +511,20 @@ static void adxcvr_enforce_settings(struct adxcvr_state *st)
 	adxcvr_clk_set_rate(&st->lane_clk_hw, lane_rate, parent_rate);
 }
 
+static void adxcvr_get_info(struct adxcvr_state *st)
+{
+	unsigned int reg_value;
+
+	reg_value = adxcvr_read(st, AXI_REG_FPGA_INFO);
+	st->xcvr.tech = AXI_INFO_FPGA_TECH(reg_value);
+	st->xcvr.family = AXI_INFO_FPGA_FAMILY(reg_value);
+	st->xcvr.speed_grade = AXI_INFO_FPGA_SPEED_GRADE(reg_value);
+	st->xcvr.dev_package = AXI_INFO_FPGA_DEV_PACKAGE(reg_value);
+
+	reg_value = adxcvr_read(st, AXI_REG_FPGA_VOLTAGE);
+	st->xcvr.voltage = AXI_INFO_FPGA_VOLTAGE(reg_value);
+}
+
 static const char *adxcvr_gt_names[] = {
 	[XILINX_XCVR_TYPE_S7_GTX2] = "GTX2",
 	[XILINX_XCVR_TYPE_US_GTH3] = "GTH3",
@@ -522,7 +536,6 @@ static int adxcvr_probe(struct platform_device *pdev)
 	struct device_node *np = pdev->dev.of_node;
 	struct adxcvr_state *st;
 	struct resource *mem; /* IO mem resources */
-	unsigned int version;
 	unsigned int synth_conf;
 	int i, ret;
 
@@ -570,7 +583,9 @@ static int adxcvr_probe(struct platform_device *pdev)
 	}
 
 	st->dev = &pdev->dev;
-	version = adxcvr_read(st, ADXCVR_REG_VERSION);
+	st->xcvr.version = adxcvr_read(st, AXI_REG_VERSION);
+	if (AXI_PCORE_VER_MAJOR(st->xcvr.version) > 0x12)
+		adxcvr_get_info(st);
 	platform_set_drvdata(pdev, st);
 
 	synth_conf = adxcvr_read(st, ADXCVR_REG_SYNTH);
@@ -578,6 +593,23 @@ static int adxcvr_probe(struct platform_device *pdev)
 	st->num_lanes = synth_conf & 0xff;
 
 	st->xcvr.type = (synth_conf >> 16) & 0xf;
+
+	/* Ensure compliance with legacy xcvr type */
+	if (AXI_PCORE_VER_MAJOR(st->xcvr.version) <= 0x12) {
+		switch (st->xcvr.type) {
+		case XILINX_XCVR_LEGACY_TYPE_S7_GTX2:
+			st->xcvr.type = XILINX_XCVR_TYPE_S7_GTX2;
+			break;
+		case XILINX_XCVR_LEGACY_TYPE_US_GTH3:
+			st->xcvr.type = XILINX_XCVR_TYPE_US_GTH3;
+			break;
+		case XILINX_XCVR_LEGACY_TYPE_US_GTH4:
+			st->xcvr.type = XILINX_XCVR_TYPE_US_GTH3;
+			break;
+		default:
+			return -EINVAL;
+		}
+	}
 
 	switch (st->xcvr.type) {
 	case XILINX_XCVR_TYPE_S7_GTX2:
@@ -621,9 +653,9 @@ static int adxcvr_probe(struct platform_device *pdev)
 
 	dev_info(&pdev->dev, "AXI-ADXCVR-%s (%d.%.2d.%c) using %s at 0x%08llX mapped to 0x%p. Number of lanes: %d.",
 		st->tx_enable ? "TX" : "RX",
-		PCORE_VER_MAJOR(version),
-		PCORE_VER_MINOR(version),
-		PCORE_VER_LETTER(version),
+		AXI_PCORE_VER_MAJOR(st->xcvr.version),
+		AXI_PCORE_VER_MINOR(st->xcvr.version),
+		AXI_PCORE_VER_LETTER(st->xcvr.version),
 		adxcvr_gt_names[st->xcvr.type],
 		(unsigned long long)mem->start, st->regs,
 		st->num_lanes);
