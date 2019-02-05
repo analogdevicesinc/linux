@@ -10,10 +10,18 @@
 #ifndef XILINX_XCVR_H
 #define XILINX_XCVR_H
 
+#include <linux/fpga/adi-axi-common.h>
+
 enum xilinx_xcvr_type {
-	XILINX_XCVR_TYPE_S7_GTX2,
-	XILINX_XCVR_TYPE_US_GTH3,
-	XILINX_XCVR_TYPE_US_GTH4,
+	XILINX_XCVR_TYPE_S7_GTX2 = 2,
+	XILINX_XCVR_TYPE_US_GTH3 = 5,
+	XILINX_XCVR_TYPE_US_GTH4 = 8,
+};
+
+enum xilinx_xcvr_legacy_type {
+	XILINX_XCVR_LEGACY_TYPE_S7_GTX2,
+	XILINX_XCVR_LEGACY_TYPE_US_GTH3,
+	XILINX_XCVR_LEGACY_TYPE_US_GTH4,
 };
 
 enum xilinx_xcvr_refclk_ppm {
@@ -40,6 +48,12 @@ struct xilinx_xcvr {
 	enum xilinx_xcvr_type type;
 	enum xilinx_xcvr_refclk_ppm refclk_ppm;
 	unsigned int encoding;
+	unsigned int version;
+	enum axi_fgpa_technology tech;
+	enum axi_fpga_family family;
+	enum axi_fpga_speed_grade speed_grade;
+	enum axi_fpga_dev_pack dev_package;
+	unsigned int voltage;
 };
 
 #define ENC_8B10B					810
