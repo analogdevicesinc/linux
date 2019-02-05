@@ -97,12 +97,13 @@
 		spi-max-frequency = <25000000>;
 
 		/* Clocks */
-		clocks = <&axi_adrv9009_rx_jesd>, <&axi_adrv9009_tx_jesd>,
-			<&axi_adrv9009_rx_os_jesd>, <&clk0_ad9528 13>,
-			<&clk0_ad9528 1>, <&clk0_ad9528 12>, <&clk0_ad9528 3>;
-		clock-names = "jesd_rx_clk", "jesd_tx_clk", "jesd_rx_os_clk",
-			"dev_clk", "fmc_clk", "sysref_dev_clk",
-			"sysref_fmc_clk";
+		clocks = <&axi_ad9371_rx_jesd>, <&axi_ad9371_tx_jesd>,
+			<&axi_ad9371_rx_os_jesd>, <&clk0_ad9528 13>,
+			<&clk0_ad9528 1>,  <&clk0_ad9528 12>, <&clk0_ad9528 3>;
+		clock-names = "jesd_rx_clk", "jesd_tx_clk",
+			"jesd_rx_os_clk", "dev_clk",
+			"fmc_clk", "sysref_dev_clk", "sysref_fmc_clk";
+
 		clock-output-names = "rx_sampl_clk", "rx_os_sampl_clk", "tx_sampl_clk";
 
 		adi,clocks-clk-pll-vco-freq_khz = <9830400>;
