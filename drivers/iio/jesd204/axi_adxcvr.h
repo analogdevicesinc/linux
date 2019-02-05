@@ -13,22 +13,9 @@
 
 #include <linux/clk.h>
 #include <linux/clk-provider.h>
+#include <linux/fpga/adi-axi-common.h>
 
 #include "xilinx_transceiver.h"
-
-#define PCORE_VER(major, minor, letter)	((major << 16) | (minor << 8) | letter)
-#define PCORE_VER_MAJOR(version)	(version >> 16)
-#define PCORE_VER_MINOR(version)	((version >> 8) & 0xff)
-#define PCORE_VER_LETTER(version)	(version & 0xff)
-
-#define ADXCVR_REG_VERSION		0x0000
-#define ADXCVR_VERSION(x)		(((x) & 0xffffffff) << 0)
-#define ADXCVR_VERSION_IS(x, y, z)	((x) << 16 | (y) << 8 | (z))
-#define ADXCVR_VERSION_MAJOR(x)		((x) >> 16)
-
-#define ADXCVR_REG_ID			0x0004
-
-#define ADXCVR_REG_SCRATCH		0x0008
 
 #define ADXCVR_REG_RESETN		0x0010
 #define ADXCVR_RESETN			(1 << 0)
