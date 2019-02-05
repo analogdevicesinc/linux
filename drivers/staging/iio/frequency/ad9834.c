@@ -29,8 +29,7 @@
 /* Registers */
 
 #define AD9834_REG_CMD		0
-#define AD9834_REG_FREQ0	BIT(14)
-#define AD9834_REG_FREQ1	BIT(15)
+#define AD9834_REG_FREQ(chann)	(BIT(14) << (chann))
 #define AD9834_REG_PHASE0	(BIT(15) | BIT(14))
 #define AD9834_REG_PHASE1	(BIT(15) | BIT(14) | BIT(13))
 
@@ -81,6 +80,9 @@ struct ad9834_state {
 	struct spi_message		freq_msg;
 	struct mutex                    lock;   /* protect sensor state */
 
+	unsigned long			frequency0;
+	unsigned long			frequency1;
+
 	/*
 	 * DMA (thus cache coherency maintenance) requires the
 	 * transfer buffers to live in their own cache lines.
@@ -100,6 +102,25 @@ enum ad9834_supported_device_ids {
 	ID_AD9838,
 };
 
+#define AD9833_CHANNEL(_chan) {						\
+		.type = IIO_ALTVOLTAGE,					\
+		.indexed = 1,						\
+		.output = 1,						\
+		.address = (_chan),					\
+		.channel = (_chan),					\
+		.info_mask_separate = BIT(IIO_CHAN_INFO_FREQUENCY)	\
+}
+
+static const struct iio_chan_spec ad9833_channels[] = {
+	AD9833_CHANNEL(0),
+	AD9833_CHANNEL(1),
+};
+
+static const struct iio_chan_spec ad9834_channels[] = {
+	AD9833_CHANNEL(0),
+	AD9833_CHANNEL(1),
+};
+
 static unsigned int ad9834_calc_freqreg(unsigned long mclk, unsigned long fout)
 {
 	unsigned long long freqreg = (u64)fout * (u64)BIT(AD9834_FREQ_BITS);
@@ -113,6 +134,7 @@ static int ad9834_write_frequency(struct ad9834_state *st,
 {
 	unsigned long clk_freq;
 	unsigned long regval;
+	int ret;
 
 	clk_freq = clk_get_rate(st->mclk);
 
@@ -121,13 +143,22 @@ static int ad9834_write_frequency(struct ad9834_state *st,
 
 	regval = ad9834_calc_freqreg(clk_freq, fout);
 
-	st->freq_data[0] = cpu_to_be16(addr | (regval &
+	st->freq_data[0] = cpu_to_be16(AD9834_REG_FREQ(addr) | (regval &
 				       RES_MASK(AD9834_FREQ_BITS / 2)));
-	st->freq_data[1] = cpu_to_be16(addr | ((regval >>
+	st->freq_data[1] = cpu_to_be16(AD9834_REG_FREQ(addr) | ((regval >>
 				       (AD9834_FREQ_BITS / 2)) &
 				       RES_MASK(AD9834_FREQ_BITS / 2)));
 
-	return spi_sync(st->spi, &st->freq_msg);
+	ret = spi_sync(st->spi, &st->freq_msg);
+	if (ret)
+		return ret;
+
+	if (addr == 0)
+		st->frequency0 = fout;
+	else
+		st->frequency1 = fout;
+
+	return 0;
 }
 
 static int ad9834_write_phase(struct ad9834_state *st,
@@ -138,6 +169,40 @@ static int ad9834_write_phase(struct ad9834_state *st,
 	st->data = cpu_to_be16(addr | phase);
 
 	return spi_sync(st->spi, &st->msg);
+}
+
+static int ad9834_read_raw(struct iio_dev *indio_dev,
+			   struct iio_chan_spec const *chan,
+			   int *val, int *val2, long mask)
+{
+	struct ad9834_state *st = iio_priv(indio_dev);
+
+	switch (mask) {
+	case IIO_CHAN_INFO_FREQUENCY:
+		if (chan->address == 0)
+			*val = st->frequency0;
+		else
+			*val = st->frequency1;
+		return IIO_VAL_INT;
+	}
+
+	return -EINVAL;
+}
+
+static int ad9834_write_raw(struct iio_dev *indio_dev,
+			    struct iio_chan_spec const *chan,
+			    int val, int val2, long mask)
+{
+	struct ad9834_state *st = iio_priv(indio_dev);
+
+	switch (mask) {
+	case IIO_CHAN_INFO_FREQUENCY:
+		return ad9834_write_frequency(st, chan->address, val);
+	default:
+		return  -EINVAL;
+	}
+
+	return 0;
 }
 
 static ssize_t ad9834_write(struct device *dev,
@@ -157,10 +222,6 @@ static ssize_t ad9834_write(struct device *dev,
 
 	mutex_lock(&st->lock);
 	switch ((u32)this_attr->address) {
-	case AD9834_REG_FREQ0:
-	case AD9834_REG_FREQ1:
-		ret = ad9834_write_frequency(st, this_attr->address, val);
-		break;
 	case AD9834_REG_PHASE0:
 	case AD9834_REG_PHASE1:
 		ret = ad9834_write_phase(st, this_attr->address, val);
@@ -323,8 +384,6 @@ static IIO_DEVICE_ATTR(out_altvoltage0_out1_wavetype_available, 0444,
  * see dds.h for further information
  */
 
-static IIO_DEV_ATTR_FREQ(0, 0, 0200, NULL, ad9834_write, AD9834_REG_FREQ0);
-static IIO_DEV_ATTR_FREQ(0, 1, 0200, NULL, ad9834_write, AD9834_REG_FREQ1);
 static IIO_DEV_ATTR_FREQSYMBOL(0, 0200, NULL, ad9834_write, AD9834_FSEL);
 static IIO_CONST_ATTR_FREQ_SCALE(0, "1"); /* 1Hz */
 
@@ -342,8 +401,6 @@ static IIO_DEV_ATTR_OUT_WAVETYPE(0, 0, ad9834_store_wavetype, 0);
 static IIO_DEV_ATTR_OUT_WAVETYPE(0, 1, ad9834_store_wavetype, 1);
 
 static struct attribute *ad9834_attributes[] = {
-	&iio_dev_attr_out_altvoltage0_frequency0.dev_attr.attr,
-	&iio_dev_attr_out_altvoltage0_frequency1.dev_attr.attr,
 	&iio_const_attr_out_altvoltage0_frequency_scale.dev_attr.attr,
 	&iio_dev_attr_out_altvoltage0_phase0.dev_attr.attr,
 	&iio_dev_attr_out_altvoltage0_phase1.dev_attr.attr,
@@ -361,8 +418,6 @@ static struct attribute *ad9834_attributes[] = {
 };
 
 static struct attribute *ad9833_attributes[] = {
-	&iio_dev_attr_out_altvoltage0_frequency0.dev_attr.attr,
-	&iio_dev_attr_out_altvoltage0_frequency1.dev_attr.attr,
 	&iio_const_attr_out_altvoltage0_frequency_scale.dev_attr.attr,
 	&iio_dev_attr_out_altvoltage0_phase0.dev_attr.attr,
 	&iio_dev_attr_out_altvoltage0_phase1.dev_attr.attr,
@@ -384,10 +439,14 @@ static const struct attribute_group ad9833_attribute_group = {
 };
 
 static const struct iio_info ad9834_info = {
+	.write_raw = &ad9834_write_raw,
+	.read_raw = &ad9834_read_raw,
 	.attrs = &ad9834_attribute_group,
 };
 
 static const struct iio_info ad9833_info = {
+	.write_raw = &ad9834_write_raw,
+	.read_raw = &ad9834_read_raw,
 	.attrs = &ad9833_attribute_group,
 };
 
@@ -433,9 +492,13 @@ static int ad9834_probe(struct spi_device *spi)
 	switch (st->devid) {
 	case ID_AD9833:
 	case ID_AD9837:
+		indio_dev->channels = ad9833_channels;
+		indio_dev->num_channels = ARRAY_SIZE(ad9833_channels);
 		indio_dev->info = &ad9833_info;
 		break;
 	default:
+		indio_dev->channels = ad9834_channels;
+		indio_dev->num_channels = ARRAY_SIZE(ad9834_channels);
 		indio_dev->info = &ad9834_info;
 		break;
 	}
@@ -472,11 +535,11 @@ static int ad9834_probe(struct spi_device *spi)
 		goto error_clock_unprepare;
 	}
 
-	ret = ad9834_write_frequency(st, AD9834_REG_FREQ0, 1000000);
+	ret = ad9834_write_frequency(st, 0, 1000000);
 	if (ret)
 		goto error_clock_unprepare;
 
-	ret = ad9834_write_frequency(st, AD9834_REG_FREQ1, 5000000);
+	ret = ad9834_write_frequency(st, 1, 5000000);
 	if (ret)
 		goto error_clock_unprepare;
 
