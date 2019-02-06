@@ -194,7 +194,7 @@
 			interrupt-parent = <&axi_intc>;
 			interrupts = <1 2>;
 			local-mac-address = [00 0a 35 00 00 01];
-			phy-handle = <&phy0 &phy1>;
+			phy-handle = <&phy0>;
 			phy-mode = "sgmii";
 			reg = <0x40e00000 0x40000>;
 			xlnx = <0x0>;
@@ -226,10 +226,6 @@
 				phy0: phy@7 {
 					device_type = "ethernet-phy";
 					reg = <7>;
-				};
-				phy1: phy@1 {
-					device_type = "ethernet-phy";
-					reg = <1>;
 				};
 			};
 		};
