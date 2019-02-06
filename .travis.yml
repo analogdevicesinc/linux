@@ -15,6 +15,9 @@ notifications:
 
 env:
   matrix:
+  - BUILD_TYPE=sync_branches_with_master
+    BRANCH1="xcomm_zynq:fast-forward"
+    BRANCH2="adi-4.14.0:cherry-pick"
   - BUILD_TYPE=checkpatch
   - BUILD_TYPE=dtb_build_test
   - DEFCONFIG_NAME=zynq_xcomm_adv7511_defconfig ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf-
