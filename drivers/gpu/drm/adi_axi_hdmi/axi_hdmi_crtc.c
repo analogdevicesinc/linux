@@ -47,12 +47,14 @@ static struct dma_async_tx_descriptor *axi_hdmi_vdma_prep_interleaved_desc(
 
 	obj = drm_fb_cma_get_gem_obj(plane->state->fb, 0);
 
+#if IS_ENABLED(CONFIG_XILINX_DMA)
 	if (!strncmp(axi_hdmi_crtc->dma->device->dev->driver->name, "xilinx-vdma", 11)) {
 		memset(&vdma_config, 0, sizeof(vdma_config));
 		vdma_config.park = 1;
 		vdma_config.coalesc = 0xff;
 		xilinx_vdma_channel_set_config(axi_hdmi_crtc->dma, &vdma_config);
 	}
+#endif
 
 	offset = plane->state->crtc_x * fb->format->cpp[0] +
 		plane->state->crtc_y * fb->pitches[0];
