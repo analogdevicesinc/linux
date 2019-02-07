@@ -196,6 +196,8 @@ struct hmc7044_chan_spec {
 	bool			force_mute_enable;
 	unsigned int		divider;
 	unsigned int		driver_mode;
+	unsigned int		coarse_delay;
+	unsigned int		fine_delay;
 	const char		*extended_name;
 };
 
@@ -263,6 +265,7 @@ static int hmc7044_read_raw(struct iio_dev *indio_dev,
 {
 	struct hmc7044 *hmc = iio_priv(indio_dev);
 	struct hmc7044_chan_spec *ch;
+	unsigned int tmp, code;
 
 	if (chan->address >= hmc->num_channels)
 		return -EINVAL;
@@ -273,6 +276,14 @@ static int hmc7044_read_raw(struct iio_dev *indio_dev,
 	case IIO_CHAN_INFO_FREQUENCY:
 		*val = hmc->pll2_freq / ch->divider;
 		return IIO_VAL_INT;
+	case IIO_CHAN_INFO_PHASE:
+		hmc7044_read(indio_dev, HMC7044_REG_CH_OUT_CRTL_4(ch->num),
+			     &tmp);
+		tmp &= 0x1F;
+		code = DIV_ROUND_CLOSEST(tmp * 3141592, ch->divider);
+		*val = code / 1000000;
+		*val2 = code % 1000000;
+		return IIO_VAL_INT_PLUS_MICRO;
 	default:
 		return -EINVAL;
 	}
@@ -286,6 +297,7 @@ static int hmc7044_write_raw(struct iio_dev *indio_dev,
 {
 	struct hmc7044 *hmc = iio_priv(indio_dev);
 	struct hmc7044_chan_spec *ch;
+	unsigned int code, tmp;
 
 	if (chan->address >= hmc->num_channels)
 		return -EINVAL;
@@ -300,6 +312,15 @@ static int hmc7044_write_raw(struct iio_dev *indio_dev,
 			      HMC7044_DIV_LSB(ch->divider));
 		hmc7044_write(indio_dev, HMC7044_REG_CH_OUT_CRTL_2(ch->num),
 			      HMC7044_DIV_MSB(ch->divider));
+		mutex_unlock(&hmc->lock);
+		break;
+	case IIO_CHAN_INFO_PHASE:
+		mutex_lock(&hmc->lock);
+		code = val * 1000000 + val2 % 1000000;
+		tmp = DIV_ROUND_CLOSEST(code * ch->divider, 3141592);
+		tmp = clamp_t(unsigned int, tmp, 0, 17);
+		hmc7044_write(indio_dev, HMC7044_REG_CH_OUT_CRTL_4(ch->num),
+			      tmp);
 		mutex_unlock(&hmc->lock);
 		break;
 	default:
@@ -629,12 +650,6 @@ static int hmc7044_setup(struct iio_dev *indio_dev)
 		if (chan->num >= HMC7044_NUM_CHAN || chan->disable)
 			continue;
 
-		hmc7044_write(indio_dev, HMC7044_REG_CH_OUT_CRTL_0(chan->num),
-			      (chan->start_up_mode_dynamic_enable ?
-			      HMC7044_START_UP_MODE_DYN_EN : 0) |
-			      (chan->high_performance_mode_dis ?
-			      0 : HMC7044_HI_PERF_MODE) | HMC7044_SYNC_EN |
-			      HMC7044_CH_EN);
 		hmc7044_write(indio_dev, HMC7044_REG_CH_OUT_CRTL_1(chan->num),
 			      HMC7044_DIV_LSB(chan->divider));
 		hmc7044_write(indio_dev, HMC7044_REG_CH_OUT_CRTL_2(chan->num),
@@ -646,6 +661,18 @@ static int hmc7044_setup(struct iio_dev *indio_dev)
 			      (chan->force_mute_enable ?
 			      HMC7044_FORCE_MUTE_EN : 0));
 
+		hmc7044_write(indio_dev, HMC7044_REG_CH_OUT_CRTL_3(chan->num),
+			      chan->fine_delay & 0x1F);
+		hmc7044_write(indio_dev, HMC7044_REG_CH_OUT_CRTL_4(chan->num),
+			      chan->coarse_delay & 0x1F);
+
+		hmc7044_write(indio_dev, HMC7044_REG_CH_OUT_CRTL_0(chan->num),
+			      (chan->start_up_mode_dynamic_enable ?
+			      HMC7044_START_UP_MODE_DYN_EN : 0) |
+			      (chan->high_performance_mode_dis ?
+			      0 : HMC7044_HI_PERF_MODE) | HMC7044_SYNC_EN |
+			      HMC7044_CH_EN);
+
 		hmc->iio_channels[i].type = IIO_ALTVOLTAGE;
 		hmc->iio_channels[i].output = 1;
 		hmc->iio_channels[i].indexed = 1;
@@ -653,7 +680,8 @@ static int hmc7044_setup(struct iio_dev *indio_dev)
 		hmc->iio_channels[i].address = i;
 		hmc->iio_channels[i].extend_name = chan->extended_name;
 		hmc->iio_channels[i].info_mask_separate =
-			BIT(IIO_CHAN_INFO_FREQUENCY);
+			BIT(IIO_CHAN_INFO_FREQUENCY) |
+			BIT(IIO_CHAN_INFO_PHASE);
 	}
 	mdelay(10);
 
@@ -782,6 +810,12 @@ static int hmc7044_parse_dt(struct device *dev,
 		hmc->channels[cnt].force_mute_enable =
 			of_property_read_bool(chan_np,
 					      "adi,force-mute-enable");
+		hmc->channels[cnt].coarse_delay = 0;
+		of_property_read_u32(chan_np, "adi,coarse-digital-delay",
+				     &hmc->channels[cnt].coarse_delay);
+		hmc->channels[cnt].fine_delay = 0;
+		of_property_read_u32(chan_np, "adi,fine-analog-delay",
+				     &hmc->channels[cnt].fine_delay);
 		cnt++;
 	}
 
