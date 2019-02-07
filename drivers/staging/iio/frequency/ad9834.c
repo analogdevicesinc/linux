@@ -100,15 +100,6 @@ enum ad9834_supported_device_ids {
 	ID_AD9838,
 };
 
-static struct ad9834_platform_data default_config = {
-	.freq0 = 1000000,
-	.freq1 = 5000000,
-	.phase0 = 512,
-	.phase1 = 1024,
-	.en_div2 = false,
-	.en_signbit_msb_out = false,
-};
-
 static unsigned int ad9834_calc_freqreg(unsigned long mclk, unsigned long fout)
 {
 	unsigned long long freqreg = (u64)fout * (u64)BIT(AD9834_FREQ_BITS);
@@ -402,14 +393,11 @@ static const struct iio_info ad9833_info = {
 
 static int ad9834_probe(struct spi_device *spi)
 {
-	struct ad9834_platform_data *pdata;
 	struct ad9834_state *st;
 	struct iio_dev *indio_dev;
 	struct regulator *reg;
-	struct clk *clk;
 	int ret;
 
-	pdata = &default_config;
 
 	reg = devm_regulator_get(&spi->dev, "avdd");
 	if (IS_ERR(reg))
@@ -421,14 +409,6 @@ static int ad9834_probe(struct spi_device *spi)
 		return ret;
 	}
 
-	clk = devm_clk_get(&spi->dev, NULL);
-
-	ret = clk_prepare_enable(clk);
-	if (ret) {
-		dev_err(&spi->dev, "Failed to enable master clock\n");
-		return ret;
-	}
-
 	indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*st));
 	if (!indio_dev) {
 		ret = -ENOMEM;
@@ -437,7 +417,14 @@ static int ad9834_probe(struct spi_device *spi)
 	spi_set_drvdata(spi, indio_dev);
 	st = iio_priv(indio_dev);
 	mutex_init(&st->lock);
-	st->mclk = clk;
+	st->mclk = devm_clk_get(&spi->dev, NULL);
+
+	ret = clk_prepare_enable(st->mclk);
+	if (ret) {
+		dev_err(&spi->dev, "Failed to enable master clock\n");
+		goto error_disable_reg;
+	}
+
 	st->spi = spi;
 	st->devid = spi_get_device_id(spi)->driver_data;
 	st->reg = reg;
@@ -473,45 +460,43 @@ static int ad9834_probe(struct spi_device *spi)
 	spi_message_add_tail(&st->freq_xfer[1], &st->freq_msg);
 
 	st->control = AD9834_B28 | AD9834_RESET;
+	st->control |= AD9834_DIV2;
 
-	if (!pdata->en_div2)
-		st->control |= AD9834_DIV2;
-
-	if (!pdata->en_signbit_msb_out && (st->devid == ID_AD9834))
+	if (st->devid == ID_AD9834)
 		st->control |= AD9834_SIGN_PIB;
 
 	st->data = cpu_to_be16(AD9834_REG_CMD | st->control);
 	ret = spi_sync(st->spi, &st->msg);
 	if (ret) {
 		dev_err(&spi->dev, "device init failed\n");
-		goto error_disable_reg;
+		goto error_clock_unprepare;
 	}
 
-	ret = ad9834_write_frequency(st, AD9834_REG_FREQ0, pdata->freq0);
+	ret = ad9834_write_frequency(st, AD9834_REG_FREQ0, 1000000);
 	if (ret)
-		goto error_disable_reg;
+		goto error_clock_unprepare;
 
-	ret = ad9834_write_frequency(st, AD9834_REG_FREQ1, pdata->freq1);
+	ret = ad9834_write_frequency(st, AD9834_REG_FREQ1, 5000000);
 	if (ret)
-		goto error_disable_reg;
+		goto error_clock_unprepare;
 
-	ret = ad9834_write_phase(st, AD9834_REG_PHASE0, pdata->phase0);
+	ret = ad9834_write_phase(st, AD9834_REG_PHASE0, 512);
 	if (ret)
-		goto error_disable_reg;
+		goto error_clock_unprepare;
 
-	ret = ad9834_write_phase(st, AD9834_REG_PHASE1, pdata->phase1);
+	ret = ad9834_write_phase(st, AD9834_REG_PHASE1, 1024);
 	if (ret)
-		goto error_disable_reg;
+		goto error_clock_unprepare;
 
 	ret = iio_device_register(indio_dev);
 	if (ret)
-		goto error_disable_reg;
+		goto error_clock_unprepare;
 
 	return 0;
-
+error_clock_unprepare:
+	clk_disable_unprepare(st->mclk);
 error_disable_reg:
 	regulator_disable(reg);
-	clk_disable_unprepare(st->mclk);
 
 	return ret;
 }
@@ -522,8 +507,8 @@ static int ad9834_remove(struct spi_device *spi)
 	struct ad9834_state *st = iio_priv(indio_dev);
 
 	iio_device_unregister(indio_dev);
-	regulator_disable(st->reg);
 	clk_disable_unprepare(st->mclk);
+	regulator_disable(st->reg);
 
 	return 0;
 }
