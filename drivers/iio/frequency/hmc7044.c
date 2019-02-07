@@ -549,6 +549,10 @@ static int hmc7044_setup(struct iio_dev *indio_dev)
 	hmc7044_write(indio_dev, HMC7044_REG_SOFT_RESET, 0);
 	mdelay(10);
 
+	/* Disable all channels */
+	for (i = 0; i < HMC7044_NUM_CHAN; i++)
+		hmc7044_write(indio_dev, HMC7044_REG_CH_OUT_CRTL_0(i), 0);
+
 	/* Load the configuration updates (provided by Analog Devices) */
 	hmc7044_write(indio_dev, HMC7044_REG_CLK_OUT_DRV_LOW_PW, 0x4d);
 	hmc7044_write(indio_dev, HMC7044_REG_CLK_OUT_DRV_HIGH_PW, 0xdf);
