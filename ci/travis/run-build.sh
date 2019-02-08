@@ -1,5 +1,5 @@
 #!/bin/bash
-set -xe
+set -e
 
 build_default() {
 	make ${DEFCONFIG_NAME}
