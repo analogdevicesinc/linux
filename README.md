@@ -3,10 +3,11 @@
 ## Table of contents
 
 1. [Description](#description)
-2. [Release branches](#release-branches)
-3. [Rebased branches](#rebased-branches)
-4. [Raspberry Pi branches](#raspberry-pi-branches)
-5. [Intel/Altera branches](#intelaltera-branches)
+2. [How to build](#how-to-build)
+3. [Release branches](#release-branches)
+4. [Rebased branches](#rebased-branches)
+5. [Raspberry Pi branches](#raspberry-pi-branches)
+6. [Intel/Altera branches](#intelaltera-branches)
 
 ## Description
 
@@ -19,6 +20,10 @@ For the current master, the last point in git history where things were merged f
 For legacy reasons, the [xcomm_zynq](https://github.com/analogdevicesinc/linux/tree/xcomm_zynq) branch is still available and should be in-sync with current master. That branch used to be the old master branch.
 
 The current version of upstream Linux that Xilinx merged into their tree is from [Linux 4.14](https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tag/?h=v4.14). No other patches seem to have been added after this (by Xilinx).
+
+## How to build
+
+For build instructions [check the wiki](https://wiki.analog.com/resources/tools-software/linux-drivers-all#building_the_adi_linux_kernel).
 
 ## Release branches
 
