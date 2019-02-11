@@ -387,3 +387,15 @@
 &edma2 {
 	status = "okay";
 };
+
+&A35_0 {
+	operating-points = <
+		/* kHz	uV*/
+		/* voltage is maintained by SCFW, so no need here */
+		1200000 0
+		 900000 0
+	>;
+	clocks = <&clk IMX_A35_CLK>;
+	clock-latency = <61036>;
+	#cooling-cells = <2>;
+};
