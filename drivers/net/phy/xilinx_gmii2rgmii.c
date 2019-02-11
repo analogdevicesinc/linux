@@ -48,6 +48,7 @@ static int xgmiitorgmii_read_status(struct phy_device *phydev)
 		err = priv->phy_drv->read_status(phydev);
 	else
 		err = genphy_read_status(phydev);
+
 	if (err < 0)
 		return err;
 
