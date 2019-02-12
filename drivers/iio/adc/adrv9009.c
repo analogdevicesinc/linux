@@ -1252,10 +1252,6 @@ static int adrv9009_multi_chip_sync(struct adrv9009_rf_phy *phy, int step)
 
 		}
 		break;
-	case 6:
-		/*** < User Sends SYSREF Here > ***/
-		adrv9009_sysref_req(phy, SYSREF_CONT_ON);
-		break;
 	case 5:
 		if (!IS_ERR_OR_NULL(phy->jesd_tx_clk)) {
 			u8 phy_ctrl;
@@ -1282,6 +1278,10 @@ static int adrv9009_multi_chip_sync(struct adrv9009_rf_phy *phy, int step)
 				dev_err(&phy->spi->dev, "jesd_rx_os_clk enable failed (%d)", ret);
 			}
 		}
+		break;
+	case 6:
+		/*** < User Sends SYSREF Here > ***/
+		adrv9009_sysref_req(phy, SYSREF_CONT_ON);
 		break;
 	case 7:
 		adrv9009_sysref_req(phy, SYSREF_CONT_OFF);
