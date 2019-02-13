@@ -231,7 +231,7 @@ struct cf_axi_dds_state {
 	void __iomem		*master_regs;
 	u64			dac_clk;
 	unsigned 		ddr_dds_interp_en;
-	unsigned		cached_freq[8];
+	unsigned		cached_freq[16];
 	unsigned		version;
 	unsigned		have_slave_channels;
 	unsigned		interpolation_factor;
