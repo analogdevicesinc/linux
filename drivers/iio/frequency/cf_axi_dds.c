@@ -1662,6 +1662,17 @@ static int cf_axi_dds_probe(struct platform_device *pdev)
 			cf_axi_dds_default_setup(st, 7, 0, frequency, scale);
 		}
 
+		if (st->chip_info->num_dds_channels >= 16) {
+			cf_axi_dds_default_setup(st, 8, 90000, frequency, scale);
+			cf_axi_dds_default_setup(st, 9, 90000, frequency, scale);
+			cf_axi_dds_default_setup(st, 10, 0, frequency, scale);
+			cf_axi_dds_default_setup(st, 11, 0, frequency, scale);
+			cf_axi_dds_default_setup(st, 12, 90000, frequency, scale);
+			cf_axi_dds_default_setup(st, 13, 90000, frequency, scale);
+			cf_axi_dds_default_setup(st, 14, 0, frequency, scale);
+			cf_axi_dds_default_setup(st, 15, 0, frequency, scale);
+		}
+
 		cf_axi_dds_update_chan_spec(st, st->chip_info->channel,
 				st->chip_info->num_channels);
 
