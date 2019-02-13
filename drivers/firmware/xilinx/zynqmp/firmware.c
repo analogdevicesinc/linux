@@ -21,6 +21,8 @@
 #include <linux/firmware/xilinx/zynqmp/firmware.h>
 #include <linux/firmware/xilinx/zynqmp/firmware-debug.h>
 
+static unsigned long register_address;
+
 /**
  * zynqmp_pm_ret_code - Convert PMU-FW error codes to Linux error codes
  * @ret_status:		PMUFW return code
@@ -308,9 +310,9 @@ static int zynqmp_pm_reset_get_status(const enum zynqmp_pm_reset reset,
  * @address:	Address to write to
  * @size:	pl bitstream size
  * @flags:
- *	BIT(0) - Bit-stream type.
- *		 0 - Full Bit-stream.
- *		 1 - Partial Bit-stream.
+ *	BIT(0) - Bitstream type.
+ *		 0 - Full Bitstream.
+ *		 1 - Partial Bitstream.
  *	BIT(1) - Authentication.
  *		 1 - Enable.
  *		 0 - Disable.
@@ -350,6 +352,36 @@ static int zynqmp_pm_fpga_get_status(u32 *value)
 		return -EINVAL;
 
 	ret = zynqmp_pm_invoke_fn(PM_FPGA_GET_STATUS, 0, 0, 0, 0, ret_payload);
+	*value = ret_payload[1];
+
+	return ret;
+}
+
+/**
+ * zynqmp_pm_fpga_read - Perform the fpga configuration readback
+ * @reg_numframes: Configuration register offset (or) Number of frames to read
+ * @phys_address: Physical Address of the buffer
+ * @readback_type: Type of fpga readback operation
+ * @value: Value to read
+ *
+ * This function provides access to xilfpga library to perform
+ * fpga configuration readback.
+ *
+ * Return:	Returns status, either success or error+reason
+ */
+static int zynqmp_pm_fpga_read(const u32 reg_numframes, const u64 phys_address,
+			       u32 readback_type, u32 *value)
+{
+	u32 ret_payload[PAYLOAD_ARG_CNT];
+	int ret;
+
+	if (!value)
+		return -EINVAL;
+
+	ret = zynqmp_pm_invoke_fn(PM_FPGA_READ, reg_numframes,
+				  lower_32_bits(phys_address),
+				  upper_32_bits(phys_address), readback_type,
+				  ret_payload);
 	*value = ret_payload[1];
 
 	return ret;
@@ -647,6 +679,29 @@ static int zynqmp_pm_rsa(const u64 address, const u32 size, const u32 flags)
 }
 
 /**
+ * zynqmp_pm_aes - Access AES hardware to encrypt/decrypt the data using
+ * AES-GCM core.
+ * @address:	Address of the AesParams structure.
+ * @out:	Returned output value
+ *
+ * Return:	Returns status, either success or error code.
+ */
+static int zynqmp_pm_aes_engine(const u64 address, u32 *out)
+{
+	u32 ret_payload[PAYLOAD_ARG_CNT];
+	int ret;
+
+	if (!out)
+		return -EINVAL;
+
+	ret = zynqmp_pm_invoke_fn(PM_SECURE_AES, upper_32_bits(address),
+				  lower_32_bits(address),
+				  0, 0, ret_payload);
+	*out = ret_payload[1];
+	return ret;
+}
+
+/**
  * zynqmp_pm_pinctrl_request - Request Pin from firmware
  * @pin:	Pin number to request
  *
@@ -771,6 +826,26 @@ static int zynqmp_pm_ioctl(u32 node_id, u32 ioctl_id, u32 arg1, u32 arg2,
 {
 	return zynqmp_pm_invoke_fn(PM_IOCTL, node_id, ioctl_id,
 				   arg1, arg2, out);
+}
+
+/**
+ * zynqmp_pm_config_reg_access - PM Config API for Config register access
+ * @register_access_id:	ID of the requested REGISTER_ACCESS
+ * @address:		Address of the register to be accessed
+ * @mask:		Mask to be written to the register
+ * @value:		Value to be written to the register
+ * @out:		Returned output value
+ *
+ * This function calls REGISTER_ACCESS to configure CSU/PMU registers.
+ *
+ * Return:	Returns status, either success or error+reason
+ */
+
+static int zynqmp_pm_config_reg_access(u32 register_access_id, u32 address,
+				       u32 mask, u32 value, u32 *out)
+{
+	return zynqmp_pm_invoke_fn(PM_REGISTER_ACCESS, register_access_id,
+				   address, mask, value, out);
 }
 
 static int zynqmp_pm_query_data(struct zynqmp_pm_query_data qdata, u32 *out)
@@ -943,6 +1018,28 @@ static int zynqmp_pm_clock_getparent(u32 clock_id, u32 *parent_id)
 	return ret;
 }
 
+/**
+ * zynqmp_pm_efuse_access - Provides access to efuse memory.
+ * @address:	Address of the efuse params structure
+ * @out:		Returned output value
+ *
+ * Return:	Returns status, either success or error code.
+ */
+static int zynqmp_pm_efuse_access(const u64 address, u32 *out)
+{
+	u32 ret_payload[PAYLOAD_ARG_CNT];
+	int ret;
+
+	if (!out)
+		return -EINVAL;
+
+	ret = zynqmp_pm_invoke_fn(PM_EFUSE_ACCESS, upper_32_bits(address),
+				  lower_32_bits(address), 0, 0, ret_payload);
+	*out = ret_payload[1];
+
+	return ret;
+}
+
 static const struct zynqmp_eemi_ops eemi_ops = {
 	.get_api_version = zynqmp_pm_get_api_version,
 	.get_chipid = zynqmp_pm_get_chipid,
@@ -950,6 +1047,7 @@ static const struct zynqmp_eemi_ops eemi_ops = {
 	.reset_get_status = zynqmp_pm_reset_get_status,
 	.fpga_load = zynqmp_pm_fpga_load,
 	.fpga_get_status = zynqmp_pm_fpga_get_status,
+	.fpga_read = zynqmp_pm_fpga_read,
 	.sha_hash = zynqmp_pm_sha_hash,
 	.rsa = zynqmp_pm_rsa,
 	.request_suspend = zynqmp_pm_request_suspend,
@@ -983,6 +1081,9 @@ static const struct zynqmp_eemi_ops eemi_ops = {
 	.clock_getrate = zynqmp_pm_clock_getrate,
 	.clock_setparent = zynqmp_pm_clock_setparent,
 	.clock_getparent = zynqmp_pm_clock_getparent,
+	.register_access = zynqmp_pm_config_reg_access,
+	.aes = zynqmp_pm_aes_engine,
+	.efuse_access = zynqmp_pm_efuse_access,
 };
 
 /**
@@ -1175,9 +1276,135 @@ static ssize_t health_status_store(struct kobject *kobj,
 
 static struct kobj_attribute zynqmp_attr_health_status =
 						__ATTR_WO(health_status);
+
+/**
+ * config_reg_store - Write config_reg sysfs attribute
+ * @kobj:	Kobject structure
+ * @attr:	Kobject attribute structure
+ * @buf:	User entered health_status attribute string
+ * @count:	Buffer size
+ *
+ * User-space interface for setting the config register.
+ *
+ * To write any CSU/PMU register
+ * echo <address> <mask> <values> > /sys/firmware/zynqmp/config_reg
+ * Usage:
+ * echo 0x345AB234 0xFFFFFFFF 0x1234ABCD > /sys/firmware/zynqmp/config_reg
+ *
+ * To Read any CSU/PMU register, write address to the variable like below
+ * echo <address> > /sys/firmware/zynqmp/config_reg
+ *
+ * Return:	count argument if request succeeds, the corresponding error
+ *		code otherwise
+ */
+static ssize_t config_reg_store(struct kobject *kobj,
+				struct kobj_attribute *attr,
+				const char *buf, size_t count)
+{
+	char *kern_buff, *inbuf, *tok;
+	unsigned long address, value, mask;
+	int ret;
+
+	kern_buff = kzalloc(count, GFP_KERNEL);
+	if (!kern_buff)
+		return -ENOMEM;
+
+	ret = strlcpy(kern_buff, buf, count);
+	if (ret < 0) {
+		ret = -EFAULT;
+		goto err;
+	}
+
+	inbuf = kern_buff;
+
+	/* Read the addess */
+	tok = strsep(&inbuf, " ");
+	if (!tok) {
+		ret = -EFAULT;
+		goto err;
+	}
+	ret = kstrtol(tok, 16, &address);
+	if (ret) {
+		ret = -EFAULT;
+		goto err;
+	}
+	/* Read the write value */
+	tok = strsep(&inbuf, " ");
+	/*
+	 * If parameter provided is only address, then its a read operation.
+	 * Store the address in a global variable and retrieve whenever
+	 * required.
+	 */
+	if (!tok) {
+		register_address = address;
+		goto err;
+	}
+	register_address = address;
+
+	ret = kstrtol(tok, 16, &mask);
+	if (ret) {
+		ret = -EFAULT;
+		goto err;
+	}
+	tok = strsep(&inbuf, " ");
+	if (!tok) {
+		ret = -EFAULT;
+		goto err;
+	}
+	ret = kstrtol(tok, 16, &value);
+	if (!tok) {
+		ret = -EFAULT;
+		goto err;
+	}
+	ret = zynqmp_pm_config_reg_access(CONFIG_REG_WRITE, address,
+					  mask, value, NULL);
+	if (ret)
+		pr_err("unable to write value to %lx\n", value);
+err:
+	kfree(kern_buff);
+	if (ret)
+		return ret;
+	return count;
+}
+
+/**
+ * config_reg_show - Read config_reg sysfs attribute
+ * @kobj:	Kobject structure
+ * @attr:	Kobject attribute structure
+ * @buf:	User entered health_status attribute string
+ *
+ * User-space interface for getting the config register.
+ *
+ * To Read any CSU/PMU register, write address to the variable like below
+ * echo <address> > /sys/firmware/zynqmp/config_reg
+ *
+ * Then Read the address using below command
+ * cat /sys/firmware/zynqmp/config_reg
+ *
+ * Return: number of chars written to buf.
+ */
+static ssize_t config_reg_show(struct kobject *kobj,
+			       struct kobj_attribute *attr,
+			       char *buf)
+{
+	int ret;
+	u32 ret_payload[PAYLOAD_ARG_CNT];
+
+	ret = zynqmp_pm_config_reg_access(CONFIG_REG_READ, register_address,
+					  0, 0, ret_payload);
+	if (ret)
+		return ret;
+
+	return sprintf(buf, "0x%x\n", ret_payload[1]);
+}
+
+static struct kobj_attribute zynqmp_attr_config_reg =
+					__ATTR_RW(config_reg);
+
 static struct attribute *attrs[] = {
 	&zynqmp_attr_shutdown_scope.attr,
 	&zynqmp_attr_health_status.attr,
+	&zynqmp_attr_config_reg.attr,
 	NULL,
 };
 

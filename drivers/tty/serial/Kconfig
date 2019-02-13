@@ -630,15 +630,6 @@ config SERIAL_UARTLITE_CONSOLE
 	  console (the system console is the device which receives all kernel
 	  messages and warnings and which allows logins in single user mode).
 
-config SERIAL_UARTLITE_NR_UARTS
-	int "Maximum number of uartlite serial ports"
-	depends on SERIAL_UARTLITE
-	range 1 256
-	default 1
-	help
-	  Set this to the number of uartlites in your system, or the number
-	  you think you might implement.
-
 config SERIAL_SUNCORE
 	bool
 	depends on SPARC
@@ -1460,14 +1451,6 @@ config SERIAL_XILINX_PS_UART_CONSOLE
 	select SERIAL_EARLYCON
 	help
 	  Enable a Cadence UART port to be the system console.
-
-config SERIAL_XILINX_NR_UARTS
-        int "Maximum number of XILINX serial ports"
-        depends on SERIAL_XILINX_PS_UART
-        default "2"
-        help
-          If multiple cards are present, the default limit of 2 ports may
-          need to be increased.
 
 config SERIAL_AR933X
 	tristate "AR933X serial port support"
