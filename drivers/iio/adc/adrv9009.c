@@ -4206,6 +4206,17 @@ static int adrv9009_parse_profile(struct adrv9009_rf_phy *phy,
 			continue;\
 		}}
 
+#define GET_MTOKEN(x, n, l) \
+		{char str[32];\
+		ret = sscanf(line, " <" #n "=%s>", str);\
+		if (ret == 1) { \
+			sint32 = match_string(l, ARRAY_SIZE(l), str);\
+			if (sint32 < 0)\
+				return -EINVAL;\
+			x.n = sint32;\
+			continue;\
+		}}
+
 	while ((line = strsep(&ptr, "\n"))) {
 		if (line >= data + size)
 			break;
@@ -4433,6 +4444,14 @@ static int adrv9009_parse_profile(struct adrv9009_rf_phy *phy,
 				GET_STOKEN(phy->talInit.rx.rxProfile.rxNcoShifterCfg, bandBNco1Freq_kHz);
 				GET_STOKEN(phy->talInit.rx.rxProfile.rxNcoShifterCfg, bandBNco2Freq_kHz);
 			} else {
+// 				static const char *taliseRxChannels_s[] = {
+// 					"TAL_RXOFF>",
+// 					"TAL_RX1>",
+// 					"TAL_RX2>",
+// 					"TAL_RX1RX2>"
+// 				};
+// 				GET_MTOKEN(phy->talInit.rx, rxChannels, taliseRxChannels_s);
+				SKIP_TOKEN(phy->talInit.rx, rxChannels);
 				GET_TOKEN(phy->talInit.rx.rxProfile, rxFirDecimation);
 				GET_TOKEN(phy->talInit.rx.rxProfile, rxDec5Decimation);
 				GET_TOKEN(phy->talInit.rx.rxProfile, rhb1Decimation);
@@ -4445,6 +4464,14 @@ static int adrv9009_parse_profile(struct adrv9009_rf_phy *phy,
 
 		if (obs && !filter && !orxlowpassadcprofile && !orxbandpassadcprofile &&
 		    !orxmergefilter) {
+// 			static const char *taliseObsRxChannels_s[] = {
+// 				"TAL_ORXOFF>",
+// 				"TAL_ORX1>",
+// 				"TAL_ORX2>",
+// 				"TAL_ORX1ORX2>"
+// 			};
+// 			GET_MTOKEN(phy->talInit.obsRx, obsRxChannelsEnable, taliseObsRxChannels_s);
+			SKIP_TOKEN(phy->talInit.obsRx, obsRxChannelsEnable);
 			SKIP_TOKEN(phy->talInit.obsRx.orxProfile, enAdcStitching);
 			GET_TOKEN(phy->talInit.obsRx.orxProfile, rxFirDecimation);
 			GET_TOKEN(phy->talInit.obsRx.orxProfile, rxDec5Decimation);
@@ -4457,6 +4484,14 @@ static int adrv9009_parse_profile(struct adrv9009_rf_phy *phy,
 
 
 		if (tx && !filter) {
+// 			static const char *taliseTxChannels_s[] = {
+// 				"TAL_TXOFF>",
+// 				"TAL_TX1>",
+// 				"TAL_TX2>",
+// 				"TAL_TX1TX2>"
+// 			};
+// 			GET_MTOKEN(phy->talInit.tx, txChannels, taliseTxChannels_s);
+			SKIP_TOKEN(phy->talInit.tx, txChannels);
 			GET_TOKEN(phy->talInit.tx.txProfile, dacDiv);
 			GET_TOKEN(phy->talInit.tx.txProfile, txFirInterpolation);
 			GET_TOKEN(phy->talInit.tx.txProfile, thb1Interpolation);
