@@ -232,9 +232,28 @@ static inline bool has_tx(struct adrv9009_rf_phy *phy)
 	return phy->spi_device_id != ID_ADRV90081;
 }
 
+static inline bool has_tx_and_en(struct adrv9009_rf_phy *phy)
+{
+	return has_tx(phy) && (phy->talInit.tx.txChannels != TAL_TXOFF) &&
+		!IS_ERR_OR_NULL(phy->jesd_tx_clk);
+}
+
+static inline bool has_obs_and_en(struct adrv9009_rf_phy *phy)
+{
+	return has_tx(phy) &&
+		(phy->talInit.obsRx.obsRxChannelsEnable != TAL_ORXOFF) &&
+		!IS_ERR_OR_NULL(phy->jesd_rx_os_clk);
+}
+
 static inline bool has_rx(struct adrv9009_rf_phy *phy)
 {
 	return phy->spi_device_id != ID_ADRV90082;
+}
+
+static inline bool has_rx_and_en(struct adrv9009_rf_phy *phy)
+{
+	return has_rx(phy) && (phy->talInit.rx.rxChannels != TAL_RXOFF) &&
+		!IS_ERR_OR_NULL(phy->jesd_rx_clk);
 }
 
 #endif
