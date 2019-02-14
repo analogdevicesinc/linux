@@ -1,7 +1,7 @@
 /*
  * ADRV9009/8 RF Transceiver
  *
- * Copyright 2018 Analog Devices Inc.
+ * Copyright 2018-2019 Analog Devices Inc.
  *
  * Licensed under the GPL-2.
  */
@@ -503,8 +503,6 @@ static int adrv9009_do_setup(struct adrv9009_rf_phy *phy)
 			TAL_TX_QEC_INIT | TAL_LOOPBACK_RX_LO_DELAY |
 			TAL_LOOPBACK_RX_RX_QEC_INIT | TAL_RX_QEC_INIT |
 			TAL_ORX_QEC_INIT | TAL_TX_DAC  | TAL_ADC_STITCHING;
-
-		pllLockStatus_mask = 0x7;
 		break;
 	case ID_ADRV90081:
 		initCalMask = TAL_ADC_TUNER | TAL_TIA_3DB_CORNER | TAL_DC_OFFSET |
@@ -513,7 +511,6 @@ static int adrv9009_do_setup(struct adrv9009_rf_phy *phy)
 		phy->talInit.jesd204Settings.deframerB.M = 0;
 		phy->talInit.tx.txChannels = TAL_TXOFF;
 		phy->talInit.obsRx.obsRxChannelsEnable = TAL_ORXOFF;
-		pllLockStatus_mask = 0x3;
 		break;
 	case ID_ADRV90082:
 		initCalMask = TAL_TX_BB_FILTER | TAL_ADC_TUNER | TAL_TIA_3DB_CORNER |
@@ -523,11 +520,16 @@ static int adrv9009_do_setup(struct adrv9009_rf_phy *phy)
 			TAL_ORX_QEC_INIT | TAL_TX_DAC  | TAL_ADC_STITCHING;
 		phy->talInit.jesd204Settings.framerA.M = 0;
 		phy->talInit.rx.rxChannels = TAL_RXOFF;
-		pllLockStatus_mask = 0x7;
 		break;
 	default:
 		return -EINVAL;
 	}
+
+	if (phy->talInit.tx.txChannels == TAL_TXOFF)
+		pllLockStatus_mask = 0x3;
+	else
+		pllLockStatus_mask = 0x7;
+
 
 	/**********************************************************/
 	/**********************************************************/
@@ -599,7 +601,7 @@ static int adrv9009_do_setup(struct adrv9009_rf_phy *phy)
 		goto out;
 	}
 
-	if (!IS_ERR_OR_NULL(phy->jesd_tx_clk)) {
+	if (has_tx_and_en(phy)) {
 		/* Fixme: Need to wait until TX DIV40 MMCM is enabled */
 		msleep(100);
 
@@ -883,7 +885,7 @@ static int adrv9009_do_setup(struct adrv9009_rf_phy *phy)
 
 	adrv9009_sysref_req(phy, SYSREF_CONT_ON);
 
-	if (!IS_ERR_OR_NULL(phy->jesd_rx_clk)) {
+	if (has_rx_and_en(phy)) {
 		ret = clk_prepare_enable(phy->jesd_rx_clk);
 		if (ret < 0) {
 			dev_err(&phy->spi->dev, "jesd_rx_clk enable failed (%d)", ret);
@@ -891,7 +893,7 @@ static int adrv9009_do_setup(struct adrv9009_rf_phy *phy)
 		}
 	}
 
-	if (!IS_ERR_OR_NULL(phy->jesd_rx_os_clk)) {
+	if (has_obs_and_en(phy)) {
 		ret = clk_prepare_enable(phy->jesd_rx_os_clk);
 		if (ret < 0) {
 			dev_err(&phy->spi->dev, "jesd_rx_os_clk enable failed (%d)", ret);
@@ -973,7 +975,7 @@ static int adrv9009_do_setup(struct adrv9009_rf_phy *phy)
 		goto out_disable_obs_rx_clk;
 	}
 
-	if (has_rx(phy)) {
+	if (has_rx_and_en(phy)) {
 		ret = TALISE_setupRxAgc(phy->talDevice, &phy->rxAgcCtrl);
 		if (ret != TALACT_NO_ACTION) {
 			dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
@@ -1003,8 +1005,8 @@ static int adrv9009_do_setup(struct adrv9009_rf_phy *phy)
 	}
 
 	ret = TALISE_setRxTxEnable(phy->talDevice,
-				   has_rx(phy) ? TAL_RX1RX2_EN : 0,
-				   has_tx(phy) ? TAL_TX1TX2 : 0);
+				   has_rx_and_en(phy) ? TAL_RX1RX2_EN : 0,
+				   has_tx_and_en(phy) ? TAL_TX1TX2 : 0);
 	if (ret != TALACT_NO_ACTION) {
 		dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
 		ret = -EFAULT;
@@ -1759,13 +1761,19 @@ static ssize_t adrv9009_phy_rx_read(struct iio_dev *indio_dev,
 			ret = -EINVAL;
 		}
 
-		if (ret == 0)
-			ret = TALISE_getRxDecPower(phy->talDevice, rxChannel,
-						   &dec_pwr_mdb);
+		if (has_rx_and_en(phy)) {
+			if (ret == 0)
+				ret = TALISE_getRxDecPower(phy->talDevice,
+							   rxChannel,
+							   &dec_pwr_mdb);
 
-		if (ret == 0)
-			ret = sprintf(buf, "%u.%02u dB\n", dec_pwr_mdb / 1000,
+			if (ret == 0)
+				ret = sprintf(buf, "%u.%02u dB\n",
+					      dec_pwr_mdb / 1000,
 					      dec_pwr_mdb % 1000);
+		} else {
+			ret = -ENODEV;
+		}
 		break;
 	case RX_QEC:
 		switch (chan->channel) {
@@ -3952,6 +3960,17 @@ static int adrv9009_parse_profile(struct adrv9009_rf_phy *phy,
 			continue;\
 		}}
 
+#define GET_MTOKEN(x, n, l) \
+		{char str[32];\
+		ret = sscanf(line, " <" #n "=%s>", str);\
+		if (ret == 1) { \
+			sint32 = match_string(l, ARRAY_SIZE(l), str);\
+			if (sint32 < 0)\
+				return -EINVAL;\
+			x.n = sint32;\
+			continue;\
+		}}
+
 	while ((line = strsep(&ptr, "\n"))) {
 		if (line >= data + size)
 			break;
@@ -4060,7 +4079,7 @@ static int adrv9009_parse_profile(struct adrv9009_rf_phy *phy,
 
 		if (adcprof && strstr(line, "</rxAdcProfile>")) {
 			adcprof = 0;
-			if (num != 42)
+			if (num != max)
 				dev_err(dev, "%s:%d: Invalid number (%d) of coefficients",
 					__func__, __LINE__, num);
 
@@ -4077,7 +4096,7 @@ static int adrv9009_parse_profile(struct adrv9009_rf_phy *phy,
 
 		if (orxlowpassadcprofile && strstr(line, "</orxLowPassAdcProfile>")) {
 			orxlowpassadcprofile = 0;
-			if (num != 42)
+			if (num != max)
 				dev_err(dev, "%s:%d: Invalid number (%d) of coefficients",
 					__func__, __LINE__, num);
 
@@ -4094,7 +4113,7 @@ static int adrv9009_parse_profile(struct adrv9009_rf_phy *phy,
 
 		if (orxbandpassadcprofile && strstr(line, "</orxBandPassAdcProfile>")) {
 			orxbandpassadcprofile = 0;
-			if (num != 42)
+			if (num != max)
 				dev_err(dev, "%s:%d: Invalid number (%d) of coefficients",
 					__func__, __LINE__, num);
 			num = 0;
@@ -4110,7 +4129,7 @@ static int adrv9009_parse_profile(struct adrv9009_rf_phy *phy,
 
 		if (orxmergefilter && strstr(line, "</orxMergeFilter>")) {
 			orxmergefilter = 0;
-			if (num != 13)
+			if (num != max)
 				dev_err(dev, "%s:%d: Invalid number (%d) of coefficients",
 					__func__, __LINE__, num);
 			num = 0;
@@ -4126,7 +4145,7 @@ static int adrv9009_parse_profile(struct adrv9009_rf_phy *phy,
 
 		if (lpbkadcprofile && strstr(line, "</lpbkAdcProfile>")) {
 			lpbkadcprofile = 0;
-			if (num != 42)
+			if (num != max)
 				dev_err(dev, "%s:%d: Invalid number (%d) of coefficients",
 					__func__, __LINE__, num);
 			num = 0;
@@ -4179,6 +4198,13 @@ static int adrv9009_parse_profile(struct adrv9009_rf_phy *phy,
 				GET_STOKEN(phy->talInit.rx.rxProfile.rxNcoShifterCfg, bandBNco1Freq_kHz);
 				GET_STOKEN(phy->talInit.rx.rxProfile.rxNcoShifterCfg, bandBNco2Freq_kHz);
 			} else {
+				static const char *taliseRxChannels_s[] = {
+					"TAL_RXOFF>",
+					"TAL_RX1>",
+					"TAL_RX2>",
+					"TAL_RX1RX2>"
+				};
+				GET_MTOKEN(phy->talInit.rx, rxChannels, taliseRxChannels_s);
 				GET_TOKEN(phy->talInit.rx.rxProfile, rxFirDecimation);
 				GET_TOKEN(phy->talInit.rx.rxProfile, rxDec5Decimation);
 				GET_TOKEN(phy->talInit.rx.rxProfile, rhb1Decimation);
@@ -4191,6 +4217,13 @@ static int adrv9009_parse_profile(struct adrv9009_rf_phy *phy,
 
 		if (obs && !filter && !orxlowpassadcprofile && !orxbandpassadcprofile &&
 		    !orxmergefilter) {
+			static const char *taliseObsRxChannels_s[] = {
+				"TAL_ORXOFF>",
+				"TAL_ORX1>",
+				"TAL_ORX2>",
+				"TAL_ORX1ORX2>"
+			};
+			GET_MTOKEN(phy->talInit.obsRx, obsRxChannelsEnable, taliseObsRxChannels_s);
 			SKIP_TOKEN(phy->talInit.obsRx.orxProfile, enAdcStitching);
 			GET_TOKEN(phy->talInit.obsRx.orxProfile, rxFirDecimation);
 			GET_TOKEN(phy->talInit.obsRx.orxProfile, rxDec5Decimation);
@@ -4203,6 +4236,13 @@ static int adrv9009_parse_profile(struct adrv9009_rf_phy *phy,
 
 
 		if (tx && !filter) {
+			static const char *taliseTxChannels_s[] = {
+				"TAL_TXOFF>",
+				"TAL_TX1>",
+				"TAL_TX2>",
+				"TAL_TX1TX2>"
+			};
+			GET_MTOKEN(phy->talInit.tx, txChannels, taliseTxChannels_s);
 			GET_TOKEN(phy->talInit.tx.txProfile, dacDiv);
 			GET_TOKEN(phy->talInit.tx.txProfile, txFirInterpolation);
 			GET_TOKEN(phy->talInit.tx.txProfile, thb1Interpolation);
