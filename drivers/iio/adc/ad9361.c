@@ -7951,6 +7951,9 @@ static int ad9361_phy_read_avail(struct iio_dev *indio_dev,
 			else
 				int_dec = st->tx_fir_int;
 
+			if (int_dec == 4)
+				max = MAX_TX_HB1 / 4;
+
 			st->tx_sampl_freq_avail[0] = MIN_ADC_CLK / (12 * int_dec);
 			st->tx_sampl_freq_avail[1] = 1;
 			st->tx_sampl_freq_avail[2] = max;
@@ -7963,6 +7966,9 @@ static int ad9361_phy_read_avail(struct iio_dev *indio_dev,
 				int_dec = 1;
 			else
 				int_dec = st->rx_fir_dec;
+
+			if (int_dec == 4)
+				max = MAX_RX_HB1 / 4;
 
 			st->rx_sampl_freq_avail[0] = MIN_ADC_CLK / (12 * int_dec);
 			st->rx_sampl_freq_avail[1] = 1;
