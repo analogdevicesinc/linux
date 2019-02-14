@@ -879,15 +879,21 @@ static const struct snd_soc_codec_driver adau1977_codec_driver = {
 	},
 };
 
-static int adau1977_setup_micbias(struct adau1977 *adau1977)
-{
+static int adau1977_setup_micbias(struct adau1977 *adau1977) {
 	unsigned int micbias;
+	int err;
 
-	micbias = ADAU1977_MICBIAS_8V5;
+	err = device_property_read_u32(adau1977->dev, "adi,micbias", &micbias);
+	if (!err) {
+		if (micbias <= ADAU1977_MICBIAS_9V0)
+			regmap_update_bits(adau1977->regmap, ADAU1977_REG_MICBIAS,
+			                   ADAU1977_MICBIAS_MB_VOLTS_MASK,
+			                   micbias << ADAU1977_MICBIAS_MB_VOLTS_OFFSET);
+		else
+			return -EINVAL;
+	}
 
-	return regmap_update_bits(adau1977->regmap, ADAU1977_REG_MICBIAS,
-		ADAU1977_MICBIAS_MB_VOLTS_MASK,
-		micbias << ADAU1977_MICBIAS_MB_VOLTS_OFFSET);
+	return 0;
 }
 
 int adau1977_probe(struct device *dev, struct regmap *regmap,
