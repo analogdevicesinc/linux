@@ -10,10 +10,8 @@
 #include <linux/delay.h>
 #include <linux/device.h>
 #include <linux/gpio/consumer.h>
-#include <linux/i2c.h>
 #include <linux/init.h>
 #include <linux/module.h>
-#include <linux/platform_data/adau1977.h>
 #include <linux/regmap.h>
 #include <linux/regulator/consumer.h>
 #include <linux/slab.h>
@@ -883,17 +881,9 @@ static const struct snd_soc_codec_driver adau1977_codec_driver = {
 
 static int adau1977_setup_micbias(struct adau1977 *adau1977)
 {
-	struct adau1977_platform_data *pdata = adau1977->dev->platform_data;
 	unsigned int micbias;
 
-	if (pdata) {
-		micbias = pdata->micbias;
-		if (micbias > ADAU1977_MICBIAS_9V0)
-			return -EINVAL;
-
-	} else {
-		micbias = ADAU1977_MICBIAS_8V5;
-	}
+	micbias = ADAU1977_MICBIAS_8V5;
 
 	return regmap_update_bits(adau1977->regmap, ADAU1977_REG_MICBIAS,
 		ADAU1977_MICBIAS_MB_VOLTS_MASK,
