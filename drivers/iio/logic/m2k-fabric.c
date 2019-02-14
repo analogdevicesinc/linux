@@ -164,9 +164,10 @@ static void m2k_fabric_update_switch_settings(struct m2k_fabric *m2k_fabric,
 	}
 
 	/* Open up all first to avoid shorts */
-	gpiod_set_array_value_cansleep(ngpios,
-		&m2k_fabric->switch_gpios[gpio_base],
-		&m2k_fabric_switch_values_open[gpio_base]);
+	gpiod_set_array_value_cansleep(ngpios -
+		(update_output ? M2K_FABRIC_GPIO_OUTPUT_MAX : 0),
+		&m2k_fabric->switch_gpios[M2K_FABRIC_GPIO_OUTPUT_MAX],
+		&m2k_fabric_switch_values_open[M2K_FABRIC_GPIO_OUTPUT_MAX]);
 
 	gpiod_set_array_value_cansleep(ngpios,
 		&m2k_fabric->switch_gpios[gpio_base],
