@@ -58,6 +58,19 @@
 		compatible = "simple-bus";
 		#address-cells = <1>;
 		#size-cells = <0>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_regulators>;
+
+		reg_pwr_en: pwr_en_regulator {
+			compatible = "regulator-fixed";
+			regulator-name = "PWR_EN";
+			regulator-min-microvolt = <3300000>;
+			regulator-max-microvolt = <3300000>;
+			gpio = <&gpio1 8 GPIO_ACTIVE_HIGH>;
+			off-on-delay = <20000>;
+			startup-delay-us = <100>;
+			enable-active-high;
+		};
 	};
 
 	sound_osc: oscillator {
@@ -95,9 +108,13 @@
 };
 
 &iomuxc {
-	pinctrl-names = "default";
-
 	imx8mm-som {
+		pinctrl_regulators: regulators_grp {
+			fsl,pins = <
+				MX8MM_IOMUXC_GPIO1_IO08_GPIO1_IO8		0x19
+			>;
+		};
+
 		pinctrl_csi_pwn: csi_pwn_grp {
 			fsl,pins = <
 				MX8MM_IOMUXC_GPIO1_IO07_GPIO1_IO7		0x19
@@ -745,6 +762,7 @@
 	phy-handle = <&ethphy0>;
 	fsl,magic-packet;
 	status = "okay";
+	phy-supply = <&reg_pwr_en>;
 
 	mdio {
 		#address-cells = <1>;
@@ -752,7 +770,7 @@
 
 		ethphy0: ethernet-phy@0 {
 			compatible = "ethernet-phy-ieee802.3-c22";
-			reg = <0>;
+			reg = <1>;
 			at803x,led-act-blind-workaround;
 			at803x,eee-okay;
 			at803x,vddio-1p8v;
