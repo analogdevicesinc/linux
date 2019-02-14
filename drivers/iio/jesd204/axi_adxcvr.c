@@ -584,7 +584,7 @@ static int adxcvr_probe(struct platform_device *pdev)
 
 	st->dev = &pdev->dev;
 	st->xcvr.version = adxcvr_read(st, AXI_REG_VERSION);
-	if (AXI_PCORE_VER_MAJOR(st->xcvr.version) > 0x12)
+	if (AXI_PCORE_VER_MAJOR(st->xcvr.version) > 0x10)
 		adxcvr_get_info(st);
 	platform_set_drvdata(pdev, st);
 
@@ -595,7 +595,7 @@ static int adxcvr_probe(struct platform_device *pdev)
 	xcvr_type = (synth_conf >> 16) & 0xf;
 
 	/* Ensure compliance with legacy xcvr type */
-	if (AXI_PCORE_VER_MAJOR(st->xcvr.version) <= 0x12) {
+	if (AXI_PCORE_VER_MAJOR(st->xcvr.version) <= 0x10) {
 		switch (xcvr_type) {
 		case XILINX_XCVR_LEGACY_TYPE_S7_GTX2:
 			st->xcvr.type = XILINX_XCVR_TYPE_S7_GTX2;
