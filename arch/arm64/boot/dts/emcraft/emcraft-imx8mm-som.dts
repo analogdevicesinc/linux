@@ -820,7 +820,7 @@
 
 &usbotg2 {
 	dr_mode = "otg";
-	status = "disabled";
+	status = "okay";
 };
 
 &usdhc1 {
