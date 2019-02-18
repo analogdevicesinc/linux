@@ -536,7 +536,7 @@ static int adxcvr_probe(struct platform_device *pdev)
 	struct device_node *np = pdev->dev.of_node;
 	struct adxcvr_state *st;
 	struct resource *mem; /* IO mem resources */
-	unsigned int synth_conf;
+	unsigned int synth_conf, xcvr_type;
 	int i, ret;
 
 	st = devm_kzalloc(&pdev->dev, sizeof(*st), GFP_KERNEL);
@@ -592,11 +592,11 @@ static int adxcvr_probe(struct platform_device *pdev)
 	st->tx_enable = (synth_conf >> 8) & 1;
 	st->num_lanes = synth_conf & 0xff;
 
-	st->xcvr.type = (synth_conf >> 16) & 0xf;
+	xcvr_type = (synth_conf >> 16) & 0xf;
 
 	/* Ensure compliance with legacy xcvr type */
 	if (AXI_PCORE_VER_MAJOR(st->xcvr.version) <= 0x12) {
-		switch (st->xcvr.type) {
+		switch (xcvr_type) {
 		case XILINX_XCVR_LEGACY_TYPE_S7_GTX2:
 			st->xcvr.type = XILINX_XCVR_TYPE_S7_GTX2;
 			break;
@@ -609,7 +609,8 @@ static int adxcvr_probe(struct platform_device *pdev)
 		default:
 			return -EINVAL;
 		}
-	}
+	} else
+		st->xcvr.type = xcvr_type;
 
 	switch (st->xcvr.type) {
 	case XILINX_XCVR_TYPE_S7_GTX2:
