@@ -1,0 +1,29 @@
+* Freescale Virtual I2C RPMSG bus driver for i.MX
+
+Required properties:
+- compatible :
+  - "fsl,i2c-rpbus" for I2C bus over RPMSG compatible on i.MX8QXP/QM soc
+The i2c-rpbus node should define its bus id (which is the node communicating
+with M4) in alias.
+
+Examples:
+
+aliases {
+	...
+	i2c1 = &i2c_rpbus_1;
+	...
+};
+
+&i2c_rpbus_1 {
+	compatible = "fsl,i2c-rpbus";
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+
+	devs_in_this_i2c_bus__for_example: pca6416@20 {
+		compatible = "ti,tca6416";
+		reg = <0x20>;
+		gpio-controller;
+		#gpio-cells = <2>;
+	};
+};

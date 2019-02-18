@@ -1070,6 +1070,12 @@ config I2C_RZV2M
 	  This driver can also be built as a module.  If so, the module
 	  will be called i2c-rzv2m.
 
+config I2C_RPBUS
+	tristate "I2C proxy bus over RPMSG"
+	depends on I2C && RPMSG
+	help
+	  This driver can support virtual i2c-rpmsg function.
+
 config I2C_S3C2410
 	tristate "S3C/Exynos I2C Driver"
 	depends on ARCH_EXYNOS || ARCH_S3C64XX || ARCH_S5PV210 || COMPILE_TEST
