@@ -86,10 +86,11 @@ static int ad400x_read_reg(struct ad400x_state *st, unsigned int *val)
 {
 	struct spi_message m;
 	struct spi_transfer t = {0};
+	int ret;
 
 	st->data[0] = AD400X_READ_COMMAND;
 
-	t.rx_buf = val;
+	t.rx_buf = st->data;
 	t.tx_buf = st->data;
 	t.len = 2;
 	t.bits_per_word = 16; /* reg reads are only 16 clocks pulses */
@@ -97,9 +98,16 @@ static int ad400x_read_reg(struct ad400x_state *st, unsigned int *val)
 	spi_message_init_with_transfers(&m, &t, 1);
 
 	if (st->bus_locked)
-		return spi_sync_locked(st->spi, &m);
+		ret = spi_sync_locked(st->spi, &m);
+	else
+		ret = spi_sync(st->spi, &m);
 
-	return spi_sync(st->spi, &m);
+	if (ret < 0)
+		return ret;
+
+	*val = st->data[0];
+
+	return ret;
 }
 
 static int ad400x_read_sample(struct ad400x_state *st, uint32_t *val)
@@ -152,7 +160,8 @@ static int ad400x_set_mode(struct ad400x_state *st)
 		.type = IIO_VOLTAGE,					\
 		.indexed = 1,						\
 		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |		\
-			BIT(IIO_CHAN_INFO_SCALE),			\
+			BIT(IIO_CHAN_INFO_SCALE) |			\
+			BIT(IIO_CHAN_INFO_OFFSET),			\
 		.info_mask_shared_by_all = BIT(IIO_CHAN_INFO_SAMP_FREQ),\
 		.scan_type = {						\
 			.sign = 's',					\
@@ -222,6 +231,12 @@ static int ad400x_read_raw(struct iio_dev *indio_dev,
 		*val = 1800000;
 
 		return IIO_VAL_INT;
+	case IIO_CHAN_INFO_OFFSET:
+		*val = -(1 << chan->scan_type.realbits);
+
+		return IIO_VAL_INT;
+	default:
+		break;
 	}
 
 	return -EINVAL;

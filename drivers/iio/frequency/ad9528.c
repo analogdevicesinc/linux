@@ -98,7 +98,7 @@
 #define AD9528_PLL1_CHARGE_PUMP_CURRENT_nA(x)	(((x) / 500) & 0x7F)
 
 /* AD9528_PLL1_CTRL */
-#define AD9528_PLL1_OSC_CTRL_FAIL_VCC_BY2_EN	BIT(18)
+#define AD9528_PLL1_OSC_CTRL_FAIL_VCC_BY2_EN	BIT(19)
 #define AD9528_PLL1_REF_MODE(x)			((x) << 16)
 #define AD9528_PLL1_FEEDBACK_BYPASS_EN		BIT(13)
 #define AD9528_PLL1_REFB_BYPASS_EN		BIT(12)
@@ -819,15 +819,29 @@ static const struct clk_ops ad9528_clk_ops = {
 };
 
 static struct clk *ad9528_clk_register(struct iio_dev *indio_dev, unsigned num,
-				bool is_enabled)
+				bool is_enabled, bool have_clk_out_name)
 {
 	struct ad9528_state *st = iio_priv(indio_dev);
 	struct clk_init_data init;
 	struct ad9528_outputs *output = &st->output[num];
 	struct clk *clk;
-	char name[SPI_NAME_SIZE + 8];
+	const char *name = NULL;
+	char namebuf[SPI_NAME_SIZE + 8];
 
-	sprintf(name, "%s_out%d", indio_dev->name, num);
+	if (have_clk_out_name) {
+		struct device_node *np = st->spi->dev.of_node;
+
+		of_property_read_string_index(np, "clock-output-names",
+					      num, &name);
+		if (!name || !strlen(name))
+			have_clk_out_name = false;
+	}
+
+	if (!have_clk_out_name) {
+		snprintf(namebuf, sizeof(namebuf), "%s_out%d",
+			 indio_dev->name, num);
+		name = namebuf;
+	}
 
 	init.name = name;
 	init.ops = &ad9528_clk_ops;
@@ -844,6 +858,38 @@ static struct clk *ad9528_clk_register(struct iio_dev *indio_dev, unsigned num,
 	st->clk_data.clks[num] = clk;
 
 	return clk;
+}
+
+static int ad9528_clks_register(struct iio_dev *indio_dev)
+{
+	struct ad9528_state *st = iio_priv(indio_dev);
+	struct ad9528_platform_data *pdata = st->pdata;
+	struct device_node *np = st->spi->dev.of_node;
+	struct ad9528_channel_spec *chan;
+	unsigned int i, count;
+	int ret;
+
+	count = of_property_count_strings(np, "clock-output-names");
+
+	for (i = 0; i < pdata->num_channels; i++) {
+		struct clk *clk;
+
+		chan = &pdata->channels[i];
+		if (chan->channel_num >= AD9528_NUM_CHAN || chan->output_dis)
+			continue;
+
+		clk = ad9528_clk_register(indio_dev, chan->channel_num,
+					  !chan->output_dis,
+					  count == AD9528_NUM_CHAN);
+		if (IS_ERR(clk))
+			return PTR_ERR(clk);
+	}
+
+	ret = of_clk_add_provider(np, of_clk_src_onecell_get, &st->clk_data);
+	if (ret < 0)
+		return ret;
+
+	return 0;
 }
 
 static int ad9528_setup(struct iio_dev *indio_dev)
@@ -926,7 +972,8 @@ static int ad9528_setup(struct iio_dev *indio_dev)
 		AD_IF(refa_cmos_neg_inp_en, AD9528_PLL1_REFA_CMOS_NEG_INP_EN) |
 		AD_IF(refb_cmos_neg_inp_en, AD9528_PLL1_REFB_CMOS_NEG_INP_EN) |
 		AD_IF(pll1_feedback_src_vcxo, AD9528_PLL1_SOURCE_VCXO) |
-		AD9528_PLL1_REF_MODE(pdata->ref_mode));
+		AD9528_PLL1_REF_MODE(pdata->ref_mode) |
+		AD9528_PLL1_OSC_CTRL_FAIL_VCC_BY2_EN);
 	if (ret < 0)
 		return ret;
 
@@ -1146,21 +1193,9 @@ static int ad9528_setup(struct iio_dev *indio_dev)
 	if (ret < 0)
 		return ret;
 
-	for (i = 0; i < pdata->num_channels; i++) {
-		struct clk *clk;
-
-		chan = &pdata->channels[i];
-		if (chan->channel_num >= AD9528_NUM_CHAN || chan->output_dis)
-			continue;
-
-		clk = ad9528_clk_register(indio_dev, chan->channel_num,
-						  !chan->output_dis);
-		if (IS_ERR(clk))
-			return PTR_ERR(clk);
-	}
-
-	of_clk_add_provider(st->spi->dev.of_node,
-			    of_clk_src_onecell_get, &st->clk_data);
+	ret = ad9528_clks_register(indio_dev);
+	if (ret < 0)
+		return ret;
 
 	return 0;
 }
@@ -1211,17 +1246,27 @@ static struct ad9528_platform_data *ad9528_parse_dt(struct device *dev)
 	tmp = 1;
 	of_property_read_u32(np, "adi,refb-r-div", &tmp);
 	pdata->refb_r_div = tmp;
+
+	tmp = 1;
 	of_property_read_u32(np, "adi,pll1-feedback-div", &tmp);
 	pdata->pll1_feedback_div = tmp;
+
+	tmp = 1;
 	of_property_read_u32(np, "adi,pll1-feedback-src-vcxo", &tmp);
 	pdata->pll1_feedback_src_vcxo = tmp;
+
+	tmp = 5000;
 	of_property_read_u32(np, "adi,pll1-charge-pump-current-nA", &tmp);
 	pdata->pll1_charge_pump_current_nA = tmp;
+
 	pdata->pll1_bypass_en = of_property_read_bool(np, "adi,pll1-bypass-enable");
 
 	/* Reference */
+	tmp = REF_MODE_EXT_REF;
 	of_property_read_u32(np, "adi,ref-mode", &tmp);
 	pdata->ref_mode = tmp;
+
+	tmp = SYSREF_SRC_INTERNAL;
 	of_property_read_u32(np, "adi,sysref-src", &tmp);
 	pdata->sysref_src = tmp;
 
@@ -1229,6 +1274,7 @@ static struct ad9528_platform_data *ad9528_parse_dt(struct device *dev)
 	of_property_read_u32(np, "adi,sysref-pattern-mode", &tmp);
 	pdata->sysref_pattern_mode = tmp;
 
+	tmp = 512;
 	of_property_read_u32(np, "adi,sysref-k-div", &tmp);
 	pdata->sysref_k_div = tmp;
 
@@ -1269,10 +1315,15 @@ static struct ad9528_platform_data *ad9528_parse_dt(struct device *dev)
 
 	/* Loop Filter PLL2 */
 
+	tmp = RPOLE2_900_OHM;
 	of_property_read_u32(np, "adi,rpole2", &tmp);
 	pdata->rpole2 = tmp;
+
+	tmp = RZERO_1850_OHM;
 	of_property_read_u32(np, "adi,rzero", &tmp);
 	pdata->rzero = tmp;
+
+	tmp = CPOLE1_16_PF;
 	of_property_read_u32(np, "adi,cpole1", &tmp);
 	pdata->cpole1 = tmp;
 

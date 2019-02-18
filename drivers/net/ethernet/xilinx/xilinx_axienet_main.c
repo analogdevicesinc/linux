@@ -2239,16 +2239,6 @@ static int axienet_open(struct net_device *ndev)
 						PHY_INTERFACE_MODE_RGMII_ID);
 		} else if ((lp->axienet_config->mactype == XAXIENET_1G) ||
 			     (lp->axienet_config->mactype == XAXIENET_2_5G)) {
-			/**
-			 * No need to start the internal PHY, initializing the internal PHY,
-			 * is enough for SGMII operation. `lp->phy_node_int` should
-			 * be non-NULL only for SGMII mode.
-			 */
-			if (lp->phy_node_int)
-				lp->phy_dev_int = of_phy_connect(lp->ndev,
-					lp->phy_node_int, NULL, 0,
-					PHY_INTERFACE_MODE_GMII);
-
 			phydev = of_phy_connect(lp->ndev, lp->phy_node,
 						axienet_adjust_link,
 						lp->phy_flags,
@@ -2432,10 +2422,7 @@ err_ptp_rx_irq:
 #endif
 	if (phydev)
 		phy_disconnect(phydev);
-	if (lp->phy_dev_int)
-		phy_disconnect(lp->phy_dev_int);
 	phydev = NULL;
-	lp->phy_dev_int = NULL;
 	for_each_dma_queue(lp, i)
 		tasklet_kill(&lp->dma_err_tasklet[i]);
 	dev_err(lp->dev, "request_irq() failed\n");
@@ -2494,11 +2481,6 @@ static int axienet_stop(struct net_device *ndev)
 
 	if (ndev->phydev)
 		phy_disconnect(ndev->phydev);
-
-	if (lp->phy_dev_int)
-		phy_disconnect(lp->phy_dev_int);
-
-	lp->phy_dev_int = NULL;
 
 	if (lp->temac_no != XAE_TEMAC2)
 		axienet_dma_bd_release(ndev);
@@ -4142,11 +4124,6 @@ static int axienet_probe(struct platform_device *pdev)
 			dev_warn(&pdev->dev, "error registering MDIO bus\n");
 	}
 
-	if (lp->phy_mode == XAE_PHY_TYPE_SGMII) {
-		lp->phy_node_int = of_parse_phandle(pdev->dev.of_node,
-						    "phy-handle", 1);
-	}
-
 #ifdef CONFIG_AXIENET_HAS_MCDMA
 	/* Create sysfs file entries for the device */
 	ret = sysfs_create_group(&lp->dev->kobj, &mcdma_attributes);
@@ -4230,10 +4207,6 @@ static int axienet_remove(struct platform_device *pdev)
 #endif
 	of_node_put(lp->phy_node);
 	lp->phy_node = NULL;
-
-	if (lp->phy_node_int)
-		of_node_put(lp->phy_node_int);
-	lp->phy_node_int = NULL;
 
 	free_netdev(ndev);
 

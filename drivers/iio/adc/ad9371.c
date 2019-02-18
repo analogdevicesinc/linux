@@ -3256,9 +3256,15 @@ static struct ad9371_phy_platform_data
 }
 #else
 static
-struct ad9371_phy_platform_data *ad9371_phy_parse_dt(struct device *dev)
+struct ad9371_phy_platform_data *ad9371_phy_parse_dt(struct iio_dev *iodev,
+						     struct device *dev)
 {
 	return NULL;
+}
+
+static int ad9371_register_debugfs(struct iio_dev *indio_dev)
+{
+	return -ENODEV;
 }
 #endif
 
