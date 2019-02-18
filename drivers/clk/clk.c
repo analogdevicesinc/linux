@@ -1426,7 +1426,7 @@ static unsigned long clk_core_get_rate(struct clk_core *core)
 	if (recalc_clk)
 		__clk_recalc_rates(recalc_clk, 0);
 
-		rate = clk_core_get_rate_nolock(core);
+	rate = clk_core_get_rate_nolock(core);
 	clk_prepare_unlock();
 
 	return rate;
