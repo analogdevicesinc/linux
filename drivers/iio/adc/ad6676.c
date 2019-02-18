@@ -1009,6 +1009,7 @@ static int ad6676_gpio_config(struct axiadc_converter *conv)
 	struct spi_device *spi = conv->spi;
 	struct gpio_board_cfg board_cfg[5];
 	enum gpiod_flags flags;
+	struct gpio_desc *temp;
 	int i;
 
 	board_cfg[0].gpio_name = "oen";
@@ -1054,7 +1055,7 @@ static int ad6676_gpio_config(struct axiadc_converter *conv)
 		else
 			flags = GPIOD_OUT_LOW;
 
-		devm_gpiod_get(&spi->dev, board_cfg[i].gpio_name, flags);
+		temp = devm_gpiod_get(&spi->dev, board_cfg[i].gpio_name, flags);
 	}
 
 	return 0;
