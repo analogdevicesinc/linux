@@ -12,6 +12,7 @@ obj-$(CONFIG_PHY_PISTACHIO_USB)		+= phy-pistachio-usb.o
 obj-$(CONFIG_USB_LGM_PHY)		+= phy-lgm-usb.o
 obj-$(CONFIG_PHY_AIROHA_PCIE)		+= phy-airoha-pcie.o
 obj-$(CONFIG_PHY_MIXEL_LVDS)		+= phy-mixel-lvds.o
+obj-$(CONFIG_PHY_MIXEL_LVDS_COMBO)	+= phy-mixel-lvds-combo.o
 obj-y					+= allwinner/	\
 					   amlogic/	\
 					   broadcom/	\
