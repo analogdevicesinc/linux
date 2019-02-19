@@ -1,0 +1,27 @@
+ITE IT6263 LVDS to HDMI bridge bindings
+
+Required properties:
+	- compatible: "ite,it6263"
+	- reg: i2c address of the bridge
+	- video input: this subnode can contain a video input port node
+	  to connect the bridge to a LVDS output interface (See this
+	  documentation [1]).
+
+Optional properties:
+	- split-mode: boolean. if this exists, split mode is enabled,
+	  otherwise, single mode is enabled.
+	- reset-gpios: OF device-tree gpio specification for SYSRSTN pin.
+
+[1]: Documentation/devicetree/bindings/media/video-interfaces.txt
+
+Example:
+	lvds-to-hdmi-bridge@4c {
+		compatible = "ite,it6263";
+		reg = <0x4c>;
+
+		port {
+			it6263_0_in: endpoint {
+				remote-endpoint = <&lvds0_out>;
+			};
+		};
+	};
