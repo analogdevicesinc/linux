@@ -9,15 +9,20 @@ nodes describing each of the two LVDS encoder channels of the bridge.
 Required properties:
  - #address-cells : should be <1>
  - #size-cells : should be <0>
- - compatible : should be "fsl,imx53-ldb" or "fsl,imx6q-ldb".
-                Both LDB versions are similar, but i.MX6 has an additional
-                multiplexer in the front to select any of the four IPU display
-                interfaces as input for each LVDS channel.
+ - compatible : should be "fsl,imx53-ldb" or "fsl,imx6q-ldb" or
+                "fsl,imx8qm-ldb".
+                All LDB versions are similar.
+                i.MX6q/dl has an additional multiplexer in the front to select
+                any of the two or four IPU display interfaces as input for each
+                LVDS channel.
+                i.MX8qm LDB supports 10bit RGB input and needs an additional
+                phy.
  - gpr : should be <&gpr> on i.MX53 and i.MX6q.
          The phandle points to the iomuxc-gpr region containing the LVDS
          control register.
 - clocks, clock-names : phandles to the LDB divider and selector clocks and to
-                        the display interface selector clocks, as described in
+                        the display interface selector clocks or pixel and
+                        bypass clocks as described in
                         Documentation/devicetree/bindings/clock/clock-bindings.txt
         The following clocks are expected on i.MX53:
                 "di0_pll" - LDB LVDS channel 0 mux
@@ -29,14 +34,19 @@ Required properties:
         On i.MX6q the following additional clocks are needed:
                 "di2_sel" - IPU2 DI0 mux
                 "di3_sel" - IPU2 DI1 mux
+        The following clocks are expected on i.MX8qm:
+                "pixel" - pixel clock
+                "bypass" - bypass clock
         The needed clock numbers for each are documented in
         Documentation/devicetree/bindings/clock/imx5-clock.yaml, and in
-        Documentation/devicetree/bindings/clock/imx6q-clock.yaml.
+        Documentation/devicetree/bindings/clock/imx6q-clock.yaml and in
+        Documentation/devicetree/bindings/clock/imx8qm-lpcg.txt.
+- power-domains : phandle pointing to power domain, only required by i.MX8qm.
 
 Optional properties:
- - pinctrl-names : should be "default" on i.MX53, not used on i.MX6q
+ - pinctrl-names : should be "default" on i.MX53, not used on i.MX6q and i.MX8qm
  - pinctrl-0 : a phandle pointing to LVDS pin settings on i.MX53,
-               not used on i.MX6q
+               not used on i.MX6q and i.MX8qm
  - fsl,dual-channel : boolean. if it exists, only LVDS channel 0 should
    be configured - one input will be distributed on both outputs in dual
    channel mode
@@ -57,9 +67,13 @@ Required properties:
    (lvds-channel@[0,1], respectively).
    On i.MX6, there should be four input ports (port@[0-3]) that correspond
    to the four LVDS multiplexer inputs.
-   A single output port (port@2 on i.MX5, port@4 on i.MX6) must be connected
-   to a panel input port. Optionally, the output port can be left out if
-   display-timings are used instead.
+   On i.MX8qm, the two channels of LDB connect to one display interface of DPU.
+   A single output port (port@2 on i.MX5, port@4 on i.MX6, port@1 on i.MX8qm)
+   must be connected to a panel input port or a bridge input port.
+   Optionally, the output port can be left out if display-timings are used
+   instead.
+ - phys: the phandle for the LVDS PHY device. Valid only on i.MX8qm.
+ - phy-names: should be "ldb_phy". Valid only on i.MX8qm.
 
 Optional properties (required if display-timings are used):
  - ddc-i2c-bus: phandle of an I2C controller used for DDC EDID probing
@@ -69,6 +83,7 @@ Optional properties (required if display-timings are used):
                       This describes how the color bits are laid out in the
                       serialized LVDS signal.
  - fsl,data-width : should be <18> or <24>
+                    Additionally, <30> for i.MX8qm.
 
 example:
 
