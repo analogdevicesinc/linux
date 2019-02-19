@@ -110,6 +110,142 @@ prg@21cc000 {
 	fsl,pres = <&pre1>, <&pre2>, <&pre3>;
 };
 
+Freescale i.MX DPU
+====================
+
+Required properties:
+- compatible: Should be "fsl,<chip>-dpu"
+- reg: should be register base and length as documented in the
+  datasheet
+- interrupt-parent: phandle pointing to the parent interrupt controller.
+- interrupts, interrupt-names: Should contain interrupts and names as
+  documented in the datasheet.
+- clocks, clock-names: phandles to the DPU clocks described in
+  Documentation/devicetree/bindings/clock/clock-bindings.txt
+  The following clocks are expected on i.MX8qxp:
+           "pll0" - PLL clock for display interface 0
+           "pll1" - PLL clock for display interface 1
+           "disp0" - pixel clock for display interface 0
+           "disp1" - pixel clock for display interface 1
+  The needed clock numbers for each are documented in
+  Documentation/devicetree/bindings/clock/imx8qxp-lpcg.txt.
+- power-domains: phandles pointing to power domain.
+- power-domain-names: power domain names relevant to power-domains phandles.
+Optional properties:
+- port@[0-1]: Port nodes with endpoint definitions as defined in
+  Documentation/devicetree/bindings/media/video-interfaces.txt.
+  ports 0 and 1 should correspond to display interface 0 and
+  display interface 1, respectively.
+
+example:
+
+dpu: dpu@56180000 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	compatible = "fsl,imx8qxp-dpu";
+	reg = <0x56180000 0x40000>;
+	interrupt-parent = <&irqsteer_dpu>;
+	interrupts = <448>, <449>, <450>,  <64>,
+		      <65>,  <66>,  <67>,  <68>,
+		      <69>,  <70>, <193>, <194>,
+		     <195>, <196>, <197>,  <72>,
+		      <73>,  <74>,  <75>,  <76>,
+		      <77>,  <78>,  <79>,  <80>,
+		      <81>, <199>, <200>, <201>,
+		     <202>, <203>, <204>, <205>,
+		     <206>, <207>, <208>,   <0>,
+		       <1>,   <2>,   <3>,   <4>,
+		      <82>,  <83>,  <84>,  <85>,
+		     <209>, <210>, <211>, <212>;
+	interrupt-names = "store9_shdload",
+			  "store9_framecomplete",
+			  "store9_seqcomplete",
+			  "extdst0_shdload",
+			  "extdst0_framecomplete",
+			  "extdst0_seqcomplete",
+			  "extdst4_shdload",
+			  "extdst4_framecomplete",
+			  "extdst4_seqcomplete",
+			  "extdst1_shdload",
+			  "extdst1_framecomplete",
+			  "extdst1_seqcomplete",
+			  "extdst5_shdload",
+			  "extdst5_framecomplete",
+			  "extdst5_seqcomplete",
+			  "disengcfg_shdload0",
+			  "disengcfg_framecomplete0",
+			  "disengcfg_seqcomplete0",
+			  "framegen0_int0",
+			  "framegen0_int1",
+			  "framegen0_int2",
+			  "framegen0_int3",
+			  "sig0_shdload",
+			  "sig0_valid",
+			  "sig0_error",
+			  "disengcfg_shdload1",
+			  "disengcfg_framecomplete1",
+			  "disengcfg_seqcomplete1",
+			  "framegen1_int0",
+			  "framegen1_int1",
+			  "framegen1_int2",
+			  "framegen1_int3",
+			  "sig1_shdload",
+			  "sig1_valid",
+			  "sig1_error",
+			  "cmdseq_error",
+			  "comctrl_sw0",
+			  "comctrl_sw1",
+			  "comctrl_sw2",
+			  "comctrl_sw3",
+			  "framegen0_primsync_on",
+			  "framegen0_primsync_off",
+			  "framegen0_secsync_on",
+			  "framegen0_secsync_off",
+			  "framegen1_primsync_on",
+			  "framegen1_primsync_off",
+			  "framegen1_secsync_on",
+			  "framegen1_secsync_off";
+	clocks = <&dc_lpcg IMX_DC0_PLL0_CLK>,
+		 <&dc_lpcg IMX_DC0_PLL1_CLK>,
+		 <&dc_lpcg IMX_DC0_DISP0_CLK>,
+		 <&dc_lpcg IMX_DC0_DISP1_CLK>;
+	clock-names = "pll0", "pll1", "disp0", "disp1";
+	power-domains = <&pd IMX_SC_R_DC_0>,
+			<&pd IMX_SC_R_DC_0_PLL_0>,
+			<&pd IMX_SC_R_DC_0_PLL_1>;
+	power-domain-names = "dc", "pll0", "pll1";
+
+	dpu_disp0: port@0 {
+		reg = <0>;
+
+		dpu_disp0_lvds0_ch0: endpoint@0 {
+			remote-endpoint = <&ldb1_ch0>;
+		};
+
+		dpu_disp0_lvds0_ch1: endpoint@1 {
+			remote-endpoint = <&ldb1_ch1>;
+		};
+
+		dpu_disp0_mipi_dsi: endpoint@2 {
+		};
+	};
+
+	dpu_disp1: port@1 {
+		reg = <1>;
+
+		dpu_disp1_lvds1_ch0: endpoint@0 {
+			remote-endpoint = <&ldb2_ch0>;
+		};
+
+		dpu_disp1_lvds1_ch1: endpoint@1 {
+			remote-endpoint = <&ldb2_ch1>;
+		};
+
+		dpu_disp1_mipi_dsi: endpoint@2 {
+		};
+	};
+};
+
 Parallel display support
 ========================
 
