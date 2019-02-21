@@ -16,6 +16,7 @@
 		fsl,bpid = <7>;
 		fsl,bpool-ethernet-cfg = <0 0 0 192 0 0xdeadbeef>;
 		fsl,bpool-thresholds = <0x400 0xc00 0x0 0x0>;
+		dma-coherent;
 	};
 
 	bp8: buffer-pool@8 {
@@ -23,6 +24,7 @@
 		fsl,bpid = <8>;
 		fsl,bpool-ethernet-cfg = <0 0 0 576 0 0xabbaf00d>;
 		fsl,bpool-thresholds = <0x100 0x300 0x0 0x0>;
+		dma-coherent;
 	};
 
 	bp9: buffer-pool@9 {
@@ -30,10 +32,12 @@
 		fsl,bpid = <9>;
 		fsl,bpool-ethernet-cfg = <0 0 0 2048 0 0xfeedabba>;
 		fsl,bpool-thresholds = <0x100 0x300 0x0 0x0>;
+		dma-coherent;
 	};
 
 	fsl,dpaa {
 		compatible = "fsl,ls1046a", "fsl,dpaa", "simple-bus";
+		dma-coherent;
 
 		ethernet@2 {
 			compatible = "fsl,dpa-ethernet-init";
