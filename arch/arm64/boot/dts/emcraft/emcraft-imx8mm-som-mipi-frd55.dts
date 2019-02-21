@@ -1,0 +1,88 @@
+/*
+ * Copyright 2019 Emcraft Systems
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "emcraft-imx8mm-som.dts"
+
+/ {
+	backlight_dsi {
+		compatible = "pwm-backlight";
+		pwms = <&pwm1 0 200000>;
+		brightness-levels = <0 10 20 30 40 50 60 70 80 90>;
+		/* Default brightness level (index into the array defined by the "brightness-levels" property) */
+		default-brightness-level = <7>;
+		status = "okay";
+	};
+};
+
+&iomuxc {
+	pinctrl-names = "default";
+
+	imx8mm-som {
+		pinctrl_dsi: dsigrp {
+			fsl,pins = <
+				MX8MM_IOMUXC_GPIO1_IO05_GPIO1_IO5		0x16
+			>;
+		};
+		pinctrl_pwm1: pwm1 {
+			fsl,pins = <
+				MX8MM_IOMUXC_GPIO1_IO01_PWM1_OUT 	0xc6
+			>;
+		};
+		pinctrl_goodix_ts: gt1x {
+			fsl,pins = <
+				MX8MM_IOMUXC_GPIO1_IO06_GPIO1_IO6	0x16	/* TOUCH INT */
+				MX8MM_IOMUXC_SAI1_MCLK_GPIO4_IO20	0x16	/* TOUCH RST */
+			>;
+		};
+	};
+};
+
+&i2c1 {
+	goodix: goodix_ts@14 {
+		compatible = "goodix,gt1x";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_goodix_ts>;
+		reg = <0x14>;
+		interrupt-parent = <&gpio1>;
+		interrupts = <6  IRQ_TYPE_LEVEL_LOW>;
+		goodix,rst-gpio = <&gpio4 20 GPIO_ACTIVE_LOW>;
+		goodix,irq-gpio = <&gpio1 6 GPIO_ACTIVE_LOW>;
+	};
+};
+
+&mipi_dsi {
+	status = "okay";
+
+	panel@0 {
+		compatible = "emcraft,frd55";
+		reg = <0>;
+		pinctrl-0 = <&pinctrl_mipi_dsi_en>;
+		reset-gpio = <&gpio1 5 GPIO_ACTIVE_HIGH>;
+		dsi-lanes = <4>;
+		video-mode = <2>;	/* 0: burst mode
+					 * 1: non-burst mode with sync event
+					 * 2: non-burst mode with sync pulse
+					 */
+		panel-width-mm = <68>;
+		panel-height-mm = <120>;
+		status = "okay";
+	};
+};
+
+&pwm1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_pwm1>;
+	status = "okay";
+};
+
