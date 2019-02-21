@@ -25,6 +25,12 @@
 		stdout-path = &uart2;
 	};
 
+	psci {
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_pwr_en>;
+		suspend-gpios = <&gpio1 8 GPIO_ACTIVE_LOW>;
+	};
+
 	leds {
 		compatible = "gpio-leds";
 		pinctrl-names = "default";
@@ -58,19 +64,6 @@
 		compatible = "simple-bus";
 		#address-cells = <1>;
 		#size-cells = <0>;
-		pinctrl-names = "default";
-		pinctrl-0 = <&pinctrl_regulators>;
-
-		reg_pwr_en: pwr_en_regulator {
-			compatible = "regulator-fixed";
-			regulator-name = "PWR_EN";
-			regulator-min-microvolt = <3300000>;
-			regulator-max-microvolt = <3300000>;
-			gpio = <&gpio1 8 GPIO_ACTIVE_HIGH>;
-			off-on-delay = <20000>;
-			startup-delay-us = <100>;
-			enable-active-high;
-		};
 	};
 
 	sound_osc: oscillator {
@@ -109,7 +102,7 @@
 
 &iomuxc {
 	imx8mm-som {
-		pinctrl_regulators: regulators_grp {
+		pinctrl_pwr_en: pwren {
 			fsl,pins = <
 				MX8MM_IOMUXC_GPIO1_IO08_GPIO1_IO8		0x19
 			>;
@@ -762,7 +755,6 @@
 	phy-handle = <&ethphy0>;
 	fsl,magic-packet;
 	status = "okay";
-	phy-supply = <&reg_pwr_en>;
 
 	mdio {
 		#address-cells = <1>;
