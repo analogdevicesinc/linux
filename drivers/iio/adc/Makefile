@@ -20,6 +20,7 @@ cf_axi_adc-y := cf_axi_adc_core.o cf_axi_adc_ring_stream.o
 obj-$(CONFIG_CF_AXI_ADC) += cf_axi_adc.o
 
 obj-$(CONFIG_AD9467) += ad9467.o
+obj-$(CONFIG_AD9680) += ad9680.o
 
 obj-$(CONFIG_AT91_ADC) += at91_adc.o
 obj-$(CONFIG_AT91_SAMA5D2_ADC) += at91-sama5d2_adc.o
