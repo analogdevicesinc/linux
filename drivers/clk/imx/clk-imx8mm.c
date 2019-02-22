@@ -404,6 +404,11 @@ static struct clk ** const uart_clks[] __initconst = {
 static const char *imx8mm_clko1_sels[] = {"osc_24m", "sys_pll1_800m", "osc_27m", "sys_pll1_200m", "audio_pll2_clk",
 					 "vpu_pll", "sys_pll1_80m", };
 
+static const char *imx8mm_clkoutx_sels[] = {
+	"audio_pll1", "audio_pll2", "video_pll1", "reserved", "misc_mnit_clk",
+	"gpu_pll", "vpu_pll", "arm_pll", "sys_pll1", "sys_pll2", "sys_pll3",
+	"clk_in1", "clk_in2", "osc_24m", "reserved", "osc_32k" };
+
 static int __init imx_clk_init_on(struct device_node *np,
 				  struct clk * const clks[])
 {
@@ -528,6 +533,22 @@ static void __init imx8mm_clocks_init(struct device_node *ccm_node)
 	clks[IMX8MM_SYS_PLL2_333M] = imx_clk_fixed_factor("sys_pll2_333m", "sys_pll2_out", 1, 3);
 	clks[IMX8MM_SYS_PLL2_500M] = imx_clk_fixed_factor("sys_pll2_500m", "sys_pll2_out", 1, 2);
 	clks[IMX8MM_SYS_PLL2_1000M] = imx_clk_fixed_factor("sys_pll2_1000m", "sys_pll2_out", 1, 1);
+
+	/* PLL Clock Output for Test */
+	clks[IMX8MM_CLK_CLKOUT1_SRC] = imx_clk_mux2("clkout1_src", base + 0x128,
+			4, 4, imx8mm_clkoutx_sels,
+			ARRAY_SIZE(imx8mm_clkoutx_sels));
+	clks[IMX8MM_CLK_CLKOUT1_DIV] = imx_clk_divider2("clkout1_div",
+			"clkout1_src", base + 0x128, 0, 4);
+	clks[IMX8MM_CLK_CLKOUT1_CG] = imx_clk_gate("clkout1", "clkout1_div",
+			base + 0x128, 8);
+	clks[IMX8MM_CLK_CLKOUT2_SRC] = imx_clk_mux2("clkout2_src", base + 0x128,
+			20, 4, imx8mm_clkoutx_sels,
+			ARRAY_SIZE(imx8mm_clkoutx_sels));
+	clks[IMX8MM_CLK_CLKOUT2_DIV] = imx_clk_divider2("clkout2_div",
+			"clkout2_src", base + 0x128, 16, 4);
+	clks[IMX8MM_CLK_CLKOUT2_CG] = imx_clk_gate4("clkout2", "clkout2_div",
+			base + 0x128, 24);
 
 	np = ccm_node;
 	base = of_iomap(np, 0);
