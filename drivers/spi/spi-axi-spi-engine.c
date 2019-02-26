@@ -438,47 +438,51 @@ static bool spi_engine_write_cmd_fifo(struct spi_engine *spi_engine)
 	return spi_engine->cmd_length != 0;
 }
 
-static void spi_engine_read_buff(struct spi_engine *spi_engine, uint8_t *buf)
+static void spi_engine_read_buff(struct spi_engine *spi_engine, uint8_t m)
 {
 	void __iomem *addr = spi_engine->base + SPI_ENGINE_REG_SDI_DATA_FIFO;
 	uint32_t val;
-	uint8_t len, i;
+	uint8_t bytes_len, i, j, *buf;
 
-	val = readl_relaxed(addr);
-	len = DIV_ROUND_UP(spi_engine->word_length, 8);
+	bytes_len = DIV_ROUND_UP(spi_engine->word_length, 8);
+	buf = spi_engine->rx_buf;
 
-	for (i = 0; i < len; i++)
-		buf[i] = val >> (8 * i);
+	for (i = 0; i < (m * bytes_len); i += bytes_len) {
+		val = readl_relaxed(addr);
+		for (j = 0; j < bytes_len; j++)
+			buf[j] = val >> (8 * j);
+		buf += bytes_len;
+	}
+
+	spi_engine->rx_buf += i;
 }
 
-static void spi_engine_write_buff(struct spi_engine *spi_engine,
-				   const uint8_t *buf)
+static void spi_engine_write_buff(struct spi_engine *spi_engine, uint8_t m)
 {
 	void __iomem *addr = spi_engine->base + SPI_ENGINE_REG_SDO_DATA_FIFO;
-	uint8_t len, i, word_len;
+	uint8_t bytes_len, word_len, i, j;
 	uint32_t val = 0;
 
+	bytes_len = DIV_ROUND_DOWN_ULL(spi_engine->word_length, 8);
 	word_len = spi_engine->word_length;
-	len = DIV_ROUND_DOWN_ULL(word_len, 8);
 
-	for (i = 0; i < len; i++)
-		val |= buf[i] << (word_len - 8 * (i + 1));
+	for (i = 0; i < (m * bytes_len); i += bytes_len) {
+		for (j = 0; j < bytes_len; j++)
+			val |= spi_engine->tx_buf[j] << (word_len - 8 * (j + 1));
+		writel_relaxed(val, addr);
+	}
 
-	writel_relaxed(val, addr);
+	spi_engine->tx_buf += i;
 }
 
 static bool spi_engine_write_tx_fifo(struct spi_engine *spi_engine)
 {
-	unsigned int n, m, i;
-	const uint8_t *buf;
+	unsigned int n, m;
 
 	n = readl_relaxed(spi_engine->base + SPI_ENGINE_REG_SDO_FIFO_ROOM);
 	while (n && spi_engine->tx_length) {
 		m = min(n, spi_engine->tx_length);
-		buf = spi_engine->tx_buf;
-		for (i = 0; i < m; i++)
-			spi_engine_write_buff(spi_engine, buf);
-		spi_engine->tx_buf += m;
+		spi_engine_write_buff(spi_engine, m);
 		spi_engine->tx_length -= m;
 		n -= m;
 		if (spi_engine->tx_length == 0)
@@ -490,16 +494,12 @@ static bool spi_engine_write_tx_fifo(struct spi_engine *spi_engine)
 
 static bool spi_engine_read_rx_fifo(struct spi_engine *spi_engine)
 {
-	unsigned int n, m, i;
-	uint8_t *buf;
+	unsigned int n, m;
 
 	n = readl_relaxed(spi_engine->base + SPI_ENGINE_REG_SDI_FIFO_LEVEL);
 	while (n && spi_engine->rx_length) {
 		m = min(n, spi_engine->rx_length);
-		buf = spi_engine->rx_buf;
-		for (i = 0; i < m; i++)
-			spi_engine_read_buff(spi_engine, buf);
-		spi_engine->rx_buf += m;
+		spi_engine_read_buff(spi_engine, m);
 		spi_engine->rx_length -= m;
 		n -= m;
 		if (spi_engine->rx_length == 0)
