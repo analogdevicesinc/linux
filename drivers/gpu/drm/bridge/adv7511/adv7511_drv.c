@@ -1139,7 +1139,7 @@ static int adv7511_probe(struct i2c_client *i2c, const struct i2c_device_id *id)
 	}
 
 	if (adv7511->gpio_pd) {
-		usleep_range(5000, 6000);
+		mdelay(5);
 		gpiod_set_value_cansleep(adv7511->gpio_pd, 0);
 	}
 
