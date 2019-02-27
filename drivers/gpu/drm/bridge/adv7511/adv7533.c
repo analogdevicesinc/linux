@@ -32,6 +32,14 @@ static const struct reg_sequence adv7533_cec_fixed_registers[] = {
 	{ 0x05, 0xc8 },
 };
 
+static const struct regmap_config adv7533_cec_regmap_config = {
+	.reg_bits = 8,
+	.val_bits = 8,
+
+	.max_register = 0xff,
+	.cache_type = REGCACHE_RBTREE,
+};
+
 static void adv7511_dsi_config_timing_gen(struct adv7511 *adv)
 {
 	struct mipi_dsi_device *dsi = adv->dsi;
@@ -137,11 +145,37 @@ int adv7533_patch_registers(struct adv7511 *adv)
 				     ARRAY_SIZE(adv7533_fixed_registers));
 }
 
-int adv7533_patch_cec_registers(struct adv7511 *adv)
+void adv7533_uninit_cec(struct adv7511 *adv)
 {
-	return regmap_register_patch(adv->regmap_cec,
+	i2c_unregister_device(adv->i2c_cec);
+}
+
+int adv7533_init_cec(struct adv7511 *adv)
+{
+	int ret;
+
+	adv->i2c_cec = i2c_new_dummy(adv->i2c_main->adapter,
+				     adv->i2c_main->addr - 1);
+	if (!adv->i2c_cec)
+		return -ENOMEM;
+
+	adv->regmap_cec = devm_regmap_init_i2c(adv->i2c_cec,
+					&adv7533_cec_regmap_config);
+	if (IS_ERR(adv->regmap_cec)) {
+		ret = PTR_ERR(adv->regmap_cec);
+		goto err;
+	}
+
+	ret = regmap_register_patch(adv->regmap_cec,
 				    adv7533_cec_fixed_registers,
 				    ARRAY_SIZE(adv7533_cec_fixed_registers));
+	if (ret)
+		goto err;
+
+	return 0;
+err:
+	adv7533_uninit_cec(adv);
+	return ret;
 }
 
 int adv7533_attach_dsi(struct adv7511 *adv)
