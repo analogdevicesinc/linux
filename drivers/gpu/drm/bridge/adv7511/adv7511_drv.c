@@ -841,11 +841,7 @@ static int adv7511_bridge_attach(struct drm_bridge *bridge)
 		return -ENODEV;
 	}
 
-	if (adv->i2c_main->irq)
-		adv->connector.polled = DRM_CONNECTOR_POLL_HPD;
-	else
-		adv->connector.polled = DRM_CONNECTOR_POLL_CONNECT |
-				DRM_CONNECTOR_POLL_DISCONNECT;
+	adv->connector.polled = DRM_CONNECTOR_POLL_HPD;
 
 	ret = drm_connector_init(bridge->dev, &adv->connector,
 				 &adv7511_connector_funcs,
