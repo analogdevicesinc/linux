@@ -436,7 +436,6 @@ uint32_t TALISE_getGpIntStatus(taliseDevice_t *device, uint16_t *gpIntStatus)
 uint32_t TALISE_getTemperature(taliseDevice_t *device, int16_t *temperatureDegC)
 {
     talRecoveryActions_t retVal = TALACT_NO_ACTION;
-    adiHalErr_t halError = ADIHAL_OK;
     uint8_t armExtData[1] = {TALISE_ARM_OBJECTID_TEMP_SENSOR};
     uint8_t cmdStatusByte = 0;
     uint8_t armReadBack[2] = {0};
@@ -445,6 +444,8 @@ uint32_t TALISE_getTemperature(taliseDevice_t *device, int16_t *temperatureDegC)
     static const int16_t CODE_TO_DEGREE_CELSIUS = 359; /* Nominal 25C value  = code 384, Scale by 384-25 to normalize */
 
 #if TALISE_VERBOSE
+    adiHalErr_t halError = ADIHAL_OK;
+
     halError = talWriteToLog(device->devHalInfo, ADIHAL_LOG_MSG, TAL_ERR_OK, "TALISE_getTemperature()\n");
     retVal = talApiErrHandler(device, TAL_ERRHDL_HAL_LOG, halError, retVal, TALACT_WARN_RESET_LOG);
 #endif
