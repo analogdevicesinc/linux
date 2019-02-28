@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: GPL-2.0
 /*
  * EZ-USB specific functions used by some of the USB to Serial drivers.
  *

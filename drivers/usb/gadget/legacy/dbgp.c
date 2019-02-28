@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: GPL-2.0
 /*
  * dbgp.c -- EHCI Debug Port device gadget
  *

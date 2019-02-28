@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: GPL-2.0+
 /*
  * Copyright (C) 2004 by Thomas Rathbone, HP Labs
  * Copyright (C) 2005 by Ivan Kokshaysky

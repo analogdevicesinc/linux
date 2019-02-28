@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: GPL-2.0
 /*
  * Qualcomm USB Auxiliary Serial Port driver
  *

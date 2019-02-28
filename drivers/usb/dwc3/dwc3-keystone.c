@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: GPL-2.0
 /**
  * dwc3-keystone.c - Keystone Specific Glue layer
  *

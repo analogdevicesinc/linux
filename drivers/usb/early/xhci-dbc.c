@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: GPL-2.0
 /**
  * xhci-dbc.c - xHCI debug capability early driver
  *

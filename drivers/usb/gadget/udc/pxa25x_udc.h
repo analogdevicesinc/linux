@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: GPL-2.0+
 /*
  * Intel PXA25x on-chip full speed USB device controller
  *

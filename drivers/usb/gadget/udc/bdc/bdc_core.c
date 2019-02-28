@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: GPL-2.0+
 /*
  * bdc_core.c - BRCM BDC USB3.0 device controller core operations
  *

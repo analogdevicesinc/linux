@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: GPL-2.0
 /*
  * RNDIS	Definitions for Remote NDIS
  *

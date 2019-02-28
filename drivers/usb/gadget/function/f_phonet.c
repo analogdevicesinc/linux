@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: GPL-2.0
 /*
  * f_phonet.c -- USB CDC Phonet function
  *

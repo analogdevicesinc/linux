@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: GPL-2.0+
 /*
  * F81532/F81534 USB to Serial Ports Bridge
  *

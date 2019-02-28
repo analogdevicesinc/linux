@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: GPL-2.0
 /*
  * NXP ISP1301 USB transceiver driver
  *

@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: GPL-2.0
 /*
  * Ultra Wide Band
  * AES-128 CCM Encryption

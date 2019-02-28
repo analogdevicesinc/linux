@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: GPL-2.0
 /*
  * ci.h - common structures, functions, and macros of the ChipIdea driver
  *

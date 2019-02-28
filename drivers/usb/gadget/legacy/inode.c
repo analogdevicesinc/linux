@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: GPL-2.0+
 /*
  * inode.c -- user mode filesystem api for usb gadget controllers
  *

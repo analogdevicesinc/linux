@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: GPL-2.0+
 /*
  * f_subset.c -- "CDC Subset" Ethernet link function driver
  *

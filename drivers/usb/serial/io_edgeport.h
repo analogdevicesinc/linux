@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: GPL-2.0+
 /************************************************************************
  *
  *	io_edgeport.h	Edgeport Linux Interface definitions

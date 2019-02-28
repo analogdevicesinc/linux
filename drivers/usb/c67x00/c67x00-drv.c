@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: GPL-2.0+
 /*
  * c67x00-drv.c: Cypress C67X00 USB Common infrastructure
  *

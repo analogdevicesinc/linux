@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: GPL-2.0+
 /*
  * u_audio.c -- interface to USB gadget "ALSA sound card" utilities
  *

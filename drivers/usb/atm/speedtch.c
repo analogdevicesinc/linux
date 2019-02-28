@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: GPL-2.0+
 /******************************************************************************
  *  speedtch.c  -  Alcatel SpeedTouch USB xDSL modem driver
  *

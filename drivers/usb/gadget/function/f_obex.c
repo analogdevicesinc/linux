@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: GPL-2.0+
 /*
  * f_obex.c -- USB CDC OBEX function driver
  *

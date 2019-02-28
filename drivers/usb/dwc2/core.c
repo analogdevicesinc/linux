@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: (GPL-2.0+ OR BSD-3-Clause)
 /*
  * core.c - DesignWare HS OTG Controller common routines
  *

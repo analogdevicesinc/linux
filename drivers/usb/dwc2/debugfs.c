@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: GPL-2.0
 /**
  * debugfs.c - Designware USB2 DRD controller debugfs
  *

@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: GPL-2.0+
 /************************************************************************
  *
  *	16654.H		Definitions for 16C654 UART used on EdgePorts

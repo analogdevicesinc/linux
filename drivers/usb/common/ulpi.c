@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: GPL-2.0
 /**
  * ulpi.c - USB ULPI PHY bus
  *

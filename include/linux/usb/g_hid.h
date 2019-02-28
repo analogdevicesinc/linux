@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: GPL-2.0+
 /*
  * g_hid.h -- Header file for USB HID gadget driver
  *

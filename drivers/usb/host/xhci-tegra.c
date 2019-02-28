@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: GPL-2.0
 /*
  * NVIDIA Tegra xHCI host controller driver
  *

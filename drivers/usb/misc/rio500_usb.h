@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: GPL-2.0+
 /*  ----------------------------------------------------------------------
 
     Copyright (C) 2000  Cesar Miquel  (miquel@df.uba.ar)

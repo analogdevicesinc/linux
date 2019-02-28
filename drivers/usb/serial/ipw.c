@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: GPL-2.0+
 /*
  * IPWireless 3G UMTS TDD Modem driver (USB connected)
  *

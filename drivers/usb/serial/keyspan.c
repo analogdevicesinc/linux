@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: GPL-2.0+
 /*
   Keyspan USB to Serial Converter driver
 

@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: GPL-2.0+
 /*
  * USB 338x super/high/full speed USB device controller.
  * Unlike many such controllers, this one talks PCI.

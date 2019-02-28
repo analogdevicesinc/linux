@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: GPL-2.0
 
 /*
  * Texas Instruments AM35x "glue layer"

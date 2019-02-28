@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: GPL-2.0+
 /*
  * Transport & Protocol Driver for In-System Design, Inc. ISD200 ASIC
  *

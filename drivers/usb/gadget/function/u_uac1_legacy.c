@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: GPL-2.0+
 /*
  * u_uac1.c -- ALSA audio utilities for Gadget stack
  *

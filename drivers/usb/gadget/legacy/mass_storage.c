@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: GPL-2.0+
 /*
  * mass_storage.c -- Mass Storage USB Gadget
  *

@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: GPL-2.0
 /*
   USB Driver layer for GSM modems
 

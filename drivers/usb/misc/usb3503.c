@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: GPL-2.0+
 /*
  * Driver for SMSC USB3503 USB 2.0 hub controller driver
  *

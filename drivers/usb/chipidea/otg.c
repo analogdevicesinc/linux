@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: GPL-2.0
 /*
  * otg.c - ChipIdea USB IP core OTG driver
  *

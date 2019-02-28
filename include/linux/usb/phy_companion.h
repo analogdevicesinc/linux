@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: GPL-2.0+
 /*
  * phy-companion.h -- phy companion to indicate the comparator part of PHY
  *

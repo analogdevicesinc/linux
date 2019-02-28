@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: GPL-2.0+
 /*
  * cdc2.c -- CDC Composite driver, with ECM and ACM support
  *

@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: GPL-2.0+
 /*
  * g_ffs.c -- user mode file system API for USB composite function controllers
  *

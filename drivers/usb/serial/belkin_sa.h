@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: GPL-2.0+
 /*
  * Definitions for Belkin USB Serial Adapter Driver
  *

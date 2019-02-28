@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: GPL-2.0
 /*
  * WUSB Wire Adapter
  * rpipe management

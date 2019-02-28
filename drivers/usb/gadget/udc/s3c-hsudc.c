@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: GPL-2.0
 /* linux/drivers/usb/gadget/s3c-hsudc.c
  *
  * Copyright (c) 2010 Samsung Electronics Co., Ltd.

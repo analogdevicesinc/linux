@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: GPL-2.0+
 /*
  * PlayStation 2 Trance Vibrator driver
  *

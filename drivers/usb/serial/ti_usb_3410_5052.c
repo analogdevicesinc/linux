@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: GPL-2.0+
 /*
  * TI 3410/5052 USB Serial Driver
  *

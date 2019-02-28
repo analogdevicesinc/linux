@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: GPL-2.0
 /*
  * ISP1362 HCD (Host Controller Driver) for USB.
  *

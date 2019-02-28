@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: GPL-2.0
 /*
 * Host Controller Driver for the Elan Digital Systems U132 adapter
 *

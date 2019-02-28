@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: GPL-2.0
 /*
  * PMC MSP EHCI (Host Controller Driver) for USB.
  *

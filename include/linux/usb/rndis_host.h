@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: GPL-2.0+
 /*
  * Host Side support for RNDIS Networking Links
  * Copyright (C) 2005 by David Brownell

@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: GPL-2.0+
 /*
  * u_ether.h -- interface to USB gadget "ethernet link" utilities
  *

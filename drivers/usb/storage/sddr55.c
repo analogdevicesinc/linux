@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: GPL-2.0+
 /*
  * Driver for SanDisk SDDR-55 SmartMedia reader
  *

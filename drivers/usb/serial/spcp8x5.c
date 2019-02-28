@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: GPL-2.0+
 /*
  * spcp8x5 USB to serial adaptor driver
  *

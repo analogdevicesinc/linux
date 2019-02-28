@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: GPL-2.0+
 /*
  * Definitions for MCT (Magic Control Technology) USB-RS232 Converter Driver
  *

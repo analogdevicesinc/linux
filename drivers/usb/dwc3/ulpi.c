@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: GPL-2.0
 /**
  * ulpi.c - DesignWare USB3 Controller's ULPI PHY interface
  *

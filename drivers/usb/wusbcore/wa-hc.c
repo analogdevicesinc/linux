@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: GPL-2.0
 /*
  * Wire Adapter Host Controller Driver
  * Common items to HWA and DWA based HCDs

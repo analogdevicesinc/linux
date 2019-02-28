@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: GPL-2.0+
 /*
  * Copyright (C) 2012 Hauke Mehrtens <hauke@hauke-m.de>
  *

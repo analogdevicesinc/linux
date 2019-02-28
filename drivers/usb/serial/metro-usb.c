@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: GPL-2.0
 /*
   Some of this code is credited to Linux USB open source files that are
   distributed with Linux.

@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: GPL-2.0
 /*
  * gpio-vbus.c - simple GPIO VBUS sensing driver for B peripheral devices
  *

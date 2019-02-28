@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: GPL-2.0+
 /*
  * OTG Finite State Machine from OTG spec
  *

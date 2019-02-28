@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: GPL-2.0
 /*
  * MUSB OTG driver - support for Mentor's DMA controller
  *

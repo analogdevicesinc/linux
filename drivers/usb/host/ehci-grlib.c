@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: GPL-2.0+
 /*
  * Driver for Aeroflex Gaisler GRLIB GRUSBHC EHCI host controller
  *

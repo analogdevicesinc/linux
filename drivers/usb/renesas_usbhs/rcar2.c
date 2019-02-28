@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: GPL-1.0+
 /*
  * Renesas USB driver R-Car Gen. 2 initialization and power control
  *

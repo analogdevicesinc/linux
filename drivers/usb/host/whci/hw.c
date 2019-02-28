@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: GPL-2.0
 /*
  * Wireless Host Controller (WHC) hardware access helpers.
  *

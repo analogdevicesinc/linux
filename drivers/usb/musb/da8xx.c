@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: GPL-2.0
 /*
  * Texas Instruments DA8xx/OMAP-L1x "glue layer"
  *

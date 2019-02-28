@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: GPL-2.0
 /*
  * gmidi.c -- USB MIDI Gadget Driver
  *

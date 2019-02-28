@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: GPL-1.0+
 /*
  * EHCI HCD (Host Controller Driver) for USB.
  *

@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: GPL-2.0+
 /*
  * PLX NET2272 high/full speed USB device controller
  *

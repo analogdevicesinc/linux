@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: GPL-2.0
 /*
  * <linux/usb/audio.h> -- USB Audio definitions.
  *
