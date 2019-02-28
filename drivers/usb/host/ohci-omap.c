@@ -230,7 +230,6 @@ static int ohci_omap_reset(struct usb_hcd *hcd)
 		} else {
 			return -EPROBE_DEFER;
 		}
-		hcd->skip_phy_initialization = 1;
 		ohci->start_hnp = start_hnp;
 	}
 #endif
