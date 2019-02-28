@@ -52,4 +52,15 @@ config FSL_RCPM
 	  tasks associated with power management, such as wakeup source control.
 	  Note that currently this driver will not support PowerPC based
 	  QorIQ processor.
+
+config FSL_QIXIS
+	tristate "QIXIS system controller driver"
+	depends on OF
+	select REGMAP_I2C
+	select REGMAP_MMIO
+	default n
+	help
+	  Say y here to enable QIXIS system controller api. The qixis driver
+	  provides FPGA functions to control system.
+
 endmenu
