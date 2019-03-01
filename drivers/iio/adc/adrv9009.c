@@ -3376,6 +3376,18 @@ static ssize_t adrv9009_debugfs_write(struct file *file,
 
 		entry->val = val;
 		return count;
+	case DBGFS_BIST_FRAMER_A_LOOPBACK:
+	case DBGFS_BIST_FRAMER_B_LOOPBACK:
+		mutex_lock(&phy->indio_dev->mlock);
+		ret = adrv9009_spi_write(phy->spi, TALISE_ADDR_JESD_FRAMER_CFG4_0 +
+			(entry->cmd == DBGFS_BIST_FRAMER_B_LOOPBACK ? 0x40 : 0),
+			val ? BIT(7) : 0);
+		mutex_unlock(&phy->indio_dev->mlock);
+		if (ret)
+			return ret;
+
+		entry->val = val;
+		return count;
 	case DBGFS_BIST_TONE:
 		if (ret != 3)
 			return -EINVAL;
@@ -3454,6 +3466,8 @@ static int adrv9009_register_debugfs(struct iio_dev *indio_dev)
 	adrv9009_add_debugfs_entry(phy, "initialize", DBGFS_INIT);
 	adrv9009_add_debugfs_entry(phy, "bist_framer_a_prbs", DBGFS_BIST_FRAMER_A_PRBS);
 	adrv9009_add_debugfs_entry(phy, "bist_framer_b_prbs", DBGFS_BIST_FRAMER_B_PRBS);
+	adrv9009_add_debugfs_entry(phy, "bist_framer_a_loopback", DBGFS_BIST_FRAMER_A_LOOPBACK);
+	adrv9009_add_debugfs_entry(phy, "bist_framer_b_loopback", DBGFS_BIST_FRAMER_B_LOOPBACK);
 	adrv9009_add_debugfs_entry(phy, "bist_tone", DBGFS_BIST_TONE);
 
 	for (i = 0; i < phy->adrv9009_debugfs_entry_index; i++)
