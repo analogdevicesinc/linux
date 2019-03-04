@@ -459,3 +459,18 @@ int check_m4_enabled(void)
 
 	return 0;
 }
+
+void imx8m_m4_enable(void)
+{
+	struct arm_smccc_res res;
+	arm_smccc_smc(FSL_SIP_SRC, FSL_SIP_SRC_M4_START, 0, 0, 0, 0, 0, 0,
+			&res);
+}
+EXPORT_SYMBOL(imx8m_m4_enable);
+
+void imx8m_m4_disable(void)
+{
+	struct arm_smccc_res res;
+	arm_smccc_smc(FSL_SIP_SRC, FSL_SIP_SRC_M4_STOP, 0, 0, 0, 0, 0, 0, &res);
+}
+EXPORT_SYMBOL(imx8m_m4_disable);

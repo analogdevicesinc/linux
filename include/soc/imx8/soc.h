@@ -27,6 +27,8 @@ bool cpu_is_imx8qxp(void);
 extern bool TKT340553_SW_WORKAROUND;
 unsigned int imx8_get_soc_revision(void);
 
+void imx8m_m4_enable(void);
+void imx8m_m4_disable(void);
 int check_m4_enabled(void);
 
 #endif
