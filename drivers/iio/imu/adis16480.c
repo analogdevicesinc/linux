@@ -124,7 +124,10 @@ struct adis16480_chip_info {
 	unsigned int gyro_max_scale;
 	unsigned int accel_max_val;
 	unsigned int accel_max_scale;
-	unsigned int temp_max_scale;
+	unsigned int temp_scale;
+	unsigned int int_clk;
+	unsigned int max_dec_rate;
+	const unsigned int *filter_freqs;
 };
 
 enum adis16480_int_pin {
@@ -299,9 +302,9 @@ static int adis16480_set_freq(struct iio_dev *indio_dev, int val, int val2)
 	if (t <= 0)
 		return -EINVAL;
 
-	t = 2460000 / t;
-	if (t > 2048)
-		t = 2048;
+	t = st->chip_info->int_clk / t;
+	if (t > st->chip_info->max_dec_rate)
+		t = st->chip_info->max_dec_rate;
 
 	if (t != 0)
 		t--;
@@ -320,7 +323,7 @@ static int adis16480_get_freq(struct iio_dev *indio_dev, int *val, int *val2)
 	if (ret < 0)
 		return ret;
 
-	freq = 2460000 / (t + 1);
+	freq = st->chip_info->int_clk / (t + 1);
 	*val = freq / 1000;
 	*val2 = (freq % 1000) * 1000;
 
@@ -450,6 +453,13 @@ static const unsigned int adis16480_def_filter_freqs[] = {
 	63,
 };
 
+static const unsigned int adis16495_def_filter_freqs[] = {
+	300,
+	100,
+	300,
+	100,
+};
+
 static const unsigned int ad16480_filter_data[][2] = {
 	[ADIS16480_SCAN_GYRO_X]		= { ADIS16480_REG_FILTER_BNK0, 0 },
 	[ADIS16480_SCAN_GYRO_Y]		= { ADIS16480_REG_FILTER_BNK0, 3 },
@@ -481,7 +491,7 @@ static int adis16480_get_filter_freq(struct iio_dev *indio_dev,
 	if (!(val & enable_mask))
 		*freq = 0;
 	else
-		*freq = adis16480_def_filter_freqs[(val >> offset) & 0x3];
+		*freq = st->chip_info->filter_freqs[(val >> offset) & 0x3];
 
 	return IIO_VAL_INT;
 }
@@ -508,10 +518,10 @@ static int adis16480_set_filter_freq(struct iio_dev *indio_dev,
 		val &= ~enable_mask;
 	} else {
 		best_freq = 0;
-		best_diff = 310;
+		best_diff = st->chip_info->filter_freqs[0];
 		for (i = 0; i < ARRAY_SIZE(adis16480_def_filter_freqs); i++) {
-			if (adis16480_def_filter_freqs[i] >= freq) {
-				diff = adis16480_def_filter_freqs[i] - freq;
+			if (st->chip_info->filter_freqs[i] >= freq) {
+				diff = st->chip_info->filter_freqs[i] - freq;
 				if (diff < best_diff) {
 					best_diff = diff;
 					best_freq = i;
@@ -531,7 +541,7 @@ static int adis16480_read_raw(struct iio_dev *indio_dev,
 	const struct iio_chan_spec *chan, int *val, int *val2, long info)
 {
 	struct adis16480 *st = iio_priv(indio_dev);
-	unsigned int temp, scale;
+	unsigned int temp;
 
 	switch (info) {
 	case IIO_CHAN_INFO_RAW:
@@ -556,10 +566,8 @@ static int adis16480_read_raw(struct iio_dev *indio_dev,
 			 * +25 degrees Celsius = 0
 			 * LSB, 25 degrees Celsius  = 60 / temp_max_scale
 			 */
-			scale = DIV_ROUND_CLOSEST_ULL(60 * 1000000LL,
-					st->chip_info->temp_max_scale);
-			*val = scale / 1000;
-			*val2 = (scale % 1000) * 1000;
+			*val = st->chip_info->temp_scale / 1000;
+			*val2 = (st->chip_info->temp_scale % 1000) * 1000;
 			return IIO_VAL_INT_PLUS_MICRO;
 		case IIO_PRESSURE:
 			*val = 0;
@@ -571,9 +579,7 @@ static int adis16480_read_raw(struct iio_dev *indio_dev,
 	case IIO_CHAN_INFO_OFFSET:
 		/* Only the temperature channel has a offset */
 		temp = 25 * 1000000LL; /* 25 degree Celsius = 0x0000 */
-		scale = DIV_ROUND_CLOSEST_ULL(60 * 1000000LL,
-				st->chip_info->temp_max_scale);
-		*val = DIV_ROUND_CLOSEST_ULL(temp, scale);
+		*val = DIV_ROUND_CLOSEST_ULL(temp, st->chip_info->temp_scale);
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_CALIBBIAS:
 		return adis16480_get_calibbias(indio_dev, chan, val);
@@ -735,7 +741,10 @@ static const struct adis16480_chip_info adis16480_chip_info[] = {
 		.gyro_max_scale = 300,
 		.accel_max_val = IIO_M_S_2_TO_G(21973),
 		.accel_max_scale = 18,
-		.temp_max_scale = 10619,
+		.temp_scale = 5650, /* 5.65 milli degree Celsius */
+		.int_clk = 2460000,
+		.max_dec_rate = 2048,
+		.filter_freqs = adis16480_def_filter_freqs,
 	},
 	[ADIS16480] = {
 		.channels = adis16480_channels,
@@ -744,7 +753,10 @@ static const struct adis16480_chip_info adis16480_chip_info[] = {
 		.gyro_max_scale = 450,
 		.accel_max_val = IIO_M_S_2_TO_G(12500),
 		.accel_max_scale = 10,
-		.temp_max_scale = 10619,
+		.temp_scale = 5650, /* 5.65 milli degree Celsius */
+		.int_clk = 2460000,
+		.max_dec_rate = 2048,
+		.filter_freqs = adis16480_def_filter_freqs,
 	},
 	[ADIS16485] = {
 		.channels = adis16485_channels,
@@ -753,7 +765,10 @@ static const struct adis16480_chip_info adis16480_chip_info[] = {
 		.gyro_max_scale = 450,
 		.accel_max_val = IIO_M_S_2_TO_G(20000),
 		.accel_max_scale = 5,
-		.temp_max_scale = 10619,
+		.temp_scale = 5650, /* 5.65 milli degree Celsius */
+		.int_clk = 2460000,
+		.max_dec_rate = 2048,
+		.filter_freqs = adis16480_def_filter_freqs,
 	},
 	[ADIS16488] = {
 		.channels = adis16480_channels,
@@ -762,7 +777,10 @@ static const struct adis16480_chip_info adis16480_chip_info[] = {
 		.gyro_max_scale = 450,
 		.accel_max_val = IIO_M_S_2_TO_G(22500),
 		.accel_max_scale = 18,
-		.temp_max_scale = 10619,
+		.temp_scale = 5650, /* 5.65 milli degree Celsius */
+		.int_clk = 2460000,
+		.max_dec_rate = 2048,
+		.filter_freqs = adis16480_def_filter_freqs,
 	},
 	[ADIS16495_1] = {
 		.channels = adis16485_channels,
@@ -771,7 +789,10 @@ static const struct adis16480_chip_info adis16480_chip_info[] = {
 		.gyro_max_scale = 125,
 		.accel_max_val = IIO_M_S_2_TO_G(32000),
 		.accel_max_scale = 8,
-		.temp_max_scale = 4800,
+		.temp_scale = 12500, /* 12.5 milli degree Celsius */
+		.int_clk = 4250000,
+		.max_dec_rate = 4250,
+		.filter_freqs = adis16495_def_filter_freqs,
 	},
 	[ADIS16495_2] = {
 		.channels = adis16485_channels,
@@ -780,7 +801,10 @@ static const struct adis16480_chip_info adis16480_chip_info[] = {
 		.gyro_max_scale = 450,
 		.accel_max_val = IIO_M_S_2_TO_G(32000),
 		.accel_max_scale = 8,
-		.temp_max_scale = 4800,
+		.temp_scale = 12500, /* 12.5 milli degree Celsius */
+		.int_clk = 4250000,
+		.max_dec_rate = 4250,
+		.filter_freqs = adis16495_def_filter_freqs,
 	},
 	[ADIS16495_3] = {
 		.channels = adis16485_channels,
@@ -789,7 +813,10 @@ static const struct adis16480_chip_info adis16480_chip_info[] = {
 		.gyro_max_scale = 2000,
 		.accel_max_val = IIO_M_S_2_TO_G(32000),
 		.accel_max_scale = 8,
-		.temp_max_scale = 4800,
+		.temp_scale = 12500, /* 12.5 milli degree Celsius */
+		.int_clk = 4250000,
+		.max_dec_rate = 4250,
+		.filter_freqs = adis16495_def_filter_freqs,
 	},
 	[ADIS16497_1] = {
 		.channels = adis16485_channels,
@@ -798,7 +825,10 @@ static const struct adis16480_chip_info adis16480_chip_info[] = {
 		.gyro_max_scale = 125,
 		.accel_max_val = IIO_M_S_2_TO_G(32000),
 		.accel_max_scale = 40,
-		.temp_max_scale = 4800,
+		.temp_scale = 12500, /* 12.5 milli degree Celsius */
+		.int_clk = 4250000,
+		.max_dec_rate = 4250,
+		.filter_freqs = adis16495_def_filter_freqs,
 	},
 	[ADIS16497_2] = {
 		.channels = adis16485_channels,
@@ -807,7 +837,10 @@ static const struct adis16480_chip_info adis16480_chip_info[] = {
 		.gyro_max_scale = 450,
 		.accel_max_val = IIO_M_S_2_TO_G(32000),
 		.accel_max_scale = 40,
-		.temp_max_scale = 4800,
+		.temp_scale = 12500, /* 12.5 milli degree Celsius */
+		.int_clk = 4250000,
+		.max_dec_rate = 4250,
+		.filter_freqs = adis16495_def_filter_freqs,
 	},
 	[ADIS16497_3] = {
 		.channels = adis16485_channels,
@@ -816,7 +849,10 @@ static const struct adis16480_chip_info adis16480_chip_info[] = {
 		.gyro_max_scale = 2000,
 		.accel_max_val = IIO_M_S_2_TO_G(32000),
 		.accel_max_scale = 40,
-		.temp_max_scale = 4800,
+		.temp_scale = 12500, /* 12.5 milli degree Celsius */
+		.int_clk = 4250000,
+		.max_dec_rate = 4250,
+		.filter_freqs = adis16495_def_filter_freqs,
 	},
 };
 
@@ -942,7 +978,7 @@ static int adis16480_config_irq_pin(struct device_node *of_node,
 	enum adis16480_int_pin pin;
 	unsigned int irq_type;
 	uint16_t val;
-	int i, irq;
+	int i, irq = 0;
 
 	desc = irq_get_irq_data(st->adis.spi->irq);
 	if (!desc) {
@@ -950,15 +986,18 @@ static int adis16480_config_irq_pin(struct device_node *of_node,
 		return -EINVAL;
 	}
 
-	/* Disable data ready */
+	/* Disable data ready since the default after reset is on */
 	val = ADIS16480_DRDY_EN(0);
 
 	/*
-	 * Get the interrupt from the devicetre by reading the
-	 * interrupt-names property. If it is not specified, use
-	 * the default interrupt on DIO2 pin.
+	 * Get the interrupt from the devicetre by reading the interrupt-names
+	 * property. If it is not specified, use DIO1 pin as default.
+	 * According to the datasheet, the factory default assigns DIO2 as data
+	 * ready signal. However, in the previous versions of the driver, DIO1
+	 * pin was used. So, we should leave it as is since some devices might
+	 * be expecting the interrupt on the wrong physical pin.
 	 */
-	pin = ADIS16480_PIN_DIO2;
+	pin = ADIS16480_PIN_DIO1;
 	for (i = 0; i < ARRAY_SIZE(adis16480_int_pin_names); i++) {
 		irq = of_irq_get_byname(of_node, adis16480_int_pin_names[i]);
 		if (irq > 0) {
@@ -1015,7 +1054,7 @@ static int adis16480_probe(struct spi_device *spi)
 	if (ret)
 		return ret;
 
-	ret =  adis16480_config_irq_pin(spi->dev.of_node, st);
+	ret = adis16480_config_irq_pin(spi->dev.of_node, st);
 	if (ret)
 		return ret;
 
