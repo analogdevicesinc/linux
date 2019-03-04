@@ -266,13 +266,12 @@ int iio_buffer_alloc_scanmask(struct iio_buffer *buffer,
 	if (!indio_dev->masklength)
 		return 0;
 
-	buffer->scan_mask = kcalloc(BITS_TO_LONGS(indio_dev->masklength),
-		sizeof(*buffer->scan_mask), GFP_KERNEL);
+	buffer->scan_mask = bitmap_zalloc(indio_dev->masklength, GFP_KERNEL);
 	if (buffer->scan_mask == NULL)
 		return -ENOMEM;
 
-	buffer->channel_mask = kcalloc(BITS_TO_LONGS(indio_dev->num_channels),
-		sizeof(*buffer->channel_mask), GFP_KERNEL);
+	buffer->channel_mask = bitmap_zalloc(indio_dev->num_channels,
+					     GFP_KERNEL);
 	if (buffer->channel_mask == NULL)
 		return -ENOMEM;
 
@@ -282,8 +281,8 @@ EXPORT_SYMBOL(iio_buffer_alloc_scanmask);
 
 void iio_buffer_free_scanmask(struct iio_buffer *buffer)
 {
-	kfree(buffer->channel_mask);
-	kfree(buffer->scan_mask);
+	bitmap_free(buffer->channel_mask);
+	bitmap_free(buffer->scan_mask);
 }
 EXPORT_SYMBOL(iio_buffer_free_scanmask);
 
@@ -398,8 +397,7 @@ static int iio_channel_mask_set(struct iio_dev *indio_dev,
 	unsigned long *trialmask;
 	unsigned int ch;
 
-	trialmask = kcalloc(BITS_TO_LONGS(indio_dev->masklength),
-			    sizeof(*trialmask), GFP_KERNEL);
+	trialmask = bitmap_zalloc(indio_dev->masklength, GFP_KERNEL);
 	if (trialmask == NULL)
 		return -ENOMEM;
 	if (!indio_dev->masklength) {
