@@ -93,6 +93,13 @@
 		model = "imx-audio-micfil";
 		cpu-dai = <&micfil>;
 	};
+
+	m4ctrl {
+		compatible = "fsl,imx-m4ctrl";
+		reg = <0x0 0x7e0000 0x0 0x40000>;
+		clocks = <&clk IMX8MM_CLK_M4_CG>;
+		clock-names = "m4_clk";
+	};
 };
 
 &clk {
