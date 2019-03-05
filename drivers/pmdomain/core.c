@@ -885,6 +885,10 @@ static int genpd_power_off(struct generic_pm_domain *genpd, bool one_dev_on,
 	if (!genpd->gov)
 		genpd->state_idx = 0;
 
+	/* Choose the deepest state if no devices using this domain */
+	if (!genpd->device_count)
+		genpd->state_idx = genpd->state_count - 1;
+
 	ret = _genpd_power_off(genpd, true);
 	if (ret) {
 		genpd->states[genpd->state_idx].rejected++;
