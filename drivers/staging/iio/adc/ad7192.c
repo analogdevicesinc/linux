@@ -266,13 +266,13 @@ static int ad7192_setup(struct ad7192_state *st, struct device_node *np)
 	/* reset the serial interface */
 	ret = ad_sd_reset(&st->sd, 48);
 	if (ret < 0)
-		goto out;
+		return ret;
 	usleep_range(500, 1000); /* Wait for at least 500us */
 
 	/* write/read test for device presence */
 	ret = ad_sd_read_reg(&st->sd, AD7192_REG_ID, 1, &id);
 	if (ret)
-		goto out;
+		return ret;
 
 	id &= AD7192_ID_MASK;
 
@@ -316,15 +316,15 @@ static int ad7192_setup(struct ad7192_state *st, struct device_node *np)
 
 	ret = ad_sd_write_reg(&st->sd, AD7192_REG_MODE, 3, st->mode);
 	if (ret)
-		goto out;
+		return ret;
 
 	ret = ad_sd_write_reg(&st->sd, AD7192_REG_CONF, 3, st->conf);
 	if (ret)
-		goto out;
+		return ret;
 
 	ret = ad7192_calibrate_all(st);
 	if (ret)
-		goto out;
+		return ret;
 
 	/* Populate available ADC input ranges */
 	for (i = 0; i < ARRAY_SIZE(st->scale_avail); i++) {
@@ -338,9 +338,6 @@ static int ad7192_setup(struct ad7192_state *st, struct device_node *np)
 	}
 
 	return 0;
-out:
-	dev_err(&st->sd.spi->dev, "setup failed\n");
-	return ret;
 }
 
 static ssize_t
