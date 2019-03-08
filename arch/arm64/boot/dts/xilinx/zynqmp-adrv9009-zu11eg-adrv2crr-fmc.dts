@@ -216,9 +216,8 @@
 &i2c1 {
 	status = "okay";
 	clock-frequency = <400000>;
-	pinctrl-names = "default", "gpio";
-	pinctrl-0 = <&pinctrl_i2c1_default>;
-	pinctrl-1 = <&pinctrl_i2c1_gpio>;
+	pinctrl-names = "gpio";
+	pinctrl-0 = <&pinctrl_i2c1_gpio>;
 	scl-gpios = <&gpio 32 GPIO_ACTIVE_HIGH>;
 	sda-gpios = <&gpio 33 GPIO_ACTIVE_HIGH>;
 
