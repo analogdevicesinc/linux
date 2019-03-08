@@ -98,7 +98,6 @@ struct axi_dmac_sg {
 	unsigned int src_stride;
 	unsigned int id;
 	unsigned int partial_len;
-	bool last;
 	bool schedule_when_free;
 };
 
@@ -388,12 +387,13 @@ static bool axi_dmac_transfer_done(struct axi_dmac_chan *chan,
 			start_next = true;
 		}
 
+		if (active->cyclic)
+			vchan_cyclic_callback(&active->vdesc);
+
 		if (active->num_completed == active->num_sgs ||
 		    sg->partial_len) {
 			if (active->cyclic) {
 				active->num_completed = 0; /* wrap around */
-				if (sg->last)
-					vchan_cyclic_callback(&active->vdesc);
 			} else {
 				list_del(&active->vdesc.node);
 				if (sg->partial_len)
@@ -564,7 +564,6 @@ static struct axi_dmac_sg *axi_dmac_fill_linear_sg(struct axi_dmac_chan *chan,
 			sg->src_addr = addr;
 		sg->x_len = len;
 		sg->y_len = 1;
-		sg->last = true;
 		sg++;
 		addr += len;
 	}
