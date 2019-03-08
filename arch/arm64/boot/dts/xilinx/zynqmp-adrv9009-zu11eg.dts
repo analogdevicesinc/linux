@@ -987,20 +987,6 @@
 		};
 	};
 
-	pinctrl_i2c1_default: i2c1-default {
-		mux {
-			groups = "i2c1_9_grp";
-			function = "i2c1";
-		};
-
-		conf {
-			groups = "i2c1_9_grp";
-			bias-pull-up;
-			slew-rate = <SLEW_RATE_SLOW>;
-			io-standard = <IO_STANDARD_LVCMOS18>;
-		};
-	};
-
 	pinctrl_i2c1_gpio: i2c1-gpio {
 		mux {
 			groups = "gpio0_32_grp", "gpio0_33_grp";
