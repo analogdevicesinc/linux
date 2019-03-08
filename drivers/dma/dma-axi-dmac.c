@@ -636,7 +636,7 @@ static struct dma_async_tx_descriptor *axi_dmac_prep_dma_cyclic(
 		return NULL;
 
 	axi_dmac_fill_linear_sg(chan, direction, buf_addr, num_periods,
-		buf_len, desc->sg);
+		period_len, desc->sg);
 
 	desc->cyclic = true;
 
