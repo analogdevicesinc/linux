@@ -185,8 +185,8 @@
 		pinctrl_pcie0: pcie0grp {
 			fsl,pins = <
 				MX8MM_IOMUXC_I2C4_SCL_PCIE1_CLKREQ_B	0x61 /* open drain, pull up */
-				MX8MM_IOMUXC_SD1_RESET_B_GPIO2_IO10	0x41
-				// TBD MX8MM_IOMUXC_SAI2_RXFS_GPIO4_IO21	0x41
+				MX8MM_IOMUXC_SAI2_RXFS_GPIO4_IO21	0x41
+				MX8MM_IOMUXC_NAND_DATA02_GPIO3_IO8	0x41
 			>;
 		};
 
@@ -780,8 +780,8 @@
 &pcie0{
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_pcie0>;
-	disable-gpio = <&gpio2 10 GPIO_ACTIVE_LOW>;
-	// TBD reset-gpio = <&gpio4 21 GPIO_ACTIVE_LOW>;
+	disable-gpio = <&gpio3 8 GPIO_ACTIVE_LOW>;
+	reset-gpio = <&gpio4 21 GPIO_ACTIVE_LOW>;
 	ext_osc = <0>;
 	status = "okay";
 };
