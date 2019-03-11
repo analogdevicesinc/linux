@@ -891,6 +891,6 @@
 };
 
 &crypto {
-	status = "disabled";
+	status = "okay";
 };
 
