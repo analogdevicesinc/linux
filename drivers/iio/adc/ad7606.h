@@ -12,14 +12,21 @@
  * struct ad7606_chip_info - chip specific information
  * @channels:		channel specification
  * @num_channels:	number of channels
+ * @oversampling_avail	pointer to the array which stores the available
+ *			oversampling ratios.
+ * @oversampling_num	number of elements stored in oversampling_avail array
  * @has_oversampling:   whether the device has oversampling support
+ * @oversampling_needs_reset some devices require a reset to update oversampling
  * @sw_mode_config:	pointer to a function which configured the device
  *			for software mode
  */
 struct ad7606_chip_info {
 	const struct iio_chan_spec	*channels;
 	unsigned int			num_channels;
+	const unsigned int		*oversampling_avail;
+	unsigned int			oversampling_num;
 	bool				has_oversampling;
+	bool				oversampling_needs_reset;
 	int (*sw_mode_config)(struct iio_dev *indio_dev);
 };
 
@@ -35,9 +42,6 @@ struct ad7606_chip_info {
  * @sw_mode_en		software mode enabled
  * @scale_avail		pointer to the array which stores the available scales
  * @num_scales		number of elements stored in the scale_avail array
- * @oversampling_avail	pointer to the array which stores the available
- *			oversampling ratios.
- * @num_os_ratios	number of elements stored in oversampling_avail array
  * @lock		protect sensor state from concurrent accesses to GPIOs
  * @gpio_convst	GPIO descriptor for conversion start signal (CONVST)
  * @gpio_reset		GPIO descriptor for device hard-reset
@@ -53,7 +57,7 @@ struct ad7606_chip_info {
  */
 struct ad7606_state {
 	struct device			*dev;
-	const struct ad7606_chip_info	*chip_info;
+	struct ad7606_chip_info		*chip_info;
 	struct regulator		*reg;
 	const struct ad7606_bus_ops	*bops;
 	unsigned int			range[8];
@@ -62,8 +66,6 @@ struct ad7606_state {
 	bool				sw_mode_en;
 	const unsigned int		*scale_avail;
 	unsigned int			num_scales;
-	const unsigned int		*oversampling_avail;
-	unsigned int			num_os_ratios;
 
 	struct mutex			lock; /* protect sensor state */
 	struct gpio_desc		*gpio_convst;
@@ -80,7 +82,7 @@ struct ad7606_state {
 	 * transfer buffers to live in their own cache lines.
 	 * 8 * 16-bit samples + 64-bit timestamp
 	 */
-	unsigned short			data[12] ____cacheline_aligned;
+	unsigned short			data[20] ____cacheline_aligned;
 };
 
 /**
@@ -101,7 +103,8 @@ enum ad7606_supported_device_ids {
 	ID_AD7606_8,
 	ID_AD7606_6,
 	ID_AD7606_4,
-	ID_AD7606B
+	ID_AD7606B,
+	ID_AD7616
 };
 
 #ifdef CONFIG_PM_SLEEP
