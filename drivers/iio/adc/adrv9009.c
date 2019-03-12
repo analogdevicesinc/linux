@@ -609,16 +609,6 @@ static int adrv9009_do_setup(struct adrv9009_rf_phy *phy)
 		goto out;
 	}
 
-	if (has_tx_and_en(phy)) {
-		/* Fixme: Need to wait until TX DIV40 MMCM is enabled */
-		msleep(100);
-
-		ret = clk_prepare_enable(phy->jesd_tx_clk);
-		if (ret < 0) {
-			dev_err(&phy->spi->dev, "jesd_tx_clk enable failed (%d)", ret);
-			goto out;
-		}
-	}
 	/* TALISE_initialize() loads the Talise device data structure
 	 * settings for the Rx/Tx/ORx profiles, FIR filters, digital
 	 * filter enables, calibrates the CLKPLL, loads the user provided Rx
@@ -909,6 +899,19 @@ static int adrv9009_do_setup(struct adrv9009_rf_phy *phy)
 		}
 	}
 
+	if (has_tx_and_en(phy)) {
+		u8 phy_ctrl;
+		ret = clk_prepare_enable(phy->jesd_tx_clk);
+		if (ret < 0) {
+			dev_err(&phy->spi->dev, "jesd_tx_clk enable failed (%d)", ret);
+			goto out;
+		}
+		/* RESET CDR */
+		phy_ctrl = adrv9009_spi_read(phy->spi, TALISE_ADDR_DES_PHY_GENERAL_CTL_1);
+		adrv9009_spi_write(phy->spi, TALISE_ADDR_DES_PHY_GENERAL_CTL_1, phy_ctrl & ~BIT(7));
+		adrv9009_spi_write(phy->spi, TALISE_ADDR_DES_PHY_GENERAL_CTL_1, phy_ctrl);
+	}
+
 	adrv9009_sysref_req(phy, SYSREF_CONT_OFF);
 
 	/*** < User Sends SYSREF Here > ***/
@@ -1115,8 +1118,12 @@ static int adrv9009_multi_chip_sync(struct adrv9009_rf_phy *phy, int step)
 	uint8_t framerStatus = 0;
 	int ret = 0;
 
+	dev_dbg(&phy->spi->dev, "%s:%d\n",__func__, step);
+
 	switch (step) {
 	case 0:
+		TALISE_radioOff(phy->talDevice);
+		disable_irq(phy->spi->irq);
 		adrv9009_sysref_req(phy, SYSREF_CONT_OFF);
 
 		if (phy->is_initialized) {
@@ -1142,7 +1149,6 @@ static int adrv9009_multi_chip_sync(struct adrv9009_rf_phy *phy, int step)
 		/*< user code - Request minimum 3 SYSREF pulses from Clock Device - > */
 		adrv9009_sysref_req(phy, SYSREF_PULSE);
 		break;
-
 	case 3:
 		ret = TALISE_enableMultichipSync(phy->talDevice, 0, &mcsStatus);
 		if ((mcsStatus & 0x0B) != 0x0B) {
@@ -1151,8 +1157,21 @@ static int adrv9009_multi_chip_sync(struct adrv9009_rf_phy *phy, int step)
 			ret = -EFAULT;
 		}
 		break;
-
 	case 4:
+		TALISE_enableMultichipRfLOPhaseSync(phy->talDevice, 1);
+		break;
+	case 5:
+		/*< user code - Request minimum 4 SYSREF pulses from Clock Device - > */
+		adrv9009_sysref_req(phy, SYSREF_PULSE);
+		break;
+	case 6:
+		TALISE_enableMultichipRfLOPhaseSync(phy->talDevice, 0);
+		break;
+	case 7:
+		/*< user code - Request minimum 4 SYSREF pulses from Clock Device - > */
+		adrv9009_sysref_req(phy, SYSREF_PULSE);
+		break;
+	case 8:
 		/***************************************************/
 		/**** Enable Talise JESD204B Framer ***/
 		/***************************************************/
@@ -1254,18 +1273,7 @@ static int adrv9009_multi_chip_sync(struct adrv9009_rf_phy *phy, int step)
 
 		}
 		break;
-	case 5:
-		if (!IS_ERR_OR_NULL(phy->jesd_tx_clk)) {
-			u8 phy_ctrl;
-			ret = clk_prepare_enable(phy->jesd_tx_clk);
-			if (ret < 0) {
-				dev_err(&phy->spi->dev, "jesd_tx_clk enable failed (%d)", ret);
-			}
-			/* RESET CDR */
-			phy_ctrl = adrv9009_spi_read(phy->spi, TALISE_ADDR_DES_PHY_GENERAL_CTL_1);
-			adrv9009_spi_write(phy->spi, TALISE_ADDR_DES_PHY_GENERAL_CTL_1, phy_ctrl & ~BIT(7));
-			adrv9009_spi_write(phy->spi, TALISE_ADDR_DES_PHY_GENERAL_CTL_1, phy_ctrl);
-		}
+	case 9:
 
 		if (!IS_ERR_OR_NULL(phy->jesd_rx_clk)) {
 			ret = clk_prepare_enable(phy->jesd_rx_clk);
@@ -1280,15 +1288,25 @@ static int adrv9009_multi_chip_sync(struct adrv9009_rf_phy *phy, int step)
 				dev_err(&phy->spi->dev, "jesd_rx_os_clk enable failed (%d)", ret);
 			}
 		}
+
+		if (!IS_ERR_OR_NULL(phy->jesd_tx_clk)) {
+			u8 phy_ctrl;
+			ret = clk_prepare_enable(phy->jesd_tx_clk);
+			if (ret < 0) {
+				dev_err(&phy->spi->dev, "jesd_tx_clk enable failed (%d)", ret);
+			}
+			/* RESET CDR */
+			phy_ctrl = adrv9009_spi_read(phy->spi, TALISE_ADDR_DES_PHY_GENERAL_CTL_1);
+			adrv9009_spi_write(phy->spi, TALISE_ADDR_DES_PHY_GENERAL_CTL_1, phy_ctrl & ~BIT(7));
+			adrv9009_spi_write(phy->spi, TALISE_ADDR_DES_PHY_GENERAL_CTL_1, phy_ctrl);
+		}
+
 		break;
-	case 6:
+	case 10:
 		/*** < User Sends SYSREF Here > ***/
 		adrv9009_sysref_req(phy, SYSREF_CONT_ON);
 		break;
-	case 7:
-		adrv9009_sysref_req(phy, SYSREF_CONT_OFF);
-		break;
-	case 8:
+	case 11:
 		/**************************************/
 		/**** Check Talise Deframer Status ***/
 		/**************************************/
@@ -1330,6 +1348,9 @@ static int adrv9009_multi_chip_sync(struct adrv9009_rf_phy *phy, int step)
 			if ((framerStatus & 0x07) != 0x05)
 				dev_warn(&phy->spi->dev, "TAL_FRAMER_B framerStatus 0x%X", framerStatus);
 		}
+
+		TALISE_radioOn(phy->talDevice);
+		enable_irq(phy->spi->irq);
 		break;
 	default:
 		ret = -EINVAL;
