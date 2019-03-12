@@ -1121,7 +1121,7 @@ static struct cf_axi_dds_chip_info cf_axi_dds_chip_info_adrv9009_x2 = {
 	.num_channels = 24,
 	.num_dds_channels = 16,
 	.num_buf_channels = 8,
-	.scan_masks = NULL, /* FIXME: later */
+	.scan_masks = ad9361_2x2_available_scan_masks, /* FIXME: later */
 };
 
 
