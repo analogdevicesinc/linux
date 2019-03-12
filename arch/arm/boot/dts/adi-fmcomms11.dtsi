@@ -9,6 +9,26 @@
 			clock-output-names = "clkin";
 			#clock-cells = <0>;
 		};
+
+		adc_clk_div: hmc361 {
+			compatible = "fixed-factor-clock";
+
+			clock-div = <2>;
+			clock-mult = <1>;
+			clocks = <&adf4355_clk>;
+
+			#clock-cells = <0>;
+		};
+
+		adc_divclk: ad9625-divclk {
+			compatible = "fixed-factor-clock";
+
+			clock-div = <2>; /* DIV4 but the parent olyready uses clk scale / 2 */
+			clock-mult = <1>;
+			clocks = <&adc_clk_div>;
+
+			#clock-cells = <0>;
+		};
 	};
 };
 
@@ -41,25 +61,7 @@
 		adi,clock-shift = <1>;
 	};
 
-	adc_clk_div: hmc361 {
-		compatible = "fixed-factor-clock";
 
-		clock-div = <2>;
-		clock-mult = <1>;
-		clocks = <&adf4355_clk>;
-
-		#clock-cells = <0>;
-	};
-
-	adc_divclk: ad9625-divclk {
-		compatible = "fixed-factor-clock";
-
-		clock-div = <2>; /* DIV4 but the parent olyready uses clk scale / 2 */
-		clock-mult = <1>;
-		clocks = <&adc_clk_div>;
-
-		#clock-cells = <0>;
-	};
 
 	dac0_ad9162: ad9162@2 {
 		compatible = "adi,ad9162";
