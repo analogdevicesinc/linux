@@ -8,6 +8,7 @@ Required properties for the AD7606:
 	* "adi,ad7606-6"
 	* "adi,ad7606-4"
 	* "adi,ad7606b"
+	* "adi,ad7616"
 - reg: SPI chip select number for the device
 - spi-max-frequency: Max SPI frequency to use
 	see: Documentation/devicetree/bindings/spi/spi-bus.txt
