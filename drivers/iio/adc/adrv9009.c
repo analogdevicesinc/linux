@@ -1274,21 +1274,6 @@ static int adrv9009_multi_chip_sync(struct adrv9009_rf_phy *phy, int step)
 		}
 		break;
 	case 9:
-
-		if (!IS_ERR_OR_NULL(phy->jesd_rx_clk)) {
-			ret = clk_prepare_enable(phy->jesd_rx_clk);
-			if (ret < 0) {
-				dev_err(&phy->spi->dev, "jesd_rx_clk enable failed (%d)", ret);
-			}
-		}
-
-		if (!IS_ERR_OR_NULL(phy->jesd_rx_os_clk)) {
-			ret = clk_prepare_enable(phy->jesd_rx_os_clk);
-			if (ret < 0) {
-				dev_err(&phy->spi->dev, "jesd_rx_os_clk enable failed (%d)", ret);
-			}
-		}
-
 		if (!IS_ERR_OR_NULL(phy->jesd_tx_clk)) {
 			u8 phy_ctrl;
 			ret = clk_prepare_enable(phy->jesd_tx_clk);
@@ -1299,6 +1284,20 @@ static int adrv9009_multi_chip_sync(struct adrv9009_rf_phy *phy, int step)
 			phy_ctrl = adrv9009_spi_read(phy->spi, TALISE_ADDR_DES_PHY_GENERAL_CTL_1);
 			adrv9009_spi_write(phy->spi, TALISE_ADDR_DES_PHY_GENERAL_CTL_1, phy_ctrl & ~BIT(7));
 			adrv9009_spi_write(phy->spi, TALISE_ADDR_DES_PHY_GENERAL_CTL_1, phy_ctrl);
+		}
+
+		if (!IS_ERR_OR_NULL(phy->jesd_rx_os_clk)) {
+			ret = clk_prepare_enable(phy->jesd_rx_os_clk);
+			if (ret < 0) {
+				dev_err(&phy->spi->dev, "jesd_rx_os_clk enable failed (%d)", ret);
+			}
+		}
+
+		if (!IS_ERR_OR_NULL(phy->jesd_rx_clk)) {
+			ret = clk_prepare_enable(phy->jesd_rx_clk);
+			if (ret < 0) {
+				dev_err(&phy->spi->dev, "jesd_rx_clk enable failed (%d)", ret);
+			}
 		}
 
 		break;
