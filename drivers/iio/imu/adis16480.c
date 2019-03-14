@@ -27,6 +27,9 @@
 #include <linux/iio/buffer.h>
 #include <linux/iio/imu/adis.h>
 
+#include <linux/iio/triggered_buffer.h>
+#include <linux/iio/trigger_consumer.h>
+
 #include <linux/debugfs.h>
 
 #define ADIS16480_PAGE_SIZE 0x80
@@ -105,6 +108,9 @@
  * Available only for ADIS1649x devices
  */
 #define ADIS16495_REG_SYNC_SCALE		ADIS16480_REG(0x03, 0x10)
+#define ADIS16495_REG_BURST_CMD			ADIS16480_REG(0x00, 0x7C)
+#define ADIS16495_BURST_ID			0xA5A5
+#define ADIS16495_BURST_MAX_DATA		20
 
 #define ADIS16480_REG_SERIAL_NUM		ADIS16480_REG(0x04, 0x20)
 
@@ -142,6 +148,7 @@ struct adis16480_chip_info {
 	unsigned int max_dec_rate;
 	const unsigned int *filter_freqs;
 	bool has_pps_clk_mode;
+	struct adis_burst *burst;
 };
 
 enum adis16480_int_pin {
@@ -164,6 +171,22 @@ struct adis16480 {
 	struct clk *ext_clk;
 	enum adis16480_clock_mode clk_mode;
 	unsigned int clk_freq;
+};
+
+static struct adis_burst adis16495_burst = {
+	.en = true,
+	.reg_cmd = ADIS16495_REG_BURST_CMD,
+	/*
+	 * adis_update_scan_mode_burst() sets the burst length in respect with
+	 * the number of channels and allocates 16 bits for each. However, for
+	 * adis1649x devices, the data for each channel is composed of a 16-bit
+	 * low and 16-bit high part. Besides this, the burst sequence contains
+	 * data for BURST_ID, SYS_E_FLAG, TIME_STAMP, CRC_LWR, CRC_UPR, one or
+	 * two don't care segments.
+	 */
+	.extra_len = 12 * sizeof(u16),
+	.read_delay = 5,
+	.write_delay = 5,
 };
 
 static const char * const adis16480_int_pin_names[4] = {
@@ -848,6 +871,7 @@ static const struct adis16480_chip_info adis16480_chip_info[] = {
 		.max_dec_rate = 4250,
 		.filter_freqs = adis16495_def_filter_freqs,
 		.has_pps_clk_mode = true,
+		.burst = &adis16495_burst,
 	},
 	[ADIS16495_2] = {
 		.channels = adis16485_channels,
@@ -861,6 +885,7 @@ static const struct adis16480_chip_info adis16480_chip_info[] = {
 		.max_dec_rate = 4250,
 		.filter_freqs = adis16495_def_filter_freqs,
 		.has_pps_clk_mode = true,
+		.burst = &adis16495_burst,
 	},
 	[ADIS16495_3] = {
 		.channels = adis16485_channels,
@@ -874,6 +899,7 @@ static const struct adis16480_chip_info adis16480_chip_info[] = {
 		.max_dec_rate = 4250,
 		.filter_freqs = adis16495_def_filter_freqs,
 		.has_pps_clk_mode = true,
+		.burst = &adis16495_burst,
 	},
 	[ADIS16497_1] = {
 		.channels = adis16485_channels,
@@ -887,6 +913,7 @@ static const struct adis16480_chip_info adis16480_chip_info[] = {
 		.max_dec_rate = 4250,
 		.filter_freqs = adis16495_def_filter_freqs,
 		.has_pps_clk_mode = true,
+		.burst = &adis16495_burst,
 	},
 	[ADIS16497_2] = {
 		.channels = adis16485_channels,
@@ -900,6 +927,7 @@ static const struct adis16480_chip_info adis16480_chip_info[] = {
 		.max_dec_rate = 4250,
 		.filter_freqs = adis16495_def_filter_freqs,
 		.has_pps_clk_mode = true,
+		.burst = &adis16495_burst,
 	},
 	[ADIS16497_3] = {
 		.channels = adis16485_channels,
@@ -913,8 +941,79 @@ static const struct adis16480_chip_info adis16480_chip_info[] = {
 		.max_dec_rate = 4250,
 		.filter_freqs = adis16495_def_filter_freqs,
 		.has_pps_clk_mode = true,
+		.burst = &adis16495_burst,
 	},
 };
+
+static irqreturn_t adis16480_trigger_handler(int irq, void *p)
+{
+	struct iio_poll_func *pf = p;
+	struct iio_dev *indio_dev = pf->indio_dev;
+	struct adis16480 *st = iio_priv(indio_dev);
+	struct adis *adis = &st->adis;
+	int ret, bit, offset, i = 0;
+	__be16 data[ADIS16495_BURST_MAX_DATA], *buffer, *d;
+
+	if (!adis->buffer)
+		return -ENOMEM;
+
+	mutex_lock(&adis->txrx_lock);
+	if (adis->current_page != 0) {
+		adis->tx[0] = ADIS_WRITE_REG(ADIS_REG_PAGE_ID);
+		adis->tx[1] = 0;
+		spi_write(adis->spi, adis->tx, 2);
+	}
+
+	ret = spi_sync(adis->spi, &adis->msg);
+	if (ret)
+		dev_err(&adis->spi->dev, "Failed to read data: %d\n", ret);
+
+	adis->current_page = 0;
+	mutex_unlock(&adis->txrx_lock);
+
+	if (!(adis->burst && adis->burst->en)) {
+		buffer = adis->buffer;
+		goto push_to_buffers;
+	}
+	/*
+	 * After making the burst request, the response can have one or two
+	 * "don't care" 16-bit responses, before the BURST_ID.
+	 */
+	d = (__be16 *)adis->buffer;
+	for (offset = 0; offset < 3; offset++) {
+		if (d[offset] == ADIS16495_BURST_ID) {
+			offset += 2; /* TEMP_OUT */
+			break;
+		}
+	}
+
+	for_each_set_bit(bit, indio_dev->active_scan_mask,
+			indio_dev->masklength) {
+		/*
+		 * When burst mode is used, temperature is the first data
+		 * channel in the sequence, but the temperature scan index
+		 * is 10.
+		 */
+		if (bit == ADIS16480_SCAN_TEMP) {
+			data[2 * i] = d[offset];
+		} else {
+			/* The lower register data is sequenced first */
+			data[2 * i] = d[2 * bit + offset + 2];
+			data[2 * i + 1] = d[2 * bit + offset + 1];
+		}
+		i++;
+	}
+
+	buffer = data;
+
+push_to_buffers:
+	iio_push_to_buffers_with_timestamp(indio_dev, buffer,
+		pf->timestamp);
+
+	iio_trigger_notify_done(indio_dev->trig);
+
+	return IRQ_HANDLED;
+}
 
 static const struct iio_info adis16480_info = {
 	.read_raw = &adis16480_read_raw,
@@ -1227,7 +1326,14 @@ static int adis16480_probe(struct spi_device *spi)
 		st->clk_freq = st->chip_info->int_clk;
 	}
 
-	ret = adis_setup_buffer_and_trigger(&st->adis, indio_dev, NULL);
+	/* If burst mode is supported, enable it by default */
+	if (st->chip_info->burst) {
+		st->adis.burst = st->chip_info->burst;
+		st->adis.burst->extra_len = st->chip_info->burst->extra_len;
+	}
+
+	ret = adis_setup_buffer_and_trigger(&st->adis, indio_dev,
+					    adis16480_trigger_handler);
 	if (ret)
 		goto error_clk_disable_unprepare;
 
