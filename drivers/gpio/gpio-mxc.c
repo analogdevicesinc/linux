@@ -885,4 +885,4 @@ static int __init gpio_mxc_init(void)
 {
 	return platform_driver_register(&mxc_gpio_driver);
 }
-subsys_initcall(gpio_mxc_init);
+arch_initcall(gpio_mxc_init);
