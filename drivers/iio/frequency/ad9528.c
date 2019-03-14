@@ -1132,7 +1132,8 @@ static int ad9528_setup(struct iio_dev *indio_dev)
 	if (ret < 0)
 		return ret;
 
-	ret = ad9528_write(indio_dev, AD9528_PD_EN, AD9528_PD_BIAS);
+	ret = ad9528_write(indio_dev, AD9528_PD_EN, AD9528_PD_BIAS |
+			   AD_IF(pll1_bypass_en, AD9528_PD_PLL1));
 	if (ret < 0)
 		return ret;
 
