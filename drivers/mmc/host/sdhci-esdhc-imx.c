@@ -30,6 +30,7 @@
 #include <linux/pinctrl/consumer.h>
 #include <linux/platform_data/mmc-esdhc-imx.h>
 #include <linux/pm_runtime.h>
+#include <linux/reset.h>
 #include "sdhci-pltfm.h"
 #include "sdhci-esdhc.h"
 #include "cqhci.h"
@@ -1570,6 +1571,9 @@ static int sdhci_esdhc_imx_probe(struct platform_device *pdev)
 	pm_runtime_use_autosuspend(&pdev->dev);
 	pm_suspend_ignore_children(&pdev->dev, 1);
 	pm_runtime_enable(&pdev->dev);
+
+	/* get attached SDIO device out ouf reset */
+	device_reset_optional(&pdev->dev);
 
 	return 0;
 
