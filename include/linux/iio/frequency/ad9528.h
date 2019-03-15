@@ -65,6 +65,7 @@ struct ad9528_channel_spec {
  * @pll2_r1_div: PLL2 R1 divider, range 1..31.
  * @pll2_n2_div: PLL2 N2 divider, range 1..256.
  * @pll2_vco_div_m1: VCO1 divider, range 3..5.
+ * @pll2_bypass_en: Bypass PLL2.
  * @rpole2: PLL2 loop filter Rpole resistor value.
  * @rzero: PLL2 loop filter Rzero resistor value.
  * @cpole1: PLL2 loop filter Cpole capacitor value.
@@ -120,6 +121,7 @@ struct ad9528_platform_data {
 	unsigned char			pll2_r1_div;
 	unsigned char			pll2_n2_div;
 	unsigned char			pll2_vco_div_m1; /* 3..5 */
+	bool				pll2_bypass_en;
 
 	/* Loop Filter PLL2 */
 	unsigned char			rpole2;
