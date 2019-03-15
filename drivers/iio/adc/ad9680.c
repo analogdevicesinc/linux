@@ -60,6 +60,7 @@
 #define CHIPID_AD9684			0xD2
 #define CHIPID_AD9234			0xCE
 #define CHIPID_AD9694			0xDB
+#define CHIPID_AD9094			0xE8
 
 enum {
 	ID_AD9234,
@@ -67,6 +68,7 @@ enum {
 	ID_AD9680_x2,
 	ID_AD9684,
 	ID_AD9694,
+	ID_AD9094,
 };
 
 enum ad9680_sysref_mode {
@@ -463,6 +465,7 @@ static int ad9680_get_scale(struct axiadc_converter *conv,
 
 	switch (conv->id) {
 	case CHIPID_AD9694:
+	case CHIPID_AD9094:
 		vref_val = ad9680_channel_read(conv, chan->channel, 0x1910);
 		break;
 	default:
@@ -497,6 +500,7 @@ static int ad9680_set_scale(struct axiadc_converter *conv,
 
 		switch (conv->id) {
 		case CHIPID_AD9694:
+		case CHIPID_AD9094:
 			ad9680_channel_write(conv, chan->channel, 0x1910,
 					     scale_raw);
 			break;
@@ -665,6 +669,17 @@ static const struct axiadc_chip_info axiadc_chip_info_tbl[] = {
 		.channel[2] = AD9694_CHAN(2),
 		.channel[3] = AD9694_CHAN(3),
 	},
+	[ID_AD9094] = {
+		.name = "AD9094",
+		.max_rate = 1000000000UL,
+		.scale_table = ad9694_scale_table,
+		.num_scales = ARRAY_SIZE(ad9694_scale_table),
+		.num_channels = 4,
+		.channel[0] = AD9694_CHAN(0),
+		.channel[1] = AD9694_CHAN(1),
+		.channel[2] = AD9694_CHAN(2),
+		.channel[3] = AD9694_CHAN(3),
+	},
 };
 
 static bool ad9680_check_sysref_rate(unsigned int lmfc, unsigned int sysref)
@@ -728,6 +743,7 @@ static ssize_t ad9680_status_read(struct device *dev,
 
 	switch (conv->id) {
 	case CHIPID_AD9694:
+	case CHIPID_AD9094:
 		val = ad9680_spi_read(conv->spi, 0x11b);
 		break;
 	default:
@@ -1093,7 +1109,10 @@ static int ad9694_setup_jesd204_link(struct axiadc_converter *conv,
 	unsigned int val;
 	int ret;
 
-	sysref_rate = DIV_ROUND_CLOSEST(sample_rate, 32);
+	if (conv->id == CHIPID_AD9094)
+		sysref_rate = DIV_ROUND_CLOSEST(sample_rate, 128);
+	else
+		sysref_rate = DIV_ROUND_CLOSEST(sample_rate, 32);
 	lane_rate_kHz = DIV_ROUND_CLOSEST(sample_rate, 100);
 
 	if (lane_rate_kHz < 1687500 || lane_rate_kHz > 15000000) {
@@ -1199,7 +1218,8 @@ static int ad9694_setup(struct spi_device *spi)
 	mdelay(20);
 	pll_stat = ad9680_spi_read(conv->spi, 0x56f);
 
-	dev_info(&conv->spi->dev, "AD9694 PLL %s\n",
+	dev_info(&conv->spi->dev, "%s PLL %s\n",
+		 (conv->id == CHIPID_AD9094) ? "AD9094" : "AD9694",
 		 pll_stat & 0x80 ? "LOCKED" : "UNLOCKED");
 
 	/* Re-arm the SYSREF in oneshot mode */
@@ -1212,6 +1232,24 @@ static int ad9694_setup(struct spi_device *spi)
 		if (link_config.sysref.valid_falling_edge)
 			val |= 0x10;
 		ad9680_spi_write(spi, 0x120, val);
+	}
+
+	if (conv->id == CHIPID_AD9094) {
+		/* Export the common-mode voltage to the VCM_CD/VREF */
+		ad9680_spi_write(spi, 0x1908, 0x04);
+		ad9680_spi_write(spi, 0x18A6, 0x00);
+		ad9680_spi_write(spi, 0x18E6, 0x00);
+		ad9680_spi_write(spi, 0x18E0, 0x04);
+		ad9680_spi_write(spi, 0x18E1, 0x1c);
+		ad9680_spi_write(spi, 0x18E2, 0x14);
+		ad9680_spi_write(spi, 0x18E3, 0x56);
+
+		/* Set buffer 1 & 2 currents to 440 uA */
+		ad9680_spi_write(spi, 0x1A4C, 0x16);
+		ad9680_spi_write(spi, 0x1A4D, 0x16);
+
+		/* Set input full-scale range to 2.16Vpp */
+		ad9680_spi_write(spi, 0x1910, 0x00);
 	}
 
 	ret = clk_prepare_enable(conv->lane_clk);
@@ -1434,6 +1472,10 @@ static int ad9680_probe(struct spi_device *spi)
 		conv->chip_info = &axiadc_chip_info_tbl[ID_AD9694];
 		ret = ad9694_setup(spi);
 		break;
+	case CHIPID_AD9094:
+		conv->chip_info = &axiadc_chip_info_tbl[ID_AD9094];
+		ret = ad9694_setup(spi);
+		break;
 	default:
 		dev_err(&spi->dev, "Unrecognized CHIP_ID 0x%X\n", conv->id);
 		return -ENODEV;
@@ -1491,6 +1533,7 @@ static const struct spi_device_id ad9680_id[] = {
 	{ "ad9234", CHIPID_AD9234 },
 	{ "ad9684", CHIPID_AD9684 },
 	{ "ad9694", CHIPID_AD9694 },
+	{ "ad9094", CHIPID_AD9094 },
 	{}
 };
 MODULE_DEVICE_TABLE(spi, ad9680_id);
