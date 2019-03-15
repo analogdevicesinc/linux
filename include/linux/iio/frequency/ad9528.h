@@ -120,6 +120,7 @@ struct ad9528_platform_data {
 	unsigned char			pll2_r1_div;
 	unsigned char			pll2_n2_div;
 	unsigned char			pll2_vco_div_m1; /* 3..5 */
+	bool				pll2_bypass_en;
 
 	/* Loop Filter PLL2 */
 	unsigned char			rpole2;
