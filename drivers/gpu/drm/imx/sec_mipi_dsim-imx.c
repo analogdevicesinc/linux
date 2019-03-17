@@ -1,7 +1,7 @@
 /*
  * Samsung MIPI DSI Host Controller on IMX
  *
- * Copyright 2018 NXP
+ * Copyright 2018-2019 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -32,6 +32,7 @@
 
 #include "imx-drm.h"
 #include "sec_mipi_dphy_ln14lpp.h"
+#include "sec_mipi_pll_1432x.h"
 
 #define DRIVER_NAME "imx_sec_dsim_drv"
 
@@ -197,6 +198,7 @@ static const struct sec_mipi_dsim_plat_data imx8mm_mipi_dsim_plat_data = {
 	.version	= 0x1060200,
 	.max_data_lanes = 4,
 	.max_data_rate  = 1500000000ULL,
+	.dphy_pll	= &pll_1432x,
 	.dphy_timing	= dphy_timing_ln14lpp_v1p2,
 	.num_dphy_timing = ARRAY_SIZE(dphy_timing_ln14lpp_v1p2),
 	.dphy_timing_cmp = dphy_timing_default_cmp,
