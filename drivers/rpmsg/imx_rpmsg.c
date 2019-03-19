@@ -499,7 +499,7 @@ static int imx_rpmsg_probe(struct platform_device *pdev)
 	else
 		irq = of_irq_get(np_mu, 0);
 
-	ret = request_irq(irq, imx_mu_rpmsg_isr,
+	ret = devm_request_irq(dev, irq, imx_mu_rpmsg_isr,
 			  IRQF_EARLY_RESUME | IRQF_SHARED,
 			  "imx-mu-rpmsg", rpdev);
 	if (ret) {
@@ -579,6 +579,23 @@ static int imx_rpmsg_probe(struct platform_device *pdev)
 	return ret;
 }
 
+static int imx_rpmsg_remove(struct platform_device *pdev)
+{
+	struct imx_rpmsg_vproc *rpdev = platform_get_drvdata(pdev);
+	int i;
+
+	cancel_delayed_work(&rpdev->rpmsg_work);
+
+	for (i = 0; i < rpdev->vdev_nums; i++)
+		unregister_virtio_device(&rpdev->ivdev[i].vdev);
+
+	clk_disable_unprepare(rpdev->mu_clk);
+
+	iounmap(rpdev->mu_base);
+
+	return 0;
+}
+
 #ifdef CONFIG_PM_SLEEP
 static int imx_rpmsg_suspend(struct device *dev)
 {
@@ -614,6 +631,7 @@ static struct platform_driver imx_rpmsg_driver = {
 		   .pm = &imx_rpmsg_pm_ops,
 		   },
 	.probe = imx_rpmsg_probe,
+	.remove = imx_rpmsg_remove,
 };
 
 static int __init imx_rpmsg_init(void)
@@ -628,8 +646,14 @@ static int __init imx_rpmsg_init(void)
 
 	return ret;
 }
+module_init(imx_rpmsg_init);
+
+static void __exit imx_rpmsg_exit(void)
+{
+	platform_driver_unregister(&imx_rpmsg_driver);
+}
+module_exit(imx_rpmsg_exit)
 
 MODULE_AUTHOR("Freescale Semiconductor, Inc.");
 MODULE_DESCRIPTION("iMX remote processor messaging virtio device");
 MODULE_LICENSE("GPL v2");
-subsys_initcall(imx_rpmsg_init);
