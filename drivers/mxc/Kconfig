@@ -1,0 +1,16 @@
+# drivers/mxc/Kconfig
+
+#if ARCH_MXC || ARCH_MXC_ARM64
+
+menu "MXC support drivers"
+
+# drivers common to MXC and MX8 go here:
+
+#if ARCH_MXC_ARM64
+source "drivers/mxc/hantro/Kconfig"
+#endif
+
+
+endmenu
+
+#endif
