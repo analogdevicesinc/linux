@@ -736,10 +736,6 @@ static int ad7192_parse_dt(struct device_node *np,
 static int ad7192_clock_select(struct spi_device *spi, struct ad7192_state *st)
 {
 	int ret;
-	bool clock_out_en;
-
-	clock_out_en = of_property_read_bool(spi->dev.of_node,
-					     "adi,int-clock-output-enable");
 
 	st->clock_sel = AD7192_CLK_EXT_MCLK2;
 	st->mclk = devm_clk_get(&spi->dev, "clk");
@@ -755,10 +751,7 @@ static int ad7192_clock_select(struct spi_device *spi, struct ad7192_state *st)
 				return PTR_ERR(st->mclk);
 
 			/* use internal clock */
-			if (!clock_out_en)
-				st->clock_sel = AD7192_CLK_INT;
-			else
-				st->clock_sel = AD7192_CLK_INT_CO;
+			st->clock_sel = AD7192_CLK_INT;
 			st->fclk = AD7192_INT_FREQ_MHZ;
 		}
 	}
