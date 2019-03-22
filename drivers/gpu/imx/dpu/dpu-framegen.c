@@ -435,7 +435,7 @@ EXPORT_SYMBOL_GPL(framegen_secondary_is_syncup);
 
 void framegen_wait_for_secondary_syncup(struct dpu_framegen *fg)
 {
-	unsigned long timeout = jiffies + msecs_to_jiffies(50);
+	unsigned long timeout = jiffies + msecs_to_jiffies(100);
 	bool syncup;
 
 	do {
