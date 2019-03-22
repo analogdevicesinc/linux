@@ -246,6 +246,8 @@ struct adis_burst {
 	bool		en;
 	unsigned int	reg_cmd;
 	unsigned int	extra_len;
+	unsigned int	read_delay;
+	unsigned int	write_delay;
 };
 
 int adis_setup_buffer_and_trigger(struct adis *adis,
