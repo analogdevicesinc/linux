@@ -46,9 +46,11 @@ static int adis_update_scan_mode_burst(struct iio_dev *indio_dev,
 	adis->xfer[0].tx_buf = tx;
 	adis->xfer[0].bits_per_word = 8;
 	adis->xfer[0].len = 2;
+	adis->xfer[0].delay_usecs = adis->burst->write_delay;
 	adis->xfer[1].rx_buf = adis->buffer;
 	adis->xfer[1].bits_per_word = 8;
 	adis->xfer[1].len = burst_length;
+	adis->xfer[1].delay_usecs = adis->burst->read_delay;
 
 	spi_message_init(&adis->msg);
 	spi_message_add_tail(&adis->xfer[0], &adis->msg);
