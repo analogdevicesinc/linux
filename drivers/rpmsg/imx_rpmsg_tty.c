@@ -26,6 +26,8 @@
 #define RPMSG_MAX_SIZE		256
 #define MSG		"hello world!"
 
+static bool debug_enable;
+
 /*
  * struct rpmsgtty_port - Wrapper struct for imx rpmsg tty port.
  * @port:		TTY port data
@@ -50,13 +52,20 @@ static int rpmsg_tty_cb(struct rpmsg_device *rpdev, void *data, int len,
 
 	dev_dbg(&rpdev->dev, "msg(<- src 0x%x) len %d\n", src, len);
 
-	print_hex_dump(KERN_DEBUG, __func__, DUMP_PREFIX_NONE, 16, 1,
-			data, len,  true);
+	kernel_param_lock(THIS_MODULE);
+	if (debug_enable)
+		print_hex_dump(KERN_DEBUG, __func__, DUMP_PREFIX_NONE, 16, 1,
+				data, len,  true);
+	kernel_param_unlock(THIS_MODULE);
 
 	spin_lock_bh(&cport->rx_lock);
 	space = tty_prepare_flip_string(&cport->port, &cbuf, len);
 	if (space <= 0) {
-		dev_err(&rpdev->dev, "No memory for tty_prepare_flip_string\n");
+		kernel_param_lock(THIS_MODULE);
+		if (debug_enable)
+			dev_err(&rpdev->dev, "No memory for"
+					" tty_prepare_flip_string\n");
+		kernel_param_unlock(THIS_MODULE);
 		spin_unlock_bh(&cport->rx_lock);
 		return -ENOMEM;
 	}
@@ -246,6 +255,9 @@ static void __exit fini(void)
 }
 module_init(init);
 module_exit(fini);
+
+module_param(debug_enable, bool, 0644);
+MODULE_PARM_DESC(debug_enable, "Enable verbose logging");
 
 MODULE_AUTHOR("Freescale Semiconductor, Inc.");
 MODULE_DESCRIPTION("iMX virtio remote processor messaging tty driver");
