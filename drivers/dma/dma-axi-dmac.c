@@ -822,58 +822,6 @@ static int axi_dmac_parse_chan_dt(struct device_node *of_chan,
 	return 0;
 }
 
-/* Support old binding */
-static int axi_dmac_parse_chan_dt_compat(struct device_node *of_node,
-	struct axi_dmac_chan *chan)
-{
-	struct device_node *of_chan;
-	u32 tmp;
-
-	of_chan = of_get_child_by_name(of_node, "dma-channel");
-	if (of_chan == NULL)
-		return -ENODEV;
-
-	tmp = 0;
-	of_property_read_u32(of_chan, "adi,type", &tmp);
-
-	switch (tmp) {
-	case 0:
-		chan->direction = DMA_DEV_TO_MEM;
-		chan->src_type = AXI_DMAC_BUS_TYPE_AXI_STREAM;
-		chan->dest_type = AXI_DMAC_BUS_TYPE_AXI_MM;
-		break;
-	case 1:
-		chan->direction = DMA_MEM_TO_DEV;
-		chan->src_type = AXI_DMAC_BUS_TYPE_AXI_MM;
-		chan->dest_type = AXI_DMAC_BUS_TYPE_AXI_STREAM;
-		break;
-	case 2:
-		chan->direction = DMA_MEM_TO_MEM;
-		chan->src_type = AXI_DMAC_BUS_TYPE_AXI_MM;
-		chan->dest_type = AXI_DMAC_BUS_TYPE_AXI_MM;
-		break;
-	case 3:
-		chan->direction = DMA_DEV_TO_DEV;
-		chan->src_type = AXI_DMAC_BUS_TYPE_AXI_STREAM;
-		chan->dest_type = AXI_DMAC_BUS_TYPE_AXI_STREAM;
-		break;
-	default:
-		return -EINVAL;
-	}
-
-	tmp = 64;
-	of_property_read_u32(of_chan, "adi,source-bus-width", &tmp);
-	chan->src_width = tmp / 8;
-
-	tmp = 64;
-	of_property_read_u32(of_chan, "adi,destination-bus-width", &tmp);
-	chan->dest_width = tmp / 8;
-
-	chan->address_align_mask = max(chan->dest_width, chan->src_width) - 1;
-
-	return 0;
-}
-
 static int axi_dmac_detect_caps(struct axi_dmac *dmac)
 {
 	struct axi_dmac_chan *chan = &dmac->chan;
@@ -954,21 +902,18 @@ static int axi_dmac_probe(struct platform_device *pdev)
 	INIT_LIST_HEAD(&dmac->chan.active_descs);
 
 	of_channels = of_get_child_by_name(pdev->dev.of_node, "adi,channels");
-	if (of_channels == NULL) {
-		ret = axi_dmac_parse_chan_dt_compat(pdev->dev.of_node, &dmac->chan);
-		if (ret)
-			return ret;
-	} else {
-		for_each_child_of_node(of_channels, of_chan) {
-			ret = axi_dmac_parse_chan_dt(of_chan, &dmac->chan);
-			if (ret) {
-				of_node_put(of_chan);
-				of_node_put(of_channels);
-				return -EINVAL;
-			}
+	if (of_channels == NULL)
+		return -ENODEV;
+
+	for_each_child_of_node(of_channels, of_chan) {
+		ret = axi_dmac_parse_chan_dt(of_chan, &dmac->chan);
+		if (ret) {
+			of_node_put(of_chan);
+			of_node_put(of_channels);
+			return -EINVAL;
 		}
-		of_node_put(of_channels);
 	}
+	of_node_put(of_channels);
 
 	pdev->dev.dma_parms = &dmac->dma_parms;
 	dma_set_max_seg_size(&pdev->dev, UINT_MAX);
