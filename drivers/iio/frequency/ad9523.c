@@ -288,17 +288,24 @@ struct ad9523_state {
 	struct ad9523_platform_data	*pdata;
 	struct ad9523_outputs		output[AD9523_NUM_CHAN];
 	struct iio_chan_spec		ad9523_channels[AD9523_NUM_CHAN];
+	struct gpio_desc		*pwrdown_gpio;
+	struct gpio_desc		*reset_gpio;
+	struct gpio_desc		*sync_gpio;
 	struct clk_onecell_data		clk_data;
 	struct clk 			*clks[AD9523_NUM_CHAN];
-	struct gpio_desc			*pwrdown_gpio;
-	struct gpio_desc			*reset_gpio;
-	struct gpio_desc			*sync_gpio;
 
 	unsigned long		vcxo_freq;
 	unsigned long		vco_freq;
 	unsigned long		vco_out_freq[AD9523_NUM_CLK_SRC];
 	unsigned char		vco_out_map[AD9523_NUM_CHAN_ALT_CLK_SRC];
 
+	/*
+	 * Lock for accessing device registers. Some operations require
+	 * multiple consecutive R/W operations, during which the device
+	 * shouldn't be interrupted.  The buffers are also shared across
+	 * all operations so need to be protected on stand alone reads and
+	 * writes.
+	 */
 	struct mutex		lock;
 
 	/*
@@ -1507,7 +1514,8 @@ static int ad9523_probe(struct spi_device *spi)
 		goto error_disable_reg;
 	}
 
-	st->reset_gpio = devm_gpiod_get_optional(&spi->dev, "reset", GPIOD_OUT_LOW);
+	st->reset_gpio = devm_gpiod_get_optional(&spi->dev, "reset",
+		GPIOD_OUT_LOW);
 	if (IS_ERR(st->reset_gpio)) {
 		ret = PTR_ERR(st->reset_gpio);
 		goto error_disable_reg;
@@ -1515,13 +1523,13 @@ static int ad9523_probe(struct spi_device *spi)
 
 	if (st->reset_gpio) {
 		udelay(1);
-
-		ret = gpiod_direction_output(st->reset_gpio, 1);
+		gpiod_direction_output(st->reset_gpio, 1);
 	}
 
 	mdelay(10);
 
-	st->sync_gpio = devm_gpiod_get_optional(&spi->dev, "sync", GPIOD_OUT_HIGH);
+	st->sync_gpio = devm_gpiod_get_optional(&spi->dev, "sync",
+		GPIOD_OUT_HIGH);
 	if (IS_ERR(st->sync_gpio)) {
 		ret = PTR_ERR(st->sync_gpio);
 		goto error_disable_reg;
