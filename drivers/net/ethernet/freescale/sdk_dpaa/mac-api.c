@@ -385,11 +385,7 @@ void get_pause_cfg(struct mac_device *mac_dev, bool *rx_pause, bool *tx_pause)
 	 */
 
 	/* get local capabilities */
-	lcl_adv = 0;
-	if (phy_dev->advertising & ADVERTISED_Pause)
-		lcl_adv |= ADVERTISE_PAUSE_CAP;
-	if (phy_dev->advertising & ADVERTISED_Asym_Pause)
-		lcl_adv |= ADVERTISE_PAUSE_ASYM;
+	lcl_adv = linkmode_adv_to_lcl_adv_t(phy_dev->advertising);
 
 	/* get link partner capabilities */
 	rmt_adv = 0;
@@ -439,6 +435,7 @@ static int dtsec_init_phy(struct net_device *net_dev,
 			  struct mac_device *mac_dev)
 {
 	struct phy_device	*phy_dev;
+	__ETHTOOL_DECLARE_LINK_MODE_MASK(mask) = { 0, };
 
 	if (of_phy_is_fixed_link(mac_dev->phy_node))
 		phy_dev = of_phy_attach(net_dev, mac_dev->phy_node,
@@ -455,12 +452,12 @@ static int dtsec_init_phy(struct net_device *net_dev,
 	}
 
 	/* Remove any features not supported by the controller */
-	phy_dev->supported &= mac_dev->if_support;
+	ethtool_convert_legacy_u32_to_link_mode(mask, mac_dev->if_support);
+	linkmode_and(phy_dev->supported, phy_dev->supported, mask);
 	/* Enable the symmetric and asymmetric PAUSE frame advertisements,
 	 * as most of the PHY drivers do not enable them by default.
 	 */
-	phy_dev->supported |= (SUPPORTED_Pause | SUPPORTED_Asym_Pause);
-	phy_dev->advertising = phy_dev->supported;
+	phy_support_asym_pause(phy_dev);
 
 	mac_dev->phy_dev = phy_dev;
 
@@ -471,6 +468,7 @@ static int xgmac_init_phy(struct net_device *net_dev,
 			  struct mac_device *mac_dev)
 {
 	struct phy_device *phy_dev;
+	__ETHTOOL_DECLARE_LINK_MODE_MASK(mask) = { 0, };
 
 	if (of_phy_is_fixed_link(mac_dev->phy_node))
 		phy_dev = of_phy_attach(net_dev, mac_dev->phy_node,
@@ -486,12 +484,12 @@ static int xgmac_init_phy(struct net_device *net_dev,
 		return phy_dev == NULL ? -ENODEV : PTR_ERR(phy_dev);
 	}
 
-	phy_dev->supported &= mac_dev->if_support;
+	ethtool_convert_legacy_u32_to_link_mode(mask, mac_dev->if_support);
+	linkmode_and(phy_dev->supported, phy_dev->supported, mask);
 	/* Enable the symmetric and asymmetric PAUSE frame advertisements,
 	 * as most of the PHY drivers do not enable them by default.
 	 */
-	phy_dev->supported |= (SUPPORTED_Pause | SUPPORTED_Asym_Pause);
-	phy_dev->advertising = phy_dev->supported;
+	phy_support_asym_pause(phy_dev);
 
 	mac_dev->phy_dev = phy_dev;
 
@@ -502,6 +500,7 @@ static int memac_init_phy(struct net_device *net_dev,
 			  struct mac_device *mac_dev)
 {
 	struct phy_device       *phy_dev;
+	__ETHTOOL_DECLARE_LINK_MODE_MASK(mask) = { 0, };
 	void (*adjust_link_handler)(struct net_device *);
 
 	if ((macdev2enetinterface(mac_dev) == e_ENET_MODE_XGMII_10000) ||
@@ -547,12 +546,12 @@ static int memac_init_phy(struct net_device *net_dev,
 	}
 
 	/* Remove any features not supported by the controller */
-	phy_dev->supported &= mac_dev->if_support;
+	ethtool_convert_legacy_u32_to_link_mode(mask, mac_dev->if_support);
+	linkmode_and(phy_dev->supported, phy_dev->supported, mask);
 	/* Enable the symmetric and asymmetric PAUSE frame advertisements,
 	 * as most of the PHY drivers do not enable them by default.
 	 */
-	phy_dev->supported |= (SUPPORTED_Pause | SUPPORTED_Asym_Pause);
-	phy_dev->advertising = phy_dev->supported;
+	phy_support_asym_pause(phy_dev);
 
 	mac_dev->phy_dev = phy_dev;
 

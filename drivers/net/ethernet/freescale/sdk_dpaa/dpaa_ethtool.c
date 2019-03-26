@@ -225,7 +225,6 @@ static int __cold dpa_set_pauseparam(struct net_device *net_dev,
 	struct mac_device       *mac_dev;
 	struct phy_device       *phy_dev;
 	int _errno;
-	u32 newadv, oldadv;
 	bool rx_pause, tx_pause;
 
 	priv = netdev_priv(net_dev);
@@ -242,9 +241,7 @@ static int __cold dpa_set_pauseparam(struct net_device *net_dev,
 		return -ENODEV;
 	}
 
-	if (!(phy_dev->supported & SUPPORTED_Pause) ||
-			(!(phy_dev->supported & SUPPORTED_Asym_Pause) &&
-			(epause->rx_pause != epause->tx_pause)))
+	if (!phy_validate_pause(phy_dev, epause))
 		return -EINVAL;
 
 	/* The MAC should know how to handle PAUSE frame autonegotiation before
@@ -258,29 +255,7 @@ static int __cold dpa_set_pauseparam(struct net_device *net_dev,
 	/* Determine the sym/asym advertised PAUSE capabilities from the desired
 	 * rx/tx pause settings.
 	 */
-	newadv = 0;
-	if (epause->rx_pause)
-		newadv = ADVERTISED_Pause | ADVERTISED_Asym_Pause;
-	if (epause->tx_pause)
-		newadv |= ADVERTISED_Asym_Pause;
-
-	oldadv = phy_dev->advertising &
-			(ADVERTISED_Pause | ADVERTISED_Asym_Pause);
-
-	/* If there are differences between the old and the new advertised
-	 * values, restart PHY autonegotiation and advertise the new values.
-	 */
-	if (oldadv != newadv) {
-		phy_dev->advertising &= ~(ADVERTISED_Pause
-				| ADVERTISED_Asym_Pause);
-		phy_dev->advertising |= newadv;
-		if (phy_dev->autoneg) {
-			_errno = phy_start_aneg(phy_dev);
-			if (unlikely(_errno < 0))
-				netdev_err(net_dev, "phy_start_aneg() = %d\n",
-						_errno);
-		}
-	}
+	phy_set_asym_pause(phy_dev, epause->rx_pause, epause->tx_pause);
 
 	get_pause_cfg(mac_dev, &rx_pause, &tx_pause);
 	_errno = set_mac_active_pause(mac_dev, rx_pause, tx_pause);
