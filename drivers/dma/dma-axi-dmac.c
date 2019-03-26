@@ -236,11 +236,10 @@ static void axi_dmac_start_transfer(struct axi_dmac_chan *chan)
 	desc->num_submitted++;
 	if (desc->num_submitted == desc->num_sgs ||
 	    desc->have_partial_xfer) {
-		if (desc->cyclic) {
+		if (desc->cyclic)
 			desc->num_submitted = 0; /* Start again */
-		} else {
+		else
 			chan->next_desc = NULL;
-		}
 		flags |= AXI_DMAC_FLAG_LAST;
 	} else {
 		chan->next_desc = desc;
