@@ -701,10 +701,14 @@ static int pfe_eth_set_pauseparam(struct net_device *ndev,
 					EGPI_PAUSE_ENABLE),
 				priv->GPI_baseaddr + GPI_TX_PAUSE_TIME);
 		if (priv->phydev) {
-			priv->phydev->supported |= ADVERTISED_Pause |
-							ADVERTISED_Asym_Pause;
-			priv->phydev->advertising |= ADVERTISED_Pause |
-							ADVERTISED_Asym_Pause;
+			linkmode_set_bit(ETHTOOL_LINK_MODE_Pause_BIT,
+					 priv->phydev->supported);
+			linkmode_set_bit(ETHTOOL_LINK_MODE_Asym_Pause_BIT,
+					 priv->phydev->supported);
+			linkmode_set_bit(ETHTOOL_LINK_MODE_Pause_BIT,
+					 priv->phydev->advertising);
+			linkmode_set_bit(ETHTOOL_LINK_MODE_Asym_Pause_BIT,
+					 priv->phydev->advertising);
 		}
 	} else {
 		gemac_disable_pause_rx(priv->EMAC_baseaddr);
@@ -712,10 +716,14 @@ static int pfe_eth_set_pauseparam(struct net_device *ndev,
 					~EGPI_PAUSE_ENABLE),
 				priv->GPI_baseaddr + GPI_TX_PAUSE_TIME);
 		if (priv->phydev) {
-			priv->phydev->supported &= ~(ADVERTISED_Pause |
-							ADVERTISED_Asym_Pause);
-			priv->phydev->advertising &= ~(ADVERTISED_Pause |
-							ADVERTISED_Asym_Pause);
+			linkmode_clear_bit(ETHTOOL_LINK_MODE_Pause_BIT,
+					   priv->phydev->supported);
+			linkmode_clear_bit(ETHTOOL_LINK_MODE_Asym_Pause_BIT,
+					   priv->phydev->supported);
+			linkmode_clear_bit(ETHTOOL_LINK_MODE_Pause_BIT,
+					   priv->phydev->advertising);
+			linkmode_clear_bit(ETHTOOL_LINK_MODE_Asym_Pause_BIT,
+					   priv->phydev->advertising);
 		}
 	}
 
