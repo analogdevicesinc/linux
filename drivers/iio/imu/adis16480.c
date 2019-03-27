@@ -339,6 +339,45 @@ static int adis16480_debugfs_init(struct iio_dev *indio_dev)
 
 #endif
 
+static ssize_t adis16495_burst_mode_enable_get(struct device *dev,
+					       struct device_attribute *attr,
+					       char *buf)
+{
+	struct adis16480 *st = iio_priv(dev_to_iio_dev(dev));
+
+	return sprintf(buf, "%d\n", st->adis.burst->en);
+}
+
+static ssize_t adis16495_burst_mode_enable_set(struct device *dev,
+					       struct device_attribute *attr,
+					       const char *buf, size_t len)
+{
+	struct adis16480 *st = iio_priv(dev_to_iio_dev(dev));
+	bool val;
+	int ret;
+
+	ret = kstrtobool(buf, &val);
+	if (ret)
+		return ret;
+
+	st->adis.burst->en = val;
+
+	return len;
+}
+
+static IIO_DEVICE_ATTR(burst_mode_enable, 0644,
+		       adis16495_burst_mode_enable_get,
+		       adis16495_burst_mode_enable_set, 0);
+
+static struct attribute *adis16495_attributes[] = {
+	&iio_dev_attr_burst_mode_enable.dev_attr.attr,
+	NULL,
+};
+
+static const struct attribute_group adis16495_attribute_group = {
+	.attrs = adis16495_attributes,
+};
+
 static int adis16480_set_freq(struct iio_dev *indio_dev, int val, int val2)
 {
 	struct adis16480 *st = iio_priv(indio_dev);
@@ -1021,6 +1060,13 @@ static const struct iio_info adis16480_info = {
 	.update_scan_mode = adis_update_scan_mode,
 };
 
+static const struct iio_info adis16495_info = {
+	.attrs = &adis16495_attribute_group,
+	.read_raw = &adis16480_read_raw,
+	.write_raw = &adis16480_write_raw,
+	.update_scan_mode = adis_update_scan_mode,
+};
+
 static int adis16480_stop_device(struct iio_dev *indio_dev)
 {
 	struct adis16480 *st = iio_priv(indio_dev);
@@ -1330,6 +1376,7 @@ static int adis16480_probe(struct spi_device *spi)
 	if (st->chip_info->burst) {
 		st->adis.burst = st->chip_info->burst;
 		st->adis.burst->extra_len = st->chip_info->burst->extra_len;
+		indio_dev->info = &adis16495_info;
 	}
 
 	ret = adis_setup_buffer_and_trigger(&st->adis, indio_dev,
