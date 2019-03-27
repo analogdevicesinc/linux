@@ -35,7 +35,7 @@
 #include <linux/delay.h>
 #include <linux/regmap.h>
 #include <linux/i2c.h>
-#include <linux/fsl/guts.h>
+#include <linux/sys_soc.h>
 
 #if defined(CONFIG_NF_CONNTRACK_MARK)
 #include <net/netfilter/nf_conntrack.h>
@@ -102,6 +102,14 @@ unsigned int gemac_regs[] = {
 	0x0190, /* Receive FIFO Section Full Threshold */
 	0x01A0, /* Transmit FIFO Section Empty Threshold */
 	0x01B0, /* Frame Truncation Length */
+};
+
+const struct soc_device_attribute ls1012a_rev1_soc_attr[] = {
+	{ .family = "QorIQ LS1012A",
+	  .soc_id = "svr:0x87040010",
+	  .revision = "1.0",
+	  .data = NULL },
+	{ },
 };
 
 /********************************************************************/
@@ -2494,7 +2502,7 @@ int pfe_eth_init(struct pfe *pfe)
 		}
 	}
 
-	if (fsl_guts_get_svr() == LS1012A_REV_1_0)
+	if (soc_device_match(ls1012a_rev1_soc_attr))
 		pfe_errata_a010897 = true;
 	else
 		pfe_errata_a010897 = false;
