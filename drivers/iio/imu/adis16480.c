@@ -458,6 +458,7 @@ enum {
 	ADIS16480_SCAN_MAGN_Z,
 	ADIS16480_SCAN_BARO,
 	ADIS16480_SCAN_TEMP,
+	ADIS16480_SCAN_SYS_E_FLAGS,
 };
 
 static const unsigned int adis16480_calibbias_regs[] = {
@@ -805,6 +806,19 @@ static int adis16480_write_raw(struct iio_dev *indio_dev,
 		}, \
 	}
 
+#define ADIS16495_E_FLAGS_CHANNEL() { \
+		.type = IIO_FLAGS, \
+		.indexed = 1, \
+		.channel = 0, \
+		.scan_index = ADIS16480_SCAN_SYS_E_FLAGS, \
+		.scan_type = { \
+			.sign = 'u', \
+			.realbits = 16, \
+			.storagebits = 16, \
+			.endianness = IIO_BE, \
+		}, \
+	}
+
 static const struct iio_chan_spec adis16480_channels[] = {
 	ADIS16480_GYRO_CHANNEL(X),
 	ADIS16480_GYRO_CHANNEL(Y),
@@ -828,6 +842,18 @@ static const struct iio_chan_spec adis16485_channels[] = {
 	ADIS16480_ACCEL_CHANNEL(Y),
 	ADIS16480_ACCEL_CHANNEL(Z),
 	ADIS16480_TEMP_CHANNEL(),
+	IIO_CHAN_SOFT_TIMESTAMP(7)
+};
+
+static const struct iio_chan_spec adis16495_channels[] = {
+	ADIS16480_GYRO_CHANNEL(X),
+	ADIS16480_GYRO_CHANNEL(Y),
+	ADIS16480_GYRO_CHANNEL(Z),
+	ADIS16480_ACCEL_CHANNEL(X),
+	ADIS16480_ACCEL_CHANNEL(Y),
+	ADIS16480_ACCEL_CHANNEL(Z),
+	ADIS16480_TEMP_CHANNEL(),
+	ADIS16495_E_FLAGS_CHANNEL(),
 	IIO_CHAN_SOFT_TIMESTAMP(7)
 };
 
@@ -913,8 +939,8 @@ static const struct adis16480_chip_info adis16480_chip_info[] = {
 		.has_pps_clk_mode = true,
 	},
 	[ADIS16495_1] = {
-		.channels = adis16485_channels,
-		.num_channels = ARRAY_SIZE(adis16485_channels),
+		.channels = adis16495_channels,
+		.num_channels = ARRAY_SIZE(adis16495_channels),
 		.gyro_max_val = IIO_RAD_TO_DEGREE(20000),
 		.gyro_max_scale = 125,
 		.accel_max_val = IIO_M_S_2_TO_G(32000),
@@ -927,8 +953,8 @@ static const struct adis16480_chip_info adis16480_chip_info[] = {
 		.burst = &adis16495_burst,
 	},
 	[ADIS16495_2] = {
-		.channels = adis16485_channels,
-		.num_channels = ARRAY_SIZE(adis16485_channels),
+		.channels = adis16495_channels,
+		.num_channels = ARRAY_SIZE(adis16495_channels),
 		.gyro_max_val = IIO_RAD_TO_DEGREE(18000),
 		.gyro_max_scale = 450,
 		.accel_max_val = IIO_M_S_2_TO_G(32000),
@@ -941,8 +967,8 @@ static const struct adis16480_chip_info adis16480_chip_info[] = {
 		.burst = &adis16495_burst,
 	},
 	[ADIS16495_3] = {
-		.channels = adis16485_channels,
-		.num_channels = ARRAY_SIZE(adis16485_channels),
+		.channels = adis16495_channels,
+		.num_channels = ARRAY_SIZE(adis16495_channels),
 		.gyro_max_val = IIO_RAD_TO_DEGREE(20000),
 		.gyro_max_scale = 2000,
 		.accel_max_val = IIO_M_S_2_TO_G(32000),
@@ -955,8 +981,8 @@ static const struct adis16480_chip_info adis16480_chip_info[] = {
 		.burst = &adis16495_burst,
 	},
 	[ADIS16497_1] = {
-		.channels = adis16485_channels,
-		.num_channels = ARRAY_SIZE(adis16485_channels),
+		.channels = adis16495_channels,
+		.num_channels = ARRAY_SIZE(adis16495_channels),
 		.gyro_max_val = IIO_RAD_TO_DEGREE(20000),
 		.gyro_max_scale = 125,
 		.accel_max_val = IIO_M_S_2_TO_G(32000),
@@ -969,8 +995,8 @@ static const struct adis16480_chip_info adis16480_chip_info[] = {
 		.burst = &adis16495_burst,
 	},
 	[ADIS16497_2] = {
-		.channels = adis16485_channels,
-		.num_channels = ARRAY_SIZE(adis16485_channels),
+		.channels = adis16495_channels,
+		.num_channels = ARRAY_SIZE(adis16495_channels),
 		.gyro_max_val = IIO_RAD_TO_DEGREE(18000),
 		.gyro_max_scale = 450,
 		.accel_max_val = IIO_M_S_2_TO_G(32000),
@@ -983,8 +1009,8 @@ static const struct adis16480_chip_info adis16480_chip_info[] = {
 		.burst = &adis16495_burst,
 	},
 	[ADIS16497_3] = {
-		.channels = adis16485_channels,
-		.num_channels = ARRAY_SIZE(adis16485_channels),
+		.channels = adis16495_channels,
+		.num_channels = ARRAY_SIZE(adis16495_channels),
 		.gyro_max_val = IIO_RAD_TO_DEGREE(20000),
 		.gyro_max_scale = 2000,
 		.accel_max_val = IIO_M_S_2_TO_G(32000),
@@ -1035,7 +1061,7 @@ static irqreturn_t adis16480_trigger_handler(int irq, void *p)
 	d = (__be16 *)adis->buffer;
 	for (offset = 0; offset < 3; offset++) {
 		if (d[offset] == ADIS16495_BURST_ID) {
-			offset += 2; /* TEMP_OUT */
+			offset += 1; /* SYS_E_FLAG */
 			break;
 		}
 	}
@@ -1047,14 +1073,22 @@ static irqreturn_t adis16480_trigger_handler(int irq, void *p)
 		 * channel in the sequence, but the temperature scan index
 		 * is 10.
 		 */
-		if (bit == ADIS16480_SCAN_TEMP) {
-			data[2 * i] = d[offset];
-		} else {
+		switch (bit) {
+		case ADIS16480_SCAN_TEMP:
+			data[i] = d[offset + 1];
+			i += 1;
+			break;
+		case ADIS16480_SCAN_SYS_E_FLAGS:
+			data[i] = d[offset];
+			i += 1;
+			break;
+		case ADIS16480_SCAN_GYRO_X ... ADIS16480_SCAN_ACCEL_Z:
 			/* The lower register data is sequenced first */
-			data[2 * i] = d[2 * bit + offset + 2];
-			data[2 * i + 1] = d[2 * bit + offset + 1];
+			data[i] = d[2 * bit + offset + 3];
+			data[i + 1] = d[2 * bit + offset + 2];
+			i += 2;
+			break;
 		}
-		i++;
 	}
 
 	buffer = data;
