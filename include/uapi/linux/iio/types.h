@@ -52,6 +52,7 @@ enum iio_chan_type {
 	IIO_COLORTEMP,
 	IIO_CHROMATICITY,
 	IIO_GENERIC_DATA,
+	IIO_FLAGS,
 };
 
 enum iio_modifier {
