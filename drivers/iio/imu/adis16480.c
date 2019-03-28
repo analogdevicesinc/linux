@@ -5,6 +5,8 @@
  * Copyright 2012 Analog Devices Inc.
  */
 
+#include <asm/unaligned.h>
+#include <linux/crc32.h>
 #include <linux/clk.h>
 #include <linux/bitfield.h>
 #include <linux/of_irq.h>
@@ -107,6 +109,8 @@
 #define ADIS16495_REG_BURST_CMD			ADIS16480_REG(0x00, 0x7C)
 #define ADIS16495_BURST_ID			0xA5A5
 #define ADIS16495_BURST_MAX_DATA		20
+/* spi max speed in burst mode */
+#define ADIS16495_BURST_MAX_SPEED              6500000
 
 #define ADIS16480_REG_SERIAL_NUM		ADIS16480_REG(0x04, 0x20)
 
@@ -144,7 +148,7 @@ struct adis16480_chip_info {
 	unsigned int max_dec_rate;
 	const unsigned int *filter_freqs;
 	bool has_pps_clk_mode;
-	struct adis_burst *burst;
+	const struct adis_data adis_data;
 };
 
 enum adis16480_int_pin {
@@ -169,22 +173,6 @@ struct adis16480 {
 	unsigned int clk_freq;
 };
 
-static struct adis_burst adis16495_burst = {
-	.en = true,
-	.reg_cmd = ADIS16495_REG_BURST_CMD,
-	/*
-	 * adis_update_scan_mode_burst() sets the burst length in respect with
-	 * the number of channels and allocates 16 bits for each. However, for
-	 * adis1649x devices, the data for each channel is composed of a 16-bit
-	 * low and 16-bit high part. Besides this, the burst sequence contains
-	 * data for BURST_ID, SYS_E_FLAG, TIME_STAMP, CRC_LWR, CRC_UPR, one or
-	 * two don't care segments.
-	 */
-	.extra_len = 12 * sizeof(u16),
-	.read_delay = 5,
-	.write_delay = 5,
-};
-
 static const char * const adis16480_int_pin_names[4] = {
 	[ADIS16480_PIN_DIO1] = "DIO1",
 	[ADIS16480_PIN_DIO2] = "DIO2",
@@ -204,7 +192,7 @@ static ssize_t adis16480_show_firmware_revision(struct file *file,
 	int ret;
 
 	ret = adis_read_reg_16(&adis16480->adis, ADIS16480_REG_FIRM_REV, &rev);
-	if (ret < 0)
+	if (ret)
 		return ret;
 
 	len = scnprintf(buf, sizeof(buf), "%x.%x\n", rev >> 8, rev & 0xff);
@@ -229,11 +217,11 @@ static ssize_t adis16480_show_firmware_date(struct file *file,
 	int ret;
 
 	ret = adis_read_reg_16(&adis16480->adis, ADIS16480_REG_FIRM_Y, &year);
-	if (ret < 0)
+	if (ret)
 		return ret;
 
 	ret = adis_read_reg_16(&adis16480->adis, ADIS16480_REG_FIRM_DM, &md);
-	if (ret < 0)
+	if (ret)
 		return ret;
 
 	len = snprintf(buf, sizeof(buf), "%.2x-%.2x-%.4x\n",
@@ -257,7 +245,7 @@ static int adis16480_show_serial_number(void *arg, u64 *val)
 
 	ret = adis_read_reg_16(&adis16480->adis, ADIS16480_REG_SERIAL_NUM,
 		&serial);
-	if (ret < 0)
+	if (ret)
 		return ret;
 
 	*val = serial;
@@ -275,7 +263,7 @@ static int adis16480_show_product_id(void *arg, u64 *val)
 
 	ret = adis_read_reg_16(&adis16480->adis, ADIS16480_REG_PROD_ID,
 		&prod_id);
-	if (ret < 0)
+	if (ret)
 		return ret;
 
 	*val = prod_id;
@@ -293,7 +281,7 @@ static int adis16480_show_flash_count(void *arg, u64 *val)
 
 	ret = adis_read_reg_32(&adis16480->adis, ADIS16480_REG_FLASH_CNT,
 		&flash_count);
-	if (ret < 0)
+	if (ret)
 		return ret;
 
 	*val = flash_count;
@@ -306,22 +294,18 @@ DEFINE_DEBUGFS_ATTRIBUTE(adis16480_flash_count_fops,
 static int adis16480_debugfs_init(struct iio_dev *indio_dev)
 {
 	struct adis16480 *adis16480 = iio_priv(indio_dev);
+	struct dentry *d = iio_get_debugfs_dentry(indio_dev);
 
 	debugfs_create_file_unsafe("firmware_revision", 0400,
-		indio_dev->debugfs_dentry, adis16480,
-		&adis16480_firmware_revision_fops);
+		d, adis16480, &adis16480_firmware_revision_fops);
 	debugfs_create_file_unsafe("firmware_date", 0400,
-		indio_dev->debugfs_dentry, adis16480,
-		&adis16480_firmware_date_fops);
+		d, adis16480, &adis16480_firmware_date_fops);
 	debugfs_create_file_unsafe("serial_number", 0400,
-		indio_dev->debugfs_dentry, adis16480,
-		&adis16480_serial_number_fops);
+		d, adis16480, &adis16480_serial_number_fops);
 	debugfs_create_file_unsafe("product_id", 0400,
-		indio_dev->debugfs_dentry, adis16480,
-		&adis16480_product_id_fops);
+		d, adis16480, &adis16480_product_id_fops);
 	debugfs_create_file_unsafe("flash_count", 0400,
-		indio_dev->debugfs_dentry, adis16480,
-		&adis16480_flash_count_fops);
+		d, adis16480, &adis16480_flash_count_fops);
 
 	return 0;
 }
@@ -334,45 +318,6 @@ static int adis16480_debugfs_init(struct iio_dev *indio_dev)
 }
 
 #endif
-
-static ssize_t adis16495_burst_mode_enable_get(struct device *dev,
-					       struct device_attribute *attr,
-					       char *buf)
-{
-	struct adis16480 *st = iio_priv(dev_to_iio_dev(dev));
-
-	return sprintf(buf, "%d\n", st->adis.burst->en);
-}
-
-static ssize_t adis16495_burst_mode_enable_set(struct device *dev,
-					       struct device_attribute *attr,
-					       const char *buf, size_t len)
-{
-	struct adis16480 *st = iio_priv(dev_to_iio_dev(dev));
-	bool val;
-	int ret;
-
-	ret = kstrtobool(buf, &val);
-	if (ret)
-		return ret;
-
-	st->adis.burst->en = val;
-
-	return len;
-}
-
-static IIO_DEVICE_ATTR(burst_mode_enable, 0644,
-		       adis16495_burst_mode_enable_get,
-		       adis16495_burst_mode_enable_set, 0);
-
-static struct attribute *adis16495_attributes[] = {
-	&iio_dev_attr_burst_mode_enable.dev_attr.attr,
-	NULL,
-};
-
-static const struct attribute_group adis16495_attribute_group = {
-	.attrs = adis16495_attributes,
-};
 
 static int adis16480_set_freq(struct iio_dev *indio_dev, int val, int val2)
 {
@@ -415,7 +360,7 @@ static int adis16480_get_freq(struct iio_dev *indio_dev, int *val, int *val2)
 	struct adis16480 *st = iio_priv(indio_dev);
 	uint16_t t;
 	int ret;
-	unsigned freq;
+	unsigned int freq;
 	unsigned int reg;
 
 	if (st->clk_mode == ADIS16480_CLK_PPS)
@@ -424,7 +369,7 @@ static int adis16480_get_freq(struct iio_dev *indio_dev, int *val, int *val2)
 		reg = ADIS16480_REG_DEC_RATE;
 
 	ret = adis_read_reg_16(&st->adis, reg, &t);
-	if (ret < 0)
+	if (ret)
 		return ret;
 
 	/*
@@ -457,6 +402,8 @@ enum {
 	ADIS16480_SCAN_MAGN_Z,
 	ADIS16480_SCAN_BARO,
 	ADIS16480_SCAN_TEMP,
+	ADIS16480_SCAN_SYS_E_FLAGS,
+	ADIS16480_SCAN_CRC_FAILURE,
 };
 
 static const unsigned int adis16480_calibbias_regs[] = {
@@ -526,10 +473,10 @@ static int adis16480_get_calibbias(struct iio_dev *indio_dev,
 			*bias = sign_extend32(val32, 31);
 		break;
 	default:
-			ret = -EINVAL;
+		ret = -EINVAL;
 	}
 
-	if (ret < 0)
+	if (ret)
 		return ret;
 
 	return IIO_VAL_INT;
@@ -556,7 +503,7 @@ static int adis16480_get_calibscale(struct iio_dev *indio_dev,
 	int ret;
 
 	ret = adis_read_reg_16(&st->adis, reg, &val16);
-	if (ret < 0)
+	if (ret)
 		return ret;
 
 	*scale = sign_extend32(val16, 15);
@@ -602,7 +549,7 @@ static int adis16480_get_filter_freq(struct iio_dev *indio_dev,
 	enable_mask = BIT(offset + 2);
 
 	ret = adis_read_reg_16(&st->adis, reg, &val);
-	if (ret < 0)
+	if (ret)
 		return ret;
 
 	if (!(val & enable_mask))
@@ -617,6 +564,7 @@ static int adis16480_set_filter_freq(struct iio_dev *indio_dev,
 	const struct iio_chan_spec *chan, unsigned int freq)
 {
 	struct adis16480 *st = iio_priv(indio_dev);
+	struct mutex *slock = &st->adis.state_lock;
 	unsigned int enable_mask, offset, reg;
 	unsigned int diff, best_diff;
 	unsigned int i, best_freq;
@@ -627,9 +575,11 @@ static int adis16480_set_filter_freq(struct iio_dev *indio_dev,
 	offset = ad16480_filter_data[chan->scan_index][1];
 	enable_mask = BIT(offset + 2);
 
-	ret = adis_read_reg_16(&st->adis, reg, &val);
-	if (ret < 0)
-		return ret;
+	mutex_lock(slock);
+
+	ret = __adis_read_reg_16(&st->adis, reg, &val);
+	if (ret)
+		goto out_unlock;
 
 	if (freq == 0) {
 		val &= ~enable_mask;
@@ -651,7 +601,11 @@ static int adis16480_set_filter_freq(struct iio_dev *indio_dev,
 		val |= enable_mask;
 	}
 
-	return adis_write_reg_16(&st->adis, reg, val);
+	ret = __adis_write_reg_16(&st->adis, reg, val);
+out_unlock:
+	mutex_unlock(slock);
+
+	return ret;
 }
 
 static int adis16480_read_raw(struct iio_dev *indio_dev,
@@ -810,6 +764,33 @@ static int adis16480_write_raw(struct iio_dev *indio_dev,
 		}, \
 	}
 
+#define ADIS16495_E_FLAGS_CHANNEL() { \
+		.type = IIO_FLAGS, \
+		.indexed = 1, \
+		.channel = 0, \
+		.scan_index = ADIS16480_SCAN_SYS_E_FLAGS, \
+		.scan_type = { \
+			.sign = 'u', \
+			.realbits = 16, \
+			.storagebits = 16, \
+			.endianness = IIO_BE, \
+		}, \
+	}
+
+#define ADIS16495_CRC_CHANNEL() { \
+		.type = IIO_FLAGS, \
+		.indexed = 1, \
+		.channel = 1, \
+		.scan_index = ADIS16480_SCAN_CRC_FAILURE, \
+		.scan_type = { \
+			.sign = 'u', \
+			.realbits = 16, \
+			.storagebits = 16, \
+			.endianness = IIO_BE, \
+		}, \
+		.extend_name = "crc", \
+	}
+
 static const struct iio_chan_spec adis16480_channels[] = {
 	ADIS16480_GYRO_CHANNEL(X),
 	ADIS16480_GYRO_CHANNEL(Y),
@@ -836,6 +817,19 @@ static const struct iio_chan_spec adis16485_channels[] = {
 	IIO_CHAN_SOFT_TIMESTAMP(7)
 };
 
+static const struct iio_chan_spec adis16495_channels[] = {
+	ADIS16480_GYRO_CHANNEL(X),
+	ADIS16480_GYRO_CHANNEL(Y),
+	ADIS16480_GYRO_CHANNEL(Z),
+	ADIS16480_ACCEL_CHANNEL(X),
+	ADIS16480_ACCEL_CHANNEL(Y),
+	ADIS16480_ACCEL_CHANNEL(Z),
+	ADIS16480_TEMP_CHANNEL(),
+	ADIS16495_E_FLAGS_CHANNEL(),
+	ADIS16495_CRC_CHANNEL(),
+	IIO_CHAN_SOFT_TIMESTAMP(7)
+};
+
 enum adis16480_variant {
 	ADIS16375,
 	ADIS16480,
@@ -849,306 +843,6 @@ enum adis16480_variant {
 	ADIS16497_2,
 	ADIS16497_3,
 };
-
-static const struct adis16480_chip_info adis16480_chip_info[] = {
-	[ADIS16375] = {
-		.channels = adis16485_channels,
-		.num_channels = ARRAY_SIZE(adis16485_channels),
-		/*
-		 * Typically we do IIO_RAD_TO_DEGREE in the denominator, which
-		 * is exactly the same as IIO_DEGREE_TO_RAD in numerator, since
-		 * it gives better approximation. However, in this case we
-		 * cannot do it since it would not fit in a 32bit variable.
-		 */
-		.gyro_max_val = 22887 << 16,
-		.gyro_max_scale = IIO_DEGREE_TO_RAD(300),
-		.accel_max_val = IIO_M_S_2_TO_G(21973 << 16),
-		.accel_max_scale = 18,
-		.temp_scale = 5650, /* 5.65 milli degree Celsius */
-		.int_clk = 2460000,
-		.max_dec_rate = 2048,
-		.filter_freqs = adis16480_def_filter_freqs,
-	},
-	[ADIS16480] = {
-		.channels = adis16480_channels,
-		.num_channels = ARRAY_SIZE(adis16480_channels),
-		.gyro_max_val = 22500 << 16,
-		.gyro_max_scale = IIO_DEGREE_TO_RAD(450),
-		.accel_max_val = IIO_M_S_2_TO_G(12500 << 16),
-		.accel_max_scale = 10,
-		.temp_scale = 5650, /* 5.65 milli degree Celsius */
-		.int_clk = 2460000,
-		.max_dec_rate = 2048,
-		.filter_freqs = adis16480_def_filter_freqs,
-	},
-	[ADIS16485] = {
-		.channels = adis16485_channels,
-		.num_channels = ARRAY_SIZE(adis16485_channels),
-		.gyro_max_val = 22500 << 16,
-		.gyro_max_scale = IIO_DEGREE_TO_RAD(450),
-		.accel_max_val = IIO_M_S_2_TO_G(20000 << 16),
-		.accel_max_scale = 5,
-		.temp_scale = 5650, /* 5.65 milli degree Celsius */
-		.int_clk = 2460000,
-		.max_dec_rate = 2048,
-		.filter_freqs = adis16480_def_filter_freqs,
-	},
-	[ADIS16488] = {
-		.channels = adis16480_channels,
-		.num_channels = ARRAY_SIZE(adis16480_channels),
-		.gyro_max_val = 22500 << 16,
-		.gyro_max_scale = IIO_DEGREE_TO_RAD(450),
-		.accel_max_val = IIO_M_S_2_TO_G(22500 << 16),
-		.accel_max_scale = 18,
-		.temp_scale = 5650, /* 5.65 milli degree Celsius */
-		.int_clk = 2460000,
-		.max_dec_rate = 2048,
-		.filter_freqs = adis16480_def_filter_freqs,
-	},
-	[ADIS16490] = {
-		.channels = adis16485_channels,
-		.num_channels = ARRAY_SIZE(adis16485_channels),
-		.gyro_max_val = IIO_RAD_TO_DEGREE(20000),
-		.gyro_max_scale = 100,
-		.accel_max_val = IIO_M_S_2_TO_G(16000),
-		.accel_max_scale = 8,
-		.temp_scale = 14285, /* 14.285 milli degree Celsius */
-		.int_clk = 4250000,
-		.max_dec_rate = 4250,
-		.filter_freqs = adis16495_def_filter_freqs,
-		.has_pps_clk_mode = true,
-	},
-	[ADIS16495_1] = {
-		.channels = adis16485_channels,
-		.num_channels = ARRAY_SIZE(adis16485_channels),
-		.gyro_max_val = 20000 << 16,
-		.gyro_max_scale = IIO_DEGREE_TO_RAD(125),
-		.accel_max_val = IIO_M_S_2_TO_G(32000 << 16),
-		.accel_max_scale = 8,
-		.temp_scale = 12500, /* 12.5 milli degree Celsius */
-		.int_clk = 4250000,
-		.max_dec_rate = 4250,
-		.filter_freqs = adis16495_def_filter_freqs,
-		.has_pps_clk_mode = true,
-		.burst = &adis16495_burst,
-	},
-	[ADIS16495_2] = {
-		.channels = adis16485_channels,
-		.num_channels = ARRAY_SIZE(adis16485_channels),
-		.gyro_max_val = 18000 << 16,
-		.gyro_max_scale = IIO_DEGREE_TO_RAD(450),
-		.accel_max_val = IIO_M_S_2_TO_G(32000 << 16),
-		.accel_max_scale = 8,
-		.temp_scale = 12500, /* 12.5 milli degree Celsius */
-		.int_clk = 4250000,
-		.max_dec_rate = 4250,
-		.filter_freqs = adis16495_def_filter_freqs,
-		.has_pps_clk_mode = true,
-		.burst = &adis16495_burst,
-	},
-	[ADIS16495_3] = {
-		.channels = adis16485_channels,
-		.num_channels = ARRAY_SIZE(adis16485_channels),
-		.gyro_max_val = 20000 << 16,
-		.gyro_max_scale = IIO_DEGREE_TO_RAD(2000),
-		.accel_max_val = IIO_M_S_2_TO_G(32000 << 16),
-		.accel_max_scale = 8,
-		.temp_scale = 12500, /* 12.5 milli degree Celsius */
-		.int_clk = 4250000,
-		.max_dec_rate = 4250,
-		.filter_freqs = adis16495_def_filter_freqs,
-		.has_pps_clk_mode = true,
-		.burst = &adis16495_burst,
-	},
-	[ADIS16497_1] = {
-		.channels = adis16485_channels,
-		.num_channels = ARRAY_SIZE(adis16485_channels),
-		.gyro_max_val = 20000 << 16,
-		.gyro_max_scale = IIO_DEGREE_TO_RAD(125),
-		.accel_max_val = IIO_M_S_2_TO_G(32000 << 16),
-		.accel_max_scale = 40,
-		.temp_scale = 12500, /* 12.5 milli degree Celsius */
-		.int_clk = 4250000,
-		.max_dec_rate = 4250,
-		.filter_freqs = adis16495_def_filter_freqs,
-		.has_pps_clk_mode = true,
-		.burst = &adis16495_burst,
-	},
-	[ADIS16497_2] = {
-		.channels = adis16485_channels,
-		.num_channels = ARRAY_SIZE(adis16485_channels),
-		.gyro_max_val = 18000 << 16,
-		.gyro_max_scale = IIO_DEGREE_TO_RAD(450),
-		.accel_max_val = IIO_M_S_2_TO_G(32000 << 16),
-		.accel_max_scale = 40,
-		.temp_scale = 12500, /* 12.5 milli degree Celsius */
-		.int_clk = 4250000,
-		.max_dec_rate = 4250,
-		.filter_freqs = adis16495_def_filter_freqs,
-		.has_pps_clk_mode = true,
-		.burst = &adis16495_burst,
-	},
-	[ADIS16497_3] = {
-		.channels = adis16485_channels,
-		.num_channels = ARRAY_SIZE(adis16485_channels),
-		.gyro_max_val = 20000 << 16,
-		.gyro_max_scale = IIO_DEGREE_TO_RAD(2000),
-		.accel_max_val = IIO_M_S_2_TO_G(32000 << 16),
-		.accel_max_scale = 40,
-		.temp_scale = 12500, /* 12.5 milli degree Celsius */
-		.int_clk = 4250000,
-		.max_dec_rate = 4250,
-		.filter_freqs = adis16495_def_filter_freqs,
-		.has_pps_clk_mode = true,
-		.burst = &adis16495_burst,
-	},
-};
-
-static irqreturn_t adis16480_trigger_handler(int irq, void *p)
-{
-	struct iio_poll_func *pf = p;
-	struct iio_dev *indio_dev = pf->indio_dev;
-	struct adis16480 *st = iio_priv(indio_dev);
-	struct adis *adis = &st->adis;
-	int ret, bit, offset, i = 0;
-	__be16 data[ADIS16495_BURST_MAX_DATA], *buffer, *d;
-
-	if (!adis->buffer)
-		return -ENOMEM;
-
-	mutex_lock(&adis->txrx_lock);
-	if (adis->current_page != 0) {
-		adis->tx[0] = ADIS_WRITE_REG(ADIS_REG_PAGE_ID);
-		adis->tx[1] = 0;
-		spi_write(adis->spi, adis->tx, 2);
-	}
-
-	ret = spi_sync(adis->spi, &adis->msg);
-	if (ret)
-		dev_err(&adis->spi->dev, "Failed to read data: %d\n", ret);
-
-	adis->current_page = 0;
-	mutex_unlock(&adis->txrx_lock);
-
-	if (!(adis->burst && adis->burst->en)) {
-		buffer = adis->buffer;
-		goto push_to_buffers;
-	}
-	/*
-	 * After making the burst request, the response can have one or two
-	 * "don't care" 16-bit responses, before the BURST_ID.
-	 */
-	d = (__be16 *)adis->buffer;
-	for (offset = 0; offset < 3; offset++) {
-		if (d[offset] == ADIS16495_BURST_ID) {
-			offset += 2; /* TEMP_OUT */
-			break;
-		}
-	}
-
-	for_each_set_bit(bit, indio_dev->active_scan_mask,
-			indio_dev->masklength) {
-		/*
-		 * When burst mode is used, temperature is the first data
-		 * channel in the sequence, but the temperature scan index
-		 * is 10.
-		 */
-		if (bit == ADIS16480_SCAN_TEMP) {
-			data[2 * i] = d[offset];
-		} else {
-			/* The lower register data is sequenced first */
-			data[2 * i] = d[2 * bit + offset + 2];
-			data[2 * i + 1] = d[2 * bit + offset + 1];
-		}
-		i++;
-	}
-
-	buffer = data;
-
-push_to_buffers:
-	iio_push_to_buffers_with_timestamp(indio_dev, buffer,
-		pf->timestamp);
-
-	iio_trigger_notify_done(indio_dev->trig);
-
-	return IRQ_HANDLED;
-}
-
-static const struct iio_info adis16480_info = {
-	.read_raw = &adis16480_read_raw,
-	.write_raw = &adis16480_write_raw,
-	.update_scan_mode = adis_update_scan_mode,
-	.debugfs_reg_access = adis_debugfs_reg_access,
-};
-
-static const struct iio_info adis16495_info = {
-	.attrs = &adis16495_attribute_group,
-	.read_raw = &adis16480_read_raw,
-	.write_raw = &adis16480_write_raw,
-	.update_scan_mode = adis_update_scan_mode,
-};
-
-static int adis16480_stop_device(struct iio_dev *indio_dev)
-{
-	struct adis16480 *st = iio_priv(indio_dev);
-	int ret;
-
-	ret = adis_write_reg_16(&st->adis, ADIS16480_REG_SLP_CNT, BIT(9));
-	if (ret)
-		dev_err(&indio_dev->dev,
-			"Could not power down device: %d\n", ret);
-
-	return ret;
-}
-
-static int adis16480_enable_irq(struct adis *adis, bool enable)
-{
-	uint16_t val;
-	int ret;
-
-	ret = adis_read_reg_16(adis, ADIS16480_REG_FNCTIO_CTRL, &val);
-	if (ret < 0)
-		return ret;
-
-	val &= ~ADIS16480_DRDY_EN_MSK;
-	val |= ADIS16480_DRDY_EN(enable);
-
-	return adis_write_reg_16(adis, ADIS16480_REG_FNCTIO_CTRL, val);
-}
-
-static int adis16480_initial_setup(struct iio_dev *indio_dev)
-{
-	struct adis16480 *st = iio_priv(indio_dev);
-	uint16_t prod_id;
-	unsigned int device_id;
-	int ret;
-
-	adis_reset(&st->adis);
-	msleep(70);
-
-	ret = adis_write_reg_16(&st->adis, ADIS16480_REG_GLOB_CMD, BIT(1));
-	if (ret)
-		return ret;
-	msleep(30);
-
-	ret = adis_check_status(&st->adis);
-	if (ret)
-		return ret;
-
-	ret = adis_read_reg_16(&st->adis, ADIS16480_REG_PROD_ID, &prod_id);
-	if (ret)
-		return ret;
-
-	ret = sscanf(indio_dev->name, "adis%u\n", &device_id);
-	if (ret != 1)
-		return -EINVAL;
-
-	if (prod_id != device_id)
-		dev_warn(&indio_dev->dev, "Device ID(%u) and product ID(%u) do not match.",
-				device_id, prod_id);
-
-	return 0;
-}
 
 #define ADIS16480_DIAG_STAT_XGYRO_FAIL 0
 #define ADIS16480_DIAG_STAT_YGYRO_FAIL 1
@@ -1174,28 +868,371 @@ static const char * const adis16480_status_error_msgs[] = {
 	[ADIS16480_DIAG_STAT_BARO_FAIL] = "Barometer self-test failure",
 };
 
-static const struct adis_data adis16480_data = {
-	.diag_stat_reg = ADIS16480_REG_DIAG_STS,
-	.glob_cmd_reg = ADIS16480_REG_GLOB_CMD,
-	.has_paging = true,
+static int adis16480_enable_irq(struct adis *adis, bool enable);
 
-	.read_delay = 5,
-	.write_delay = 5,
+#define ADIS16480_DATA(_prod_id, _timeouts, _burst_len)			\
+{									\
+	.diag_stat_reg = ADIS16480_REG_DIAG_STS,			\
+	.glob_cmd_reg = ADIS16480_REG_GLOB_CMD,				\
+	.prod_id_reg = ADIS16480_REG_PROD_ID,				\
+	.prod_id = (_prod_id),						\
+	.has_paging = true,						\
+	.read_delay = 5,						\
+	.write_delay = 5,						\
+	.self_test_mask = BIT(1),					\
+	.self_test_reg = ADIS16480_REG_GLOB_CMD,			\
+	.status_error_msgs = adis16480_status_error_msgs,		\
+	.status_error_mask = BIT(ADIS16480_DIAG_STAT_XGYRO_FAIL) |	\
+		BIT(ADIS16480_DIAG_STAT_YGYRO_FAIL) |			\
+		BIT(ADIS16480_DIAG_STAT_ZGYRO_FAIL) |			\
+		BIT(ADIS16480_DIAG_STAT_XACCL_FAIL) |			\
+		BIT(ADIS16480_DIAG_STAT_YACCL_FAIL) |			\
+		BIT(ADIS16480_DIAG_STAT_ZACCL_FAIL) |			\
+		BIT(ADIS16480_DIAG_STAT_XMAGN_FAIL) |			\
+		BIT(ADIS16480_DIAG_STAT_YMAGN_FAIL) |			\
+		BIT(ADIS16480_DIAG_STAT_ZMAGN_FAIL) |			\
+		BIT(ADIS16480_DIAG_STAT_BARO_FAIL),			\
+	.enable_irq = adis16480_enable_irq,				\
+	.timeouts = (_timeouts),					\
+	.burst_reg_cmd = ADIS16495_REG_BURST_CMD,			\
+	.burst_len = (_burst_len),					\
+}
 
-	.status_error_msgs = adis16480_status_error_msgs,
-	.status_error_mask = BIT(ADIS16480_DIAG_STAT_XGYRO_FAIL) |
-		BIT(ADIS16480_DIAG_STAT_YGYRO_FAIL) |
-		BIT(ADIS16480_DIAG_STAT_ZGYRO_FAIL) |
-		BIT(ADIS16480_DIAG_STAT_XACCL_FAIL) |
-		BIT(ADIS16480_DIAG_STAT_YACCL_FAIL) |
-		BIT(ADIS16480_DIAG_STAT_ZACCL_FAIL) |
-		BIT(ADIS16480_DIAG_STAT_XMAGN_FAIL) |
-		BIT(ADIS16480_DIAG_STAT_YMAGN_FAIL) |
-		BIT(ADIS16480_DIAG_STAT_ZMAGN_FAIL) |
-		BIT(ADIS16480_DIAG_STAT_BARO_FAIL),
-
-	.enable_irq = adis16480_enable_irq,
+static const struct adis_timeout adis16485_timeouts = {
+	.reset_ms = 560,
+	.sw_reset_ms = 120,
+	.self_test_ms = 12,
 };
+
+static const struct adis_timeout adis16480_timeouts = {
+	.reset_ms = 560,
+	.sw_reset_ms = 560,
+	.self_test_ms = 12,
+};
+
+static const struct adis_timeout adis16495_timeouts = {
+	.reset_ms = 170,
+	.sw_reset_ms = 130,
+	.self_test_ms = 40,
+};
+
+static const struct adis_timeout adis16495_1_timeouts = {
+	.reset_ms = 250,
+	.sw_reset_ms = 210,
+	.self_test_ms = 20,
+};
+
+static const struct adis16480_chip_info adis16480_chip_info[] = {
+	[ADIS16375] = {
+		.channels = adis16485_channels,
+		.num_channels = ARRAY_SIZE(adis16485_channels),
+		/*
+		 * Typically we do IIO_RAD_TO_DEGREE in the denominator, which
+		 * is exactly the same as IIO_DEGREE_TO_RAD in numerator, since
+		 * it gives better approximation. However, in this case we
+		 * cannot do it since it would not fit in a 32bit variable.
+		 */
+		.gyro_max_val = 22887 << 16,
+		.gyro_max_scale = IIO_DEGREE_TO_RAD(300),
+		.accel_max_val = IIO_M_S_2_TO_G(21973 << 16),
+		.accel_max_scale = 18,
+		.temp_scale = 5650, /* 5.65 milli degree Celsius */
+		.int_clk = 2460000,
+		.max_dec_rate = 2048,
+		.filter_freqs = adis16480_def_filter_freqs,
+		.adis_data = ADIS16480_DATA(16375, &adis16485_timeouts, 0),
+	},
+	[ADIS16480] = {
+		.channels = adis16480_channels,
+		.num_channels = ARRAY_SIZE(adis16480_channels),
+		.gyro_max_val = 22500 << 16,
+		.gyro_max_scale = IIO_DEGREE_TO_RAD(450),
+		.accel_max_val = IIO_M_S_2_TO_G(12500 << 16),
+		.accel_max_scale = 10,
+		.temp_scale = 5650, /* 5.65 milli degree Celsius */
+		.int_clk = 2460000,
+		.max_dec_rate = 2048,
+		.filter_freqs = adis16480_def_filter_freqs,
+		.adis_data = ADIS16480_DATA(16480, &adis16480_timeouts, 0),
+	},
+	[ADIS16485] = {
+		.channels = adis16485_channels,
+		.num_channels = ARRAY_SIZE(adis16485_channels),
+		.gyro_max_val = 22500 << 16,
+		.gyro_max_scale = IIO_DEGREE_TO_RAD(450),
+		.accel_max_val = IIO_M_S_2_TO_G(20000 << 16),
+		.accel_max_scale = 5,
+		.temp_scale = 5650, /* 5.65 milli degree Celsius */
+		.int_clk = 2460000,
+		.max_dec_rate = 2048,
+		.filter_freqs = adis16480_def_filter_freqs,
+		.adis_data = ADIS16480_DATA(16485, &adis16485_timeouts, 0),
+	},
+	[ADIS16488] = {
+		.channels = adis16480_channels,
+		.num_channels = ARRAY_SIZE(adis16480_channels),
+		.gyro_max_val = 22500 << 16,
+		.gyro_max_scale = IIO_DEGREE_TO_RAD(450),
+		.accel_max_val = IIO_M_S_2_TO_G(22500 << 16),
+		.accel_max_scale = 18,
+		.temp_scale = 5650, /* 5.65 milli degree Celsius */
+		.int_clk = 2460000,
+		.max_dec_rate = 2048,
+		.filter_freqs = adis16480_def_filter_freqs,
+		.adis_data = ADIS16480_DATA(16488, &adis16485_timeouts, 0),
+	},
+	[ADIS16490] = {
+		.channels = adis16485_channels,
+		.num_channels = ARRAY_SIZE(adis16485_channels),
+		.gyro_max_val = 20000 << 16,
+		.gyro_max_scale = IIO_DEGREE_TO_RAD(100),
+		.accel_max_val = IIO_M_S_2_TO_G(16000 << 16),
+		.accel_max_scale = 8,
+		.temp_scale = 14285, /* 14.285 milli degree Celsius */
+		.int_clk = 4250000,
+		.max_dec_rate = 4250,
+		.filter_freqs = adis16495_def_filter_freqs,
+		.has_pps_clk_mode = true,
+		.adis_data = ADIS16480_DATA(16490, &adis16495_timeouts, 0),
+	},
+	[ADIS16495_1] = {
+		.channels = adis16495_channels,
+		.num_channels = ARRAY_SIZE(adis16495_channels),
+		.gyro_max_val = 20000 << 16,
+		.gyro_max_scale = IIO_DEGREE_TO_RAD(125),
+		.accel_max_val = IIO_M_S_2_TO_G(32000 << 16),
+		.accel_max_scale = 8,
+		.temp_scale = 12500, /* 12.5 milli degree Celsius */
+		.int_clk = 4250000,
+		.max_dec_rate = 4250,
+		.filter_freqs = adis16495_def_filter_freqs,
+		.has_pps_clk_mode = true,
+		/* 20 elements of 16bits */
+		.adis_data = ADIS16480_DATA(16495, &adis16495_1_timeouts,
+					    ADIS16495_BURST_MAX_DATA * 2),
+	},
+	[ADIS16495_2] = {
+		.channels = adis16495_channels,
+		.num_channels = ARRAY_SIZE(adis16495_channels),
+		.gyro_max_val = 18000 << 16,
+		.gyro_max_scale = IIO_DEGREE_TO_RAD(450),
+		.accel_max_val = IIO_M_S_2_TO_G(32000 << 16),
+		.accel_max_scale = 8,
+		.temp_scale = 12500, /* 12.5 milli degree Celsius */
+		.int_clk = 4250000,
+		.max_dec_rate = 4250,
+		.filter_freqs = adis16495_def_filter_freqs,
+		.has_pps_clk_mode = true,
+		/* 20 elements of 16bits */
+		.adis_data = ADIS16480_DATA(16495, &adis16495_1_timeouts,
+					    ADIS16495_BURST_MAX_DATA * 2),
+	},
+	[ADIS16495_3] = {
+		.channels = adis16495_channels,
+		.num_channels = ARRAY_SIZE(adis16495_channels),
+		.gyro_max_val = 20000 << 16,
+		.gyro_max_scale = IIO_DEGREE_TO_RAD(2000),
+		.accel_max_val = IIO_M_S_2_TO_G(32000 << 16),
+		.accel_max_scale = 8,
+		.temp_scale = 12500, /* 12.5 milli degree Celsius */
+		.int_clk = 4250000,
+		.max_dec_rate = 4250,
+		.filter_freqs = adis16495_def_filter_freqs,
+		.has_pps_clk_mode = true,
+		/* 20 elements of 16bits */
+		.adis_data = ADIS16480_DATA(16495, &adis16495_1_timeouts,
+					    ADIS16495_BURST_MAX_DATA * 2),
+	},
+	[ADIS16497_1] = {
+		.channels = adis16495_channels,
+		.num_channels = ARRAY_SIZE(adis16495_channels),
+		.gyro_max_val = 20000 << 16,
+		.gyro_max_scale = IIO_DEGREE_TO_RAD(125),
+		.accel_max_val = IIO_M_S_2_TO_G(32000 << 16),
+		.accel_max_scale = 40,
+		.temp_scale = 12500, /* 12.5 milli degree Celsius */
+		.int_clk = 4250000,
+		.max_dec_rate = 4250,
+		.filter_freqs = adis16495_def_filter_freqs,
+		.has_pps_clk_mode = true,
+		/* 20 elements of 16bits */
+		.adis_data = ADIS16480_DATA(16497, &adis16495_1_timeouts,
+					    ADIS16495_BURST_MAX_DATA * 2),
+	},
+	[ADIS16497_2] = {
+		.channels = adis16495_channels,
+		.num_channels = ARRAY_SIZE(adis16495_channels),
+		.gyro_max_val = 18000 << 16,
+		.gyro_max_scale = IIO_DEGREE_TO_RAD(450),
+		.accel_max_val = IIO_M_S_2_TO_G(32000 << 16),
+		.accel_max_scale = 40,
+		.temp_scale = 12500, /* 12.5 milli degree Celsius */
+		.int_clk = 4250000,
+		.max_dec_rate = 4250,
+		.filter_freqs = adis16495_def_filter_freqs,
+		.has_pps_clk_mode = true,
+		/* 20 elements of 16bits */
+		.adis_data = ADIS16480_DATA(16497, &adis16495_1_timeouts,
+					    ADIS16495_BURST_MAX_DATA * 2),
+	},
+	[ADIS16497_3] = {
+		.channels = adis16495_channels,
+		.num_channels = ARRAY_SIZE(adis16495_channels),
+		.gyro_max_val = 20000 << 16,
+		.gyro_max_scale = IIO_DEGREE_TO_RAD(2000),
+		.accel_max_val = IIO_M_S_2_TO_G(32000 << 16),
+		.accel_max_scale = 40,
+		.temp_scale = 12500, /* 12.5 milli degree Celsius */
+		.int_clk = 4250000,
+		.max_dec_rate = 4250,
+		.filter_freqs = adis16495_def_filter_freqs,
+		.has_pps_clk_mode = true,
+		/* 20 elements of 16bits */
+		.adis_data = ADIS16480_DATA(16497, &adis16495_1_timeouts,
+					    ADIS16495_BURST_MAX_DATA * 2),
+	},
+};
+
+static bool adis16480_validate_crc(__be16 *buf, u8 size, u32 crc)
+{
+	u32 crc_calc;
+	u8 crc_buf[34];
+	int j;
+
+	for (j = 0; j < size; j++) {
+		crc_buf[2 * j] = (buf[j] >> 8) & 0xFF;
+		crc_buf[2 * j + 1] = buf[j] & 0xFF;
+	}
+
+	crc_calc = crc32(~0, crc_buf, size * 2);
+	crc_calc ^= ~0;
+
+	return (crc != crc_calc);
+}
+
+static irqreturn_t adis16480_trigger_handler(int irq, void *p)
+{
+	struct iio_poll_func *pf = p;
+	struct iio_dev *indio_dev = pf->indio_dev;
+	struct adis16480 *st = iio_priv(indio_dev);
+	struct adis *adis = &st->adis;
+	int ret, bit, offset, i = 0;
+	__be16 data[ADIS16495_BURST_MAX_DATA], *buffer, *d;
+	u32 crc;
+	const u32 cached_spi_speed_hz = adis->spi->max_speed_hz;
+
+	if (!adis->buffer)
+		return -ENOMEM;
+
+	mutex_lock(&adis->state_lock);
+	if (adis->current_page != 0) {
+		adis->tx[0] = ADIS_WRITE_REG(ADIS_REG_PAGE_ID);
+		adis->tx[1] = 0;
+		spi_write(adis->spi, adis->tx, 2);
+	}
+
+	adis->spi->max_speed_hz = ADIS16495_BURST_MAX_SPEED;
+
+	ret = spi_sync(adis->spi, &adis->msg);
+	if (ret)
+		dev_err(&adis->spi->dev, "Failed to read data: %d\n", ret);
+
+	adis->spi->max_speed_hz = cached_spi_speed_hz;
+	adis->current_page = 0;
+	mutex_unlock(&adis->state_lock);
+
+	/*
+	 * After making the burst request, the response can have one or two
+	 * "don't care" 16-bit responses, before the BURST_ID.
+	 */
+	d = (__be16 *)adis->buffer;
+	for (offset = 0; offset < 3; offset++) {
+		if (d[offset] == ADIS16495_BURST_ID) {
+			offset += 1; /* SYS_E_FLAG */
+			break;
+		}
+	}
+
+	for_each_set_bit(bit, indio_dev->active_scan_mask,
+			indio_dev->masklength) {
+		/*
+		 * When burst mode is used, temperature is the first data
+		 * channel in the sequence, but the temperature scan index
+		 * is 10.
+		 */
+		switch (bit) {
+		case ADIS16480_SCAN_TEMP:
+			data[i] = d[offset + 1];
+			i += 1;
+			break;
+		case ADIS16480_SCAN_SYS_E_FLAGS:
+			data[i] = d[offset];
+			i += 1;
+			break;
+		case ADIS16480_SCAN_CRC_FAILURE:
+			/*
+			 * The data consists of 17 sequences of 16-bits each.
+			 * The last two sequences represent the CRC lower and
+			 * upper word
+			 */
+			crc = (get_unaligned_be16(&d[17]) << 16) |
+			       get_unaligned_be16(&d[16]);
+			data[i] = adis16480_validate_crc(&d[offset], 15, crc);
+			i += 1;
+			break;
+		case ADIS16480_SCAN_GYRO_X ... ADIS16480_SCAN_ACCEL_Z:
+			/* The lower register data is sequenced first */
+			data[i] = d[2 * bit + offset + 3];
+			data[i + 1] = d[2 * bit + offset + 2];
+			i += 2;
+			break;
+		}
+	}
+
+	buffer = data;
+
+	iio_push_to_buffers_with_timestamp(indio_dev, buffer,
+		pf->timestamp);
+
+	iio_trigger_notify_done(indio_dev->trig);
+
+	return IRQ_HANDLED;
+}
+
+static const struct iio_info adis16480_info = {
+	.read_raw = &adis16480_read_raw,
+	.write_raw = &adis16480_write_raw,
+	.update_scan_mode = adis_update_scan_mode,
+	.debugfs_reg_access = adis_debugfs_reg_access,
+};
+
+static int adis16480_stop_device(struct iio_dev *indio_dev)
+{
+	struct adis16480 *st = iio_priv(indio_dev);
+	int ret;
+
+	ret = adis_write_reg_16(&st->adis, ADIS16480_REG_SLP_CNT, BIT(9));
+	if (ret)
+		dev_err(&indio_dev->dev,
+			"Could not power down device: %d\n", ret);
+
+	return ret;
+}
+
+static int adis16480_enable_irq(struct adis *adis, bool enable)
+{
+	uint16_t val;
+	int ret;
+
+	ret = __adis_read_reg_16(adis, ADIS16480_REG_FNCTIO_CTRL, &val);
+	if (ret)
+		return ret;
+
+	val &= ~ADIS16480_DRDY_EN_MSK;
+	val |= ADIS16480_DRDY_EN(enable);
+
+	return __adis_write_reg_16(adis, ADIS16480_REG_FNCTIO_CTRL, val);
+}
 
 static int adis16480_config_irq_pin(struct device_node *of_node,
 				    struct adis16480 *st)
@@ -1285,7 +1322,7 @@ static int adis16480_ext_clk_config(struct adis16480 *st,
 	int ret;
 
 	ret = adis_read_reg_16(&st->adis, ADIS16480_REG_FNCTIO_CTRL, &val);
-	if (ret < 0)
+	if (ret)
 		return ret;
 
 	pin = adis16480_of_get_ext_clk_pin(st, of_node);
@@ -1311,7 +1348,7 @@ static int adis16480_ext_clk_config(struct adis16480 *st,
 	val |= mode;
 
 	ret = adis_write_reg_16(&st->adis, ADIS16480_REG_FNCTIO_CTRL, val);
-	if (ret < 0)
+	if (ret)
 		return ret;
 
 	return clk_prepare_enable(st->ext_clk);
@@ -1347,9 +1384,20 @@ static int adis16480_get_ext_clocks(struct adis16480 *st)
 	return 0;
 }
 
+static void adis16480_stop(void *data)
+{
+	adis16480_stop_device(data);
+}
+
+static void adis16480_clk_disable(void *data)
+{
+	clk_disable_unprepare(data);
+}
+
 static int adis16480_probe(struct spi_device *spi)
 {
 	const struct spi_device_id *id = spi_get_device_id(spi);
+	const struct adis_data *adis16480_data;
 	struct iio_dev *indio_dev;
 	struct adis16480 *st;
 	int ret;
@@ -1370,7 +1418,17 @@ static int adis16480_probe(struct spi_device *spi)
 	indio_dev->info = &adis16480_info;
 	indio_dev->modes = INDIO_DIRECT_MODE;
 
-	ret = adis_init(&st->adis, indio_dev, spi, &adis16480_data);
+	adis16480_data = &st->chip_info->adis_data;
+
+	ret = adis_init(&st->adis, indio_dev, spi, adis16480_data);
+	if (ret)
+		return ret;
+
+	ret = __adis_initial_startup(&st->adis);
+	if (ret)
+		return ret;
+
+	ret = devm_add_action_or_reset(&spi->dev, adis16480_stop, indio_dev);
 	if (ret)
 		return ret;
 
@@ -1387,55 +1445,25 @@ static int adis16480_probe(struct spi_device *spi)
 		if (ret)
 			return ret;
 
+		ret = devm_add_action_or_reset(&spi->dev, adis16480_clk_disable, st->ext_clk);
+		if (ret)
+			return ret;
+
 		st->clk_freq = clk_get_rate(st->ext_clk);
 		st->clk_freq *= 1000; /* micro */
 	} else {
 		st->clk_freq = st->chip_info->int_clk;
 	}
 
-	/* If burst mode is supported, enable it by default */
-	if (st->chip_info->burst) {
-		st->adis.burst = st->chip_info->burst;
-		st->adis.burst->extra_len = st->chip_info->burst->extra_len;
-		indio_dev->info = &adis16495_info;
-	}
-
-	ret = adis_setup_buffer_and_trigger(&st->adis, indio_dev,
-					    adis16480_trigger_handler);
+	ret = devm_adis_setup_buffer_and_trigger(&st->adis, indio_dev, adis16480_trigger_handler);
 	if (ret)
-		goto error_clk_disable_unprepare;
+		return ret;
 
-	ret = adis16480_initial_setup(indio_dev);
+	ret = devm_iio_device_register(&spi->dev, indio_dev);
 	if (ret)
-		goto error_cleanup_buffer;
-
-	ret = iio_device_register(indio_dev);
-	if (ret)
-		goto error_stop_device;
+		return ret;
 
 	adis16480_debugfs_init(indio_dev);
-
-	return 0;
-
-error_stop_device:
-	adis16480_stop_device(indio_dev);
-error_cleanup_buffer:
-	adis_cleanup_buffer_and_trigger(&st->adis, indio_dev);
-error_clk_disable_unprepare:
-	clk_disable_unprepare(st->ext_clk);
-	return ret;
-}
-
-static int adis16480_remove(struct spi_device *spi)
-{
-	struct iio_dev *indio_dev = spi_get_drvdata(spi);
-	struct adis16480 *st = iio_priv(indio_dev);
-
-	iio_device_unregister(indio_dev);
-	adis16480_stop_device(indio_dev);
-
-	adis_cleanup_buffer_and_trigger(&st->adis, indio_dev);
-	clk_disable_unprepare(st->ext_clk);
 
 	return 0;
 }
@@ -1479,7 +1507,6 @@ static struct spi_driver adis16480_driver = {
 	},
 	.id_table = adis16480_ids,
 	.probe = adis16480_probe,
-	.remove = adis16480_remove,
 };
 module_spi_driver(adis16480_driver);
 
