@@ -45,6 +45,7 @@ enum iio_chan_type {
 	IIO_COUNT,
 	IIO_INDEX,
 	IIO_GRAVITY,
+	IIO_FLAGS,
 };
 
 enum iio_modifier {
