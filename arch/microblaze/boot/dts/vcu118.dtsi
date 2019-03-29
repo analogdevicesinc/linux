@@ -226,6 +226,7 @@
 				#size-cells = <0>;
 				phy3: phy@3 {
 					device_type = "ethernet-phy";
+					ti,6-wire-mode;
 					ti,fifo-depth = <0x1>;
 					reg = <3>;
 				};
