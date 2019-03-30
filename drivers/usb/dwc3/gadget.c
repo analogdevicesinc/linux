@@ -3314,19 +3314,6 @@ int dwc3_gadget_init(struct dwc3 *dwc)
 		goto err0;
 	}
 
-	if (dwc->dr_mode == USB_DR_MODE_OTG) {
-		struct usb_phy *phy;
-
-		/* Switch otg to peripheral mode */
-		phy = usb_get_phy(USB_PHY_TYPE_USB3);
-		if (!IS_ERR(phy)) {
-			if (phy && phy->otg)
-				otg_set_peripheral(phy->otg,
-						(struct usb_gadget *)(long)1);
-			usb_put_phy(phy);
-		}
-	}
-
 	dwc->ep0_trb = dma_alloc_coherent(dwc->sysdev,
 					  sizeof(*dwc->ep0_trb) * 2,
 					  &dwc->ep0_trb_addr, GFP_KERNEL);
