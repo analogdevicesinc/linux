@@ -608,6 +608,9 @@
 #define DWC3_OSTS_VBUSVLD		BIT(1)
 #define DWC3_OSTS_CONIDSTS		BIT(0)
 
+/* Stream timer timeout value in millisecs */
+#define STREAM_TIMEOUT_MS		50
+
 /* Structures */
 
 struct dwc3_trb;
@@ -862,6 +865,12 @@ struct dwc3_hwparams {
  * @num_trbs: number of TRBs used by this request
  * @needs_extra_trb: true when request needs one extra TRB (either due to ZLP
  *	or unaligned OUT)
+ * @stream_timeout_timer: Some endpoints may go out of sync with host and
+ *	enter into deadlock. For example, stream capable endpoints may enter
+ *	into deadlock where the host waits on gadget to issue ERDY and gadget
+ *	waits for host to issue prime transaction. To avoid such deadlock this
+ *	timer is used.
+ * @unaligned: true for OUT endpoints with length not divisible by maxp
  * @direction: IN or OUT direction flag
  * @mapped: true when request has been dma-mapped
  * @started: request is started
@@ -879,6 +888,7 @@ struct dwc3_request {
 	u8			epnum;
 	struct dwc3_trb		*trb;
 	dma_addr_t		trb_dma;
+	struct timer_list	stream_timeout_timer;
 
 	unsigned		num_trbs;
 
