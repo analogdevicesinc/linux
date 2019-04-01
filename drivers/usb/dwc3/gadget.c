@@ -1031,9 +1031,6 @@ static void __dwc3_prepare_one_trb(struct dwc3_ep *dep, struct dwc3_trb *trb,
 
 	dwc3_ep_inc_enq(dep);
 
-	if ((!no_interrupt && !chain) || (dwc3_calc_trbs_left(dep) == 0))
-		trb->ctrl |= DWC3_TRB_CTRL_IOC;
-
 	trace_dwc3_prepare_trb(dep, trb);
 }
 
