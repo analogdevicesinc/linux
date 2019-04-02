@@ -1494,6 +1494,22 @@ static int axienet_mii_init(struct net_device *ndev)
 	return 0;
 }
 
+static void axienet_int_phy_aneg(struct axienet_local *lp)
+{
+	struct device_node *np = lp->dev->of_node;
+	u32 int_phy, val;
+
+	if (!np)
+		return;
+
+	if (of_property_read_u32(np, "xlnx,int-phy-aneg-set", &int_phy))
+		return;
+
+	val = mdiobus_read(lp->mii_bus, int_phy, MII_BMCR);
+	val |= BMCR_ANENABLE;
+	mdiobus_write(lp->mii_bus, int_phy, MII_BMCR, val);
+}
+
 /**
  * axienet_open - Driver open routine.
  * @ndev:	Pointer to net_device structure
@@ -1544,6 +1560,8 @@ static int axienet_open(struct net_device *ndev)
 			dev_err(lp->dev, "of_phy_connect() failed\n");
 		else
 			phy_start(phydev);
+
+		axienet_int_phy_aneg(lp);
 	}
 
 	if (!lp->is_tsn || lp->temac_no == XAE_TEMAC1) {
