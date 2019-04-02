@@ -199,6 +199,7 @@
 			phy-mode = "sgmii";
 			reg = <0x40c00000 0x1000>;
 			xlnx = <0x0>;
+			xlnx,int-phy-aneg-set = <0x1>;
 			xlnx,axiliteclkrate = <0x0>;
 			xlnx,axisclkrate = <0x0>;
 			xlnx,clockselection = <0x0>;
