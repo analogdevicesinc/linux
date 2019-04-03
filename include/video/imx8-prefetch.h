@@ -47,4 +47,28 @@ void prg_set_auxiliary(struct prg *prg);
 void prg_set_primary(struct prg *prg);
 void prg_set_blit(struct prg *prg);
 
+struct dprc;
+struct dprc *
+dprc_lookup_by_phandle(struct device *dev, const char *name, int index);
+void dprc_enable(struct dprc *dprc);
+void dprc_disable(struct dprc *dprc);
+void dprc_configure(struct dprc *dprc, unsigned int stream_id,
+		    unsigned int width, unsigned int height,
+		    unsigned int x_offset, unsigned int y_offset,
+		    unsigned int stride, u32 format, u64 modifier,
+		    unsigned long baddr, unsigned long uv_baddr,
+		    bool start, bool aux_start, bool interlace_frame);
+void dprc_reg_update(struct dprc *dprc);
+void dprc_first_frame_handle(struct dprc *dprc);
+void dprc_irq_handle(struct dprc *dprc);
+void dprc_enable_ctrl_done_irq(struct dprc *dprc);
+bool dprc_format_supported(struct dprc *dprc, u32 format, u64 modifier);
+bool dprc_stride_supported(struct dprc *dprc,
+			   unsigned int stride, unsigned int uv_stride,
+			   unsigned int width, u32 format);
+bool dprc_stride_double_check(struct dprc *dprc,
+			      unsigned int width, unsigned int x_offset,
+			      u32 format, u64 modifier,
+			      dma_addr_t baddr, dma_addr_t uv_baddr);
+
 #endif

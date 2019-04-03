@@ -3,4 +3,9 @@ config IMX8_PRG
 	default y if IMX_DPU_CORE=y
 	default m if IMX_DPU_CORE=m
 
+config IMX8_DPRC
+	tristate
+	default y if IMX_DPU_CORE=y
+	default m if IMX_DPU_CORE=m
+
 source "drivers/gpu/imx/ipu-v3/Kconfig"
