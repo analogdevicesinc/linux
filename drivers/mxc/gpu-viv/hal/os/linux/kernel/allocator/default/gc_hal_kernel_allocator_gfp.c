@@ -61,6 +61,7 @@
 #include <asm/atomic.h>
 #include <linux/dma-mapping.h>
 #include <linux/slab.h>
+#include <linux/mm.h>
 
 #include "gc_hal_kernel_platform.h"
 
@@ -205,7 +206,7 @@ _NonContiguousAlloc(
     gcmkHEADER_ARG("NumPages=%u", NumPages);
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 32)
-    if (NumPages > totalram_pages)
+    if (NumPages > totalram_pages())
 #else
     if (NumPages > num_physpages)
 #endif
