@@ -579,7 +579,7 @@ _CMAFSLAlloctorInit(
                           ;
 
 #if defined(CONFIG_ARM64)
-    Os->allocatorLimitMarker = (Os->device->baseAddress + totalram_pages * PAGE_SIZE) > 0x100000000;
+    Os->allocatorLimitMarker = (Os->device->baseAddress + totalram_pages() * PAGE_SIZE) > 0x100000000;
 #else
     Os->allocatorLimitMarker = gcvFALSE;
 #endif

@@ -370,7 +370,7 @@ _DmabufMapUser(
     userLogical += buf_desc->sgt->sgl->offset;
 
     /* To make sure the mapping is created. */
-    if (access_ok(VERIFY_READ, userLogical, 4))
+    if (access_ok(userLogical, 4))
     {
         uint32_t mem;
         get_user(mem, (uint32_t *)userLogical);
