@@ -194,6 +194,7 @@ struct dpu_data {
 	const struct dpu_unit *fws;
 	const struct dpu_unit *hss;
 	const struct dpu_unit *lbs;
+	const struct dpu_unit *sigs;
 	const struct dpu_unit *sts;
 	const struct dpu_unit *tcons;
 	const struct dpu_unit *vss;
@@ -233,8 +234,12 @@ struct dpu_soc {
 	int			irq_extdst5_shdload;
 	int			irq_disengcfg_shdload0;
 	int			irq_disengcfg_framecomplete0;
+	int			irq_sig0_shdload;
+	int			irq_sig0_valid;
 	int			irq_disengcfg_shdload1;
 	int			irq_disengcfg_framecomplete1;
+	int			irq_sig1_shdload;
+	int			irq_sig1_valid;
 	int			irq_line_num;
 
 	bool			irq_chip_pm_get_extdst0_shdload;
@@ -243,8 +248,12 @@ struct dpu_soc {
 	bool			irq_chip_pm_get_extdst5_shdload;
 	bool			irq_chip_pm_get_disengcfg_shdload0;
 	bool			irq_chip_pm_get_disengcfg_framecomplete0;
+	bool			irq_chip_pm_get_sig0_shdload;
+	bool			irq_chip_pm_get_sig0_valid;
 	bool			irq_chip_pm_get_disengcfg_shdload1;
 	bool			irq_chip_pm_get_disengcfg_framecomplete1;
+	bool			irq_chip_pm_get_sig1_shdload;
+	bool			irq_chip_pm_get_sig1_valid;
 
 	struct irq_domain	*domain;
 
@@ -260,6 +269,7 @@ struct dpu_soc {
 	struct dpu_fetchunit	*fw_priv[1];
 	struct dpu_hscaler	*hs_priv[3];
 	struct dpu_layerblend	*lb_priv[4];
+	struct dpu_signature	*sig_priv[2];
 	struct dpu_store	*st_priv[1];
 	struct dpu_tcon		*tcon_priv[2];
 	struct dpu_vscaler	*vs_priv[3];
@@ -284,6 +294,7 @@ _DECLARE_DPU_UNIT_INIT_FUNC(fl);
 _DECLARE_DPU_UNIT_INIT_FUNC(fw);
 _DECLARE_DPU_UNIT_INIT_FUNC(hs);
 _DECLARE_DPU_UNIT_INIT_FUNC(lb);
+_DECLARE_DPU_UNIT_INIT_FUNC(sig);
 _DECLARE_DPU_UNIT_INIT_FUNC(st);
 _DECLARE_DPU_UNIT_INIT_FUNC(tcon);
 _DECLARE_DPU_UNIT_INIT_FUNC(vs);
@@ -302,6 +313,7 @@ DECLARE_DPU_UNIT_INIT_FUNC(fl);
 DECLARE_DPU_UNIT_INIT_FUNC(fw);
 DECLARE_DPU_UNIT_INIT_FUNC(hs);
 DECLARE_DPU_UNIT_INIT_FUNC(lb);
+DECLARE_DPU_UNIT_INIT_FUNC(sig);
 DECLARE_DPU_UNIT_INIT_FUNC(st);
 DECLARE_DPU_UNIT_INIT_FUNC(tcon);
 DECLARE_DPU_UNIT_INIT_FUNC(vs);
@@ -350,6 +362,7 @@ static const unsigned int fl_ids[] = {0};
 static const unsigned int fw_ids[] = {2};
 static const unsigned int hs_ids[] = {4, 5, 9};
 static const unsigned int lb_ids[] = {0, 1, 2, 3};
+static const unsigned int sig_ids[] = {0, 1};
 static const unsigned int st_ids[] = {9};
 static const unsigned int tcon_ids[] = {0, 1};
 static const unsigned int vs_ids[] = {4, 5, 9};
