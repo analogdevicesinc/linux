@@ -210,6 +210,8 @@ static int imageon_bridge_probe(struct platform_device *pdev)
 		sizeof(bridge->media_dev.model));
 	bridge->media_dev.hw_revision = 0;
 
+	media_device_init(&bridge->media_dev);
+
 	ret = media_device_register(&bridge->media_dev);
 	if (ret < 0) {
 		dev_err(&pdev->dev, "failed to register media_device\n");
