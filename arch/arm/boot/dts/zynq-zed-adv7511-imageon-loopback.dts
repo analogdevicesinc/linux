@@ -54,11 +54,11 @@
 						};
 
 						video-output {
-							hdmi-mode = <0>;
-							output-format = <0>;
-							output-color-space = <0>;
+							hdmi-mode = <1>;
+							output-format = <1>;
+							output-color-space = <1>;
 							up-conversion = <0>;
-							csc-enable = <1>;
+							csc-enable = <0>;
 							csc-scaling-factor = <2>;
 							csc-coefficients {
 								a1 = <0x0B37>;
