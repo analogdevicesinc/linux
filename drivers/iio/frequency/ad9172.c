@@ -17,13 +17,11 @@
 #include <linux/clk.h>
 #include <linux/gpio/consumer.h>
 #include <linux/regmap.h>
-
 #include <linux/clk/clkscale.h>
-
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
-#include "cf_axi_dds.h"
 
+#include "cf_axi_dds.h"
 #include "ad917x/AD917x.h"
 
 #define AD9172_SAMPLE_RATE_KHZ 3000000UL /* 3 GSPS */
@@ -52,7 +50,6 @@ struct ad9172_state {
 	struct regmap *map;
 	ad917x_handle_t dac_h;
 	jesd_param_t appJesdConfig;
-
 	u32 dac_rate_khz;
 	u32 dac_interpolation;
 	u32 channel_interpolation;
@@ -63,7 +60,6 @@ struct ad9172_state {
 	u32 clock_output_config;
 	signal_type_t syncoutb_type;
 	signal_coupling_t sysref_coupling;
-
 	u8 nco_main_enable;
 	u8 nco_channel_enable;
 };
@@ -279,7 +275,6 @@ static int ad9172_setup(struct ad9172_state *st)
 		 link_status.init_lane_sync_stat);
 	dev_info(dev, "%d lanes @ %lu kBps\n",
 		 st->appJesdConfig.jesd_L, lane_rate_kHz);
-
 
 	if (st->jesd_dual_link_mode || st->interpolation == 1)
 		dac_mask = AD917X_DAC0 | AD917X_DAC1;
@@ -798,7 +793,6 @@ static int ad9172_parse_dt(struct spi_device *spi, struct ad9172_state *st)
 {
 	struct device_node *np = spi->dev.of_node;
 
-
 	st->dac_rate_khz = AD9172_SAMPLE_RATE_KHZ;
 	of_property_read_u32(np, "adi,dac-rate-khz", &st->dac_rate_khz);
 
@@ -824,7 +818,6 @@ static int ad9172_parse_dt(struct spi_device *spi, struct ad9172_state *st)
 		st->syncoutb_type = SIGNAL_LVDS;
 	else
 		st->syncoutb_type = SIGNAL_CMOS;
-
 
 	if (of_property_read_bool(np, "adi,sysref-coupling-dc-enable"))
 		st->sysref_coupling = COUPLING_DC;
