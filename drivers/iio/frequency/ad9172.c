@@ -1,9 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
  * AD9172 SPI DAC driver for AXI DDS PCORE/COREFPGA Module
  *
  * Copyright 2018-2019 Analog Devices Inc.
- *
- * Licensed under the GPL-2.
  */
 
 #include <linux/module.h>
