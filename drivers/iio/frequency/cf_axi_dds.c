@@ -882,6 +882,24 @@ static void cf_axi_dds_update_chan_spec(struct cf_axi_dds_state *st,
 	} \
 }
 
+#define CF_AXI_DDS_CHAN_BUF_MOD(_chan, _mod, _si) { \
+	.type = IIO_VOLTAGE, \
+	.indexed = 1, \
+	.modified = 1, \
+	.channel = _chan, \
+	.channel2 = _mod, \
+	.info_mask_separate = BIT(IIO_CHAN_INFO_SCALE), \
+	.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SAMP_FREQ), \
+	.output = 1, \
+	.scan_index = _si, \
+	.scan_type = { \
+		.sign = 's', \
+		.storagebits = 16, \
+		.realbits = 16, \
+		.shift = 0, \
+	} \
+}
+
 #define CF_AXI_DDS_CHAN_BUF_NO_CALIB(_chan) { \
 	.type = IIO_VOLTAGE, \
 	.indexed = 1, \
@@ -1062,6 +1080,70 @@ static struct cf_axi_dds_chip_info cf_axi_dds_chip_info_tbl[] = {
 		.num_channels = 4,
 		.num_dds_channels = 2,
 		.num_buf_channels = 2,
+	},
+	[ID_AD9172_M2] = {
+		.name = "AD9172",
+		.channel = {
+			CF_AXI_DDS_CHAN_BUF_MOD(0, IIO_MOD_I, 0),
+			CF_AXI_DDS_CHAN_BUF_MOD(0, IIO_MOD_Q, 1),
+			CF_AXI_DDS_CHAN(0, 0, "TX1_I_F1"),
+			CF_AXI_DDS_CHAN(1, 0, "TX1_I_F2"),
+			CF_AXI_DDS_CHAN(2, 0, "TX1_Q_F1"),
+			CF_AXI_DDS_CHAN(3, 0, "TX1_Q_F2"),
+		},
+		.num_channels = 6,
+		.num_dp_disable_channels = 2,
+		.num_dds_channels = 4,
+		.num_buf_channels = 2,
+	},
+	[ID_AD9172_M4] = {
+		.name = "AD9172",
+		.channel = {
+			CF_AXI_DDS_CHAN_BUF_MOD(0, IIO_MOD_I, 0),
+			CF_AXI_DDS_CHAN_BUF_MOD(0, IIO_MOD_Q, 1),
+			CF_AXI_DDS_CHAN_BUF_MOD(1, IIO_MOD_I, 2),
+			CF_AXI_DDS_CHAN_BUF_MOD(1, IIO_MOD_Q, 3),
+			CF_AXI_DDS_CHAN(0, 0, "TX1_I_F1"),
+			CF_AXI_DDS_CHAN(1, 0, "TX1_I_F2"),
+			CF_AXI_DDS_CHAN(2, 0, "TX1_Q_F1"),
+			CF_AXI_DDS_CHAN(3, 0, "TX1_Q_F2"),
+			CF_AXI_DDS_CHAN(4, 0, "TX2_I_F1"),
+			CF_AXI_DDS_CHAN(5, 0, "TX2_I_F2"),
+			CF_AXI_DDS_CHAN(6, 0, "TX2_Q_F1"),
+			CF_AXI_DDS_CHAN(7, 0, "TX2_Q_F2"),
+
+		},
+		.num_channels = 12,
+		.num_dp_disable_channels = 4,
+		.num_dds_channels = 8,
+		.num_buf_channels = 4,
+	},
+	[ID_AD9172_M6] = {
+		.name = "AD9172",
+		.channel = {
+			CF_AXI_DDS_CHAN_BUF_MOD(0, IIO_MOD_I, 0),
+			CF_AXI_DDS_CHAN_BUF_MOD(0, IIO_MOD_Q, 1),
+			CF_AXI_DDS_CHAN_BUF_MOD(1, IIO_MOD_I, 2),
+			CF_AXI_DDS_CHAN_BUF_MOD(1, IIO_MOD_Q, 3),
+			CF_AXI_DDS_CHAN_BUF_MOD(2, IIO_MOD_I, 4),
+			CF_AXI_DDS_CHAN_BUF_MOD(2, IIO_MOD_Q, 5),
+			CF_AXI_DDS_CHAN(0, 0, "1A"),
+			CF_AXI_DDS_CHAN(1, 0, "1B"),
+			CF_AXI_DDS_CHAN(2, 0, "2A"),
+			CF_AXI_DDS_CHAN(3, 0, "2B"),
+			CF_AXI_DDS_CHAN(4, 0, "3A"),
+			CF_AXI_DDS_CHAN(5, 0, "3B"),
+			CF_AXI_DDS_CHAN(6, 0, "4A"),
+			CF_AXI_DDS_CHAN(7, 0, "4B"),
+			CF_AXI_DDS_CHAN(8, 0, "5A"),
+			CF_AXI_DDS_CHAN(9, 0, "5B"),
+			CF_AXI_DDS_CHAN(10, 0, "6A"),
+			CF_AXI_DDS_CHAN(11, 0, "6B"),
+		},
+		.num_channels = 18,
+		.num_dp_disable_channels = 6,
+		.num_dds_channels = 12,
+		.num_buf_channels = 6,
 	},
 };
 
@@ -1338,6 +1420,9 @@ static const struct of_device_id cf_axi_dds_of_match[] = {
 	},{
 	    .compatible = "adi,axi-ad9963-dds-1.00.a",
 	    .data = &ad9963_1_00_a_info,
+	}, {
+	    .compatible = "adi,axi-ad9172-1.0",
+	    .data = &ad9162_1_00_a_info,
 	},
 	{ },
 };
