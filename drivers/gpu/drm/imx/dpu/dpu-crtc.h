@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-2019 NXP
+ * Copyright 2017-2020 NXP
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -29,6 +29,7 @@ struct dpu_crtc {
 	struct dpu_disengcfg	*dec;
 	struct dpu_extdst	*ed;
 	struct dpu_framegen	*fg;
+	struct dpu_signature	*sig;
 	struct dpu_tcon		*tcon;
 	struct dpu_store	*st;
 	struct dpu_constframe	*aux_pa_cf;
@@ -36,6 +37,7 @@ struct dpu_crtc {
 	struct dpu_disengcfg	*aux_dec;
 	struct dpu_extdst	*aux_ed;
 	struct dpu_framegen	*aux_fg;
+	struct dpu_signature	*aux_sig;
 	struct dpu_tcon		*aux_tcon;
 	/* master */
 	struct dpu_constframe	*m_pa_cf;
@@ -62,19 +64,34 @@ struct dpu_crtc {
 	int			safety_shdld_irq;
 	int			content_shdld_irq;
 	int			dec_shdld_irq;
+	int			crc_valid_irq;
+	int			crc_shdld_irq;
 
 	bool			aux_is_master;
+	bool			use_dual_crc;
+	bool			crc_is_enabled;
 
 	struct completion	safety_shdld_done;
 	struct completion	content_shdld_done;
 	struct completion	dec_shdld_done;
+	struct completion	crc_shdld_done;
+	struct completion	aux_crc_done;
 
 	struct drm_pending_vblank_event *event;
+
+	u32			crc_red;
+	u32			crc_green;
+	u32			crc_blue;
+};
+
+struct dpu_crc {
+	enum dpu_crc_source	source;
 };
 
 struct dpu_crtc_state {
 	struct imx_crtc_state	imx_crtc_state;
 	struct dpu_plane_state	**dpu_plane_states;
+	struct dpu_crc		crc;
 	bool			use_pc;
 };
 
@@ -90,5 +107,7 @@ static inline struct dpu_crtc *to_dpu_crtc(struct drm_crtc *crtc)
 
 struct dpu_plane_state **
 crtc_state_get_dpu_plane_states(struct drm_crtc_state *state);
+
+struct dpu_crtc *dpu_crtc_get_aux_dpu_crtc(struct dpu_crtc *dpu_crtc);
 
 #endif

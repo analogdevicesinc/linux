@@ -28,6 +28,7 @@
 #include <video/dpu.h>
 #include <video/imx8-pc.h>
 #include <video/imx8-prefetch.h>
+#include "dpu-crc.h"
 #include "dpu-crtc.h"
 #include "dpu-kms.h"
 #include "dpu-plane.h"
@@ -279,6 +280,9 @@ static void dpu_crtc_atomic_enable(struct drm_crtc *crtc,
 					crtc->base.id, crtc->name, __func__);
 		}
 	}
+
+	if (dcstate->crc.source != DPU_CRC_SRC_NONE)
+		dpu_crtc_enable_crc_source(crtc, dcstate->crc.source);
 }
 
 static void dpu_crtc_atomic_disable(struct drm_crtc *crtc,
@@ -295,6 +299,9 @@ static void dpu_crtc_atomic_disable(struct drm_crtc *crtc,
 	struct dpu_fetchunit *fu;
 	unsigned long flags;
 	int i;
+
+	if (dcstate->crc.source != DPU_CRC_SRC_NONE)
+		dpu_crtc_disable_crc_source(crtc, dcstate->use_pc);
 
 	if (dcstate->use_pc) {
 		tcon_disable_pc(dpu_crtc->tcon);
@@ -430,6 +437,8 @@ static void dpu_drm_crtc_reset(struct drm_crtc *crtc)
 
 	state = kzalloc(sizeof(*state), GFP_KERNEL);
 	if (state) {
+		state->crc.source = DPU_CRC_SRC_NONE;
+
 		crtc->state = &state->imx_crtc_state.base;
 		crtc->state->crtc = crtc;
 
@@ -464,6 +473,7 @@ dpu_drm_crtc_duplicate_state(struct drm_crtc *crtc)
 	imx_crtc_state = to_imx_crtc_state(crtc->state);
 	state = to_dpu_crtc_state(imx_crtc_state);
 	copy->use_pc = state->use_pc;
+	copy->crc.source = state->crc.source;
 
 	return &copy->imx_crtc_state.base;
 }
@@ -507,6 +517,8 @@ static const struct drm_crtc_funcs dpu_crtc_funcs = {
 	.atomic_destroy_state = dpu_drm_crtc_destroy_state,
 	.enable_vblank = dpu_enable_vblank,
 	.disable_vblank = dpu_disable_vblank,
+	.set_crc_source = dpu_crtc_set_crc_source,
+	.verify_crc_source = dpu_crtc_verify_crc_source,
 };
 
 static irqreturn_t dpu_vbl_irq_handler(int irq, void *dev_id)
@@ -555,6 +567,15 @@ static irqreturn_t dpu_dec_shdld_irq_handler(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
+static irqreturn_t dpu_crc_shdld_irq_handler(int irq, void *dev_id)
+{
+	struct dpu_crtc *dpu_crtc = dev_id;
+
+	complete(&dpu_crtc->crc_shdld_done);
+
+	return IRQ_HANDLED;
+}
+
 static int dpu_crtc_atomic_check(struct drm_crtc *crtc,
 				 struct drm_crtc_state *crtc_state)
 {
@@ -565,6 +586,10 @@ static int dpu_crtc_atomic_check(struct drm_crtc *crtc,
 	struct dpu_plane_state *dpstate;
 	struct imx_crtc_state *imx_crtc_state = to_imx_crtc_state(crtc_state);
 	struct dpu_crtc_state *dcstate = to_dpu_crtc_state(imx_crtc_state);
+	struct imx_crtc_state *old_imx_crtc_state =
+					to_imx_crtc_state(crtc->state);
+	struct dpu_crtc_state *old_dcstate =
+					to_dpu_crtc_state(old_imx_crtc_state);
 	struct drm_display_mode *mode = &crtc_state->adjusted_mode;
 	struct videomode vm;
 	unsigned long encoder_type = DRM_MODE_ENCODER_NONE;
@@ -595,6 +620,11 @@ static int dpu_crtc_atomic_check(struct drm_crtc *crtc,
 			return -EINVAL;
 		}
 	}
+
+	/* disallow to enable CRC when CRTC keeps at inactive status */
+	if (!crtc->state->active && !crtc_state->enable &&
+	    to_enable_dpu_crc(dcstate, old_dcstate))
+		return -EINVAL;
 
 	/*
 	 * cache the plane states so that the planes can be disabled in
@@ -742,6 +772,9 @@ static void dpu_crtc_atomic_flush(struct drm_crtc *crtc,
 
 	if (!crtc->state->active && !old_crtc_state->active)
 		return;
+
+	if (!need_modeset && to_disable_dpu_crc(dcstate, old_dcstate))
+		dpu_crtc_disable_crc_source(crtc, old_dcstate->use_pc);
 
 	/*
 	 * Scan over old plane fetchunits to determine if we
@@ -923,6 +956,9 @@ again2:
 			extdst_pixengcfg_sync_trigger(ed);
 		}
 	}
+
+	if (!need_modeset && to_enable_dpu_crc(dcstate, old_dcstate))
+		dpu_crtc_enable_crc_source(crtc, dcstate->crc.source);
 }
 
 static void dpu_crtc_mode_set_nofb(struct drm_crtc *crtc)
@@ -1047,6 +1083,8 @@ static void dpu_crtc_put_resources(struct dpu_crtc *dpu_crtc)
 		dpu_ed_put(dpu_crtc->ed);
 	if (!IS_ERR_OR_NULL(dpu_crtc->fg))
 		dpu_fg_put(dpu_crtc->fg);
+	if (!IS_ERR_OR_NULL(dpu_crtc->sig))
+		dpu_sig_put(dpu_crtc->sig);
 	if (!IS_ERR_OR_NULL(dpu_crtc->tcon))
 		dpu_tcon_put(dpu_crtc->tcon);
 }
@@ -1091,6 +1129,13 @@ static int dpu_crtc_get_resources(struct dpu_crtc *dpu_crtc)
 		goto err_out;
 	}
 	dpu_crtc->aux_fg = dpu_aux_fg_peek(dpu_crtc->fg);
+
+	dpu_crtc->sig = dpu_sig_get(dpu, stream_id);
+	if (IS_ERR(dpu_crtc->sig)) {
+		ret = PTR_ERR(dpu_crtc->sig);
+		goto err_out;
+	}
+	dpu_crtc->aux_sig = dpu_aux_sig_peek(dpu_crtc->sig);
 
 	dpu_crtc->tcon = dpu_tcon_get(dpu, stream_id);
 	if (IS_ERR(dpu_crtc->tcon)) {
@@ -1149,6 +1194,8 @@ static int dpu_crtc_init(struct dpu_crtc *dpu_crtc,
 	init_completion(&dpu_crtc->safety_shdld_done);
 	init_completion(&dpu_crtc->content_shdld_done);
 	init_completion(&dpu_crtc->dec_shdld_done);
+	init_completion(&dpu_crtc->crc_shdld_done);
+	init_completion(&dpu_crtc->aux_crc_done);
 
 	dpu_crtc->stream_id = stream_id;
 	dpu_crtc->crtc_grp_id = pdata->di_grp_id;
@@ -1256,6 +1303,34 @@ static int dpu_crtc_init(struct dpu_crtc *dpu_crtc,
 		goto err_put_resources;
 	}
 	disable_irq(dpu_crtc->dec_shdld_irq);
+
+	dpu_crtc->crc_valid_irq = dpu_map_irq(dpu, stream_id ?
+					IRQ_SIG1_VALID : IRQ_SIG0_VALID);
+	irq_set_status_flags(dpu_crtc->crc_valid_irq, IRQ_DISABLE_UNLAZY);
+	ret = devm_request_threaded_irq(dev, dpu_crtc->crc_valid_irq, NULL,
+					dpu_crc_valid_irq_threaded_handler,
+					IRQF_ONESHOT, "imx_drm", dpu_crtc);
+	if (ret < 0) {
+		dev_err(dev,
+			"CRC valid irq request failed with %d.\n",
+			ret);
+		goto err_put_resources;
+	}
+	disable_irq(dpu_crtc->crc_valid_irq);
+
+	dpu_crtc->crc_shdld_irq = dpu_map_irq(dpu, stream_id ?
+					IRQ_SIG1_SHDLOAD : IRQ_SIG0_SHDLOAD);
+	irq_set_status_flags(dpu_crtc->crc_shdld_irq, IRQ_DISABLE_UNLAZY);
+	ret = devm_request_irq(dev, dpu_crtc->crc_shdld_irq,
+				dpu_crc_shdld_irq_handler, 0, "imx_drm",
+				dpu_crtc);
+	if (ret < 0) {
+		dev_err(dev,
+			"CRC shadow load irq request failed with %d.\n",
+			ret);
+		goto err_put_resources;
+	}
+	disable_irq(dpu_crtc->crc_shdld_irq);
 
 	return 0;
 
