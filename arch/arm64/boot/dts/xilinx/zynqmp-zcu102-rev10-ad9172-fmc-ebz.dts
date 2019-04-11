@@ -1,9 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0
 /*
  * dts file for AD9172-FMC-EBZ on Xilinx ZynqMP ZCU102 Rev 1.0
  *
- * Copyright (C) 2018 Analog Devices Inc.
- *
- * Licensed under the GPL-2.
+ * Copyright (C) 2018-2019 Analog Devices Inc.
  */
 
 #include "zynqmp-zcu102-rev1.0.dts"
@@ -111,7 +110,6 @@
 #define fmc_spi spi0
 
 #include "adi-ad9172-fmc-ebz.dtsi"
-
 
 &dac0_ad9172 {
 	txen0-gpios = <&gpio 100 0>;

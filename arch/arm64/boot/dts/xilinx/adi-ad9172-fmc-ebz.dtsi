@@ -1,12 +1,11 @@
-/ {
-	clocks {
-
-	};
-};
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * dts file for AD9172-FMC-EBZ on Xilinx ZynqMP ZCU102 Rev 1.0
+ *
+ * Copyright (C) 2018-2019 Analog Devices Inc.
+ */
 
 &fmc_spi {
-
-
 	hmc7044: hmc7044@0 {
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -72,7 +71,6 @@
 		spi-max-frequency = <1000000>;
 		clocks = <&axi_ad9172_jesd>, <&hmc7044 2>, <&hmc7044 3>;
 		clock-names = "jesd_dac_clk", "dac_clk", "dac_sysref";
-
 
 		adi,dac-rate-khz = <3000000>;
 		adi,jesd-link-mode = <10>;

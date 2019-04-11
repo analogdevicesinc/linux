@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0+
+// SPDX-License-Identifier: GPL-2.0
 /*
  * AD9172 SPI DAC driver for AXI DDS PCORE/COREFPGA Module
  *
@@ -249,6 +249,10 @@ static int ad9172_setup(struct ad9172_state *st)
 		return ret;
 	}
 
+	devm_add_action_or_reset(dev,
+				 (void(*)(void *))clk_disable_unprepare,
+				 st->conv.clk[CLK_DATA]);
+
 	ad917x_jesd_set_sysref_enable(ad917x_h, 0); /* subclass 0 */
 
 	/*Enable Link*/
@@ -293,9 +297,10 @@ static int ad9172_setup(struct ad9172_state *st)
 	}
 
 	ret = ad917x_set_page_idx(ad917x_h, dac_mask, AD917X_CH_NONE);
-	regmap_write(st->map, 0x596, 0x1c);
+	if (ret != 0)
+		return -EIO;
 
-	return 0;
+	return regmap_write(st->map, 0x596, 0x1c);
 }
 
 static int ad9172_get_clks(struct cf_axi_converter *conv)
@@ -318,6 +323,10 @@ static int ad9172_get_clks(struct cf_axi_converter *conv)
 			ret = clk_prepare_enable(clk);
 			if (ret < 0)
 				return ret;
+
+			devm_add_action_or_reset(&conv->spi->dev,
+					(void(*)(void *))clk_disable_unprepare,
+					clk);
 		}
 
 		of_clk_get_scale(conv->spi->dev.of_node,
@@ -835,7 +844,7 @@ static int ad9172_probe(struct spi_device *spi)
 	int ret;
 
 	st = devm_kzalloc(&spi->dev, sizeof(*st), GFP_KERNEL);
-	if (st == NULL)
+	if (!st)
 		return -ENOMEM;
 
 	st->id = (enum chip_id) dev_id->driver_data;
@@ -936,19 +945,6 @@ out:
 	return ret;
 }
 
-static int ad9172_remove(struct spi_device *spi)
-{
-	struct cf_axi_converter *conv = spi_get_drvdata(spi);
-	int i;
-
-	for (i = 0; i < ARRAY_SIZE(clk_names); i++)
-		if (conv->clk[i])
-			clk_disable_unprepare(conv->clk[i]);
-
-	spi_set_drvdata(spi, NULL);
-	return 0;
-}
-
 static const struct spi_device_id ad9172_id[] = {
 	{ "ad9171", CHIPID_AD9171 },
 	{ "ad9172", CHIPID_AD9172 },
@@ -958,16 +954,25 @@ static const struct spi_device_id ad9172_id[] = {
 	{ "ad9176", CHIPID_AD9176 },
 	{}
 };
-
 MODULE_DEVICE_TABLE(spi, ad9172_id);
+
+static const struct of_device_id ad9172_of_match[] = {
+	{ .compatible = "adi,ad9171" },
+	{ .compatible = "adi,ad9172" },
+	{ .compatible = "adi,ad9173" },
+	{ .compatible = "adi,ad9174" },
+	{ .compatible = "adi,ad9175" },
+	{ .compatible = "adi,ad9176" },
+	{ },
+};
+MODULE_DEVICE_TABLE(of, ad9172_of_match);
 
 static struct spi_driver ad9172_driver = {
 	.driver = {
-		   .name = "ad9172",
-		   .owner = THIS_MODULE,
-		   },
+		.name = "ad9172",
+		.of_match_table = of_match_ptr(ad9172_of_match),
+	},
 	.probe = ad9172_probe,
-	.remove = ad9172_remove,
 	.id_table = ad9172_id,
 };
 
