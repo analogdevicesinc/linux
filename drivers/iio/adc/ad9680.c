@@ -1231,6 +1231,22 @@ static int ad9694_setup(struct spi_device *spi)
 		ad9680_spi_write(spi, 0x120, val);
 	}
 
+	/* Export the common-mode voltage to the VCM_CD/VREF */
+	ad9680_spi_write(spi, 0x1908, 0x04);
+	ad9680_spi_write(spi, 0x18A6, 0x00);
+	ad9680_spi_write(spi, 0x18E6, 0x00);
+	ad9680_spi_write(spi, 0x18E0, 0x04);
+	ad9680_spi_write(spi, 0x18E1, 0x1c);
+	ad9680_spi_write(spi, 0x18E2, 0x14);
+	ad9680_spi_write(spi, 0x18E3, 0x56);
+
+	/* Set buffer 1 & 2 currents to 440 uA */
+	ad9680_spi_write(spi, 0x1A4C, 0x16);
+	ad9680_spi_write(spi, 0x1A4D, 0x16);
+
+	/* Set input full-scale range to 2.16Vpp */
+	ad9680_spi_write(spi, 0x1910, 0x00);
+
 	ret = clk_prepare_enable(conv->lane_clk);
 	if (ret < 0) {
 		dev_err(&spi->dev, "Failed to enable JESD204 link: %d\n", ret);
