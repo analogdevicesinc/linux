@@ -1,0 +1,56 @@
+Analog Devices AD9172 device driver
+
+Required properties:
+	- compatible: Should be one of "adi,ad9171", "adi,ad9172", "adi,ad9173",
+		"adi,ad9174", "adi,ad9175", "adi,ad9176".
+	- reg: SPI chip select number.
+	- spi-max-frequency: Max SPI frequency to use (<= 10000000).
+	- clocks: a list of phandle, one for each entry in clock-names.
+	- clock-names: Must include the following entries:
+		"jesd_dac_clk", "dac_clk", "dac_sysref"
+	- adi,dac-rate-khz: The desired DAC rate in kHz
+	- adi,jesd-link-mode: The desired JESD204 Link Mode,
+		please refer to the AD917x datasheet.
+	- adi,dac-interpolation: The DAC or main datapath interpolation,
+		please refer to the supported values for a given Link Mode
+		in the AD917x datasheet.
+	- adi,channel-interpolation: The channel interpolation,
+		please refer to the supported values for a given Link Mode
+		in the AD917x datasheet.
+
+
+Optional properties:
+	- adi,jesd-subclass: The JESD204 subclass (0, 1).
+	- adi,clock-output-divider: Divide down DAC clock, supported
+		values (ratios) are 0 (disabled), 1, 2, 3.
+		The clock output frequency ranges from 727.8Mhz to 2GHz.
+	- adi,syncoutb-signal-type-lvds-enable: Enables LVDS mode for the
+		SYNCOUTB signal, default is CMOS.
+	- adi,sysref-coupling-dc-enable: Enables SYSREF signal DC coupling,
+		default is AC coupling.
+	- reset-gpio: a GPIO spec for the reset pin.
+	- txen0-gpio: a GPIO spec for the TXEN0 pin.
+	- txen1-gpio: a GPIO spec for the TXEN1 pin.
+
+
+Example:
+
+	dac0_ad9172: ad9172@1 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "adi,ad9172";
+		reg = <1>;
+		spi-max-frequency = <1000000>;
+		clocks = <&axi_ad9172_jesd>, <&hmc7044 2>, <&hmc7044 3>;
+		clock-names = "jesd_dac_clk", "dac_clk", "dac_sysref";
+
+		adi,dac-rate-khz = <3000000>;
+		adi,jesd-link-mode = <10>;
+
+		adi,jesd-subclass = <0>;
+		adi,dac-interpolation = <1>;
+		adi,channel-interpolation = <1>;
+		adi,clock-output-divider = <1>;
+		adi,syncoutb-signal-type-lvds-enable;
+	};
+
