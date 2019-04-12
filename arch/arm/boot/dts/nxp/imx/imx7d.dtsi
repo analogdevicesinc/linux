@@ -79,6 +79,34 @@
 	};
 
 	soc: soc {
+		busfreq {
+			compatible = "fsl,imx_busfreq";
+			fsl,max_ddr_freq = <533000000>;
+			clocks = <&clks IMX7D_OSC_24M_CLK>, <&clks IMX7D_MAIN_AXI_ROOT_SRC>,
+				<&clks IMX7D_AHB_CHANNEL_ROOT_SRC>, <&clks IMX7D_PLL_SYS_PFD0_392M_CLK>,
+				<&clks IMX7D_DRAM_ROOT_SRC>, <&clks IMX7D_DRAM_ALT_ROOT_SRC>,
+				<&clks IMX7D_PLL_DRAM_MAIN_CLK>, <&clks IMX7D_DRAM_ALT_ROOT_CLK>,
+				<&clks IMX7D_PLL_SYS_PFD2_270M_CLK>, <&clks IMX7D_PLL_SYS_PFD1_332M_CLK>,
+				<&clks IMX7D_AHB_CHANNEL_ROOT_CLK>, <&clks IMX7D_MAIN_AXI_ROOT_DIV>;
+			clock-names = "osc", "axi_sel", "ahb_sel", "pfd0_392m", "dram_root", "dram_alt_sel",
+					"pll_dram", "dram_alt_root", "pfd2_270m", "pfd1_332m", "ahb", "axi";
+			interrupts = <0 112 0x04>, <0 113 0x04>;
+			interrupt-names = "irq_busfreq_0", "irq_busfreq_1";
+		};
+
+		ocrams_ddr: sram@00900000 {
+			compatible = "fsl,ddr-lpm-sram";
+			reg = <0x00900000 0x1000>;
+			clocks = <&clks IMX7D_OCRAM_CLK>;
+		};
+
+		ocrams: sram@00180000 {
+			compatible = "fsl,lpm-sram";
+			reg = <0x00180000 0x8000>;
+			clocks = <&clks IMX7D_OCRAM_S_CLK>;
+			status = "disabled";
+		};
+
 		etm@3007d000 {
 			compatible = "arm,coresight-etm3x", "arm,primecell";
 			reg = <0x3007d000 0x1000>;
