@@ -31,6 +31,13 @@ config HAVE_IMX_GPC
 config HAVE_IMX_MMDC
 	bool
 
+config HAVE_IMX_DDRC
+       bool
+       select HAVE_IMX_BUSFREQ
+
+config HAVE_IMX_BUSFREQ
+       bool
+
 config HAVE_IMX_SRC
 	def_bool y if SMP
 	select ARCH_HAS_RESET_CONTROLLER
@@ -204,6 +211,7 @@ config SOC_IMX7D_CA7
 	select HAVE_IMX_MMDC
 	select HAVE_IMX_SRC
 	select IMX_GPCV2
+	select HAVE_IMX_DDRC
 
 config SOC_IMX7D_CM4
 	bool

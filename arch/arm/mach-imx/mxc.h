@@ -14,7 +14,9 @@
 #error "Do not include directly."
 #endif
 
+#define IMX_DDR_TYPE_DDR3		0
 #define IMX_DDR_TYPE_LPDDR2		1
+#define IMX_DDR_TYPE_LPDDR3		2
 
 #ifndef __ASSEMBLY__
 

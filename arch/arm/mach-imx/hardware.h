@@ -81,13 +81,16 @@
  *	CCM	0x020c4000+0x004000	->	0xf42c4000+0x004000
  *	ANATOP	0x020c8000+0x004000	->	0xf42c8000+0x004000
  *	UART4	0x021f0000+0x004000	->	0xf42f0000+0x004000
+ * mx7d:
+ *     CCM     0x30380000+0x010000     ->      0xf5380000+0x010000
+ *     ANATOP  0x30360000+0x010000     ->      0xf5360000+0x010000
+ *     UART1   0x30860000+0x010000     ->      0xf5860000+0x010000
  */
 #define IMX_IO_P2V(x)	(						\
-			(((x) & 0x80000000) >> 7) |			\
 			(0xf4000000 +					\
-			(((x) & 0x50000000) >> 6) +			\
-			(((x) & 0x0b000000) >> 4) +			\
-			(((x) & 0x000fffff))))
+			(((x) & 0x50000000) >> 4) +			\
+			(((x) & 0x0a000000) >> 4) +			\
+			(((x) & 0x00ffffff))))
 
 #define IMX_IO_ADDRESS(x)	IOMEM(IMX_IO_P2V(x))
 
@@ -98,6 +101,7 @@
 #include "mx35.h"
 #include "mx2x.h"
 #include "mx27.h"
+#include "mx7.h"
 
 #define imx_map_entry(soc, name, _type)	{				\
 	.virtual = soc ## _IO_P2V(soc ## _ ## name ## _BASE_ADDR),	\

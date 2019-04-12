@@ -87,6 +87,8 @@ int imx6_set_lpm(enum mxc_cpu_pwr_mode mode);
 void imx6_set_int_mem_clk_lpm(bool enable);
 int imx_mmdc_get_ddr_type(void);
 int imx7ulp_set_lpm(enum ulp_cpu_pwr_mode mode);
+void imx_busfreq_map_io(void);
+void imx7_pm_map_io(void);
 
 void imx_cpu_die(unsigned int cpu);
 int imx_cpu_kill(unsigned int cpu);
@@ -102,6 +104,12 @@ static inline void imx6_suspend(void __iomem *ocram_vbase) {}
 #endif
 
 void v7_cpu_resume(void);
+
+#ifdef CONFIG_HAVE_IMX_DDRC
+int imx_ddrc_get_ddr_type(void);
+#else
+static inline int imx_ddrc_get_ddr_type(void) { return 0; }
+#endif
 
 void imx6_pm_ccm_init(const char *ccm_compat);
 void imx6q_pm_init(void);
