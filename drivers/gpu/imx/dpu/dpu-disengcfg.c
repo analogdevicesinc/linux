@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2016 Freescale Semiconductor, Inc.
- * Copyright 2017-2019 NXP
+ * Copyright 2017-2020 NXP
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -31,6 +31,7 @@ typedef enum {
 #define POLEN_HIGH		BIT(2)
 #define PIXINV_INV		BIT(3)
 #define SRCSELECT		0x10
+#define SIG_SELECT_MASK		0x3
 
 struct dpu_disengcfg {
 	void __iomem *base;
@@ -50,6 +51,19 @@ static inline void dpu_dec_write(struct dpu_disengcfg *dec,
 {
 	writel(value, dec->base + offset);
 }
+
+void disengcfg_sig_select(struct dpu_disengcfg *dec, dec_sig_sel_t sig_sel)
+{
+	u32 val;
+
+	mutex_lock(&dec->mutex);
+	val = dpu_dec_read(dec, SRCSELECT);
+	val &= ~SIG_SELECT_MASK;
+	val |= sig_sel;
+	dpu_dec_write(dec, SRCSELECT, val);
+	mutex_unlock(&dec->mutex);
+}
+EXPORT_SYMBOL_GPL(disengcfg_sig_select);
 
 struct dpu_disengcfg *dpu_dec_get(struct dpu_soc *dpu, int id)
 {
@@ -115,6 +129,8 @@ void _dpu_dec_init(struct dpu_soc *dpu, unsigned int id)
 	val &= ~POLHS_HIGH;
 	val &= ~POLVS_HIGH;
 	dpu_dec_write(dec, POLARITYCTRL, val);
+
+	disengcfg_sig_select(dec, DEC_SIG_SEL_FRAMEGEN);
 }
 
 int dpu_dec_init(struct dpu_soc *dpu, unsigned int id,

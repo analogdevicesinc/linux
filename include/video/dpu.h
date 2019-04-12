@@ -110,6 +110,13 @@ typedef enum {
 } dpu_block_id_t;
 
 typedef enum {
+	DEC_SIG_SEL_FRAMEGEN = 0,
+	DEC_SIG_SEL_GAMMACOR,
+	DEC_SIG_SEL_MATRIX,
+	DEC_SIG_SEL_DITHER,
+} dec_sig_sel_t;
+
+typedef enum {
 	ED_SRC_DISABLE		= ID_NONE,
 	ED_SRC_BLITBLEND9	= ID_BLITBLEND9,
 	ED_SRC_CONSTFRAME0	= ID_CONSTFRAME0,
@@ -409,6 +416,7 @@ struct dpu_constframe *dpu_aux_cf_peek(struct dpu_constframe *cf);
 
 /* Display Engine Configuration Unit */
 struct dpu_disengcfg;
+void disengcfg_sig_select(struct dpu_disengcfg *dec, dec_sig_sel_t sig_sel);
 struct dpu_disengcfg *dpu_dec_get(struct dpu_soc *dpu, int id);
 void dpu_dec_put(struct dpu_disengcfg *dec);
 struct dpu_disengcfg *dpu_aux_dec_peek(struct dpu_disengcfg *dec);
