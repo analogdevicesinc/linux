@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2016 Freescale Semiconductor, Inc.
- * Copyright 2017 NXP
+ * Copyright 2017-2019 NXP
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -44,7 +44,7 @@ static void dpu_cs_wait_fifo_space(struct dpu_bliteng *dpu_be)
 {
 	while ((dpu_be_read(dpu_be, CMDSEQ_STATUS) &
 		CMDSEQ_STATUS_FIFOSPACE_MASK) < CMDSEQ_FIFO_SPACE_THRESHOLD)
-		usleep_range(1000, 2000);
+		usleep_range(30, 50);
 }
 
 static void dpu_cs_wait_idle(struct dpu_bliteng *dpu_be)
@@ -116,16 +116,26 @@ void dpu_be_configure_prefetch(struct dpu_bliteng *dpu_be,
 	/* Enable DPR, dprc1 is connected to plane0 */
 	dprc = dpu_be->dprc[1];
 
+	/*
+	 * Force sync command sequncer in conditions:
+	 * 1. tile work with dprc/prg (baddr)
+	 * 2. switch tile to linear (!start)
+	 */
+	if (!start || baddr) {
+		dpu_be_wait(dpu_be);
+	}
+
 	if (baddr == 0x0) {
-		dprc_disable(dprc);
+		if (!start) {
+			dprc_disable(dprc);
+			need_handle_start = false;
+		}
 		start = true;
 		return;
 	}
 
-	dpu_be_wait(dpu_be);
-
 	if (need_handle_start) {
-		dprc_irq_handle(dprc);
+		dprc_first_frame_handle(dprc);
 		need_handle_start = false;
 	}
 
@@ -136,15 +146,12 @@ void dpu_be_configure_prefetch(struct dpu_bliteng *dpu_be,
 		       baddr, uv_addr,
 		       start, start, false);
 
-	if (start)
-		dprc_enable(dprc);
-
-	dprc_reg_update(dprc);
-
 	if (start) {
-		dprc_enable_ctrl_done_irq(dprc);
+		dprc_enable(dprc);
 		need_handle_start = true;
 	}
+
+	dprc_reg_update(dprc);
 
 	start = false;
 }
@@ -225,11 +232,15 @@ EXPORT_SYMBOL(dpu_be_blit);
 #define STORE9_SEQCOMPLETE_IRQ_MASK	(1U<<STORE9_SEQCOMPLETE_IRQ)
 void dpu_be_wait(struct dpu_bliteng *dpu_be)
 {
-	dpu_be_write(dpu_be, 0x10, PIXENGCFG_STORE9_TRIGGER);
+	dpu_cs_wait_fifo_space(dpu_be);
+
+	dpu_be_write(dpu_be, 0x14000001, CMDSEQ_HIF);
+	dpu_be_write(dpu_be, PIXENGCFG_STORE9_TRIGGER, CMDSEQ_HIF);
+	dpu_be_write(dpu_be, 0x10, CMDSEQ_HIF);
 
 	while ((dpu_be_read(dpu_be, COMCTRL_INTERRUPTSTATUS0) &
 		STORE9_SEQCOMPLETE_IRQ_MASK) == 0)
-		usleep_range(1000, 2000);
+		usleep_range(30, 50);
 
 	dpu_be_write(dpu_be, STORE9_SEQCOMPLETE_IRQ_MASK,
 		COMCTRL_INTERRUPTCLEAR0);
