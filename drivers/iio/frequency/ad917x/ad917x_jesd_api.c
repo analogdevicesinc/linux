@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0
 /**
  * \file ad917x_jesd_api.c
  *
@@ -12,7 +13,6 @@
  */
 
 #include <linux/kernel.h>
-#include <linux/bug.h>
 #include "AD917x.h"
 #include "ad917x_reg.h"
 #include "api_errors.h"
