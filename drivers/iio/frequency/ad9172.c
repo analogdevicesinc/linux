@@ -450,6 +450,7 @@ static ssize_t ad9172_attr_store(struct device *dev,
 
 	switch ((u32)this_attr->address & ~0xFF) {
 	case AD9172_ATTR_CHAN_NCO(0):
+		readin *= st->dac_interpolation;
 		ret = ad917x_nco_set(ad917x_h, AD917X_DAC_NONE, BIT(dest),
 				     readin, 0x1FFF, 0, 0);
 		st->nco_channel_enable |= BIT(dest);
@@ -515,6 +516,7 @@ static ssize_t ad9172_attr_show(struct device *dev,
 	case AD9172_ATTR_CHAN_NCO(0):
 		ret = ad917x_nco_channel_freq_get(ad917x_h, BIT(dest),
 						  &val64);
+		val64 = div_s64(val64, st->dac_interpolation);
 		break;
 	case AD9172_ATTR_CHAN_PHASE(0):
 		ret = ad917x_nco_get_phase_offset(ad917x_h,
@@ -980,4 +982,4 @@ module_spi_driver(ad9172_driver);
 
 MODULE_AUTHOR("Michael Hennerich <michael.hennerich@analog.com>");
 MODULE_DESCRIPTION("Analog Devices AD9172 DAC");
-MODULE_LICENSE("GPL v2");
+MODULE_LICENSE("GPL");
