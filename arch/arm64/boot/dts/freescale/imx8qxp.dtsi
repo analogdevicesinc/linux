@@ -175,6 +175,15 @@
 		#size-cells = <2>;
 		ranges;
 
+		rpmsg_reserved: rpmsg@0x90000000 {
+			no-map;
+			reg = <0 0x90000000 0 0x400000>;
+		};
+		rpmsg_dma_reserved:rpmsg_dma@0x90400000 {
+			compatible = "shared-dma-pool";
+			no-map;
+			reg = <0 0x90400000 0 0x1C00000>;
+		};
 		dsp_reserved: dsp@92400000 {
 			reg = <0 0x92400000 0 0x2000000>;
 			no-map;
@@ -361,6 +370,22 @@
 		assigned-clocks = <&clk IMX_GPU0_CORE_CLK>, <&clk IMX_GPU0_SHADER_CLK>;
 		assigned-clock-rates = <700000000>, <850000000>;
 		power-domains = <&pd IMX_SC_R_GPU_0_PID0>;
+		status = "disabled";
+	};
+
+	rpmsg: rpmsg{
+		compatible = "fsl,imx8qxp-rpmsg";
+		/* up to now, the following channels are used in imx rpmsg
+		 * - tx1/rx1: messages channel.
+		 * - general interrupt1: remote proc finish re-init rpmsg stack
+		 *   when A core is partition reset.
+		 */
+		mbox-names = "tx", "rx", "rxdb";
+		mboxes = <&lsio_mu5 0 1
+			  &lsio_mu5 1 1
+			  &lsio_mu5 3 1>;
+		mub-partition = <3>;
+		memory-region = <&rpmsg_dma_reserved>;
 		status = "disabled";
 	};
 
