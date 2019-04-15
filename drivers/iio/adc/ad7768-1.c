@@ -88,9 +88,9 @@ enum ad7768_conv_mode {
 };
 
 enum ad7768_pwrmode {
-	AD7768_ECO_MODE,
+	AD7768_ECO_MODE = 0,
 	AD7768_MED_MODE = 2,
-	AD7768_FAST_MODE
+	AD7768_FAST_MODE = 3
 };
 
 enum ad7768_mclk_div {
@@ -101,14 +101,14 @@ enum ad7768_mclk_div {
 };
 
 enum ad7768_dec_rate {
-	AD7768_DEC_RATE_32,
-	AD7768_DEC_RATE_64,
-	AD7768_DEC_RATE_128,
-	AD7768_DEC_RATE_256,
-	AD7768_DEC_RATE_512,
-	AD7768_DEC_RATE_1024,
+	AD7768_DEC_RATE_32 = 0,
+	AD7768_DEC_RATE_64 = 1,
+	AD7768_DEC_RATE_128 = 2,
+	AD7768_DEC_RATE_256 = 3,
+	AD7768_DEC_RATE_512 = 4,
+	AD7768_DEC_RATE_1024 = 5,
 	AD7768_DEC_RATE_8 = 9,
-	AD7768_DEC_RATE_16
+	AD7768_DEC_RATE_16 = 10
 };
 
 struct ad7768_clk_configuration {
@@ -161,49 +161,41 @@ struct ad7768_state {
 	struct completion completion;
 	struct iio_trigger *trig;
 	struct gpio_desc *gpio_sync_in;
-	__be16 d16;
-	__be32 d32;
-};
-
-enum ad7768_ids {
-	ID_AD7768_1,
+	/*
+	 * DMA (thus cache coherency maintenance) requires the
+	 * transfer buffers to live in their own cache lines.
+	 */
+	union {
+		__be32 d32;
+		u8 d8[2];
+	} data ____cacheline_aligned;
 };
 
 static int ad7768_spi_reg_read(struct ad7768_state *st, unsigned int addr,
 			       unsigned int len)
 {
-	struct spi_transfer t[] = {
-		{
-			.tx_buf = &st->d16,
-			.len = 1,
-			.cs_change = 0,
-		}, {
-			.rx_buf = &st->d32,
-			.len = len,
-		},
-	};
 	unsigned int shift;
 	int ret;
 
 	shift = 32 - (8 * len);
+	st->data.d8[0] = AD7768_RD_FLAG_MSK(addr);
 
-	st->d16 = cpu_to_be16((AD7768_RD_FLAG_MSK(addr) << 8));
-
-	ret = spi_sync_transfer(st->spi, t, ARRAY_SIZE(t));
+	ret = spi_write_then_read(st->spi, st->data.d8, 1,
+				  &st->data.d32, len);
 	if (ret < 0)
 		return ret;
 
-	return (be32_to_cpu(st->d32) >> shift);
+	return (be32_to_cpu(st->data.d32) >> shift);
 }
 
 static int ad7768_spi_reg_write(struct ad7768_state *st,
 				unsigned int addr,
 				unsigned int val)
 {
-	st->d16 = cpu_to_be16((AD7768_WR_FLAG_MSK(addr) << 8) |
-			      (val & 0xFF));
+	st->data.d8[0] = AD7768_WR_FLAG_MSK(addr);
+	st->data.d8[1] = val & 0xFF;
 
-	return spi_write(st->spi, &st->d16, sizeof(st->d16));
+	return spi_write(st->spi, st->data.d8, 2);
 }
 
 static int ad7768_set_mode(struct ad7768_state *st,
@@ -373,7 +365,7 @@ static int ad7768_read_raw(struct iio_dev *indio_dev,
 			return ret;
 
 		ret = ad7768_scan_direct(indio_dev);
-		if (ret == 0)
+		if (ret >= 0)
 			*val = ret;
 
 		iio_device_release_direct_mode(indio_dev);
@@ -463,21 +455,15 @@ static irqreturn_t ad7768_trigger_handler(int irq, void *p)
 	struct iio_poll_func *pf = p;
 	struct iio_dev *indio_dev = pf->indio_dev;
 	struct ad7768_state *st = iio_priv(indio_dev);
-	struct spi_transfer t[] = {
-		{
-			.rx_buf = &st->d32,
-			.len = 3,
-		},
-	};
 	int ret;
 
 	mutex_lock(&st->lock);
 
-	ret = spi_sync_transfer(st->spi, t, ARRAY_SIZE(t));
+	ret = spi_read(st->spi, &st->data.d32, 3);
 	if (ret < 0)
 		goto err_unlock;
 
-	iio_push_to_buffers_with_timestamp(indio_dev, &st->d32,
+	iio_push_to_buffers_with_timestamp(indio_dev, &st->data.d32,
 					   iio_get_time_ns(indio_dev));
 
 	iio_trigger_notify_done(indio_dev->trig);
@@ -493,7 +479,7 @@ static irqreturn_t ad7768_interrupt(int irq, void *dev_id)
 	struct ad7768_state *st = iio_priv(indio_dev);
 
 	if (iio_buffer_enabled(indio_dev))
-		iio_trigger_poll_chained(st->trig);
+		iio_trigger_poll(st->trig);
 	else
 		complete(&st->completion);
 
@@ -515,17 +501,12 @@ static int ad7768_buffer_postenable(struct iio_dev *indio_dev)
 static int ad7768_buffer_predisable(struct iio_dev *indio_dev)
 {
 	struct ad7768_state *st = iio_priv(indio_dev);
-	int ret;
 
 	/*
 	 * To exit continuous read mode, perform a single read of the ADC_DATA
 	 * reg (0x2C), which allows further configuration of the device.
 	 */
-	ret = ad7768_spi_reg_read(st, AD7768_REG_ADC_DATA, 3);
-	if (ret < 0)
-		return ret;
-
-	return 0;
+	return ad7768_spi_reg_read(st, AD7768_REG_ADC_DATA, 3);
 }
 
 static const struct iio_buffer_setup_ops ad7768_buffer_ops = {
@@ -624,11 +605,10 @@ static int ad7768_probe(struct spi_device *spi)
 
 	init_completion(&st->completion);
 
-	ret = devm_request_threaded_irq(&spi->dev, spi->irq,
-					NULL,
-					&ad7768_interrupt,
-					IRQF_TRIGGER_RISING | IRQF_ONESHOT,
-					indio_dev->name, indio_dev);
+	ret = devm_request_irq(&spi->dev, spi->irq,
+			       &ad7768_interrupt,
+			       IRQF_TRIGGER_RISING | IRQF_ONESHOT,
+			       indio_dev->name, indio_dev);
 	if (ret)
 		return ret;
 
@@ -643,7 +623,7 @@ static int ad7768_probe(struct spi_device *spi)
 }
 
 static const struct spi_device_id ad7768_id_table[] = {
-	{ "ad7768-1", ID_AD7768_1 },
+	{ "ad7768-1", 0 },
 	{}
 };
 MODULE_DEVICE_TABLE(spi, ad7768_id_table);
@@ -666,4 +646,4 @@ module_spi_driver(ad7768_driver);
 
 MODULE_AUTHOR("Stefan Popa <stefan.popa@analog.com>");
 MODULE_DESCRIPTION("Analog Devices AD7768-1 ADC driver");
-MODULE_LICENSE("GPL");
+MODULE_LICENSE("GPL v2");
