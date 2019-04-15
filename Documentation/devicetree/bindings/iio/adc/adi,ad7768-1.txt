@@ -12,10 +12,16 @@ Required properties for the AD7768-1:
 - interrupts: IRQ line for the ADC
 	see: Documentation/devicetree/bindings/interrupt-controller/interrupts.txt
 - vref-supply: vref supply can be used as reference for conversion
-- adi,sync-in-gpios: must be the device tree identifier of the SYNC-IN pin. A pulse
-	is always required if the configuration is changed in any way, for example
+- adi,sync-in-gpios: must be the device tree identifier of the SYNC-IN pin. Enables
+	synchronization of multiple devices that require simultaneous sampling.
+	A pulse is always required if the configuration is changed in any way, for example
 	if the filter decimation rate changes. As the line is active low, it should
 	be marked GPIO_ACTIVE_LOW.
+
+Optional properties:
+
+ - reset-gpios : GPIO spec for the RESET pin. If specified, it will be asserted during
+	driver probe. As the line is active low, it should be marked GPIO_ACTIVE_LOW.
 
 Example:
 
@@ -29,6 +35,7 @@ Example:
 		interrupts = <25 IRQ_TYPE_EDGE_RISING>;
 		interrupt-parent = <&gpio>;
 		adi,sync-in-gpios = <&gpio 22 GPIO_ACTIVE_LOW>;
+		reset-gpios = <&gpio 27 GPIO_ACTIVE_LOW>;
 		clocks = <&ad7768_mclk>;
 		clock-names = "mclk";
 	};
