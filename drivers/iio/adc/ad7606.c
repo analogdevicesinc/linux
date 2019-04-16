@@ -446,27 +446,23 @@ static const struct ad7606_chip_info ad7606_chip_info_tbl[] = {
 	[ID_AD7606_8] = {
 		.channels = ad7606_channels,
 		.num_channels = 9,
-		.oversampling_avail = ad7606_oversampling_avail,
-		.oversampling_num = ARRAY_SIZE(ad7606_oversampling_avail),
+		.has_oversampling = true,
 	},
 	[ID_AD7606_6] = {
 		.channels = ad7606_channels,
 		.num_channels = 7,
-		.oversampling_avail = ad7606_oversampling_avail,
-		.oversampling_num = ARRAY_SIZE(ad7606_oversampling_avail),
+		.has_oversampling = true,
 	},
 	[ID_AD7606_4] = {
 		.channels = ad7606_channels,
 		.num_channels = 5,
-		.oversampling_avail = ad7606_oversampling_avail,
-		.oversampling_num = ARRAY_SIZE(ad7606_oversampling_avail),
+		.has_oversampling = true,
 	},
 	[ID_AD7606B] = {
 		.channels = ad7606_channels,
 		.num_channels = 9,
+		.has_oversampling = true,
 		.sw_mode_config = ad7606B_sw_mode_config,
-		.oversampling_avail = ad7606_oversampling_avail,
-		.oversampling_num = ARRAY_SIZE(ad7606_oversampling_avail),
 	},
 };
 
@@ -498,7 +494,7 @@ static int ad7606_request_gpios(struct ad7606_state *st)
 	if (IS_ERR(st->gpio_frstdata))
 		return PTR_ERR(st->gpio_frstdata);
 
-	if (!st->chip_info->oversampling_num)
+	if (!st->chip_info->has_oversampling)
 		return 0;
 
 	st->gpio_os = devm_gpiod_get_array_optional(dev,
@@ -664,6 +660,8 @@ int ad7606_probe(struct device *dev, int irq, void __iomem *base_address,
 	st->oversampling = 1;
 	st->scale_avail = ad7606_scale_avail;
 	st->num_scales = ARRAY_SIZE(ad7606_scale_avail);
+	st->oversampling_avail = ad7606_oversampling_avail;
+	st->num_os_ratios = ARRAY_SIZE(ad7606_oversampling_avail);
 
 	st->reg = devm_regulator_get(dev, "avcc");
 	if (IS_ERR(st->reg))
@@ -680,11 +678,6 @@ int ad7606_probe(struct device *dev, int irq, void __iomem *base_address,
 		return ret;
 
 	st->chip_info = &ad7606_chip_info_tbl[id];
-
-	if (st->chip_info->oversampling_num) {
-		st->oversampling_avail = st->chip_info->oversampling_avail;
-		st->num_os_ratios = st->chip_info->oversampling_num;
-	}
 
 	ret = ad7606_request_gpios(st);
 	if (ret)

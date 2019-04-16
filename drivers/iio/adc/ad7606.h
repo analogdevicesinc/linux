@@ -12,17 +12,14 @@
  * struct ad7606_chip_info - chip specific information
  * @channels:		channel specification
  * @num_channels:	number of channels
- * @oversampling_avail	pointer to the array which stores the available
- *			oversampling ratios.
- * @oversampling_num	number of elements stored in oversampling_avail array
+ * @has_oversampling:   whether the device has oversampling support
  * @sw_mode_config:	pointer to a function which configured the device
  *			for software mode
  */
 struct ad7606_chip_info {
 	const struct iio_chan_spec	*channels;
 	unsigned int			num_channels;
-	const unsigned int		*oversampling_avail;
-	unsigned int			oversampling_num;
+	bool				has_oversampling;
 	int (*sw_mode_config)(struct iio_dev *indio_dev);
 };
 
