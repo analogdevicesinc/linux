@@ -39,9 +39,11 @@
 		#size-cells = <0>;
 	};
 
-	laser_driver@7c700000 {
-		compatible = "dmem-uio";
+	axi_pulse_capture: axi-pulse-capture@7c700000 {
+		compatible = "adi,axi-pulse-capture-1.00.a";
 		reg = <0x7c700000 0x10000>;
+		interrupts = <0 52 0>;
+		clocks = <&clkc 17>;
 	};
 
 	rx_dma: rx-dmac@7c400000 {
