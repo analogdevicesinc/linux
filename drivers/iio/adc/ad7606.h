@@ -16,6 +16,10 @@
  *			oversampling ratios.
  * @oversampling_num	number of elements stored in oversampling_avail array
  * @os_req_reset	some devices require a reset to update oversampling
+ * @write_scale_sw	pointer to the function which writes the scale via spi
+			in software mode
+ * @write_os_sw		pointer to the function which writes the os via spi
+			in software mode
  * @sw_mode_config:	pointer to a function which configured the device
  *			for software mode
  */
@@ -25,6 +29,8 @@ struct ad7606_chip_info {
 	const unsigned int		*oversampling_avail;
 	unsigned int			oversampling_num;
 	bool				os_req_reset;
+	int (*write_scale_sw)(struct iio_dev *indio_dev, int, int);
+	int (*write_os_sw)(struct iio_dev *indio_dev, int);
 	int (*sw_mode_config)(struct iio_dev *indio_dev);
 };
 
@@ -43,6 +49,8 @@ struct ad7606_chip_info {
  * @oversampling_avail	pointer to the array which stores the available
  *			oversampling ratios.
  * @num_os_ratios	number of elements stored in oversampling_avail array
+ * @write_scale		pointer to the function which writes the scale
+ * @write_os		pointer to the function which writes the os
  * @lock		protect sensor state from concurrent accesses to GPIOs
  * @gpio_convst	GPIO descriptor for conversion start signal (CONVST)
  * @gpio_reset		GPIO descriptor for device hard-reset
@@ -69,6 +77,8 @@ struct ad7606_state {
 	unsigned int			num_scales;
 	const unsigned int		*oversampling_avail;
 	unsigned int			num_os_ratios;
+	int (*write_scale)(struct iio_dev *indio_dev, int, int);
+	int (*write_os)(struct iio_dev *indio_dev, int);
 
 	struct mutex			lock; /* protect sensor state */
 	struct gpio_desc		*gpio_convst;
