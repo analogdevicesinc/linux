@@ -10,6 +10,14 @@
 		};
 	};
 
+	vref_adc: regulator-vref-adc {
+		compatible = "regulator-fixed";
+		regulator-name = "vref-adc";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		regulator-always-on;
+	};
+
 	vref_dac: regulator-vref-dac {
 		compatible = "regulator-fixed";
 		regulator-name = "vref-dac";
@@ -125,6 +133,17 @@
 		/* Clocks */
 		clocks = <&axi_ad9094_rx_jesd>, <&ad9528 0>, <&ad9528 1>;
 		clock-names = "jesd_adc_clk", "adc_clk", "adc_sysref";
+	};
+};
+
+&spi_afe_adc {
+	ad7091r@0 {
+		compatible = "adi,ad7091r";
+		reg = <0>;
+		spi-max-frequency = <1000000>;
+		spi-cpha;
+		spi-cpol;
+		vcc-supply = <&vref_adc>;
 	};
 };
 
