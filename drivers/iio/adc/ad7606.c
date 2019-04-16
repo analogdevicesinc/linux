@@ -32,12 +32,22 @@
 #define AD7606_RANGE_CH_ADDR(ch)	(0x03 + ((ch) >> 1))
 #define AD7606_OS_MODE			0x08
 
+#define AD7616_CONFIGURATION_REGISTER	0x02
+#define AD7616_OS_MASK			GENMASK(4,  2)
+#define AD7616_BURST_MODE		BIT(6)
+#define AD7616_SEQEN_MODE		BIT(5)
+#define AD7616_RANGE_CH_ADDR_OFF	0x04
+#define AD7616_RANGE_CH_ADDR(ch)	((((ch) & 0x1) << 1) + ((ch) >> 3))
+#define AD7616_RANGE_CH_MSK(ch)		(GENMASK(1, 0) << ((ch) & 0x6))
+#define AD7616_RANGE_CH_MODE(ch, mode)	((mode) << (ch & GENMASK(2, 1)))
+
 /* AD7606_RANGE_CH_X_Y */
 #define AD7606_RANGE_CH_MSK(ch)		(GENMASK(3, 0) << (4 * ((ch) % 2)))
 #define AD7606_RANGE_CH_MODE(ch, mode)	\
 	((GENMASK(3, 0) & mode) << (4 * ((ch) % 2)))
 
 static int ad7606B_sw_mode_config(struct iio_dev *indio_dev);
+static int ad7616_sw_mode_config(struct iio_dev *indio_dev);
 
 /*
  * Scales are computed as 5000/32768 and 10000/32768 respectively,
@@ -66,6 +76,11 @@ static const unsigned int ad7606B_oversampling_avail[9] = {
 static int ad7606B_spi_rd_wr_cmd(int addr, char isWriteOp)
 {
 	return (addr & 0x3F) | (((~isWriteOp) & 0x1) << 6);
+}
+
+static int ad7616_spi_rd_wr_cmd(int addr, char isWriteOp)
+{
+	return ((addr & 0x7F) << 1) | ((isWriteOp & 0x1) << 7);
 }
 
 static int ad7606_reset(struct ad7606_state *st)
@@ -111,7 +126,7 @@ static int ad7606_spi_reg_write(struct ad7606_state *st,
 	struct spi_device *spi = to_spi_device(st->dev);
 
 	st->data[0] = cpu_to_be16((st->chip_info->spi_rd_wr_cmd(addr, 1) << 8) |
-				  (val & 0xFF));
+				  (val & 0x1FF));
 
 	return spi_write(spi, &st->data[0], sizeof(st->data[0]));
 }
@@ -319,6 +334,26 @@ static int ad7606_write_os_hw(struct iio_dev *indio_dev, int val)
 	return 0;
 }
 
+static int ad7616_write_scale_sw(struct iio_dev *indio_dev, int ch, int val)
+{
+	struct ad7606_state *st = iio_priv(indio_dev);
+	unsigned int ch_addr, mode;
+
+	ch_addr = AD7616_RANGE_CH_ADDR_OFF + AD7616_RANGE_CH_ADDR(ch);
+	mode = AD7616_RANGE_CH_MODE(ch, ((val + 1) & 0x3));
+
+	return ad7606_spi_write_mask(st, ch_addr, AD7616_RANGE_CH_MSK(ch),
+				     mode);
+}
+
+static int ad7616_write_os_sw(struct iio_dev *indio_dev, int val)
+{
+	struct ad7606_state *st = iio_priv(indio_dev);
+
+	return ad7606_spi_write_mask(st, AD7616_CONFIGURATION_REGISTER,
+				     AD7616_OS_MASK, val << 2);
+}
+
 static int ad7606_write_raw(struct iio_dev *indio_dev,
 			    struct iio_chan_spec const *chan,
 			    int val,
@@ -496,6 +531,26 @@ static const struct iio_chan_spec ad7616_channels[] = {
 	AD7606_CHANNEL(15),
 };
 
+static const struct iio_chan_spec ad7616_soft_channels[] = {
+	IIO_CHAN_SOFT_TIMESTAMP(16),
+	AD7606B_CHANNEL(0),
+	AD7606B_CHANNEL(1),
+	AD7606B_CHANNEL(2),
+	AD7606B_CHANNEL(3),
+	AD7606B_CHANNEL(4),
+	AD7606B_CHANNEL(5),
+	AD7606B_CHANNEL(6),
+	AD7606B_CHANNEL(7),
+	AD7606B_CHANNEL(8),
+	AD7606B_CHANNEL(9),
+	AD7606B_CHANNEL(10),
+	AD7606B_CHANNEL(11),
+	AD7606B_CHANNEL(12),
+	AD7606B_CHANNEL(13),
+	AD7606B_CHANNEL(14),
+	AD7606B_CHANNEL(15),
+};
+
 static const struct ad7606_chip_info ad7606_chip_info_tbl[] = {
 	/* More devices added in future */
 	[ID_AD7605_4] = {
@@ -533,9 +588,13 @@ static const struct ad7606_chip_info ad7606_chip_info_tbl[] = {
 	[ID_AD7616] = {
 		.channels = ad7616_channels,
 		.num_channels = 17,
+		.sw_mode_config = ad7616_sw_mode_config,
 		.oversampling_avail = ad7616_oversampling_avail,
 		.oversampling_num = ARRAY_SIZE(ad7616_oversampling_avail),
 		.os_req_reset = true,
+		.spi_rd_wr_cmd = ad7616_spi_rd_wr_cmd,
+		.write_scale_sw = ad7616_write_scale_sw,
+		.write_os_sw = ad7616_write_os_sw,
 	},
 };
 
@@ -696,6 +755,23 @@ static int ad7606B_sw_mode_config(struct iio_dev *indio_dev)
 	return 0;
 }
 
+static int ad7616_sw_mode_config(struct iio_dev *indio_dev)
+{
+	struct ad7606_state *st = iio_priv(indio_dev);
+
+	/*
+	 * Scale can be configured individually for each channel
+	 * in software mode.
+	 */
+	indio_dev->channels = ad7616_soft_channels;
+
+	/* Activate Burst mode and SEQEN MODE */
+	return ad7606_spi_write_mask(st,
+			      AD7616_CONFIGURATION_REGISTER,
+			      AD7616_BURST_MODE | AD7616_SEQEN_MODE,
+			      AD7616_BURST_MODE | AD7616_SEQEN_MODE);
+}
+
 int ad7606_probe(struct device *dev, int irq, void __iomem *base_address,
 		 const char *name, unsigned int id,
 		 const struct ad7606_bus_ops *bops)
@@ -767,6 +843,10 @@ int ad7606_probe(struct device *dev, int irq, void __iomem *base_address,
 	ret = ad7606_reset(st);
 	if (ret)
 		dev_warn(st->dev, "failed to RESET: no RESET GPIO specified\n");
+
+	/* AD7616 requires al least 15ms to reconfigure after a reset */
+	if (msleep_interruptible(15))
+		return -ERESTARTSYS;
 
 	st->write_scale = ad7606_write_scale_hw;
 	st->write_os = ad7606_write_os_hw;
