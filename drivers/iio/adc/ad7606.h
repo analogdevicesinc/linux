@@ -71,7 +71,7 @@ struct ad7606_state {
 	const struct ad7606_chip_info	*chip_info;
 	struct regulator		*reg;
 	const struct ad7606_bus_ops	*bops;
-	unsigned int			range[8];
+	unsigned int			range[16];
 	unsigned int			oversampling;
 	void __iomem			*base_address;
 	bool				sw_mode_en;
