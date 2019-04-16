@@ -190,6 +190,9 @@ enum {
 	ID_AD9152,
 	ID_AD9162,
 	ID_AD9162_COMPLEX,
+	ID_AD9172_M2,
+	ID_AD9172_M4,
+	ID_AD9172_M6,
 };
 
 enum fifo_ctrl {

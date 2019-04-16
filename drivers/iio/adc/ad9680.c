@@ -607,7 +607,6 @@ static int ad9680_update_sysref(struct axiadc_converter *conv,
 {
 	unsigned int n;
 	int rate;
-	int ret;
 
 	/* No clock, no problem */
 	if (!conv->sysref_clk)

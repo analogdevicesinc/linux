@@ -351,14 +351,14 @@ static IIO_DEVICE_ATTR(enable_mode, S_IRUGO | S_IWUSR,
 			cf_axi_tdd_store,
 			CF_AXI_TDD_ENABLE_MODE);
 
-static IIO_CONST_ATTR(enable_mode_available, "rx_tx rx_only tx_onlx");
+static IIO_CONST_ATTR(enable_mode_available, "rx_tx rx_only tx_only");
 
 static IIO_DEVICE_ATTR(dma_gateing_mode, S_IRUGO | S_IWUSR,
 			cf_axi_tdd_show,
 			cf_axi_tdd_store,
 			CF_AXI_TDD_DMA_GATEING_MODE);
 
-static IIO_CONST_ATTR(dma_gateing_mode_available, "none rx_only tx_onlx rx_tx");
+static IIO_CONST_ATTR(dma_gateing_mode_available, "none rx_only tx_only rx_tx");
 
 static IIO_DEVICE_ATTR(burst_count, S_IRUGO | S_IWUSR,
 			cf_axi_tdd_show,

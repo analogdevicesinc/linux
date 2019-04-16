@@ -323,7 +323,7 @@ int xilinx_xcvr_calc_cpll_config(struct xilinx_xcvr *xcvr,
 	unsigned int *out_div)
 {
 	unsigned int n1, n2, d, m;
-	unsigned int refclk_khz = refclk_hz / 1000;
+	unsigned int refclk_khz = DIV_ROUND_CLOSEST(refclk_hz, 1000);
 	unsigned int vco_freq;
 	unsigned int vco_min;
 	unsigned int vco_max;
@@ -342,7 +342,7 @@ int xilinx_xcvr_calc_cpll_config(struct xilinx_xcvr *xcvr,
 		return -EINVAL;
 	}
 
-	if (AXI_PCORE_VER_MAJOR(xcvr->version) > 0x11)
+	if (AXI_PCORE_VER_MAJOR(xcvr->version) > 0x10)
 		xilinx_xcvr_setup_cpll_vco_range(xcvr, &vco_max);
 
 	for (m = 1; m <= 2; m++) {
@@ -384,7 +384,7 @@ int xilinx_xcvr_calc_qpll_config(struct xilinx_xcvr *xcvr,
 	struct xilinx_xcvr_qpll_config *conf,
 	unsigned int *out_div)
 {
-	unsigned int refclk_khz = refclk_hz / 1000;
+	unsigned int refclk_khz = DIV_ROUND_CLOSEST(refclk_hz, 1000);
 	unsigned int n, d, m;
 	unsigned int vco_freq;
 	unsigned int band;
@@ -418,7 +418,7 @@ int xilinx_xcvr_calc_qpll_config(struct xilinx_xcvr *xcvr,
 		return -EINVAL;
 	}
 
-	if (AXI_PCORE_VER_MAJOR(xcvr->version) > 0x11)
+	if (AXI_PCORE_VER_MAJOR(xcvr->version) > 0x10)
 		xilinx_xcvr_setup_qpll_vco_range(xcvr,
 						 &vco0_min, &vco0_max,
 						 &vco1_min, &vco1_max);

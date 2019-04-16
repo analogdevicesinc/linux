@@ -98,7 +98,6 @@ struct axi_dmac_sg {
 	unsigned int src_stride;
 	unsigned int id;
 	unsigned int partial_len;
-	bool last;
 	bool schedule_when_free;
 };
 
@@ -237,11 +236,10 @@ static void axi_dmac_start_transfer(struct axi_dmac_chan *chan)
 	desc->num_submitted++;
 	if (desc->num_submitted == desc->num_sgs ||
 	    desc->have_partial_xfer) {
-		if (desc->cyclic) {
+		if (desc->cyclic)
 			desc->num_submitted = 0; /* Start again */
-		} else {
+		else
 			chan->next_desc = NULL;
-		}
 		flags |= AXI_DMAC_FLAG_LAST;
 	} else {
 		chan->next_desc = desc;
@@ -388,12 +386,13 @@ static bool axi_dmac_transfer_done(struct axi_dmac_chan *chan,
 			start_next = true;
 		}
 
+		if (active->cyclic)
+			vchan_cyclic_callback(&active->vdesc);
+
 		if (active->num_completed == active->num_sgs ||
 		    sg->partial_len) {
 			if (active->cyclic) {
 				active->num_completed = 0; /* wrap around */
-				if (sg->last)
-					vchan_cyclic_callback(&active->vdesc);
 			} else {
 				list_del(&active->vdesc.node);
 				if (sg->partial_len)
@@ -564,7 +563,6 @@ static struct axi_dmac_sg *axi_dmac_fill_linear_sg(struct axi_dmac_chan *chan,
 			sg->src_addr = addr;
 		sg->x_len = len;
 		sg->y_len = 1;
-		sg->last = true;
 		sg++;
 		addr += len;
 	}
@@ -587,7 +585,10 @@ static struct dma_async_tx_descriptor *axi_dmac_prep_slave_sg(
 	if (direction != chan->direction)
 		return NULL;
 
-	num_sgs = sg_nents_for_dma(sgl, sg_len, chan->max_length);
+	num_sgs = 0;
+	for_each_sg(sgl, sg, sg_len, i)
+		num_sgs += DIV_ROUND_UP(sg_dma_len(sg), chan->max_length);
+
 	desc = axi_dmac_alloc_desc(num_sgs);
 	if (!desc)
 		return NULL;
@@ -637,7 +638,7 @@ static struct dma_async_tx_descriptor *axi_dmac_prep_dma_cyclic(
 		return NULL;
 
 	axi_dmac_fill_linear_sg(chan, direction, buf_addr, num_periods,
-		buf_len, desc->sg);
+		period_len, desc->sg);
 
 	desc->cyclic = true;
 

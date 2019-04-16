@@ -416,6 +416,30 @@ static void adp5589_gpio_set_value(struct gpio_chip *chip,
 	mutex_unlock(&kpad->gpio_lock);
 }
 
+static void adp5589_gpio_set_multiple(struct gpio_chip *chip,
+				      unsigned long *mask, unsigned long *bits)
+{
+	struct adp5589_kpad *kpad = container_of(chip, struct adp5589_kpad, gc);
+	u8 bank, reg_mask, reg_bits;
+
+	mutex_lock(&kpad->gpio_lock);
+
+	for (bank = 0; bank <= kpad->var->bank(kpad->var->maxgpio); bank++) {
+		if (bank > kpad->var->bank(get_bitmask_order(*mask) - 1))
+			break;
+		reg_mask = mask[bank / sizeof(*mask)] >>
+			   ((bank % sizeof(*mask)) * BITS_PER_BYTE);
+		reg_bits = bits[bank / sizeof(*bits)] >>
+			   ((bank % sizeof(*bits)) * BITS_PER_BYTE);
+		kpad->dat_out[bank] &= ~reg_mask;
+		kpad->dat_out[bank] |= reg_bits & reg_mask;
+		adp5589_write(kpad->client, kpad->var->reg(ADP5589_GPO_DATA_OUT_A) + bank,
+			      kpad->dat_out[bank]);
+	}
+
+	mutex_unlock(&kpad->gpio_lock);
+}
+
 static int adp5589_gpio_direction_input(struct gpio_chip *chip, unsigned off)
 {
 	struct adp5589_kpad *kpad = gpiochip_get_data(chip);
@@ -518,6 +542,7 @@ static int adp5589_gpio_add(struct adp5589_kpad *kpad,
 	kpad->gc.direction_output = adp5589_gpio_direction_output;
 	kpad->gc.get = adp5589_gpio_get_value;
 	kpad->gc.set = adp5589_gpio_set_value;
+	kpad->gc.set_multiple = adp5589_gpio_set_multiple;
 	kpad->gc.can_sleep = 1;
 
 	kpad->gc.base = gpio_data->gpio_start;

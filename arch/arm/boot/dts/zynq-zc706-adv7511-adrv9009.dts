@@ -63,7 +63,7 @@
 
 			dma-channel@0 {
 				reg = <0>;
-				adi,source-bus-width = <64>;
+				adi,source-bus-width = <128>;
 				adi,source-bus-type = <2>;
 				adi,destination-bus-width = <64>;
 				adi,destination-bus-type = <0>;
@@ -156,7 +156,7 @@
 		adi,control-bits-per-sample = <0>;
 	};
 
-	axi_adrv9009_rx_os_jesd: axi-jesd204-rx@44ab0000 {
+	axi_adrv9009_rx_os_jesd: axi-jesd204-rx-os@44ab0000 {
 		compatible = "adi,axi-jesd204-rx-1.0";
 		reg = <0x44ab0000 0x1000>;
 
@@ -168,7 +168,7 @@
 		#clock-cells = <0>;
 		clock-output-names = "jesd_rx_os_lane_clk";
 
-		adi,octets-per-frame = <2>;
+		adi,octets-per-frame = <4>;
 		adi,frames-per-multiframe = <32>;
 	};
 
