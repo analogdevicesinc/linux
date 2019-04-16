@@ -15,7 +15,6 @@
  * @oversampling_avail	pointer to the array which stores the available
  *			oversampling ratios.
  * @oversampling_num	number of elements stored in oversampling_avail array
- * @os_req_reset	some devices require a reset to update oversampling
  * @sw_mode_config:	pointer to a function which configured the device
  *			for software mode
  */
@@ -24,7 +23,6 @@ struct ad7606_chip_info {
 	unsigned int			num_channels;
 	const unsigned int		*oversampling_avail;
 	unsigned int			oversampling_num;
-	bool				os_req_reset;
 	int (*sw_mode_config)(struct iio_dev *indio_dev);
 };
 
@@ -83,9 +81,9 @@ struct ad7606_state {
 	/*
 	 * DMA (thus cache coherency maintenance) requires the
 	 * transfer buffers to live in their own cache lines.
-	 * 16 * 16-bit samples + 64-bit timestamp
+	 * 8 * 16-bit samples + 64-bit timestamp
 	 */
-	unsigned short			data[20] ____cacheline_aligned;
+	unsigned short			data[12] ____cacheline_aligned;
 };
 
 /**
@@ -106,8 +104,7 @@ enum ad7606_supported_device_ids {
 	ID_AD7606_8,
 	ID_AD7606_6,
 	ID_AD7606_4,
-	ID_AD7606B,
-	ID_AD7616,
+	ID_AD7606B
 };
 
 #ifdef CONFIG_PM_SLEEP
