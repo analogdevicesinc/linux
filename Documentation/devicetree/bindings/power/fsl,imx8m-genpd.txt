@@ -1,0 +1,46 @@
+Device Tree Bindings for Freescale i.MX8M Generic Power Domain
+==============================================================
+The binding for the i.MX8M Generic power Domain[1].
+
+[1] Documentation/devicetree/bindings/power/power_domain.txt
+
+Required properties:
+
+ - compatible: should be of:
+	- "fsl,imx8m-power-domain"
+ - #power-domain-cells: Number of cells in a PM domain Specifier, must be 0
+ - domain-index: should be the domain index number need to pass to TF-A
+ - domain-name: the name of this pm domain
+
+Optional properties:
+ - clocks: a number of phandles to clocks that need to be enabled during
+   domain power-up sequence to ensure reset propagation into devices
+   located inside this power domain
+ - power-supply: Power supply used to power the domain
+ - parent-domains: the phandle to the parent power domain
+
+example:
+	vpu_g1_pd: vpug1-pd {
+		compatible = "fsl,imx8mm-pm-domain";
+		#power-domain-cells = <0>;
+		domain-index = <6>;
+		domain-name = "vpu_g1";
+		parent-domains = <&vpumix_pd>;
+		clocks = <&clk IMX8MM_CLK_VPU_G1_ROOT>;
+	};
+
+
+Specifying Power domain for IP modules
+======================================
+
+IP cores belonging to a power domain should contain a 'power-domains'
+property that is a phandle for PGC node representing the domain.
+
+Example of a device that is part of the vpu_g1 power domain:
+	vpu_g1: vpu_g1@38300000 {
+		/* ... */
+		interrupts = <GIC_SPI 7 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "irq_hantro";
+		/* ... */
+		power-domains = <&vpu_g1_pd>;
+	};
