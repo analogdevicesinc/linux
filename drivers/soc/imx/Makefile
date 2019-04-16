@@ -4,3 +4,4 @@ obj-$(CONFIG_ARCH_MXC) += soc-imx.o
 endif
 obj-$(CONFIG_SOC_IMX8M) += soc-imx8m.o
 obj-$(CONFIG_SOC_IMX9) += imx93-src.o
+obj-$(CONFIG_IMX8M_PM_DOMAINS) += imx8m_pm_domains.o
