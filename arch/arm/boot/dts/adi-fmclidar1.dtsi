@@ -11,7 +11,7 @@
 	};
 };
 
-&axi_spi_vco {
+&spi_vco {
 	adf4360: pll@0 {
 		compatible = "adi,adf4360-7";
 		reg = <0>;
@@ -30,7 +30,7 @@
 	};
 };
 
-&spi1 {
+&spi_clkgen {
 	ad9528: ad9528@0 {
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -103,7 +103,7 @@
 	};
 };
 
-&spi0 {
+&spi_adc {
 	ad9094: ad9094@1 {
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -119,3 +119,4 @@
 		clock-names = "jesd_adc_clk", "adc_clk", "adc_sysref";
 	};
 };
+
