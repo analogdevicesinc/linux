@@ -123,6 +123,8 @@
 
 &spi0 {
 	status = "okay";
+	num-cs = <8>;
+	is-decoded-cs = <1>;
 
 	trx0_adrv9009: adrv9009-phy@0 {
 		compatible = "adrv9009-x2";
