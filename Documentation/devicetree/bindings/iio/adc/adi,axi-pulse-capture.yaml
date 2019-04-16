@@ -1,0 +1,48 @@
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/bindings/iio/adc/adi,axi-pulse-capture.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Analog Devices AXI Pulse Capture Device Tree Bindings
+
+maintainers:
+  - Nuno Sá <nuno.sa@analog.com>
+
+description: |
+  Analog Devices AXI Pulse Capture IP Core
+  This core controls the state of a laser driver and a pulse generator signal.
+
+properties:
+  compatible:
+    enum:
+      - adi,axi-pulse-capture-1.00.a
+
+  reg:
+    maxItems: 1
+
+  interrupts:
+    maxItems: 1
+
+  clocks:
+    maxItems: 1
+
+required:
+- compatible
+- reg
+- interrupts
+- clocks
+
+examples:
+  - |
+    fpga_axi: fpga-axi@0 {
+            #address-cells = <0x1>;
+            #size-cells = <0x1>;
+
+            axi_pulse_capture: axi-pulse-capture@7c700000 {
+                    compatible = "adi,axi-pulse-capture-1.00.a";
+                    reg = <0x7c700000 0x10000>;
+                    clocks = <&clkc 17>;
+                    interrupts = <0 52 0>;
+            };
+    };
+...
