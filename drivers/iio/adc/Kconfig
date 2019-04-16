@@ -381,6 +381,16 @@ config CF_AXI_TDD
 	help
 	  Say yes here to build support for Analog Devices TDD HDL CORE driver.
 
+config AXI_PULSE_CAPTURE
+	tristate "Analog Devices Laser/Pulse HDL CORE driver"
+	default n
+	help
+	  Say yes here to build support for Analog Devices Pulse Capture
+	  HDL CORE driver.
+
+	  To compile this driver as a module, choose M here: the module will be
+	  called axi_pulse_capture.
+
 config AXI_FMCADC5_SYNC
 	tristate "Analog Devices FMCADC5 5Gbps Interleave Synchronizer"
 
