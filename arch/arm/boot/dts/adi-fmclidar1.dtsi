@@ -9,6 +9,14 @@
 			clock-output-names = "adf_ref_clock";
 		};
 	};
+
+	vref_dac: regulator-vref-dac {
+		compatible = "regulator-fixed";
+		regulator-name = "vref-dac";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		regulator-always-on;
+	};
 };
 
 &spi_vco {
@@ -117,6 +125,15 @@
 		/* Clocks */
 		clocks = <&axi_ad9094_rx_jesd>, <&ad9528 0>, <&ad9528 1>;
 		clock-names = "jesd_adc_clk", "adc_clk", "adc_sysref";
+	};
+};
+
+&i2c_afe_dac {
+	ad5627@0c {
+		compatible = "ad5627";
+		reg = <0x0c>;
+
+		vref-supply = <&vref_dac>;
 	};
 };
 

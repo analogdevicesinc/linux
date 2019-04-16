@@ -112,9 +112,15 @@
 	status = "okay";
 };
 
+&i2c1 {
+	status = "okay";
+	clock-frequency = <400000>;
+};
+
 #define spi_vco		axi_spi_vco
 #define spi_clkgen	spi1
 #define spi_adc		spi0
+#define i2c_afe_dac	i2c1
 
 #include "adi-fmclidar1.dtsi"
 
