@@ -126,6 +126,11 @@ enum pm_api_id {
 	PM_CLOCK_GETRATE,
 	PM_CLOCK_SETPARENT,
 	PM_CLOCK_GETPARENT,
+	PM_FPGA_READ = 46,
+	PM_SECURE_AES,
+	/* PM_REGISTER_ACCESS API */
+	PM_REGISTER_ACCESS = 52,
+	PM_EFUSE_ACCESS,
 };
 
 /* PMU-FW return status codes */
@@ -525,6 +530,11 @@ enum pm_query_id {
 	PM_QID_PINCTRL_GET_PIN_GROUPS,
 };
 
+enum pm_register_access_id {
+	CONFIG_REG_WRITE,
+	CONFIG_REG_READ,
+};
+
 struct zynqmp_pm_query_data {
 	u32 qid;
 	u32 arg1;
@@ -540,6 +550,8 @@ struct zynqmp_eemi_ops {
 	int (*reset_get_status)(const enum zynqmp_pm_reset reset, u32 *status);
 	int (*fpga_load)(const u64 address, const u32 size, const u32 flags);
 	int (*fpga_get_status)(u32 *value);
+	int (*fpga_read)(const u32 reg_numframes, const u64 phys_address,
+			 u32 readback_type, u32 *value);
 	int (*sha_hash)(const u64 address, const u32 size, const u32 flags);
 	int (*rsa)(const u64 address, const u32 size, const u32 flags);
 	int (*request_suspend)(const u32 node,
@@ -591,6 +603,10 @@ struct zynqmp_eemi_ops {
 	int (*clock_getrate)(u32 clock_id, u64 *rate);
 	int (*clock_setparent)(u32 clock_id, u32 parent_id);
 	int (*clock_getparent)(u32 clock_id, u32 *parent_id);
+	int (*register_access)(u32 register_access_id, u32 address,
+			       u32 mask, u32 value, u32 *out);
+	int (*aes)(const u64 address, u32 *out);
+	int (*efuse_access)(const u64 address, u32 *out);
 };
 
 /*

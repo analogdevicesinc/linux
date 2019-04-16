@@ -333,8 +333,6 @@ static int macb_mdio_wait_for_idle(struct macb *bp)
 
 		if (time_after_eq(jiffies, timeout)) {
 			netdev_err(bp->dev, "wait for end of transfer timed out\n");
-			pm_runtime_mark_last_busy(&bp->pdev->dev);
-			pm_runtime_put_autosuspend(&bp->pdev->dev);
 			return -ETIMEDOUT;
 		}
 
@@ -350,9 +348,9 @@ static int macb_mdio_read(struct mii_bus *bus, int mii_id, int regnum)
 	int value;
 	int err;
 
-	err = pm_runtime_get_sync(&bp->pdev->dev);
-	if (err < 0)
-		return err;
+	if (pm_runtime_status_suspended(&bp->pdev->dev) &&
+	    !device_may_wakeup(&bp->dev->dev))
+		return -EAGAIN;
 
 	err = macb_mdio_wait_for_idle(bp);
 	if (err < 0)
@@ -370,8 +368,6 @@ static int macb_mdio_read(struct mii_bus *bus, int mii_id, int regnum)
 
 	value = MACB_BFEXT(DATA, macb_readl(bp, MAN));
 
-	pm_runtime_mark_last_busy(&bp->pdev->dev);
-	pm_runtime_put_autosuspend(&bp->pdev->dev);
 	return value;
 }
 
@@ -381,9 +377,9 @@ static int macb_mdio_write(struct mii_bus *bus, int mii_id, int regnum,
 	struct macb *bp = bus->priv;
 	int err;
 
-	err = pm_runtime_get_sync(&bp->pdev->dev);
-	if (err < 0)
-		return err;
+	if (pm_runtime_status_suspended(&bp->pdev->dev) &&
+	    !device_may_wakeup(&bp->dev->dev))
+		return -EAGAIN;
 
 	err = macb_mdio_wait_for_idle(bp);
 	if (err < 0)
@@ -400,8 +396,6 @@ static int macb_mdio_write(struct mii_bus *bus, int mii_id, int regnum,
 	if (err < 0)
 		return err;
 
-	pm_runtime_mark_last_busy(&bp->pdev->dev);
-	pm_runtime_put_autosuspend(&bp->pdev->dev);
 	return 0;
 }
 
@@ -3913,7 +3907,6 @@ static int __maybe_unused macb_suspend(struct device *dev)
 		spin_unlock_irqrestore(&bp->lock, flags);
 	}
 
-	netif_carrier_off(netdev);
 	if (bp->ptp_info)
 		bp->ptp_info->ptp_remove(netdev);
 	pm_runtime_force_suspend(dev);
@@ -3948,8 +3941,8 @@ static int __maybe_unused macb_resume(struct device *dev)
 	} else {
 		macb_writel(bp, NCR, MACB_BIT(MPE));
 		napi_enable(&bp->napi);
-		netif_carrier_on(netdev);
 		phy_resume(bp->phy_dev);
+		phy_init_hw(bp->phy_dev);
 		phy_start(bp->phy_dev);
 	}
 

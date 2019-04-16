@@ -327,10 +327,60 @@
 		soc_revision: soc_revision@0 {
 			reg = <0x0 0x4>;
 		};
+		/* efuse access */
+		efuse_dna: efuse_dna@c {
+			reg = <0xc 0xc>;
+		};
+		efuse_usr0: efuse_usr0@20 {
+			reg = <0x20 0x4>;
+		};
+		efuse_usr1: efuse_usr1@24 {
+			reg = <0x24 0x4>;
+		};
+		efuse_usr2: efuse_usr2@28 {
+			reg = <0x28 0x4>;
+		};
+		efuse_usr3: efuse_usr3@2c {
+			reg = <0x2c 0x4>;
+		};
+		efuse_usr4: efuse_usr4@30 {
+			reg = <0x30 0x4>;
+		};
+		efuse_usr5: efuse_usr5@34 {
+			reg = <0x34 0x4>;
+		};
+		efuse_usr6: efuse_usr6@38 {
+			reg = <0x38 0x4>;
+		};
+		efuse_usr7: efuse_usr7@3c {
+			reg = <0x3c 0x4>;
+		};
+		efuse_miscusr: efuse_miscusr@40 {
+			reg = <0x40 0x4>;
+		};
+		efuse_chash: efuse_chash@50 {
+			reg = <0x50 0x4>;
+		};
+		efuse_pufmisc: efuse_pufmisc@54 {
+			reg = <0x54 0x4>;
+		};
+		efuse_sec: efuse_sec@58 {
+			reg = <0x58 0x4>;
+		};
+		efuse_spkid: efuse_spkid@5c {
+			reg = <0x5c 0x4>;
+		};
+		efuse_ppk0hash: efuse_ppk0hash@a0 {
+			reg = <0xa0 0x30>;
+		};
+		efuse_ppk1hash: efuse_ppk1hash@d0 {
+			reg = <0xd0 0x30>;
+		};
 	};
 
 	pcap: pcap {
 		compatible = "xlnx,zynqmp-pcap-fpga";
+		clock-names = "ref_clk";
 	};
 
 	rst: reset-controller {
@@ -344,6 +394,10 @@
 
 	xlnx_keccak_384: sha384 {
 		compatible = "xlnx,zynqmp-keccak-384";
+	};
+
+	xlnx_aes: zynqmp_aes {
+		compatible = "xlnx,zynqmp-aes";
 	};
 
 	amba_apu: amba_apu@0 {
@@ -363,6 +417,20 @@
 			interrupt-parent = <&gic>;
 			interrupts = <1 9 0xf04>;
 		};
+	};
+
+	smmu: smmu@fd800000 {
+		compatible = "arm,mmu-500";
+		reg = <0x0 0xfd800000 0x0 0x20000>;
+		#iommu-cells = <1>;
+		status = "disabled";
+		#global-interrupts = <1>;
+		interrupt-parent = <&gic>;
+		interrupts = <0 155 4>,
+			<0 155 4>, <0 155 4>, <0 155 4>, <0 155 4>,
+			<0 155 4>, <0 155 4>, <0 155 4>, <0 155 4>,
+			<0 155 4>, <0 155 4>, <0 155 4>, <0 155 4>,
+			<0 155 4>, <0 155 4>, <0 155 4>, <0 155 4>;
 	};
 
 	amba: amba {
@@ -883,7 +951,7 @@
 			/* dma-coherent; */
 		};
 
-		sdhci0: sdhci@ff160000 {
+		sdhci0: mmc@ff160000 {
 			u-boot,dm-pre-reloc;
 			compatible = "xlnx,zynqmp-8.9a", "arasan,sdhci-8.9a";
 			status = "disabled";
@@ -899,7 +967,7 @@
 			nvmem-cell-names = "soc_revision";
 		};
 
-		sdhci1: sdhci@ff170000 {
+		sdhci1: mmc@ff170000 {
 			u-boot,dm-pre-reloc;
 			compatible = "xlnx,zynqmp-8.9a", "arasan,sdhci-8.9a";
 			status = "disabled";
@@ -913,20 +981,6 @@
 			power-domains = <&pd_sd1>;
 			nvmem-cells = <&soc_revision>;
 			nvmem-cell-names = "soc_revision";
-		};
-
-		smmu: smmu@fd800000 {
-			compatible = "arm,mmu-500";
-			reg = <0x0 0xfd800000 0x0 0x20000>;
-			#iommu-cells = <1>;
-			status = "okay";
-			#global-interrupts = <1>;
-			interrupt-parent = <&gic>;
-			interrupts = <0 155 4>,
-				<0 155 4>, <0 155 4>, <0 155 4>, <0 155 4>,
-				<0 155 4>, <0 155 4>, <0 155 4>, <0 155 4>,
-				<0 155 4>, <0 155 4>, <0 155 4>, <0 155 4>,
-				<0 155 4>, <0 155 4>, <0 155 4>, <0 155 4>;
 		};
 
 		spi0: spi@ff040000 {
@@ -1080,7 +1134,8 @@
 			interrupt-parent = <&gic>;
 			interrupts = <0 113 1>;
 			reg = <0x0 0xfd4d0000 0x0 0x1000>;
-			timeout-sec = <10>;
+			timeout-sec = <60>;
+			reset-on-timeout;
 		};
 
 		lpd_watchdog: watchdog@ff150000 {

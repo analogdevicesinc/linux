@@ -35,6 +35,7 @@ struct zynqmp_pm_work_struct {
 };
 
 static struct zynqmp_pm_work_struct *zynqmp_pm_init_suspend_work;
+static struct mbox_chan *rx_chan;
 
 enum pm_suspend_mode {
 	PM_SUSPEND_MODE_FIRST = 0,
@@ -61,6 +62,7 @@ static void ipi_receive_callback(struct mbox_client *cl, void *data)
 {
 	struct zynqmp_ipi_message *msg = (struct zynqmp_ipi_message *)data;
 	u32 payload[msg->len];
+	int ret;
 
 	memcpy(payload, msg->data, sizeof(msg->len));
 	/* First element is callback API ID, others are callback arguments */
@@ -74,6 +76,11 @@ static void ipi_receive_callback(struct mbox_client *cl, void *data)
 
 		queue_work(system_unbound_wq,
 			   &zynqmp_pm_init_suspend_work->callback_work);
+
+		/* Send NULL message to mbox controller to ack the message */
+		ret = mbox_send_message(rx_chan, NULL);
+		if (ret)
+			pr_err("IPI ack failed. Error %d\n", ret);
 	}
 }
 
@@ -172,7 +179,6 @@ static int zynqmp_pm_probe(struct platform_device *pdev)
 	int ret;
 	u32 pm_api_version;
 	struct mbox_client *client;
-	struct mbox_chan *rx_chan;
 	const struct zynqmp_eemi_ops *eemi_ops = zynqmp_pm_get_eemi_ops();
 
 	if (of_device_is_compatible(pdev->dev.of_node, "xlnx,zynqmp-pm")) {
@@ -220,6 +226,13 @@ static int zynqmp_pm_probe(struct platform_device *pdev)
 	return 0;
 }
 
+static int zynqmp_pm_remove(struct platform_device *pdev)
+{
+	mbox_free_channel(rx_chan);
+
+	return 0;
+}
+
 static const struct of_device_id pm_of_match[] = {
 	{ .compatible = "xlnx,zynqmp-power", },
 	{ .compatible = "xlnx,zynqmp-pm", },
@@ -229,6 +242,7 @@ MODULE_DEVICE_TABLE(of, pm_of_match);
 
 static struct platform_driver zynqmp_pm_platform_driver = {
 	.probe = zynqmp_pm_probe,
+	.remove = zynqmp_pm_remove,
 	.driver = {
 		.name = "zynqmp_power",
 		.of_match_table = pm_of_match,

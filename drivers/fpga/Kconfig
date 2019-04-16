@@ -18,6 +18,13 @@ config FPGA_REGION
 	  FPGA Regions allow loading FPGA images under control of
 	  the Device Tree.
 
+config FPGA_MGR_DEBUG_FS
+	tristate "FPGA debug fs"
+	select DEBUG_FS
+	help
+	  FPGA manager debug provides support for reading fpga configuration
+	  information.
+
 config FPGA_MGR_ICE40_SPI
 	tristate "Lattice iCE40 SPI"
 	depends on OF && SPI
@@ -71,6 +78,15 @@ config FPGA_MGR_ZYNQ_FPGA
 	depends on HAS_DMA
 	help
 	  FPGA manager driver support for Xilinx Zynq FPGAs.
+
+config FPGA_MGR_ZYNQ_AFI_FPGA
+	bool "Xilinx AFI FPGA"
+	depends on FPGA_MGR_ZYNQ_FPGA
+	help
+	  Zynq AFI driver support for writing to the AFI registers
+	  for configuring the PS_PL interface. For some of the bitstream
+	  or designs to work the PS to PL interfaces need to be configured
+	  like the data bus-width etc.
 
 config FPGA_MGR_ZYNQMP_FPGA
 	tristate "Xilinx Zynqmp FPGA"

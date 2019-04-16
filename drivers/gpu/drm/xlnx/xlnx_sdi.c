@@ -34,6 +34,7 @@
 #define XSDI_TX_STS_SB_TDATA		0x60
 #define XSDI_TX_AXI4S_STS1		0x68
 #define XSDI_TX_AXI4S_STS2		0x6C
+#define XSDI_TX_ST352_DATA_DS2		0x70
 
 /* MODULE_CTRL register masks */
 #define XSDI_TX_CTRL_M			BIT(7)
@@ -41,6 +42,7 @@
 #define XSDI_TX_CTRL_INS_ST352		BIT(13)
 #define XSDI_TX_CTRL_OVR_ST352		BIT(14)
 #define XSDI_TX_CTRL_INS_SYNC_BIT	BIT(16)
+#define XSDI_TX_CTRL_USE_ANC_IN		BIT(18)
 #define XSDI_TX_CTRL_INS_LN		BIT(19)
 #define XSDI_TX_CTRL_INS_EDH		BIT(20)
 #define XSDI_TX_CTRL_MODE		0x7
@@ -50,6 +52,8 @@
 #define XSDI_TX_CTRL_MUX_SHIFT		8
 #define XSDI_TX_CTRL_ST352_F2_EN_SHIFT	15
 #define XSDI_TX_CTRL_420_BIT		BIT(21)
+#define XSDI_TX_CTRL_INS_ST352_CHROMA	BIT(23)
+#define XSDI_TX_CTRL_USE_DS2_3GA	BIT(24)
 
 /* TX_ST352_LINE register masks */
 #define XSDI_TX_ST352_LINE_MASK		GENMASK(10, 0)
@@ -132,6 +136,8 @@ enum payload_line_2 {
  * @mode_flags: SDI operation mode related flags
  * @wait_event: wait event
  * @event_received: wait event status
+ * @enable_st352_chroma: Able to send ST352 packets in Chroma stream.
+ * @enable_anc_data: Enable/Disable Ancillary Data insertion for Audio
  * @sdi_mode: configurable SDI mode parameter, supported values are:
  *		0 - HD
  *		1 - SD
@@ -158,6 +164,11 @@ enum payload_line_2 {
  * @in_fmt_prop_val: configurable media bus format value
  * @out_fmt: configurable bridge output media format
  * @out_fmt_prop_val: configurable media bus format value
+ * @en_st352_c_prop: configurable ST352 payload on Chroma stream parameter
+ * @en_st352_c_val: configurable ST352 payload on Chroma parameter value
+ * @use_ds2_3ga_prop: Use DS2 instead of DS3 in 3GA mode parameter
+ * @use_ds2_3ga_val: Use DS2 instead of DS3 in 3GA mode parameter value
+ * @video_mode: current display mode
  */
 struct xlnx_sdi {
 	struct drm_encoder encoder;
@@ -167,6 +178,8 @@ struct xlnx_sdi {
 	u32 mode_flags;
 	wait_queue_head_t wait_event;
 	bool event_received;
+	bool enable_st352_chroma;
+	bool enable_anc_data;
 	struct drm_property *sdi_mode;
 	u32 sdi_mod_prop_val;
 	struct drm_property *sdi_data_strm;
@@ -186,6 +199,11 @@ struct xlnx_sdi {
 	u32 in_fmt_prop_val;
 	struct drm_property *out_fmt;
 	u32 out_fmt_prop_val;
+	struct drm_property *en_st352_c_prop;
+	bool en_st352_c_val;
+	struct drm_property *use_ds2_3ga_prop;
+	bool use_ds2_3ga_val;
+	struct drm_display_mode video_mode;
 };
 
 #define connector_to_sdi(c) container_of(c, struct xlnx_sdi, connector)
@@ -304,6 +322,14 @@ static void xlnx_sdi_set_payload_data(struct xlnx_sdi *sdi,
 {
 	xlnx_sdi_writel(sdi->base,
 			(XSDI_TX_ST352_DATA_CH0 + (data_strm * 4)), payload);
+
+	dev_dbg(sdi->dev, "enable_st352_chroma = %d and en_st352_c_val = %d\n",
+		sdi->enable_st352_chroma, sdi->en_st352_c_val);
+	if (sdi->enable_st352_chroma && sdi->en_st352_c_val) {
+		xlnx_sdi_writel(sdi->base,
+				(XSDI_TX_ST352_DATA_DS2 + (data_strm * 4)),
+				payload);
+	}
 }
 
 /**
@@ -470,6 +496,10 @@ xlnx_sdi_atomic_set_property(struct drm_connector *connector,
 		sdi->in_fmt_prop_val = (unsigned int)val;
 	else if (property == sdi->out_fmt)
 		sdi->out_fmt_prop_val = (unsigned int)val;
+	else if (property == sdi->en_st352_c_prop)
+		sdi->en_st352_c_val = !!val;
+	else if (property == sdi->use_ds2_3ga_prop)
+		sdi->use_ds2_3ga_val = !!val;
 	else
 		return -EINVAL;
 	return 0;
@@ -500,6 +530,10 @@ xlnx_sdi_atomic_get_property(struct drm_connector *connector,
 		*val = sdi->in_fmt_prop_val;
 	else if (property == sdi->out_fmt)
 		*val = sdi->out_fmt_prop_val;
+	else if (property == sdi->en_st352_c_prop)
+		*val =  sdi->en_st352_c_val;
+	else if (property == sdi->use_ds2_3ga_prop)
+		*val =  sdi->use_ds2_3ga_val;
 	else
 		return -EINVAL;
 
@@ -619,6 +653,12 @@ xlnx_sdi_drm_connector_create_property(struct drm_connector *base_connector)
 						"in_fmt", 0, 16384);
 	sdi->out_fmt = drm_property_create_range(dev, 0,
 						 "out_fmt", 0, 16384);
+	if (sdi->enable_st352_chroma) {
+		sdi->en_st352_c_prop = drm_property_create_bool(dev, 1,
+								"en_st352_c");
+		sdi->use_ds2_3ga_prop = drm_property_create_bool(dev, 1,
+								 "use_ds2_3ga");
+	}
 }
 
 /**
@@ -659,6 +699,12 @@ xlnx_sdi_drm_connector_attach_property(struct drm_connector *base_connector)
 
 	if (sdi->out_fmt)
 		drm_object_attach_property(obj, sdi->out_fmt, 0);
+
+	if (sdi->en_st352_c_prop)
+		drm_object_attach_property(obj, sdi->en_st352_c_prop, 0);
+
+	if (sdi->use_ds2_3ga_prop)
+		drm_object_attach_property(obj, sdi->use_ds2_3ga_prop, 0);
 }
 
 static int xlnx_sdi_create_connector(struct drm_encoder *encoder)
@@ -756,6 +802,23 @@ static void xlnx_sdi_setup(struct xlnx_sdi *sdi)
 	reg |= XSDI_TX_CTRL_INS_CRC | XSDI_TX_CTRL_INS_ST352 |
 		XSDI_TX_CTRL_OVR_ST352 | XSDI_TX_CTRL_INS_SYNC_BIT |
 		XSDI_TX_CTRL_INS_EDH;
+
+	if (sdi->enable_anc_data)
+		reg |= XSDI_TX_CTRL_USE_ANC_IN;
+
+	if (sdi->enable_st352_chroma) {
+		if (sdi->en_st352_c_val) {
+			reg |= XSDI_TX_CTRL_INS_ST352_CHROMA;
+			if (sdi->use_ds2_3ga_val)
+				reg |= XSDI_TX_CTRL_USE_DS2_3GA;
+			else
+				reg &= ~XSDI_TX_CTRL_USE_DS2_3GA;
+		} else {
+			reg &= ~XSDI_TX_CTRL_INS_ST352_CHROMA;
+			reg &= ~XSDI_TX_CTRL_USE_DS2_3GA;
+		}
+	}
+
 	xlnx_sdi_writel(sdi->base, XSDI_TX_MDL_CTRL, reg);
 	xlnx_sdi_writel(sdi->base, XSDI_TX_IER_STAT, XSDI_IER_EN_MASK);
 	xlnx_sdi_writel(sdi->base, XSDI_TX_GLBL_IER, 1);
@@ -860,6 +923,13 @@ static void xlnx_sdi_encoder_atomic_mode_set(struct drm_encoder *encoder,
 	} while (vtc_blank < sditx_blank);
 
 	vm.pixelclock = adjusted_mode->clock * 1000;
+
+	/* parameters for sdi audio */
+	sdi->video_mode.vdisplay = adjusted_mode->vdisplay;
+	sdi->video_mode.hdisplay = adjusted_mode->hdisplay;
+	sdi->video_mode.vrefresh = adjusted_mode->vrefresh;
+	sdi->video_mode.flags = adjusted_mode->flags;
+
 	xlnx_stc_sig(sdi->base, &vm);
 }
 
@@ -887,6 +957,9 @@ static void xlnx_sdi_commit(struct drm_encoder *encoder)
 static void xlnx_sdi_disable(struct drm_encoder *encoder)
 {
 	struct xlnx_sdi *sdi = encoder_to_sdi(encoder);
+
+	if (sdi->bridge)
+		xlnx_bridge_disable(sdi->bridge);
 
 	xlnx_sdi_set_display_disable(sdi);
 	xlnx_stc_disable(sdi->base);
@@ -954,6 +1027,8 @@ static int xlnx_sdi_probe(struct platform_device *pdev)
 	struct xlnx_sdi *sdi;
 	struct device_node *vpss_node;
 	int ret, irq;
+	struct device_node *ports, *port;
+	u32 nports = 0, portmask = 0;
 
 	sdi = devm_kzalloc(dev, sizeof(*sdi), GFP_KERNEL);
 	if (!sdi)
@@ -967,6 +1042,56 @@ static int xlnx_sdi_probe(struct platform_device *pdev)
 		return PTR_ERR(sdi->base);
 	}
 	platform_set_drvdata(pdev, sdi);
+
+	/* in case all "port" nodes are grouped under a "ports" node */
+	ports = of_get_child_by_name(sdi->dev->of_node, "ports");
+	if (!ports) {
+		dev_dbg(dev, "Searching for port nodes in device node.\n");
+		ports = sdi->dev->of_node;
+	}
+
+	for_each_child_of_node(ports, port) {
+		struct device_node *endpoint;
+		u32 index;
+
+		if (!port->name || of_node_cmp(port->name, "port")) {
+			dev_dbg(dev, "port name is null or node name is not port!\n");
+			continue;
+		}
+
+		endpoint = of_get_next_child(port, NULL);
+		if (!endpoint) {
+			dev_err(dev, "No remote port at %s\n", port->name);
+			of_node_put(endpoint);
+			return -EINVAL;
+		}
+
+		of_node_put(endpoint);
+
+		ret = of_property_read_u32(port, "reg", &index);
+		if (ret) {
+			dev_err(dev, "reg property not present - %d\n", ret);
+			return ret;
+		}
+
+		portmask |= (1 << index);
+
+		nports++;
+	}
+
+	if (nports == 2 && portmask & 0x3) {
+		dev_dbg(dev, "enable ancillary port\n");
+		sdi->enable_anc_data = true;
+	} else if (nports == 1 && portmask & 0x1) {
+		dev_dbg(dev, "no ancillary port\n");
+		sdi->enable_anc_data = false;
+	} else {
+		dev_err(dev, "Incorrect dt node!\n");
+		return -EINVAL;
+	}
+
+	sdi->enable_st352_chroma = of_property_read_bool(sdi->dev->of_node,
+							 "xlnx,tx-insert-c-str-st352");
 
 	/* disable interrupt */
 	xlnx_sdi_writel(sdi->base, XSDI_TX_GLBL_IER, 0);
@@ -992,6 +1117,13 @@ static int xlnx_sdi_probe(struct platform_device *pdev)
 			return -EPROBE_DEFER;
 		}
 	}
+
+	/* video mode properties needed by audio driver are shared to audio
+	 * driver through a pointer in platform data. This will be used in
+	 * audio driver. The solution may be needed to modify/extend to avoid
+	 * probable error scenarios
+	 */
+	pdev->dev.platform_data = &sdi->video_mode;
 
 	return component_add(dev, &xlnx_sdi_component_ops);
 }

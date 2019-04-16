@@ -40,6 +40,11 @@
 #define XVIP_DMA_MIN_HEIGHT		1U
 #define XVIP_DMA_MAX_HEIGHT		8191U
 
+struct xventity_list {
+	struct list_head list;
+	struct media_entity *entity;
+};
+
 /* -----------------------------------------------------------------------------
  * Helper functions
  */
@@ -96,33 +101,59 @@ static int xvip_dma_verify_format(struct xvip_dma *dma)
  * Pipeline Stream Management
  */
 
-/* Get the sink pad internally connected to a source pad in the given entity. */
-static struct media_pad *xvip_get_entity_sink(struct media_entity *entity,
-					      struct media_pad *source)
+static int xvip_entity_start_stop(struct xvip_composite_device *xdev,
+				  struct media_entity *entity, bool start)
 {
-	unsigned int i;
+	struct v4l2_subdev *subdev;
+	bool is_streaming;
+	int ret = 0;
 
-	/* The source pad can be NULL when the entity has no source pad. Return
-	 * the first pad in that case, guaranteed to be a sink pad.
+	dev_dbg(xdev->dev, "%s entity %s\n",
+		start ? "Starting" : "Stopping", entity->name);
+	subdev = media_entity_to_v4l2_subdev(entity);
+
+	/* This is to maintain list of stream on/off devices */
+	is_streaming = xvip_subdev_set_streaming(xdev, subdev, start);
+
+	/*
+	 * start or stop the subdev only once in case if they are
+	 * shared between sub-graphs
 	 */
-	if (!source)
-		return &entity->pads[0];
+	if (start && !is_streaming) {
+		/* power-on subdevice */
+		ret = v4l2_subdev_call(subdev, core, s_power, 1);
+		if (ret < 0 && ret != -ENOIOCTLCMD) {
+			dev_err(xdev->dev,
+				"s_power on failed on subdev\n");
+			xvip_subdev_set_streaming(xdev, subdev, 0);
+			return ret;
+		}
 
-	/* Iterates through the pads to find a connected sink pad. */
-	for (i = 0; i < entity->num_pads; ++i) {
-		struct media_pad *sink = &entity->pads[i];
+		/* stream-on subdevice */
+		ret = v4l2_subdev_call(subdev, video, s_stream, 1);
+		if (ret < 0 && ret != -ENOIOCTLCMD) {
+			dev_err(xdev->dev,
+				"s_stream on failed on subdev\n");
+			v4l2_subdev_call(subdev, core, s_power, 0);
+			xvip_subdev_set_streaming(xdev, subdev, 0);
+		}
+	} else if (!start && is_streaming) {
+		/* stream-off subdevice */
+		ret = v4l2_subdev_call(subdev, video, s_stream, 0);
+		if (ret < 0 && ret != -ENOIOCTLCMD) {
+			dev_err(xdev->dev,
+				"s_stream off failed on subdev\n");
+			xvip_subdev_set_streaming(xdev, subdev, 1);
+		}
 
-		if (!(sink->flags & MEDIA_PAD_FL_SINK))
-			continue;
-
-		if (sink == source)
-			continue;
-
-		if (media_entity_has_route(entity, sink->index, source->index))
-			return sink;
+		/* power-off subdevice */
+		ret = v4l2_subdev_call(subdev, core, s_power, 0);
+		if (ret < 0 && ret != -ENOIOCTLCMD)
+			dev_err(xdev->dev,
+				"s_power off failed on subdev\n");
 	}
 
-	return NULL;
+	return ret;
 }
 
 /**
@@ -139,48 +170,66 @@ static struct media_pad *xvip_get_entity_sink(struct media_entity *entity,
 static int xvip_pipeline_start_stop(struct xvip_composite_device *xdev,
 				    struct xvip_dma *dma, bool start)
 {
-	struct media_entity *entity;
-	struct media_pad *pad;
-	struct v4l2_subdev *subdev;
-	bool is_streaming;
-	int ret;
+	struct media_graph graph;
+	struct media_entity *entity = &dma->video.entity;
+	struct media_device *mdev = entity->graph_obj.mdev;
+	struct xventity_list *temp, *_temp;
+	LIST_HEAD(ent_list);
+	int ret = 0;
 
-	entity = &dma->video.entity;
-	pad = NULL;
+	mutex_lock(&mdev->graph_mutex);
 
-	while (1) {
-		pad = xvip_get_entity_sink(entity, pad);
-		if (!pad)
-			break;
+	/* Walk the graph to locate the subdev nodes */
+	ret = media_graph_walk_init(&graph, mdev);
+	if (ret)
+		goto error;
 
-		if (!(pad->flags & MEDIA_PAD_FL_SINK))
-			break;
+	media_graph_walk_start(&graph, entity);
 
-		pad = media_entity_remote_pad(pad);
-		if (!pad || !is_media_entity_v4l2_subdev(pad->entity))
-			break;
+	/* get the list of entities */
+	while ((entity = media_graph_walk_next(&graph))) {
+		struct xventity_list *ele;
 
-		entity = pad->entity;
-		subdev = media_entity_to_v4l2_subdev(entity);
+		/* We want to stream on/off only subdevs */
+		if (!is_media_entity_v4l2_subdev(entity))
+			continue;
 
-		is_streaming = xvip_subdev_set_streaming(xdev, subdev, start);
-
-		/*
-		 * start or stop the subdev only once in case if they are
-		 * shared between sub-graphs
-		 */
-		if (start != is_streaming) {
-			ret = v4l2_subdev_call(subdev, video, s_stream,
-					       start);
-			if (start && ret < 0 && ret != -ENOIOCTLCMD) {
-				dev_err(xdev->dev, "s_stream is failed on subdev\n");
-				xvip_subdev_set_streaming(xdev, subdev, !start);
-				return ret;
-			}
+		/* Maintain the pipeline sequence in a list */
+		ele = kzalloc(sizeof(*ele), GFP_KERNEL);
+		if (!ele) {
+			ret = -ENOMEM;
+			goto error;
 		}
+
+		ele->entity = entity;
+		list_add(&ele->list, &ent_list);
 	}
 
-	return 0;
+	if (start) {
+		list_for_each_entry_safe(temp, _temp, &ent_list, list) {
+			/* Enable all subdevs from sink to source */
+			ret = xvip_entity_start_stop(xdev, temp->entity, start);
+			if (ret < 0) {
+				dev_err(xdev->dev, "ret = %d for entity %s\n",
+					ret, temp->entity->name);
+				break;
+			}
+		}
+	} else {
+		list_for_each_entry_safe_reverse(temp, _temp, &ent_list, list)
+			/* Enable all subdevs from source to sink */
+			xvip_entity_start_stop(xdev, temp->entity, start);
+	}
+
+	list_for_each_entry_safe(temp, _temp, &ent_list, list) {
+		list_del(&temp->list);
+		kfree(temp);
+	}
+
+error:
+	mutex_unlock(&mdev->graph_mutex);
+	media_graph_walk_cleanup(&graph);
+	return ret;
 }
 
 /**
@@ -272,11 +321,10 @@ static int xvip_pipeline_validate(struct xvip_pipeline *pipe,
 
 		dma = to_xvip_dma(media_entity_to_video_device(entity));
 
-		if (dma->pad.flags & MEDIA_PAD_FL_SINK) {
+		if (dma->pad.flags & MEDIA_PAD_FL_SINK)
 			num_outputs++;
-		} else {
+		else
 			num_inputs++;
-		}
 	}
 
 	mutex_unlock(&mdev->graph_mutex);
@@ -728,6 +776,61 @@ xvip_dma_querycap(struct file *file, void *fh, struct v4l2_capability *cap)
 	return 0;
 }
 
+static int xvip_xdma_enum_fmt(struct xvip_dma *dma, struct v4l2_fmtdesc *f,
+			      struct v4l2_subdev_format *v4l_fmt)
+{
+	const struct xvip_video_format *fmt;
+	int ret;
+	u32 i, fmt_cnt, *fmts;
+
+	ret = xilinx_xdma_get_v4l2_vid_fmts(dma->dma, &fmt_cnt, &fmts);
+	if (ret)
+		return ret;
+
+	/* Has media pad value changed? */
+	if (v4l_fmt->format.code != dma->remote_subdev_med_bus ||
+	    !dma->remote_subdev_med_bus) {
+		/* Re-generate legal list of fourcc codes */
+		dma->poss_v4l2_fmt_cnt = 0;
+		dma->remote_subdev_med_bus = v4l_fmt->format.code;
+
+		if (!dma->poss_v4l2_fmts) {
+			dma->poss_v4l2_fmts =
+				devm_kzalloc(&dma->video.dev,
+					     sizeof(u32) * fmt_cnt,
+					     GFP_KERNEL);
+			if (!dma->poss_v4l2_fmts)
+				return -ENOMEM;
+		}
+
+		for (i = 0; i < fmt_cnt; i++) {
+			fmt = xvip_get_format_by_fourcc(fmts[i]);
+			if (IS_ERR(fmt))
+				return PTR_ERR(fmt);
+
+			if (fmt->code != dma->remote_subdev_med_bus)
+				continue;
+
+			dma->poss_v4l2_fmts[dma->poss_v4l2_fmt_cnt++] =	fmts[i];
+		}
+	}
+
+	/* Return err if index is greater than count of legal values */
+	if (f->index >= dma->poss_v4l2_fmt_cnt)
+		return -EINVAL;
+
+	/* Else return pix format in table */
+	fmt = xvip_get_format_by_fourcc(dma->poss_v4l2_fmts[f->index]);
+	if (IS_ERR(fmt))
+		return PTR_ERR(fmt);
+
+	f->pixelformat = fmt->fourcc;
+	strlcpy(f->description, fmt->description,
+		sizeof(f->description));
+
+	return 0;
+}
+
 /* FIXME: without this callback function, some applications are not configured
  * with correct formats, and it results in frames in wrong format. Whether this
  * callback needs to be required is not clearly defined, so it should be
@@ -740,75 +843,44 @@ xvip_dma_enum_format(struct file *file, void *fh, struct v4l2_fmtdesc *f)
 	struct xvip_dma *dma = to_xvip_dma(vfh->vdev);
 	struct v4l2_subdev *subdev;
 	struct v4l2_subdev_format v4l_fmt;
-	int err, ret;
 	const struct xvip_video_format *fmt;
+	int err, ret;
 
-	if (V4L2_TYPE_IS_MULTIPLANAR(dma->format.type)) {
-		/* establish media pad format */
-		subdev = xvip_dma_remote_subdev(&dma->pad, &v4l_fmt.pad);
-		if (!subdev)
-			return -EPIPE;
+	/* Establish media pad format */
+	subdev = xvip_dma_remote_subdev(&dma->pad, &v4l_fmt.pad);
+	if (!subdev)
+		return -EPIPE;
 
-		v4l_fmt.which = V4L2_SUBDEV_FORMAT_ACTIVE;
-		ret = v4l2_subdev_call(subdev, pad, get_fmt, NULL, &v4l_fmt);
-		if (ret < 0)
-			return ret == -ENOIOCTLCMD ? -EINVAL : ret;
+	v4l_fmt.which = V4L2_SUBDEV_FORMAT_ACTIVE;
+	ret = v4l2_subdev_call(subdev, pad, get_fmt, NULL, &v4l_fmt);
+	if (ret < 0)
+		return ret == -ENOIOCTLCMD ? -EINVAL : ret;
 
-		/* has media pad value changed? */
-		if (v4l_fmt.format.code != dma->remote_subdev_med_bus ||
-		    !dma->remote_subdev_med_bus) {
-			u32 i, fmt_cnt, *fmts;
-			/* re-generate legal list of fourcc codes */
-			dma->poss_v4l2_fmt_cnt = 0;
-			dma->remote_subdev_med_bus = v4l_fmt.format.code;
-			err = xilinx_xdma_get_v4l2_vid_fmts(dma->dma, &fmt_cnt,
-							    &fmts);
-			if (err)
-				return err;
-			if (!dma->poss_v4l2_fmts) {
-				dma->poss_v4l2_fmts =
-					devm_kzalloc(&dma->video.dev,
-						     sizeof(u32) * fmt_cnt,
-						     GFP_KERNEL);
-				if (!dma->poss_v4l2_fmts)
-					return -ENOMEM;
-			}
-			for (i = 0; i < fmt_cnt; i++) {
-				fmt = xvip_get_format_by_fourcc(fmts[i]);
-				if (IS_ERR(fmt))
-					return PTR_ERR(fmt);
+	/*
+	 * In case of frmbuf DMA, this will invoke frambuf driver specific APIs
+	 * to enumerate formats otherwise return the pix format corresponding
+	 * to subdev's media bus format. This kind of separation would be
+	 * helpful for clean up and upstreaming.
+	 */
+	err = xvip_xdma_enum_fmt(dma, f, &v4l_fmt);
+	if (!err)
+		return err;
 
-				if (fmt->code != dma->remote_subdev_med_bus)
-					continue;
-
-				dma->poss_v4l2_fmts[dma->poss_v4l2_fmt_cnt++] =
-									fmts[i];
-			}
-		}
-
-		/* Return err if index is greater than count of legal values */
-		if (f->index >= dma->poss_v4l2_fmt_cnt)
-			return -EINVAL;
-
-		/* Else return pix format in table */
-		fmt = xvip_get_format_by_fourcc(dma->poss_v4l2_fmts[f->index]);
-		if (IS_ERR(fmt))
-			return PTR_ERR(fmt);
-
-		f->pixelformat = fmt->fourcc;
-		strlcpy(f->description, fmt->description,
-			sizeof(f->description));
-
-		return 0;
-	}
-
-	/* Single plane formats */
+	/*
+	 * This logic will just return one pix format based on subdev's
+	 * media bus format
+	 */
 	if (f->index > 0)
 		return -EINVAL;
 
-	f->pixelformat = dma->format.fmt.pix.pixelformat;
-	strlcpy(f->description, dma->fmtinfo->description,
+	fmt = xvip_get_format_by_code(v4l_fmt.format.code);
+	if (IS_ERR(fmt))
+		return PTR_ERR(fmt);
+
+	f->pixelformat = fmt->fourcc;
+	strlcpy(f->description, fmt->description,
 		sizeof(f->description));
+
 	return 0;
 }
 
@@ -905,8 +977,6 @@ __xvip_dma_try_format(struct xvip_dma *dma,
 				info->bpl_factor;
 		pix_mp->height = clamp(pix_mp->height, XVIP_DMA_MIN_HEIGHT,
 				       XVIP_DMA_MAX_HEIGHT);
-		if (pix_mp->field == V4L2_FIELD_ALTERNATE)
-			pix_mp->height = pix_mp->height / 2;
 
 		/*
 		 * Clamp the requested bytes per line value. If the maximum
@@ -970,9 +1040,6 @@ __xvip_dma_try_format(struct xvip_dma *dma,
 		pix->height = clamp(pix->height, XVIP_DMA_MIN_HEIGHT,
 				    XVIP_DMA_MAX_HEIGHT);
 
-		if (pix->field == V4L2_FIELD_ALTERNATE)
-			pix->height = pix->height / 2;
-
 		min_bpl = (pix->width * info->bpl_factor *
 			  padding_factor_nume * bpl_nume) /
 			  (padding_factor_deno * bpl_deno);
@@ -1023,15 +1090,20 @@ static const struct v4l2_ioctl_ops xvip_dma_ioctl_ops = {
 	.vidioc_querycap		= xvip_dma_querycap,
 	.vidioc_enum_fmt_vid_cap	= xvip_dma_enum_format,
 	.vidioc_enum_fmt_vid_cap_mplane	= xvip_dma_enum_format,
+	.vidioc_enum_fmt_vid_out	= xvip_dma_enum_format,
+	.vidioc_enum_fmt_vid_out_mplane	= xvip_dma_enum_format,
 	.vidioc_g_fmt_vid_cap		= xvip_dma_get_format,
 	.vidioc_g_fmt_vid_cap_mplane	= xvip_dma_get_format,
 	.vidioc_g_fmt_vid_out		= xvip_dma_get_format,
+	.vidioc_g_fmt_vid_out_mplane	= xvip_dma_get_format,
 	.vidioc_s_fmt_vid_cap		= xvip_dma_set_format,
 	.vidioc_s_fmt_vid_cap_mplane	= xvip_dma_set_format,
 	.vidioc_s_fmt_vid_out		= xvip_dma_set_format,
+	.vidioc_s_fmt_vid_out_mplane	= xvip_dma_set_format,
 	.vidioc_try_fmt_vid_cap		= xvip_dma_try_format,
 	.vidioc_try_fmt_vid_cap_mplane	= xvip_dma_try_format,
 	.vidioc_try_fmt_vid_out		= xvip_dma_try_format,
+	.vidioc_try_fmt_vid_out_mplane	= xvip_dma_try_format,
 	.vidioc_reqbufs			= vb2_ioctl_reqbufs,
 	.vidioc_querybuf		= vb2_ioctl_querybuf,
 	.vidioc_qbuf			= vb2_ioctl_qbuf,

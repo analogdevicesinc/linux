@@ -404,7 +404,7 @@ static int xlnx_dsi_host_detach(struct mipi_dsi_host *host,
 {
 	struct xlnx_dsi *dsi = host_to_dsi(host);
 
-	dsi->panel_node = NULL;
+	dsi->panel = NULL;
 
 	if (dsi->connector.dev)
 		drm_helper_hpd_irq_event(dsi->connector.dev);
@@ -651,6 +651,9 @@ xlnx_dsi_atomic_mode_set(struct drm_encoder *encoder,
 static void xlnx_dsi_disable(struct drm_encoder *encoder)
 {
 	struct xlnx_dsi *dsi = encoder_to_dsi(encoder);
+
+	if (dsi->bridge)
+		xlnx_bridge_disable(dsi->bridge);
 
 	xlnx_dsi_set_display_disable(dsi);
 }
