@@ -154,5 +154,10 @@
 
 		vref-supply = <&vref_dac>;
 	};
+
+	ltc2461@14 {
+		compatible = "ltc2471";
+		reg = <0x14>;
+	};
 };
 
