@@ -154,6 +154,29 @@ unsigned long iomux_offsets_mx6q[][2] = {
 	{0x5B8, 0x0},
 	{0x5C0, 0x0},
 };
+
+unsigned long ddr3_dll_mx6dl[][2] = {
+	{0x0c, 0x0},
+	{0x10, 0x0},
+	{0x1C, 0x04008032},
+	{0x1C, 0x0400803a},
+	{0x1C, 0x07208030},
+	{0x1C, 0x07208038},
+	{0x818, 0x0},
+	{0x18, 0x0},
+};
+
+unsigned long iomux_offsets_mx6dl[][2] = {
+	{0x4BC, 0x0},
+	{0x4C0, 0x0},
+	{0x4C4, 0x0},
+	{0x4C8, 0x0},
+	{0x4CC, 0x0},
+	{0x4D0, 0x0},
+	{0x4D4, 0x0},
+	{0x4D8, 0x0},
+};
+
 int can_change_ddr_freq(void)
 {
 	return 1;
@@ -410,6 +433,9 @@ int init_mmdc_ddr3_settings_imx6_smp(struct platform_device *busfreq_pdev)
 	node = NULL;
 	if (cpu_is_imx6q())
 		node = of_find_compatible_node(NULL, NULL, "fsl,imx6q-iomuxc");
+	if (cpu_is_imx6dl())
+		node = of_find_compatible_node(NULL, NULL,
+			"fsl,imx6dl-iomuxc");
 	if (!node) {
 		printk(KERN_ERR "failed to find imx6q-iomux device tree data!\n");
 		return -EINVAL;
@@ -429,12 +455,21 @@ int init_mmdc_ddr3_settings_imx6_smp(struct platform_device *busfreq_pdev)
 	if (cpu_is_imx6q())
 		ddr_settings_size = ARRAY_SIZE(ddr3_dll_mx6q) +
 			ARRAY_SIZE(ddr3_calibration);
+	if (cpu_is_imx6dl())
+		ddr_settings_size = ARRAY_SIZE(ddr3_dll_mx6dl) +
+			ARRAY_SIZE(ddr3_calibration);
 
 	normal_mmdc_settings = kmalloc((ddr_settings_size * 8), GFP_KERNEL);
 	if (cpu_is_imx6q()) {
 		memcpy(normal_mmdc_settings, ddr3_dll_mx6q,
 			sizeof(ddr3_dll_mx6q));
 		memcpy(((char *)normal_mmdc_settings + sizeof(ddr3_dll_mx6q)),
+			ddr3_calibration, sizeof(ddr3_calibration));
+	}
+	if (cpu_is_imx6dl()) {
+		memcpy(normal_mmdc_settings, ddr3_dll_mx6dl,
+			sizeof(ddr3_dll_mx6dl));
+		memcpy(((char *)normal_mmdc_settings + sizeof(ddr3_dll_mx6dl)),
 			ddr3_calibration, sizeof(ddr3_calibration));
 	}
 	/* store the original DDR settings at boot. */
@@ -535,6 +570,18 @@ int init_mmdc_ddr3_settings_imx6_smp(struct platform_device *busfreq_pdev)
 				iomux_offsets_mx6q[i][0];
 			iram_iomux_settings[i + 1][1] =
 				iomux_offsets_mx6q[i][1];
+		}
+	}
+
+	if (cpu_is_imx6dl()) {
+		for (i = 0; i < iomux_settings_size; i++) {
+			iomux_offsets_mx6dl[i][1] =
+				readl_relaxed(iomux_base +
+					iomux_offsets_mx6dl[i][0]);
+			iram_iomux_settings[i + 1][0] =
+				iomux_offsets_mx6dl[i][0];
+			iram_iomux_settings[i + 1][1] =
+				iomux_offsets_mx6dl[i][1];
 		}
 	}
 

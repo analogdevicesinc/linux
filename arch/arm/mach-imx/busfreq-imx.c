@@ -118,6 +118,8 @@ static struct clk *mmdc_clk;
 static struct clk *periph_clk2_clk;
 static struct clk *pll2_bus_clk;
 
+static struct clk *pll3_pfd1_540m_clk;
+
 static struct delayed_work low_bus_freq_handler;
 static struct delayed_work bus_freq_daemon;
 
@@ -155,6 +157,10 @@ EXPORT_SYMBOL(unregister_busfreq_notifier);
 
 static void enter_lpm_imx6_smp(void)
 {
+	if (cpu_is_imx6dl())
+		/* Set axi to periph_clk */
+		clk_set_parent(axi_sel_clk, periph_clk);
+
 	if (audio_bus_count) {
 		/* Need to ensure that PLL2_PFD_400M is kept ON. */
 		clk_prepare_enable(pll2_400_clk);
@@ -219,7 +225,10 @@ static void exit_lpm_imx6_smp(void)
 	clk_set_parent(periph_clk2_sel_clk, pll3_clk);
 	clk_set_parent(periph_pre_clk, periph_clk_parent);
 	clk_set_parent(periph_clk, periph_pre_clk);
-
+	if (cpu_is_imx6dl()) {
+		/* Set axi to pll3_pfd1_540m */
+		clk_set_parent(axi_sel_clk, pll3_pfd1_540m_clk);
+	}
 	/*
 	 * As periph_pre_clk's parent is not changed from
 	 * high mode to audio mode on lpddr2, the clk framework
@@ -306,7 +315,7 @@ static void reduce_bus_freq(void)
 
 	if (cpu_is_imx7d())
 		enter_lpm_imx7d();
-	else if (cpu_is_imx6q())
+	else if (cpu_is_imx6q() || cpu_is_imx6dl())
 		enter_lpm_imx6_smp();
 
 	med_bus_freq_mode = 0;
@@ -406,7 +415,7 @@ static int set_high_bus_freq(int high_bus_freq)
 
 	if (cpu_is_imx7d())
 		exit_lpm_imx7d();
-	else if (cpu_is_imx6q())
+	else if (cpu_is_imx6q() || cpu_is_imx6dl())
 		exit_lpm_imx6_smp();
 
 	high_bus_freq_mode = 1;
@@ -746,6 +755,15 @@ static int busfreq_probe(struct platform_device *pdev)
 		}
 	}
 
+	if (cpu_is_imx6dl()) {
+		axi_sel_clk = devm_clk_get(&pdev->dev, "axi_sel");
+		pll3_pfd1_540m_clk = devm_clk_get(&pdev->dev, "pll3_pfd1_540m");
+		if (IS_ERR(axi_sel_clk) || IS_ERR(pll3_pfd1_540m_clk)) {
+			dev_err(busfreq_dev,
+				"%s: failed to get busfreq clk\n", __func__);
+			return -EINVAL;
+		}
+	}
 	if (cpu_is_imx6q()) {
 		mmdc_clk = devm_clk_get(&pdev->dev, "mmdc");
 		if (IS_ERR(mmdc_clk)) {
@@ -842,7 +860,7 @@ static int busfreq_probe(struct platform_device *pdev)
 		}
 		busfreq_func.init   = &init_ddrc_ddr_settings;
 		busfreq_func.update = &update_ddr_freq_imx_smp;
-	} else if (cpu_is_imx6q()) {
+	} else if (cpu_is_imx6q() || cpu_is_imx6dl()) {
 		ddr_type = imx_mmdc_get_ddr_type();
 		if (ddr_type == MMDC_MDMISC_DDR_TYPE_DDR3) {
 			busfreq_func.init   = &init_mmdc_ddr3_settings_imx6_smp;
