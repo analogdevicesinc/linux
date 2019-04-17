@@ -234,6 +234,18 @@
 			#cooling-cells = <2>;
 		};
 
+		ocrams: sram@00900000 {
+			compatible = "fsl,lpm-sram";
+			reg = <0x00900000 0x4000>;
+			clocks = <&clks IMX6QDL_CLK_OCRAM>;
+		};
+
+		ocrams_ddr: sram@00904000 {
+			compatible = "fsl,ddr-lpm-sram";
+			reg = <0x00904000 0x1000>;
+			clocks = <&clks IMX6QDL_CLK_OCRAM>;
+		};
+
 		timer@a00600 {
 			compatible = "arm,cortex-a9-twd-timer";
 			reg = <0x00a00600 0x20>;
@@ -1143,6 +1155,11 @@
 
 			romcp@21ac000 {
 				reg = <0x021ac000 0x4000>;
+			};
+
+			mmdc0-1@021b0000 { /* MMDC0-1 */
+				compatible = "fsl,imx6q-mmdc-combine";
+				reg = <0x021b0000 0x8000>;
 			};
 
 			mmdc0: memory-controller@21b0000 { /* MMDC0 */
