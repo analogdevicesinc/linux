@@ -89,6 +89,7 @@ int imx_mmdc_get_ddr_type(void);
 int imx7ulp_set_lpm(enum ulp_cpu_pwr_mode mode);
 void imx_busfreq_map_io(void);
 void imx7_pm_map_io(void);
+void imx6_pm_map_io(void);
 
 void imx_cpu_die(unsigned int cpu);
 int imx_cpu_kill(unsigned int cpu);

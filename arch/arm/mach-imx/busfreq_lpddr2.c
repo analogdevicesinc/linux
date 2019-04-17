@@ -56,8 +56,6 @@ void (*mx6_change_lpddr2_freq)(u32 ddr_freq, int bus_freq_mode) = NULL;
 
 extern unsigned int ddr_normal_rate;
 extern void mx6_lpddr2_freq_change(u32 freq, int bus_freq_mode);
-extern void imx6_up_lpddr2_freq_change(u32 freq, int bus_freq_mode);
-extern void imx6sll_lpddr2_freq_change(u32 freq, int bus_freq_mode);
 extern unsigned long save_ttbr1(void);
 extern void restore_ttbr1(unsigned long ttbr1);
 extern void mx6q_lpddr2_freq_change(u32 freq, void *ddr_settings);
@@ -98,7 +96,7 @@ void (*wfe_change_lpddr2_freq)(u32 cpuid, u32 *ddr_freq_change_done);
 extern void wfe_smp_freq_change(u32 cpuid, u32 *ddr_freq_change_done);
 extern unsigned long wfe_smp_freq_change_start asm("wfe_smp_freq_change_start");
 extern unsigned long wfe_smp_freq_change_end asm("wfe_smp_freq_change_end");
-extern void __iomem *imx_scu_base;
+extern void __iomem *scu_base;
 static void __iomem *gic_dist_base;
 #endif
 
@@ -163,19 +161,6 @@ int init_mmdc_lpddr2_settings(struct platform_device *busfreq_pdev)
 
 	ddr_code_size = SZ_4K;
 
-	if (cpu_is_imx6sl())
-		mx6_change_lpddr2_freq = (void *)fncpy(
-			(void *)ddr_freq_change_iram_base,
-			&mx6_lpddr2_freq_change, ddr_code_size);
-	if (cpu_is_imx6sx() || cpu_is_imx6ul() || cpu_is_imx6ull())
-		mx6_change_lpddr2_freq = (void *)fncpy(
-			(void *)ddr_freq_change_iram_base,
-			&imx6_up_lpddr2_freq_change, ddr_code_size);
-	if (cpu_is_imx6sll())
-		mx6_change_lpddr2_freq = (void *)fncpy(
-			(void *)ddr_freq_change_iram_base,
-			&imx6sll_lpddr2_freq_change, ddr_code_size);
-
 	curr_ddr_rate = ddr_normal_rate;
 
 	return 0;
@@ -214,7 +199,7 @@ int update_lpddr2_freq_smp(int ddr_rate)
 	while (1) {
 		bool not_exited_busfreq = false;
 		for_each_online_cpu(cpu) {
-			reg = __raw_readl(imx_scu_base + 0x08);
+			reg = __raw_readl(scu_base + 0x08);
 			if (reg & (0x02 << (cpu * 8)))
 				not_exited_busfreq = true;
 		}
@@ -225,7 +210,7 @@ int update_lpddr2_freq_smp(int ddr_rate)
 	wmb();
 	*wait_for_lpddr2_freq_update = 1;
 	dsb();
-	online_cpus = readl_relaxed(imx_scu_base + 0x08);
+	online_cpus = readl_relaxed(scu_base + 0x08);
 	for_each_online_cpu(cpu) {
 		*((char *)(&online_cpus) + (u8)cpu) = 0x02;
 		if (cpu != me) {
@@ -238,7 +223,7 @@ int update_lpddr2_freq_smp(int ddr_rate)
 	/* Wait for the other active CPUs to idle */
 	while (1) {
 		reg = 0;
-		reg = readl_relaxed(imx_scu_base + 0x08);
+		reg = readl_relaxed(scu_base + 0x08);
 		reg |= (0x02 << (me * 8));
 		if (reg == online_cpus)
 			break;
