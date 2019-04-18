@@ -207,6 +207,12 @@
 			clocks = <&clks IMX6SX_CLK_OCRAM>;
 		};
 
+		ocram_mf: sram-mf@00900000 {
+			compatible = "fsl,mega-fast-sram";
+			reg = <0x00900000 0x20000>;
+			clocks = <&clks IMX6SX_CLK_OCRAM>;
+		};
+
 		intc: interrupt-controller@a01000 {
 			compatible = "arm,cortex-a9-gic";
 			#interrupt-cells = <3>;
@@ -824,6 +830,7 @@
 				#interrupt-cells = <3>;
 				interrupts = <GIC_SPI 89 IRQ_TYPE_LEVEL_HIGH>;
 				interrupt-parent = <&intc>;
+				fsl,mf-mix-wakeup-irq = <0x7c00000 0x3d00 0x0 0x400240>;
 				clocks = <&clks IMX6SX_CLK_IPG>;
 				clock-names = "ipg";
 
