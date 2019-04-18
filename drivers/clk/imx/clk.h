@@ -22,6 +22,7 @@ void imx_mmdc_mask_handshake(void __iomem *ccm_base, unsigned int chn);
 void imx_unregister_hw_clocks(struct clk_hw *hws[], unsigned int count);
 
 extern void imx_cscmr1_fixup(u32 *val);
+extern bool uart_from_osc;
 
 enum imx_pllv1_type {
 	IMX_PLLV1_IMX1,

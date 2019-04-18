@@ -218,7 +218,7 @@ static void __init imx6sx_clocks_init(struct device_node *ccm_node)
 	clk_set_parent(hws[IMX6SX_PLL6_BYPASS]->clk, hws[IMX6SX_CLK_PLL6]->clk);
 	clk_set_parent(hws[IMX6SX_PLL7_BYPASS]->clk, hws[IMX6SX_CLK_PLL7]->clk);
 
-	hws[IMX6SX_CLK_PLL1_SYS]      = imx_clk_hw_gate("pll1_sys",      "pll1_bypass", base + 0x00, 13);
+	hws[IMX6SX_CLK_PLL1_SYS]      = imx_clk_hw_fixed_factor("pll1_sys", "pll1_bypass", 1, 1);
 	hws[IMX6SX_CLK_PLL2_BUS]      = imx_clk_hw_gate("pll2_bus",      "pll2_bypass", base + 0x30, 13);
 	hws[IMX6SX_CLK_PLL3_USB_OTG]  = imx_clk_hw_gate("pll3_usb_otg",  "pll3_bypass", base + 0x10, 13);
 	hws[IMX6SX_CLK_PLL4_AUDIO]    = imx_clk_hw_gate("pll4_audio",    "pll4_bypass", base + 0x70, 13);
@@ -577,6 +577,12 @@ static void __init imx6sx_clocks_init(struct device_node *ccm_node)
 
 	clk_set_parent(hws[IMX6SX_CLK_ESAI_SEL]->clk, hws[IMX6SX_CLK_PLL4_AUDIO_DIV]->clk);
 	clk_set_rate(hws[IMX6SX_CLK_ESAI_PODF]->clk, 24576000);
+
+        /* Set the UART parent if needed. */
+        if (uart_from_osc)
+		clk_set_parent(hws[IMX6SX_CLK_UART_SEL]->clk, hws[IMX6SX_CLK_OSC]->clk);
+        else
+		clk_set_parent(hws[IMX6SX_CLK_UART_SEL]->clk, hws[IMX6SX_CLK_PLL3_80M]->clk);
 
 	/* Set parent clock for vadc */
 	clk_set_parent(hws[IMX6SX_CLK_VID_SEL]->clk, hws[IMX6SX_CLK_PLL3_USB_OTG]->clk);
