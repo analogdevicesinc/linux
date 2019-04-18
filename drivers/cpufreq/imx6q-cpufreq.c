@@ -33,12 +33,15 @@ enum IMX6_CPUFREQ_CLKS {
 	STEP,
 	PLL1_SW,
 	PLL2_PFD2_396M,
+	PLL1,
+	PLL1_BYPASS,
+	PLL1_BYPASS_SRC,
 	/* MX6UL requires two more clks */
 	PLL2_BUS,
 	SECONDARY_SEL,
 };
-#define IMX6Q_CPUFREQ_CLK_NUM		5
-#define IMX6UL_CPUFREQ_CLK_NUM		7
+#define IMX6Q_CPUFREQ_CLK_NUM		8
+#define IMX6UL_CPUFREQ_CLK_NUM		10
 
 static int num_clks;
 static struct clk_bulk_data clks[] = {
@@ -47,6 +50,9 @@ static struct clk_bulk_data clks[] = {
 	{ .id = "step" },
 	{ .id = "pll1_sw" },
 	{ .id = "pll2_pfd2_396m" },
+	{ .id = "pll1" },
+	{ .id = "pll1_bypass" },
+	{ .id = "pll1_bypass_src" },
 	{ .id = "pll2_bus" },
 	{ .id = "secondary_sel" },
 };
@@ -149,11 +155,18 @@ static int imx6q_set_target(struct cpufreq_policy *policy, unsigned int index)
 		clk_set_parent(clks[STEP].clk, clks[PLL2_PFD2_396M].clk);
 		clk_set_parent(clks[PLL1_SW].clk, clks[STEP].clk);
 		if (freq_hz > clk_get_rate(clks[PLL2_PFD2_396M].clk)) {
+			/* Ensure that pll1_bypass is set back to
+			 * pll1. We have to do this first so that the
+			 * change rate done to pll1_sys_clk done below
+			 * can propagate up to pll1.
+			 */
+			clk_set_parent(clks[PLL1_BYPASS].clk, clks[PLL1].clk);
 			clk_set_rate(clks[PLL1_SYS].clk, new_freq * 1000);
 			clk_set_parent(clks[PLL1_SW].clk, clks[PLL1_SYS].clk);
 		} else {
 			/* pll1_sys needs to be enabled for divider rate change to work. */
 			pll1_sys_temp_enabled = true;
+			clk_set_parent(clks[PLL1_BYPASS].clk, clks[PLL1_BYPASS_SRC].clk);
 			clk_prepare_enable(clks[PLL1_SYS].clk);
 		}
 	}
