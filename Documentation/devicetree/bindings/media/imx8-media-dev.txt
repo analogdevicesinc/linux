@@ -1,0 +1,38 @@
+Virtual Media device
+-------------------------------
+
+Virtual Media device is used to manage all modules in image capture subsystem
+of imx8qxp/qm platform. ISI(Image Sensor Interface), MIPI CSI, Parallel CSI
+device node should be under it.
+
+Required properties:
+  - compatible    : must be "fsl,mxc-md";
+  - reg           : Must contain an entry for each entry in reg-names;
+  - #address-cells: should be <1>;
+  - #size-cells   : should be <1>;
+  - ranges        : use to handle address space
+
+Optional properties:
+  - parallel_csi: indicate that camera sensor use parallel interface
+
+
+
+For example:
+
+        cameradev: camera {
+                compatible = "fsl,mxc-md", "simple-bus";
+                #address-cells = <1>;
+                #size-cells = <1>;
+                ranges;
+
+                isi@58100000 {
+                        compatible = "fsl,imx8-isi";
+                        reg = <0x58100000 0x10000>;
+                        ...
+                };
+                csi@58227000 {
+                        compatible = "fsl,mxc-mipi-csi2";
+                        ...
+                };
+                ...
+        };
