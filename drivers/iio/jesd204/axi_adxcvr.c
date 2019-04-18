@@ -529,6 +529,7 @@ static const char *adxcvr_gt_names[] = {
 	[XILINX_XCVR_TYPE_S7_GTX2] = "GTX2",
 	[XILINX_XCVR_TYPE_US_GTH3] = "GTH3",
 	[XILINX_XCVR_TYPE_US_GTH4] = "GTH4",
+	[XILINX_XCVR_TYPE_US_GTY4] = "GTY4",
 };
 
 static int adxcvr_probe(struct platform_device *pdev)
@@ -605,8 +606,11 @@ static int adxcvr_probe(struct platform_device *pdev)
 			break;
 		case XILINX_XCVR_LEGACY_TYPE_US_GTH4:
 			st->xcvr.type = XILINX_XCVR_TYPE_US_GTH3;
+		case XILINX_XCVR_LEGACY_TYPE_US_GTY4:
+			st->xcvr.type = XILINX_XCVR_TYPE_US_GTY4;
 			break;
 		default:
+			pr_err("axi_adxcvr: not supported\n");
 			return -EINVAL;
 		}
 	} else
@@ -616,6 +620,7 @@ static int adxcvr_probe(struct platform_device *pdev)
 	case XILINX_XCVR_TYPE_S7_GTX2:
 	case XILINX_XCVR_TYPE_US_GTH3:
 	case XILINX_XCVR_TYPE_US_GTH4:
+	case XILINX_XCVR_TYPE_US_GTY4:
 		break;
 	default:
 		dev_err(&pdev->dev, "Unknown transceiver type: %d\n",

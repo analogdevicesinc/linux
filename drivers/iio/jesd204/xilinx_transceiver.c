@@ -242,6 +242,7 @@ int xilinx_xcvr_configure_cdr(struct xilinx_xcvr *xcvr,
 			out_div, lpm_enable);
 	case XILINX_XCVR_TYPE_US_GTH3:
 	case XILINX_XCVR_TYPE_US_GTH4:
+	case XILINX_XCVR_TYPE_US_GTY4:
 		return xilinx_xcvr_gth3_configure_cdr(xcvr, drp_port, out_div);
 	default:
 		return -EINVAL;
@@ -255,6 +256,7 @@ int xilinx_xcvr_configure_lpm_dfe_mode(struct xilinx_xcvr *xcvr,
 	switch (xcvr->type) {
 	case XILINX_XCVR_TYPE_US_GTH3:
 	case XILINX_XCVR_TYPE_US_GTH4:
+	case XILINX_XCVR_TYPE_US_GTY4:
 		/*
 		 * TODO: UltraScale FPGAs Transceivers Wizard should be used for
 		 *	 generating these settings
@@ -276,7 +278,8 @@ static void xilinx_xcvr_setup_cpll_vco_range(struct xilinx_xcvr *xcvr,
 					     unsigned int *vco_max)
 {
 	if  ((xcvr->type == XILINX_XCVR_TYPE_US_GTH3) |
-	     (xcvr->type == XILINX_XCVR_TYPE_US_GTH4)) {
+	     (xcvr->type == XILINX_XCVR_TYPE_US_GTH4) |
+	     (xcvr->type == XILINX_XCVR_TYPE_US_GTY4)) {
 		if (xcvr->voltage < 850)
 			*vco_max = 4250000;
 		else if ((xcvr->speed_grade / 10) == 1)
@@ -300,6 +303,7 @@ static void xilinx_xcvr_setup_qpll_vco_range(struct xilinx_xcvr *xcvr,
 		break;
 	case XILINX_XCVR_TYPE_US_GTH3:
 	case XILINX_XCVR_TYPE_US_GTH4:
+	case XILINX_XCVR_TYPE_US_GTY4:
 		*vco1_min = 8000000;
 		*vco1_max = 13000000;
 		if (((xcvr->voltage < 900) | (xcvr->voltage > 720)) &
@@ -335,6 +339,7 @@ int xilinx_xcvr_calc_cpll_config(struct xilinx_xcvr *xcvr,
 		break;
 	case XILINX_XCVR_TYPE_US_GTH3:
 	case XILINX_XCVR_TYPE_US_GTH4:
+	case XILINX_XCVR_TYPE_US_GTY4:
 		vco_min = 2000000;
 		vco_max = 6250000;
 		break;
@@ -408,6 +413,7 @@ int xilinx_xcvr_calc_qpll_config(struct xilinx_xcvr *xcvr,
 		break;
 	case XILINX_XCVR_TYPE_US_GTH3:
 	case XILINX_XCVR_TYPE_US_GTH4:
+	case XILINX_XCVR_TYPE_US_GTY4:
 		N = N_gth34;
 		vco0_min = 9800000;
 		vco0_max = 16375000;
@@ -559,6 +565,7 @@ int xilinx_xcvr_cpll_read_config(struct xilinx_xcvr *xcvr,
 		return xilinx_xcvr_gtx2_cpll_read_config(xcvr, drp_port, conf);
 	case XILINX_XCVR_TYPE_US_GTH3:
 	case XILINX_XCVR_TYPE_US_GTH4:
+	case XILINX_XCVR_TYPE_US_GTY4:
 		return xilinx_xcvr_gth34_cpll_read_config(xcvr, drp_port, conf);
 	default:
 		return -EINVAL;
@@ -683,6 +690,7 @@ int xilinx_xcvr_cpll_write_config(struct xilinx_xcvr *xcvr,
 		return xilinx_xcvr_gtx2_cpll_write_config(xcvr, drp_port, conf);
 	case XILINX_XCVR_TYPE_US_GTH3:
 	case XILINX_XCVR_TYPE_US_GTH4:
+	case XILINX_XCVR_TYPE_US_GTY4:
 		return xilinx_xcvr_gth34_cpll_write_config(xcvr, drp_port, conf);
 	default:
 		return -EINVAL;
@@ -829,6 +837,7 @@ int xilinx_xcvr_qpll_read_config(struct xilinx_xcvr *xcvr,
 		return xilinx_xcvr_gtx2_qpll_read_config(xcvr, drp_port, conf);
 	case XILINX_XCVR_TYPE_US_GTH3:
 	case XILINX_XCVR_TYPE_US_GTH4:
+	case XILINX_XCVR_TYPE_US_GTY4:
 		return xilinx_xcvr_gth34_qpll_read_config(xcvr, drp_port, conf);
 	default:
 		return -EINVAL;
@@ -967,6 +976,7 @@ int xilinx_xcvr_qpll_write_config(struct xilinx_xcvr *xcvr,
 		return xilinx_xcvr_gtx2_qpll_write_config(xcvr, drp_port, conf);
 	case XILINX_XCVR_TYPE_US_GTH3:
 	case XILINX_XCVR_TYPE_US_GTH4:
+	case XILINX_XCVR_TYPE_US_GTY4:
 		return xilinx_xcvr_gth34_qpll_write_config(xcvr, drp_port, conf);
 	default:
 		return -EINVAL;
@@ -1036,6 +1046,7 @@ int xilinx_xcvr_read_out_div(struct xilinx_xcvr *xcvr, unsigned int drp_port,
 			rx_out_div, tx_out_div);
 	case XILINX_XCVR_TYPE_US_GTH3:
 	case XILINX_XCVR_TYPE_US_GTH4:
+	case XILINX_XCVR_TYPE_US_GTY4:
 		return xilinx_xcvr_gth34_read_out_div(xcvr, drp_port,
 			rx_out_div, tx_out_div);
 	default:
@@ -1108,6 +1119,7 @@ int xilinx_xcvr_write_out_div(struct xilinx_xcvr *xcvr, unsigned int drp_port,
 			rx_out_div, tx_out_div);
 	case XILINX_XCVR_TYPE_US_GTH3:
 	case XILINX_XCVR_TYPE_US_GTH4:
+	case XILINX_XCVR_TYPE_US_GTY4:
 		return xilinx_xcvr_gth34_write_out_div(xcvr, drp_port,
 			rx_out_div, tx_out_div);
 	default:
@@ -1134,6 +1146,7 @@ int xilinx_xcvr_write_rx_clk25_div(struct xilinx_xcvr *xcvr,
 		break;
 	case XILINX_XCVR_TYPE_US_GTH3:
 	case XILINX_XCVR_TYPE_US_GTH4:
+	case XILINX_XCVR_TYPE_US_GTY4:
 		div <<= 3;
 		mask = 0xf8;
 		reg = 0x6d;
@@ -1163,6 +1176,7 @@ int xilinx_xcvr_write_tx_clk25_div(struct xilinx_xcvr *xcvr,
 		break;
 	case XILINX_XCVR_TYPE_US_GTH3:
 	case XILINX_XCVR_TYPE_US_GTH4:
+	case XILINX_XCVR_TYPE_US_GTY4:
 		div <<= 11;
 		mask = 0xf800;
 		reg = 0x7a;
