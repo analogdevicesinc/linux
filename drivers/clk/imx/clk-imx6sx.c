@@ -15,6 +15,8 @@
 #include <linux/of_address.h>
 #include <linux/of_irq.h>
 #include <linux/types.h>
+#include <soc/imx/gpc.h>
+#include <soc/imx/src.h>
 
 #include "clk.h"
 
@@ -116,6 +118,39 @@ static u32 share_count_ssi2;
 static u32 share_count_ssi3;
 static u32 share_count_sai1;
 static u32 share_count_sai2;
+
+/*
+ * As IMX6SX_CLK_M4_PRE_SEL is NOT a glitchless MUX, so when
+ * M4 is trying to change its clk parent, need to ask A9 to
+ * help do it, and M4 must be hold in wfi. To avoid glitch
+ * occur, need to gate M4 clk first before switching its parent.
+ */
+void imx6sx_set_m4_highfreq(bool high_freq)
+{
+	static struct clk *m4_high_freq_sel;
+
+	imx_gpc_hold_m4_in_sleep();
+
+	clk_disable_unprepare(hws[IMX6SX_CLK_M4]->clk);
+	clk_set_parent(hws[IMX6SX_CLK_M4_SEL]->clk,
+		hws[IMX6SX_CLK_LDB_DI0]->clk);
+
+	if (high_freq) {
+		/* FIXME: m4_high_freq_sel possible used without intialization? */ 
+		clk_set_parent(hws[IMX6SX_CLK_M4_PRE_SEL]->clk,
+			m4_high_freq_sel);
+	} else {
+		m4_high_freq_sel = clk_get_parent(hws[IMX6SX_CLK_M4_PRE_SEL]->clk);
+		clk_set_parent(hws[IMX6SX_CLK_M4_PRE_SEL]->clk,
+			hws[IMX6SX_CLK_OSC]->clk);
+	}
+
+	clk_set_parent(hws[IMX6SX_CLK_M4_SEL]->clk,
+		       hws[IMX6SX_CLK_M4_PRE_SEL]->clk);
+	clk_prepare_enable(hws[IMX6SX_CLK_M4]->clk);
+
+	imx_gpc_release_m4_in_sleep();
+}
 
 static void __init imx6sx_clocks_init(struct device_node *ccm_node)
 {
