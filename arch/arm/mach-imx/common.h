@@ -109,6 +109,7 @@ void imx_anatop_pre_suspend(void);
 void imx_anatop_post_resume(void);
 int imx6_set_lpm(enum mxc_cpu_pwr_mode mode);
 void imx6_set_int_mem_clk_lpm(bool enable);
+void imx6sx_low_power_idle(void);
 #ifdef CONFIG_HAVE_IMX_MMDC
 int imx_mmdc_get_ddr_type(void);
 int imx_mmdc_get_lpddr2_2ch_mode(void);
@@ -173,4 +174,5 @@ static inline void imx_init_l2cache(void) {}
 extern const struct smp_operations imx_smp_ops;
 extern const struct smp_operations ls1021a_smp_ops;
 
+extern bool uart_from_osc;
 #endif
