@@ -605,7 +605,8 @@ static int adxcvr_probe(struct platform_device *pdev)
 			st->xcvr.type = XILINX_XCVR_TYPE_US_GTH3;
 			break;
 		case XILINX_XCVR_LEGACY_TYPE_US_GTH4:
-			st->xcvr.type = XILINX_XCVR_TYPE_US_GTH3;
+			st->xcvr.type = XILINX_XCVR_TYPE_US_GTH4;
+			break;
 		case XILINX_XCVR_LEGACY_TYPE_US_GTY4:
 			st->xcvr.type = XILINX_XCVR_TYPE_US_GTY4;
 			break;
