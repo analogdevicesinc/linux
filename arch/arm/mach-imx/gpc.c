@@ -14,22 +14,157 @@
 #include "common.h"
 #include "hardware.h"
 
-#define GPC_CNTR		0x0
+#define GPC_CNTR		0x000
+#define GPC_CNTR_L2_PGE		22
+
 #define GPC_IMR1		0x008
+#define GPC_PGC_MF_PDN		0x220
 #define GPC_PGC_CPU_PDN		0x2a0
 #define GPC_PGC_CPU_PUPSCR	0x2a4
 #define GPC_PGC_CPU_PDNSCR	0x2a8
 #define GPC_PGC_SW2ISO_SHIFT	0x8
 #define GPC_PGC_SW_SHIFT	0x0
+#define GPC_M4_LPSR		0x2c
+#define GPC_M4_LPSR_M4_SLEEPING_SHIFT	4
+#define GPC_M4_LPSR_M4_SLEEPING_MASK	0x1
+#define GPC_M4_LPSR_M4_SLEEP_HOLD_REQ_MASK	0x1
+#define GPC_M4_LPSR_M4_SLEEP_HOLD_REQ_SHIFT	0
+#define GPC_M4_LPSR_M4_SLEEP_HOLD_ACK_MASK	0x1
+#define GPC_M4_LPSR_M4_SLEEP_HOLD_ACK_SHIFT	1
 
-#define GPC_CNTR_L2_PGE_SHIFT	22
+#define GPC_PGC_CPU_SW_SHIFT		0
+#define GPC_PGC_CPU_SW_MASK		0x3f
+#define GPC_PGC_CPU_SW2ISO_SHIFT	8
+#define GPC_PGC_CPU_SW2ISO_MASK		0x3f
 
 #define IMR_NUM			4
 #define GPC_MAX_IRQS		(IMR_NUM * 32)
 
+/* for irq #74 and #75 */
+#define GPC_USB_VBUS_WAKEUP_IRQ_MASK		0xc00
+
+/* for irq #150 and #151 */
+#define GPC_ENET_WAKEUP_IRQ_MASK        0xC00000
+
 static void __iomem *gpc_base;
 static u32 gpc_wake_irqs[IMR_NUM];
 static u32 gpc_saved_imrs[IMR_NUM];
+static u32 gpc_mf_irqs[IMR_NUM];
+static u32 gpc_mf_request_on[IMR_NUM];
+static DEFINE_SPINLOCK(gpc_lock);
+
+/* implemented in drivers/soc/imx/gpc.c */
+extern void _imx6_pm_pu_power_off(void);
+extern void _imx6_pm_pu_power_on(void);
+
+void imx_gpc_add_m4_wake_up_irq(u32 hwirq, bool enable)
+{
+	unsigned int idx = hwirq / 32;
+	unsigned long flags;
+	u32 mask;
+
+	/* Sanity check for SPI irq */
+	if (hwirq < 32)
+		return;
+
+	mask = 1 << hwirq % 32;
+	spin_lock_irqsave(&gpc_lock, flags);
+	gpc_wake_irqs[idx] = enable ? gpc_wake_irqs[idx] | mask :
+		gpc_wake_irqs[idx] & ~mask;
+	spin_unlock_irqrestore(&gpc_lock, flags);
+}
+
+void imx_gpc_hold_m4_in_sleep(void)
+{
+	int val;
+	unsigned long timeout = jiffies + msecs_to_jiffies(500);
+
+	/* wait M4 in wfi before asserting hold request */
+	while (!imx_gpc_is_m4_sleeping())
+		if (time_after(jiffies, timeout))
+			pr_err("M4 is NOT in expected sleep!\n");
+
+	val = readl_relaxed(gpc_base + GPC_M4_LPSR);
+	val &= ~(GPC_M4_LPSR_M4_SLEEP_HOLD_REQ_MASK <<
+		GPC_M4_LPSR_M4_SLEEP_HOLD_REQ_SHIFT);
+	writel_relaxed(val, gpc_base + GPC_M4_LPSR);
+
+	timeout = jiffies + msecs_to_jiffies(500);
+	while (readl_relaxed(gpc_base + GPC_M4_LPSR)
+		& (GPC_M4_LPSR_M4_SLEEP_HOLD_ACK_MASK <<
+		GPC_M4_LPSR_M4_SLEEP_HOLD_ACK_SHIFT))
+		if (time_after(jiffies, timeout))
+			pr_err("Wait M4 hold ack timeout!\n");
+}
+
+void imx_gpc_release_m4_in_sleep(void)
+{
+	int val;
+
+	val = readl_relaxed(gpc_base + GPC_M4_LPSR);
+	val |= GPC_M4_LPSR_M4_SLEEP_HOLD_REQ_MASK <<
+		GPC_M4_LPSR_M4_SLEEP_HOLD_REQ_SHIFT;
+	writel_relaxed(val, gpc_base + GPC_M4_LPSR);
+}
+
+unsigned int imx_gpc_is_m4_sleeping(void)
+{
+	if (readl_relaxed(gpc_base + GPC_M4_LPSR) &
+		(GPC_M4_LPSR_M4_SLEEPING_MASK <<
+		GPC_M4_LPSR_M4_SLEEPING_SHIFT))
+		return 1;
+
+	return 0;
+}
+
+bool imx_gpc_usb_wakeup_enabled(void)
+{
+	if (!(cpu_is_imx6sx() || cpu_is_imx6ul() || cpu_is_imx6ull()
+		|| cpu_is_imx6sll()))
+		return false;
+
+	/*
+	 * for SoC later than i.MX6SX, USB vbus wakeup
+	 * only needs weak 2P5 on, stop_mode_config is
+	 * NOT needed, so we check if is USB vbus wakeup
+	 * is enabled(assume irq #74 and #75) to decide
+	 * if to keep weak 2P5 on.
+	 */
+	if (gpc_wake_irqs[1] & GPC_USB_VBUS_WAKEUP_IRQ_MASK)
+		return true;
+
+	return false;
+}
+
+bool imx_gpc_enet_wakeup_enabled(void)
+{
+	if (!cpu_is_imx6q())
+		return false;
+
+	if (gpc_wake_irqs[3] & GPC_ENET_WAKEUP_IRQ_MASK)
+		return true;
+
+	return false;
+}
+
+unsigned int imx_gpc_is_mf_mix_off(void)
+{
+	return readl_relaxed(gpc_base + GPC_PGC_MF_PDN);
+}
+
+static void imx_gpc_mf_mix_off(void)
+{
+	int i;
+
+	for (i = 0; i < IMR_NUM; i++)
+		if (((gpc_wake_irqs[i] | gpc_mf_request_on[i]) &
+						gpc_mf_irqs[i]) != 0)
+			return;
+
+	pr_info("Turn off M/F mix!\n");
+	/* turn off mega/fast mix */
+	writel_relaxed(0x1, gpc_base + GPC_PGC_MF_PDN);
+}
 
 void imx_gpc_set_arm_power_up_timing(u32 sw2iso, u32 sw)
 {
@@ -53,9 +188,9 @@ void imx_gpc_set_l2_mem_power_in_lpm(bool power_off)
 	u32 val;
 
 	val = readl_relaxed(gpc_base + GPC_CNTR);
-	val &= ~(1 << GPC_CNTR_L2_PGE_SHIFT);
+	val &= ~(1 << GPC_CNTR_L2_PGE);
 	if (power_off)
-		val |= 1 << GPC_CNTR_L2_PGE_SHIFT;
+		val |= 1 << GPC_CNTR_L2_PGE;
 	writel_relaxed(val, gpc_base + GPC_CNTR);
 }
 
@@ -63,6 +198,14 @@ void imx_gpc_pre_suspend(bool arm_power_off)
 {
 	void __iomem *reg_imr1 = gpc_base + GPC_IMR1;
 	int i;
+
+	if (cpu_is_imx6q() && imx_get_soc_revision() >= IMX_CHIP_REVISION_2_0)
+		_imx6_pm_pu_power_off();
+
+	/* power down the mega-fast power domain */
+	if ((cpu_is_imx6sx() || cpu_is_imx6ul() || cpu_is_imx6ull()
+		|| cpu_is_imx6sll()) && arm_power_off)
+		imx_gpc_mf_mix_off();
 
 	/* Tell GPC to power off ARM core when suspend */
 	if (arm_power_off)
@@ -79,8 +222,15 @@ void imx_gpc_post_resume(void)
 	void __iomem *reg_imr1 = gpc_base + GPC_IMR1;
 	int i;
 
+	if (cpu_is_imx6q() && imx_get_soc_revision() >= IMX_CHIP_REVISION_2_0)
+		_imx6_pm_pu_power_on();
+
 	/* Keep ARM core powered on for other low-power modes */
 	imx_gpc_set_arm_power_in_lpm(false);
+	/* Keep M/F mix powered on for other low-power modes */
+	if (cpu_is_imx6sx() || cpu_is_imx6ul() || cpu_is_imx6ull()
+		|| cpu_is_imx6sll())
+		writel_relaxed(0x0, gpc_base + GPC_PGC_MF_PDN);
 
 	for (i = 0; i < IMR_NUM; i++)
 		writel_relaxed(gpc_saved_imrs[i], reg_imr1 + i * 4);
@@ -89,11 +239,14 @@ void imx_gpc_post_resume(void)
 static int imx_gpc_irq_set_wake(struct irq_data *d, unsigned int on)
 {
 	unsigned int idx = d->hwirq / 32;
+	unsigned long flags;
 	u32 mask;
 
 	mask = 1 << d->hwirq % 32;
+	spin_lock_irqsave(&gpc_lock, flags);
 	gpc_wake_irqs[idx] = on ? gpc_wake_irqs[idx] | mask :
 				  gpc_wake_irqs[idx] & ~mask;
+	spin_unlock_irqrestore(&gpc_lock, flags);
 
 	/*
 	 * Do *not* call into the parent, as the GIC doesn't have any
@@ -224,11 +377,78 @@ static const struct irq_domain_ops imx_gpc_domain_ops = {
 	.free		= irq_domain_free_irqs_common,
 };
 
+int imx_gpc_mf_power_on(unsigned int irq, unsigned int on)
+{
+	struct irq_desc *d = irq_to_desc(irq);
+	unsigned int idx = d->irq_data.hwirq / 32;
+	unsigned long flags;
+	u32 mask;
+
+	mask = 1 << (d->irq_data.hwirq % 32);
+	spin_lock_irqsave(&gpc_lock, flags);
+	gpc_mf_request_on[idx] = on ? gpc_mf_request_on[idx] | mask :
+				  gpc_mf_request_on[idx] & ~mask;
+	spin_unlock_irqrestore(&gpc_lock, flags);
+
+	return 0;
+}
+
+int imx_gpc_mf_request_on(unsigned int irq, unsigned int on)
+{
+	if (cpu_is_imx6sx() || cpu_is_imx6ul() || cpu_is_imx6ull()
+		|| cpu_is_imx6sll())
+		return imx_gpc_mf_power_on(irq, on);
+	else if (cpu_is_imx7d())
+		return imx_gpcv2_mf_power_on(irq, on);
+	else
+		return 0;
+}
+EXPORT_SYMBOL_GPL(imx_gpc_mf_request_on);
+
+void imx_gpc_switch_pupscr_clk(bool flag)
+{
+	static u32 pupscr_sw2iso, pupscr_sw;
+	u32 ratio, pupscr = readl_relaxed(gpc_base + GPC_PGC_CPU_PUPSCR);
+
+	if (flag) {
+		/* save the init clock setting IPG/2048 for IPG@66Mhz */
+		pupscr_sw2iso = (pupscr >> GPC_PGC_CPU_SW2ISO_SHIFT) &
+				    GPC_PGC_CPU_SW2ISO_MASK;
+		pupscr_sw = (pupscr >> GPC_PGC_CPU_SW_SHIFT) &
+				GPC_PGC_CPU_SW_MASK;
+		/*
+		 * i.MX6UL TO1.0 ARM power up uses IPG/2048 as clock source,
+		 * from TO1.1, PGC_CPU_PUPSCR bit [5] is re-defined to switch
+		 * clock to IPG/32, enable this bit to speed up the ARM power
+		 * up process in low power idle case(IPG@1.5Mhz). So the sw and
+		 * sw2iso need to be adjusted as below:
+		 * sw_new(sw2iso_new) = (2048 * 1.5 / 66 * 32) * sw(sw2iso)
+		 */
+		ratio = 3072 / (66 * 32);
+		pupscr &= ~(GPC_PGC_CPU_SW_MASK << GPC_PGC_CPU_SW_SHIFT |
+			  GPC_PGC_CPU_SW2ISO_MASK << GPC_PGC_CPU_SW2ISO_SHIFT);
+		pupscr |= (ratio * pupscr_sw + 1) << GPC_PGC_CPU_SW_SHIFT |
+			  1 << 5 | (ratio * pupscr_sw2iso + 1) <<
+			  GPC_PGC_CPU_SW2ISO_SHIFT;
+		writel_relaxed(pupscr, gpc_base + GPC_PGC_CPU_PUPSCR);
+	} else {
+		/* restore back after exit from low power idle */
+		pupscr &= ~(GPC_PGC_CPU_SW_MASK << GPC_PGC_CPU_SW_SHIFT |
+			  GPC_PGC_CPU_SW2ISO_MASK << GPC_PGC_CPU_SW2ISO_SHIFT);
+		pupscr |= pupscr_sw << GPC_PGC_CPU_SW_SHIFT |
+			  pupscr_sw2iso << GPC_PGC_CPU_SW2ISO_SHIFT;
+		writel_relaxed(pupscr, gpc_base + GPC_PGC_CPU_PUPSCR);
+	}
+}
+
 static int __init imx_gpc_init(struct device_node *node,
 			       struct device_node *parent)
 {
 	struct irq_domain *parent_domain, *domain;
 	int i;
+	u32 val;
+	u32 cpu_pupscr_sw2iso, cpu_pupscr_sw;
+	u32 cpu_pdnscr_iso2sw, cpu_pdnscr_iso;
 
 	if (!parent) {
 		pr_err("%pOF: no parent, giving up\n", node);
@@ -257,11 +477,69 @@ static int __init imx_gpc_init(struct device_node *node,
 	for (i = 0; i < IMR_NUM; i++)
 		writel_relaxed(~0, gpc_base + GPC_IMR1 + i * 4);
 
+	/* Read supported wakeup source in M/F domain */
+	if (cpu_is_imx6sx() || cpu_is_imx6ul() || cpu_is_imx6ull()
+		|| cpu_is_imx6sll()) {
+		of_property_read_u32_index(node, "fsl,mf-mix-wakeup-irq", 0,
+			&gpc_mf_irqs[0]);
+		of_property_read_u32_index(node, "fsl,mf-mix-wakeup-irq", 1,
+			&gpc_mf_irqs[1]);
+		of_property_read_u32_index(node, "fsl,mf-mix-wakeup-irq", 2,
+			&gpc_mf_irqs[2]);
+		of_property_read_u32_index(node, "fsl,mf-mix-wakeup-irq", 3,
+			&gpc_mf_irqs[3]);
+		if (!(gpc_mf_irqs[0] | gpc_mf_irqs[1] |
+			gpc_mf_irqs[2] | gpc_mf_irqs[3]))
+			pr_info("No wakeup source in Mega/Fast domain found!\n");
+	}
+
+	/* clear the L2_PGE bit on i.MX6SLL */
+	if (cpu_is_imx6sll()) {
+		val = readl_relaxed(gpc_base + GPC_CNTR);
+		val &= ~(1 << GPC_CNTR_L2_PGE);
+		writel_relaxed(val, gpc_base + GPC_CNTR);
+	}
+
 	/*
 	 * Clear the OF_POPULATED flag set in of_irq_init so that
 	 * later the GPC power domain driver will not be skipped.
 	 */
 	of_node_clear_flag(node, OF_POPULATED);
+
+	/*
+	 * If there are CPU isolation timing settings in dts,
+	 * update them according to dts, otherwise, keep them
+	 * with default value in registers.
+	 */
+	cpu_pupscr_sw2iso = cpu_pupscr_sw =
+		cpu_pdnscr_iso2sw = cpu_pdnscr_iso = 0;
+
+	/* Read CPU isolation setting for GPC */
+	of_property_read_u32(node, "fsl,cpu_pupscr_sw2iso", &cpu_pupscr_sw2iso);
+	of_property_read_u32(node, "fsl,cpu_pupscr_sw", &cpu_pupscr_sw);
+	of_property_read_u32(node, "fsl,cpu_pdnscr_iso2sw", &cpu_pdnscr_iso2sw);
+	of_property_read_u32(node, "fsl,cpu_pdnscr_iso", &cpu_pdnscr_iso);
+
+	/* Return if no property found in dtb */
+	if ((cpu_pupscr_sw2iso | cpu_pupscr_sw
+		| cpu_pdnscr_iso2sw | cpu_pdnscr_iso) == 0)
+		return 0;
+
+	/* Update CPU PUPSCR timing if it is defined in dts */
+	val = readl_relaxed(gpc_base + GPC_PGC_CPU_PUPSCR);
+	val &= ~(GPC_PGC_CPU_SW2ISO_MASK << GPC_PGC_CPU_SW2ISO_SHIFT);
+	val &= ~(GPC_PGC_CPU_SW_MASK << GPC_PGC_CPU_SW_SHIFT);
+	val |= cpu_pupscr_sw2iso << GPC_PGC_CPU_SW2ISO_SHIFT;
+	val |= cpu_pupscr_sw << GPC_PGC_CPU_SW_SHIFT;
+	writel_relaxed(val, gpc_base + GPC_PGC_CPU_PUPSCR);
+
+	/* Update CPU PDNSCR timing if it is defined in dts */
+	val = readl_relaxed(gpc_base + GPC_PGC_CPU_PDNSCR);
+	val &= ~(GPC_PGC_CPU_SW2ISO_MASK << GPC_PGC_CPU_SW2ISO_SHIFT);
+	val &= ~(GPC_PGC_CPU_SW_MASK << GPC_PGC_CPU_SW_SHIFT);
+	val |= cpu_pdnscr_iso2sw << GPC_PGC_CPU_SW2ISO_SHIFT;
+	val |= cpu_pdnscr_iso << GPC_PGC_CPU_SW_SHIFT;
+	writel_relaxed(val, gpc_base + GPC_PGC_CPU_PDNSCR);
 
 	return 0;
 }

@@ -8,6 +8,7 @@
 #define __ASM_ARCH_MXC_COMMON_H__
 
 #include <linux/reboot.h>
+#include <soc/imx/src.h>
 
 struct irq_data;
 struct platform_device;
@@ -72,6 +73,29 @@ void imx_smp_prepare(void);
 static inline void imx_scu_map_io(void) {}
 static inline void imx_smp_prepare(void) {}
 #endif
+void imx6sx_set_m4_highfreq(bool high_freq);
+void imx_mu_enable_m4_irqs_in_gic(bool enable);
+#ifdef CONFIG_HAVE_IMX_GPC
+void imx_gpc_add_m4_wake_up_irq(u32 irq, bool enable);
+unsigned int imx_gpc_is_m4_sleeping(void);
+#else
+static inline void imx_gpc_add_m4_wake_up_irq(u32 irq, bool enable) {}
+static inline unsigned int imx_gpc_is_m4_sleeping(void) { return 0; }
+#endif
+#ifdef CONFIG_HAVE_IMX_GPCV2
+int imx_gpcv2_mf_power_on(unsigned int irq, unsigned int on);
+void imx_gpcv2_set_core1_pdn_pup_by_software(bool pdn);
+void imx_gpcv2_add_m4_wake_up_irq(u32 hwirq, bool enable);
+#else
+static inline int imx_gpcv2_mf_power_on(unsigned int irq, unsigned int on) { return 0; }
+static inline void imx_gpcv2_set_core1_pdn_pup_by_software(bool pdn) {}
+static inline void imx_gpcv2_add_m4_wake_up_irq(u32 hwirq, bool enable) {}
+#endif
+void imx_gpc_hold_m4_in_sleep(void);
+void imx_gpc_release_m4_in_sleep(void);
+bool imx_mu_is_m4_in_low_freq(void);
+bool imx_mu_is_m4_in_stop(void);
+void imx_mu_set_m4_run_mode(void);
 void imx_src_init(void);
 void imx_gpc_pre_suspend(bool arm_power_off);
 void imx_gpc_post_resume(void);
@@ -79,13 +103,19 @@ void imx_gpc_mask_all(void);
 void imx_gpc_restore_all(void);
 void imx_gpc_hwirq_mask(unsigned int hwirq);
 void imx_gpc_hwirq_unmask(unsigned int hwirq);
-void imx_gpcv2_set_core1_pdn_pup_by_software(bool pdn);
+unsigned int imx_gpc_is_mf_mix_off(void);
 void imx_anatop_init(void);
 void imx_anatop_pre_suspend(void);
 void imx_anatop_post_resume(void);
 int imx6_set_lpm(enum mxc_cpu_pwr_mode mode);
 void imx6_set_int_mem_clk_lpm(bool enable);
+#ifdef CONFIG_HAVE_IMX_MMDC
 int imx_mmdc_get_ddr_type(void);
+int imx_mmdc_get_lpddr2_2ch_mode(void);
+#else
+static inline int imx_mmdc_get_ddr_type(void) { return 0; }
+static inline int imx_mmdc_get_lpddr2_2ch_mode(void) { return 0; }
+#endif
 int imx7ulp_set_lpm(enum ulp_cpu_pwr_mode mode);
 void imx_busfreq_map_io(void);
 void imx7_pm_map_io(void);

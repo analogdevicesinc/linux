@@ -19,8 +19,11 @@
 
 ENTRY(v7_cpu_resume)
 	bl	v7_invalidate_l1
+	is_cortex_a7
+	beq	done
 #ifdef CONFIG_CACHE_L2X0
 	bl	l2c310_early_resume
 #endif
+done:
 	b	cpu_resume
 ENDPROC(v7_cpu_resume)

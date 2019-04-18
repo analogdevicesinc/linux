@@ -27,6 +27,7 @@
 
 static void __iomem *src_base;
 static DEFINE_SPINLOCK(scr_lock);
+static bool m4_is_enabled;
 
 static const int sw_reset_bits[5] = {
 	BP_SRC_SCR_SW_GPU_RST,
@@ -35,6 +36,11 @@ static const int sw_reset_bits[5] = {
 	BP_SRC_SCR_SW_OPEN_VG_RST,
 	BP_SRC_SCR_SW_IPU2_RST
 };
+
+bool imx_src_is_m4_enabled(void)
+{
+	return m4_is_enabled;
+}
 
 static int imx_src_reset_module(struct reset_controller_dev *rcdev,
 		unsigned long sw_reset_idx)

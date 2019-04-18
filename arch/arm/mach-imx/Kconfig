@@ -38,6 +38,9 @@ config HAVE_IMX_DDRC
 config HAVE_IMX_BUSFREQ
        bool
 
+config HAVE_IMX_MU
+	bool
+
 config HAVE_IMX_SRC
 	def_bool y if SMP
 	select ARCH_HAS_RESET_CONTROLLER
@@ -176,6 +179,8 @@ config SOC_IMX6SX
 	select ARM_ERRATA_775420
 	select PINCTRL_IMX6SX
 	select SOC_IMX6
+	select HAVE_IMX_MU
+	select KEYBOARD_SNVS_PWRKEY
 
 	help
 	  This enables support for Freescale i.MX6 SoloX processor.
@@ -212,6 +217,8 @@ config SOC_IMX7D_CA7
 	select HAVE_IMX_SRC
 	select IMX_GPCV2
 	select HAVE_IMX_DDRC
+	select HAVE_IMX_MU
+	select KEYBOARD_SNVS_PWRKEY
 
 config SOC_IMX7D_CM4
 	bool
