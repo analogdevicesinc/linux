@@ -455,6 +455,11 @@ static int dpu_drm_atomic_check(struct drm_device *dev,
 
 		drm_for_each_plane_mask(plane, dev, crtc_state->plane_mask) {
 			plane_state = drm_atomic_get_plane_state(state, plane);
+			if (IS_ERR(plane_state)) {
+				DRM_DEBUG_KMS("failed to get plane state\n");
+				return PTR_ERR(plane_state);
+			}
+
 			dpstate = to_dpu_plane_state(plane_state);
 			fb = plane_state->fb;
 			dpu_plane = to_dpu_plane(plane);
