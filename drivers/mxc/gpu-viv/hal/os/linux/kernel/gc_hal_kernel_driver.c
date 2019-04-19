@@ -1327,5 +1327,5 @@ static void __exit gpu_exit(void)
     platform = NULL;
 }
 
-module_init(gpu_init);
+late_initcall(gpu_init);
 module_exit(gpu_exit);
