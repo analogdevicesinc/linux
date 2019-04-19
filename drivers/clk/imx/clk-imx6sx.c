@@ -11,6 +11,7 @@
 #include <linux/err.h>
 #include <linux/init.h>
 #include <linux/io.h>
+#include <linux/imx_sema4.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/of_irq.h>
@@ -19,6 +20,8 @@
 #include <soc/imx/src.h>
 
 #include "clk.h"
+
+#define CCM_CCGR_OFFSET(index)		(index * 2)
 
 static const char *step_sels[]		= { "osc", "pll2_pfd2_396m", };
 static const char *pll1_sw_sels[]	= { "pll1_sys", "step", };
@@ -86,6 +89,12 @@ static const char *pll7_bypass_sels[] = { "pll7", "pll7_bypass_src", };
 
 static struct clk_hw **hws;
 static struct clk_hw_onecell_data *clk_hw_data;
+struct imx_sema4_mutex *amp_power_mutex;
+
+static int clks_shared[MAX_SHARED_CLK_NUMBER];
+
+struct imx_shared_mem *shared_mem;
+static unsigned int shared_mem_paddr, shared_mem_size;
 
 static const struct clk_div_table clk_enet_ref_table[] = {
 	{ .val = 0, .div = 20, },
@@ -518,12 +527,58 @@ static void __init imx6sx_clocks_init(struct device_node *ccm_node)
 	hws[IMX6SX_CLK_CKO1]         = imx_clk_hw_gate("cko1",           "cko1_podf",         base + 0x60, 7);
 	hws[IMX6SX_CLK_CKO2]         = imx_clk_hw_gate("cko2",           "cko2_podf",         base + 0x60, 24);
 
+	/* get those shared clk nodes if M4 is active */
+	if (imx_src_is_m4_enabled()) {
+		u32 num;
+
+		of_property_read_u32(np, "fsl,shared-clks-number", &num);
+		if (num > MAX_SHARED_CLK_NUMBER)
+			pr_err("clk: shared clk nodes exceed the max number!\n");
+		of_property_read_u32_array(np, "fsl,shared-clks-index",
+			clks_shared, num);
+		if (of_property_read_u32(np, "fsl,shared-mem-addr",
+			&shared_mem_paddr))
+			pr_err("clk: fsl,shared-mem-addr NOT found!\n");
+		if (of_property_read_u32(np, "fsl,shared-mem-size",
+			&shared_mem_size))
+			pr_err("clk: fsl,shared-mem-size NOT found!\n");
+	}
+
 	/* mask handshake of mmdc */
 	imx_mmdc_mask_handshake(base, 0);
 
 	imx_check_clk_hws(hws, IMX6SX_CLK_CLK_END);
 
+	/*
+	 * QSPI2/GPMI_IO share the same clock source but with the
+	 * different gate, need explicitely gate the QSPI2 & GPMI_IO
+	 * during the clock init phase according to the SOC design.
+	 */
+	if (!imx_src_is_m4_enabled()) {
+		writel_relaxed(readl_relaxed(base + 0x78) &
+			~(3 << CCM_CCGR_OFFSET(5)), base + 0x78);
+		writel_relaxed(readl_relaxed(base + 0x78) &
+			~(3 << CCM_CCGR_OFFSET(14)), base + 0x78);
+	}
+
+
 	of_clk_add_hw_provider(np, of_clk_hw_onecell_get, clk_hw_data);
+
+	/*
+	 * As some of the modules need to access ocotp in MSL,
+	 * need to make sure ocotp clk(CCM_CCGR2_CG6) is enabled
+	 * during MSL, as on i.MX6SX, accessing OCOTP registers
+	 * needs its clk on, it will be disabled by clk late
+	 * init and managed by ocotp driver.
+	 */
+	writel_relaxed(readl_relaxed(base + 0x70) | 1 << 12, base + 0x70);
+
+	/* maintain M4 usecount */
+	if (imx_src_is_m4_enabled())
+		clk_prepare_enable(hws[IMX6SX_CLK_M4]->clk);
+
+	/* set perclk to from OSC */
+	clk_set_parent(hws[IMX6SX_CLK_PERCLK_SEL]->clk, hws[IMX6SX_CLK_OSC]->clk);
 
 	if (IS_ENABLED(CONFIG_USB_MXS_PHY)) {
 		clk_prepare_enable(hws[IMX6SX_CLK_USBPHY1_GATE]->clk);
@@ -593,6 +648,9 @@ static void __init imx6sx_clocks_init(struct device_node *ccm_node)
 	/* Update gpu clock from default 528M to 720M */
 	clk_set_parent(hws[IMX6SX_CLK_GPU_CORE_SEL]->clk, hws[IMX6SX_CLK_PLL3_PFD0]->clk);
 	clk_set_parent(hws[IMX6SX_CLK_GPU_AXI_SEL]->clk, hws[IMX6SX_CLK_PLL3_PFD0]->clk);
+	if (!imx_src_is_m4_enabled())
+		/* default parent of can_sel clock is invalid, manually set it here */
+		clk_set_parent(hws[IMX6SX_CLK_CAN_SEL]->clk, hws[IMX6SX_CLK_PLL3_60M]->clk);
 
 	clk_set_parent(hws[IMX6SX_CLK_QSPI1_SEL]->clk, hws[IMX6SX_CLK_PLL2_BUS]->clk);
 	clk_set_parent(hws[IMX6SX_CLK_QSPI2_SEL]->clk, hws[IMX6SX_CLK_PLL2_BUS]->clk);
@@ -600,3 +658,64 @@ static void __init imx6sx_clocks_init(struct device_node *ccm_node)
 	imx_register_uart_clocks();
 }
 CLK_OF_DECLARE(imx6sx, "fsl,imx6sx-ccm", imx6sx_clocks_init);
+
+int imx_update_shared_mem(struct clk_hw *hw, bool enable)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(clks_shared); i++) {
+		if (shared_mem->imx_clk[i].self == hw->clk)
+			break;
+	}
+
+	if (i >= ARRAY_SIZE(clks_shared))
+		return 1;
+
+	/* update ca9 clk status in shared memory */
+	if (enable)
+		shared_mem->imx_clk[i].ca9_enabled = 1;
+	else
+		shared_mem->imx_clk[i].ca9_enabled = 0;
+
+	if (shared_mem->imx_clk[i].cm4_enabled == 0)
+		return 1;
+
+	return 0;
+}
+
+static int __init imx_amp_power_init(void)
+{
+	int i;
+	void __iomem *shared_mem_base;
+
+	if (!(imx_src_is_m4_enabled() && clk_on_imx6sx()))
+		return 0;
+
+	amp_power_mutex = imx_sema4_mutex_create(0, MCC_POWER_SHMEM_NUMBER);
+
+	shared_mem_base = ioremap(shared_mem_paddr, shared_mem_size);
+
+	if (!amp_power_mutex) {
+		pr_err("Failed to create sema4 mutex!\n");
+		return 0;
+	}
+
+	shared_mem = (struct imx_shared_mem *)shared_mem_base;
+
+	for (i = 0; i < ARRAY_SIZE(clks_shared); i++) {
+		shared_mem->imx_clk[i].self = hws[clks_shared[i]]->clk;
+		shared_mem->imx_clk[i].ca9_enabled = 1;
+		pr_debug("%d: name %s, addr 0x%x\n", i,
+			__clk_get_name(shared_mem->imx_clk[i].self),
+			(u32)&(shared_mem->imx_clk[i]));
+	}
+	/* enable amp power management */
+	shared_mem->ca9_valid = SHARED_MEM_MAGIC_NUMBER;
+
+	pr_info("A9-M4 sema4 num %d, A9-M4 magic number 0x%x - 0x%x.\n",
+		amp_power_mutex->gate_num, shared_mem->ca9_valid,
+		shared_mem->cm4_valid);
+
+	return 0;
+}
+late_initcall(imx_amp_power_init);

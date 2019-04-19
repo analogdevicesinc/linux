@@ -8,11 +8,13 @@
 
 #include <linux/clk-provider.h>
 #include <linux/export.h>
+#include <linux/imx_sema4.h>
 #include <linux/module.h>
 #include <linux/slab.h>
 #include <linux/io.h>
 #include <linux/err.h>
 #include <linux/string.h>
+#include <soc/imx/src.h>
 #include "clk.h"
 
 /**
@@ -38,9 +40,8 @@ struct clk_gate2 {
 
 #define to_clk_gate2(_hw) container_of(_hw, struct clk_gate2, hw)
 
-static void clk_gate2_do_shared_clks(struct clk_hw *hw, bool enable)
+static void clk_gate2_do_hardware(struct clk_gate2 *gate, bool enable)
 {
-	struct clk_gate2 *gate = to_clk_gate2(hw);
 	u32 reg;
 
 	reg = readl(gate->reg);
@@ -48,6 +49,39 @@ static void clk_gate2_do_shared_clks(struct clk_hw *hw, bool enable)
 	if (enable)
 		reg |= (gate->cgr_val & gate->cgr_mask) << gate->bit_idx;
 	writel(reg, gate->reg);
+}
+
+static void clk_gate2_do_shared_clks(struct clk_hw *hw, bool enable)
+{
+	struct clk_gate2 *gate = to_clk_gate2(hw);
+
+	if (imx_src_is_m4_enabled() && clk_on_imx6sx()) {
+#ifdef CONFIG_SOC_IMX6SX
+		if (!amp_power_mutex || !shared_mem) {
+			if (enable)
+				clk_gate2_do_hardware(gate, enable);
+			return;
+		}
+
+		imx_sema4_mutex_lock(amp_power_mutex);
+		if (shared_mem->ca9_valid != SHARED_MEM_MAGIC_NUMBER ||
+			shared_mem->cm4_valid != SHARED_MEM_MAGIC_NUMBER) {
+			imx_sema4_mutex_unlock(amp_power_mutex);
+			return;
+		}
+
+		if (!imx_update_shared_mem(hw, enable)) {
+			imx_sema4_mutex_unlock(amp_power_mutex);
+			return;
+		}
+
+		clk_gate2_do_hardware(gate, enable);
+
+		imx_sema4_mutex_unlock(amp_power_mutex);
+#endif
+	} else {
+		clk_gate2_do_hardware(gate, enable);
+	}
 }
 
 static int clk_gate2_enable(struct clk_hw *hw)
