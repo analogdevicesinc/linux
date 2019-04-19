@@ -1232,6 +1232,12 @@
 				status = "disabled";
 			};
 
+			qspi_m4: qspi-m4 {
+				compatible = "fsl,imx6sx-qspi-m4-restore";
+				reg = <0x021e4000 0x4000>;
+				status = "disabled";
+			};
+
 			uart2: serial@21e8000 {
 				compatible = "fsl,imx6sx-uart",
 					     "fsl,imx6q-uart", "fsl,imx21-uart";
@@ -1422,6 +1428,25 @@
 				clocks = <&clks IMX6SX_CLK_ECSPI5>,
 					 <&clks IMX6SX_CLK_ECSPI5>;
 				clock-names = "ipg", "per";
+				status = "disabled";
+			};
+
+			sema4: sema4@02290000 { /* sema4 */
+				compatible = "fsl,imx6sx-sema4";
+				reg = <0x02290000 0x4000>;
+				interrupts = <0 116 0x04>;
+				status = "okay";
+			};
+
+			mu: mu@02294000 { /* mu */
+				compatible = "fsl,imx6sx-mu";
+				reg = <0x02294000 0x4000>;
+				interrupts = <0 90 0x04>;
+				status = "okay";
+			};
+
+			rpmsg: rpmsg{
+				compatible = "fsl,imx6sx-rpmsg";
 				status = "disabled";
 			};
 
