@@ -280,6 +280,12 @@
 	status = "okay";
 };
 
+&lpuart1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_lpuart1>;
+	status = "okay";
+};
+
 &lpuart2 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_lpuart2>;
@@ -511,6 +517,15 @@
 	pinctrl_typec_mux: typecmuxgrp {
 		fsl,pins = <
 			IMX8QXP_ENET0_REFCLK_125M_25M_LSIO_GPIO5_IO09           0x60
+		>;
+	};
+
+	pinctrl_lpuart1: lpuart1grp {
+		fsl,pins = <
+			IMX8QXP_UART1_TX_ADMA_UART1_TX				0x06000020
+			IMX8QXP_UART1_RX_ADMA_UART1_RX				0x06000020
+			IMX8QXP_UART1_RTS_B_ADMA_UART1_RTS_B			0x06000020
+			IMX8QXP_UART1_CTS_B_ADMA_UART1_CTS_B			0x06000020
 		>;
 	};
 
