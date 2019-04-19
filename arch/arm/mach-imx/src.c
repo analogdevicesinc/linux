@@ -13,6 +13,7 @@
 #include <linux/smp.h>
 #include <asm/smp_plat.h>
 #include "common.h"
+#include "hardware.h"
 
 #define SRC_SCR				0x000
 #define SRC_GPR1			0x020
@@ -125,6 +126,14 @@ void __init imx_src_init(void)
 	 */
 	spin_lock(&scr_lock);
 	val = readl_relaxed(src_base + SRC_SCR);
+
+	/* bit 4 is m4c_non_sclr_rst on i.MX6SX */
+	if (cpu_is_imx6sx() && ((val &
+		(1 << BP_SRC_SCR_SW_OPEN_VG_RST)) == 0))
+		m4_is_enabled = true;
+	else
+		m4_is_enabled = false;
+
 	val &= ~(1 << BP_SRC_SCR_WARM_RESET_ENABLE);
 	writel_relaxed(val, src_base + SRC_SCR);
 	spin_unlock(&scr_lock);

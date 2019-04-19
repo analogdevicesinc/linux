@@ -108,6 +108,7 @@ static struct clk *pll_dram;
 static struct clk *ahb_sel_clk;
 static struct clk *axi_clk;
 
+static struct clk *m4_clk;
 static struct clk *pll3_clk;
 static struct clk *pll2_400_clk;
 static struct clk *periph_clk2_sel_clk;
@@ -130,6 +131,16 @@ static struct delayed_work low_bus_freq_handler;
 static struct delayed_work bus_freq_daemon;
 
 static RAW_NOTIFIER_HEAD(busfreq_notifier_chain);
+
+static bool check_m4_sleep(void)
+{
+	unsigned long timeout = jiffies + msecs_to_jiffies(500);
+
+	while (imx_gpc_is_m4_sleeping() == 0)
+		if (time_after(jiffies, timeout))
+			return false;
+	return  true;
+}
 
 static bool busfreq_notified_low = false;
 
@@ -167,6 +178,10 @@ EXPORT_SYMBOL(unregister_busfreq_notifier);
  */
 static void enter_lpm_imx6_up(void)
 {
+	if (cpu_is_imx6sx() && imx_src_is_m4_enabled())
+		if (!check_m4_sleep())
+			pr_err("M4 is NOT in sleep!!!\n");
+
 	/* set periph_clk2 to source from OSC for periph */
 	clk_set_parent(periph_clk2_sel_clk, osc_clk);
 	clk_set_parent(periph_clk, periph_clk2_clk);
@@ -910,6 +925,13 @@ static int busfreq_probe(struct platform_device *pdev)
 		}
 	}
 
+	if (cpu_is_imx6sx()) {
+		m4_clk = devm_clk_get(&pdev->dev, "m4");
+		if (IS_ERR(m4_clk)) {
+			dev_err(busfreq_dev, "%s: failed to get m4 clk.\n", __func__);
+			return -EINVAL;
+		}
+	}
 	if (cpu_is_imx7d()) {
 		osc_clk = devm_clk_get(&pdev->dev, "osc");
 		axi_sel_clk = devm_clk_get(&pdev->dev, "axi_sel");
@@ -1024,6 +1046,18 @@ static int busfreq_probe(struct platform_device *pdev)
 		err = busfreq_func.init(pdev);
 	else
 		err = -EINVAL;
+
+	if (!err) {
+		if (cpu_is_imx6sx()) {
+			/*
+			 * If M4 is enabled and rate > 24MHz,
+			 * add high bus count
+			 */
+			if (imx_src_is_m4_enabled() &&
+				(clk_get_rate(m4_clk) > LPAPM_CLK))
+				high_bus_count++;
+		}
+	}
 
 	if (err) {
 		dev_err(busfreq_dev, "Busfreq init of ddr controller failed\n");
