@@ -29,7 +29,6 @@
 			clock-frequency = <996000000>;
 			operating-points-v2 = <&cpu0_opp_table>;
 			#cooling-cells = <2>;
-			cpu-idle-states = <&cpu_sleep_wait>;
 		};
 	};
 
@@ -87,9 +86,10 @@
 				<&clks IMX7D_DRAM_ROOT_SRC>, <&clks IMX7D_DRAM_ALT_ROOT_SRC>,
 				<&clks IMX7D_PLL_DRAM_MAIN_CLK>, <&clks IMX7D_DRAM_ALT_ROOT_CLK>,
 				<&clks IMX7D_PLL_SYS_PFD2_270M_CLK>, <&clks IMX7D_PLL_SYS_PFD1_332M_CLK>,
-				<&clks IMX7D_AHB_CHANNEL_ROOT_CLK>, <&clks IMX7D_MAIN_AXI_ROOT_DIV>;
-			clock-names = "osc", "axi_sel", "ahb_sel", "pfd0_392m", "dram_root", "dram_alt_sel",
-					"pll_dram", "dram_alt_root", "pfd2_270m", "pfd1_332m", "ahb", "axi";
+				<&clks IMX7D_AHB_CHANNEL_ROOT_DIV>, <&clks IMX7D_MAIN_AXI_ROOT_DIV>;
+			clock-names = "osc", "axi_sel", "ahb_sel", "pfd0_392m", "dram_root",
+					"dram_alt_sel", "pll_dram", "dram_alt_root", "pfd2_270m",
+					"pfd1_332m", "ahb", "axi";
 			interrupts = <0 112 0x04>, <0 113 0x04>;
 			interrupt-names = "irq_busfreq_0", "irq_busfreq_1";
 		};
@@ -100,11 +100,23 @@
 			clocks = <&clks IMX7D_OCRAM_CLK>;
 		};
 
+		ocram: sram@901000 {
+			compatible = "mmio-sram";
+			reg = <0x00901000 0x1f000>;
+			clocks = <&clks IMX7D_OCRAM_CLK>;
+		};
+
 		ocrams: sram@00180000 {
 			compatible = "fsl,lpm-sram";
 			reg = <0x00180000 0x8000>;
 			clocks = <&clks IMX7D_OCRAM_S_CLK>;
 			status = "disabled";
+		};
+
+		ocrams_mf: sram-mf@00900000 {
+			compatible = "fsl,mega-fast-sram";
+			reg = <0x00900000 0x20000>;
+			clocks = <&clks IMX7D_OCRAM_CLK>;
 		};
 
 		etm@3007d000 {
@@ -194,6 +206,26 @@
 		  status = "disabled";
 	};
 
+	system_counter_rd: system-counter-rd@306a0000 {
+		compatible = "fsl,imx7d-system-counter-rd";
+		reg = <0x306a0000 0x10000>;
+		status = "disabled";
+	};
+
+	system_counter_cmp: system-counter-cmp@306b0000 {
+		compatible = "fsl,imx7d-system-counter-cmp";
+		reg = <0x306b0000 0x10000>;
+		status = "disabled";
+	};
+
+	system_counter_ctrl: system-counter-ctrl@306c0000 {
+		compatible = "fsl,imx7d-system-counter-ctrl";
+		reg = <0x306c0000 0x10000>;
+		interrupts = <GIC_SPI 47 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 48 IRQ_TYPE_LEVEL_HIGH>;
+		status = "disabled";
+	};
+
 	pxp: pxp@30700000 {
 		compatible = "fsl,imx7d-pxp";
 		reg = <0x30700000 0x10000>;
@@ -205,6 +237,29 @@
 };
 
 &aips3 {
+	mu: mu@30aa0000 {
+		compatible = "fsl,imx7d-mu", "fsl,imx6sx-mu";
+		reg = <0x30aa0000 0x10000>;
+		interrupts = <GIC_SPI 88 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clks IMX7D_MU_ROOT_CLK>;
+		clock-names = "mu";
+		status = "okay";
+	};
+
+	rpmsg: rpmsg{
+		compatible = "fsl,imx7d-rpmsg";
+		status = "disabled";
+	};
+
+	sema4: sema4@30ac0000 {
+		compatible = "fsl,imx7d-sema4";
+		reg = <0x30ac0000 0x10000>;
+		interrupts = <GIC_SPI 116 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clks IMX7D_SEMA4_HS_ROOT_CLK>;
+		clock-names = "sema4";
+		status = "okay";
+	};
+
 	usbotg2: usb@30b20000 {
 		compatible = "fsl,imx7d-usb", "fsl,imx27-usb";
 		reg = <0x30b20000 0x200>;
