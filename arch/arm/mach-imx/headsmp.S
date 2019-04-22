@@ -23,6 +23,17 @@ diag_reg_offset:
 
 ENTRY(v7_secondary_startup)
 ARM_BE8(setend be)			@ go BE8 if entered LE
+	mrc	p15, 0, r0, c0, c0, 0
+	ldr	r1, =0xf00
+	orr	r1, r1, #0xff
+	mov	r0, r0, lsr #4
+	and	r0, r0, r1
+	/* 0xc07 is cortex A7's ID */
+	ldr	r1, =0xc00
+	orr	r1, r1, #0x7
+	cmp	r0, r1
+	beq	secondary_startup
+
 	set_diag_reg
 	b	secondary_startup
 ENDPROC(v7_secondary_startup)

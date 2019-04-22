@@ -28,6 +28,10 @@ config HAVE_IMX_GPC
 	bool
 	select PM_GENERIC_DOMAINS if PM
 
+config HAVE_IMX_GPCV2
+	bool
+	select PM_GENERIC_DOMAINS if PM
+
 config HAVE_IMX_MMDC
 	bool
 
@@ -229,6 +233,7 @@ config SOC_IMX7D_CA7
 	select IMX_GPCV2
 	select HAVE_IMX_DDRC
 	select HAVE_IMX_MU
+	select HAVE_IMX_GPCV2
 	select KEYBOARD_SNVS_PWRKEY
 
 config SOC_IMX7D_CM4

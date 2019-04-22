@@ -40,9 +40,19 @@ void imx_gpc_set_arm_power_in_lpm(bool power_off);
 void imx_gpc_set_l2_mem_power_in_lpm(bool power_off);
 void imx_gpc_set_arm_power_up_timing(u32 sw2iso, u32 sw);
 void imx_gpc_set_arm_power_down_timing(u32 sw2iso, u32 sw);
+void imx_gpcv2_pre_suspend(bool arm_power_off);
+void imx_gpcv2_post_resume(void);
+unsigned int imx_gpcv2_is_mf_mix_off(void);
+void imx_gpcv2_enable_wakeup_for_m4(void);
+void imx_gpcv2_disable_wakeup_for_m4(void);
 void imx25_pm_init(void);
 void imx27_pm_init(void);
 void imx5_pmu_init(void);
+#ifdef CONFIG_HAVE_IMX_MU
+int imx_mu_lpm_ready(bool ready);
+#else
+static inline int imx_mu_lpm_ready(bool ready) { return 0; }
+#endif
 
 enum mxc_cpu_pwr_mode {
 	WAIT_CLOCKED,		/* wfi only */
@@ -93,6 +103,10 @@ static inline void imx_gpcv2_add_m4_wake_up_irq(u32 hwirq, bool enable) {}
 #endif
 void imx_gpc_hold_m4_in_sleep(void);
 void imx_gpc_release_m4_in_sleep(void);
+void __init imx_gpcv2_check_dt(void);
+void imx_gpcv2_set_lpm_mode(enum mxc_cpu_pwr_mode mode);
+void imx_gpcv2_set_cpu_power_gate_in_idle(bool pdn);
+void imx_gpcv2_enable_rbc(bool enable);
 bool imx_mu_is_m4_in_low_freq(void);
 bool imx_mu_is_m4_in_stop(void);
 void imx_mu_set_m4_run_mode(void);
@@ -110,6 +124,7 @@ void imx_anatop_post_resume(void);
 int imx6_set_lpm(enum mxc_cpu_pwr_mode mode);
 void imx6_set_int_mem_clk_lpm(bool enable);
 void imx6sx_low_power_idle(void);
+void imx7d_low_power_idle(void);
 #ifdef CONFIG_HAVE_IMX_MMDC
 int imx_mmdc_get_ddr_type(void);
 int imx_mmdc_get_lpddr2_2ch_mode(void);
@@ -126,13 +141,17 @@ void imx_cpu_die(unsigned int cpu);
 int imx_cpu_kill(unsigned int cpu);
 
 #ifdef CONFIG_SUSPEND
+void ca7_cpu_resume(void);
 void imx53_suspend(void __iomem *ocram_vbase);
 extern const u32 imx53_suspend_sz;
 void imx6_suspend(void __iomem *ocram_vbase);
+void imx7_suspend(void __iomem *ocram_vbase);
 #else
+static inline void ca7_cpu_resume(void) {}
 static inline void imx53_suspend(void __iomem *ocram_vbase) {}
 static const u32 imx53_suspend_sz;
 static inline void imx6_suspend(void __iomem *ocram_vbase) {}
+static inline void imx7_suspend(void __iomem *ocram_vbase) {}
 #endif
 
 void v7_cpu_resume(void);
@@ -149,6 +168,7 @@ void imx6dl_pm_init(void);
 void imx6sl_pm_init(void);
 void imx6sx_pm_init(void);
 void imx6ul_pm_init(void);
+void imx7d_pm_init(void);
 void imx7ulp_pm_init(void);
 
 #ifdef CONFIG_PM

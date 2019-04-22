@@ -23,6 +23,8 @@ obj-$(CONFIG_SOC_IMX6SX) += cpuidle-imx6sx.o
 AFLAGS_imx6sx_low_power_idle.o :=-Wa,-march=armv7-a
 obj-$(CONFIG_SOC_IMX6UL) += cpuidle-imx6sx.o
 obj-$(CONFIG_SOC_IMX7ULP) += cpuidle-imx7ulp.o
+AFLAGS_imx7d_low_power_idle.o :=-Wa,-march=armv7-a
+obj-$(CONFIG_SOC_IMX7D_CA7) += cpuidle-imx7d.o imx7d_low_power_idle.o
 endif
 
 ifdef CONFIG_SND_SOC_IMX_PCM_FIQ
@@ -32,6 +34,7 @@ endif
 
 obj-$(CONFIG_HAVE_IMX_ANATOP) += anatop.o
 obj-$(CONFIG_HAVE_IMX_GPC) += gpc.o
+obj-$(CONFIG_HAVE_IMX_GPCV2) += gpcv2.o
 obj-$(CONFIG_HAVE_IMX_MMDC) += mmdc.o
 obj-$(CONFIG_HAVE_IMX_SRC) += src.o
 obj-$(CONFIG_HAVE_IMX_DDRC) += ddrc.o
@@ -47,7 +50,7 @@ obj-$(CONFIG_SOC_IMX6SLL) += mach-imx6sl.o
 obj-$(CONFIG_SOC_IMX6SX) += mach-imx6sx.o ddr3_freq_imx6sx.o smp_wfe_imx6.o lpddr2_freq_imx6sx.o
 obj-$(CONFIG_SOC_IMX6UL) += mach-imx6ul.o
 obj-$(CONFIG_SOC_IMX7D_CA7) += mach-imx7d.o pm-imx7.o ddr3_freq_imx7d.o smp_wfe.o \
-			   lpddr3_freq_imx.o
+			   lpddr3_freq_imx.o suspend-imx7.o
 obj-$(CONFIG_SOC_IMX7D_CM4) += mach-imx7d-cm4.o
 obj-$(CONFIG_SOC_IMX7ULP) += mach-imx7ulp.o pm-imx7ulp.o
 
