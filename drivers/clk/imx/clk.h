@@ -5,6 +5,7 @@
 #include <linux/bits.h>
 #include <linux/spinlock.h>
 #include <linux/clk-provider.h>
+#include <soc/imx/src.h>
 
 extern spinlock_t imx_ccm_lock;
 extern bool mcore_booted;

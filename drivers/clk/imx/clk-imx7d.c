@@ -15,6 +15,7 @@
 #include <linux/of_address.h>
 #include <linux/of_irq.h>
 #include <linux/types.h>
+#include <soc/imx/src.h>
 
 #include "clk.h"
 
@@ -874,6 +875,11 @@ static void __init imx7d_clocks_init(struct device_node *ccm_node)
 	clk_set_parent(hws[IMX7D_PLL_VIDEO_MAIN_BYPASS]->clk, hws[IMX7D_PLL_VIDEO_MAIN]->clk);
 
 	clk_set_parent(hws[IMX7D_MIPI_CSI_ROOT_SRC]->clk, hws[IMX7D_PLL_SYS_PFD3_CLK]->clk);
+
+	if (imx_src_is_m4_enabled()) {
+		clk_set_parent(hws[IMX7D_ARM_M4_ROOT_SRC]->clk, hws[IMX7D_PLL_SYS_MAIN_240M_CLK]->clk);
+		clk_prepare_enable(hws[IMX7D_ARM_M4_ROOT_CLK]->clk);
+	}
 
 	/* use old gpt clk setting, gpt1 root clk must be twice as gpt counter freq */
 	clk_set_parent(hws[IMX7D_GPT1_ROOT_SRC]->clk, hws[IMX7D_OSC_24M_CLK]->clk);
