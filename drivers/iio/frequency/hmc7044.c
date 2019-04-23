@@ -199,6 +199,7 @@ struct hmc7044_chan_spec {
 	unsigned int		driver_mode;
 	unsigned int		coarse_delay;
 	unsigned int		fine_delay;
+	unsigned int		out_mux_mode;
 	const char		*extended_name;
 };
 
@@ -687,6 +688,8 @@ static int hmc7044_setup(struct iio_dev *indio_dev)
 			      chan->fine_delay & 0x1F);
 		hmc7044_write(indio_dev, HMC7044_REG_CH_OUT_CRTL_4(chan->num),
 			      chan->coarse_delay & 0x1F);
+		hmc7044_write(indio_dev, HMC7044_REG_CH_OUT_CRTL_7(chan->num),
+			      chan->out_mux_mode & 0x3);
 
 		hmc7044_write(indio_dev, HMC7044_REG_CH_OUT_CRTL_0(chan->num),
 			      (chan->start_up_mode_dynamic_enable ?
@@ -838,6 +841,10 @@ static int hmc7044_parse_dt(struct device *dev,
 		hmc->channels[cnt].fine_delay = 0;
 		of_property_read_u32(chan_np, "adi,fine-analog-delay",
 				     &hmc->channels[cnt].fine_delay);
+		hmc->channels[cnt].out_mux_mode = 0;
+		of_property_read_u32(chan_np, "adi,output-mux-mode",
+				     &hmc->channels[cnt].out_mux_mode);
+
 		cnt++;
 	}
 
