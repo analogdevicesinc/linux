@@ -884,6 +884,13 @@ static int axiadc_probe(struct platform_device *pdev)
 					iio_get_debugfs_dentry(indio_dev),
 					indio_dev, &axiadc_debugfs_pncheck_fops);
 
+	if (conv->post_iio_register) {
+		ret = conv->post_iio_register(indio_dev);
+		if (ret < 0)
+			dev_err(&pdev->dev,
+				"post_iio_register callback failed (%d)", ret);
+	}
+
 	return 0;
 
 err_unconfigure_ring:
