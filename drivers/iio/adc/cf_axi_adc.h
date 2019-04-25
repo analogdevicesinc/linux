@@ -287,6 +287,7 @@ struct axiadc_converter {
 			int state);
 
 	int (*post_setup)(struct iio_dev *indio_dev);
+	int (*post_iio_register)(struct iio_dev *indio_dev);
 	int (*set_pnsel)(struct iio_dev *indio_dev, unsigned chan,
 			enum adc_pn_sel sel);
 };
