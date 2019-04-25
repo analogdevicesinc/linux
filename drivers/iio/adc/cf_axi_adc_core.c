@@ -846,9 +846,11 @@ static int axiadc_probe(struct platform_device *pdev)
 	st->iio_info.attrs = conv->attrs;
 	indio_dev->info = &st->iio_info;
 
-	ret = conv->post_setup(indio_dev);
-	if (ret < 0)
-		goto err_put_converter;
+	if (conv->post_setup) {
+		ret = conv->post_setup(indio_dev);
+		if (ret < 0)
+			goto err_put_converter;
+	}
 
 	if (!st->dp_disable && !axiadc_read(st, ADI_REG_ID) &&
 		of_find_property(pdev->dev.of_node, "dmas", NULL)) {
