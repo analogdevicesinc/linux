@@ -154,7 +154,7 @@ static int ad9172_setup(struct ad9172_state *st)
 
 	pll_mult = DIV_ROUND_CLOSEST(st->dac_rate_khz, dac_clkin_Hz / 1000);
 
-	ret = ad917x_set_dac_clk(ad917x_h, dac_clkin_Hz * pll_mult,
+	ret = ad917x_set_dac_clk(ad917x_h, (u64)dac_clkin_Hz * pll_mult,
 				 1, dac_clkin_Hz);
 	if (ret != 0) {
 		dev_err(dev, "ad917x_set_dac_clk failed (%d)\n", ret);
