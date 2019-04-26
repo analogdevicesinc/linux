@@ -68,8 +68,10 @@
 				clocks = <&dma_clk>;
 
 				dma-channel {
-					adi,source-bus-width = <128>;
+					adi,source-bus-width = <64>;
+					adi,source-bus-type = <0>;
 					adi,destination-bus-width = <128>;
+					adi,destination-bus-type = <1>;
 					adi,type = <1>;
 					adi,cyclic;
 				};
@@ -94,11 +96,11 @@
 				clocks = <&sys_clk>, <&tx_device_clk_pll>, <&axi_ad9172_xcvr>;
 				clock-names = "s_axi_aclk", "device_clk", "lane_clk";
 
-				adi,octets-per-frame = <1>;
+				adi,octets-per-frame = <2>;
 				adi,frames-per-multiframe = <32>;
 				adi,converter-resolution = <16>;
 				adi,bits-per-sample = <16>;
-				adi,converters-per-device = <2>;
+				adi,converters-per-device = <4>;
 
 				#clock-cells = <0>;
 				clock-output-names = "jesd_dac_lane_clk";

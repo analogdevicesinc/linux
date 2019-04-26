@@ -73,13 +73,13 @@
 		clocks = <&axi_ad9172_jesd>, <&hmc7044 2>, <&hmc7044 3>;
 		clock-names = "jesd_dac_clk", "dac_clk", "dac_sysref";
 
-		adi,dac-rate-khz = <3000000>;
-		adi,jesd-link-mode = <10>;
+		adi,dac-rate-khz = <11796480>;
+		adi,jesd-link-mode = <4>;
 
 		adi,jesd-subclass = <0>;
-		adi,dac-interpolation = <1>;
-		adi,channel-interpolation = <1>;
-		adi,clock-output-divider = <1>;
+		adi,dac-interpolation = <8>;
+		adi,channel-interpolation = <4>;
+		adi,clock-output-divider = <4>;
 		adi,syncoutb-signal-type-lvds-enable;
 	};
 };
