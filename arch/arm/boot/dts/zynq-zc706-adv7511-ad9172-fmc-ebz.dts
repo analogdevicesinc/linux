@@ -80,6 +80,6 @@
 #include "adi-ad9172-fmc-ebz.dtsi"
 
 &dac0_ad9172 {
-	txen0-gpios = <&gpio0 100 0>;
-	txen1-gpios = <&gpio0 101 0>;
+	txen0-gpios = <&gpio0 76 0>;
+	txen1-gpios = <&gpio0 77 0>;
 };
