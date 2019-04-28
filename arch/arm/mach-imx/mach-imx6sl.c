@@ -66,6 +66,14 @@ static void __init imx6sl_init_irq(void)
 		imx6_pm_ccm_init("fsl,imx6sll-ccm");
 }
 
+static void __init imx6sl_map_io(void)
+{
+	imx6_pm_map_io();
+#ifdef CONFIG_CPU_FREQ
+	imx_busfreq_map_io();
+#endif
+}
+
 static const char * const imx6sl_dt_compat[] __initconst = {
 	"fsl,imx6sl",
 	"fsl,imx6sll",
@@ -75,6 +83,7 @@ static const char * const imx6sl_dt_compat[] __initconst = {
 DT_MACHINE_START(IMX6SL, "Freescale i.MX6 SoloLite (Device Tree)")
 	.l2c_aux_val 	= 0,
 	.l2c_aux_mask	= ~0,
+	.map_io		= imx6sl_map_io,
 	.init_irq	= imx6sl_init_irq,
 	.init_machine	= imx6sl_init_machine,
 	.init_late      = imx6sl_init_late,
