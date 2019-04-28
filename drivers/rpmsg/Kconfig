@@ -81,4 +81,28 @@ config RPMSG_VIRTIO
 	select RPMSG_NS
 	select VIRTIO
 
+config HAVE_IMX_RPMSG
+	bool "IMX RPMSG driver on the AMP SOCs"
+	default y
+	depends on IMX_MBOX
+	select RPMSG_VIRTIO
+	help
+	  Say y here to enable support for the iMX Rpmsg Driver	providing
+	  communication channels to remote processors in iMX asymmetric
+	  multiprocessing (AMP) platforms.
+
+	  Especially, it is mandatory required when the partition reset is
+	  required on some iMX AMP platforms.
+
+config IMX_RPMSG_PINGPONG
+	tristate "IMX RPMSG pingpong driver -- loadable modules only"
+	default m
+	depends on HAVE_IMX_RPMSG && m
+	help
+	  One 32bit unsigned int data transactions demoe between the A core
+	  and the remote M core on the iMX AMP platforms.
+
+	  Only the module mode is supported here, the demo would be kicked off
+	  immediately when this module is insmoded.
+
 endmenu
