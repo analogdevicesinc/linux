@@ -320,7 +320,7 @@ static inline int set_4byte(struct spi_nor *nor, const struct flash_info *info,
  *
  * Return:	Negative if error occured.
  */
-static int read_ear(struct spi_nor *nor, struct flash_info *info)
+static int read_ear(struct spi_nor *nor, const struct flash_info *info)
 {
 	int ret;
 	u8 val;
@@ -2898,6 +2898,16 @@ static int spi_nor_init_params(struct spi_nor *nor,
 		} else {
 			memcpy(params, &sfdp_params, sizeof(*params));
 		}
+	}
+
+	/* Fix bank selection for IS25WP256D (0x9d7019) by explicitly reading the hardware state. */
+	if (!strcmp(info->name, "is25wp256d")) {
+		int status = read_ear(nor, info);
+
+		if (status < 0)
+			dev_warn(nor->dev, "failed to read ear reg\n");
+		else
+			nor->curbank = status & EAR_SEGMENT_MASK;
 	}
 
 	return 0;
