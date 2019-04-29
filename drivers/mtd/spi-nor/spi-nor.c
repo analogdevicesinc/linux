@@ -3021,6 +3021,16 @@ static int spi_nor_init_params(struct spi_nor *nor,
 		}
 	}
 
+	/* Fix bank selection for IS25WP256D (0x9d7019) by explicitly reading the hardware state. */
+	if (!strcmp(info->name, "is25wp256d")) {
+		int status = read_ear(nor,  (struct flash_info*)info);
+
+		if (status < 0)
+			dev_warn(nor->dev, "failed to read ear reg\n");
+		else
+			nor->curbank = status & EAR_SEGMENT_MASK;
+	}
+
 	return 0;
 }
 
