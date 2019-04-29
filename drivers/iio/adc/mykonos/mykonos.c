@@ -1517,6 +1517,18 @@ mykonosErr_t MYKONOS_initSubRegisterTables(mykonosDevice_t *device)
         {
             return retVal;
         }
+    } else {
+	    /*
+	     * In order to use the OBS Framer successfully for some reason
+	     * it's required to enable also the main framer clock.
+	     * Make sure PCLK is set as low as possible because it interacts
+	     * with ORx Framer logic, even though Rx Framer disabled.
+	     */
+	    if ((device->obsRx->obsRxChannelsEnable != MYK_OBS_RXOFF) &&
+		    (device->profilesValid & (ORX_PROFILE_VALID | SNIFF_PROFILE_VALID))) {
+
+		CMB_SPIWriteByte(device->spiSettings, MYKONOS_ADDR_FRAMER_CLK_EN, 0x66);
+	   }
     }
 
     if ((device->obsRx->obsRxChannelsEnable != MYK_OBS_RXOFF) && (device->profilesValid & (ORX_PROFILE_VALID | SNIFF_PROFILE_VALID)))
