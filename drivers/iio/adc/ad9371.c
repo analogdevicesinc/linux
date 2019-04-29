@@ -292,6 +292,9 @@ static int ad9371_set_jesd_lanerate(struct ad9371_rf_phy *phy,
 	if (!lmfc)
 		return -EINVAL;
 
+	if (IS_ERR_OR_NULL(link_clk))
+		return 0;
+
 	if (framer) {
 		m = framer->M;
 		l = hweight8(framer->serializerLanesEnabled);
@@ -636,7 +639,7 @@ static int ad9371_setup(struct ad9371_rf_phy *phy)
 {
 	int ret;
 	uint8_t mcsStatus = 0;
-	uint8_t pllLockStatus = 0;
+	uint8_t pllLock, pllLockStatus = 0;
 
 	uint8_t deframerStatus = 0;
 	uint8_t obsFramerStatus = 0;
@@ -648,17 +651,18 @@ static int ad9371_setup(struct ad9371_rf_phy *phy)
 	uint32_t lmfc = 0;
 
 	mykonosDevice_t *mykDevice = phy->mykDevice;
-
-	phy->tracking_cal_mask = TRACK_RX1_QEC |
-				 TRACK_RX2_QEC |
-				 TRACK_TX1_QEC |
-				 TRACK_TX2_QEC;
+	phy->tracking_cal_mask = 0;
 
 	initCalMask = phy->init_cal_mask |= TX_BB_FILTER | ADC_TUNER | TIA_3DB_CORNER | DC_OFFSET |
 			       TX_ATTENUATION_DELAY | RX_GAIN_DELAY | FLASH_CAL |
 			       PATH_DELAY | LOOPBACK_RX_LO_DELAY | LOOPBACK_RX_RX_QEC_INIT |
 			       RX_LO_DELAY;
 
+	if (has_rx_and_en(phy))
+		phy->tracking_cal_mask |= TRACK_RX1_QEC | TRACK_RX2_QEC;
+
+	if (has_tx_and_en(phy))
+		phy->tracking_cal_mask |= TRACK_TX1_QEC | TRACK_TX2_QEC;
 
 	/**********************************************************/
 	/**********************************************************/
@@ -683,23 +687,29 @@ static int ad9371_setup(struct ad9371_rf_phy *phy)
 		return -EINVAL;
 	}
 
-	ret = ad9371_set_jesd_lanerate(
-		phy, mykDevice->rx->rxProfile->iqRate_kHz, phy->jesd_rx_clk,
-		mykDevice->rx->framer, NULL, &lmfc);
-	if (ret < 0)
-		goto out;
+	if (has_rx_and_en(phy)) {
+		ret = ad9371_set_jesd_lanerate(
+			phy, mykDevice->rx->rxProfile->iqRate_kHz, phy->jesd_rx_clk,
+			mykDevice->rx->framer, NULL, &lmfc);
+		if (ret < 0)
+			goto out;
+	}
 
-	ret = ad9371_set_jesd_lanerate(
-		phy, mykDevice->obsRx->orxProfile->iqRate_kHz,
-		phy->jesd_rx_os_clk, mykDevice->obsRx->framer, NULL, &lmfc);
-	if (ret < 0)
-		goto out;
+	if (has_obs_and_en(phy)) {
+		ret = ad9371_set_jesd_lanerate(
+			phy, mykDevice->obsRx->orxProfile->iqRate_kHz,
+			phy->jesd_rx_os_clk, mykDevice->obsRx->framer, NULL, &lmfc);
+		if (ret < 0)
+			goto out;
+	}
 
-	ret = ad9371_set_jesd_lanerate(
-		phy, mykDevice->tx->txProfile->iqRate_kHz, phy->jesd_tx_clk,
-		NULL, mykDevice->tx->deframer, &lmfc);
-	if (ret < 0)
-		goto out;
+	if (has_tx_and_en(phy)) {
+		ret = ad9371_set_jesd_lanerate(
+			phy, mykDevice->tx->txProfile->iqRate_kHz, phy->jesd_tx_clk,
+			NULL, mykDevice->tx->deframer, &lmfc);
+		if (ret < 0)
+			goto out;
+	}
 
 	ret = ad9371_update_sysref(phy, lmfc);
 	if (ret < 0)
@@ -747,7 +757,9 @@ static int ad9371_setup(struct ad9371_rf_phy *phy)
 		goto out;
 	}
 
-	if (!(pllLockStatus & 0x01)) {
+	pllLock = BIT(0); /* CLKPLL Locked */
+
+	if (!(pllLockStatus & pllLock)) {
 		dev_err(&phy->spi->dev, "%s (%d)",
 			getMykonosErrorMessage(ret), ret);
 		ret = -EFAULT;
@@ -799,38 +811,50 @@ static int ad9371_setup(struct ad9371_rf_phy *phy)
 	/*******************************/
 	/**** Set RF PLL Frequencies ***/
 	/*******************************/
-	ret = MYKONOS_setRfPllFrequency(mykDevice, RX_PLL, mykDevice->rx->rxPllLoFrequency_Hz);
-	if (ret != MYKONOS_ERR_OK) {
-		dev_err(&phy->spi->dev, "%s (%d)",
-			getMykonosErrorMessage(ret), ret);
-		ret = -EFAULT;
-		goto out;
+	if (has_rx_and_en(phy)) {
+		ret = MYKONOS_setRfPllFrequency(mykDevice, RX_PLL,
+						mykDevice->rx->rxPllLoFrequency_Hz);
+		if (ret != MYKONOS_ERR_OK) {
+			dev_err(&phy->spi->dev, "%s (%d)",
+				getMykonosErrorMessage(ret), ret);
+			ret = -EFAULT;
+			goto out;
+		}
+		pllLock |= BIT(1); /* RX_PLL Locked */
 	}
-	ret = MYKONOS_setRfPllFrequency(mykDevice, TX_PLL, mykDevice->tx->txPllLoFrequency_Hz);
-	if (ret != MYKONOS_ERR_OK) {
-		dev_err(&phy->spi->dev, "%s (%d)",
-			getMykonosErrorMessage(ret), ret);
-		ret = -EFAULT;
-		goto out;
+	if (has_tx_and_en(phy)) {
+		ret = MYKONOS_setRfPllFrequency(mykDevice, TX_PLL,
+						mykDevice->tx->txPllLoFrequency_Hz);
+		if (ret != MYKONOS_ERR_OK) {
+			dev_err(&phy->spi->dev, "%s (%d)",
+				getMykonosErrorMessage(ret), ret);
+			ret = -EFAULT;
+			goto out;
+		}
+		pllLock |= BIT(2); /* TX_PLL Locked */
 	}
-	ret = MYKONOS_setRfPllFrequency(mykDevice, SNIFFER_PLL, mykDevice->obsRx->snifferPllLoFrequency_Hz);
-	if (ret != MYKONOS_ERR_OK) {
-		dev_err(&phy->spi->dev, "%s (%d)",
-			getMykonosErrorMessage(ret), ret);
-		ret = -EFAULT;
-		goto out;
+	if (has_obs_and_en(phy)) {
+		ret = MYKONOS_setRfPllFrequency(mykDevice, SNIFFER_PLL,
+						mykDevice->obsRx->snifferPllLoFrequency_Hz);
+		if (ret != MYKONOS_ERR_OK) {
+			dev_err(&phy->spi->dev, "%s (%d)",
+				getMykonosErrorMessage(ret), ret);
+			ret = -EFAULT;
+			goto out;
+		}
+		pllLock |= BIT(3); /* SNIFFER_PLL Locked */
 	}
 
 	/*** < wait 200ms for PLLs to lock - user code here > ***/
 
 	ret = MYKONOS_checkPllsLockStatus(mykDevice, &pllLockStatus);
-	if ((pllLockStatus & 0x0F) != 0x0F) {
+	if ((pllLockStatus & pllLock) != pllLock) {
 		dev_err(&phy->spi->dev, "PLLs unlocked %x", pllLockStatus & 0x0F);
 		ret = -EFAULT;
 		goto out;
 	}
 
-	if (IS_AD9375(phy)) {
+	if (IS_AD9375(phy) && has_tx_and_en(phy)) {
 		ret = MYKONOS_configDpd(mykDevice);
 		if (ret != MYKONOS_ERR_OK) {
 			dev_err(&phy->spi->dev, "%s (%d)",
@@ -881,21 +905,25 @@ static int ad9371_setup(struct ad9371_rf_phy *phy)
 	/*** < User: Make sure SYSREF is stopped/disabled > ***/
 	/*** < User: make sure BBIC JESD is reset and ready to recieve CGS chars> ***/
 
-	ret = MYKONOS_enableSysrefToRxFramer(mykDevice, 1);
-	if (ret) {
-		dev_err(&phy->spi->dev, "%s (%d)",
-			getMykonosErrorMessage(ret), ret);
-		ret = -EFAULT;
-		goto out;
+	if (has_rx_and_en(phy)) {
+		ret = MYKONOS_enableSysrefToRxFramer(mykDevice, 1);
+		if (ret) {
+			dev_err(&phy->spi->dev, "%s (%d)",
+				getMykonosErrorMessage(ret), ret);
+			ret = -EFAULT;
+			goto out;
+		}
 	}
 	/*** < User: Mykonos is actively transmitting CGS from the RxFramer> ***/
 
-	ret = MYKONOS_enableSysrefToObsRxFramer(mykDevice, 1);
-	if (ret) {
-		dev_err(&phy->spi->dev, "%s (%d)",
-			getMykonosErrorMessage(ret), ret);
-		ret = -EFAULT;
-		goto out;
+	if (has_obs_and_en(phy)) {
+		ret = MYKONOS_enableSysrefToObsRxFramer(mykDevice, 1);
+		if (ret) {
+			dev_err(&phy->spi->dev, "%s (%d)",
+				getMykonosErrorMessage(ret), ret);
+			ret = -EFAULT;
+			goto out;
+		}
 	}
 	/*** < User: Mykonos is actively transmitting CGS from the ObsRxFramer> ***/
 
@@ -903,50 +931,57 @@ static int ad9371_setup(struct ad9371_rf_phy *phy)
 	/**** Enable SYSREF to Mykonos JESD204B Deframer ***/
 	/***************************************************/
 	/*** < User: Make sure SYSREF is stopped/disabled > ***/
-	ret = MYKONOS_enableSysrefToDeframer(mykDevice, 0);
-	if (ret) {
-		dev_err(&phy->spi->dev, "%s (%d)",
-			getMykonosErrorMessage(ret), ret);
-		ret = -EFAULT;
-		goto out;
-	}
-	ret = MYKONOS_resetDeframer(mykDevice);
-	if (ret) {
-		dev_err(&phy->spi->dev, "%s (%d)",
-			getMykonosErrorMessage(ret), ret);
-		ret = -EFAULT;
-		goto out;
-	}
 
-	ret = clk_prepare_enable(phy->jesd_tx_clk);
-	if (ret < 0) {
-		dev_err(&phy->spi->dev, "jesd_tx_clk enable failed (%d)", ret);
-		goto out;
-	}
+	if (has_tx_and_en(phy)) {
+		ret = MYKONOS_enableSysrefToDeframer(mykDevice, 0);
+		if (ret) {
+			dev_err(&phy->spi->dev, "%s (%d)",
+				getMykonosErrorMessage(ret), ret);
+			ret = -EFAULT;
+			goto out;
+		}
+		ret = MYKONOS_resetDeframer(mykDevice);
+		if (ret) {
+			dev_err(&phy->spi->dev, "%s (%d)",
+				getMykonosErrorMessage(ret), ret);
+			ret = -EFAULT;
+			goto out;
+		}
 
-	/*** < User: make sure BBIC JESD framer is actively transmitting CGS> ***/
-	ret = MYKONOS_enableSysrefToDeframer(mykDevice, 1);
-	if (ret) {
-		dev_err(&phy->spi->dev, "%s (%d)",
-			getMykonosErrorMessage(ret), ret);
-		ret = -EFAULT;
-		goto out_disable_tx_clk;
+		ret = clk_prepare_enable(phy->jesd_tx_clk);
+		if (ret < 0) {
+			dev_err(&phy->spi->dev, "jesd_tx_clk enable failed (%d)", ret);
+			goto out;
+		}
+
+		/*** < User: make sure BBIC JESD framer is actively transmitting CGS> ***/
+		ret = MYKONOS_enableSysrefToDeframer(mykDevice, 1);
+		if (ret) {
+			dev_err(&phy->spi->dev, "%s (%d)",
+				getMykonosErrorMessage(ret), ret);
+			ret = -EFAULT;
+			goto out_disable_tx_clk;
+		}
 	}
 
 	/*** < User Sends SYSREF Here > ***/
 
 	ad9371_sysref_req(phy, SYSREF_CONT_ON);
 
-	ret = clk_prepare_enable(phy->jesd_rx_clk);
-	if (ret < 0) {
-		dev_err(&phy->spi->dev, "jesd_rx_clk enable failed (%d)", ret);
-		goto out_disable_tx_clk;
+	if (has_rx_and_en(phy)) {
+		ret = clk_prepare_enable(phy->jesd_rx_clk);
+		if (ret < 0) {
+			dev_err(&phy->spi->dev, "jesd_rx_clk enable failed (%d)", ret);
+			goto out_disable_tx_clk;
+		}
 	}
 
-	ret = clk_prepare_enable(phy->jesd_rx_os_clk);
-	if (ret < 0) {
-		dev_err(&phy->spi->dev, "jesd_rx_os_clk enable failed (%d)", ret);
-		goto out_disable_rx_clk;
+	if (has_obs_and_en(phy)) {
+		ret = clk_prepare_enable(phy->jesd_rx_os_clk);
+		if (ret < 0) {
+			dev_err(&phy->spi->dev, "jesd_rx_os_clk enable failed (%d)", ret);
+			goto out_disable_rx_clk;
+		}
 	}
 
 	ad9371_sysref_req(phy, SYSREF_CONT_OFF);
@@ -956,32 +991,36 @@ static int ad9371_setup(struct ad9371_rf_phy *phy)
 	/************************************/
 	/**** Check Mykonos Framer Status ***/
 	/************************************/
-	ret = MYKONOS_readRxFramerStatus(mykDevice, &framerStatus);
-	if (framerStatus != 0x3E)
-		dev_warn(&phy->spi->dev, "framerStatus (0x%X)", framerStatus);
+	if (has_rx_and_en(phy)) {
+		ret = MYKONOS_readRxFramerStatus(mykDevice, &framerStatus);
+		if (framerStatus != 0x3E)
+			dev_warn(&phy->spi->dev, "framerStatus (0x%X)", framerStatus);
+	}
 
-	ret = MYKONOS_readOrxFramerStatus(mykDevice, &obsFramerStatus);
-	if (obsFramerStatus != 0x3E)
-		dev_warn(&phy->spi->dev, "obsFramerStatus (0x%X)", obsFramerStatus);
+	if (has_obs_and_en(phy)) {
+		ret = MYKONOS_readOrxFramerStatus(mykDevice, &obsFramerStatus);
+		if (obsFramerStatus != 0x3E)
+			dev_warn(&phy->spi->dev, "obsFramerStatus (0x%X)", obsFramerStatus);
+	}
 
 	/**************************************/
 	/**** Check Mykonos Deframer Status ***/
 	/**************************************/
-	ret = MYKONOS_readDeframerStatus(mykDevice, &deframerStatus);
-	if (deframerStatus != 0x28)
-		dev_warn(&phy->spi->dev, "deframerStatus (0x%X)", deframerStatus);
+	if (has_tx_and_en(phy)) {
+		ret = MYKONOS_readDeframerStatus(mykDevice, &deframerStatus);
+		if (deframerStatus != 0x28)
+			dev_warn(&phy->spi->dev, "deframerStatus (0x%X)", deframerStatus);
 
-
-	ret = MYKONOS_jesd204bIlasCheck(mykDevice, &mismatch);
-	if (mismatch) {
-		dev_warn(&phy->spi->dev, "ILAS mismatch: %04x\n", mismatch);
-		for (i = 0; i < ARRAY_SIZE(ad9371_ilas_mismatch_table); i++) {
-			if (mismatch & BIT(i))
-				dev_warn(&phy->spi->dev, "ILAS %s did not match\n",
-					ad9371_ilas_mismatch_table[i]);
+		ret = MYKONOS_jesd204bIlasCheck(mykDevice, &mismatch);
+		if (mismatch) {
+			dev_warn(&phy->spi->dev, "ILAS mismatch: %04x\n", mismatch);
+			for (i = 0; i < ARRAY_SIZE(ad9371_ilas_mismatch_table); i++) {
+				if (mismatch & BIT(i))
+					dev_warn(&phy->spi->dev, "ILAS %s did not match\n",
+						ad9371_ilas_mismatch_table[i]);
+			}
 		}
 	}
-
 	/*** < User: When links have been verified, proceed > ***/
 
 	/* Allow Rx1/2 QEC tracking and Tx1/2 QEC tracking to run when in the radioOn state         */
@@ -1070,11 +1109,14 @@ static int ad9371_setup(struct ad9371_rf_phy *phy)
 	return 0;
 
 out_disable_obs_rx_clk:
-	clk_disable_unprepare(phy->jesd_rx_os_clk);
+	if (has_obs_and_en(phy))
+		clk_disable_unprepare(phy->jesd_rx_os_clk);
 out_disable_rx_clk:
-	clk_disable_unprepare(phy->jesd_rx_clk);
+	if (has_rx_and_en(phy))
+		clk_disable_unprepare(phy->jesd_rx_clk);
 out_disable_tx_clk:
-	clk_disable_unprepare(phy->jesd_tx_clk);
+	if (has_tx_and_en(phy))
+		clk_disable_unprepare(phy->jesd_tx_clk);
 
 out:
 	phy->is_initialized = 0;
@@ -1087,9 +1129,12 @@ static int ad9371_reinit(struct ad9371_rf_phy *phy)
 	int ret;
 
 	if (phy->is_initialized) {
-		clk_disable_unprepare(phy->jesd_rx_clk);
-		clk_disable_unprepare(phy->jesd_rx_os_clk);
-		clk_disable_unprepare(phy->jesd_tx_clk);
+		if (has_rx_and_en(phy))
+			clk_disable_unprepare(phy->jesd_rx_clk);
+		if (has_obs_and_en(phy))
+			clk_disable_unprepare(phy->jesd_rx_os_clk);
+		if (has_tx_and_en(phy))
+			clk_disable_unprepare(phy->jesd_tx_clk);
 	}
 
 	ret = ad9371_setup(phy);
@@ -3129,7 +3174,7 @@ static struct ad9371_phy_platform_data
 	AD9371_OF_PROP("adi,clocks-clk-pll-vco-div", &phy->mykDevice->clocks->clkPllVcoDiv, 2);
 	AD9371_OF_PROP("adi,clocks-clk-pll-hs-div", &phy->mykDevice->clocks->clkPllHsDiv, 4);
 
-	AD9371_OF_PROP("adi,tx-settings-tx-channels-enable", &phy->mykDevice->tx->txChannels, 3);
+	AD9371_OF_PROP("adi,tx-settings-tx-channels-enable", &phy->mykDevice->tx->txChannels, TX1_TX2);
 	AD9371_OF_PROP("adi,tx-settings-tx-pll-use-external-lo", &phy->mykDevice->tx->txPllUseExternalLo, 0);
 	AD9371_OF_PROP("adi,tx-settings-tx-pll-lo-frequency_hz", &phy->mykDevice->tx->txPllLoFrequency_Hz, 2500000000U);
 	AD9371_OF_PROP("adi,tx-settings-tx-atten-step-size", &phy->mykDevice->tx->txAttenStepSize, 0);
@@ -3179,7 +3224,7 @@ static struct ad9371_phy_platform_data
 		AD9371_OF_PROP("adi,vswr-tx2-vswr-switch-delay_us", &phy->mykDevice->tx->vswrConfig->tx2VswrSwitchDelay_us, 50);
 	}
 
-	AD9371_OF_PROP("adi,rx-settings-rx-channels-enable", &phy->mykDevice->rx->rxChannels, 3);
+	AD9371_OF_PROP("adi,rx-settings-rx-channels-enable", &phy->mykDevice->rx->rxChannels, RX1_RX2);
 	AD9371_OF_PROP("adi,rx-settings-rx-pll-use-external-lo", &phy->mykDevice->rx->rxPllUseExternalLo, 0);
 	AD9371_OF_PROP("adi,rx-settings-rx-pll-lo-frequency_hz", &phy->mykDevice->rx->rxPllLoFrequency_Hz, 2500000000U);
 	AD9371_OF_PROP("adi,rx-settings-real-if-data", &phy->mykDevice->rx->realIfData, 0);
@@ -3992,10 +4037,16 @@ static int ad9371_probe(struct spi_device *spi)
 	u8 vers[3], rev;
 	mykonosBuild_t buildType;
 	u32 api_vers[4];
+	bool clk_is_tx = 0;
 
 	dev_info(&spi->dev, "%s : enter", __func__);
 
 	clk = devm_clk_get(&spi->dev, "jesd_rx_clk");
+	if (IS_ERR(clk) && PTR_ERR(clk) == -ENOENT) {
+		clk = devm_clk_get(&spi->dev, "jesd_tx_clk");
+		clk_is_tx = true;
+	}
+
 	if (IS_ERR(clk))
 		return PTR_ERR(clk);
 
@@ -4021,8 +4072,6 @@ static int ad9371_probe(struct spi_device *spi)
 	phy->sysref_req_gpio = devm_gpiod_get(&spi->dev, "sysref_req",
 					      GPIOD_OUT_HIGH);
 
-	phy->jesd_rx_clk = clk;
-
 	phy->mykDevice->spiSettings->spi 		 = spi;
 	phy->mykDevice->spiSettings->writeBitPolarity    = 0;
 	phy->mykDevice->spiSettings->longInstructionWord = 1;
@@ -4031,12 +4080,18 @@ static int ad9371_probe(struct spi_device *spi)
 	phy->mykDevice->spiSettings->autoIncAddrUp       = 1;
 	phy->mykDevice->spiSettings->fourWireMode        = 1;
 
-	phy->jesd_tx_clk = devm_clk_get(&spi->dev, "jesd_tx_clk");
-	if (IS_ERR(phy->jesd_tx_clk))
-		return PTR_ERR(phy->jesd_tx_clk);
+	if (clk_is_tx) {
+		phy->jesd_tx_clk = clk;
+	} else {
+		phy->jesd_rx_clk = clk;
+
+		phy->jesd_tx_clk = devm_clk_get(&spi->dev, "jesd_tx_clk");
+		if (IS_ERR(phy->jesd_tx_clk) && PTR_ERR(phy->jesd_tx_clk) != -ENOENT)
+			return PTR_ERR(phy->jesd_tx_clk);
+	}
 
 	phy->jesd_rx_os_clk = devm_clk_get(&spi->dev, "jesd_rx_os_clk");
-	if (IS_ERR(phy->jesd_rx_os_clk))
+	if (IS_ERR(phy->jesd_rx_os_clk) && PTR_ERR(phy->jesd_rx_os_clk) != -ENOENT)
 		return PTR_ERR(phy->jesd_rx_os_clk);
 
 	phy->dev_clk = devm_clk_get(&spi->dev, "dev_clk");
