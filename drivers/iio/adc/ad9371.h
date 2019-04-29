@@ -232,5 +232,25 @@ struct ad9371_rf_phy* ad9371_spi_to_phy(struct spi_device *spi);
 int ad9371_spi_read(struct spi_device *spi, u32 reg);
 int ad9371_spi_write(struct spi_device *spi, u32 reg, u32 val);
 
+
+static inline bool has_tx_and_en(struct ad9371_rf_phy *phy)
+{
+	return (phy->mykDevice->tx->txChannels != TXOFF) &&
+		!IS_ERR_OR_NULL(phy->jesd_tx_clk);
+}
+
+static inline bool has_obs_and_en(struct ad9371_rf_phy *phy)
+{
+	return (phy->mykDevice->obsRx->obsRxChannelsEnable != MYK_OBS_RXOFF) &&
+		!IS_ERR_OR_NULL(phy->jesd_rx_os_clk);
+}
+
+static inline bool has_rx_and_en(struct ad9371_rf_phy *phy)
+{
+
+	return (phy->mykDevice->rx->rxChannels != RXOFF) &&
+		!IS_ERR_OR_NULL(phy->jesd_rx_clk);
+}
+
 #endif
 
