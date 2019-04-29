@@ -153,6 +153,12 @@ unsigned long iomux_offsets_mx6sx[][2] = {
 	{0x338, 0x0},
 	{0x33c, 0x0},
 };
+
+unsigned long iomux_offsets_mx6ul[][2] = {
+	{0x280, 0x0},
+	{0x284, 0x0},
+};
+
 unsigned long ddr3_dll_mx6q[][2] = {
 	{0x0c, 0x0},
 	{0x10, 0x0},
@@ -503,6 +509,8 @@ int init_mmdc_ddr3_settings_imx6_up(struct platform_device *busfreq_pdev)
 
 	if (cpu_is_imx6sx())
 		node = of_find_compatible_node(NULL, NULL, "fsl,imx6sx-iomuxc");
+	else
+		node = of_find_compatible_node(NULL, NULL, "fsl,imx6ul-iomuxc");
 	if (!node) {
 		printk(KERN_ERR "failed to find iomuxc device tree data!\n");
 		return -EINVAL;
@@ -532,7 +540,10 @@ int init_mmdc_ddr3_settings_imx6_up(struct platform_device *busfreq_pdev)
 				+ normal_mmdc_settings[i][0]);
 	}
 
-	iomux_settings_size = ARRAY_SIZE(iomux_offsets_mx6sx);
+	if (cpu_is_imx6ul())
+		iomux_settings_size = ARRAY_SIZE(iomux_offsets_mx6ul);
+	else
+		iomux_settings_size = ARRAY_SIZE(iomux_offsets_mx6sx);
 
 	ddr_code_size = (&imx6_up_ddr3_freq_change_end -&imx6_up_ddr3_freq_change_start) *4 +
 			sizeof(*imx6_busfreq_info);
@@ -555,13 +566,23 @@ int init_mmdc_ddr3_settings_imx6_up(struct platform_device *busfreq_pdev)
 	}
 
 	for (i = 0; i < iomux_settings_size; i++) {
-		iomux_offsets_mx6sx[i][1] =
+		if (cpu_is_imx6ul()) {
+			iomux_offsets_mx6ul[i][1] =
 			readl_relaxed(iomux_base +
-			iomux_offsets_mx6sx[i][0]);
-		iram_iomux_settings[i + 1][0] =
-			iomux_offsets_mx6sx[i][0];
-		iram_iomux_settings[i + 1][1] =
-			iomux_offsets_mx6sx[i][1];
+				iomux_offsets_mx6ul[i][0]);
+			iram_iomux_settings[i + 1][0] =
+				iomux_offsets_mx6ul[i][0];
+			iram_iomux_settings[i + 1][1] =
+				iomux_offsets_mx6ul[i][1];
+		} else {
+			iomux_offsets_mx6sx[i][1] =
+				readl_relaxed(iomux_base +
+				iomux_offsets_mx6sx[i][0]);
+			iram_iomux_settings[i + 1][0] =
+				iomux_offsets_mx6sx[i][0];
+			iram_iomux_settings[i + 1][1] =
+				iomux_offsets_mx6sx[i][1];
+		}
 	}
 
 	curr_ddr_rate = ddr_normal_rate;

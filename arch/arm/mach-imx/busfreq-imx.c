@@ -308,11 +308,18 @@ static void exit_lpm_imx6_up(void)
 	 * lower ahb/ocram's freq first to avoid too high
 	 * freq during parent switch from OSC to pll3.
 	 */
-	clk_set_rate(ahb_clk, LPAPM_CLK / 3);
+	if (cpu_is_imx6ul())
+		clk_set_rate(ahb_clk, LPAPM_CLK / 4);
+	else
+		clk_set_rate(ahb_clk, LPAPM_CLK / 3);
 
 	clk_set_rate(ocram_clk, LPAPM_CLK / 2);
+	/* set periph clk to from pll2_bus on i.MX6UL */
+	if (cpu_is_imx6ul())
+		clk_set_parent(periph_pre_clk, pll2_bus_clk);
 	/* set periph clk to from pll2_400 */
-	clk_set_parent(periph_pre_clk, pll2_400_clk);
+	else
+		clk_set_parent(periph_pre_clk, pll2_400_clk);
 	clk_set_parent(periph_clk, periph_pre_clk);
 	/* set periph_clk2 to pll3 */
 	clk_set_parent(periph_clk2_sel_clk, pll3_clk);
@@ -629,7 +636,7 @@ static void reduce_bus_freq(void)
 
 	if (cpu_is_imx7d())
 		enter_lpm_imx7d();
-	else if (cpu_is_imx6sx())
+	else if (cpu_is_imx6sx() || cpu_is_imx6ul())
 		enter_lpm_imx6_up();
 	else if (cpu_is_imx6q() || cpu_is_imx6dl())
 		enter_lpm_imx6_smp();
@@ -733,7 +740,7 @@ static int set_high_bus_freq(int high_bus_freq)
 
 	if (cpu_is_imx7d())
 		exit_lpm_imx7d();
-	else if (cpu_is_imx6sx())
+	else if (cpu_is_imx6sx() || cpu_is_imx6ul())
 		exit_lpm_imx6_up();
 	else if (cpu_is_imx6q() || cpu_is_imx6dl())
 		exit_lpm_imx6_smp();
@@ -1091,7 +1098,7 @@ static int busfreq_probe(struct platform_device *pdev)
 		}
 	}
 
-	if (cpu_is_imx6sx() || cpu_is_imx6sl()) {
+	if (cpu_is_imx6sx() || cpu_is_imx6sl() || cpu_is_imx6ul()) {
 		ahb_clk = devm_clk_get(&pdev->dev, "ahb");
 		ocram_clk = devm_clk_get(&pdev->dev, "ocram");
 		periph2_clk = devm_clk_get(&pdev->dev, "periph2");
@@ -1109,7 +1116,7 @@ static int busfreq_probe(struct platform_device *pdev)
 		}
 	}
 
-	if (cpu_is_imx6sx()) {
+	if (cpu_is_imx6sx() || cpu_is_imx6ul()) {
 		mmdc_clk = devm_clk_get(&pdev->dev, "mmdc");
 		if (IS_ERR(mmdc_clk)) {
 			dev_err(busfreq_dev,
@@ -1250,7 +1257,7 @@ static int busfreq_probe(struct platform_device *pdev)
 		}
 		busfreq_func.init   = &init_ddrc_ddr_settings;
 		busfreq_func.update = &update_ddr_freq_imx_smp;
-	} else if (cpu_is_imx6sx()) {
+	} else if (cpu_is_imx6sx() || cpu_is_imx6ul()) {
 		ddr_type = imx_mmdc_get_ddr_type();
 		if (ddr_type == IMX_DDR_TYPE_DDR3) {
 			busfreq_func.init   = &init_mmdc_ddr3_settings_imx6_up;
