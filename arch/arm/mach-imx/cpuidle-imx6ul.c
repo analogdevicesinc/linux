@@ -253,10 +253,17 @@ int __init imx6ul_cpuidle_init(void)
 		cpuidle_pm_info->mmdc_io_val[i][0] = mmdc_offset_array[i];
 
 	/* calculate the wfi code size */
-	wfi_code_size = (&mx6ul_lpm_wfi_end -&mx6ul_lpm_wfi_start) *4;
+	if (cpu_is_imx6ul()) {
+		wfi_code_size = (&mx6ul_lpm_wfi_end -&mx6ul_lpm_wfi_start) *4;
 
-	imx6ul_wfi_in_iram_fn = (void *)fncpy(wfi_iram_base + sizeof(*cpuidle_pm_info),
-		&imx6ul_low_power_idle, wfi_code_size);
+		imx6ul_wfi_in_iram_fn = (void *)fncpy(wfi_iram_base + sizeof(*cpuidle_pm_info),
+			&imx6ul_low_power_idle, wfi_code_size);
+	} else {
+		wfi_code_size = (&mx6ull_lpm_wfi_end -&mx6ull_lpm_wfi_start) *4;
+
+		imx6ul_wfi_in_iram_fn = (void *)fncpy(wfi_iram_base + sizeof(*cpuidle_pm_info),
+			&imx6ull_low_power_idle, wfi_code_size);
+	}
 #endif
 
 	imx6_set_int_mem_clk_lpm(true);

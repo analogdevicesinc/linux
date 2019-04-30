@@ -128,6 +128,7 @@ void imx6sl_low_power_idle(void);
 void imx6sll_low_power_idle(void);
 void imx6sx_low_power_idle(void);
 void imx6ul_low_power_idle(void);
+void imx6ull_low_power_idle(void);
 void imx7d_low_power_idle(void);
 #ifdef CONFIG_HAVE_IMX_MMDC
 int imx_mmdc_get_ddr_type(void);
