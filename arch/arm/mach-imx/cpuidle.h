@@ -8,6 +8,7 @@
 extern int imx5_cpuidle_init(void);
 extern int imx6q_cpuidle_init(void);
 extern int imx6sl_cpuidle_init(void);
+extern int imx6sll_cpuidle_init(void);
 extern int imx6sx_cpuidle_init(void);
 extern int imx6ul_cpuidle_init(void);
 extern int imx7d_cpuidle_init(void);
@@ -23,6 +24,10 @@ static inline int imx6q_cpuidle_init(void)
 	return 0;
 }
 static inline int imx6sl_cpuidle_init(void)
+{
+	return 0;
+}
+static inline int imx6sll_cpuidle_init(void)
 {
 	return 0;
 }

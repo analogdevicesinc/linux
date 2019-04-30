@@ -125,6 +125,7 @@ void imx_anatop_post_resume(void);
 int imx6_set_lpm(enum mxc_cpu_pwr_mode mode);
 void imx6_set_int_mem_clk_lpm(bool enable);
 void imx6sl_low_power_idle(void);
+void imx6sll_low_power_idle(void);
 void imx6sx_low_power_idle(void);
 void imx6ul_low_power_idle(void);
 void imx7d_low_power_idle(void);
