@@ -112,12 +112,28 @@
 		interrupt-parent = <&gpc>;
 		ranges;
 
-		ocram: sram@900000 {
+		ocrams: sram@00900000 {
+			compatible = "fsl,lpm-sram";
+			reg = <0x00900000 0x4000>;
+		};
+
+		ocrams_ddr: sram@00904000 {
+			compatible = "fsl,ddr-lpm-sram";
+			reg = <0x00904000 0x1000>;
+		};
+
+		ocram: sram@00905000 {
 			compatible = "mmio-sram";
-			reg = <0x00900000 0x20000>;
-			ranges = <0 0x00900000 0x20000>;
+			reg = <0x00905000 0x1B000>;
+			ranges = <0 0x00905000 0x1B000>;
 			#address-cells = <1>;
 			#size-cells = <1>;
+		};
+
+		ocram_optee: sram@00918000 {
+			compatible = "fsl,optee-lpm-sram";
+			reg = <0x00918000 0x8000>;
+			overw_reg = <&ocram 0x00905000 0x13000>;
 		};
 
 		intc: interrupt-controller@a01000 {
