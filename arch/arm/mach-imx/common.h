@@ -113,6 +113,7 @@ void imx_mu_set_m4_run_mode(void);
 void imx_src_init(void);
 void imx_gpc_pre_suspend(bool arm_power_off);
 void imx_gpc_post_resume(void);
+void imx_gpc_switch_pupscr_clk(bool flag);
 void imx_gpc_mask_all(void);
 void imx_gpc_restore_all(void);
 void imx_gpc_hwirq_mask(unsigned int hwirq);
@@ -125,6 +126,7 @@ int imx6_set_lpm(enum mxc_cpu_pwr_mode mode);
 void imx6_set_int_mem_clk_lpm(bool enable);
 void imx6sl_low_power_idle(void);
 void imx6sx_low_power_idle(void);
+void imx6ul_low_power_idle(void);
 void imx7d_low_power_idle(void);
 #ifdef CONFIG_HAVE_IMX_MMDC
 int imx_mmdc_get_ddr_type(void);
