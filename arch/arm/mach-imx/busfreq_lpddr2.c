@@ -166,10 +166,11 @@ int init_mmdc_lpddr2_settings(struct platform_device *busfreq_pdev)
 		mx6_change_lpddr2_freq = (void *)fncpy(
 			(void *)ddr_freq_change_iram_base,
 			&mx6_lpddr2_freq_change, ddr_code_size);
-	if (cpu_is_imx6sx() || cpu_is_imx6ul())
+	if (cpu_is_imx6sx() || cpu_is_imx6ul() || cpu_is_imx6ull())
 		mx6_change_lpddr2_freq = (void *)fncpy(
 			(void *)ddr_freq_change_iram_base,
 			&imx6_up_lpddr2_freq_change, ddr_code_size);
+
 	curr_ddr_rate = ddr_normal_rate;
 
 	return 0;

@@ -540,7 +540,7 @@ int init_mmdc_ddr3_settings_imx6_up(struct platform_device *busfreq_pdev)
 				+ normal_mmdc_settings[i][0]);
 	}
 
-	if (cpu_is_imx6ul())
+	if (cpu_is_imx6ul() || cpu_is_imx6ull())
 		iomux_settings_size = ARRAY_SIZE(iomux_offsets_mx6ul);
 	else
 		iomux_settings_size = ARRAY_SIZE(iomux_offsets_mx6sx);
@@ -566,7 +566,7 @@ int init_mmdc_ddr3_settings_imx6_up(struct platform_device *busfreq_pdev)
 	}
 
 	for (i = 0; i < iomux_settings_size; i++) {
-		if (cpu_is_imx6ul()) {
+		if (cpu_is_imx6ul() || cpu_is_imx6ull()) {
 			iomux_offsets_mx6ul[i][1] =
 			readl_relaxed(iomux_base +
 				iomux_offsets_mx6ul[i][0]);

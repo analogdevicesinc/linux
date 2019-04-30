@@ -184,6 +184,35 @@ int unregister_busfreq_notifier(struct notifier_block *nb)
 }
 EXPORT_SYMBOL(unregister_busfreq_notifier);
 
+static struct clk *origin_step_parent;
+
+/*
+ * on i.MX6ULL, when entering low bus mode, the ARM core
+ * can run at 24MHz to support the low power run mode per
+ * to design team.
+ */
+static void imx6ull_lower_cpu_rate(bool enter)
+{
+	if (enter) {
+		org_arm_rate = clk_get_rate(arm_clk);
+	}
+
+	clk_set_parent(pll1_bypass_clk, pll1_bypass_src_clk);
+	clk_set_parent(pll1_sw_clk, pll1_sys_clk);
+
+	if (enter) {
+		origin_step_parent = clk_get_parent(step_clk);
+		clk_set_parent(step_clk, osc_clk);
+		clk_set_parent(pll1_sw_clk, step_clk);
+		clk_set_rate(arm_clk, LPAPM_CLK);
+	} else {
+		clk_set_parent(step_clk, origin_step_parent);
+		clk_set_parent(pll1_sw_clk, step_clk);
+		clk_set_rate(arm_clk, org_arm_rate);
+		clk_set_parent(pll1_bypass_clk, pll1_clk);
+	}
+}
+
 /*
  * enter_lpm_imx6_up and exit_lpm_imx6_up is used by
  * i.MX6SX/i.MX6UL for entering and exiting lpm mode.
@@ -229,6 +258,9 @@ static void enter_lpm_imx6_up(void)
 				clk_set_rate(mmdc_clk, HIGH_AUDIO_CLK);
 		}
 
+		if (cpu_is_imx6ull() && low_bus_freq_mode)
+			imx6ull_lower_cpu_rate(false);
+
 		audio_bus_freq_mode = 1;
 		low_bus_freq_mode = 0;
 		cur_bus_freq_mode = BUS_FREQ_AUDIO;
@@ -240,6 +272,9 @@ static void enter_lpm_imx6_up(void)
 
 		if (audio_bus_freq_mode)
 			clk_disable_unprepare(pll2_400_clk);
+
+		if (cpu_is_imx6ull())
+			imx6ull_lower_cpu_rate(true);
 
 		low_bus_freq_mode = 1;
 		audio_bus_freq_mode = 0;
@@ -302,20 +337,23 @@ static void enter_lpm_imx6_smp(void)
 
 static void exit_lpm_imx6_up(void)
 {
+	if (cpu_is_imx6ull()&& low_bus_freq_mode)
+		imx6ull_lower_cpu_rate(false);
+
 	clk_prepare_enable(pll2_400_clk);
 
 	/*
 	 * lower ahb/ocram's freq first to avoid too high
 	 * freq during parent switch from OSC to pll3.
 	 */
-	if (cpu_is_imx6ul())
+	if (cpu_is_imx6ul() || cpu_is_imx6ull())
 		clk_set_rate(ahb_clk, LPAPM_CLK / 4);
 	else
 		clk_set_rate(ahb_clk, LPAPM_CLK / 3);
 
 	clk_set_rate(ocram_clk, LPAPM_CLK / 2);
 	/* set periph clk to from pll2_bus on i.MX6UL */
-	if (cpu_is_imx6ul())
+	if (cpu_is_imx6ul() || cpu_is_imx6ull())
 		clk_set_parent(periph_pre_clk, pll2_bus_clk);
 	/* set periph clk to from pll2_400 */
 	else
@@ -636,7 +674,7 @@ static void reduce_bus_freq(void)
 
 	if (cpu_is_imx7d())
 		enter_lpm_imx7d();
-	else if (cpu_is_imx6sx() || cpu_is_imx6ul())
+	else if (cpu_is_imx6sx() || cpu_is_imx6ul() || cpu_is_imx6ull())
 		enter_lpm_imx6_up();
 	else if (cpu_is_imx6q() || cpu_is_imx6dl())
 		enter_lpm_imx6_smp();
@@ -740,7 +778,7 @@ static int set_high_bus_freq(int high_bus_freq)
 
 	if (cpu_is_imx7d())
 		exit_lpm_imx7d();
-	else if (cpu_is_imx6sx() || cpu_is_imx6ul())
+	else if (cpu_is_imx6sx() || cpu_is_imx6ul() || cpu_is_imx6ull())
 		exit_lpm_imx6_up();
 	else if (cpu_is_imx6q() || cpu_is_imx6dl())
 		exit_lpm_imx6_smp();
@@ -1098,7 +1136,7 @@ static int busfreq_probe(struct platform_device *pdev)
 		}
 	}
 
-	if (cpu_is_imx6sx() || cpu_is_imx6sl() || cpu_is_imx6ul()) {
+	if (cpu_is_imx6sx() || cpu_is_imx6sl() || cpu_is_imx6ul() || cpu_is_imx6ull()) {
 		ahb_clk = devm_clk_get(&pdev->dev, "ahb");
 		ocram_clk = devm_clk_get(&pdev->dev, "ocram");
 		periph2_clk = devm_clk_get(&pdev->dev, "periph2");
@@ -1116,7 +1154,7 @@ static int busfreq_probe(struct platform_device *pdev)
 		}
 	}
 
-	if (cpu_is_imx6sx() || cpu_is_imx6ul()) {
+	if (cpu_is_imx6sx() || cpu_is_imx6ul() || cpu_is_imx6ull()) {
 		mmdc_clk = devm_clk_get(&pdev->dev, "mmdc");
 		if (IS_ERR(mmdc_clk)) {
 			dev_err(busfreq_dev,
@@ -1152,7 +1190,7 @@ static int busfreq_probe(struct platform_device *pdev)
 		}
 	}
 
-	if (cpu_is_imx6sl()) {
+	if (cpu_is_imx6sl() || cpu_is_imx6ull()) {
 		arm_clk = devm_clk_get(&pdev->dev, "arm");
 		step_clk = devm_clk_get(&pdev->dev, "step");
 		pll1_clk = devm_clk_get(&pdev->dev, "pll1");
@@ -1257,7 +1295,7 @@ static int busfreq_probe(struct platform_device *pdev)
 		}
 		busfreq_func.init   = &init_ddrc_ddr_settings;
 		busfreq_func.update = &update_ddr_freq_imx_smp;
-	} else if (cpu_is_imx6sx() || cpu_is_imx6ul()) {
+	} else if (cpu_is_imx6sx() || cpu_is_imx6ul() || cpu_is_imx6ull()) {
 		ddr_type = imx_mmdc_get_ddr_type();
 		if (ddr_type == IMX_DDR_TYPE_DDR3) {
 			busfreq_func.init   = &init_mmdc_ddr3_settings_imx6_up;
