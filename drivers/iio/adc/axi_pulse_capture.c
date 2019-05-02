@@ -98,9 +98,18 @@ static ssize_t axi_pulse_capture_read_pulse_w(struct iio_dev *indio_dev,
 	uintptr_t private, const struct iio_chan_spec *chan, char *buf)
 {
 	struct axi_pulse_capture *pulse = iio_priv(indio_dev);
+	unsigned long clk_rate;
+	u32 pulse_time, cnt;
 
-	return sprintf(buf, "%d\n",
-		  pulse_capture_ioread(pulse, ADI_REG_PULSE_WIDTH));
+	clk_rate = clk_get_rate(pulse->clk);
+	if (!clk_rate) {
+		pulse_time = 0;
+	} else {
+		cnt = pulse_capture_ioread(pulse, ADI_REG_PULSE_WIDTH);
+		pulse_time = (1000000000U / clk_rate) * cnt;
+	}
+
+	return sprintf(buf, "%d\n", pulse_time);
 }
 
 static ssize_t axi_pulse_capture_write_pulse_w(struct iio_dev *indio_dev,
@@ -129,6 +138,8 @@ static int axi_pulse_capture_read_raw(struct iio_dev *indio_dev,
 				      int *val, int *val2, long mask)
 {
 	struct axi_pulse_capture *pulse = iio_priv(indio_dev);
+	unsigned long clk_rate;
+	u32 cnt;
 
 	dev_dbg(indio_dev->dev.parent, "Read attr %ld\n", mask);
 
@@ -137,7 +148,13 @@ static int axi_pulse_capture_read_raw(struct iio_dev *indio_dev,
 		*val = pulse_capture_ioread(pulse, ADI_REG_DRIVER_ENABLE);
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_FREQUENCY:
-		*val = pulse_capture_ioread(pulse, ADI_REG_PULSE_PERIOD);
+		clk_rate = clk_get_rate(pulse->clk);
+		if (!clk_rate) {
+			*val = 0;
+		} else {
+			cnt = pulse_capture_ioread(pulse, ADI_REG_PULSE_PERIOD);
+			*val = DIV_ROUND_CLOSEST(clk_rate, cnt);
+		}
 		return IIO_VAL_INT;
 	default:
 		return -EINVAL;
