@@ -65,13 +65,18 @@
 				<198000		1175000>;
 			clock-latency = <61036>; /* two CLK32 periods */
 			#cooling-cells = <2>;
+			fsl,low-power-run;
 			clocks = <&clks IMX6SLL_CLK_ARM>,
 				 <&clks IMX6SLL_CLK_PLL2_PFD2>,
 				 <&clks IMX6SLL_CLK_STEP>,
 				 <&clks IMX6SLL_CLK_PLL1_SW>,
-				 <&clks IMX6SLL_CLK_PLL1_SYS>;
+				 <&clks IMX6SLL_CLK_PLL1_SYS>,
+				 <&clks IMX6SLL_CLK_PLL1>,
+				 <&clks IMX6SLL_PLL1_BYPASS>,
+				 <&clks IMX6SLL_PLL1_BYPASS_SRC>;
 			clock-names = "arm", "pll2_pfd2_396m", "step",
-				      "pll1_sw", "pll1_sys";
+				      "pll1_sw", "pll1_sys", "pll1", "pll1_bypass",
+				      "pll1_bypass_src";
 			nvmem-cells = <&cpu_speed_grade>;
 			nvmem-cell-names = "speed_grade";
 		};
