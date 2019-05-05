@@ -1,0 +1,110 @@
+// SPDX-License-Identifier: GPL-2.0+
+// Copyright NXP 2019
+
+#include "imx8qm-mek.dts"
+
+&isi_0 {
+	status = "okay";
+};
+
+&isi_1 {
+	status = "okay";
+};
+
+&isi_2 {
+	status = "okay";
+};
+
+&isi_3 {
+	status = "okay";
+};
+
+&isi_4 {
+	status = "okay";
+};
+
+&isi_5 {
+	status = "okay";
+};
+
+&isi_6 {
+	status = "okay";
+};
+
+&isi_7 {
+	status = "okay";
+};
+
+&mipi_csi_0 {
+	virtual-channel;
+
+	/* Camera 0  MIPI CSI-2 (CSIS0) */
+	port@0 {
+		reg = <0>;
+		mipi_csi0_ep: endpoint {
+			remote-endpoint = <&max9286_0_ep>;
+			data-lanes = <1 2 3 4>;
+		};
+	};
+};
+
+&mipi_csi_1 {
+	virtual-channel;
+
+	/* Camera 0  MIPI CSI-2 (CSIS0) */
+	port@1 {
+		reg = <1>;
+		mipi_csi1_ep: endpoint {
+			remote-endpoint = <&max9286_1_ep>;
+			data-lanes = <1 2 3 4>;
+		};
+	};
+};
+
+&i2c_mipi_csi0 {
+	max9286_mipi@6a {
+		compatible = "maxim,max9286_mipi";
+		reg = <0x6a>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_mipi_csi0>;
+		clocks = <&clk IMX_CLK_DUMMY>;
+		clock-names = "capture_mclk";
+		mclk = <27000000>;
+		mclk_source = <0>;
+		pwn-gpios = <&lsio_gpio1 27 GPIO_ACTIVE_HIGH>;
+		virtual-channel;
+		status = "okay";
+		port {
+			max9286_0_ep: endpoint {
+				remote-endpoint = <&mipi_csi0_ep>;
+				data-lanes = <1 2 3 4>;
+			};
+		};
+	};
+
+	/delete-node/ov5640_mipi@3c;
+};
+
+&i2c_mipi_csi1 {
+	max9286_mipi@6a {
+		compatible = "maxim,max9286_mipi";
+		reg = <0x6a>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_mipi_csi1>;
+		clocks = <&clk IMX_CLK_DUMMY>;
+		clock-names = "capture_mclk";
+		mclk = <27000000>;
+		mclk_source = <0>;
+		pwn-gpios = <&lsio_gpio1 30 GPIO_ACTIVE_HIGH>;
+		virtual-channel;
+		status = "okay";
+		port {
+			max9286_1_ep: endpoint {
+				remote-endpoint = <&mipi_csi1_ep>;
+				data-lanes = <1 2 3 4>;
+			};
+		};
+	};
+
+	/delete-node/ov5640_mipi@3c;
+};
