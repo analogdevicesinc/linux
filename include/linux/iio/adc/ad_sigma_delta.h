@@ -42,9 +42,11 @@ struct iio_dev;
  *   be used.
  */
 struct ad_sigma_delta_info {
-	int (*set_channel)(struct ad_sigma_delta *, unsigned int channel);
-	int (*set_mode)(struct ad_sigma_delta *, enum ad_sigma_delta_mode mode);
-	int (*postprocess_sample)(struct ad_sigma_delta *, unsigned int raw_sample);
+	int (*set_channel)(struct ad_sigma_delta *sd, unsigned int channel);
+	int (*set_mode)(struct ad_sigma_delta *sd,
+		enum ad_sigma_delta_mode mode);
+	int (*postprocess_sample)(struct ad_sigma_delta *sd,
+		unsigned int raw_sample);
 	bool has_registers;
 	unsigned int addr_shift;
 	unsigned int read_mask;
