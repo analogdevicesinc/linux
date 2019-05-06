@@ -37,9 +37,6 @@
 #define AD7606_RANGE_CH_MODE(ch, mode)	\
 	((GENMASK(3, 0) & mode) << (4 * ((ch) % 2)))
 
-#define AD7606_RD_FLAG_MSK(x)		(BIT(6) | ((x) & 0x3F))
-#define AD7606_WR_FLAG_MSK(x)		((x) & 0x3F)
-
 static int ad7606B_sw_mode_config(struct iio_dev *indio_dev);
 
 /*
@@ -65,6 +62,11 @@ static const unsigned int ad7616_oversampling_avail[8] = {
 static const unsigned int ad7606B_oversampling_avail[9] = {
 	1, 2, 4, 8, 16, 32, 64, 128, 256
 };
+
+static int ad7606B_spi_rd_wr_cmd(int addr, char isWriteOp)
+{
+	return (addr & 0x3F) | (((~isWriteOp) & 0x1) << 6);
+}
 
 static int ad7606_reset(struct ad7606_state *st)
 {
@@ -93,7 +95,7 @@ static int ad7606_spi_reg_read(struct ad7606_state *st, unsigned int addr)
 	};
 	int ret;
 
-	st->data[0] = cpu_to_be16(AD7606_RD_FLAG_MSK(addr) << 8);
+	st->data[0] = cpu_to_be16(st->chip_info->spi_rd_wr_cmd(addr, 0) << 8);
 
 	ret = spi_sync_transfer(spi, t, ARRAY_SIZE(t));
 	if (ret < 0)
@@ -108,7 +110,7 @@ static int ad7606_spi_reg_write(struct ad7606_state *st,
 {
 	struct spi_device *spi = to_spi_device(st->dev);
 
-	st->data[0] = cpu_to_be16((AD7606_WR_FLAG_MSK(addr) << 8) |
+	st->data[0] = cpu_to_be16((st->chip_info->spi_rd_wr_cmd(addr, 1) << 8) |
 				  (val & 0xFF));
 
 	return spi_write(spi, &st->data[0], sizeof(st->data[0]));
@@ -524,6 +526,7 @@ static const struct ad7606_chip_info ad7606_chip_info_tbl[] = {
 		.sw_mode_config = ad7606B_sw_mode_config,
 		.oversampling_avail = ad7606_oversampling_avail,
 		.oversampling_num = ARRAY_SIZE(ad7606_oversampling_avail),
+		.spi_rd_wr_cmd = ad7606B_spi_rd_wr_cmd,
 		.write_scale_sw = ad7606_write_scale_sw,
 		.write_os_sw = ad7606_write_os_sw,
 	},
