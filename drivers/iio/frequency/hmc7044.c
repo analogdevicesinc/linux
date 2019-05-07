@@ -52,6 +52,12 @@
 #define HMC7044_REG_EN_CTRL_1		0x0004
 #define HMC7044_SEVEN_PAIRS(x)		((x) & 0x7f)
 
+#define HMC7044_REG_GLOB_MODE		0x0005
+#define HMC7044_REF_PATH_EN(x)		((x) & 0xf)
+#define HMC7044_RFSYNC_EN		BIT(4)
+#define HMC7044_VCOIN_MODE_EN		BIT(5)
+#define HMC7044_SYNC_PIN_MODE(x)	(((x) & 0x3) << 6)
+
 /* PLL1 */
 #define HMC7044_REG_CLKIN0_BUF_CTRL	0x000A
 #define HMC7044_REG_CLKIN1_BUF_CTRL	0x000B
@@ -214,6 +220,9 @@ struct hmc7044 {
 	unsigned int			pll1_loop_bw;
 	unsigned int			sysref_timer_div;
 	unsigned int			pll1_ref_prio_ctrl;
+	bool				clkin0_rfsync_en;
+	bool				clkin1_vcoin_en;
+	unsigned int			sync_pin_mode;
 	unsigned int			pulse_gen_mode;
 	unsigned int			in_buf_mode[5];
 	unsigned int			gpi_ctrl[4];
@@ -499,7 +508,7 @@ static int hmc7044_setup(struct iio_dev *indio_dev)
 	unsigned long pfd1_freq;
 	unsigned long vco_limit;
 	unsigned long n2[2], r2[2];
-	unsigned int i;
+	unsigned int i, ref_en = 0;
 	int ret;
 
 	vcxo_freq = hmc->vcxo_freq / 1000;
@@ -512,8 +521,10 @@ static int hmc7044_setup(struct iio_dev *indio_dev)
 		else
 			clkin_freq[i] = hmc->clkin_freq[i] / 1000;
 
-		if (clkin_freq[i])
+		if (clkin_freq[i]) {
 			lcm_freq = gcd(clkin_freq[i], lcm_freq);
+			ref_en |= BIT(i);
+		}
 	}
 
 	while (lcm_freq > HMC7044_RECOMM_LCM_MAX)
@@ -595,6 +606,12 @@ static int hmc7044_setup(struct iio_dev *indio_dev)
 	hmc7044_write(indio_dev, HMC7044_REG_PLL1_DELAY, 0x06);
 	hmc7044_write(indio_dev, HMC7044_REG_PLL1_HOLDOVER, 0x06);
 	hmc7044_write(indio_dev, HMC7044_REG_VTUNE_PRESET, 0x04);
+
+	hmc7044_write(indio_dev, HMC7044_REG_GLOB_MODE,
+		      HMC7044_SYNC_PIN_MODE(hmc->sync_pin_mode) |
+		      (hmc->clkin0_rfsync_en ? HMC7044_RFSYNC_EN : 0) |
+		      (hmc->clkin1_vcoin_en ? HMC7044_VCOIN_MODE_EN : 0) |
+		      HMC7044_REF_PATH_EN(ref_en));
 
 	/* Program PLL2 */
 
@@ -808,6 +825,14 @@ static int hmc7044_parse_dt(struct device *dev,
 	hmc->pll1_ref_prio_ctrl = 0xE4;
 	of_property_read_u32(np, "adi,pll1-ref-prio-ctrl",
 			     &hmc->pll1_ref_prio_ctrl);
+
+	hmc->sync_pin_mode = 1;
+	of_property_read_u32(np, "adi,sync-pin-mode",
+			     &hmc->sync_pin_mode);
+	hmc->clkin0_rfsync_en =
+		of_property_read_bool(np, "adi,clkin0-rf-sync-enable");
+	hmc->clkin1_vcoin_en =
+		of_property_read_bool(np, "adi,clkin1-vco-in-enable");
 
 	ret = of_property_read_u32_array(np, "adi,gpi-controls",
 			hmc->gpi_ctrl, ARRAY_SIZE(hmc->gpi_ctrl));
