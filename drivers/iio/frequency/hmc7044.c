@@ -59,6 +59,8 @@
 #define HMC7044_REG_CLKIN3_BUF_CTRL	0x000D
 #define HMC7044_REG_OSCIN_BUF_CTRL	0x000E
 
+#define HMC7044_REG_PLL1_REF_PRIO_CTRL	0x0014
+
 #define HMC7044_HIGH_Z_EN		BIT(4)
 #define HMC7044_LVPECL_EN		BIT(3)
 #define HMC7044_AC_COUPLING_EN		BIT(2)
@@ -210,6 +212,7 @@ struct hmc7044 {
 	u32				pll2_freq;
 	unsigned int			pll1_loop_bw;
 	unsigned int			sysref_timer_div;
+	unsigned int			pll1_ref_prio_ctrl;
 	unsigned int			pulse_gen_mode;
 	unsigned int			in_buf_mode[5];
 	unsigned int			gpi_ctrl[4];
@@ -629,6 +632,9 @@ static int hmc7044_setup(struct iio_dev *indio_dev)
 	hmc7044_write(indio_dev, HMC7044_REG_PLL1_N_MSB,
 		      HMC7044_N2_MSB(n1));
 
+	hmc7044_write(indio_dev, HMC7044_REG_PLL1_REF_PRIO_CTRL,
+		      hmc->pll1_ref_prio_ctrl);
+
 	/* Program the SYSREF timer */
 
 	/* Set the divide ratio */
@@ -785,6 +791,10 @@ static int hmc7044_parse_dt(struct device *dev,
 	hmc->in_buf_mode[4] = 0;
 	of_property_read_u32(np, "adi,oscin-buffer-mode",
 			     &hmc->in_buf_mode[4]);
+
+	hmc->pll1_ref_prio_ctrl = 0xE4;
+	of_property_read_u32(np, "adi,pll1-ref-prio-ctrl",
+			     &hmc->pll1_ref_prio_ctrl);
 
 	ret = of_property_read_u32_array(np, "adi,gpi-controls",
 			hmc->gpi_ctrl, ARRAY_SIZE(hmc->gpi_ctrl));
