@@ -761,6 +761,10 @@ int ad7606_probe(struct device *dev, int irq, void __iomem *base_address,
 	indio_dev->channels = st->chip_info->channels;
 	indio_dev->num_channels = st->chip_info->num_channels;
 
+	ret = ad7606_reset(st);
+	if (ret)
+		dev_warn(st->dev, "failed to RESET: no RESET GPIO specified\n");
+
 	st->write_scale = ad7606_write_scale_hw;
 	st->write_os = ad7606_write_os_hw;
 
@@ -799,10 +803,6 @@ int ad7606_probe(struct device *dev, int irq, void __iomem *base_address,
 	}
 
 	init_completion(&st->completion);
-
-	ret = ad7606_reset(st);
-	if (ret)
-		dev_warn(st->dev, "failed to RESET: no RESET GPIO specified\n");
 
 	st->trig = devm_iio_trigger_alloc(dev, "%s-dev%d",
 					  indio_dev->name, indio_dev->id);
