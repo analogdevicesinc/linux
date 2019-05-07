@@ -1193,7 +1193,7 @@ static int busfreq_probe(struct platform_device *pdev)
 		}
 	}
 
-	if (cpu_is_imx6sl() || cpu_is_imx6ull() cpu_is_imx6sll()) {
+	if (cpu_is_imx6sl() || cpu_is_imx6ull() || cpu_is_imx6sll()) {
 		arm_clk = devm_clk_get(&pdev->dev, "arm");
 		step_clk = devm_clk_get(&pdev->dev, "step");
 		pll1_clk = devm_clk_get(&pdev->dev, "pll1");
