@@ -16179,6 +16179,9 @@ mykonosErr_t MYKONOS_waitArmCmdStatus(mykonosDevice_t *device, uint8_t opCode, u
         {
             return MYKONOS_ERR_WAITARMCMDSTATUS_TIMEOUT;
         }
+
+        CMB_wait_ms(1);
+
     } while (*cmdStatByte & 0x01);
 
     return MYKONOS_ERR_OK;
