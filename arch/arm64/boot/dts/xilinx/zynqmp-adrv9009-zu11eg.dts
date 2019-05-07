@@ -1329,6 +1329,7 @@
 			dmas = <&rx_dma 0>;
 			dma-names = "rx";
 			spibus-connected = <&trx0_adrv9009>;
+			adi,axi-pl-fifo-enable;
 		};
 
 		axi_adrv9009_core_rx_obs: axi-adrv9009-rx-obs-hpc@84a08000 {
