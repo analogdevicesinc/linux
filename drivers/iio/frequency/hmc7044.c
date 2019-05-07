@@ -208,6 +208,7 @@ struct hmc7044_chan_spec {
 struct hmc7044 {
 	struct spi_device		*spi;
 	u32				clkin_freq[4];
+	u32				clkin_freq_ccf[4];
 	u32				vcxo_freq;
 	u32				pll2_freq;
 	unsigned int			pll1_loop_bw;
@@ -224,7 +225,15 @@ struct hmc7044 {
 	struct hmc7044_output		outputs[HMC7044_NUM_CHAN];
 	struct clk			*clks[HMC7044_NUM_CHAN];
 	struct clk_onecell_data		clk_data;
+	struct clk			*clk_input[4];
 	struct mutex			lock;
+};
+
+static const char * const hmc7044_input_clk_names[] = {
+	[0] = "clkin0",
+	[1] = "clkin1",
+	[2] = "clkin2",
+	[3] = "clkin3",
 };
 
 static int hmc7044_write(struct iio_dev *indio_dev,
@@ -498,7 +507,11 @@ static int hmc7044_setup(struct iio_dev *indio_dev)
 
 	lcm_freq = vcxo_freq;
 	for (i = 0; i < ARRAY_SIZE(clkin_freq); i++) {
-		clkin_freq[i] = hmc->clkin_freq[i] / 1000;
+		if (hmc->clkin_freq_ccf[i])
+			clkin_freq[i] = hmc->clkin_freq_ccf[i] / 1000;
+		else
+			clkin_freq[i] = hmc->clkin_freq[i] / 1000;
+
 		if (clkin_freq[i])
 			lcm_freq = gcd(clkin_freq[i], lcm_freq);
 	}
@@ -861,6 +874,44 @@ static int hmc7044_parse_dt(struct device *dev,
 	return 0;
 }
 
+static void hmc7044_clk_disable_unprepare(void *data)
+{
+	struct clk *clk = data;
+
+	clk_disable_unprepare(clk);
+}
+
+static int hmc7044_get_clks(struct device *dev,
+			    struct hmc7044 *hmc)
+{
+	struct clk *clk;
+	int i, ret;
+
+	for (i = 0; i < ARRAY_SIZE(hmc7044_input_clk_names); i++) {
+		clk = devm_clk_get(dev, hmc7044_input_clk_names[i]);
+		if (IS_ERR(clk) && PTR_ERR(clk) != -ENOENT)
+			return PTR_ERR(clk);
+
+		if (PTR_ERR(clk) == -ENOENT) {
+			hmc->clk_input[i] = NULL;
+			continue;
+		}
+
+		ret = clk_prepare_enable(clk);
+		if (ret < 0)
+			return ret;
+
+		hmc->clkin_freq_ccf[i] = clk_get_rate(clk);
+
+		devm_add_action_or_reset(dev,
+					 hmc7044_clk_disable_unprepare, clk);
+
+		hmc->clk_input[i] = clk;
+	}
+
+	return 0;
+}
+
 static int hmc7044_probe(struct spi_device *spi)
 {
 	struct iio_dev *indio_dev;
@@ -872,6 +923,10 @@ static int hmc7044_probe(struct spi_device *spi)
 		return -ENOMEM;
 
 	hmc = iio_priv(indio_dev);
+
+	ret = hmc7044_get_clks(&spi->dev, hmc);
+	if (ret)
+		return ret;
 
 	mutex_init(&hmc->lock);
 
