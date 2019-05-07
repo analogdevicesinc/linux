@@ -880,6 +880,11 @@ static int hmc7044_probe(struct spi_device *spi)
 	indio_dev->channels = hmc->iio_channels;
 	indio_dev->num_channels = hmc->num_channels;
 
+	if (spi->dev.of_node)
+		indio_dev->name = spi->dev.of_node->name;
+	else
+		indio_dev->name = spi_get_device_id(spi)->name;
+
 	ret = hmc7044_setup(indio_dev);
 	if (ret)
 		return ret;
