@@ -1,0 +1,53 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Device Tree Include file for Freescale Layerscape-1046A family SoC.
+ *
+ * Copyright 2019 NXP.
+ *
+ */
+
+#include "fsl-ls1046a-frwy.dts"
+#include "qoriq-qman-portals-sdk.dtsi"
+#include "qoriq-bman-portals-sdk.dtsi"
+
+&bman_fbpr {
+	compatible = "fsl,bman-fbpr";
+	alloc-ranges = <0 0 0x10000 0>;
+};
+&qman_fqd {
+	compatible = "fsl,qman-fqd";
+	alloc-ranges = <0 0 0x10000 0>;
+};
+&qman_pfdr {
+	compatible = "fsl,qman-pfdr";
+	alloc-ranges = <0 0 0x10000 0>;
+};
+
+&soc {
+#include "qoriq-dpaa-eth.dtsi"
+#include "qoriq-fman3-0-6oh.dtsi"
+};
+
+&fsldpaa {
+	ethernet@1 {
+		status = "disabled";
+	};
+	ethernet@2 {
+		status = "disabled";
+	};
+	ethernet@3 {
+		status = "disabled";
+	};
+	ethernet@6 {
+		status = "disabled";
+	};
+	ethernet@9 {
+		compatible = "fsl,dpa-ethernet";
+		fsl,fman-mac = <&enet7>;
+		dma-coherent;
+	};
+};
+
+&fman0 {
+	compatible = "fsl,fman", "simple-bus";
+};
