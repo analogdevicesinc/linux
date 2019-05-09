@@ -279,7 +279,7 @@ static irqreturn_t axi_fan_control_irq_handler(int irq, void *data)
 			axi_fan_control_iowrite(new_tach,
 					ADI_REG_TACH_PERIOD, ctl);
 			axi_fan_control_iowrite(tach_tol,
-					ADI_REG_TACH_MEASUR, ctl);
+					ADI_REG_TACH_TOLERANCE, ctl);
 			ctl->update_tacho_params = false;
 		}
 
