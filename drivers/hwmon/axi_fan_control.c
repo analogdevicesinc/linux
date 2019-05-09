@@ -385,7 +385,7 @@ static const struct hwmon_chip_info axi_fan_control_chip_info = {
 	.info = axi_fan_control_info,
 };
 
-static const u32 version_1_0_0 = AXI_PCORE_VER(1, 0, 'a');
+static const u32 version_1_0_0 = ADI_AXI_PCORE_VER(1, 0, 'a');
 
 static const struct of_device_id axi_fan_control_of_match[] = {
 	{ .compatible = "adi,axi-fan-control-1.00.a",
@@ -429,16 +429,16 @@ static int axi_fan_control_probe(struct platform_device *pdev)
 	dev_info(&pdev->dev, "Re-mapped from 0x%08llX to %p\n",
 			(unsigned long long)res->start, ctl->base);
 
-	version = axi_fan_control_ioread(AXI_REG_VERSION, ctl);
-	if (AXI_PCORE_VER_MAJOR(version) !=
-	    AXI_PCORE_VER_MAJOR((*(u32 *)id->data))) {
+	version = axi_fan_control_ioread(ADI_AXI_REG_VERSION, ctl);
+	if (ADI_AXI_PCORE_VER_MAJOR(version) !=
+	    ADI_AXI_PCORE_VER_MAJOR((*(u32 *)id->data))) {
 		dev_err(&pdev->dev, "Major version mismatch. Expected %d.%.2d.%c, Reported %d.%.2d.%c\n",
-			AXI_PCORE_VER_MAJOR((*(u32 *)id->data)),
-			AXI_PCORE_VER_MINOR((*(u32 *)id->data)),
-			AXI_PCORE_VER_LETTER((*(u32 *)id->data)),
-			AXI_PCORE_VER_MAJOR(version),
-			AXI_PCORE_VER_MINOR(version),
-			AXI_PCORE_VER_LETTER(version));
+			ADI_AXI_PCORE_VER_MAJOR((*(u32 *)id->data)),
+			ADI_AXI_PCORE_VER_MINOR((*(u32 *)id->data)),
+			ADI_AXI_PCORE_VER_PATCH((*(u32 *)id->data)),
+			ADI_AXI_PCORE_VER_MAJOR(version),
+			ADI_AXI_PCORE_VER_MINOR(version),
+			ADI_AXI_PCORE_VER_PATCH(version));
 		return -ENODEV;
 	}
 
