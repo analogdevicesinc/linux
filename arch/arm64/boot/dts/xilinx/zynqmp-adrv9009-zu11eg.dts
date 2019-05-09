@@ -1257,6 +1257,15 @@
 			adi,control-bits-per-sample = <2>;
 		};
 
+		axi_fan_control: axi-fan-control@80000000 {
+			compatible = "adi,axi-fan-control-1.00.a";
+			reg = <0x0 0x80000000 0x10000>;
+			clocks = <&clk 71>;
+			interrupts = <0 110 0>;
+
+			adi,pulses-per-revolution = <2>;
+		};
+
 		rx_dma: dma@9c420000 {
 			compatible = "adi,axi-dmac-1.00.a";
 			reg = <0x0 0x9c420000 0x10000>;
