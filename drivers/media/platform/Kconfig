@@ -570,6 +570,13 @@ config VIDEO_TI_SC
 config VIDEO_TI_CSC
 	tristate
 
+config ADI_AXI_VIDEO_FRAME_BUFFER
+	tristate "ADI AXI frame buffer"
+	depends on MEDIA_SUPPORT
+	help
+	  To compile this driver as a module, choose M here: the
+	  module will be called adi-axi-fb.
+
 menuconfig DVB_PLATFORM_DRIVERS
 	bool "DVB platform devices"
 	depends on MEDIA_DIGITAL_TV_SUPPORT
