@@ -1,0 +1,124 @@
+# SPDX-License-Identifier: GPL-2.0
+# Copyright 2019 Analog Devices Inc.
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/bindings/media/adi,adi-fb.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Analog Devices AXI Frame Buffer Device Tree Bindings
+
+maintainers:
+  - Bogdan Togorean <bogdan.togorean@analog.com>
+
+description: |
+  Bindings for the Analog Devices Frame Buffer core. Spefications of the
+  core can be found in:
+  https://wiki.analog.com/resources/fpga/docs/axi_dmac
+  First example is used when FB is stored in PS RAM and second for PL RAM.
+
+properties:
+  compatible:
+    enum:
+        - adi,axi-framebuffer-1.00.a
+
+  memory-region:
+    description:
+      Phandle to a node used to specify reserved memory for video frame buffers.
+      If not used, frame buffer address and size should be specified using reg
+      property.
+    allOf:
+      - $ref: /schemas/types.yaml#/definitions/phandle-array
+
+  reg:
+    minItems: 2
+    maxItems: 3
+
+  adi,flock-resolution:
+    description:
+      (u32, u32) tuple setting resolution of input/output image in pixels.
+      <horizontal> <vertical>
+    allOf:
+      - $ref: /schemas/types.yaml#/definitions/uint32-array
+    minItems: 2
+    maxItems: 2
+
+  adi,flock-mode:
+    description:
+      Select operating mode of the framebuffer.
+      0 -> Frame rate conversion mode
+      1 -> Output delay mode
+    enum: [ 0, 1 ]
+    maxItems: 1
+
+  adi,flock-frm-buf-nr:
+    description:
+      The total number of video frame buffers.
+      Related to NUM_BUF synthesys parameter.
+    minimum: 3
+    maxItems: 1
+
+  adi,flock-distance:
+    description:
+      Applicable only in output delay mode. Set the output delay in frames.
+      Should be set in interval 0 to flock,frm-buf-nr - 2
+    minimum: 0
+    maxItems: 1
+
+  adi,flock-line-stride:
+    description:
+      The number of bytes between the start of one row and the next row.
+      Needs to be aligned to the bus width.
+    maxItems: 1
+
+  adi,flock-frm-stride:
+    description:
+      Stride of consecutive frames in memory in bytes. Should be at least the
+      size of one frame.
+    maxItems: 1
+
+  adi,flock-dwidth:
+    description:
+      Represent the number of bytes per pixel according to used color space.
+    enum: [ 1, 2, 4 ]
+    maxItems: 1
+
+required:
+  - compatible
+  - reg
+
+examples:
+  - |
+    adi-fb {
+            compatible = "adi,axi-framebuffer-1.00.a";
+            memory-region = <&reserved>;
+            reg = <0x43000000 0x1000>, <0x43c20000 0x1000>;
+            reg-names = "tx_dma", "rx_dma";
+            adi,flock-resolution = <1920>, <1080>;
+            adi,flock-distance = <0>;
+            adi,flock-mode = <0>;
+            adi,flock-dwidth = <4>;
+            adi,flock-frm-buf-nr = <3>;
+    };
+
+    reserved-memory {
+            #address-cells = <1>;
+            #size-cells = <1>;
+            ranges;
+
+            reserved: buffer@0 {
+                    no-map;
+                    reg = <0x1C000000 0x2000000>;
+            };
+    };
+
+  - |
+    adi-fb {
+            compatible = "adi,axi-framebuffer-1.00.a";
+            reg = <0x1C000000 0x2000>, <0x43000000 0x1000>, <0x43c20000 0x1000>;
+            reg-names = "fb_mem", "tx_dma", "rx_dma";
+            adi,flock-resolution = <1920>, <1080>;
+            adi,flock-distance = <0>;
+            adi,flock-mode = <0>;
+            adi,flock-dwidth = <4>;
+            adi,flock-frm-buf-nr = <3>;
+    };
