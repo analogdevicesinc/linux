@@ -515,6 +515,13 @@ config VIDEO_TI_SC
 config VIDEO_TI_CSC
 	tristate
 
+config ADI_AXI_VIDEO_FRAME_BUFFER
+	tristate "ADI AXI frame buffer"
+	depends on MEDIA_SUPPORT
+	---help---
+	  To compile this driver as a module, choose M here: the
+	  module will be called adi-axi-fb.
+
 menuconfig V4L_TEST_DRIVERS
 	bool "Media test drivers"
 	depends on MEDIA_CAMERA_SUPPORT
