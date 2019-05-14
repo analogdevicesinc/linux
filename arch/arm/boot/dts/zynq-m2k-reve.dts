@@ -1,0 +1,10 @@
+/*
+ * 	Summary of RevD -> RevE hardware changes which require firmware changes:
+ *	Placeholder only for potential future revision
+ */
+
+#include "zynq-m2k-revd.dts"
+
+/ {
+	model = "Analog Devices M2k Rev.E (Z7010)";
+};
