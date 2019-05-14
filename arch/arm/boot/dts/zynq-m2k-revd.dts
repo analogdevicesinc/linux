@@ -1,0 +1,10 @@
+/*
+ * 	Summary of RevC -> RevD hardware changes which require firmware changes:
+ *	Nothing: Update model string to be in sync with the PCB silkscreen
+ */
+
+#include "zynq-m2k-revc.dts"
+
+/ {
+	model = "Analog Devices M2k Rev.D (Z7010)";
+};
