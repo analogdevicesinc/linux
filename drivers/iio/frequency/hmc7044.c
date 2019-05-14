@@ -164,6 +164,7 @@
 
 #define HMC7044_REG_CH_OUT_CRTL_8(ch)	(0x00D0 + 0xA * (ch))
 #define HMC7044_DRIVER_MODE(x)		(((x) & 0x3) << 3)
+#define HMC7044_DRIVER_Z_MODE(x)	(((x) & 0x3) << 0)
 #define HMC7044_DYN_DRIVER_EN		BIT(5)
 #define HMC7044_FORCE_MUTE_EN		BIT(7)
 
@@ -205,6 +206,7 @@ struct hmc7044_chan_spec {
 	bool			force_mute_enable;
 	unsigned int		divider;
 	unsigned int		driver_mode;
+	unsigned int		driver_impedance;
 	unsigned int		coarse_delay;
 	unsigned int		fine_delay;
 	unsigned int		out_mux_mode;
@@ -716,6 +718,7 @@ static int hmc7044_setup(struct iio_dev *indio_dev)
 			      HMC7044_DIV_MSB(chan->divider));
 		hmc7044_write(indio_dev, HMC7044_REG_CH_OUT_CRTL_8(chan->num),
 			      HMC7044_DRIVER_MODE(chan->driver_mode) |
+			      HMC7044_DRIVER_Z_MODE(chan->driver_impedance) |
 			      (chan->start_up_mode_dynamic_enable ?
 			      HMC7044_DYN_DRIVER_EN : 0) |
 			      (chan->force_mute_enable ?
@@ -873,6 +876,10 @@ static int hmc7044_parse_dt(struct device *dev,
 		hmc->channels[cnt].driver_mode = 0;
 		of_property_read_u32(chan_np, "adi,driver-mode",
 				     &hmc->channels[cnt].driver_mode);
+		hmc->channels[cnt].driver_impedance = 1;
+		of_property_read_u32(chan_np, "adi,driver-impedance-mode",
+				     &hmc->channels[cnt].driver_impedance);
+
 		of_property_read_string(chan_np, "adi,extended-name",
 					&hmc->channels[cnt].extended_name);
 		hmc->channels[cnt].high_performance_mode_dis =
