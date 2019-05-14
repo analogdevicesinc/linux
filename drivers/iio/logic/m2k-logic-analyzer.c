@@ -10,7 +10,6 @@
 
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
-#include <linux/iio/buffer_impl.h>
 #include <linux/iio/buffer-dma.h>
 #include <linux/iio/buffer-dmaengine.h>
 
@@ -19,12 +18,16 @@
 #define M2K_LA_REG_DIVIDER_PG		0x0c
 #define M2K_LA_REG_IO_SEL		0x10
 #define M2K_LA_REG_TRIGGER_ENABLE(x)	(0x14 + (x) * 4)
-#define M2K_LA_REG_TRIGGER_DELAY	0x28
+#define M2K_LA_REG_FIFO_DEPTH		0x28
 #define M2K_LA_REG_TRIGGER_LOGIC_MODE	0x2c
 #define M2K_LA_REG_CLOCK_SEL		0x30
 #define M2K_LA_REG_GPO_EN		0x34
 #define M2K_LA_REG_GPO			0x38
 #define M2K_LA_REG_GPI			0x3c
+#define M2K_LA_REG_OUTPUT_MODE		0x40
+#define M2K_LA_REG_TRIGGER_DELAY	0x44
+#define M2K_LA_REG_TRIGGERED		0x48
+#define M2K_LA_REG_STREAMING		0x4c
 
 #define M2K_LA_TRIGGER_EDGE_ANY		0
 #define M2K_LA_TRIGGER_EDGE_RISING	1
@@ -40,12 +43,16 @@ struct m2k_la {
 
 	struct clk *clk;
 
+	bool powerdown;
+	unsigned int clocksource;
+
 	struct mutex lock;
 	unsigned int io_sel;
 	unsigned int gpo;
+	unsigned int output_mode;
 
 	unsigned int trigger_logic_mode;
-	unsigned int triggers[16];
+	unsigned int triggers[18];
 	unsigned int trigger_regs[5];
 	unsigned int trigger_num_enabled;
 	int trigger_delay;
@@ -123,7 +130,7 @@ static int m2k_la_txrx_read_raw(struct iio_dev *indio_dev,
 
 	div = m2k_la_read(m2k_la, reg) + 1;
 
-	*val = DIV_ROUND_CLOSEST(clk_get_rate(m2k_la->clk), div);
+	*val = DIV_ROUND_CLOSEST(clk_get_rate(m2k_la->clk), div*10) * 10;
 
 	return IIO_VAL_INT;
 }
@@ -269,14 +276,18 @@ static ssize_t m2k_la_set_trigger_delay(struct iio_dev *indio_dev,
 	if (ret < 0)
 		return ret;
 
-	if (val < -8192 || val > 8192)
+	if (val < -8192)
 		return -EINVAL;
 
-
 	mutex_lock(&m2k_la->lock);
+	if (val < 0) {
+	    m2k_la_write(m2k_la, M2K_LA_REG_FIFO_DEPTH, -val);
+	    m2k_la_write(m2k_la, M2K_LA_REG_TRIGGER_DELAY, 0);
+	} else {
+	    m2k_la_write(m2k_la, M2K_LA_REG_FIFO_DEPTH, 0);
+	    m2k_la_write(m2k_la, M2K_LA_REG_TRIGGER_DELAY, val);
+	}
 	m2k_la->trigger_delay = val;
-	val += 8192;
-	m2k_la_write(m2k_la, M2K_LA_REG_TRIGGER_DELAY, val);
 	mutex_unlock(&m2k_la->lock);
 
 	return len;
@@ -288,6 +299,62 @@ static ssize_t m2k_la_get_trigger_delay(struct iio_dev *indio_dev,
 	struct m2k_la *m2k_la = iio_device_get_drvdata(indio_dev);
 
 	return scnprintf(buf, PAGE_SIZE, "%d\n", m2k_la->trigger_delay);
+}
+
+static ssize_t m2k_la_set_triggered(struct iio_dev *indio_dev,
+	uintptr_t priv, const struct iio_chan_spec *chan, const char *buf,
+	size_t len)
+{
+	struct m2k_la *m2k_la = iio_device_get_drvdata(indio_dev);
+	unsigned int val;
+	int ret;
+
+	ret = kstrtouint(buf, 10, &val);
+	if (ret < 0)
+		return ret;
+
+	m2k_la_write(m2k_la, M2K_LA_REG_TRIGGERED, val);
+
+	return len;
+}
+
+static ssize_t m2k_la_get_triggered(struct iio_dev *indio_dev,
+	uintptr_t priv, const struct iio_chan_spec *chan, char *buf)
+{
+	struct m2k_la *m2k_la = iio_device_get_drvdata(indio_dev);
+	unsigned int val;
+
+	val = m2k_la_read(m2k_la, M2K_LA_REG_TRIGGERED) & 1;
+
+	return scnprintf(buf, PAGE_SIZE, "%d\n", val);
+}
+
+static ssize_t m2k_la_get_streaming(struct iio_dev *indio_dev,
+	uintptr_t priv, const struct iio_chan_spec *chan, char *buf)
+{
+	struct m2k_la *m2k_la = iio_device_get_drvdata(indio_dev);
+	unsigned int val;
+
+	val = m2k_la_read(m2k_la, M2K_LA_REG_STREAMING) & 1;
+
+	return scnprintf(buf, PAGE_SIZE, "%d\n", val);
+}
+
+static ssize_t m2k_la_set_streaming(struct iio_dev *indio_dev,
+	uintptr_t priv, const struct iio_chan_spec *chan, const char *buf,
+	size_t len)
+{
+	struct m2k_la *m2k_la = iio_device_get_drvdata(indio_dev);
+	unsigned int val;
+	int ret;
+
+	ret = kstrtouint(buf, 10, &val);
+	if (ret < 0)
+		return ret;
+
+	m2k_la_write(m2k_la, M2K_LA_REG_STREAMING, val);
+
+	return len;
 }
 
 static const struct iio_chan_spec_ext_info m2k_la_rx_ext_info[] = {
@@ -302,6 +369,18 @@ static const struct iio_chan_spec_ext_info m2k_la_rx_ext_info[] = {
 		.shared = IIO_SHARED_BY_TYPE,
 		.write = m2k_la_set_trigger_delay,
 		.read = m2k_la_get_trigger_delay,
+	},
+	{
+		.name = "triggered",
+		.shared = IIO_SHARED_BY_ALL,
+		.read = m2k_la_get_triggered,
+		.write = m2k_la_set_triggered,
+	},
+	{
+		.name = "streaming",
+		.shared = IIO_SHARED_BY_ALL,
+		.write = m2k_la_set_streaming,
+		.read = m2k_la_get_streaming,
 	},
 	{}
 };
@@ -345,9 +424,126 @@ static const struct iio_enum m2k_la_direction_enum = {
 	.get = m2k_la_get_direction,
 };
 
+static ssize_t m2k_la_read_powerdown(struct iio_dev *indio_dev,
+	uintptr_t private, const struct iio_chan_spec *chan, char *buf)
+{
+	struct m2k_la *m2k_la = iio_priv(indio_dev);
+
+	return sprintf(buf, "%d\n", m2k_la->powerdown);
+}
+
+static ssize_t m2k_la_write_powerdown(struct iio_dev *indio_dev,
+	 uintptr_t private, const struct iio_chan_spec *chan, const char *buf,
+	 size_t len)
+{
+	struct m2k_la *m2k_la = iio_priv(indio_dev);
+	bool powerdown;
+	int ret;
+
+	ret = strtobool(buf, &powerdown);
+	if (ret)
+		return ret;
+
+	mutex_lock(&m2k_la->lock);
+
+	if (powerdown == m2k_la->powerdown)
+		goto out_unlock;
+
+	if (powerdown)
+		clk_disable_unprepare(m2k_la->clk);
+	else
+		clk_prepare_enable(m2k_la->clk);
+
+	m2k_la->powerdown = powerdown;
+
+out_unlock:
+	mutex_unlock(&m2k_la->lock);
+
+	return len;
+}
+
+static int m2k_la_set_output_mode(struct iio_dev *indio_dev,
+	const struct iio_chan_spec *chan, unsigned int val)
+{
+	struct m2k_la *m2k_la = iio_priv(indio_dev);
+
+	mutex_lock(&m2k_la->lock);
+	m2k_la->output_mode &= ~BIT(chan->address);
+	m2k_la->output_mode |= val << chan->address;
+	m2k_la_write(m2k_la, M2K_LA_REG_OUTPUT_MODE, m2k_la->output_mode);
+	mutex_unlock(&m2k_la->lock);
+
+	return 0;
+}
+
+static int m2k_la_get_output_mode(struct iio_dev *indio_dev,
+	const struct iio_chan_spec *chan)
+{
+	struct m2k_la *m2k_la = iio_priv(indio_dev);
+
+	return (m2k_la->output_mode >> chan->address) & 1;
+}
+
+static const char * const m2k_la_output_mode_items[] = {
+	"push-pull",
+	"open-drain",
+};
+
+static const struct iio_enum m2k_la_output_mode_enum = {
+	.items = m2k_la_output_mode_items,
+	.num_items = ARRAY_SIZE(m2k_la_output_mode_items),
+	.set = m2k_la_set_output_mode,
+	.get = m2k_la_get_output_mode,
+};
+
+static int m2k_la_set_clocksource(struct iio_dev *indio_dev,
+	const struct iio_chan_spec *chan, unsigned int val)
+{
+	struct m2k_la *m2k_la = iio_priv(indio_dev);
+
+	mutex_lock(&m2k_la->lock);
+	m2k_la_write(m2k_la, M2K_LA_REG_CLOCK_SEL, val);
+	m2k_la->clocksource = val;
+	mutex_unlock(&m2k_la->lock);
+
+	return 0;
+}
+
+static int m2k_la_get_clocksource(struct iio_dev *indio_dev,
+	const struct iio_chan_spec *chan)
+{
+	struct m2k_la *m2k_la = iio_priv(indio_dev);
+
+	return m2k_la->clocksource;
+}
+
+static const char * const m2k_la_clocksource_items[] = {
+	"internal",
+	"external",
+};
+
+static const struct iio_enum m2k_la_clocksource_enum = {
+	.items = m2k_la_clocksource_items,
+	.num_items = ARRAY_SIZE(m2k_la_clocksource_items),
+	.set = m2k_la_set_clocksource,
+	.get = m2k_la_get_clocksource,
+};
+
 static const struct iio_chan_spec_ext_info m2k_la_ext_info[] = {
+	{
+		.name = "powerdown",
+		.read = m2k_la_read_powerdown,
+		.write = m2k_la_write_powerdown,
+		.shared = IIO_SHARED_BY_ALL,
+	},
+	IIO_ENUM("clocksource", IIO_SHARED_BY_ALL, &m2k_la_clocksource_enum),
+	IIO_ENUM_AVAILABLE_SHARED("clocksource", IIO_SHARED_BY_ALL,
+		&m2k_la_clocksource_enum),
+
 	IIO_ENUM("direction", IIO_SEPARATE, &m2k_la_direction_enum),
 	IIO_ENUM_AVAILABLE("direction", &m2k_la_direction_enum),
+	IIO_ENUM("outputmode", IIO_SEPARATE, &m2k_la_output_mode_enum),
+	IIO_ENUM_AVAILABLE("outputmode", &m2k_la_output_mode_enum),
 	{}
 };
 
@@ -489,15 +685,52 @@ static const struct iio_dma_buffer_ops m2k_la_dma_buffer_ops = {
 	.abort = iio_dmaengine_buffer_abort,
 };
 
+static int m2k_la_reg_access(struct iio_dev *indio_dev, unsigned int reg,
+	unsigned int writeval, unsigned int *readval)
+{
+	struct m2k_la *m2k_la = iio_priv(indio_dev);
+
+	reg &= 0xffff;
+
+	if (readval == NULL)
+		m2k_la_write(m2k_la, reg, writeval);
+	else
+		*readval = m2k_la_read(m2k_la, reg);
+
+	return 0;
+}
+
 static const struct iio_info m2k_la_iio_info = {
 	.read_raw = m2k_la_read_raw,
 	.write_raw = m2k_la_write_raw,
-/*	.debugfs_reg_access = m2k_la_reg_access,*/
+	.debugfs_reg_access = m2k_la_reg_access,
 };
 
 static const struct iio_info m2k_la_txrx_iio_info = {
 	.read_raw = m2k_la_txrx_read_raw,
 	.write_raw = m2k_la_txrx_write_raw,
+};
+
+static int m2k_la_tx_preenable(struct iio_dev *indio_dev)
+{
+	struct m2k_la *m2k_la = iio_device_get_drvdata(indio_dev);
+	uint32_t mask = *indio_dev->buffer->channel_mask;
+
+	m2k_la_write(m2k_la, M2K_LA_REG_GPO_EN, ~mask);
+	return 0;
+}
+
+static int m2k_la_tx_postdisable(struct iio_dev *indio_dev)
+{
+	struct m2k_la *m2k_la = iio_device_get_drvdata(indio_dev);
+
+	m2k_la_write(m2k_la, M2K_LA_REG_GPO_EN, 0xffff);
+	return 0;
+}
+
+static const struct iio_buffer_setup_ops m2k_la_tx_setup_ops = {
+	.preenable = m2k_la_tx_preenable,
+	.postdisable = m2k_la_tx_postdisable,
 };
 
 static int m2k_la_probe(struct platform_device *pdev)
@@ -531,6 +764,8 @@ static int m2k_la_probe(struct platform_device *pdev)
 	if (ret < 0)
 		return -EINVAL;
 
+	m2k_la->powerdown = false;
+
 	mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	m2k_la->regs = devm_ioremap_resource(&pdev->dev, mem);
 	if (IS_ERR(m2k_la->regs))
@@ -540,6 +775,11 @@ static int m2k_la_probe(struct platform_device *pdev)
 	m2k_la->io_sel = 0xffff;
 	m2k_la_write(m2k_la, M2K_LA_REG_IO_SEL, m2k_la->io_sel);
 	m2k_la_write(m2k_la, M2K_LA_REG_GPO_EN, 0xffff);
+	m2k_la_write(m2k_la, M2K_LA_REG_OUTPUT_MODE, 0x0);
+
+	m2k_la_write(m2k_la, M2K_LA_REG_CLOCK_SEL, 0x0);
+	m2k_la_write(m2k_la, M2K_LA_REG_FIFO_DEPTH, 0x0);
+	m2k_la_write(m2k_la, M2K_LA_REG_TRIGGER_DELAY, 0x0);
 
 	m2k_la_update_logic_mode(m2k_la);
 
@@ -563,6 +803,7 @@ static int m2k_la_probe(struct platform_device *pdev)
 	indio_dev_tx->channels = m2k_la_tx_chan_spec,
 	indio_dev_tx->num_channels = ARRAY_SIZE(m2k_la_tx_chan_spec);
 	indio_dev_tx->direction = IIO_DEVICE_DIRECTION_OUT;
+	indio_dev_tx->setup_ops = &m2k_la_tx_setup_ops;
 
 	buffer_tx = iio_dmaengine_buffer_alloc(&pdev->dev, "tx",
 			&m2k_la_dma_buffer_ops, indio_dev_tx);
@@ -609,7 +850,8 @@ static int m2k_la_remove(struct platform_device *pdev)
 //	iio_device_unregister(indio_dev_rx);
 //	iio_device_unregister(indio_dev_tx);
 	iio_device_unregister(indio_dev);
-	clk_disable_unprepare(m2k_la->clk);
+	if (!m2k_la->powerdown)
+		clk_disable_unprepare(m2k_la->clk);
 
 	return 0;
 }
