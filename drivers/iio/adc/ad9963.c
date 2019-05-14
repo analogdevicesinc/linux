@@ -22,6 +22,7 @@
 #define AD9963_REG_SERIAL_PORT_CFG	0x00
 #define AD9963_REG_ADC_ADDRESS		0x05
 #define AD9963_REG_RXCML		0x0f
+#define AD9963_REG_DIGITAL_FILTERS	0x30
 #define AD9963_REG_TX_DATA_INF		0x31
 #define AD9963_REG_RX_DATA_INF0		0x32
 #define AD9963_REG_RX_DATA_INF1		0x3f
@@ -29,6 +30,9 @@
 #define AD9963_REG_DAC12_MSB(x)		(0x41 + (x) * 2)
 #define AD9963_REG_DAC12_LSB(x)		(0x42 + (x) * 2)
 #define AD9963_REG_POWER_DOWN0		0x60
+#define AD9963_REG_DLL_CTRL0		0x71
+#define AD9963_REG_DLL_CTRL1		0x72
+#define AD9963_REG_DLL_CTRL2		0x75
 #define AD9963_REG_AUX_ADC_CFG		0x77
 #define AD9963_REG_AUX_ADC_MSB		0x78
 #define AD9963_REG_AUX_ADC_LSB		0x79
@@ -231,10 +235,11 @@ static int ad9963_m2k_setup(struct ad9963 *ad9963)
 	regmap_write(ad9963->regmap, AD9963_REG_SERIAL_PORT_CFG, 0xa5);
 	regmap_write(ad9963->regmap, AD9963_REG_SERIAL_PORT_CFG, 0x00);
 
-	regmap_write(ad9963->regmap, AD9963_REG_TX_DATA_INF, 0x01); /* REVIST : Disable */
-	regmap_write(ad9963->regmap, AD9963_REG_RX_DATA_INF0, 0x21);
+	regmap_write(ad9963->regmap, AD9963_REG_DIGITAL_FILTERS, 0x37);
+	regmap_write(ad9963->regmap, AD9963_REG_TX_DATA_INF, 0xa1);
+	regmap_write(ad9963->regmap, AD9963_REG_RX_DATA_INF0, 0x23);
 	regmap_write(ad9963->regmap, AD9963_REG_RX_DATA_INF1, 0x01);
-	regmap_write(ad9963->regmap, AD9963_REG_DAC12_CONFIG, 0xf2);
+	regmap_write(ad9963->regmap, AD9963_REG_DAC12_CONFIG, 0x32);
 
 	regmap_write(ad9963->regmap, AD9963_REG_AUX_ADC_CTRL0, 0x80);
 	regmap_write(ad9963->regmap, 0x66, 0x00);
@@ -242,7 +247,17 @@ static int ad9963_m2k_setup(struct ad9963 *ad9963)
 
 	regmap_write(ad9963->regmap, AD9963_REG_ADC_ADDRESS, 0x03);
 	regmap_write(ad9963->regmap, AD9963_REG_RXCML, 0x02);
-	regmap_write(ad9963->regmap, AD9963_REG_POWER_DOWN0, 0x40); /* PD Internal Reference */
+	regmap_write(ad9963->regmap, AD9963_REG_POWER_DOWN0, 0xc0); /* PD Internal Reference, enable DLL */
+
+	/* Configure DLL, DAC source = DLL, DLL rate = 3/2 * 100 = 150 */
+	regmap_write(ad9963->regmap, AD9963_REG_DLL_CTRL0, 0x52);
+	regmap_write(ad9963->regmap, AD9963_REG_DLL_CTRL1, 0x02);
+
+	/* Reset DLL */
+	regmap_write(ad9963->regmap, AD9963_REG_DLL_CTRL2, 0x00);
+	regmap_write(ad9963->regmap, AD9963_REG_DLL_CTRL2, 0x08);
+	regmap_write(ad9963->regmap, AD9963_REG_DLL_CTRL2, 0x00);
+
 	regmap_write(ad9963->regmap, AD9963_REG_SYNC_REGS, 0x01);
 	regmap_write(ad9963->regmap, AD9963_REG_SYNC_REGS, 0x00);
 
