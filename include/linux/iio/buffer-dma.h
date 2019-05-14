@@ -13,6 +13,7 @@
 #include <linux/spinlock.h>
 #include <linux/mutex.h>
 #include <linux/iio/buffer.h>
+#include <linux/iio/buffer_impl.h>
 
 struct iio_dma_buffer_queue;
 struct iio_dma_buffer_ops;
