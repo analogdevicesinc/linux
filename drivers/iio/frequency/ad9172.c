@@ -62,6 +62,7 @@ struct ad9172_state {
 	signal_coupling_t sysref_coupling;
 	u8 nco_main_enable;
 	u8 nco_channel_enable;
+	u8 logic_lanes[8];
 };
 
 static const char * const clk_names[] = {
@@ -105,7 +106,7 @@ static int ad9172_setup(struct ad9172_state *st)
 	uint8_t revision[3] = {0, 0, 0};
 	adi_chip_id_t dac_chip_id;
 	uint8_t pll_lock_status = 0, dll_lock_stat = 0;
-	int ret;
+	int ret, i;
 	u64 dac_rate_Hz;
 	unsigned long dac_clkin_Hz, lane_rate_kHz;
 	ad917x_jesd_link_stat_t link_status;
@@ -203,6 +204,13 @@ static int ad9172_setup(struct ad9172_state *st)
 		dev_err(dev, "ad917x_jesd_set_scrambler_enable failed (%d)\n",
 			ret);
 		return ret;
+	}
+
+	/*Configure xbar*/
+	for (i = 0; i < 8; i++) {
+		ret = ad917x_jesd_set_lane_xbar(ad917x_h, i, st->logic_lanes[i]);
+		if (ret != 0)
+			return ret;
 	}
 
 	ret = ad917x_jesd_enable_datapath(ad917x_h, 0xFF, 0x1, 0x1);
@@ -803,6 +811,7 @@ static const struct attribute_group ad9172_attribute_group_m2 = {
 static int ad9172_parse_dt(struct spi_device *spi, struct ad9172_state *st)
 {
 	struct device_node *np = spi->dev.of_node;
+	int ret, i;
 
 	st->dac_rate_khz = AD9172_SAMPLE_RATE_KHZ;
 	of_property_read_u32(np, "adi,dac-rate-khz", &st->dac_rate_khz);
@@ -834,6 +843,13 @@ static int ad9172_parse_dt(struct spi_device *spi, struct ad9172_state *st)
 		st->sysref_coupling = COUPLING_DC;
 	else
 		st->sysref_coupling = COUPLING_AC;
+
+	/*Logic lane configuration*/
+	ret = of_property_read_u8_array(np,"adi,logic-lanes-mapping",
+				      st->logic_lanes, sizeof(st->logic_lanes));
+	if (ret)
+		for(i = 0; i < sizeof(st->logic_lanes); i++)
+			st->logic_lanes[i] = i;
 
 	return 0;
 }
