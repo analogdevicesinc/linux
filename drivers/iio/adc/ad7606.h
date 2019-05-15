@@ -12,14 +12,27 @@
  * struct ad7606_chip_info - chip specific information
  * @channels:		channel specification
  * @num_channels:	number of channels
- * @has_oversampling:   whether the device has oversampling support
+ * @oversampling_avail	pointer to the array which stores the available
+ *			oversampling ratios.
+ * @oversampling_num	number of elements stored in oversampling_avail array
+ * @os_req_reset	some devices require a reset to update oversampling
+ * @spi_rd_wr_cmd	pointer to the function which calculates the spi address
+ * @write_scale_sw	pointer to the function which writes the scale via spi
+			in software mode
+ * @write_os_sw		pointer to the function which writes the os via spi
+			in software mode
  * @sw_mode_config:	pointer to a function which configured the device
  *			for software mode
  */
 struct ad7606_chip_info {
 	const struct iio_chan_spec	*channels;
 	unsigned int			num_channels;
-	bool				has_oversampling;
+	const unsigned int		*oversampling_avail;
+	unsigned int			oversampling_num;
+	bool				os_req_reset;
+	int (*spi_rd_wr_cmd)(int, char);
+	int (*write_scale_sw)(struct iio_dev *indio_dev, int, int);
+	int (*write_os_sw)(struct iio_dev *indio_dev, int);
 	int (*sw_mode_config)(struct iio_dev *indio_dev);
 };
 
@@ -38,6 +51,8 @@ struct ad7606_chip_info {
  * @oversampling_avail	pointer to the array which stores the available
  *			oversampling ratios.
  * @num_os_ratios	number of elements stored in oversampling_avail array
+ * @write_scale		pointer to the function which writes the scale
+ * @write_os		pointer to the function which writes the os
  * @lock		protect sensor state from concurrent accesses to GPIOs
  * @gpio_convst	GPIO descriptor for conversion start signal (CONVST)
  * @gpio_reset		GPIO descriptor for device hard-reset
@@ -64,6 +79,8 @@ struct ad7606_state {
 	unsigned int			num_scales;
 	const unsigned int		*oversampling_avail;
 	unsigned int			num_os_ratios;
+	int (*write_scale)(struct iio_dev *indio_dev, int, int);
+	int (*write_os)(struct iio_dev *indio_dev, int);
 
 	struct mutex			lock; /* protect sensor state */
 	struct gpio_desc		*gpio_convst;
@@ -78,9 +95,9 @@ struct ad7606_state {
 	/*
 	 * DMA (thus cache coherency maintenance) requires the
 	 * transfer buffers to live in their own cache lines.
-	 * 8 * 16-bit samples + 64-bit timestamp
+	 * 16 * 16-bit samples + 64-bit timestamp
 	 */
-	unsigned short			data[12] ____cacheline_aligned;
+	unsigned short			data[20] ____cacheline_aligned;
 };
 
 /**
@@ -101,7 +118,8 @@ enum ad7606_supported_device_ids {
 	ID_AD7606_8,
 	ID_AD7606_6,
 	ID_AD7606_4,
-	ID_AD7606B
+	ID_AD7606B,
+	ID_AD7616,
 };
 
 #ifdef CONFIG_PM_SLEEP
