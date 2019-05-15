@@ -211,6 +211,7 @@ struct axiadc_state {
 	unsigned			id;
 	unsigned			pcore_version;
 	unsigned			decimation_factor;
+	unsigned int                    oversampling_ratio;
 	bool				dp_disable;
 	unsigned long long		adc_clk;
 	unsigned			have_slave_channels;
