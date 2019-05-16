@@ -189,7 +189,7 @@ static const struct iio_info ad9963_info = {
 	.indexed = 1, \
 	.channel = (x), \
 	.address = (_addr), \
-	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW), \
+	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) | \
 			BIT(IIO_CHAN_INFO_SCALE), \
 	.scan_index = -1, \
 }
