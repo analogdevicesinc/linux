@@ -28,6 +28,8 @@ env:
     DTS_FILES=arch/arm/boot/dts/zynq-*.dts IMAGE=uImage
   - DEFCONFIG_NAME=adi_zynqmp_defconfig ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu-
     DTS_FILES=arch/arm64/boot/dts/xilinx/zynqmp-*.dts DTS_PREFIX=xilinx/ IMAGE=Image
+  - DEFCONFIG_NAME=zynq_m2k_defconfig ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf-
+    DTS_FILES=arch/arm/boot/dts/zynq-*.dts IMAGE=uImage
   - BUILD_TYPE=compile_test DEFCONFIG_NAME=zynq_xcomm_adv7511_defconfig ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf-
   - BUILD_TYPE=compile_test DEFCONFIG_NAME=adi_zynqmp_defconfig ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu-
 
