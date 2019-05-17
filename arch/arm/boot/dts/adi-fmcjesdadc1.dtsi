@@ -32,7 +32,7 @@
 			reg = <1>;
 
 			spi-max-frequency = <10000000>;
-			adi,spi-3wire-enable;
+			spi-3wire;
 
 			clocks = <&ad9517_ref_clk>, <&ad9517_clkin>;
 			clock-names = "refclk", "clkin";
