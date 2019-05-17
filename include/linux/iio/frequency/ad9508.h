@@ -35,16 +35,12 @@ struct ad9508_channel_spec {
 /**
  * struct ad9528_platform_data - platform specific information
  *
- * @spi3wire: SPI 3-Wire mode enable;
-
  * @num_channels: Array size of struct ad9528_channel_spec.
  * @channels: Pointer to channel array.
  * @name: Optional alternative iio device name.
  */
 
 struct ad9508_platform_data {
-	bool				spi3wire;
-
 	/* Output Channel Configuration */
 	int				num_channels;
 	struct ad9508_channel_spec	*channels;
