@@ -27,7 +27,7 @@
 
 		spi-max-frequency = <10000000>;
 		clock-output-names = "ad9508-1_out0", "ad9508-1_out1", "ad9508-1_out2", "ad9508-1_out3";
-		adi,spi-3wire-enable;
+		spi-3wire;
 
 		ad9508_0_c0:channel@0 {
 			reg = <0>;
