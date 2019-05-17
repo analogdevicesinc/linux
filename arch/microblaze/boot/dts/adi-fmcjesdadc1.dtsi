@@ -28,7 +28,7 @@
 			compatible = "ad9517-1";
 			reg = <1>;
 			spi-max-frequency = <10000000>;
-			adi,spi-3wire-enable;
+			spi-3wire;
 			clocks = <&ad9517_ref_clk>, <&ad9517_clkin>;
 			clock-names = "refclk", "clkin";
 			clock-output-names = "out0", "out1", "out2", "out3", "out4", "out5", "out6", "out7";
