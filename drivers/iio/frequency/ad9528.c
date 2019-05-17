@@ -904,7 +904,7 @@ static int ad9528_setup(struct iio_dev *indio_dev)
 
 	ret = ad9528_write(indio_dev, AD9528_SERIAL_PORT_CONFIG,
 			AD9528_SER_CONF_SOFT_RESET |
-			((st->spi->mode & SPI_3WIRE || pdata->spi3wire)? 0 :
+			((st->spi->mode & SPI_3WIRE) ? 0 :
 			 AD9528_SER_CONF_SDO_ACTIVE));
 	if (ret < 0)
 		return ret;
@@ -1213,8 +1213,6 @@ static struct ad9528_platform_data *ad9528_parse_dt(struct device *dev)
 	pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
 	if (!pdata)
 		return NULL;
-
-	pdata->spi3wire = of_property_read_bool(np, "adi,spi-3wire-enable");
 
 	tmp = 0;
 	of_property_read_u32(np, "adi,vcxo-freq", &tmp);
