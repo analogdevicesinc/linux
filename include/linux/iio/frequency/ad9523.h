@@ -107,7 +107,6 @@ enum cpole1_capacitor {
  * struct ad9523_platform_data - platform specific information
  *
  * @vcxo_freq: External VCXO frequency in Hz
- * @spi3wire: SPI 3-Wire mode enable;
  * @refa_diff_rcv_en: REFA differential/single-ended input selection.
  * @refb_diff_rcv_en: REFB differential/single-ended input selection.
  * @zd_in_diff_en: Zero Delay differential/single-ended input selection.
@@ -144,7 +143,6 @@ enum cpole1_capacitor {
 
 struct ad9523_platform_data {
 	unsigned long 			vcxo_freq;
-	bool				spi3wire;
 
 	/* Differential/ Single-Ended Input Configuration */
 	bool				refa_diff_rcv_en;
