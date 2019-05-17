@@ -13,7 +13,7 @@
 		spi-max-frequency = <10000000>;
 		clock-output-names = "ad9523-1_out0", "ad9523-1_out1", "ad9523-1_out2", "ad9523-1_out3", "ad9523-1_out4", "ad9523-1_out5", "ad9523-1_out6", "ad9523-1_out7", "ad9523-1_out8", "ad9523-1_out9", "ad9523-1_out10", "ad9523-1_out11", "ad9523-1_out12", "ad9523-1_out13";
 		adi,vcxo-freq = <125000000>;
-		adi,spi-3wire-enable;
+		spi-3wire;
 		adi,pll1-bypass-enable;
 		adi,osc-in-diff-enable;
 
