@@ -470,8 +470,9 @@ static void spi_engine_write_buff(struct spi_engine *spi_engine, uint8_t m)
 
 	for (i = 0; i < (m * bytes_len); i += bytes_len) {
 		for (j = 0; j < bytes_len; j++)
-			val |= spi_engine->tx_buf[j] << (word_len - 8 * (j + 1));
+			val |= spi_engine->tx_buf[i + j] << (word_len - 8 * (j + 1));
 		writel_relaxed(val, addr);
+		val = 0;
 	}
 
 	spi_engine->tx_buf += i;
