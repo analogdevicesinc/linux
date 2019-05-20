@@ -46,9 +46,9 @@ struct m2k_dac_ch {
 	unsigned int num;
 };
 
-static unsigned cf_axi_dds_to_signed_mag_fmt(int val, int val2)
+static unsigned int cf_axi_dds_to_signed_mag_fmt(int val, int val2)
 {
-	unsigned i;
+	unsigned int i;
 	u64 val64;
 
 	if (val > 1) {
@@ -85,7 +85,7 @@ static unsigned cf_axi_dds_to_signed_mag_fmt(int val, int val2)
 	return i | val64;
 }
 
-static int cf_axi_dds_signed_mag_fmt_to_iio(unsigned val, int *r_val,
+static int cf_axi_dds_signed_mag_fmt_to_iio(unsigned int val, int *r_val,
 	int *r_val2)
 {
 	u64 val64;
@@ -154,7 +154,8 @@ static int m2k_dac_ch_read_raw(struct iio_dev *indio_dev,
 		ret = IIO_VAL_INT;
 		break;
 	case IIO_CHAN_INFO_CALIBSCALE:
-		reg = ioread32(m2k_dac->regs + M2K_DAC_REG_CORRECTION_COEFFICIENT(ch->num));
+		reg = ioread32(m2k_dac->regs +
+			       M2K_DAC_REG_CORRECTION_COEFFICIENT(ch->num));
 		ret = cf_axi_dds_signed_mag_fmt_to_iio(reg, val, val2);
 		break;
 	default:
@@ -211,7 +212,8 @@ static int m2k_dac_ch_write_raw(struct iio_dev *indio_dev,
 		iowrite32(reg, m2k_dac->regs + M2K_DAC_REG_CORRECTION_ENABLE);
 
 		reg = cf_axi_dds_to_signed_mag_fmt(val, val2);
-		iowrite32(reg, m2k_dac->regs + M2K_DAC_REG_CORRECTION_COEFFICIENT(ch->num));
+		iowrite32(reg, m2k_dac->regs +
+			  M2K_DAC_REG_CORRECTION_COEFFICIENT(ch->num));
 		break;
 	default:
 		ret = -EINVAL;
@@ -433,7 +435,8 @@ static int m2k_dac_attach_dds(struct platform_device *pdev,
 	if (!dds_of)
 		return -ENODEV;
 
-	dds_dev = bus_find_device(&platform_bus_type, NULL, dds_of, dds_dev_match);
+	dds_dev = bus_find_device(&platform_bus_type, NULL, dds_of,
+				  dds_dev_match);
 	of_node_put(dds_of);
 	if (!dds_dev)
 		return -EPROBE_DEFER;
