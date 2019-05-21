@@ -82,7 +82,7 @@ static int ad9963_aux_adc_read(struct iio_dev *indio_dev,
 	if (ret)
 		return ret;
 	do {
-		msleep(10);
+		usleep_range(10000, 12000);
 		ret = regmap_read(ad9963->regmap, AD9963_REG_AUX_ADC_LSB,
 			&reg_val);
 		if (ret)
@@ -118,17 +118,17 @@ static int ad9963_read_raw(struct iio_dev *indio_dev,
 			*val = 1000;
 			*val2 = 5;
 			return IIO_VAL_FRACTIONAL;
-		} else {
-			*val = 3200;
-			*val2 = 12;
-			return IIO_VAL_FRACTIONAL_LOG2;
 		}
+
+		*val = 3200;
+		*val2 = 12;
+		return IIO_VAL_FRACTIONAL_LOG2;
 	case IIO_CHAN_INFO_OFFSET:
-		if (chan->type == IIO_TEMP) {
+		if (chan->type == IIO_TEMP)
 			*val = -1366; /* 0 = 0K => 273200 / (1000 / 5) = 0 C */
-		} else {
+		else
 			return -EINVAL;
-		}
+
 		return IIO_VAL_INT;
 	default:
 		return -EINVAL;
@@ -247,7 +247,8 @@ static int ad9963_m2k_setup(struct ad9963 *ad9963)
 
 	regmap_write(ad9963->regmap, AD9963_REG_ADC_ADDRESS, 0x03);
 	regmap_write(ad9963->regmap, AD9963_REG_RXCML, 0x02);
-	regmap_write(ad9963->regmap, AD9963_REG_POWER_DOWN0, 0xc0); /* PD Internal Reference, enable DLL */
+	/* PD Internal Reference, enable DLL */
+	regmap_write(ad9963->regmap, AD9963_REG_POWER_DOWN0, 0xc0);
 
 	/* Configure DLL, DAC source = DLL, DLL rate = 3/2 * 100 = 150 */
 	regmap_write(ad9963->regmap, AD9963_REG_DLL_CTRL0, 0x52);
@@ -268,7 +269,6 @@ static const struct regmap_config ad9963_regmap_config = {
 	.reg_bits = 16,
 	.val_bits = 8,
 	.max_register = 0xff,
-	//.cache_type = REGCACHE_RBTREE,
 };
 
 static int ad9963_probe(struct spi_device *spi)
@@ -293,15 +293,13 @@ static int ad9963_probe(struct spi_device *spi)
 		return PTR_ERR(ad9963->reset_gpio);
 
 	if (ad9963->reset_gpio) {
-		msleep(10);
+		usleep_range(10000, 12000);
 		gpiod_set_value(ad9963->reset_gpio, 0);
 	}
 
 	ad9963->regmap = devm_regmap_init_spi(spi, &ad9963_regmap_config);
 	if (IS_ERR(ad9963->regmap))
-	    return PTR_ERR(ad9963->regmap);
-
-//	regcache_cache_only(ad9963->regmap, true); /* For testing */
+		return PTR_ERR(ad9963->regmap);
 
 	ret = clk_prepare_enable(ad9963->clk);
 	if (ret)
