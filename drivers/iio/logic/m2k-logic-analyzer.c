@@ -281,11 +281,11 @@ static ssize_t m2k_la_set_trigger_delay(struct iio_dev *indio_dev,
 
 	mutex_lock(&m2k_la->lock);
 	if (val < 0) {
-	    m2k_la_write(m2k_la, M2K_LA_REG_FIFO_DEPTH, -val);
-	    m2k_la_write(m2k_la, M2K_LA_REG_TRIGGER_DELAY, 0);
+		m2k_la_write(m2k_la, M2K_LA_REG_FIFO_DEPTH, -val);
+		m2k_la_write(m2k_la, M2K_LA_REG_TRIGGER_DELAY, 0);
 	} else {
-	    m2k_la_write(m2k_la, M2K_LA_REG_FIFO_DEPTH, 0);
-	    m2k_la_write(m2k_la, M2K_LA_REG_TRIGGER_DELAY, val);
+		m2k_la_write(m2k_la, M2K_LA_REG_FIFO_DEPTH, 0);
+		m2k_la_write(m2k_la, M2K_LA_REG_TRIGGER_DELAY, val);
 	}
 	m2k_la->trigger_delay = val;
 	mutex_unlock(&m2k_la->lock);
@@ -412,7 +412,7 @@ static int m2k_la_get_direction(struct iio_dev *indio_dev,
 		return 1;
 }
 
-static const char* const m2k_la_direction_items[] = {
+static const char *const m2k_la_direction_items[] = {
 	"in",
 	"out"
 };
@@ -845,10 +845,6 @@ static int m2k_la_remove(struct platform_device *pdev)
 	struct iio_dev *indio_dev = platform_get_drvdata(pdev);
 	struct m2k_la *m2k_la = iio_priv(indio_dev);
 
-//	iio_dmaengine_buffer_free(indio_dev_rx->buffer);
-//	iio_dmaengine_buffer_free(indio_dev_tx->buffer);
-//	iio_device_unregister(indio_dev_rx);
-//	iio_device_unregister(indio_dev_tx);
 	iio_device_unregister(indio_dev);
 	if (!m2k_la->powerdown)
 		clk_disable_unprepare(m2k_la->clk);
