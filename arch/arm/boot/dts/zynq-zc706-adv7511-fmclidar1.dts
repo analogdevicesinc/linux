@@ -105,7 +105,7 @@
 		clock-output-names = "jesd_adc_lane_clk";
 	};
 
-	axi_ad9094_adxcvr: axi-ad9094-adxcvr@44a50000 {
+	axi_ad9094_adxcvr: axi-adxcvr-rx@44a50000 {
 		compatible = "adi,axi-adxcvr-1.0";
 		reg = <0x44a50000 0x1000>;
 
