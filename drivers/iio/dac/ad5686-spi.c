@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
  * AD5672R, AD5674R, AD5676, AD5676R, AD5679R,
  * AD5681R, AD5682R, AD5683, AD5683R, AD5684,
@@ -5,8 +6,6 @@
  * Digital to analog converters driver
  *
  * Copyright 2018 Analog Devices Inc.
- *
- * Licensed under the GPL-2.
  */
 
 #include "ad5686.h"
@@ -61,7 +60,7 @@ static int ad5686_spi_read(struct ad5686_state *st, u8 addr)
 		},
 	};
 	struct spi_device *spi = to_spi_device(st->dev);
-	u8 cmd;
+	u8 cmd = 0;
 	int ret;
 
 	switch (st->chip_info->regmap_type) {
@@ -114,6 +113,7 @@ static const struct spi_device_id ad5686_spi_id[] = {
 	{"ad5683r", ID_AD5683R},
 	{"ad5684", ID_AD5684},
 	{"ad5684r", ID_AD5684R},
+	{"ad5685", ID_AD5685R}, /* Does not exist */
 	{"ad5685r", ID_AD5685R},
 	{"ad5686", ID_AD5686},
 	{"ad5686r", ID_AD5686R},

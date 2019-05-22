@@ -1,3 +1,10 @@
+/* SPDX-License-Identifier: GPL-2.0+ */
+/*
+ * This file is part of AD5686 DAC driver
+ *
+ * Copyright 2018 Analog Devices Inc.
+ */
+
 #ifndef __DRIVERS_IIO_DAC_AD5686_H__
 #define __DRIVERS_IIO_DAC_AD5686_H__
 
@@ -76,7 +83,7 @@ enum ad5686_regmap_type {
 	AD5310_REGMAP,
 	AD5683_REGMAP,
 	AD5686_REGMAP,
-	AD5693_REGMAP,
+	AD5693_REGMAP
 };
 
 struct ad5686_state;
@@ -92,11 +99,11 @@ typedef int (*ad5686_read_func)(struct ad5686_state *st, u8 addr);
  * @num_channels:	number of channels
  * @channel:		channel specification
  * @regmap_type:	register map layout variant
-*/
+ */
 
 struct ad5686_chip_info {
 	u16				int_vref_mv;
-	unsigned int 			num_channels;
+	unsigned int			num_channels;
 	struct iio_chan_spec		*channels;
 	enum ad5686_regmap_type		regmap_type;
 };
@@ -114,12 +121,12 @@ struct ad5686_chip_info {
  */
 
 struct ad5686_state {
-	struct device 			*dev;
+	struct device			*dev;
 	const struct ad5686_chip_info	*chip_info;
 	struct regulator		*reg;
 	unsigned short			vref_mv;
-	unsigned			pwr_down_mask;
-	unsigned			pwr_down_mode;
+	unsigned int			pwr_down_mask;
+	unsigned int			pwr_down_mode;
 	ad5686_write_func		write;
 	ad5686_read_func		read;
 	bool				use_internal_vref;
@@ -137,8 +144,10 @@ struct ad5686_state {
 };
 
 
-int ad5686_probe(struct device *dev, enum ad5686_supported_device_ids chip_type,
-		 const char *name, ad5686_write_func write, ad5686_read_func read);
+int ad5686_probe(struct device *dev,
+		 enum ad5686_supported_device_ids chip_type,
+		 const char *name, ad5686_write_func write,
+		 ad5686_read_func read);
 
 int ad5686_remove(struct device *dev);
 
