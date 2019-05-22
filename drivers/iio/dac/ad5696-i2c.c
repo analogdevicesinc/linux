@@ -1,11 +1,10 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
  * AD5671R, AD5675R, AD5691R, AD5692R, AD5693, AD5693R,
  * AD5694, AD5694R, AD5695R, AD5696, AD5696R
  * Digital to analog converters driver
  *
  * Copyright 2018 Analog Devices Inc.
- *
- * Licensed under the GPL-2.
  */
 
 #include "ad5686.h"
@@ -49,7 +48,8 @@ static int ad5686_i2c_write(struct ad5686_state *st,
 	struct i2c_client *i2c = to_i2c_client(st->dev);
 	int ret;
 
-	st->data[0].d32 = cpu_to_be32(AD5686_CMD(cmd) | AD5686_ADDR(addr) | val);
+	st->data[0].d32 = cpu_to_be32(AD5686_CMD(cmd) | AD5686_ADDR(addr)
+				      | val);
 
 	ret = i2c_master_send(i2c, &st->data[0].d8[1], 3);
 	if (ret < 0)
@@ -85,7 +85,7 @@ static const struct i2c_device_id ad5686_i2c_id[] = {
 	{"ad5696r", ID_AD5696R},
 	{}
 };
-MODULE_DEVICE_TABLE(i2c, i2c_device_id);
+MODULE_DEVICE_TABLE(i2c, ad5686_i2c_id);
 
 static struct i2c_driver ad5686_i2c_driver = {
 	.driver = {

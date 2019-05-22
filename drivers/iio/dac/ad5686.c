@@ -25,20 +25,6 @@ static const char * const ad5686_powerdown_modes[] = {
 	"three_state"
 };
 
-static int ad5686_write(struct ad5686_state *st,
-			u8 cmd, u8 addr, u16 val, u8 shift)
-{
-	val <<= shift;
-
-	return st->write(st, cmd, addr, val);
-}
-
-static int ad5686_read(struct ad5686_state *st, u8 addr, u8 shift)
-{
-
-	return st->read(st, addr) >> shift;
-}
-
 static int ad5686_get_powerdown_mode(struct iio_dev *indio_dev,
 				     const struct iio_chan_spec *chan)
 {
@@ -48,7 +34,8 @@ static int ad5686_get_powerdown_mode(struct iio_dev *indio_dev,
 }
 
 static int ad5686_set_powerdown_mode(struct iio_dev *indio_dev,
-				     const struct iio_chan_spec *chan, unsigned int mode)
+				     const struct iio_chan_spec *chan,
+				     unsigned int mode)
 {
 	struct ad5686_state *st = iio_priv(indio_dev);
 
@@ -75,8 +62,10 @@ static ssize_t ad5686_read_dac_powerdown(struct iio_dev *indio_dev,
 }
 
 static ssize_t ad5686_write_dac_powerdown(struct iio_dev *indio_dev,
-		uintptr_t private, const struct iio_chan_spec *chan, const char *buf,
-		size_t len)
+					  uintptr_t private,
+					  const struct iio_chan_spec *chan,
+					  const char *buf,
+					  size_t len)
 {
 	bool readin;
 	int ret;
@@ -113,6 +102,8 @@ static ssize_t ad5686_write_dac_powerdown(struct iio_dev *indio_dev,
 		shift = 13;
 		ref_bit_msk = AD5693_REF_BIT_MSK;
 		break;
+	default:
+		return -EINVAL;
 	}
 
 	val = ((st->pwr_down_mask & st->pwr_down_mode) << shift);
@@ -137,11 +128,12 @@ static int ad5686_read_raw(struct iio_dev *indio_dev,
 	switch (m) {
 	case IIO_CHAN_INFO_RAW:
 		mutex_lock(&indio_dev->mlock);
-		ret = ad5686_read(st, chan->address, chan->scan_type.shift);
+		ret = st->read(st, chan->address);
 		mutex_unlock(&indio_dev->mlock);
 		if (ret < 0)
 			return ret;
-		*val = ret & GENMASK(chan->scan_type.realbits - 1, 0);
+		*val = (ret >> chan->scan_type.shift) &
+			GENMASK(chan->scan_type.realbits - 1, 0);
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_SCALE:
 		*val = st->vref_mv;
@@ -166,11 +158,10 @@ static int ad5686_write_raw(struct iio_dev *indio_dev,
 			return -EINVAL;
 
 		mutex_lock(&indio_dev->mlock);
-		ret = ad5686_write(st,
-				   AD5686_CMD_WRITE_INPUT_N_UPDATE_N,
-				   chan->address,
-				   val,
-				   chan->scan_type.shift);
+		ret = st->write(st,
+				AD5686_CMD_WRITE_INPUT_N_UPDATE_N,
+				chan->address,
+				val << chan->scan_type.shift);
 		mutex_unlock(&indio_dev->mlock);
 		break;
 	default:
@@ -220,24 +211,24 @@ static struct iio_chan_spec name[] = {				\
 		AD5868_CHANNEL(0, 0, bits, _shift),		\
 }
 
-#define DECLARE_AD5686_CHANNELS(name, bits, _shift) 		\
-static struct iio_chan_spec name[] = { 				\
-		AD5868_CHANNEL(0, 1, bits, _shift), 		\
-		AD5868_CHANNEL(1, 2, bits, _shift), 		\
-		AD5868_CHANNEL(2, 4, bits, _shift), 		\
-		AD5868_CHANNEL(3, 8, bits, _shift), 		\
+#define DECLARE_AD5686_CHANNELS(name, bits, _shift)		\
+static struct iio_chan_spec name[] = {				\
+		AD5868_CHANNEL(0, 1, bits, _shift),		\
+		AD5868_CHANNEL(1, 2, bits, _shift),		\
+		AD5868_CHANNEL(2, 4, bits, _shift),		\
+		AD5868_CHANNEL(3, 8, bits, _shift),		\
 }
 
-#define DECLARE_AD5676_CHANNELS(name, bits, _shift) 		\
-static struct iio_chan_spec name[] = { 				\
-		AD5868_CHANNEL(0, 0, bits, _shift), 		\
-		AD5868_CHANNEL(1, 1, bits, _shift), 		\
-		AD5868_CHANNEL(2, 2, bits, _shift), 		\
-		AD5868_CHANNEL(3, 3, bits, _shift), 		\
-		AD5868_CHANNEL(4, 4, bits, _shift), 		\
-		AD5868_CHANNEL(5, 5, bits, _shift), 		\
-		AD5868_CHANNEL(6, 6, bits, _shift), 		\
-		AD5868_CHANNEL(7, 7, bits, _shift), 		\
+#define DECLARE_AD5676_CHANNELS(name, bits, _shift)		\
+static struct iio_chan_spec name[] = {				\
+		AD5868_CHANNEL(0, 0, bits, _shift),		\
+		AD5868_CHANNEL(1, 1, bits, _shift),		\
+		AD5868_CHANNEL(2, 2, bits, _shift),		\
+		AD5868_CHANNEL(3, 3, bits, _shift),		\
+		AD5868_CHANNEL(4, 4, bits, _shift),		\
+		AD5868_CHANNEL(5, 5, bits, _shift),		\
+		AD5868_CHANNEL(6, 6, bits, _shift),		\
+		AD5868_CHANNEL(7, 7, bits, _shift),		\
 }
 
 #define DECLARE_AD5679_CHANNELS(name, bits, _shift)		\
@@ -425,13 +416,15 @@ static const struct ad5686_chip_info ad5686_chip_info_tbl[] = {
 	},
 };
 
-int ad5686_probe(struct device *dev, enum ad5686_supported_device_ids chip_type,
-		 const char *name, ad5686_write_func write, ad5686_read_func read)
+int ad5686_probe(struct device *dev,
+		 enum ad5686_supported_device_ids chip_type,
+		 const char *name, ad5686_write_func write,
+		 ad5686_read_func read)
 {
 	struct ad5686_state *st;
 	struct iio_dev *indio_dev;
-	u8 cmd;
 	unsigned int val, ref_bit_msk;
+	u8 cmd;
 	int ret, i, voltage_uv = 0;
 
 	indio_dev = devm_iio_device_alloc(dev, sizeof(*st));
@@ -496,11 +489,14 @@ int ad5686_probe(struct device *dev, enum ad5686_supported_device_ids chip_type,
 		ref_bit_msk = AD5693_REF_BIT_MSK;
 		st->use_internal_vref = !voltage_uv;
 		break;
+	default:
+		ret = -EINVAL;
+		goto error_disable_reg;
 	}
 
 	val = (voltage_uv | ref_bit_msk);
 
-	ret = ad5686_write(st, cmd, 0, !!val, 0);
+	ret = st->write(st, cmd, 0, !!val);
 	if (ret)
 		goto error_disable_reg;
 
@@ -515,7 +511,6 @@ error_disable_reg:
 		regulator_disable(st->reg);
 	return ret;
 }
-
 EXPORT_SYMBOL_GPL(ad5686_probe);
 
 int ad5686_remove(struct device *dev)
@@ -529,7 +524,6 @@ int ad5686_remove(struct device *dev)
 
 	return 0;
 }
-
 EXPORT_SYMBOL_GPL(ad5686_remove);
 
 MODULE_AUTHOR("Michael Hennerich <hennerich@blackfin.uclinux.org>");
