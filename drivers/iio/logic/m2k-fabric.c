@@ -122,8 +122,10 @@ static void m2k_fabric_update_switch_settings(struct m2k_fabric *m2k_fabric,
 			values[M2K_FABRIC_GPIO_EN_SC2_LG] = 1;
 		else
 			values[M2K_FABRIC_GPIO_EN_SC2_LG] = 0;
-		values[M2K_FABRIC_GPIO_EN_SC1_HG] = !values[M2K_FABRIC_GPIO_EN_SC1_LG];
-		values[M2K_FABRIC_GPIO_EN_SC2_HG] = !values[M2K_FABRIC_GPIO_EN_SC2_LG];
+		values[M2K_FABRIC_GPIO_EN_SC1_HG] =
+			!values[M2K_FABRIC_GPIO_EN_SC1_LG];
+		values[M2K_FABRIC_GPIO_EN_SC2_HG] =
+			!values[M2K_FABRIC_GPIO_EN_SC2_LG];
 		values[M2K_FABRIC_GPIO_EN_SC_CAL1] = 1;
 		values[M2K_FABRIC_GPIO_EN_SC2_CAL2] = 1;
 		values[M2K_FABRIC_GPIO_EN_SC2_CAL2] = 1;
@@ -149,18 +151,18 @@ static void m2k_fabric_update_switch_settings(struct m2k_fabric *m2k_fabric,
 	}
 
 	if (update_output) {
-	    gpio_base = 0;
-	    ngpios = M2K_FABRIC_GPIO_OUTPUT_MAX;
+		gpio_base = 0;
+		ngpios = M2K_FABRIC_GPIO_OUTPUT_MAX;
 	} else {
-	    gpio_base = M2K_FABRIC_GPIO_OUTPUT_MAX;
-	    ngpios = 0;
+		gpio_base = M2K_FABRIC_GPIO_OUTPUT_MAX;
+		ngpios = 0;
 	}
 
 	if (update_input) {
-	    ngpios += M2K_FABRIC_GPIO_MAX - M2K_FABRIC_GPIO_OUTPUT_MAX;
+		ngpios += M2K_FABRIC_GPIO_MAX - M2K_FABRIC_GPIO_OUTPUT_MAX;
 
-	    if (m2k_fabric->revd || m2k_fabric->reve)
-		    ngpios--; /* skip M2K_FABRIC_GPIO_EN_SC2 */
+		if (m2k_fabric->revd || m2k_fabric->reve)
+			ngpios--; /* skip M2K_FABRIC_GPIO_EN_SC2 */
 	}
 
 	/* Open up all first to avoid shorts */
@@ -252,9 +254,8 @@ static ssize_t m2k_fabric_user_supply_read(struct iio_dev *indio_dev,
 {
 	struct m2k_fabric *m2k_fabric = iio_priv(indio_dev);
 
-	if (chan->channel == 4) {
+	if (chan->channel == 4)
 		return sprintf(buf, "%d\n", m2k_fabric->done_led_overwrite);
-	}
 
 	return sprintf(buf, "%d\n",
 		       m2k_fabric->user_supply_powerdown[chan->channel - 2]);
@@ -325,12 +326,14 @@ static ssize_t m2k_fabric_powerdown_write(struct iio_dev *indio_dev,
 		if (chan->output) {
 			if (m2k_fabric->awg_powerdown[chan->channel] != state) {
 				m2k_fabric->awg_powerdown[chan->channel] = state;
-				m2k_fabric_update_switch_settings(m2k_fabric, false, true);
+				m2k_fabric_update_switch_settings(m2k_fabric,
+								  false, true);
 			}
 		} else {
 			if (m2k_fabric->sc_powerdown[chan->channel] != state) {
 				m2k_fabric->sc_powerdown[chan->channel] = state;
-				m2k_fabric_update_switch_settings(m2k_fabric, true, false);
+				m2k_fabric_update_switch_settings(m2k_fabric,
+								  true, false);
 			}
 		}
 	}
@@ -533,7 +536,7 @@ static const char * const m2k_fabric_gpio_names_revd[] = {
 
 static int m2k_fabric_probe(struct platform_device *pdev)
 {
-	const char * const * gpio_names;
+	const char * const *gpio_names;
 	unsigned int num_gpio_names;
 	struct m2k_fabric *m2k_fabric;
 	struct iio_dev *indio_dev;
@@ -579,9 +582,8 @@ static int m2k_fabric_probe(struct platform_device *pdev)
 			continue;
 		m2k_fabric->switch_gpios[i] = devm_gpiod_get(&pdev->dev,
 				gpio_names[i], GPIOD_OUT_LOW);
-		if (IS_ERR(m2k_fabric->switch_gpios[i])) {
+		if (IS_ERR(m2k_fabric->switch_gpios[i]))
 			return PTR_ERR(m2k_fabric->switch_gpios[i]);
-		}
 	}
 
 	m2k_fabric->usr_pow_gpio[0] = devm_gpiod_get(&pdev->dev, "en-usr-pow",
@@ -591,7 +593,8 @@ static int m2k_fabric_probe(struct platform_device *pdev)
 
 
 	if (reve) {
-		m2k_fabric->usr_pow_gpio[1] = devm_gpiod_get(&pdev->dev, "en-usr-pow-neg",
+		m2k_fabric->usr_pow_gpio[1] = devm_gpiod_get(&pdev->dev,
+							     "en-usr-pow-neg",
 							     GPIOD_OUT_HIGH);
 		if (IS_ERR(m2k_fabric->usr_pow_gpio[1]))
 			return PTR_ERR(m2k_fabric->usr_pow_gpio[1]);
