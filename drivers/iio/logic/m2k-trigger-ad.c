@@ -41,7 +41,8 @@
 #define CONF_RISING_EDGE			3
 #define CONF_FALLING_EDGE			4
 
-#define CONFIG_PIN_TRIGGER(t0_conf, t1_conf)	((1 << (t0_conf * 2)) | (2 << (t1_conf * 2)))
+#define CONFIG_PIN_TRIGGER(t0_conf, t1_conf)	\
+	((1 << ((t0_conf) * 2)) | (2 << ((t1_conf) * 2)))
 
 #define TRIGGER_PIN_CHAN			2
 #define TRIGGER_ADC_CHAN			2
@@ -66,7 +67,7 @@ struct axi_adc_trig {
 	void __iomem *regs;
 	struct clk *clk;
 	struct mutex lock;
-	unsigned trigger_pin_config[TRIGGER_PIN_CHAN];
+	unsigned int trigger_pin_config[TRIGGER_PIN_CHAN];
 	int trigger_ext_info[TRIG_ITEMS][TRIGGER_ADC_CHAN];
 };
 
@@ -84,8 +85,8 @@ static unsigned int axi_adc_trig_read(struct axi_adc_trig *axi_adc_trig,
 }
 
 static int axi_adc_trig_reg_access(struct iio_dev *indio_dev,
-			      unsigned reg, unsigned writeval,
-			      unsigned *readval)
+				   unsigned int reg, unsigned int writeval,
+				   unsigned int *readval)
 {
 	struct axi_adc_trig *axi_adc_trig = iio_priv(indio_dev);
 
@@ -114,18 +115,6 @@ static int axi_adc_trig_read_raw(struct iio_dev *indio_dev,
 	}
 }
 
-static int axi_adc_trig_write_raw(struct iio_dev *indio_dev,
-	const struct iio_chan_spec *chan, int val, int val2, long info)
-{
-/*	struct axi_adc_trig *axi_adc_trig = iio_priv(indio_dev);*/
-
-	switch (info) {
-
-	default:
-		return -EINVAL;
-	}
-}
-
 /* PIN/Digital trigger */
 
 static int axi_adc_trig_pin_set_trigger(struct iio_dev *indio_dev,
@@ -138,7 +127,7 @@ static int axi_adc_trig_pin_set_trigger(struct iio_dev *indio_dev,
 
 	axi_adc_trig_write(axi_adc_trig, AXI_ADC_TRIG_REG_CONFIG_TRIGGER,
 			CONFIG_PIN_TRIGGER(axi_adc_trig->trigger_pin_config[0],
-					   axi_adc_trig->trigger_pin_config[1]));
+				axi_adc_trig->trigger_pin_config[1]));
 	mutex_unlock(&axi_adc_trig->lock);
 
 	return 0;
@@ -309,28 +298,31 @@ static ssize_t axi_adc_trig_set_extinfo(struct iio_dev *indio_dev,
 		}
 
 		if (val < 0) {
-		    axi_adc_trig_write(axi_adc_trig, AXI_ADC_TRIG_REG_FIFO_DEPTH, -val);
-		    axi_adc_trig_write(axi_adc_trig, AXI_ADC_TRIG_REG_DELAY, 0);
+			axi_adc_trig_write(axi_adc_trig,
+					   AXI_ADC_TRIG_REG_FIFO_DEPTH, -val);
+			axi_adc_trig_write(axi_adc_trig, AXI_ADC_TRIG_REG_DELAY,
+					   0);
 		} else {
-		    axi_adc_trig_write(axi_adc_trig, AXI_ADC_TRIG_REG_FIFO_DEPTH, 0);
-		    axi_adc_trig_write(axi_adc_trig, AXI_ADC_TRIG_REG_DELAY, val);
+			axi_adc_trig_write(axi_adc_trig,
+					   AXI_ADC_TRIG_REG_FIFO_DEPTH, 0);
+			axi_adc_trig_write(axi_adc_trig, AXI_ADC_TRIG_REG_DELAY,
+					   val);
 		}
 
 		axi_adc_trig->trigger_ext_info[priv][chan->address] = val;
 		break;
 	case TRIG_LEVEL:
-		/*val = clamp(val, -2048, 2047);*/ /* FIXME add check for lvl + hyst */
-
+		/* FIXME add check for lvl + hyst */
 		axi_adc_trig->trigger_ext_info[priv][chan->address] = val;
 		axi_adc_trig_write(axi_adc_trig,
 				   AXI_ADC_TRIG_REG_LIMIT(chan->address), val);
 		break;
 	case TRIG_HYST:
-		/*val = clamp(val, -2048, 2047);*/ /* FIXME add check for lvl + hyst */
-
+		/* FIXME add check for lvl + hyst */
 		axi_adc_trig->trigger_ext_info[priv][chan->address] = val;
 		axi_adc_trig_write(axi_adc_trig,
-				   AXI_ADC_TRIG_REG_HYSTERESIS(chan->address), val);
+				   AXI_ADC_TRIG_REG_HYSTERESIS(chan->address),
+				   val);
 		break;
 	default:
 		ret = -EINVAL;
@@ -409,7 +401,8 @@ static ssize_t axi_adc_trig_set_streaming(struct iio_dev *indio_dev,
 
 static const struct iio_chan_spec_ext_info axi_adc_trig_analog_info[] = {
 	IIO_ENUM("trigger", IIO_SEPARATE, &axi_adc_trig_trigger_analog_enum),
-	IIO_ENUM_AVAILABLE_SEPARATE("trigger", &axi_adc_trig_trigger_analog_enum),
+	IIO_ENUM_AVAILABLE_SEPARATE("trigger",
+				    &axi_adc_trig_trigger_analog_enum),
 	{
 		.name = "trigger_level",
 		.shared = IIO_SEPARATE,
@@ -517,15 +510,6 @@ static const struct iio_chan_spec_ext_info axi_adc_trig_a_b_mix[] = {
 }
 
 static const struct iio_chan_spec axi_adc_trig_chan_spec[] = {
-/*
-	AXI_TRIG_CHAN_ADC(0, 0, "[analog]"),
-	AXI_TRIG_CHAN_ADC(1, 1, "[analog]"),
-	AXI_TRIG_CHAN_PIN(2, 0, "[digital]"),
-	AXI_TRIG_CHAN_PIN(3, 1, "[digital]"),
-	AXI_TRIG_CHAN_ADC_X_PIN(4, 0, "[a]"),
-	AXI_TRIG_CHAN_ADC_X_PIN(5, 1, "[b]"),
-	AXI_TRIG_CHAN_OUT_A_X_B(6, 0, "[ab]"),
-*/
 	AXI_TRIG_CHAN_ADC(0, 0, NULL),
 	AXI_TRIG_CHAN_ADC(1, 1, NULL),
 	AXI_TRIG_CHAN_PIN(2, 0, NULL),
@@ -537,7 +521,6 @@ static const struct iio_chan_spec axi_adc_trig_chan_spec[] = {
 
 static const struct iio_info axi_adc_trig_iio_info = {
 	.read_raw = axi_adc_trig_read_raw,
-	.write_raw = axi_adc_trig_write_raw,
 	.debugfs_reg_access = axi_adc_trig_reg_access,
 };
 
