@@ -118,8 +118,8 @@ static const struct iio_chan_spec_ext_info m2k_chan_ext_info[] = {
 
 #define M2K_ADC_DO_SAMP_FREQ_READ(reg)	\
 ({					\
-	uint32_t __reg = reg; 		\
-	int __val;	 		\
+	uint32_t __reg = reg;		\
+	int __val;			\
 					\
 	switch (__reg) {		\
 	case 1:				\
@@ -254,10 +254,10 @@ static const struct iio_buffer_setup_ops axiadc_hw_consumer_setup_ops = {
 };
 
 static int axiadc_update_scan_mode(struct iio_dev *indio_dev,
-	const unsigned long *scan_mask)
+				   const unsigned long *scan_mask)
 {
 	struct axiadc_state *st = iio_priv(indio_dev);
-	unsigned i, ctrl;
+	unsigned int i, ctrl;
 
 	for (i = 0; i < indio_dev->masklength; i++) {
 		ctrl = axiadc_read(st, ADI_REG_CHAN_CNTRL(i));
@@ -314,7 +314,7 @@ static unsigned int cf_axi_dds_to_signed_mag_fmt(int val, int val2)
 	return i | val64;
 }
 
-static int cf_axi_dds_signed_mag_fmt_to_iio(unsigned val, int *r_val,
+static int cf_axi_dds_signed_mag_fmt_to_iio(unsigned int val, int *r_val,
 					    int *r_val2)
 {
 	u64 val64;
@@ -366,7 +366,8 @@ static int axiadc_read_raw(struct iio_dev *indio_dev,
 	case IIO_CHAN_INFO_CALIBSCALE:
 		if (!st->slave_regs)
 			return -EINVAL;
-		reg = ioread32(st->slave_regs + ADI_REG_CORRECTION_COEFFICIENT(chan->channel));
+		reg = ioread32(st->slave_regs +
+			       ADI_REG_CORRECTION_COEFFICIENT(chan->channel));
 		return cf_axi_dds_signed_mag_fmt_to_iio(reg, val, val2);
 	default:
 		break;
@@ -401,6 +402,7 @@ static int axiadc_m2k_special_probe(struct platform_device *pdev)
 		if (indio_dev->channels[i].info_mask_separate &
 			BIT(IIO_CHAN_INFO_CALIBSCALE)) {
 			unsigned int chan = indio_dev->channels[i].channel;
+
 			iowrite32(0x40000000, st->regs +
 				  ADI_REG_CHAN_CNTRL_2(chan));
 			iowrite32(ADI_IQCOR_ENB, st->regs +
@@ -442,7 +444,8 @@ static int axiadc_write_raw(struct iio_dev *indio_dev,
 		iowrite32(reg, st->slave_regs + ADI_REG_CORRECTION_ENABLE);
 
 		reg = cf_axi_dds_to_signed_mag_fmt(val, val2);
-		iowrite32(reg, st->slave_regs + ADI_REG_CORRECTION_COEFFICIENT(chan->channel));
+		iowrite32(reg, st->slave_regs +
+			  ADI_REG_CORRECTION_COEFFICIENT(chan->channel));
 		return 0;
 	default:
 		break;
@@ -452,19 +455,20 @@ static int axiadc_write_raw(struct iio_dev *indio_dev,
 }
 
 static inline void adc_write(struct axiadc_state *st,
-	unsigned reg, unsigned val)
+			     unsigned int reg, unsigned int val)
 {
 	iowrite32(val, st->regs + reg);
 }
 
 static inline unsigned int adc_read(struct axiadc_state *st,
-	unsigned reg)
+				    unsigned int reg)
 {
 	return ioread32(st->regs + reg);
 }
 
 static int adc_reg_access(struct iio_dev *indio_dev,
-	unsigned reg, unsigned writeval, unsigned *readval)
+			  unsigned int reg, unsigned int writeval,
+			  unsigned int *readval)
 {
 	struct axiadc_state *st = iio_priv(indio_dev);
 
@@ -495,10 +499,13 @@ static const struct iio_info adc_info = {
 
 static const struct of_device_id adc_of_match[] = {
 	{ .compatible = "adi,cn0363-adc-1.00.a", .data = &cn0363_chip_info },
-	{ .compatible = "adi,axi-ad9371-obs-1.0", .data = &ad9371_obs_rx_chip_info },
+	{ .compatible = "adi,axi-ad9371-obs-1.0",
+				.data = &ad9371_obs_rx_chip_info },
 	{ .compatible = "adi,m2k-adc-1.00.a", .data = &m2k_adc_chip_info },
-	{ .compatible = "adi,axi-adrv9009-obs-1.0", .data = &adrv9009_obs_rx_chip_info },
-	{ .compatible = "adi,axi-adrv9009-obs-single-1.0", .data = &adrv9009_obs_rx_single_chip_info },
+	{ .compatible = "adi,axi-adrv9009-obs-1.0",
+				.data = &adrv9009_obs_rx_chip_info },
+	{ .compatible = "adi,axi-adrv9009-obs-single-1.0",
+				.data = &adrv9009_obs_rx_single_chip_info },
 	{ /* end of list */ },
 };
 MODULE_DEVICE_TABLE(of, adc_of_match);
@@ -555,9 +562,8 @@ static int adc_probe(struct platform_device *pdev)
 	if (info->has_frontend) {
 		st->frontend = iio_hw_consumer_alloc(&pdev->dev);
 		if (IS_ERR(st->frontend))
-				return PTR_ERR(st->frontend);
+			return PTR_ERR(st->frontend);
 		indio_dev->setup_ops = &axiadc_hw_consumer_setup_ops;
-
 	}
 
 	st->adc_def_output_mode = info->ctrl_flags;
