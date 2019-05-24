@@ -142,3 +142,7 @@
 
 #include "adi-fmclidar1.dtsi"
 
+&ad7091 {
+	convst-gpios = <&gpio0 91 0>;
+};
+
