@@ -105,6 +105,8 @@ static int ad7476_scan_direct(struct ad7476_state *st)
 {
 	int ret;
 
+	ad7091_convst(st);
+
 	ret = spi_sync(st->spi, &st->msg);
 	if (ret)
 		return ret;
@@ -234,7 +236,8 @@ static int ad7476_probe(struct spi_device *spi)
 {
 	struct ad7476_state *st;
 	struct iio_dev *indio_dev;
-	int ret;
+	struct iio_chan_spec *chan_spec;
+	int ret, i;
 
 	indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*st));
 	if (!indio_dev)
@@ -268,8 +271,17 @@ static int ad7476_probe(struct spi_device *spi)
 	indio_dev->dev.of_node = spi->dev.of_node;
 	indio_dev->name = spi_get_device_id(spi)->name;
 	indio_dev->modes = INDIO_DIRECT_MODE;
-	indio_dev->channels = st->chip_info->channel;
 	indio_dev->num_channels = 2;
+	chan_spec = devm_kcalloc(indio_dev->dev.parent, indio_dev->num_channels,
+		sizeof(*chan_spec), GFP_KERNEL);
+	if (!chan_spec)
+		return -ENOMEM;
+	for (i = 0; i < indio_dev->num_channels; i++) {
+		chan_spec[i] = st->chip_info->channel[i];
+		if ((chan_spec[i].type != IIO_TIMESTAMP) && st->convst_gpio)
+			chan_spec[i].info_mask_separate |= BIT(IIO_CHAN_INFO_RAW);
+	}
+	indio_dev->channels = chan_spec;
 	indio_dev->info = &ad7476_info;
 	/* Setup default message */
 
