@@ -1,0 +1,157 @@
+/dts-v1/;
+/plugin/;
+
+/ {
+	compatible = "brcm,bcm2835", "brcm,bcm2708", "brcm,bcm2709";
+
+	fragment@0 {
+		target = <&spi0_cs_pins>;
+		frag0: __overlay__ {
+			brcm,pins = <22 27>;
+			brcm,function = <1>; /* output */
+		};
+	};
+
+	fragment@1 {
+		target = <&spi0>;
+		frag1: __overlay__ {
+			cs-gpios = <&gpio 22 1>, <&gpio 27 1>;
+			status = "okay";
+		};
+	};
+
+	__overrides__ {
+		cs0_pin  = <&frag0>,"brcm,pins:0",
+			   <&frag1>,"cs-gpios:4";
+		cs1_pin  = <&frag0>,"brcm,pins:4",
+			   <&frag1>,"cs-gpios:16";
+	};
+
+	fragment@2 {
+		target-path = "/";
+		__overlay__ {
+			vref: fixedregulator@0 {
+				compatible = "regulator-fixed";
+				regulator-name = "fixed-supply";
+				regulator-min-microvolt = <2500000>;
+				regulator-max-microvolt = <2500000>;
+				regulator-boot-on;
+			};
+		};
+	};
+
+	fragment@3 {
+		target-path = "/";
+		__overlay__ {
+			clocks {
+				ad7124_mclk: clock@0 {
+					#clock-cells = <0>;
+					compatible = "fixed-clock";
+					clock-frequency = <614400>;
+				};
+			};
+		};
+	};
+
+	fragment@4 {
+		target = <&spi0>;
+		__overlay__ {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "okay";
+
+			ad5686r@0{
+				compatible = "adi,ad5683r";
+				reg = <0>;
+				spi-max-frequency = <1000000>;
+				spi-cpha;
+				vcc-supply = <&vref>;
+			};
+		};
+	};
+
+	fragment@5 {
+		target = <&spi0>;
+		__overlay__ {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "okay";
+
+			ad7124@1 {
+				compatible = "adi,ad7124-4";
+				reg = <1>;
+				spi-max-frequency = <5000000>;
+				interrupts = <25 2>;
+				interrupt-parent = <&gpio>;
+				refin1-supply = <&vref>;
+				clocks = <&ad7124_mclk>;
+				clock-names = "mclk";
+
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				channel@0 {
+					reg = <0>;
+					diff-channels = <0 19>;
+					adi,reference-select = <0>;
+				};
+
+				channel@1 {
+					reg = <1>;
+					diff-channels = <1 19>;
+					adi,reference-select = <0>;
+				};
+
+				channel@2 {
+					reg = <2>;
+					diff-channels = <2 19>;
+					adi,reference-select = <0>;
+				};
+
+				channel@3 {
+					reg = <3>;
+					diff-channels = <3 19>;
+					adi,reference-select = <0>;
+				};
+
+				channel@4 {
+					reg = <4>;
+					diff-channels = <4 19>;
+					adi,reference-select = <0>;
+				};
+
+				channel@5 {
+					reg = <5>;
+					diff-channels = <5 19>;
+					adi,reference-select = <0>;
+				};
+
+				channel@6 {
+					reg = <6>;
+					diff-channels = <6 19>;
+					adi,reference-select = <0>;
+				};
+
+				channel@7 {
+					reg = <7>;
+					diff-channels = <7 19>;
+					adi,reference-select = <0>;
+				};
+			};
+		};
+	};
+
+	fragment@6 {
+		target = <&spidev0>;
+		__overlay__ {
+			status = "disabled";
+		};
+	};
+
+	fragment@7 {
+		target = <&spidev1>;
+		__overlay__ {
+			status = "disabled";
+		};
+	};
+};
