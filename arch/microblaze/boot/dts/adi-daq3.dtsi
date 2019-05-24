@@ -10,7 +10,7 @@
 		spi-cpol;
 		spi-cpha;
 		spi-max-frequency = <10000000>;
-		spi-3wire;
+		adi,spi-3wire-enable;
 		reg = <0>;
 
 		clock-output-names = "ad9528_out0", "ad9528_out1", "ad9528_out2", "ad9528_out3", "ad9528_out4", "ad9528_out5", "ad9528_out6", "ad9528_out7", "ad9528_out8", "ad9528_out9", "ad9528_out10", "ad9528_out11", "ad9528_out12", "ad9528_out13";
@@ -119,7 +119,7 @@
 		spi-cpol;
 		spi-cpha;
 		spi-max-frequency = <10000000>;
-		spi-3wire;
+		adi,spi-3wire-enable;
 		reg = <1>;
 
 		clocks = <&axi_ad9152_jesd>, <&clk0_ad9528 2>, <&clk0_ad9528 5>;
@@ -134,7 +134,7 @@
 		spi-cpol;
 		spi-cpha;
 		spi-max-frequency = <10000000>;
-		spi-3wire;
+		adi,spi-3wire-enable;
 		reg = <2>;
 
 		/* Content of Registers: 0x16, 0x18, 0x19, 0x1A, 0x30, 0x11A, 0x934, 0x935 */
