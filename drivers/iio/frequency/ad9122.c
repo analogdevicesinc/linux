@@ -901,6 +901,8 @@ static int ad9122_probe(struct spi_device *spi)
 	struct cf_axi_converter *conv;
 	unsigned id, rate, datapath_ctrl, tmp;
 	int ret, conf;
+	bool spi3wire = of_property_read_bool(
+			spi->dev.of_node, "adi,spi-3wire-enable");
 
 	conv = devm_kzalloc(&spi->dev, sizeof(*conv), GFP_KERNEL);
 	if (conv == NULL)
@@ -908,7 +910,7 @@ static int ad9122_probe(struct spi_device *spi)
 
 	conv->reset_gpio = devm_gpiod_get(&spi->dev, "reset", GPIOD_OUT_HIGH);
 
-	conf = (spi->mode & SPI_3WIRE) ? AD9122_COMM_SDIO : 0;
+	conf = (spi->mode & SPI_3WIRE || spi3wire) ? AD9122_COMM_SDIO : 0;
 	ret = ad9122_write(spi, AD9122_REG_COMM, conf | AD9122_COMM_RESET);
 	if (ret < 0)
 		return ret;
