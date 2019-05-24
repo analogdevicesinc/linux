@@ -1040,6 +1040,8 @@ static int ad9517_probe(struct spi_device *spi)
 	const struct firmware *fw;
 	struct ad9517_state *st;
 	struct clk *clk, *ref_clk, *clkin;
+	bool spi3wire = of_property_read_bool(
+			spi->dev.of_node, "adi,spi-3wire-enable");
 	unsigned int device_type, part_id;
 
 	id = spi_get_device_id(spi);
@@ -1064,7 +1066,7 @@ static int ad9517_probe(struct spi_device *spi)
 	    GPIOD_OUT_HIGH);
 
 	conf = AD9517_LONG_INSTR |
-		((spi->mode & SPI_3WIRE) ? 0 : AD9517_SDO_ACTIVE);
+		((spi->mode & SPI_3WIRE || spi3wire) ? 0 : AD9517_SDO_ACTIVE);
 
 	ret = ad9517_write(spi, AD9517_SERCONF,  conf | AD9517_SOFT_RESET);
 	if (ret < 0)
