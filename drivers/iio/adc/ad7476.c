@@ -12,9 +12,11 @@
 #include <linux/sysfs.h>
 #include <linux/spi/spi.h>
 #include <linux/regulator/consumer.h>
+#include <linux/gpio/consumer.h>
 #include <linux/err.h>
 #include <linux/module.h>
 #include <linux/bitops.h>
+#include <linux/delay.h>
 
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
@@ -34,6 +36,7 @@ struct ad7476_state {
 	struct spi_device		*spi;
 	const struct ad7476_chip_info	*chip_info;
 	struct regulator		*reg;
+	struct gpio_desc		*convst_gpio;
 	struct spi_transfer		xfer;
 	struct spi_message		msg;
 	/*
@@ -61,12 +64,24 @@ enum ad7476_supported_device_ids {
 	ID_ADC121S,
 };
 
+static void ad7091_convst(struct ad7476_state *st)
+{
+	if (st->convst_gpio) {
+		gpiod_set_value(st->convst_gpio, 0);
+		udelay(1); /* CONVST pulse width: 10 ns min */
+		gpiod_set_value(st->convst_gpio, 1);
+		udelay(1); /* Conversion time: 650 ns max */
+	}
+}
+
 static irqreturn_t ad7476_trigger_handler(int irq, void  *p)
 {
 	struct iio_poll_func *pf = p;
 	struct iio_dev *indio_dev = pf->indio_dev;
 	struct ad7476_state *st = iio_priv(indio_dev);
 	int b_sent;
+
+	ad7091_convst(st);
 
 	b_sent = spi_sync(st->spi, &st->msg);
 	if (b_sent < 0)
@@ -236,6 +251,13 @@ static int ad7476_probe(struct spi_device *spi)
 	ret = regulator_enable(st->reg);
 	if (ret)
 		return ret;
+
+	if (spi_get_device_id(spi)->driver_data == ID_AD7091R) {
+		st->convst_gpio = devm_gpiod_get_optional(&spi->dev,
+			"convst", GPIOD_OUT_HIGH);
+		if (IS_ERR(st->convst_gpio))
+			return PTR_ERR(st->convst_gpio);
+	}
 
 	spi_set_drvdata(spi, indio_dev);
 
