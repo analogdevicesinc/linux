@@ -181,3 +181,7 @@
 	status0-gpios = <&gpio0 86 0>;
 	status1-gpios = <&gpio0 87 0>;
 };
+
+&gem0 {
+	local-mac-address = [00 0a 12 34 e1 8b];
+};
