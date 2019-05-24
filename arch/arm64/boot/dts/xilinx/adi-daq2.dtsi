@@ -18,7 +18,7 @@
 		#clock-cells = <1>;
 
 		adi,vcxo-freq = <125000000>;
-		spi-3wire;
+		adi,spi-3wire-enable;
 		adi,pll1-bypass-enable;
 		adi,osc-in-diff-enable;
 

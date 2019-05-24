@@ -19,7 +19,7 @@
 		clocks = <&clk_ad9517 3>;
 		clock-names = "adc_clk";
 
-		spi-3wire;
+		adi,spi-3wire-enable;
 	};
 
 	clk_ad9517: ad9517@1 {
@@ -34,6 +34,6 @@
 		clock-output-names = "out0", "out1", "out2", "out3", "out4", "out5", "out6", "out7";
 		firmware = "ad9467_intbypass_ad9517.stp";
 
-		spi-3wire;
+		adi,spi-3wire-enable;
 	};
 };
