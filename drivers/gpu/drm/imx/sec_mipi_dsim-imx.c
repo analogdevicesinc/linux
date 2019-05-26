@@ -261,17 +261,18 @@ static int imx_sec_dsim_bind(struct device *dev, struct device *master,
 	if (ret)
 		return ret;
 
+	atomic_set(&dsim_dev->rpm_suspended, 0);
+	pm_runtime_enable(dev);
+	atomic_inc(&dsim_dev->rpm_suspended);
+
 	/* bind sec dsim bridge */
 	ret = sec_mipi_dsim_bind(dev, master, data, encoder, res, irq, pdata);
 	if (ret) {
 		dev_err(dev, "failed to bind sec dsim bridge: %d\n", ret);
+		pm_runtime_disable(dev);
 		drm_encoder_cleanup(encoder);
 		return ret;
 	}
-
-	atomic_set(&dsim_dev->rpm_suspended, 0);
-	pm_runtime_enable(dev);
-	atomic_inc(&dsim_dev->rpm_suspended);
 
 	dev_dbg(dev, "%s: dsim bind end\n", __func__);
 
