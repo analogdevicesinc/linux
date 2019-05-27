@@ -41,13 +41,6 @@
 #include "zynqmp-adrv9009-zu11eg.dts"
 
 / {
-	mdio { /* AR#69132 patch */
-		phy1: phy@1{
-			device_type = "ethernet-phy";
-			reg = <1>;
-		};
-	};
-
 	leds {
 		compatible = "gpio-leds";
 		led0 {
