@@ -480,7 +480,13 @@ static int macb_mii_probe(struct net_device *dev)
 					&macb_handle_link_change, 0,
 					bp->phy_interface);
 		if (!phydev)
-			return -ENODEV;
+			/*
+			 * Give a chance for the device to be probed again. It
+			 * is usefull when there are more than one phy on the
+			 * same mii bus and the device being probed points to a
+			 * phydev not probed yet...
+			 */
+			return -EPROBE_DEFER;
 	} else {
 		phydev = phy_find_first(bp->mii_bus);
 		if (!phydev) {
