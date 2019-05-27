@@ -1,0 +1,144 @@
+* Analog Devices AD9208 (and similar) JESD204B Analog-to-Digital Converter (ADC)
+
+Required properties:
+	- compatible: Must be one of "adi,ad9208", "adi,ad9208x2"
+	- reg: SPI chip select number for the device
+	- #address-cells: Must be set to 1
+	- #size-cells: Must be set to 0
+	- clocks: define reference clock
+		See Documentation/devicetree/bindings/clock/clock-bindings.txt
+	- clock-names:
+		See Documentation/devicetree/bindings/clock/clock-bindings.txt
+	- spi-max-frequency: See Documentation/devicetree/bindings/spi/spi-bus.txt
+	- spi-cpha: See Documentation/devicetree/bindings/spi/spi-bus.txt
+	- spi-cpol: See Documentation/devicetree/bindings/spi/spi-bus.txt
+
+	- adi,sampling-frequency: Initial ADC sampling frequency in Hz.
+
+	- adi,octets-per-frame: Number of octets per frame (F).
+	- adi,frames-per-multiframe: Number of frames per multi-frame (K).
+	- adi,high-density: If specified the JESD204B link is configured for high density (HD) operation.
+	- adi,converter-resolution: Converter resolution (N).
+	- adi,bits-per-sample: Number of bits per sample (N').
+	- adi,converters-per-device: Number of converter per device (M).
+	- adi,control-bits-per-sample: Number of control bits per conversion sample (CS).
+	- adi,lanes-per-device: Number of lanes per link (L).
+	- adi,subclass: The JESD204B sublcass.
+
+Optional properties:
+
+	- adi,powerdown-pin-enable: Enables the Powerdown Pin
+	- adi,powerdown-mode: Controls the function of the Powerdown Pin.
+		2 = Standby Status,
+		3 = Powerdown Status.
+
+	- adi,input-clock-divider-ratio: The desired CLK input divider setting.
+		Valid values are 1, 2 and 4.
+	- adi,duty-cycle-stabilizer-enable: Enables the clock input duty cycle stabilizer.
+	- adi,analog-input-dc-coupling-enable: Enables DC coupling, default is AC.
+	- adi,external-vref-enable: Enables the external reference mode.
+	- adi,analog-input-neg-buffer-current: The negative input buffer current.
+	- adi,analog-input-pos-buffer-current: The positive input buffer current.
+
+	- adi,sysref-lmfc-offset: LMFC offset. Delays the LMFC in frame clock increments.
+	- adi,sysref-edge-high-low-enable: Set the transition edge on which SYSREF is valid.
+	- adi,sysref-clk-edge-falling-enable: Set the Sysref Capture clock Edge.
+	- adi,sysref-neg-window-skew: Negative window skew, sample clock by
+		which captured sysref is ignored. Skew set in clock cycles. Valid range 0-3.
+	- adi,sysref-pos-window-skew: Positive window skew, sample clock by
+		which captured sysref is ignored. Skew set in clock cycles. Valid range 0-3.
+	- adi,sysref-mode: Sysref Synchronization Mode.
+		0 = No Sysref,
+		1 = one-shot mode,
+		2 = continuous sysref synchronisation.
+	- adi,sysref-nshot-ignore-count: Number of initial sysref sgnals to ignore in
+		sysref n-shot mode 0-15. Valid only for N-Shot Mode.
+
+	- adi,ddc-channel-number: Set ADC operational mode number of DDC channels.
+		0 = Full Bandwidth mode,
+		1 = One Channel,
+		2 = Two Channel,
+		4 = Four Channel.
+
+	- adi,ddc-complex-to-real-enable: Enables Real DDS output format. Defaut is Complex.
+	- adi,ddc-mixer-real-enable: Enables Real DDS input format. Defaut is Complex.
+	- adi,decimation: ADC decimation rate. This value configures the ADC
+		decimation mode based on the desired ADC sampling rate (Fs)
+		and the desired output sample rate (Fout). Fs/Fout.
+		DCM rate shall be set to the lowest Channel DCM value. Range 1-48.
+	- adi,nco-mode-select: Set DDC frequency translation Mode. Each DDC Channel
+		supports an NCO for frequency translation. This value enables or
+		disables the NCO to achieve Variable IF mode (NCO enabled) or
+		Zero IF Mode (NCO disabled). Alternatively there a test mode may
+		be enabled where the NCO directly injects a ramp into the signal path.
+		0 = Variable IF Mode,
+		1 = Zero IF Mode,
+		2 = Test Mode.
+	- adi,nco-channel-carrier-frequency-hz: Set NCO channel carrier frequency
+		in Hz for frquency translation.
+	- adi,nco-channel-phase-offset: Set NCO Phase Offset.
+	- adi,ddc-gain-6dB-enable: Each DDC Channel contains an independently
+		controlled gain stage. Either 0dB or 6dB gain can be applied.
+	- fastdetect-a-gpio: a GPIO spec for the Fastdetect-A pin.
+	- fastdetect-a-gpio: a GPIO spec for the Fastdetect-B pin.
+	- powerdown-gpio: a GPIO spec for the Powerdown pin.
+
+Example:
+
+&spi0 {
+	status = "okay";
+
+	adc0_ad9208: ad9208@1 {
+		compatible = "adi,ad9208x2";
+
+		spi-cpol;
+		spi-cpha;
+		spi-max-frequency = <10000000>;
+		reg = <1>;
+
+		clocks = <&axi_ad9208_0_jesd_rx>,  <&hmc7044 2>;
+		clock-names = "jesd_adc_clk", "adc_clk";
+
+		adi,powerdown-mode = <AD9208_PDN_MODE_POWERDOWN>;
+
+		adi,sampling-frequency = /bits/ 64 <3000000000>;
+		adi,input-clock-divider-ratio = <1>;
+		adi,duty-cycle-stabilizer-enable;
+
+		adi,analog-input-neg-buffer-current = <AD9208_BUFF_CURR_600_UA>;
+		adi,analog-input-pos-buffer-current = <AD9208_BUFF_CURR_600_UA>;
+
+		adi,sysref-lmfc-offset = <0>;
+		adi,sysref-pos-window-skew = <0>;
+		adi,sysref-neg-window-skew = <0>;
+		adi,sysref-mode = <AD9208_SYSREF_ONESHOT>;
+		adi,sysref-nshot-ignore-count = <15>;
+
+		/* JESD204 parameters */
+
+		adi,octets-per-frame = <1>;
+		adi,frames-per-multiframe = <32>;
+		adi,converter-resolution = <16>;
+		adi,bits-per-sample = <16>;
+		adi,converters-per-device = <2>;
+		adi,control-bits-per-sample = <0>;
+		adi,lanes-per-device = <8>;
+		adi,subclass = <1>;
+
+		/* DDC setup */
+
+		adi,ddc-channel-number = <AD9208_FULL_BANDWIDTH_MODE>;
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		ad9208_0_ddc0: channel@0 { /* Ignored in AD9208_FULL_BANDWIDTH_MODE */
+			reg = <0>;
+			adi,decimation = <2>;
+			adi,nco-mode-select = <AD9208_NCO_MODE_VIF>;
+			adi,nco-channel-carrier-frequency-hz = /bits/ 64 <70000000>;
+			adi,nco-channel-phase-offset = /bits/ 64 <0>;
+			adi,ddc-gain-6dB-enable;
+		};
+	};
+};
