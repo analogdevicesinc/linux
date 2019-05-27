@@ -21,7 +21,6 @@
 
 	aliases {
 		ethernet0 = &gem3;
-		ethernet1 = &gem0;
 		gpio0 = &gpio;
 		i2c0 = &i2c0;
 		i2c1 = &i2c1;
@@ -43,22 +42,6 @@
 		device_type = "memory";
 		reg = <0x0 0x0 0x0 0x80000000>, <0x8 0x00000000 0x0 0x80000000>;
 	};
-
-	mdio { /* AR#69132 patch */
-		compatible = "cdns,macb-mdio";
-		reg = <0x0 0xff0e0000 0x0 0x1000>;
-		clocks = <&clk 31>, <&clk 52>, <&clk 48>; /* GEM 3 1st 3 clocks */
-		clock-names = "pclk", "hclk", "tx_clk"; /* Don't touch */
-
-		#address-cells = <1>;
-		#size-cells = <0>;
-
-		phy0: phy@0 {
-			device_type = "ethernet-phy";
-			reg = <0x0>;
-		};
-	};
-
 };
 
 &gem3 {
@@ -67,6 +50,11 @@
 	phy-mode = "rgmii-id";
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_gem3_default>;
+	phy0: phy@0 {
+		device_type = "ethernet-phy";
+		reg = <0x0>;
+		marvell,reg-init = <3 16 0xff00 0x1e 3 17 0xfff0 0x00>;
+	};
 };
 
 &gpio {
