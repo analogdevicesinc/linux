@@ -21,6 +21,7 @@
 
 	aliases {
 		ethernet0 = &gem3;
+		ethernet1 = &gem0;
 		gpio0 = &gpio;
 		i2c0 = &i2c0;
 		i2c1 = &i2c1;
@@ -50,6 +51,16 @@
 	phy-mode = "rgmii-id";
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_gem3_default>;
+
+	phy0: phy@0 {
+		device_type = "ethernet-phy";
+		reg = <0x0>;
+		marvell,reg-init = <3 16 0xff00 0x1e 3 17 0xfff0 0x00>;
+	};
+	phy1: phy@1 {
+		device_type = "ethernet-phy";
+		reg = <1>;
+	};
 };
 
 &gpio {
