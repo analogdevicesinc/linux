@@ -69,6 +69,20 @@
 			fsl,fman-oh-port = <&fman0_oh2>;
 		};
 	};
+
+	pcie@3400000 {
+		/delete-property/ iommu-map;
+	};
+
+	pcie@3500000 {
+		/delete-property/ iommu-map;
+	};
+
+	pcie@3600000 {
+		/delete-property/ iommu-map;
+	};
+
+	/delete-node/ iommu@9000000;
 };
 / {
 	reserved-memory {
