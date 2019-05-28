@@ -72,6 +72,7 @@ struct lcdif_soc_pdata imx8mm_pdata = {
 
 static const struct of_device_id imx_lcdif_dt_ids[] = {
 	{ .compatible = "fsl,imx8mm-lcdif", .data = &imx8mm_pdata, },
+	{ .compatible = "fsl,imx8mn-lcdif", .data = &imx8mm_pdata, },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, lcdif_dt_ids);
