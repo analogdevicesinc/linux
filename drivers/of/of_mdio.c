@@ -195,6 +195,7 @@ int of_mdiobus_register(struct mii_bus *mdio, struct device_node *np)
 {
 	struct device_node *child;
 	bool scanphys = false;
+	bool ignore;
 	int addr, rc;
 
 	/* Do not continue if the node is disabled */
@@ -216,6 +217,8 @@ int of_mdiobus_register(struct mii_bus *mdio, struct device_node *np)
 	if (rc)
 		return rc;
 
+	ignore = of_property_read_bool(np, "ignore-missing-phys");
+
 	/* Loop over the child nodes and register a phy_device for each phy */
 	for_each_available_child_of_node(np, child) {
 		addr = of_mdio_parse_addr(&mdio->dev, child);
@@ -228,8 +231,15 @@ int of_mdiobus_register(struct mii_bus *mdio, struct device_node *np)
 			rc = of_mdiobus_register_phy(mdio, child, addr);
 		else
 			rc = of_mdiobus_register_device(mdio, child, addr);
-		if (rc)
+		if (rc) {
+			if (rc == -ENODEV && ignore) {
+				dev_warn(&mdio->dev,
+					 "phy %s not found at addr %i\n",
+					 child->name, addr);
+				continue;
+			}
 			goto unregister;
+		}
 	}
 
 	if (!scanphys)
@@ -252,8 +262,15 @@ int of_mdiobus_register(struct mii_bus *mdio, struct device_node *np)
 
 			if (of_mdiobus_child_is_phy(child)) {
 				rc = of_mdiobus_register_phy(mdio, child, addr);
-				if (rc)
+				if (rc) {
+					if (rc == -ENODEV && ignore) {
+						dev_warn(&mdio->dev,
+							 "not found\n",
+							 child->name, addr);
+						continue;
+					}
 					goto unregister;
+				}
 			}
 		}
 	}
