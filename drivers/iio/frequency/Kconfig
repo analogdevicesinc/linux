@@ -136,12 +136,12 @@ config ADF5355
 	  module will be called adf5355.
 
 config ADF4371
-	tristate "Analog Devices ADF4371 Wideband Synthesizer"
+	tristate "Analog Devices ADF4371/ADF4372 Wideband Synthesizers"
 	depends on SPI
 	select REGMAP_SPI
 	help
-	  Say yes here to build support for Analog Devices  ADF4371
-	  Wideband Synthesizer. The driver provides direct access via sysfs.
+	  Say yes here to build support for Analog Devices ADF4371 and ADF4372
+	  Wideband Synthesizers. The driver provides direct access via sysfs.
 
 	  To compile this driver as a module, choose M here: the
 	  module will be called adf4371.
