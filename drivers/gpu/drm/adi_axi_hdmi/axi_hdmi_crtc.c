@@ -15,6 +15,7 @@
 #include <drm/drm_crtc_helper.h>
 #include <drm/drm_gem_cma_helper.h>
 #include <drm/drm_plane_helper.h>
+#include <drm/drm_gem_framebuffer_helper.h>
 
 #include "axi_hdmi_drv.h"
 
@@ -41,7 +42,6 @@ static struct dma_async_tx_descriptor *axi_hdmi_vdma_prep_interleaved_desc(
 {
 	struct axi_hdmi_crtc *axi_hdmi_crtc = plane_to_axi_hdmi_crtc(plane);
 	struct drm_framebuffer *fb = plane->state->fb;
-	struct xilinx_vdma_config vdma_config;
 	size_t offset, hw_row_size;
 	struct drm_gem_cma_object *obj;
 
@@ -170,7 +170,7 @@ static const struct drm_plane_helper_funcs axi_hdmi_plane_helper_funcs = {
 
 static void axi_hdmi_plane_destroy(struct drm_plane *plane)
 {
-	drm_plane_helper_disable(plane);
+	drm_plane_helper_disable(plane, NULL);
 	drm_plane_cleanup(plane);
 }
 
