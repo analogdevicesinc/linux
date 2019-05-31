@@ -330,7 +330,7 @@
 		adi,dig-clocks-clk-pll-vco-freq_khz = <9830400>;
 		adi,dig-clocks-clk-pll-hs-div = <1>;
 		adi,dig-clocks-rf-pll-use-external-lo = <0>;
-		adi,dig-clocks-rf-pll-phase-sync-mode = <0>;
+		adi,dig-clocks-rf-pll-phase-sync-mode = <3>;
 
 		/* AGC */
 
@@ -694,7 +694,7 @@
 		adi,dig-clocks-clk-pll-vco-freq_khz = <9830400>;
 		adi,dig-clocks-clk-pll-hs-div = <1>;
 		adi,dig-clocks-rf-pll-use-external-lo = <0>;
-		adi,dig-clocks-rf-pll-phase-sync-mode = <0>;
+		adi,dig-clocks-rf-pll-phase-sync-mode = <3>;
 
 		/* AGC */
 
