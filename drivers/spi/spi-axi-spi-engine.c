@@ -94,6 +94,8 @@ struct spi_engine {
 	struct clk *clk;
 	struct clk *ref_clk;
 
+	struct spi_master *master;
+
 	spinlock_t lock;
 
 	void __iomem *base;
@@ -576,11 +578,10 @@ static irqreturn_t spi_engine_irq(int irq, void *devid)
 	return IRQ_HANDLED;
 }
 
-static void spi_engine_timeout(unsigned long data)
+static void spi_engine_timeout(struct timer_list *t)
 {
-	struct spi_master *master = (struct spi_master *)data;
-	struct spi_engine *spi_engine = spi_master_get_devdata(master);
-
+	struct spi_engine *spi_engine = from_timer(spi_engine, t, watchdog_timer);
+	struct spi_master *master = spi_engine->master;
 
 	spin_lock(&spi_engine->lock);
 	if (spi_engine->msg) {
@@ -665,6 +666,7 @@ static int spi_engine_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	spi_master_set_devdata(master, spi_engine);
+	spi_engine->master = master;
 
 	spin_lock_init(&spi_engine->lock);
 
@@ -719,8 +721,7 @@ static int spi_engine_probe(struct platform_device *pdev)
 	master->transfer_one_message = spi_engine_transfer_one_message;
 	master->num_chipselect = 8;
 
-	setup_timer(&spi_engine->watchdog_timer, spi_engine_timeout,
-		(unsigned long)master);
+	timer_setup(&spi_engine->watchdog_timer, spi_engine_timeout, 0);
 
 	ret = spi_register_master(master);
 	if (ret)
