@@ -141,6 +141,12 @@
 	phys = <&lane0 PHY_TYPE_SGMII 0 1 125000000>;
 };
 
+&gem3 {
+	phy1: phy@1 {
+		device_type = "ethernet-phy";
+		reg = <1>;
+	};
+};
 /*
  * DisplayPort: P2
  * Using: GTR Lane3, Lane2
