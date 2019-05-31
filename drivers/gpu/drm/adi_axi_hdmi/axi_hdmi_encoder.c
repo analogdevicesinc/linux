@@ -506,7 +506,7 @@ static int axi_hdmi_connector_init(struct drm_device *dev,
 	if (err)
 		goto err_connector;
 
-	err = drm_mode_connector_attach_encoder(connector, encoder);
+	err = drm_connector_attach_encoder(connector, encoder);
 	if (err) {
 		DRM_ERROR("failed to attach a connector to a encoder\n");
 		goto err_sysfs;
