@@ -26,6 +26,7 @@
 #include <linux/v4l2-dv-timings.h>
 #include <linux/videodev2.h>
 #include <linux/workqueue.h>
+#include <linux/interrupt.h>
 #include <linux/regmap.h>
 
 #include <media/i2c/adv7604.h>
@@ -3221,6 +3222,15 @@ static int adv76xx_parse_dt(struct adv76xx_state *state)
 	return 0;
 }
 
+static irqreturn_t adv76xx_irq_handler(int irq, void *devid)
+{
+	struct adv76xx_state *state = devid;
+
+	adv76xx_isr(&state->sd, 0, NULL);
+
+	return IRQ_HANDLED;
+}
+
 static const struct regmap_config adv76xx_regmap_cnf[] = {
 	{
 		.name			= "io",
@@ -3603,12 +3613,26 @@ static int adv76xx_probe(struct i2c_client *client,
 	v4l2_info(sd, "%s found @ 0x%x (%s)\n", client->name,
 			client->addr << 1, client->adapter->name);
 
+	/* Request IRQ if available. */
+	if (client->irq) {
+		err = request_threaded_irq(client->irq, NULL, adv76xx_irq_handler,
+					   IRQF_TRIGGER_LOW | IRQF_ONESHOT,
+					   KBUILD_MODNAME, state);
+		if (err < 0) {
+			v4l2_err(client, "Request interrupt error\n");
+			goto err_entity;
+		}
+	}
+
 	err = v4l2_async_register_subdev(sd);
 	if (err)
-		goto err_entity;
+		goto err_free_irq;
 
 	return 0;
 
+err_free_irq:
+	if (client->irq)
+		free_irq(client->irq, state);
 err_entity:
 	media_entity_cleanup(&sd->entity);
 err_work_queues:
@@ -3639,6 +3663,9 @@ static int adv76xx_remove(struct i2c_client *client)
 	media_entity_cleanup(&sd->entity);
 	adv76xx_unregister_clients(to_state(sd));
 	v4l2_ctrl_handler_free(sd->ctrl_handler);
+	if (client->irq)
+		free_irq(client->irq, state);
+
 	return 0;
 }
 
