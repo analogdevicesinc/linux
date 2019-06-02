@@ -294,7 +294,8 @@ static u32 ivshm_net_tx_advance(struct ivshm_net_queue *q, u32 *pos, u32 len)
 	return p;
 }
 
-static int ivshm_net_tx_frame(struct net_device *ndev, struct sk_buff *skb)
+static int ivshm_net_tx_frame(struct net_device *ndev, struct sk_buff *skb,
+			      bool xmit_more)
 {
 	struct ivshm_net *in = netdev_priv(ndev);
 	struct ivshm_net_queue *tx = &in->tx;
@@ -327,7 +328,7 @@ static int ivshm_net_tx_frame(struct net_device *ndev, struct sk_buff *skb)
 	vr->avail->ring[avail] = desc_idx;
 	tx->num_added++;
 
-	if (!skb->xmit_more) {
+	if (!xmit_more) {
 		virt_store_release(&vr->avail->idx, tx->last_avail_idx);
 		ivshm_net_notify_tx(in, tx->num_added);
 		tx->num_added = 0;
@@ -509,17 +510,18 @@ static int ivshm_net_poll(struct napi_struct *napi, int budget)
 static netdev_tx_t ivshm_net_xmit(struct sk_buff *skb, struct net_device *ndev)
 {
 	struct ivshm_net *in = netdev_priv(ndev);
+	bool xmit_more = netdev_xmit_more();
 
 	ivshm_net_tx_clean(ndev);
 
 	if (!ivshm_net_tx_ok(in, ndev->mtu)) {
 		ivshm_net_enable_tx_irq(in);
 		netif_stop_queue(ndev);
-		skb->xmit_more = 0;
+		xmit_more = false;
 		in->stats.tx_pause++;
 	}
 
-	ivshm_net_tx_frame(ndev, skb);
+	ivshm_net_tx_frame(ndev, skb, xmit_more);
 
 	in->stats.tx_packets++;
 	ndev->stats.tx_packets++;
