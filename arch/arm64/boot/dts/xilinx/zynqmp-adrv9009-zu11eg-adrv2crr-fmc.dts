@@ -145,6 +145,7 @@
 	phy1: phy@1 {
 		device_type = "ethernet-phy";
 		reg = <1>;
+		reset-gpios = <&gpio 31 GPIO_ACTIVE_HIGH>;
 	};
 };
 /*
