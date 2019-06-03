@@ -521,8 +521,38 @@ static int macb_mii_probe(struct net_device *dev)
 	struct macb *bp = netdev_priv(dev);
 	struct macb_platform_data *pdata;
 	struct phy_device *phydev;
-	int phy_irq;
-	int ret;
+	struct device_node *np;
+	int phy_irq, ret, i;
+
+	pdata = dev_get_platdata(&bp->pdev->dev);
+	np = bp->pdev->dev.of_node;
+	ret = 0;
+
+	if (np) {
+		if (of_phy_is_fixed_link(np)) {
+			bp->phy_node = of_node_get(np);
+		} else {
+			/* fallback to standard phy registration if no
+			 * phy-handle was found nor any phy found during
+			 * dt phy registration
+			 */
+			if (!bp->phy_node && !phy_find_first(bp->mii_bus)) {
+				for (i = 0; i < PHY_MAX_ADDR; i++) {
+					struct phy_device *phydev;
+
+					phydev = mdiobus_scan(bp->mii_bus, i);
+					if (IS_ERR(phydev) &&
+					    PTR_ERR(phydev) != -ENODEV) {
+						ret = PTR_ERR(phydev);
+						break;
+					}
+				}
+
+				if (ret)
+					return -ENODEV;
+			}
+		}
+	}
 
 	if (bp->phy_node) {
 		phydev = of_phy_connect(dev, bp->phy_node,
@@ -543,14 +573,17 @@ static int macb_mii_probe(struct net_device *dev)
 			return -ENXIO;
 		}
 
-		pdata = dev_get_platdata(&bp->pdev->dev);
-		if (pdata && gpio_is_valid(pdata->phy_irq_pin)) {
-			ret = devm_gpio_request(&bp->pdev->dev,
-						pdata->phy_irq_pin, "phy int");
-			if (!ret) {
-				phy_irq = gpio_to_irq(pdata->phy_irq_pin);
-				phydev->irq = (phy_irq < 0) ?
-					      PHY_POLL : phy_irq;
+		if (pdata) {
+			if (gpio_is_valid(pdata->phy_irq_pin)) {
+				ret = devm_gpio_request(&bp->pdev->dev,
+							pdata->phy_irq_pin, "phy int");
+				if (!ret) {
+					phy_irq = gpio_to_irq(pdata->phy_irq_pin);
+					phydev->irq = (phy_irq < 0) ?
+						      PHY_POLL : phy_irq;
+				}
+			} else {
+				phydev->irq = PHY_POLL;
 			}
 		}
 
@@ -585,8 +618,8 @@ static int macb_mii_probe(struct net_device *dev)
 static int macb_mii_init(struct macb *bp)
 {
 	struct macb_platform_data *pdata;
-	struct device_node *np, *mdio_np;
-	int err = -ENXIO, i;
+	struct device_node *np;
+	int err = -ENXIO;
 
 	/* Enable management port */
 	macb_writel(bp, NCR, MACB_BIT(MPE));
@@ -609,43 +642,45 @@ static int macb_mii_init(struct macb *bp)
 	dev_set_drvdata(&bp->dev->dev, bp->mii_bus);
 
 	np = bp->pdev->dev.of_node;
-	mdio_np = of_get_child_by_name(np, "mdio");
-	if (mdio_np) {
-		of_node_put(mdio_np);
-		err = of_mdiobus_register(bp->mii_bus, mdio_np);
-		if (err)
+	if (np && of_phy_is_fixed_link(np)) {
+		if (of_phy_register_fixed_link(np) < 0) {
+			dev_err(&bp->pdev->dev,
+				"broken fixed-link specification %pOF\n", np);
 			goto err_out_free_mdiobus;
-	} else if (np) {
-		/* try dt phy registration */
-		err = of_mdiobus_register(bp->mii_bus, np);
-
-		/* fallback to standard phy registration if no phy were
-		 * found during dt phy registration
-		 */
-		if (!err && !phy_find_first(bp->mii_bus)) {
-			for (i = 0; i < PHY_MAX_ADDR; i++) {
-				struct phy_device *phydev;
-
-				phydev = mdiobus_scan(bp->mii_bus, i);
-				if (IS_ERR(phydev) &&
-				    PTR_ERR(phydev) != -ENODEV) {
-					err = PTR_ERR(phydev);
-					break;
-				}
-			}
-
-			if (err)
-				goto err_out_unregister_bus;
 		}
+
+		err = mdiobus_register(bp->mii_bus);
 	} else {
+		/* Power up the PHY if there is a GPIO reset
+		 *
+		 * This part is not as in the upstream driver. The reason
+		 * is that the upstream driver dropped the reset-gpios
+		 * handling, while we are keeping it. To do so, we must
+		 * set the gpio before going to of_mdiobus_register()
+		 * to make sure we can read the phy's registers...
+		 */
+		bp->phy_node = of_parse_phandle(np, "phy-handle", 0);
+		if (bp->phy_node) {
+			int gpio = of_get_named_gpio(bp->phy_node,
+						     "reset-gpios", 0);
+
+			if (gpio_is_valid(gpio)) {
+				bp->reset_gpio = gpio_to_desc(gpio);
+				gpiod_direction_output(bp->reset_gpio, 1);
+			} else if (gpio == -EPROBE_DEFER) {
+				err = -EPROBE_DEFER;
+				goto err_out_free_mdiobus;
+			}
+		}
+
 		if (pdata)
 			bp->mii_bus->phy_mask = pdata->phy_mask;
 
-		err = mdiobus_register(bp->mii_bus);
+		err = of_mdiobus_register(bp->mii_bus, np);
 	}
 
 	if (err)
-		goto err_out_free_mdiobus;
+		goto err_out_free_fixed_link;
 
 	err = macb_mii_probe(bp->dev);
 	if (err)
@@ -655,7 +690,11 @@ static int macb_mii_init(struct macb *bp)
 
 err_out_unregister_bus:
 	mdiobus_unregister(bp->mii_bus);
+err_out_free_fixed_link:
+	if (np && of_phy_is_fixed_link(np))
+		of_phy_deregister_fixed_link(np);
 err_out_free_mdiobus:
+	of_node_put(bp->phy_node);
 	mdiobus_free(bp->mii_bus);
 err_out:
 	return err;
@@ -3627,7 +3666,6 @@ static int macb_probe(struct platform_device *pdev)
 			struct clk **) = macb_clk_init;
 	int (*init)(struct platform_device *) = macb_init;
 	struct device_node *np = pdev->dev.of_node;
-	struct device_node *phy_node;
 	const struct macb_config *macb_config = NULL;
 	struct clk *pclk, *hclk = NULL, *tx_clk = NULL, *rx_clk = NULL;
 	struct clk *tsu_clk = NULL;
@@ -3739,24 +3777,6 @@ static int macb_probe(struct platform_device *pdev)
 	else
 		macb_get_hwaddr(bp);
 
-	/* Power up the PHY if there is a GPIO reset */
-	phy_node = of_parse_phandle(np, "phy-handle", 0);
-	if (!phy_node && of_phy_is_fixed_link(np)) {
-		err = of_phy_register_fixed_link(np);
-		if (err < 0) {
-			dev_err(&pdev->dev, "broken fixed-link specification");
-			goto err_out_free_netdev;
-		}
-		phy_node = of_node_get(np);
-	} else {
-		int gpio = of_get_named_gpio(phy_node, "reset-gpios", 0);
-		if (gpio_is_valid(gpio)) {
-			bp->reset_gpio = gpio_to_desc(gpio);
-			gpiod_direction_output(bp->reset_gpio, 1);
-		}
-	}
-	bp->phy_node = phy_node;
-
 	err = of_get_phy_mode(np);
 	if (err < 0) {
 		pdata = dev_get_platdata(&pdev->dev);
@@ -3773,12 +3793,12 @@ static int macb_probe(struct platform_device *pdev)
 	/* IP specific init */
 	err = init(pdev);
 	if (err)
-		goto err_out_phy_put;
+		goto err_out_free_netdev;
 
 	err = register_netdev(dev);
 	if (err) {
 		dev_err(&pdev->dev, "Cannot register net device, aborting.\n");
-		goto err_out_unregister_netdev;
+		goto err_out_free_netdev;
 	}
 
 	err = macb_mii_init(bp);
@@ -3806,9 +3826,6 @@ static int macb_probe(struct platform_device *pdev)
 
 err_out_unregister_netdev:
 	unregister_netdev(dev);
-
-err_out_phy_put:
-	of_node_put(bp->phy_node);
 
 err_out_free_netdev:
 	free_netdev(dev);
