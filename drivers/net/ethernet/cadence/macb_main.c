@@ -558,14 +558,38 @@ static int macb_mii_probe(struct net_device *dev)
 		phydev = of_phy_connect(dev, bp->phy_node,
 					&macb_handle_link_change, 0,
 					bp->phy_interface);
-		if (!phydev)
-			/*
-			 * Give a chance for the device to be probed again. It
-			 * is usefull when there are more than one phy on the
+		if (!phydev) {
+			/* We need to distinguish here, because
+			 * if we just return EPROBE_DEFER we migh have
+			 * a bootloop. This can happen if we have a MAC
+			 * controller defining 2 phys and another MAC
+			 * controller pointing to one of them. If the
+			 * first controller fails to probe (eg: broken phy)
+			 * we would get a bootloop! So, the idea is just to
+			 * check if the parent node of our phy_node is the
+			 * MAC being probed or not...
+			 */
+			if (bp->phy_node->parent == np) {
+				if (!phy_find_first(bp->mii_bus))
+					return -ENODEV;
+
+				/* If we are here, this MAC cannot connect to
+				 * it's phy, but it also defines more phy
+				 * nodes, so that, we need to keep it around
+				 * for another MAC to connect with one of the
+				 * phys on this mii_bus...
+				 */
+				dev_warn(&bp->pdev->dev, "Special handling...");
+				bp->keep_mac_around = true;
+				return 0;
+			}
+			/* Give a chance for the device to be probed again. It
+			 * is useful when there are more than one phy on the
 			 * same mii bus and the device being probed points to a
 			 * phydev not probed yet...
 			 */
 			return -EPROBE_DEFER;
+		}
 	} else {
 		phydev = phy_find_first(bp->mii_bus);
 		if (!phydev) {
@@ -3805,6 +3829,10 @@ static int macb_probe(struct platform_device *pdev)
 	if (err)
 		goto err_out_unregister_netdev;
 
+	/* just return */
+	if (bp->keep_mac_around)
+		return 0;
+
 	netif_carrier_off(dev);
 
 	tasklet_init(&bp->hresp_err_tasklet, macb_hresp_error_task,
@@ -3929,8 +3957,10 @@ static int __maybe_unused macb_suspend(struct device *dev)
 	} else {
 		netif_device_detach(netdev);
 		napi_disable(&bp->napi);
-		phy_stop(bp->phy_dev);
-		phy_suspend(bp->phy_dev);
+		if (bp->phy_dev) {
+			phy_stop(bp->phy_dev);
+			phy_suspend(bp->phy_dev);
+		}
 		spin_lock_irqsave(&bp->lock, flags);
 		macb_reset_hw(bp);
 		spin_unlock_irqrestore(&bp->lock, flags);
@@ -3972,8 +4002,10 @@ static int __maybe_unused macb_resume(struct device *dev)
 		macb_writel(bp, NCR, MACB_BIT(MPE));
 		napi_enable(&bp->napi);
 		netif_carrier_on(netdev);
-		phy_resume(bp->phy_dev);
-		phy_start(bp->phy_dev);
+		if (bp->phy_dev) {
+			phy_resume(bp->phy_dev);
+			phy_start(bp->phy_dev);
+		}
 	}
 
 	bp->macbgem_ops.mog_init_rings(bp);

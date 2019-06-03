@@ -1084,6 +1084,11 @@ struct macb {
 	struct ptp_clock_info ptp_clock_info;
 	struct tsu_incr tsu_incr;
 	struct hwtstamp_config tstamp_config;
+	/* special flag for when the connection between
+	 * the phy and the MAC fails, but, there are more
+	 * phys on the mdio bus...
+	 */
+	bool keep_mac_around;
 };
 
 #ifdef CONFIG_MACB_USE_HWSTAMP
