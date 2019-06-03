@@ -560,8 +560,37 @@ static int macb_mii_probe(struct net_device *dev)
 		phydev = of_phy_connect(dev, bp->phy_node,
 					&macb_handle_link_change, 0,
 					bp->phy_interface);
-		if (!phydev)
-			return -ENODEV;
+		if (!phydev) {
+			/* If we just return EPROBE_DEFER we migh have
+			 * a bootloop. This can happen if we have a MAC
+			 * controller defining 2 phys and another MAC
+			 * controller pointing to one of them. If the
+			 * first controller fails to probe (eg: broken phy)
+			 * we would get a bootloop! So, the idea is just to
+			 * check if the parent node of our phy_node is the
+			 * MAC being probed or not...
+			 */
+			if (bp->phy_node->parent == np) {
+				if (!phy_find_first(bp->mii_bus))
+					return -ENODEV;
+
+				/* If we are here, this MAC cannot connect to
+				 * it's phy, but it also defines more phy
+				 * nodes, so that, we need to keep it around
+				 * for another MAC to connect with one of the
+				 * phys on this mii_bus...
+				 */
+				dev_warn(&bp->pdev->dev, "Special handling...");
+				bp->keep_mac_around = true;
+				return 0;
+			}
+			/* Give a chance for the device to be probed again. It
+			 * is useful when there are more than one phy on the
+			 * same mii bus and the device being probed points to a
+			 * phydev not probed yet...
+			 */
+			return -EPROBE_DEFER;
+		}
 	} else {
 		phydev = phy_find_first(bp->mii_bus);
 		if (!phydev) {
@@ -4324,6 +4353,12 @@ static int macb_probe(struct platform_device *pdev)
 	err = macb_mii_init(bp);
 	if (err)
 		goto err_out_unregister_netdev;
+
+	/* Just return here; this condition means that this is the MAC that is broken
+	 * and needs to stay around, so that another MAC gets a chance to function
+	 */
+	if (bp->keep_mac_around)
+		return 0;
 
 	phydev = dev->phydev;
 

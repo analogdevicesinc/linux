@@ -1250,6 +1250,12 @@ struct macb {
 
 	u32	rx_intr_mask;
 	u32 errata;
+
+	/* special flag for when the connection between
+	 * the phy and the MAC fails, but, there are more
+	 * phys on the mdio bus...
+	 */
+	bool keep_mac_around;
 };
 
 #ifdef CONFIG_MACB_USE_HWSTAMP
