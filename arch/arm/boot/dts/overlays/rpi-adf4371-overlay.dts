@@ -1,0 +1,36 @@
+/dts-v1/;
+/plugin/;
+
+/ {
+
+
+	fragment@0 {
+		target-path = "/";
+		__overlay__ {
+			clocks {
+				adf4371_clkin: clock@0 {
+					     #clock-cells = <0>;
+					     compatible = "fixed-clock";
+					     clock-frequency = <100000000>; // 100MHz
+				};
+			};
+		};
+	};
+
+	fragment@1 {
+		target = <&spi0>;
+		__overlay__ {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "okay";
+
+			adf4371@0 {
+				compatible = "adi,adf4371";
+				reg = <0>;
+				spi-max-frequency = <1000000>;
+				clocks = <&adf4371_clkin>;
+				clock-names = "clkin";
+			};
+		};
+	};
+};
