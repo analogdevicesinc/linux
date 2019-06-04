@@ -535,6 +535,7 @@ static int adf4371_probe(struct spi_device *spi)
 	st = iio_priv(indio_dev);
 	spi_set_drvdata(spi, indio_dev);
 	st->regmap = regmap;
+	st->spi = spi;
 	mutex_init(&st->lock);
 
 	indio_dev->dev.parent = &spi->dev;
