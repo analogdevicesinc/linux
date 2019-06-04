@@ -427,7 +427,6 @@ static const struct iio_chan_spec adf4371_chan[] = {
 	ADF4371_CHANNEL(ADF4371_CH_RFAUX8),
 	ADF4371_CHANNEL(ADF4371_CH_RF16),
 	ADF4371_CHANNEL(ADF4371_CH_RF32),
-	ADF4371_CHANNEL(ADF4371_CH_RFAUX8),
 };
 
 static int adf4371_reg_access(struct iio_dev *indio_dev,
