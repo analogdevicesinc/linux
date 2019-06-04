@@ -4,6 +4,7 @@ branches:
   except:
   - xcomm_zynq
   - adi-4.14.0 # current rebased versions of master; change this when updating kernel ver
+  - adi-4.19.0
 
 os: linux
 dist: trusty
