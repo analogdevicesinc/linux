@@ -34,6 +34,7 @@ struct uio_map;
  * @offs:               offset of device memory within the page
  * @size:		size of IO (multiple of page size)
  * @memtype:		type of memory addr points to
+ * @readonly:		true of region is read-only
  * @internal_addr:	ioremap-ped version of addr, for driver internal use
  * @dma_device:		device struct that was passed to dma_alloc_coherent,
  *			used with UIO_MEM_DMA_COHERENT only
@@ -46,6 +47,7 @@ struct uio_mem {
 	unsigned long		offs;
 	resource_size_t		size;
 	int			memtype;
+	bool			readonly;
 	void __iomem		*internal_addr;
 	struct device		*dma_device;
 	struct uio_map		*map;
