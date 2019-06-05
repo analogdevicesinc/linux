@@ -21,6 +21,7 @@
 #include <linux/platform_device.h>
 #include <linux/regmap.h>
 #include <linux/slab.h>
+#include <linux/fpga/adi-axi-common.h>
 
 #include <dt-bindings/dma/axi-dmac.h>
 
@@ -44,8 +45,6 @@
  * device side is a dedicated data bus only connected to a single peripheral
  * there is no address than can or needs to be configured for the device side.
  */
-
-#define AXI_DMAC_REG_VERSION		0x00
 
 #define AXI_DMAC_REG_IRQ_MASK		0x80
 #define AXI_DMAC_REG_IRQ_PENDING	0x84
@@ -828,7 +827,7 @@ static int axi_dmac_detect_caps(struct axi_dmac *dmac)
 	struct axi_dmac_chan *chan = &dmac->chan;
 	unsigned int version, version_minor;
 
-	version = axi_dmac_read(dmac, AXI_DMAC_REG_VERSION);
+	version = axi_dmac_read(dmac, ADI_AXI_REG_VERSION);
 	version_minor = version & 0xff00;
 
 	axi_dmac_write(dmac, AXI_DMAC_REG_FLAGS, AXI_DMAC_FLAG_CYCLIC);
