@@ -1,10 +1,9 @@
+// SPDX-License-Identifier: GPL-2.0
 /*
  * Driver for the Analog Devices AXI-DMAC core
  *
- * Copyright 2013-2015 Analog Devices Inc.
+ * Copyright 2013-2019 Analog Devices Inc.
  *  Author: Lars-Peter Clausen <lars@metafoo.de>
- *
- * Licensed under the GPL-2.
  */
 
 #include <linux/clk.h>
@@ -743,7 +742,7 @@ static bool axi_dmac_regmap_rdwr(struct device *dev, unsigned int reg)
 	case AXI_DMAC_REG_DEST_STRIDE:
 	case AXI_DMAC_REG_SRC_STRIDE:
 	case AXI_DMAC_REG_TRANSFER_DONE:
-	case AXI_DMAC_REG_ACTIVE_TRANSFER_ID :
+	case AXI_DMAC_REG_ACTIVE_TRANSFER_ID:
 	case AXI_DMAC_REG_STATUS:
 	case AXI_DMAC_REG_CURRENT_SRC_ADDR:
 	case AXI_DMAC_REG_CURRENT_DEST_ADDR:
@@ -827,10 +826,9 @@ static int axi_dmac_parse_chan_dt(struct device_node *of_chan,
 static int axi_dmac_detect_caps(struct axi_dmac *dmac)
 {
 	struct axi_dmac_chan *chan = &dmac->chan;
-	unsigned int version, version_minor;
+	unsigned int version;
 
 	version = axi_dmac_read(dmac, ADI_AXI_REG_VERSION);
-	version_minor = version & 0xff00;
 
 	axi_dmac_write(dmac, AXI_DMAC_REG_FLAGS, AXI_DMAC_FLAG_CYCLIC);
 	if (axi_dmac_read(dmac, AXI_DMAC_REG_FLAGS) == AXI_DMAC_FLAG_CYCLIC)
@@ -861,12 +859,13 @@ static int axi_dmac_detect_caps(struct axi_dmac *dmac)
 		return -ENODEV;
 	}
 
-	if (version_minor >= 0x0200)
+	if (version >= ADI_AXI_PCORE_VER(4, 2, 'a'))
 		chan->hw_partial_xfer = true;
 
-	if (version_minor >= 0x0100) {
+	if (version >= ADI_AXI_PCORE_VER(4, 1, 'a')) {
 		axi_dmac_write(dmac, AXI_DMAC_REG_X_LENGTH, 0x00);
-		chan->length_align_mask = axi_dmac_read(dmac, AXI_DMAC_REG_X_LENGTH);
+		chan->length_align_mask =
+			axi_dmac_read(dmac, AXI_DMAC_REG_X_LENGTH);
 	} else {
 		chan->length_align_mask = chan->address_align_mask;
 	}
