@@ -238,31 +238,31 @@ static void axi_clkgen_setup_ranges(struct axi_clkgen *axi_clkgen)
 	unsigned int reg_value;
 	unsigned int tech, family, speed_grade, voltage;
 
-	axi_clkgen_read(axi_clkgen, AXI_REG_FPGA_INFO, &reg_value);
-	tech = AXI_INFO_FPGA_TECH(reg_value);
-	family = AXI_INFO_FPGA_FAMILY(reg_value);
-	speed_grade = AXI_INFO_FPGA_SPEED_GRADE(reg_value);
+	axi_clkgen_read(axi_clkgen, ADI_AXI_REG_FPGA_INFO, &reg_value);
+	tech = ADI_AXI_INFO_FPGA_TECH(reg_value);
+	family = ADI_AXI_INFO_FPGA_FAMILY(reg_value);
+	speed_grade = ADI_AXI_INFO_FPGA_SPEED_GRADE(reg_value);
 
-	axi_clkgen_read(axi_clkgen, AXI_REG_FPGA_VOLTAGE, &reg_value);
-	voltage = AXI_INFO_FPGA_VOLTAGE(reg_value);
+	axi_clkgen_read(axi_clkgen, ADI_AXI_REG_FPGA_VOLTAGE, &reg_value);
+	voltage = ADI_AXI_INFO_FPGA_VOLTAGE(reg_value);
 
 	switch (speed_grade) {
-	case AXI_FPGA_SPEED_1 ... AXI_FPGA_SPEED_1LV:
+	case ADI_AXI_FPGA_SPEED_1 ... ADI_AXI_FPGA_SPEED_1LV:
 		fvco_max = 1200000;
 		fpfd_max = 450000;
 		break;
-	case AXI_FPGA_SPEED_2 ... AXI_FPGA_SPEED_2LV:
+	case ADI_AXI_FPGA_SPEED_2 ... ADI_AXI_FPGA_SPEED_2LV:
 		fvco_max = 1440000;
 		fpfd_max = 500000;
-		if ((family == AXI_FPGA_FAMILY_KINTEX) |
-		    (family == AXI_FPGA_FAMILY_ARTIX)) {
+		if ((family == ADI_AXI_FPGA_FAMILY_KINTEX) |
+		    (family == ADI_AXI_FPGA_FAMILY_ARTIX)) {
 			if (voltage < 950) {
 				fvco_max = 1200000;
 				fpfd_max = 450000;
 			}
 		}
 		break;
-	case AXI_FPGA_SPEED_3:
+	case ADI_AXI_FPGA_SPEED_3:
 		fvco_max = 1600000;
 		fpfd_max = 550000;
 		break;
@@ -270,7 +270,7 @@ static void axi_clkgen_setup_ranges(struct axi_clkgen *axi_clkgen)
 		break;
 	};
 
-	if (tech == AXI_FPGA_TECH_ULTRASCALE_PLUS) {
+	if (tech == ADI_AXI_FPGA_TECH_ULTRASCALE_PLUS) {
 		fvco_max = 1600000;
 		fvco_min = 800000;
 	}
@@ -571,9 +571,10 @@ static int axi_clkgen_probe(struct platform_device *pdev)
 	if (IS_ERR(axi_clkgen->base))
 		return PTR_ERR(axi_clkgen->base);
 
-	axi_clkgen_read(axi_clkgen, AXI_REG_VERSION, &axi_clkgen->pcore_version);
+	axi_clkgen_read(axi_clkgen, ADI_AXI_REG_VERSION,
+			&axi_clkgen->pcore_version);
 
-	if (AXI_PCORE_VER_MAJOR(axi_clkgen->pcore_version) > 0x04)
+	if (ADI_AXI_PCORE_VER_MAJOR(axi_clkgen->pcore_version) > 0x04)
 		axi_clkgen_setup_ranges(axi_clkgen);
 
 	init.num_parents = of_clk_get_parent_count(pdev->dev.of_node);
