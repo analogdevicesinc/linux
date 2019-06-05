@@ -750,6 +750,8 @@ static bool axi_dmac_regmap_rdwr(struct device *dev, unsigned int reg)
 	case AXI_DMAC_REG_DBG0:
 	case AXI_DMAC_REG_DBG1:
 	case AXI_DMAC_REG_DBG2:
+	case AXI_DMAC_REG_PARTIAL_XFER_LEN:
+	case AXI_DMAC_REG_PARTIAL_XFER_ID:
 		return true;
 	default:
 		return false;
@@ -760,7 +762,7 @@ static const struct regmap_config axi_dmac_regmap_config = {
 	.reg_bits = 32,
 	.val_bits = 32,
 	.reg_stride = 4,
-	.max_register = AXI_DMAC_REG_DBG2,
+	.max_register = AXI_DMAC_REG_PARTIAL_XFER_ID,
 	.readable_reg = axi_dmac_regmap_rdwr,
 	.writeable_reg = axi_dmac_regmap_rdwr,
 };
