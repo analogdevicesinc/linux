@@ -51,10 +51,10 @@ struct xilinx_xcvr {
 	enum xilinx_xcvr_refclk_ppm refclk_ppm;
 	unsigned int encoding;
 	unsigned int version;
-	enum axi_fgpa_technology tech;
-	enum axi_fpga_family family;
-	enum axi_fpga_speed_grade speed_grade;
-	enum axi_fpga_dev_pack dev_package;
+	enum adi_axi_fgpa_technology tech;
+	enum adi_axi_fpga_family family;
+	enum adi_axi_fpga_speed_grade speed_grade;
+	enum adi_axi_fpga_dev_pack dev_package;
 	unsigned int voltage;
 };
 

@@ -295,8 +295,8 @@ static void xilinx_xcvr_setup_qpll_vco_range(struct xilinx_xcvr *xcvr,
 {
 	switch (xcvr->type) {
 	case XILINX_XCVR_TYPE_S7_GTX2:
-		if ((xcvr->dev_package == AXI_FPGA_DEV_FB) |
-		    (xcvr->dev_package == AXI_FPGA_DEV_SB))
+		if ((xcvr->dev_package == ADI_AXI_FPGA_DEV_FB) |
+		    (xcvr->dev_package == ADI_AXI_FPGA_DEV_SB))
 			*vco0_max = 6600000;
 		if ((xcvr->speed_grade / 10) == 2)
 			*vco1_max = 10312500;
@@ -347,7 +347,7 @@ int xilinx_xcvr_calc_cpll_config(struct xilinx_xcvr *xcvr,
 		return -EINVAL;
 	}
 
-	if (AXI_PCORE_VER_MAJOR(xcvr->version) > 0x10)
+	if (ADI_AXI_PCORE_VER_MAJOR(xcvr->version) > 0x10)
 		xilinx_xcvr_setup_cpll_vco_range(xcvr, &vco_max);
 
 	for (m = 1; m <= 2; m++) {
@@ -424,7 +424,7 @@ int xilinx_xcvr_calc_qpll_config(struct xilinx_xcvr *xcvr,
 		return -EINVAL;
 	}
 
-	if (AXI_PCORE_VER_MAJOR(xcvr->version) > 0x10)
+	if (ADI_AXI_PCORE_VER_MAJOR(xcvr->version) > 0x10)
 		xilinx_xcvr_setup_qpll_vco_range(xcvr,
 						 &vco0_min, &vco0_max,
 						 &vco1_min, &vco1_max);
