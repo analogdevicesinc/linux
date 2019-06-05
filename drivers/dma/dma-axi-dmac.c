@@ -386,6 +386,9 @@ static bool axi_dmac_transfer_done(struct axi_dmac_chan *chan,
 			start_next = true;
 		}
 
+		if (sg->partial_len)
+			axi_dmac_compute_residue(chan, active);
+
 		if (active->cyclic)
 			vchan_cyclic_callback(&active->vdesc);
 
@@ -395,8 +398,6 @@ static bool axi_dmac_transfer_done(struct axi_dmac_chan *chan,
 				active->num_completed = 0; /* wrap around */
 			} else {
 				list_del(&active->vdesc.node);
-				if (sg->partial_len)
-					axi_dmac_compute_residue(chan, active);
 				vchan_cookie_complete(&active->vdesc);
 				active = axi_dmac_active_desc(chan);
 			}
