@@ -515,14 +515,14 @@ static void adxcvr_get_info(struct adxcvr_state *st)
 {
 	unsigned int reg_value;
 
-	reg_value = adxcvr_read(st, AXI_REG_FPGA_INFO);
-	st->xcvr.tech = AXI_INFO_FPGA_TECH(reg_value);
-	st->xcvr.family = AXI_INFO_FPGA_FAMILY(reg_value);
-	st->xcvr.speed_grade = AXI_INFO_FPGA_SPEED_GRADE(reg_value);
-	st->xcvr.dev_package = AXI_INFO_FPGA_DEV_PACKAGE(reg_value);
+	reg_value = adxcvr_read(st, ADI_AXI_REG_FPGA_INFO);
+	st->xcvr.tech = ADI_AXI_INFO_FPGA_TECH(reg_value);
+	st->xcvr.family = ADI_AXI_INFO_FPGA_FAMILY(reg_value);
+	st->xcvr.speed_grade = ADI_AXI_INFO_FPGA_SPEED_GRADE(reg_value);
+	st->xcvr.dev_package = ADI_AXI_INFO_FPGA_DEV_PACKAGE(reg_value);
 
-	reg_value = adxcvr_read(st, AXI_REG_FPGA_VOLTAGE);
-	st->xcvr.voltage = AXI_INFO_FPGA_VOLTAGE(reg_value);
+	reg_value = adxcvr_read(st, ADI_AXI_REG_FPGA_VOLTAGE);
+	st->xcvr.voltage = ADI_AXI_INFO_FPGA_VOLTAGE(reg_value);
 }
 
 static const char *adxcvr_gt_names[] = {
@@ -584,8 +584,8 @@ static int adxcvr_probe(struct platform_device *pdev)
 	}
 
 	st->dev = &pdev->dev;
-	st->xcvr.version = adxcvr_read(st, AXI_REG_VERSION);
-	if (AXI_PCORE_VER_MAJOR(st->xcvr.version) > 0x10)
+	st->xcvr.version = adxcvr_read(st, ADI_AXI_REG_VERSION);
+	if (ADI_AXI_PCORE_VER_MAJOR(st->xcvr.version) > 0x10)
 		adxcvr_get_info(st);
 	platform_set_drvdata(pdev, st);
 
@@ -596,7 +596,7 @@ static int adxcvr_probe(struct platform_device *pdev)
 	xcvr_type = (synth_conf >> 16) & 0xf;
 
 	/* Ensure compliance with legacy xcvr type */
-	if (AXI_PCORE_VER_MAJOR(st->xcvr.version) <= 0x10) {
+	if (ADI_AXI_PCORE_VER_MAJOR(st->xcvr.version) <= 0x10) {
 		switch (xcvr_type) {
 		case XILINX_XCVR_LEGACY_TYPE_S7_GTX2:
 			st->xcvr.type = XILINX_XCVR_TYPE_S7_GTX2;
@@ -660,9 +660,9 @@ static int adxcvr_probe(struct platform_device *pdev)
 
 	dev_info(&pdev->dev, "AXI-ADXCVR-%s (%d.%.2d.%c) using %s at 0x%08llX mapped to 0x%p. Number of lanes: %d.",
 		st->tx_enable ? "TX" : "RX",
-		AXI_PCORE_VER_MAJOR(st->xcvr.version),
-		AXI_PCORE_VER_MINOR(st->xcvr.version),
-		AXI_PCORE_VER_LETTER(st->xcvr.version),
+		ADI_AXI_PCORE_VER_MAJOR(st->xcvr.version),
+		ADI_AXI_PCORE_VER_MINOR(st->xcvr.version),
+		ADI_AXI_PCORE_VER_PATCH(st->xcvr.version),
 		adxcvr_gt_names[st->xcvr.type],
 		(unsigned long long)mem->start, st->regs,
 		st->num_lanes);
