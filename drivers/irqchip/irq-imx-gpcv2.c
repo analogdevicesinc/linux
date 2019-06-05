@@ -3,11 +3,19 @@
  * Copyright (C) 2015 Freescale Semiconductor, Inc.
  */
 
+#include <linux/arm-smccc.h>
+#include <linux/mfd/syscon/imx6q-iomuxc-gpr.h>
+#include <linux/mfd/syscon.h>
 #include <linux/of_address.h>
 #include <linux/of_irq.h>
+#include <linux/regmap.h>
 #include <linux/slab.h>
 #include <linux/irqchip.h>
 #include <linux/syscore_ops.h>
+#include <linux/smp.h>
+
+#define FSL_SIP_GPC			0xC2000000
+#define FSL_SIP_CONFIG_GPC_CORE_WAKE	0x05
 
 #define IMR_NUM			4
 #define GPC_MAX_IRQS            (IMR_NUM * 32)
@@ -69,6 +77,37 @@ static struct syscore_ops imx_gpcv2_syscore_ops = {
 	.suspend	= gpcv2_wakeup_source_save,
 	.resume		= gpcv2_wakeup_source_restore,
 };
+
+static void (*__gic_v3_smp_cross_call)(const struct cpumask *, unsigned int);
+
+static void imx_gpcv2_raise_softirq(const struct cpumask *mask,
+					  unsigned int irq)
+{
+	struct arm_smccc_res res;
+
+	/* call the hijacked smp cross call handler */
+	__gic_v3_smp_cross_call(mask, irq);
+
+	/* now call into EL3 and take care of the wakeup */
+	arm_smccc_smc(FSL_SIP_GPC, FSL_SIP_CONFIG_GPC_CORE_WAKE,
+			*cpumask_bits(mask), 0, 0, 0, 0, 0, &res);
+}
+
+static void imx_gpcv2_wake_request_fixup(void)
+{
+	struct regmap *iomux_gpr;
+
+	/* hijack the already registered smp cross call handler */
+	__gic_v3_smp_cross_call = __smp_cross_call;
+
+	/* register our workaround handler for smp cross call */
+	set_smp_cross_call(imx_gpcv2_raise_softirq);
+
+	iomux_gpr = syscon_regmap_lookup_by_compatible("fsl,imx6q-iomuxc-gpr");
+	if (!IS_ERR(iomux_gpr))
+		regmap_update_bits(iomux_gpr, IOMUXC_GPR1, IMX6Q_GPR1_GINT,
+					IMX6Q_GPR1_GINT);
+}
 
 static int imx_gpcv2_irq_set_wake(struct irq_data *d, unsigned int on)
 {
@@ -264,6 +303,9 @@ static int __init imx_gpcv2_irqchip_init(struct device_node *node,
 		}
 		cd->wakeup_sources[i] = ~0;
 	}
+
+	if (of_property_read_bool(node, "broken-wake-request-signals"))
+		imx_gpcv2_wake_request_fixup();
 
 	/* Let CORE0 as the default CPU to wake up by GPC */
 	cd->cpu2wakeup = GPC_IMR1_CORE0;
