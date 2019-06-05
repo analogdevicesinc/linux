@@ -1,0 +1,58 @@
+NXP Display Mix sft-rstn Reset Controller
+=========================================
+
+This binding describes a reset controller device that is used to reset
+or de-reset all the submodules(such as, LCDIF, MIPI DSI, MIPI CSI, ISI
+and etc) included by the Display Mix subsystem on IMX8MM and IMX8MN
+platforms. Only assert and deassert functions are required for submodule
+reset or de-reset.
+
+Please also refer to reset.txt in this directory for common reset
+controller binding usage.
+
+Required properties:
+- compatible: Should be "fsl,imx8mm-dispmix-sft-rstn" or
+			"fsl,imx8mn-dispmix-sft-rstn".
+- reg: should be register base and length as documented in the datasheet.
+- clocks: phandle and clock specifier to disp apb clock for register access.
+- clock-names: should be "disp-apb".
+- power-domains: phandle to dispmix power domain.
+- reset-cells: 1, see below.
+
+example:
+
+	dispmix_sft_rstn: dispmix-sft-rstn@32e28000 {
+		compatible = "fsl,imx8mm-dispmix-sft-rstn";
+		reg = <0x0 0x32e28000 0x0 0x4>;
+		clocks = <&clk IMX8MM_CLK_DISP_APB_ROOT>;
+		clock-names = "disp-apb";
+		active_low;
+		power-domains = <&dispmix_pd>;
+		#reset-cells = <1>;
+	};
+
+Specifying sft-rstn control of devices
+======================================
+
+Device nodes in Display Mix should specify the reset channel required in
+their "resets" property, containing a phandle to the sft-rstn device node
+and an index to specify which channel to use, as described in
+Documentation/devicetree/bindings/reset/reset.txt.
+
+example:
+
+        lcdif_resets: lcdif-resets {
+                #address-cells = <1>;
+                #size-cells = <0>;
+                #reset-cells = <0>;
+
+                lcdif-soft-resetn {
+                        compatible = "lcdif,soft-resetn";
+                        resets = <&dispmix_sft_rstn IMX8MN_LCDIF_APB_CLK_RESET>,
+                                 <&dispmix_sft_rstn IMX8MN_LCDIF_PIXEL_CLK_RESET>;
+                };
+        };
+
+Macro definitions for the supported reset channels can be found in:
+include/dt-bindings/reset/imx8mm-dispmix.h and
+include/dt-bindings/reset/imx8mn-dispmix.h.

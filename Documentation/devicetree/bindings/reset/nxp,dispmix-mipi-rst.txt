@@ -1,0 +1,57 @@
+NXP Display Mix mipi-rst Reset Controller
+=========================================
+
+This binding describes a reset controller device that is used to reset
+or de-reset the MIPI DPHY master direction(for MIPI DSI) and slave
+direction(for MIPI CSI) included by the Display Mix subsystem on IMX8MM
+and IMX8MN platforms. Like sft-rstn, only assert and deassert functions
+are required for PHY reset or de-reset.
+
+Please also refer to reset.txt in this directory for common reset
+controller binding usage.
+
+Required properties:
+- compatible: Should be "fsl,imx8mm-dispmix-mipi-rst" or
+			"fsl,imx8mn-dispmix-mipi-rst".
+- reg: should be register base and length as documented in the datasheet.
+- clocks: phandle and clock specifier to disp apb clock for register access.
+- clock-names: should be "disp-apb".
+- power-domains: phandle to dispmix power domain.
+- reset-cells: 1, see below.
+
+example:
+
+	dispmix_mipi_rst: dispmix-mipi-rst@32e28008 {
+		compatible = "fsl,imx8mn-dispmix-mipi-rst";
+		reg = <0x0 0x32e28008 0x0 0x4>;
+		clocks = <&clk IMX8MN_CLK_DISP_APB_ROOT>;
+		clock-names = "disp-apb";
+		active_low;
+		power-domains = <&dispmix_pd>;
+		#reset-cells = <1>;
+	};
+
+Specifying mipi-rst control of devices
+======================================
+
+Device nodes in Display Mix should specify the reset channel required in
+their "resets" property, containing a phandle to the mipi-rst device node
+and an index to specify which channel to use, as described in
+Documentation/devicetree/bindings/reset/reset.txt.
+
+example:
+
+	mipi_dsi_resets: mipi-dsi-resets {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		#reset-cells = <0>;
+
+		dsi-mipi-reset {
+			compatible = "dsi,mipi-reset";
+			resets = <&dispmix_mipi_rst IMX8MN_MIPI_M_RESET>;
+                };
+	};
+
+Macro definitions for the supported reset channels can be found in:
+include/dt-bindings/reset/imx8mm-dispmix.h and
+include/dt-bindings/reset/imx8mn-dispmix.h.
