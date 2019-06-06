@@ -53,6 +53,20 @@ Optional properties:
 		specifying the Input Buffer Mode (Bits [4:1]) and the
 		Buffer enable bit ([0]) - see register 0x000E. If this is
 		not specified, 0 will be used by default.
+
+Adding channels:
+	Channels can be specified using child nodes.
+	The following properties are applicable to them:
+
+	- reg: The identifier of the channel.
+	- adi,extended-name: Descriptive channel name.
+	- adi,divider: Channel divider. The divider supports even divide ratios
+		from 2 to 4094. The supported odd divide ratios are 1, 3, and 5.
+	- adi,driver-mode: Output driver mode. Must be one of:
+		0 - CML mode,
+		1 - LVPECL mode,
+		2 - LVDS mode,
+		3 - CMOS mode.
 	- adi,high-performance-mode-disable: Disables the high performance mode
 	- adi,startup-mode-dynamic-enable: Enables pulse generator mode
 		(default mode is asynchronous)
@@ -62,9 +76,27 @@ Optional properties:
 		by up to 17 1/2 cycles of the VCO
 	- adi,fine-analog-delay: Adjusts the delay of the divider signal
 		in 24 fine delay steps. Step size = 25 ps.
-	- adi,output-mux-mode: Configures the output mux selection.
-		0 = divider channel (default), 1 = analog delay,
-		2 = other channel of pair, 3 = input VCO clock.
+	- adi,output-mux-mode: Configures the output mux selection:
+		0 = divider channel (default)
+		1 = analog delay
+		2 = other channel of pair
+		3 = input VCO clock.
+	- adi,pll1-ref-prio-ctrl: Refer to register 0x14 description.
+	- adi,sync-pin-mode: SYNC pin configuration with respect to PLL2.
+		0 - Disabled
+		1 - SYNC. A rising edge is carried through PLL2.
+		    Useful for multichip synchronization.
+		2 - Pulse generator. Request a pulse generator stream from any
+		    channels configured for dynamic startup. This behaves in
+		    the same way as a GPI requested pulse generator.
+		3 - Causes SYNC if alarm exists, otherwise causes
+		    pulse generator.
+	- adi,clkin0-rf-sync-enable: CLKIN0 input is used for external RF sync.
+	- adi,clkin1-vco-in-enable: CLKIN1 input is used for external VCO.
+	- adi,driver-impedance-mode: Output driver impedance selection.
+		0 - Internal resistor disable.
+		1 - Internal 100 Ω resistor enable per output pin.
+		3 - Internal 50 Ω resistor enable per output pin.
 
 Example:
 
