@@ -27,8 +27,8 @@
 		i2c1 = &i2c1;
 		mmc0 = &sdhci1;
 		rtc0 = &rtc;
-		serial0 = &uart0;
-		serial1 = &uart1;
+		serial0 = &uart1;
+		serial1 = &uart0;
 		serial2 = &dcc;
 		spi0 = &qspi;
 		usb0 = &usb0;
@@ -36,7 +36,7 @@
 
 	chosen {
 		bootargs = "earlycon";
-		stdout-path = "serial1:115200n8";
+		stdout-path = "serial0:115200n8";
 	};
 
 	memory@0 {
