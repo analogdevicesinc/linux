@@ -1818,7 +1818,7 @@ static const struct iio_enum adrv9009_agc_modes_available = {
 };
 
 static const char * const adrv9009_obs_rx_port[] = {
-	"OBS_TX_LO", "OBS_SN_LO"
+	"OBS_TX_LO", "OBS_AUX_LO"
 };
 
 static const taliseObsRxLoSource_t adrv9009_obs_rx_port_lut[] = {
