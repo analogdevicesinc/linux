@@ -1102,7 +1102,9 @@ static int adrv9009_setup(struct adrv9009_rf_phy *phy)
 		}
 	}
 
+	disable_irq(phy->spi->irq);
 	ret = adrv9009_do_setup(phy);
+	enable_irq(phy->spi->irq);
 
 	phy->talInit.jesd204Settings.framerB.M = framer_b_m;
 	phy->talInit.jesd204Settings.framerB.F = framer_b_f;
@@ -1123,7 +1125,6 @@ static int adrv9009_multi_chip_sync(struct adrv9009_rf_phy *phy, int step)
 	switch (step) {
 	case 0:
 		TALISE_radioOff(phy->talDevice);
-		disable_irq(phy->spi->irq);
 		adrv9009_sysref_req(phy, SYSREF_CONT_OFF);
 
 		if (phy->is_initialized) {
@@ -1349,7 +1350,6 @@ static int adrv9009_multi_chip_sync(struct adrv9009_rf_phy *phy, int step)
 		}
 
 		TALISE_radioOn(phy->talDevice);
-		enable_irq(phy->spi->irq);
 		break;
 	default:
 		ret = -EINVAL;
@@ -1452,8 +1452,9 @@ static ssize_t adrv9009_phy_store(struct device *dev,
 		ret = kstrtol(buf, 10, &readin);
 		if (ret)
 			break;
-
+		disable_irq(phy->spi->irq);
 		ret = adrv9009_multi_chip_sync(phy, readin);
+		enable_irq(phy->spi->irq);
 		break;
 
 	default:
