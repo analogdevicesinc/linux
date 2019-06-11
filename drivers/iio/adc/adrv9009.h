@@ -35,6 +35,8 @@ enum debugfs_cmd {
 	DBGFS_INIT,
 	DBGFS_BIST_FRAMER_A_PRBS,
 	DBGFS_BIST_FRAMER_B_PRBS,
+	DBGFS_BIST_FRAMER_A_LOOPBACK,
+	DBGFS_BIST_FRAMER_B_LOOPBACK,
 	DBGFS_BIST_TONE,
 };
 
@@ -105,6 +107,7 @@ enum ad937x_device_id {
 	ID_ADRV9009,
 	ID_ADRV90081,
 	ID_ADRV90082,
+	ID_ADRV9009_X2,
 };
 
 enum adrv9009_sysref_req_mode {
@@ -190,6 +193,7 @@ struct adrv9009_rf_phy {
 	struct adrv9009_hal	linux_hal;
 	struct clk 		*dev_clk;
 	struct clk 		*fmc_clk;
+	struct clk 		*fmc2_clk;
 	struct clk		*sysref_dev_clk;
 	struct clk		*sysref_fmc_clk;
 	struct clk 		*jesd_rx_clk;
