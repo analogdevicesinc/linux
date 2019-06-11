@@ -145,11 +145,11 @@ static int map_irq(struct file *fp, struct usdpaa_ioctl_irq_map *irq_map)
 		fput(ctx->usdpaa_filp);
 		return ret;
 	}
-	ret = irq_set_affinity(ctx->irq_num, &current->cpus_allowed);
+	ret = irq_set_affinity(ctx->irq_num, &current->cpus_mask);
 	if (ret)
 		pr_err("USDPAA irq_set_affinity() failed, ret= %d\n", ret);
 
-	ret = irq_set_affinity_hint(ctx->irq_num, &current->cpus_allowed);
+	ret = irq_set_affinity_hint(ctx->irq_num, &current->cpus_mask);
 	if (ret)
 		pr_err("USDPAA irq_set_affinity_hint() failed, ret= %d\n", ret);
 
