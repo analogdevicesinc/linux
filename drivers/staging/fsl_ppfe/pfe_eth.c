@@ -1879,8 +1879,7 @@ static int pfe_eth_send_packet(struct sk_buff *skb, struct net_device *ndev)
  *
  */
 static u16 pfe_eth_select_queue(struct net_device *ndev, struct sk_buff *skb,
-				struct net_device *sb_dev,
-				select_queue_fallback_t fallback)
+				struct net_device *sb_dev)
 {
 	struct pfe_eth_priv_s *priv = netdev_priv(ndev);
 
