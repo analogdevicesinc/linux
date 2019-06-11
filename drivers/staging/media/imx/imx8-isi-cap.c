@@ -774,7 +774,7 @@ static int mxc_isi_cap_querycap(struct file *file, void *priv,
 	return 0;
 }
 
-static int mxc_isi_cap_enum_fmt_mplane(struct file *file, void *priv,
+static int mxc_isi_cap_enum_fmt(struct file *file, void *priv,
 				       struct v4l2_fmtdesc *f)
 {
 	struct mxc_isi_dev *mxc_isi = video_drvdata(file);
@@ -1208,7 +1208,7 @@ static int mxc_isi_cap_enum_frameintervals(struct file *file, void *fh,
 static const struct v4l2_ioctl_ops mxc_isi_capture_ioctl_ops = {
 	.vidioc_querycap		= mxc_isi_cap_querycap,
 
-	.vidioc_enum_fmt_vid_cap_mplane	= mxc_isi_cap_enum_fmt_mplane,
+	.vidioc_enum_fmt_vid_cap	= mxc_isi_cap_enum_fmt,
 	.vidioc_try_fmt_vid_cap_mplane	= mxc_isi_cap_try_fmt_mplane,
 	.vidioc_s_fmt_vid_cap_mplane	= mxc_isi_cap_s_fmt_mplane,
 	.vidioc_g_fmt_vid_cap_mplane	= mxc_isi_cap_g_fmt_mplane,
