@@ -23,12 +23,14 @@ properties:
   memory-region:
     description:
       Phandle to a node used to specify reserved memory for video frame buffers.
+      If not used, frame buffer address and size should be specified using reg
+      property.
     allOf:
       - $ref: /schemas/types.yaml#/definitions/phandle-array
 
   reg:
     minItems: 2
-    maxItems: 2
+    maxItems: 3
 
   adi,flock-resolution:
     description:
@@ -81,7 +83,6 @@ properties:
 
 required:
   - compatible
-  - memory-region
   - reg
 
 examples:
@@ -89,8 +90,8 @@ examples:
     adi-fb {
             compatible = "adi,axi-framebuffer-1.00.a";
             memory-region = <&reserved>;
-            reg = <0x43000000 0x1000>, <0x43c20000 0x1000>;
-            reg-names = "tx_dma", "rx_dma";
+            reg = <0x1C000000 0x2000>, <0x43000000 0x1000>, <0x43c20000 0x1000>;
+            reg-names = "fb_mem", "tx_dma", "rx_dma";
             adi,flock-resolution = <1920>, <1080>;
             adi,flock-distance = <0>;
             adi,flock-mode = <0>;
