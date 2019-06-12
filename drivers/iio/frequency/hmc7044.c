@@ -15,6 +15,7 @@
 #include <linux/clk-provider.h>
 
 #include <linux/iio/iio.h>
+#include <dt-bindings/iio/frequency/hmc7044.h>
 
 #define HMC7044_WRITE		(0 << 15)
 #define HMC7044_READ		(1 << 15)
@@ -875,7 +876,14 @@ static int hmc7044_parse_dt(struct device *dev,
 		hmc->channels[cnt].driver_mode = 0;
 		of_property_read_u32(chan_np, "adi,driver-mode",
 				     &hmc->channels[cnt].driver_mode);
-		hmc->channels[cnt].driver_impedance = 1;
+
+		if (hmc->channels[cnt].driver_mode == HMC7044_DRIVER_MODE_CML)
+			hmc->channels[cnt].driver_impedance =
+				HMC7044_DRIVER_IMPEDANCE_100_OHM;
+		else
+			hmc->channels[cnt].driver_impedance =
+				HMC7044_DRIVER_IMPEDANCE_DISABLE;
+
 		of_property_read_u32(chan_np, "adi,driver-impedance-mode",
 				     &hmc->channels[cnt].driver_impedance);
 
