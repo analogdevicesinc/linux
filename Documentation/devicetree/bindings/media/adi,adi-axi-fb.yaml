@@ -61,6 +61,18 @@ properties:
     minimum: 0
     maxItems: 1
 
+  adi,flock-line-stride:
+    description:
+      The number of bytes between the start of one row and the next row.
+      Needs to be aligned to the bus width.
+    maxItems: 1
+
+  adi,flock-frm-stride:
+    description:
+      Stride of consecutive frames in memory in bytes. Should be at least the
+      size of one frame.
+    maxItems: 1
+
   adi,flock-dwidth:
     description:
       Represent the number of bytes per pixel according to used color space.
