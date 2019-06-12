@@ -49,6 +49,8 @@ struct frame_buffer {
 	u32 num_frames;
 	u32 mode;
 	u32 distance;
+	u32 line_stride;
+	u32 frame_stride;
 	/* resolution[0] width, resolution[1] height */
 	u32 resolution[2];
 	u32 dwidth;
@@ -112,18 +114,15 @@ static void adi_fb_init(struct frame_buffer *buff, int dma_dir)
 	adi_fb_reg_write(base_addr, DMAC_REG_X_LENGTH,
 			 ((buff->resolution[0] * buff->dwidth) - 1));
 	/* h offset */
-	adi_fb_reg_write(base_addr, stride,
-			 (buff->resolution[0] * buff->dwidth));
+	adi_fb_reg_write(base_addr, stride, buff->line_stride);
 	/* v size */
 	adi_fb_reg_write(base_addr, DMAC_REG_Y_LENGTH,
 			 (buff->resolution[1] - 1));
 
 	adi_fb_reg_write(base_addr, DMAC_REG_FRAME_LOCK_CONFIG, flock_cfg);
 	/* total active */
-	adi_fb_reg_write(base_addr,
-			 DMAC_REG_FRAME_LOCK_STRIDE,
-			 (buff->resolution[0] * buff->resolution[1] *
-			  buff->dwidth));
+	adi_fb_reg_write(base_addr, DMAC_REG_FRAME_LOCK_STRIDE,
+			buff->frame_stride);
 	/* submit transfer */
 	adi_fb_reg_set(base_addr, DMAC_REG_START_TRANSFER,
 		       DMAC_TRANSFER_SUBMIT);
@@ -230,6 +229,31 @@ static int frame_buffer_probe(struct platform_device *pdev)
 		dev_info(&pdev->dev,
 			 "No resolution specified. Using default %d x %d\n",
 			 frm_buff->resolution[0], frm_buff->resolution[1]);
+	}
+
+	/* Get optional line stride*/
+	ret = device_property_read_u32(&pdev->dev, "adi,flock-line-stride",
+					&tmp);
+	frm_buff->line_stride = frm_buff->resolution[0] * frm_buff->dwidth;
+	if (ret) {
+		dev_info(&pdev->dev, "No line stride specified. Using %d bytes\n",
+			 frm_buff->line_stride);
+	} else {
+		if (tmp > frm_buff->line_stride)
+			frm_buff->line_stride = tmp;
+	}
+
+	/* Get optional frame stride*/
+	ret = device_property_read_u32(&pdev->dev, "adi,flock-frm-stride",
+					&tmp);
+	frm_buff->frame_stride =
+		(frm_buff->line_stride * frm_buff->resolution[1]);
+	if (ret) {
+		dev_info(&pdev->dev, "No frame stride specified. Using %d bytes\n",
+			 frm_buff->frame_stride);
+	} else {
+		if (tmp > frm_buff->frame_stride)
+			frm_buff->frame_stride = tmp;
 	}
 
 	adi_fb_init(frm_buff, TX_DMA);
