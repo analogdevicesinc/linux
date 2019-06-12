@@ -14,6 +14,7 @@
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/pinctrl/pinctrl-zynqmp.h>
 #include <dt-bindings/phy/phy.h>
+#include <dt-bindings/iio/frequency/hmc7044.h>
 
 / {
 	model = "Analog Devices ADRV9009-ZU11EG";
@@ -900,14 +901,14 @@
 			reg = <0>;
 			adi,extended-name = "DEV_REFCLK_A";
 			adi,divider = <12>;	// 245760000
-			adi,driver-mode = <2>;	// LVDS
+			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;	// LVDS
 			adi,coarse-digital-delay = <15>;
 		};
 		hmc7044_c1: channel@1 {
 			reg = <1>;
 			adi,extended-name = "DEV_SYSREF_A";
 			adi,divider = <3840>;	// 768000
-			adi,driver-mode = <2>;	// LVDS
+			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;	// LVDS
 			adi,startup-mode-dynamic-enable;
 			adi,high-performance-mode-disable;
 		};
@@ -915,14 +916,14 @@
 			reg = <2>;
 			adi,extended-name = "DEV_REFCLK_B";
 			adi,divider = <12>;	// 245760000
-			adi,driver-mode = <2>;	// LVDS
+			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;	// LVDS
 			adi,coarse-digital-delay = <15>;
 		};
 		hmc7044_c3: channel@3 {
 			reg = <3>;
 			adi,extended-name = "DEV_SYSREF_B";
 			adi,divider = <3840>;	// 768000
-			adi,driver-mode = <2>;	// LVDS
+			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;	// LVDS
 			adi,startup-mode-dynamic-enable;
 			adi,high-performance-mode-disable;
 		};
@@ -930,31 +931,31 @@
 			reg = <4>;
 			adi,extended-name = "JESD_REFCLK_RX_AB";
 			adi,divider = <12>;	// 245760000
-			adi,driver-mode = <1>;	// LVPECL
+			adi,driver-mode = <HMC7044_DRIVER_MODE_LVPECL>;	// LVPECL
 		};
 		hmc7044_c5: channel@5 {
 			reg = <5>;
 			adi,extended-name = "JESD_REFCLK_TX_OBS_AB";
 			adi,divider = <12>;	// 245760000
-			adi,driver-mode = <1>;	// LVPECL
+			adi,driver-mode = <HMC7044_DRIVER_MODE_LVPECL>;	// LVPECL
 		};
 		hmc7044_c6: channel@6 {
 			reg = <6>;
 			adi,extended-name = "CORE_CLK_RX_AB";
 			adi,divider = <24>;	// 122880000
-			adi,driver-mode = <2>;	// LVDS
+			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;	// LVDS
 		};
 		hmc7044_c7: channel@7 {
 			reg = <7>;
 			adi,extended-name = "CORE_CLK_TX_OBS_AB";
 			adi,divider = <12>;	// 245760000
-			adi,driver-mode = <2>;	// LVDS
+			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;	// LVDS
 		};
 		hmc7044_c8: channel@8 {
 			reg = <8>;
 			adi,extended-name = "FPGA_SYSREF_RX_AB";
 			adi,divider = <3840>;	// 768000
-			adi,driver-mode = <2>;	// LVDS
+			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;	// LVDS
 			adi,startup-mode-dynamic-enable;
 			adi,high-performance-mode-disable;
 		};
@@ -962,7 +963,7 @@
 			reg = <9>;
 			adi,extended-name = "FPGA_SYSREF_TX_OBS_AB";
 			adi,divider = <3840>;	// 768000
-			adi,driver-mode = <2>;	// LVDS
+			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;	// LVDS
 			adi,startup-mode-dynamic-enable;
 			adi,high-performance-mode-disable;
 		};
