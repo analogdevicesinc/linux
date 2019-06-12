@@ -6,6 +6,8 @@
  */
 #include <linux/bitfield.h>
 #include <linux/clk.h>
+#include <linux/clk/clkscale.h>
+#include <linux/clk-provider.h>
 #include <linux/device.h>
 #include <linux/err.h>
 #include <linux/gcd.h>
@@ -149,6 +151,14 @@ static const struct regmap_config adf4371_regmap_config = {
 	.read_flag_mask = BIT(7),
 };
 
+struct adf4371_outputs {
+	struct clk_hw hw;
+	struct iio_dev *indio_dev;
+	unsigned int num;
+};
+
+#define to_adf4371_outputs(_hw) container_of(_hw, struct adf4371_outputs, hw)
+
 struct adf4371_chip_info {
 	unsigned int num_channels;
 	const struct iio_chan_spec *channels;
@@ -164,6 +174,10 @@ struct adf4371_state {
 	struct regmap *regmap;
 	struct clk *clkin;
 	struct adf4371_channel_config channel_cfg[4];
+	struct adf4371_outputs outputs[4];
+	struct clock_scale scale;
+	struct clk *clks[4];
+	struct clk_onecell_data clk_data;
 	/*
 	 * Lock for accessing device registers. Some operations require
 	 * multiple consecutive R/W operations, during which the device
@@ -173,6 +187,7 @@ struct adf4371_state {
 	 */
 	struct mutex lock;
 	const struct adf4371_chip_info *chip_info;
+	const char *adf4371_clk_names[4];
 	unsigned long clkin_freq;
 	unsigned long fpfd;
 	unsigned int integer;
@@ -181,6 +196,7 @@ struct adf4371_state {
 	unsigned int mod2;
 	unsigned int rf_div_sel;
 	unsigned int ref_div_factor;
+	bool has_clk_out_names;
 	bool mute_till_lock_en;
 	u8 buf[10] ____cacheline_aligned;
 };
@@ -517,6 +533,64 @@ static int adf4371_channel_config(struct adf4371_state *st)
 	return 0;
 }
 
+static long adf4371_clock_round_rate(struct clk_hw *hw, unsigned long rate,
+				     unsigned long *parent_rate)
+{
+	return rate;
+}
+
+static unsigned long adf4371_clock_recalc_rate(struct clk_hw *hw,
+					       unsigned long parent_rate)
+{
+	struct adf4371_outputs *out = to_adf4371_outputs(hw);
+	struct iio_dev *indio_dev = out->indio_dev;
+	struct adf4371_state *st = iio_priv(indio_dev);
+	unsigned long long rate;
+
+	rate = adf4371_pll_fract_n_get_rate(st, out->num);
+
+	return to_ccf_scaled(rate, &st->scale);
+}
+
+static int adf4371_clock_set_rate(struct clk_hw *hw, unsigned long rate,
+				  unsigned long parent_name)
+{
+	struct adf4371_outputs *out = to_adf4371_outputs(hw);
+	struct iio_dev *indio_dev = out->indio_dev;
+	struct adf4371_state *st = iio_priv(indio_dev);
+	unsigned long long scaled_rate;
+
+	scaled_rate = from_ccf_scaled(rate, &st->scale);
+
+	return adf4371_set_freq(st, scaled_rate, out->num);
+}
+
+static int adf4371_clock_enable(struct clk_hw *hw)
+{
+	struct adf4371_outputs *out = to_adf4371_outputs(hw);
+	struct iio_dev *indio_dev = out->indio_dev;
+	struct adf4371_state *st = iio_priv(indio_dev);
+
+	return adf4371_channel_power_down(st, out->num, false);
+}
+
+void adf4371_clock_disable(struct clk_hw *hw)
+{
+	struct adf4371_outputs *out = to_adf4371_outputs(hw);
+	struct iio_dev *indio_dev = out->indio_dev;
+	struct adf4371_state *st = iio_priv(indio_dev);
+
+	adf4371_channel_power_down(st, out->num, true);
+}
+
+static const struct clk_ops adf4371_clock_ops = {
+	.set_rate = adf4371_clock_set_rate,
+	.recalc_rate = adf4371_clock_recalc_rate,
+	.round_rate = adf4371_clock_round_rate,
+	.enable = adf4371_clock_enable,
+	.disable = adf4371_clock_disable,
+};
+
 static int adf4371_setup(struct adf4371_state *st)
 {
 	unsigned int synth_timeout = 2, timeout = 1, vco_alc_timeout = 1;
@@ -606,6 +680,23 @@ static int adf4371_parse_dt(struct adf4371_state *st)
 	if (device_property_read_bool(&st->spi->dev, "adi,mute-till-lock-en"))
 		st->mute_till_lock_en = true;
 
+	ret = of_clk_get_scale(st->spi->dev.of_node, NULL, &st->scale);
+	if (ret < 0) {
+		st->scale.mult = 1;
+		st->scale.div = 10;
+	}
+
+	ret = device_property_read_string_array(&st->spi->dev,
+						"clock-output-names",
+						st->adf4371_clk_names,
+						st->chip_info->num_channels);
+	if (ret < 0) {
+		dev_warn(&st->spi->dev, "Using the default clk names");
+		st->has_clk_out_names = false;
+	} else {
+		st->has_clk_out_names = true;
+	}
+
 	num_channels = device_get_child_node_count(&st->spi->dev);
 	if (num_channels > st->chip_info->num_channels)
 		return -EINVAL;
@@ -624,6 +715,73 @@ static int adf4371_parse_dt(struct adf4371_state *st)
 	}
 
 	return 0;
+}
+
+static void adf4371_clk_del_provider(void *data)
+{
+	struct adf4371_state *st = data;
+
+	of_clk_del_provider(st->spi->dev.of_node);
+}
+
+static int adf4371_clk_register(struct iio_dev *indio_dev, unsigned int channel)
+{
+	struct adf4371_state *st = iio_priv(indio_dev);
+	struct clk_init_data init;
+	struct clk *clk_out;
+	char name[12];
+
+	if (!st->has_clk_out_names) {
+		sprintf(name, "%s_out%d", indio_dev->name, channel);
+		st->adf4371_clk_names[channel] = name;
+	}
+	init.name = st->adf4371_clk_names[channel];
+	init.ops = &adf4371_clock_ops;
+	init.num_parents = 0;
+	init.flags = CLK_GET_RATE_NOCACHE;
+
+	st->outputs[channel].hw.init = &init;
+	st->outputs[channel].indio_dev = indio_dev;
+	st->outputs[channel].num = channel;
+
+	clk_out = devm_clk_register(&st->spi->dev, &st->outputs[channel].hw);
+	if (IS_ERR(clk_out))
+		return PTR_ERR(clk_out);
+
+	st->clks[channel] = clk_out;
+
+	return 0;
+}
+
+static int adf4371_clks_register(struct iio_dev *indio_dev)
+{
+	struct adf4371_state *st = iio_priv(indio_dev);
+	int i, ret;
+
+	st->clk_data.clks = devm_kcalloc(&st->spi->dev,
+					 st->chip_info->num_channels,
+					 sizeof(struct clk *), GFP_KERNEL);
+	if (!st->clk_data.clks)
+		return -ENOMEM;
+
+	for (i = 0; i < st->chip_info->num_channels; i++) {
+		ret = adf4371_clk_register(indio_dev, i);
+		if (ret < 0) {
+			dev_err(&st->spi->dev,
+				"Clock provider register failed\n");
+			return ret;
+		}
+	}
+
+	st->clk_data.clks = st->clks;
+	st->clk_data.clk_num = st->chip_info->num_channels;
+	ret = of_clk_add_provider(st->spi->dev.of_node,
+				  of_clk_src_onecell_get, &st->clk_data);
+	if (ret < 0)
+		return ret;
+
+	return devm_add_action_or_reset(&st->spi->dev,
+					adf4371_clk_del_provider, st);
 }
 
 static int adf4371_probe(struct spi_device *spi)
@@ -682,6 +840,10 @@ static int adf4371_probe(struct spi_device *spi)
 		dev_err(&spi->dev, "ADF4371 setup failed\n");
 		return ret;
 	}
+
+	ret = adf4371_clks_register(indio_dev);
+	if (ret < 0)
+		return ret;
 
 	return devm_iio_device_register(&spi->dev, indio_dev);
 }
