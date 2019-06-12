@@ -153,15 +153,21 @@ static int frame_buffer_probe(struct platform_device *pdev)
 	/* Get reserved memory region from Device-tree */
 	np = of_parse_phandle(pdev->dev.of_node, "memory-region", 0);
 	if (!np) {
-		dev_err(&pdev->dev, "No %s specified\n", "memory-region");
-		return -ENODEV;
-	}
-
-	ret = of_address_to_resource(np, 0, &frm_buff->video_ram_buf);
-	if (ret) {
-		dev_err(&pdev->dev,
-			"No memory address assigned to the region\n");
-		return ret;
+		/* Get physical address of FB from reg property */
+		res = platform_get_resource_byname(pdev,
+						IORESOURCE_MEM, "fb_mem");
+		if (!res) {
+			dev_err(&pdev->dev, "No frame buffer memory.\n");
+			return -EFAULT;
+		}
+		frm_buff->video_ram_buf = *res;
+	} else {
+		ret = of_address_to_resource(np, 0, &frm_buff->video_ram_buf);
+		if (ret) {
+			dev_err(&pdev->dev,
+				"No memory address assigned to the region\n");
+			return ret;
+		}
 	}
 	dev_info(&pdev->dev, "Allocated reserved memory, paddr: 0x%0X\n",
 		 frm_buff->video_ram_buf.start);
