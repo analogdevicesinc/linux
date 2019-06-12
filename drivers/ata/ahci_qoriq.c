@@ -427,9 +427,7 @@ static int ahci_qoriq_probe(struct platform_device *pdev)
 		qoriq_priv->type = (enum ahci_qoriq_type)acpi_id->driver_data;
 
 	if (unlikely(!ecc_initialized)) {
-		res = platform_get_resource_byname(pdev,
-						   IORESOURCE_MEM,
-						   "sata-ecc");
+		res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
 		if (res) {
 			qoriq_priv->ecc_addr =
 				devm_ioremap_resource(dev, res);
