@@ -16,6 +16,7 @@
 #include <linux/clk-provider.h>
 
 #include <linux/iio/iio.h>
+#include <linux/iio/sysfs.h>
 #include <dt-bindings/iio/frequency/hmc7044.h>
 
 #define HMC7044_WRITE		(0 << 15)
@@ -400,6 +401,95 @@ static int hmc7044_write_raw(struct iio_dev *indio_dev,
 	return 0;
 }
 
+static ssize_t hmc7044_store(struct device *dev,
+			    struct device_attribute *attr,
+			    const char *buf, size_t len)
+{
+	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
+	struct iio_dev_attr *this_attr = to_iio_dev_attr(attr);
+	struct hmc7044 *hmc = iio_priv(indio_dev);
+	bool state;
+	int ret;
+	u32 val, write_val;
+
+	ret = strtobool(buf, &state);
+	if (ret < 0)
+		return ret;
+
+	mutex_lock(&hmc->lock);
+
+	ret = hmc7044_read(indio_dev, HMC7044_REG_REQ_MODE_0, &val);
+	if (ret < 0)
+		goto out;
+
+	if (state)
+		write_val = val | (u32)this_attr->address;
+	else
+		write_val = val & ~((u32)this_attr->address);
+
+	ret = hmc7044_write(indio_dev, HMC7044_REG_REQ_MODE_0, write_val);
+
+	switch ((u32)this_attr->address) {
+	case HMC7044_RESEED_REQ:
+	case HMC7044_PULSE_GEN_REQ:
+	case HMC7044_RESTART_DIV_FSM:
+		ret = hmc7044_write(indio_dev, HMC7044_REG_REQ_MODE_0, val);
+		break;
+	}
+out:
+	mutex_unlock(&hmc->lock);
+
+	return ret ? ret : len;
+}
+
+static ssize_t hmc7044_show(struct device *dev,
+			   struct device_attribute *attr,
+			   char *buf)
+{
+	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
+	struct iio_dev_attr *this_attr = to_iio_dev_attr(attr);
+	struct hmc7044 *hmc = iio_priv(indio_dev);
+	int ret;
+	u32 val;
+
+	mutex_lock(&hmc->lock);
+	ret = hmc7044_read(indio_dev, HMC7044_REG_REQ_MODE_0, &val);
+	if (ret >= 0) {
+		ret = sprintf(buf, "%d\n", !!(val & (u32)this_attr->address));
+	}
+	mutex_unlock(&hmc->lock);
+
+	return ret;
+}
+
+static IIO_DEVICE_ATTR(reseed_request, S_IRUGO | S_IWUSR,
+		       hmc7044_show, hmc7044_store, HMC7044_RESEED_REQ);
+
+static IIO_DEVICE_ATTR(mute_request, S_IRUGO | S_IWUSR,
+		       hmc7044_show, hmc7044_store, HMC7044_MUTE_OUT_DIV);
+
+static IIO_DEVICE_ATTR(sysref_request, S_IRUGO | S_IWUSR,
+		       hmc7044_show, hmc7044_store, HMC7044_PULSE_GEN_REQ);
+
+static IIO_DEVICE_ATTR(reset_dividers_request, S_IRUGO | S_IWUSR,
+		       hmc7044_show, hmc7044_store, HMC7044_RESTART_DIV_FSM);
+
+static IIO_DEVICE_ATTR(sleep_request, S_IRUGO | S_IWUSR,
+		       hmc7044_show, hmc7044_store, HMC7044_SLEEP_MODE);
+
+static struct attribute *hmc7044_attributes[] = {
+	&iio_dev_attr_reseed_request.dev_attr.attr,
+	&iio_dev_attr_mute_request.dev_attr.attr,
+	&iio_dev_attr_sysref_request.dev_attr.attr,
+	&iio_dev_attr_reset_dividers_request.dev_attr.attr,
+	&iio_dev_attr_sleep_request.dev_attr.attr,
+	NULL,
+};
+
+static const struct attribute_group hmc7044_attribute_group = {
+	.attrs = hmc7044_attributes,
+};
+
 static int hmc7044_reg_access(struct iio_dev *indio_dev, unsigned int reg,
 			      unsigned int writeval, unsigned int *readval)
 {
@@ -420,6 +510,7 @@ static const struct iio_info hmc7044_iio_info = {
 	.read_raw = &hmc7044_read_raw,
 	.write_raw = &hmc7044_write_raw,
 	.debugfs_reg_access = &hmc7044_reg_access,
+	.attrs = &hmc7044_attribute_group,
 	.driver_module = THIS_MODULE,
 };
 
