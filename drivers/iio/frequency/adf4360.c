@@ -6,18 +6,15 @@
  * Licensed under the GPL-2.
  */
 
-#include <linux/device.h>
-#include <linux/kernel.h>
-#include <linux/slab.h>
-#include <linux/spi/spi.h>
-#include <linux/err.h>
-#include <linux/module.h>
 #include <linux/clk.h>
-#include <linux/of.h>
-#include <linux/gpio/consumer.h>
 #include <linux/clk-provider.h>
-#include <linux/clk.h>
 #include <linux/delay.h>
+#include <linux/device.h>
+#include <linux/err.h>
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/of.h>
+#include <linux/spi/spi.h>
 
 #define ADF4360_REG_CTRL	0x00
 #define ADF4360_REG_RDIV	0x01
