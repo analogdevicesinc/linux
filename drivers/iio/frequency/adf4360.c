@@ -1,14 +1,14 @@
+// SPDX-License-Identifier: GPL-2.0
 /*
+ *
  * ADF4360 PLL with Integrated Synthesizer and VCO
  *
  * Copyright © 2014-2018 Analog Devices Inc.
  * Copyright © 2019 Edward Kigwana.
  *
- * Parts lifted from drivers/clk/clk-adf4360.c by Lars-Peter Clausen.
- * Parts lifted from drivers/iio/frequency/adf4360.c by Michael Hennerich.
- * Parts lifted from drivers/iio/frequency/adf4360.c by Stefan Popa.
- *
- * SPDX-License-Identifier: GPL-2.0
+ * Parts lifted from clk/clk-adf4360.c by Lars-Peter Clausen.
+ * Parts lifted from iio/frequency/adf4350.c by Michael Hennerich.
+ * Parts lifted from iio/frequency/adf4371.c by Stefan Popa.
  */
 
 #include <linux/clk.h>
