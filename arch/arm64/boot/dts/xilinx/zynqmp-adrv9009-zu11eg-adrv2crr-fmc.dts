@@ -289,3 +289,64 @@
 		};
 	};
 };
+
+/*
+ * SPI0
+ */
+
+&spi0 {
+	hmc7044_fmc_car: hmc7044-car@3 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		#clock-cells = <1>;
+		compatible = "adi,hmc7044";
+		reg = <3>;
+		spi-max-frequency = <10000000>;
+
+		adi,pll1-clkin-frequencies = <0 122880000 0 19200000>;
+
+		adi,pll1-loop-bandwidth-hz = <200>;
+
+		adi,vcxo-frequency = <122880000>;
+
+		adi,pll2-output-frequency = <2949120000>;
+
+		adi,sysref-timer-divider = <3840>;
+		adi,pulse-generator-mode = <HMC7044_PULSE_GEN_1_PULSE>;
+
+		adi,oscin-buffer-mode = <0x15>;
+		adi,clkin1-buffer-mode  = <0x09>;
+		adi,clkin3-buffer-mode  = <0x11>;
+		adi,sync-pin-mode = <1>;
+
+		adi,gpi-controls = <0x00 0x00 0x00 0x11>;
+		adi,gpo-controls = <0x1f 0x2b 0x00 0x00>;
+
+		clock-output-names =
+			"hmc7044_c_out0_REFCLK_OUT0", "hmc7044_c_out1",
+			"hmc7044_c_out2_REFCLK_OUT2", "hmc7044_c_out3",
+			"hmc7044_c_out4", "hmc7044_c_out5_SYNC_OUT1",
+			"hmc7044_c_out6_SYNC_OUT2", "hmc7044_c_out7",
+			"hmc7044_c_out8_REFCLK_OUT3","hmc7044_c_out9_REFCLK_OUT4",
+			"hmc7044_c_out10_REFCLK_QSFP", "hmc7044_c_out11_REFCLK_SFP",
+			"hmc7044_c_out12", "hmc7044_c_out13";
+
+
+		hmc7044_fmc_car_c2: channel@2 {
+			reg = <2>;
+			adi,extended-name = "REFCLK_OUT2";
+			adi,divider = <24>;	// 12288000
+			adi,driver-mode = <HMC7044_DRIVER_MODE_LVPECL>;
+		};
+
+		hmc7044_fmc_car_c5: channel@5 {
+			reg = <5>;
+			adi,extended-name = "SYNC_OUT1";
+			adi,divider = <3840>;	// 768000
+			adi,driver-mode = <3>;
+			adi,startup-mode-dynamic-enable;
+			adi,high-performance-mode-disable;
+			adi,driver-impedance-mode = <3>;
+		};
+	};
+};
