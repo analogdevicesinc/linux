@@ -872,7 +872,12 @@
 		reg = <2>;
 		spi-max-frequency = <10000000>;
 
-		adi,pll1-clkin-frequencies = <122880000 0 0 0>;
+		adi,pll1-clkin-frequencies = <122880000 122880000 0 0>;
+		adi,pll1-ref-prio-ctrl = <0xE5>; /* prefer CLKIN1 */
+
+		adi,clkin0-buffer-mode  = <0x09>;
+		adi,clkin1-buffer-mode  = <0x09>;
+		adi,sync-pin-mode = <1>;
 
 		adi,pll1-loop-bandwidth-hz = <200>;
 
