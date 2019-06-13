@@ -101,7 +101,6 @@
 
 /**
  * struct adf4360_platform_data - platform specific information.
- * @name:		Optional device name.
  * @clkin:		REFin frequency in Hz.
  * @power_up_frequency:	Optional, if set in Hz the PLL tunes to the desired
  *			frequency on probe.
@@ -124,7 +123,6 @@
  */
 
 struct adf4360_platform_data {
-	char name[32];
 	unsigned long power_up_frequency;
 	unsigned int vco_min;
 	unsigned int vco_max;
@@ -723,8 +721,6 @@ static struct adf4360_platform_data *adf4360_parse_dt(struct device *dev,
 	if (!pdata)
 		return NULL;
 
-	strncpy(&pdata->name[0], np->name, SPI_NAME_SIZE - 1);
-
 	tmp = 0;
 	of_property_read_u32(np, "adi,power-up-frequency", &tmp);
 	pdata->power_up_frequency = tmp;
@@ -799,14 +795,14 @@ struct adf4360_platform_data *adf4360_parse_dt(struct device *dev)
 
 static int adf4360_probe(struct spi_device *spi)
 {
+	const struct spi_device_id *id = spi_get_device_id(spi);
 	struct adf4360_platform_data *pdata;
 	struct iio_dev *indio_dev;
 	struct adf4360_state *st;
-	unsigned int part_id = spi_get_device_id(spi)->driver_data;
 	int ret;
 
 	if (spi->dev.of_node) {
-		pdata = adf4360_parse_dt(&spi->dev, part_id);
+		pdata = adf4360_parse_dt(&spi->dev, id->driver_data);
 		if (pdata == NULL)
 			return -EINVAL;
 	} else {
@@ -838,12 +834,10 @@ static int adf4360_probe(struct spi_device *spi)
 	spi_set_drvdata(spi, indio_dev);
 	st->spi = spi;
 	st->pdata = pdata;
-	st->part_id = part_id;
+	st->part_id = id->driver_data;
 
 	indio_dev->dev.parent = &spi->dev;
-	indio_dev->name = (pdata->name[0] != 0) ? pdata->name :
-		spi_get_device_id(spi)->name;
-
+	indio_dev->name = id->name;
 	indio_dev->info = &adf4360_info;
 	indio_dev->modes = INDIO_DIRECT_MODE;
 	indio_dev->channels = &adf4360_chan;
