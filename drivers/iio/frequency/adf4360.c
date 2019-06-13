@@ -184,7 +184,7 @@ static int adf4360_sync_config(struct adf4360_state *st, bool sync_all)
 	int reg[] = {ADF4360_REG_RDIV, ADF4360_REG_CTRL, ADF4360_REG_NDIV};
 	unsigned int val = 0;
 
-	for (i = 0; i < 3; ++i) {
+	for (i = 0; i < sizeof(st->regs); ++i) {
 		if ((st->regs_hw[reg[i]] != st->regs[reg[i]]) || sync_all) {
 			val |= reg[i];
 
@@ -195,7 +195,7 @@ static int adf4360_sync_config(struct adf4360_state *st, bool sync_all)
 			if (reg[i] == ADF4360_REG_NDIV)
 				usleep_range(15000, 20000);
 
-			ret = spi_write(st->spi, st->spi_data, 3);
+			ret = spi_write(st->spi, st->spi_data, sizeof(st->spi_data));
 			if (ret < 0)
 				return ret;
 			st->regs_hw[reg[i]] = st->regs[reg[i]];
