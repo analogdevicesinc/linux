@@ -217,7 +217,6 @@ static int adf4360_reg_access(struct iio_dev *indio_dev,
 	if (reg > ADF4360_REG_NDIV)
 		return -EINVAL;
 
-	mutex_lock(&indio_dev->mlock);
 	if (readval == NULL) {
 		st->regs[reg] = writeval & ~(BIT(0) | BIT(1));
 		ret = adf4360_sync_config(st, true);
@@ -225,7 +224,6 @@ static int adf4360_reg_access(struct iio_dev *indio_dev,
 		*readval = st->regs_hw[reg];
 		ret = 0;
 	}
-	mutex_unlock(&indio_dev->mlock);
 
 	return ret;
 }
@@ -428,7 +426,6 @@ static ssize_t adf4360_write(struct iio_dev *indio_dev,
 	if (ret)
 		return ret;
 
-	mutex_lock(&indio_dev->mlock);
 	switch ((u32)private) {
 	case ADF4360_FREQ:
 		if ((readin < pdata->vco_min) || (readin > pdata->vco_max))
@@ -467,7 +464,6 @@ static ssize_t adf4360_write(struct iio_dev *indio_dev,
 	default:
 		ret = -EINVAL;
 	}
-	mutex_unlock(&indio_dev->mlock);
 
 	return ret ? ret : len;
 }
@@ -481,7 +477,6 @@ static ssize_t adf4360_read(struct iio_dev *indio_dev,
 	unsigned long long val;
 	int ret = 0;
 
-	mutex_lock(&indio_dev->mlock);
 	switch ((u32)private) {
 	case ADF4360_FREQ:
 		val = (u64)(st->freq_req);
@@ -505,7 +500,6 @@ static ssize_t adf4360_read(struct iio_dev *indio_dev,
 		ret = -EINVAL;
 		val = 0;
 	}
-	mutex_unlock(&indio_dev->mlock);
 
 	return ret < 0 ? ret : sprintf(buf, "%llu\n", val);
 }
