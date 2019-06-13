@@ -10,6 +10,7 @@
 #include <linux/delay.h>
 #include <linux/gcd.h>
 #include <linux/rational.h>
+#include <linux/debugfs.h>
 
 #include <linux/clk.h>
 #include <linux/clk-provider.h>
@@ -137,6 +138,20 @@
 #define HMC7044_REG_SYSREF_TIMER_MSB	0x005D
 #define HMC7044_SYSREF_TIMER_MSB(x)	(((x) & 0xf00) >> 8)
 
+
+/* Status and Alarm readback */
+#define HMC7044_REG_ALARM_READBACK	0x007D
+#define HMC7044_REG_PLL1_STATUS		0x0082
+
+#define HMC7044_PLL1_FSM_STATE(x)	((x) & 0x7)
+#define HMC7044_PLL1_ACTIVE_CLKIN(x)	(((x) >> 3) & 0x3)
+
+#define HMC7044_PLL2_LOCK_DETECT(x)	((x) & 0x1)
+#define HMC7044_SYSREF_SYNC_STAT(x)	((x) & 0x2)
+#define HMC7044_CLK_OUT_PH_STATUS(x)	((x) & 0x4)
+#define HMC7044_PLL1_PLL2_LOCK_STAT(x)	((x) & 0x8)
+#define HMC7044_SYNC_REQ_STATUS(x)	((x) & 0x10)
+
 /* Other Controls */
 #define HMC7044_REG_CLK_OUT_DRV_LOW_PW	0x009F
 #define HMC7044_REG_CLK_OUT_DRV_HIGH_PW	0x00A0
@@ -191,6 +206,16 @@
 #define HMC7044_OUT_DIV_MIN	1
 #define HMC7044_OUT_DIV_MAX	4094
 
+static const char* const pll1_fsm_states[] = {
+	"Reset",
+	"Acquisition",
+	"Locked",
+	"Invalid",
+	"Holdover",
+	"DAC assisted holdover exit",
+	"Invalid",
+};
+
 struct hmc7044_output {
 	unsigned int	address;
 	struct clk_hw	hw;
@@ -219,6 +244,7 @@ struct hmc7044 {
 	u32				clkin_freq[4];
 	u32				clkin_freq_ccf[4];
 	u32				vcxo_freq;
+	u32				pll1_pfd;
 	u32				pll2_freq;
 	unsigned int			pll1_loop_bw;
 	unsigned int			sysref_timer_div;
@@ -557,6 +583,8 @@ static int hmc7044_setup(struct iio_dev *indio_dev)
 		n1 *= 2;
 		r1 *= 2;
 	}
+
+	hmc->pll1_pfd = pfd1_freq;
 
 	if (pll2_freq < HMC7044_LOW_VCO_MIN  ||
 	    pll2_freq > HMC7044_HIGH_VCO_MAX)
@@ -953,6 +981,48 @@ static int hmc7044_get_clks(struct device *dev,
 	return 0;
 }
 
+static int hmc7044_status_show(struct seq_file *file, void *offset)
+{
+	struct iio_dev *indio_dev = spi_get_drvdata(file->private);
+	struct hmc7044 *hmc = iio_priv(indio_dev);
+	int ret;
+	u32 alarm_stat, pll1_stat;
+
+	ret = hmc7044_read(indio_dev, HMC7044_REG_PLL1_STATUS, &pll1_stat);
+	if (ret < 0)
+		return ret;
+
+	ret = hmc7044_read(indio_dev, HMC7044_REG_ALARM_READBACK, &alarm_stat);
+	if (ret < 0)
+		return ret;
+
+	seq_printf(file, "--- PLL1 ---\n"
+		   "Status:\t%s\nUsing:\tCLKIN%u @ %u Hz\nPFD:\t%u kHz\n",
+		   pll1_fsm_states[HMC7044_PLL1_FSM_STATE(pll1_stat)],
+		   HMC7044_PLL1_ACTIVE_CLKIN(pll1_stat),
+		   hmc->clkin_freq[HMC7044_PLL1_ACTIVE_CLKIN(pll1_stat)],
+		   hmc->pll1_pfd);
+
+	seq_printf(file, "--- PLL2 ---\n"
+		   "Status:\t%s (%s)\nFrequency:\t%u Hz\n",
+		   HMC7044_PLL2_LOCK_DETECT(alarm_stat) ?
+		   "Locked" : "Unlocked",
+		   HMC7044_SYNC_REQ_STATUS(alarm_stat) ?
+		   "Unsynchronized" : "Synchronized",
+		   hmc->pll2_freq);
+
+	seq_printf(file,
+		   "SYSREF Status:\t%s\nSYNC Status:\t%s\nLock Status:\t%s\n",
+		   HMC7044_CLK_OUT_PH_STATUS(alarm_stat) ?
+		   "Valid & Locked" : "Invalid",
+		   HMC7044_SYSREF_SYNC_STAT(alarm_stat) ?
+		   "Unsynchronized" : "Synchronized",
+		   HMC7044_PLL1_PLL2_LOCK_STAT(alarm_stat) ?
+		   "PLL1 & PLL2 Locked" : "Unlocked");
+
+	return 0;
+}
+
 static int hmc7044_probe(struct spi_device *spi)
 {
 	struct iio_dev *indio_dev;
@@ -995,7 +1065,21 @@ static int hmc7044_probe(struct spi_device *spi)
 	if (ret)
 		return ret;
 
-	return iio_device_register(indio_dev);
+	ret = iio_device_register(indio_dev);
+
+	if (iio_get_debugfs_dentry(indio_dev)) {
+		struct dentry *stats;
+
+		stats = debugfs_create_devm_seqfile(&spi->dev, "status",
+						    iio_get_debugfs_dentry(indio_dev),
+						    hmc7044_status_show);
+		if (PTR_ERR_OR_ZERO(stats))
+			dev_err(&spi->dev,
+				"Failed to create debugfs entry");
+	}
+
+	return ret;
+
 }
 
 static int hmc7044_remove(struct spi_device *spi)
