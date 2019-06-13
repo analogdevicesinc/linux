@@ -676,6 +676,16 @@ static void adf4360_regulator_disable(void *data)
 		regulator_disable(st->reg);
 }
 
+static void adf4360_power_down(void *data)
+{
+	struct adf4360_state *st = data;
+
+	if (!IS_ERR(st->spi)) {
+		st->regs[ADF4360_REG_CTRL] |= ADF4360_CTRL_POWER_DOWN_EN;
+		adf4360_sync_config(st, false);
+	}
+}
+
 #define _ADF4360_EXT_INFO(_name, _ident) { \
 	.name = _name, \
 	.read = adf4360_read, \
@@ -820,6 +830,10 @@ static int adf4360_probe(struct spi_device *spi)
 
 	st = iio_priv(indio_dev);
 
+	ret = devm_add_action_or_reset(&spi->dev, adf4360_power_down, st);
+	if (ret)
+		return ret;
+
 	ret = devm_add_action_or_reset(&spi->dev, adf4360_regulator_disable, st);
 	if (ret)
 		return ret;
@@ -906,23 +920,6 @@ static int adf4360_probe(struct spi_device *spi)
 	return devm_iio_device_register(&spi->dev, indio_dev);
 }
 
-static int adf4360_remove(struct spi_device *spi)
-{
-	struct iio_dev *indio_dev = spi_get_drvdata(spi);
-	struct adf4360_state *st = iio_priv(indio_dev);
-	struct regulator *reg = st->reg;
-
-	st->regs[ADF4360_REG_CTRL] |= ADF4360_CTRL_POWER_DOWN_EN;
-	adf4360_sync_config(st, false);
-
-	iio_device_unregister(indio_dev);
-
-	if (!IS_ERR(reg))
-		regulator_disable(reg);
-
-	return 0;
-}
-
 static const struct of_device_id adf4360_of_match[] = {
 	{ .compatible = "adi,adf4360-0", },
 	{ .compatible = "adi,adf4360-1", },
@@ -959,7 +956,6 @@ static struct spi_driver adf4360_driver = {
 		.of_match_table = adf4360_of_match,
 	},
 	.probe = adf4360_probe,
-	.remove = adf4360_remove,
 	.id_table = adf4360_id,
 };
 module_spi_driver(adf4360_driver);
