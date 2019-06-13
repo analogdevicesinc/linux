@@ -956,7 +956,7 @@ MODULE_DEVICE_TABLE(spi, adf4360_id);
 static struct spi_driver adf4360_driver = {
 	.driver = {
 		.name = "adf4360",
-		.of_match_table = of_match_ptr(adf4360_of_match),
+		.of_match_table = adf4360_of_match,
 	},
 	.probe = adf4360_probe,
 	.remove = adf4360_remove,
