@@ -168,5 +168,16 @@ config ADF4371
 
 	  To compile this driver as a module, choose M here: the
 	  module will be called adf4371.
+
+config ADF4360
+	tristate "Analog Devices ADF4360 Wideband Synthesizers"
+	depends on SPI
+	depends on COMMON_CLK
+	help
+	  Say yes here to build support for Analog Devices ADF4360
+	  Wideband Synthesizers.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called adf4360.
 endmenu
 endmenu
