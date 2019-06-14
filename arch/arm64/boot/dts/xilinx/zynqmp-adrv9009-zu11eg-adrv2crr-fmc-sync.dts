@@ -8,12 +8,6 @@
 
 #include "zynqmp-adrv9009-zu11eg-adrv2crr-fmc.dts"
 
-
-&hmc7044 {
-	clocks = <&hmc7044_fmc_car 2>;
-	clock-names = "clkin1";
-};
-
 &spi0 {
 	hmc7044_fmc_car: hmc7044-car@3 {
 		#address-cells = <1>;
