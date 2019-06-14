@@ -80,8 +80,8 @@
 #define ADF4360_RDIV_BSC_8		(0x3 << 20)
 
 /* Specifications */
-#define ADF4360_MAX_PFD_RATE 		8000000 /* 8 MHz */
-#define ADF4360_MAX_COUNTER_RATE 	300000000 /* 300 MHz */
+#define ADF4360_MAX_PFD_RATE		8000000 /* 8 MHz */
+#define ADF4360_MAX_COUNTER_RATE	300000000 /* 300 MHz */
 
 struct adf4360_state {
 	struct spi_device *spi;
