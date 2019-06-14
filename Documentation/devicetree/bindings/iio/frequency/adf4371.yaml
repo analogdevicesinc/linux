@@ -39,11 +39,47 @@ properties:
       output stage will shut down until the ADF4371/ADF4372 achieves lock as
       measured by the digital lock detect circuitry.
 
+  '#address-cells':
+    const: 1
+
+  '#size-cells':
+    const: 0
+
 required:
   - compatible
   - reg
   - clocks
   - clock-names
+
+  patternProperties:
+  "^channel@[01]$":
+    type: object
+    description: Represents the external channels which are connected to the device.
+
+    properties:
+      reg:
+        description: |
+          The channel number. It can have up to 3 channels on adf4372
+          and 4 channels on adf4371, numbered from 0 to 3.
+        maxItems: 1
+
+      adi,output-enable:
+        description: |
+          If this property is specified, the output channel will be enabled.
+          If left empty, the driver will initialize the defaults (RF8x, channel 0
+          will be the only one enabled).
+        maxItems: 1
+
+      adi,power-up-frequency:
+        description: |
+          Set the frequency after power up for the channel. If this property is
+          specified, it has to be in sync with the power up frequency set on the
+          other channels. This limitation is due to the fact that all the channel
+          frequencies are derived from the VCO fundamental frequency.
+        maxItems: 1
+
+    required:
+      - reg
 
 examples:
   - |
@@ -54,9 +90,36 @@ examples:
         frequency@0 {
                 compatible = "adi,adf4371";
                 reg = <0>;
+
+                #address-cells = <1>;
+                #size-cells = <0>;
+
                 spi-max-frequency = <1000000>;
                 clocks = <&adf4371_clkin>;
                 clock-names = "clkin";
+
+                channel@0 {
+                        reg = <0>;
+                        adi,output-enable;
+                        adi,power-up-frequency = /bits/ 64 <8000000000>;
+                };
+
+                channel@1 {
+                        reg = <1>;
+                        adi,output-enable;
+                };
+
+                channel@2 {
+                        reg = <2>;
+                        adi,output-enable;
+                        adi,power-up-frequency = /bits/ 64 <16000000000>;
+                };
+
+                channel@3 {
+                        reg = <3>;
+                        adi,output-enable;
+                        adi,power-up-frequency = /bits/ 64 <32000000000>;
+                };
         };
     };
 ...
