@@ -321,6 +321,24 @@ static int adf4371_set_freq(struct adf4371_state *st, unsigned long long freq,
 	return regmap_write(st->regmap, ADF4371_REG(0x10), st->integer & 0xFF);
 }
 
+static int adf4371_channel_power_down(struct adf4371_state *st,
+				      unsigned int channel, bool power_down)
+{
+	unsigned int bit, readval, reg;
+	int ret;
+
+	reg = adf4371_pwrdown_ch[channel].reg;
+	bit = adf4371_pwrdown_ch[channel].bit;
+	ret = regmap_read(st->regmap, reg, &readval);
+	if (ret < 0)
+		return ret;
+
+	readval &= ~BIT(bit);
+	readval |= (!power_down << bit);
+
+	return regmap_write(st->regmap, reg, readval);
+}
+
 static ssize_t adf4371_read(struct iio_dev *indio_dev,
 			    uintptr_t private,
 			    const struct iio_chan_spec *chan,
@@ -372,7 +390,6 @@ static ssize_t adf4371_write(struct iio_dev *indio_dev,
 	struct adf4371_state *st = iio_priv(indio_dev);
 	unsigned long long freq;
 	bool power_down;
-	unsigned int bit, readval, reg;
 	int ret;
 
 	mutex_lock(&st->lock);
@@ -389,16 +406,7 @@ static ssize_t adf4371_write(struct iio_dev *indio_dev,
 		if (ret)
 			break;
 
-		reg = adf4371_pwrdown_ch[chan->channel].reg;
-		bit = adf4371_pwrdown_ch[chan->channel].bit;
-		ret = regmap_read(st->regmap, reg, &readval);
-		if (ret < 0)
-			break;
-
-		readval &= ~BIT(bit);
-		readval |= (!power_down << bit);
-
-		ret = regmap_write(st->regmap, reg, readval);
+		ret = adf4371_channel_power_down(st, chan->channel, power_down);
 		break;
 	default:
 		ret = -EINVAL;
