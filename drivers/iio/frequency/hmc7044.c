@@ -217,6 +217,10 @@ static const char* const pll1_fsm_states[] = {
 	"Invalid",
 };
 
+static const char* const sync_pin_modes[] = {
+	"disable", "sync",  "sysref", "sync_else_sysref",
+};
+
 struct hmc7044_output {
 	unsigned int	address;
 	struct clk_hw	hw;
@@ -464,6 +468,53 @@ static ssize_t hmc7044_show(struct device *dev,
 	return ret;
 }
 
+static ssize_t hmc7044_sync_pin_mode_store(struct device *dev,
+			     struct device_attribute *attr,
+			     const char *buf, size_t len)
+{
+	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
+	struct hmc7044 *hmc = iio_priv(indio_dev);
+	int i, ret = -EINVAL;
+	u32 val;
+
+	i = sysfs_match_string(sync_pin_modes, buf);
+	if (i >= 0) {
+		mutex_lock(&hmc->lock);
+		ret = hmc7044_read(indio_dev, HMC7044_REG_GLOB_MODE, &val);
+		if (ret < 0) {
+			mutex_unlock(&hmc->lock);
+			return ret;
+		}
+
+		val &= ~HMC7044_SYNC_PIN_MODE(~0);
+		val |= HMC7044_SYNC_PIN_MODE(i);
+
+		ret = hmc7044_write(indio_dev, HMC7044_REG_GLOB_MODE, val);
+		mutex_unlock(&hmc->lock);
+	}
+
+	return ret ? ret : len;
+}
+
+static ssize_t hmc7044_sync_pin_mode_show(struct device *dev,
+			    struct device_attribute *attr,
+			    char *buf)
+{
+	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
+	struct hmc7044 *hmc = iio_priv(indio_dev);
+	int ret;
+	u32 val;
+
+	mutex_lock(&hmc->lock);
+	ret = hmc7044_read(indio_dev, HMC7044_REG_GLOB_MODE, &val);
+	if (ret >= 0) {
+		ret = sprintf(buf, "%s\n", sync_pin_modes[(val >> 6) & 0x3]);
+	}
+	mutex_unlock(&hmc->lock);
+
+	return ret;
+}
+
 static IIO_DEVICE_ATTR(reseed_request, S_IRUGO | S_IWUSR,
 		       hmc7044_show, hmc7044_store, HMC7044_RESEED_REQ);
 
@@ -479,12 +530,21 @@ static IIO_DEVICE_ATTR(reset_dividers_request, S_IRUGO | S_IWUSR,
 static IIO_DEVICE_ATTR(sleep_request, S_IRUGO | S_IWUSR,
 		       hmc7044_show, hmc7044_store, HMC7044_SLEEP_MODE);
 
+static IIO_DEVICE_ATTR(sync_pin_mode, S_IRUGO | S_IWUSR,
+		       hmc7044_sync_pin_mode_show, hmc7044_sync_pin_mode_store,
+		       HMC7044_SLEEP_MODE);
+
+static IIO_CONST_ATTR(sync_pin_mode_available,
+		      "disable sync sysref sync_else_sysref");
+
 static struct attribute *hmc7044_attributes[] = {
 	&iio_dev_attr_reseed_request.dev_attr.attr,
 	&iio_dev_attr_mute_request.dev_attr.attr,
 	&iio_dev_attr_sysref_request.dev_attr.attr,
 	&iio_dev_attr_reset_dividers_request.dev_attr.attr,
 	&iio_dev_attr_sleep_request.dev_attr.attr,
+	&iio_dev_attr_sync_pin_mode.dev_attr.attr,
+	&iio_const_attr_sync_pin_mode_available.dev_attr.attr,
 	NULL,
 };
 
