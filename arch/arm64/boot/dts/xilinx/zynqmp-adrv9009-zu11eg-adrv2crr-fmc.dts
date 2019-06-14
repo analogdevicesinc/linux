@@ -209,6 +209,11 @@
 	};
 };
 
+&hmc7044 {
+	clocks = <&hmc7044_fmc_car 2>;
+	clock-names = "clkin1";
+};
+
 /*
  * I2C1
  */
