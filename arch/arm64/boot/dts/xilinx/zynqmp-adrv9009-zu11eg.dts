@@ -893,6 +893,9 @@
 		adi,gpi-controls = <0x00 0x00 0x00 0x11>;
 		adi,gpo-controls = <0x1f 0x2b 0x00 0x00>;
 
+		adi,high-performance-mode-clock-dist-enable;
+		adi,high-performance-mode-pll-vco-enable;
+
 		clock-output-names =
 			"hmc7044_out0_DEV_REFCLK_A", "hmc7044_out1_DEV_SYSREF_A",
 			"hmc7044_out2_DEV_REFCLK_B", "hmc7044_out3_DEV_SYSREF_B",
