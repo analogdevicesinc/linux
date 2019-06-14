@@ -16,10 +16,12 @@
 #include <linux/of.h>
 #include <linux/spi/spi.h>
 
-#define ADF4360_REG_CTRL	0x00
-#define ADF4360_REG_RDIV	0x01
-#define ADF4360_REG_NDIV	0x02
+/* Registers */
+#define ADF4360_REG_CTRL		0x00
+#define ADF4360_REG_RDIV		0x01
+#define ADF4360_REG_NDIV		0x02
 
+/* ADF4360_CTRL */
 #define ADF4360_GEN1_CTRL_PC_5		(0x0 << 2)
 #define ADF4360_GEN1_CTRL_PC_10		(0x1 << 2)
 #define ADF4360_GEN1_CTRL_PC_15		(0x2 << 2)
@@ -52,20 +54,22 @@
 #define ADF4360_CTRL_MUXOUT_SDO		(0x6 << 5)
 #define ADF4360_CTRL_MUXOUT_GND		(0x7 << 5)
 
-#define ADF4360_CPI_0_31	0
-#define ADF4360_CPI_0_62	1
-#define ADF4360_CPI_0_93	2
-#define ADF4360_CPI_1_25	3
-#define ADF4360_CPI_1_56	4
-#define ADF4360_CPI_1_87	5
-#define ADF4360_CPI_2_18	6
-#define ADF4360_CPI_2_50	7
+#define ADF4360_CPI_0_31		0
+#define ADF4360_CPI_0_62		1
+#define ADF4360_CPI_0_93		2
+#define ADF4360_CPI_1_25		3
+#define ADF4360_CPI_1_56		4
+#define ADF4360_CPI_1_87		5
+#define ADF4360_CPI_2_18		6
+#define ADF4360_CPI_2_50		7
 
+/* ADF4360_NDIV */
 #define ADF4360_NDIV_A_COUNTER(x)	((x) << 2)
 #define ADF4360_NDIV_B_COUNTER(x)	((x) << 8)
 #define ADF4360_NDIV_OUT_DIV2		BIT(22)
 #define ADF4360_NDIV_PRESCALER_DIV2	BIT(23)
 
+/* ADF4360_RDIV */
 #define ADF4360_RDIV_R_COUNTER(x)	((x) << 2)
 #define ADF4360_RDIV_ABP_3_0NS		(0x0 << 16)
 #define ADF4360_RDIV_ABP_1_3NS		(0x1 << 16)
@@ -74,6 +78,10 @@
 #define ADF4360_RDIV_BSC_2		(0x1 << 20)
 #define ADF4360_RDIV_BSC_4		(0x2 << 20)
 #define ADF4360_RDIV_BSC_8		(0x3 << 20)
+
+/* Specifications */
+#define ADF4360_MAX_PFD_RATE		8000000 /* 8 MHz */
+#define ADF4360_MAX_COUNTER_RATE	300000000 /* 300 MHz */
 
 struct adf4360_state {
 	struct spi_device *spi;
@@ -176,9 +184,6 @@ static unsigned long adf4360_recalc_rate(struct clk_hw *clk_hw,
 	 */
 	return DIV_ROUND_CLOSEST_ULL((uint64_t)parent_rate * st->n, st->r);
 }
-
-#define ADF4360_MAX_PFD_RATE 8000000 /* 8 MHz */
-#define ADF4360_MAX_COUNTER_RATE 300000000 /* 300 MHz */
 
 static unsigned int adf4360_calc_prescaler(unsigned int pfd_freq,
 		unsigned int n, unsigned int *out_p, unsigned int *out_a,
