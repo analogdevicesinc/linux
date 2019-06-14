@@ -154,10 +154,16 @@ struct adf4371_chip_info {
 	const struct iio_chan_spec *channels;
 };
 
+struct adf4371_channel_config {
+	bool enable;
+	unsigned long long freq;
+};
+
 struct adf4371_state {
 	struct spi_device *spi;
 	struct regmap *regmap;
 	struct clk *clkin;
+	struct adf4371_channel_config channel_cfg[4];
 	/*
 	 * Lock for accessing device registers. Some operations require
 	 * multiple consecutive R/W operations, during which the device
@@ -175,6 +181,7 @@ struct adf4371_state {
 	unsigned int mod2;
 	unsigned int rf_div_sel;
 	unsigned int ref_div_factor;
+	bool mute_till_lock_en;
 	u8 buf[10] ____cacheline_aligned;
 };
 
@@ -480,6 +487,36 @@ static const struct iio_info adf4371_info = {
 	.debugfs_reg_access = &adf4371_reg_access,
 };
 
+static int adf4371_channel_config(struct adf4371_state *st)
+{
+	unsigned long long rate;
+	int i, ret;
+
+	for (i = 0; i < st->chip_info->num_channels; i++) {
+		if (st->channel_cfg[i].freq == 0)
+			continue;
+
+		rate = adf4371_pll_fract_n_get_rate(st, i);
+		if (rate == 0) {
+			ret = adf4371_set_freq(st, st->channel_cfg[i].freq, i);
+			if (ret < 0)
+				return ret;
+		} else if (rate != st->channel_cfg[i].freq) {
+			dev_err(&st->spi->dev,
+				"Clock rate for chanel %d is not in sync\n", i);
+			return -EINVAL;
+		}
+		/* Powerup channel if the property was specified in the dt */
+		if (st->channel_cfg[i].enable) {
+			ret = adf4371_channel_power_down(st, i, false);
+			if (ret < 0)
+				return ret;
+		}
+	}
+
+	return 0;
+}
+
 static int adf4371_setup(struct adf4371_state *st)
 {
 	unsigned int synth_timeout = 2, timeout = 1, vco_alc_timeout = 1;
@@ -497,7 +534,7 @@ static int adf4371_setup(struct adf4371_state *st)
 		return ret;
 
 	/* Mute to Lock Detect */
-	if (device_property_read_bool(&st->spi->dev, "adi,mute-till-lock-en")) {
+	if (st->mute_till_lock_en) {
 		ret = regmap_update_bits(st->regmap, ADF4371_REG(0x25),
 					 ADF4371_MUTE_LD_MSK,
 					 ADF4371_MUTE_LD(1));
@@ -545,7 +582,11 @@ static int adf4371_setup(struct adf4371_state *st)
 	st->buf[3] = synth_timeout;
 	st->buf[4] = ADF4371_VCO_ALC_TOUT(vco_alc_timeout);
 
-	return regmap_bulk_write(st->regmap, ADF4371_REG(0x30), st->buf, 5);
+	ret = regmap_bulk_write(st->regmap, ADF4371_REG(0x30), st->buf, 5);
+	if (ret < 0)
+		return 0;
+
+	return adf4371_channel_config(st);
 }
 
 static void adf4371_clk_disable(void *data)
@@ -553,6 +594,36 @@ static void adf4371_clk_disable(void *data)
 	struct adf4371_state *st = data;
 
 	clk_disable_unprepare(st->clkin);
+}
+
+static int adf4371_parse_dt(struct adf4371_state *st)
+{
+	unsigned char num_channels;
+	unsigned int channel;
+	struct fwnode_handle *child;
+	int ret;
+
+	if (device_property_read_bool(&st->spi->dev, "adi,mute-till-lock-en"))
+		st->mute_till_lock_en = true;
+
+	num_channels = device_get_child_node_count(&st->spi->dev);
+	if (num_channels > st->chip_info->num_channels)
+		return -EINVAL;
+
+	device_for_each_child_node(&st->spi->dev, child) {
+		ret = fwnode_property_read_u32(child, "reg", &channel);
+		if (ret)
+			return ret;
+
+		ret = fwnode_property_present(child, "adi,output-enable");
+		st->channel_cfg[channel].enable = ret;
+
+		fwnode_property_read_u64(child,
+					 "adi,power-up-frequency",
+					 &st->channel_cfg[channel].freq);
+	}
+
+	return 0;
 }
 
 static int adf4371_probe(struct spi_device *spi)
@@ -601,6 +672,10 @@ static int adf4371_probe(struct spi_device *spi)
 		return ret;
 
 	st->clkin_freq = clk_get_rate(st->clkin);
+
+	ret = adf4371_parse_dt(st);
+	if (ret < 0)
+		return ret;
 
 	ret = adf4371_setup(st);
 	if (ret < 0) {
