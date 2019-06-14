@@ -252,6 +252,8 @@ struct hmc7044 {
 	unsigned int			pll1_ref_prio_ctrl;
 	bool				clkin0_rfsync_en;
 	bool				clkin1_vcoin_en;
+	bool				high_performance_mode_clock_dist_en;
+	bool				high_performance_mode_pll_vco_en;
 	unsigned int			sync_pin_mode;
 	unsigned int			pulse_gen_mode;
 	unsigned int			in_buf_mode[5];
@@ -874,7 +876,11 @@ static int hmc7044_setup(struct iio_dev *indio_dev)
 	hmc7044_write(indio_dev, HMC7044_REG_REQ_MODE_0,
 		      HMC7044_RESTART_DIV_FSM);
 	mdelay(1);
-	hmc7044_write(indio_dev, HMC7044_REG_REQ_MODE_0, 0);
+	hmc7044_write(indio_dev, HMC7044_REG_REQ_MODE_0,
+		      (hmc->high_performance_mode_clock_dist_en ?
+		      HMC7044_HIGH_PERF_DISTRIB_PATH : 0) |
+		      (hmc->high_performance_mode_pll_vco_en ?
+		      HMC7044_HIGH_PERF_PLL_VCO : 0));
 	mdelay(1);
 
 	for (i = 0; i < hmc->num_channels; i++) {
@@ -957,6 +963,11 @@ static int hmc7044_parse_dt(struct device *dev,
 		of_property_read_bool(np, "adi,clkin0-rf-sync-enable");
 	hmc->clkin1_vcoin_en =
 		of_property_read_bool(np, "adi,clkin1-vco-in-enable");
+
+	hmc->high_performance_mode_clock_dist_en = of_property_read_bool(np,
+		"adi,high-performance-mode-clock-dist-enable");
+	hmc->high_performance_mode_pll_vco_en = of_property_read_bool(np,
+		"adi,high-performance-mode-pll-vco-enable");
 
 	ret = of_property_read_u32_array(np, "adi,gpi-controls",
 			hmc->gpi_ctrl, ARRAY_SIZE(hmc->gpi_ctrl));
