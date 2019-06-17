@@ -47,14 +47,15 @@
 #define ADF4360_CTRL_PRESCALER_16	(1 << 22)
 #define ADF4360_CTRL_PRESCALER_32	(2 << 22)
 
-#define ADF4360_CTRL_MUXOUT_THREE_STATE	(0x0 << 5)
-#define ADF4360_CTRL_MUXOUT_LOCK_DETECT	(0x1 << 5)
-#define ADF4360_CTRL_MUXOUT_NDIV	(0x2 << 5)
-#define ADF4360_CTRL_MUXOUT_DVDD	(0x3 << 5)
-#define ADF4360_CTRL_MUXOUT_RDIV	(0x4 << 5)
-#define ADF4360_CTRL_MUXOUT_OD_LD	(0x5 << 5)
-#define ADF4360_CTRL_MUXOUT_SDO		(0x6 << 5)
-#define ADF4360_CTRL_MUXOUT_GND		(0x7 << 5)
+#define ADF4360_CTRL_MUXOUT(x)		(((x) & 7) << 5)
+#define ADF4360_CTRL_MUXOUT_THREE_STATE	0x0
+#define ADF4360_CTRL_MUXOUT_LOCK_DETECT	0x1
+#define ADF4360_CTRL_MUXOUT_NDIV	0x2
+#define ADF4360_CTRL_MUXOUT_DVDD	0x3
+#define ADF4360_CTRL_MUXOUT_RDIV	0x4
+#define ADF4360_CTRL_MUXOUT_OD_LD	0x5
+#define ADF4360_CTRL_MUXOUT_SDO		0x6
+#define ADF4360_CTRL_MUXOUT_GND		0x7
 
 #define ADF4360_CPI_0_31		0
 #define ADF4360_CPI_0_62		1
@@ -95,6 +96,8 @@
  * @cpl:		Core power level setting.
  * @cpi:		Loop filter charge pump current.
  * @pdp:		Phase detector polarity positive enable.
+ * @mux_out_ctrl:	Output multiplexer configuration.
+ *			Defaults to lock detect if not set.
  */
 
 struct adf4360_platform_data {
@@ -104,12 +107,14 @@ struct adf4360_platform_data {
 	unsigned int cpl;
 	unsigned int cpi;
 	bool pdp;
+	unsigned int mux_out_ctrl;
 };
 
 static struct adf4360_platform_data default_pdata = {
 	.pfd_freq = 200000,
 	.cpi = ADF4360_CPI_1_25,
 	.pdp = 0,
+	.mux_out_ctrl = ADF4360_CTRL_MUXOUT_LOCK_DETECT,
 };
 
 struct adf4360_state {
@@ -317,7 +322,8 @@ static int adf4360_set_rate(struct clk_hw *clk_hw,
 
 	if (!pdata->pdp)
 		val_ctrl |= ADF4360_CTRL_PDP;
-	val_ctrl |= ADF4360_CTRL_MUXOUT_LOCK_DETECT;
+
+	val_ctrl |= ADF4360_CTRL_MUXOUT(pdata->mux_out_ctrl);
 
 	/* ADF4360-0 to ADF4360-7 have a dual-modulous prescaler */
 	if (st->part_id <= 7) {
@@ -423,6 +429,10 @@ static struct adf4360_platform_data *adf4360_parse_dt(struct device *dev,
 	tmp = info->default_cpl;
 	of_property_read_u32(np, "adi,core-power-level", &tmp);
 	pdata->cpl = tmp;
+
+	tmp = default_pdata.mux_out_ctrl;
+	of_property_read_u32(np, "adi,muxout-control", &tmp);
+	pdata->mux_out_ctrl = tmp;
 
 	if (part_id >= 7) {
 		/*
