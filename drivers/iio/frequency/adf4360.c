@@ -83,16 +83,31 @@
 #define ADF4360_MAX_PFD_RATE		8000000 /* 8 MHz */
 #define ADF4360_MAX_COUNTER_RATE	300000000 /* 300 MHz */
 
-struct adf4360_state {
-	struct spi_device *spi;
-	unsigned int part_id;
-	unsigned long r, n;
+/**
+ * struct adf4360_platform_data - platform specific information.
+ * @vco_min:		Optional mininum VCO frequency in Hz for devices
+ *			configured using external hardware components.
+ * @vco_max:		Optional maximum VCO frequency in Hz for devices
+ *			configured using external hardware components.
+ * @pfd_freq:		Phase frequency detector frequency in Hz.
+ * @cpi:		Loop filter charge pump current.
+ * @pdp:		Phase detector polarity positive enable.
+ */
 
-	bool pdp;
+struct adf4360_platform_data {
 	unsigned int vco_min;
 	unsigned int vco_max;
 	unsigned int pfd_freq;
 	unsigned int cpi;
+	bool pdp;
+};
+
+struct adf4360_state {
+	struct spi_device *spi;
+	struct adf4360_platform_data *pdata;
+	unsigned int part_id;
+	unsigned long r;
+	unsigned long n;
 
 	unsigned int val_ctrl;
 
@@ -231,6 +246,7 @@ static long adf4360_round_rate(struct clk_hw *clk_hw,
 	unsigned long rate, unsigned long *parent_rate)
 {
 	struct adf4360_state *st = clk_hw_to_adf4360(clk_hw);
+	struct adf4360_platform_data *pdata = st->pdata;
 	unsigned int r, n, pfd_freq;
 
 	if (*parent_rate == 0)
@@ -239,25 +255,25 @@ static long adf4360_round_rate(struct clk_hw *clk_hw,
 	if (st->part_id == 9)
 		return *parent_rate * st->n / st->r;
 
-	if (rate > st->vco_max)
-		return st->vco_max;
+	if (rate > pdata->vco_max)
+		return pdata->vco_max;
 
 	/* ADF4360-0 to AD4370-7 have an optional by two divider */
 	if (st->part_id <= 7) {
-		if (rate < st->vco_min / 2)
-			return st->vco_min / 2;
-		if (rate < st->vco_min && rate > st->vco_max / 2) {
-			if (st->vco_min - rate < rate - st->vco_max / 2)
-				return st->vco_min;
+		if (rate < pdata->vco_min / 2)
+			return pdata->vco_min / 2;
+		if (rate < pdata->vco_min && rate > pdata->vco_max / 2) {
+			if (pdata->vco_min - rate < rate - pdata->vco_max / 2)
+				return pdata->vco_min;
 			else
-				return st->vco_max / 2;
+				return pdata->vco_max / 2;
 		}
 	} else {
-		if (rate < st->vco_min)
-			return st->vco_min;
+		if (rate < pdata->vco_min)
+			return pdata->vco_min;
 	}
 
-	r = DIV_ROUND_CLOSEST(*parent_rate, st->pfd_freq);
+	r = DIV_ROUND_CLOSEST(*parent_rate, pdata->pfd_freq);
 	pfd_freq = *parent_rate / r;
 	n = DIV_ROUND_CLOSEST(rate, pfd_freq);
 
@@ -271,6 +287,7 @@ static int adf4360_set_rate(struct clk_hw *clk_hw,
 	unsigned long rate, unsigned long parent_rate)
 {
 	struct adf4360_state *st = clk_hw_to_adf4360(clk_hw);
+	struct adf4360_platform_data *pdata = st->pdata;
 	unsigned int val_r, val_n, val_ctrl;
 	unsigned int pfd_freq;
 	unsigned long r, n;
@@ -278,17 +295,17 @@ static int adf4360_set_rate(struct clk_hw *clk_hw,
 	if (parent_rate == 0)
 		return -EINVAL;
 
-	r = DIV_ROUND_CLOSEST(parent_rate, st->pfd_freq);
+	r = DIV_ROUND_CLOSEST(parent_rate, pdata->pfd_freq);
 	pfd_freq = parent_rate / r;
 	n = DIV_ROUND_CLOSEST(rate, pfd_freq);
 
 	val_ctrl = adf4360_part_info[st->part_id].default_cpl;
-	val_ctrl |= ADF4360_CTRL_CPI1(st->cpi);
-	val_ctrl |= ADF4360_CTRL_CPI2(st->cpi);
+	val_ctrl |= ADF4360_CTRL_CPI1(pdata->cpi);
+	val_ctrl |= ADF4360_CTRL_CPI2(pdata->cpi);
 	val_ctrl |= ADF4360_CTRL_PL_11;
 	val_ctrl |= ADF4360_CTRL_MTLD;
 
-	if (!st->pdp)
+	if (!pdata->pdp)
 		val_ctrl |= ADF4360_CTRL_PDP;
 	val_ctrl |= ADF4360_CTRL_MUXOUT_LOCK_DETECT;
 
@@ -313,7 +330,7 @@ static int adf4360_set_rate(struct clk_hw *clk_hw,
 		val_n = ADF4360_NDIV_A_COUNTER(a);
 		val_n |= ADF4360_NDIV_B_COUNTER(b);
 
-		if (rate < st->vco_min)
+		if (rate < pdata->vco_min)
 			val_n |= ADF4360_NDIV_PRESCALER_DIV2 |
 				 ADF4360_NDIV_OUT_DIV2;
 	} else {
@@ -372,6 +389,7 @@ static void adf4360_m2k_setup(struct adf4360_state *st)
 static int adf4360_probe(struct spi_device *spi)
 {
 	const struct spi_device_id *id = spi_get_device_id(spi);
+	struct adf4360_platform_data *pdata;
 	struct device_node *of_node = spi->dev.of_node;
 	const struct adf4360_part_info *info;
 	struct clk_init_data init;
@@ -382,6 +400,10 @@ static int adf4360_probe(struct spi_device *spi)
 	u32 tmp;
 	int ret;
 
+	pdata = devm_kzalloc(&spi->dev, sizeof(*pdata), GFP_KERNEL);
+	if (!pdata)
+		return -ENOMEM;
+
 	parent_name = of_clk_get_parent_name(of_node, 0);
 	if (!parent_name)
 		return -EINVAL;
@@ -391,6 +413,7 @@ static int adf4360_probe(struct spi_device *spi)
 		return -ENOMEM;
 
 	st->spi = spi;
+	st->pdata = pdata;
 
 	clk_name = spi->dev.of_node->name;
 	of_property_read_string(spi->dev.of_node, "clock-output-names",
@@ -416,34 +439,34 @@ static int adf4360_probe(struct spi_device *spi)
 					   "adi,vco-minimum-frequency-hz",
 					   &tmp);
 		if (ret == 0)
-			st->vco_min = max(info->vco_min, tmp);
+			pdata->vco_min = max(info->vco_min, tmp);
 		else
-			st->vco_min = info->vco_min;
+			pdata->vco_min = info->vco_min;
 
 		ret = of_property_read_u32(of_node,
 					   "adi,vco-maximum-frequency-hz",
 					   &tmp);
 		if (ret == 0)
-			st->vco_max = min(info->vco_max, tmp);
+			pdata->vco_max = min(info->vco_max, tmp);
 		else
-			st->vco_max = info->vco_max;
+			pdata->vco_max = info->vco_max;
 	} else {
-		st->vco_min = info->vco_min;
-		st->vco_max = info->vco_max;
+		pdata->vco_min = info->vco_min;
+		pdata->vco_max = info->vco_max;
 	}
 
-	st->pdp = of_property_read_bool(of_node, "adi,loop-filter-inverting");
+	pdata->pdp = of_property_read_bool(of_node, "adi,loop-filter-inverting");
 
 	ret = of_property_read_u32(of_node, "adi,loop-filter-pfd-frequency-hz",
 				   &tmp);
 	if (ret == 0)
-		st->pfd_freq = tmp;
+		pdata->pfd_freq = tmp;
 
 	ret = of_property_read_u32(of_node,
 				   "adi,loop-filter-charge-pump-current",
 				   &tmp);
 	if (ret == 0)
-		st->cpi = tmp;
+		pdata->cpi = tmp;
 
 	/*
 	 * Backwards compatibility for old M2K devicetrees, remove this
