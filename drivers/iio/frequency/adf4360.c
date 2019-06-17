@@ -416,9 +416,9 @@ static struct adf4360_platform_data *adf4360_parse_dt(struct device *dev,
 
 	pdata->pdp = of_property_read_bool(np, "adi,loop-filter-inverting");
 
+	tmp = default_pdata.pfd_freq;
 	ret = of_property_read_u32(np, "adi,loop-filter-pfd-frequency-hz", &tmp);
-	if (ret == 0)
-		pdata->pfd_freq = tmp;
+	pdata->pfd_freq = tmp;
 
 	tmp = info->default_cpl;
 	of_property_read_u32(np, "adi,core-power-level", &tmp);
