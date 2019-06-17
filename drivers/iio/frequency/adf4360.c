@@ -96,6 +96,7 @@
  * @cpl:		Core power level setting.
  * @cpi:		Loop filter charge pump current.
  * @pdp:		Phase detector polarity positive enable.
+ * @mtld_disable:	Optional, disables muting output until PLL is locked.
  * @mux_out_ctrl:	Output multiplexer configuration.
  *			Defaults to lock detect if not set.
  */
@@ -107,6 +108,7 @@ struct adf4360_platform_data {
 	unsigned int cpl;
 	unsigned int cpi;
 	bool pdp;
+	bool mtld_disable;
 	unsigned int mux_out_ctrl;
 };
 
@@ -114,6 +116,7 @@ static struct adf4360_platform_data default_pdata = {
 	.pfd_freq = 200000,
 	.cpi = ADF4360_CPI_1_25,
 	.pdp = 0,
+	.mtld_disable = 0,
 	.mux_out_ctrl = ADF4360_CTRL_MUXOUT_LOCK_DETECT,
 };
 
@@ -318,7 +321,9 @@ static int adf4360_set_rate(struct clk_hw *clk_hw,
 	val_ctrl |= ADF4360_CTRL_CPI1(pdata->cpi);
 	val_ctrl |= ADF4360_CTRL_CPI2(pdata->cpi);
 	val_ctrl |= ADF4360_CTRL_PL_11;
-	val_ctrl |= ADF4360_CTRL_MTLD;
+
+	if (!pdata->mtld_disable)
+		val_ctrl |= ADF4360_CTRL_MTLD;
 
 	if (!pdata->pdp)
 		val_ctrl |= ADF4360_CTRL_PDP;
@@ -433,6 +438,8 @@ static struct adf4360_platform_data *adf4360_parse_dt(struct device *dev,
 	tmp = default_pdata.mux_out_ctrl;
 	of_property_read_u32(np, "adi,muxout-control", &tmp);
 	pdata->mux_out_ctrl = tmp;
+
+	pdata->mtld_disable = of_property_read_bool(np, "adi,mute-till-lock-disable");
 
 	if (part_id >= 7) {
 		/*
