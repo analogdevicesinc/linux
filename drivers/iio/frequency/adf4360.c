@@ -79,6 +79,7 @@
 #define ADF4360_RDIV_ABP_3_0NS		0
 #define ADF4360_RDIV_ABP_1_3NS		1
 #define ADF4360_RDIV_ABP_6_0NS		2
+#define ADF4360_RDIV_LDP		BIT(18)
 #define ADF4360_RDIV_BSC_1		(0x0 << 20)
 #define ADF4360_RDIV_BSC_2		(0x1 << 20)
 #define ADF4360_RDIV_BSC_4		(0x2 << 20)
@@ -103,6 +104,7 @@
  * @mux_out_ctrl:	Output multiplexer configuration.
  *			Defaults to lock detect if not set.
  * @abp:		Anti backlash setting.
+ * @ldp:		Lock detect precision.
  */
 
 struct adf4360_platform_data {
@@ -116,6 +118,7 @@ struct adf4360_platform_data {
 	bool mtld_disable;
 	unsigned int mux_out_ctrl;
 	unsigned int abp;
+	bool ldp;
 };
 
 static struct adf4360_platform_data default_pdata = {
@@ -126,6 +129,7 @@ static struct adf4360_platform_data default_pdata = {
 	.mtld_disable = 0,
 	.mux_out_ctrl = ADF4360_CTRL_MUXOUT_LOCK_DETECT,
 	.abp = ADF4360_RDIV_ABP_3_0NS,
+	.ldp = 0,
 };
 
 struct adf4360_state {
@@ -373,6 +377,9 @@ static int adf4360_set_rate(struct clk_hw *clk_hw,
 	val_r = ADF4360_RDIV_R_COUNTER(r) | ADF4360_RDIV_BSC_8;
 	val_r |= ADF4360_RDIV_ABP(pdata->abp);
 
+	if (pdata->ldp)
+		val_ctrl |= ADF4360_RDIV_LDP;
+
 	adf4360_write_reg(st, ADF4360_REG_RDIV, val_r);
 	adf4360_write_reg(st, ADF4360_REG_CTRL, val_ctrl);
 	usleep_range(15000, 20000);
@@ -457,6 +464,8 @@ static struct adf4360_platform_data *adf4360_parse_dt(struct device *dev,
 	tmp = default_pdata.abp;
 	of_property_read_u32(np, "adi,antibacklash-pulse-width", &tmp);
 	pdata->abp = tmp;
+
+	pdata->ldp = of_property_read_bool(np, "adi,lock-detect-precision-5-cycles");
 
 	if (part_id >= 7) {
 		/*
