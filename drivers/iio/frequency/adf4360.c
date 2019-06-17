@@ -102,6 +102,12 @@ struct adf4360_platform_data {
 	bool pdp;
 };
 
+static struct adf4360_platform_data default_pdata = {
+	.pfd_freq = 200000,
+	.cpi = ADF4360_CPI_1_25,
+	.pdp = 0,
+};
+
 struct adf4360_state {
 	struct spi_device *spi;
 	struct adf4360_platform_data *pdata;
@@ -386,12 +392,71 @@ static void adf4360_m2k_setup(struct adf4360_state *st)
 	adf4360_write_reg(st, ADF4360_REG_NDIV, val_b);
 }
 
+#ifdef CONFIG_OF
+static struct adf4360_platform_data *adf4360_parse_dt(struct device *dev,
+						      unsigned int part_id)
+{
+	const struct adf4360_part_info *info = &adf4360_part_info[part_id];
+	struct device_node *np = dev->of_node;
+	struct adf4360_platform_data *pdata;
+	unsigned int tmp;
+	int ret;
+
+	pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
+	if (!pdata)
+		return NULL;
+
+	tmp = (part_id == 9) ? ADF4360_CPI_2_50 : ADF4360_CPI_1_25;
+	of_property_read_u32(np, "adi,loop-filter-charge-pump-current", &tmp);
+	pdata->cpi = tmp;
+
+	pdata->pdp = of_property_read_bool(np, "adi,loop-filter-inverting");
+
+	ret = of_property_read_u32(np, "adi,loop-filter-pfd-frequency-hz", &tmp);
+	if (ret == 0)
+		pdata->pfd_freq = tmp;
+
+	if (part_id >= 7) {
+		/*
+		 * ADF4360-7 to ADF4360-9 have a VCO that is tuned to a specific
+		 * range using an external inductor. These properties describe
+		 * the range selected by the external inductor.
+		 */
+		ret = of_property_read_u32(np, "adi,vco-minimum-frequency-hz",
+					   &tmp);
+		if (ret == 0)
+			pdata->vco_min = max(info->vco_min, tmp);
+		else
+			pdata->vco_min = info->vco_min;
+
+		ret = of_property_read_u32(np, "adi,vco-maximum-frequency-hz",
+					   &tmp);
+		if (ret == 0)
+			pdata->vco_max = min(info->vco_max, tmp);
+		else
+			pdata->vco_max = info->vco_max;
+	} else {
+		pdata->vco_min = info->vco_min;
+		pdata->vco_max = info->vco_max;
+	}
+
+	return pdata;
+}
+#else
+static
+struct adf4360_platform_data *adf4360_parse_dt(struct device *dev,
+					       unsigned int part_id)
+{
+	return NULL;
+}
+#endif
+
+
 static int adf4360_probe(struct spi_device *spi)
 {
 	const struct spi_device_id *id = spi_get_device_id(spi);
 	struct adf4360_platform_data *pdata;
 	struct device_node *of_node = spi->dev.of_node;
-	const struct adf4360_part_info *info;
 	struct clk_init_data init;
 	struct adf4360_state *st;
 	const char *parent_name;
@@ -400,9 +465,22 @@ static int adf4360_probe(struct spi_device *spi)
 	u32 tmp;
 	int ret;
 
-	pdata = devm_kzalloc(&spi->dev, sizeof(*pdata), GFP_KERNEL);
-	if (!pdata)
-		return -ENOMEM;
+	if (spi->dev.of_node) {
+		pdata = adf4360_parse_dt(&spi->dev, id->driver_data);
+		if (pdata == NULL)
+			return -EINVAL;
+	} else {
+		pdata = spi->dev.platform_data;
+	}
+
+	if (!pdata) {
+		const struct adf4360_part_info *info = &adf4360_part_info[id->driver_data];
+
+		dev_warn(&spi->dev, "no platform data? using default\n");
+		pdata = &default_pdata;
+		pdata->vco_min = info->vco_min;
+		pdata->vco_max = info->vco_max;
+	}
 
 	parent_name = of_clk_get_parent_name(of_node, 0);
 	if (!parent_name)
@@ -427,46 +505,6 @@ static int adf4360_probe(struct spi_device *spi)
 
 	st->clk_hw.init = &init;
 	st->part_id = id->driver_data;
-	info = &adf4360_part_info[st->part_id];
-
-	if (st->part_id >= 7) {
-		/*
-		 * ADF4360-7 to ADF4360-9 have a VCO that is tuned to a specific
-		 * range using an external inductor. These properties describe
-		 * the range selected by the external inductor.
-		 */
-		ret = of_property_read_u32(of_node,
-					   "adi,vco-minimum-frequency-hz",
-					   &tmp);
-		if (ret == 0)
-			pdata->vco_min = max(info->vco_min, tmp);
-		else
-			pdata->vco_min = info->vco_min;
-
-		ret = of_property_read_u32(of_node,
-					   "adi,vco-maximum-frequency-hz",
-					   &tmp);
-		if (ret == 0)
-			pdata->vco_max = min(info->vco_max, tmp);
-		else
-			pdata->vco_max = info->vco_max;
-	} else {
-		pdata->vco_min = info->vco_min;
-		pdata->vco_max = info->vco_max;
-	}
-
-	pdata->pdp = of_property_read_bool(of_node, "adi,loop-filter-inverting");
-
-	ret = of_property_read_u32(of_node, "adi,loop-filter-pfd-frequency-hz",
-				   &tmp);
-	if (ret == 0)
-		pdata->pfd_freq = tmp;
-
-	ret = of_property_read_u32(of_node,
-				   "adi,loop-filter-charge-pump-current",
-				   &tmp);
-	if (ret == 0)
-		pdata->cpi = tmp;
 
 	/*
 	 * Backwards compatibility for old M2K devicetrees, remove this
