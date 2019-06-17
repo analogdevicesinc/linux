@@ -22,15 +22,17 @@
 #define ADF4360_REG_NDIV		0x02
 
 /* ADF4360_CTRL */
-#define ADF4360_GEN1_CTRL_PC_5		(0x0 << 2)
-#define ADF4360_GEN1_CTRL_PC_10		(0x1 << 2)
-#define ADF4360_GEN1_CTRL_PC_15		(0x2 << 2)
-#define ADF4360_GEN1_CTRL_PC_20		(0x3 << 2)
+#define ADF4360_CTRL_CPL(x)		(((x) & 0x3) << 2)
 
-#define ADF4360_GEN2_CTRL_PC_2_5	(0x0 << 2)
-#define ADF4360_GEN2_CTRL_PC_5		(0x1 << 2)
-#define ADF4360_GEN2_CTRL_PC_7_5	(0x2 << 2)
-#define ADF4360_GEN2_CTRL_PC_10		(0x3 << 2)
+#define ADF4360_GEN1_CTRL_PC_5		0
+#define ADF4360_GEN1_CTRL_PC_10		1
+#define ADF4360_GEN1_CTRL_PC_15		2
+#define ADF4360_GEN1_CTRL_PC_20		3
+
+#define ADF4360_GEN2_CTRL_PC_2_5	0
+#define ADF4360_GEN2_CTRL_PC_5		1
+#define ADF4360_GEN2_CTRL_PC_7_5	2
+#define ADF4360_GEN2_CTRL_PC_10		3
 
 #define ADF4360_CTRL_COUNTER_RESET	BIT(4)
 #define ADF4360_CTRL_PDP		BIT(8)
@@ -90,6 +92,7 @@
  * @vco_max:		Optional maximum VCO frequency in Hz for devices
  *			configured using external hardware components.
  * @pfd_freq:		Phase frequency detector frequency in Hz.
+ * @cpl:		Core power level setting.
  * @cpi:		Loop filter charge pump current.
  * @pdp:		Phase detector polarity positive enable.
  */
@@ -98,6 +101,7 @@ struct adf4360_platform_data {
 	unsigned int vco_min;
 	unsigned int vco_max;
 	unsigned int pfd_freq;
+	unsigned int cpl;
 	unsigned int cpi;
 	bool pdp;
 };
@@ -305,7 +309,7 @@ static int adf4360_set_rate(struct clk_hw *clk_hw,
 	pfd_freq = parent_rate / r;
 	n = DIV_ROUND_CLOSEST(rate, pfd_freq);
 
-	val_ctrl = adf4360_part_info[st->part_id].default_cpl;
+	val_ctrl = ADF4360_CTRL_CPL(pdata->cpl);
 	val_ctrl |= ADF4360_CTRL_CPI1(pdata->cpi);
 	val_ctrl |= ADF4360_CTRL_CPI2(pdata->cpi);
 	val_ctrl |= ADF4360_CTRL_PL_11;
@@ -373,7 +377,7 @@ static void adf4360_m2k_setup(struct adf4360_state *st)
 	st->n = 20;
 	st->r = 4;
 
-	val_ctrl = ADF4360_GEN2_CTRL_PC_5;
+	val_ctrl = ADF4360_CTRL_CPL(ADF4360_GEN2_CTRL_PC_5);
 	val_ctrl |= ADF4360_CTRL_CPI1(ADF4360_CPI_2_50);
 	val_ctrl |= ADF4360_CTRL_CPI2(ADF4360_CPI_2_50);
 	val_ctrl |= ADF4360_CTRL_PL_5;
@@ -415,6 +419,10 @@ static struct adf4360_platform_data *adf4360_parse_dt(struct device *dev,
 	ret = of_property_read_u32(np, "adi,loop-filter-pfd-frequency-hz", &tmp);
 	if (ret == 0)
 		pdata->pfd_freq = tmp;
+
+	tmp = info->default_cpl;
+	of_property_read_u32(np, "adi,core-power-level", &tmp);
+	pdata->cpl = tmp;
 
 	if (part_id >= 7) {
 		/*
