@@ -37,10 +37,11 @@
 #define ADF4360_CTRL_COUNTER_RESET	BIT(4)
 #define ADF4360_CTRL_PDP		BIT(8)
 #define ADF4360_CTRL_MTLD		BIT(11)
-#define ADF4360_CTRL_PL_3_5		(0x0 << 12)
-#define ADF4360_CTRL_PL_5		(0x1 << 12)
-#define ADF4360_CTRL_PL_7_5		(0x2 << 12)
-#define ADF4360_CTRL_PL_11		(0x3 << 12)
+#define ADF4360_CTRL_PL(x)		(((x) & 0x3) << 12)
+#define ADF4360_CTRL_PL_3_5		0
+#define ADF4360_CTRL_PL_5		1
+#define ADF4360_CTRL_PL_7_5		2
+#define ADF4360_CTRL_PL_11		3
 #define ADF4360_CTRL_CPI1(x)		((x) << 14)
 #define ADF4360_CTRL_CPI2(x)		((x) << 17)
 #define ADF4360_CTRL_PRESCALER_8	(0 << 22)
@@ -95,6 +96,7 @@
  * @pfd_freq:		Phase frequency detector frequency in Hz.
  * @cpl:		Core power level setting.
  * @cpi:		Loop filter charge pump current.
+ * @opl:		Output power level setting.
  * @pdp:		Phase detector polarity positive enable.
  * @mtld_disable:	Optional, disables muting output until PLL is locked.
  * @mux_out_ctrl:	Output multiplexer configuration.
@@ -107,6 +109,7 @@ struct adf4360_platform_data {
 	unsigned int pfd_freq;
 	unsigned int cpl;
 	unsigned int cpi;
+	unsigned int opl;
 	bool pdp;
 	bool mtld_disable;
 	unsigned int mux_out_ctrl;
@@ -115,6 +118,7 @@ struct adf4360_platform_data {
 static struct adf4360_platform_data default_pdata = {
 	.pfd_freq = 200000,
 	.cpi = ADF4360_CPI_1_25,
+	.opl = ADF4360_CTRL_PL_11,
 	.pdp = 0,
 	.mtld_disable = 0,
 	.mux_out_ctrl = ADF4360_CTRL_MUXOUT_LOCK_DETECT,
@@ -320,7 +324,7 @@ static int adf4360_set_rate(struct clk_hw *clk_hw,
 	val_ctrl = ADF4360_CTRL_CPL(pdata->cpl);
 	val_ctrl |= ADF4360_CTRL_CPI1(pdata->cpi);
 	val_ctrl |= ADF4360_CTRL_CPI2(pdata->cpi);
-	val_ctrl |= ADF4360_CTRL_PL_11;
+	val_ctrl |= ADF4360_CTRL_PL(pdata->opl);
 
 	if (!pdata->mtld_disable)
 		val_ctrl |= ADF4360_CTRL_MTLD;
@@ -391,7 +395,7 @@ static void adf4360_m2k_setup(struct adf4360_state *st)
 	val_ctrl = ADF4360_CTRL_CPL(ADF4360_GEN2_CTRL_PC_5);
 	val_ctrl |= ADF4360_CTRL_CPI1(ADF4360_CPI_2_50);
 	val_ctrl |= ADF4360_CTRL_CPI2(ADF4360_CPI_2_50);
-	val_ctrl |= ADF4360_CTRL_PL_5;
+	val_ctrl |= ADF4360_CTRL_PL(ADF4360_CTRL_PL_5);
 	val_ctrl |= 5 << 5;
 	val_ctrl |= 1 << 8;
 //	val_ctrl |= BIT(11);
@@ -440,6 +444,10 @@ static struct adf4360_platform_data *adf4360_parse_dt(struct device *dev,
 	pdata->mux_out_ctrl = tmp;
 
 	pdata->mtld_disable = of_property_read_bool(np, "adi,mute-till-lock-disable");
+
+	tmp = (part_id == 9) ? ADF4360_CTRL_PL_5 : ADF4360_CTRL_PL_11;
+	of_property_read_u32(np, "adi,output-power-level", &tmp);
+	pdata->opl = tmp;
 
 	if (part_id >= 7) {
 		/*
