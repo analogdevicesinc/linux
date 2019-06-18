@@ -260,6 +260,22 @@
 		status = "okay";
 	};
 
+	sim1: sim@30b90000 {
+		compatible = "fsl,imx7d-sim";
+		reg = <0x30b90000 0x10000>;
+		interrupts = <GIC_SPI 90 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clks IMX7D_SIM1_ROOT_CLK>;
+		clock-names = "sim";
+		status = "disabled";
+	};
+
+	sim2: sim@30ba0000 {
+		compatible = "fsl,imx7d-sim";
+		reg = <0x30ba0000 0x10000>;
+		interrupts = <GIC_SPI 6 IRQ_TYPE_LEVEL_HIGH>;
+		status = "disabled";
+	};
+
 	usbotg2: usb@30b20000 {
 		compatible = "fsl,imx7d-usb", "fsl,imx27-usb";
 		reg = <0x30b20000 0x200>;
