@@ -514,8 +514,6 @@ static int adf4360_probe(struct spi_device *spi)
 	const char *parent_name;
 	const char *clk_name;
 	struct clk *clk;
-	u32 tmp;
-	int ret;
 
 	if (spi->dev.of_node) {
 		pdata = adf4360_parse_dt(&spi->dev, id->driver_data);
