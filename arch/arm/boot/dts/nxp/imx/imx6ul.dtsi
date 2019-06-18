@@ -943,6 +943,13 @@
 				status = "disabled";
 			};
 
+			sim1: sim@0218c000 {
+				compatible = "fsl,imx6ul-sim";
+				reg = <0x0218c000 0x4000>;
+				interrupts = <GIC_SPI 112 IRQ_TYPE_LEVEL_HIGH>;
+				status = "disabled";
+			};
+
 			usdhc1: mmc@2190000 {
 				compatible = "fsl,imx6ul-usdhc", "fsl,imx6sx-usdhc";
 				reg = <0x02190000 0x4000>;
@@ -1016,6 +1023,15 @@
 				compatible = "fsl,imx6ul-mmdc", "fsl,imx6q-mmdc";
 				reg = <0x021b0000 0x4000>;
 				clocks = <&clks IMX6UL_CLK_MMDC_P0_IPG>;
+			};
+
+			sim2: sim@021b4000 {
+				compatible = "fsl,imx6ul-sim";
+				reg = <0x021b4000 0x4000>;
+				interrupts = <GIC_SPI 113 IRQ_TYPE_LEVEL_HIGH>;
+				clocks = <&clks IMX6UL_CLK_SIM2>;
+				clock-names = "sim";
+				status = "disabled";
 			};
 
 			weim: memory-controller@21b8000 {
