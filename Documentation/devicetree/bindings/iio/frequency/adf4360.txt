@@ -15,7 +15,7 @@ requirements for which the external loop filter was designed.
 The device offers a write-only SPI interface to configure it.
 
 The devicetree bindings for this device follow the standard bindings for SPI
-devices (../spi/spi.txt) and clock consumers and providers (clock-bindings.txt).
+devices (../../spi/spi.txt) and clock consumers and providers (../../clock-bindings.txt).
 
 Required properties:
 
@@ -35,16 +35,58 @@ Required properties:
 - #clock-cells: Must should be 0.
 - clock-output-names:
 - clocks: Phandle and optional specifier to clock node that describes the
-    reference input clock
+    reference input clock.
 
 - adi,loop-filter-pfd-frequency-hz: The frequency of the
     phase-frequency-detector that the external loop filter was designed for.
 - adi,loop-filter-charger-pump-current: The charge pump current that the
-    external loop filter was designed for.
+    external loop filter was designed for as follows:
+    0, 0.31 mA.
+    1, 0.62 mA.
+    2, 0.93 mA.
+    3, 1.25 mA.
+    4, 1.56 mA.
+    5, 1.87 mA.
+    6, 2.18 mA.
+    7, 2.50 mA.
 
 Optional properties:
-- adi,loop-filter-inverting: Indicates that the external loop filter is a
+- adi,loop-filter-inverting: Indicates that the external loop filter is an
     inverting filter.
+- adi,core-power-level: Sets the power level in the VCO core. Possible
+    settings are (recommended default 0):
+    0, 5 mA.
+    1, 10 mA.
+    2, 15 mA.
+    3, 20 mA.
+- adi,output-power-level: Output power level of the VCO. Possible settings
+    are (default 3):
+    0, –14 dBm.
+    1, –11 dBm.
+    2, –8 dBm.
+    3, –5 dBm.
+
+- adi,mute-till-lock-disable: Disables function ensuring that RF outputs
+    are not switched on until the PLL is locked.
+- adi,muxout-control: Sets on-chip multiplexer as follows (default 1):
+    0, Three-state output.
+    1, Digital lock detect (active high).
+    2, N divider output.
+    3, DVDD.
+    4, R divider output.
+    5, N-channel open-drain lock detect.
+    6, Serial data output.
+    7, DGND.
+
+- adi,antibacklash-pulse-width: Set antibacklash pulse width. Possible
+    settings are (default 0):
+    0, 3.0 ns.
+    1, 1.3 ns.
+    2, 6.0 ns.
+    3, 3.0 ns.
+
+- adi,lock-detect-precision-5-cycles: Five (instead of three) consecutive
+    cycles of phase delay less than 15 ns must occur before lock detect is set.
 
 Required properties for ADF4360-7, ADF4360-8 and ADF4360-9:
   ADF4360-7 to ADF4360-9 have a VCO that is tuned to a specific frequency range

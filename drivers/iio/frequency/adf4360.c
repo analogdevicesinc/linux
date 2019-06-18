@@ -91,20 +91,21 @@
 
 /**
  * struct adf4360_platform_data - platform specific information.
- * @vco_min:		Optional mininum VCO frequency in Hz for devices
+ * @vco_min:		Optional, mininum VCO frequency in Hz for devices
  *			configured using external hardware components.
- * @vco_max:		Optional maximum VCO frequency in Hz for devices
+ * @vco_max:		Optional, maximum VCO frequency in Hz for devices
  *			configured using external hardware components.
  * @pfd_freq:		Phase frequency detector frequency in Hz.
- * @cpl:		Core power level setting.
+ * @cpl:		Optional, Core power level setting.
  * @cpi:		Loop filter charge pump current.
- * @opl:		Output power level setting.
- * @pdp:		Phase detector polarity positive enable.
+ * @opl:		Optional, Output power level setting.
+ * @pdp:		Optional, Indicates that the external loop filter is an
+ *			inverting filter.
  * @mtld_disable:	Optional, disables muting output until PLL is locked.
- * @mux_out_ctrl:	Output multiplexer configuration.
+ * @mux_out_ctrl:	Optional, Output multiplexer configuration.
  *			Defaults to lock detect if not set.
- * @abp:		Anti backlash setting.
- * @ldp:		Lock detect precision.
+ * @abp:		Optional, Anti backlash setting.
+ * @ldp:		Optional, Lock detect precision.
  */
 
 struct adf4360_platform_data {
