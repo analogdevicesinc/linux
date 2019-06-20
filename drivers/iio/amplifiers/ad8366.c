@@ -1,6 +1,12 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * AD8366 SPI Dual-Digital Variable Gain Amplifier (VGA)
+ * AD8366 and similar Gain Amplifiers
+ * This driver supports the following gain amplifiers:
+ *   AD8366 Dual-Digital Variable Gain Amplifier (VGA)
+ *   ADA4961 BiCMOS RF Digital Gain Amplifier (DGA)
+ *   ADL5240 Digitally controlled variable gain amplifier (VGA)
+ *   HMC271 1 dB LSB GaAs MMIC 5-BIT Control Digital Attenuator
+ *   HMC1119 0.25 dB LSB, 7-Bit, Silicon Digital Attenuator
  *
  * Copyright 2012-2019 Analog Devices Inc.
  */
@@ -318,5 +324,5 @@ static struct spi_driver ad8366_driver = {
 module_spi_driver(ad8366_driver);
 
 MODULE_AUTHOR("Michael Hennerich <michael.hennerich@analog.com>");
-MODULE_DESCRIPTION("Analog Devices AD8366 VGA");
+MODULE_DESCRIPTION("Analog Devices AD8366 and similar Gain Amplifiers");
 MODULE_LICENSE("GPL v2");
