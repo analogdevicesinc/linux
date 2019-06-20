@@ -29,9 +29,9 @@ enum ad8366_type {
 
 struct ad8366_state {
 	struct spi_device	*spi;
-	struct regulator		*reg;
-	struct gpio_desc		*reset_gpio;
+	struct regulator	*reg;
 	struct mutex            lock; /* protect sensor state */
+	struct gpio_desc	*reset_gpio;
 	unsigned char		ch[2];
 	enum ad8366_type	type;
 
@@ -108,7 +108,6 @@ static int ad8366_read_raw(struct iio_dev *indio_dev,
 		case ID_HMC1119:
 			code = -1 * code * 250;
 			break;
-
 		}
 
 		/* Values in dB */
@@ -134,6 +133,7 @@ static int ad8366_write_raw(struct iio_dev *indio_dev,
 	struct ad8366_state *st = iio_priv(indio_dev);
 	int code;
 	int ret;
+
 	/* Values in dB */
 	if (val < 0)
 		code = (((s8)val * 1000) - ((s32)val2 / 1000));
@@ -227,8 +227,7 @@ static int ad8366_probe(struct spi_device *spi)
 	spi_set_drvdata(spi, indio_dev);
 	mutex_init(&st->lock);
 	st->spi = spi;
-
-	indio_dev->dev.parent = &spi->dev;
+	st->type = spi_get_device_id(spi)->driver_data;
 
 	/* try to get a unique name */
 	if (spi->dev.platform_data)
@@ -238,7 +237,6 @@ static int ad8366_probe(struct spi_device *spi)
 	else
 		indio_dev->name = spi_get_device_id(spi)->name;
 
-	st->type = spi_get_device_id(spi)->driver_data;
 	switch (st->type) {
 	case ID_AD8366:
 		indio_dev->channels = ad8366_channels;
@@ -248,10 +246,8 @@ static int ad8366_probe(struct spi_device *spi)
 	case ID_ADL5240:
 	case ID_HMC271:
 	case ID_HMC1119:
-
 		st->reset_gpio = devm_gpiod_get(&spi->dev, "reset",
 			GPIOD_OUT_HIGH);
-
 		indio_dev->channels = ada4961_channels;
 		indio_dev->num_channels = ARRAY_SIZE(ada4961_channels);
 		break;
@@ -261,6 +257,8 @@ static int ad8366_probe(struct spi_device *spi)
 		goto error_disable_reg;
 	}
 
+	indio_dev->dev.parent = &spi->dev;
+	indio_dev->name = spi_get_device_id(spi)->name;
 	indio_dev->info = &ad8366_info;
 	indio_dev->modes = INDIO_DIRECT_MODE;
 
@@ -296,10 +294,10 @@ static int ad8366_remove(struct spi_device *spi)
 }
 
 static const struct spi_device_id ad8366_id[] = {
-	{"ad8366", ID_AD8366},
+	{"ad8366",  ID_AD8366},
 	{"ada4961", ID_ADA4961},
 	{"adl5240", ID_ADL5240},
-	{"hmc271", ID_HMC271},
+	{"hmc271",  ID_HMC271},
 	{"hmc1119", ID_HMC1119},
 	{}
 };
