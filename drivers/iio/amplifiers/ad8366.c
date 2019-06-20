@@ -258,7 +258,8 @@ static int ad8366_probe(struct spi_device *spi)
 		break;
 	default:
 		dev_err(&spi->dev, "Invalid device ID\n");
-		return -EINVAL;
+		ret = -EINVAL;
+		goto error_disable_reg;
 	}
 
 	indio_dev->info = &ad8366_info;
