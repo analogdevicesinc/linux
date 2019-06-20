@@ -85,7 +85,7 @@ static int ad8366_read_raw(struct iio_dev *indio_dev,
 {
 	struct ad8366_state *st = iio_priv(indio_dev);
 	int ret;
-	int code;
+	int code, gain = 0;
 
 	mutex_lock(&st->lock);
 	switch (m) {
@@ -94,26 +94,26 @@ static int ad8366_read_raw(struct iio_dev *indio_dev,
 
 		switch (st->type) {
 		case ID_AD8366:
-			code = code * 253 + 4500;
+			gain = code * 253 + 4500;
 			break;
 		case ID_ADA4961:
-			code = 15000 - code * 1000;
+			gain = 15000 - code * 1000;
 			break;
 		case ID_ADL5240:
-			code = 20000 - 31500 + code * 500;
+			gain = 20000 - 31500 + code * 500;
 			break;
 		case ID_HMC271:
-			code = -31000 + code * 1000;
+			gain = -31000 + code * 1000;
 			break;
 		case ID_HMC1119:
-			code = -1 * code * 250;
+			gain = -1 * code * 250;
 			break;
 
 		}
 
 		/* Values in dB */
-		*val = code / 1000;
-		*val2 = (code % 1000) * 1000;
+		*val = gain / 1000;
+		*val2 = (gain % 1000) * 1000;
 
 		ret = IIO_VAL_INT_PLUS_MICRO_DB;
 		break;
@@ -132,39 +132,39 @@ static int ad8366_write_raw(struct iio_dev *indio_dev,
 			    long mask)
 {
 	struct ad8366_state *st = iio_priv(indio_dev);
-	int code;
+	int code = 0, gain;
 	int ret;
 	/* Values in dB */
 	if (val < 0)
-		code = (((s8)val * 1000) - ((s32)val2 / 1000));
+		gain = (((s8)val * 1000) - ((s32)val2 / 1000));
 	else
-		code = (((s8)val * 1000) + ((s32)val2 / 1000));
+		gain = (((s8)val * 1000) + ((s32)val2 / 1000));
 
 	switch (st->type) {
 	case ID_AD8366:
-		if (code > 20500 || code < 4500)
+		if (gain > 20500 || gain < 4500)
 			return -EINVAL;
-		code = (code - 4500) / 253;
+		code = (gain - 4500) / 253;
 		break;
 	case ID_ADA4961:
-		if (code > 15000 || code < -6000)
+		if (gain > 15000 || gain < -6000)
 			return -EINVAL;
-		code = (15000 - code) / 1000;
+		code = (15000 - gain) / 1000;
 		break;
 	case ID_ADL5240:
-		if (code < -11500 || code > 20000)
+		if (gain < -11500 || gain > 20000)
 			return -EINVAL;
-		code = ((code - 500 - 20000) / 500) & 0x3F;
+		code = ((gain - 500 - 20000) / 500) & 0x3F;
 		break;
 	case ID_HMC271:
-		if (code < -31000 || code > 0)
+		if (gain < -31000 || gain > 0)
 			return -EINVAL;
-		code = ((code - 1000) / 1000) & 0x1F;
+		code = ((gain - 1000) / 1000) & 0x1F;
 		break;
 	case ID_HMC1119:
-		if (code < -31750 || code > 0)
+		if (gain < -31750 || gain > 0)
 			return -EINVAL;
-		code = (abs(code) / 250) & 0x7F;
+		code = (abs(gain) / 250) & 0x7F;
 		break;
 	}
 
