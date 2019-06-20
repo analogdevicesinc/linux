@@ -2256,6 +2256,38 @@ static int ad9371_gain_to_gainindex(struct ad9371_rf_phy *phy, int channel,
 	return 0;
 }
 
+static int ad9371_read_temperature(struct ad9371_rf_phy *phy, int *val)
+{
+	int ret, i;
+	mykonosTempSensorStatus_t tstat = { 0 };
+	mykonosTempSensorConfig_t tconf = { .tempDecimation = 7 };
+
+	ret = MYKONOS_setupTempSensor(phy->mykDevice, &tconf);
+	if (ret != MYKONOS_ERR_GPIO_OK)
+		return -EIO;
+
+	ret = MYKONOS_setAuxAdcChannel(phy->mykDevice, MYK_TEMPSENSOR);
+	if (ret != MYKONOS_ERR_GPIO_OK)
+		return -EIO;
+
+	ret = MYKONOS_startTempMeasurement(phy->mykDevice);
+	if (ret != MYKONOS_ERR_GPIO_OK)
+		return -EIO;
+
+	for (i = 0; i < 3; i++) {
+		ret = MYKONOS_readTempSensor(phy->mykDevice, &tstat);
+		if (ret != MYKONOS_ERR_GPIO_OK)
+			return -EIO;
+		if (tstat.tempValid) {
+			*val = tstat.tempCode;
+			return 0;
+		}
+		usleep_range(900, 1000);
+	}
+
+	return -EIO;
+}
+
 static int ad9371_phy_read_raw(struct iio_dev *indio_dev,
 			       struct iio_chan_spec const *chan,
 			       int *val,
@@ -2323,7 +2355,11 @@ static int ad9371_phy_read_raw(struct iio_dev *indio_dev,
 		ret = IIO_VAL_INT;
 		break;
 	case IIO_CHAN_INFO_RAW:
-		if (chan->output) {
+		if (chan->type == IIO_TEMP) {
+			ret = ad9371_read_temperature(phy, val);
+			if (ret == 0)
+				ret = IIO_VAL_INT;
+		} else if (chan->output) {
 			*val = phy->mykDevice->auxIo->auxDacValue[chan->channel - CHAN_AUXDAC0];
 			ret = IIO_VAL_INT;
 		} else {
@@ -2348,7 +2384,10 @@ static int ad9371_phy_read_raw(struct iio_dev *indio_dev,
 		}
 		break;
 	case IIO_CHAN_INFO_SCALE:
-		if (chan->output) {
+		if (chan->type == IIO_TEMP) {
+			*val = 1 ; /* Temperature scale */
+			*val2 = 0;
+		} else if (chan->output) {
 			*val = ad9371_auxdac_scale_val1_lut
 			       [phy->mykDevice->auxIo->auxDacSlope[chan->channel - CHAN_AUXDAC0]]; /* AuxDAC */
 			*val2 = ad9371_auxdac_scale_val2_lut
@@ -2600,7 +2639,12 @@ static const struct iio_chan_spec ad9371_phy_chan[] = {
 		.channel = CHAN_AUXDAC9,
 		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
 		BIT(IIO_CHAN_INFO_SCALE) | BIT(IIO_CHAN_INFO_OFFSET),
-
+	}, {	/* TEMP */
+		.type = IIO_TEMP,
+		.indexed = 1,
+		.output = 1,
+		.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_RAW) |
+		BIT(IIO_CHAN_INFO_SCALE),
 	}
 };
 
