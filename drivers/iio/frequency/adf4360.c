@@ -93,18 +93,14 @@ struct adf4360_state {
 	struct spi_device *spi;
 	const struct adf4360_chip_info *info;
 	unsigned int part_id;
-	unsigned long r, n;
-
-	bool pdp;
+	unsigned long r;
+	unsigned long n;
 	unsigned int vco_min;
 	unsigned int vco_max;
 	unsigned int pfd_freq;
 	unsigned int cpi;
-
-	unsigned int val_ctrl;
-
+	bool pdp;
 	struct clk_hw clk_hw;
-
 	u8 spi_data[3] ____cacheline_aligned;
 };
 
