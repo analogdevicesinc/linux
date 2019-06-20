@@ -9,6 +9,7 @@ menu "Amplifiers"
 config AD8366
 	tristate "Analog Devices AD8366 VGA"
 	depends on SPI
+	depends on GPIOLIB
 	select BITREVERSE
 	help
 	  Say yes here to build support for Analog Devices AD8366
