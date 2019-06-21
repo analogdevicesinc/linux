@@ -10,6 +10,16 @@ config AD_SIGMA_DELTA
 	select IIO_BUFFER
 	select IIO_TRIGGERED_BUFFER
 
+config AD5940
+	tristate "Analog Devices AD5940 ADC Driver"
+	depends on SPI
+	help
+	  Say yes here to build support for the ADC part of Analog Devices
+	  analog front end AD5940.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called ad5940.
+
 config AD7091R5
 	tristate "Analog Devices AD7091R5 ADC Driver"
 	depends on I2C

@@ -406,6 +406,13 @@ W:	http://ez.analog.com/community/linux-device-drivers
 S:	Supported
 F:	drivers/regulator/ad5398.c
 
+AD5940 ANALOG FRONT END DRIVER
+M:	Song Qiang <songqiang1304521@gmail.com>
+W:	https://wiki.analog.com/resources/eval/user-guides/ad5940
+W:	http://ez.analog.com/community/linux-device-drivers
+S:	Supported
+F:	drivers/iio/adc/ad5940.c
+
 AD714X CAPACITANCE TOUCH SENSOR DRIVER (AD7142/3/7/8/7A)
 M:	Michael Hennerich <michael.hennerich@analog.com>
 W:	http://wiki.analog.com/AD7142
