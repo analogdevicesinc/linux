@@ -14,8 +14,8 @@ requirements for which the external loop filter was designed.
 
 The device offers a write-only SPI interface to configure it.
 
-The devicetree bindings for this device follow the standard bindings for SPI
-devices (../spi/spi.txt) and clock consumers and providers (clock-bindings.txt).
+The devicetree bindings for this device follow the standard bindings for SPI devices
+(../../spi/spi.txt) and clock consumers and providers (../../clock-bindings.txt).
 
 Required properties:
 
@@ -35,15 +35,23 @@ Required properties:
 - #clock-cells: Must should be 0.
 - clock-output-names:
 - clocks: Phandle and optional specifier to clock node that describes the
-    reference input clock
+    reference input clock.
 
 - adi,loop-filter-pfd-frequency-hz: The frequency of the
     phase-frequency-detector that the external loop filter was designed for.
 - adi,loop-filter-charger-pump-current: The charge pump current that the
-    external loop filter was designed for.
+    external loop filter was designed for as follows:
+    0, 0.31 mA.
+    1, 0.62 mA.
+    2, 0.93 mA.
+    3, 1.25 mA.
+    4, 1.56 mA.
+    5, 1.87 mA.
+    6, 2.18 mA.
+    7, 2.50 mA.
 
 Optional properties:
-- adi,loop-filter-inverting: Indicates that the external loop filter is a
+- adi,loop-filter-inverting: Indicates that the external loop filter is an
     inverting filter.
 
 Required properties for ADF4360-7, ADF4360-8 and ADF4360-9:
