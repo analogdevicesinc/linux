@@ -412,6 +412,7 @@ W:	https://wiki.analog.com/resources/eval/user-guides/ad5940
 W:	http://ez.analog.com/community/linux-device-drivers
 S:	Supported
 F:	drivers/iio/adc/ad5940.c
+F:	Documentation/devicetree/bindings/iio/adc/adi,ad5940.yaml
 
 AD714X CAPACITANCE TOUCH SENSOR DRIVER (AD7142/3/7/8/7A)
 M:	Michael Hennerich <michael.hennerich@analog.com>
