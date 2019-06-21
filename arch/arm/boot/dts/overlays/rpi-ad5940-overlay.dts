@@ -1,0 +1,22 @@
+/dts-v1/;
+/plugin/;
+#include <dt-bindings/interrupt-controller/irq.h>
+
+/ {
+	compatible = "brcm,bcm2708";
+
+	fragment@1 {
+		target = <&spi0>;
+		__overlay__ {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "okay";
+
+			ad5940@0{
+				compatible = "adi,ad5940";
+				reg = <0>;
+				spi-max-frequency = <16000000>;
+			};
+		};
+	};
+};
