@@ -20,6 +20,14 @@
 
 &iomuxc {
 	epdc {
+		pinctrl_epdc_elan_touch: epdc_elan_touch_grp {
+			fsl,pins = <
+				MX6QDL_PAD_EIM_D28__GPIO3_IO28 0x80000000
+				MX6QDL_PAD_EIM_DA8__GPIO3_IO08 0x80000000
+				MX6QDL_PAD_EIM_A20__GPIO2_IO18 0x80000000
+			>;
+		};
+
 		pinctrl_epdc_0: epdcgrp-0 {
 			fsl,pins = <
 				MX6QDL_PAD_EIM_A16__EPDC_DATA00    0x80000000
@@ -57,6 +65,19 @@
 };
 
 &i2c3 {
+	elan@10 {
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_epdc_elan_touch>;
+		compatible = "elan,elan-touch";
+		reg = <0x10>;
+		interrupt-parent = <&gpio3>;
+		interrupts = <28 IRQ_TYPE_EDGE_FALLING>;
+		gpio_elan_cs = <&gpio2 18 0>;
+		gpio_elan_rst = <&gpio3 8 0>;
+		gpio_intr = <&gpio3 28 0>;
+		status = "okay";
+	};
+
         max17135@48 {
                 compatible = "maxim,max17135";
                 reg = <0x48>;
