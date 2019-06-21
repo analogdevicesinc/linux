@@ -83,8 +83,15 @@
 #define ADF4360_MAX_PFD_RATE		8000000 /* 8 MHz */
 #define ADF4360_MAX_COUNTER_RATE	300000000 /* 300 MHz */
 
+struct adf4360_chip_info {
+	unsigned int vco_min;
+	unsigned int vco_max;
+	unsigned int default_cpl;
+};
+
 struct adf4360_state {
 	struct spi_device *spi;
+	const struct adf4360_chip_info *info;
 	unsigned int part_id;
 	unsigned long r, n;
 
@@ -101,13 +108,7 @@ struct adf4360_state {
 	u8 spi_data[3] ____cacheline_aligned;
 };
 
-struct adf4360_part_info {
-	unsigned int vco_min;
-	unsigned int vco_max;
-	unsigned int default_cpl;
-};
-
-static const struct adf4360_part_info adf4360_part_info[] = {
+static const struct adf4360_chip_info adf4360_chip_info_tbl[] = {
 	{	/* ADF4360-0 */
 		.vco_min = 2400000000U,
 		.vco_max = 2725000000U,
@@ -282,7 +283,7 @@ static int adf4360_set_rate(struct clk_hw *clk_hw,
 	pfd_freq = parent_rate / r;
 	n = DIV_ROUND_CLOSEST(rate, pfd_freq);
 
-	val_ctrl = adf4360_part_info[st->part_id].default_cpl;
+	val_ctrl = st->info->default_cpl;
 	val_ctrl |= ADF4360_CTRL_CPI1(st->cpi);
 	val_ctrl |= ADF4360_CTRL_CPI2(st->cpi);
 	val_ctrl |= ADF4360_CTRL_PL_11;
@@ -373,7 +374,6 @@ static int adf4360_probe(struct spi_device *spi)
 {
 	const struct spi_device_id *id = spi_get_device_id(spi);
 	struct device_node *of_node = spi->dev.of_node;
-	const struct adf4360_part_info *info;
 	struct clk_init_data init;
 	struct adf4360_state *st;
 	const char *parent_name;
@@ -391,6 +391,8 @@ static int adf4360_probe(struct spi_device *spi)
 		return -ENOMEM;
 
 	st->spi = spi;
+	st->info = &adf4360_chip_info_tbl[id->driver_data];
+	st->part_id = id->driver_data;
 
 	clk_name = spi->dev.of_node->name;
 	of_property_read_string(spi->dev.of_node, "clock-output-names",
@@ -403,8 +405,6 @@ static int adf4360_probe(struct spi_device *spi)
 	init.num_parents = 1;
 
 	st->clk_hw.init = &init;
-	st->part_id = id->driver_data;
-	info = &adf4360_part_info[st->part_id];
 
 	if (st->part_id >= 7) {
 		/*
@@ -416,20 +416,20 @@ static int adf4360_probe(struct spi_device *spi)
 					   "adi,vco-minimum-frequency-hz",
 					   &tmp);
 		if (ret == 0)
-			st->vco_min = max(info->vco_min, tmp);
+			st->vco_min = max(st->info->vco_min, tmp);
 		else
-			st->vco_min = info->vco_min;
+			st->vco_min = st->info->vco_min;
 
 		ret = of_property_read_u32(of_node,
 					   "adi,vco-maximum-frequency-hz",
 					   &tmp);
 		if (ret == 0)
-			st->vco_max = min(info->vco_max, tmp);
+			st->vco_max = min(st->info->vco_max, tmp);
 		else
-			st->vco_max = info->vco_max;
+			st->vco_max = st->info->vco_max;
 	} else {
-		st->vco_min = info->vco_min;
-		st->vco_max = info->vco_max;
+		st->vco_min = st->info->vco_min;
+		st->vco_max = st->info->vco_max;
 	}
 
 	st->pdp = of_property_read_bool(of_node, "adi,loop-filter-inverting");
