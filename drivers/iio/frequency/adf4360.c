@@ -168,8 +168,8 @@ static int adf4360_write_reg(struct adf4360_state *st, unsigned int reg,
 
 /* fVCO = B * fREFIN / R */
 
-static unsigned long adf4360_recalc_rate(struct clk_hw *clk_hw,
-	unsigned long parent_rate)
+static unsigned long adf4360_clk_recalc_rate(struct clk_hw *clk_hw,
+					     unsigned long parent_rate)
 {
 	struct adf4360_state *st = clk_hw_to_adf4360(clk_hw);
 
@@ -225,8 +225,9 @@ static unsigned int adf4360_calc_prescaler(unsigned int pfd_freq,
 	return p * b + a;
 }
 
-static long adf4360_round_rate(struct clk_hw *clk_hw,
-	unsigned long rate, unsigned long *parent_rate)
+static long adf4360_clk_round_rate(struct clk_hw *clk_hw,
+				   unsigned long rate,
+				   unsigned long *parent_rate)
 {
 	struct adf4360_state *st = clk_hw_to_adf4360(clk_hw);
 	unsigned int r, n, pfd_freq;
@@ -265,8 +266,9 @@ static long adf4360_round_rate(struct clk_hw *clk_hw,
 	return pfd_freq * n;
 }
 
-static int adf4360_set_rate(struct clk_hw *clk_hw,
-	unsigned long rate, unsigned long parent_rate)
+static int adf4360_clk_set_rate(struct clk_hw *clk_hw,
+				unsigned long rate,
+				unsigned long parent_rate)
 {
 	struct adf4360_state *st = clk_hw_to_adf4360(clk_hw);
 	unsigned int val_r, val_n, val_ctrl;
@@ -336,9 +338,9 @@ static int adf4360_set_rate(struct clk_hw *clk_hw,
 }
 
 static const struct clk_ops adf4360_clk_ops = {
-	.recalc_rate = adf4360_recalc_rate,
-	.round_rate = adf4360_round_rate,
-	.set_rate = adf4360_set_rate,
+	.recalc_rate = adf4360_clk_recalc_rate,
+	.round_rate = adf4360_clk_round_rate,
+	.set_rate = adf4360_clk_set_rate,
 };
 
 static void adf4360_m2k_setup(struct adf4360_state *st)
