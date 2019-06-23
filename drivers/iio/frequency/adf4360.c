@@ -163,7 +163,7 @@ static int adf4360_write_reg(struct adf4360_state *st, unsigned int reg,
 	st->spi_data[1] = (val >> 8) & 0xff;
 	st->spi_data[2] = val & 0xff;
 
-	return spi_write(st->spi, st->spi_data, 3);
+	return spi_write(st->spi, st->spi_data, ARRAY_SIZE(st->spi_data));
 }
 
 /* fVCO = B * fREFIN / R */
@@ -414,7 +414,7 @@ static int adf4360_parse_dt(struct adf4360_state *st)
 	if (ret == 0) {
 		st->pfd_freq = tmp;
 	} else {
-		dev_err(dev, "DT: PFD frequency property missing\n");
+		dev_err(dev, "PFD frequency property missing\n");
 		return ret;
 	}
 
@@ -424,7 +424,7 @@ static int adf4360_parse_dt(struct adf4360_state *st)
 	if (ret == 0) {
 		st->cpi = tmp;
 	} else {
-		dev_err(dev, "DT: CPI property missing\n");
+		dev_err(dev, "CPI property missing\n");
 		return ret;
 	}
 
@@ -454,8 +454,8 @@ static int adf4360_probe(struct spi_device *spi)
 	st->part_id = id->driver_data;
 
 	ret = adf4360_parse_dt(st);
-	if (ret < 0) {
-		dev_err(&spi->dev, "Parsing devicetree failed (%d)\n", ret);
+	if (ret) {
+		dev_err(&spi->dev, "Parsing properties failed (%d)\n", ret);
 		return -ENODEV;
 	}
 
