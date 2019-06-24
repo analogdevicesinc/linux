@@ -16,6 +16,8 @@
 #include <linux/of.h>
 #include <linux/spi/spi.h>
 
+#include <linux/iio/iio.h>
+
 /* Registers */
 #define ADF4360_REG_CTRL		0x00
 #define ADF4360_REG_RDIV		0x01
@@ -83,6 +85,13 @@
 #define ADF4360_MAX_PFD_RATE		8000000 /* 8 MHz */
 #define ADF4360_MAX_COUNTER_RATE	300000000 /* 300 MHz */
 
+struct adf4360_output {
+	struct clk_hw hw;
+	struct iio_dev *indio_dev;
+};
+
+#define to_output(_hw) container_of(_hw, struct adf4360_output, hw)
+
 struct adf4360_chip_info {
 	unsigned int vco_min;
 	unsigned int vco_max;
@@ -92,6 +101,7 @@ struct adf4360_chip_info {
 struct adf4360_state {
 	struct spi_device *spi;
 	const struct adf4360_chip_info *info;
+	struct adf4360_output output;
 	unsigned int part_id;
 	unsigned long r;
 	unsigned long n;
@@ -101,7 +111,6 @@ struct adf4360_state {
 	unsigned int cpi;
 	bool pdp;
 	const char *clk_out_name;
-	struct clk_hw clk_hw;
 	u8 spi_data[3] ____cacheline_aligned;
 };
 
@@ -149,11 +158,6 @@ static const struct adf4360_chip_info adf4360_chip_info_tbl[] = {
 	}
 };
 
-static struct adf4360_state *clk_hw_to_adf4360(struct clk_hw *clk_hw)
-{
-	return container_of(clk_hw, struct adf4360_state, clk_hw);
-}
-
 static int adf4360_write_reg(struct adf4360_state *st, unsigned int reg,
 	unsigned int val)
 {
@@ -168,24 +172,27 @@ static int adf4360_write_reg(struct adf4360_state *st, unsigned int reg,
 
 /* fVCO = B * fREFIN / R */
 
-static unsigned long adf4360_clk_recalc_rate(struct clk_hw *clk_hw,
+static unsigned long adf4360_clk_recalc_rate(struct clk_hw *hw,
 					     unsigned long parent_rate)
 {
-	struct adf4360_state *st = clk_hw_to_adf4360(clk_hw);
+	struct iio_dev *indio_dev = to_output(hw)->indio_dev;
+	struct adf4360_state *st = iio_priv(indio_dev);
 
 	if (st->r == 0)
 		return 0;
 
 	/*
-	 * The result is garuanteed to fit in 32-bit, but the intermediate
+	 * The result is guaranteed to fit in 32-bit, but the intermediate
 	 * result might require 64-bit.
 	 */
 	return DIV_ROUND_CLOSEST_ULL((uint64_t)parent_rate * st->n, st->r);
 }
 
 static unsigned int adf4360_calc_prescaler(unsigned int pfd_freq,
-		unsigned int n, unsigned int *out_p, unsigned int *out_a,
-		unsigned int *out_b)
+					   unsigned int n,
+					   unsigned int *out_p,
+					   unsigned int *out_a,
+					   unsigned int *out_b)
 {
 	unsigned int rate = pfd_freq * n;
 	unsigned int p, a, b;
@@ -225,12 +232,14 @@ static unsigned int adf4360_calc_prescaler(unsigned int pfd_freq,
 	return p * b + a;
 }
 
-static long adf4360_clk_round_rate(struct clk_hw *clk_hw,
+static long adf4360_clk_round_rate(struct clk_hw *hw,
 				   unsigned long rate,
 				   unsigned long *parent_rate)
 {
-	struct adf4360_state *st = clk_hw_to_adf4360(clk_hw);
-	unsigned int r, n, pfd_freq;
+	struct iio_dev *indio_dev = to_output(hw)->indio_dev;
+	struct adf4360_state *st = iio_priv(indio_dev);
+	unsigned int r, n;
+	unsigned int pfd_freq;
 
 	if (*parent_rate == 0)
 		return 0;
@@ -266,11 +275,12 @@ static long adf4360_clk_round_rate(struct clk_hw *clk_hw,
 	return pfd_freq * n;
 }
 
-static int adf4360_clk_set_rate(struct clk_hw *clk_hw,
+static int adf4360_clk_set_rate(struct clk_hw *hw,
 				unsigned long rate,
 				unsigned long parent_rate)
 {
-	struct adf4360_state *st = clk_hw_to_adf4360(clk_hw);
+	struct iio_dev *indio_dev = to_output(hw)->indio_dev;
+	struct adf4360_state *st = iio_priv(indio_dev);
 	unsigned int val_r, val_n, val_ctrl;
 	unsigned int pfd_freq;
 	unsigned long r, n;
@@ -369,6 +379,54 @@ static void adf4360_m2k_setup(struct adf4360_state *st)
 	adf4360_write_reg(st, ADF4360_REG_NDIV, val_b);
 }
 
+static const struct iio_chan_spec adf4360_chan = {
+	.type = IIO_ALTVOLTAGE,
+	.indexed = 1,
+	.output = 1,
+};
+
+static const struct iio_info adf4360_iio_info = {
+	.driver_module = THIS_MODULE,
+};
+
+static void adf4360_clk_del_provider(void *data)
+{
+	struct adf4360_state *st = data;
+
+	of_clk_del_provider(st->spi->dev.of_node);
+}
+
+static int adf4360_clk_register(struct adf4360_state *st)
+{
+	struct spi_device *spi = st->spi;
+	struct clk_init_data init;
+	struct clk *clk;
+	const char *parent_name;
+	int ret;
+
+	parent_name = of_clk_get_parent_name(spi->dev.of_node, 0);
+	if (!parent_name)
+		return -EINVAL;
+
+	init.name = st->clk_out_name;
+	init.ops = &adf4360_clk_ops;
+	init.flags = CLK_SET_RATE_GATE;
+	init.parent_names = &parent_name;
+	init.num_parents = 1;
+
+	st->output.hw.init = &init;
+
+	clk = devm_clk_register(&spi->dev, &st->output.hw);
+	if (IS_ERR(clk))
+		return PTR_ERR(clk);
+
+	ret = of_clk_add_provider(spi->dev.of_node, of_clk_src_simple_get, clk);
+	if (ret)
+		return ret;
+
+	return devm_add_action_or_reset(&spi->dev, adf4360_clk_del_provider, st);
+}
+
 static int adf4360_parse_dt(struct adf4360_state *st)
 {
 	struct device *dev = &st->spi->dev;
@@ -433,21 +491,18 @@ static int adf4360_parse_dt(struct adf4360_state *st)
 
 static int adf4360_probe(struct spi_device *spi)
 {
+	struct iio_dev *indio_dev;
 	const struct spi_device_id *id = spi_get_device_id(spi);
-	struct device_node *of_node = spi->dev.of_node;
-	struct clk_init_data init;
 	struct adf4360_state *st;
-	const char *parent_name;
-	struct clk *clk;
 	int ret;
 
-	parent_name = of_clk_get_parent_name(of_node, 0);
-	if (!parent_name)
-		return -EINVAL;
-
-	st = devm_kzalloc(&spi->dev, sizeof(*st), GFP_KERNEL);
-	if (!st)
+	indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*st));
+	if (!indio_dev)
 		return -ENOMEM;
+
+	st = iio_priv(indio_dev);
+
+	spi_set_drvdata(spi, indio_dev);
 
 	st->spi = spi;
 	st->info = &adf4360_chip_info_tbl[id->driver_data];
@@ -459,13 +514,18 @@ static int adf4360_probe(struct spi_device *spi)
 		return -ENODEV;
 	}
 
-	init.name = st->clk_out_name;
-	init.ops = &adf4360_clk_ops;
-	init.flags = CLK_SET_RATE_GATE;
-	init.parent_names = &parent_name;
-	init.num_parents = 1;
+	indio_dev->dev.parent = &spi->dev;
 
-	st->clk_hw.init = &init;
+	if (spi->dev.of_node)
+		indio_dev->name = spi->dev.of_node->name;
+	else
+		indio_dev->name = spi_get_device_id(spi)->name;
+
+	indio_dev->info = &adf4360_iio_info;
+	indio_dev->modes = INDIO_DIRECT_MODE;
+	indio_dev->channels = &adf4360_chan;
+	indio_dev->num_channels = 1;
+	st->output.indio_dev = indio_dev;
 
 	/*
 	 * Backwards compatibility for old M2K devicetrees, remove this
@@ -474,18 +534,11 @@ static int adf4360_probe(struct spi_device *spi)
 	if (id->driver_data == 9)
 		adf4360_m2k_setup(st);
 
-	clk = devm_clk_register(&spi->dev, &st->clk_hw);
-	if (IS_ERR(clk))
-		return PTR_ERR(clk);
+	ret = adf4360_clk_register(st);
+	if (ret)
+		return ret;
 
-	return of_clk_add_provider(spi->dev.of_node, of_clk_src_simple_get, clk);
-}
-
-static int adf4360_remove(struct spi_device *spi)
-{
-	of_clk_del_provider(spi->dev.of_node);
-
-	return 0;
+	return devm_iio_device_register(&spi->dev, indio_dev);
 }
 
 static const struct spi_device_id adf4360_id[] = {
@@ -508,7 +561,6 @@ static struct spi_driver adf4360_driver = {
 		.owner	= THIS_MODULE,
 	},
 	.probe		= adf4360_probe,
-	.remove		= adf4360_remove,
 	.id_table	= adf4360_id,
 };
 module_spi_driver(adf4360_driver);
