@@ -99,6 +99,7 @@
 		#clock-cells = <0>;
 
 		clocks = <&ref_clock>;
+		clock-names = "clkin";
 		clock-output-names = "ADF4360-9";
 		lockdetect-gpio = <&gpio_exp 8 0>;
 	};
