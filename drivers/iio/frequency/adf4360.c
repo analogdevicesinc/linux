@@ -102,7 +102,9 @@ struct adf4360_state {
 	struct spi_device *spi;
 	const struct adf4360_chip_info *info;
 	struct adf4360_output output;
+	struct clk *clkin;
 	unsigned int part_id;
+	unsigned long clkin_freq;
 	unsigned long r;
 	unsigned long n;
 	unsigned int vco_min;
@@ -389,6 +391,37 @@ static const struct iio_info adf4360_iio_info = {
 	.driver_module = THIS_MODULE,
 };
 
+static void adf4360_clkin_disable(void *data)
+{
+	struct adf4360_state *st = data;
+
+	clk_disable_unprepare(st->clkin);
+}
+
+static int adf4360_get_clkin(struct adf4360_state *st)
+{
+	struct device *dev = &st->spi->dev;
+	struct clk *clk;
+	int ret;
+
+	clk = devm_clk_get(dev, "clkin");
+	if (IS_ERR(clk))
+		return PTR_ERR(clk);
+
+	ret = clk_prepare_enable(clk);
+	if (ret)
+		return ret;
+
+	ret = devm_add_action_or_reset(dev, adf4360_clkin_disable, st);
+	if (ret)
+		return ret;
+
+	st->clkin = clk;
+	st->clkin_freq = clk_get_rate(clk);
+
+	return 0;
+}
+
 static void adf4360_clk_del_provider(void *data)
 {
 	struct adf4360_state *st = data;
@@ -534,6 +567,9 @@ static int adf4360_probe(struct spi_device *spi)
 	if (id->driver_data == 9)
 		adf4360_m2k_setup(st);
 
+	ret = adf4360_get_clkin(st);
+	if (ret)
+		return ret;
 	ret = adf4360_clk_register(st);
 	if (ret)
 		return ret;
