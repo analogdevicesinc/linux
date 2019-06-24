@@ -42,3 +42,44 @@ Description:
 		RFOut buffers.
 		Writing 1 causes the specified channel to power down.
 		Clearing returns to normal operation.
+
+What:		/sys/bus/iio/devices/iio:deviceX/muxout_enable
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		This attribute allows to use the MUXOUT pin for readback.
+		Writing 1, the mux out pin is used for readback.
+		Clearing, the data pin is used for readback.
+
+What:		/sys/bus/iio/devices/iio:deviceX/muxout_mode
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		The mux output allows the user to access various internal points on
+		the chip. Valid values that can be written are:
+		* tristate -> tristate, high impedance output
+		* digital_lock -> digital lock detect
+		* charge_pump_up -> charge pump up
+		* charge_pump_down -> charge pump down
+		* RDIV2 -> RDIV2
+		* N_div_out -> N divider output
+		* VCO_test -> VCO test modes
+		* VCO_calib_R_band -> VCO calibration R band/2
+		* VCO_calib_N_band -> VCO calibration N band/2
+
+What:		/sys/bus/iio/devices/iio:deviceX/out_altvoltage_muxout_mode_available
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Reading this returns the valid values that can be written to the
+		muxout_mode attribute:
+		* tristate
+		* digital_lock
+		* charge_pump_up
+		* charge_pump_down
+		* RDIV2
+		* N_div_out
+		* VCO_test
+		* high
+		* VCO_calib_R_band
+		* VCO_calib_N_band
