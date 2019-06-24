@@ -32,10 +32,11 @@ Required properties:
     * adi,adf4360-9
 - reg: SPI chip select number for the device
 - spi-max-frequency: Max SPI frequency to use (< 20000000)
-- #clock-cells: Must should be 0.
+- #clock-cells: Must be 0.
 - clock-output-names:
 - clocks: Phandle and optional specifier to clock node that describes the
     reference input clock.
+- clock-names: Must be "clkin".
 
 - adi,loop-filter-pfd-frequency-hz: The frequency of the
     phase-frequency-detector that the external loop filter was designed for.
