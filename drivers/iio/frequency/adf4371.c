@@ -18,6 +18,7 @@
 #include <linux/spi/spi.h>
 
 #include <linux/iio/iio.h>
+#include <linux/iio/sysfs.h>
 
 /* Registers address macro */
 #define ADF4371_REG(x)			(x)
@@ -46,6 +47,12 @@
 /* ADF4371_REG1A */
 #define ADF4371_MOD2WORD_MSK		GENMASK(5, 0)
 #define ADF4371_MOD2WORD(x)		FIELD_PREP(ADF4371_MOD2WORD_MSK, x)
+
+/* ADF4371_REG20 */
+#define ADF4371_MUXOUT_MSK		GENMASK(7, 4)
+#define ADF4371_MUXOUT(x)		FIELD_PREP(ADF4371_MUXOUT_MSK, x)
+#define ADF4371_MUXOUT_EN_MSK		BIT(3)
+#define ADF4371_MUXOUT_EN(x)		FIELD_PREP(ADF4371_MUXOUT_EN_MSK, x)
 
 /* ADF4371_REG24 */
 #define ADF4371_RF_DIV_SEL_MSK		GENMASK(6, 4)
@@ -87,7 +94,8 @@
 enum {
 	ADF4371_FREQ,
 	ADF4371_POWER_DOWN,
-	ADF4371_CHANNEL_NAME
+	ADF4371_CHANNEL_NAME,
+	ADF4371_MUXOUT_ENABLE
 };
 
 enum {
@@ -102,6 +110,19 @@ enum adf4371_variant {
 	ADF4372
 };
 
+enum adf4371_muxout {
+	ADF4371_TRISTATE = 0x00,
+	ADF4371_DIG_LOCK = 0x01,
+	ADF4371_CH_PUMP_UP = 0x02,
+	ADF4371_CH_PUMP_DOWN = 0x03,
+	ADF4371_RDIV2 = 0x04,
+	ADF4371_N_DIV_OUT = 0x05,
+	ADF4371_VCO_TEST = 0x06,
+	ADF4371_HIGH = 0x08,
+	ADF4371_VCO_CALIB_R_BAND = 0x09,
+	ADF4371_VCO_CALIB_N_BAND = 0x0A
+};
+
 struct adf4371_pwrdown {
 	unsigned int reg;
 	unsigned int bit;
@@ -109,6 +130,19 @@ struct adf4371_pwrdown {
 
 static const char * const adf4371_ch_names[] = {
 	"RF8x", "RFAUX8x", "RF16x", "RF32x"
+};
+
+static const char * const adf4371_muxout_modes[] = {
+	[ADF4371_TRISTATE] = "tristate",
+	[ADF4371_DIG_LOCK] = "digital_lock",
+	[ADF4371_CH_PUMP_UP] = "charge_pump_up",
+	[ADF4371_CH_PUMP_DOWN] = "charge_pump_down",
+	[ADF4371_RDIV2] = "RDIV2",
+	[ADF4371_N_DIV_OUT] = "N_div_out",
+	[ADF4371_VCO_TEST] = "VCO_test",
+	[ADF4371_HIGH] = "high",
+	[ADF4371_VCO_CALIB_R_BAND] = "VCO_calib_R_band",
+	[ADF4371_VCO_CALIB_N_BAND] = "VCO_calib_N_band",
 };
 
 static const struct adf4371_pwrdown adf4371_pwrdown_ch[4] = {
@@ -201,6 +235,7 @@ struct adf4371_state {
 	unsigned int ref_div_factor;
 	bool has_clk_out_names;
 	bool mute_till_lock_en;
+	bool muxout_en;
 	u8 buf[10] ____cacheline_aligned;
 };
 
@@ -399,6 +434,8 @@ static ssize_t adf4371_read(struct iio_dev *indio_dev,
 		break;
 	case ADF4371_CHANNEL_NAME:
 		return sprintf(buf, "%s\n", adf4371_ch_names[chan->channel]);
+	case ADF4371_MUXOUT_ENABLE:
+		return sprintf(buf, "%d\n", st->muxout_en);
 	default:
 		ret = -EINVAL;
 		val = 0;
@@ -415,7 +452,7 @@ static ssize_t adf4371_write(struct iio_dev *indio_dev,
 {
 	struct adf4371_state *st = iio_priv(indio_dev);
 	unsigned long long freq;
-	bool power_down;
+	bool power_down, muxout_en;
 	int ret;
 
 	mutex_lock(&st->lock);
@@ -434,6 +471,19 @@ static ssize_t adf4371_write(struct iio_dev *indio_dev,
 
 		ret = adf4371_channel_power_down(st, chan->channel, power_down);
 		break;
+	case ADF4371_MUXOUT_ENABLE:
+		ret = kstrtobool(buf, &muxout_en);
+		if (ret)
+			break;
+
+		ret = regmap_update_bits(st->regmap, ADF4371_REG(0x20),
+					 ADF4371_MUXOUT_EN_MSK,
+					 ADF4371_MUXOUT_EN(muxout_en));
+		if (ret < 0)
+			break;
+
+		st->muxout_en = muxout_en;
+		break;
 	default:
 		ret = -EINVAL;
 		break;
@@ -442,6 +492,40 @@ static ssize_t adf4371_write(struct iio_dev *indio_dev,
 
 	return ret ? ret : len;
 }
+
+static int adf4371_get_muxout_mode(struct iio_dev *indio_dev,
+				   const struct iio_chan_spec *chan)
+{
+	struct adf4371_state *st = iio_priv(indio_dev);
+	unsigned int readval;
+	int ret;
+
+	ret = regmap_read(st->regmap, ADF4371_REG(0x20), &readval);
+	if (ret < 0)
+		return ret;
+
+	readval &= ADF4371_MUXOUT_MSK;
+
+	return (readval >> 4);
+}
+
+static int adf4371_set_muxout_mode(struct iio_dev *indio_dev,
+				   const struct iio_chan_spec *chan,
+				   unsigned int mode)
+{
+	struct adf4371_state *st = iio_priv(indio_dev);
+
+	return regmap_update_bits(st->regmap, ADF4371_REG(0x20),
+				  ADF4371_MUXOUT_MSK,
+				  ADF4371_MUXOUT(mode));
+}
+
+static const struct iio_enum adf4371_muxout_mode_enum = {
+	.items = adf4371_muxout_modes,
+	.num_items = ARRAY_SIZE(adf4371_muxout_modes),
+	.get = adf4371_get_muxout_mode,
+	.set = adf4371_set_muxout_mode,
+};
 
 #define _ADF4371_EXT_INFO(_name, _ident) { \
 		.name = _name, \
@@ -460,6 +544,15 @@ static const struct iio_chan_spec_ext_info adf4371_ext_info[] = {
 	_ADF4371_EXT_INFO("frequency", ADF4371_FREQ),
 	_ADF4371_EXT_INFO("powerdown", ADF4371_POWER_DOWN),
 	_ADF4371_EXT_INFO("name", ADF4371_CHANNEL_NAME),
+	{
+		.name = "muxout_enable",
+		.read = adf4371_read,
+		.write = adf4371_write,
+		.private = ADF4371_MUXOUT_ENABLE,
+		.shared = IIO_SHARED_BY_ALL,
+	},
+	IIO_ENUM("muxout_mode", IIO_SHARED_BY_ALL, &adf4371_muxout_mode_enum),
+	IIO_ENUM_AVAILABLE("muxout_mode", &adf4371_muxout_mode_enum),
 	{ },
 };
 
