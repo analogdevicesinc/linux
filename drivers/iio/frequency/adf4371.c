@@ -27,6 +27,10 @@
 #define ADF4371_ADDR_ASC(x)		FIELD_PREP(ADF4371_ADDR_ASC_MSK, x)
 #define ADF4371_ADDR_ASC_R_MSK		BIT(5)
 #define ADF4371_ADDR_ASC_R(x)		FIELD_PREP(ADF4371_ADDR_ASC_R_MSK, x)
+#define ADF4371_SDO_ACT_MSK		BIT(3)
+#define ADF4371_SDO_ACT(x)		FIELD_PREP(ADF4371_SDO_ACT_MSK, x)
+#define ADF4371_SDO_ACT_R_MSK		BIT(4)
+#define ADF4371_SDO_ACT_R(x)		FIELD_PREP(ADF4371_SDO_ACT_R_MSK, x)
 #define ADF4371_RESET_CMD		0x81
 
 /* ADF4371_REG17 */
@@ -115,7 +119,6 @@ static const struct adf4371_pwrdown adf4371_pwrdown_ch[4] = {
 };
 
 static const struct reg_sequence adf4371_reg_defaults[] = {
-	{ ADF4371_REG(0x0),  0x18 },
 	{ ADF4371_REG(0x12), 0x40 },
 	{ ADF4371_REG(0x1E), 0x48 },
 	{ ADF4371_REG(0x20), 0x14 },
@@ -595,10 +598,20 @@ static int adf4371_setup(struct adf4371_state *st)
 {
 	unsigned int synth_timeout = 2, timeout = 1, vco_alc_timeout = 1;
 	unsigned int vco_band_div, tmp;
+	bool en = true;
 	int ret;
 
 	/* Perform a software reset */
 	ret = regmap_write(st->regmap, ADF4371_REG(0x0), ADF4371_RESET_CMD);
+	if (ret < 0)
+		return ret;
+
+	if (st->spi->mode & SPI_3WIRE)
+		en = false;
+
+	ret = regmap_update_bits(st->regmap, ADF4371_REG(0x0),
+				 ADF4371_SDO_ACT_MSK | ADF4371_SDO_ACT_R_MSK,
+				 ADF4371_SDO_ACT(en) | ADF4371_SDO_ACT_R(en));
 	if (ret < 0)
 		return ret;
 
