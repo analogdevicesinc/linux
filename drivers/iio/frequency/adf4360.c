@@ -86,6 +86,8 @@
 #define ADF4360_MAX_COUNTER_RATE	300000000 /* 300 MHz */
 #define ADF4360_MAX_REFIN_RATE		250000000 /* 250 MHz */
 
+#define ADF4360_FREQ_REFIN		0
+
 struct adf4360_output {
 	struct clk_hw hw;
 	struct iio_dev *indio_dev;
@@ -404,11 +406,90 @@ static void adf4360_m2k_setup(struct adf4360_state *st)
 	adf4360_write_reg(st, ADF4360_REG_NDIV, val_b);
 }
 
+static int adf4360_read(struct iio_dev *indio_dev,
+			uintptr_t private,
+			const struct iio_chan_spec *chan,
+			char *buf)
+{
+	struct adf4360_state *st = iio_priv(indio_dev);
+	unsigned long val;
+	int ret = 0;
+
+	switch ((u32)private) {
+	case ADF4360_FREQ_REFIN:
+		val = st->clkin_freq;
+		break;
+	default:
+		ret = -EINVAL;
+		val = 0;
+	}
+
+	return ret < 0 ? ret : sprintf(buf, "%lu\n", val);
+}
+
+static int adf4360_write(struct iio_dev *indio_dev,
+			 uintptr_t private,
+			 const struct iio_chan_spec *chan,
+			 const char *buf, size_t len)
+{
+	struct adf4360_state *st = iio_priv(indio_dev);
+	unsigned long readin, tmp;
+	int ret = 0;
+
+	ret = kstrtoul(buf, 10, &readin);
+	if (ret)
+		return ret;
+
+	mutex_lock(&st->lock);
+	switch ((u32)private) {
+	case ADF4360_FREQ_REFIN:
+		if ((readin > ADF4360_MAX_REFIN_RATE) || (readin == 0)) {
+			ret = -EINVAL;
+			break;
+		}
+
+		if (st->clkin) {
+			tmp = clk_round_rate(st->clkin, readin);
+			if (tmp != readin) {
+				ret = -EINVAL;
+				break;
+			}
+
+			ret = clk_set_rate(st->clkin, tmp);
+			if (ret)
+				break;
+		}
+
+		st->clkin_freq = readin;
+		ret = adf4360_set_freq(st, st->freq_req);
+		break;
+	default:
+		ret = -EINVAL;
+	}
+	mutex_unlock(&st->lock);
+
+	return ret ? ret : len;
+}
+
+#define _ADF4360_EXT_INFO(_name, _ident) { \
+	.name = _name, \
+	.read = adf4360_read, \
+	.write = adf4360_write, \
+	.private = _ident, \
+	.shared = IIO_SEPARATE, \
+}
+
+static const struct iio_chan_spec_ext_info adf4360_ext_info[] = {
+	_ADF4360_EXT_INFO("refin_frequency", ADF4360_FREQ_REFIN),
+	{ },
+};
+
 static const struct iio_chan_spec adf4360_chan = {
 	.type = IIO_ALTVOLTAGE,
 	.indexed = 1,
 	.output = 1,
 	.info_mask_separate = BIT(IIO_CHAN_INFO_FREQUENCY),
+	.ext_info = adf4360_ext_info,
 };
 
 static int adf4360_read_raw(struct iio_dev *indio_dev,
