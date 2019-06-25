@@ -1,0 +1,21 @@
+/dts-v1/;
+/plugin/;
+
+/ {
+	compatible = "brcm,bcm2708";
+
+	fragment@0 {
+		target = <&spi0>;
+		__overlay__ {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "okay";
+
+			ad7292@0{
+				compatible = "adi,ad7292";
+				reg = <0>;
+				spi-max-frequency = <16000000>;
+			};
+		};
+	};
+};
