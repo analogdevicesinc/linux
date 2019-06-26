@@ -406,6 +406,15 @@ config EDAC_ALTERA
 	  Altera SOCs. This is the global enable for the
 	  various Altera peripherals.
 
+config EDAC_ALTERA_ARM64_WARM_RESET
+	bool "Altera ARM64 Peripheral Warm Reset"
+	depends on EDAC_ALTERA=y && ARM64
+	help
+	  Support for Warm Reset on peripheral FIFO double bit errors
+	  on SoCFPGA ARM64 platforms. Otherwise a peripheral FIFO DBE
+	  will cause a cold reset. SDRAM and OCRAM DBEs always cause
+	  a cold reset.
+
 config EDAC_ALTERA_SDRAM
 	bool "Altera SDRAM ECC"
 	depends on EDAC_ALTERA=y

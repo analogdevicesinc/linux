@@ -350,6 +350,10 @@ struct altr_sdram_mc_data {
 #define ECC_READ_EOVR                     0x2
 #define ECC_READ_EDOVR                    0x3
 
+/* DRAM and OCRAM require cold reset */
+#define S10_COLD_RESET_MASK               0x30002
+#define S10_WARM_RESET_WFI_FLAG           BIT(31)
+
 struct altr_edac_device_dev;
 
 struct edac_device_prv_data {

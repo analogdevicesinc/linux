@@ -2069,6 +2069,18 @@ static const struct irq_domain_ops a10_eccmgr_ic_ops = {
 /* panic routine issues reboot on non-zero panic_timeout */
 extern int panic_timeout;
 
+#ifdef CONFIG_EDAC_ALTERA_ARM64_WARM_RESET
+/* EL3 SMC call to setup CPUs for warm reset */
+void panic_smp_self_stop(void)
+{
+	struct arm_smccc_res result;
+
+	arm_smccc_smc(INTEL_SIP_SMC_ECC_DBE, S10_WARM_RESET_WFI_FLAG,
+		      S10_WARM_RESET_WFI_FLAG, 0, 0, 0, 0, 0, &result);
+	cpu_park_loop();
+}
+#endif
+
 /*
  * The double bit error is handled through SError which is fatal. This is
  * called as a panic notifier to printout ECC error info as part of the panic.
@@ -2100,8 +2112,9 @@ static int s10_edac_dberr_handler(struct notifier_block *this,
 			regmap_write(edac->ecc_mgr_map,
 				     S10_SYSMGR_UE_ADDR_OFST, err_addr);
 			edac_printk(KERN_ERR, EDAC_DEVICE,
-				    "EDAC: [Fatal DBE on %s @ 0x%08X]\n",
-				    ed->edac_dev_name, err_addr);
+				    "EDAC: [Fatal DBE on %s [CPU=%d] @ 0x%08X]\n",
+				    ed->edac_dev_name, raw_smp_processor_id(),
+				    err_addr);
 			break;
 		}
 		/* Notify the System through SMC. Reboot delay = 1 second */
