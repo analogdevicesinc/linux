@@ -54,6 +54,8 @@ Required properties:
 Optional properties:
 - adi,loop-filter-inverting: Indicates that the external loop filter is an
     inverting filter.
+- adi,power-up-frequency-hz: If set in Hz, the PLL tunes to the desired
+    frequency on probe.
 
 Required properties for ADF4360-7, ADF4360-8 and ADF4360-9:
   ADF4360-7 to ADF4360-9 have a VCO that is tuned to a specific frequency range
