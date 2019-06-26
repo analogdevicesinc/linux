@@ -157,7 +157,7 @@ static int m2k_la_txrx_write_raw(struct iio_dev *indio_dev,
 
 static void m2k_la_update_logic_mode(struct m2k_la *m2k_la)
 {
-	unsigned int mode;
+	unsigned int mode, mask;
 
 	/*
 	 * If all triggers are set to none switch to AND mode to always generate
@@ -168,7 +168,10 @@ static void m2k_la_update_logic_mode(struct m2k_la *m2k_la)
 	else
 		mode = m2k_la->trigger_logic_mode;
 
-	m2k_la_write(m2k_la, M2K_LA_REG_TRIGGER_LOGIC_MODE, mode);
+	mask = m2k_la_read(m2k_la, M2K_LA_REG_TRIGGER_LOGIC_MODE);
+	mask &= ~BIT(0);
+
+	m2k_la_write(m2k_la, M2K_LA_REG_TRIGGER_LOGIC_MODE, mask | mode);
 }
 
 static int m2k_la_set_trigger(struct iio_dev *indio_dev,
@@ -263,6 +266,47 @@ static const struct iio_enum m2k_la_trigger_logic_mode_enum = {
 	.num_items = ARRAY_SIZE(m2k_la_trigger_logic_mode_items),
 	.set = m2k_la_set_trigger_logic_mode,
 	.get = m2k_la_get_trigger_logic_mode,
+};
+
+static int m2k_la_set_trigger_mux_out(struct iio_dev *indio_dev,
+	const struct iio_chan_spec *chan, unsigned int val)
+{
+	struct m2k_la *m2k_la = iio_device_get_drvdata(indio_dev);
+	unsigned int mask;
+
+	mutex_lock(&m2k_la->lock);
+	mask = m2k_la_read(m2k_la, M2K_LA_REG_TRIGGER_LOGIC_MODE);
+	mask &= ~GENMASK(6, 4);
+	val = val << 4;
+	m2k_la_write(m2k_la, M2K_LA_REG_TRIGGER_LOGIC_MODE, mask | val);
+	mutex_unlock(&m2k_la->lock);
+
+	return 0;
+}
+
+static int m2k_la_get_trigger_mux_out(struct iio_dev *indio_dev,
+	const struct iio_chan_spec *chan)
+{
+	struct m2k_la *m2k_la = iio_device_get_drvdata(indio_dev);
+	unsigned int val;
+
+	val = m2k_la_read(m2k_la, M2K_LA_REG_TRIGGER_LOGIC_MODE);
+	return (val >> 4);
+}
+
+static const char * const m2k_la_trigger_mux_out_items[] = {
+	"trigger-logic",
+	"trigger-in",
+	"trigger-logic-and-trigger-in",
+	"trigger-logic-or-trigger-in",
+	"trigger-logic-xor-trigger-in"
+};
+
+static const struct iio_enum m2k_la_trigger_mux_out_enum = {
+	.items = m2k_la_trigger_mux_out_items,
+	.num_items = ARRAY_SIZE(m2k_la_trigger_mux_out_items),
+	.set = m2k_la_set_trigger_mux_out,
+	.get = m2k_la_get_trigger_mux_out,
 };
 
 static ssize_t m2k_la_set_trigger_delay(struct iio_dev *indio_dev,
@@ -364,6 +408,10 @@ static const struct iio_chan_spec_ext_info m2k_la_rx_ext_info[] = {
 		&m2k_la_trigger_logic_mode_enum),
 	IIO_ENUM_AVAILABLE("trigger_logic_mode",
 		&m2k_la_trigger_logic_mode_enum),
+	IIO_ENUM("trigger_mux_out", IIO_SHARED_BY_TYPE,
+		&m2k_la_trigger_mux_out_enum),
+	IIO_ENUM_AVAILABLE("trigger_mux_out",
+		&m2k_la_trigger_mux_out_enum),
 	{
 		.name = "trigger_delay",
 		.shared = IIO_SHARED_BY_TYPE,
