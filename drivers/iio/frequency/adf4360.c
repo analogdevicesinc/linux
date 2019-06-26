@@ -84,6 +84,7 @@
 /* Specifications */
 #define ADF4360_MAX_PFD_RATE		8000000 /* 8 MHz */
 #define ADF4360_MAX_COUNTER_RATE	300000000 /* 300 MHz */
+#define ADF4360_MAX_REFIN_RATE		250000000 /* 250 MHz */
 
 struct adf4360_output {
 	struct clk_hw hw;
@@ -103,8 +104,11 @@ struct adf4360_state {
 	const struct adf4360_chip_info *info;
 	struct adf4360_output output;
 	struct clk *clkin;
+	struct mutex lock; /* Protect PLL state. */
 	unsigned int part_id;
 	unsigned long clkin_freq;
+	unsigned long power_up_frequency;
+	unsigned long freq_req;
 	unsigned long r;
 	unsigned long n;
 	unsigned int vco_min;
@@ -277,21 +281,18 @@ static long adf4360_clk_round_rate(struct clk_hw *hw,
 	return pfd_freq * n;
 }
 
-static int adf4360_clk_set_rate(struct clk_hw *hw,
-				unsigned long rate,
-				unsigned long parent_rate)
+static int adf4360_set_freq(struct adf4360_state *st, unsigned long rate)
 {
-	struct iio_dev *indio_dev = to_output(hw)->indio_dev;
-	struct adf4360_state *st = iio_priv(indio_dev);
 	unsigned int val_r, val_n, val_ctrl;
 	unsigned int pfd_freq;
 	unsigned long r, n;
 
-	if (parent_rate == 0)
+	if (!st->clkin_freq || (st->clkin_freq > ADF4360_MAX_REFIN_RATE) ||
+		(rate < st->vco_min) || (rate > st->vco_max))
 		return -EINVAL;
 
-	r = DIV_ROUND_CLOSEST(parent_rate, st->pfd_freq);
-	pfd_freq = parent_rate / r;
+	r = DIV_ROUND_CLOSEST(st->clkin_freq, st->pfd_freq);
+	pfd_freq = st->clkin_freq / r;
 	n = DIV_ROUND_CLOSEST(rate, pfd_freq);
 
 	val_ctrl = st->info->default_cpl;
@@ -343,10 +344,32 @@ static int adf4360_clk_set_rate(struct clk_hw *hw,
 	usleep_range(15000, 20000);
 	adf4360_write_reg(st, ADF4360_REG_NDIV, val_n);
 
+	st->freq_req = rate;
 	st->n = n;
 	st->r = r;
 
 	return 0;
+}
+
+static int adf4360_clk_set_rate(struct clk_hw *hw,
+				unsigned long rate,
+				unsigned long parent_rate)
+{
+	struct iio_dev *indio_dev = to_output(hw)->indio_dev;
+	struct adf4360_state *st = iio_priv(indio_dev);
+	int ret;
+
+	if ((parent_rate == 0) || (parent_rate > ADF4360_MAX_REFIN_RATE))
+		return -EINVAL;
+
+	mutex_lock(&st->lock);
+	if (st->clkin_freq != parent_rate)
+		st->clkin_freq = parent_rate;
+
+	ret = adf4360_set_freq(st, rate);
+	mutex_unlock(&st->lock);
+
+	return ret;
 }
 
 static const struct clk_ops adf4360_clk_ops = {
@@ -385,9 +408,51 @@ static const struct iio_chan_spec adf4360_chan = {
 	.type = IIO_ALTVOLTAGE,
 	.indexed = 1,
 	.output = 1,
+	.info_mask_separate = BIT(IIO_CHAN_INFO_FREQUENCY),
 };
 
+static int adf4360_read_raw(struct iio_dev *indio_dev,
+			    struct iio_chan_spec const *chan,
+			    int *val,
+			    int *val2,
+			    long mask)
+{
+	struct adf4360_state *st = iio_priv(indio_dev);
+
+	switch (mask) {
+	case IIO_CHAN_INFO_FREQUENCY:
+		*val = st->freq_req;
+		return IIO_VAL_INT;
+	default:
+		return -EINVAL;
+	}
+};
+
+static int adf4360_write_raw(struct iio_dev *indio_dev,
+			     struct iio_chan_spec const *chan,
+			     int val,
+			     int val2,
+			     long mask)
+{
+	struct adf4360_state *st = iio_priv(indio_dev);
+	int ret;
+
+	mutex_lock(&st->lock);
+	switch (mask) {
+	case IIO_CHAN_INFO_FREQUENCY:
+		ret = adf4360_set_freq(st, val);
+		break;
+	default:
+		ret = -EINVAL;
+	}
+	mutex_unlock(&st->lock);
+
+	return ret;
+}
+
 static const struct iio_info adf4360_iio_info = {
+	.read_raw = &adf4360_read_raw,
+	.write_raw = &adf4360_write_raw,
 	.driver_module = THIS_MODULE,
 };
 
@@ -519,6 +584,10 @@ static int adf4360_parse_dt(struct adf4360_state *st)
 		return ret;
 	}
 
+	ret = device_property_read_u32(dev, "adi,power-up-frequency-hz", &tmp);
+	if (ret == 0)
+		st->power_up_frequency = tmp;
+
 	return 0;
 }
 
@@ -534,6 +603,8 @@ static int adf4360_probe(struct spi_device *spi)
 		return -ENOMEM;
 
 	st = iio_priv(indio_dev);
+
+	mutex_init(&st->lock);
 
 	spi_set_drvdata(spi, indio_dev);
 
@@ -570,6 +641,13 @@ static int adf4360_probe(struct spi_device *spi)
 	ret = adf4360_get_clkin(st);
 	if (ret)
 		return ret;
+
+	if (st->power_up_frequency) {
+		ret = adf4360_set_freq(st, st->power_up_frequency);
+		if (ret)
+			return ret;
+	}
+
 	ret = adf4360_clk_register(st);
 	if (ret)
 		return ret;
