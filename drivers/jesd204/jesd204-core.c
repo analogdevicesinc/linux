@@ -382,6 +382,13 @@ struct jesd204_dev *jesd204_dev_register(struct device *dev,
 
 	mutex_lock(&jesd204_device_list_lock);
 
+	jdev = jesd204_dev_from_device(dev);
+	if (jdev) {
+		dev_err(dev, "Device already registered with framework\n");
+		ret = -EEXIST;
+		goto err_unlock;
+	}
+
 	jdev = jesd204_dev_find_by_of_node(dev->of_node);
 	if (!jdev) {
 		dev_err(dev, "Device has no configuration node\n");
