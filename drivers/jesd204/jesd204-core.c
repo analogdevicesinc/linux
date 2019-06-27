@@ -37,6 +37,28 @@ static inline bool dev_is_jesd204_dev(struct device *dev)
 	return device_property_read_bool(dev, "jesd204-device");
 }
 
+struct jesd204_dev *jesd204_dev_from_device(struct device *dev)
+{
+	struct jesd204_dev *jdev;
+
+	if (!dev)
+		return NULL;
+
+	list_for_each_entry(jdev, &jesd204_device_list, entry) {
+		if (jdev->dev && jdev->dev == dev)
+			return jdev;
+	}
+
+	return NULL;
+}
+EXPORT_SYMBOL(jesd204_dev_from_device);
+
+struct device *jesd204_dev_to_device(struct jesd204_dev *jdev)
+{
+	return jdev ? jdev->dev : NULL;
+}
+EXPORT_SYMBOL(jesd204_dev_to_device);
+
 static struct jesd204_dev *jesd204_dev_alloc(struct device_node *np)
 {
 	struct jesd204_dev_top *jdev_top;
