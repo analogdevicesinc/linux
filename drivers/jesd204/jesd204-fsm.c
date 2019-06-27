@@ -60,6 +60,15 @@ static struct jesd204_fsm_table_entry jesd204_init_links_states[] = {
 	JESD204_STATE_OP_LAST(LINK_INIT),
 };
 
+/* States to transition to start a JESD204 link */
+static struct jesd204_fsm_table_entry jesd204_start_links_states[] = {
+	JESD204_STATE_OP(LINK_SUPPORTED),
+	JESD204_STATE_OP(LINK_SETUP),
+	JESD204_STATE_OP(CLOCKS_ENABLE),
+	JESD204_STATE_OP(LINK_ENABLE),
+	JESD204_STATE_OP_LAST(LINK_RUNNING),
+};
+
 const char *jesd204_state_str(enum jesd204_dev_state state)
 {
 	switch (state) {
@@ -73,6 +82,16 @@ const char *jesd204_state_str(enum jesd204_dev_state state)
 		return "probed";
 	case JESD204_STATE_LINK_INIT:
 		return "link_init";
+	case JESD204_STATE_LINK_SUPPORTED:
+		return "link_supported";
+	case JESD204_STATE_LINK_SETUP:
+		return "link_setup";
+	case JESD204_STATE_CLOCKS_ENABLE:
+		return "clocks_enable";
+	case JESD204_STATE_LINK_ENABLE:
+		return "link_enable";
+	case JESD204_STATE_LINK_RUNNING:
+		return "link_running";
 	default:
 		return "<unknown>";
 	}
@@ -391,7 +410,13 @@ static int jesd204_fsm_probed_cb(struct jesd204_dev *jdev,
 
 static int jesd204_fsm_probe_done(struct jesd204_dev *jdev, void *data)
 {
-	return jesd204_fsm_init_links(jdev, JESD204_STATE_PROBED);
+	int ret;
+
+	ret = jesd204_fsm_init_links(jdev, JESD204_STATE_PROBED);
+	if (ret)
+		return ret;
+
+	return jesd204_fsm_start_links(jdev, JESD204_STATE_LINK_INIT);
 }
 
 int jesd204_fsm_probe(struct jesd204_dev *jdev)
@@ -465,4 +490,10 @@ int jesd204_fsm_init_links(struct jesd204_dev *jdev,
 		return ret;
 
 	return jesd204_dev_init_link_data(jdev);
+}
+
+int jesd204_fsm_start_links(struct jesd204_dev *jdev,
+			    enum jesd204_dev_state init_state)
+{
+	return jesd204_fsm_table(jdev, init_state, jesd204_start_links_states);
 }
