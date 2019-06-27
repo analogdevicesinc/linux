@@ -21,6 +21,11 @@ enum jesd204_dev_state {
 	JESD204_STATE_INITIALIZED,
 	JESD204_STATE_PROBED,
 	JESD204_STATE_LINK_INIT,
+	JESD204_STATE_LINK_SUPPORTED,
+	JESD204_STATE_LINK_SETUP,
+	JESD204_STATE_CLOCKS_ENABLE,
+	JESD204_STATE_LINK_ENABLE,
+	JESD204_STATE_LINK_RUNNING,
 };
 
 /**
@@ -146,4 +151,8 @@ int jesd204_run_probe_states(struct jesd204_dev *jdev);
 
 int jesd204_run_states_to_init_link(struct jesd204_dev *jdev,
 				    enum jesd204_dev_state init_state);
+
+int jesd204_run_states_to_start_link(struct jesd204_dev *jdev,
+				     enum jesd204_dev_state init_state);
+
 #endif /* _JESD204_PRIV_H_ */
