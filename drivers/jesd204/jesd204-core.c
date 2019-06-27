@@ -236,6 +236,110 @@ unlock:
 	return ret;
 }
 
+static int jesd204_dev_init_link_lane_ids(struct jesd204_dev *jdev,
+					  int link_idx,
+					  struct jesd204_link *jlink)
+{
+	struct device *dev = jdev->dev;
+	u8 id;
+
+	if (!jlink->num_lanes) {
+		dev_err(jdev->dev, "number of lanes is 0 for link %d\n",
+			link_idx);
+		jlink->lane_ids = NULL;
+		return -EINVAL;
+	}
+
+	/* FIXME: see about the case where lane IDs are provided via init */
+	if (jlink->lane_ids)
+		devm_kfree(dev, jlink->lane_ids);
+
+	jlink->lane_ids = devm_kmalloc_array(dev, jlink->num_lanes,
+					     sizeof(*jlink->lane_ids),
+					     GFP_KERNEL);
+	if (!jlink->lane_ids)
+		return -ENOMEM;
+
+	/* Assign lane IDs, based on lane index */
+	for (id = 0; id < jlink->num_lanes; id++)
+		jlink->lane_ids[id] = id;
+
+	return 0;
+}
+
+static struct jesd204_link *jesd204_dev_alloc_links_data(
+		struct jesd204_dev *jdev,
+		const struct jesd204_link *init_links,
+		unsigned int num_links)
+{
+	struct device *dev = jdev->dev;
+	struct jesd204_link *links;
+	size_t mem_size;
+
+	mem_size = num_links * sizeof(*links);
+
+	/* make a copy of the initial JESD204 link settings */
+	links = devm_kzalloc(dev, mem_size, GFP_KERNEL);
+	if (!links)
+		return ERR_PTR(-ENOMEM);
+
+	if (init_links)
+		memcpy(links, init_links, mem_size);
+
+	return links;
+}
+
+int jesd204_dev_init_link_data(struct jesd204_dev *jdev)
+{
+	struct jesd204_dev_top *jdev_top = jesd204_dev_top_dev(jdev);
+	struct jesd204_link *jlink;
+	int i, ret;
+
+	if (!jdev_top)
+		return 0;
+
+	/* FIXME: fix the case where the driver provides static lane IDs */
+	for (i = 0; i < jdev_top->num_links; i++) {
+		jlink = &jdev_top->active_links[i];
+		ret = jesd204_dev_init_link_lane_ids(jdev, i, jlink);
+		if (ret)
+			return ret;
+	}
+
+	return 0;
+}
+
+static int jesd204_dev_create_links_data(struct jesd204_dev *jdev,
+					 const struct jesd204_dev_data *init)
+{
+	struct jesd204_dev_top *jdev_top = jesd204_dev_top_dev(jdev);
+	struct device *dev = jdev->dev;
+
+	if (!jdev_top)
+		return 0;
+
+	if (!init->num_links) {
+		dev_err(dev, "num_links shouldn't be zero\n");
+		return -EINVAL;
+	}
+
+	if (!init->links || !init->num_links) {
+		dev_err(dev,
+			"num_links is non-zero, but no links data provided\n");
+		return -EINVAL;
+	}
+
+	jdev_top->active_links = jesd204_dev_alloc_links_data(jdev,
+			init->links, init->num_links);
+	if (IS_ERR_OR_NULL(jdev_top->active_links))
+		return PTR_ERR(jdev_top->active_links);
+
+	jdev_top->num_links = init->num_links;
+	jdev_top->init_links = init->links;
+
+	return jesd204_dev_init_link_data(jdev);
+}
+
 struct jesd204_dev *jesd204_dev_register(struct device *dev,
 					 const struct jesd204_dev_data *init)
 {
@@ -260,6 +364,10 @@ struct jesd204_dev *jesd204_dev_register(struct device *dev,
 	}
 
 	jdev->dev = get_device(dev);
+
+	ret = jesd204_dev_create_links_data(jdev, init);
+	if (ret)
+		goto err_put_device;
 
 	ret = jesd204_fsm_probe(jdev);
 	if (ret)
