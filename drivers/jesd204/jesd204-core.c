@@ -228,6 +228,74 @@ unlock:
 	return ret;
 }
 
+static int jesd204_dev_init_link_lane_ids(struct jesd204_dev *jdev,
+					  struct jesd204_link *jlink)
+{
+	struct device *dev = jdev->dev;
+	u8 id;
+
+	if (jlink->lane_ids)
+		devm_kfree(dev, jlink->lane_ids);
+
+	if (!jlink->num_lanes) {
+		jlink->lane_ids = NULL;
+		return 0;
+	}
+
+	jlink->lane_ids = devm_kmalloc_array(dev, jlink->num_lanes,
+					     sizeof(*jlink->lane_ids),
+					     GFP_KERNEL);
+	if (!jlink->lane_ids)
+		return -ENOMEM;
+
+	/* Assign lane IDs, based on lane index */
+	for (id = 0; id < jlink->num_lanes; id++)
+		jlink->lane_ids[id] = id;
+
+	return 0;
+}
+
+static int jesd204_dev_init_links(struct jesd204_dev *jdev,
+				  const struct jesd204_dev_data *init)
+{
+	struct jesd204_dev_top *jdev_top = jesd204_dev_top_dev(jdev);
+	struct device *dev = jdev->dev;
+	struct jesd204_link *jlink;
+	size_t mem_size;
+	int i, ret;
+
+	if (!jdev_top || !init->num_links)
+		return 0;
+
+	if (!init->links) {
+		dev_err(dev,
+			"num_links is non-zero, but no links data provided\n");
+		return -EINVAL;
+	}
+
+	jdev_top->num_links = init->num_links;
+	jdev_top->init_links = init->links;
+
+	mem_size = jdev_top->num_links * sizeof(*jdev_top->cur_links);
+
+	/* make a copy of the initial JESD204 link settings */
+	jdev_top->cur_links = devm_kzalloc(dev, mem_size, GFP_KERNEL);
+	if (!jdev_top->cur_links)
+		return -ENOMEM;
+
+	memcpy(jdev_top->cur_links, jdev_top->init_links, mem_size);
+
+	/* FIXME: fix the case where the driver provides static lane IDs (if ever?) */
+	for (i = 0; i < jdev_top->num_links; i++) {
+		jlink = &jdev_top->cur_links[i];
+		ret = jesd204_dev_init_link_lane_ids(jdev, jlink);
+		if (ret)
+			return ret;
+	}
+
+	return 0;
+}
+
 struct jesd204_dev *jesd204_dev_register(struct device *dev,
 					 const struct jesd204_dev_data *init)
 {
@@ -252,6 +320,10 @@ struct jesd204_dev *jesd204_dev_register(struct device *dev,
 	}
 
 	jdev->dev = get_device(dev);
+
+	ret = jesd204_dev_init_links(jdev, init);
+	if (ret)
+		goto err_put_device;
 
 	ret = jesd204_run_probe_states(jdev);
 	if (ret)

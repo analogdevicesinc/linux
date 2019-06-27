@@ -106,6 +106,9 @@ struct jesd204_dev {
  * @cur_state		current state of this topology
  * @error		error code for this topology after a state has failed
  *			to transition
+ * @init_links		initial settings passed from the driver
+ * @cur_links		current link settings, adapted by the framework
+ * @num_links		number of links
  */
 struct jesd204_dev_top {
 	struct list_head		list;
@@ -118,6 +121,10 @@ struct jesd204_dev_top {
 	enum jesd204_dev_state		nxt_state;
 	enum jesd204_dev_state		cur_state;
 	int				error;
+
+	const struct jesd204_link	*init_links;
+	struct jesd204_link		*cur_links;
+	unsigned int			num_links;
 };
 
 static inline struct jesd204_dev_top *jesd204_dev_top_dev(
