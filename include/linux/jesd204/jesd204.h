@@ -36,6 +36,7 @@ struct jesd204_sysref {
 
 /**
  * struct jesd204_link - JESD204 link configuration settings
+ * @enabled			true if this link is enabled
  * @sample_rate			sample rate for the link
  * @num_lanes			number of JESD204 lanes (L)
  * @num_converters		number of converters per link (M)
@@ -66,6 +67,8 @@ struct jesd204_sysref {
  */
 struct jesd204_link {
 	u64 sample_rate;
+
+	bool enabled;
 
 	u8 num_lanes;
 	u8 num_converters;

@@ -90,6 +90,8 @@ struct jesd204_dev {
 	struct device_node		*np;
 	struct kref			ref;
 
+	struct attribute_group		sysfs_attr_group;
+
 	struct jesd204_dev_con_out	**inputs;
 	unsigned int			inputs_count;
 	struct list_head		outputs;
@@ -158,5 +160,8 @@ int jesd204_fsm_init_links(struct jesd204_dev *jdev,
 
 int jesd204_fsm_start_links(struct jesd204_dev *jdev,
 			    enum jesd204_dev_state init_state);
+
+int jesd204_dev_create_sysfs(struct jesd204_dev *jdev);
+void jesd204_dev_destroy_sysfs(struct jesd204_dev *jdev);
 
 #endif /* _JESD204_PRIV_H_ */
