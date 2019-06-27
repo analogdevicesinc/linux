@@ -363,13 +363,19 @@ struct jesd204_dev *jesd204_dev_register(struct device *dev,
 	if (ret)
 		goto err_put_device;
 
-	ret = jesd204_run_probe_states(jdev);
+	ret = jesd204_dev_create_sysfs(jdev);
 	if (ret)
 		goto err_put_device;
+
+	ret = jesd204_run_probe_states(jdev);
+	if (ret)
+		goto err_destroy_sysfs;
 
 	mutex_unlock(&jesd204_device_list_lock);
 
 	return jdev;
+err_destroy_sysfs:
+	jesd204_dev_destroy_sysfs(jdev);
 err_put_device:
 	put_device(dev);
 err_unlock:
@@ -423,8 +429,10 @@ static void __jesd204_dev_release(struct kref *ref)
 
 	mutex_lock(&jesd204_device_list_lock);
 
-	if (jdev->dev)
+	if (jdev->dev) {
+		jesd204_dev_destroy_sysfs(jdev);
 		put_device(jdev->dev);
+	}
 
 	if (jdev->is_top) {
 		jdev_top = jesd204_dev_top_dev(jdev);

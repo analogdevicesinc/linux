@@ -6,4 +6,5 @@
 obj-$(CONFIG_JESD204) += jesd204.o
 jesd204-y := \
 	jesd204-states.o \
+	jesd204-sysfs.o \
 	jesd204-core.o
