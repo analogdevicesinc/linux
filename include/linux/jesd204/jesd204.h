@@ -135,6 +135,9 @@ struct jesd204_dev *devm_jesd204_dev_register(struct device *dev,
 void jesd204_dev_unregister(struct jesd204_dev *jdev);
 void devm_jesd204_unregister(struct device *dev, struct jesd204_dev *jdev);
 
+struct device *jesd204_dev_to_device(struct jesd204_dev *jdev);
+struct jesd204_dev *jesd204_dev_from_device(struct device *dev);
+
 #else /* !IS_ENABLED(CONFIG_JESD204) */
 
 static inline struct jesd204_dev *jesd204_dev_register(
@@ -153,6 +156,16 @@ static inline struct jesd204_dev *devm_jesd204_dev_register(
 
 static inline void devm_jesd204_unregister(struct device *dev,
 	       struct jesd204_dev *jdev) {}
+
+static inline struct device *jesd204_dev_to_device(struct jesd204_dev *jdev)
+{
+	return NULL;
+}
+
+static inline struct jesd204_dev *jesd204_dev_from_device(struct device *dev)
+{
+	return NULL;
+}
 
 #endif /* IS_ENABLED(CONFIG_JESD204) */
 
