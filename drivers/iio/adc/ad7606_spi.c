@@ -15,6 +15,16 @@
 
 #define MAX_SPI_FREQ_HZ		23500000	/* VDRIVE above 4.75 V */
 
+static u16 ad7606B_spi_rd_wr_cmd(int addr, char isWriteOp)
+{
+	return (addr & 0x3F) | (((~isWriteOp) & 0x1) << 6);
+}
+
+static u16 ad7616_spi_rd_wr_cmd(int addr, char isWriteOp)
+{
+	return ((addr & 0x7F) << 1) | ((isWriteOp & 0x1) << 7);
+}
+
 static int ad7606_spi_reg_read(struct ad7606_state *st, unsigned int addr)
 {
 	struct spi_device *spi = to_spi_device(st->dev);
@@ -30,7 +40,7 @@ static int ad7606_spi_reg_read(struct ad7606_state *st, unsigned int addr)
 	};
 	int ret;
 
-	st->data[0] = cpu_to_be16(st->chip_info->spi_rd_wr_cmd(addr, 0) << 8);
+	st->data[0] = cpu_to_be16(st->bops->rd_wr_cmd(addr, 0) << 8);
 
 	ret = spi_sync_transfer(spi, t, ARRAY_SIZE(t));
 	if (ret < 0)
@@ -45,7 +55,7 @@ static int ad7606_spi_reg_write(struct ad7606_state *st,
 {
 	struct spi_device *spi = to_spi_device(st->dev);
 
-	st->data[0] = cpu_to_be16((st->chip_info->spi_rd_wr_cmd(addr, 1) << 8) |
+	st->data[0] = cpu_to_be16((st->bops->rd_wr_cmd(addr, 1) << 8) |
 				  (val & 0x1FF));
 
 	return spi_write(spi, &st->data[0], sizeof(st->data[0]));
@@ -96,6 +106,7 @@ static const struct ad7606_bus_ops ad7616_spi_bops = {
 	.reg_read = ad7606_spi_reg_read,
 	.reg_write = ad7606_spi_reg_write,
 	.write_mask = ad7606_spi_write_mask,
+	.rd_wr_cmd = ad7616_spi_rd_wr_cmd,
 };
 
 static const struct ad7606_bus_ops ad7606B_spi_bops = {
@@ -103,6 +114,7 @@ static const struct ad7606_bus_ops ad7606B_spi_bops = {
 	.reg_read = ad7606_spi_reg_read,
 	.reg_write = ad7606_spi_reg_write,
 	.write_mask = ad7606_spi_write_mask,
+	.rd_wr_cmd = ad7606B_spi_rd_wr_cmd,
 };
 
 static int ad7606_spi_probe(struct spi_device *spi)
