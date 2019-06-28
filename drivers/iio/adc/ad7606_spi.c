@@ -15,6 +15,58 @@
 
 #define MAX_SPI_FREQ_HZ		23500000	/* VDRIVE above 4.75 V */
 
+static int ad7606_spi_reg_read(struct ad7606_state *st, unsigned int addr)
+{
+	struct spi_device *spi = to_spi_device(st->dev);
+	struct spi_transfer t[] = {
+		{
+			.tx_buf = &st->data[0],
+			.len = 2,
+			.cs_change = 0,
+		}, {
+			.rx_buf = &st->data[1],
+			.len = 2,
+		},
+	};
+	int ret;
+
+	st->data[0] = cpu_to_be16(st->chip_info->spi_rd_wr_cmd(addr, 0) << 8);
+
+	ret = spi_sync_transfer(spi, t, ARRAY_SIZE(t));
+	if (ret < 0)
+		return ret;
+
+	return be16_to_cpu(st->data[1]);
+}
+
+static int ad7606_spi_reg_write(struct ad7606_state *st,
+				unsigned int addr,
+				unsigned int val)
+{
+	struct spi_device *spi = to_spi_device(st->dev);
+
+	st->data[0] = cpu_to_be16((st->chip_info->spi_rd_wr_cmd(addr, 1) << 8) |
+				  (val & 0x1FF));
+
+	return spi_write(spi, &st->data[0], sizeof(st->data[0]));
+}
+
+static int ad7606_spi_write_mask(struct ad7606_state *st,
+				 unsigned int addr,
+				 unsigned long mask,
+				 unsigned int val)
+{
+	int readval;
+
+	readval = ad7606_spi_reg_read(st, addr);
+	if (readval < 0)
+		return readval;
+
+	readval &= ~mask;
+	readval |= val;
+
+	return ad7606_spi_reg_write(st, addr, readval);
+}
 static int ad7606_spi_read_block(struct device *dev,
 				 int count, void *buf)
 {
@@ -39,13 +91,40 @@ static const struct ad7606_bus_ops ad7606_spi_bops = {
 	.read_block = ad7606_spi_read_block,
 };
 
+static const struct ad7606_bus_ops ad7616_spi_bops = {
+	.read_block = ad7606_spi_read_block,
+	.reg_read = ad7606_spi_reg_read,
+	.reg_write = ad7606_spi_reg_write,
+	.write_mask = ad7606_spi_write_mask,
+};
+
+static const struct ad7606_bus_ops ad7606B_spi_bops = {
+	.read_block = ad7606_spi_read_block,
+	.reg_read = ad7606_spi_reg_read,
+	.reg_write = ad7606_spi_reg_write,
+	.write_mask = ad7606_spi_write_mask,
+};
+
 static int ad7606_spi_probe(struct spi_device *spi)
 {
 	const struct spi_device_id *id = spi_get_device_id(spi);
+	const struct ad7606_bus_ops *bops;
+
+	switch (id->driver_data) {
+	case ID_AD7616:
+		bops = &ad7616_spi_bops;
+		break;
+	case ID_AD7606B:
+		bops = &ad7606B_spi_bops;
+		break;
+	default:
+		bops = &ad7606_spi_bops;
+		break;
+	}
 
 	return ad7606_probe(&spi->dev, spi->irq, NULL,
 			    id->name, id->driver_data,
-			    &ad7606_spi_bops);
+			    bops);
 }
 
 static const struct spi_device_id ad7606_id_table[] = {

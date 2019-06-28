@@ -95,59 +95,6 @@ static int ad7606_reset(struct ad7606_state *st)
 	return -ENODEV;
 }
 
-static int ad7606_spi_reg_read(struct ad7606_state *st, unsigned int addr)
-{
-	struct spi_device *spi = to_spi_device(st->dev);
-	struct spi_transfer t[] = {
-		{
-			.tx_buf = &st->data[0],
-			.len = 2,
-			.cs_change = 0,
-		}, {
-			.rx_buf = &st->data[1],
-			.len = 2,
-		},
-	};
-	int ret;
-
-	st->data[0] = cpu_to_be16(st->chip_info->spi_rd_wr_cmd(addr, 0) << 8);
-
-	ret = spi_sync_transfer(spi, t, ARRAY_SIZE(t));
-	if (ret < 0)
-		return ret;
-
-	return be16_to_cpu(st->data[1]);
-}
-
-static int ad7606_spi_reg_write(struct ad7606_state *st,
-				unsigned int addr,
-				unsigned int val)
-{
-	struct spi_device *spi = to_spi_device(st->dev);
-
-	st->data[0] = cpu_to_be16((st->chip_info->spi_rd_wr_cmd(addr, 1) << 8) |
-				  (val & 0x1FF));
-
-	return spi_write(spi, &st->data[0], sizeof(st->data[0]));
-}
-
-static int ad7606_spi_write_mask(struct ad7606_state *st,
-				 unsigned int addr,
-				 unsigned long mask,
-				 unsigned int val)
-{
-	int readval;
-
-	readval = ad7606_spi_reg_read(st, addr);
-	if (readval < 0)
-		return readval;
-
-	readval &= ~mask;
-	readval |= val;
-
-	return ad7606_spi_reg_write(st, addr, readval);
-}
-
 static int ad7606_reg_access(struct iio_dev *indio_dev,
 			     unsigned int reg,
 			     unsigned int writeval,
@@ -158,13 +105,13 @@ static int ad7606_reg_access(struct iio_dev *indio_dev,
 
 	mutex_lock(&st->lock);
 	if (readval) {
-		ret = ad7606_spi_reg_read(st, reg);
+		ret = st->bops->reg_read(st, reg);
 		if (ret < 0)
 			goto err_unlock;
 		*readval = ret;
 		ret = 0;
 	} else {
-		ret = ad7606_spi_reg_write(st, reg, writeval);
+		ret = st->bops->reg_write(st, reg, writeval);
 	}
 err_unlock:
 	mutex_unlock(&st->lock);
@@ -317,10 +264,10 @@ static int ad7606_write_scale_sw(struct iio_dev *indio_dev, int ch, int val)
 {
 	struct ad7606_state *st = iio_priv(indio_dev);
 
-	return ad7606_spi_write_mask(st,
-				     AD7606_RANGE_CH_ADDR(ch),
-				     AD7606_RANGE_CH_MSK(ch),
-				     AD7606_RANGE_CH_MODE(ch, val));
+	return st->bops->write_mask(st,
+					AD7606_RANGE_CH_ADDR(ch),
+					AD7606_RANGE_CH_MSK(ch),
+					AD7606_RANGE_CH_MODE(ch, val));
 }
 
 static int ad7606_write_scale_hw(struct iio_dev *indio_dev, int ch, int val)
@@ -336,7 +283,7 @@ static int ad7606_write_os_sw(struct iio_dev *indio_dev, int val)
 {
 	struct ad7606_state *st = iio_priv(indio_dev);
 
-	return ad7606_spi_reg_write(st, AD7606_OS_MODE, val);
+	return st->bops->reg_write(st, AD7606_OS_MODE, val);
 }
 
 static int ad7606_write_os_hw(struct iio_dev *indio_dev, int val)
@@ -366,7 +313,7 @@ static int ad7616_write_scale_sw(struct iio_dev *indio_dev, int ch, int val)
 	ch_addr = AD7616_RANGE_CH_ADDR_OFF + AD7616_RANGE_CH_ADDR(ch);
 	mode = AD7616_RANGE_CH_MODE(ch, ((val + 1) & 0x3));
 
-	return ad7606_spi_write_mask(st, ch_addr, AD7616_RANGE_CH_MSK(ch),
+	return st->bops->write_mask(st, ch_addr, AD7616_RANGE_CH_MSK(ch),
 				     mode);
 }
 
@@ -374,7 +321,7 @@ static int ad7616_write_os_sw(struct iio_dev *indio_dev, int val)
 {
 	struct ad7606_state *st = iio_priv(indio_dev);
 
-	return ad7606_spi_write_mask(st, AD7616_CONFIGURATION_REGISTER,
+	return st->bops->write_mask(st, AD7616_CONFIGURATION_REGISTER,
 				     AD7616_OS_MASK, val << 2);
 }
 
@@ -761,7 +708,7 @@ static int ad7616_sw_mode_config(struct iio_dev *indio_dev)
 	indio_dev->channels = ad7616_soft_channels;
 
 	/* Activate Burst mode and SEQEN MODE */
-	return ad7606_spi_write_mask(st,
+	return st->bops->write_mask(st,
 			      AD7616_CONFIGURATION_REGISTER,
 			      AD7616_BURST_MODE | AD7616_SEQEN_MODE,
 			      AD7616_BURST_MODE | AD7616_SEQEN_MODE);
