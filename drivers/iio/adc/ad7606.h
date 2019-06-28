@@ -133,10 +133,21 @@ struct ad7606_state {
 /**
  * struct ad7606_bus_ops - driver bus operations
  * @read_block		function pointer for reading blocks of data
+ * @reg_read	function pointer for reading spi register
+ * @reg_write	function pointer for writing spi register
+ * @write_mask	function pointer for write spi register with mask
  */
 struct ad7606_bus_ops {
 	/* more methods added in future? */
 	int (*read_block)(struct device *dev, int num, void *data);
+	int (*reg_read)(struct ad7606_state *st, unsigned int addr);
+	int (*reg_write)(struct ad7606_state *st,
+				unsigned int addr,
+				unsigned int val);
+	int (*write_mask)(struct ad7606_state *st,
+				 unsigned int addr,
+				 unsigned long mask,
+				 unsigned int val);
 };
 
 int ad7606_probe(struct device *dev, int irq, void __iomem *base_address,
