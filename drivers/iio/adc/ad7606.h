@@ -6,6 +6,9 @@
  */
 
 #ifndef IIO_ADC_AD7606_H_
+
+#include <linux/gpio/consumer.h>
+
 #define IIO_ADC_AD7606_H_
 
 #define AD760X_CHANNEL(num, mask_sep, mask_type, mask_all) {	\
@@ -50,8 +53,6 @@
 			in software mode
  * @write_os_sw		pointer to the function which writes the os via spi
 			in software mode
- * @sw_mode_config:	pointer to a function which configured the device
- *			for software mode
  */
 struct ad7606_chip_info {
 	const struct iio_chan_spec	*channels;
@@ -61,7 +62,6 @@ struct ad7606_chip_info {
 	bool				os_req_reset;
 	int (*write_scale_sw)(struct iio_dev *indio_dev, int, int);
 	int (*write_os_sw)(struct iio_dev *indio_dev, int);
-	int (*sw_mode_config)(struct iio_dev *indio_dev);
 };
 
 /**
@@ -135,6 +135,8 @@ struct ad7606_state {
  * @reg_write	function pointer for writing spi register
  * @write_mask	function pointer for write spi register with mask
  * @rd_wr_cmd	pointer to the function which calculates the spi address
+ * @sw_mode_config	pointer to a function which configured the device
+ *			for software mode
  */
 struct ad7606_bus_ops {
 	/* more methods added in future? */
@@ -148,6 +150,7 @@ struct ad7606_bus_ops {
 				 unsigned long mask,
 				 unsigned int val);
 	u16 (*rd_wr_cmd)(int, char);
+	int (*sw_mode_config)(struct iio_dev *indio_dev);
 };
 
 int ad7606_probe(struct device *dev, int irq, void __iomem *base_address,
