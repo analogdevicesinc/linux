@@ -46,7 +46,6 @@
  *			oversampling ratios.
  * @oversampling_num	number of elements stored in oversampling_avail array
  * @os_req_reset	some devices require a reset to update oversampling
- * @spi_rd_wr_cmd	pointer to the function which calculates the spi address
  * @write_scale_sw	pointer to the function which writes the scale via spi
 			in software mode
  * @write_os_sw		pointer to the function which writes the os via spi
@@ -60,7 +59,6 @@ struct ad7606_chip_info {
 	const unsigned int		*oversampling_avail;
 	unsigned int			oversampling_num;
 	bool				os_req_reset;
-	int (*spi_rd_wr_cmd)(int, char);
 	int (*write_scale_sw)(struct iio_dev *indio_dev, int, int);
 	int (*write_os_sw)(struct iio_dev *indio_dev, int);
 	int (*sw_mode_config)(struct iio_dev *indio_dev);
@@ -136,6 +134,7 @@ struct ad7606_state {
  * @reg_read	function pointer for reading spi register
  * @reg_write	function pointer for writing spi register
  * @write_mask	function pointer for write spi register with mask
+ * @rd_wr_cmd	pointer to the function which calculates the spi address
  */
 struct ad7606_bus_ops {
 	/* more methods added in future? */
@@ -148,6 +147,7 @@ struct ad7606_bus_ops {
 				 unsigned int addr,
 				 unsigned long mask,
 				 unsigned int val);
+	u16 (*rd_wr_cmd)(int, char);
 };
 
 int ad7606_probe(struct device *dev, int irq, void __iomem *base_address,
