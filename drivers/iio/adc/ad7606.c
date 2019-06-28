@@ -73,16 +73,6 @@ static const unsigned int ad7606B_oversampling_avail[9] = {
 	1, 2, 4, 8, 16, 32, 64, 128, 256
 };
 
-static int ad7606B_spi_rd_wr_cmd(int addr, char isWriteOp)
-{
-	return (addr & 0x3F) | (((~isWriteOp) & 0x1) << 6);
-}
-
-static int ad7616_spi_rd_wr_cmd(int addr, char isWriteOp)
-{
-	return ((addr & 0x7F) << 1) | ((isWriteOp & 0x1) << 7);
-}
-
 static int ad7606_reset(struct ad7606_state *st)
 {
 	if (st->gpio_reset) {
@@ -522,7 +512,6 @@ static const struct ad7606_chip_info ad7606_chip_info_tbl[] = {
 		.sw_mode_config = ad7606B_sw_mode_config,
 		.oversampling_avail = ad7606_oversampling_avail,
 		.oversampling_num = ARRAY_SIZE(ad7606_oversampling_avail),
-		.spi_rd_wr_cmd = ad7606B_spi_rd_wr_cmd,
 		.write_scale_sw = ad7606_write_scale_sw,
 		.write_os_sw = ad7606_write_os_sw,
 	},
@@ -533,7 +522,6 @@ static const struct ad7606_chip_info ad7606_chip_info_tbl[] = {
 		.oversampling_avail = ad7616_oversampling_avail,
 		.oversampling_num = ARRAY_SIZE(ad7616_oversampling_avail),
 		.os_req_reset = true,
-		.spi_rd_wr_cmd = ad7616_spi_rd_wr_cmd,
 		.write_scale_sw = ad7616_write_scale_sw,
 		.write_os_sw = ad7616_write_os_sw,
 	},
