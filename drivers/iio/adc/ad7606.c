@@ -8,7 +8,6 @@
 #include <linux/delay.h>
 #include <linux/device.h>
 #include <linux/err.h>
-#include <linux/gpio/consumer.h>
 #include <linux/interrupt.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -31,11 +30,9 @@
 
 #define AD7606_RANGE_CH_ADDR(ch)	(0x03 + ((ch) >> 1))
 #define AD7606_OS_MODE			0x08
-
 #define AD7616_CONFIGURATION_REGISTER	0x02
 #define AD7616_OS_MASK			GENMASK(4,  2)
-#define AD7616_BURST_MODE		BIT(6)
-#define AD7616_SEQEN_MODE		BIT(5)
+
 #define AD7616_RANGE_CH_ADDR_OFF	0x04
 #define AD7616_RANGE_CH_ADDR(ch)	((((ch) & 0x1) << 1) + ((ch) >> 3))
 #define AD7616_RANGE_CH_MSK(ch)		(GENMASK(1, 0) << ((ch) & 0x6))
@@ -45,9 +42,6 @@
 #define AD7606_RANGE_CH_MSK(ch)		(GENMASK(3, 0) << (4 * ((ch) % 2)))
 #define AD7606_RANGE_CH_MODE(ch, mode)	\
 	((GENMASK(3, 0) & mode) << (4 * ((ch) % 2)))
-
-static int ad7606B_sw_mode_config(struct iio_dev *indio_dev);
-static int ad7616_sw_mode_config(struct iio_dev *indio_dev);
 
 /*
  * Scales are computed as 5000/32768 and 10000/32768 respectively,
@@ -67,10 +61,6 @@ static const unsigned int ad7606_oversampling_avail[7] = {
 
 static const unsigned int ad7616_oversampling_avail[8] = {
 	1, 2, 4, 8, 16, 32, 64, 128,
-};
-
-static const unsigned int ad7606B_oversampling_avail[9] = {
-	1, 2, 4, 8, 16, 32, 64, 128, 256
 };
 
 static int ad7606_reset(struct ad7606_state *st)
@@ -420,18 +410,6 @@ static const struct iio_chan_spec ad7606_channels[] = {
 	AD7606_CHANNEL(7),
 };
 
-static const struct iio_chan_spec ad7606B_channels[] = {
-	IIO_CHAN_SOFT_TIMESTAMP(8),
-	AD7606B_CHANNEL(0),
-	AD7606B_CHANNEL(1),
-	AD7606B_CHANNEL(2),
-	AD7606B_CHANNEL(3),
-	AD7606B_CHANNEL(4),
-	AD7606B_CHANNEL(5),
-	AD7606B_CHANNEL(6),
-	AD7606B_CHANNEL(7),
-};
-
 /*
  * The current assumption that this driver makes for AD7616, is that it's
  * working in Hardware Mode with Serial, Burst and Sequencer modes activated.
@@ -462,26 +440,6 @@ static const struct iio_chan_spec ad7616_channels[] = {
 	AD7606_CHANNEL(15),
 };
 
-static const struct iio_chan_spec ad7616_soft_channels[] = {
-	IIO_CHAN_SOFT_TIMESTAMP(16),
-	AD7606B_CHANNEL(0),
-	AD7606B_CHANNEL(1),
-	AD7606B_CHANNEL(2),
-	AD7606B_CHANNEL(3),
-	AD7606B_CHANNEL(4),
-	AD7606B_CHANNEL(5),
-	AD7606B_CHANNEL(6),
-	AD7606B_CHANNEL(7),
-	AD7606B_CHANNEL(8),
-	AD7606B_CHANNEL(9),
-	AD7606B_CHANNEL(10),
-	AD7606B_CHANNEL(11),
-	AD7606B_CHANNEL(12),
-	AD7606B_CHANNEL(13),
-	AD7606B_CHANNEL(14),
-	AD7606B_CHANNEL(15),
-};
-
 static const struct ad7606_chip_info ad7606_chip_info_tbl[] = {
 	/* More devices added in future */
 	[ID_AD7605_4] = {
@@ -509,7 +467,6 @@ static const struct ad7606_chip_info ad7606_chip_info_tbl[] = {
 	[ID_AD7606B] = {
 		.channels = ad7606_channels,
 		.num_channels = 9,
-		.sw_mode_config = ad7606B_sw_mode_config,
 		.oversampling_avail = ad7606_oversampling_avail,
 		.oversampling_num = ARRAY_SIZE(ad7606_oversampling_avail),
 		.write_scale_sw = ad7606_write_scale_sw,
@@ -518,7 +475,6 @@ static const struct ad7606_chip_info ad7606_chip_info_tbl[] = {
 	[ID_AD7616] = {
 		.channels = ad7616_channels,
 		.num_channels = 17,
-		.sw_mode_config = ad7616_sw_mode_config,
 		.oversampling_avail = ad7616_oversampling_avail,
 		.oversampling_num = ARRAY_SIZE(ad7616_oversampling_avail),
 		.os_req_reset = true,
@@ -657,51 +613,6 @@ static void ad7606_regulator_disable(void *data)
 	regulator_disable(st->reg);
 }
 
-static int ad7606B_sw_mode_config(struct iio_dev *indio_dev)
-{
-	struct ad7606_state *st = iio_priv(indio_dev);
-	unsigned int buf[3];
-
-	/*
-	 * Software mode is enabled when all three oversampling
-	 * pins are set to high. If oversampling gpios are defined
-	 * in the device tree, then they need to be set to high,
-	 * otherwise, they must be hardwired to VDD
-	 */
-	if (st->gpio_os) {
-		memset32(buf, 1, ARRAY_SIZE(buf));
-		gpiod_set_array_value(ARRAY_SIZE(buf),
-				      st->gpio_os->desc, buf);
-	}
-	/* OS of 128 and 256 are available only in software mode */
-	st->oversampling_avail = ad7606B_oversampling_avail;
-	st->num_os_ratios = ARRAY_SIZE(ad7606B_oversampling_avail);
-	/*
-	 * Scale can be configured individually for each channel
-	 * in software mode.
-	 */
-	indio_dev->channels = ad7606B_channels;
-
-	return 0;
-}
-
-static int ad7616_sw_mode_config(struct iio_dev *indio_dev)
-{
-	struct ad7606_state *st = iio_priv(indio_dev);
-
-	/*
-	 * Scale can be configured individually for each channel
-	 * in software mode.
-	 */
-	indio_dev->channels = ad7616_soft_channels;
-
-	/* Activate Burst mode and SEQEN MODE */
-	return st->bops->write_mask(st,
-			      AD7616_CONFIGURATION_REGISTER,
-			      AD7616_BURST_MODE | AD7616_SEQEN_MODE,
-			      AD7616_BURST_MODE | AD7616_SEQEN_MODE);
-}
-
 int ad7606_probe(struct device *dev, int irq, void __iomem *base_address,
 		 const char *name, unsigned int id,
 		 const struct ad7606_bus_ops *bops)
@@ -781,7 +692,7 @@ int ad7606_probe(struct device *dev, int irq, void __iomem *base_address,
 	st->write_scale = ad7606_write_scale_hw;
 	st->write_os = ad7606_write_os_hw;
 
-	if (st->chip_info->sw_mode_config)
+	if (st->bops->sw_mode_config)
 		st->sw_mode_en = device_property_present(st->dev,
 							 "adi,sw-mode");
 
@@ -810,7 +721,7 @@ int ad7606_probe(struct device *dev, int irq, void __iomem *base_address,
 		if (st->chip_info->write_os_sw)
 			st->write_os = st->chip_info->write_os_sw;
 
-		ret = st->chip_info->sw_mode_config(indio_dev);
+		ret = st->bops->sw_mode_config(indio_dev);
 		if (ret < 0)
 			return ret;
 	}
