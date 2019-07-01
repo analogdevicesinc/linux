@@ -6,6 +6,7 @@
  * Licensed under the GPL-2.
  */
 
+#include <linux/bitfield.h>
 #include <linux/clk.h>
 #include <linux/clk-provider.h>
 #include <linux/delay.h>
@@ -24,15 +25,8 @@
 #define ADF4360_REG_NDIV		0x02
 
 /* ADF4360_CTRL */
-#define ADF4360_GEN1_CTRL_PC_5		(0x0 << 2)
-#define ADF4360_GEN1_CTRL_PC_10		(0x1 << 2)
-#define ADF4360_GEN1_CTRL_PC_15		(0x2 << 2)
-#define ADF4360_GEN1_CTRL_PC_20		(0x3 << 2)
-
-#define ADF4360_GEN2_CTRL_PC_2_5	(0x0 << 2)
-#define ADF4360_GEN2_CTRL_PC_5		(0x1 << 2)
-#define ADF4360_GEN2_CTRL_PC_7_5	(0x2 << 2)
-#define ADF4360_GEN2_CTRL_PC_10		(0x3 << 2)
+#define ADF4360_ADDR_CPL_MSK		GENMASK(3, 2)
+#define ADF4360_CPL(x)			FIELD_PREP(ADF4360_ADDR_CPL_MSK, x)
 
 #define ADF4360_CTRL_COUNTER_RESET	BIT(4)
 #define ADF4360_CTRL_PDP		BIT(8)
@@ -86,6 +80,20 @@
 #define ADF4360_MAX_COUNTER_RATE	300000000 /* 300 MHz */
 #define ADF4360_MAX_REFIN_RATE		250000000 /* 250 MHz */
 
+enum {
+	ADF4360_GEN1_PC_5,
+	ADF4360_GEN1_PC_10,
+	ADF4360_GEN1_PC_15,
+	ADF4360_GEN1_PC_20,
+};
+
+enum {
+	ADF4360_GEN2_PC_2_5,
+	ADF4360_GEN2_PC_5,
+	ADF4360_GEN2_PC_7_5,
+	ADF4360_GEN2_PC_10,
+};
+
 #define ADF4360_FREQ_REFIN		0
 
 struct adf4360_output {
@@ -126,43 +134,43 @@ static const struct adf4360_chip_info adf4360_chip_info_tbl[] = {
 	{	/* ADF4360-0 */
 		.vco_min = 2400000000U,
 		.vco_max = 2725000000U,
-		.default_cpl = ADF4360_GEN1_CTRL_PC_10,
+		.default_cpl = ADF4360_GEN1_PC_10,
 	}, {	/* ADF4360-1 */
 		.vco_min = 2050000000U,
 		.vco_max = 2450000000U,
-		.default_cpl = ADF4360_GEN1_CTRL_PC_15,
+		.default_cpl = ADF4360_GEN1_PC_15,
 	}, {	/* ADF4360-2 */
 		.vco_min = 1850000000U,
 		.vco_max = 2170000000U,
-		.default_cpl = ADF4360_GEN1_CTRL_PC_15,
+		.default_cpl = ADF4360_GEN1_PC_15,
 	}, {	/* ADF4360-3 */
 		.vco_min = 1600000000U,
 		.vco_max = 1950000000U,
-		.default_cpl = ADF4360_GEN1_CTRL_PC_15,
+		.default_cpl = ADF4360_GEN1_PC_15,
 	}, {	/* ADF4360-4 */
 		.vco_min = 1450000000U,
 		.vco_max = 1750000000U,
-		.default_cpl = ADF4360_GEN1_CTRL_PC_15,
+		.default_cpl = ADF4360_GEN1_PC_15,
 	}, {	/* ADF4360-5 */
 		.vco_min = 1200000000U,
 		.vco_max = 1400000000U,
-		.default_cpl = ADF4360_GEN1_CTRL_PC_10,
+		.default_cpl = ADF4360_GEN1_PC_10,
 	}, {	/* ADF4360-6 */
 		.vco_min = 1050000000U,
 		.vco_max = 1250000000U,
-		.default_cpl = ADF4360_GEN1_CTRL_PC_10,
+		.default_cpl = ADF4360_GEN1_PC_10,
 	}, {	/* ADF4360-7 */
 		.vco_min = 350000000U,
 		.vco_max = 1800000000U,
-		.default_cpl = ADF4360_GEN1_CTRL_PC_5,
+		.default_cpl = ADF4360_GEN1_PC_5,
 	}, {	/* ADF4360-8 */
 		.vco_min = 65000000U,
 		.vco_max = 400000000U,
-		.default_cpl = ADF4360_GEN2_CTRL_PC_5,
+		.default_cpl = ADF4360_GEN2_PC_5,
 	}, {	/* ADF4360-9 */
 		.vco_min = 65000000U,
 		.vco_max = 400000000U,
-		.default_cpl = ADF4360_GEN2_CTRL_PC_5,
+		.default_cpl = ADF4360_GEN2_PC_5,
 	}
 };
 
@@ -297,7 +305,7 @@ static int adf4360_set_freq(struct adf4360_state *st, unsigned long rate)
 	pfd_freq = st->clkin_freq / r;
 	n = DIV_ROUND_CLOSEST(rate, pfd_freq);
 
-	val_ctrl = st->info->default_cpl;
+	val_ctrl = ADF4360_CPL(st->info->default_cpl);
 	val_ctrl |= ADF4360_CTRL_CPI1(st->cpi);
 	val_ctrl |= ADF4360_CTRL_CPI2(st->cpi);
 	val_ctrl |= ADF4360_CTRL_PL_11;
@@ -387,7 +395,7 @@ static void adf4360_m2k_setup(struct adf4360_state *st)
 	st->n = 20;
 	st->r = 4;
 
-	val_ctrl = ADF4360_GEN2_CTRL_PC_5;
+	val_ctrl = ADF4360_CPL(ADF4360_GEN2_PC_5);
 	val_ctrl |= ADF4360_CTRL_CPI1(ADF4360_CPI_2_50);
 	val_ctrl |= ADF4360_CTRL_CPI2(ADF4360_CPI_2_50);
 	val_ctrl |= ADF4360_CTRL_PL_5;
