@@ -39,9 +39,8 @@
 #define ADF4360_CPI1(x)			FIELD_PREP(ADF4360_ADDR_CPI1_MSK, x)
 #define ADF4360_ADDR_CPI2_MSK		GENMASK(19, 17)
 #define ADF4360_CPI2(x)			FIELD_PREP(ADF4360_ADDR_CPI2_MSK, x)
-#define ADF4360_CTRL_PRESCALER_8	(0 << 22)
-#define ADF4360_CTRL_PRESCALER_16	(1 << 22)
-#define ADF4360_CTRL_PRESCALER_32	(2 << 22)
+#define ADF4360_ADDR_PRESCALER_MSK	GENMASK(23, 22)
+#define ADF4360_PRESCALER(x)		FIELD_PREP(ADF4360_ADDR_PRESCALER_MSK, x)
 
 /* ADF4360_NDIV */
 #define ADF4360_NDIV_A_COUNTER(x)	((x) << 2)
@@ -105,6 +104,12 @@ enum {
 	ADF4360_CPI_1_87,
 	ADF4360_CPI_2_18,
 	ADF4360_CPI_2_50,
+};
+
+enum {
+	ADF4360_PRESCALER_8,
+	ADF4360_PRESCALER_16,
+	ADF4360_PRESCALER_32,
 };
 
 #define ADF4360_FREQ_REFIN		0
@@ -334,13 +339,13 @@ static int adf4360_set_freq(struct adf4360_state *st, unsigned long rate)
 
 		switch (p) {
 		case 8:
-			val_ctrl |= ADF4360_CTRL_PRESCALER_8;
+			val_ctrl |= ADF4360_PRESCALER(ADF4360_PRESCALER_8);
 			break;
 		case 16:
-			val_ctrl |= ADF4360_CTRL_PRESCALER_16;
+			val_ctrl |= ADF4360_PRESCALER(ADF4360_PRESCALER_16);
 			break;
 		default:
-			val_ctrl |= ADF4360_CTRL_PRESCALER_32;
+			val_ctrl |= ADF4360_PRESCALER(ADF4360_PRESCALER_32);
 			break;
 		}
 
