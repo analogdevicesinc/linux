@@ -132,6 +132,19 @@ enum {
 	ADF4360_BSC_8,
 };
 
+enum {
+	ID_ADF4360_0,
+	ID_ADF4360_1,
+	ID_ADF4360_2,
+	ID_ADF4360_3,
+	ID_ADF4360_4,
+	ID_ADF4360_5,
+	ID_ADF4360_6,
+	ID_ADF4360_7,
+	ID_ADF4360_8,
+	ID_ADF4360_9,
+};
+
 #define ADF4360_FREQ_REFIN		0
 
 struct adf4360_output {
@@ -298,14 +311,14 @@ static long adf4360_clk_round_rate(struct clk_hw *hw,
 	if (*parent_rate == 0)
 		return 0;
 
-	if (st->part_id == 9)
+	if (st->part_id == ID_ADF4360_9)
 		return *parent_rate * st->n / st->r;
 
 	if (rate > st->vco_max)
 		return st->vco_max;
 
 	/* ADF4360-0 to AD4370-7 have an optional by two divider */
-	if (st->part_id <= 7) {
+	if (st->part_id <= ID_ADF4360_7) {
 		if (rate < st->vco_min / 2)
 			return st->vco_min / 2;
 		if (rate < st->vco_min && rate > st->vco_max / 2) {
@@ -323,7 +336,7 @@ static long adf4360_clk_round_rate(struct clk_hw *hw,
 	pfd_freq = *parent_rate / r;
 	n = DIV_ROUND_CLOSEST(rate, pfd_freq);
 
-	if (st->part_id <= 7)
+	if (st->part_id <= ID_ADF4360_7)
 		n = adf4360_calc_prescaler(pfd_freq, n, NULL, NULL, NULL);
 
 	return pfd_freq * n;
@@ -352,7 +365,7 @@ static int adf4360_set_freq(struct adf4360_state *st, unsigned long rate)
 		   ADF4360_CPI2(st->cpi);
 
 	/* ADF4360-0 to ADF4360-7 have a dual-modulous prescaler */
-	if (st->part_id <= 7) {
+	if (st->part_id <= ID_ADF4360_7) {
 		unsigned int p, a, b;
 
 		n = adf4360_calc_prescaler(pfd_freq, n, &p, &a, &b);
@@ -662,7 +675,7 @@ static int adf4360_parse_dt(struct adf4360_state *st)
 	if ((ret < 0) && dev->of_node)
 		st->clk_out_name = dev->of_node->name;
 
-	if (st->part_id >= 7) {
+	if (st->part_id >= ID_ADF4360_7) {
 		/*
 		 * ADF4360-7 to ADF4360-9 have a VCO that is tuned to a specific
 		 * range using an external inductor. These properties describe
@@ -761,7 +774,7 @@ static int adf4360_probe(struct spi_device *spi)
 	 * Backwards compatibility for old M2K devicetrees, remove this
 	 * eventually.
 	 */
-	if (id->driver_data == 9)
+	if (id->driver_data == ID_ADF4360_9)
 		adf4360_m2k_setup(st);
 
 	ret = adf4360_get_clkin(st);
@@ -782,16 +795,16 @@ static int adf4360_probe(struct spi_device *spi)
 }
 
 static const struct spi_device_id adf4360_id[] = {
-	{"adf4360-0", 0},
-	{"adf4360-1", 1},
-	{"adf4360-2", 2},
-	{"adf4360-3", 3},
-	{"adf4360-4", 4},
-	{"adf4360-5", 5},
-	{"adf4360-6", 6},
-	{"adf4360-7", 7},
-	{"adf4360-8", 8},
-	{"adf4360-9", 9},
+	{"adf4360-0", ID_ADF4360_0},
+	{"adf4360-1", ID_ADF4360_1},
+	{"adf4360-2", ID_ADF4360_2},
+	{"adf4360-3", ID_ADF4360_3},
+	{"adf4360-4", ID_ADF4360_4},
+	{"adf4360-5", ID_ADF4360_5},
+	{"adf4360-6", ID_ADF4360_6},
+	{"adf4360-7", ID_ADF4360_7},
+	{"adf4360-8", ID_ADF4360_8},
+	{"adf4360-9", ID_ADF4360_9},
 	{}
 };
 
