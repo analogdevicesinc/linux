@@ -45,7 +45,8 @@
 /* ADF4360_NDIV */
 #define ADF4360_ADDR_A_CNTR_MSK		GENMASK(6, 2)
 #define ADF4360_A_COUNTER(x)		FIELD_PREP(ADF4360_ADDR_A_CNTR_MSK, x)
-#define ADF4360_NDIV_B_COUNTER(x)	((x) << 8)
+#define ADF4360_ADDR_B_CNTR_MSK		GENMASK(20, 8)
+#define ADF4360_B_COUNTER(x)		FIELD_PREP(ADF4360_ADDR_B_CNTR_MSK, x)
 #define ADF4360_NDIV_OUT_DIV2		BIT(22)
 #define ADF4360_NDIV_PRESCALER_DIV2	BIT(23)
 
@@ -350,14 +351,14 @@ static int adf4360_set_freq(struct adf4360_state *st, unsigned long rate)
 			break;
 		}
 
-		val_n = ADF4360_A_COUNTER(a);
-		val_n |= ADF4360_NDIV_B_COUNTER(b);
+		val_n = ADF4360_A_COUNTER(a) |
+			ADF4360_B_COUNTER(b);
 
 		if (rate < st->vco_min)
 			val_n |= ADF4360_NDIV_PRESCALER_DIV2 |
 				 ADF4360_NDIV_OUT_DIV2;
 	} else {
-		val_n = ADF4360_NDIV_B_COUNTER(n);
+		val_n = ADF4360_B_COUNTER(n);
 	}
 
 	/*
@@ -423,7 +424,7 @@ static void adf4360_m2k_setup(struct adf4360_state *st)
 
 	val_r = ADF4360_RDIV_R_COUNTER(st->r);
 	val_r |= ADF4360_RDIV_BSC_8;
-	val_b = ADF4360_A_COUNTER(2) | ADF4360_NDIV_B_COUNTER(st->n);
+	val_b = ADF4360_A_COUNTER(2) | ADF4360_B_COUNTER(st->n);
 
 	adf4360_write_reg(st, ADF4360_REG_RDIV, val_r);
 	adf4360_write_reg(st, ADF4360_REG_CTRL, val_ctrl);
