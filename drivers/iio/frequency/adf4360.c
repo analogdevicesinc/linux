@@ -33,10 +33,8 @@
 #define ADF4360_PDP(x)			FIELD_PREP(ADF4360_ADDR_PDP_MSK, x)
 #define ADF4360_ADDR_MTLD_MSK		BIT(11)
 #define ADF4360_MTLD(x)			FIELD_PREP(ADF4360_ADDR_MTLD_MSK, x)
-#define ADF4360_CTRL_PL_3_5		(0x0 << 12)
-#define ADF4360_CTRL_PL_5		(0x1 << 12)
-#define ADF4360_CTRL_PL_7_5		(0x2 << 12)
-#define ADF4360_CTRL_PL_11		(0x3 << 12)
+#define ADF4360_ADDR_OPL_MSK		GENMASK(13, 12)
+#define ADF4360_OPL(x)			FIELD_PREP(ADF4360_ADDR_OPL_MSK, x)
 #define ADF4360_CTRL_CPI1(x)		((x) << 14)
 #define ADF4360_CTRL_CPI2(x)		((x) << 17)
 #define ADF4360_CTRL_PRESCALER_8	(0 << 22)
@@ -96,6 +94,13 @@ enum {
 	ADF4360_MUXOUT_OD_LD,
 	ADF4360_MUXOUT_SDO,
 	ADF4360_MUXOUT_GND,
+};
+
+enum {
+	ADF4360_PL_3_5,
+	ADF4360_PL_5,
+	ADF4360_PL_7_5,
+	ADF4360_PL_11,
 };
 
 #define ADF4360_FREQ_REFIN		0
@@ -312,10 +317,10 @@ static int adf4360_set_freq(struct adf4360_state *st, unsigned long rate)
 	val_ctrl = ADF4360_CPL(st->info->default_cpl) |
 		   ADF4360_MUXOUT(ADF4360_MUXOUT_LOCK_DETECT) |
 		   ADF4360_PDP(!st->pdp) |
-		   ADF4360_MTLD(true);
+		   ADF4360_MTLD(true) |
+		   ADF4360_OPL(ADF4360_PL_11);
 	val_ctrl |= ADF4360_CTRL_CPI1(st->cpi);
 	val_ctrl |= ADF4360_CTRL_CPI2(st->cpi);
-	val_ctrl |= ADF4360_CTRL_PL_11;
 
 	/* ADF4360-0 to ADF4360-7 have a dual-modulous prescaler */
 	if (st->part_id <= 7) {
@@ -397,10 +402,10 @@ static void adf4360_m2k_setup(struct adf4360_state *st)
 	st->n = 20;
 	st->r = 4;
 
-	val_ctrl = ADF4360_CPL(ADF4360_GEN2_PC_5);
+	val_ctrl = ADF4360_CPL(ADF4360_GEN2_PC_5) |
+		   ADF4360_OPL(ADF4360_PL_5);
 	val_ctrl |= ADF4360_CTRL_CPI1(ADF4360_CPI_2_50);
 	val_ctrl |= ADF4360_CTRL_CPI2(ADF4360_CPI_2_50);
-	val_ctrl |= ADF4360_CTRL_PL_5;
 	val_ctrl |= 5 << 5;
 	val_ctrl |= 1 << 8;
 //	val_ctrl |= BIT(11);
