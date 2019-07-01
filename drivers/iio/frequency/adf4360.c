@@ -49,7 +49,8 @@
 #define ADF4360_B_COUNTER(x)		FIELD_PREP(ADF4360_ADDR_B_CNTR_MSK, x)
 #define ADF4360_ADDR_OUT_DIV2_MSK	BIT(22)
 #define ADF4360_OUT_DIV2(x)		FIELD_PREP(ADF4360_ADDR_OUT_DIV2_MSK, x)
-#define ADF4360_NDIV_PRESCALER_DIV2	BIT(23)
+#define ADF4360_ADDR_DIV2_SEL_MSK	BIT(23)
+#define ADF4360_PRESCALER_DIV2(x)	FIELD_PREP(ADF4360_ADDR_DIV2_SEL_MSK, x)
 
 /* ADF4360_RDIV */
 #define ADF4360_RDIV_R_COUNTER(x)	((x) << 2)
@@ -357,7 +358,7 @@ static int adf4360_set_freq(struct adf4360_state *st, unsigned long rate)
 
 		if (rate < st->vco_min)
 			val_n |= ADF4360_OUT_DIV2(true) |
-				 ADF4360_NDIV_PRESCALER_DIV2;
+				 ADF4360_PRESCALER_DIV2(true);
 	} else {
 		val_n = ADF4360_B_COUNTER(n);
 	}
