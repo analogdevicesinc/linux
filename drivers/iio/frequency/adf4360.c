@@ -53,7 +53,8 @@
 #define ADF4360_PRESCALER_DIV2(x)	FIELD_PREP(ADF4360_ADDR_DIV2_SEL_MSK, x)
 
 /* ADF4360_RDIV */
-#define ADF4360_RDIV_R_COUNTER(x)	((x) << 2)
+#define ADF4360_ADDR_R_CNTR_MSK		GENMASK(15, 2)
+#define ADF4360_R_COUNTER(x)		FIELD_PREP(ADF4360_ADDR_R_CNTR_MSK, x)
 #define ADF4360_RDIV_ABP_3_0NS		(0x0 << 16)
 #define ADF4360_RDIV_ABP_1_3NS		(0x1 << 16)
 #define ADF4360_RDIV_ABP_6_0NS		(0x2 << 16)
@@ -367,7 +368,7 @@ static int adf4360_set_freq(struct adf4360_state *st, unsigned long rate)
 	 * Always use BSC divider of 8, see Analog Devices AN-1347.
 	 * http://www.analog.com/media/en/technical-documentation/application-notes/AN-1347.pdf
 	 */
-	val_r = ADF4360_RDIV_R_COUNTER(r) | ADF4360_RDIV_BSC_8;
+	val_r = ADF4360_R_COUNTER(r) | ADF4360_RDIV_BSC_8;
 
 	adf4360_write_reg(st, ADF4360_REG_RDIV, val_r);
 	adf4360_write_reg(st, ADF4360_REG_CTRL, val_ctrl);
@@ -424,7 +425,7 @@ static void adf4360_m2k_setup(struct adf4360_state *st)
 //	val_ctrl |= BIT(11);
 //	val_ctrl |= BIT(20);
 
-	val_r = ADF4360_RDIV_R_COUNTER(st->r);
+	val_r = ADF4360_R_COUNTER(st->r);
 	val_r |= ADF4360_RDIV_BSC_8;
 	val_b = ADF4360_A_COUNTER(2) | ADF4360_B_COUNTER(st->n);
 
