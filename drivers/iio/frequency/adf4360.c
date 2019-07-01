@@ -35,20 +35,13 @@
 #define ADF4360_MTLD(x)			FIELD_PREP(ADF4360_ADDR_MTLD_MSK, x)
 #define ADF4360_ADDR_OPL_MSK		GENMASK(13, 12)
 #define ADF4360_OPL(x)			FIELD_PREP(ADF4360_ADDR_OPL_MSK, x)
-#define ADF4360_CTRL_CPI1(x)		((x) << 14)
-#define ADF4360_CTRL_CPI2(x)		((x) << 17)
+#define ADF4360_ADDR_CPI1_MSK		GENMASK(16, 14)
+#define ADF4360_CPI1(x)			FIELD_PREP(ADF4360_ADDR_CPI1_MSK, x)
+#define ADF4360_ADDR_CPI2_MSK		GENMASK(19, 17)
+#define ADF4360_CPI2(x)			FIELD_PREP(ADF4360_ADDR_CPI2_MSK, x)
 #define ADF4360_CTRL_PRESCALER_8	(0 << 22)
 #define ADF4360_CTRL_PRESCALER_16	(1 << 22)
 #define ADF4360_CTRL_PRESCALER_32	(2 << 22)
-
-#define ADF4360_CPI_0_31		0
-#define ADF4360_CPI_0_62		1
-#define ADF4360_CPI_0_93		2
-#define ADF4360_CPI_1_25		3
-#define ADF4360_CPI_1_56		4
-#define ADF4360_CPI_1_87		5
-#define ADF4360_CPI_2_18		6
-#define ADF4360_CPI_2_50		7
 
 /* ADF4360_NDIV */
 #define ADF4360_NDIV_A_COUNTER(x)	((x) << 2)
@@ -101,6 +94,17 @@ enum {
 	ADF4360_PL_5,
 	ADF4360_PL_7_5,
 	ADF4360_PL_11,
+};
+
+enum {
+	ADF4360_CPI_0_31,
+	ADF4360_CPI_0_62,
+	ADF4360_CPI_0_93,
+	ADF4360_CPI_1_25,
+	ADF4360_CPI_1_56,
+	ADF4360_CPI_1_87,
+	ADF4360_CPI_2_18,
+	ADF4360_CPI_2_50,
 };
 
 #define ADF4360_FREQ_REFIN		0
@@ -318,9 +322,9 @@ static int adf4360_set_freq(struct adf4360_state *st, unsigned long rate)
 		   ADF4360_MUXOUT(ADF4360_MUXOUT_LOCK_DETECT) |
 		   ADF4360_PDP(!st->pdp) |
 		   ADF4360_MTLD(true) |
-		   ADF4360_OPL(ADF4360_PL_11);
-	val_ctrl |= ADF4360_CTRL_CPI1(st->cpi);
-	val_ctrl |= ADF4360_CTRL_CPI2(st->cpi);
+		   ADF4360_OPL(ADF4360_PL_11) |
+		   ADF4360_CPI1(st->cpi) |
+		   ADF4360_CPI2(st->cpi);
 
 	/* ADF4360-0 to ADF4360-7 have a dual-modulous prescaler */
 	if (st->part_id <= 7) {
@@ -403,9 +407,9 @@ static void adf4360_m2k_setup(struct adf4360_state *st)
 	st->r = 4;
 
 	val_ctrl = ADF4360_CPL(ADF4360_GEN2_PC_5) |
-		   ADF4360_OPL(ADF4360_PL_5);
-	val_ctrl |= ADF4360_CTRL_CPI1(ADF4360_CPI_2_50);
-	val_ctrl |= ADF4360_CTRL_CPI2(ADF4360_CPI_2_50);
+		   ADF4360_OPL(ADF4360_PL_5) |
+		   ADF4360_CPI1(ADF4360_CPI_2_50) |
+		   ADF4360_CPI1(ADF4360_CPI_2_50);
 	val_ctrl |= 5 << 5;
 	val_ctrl |= 1 << 8;
 //	val_ctrl |= BIT(11);
