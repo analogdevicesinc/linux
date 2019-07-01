@@ -769,16 +769,16 @@ static int adf4360_probe(struct spi_device *spi)
 	indio_dev->num_channels = 1;
 	st->output.indio_dev = indio_dev;
 
+	ret = adf4360_get_clkin(st);
+	if (ret)
+		return ret;
+
 	/*
 	 * Backwards compatibility for old M2K devicetrees, remove this
 	 * eventually.
 	 */
 	if (id->driver_data == ID_ADF4360_9)
 		adf4360_m2k_setup(st);
-
-	ret = adf4360_get_clkin(st);
-	if (ret)
-		return ret;
 
 	if (st->power_up_frequency) {
 		ret = adf4360_set_freq(st, st->power_up_frequency);
