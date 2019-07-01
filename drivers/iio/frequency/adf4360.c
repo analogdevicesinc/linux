@@ -226,7 +226,7 @@ static const struct adf4360_chip_info adf4360_chip_info_tbl[] = {
 };
 
 static int adf4360_write_reg(struct adf4360_state *st, unsigned int reg,
-	unsigned int val)
+			     unsigned int val)
 {
 	val |= reg;
 
