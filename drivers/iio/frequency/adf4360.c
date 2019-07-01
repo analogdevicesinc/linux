@@ -19,10 +19,8 @@
 
 #include <linux/iio/iio.h>
 
-/* Registers */
-#define ADF4360_REG_CTRL		0x00
-#define ADF4360_REG_RDIV		0x01
-#define ADF4360_REG_NDIV		0x02
+/* Register address macro */
+#define ADF4360_REG(x)			(x)
 
 /* ADF4360_CTRL */
 #define ADF4360_ADDR_CPL_MSK		GENMASK(3, 2)
@@ -64,6 +62,13 @@
 #define ADF4360_MAX_PFD_RATE		8000000 /* 8 MHz */
 #define ADF4360_MAX_COUNTER_RATE	300000000 /* 300 MHz */
 #define ADF4360_MAX_REFIN_RATE		250000000 /* 250 MHz */
+
+enum {
+	ADF4360_CTRL,
+	ADF4360_RDIV,
+	ADF4360_NDIV,
+	ADF5355_REG_NUM,
+};
 
 enum {
 	ADF4360_GEN1_PC_5,
@@ -382,10 +387,10 @@ static int adf4360_set_freq(struct adf4360_state *st, unsigned long rate)
 		ADF4360_ABP(ADF4360_ABP_3_0NS) |
 		ADF4360_BSC(ADF4360_BSC_8);
 
-	adf4360_write_reg(st, ADF4360_REG_RDIV, val_r);
-	adf4360_write_reg(st, ADF4360_REG_CTRL, val_ctrl);
+	adf4360_write_reg(st, ADF4360_REG(ADF4360_RDIV), val_r);
+	adf4360_write_reg(st, ADF4360_REG(ADF4360_CTRL), val_ctrl);
 	usleep_range(15000, 20000);
-	adf4360_write_reg(st, ADF4360_REG_NDIV, val_n);
+	adf4360_write_reg(st, ADF4360_REG(ADF4360_NDIV), val_n);
 
 	st->freq_req = rate;
 	st->n = n;
@@ -440,10 +445,10 @@ static void adf4360_m2k_setup(struct adf4360_state *st)
 	val_r = ADF4360_R_COUNTER(st->r) | ADF4360_BSC(ADF4360_BSC_8);
 	val_b = ADF4360_A_COUNTER(2) | ADF4360_B_COUNTER(st->n);
 
-	adf4360_write_reg(st, ADF4360_REG_RDIV, val_r);
-	adf4360_write_reg(st, ADF4360_REG_CTRL, val_ctrl);
+	adf4360_write_reg(st, ADF4360_REG(ADF4360_RDIV), val_r);
+	adf4360_write_reg(st, ADF4360_REG(ADF4360_CTRL), val_ctrl);
 	msleep(15);
-	adf4360_write_reg(st, ADF4360_REG_NDIV, val_b);
+	adf4360_write_reg(st, ADF4360_REG(ADF4360_NDIV), val_b);
 }
 
 static int adf4360_read(struct iio_dev *indio_dev,
