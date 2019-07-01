@@ -57,10 +57,8 @@
 #define ADF4360_R_COUNTER(x)		FIELD_PREP(ADF4360_ADDR_R_CNTR_MSK, x)
 #define ADF4360_ADDR_ABP_MSK		GENMASK(17, 16)
 #define ADF4360_ABP(x)			FIELD_PREP(ADF4360_ADDR_ABP_MSK, x)
-#define ADF4360_RDIV_BSC_1		(0x0 << 20)
-#define ADF4360_RDIV_BSC_2		(0x1 << 20)
-#define ADF4360_RDIV_BSC_4		(0x2 << 20)
-#define ADF4360_RDIV_BSC_8		(0x3 << 20)
+#define ADF4360_ADDR_BSC_MSK		GENMASK(21, 20)
+#define ADF4360_BSC(x)			FIELD_PREP(ADF4360_ADDR_BSC_MSK, x)
 
 /* Specifications */
 #define ADF4360_MAX_PFD_RATE		8000000 /* 8 MHz */
@@ -120,6 +118,13 @@ enum {
 	ADF4360_ABP_3_0NS,
 	ADF4360_ABP_1_3NS,
 	ADF4360_ABP_6_0NS,
+};
+
+enum {
+	ADF4360_BSC_1,
+	ADF4360_BSC_2,
+	ADF4360_BSC_4,
+	ADF4360_BSC_8,
 };
 
 #define ADF4360_FREQ_REFIN		0
@@ -375,7 +380,7 @@ static int adf4360_set_freq(struct adf4360_state *st, unsigned long rate)
 	 */
 	val_r = ADF4360_R_COUNTER(r) |
 		ADF4360_ABP(ADF4360_ABP_3_0NS) |
-		ADF4360_RDIV_BSC_8;
+		ADF4360_BSC(ADF4360_BSC_8);
 
 	adf4360_write_reg(st, ADF4360_REG_RDIV, val_r);
 	adf4360_write_reg(st, ADF4360_REG_CTRL, val_ctrl);
@@ -432,8 +437,7 @@ static void adf4360_m2k_setup(struct adf4360_state *st)
 //	val_ctrl |= BIT(11);
 //	val_ctrl |= BIT(20);
 
-	val_r = ADF4360_R_COUNTER(st->r);
-	val_r |= ADF4360_RDIV_BSC_8;
+	val_r = ADF4360_R_COUNTER(st->r) | ADF4360_BSC(ADF4360_BSC_8);
 	val_b = ADF4360_A_COUNTER(2) | ADF4360_B_COUNTER(st->n);
 
 	adf4360_write_reg(st, ADF4360_REG_RDIV, val_r);
