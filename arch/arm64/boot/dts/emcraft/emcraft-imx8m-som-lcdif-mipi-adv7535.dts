@@ -1,0 +1,108 @@
+/*
+ * Copyright 2018 Emcraft Systems
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "emcraft-imx8m-som.dts"
+
+/ {
+	display-subsystem {
+		status = "disabled";
+	};
+
+	sound-hdmi {
+		status = "disabled";
+	};
+};
+
+&irqsteer_dcss {
+	status = "disabled";
+};
+
+&iomuxc {
+	pinctrl-names = "default";
+
+	imx8m-som {
+		pinctrl_dsi: dsigrp {
+			fsl,pins = <
+				MX8MQ_IOMUXC_NAND_DATA07_GPIO3_IO13	0x16
+			>;
+		};
+	};
+};
+
+&i2c1 {
+	adv_bridge: adv7535@3d {
+               compatible = "adi,adv7533";
+               reg = <0x3d>;
+               adi,dsi-lanes = <4>;
+               status = "okay";
+               port {
+                       adv7535_in: endpoint {
+                               remote-endpoint = <&mipi_dsi_bridge_out>;
+                       };
+               };
+    };
+    
+    ov5640_mipi: ov5640_mipi@3c {
+               status = "disabled";
+    };
+    
+    ov5640_mipi2: ov5640_mipi2@3c {
+               status = "disabled";
+    };
+};
+
+&dcss {
+	status = "disabled";
+};
+
+&hdmi {
+	status = "disabled";
+};
+
+&lcdif {
+	status = "okay";
+	max-res = <1920>, <1080>;
+
+	port@0 {
+		lcdif_mipi_dsi: mipi-dsi-endpoint {
+			remote-endpoint = <&mipi_dsi_in>;
+		};
+	};
+};
+
+&mipi_dsi_phy {
+	status = "okay";
+};
+
+&mipi_dsi {
+	status = "okay";
+	as_bridge;
+	sync-pol = <1>;
+	pwr-delay = <10>;
+
+	port@1 {
+		mipi_dsi_in: endpoint {
+			remote-endpoint = <&lcdif_mipi_dsi>;
+		};
+	};
+};
+
+&mipi_dsi_bridge {
+	status = "okay";
+	port@1 {
+		mipi_dsi_bridge_out: endpoint {
+			remote-endpoint = <&adv7535_in>;
+		};
+	};
+};

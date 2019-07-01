@@ -1,0 +1,222 @@
+/*
+ * Copyright 2018 Emcraft Systems
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "emcraft-imx8m-som.dts"
+
+/ {
+    cec_clock: oscillator {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <12000000>;
+		clock-output-names = "cec_clock";
+	};
+
+	adv7533_hdmi_snd {
+		compatible = "simple-audio-card";
+		simple-audio-card,name = "HDMI ADV7535 Audio";
+		simple-audio-card,widgets =
+			"Speaker", "Speaker";
+		simple-audio-card,routing =
+			"Speaker", "TX";
+
+		simple-audio-card,dai-link@0 {
+			format = "i2s";
+			cpu {
+				sound-dai = <&sai1>;
+				frame-master;
+				bitclock-master;
+			};
+			codec {
+				sound-dai = <&adv_bridge>;
+				clocks = <&clk IMX8MQ_CLK_SAI1>;
+			};
+		};
+	};
+};
+
+&iomuxc {
+	pinctrl-names = "default";
+
+	imx8m-som {
+		pinctrl_adv: advgrp {
+			fsl,pins = <
+				MX8MQ_IOMUXC_NAND_ALE_GPIO3_IO0	        0x16
+			>;
+		};
+		
+		pinctrl_sai1: sai1grp {
+			fsl,pins = <
+				MX8MQ_IOMUXC_SAI1_TXFS_SAI1_TX_SYNC	    0xd6
+				MX8MQ_IOMUXC_SAI1_TXC_SAI1_TX_BCLK	    0xd6
+				MX8MQ_IOMUXC_SAI1_TXD0_SAI1_TX_DATA0	0xd6
+				MX8MQ_IOMUXC_SAI1_RXD0_SAI1_RX_DATA0	0xd6
+				MX8MQ_IOMUXC_SAI1_MCLK_SAI1_MCLK    	0xd6
+			>;
+		};
+		
+		pinctrl_sai1_sleep: sai1grp_sleep {
+			fsl,pins = <
+				MX8MQ_IOMUXC_SAI1_TXFS_GPIO4_IO10	0x00
+				MX8MQ_IOMUXC_SAI1_TXC_GPIO4_IO11	0x00
+				MX8MQ_IOMUXC_SAI1_TXD0_GPIO4_IO12	0x00
+				MX8MQ_IOMUXC_SAI1_RXD0_GPIO4_IO2	0x00
+				MX8MQ_IOMUXC_SAI1_MCLK_GPIO4_IO20	0x00
+			>;
+		};
+		
+		pinctrl_sai6: sai6grp {
+			fsl,pins = <
+                MX8MQ_IOMUXC_SAI1_RXD6_SAI6_TX_SYNC    	0xd6
+				MX8MQ_IOMUXC_SAI1_RXD4_SAI6_TX_BCLK	    0xd6
+				MX8MQ_IOMUXC_SAI1_RXD5_SAI6_TX_DATA0	0xd6
+				MX8MQ_IOMUXC_SAI1_RXD5_SAI6_RX_DATA0	0xd6
+			>;
+		};
+		
+		pinctrl_sai6_sleep: sai6grp_sleep {
+			fsl,pins = <
+                MX8MQ_IOMUXC_SAI1_RXD6_SAI6_TX_SYNC	    0x00
+				MX8MQ_IOMUXC_SAI1_RXD4_SAI6_TX_BCLK	    0x00
+				MX8MQ_IOMUXC_SAI1_RXD5_SAI6_TX_DATA0	0x00
+				MX8MQ_IOMUXC_SAI1_RXD5_SAI6_RX_DATA0	0x00
+			>;
+		};
+	};
+};
+
+&i2c1 {
+	adv_bridge: adv7535@3d {
+               compatible = "adi,adv7533";
+               reg = <0x3d>;
+               interrupt-parent = <&gpio3>;
+               interrupts = <0 IRQ_TYPE_LEVEL_LOW>;
+               adi,dsi-lanes = <4>;
+               clocks = <&cec_clock>;
+               clock-names = "cec";
+               
+               status = "okay";
+                
+                #sound-dai-cells = <0>;
+                
+                port {
+                       adv7535_in: endpoint {
+                               remote-endpoint = <&mipi_dsi_bridge_out>;
+                       };
+                };
+    };
+    
+    ov5640_mipi: ov5640_mipi@3c {
+               status = "disabled";
+    };
+    
+    ov5640_mipi2: ov5640_mipi2@3c {
+               status = "disabled";
+    };
+};
+
+&pcie0 {
+    status = "disabled";
+};
+
+&pcie1 {
+    status = "disabled";
+};
+
+&dcss {
+	status = "okay";
+	disp-dev = "mipi_disp";
+
+	clocks = <&clk IMX8MQ_CLK_DISP_APB_ROOT>,
+		 <&clk IMX8MQ_CLK_DISP_AXI_ROOT>,
+		 <&clk IMX8MQ_CLK_DISP_RTRM_ROOT>,
+		 <&clk IMX8MQ_CLK_DC_PIXEL>,
+		 <&clk IMX8MQ_CLK_DUMMY>,
+		 <&clk IMX8MQ_CLK_DISP_DTRC>;
+	clock-names = "apb", "axi", "rtrm", "pix_div", "pix_out", "dtrc";
+	assigned-clocks = <&clk IMX8MQ_CLK_DC_PIXEL>,
+			  <&clk IMX8MQ_CLK_DISP_AXI>,
+			  <&clk IMX8MQ_CLK_DISP_RTRM>;
+	assigned-clock-parents = <&clk IMX8MQ_VIDEO_PLL1_OUT>,
+				 <&clk IMX8MQ_SYS1_PLL_800M>,
+				 <&clk IMX8MQ_SYS1_PLL_800M>;
+	assigned-clock-rates = <594000000>,
+			       <800000000>,
+			       <400000000>;
+
+	dcss_disp0: port@0 {
+		reg = <0>;
+
+		dcss_disp0_mipi_dsi: mipi_dsi {
+			remote-endpoint = <&mipi_dsi_in>;
+		};
+	};
+};
+
+&hdmi {
+	status = "disabled";
+};
+
+&mipi_dsi_phy {
+	status = "okay";
+};
+
+&mipi_dsi {
+	status = "okay";
+	
+	port@1 {
+		mipi_dsi_in: endpoint {
+			remote-endpoint = <&dcss_disp0_mipi_dsi>;
+		};
+	};
+};
+
+&mipi_dsi_bridge {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_adv>;
+	
+	port@1 {
+		mipi_dsi_bridge_out: endpoint {
+			remote-endpoint = <&adv7535_in>;
+		};
+	};
+};
+
+&sai1 {
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&pinctrl_sai1>;
+	pinctrl-1 = <&pinctrl_sai1_sleep>;
+	
+	#sound-dai-cells = <0>;
+	
+    assigned-clocks = <&clk IMX8MQ_CLK_SAI1>;
+	assigned-clock-parents = <&clk IMX8MQ_AUDIO_PLL1_OUT>;
+	assigned-clock-rates = <24576000>;
+	
+	status = "okay";
+};
+
+&sai6 {
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&pinctrl_sai6>;
+	pinctrl-1 = <&pinctrl_sai6_sleep>;
+	
+	#sound-dai-cells = <0>;
+	
+    assigned-clocks = <&clk IMX8MQ_CLK_SAI6>;
+	assigned-clock-parents = <&clk IMX8MQ_AUDIO_PLL1_OUT>;
+	assigned-clock-rates = <24576000>;
+	
+	status = "okay";
+};
