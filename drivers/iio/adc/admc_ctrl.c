@@ -482,7 +482,7 @@ static int mc_ctrl_probe(struct platform_device *pdev)
 	mc_ctrl_write(st, ADI_REG_RSTN, 0);
 	mc_ctrl_write(st, ADI_REG_RSTN, ADI_RSTN);
 
-	st->pcore_version = axiadc_read(st, ADI_REG_VERSION);
+	st->pcore_version = axiadc_read(st, ADI_AXI_REG_ID);
 
 	ret = iio_device_register(indio_dev);
 
