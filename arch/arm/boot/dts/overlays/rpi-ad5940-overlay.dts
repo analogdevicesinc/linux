@@ -1,5 +1,6 @@
 /dts-v1/;
 /plugin/;
+#include <dt-bindings/iio/adc/adi,ad5940.h>
 
 / {
 	compatible = "brcm,bcm2708";
@@ -15,6 +16,107 @@
 				compatible = "adi,ad5940";
 				reg = <0>;
 				spi-max-frequency = <16000000>;
+
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				channel@0 {
+					reg = <0>;
+					diff-channels = <AD5940_ADC_INPUTP_VCE0
+							 AD5940_ADC_INPUTN_VBIAS0>;
+					channel-name = "Vce-Vbias";
+				};
+
+				channel@1 {
+					reg = <1>;
+					diff-channels = <AD5940_ADC_INPUTP_VRE0
+							 AD5940_ADC_INPUTN_VBIAS0>;
+					channel-name = "Vre-Vbias";
+				};
+
+				channel@2 {
+					reg = <2>;
+					diff-channels = <AD5940_ADC_INPUTP_SE0
+							 AD5940_ADC_INPUTN_VBIAS0>;
+					channel-name = "Vse-Vbias";
+				};
+
+				channel@3 {
+					reg = <3>;
+					diff-channels = <AD5940_ADC_INPUTP_DE0
+							 AD5940_ADC_INPUTN_VBIAS0>;
+					channel-name = "Vde-Vbias";
+				};
+
+				channel@4 {
+					reg = <4>;
+					diff-channels = <AD5940_ADC_INPUTP_AIN0
+							 AD5940_ADC_INPUTN_VBIAS0>;
+					channel-name = "ain0-Vbias";
+				};
+
+				channel@5 {
+					reg = <5>;
+					diff-channels = <AD5940_ADC_INPUTP_AIN1
+							 AD5940_ADC_INPUTN_VBIAS0>;
+					channel-name = "ain1-Vbias";
+				};
+
+				channel@6 {
+					reg = <6>;
+					diff-channels = <AD5940_ADC_INPUTP_AIN2
+							 AD5940_ADC_INPUTN_VBIAS0>;
+					channel-name = "ain2-Vbias";
+				};
+
+				channel@7 {
+					reg = <7>;
+					diff-channels = <AD5940_ADC_INPUTP_AIN3
+							 AD5940_ADC_INPUTN_VBIAS0>;
+					channel-name = "ain3-Vbias";
+				};
+
+				channel@8 {
+					reg = <8>;
+					diff-channels = <AD5940_ADC_INPUTP_AIN4
+							 AD5940_ADC_INPUTN_VBIAS0>;
+					channel-name = "ain4-Vbias";
+				};
+
+				channel@9 {
+					reg = <9>;
+					diff-channels = <AD5940_ADC_INPUTP_AIN6
+							 AD5940_ADC_INPUTN_VBIAS0>;
+					channel-name = "ain6-Vbias";
+				};
+
+				channel@10 {
+					reg = <10>;
+					diff-channels = <AD5940_ADC_INPUTP_LPTIA_LP
+							 AD5940_ADC_INPUTN_LPTIA>;
+					channel-name = "Low power TIA DC";
+				};
+
+				channel@11 {
+					reg = <11>;
+					diff-channels = <AD5940_ADC_INPUTP_LPTIA
+							 AD5940_ADC_INPUTN_LPTIA>;
+					channel-name = "Low power TIA AC";
+				};
+
+				channel@12 {
+					reg = <12>;
+					diff-channels = <AD5940_ADC_INPUTP_HSTIA
+							 AD5940_ADC_INPUTN_HSTIA>;
+					channel-name = "High Speed TIA";
+				};
+
+				channel@13 {
+					reg = <13>;
+					diff-channels = <AD5940_ADC_INPUTP_TEMP
+							 AD5940_ADC_INPUTN_VBIAS0>;
+					channel-name = "Temperature";
+				};
 			};
 		};
 	};
