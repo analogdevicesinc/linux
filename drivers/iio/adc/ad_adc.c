@@ -556,7 +556,7 @@ static int adc_probe(struct platform_device *pdev)
 	adc_write(st, ADI_REG_RSTN, 0);
 	adc_write(st, ADI_REG_RSTN, ADI_RSTN);
 
-	st->pcore_version = adc_read(st, ADI_REG_VERSION);
+	st->pcore_version = adc_read(st, ADI_AXI_REG_VERSION);
 
 	if (info->has_frontend) {
 		st->frontend = iio_hw_consumer_alloc(&pdev->dev);
