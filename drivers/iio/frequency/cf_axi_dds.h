@@ -11,19 +11,7 @@
 
 #include <linux/spi/spi.h>
 #include <linux/clk/clkscale.h>
-
-#define ADI_REG_VERSION		0x0000				/*Version and Scratch Registers */
-#define ADI_VERSION(x)		(((x) & 0xffffffff) << 0)	/* RO, Version number. */
-#define VERSION_IS(x,y,z)	((x) << 16 | (y) << 8 | (z))
-#define ADI_REG_ID		0x0004			 	/*Version and Scratch Registers */
-#define ADI_ID(x)		(((x) & 0xffffffff) << 0)   	/* RO, Instance identifier number. */
-#define ADI_REG_SCRATCH		0x0008			 	/*Version and Scratch Registers */
-#define ADI_SCRATCH(x)		(((x) & 0xffffffff) << 0)	/* RW, Scratch register. */
-
-#define PCORE_VERSION(major, minor, letter) ((major << 16) | (minor << 8) | letter)
-#define PCORE_VERSION_MAJOR(version) (version >> 16)
-#define PCORE_VERSION_MINOR(version) ((version >> 8) & 0xff)
-#define PCORE_VERSION_LETTER(version) (version & 0xff)
+#include <linux/fpga/adi-axi-common.h>
 
 /* DAC COMMON */
 
