@@ -11,18 +11,7 @@
 #ifndef ADI_AXI_ADC_H_
 #define ADI_AXI_ADC_H_
 
-#define ADI_REG_VERSION		0x0000				/*Version and Scratch Registers */
-#define ADI_VERSION(x)		(((x) & 0xffffffff) << 0)	/* RO, Version number. */
-#define VERSION_IS(x,y,z)	((x) << 16 | (y) << 8 | (z))
-#define ADI_REG_ID		0x0004			 	/*Version and Scratch Registers */
-#define ADI_ID(x)		(((x) & 0xffffffff) << 0)   	/* RO, Instance identifier number. */
-#define ADI_REG_SCRATCH		0x0008			 	/*Version and Scratch Registers */
-#define ADI_SCRATCH(x)		(((x) & 0xffffffff) << 0)	/* RW, Scratch register. */
-
-#define PCORE_VERSION(major, minor, letter) ((major << 16) | (minor << 8) | letter)
-#define PCORE_VERSION_MAJOR(version) (version >> 16)
-#define PCORE_VERSION_MINOR(version) ((version >> 8) & 0xff)
-#define PCORE_VERSION_LETTER(version) (version & 0xff)
+#include <linux/fpga/adi-axi-common.h>
 
 /* ADC COMMON */
 
@@ -337,7 +326,7 @@ static inline unsigned int axiadc_slave_read(struct axiadc_state *st, unsigned r
 static inline void axiadc_idelay_set(struct axiadc_state *st,
 				unsigned lane, unsigned val)
 {
-	if (PCORE_VERSION_MAJOR(st->pcore_version) > 8) {
+	if (ADI_AXI_PCORE_VER_MAJOR(st->pcore_version) > 8) {
 		axiadc_write(st, ADI_REG_DELAY(lane), val);
 	} else {
 		axiadc_write(st, ADI_REG_DELAY_CNTRL, 0);
