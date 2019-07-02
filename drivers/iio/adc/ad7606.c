@@ -28,21 +28,6 @@
 
 #include "ad7606.h"
 
-#define AD7606_RANGE_CH_ADDR(ch)	(0x03 + ((ch) >> 1))
-#define AD7606_OS_MODE			0x08
-#define AD7616_CONFIGURATION_REGISTER	0x02
-#define AD7616_OS_MASK			GENMASK(4,  2)
-
-#define AD7616_RANGE_CH_ADDR_OFF	0x04
-#define AD7616_RANGE_CH_ADDR(ch)	((((ch) & 0x1) << 1) + ((ch) >> 3))
-#define AD7616_RANGE_CH_MSK(ch)		(GENMASK(1, 0) << ((ch) & 0x6))
-#define AD7616_RANGE_CH_MODE(ch, mode)	((mode) << (ch & GENMASK(2, 1)))
-
-/* AD7606_RANGE_CH_X_Y */
-#define AD7606_RANGE_CH_MSK(ch)		(GENMASK(3, 0) << (4 * ((ch) % 2)))
-#define AD7606_RANGE_CH_MODE(ch, mode)	\
-	((GENMASK(3, 0) & mode) << (4 * ((ch) % 2)))
-
 /*
  * Scales are computed as 5000/32768 and 10000/32768 respectively,
  * so that when applied to the raw values they provide mV values
@@ -95,10 +80,8 @@ static int ad7606_reg_access(struct iio_dev *indio_dev,
 	}
 err_unlock:
 	mutex_unlock(&st->lock);
-
 	return ret;
 }
-
 static int ad7606_read_samples(struct ad7606_state *st)
 {
 	unsigned int num = st->chip_info->num_channels;
@@ -240,16 +223,6 @@ static ssize_t in_voltage_scale_available_show(struct device *dev,
 
 static IIO_DEVICE_ATTR_RO(in_voltage_scale_available, 0);
 
-static int ad7606_write_scale_sw(struct iio_dev *indio_dev, int ch, int val)
-{
-	struct ad7606_state *st = iio_priv(indio_dev);
-
-	return st->bops->write_mask(st,
-					AD7606_RANGE_CH_ADDR(ch),
-					AD7606_RANGE_CH_MSK(ch),
-					AD7606_RANGE_CH_MODE(ch, val));
-}
-
 static int ad7606_write_scale_hw(struct iio_dev *indio_dev, int ch, int val)
 {
 	struct ad7606_state *st = iio_priv(indio_dev);
@@ -257,13 +230,6 @@ static int ad7606_write_scale_hw(struct iio_dev *indio_dev, int ch, int val)
 	gpiod_set_value(st->gpio_range, val);
 
 	return 0;
-}
-
-static int ad7606_write_os_sw(struct iio_dev *indio_dev, int val)
-{
-	struct ad7606_state *st = iio_priv(indio_dev);
-
-	return st->bops->reg_write(st, AD7606_OS_MODE, val);
 }
 
 static int ad7606_write_os_hw(struct iio_dev *indio_dev, int val)
@@ -283,26 +249,6 @@ static int ad7606_write_os_hw(struct iio_dev *indio_dev, int val)
 		ad7606_reset(st);
 
 	return 0;
-}
-
-static int ad7616_write_scale_sw(struct iio_dev *indio_dev, int ch, int val)
-{
-	struct ad7606_state *st = iio_priv(indio_dev);
-	unsigned int ch_addr, mode;
-
-	ch_addr = AD7616_RANGE_CH_ADDR_OFF + AD7616_RANGE_CH_ADDR(ch);
-	mode = AD7616_RANGE_CH_MODE(ch, ((val + 1) & 0x3));
-
-	return st->bops->write_mask(st, ch_addr, AD7616_RANGE_CH_MSK(ch),
-				     mode);
-}
-
-static int ad7616_write_os_sw(struct iio_dev *indio_dev, int val)
-{
-	struct ad7606_state *st = iio_priv(indio_dev);
-
-	return st->bops->write_mask(st, AD7616_CONFIGURATION_REGISTER,
-				     AD7616_OS_MASK, val << 2);
 }
 
 static int ad7606_write_raw(struct iio_dev *indio_dev,
@@ -469,8 +415,6 @@ static const struct ad7606_chip_info ad7606_chip_info_tbl[] = {
 		.num_channels = 9,
 		.oversampling_avail = ad7606_oversampling_avail,
 		.oversampling_num = ARRAY_SIZE(ad7606_oversampling_avail),
-		.write_scale_sw = ad7606_write_scale_sw,
-		.write_os_sw = ad7606_write_os_sw,
 	},
 	[ID_AD7616] = {
 		.channels = ad7616_channels,
@@ -478,8 +422,6 @@ static const struct ad7606_chip_info ad7606_chip_info_tbl[] = {
 		.oversampling_avail = ad7616_oversampling_avail,
 		.oversampling_num = ARRAY_SIZE(ad7616_oversampling_avail),
 		.os_req_reset = true,
-		.write_scale_sw = ad7616_write_scale_sw,
-		.write_os_sw = ad7616_write_os_sw,
 	},
 };
 
@@ -581,6 +523,13 @@ static const struct iio_info ad7606_info_no_os_or_range = {
 };
 
 static const struct iio_info ad7606_info_os_and_range = {
+	.read_raw = &ad7606_read_raw,
+	.write_raw = &ad7606_write_raw,
+	.attrs = &ad7606_attribute_group_os_and_range,
+	.validate_trigger = &ad7606_validate_trigger,
+};
+
+static const struct iio_info ad7606_info_os_range_and_debug = {
 	.read_raw = &ad7606_read_raw,
 	.write_raw = &ad7606_write_raw,
 	.debugfs_reg_access = &ad7606_reg_access,
@@ -697,33 +646,16 @@ int ad7606_probe(struct device *dev, int irq, void __iomem *base_address,
 							 "adi,sw-mode");
 
 	if (st->sw_mode_en) {
+		indio_dev->info = &ad7606_info_os_range_and_debug;
+
 		/* Scale of 0.076293 is only available in sw mode */
 		st->scale_avail = ad7606B_scale_avail;
 		st->num_scales = ARRAY_SIZE(ad7606B_scale_avail);
 
 		/* After reset, in software mode, ±10 V is set by default */
 		memset32(st->range, 2, ARRAY_SIZE(st->range));
-		indio_dev->info = &ad7606_info_os_and_range;
-
-		/*
-		 * In software mode, the range gpio has no longer its function.
-		 * Instead, the scale can be configured individually for each
-		 * channel from the RANGE_CH registers.
-		 */
-		if (st->chip_info->write_scale_sw)
-			st->write_scale = st->chip_info->write_scale_sw;
-
-		/*
-		 * In software mode, the oversampling is no longer configured
-		 * with GPIO pins. Instead, the oversampling can be configured
-		 * in configuratiion register.
-		 */
-		if (st->chip_info->write_os_sw)
-			st->write_os = st->chip_info->write_os_sw;
 
 		ret = st->bops->sw_mode_config(indio_dev);
-		if (ret < 0)
-			return ret;
 	}
 
 	init_completion(&st->completion);
