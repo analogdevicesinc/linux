@@ -49,10 +49,6 @@
  *			oversampling ratios.
  * @oversampling_num	number of elements stored in oversampling_avail array
  * @os_req_reset	some devices require a reset to update oversampling
- * @write_scale_sw	pointer to the function which writes the scale via spi
-			in software mode
- * @write_os_sw		pointer to the function which writes the os via spi
-			in software mode
  */
 struct ad7606_chip_info {
 	const struct iio_chan_spec	*channels;
@@ -60,8 +56,6 @@ struct ad7606_chip_info {
 	const unsigned int		*oversampling_avail;
 	unsigned int			oversampling_num;
 	bool				os_req_reset;
-	int (*write_scale_sw)(struct iio_dev *indio_dev, int, int);
-	int (*write_os_sw)(struct iio_dev *indio_dev, int);
 };
 
 /**
