@@ -1,6 +1,5 @@
 /dts-v1/;
 /plugin/;
-#include <dt-bindings/interrupt-controller/irq.h>
 
 / {
 	compatible = "brcm,bcm2708";
