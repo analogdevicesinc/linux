@@ -26,21 +26,9 @@
 
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
+#include <linux/fpga/adi-axi-common.h>
 
 /* Transceiver TDD Control (axi_ad*) */
-
-#define ADI_REG_VERSION		0x0000						/*Version and Scratch Registers */
-#define ADI_VERSION(x)		(((x) & 0xffffffff) << 0)	/* RO, Version number. */
-#define VERSION_IS(x,y,z)	((x) << 16 | (y) << 8 | (z))
-#define ADI_REG_ID			0x0004			 			/*Version and Scratch Registers */
-#define ADI_ID(x)			(((x) & 0xffffffff) << 0)   /* RO, Instance identifier number. */
-#define ADI_REG_SCRATCH		0x0008			 			/*Version and Scratch Registers */
-#define ADI_SCRATCH(x)		(((x) & 0xffffffff) << 0)	/* RW, Scratch register. */
-
-#define PCORE_VERSION(major, minor, letter)	((major << 16) | (minor << 8) | letter)
-#define PCORE_VERSION_MAJOR(version)		(version >> 16)
-#define PCORE_VERSION_MINOR(version)		((version >> 8) & 0xff)
-#define PCORE_VERSION_LETTER(version)		(version & 0xff)
 
 #define ADI_REG_TDD_CONTROL_0		0x0040
 #define ADI_TDD_DMA_GATE_TX_EN		(1 << 5)
@@ -449,18 +437,18 @@ static int cf_axi_tdd_probe(struct platform_device *pdev)
 	if (!st->regs)
 		return -ENOMEM;
 
-	st->version = tdd_read(st, ADI_REG_VERSION);
-	expected_version = PCORE_VERSION(1, 0, 'a');
+	st->version = tdd_read(st, ADI_AXI_REG_VERSION);
+	expected_version = ADI_AXI_PCORE_VER(1, 0, 'a');
 
-	if (PCORE_VERSION_MAJOR(st->version) !=
-		PCORE_VERSION_MAJOR(expected_version)) {
+	if (ADI_AXI_PCORE_VER_MAJOR(st->version) !=
+		ADI_AXI_PCORE_VER_MAJOR(expected_version)) {
 		dev_err(&pdev->dev, "Major version mismatch between PCORE and driver. Driver expected %d.%.2d.%c, PCORE reported %d.%.2d.%c\n",
-			PCORE_VERSION_MAJOR(expected_version),
-			PCORE_VERSION_MINOR(expected_version),
-			PCORE_VERSION_LETTER(expected_version),
-			PCORE_VERSION_MAJOR(st->version),
-			PCORE_VERSION_MINOR(st->version),
-			PCORE_VERSION_LETTER(st->version));
+			ADI_AXI_PCORE_VER_MAJOR(expected_version),
+			ADI_AXI_PCORE_VER_MINOR(expected_version),
+			ADI_AXI_PCORE_VER_PATCH(expected_version),
+			ADI_AXI_PCORE_VER_MAJOR(st->version),
+			ADI_AXI_PCORE_VER_MINOR(st->version),
+			ADI_AXI_PCORE_VER_PATCH(st->version));
 		return -ENODEV;
 	}
 
@@ -478,10 +466,10 @@ static int cf_axi_tdd_probe(struct platform_device *pdev)
 
 	dev_info(&pdev->dev, "Analog Devices CF_AXI_TDD %s (%d.%.2d.%c) at 0x%08llX mapped"
 		" to 0x%p\n",
-		tdd_read(st, ADI_REG_ID) ? "SLAVE" : "MASTER",
-		PCORE_VERSION_MAJOR(st->version),
-		PCORE_VERSION_MINOR(st->version),
-		PCORE_VERSION_LETTER(st->version),
+		tdd_read(st, ADI_AXI_REG_ID) ? "SLAVE" : "MASTER",
+		ADI_AXI_PCORE_VER_MAJOR(st->version),
+		ADI_AXI_PCORE_VER_MINOR(st->version),
+		ADI_AXI_PCORE_VER_PATCH(st->version),
 		(unsigned long long)res->start, st->regs);
 
 	platform_set_drvdata(pdev, indio_dev);
