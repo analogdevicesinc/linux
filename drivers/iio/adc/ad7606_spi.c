@@ -16,8 +16,20 @@
 #define MAX_SPI_FREQ_HZ		23500000	/* VDRIVE above 4.75 V */
 
 #define AD7616_CONFIGURATION_REGISTER	0x02
+#define AD7616_OS_MASK			GENMASK(4,  2)
 #define AD7616_BURST_MODE		BIT(6)
 #define AD7616_SEQEN_MODE		BIT(5)
+#define AD7616_RANGE_CH_ADDR_OFF	0x04
+#define AD7616_RANGE_CH_ADDR(ch)	((((ch) & 0x1) << 1) + ((ch) >> 3))
+#define AD7616_RANGE_CH_MSK(ch)		(GENMASK(1, 0) << ((ch) & 0x6))
+#define AD7616_RANGE_CH_MODE(ch, mode)	((mode) << (ch & GENMASK(2, 1)))
+
+/* AD7606_RANGE_CH_X_Y */
+#define AD7606_RANGE_CH_MSK(ch)		(GENMASK(3, 0) << (4 * ((ch) % 2)))
+#define AD7606_RANGE_CH_MODE(ch, mode)	\
+	((GENMASK(3, 0) & mode) << (4 * ((ch) % 2)))
+#define AD7606_RANGE_CH_ADDR(ch)	(0x03 + ((ch) >> 1))
+#define AD7606_OS_MODE			0x08
 
 static const unsigned int ad7606B_oversampling_avail[9] = {
 	1, 2, 4, 8, 16, 32, 64, 128, 256
@@ -63,6 +75,26 @@ static u16 ad7606B_spi_rd_wr_cmd(int addr, char isWriteOp)
 static u16 ad7616_spi_rd_wr_cmd(int addr, char isWriteOp)
 {
 	return ((addr & 0x7F) << 1) | ((isWriteOp & 0x1) << 7);
+}
+
+static int ad7606_spi_read_block(struct device *dev,
+				 int count, void *buf)
+{
+	struct spi_device *spi = to_spi_device(dev);
+	int i, ret;
+	unsigned short *data = buf;
+	__be16 *bdata = buf;
+
+	ret = spi_read(spi, buf, count * 2);
+	if (ret < 0) {
+		dev_err(&spi->dev, "SPI read error\n");
+		return ret;
+	}
+
+	for (i = 0; i < count; i++)
+		data[i] = be16_to_cpu(bdata[i]);
+
+	return 0;
 }
 
 static int ad7606_spi_reg_read(struct ad7606_state *st, unsigned int addr)
@@ -117,24 +149,42 @@ static int ad7606_spi_write_mask(struct ad7606_state *st,
 
 	return ad7606_spi_reg_write(st, addr, readval);
 }
-static int ad7606_spi_read_block(struct device *dev,
-				 int count, void *buf)
+
+static int ad7616_write_scale_sw(struct iio_dev *indio_dev, int ch, int val)
 {
-	struct spi_device *spi = to_spi_device(dev);
-	int i, ret;
-	unsigned short *data = buf;
-	__be16 *bdata = buf;
+	struct ad7606_state *st = iio_priv(indio_dev);
+	unsigned int ch_addr, mode;
 
-	ret = spi_read(spi, buf, count * 2);
-	if (ret < 0) {
-		dev_err(&spi->dev, "SPI read error\n");
-		return ret;
-	}
+	ch_addr = AD7616_RANGE_CH_ADDR_OFF + AD7616_RANGE_CH_ADDR(ch);
+	mode = AD7616_RANGE_CH_MODE(ch, ((val + 1) & 0x3));
 
-	for (i = 0; i < count; i++)
-		data[i] = be16_to_cpu(bdata[i]);
+	return ad7606_spi_write_mask(st, ch_addr, AD7616_RANGE_CH_MSK(ch),
+				     mode);
+}
 
-	return 0;
+static int ad7616_write_os_sw(struct iio_dev *indio_dev, int val)
+{
+	struct ad7606_state *st = iio_priv(indio_dev);
+
+	return ad7606_spi_write_mask(st, AD7616_CONFIGURATION_REGISTER,
+				     AD7616_OS_MASK, val << 2);
+}
+
+static int ad7606_write_scale_sw(struct iio_dev *indio_dev, int ch, int val)
+{
+	struct ad7606_state *st = iio_priv(indio_dev);
+
+	return ad7606_spi_write_mask(st,
+				     AD7606_RANGE_CH_ADDR(ch),
+				     AD7606_RANGE_CH_MSK(ch),
+				     AD7606_RANGE_CH_MODE(ch, val));
+}
+
+static int ad7606_write_os_sw(struct iio_dev *indio_dev, int val)
+{
+	struct ad7606_state *st = iio_priv(indio_dev);
+
+	return ad7606_spi_reg_write(st, AD7606_OS_MODE, val);
 }
 
 static int ad7606B_sw_mode_config(struct iio_dev *indio_dev)
@@ -156,6 +206,9 @@ static int ad7606B_sw_mode_config(struct iio_dev *indio_dev)
 	/* OS of 128 and 256 are available only in software mode */
 	st->oversampling_avail = ad7606B_oversampling_avail;
 	st->num_os_ratios = ARRAY_SIZE(ad7606B_oversampling_avail);
+
+	st->write_scale = ad7606_write_scale_sw;
+	st->write_os = &ad7606_write_os_sw;
 	/*
 	 * Scale can be configured individually for each channel
 	 * in software mode.
@@ -174,6 +227,9 @@ static int ad7616_sw_mode_config(struct iio_dev *indio_dev)
 	 * in software mode.
 	 */
 	indio_dev->channels = ad7616_soft_channels;
+
+	st->write_scale = ad7616_write_scale_sw;
+	st->write_os = &ad7616_write_os_sw;
 
 	/* Activate Burst mode and SEQEN MODE */
 	return st->bops->write_mask(st,
