@@ -42,18 +42,6 @@
 
 static const char mc_ctrl_sensors[3][8] = {"hall", "bemf", "resolver"};
 
-static inline void mc_ctrl_write(struct axiadc_state *st,
-	unsigned reg, unsigned val)
-{
-	iowrite32(val, st->regs + reg);
-}
-
-static inline unsigned int mc_ctrl_read(struct axiadc_state *st,
-	unsigned reg)
-{
-	return ioread32(st->regs + reg);
-}
-
 static int mc_ctrl_reg_access(struct iio_dev *indio_dev,
 	unsigned reg, unsigned writeval, unsigned *readval)
 {
@@ -61,9 +49,9 @@ static int mc_ctrl_reg_access(struct iio_dev *indio_dev,
 
 	mutex_lock(&indio_dev->mlock);
 	if (readval == NULL)
-		mc_ctrl_write(st, reg & 0xFFFF, writeval);
+		axiadc_write(st, reg & 0xFFFF, writeval);
 	else
-		*readval = mc_ctrl_read(st, reg & 0xFFFF);
+		*readval = axiadc_read(st, reg & 0xFFFF);
 	mutex_unlock(&indio_dev->mlock);
 
 	return 0;
@@ -104,27 +92,27 @@ static ssize_t mc_ctrl_show(struct device *dev,
 	mutex_lock(&indio_dev->mlock);
 	switch ((u32)this_attr->address) {
 	case MC_RUN:
-		reg_val = mc_ctrl_read(st, MC_REG_CONTROL);
+		reg_val = axiadc_read(st, MC_REG_CONTROL);
 		setting = (reg_val & MC_CONTROL_RUN(-1));
 		ret = sprintf(buf, "%u\n", setting);
 		break;
 	case MC_RESET_OVR_CURR:
-		reg_val = mc_ctrl_read(st, MC_REG_CONTROL);
+		reg_val = axiadc_read(st, MC_REG_CONTROL);
 		setting = (reg_val & MC_CONTROL_RESET_OVR_CURR(-1));
 		ret = sprintf(buf, "%u\n", setting);
 		break;
 	case MC_BREAK:
-		reg_val = mc_ctrl_read(st, MC_REG_CONTROL);
+		reg_val = axiadc_read(st, MC_REG_CONTROL);
 		setting = (reg_val & MC_CONTROL_BREAK(-1));
 		ret = sprintf(buf, "%u\n", setting);
 		break;
 	case MC_DIRECTION:
-		reg_val = mc_ctrl_read(st, MC_REG_CONTROL);
+		reg_val = axiadc_read(st, MC_REG_CONTROL);
 		setting = (reg_val & MC_CONTROL_DIRECTION(-1));
 		ret = sprintf(buf, "%u\n", setting);
 		break;
 	case MC_DELTA:
-		reg_val = mc_ctrl_read(st, MC_REG_CONTROL);
+		reg_val = axiadc_read(st, MC_REG_CONTROL);
 		setting = (reg_val & MC_CONTROL_DELTA(-1));
 		ret = sprintf(buf, "%u\n", setting);
 		break;
@@ -132,51 +120,51 @@ static ssize_t mc_ctrl_show(struct device *dev,
 		ret = sprintf(buf, "%s\n", "hall bemf resolver");
 		break;
 	case MC_SENSORS:
-		reg_val = mc_ctrl_read(st, MC_REG_CONTROL);
+		reg_val = axiadc_read(st, MC_REG_CONTROL);
 		setting2 = (reg_val & MC_CONTROL_SENSORS(-1)) >> 8;
 		ret = sprintf(buf, "%s\n", mc_ctrl_sensors[setting2]);
 		break;
 	case MC_MATLAB:
-		reg_val = mc_ctrl_read(st, MC_REG_CONTROL);
+		reg_val = axiadc_read(st, MC_REG_CONTROL);
 		setting = (reg_val & MC_CONTROL_MATLAB(-1));
 		ret = sprintf(buf, "%u\n", setting);
 		break;
 	case MC_CALIB_ADC:
-		reg_val = mc_ctrl_read(st, MC_REG_CONTROL);
+		reg_val = axiadc_read(st, MC_REG_CONTROL);
 		setting = (reg_val & MC_CONTROL_CALIB_ADC(-1));
 		ret = sprintf(buf, "%u\n", setting);
 		break;
 	case MC_GPO:
-		reg_val = mc_ctrl_read(st, MC_REG_CONTROL);
+		reg_val = axiadc_read(st, MC_REG_CONTROL);
 		setting2 = (reg_val & MC_CONTROL_GPO(-1)) >> 20;
 		ret = sprintf(buf, "%u\n", setting2);
 		break;
 	case MC_REF_SPEED:
-		reg_val = mc_ctrl_read(st, MC_REG_REFERENCE_SPEED);
+		reg_val = axiadc_read(st, MC_REG_REFERENCE_SPEED);
 		ret = sprintf(buf, "%d\n", reg_val);
 		break;
 	case MC_KI:
-		reg_val = mc_ctrl_read(st, MC_REG_KI);
+		reg_val = axiadc_read(st, MC_REG_KI);
 		ret = sprintf(buf, "%d\n", reg_val);
 		break;
 	case MC_KP:
-		reg_val = mc_ctrl_read(st, MC_REG_KP);
+		reg_val = axiadc_read(st, MC_REG_KP);
 		ret = sprintf(buf, "%d\n", reg_val);
 		break;
 	case MC_KD:
-		reg_val = mc_ctrl_read(st, MC_REG_KD);
+		reg_val = axiadc_read(st, MC_REG_KD);
 		ret = sprintf(buf, "%d\n", reg_val);
 		break;
 	case MC_PWM:
-		reg_val = mc_ctrl_read(st, MC_REG_PWM_OPEN);
+		reg_val = axiadc_read(st, MC_REG_PWM_OPEN);
 		ret = sprintf(buf, "%d\n", reg_val);
 		break;
 	case MC_PWM_BREAK:
-		reg_val = mc_ctrl_read(st, MC_REG_PWM_BREAK);
+		reg_val = axiadc_read(st, MC_REG_PWM_BREAK);
 		ret = sprintf(buf, "%d\n", reg_val);
 		break;
 	case MC_STATUS:
-		reg_val = mc_ctrl_read(st, MC_REG_STATUS);
+		reg_val = axiadc_read(st, MC_REG_STATUS);
 		ret = sprintf(buf, "%d\n", reg_val);
 		break;
 	default:
@@ -205,46 +193,46 @@ static ssize_t mc_ctrl_store(struct device *dev,
 		ret = strtobool(buf, &setting);
 		if (ret < 0)
 			break;
-		reg_val = mc_ctrl_read(st, MC_REG_CONTROL);
+		reg_val = axiadc_read(st, MC_REG_CONTROL);
 		reg_val &= ~MC_CONTROL_RUN(-1);
 		reg_val |= MC_CONTROL_RUN(setting);
-		mc_ctrl_write(st, MC_REG_CONTROL, reg_val);
+		axiadc_write(st, MC_REG_CONTROL, reg_val);
 		break;
 	case MC_RESET_OVR_CURR:
 		ret = strtobool(buf, &setting);
 		if (ret < 0)
 			break;
-		reg_val = mc_ctrl_read(st, MC_REG_CONTROL);
+		reg_val = axiadc_read(st, MC_REG_CONTROL);
 		reg_val &= ~MC_CONTROL_RESET_OVR_CURR(-1);
 		reg_val |= MC_CONTROL_RESET_OVR_CURR(setting);
-		mc_ctrl_write(st, MC_REG_CONTROL, reg_val);
+		axiadc_write(st, MC_REG_CONTROL, reg_val);
 		break;
 	case MC_BREAK:
 		ret = strtobool(buf, &setting);
 		if (ret < 0)
 			break;
-		reg_val = mc_ctrl_read(st, MC_REG_CONTROL);
+		reg_val = axiadc_read(st, MC_REG_CONTROL);
 		reg_val &= ~MC_CONTROL_BREAK(-1);
 		reg_val |= MC_CONTROL_BREAK(setting);
-		mc_ctrl_write(st, MC_REG_CONTROL, reg_val);
+		axiadc_write(st, MC_REG_CONTROL, reg_val);
 		break;
 	case MC_DIRECTION:
 		ret = strtobool(buf, &setting);
 		if (ret < 0)
 			break;
-		reg_val = mc_ctrl_read(st, MC_REG_CONTROL);
+		reg_val = axiadc_read(st, MC_REG_CONTROL);
 		reg_val &= ~MC_CONTROL_DIRECTION(-1);
 		reg_val |= MC_CONTROL_DIRECTION(setting);
-		mc_ctrl_write(st, MC_REG_CONTROL, reg_val);
+		axiadc_write(st, MC_REG_CONTROL, reg_val);
 		break;
 	case MC_DELTA:
 		ret = strtobool(buf, &setting);
 		if (ret < 0)
 			break;
-		reg_val = mc_ctrl_read(st, MC_REG_CONTROL);
+		reg_val = axiadc_read(st, MC_REG_CONTROL);
 		reg_val &= ~MC_CONTROL_DELTA(-1);
 		reg_val |= MC_CONTROL_DELTA(setting);
-		mc_ctrl_write(st, MC_REG_CONTROL, reg_val);
+		axiadc_write(st, MC_REG_CONTROL, reg_val);
 		break;
 	case MC_SENSORS:
 		if (sysfs_streq(buf, "hall"))
@@ -255,79 +243,79 @@ static ssize_t mc_ctrl_store(struct device *dev,
 			setting2 = 2;
 		else
 			break;
-		reg_val = mc_ctrl_read(st, MC_REG_CONTROL);
+		reg_val = axiadc_read(st, MC_REG_CONTROL);
 		reg_val &= ~MC_CONTROL_SENSORS(-1);
 		reg_val |= MC_CONTROL_SENSORS(setting2);
-		mc_ctrl_write(st, MC_REG_CONTROL, reg_val);
+		axiadc_write(st, MC_REG_CONTROL, reg_val);
 		break;
 	case MC_MATLAB:
 		ret = strtobool(buf, &setting);
 		if (ret < 0)
 			break;
-		reg_val = mc_ctrl_read(st, MC_REG_CONTROL);
+		reg_val = axiadc_read(st, MC_REG_CONTROL);
 		reg_val &= ~MC_CONTROL_MATLAB(-1);
 		reg_val |= MC_CONTROL_MATLAB(setting);
-		mc_ctrl_write(st, MC_REG_CONTROL, reg_val);
+		axiadc_write(st, MC_REG_CONTROL, reg_val);
 		break;
 	case MC_CALIB_ADC:
 		ret = strtobool(buf, &setting);
 		if (ret < 0)
 			break;
-		reg_val = mc_ctrl_read(st, MC_REG_CONTROL);
+		reg_val = axiadc_read(st, MC_REG_CONTROL);
 		reg_val &= ~MC_CONTROL_CALIB_ADC(-1);
 		reg_val |= MC_CONTROL_CALIB_ADC(setting);
-		mc_ctrl_write(st, MC_REG_CONTROL, reg_val);
+		axiadc_write(st, MC_REG_CONTROL, reg_val);
 		break;
 	case MC_GPO:
 		ret = kstrtou32(buf, 10, &setting2);
 		if (ret < 0)
 			break;
-		reg_val = mc_ctrl_read(st, MC_REG_CONTROL);
+		reg_val = axiadc_read(st, MC_REG_CONTROL);
 		reg_val &= ~MC_CONTROL_GPO(-1);
 		reg_val |= MC_CONTROL_GPO(setting2);
-		mc_ctrl_write(st, MC_REG_CONTROL, reg_val);
+		axiadc_write(st, MC_REG_CONTROL, reg_val);
 		break;
 	case MC_REF_SPEED:
 		ret = kstrtou32(buf, 10, &reg_val);
 		if (ret < 0)
 			break;
-		mc_ctrl_write(st, MC_REG_REFERENCE_SPEED, reg_val);
+		axiadc_write(st, MC_REG_REFERENCE_SPEED, reg_val);
 		break;
 	case MC_KI:
 		ret = kstrtou32(buf, 10, &reg_val);
 		if (ret < 0)
 			break;
-		mc_ctrl_write(st, MC_REG_KI, reg_val);
+		axiadc_write(st, MC_REG_KI, reg_val);
 		break;
 	case MC_KP:
 		ret = kstrtou32(buf, 10, &reg_val);
 		if (ret < 0)
 			break;
-		mc_ctrl_write(st, MC_REG_KP, reg_val);
+		axiadc_write(st, MC_REG_KP, reg_val);
 		break;
 	case MC_KD:
 		ret = kstrtou32(buf, 10, &reg_val);
 		if (ret < 0)
 			break;
-		mc_ctrl_write(st, MC_REG_KD, reg_val);
+		axiadc_write(st, MC_REG_KD, reg_val);
 		break;
 	case MC_PWM:
 		ret = kstrtou32(buf, 10, &reg_val);
 		if (ret < 0)
 			break;
-		mc_ctrl_write(st, MC_REG_PWM_OPEN, reg_val);
+		axiadc_write(st, MC_REG_PWM_OPEN, reg_val);
 		break;
 	case MC_PWM_BREAK:
 		ret = kstrtou32(buf, 10, &reg_val);
 		if (ret < 0)
 			break;
-		mc_ctrl_write(st, MC_REG_PWM_BREAK, reg_val);
+		axiadc_write(st, MC_REG_PWM_BREAK, reg_val);
 		break;
 	case MC_STATUS:
 		ret = kstrtou32(buf, 10, &reg_val);
 		if (ret < 0)
 			break;
-		mc_ctrl_write(st, MC_REG_STATUS, reg_val);
+		axiadc_write(st, MC_REG_STATUS, reg_val);
 		break;
 	default:
 		ret = -EINVAL;
@@ -479,8 +467,8 @@ static int mc_ctrl_probe(struct platform_device *pdev)
 	indio_dev->info = &mc_ctrl_info;
 
 	/* Reset all HDL Cores */
-	mc_ctrl_write(st, ADI_REG_RSTN, 0);
-	mc_ctrl_write(st, ADI_REG_RSTN, ADI_RSTN);
+	axiadc_write(st, ADI_REG_RSTN, 0);
+	axiadc_write(st, ADI_REG_RSTN, ADI_RSTN);
 
 	st->pcore_version = axiadc_read(st, ADI_AXI_REG_ID);
 
