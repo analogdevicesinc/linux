@@ -138,7 +138,7 @@ int ad9371_hdl_loopback(struct ad9371_rf_phy *phy, bool enable)
 	version = axiadc_read(st, 0x4000);
 
 	/* Still there but implemented a bit different */
-	if (PCORE_VERSION_MAJOR(version) > 7)
+	if (ADI_AXI_PCORE_VER_MAJOR(version) > 7)
 		addr = 0x4418;
 	else
 		addr = 0x4414;
@@ -146,7 +146,7 @@ int ad9371_hdl_loopback(struct ad9371_rf_phy *phy, bool enable)
 	for (chan = 0; chan < conv->chip_info->num_channels; chan++) {
 		reg = axiadc_read(st, addr + (chan) * 0x40);
 
-		if (PCORE_VERSION_MAJOR(version) > 7) {
+		if (ADI_AXI_PCORE_VER_MAJOR(version) > 7) {
 			if (enable && reg != 0x8) {
 				conv->scratch_reg[chan] = reg;
 				reg = 0x8;
