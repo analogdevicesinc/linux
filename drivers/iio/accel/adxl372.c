@@ -610,6 +610,10 @@ static int adxl372_setup(struct adxl372_state *st)
 	if (ret < 0)
 		return ret;
 
+	ret = adxl372_set_interrupts(st, 0, 0);
+	if (ret < 0)
+		return ret;
+
 	/* Set the mode of operation to full bandwidth measurement mode */
 	return adxl372_set_op_mode(st, ADXL372_FULL_BW_MEASUREMENT);
 }
