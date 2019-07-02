@@ -1,0 +1,7 @@
+What:		/sys/bus/iio/devices/iio:deviceX/events/in_voltageY-voltageZ_name
+Date:		June 2019
+KernelVersion:	4.14.5
+Contact:	songqiang1304521@gmail.com
+Description:
+		Channel name assigned in devicetree, used to tell userspace
+		users which channel this is.
