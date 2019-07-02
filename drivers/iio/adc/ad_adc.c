@@ -352,7 +352,7 @@ static int axiadc_read_raw(struct iio_dev *indio_dev,
 	switch (info) {
 	case IIO_CHAN_INFO_SAMP_FREQ:
 		if (st->slave_regs) {
-			reg = ioread32(st->slave_regs + 0x44);
+			reg = axiadc_slave_read(st, 0x44);
 			*val = M2K_ADC_DO_SAMP_FREQ_READ(reg);
 		} else if (!IS_ERR(st->clk)) {
 			*val = clk_get_rate(st->clk);
@@ -366,7 +366,7 @@ static int axiadc_read_raw(struct iio_dev *indio_dev,
 	case IIO_CHAN_INFO_CALIBSCALE:
 		if (!st->slave_regs)
 			return -EINVAL;
-		reg = ioread32(st->slave_regs +
+		reg = axiadc_slave_read(st,
 			       ADI_REG_CORRECTION_COEFFICIENT(chan->channel));
 		return cf_axi_dds_signed_mag_fmt_to_iio(reg, val, val2);
 	default:
@@ -392,10 +392,8 @@ static int axiadc_m2k_special_probe(struct platform_device *pdev)
 			return PTR_ERR(st->slave_regs);
 
 		val = cf_axi_dds_to_signed_mag_fmt(1, 0);
-		iowrite32(val, st->slave_regs +
-			  ADI_REG_CORRECTION_COEFFICIENT(0));
-		iowrite32(val, st->slave_regs +
-			  ADI_REG_CORRECTION_COEFFICIENT(1));
+		axiadc_slave_write(st, ADI_REG_CORRECTION_COEFFICIENT(0), val);
+		axiadc_slave_write(st, ADI_REG_CORRECTION_COEFFICIENT(1), val);
 	}
 
 	for (i = 0; i < indio_dev->num_channels; i++) {
@@ -403,10 +401,10 @@ static int axiadc_m2k_special_probe(struct platform_device *pdev)
 			BIT(IIO_CHAN_INFO_CALIBSCALE)) {
 			unsigned int chan = indio_dev->channels[i].channel;
 
-			iowrite32(0x40000000, st->regs +
-				  ADI_REG_CHAN_CNTRL_2(chan));
-			iowrite32(ADI_IQCOR_ENB, st->regs +
-				  ADI_REG_CHAN_CNTRL(chan));
+			axiadc_write(st, ADI_REG_CHAN_CNTRL_2(chan),
+				     0x40000000);
+			axiadc_write(st, ADI_REG_CHAN_CNTRL(chan),
+				     ADI_IQCOR_ENB);
 		}
 	}
 
@@ -424,46 +422,35 @@ static int axiadc_write_raw(struct iio_dev *indio_dev,
 		if (!st->slave_regs)
 			return -EINVAL;
 		reg = M2K_ADC_DO_SAMP_FREQ_WRITE(val);
-		iowrite32(reg, st->slave_regs + 0x44);
+		axiadc_slave_write(st, 0x44, reg);
 		return 0;
 	case IIO_CHAN_INFO_OVERSAMPLING_RATIO:
 		if (val == 0)
 			return -EINVAL;
 		st->oversampling_ratio = val;
-		iowrite32(val - 1, st->slave_regs + 0x40);
+		axiadc_slave_write(st, 0x40, val - 1);
 		return 0;
 	case IIO_CHAN_INFO_CALIBSCALE:
 		if (!st->slave_regs)
 			return -EINVAL;
 
-		reg = ioread32(st->slave_regs + ADI_REG_CORRECTION_ENABLE);
+		reg = axiadc_slave_read(st, ADI_REG_CORRECTION_ENABLE);
 		if (val == 1 && val2 == 0)
 			reg &= ~BIT(chan->channel);
 		else
 			reg |= BIT(chan->channel);
-		iowrite32(reg, st->slave_regs + ADI_REG_CORRECTION_ENABLE);
+		axiadc_slave_write(st, ADI_REG_CORRECTION_ENABLE, reg);
 
 		reg = cf_axi_dds_to_signed_mag_fmt(val, val2);
-		iowrite32(reg, st->slave_regs +
-			  ADI_REG_CORRECTION_COEFFICIENT(chan->channel));
+		axiadc_slave_write(st,
+				ADI_REG_CORRECTION_COEFFICIENT(chan->channel),
+				reg);
 		return 0;
 	default:
 		break;
 	}
 
 	return -EINVAL;
-}
-
-static inline void adc_write(struct axiadc_state *st,
-			     unsigned int reg, unsigned int val)
-{
-	iowrite32(val, st->regs + reg);
-}
-
-static inline unsigned int adc_read(struct axiadc_state *st,
-				    unsigned int reg)
-{
-	return ioread32(st->regs + reg);
 }
 
 static int adc_reg_access(struct iio_dev *indio_dev,
@@ -475,14 +462,14 @@ static int adc_reg_access(struct iio_dev *indio_dev,
 	mutex_lock(&indio_dev->mlock);
 	if (reg & 0x80000000) {
 		if (readval == NULL)
-			iowrite32(writeval, st->slave_regs + (reg & 0xffff));
+			axiadc_slave_write(st, (reg & 0xffff), writeval);
 		else
-			*readval = ioread32(st->slave_regs + (reg & 0xffff));
+			*readval = axiadc_slave_read(st, (reg & 0xffff));
 	} else {
 		if (readval == NULL)
-			adc_write(st, reg & 0xFFFF, writeval);
+			axiadc_write(st, reg & 0xFFFF, writeval);
 		else
-			*readval = adc_read(st, reg & 0xFFFF);
+			*readval = axiadc_read(st, reg & 0xFFFF);
 	}
 	mutex_unlock(&indio_dev->mlock);
 
@@ -554,10 +541,10 @@ static int adc_probe(struct platform_device *pdev)
 	indio_dev->info = &adc_info;
 
 	/* Reset all HDL Cores */
-	adc_write(st, ADI_REG_RSTN, 0);
-	adc_write(st, ADI_REG_RSTN, ADI_RSTN);
+	axiadc_write(st, ADI_REG_RSTN, 0);
+	axiadc_write(st, ADI_REG_RSTN, ADI_RSTN);
 
-	st->pcore_version = adc_read(st, ADI_AXI_REG_VERSION);
+	st->pcore_version = axiadc_read(st, ADI_AXI_REG_VERSION);
 
 	if (info->has_frontend) {
 		st->frontend = iio_hw_consumer_alloc(&pdev->dev);
