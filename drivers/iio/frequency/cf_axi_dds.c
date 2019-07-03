@@ -39,6 +39,12 @@
 
 static const unsigned int interpolation_factors_available[] = {1, 8};
 
+bool cf_axi_dds_dma_fifo_en(struct cf_axi_dds_state *st)
+{
+	return st->pl_dma_fifo_en;
+}
+EXPORT_SYMBOL(cf_axi_dds_dma_fifo_en);
+
 void dds_write(struct cf_axi_dds_state *st,
 	       unsigned int reg, unsigned int val)
 {
