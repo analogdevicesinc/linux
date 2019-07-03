@@ -20,14 +20,8 @@
 #include <linux/platform_device.h>
 #include <linux/regmap.h>
 #include <linux/slab.h>
+#include <linux/fpga/adi-axi-common.h>
 
-#define PCORE_VERSION_MAJOR(version)		(version >> 16)
-#define PCORE_VERSION_MINOR(version)		((version >> 8) & 0xff)
-#define PCORE_VERSION_PATCH(version)		(version & 0xff)
-
-#define JESD204_RX_REG_VERSION				0x00
-#define JESD204_RX_REG_ID				0x04
-#define JESD204_RX_REG_SCRATCH				0x08
 #define JESD204_RX_REG_MAGIC				0x0c
 
 #define JESD204_RX_REG_SYNTH_NUM_LANES			0x10
@@ -213,7 +207,7 @@ static ssize_t axi_jesd204_rx_laneinfo_read(struct device *dev,
 
 	lane_status = readl_relaxed(jesd->base + JESD204_RX_REG_LANE_STATUS(lane));
 
-	if (PCORE_VERSION_MINOR(jesd->version) >= 2) {
+	if (ADI_AXI_PCORE_VER_MINOR(jesd->version) >= 2) {
 		errors = axi_jesd204_rx_get_lane_errors(jesd, lane);
 		ret += scnprintf(buf + ret, PAGE_SIZE - ret, "Errors: %u\n",
 				 errors);
@@ -397,9 +391,9 @@ static bool axi_jesd_rx_regmap_rdwr(struct device *dev, unsigned int reg)
 	unsigned int i;
 
 	switch (reg) {
-	case JESD204_RX_REG_VERSION:
-	case JESD204_RX_REG_ID:
-	case JESD204_RX_REG_SCRATCH:
+	case ADI_AXI_REG_VERSION:
+	case ADI_AXI_REG_ID:
+	case ADI_AXI_REG_SCRATCH:
 	case JESD204_RX_REG_MAGIC:
 	case JESD204_RX_REG_SYNTH_NUM_LANES:
 	case JESD204_RX_REG_SYNTH_DATA_PATH_WIDTH:
@@ -461,7 +455,7 @@ static bool axi_jesd204_rx_check_lane_status(struct axi_jesd204_rx *jesd,
 		return false;
 
 
-	if (PCORE_VERSION_MINOR(jesd->version) >= 2) {
+	if (ADI_AXI_PCORE_VER_MINOR(jesd->version) >= 2) {
 		errors = axi_jesd204_rx_get_lane_errors(jesd, lane);
 		scnprintf(error_str, sizeof(error_str), " (%u errors)", errors);
 	} else {
@@ -621,12 +615,12 @@ static int axi_jesd204_rx_probe(struct platform_device *pdev)
 		goto err_axi_clk_disable;
 	}
 
-	jesd->version = readl_relaxed(jesd->base + JESD204_RX_REG_VERSION);
-	if (PCORE_VERSION_MAJOR(jesd->version) != 1) {
+	jesd->version = readl_relaxed(jesd->base + ADI_AXI_REG_VERSION);
+	if (ADI_AXI_PCORE_VER_MAJOR(jesd->version) != 1) {
 		dev_err(&pdev->dev, "Unsupported peripheral version %u.%u.%c\n",
-			PCORE_VERSION_MAJOR(jesd->version),
-			PCORE_VERSION_MINOR(jesd->version),
-			PCORE_VERSION_PATCH(jesd->version));
+			ADI_AXI_PCORE_VER_MAJOR(jesd->version),
+			ADI_AXI_PCORE_VER_MINOR(jesd->version),
+			ADI_AXI_PCORE_VER_PATCH(jesd->version));
 		ret = -ENODEV;
 		goto err_axi_clk_disable;
 	}
