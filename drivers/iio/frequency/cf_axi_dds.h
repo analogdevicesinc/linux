@@ -200,31 +200,7 @@ struct cf_axi_dds_chip_info {
 	struct iio_chan_spec channel[24];
 };
 
-struct cf_axi_dds_state {
-	struct device 		*dev_spi;
-	struct clk 		*clk;
-	struct cf_axi_dds_chip_info	*chip_info;
-	struct gpio_desc		*plddrbypass_gpio;
-
-	bool			standalone;
-	bool			dp_disable;
-	bool			enable;
-	bool			pl_dma_fifo_en;
-	enum fifo_ctrl		gpio_dma_fifo_ctrl;
-
-	struct iio_info		iio_info;
-	size_t			regs_size;
-	void __iomem		*regs;
-	void __iomem		*slave_regs;
-	void __iomem		*master_regs;
-	u64			dac_clk;
-	unsigned 		ddr_dds_interp_en;
-	unsigned		cached_freq[16];
-	unsigned		version;
-	unsigned		have_slave_channels;
-	unsigned		interpolation_factor;
-	struct notifier_block   clk_nb;
-};
+struct cf_axi_dds_state;
 
 enum {
 	CLK_DATA,
