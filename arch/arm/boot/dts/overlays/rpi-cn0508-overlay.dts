@@ -7,7 +7,7 @@
 	fragment@0 {
 		target = <&spi0_cs_pins>;
 		frag0: __overlay__ {
-			brcm,pins = <22 27>;
+			brcm,pins = <22 27 8 7>;
 			brcm,function = <1>; /* output */
 		};
 	};
@@ -15,7 +15,8 @@
 	fragment@1 {
 		target = <&spi0>;
 		frag1: __overlay__ {
-			cs-gpios = <&gpio 22 1>, <&gpio 27 1>;
+			cs-gpios = <&gpio 22 1>, <&gpio 27 1>,
+				<&gpio 8 1>, <&gpio 7 1>;
 			status = "okay";
 		};
 	};
@@ -25,6 +26,15 @@
 			   <&frag1>,"cs-gpios:4";
 		cs1_pin  = <&frag0>,"brcm,pins:4",
 			   <&frag1>,"cs-gpios:16";
+		cs2_pin	=  <&frag0>,"brcm,pins:8",
+			   <&frag1>,"cs-gpios:28";
+		cs3_pin	=  <&frag0>,"brcm,pins:12",
+			   <&frag1>,"cs-gpios:40";
+
+		speed =   <&pitft>,"spi-max-frequency:0";
+		rotate =  <&pitft>,"rotate:0";
+		fps =     <&pitft>,"fps:0";
+		debug =   <&pitft>,"debug:0";
 	};
 
 	fragment@2 {
@@ -81,7 +91,7 @@
 				compatible = "adi,ad7124-4";
 				reg = <1>;
 				spi-max-frequency = <5000000>;
-				interrupts = <25 2>;
+				interrupts = <23 2>;
 				interrupt-parent = <&gpio>;
 				refin1-supply = <&vref>;
 				clocks = <&ad7124_mclk>;
@@ -152,6 +162,86 @@
 		target = <&spidev1>;
 		__overlay__ {
 			status = "disabled";
+		};
+	};
+
+	fragment@8 {
+		target = <&gpio>;
+		__overlay__ {
+			pitft_pins: pitft_pins {
+				brcm,pins = <24 25>;
+				brcm,function = <0 1>; /* in out */
+				brcm,pull = <2 0>; /* pullup none */
+			};
+		};
+	};
+
+	fragment@9 {
+		target = <&spi0>;
+		__overlay__ {
+			/* needed to avoid dtc warning */
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			pitft: pitft@2{
+				compatible = "ilitek,ili9340";
+				reg = <2>;
+				pinctrl-names = "default";
+				pinctrl-0 = <&pitft_pins>;
+
+				spi-max-frequency = <32000000>;
+				rotate = <90>;
+				fps = <25>;
+				bgr;
+				buswidth = <8>;
+				dc-gpios = <&gpio 25 0>;
+				debug = <0>;
+			};
+
+			pitft_ts@3 {
+				compatible = "st,stmpe610";
+				reg = <3>;
+
+				spi-max-frequency = <500000>;
+				irq-gpio = <&gpio 24 0x2>; /* IRQF_TRIGGER_FALLING */
+				interrupts = <24 2>; /* high-to-low edge triggered */
+				interrupt-parent = <&gpio>;
+				interrupt-controller;
+
+				stmpe_touchscreen {
+					compatible = "st,stmpe-ts";
+					st,sample-time = <4>;
+					st,mod-12b = <1>;
+					st,ref-sel = <0>;
+					st,adc-freq = <2>;
+					st,ave-ctrl = <3>;
+					st,touch-det-delay = <4>;
+					st,settling = <2>;
+					st,fraction-z = <7>;
+					st,i-drive = <0>;
+				};
+
+				stmpe_gpio: stmpe_gpio {
+					#gpio-cells = <2>;
+					compatible = "st,stmpe-gpio";
+					/*
+					 * only GPIO2 is wired/available
+					 * and it is wired to the backlight
+					 */
+					st,norequest-mask = <0x7b>;
+				};
+			};
+		};
+	};
+
+	fragment@10 {
+		target-path = "/soc";
+		__overlay__ {
+			backlight {
+				compatible = "gpio-backlight";
+				gpios = <&stmpe_gpio 2 0>;
+				default-on;
+			};
 		};
 	};
 };
