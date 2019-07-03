@@ -305,4 +305,6 @@ unsigned int dds_slave_read(struct cf_axi_dds_state *st, unsigned int reg);
 void dds_master_write(struct cf_axi_dds_state *st,
 		      unsigned int reg, unsigned int val);
 
+bool cf_axi_dds_dma_fifo_en(struct cf_axi_dds_state *st);
+
 #endif /* ADI_AXI_DDS_H_ */

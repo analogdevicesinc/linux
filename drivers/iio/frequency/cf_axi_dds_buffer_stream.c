@@ -29,7 +29,7 @@ static int dds_buffer_submit_block(struct iio_dma_buffer_queue *queue,
 	if (block->block.bytes_used) {
 		bool enable_fifo = false;
 
-		if (st->pl_dma_fifo_en &&
+		if (cf_axi_dds_dma_fifo_en(st) &&
 			(block->block.flags & IIO_BUFFER_BLOCK_FLAG_CYCLIC)) {
 			block->block.flags &= ~IIO_BUFFER_BLOCK_FLAG_CYCLIC;
 			enable_fifo = true;
