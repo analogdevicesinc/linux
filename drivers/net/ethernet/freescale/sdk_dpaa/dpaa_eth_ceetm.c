@@ -650,7 +650,7 @@ static int ceetm_dump(struct Qdisc *sch, struct sk_buff *skb)
 		return -EINVAL;
 	}
 
-	nest = nla_nest_start(skb, TCA_OPTIONS);
+	nest = nla_nest_start_noflag(skb, TCA_OPTIONS);
 	if (!nest)
 		goto nla_put_failure;
 	if (nla_put(skb, TCA_CEETM_QOPS, sizeof(qopt), &qopt))
@@ -1133,7 +1133,7 @@ static int ceetm_init(struct Qdisc *sch, struct nlattr *opt,
 	if (ret)
 		return ret;
 
-	ret = nla_parse_nested(tb, TCA_CEETM_QOPS, opt, ceetm_policy, NULL);
+	ret = nla_parse_nested_deprecated(tb, TCA_CEETM_QOPS, opt, ceetm_policy, NULL);
 	if (ret < 0) {
 		pr_err(KBUILD_BASENAME " : %s : tc error\n", __func__);
 		return ret;
@@ -1307,7 +1307,7 @@ static int ceetm_change(struct Qdisc *sch, struct nlattr *opt,
 
 	pr_debug(KBUILD_BASENAME " : %s : qdisc %X\n", __func__, sch->handle);
 
-	ret = nla_parse_nested(tb, TCA_CEETM_QOPS, opt, ceetm_policy, NULL);
+	ret = nla_parse_nested_deprecated(tb, TCA_CEETM_QOPS, opt, ceetm_policy, NULL);
 	if (ret < 0) {
 		pr_err(KBUILD_BASENAME " : %s : tc error\n", __func__);
 		return ret;
@@ -1527,7 +1527,7 @@ static int ceetm_cls_change(struct Qdisc *sch, u32 classid, u32 parentid,
 		return -EINVAL;
 	}
 
-	err = nla_parse_nested(tb, TCA_CEETM_COPT, opt, ceetm_policy, NULL);
+	err = nla_parse_nested_deprecated(tb, TCA_CEETM_COPT, opt, ceetm_policy, NULL);
 	if (err < 0) {
 		pr_err(KBUILD_BASENAME " : %s : tc error\n", __func__);
 		return -EINVAL;
@@ -1728,7 +1728,7 @@ static int ceetm_cls_dump(struct Qdisc *sch, unsigned long arg,
 		break;
 	}
 
-	nest = nla_nest_start(skb, TCA_OPTIONS);
+	nest = nla_nest_start_noflag(skb, TCA_OPTIONS);
 	if (!nest)
 		goto nla_put_failure;
 	if (nla_put(skb, TCA_CEETM_COPT, sizeof(copt), &copt))
