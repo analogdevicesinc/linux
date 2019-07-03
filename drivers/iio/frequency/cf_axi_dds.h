@@ -296,33 +296,13 @@ int cf_axi_dds_pl_ddr_fifo_ctrl(struct cf_axi_dds_state *st, bool enable);
  * IO accessors
  */
 
-static inline void dds_write(struct cf_axi_dds_state *st,
-			     unsigned reg, unsigned val)
-{
-	iowrite32(val, st->regs + reg);
-}
-
-static inline unsigned int dds_read(struct cf_axi_dds_state *st, unsigned reg)
-{
-	return ioread32(st->regs + reg);
-}
-
-static inline void dds_slave_write(struct cf_axi_dds_state *st,
-			     unsigned reg, unsigned val)
-{
-	iowrite32(val, st->slave_regs + reg);
-}
-
-static inline unsigned int dds_slave_read(struct cf_axi_dds_state *st, unsigned reg)
-{
-	return ioread32(st->slave_regs + reg);
-}
-
-static inline void dds_master_write(struct cf_axi_dds_state *st,
-			     unsigned reg, unsigned val)
-{
-	if (st->master_regs)
-		iowrite32(val, st->master_regs + reg);
-}
+void dds_write(struct cf_axi_dds_state *st,
+	       unsigned int reg, unsigned int val);
+int dds_read(struct cf_axi_dds_state *st, unsigned int reg);
+void dds_slave_write(struct cf_axi_dds_state *st,
+		     unsigned int reg, unsigned int val);
+unsigned int dds_slave_read(struct cf_axi_dds_state *st, unsigned int reg);
+void dds_master_write(struct cf_axi_dds_state *st,
+		      unsigned int reg, unsigned int val);
 
 #endif /* ADI_AXI_DDS_H_ */
