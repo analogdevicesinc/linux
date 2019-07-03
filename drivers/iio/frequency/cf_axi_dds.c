@@ -39,6 +39,40 @@
 
 static const unsigned int interpolation_factors_available[] = {1, 8};
 
+void dds_write(struct cf_axi_dds_state *st,
+	       unsigned int reg, unsigned int val)
+{
+	iowrite32(val, st->regs + reg);
+}
+EXPORT_SYMBOL(dds_write);
+
+int dds_read(struct cf_axi_dds_state *st, unsigned int reg)
+{
+	return ioread32(st->regs + reg);
+}
+EXPORT_SYMBOL(dds_read);
+
+void dds_slave_write(struct cf_axi_dds_state *st,
+		     unsigned int reg, unsigned int val)
+{
+	iowrite32(val, st->slave_regs + reg);
+}
+EXPORT_SYMBOL(dds_slave_write);
+
+unsigned int dds_slave_read(struct cf_axi_dds_state *st, unsigned int reg)
+{
+	return ioread32(st->slave_regs + reg);
+}
+EXPORT_SYMBOL(dds_slave_read);
+
+void dds_master_write(struct cf_axi_dds_state *st,
+		      unsigned int reg, unsigned int val)
+{
+	if (st->master_regs)
+		iowrite32(val, st->master_regs + reg);
+}
+EXPORT_SYMBOL(dds_master_write);
+
 static int cf_axi_dds_to_signed_mag_fmt(int val, int val2, unsigned int *res)
 {
 	unsigned i;
