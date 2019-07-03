@@ -27,11 +27,26 @@
 		ranges;
 
 		/*
-		* reserved-memory layout
-		* 0x88000000 ~ 0x8fffffff is reserved for M4
-		* Shouldn't be used at A core and Linux side.
-		*
-		*/
+		 * 0x8800_0000 ~ 0x8FFF_FFFF is reserved for M4
+		 * Shouldn't be used at A core and Linux side.
+		 *
+		 */
+		m4_reserved: m4@0x88000000 {
+			no-map;
+			reg = <0 0x88000000 0 0x8000000>;
+		};
+
+		rpmsg_reserved: rpmsg@0x90000000 {
+			no-map;
+			reg = <0 0x90000000 0 0x400000>;
+		};
+
+		rpmsg_dma_reserved:rpmsg_dma@0x90400000 {
+			compatible = "shared-dma-pool";
+			no-map;
+			reg = <0 0x90400000 0 0x100000>;
+		};
+
 		decoder_boot: decoder-boot@84000000 {
 			reg = <0 0x84000000 0 0x2000000>;
 			no-map;
@@ -680,6 +695,7 @@
 	 */
 	vdev-nums = <2>;
 	reg = <0x0 0x90000000 0x0 0x20000>;
+	memory-region = <&rpmsg_dma_reserved>;
 	status = "okay";
 };
 
