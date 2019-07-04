@@ -355,6 +355,7 @@ static int adf4360_set_freq(struct adf4360_state *st, unsigned long rate)
 	unsigned int val_r, val_n, val_ctrl;
 	unsigned int pfd_freq;
 	unsigned long r, n;
+	int ret;
 
 	if (!st->clkin_freq || (st->clkin_freq > ADF4360_MAX_REFIN_RATE) ||
 		(rate < st->vco_min) || (rate > st->vco_max))
@@ -408,8 +409,13 @@ static int adf4360_set_freq(struct adf4360_state *st, unsigned long rate)
 		ADF4360_ABP(ADF4360_ABP_3_0NS) |
 		ADF4360_BSC(ADF4360_BSC_8);
 
-	adf4360_write_reg(st, ADF4360_REG(ADF4360_RDIV), val_r);
-	adf4360_write_reg(st, ADF4360_REG(ADF4360_CTRL), val_ctrl);
+	ret = adf4360_write_reg(st, ADF4360_REG(ADF4360_RDIV), val_r);
+	if (ret)
+		return ret;
+
+	ret = adf4360_write_reg(st, ADF4360_REG(ADF4360_CTRL), val_ctrl);
+	if (ret)
+		return ret;
 
 	/*
 	 * Allow the transient behavior of the ADF4360-7 during initial
@@ -420,7 +426,9 @@ static int adf4360_set_freq(struct adf4360_state *st, unsigned long rate)
 		st->initial_reg_seq = false;
 	}
 
-	adf4360_write_reg(st, ADF4360_REG(ADF4360_NDIV), val_n);
+	ret = adf4360_write_reg(st, ADF4360_REG(ADF4360_NDIV), val_n);
+	if (ret)
+		return ret;
 
 	st->freq_req = rate;
 	st->n = n;
@@ -456,9 +464,10 @@ static const struct clk_ops adf4360_clk_ops = {
 	.set_rate = adf4360_clk_set_rate,
 };
 
-static void adf4360_m2k_setup(struct adf4360_state *st)
+static int adf4360_m2k_setup(struct adf4360_state *st)
 {
 	unsigned int val_r, val_ctrl, val_b;
+	int ret;
 
 	st->n = 20;
 	st->r = 4;
@@ -475,10 +484,18 @@ static void adf4360_m2k_setup(struct adf4360_state *st)
 	val_r = ADF4360_R_COUNTER(st->r) | ADF4360_BSC(ADF4360_BSC_8);
 	val_b = ADF4360_A_COUNTER(2) | ADF4360_B_COUNTER(st->n);
 
-	adf4360_write_reg(st, ADF4360_REG(ADF4360_RDIV), val_r);
-	adf4360_write_reg(st, ADF4360_REG(ADF4360_CTRL), val_ctrl);
+	ret = adf4360_write_reg(st, ADF4360_REG(ADF4360_RDIV), val_r);
+	if (ret)
+		return ret;
+
+	ret = adf4360_write_reg(st, ADF4360_REG(ADF4360_CTRL), val_ctrl);
+	if (ret)
+		return ret;
+
 	msleep(15);
-	adf4360_write_reg(st, ADF4360_REG(ADF4360_NDIV), val_b);
+	ret = adf4360_write_reg(st, ADF4360_REG(ADF4360_NDIV), val_b);
+
+	return ret;
 }
 
 static int adf4360_read(struct iio_dev *indio_dev,
@@ -819,8 +836,11 @@ static int adf4360_probe(struct spi_device *spi)
 	 * Backwards compatibility for old M2K devicetrees, remove this
 	 * eventually.
 	 */
-	if (id->driver_data == ID_ADF4360_9)
-		adf4360_m2k_setup(st);
+	if (id->driver_data == ID_ADF4360_9) {
+		ret = adf4360_m2k_setup(st);
+		if (ret)
+			return ret;
+	}
 
 	if (st->power_up_frequency) {
 		ret = adf4360_set_freq(st, st->power_up_frequency);
