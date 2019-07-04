@@ -11,6 +11,42 @@
 
 #include <linux/iio/iio.h>
 
+#define AD7291_VOLTAGE_CHAN(_chan)					\
+{									\
+	.type = IIO_VOLTAGE,						\
+	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW),			\
+	.indexed = 1,							\
+	.channel = _chan,						\
+}
+
+static const struct iio_chan_spec ad7292_channels[] = {
+	AD7291_VOLTAGE_CHAN(0),
+	AD7291_VOLTAGE_CHAN(1),
+	AD7291_VOLTAGE_CHAN(2),
+	AD7291_VOLTAGE_CHAN(3),
+	AD7291_VOLTAGE_CHAN(4),
+	AD7291_VOLTAGE_CHAN(5),
+	AD7291_VOLTAGE_CHAN(6),
+	AD7291_VOLTAGE_CHAN(7)
+};
+
+static const struct iio_chan_spec ad7292_channels_diff[] = {
+	{
+		.type = IIO_VOLTAGE,
+		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW),
+		.indexed = 1,
+		.differential = 1,
+		.channel = 0,
+		.channel2 = 1,
+	},
+	AD7291_VOLTAGE_CHAN(2),
+	AD7291_VOLTAGE_CHAN(3),
+	AD7291_VOLTAGE_CHAN(4),
+	AD7291_VOLTAGE_CHAN(5),
+	AD7291_VOLTAGE_CHAN(6),
+	AD7291_VOLTAGE_CHAN(7)
+};
+
 struct ad7292_state {
 	struct spi_device *spi;
 };
@@ -24,6 +60,14 @@ static int ad7292_read_raw(struct iio_dev *indio_dev,
 			   const struct iio_chan_spec *chan,
 			   int *val, int *val2, long info)
 {
+	switch (info) {
+	case IIO_CHAN_INFO_RAW:
+		*val = 1000;
+
+		return IIO_VAL_INT;
+	default:
+		break;
+	}
 	return 0;
 }
 
@@ -37,9 +81,6 @@ static int ad7768_write_raw(struct iio_dev *indio_dev,
 static const struct iio_info ad7292_info = {
 	.read_raw = ad7292_read_raw,
 	.write_raw = &ad7768_write_raw,
-};
-
-static const struct iio_chan_spec ad7292_channels[] = {
 };
 
 static int ad7292_probe(struct spi_device *spi)
@@ -60,9 +101,16 @@ static int ad7292_probe(struct spi_device *spi)
 	indio_dev->dev.parent = &spi->dev;
 	indio_dev->name = spi_get_device_id(spi)->name;
 	indio_dev->modes = INDIO_DIRECT_MODE;
-	indio_dev->channels = ad7292_channels;
-	indio_dev->num_channels = ARRAY_SIZE(ad7292_channels);
 	indio_dev->info = &ad7292_info;
+
+	ret = of_property_read_bool(spi->dev.of_node, "diff-channels");
+	if (ret) {
+		indio_dev->num_channels = ARRAY_SIZE(ad7292_channels_diff);
+		indio_dev->channels = ad7292_channels_diff;
+	} else {
+		indio_dev->num_channels = ARRAY_SIZE(ad7292_channels);
+		indio_dev->channels = ad7292_channels;
+	}
 
 	ret = ad7292_setup(st);
 	if (ret)
