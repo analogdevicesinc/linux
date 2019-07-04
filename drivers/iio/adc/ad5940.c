@@ -9,6 +9,7 @@
 #include <linux/bsearch.h>
 #include <linux/device.h>
 #include <linux/module.h>
+#include <linux/regulator/consumer.h>
 #include <linux/spi/spi.h>
 
 #include <linux/iio/iio.h>
@@ -30,6 +31,9 @@ struct ad5940_state {
 
 	u8 n_input;
 	u8 p_input;
+
+	struct regulator *vref;
+	int vref_mv;
 
 	int num_channels;
 	struct ad5940_channel_config *channel_config;
@@ -73,16 +77,17 @@ static const struct iio_chan_spec ad5940_channel_template = {
 static int ad5940_read_raw(struct iio_dev *indio_dev,
 	const struct iio_chan_spec *chan, int *val, int *val2, long info)
 {
+	struct ad5940_state *st = iio_priv(indio_dev);
+
 	switch (info) {
 	case IIO_CHAN_INFO_RAW:
 		*val = 1000;
 
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_SCALE:
-		*val = 1;
-		*val2 = 20;
-
-		return IIO_VAL_INT_PLUS_MICRO;
+		*val = st->vref_mv;
+		*val2 = 16;
+		return IIO_VAL_FRACTIONAL_LOG2;
 	default:
 		return -EINVAL;
 	}
@@ -95,14 +100,14 @@ static const struct iio_info ad5940_info = {
 int cmp_u8(const void *a, const void *b)
 {
 	return (*(u8 *)a - *(u8 *)b);
-	}
+}
 
 static int ad5940_check_channel_indexes(struct device *dev, u32 *ain)
 {
 	const u8 channel_p[] = {
 		0, 1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 16, 18, 19,
 		20, 22, 23, 24, 25, 26, 31, 33, 35, 36
-};
+	};
 	const u8 channel_n[] = {
 		0, 1, 2, 4, 5, 6, 7, 10, 11, 12, 14, 16, 17, 20
 	};
@@ -202,10 +207,18 @@ static int ad5940_setup(struct ad5940_state *st)
 	return 0;
 }
 
+static void ad5940_regulator_disable(void *data)
+{
+	struct ad5940_state *st = data;
+
+	regulator_disable(st->vref);
+}
+
 static int ad5940_probe(struct spi_device *spi)
 {
 	struct iio_dev *indio_dev;
 	struct ad5940_state *st;
+	int vref_uv = 0;
 	int ret;
 
 	indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*st));
@@ -215,6 +228,33 @@ static int ad5940_probe(struct spi_device *spi)
 	st = iio_priv(indio_dev);
 
 	st->spi = spi;
+
+	st->vref = devm_regulator_get_optional(&spi->dev, "vref");
+	if (!IS_ERR(st->vref)) {
+		ret = regulator_enable(st->vref);
+		if (ret) {
+			dev_err(&spi->dev, "Failed to enbale specified vref supply.\n");
+			return ret;
+		}
+
+		ret = devm_add_action_or_reset(&spi->dev,
+				ad5940_regulator_disable, st);
+		if (ret) {
+			regulator_disable(st->vref);
+			return ret;
+		}
+
+		ret = regulator_get_voltage(st->vref);
+		if (ret < 0)
+			return ret;
+
+		vref_uv = ret;
+	}
+
+	if (vref_uv)
+		st->vref_mv = vref_uv / 1000;
+	else
+		st->vref_mv = 1820;
 
 	indio_dev->dev.parent = &spi->dev;
 	indio_dev->dev.of_node = spi->dev.of_node;
