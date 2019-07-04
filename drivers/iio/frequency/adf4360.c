@@ -177,6 +177,7 @@ struct adf4360_state {
 	unsigned int pfd_freq;
 	unsigned int cpi;
 	bool pdp;
+	bool initial_reg_seq;
 	const char *clk_out_name;
 	u8 spi_data[3] ____cacheline_aligned;
 };
@@ -402,7 +403,16 @@ static int adf4360_set_freq(struct adf4360_state *st, unsigned long rate)
 
 	adf4360_write_reg(st, ADF4360_REG(ADF4360_RDIV), val_r);
 	adf4360_write_reg(st, ADF4360_REG(ADF4360_CTRL), val_ctrl);
-	usleep_range(15000, 20000);
+
+	/*
+	 * Allow the transient behavior of the ADF4360-7 during initial
+	 * power-up to settle.
+	 */
+	if (st->initial_reg_seq) {
+		usleep_range(15000, 20000);
+		st->initial_reg_seq = false;
+	}
+
 	adf4360_write_reg(st, ADF4360_REG(ADF4360_NDIV), val_n);
 
 	st->freq_req = rate;
@@ -750,6 +760,7 @@ static int adf4360_probe(struct spi_device *spi)
 	st->spi = spi;
 	st->info = &adf4360_chip_info_tbl[id->driver_data];
 	st->part_id = id->driver_data;
+	st->initial_reg_seq = true;
 
 	ret = adf4360_parse_dt(st);
 	if (ret) {
