@@ -414,16 +414,17 @@ static bool adv7511_hpd(struct adv7511 *adv7511)
 static void adv7511_hpd_work(struct work_struct *work)
 {
 	struct adv7511 *adv7511 = container_of(work, struct adv7511, hpd_work);
-	enum drm_connector_status status = connector_status_disconnected;
+	enum drm_connector_status status;
 	unsigned int val;
 	int ret;
 
 	ret = regmap_read(adv7511->regmap, ADV7511_REG_STATUS, &val);
-	if (ret >= 0 && (val & ADV7511_STATUS_HPD))
+	if (ret < 0)
+		status = connector_status_disconnected;
+	else if (val & ADV7511_STATUS_HPD)
 		status = connector_status_connected;
-
-	DRM_DEV_DEBUG_DRIVER(adv7511->connector.kdev, "HDMI HPD event: %s\n",
-		drm_get_connector_status_name(status));
+	else
+		status = connector_status_disconnected;
 
 	/*
 	 * The bridge resets its registers on unplug. So when we get a plug
