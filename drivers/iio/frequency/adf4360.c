@@ -179,6 +179,7 @@ struct adf4360_state {
 	bool pdp;
 	bool initial_reg_seq;
 	const char *clk_out_name;
+	unsigned int regs[ADF5355_REG_NUM];
 	u8 spi_data[3] ____cacheline_aligned;
 };
 
@@ -229,13 +230,19 @@ static const struct adf4360_chip_info adf4360_chip_info_tbl[] = {
 static int adf4360_write_reg(struct adf4360_state *st, unsigned int reg,
 			     unsigned int val)
 {
+	int ret;
+
 	val |= reg;
 
 	st->spi_data[0] = (val >> 16) & 0xff;
 	st->spi_data[1] = (val >> 8) & 0xff;
 	st->spi_data[2] = val & 0xff;
 
-	return spi_write(st->spi, st->spi_data, ARRAY_SIZE(st->spi_data));
+	ret = spi_write(st->spi, st->spi_data, ARRAY_SIZE(st->spi_data));
+	if (ret == 0)
+		st->regs[reg] = val;
+
+	return ret;
 }
 
 /* fVCO = B * fREFIN / R */
@@ -599,9 +606,33 @@ static int adf4360_write_raw(struct iio_dev *indio_dev,
 	return ret;
 }
 
+static int adf4360_reg_access(struct iio_dev *indio_dev,
+			      unsigned int reg,
+			      unsigned int writeval,
+			      unsigned int *readval)
+{
+	struct adf4360_state *st = iio_priv(indio_dev);
+	int ret = 0;
+
+	if (reg >= ADF5355_REG_NUM)
+		return -EFAULT;
+
+	mutex_lock(&st->lock);
+	if (readval) {
+		*readval = st->regs[reg];
+	} else {
+		writeval &= 0xFFFFFC;
+		ret = adf4360_write_reg(st, reg, writeval);
+	}
+	mutex_unlock(&st->lock);
+
+	return ret;
+}
+
 static const struct iio_info adf4360_iio_info = {
 	.read_raw = &adf4360_read_raw,
 	.write_raw = &adf4360_write_raw,
+	.debugfs_reg_access = &adf4360_reg_access,
 };
 
 static void adf4360_clkin_disable(void *data)
