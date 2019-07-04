@@ -1179,7 +1179,6 @@ static const struct i2c_device_id adv7511_i2c_ids[] = {
 	{ "adv7513", ADV7511 },
 #ifdef CONFIG_DRM_I2C_ADV7533
 	{ "adv7533", ADV7533 },
-	{ "adv7535", ADV7533 },
 #endif
 	{ }
 };
@@ -1191,7 +1190,6 @@ static const struct of_device_id adv7511_of_ids[] = {
 	{ .compatible = "adi,adv7513", .data = (void *)ADV7511 },
 #ifdef CONFIG_DRM_I2C_ADV7533
 	{ .compatible = "adi,adv7533", .data = (void *)ADV7533 },
-	{ .compatible = "adi,adv7535", .data = (void *)ADV7533 },
 #endif
 	{ }
 };
