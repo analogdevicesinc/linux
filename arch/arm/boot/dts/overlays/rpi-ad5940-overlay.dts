@@ -5,6 +5,19 @@
 / {
 	compatible = "brcm,bcm2708";
 
+	fragment@0 {
+		target-path = "/";
+		__overlay__ {
+			adc_vref: fixedregulator@0 {
+				compatible = "regulator-fixed";
+				regulator-name = "fixed-supply";
+				regulator-min-microvolt = <1820000>;
+				regulator-max-microvolt = <1820000>;
+				regulator-boot-on;
+			};
+		};
+	};
+
 	fragment@1 {
 		target = <&spi0>;
 		__overlay__ {
@@ -16,6 +29,7 @@
 				compatible = "adi,ad5940";
 				reg = <0>;
 				spi-max-frequency = <16000000>;
+				vref-supply = <&adc_ref>;
 
 				#address-cells = <1>;
 				#size-cells = <0>;

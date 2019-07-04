@@ -22,6 +22,11 @@ properties:
   reg:
     maxItems: 1
 
+  vref-supply:
+    description:
+      The regulator to be used to supply the reference voltage.
+    maxItems: 1
+
   '#address-cells':
     const: 1
 
@@ -107,6 +112,7 @@ examples:
       compatible = "adi,ad5940";
       reg = <0>;
       spi-max-frequency = <16000000>;
+      vref-supply = <&adc_ref>;
 
       #address-cells = <1>;
       #size-cells = <0>;
