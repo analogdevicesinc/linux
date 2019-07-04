@@ -340,7 +340,6 @@ struct adv7511 {
 	struct device_node *host_node;
 	struct mipi_dsi_device *dsi;
 	u8 num_dsi_lanes;
-	u8 channel_id;
 	bool use_timing_gen;
 
 	enum adv7511_type type;
