@@ -49,9 +49,25 @@ __update_git_ref() {
 	git fetch origin +refs/heads/${ref}:${ref}
 }
 
+__push_back_to_github() {
+	local dst_branch="$1"
+	git remote set-url origin "git@github.com:analogdevicesinc/linux.git"
+
+	git push --quiet -u origin "$dst_branch" || {
+		echo_red "Failed to push back '$dst_branch'"
+		return 1
+	}
+}
+
 __handle_sync_with_master() {
 	local dst_branch="$1"
 	local method="$2"
+
+	openssl aes-256-cbc -d -in ci/travis/deploy_key.enc -out /tmp/deploy_key -base64 -K $encrypt_key -iv $encrypt_iv
+	eval "$(ssh-agent -s)"
+	chmod 600 /tmp/deploy_key
+	ssh-add /tmp/deploy_key
+
 	for ref in master ${dst_branch} ; do
 		__update_git_ref "$ref" || {
 			echo_red "Could not fetch branch '$dst_branch'"
@@ -65,6 +81,7 @@ __handle_sync_with_master() {
 			echo_red "Failed while syncing master over '$dst_branch'"
 			return 1
 		}
+		__push_back_to_github "$dst_branch" || return 1
 		return 0
 	fi
 
@@ -88,7 +105,7 @@ __handle_sync_with_master() {
 				return 1
 			}
 		done
-
+		__push_back_to_github "$dst_branch" || return 1
 		return 0
 	fi
 }
