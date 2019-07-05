@@ -285,6 +285,14 @@ static unsigned long adxcvr_clk_recalc_rate(struct clk_hw *hw,
 	} else {
 		struct xilinx_xcvr_qpll_config qpll_conf;
 
+		if ((st->xcvr.type == XILINX_XCVR_TYPE_US_GTH3) ||
+		    (st->xcvr.type == XILINX_XCVR_TYPE_US_GTH4)) {
+			if (st->sys_clk_sel == ADXCVR_GTH_SYSCLK_QPLL1)
+				qpll_conf.qpll = 1;
+			else
+				qpll_conf.qpll = 0;
+		}
+
 		xilinx_xcvr_qpll_read_config(&st->xcvr, ADXCVR_DRP_PORT_COMMON(0),
 			&qpll_conf);
 		return xilinx_xcvr_qpll_calc_lane_rate(&st->xcvr, parent_rate,
