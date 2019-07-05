@@ -48,6 +48,9 @@
 #define ADXCVR_DRP_PORT_COMMON(x)	(x)
 #define ADXCVR_DRP_PORT_CHANNEL(x)	(0x100 + (x))
 
+#define ADXCVR_GTH_SYSCLK_CPLL		0
+#define ADXCVR_GTH_SYSCLK_QPLL1		2
+#define ADXCVR_GTH_SYSCLK_QPLL0		3
 
 struct adxcvr_state {
 	struct device		*dev;
