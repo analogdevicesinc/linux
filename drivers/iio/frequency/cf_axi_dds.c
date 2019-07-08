@@ -315,14 +315,10 @@ static int cf_axi_dds_sync_frame(struct iio_dev *indio_dev)
 	return 0;
 }
 
-void cf_axi_dds_start_sync(struct cf_axi_dds_state *st, bool force_on)
+void cf_axi_dds_start_sync(struct cf_axi_dds_state *st)
 {
-	if (ADI_AXI_PCORE_VER_MAJOR(st->version) < 8) {
-		dds_write(st, ADI_REG_CNTRL_1, (st->enable || force_on) ? ADI_ENABLE : 0);
-	} else {
-		dds_write(st, ADI_REG_CNTRL_1, ADI_SYNC);
-		dds_master_write(st, ADI_REG_CNTRL_1, ADI_SYNC);
-	}
+	dds_write(st, ADI_REG_CNTRL_1, ADI_SYNC);
+	dds_master_write(st, ADI_REG_CNTRL_1, ADI_SYNC);
 }
 EXPORT_SYMBOL_GPL(cf_axi_dds_start_sync);
 
@@ -349,7 +345,7 @@ static int cf_axi_dds_rate_change(struct notifier_block *nb,
 			reg |= ADI_DDS_INCR(val64) | 1;
 			dds_write(st, ADI_REG_CHAN_CNTRL_2_IIOCHAN(i), reg);
 		}
-		cf_axi_dds_start_sync(st, 0);
+		cf_axi_dds_start_sync(st);
 		cf_axi_dds_sync_frame(indio_dev);
 	}
 
@@ -370,7 +366,7 @@ static void cf_axi_dds_set_sed_pattern(struct iio_dev *indio_dev, unsigned chan,
 	ctrl = dds_read(st, ADI_REG_CNTRL_2);
 	dds_write(st, ADI_REG_CNTRL_2, ctrl | ADI_DATA_FORMAT);
 
-	cf_axi_dds_start_sync(st, 1);
+	cf_axi_dds_start_sync(st);
 }
 
 static int cf_axi_dds_default_setup(struct cf_axi_dds_state *st, u32 chan,
@@ -636,7 +632,7 @@ static int cf_axi_dds_write_raw(struct iio_dev *indio_dev,
 		}
 
 		st->enable = !!val;
-		cf_axi_dds_start_sync(st, 0);
+		cf_axi_dds_start_sync(st);
 		cf_axi_dds_datasel(st, -1, st->enable ? DATA_SEL_DDS : DATA_SEL_ZERO);
 
 		break;
@@ -684,7 +680,7 @@ static int cf_axi_dds_write_raw(struct iio_dev *indio_dev,
 			}
 		}
 		dds_write(st, ADI_REG_CHAN_CNTRL_1_IIOCHAN(chan->channel), ADI_DDS_SCALE(i));
-		cf_axi_dds_start_sync(st, 0);
+		cf_axi_dds_start_sync(st);
 		break;
 	case IIO_CHAN_INFO_FREQUENCY:
 		if (!chan->output) {
@@ -707,7 +703,7 @@ static int cf_axi_dds_write_raw(struct iio_dev *indio_dev,
 		do_div(val64, 0xFFFF);
 		st->cached_freq[chan->channel] = val64;
 
-		cf_axi_dds_start_sync(st, 0);
+		cf_axi_dds_start_sync(st);
 		break;
 	case IIO_CHAN_INFO_PHASE:
 		if (val < 0 || val > 360000) {
@@ -724,7 +720,7 @@ static int cf_axi_dds_write_raw(struct iio_dev *indio_dev,
 		do_div(val64, 360000);
 		reg |= ADI_DDS_INIT(val64);
 		dds_write(st, ADI_REG_CHAN_CNTRL_2_IIOCHAN(chan->channel), reg);
-		cf_axi_dds_start_sync(st, 0);
+		cf_axi_dds_start_sync(st);
 		break;
 	case IIO_CHAN_INFO_SAMP_FREQ:
 		if (chan->type == IIO_VOLTAGE && st->interpolation_factor) {
@@ -749,7 +745,7 @@ static int cf_axi_dds_write_raw(struct iio_dev *indio_dev,
 		dds_write(st, ADI_REG_CNTRL_2, reg);
 		cf_axi_dds_datasel(st, -1, i);
 		st->dac_clk = conv->get_data_clk(conv);
-		cf_axi_dds_start_sync(st, 0);
+		cf_axi_dds_start_sync(st);
 		ret = cf_axi_dds_sync_frame(indio_dev);
 		break;
 	case IIO_CHAN_INFO_CALIBPHASE:
@@ -1731,7 +1727,7 @@ static int cf_axi_dds_probe(struct platform_device *pdev)
 	}
 
 	st->enable = true;
-	cf_axi_dds_start_sync(st, 0);
+	cf_axi_dds_start_sync(st);
 	cf_axi_dds_sync_frame(indio_dev);
 
 	if (!st->dp_disable && !dds_read(st, ADI_AXI_REG_ID)) {
