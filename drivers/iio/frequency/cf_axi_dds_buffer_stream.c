@@ -56,8 +56,6 @@ static int dds_buffer_state_set(struct iio_dev *indio_dev, bool state)
 	if (!state)
 		return cf_axi_dds_datasel(st, -1, DATA_SEL_DDS);
 
-	cf_axi_dds_stop(st);
-
 	dds_write(st, ADI_REG_VDMA_STATUS, ADI_VDMA_OVF | ADI_VDMA_UNF);
 
 	cf_axi_dds_start_sync(st, 1);
