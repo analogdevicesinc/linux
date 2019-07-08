@@ -264,7 +264,6 @@ int cf_axi_dds_configure_buffer(struct iio_dev *indio_dev);
 void cf_axi_dds_unconfigure_buffer(struct iio_dev *indio_dev);
 int cf_axi_dds_datasel(struct cf_axi_dds_state *st,
 			       int channel, enum dds_data_select sel);
-void cf_axi_dds_stop(struct cf_axi_dds_state *st);
 void cf_axi_dds_start_sync(struct cf_axi_dds_state *st, bool force_on);
 int cf_axi_dds_pl_ddr_fifo_ctrl(struct cf_axi_dds_state *st, bool enable);
 
