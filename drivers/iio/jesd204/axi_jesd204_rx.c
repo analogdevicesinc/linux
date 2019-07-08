@@ -556,11 +556,34 @@ static int axi_jesd204_register_dummy_clk(struct axi_jesd204_rx *jesd,
 	return 0;
 }
 
+static int axi_jesd204_rx_pcore_check(struct axi_jesd204_rx *jesd)
+{
+	unsigned int magic, version;
+
+	magic = readl_relaxed(jesd->base + JESD204_RX_REG_MAGIC);
+	if (magic != JESD204_RX_MAGIC) {
+		dev_err(jesd->dev, "Unexpected peripheral identifier %.08x\n",
+			magic);
+		return -ENODEV;
+	}
+
+	version = readl_relaxed(jesd->base + ADI_AXI_REG_VERSION);
+	if (ADI_AXI_PCORE_VER_MAJOR(version) != 1) {
+		dev_err(jesd->dev, "Unsupported peripheral version %u.%u.%c\n",
+			ADI_AXI_PCORE_VER_MAJOR(version),
+			ADI_AXI_PCORE_VER_MINOR(version),
+			ADI_AXI_PCORE_VER_PATCH(version));
+		return -ENODEV;
+	}
+	jesd->version = version;
+
+	return 0;
+}
+
 static int axi_jesd204_rx_probe(struct platform_device *pdev)
 {
 	struct jesd204_rx_config config;
 	struct axi_jesd204_rx *jesd;
-	unsigned int magic;
 	struct resource *res;
 	int irq;
 	int ret;
@@ -591,6 +614,10 @@ static int axi_jesd204_rx_probe(struct platform_device *pdev)
 
 	devm_regmap_init_mmio(&pdev->dev, jesd->base, &axi_jesd_rx_regmap_config);
 
+	ret = axi_jesd204_rx_pcore_check(jesd);
+	if (ret)
+		return ret;
+
 	jesd->axi_clk = devm_clk_get(&pdev->dev, "s_axi_aclk");
 	if (IS_ERR(jesd->axi_clk))
 		return PTR_ERR(jesd->axi_clk);
@@ -606,24 +633,6 @@ static int axi_jesd204_rx_probe(struct platform_device *pdev)
 	ret = clk_prepare_enable(jesd->axi_clk);
 	if (ret)
 		return ret;
-
-	magic = readl_relaxed(jesd->base + JESD204_RX_REG_MAGIC);
-	if (magic != JESD204_RX_MAGIC) {
-		dev_err(&pdev->dev, "Unexpected peripheral identifier %.08x\n",
-			magic);
-		ret = -ENODEV;
-		goto err_axi_clk_disable;
-	}
-
-	jesd->version = readl_relaxed(jesd->base + ADI_AXI_REG_VERSION);
-	if (ADI_AXI_PCORE_VER_MAJOR(jesd->version) != 1) {
-		dev_err(&pdev->dev, "Unsupported peripheral version %u.%u.%c\n",
-			ADI_AXI_PCORE_VER_MAJOR(jesd->version),
-			ADI_AXI_PCORE_VER_MINOR(jesd->version),
-			ADI_AXI_PCORE_VER_PATCH(jesd->version));
-		ret = -ENODEV;
-		goto err_axi_clk_disable;
-	}
 
 	jesd->num_lanes = readl_relaxed(jesd->base + JESD204_RX_REG_SYNTH_NUM_LANES);
 	jesd->data_path_width = readl_relaxed(jesd->base + JESD204_RX_REG_SYNTH_DATA_PATH_WIDTH);
