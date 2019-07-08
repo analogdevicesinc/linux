@@ -315,13 +315,6 @@ static int cf_axi_dds_sync_frame(struct iio_dev *indio_dev)
 	return 0;
 }
 
-void cf_axi_dds_stop(struct cf_axi_dds_state *st)
-{
-	if (ADI_AXI_PCORE_VER_MAJOR(st->version) < 8)
-		dds_write(st, ADI_REG_CNTRL_1, 0);
-}
-EXPORT_SYMBOL_GPL(cf_axi_dds_stop);
-
 void cf_axi_dds_start_sync(struct cf_axi_dds_state *st, bool force_on)
 {
 	if (ADI_AXI_PCORE_VER_MAJOR(st->version) < 8) {
@@ -343,15 +336,10 @@ static int cf_axi_dds_rate_change(struct notifier_block *nb,
 	unsigned reg, i;
 	unsigned long long val64;
 
-	/* Temp Workaround: stop PCORE while we reset the sink */
-	if (flags == PRE_RATE_CHANGE && cnd->new_rate == -EINVAL)
-		cf_axi_dds_stop(st);
-
 	st->dac_clk = cnd->new_rate;
 
 	if (flags == POST_RATE_CHANGE) {
 		st->dac_clk = cnd->new_rate;
-		cf_axi_dds_stop(st);
 
 		for (i = 0; i < st->chip_info->num_dds_channels; i++) {
 			reg = dds_read(st, ADI_REG_CHAN_CNTRL_2_IIOCHAN(i));
@@ -376,8 +364,6 @@ static void cf_axi_dds_set_sed_pattern(struct iio_dev *indio_dev, unsigned chan,
 
 	dds_write(st, ADI_REG_CHAN_CNTRL_5(chan),
 		ADI_TO_DDS_PATT_1(pat1) | ADI_DDS_PATT_2(pat2));
-
-	cf_axi_dds_stop(st);
 
 	cf_axi_dds_datasel(st, -1, DATA_SEL_SED);
 
@@ -697,7 +683,6 @@ static int cf_axi_dds_write_raw(struct iio_dev *indio_dev,
 						break;
 			}
 		}
-		cf_axi_dds_stop(st);
 		dds_write(st, ADI_REG_CHAN_CNTRL_1_IIOCHAN(chan->channel), ADI_DDS_SCALE(i));
 		cf_axi_dds_start_sync(st, 0);
 		break;
@@ -711,7 +696,6 @@ static int cf_axi_dds_write_raw(struct iio_dev *indio_dev,
 			break;
 		}
 
-		cf_axi_dds_stop(st);
 		reg = dds_read(st, ADI_REG_CHAN_CNTRL_2_IIOCHAN(chan->channel));
 		reg &= ~ADI_DDS_INCR(~0);
 		val64 = (u64) val * 0xFFFFULL;
@@ -734,7 +718,6 @@ static int cf_axi_dds_write_raw(struct iio_dev *indio_dev,
 		if (val == 360000)
 			val = 0;
 
-		cf_axi_dds_stop(st);
 		reg = dds_read(st, ADI_REG_CHAN_CNTRL_2_IIOCHAN(chan->channel));
 		reg &= ~ADI_DDS_INIT(~0);
 		val64 = (u64) val * 0x10000ULL + (360000 / 2);
@@ -762,7 +745,6 @@ static int cf_axi_dds_write_raw(struct iio_dev *indio_dev,
 
 		reg = dds_read(st, ADI_REG_CNTRL_2);
 		i = cf_axi_dds_get_datasel(st, -1);
-		cf_axi_dds_stop(st);
 		conv->write_raw(indio_dev, chan, val, val2, mask);
 		dds_write(st, ADI_REG_CNTRL_2, reg);
 		cf_axi_dds_datasel(st, -1, i);
@@ -1690,8 +1672,6 @@ static int cf_axi_dds_probe(struct platform_device *pdev)
 		ctrl_2 |= info->data_format;
 	else
 		ctrl_2 |= ADI_DATA_FORMAT;
-
-	cf_axi_dds_stop(st);
 
 	if (info && !info->rate_format_skip_en)
 		dds_write(st, ADI_REG_CNTRL_2, ctrl_2);
