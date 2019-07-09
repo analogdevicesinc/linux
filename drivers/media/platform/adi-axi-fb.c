@@ -262,6 +262,12 @@ static int frame_buffer_probe(struct platform_device *pdev)
 			frm_buff->frame_stride = tmp;
 	}
 
+	if ((frm_buff->video_ram_buf.end - frm_buff->video_ram_buf.start) <
+			frm_buff->frame_stride * frm_buff->num_frames) {
+		dev_err(&pdev->dev, "FB does not fit in reserved memory\n");
+		return -ENOMEM;
+	}
+
 	adi_fb_init(frm_buff, TX_DMA);
 	adi_fb_init(frm_buff, RX_DMA);
 
