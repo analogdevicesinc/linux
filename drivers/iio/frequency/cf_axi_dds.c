@@ -272,7 +272,7 @@ static int cf_axi_dds_sync_frame(struct iio_dev *indio_dev)
 	int stat;
 	static int retry = 0;
 
-	mdelay(10); /* Wait until clocks are stable */
+	msleep(10); /* Wait until clocks are stable */
 
 	dds_write(st, ADI_REG_FRAME, 0);
 	dds_write(st, ADI_REG_FRAME, ADI_FRAME);
@@ -1581,7 +1581,7 @@ static int cf_axi_dds_probe(struct platform_device *pdev)
 		drp_status = dds_read(st, ADI_REG_DRP_STATUS);
 		if (drp_status & ADI_DRP_LOCKED)
 			break;
-		mdelay(1);
+		msleep(1);
 	} while (timeout--);
 
 	if (timeout == -1) {
