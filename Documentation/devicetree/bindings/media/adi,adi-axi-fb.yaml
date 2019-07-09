@@ -14,6 +14,7 @@ description: |
   Bindings for the Analog Devices Frame Buffer core. Spefications of the
   core can be found in:
   https://wiki.analog.com/resources/fpga/docs/axi_dmac
+  First example is used when FB is stored in PS RAM and second for PL RAM.
 
 properties:
   compatible:
@@ -90,8 +91,8 @@ examples:
     adi-fb {
             compatible = "adi,axi-framebuffer-1.00.a";
             memory-region = <&reserved>;
-            reg = <0x1C000000 0x2000>, <0x43000000 0x1000>, <0x43c20000 0x1000>;
-            reg-names = "fb_mem", "tx_dma", "rx_dma";
+            reg = <0x43000000 0x1000>, <0x43c20000 0x1000>;
+            reg-names = "tx_dma", "rx_dma";
             adi,flock-resolution = <1920>, <1080>;
             adi,flock-distance = <0>;
             adi,flock-mode = <0>;
@@ -108,4 +109,16 @@ examples:
                     no-map;
                     reg = <0x1C000000 0x2000000>;
             };
+    };
+
+  - |
+    adi-fb {
+            compatible = "adi,axi-framebuffer-1.00.a";
+            reg = <0x1C000000 0x2000>, <0x43000000 0x1000>, <0x43c20000 0x1000>;
+            reg-names = "fb_mem", "tx_dma", "rx_dma";
+            adi,flock-resolution = <1920>, <1080>;
+            adi,flock-distance = <0>;
+            adi,flock-mode = <0>;
+            adi,flock-dwidth = <4>;
+            adi,flock-frm-buf-nr = <3>;
     };
