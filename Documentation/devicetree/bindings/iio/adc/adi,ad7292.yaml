@@ -12,6 +12,8 @@ maintainers:
 description: |
   Analog Devices AD7292 10-Bit Monitor and Control System with ADC, DACs,
   Temperature Sensor, and GPIOs
+
+  Specifications about the part can be found at:
     https://www.analog.com/en/products/ad7292.html
 
 properties:
@@ -20,6 +22,11 @@ properties:
       - adi,ad7292
 
   reg:
+    maxItems: 1
+
+  vref-supply:
+    description: |
+      The regulator supply for ADC and DAC reference voltage.
     maxItems: 1
 
   spi-cpha:
@@ -49,6 +56,7 @@ examples:
       compatible = "adi,ad7292";
       reg = <0>;
       spi-max-frequency = <16000000>;
+      vref-supply = <&adc_vref>;
       spi-cpha;
       diff-channels;
     };
