@@ -15,7 +15,7 @@
 #include "emcraft-imx8m-som.dts"
 
 / {
-    cec_clock: oscillator {
+	cec_clock: oscillator {
 		compatible = "fixed-clock";
 		#clock-cells = <0>;
 		clock-frequency = <12000000>;
@@ -43,6 +43,14 @@
 			};
 		};
 	};
+
+	reg_1v8: regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "1v8_reg";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		regulator-always-on;
+	};
 };
 
 &iomuxc {
@@ -54,7 +62,7 @@
 				MX8MQ_IOMUXC_NAND_ALE_GPIO3_IO0	        0x16
 			>;
 		};
-		
+
 		pinctrl_sai1: sai1grp {
 			fsl,pins = <
 				MX8MQ_IOMUXC_SAI1_TXFS_SAI1_TX_SYNC	    0xd6
@@ -64,7 +72,7 @@
 				MX8MQ_IOMUXC_SAI1_MCLK_SAI1_MCLK    	0xd6
 			>;
 		};
-		
+
 		pinctrl_sai1_sleep: sai1grp_sleep {
 			fsl,pins = <
 				MX8MQ_IOMUXC_SAI1_TXFS_GPIO4_IO10	0x00
@@ -74,7 +82,7 @@
 				MX8MQ_IOMUXC_SAI1_MCLK_GPIO4_IO20	0x00
 			>;
 		};
-		
+
 		pinctrl_sai6: sai6grp {
 			fsl,pins = <
                 MX8MQ_IOMUXC_SAI1_RXD6_SAI6_TX_SYNC    	0xd6
@@ -83,7 +91,7 @@
 				MX8MQ_IOMUXC_SAI1_RXD5_SAI6_RX_DATA0	0xd6
 			>;
 		};
-		
+
 		pinctrl_sai6_sleep: sai6grp_sleep {
 			fsl,pins = <
                 MX8MQ_IOMUXC_SAI1_RXD6_SAI6_TX_SYNC	    0x00
@@ -104,22 +112,22 @@
                adi,dsi-lanes = <4>;
                clocks = <&cec_clock>;
                clock-names = "cec";
-               
+               v1p2-supply = <&reg_1v8>;
                status = "okay";
-                
+
                 #sound-dai-cells = <0>;
-                
+
                 port {
                        adv7535_in: endpoint {
                                remote-endpoint = <&mipi_dsi_bridge_out>;
                        };
                 };
     };
-    
+
     ov5640_mipi: ov5640_mipi@3c {
                status = "disabled";
     };
-    
+
     ov5640_mipi2: ov5640_mipi2@3c {
                status = "disabled";
     };
@@ -173,7 +181,7 @@
 
 &mipi_dsi {
 	status = "okay";
-	
+
 	port@1 {
 		mipi_dsi_in: endpoint {
 			remote-endpoint = <&dcss_disp0_mipi_dsi>;
@@ -185,7 +193,7 @@
 	status = "okay";
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_adv>;
-	
+
 	port@1 {
 		mipi_dsi_bridge_out: endpoint {
 			remote-endpoint = <&adv7535_in>;
@@ -197,13 +205,13 @@
 	pinctrl-names = "default", "sleep";
 	pinctrl-0 = <&pinctrl_sai1>;
 	pinctrl-1 = <&pinctrl_sai1_sleep>;
-	
+
 	#sound-dai-cells = <0>;
-	
+
     assigned-clocks = <&clk IMX8MQ_CLK_SAI1>;
 	assigned-clock-parents = <&clk IMX8MQ_AUDIO_PLL1_OUT>;
 	assigned-clock-rates = <24576000>;
-	
+
 	status = "okay";
 };
 
@@ -211,12 +219,12 @@
 	pinctrl-names = "default", "sleep";
 	pinctrl-0 = <&pinctrl_sai6>;
 	pinctrl-1 = <&pinctrl_sai6_sleep>;
-	
+
 	#sound-dai-cells = <0>;
-	
+
     assigned-clocks = <&clk IMX8MQ_CLK_SAI6>;
 	assigned-clock-parents = <&clk IMX8MQ_AUDIO_PLL1_OUT>;
 	assigned-clock-rates = <24576000>;
-	
+
 	status = "okay";
 };
