@@ -12,6 +12,7 @@
 #include <linux/delay.h>
 #include <linux/device.h>
 #include <linux/err.h>
+#include <linux/gpio/consumer.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/of.h>
@@ -147,6 +148,17 @@ enum {
 
 #define ADF4360_FREQ_REFIN		0
 
+static const char * const adf4360_muxout_modes[] = {
+	[ADF4360_MUXOUT_THREE_STATE] = "three-state",
+	[ADF4360_MUXOUT_LOCK_DETECT] = "lock-detect",
+	[ADF4360_MUXOUT_NDIV] = "ndiv",
+	[ADF4360_MUXOUT_DVDD] = "dvdd",
+	[ADF4360_MUXOUT_RDIV] = "rdiv",
+	[ADF4360_MUXOUT_OD_LD] = "od-ld",
+	[ADF4360_MUXOUT_SDO] = "sdo",
+	[ADF4360_MUXOUT_GND] = "gnd",
+};
+
 struct adf4360_output {
 	struct clk_hw hw;
 	struct iio_dev *indio_dev;
@@ -165,6 +177,7 @@ struct adf4360_state {
 	const struct adf4360_chip_info *info;
 	struct adf4360_output output;
 	struct clk *clkin;
+	struct gpio_desc *muxout_gpio;
 	struct mutex lock; /* Protect PLL state. */
 	unsigned int part_id;
 	unsigned long clkin_freq;
@@ -177,6 +190,7 @@ struct adf4360_state {
 	unsigned int pfd_freq;
 	unsigned int cpi;
 	bool pdp;
+	unsigned int muxout_mode;
 	bool initial_reg_seq;
 	const char *clk_out_name;
 	unsigned int regs[ADF5355_REG_NUM];
@@ -366,7 +380,7 @@ static int adf4360_set_freq(struct adf4360_state *st, unsigned long rate)
 	n = DIV_ROUND_CLOSEST(rate, pfd_freq);
 
 	val_ctrl = ADF4360_CPL(st->info->default_cpl) |
-		   ADF4360_MUXOUT(ADF4360_MUXOUT_LOCK_DETECT) |
+		   ADF4360_MUXOUT(st->muxout_mode) |
 		   ADF4360_PDP(!st->pdp) |
 		   ADF4360_MTLD(true) |
 		   ADF4360_OPL(ADF4360_PL_11) |
@@ -563,6 +577,40 @@ static int adf4360_write(struct iio_dev *indio_dev,
 	return ret ? ret : len;
 }
 
+static int adf4360_get_muxout_mode(struct iio_dev *indio_dev,
+				   const struct iio_chan_spec *chan)
+{
+	struct adf4360_state *st = iio_priv(indio_dev);
+
+	return st->muxout_mode;
+}
+
+static int adf4360_set_muxout_mode(struct iio_dev *indio_dev,
+				   const struct iio_chan_spec *chan,
+				   unsigned int mode)
+{
+	struct adf4360_state *st = iio_priv(indio_dev);
+	unsigned int writeval;
+	int ret = 0;
+
+	mutex_lock(&st->lock);
+	writeval = st->regs[ADF4360_CTRL] & ~ADF4360_ADDR_MUXOUT_MSK;
+	writeval |= ADF4360_MUXOUT(mode & 0x7);
+	ret = adf4360_write_reg(st, ADF4360_REG(ADF4360_CTRL), writeval);
+	if (ret == 0)
+		st->muxout_mode = mode & 0x7;
+	mutex_unlock(&st->lock);
+
+	return ret;
+}
+
+static const struct iio_enum adf4360_muxout_modes_available = {
+	.items = adf4360_muxout_modes,
+	.num_items = ARRAY_SIZE(adf4360_muxout_modes),
+	.get = adf4360_get_muxout_mode,
+	.set = adf4360_set_muxout_mode,
+};
+
 #define _ADF4360_EXT_INFO(_name, _ident) { \
 	.name = _name, \
 	.read = adf4360_read, \
@@ -573,6 +621,8 @@ static int adf4360_write(struct iio_dev *indio_dev,
 
 static const struct iio_chan_spec_ext_info adf4360_ext_info[] = {
 	_ADF4360_EXT_INFO("refin_frequency", ADF4360_FREQ_REFIN),
+	IIO_ENUM_AVAILABLE("muxout_mode", &adf4360_muxout_modes_available),
+	IIO_ENUM("muxout_mode", false, &adf4360_muxout_modes_available),
 	{ },
 };
 
@@ -591,14 +641,26 @@ static int adf4360_read_raw(struct iio_dev *indio_dev,
 			    long mask)
 {
 	struct adf4360_state *st = iio_priv(indio_dev);
+	bool lk_det;
 
 	switch (mask) {
 	case IIO_CHAN_INFO_FREQUENCY:
+		lk_det = (ADF4360_MUXOUT_LOCK_DETECT | ADF4360_MUXOUT_OD_LD) &
+			 st->muxout_mode;
+		if (lk_det && st->muxout_gpio) {
+			if (!gpiod_get_value(st->muxout_gpio)) {
+				dev_dbg(&st->spi->dev, "PLL un-locked\n");
+				return -EBUSY;
+			}
+		}
+
 		*val = st->freq_req;
 		return IIO_VAL_INT;
 	default:
 		return -EINVAL;
 	}
+
+	return 0;
 };
 
 static int adf4360_write_raw(struct iio_dev *indio_dev,
@@ -651,6 +713,42 @@ static const struct iio_info adf4360_iio_info = {
 	.write_raw = &adf4360_write_raw,
 	.debugfs_reg_access = &adf4360_reg_access,
 };
+
+static int adf4360_get_gpio(struct adf4360_state *st)
+{
+	struct device *dev = &st->spi->dev;
+	unsigned int val;
+	int ret, i;
+
+	st->muxout_gpio = devm_gpiod_get_optional(dev, "adi,muxout", GPIOD_IN);
+	if (IS_ERR(st->muxout_gpio)) {
+		dev_err(dev, "Muxout GPIO error\n");
+		return PTR_ERR(st->muxout_gpio);
+	}
+
+	if (!st->muxout_gpio)
+		return 0;
+
+	/* ADF4360 PLLs are write only devices, try to probe using GPIO. */
+	for (i = 0; i < 4; i++) {
+		if (i & 1)
+			val = ADF4360_MUXOUT(ADF4360_MUXOUT_DVDD);
+		else
+			val = ADF4360_MUXOUT(ADF4360_MUXOUT_GND);
+
+		ret = adf4360_write_reg(st, ADF4360_REG(ADF4360_CTRL), val);
+		if (ret)
+			return ret;
+
+		ret = gpiod_get_value(st->muxout_gpio);
+		if (ret ^ (i & 1)) {
+			dev_err(dev, "Probe failed (muxout)");
+			return -ENODEV;
+		}
+	}
+
+	return 0;
+}
 
 static void adf4360_clkin_disable(void *data)
 {
@@ -808,6 +906,7 @@ static int adf4360_probe(struct spi_device *spi)
 	st->info = &adf4360_chip_info_tbl[id->driver_data];
 	st->part_id = id->driver_data;
 	st->initial_reg_seq = true;
+	st->muxout_mode = ADF4360_MUXOUT_LOCK_DETECT;
 
 	ret = adf4360_parse_dt(st);
 	if (ret) {
@@ -827,6 +926,10 @@ static int adf4360_probe(struct spi_device *spi)
 	indio_dev->channels = &adf4360_chan;
 	indio_dev->num_channels = 1;
 	st->output.indio_dev = indio_dev;
+
+	ret = adf4360_get_gpio(st);
+	if (ret)
+		return ret;
 
 	ret = adf4360_get_clkin(st);
 	if (ret)
