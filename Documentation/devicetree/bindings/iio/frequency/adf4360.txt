@@ -56,6 +56,9 @@ Optional properties:
     inverting filter.
 - adi,power-up-frequency-hz: If set in Hz, the PLL tunes to the desired
     frequency on probe.
+- adi,muxout-gpios: MUX out GPIO - If set with a valid phandle and GPIO number,
+    GPIO is used to detect chip and test pll lock state on read when muxout
+    control is set to lock detect.
 
 Required properties for ADF4360-7, ADF4360-8 and ADF4360-9:
   ADF4360-7 to ADF4360-9 have a VCO that is tuned to a specific frequency range
