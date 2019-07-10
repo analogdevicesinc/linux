@@ -45,7 +45,7 @@ static int ad916x_nco_set_configure_main(ad916x_handle_t *h,
 		} else {
 			/* Set interpolation mode - bypas */
 			err = ad916x_register_write(h, AD916x_REG_LANE_INTPL_MODE,
-											AD916x_JESD_LANES(8));
+						    AD916x_JESD_LANES(8));
 			if (err != API_ERROR_OK) {
 				return err;
 			}
@@ -423,9 +423,11 @@ ADI_API int ad916x_nco_set_ftw(ad916x_handle_t *h, const unsigned int nco_nr,
 		if (err != API_ERROR_OK) {
 			return err;
 		}
+
 		if((tmp_reg & 0x02) != 0) {
 			return API_ERROR_OK;
 		}
+
 		return API_ERROR_FTW_LOAD_ACK;
 	} else if (nco_nr < 32) {
 		/* Get the FTW for NCO 1..31 */
@@ -591,6 +593,7 @@ ADI_API int ad916x_dc_test_set_mode(ad916x_handle_t *h,
 {
 	int err;
 	uint8_t tmp_reg;
+
 	if (h == INVALID_POINTER) {
 		return API_ERROR_INVALID_HANDLE_PTR;
 	}
@@ -599,8 +602,10 @@ ADI_API int ad916x_dc_test_set_mode(ad916x_handle_t *h,
 	if (err != API_ERROR_OK) {
 		return err;
 	}
+
 	switch(tmp_reg) {
 		case AD9162_PROD_ID_LSB:
+		case AD9166_PROD_ID_LSB:
 			break;
 		case AD9163_PROD_ID_LSB:
 		case AD9161_PROD_ID_LSB:
@@ -646,8 +651,11 @@ ADI_API int ad916x_dc_test_get_mode(ad916x_handle_t *h,
 	if (err != API_ERROR_OK) {
 		return err;
 	}
+
+
 	switch(tmp_reg) {
 		case AD9162_PROD_ID_LSB:
+		case AD9166_PROD_ID_LSB:
 			break;
 		case AD9163_PROD_ID_LSB:
 		case AD9161_PROD_ID_LSB:
