@@ -1091,6 +1091,20 @@
 		>;
 	};
 
+	pinctrl_lpuart2: lpuart2grp {
+		fsl,pins = <
+			IMX8QXP_UART2_TX_ADMA_UART2_TX				0x06000020
+			IMX8QXP_UART2_RX_ADMA_UART2_RX				0x06000020
+		>;
+	};
+
+	pinctrl_lpuart3: lpuart3grp {
+		fsl,pins = <
+			IMX8QXP_FLEXCAN2_TX_ADMA_UART3_TX			0x06000020
+			IMX8QXP_FLEXCAN2_RX_ADMA_UART3_RX			0x06000020
+		>;
+	};
+
 	pinctrl_pcieb: pcieagrp {
 		fsl,pins = <
 			IMX8QXP_PCIE_CTRL0_PERST_B_LSIO_GPIO4_IO00		0x06000021
