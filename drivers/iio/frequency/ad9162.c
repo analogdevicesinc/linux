@@ -43,7 +43,7 @@ struct ad9162_state {
 	bool complex_mode;
 	bool iq_swap;
 	unsigned interpolation;
-
+	struct mutex lock;
 };
 
 static const char * const clk_names[] = {
@@ -354,7 +354,7 @@ static ssize_t ad9162_attr_store(struct device *dev,
 	if (ret)
 		return ret;
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&st->lock);
 
 	switch ((u32)this_attr->address) {
 		case 0:
@@ -367,7 +367,7 @@ static ssize_t ad9162_attr_store(struct device *dev,
 			ret = -EINVAL;
 	}
 
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&st->lock);
 
 	return ret ? ret : len;
 }
@@ -385,7 +385,7 @@ static ssize_t ad9162_attr_show(struct device *dev,
 	u64 freq;
 	u16 ampl;
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&st->lock);
 	switch ((u32)this_attr->address) {
 		case 0:
 			ad916x_nco_get(ad916x_h, 0, &freq, &ampl, &ret);
@@ -398,7 +398,7 @@ static ssize_t ad9162_attr_show(struct device *dev,
 		default:
 			ret = -EINVAL;
 	}
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&st->lock);
 
 	return ret;
 }
@@ -494,6 +494,8 @@ static int ad9162_probe(struct spi_device *spi)
 		dev_err(&spi->dev, "Failed to setup JESD interface\n");
 		return ret;
 	}
+
+	mutex_init(&st->lock);
 
 	spi_set_drvdata(spi, conv);
 
