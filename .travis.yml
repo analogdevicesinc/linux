@@ -19,6 +19,9 @@ env:
   - BUILD_TYPE=sync_branches_with_master
     BRANCH1="xcomm_zynq:fast-forward"
     BRANCH2="adi-4.14.0:cherry-pick"
+    BRANCH3="adi-4.19.0:cherry-pick"
+    BRANCH4="rpi-4.19.y:cherry-pick"
+    BRANCH5="rpi-4.14.y:cherry-pick"
   - BUILD_TYPE=checkpatch
   - BUILD_TYPE=dtb_build_test
   - DEFCONFIG_NAME=zynq_xcomm_adv7511_defconfig ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf-
