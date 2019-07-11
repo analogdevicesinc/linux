@@ -108,6 +108,7 @@ dtbo-$(CONFIG_ARCH_BCM2835) += \
 	rpi-backlight.dtbo \
 	rpi-cirrus-wm5102.dtbo \
 	rpi-cn0508.dtbo \
+	rpi-cn0511.dtbo \
 	rpi-dac.dtbo \
 	rpi-display.dtbo \
 	rpi-ft5406.dtbo \
