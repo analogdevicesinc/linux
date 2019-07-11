@@ -407,6 +407,7 @@ static int ad9162_probe(struct spi_device *spi)
 	struct cf_axi_converter *conv;
 	struct ad9162_state *st;
 	int ret;
+	bool spi3wire = false;
 
 	st = devm_kzalloc(&spi->dev, sizeof(*st), GFP_KERNEL);
 	if (st == NULL)
@@ -444,8 +445,12 @@ static int ad9162_probe(struct spi_device *spi)
 		goto out;
 	}
 
+	if (device_property_read_bool(&spi->dev, "adi,spi-3wire-enable"))
+		spi3wire = true;
+
 	st->dac_h.user_data = st->map;
-	st->dac_h.sdo = SPI_SDIO;
+	st->dac_h.sdo = ((spi->mode & SPI_3WIRE) || spi3wire) ? SPI_SDIO :
+			SPI_SDO;
 	st->dac_h.dev_xfer = spi_xfer_dummy;
 	st->dac_h.delay_us = delay_us;
 	st->dac_h.event_handler = NULL;
