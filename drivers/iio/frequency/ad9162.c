@@ -28,6 +28,9 @@
 #include "ad916x/AD916x.h"
 
 
+#define to_ad916x_state(__conv)	\
+	container_of(__conv, struct ad9162_state, conv)
+
 enum chip_id {
 	CHIPID_AD9162 = 0x62,
 };
@@ -52,7 +55,7 @@ static const char * const clk_names[] = {
 static int ad9162_read(struct spi_device *spi, unsigned reg)
 {
 	struct cf_axi_converter *conv = spi_get_drvdata(spi);
-	struct ad9162_state *st = container_of(conv, struct ad9162_state, conv);
+	struct ad9162_state *st = to_ad916x_state(conv);
 	unsigned int val;
 	int ret = regmap_read(st->map, reg, &val);
 
@@ -62,7 +65,7 @@ static int ad9162_read(struct spi_device *spi, unsigned reg)
 static int ad9162_write(struct spi_device *spi, unsigned reg, unsigned val)
 {
 	struct cf_axi_converter *conv = spi_get_drvdata(spi);
-	struct ad9162_state *st = container_of(conv, struct ad9162_state, conv);
+	struct ad9162_state *st = to_ad916x_state(conv);
 
 	return regmap_write(st->map, reg, val);
 }
@@ -74,7 +77,7 @@ static int ad9162_get_temperature_code(struct cf_axi_converter *conv)
 
 static unsigned long long ad9162_get_data_clk(struct cf_axi_converter *conv)
 {
-	struct ad9162_state *st = container_of(conv, struct ad9162_state, conv);
+	struct ad9162_state *st = to_ad916x_state(conv);
 
 	return div_u64(clk_get_rate_scaled(conv->clk[CLK_DAC], &conv->clkscale[CLK_DAC]), st->interpolation);
 }
@@ -281,7 +284,7 @@ static int ad9162_write_raw(struct iio_dev *indio_dev,
 static int ad9162_prepare(struct cf_axi_converter *conv)
 {
 	struct cf_axi_dds_state *st = iio_priv(conv->indio_dev);
-	struct ad9162_state *ad9162 = container_of(conv, struct ad9162_state, conv);
+	struct ad9162_state *ad9162 = to_ad916x_state(conv);
 
 	/* FIXME This needs documenation */
 	dds_write(st, 0x428, (ad9162->complex_mode ? 0x1 : 0x0) |
@@ -319,7 +322,7 @@ static ssize_t ad9162_attr_store(struct device *dev,
 	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
 	struct iio_dev_attr *this_attr = to_iio_dev_attr(attr);
 	struct cf_axi_converter *conv = iio_device_get_drvdata(indio_dev);
-	struct ad9162_state *st = container_of(conv, struct ad9162_state, conv);
+	struct ad9162_state *st = to_ad916x_state(conv);
 	ad916x_handle_t *ad916x_h = &st->dac_h;
 	unsigned long long readin;
 	int ret;
@@ -353,7 +356,7 @@ static ssize_t ad9162_attr_show(struct device *dev,
 	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
 	struct iio_dev_attr *this_attr = to_iio_dev_attr(attr);
 	struct cf_axi_converter *conv = iio_device_get_drvdata(indio_dev);
-	struct ad9162_state *st = container_of(conv, struct ad9162_state, conv);
+	struct ad9162_state *st = to_ad916x_state(conv);
 	ad916x_handle_t *ad916x_h = &st->dac_h;
 	int ret = 0;
 	u64 freq;
