@@ -518,6 +518,12 @@ static int ad9162_remove(struct spi_device *spi)
 	return 0;
 }
 
+static const struct of_device_id ad916x_dt_id[] = {
+	{ .compatible = "adi,ad9162" },
+	{},
+};
+MODULE_DEVICE_TABLE(of, ad916x_dt_id);
+
 static const struct spi_device_id ad9162_id[] = {
 	{ "ad9162", CHIPID_AD9162 },
 	{}
@@ -528,6 +534,7 @@ MODULE_DEVICE_TABLE(spi, ad9162_id);
 static struct spi_driver ad9162_driver = {
 	.driver = {
 		   .name = "ad9162",
+		   .of_match_table = ad916x_dt_id,
 		   .owner = THIS_MODULE,
 		   },
 	.probe = ad9162_probe,
