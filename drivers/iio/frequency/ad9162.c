@@ -31,13 +31,8 @@
 #define to_ad916x_state(__conv)	\
 	container_of(__conv, struct ad9162_state, conv)
 
-enum chip_id {
-	CHIPID_AD9162 = 0x62,
-};
-
 struct ad9162_state {
 	struct cf_axi_converter conv;
-	enum chip_id id;
 	struct regmap *map;
 	ad916x_handle_t dac_h;
 	bool complex_mode;
@@ -429,7 +424,6 @@ static const struct attribute_group ad9162_attribute_group = {
 
 static int ad9162_probe(struct spi_device *spi)
 {
-	const struct spi_device_id *dev_id = spi_get_device_id(spi);
 	struct cf_axi_converter *conv;
 	struct ad9162_state *st;
 	int ret;
@@ -439,7 +433,6 @@ static int ad9162_probe(struct spi_device *spi)
 	if (st == NULL)
 		return -ENOMEM;
 
-	st->id = (enum chip_id) dev_id->driver_data;
 	conv = &st->conv;
 
 	conv->reset_gpio = devm_gpiod_get_optional(&spi->dev, "reset", GPIOD_OUT_HIGH);
@@ -525,7 +518,7 @@ static const struct of_device_id ad916x_dt_id[] = {
 MODULE_DEVICE_TABLE(of, ad916x_dt_id);
 
 static const struct spi_device_id ad9162_id[] = {
-	{ "ad9162", CHIPID_AD9162 },
+	{ "ad9162", 0 },
 	{}
 };
 
