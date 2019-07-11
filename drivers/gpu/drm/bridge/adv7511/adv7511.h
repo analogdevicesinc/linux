@@ -90,6 +90,7 @@
 #define ADV7511_REG_ARC_CTRL			0xdf
 #define ADV7511_REG_CEC_I2C_ADDR		0xe1
 #define ADV7511_REG_CEC_CTRL			0xe2
+#define ADV7511_REG_SUPPLY_SELECT		0xe4
 #define ADV7511_REG_CHIP_ID_HIGH		0xf5
 #define ADV7511_REG_CHIP_ID_LOW			0xf6
 
@@ -319,6 +320,7 @@ struct adv7511_video_config {
 enum adv7511_type {
 	ADV7511,
 	ADV7533,
+	ADV7535,
 };
 
 #define ADV7511_MAX_ADDRS 3
