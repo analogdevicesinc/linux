@@ -118,7 +118,7 @@ static int ad9162_setup(struct ad9162_state *st)
 	dac_rate_Hz = clk_get_rate_scaled(st->conv.clk[CLK_DAC],
 					  &st->conv.clkscale[CLK_DAC]);
 
-	ad916x_dac_set_clk_frequency(ad916x_h, dac_rate_Hz);
+	ret = ad916x_dac_set_clk_frequency(ad916x_h, dac_rate_Hz);
 	if (ret != 0)
 		return ret;
 
@@ -135,12 +135,12 @@ static int ad9162_setup(struct ad9162_state *st)
 	if (appJesdConfig.jesd_M == 2)
 		st->conv.id = ID_AD9162_COMPLEX;
 
-	ad916x_jesd_config_datapath(ad916x_h, appJesdConfig,
+	ret = ad916x_jesd_config_datapath(ad916x_h, appJesdConfig,
 				    st->interpolation, &jesdLaneRate);
 	if (ret != 0)
 		return ret;
 
-	ad916x_jesd_enable_datapath(ad916x_h, 0xFF, 0x1, 0x1);
+	ret = ad916x_jesd_enable_datapath(ad916x_h, 0xFF, 0x1, 0x1);
 	if (ret != 0)
 		return ret;
 
