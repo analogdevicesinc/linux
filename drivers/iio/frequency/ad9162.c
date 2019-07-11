@@ -53,6 +53,7 @@ struct ad9162_state {
 	struct regmap *map;
 	ad916x_handle_t dac_h;
 	bool complex_mode;
+	bool dc_test_mode;
 	bool iq_swap;
 	unsigned interpolation;
 	struct mutex lock;
@@ -117,6 +118,13 @@ static int ad916x_setup_jesd(struct ad9162_state *st)
 	unsigned long lane_rate_kHz;
 	ad916x_handle_t *ad916x_h = &st->dac_h;
 	int ret;
+
+	/* check nco only mode */
+	if (st->dc_test_mode) {
+		dev_dbg(dev,
+			"Device in nco only mode. No need to setup jesd\n");
+		return 0;
+	}
 
 	st->complex_mode = true;
 	st->interpolation = 2;
@@ -238,6 +246,10 @@ static int ad9162_setup(struct ad9162_state *st)
 	if (ret != 0)
 		return ret;
 
+	/* check for dc test mode */
+	if (device_property_read_bool(dev, "adi,dc-test-en"))
+		st->dc_test_mode = true;
+
 	st->interpolation = 1;
 
 	dev_dbg(dev, "DAC CLK rate: %llu\n", dac_rate_Hz);
@@ -337,7 +349,8 @@ static int ad9162_write_raw(struct iio_dev *indio_dev,
 		if (val > AD916X_TEST_WORD_MAX || val < 0)
 			return -EINVAL;
 
-		return ad916x_dc_test_set_mode(&st->dac_h, val, 0);
+		return ad916x_dc_test_set_mode(&st->dac_h, val,
+					       st->dc_test_mode);
 	default:
 		return -EINVAL;
 	}
@@ -494,7 +507,8 @@ static ssize_t ad916x_write_ext(struct iio_dev *indio_dev,
 			test_word = AD916X_TEST_WORD_MAX;
 		}
 
-		ret = ad916x_nco_set(&st->dac_h, 0, freq_hz, test_word, 0);
+		ret = ad916x_nco_set(&st->dac_h, 0, freq_hz, test_word,
+				     st->dc_test_mode);
 		break;
 	case AD916x_SAMPLING_FREQUENCY:
 		ret = kstrtoull(buf, 10, &samp_freq_hz);
