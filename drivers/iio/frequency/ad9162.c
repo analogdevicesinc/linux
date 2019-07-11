@@ -82,48 +82,17 @@ static unsigned long long ad9162_get_data_clk(struct cf_axi_converter *conv)
 	return div_u64(clk_get_rate_scaled(conv->clk[CLK_DAC], &conv->clkscale[CLK_DAC]), st->interpolation);
 }
 
-static int ad9162_setup(struct ad9162_state *st)
+static int ad916x_setup_jesd(struct ad9162_state *st)
 {
-	struct regmap *map = st->map;
-	struct device *dev = regmap_get_device(map);
-	uint8_t revision[3] = {0,0,0};
-	ad916x_chip_id_t dac_chip_id;
-	jesd_param_t appJesdConfig = {8, 1, 2, 4, 1, 32, 16, 16, 0, 0, 0, 0, 0, 0};
-	uint8_t pll_lock_status = 0x0;
-	int ret;
-	u64 jesdLaneRate, dac_rate_Hz;
-	unsigned long lane_rate_kHz;
+	struct device *dev = &st->conv.spi->dev;
+	jesd_param_t appJesdConfig = {8, 1, 2, 4, 1, 32, 16, 16, 0, 0,
+				0, 0, 0, 0};
 	ad916x_jesd_link_stat_t link_status;
-
+	uint8_t pll_lock_status = 0x0;
+	u64 jesdLaneRate;
+	unsigned long lane_rate_kHz;
 	ad916x_handle_t *ad916x_h = &st->dac_h;
-
-	/*Initialise DAC Module*/
-	ret = ad916x_init(ad916x_h);
-	if (ret != 0)
-		return ret;
-
-	ret = ad916x_get_chip_id(ad916x_h, &dac_chip_id);
-	if (ret != 0)
-		return ret;
-
-	ret = ad916x_get_revision(ad916x_h, &revision[0], &revision[1], &revision[2]);
-	if (ret != 0)
-		return ret;
-
-	dev_info(dev, "AD916x DAC Chip ID: %d\n", dac_chip_id.chip_type);
-	dev_info(dev, "AD916x DAC Product ID: %x\n", dac_chip_id.prod_id);
-	dev_info(dev, "AD916x DAC Product Grade: %d\n", dac_chip_id.prod_grade);
-	dev_info(dev, "AD916x DAC Product Revision: %d\n", dac_chip_id.dev_revision);
-	dev_info(dev, "AD916x Revision: %d.%d.%d\n", revision[0], revision[1], revision[2]);
-
-	ad916x_dac_set_full_scale_current(ad916x_h, 20);
-
-	dac_rate_Hz = clk_get_rate_scaled(st->conv.clk[CLK_DAC],
-					  &st->conv.clkscale[CLK_DAC]);
-
-	ret = ad916x_dac_set_clk_frequency(ad916x_h, dac_rate_Hz);
-	if (ret != 0)
-		return ret;
+	int ret;
 
 	st->complex_mode = true;
 	st->interpolation = 2;
@@ -150,15 +119,17 @@ static int ad9162_setup(struct ad9162_state *st)
 	msleep(100);
 
 	ret = ad916x_jesd_get_pll_status(ad916x_h, &pll_lock_status);
+	if (ret != 0)
+		return ret;
+
 	dev_info(dev, "Serdes PLL %s (stat: %x)\n",
 		 ((pll_lock_status & 0x39) == 0x9) ?
 		 "Locked" : "Unlocked",  pll_lock_status);
 
-	if (ret != 0)
-		return ret;
-
-	lane_rate_kHz = div_u64(dac_rate_Hz * 20 * appJesdConfig.jesd_M,
-				appJesdConfig.jesd_L * st->interpolation * 1000);
+	lane_rate_kHz = div_u64(ad916x_h->dac_freq_hz * 20 *
+				appJesdConfig.jesd_M,
+				appJesdConfig.jesd_L *
+				st->interpolation * 1000);
 
 	ret = clk_set_rate(st->conv.clk[CLK_DATA], lane_rate_kHz);
 	if (ret < 0) {
@@ -173,7 +144,7 @@ static int ad9162_setup(struct ad9162_state *st)
 		return ret;
 	}
 
-	/*Enable Link*/
+	/* Enable Link */
 	ret = ad916x_jesd_enable_link(ad916x_h, 0x1);
 	if (ret != 0) {
 		dev_err(dev, "DAC:MODE:JESD: ERROR : Enable Link failed\n");
@@ -183,17 +154,69 @@ static int ad9162_setup(struct ad9162_state *st)
 
 	ret = ad916x_jesd_get_link_status(ad916x_h, &link_status);
 	if (ret != 0) {
-		dev_err(dev, "DAC:MODE:JESD: ERROR : Get Link status failed \r\n");
+		dev_err(dev, "DAC:MODE:JESD: Get Link status failed \r\n");
 		return -EIO;
 	}
 
-	dev_info(dev, "code_grp_sync: %x \n", link_status.code_grp_sync_stat);
-	dev_info(dev, "frame_sync_stat: %x \n", link_status.frame_sync_stat);
-	dev_info(dev, "good_checksum_stat: %x \n", link_status.good_checksum_stat);
-	dev_info(dev, "init_lane_sync_stat: %x \n", link_status.init_lane_sync_stat);
-	dev_info(dev, "%d lanes @ %llu GBps\n", appJesdConfig.jesd_L, jesdLaneRate);
+	dev_info(dev, "code_grp_sync: %x\n",
+					link_status.code_grp_sync_stat);
+	dev_info(dev, "frame_sync_stat: %x\n",
+					link_status.frame_sync_stat);
+	dev_info(dev, "good_checksum_stat: %x\n",
+					link_status.good_checksum_stat);
+	dev_info(dev, "init_lane_sync_stat: %x\n",
+					link_status.init_lane_sync_stat);
+	dev_info(dev, "%d lanes @ %llu GBps\n", appJesdConfig.jesd_L,
+						jesdLaneRate);
 
 	msleep(100);
+
+	return 0;
+}
+
+static int ad9162_setup(struct ad9162_state *st)
+{
+	struct device *dev = &st->conv.spi->dev;
+	uint8_t revision[3] = {0, 0, 0};
+	ad916x_chip_id_t dac_chip_id;
+	int ret = 0;
+	u64 dac_rate_Hz;
+	ad916x_handle_t *ad916x_h = &st->dac_h;
+
+	/* Initialise DAC Module */
+	ret = ad916x_init(ad916x_h);
+	if (ret != 0)
+		return ret;
+
+	ret = ad916x_get_chip_id(ad916x_h, &dac_chip_id);
+	if (ret != 0)
+		return ret;
+
+	ret = ad916x_get_revision(ad916x_h, &revision[0], &revision[1],
+				  &revision[2]);
+	if (ret != 0)
+		return ret;
+
+	dev_info(dev, "AD916x DAC Chip ID: %d\n", dac_chip_id.chip_type);
+	dev_info(dev, "AD916x DAC Product ID: %x\n", dac_chip_id.prod_id);
+	dev_info(dev, "AD916x DAC Product Grade: %d\n", dac_chip_id.prod_grade);
+	dev_info(dev, "AD916x DAC Product Revision: %d\n",
+						dac_chip_id.dev_revision);
+	dev_info(dev, "AD916x Revision: %d.%d.%d\n", revision[0], revision[1],
+						revision[2]);
+
+	ad916x_dac_set_full_scale_current(ad916x_h, 20);
+
+	dac_rate_Hz = clk_get_rate_scaled(st->conv.clk[CLK_DAC],
+					  &st->conv.clkscale[CLK_DAC]);
+
+	ret = ad916x_dac_set_clk_frequency(ad916x_h, dac_rate_Hz);
+	if (ret != 0)
+		return ret;
+
+	st->interpolation = 1;
+
+	dev_dbg(dev, "DAC CLK rate: %llu\n", dac_rate_Hz);
 
 	return 0;
 }
@@ -464,6 +487,12 @@ static int ad9162_probe(struct spi_device *spi)
 	if (ret < 0) {
 		dev_err(&spi->dev, "Failed to setup device\n");
 		goto out;
+	}
+
+	ret = ad916x_setup_jesd(st);
+	if (ret) {
+		dev_err(&spi->dev, "Failed to setup JESD interface\n");
+		return ret;
 	}
 
 	spi_set_drvdata(spi, conv);
