@@ -367,7 +367,7 @@ static void adv7511_power_on(struct adv7511 *adv7511)
 	 */
 	regcache_sync(adv7511->regmap);
 
-	if (adv7511->type == ADV7533)
+	if (adv7511->type == ADV7533 || adv7511->type == ADV7535)
 		adv7533_dsi_power_on(adv7511);
 	adv7511->powered = true;
 }
@@ -387,7 +387,7 @@ static void __adv7511_power_off(struct adv7511 *adv7511)
 static void adv7511_power_off(struct adv7511 *adv7511)
 {
 	__adv7511_power_off(adv7511);
-	if (adv7511->type == ADV7533)
+	if (adv7511->type == ADV7533 || adv7511->type == ADV7535)
 		adv7533_dsi_power_off(adv7511);
 	adv7511->powered = false;
 }
@@ -766,7 +766,7 @@ static void adv7511_mode_set(struct adv7511 *adv7511,
 	regmap_update_bits(adv7511->regmap, 0x17,
 		0x60, (vsync_polarity << 6) | (hsync_polarity << 5));
 
-	if (adv7511->type == ADV7533)
+	if (adv7511->type == ADV7533 || adv7511->type == ADV7535)
 		adv7533_mode_set(adv7511, adj_mode);
 
 	drm_mode_copy(&adv7511->curr_mode, adj_mode);
@@ -879,7 +879,7 @@ static int adv7511_bridge_attach(struct drm_bridge *bridge)
 				 &adv7511_connector_helper_funcs);
 	drm_connector_attach_encoder(&adv->connector, bridge->encoder);
 
-	if (adv->type == ADV7533)
+	if (adv->type == ADV7533 || adv->type == ADV7535)
 		ret = adv7533_attach_dsi(adv);
 
 	if (adv->i2c_main->irq)
@@ -957,7 +957,7 @@ static bool adv7511_cec_register_volatile(struct device *dev, unsigned int reg)
 	struct i2c_client *i2c = to_i2c_client(dev);
 	struct adv7511 *adv7511 = i2c_get_clientdata(i2c);
 
-	if (adv7511->type == ADV7533)
+	if (adv7511->type == ADV7533 || adv7511->type == ADV7535)
 		reg -= ADV7533_REG_CEC_OFFSET;
 
 	switch (reg) {
@@ -999,7 +999,7 @@ static int adv7511_init_cec_regmap(struct adv7511 *adv)
 		goto err;
 	}
 
-	if (adv->type == ADV7533) {
+	if (adv->type == ADV7533 || adv->type == ADV7535) {
 		ret = adv7533_patch_cec_registers(adv);
 		if (ret)
 			goto err;
@@ -1099,8 +1099,9 @@ static int adv7511_probe(struct i2c_client *i2c, const struct i2c_device_id *id)
 	struct adv7511_link_config link_config;
 	struct adv7511 *adv7511;
 	struct device *dev = &i2c->dev;
+	struct regulator *reg_v1p2;
 	unsigned int val;
-	int ret;
+	int ret, reg_v1p2_uV;
 
 	if (!dev->of_node)
 		return -EINVAL;
@@ -1167,6 +1168,18 @@ static int adv7511_probe(struct i2c_client *i2c, const struct i2c_device_id *id)
 		ret = adv7533_patch_registers(adv7511);
 	if (ret)
 		goto uninit_regulators;
+
+	if (adv7511->type == ADV7533) {
+		ret = match_string(adv7533_supply_names, adv7511->num_supplies,
+									"v1p2");
+		reg_v1p2 = adv7511->supplies[ret].consumer;
+		reg_v1p2_uV = regulator_get_voltage(reg_v1p2);
+
+		if (reg_v1p2_uV == 1200000) {
+			regmap_update_bits(adv7511->regmap,
+				ADV7511_REG_SUPPLY_SELECT, 0x80, 0x80);
+		}
+	}
 
 	adv7511_packet_disable(adv7511, 0xffff);
 
@@ -1247,7 +1260,7 @@ static int adv7511_remove(struct i2c_client *i2c)
 {
 	struct adv7511 *adv7511 = i2c_get_clientdata(i2c);
 
-	if (adv7511->type == ADV7533)
+	if (adv7511->type == ADV7533 || adv7511->type == ADV7535)
 		adv7533_detach_dsi(adv7511);
 	i2c_unregister_device(adv7511->i2c_cec);
 	if (adv7511->cec_clk)
@@ -1273,6 +1286,7 @@ static const struct i2c_device_id adv7511_i2c_ids[] = {
 	{ "adv7513", ADV7511 },
 #ifdef CONFIG_DRM_I2C_ADV7533
 	{ "adv7533", ADV7533 },
+	{ "adv7535", ADV7535 },
 #endif
 	{ }
 };
@@ -1284,6 +1298,7 @@ static const struct of_device_id adv7511_of_ids[] = {
 	{ .compatible = "adi,adv7513", .data = (void *)ADV7511 },
 #ifdef CONFIG_DRM_I2C_ADV7533
 	{ .compatible = "adi,adv7533", .data = (void *)ADV7533 },
+	{ .compatible = "adi,adv7535", .data = (void *)ADV7535 },
 #endif
 	{ }
 };
