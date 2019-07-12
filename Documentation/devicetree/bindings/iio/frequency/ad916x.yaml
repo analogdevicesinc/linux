@@ -1,0 +1,102 @@
+# SPDX-License-Identifier: GPL-2.0
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/iio/frequency/ad916x.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Analog Devices AD916x Wideband, Transmit (Tx)
+
+maintainers:
+  - Michael Hennerich <michael.hennerich@analog.com
+  - Nuno Sá <nuno.sa@analog.com>
+
+description: |
+  Analog Devices AD916x high performance and direct digital synthesizer (DDS).
+  https://www.analog.com/media/en/technical-documentation/data-sheets/AD9161-9162.pdf
+
+properties:
+  compatible:
+    enum:
+      - adi,ad9162
+
+  reg:
+    maxItems: 1
+
+  clocks:
+    description:
+      Definition of the external clock (see clock/clock-bindings.txt)
+    minItems: 1
+    maxItems: 3
+
+  clock-name:
+    description:
+      Must be at least "dac_clk".
+    items:
+      - const: dac_clk
+      - const: jesd_dac_clk
+      - const: dac_sysref
+    minItems: 1
+    maxItems: 3
+
+  adi,dc-test-en:
+    description:
+      Enables the DC test enable mode which allows the device to act as local
+      oscillator.
+    type: boolean
+    maxItems: 1
+
+  adi,standalone-probe:
+    description:
+      Enables the driver standalone mode. In this mode, all the device handling
+      is done on the device driver. In the normal mode the device driver handles
+      the device together with the cf_axi_dds platform driver.
+    type: boolean
+    maxItems: 1
+
+  adi,full-scale-current-microamp:
+    description:
+      Specifies the device output full scale current.
+    allOf:
+      - $ref: /schemas/types.yaml#/definitions/uint32-array
+      - minimum: 8000
+      - maximum: 40000
+    maxItems: 1
+
+patternProperties:
+  "^($clock-names-)?clock-scales":
+    description:
+      The Common Clock Framework max rate is limited by MAX of unsigned long.
+      For AD916x devices this is a deficiency. If specified, this
+      property allows arbitrary scales. The first element in the array should
+      be the multiplier and the second element should be the divider. If there
+      are more than one clock, with different scales, the correspondent
+      $clock-names can be prepended to clock-scales.
+    allOf:
+      - $ref: /schemas/types.yaml#/definitions/uint32-array
+      - minimum: 1
+    maxItems: 3
+
+required:
+  - compatible
+  - reg
+  - clocks
+  - clock-names
+
+examples:
+  - |
+    spi0 {
+        #address-cells = <1>;
+        #size-cells = <0>;
+
+        ad9162@0 {
+                compatible = "adi,ad9162";
+                reg = <0>;
+                spi-max-frequency = <1000000>;
+                clocks = <&adf4372_clk 0>;
+                clock-names = "dac_clk";
+
+                adi,full-scale-current-mircoamp = <40000>;
+                dac_clk-clock-scales = <1 10>;
+        };
+    };
+...
