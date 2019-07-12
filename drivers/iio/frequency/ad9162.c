@@ -31,6 +31,13 @@
 #define to_ad916x_state(__conv)	\
 	container_of(__conv, struct ad9162_state, conv)
 
+#define AD916X_TEST_WORD_MAX	0x7FFF
+
+enum {
+	AD916x_NCO_FREQ,
+	AD916x_SAMPLING_FREQUENCY,
+};
+
 struct ad9162_state {
 	struct cf_axi_converter conv;
 	struct regmap *map;
@@ -75,6 +82,18 @@ static unsigned long long ad9162_get_data_clk(struct cf_axi_converter *conv)
 	struct ad9162_state *st = to_ad916x_state(conv);
 
 	return div_u64(clk_get_rate_scaled(conv->clk[CLK_DAC], &conv->clkscale[CLK_DAC]), st->interpolation);
+}
+
+static int ad916x_set_data_clk(struct ad9162_state *st, const u64 rate)
+{
+	int ret;
+
+	ret = clk_set_rate_scaled(st->conv.clk[CLK_DAC], rate,
+				  &st->conv.clkscale[CLK_DAC]);
+	if (ret)
+		return ret;
+
+	return ad916x_dac_set_clk_frequency(&st->dac_h, rate);
 }
 
 static int ad916x_setup_jesd(struct ad9162_state *st)
@@ -250,7 +269,10 @@ static int ad9162_read_raw(struct iio_dev *indio_dev,
 			   int *val, int *val2, long m)
 {
 	struct cf_axi_converter *conv = iio_device_get_drvdata(indio_dev);
+	struct ad9162_state *st = to_ad916x_state(conv);
 	unsigned tmp;
+	int ret;
+	u16 amplitude_raw;
 
 	switch (m) {
 	case IIO_CHAN_INFO_SAMP_FREQ:
@@ -270,6 +292,14 @@ static int ad9162_read_raw(struct iio_dev *indio_dev,
 			+ conv->temp_calib * 10 + 10000) / 10;
 
 		return IIO_VAL_INT;
+	case IIO_CHAN_INFO_RAW:
+		ret = ad916x_dc_test_get_mode(&st->dac_h, &amplitude_raw,
+					      &tmp);
+		if (ret)
+			return ret;
+
+		*val = amplitude_raw;
+		return IIO_VAL_INT;
 	}
 	return -EINVAL;
 }
@@ -279,6 +309,7 @@ static int ad9162_write_raw(struct iio_dev *indio_dev,
 			    int val, int val2, long mask)
 {
 	struct cf_axi_converter *conv = iio_device_get_drvdata(indio_dev);
+	struct ad9162_state *st = to_ad916x_state(conv);
 
 	switch (mask) {
 	case IIO_CHAN_INFO_CALIBBIAS:
@@ -292,6 +323,11 @@ static int ad9162_write_raw(struct iio_dev *indio_dev,
 		conv->temp_calib_code = ad9162_get_temperature_code(conv);
 		conv->temp_calib = val;
 		break;
+	case IIO_CHAN_INFO_RAW:
+		if (val > AD916X_TEST_WORD_MAX || val < 0)
+			return -EINVAL;
+
+		return ad916x_dc_test_set_mode(&st->dac_h, val, 0);
 	default:
 		return -EINVAL;
 	}
@@ -421,6 +457,158 @@ static const struct attribute_group ad9162_attribute_group = {
 	.attrs = ad9162_attributes,
 };
 
+static ssize_t ad916x_write_ext(struct iio_dev *indio_dev,
+				 uintptr_t private,
+				 const struct iio_chan_spec *chan,
+				 const char *buf, size_t len)
+{
+	struct cf_axi_converter *conv = iio_device_get_drvdata(indio_dev);
+	struct ad9162_state *st = to_ad916x_state(conv);
+	s64 freq_hz;
+	u16 test_word;
+	u64 samp_freq_hz;
+	/* en just because we have to pass it to ad916x_dc_test_get_mod */
+	int ret, en;
+
+	mutex_lock(&st->lock);
+	switch ((u32)private) {
+	case AD916x_NCO_FREQ:
+		ret = kstrtoll(buf, 10, &freq_hz);
+		if (ret)
+			break;
+
+		/* just use the current test word */
+		ret = ad916x_dc_test_get_mode(&st->dac_h, &test_word, &en);
+		if (ret) {
+			dev_warn(&conv->spi->dev, "Using max amplitude...\n");
+			test_word = AD916X_TEST_WORD_MAX;
+		}
+
+		ret = ad916x_nco_set(&st->dac_h, 0, freq_hz, test_word, 0);
+		break;
+	case AD916x_SAMPLING_FREQUENCY:
+		ret = kstrtoull(buf, 10, &samp_freq_hz);
+		if (ret)
+			break;
+
+		ret = ad916x_set_data_clk(st, samp_freq_hz);
+		break;
+	default:
+		ret = -EINVAL;
+		break;
+	}
+	mutex_unlock(&st->lock);
+
+	return ret ? ret : len;
+}
+
+static ssize_t ad916x_read_ext(struct iio_dev *indio_dev,
+			       uintptr_t private,
+			       const struct iio_chan_spec *chan,
+			       char *buf)
+{
+	struct cf_axi_converter *conv = iio_device_get_drvdata(indio_dev);
+	struct ad9162_state *st = to_ad916x_state(conv);
+	s64 freq;
+	u16 test_word;
+	int ret, dc_test_en;
+
+	mutex_lock(&st->lock);
+	switch ((u32)private) {
+	case AD916x_NCO_FREQ:
+		ret = ad916x_nco_get(&st->dac_h, 0, &freq, &test_word,
+				     &dc_test_en);
+		if (!ret)
+			ret = sprintf(buf, "%lld\n", freq);
+		break;
+	case AD916x_SAMPLING_FREQUENCY:
+		ret = sprintf(buf, "%llu\n", ad9162_get_data_clk(conv));
+		break;
+	default:
+		ret = -EINVAL;
+		break;
+	}
+	mutex_unlock(&st->lock);
+
+	return ret;
+}
+
+static int ad9162_reg_access(struct iio_dev *indio_dev, unsigned int reg,
+			     unsigned int writeval, unsigned int *readval)
+{
+	struct cf_axi_converter *conv = iio_device_get_drvdata(indio_dev);
+
+	if (readval == NULL)
+		ad9162_write(conv->spi, reg, writeval);
+	else
+		*readval = ad9162_read(conv->spi, reg);
+
+	return 0;
+}
+
+#define _AD916x_CHAN_EXT_INFO(_name, _what, _shared) { \
+	.name = _name, \
+	.read = ad916x_read_ext, \
+	.write = ad916x_write_ext, \
+	.private = _what, \
+	.shared = _shared, \
+}
+
+static const struct iio_chan_spec_ext_info ad916x_ext_info[] = {
+	_AD916x_CHAN_EXT_INFO("nco_frequency", AD916x_NCO_FREQ, IIO_SEPARATE),
+	_AD916x_CHAN_EXT_INFO("sampling_frequency", AD916x_SAMPLING_FREQUENCY,
+			      IIO_SHARED_BY_ALL),
+	{},
+};
+
+#define AD916x_CHAN(index) { \
+	.type = IIO_ALTVOLTAGE,	\
+	.indexed = 1, \
+	.channel = index, \
+	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW), \
+	.output = 1, \
+	.ext_info = ad916x_ext_info, \
+}
+
+static const struct iio_chan_spec ad916x_chann_spec[] = {
+	AD916x_CHAN(0),
+};
+
+static const struct iio_info ad916x_iio_info = {
+	.read_raw = ad9162_read_raw,
+	.write_raw = ad9162_write_raw,
+	.debugfs_reg_access = ad9162_reg_access,
+};
+
+static int ad916x_standalone_probe(struct ad9162_state *st)
+{
+	struct iio_dev *indio_dev = NULL;
+	struct device *dev = &st->conv.spi->dev;
+	struct device_node *np = dev->of_node;
+	int ret;
+
+	indio_dev = devm_iio_device_alloc(dev, 0);
+	if (!indio_dev)
+		return -ENOMEM;
+
+	indio_dev->dev.parent = dev;
+	indio_dev->name = np ? np->name :
+		spi_get_device_id(st->conv.spi)->name;
+	indio_dev->num_channels = ARRAY_SIZE(ad916x_chann_spec);
+	indio_dev->channels = ad916x_chann_spec;
+	indio_dev->modes = INDIO_DIRECT_MODE;
+	indio_dev->info = &ad916x_iio_info;
+
+	ret = devm_iio_device_register(dev, indio_dev);
+	if (ret) {
+		dev_err(dev, "Failed to register iio dev\n");
+		return ret;
+	}
+
+	iio_device_set_drvdata(indio_dev, &st->conv);
+
+	return 0;
+}
 
 static int ad9162_probe(struct spi_device *spi)
 {
@@ -447,14 +635,6 @@ static int ad9162_probe(struct spi_device *spi)
 	if (IS_ERR(st->map))
 		return PTR_ERR(st->map);
 
-	conv->write = ad9162_write;
-	conv->read = ad9162_read;
-	conv->setup = ad9162_prepare;
-
-	conv->get_data_clk = ad9162_get_data_clk;
-	conv->write_raw = ad9162_write_raw;
-	conv->read_raw = ad9162_read_raw;
-	conv->attrs = &ad9162_attribute_group;
 	conv->spi = spi;
 	conv->id = ID_AD9162;
 
@@ -492,7 +672,21 @@ static int ad9162_probe(struct spi_device *spi)
 
 	spi_set_drvdata(spi, conv);
 
+	/* check for standalone probing... */
+	if (device_property_read_bool(&spi->dev, "adi,standalone-probe"))
+		return ad916x_standalone_probe(st);
+
+	conv->write = ad9162_write;
+	conv->read = ad9162_read;
+	conv->setup = ad9162_prepare;
+
+	conv->get_data_clk = ad9162_get_data_clk;
+	conv->write_raw = ad9162_write_raw;
+	conv->read_raw = ad9162_read_raw;
+	conv->attrs = &ad9162_attribute_group;
+
 	dev_info(&spi->dev, "Probed.\n");
+
 	return 0;
 out:
 	return ret;
