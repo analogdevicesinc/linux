@@ -35,7 +35,7 @@ static inline int of_clk_get_scale(struct device_node *np, const char *name, str
 
 static inline unsigned long long clk_get_rate_scaled(struct clk *clk, struct clock_scale *scale)
 {
-	return div_u64((u64)clk_get_rate(clk) * scale->mult, scale->div);
+	return div_u64((u64)clk_get_rate(clk) * scale->div, scale->mult);
 
 }
 
