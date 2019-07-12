@@ -33,13 +33,23 @@
 
 #define AD916X_TEST_WORD_MAX	0x7FFF
 
+enum ad916x_variant {
+	AD9162,
+};
+
 enum {
 	AD916x_NCO_FREQ,
 	AD916x_SAMPLING_FREQUENCY,
 };
 
+struct ad916x_chip_info {
+	const struct iio_chan_spec *channels;
+	const u32 num_channels;
+};
+
 struct ad9162_state {
 	struct cf_axi_converter conv;
+	struct ad916x_chip_info *ad916x_info;
 	struct regmap *map;
 	ad916x_handle_t dac_h;
 	bool complex_mode;
@@ -574,6 +584,13 @@ static const struct iio_chan_spec ad916x_chann_spec[] = {
 	AD916x_CHAN(0),
 };
 
+static struct ad916x_chip_info ad916x_info[] = {
+	[AD9162] = {
+		.num_channels = 1,
+		.channels = ad916x_chann_spec,
+	}
+};
+
 static const struct iio_info ad916x_iio_info = {
 	.read_raw = ad9162_read_raw,
 	.write_raw = ad9162_write_raw,
@@ -586,16 +603,19 @@ static int ad916x_standalone_probe(struct ad9162_state *st)
 	struct device *dev = &st->conv.spi->dev;
 	struct device_node *np = dev->of_node;
 	int ret;
+	u8 _index = spi_get_device_id(st->conv.spi)->driver_data;
 
 	indio_dev = devm_iio_device_alloc(dev, 0);
 	if (!indio_dev)
 		return -ENOMEM;
 
+	st->ad916x_info = &ad916x_info[_index];
+
 	indio_dev->dev.parent = dev;
 	indio_dev->name = np ? np->name :
 		spi_get_device_id(st->conv.spi)->name;
-	indio_dev->num_channels = ARRAY_SIZE(ad916x_chann_spec);
-	indio_dev->channels = ad916x_chann_spec;
+	indio_dev->num_channels = st->ad916x_info->num_channels;
+	indio_dev->channels = st->ad916x_info->channels;
 	indio_dev->modes = INDIO_DIRECT_MODE;
 	indio_dev->info = &ad916x_iio_info;
 
@@ -712,7 +732,7 @@ static const struct of_device_id ad916x_dt_id[] = {
 MODULE_DEVICE_TABLE(of, ad916x_dt_id);
 
 static const struct spi_device_id ad9162_id[] = {
-	{ "ad9162", 0 },
+	{ "ad9162", AD9162 },
 	{}
 };
 
