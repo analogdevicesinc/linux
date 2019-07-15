@@ -38,12 +38,6 @@ branch_contains_commit() {
 	git merge-base --is-ancestor $commit $branch &> /dev/null
 }
 
-commit_is_merge() {
-	local cm="$1"
-	cm="$(git cat-file -p "$cm" 2>/dev/null | grep parent | wc -l)"
-	[ "$cm" != "1" ]
-}
-
 __update_git_ref() {
 	local ref="$1"
 	git fetch origin +refs/heads/${ref}:${ref}
@@ -97,14 +91,28 @@ __handle_sync_with_master() {
 			return 1
 		}
 
+		tmpfile=$(mktemp)
+
 		git checkout ${dst_branch}
-		for cm in $(git rev-list "${cm}..master") ; do
-			! commit_is_merge "${cm}" || continue
-			git cherry-pick -x "${cm}" || {
-				echo_red "Failed to cherry-pick commit $cm"
+		# cherry-pick until all commits; if we get a merge-commit, handle it
+		git cherry-pick -x "${cm}..master" 1>/dev/null 2>$tmpfile || {
+			was_a_merge=0
+			while grep -q "is a merge" $tmpfile ; do
+				was_a_merge=1
+				# clear file
+				cat /dev/null > $tmpfile
+				# retry ; we may have a new merge commit
+				git cherry-pick --continue 1>/dev/null 2>$tmpfile || {
+					was_a_merge=0
+					continue
+				}
+			done
+			if [ "$was_a_merge" != "0" ]; then
+				echo_red "Failed to cherry-pick commits '$cm..master'"
+				echo_red "$(cat $tmpfile)"
 				return 1
-			}
-		done
+			fi
+		}
 		__push_back_to_github "$dst_branch" || return 1
 		return 0
 	fi
