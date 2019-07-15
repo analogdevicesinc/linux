@@ -213,6 +213,7 @@ static int ad9162_setup(struct ad9162_state *st)
 	ad916x_chip_id_t dac_chip_id;
 	int ret = 0;
 	u64 dac_rate_Hz;
+	u32 fsc;
 	ad916x_handle_t *ad916x_h = &st->dac_h;
 
 	/* Initialise DAC Module */
@@ -237,7 +238,15 @@ static int ad9162_setup(struct ad9162_state *st)
 	dev_info(dev, "AD916x Revision: %d.%d.%d\n", revision[0], revision[1],
 						revision[2]);
 
-	ad916x_dac_set_full_scale_current(ad916x_h, 20);
+	/*
+	 * Check for the fsc property. If not present, leave the device
+	 * with the default value...
+	 */
+	if (device_property_read_u32(dev, "adi,full-scale-current-microamp",
+				     &fsc))
+		fsc = 40000;
+
+	ad916x_dac_set_full_scale_current(ad916x_h, fsc/1000);
 
 	dac_rate_Hz = clk_get_rate_scaled(st->conv.clk[CLK_DAC],
 					  &st->conv.clkscale[CLK_DAC]);
