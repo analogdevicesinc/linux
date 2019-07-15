@@ -55,7 +55,7 @@ struct ad9162_state {
 	bool complex_mode;
 	bool dc_test_mode;
 	bool iq_swap;
-	unsigned interpolation;
+	unsigned int interpolation;
 	struct mutex lock;
 };
 
@@ -65,7 +65,7 @@ static const char * const clk_names[] = {
 	[CLK_REF] = "dac_sysref"
 };
 
-static int ad9162_read(struct spi_device *spi, unsigned reg)
+static int ad9162_read(struct spi_device *spi, unsigned int reg)
 {
 	struct cf_axi_converter *conv = spi_get_drvdata(spi);
 	struct ad9162_state *st = to_ad916x_state(conv);
@@ -75,7 +75,8 @@ static int ad9162_read(struct spi_device *spi, unsigned reg)
 	return ret < 0 ? ret : val;
 }
 
-static int ad9162_write(struct spi_device *spi, unsigned reg, unsigned val)
+static int ad9162_write(struct spi_device *spi, unsigned int reg,
+			unsigned int val)
 {
 	struct cf_axi_converter *conv = spi_get_drvdata(spi);
 	struct ad9162_state *st = to_ad916x_state(conv);
@@ -92,7 +93,9 @@ static unsigned long long ad9162_get_data_clk(struct cf_axi_converter *conv)
 {
 	struct ad9162_state *st = to_ad916x_state(conv);
 
-	return div_u64(clk_get_rate_scaled(conv->clk[CLK_DAC], &conv->clkscale[CLK_DAC]), st->interpolation);
+	return div_u64(clk_get_rate_scaled(conv->clk[CLK_DAC],
+					&conv->clkscale[CLK_DAC]),
+					st->interpolation);
 }
 
 static int ad916x_set_data_clk(struct ad9162_state *st, const u64 rate)
@@ -288,7 +291,9 @@ static int ad9162_get_clks(struct cf_axi_converter *conv)
 				return ret;
 		}
 
-		of_clk_get_scale(conv->spi->dev.of_node, clk_names[i], &conv->clkscale[i]);
+		of_clk_get_scale(conv->spi->dev.of_node, clk_names[i],
+				 &conv->clkscale[i]);
+
 		conv->clk[i] = clk;
 	}
 
@@ -301,7 +306,7 @@ static int ad9162_read_raw(struct iio_dev *indio_dev,
 {
 	struct cf_axi_converter *conv = iio_device_get_drvdata(indio_dev);
 	struct ad9162_state *st = to_ad916x_state(conv);
-	unsigned tmp;
+	unsigned int tmp;
 	int ret;
 	u16 amplitude_raw;
 
@@ -374,7 +379,7 @@ static int ad9162_prepare(struct cf_axi_converter *conv)
 
 	/* FIXME This needs documenation */
 	dds_write(st, 0x428, (ad9162->complex_mode ? 0x1 : 0x0) |
-		  (ad9162->iq_swap ? 0x2 : 0x0 ));
+		  (ad9162->iq_swap ? 0x2 : 0x0));
 	return 0;
 }
 
@@ -395,7 +400,8 @@ static int delay_us(void *user_data, unsigned int time_us)
 
 
 
-static int spi_xfer_dummy(void *user_data, uint8_t *wbuf, uint8_t *rbuf, int len)
+static int spi_xfer_dummy(void *user_data, uint8_t *wbuf, uint8_t *rbuf,
+			  int len)
 {
 	return 0;
 }
@@ -420,14 +426,14 @@ static ssize_t ad9162_attr_store(struct device *dev,
 	mutex_lock(&st->lock);
 
 	switch ((u32)this_attr->address) {
-		case 0:
-			ret = ad916x_nco_set(ad916x_h, 0, readin, 0, 0);
-			break;
-		case 1:
-			ret = ad916x_fir85_set_enable(ad916x_h, !!readin);
-			break;
-		default:
-			ret = -EINVAL;
+	case 0:
+		ret = ad916x_nco_set(ad916x_h, 0, readin, 0, 0);
+		break;
+	case 1:
+		ret = ad916x_fir85_set_enable(ad916x_h, !!readin);
+		break;
+	default:
+		ret = -EINVAL;
 	}
 
 	mutex_unlock(&st->lock);
@@ -450,16 +456,16 @@ static ssize_t ad9162_attr_show(struct device *dev,
 
 	mutex_lock(&st->lock);
 	switch ((u32)this_attr->address) {
-		case 0:
-			ad916x_nco_get(ad916x_h, 0, &freq, &ampl, &ret);
-			ret = sprintf(buf, "%llu\n", freq);
-			break;
-		case 1:
-			ad916x_fir85_get_enable(ad916x_h, &ret);
-			ret = sprintf(buf, "%d\n", !!ret);
-			break;
-		default:
-			ret = -EINVAL;
+	case 0:
+		ad916x_nco_get(ad916x_h, 0, &freq, &ampl, &ret);
+		ret = sprintf(buf, "%llu\n", freq);
+		break;
+	case 1:
+		ad916x_fir85_get_enable(ad916x_h, &ret);
+		ret = sprintf(buf, "%d\n", !!ret);
+		break;
+	default:
+		ret = -EINVAL;
 	}
 	mutex_unlock(&st->lock);
 
@@ -467,14 +473,15 @@ static ssize_t ad9162_attr_show(struct device *dev,
 }
 
 
-static IIO_DEVICE_ATTR(out_altvoltage2_frequency_nco, S_IRUGO | S_IWUSR,
+static IIO_DEVICE_ATTR(out_altvoltage2_frequency_nco,
+		       0644,
 		       ad9162_attr_show,
 		       ad9162_attr_store,
 		       0);
 
 
 static IIO_DEVICE_ATTR(out_voltage_fir85_enable,
-		       S_IRUGO | S_IWUSR,
+		       0644,
 		       ad9162_attr_show,
 		       ad9162_attr_store,
 		       1);
@@ -666,11 +673,13 @@ static int ad9162_probe(struct spi_device *spi)
 
 	conv = &st->conv;
 
-	conv->reset_gpio = devm_gpiod_get_optional(&spi->dev, "reset", GPIOD_OUT_HIGH);
+	conv->reset_gpio = devm_gpiod_get_optional(&spi->dev, "reset",
+						   GPIOD_OUT_HIGH);
 	if (IS_ERR(conv->reset_gpio))
 		return PTR_ERR(conv->reset_gpio);
 
-	conv->txen_gpio[0] = devm_gpiod_get_optional(&spi->dev, "txen", GPIOD_OUT_HIGH);
+	conv->txen_gpio[0] = devm_gpiod_get_optional(&spi->dev, "txen",
+						     GPIOD_OUT_HIGH);
 	if (IS_ERR(conv->txen_gpio[0]))
 		return PTR_ERR(conv->txen_gpio[0]);
 
