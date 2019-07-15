@@ -47,6 +47,7 @@ enum debugfs_cmd {
 	DBGFS_MCS,
 	DBGFS_CAL_SW_CTRL,
 	DBGFS_DIGITAL_TUNE,
+	DBGFS_GPO_SET,
 };
 
 enum dig_tune_flags {
@@ -138,7 +139,7 @@ struct ad9361_rf_phy {
 	struct refclk_scale	clk_priv[NUM_AD9361_CLKS];
 	struct clk_onecell_data	clk_data;
 	struct ad9361_phy_platform_data *pdata;
-	struct ad9361_debugfs_entry debugfs_entry[181];
+	struct ad9361_debugfs_entry debugfs_entry[182];
 	struct bin_attribute 	bin;
 	struct bin_attribute 	bin_gt;
 	struct iio_dev 		*indio_dev;
