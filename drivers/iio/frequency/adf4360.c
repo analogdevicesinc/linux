@@ -370,8 +370,10 @@ static int adf4360_set_freq(struct adf4360_state *st, unsigned long rate)
 	unsigned long r, n;
 	int ret;
 
-	if (!st->clkin_freq || (st->clkin_freq > ADF4360_MAX_REFIN_RATE) ||
-		(rate < st->vco_min) || (rate > st->vco_max))
+	if (!st->clkin_freq || (st->clkin_freq > ADF4360_MAX_REFIN_RATE))
+		return -EINVAL;
+
+	if ((rate < st->vco_min) || (rate > st->vco_max))
 		return -EINVAL;
 
 	r = DIV_ROUND_CLOSEST(st->clkin_freq, st->pfd_freq);
