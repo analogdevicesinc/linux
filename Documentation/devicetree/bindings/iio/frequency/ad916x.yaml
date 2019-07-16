@@ -18,6 +18,7 @@ properties:
   compatible:
     enum:
       - adi,ad9162
+      - adi,ad9166
 
   reg:
     maxItems: 1
