@@ -74,6 +74,7 @@
 		clocks = <&axi_ad9162_jesd>, <&adf4355_clk>;
 		clock-names = "jesd_dac_clk", "dac_clk";
 		dac_clk-clock-scales = <2 1>;
+		adi,full-scale-current-microamp = <20000>;
 	};
 
 	adc0_ad9625: ad9625@1 {
