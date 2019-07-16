@@ -35,6 +35,7 @@
 
 enum ad916x_variant {
 	AD9162,
+	AD9166,
 };
 
 enum {
@@ -634,8 +635,19 @@ static const struct iio_chan_spec ad916x_chann_spec[] = {
 	AD916x_CHAN(0),
 };
 
+/*
+ * This info structure is only used when the device is used in standalone mode.
+ * Note that ad9162 was not actually tested in this mode but it should be
+ * fairly similar...
+ * As for now, the only use case for standalone mode is to use this devices as
+ * oscillators making use of the nco only mode.
+ */
 static struct ad916x_chip_info ad916x_info[] = {
 	[AD9162] = {
+		.num_channels = 1,
+		.channels = ad916x_chann_spec,
+	},
+	[AD9166] = {
 		.num_channels = 1,
 		.channels = ad916x_chann_spec,
 	}
@@ -781,12 +793,14 @@ out:
 
 static const struct of_device_id ad916x_dt_id[] = {
 	{ .compatible = "adi,ad9162" },
+	{ .compatible = "adi,ad9166" },
 	{},
 };
 MODULE_DEVICE_TABLE(of, ad916x_dt_id);
 
 static const struct spi_device_id ad9162_id[] = {
 	{ "ad9162", AD9162 },
+	{ "ad9166", AD9166 },
 	{}
 };
 
