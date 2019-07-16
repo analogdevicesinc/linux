@@ -181,7 +181,6 @@ struct adf4360_state {
 	struct mutex lock; /* Protect PLL state. */
 	unsigned int part_id;
 	unsigned long clkin_freq;
-	unsigned long power_up_frequency;
 	unsigned long freq_req;
 	unsigned long r;
 	unsigned long n;
@@ -846,7 +845,9 @@ static int adf4360_parse_dt(struct adf4360_state *st)
 
 	ret = device_property_read_u32(dev, "adi,power-up-frequency-hz", &tmp);
 	if (ret == 0)
-		st->power_up_frequency = tmp;
+		st->freq_req = tmp;
+	else
+		st->freq_req = st->vco_min;
 
 	return 0;
 }
@@ -901,11 +902,9 @@ static int adf4360_probe(struct spi_device *spi)
 	if (ret)
 		return ret;
 
-	if (st->power_up_frequency) {
-		ret = adf4360_set_freq(st, st->power_up_frequency);
-		if (ret)
-			return ret;
-	}
+	ret = adf4360_set_freq(st, st->freq_req);
+	if (ret)
+		return ret;
 
 	ret = adf4360_clk_register(st);
 	if (ret)
