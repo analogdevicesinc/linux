@@ -40,7 +40,11 @@ branch_contains_commit() {
 
 __update_git_ref() {
 	local ref="$1"
-	git fetch origin +refs/heads/${ref}:${ref}
+	local depth
+	[ "$GIT_FETCH_DEPTH" == "disabled" ] || {
+		depth="--depth=${GIT_FETCH_DEPTH:-50}"
+	}
+	git fetch $depth origin +refs/heads/${ref}:${ref}
 }
 
 __push_back_to_github() {
