@@ -16,7 +16,7 @@ build_compile_test() {
 
 build_checkpatch() {
 	if [ -n "$TRAVIS_BRANCH" ]; then
-		git fetch origin +refs/heads/${TRAVIS_BRANCH}:${TRAVIS_BRANCH}
+		__update_git_ref ${TRAVIS_BRANCH}
 	fi
 	COMMIT_RANGE=$([ "$TRAVIS_PULL_REQUEST" == "false" ] &&  echo HEAD || echo ${TRAVIS_BRANCH}..)
 	scripts/checkpatch.pl --git ${COMMIT_RANGE} \
