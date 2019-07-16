@@ -478,40 +478,6 @@ static const struct clk_ops adf4360_clk_ops = {
 	.set_rate = adf4360_clk_set_rate,
 };
 
-static int adf4360_m2k_setup(struct adf4360_state *st)
-{
-	unsigned int val_r, val_ctrl, val_b;
-	int ret;
-
-	st->n = 20;
-	st->r = 4;
-
-	val_ctrl = ADF4360_CPL(ADF4360_GEN2_PC_5) |
-		   ADF4360_OPL(ADF4360_PL_5) |
-		   ADF4360_CPI1(ADF4360_CPI_2_50) |
-		   ADF4360_CPI1(ADF4360_CPI_2_50);
-	val_ctrl |= 5 << 5;
-	val_ctrl |= 1 << 8;
-//	val_ctrl |= BIT(11);
-//	val_ctrl |= BIT(20);
-
-	val_r = ADF4360_R_COUNTER(st->r) | ADF4360_BSC(ADF4360_BSC_8);
-	val_b = ADF4360_A_COUNTER(2) | ADF4360_B_COUNTER(st->n);
-
-	ret = adf4360_write_reg(st, ADF4360_REG(ADF4360_RDIV), val_r);
-	if (ret)
-		return ret;
-
-	ret = adf4360_write_reg(st, ADF4360_REG(ADF4360_CTRL), val_ctrl);
-	if (ret)
-		return ret;
-
-	msleep(15);
-	ret = adf4360_write_reg(st, ADF4360_REG(ADF4360_NDIV), val_b);
-
-	return ret;
-}
-
 static int adf4360_read(struct iio_dev *indio_dev,
 			uintptr_t private,
 			const struct iio_chan_spec *chan,
@@ -934,16 +900,6 @@ static int adf4360_probe(struct spi_device *spi)
 	ret = adf4360_get_clkin(st);
 	if (ret)
 		return ret;
-
-	/*
-	 * Backwards compatibility for old M2K devicetrees, remove this
-	 * eventually.
-	 */
-	if (id->driver_data == ID_ADF4360_9) {
-		ret = adf4360_m2k_setup(st);
-		if (ret)
-			return ret;
-	}
 
 	if (st->power_up_frequency) {
 		ret = adf4360_set_freq(st, st->power_up_frequency);
