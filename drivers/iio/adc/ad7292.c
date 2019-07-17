@@ -12,6 +12,13 @@
 
 #include <linux/iio/iio.h>
 
+#define ADI_VENDOR_ID 0x0018
+
+/* AD7292 registers definition */
+#define AD7292_REG_VENDOR_ID		0x00
+
+#define AD7292_RD_FLAG_MSK(x)		(BIT(7) | ((x) & 0x3F))
+
 #define AD7291_VOLTAGE_CHAN(_chan)					\
 {									\
 	.type = IIO_VOLTAGE,						\
@@ -52,7 +59,40 @@ struct ad7292_state {
 	struct spi_device *spi;
 	struct regulator *reg;
 	unsigned short vref_mv;
+	union {
+		__be16 d16;
+		u8 d8[2];
+	} data ____cacheline_aligned;
 };
+
+static int ad7292_spi_reg_read(struct ad7292_state *st, unsigned int addr)
+{
+	int ret;
+
+	st->data.d8[0] = AD7292_RD_FLAG_MSK(addr);
+
+	ret = spi_write_then_read(st->spi, st->data.d8, 1, &st->data.d16, 2);
+	if (ret < 0)
+		return ret;
+
+	return be16_to_cpu(st->data.d16);
+}
+
+static int ad7292_spi_subreg_read(struct ad7292_state *st, unsigned int addr,
+				  unsigned int sub_addr, unsigned int len)
+{
+	unsigned int shift = 16 - (8 * len);
+	int ret;
+
+	st->data.d8[0] = AD7292_RD_FLAG_MSK(addr);
+	st->data.d8[1] = sub_addr;
+
+	ret = spi_write_then_read(st->spi, st->data.d8, 2, &st->data.d16, len);
+	if (ret < 0)
+		return ret;
+
+	return (be16_to_cpu(st->data.d16) >> shift);
+}
 
 static int ad7292_setup(struct ad7292_state *st)
 {
@@ -150,6 +190,12 @@ static int ad7292_probe(struct spi_device *spi)
 	ret = ad7292_setup(st);
 	if (ret)
 		return ret;
+
+	ret = ad7292_spi_reg_read(st, AD7292_REG_VENDOR_ID);
+	if (ret != ADI_VENDOR_ID) {
+		dev_err(&spi->dev, "Wrong vendor id %x\n", ret);
+		return -EINVAL;
+	}
 
 	return devm_iio_device_register(&spi->dev, indio_dev);
 }
