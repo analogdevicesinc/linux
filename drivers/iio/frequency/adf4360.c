@@ -171,6 +171,7 @@ static const char * const adf4360_muxout_modes[] = {
 static const char * const adf4360_power_down_modes[] = {
 	[ADF4360_POWER_DOWN_NORMAL] = "normal",
 	[ADF4360_POWER_DOWN_SOFT_ASYNC] = "soft-async",
+	[ADF4360_POWER_DOWN_CE] = "ce",
 	[ADF4360_POWER_DOWN_SOFT_SYNC] = "soft-sync",
 };
 
@@ -193,6 +194,7 @@ struct adf4360_state {
 	struct adf4360_output output;
 	struct clk *clkin;
 	struct gpio_desc *muxout_gpio;
+	struct gpio_desc *chip_en_gpio;
 	struct mutex lock; /* Protect PLL state. */
 	unsigned int part_id;
 	unsigned long clkin_freq;
@@ -519,6 +521,12 @@ static int adf4360_power_down(struct adf4360_state *st, unsigned int mode)
 		val |= ADF4360_POWERDOWN(mode);
 		ret = adf4360_write_reg(st, ADF4360_REG(ADF4360_CTRL), val);
 		break;
+	case ADF4360_POWER_DOWN_CE:
+		if (st->chip_en_gpio)
+			gpiod_set_value(st->chip_en_gpio, 0x0);
+		else
+			ret = -ENODEV;
+		break;
 	}
 	if (ret == 0)
 		st->power_down_mode = mode;
@@ -770,6 +778,16 @@ static int adf4360_get_gpio(struct adf4360_state *st)
 	struct device *dev = &st->spi->dev;
 	unsigned int val;
 	int ret, i;
+
+	st->chip_en_gpio = devm_gpiod_get_optional(dev, "adi,enable",
+						   GPIOD_OUT_HIGH);
+	if (IS_ERR(st->chip_en_gpio)) {
+		dev_err(dev, "Chip enable GPIO error\n");
+		return PTR_ERR(st->chip_en_gpio);
+	}
+
+	if (st->chip_en_gpio)
+		st->power_down_mode = ADF4360_POWER_DOWN_CE;
 
 	st->muxout_gpio = devm_gpiod_get_optional(dev, "adi,muxout", GPIOD_IN);
 	if (IS_ERR(st->muxout_gpio)) {
