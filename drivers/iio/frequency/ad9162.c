@@ -343,8 +343,10 @@ static int ad9162_read_raw(struct iio_dev *indio_dev,
 
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_RAW:
+		mutex_lock(&st->lock);
 		ret = ad916x_dc_test_get_mode(&st->dac_h, &amplitude_raw,
 					      &tmp);
+		mutex_unlock(&st->lock);
 		if (ret)
 			return ret;
 
@@ -360,6 +362,7 @@ static int ad9162_write_raw(struct iio_dev *indio_dev,
 {
 	struct cf_axi_converter *conv = iio_device_get_drvdata(indio_dev);
 	struct ad9162_state *st = to_ad916x_state(conv);
+	int ret;
 
 	switch (mask) {
 	case IIO_CHAN_INFO_CALIBBIAS:
@@ -377,8 +380,11 @@ static int ad9162_write_raw(struct iio_dev *indio_dev,
 		if (val > AD916X_TEST_WORD_MAX || val < 0)
 			return -EINVAL;
 
-		return ad916x_dc_test_set_mode(&st->dac_h, val,
-					       st->dc_test_mode);
+		mutex_lock(&st->lock);
+		ret = ad916x_dc_test_set_mode(&st->dac_h, val,
+					      st->dc_test_mode);
+		mutex_unlock(&st->lock);
+		return ret;
 	default:
 		return -EINVAL;
 	}
