@@ -59,10 +59,22 @@ struct ad9162_state {
 	struct mutex lock;
 };
 
-static const char * const clk_names[] = {
-	[CLK_DATA] = "jesd_dac_clk",
-	[CLK_DAC] = "dac_clk",
-	[CLK_REF] = "dac_sysref"
+struct ad9162_clk {
+	const char *name;
+	bool mandatory;
+};
+
+static const struct ad9162_clk ad9162_clks[] = {
+	[CLK_DATA] = {
+		.name = "jesd_dac_clk",
+	},
+	[CLK_DAC] = {
+		.name = "dac_clk",
+		.mandatory = true
+	},
+	[CLK_REF] = {
+		.name = "dac_sysref",
+	}
 };
 
 static int ad9162_read(struct spi_device *spi, unsigned int reg)
@@ -274,13 +286,15 @@ static int ad9162_get_clks(struct cf_axi_converter *conv)
 	struct clk *clk;
 	int i, ret;
 
-	for (i = 0; i < ARRAY_SIZE(clk_names); i++) {
-		clk = devm_clk_get(&conv->spi->dev, clk_names[i]);
+	for (i = 0; i < ARRAY_SIZE(ad9162_clks); i++) {
+		clk = devm_clk_get(&conv->spi->dev, ad9162_clks[i].name);
 		if (IS_ERR(clk) && PTR_ERR(clk) != -ENOENT)
 			return PTR_ERR(clk);
 
 		if (PTR_ERR(clk) == -ENOENT) {
-			/* sysref might be optional */
+			if (ad9162_clks[i].mandatory)
+				return PTR_ERR(clk);
+
 			conv->clk[i] = NULL;
 			continue;
 		}
@@ -291,7 +305,7 @@ static int ad9162_get_clks(struct cf_axi_converter *conv)
 				return ret;
 		}
 
-		of_clk_get_scale(conv->spi->dev.of_node, clk_names[i],
+		of_clk_get_scale(conv->spi->dev.of_node, ad9162_clks[i].name,
 				 &conv->clkscale[i]);
 
 		conv->clk[i] = clk;
@@ -692,7 +706,7 @@ static int ad9162_probe(struct spi_device *spi)
 
 	ret = ad9162_get_clks(conv);
 	if (ret < 0) {
-		dev_err(&spi->dev, "Failed to get clocks\n");
+		dev_err(&spi->dev, "Failed to get clocks, %d\n", ret);
 		goto out;
 	}
 
@@ -749,7 +763,7 @@ static int ad9162_remove(struct spi_device *spi)
 	struct cf_axi_converter *conv = spi_get_drvdata(spi);
 	int i;
 
-	for (i = 0; i < ARRAY_SIZE(clk_names); i++)
+	for (i = 0; i < ARRAY_SIZE(ad9162_clks); i++)
 		if (conv->clk[i])
 			clk_disable_unprepare(conv->clk[i]);
 
