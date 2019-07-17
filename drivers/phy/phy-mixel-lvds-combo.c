@@ -53,6 +53,11 @@
 /* controller registers */
 #define PD_TX		0x300
 #define PD_PLL		0x31c
+#define CO		0x32c
+#define CO_DIV(n)	(ffs(n) - 1)
+
+#define MIN_PLL_VCO_FREQ	640000000
+#define MAX_PLL_VCO_FREQ	1500000000
 
 struct mixel_lvds_phy {
 	struct device *dev;
@@ -95,6 +100,40 @@ void mixel_phy_combo_lvds_set_phy_speed(struct phy *phy,
 					unsigned long phy_clk_rate)
 {
 	struct mixel_lvds_phy *lvds_phy = phy_get_drvdata(phy);
+	struct device *dev = lvds_phy->dev;
+	unsigned long serial_clk = 7 * phy_clk_rate;
+	unsigned long fvco = serial_clk;
+	int div = 1;
+
+	/*
+	 * Choose an appropriate divider to meet the requirement of
+	 * PLL VCO frequency range.
+	 *
+	 *  ---------  640MHz ~ 1500MHz   ------------      --------------
+	 * | PLL VCO | ----------------> | CO divider | -> | serial clock |
+	 *  ---------                     ------------      --------------
+	 *                                 1/2/4/8 div     7 * phy_clk_rate
+	 */
+	if (fvco < MIN_PLL_VCO_FREQ) {
+		do {
+			div *= 2;
+			fvco = serial_clk * div;
+		} while (fvco < MIN_PLL_VCO_FREQ);
+
+		if (div > 8)
+			div = 8;
+	}
+
+	/* final fvco */
+	fvco = serial_clk * div;
+	if (fvco < MIN_PLL_VCO_FREQ || fvco > MAX_PLL_VCO_FREQ)
+		dev_warn(dev, "PLL VCO frequency %lu is out of range\n", fvco);
+
+	clk_prepare_enable(lvds_phy->phy_clk);
+	mutex_lock(&lvds_phy->lock);
+	phy_ctrl_write(phy, CO, CO_DIV(div));
+	mutex_unlock(&lvds_phy->lock);
+	clk_disable_unprepare(lvds_phy->phy_clk);
 
 	clk_set_rate(lvds_phy->phy_clk, phy_clk_rate);
 }
