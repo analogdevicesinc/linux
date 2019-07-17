@@ -647,6 +647,16 @@ static const struct iio_info ad916x_iio_info = {
 	.debugfs_reg_access = ad9162_reg_access,
 };
 
+static void ad9162_clks_disable(void *data)
+{
+	struct cf_axi_converter *conv = data;
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(ad9162_clks); i++)
+		if (conv->clk[i])
+			clk_disable_unprepare(conv->clk[i]);
+}
+
 static int ad916x_standalone_probe(struct ad9162_state *st)
 {
 	struct iio_dev *indio_dev = NULL;
@@ -716,6 +726,10 @@ static int ad9162_probe(struct spi_device *spi)
 		goto out;
 	}
 
+	ret = devm_add_action_or_reset(&spi->dev, ad9162_clks_disable, conv);
+	if (ret)
+		return ret;
+
 	if (device_property_read_bool(&spi->dev, "adi,spi-3wire-enable"))
 		spi3wire = true;
 
@@ -764,18 +778,6 @@ out:
 	return ret;
 }
 
-static int ad9162_remove(struct spi_device *spi)
-{
-	struct cf_axi_converter *conv = spi_get_drvdata(spi);
-	int i;
-
-	for (i = 0; i < ARRAY_SIZE(ad9162_clks); i++)
-		if (conv->clk[i])
-			clk_disable_unprepare(conv->clk[i]);
-
-	spi_set_drvdata(spi, NULL);
-	return 0;
-}
 
 static const struct of_device_id ad916x_dt_id[] = {
 	{ .compatible = "adi,ad9162" },
@@ -797,7 +799,6 @@ static struct spi_driver ad9162_driver = {
 		   .owner = THIS_MODULE,
 		   },
 	.probe = ad9162_probe,
-	.remove = ad9162_remove,
 	.id_table = ad9162_id,
 };
 
