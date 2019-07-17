@@ -796,8 +796,7 @@ static struct spi_driver ad9162_driver = {
 	.driver = {
 		   .name = "ad9162",
 		   .of_match_table = ad916x_dt_id,
-		   .owner = THIS_MODULE,
-		   },
+	},
 	.probe = ad9162_probe,
 	.id_table = ad9162_id,
 };
