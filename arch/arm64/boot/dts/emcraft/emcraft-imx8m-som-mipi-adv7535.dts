@@ -39,7 +39,6 @@
 			};
 			codec {
 				sound-dai = <&adv_bridge>;
-				clocks = <&clk IMX8MQ_CLK_SAI1>;
 			};
 		};
 	};
@@ -65,38 +64,36 @@
 
 		pinctrl_sai1: sai1grp {
 			fsl,pins = <
-				MX8MQ_IOMUXC_SAI1_TXFS_SAI1_TX_SYNC	    0xd6
-				MX8MQ_IOMUXC_SAI1_TXC_SAI1_TX_BCLK	    0xd6
+				MX8MQ_IOMUXC_SAI1_MCLK_SAI1_TX_BCLK    	0xd6
+				MX8MQ_IOMUXC_SAI1_TXFS_SAI1_TX_SYNC	0xd6
 				MX8MQ_IOMUXC_SAI1_TXD0_SAI1_TX_DATA0	0xd6
-				MX8MQ_IOMUXC_SAI1_RXD0_SAI1_RX_DATA0	0xd6
-				MX8MQ_IOMUXC_SAI1_MCLK_SAI1_MCLK    	0xd6
+				MX8MQ_IOMUXC_SAI1_TXC_SAI1_TX_BCLK	0xd6
 			>;
 		};
 
 		pinctrl_sai1_sleep: sai1grp_sleep {
 			fsl,pins = <
-				MX8MQ_IOMUXC_SAI1_TXFS_GPIO4_IO10	0x00
-				MX8MQ_IOMUXC_SAI1_TXC_GPIO4_IO11	0x00
-				MX8MQ_IOMUXC_SAI1_TXD0_GPIO4_IO12	0x00
-				MX8MQ_IOMUXC_SAI1_RXD0_GPIO4_IO2	0x00
-				MX8MQ_IOMUXC_SAI1_MCLK_GPIO4_IO20	0x00
+				MX8MQ_IOMUXC_SAI1_MCLK_SAI1_TX_BCLK	0x00
+				MX8MQ_IOMUXC_SAI1_TXFS_SAI1_TX_SYNC	0x00
+				MX8MQ_IOMUXC_SAI1_TXD0_SAI1_TX_DATA0	0x00
+				MX8MQ_IOMUXC_SAI1_TXC_SAI1_TX_BCLK	0x00
 			>;
 		};
 
 		pinctrl_sai6: sai6grp {
 			fsl,pins = <
-                MX8MQ_IOMUXC_SAI1_RXD6_SAI6_TX_SYNC    	0xd6
-				MX8MQ_IOMUXC_SAI1_RXD4_SAI6_TX_BCLK	    0xd6
-				MX8MQ_IOMUXC_SAI1_RXD5_SAI6_TX_DATA0	0xd6
+                		MX8MQ_IOMUXC_SAI1_RXD6_SAI6_TX_SYNC    	0xd6
+				MX8MQ_IOMUXC_SAI1_RXD4_SAI6_TX_BCLK	0xd6
+				MX8MQ_IOMUXC_SAI1_TXD5_SAI6_TX_DATA0	0xd6
 				MX8MQ_IOMUXC_SAI1_RXD5_SAI6_RX_DATA0	0xd6
 			>;
 		};
 
 		pinctrl_sai6_sleep: sai6grp_sleep {
 			fsl,pins = <
-                MX8MQ_IOMUXC_SAI1_RXD6_SAI6_TX_SYNC	    0x00
-				MX8MQ_IOMUXC_SAI1_RXD4_SAI6_TX_BCLK	    0x00
-				MX8MQ_IOMUXC_SAI1_RXD5_SAI6_TX_DATA0	0x00
+				MX8MQ_IOMUXC_SAI1_RXD6_SAI6_TX_SYNC	0x00
+				MX8MQ_IOMUXC_SAI1_RXD4_SAI6_TX_BCLK	0x00
+				MX8MQ_IOMUXC_SAI1_TXD5_SAI6_TX_DATA0	0x00
 				MX8MQ_IOMUXC_SAI1_RXD5_SAI6_RX_DATA0	0x00
 			>;
 		};
@@ -106,7 +103,8 @@
 &i2c1 {
 	adv_bridge: adv7535@3d {
                compatible = "adi,adv7533";
-               reg = <0x3d>;
+               reg = <0x3d>, <0x3c>, <0x7e>, <0x70>;
+	       reg-names = "main", "cec", "edid", "packet";
                interrupt-parent = <&gpio3>;
                interrupts = <0 IRQ_TYPE_LEVEL_LOW>;
                adi,dsi-lanes = <4>;
@@ -208,7 +206,7 @@
 
 	#sound-dai-cells = <0>;
 
-    assigned-clocks = <&clk IMX8MQ_CLK_SAI1>;
+    	assigned-clocks = <&clk IMX8MQ_CLK_SAI1>;
 	assigned-clock-parents = <&clk IMX8MQ_AUDIO_PLL1_OUT>;
 	assigned-clock-rates = <24576000>;
 
@@ -222,7 +220,7 @@
 
 	#sound-dai-cells = <0>;
 
-    assigned-clocks = <&clk IMX8MQ_CLK_SAI6>;
+	assigned-clocks = <&clk IMX8MQ_CLK_SAI6>;
 	assigned-clock-parents = <&clk IMX8MQ_AUDIO_PLL1_OUT>;
 	assigned-clock-rates = <24576000>;
 
