@@ -56,6 +56,9 @@ Optional properties:
     inverting filter.
 - adi,power-up-frequency-hz: If set in Hz, the PLL tunes to the desired
     frequency on probe.
+- adi,enable-gpios: Chip enable GPIO - If set with a valid phandle and GPIO
+    number, GPIO is used to enable or disable chip when chip enable power down
+    is set.
 - adi,muxout-gpios: MUX out GPIO - If set with a valid phandle and GPIO number,
     GPIO is used to detect chip and test pll lock state on read when muxout
     control is set to lock detect.
