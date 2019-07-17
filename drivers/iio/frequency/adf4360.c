@@ -38,6 +38,8 @@
 #define ADF4360_CPI1(x)			FIELD_PREP(ADF4360_ADDR_CPI1_MSK, x)
 #define ADF4360_ADDR_CPI2_MSK		GENMASK(19, 17)
 #define ADF4360_CPI2(x)			FIELD_PREP(ADF4360_ADDR_CPI2_MSK, x)
+#define ADF4360_ADDR_PWR_DWN_MSK	GENMASK(21, 20)
+#define ADF4360_POWERDOWN(x)		FIELD_PREP(ADF4360_ADDR_PWR_DWN_MSK, x)
 #define ADF4360_ADDR_PRESCALER_MSK	GENMASK(23, 22)
 #define ADF4360_PRESCALER(x)		FIELD_PREP(ADF4360_ADDR_PRESCALER_MSK, x)
 
@@ -115,6 +117,13 @@ enum {
 };
 
 enum {
+	ADF4360_POWER_DOWN_NORMAL,
+	ADF4360_POWER_DOWN_SOFT_ASYNC,
+	ADF4360_POWER_DOWN_CE,
+	ADF4360_POWER_DOWN_SOFT_SYNC,
+};
+
+enum {
 	ADF4360_PRESCALER_8,
 	ADF4360_PRESCALER_16,
 	ADF4360_PRESCALER_32,
@@ -159,6 +168,12 @@ static const char * const adf4360_muxout_modes[] = {
 	[ADF4360_MUXOUT_GND] = "gnd",
 };
 
+static const char * const adf4360_power_down_modes[] = {
+	[ADF4360_POWER_DOWN_NORMAL] = "normal",
+	[ADF4360_POWER_DOWN_SOFT_ASYNC] = "soft-async",
+	[ADF4360_POWER_DOWN_SOFT_SYNC] = "soft-sync",
+};
+
 struct adf4360_output {
 	struct clk_hw hw;
 	struct iio_dev *indio_dev;
@@ -190,6 +205,7 @@ struct adf4360_state {
 	unsigned int cpi;
 	bool pdp;
 	unsigned int muxout_mode;
+	unsigned int power_down_mode;
 	bool initial_reg_seq;
 	const char *clk_out_name;
 	unsigned int regs[ADF5355_REG_NUM];
@@ -363,6 +379,11 @@ static long adf4360_clk_round_rate(struct clk_hw *hw,
 	return pfd_freq * n;
 }
 
+static inline bool adf4360_is_powerdown(struct adf4360_state *st)
+{
+	return (st->power_down_mode != ADF4360_POWER_DOWN_NORMAL);
+}
+
 static int adf4360_set_freq(struct adf4360_state *st, unsigned long rate)
 {
 	unsigned int val_r, val_n, val_ctrl;
@@ -376,6 +397,9 @@ static int adf4360_set_freq(struct adf4360_state *st, unsigned long rate)
 	if ((rate < st->vco_min) || (rate > st->vco_max))
 		return -EINVAL;
 
+	if (adf4360_is_powerdown(st))
+		ret = -EBUSY;
+
 	r = DIV_ROUND_CLOSEST(st->clkin_freq, st->pfd_freq);
 	pfd_freq = st->clkin_freq / r;
 	n = DIV_ROUND_CLOSEST(rate, pfd_freq);
@@ -386,7 +410,8 @@ static int adf4360_set_freq(struct adf4360_state *st, unsigned long rate)
 		   ADF4360_MTLD(true) |
 		   ADF4360_OPL(ADF4360_PL_11) |
 		   ADF4360_CPI1(st->cpi) |
-		   ADF4360_CPI2(st->cpi);
+		   ADF4360_CPI2(st->cpi) |
+		   ADF4360_POWERDOWN(st->power_down_mode);
 
 	/* ADF4360-0 to ADF4360-7 have a dual-modulous prescaler */
 	if (st->part_id <= ID_ADF4360_7) {
@@ -471,6 +496,35 @@ static int adf4360_clk_set_rate(struct clk_hw *hw,
 	mutex_unlock(&st->lock);
 
 	return ret;
+}
+
+static int adf4360_power_down(struct adf4360_state *st, unsigned int mode)
+{
+	unsigned int val;
+	int ret = 0;
+
+	mutex_lock(&st->lock);
+	switch (mode) {
+	case ADF4360_POWER_DOWN_NORMAL:
+		if (st->chip_en_gpio)
+			gpiod_set_value(st->chip_en_gpio, 0x1);
+
+		st->initial_reg_seq = true;
+		st->power_down_mode = mode;
+		ret = adf4360_set_freq(st, st->freq_req);
+		break;
+	case ADF4360_POWER_DOWN_SOFT_ASYNC: /* fallthrough */
+	case ADF4360_POWER_DOWN_SOFT_SYNC:
+		val = st->regs[ADF4360_CTRL] & ~ADF4360_ADDR_MUXOUT_MSK;
+		val |= ADF4360_POWERDOWN(mode);
+		ret = adf4360_write_reg(st, ADF4360_REG(ADF4360_CTRL), val);
+		break;
+	}
+	if (ret == 0)
+		st->power_down_mode = mode;
+	mutex_unlock(&st->lock);
+
+	return 0;
 }
 
 static const struct clk_ops adf4360_clk_ops = {
@@ -578,6 +632,30 @@ static const struct iio_enum adf4360_muxout_modes_available = {
 	.set = adf4360_set_muxout_mode,
 };
 
+static int adf4360_get_power_down(struct iio_dev *indio_dev,
+				  const struct iio_chan_spec *chan)
+{
+	struct adf4360_state *st = iio_priv(indio_dev);
+
+	return st->power_down_mode;
+}
+
+static int adf4360_set_power_down(struct iio_dev *indio_dev,
+				  const struct iio_chan_spec *chan,
+				  unsigned int mode)
+{
+	struct adf4360_state *st = iio_priv(indio_dev);
+
+	return adf4360_power_down(st, mode);
+}
+
+static const struct iio_enum adf4360_pwr_dwn_modes_available = {
+	.items = adf4360_power_down_modes,
+	.num_items = ARRAY_SIZE(adf4360_power_down_modes),
+	.get = adf4360_get_power_down,
+	.set = adf4360_set_power_down,
+};
+
 #define _ADF4360_EXT_INFO(_name, _ident) { \
 	.name = _name, \
 	.read = adf4360_read, \
@@ -590,6 +668,8 @@ static const struct iio_chan_spec_ext_info adf4360_ext_info[] = {
 	_ADF4360_EXT_INFO("refin_frequency", ADF4360_FREQ_REFIN),
 	IIO_ENUM_AVAILABLE("muxout_mode", &adf4360_muxout_modes_available),
 	IIO_ENUM("muxout_mode", false, &adf4360_muxout_modes_available),
+	IIO_ENUM_AVAILABLE("power_down", &adf4360_pwr_dwn_modes_available),
+	IIO_ENUM("power_down", false, &adf4360_pwr_dwn_modes_available),
 	{ },
 };
 
@@ -612,6 +692,9 @@ static int adf4360_read_raw(struct iio_dev *indio_dev,
 
 	switch (mask) {
 	case IIO_CHAN_INFO_FREQUENCY:
+		if (adf4360_is_powerdown(st))
+			return -EBUSY;
+
 		lk_det = (ADF4360_MUXOUT_LOCK_DETECT | ADF4360_MUXOUT_OD_LD) &
 			 st->muxout_mode;
 		if (lk_det && st->muxout_gpio) {
@@ -874,7 +957,6 @@ static int adf4360_probe(struct spi_device *spi)
 	st->spi = spi;
 	st->info = &adf4360_chip_info_tbl[id->driver_data];
 	st->part_id = id->driver_data;
-	st->initial_reg_seq = true;
 	st->muxout_mode = ADF4360_MUXOUT_LOCK_DETECT;
 
 	ret = adf4360_parse_dt(st);
@@ -904,7 +986,7 @@ static int adf4360_probe(struct spi_device *spi)
 	if (ret)
 		return ret;
 
-	ret = adf4360_set_freq(st, st->freq_req);
+	ret = adf4360_power_down(st, ADF4360_POWER_DOWN_NORMAL);
 	if (ret)
 		return ret;
 
