@@ -2793,7 +2793,6 @@
  */
 
 #define MIN_ADC_CLK			25000000UL /* 25 MHz */
-//#define MIN_ADC_CLK			(MIN_BBPLL_FREQ / MAX_BBPLL_DIV) /* 11.17MHz */
 #define MAX_ADC_CLK			640000000UL /* 640 MHz */
 #define MAX_DAC_CLK			(MAX_ADC_CLK / 2)
 
