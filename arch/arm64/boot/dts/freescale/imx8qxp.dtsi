@@ -384,7 +384,7 @@
 		1200000 0
 		 900000 0
 	>;
-	clocks = <&clk IMX_A35_CLK>;
+	clocks = <&clk IMX_SC_R_A35 IMX_SC_PM_CLK_CPU>;
 	clock-latency = <61036>;
 	#cooling-cells = <2>;
 };
