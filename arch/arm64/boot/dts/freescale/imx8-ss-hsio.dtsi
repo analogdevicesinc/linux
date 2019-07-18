@@ -16,10 +16,82 @@ hsio_subsys: bus@5f000000 {
 		only-dma-mask32 = <1>;
 	};
 
-	hsio_lpcg: clock-controller@5f050000 {
-		compatible = "fsl,imx8qm-lpcg-hsio", "fsl,imx8qxp-lpcg-hsio";
-		reg = <0x5f050000 0xc0000>;
+	hsio_axi_clk: clock-hsio-axi {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <400000000>;
+		clock-output-names = "hsio_axi_clk";
+	};
+
+	hsio_per_clk: clock-hsio-per {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <133333333>;
+		clock-output-names = "hsio_per_clk";
+	};
+
+	pciea_lpcg: clock-controller@5f050000 {
+		compatible = "fsl,imx8qxp-lpcg";
+		reg = <0x5f050000 0x10000>;
 		#clock-cells = <1>;
+		clocks = <&hsio_axi_clk>, <&hsio_axi_clk>, <&hsio_axi_clk>;
+		bit-offset = <16 20 24>;
+		clock-output-names = "hsio_pciea_mstr_axi_clk",
+				     "hsio_pciea_slv_axi_clk",
+				     "hsio_pciea_dbi_axi_clk";
+		power-domains = <&pd IMX_SC_R_PCIE_A>;
+	};
+
+	pcieb_lpcg: clock-controller@5f060000 {
+		compatible = "fsl,imx8qxp-lpcg";
+		reg = <0x5f060000 0x10000>;
+		#clock-cells = <1>;
+		clocks = <&hsio_axi_clk>, <&hsio_axi_clk>, <&hsio_axi_clk>;
+		bit-offset = <16 20 24>;
+		clock-output-names = "hsio_pcieb_mstr_axi_clk",
+				     "hsio_pcieb_slv_axi_clk",
+				     "hsio_pcieb_dbi_axi_clk";
+		power-domains = <&pd IMX_SC_R_PCIE_B>;
+	};
+
+	phyx2_crr0_lpcg: clock-controller@5f0a0000 {
+		compatible = "fsl,imx8qxp-lpcg";
+		reg = <0x5f0a0000 0x10000>;
+		#clock-cells = <1>;
+		clocks = <&hsio_per_clk>;
+		bit-offset = <0>; /* FIXME: not bit 16? */
+		clock-output-names = "hsio_phyx2_clk";
+		power-domains = <&pd IMX_SC_R_SERDES_0>;
+	};
+
+	phyx1_crr1_lpcg: clock-controller@5f0b0000 {
+		compatible = "fsl,imx8qxp-lpcg";
+		reg = <0x5f0b0000 0x10000>;
+		#clock-cells = <1>;
+		clocks = <&hsio_per_clk>;
+		bit-offset = <0>; /* FIXME: not bit 16? */
+		clock-output-names = "hsio_phyx1_clk";
+		power-domains = <&pd IMX_SC_R_SERDES_1>;
+	};
+
+	pciea_crr2_lpcg: clock-controller@5f0c0000 {
+		compatible = "fsl,imx8qxp-lpcg";
+		reg = <0x5f0c0000 0x10000>;
+		#clock-cells = <1>;
+		clocks = <&hsio_per_clk>;
+		bit-offset = <16>;
+		clock-output-names = "hsio_pciea_per_clk";
+		power-domains = <&pd IMX_SC_R_PCIE_A>;
+	};
+
+	pcieb_crr3_lpcg: clock-controller@5f0d0000 {
+		compatible = "fsl,imx8qxp-lpcg";
+		reg = <0x5f0d0000 0x10000>;
+		#clock-cells = <1>;
+		clocks = <&hsio_per_clk>;
+		bit-offset = <16>;
+		clock-output-names = "hsio_pcieb_per_clk";
+		power-domains = <&pd IMX_SC_R_PCIE_B>;
 	};
 
 	hsio_gpr: hsio_gpr@0x5f110000 {
@@ -53,11 +125,11 @@ hsio_subsys: bus@5f000000 {
 		 * Set these clocks in default, then clocks should be
 		 * refined for exact hw design of imx8 pcie.
 		 */
-		clocks = <&hsio_lpcg IMX_HSIO_LPCG_PCIEA_MSTR_AXI_CLK>,
-			 <&hsio_lpcg IMX_HSIO_LPCG_PCIEA_SLV_AXI_CLK>,
-			 <&hsio_lpcg IMX_HSIO_LPCG_PHYX2_PCLK_0>,
-			 <&hsio_lpcg IMX_HSIO_LPCG_PCIEA_PER_CLK>,
-			 <&hsio_lpcg IMX_HSIO_LPCG_PCIEA_DBI_AXI_CLK>;
+		clocks = <&pciea_lpcg 0>,
+			 <&pciea_lpcg 1>,
+			 <&phyx2_crr0_lpcg 0>,
+			 <&pciea_crr2_lpcg 0>,
+			 <&pciea_lpcg 2>;
 		clock-names = "pcie", "pcie_bus", "pcie_phy", "pcie_per", "pcie_inbound_axi";
 		power-domains = <&pd IMX_SC_R_PCIE_A>,
 				<&pd IMX_SC_R_SERDES_0>,
@@ -101,11 +173,11 @@ hsio_subsys: bus@5f000000 {
 				<&hsio_lpcg IMX8QM_HSIO_PCIE_X1_PER_CLK>,
 				<&hsio_lpcg IMX8QM_HSIO_PCIE_B_DBI_AXI_CLK>;
 		 */
-		clocks = <&hsio_lpcg IMX_HSIO_LPCG_PCIEB_MSTR_AXI_CLK>,
-			 <&hsio_lpcg IMX_HSIO_LPCG_PCIEB_SLV_AXI_CLK>,
-			 <&hsio_lpcg IMX_HSIO_LPCG_PHYX1_PCLK>,
-			 <&hsio_lpcg IMX_HSIO_LPCG_PCIEB_PER_CLK>,
-			 <&hsio_lpcg IMX_HSIO_LPCG_PCIEB_DBI_AXI_CLK>;
+		clocks = <&pcieb_lpcg 0>,
+			 <&pcieb_lpcg 1>,
+			 <&phyx1_crr1_lpcg 0>,
+			 <&pcieb_crr3_lpcg 0>,
+			 <&pcieb_lpcg 2>;
 		clock-names = "pcie", "pcie_bus", "pcie_phy", "pcie_per", "pcie_inbound_axi";
 		power-domains = <&pd IMX_SC_R_PCIE_B>,
 				<&pd IMX_SC_R_SERDES_1>,
