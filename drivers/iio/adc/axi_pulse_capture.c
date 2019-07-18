@@ -289,10 +289,10 @@ unlock:
 
 static void axi_pulse_capture_config(struct axi_pulse_capture *pulse)
 {
-	/* default period of 1MHz */
-	axi_pulse_capture_params_set(pulse, ADI_REG_PULSE_PERIOD, 1000000);
-	/* default pulse width of 100ns (10Mhz) */
-	axi_pulse_capture_params_set(pulse, ADI_REG_PULSE_WIDTH, 10000000);
+	/* default period of 50 kHz */
+	axi_pulse_capture_params_set(pulse, ADI_REG_PULSE_PERIOD, 50000);
+	/* default pulse width of 20 ns (50Mhz) */
+	axi_pulse_capture_params_set(pulse, ADI_REG_PULSE_WIDTH, 50000000);
 	pulse_capture_iowrite(pulse, ADI_REG_CONFIG, PULSE_GEN_LOAD);
 	pulse_capture_iowrite(pulse, ADI_REG_DRIVER_ENABLE, LASER_ENABLE);
 	/*
