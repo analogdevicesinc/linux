@@ -153,9 +153,9 @@
 		compatible = "fsl,imx8qm-sabreauto-cs42888",
 				"fsl,imx-audio-cs42888";
 		model = "imx-cs42888";
-		audio-cpu = <&adma_esai0>;
+		audio-cpu = <&esai0>;
 		audio-codec = <&cs42888>;
-		audio-asrc = <&adma_asrc0>;
+		audio-asrc = <&asrc0>;
 		status = "okay";
 	};
 
@@ -163,7 +163,7 @@
 		compatible = "fsl,imx7d-evk-wm8960",
 			"fsl,imx-audio-wm8960";
 		model = "wm8960-audio";
-		audio-cpu = <&adma_sai1>;
+		audio-cpu = <&sai1>;
 		audio-codec = <&wm8960>;
 		/*
 		 * hp-det = <hp-det-pin hp-det-polarity>;
@@ -196,8 +196,8 @@
 	sound-amix-sai {
 		compatible = "fsl,imx-audio-amix";
 		model = "amix-audio-sai";
-		dais = <&adma_sai4>, <&adma_sai5>;
-		amix-controller = <&adma_amix>;
+		dais = <&sai4>, <&sai5>;
+		amix-controller = <&amix>;
 	};
 };
 
@@ -219,21 +219,21 @@
 	wm8960: wm8960@1a {
 		compatible = "wlf,wm8960";
 		reg = <0x1a>;
-		clocks = <&adma_lpcg IMX_ADMA_LPCG_MCLKOUT0>;
+		clocks = <&mclkout0_lpcg 0>;
 		clock-names = "mclk";
 		wlf,shared-lrclk;
 		power-domains = <&pd IMX_SC_R_MCLK_OUT_0>;
-		assigned-clocks = <&clk IMX_ADMA_AUD_PLL0>,
-				<&clk IMX_ADMA_AUD_PLL_DIV_CLK0_CLK>,
-				<&clk IMX_ADMA_AUD_REC_CLK0_CLK>,
-				<&adma_lpcg IMX_ADMA_LPCG_MCLKOUT0>;
+		assigned-clocks = <&clk IMX_SC_R_AUDIO_PLL_0 IMX_SC_PM_CLK_PLL>,
+				<&clk IMX_SC_R_AUDIO_PLL_0 IMX_SC_PM_CLK_SLV_BUS>,
+				<&clk IMX_SC_R_AUDIO_PLL_0 IMX_SC_PM_CLK_MST_BUS>,
+				<&mclkout0_lpcg 0>;
 		assigned-clock-rates = <786432000>, <49152000>, <12288000>, <12288000>;
 	};
 
 	cs42888: cs42888@48 {
 		compatible = "cirrus,cs42888";
 		reg = <0x48>;
-		clocks = <&adma_lpcg IMX_ADMA_LPCG_MCLKOUT0>;
+		clocks = <&mclkout0_lpcg 0>;
 		clock-names = "mclk";
 		VA-supply = <&reg_audio>;
 		VD-supply = <&reg_audio>;
@@ -250,10 +250,10 @@
 					"pd_audio_clk_1",
 					"pd_audio_clk_0",
 					"pd_audio_clk_1";
-		assigned-clocks = <&clk IMX_ADMA_AUD_PLL0>,
-				<&clk IMX_ADMA_AUD_PLL_DIV_CLK0_CLK>,
-				<&clk IMX_ADMA_AUD_REC_CLK0_CLK>,
-				<&adma_lpcg IMX_ADMA_LPCG_MCLKOUT0>;
+		assigned-clocks = <&clk IMX_SC_R_AUDIO_PLL_0 IMX_SC_PM_CLK_PLL>,
+				<&clk IMX_SC_R_AUDIO_PLL_0 IMX_SC_PM_CLK_SLV_BUS>,
+				<&clk IMX_SC_R_AUDIO_PLL_0 IMX_SC_PM_CLK_MST_BUS>,
+				<&mclkout0_lpcg 0>;
 		assigned-clock-rates = <786432000>, <49152000>, <12288000>, <12288000>;
 		fsl,txs-rxm;
 	};
@@ -412,21 +412,21 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_esai0>;
 	assigned-clocks = <&adma_acm IMX_ADMA_ACM_ESAI0_MCLK_SEL>,
-			<&clk IMX_ADMA_AUD_PLL0>,
-			<&clk IMX_ADMA_AUD_PLL_DIV_CLK0_CLK>,
-			<&clk IMX_ADMA_AUD_REC_CLK0_CLK>,
-			<&adma_lpcg IMX_ADMA_LPCG_ESAI_0_EXTAL_CLK>;
-	assigned-clock-parents = <&adma_lpcg IMX_ADMA_LPCG_AUD_PLL_DIV_CLK0_CLK>;
+			<&clk IMX_SC_R_AUDIO_PLL_0 IMX_SC_PM_CLK_PLL>,
+			<&clk IMX_SC_R_AUDIO_PLL_0 IMX_SC_PM_CLK_SLV_BUS>,
+			<&clk IMX_SC_R_AUDIO_PLL_0 IMX_SC_PM_CLK_MST_BUS>,
+			<&esai0_lpcg 0>;
+	assigned-clock-parents = <&aud_pll_div0_lpcg 0>;
 	assigned-clock-rates = <0>, <786432000>, <49152000>, <12288000>, <49152000>;
 	fsl,txm-rxs;
 	status = "okay";
 };
 
 &sai1 {
-	assigned-clocks = <&clk IMX_ADMA_AUD_PLL0>,
-			<&clk IMX_ADMA_AUD_PLL_DIV_CLK0_CLK>,
-			<&clk IMX_ADMA_AUD_REC_CLK0_CLK>,
-			<&adma_lpcg IMX_ADMA_LPCG_SAI_0_MCLK>;
+	assigned-clocks = <&clk IMX_SC_R_AUDIO_PLL_0 IMX_SC_PM_CLK_PLL>,
+			<&clk IMX_SC_R_AUDIO_PLL_0 IMX_SC_PM_CLK_SLV_BUS>,
+			<&clk IMX_SC_R_AUDIO_PLL_0 IMX_SC_PM_CLK_MST_BUS>,
+			<&sai1_lpcg 0>; /* FIXME: should be sai1, original code is 0 */
 	assigned-clock-rates = <786432000>, <49152000>, <12288000>, <49152000>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_sai1>;
@@ -435,11 +435,11 @@
 
 &sai4 {
 	assigned-clocks = <&adma_acm IMX_ADMA_ACM_SAI4_MCLK_SEL>,
-			<&clk IMX_ADMA_AUD_PLL1>,
-			<&clk IMX_ADMA_AUD_PLL_DIV_CLK1_CLK>,
-			<&clk IMX_ADMA_AUD_REC_CLK1_CLK>,
-			<&adma_lpcg IMX_ADMA_LPCG_SAI_4_MCLK>;
-	assigned-clock-parents = <&adma_lpcg IMX_ADMA_LPCG_AUD_PLL_DIV_CLK1_CLK>;
+			<&clk IMX_SC_R_AUDIO_PLL_1 IMX_SC_PM_CLK_PLL>,
+			<&clk IMX_SC_R_AUDIO_PLL_1 IMX_SC_PM_CLK_SLV_BUS>,
+			<&clk IMX_SC_R_AUDIO_PLL_1 IMX_SC_PM_CLK_MST_BUS>,
+			<&sai4_lpcg 0>;
+	assigned-clock-parents = <&aud_pll_div1_lpcg 0>;
 	assigned-clock-rates = <0>, <786432000>, <98304000>, <12288000>, <98304000>;
 	fsl,sai-asynchronous;
 	fsl,txm-rxs;
@@ -448,11 +448,11 @@
 
 &sai5 {
 	assigned-clocks = <&adma_acm IMX_ADMA_ACM_SAI5_MCLK_SEL>,
-			<&clk IMX_ADMA_AUD_PLL1>,
-			<&clk IMX_ADMA_AUD_PLL_DIV_CLK1_CLK>,
-			<&clk IMX_ADMA_AUD_REC_CLK1_CLK>,
-			<&adma_lpcg IMX_ADMA_LPCG_SAI_5_MCLK>;
-	assigned-clock-parents = <&adma_lpcg IMX_ADMA_LPCG_AUD_PLL_DIV_CLK1_CLK>;
+			<&clk IMX_SC_R_AUDIO_PLL_1 IMX_SC_PM_CLK_PLL>,
+			<&clk IMX_SC_R_AUDIO_PLL_1 IMX_SC_PM_CLK_SLV_BUS>,
+			<&clk IMX_SC_R_AUDIO_PLL_1 IMX_SC_PM_CLK_MST_BUS>,
+			<&sai5_lpcg 0>;
+	assigned-clock-parents = <&aud_pll_div1_lpcg 0>;
 	assigned-clock-rates = <0>, <786432000>, <98304000>, <12288000>, <98304000>;
 	fsl,sai-asynchronous;
 	fsl,txm-rxs;

@@ -4,6 +4,14 @@
  *	Dong Aisheng <aisheng.dong@nxp.com>
  */
 
+&dma_ipg_clk {
+	clock-frequency = <160000000>;
+};
+
+&audio_ipg_clk {
+	clock-frequency = <160000000>;
+};
+
 &lpuart0 {
 	compatible = "fsl,imx8qxp-lpuart";
 };
