@@ -90,7 +90,7 @@ dma_subsys: bus@5a000000 {
 		clocks = <&uart0_lpcg IMX_LPCG_CLK_4>,
 			 <&uart0_lpcg IMX_LPCG_CLK_0>;
 		clock-names = "ipg", "baud";
-		assigned-clocks = <&clk IMX_ADMA_UART0_CLK>;
+		assigned-clocks = <&clk IMX_SC_R_UART_0 IMX_SC_PM_CLK_PER>;
 		assigned-clock-rates = <80000000>;
 		power-domains = <&pd IMX_SC_R_UART_0>;
 		dma-names = "tx","rx";
@@ -104,7 +104,7 @@ dma_subsys: bus@5a000000 {
 		clocks = <&uart1_lpcg IMX_LPCG_CLK_4>,
 			 <&uart1_lpcg IMX_LPCG_CLK_0>;
 		clock-names = "ipg", "baud";
-		assigned-clocks = <&clk IMX_ADMA_UART1_CLK>;
+		assigned-clocks = <&clk IMX_SC_R_UART_1 IMX_SC_PM_CLK_PER>;
 		assigned-clock-rates = <80000000>;
 		power-domains = <&pd IMX_SC_R_UART_1>,
 				<&pd IMX_SC_R_DMA_2_CH10>,
