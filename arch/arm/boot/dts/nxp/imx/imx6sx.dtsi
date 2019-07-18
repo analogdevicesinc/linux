@@ -1442,12 +1442,7 @@
 				compatible = "fsl,imx6sx-mu";
 				reg = <0x02294000 0x4000>;
 				interrupts = <0 90 0x04>;
-				status = "okay";
-			};
-
-			rpmsg: rpmsg{
-				compatible = "fsl,imx6sx-rpmsg";
-				status = "disabled";
+				#mbox-cells = <2>;
 			};
 
 			uart6: serial@22a0000 {
@@ -1532,5 +1527,19 @@
 			power-domain-names = "pcie", "pcie_phy";
 			status = "disabled";
 		};
+	};
+
+	rpmsg: rpmsg{
+		compatible = "fsl,imx6sx-rpmsg";
+		/* up to now, the following channels are used in imx rpmsg
+		 * - tx1/rx1: messages channel.
+		 * - general interrupt1: remote proc finish re-init rpmsg stack
+		 *   when A core is partition reset.
+		 */
+		mbox-names = "tx", "rx", "rxdb";
+		mboxes = <&mu 0 1
+			  &mu 1 1
+			  &mu 3 1>;
+		status = "disabled";
 	};
 };

@@ -122,6 +122,13 @@
 				 <&pcc2 IMX7ULP_CLK_DMA_MUX1>;
 		};
 
+		mu: mu@40220000 {
+			compatible = "fsl,imx7ulp-mu", "fsl,imx6sx-mu";
+			reg = <0x40220000 0x1000>;
+			interrupts = <GIC_SPI 19 IRQ_TYPE_LEVEL_HIGH>;
+			#mbox-cells = <2>;
+		};
+
 		crypto: crypto@40240000 {
 			compatible = "fsl,sec-v4.0";
 			#address-cells = <1>;
@@ -462,5 +469,19 @@
 			#address-cells = <1>;
 			#size-cells = <1>;
 		};
+	};
+
+	rpmsg: rpmsg{
+		compatible = "fsl,imx7ulp-rpmsg";
+		/* up to now, the following channels are used in imx rpmsg
+		 * - tx1/rx1: messages channel.
+		 * - general interrupt1: remote proc finish re-init rpmsg stack
+		 *   when A core is partition reset.
+		 */
+		mbox-names = "tx", "rx", "rxdb";
+		mboxes = <&mu 0 1
+			  &mu 1 1
+			  &mu 3 1>;
+		status = "disabled";
 	};
 };
