@@ -319,10 +319,11 @@
 		#size-cells = <1>;
 		ranges = <0x34000000 0x0 0x34000000 0x4000000>;
 
-		cm40_lpcg: clock-controller@375d0000 {
-			compatible = "fsl,imx8qxp-lpcg-cm40";
-			reg = <0x375d0000 0x70000>;
-			#clock-cells = <1>;
+		cm40_ipg_clk: clock-cm40-ipg {
+			compatible = "fixed-clock";
+			#clock-cells = <0>;
+			clock-frequency = <132000000>;
+			clock-output-names = "cm40_ipg_clk";
 		};
 
 		cm40_i2c: i2c@37230000 {
@@ -330,13 +331,25 @@
 			reg = <0x37230000 0x1000>;
 			interrupts = <9 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-parent = <&cm40_intmux>;
-			clocks = <&cm40_lpcg IMX_CM40_LPCG_I2C_CLK>,
-				 <&cm40_lpcg IMX_CM40_LPCG_I2C_IPG_CLK>;
+			clocks = <&cm40_i2c_lpcg 0>,
+				 <&cm40_i2c_lpcg 1>;
 			clock-names = "per", "ipg";
-			assigned-clocks = <&clk IMX_CM40_I2C_DIV>;
+			assigned-clocks = <&clk IMX_SC_R_M4_0_I2C IMX_SC_PM_CLK_PER>;
 			assigned-clock-rates = <24000000>;
 			power-domains = <&pd IMX_SC_R_M4_0_I2C>;
 			status = "disabled";
+		};
+
+		cm40_i2c_lpcg: clock-controller@37630000 {
+			compatible = "fsl,imx8qxp-lpcg";
+			reg = <0x37630000 0x1000>;
+			#clock-cells = <1>;
+			clocks = <&clk IMX_SC_R_M4_0_I2C IMX_SC_PM_CLK_PER>,
+				 <&cm40_ipg_clk>;
+			bit-offset = <0 16>;
+			clock-output-names = "cm40_lpcg_i2c_clk",
+					     "cm40_lpcg_i2c_ipg_clk";
+			power-domains = <&pd IMX_SC_R_M4_0_I2C>;
 		};
 
 		cm40_intmux: intmux@37400000 {
@@ -353,7 +366,7 @@
 			interrupt-controller;
 			interrupt-parent = <&gic>;
 			#interrupt-cells = <2>;
-			clocks = <&clk IMX_CM40_IPG_CLK>;
+			clocks = <&cm40_ipg_clk>;
 			clock-names = "ipg";
 			power-domains = <&pd IMX_SC_R_M4_0_INTMUX>;
 			status = "disabled";
