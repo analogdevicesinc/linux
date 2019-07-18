@@ -259,17 +259,6 @@
 		interrupt-parent = <&gic>;
 	};
 
-	reserved-memory {
-		#address-cells = <2>;
-		#size-cells = <2>;
-		ranges;
-
-		dsp_reserved: dsp@92400000 {
-			reg = <0 0x92400000 0 0x2000000>;
-			no-map;
-		};
-	};
-
 	pmu {
 		compatible = "arm,armv8-pmuv3";
 		interrupts = <GIC_PPI 7 IRQ_TYPE_LEVEL_HIGH>;
@@ -455,6 +444,21 @@
 				};
 			};
 		};
+	};
+
+	rpmsg: rpmsg{
+		compatible = "fsl,imx8qm-rpmsg";
+		/* up to now, the following channels are used in imx rpmsg
+		 * - tx1/rx1: messages channel.
+		 * - general interrupt1: remote proc finish re-init rpmsg stack
+		 *   when A core is partition reset.
+		 */
+		mbox-names = "tx", "rx", "rxdb";
+		mboxes = <&lsio_mu5 0 1
+			  &lsio_mu5 1 1
+			  &lsio_mu5 3 1>;
+		mub-partition = <3>;
+		status = "disabled";
 	};
 
 	/* sorted in register address */
