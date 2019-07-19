@@ -24,6 +24,17 @@
 #define ADI_REG_IRQ_MASK	0xA0
 #define ADI_REG_IRQ_SRC		0xA4
 #define ADI_REG_IRQ_PENDING	0xA8
+/* sequencer register map */
+#define ADI_REG_SEQ_CTRL	0xAC
+#define ADI_SEQ_CTRL_EN		BIT(0)
+#define ADI_SEQ_CTRL_AUTO_EN	BIT(1)
+#define ADI_REG_SEQ_OFFSET	0xB0
+#define ADI_REG_SEQ_AUTO_CFG	0xB4
+#define ADI_SEQ_VAL_MASK	0x03
+#define ADI_SEQ_VAL_SHIFT(x)	((x) * 4)
+#define ADI_REG_TIA_MANUAL_CFG	0xB8
+#define ADI_TIA_SEL_MASK	0x03
+#define ADI_TIA_SEL_SHIFT(x)	((x) * 4)
 
 /* IRQ sources */
 #define ADI_IRQ_SRC_OTW_ENTER	0x02
@@ -324,11 +335,202 @@ static const struct iio_chan_spec axi_pulse_capture_channels[] = {
 	},
 };
 
+enum axi_pulse_capture_iio_dev_attr {
+	SEQUENCER_EN,
+	SEQUENCER_MODE,
+	SEQUENCER_PULSE_DELAY,
+	SEQUENCER_AUTO_CFG,
+	SEQUENCER_MANUAL_CHSEL,
+};
+
+static ssize_t axi_pulse_capture_show(struct device *dev,
+		struct device_attribute *attr,
+		char *buf)
+{
+	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
+	struct iio_dev_attr *this_attr = to_iio_dev_attr(attr);
+	struct axi_pulse_capture *pulse = iio_priv(indio_dev);
+	unsigned long clk_rate, delay;
+	u32 val, cnt;
+	int ret = 0;
+
+	switch ((u32)this_attr->address) {
+	case SEQUENCER_EN:
+		val = pulse_capture_ioread(pulse, ADI_REG_SEQ_CTRL);
+		ret = sprintf(buf, "%ld\n", val & ADI_SEQ_CTRL_EN);
+		break;
+	case SEQUENCER_MODE:
+		val = pulse_capture_ioread(pulse, ADI_REG_SEQ_CTRL);
+		ret = sprintf(buf, "%s\n", val & ADI_SEQ_CTRL_AUTO_EN ?
+			"auto" : "manual");
+		break;
+	case SEQUENCER_PULSE_DELAY:
+		clk_rate = clk_get_rate(pulse->clk);
+		if (!clk_rate) {
+			delay = 0;
+		} else {
+			cnt = pulse_capture_ioread(pulse, ADI_REG_SEQ_OFFSET);
+			delay = (1000000000U / clk_rate) * cnt;
+		}
+		ret = sprintf(buf, "%ld\n", delay);
+		break;
+	case SEQUENCER_AUTO_CFG:
+		val = pulse_capture_ioread(pulse, ADI_REG_SEQ_AUTO_CFG);
+		ret = sprintf(buf, "%d %d %d %d\n",
+			(val >> ADI_SEQ_VAL_SHIFT(0)) & ADI_SEQ_VAL_MASK,
+			(val >> ADI_SEQ_VAL_SHIFT(1)) & ADI_SEQ_VAL_MASK,
+			(val >> ADI_SEQ_VAL_SHIFT(2)) & ADI_SEQ_VAL_MASK,
+			(val >> ADI_SEQ_VAL_SHIFT(3)) & ADI_SEQ_VAL_MASK);
+		break;
+	case SEQUENCER_MANUAL_CHSEL:
+		val = pulse_capture_ioread(pulse, ADI_REG_TIA_MANUAL_CFG);
+		ret = sprintf(buf, "%d %d %d %d\n",
+			(val >> ADI_TIA_SEL_SHIFT(0)) & ADI_TIA_SEL_MASK,
+			(val >> ADI_TIA_SEL_SHIFT(1)) & ADI_TIA_SEL_MASK,
+			(val >> ADI_TIA_SEL_SHIFT(2)) & ADI_TIA_SEL_MASK,
+			(val >> ADI_TIA_SEL_SHIFT(3)) & ADI_TIA_SEL_MASK);
+		break;
+	default:
+		ret = -EINVAL;
+	}
+
+	return ret;
+}
+
+static ssize_t axi_pulse_capture_store(struct device *dev,
+		struct device_attribute *attr,
+		const char *buf, size_t len)
+{
+	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
+	struct iio_dev_attr *this_attr = to_iio_dev_attr(attr);
+	struct axi_pulse_capture *pulse = iio_priv(indio_dev);
+	unsigned long clk_rate, delay;
+	u32 val, cnt, cfg[4];
+	bool en;
+	int ret = 0;
+
+	switch ((u32)this_attr->address) {
+	case SEQUENCER_EN:
+		ret = kstrtobool(buf, &en);
+		if (ret)
+			break;
+		val = pulse_capture_ioread(pulse, ADI_REG_SEQ_CTRL);
+		if (en)
+			val |= ADI_SEQ_CTRL_EN;
+		else
+			val &= ~ADI_SEQ_CTRL_EN;
+		pulse_capture_iowrite(pulse, ADI_REG_SEQ_CTRL, val);
+		break;
+	case SEQUENCER_MODE:
+		val = pulse_capture_ioread(pulse, ADI_REG_SEQ_CTRL);
+		if (sysfs_streq(buf, "auto"))
+			val |= ADI_SEQ_CTRL_AUTO_EN;
+		else if (sysfs_streq(buf, "manual"))
+			val &= ~ADI_SEQ_CTRL_AUTO_EN;
+		else
+			break;
+		pulse_capture_iowrite(pulse, ADI_REG_SEQ_CTRL, val);
+		break;
+
+	case SEQUENCER_PULSE_DELAY:
+		ret = kstrtoul(buf, 0, &delay);
+		if (ret)
+			break;
+		clk_rate = clk_get_rate(pulse->clk);
+		if (!clk_rate)
+			cnt = 0;
+		else
+			cnt = delay / (1000000000U / clk_rate);
+		val = pulse_capture_ioread(pulse, ADI_REG_PULSE_PERIOD);
+		if (cnt > val)
+			cnt = val;
+		pulse_capture_iowrite(pulse, ADI_REG_SEQ_OFFSET, cnt);
+		break;
+	case SEQUENCER_AUTO_CFG:
+		ret = sscanf(buf, "%d %d %d %d",
+			&cfg[0], &cfg[1], &cfg[2], &cfg[3]);
+		if (ret == ARRAY_SIZE(cfg)) {
+			ret = 0;
+		} else {
+			ret = -EINVAL;
+			break;
+		}
+		val = ((cfg[0] & ADI_SEQ_VAL_MASK) << ADI_SEQ_VAL_SHIFT(0)) |
+			((cfg[1] & ADI_SEQ_VAL_MASK) << ADI_SEQ_VAL_SHIFT(1)) |
+			((cfg[2] & ADI_SEQ_VAL_MASK) << ADI_SEQ_VAL_SHIFT(2)) |
+			((cfg[3] & ADI_SEQ_VAL_MASK) << ADI_SEQ_VAL_SHIFT(3));
+		pulse_capture_iowrite(pulse, ADI_REG_SEQ_AUTO_CFG, val);
+		break;
+	case SEQUENCER_MANUAL_CHSEL:
+		ret = sscanf(buf, "%d %d %d %d",
+			&cfg[0], &cfg[1], &cfg[2], &cfg[3]);
+		if (ret == 4) {
+			ret = 0;
+		} else {
+			ret = -EINVAL;
+			break;
+		}
+		val = ((cfg[0] & ADI_TIA_SEL_MASK) << ADI_TIA_SEL_SHIFT(0)) |
+			((cfg[1] & ADI_TIA_SEL_MASK) << ADI_TIA_SEL_SHIFT(1)) |
+			((cfg[2] & ADI_TIA_SEL_MASK) << ADI_TIA_SEL_SHIFT(2)) |
+			((cfg[3] & ADI_TIA_SEL_MASK) << ADI_TIA_SEL_SHIFT(3));
+		pulse_capture_iowrite(pulse, ADI_REG_TIA_MANUAL_CFG, val);
+		break;
+	default:
+		ret = -EINVAL;
+	}
+
+	return ret ? ret : len;
+}
+
+static IIO_DEVICE_ATTR(sequencer_en, 0644,
+	axi_pulse_capture_show,
+	axi_pulse_capture_store,
+	SEQUENCER_EN);
+
+static IIO_CONST_ATTR_NAMED(sequencer_mode_available,
+	sequencer_mode_available, "auto manual");
+
+static IIO_DEVICE_ATTR(sequencer_mode, 0644,
+	axi_pulse_capture_show,
+	axi_pulse_capture_store,
+	SEQUENCER_MODE);
+
+static IIO_DEVICE_ATTR(sequencer_pulse_delay_ns, 0644,
+	axi_pulse_capture_show,
+	axi_pulse_capture_store,
+	SEQUENCER_PULSE_DELAY);
+
+static IIO_DEVICE_ATTR(sequencer_auto_cfg, 0644,
+	axi_pulse_capture_show,
+	axi_pulse_capture_store,
+	SEQUENCER_AUTO_CFG);
+
+static IIO_DEVICE_ATTR(sequencer_manual_chsel, 0644,
+	axi_pulse_capture_show,
+	axi_pulse_capture_store,
+	SEQUENCER_MANUAL_CHSEL);
+
+static struct attribute *axi_pulse_capture_attributes[] = {
+	&iio_dev_attr_sequencer_en.dev_attr.attr,
+	&iio_const_attr_sequencer_mode_available.dev_attr.attr,
+	&iio_dev_attr_sequencer_mode.dev_attr.attr,
+	&iio_dev_attr_sequencer_pulse_delay_ns.dev_attr.attr,
+	&iio_dev_attr_sequencer_auto_cfg.dev_attr.attr,
+	&iio_dev_attr_sequencer_manual_chsel.dev_attr.attr,
+	NULL
+};
+
+static const struct attribute_group axi_pulse_capture_attribute_group = {
+	.attrs = axi_pulse_capture_attributes,
+};
+
 static const struct iio_info axi_pulse_capture_info = {
 	.driver_module = THIS_MODULE,
 	.debugfs_reg_access = &axi_pulse_capture_reg_access,
 	.read_raw = axi_pulse_capture_read_raw,
 	.write_raw = axi_pulse_capture_write_raw,
+	.attrs = &axi_pulse_capture_attribute_group,
 };
 
 static const u32 version_1_0_0 = AXI_PCORE_VER(1, 0, 'a');
