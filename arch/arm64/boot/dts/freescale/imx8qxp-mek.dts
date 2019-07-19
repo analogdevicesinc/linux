@@ -263,8 +263,8 @@
 		reg = <0x3c>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_parallel_csi>;
-		clocks = <&pi_lpcg IMX_PI_LPCG_PI0_MISC_CLK>;
-		assigned-clocks = <&pi_lpcg IMX_PI_LPCG_PI0_MISC_CLK>;
+		clocks = <&pi0_misc_lpcg 0>;
+		assigned-clocks = <&pi0_misc_lpcg 0>;
 		assigned-clock-rates = <24000000>;
 		clock-names = "xclk";
 		powerdown-gpios = <&lsio_gpio3 2 GPIO_ACTIVE_HIGH>;
@@ -411,7 +411,7 @@
 	compatible = "fsl,imx8qm-esai";
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_esai0>;
-	assigned-clocks = <&adma_acm IMX_ADMA_ACM_ESAI0_MCLK_SEL>,
+	assigned-clocks = <&acm IMX_ADMA_ACM_ESAI0_MCLK_SEL>,
 			<&clk IMX_SC_R_AUDIO_PLL_0 IMX_SC_PM_CLK_PLL>,
 			<&clk IMX_SC_R_AUDIO_PLL_0 IMX_SC_PM_CLK_SLV_BUS>,
 			<&clk IMX_SC_R_AUDIO_PLL_0 IMX_SC_PM_CLK_MST_BUS>,
@@ -434,7 +434,7 @@
 };
 
 &sai4 {
-	assigned-clocks = <&adma_acm IMX_ADMA_ACM_SAI4_MCLK_SEL>,
+	assigned-clocks = <&acm IMX_ADMA_ACM_SAI4_MCLK_SEL>,
 			<&clk IMX_SC_R_AUDIO_PLL_1 IMX_SC_PM_CLK_PLL>,
 			<&clk IMX_SC_R_AUDIO_PLL_1 IMX_SC_PM_CLK_SLV_BUS>,
 			<&clk IMX_SC_R_AUDIO_PLL_1 IMX_SC_PM_CLK_MST_BUS>,
@@ -447,7 +447,7 @@
 };
 
 &sai5 {
-	assigned-clocks = <&adma_acm IMX_ADMA_ACM_SAI5_MCLK_SEL>,
+	assigned-clocks = <&acm IMX_ADMA_ACM_SAI5_MCLK_SEL>,
 			<&clk IMX_SC_R_AUDIO_PLL_1 IMX_SC_PM_CLK_PLL>,
 			<&clk IMX_SC_R_AUDIO_PLL_1 IMX_SC_PM_CLK_SLV_BUS>,
 			<&clk IMX_SC_R_AUDIO_PLL_1 IMX_SC_PM_CLK_MST_BUS>,
@@ -826,14 +826,6 @@
 	status = "okay";
 };
 
-&csi0_lpcg {
-	status = "okay";
-};
-
-&pi_lpcg {
-	status = "okay";
-};
-
 &irqsteer_csi0 {
 	status = "okay";
 };
@@ -889,7 +881,7 @@
 		reg = <0x3c>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_mipi_csi0>;
-		clocks = <&clk IMX_24MHZ>;
+		clocks = <&xtal24m>;
 		clock-names = "xclk";
 		csi_id = <0>;
 		powerdown-gpios = <&lsio_gpio3 7 GPIO_ACTIVE_HIGH>;

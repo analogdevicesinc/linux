@@ -14,7 +14,7 @@
 
 #include "imx8qxp-mek.dts"
 
-&adma_esai0 {
+&esai0 {
 	status = "disabled";
 };
 
