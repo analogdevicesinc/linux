@@ -24,7 +24,7 @@
 		model = "dsp-audio";
 		cpu-dai = <&dspaudio>;
 		audio-codec = <&cs42888>;
-		audio-platform = <&adma_dsp>;
+		audio-platform = <&dsp>;
 	};
 };
 
@@ -61,22 +61,22 @@
 	compatible = "fsl,imx8qxp-dsp";
 	reserved-region = <&dsp_reserved>;
 	reg = <0x596e8000 0x88000>;
-	clocks = <&adma_lpcg IMX_ADMA_LPCG_ESAI_0_IPG_CLK>,
-		<&adma_lpcg IMX_ADMA_LPCG_ESAI_0_EXTAL_CLK>,
-		<&adma_lpcg IMX_ADMA_LPCG_ASRC_0_IPG_CLK>,
-		<&clk IMX_CLK_DUMMY>,
-		<&adma_lpcg IMX_ADMA_LPCG_AUD_PLL_DIV_CLK0_CLK>,
-		<&adma_lpcg IMX_ADMA_LPCG_AUD_PLL_DIV_CLK1_CLK>,
-		<&adma_acm IMX_ADMA_ACM_AUD_CLK0_SEL>,
-		<&adma_acm IMX_ADMA_ACM_AUD_CLK1_SEL>;
+	clocks = <&esai0_lpcg 1>,
+		<&esai0_lpcg 0>,
+		<&asrc0_lpcg 0>,
+		<&clk_dummy>,
+		<&aud_pll_div0_lpcg 0>,
+		<&aud_pll_div1_lpcg 0>,
+		<&acm IMX_ADMA_ACM_AUD_CLK0_SEL>,
+		<&acm IMX_ADMA_ACM_AUD_CLK1_SEL>;
 	clock-names = "esai_ipg", "esai_mclk", "asrc_ipg", "asrc_mem",
 			"asrck_0", "asrck_1", "asrck_2", "asrck_3";
-	assigned-clocks = <&adma_acm IMX_ADMA_ACM_ESAI0_MCLK_SEL>,
-			<&clk IMX_ADMA_AUD_PLL0>,
-			<&clk IMX_ADMA_AUD_PLL_DIV_CLK0_CLK>,
-			<&clk IMX_ADMA_AUD_REC_CLK0_CLK>,
-			<&adma_lpcg IMX_ADMA_LPCG_ESAI_0_EXTAL_CLK>;
-	assigned-clock-parents = <&adma_lpcg IMX_ADMA_LPCG_AUD_PLL_DIV_CLK0_CLK>;
+	assigned-clocks = <&acm IMX_ADMA_ACM_ESAI0_MCLK_SEL>,
+			<&clk IMX_SC_R_AUDIO_PLL_0 IMX_SC_PM_CLK_PLL>,
+			<&clk IMX_SC_R_AUDIO_PLL_0 IMX_SC_PM_CLK_MISC0>,
+			<&clk IMX_SC_R_AUDIO_PLL_0 IMX_SC_PM_CLK_MISC1>,
+			<&esai0_lpcg 0>;
+	assigned-clock-parents = <&aud_pll_div0_lpcg 0>;
 	assigned-clock-rates = <0>, <786432000>, <49152000>, <12288000>, <49152000>;
 	fsl,dsp-firmware = "imx/dsp/hifi4.bin";
 	power-domains = <&pd IMX_SC_R_MU_13A>,
@@ -104,7 +104,7 @@
 	status = "disabled";
 };
 
-&src0 {
+&asrc0 {
 	status = "disabled";
 };
 
@@ -117,9 +117,9 @@
 };
 
 &cs42888 {
-	assigned-clocks = <&clk IMX_ADMA_AUD_PLL0>,
-			<&clk IMX_ADMA_AUD_PLL_DIV_CLK0_CLK>,
-			<&clk IMX_ADMA_AUD_REC_CLK0_CLK>,
-			<&adma_lpcg IMX_ADMA_LPCG_MCLKOUT0>;
+	assigned-clocks = <&clk IMX_SC_R_AUDIO_PLL_0 IMX_SC_PM_CLK_PLL>,
+			  <&clk IMX_SC_R_AUDIO_PLL_0 IMX_SC_PM_CLK_SLV_BUS>,
+			  <&clk IMX_SC_R_AUDIO_PLL_0 IMX_SC_PM_CLK_MST_BUS>,
+			  <&mclkout0_lpcg 0>;
 	assigned-clock-rates = <786432000>, <49152000>, <12288000>, <12288000>;
 };
