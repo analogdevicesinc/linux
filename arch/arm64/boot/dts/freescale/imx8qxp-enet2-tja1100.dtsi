@@ -18,11 +18,11 @@
 
 &fec2 {
 	pinctrl-0 = <&pinctrl_fec2_rmii>;
-	clocks = <&conn_lpcg IMX_CONN_LPCG_ENET1_IPG_CLK>,
-		 <&conn_lpcg IMX_CONN_LPCG_ENET1_AHB_CLK>,
-		 <&conn_lpcg IMX_CONN_LPCG_ENET1_RGMII_TXC_CLK>,
+	clocks = <&enet1_lpcg 4>,
+		 <&enet1_lpcg 2>,
 		 <&clk IMX_CONN_ENET1_RMII_REF_50MHZ_CLK>,
-		 <&conn_lpcg IMX_CONN_LPCG_ENET1_TXC_SAMPLING_CLK>;
+		 <&enet1_lpcg 0>,
+		 <&enet1_lpcg 1>;
 	phy-mode = "rmii";
 	phy-handle = <&ethphy2>;
 	/delete-property/ phy-supply;
