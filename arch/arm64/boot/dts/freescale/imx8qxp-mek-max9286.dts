@@ -41,7 +41,7 @@
 		reg = <0x6a>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_mipi_csi0>;
-		clocks = <&clk IMX_CLK_DUMMY>;
+		clocks = <&clk_dummy>;
 		clock-names = "capture_mclk";
 		mclk = <27000000>;
 		mclk_source = <0>;
