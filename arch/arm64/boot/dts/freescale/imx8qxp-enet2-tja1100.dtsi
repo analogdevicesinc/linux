@@ -21,7 +21,7 @@
 	clocks = <&conn_lpcg IMX_CONN_LPCG_ENET1_IPG_CLK>,
 		 <&conn_lpcg IMX_CONN_LPCG_ENET1_AHB_CLK>,
 		 <&conn_lpcg IMX_CONN_LPCG_ENET1_RGMII_TXC_CLK>,
-		 <&conn_lpcg IMX_CONN_LPCG_ENET1_RMII_REF_50MHZ_CLK>,
+		 <&clk IMX_CONN_ENET1_RMII_REF_50MHZ_CLK>,
 		 <&conn_lpcg IMX_CONN_LPCG_ENET1_TXC_SAMPLING_CLK>;
 	phy-mode = "rmii";
 	phy-handle = <&ethphy2>;
