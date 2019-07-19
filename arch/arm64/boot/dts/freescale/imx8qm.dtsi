@@ -277,6 +277,12 @@
 			     <GIC_PPI 10 IRQ_TYPE_LEVEL_LOW>; /* Hypervisor */
 	};
 
+	clk_dummy: clock-dummy {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-output-names = "clk_dummy";
+	};
+
 	system-controller {
 		compatible = "fsl,imx-scu";
 		mbox-names = "tx0",
