@@ -1243,7 +1243,7 @@ static int ad9361_set_tx_atten(struct ad9361_rf_phy *phy, u32 atten_mdb,
 	dev_dbg(&phy->spi->dev, "%s : attenuation %u mdB tx1=%d tx2=%d",
 		__func__, atten_mdb, tx1, tx2);
 
-	if (atten_mdb > 89750) /* 89.75 dB */
+	if (atten_mdb > MAX_TX_ATTENUATION_DB) /* 89.75 dB */
 		return -EINVAL;
 
 	atten_mdb /= 250; /* Scale to 0.25dB / LSB */
