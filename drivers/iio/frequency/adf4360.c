@@ -16,6 +16,7 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/of.h>
+#include <linux/regulator/consumer.h>
 #include <linux/spi/spi.h>
 
 #include <linux/iio/iio.h>
@@ -121,6 +122,7 @@ enum {
 	ADF4360_POWER_DOWN_SOFT_ASYNC,
 	ADF4360_POWER_DOWN_CE,
 	ADF4360_POWER_DOWN_SOFT_SYNC,
+	ADF4360_POWER_DOWN_REGULATOR,
 };
 
 enum {
@@ -173,6 +175,7 @@ static const char * const adf4360_power_down_modes[] = {
 	[ADF4360_POWER_DOWN_SOFT_ASYNC] = "soft-async",
 	[ADF4360_POWER_DOWN_CE] = "ce",
 	[ADF4360_POWER_DOWN_SOFT_SYNC] = "soft-sync",
+	[ADF4360_POWER_DOWN_REGULATOR] = "regulator",
 };
 
 struct adf4360_output {
@@ -195,6 +198,7 @@ struct adf4360_state {
 	struct clk *clkin;
 	struct gpio_desc *muxout_gpio;
 	struct gpio_desc *chip_en_gpio;
+	struct regulator *vdd_reg;
 	struct mutex lock; /* Protect PLL state. */
 	unsigned int part_id;
 	unsigned long clkin_freq;
@@ -502,11 +506,20 @@ static int adf4360_clk_set_rate(struct clk_hw *hw,
 
 static int __adf4360_power_down(struct adf4360_state *st, unsigned int mode)
 {
+	struct device *dev = &st->spi->dev;
 	unsigned int val;
 	int ret = 0;
 
 	switch (mode) {
 	case ADF4360_POWER_DOWN_NORMAL:
+		if (st->vdd_reg) {
+			ret = regulator_enable(st->vdd_reg);
+			if (ret) {
+				dev_err(dev, "Supply enable error: %d\n", ret);
+				return ret;
+			}
+		}
+
 		if (st->chip_en_gpio)
 			gpiod_set_value(st->chip_en_gpio, 0x1);
 
@@ -525,6 +538,20 @@ static int __adf4360_power_down(struct adf4360_state *st, unsigned int mode)
 			gpiod_set_value(st->chip_en_gpio, 0x0);
 		else
 			return -ENODEV;
+		break;
+	case ADF4360_POWER_DOWN_REGULATOR:
+		if (!st->vdd_reg)
+			return -ENODEV;
+
+		if (st->chip_en_gpio)
+			ret = __adf4360_power_down(st, ADF4360_POWER_DOWN_CE);
+		else
+			ret = __adf4360_power_down(st,
+						ADF4360_POWER_DOWN_SOFT_ASYNC);
+
+		ret = regulator_disable(st->vdd_reg);
+		if (ret)
+			dev_err(dev, "Supply disable error: %d\n", ret);
 		break;
 	}
 	if (ret == 0)
@@ -1043,6 +1070,16 @@ static int adf4360_probe(struct spi_device *spi)
 	ret = adf4360_get_clkin(st);
 	if (ret)
 		return ret;
+
+	st->vdd_reg = devm_regulator_get_optional(&spi->dev, "adi,vdd");
+	if (IS_ERR(st->vdd_reg)) {
+		if (PTR_ERR(st->vdd_reg) != -ENODEV) {
+			dev_err(&spi->dev, "Regulator error\n");
+			return PTR_ERR(st->vdd_reg);
+		}
+
+		st->vdd_reg = NULL;
+	}
 
 	ret = adf4360_power_down(st, ADF4360_POWER_DOWN_NORMAL);
 	if (ret)
