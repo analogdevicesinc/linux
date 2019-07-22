@@ -500,12 +500,11 @@ static int adf4360_clk_set_rate(struct clk_hw *hw,
 	return ret;
 }
 
-static int adf4360_power_down(struct adf4360_state *st, unsigned int mode)
+static int __adf4360_power_down(struct adf4360_state *st, unsigned int mode)
 {
 	unsigned int val;
 	int ret = 0;
 
-	mutex_lock(&st->lock);
 	switch (mode) {
 	case ADF4360_POWER_DOWN_NORMAL:
 		if (st->chip_en_gpio)
@@ -525,14 +524,24 @@ static int adf4360_power_down(struct adf4360_state *st, unsigned int mode)
 		if (st->chip_en_gpio)
 			gpiod_set_value(st->chip_en_gpio, 0x0);
 		else
-			ret = -ENODEV;
+			return -ENODEV;
 		break;
 	}
 	if (ret == 0)
 		st->power_down_mode = mode;
-	mutex_unlock(&st->lock);
 
 	return 0;
+}
+
+static int adf4360_power_down(struct adf4360_state *st, unsigned int mode)
+{
+	int ret;
+
+	mutex_lock(&st->lock);
+	ret = __adf4360_power_down(st, mode);
+	mutex_unlock(&st->lock);
+
+	return ret;
 }
 
 static int adf4360_clk_enable(struct clk_hw *hw)
