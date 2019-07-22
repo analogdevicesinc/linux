@@ -356,6 +356,9 @@ static inline struct dpaa2_faead *dpaa2_get_faead(void *buf_addr, bool swa)
 					 DPAA2_FAS_L3CE		| \
 					 DPAA2_FAS_L4CE)
 
+/* TCP indication in Frame Annotation Parse Results */
+#define DPAA2_FAF_HI_TCP_PRESENT	BIT(23)
+
 /* Time in milliseconds between link state updates */
 #define DPAA2_ETH_LINK_STATE_REFRESH	1000
 
