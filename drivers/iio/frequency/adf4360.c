@@ -162,6 +162,13 @@ enum {
 	ADF4360_MTLD,
 };
 
+static const char * const adf4360_power_level_modes[] = {
+	[ADF4360_PL_3_5] = "3500-uA",
+	[ADF4360_PL_5] = "5000-uA",
+	[ADF4360_PL_7_5] = "7500-uA",
+	[ADF4360_PL_11] = "1100-uA",
+};
+
 static const char * const adf4360_muxout_modes[] = {
 	[ADF4360_MUXOUT_THREE_STATE] = "three-state",
 	[ADF4360_MUXOUT_LOCK_DETECT] = "lock-detect",
@@ -214,6 +221,7 @@ struct adf4360_state {
 	unsigned int cpi;
 	bool pdp;
 	bool mtld;
+	unsigned int power_level;
 	unsigned int muxout_mode;
 	unsigned int power_down_mode;
 	bool initial_reg_seq;
@@ -418,7 +426,7 @@ static int adf4360_set_freq(struct adf4360_state *st, unsigned long rate)
 		   ADF4360_MUXOUT(st->muxout_mode) |
 		   ADF4360_PDP(!st->pdp) |
 		   ADF4360_MTLD(st->mtld) |
-		   ADF4360_OPL(ADF4360_PL_11) |
+		   ADF4360_OPL(st->power_level) |
 		   ADF4360_CPI1(st->cpi) |
 		   ADF4360_CPI2(st->cpi) |
 		   ADF4360_POWERDOWN(st->power_down_mode);
@@ -748,6 +756,42 @@ static const struct iio_enum adf4360_pwr_dwn_modes_available = {
 	.set = adf4360_set_power_down,
 };
 
+static int adf4360_get_power_level(struct iio_dev *indio_dev,
+				   const struct iio_chan_spec *chan)
+{
+	struct adf4360_state *st = iio_priv(indio_dev);
+
+	return st->power_level;
+}
+
+static int adf4360_set_power_level(struct iio_dev *indio_dev,
+				   const struct iio_chan_spec *chan,
+				   unsigned int level)
+{
+	struct adf4360_state *st = iio_priv(indio_dev);
+	unsigned int val;
+	int ret;
+
+	if (adf4360_is_powerdown(st))
+		return -EBUSY;
+
+	mutex_lock(&st->lock);
+	val = st->regs[ADF4360_CTRL] & ~ADF4360_ADDR_OPL_MSK;
+	val |= ADF4360_OPL(level);
+	ret = adf4360_write_reg(st, ADF4360_REG(ADF4360_CTRL), val);
+	st->power_level = level;
+	mutex_unlock(&st->lock);
+
+	return ret;
+}
+
+static const struct iio_enum adf4360_pwr_lvl_modes_available = {
+	.items = adf4360_power_level_modes,
+	.num_items = ARRAY_SIZE(adf4360_power_level_modes),
+	.get = adf4360_get_power_level,
+	.set = adf4360_set_power_level,
+};
+
 #define _ADF4360_EXT_INFO(_name, _ident) { \
 	.name = _name, \
 	.read = adf4360_read, \
@@ -763,6 +807,8 @@ static const struct iio_chan_spec_ext_info adf4360_ext_info[] = {
 	IIO_ENUM("muxout_mode", false, &adf4360_muxout_modes_available),
 	IIO_ENUM_AVAILABLE("power_down", &adf4360_pwr_dwn_modes_available),
 	IIO_ENUM("power_down", false, &adf4360_pwr_dwn_modes_available),
+	IIO_ENUM_AVAILABLE("power_level", &adf4360_pwr_lvl_modes_available),
+	IIO_ENUM("power_level", false, &adf4360_pwr_lvl_modes_available),
 	{ },
 };
 
@@ -1062,6 +1108,7 @@ static int adf4360_probe(struct spi_device *spi)
 	st->part_id = id->driver_data;
 	st->muxout_mode = ADF4360_MUXOUT_LOCK_DETECT;
 	st->mtld = true;
+	st->power_level = ADF4360_PL_11;
 
 	ret = adf4360_parse_dt(st);
 	if (ret) {
