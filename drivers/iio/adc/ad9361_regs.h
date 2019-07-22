@@ -2826,4 +2826,6 @@
 #define MAX_GAIN_TABLE_SIZE		90
 #define MAX_NUM_GAIN_TABLES		16 /* randomly picked */
 
+#define MAX_TX_ATTENUATION_DB		89750
+
 #endif
