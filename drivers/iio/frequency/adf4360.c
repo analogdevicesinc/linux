@@ -160,6 +160,7 @@ enum {
 enum {
 	ADF4360_FREQ_REFIN,
 	ADF4360_MTLD,
+	ADF4360_FREQ_PFD,
 };
 
 static const char * const adf4360_power_level_modes[] = {
@@ -635,6 +636,9 @@ static int adf4360_read(struct iio_dev *indio_dev,
 	case ADF4360_MTLD:
 		val = st->mtld;
 		break;
+	case ADF4360_FREQ_PFD:
+		val = st->pfd_freq;
+		break;
 	default:
 		ret = -EINVAL;
 		val = 0;
@@ -686,6 +690,17 @@ static int adf4360_write(struct iio_dev *indio_dev,
 
 		st->mtld = mtld;
 		break;
+	case ADF4360_FREQ_PFD:
+		ret = kstrtoul(buf, 10, &readin);
+		if (ret)
+			break;
+
+		if ((readin > ADF4360_MAX_PFD_RATE) || (readin == 0)) {
+			ret = -EINVAL;
+			break;
+		}
+
+		st->pfd_freq = readin;
 		break;
 	default:
 		ret = -EINVAL;
@@ -803,6 +818,7 @@ static const struct iio_enum adf4360_pwr_lvl_modes_available = {
 static const struct iio_chan_spec_ext_info adf4360_ext_info[] = {
 	_ADF4360_EXT_INFO("refin_frequency", ADF4360_FREQ_REFIN),
 	_ADF4360_EXT_INFO("mute_till_lock_detect", ADF4360_MTLD),
+	_ADF4360_EXT_INFO("pfd_frequency", ADF4360_FREQ_PFD),
 	IIO_ENUM_AVAILABLE("muxout_mode", &adf4360_muxout_modes_available),
 	IIO_ENUM("muxout_mode", false, &adf4360_muxout_modes_available),
 	IIO_ENUM_AVAILABLE("power_down", &adf4360_pwr_dwn_modes_available),
