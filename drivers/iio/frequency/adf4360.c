@@ -71,7 +71,7 @@ enum {
 	ADF4360_CTRL,
 	ADF4360_RDIV,
 	ADF4360_NDIV,
-	ADF5355_REG_NUM,
+	ADF4360_REG_NUM,
 };
 
 enum {
@@ -214,7 +214,7 @@ struct adf4360_state {
 	unsigned int power_down_mode;
 	bool initial_reg_seq;
 	const char *clk_out_name;
-	unsigned int regs[ADF5355_REG_NUM];
+	unsigned int regs[ADF4360_REG_NUM];
 	u8 spi_data[3] ____cacheline_aligned;
 };
 
@@ -817,7 +817,7 @@ static int adf4360_reg_access(struct iio_dev *indio_dev,
 	struct adf4360_state *st = iio_priv(indio_dev);
 	int ret = 0;
 
-	if (reg >= ADF5355_REG_NUM)
+	if (reg >= ADF4360_REG_NUM)
 		return -EFAULT;
 
 	mutex_lock(&st->lock);
