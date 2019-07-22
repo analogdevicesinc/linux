@@ -13,6 +13,11 @@
 	model = "NXP i.MX7ULP EVK";
 	compatible = "fsl,imx7ulp-evk", "fsl,imx7ulp";
 
+	aliases {
+		gpio4 = &rpmsg_gpio0;
+		gpio5 = &rpmsg_gpio1;
+	};
+
 	chosen {
 		stdout-path = &lpuart4;
 	};
@@ -28,6 +33,13 @@
 		brightness-levels = <0 20 25 30 35 40 100>;
 		default-brightness-level = <6>;
 		status = "okay";
+	};
+
+	modem_reset: modem-reset {
+		compatible = "gpio-reset";
+		reset-gpios = <&rpmsg_gpio0 15 GPIO_ACTIVE_LOW>;
+		reset-delay-us = <1000>;
+		#reset-cells = <0>;
 	};
 
 	reg_usb_otg1_vbus: regulator-usb-otg1-vbus {
@@ -51,12 +63,51 @@
 		gpio = <&gpio_ptd 0 GPIO_ACTIVE_HIGH>;
 		enable-active-high;
 	};
+
+	rpmsg_gpio0: rpmsg-gpio0 {
+		compatible = "fsl,imx-rpmsg-gpio";
+		port_idx = <0>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		#interrupt-cells = <2>;
+		interrupt-controller;
+		interrupt-parent = <&rpmsg_gpio0>;
+		status = "okay";
+	};
+
+	rpmsg_gpio1: rpmsg-gpio1 {
+		compatible = "fsl,imx-rpmsg-gpio";
+		port_idx = <1>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		#interrupt-cells = <2>;
+		interrupt-controller;
+		interrupt-parent = <&rpmsg_gpio1>;
+		status = "okay";
+	};
+
 };
 
 &lpuart4 {
-	pinctrl-names = "default";
+	pinctrl-names = "default", "sleep";
 	pinctrl-0 = <&pinctrl_lpuart4>;
+	pinctrl-1 = <&pinctrl_lpuart4>;
 	status = "okay";
+};
+
+&lpuart6 { /* BT */
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&pinctrl_lpuart6>;
+	pinctrl-1 = <&pinctrl_lpuart6>;
+	resets = <&modem_reset>;
+	status = "okay";
+};
+
+&lpuart7 { /* Uart test */
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&pinctrl_lpuart7>;
+	pinctrl-1 = <&pinctrl_lpuart7>;
+	status = "disabled";
 };
 
 &rpmsg{
@@ -104,6 +155,25 @@
 			IMX7ULP_PAD_PTC2__LPUART4_TX	0x3
 		>;
 		bias-pull-up;
+	};
+
+	pinctrl_lpuart6: lpuart6grp {
+		fsl,pins = <
+			IMX7ULP_PAD_PTE10__LPUART6_TX	0x3
+			IMX7ULP_PAD_PTE11__LPUART6_RX	0x3
+			IMX7ULP_PAD_PTE9__LPUART6_RTS_B	0x3
+			IMX7ULP_PAD_PTE8__LPUART6_CTS_B	0x3
+			IMX7ULP_PAD_PTE7__PTE7		0x20000	/* BT_REG_ON */
+		>;
+	};
+
+	pinctrl_lpuart7: lpuart7grp {
+		fsl,pins = <
+			IMX7ULP_PAD_PTF14__LPUART7_TX		0x3
+			IMX7ULP_PAD_PTF15__LPUART7_RX		0x3
+			IMX7ULP_PAD_PTF13__LPUART7_RTS_B	0x3
+			IMX7ULP_PAD_PTF12__LPUART7_CTS_B	0x3
+		>;
 	};
 
 	pinctrl_pwm0: pwm0grp {
