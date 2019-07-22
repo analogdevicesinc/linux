@@ -236,8 +236,6 @@ static int adxcvr_clk_enable(struct clk_hw *hw)
 
 	adxcvr_write(st, ADXCVR_REG_RESETN, ADXCVR_RESETN);
 
-	mdelay(100);
-
 	ret = adxcvr_status_error(st->dev);
 
 	return ret;
