@@ -157,7 +157,10 @@ enum {
 	ID_ADF4360_9,
 };
 
-#define ADF4360_FREQ_REFIN		0
+enum {
+	ADF4360_FREQ_REFIN,
+	ADF4360_MTLD,
+};
 
 static const char * const adf4360_muxout_modes[] = {
 	[ADF4360_MUXOUT_THREE_STATE] = "three-state",
@@ -210,6 +213,7 @@ struct adf4360_state {
 	unsigned int pfd_freq;
 	unsigned int cpi;
 	bool pdp;
+	bool mtld;
 	unsigned int muxout_mode;
 	unsigned int power_down_mode;
 	bool initial_reg_seq;
@@ -413,7 +417,7 @@ static int adf4360_set_freq(struct adf4360_state *st, unsigned long rate)
 	val_ctrl = ADF4360_CPL(st->info->default_cpl) |
 		   ADF4360_MUXOUT(st->muxout_mode) |
 		   ADF4360_PDP(!st->pdp) |
-		   ADF4360_MTLD(true) |
+		   ADF4360_MTLD(st->mtld) |
 		   ADF4360_OPL(ADF4360_PL_11) |
 		   ADF4360_CPI1(st->cpi) |
 		   ADF4360_CPI2(st->cpi) |
@@ -620,6 +624,9 @@ static int adf4360_read(struct iio_dev *indio_dev,
 	case ADF4360_FREQ_REFIN:
 		val = st->clkin_freq;
 		break;
+	case ADF4360_MTLD:
+		val = st->mtld;
+		break;
 	default:
 		ret = -EINVAL;
 		val = 0;
@@ -635,15 +642,16 @@ static int adf4360_write(struct iio_dev *indio_dev,
 {
 	struct adf4360_state *st = iio_priv(indio_dev);
 	unsigned long readin, tmp;
+	bool mtld;
 	int ret = 0;
-
-	ret = kstrtoul(buf, 10, &readin);
-	if (ret)
-		return ret;
 
 	mutex_lock(&st->lock);
 	switch ((u32)private) {
 	case ADF4360_FREQ_REFIN:
+		ret = kstrtoul(buf, 10, &readin);
+		if (ret)
+			break;
+
 		if ((readin > ADF4360_MAX_REFIN_RATE) || (readin == 0)) {
 			ret = -EINVAL;
 			break;
@@ -662,11 +670,21 @@ static int adf4360_write(struct iio_dev *indio_dev,
 		}
 
 		st->clkin_freq = readin;
-		ret = adf4360_set_freq(st, st->freq_req);
+		break;
+	case ADF4360_MTLD:
+		ret = kstrtobool(buf, &mtld);
+		if (ret)
+			break;
+
+		st->mtld = mtld;
+		break;
 		break;
 	default:
 		ret = -EINVAL;
 	}
+
+	if (ret == 0)
+		ret = adf4360_set_freq(st, st->freq_req);
 	mutex_unlock(&st->lock);
 
 	return ret ? ret : len;
@@ -740,6 +758,7 @@ static const struct iio_enum adf4360_pwr_dwn_modes_available = {
 
 static const struct iio_chan_spec_ext_info adf4360_ext_info[] = {
 	_ADF4360_EXT_INFO("refin_frequency", ADF4360_FREQ_REFIN),
+	_ADF4360_EXT_INFO("mute_till_lock_detect", ADF4360_MTLD),
 	IIO_ENUM_AVAILABLE("muxout_mode", &adf4360_muxout_modes_available),
 	IIO_ENUM("muxout_mode", false, &adf4360_muxout_modes_available),
 	IIO_ENUM_AVAILABLE("power_down", &adf4360_pwr_dwn_modes_available),
@@ -1042,6 +1061,7 @@ static int adf4360_probe(struct spi_device *spi)
 	st->info = &adf4360_chip_info_tbl[id->driver_data];
 	st->part_id = id->driver_data;
 	st->muxout_mode = ADF4360_MUXOUT_LOCK_DETECT;
+	st->mtld = true;
 
 	ret = adf4360_parse_dt(st);
 	if (ret) {
