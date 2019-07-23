@@ -245,6 +245,8 @@ int xilinx_xcvr_configure_cdr(struct xilinx_xcvr *xcvr,
 	case XILINX_XCVR_TYPE_US_GTY4:
 		return xilinx_xcvr_gth3_configure_cdr(xcvr, drp_port, out_div);
 	default:
+		dev_err(xcvr->dev, "Unknown transceiver type %d in '%s'\n",
+			xcvr->type, __func__);
 		return -EINVAL;
 	}
 }
@@ -268,6 +270,10 @@ int xilinx_xcvr_configure_lpm_dfe_mode(struct xilinx_xcvr *xcvr,
 		else
 			xilinx_xcvr_drp_write(xcvr, drp_port, 0x029, 0x0954);
 		break;
+	default:
+		dev_err(xcvr->dev, "Unknown transceiver type %d in '%s'\n",
+			xcvr->type, __func__);
+		return -EINVAL;
 	}
 
 	return 0;
@@ -318,6 +324,11 @@ static void xilinx_xcvr_setup_qpll_vco_range(struct xilinx_xcvr *xcvr,
 				*vco0_max = 10312500;
 			*vco1_max = *vco0_max;
 		}
+		break;
+	default:
+		dev_err(xcvr->dev, "Unknown transceiver type %d in '%s'\n",
+			xcvr->type, __func__);
+		return;
 	}
 }
 
@@ -344,6 +355,8 @@ int xilinx_xcvr_calc_cpll_config(struct xilinx_xcvr *xcvr,
 		vco_max = 6250000;
 		break;
 	default:
+		dev_err(xcvr->dev, "Unknown transceiver type %d in '%s'\n",
+			xcvr->type, __func__);
 		return -EINVAL;
 	}
 
@@ -432,6 +445,8 @@ int xilinx_xcvr_calc_qpll_config(struct xilinx_xcvr *xcvr,
 		vco1_max = vco0_max;
 		break;
 	default:
+		dev_err(xcvr->dev, "Unknown transceiver type %d in '%s'\n",
+			xcvr->type, __func__);
 		return -EINVAL;
 	}
 
@@ -579,6 +594,8 @@ int xilinx_xcvr_cpll_read_config(struct xilinx_xcvr *xcvr,
 	case XILINX_XCVR_TYPE_US_GTY4:
 		return xilinx_xcvr_gth34_cpll_read_config(xcvr, drp_port, conf);
 	default:
+		dev_err(xcvr->dev, "Unknown transceiver type %d in '%s'\n",
+			xcvr->type, __func__);
 		return -EINVAL;
 	}
 }
@@ -704,6 +721,8 @@ int xilinx_xcvr_cpll_write_config(struct xilinx_xcvr *xcvr,
 	case XILINX_XCVR_TYPE_US_GTY4:
 		return xilinx_xcvr_gth34_cpll_write_config(xcvr, drp_port, conf);
 	default:
+		dev_err(xcvr->dev, "Unknown transceiver type %d in '%s'\n",
+			xcvr->type, __func__);
 		return -EINVAL;
 	}
 }
@@ -850,6 +869,8 @@ int xilinx_xcvr_qpll_read_config(struct xilinx_xcvr *xcvr,
 	case XILINX_XCVR_TYPE_US_GTY4:
 		return xilinx_xcvr_gth34_qpll_read_config(xcvr, drp_port, conf);
 	default:
+		dev_err(xcvr->dev, "Unknown transceiver type %d in '%s'\n",
+			xcvr->type, __func__);
 		return -EINVAL;
 	}
 }
@@ -989,6 +1010,8 @@ int xilinx_xcvr_qpll_write_config(struct xilinx_xcvr *xcvr,
 	case XILINX_XCVR_TYPE_US_GTY4:
 		return xilinx_xcvr_gth34_qpll_write_config(xcvr, drp_port, conf);
 	default:
+		dev_err(xcvr->dev, "Unknown transceiver type %d in '%s'\n",
+			xcvr->type, __func__);
 		return -EINVAL;
 	}
 }
@@ -1060,6 +1083,8 @@ int xilinx_xcvr_read_out_div(struct xilinx_xcvr *xcvr, unsigned int drp_port,
 		return xilinx_xcvr_gth34_read_out_div(xcvr, drp_port,
 			rx_out_div, tx_out_div);
 	default:
+		dev_err(xcvr->dev, "Unknown transceiver type %d in '%s'\n",
+			xcvr->type, __func__);
 		return -EINVAL;
 	}
 }
@@ -1133,6 +1158,8 @@ int xilinx_xcvr_write_out_div(struct xilinx_xcvr *xcvr, unsigned int drp_port,
 		return xilinx_xcvr_gth34_write_out_div(xcvr, drp_port,
 			rx_out_div, tx_out_div);
 	default:
+		dev_err(xcvr->dev, "Unknown transceiver type %d in '%s'\n",
+			xcvr->type, __func__);
 		return -EINVAL;
 	}
 }
@@ -1162,6 +1189,8 @@ int xilinx_xcvr_write_rx_clk25_div(struct xilinx_xcvr *xcvr,
 		reg = 0x6d;
 		break;
 	default:
+		dev_err(xcvr->dev, "Unknown transceiver type %d in '%s'\n",
+			xcvr->type, __func__);
 		return -EINVAL;
 	}
 
@@ -1192,6 +1221,8 @@ int xilinx_xcvr_write_tx_clk25_div(struct xilinx_xcvr *xcvr,
 		reg = 0x7a;
 		break;
 	default:
+		dev_err(xcvr->dev, "Unknown transceiver type %d in '%s'\n",
+			xcvr->type, __func__);
 		return -EINVAL;
 	}
 
