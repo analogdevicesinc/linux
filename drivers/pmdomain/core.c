@@ -2282,7 +2282,7 @@ int pm_genpd_init(struct generic_pm_domain *genpd,
 
 	/* Multiple states but no governor doesn't make sense. */
 	if (!gov && genpd->state_count > 1)
-		pr_warn("%s: no governor for states\n", genpd->name);
+		pr_debug("%s: no governor for states\n", genpd->name);
 
 	ret = genpd_alloc_data(genpd);
 	if (ret)
