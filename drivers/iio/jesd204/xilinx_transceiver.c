@@ -376,7 +376,7 @@ int xilinx_xcvr_calc_cpll_config(struct xilinx_xcvr *xcvr,
 		}
 	}
 
-	dev_dbg(xcvr->dev,
+	dev_err(xcvr->dev,
 		 "CPLL: failed to find setting for lane rate %u kHz with reference clock %u kHz\n",
 		lane_rate_khz, refclk_khz);
 
@@ -473,7 +473,7 @@ int xilinx_xcvr_calc_qpll_config(struct xilinx_xcvr *xcvr,
 		}
 	}
 
-	dev_dbg(xcvr->dev,
+	dev_err(xcvr->dev,
 		 "QPLL: failed to find setting for lane rate %u kHz with reference clock %u kHz\n",
 		 lane_rate_khz, refclk_khz);
 
@@ -877,7 +877,7 @@ static int xilinx_xcvr_gth34_qpll_write_config(struct xilinx_xcvr *xcvr,
 		refclk = 2;
 		break;
 	default:
-		dev_dbg(xcvr->dev, "Invalid refclk divider: %d\n",
+		dev_err(xcvr->dev, "Invalid refclk divider: %d\n",
 			conf->refclk_div);
 		return -EINVAL;
 	}
@@ -911,7 +911,7 @@ static int xilinx_xcvr_gtx2_qpll_write_config(struct xilinx_xcvr *xcvr,
 		cfg1 = QPLL_REFCLK_DIV_M(2);
 		break;
 	default:
-		dev_dbg(xcvr->dev, "Invalid refclk divider: %d\n",
+		dev_err(xcvr->dev, "Invalid refclk divider: %d\n",
 			conf->refclk_div);
 		return -EINVAL;
 	}
@@ -945,7 +945,7 @@ static int xilinx_xcvr_gtx2_qpll_write_config(struct xilinx_xcvr *xcvr,
 		fbdiv = 368;
 		break;
 	default:
-		dev_dbg(xcvr->dev, "Invalid feedback divider: %d\n",
+		dev_err(xcvr->dev, "Invalid feedback divider: %d\n",
 			conf->fb_div);
 		return -EINVAL;
 	}
