@@ -11,3 +11,15 @@
 &jpegenc {
 	compatible = "nxp,imx8qxp-jpgenc";
 };
+
+&csi1_pxl_lpcg {
+	status = "disabled";
+};
+
+&csi1_core_lpcg {
+	status = "disabled";
+};
+
+&csi1_esc_lpcg {
+	status = "disabled";
+};
