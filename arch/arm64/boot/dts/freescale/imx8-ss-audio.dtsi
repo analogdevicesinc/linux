@@ -584,6 +584,7 @@ audio_subsys: bus@59000000 {
 		clock-output-names = "sai4_lpcg_mclk",
 				     "sai4_lpcg_ipg_clk";
 		power-domains = <&pd IMX_SC_R_SAI_4>;
+		status = "disabled";
 	};
 
 	sai5_lpcg: clock-controller@59c30000 {
@@ -596,6 +597,7 @@ audio_subsys: bus@59000000 {
 		clock-output-names = "sai5_lpcg_mclk",
 				     "sai5_lpcg_ipg_clk";
 		power-domains = <&pd IMX_SC_R_SAI_5>;
+		status = "disabled";
 	};
 
 	amix_lpcg: clock-controller@59c40000 {
