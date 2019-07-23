@@ -1,0 +1,80 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2018 NXP
+ *	Richard Zhu <hongxing.zhu@nxp.com>
+ */
+
+&hsio_subsys {
+	pciea_lpcg: clock-controller@5f050000 {
+		compatible = "fsl,imx8qxp-lpcg";
+		reg = <0x5f050000 0x10000>;
+		#clock-cells = <1>;
+		clocks = <&hsio_axi_clk>, <&hsio_axi_clk>, <&hsio_axi_clk>;
+		bit-offset = <16 20 24>;
+		clock-output-names = "hsio_pciea_mstr_axi_clk",
+				     "hsio_pciea_slv_axi_clk",
+				     "hsio_pciea_dbi_axi_clk";
+		power-domains = <&pd IMX_SC_R_PCIE_A>;
+	};
+
+	phyx2_crr0_lpcg: clock-controller@5f0a0000 {
+		compatible = "fsl,imx8qxp-lpcg";
+		reg = <0x5f0a0000 0x10000>;
+		#clock-cells = <1>;
+		clocks = <&hsio_per_clk>;
+		bit-offset = <0>; /* FIXME: not bit 16? */
+		clock-output-names = "hsio_phyx2_clk";
+		power-domains = <&pd IMX_SC_R_SERDES_0>;
+	};
+
+	pciea_crr2_lpcg: clock-controller@5f0c0000 {
+		compatible = "fsl,imx8qxp-lpcg";
+		reg = <0x5f0c0000 0x10000>;
+		#clock-cells = <1>;
+		clocks = <&hsio_per_clk>;
+		bit-offset = <16>;
+		clock-output-names = "hsio_pciea_per_clk";
+		power-domains = <&pd IMX_SC_R_PCIE_A>;
+	};
+
+	pciea: pcie@0x5f000000 {
+		compatible = "fsl,imx8qm-pcie","snps,dw-pcie";
+		reg = <0x5f000000 0x10000>, /* Controller reg */
+		      <0x6ff00000 0x80000>; /* PCI cfg space */
+		reg-names = "dbi", "config";
+		#address-cells = <3>;
+		#size-cells = <2>;
+		device_type = "pci";
+		bus-range = <0x00 0xff>;
+		ranges = <0x81000000 0 0x00000000 0x6ff80000 0 0x00010000 /* downstream I/O */
+			  0x82000000 0 0x60000000 0x60000000 0 0x0ff00000>; /* non-prefetchable memory */
+		num-lanes = <1>;
+		interrupts = <GIC_SPI 70 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 72 IRQ_TYPE_LEVEL_HIGH>; /* eDMA */
+		interrupt-names = "msi";
+		#interrupt-cells = <1>;
+		interrupt-map-mask = <0 0 0 0x7>;
+		interrupt-map =  <0 0 0 1 &gic 0 73 4>,
+				 <0 0 0 2 &gic 0 74 4>,
+				 <0 0 0 3 &gic 0 75 4>,
+				 <0 0 0 4 &gic 0 76 4>;
+		/*
+		 * Set these clocks in default, then clocks should be
+		 * refined for exact hw design of imx8 pcie.
+		 */
+		clocks = <&pciea_lpcg 0>,
+			 <&pciea_lpcg 1>,
+			 <&phyx2_crr0_lpcg 0>,
+			 <&pciea_crr2_lpcg 0>,
+			 <&pciea_lpcg 2>;
+		clock-names = "pcie", "pcie_bus", "pcie_phy", "pcie_per", "pcie_inbound_axi";
+		power-domains = <&pd IMX_SC_R_PCIE_A>,
+				<&pd IMX_SC_R_SERDES_0>,
+				<&pd IMX_SC_R_HSIO_GPIO>;
+		power-domain-names = "pcie", "pcie_phy", "hsio_gpio";
+		fsl,max-link-speed = <3>;
+		hsio-cfg = <PCIEAX1PCIEBX1SATA>;
+		local-addr = <0x40000000>;
+		status = "disabled";
+	};
+};
