@@ -719,15 +719,6 @@ static int imx_lcdif_resume(struct device *dev)
 {
 	return imx_lcdif_runtime_resume(dev);
 }
-#else
-static int imx_lcdif_suspend(struct device *dev)
-{
-	return 0;
-}
-static int imx_lcdif_resume(struct device *dev)
-{
-	return 0;
-}
 #endif
 
 #ifdef CONFIG_PM
