@@ -35,6 +35,15 @@ config NVMEM_APPLE_EFUSES
 	  This driver can also be built as a module. If so, the module will
 	  be called nvmem-apple-efuses.
 
+config NVMEM_AXI_SYSID
+	tristate "Analog Devices AXI System ID Support"
+	depends on ARCH_ZYNQMP || ARCH_ZYNQ || MICROBLAZE || ARCH_INTEL_SOCFPGA || NIOS2
+	depends on HAS_IOMEM
+	help
+	  Say Y here to include AXI System ID support.
+	  To compile this driver as a module, choose M here: the module
+	  will be called axi_sysid.
+
 config NVMEM_BCM_OCOTP
 	tristate "Broadcom On-Chip OTP Controller support"
 	depends on ARCH_BCM_IPROC || COMPILE_TEST
