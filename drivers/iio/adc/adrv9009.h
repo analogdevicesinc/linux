@@ -38,6 +38,7 @@ enum debugfs_cmd {
 	DBGFS_BIST_FRAMER_A_LOOPBACK,
 	DBGFS_BIST_FRAMER_B_LOOPBACK,
 	DBGFS_BIST_TONE,
+	DBGFS_GPIO3V3,
 };
 
 
@@ -180,6 +181,9 @@ struct adrv9009_rf_phy {
 	taliseTxAttenCtrlPin_t	tx2_atten_ctrl_pin;
 	taliseTxPaProtectCfg_t	tx_pa_protection;
 	taliseRxHd2Config_t	rx_hd2_config;
+	uint16_t		gpio3v3SrcCtrl;
+	uint16_t 		gpio3v3PinLevel;
+	uint16_t 		gpio3v3OutEn;
 
 	int16_t rxFirCoefs[72];
 	int16_t obsrxFirCoefs[72];
@@ -204,7 +208,7 @@ struct adrv9009_rf_phy {
 	struct clk 		*clks[NUM_ADRV9009_CLKS];
 	struct adrv9009_clock	clk_priv[NUM_ADRV9009_CLKS];
 	struct clk_onecell_data	clk_data;
-	struct adrv9009_debugfs_entry debugfs_entry[338];
+	struct adrv9009_debugfs_entry debugfs_entry[342];
 	struct bin_attribute 	bin;
 	struct bin_attribute 	bin_gt;
 	struct iio_dev 		*indio_dev;
