@@ -1,0 +1,14 @@
+* Analog Devices AXI System ID Support
+
+Required properties:
+  - compatible: Should be "adi,axi-sysid-1.00.a"
+  - reg: Must contain an entry with the physical base address and lenght
+
+See nvmem.txt for more information.
+
+Example:
+	axi_sysid_0: axi-sysid-0@45000000 {
+		compatible = "adi,axi-sysid-1.00.a";
+		reg = <0x45000000 0x10000>;
+	};
+
