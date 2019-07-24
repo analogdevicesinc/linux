@@ -155,6 +155,8 @@ static int xilinx_xcvr_gtx2_configure_cdr(struct xilinx_xcvr *xcvr,
 		cfg3 = 0x8000;
 		break;
 	default:
+		dev_err(xcvr->dev, "Invalid refclk_ppm value %u in '%s'\n",
+			xcvr->refclk_ppm, __func__);
 		return -EINVAL;
 	}
 
