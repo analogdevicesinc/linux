@@ -384,6 +384,11 @@
 			reg = <0x7C4c0000 0x10000>;
 			clocks = <&converter_clock>;
 		};
+
+		axi_sysid_0: axi-sysid-0@45000000 {
+			compatible = "adi,axi-sysid-1.00.a";
+			reg = <0x45000000 0x10000>;
+		};
 	};
 };
 

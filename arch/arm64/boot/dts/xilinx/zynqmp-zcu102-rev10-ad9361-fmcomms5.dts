@@ -112,6 +112,11 @@
 			clock-names = "sampl_clk";
 			mastercore-reg = <0x99024000 0x1000>;
 		};
+
+		axi_sysid_0: axi-sysid-0@85000000 {
+			compatible = "adi,axi-sysid-1.00.a";
+			reg = <0x85000000 0x10000>;
+		};
 	};
 };
 
