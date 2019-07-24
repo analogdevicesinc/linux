@@ -179,6 +179,8 @@ static int xilinx_xcvr_gtx2_configure_cdr(struct xilinx_xcvr *xcvr,
 			cfg1 = 0x1008;
 			break;
 		default:
+			dev_err(xcvr->dev, "Invalid out_div value %u in '%s'\n",
+				out_div, __func__);
 			return -EINVAL;
 		}
 
@@ -219,6 +221,8 @@ static int xilinx_xcvr_gtx2_configure_cdr(struct xilinx_xcvr *xcvr,
 			cfg1 = 0x4008;
 			break;
 		default:
+			dev_err(xcvr->dev, "Invalid out_div value %u in '%s'\n",
+				out_div, __func__);
 			return -EINVAL;
 		}
 	}
@@ -624,6 +628,8 @@ static int xilinx_xcvr_gth34_cpll_write_config(struct xilinx_xcvr *xcvr,
 		val = 0x3;
 		break;
 	default:
+		dev_err(xcvr->dev, "Invalid fb_div_N2 value %u in '%s'\n",
+			conf->fb_div_N2, __func__);
 		return -EINVAL;
 	}
 
@@ -636,6 +642,8 @@ static int xilinx_xcvr_gth34_cpll_write_config(struct xilinx_xcvr *xcvr,
 		val |= CPLL_FB_DIV_45_N1_MASK;
 		break;
 	default:
+		dev_err(xcvr->dev, "Invalid fb_div_N1 value %u in '%s'\n",
+			conf->fb_div_N1, __func__);
 		return -EINVAL;
 	}
 
@@ -652,6 +660,8 @@ static int xilinx_xcvr_gth34_cpll_write_config(struct xilinx_xcvr *xcvr,
 		val = 0;
 		break;
 	default:
+		dev_err(xcvr->dev, "Invalid refclk_div value %u in '%s'\n",
+			conf->refclk_div, __func__);
 		return -EINVAL;
 	}
 
@@ -673,6 +683,8 @@ static int xilinx_xcvr_gtx2_cpll_write_config(struct xilinx_xcvr *xcvr,
 		val |= CPLL_FB_DIV_45_N1_MASK;
 		break;
 	default:
+		dev_err(xcvr->dev, "Invalid fb_div_N1 value %u in '%s'\n",
+			conf->fb_div_N1, __func__);
 		return -EINVAL;
 	}
 
@@ -692,6 +704,8 @@ static int xilinx_xcvr_gtx2_cpll_write_config(struct xilinx_xcvr *xcvr,
 		val |= 0x3;
 		break;
 	default:
+		dev_err(xcvr->dev, "Invalid fb_div_N2 value %u in '%s'\n",
+			conf->fb_div_N2, __func__);
 		return -EINVAL;
 	}
 
@@ -702,6 +716,8 @@ static int xilinx_xcvr_gtx2_cpll_write_config(struct xilinx_xcvr *xcvr,
 	case 2:
 		break;
 	default:
+		dev_err(xcvr->dev, "Invalid ref_clk_div value %u in '%s'\n",
+			conf->refclk_div, __func__);
 		return -EINVAL;
 	}
 
@@ -1170,8 +1186,11 @@ int xilinx_xcvr_write_rx_clk25_div(struct xilinx_xcvr *xcvr,
 {
 	unsigned int reg, mask;
 
-	if (div == 0 || div > 32)
+	if (div == 0 || div > 32) {
+		dev_err(xcvr->dev, "Invalid div value %u in '%s'\n",
+			div, __func__);
 		return -EINVAL;
+	}
 
 	div--;
 
@@ -1203,8 +1222,11 @@ int xilinx_xcvr_write_tx_clk25_div(struct xilinx_xcvr *xcvr,
 {
 	unsigned int reg, mask;
 
-	if (div == 0 || div > 32)
+	if (div == 0 || div > 32) {
+		dev_err(xcvr->dev, "Invalid div value %u in '%s'\n",
+			div, __func__);
 		return -EINVAL;
+	}
 
 	div--;
 
