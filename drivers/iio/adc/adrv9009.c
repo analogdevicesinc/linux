@@ -1033,6 +1033,17 @@ static int adrv9009_do_setup(struct adrv9009_rf_phy *phy)
 		goto out_disable_obs_rx_clk;
 	}
 
+	if (phy->gpio3v3SrcCtrl) {
+		ret = TALISE_setGpio3v3SourceCtrl(phy->talDevice, phy->gpio3v3SrcCtrl);
+		if (ret != TALACT_NO_ACTION) {
+			dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
+			ret = -EFAULT;
+			goto out_disable_obs_rx_clk;
+		}
+		TALISE_setGpio3v3PinLevel(phy->talDevice, phy->gpio3v3PinLevel);
+		TALISE_setGpio3v3Oe(phy->talDevice, phy->gpio3v3OutEn, 0xFFF);
+	}
+
 	if (has_tx(phy)) {
 		ret = TALISE_setPaProtectionCfg(phy->talDevice, &phy->tx_pa_protection);
 		if (ret != TALACT_NO_ACTION) {
@@ -3358,6 +3369,7 @@ static ssize_t adrv9009_debugfs_write(struct file *file,
 	taliseTxNcoTestToneCfg_t nco_config;
 	u32 val2, val3, val4;
 	s64 val;
+	u16 level;
 	char buf[80];
 	int ret;
 
@@ -3367,7 +3379,7 @@ static ssize_t adrv9009_debugfs_write(struct file *file,
 
 	buf[count] = 0;
 
-	ret = sscanf(buf, "%lld %i %i %i", &val, &val2, &val3, &val4);
+	ret = sscanf(buf, "%lli %i %i %i", &val, &val2, &val3, &val4);
 	if (ret < 1)
 		return -EINVAL;
 
@@ -3425,6 +3437,48 @@ static ssize_t adrv9009_debugfs_write(struct file *file,
 
 		entry->val = val;
 		return count;
+	case DBGFS_GPIO3V3:
+		mutex_lock(&phy->indio_dev->mlock);
+		if (ret == 1) {
+			ret = TALISE_getGpio3v3PinLevel(phy->talDevice, &level);
+			if (ret < 0) {
+				mutex_unlock(&phy->indio_dev->mlock);
+				return ret;
+			}
+			if (val == 0xFFF)
+				entry->val = level;
+			else if (val >= 0 && val < 12)
+				entry->val = !!(level & BIT(val));
+			else
+				ret = -EINVAL;
+		} else if (ret == 2) {
+			if (val == 0xFFF) {
+				level = val2;
+				entry->val = val2;
+				ret = TALISE_setGpio3v3PinLevel(phy->talDevice, level);
+			} else if (val >= 0 && val < 12) {
+				ret = TALISE_getGpio3v3PinLevel(phy->talDevice, &level);
+				if (ret < 0) {
+					mutex_unlock(&phy->indio_dev->mlock);
+					return ret;
+				}
+
+				if (val2)
+					level |= BIT(val);
+				else
+					level &= ~BIT(val);
+
+				entry->val = !!val2;
+				ret = TALISE_setGpio3v3PinLevel(phy->talDevice, level);
+			} else {
+				ret = -EINVAL;
+			}
+
+		} else {
+			ret = -EINVAL;
+		}
+		mutex_unlock(&phy->indio_dev->mlock);
+		break;
 	default:
 		break;
 	}
@@ -3490,6 +3544,7 @@ static int adrv9009_register_debugfs(struct iio_dev *indio_dev)
 	adrv9009_add_debugfs_entry(phy, "bist_framer_a_loopback", DBGFS_BIST_FRAMER_A_LOOPBACK);
 	adrv9009_add_debugfs_entry(phy, "bist_framer_b_loopback", DBGFS_BIST_FRAMER_B_LOOPBACK);
 	adrv9009_add_debugfs_entry(phy, "bist_tone", DBGFS_BIST_TONE);
+	adrv9009_add_debugfs_entry(phy, "gpio3v3", DBGFS_GPIO3V3);
 
 	for (i = 0; i < phy->adrv9009_debugfs_entry_index; i++)
 		d = debugfs_create_file(
@@ -3964,6 +4019,12 @@ static int adrv9009_phy_parse_dt(struct iio_dev *iodev, struct device *dev)
 	ADRV9009_OF_PROP("adi,arm-gpio-config-en-tx-tracking-cals-enable",
 			 &phy->arm_gpio_config.enTxTrackingCals.enable, 0);
 
+	ADRV9009_OF_PROP("adi,gpio3v3-source-control",
+			 &phy->gpio3v3SrcCtrl, 0);
+	ADRV9009_OF_PROP("adi,gpio3v3-output-enable-mask",
+			 &phy->gpio3v3OutEn, 0);
+	ADRV9009_OF_PROP("adi,gpio3v3-output-level-mask",
+			 &phy->gpio3v3PinLevel, 0);
 
 	ADRV9009_OF_PROP("adi,orx-lo-cfg-disable-aux-pll-relocking",
 			 &phy->orx_lo_cfg.disableAuxPllRelocking, 0);
