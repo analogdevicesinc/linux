@@ -353,9 +353,11 @@ int ad9361_hdl_loopback(struct ad9361_rf_phy *phy, bool enable)
 		reg = axiadc_read(st, addr + (chan) * 0x40);
 
 		if (ADI_AXI_PCORE_VER_MAJOR(version) > 7) {
-			if (enable && reg != 0x8) {
-				conv->scratch_reg[chan] = reg;
-				reg = 0x8;
+			if (enable) {
+				if (reg != 0x8) {
+					conv->scratch_reg[chan] = reg;
+					reg = 0x8;
+				}
 			} else if (reg == 0x8) {
 				reg = conv->scratch_reg[chan];
 			}
