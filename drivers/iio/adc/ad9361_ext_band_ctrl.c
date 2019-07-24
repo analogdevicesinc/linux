@@ -176,8 +176,6 @@ static int ad9361_parse_setting_seq(struct device *dev,
 		nseq->delay = args[0]; /* delay to wait after this setting */
 
 		list_add_tail(&nseq->list, lst);
-
-		of_node_put(it.node);
 	};
 
 out:
