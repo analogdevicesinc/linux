@@ -716,36 +716,61 @@ static int ad9680_set_sample_rate(struct axiadc_converter *conv,
 
 static int ad9680_request_clks(struct axiadc_converter *conv)
 {
-	int ret;
-
 	conv->sysref_clk = devm_clk_get(&conv->spi->dev, "adc_sysref");
 	if (IS_ERR(conv->sysref_clk)) {
 		if (PTR_ERR(conv->sysref_clk) != -ENOENT)
 			return PTR_ERR(conv->sysref_clk);
 		conv->sysref_clk = NULL;
-	} else {
-		ret = clk_prepare_enable(conv->sysref_clk);
-		if (ret < 0)
-			return ret;
 	}
 
 	conv->clk = devm_clk_get(&conv->spi->dev, "adc_clk");
 	if (IS_ERR(conv->clk) && PTR_ERR(conv->clk) != -ENOENT)
 		return PTR_ERR(conv->clk);
 
-	if (!IS_ERR(conv->clk)) {
-		ret = clk_prepare_enable(conv->clk);
-		if (ret < 0)
-			return ret;
-
-		conv->adc_clk = clk_get_rate(conv->clk);
-	}
-
 	conv->lane_clk = devm_clk_get(&conv->spi->dev, "jesd_adc_clk");
 	if (IS_ERR(conv->lane_clk) && PTR_ERR(conv->lane_clk) != -ENOENT)
 		return PTR_ERR(conv->lane_clk);
 
 	return 0;
+}
+
+static int ad9680_jesd204_clks_disable(struct jesd204_dev *jdev,
+				       unsigned int link_num,
+				       struct jesd204_link *lnk)
+{
+	struct device *dev = jesd204_dev_to_device(jdev);
+	struct spi_device *spi = to_spi_device(dev);
+	struct axiadc_converter *conv = spi_get_drvdata(spi);
+
+	clk_disable_unprepare(conv->sysref_clk);
+	clk_disable_unprepare(conv->clk);
+
+	return JESD204_STATE_CHANGE_DONE;
+}
+
+static int ad9680_jesd204_clks_enable(struct jesd204_dev *jdev,
+				      unsigned int link_num,
+				      struct jesd204_link *lnk)
+{
+	struct device *dev = jesd204_dev_to_device(jdev);
+	struct spi_device *spi = to_spi_device(dev);
+	struct axiadc_converter *conv = spi_get_drvdata(spi);
+	int ret;
+
+	ret = clk_prepare_enable(conv->clk);
+	if (ret) {
+		dev_err(dev, "Failed to enable converter clock: %d\n", ret);
+		return ret;
+	}
+	conv->adc_clk = clk_get_rate(conv->clk);
+
+	ret = clk_prepare_enable(conv->sysref_clk);
+	if (ret) {
+		dev_err(dev, "Failed to enable SYSREF clock: %d\n", ret);
+		return ret;
+	}
+
+	return JESD204_STATE_CHANGE_DONE;
 }
 
 static int ad9680_jesd204_link_setup(struct jesd204_dev *jdev,
@@ -1056,6 +1081,8 @@ static const struct jesd204_link ad9680_jesd204_links[] = {
 
 static const struct jesd204_dev_data jesd204_ad9680_init = {
 	.link_ops = {
+		[JESD204_OP_CLOCKS_ENABLE] = ad9680_jesd204_clks_enable,
+		[JESD204_OP_CLOCKS_DISABLE] = ad9680_jesd204_clks_disable,
 		[JESD204_OP_LINK_SETUP] = ad9680_jesd204_link_setup,
 		[JESD204_OP_LINK_DISABLE] = ad9680_jesd204_link_disable,
 		[JESD204_OP_LINK_ENABLE] = ad9680_jesd204_link_enable,
