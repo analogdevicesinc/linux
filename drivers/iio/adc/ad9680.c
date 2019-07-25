@@ -1049,7 +1049,6 @@ static int ad9680_request_fd_irqs(struct axiadc_converter *conv)
 
 	return 0;
 }
-
 static int ad9680_post_setup(struct iio_dev *indio_dev)
 {
 	struct axiadc_state *st = iio_priv(indio_dev);
@@ -1067,8 +1066,12 @@ static int ad9680_post_setup(struct iio_dev *indio_dev)
 	return 0;
 }
 
+static const struct jesd204_dev_data jesd204_ad9680_init = {
+};
+
 static int ad9680_probe(struct spi_device *spi)
 {
+	const struct jesd204_dev_data *jesd204_init = NULL;
 	bool master_slave_2x_quirk = false;
 	struct axiadc_converter *conv;
 	int ret;
@@ -1100,6 +1103,7 @@ static int ad9680_probe(struct spi_device *spi)
 		ret = ad9680_setup(spi);
 		break;
 	case CHIPID_AD9680:
+		jesd204_init = &jesd204_ad9680_init;
 #ifdef CONFIG_OF
 		if (spi->dev.of_node)
 			master_slave_2x_quirk = of_property_read_bool(
@@ -1150,12 +1154,24 @@ static int ad9680_probe(struct spi_device *spi)
 			return ret;
 	}
 
+	if (jesd204_init) {
+		conv->jdev = jesd204_dev_register(&spi->dev, jesd204_init);
+		if (IS_ERR(conv->jdev)) {
+			dev_err(&spi->dev,
+				"error registering with the JESD204 framework (%ld)\n",
+				PTR_ERR(conv->jdev));
+			return PTR_ERR(conv->jdev);
+		}
+	}
+
 	return 0;
 }
 
 static int ad9680_remove(struct spi_device *spi)
 {
 	struct axiadc_converter *conv = spi_get_drvdata(spi);
+
+	jesd204_dev_unregister(conv->jdev);
 
 	clk_disable_unprepare(conv->clk);
 

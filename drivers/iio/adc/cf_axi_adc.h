@@ -12,6 +12,7 @@
 #define ADI_AXI_ADC_H_
 
 #include <linux/fpga/adi-axi-common.h>
+#include <linux/jesd204/jesd204.h>
 
 /* ADC COMMON */
 
@@ -213,6 +214,8 @@ struct axiadc_state {
 
 struct axiadc_converter {
 	struct spi_device 	*spi;
+	/* FIXME: this can cause confusion with axiadc_state, but we need this here as well */
+	struct jesd204_dev	*jdev;
 	struct clk 		*clk;
 	struct clock_scale		adc_clkscale;
 	struct clk		*lane_clk;
