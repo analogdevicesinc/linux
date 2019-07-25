@@ -68,6 +68,13 @@ static struct jesd204_state_table_entry jesd204_start_link_states[] = {
 	JESD204_STATE_OP_LAST(LINK_RUNNING),
 };
 
+/* States to transition when unregistering a device */
+static struct jesd204_state_table_entry jesd204_unreg_dev_states[] = {
+	JESD204_STATE_OP(LINK_DISABLE),
+	JESD204_STATE_OP(CLOCKS_DISABLE),
+	JESD204_STATE_OP_LAST(LINK_UNINIT),
+};
+
 const char *jesd204_state_str(enum jesd204_dev_state state)
 {
 	switch (state) {
@@ -87,10 +94,18 @@ const char *jesd204_state_str(enum jesd204_dev_state state)
 		return "link_setup";
 	case JESD204_STATE_CLOCKS_ENABLE:
 		return "clocks_enable";
+	case JESD204_STATE_CLOCKS_DISABLE:
+		return "clocks_disable";
 	case JESD204_STATE_LINK_ENABLE:
 		return "link_enable";
+	case JESD204_STATE_LINK_DISABLE:
+		return "link_disable";
 	case JESD204_STATE_LINK_RUNNING:
 		return "link_running";
+	case JESD204_STATE_LINK_UNINIT:
+		return "link_uninit";
+	case JESD204_STATE_DONT_CARE:
+		return "dont_care";
 	default:
 		return "<unknown>";
 	}
@@ -228,7 +243,8 @@ static int jesd204_dev_validate_cur_state(struct jesd204_dev_top *jdev_top,
 					  struct jesd204_dev_con_out *c,
 					  enum jesd204_dev_state state)
 {
-	if (state != jdev_top->cur_state) {
+	if (state != jdev_top->cur_state &&
+	    jdev_top->cur_state != JESD204_STATE_DONT_CARE) {
 		dev_warn(jdev->dev,
 			 "invalid jesd state: %s, exp: %s, nxt: %s\n",
 			 jesd204_state_str(state),
@@ -323,6 +339,8 @@ static int __jesd204_dev_run_state_change(
 	jdev_top->state_complete_cb = state_complete_cb;
 	jdev_top->nxt_state = nxt_state;
 	jdev_top->cb_data = cb_data;
+	if (cur_state == JESD204_STATE_DONT_CARE)
+		jdev_top->cur_state = JESD204_STATE_DONT_CARE;
 
 	ret = jesd204_dev_propagate_cb(jdev,
 				       jesd204_dev_run_state_change_cb,
@@ -516,4 +534,16 @@ int jesd204_run_states_to_start_link(struct jesd204_dev *jdev,
 					    jesd204_dev_state_table_entry_cb,
 					    &table[0],
 					    jesd204_dev_state_table_entry_done);
+}
+
+void jesd204_run_states_to_unreg_device(struct jesd204_dev *jdev)
+{
+	struct jesd204_state_table_entry *table = jesd204_unreg_dev_states;
+
+	jesd204_dev_run_state_change(jdev,
+				     JESD204_STATE_DONT_CARE,
+				     table[0].state,
+				     jesd204_dev_state_table_entry_cb,
+				     &table[0],
+				     jesd204_dev_state_table_entry_done);
 }

@@ -26,6 +26,10 @@ enum jesd204_dev_state {
 	JESD204_STATE_CLOCKS_ENABLE,
 	JESD204_STATE_LINK_ENABLE,
 	JESD204_STATE_LINK_RUNNING,
+	JESD204_STATE_LINK_DISABLE,
+	JESD204_STATE_CLOCKS_DISABLE,
+	JESD204_STATE_LINK_UNINIT,
+	JESD204_STATE_DONT_CARE = 999,
 };
 
 /**
@@ -156,6 +160,8 @@ int jesd204_run_states_to_init_link(struct jesd204_dev *jdev,
 
 int jesd204_run_states_to_start_link(struct jesd204_dev *jdev,
 				     enum jesd204_dev_state init_state);
+
+void jesd204_run_states_to_unreg_device(struct jesd204_dev *jdev);
 
 int jesd204_dev_create_sysfs(struct jesd204_dev *jdev);
 void jesd204_dev_destroy_sysfs(struct jesd204_dev *jdev);
