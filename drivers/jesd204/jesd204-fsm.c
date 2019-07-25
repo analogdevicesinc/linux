@@ -69,6 +69,13 @@ static struct jesd204_fsm_table_entry jesd204_start_links_states[] = {
 	JESD204_STATE_OP_LAST(LINK_RUNNING),
 };
 
+/* States to transition when un-initializing a device */
+static const struct jesd204_fsm_table_entry jesd204_uninit_dev_states[] = {
+	JESD204_STATE_OP(LINK_DISABLE),
+	JESD204_STATE_OP(CLOCKS_DISABLE),
+	JESD204_STATE_OP_LAST(LINK_UNINIT),
+};
+
 const char *jesd204_state_str(enum jesd204_dev_state state)
 {
 	switch (state) {
@@ -88,10 +95,18 @@ const char *jesd204_state_str(enum jesd204_dev_state state)
 		return "link_setup";
 	case JESD204_STATE_CLOCKS_ENABLE:
 		return "clocks_enable";
+	case JESD204_STATE_CLOCKS_DISABLE:
+		return "clocks_disable";
 	case JESD204_STATE_LINK_ENABLE:
 		return "link_enable";
+	case JESD204_STATE_LINK_DISABLE:
+		return "link_disable";
 	case JESD204_STATE_LINK_RUNNING:
 		return "link_running";
+	case JESD204_STATE_LINK_UNINIT:
+		return "link_uninit";
+	case JESD204_STATE_DONT_CARE:
+		return "dont_care";
 	default:
 		return "<unknown>";
 	}
@@ -227,7 +242,8 @@ static int jesd204_dev_validate_cur_state(struct jesd204_dev_top *jdev_top,
 					  struct jesd204_dev_con_out *c,
 					  enum jesd204_dev_state state)
 {
-	if (state != jdev_top->cur_state) {
+	if (state != jdev_top->cur_state &&
+	    jdev_top->cur_state != JESD204_STATE_DONT_CARE) {
 		dev_warn(jdev->dev,
 			 "invalid jesd state: %s, exp: %s, nxt: %s\n",
 			 jesd204_state_str(state),
@@ -319,6 +335,8 @@ static int __jesd204_fsm(struct jesd204_dev *jdev,
 	jdev_top->fsm_complete_cb = fsm_complete_cb;
 	jdev_top->nxt_state = nxt_state;
 	jdev_top->cb_data = cb_data;
+	if (cur_state == JESD204_STATE_DONT_CARE)
+		jdev_top->cur_state = JESD204_STATE_DONT_CARE;
 
 	ret = jesd204_dev_propagate_cb(jdev,
 				       jesd204_fsm_cb,
@@ -496,4 +514,10 @@ int jesd204_fsm_start_links(struct jesd204_dev *jdev,
 			    enum jesd204_dev_state init_state)
 {
 	return jesd204_fsm_table(jdev, init_state, jesd204_start_links_states);
+}
+
+void jesd204_fsm_uninit_device(struct jesd204_dev *jdev)
+{
+	jesd204_fsm_table(jdev, JESD204_STATE_DONT_CARE,
+			  jesd204_uninit_dev_states);
 }
