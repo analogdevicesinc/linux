@@ -66,39 +66,6 @@ enum {
 	ID_AD9684,
 };
 
-enum ad9680_sysref_mode {
-	AD9680_SYSREF_DISABLED,
-	AD9680_SYSREF_CONTINUOUS,
-	AD9680_SYSREF_ONESHOT
-};
-
-struct ad9680_sysref_config {
-	enum ad9680_sysref_mode mode;
-	bool capture_falling_edge;
-	bool valid_falling_edge;
-};
-
-struct ad9680_jesd204_link_config {
-	uint8_t did;
-	uint8_t bid;
-
-	uint8_t num_lanes;
-	uint8_t num_converters;
-	uint8_t octets_per_frame;
-	uint8_t frames_per_multiframe;
-
-	uint8_t bits_per_sample;
-	uint8_t converter_resolution;
-
-	uint8_t lid[4];
-	uint8_t lane_mux[4];
-
-	bool scrambling;
-	uint8_t subclass;
-
-	struct ad9680_sysref_config sysref;
-};
-
 static int ad9680_spi_read(struct spi_device *spi, unsigned int reg)
 {
 	unsigned char buf[3];
@@ -781,9 +748,12 @@ static int ad9680_request_clks(struct axiadc_converter *conv)
 	return 0;
 }
 
-static int ad9680_setup_link(struct spi_device *spi,
-	const struct ad9680_jesd204_link_config *config)
+static int ad9680_jesd204_link_setup(struct jesd204_dev *jdev,
+				     unsigned int link_num,
+				     struct jesd204_link *config)
 {
+	struct device *dev = jesd204_dev_to_device(jdev);
+	struct spi_device *spi = to_spi_device(dev);
 	unsigned int val;
 	unsigned int i;
 	int ret = 0;
@@ -798,9 +768,13 @@ static int ad9680_setup_link(struct spi_device *spi,
 	ret = ad9680_spi_write(spi, 0x570, val); // Quick config
 
 	for (i = 0; i < config->num_lanes; i++) {
-		ret |= ad9680_spi_write(spi, 0x583 + i, config->lid[i]);
+		ret |= ad9680_spi_write(spi, 0x583 + i, config->lane_ids[i]);
 
-		val = config->lane_mux[i];
+		/* FIXME: find a way to make this configurable ; it wasn't up
+		 * until now, even before this change; this looks like some
+		 * crossbar support that the framework could support
+		 */
+		val = config->lane_ids[i];
 		val |= val << 4;
 		ret |= ad9680_spi_write(spi, 0x5b2 + i + (i / 2), val);
 	}
@@ -820,10 +794,10 @@ static int ad9680_setup_link(struct spi_device *spi,
 	ret |= ad9680_spi_write(spi, 0x120, 0x00);
 
 	switch (config->sysref.mode) {
-	case AD9680_SYSREF_CONTINUOUS:
+	case JESD204_SYSREF_CONTINUOUS:
 		val = 0x02;
 		break;
-	case AD9680_SYSREF_ONESHOT:
+	case JESD204_SYSREF_ONESHOT:
 		val = 0x04;
 		break;
 	default:
@@ -838,14 +812,12 @@ static int ad9680_setup_link(struct spi_device *spi,
 		val |= 0x10;
 	ret |= ad9680_spi_write(spi, 0x120, val);
 
-	return ret;
+	return ret ? ret : JESD204_STATE_CHANGE_DONE;
 }
 
 static int ad9680_setup(struct spi_device *spi)
 {
 	struct axiadc_converter *conv = spi_get_drvdata(spi);
-	struct ad9680_jesd204_link_config link_config;
-	unsigned int i;
 	int ret, tmp = 1;
 	static const u32 sfdr_optim_regs[] = {
 		0x16, 0x18, 0x19, 0x1A, 0x30, 0x11A, 0x934, 0x935
@@ -876,39 +848,6 @@ static int ad9680_setup(struct spi_device *spi)
 			ret |= ad9680_spi_write(spi, sfdr_optim_regs[tmp],
 						sfdr_optim_vals[tmp]);
 	}
-
-	memset(&link_config, 0x00, sizeof(link_config));
-	link_config.did = 0;
-	link_config.bid = 1;
-	link_config.num_lanes = 4;
-	for (i = 0; i < link_config.num_lanes; i++) {
-		link_config.lid[i] = i;
-		link_config.lane_mux[i] = i;
-	}
-	link_config.num_converters = 2;
-	link_config.octets_per_frame = 1;
-	link_config.frames_per_multiframe = 32;
-	link_config.converter_resolution =
-			conv->chip_info->converter_resolution;
-	link_config.bits_per_sample = 16;
-	link_config.scrambling = true;
-
-	if (conv->sysref_clk) {
-		link_config.subclass = 1;
-		link_config.sysref.mode = AD9680_SYSREF_CONTINUOUS;
-	} else {
-		link_config.subclass = 0;
-		link_config.sysref.mode = AD9680_SYSREF_DISABLED;
-	}
-
-	link_config.sysref.capture_falling_edge = true;
-	link_config.sysref.valid_falling_edge = false;
-
-	ret = ad9680_setup_link(spi, &link_config);
-	if (ret < 0)
-		return ret;
-
-	ret = ad9680_setup_jesd204_link(conv, conv->adc_clk);
 
 	return ret;
 }
@@ -1117,6 +1056,7 @@ static const struct jesd204_link ad9680_jesd204_links[] = {
 
 static const struct jesd204_dev_data jesd204_ad9680_init = {
 	.link_ops = {
+		[JESD204_OP_LINK_SETUP] = ad9680_jesd204_link_setup,
 		[JESD204_OP_LINK_DISABLE] = ad9680_jesd204_link_disable,
 		[JESD204_OP_LINK_ENABLE] = ad9680_jesd204_link_enable,
 	},
