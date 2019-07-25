@@ -130,6 +130,10 @@
 
 		clocks = <&axi_ad9680_jesd>, <&clk0_ad9523 13>, <&clk0_ad9523 5>;
 		clock-names = "jesd_adc_clk", "adc_clk", "adc_sysref";
+
+		jesd204-device;
+		jesd204-top-device;
+		#jesd204-cells = <0>;
 	};
 };
 
