@@ -26,6 +26,10 @@ enum jesd204_dev_state {
 	JESD204_STATE_CLOCKS_ENABLE,
 	JESD204_STATE_LINK_ENABLE,
 	JESD204_STATE_LINK_RUNNING,
+	JESD204_STATE_LINK_DISABLE,
+	JESD204_STATE_CLOCKS_DISABLE,
+	JESD204_STATE_LINK_UNINIT,
+	JESD204_STATE_DONT_CARE = 999,
 };
 
 /**
@@ -158,5 +162,7 @@ int jesd204_fsm_init_links(struct jesd204_dev *jdev,
 
 int jesd204_fsm_start_links(struct jesd204_dev *jdev,
 			    enum jesd204_dev_state init_state);
+
+void jesd204_fsm_uninit_device(struct jesd204_dev *jdev);
 
 #endif /* _JESD204_PRIV_H_ */
