@@ -550,6 +550,7 @@ static const struct axiadc_chip_info axiadc_chip_info_tbl[] = {
 		.scale_table = ad9680_scale_table,
 		.num_scales = ARRAY_SIZE(ad9680_scale_table),
 		.num_channels = 2,
+		.converter_resolution = 12,
 		.channel[0] = AD9680_CHAN(0, 0, 12, 'S', 0, NULL, 0),
 		.channel[1] = AD9680_CHAN(1, 1, 12, 'S', 0, NULL, 0),
 	},
@@ -559,6 +560,7 @@ static const struct axiadc_chip_info axiadc_chip_info_tbl[] = {
 		.scale_table = ad9680_scale_table,
 		.num_scales = ARRAY_SIZE(ad9680_scale_table),
 		.num_channels = 2,
+		.converter_resolution = 14,
 		.channel[0] = AD9680_CHAN(0, 0, 14, 'S', 0,
 			ad9680_events, ARRAY_SIZE(ad9680_events)),
 		.channel[1] = AD9680_CHAN(1, 1, 14, 'S', 0,
@@ -571,6 +573,7 @@ static const struct axiadc_chip_info axiadc_chip_info_tbl[] = {
 		.num_scales = ARRAY_SIZE(ad9680_scale_table),
 		.num_channels = 4,
 		.num_shadow_slave_channels = 2,
+		.converter_resolution = 14,
 		.channel[0] = AD9680_CHAN(0, 0, 14, 'S', 0,
 			ad9680_events, ARRAY_SIZE(ad9680_events)),
 		.channel[1] = AD9680_CHAN(1, 1, 14, 'S', 0,
@@ -586,6 +589,7 @@ static const struct axiadc_chip_info axiadc_chip_info_tbl[] = {
 		.scale_table = ad9680_scale_table,
 		.num_scales = ARRAY_SIZE(ad9680_scale_table),
 		.num_channels = 2,
+		.converter_resolution = 14,
 		.channel[0] = AD9680_CHAN(0, 0, 14, 'S', 0, NULL, 0),
 		.channel[1] = AD9680_CHAN(1, 1, 14, 'S', 0, NULL, 0),
 	},
@@ -837,7 +841,7 @@ static int ad9680_setup_link(struct spi_device *spi,
 	return ret;
 }
 
-static int ad9680_setup(struct spi_device *spi, bool ad9234)
+static int ad9680_setup(struct spi_device *spi)
 {
 	struct axiadc_converter *conv = spi_get_drvdata(spi);
 	struct ad9680_jesd204_link_config link_config;
@@ -885,7 +889,8 @@ static int ad9680_setup(struct spi_device *spi, bool ad9234)
 	link_config.num_converters = 2;
 	link_config.octets_per_frame = 1;
 	link_config.frames_per_multiframe = 32;
-	link_config.converter_resolution = ad9234 ? 12 : 14;
+	link_config.converter_resolution =
+			conv->chip_info->converter_resolution;
 	link_config.bits_per_sample = 16;
 	link_config.scrambling = true;
 
@@ -1092,7 +1097,7 @@ static int ad9680_probe(struct spi_device *spi)
 	switch (conv->id) {
 	case CHIPID_AD9234:
 		conv->chip_info = &axiadc_chip_info_tbl[ID_AD9234];
-		ret = ad9680_setup(spi, true);
+		ret = ad9680_setup(spi);
 		break;
 	case CHIPID_AD9680:
 #ifdef CONFIG_OF
@@ -1102,7 +1107,7 @@ static int ad9680_probe(struct spi_device *spi)
 #endif
 		conv->chip_info = &axiadc_chip_info_tbl[master_slave_2x_quirk ?
 			ID_AD9680_x2 : ID_AD9680];
-		ret = ad9680_setup(spi, false);
+		ret = ad9680_setup(spi);
 		break;
 	case CHIPID_AD9684:
 		conv->chip_info = &axiadc_chip_info_tbl[ID_AD9684];

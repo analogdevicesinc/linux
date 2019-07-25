@@ -184,6 +184,7 @@ struct axiadc_chip_info {
 	int				num_scales;
 	int				max_testmode;
 	unsigned long			max_rate;
+	unsigned int			converter_resolution;
 	struct iio_chan_spec		channel[AXIADC_MAX_CHANNEL];
 };
 
