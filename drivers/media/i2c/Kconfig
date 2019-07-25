@@ -544,6 +544,17 @@ comment "Camera sensor devices"
 config VIDEO_APTINA_PLL
 	tristate
 
+config VIDEO_ADDI903X
+	tristate "Analog Devices ADDI903x ToF sensor support"
+	depends on I2C && VIDEO_V4L2
+	depends on MEDIA_CAMERA_SUPPORT
+	---help---
+	  This is a Video4Linux2 driver for Analog Devices ADDI903x
+	  Time of Flight sensor.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called addi903x.
+
 config VIDEO_SMIAPP_PLL
 	tristate
 

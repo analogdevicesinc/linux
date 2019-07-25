@@ -933,6 +933,9 @@ enum v4l2_dv_it_content_type {
 	V4L2_DV_IT_CONTENT_TYPE_NO_ITC	  = 4,
 };
 
+/* The base for the addi903x driver controls, 4 controls are reserved */
+#define V4L2_CID_USER_ADDI903X_BASE		(V4L2_CID_DV_CLASS_BASE + 0x100)
+
 #define	V4L2_CID_DV_RX_POWER_PRESENT		(V4L2_CID_DV_CLASS_BASE + 100)
 #define V4L2_CID_DV_RX_RGB_RANGE		(V4L2_CID_DV_CLASS_BASE + 101)
 #define V4L2_CID_DV_RX_IT_CONTENT_TYPE		(V4L2_CID_DV_CLASS_BASE + 102)
