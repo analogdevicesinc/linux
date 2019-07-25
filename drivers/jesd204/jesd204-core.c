@@ -495,6 +495,7 @@ void jesd204_dev_unregister(struct jesd204_dev *jdev)
 	if (IS_ERR_OR_NULL(jdev))
 		return;
 
+	jesd204_fsm_uninit_device(jdev);
 	jesd204_dev_destroy_cons(jdev);
 	kref_put(&jdev->ref, __jesd204_dev_release);
 }
