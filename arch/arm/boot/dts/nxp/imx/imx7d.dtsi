@@ -246,6 +246,15 @@
 		#mbox-cells = <2>;
 	};
 
+	mu_lp: mu_lp@30aa0000 {
+		compatible = "fsl,imx7d-mu-lp", "fsl,imx6sx-mu-lp";
+		reg = <0x30aa0000 0x10000>;
+		interrupts = <GIC_SPI 88 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clks IMX7D_MU_ROOT_CLK>;
+		clock-names = "mu";
+		status = "okay";
+	};
+
 	sema4: sema4@30ac0000 {
 		compatible = "fsl,imx7d-sema4";
 		reg = <0x30ac0000 0x10000>;

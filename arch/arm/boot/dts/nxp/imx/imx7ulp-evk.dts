@@ -27,6 +27,18 @@
 		reg = <0x60000000 0x40000000>;
 	};
 
+	reserved-memory {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+
+		rpmsg_reserved: rpmsg@9FF00000 {
+			no-map;
+			reg = <0x9FF00000 0x100000>;
+		};
+
+	};
+
 	backlight {
 		compatible = "pwm-backlight";
 		pwms = <&tpm4 1 50000 0>;

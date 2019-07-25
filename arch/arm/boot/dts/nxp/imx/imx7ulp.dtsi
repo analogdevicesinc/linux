@@ -129,6 +129,14 @@
 			#mbox-cells = <2>;
 		};
 
+		mu_lp: mu_lp@40220000 {
+			compatible = "fsl,imx7ulp-mu-lp", "fsl,imx6sx-mu-lp";
+			reg = <0x40220000 0x1000>;
+			interrupts = <GIC_SPI 74 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 19 IRQ_TYPE_LEVEL_HIGH>;
+			status = "okay";
+		};
+
 		crypto: crypto@40240000 {
 			compatible = "fsl,sec-v4.0";
 			#address-cells = <1>;

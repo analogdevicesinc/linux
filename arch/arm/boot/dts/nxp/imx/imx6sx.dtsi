@@ -1445,6 +1445,13 @@
 				#mbox-cells = <2>;
 			};
 
+			mu_lp: mu_lp@02294000 { /* mu */
+				compatible = "fsl,imx6sx-mu-lp";
+				reg = <0x02294000 0x4000>;
+				interrupts = <0 90 0x04>;
+				status = "okay";
+			};
+
 			uart6: serial@22a0000 {
 				compatible = "fsl,imx6sx-uart",
 					     "fsl,imx6q-uart", "fsl,imx21-uart";

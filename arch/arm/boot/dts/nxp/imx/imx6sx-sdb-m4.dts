@@ -9,9 +9,20 @@
 #include "imx6sx-sdb.dts"
 
 /{
-	memory {
-		linux,usable-memory = <0x80000000 0x1ff00000>,
-				<0xa0000000 0x1ff00000>;
+	reserved-memory {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+
+		m4_reserved: m4@0x80000000 {
+			no-map;
+			reg = <0x9ff00000 0x100000>;
+		};
+
+		rpmsg_reserved: rpmsg@0xbff00000 {
+			no-map;
+			reg = <0xbff00000 0x100000>;
+		};
 	};
 };
 
