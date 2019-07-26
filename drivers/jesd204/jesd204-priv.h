@@ -20,6 +20,7 @@ enum jesd204_dev_state {
 	JESD204_STATE_UNINIT = 0,
 	JESD204_STATE_INITIALIZED,
 	JESD204_STATE_PROBED,
+	JESD204_STATE_LINK_INIT,
 };
 
 /**
@@ -64,6 +65,7 @@ struct jesd204_dev_con_out {
  *			devices that make up a JESD204 link (typically the
  *			device that is the ADC, DAC, or transceiver)
  * @dev			device that registers itself as a JESD204 device
+ * @link_ops		JESD204 operations for JESD204 link management
  * @np			reference in the device-tree for this JESD204 device
  * @ref			ref count for this JESD204 device
  * @inputs		array of pointers to output connections from other
@@ -79,6 +81,7 @@ struct jesd204_dev {
 	bool				is_top;
 
 	struct device			*dev;
+	const jesd204_link_cb		*link_ops;
 	struct device_node		*np;
 	struct kref			ref;
 
@@ -145,4 +148,6 @@ int jesd204_init_topology(struct jesd204_dev_top *jdev_top);
 
 int jesd204_fsm_probe(struct jesd204_dev *jdev);
 
+int jesd204_fsm_init_links(struct jesd204_dev *jdev,
+			   enum jesd204_dev_state init_state);
 #endif /* _JESD204_PRIV_H_ */
