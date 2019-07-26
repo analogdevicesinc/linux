@@ -18,6 +18,7 @@
 #include <linux/delay.h>
 #include <linux/of.h>
 #include <linux/rational.h>
+#include <linux/jesd204/jesd204.h>
 
 #include <linux/clk.h>
 #include <linux/clkdev.h>
@@ -284,6 +285,7 @@ struct ad9523_outputs {
 
 struct ad9523_state {
 	struct spi_device		*spi;
+	struct jesd204_dev		*jdev;
 	struct regulator		*reg;
 	struct ad9523_platform_data	*pdata;
 	struct ad9523_outputs		output[AD9523_NUM_CHAN];
@@ -1475,6 +1477,9 @@ struct ad9523_platform_data *ad9523_parse_dt(struct device *dev)
 }
 #endif
 
+static const struct jesd204_dev_data jesd204_ad9523_init = {
+};
+
 static int ad9523_probe(struct spi_device *spi)
 {
 	struct ad9523_platform_data *pdata;
@@ -1558,10 +1563,18 @@ static int ad9523_probe(struct spi_device *spi)
 	if (ret)
 		goto error_disable_reg;
 
+	st->jdev = jesd204_dev_register(&spi->dev, &jesd204_ad9523_init);
+	if (IS_ERR(st->jdev)) {
+		ret = PTR_ERR(st->jdev);
+		goto err_unreg_iio;
+	}
+
 	dev_info(&spi->dev, "probed %s\n", indio_dev->name);
 
 	return 0;
 
+err_unreg_iio:
+	iio_device_unregister(indio_dev);
 error_disable_reg:
 	if (!IS_ERR(st->reg))
 		regulator_disable(st->reg);
@@ -1573,6 +1586,8 @@ static int ad9523_remove(struct spi_device *spi)
 {
 	struct iio_dev *indio_dev = spi_get_drvdata(spi);
 	struct ad9523_state *st = iio_priv(indio_dev);
+
+	jesd204_dev_unregister(st->jdev);
 
 	iio_device_unregister(indio_dev);
 
