@@ -477,6 +477,7 @@
 };
 
 #include "imx8qm-ss-img.dtsi"
+#include "imx8qm-ss-audio.dtsi"
 #include "imx8qm-ss-dma.dtsi"
 #include "imx8qm-ss-conn.dtsi"
 #include "imx8qm-ss-lsio.dtsi"
