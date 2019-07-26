@@ -323,7 +323,11 @@ static int jesd204_dev_create_links_data(struct jesd204_dev *jdev,
 		return -EINVAL;
 	}
 
-	if (!init->links || !init->num_links) {
+	/**
+	 * Framework users should provide at least initial JESD204 link data,
+	 * or a link init op/callback which should do JESD204 link init.
+	 */
+	if (!init->links && !init->link_ops[JESD204_OP_LINK_INIT]) {
 		dev_err(dev,
 			"num_links is non-zero, but no links data provided\n");
 		return -EINVAL;
@@ -337,7 +341,7 @@ static int jesd204_dev_create_links_data(struct jesd204_dev *jdev,
 	jdev_top->num_links = init->num_links;
 	jdev_top->init_links = init->links;
 
-	return jesd204_dev_init_link_data(jdev);
+	return 0;
 }
 
 struct jesd204_dev *jesd204_dev_register(struct device *dev,
@@ -363,6 +367,7 @@ struct jesd204_dev *jesd204_dev_register(struct device *dev,
 		goto err_unlock;
 	}
 
+	jdev->link_ops = init->link_ops;
 	jdev->dev = get_device(dev);
 
 	ret = jesd204_dev_create_links_data(jdev, init);
