@@ -120,6 +120,9 @@
 
 		#clock-cells = <0>;
 		clock-output-names = "jesd_adc_lane_clk";
+
+		jesd204-device;
+		#jesd204-cells = <0>;
 	};
 
 	axi_ad9680_adxcvr: axi-adxcvr-rx@44a50000 {

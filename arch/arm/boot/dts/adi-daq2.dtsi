@@ -40,6 +40,9 @@
 		adi,rzero = <7>;
 		adi,cpole1 = <2>;
 
+		jesd204-device;
+		#jesd204-cells = <0>;
+
 		ad9523_0_c1:channel@1 {
 			reg = <1>;
 			adi,extended-name = "DAC_CLK";
@@ -134,6 +137,7 @@
 		jesd204-device;
 		jesd204-top-device;
 		#jesd204-cells = <0>;
+		jesd204-inputs = <&axi_ad9680_jesd>, <&clk0_ad9523>;
 	};
 };
 
