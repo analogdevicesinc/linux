@@ -31,6 +31,34 @@ typedef int (*jesd204_propagated_cb)(struct jesd204_dev *jdev,
 				     struct jesd204_dev_con_out *con,
 				     struct jesd204_dev_state_data *data);
 
+/**
+ * struct jesd204_state_table_entry - JESD204 link states table entry
+ * @state		target JESD204 state
+ * @op			callback associated with transitioning to @state
+ */
+struct jesd204_state_table_entry {
+	enum jesd204_dev_state	state;
+	enum jesd204_dev_op	op;
+	bool			last;
+};
+
+#define _JESD204_STATE_OP(x, _last)	\
+{					\
+	.state = JESD204_STATE_##x,	\
+	.op = JESD204_OP_##x,		\
+	.last = _last			\
+}
+#define JESD204_STATE_OP(x)		_JESD204_STATE_OP(x, false)
+#define JESD204_STATE_OP_LAST(x)	_JESD204_STATE_OP(x, true)
+
+static int jesd204_run_states_table(struct jesd204_dev *jdev,
+				    struct jesd204_state_table_entry *table);
+
+/* States to transition to initialize a JESD204 link */
+static struct jesd204_state_table_entry jesd204_init_link_states[] = {
+	JESD204_STATE_OP_LAST(LINK_INIT),
+};
+
 const char *jesd204_state_str(enum jesd204_dev_state state)
 {
 	switch (state) {
@@ -42,6 +70,8 @@ const char *jesd204_state_str(enum jesd204_dev_state state)
 		return "initialized";
 	case JESD204_STATE_PROBED:
 		return "probed";
+	case JESD204_STATE_LINK_INIT:
+		return "link_init";
 	default:
 		return "<unknown>";
 	}
@@ -372,7 +402,7 @@ static int jesd204_dev_probed_cb(struct jesd204_dev *jdev,
 
 static int jesd204_dev_probe_done(struct jesd204_dev *jdev, void *data)
 {
-	return 0;
+	return jesd204_run_states_to_init_link(jdev, JESD204_STATE_PROBED);
 }
 
 int jesd204_run_probe_states(struct jesd204_dev *jdev)
@@ -382,4 +412,70 @@ int jesd204_run_probe_states(struct jesd204_dev *jdev)
 					    JESD204_STATE_PROBED,
 					    jesd204_dev_probed_cb, NULL,
 					    jesd204_dev_probe_done);
+}
+
+static int jesd204_dev_state_table_entry_cb(struct jesd204_dev *jdev,
+					    struct jesd204_dev_con_out *con,
+					    void *data)
+{
+	struct jesd204_dev_top *jdev_top = jesd204_dev_top_dev(jdev);
+	struct jesd204_state_table_entry *table = data;
+	jesd204_link_cb link_op;
+	int link_num, ret;
+
+	if (!jdev_top) {
+		if (!con || !con->jdev_top)
+			return -EFAULT;
+		jdev_top = con->jdev_top;
+	}
+
+	if (!jdev->link_ops)
+		return JESD204_STATE_CHANGE_DONE;
+
+	link_op = jdev->link_ops[table[0].op];
+	if (!link_op)
+		return JESD204_STATE_CHANGE_DONE;
+
+	for (link_num = 0; link_num < jdev_top->num_links; link_num++) {
+		ret = link_op(jdev, link_num, &jdev_top->cur_links[link_num]);
+		if (ret != JESD204_STATE_CHANGE_DONE)
+			return ret;
+	}
+
+	return JESD204_STATE_CHANGE_DONE;
+}
+
+static int jesd204_dev_state_table_entry_done(struct jesd204_dev *jdev,
+					      void *data)
+{
+	struct jesd204_state_table_entry *table = data;
+
+	return jesd204_run_states_table(jdev, table);
+}
+
+static int jesd204_run_states_table(struct jesd204_dev *jdev,
+				    struct jesd204_state_table_entry *table)
+{
+	if (table[0].last)
+		return 0;
+
+	return jesd204_dev_run_state_change(jdev,
+					    table[0].state,
+					    table[1].state,
+					    jesd204_dev_state_table_entry_cb,
+					    &table[1],
+					    jesd204_dev_state_table_entry_done);
+}
+
+int jesd204_run_states_to_init_link(struct jesd204_dev *jdev,
+				    enum jesd204_dev_state init_state)
+{
+	struct jesd204_state_table_entry *table = jesd204_init_link_states;
+
+	return jesd204_dev_run_state_change(jdev,
+					    init_state,
+					    table[0].state,
+					    jesd204_dev_state_table_entry_cb,
+					    &table[0],
+					    jesd204_dev_state_table_entry_done);
 }

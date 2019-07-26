@@ -267,7 +267,11 @@ static int jesd204_dev_init_links(struct jesd204_dev *jdev,
 	if (!jdev_top || !init->num_links)
 		return 0;
 
-	if (!init->links) {
+	/**
+	 * Framework users should provide at least initial JESD204 link data,
+	 * or a link init op/callback which should do JESD204 link init.
+	 */
+	if (!init->links && init->link_ops[JESD204_OP_LINK_INIT]) {
 		dev_err(dev,
 			"num_links is non-zero, but no links data provided\n");
 		return -EINVAL;
@@ -282,6 +286,10 @@ static int jesd204_dev_init_links(struct jesd204_dev *jdev,
 	jdev_top->cur_links = devm_kzalloc(dev, mem_size, GFP_KERNEL);
 	if (!jdev_top->cur_links)
 		return -ENOMEM;
+
+	/* No static data, let JESD204_OP_LINK_INIT finish this */
+	if (!init->links)
+		return 0;
 
 	memcpy(jdev_top->cur_links, jdev_top->init_links, mem_size);
 
@@ -319,6 +327,7 @@ struct jesd204_dev *jesd204_dev_register(struct device *dev,
 		goto err_unlock;
 	}
 
+	jdev->link_ops = init->link_ops;
 	jdev->dev = get_device(dev);
 
 	ret = jesd204_dev_init_links(jdev, init);
