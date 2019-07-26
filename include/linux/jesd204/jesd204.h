@@ -98,12 +98,24 @@ struct jesd204_link {
 	u8 dac_phase_adj;
 };
 
+typedef int (*jesd204_link_cb)(struct jesd204_dev *jdev,
+			       unsigned int link_id,
+			       struct jesd204_link *lnk);
+
+enum jesd204_dev_op {
+	JESD204_OP_LINK_INIT,
+	__JESD204_MAX_OPS,
+};
+
 /**
  * struct jesd204_dev_data - JESD204 device initialization data
+ * @link_ops		JESD204 operations this device passes to the framework
+ *			for JESD204 link management
  * @links		JESD204 initial link configuration
  * @num_links		number of JESD204 links
  */
 struct jesd204_dev_data {
+	const jesd204_link_cb			link_ops[__JESD204_MAX_OPS];
 	const struct jesd204_link		*links;
 	unsigned int				num_links;
 };
