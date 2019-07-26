@@ -21,6 +21,7 @@
 #include <linux/regmap.h>
 #include <linux/slab.h>
 #include <linux/fpga/adi-axi-common.h>
+#include <linux/jesd204/jesd204.h>
 
 #define JESD204_RX_REG_MAGIC				0x0c
 
@@ -84,6 +85,8 @@ struct axi_jesd204_rx {
 
 	struct clk *axi_clk;
 	struct clk *device_clk;
+
+	struct jesd204_dev *jdev;
 
 	int irq;
 
@@ -580,6 +583,9 @@ static int axi_jesd204_rx_pcore_check(struct axi_jesd204_rx *jesd)
 	return 0;
 }
 
+static const struct jesd204_dev_data axi_jesd204_rx_data = {
+};
+
 static int axi_jesd204_rx_probe(struct platform_device *pdev)
 {
 	struct jesd204_rx_config config;
@@ -687,6 +693,12 @@ static int axi_jesd204_rx_probe(struct platform_device *pdev)
 
 	device_create_file(&pdev->dev, &dev_attr_status);
 
+	jesd->jdev = jesd204_dev_register(&pdev->dev, &axi_jesd204_rx_data);
+	if (IS_ERR(jesd->jdev)) {
+		ret = PTR_ERR(jesd->jdev);
+		goto err_disable_device_clk;
+	}
+
 	return 0;
 
 err_disable_device_clk:
@@ -705,6 +717,8 @@ static int axi_jesd204_rx_remove(struct platform_device *pdev)
 {
 	struct axi_jesd204_rx *jesd = platform_get_drvdata(pdev);
 	int irq = platform_get_irq(pdev, 0);
+
+	jesd204_dev_unregister(jesd->jdev);
 
 	of_clk_del_provider(pdev->dev.of_node);
 
