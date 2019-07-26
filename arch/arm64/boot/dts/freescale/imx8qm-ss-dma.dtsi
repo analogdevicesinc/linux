@@ -23,7 +23,7 @@
 		#clock-cells = <1>;
 		clocks = <&clk IMX_SC_R_CAN_1 IMX_SC_PM_CLK_PER>,
 			 <&dma_ipg_clk>, <&dma_ipg_clk>;
-		clock-indices = <IMX_LPCG_CLK_0>, <IMX_LPCG_CLK_4>, <IMX_LPCG_CLK_5>;
+		bit-offset = <0 16 20>;
 		clock-output-names = "can1_lpcg_pe_clk",
 				     "can1_lpcg_ipg_clk",
 				     "can1_lpcg_chi_clk";
@@ -36,7 +36,7 @@
 		#clock-cells = <1>;
 		clocks = <&clk IMX_SC_R_CAN_2 IMX_SC_PM_CLK_PER>,
 			 <&dma_ipg_clk>, <&dma_ipg_clk>;
-		clock-indices = <IMX_LPCG_CLK_0>, <IMX_LPCG_CLK_4>, <IMX_LPCG_CLK_5>;
+		bit-offset = <0 16 20>;
 		clock-output-names = "can2_lpcg_pe_clk",
 				     "can2_lpcg_ipg_clk",
 				     "can2_lpcg_chi_clk";
