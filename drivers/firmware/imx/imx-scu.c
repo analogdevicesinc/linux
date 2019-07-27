@@ -219,6 +219,7 @@ int imx_scu_call_rpc(struct imx_sc_ipc *sc_ipc, void *msg, bool have_resp)
 		saved_func = ((struct imx_sc_rpc_msg *)msg)->func;
 	}
 	sc_ipc->count = 0;
+	sc_ipc->rx_size = 0;
 	ret = imx_scu_ipc_write(sc_ipc, msg);
 	if (ret < 0) {
 		dev_err(sc_ipc->dev, "RPC send msg failed: %d\n", ret);
