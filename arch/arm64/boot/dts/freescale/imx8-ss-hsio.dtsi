@@ -9,12 +9,9 @@ hsio_subsys: bus@5f000000 {
 	compatible = "simple-bus";
 	#address-cells = <1>;
 	#size-cells = <1>;
+	/* Only supports up to 32bits DMA, map all possible DDR as inbound ranges */
+	dma-ranges = <0x80000000 0 0x80000000 0x80000000>;
 	ranges = <0x5f000000 0x0 0x5f000000 0x21000000>;
-
-	dma_cap: dma_cap {
-		compatible = "dma-capability";
-		only-dma-mask32 = <1>;
-	};
 
 	hsio_axi_clk: clock-hsio-axi {
 		compatible = "fixed-clock";
@@ -42,13 +39,27 @@ hsio_subsys: bus@5f000000 {
 		power-domains = <&pd IMX_SC_R_PCIE_B>;
 	};
 
+	phyx1_lpcg: clock-controller@5f090000 {
+		compatible = "fsl,imx8qxp-lpcg";
+		reg = <0x5f090000 0x10000>;
+		#clock-cells = <1>;
+		clocks = <&hsio_per_clk>, <&hsio_per_clk>,
+			<&hsio_per_clk>, <&hsio_per_clk>;
+		bit-offset = <0 4 8 16>;
+		clock-output-names = "hsio_phyx1_pclk",
+				     "hsio_phyx1_epcs_tx_clk",
+				     "hsio_phyx1_epcs_rx_clk",
+				     "hsio_phyx1_apb_clk";
+		power-domains = <&pd IMX_SC_R_SATA_0>;
+	};
+
 	phyx1_crr1_lpcg: clock-controller@5f0b0000 {
 		compatible = "fsl,imx8qxp-lpcg";
 		reg = <0x5f0b0000 0x10000>;
 		#clock-cells = <1>;
 		clocks = <&hsio_per_clk>;
-		bit-offset = <0>; /* FIXME: not bit 16? */
-		clock-output-names = "hsio_phyx1_clk";
+		bit-offset = <16>;
+		clock-output-names = "hsio_phyx1_per_clk";
 		power-domains = <&pd IMX_SC_R_SERDES_1>;
 	};
 
@@ -62,17 +73,22 @@ hsio_subsys: bus@5f000000 {
 		power-domains = <&pd IMX_SC_R_PCIE_B>;
 	};
 
-	hsio_gpr: hsio_gpr@0x5f110000 {
-		compatible = "fsl,imx8qm-hsio-gpr",
-			"fsl,imx6q-iomuxc-gpr", "syscon";
-		reg = <0x5f110000 0x70000>; /* csr regs, gpio */
+	misc_crr5_lpcg: clock-controller@5f0f0000 {
+		compatible = "fsl,imx8qxp-lpcg";
+		reg = <0x5f0f0000 0x10000>;
+		#clock-cells = <1>;
+		clocks = <&hsio_per_clk>;
+		bit-offset = <16>;
+		clock-output-names = "hsio_misc_per_clk";
+		power-domains = <&pd IMX_SC_R_HSIO_GPIO>;
 	};
 
 	pcieb: pcie@0x5f010000 {
 		compatible = "fsl,imx8qm-pcie","snps,dw-pcie";
 		reg = <0x5f010000 0x10000>, /* Controller reg */
-		      <0x7ff00000 0x80000>; /* PCI cfg space */
-		reg-names = "dbi", "config";
+		      <0x7ff00000 0x80000>, /* PCI cfg space */
+		      <0x5f110000 0x60000>; /* lpcg, csr, msic, gpio */
+		reg-names = "dbi", "config", "hsio";
 		#address-cells = <3>;
 		#size-cells = <2>;
 		device_type = "pci";
@@ -102,10 +118,13 @@ hsio_subsys: bus@5f000000 {
 		 */
 		clocks = <&pcieb_lpcg 0>,
 			 <&pcieb_lpcg 1>,
+			 <&pcieb_lpcg 2>,
+			 <&phyx1_lpcg 0>,
 			 <&phyx1_crr1_lpcg 0>,
 			 <&pcieb_crr3_lpcg 0>,
-			 <&pcieb_lpcg 2>;
-		clock-names = "pcie", "pcie_bus", "pcie_phy", "pcie_per", "pcie_inbound_axi";
+			 <&misc_crr5_lpcg 0>;
+		clock-names = "pcie", "pcie_bus", "pcie_inbound_axi",
+			      "pcie_phy", "phy_per","pcie_per", "misc_per";
 		power-domains = <&pd IMX_SC_R_PCIE_B>,
 				<&pd IMX_SC_R_SERDES_1>,
 				<&pd IMX_SC_R_HSIO_GPIO>;

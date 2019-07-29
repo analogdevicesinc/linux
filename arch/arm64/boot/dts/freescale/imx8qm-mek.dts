@@ -386,6 +386,17 @@
 	status = "okay";
 };
 
+&sata {
+	/* enable the clkreq-gpio if pcie is not enabled */
+	/*
+	 * pinctrl-names = "default";
+	 * pinctrl-0 = <&pinctrl_pciea>;
+	 * clkreq-gpio = <&lsio_gpio4 27 GPIO_ACTIVE_LOW>;
+	 */
+	ext_osc = <1>;
+	status = "okay";
+};
+
 &usbphy1 {
 	status = "okay";
 };
