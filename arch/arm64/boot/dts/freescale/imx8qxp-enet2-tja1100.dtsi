@@ -20,7 +20,7 @@
 	pinctrl-0 = <&pinctrl_fec2_rmii>;
 	clocks = <&enet1_lpcg 4>,
 		 <&enet1_lpcg 2>,
-		 <&clk IMX_CONN_ENET1_RMII_REF_50MHZ_CLK>,
+		 <&clk IMX_SC_R_ENET_1 IMX_SC_C_DISABLE_50>,
 		 <&enet1_lpcg 0>,
 		 <&enet1_lpcg 1>;
 	phy-mode = "rmii";
