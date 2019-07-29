@@ -31,6 +31,17 @@
 		reg = <0x00000000 0x80000000 0 0x40000000>;
 	};
 
+	modem_reset: modem-reset {
+		compatible = "gpio-reset";
+		pinctrl-names = "default", "sleep";
+		pinctrl-0 = <&pinctrl_modem_reset>;
+		pinctrl-1 = <&pinctrl_modem_reset_sleep>;
+		reset-gpios = <&lsio_gpio4 22 GPIO_ACTIVE_LOW>;
+		reset-delay-us = <2000>;
+		reset-post-delay-ms = <40>;
+		#reset-cells = <0>;
+	};
+
 	reserved-memory {
 		#address-cells = <2>;
 		#size-cells = <2>;
@@ -100,6 +111,7 @@
 &lpuart1 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_lpuart1>;
+	resets = <&modem_reset>;
 	status = "okay";
 };
 
@@ -363,6 +375,18 @@
 		fsl,pins = <
 			IMX8QM_M41_GPIO0_00_DMA_UART3_RX			0x06000020
 			IMX8QM_M41_GPIO0_01_DMA_UART3_TX			0x06000020
+		>;
+	};
+
+	pinctrl_modem_reset: modemresetgrp {
+		fsl,pins = <
+			IMX8QM_QSPI1A_DQS_LSIO_GPIO4_IO22		0x06000021
+		>;
+	};
+
+	pinctrl_modem_reset_sleep: modemreset_sleepgrp {
+		fsl,pins = <
+			IMX8QM_QSPI1A_DQS_LSIO_GPIO4_IO22		0x07800021
 		>;
 	};
 
