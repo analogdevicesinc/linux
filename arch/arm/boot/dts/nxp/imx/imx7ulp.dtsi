@@ -123,7 +123,7 @@
 		};
 
 		mu: mu@40220000 {
-			compatible = "fsl,imx7ulp-mu", "fsl,imx6sx-mu";
+			compatible = "fsl,imx7ulp-mu";
 			reg = <0x40220000 0x1000>;
 			interrupts = <GIC_SPI 19 IRQ_TYPE_LEVEL_HIGH>;
 			#mbox-cells = <2>;
