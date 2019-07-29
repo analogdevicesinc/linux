@@ -227,7 +227,8 @@ dtb-$(CONFIG_ARCH_MXC) += imx8qm-apalis-ixora-v1.1.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx8qm-apalis-v1.1-eval.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx8qm-apalis-v1.1-ixora-v1.1.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx8qm-apalis-v1.1-ixora-v1.2.dtb
-dtb-$(CONFIG_ARCH_MXC) += imx8qm-mek.dtb imx8qm-mek-max9286.dtb
+dtb-$(CONFIG_ARCH_MXC) += imx8qm-mek.dtb imx8qm-mek-max9286.dtb \
+			  imx8qm-mek-enet2-tja1100.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx8qxp-ai_ml.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx8qxp-colibri-aster.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx8qxp-colibri-eval-v3.dtb
