@@ -34,6 +34,9 @@
 #define LTC2983_MAX_CHANNELS_NR			20
 #define LTC2983_MIN_CHANNELS_NR			1
 #define LTC2983_SLEEP				0x97
+#define LTC2983_CUSTOM_STEINHART_SIZE		24
+#define LTC2983_CUSTOM_SENSOR_ENTRY_SZ		6
+#define LTC2983_CUSTOM_STEINHART_ENTRY_SZ	4
 
 #define LTC2983_CHAN_START_ADDR(chan) \
 			(((chan - 1) * 4) + LTC2983_CHAN_ASSIGN_START_REG)
@@ -72,6 +75,12 @@
 /* cold junction for thermocouples and rsense for rtd's and thermistor's */
 #define LTC2983_CHAN_ASSIGN_MASK	GENMASK(26, 22)
 #define LTC2983_CHAN_ASSIGN(x)		FIELD_PREP(LTC2983_CHAN_ASSIGN_MASK, x)
+
+#define LTC2983_CUSTOM_LEN_MASK		GENMASK(5, 0)
+#define LTC2983_CUSTOM_LEN(x)		FIELD_PREP(LTC2983_CUSTOM_LEN_MASK, x)
+
+#define LTC2983_CUSTOM_ADDR_MASK	GENMASK(11, 6)
+#define LTC2983_CUSTOM_ADDR(x)		FIELD_PREP(LTC2983_CUSTOM_ADDR_MASK, x)
 
 #define LTC2983_THERMOCOUPLE_CFG_MASK	GENMASK(21, 18)
 #define LTC2983_THERMOCOUPLE_CFG(x) \
@@ -116,6 +125,7 @@ enum {
 	LTC2983_SENSOR_RTD = 10,
 	LTC2983_SENSOR_RTD_CUSTOM = 18,
 	LTC2983_SENSOR_THERMISTOR = 19,
+	LTC2983_SENSOR_THERMISTOR_STEINHART = 26,
 	LTC2983_SENSOR_THERMISTOR_CUSTOM = 27,
 	LTC2983_SENSOR_DIODE = 28,
 	LTC2983_SENSOR_SENSE_RESISTOR = 29,
@@ -149,6 +159,7 @@ struct ltc2983_data {
 	struct ltc2983_sensor **sensors;
 	u32 mux_delay_config;
 	u32 filter_notch_freq;
+	u16 custom_table_size;
 	u8 num_channels;
 	u8 iio_channels;
 	bool temp_farenheit;
@@ -157,7 +168,7 @@ struct ltc2983_data {
 
 struct ltc2983_sensor {
 	int (*fault_handler)(const struct ltc2983_data *st, const u32 result);
-	int (*assign_chan)(const struct ltc2983_data *st,
+	int (*assign_chan)(struct ltc2983_data *st,
 			   const struct ltc2983_sensor *sensor);
 	const char *name;
 	/* specifies the sensor channel */
@@ -166,14 +177,25 @@ struct ltc2983_sensor {
 	u32 type;
 };
 
+struct ltc2983_custom_sensor {
+	/* raw table sensor data */
+	u8 *table;
+	size_t size;
+	/* address offset */
+	s8 offset;
+	bool is_steinhart;
+};
+
 struct ltc2983_thermocouple {
 	struct ltc2983_sensor sensor;
+	struct ltc2983_custom_sensor *custom;
 	u32 sensor_config;
 	u32 cold_junction_chan;
 };
 
 struct ltc2983_rtd {
 	struct ltc2983_sensor sensor;
+	struct ltc2983_custom_sensor *custom;
 	u32 sensor_config;
 	u32 r_sense_chan;
 	u32 excitation_current;
@@ -182,6 +204,7 @@ struct ltc2983_rtd {
 
 struct ltc2983_thermistor {
 	struct ltc2983_sensor sensor;
+	struct ltc2983_custom_sensor *custom;
 	u32 sensor_config;
 	u32 r_sense_chan;
 	u32 excitation_current;
@@ -237,6 +260,140 @@ static int __ltc2983_chan_assign_common(const struct ltc2983_data *st,
 				 sizeof(__chan_val));
 }
 
+static int __ltc2983_chan_custom_sensor_assign(struct ltc2983_data *st,
+					  struct ltc2983_custom_sensor *custom,
+					  u32 *chan_val)
+{
+	u32 reg;
+	u8 mult = custom->is_steinhart ? LTC2983_CUSTOM_STEINHART_ENTRY_SZ :
+		LTC2983_CUSTOM_SENSOR_ENTRY_SZ;
+	const struct device *dev = &st->spi->dev;
+	/*
+	 * custom->size holds the raw size of the table. However, when
+	 * configuring the sensor channel, we must write the number of
+	 * entries of the table minus 1. For steinhart sensors 0 is written
+	 * since the size is constant!
+	 */
+	const u8 len = custom->is_steinhart ? 0 :
+		(custom->size / LTC2983_CUSTOM_SENSOR_ENTRY_SZ) - 1;
+	/*
+	 * Check if the offset was assigned already. It should be for steinhart
+	 * sensors. When coming from sleep, it should be assigned for all.
+	 */
+	if (custom->offset < 0) {
+		/*
+		 * This needs to be done again here because, from the moment
+		 * when this test was done (successfully) for this custom
+		 * sensor, a steinhart sensor might have been added changing
+		 * custom_table_size...
+		 */
+		if (st->custom_table_size + custom->size >
+		    (LTC2983_CUST_SENS_TBL_END_REG -
+		     LTC2983_CUST_SENS_TBL_START_REG) + 1) {
+			dev_err(dev,
+				"Not space left(%d) for new custom sensor(%d)",
+							st->custom_table_size,
+							custom->size);
+			return -EINVAL;
+		}
+
+		custom->offset = st->custom_table_size /
+					LTC2983_CUSTOM_SENSOR_ENTRY_SZ;
+		st->custom_table_size += custom->size;
+	}
+
+	reg = (custom->offset * mult) + LTC2983_CUST_SENS_TBL_START_REG;
+
+	*chan_val |= LTC2983_CUSTOM_LEN(len);
+	*chan_val |= LTC2983_CUSTOM_ADDR(custom->offset);
+	dev_dbg(dev, "Assign custom sensor, reg:0x%04X, off:%d, sz:%d",
+							reg, custom->offset,
+							custom->size);
+	/* write custom sensor table */
+	return regmap_bulk_write(st->regmap, reg, custom->table, custom->size);
+}
+
+static struct ltc2983_custom_sensor *__ltc2983_custom_sensor_new(
+						struct ltc2983_data *st,
+						const struct device_node *np,
+						const bool is_steinhart)
+{
+	struct ltc2983_custom_sensor *new_custom;
+	u8 index, n_entries, tbl = 0;
+	struct device *dev = &st->spi->dev;
+	/*
+	 * For custom steinhart, the full u32 is taken. For all the others
+	 * the MSB is discarded.
+	 */
+	const u8 n_size = (is_steinhart == true) ? 4 : 3;
+
+	n_entries = of_property_count_elems_of_size(np, "adi,custom-sensor",
+						sizeof(u32));
+	/* n_entries must be an even number */
+	if (!n_entries || (n_entries % 2) != 0) {
+		dev_err(dev, "Number of entries either 0 or not even\n");
+		return ERR_PTR(-EINVAL);
+	}
+
+	new_custom = devm_kzalloc(dev, sizeof(*new_custom), GFP_KERNEL);
+	if (!new_custom)
+		return ERR_PTR(-ENOMEM);
+
+	new_custom->size = n_entries * n_size;
+	/* check Steinhart size */
+	if (is_steinhart && new_custom->size != LTC2983_CUSTOM_STEINHART_SIZE) {
+		dev_err(dev, "Steinhart sensors size(%d) must be 24",
+							new_custom->size);
+		return ERR_PTR(-EINVAL);
+	}
+	/* Check space on the table. */
+	if (st->custom_table_size + new_custom->size >
+	    (LTC2983_CUST_SENS_TBL_END_REG -
+	     LTC2983_CUST_SENS_TBL_START_REG) + 1) {
+		dev_err(dev, "No space left(%d) for new custom sensor(%d)",
+				st->custom_table_size, new_custom->size);
+		return ERR_PTR(-EINVAL);
+	}
+
+	/* allocate the table */
+	new_custom->table = devm_kzalloc(dev, new_custom->size, GFP_KERNEL);
+	if (!new_custom->table)
+		return ERR_PTR(-ENOMEM);
+
+	for (index = 0; index < n_entries; index++) {
+		u32 temp = 0, j;
+
+		of_property_read_u32_index(np, "adi,custom-sensor", index,
+					   &temp);
+		for (j = 0; j < n_size; j++)
+			new_custom->table[tbl++] =
+				temp >> (8 * (n_size - j - 1));
+	}
+
+	new_custom->is_steinhart = is_steinhart;
+	/*
+	 * This is done to first add all the steinhart sensors to the table,
+	 * in order to maximize the table usage. If we mix adding steinhart
+	 * with the other sensors, we might have to do some roundup to make
+	 * sure that sensor_addr - 0x250(start address) is a multiple of 4
+	 * (for steinhart), and a multiple of 6 for all the other sensors.
+	 * Since we have const 24 bytes for steinhart sensors and 24 is
+	 * also a multiple of 6, we guarantee that the first non-steinhart
+	 * sensor will sit in a correct address without the need of filling
+	 * addresses.
+	 */
+	if (is_steinhart) {
+		new_custom->offset = st->custom_table_size /
+					LTC2983_CUSTOM_STEINHART_ENTRY_SZ;
+		st->custom_table_size += new_custom->size;
+	} else {
+		/* mark as unset. This is checked later on the assign phase */
+		new_custom->offset = -1;
+	}
+
+	return new_custom;
+}
+
 static int ltc2983_thermocouple_fault_handler(const struct ltc2983_data *st,
 					      const u32 result)
 {
@@ -253,7 +410,7 @@ static int ltc2983_common_fault_handler(const struct ltc2983_data *st,
 				       LTC2983_COMMON_SOFT_FAULT_MASK);
 }
 
-static int ltc2983_thermocouple_assign_chan(const struct ltc2983_data *st,
+static int ltc2983_thermocouple_assign_chan(struct ltc2983_data *st,
 				const struct ltc2983_sensor *sensor)
 {
 	struct ltc2983_thermocouple *thermo = to_thermocouple(sensor);
@@ -262,10 +419,18 @@ static int ltc2983_thermocouple_assign_chan(const struct ltc2983_data *st,
 	chan_val = LTC2983_CHAN_ASSIGN(thermo->cold_junction_chan);
 	chan_val |= LTC2983_THERMOCOUPLE_CFG(thermo->sensor_config);
 
+	if (thermo->custom) {
+		int ret;
+
+		ret = __ltc2983_chan_custom_sensor_assign(st, thermo->custom,
+							  &chan_val);
+		if (ret)
+			return ret;
+	}
 	return __ltc2983_chan_assign_common(st, sensor, chan_val);
 }
 
-static int ltc2983_rtd_assign_chan(const struct ltc2983_data *st,
+static int ltc2983_rtd_assign_chan(struct ltc2983_data *st,
 				   const struct ltc2983_sensor *sensor)
 {
 	struct ltc2983_rtd *rtd = to_rtd(sensor);
@@ -276,10 +441,18 @@ static int ltc2983_rtd_assign_chan(const struct ltc2983_data *st,
 	chan_val |= LTC2983_RTD_EXC_CURRENT(rtd->excitation_current);
 	chan_val |= LTC2983_RTD_CURVE(rtd->rtd_curve);
 
+	if (rtd->custom) {
+		int ret;
+
+		ret = __ltc2983_chan_custom_sensor_assign(st, rtd->custom,
+							  &chan_val);
+		if (ret)
+			return ret;
+	}
 	return __ltc2983_chan_assign_common(st, sensor, chan_val);
 }
 
-static int ltc2983_thermistor_assign_chan(const struct ltc2983_data *st,
+static int ltc2983_thermistor_assign_chan(struct ltc2983_data *st,
 					  const struct ltc2983_sensor *sensor)
 {
 	struct ltc2983_thermistor *thermistor = to_thermistor(sensor);
@@ -290,10 +463,19 @@ static int ltc2983_thermistor_assign_chan(const struct ltc2983_data *st,
 	chan_val |=
 		LTC2983_THERMISTOR_EXC_CURRENT(thermistor->excitation_current);
 
+	if (thermistor->custom) {
+		int ret;
+
+		ret = __ltc2983_chan_custom_sensor_assign(st,
+							  thermistor->custom,
+							  &chan_val);
+		if (ret)
+			return ret;
+	}
 	return __ltc2983_chan_assign_common(st, sensor, chan_val);
 }
 
-static int ltc2983_diode_assign_chan(const struct ltc2983_data *st,
+static int ltc2983_diode_assign_chan(struct ltc2983_data *st,
 				     const struct ltc2983_sensor *sensor)
 {
 	struct ltc2983_diode *diode = to_diode(sensor);
@@ -306,7 +488,7 @@ static int ltc2983_diode_assign_chan(const struct ltc2983_data *st,
 	return __ltc2983_chan_assign_common(st, sensor, chan_val);
 }
 
-static int ltc2983_r_sense_assign_chan(const struct ltc2983_data *st,
+static int ltc2983_r_sense_assign_chan(struct ltc2983_data *st,
 				       const struct ltc2983_sensor *sensor)
 {
 	struct ltc2983_rsense *rsense = to_rsense(sensor);
@@ -317,7 +499,7 @@ static int ltc2983_r_sense_assign_chan(const struct ltc2983_data *st,
 	return __ltc2983_chan_assign_common(st, sensor, chan_val);
 }
 
-static int ltc2983_adc_assign_chan(const struct ltc2983_data *st,
+static int ltc2983_adc_assign_chan(struct ltc2983_data *st,
 				   const struct ltc2983_sensor *sensor)
 {
 	struct ltc2983_adc *adc = to_adc(sensor);
@@ -330,7 +512,7 @@ static int ltc2983_adc_assign_chan(const struct ltc2983_data *st,
 
 static struct ltc2983_sensor *ltc2983_thermocouple_new(
 					const struct device_node *child,
-					const struct ltc2983_data *st,
+					struct ltc2983_data *st,
 					const struct ltc2983_sensor *sensor)
 {
 	struct ltc2983_thermocouple *thermo;
@@ -367,6 +549,16 @@ static struct ltc2983_sensor *ltc2983_thermocouple_new(
 			return ERR_PTR(-EINVAL);
 		}
 	}
+
+	/* check custom sensor */
+	if (sensor->type == LTC2983_SENSOR_THERMOCOUPLE_CUSTOM) {
+		thermo->custom = __ltc2983_custom_sensor_new(st, child, false);
+		if (IS_ERR(thermo->custom)) {
+			of_node_put(phandle);
+			return ERR_CAST(thermo->custom);
+		}
+	}
+
 	/* set common parameters */
 	thermo->sensor.name = "thermocouple";
 	thermo->sensor.fault_handler = ltc2983_thermocouple_fault_handler;
@@ -377,7 +569,7 @@ static struct ltc2983_sensor *ltc2983_thermocouple_new(
 }
 
 static struct ltc2983_sensor *ltc2983_rtd_new(const struct device_node *child,
-					  const struct ltc2983_data *st,
+					  struct ltc2983_data *st,
 					  const struct ltc2983_sensor *sensor)
 {
 	struct ltc2983_rtd *rtd;
@@ -448,6 +640,15 @@ static struct ltc2983_sensor *ltc2983_rtd_new(const struct device_node *child,
 		}
 	}
 
+	/* check custom sensor */
+	if (sensor->type == LTC2983_SENSOR_RTD_CUSTOM) {
+		rtd->custom = __ltc2983_custom_sensor_new(st, child, false);
+		if (IS_ERR(rtd->custom)) {
+			of_node_put(phandle);
+			return ERR_CAST(rtd->custom);
+		}
+	}
+
 	/* set common parameters */
 	rtd->sensor.name = "rtd";
 	rtd->sensor.fault_handler = ltc2983_common_fault_handler;
@@ -470,7 +671,7 @@ fail:
 
 static struct ltc2983_sensor *ltc2983_thermistor_new(
 					const struct device_node *child,
-					const struct ltc2983_data *st,
+					struct ltc2983_data *st,
 					const struct ltc2983_sensor *sensor)
 {
 	struct ltc2983_thermistor *thermistor;
@@ -507,6 +708,16 @@ static struct ltc2983_sensor *ltc2983_thermistor_new(
 		goto fail;
 	}
 
+	/* check custom sensor */
+	if (sensor->type >= LTC2983_SENSOR_THERMISTOR_STEINHART) {
+		thermistor->custom = __ltc2983_custom_sensor_new(st, child,
+			sensor->type == LTC2983_SENSOR_THERMISTOR_STEINHART ?
+							  true : false);
+		if (IS_ERR(thermistor->custom)) {
+			of_node_put(phandle);
+			return ERR_CAST(thermistor->custom);
+		}
+	}
 	/* set common parameters */
 	thermistor->sensor.name = "thermistor";
 	thermistor->sensor.fault_handler = ltc2983_common_fault_handler;
@@ -810,21 +1021,16 @@ static int ltc2983_parse_dt(struct ltc2983_data *st)
 		dev_dbg(dev, "Create new sensor, type %u, chann %u",
 								sensor.type,
 								sensor.chan);
-		/* Custom sensors are not supported for now */
+
 		if (sensor.type >= LTC2983_SENSOR_THERMOCOUPLE &&
-		    sensor.type < LTC2983_SENSOR_THERMOCOUPLE_CUSTOM) {
+		    sensor.type <= LTC2983_SENSOR_THERMOCOUPLE_CUSTOM) {
 			st->sensors[chan] = ltc2983_thermocouple_new(child, st,
 								     &sensor);
 		} else if (sensor.type >= LTC2983_SENSOR_RTD &&
-			   sensor.type < LTC2983_SENSOR_RTD_CUSTOM) {
+			   sensor.type <= LTC2983_SENSOR_RTD_CUSTOM) {
 			st->sensors[chan] = ltc2983_rtd_new(child, st, &sensor);
 		} else if (sensor.type >= LTC2983_SENSOR_THERMISTOR &&
-			   sensor.type < LTC2983_SENSOR_THERMISTOR_CUSTOM - 1) {
-			/*
-			 * For thermistor's there are Custom Steinhart-Hart
-			 * and Custom thermistors (26 and 27 types) which are
-			 * not supported for now (thus the minus one here)
-			 */
+			   sensor.type <= LTC2983_SENSOR_THERMISTOR_CUSTOM) {
 			st->sensors[chan] = ltc2983_thermistor_new(child, st,
 								   &sensor);
 		} else if (sensor.type == LTC2983_SENSOR_DIODE) {
