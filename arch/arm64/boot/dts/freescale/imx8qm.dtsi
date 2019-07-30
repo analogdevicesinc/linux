@@ -36,9 +36,9 @@
 		csi0 = &mipi_csi_0;
 		csi1 = &mipi_csi_1;
 		mu1 = &lsio_mu1;
-		vpu-core0 = &vpu_core0;
-		vpu-core1 = &vpu_core1;
-		vpu-core2 = &vpu_core2;
+		can0 = &flexcan1;
+		can1 = &flexcan2;
+		can2 = &flexcan3;
 	};
 
 	cpus {
