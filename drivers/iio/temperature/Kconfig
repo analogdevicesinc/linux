@@ -33,6 +33,16 @@ config HID_SENSOR_TEMP
 	  To compile this driver as a module, choose M here: the module
 	  will be called hid-sensor-temperature.
 
+config LTC2983
+	tristate "Analog Devices Multi-Sensor Digital Temperature Measurement System"
+	depends on SPI
+	help
+	   Say yes here to build support for the LTC2983 Multi-Sensor
+	   high accuracy digital temperature measurement system.
+
+	   To compile this driver as a module, choose M here: the module
+	   will be called ltc2983.
+
 config MLX90614
 	tristate "MLX90614 contact-less infrared sensor"
 	depends on I2C
