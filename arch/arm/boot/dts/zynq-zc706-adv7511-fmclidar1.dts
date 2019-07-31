@@ -99,7 +99,7 @@
 		adi,converter-resolution = <8>;
 		adi,bits-per-sample = <8>;
 		adi,converters-per-device = <2>;
-		adi,subclass = <0>;
+		adi,subclass = <1>;
 
 		#clock-cells = <0>;
 		clock-output-names = "jesd_adc_lane_clk";
@@ -145,4 +145,3 @@
 &ad7091 {
 	convst-gpios = <&gpio0 91 0>;
 };
-

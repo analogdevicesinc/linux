@@ -85,8 +85,8 @@
 			adi,extended-name = "CLK_SYSREF_ADC";
 			adi,driver-mode = <DRIVER_MODE_LVDS>;
 			adi,divider-phase = <0>;
-			adi,channel-divider = <1024>;
-			adi,signal-source = <SOURCE_SYSREF_VCXO>;
+			adi,channel-divider = <128>;
+			adi,signal-source = <SOURCE_VCO>;
 		};
 
 		ad9528_c2: channel@2 {
@@ -102,9 +102,9 @@
 			reg = <3>;
 			adi,extended-name = "SYSREF_TO_FPGA";
 			adi,driver-mode = <DRIVER_MODE_LVDS>;
-			adi,divider-phase = <0>;
-			adi,channel-divider = <1024>;
-			adi,signal-source = <SOURCE_SYSREF_VCXO>;
+			adi,divider-phase = <4>;
+			adi,channel-divider = <128>;
+			adi,signal-source = <SOURCE_VCO>;
 		};
 
 		ad9528_c4: channel@4 {
@@ -159,4 +159,3 @@
 		reg = <0x14>;
 	};
 };
-

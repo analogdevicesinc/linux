@@ -1109,7 +1109,7 @@ static int ad9694_setup_jesd204_link(struct axiadc_converter *conv,
 	unsigned int val;
 	int ret;
 
-	sysref_rate = DIV_ROUND_CLOSEST(sample_rate, 32);
+	sysref_rate = DIV_ROUND_CLOSEST(sample_rate, 128);
 	lane_rate_kHz = DIV_ROUND_CLOSEST(sample_rate, 100);
 
 	if (lane_rate_kHz < 1687500 || lane_rate_kHz > 15000000) {
