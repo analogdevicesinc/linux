@@ -264,7 +264,9 @@ static int ad7606_write_raw(struct iio_dev *indio_dev,
 	case IIO_CHAN_INFO_SCALE:
 		mutex_lock(&st->lock);
 		i = find_closest(val2, st->scale_avail, st->num_scales);
-		ret = st->write_scale(indio_dev, chan->address, i);
+		if (st->sw_mode_en)
+			ch = chan->address;
+		ret = st->write_scale(indio_dev, ch, i);
 		if (ret < 0) {
 			mutex_unlock(&st->lock);
 			return ret;
