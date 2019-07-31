@@ -97,6 +97,15 @@ patternProperties:
         $ref: "/schemas/types.yaml#/definitions/phandle"
         maxItems: 1
 
+      adi,custom-sensor:
+        description: |
+          This is a table, where each entry should be a pair of voltage-temperature.
+          The values added here are raw values and the MSB will be discarded.
+          For more details on how to compute this values look at table 69 and 70.
+        allOf:
+          - $ref: /schemas/types.yaml#/definitions/uint32-array
+        minItems: 6
+        maxItems: 128
     required:
       - reg
       - adi,sensor-type
@@ -205,6 +214,15 @@ patternProperties:
           - enum: [0 1 2 3]
         maxItems: 1
 
+      adi,custom-sensor:
+        description: |
+          This is a table, where each entry should be a pair of resistance-temperature.
+          The values added here are raw values and the MSB will be discarded.
+          For more details on how to compute this values look at table 74 and 75.
+        allOf:
+          - $ref: /schemas/types.yaml#/definitions/uint32-array
+        minItems: 6
+        maxItems: 128
     required:
       - reg
       - adi,sensor-type
@@ -256,6 +274,19 @@ patternProperties:
           - enum: [1 2 3 4 5 6 7 8 9 10 11 12]
         maxItems: 1
 
+      adi,custom-sensor:
+        description: |
+          This is a table, where each entry should be a pair of resistance-temperature.
+          The values added here are raw values and the MSB will be discarded.
+          For more details on how to compute this values look at table 78 and 79.
+          Steinhart-Hart coefficients are also supported and can be programmed into the
+          device memory using this property. The table has a constance size of 6 entries
+          (defining the coefficients) and the full 32 bits of the integer are used.
+          Look at table 82 for how to compute this values.
+        allOf:
+          - $ref: /schemas/types.yaml#/definitions/uint32-array
+        minItems: 6
+        maxItems: 128
     required:
       - reg
       - adi,sensor-type
@@ -379,6 +410,33 @@ examples:
                         adi,sensor-type = <30>;
                         adi,single-ended;
                 };
+
+                thermistor@12 {
+                        reg = <12>;
+                        adi,sensor-type = <26>; //Steinhart
+                        adi,rsense-handle = <&rsense2>;
+                        adi,custom-sensor = <0x00F371EC 0x12345678
+                                        0x2C0F8733 0x10018C66 0xA0FEACCD
+                                        0x90021D99>; //6 entries
+                };
+
+                thermocouple@20 {
+                        reg = <20>;
+                        adi,sensor-type = <9>; //custom thermocouple
+                        adi,sensor-config = <8>; //single-ended
+                        adi,custom-sensor =
+                                 <0x00F371EC 0x00000000>,
+                                 <0x00F87334 0x00018C66>,
+                                 <0x00FEACCD 0x00021D99>,
+                                 <0x00000000 0x00044499>,
+                                 <0x000A0CCC 0x0005A4CC>,
+                                 <0x000DD333 0x00082866>,
+                                 <0x00161333 0x000B4133>,
+                                 <0x00210CCC 0x000CACCC>,
+                                 <0x002F2CCC 0x000E6A00>,
+                                 <0x00731999 0x000FA000>; //10 pairs
+               };
+
         };
     };
 ...
