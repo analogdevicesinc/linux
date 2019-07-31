@@ -85,7 +85,7 @@ __handle_sync_with_master() {
 
 	if [ "$method" == "cherry-pick" ] ; then
 		# FIXME: kind of dumb, the code below; maybe do this a bit neater
-		local cm="$(git log "${dst_branch}~1..${dst_branch}" | grep "cherry picked from commit" | awk '{print $5}' | cut -d')' -f1)"
+		local cm="$(git log "${dst_branch}~50..${dst_branch}" | grep "cherry picked from commit" | head -1 | awk '{print $5}' | cut -d')' -f1)"
 		[ -n "$cm" ] || {
 			echo_red "Top commit in branch '${dst_branch}' is not cherry-picked"
 			return 1
