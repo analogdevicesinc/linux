@@ -1,0 +1,56 @@
+# SPDX-License-Identifier: GPL-2.0
+# Copyright 2019 Analog Devices Inc.
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/bindings/media/i2c/adi,addi9036.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Analog Devices ADDI9036 CCD TOF Signal Processor
+
+maintainers:
+  - Bogdan Togorean <bogdan.togorean@analog.com>
+
+description: |
+  Bindings for the Analog Devices ADDI9036 CCD TOF Signal Processor with
+  Programmable Timing and V-Driver driver. This driver integrates in V4L2
+  subsystem.
+  https://www.analog.com/media/en/technical-documentation/data-sheets/ADDI9036.pdf
+
+properties:
+  compatible:
+    enum:
+        - adi,addi9036
+
+  reset-gpios:
+    description: Phandle to the GPIO pin used to control reset signal
+    maxItems: 1
+
+  port:
+    type: object
+    description: |
+      A port node with endpoint definitions as defined in
+      Documentation/devicetree/bindings/media/video-interfaces.txt. This is the
+      output endpint that should be connected to CSI input.
+
+required:
+  - compatible
+  - reg
+  - reset-gpios
+  - port
+
+examples:
+  - |
+    addi9036_camera@64 {
+        compatible = "adi,addi9036";
+        reg = <0x64>;
+
+        reset-gpios = <&gpio 41 1>;
+
+        port {
+                addi9036_ep: endpoint {
+                        remote-endpoint = <&csi1_ep>;
+                        clock-lanes = <0>;
+                        data-lanes = <1 2>;
+                };
+        };
+    };
