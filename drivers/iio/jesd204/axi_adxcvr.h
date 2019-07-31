@@ -14,6 +14,7 @@
 #include <linux/clk.h>
 #include <linux/clk-provider.h>
 #include <linux/fpga/adi-axi-common.h>
+#include <linux/jesd204/jesd204.h>
 
 #include "xilinx_transceiver.h"
 
@@ -51,6 +52,7 @@
 struct adxcvr_state {
 	struct device		*dev;
 	void __iomem		*regs;
+	struct jesd204_dev	*jdev;
 	struct clk		*conv_clk;
 	struct clk		*conv2_clk;
 	struct clk		*lane_rate_div40_clk;
