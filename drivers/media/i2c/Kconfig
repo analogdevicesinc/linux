@@ -592,6 +592,18 @@ comment "Camera sensor devices"
 config VIDEO_APTINA_PLL
 	tristate
 
+config VIDEO_ADDI9036
+	tristate "Analog Devices ADDI9036 ToF sensor support"
+	depends on I2C && VIDEO_V4L2 && VIDEO_V4L2_SUBDEV_API
+	depends on MEDIA_CAMERA_SUPPORT
+	select V4L2_FWNODE
+	help
+	  This is a Video4Linux2 driver for Analog Devices ADDI9036
+	  Time of Flight sensor.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called addi9036.
+
 config VIDEO_SMIAPP_PLL
 	tristate
 
