@@ -24,7 +24,7 @@ static struct adxcvr_state *xcvr_to_adxcvr(struct xilinx_xcvr *xcvr)
 }
 
 static inline unsigned int adxcvr_read(struct adxcvr_state *st,
-									   unsigned int reg)
+				       unsigned int reg)
 {
 	dev_vdbg(st->dev, "%s: reg 0x%X val 0x%X\n", __func__,
 			 reg, ioread32(st->regs + reg));
@@ -33,8 +33,8 @@ static inline unsigned int adxcvr_read(struct adxcvr_state *st,
 }
 
 static inline void adxcvr_write(struct adxcvr_state *st,
-								unsigned int reg,
-								unsigned int val)
+				unsigned int reg,
+				unsigned int val)
 {
 	dev_vdbg(st->dev, "%s: reg 0x%X val 0x%X\n", __func__,
 			 reg, val);
@@ -60,8 +60,9 @@ static int adxcvr_drp_wait_idle(struct adxcvr_state *st, unsigned int drp_addr)
 	return -ETIMEDOUT;
 }
 
-static int adxcvr_drp_read(struct xilinx_xcvr *xcvr, unsigned int drp_port,
-	unsigned int reg)
+static int adxcvr_drp_read(struct xilinx_xcvr *xcvr,
+			   unsigned int drp_port,
+			   unsigned int reg)
 {
 	struct adxcvr_state *st = xcvr_to_adxcvr(xcvr);
 	unsigned int drp_addr, drp_sel;
@@ -75,7 +76,8 @@ static int adxcvr_drp_read(struct xilinx_xcvr *xcvr, unsigned int drp_port,
 	drp_sel = drp_port & 0xFF;
 
 	adxcvr_write(st, ADXCVR_REG_DRP_SEL(drp_addr), drp_sel);
-	adxcvr_write(st, ADXCVR_REG_DRP_CTRL(drp_addr), ADXCVR_DRP_CTRL_ADDR(reg));
+	adxcvr_write(st, ADXCVR_REG_DRP_CTRL(drp_addr),
+		     ADXCVR_DRP_CTRL_ADDR(reg));
 
 	ret = adxcvr_drp_wait_idle(st, drp_addr);
 	if (ret < 0)
@@ -84,8 +86,10 @@ static int adxcvr_drp_read(struct xilinx_xcvr *xcvr, unsigned int drp_port,
 	return ret & 0xffff;
 }
 
-static int adxcvr_drp_write(struct xilinx_xcvr *xcvr, unsigned int drp_port,
-	unsigned int reg, unsigned int val)
+static int adxcvr_drp_write(struct xilinx_xcvr *xcvr,
+			    unsigned int drp_port,
+			    unsigned int reg,
+			    unsigned int val)
 {
 	struct adxcvr_state *st = xcvr_to_adxcvr(xcvr);
 	unsigned int drp_addr, drp_sel;
@@ -99,8 +103,10 @@ static int adxcvr_drp_write(struct xilinx_xcvr *xcvr, unsigned int drp_port,
 	drp_sel = drp_port & 0xFF;
 
 	adxcvr_write(st, ADXCVR_REG_DRP_SEL(drp_addr), drp_sel);
-	adxcvr_write(st, ADXCVR_REG_DRP_CTRL(drp_addr), (ADXCVR_DRP_CTRL_WR |
-		ADXCVR_DRP_CTRL_ADDR(reg) | ADXCVR_DRP_CTRL_WDATA(val)));
+	adxcvr_write(st, ADXCVR_REG_DRP_CTRL(drp_addr),
+		(ADXCVR_DRP_CTRL_WR |
+		 ADXCVR_DRP_CTRL_ADDR(reg) |
+		 ADXCVR_DRP_CTRL_WDATA(val)));
 
 	ret = adxcvr_drp_wait_idle(st, drp_addr);
 	if (ret < 0)
@@ -115,8 +121,8 @@ static const struct xilinx_xcvr_drp_ops adxcvr_drp_ops = {
 };
 
 static ssize_t adxcvr_debug_reg_write(struct device *dev,
-				struct device_attribute *attr,
-				const char *buf, size_t count)
+				      struct device_attribute *attr,
+				      const char *buf, size_t count)
 {
 	struct adxcvr_state *st = dev_get_drvdata(dev);
 	int ret, val, val2, val3;
@@ -250,7 +256,7 @@ static void adxcvr_clk_disable(struct clk_hw *hw)
 }
 
 static unsigned long adxcvr_clk_recalc_rate(struct clk_hw *hw,
-	unsigned long parent_rate)
+					    unsigned long parent_rate)
 {
 	struct adxcvr_state *st =
 		container_of(hw, struct adxcvr_state, lane_clk_hw);
@@ -298,8 +304,9 @@ static unsigned long adxcvr_clk_recalc_rate(struct clk_hw *hw,
 	}
 }
 
-static long adxcvr_clk_round_rate(struct clk_hw *hw, unsigned long rate,
-	unsigned long *prate)
+static long adxcvr_clk_round_rate(struct clk_hw *hw,
+				  unsigned long rate,
+				  unsigned long *prate)
 {
 	struct adxcvr_state *st =
 		container_of(hw, struct adxcvr_state, lane_clk_hw);
@@ -322,8 +329,9 @@ static long adxcvr_clk_round_rate(struct clk_hw *hw, unsigned long rate,
 	return ret < 0 ? ret : rate;
 }
 
-static int adxcvr_clk_set_rate(struct clk_hw *hw, unsigned long rate,
-							   unsigned long parent_rate)
+static int adxcvr_clk_set_rate(struct clk_hw *hw,
+			       unsigned long rate,
+			       unsigned long parent_rate)
 {
 	struct adxcvr_state *st =
 		container_of(hw, struct adxcvr_state, lane_clk_hw);
@@ -399,8 +407,9 @@ static const struct clk_ops clkout_ops = {
 	.set_rate = adxcvr_clk_set_rate,
 };
 
-static int adxcvr_clk_register(struct device *dev, struct device_node *node,
-	const char *parent_name)
+static int adxcvr_clk_register(struct device *dev,
+			       struct device_node *node,
+			       const char *parent_name)
 {
 	struct adxcvr_state *st = dev_get_drvdata(dev);
 	unsigned int out_clk_divider, out_clk_multiplier;
@@ -475,18 +484,13 @@ static int adxcvr_clk_register(struct device *dev, struct device_node *node,
 	return ret;
 }
 
-static int adxcvr_parse_dt(struct adxcvr_state *st,
-						   struct device_node *np)
+static int adxcvr_parse_dt(struct adxcvr_state *st, struct device_node *np)
 {
-	of_property_read_u32(np, "adi,sys-clk-select",
-				&st->sys_clk_sel);
-	of_property_read_u32(np, "adi,out-clk-select",
-				&st->out_clk_sel);
+	of_property_read_u32(np, "adi,sys-clk-select", &st->sys_clk_sel);
+	of_property_read_u32(np, "adi,out-clk-select", &st->out_clk_sel);
 
-	st->cpll_enable = of_property_read_bool(np,
-				"adi,use-cpll-enable");
-	st->lpm_enable = of_property_read_bool(np,
-				"adi,use-lpm-enable");
+	st->cpll_enable = of_property_read_bool(np, "adi,use-cpll-enable");
+	st->lpm_enable = of_property_read_bool(np, "adi,use-lpm-enable");
 
 	INIT_WORK(&st->work, adxcvr_work_func);
 
@@ -710,8 +714,8 @@ static struct platform_driver adxcvr_of_driver = {
 		.owner = THIS_MODULE,
 		.of_match_table = adxcvr_of_match,
 	},
-	.probe		= adxcvr_probe,
-	.remove		= adxcvr_remove,
+	.probe  = adxcvr_probe,
+	.remove = adxcvr_remove,
 };
 
 module_platform_driver(adxcvr_of_driver);
