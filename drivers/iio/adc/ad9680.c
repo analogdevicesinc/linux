@@ -674,11 +674,12 @@ static const struct axiadc_chip_info axiadc_chip_info_tbl[] = {
 		.max_rate = 1000000000UL,
 		.scale_table = ad9694_scale_table,
 		.num_scales = ARRAY_SIZE(ad9694_scale_table),
-		.num_channels = 4,
+		.num_channels = 5,
 		.channel[0] = AD9694_CHAN(0),
 		.channel[1] = AD9694_CHAN(1),
 		.channel[2] = AD9694_CHAN(2),
 		.channel[3] = AD9694_CHAN(3),
+		.channel[4] = AD9694_CHAN(4),
 	},
 };
 
