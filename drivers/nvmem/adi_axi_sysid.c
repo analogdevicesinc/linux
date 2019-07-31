@@ -182,7 +182,6 @@ static int axi_sysid_probe(struct platform_device *pdev)
 	struct axi_sysid *st;
 	struct resource *res;
 	u32 version;
-	int ret;
 
 	id = of_match_node(axi_sysid_of_match, pdev->dev.of_node);
 	if (!id)
