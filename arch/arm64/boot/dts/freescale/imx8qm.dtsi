@@ -295,7 +295,7 @@
 		pd: power-controller {
 			compatible = "fsl,imx8qm-scu-pd", "fsl,scu-pd";
 			#power-domain-cells = <1>;
-			wakeup-irq = <345 346 347 348>;
+			wakeup-irq = <345 346 347 348 235 236 237>;
 		};
 
 		clk: clock-controller {
