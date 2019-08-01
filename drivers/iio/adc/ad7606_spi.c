@@ -24,6 +24,9 @@
 #define AD7616_RANGE_CH_MSK(ch)		(GENMASK(1, 0) << ((ch) & 0x6))
 #define AD7616_RANGE_CH_MODE(ch, mode)	((mode) << (ch & GENMASK(2, 1)))
 
+#define AD7606_CONFIGURATION_REGISTER	0x02
+#define AD7606_SINGLE_DOUT		0x0
+
 /* AD7606_RANGE_CH_X_Y */
 #define AD7606_RANGE_CH_MSK(ch)		(GENMASK(3, 0) << (4 * ((ch) % 2)))
 #define AD7606_RANGE_CH_MODE(ch, mode)	\
@@ -209,6 +212,11 @@ static int ad7606B_sw_mode_config(struct iio_dev *indio_dev)
 
 	st->write_scale = ad7606_write_scale_sw;
 	st->write_os = &ad7606_write_os_sw;
+
+	/* Configure device spi to output on a single channel */
+	st->bops->reg_write(st,
+			    AD7606_CONFIGURATION_REGISTER,
+			    AD7606_SINGLE_DOUT);
 	/*
 	 * Scale can be configured individually for each channel
 	 * in software mode.
