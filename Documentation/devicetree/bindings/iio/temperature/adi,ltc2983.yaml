@@ -99,11 +99,11 @@ patternProperties:
 
       adi,custom-sensor:
         description: |
-          This is a table, where each entry should be a pair of voltage-temperature.
-          The values added here are raw values and the MSB will be discarded.
-          For more details on how to compute this values look at table 69 and 70.
+          This is a table, where each entry should be a pair of voltage(mv)-temperature(K).
+          The entries must be given in nv and uK so that, the original values must be
+          multiplied by 1000000. For more details look at table 69 and 70.
         allOf:
-          - $ref: /schemas/types.yaml#/definitions/uint32-array
+          - $ref: /schemas/types.yaml#/definitions/int64-array
         minItems: 6
         maxItems: 128
     required:
@@ -150,8 +150,9 @@ patternProperties:
 
       adi,ideal-factor-value:
         description: |
-          This property sets the diode ideality factor. It is a 22 bit word. For
-          more information look at table 20 of the datasheet.
+          This property sets the diode ideality factor. The real value must be
+          multiplied by 1000000 to remove the fractional part. For more information
+          look at table 20 of the datasheet.
         allOf:
           - $ref: /schemas/types.yaml#/definitions/uint32
         maxItems: 1
@@ -216,11 +217,10 @@ patternProperties:
 
       adi,custom-sensor:
         description: |
-          This is a table, where each entry should be a pair of resistance-temperature.
-          The values added here are raw values and the MSB will be discarded.
-          For more details on how to compute this values look at table 74 and 75.
+          This is a table, where each entry should be a pair of resistance(ohm)-temperature(K).
+          The entries added here are in uohm and uK. For more details values look at table 74 and 75.
         allOf:
-          - $ref: /schemas/types.yaml#/definitions/uint32-array
+          - $ref: /schemas/types.yaml#/definitions/uint64-array
         minItems: 6
         maxItems: 128
     required:
@@ -276,15 +276,15 @@ patternProperties:
 
       adi,custom-sensor:
         description: |
-          This is a table, where each entry should be a pair of resistance-temperature.
-          The values added here are raw values and the MSB will be discarded.
-          For more details on how to compute this values look at table 78 and 79.
+          This is a table, where each entry should be a pair of resistance(ohm)-temperature(K).
+          The entries added here are in uohm and uK only for custom thermistors.
+          For more details look at table 78 and 79.
           Steinhart-Hart coefficients are also supported and can be programmed into the
-          device memory using this property. The table has a constance size of 6 entries
-          (defining the coefficients) and the full 32 bits of the integer are used.
-          Look at table 82 for how to compute this values.
+          device memory using this property. For Steinhart sensors, this table has a constant
+          size of 6 entries (defining the coefficients) and the values are given in the raw format.
+          Look at table 82 for more information.
         allOf:
-          - $ref: /schemas/types.yaml#/definitions/uint32-array
+          - $ref: /schemas/types.yaml#/definitions/uint64-array
         minItems: 6
         maxItems: 128
     required:
@@ -342,12 +342,12 @@ patternProperties:
         const: 29
         maxItems: 1
 
-      adi,rsense-val:
+      adi,rsense-val-micro-ohms:
         description: |
           Sets the value of the sense resistor. Look at table 20 of the datasheet
-          for information on how to set this value.
+          for information.
         allOf:
-          - $ref: /schemas/types.yaml#/definitions/uint32
+          - $ref: /schemas/types.yaml#/definitions/uint64
         maxItems: 1
 
     required:
@@ -393,7 +393,7 @@ examples:
                 rsense2: rsense@2 {
                         reg = <2>;
                         adi,sensor-type = <29>;
-                        adi,rsense-val = <0x0012c000>; //1.2Kohms
+                        adi,rsense-val-micro-ohms = /bits/ 64 <1200000000>; //1.2Kohms
                 };
 
                 rtd@14 {
@@ -415,7 +415,7 @@ examples:
                         reg = <12>;
                         adi,sensor-type = <26>; //Steinhart
                         adi,rsense-handle = <&rsense2>;
-                        adi,custom-sensor = <0x00F371EC 0x12345678
+                        adi,custom-sensor = /bits/ 64 <0x00F371EC 0x12345678
                                         0x2C0F8733 0x10018C66 0xA0FEACCD
                                         0x90021D99>; //6 entries
                 };
@@ -424,17 +424,17 @@ examples:
                         reg = <20>;
                         adi,sensor-type = <9>; //custom thermocouple
                         adi,sensor-config = <8>; //single-ended
-                        adi,custom-sensor =
-                                 <0x00F371EC 0x00000000>,
-                                 <0x00F87334 0x00018C66>,
-                                 <0x00FEACCD 0x00021D99>,
-                                 <0x00000000 0x00044499>,
-                                 <0x000A0CCC 0x0005A4CC>,
-                                 <0x000DD333 0x00082866>,
-                                 <0x00161333 0x000B4133>,
-                                 <0x00210CCC 0x000CACCC>,
-                                 <0x002F2CCC 0x000E6A00>,
-                                 <0x00731999 0x000FA000>; //10 pairs
+                        adi,custom-sensor = /bits/ 64
+                                 <(-50220000) 0
+                                  (-30200000) 99100000
+                                  (-5300000) 135400000
+                                  0 273150000
+                                  40200000 361200000
+                                  55300000 522100000
+                                  88300000 720300000
+                                  132200000 811200000
+                                  188700000 922500000
+                                  460400000 1000000000>; //10 pairs
                };
 
         };
