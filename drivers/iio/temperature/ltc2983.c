@@ -227,6 +227,31 @@ struct ltc2983_adc {
 	bool single_ended;
 };
 
+/*
+ * Convert to Q format numbers. These number's are integers where
+ * the number of integer and fractional bits are specified. The resolution
+ * is given by 1/@resolution and tell us the number of fractional bits. For
+ * instance a resolution of 2^-10 means we have 10 fractional bits.
+ */
+static u32 __convert_to_raw(const u64 val, const u32 resolution)
+{
+	u64 __res = val * resolution;
+
+	/* all values are multiplied by 1000000 to remove the fraction */
+	do_div(__res, 1000000);
+
+	return __res;
+}
+
+static u32 __convert_to_raw_sign(const u64 val, const u32 resolution)
+{
+	s64 __res = -(s32)val;
+
+	__res = __convert_to_raw(__res, resolution);
+
+	return (u32)-__res;
+}
+
 static int __ltc2983_fault_handler(const struct ltc2983_data *st,
 				   const u32 result, const u32 hard_mask,
 				   const u32 soft_mask)
@@ -316,7 +341,9 @@ static int __ltc2983_chan_custom_sensor_assign(struct ltc2983_data *st,
 static struct ltc2983_custom_sensor *__ltc2983_custom_sensor_new(
 						struct ltc2983_data *st,
 						const struct device_node *np,
-						const bool is_steinhart)
+						const bool is_steinhart,
+						const u32 resolution,
+						const bool has_signed)
 {
 	struct ltc2983_custom_sensor *new_custom;
 	u8 index, n_entries, tbl = 0;
@@ -328,7 +355,7 @@ static struct ltc2983_custom_sensor *__ltc2983_custom_sensor_new(
 	const u8 n_size = (is_steinhart == true) ? 4 : 3;
 
 	n_entries = of_property_count_elems_of_size(np, "adi,custom-sensor",
-						sizeof(u32));
+						sizeof(u64));
 	/* n_entries must be an even number */
 	if (!n_entries || (n_entries % 2) != 0) {
 		dev_err(dev, "Number of entries either 0 or not even\n");
@@ -361,10 +388,26 @@ static struct ltc2983_custom_sensor *__ltc2983_custom_sensor_new(
 		return ERR_PTR(-ENOMEM);
 
 	for (index = 0; index < n_entries; index++) {
-		u32 temp = 0, j;
+		u64 temp = 0, j;
 
-		of_property_read_u32_index(np, "adi,custom-sensor", index,
+		of_property_read_u64_index(np, "adi,custom-sensor", index,
 					   &temp);
+		/*
+		 * Steinhart sensors are configured with raw values in the
+		 * devicetree. For the other sensors we must convert the
+		 * value to raw. The odd index's correspond to temperarures
+		 * and always have 1/1024 of resolution. Temperatures also
+		 * come in kelvin, so signed values is not possible
+		 */
+		if (!is_steinhart) {
+			if ((index % 2) != 0)
+				temp = __convert_to_raw(temp, 1024);
+			else if (has_signed && (s64)temp < 0)
+				temp = __convert_to_raw_sign(temp, resolution);
+			else
+				temp = __convert_to_raw(temp, resolution);
+		}
+
 		for (j = 0; j < n_size; j++)
 			new_custom->table[tbl++] =
 				temp >> (8 * (n_size - j - 1));
@@ -552,7 +595,8 @@ static struct ltc2983_sensor *ltc2983_thermocouple_new(
 
 	/* check custom sensor */
 	if (sensor->type == LTC2983_SENSOR_THERMOCOUPLE_CUSTOM) {
-		thermo->custom = __ltc2983_custom_sensor_new(st, child, false);
+		thermo->custom = __ltc2983_custom_sensor_new(st, child, false,
+							     16384, true);
 		if (IS_ERR(thermo->custom)) {
 			of_node_put(phandle);
 			return ERR_CAST(thermo->custom);
@@ -642,7 +686,8 @@ static struct ltc2983_sensor *ltc2983_rtd_new(const struct device_node *child,
 
 	/* check custom sensor */
 	if (sensor->type == LTC2983_SENSOR_RTD_CUSTOM) {
-		rtd->custom = __ltc2983_custom_sensor_new(st, child, false);
+		rtd->custom = __ltc2983_custom_sensor_new(st, child, false,
+							  2048, false);
 		if (IS_ERR(rtd->custom)) {
 			of_node_put(phandle);
 			return ERR_CAST(rtd->custom);
@@ -712,7 +757,8 @@ static struct ltc2983_sensor *ltc2983_thermistor_new(
 	if (sensor->type >= LTC2983_SENSOR_THERMISTOR_STEINHART) {
 		thermistor->custom = __ltc2983_custom_sensor_new(st, child,
 			sensor->type == LTC2983_SENSOR_THERMISTOR_STEINHART ?
-							  true : false);
+							  true : false, 64,
+							  false);
 		if (IS_ERR(thermistor->custom)) {
 			of_node_put(phandle);
 			return ERR_CAST(thermistor->custom);
@@ -742,6 +788,7 @@ static struct ltc2983_sensor *ltc2983_diode_new(
 					const struct ltc2983_sensor *sensor)
 {
 	struct ltc2983_diode *diode;
+	u32 temp = 0;
 
 	diode = devm_kzalloc(&st->spi->dev, sizeof(*diode), GFP_KERNEL);
 	if (!diode)
@@ -764,8 +811,10 @@ static struct ltc2983_sensor *ltc2983_diode_new(
 	of_property_read_u32(child, "adi,excitation-current",
 			     &diode->excitation_current);
 
-	of_property_read_u32(child, "adi,ideal-factor-value",
-			     &diode->ideal_factor_value);
+	of_property_read_u32(child, "adi,ideal-factor-value", &temp);
+
+	/* 2^20 resolution */
+	diode->ideal_factor_value = __convert_to_raw(temp, 1048576);
 
 	return &diode->sensor;
 }
@@ -776,6 +825,7 @@ static struct ltc2983_sensor *ltc2983_r_sense_new(struct device_node *child,
 {
 	struct ltc2983_rsense *rsense;
 	int ret;
+	u64 temp;
 
 	rsense = devm_kzalloc(&st->spi->dev, sizeof(*rsense), GFP_KERNEL);
 	if (!rsense)
@@ -788,12 +838,14 @@ static struct ltc2983_sensor *ltc2983_r_sense_new(struct device_node *child,
 		return ERR_PTR(-EINVAL);
 	}
 	/* get raw value */
-	ret = of_property_read_u32(child, "adi,rsense-val",
-				   &rsense->r_sense_val);
+	ret = of_property_read_u64(child, "adi,rsense-val-micro-ohms", &temp);
 	if (ret) {
-		dev_err(&st->spi->dev, "Property adi,rsense-val missing\n");
+		dev_err(&st->spi->dev, "Property adi,rsense-val-micro-ohms missing\n");
 		return ERR_PTR(-EINVAL);
 	}
+
+	/* 2^10 resolution */
+	rsense->r_sense_val = __convert_to_raw(temp, 1024);
 
 	/* set common parameters */
 	rsense->sensor.name = "r_sense";
