@@ -1,12 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
  * ADIS16460 IMU driver
  *
- * Copyright 2017 Analog Devices Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
- *
+ * Copyright 2019 Analog Devices Inc.
  */
 
 #include <linux/delay.h>
@@ -51,8 +47,8 @@
 #define ADIS16460_REG_X_ACCL_OFF	0x46
 #define ADIS16460_REG_Y_ACCL_OFF	0x48
 #define ADIS16460_REG_Z_ACCL_OFF	0x4A
-#define ADIS16460_REG_LOT_ID1 R		0x52
-#define ADIS16460_REG_LOT_ID2 R		0x54
+#define ADIS16460_REG_LOT_ID1		0x52
+#define ADIS16460_REG_LOT_ID2		0x54
 #define ADIS16460_REG_PROD_ID		0x56
 #define ADIS16460_REG_SERIAL_NUM	0x58
 #define ADIS16460_REG_CAL_SGNTR		0x60
@@ -177,7 +173,7 @@ static int adis16460_get_freq(struct iio_dev *indio_dev, int *val, int *val2)
 	struct adis16460 *st = iio_priv(indio_dev);
 	uint16_t t;
 	int ret;
-	unsigned freq;
+	unsigned int freq;
 
 	ret = adis_read_reg_16(&st->adis, ADIS16460_REG_DEC_RATE, &t);
 	if (ret < 0)
@@ -393,7 +389,7 @@ static const struct adis_data adis16460_data = {
 	.has_paging = false,
 	.read_delay = 5,
 	.write_delay = 5,
-	.stall_delay = 17,
+	.cs_change_delay = 16,
 	.status_error_msgs = adis16460_status_error_msgs,
 	.status_error_mask = BIT(ADIS16460_DIAG_STAT_IN_CLK_OOS) |
 		BIT(ADIS16460_DIAG_STAT_FLASH_MEM) |
@@ -465,17 +461,24 @@ static int adis16460_remove(struct spi_device *spi)
 	return 0;
 }
 
-static const struct spi_device_id adis16460_id[] = {
+static const struct spi_device_id adis16460_ids[] = {
 	{ "adis16460", 0 },
 	{}
 };
-MODULE_DEVICE_TABLE(spi, adis16460_id);
+MODULE_DEVICE_TABLE(spi, adis16460_ids);
+
+static const struct of_device_id adis16460_of_match[] = {
+	{ .compatible = "adi,adis16460" },
+	{}
+};
+MODULE_DEVICE_TABLE(of, adis16460_of_match);
 
 static struct spi_driver adis16460_driver = {
 	.driver = {
-		.name = KBUILD_MODNAME,
+		.name = "adis16460",
+		.of_match_table = adis16460_of_match,
 	},
-	.id_table = adis16460_id,
+	.id_table = adis16460_ids,
 	.probe = adis16460_probe,
 	.remove = adis16460_remove,
 };
@@ -483,4 +486,4 @@ module_spi_driver(adis16460_driver);
 
 MODULE_AUTHOR("Dragos Bogdan <dragos.bogdan@analog.com>");
 MODULE_DESCRIPTION("Analog Devices ADIS16460 IMU driver");
-MODULE_LICENSE("GPL v2");
+MODULE_LICENSE("GPL");
