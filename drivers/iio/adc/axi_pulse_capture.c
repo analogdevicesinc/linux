@@ -156,7 +156,7 @@ static int axi_pulse_capture_read_raw(struct iio_dev *indio_dev,
 
 	switch (mask) {
 	case IIO_CHAN_INFO_ENABLE:
-		*val = pulse_capture_ioread(pulse, ADI_REG_DRIVER_ENABLE);
+		*val = !pulse_capture_ioread(pulse, ADI_REG_DRIVER_ENABLE);
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_FREQUENCY:
 		clk_rate = clk_get_rate(pulse->clk);
@@ -184,6 +184,10 @@ static int axi_pulse_capture_write_raw(struct iio_dev *indio_dev,
 
 	switch (mask) {
 	case IIO_CHAN_INFO_ENABLE:
+		if (val == 1)
+			val = LASER_ENABLE;
+		else
+			val = LASER_DISABLE;
 		mutex_lock(&pulse->pulse_lock);
 		if (pulse->otw) {
 			dev_warn(indio_dev->dev.parent,
