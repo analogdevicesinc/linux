@@ -181,7 +181,7 @@
 			assigned-clocks = <&pcc2 IMX7ULP_CLK_LPUART5>;
 			assigned-clock-parents = <&scg1 IMX7ULP_CLK_FIRC_BUS_CLK>;
 			assigned-clock-rates = <48000000>;
-			dmas = <&edma0 0 20>, <&edma0 0 19>;
+			dmas = <&edma1 0 20>, <&edma1 0 19>;
 			dma-names = "tx","rx";
 			status = "disabled";
 		};
@@ -342,33 +342,6 @@
 		reg = <0x40800000 0x800000>;
 		ranges;
 
-		edma0: dma-controller@40080000 {
-			#dma-cells = <2>;
-			compatible = "nxp,imx7ulp-edma";
-			reg = <0x40080000 0x2000>,
-				<0x40210000 0x1000>;
-			dma-channels = <32>;
-			interrupts = <GIC_SPI 0 IRQ_TYPE_LEVEL_HIGH>,
-					<GIC_SPI 1 IRQ_TYPE_LEVEL_HIGH>,
-					<GIC_SPI 2 IRQ_TYPE_LEVEL_HIGH>,
-					<GIC_SPI 3 IRQ_TYPE_LEVEL_HIGH>,
-					<GIC_SPI 4 IRQ_TYPE_LEVEL_HIGH>,
-					<GIC_SPI 5 IRQ_TYPE_LEVEL_HIGH>,
-					<GIC_SPI 6 IRQ_TYPE_LEVEL_HIGH>,
-					<GIC_SPI 7 IRQ_TYPE_LEVEL_HIGH>,
-					<GIC_SPI 8 IRQ_TYPE_LEVEL_HIGH>,
-					<GIC_SPI 9 IRQ_TYPE_LEVEL_HIGH>,
-					<GIC_SPI 10 IRQ_TYPE_LEVEL_HIGH>,
-					<GIC_SPI 11 IRQ_TYPE_LEVEL_HIGH>,
-					<GIC_SPI 12 IRQ_TYPE_LEVEL_HIGH>,
-					<GIC_SPI 13 IRQ_TYPE_LEVEL_HIGH>,
-					<GIC_SPI 14 IRQ_TYPE_LEVEL_HIGH>,
-					<GIC_SPI 15 IRQ_TYPE_LEVEL_HIGH>,
-					<GIC_SPI 16 IRQ_TYPE_LEVEL_HIGH>;
-			clock-names = "dma", "dmamux0";
-			clocks = <&pcc2 IMX7ULP_CLK_DMA1>, <&pcc2 IMX7ULP_CLK_DMA_MUX1>;
-		};
-
 		lpi2c6: i2c@40a40000 {
 			compatible = "fsl,imx7ulp-lpi2c";
 			reg = <0x40a40000 0x10000>;
@@ -404,7 +377,7 @@
 			assigned-clocks = <&pcc3 IMX7ULP_CLK_LPUART6>;
 			assigned-clock-parents = <&scg1 IMX7ULP_CLK_FIRC_BUS_CLK>;
 			assigned-clock-rates = <48000000>;
-			dmas = <&edma0 0 22>, <&edma0 0 21>;
+			dmas = <&edma1 0 22>, <&edma1 0 21>;
 			dma-names = "tx","rx";
 			status = "disabled";
 		};
@@ -418,7 +391,7 @@
 			assigned-clocks = <&pcc3 IMX7ULP_CLK_LPUART7>;
 			assigned-clock-parents = <&scg1 IMX7ULP_CLK_FIRC_BUS_CLK>;
 			assigned-clock-rates = <48000000>;
-			dmas = <&edma0 0 24>, <&edma0 0 23>;
+			dmas = <&edma1 0 24>, <&edma1 0 23>;
 			dma-names = "tx","rx";
 			status = "disabled";
 		};
