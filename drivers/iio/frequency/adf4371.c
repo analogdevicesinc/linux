@@ -334,6 +334,7 @@ static int adf4371_set_freq(struct adf4371_state *st, unsigned long long freq,
 
 	adf4371_pll_fract_n_compute(freq, st->fpfd, &st->integer, &st->fract1,
 				    &st->fract2, &st->mod2);
+
 	st->buf[0] = st->integer >> 8;
 	st->buf[1] = 0x40; /* REG12 default */
 	st->buf[2] = 0x00;
