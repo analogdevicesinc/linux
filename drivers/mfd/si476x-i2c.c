@@ -97,7 +97,7 @@ static int si476x_core_config_pinmux(struct si476x_core *core)
 
 static inline void si476x_core_schedule_polling_work(struct si476x_core *core)
 {
-	schedule_delayed_work(&core->status_monitor,
+	queue_delayed_work(system_freezable_wq, &core->status_monitor,
 			      usecs_to_jiffies(SI476X_STATUS_POLL_US));
 }
 
