@@ -1191,11 +1191,11 @@ static const struct spi_device_id adf4360_id[] = {
 
 static struct spi_driver adf4360_driver = {
 	.driver = {
-		.name	= "adf4360",
-		.owner	= THIS_MODULE,
+		.name = "adf4360",
+		.owner = THIS_MODULE,
 	},
-	.probe		= adf4360_probe,
-	.id_table	= adf4360_id,
+	.probe = adf4360_probe,
+	.id_table = adf4360_id,
 };
 module_spi_driver(adf4360_driver);
 
