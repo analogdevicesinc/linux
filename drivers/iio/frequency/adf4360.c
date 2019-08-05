@@ -1216,4 +1216,4 @@ module_spi_driver(adf4360_driver);
 
 MODULE_LICENSE("GPL v2");
 MODULE_AUTHOR("Lars-Peter Clausen <lars@metafoo.de>");
-MODULE_DESCRIPTION("Driver for the Analog Devices ADF4360 PLL");
+MODULE_DESCRIPTION("Analog Devices ADF4360 PLL");
