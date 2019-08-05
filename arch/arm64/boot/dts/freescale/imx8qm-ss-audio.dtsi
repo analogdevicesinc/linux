@@ -16,3 +16,81 @@
 &dsp_ram_lpcg {
 	status = "disabled";
 };
+
+/* edma2 called in imx8qm RM with the same address in edma0 of imx8qxp */
+&edma0{
+	reg = <0x0 0x59200000 0x0 0x10000>, /* asrc0 */
+		<0x0 0x59210000 0x0 0x10000>,
+		<0x0 0x59220000 0x0 0x10000>,
+		<0x0 0x59230000 0x0 0x10000>,
+		<0x0 0x59240000 0x0 0x10000>,
+		<0x0 0x59250000 0x0 0x10000>,
+		<0x0 0x59260000 0x0 0x10000>, /* esai0 rx */
+		<0x0 0x59270000 0x0 0x10000>, /* esai0 tx */
+		<0x0 0x59280000 0x0 0x10000>, /* spdif0 rx */
+		<0x0 0x59290000 0x0 0x10000>, /* spdif0 tx */
+		<0x0 0x592A0000 0x0 0x10000>, /* spdif1 rx */
+		<0x0 0x592B0000 0x0 0x10000>, /* spdif1 tx */
+		<0x0 0x592c0000 0x0 0x10000>, /* sai0 rx */
+		<0x0 0x592d0000 0x0 0x10000>, /* sai0 tx */
+		<0x0 0x592e0000 0x0 0x10000>, /* sai1 rx */
+		<0x0 0x592f0000 0x0 0x10000>, /* sai1 tx */
+		<0x0 0x59320000 0x0 0x10000>, /* sai4 rx */
+		<0x0 0x59330000 0x0 0x10000>; /* sai5 tx */
+	dma-channels = <18>;
+	interrupts = <GIC_SPI 374 IRQ_TYPE_LEVEL_HIGH>, /* asrc0 */
+			<GIC_SPI 375 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 376 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 377 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 378 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 379 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 410 IRQ_TYPE_LEVEL_HIGH>, /* esai0 */
+			<GIC_SPI 410 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 457 IRQ_TYPE_LEVEL_HIGH>, /* spdif0 */
+			<GIC_SPI 459 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 461 IRQ_TYPE_LEVEL_HIGH>, /* spdif1 */
+			<GIC_SPI 463 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 315 IRQ_TYPE_LEVEL_HIGH>, /* sai0 */
+			<GIC_SPI 315 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 317 IRQ_TYPE_LEVEL_HIGH>, /* sai1 */
+			<GIC_SPI 317 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 326 IRQ_TYPE_LEVEL_HIGH>, /* sai4 */
+			<GIC_SPI 328 IRQ_TYPE_LEVEL_HIGH>; /* sai5 */
+	interrupt-names = "edma2-chan0-rx", "edma2-chan1-rx", /* asrc0 */
+			"edma2-chan2-rx", "edma2-chan3-tx",
+			"edma2-chan4-tx", "edma2-chan5-tx",
+			"edma2-chan6-rx", "edma2-chan7-tx", /* esai0 */
+			"edma2-chan8-rx", "edma2-chan9-tx", /* spdif0 */
+			"edma2-chan10-rx", "edma2-chan11-tx", /* spdif1 */
+			"edma2-chan12-rx", "edma2-chan13-tx", /* sai0 */
+			"edma2-chan14-rx", "edma2-chan15-tx", /* sai1 */
+			"edma2-chan18-rx", "edma2-chan19-tx"; /* sai4, sai5 */
+};
+
+/* edma3 called in imx8qm RM with the same address in edma1 of imx8qxp */
+&edma1{
+	reg = <0x0 0x59A00000 0x0 0x10000>, /* asrc1 */
+		<0x0 0x59A10000 0x0 0x10000>,
+		<0x0 0x59A20000 0x0 0x10000>,
+		<0x0 0x59A30000 0x0 0x10000>,
+		<0x0 0x59A40000 0x0 0x10000>,
+		<0x0 0x59A50000 0x0 0x10000>,
+		<0x0 0x59A80000 0x0 0x10000>, /* sai6 rx */
+		<0x0 0x59A90000 0x0 0x10000>, /* sai6 tx */
+		<0x0 0x59AA0000 0x0 0x10000>; /* sai7 tx */
+	dma-channels = <9>;
+	interrupts = <GIC_SPI 382 IRQ_TYPE_LEVEL_HIGH>, /* asrc1 */
+			<GIC_SPI 383 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 384 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 385 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 386 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 387 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 330 IRQ_TYPE_LEVEL_HIGH>, /* sai6 */
+			<GIC_SPI 330 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 332 IRQ_TYPE_LEVEL_HIGH>; /* sai7 */
+	interrupt-names = "edma3-chan0-rx", "edma3-chan1-rx", /* asrc1 */
+			"edma3-chan2-rx", "edma3-chan3-tx",
+			"edma3-chan4-tx", "edma3-chan5-tx",
+			"edma3-chan8-rx", "edma3-chan9-tx", /* sai6 */
+			"edma3-chan10-tx";                 /* sai7 */
+};
