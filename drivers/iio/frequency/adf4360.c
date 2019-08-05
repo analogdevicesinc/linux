@@ -1,9 +1,9 @@
+// SPDX-License-Identifier: GPL-2.0
 /*
  * ADF4360 PLL with Integrated Synthesizer and VCO
  *
- * Copyright 2014-2018 Analog Devices Inc.
- *
- * Licensed under the GPL-2.
+ * Copyright 2014-2019 Analog Devices Inc.
+ * Copyright 2019 Edward Kigwana.
  */
 
 #include <linux/bitfield.h>
@@ -1216,4 +1216,5 @@ module_spi_driver(adf4360_driver);
 
 MODULE_LICENSE("GPL v2");
 MODULE_AUTHOR("Lars-Peter Clausen <lars@metafoo.de>");
+MODULE_AUTHOR("Edward Kigwana <ekigwana@gmail.com>");
 MODULE_DESCRIPTION("Analog Devices ADF4360 PLL");
