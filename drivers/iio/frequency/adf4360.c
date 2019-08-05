@@ -1175,6 +1175,21 @@ static int adf4360_probe(struct spi_device *spi)
 	return devm_iio_device_register(&spi->dev, indio_dev);
 }
 
+static const struct of_device_id adf4360_of_match[] = {
+	{ .compatible = "adi,adf4360-0", },
+	{ .compatible = "adi,adf4360-1", },
+	{ .compatible = "adi,adf4360-2", },
+	{ .compatible = "adi,adf4360-3", },
+	{ .compatible = "adi,adf4360-4", },
+	{ .compatible = "adi,adf4360-5", },
+	{ .compatible = "adi,adf4360-6", },
+	{ .compatible = "adi,adf4360-7", },
+	{ .compatible = "adi,adf4360-8", },
+	{ .compatible = "adi,adf4360-9", },
+	{},
+};
+MODULE_DEVICE_TABLE(of, adf4360_of_match);
+
 static const struct spi_device_id adf4360_id[] = {
 	{"adf4360-0", ID_ADF4360_0},
 	{"adf4360-1", ID_ADF4360_1},
@@ -1192,6 +1207,7 @@ static const struct spi_device_id adf4360_id[] = {
 static struct spi_driver adf4360_driver = {
 	.driver = {
 		.name = "adf4360",
+		.of_match_table = adf4360_of_match,
 		.owner = THIS_MODULE,
 	},
 	.probe = adf4360_probe,
