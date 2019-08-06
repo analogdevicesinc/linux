@@ -502,4 +502,9 @@
         heartbeat-rpmsg {
 		compatible = "fsl,heartbeat-rpmsg";
 	};
+
+	rtc-rpmsg {
+		compatible = "fsl,imx-rpmsg-rtc";
+	};
+
 };
