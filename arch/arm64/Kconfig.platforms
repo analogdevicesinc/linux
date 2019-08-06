@@ -218,6 +218,7 @@ config ARCH_MXC
 	select IMX_GPCV2_PM_DOMAINS
 	select HAVE_IMX_BUSFREQ
 	select IMX8M_BUSFREQ
+	select IMX8M_PM_DOMAINS
 	select PM
 	select PM_GENERIC_DOMAINS
 	select SOC_BUS
