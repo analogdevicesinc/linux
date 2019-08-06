@@ -532,6 +532,7 @@
 	bus-width = <8>;
 	fsl,tuning-step = <2>;
 	non-removable;
+	auto-cmd23-broken;
 	status = "okay";
 };
 
