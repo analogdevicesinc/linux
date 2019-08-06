@@ -13,6 +13,7 @@
 #include <linux/irqchip.h>
 #include <linux/syscore_ops.h>
 #include <linux/smp.h>
+#include <linux/cpuidle.h>
 
 #define FSL_SIP_GPC			0xC2000000
 #define FSL_SIP_CONFIG_GPC_CORE_WAKE	0x05
@@ -96,6 +97,16 @@ static void imx_gpcv2_raise_softirq(const struct cpumask *mask,
 static void imx_gpcv2_wake_request_fixup(void)
 {
 	struct regmap *iomux_gpr;
+	struct arm_smccc_res res;
+
+	arm_smccc_smc(FSL_SIP_GPC, FSL_SIP_CONFIG_GPC_CORE_WAKE,
+			0, 0, 0, 0, 0, 0, &res);
+
+	if (res.a0) {
+		pr_warn("irq-imx-gpcv2: EL3 does not support FSL_SIP_CONFIG_GPC_CORE_WAKE, disabling cpuidle.\n");
+		disable_cpuidle();
+		return;
+	}
 
 	/* hijack the already registered smp cross call handler */
 	__gic_v3_smp_cross_call = __smp_cross_call;
