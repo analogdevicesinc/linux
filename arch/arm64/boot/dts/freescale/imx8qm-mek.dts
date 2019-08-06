@@ -169,6 +169,14 @@
 	status = "okay";
 };
 
+&dpu1 {
+	status = "okay";
+};
+
+&dpu2 {
+	status = "okay";
+};
+
 &lpspi2 {
 	#address-cells = <1>;
 	#size-cells = <0>;
