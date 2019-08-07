@@ -344,7 +344,6 @@
 	#include "imx8-ss-cm40.dtsi"
 	#include "imx8-ss-vpu.dtsi"
 	#include "imx8-ss-dc0.dtsi"
-	#include "imx8-ss-lvds.dtsi"
 	#include "imx8-ss-adma.dtsi"
 	#include "imx8-ss-conn.dtsi"
 	#include "imx8-ss-ddr.dtsi"
@@ -358,6 +357,7 @@
 #include "imx8qxp-ss-conn.dtsi"
 #include "imx8qxp-ss-lsio.dtsi"
 #include "imx8qxp-ss-dc.dtsi"
+#include "imx8qxp-ss-lvds.dtsi"
 
 &edma2 {
 	status = "okay";
