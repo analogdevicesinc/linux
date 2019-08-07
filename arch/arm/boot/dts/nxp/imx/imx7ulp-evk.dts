@@ -8,6 +8,7 @@
 /dts-v1/;
 
 #include "imx7ulp.dtsi"
+#include <dt-bindings/input/input.h>
 
 / {
 	model = "NXP i.MX7ULP EVK";
@@ -154,6 +155,25 @@
 		status = "okay";
 	};
 
+	rpmsg_keys: rpmsg-keys {
+		compatible = "fsl,rpmsg-keys";
+
+		volume-up {
+			label = "Volume Up";
+			linux,code = <KEY_VOLUMEUP>;
+		};
+
+		volume-down {
+			label = "Volume Down";
+			linux,code = <KEY_VOLUMEDOWN>;
+		};
+
+		power-on {
+			label = "PowerOn";
+			linux,code = <KEY_POWER>;
+			rpmsg-key,wakeup;
+		};
+	};
 };
 
 &lpuart4 {
