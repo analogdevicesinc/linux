@@ -1007,6 +1007,14 @@ config REGULATOR_PF8X00
 	  on the NXP PF8100/PF8121A/PF8200 PMIC. The module will be named
 	  "pf8x00-regulator".
 
+config REGULATOR_PF1550_RPMSG
+	tristate "Freescale PF1550 rpmsg regulator driver"
+	depends on RPMSG
+	help
+	  This driver controls a PF1550 regulator which connected in M4
+	  side via RPMSG.The regulators include three switch and three
+	  ldo.
+
 config REGULATOR_PFUZE100
 	tristate "Freescale PFUZE100/200/3000/3001 regulator driver"
 	depends on I2C && OF
