@@ -498,4 +498,8 @@
 			  &mu 3 1>;
 		status = "disabled";
 	};
+
+        heartbeat-rpmsg {
+		compatible = "fsl,heartbeat-rpmsg";
+	};
 };
