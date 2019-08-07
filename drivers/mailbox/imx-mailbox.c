@@ -1127,7 +1127,20 @@ static struct platform_driver imx_mu_driver = {
 		.pm = &imx_mu_pm_ops,
 	},
 };
-module_platform_driver(imx_mu_driver);
+static int __init imx_mu_init(void)
+{
+	int ret;
+
+	ret = platform_driver_register(&imx_mu_driver);
+	if (ret)
+		pr_err("Unable to initialize mu driver\n");
+	else
+		pr_info("imx mu driver is registered.\n");
+
+	return ret;
+}
+
+arch_initcall(imx_mu_init);
 
 MODULE_AUTHOR("Oleksij Rempel <o.rempel@pengutronix.de>");
 MODULE_DESCRIPTION("Message Unit driver for i.MX");
