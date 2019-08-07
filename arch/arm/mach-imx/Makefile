@@ -73,6 +73,7 @@ AFLAGS_ddr3_freq_imx6sx.o :=-Wa,-march=armv7-a
 ifeq ($(CONFIG_SUSPEND),y)
 obj-$(CONFIG_SOC_IMX6) += suspend-imx6.o
 obj-$(CONFIG_SOC_IMX53) += suspend-imx53.o
+obj-$(CONFIG_SOC_IMX7ULP) += suspend-imx7ulp.o
 endif
 ifeq ($(CONFIG_ARM_CPU_SUSPEND),y)
 obj-$(CONFIG_SOC_IMX6) += resume-imx6.o

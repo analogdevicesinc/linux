@@ -141,6 +141,9 @@ int imx7ulp_set_lpm(enum ulp_cpu_pwr_mode mode);
 void imx_busfreq_map_io(void);
 void imx7_pm_map_io(void);
 void imx6_pm_map_io(void);
+void imx7ulp_pm_map_io(void);
+void imx7ulp_enable_nmi(void);
+void imx7ulp_poweroff(void);
 
 void imx_cpu_die(unsigned int cpu);
 int imx_cpu_kill(unsigned int cpu);
@@ -151,12 +154,16 @@ void imx53_suspend(void __iomem *ocram_vbase);
 extern const u32 imx53_suspend_sz;
 void imx6_suspend(void __iomem *ocram_vbase);
 void imx7_suspend(void __iomem *ocram_vbase);
+void imx7ulp_cpu_resume(void);
+void imx7ulp_suspend(void __iomem *ocram_vbase);
 #else
 static inline void ca7_cpu_resume(void) {}
 static inline void imx53_suspend(void __iomem *ocram_vbase) {}
 static const u32 imx53_suspend_sz;
 static inline void imx6_suspend(void __iomem *ocram_vbase) {}
 static inline void imx7_suspend(void __iomem *ocram_vbase) {}
+static inline void imx7ulp_cpu_resume(void) {}
+static inline void imx7ulp_suspend(void __iomem *ocram_vbase) {}
 #endif
 
 void v7_cpu_resume(void);
