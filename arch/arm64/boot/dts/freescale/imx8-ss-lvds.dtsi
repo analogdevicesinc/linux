@@ -112,7 +112,7 @@ lvds_subsys: bus@56220000 {
 				reg = <0>;
 
 				ldb1_ch0: endpoint {
-					remote-endpoint = <&dpu_disp0_lvds0_ch0>;
+					remote-endpoint = <&dpu_disp0_ldb1_ch0>;
 				};
 			};
 		};
@@ -129,7 +129,7 @@ lvds_subsys: bus@56220000 {
 				reg = <0>;
 
 				ldb1_ch1: endpoint {
-					remote-endpoint = <&dpu_disp0_lvds0_ch1>;
+					remote-endpoint = <&dpu_disp0_ldb1_ch1>;
 				};
 			};
 		};
@@ -200,7 +200,7 @@ lvds_subsys: bus@56220000 {
 				reg = <0>;
 
 				ldb2_ch0: endpoint {
-					remote-endpoint = <&dpu_disp1_lvds1_ch0>;
+					remote-endpoint = <&dpu_disp1_ldb2_ch0>;
 				};
 			};
 		};
@@ -217,7 +217,7 @@ lvds_subsys: bus@56220000 {
 				reg = <0>;
 
 				ldb2_ch1: endpoint {
-					remote-endpoint = <&dpu_disp1_lvds1_ch1>;
+					remote-endpoint = <&dpu_disp1_ldb2_ch1>;
 				};
 			};
 		};
