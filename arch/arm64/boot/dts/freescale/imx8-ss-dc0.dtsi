@@ -3,39 +3,39 @@
  * Copyright 2019 NXP
  */
 
-dc_subsys: bus@56000000 {
+dc0_subsys: bus@56000000 {
 	compatible = "simple-bus";
 	#address-cells = <1>;
 	#size-cells = <1>;
 	ranges = <0x56000000 0x0 0x56000000 0x300000>;
 
-	dc_cfg_clk: clock-dc-cfg {
+	dc0_cfg_clk: clock-dc-cfg {
 		compatible = "fixed-clock";
 		#clock-cells = <0>;
 		clock-frequency = <100000000>;
-		clock-output-names = "dc_cfg_clk";
+		clock-output-names = "dc0_cfg_clk";
 	};
 
-	dc_axi_int_clk: clock-dc-axi-int {
+	dc0_axi_int_clk: clock-dc-axi-int {
 		compatible = "fixed-clock";
 		#clock-cells = <0>;
 		clock-frequency = <400000000>;
-		clock-output-names = "dc_axi_int_clk";
+		clock-output-names = "dc0_axi_int_clk";
 	};
 
-	dc_axi_ext_clk: clock-dc-axi-ext {
+	dc0_axi_ext_clk: clock-dc-axi-ext {
 		compatible = "fixed-clock";
 		#clock-cells = <0>;
 		clock-frequency = <800000000>;
-		clock-output-names = "dc_axi_ext_clk";
+		clock-output-names = "dc0_axi_ext_clk";
 	};
 
 	dc0_dpr0_lpcg: clock-controller@56010018 {
 		compatible = "fsl,imx8qxp-lpcg";
 		reg = <0x56010018 0x4>;
 		#clock-cells = <1>;
-		clocks = <&dc_cfg_clk>,
-			 <&dc_axi_ext_clk>;
+		clocks = <&dc0_cfg_clk>,
+			 <&dc0_axi_ext_clk>;
 		bit-offset = <16 20>;
 		clock-output-names = "dc0_dpr0_lpcg_apb_clk",
 				     "dc0_dpr0_lpcg_b_clk";
@@ -46,7 +46,7 @@ dc_subsys: bus@56000000 {
 		compatible = "fsl,imx8qxp-lpcg";
 		reg = <0x5601001c 0x4>;
 		#clock-cells = <1>;
-		clocks = <&dc_axi_ext_clk>;
+		clocks = <&dc0_axi_ext_clk>;
 		bit-offset = <0>;
 		clock-output-names = "dc0_rtram0_lpcg_clk";
 		power-domains = <&pd IMX_SC_R_DC_0>;
@@ -57,8 +57,8 @@ dc_subsys: bus@56000000 {
 		compatible = "fsl,imx8qxp-lpcg";
 		reg = <0x56010020 0x4>;
 		#clock-cells = <1>;
-		clocks = <&dc_axi_ext_clk>,
-			 <&dc_cfg_clk>;
+		clocks = <&dc0_axi_ext_clk>,
+			 <&dc0_cfg_clk>;
 		bit-offset = <0 16>;
 		clock-output-names = "dc0_prg0_lpcg_rtram_clk",
 				     "dc0_prg0_lpcg_apb_clk";
@@ -69,8 +69,8 @@ dc_subsys: bus@56000000 {
 		compatible = "fsl,imx8qxp-lpcg";
 		reg = <0x56010024 0x4>;
 		#clock-cells = <1>;
-		clocks = <&dc_axi_ext_clk>,
-			 <&dc_cfg_clk>;
+		clocks = <&dc0_axi_ext_clk>,
+			 <&dc0_cfg_clk>;
 		bit-offset = <0 16>;
 		clock-output-names = "dc0_prg1_lpcg_rtram_clk",
 				     "dc0_prg1_lpcg_apb_clk";
@@ -81,8 +81,8 @@ dc_subsys: bus@56000000 {
 		compatible = "fsl,imx8qxp-lpcg";
 		reg = <0x56010028 0x4>;
 		#clock-cells = <1>;
-		clocks = <&dc_axi_ext_clk>,
-			 <&dc_cfg_clk>;
+		clocks = <&dc0_axi_ext_clk>,
+			 <&dc0_cfg_clk>;
 		bit-offset = <0 16>;
 		clock-output-names = "dc0_prg2_lpcg_rtram_clk",
 				     "dc0_prg2_lpcg_apb_clk";
@@ -93,8 +93,8 @@ dc_subsys: bus@56000000 {
 		compatible = "fsl,imx8qxp-lpcg";
 		reg = <0x5601002c 0x4>;
 		#clock-cells = <1>;
-		clocks = <&dc_cfg_clk>,
-			 <&dc_axi_ext_clk>;
+		clocks = <&dc0_cfg_clk>,
+			 <&dc0_axi_ext_clk>;
 		bit-offset = <16 20>;
 		clock-output-names = "dc0_dpr1_lpcg_apb_clk",
 				     "dc0_dpr1_lpcg_b_clk";
@@ -105,7 +105,7 @@ dc_subsys: bus@56000000 {
 		compatible = "fsl,imx8qxp-lpcg";
 		reg = <0x56010030 0x4>;
 		#clock-cells = <1>;
-		clocks = <&dc_axi_ext_clk>;
+		clocks = <&dc0_axi_ext_clk>;
 		bit-offset = <0>;
 		clock-output-names = "dc0_rtram1_lpcg_clk";
 		power-domains = <&pd IMX_SC_R_DC_0>;
@@ -115,8 +115,8 @@ dc_subsys: bus@56000000 {
 		compatible = "fsl,imx8qxp-lpcg";
 		reg = <0x56010034 0x4>;
 		#clock-cells = <1>;
-		clocks = <&dc_axi_ext_clk>,
-			 <&dc_cfg_clk>;
+		clocks = <&dc0_axi_ext_clk>,
+			 <&dc0_cfg_clk>;
 		bit-offset = <0 16>;
 		clock-output-names = "dc0_prg3_lpcg_rtram_clk",
 				     "dc0_prg3_lpcg_apb_clk";
@@ -127,8 +127,8 @@ dc_subsys: bus@56000000 {
 		compatible = "fsl,imx8qxp-lpcg";
 		reg = <0x56010038 0x4>;
 		#clock-cells = <1>;
-		clocks = <&dc_axi_ext_clk>,
-			 <&dc_cfg_clk>;
+		clocks = <&dc0_axi_ext_clk>,
+			 <&dc0_cfg_clk>;
 		bit-offset = <0 16>;
 		clock-output-names = "dc0_prg4_lpcg_rtram_clk",
 				     "dc0_prg4_lpcg_apb_clk";
@@ -139,8 +139,8 @@ dc_subsys: bus@56000000 {
 		compatible = "fsl,imx8qxp-lpcg";
 		reg = <0x5601003c 0x4>;
 		#clock-cells = <1>;
-		clocks = <&dc_axi_ext_clk>,
-			 <&dc_cfg_clk>;
+		clocks = <&dc0_axi_ext_clk>,
+			 <&dc0_cfg_clk>;
 		bit-offset = <0 16>;
 		clock-output-names = "dc0_prg5_lpcg_rtram_clk",
 				     "dc0_prg5_lpcg_apb_clk";
@@ -151,8 +151,8 @@ dc_subsys: bus@56000000 {
 		compatible = "fsl,imx8qxp-lpcg";
 		reg = <0x56010040 0x4>;
 		#clock-cells = <1>;
-		clocks = <&dc_axi_ext_clk>,
-			 <&dc_cfg_clk>;
+		clocks = <&dc0_axi_ext_clk>,
+			 <&dc0_cfg_clk>;
 		bit-offset = <0 16>;
 		clock-output-names = "dc0_prg6_lpcg_rtram_clk",
 				     "dc0_prg6_lpcg_apb_clk";
@@ -163,8 +163,8 @@ dc_subsys: bus@56000000 {
 		compatible = "fsl,imx8qxp-lpcg";
 		reg = <0x56010044 0x4>;
 		#clock-cells = <1>;
-		clocks = <&dc_axi_ext_clk>,
-			 <&dc_cfg_clk>;
+		clocks = <&dc0_axi_ext_clk>,
+			 <&dc0_cfg_clk>;
 		bit-offset = <0 16>;
 		clock-output-names = "dc0_prg7_lpcg_rtram_clk",
 				     "dc0_prg7_lpcg_apb_clk";
@@ -175,15 +175,15 @@ dc_subsys: bus@56000000 {
 		compatible = "fsl,imx8qxp-lpcg";
 		reg = <0x56010048 0x4>;
 		#clock-cells = <1>;
-		clocks = <&dc_axi_ext_clk>,
-			 <&dc_cfg_clk>;
+		clocks = <&dc0_axi_ext_clk>,
+			 <&dc0_cfg_clk>;
 		bit-offset = <0 16>;
 		clock-output-names = "dc0_prg8_lpcg_rtram_clk",
 				     "dc0_prg8_lpcg_apb_clk";
 		power-domains = <&pd IMX_SC_R_DC_0>;
 	};
 
-	irqsteer_dpu: irqsteer@56000000 {
+	dc0_irqsteer: irqsteer@56000000 {
 		compatible = "fsl,imx-irqsteer";
 		reg = <0x56000000 0x10000>;
 		interrupt-controller;
@@ -197,7 +197,7 @@ dc_subsys: bus@56000000 {
 			     <GIC_SPI 45 IRQ_TYPE_LEVEL_HIGH>,
 			     <GIC_SPI 46 IRQ_TYPE_LEVEL_HIGH>,
 			     <GIC_SPI 47 IRQ_TYPE_LEVEL_HIGH>;
-		clocks = <&dc_cfg_clk>;
+		clocks = <&dc0_cfg_clk>;
 		clock-names = "ipg";
 		fsl,channel = <0>;
 		fsl,num-irqs = <512>;
@@ -207,9 +207,8 @@ dc_subsys: bus@56000000 {
 	dpu1: dpu@56180000 {
 		#address-cells = <1>;
 		#size-cells = <0>;
-		compatible = "fsl,imx8qxp-dpu";
 		reg = <0x56180000 0x40000>;
-		interrupt-parent = <&irqsteer_dpu>;
+		interrupt-parent = <&dc0_irqsteer>;
 		interrupts = <448>, <449>, <450>,  <64>,
 			      <65>,  <66>,  <67>,  <68>,
 			      <69>,  <70>, <193>, <194>,
@@ -270,50 +269,10 @@ dc_subsys: bus@56000000 {
 				  "framegen1_primsync_off",
 				  "framegen1_secsync_on",
 				  "framegen1_secsync_off";
-		clocks = <&clk IMX_SC_R_DC_0_PLL_0 IMX_SC_PM_CLK_PLL>,
-			 <&clk IMX_SC_R_DC_0_PLL_1 IMX_SC_PM_CLK_PLL>,
-			 <&clk IMX_SC_R_DC_0 IMX_SC_PM_CLK_MISC0>,
-			 <&clk IMX_SC_R_DC_0 IMX_SC_PM_CLK_MISC1>;
-		clock-names = "pll0", "pll1", "disp0", "disp1";
 		power-domains = <&pd IMX_SC_R_DC_0>,
 				<&pd IMX_SC_R_DC_0_PLL_0>,
 				<&pd IMX_SC_R_DC_0_PLL_1>;
 		power-domain-names = "dc", "pll0", "pll1";
 		status = "disabled";
-
-		dpu_disp0: port@0 {
-			reg = <0>;
-
-			dpu_disp0_ldb1_ch0: endpoint@0 {
-				remote-endpoint = <&ldb1_ch0>;
-			};
-
-			dpu_disp0_ldb1_ch1: endpoint@1 {
-				remote-endpoint = <&ldb1_ch1>;
-			};
-
-			dpu_disp0_mipi_dsi: endpoint@2 {
-			};
-		};
-
-		dpu_disp1: port@1 {
-			reg = <1>;
-
-			dpu_disp1_ldb2_ch0: endpoint@0 {
-				remote-endpoint = <&ldb2_ch0>;
-			};
-
-			dpu_disp1_ldb2_ch1: endpoint@1 {
-				remote-endpoint = <&ldb2_ch1>;
-			};
-
-			dpu_disp1_mipi_dsi: endpoint@2 {
-			};
-		};
-	};
-
-	display-subsystem {
-		compatible = "fsl,imx-display-subsystem";
-		ports = <&dpu_disp0>, <&dpu_disp1>;
 	};
 };
