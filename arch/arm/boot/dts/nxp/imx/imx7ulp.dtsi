@@ -87,6 +87,11 @@
 		#clock-cells = <0>;
 	};
 
+	sram: sram@20000000 {
+		compatible = "fsl,lpm-sram";
+		reg = <0x1fffc000 0x4000>;
+	};
+
 	ahbbridge0: bus@40000000 {
 		compatible = "simple-bus";
 		#address-cells = <1>;
@@ -127,6 +132,13 @@
 			reg = <0x40220000 0x1000>;
 			interrupts = <GIC_SPI 19 IRQ_TYPE_LEVEL_HIGH>;
 			#mbox-cells = <2>;
+		};
+
+		nmi: nmi@40220000 {
+			compatible = "fsl,imx7ulp-nmi";
+			reg = <0x40220000 0x1000>;
+			interrupts = <GIC_SPI 90 IRQ_TYPE_LEVEL_HIGH>;
+			status = "okay";
 		};
 
 		mu_lp: mu_lp@40220000 {
@@ -278,6 +290,21 @@
 			clocks = <&pcc2 IMX7ULP_CLK_WDG1>;
 			assigned-clocks = <&pcc2 IMX7ULP_CLK_WDG1>;
 			assigned-clock-parents = <&scg1 IMX7ULP_CLK_FIRC_BUS_CLK>;
+			/*
+			 * As the 1KHz LPO clock rate is not trimed,the actually clock
+			 * is about 667Hz, so the init timeout 60s should set 40*1000
+			 * in the TOVAL register.
+			 */
+			timeout-sec = <40>;
+		};
+
+		wdog2: wdog@40430000 {
+			compatible = "fsl,imx7ulp-wdt";
+			reg = <0x40430000 0x10000>;
+			interrupts = <GIC_SPI 56 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&pcc2 IMX7ULP_CLK_WDG2>;
+			assigned-clocks = <&pcc2 IMX7ULP_CLK_WDG2>;
+			assigned-clocks-parents = <&scg1 IMX7ULP_CLK_FIRC_BUS_CLK>;
 			timeout-sec = <40>;
 		};
 
@@ -302,6 +329,11 @@
 				      "firc_bus_clk", "rosc", "spll_bus_clk";
 			assigned-clocks = <&pcc2 IMX7ULP_CLK_LPTPM5>;
 			assigned-clock-parents = <&scg1 IMX7ULP_CLK_SOSC_BUS_CLK>;
+		};
+
+		pmc1: pmc1@40400000 {
+			compatible = "fsl,imx7ulp-pmc1";
+			reg = <0x40400000 0x1000>;
 		};
 
 		smc1: clock-controller@40410000 {
@@ -470,6 +502,11 @@
 		#size-cells = <1>;
 		reg = <0x41080000 0x80000>;
 		ranges;
+
+		pmc0: pmc0@410a1000 {
+			compatible = "fsl,imx7ulp-pmc0";
+			reg = <0x410a1000 0x1000>;
+		};
 
 		sim: sim@410a3000 {
 			compatible = "fsl,imx7ulp-sim", "syscon";
