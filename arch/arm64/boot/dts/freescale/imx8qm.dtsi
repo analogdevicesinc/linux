@@ -41,6 +41,8 @@
 		can2 = &flexcan3;
 		dpu0 = &dpu1;
 		dpu1 = &dpu2;
+		ldb0 = &ldb1;
+		ldb1 = &ldb2;
 	};
 
 	cpus {
@@ -494,3 +496,4 @@
 #include "imx8qm-ss-lsio.dtsi"
 #include "imx8qm-ss-hsio.dtsi"
 #include "imx8qm-ss-dc.dtsi"
+#include "imx8qm-ss-lvds.dtsi"
