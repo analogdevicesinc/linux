@@ -453,6 +453,14 @@ ADDRESS SPACE LAYOUT RANDOMIZATION (ASLR)
 M:	Jiri Kosina <jikos@kernel.org>
 S:	Maintained
 
+ADF4360 PLL DRIVER
+M:	Edward Kigwana <ekigwana@gmail.com>
+W:	http://ez.analog.com/community/linux-device-drivers
+L:	linux-iio@vger.kernel.org
+S:	Maintained
+F:	Documentation/devicetree/bindings/iio/frequency/adi,adf4360.yaml
+F:	drivers/iio/frequency/adf4360.c
+
 ADF7242 IEEE 802.15.4 RADIO DRIVER
 M:	Michael Hennerich <michael.hennerich@analog.com>
 W:	https://wiki.analog.com/ADF7242
