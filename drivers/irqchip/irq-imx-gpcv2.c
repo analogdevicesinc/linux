@@ -108,8 +108,10 @@ static void imx_gpcv2_wake_request_fixup(void)
 		return;
 	}
 
+#ifdef CONFIG_ARM64
 	/* hijack the already registered smp cross call handler */
 	__gic_v3_smp_cross_call = __smp_cross_call;
+#endif
 
 	/* register our workaround handler for smp cross call */
 	set_smp_cross_call(imx_gpcv2_raise_softirq);
