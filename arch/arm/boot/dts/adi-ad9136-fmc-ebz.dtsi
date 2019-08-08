@@ -38,7 +38,7 @@
 		clock-names = "clkin";
 		clock-output-names = "adf4360-7";
 
-		adi,loop-filter-charge-pump-current = <5>;
+		adi,loop-filter-charge-pump-current-microamp = <1870>;
 		adi,loop-filter-pfd-frequency-hz = <2500000>;
 
 		assigned-clocks = <&ad9516_clkin>;

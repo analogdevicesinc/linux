@@ -63,21 +63,13 @@ properties:
       - $ref: /schemas/types.yaml#/definitions/uint32
     maxItems: 1
 
-  adi,loop-filter-charger-pump-current:
+  adi,loop-filter-charger-pump-current-microamp:
     description: |
       The charge pump current that the external loop filter was designed for.
-      Valid values are:
-      0: 0.31 mA
-      1: 0.62 mA
-      2: 0.93 mA
-      3: 1.25 mA
-      4: 1.56 mA
-      5: 1.87 mA
-      6: 2.18 mA
-      7: 2.50 mA
+      The provided value is clamped to the closest enumerated value.
     allOf:
       - $ref: /schemas/types.yaml#/definitions/uint32
-      - enum: [0, 1, 2, 3, 4, 5, 6, 7]
+      - enum: [310, 620, 930, 1250, 1560, 1870, 2180, 2500]
     maxItems: 1
 
   adi,vco-minimum-frequency-hz:
