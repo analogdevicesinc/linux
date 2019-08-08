@@ -16,7 +16,7 @@ build_compile_test() {
 
 build_checkpatch() {
 	if [ -n "$TRAVIS_BRANCH" ]; then
-		__update_git_ref ${TRAVIS_BRANCH}
+		__update_git_ref "${TRAVIS_BRANCH}" "${TRAVIS_BRANCH}"
 	fi
 	COMMIT_RANGE=$([ "$TRAVIS_PULL_REQUEST" == "false" ] &&  echo HEAD || echo ${TRAVIS_BRANCH}..)
 	scripts/checkpatch.pl --git ${COMMIT_RANGE} \
@@ -40,17 +40,22 @@ branch_contains_commit() {
 
 __update_git_ref() {
 	local ref="$1"
+	local local_ref="$2"
 	local depth
 	[ "$GIT_FETCH_DEPTH" == "disabled" ] || {
 		depth="--depth=${GIT_FETCH_DEPTH:-50}"
 	}
-	git fetch $depth $ORIGIN +refs/heads/${ref}:${ref}
+	if [ -n "$local_ref" ] ; then
+		git fetch $depth $ORIGIN +refs/heads/${ref}:${local_ref}
+	else
+		git fetch $depth $ORIGIN +refs/heads/${ref}
+	fi
 }
 
 __push_back_to_github() {
 	local dst_branch="$1"
 
-	git push --quiet -u $ORIGIN "$dst_branch" || {
+	git push --quiet -u $ORIGIN "HEAD:$dst_branch" || {
 		echo_red "Failed to push back '$dst_branch'"
 		return 1
 	}
@@ -66,7 +71,7 @@ __handle_sync_with_master() {
 	}
 
 	if [ "$method" == "fast-forward" ] ; then
-		git checkout ${dst_branch}
+		git checkout ${ORIGIN}/${dst_branch}
 		git merge --ff-only ${ORIGIN}/master || {
 			echo_red "Failed while syncing ${ORIGIN}/master over '$dst_branch'"
 			return 1
@@ -84,7 +89,7 @@ __handle_sync_with_master() {
 			depth=$((GIT_FETCH_DEPTH - 1))
 		fi
 		# FIXME: kind of dumb, the code below; maybe do this a bit neater
-		local cm="$(git log "${dst_branch}~${depth}..${dst_branch}" | grep "cherry picked from commit" | head -1 | awk '{print $5}' | cut -d')' -f1)"
+		local cm="$(git log "${ORIGIN}/${dst_branch}~${depth}..${ORIGIN}/${dst_branch}" | grep "cherry picked from commit" | head -1 | awk '{print $5}' | cut -d')' -f1)"
 		[ -n "$cm" ] || {
 			echo_red "Top commit in branch '${dst_branch}' is not cherry-picked"
 			return 1
@@ -96,7 +101,7 @@ __handle_sync_with_master() {
 
 		tmpfile=$(mktemp)
 
-		git checkout ${dst_branch}
+		git checkout ${ORIGIN}/${dst_branch}
 		# cherry-pick until all commits; if we get a merge-commit, handle it
 		git cherry-pick -x "${cm}..${ORIGIN}/master" 1>/dev/null 2>$tmpfile || {
 			was_a_merge=0
