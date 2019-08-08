@@ -44,13 +44,13 @@ __update_git_ref() {
 	[ "$GIT_FETCH_DEPTH" == "disabled" ] || {
 		depth="--depth=${GIT_FETCH_DEPTH:-50}"
 	}
-	git fetch $depth origin +refs/heads/${ref}:${ref}
+	git fetch $depth $ORIGIN +refs/heads/${ref}:${ref}
 }
 
 __push_back_to_github() {
 	local dst_branch="$1"
 
-	git push --quiet -u origin "$dst_branch" || {
+	git push --quiet -u $ORIGIN "$dst_branch" || {
 		echo_red "Failed to push back '$dst_branch'"
 		return 1
 	}
@@ -122,6 +122,13 @@ __handle_sync_with_master() {
 }
 
 build_sync_branches_with_master() {
+	GIT_FETCH_DEPTH=50
+	BRANCH1="xcomm_zynq:fast-forward"
+	BRANCH2="adi-4.14.0:cherry-pick"
+	BRANCH3="adi-4.19.0:cherry-pick"
+	BRANCH4="rpi-4.19.y:cherry-pick"
+	BRANCH5="rpi-4.14.y:cherry-pick"
+
 	# support sync-ing up to 100 branches; should be enough
 	for iter in $(seq 1 100) ; do
 		local branch="$(eval "echo \$BRANCH${iter}")"
@@ -140,7 +147,7 @@ build_sync_branches_with_master_travis() {
 	[ "$TRAVIS_PULL_REQUEST" == "false" ] || return 0
 	[ "$TRAVIS_BRANCH" == "master" ] || return 0
 
-	git remote set-url origin "git@github.com:analogdevicesinc/linux.git"
+	git remote set-url $ORIGIN "git@github.com:analogdevicesinc/linux.git"
 	openssl aes-256-cbc -d -in ci/travis/deploy_key.enc -out /tmp/deploy_key -base64 -K $encrypt_key -iv $encrypt_iv
 	eval "$(ssh-agent -s)"
 	chmod 600 /tmp/deploy_key
@@ -149,6 +156,9 @@ build_sync_branches_with_master_travis() {
 	build_sync_branches_with_master
 }
 
+ORIGIN=${ORIGIN:-origin}
+
+BUILD_TYPE=${BUILD_TYPE:-${1}}
 BUILD_TYPE=${BUILD_TYPE:-default}
 
 build_${BUILD_TYPE}
