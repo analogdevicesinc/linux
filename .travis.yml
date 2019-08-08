@@ -16,7 +16,7 @@ notifications:
 
 env:
   matrix:
-  - BUILD_TYPE=sync_branches_with_master
+  - BUILD_TYPE=sync_branches_with_master_travis
     GIT_FETCH_DEPTH=50
     BRANCH1="xcomm_zynq:fast-forward"
     BRANCH2="adi-4.14.0:cherry-pick"
