@@ -88,6 +88,7 @@ __handle_sync_with_master() {
 		if [ "$GIT_FETCH_DEPTH" == "disabled" ] ; then
 			depth=50
 		else
+			GIT_FETCH_DEPTH=${GIT_FETCH_DEPTH:-50}
 			depth=$((GIT_FETCH_DEPTH - 1))
 		fi
 		# FIXME: kind of dumb, the code below; maybe do this a bit neater
