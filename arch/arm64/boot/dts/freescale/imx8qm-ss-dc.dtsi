@@ -6,11 +6,6 @@
 
 &dpu1 {
 	compatible = "fsl,imx8qm-dpu";
-	clocks = <&clk IMX_SC_R_DC_0_PLL_0 IMX_SC_PM_CLK_PLL>,
-		 <&clk IMX_SC_R_DC_0_PLL_1 IMX_SC_PM_CLK_PLL>,
-		 <&clk IMX_SC_R_DC_0 IMX_SC_PM_CLK_MISC0>,
-		 <&clk IMX_SC_R_DC_0 IMX_SC_PM_CLK_MISC1>;
-	clock-names = "pll0", "pll1", "disp0", "disp1";
 
 	dpu1_disp0: port@0 {
 		reg = <0>;
@@ -31,11 +26,6 @@
 
 &dpu2 {
 	compatible = "fsl,imx8qm-dpu";
-	clocks = <&clk IMX_SC_R_DC_1_PLL_0 IMX_SC_PM_CLK_PLL>,
-		 <&clk IMX_SC_R_DC_1_PLL_1 IMX_SC_PM_CLK_PLL>,
-		 <&clk IMX_SC_R_DC_1 IMX_SC_PM_CLK_MISC0>,
-		 <&clk IMX_SC_R_DC_1 IMX_SC_PM_CLK_MISC1>;
-	clock-names = "pll0", "pll1", "disp0", "disp1";
 
 	dpu2_disp0: port@0 {
 		reg = <0>;
