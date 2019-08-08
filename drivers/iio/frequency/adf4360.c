@@ -18,6 +18,7 @@
 #include <linux/of.h>
 #include <linux/regulator/consumer.h>
 #include <linux/spi/spi.h>
+#include <linux/util_macros.h>
 
 #include <linux/iio/iio.h>
 
@@ -168,6 +169,17 @@ static const char * const adf4360_power_level_modes[] = {
 	[ADF4360_PL_5] = "5000-uA",
 	[ADF4360_PL_7_5] = "7500-uA",
 	[ADF4360_PL_11] = "1100-uA",
+};
+
+static const unsigned int adf4360_cpi_modes[] = {
+	[ADF4360_CPI_0_31] = 310,
+	[ADF4360_CPI_0_62] = 620,
+	[ADF4360_CPI_0_93] = 930,
+	[ADF4360_CPI_1_25] = 1250,
+	[ADF4360_CPI_1_56] = 1560,
+	[ADF4360_CPI_1_87] = 1870,
+	[ADF4360_CPI_2_18] = 2180,
+	[ADF4360_CPI_2_50] = 2500,
 };
 
 static const char * const adf4360_muxout_modes[] = {
@@ -1085,10 +1097,11 @@ static int adf4360_parse_dt(struct adf4360_state *st)
 	}
 
 	ret = device_property_read_u32(dev,
-				       "adi,loop-filter-charge-pump-current",
-				       &tmp);
+				"adi,loop-filter-charge-pump-current-microamp",
+				&tmp);
 	if (ret == 0) {
-		st->cpi = tmp;
+		st->cpi = find_closest(tmp, adf4360_cpi_modes,
+				       ARRAY_SIZE(adf4360_cpi_modes));
 	} else {
 		dev_err(dev, "CPI property missing\n");
 		return ret;
