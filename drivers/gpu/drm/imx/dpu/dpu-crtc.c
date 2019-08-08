@@ -455,7 +455,7 @@ static void dpu_crtc_mode_set_nofb(struct drm_crtc *crtc)
 			crtc->base.id, crtc->name, __func__,
 			drm_mode_vrefresh(mode));
 
-	framegen_cfg_videomode(dpu_crtc->fg, mode);
+	framegen_cfg_videomode(dpu_crtc->fg, mode, DRM_MODE_ENCODER_NONE);
 	framegen_displaymode(dpu_crtc->fg, FGDM__SEC_ON_TOP);
 
 	framegen_panic_displaymode(dpu_crtc->fg, FGDM__TEST);

@@ -19,6 +19,7 @@
 #include <linux/mutex.h>
 #include <linux/platform_device.h>
 #include <linux/types.h>
+#include <drm/drm_mode.h>
 #include <video/dpu.h>
 #include "dpu-prv.h"
 
@@ -92,10 +93,12 @@
 struct dpu_framegen {
 	void __iomem *base;
 	struct clk *clk_pll;
+	struct clk *clk_bypass;
 	struct clk *clk_disp;
 	struct mutex mutex;
 	int id;
 	bool inuse;
+	bool use_bypass_clk;
 	struct dpu_soc *dpu;
 };
 
@@ -151,8 +154,10 @@ void framegen_syncmode(struct dpu_framegen *fg, fgsyncmode_t mode)
 }
 EXPORT_SYMBOL_GPL(framegen_syncmode);
 
-void framegen_cfg_videomode(struct dpu_framegen *fg, struct drm_display_mode *m)
+void framegen_cfg_videomode(struct dpu_framegen *fg, struct drm_display_mode *m,
+			    unsigned int encoder_type)
 {
+	struct dpu_soc *dpu = fg->dpu;
 	u32 hact, htotal, hsync, hsbp;
 	u32 vact, vtotal, vsync, vsbp;
 	u32 kick_row, kick_col;
@@ -204,14 +209,28 @@ void framegen_cfg_videomode(struct dpu_framegen *fg, struct drm_display_mode *m)
 
 	disp_clock_rate = m->clock * 1000;
 
-	/* find an even divisor for PLL */
-	do {
-		div += 2;
-		pll_clock_rate = disp_clock_rate * div;
-	} while (pll_clock_rate < PLL_MIN_FREQ_HZ);
+	if (encoder_type == DRM_MODE_ENCODER_TMDS) {
+		dpu_pxlink_set_mst_addr(dpu, fg->id, 1);
 
-	clk_set_rate(fg->clk_pll, pll_clock_rate);
-	clk_set_rate(fg->clk_disp, disp_clock_rate);
+		clk_set_parent(fg->clk_disp, fg->clk_bypass);
+
+		fg->use_bypass_clk = true;
+	} else {
+		dpu_pxlink_set_mst_addr(dpu, fg->id, 0);
+
+		clk_set_parent(fg->clk_disp, fg->clk_pll);
+
+		/* find an even divisor for PLL */
+		do {
+			div += 2;
+			pll_clock_rate = disp_clock_rate * div;
+		} while (pll_clock_rate < PLL_MIN_FREQ_HZ);
+
+		clk_set_rate(fg->clk_pll, pll_clock_rate);
+		clk_set_rate(fg->clk_disp, disp_clock_rate);
+
+		fg->use_bypass_clk = false;
+	}
 }
 EXPORT_SYMBOL_GPL(framegen_cfg_videomode);
 
@@ -386,14 +405,16 @@ EXPORT_SYMBOL_GPL(framegen_wait_for_secondary_syncup);
 
 void framegen_enable_clock(struct dpu_framegen *fg)
 {
-	clk_prepare_enable(fg->clk_pll);
+	if (!fg->use_bypass_clk)
+		clk_prepare_enable(fg->clk_pll);
 	clk_prepare_enable(fg->clk_disp);
 }
 EXPORT_SYMBOL_GPL(framegen_enable_clock);
 
 void framegen_disable_clock(struct dpu_framegen *fg)
 {
-	clk_disable_unprepare(fg->clk_pll);
+	if (!fg->use_bypass_clk)
+		clk_disable_unprepare(fg->clk_pll);
 	clk_disable_unprepare(fg->clk_disp);
 }
 EXPORT_SYMBOL_GPL(framegen_disable_clock);
@@ -472,6 +493,10 @@ int dpu_fg_init(struct dpu_soc *dpu, unsigned int id,
 	fg->clk_pll = devm_clk_get(dpu->dev, id ? "pll1" : "pll0");
 	if (IS_ERR(fg->clk_pll))
 		return PTR_ERR(fg->clk_pll);
+
+	fg->clk_bypass = devm_clk_get(dpu->dev, "bypass0");
+	if (IS_ERR(fg->clk_bypass))
+		return PTR_ERR(fg->clk_bypass);
 
 	fg->clk_disp = devm_clk_get(dpu->dev, id ? "disp1" : "disp0");
 	if (IS_ERR(fg->clk_disp))
