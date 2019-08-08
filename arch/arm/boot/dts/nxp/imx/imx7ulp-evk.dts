@@ -176,6 +176,10 @@
 	};
 };
 
+&cpu0 {
+	arm-supply= <&sw1_reg>;
+};
+
 &lpuart4 {
 	pinctrl-names = "default", "sleep";
 	pinctrl-0 = <&pinctrl_lpuart4>;
