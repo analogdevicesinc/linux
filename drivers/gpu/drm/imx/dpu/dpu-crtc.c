@@ -437,12 +437,15 @@ static void dpu_crtc_atomic_flush(struct drm_crtc *crtc,
 
 static void dpu_crtc_mode_set_nofb(struct drm_crtc *crtc)
 {
+	struct drm_device *dev = crtc->dev;
 	struct dpu_crtc *dpu_crtc = to_dpu_crtc(crtc);
 	struct imx_crtc_state *imx_crtc_state = to_imx_crtc_state(crtc->state);
 	struct drm_display_mode *mode = &crtc->state->adjusted_mode;
 	struct dpu_plane *dplane = to_dpu_plane(crtc->primary);
 	struct dpu_plane_res *res = &dplane->grp->res;
 	struct dpu_extdst *plane_ed;
+	struct drm_encoder *encoder;
+	unsigned long encoder_type = DRM_MODE_ENCODER_NONE;
 	extdst_src_sel_t ed_src;
 
 	DRM_DEBUG_KMS("[CRTC:%d:%s] %s: mode->hdisplay: %d\n",
@@ -455,7 +458,14 @@ static void dpu_crtc_mode_set_nofb(struct drm_crtc *crtc)
 			crtc->base.id, crtc->name, __func__,
 			drm_mode_vrefresh(mode));
 
-	framegen_cfg_videomode(dpu_crtc->fg, mode, DRM_MODE_ENCODER_NONE);
+	list_for_each_entry(encoder, &dev->mode_config.encoder_list, head) {
+		if (encoder->crtc == crtc) {
+			encoder_type = encoder->encoder_type;
+			break;
+		}
+	}
+
+	framegen_cfg_videomode(dpu_crtc->fg, mode, encoder_type);
 	framegen_displaymode(dpu_crtc->fg, FGDM__SEC_ON_TOP);
 
 	framegen_panic_displaymode(dpu_crtc->fg, FGDM__TEST);
