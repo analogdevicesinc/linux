@@ -67,8 +67,8 @@ __handle_sync_with_master() {
 
 	if [ "$method" == "fast-forward" ] ; then
 		git checkout ${dst_branch}
-		git merge --ff-only master || {
-			echo_red "Failed while syncing master over '$dst_branch'"
+		git merge --ff-only ${ORIGIN}/master || {
+			echo_red "Failed while syncing ${ORIGIN}/master over '$dst_branch'"
 			return 1
 		}
 		__push_back_to_github "$dst_branch" || return 1
@@ -89,7 +89,7 @@ __handle_sync_with_master() {
 			echo_red "Top commit in branch '${dst_branch}' is not cherry-picked"
 			return 1
 		}
-		branch_contains_commit "$cm" "master" || {
+		branch_contains_commit "$cm" "${ORIGIN}/master" || {
 			echo_red "Commit '$cm' is not in branch master"
 			return 1
 		}
@@ -98,7 +98,7 @@ __handle_sync_with_master() {
 
 		git checkout ${dst_branch}
 		# cherry-pick until all commits; if we get a merge-commit, handle it
-		git cherry-pick -x "${cm}..master" 1>/dev/null 2>$tmpfile || {
+		git cherry-pick -x "${cm}..${ORIGIN}/master" 1>/dev/null 2>$tmpfile || {
 			was_a_merge=0
 			while grep -q "is a merge" $tmpfile ; do
 				was_a_merge=1
@@ -111,7 +111,7 @@ __handle_sync_with_master() {
 				}
 			done
 			if [ "$was_a_merge" != "0" ]; then
-				echo_red "Failed to cherry-pick commits '$cm..master'"
+				echo_red "Failed to cherry-pick commits '$cm..${ORIGIN}/master'"
 				echo_red "$(cat $tmpfile)"
 				return 1
 			fi
