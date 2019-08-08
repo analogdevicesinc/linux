@@ -9,6 +9,7 @@ title: Analog Devices ADF4360 PLL device driver
 
 maintainers:
   - Lars-Peter Clausen <lars@metafoo.de>
+  - Edward Kigwana <ekigwana@gmail.com>
 
 description: |
   Bindings for the Analog Devices ADF4360 family of clock generator phase-locked
