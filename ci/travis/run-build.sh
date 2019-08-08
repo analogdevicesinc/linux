@@ -49,7 +49,6 @@ __update_git_ref() {
 
 __push_back_to_github() {
 	local dst_branch="$1"
-	git remote set-url origin "git@github.com:analogdevicesinc/linux.git"
 
 	git push --quiet -u origin "$dst_branch" || {
 		echo_red "Failed to push back '$dst_branch'"
@@ -61,17 +60,10 @@ __handle_sync_with_master() {
 	local dst_branch="$1"
 	local method="$2"
 
-	openssl aes-256-cbc -d -in ci/travis/deploy_key.enc -out /tmp/deploy_key -base64 -K $encrypt_key -iv $encrypt_iv
-	eval "$(ssh-agent -s)"
-	chmod 600 /tmp/deploy_key
-	ssh-add /tmp/deploy_key
-
-	for ref in master ${dst_branch} ; do
-		__update_git_ref "$ref" || {
-			echo_red "Could not fetch branch '$dst_branch'"
-			return 1
-		}
-	done
+	__update_git_ref "$dst_branch" || {
+		echo_red "Could not fetch branch '$dst_branch'"
+		return 1
+	}
 
 	if [ "$method" == "fast-forward" ] ; then
 		git checkout ${dst_branch}
@@ -130,11 +122,6 @@ __handle_sync_with_master() {
 }
 
 build_sync_branches_with_master() {
-	# make sure this is on master, and not a PR
-	[ -n "$TRAVIS_PULL_REQUEST" ] || return 0
-	[ "$TRAVIS_PULL_REQUEST" == "false" ] || return 0
-	[ "$TRAVIS_BRANCH" == "master" ] || return 0
-
 	# support sync-ing up to 100 branches; should be enough
 	for iter in $(seq 1 100) ; do
 		local branch="$(eval "echo \$BRANCH${iter}")"
@@ -145,6 +132,21 @@ build_sync_branches_with_master() {
 		[ -n "$method" ] || break
 		__handle_sync_with_master "$dst_branch" "$method"
 	done
+}
+
+build_sync_branches_with_master_travis() {
+	# make sure this is on master, and not a PR
+	[ -n "$TRAVIS_PULL_REQUEST" ] || return 0
+	[ "$TRAVIS_PULL_REQUEST" == "false" ] || return 0
+	[ "$TRAVIS_BRANCH" == "master" ] || return 0
+
+	git remote set-url origin "git@github.com:analogdevicesinc/linux.git"
+	openssl aes-256-cbc -d -in ci/travis/deploy_key.enc -out /tmp/deploy_key -base64 -K $encrypt_key -iv $encrypt_iv
+	eval "$(ssh-agent -s)"
+	chmod 600 /tmp/deploy_key
+	ssh-add /tmp/deploy_key
+
+	build_sync_branches_with_master
 }
 
 BUILD_TYPE=${BUILD_TYPE:-default}
