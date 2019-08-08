@@ -36,10 +36,6 @@
 		 <&clk IMX_SC_R_DC_1 IMX_SC_PM_CLK_MISC0>,
 		 <&clk IMX_SC_R_DC_1 IMX_SC_PM_CLK_MISC1>;
 	clock-names = "pll0", "pll1", "disp0", "disp1";
-	power-domains = <&pd IMX_SC_R_DC_1>,
-			<&pd IMX_SC_R_DC_1_PLL_0>,
-			<&pd IMX_SC_R_DC_1_PLL_1>;
-	power-domain-names = "dc", "pll0", "pll1";
 	status = "disabled";
 
 	dpu2_disp0: port@0 {
