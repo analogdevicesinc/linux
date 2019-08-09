@@ -175,6 +175,7 @@ struct fsl_edma_chan {
 	bool				is_rxchan;
 	bool				is_remote;
 	bool				is_multi_fifo;
+	u32				chn_real_count;
 };
 
 struct fsl_edma_desc {
@@ -468,6 +469,7 @@ int fsl_edma_pause(struct dma_chan *chan);
 int fsl_edma_resume(struct dma_chan *chan);
 int fsl_edma_slave_config(struct dma_chan *chan,
 				 struct dma_slave_config *cfg);
+void fsl_edma_get_realcnt(struct fsl_edma_chan *fsl_chan);
 enum dma_status fsl_edma_tx_status(struct dma_chan *chan,
 		dma_cookie_t cookie, struct dma_tx_state *txstate);
 struct dma_async_tx_descriptor *fsl_edma_prep_dma_cyclic(
