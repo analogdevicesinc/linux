@@ -17,6 +17,7 @@ static void __init imx6sx_init_machine(void)
 {
 	of_platform_default_populate(NULL, NULL, NULL);
 
+	imx6_enet_mac_init("fsl,imx6sx-fec", "fsl,imx6sx-ocotp");
 	imx_anatop_init();
 	imx6sx_pm_init();
 }
