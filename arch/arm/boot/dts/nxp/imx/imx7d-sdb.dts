@@ -24,6 +24,13 @@
 		reg = <0x80000000 0x80000000>;
 	};
 
+	modem_reset: modem-reset {
+		compatible = "gpio-reset";
+		reset-gpios = <&gpio4 23 GPIO_ACTIVE_LOW>;
+		reset-delay-us = <1000>;
+		#reset-cells = <0>;
+	};
+
 	gpio-keys {
 		compatible = "gpio-keys";
 		pinctrl-names = "default";
@@ -477,12 +484,24 @@
 	status = "okay";
 };
 
+&uart5 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_uart5>;
+	assigned-clocks = <&clks IMX7D_UART5_ROOT_SRC>;
+	assigned-clock-parents = <&clks IMX7D_PLL_SYS_MAIN_240M_CLK>;
+	/* for DTE mode, add below change */
+	/* fsl,dte-mode; */
+	/* pinctrl-0 = <&pinctrl_uart5dte>; */
+	status = "okay";
+};
+
 &uart6 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_uart6>;
 	assigned-clocks = <&clks IMX7D_UART6_ROOT_SRC>;
 	assigned-clock-parents = <&clks IMX7D_PLL_SYS_MAIN_240M_CLK>;
 	uart-has-rtscts;
+	resets = <&modem_reset>;
 	status = "okay";
 };
 
@@ -755,8 +774,13 @@
 		fsl,pins = <
 			MX7D_PAD_SAI1_TX_BCLK__UART5_DCE_TX	0x79
 			MX7D_PAD_SAI1_RX_DATA__UART5_DCE_RX	0x79
-			MX7D_PAD_SAI1_TX_SYNC__UART5_DCE_CTS	0x79
-			MX7D_PAD_SAI1_TX_DATA__UART5_DCE_RTS	0x79
+		>;
+	};
+
+	pinctrl_uart5dte: uart5dtegrp {
+		fsl,pins = <
+			MX7D_PAD_SAI1_TX_BCLK__UART5_DTE_RX 0x79
+			MX7D_PAD_SAI1_RX_DATA__UART5_DTE_TX 0x79
 		>;
 	};
 
@@ -766,6 +790,7 @@
 			MX7D_PAD_ECSPI1_SCLK__UART6_DCE_RX	0x79
 			MX7D_PAD_ECSPI1_SS0__UART6_DCE_CTS	0x79
 			MX7D_PAD_ECSPI1_MISO__UART6_DCE_RTS	0x79
+			MX7D_PAD_ECSPI2_SS0__GPIO4_IO23	0x19  /* BT_REG_ON */
 		>;
 	};
 
