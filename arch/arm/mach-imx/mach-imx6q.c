@@ -104,7 +104,7 @@ static void __init imx6q_1588_init(void)
 		goto put_node;
 	}
 
-	enet_ref = clk_get_sys(NULL, "enet_ref");
+	enet_ref = clk_get_sys(NULL, "enet_clk_ref");
 	if (IS_ERR(enet_ref)) {
 		pr_warn("%s: failed to get enet clock\n", __func__);
 		goto put_ptp_clk;
