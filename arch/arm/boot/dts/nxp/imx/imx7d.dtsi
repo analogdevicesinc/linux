@@ -309,7 +309,7 @@
 			<&clks IMX7D_ENET_AXI_ROOT_CLK>,
 			<&clks IMX7D_ENET2_TIME_ROOT_CLK>,
 			<&clks IMX7D_PLL_ENET_MAIN_125M_CLK>,
-			<&clks IMX7D_ENET_PHY_REF_ROOT_CLK>;
+			<&clks IMX7D_ENET_PHY_REF_ROOT_DIV>;
 		clock-names = "ipg", "ahb", "ptp",
 			"enet_clk_ref", "enet_out";
 		fsl,num-tx-queues = <3>;
