@@ -1065,6 +1065,7 @@
 				fsl,stop-mode = <&gpr 0x34 27>;
 				nvmem-cells = <&fec_mac_addr>;
 				nvmem-cell-names = "mac-address";
+				fsl,wakeup_irq = <0>;
 				status = "disabled";
 			};
 
