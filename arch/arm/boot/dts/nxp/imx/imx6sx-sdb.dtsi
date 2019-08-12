@@ -224,10 +224,12 @@
 
 		ethphy1: ethernet-phy@1 {
 			reg = <1>;
+			at803x,eee-disabled;
 		};
 
 		ethphy2: ethernet-phy@2 {
 			reg = <2>;
+			at803x,eee-disabled;
 		};
 	};
 };
