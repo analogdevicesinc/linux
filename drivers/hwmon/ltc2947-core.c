@@ -26,6 +26,12 @@
 #define LTC2947_DIV_MASK		GENMASK(7, 3)
 #define LTC2947_DIV(x)			FIELD_PREP(LTC2947_DIV_MASK, x)
 #define LTC2947_SHUTDOWN_MASK		BIT(0)
+#define LTC2947_REG_ACCUM_POL		0xE1
+#define LTC2947_ACCUM_POL_1_MASK	GENMASK(1, 0)
+#define LTC2947_ACCUM_POL_1(x)		FIELD_PREP(LTC2947_ACCUM_POL_1_MASK, x)
+#define LTC2947_ACCUM_POL_2_MASK	GENMASK(3, 2)
+#define LTC2947_ACCUM_POL_2(x)		FIELD_PREP(LTC2947_ACCUM_POL_2_MASK, x)
+#define LTC2947_REG_ACCUM_DEADBAND	0xE4
 /* 200Khz */
 #define LTC2947_CLK_MIN			200000
 /* 25Mhz */
@@ -1165,8 +1171,8 @@ static int ltc2947_setup(struct ltc2947_data *st)
 {
 	int ret;
 	struct clk *extclk;
-	u32 dummy;
-
+	u32 dummy, deadband;
+	u32 accum[2];
 	/* clear status register by reading it */
 	ret = regmap_read(st->map, LTC2947_REG_STATUS, &dummy);
 	if (ret)
@@ -1228,6 +1234,27 @@ static int ltc2947_setup(struct ltc2947_data *st)
 	} else {
 		/* 19.89E-6 * 10E9 */
 		st->lsb_energy = 19890;
+	}
+	ret = of_property_read_u32_array(st->dev->of_node,
+					 "adi,accumulator-ctl-pol", accum,
+					  ARRAY_SIZE(accum));
+	if (!ret) {
+		u32 accum_reg = LTC2947_ACCUM_POL_1(accum[0]) |
+				LTC2947_ACCUM_POL_2(accum[1]);
+
+		ret = regmap_write(st->map, LTC2947_REG_ACCUM_POL, accum_reg);
+		if (ret)
+			return ret;
+	}
+	ret = of_property_read_u32(st->dev->of_node,
+				   "adi,accumulation-deadband-microamp",
+				   &deadband);
+	if (!ret) {
+		/* the LSB is the same as the current, so 3mA */
+		ret = regmap_write(st->map, LTC2947_REG_ACCUM_DEADBAND,
+				   deadband/(1000 * 3));
+		if (ret)
+			return ret;
 	}
 
 	/* set continuos mode */
