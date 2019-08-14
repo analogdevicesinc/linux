@@ -13,6 +13,8 @@
 #include <linux/phy.h>
 #include <linux/property.h>
 
+#include "adin-compat.h"
+
 #define PHY_ID_ADIN1200				0x0283bc20
 #define PHY_ID_ADIN1300				0x0283bc30
 
