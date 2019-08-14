@@ -458,11 +458,39 @@
 	pinctrl-0 = <&pinctrl_i2c0>;
 	status = "okay";
 
+	isl29023@44 {
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_isl29023>;
+		compatible = "fsl,isl29023";
+		reg = <0x44>;
+		rext = <499>;
+		interrupt-parent = <&lsio_gpio4>;
+		interrupts = <11 2>;
+	};
+
+	fxos8700@1e {
+		compatible = "fsl,fxos8700";
+		reg = <0x1e>;
+		interrupt-open-drain;
+	};
+
+	fxas2100x@20 {
+		compatible = "fsl,fxas2100x";
+		reg = <0x20>;
+		interrupt-open-drain;
+	};
+
 	max7322: gpio@68 {
 		compatible = "maxim,max7322";
 		reg = <0x68>;
 		gpio-controller;
 		#gpio-cells = <2>;
+	};
+
+	mpl3115@60 {
+		compatible = "fsl,mpl3115";
+		reg = <0x60>;
+		interrupt-open-drain;
 	};
 };
 
@@ -658,6 +686,12 @@
 			IMX8QM_FLEXCAN2_TX_DMA_FLEXCAN2_TX            0x21
 			IMX8QM_FLEXCAN2_RX_DMA_FLEXCAN2_RX            0x21
 			>;
+	};
+
+	pinctrl_isl29023: isl29023grp {
+		fsl,pins = <
+			IMX8QM_USDHC2_WP_LSIO_GPIO4_IO11		0x00000021
+		>;
 	};
 
 	pinctrl_i2c0: i2c0grp {
