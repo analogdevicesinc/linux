@@ -331,6 +331,22 @@
 		>;
 	};
 
+	pinctrl_usdhc0_8bit: usdhc0grp_8bit {
+		fsl,pins = <
+			IMX7ULP_PAD_PTD1__SDHC0_CMD     0x43
+			IMX7ULP_PAD_PTD2__SDHC0_CLK     0x10042
+			IMX7ULP_PAD_PTD3__SDHC0_D7      0x43
+			IMX7ULP_PAD_PTD4__SDHC0_D6      0x43
+			IMX7ULP_PAD_PTD5__SDHC0_D5      0x43
+			IMX7ULP_PAD_PTD6__SDHC0_D4      0x43
+			IMX7ULP_PAD_PTD7__SDHC0_D3      0x43
+			IMX7ULP_PAD_PTD8__SDHC0_D2      0x43
+			IMX7ULP_PAD_PTD9__SDHC0_D1      0x43
+			IMX7ULP_PAD_PTD10__SDHC0_D0     0x43
+			IMX7ULP_PAD_PTD11__SDHC0_DQS    0x42
+		>;
+	};
+
 	pinctrl_usdhc0_rst: usdhc0-gpio-rst-grp {
 		fsl,pins = <
 			IMX7ULP_PAD_PTD0__PTD0		0x3
