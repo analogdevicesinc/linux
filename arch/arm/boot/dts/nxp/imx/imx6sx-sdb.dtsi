@@ -151,6 +151,13 @@
 		regulator-max-microvolt = <3300000>;
 	};
 
+	reg_vref_3v3: regulator-adc-verf {
+		compatible = "regulator-fixed";
+		regulator-name = "vref-3v3";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+	};
+
 	sound {
 		compatible = "fsl,imx6sx-sdb-wm8962", "fsl,imx-audio-wm8962";
 		pinctrl-names = "default";
@@ -196,6 +203,16 @@
 		audio-codec = <&spdif_out>;
 	};
 
+};
+
+&adc1 {
+	vref-supply = <&reg_vref_3v3>;
+	status = "okay";
+};
+
+&adc2 {
+	vref-supply = <&reg_vref_3v3>;
+	status = "okay";
 };
 
 &audmux {
