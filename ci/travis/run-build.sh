@@ -71,7 +71,7 @@ __handle_sync_with_master() {
 	}
 
 	if [ "$method" == "fast-forward" ] ; then
-		git checkout ${ORIGIN}/${dst_branch}
+		git checkout FETCH_HEAD
 		git merge --ff-only ${ORIGIN}/master || {
 			echo_red "Failed while syncing ${ORIGIN}/master over '$dst_branch'"
 			return 1
@@ -89,7 +89,7 @@ __handle_sync_with_master() {
 			depth=$((GIT_FETCH_DEPTH - 1))
 		fi
 		# FIXME: kind of dumb, the code below; maybe do this a bit neater
-		local cm="$(git log "${ORIGIN}/${dst_branch}~${depth}..${ORIGIN}/${dst_branch}" | grep "cherry picked from commit" | head -1 | awk '{print $5}' | cut -d')' -f1)"
+		local cm="$(git log "FETCH_HEAD~${depth}..FETCH_HEAD" | grep "cherry picked from commit" | head -1 | awk '{print $5}' | cut -d')' -f1)"
 		[ -n "$cm" ] || {
 			echo_red "Top commit in branch '${dst_branch}' is not cherry-picked"
 			return 1
@@ -101,7 +101,7 @@ __handle_sync_with_master() {
 
 		tmpfile=$(mktemp)
 
-		git checkout ${ORIGIN}/${dst_branch}
+		git checkout FETCH_HEAD
 		# cherry-pick until all commits; if we get a merge-commit, handle it
 		git cherry-pick -x "${cm}..${ORIGIN}/master" 1>/dev/null 2>$tmpfile || {
 			was_a_merge=0
