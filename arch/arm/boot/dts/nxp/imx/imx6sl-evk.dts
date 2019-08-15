@@ -261,6 +261,17 @@
 		};
 	};
 
+	elan@10 {
+		compatible = "elan,elan-touch";
+		reg = <0x10>;
+		interrupt-parent = <&gpio2>;
+		interrupts = <10 2>;
+		gpio_elan_cs = <&gpio2 9 0>;
+		gpio_elan_rst = <&gpio4 4 0>;
+		gpio_intr = <&gpio2 10 0>;
+		status = "okay";
+	};
+
 	ma8450@1c {
 		compatible = "fsl,mma8450";
 		reg = <0x1c>;
@@ -303,6 +314,9 @@
 				MX6SL_PAD_KEY_COL4__GPIO4_IO00	0x80000000
 				MX6SL_PAD_KEY_COL5__GPIO4_IO02	0x80000000
 				MX6SL_PAD_AUD_MCLK__AUDIO_CLK_OUT 0x4130b0
+				MX6SL_PAD_EPDC_PWRCTRL3__GPIO2_IO10 0x17000
+				MX6SL_PAD_EPDC_PWRCTRL2__GPIO2_IO09 0x80000000
+				MX6SL_PAD_KEY_COL6__GPIO4_IO04    0x110b0
 			>;
 		};
 
