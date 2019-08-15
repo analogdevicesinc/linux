@@ -506,3 +506,4 @@
 #include "imx8qm-ss-hsio.dtsi"
 #include "imx8qm-ss-dc.dtsi"
 #include "imx8qm-ss-lvds.dtsi"
+#include "imx8qm-ss-img.dtsi"
