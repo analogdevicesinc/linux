@@ -13,6 +13,27 @@ hsio_subsys: bus@5f000000 {
 	dma-ranges = <0x80000000 0 0x80000000 0x80000000>;
 	ranges = <0x5f000000 0x0 0x5f000000 0x21000000>;
 
+	xtal100m: clock-xtal100m {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <100000000>;
+		clock-output-names = "xtal_100MHz";
+	};
+
+	hsio_refa_clk: clock-hsio-refa {
+		compatible = "gpio-gate-clock";
+		clocks = <&xtal100m>;
+		#clock-cells = <0>;
+		enable-gpios = <&lsio_gpio4 27 GPIO_ACTIVE_LOW>;
+	};
+
+	hsio_refb_clk: clock-hsio-refb {
+		compatible = "gpio-gate-clock";
+		clocks = <&xtal100m>;
+		#clock-cells = <0>;
+		enable-gpios = <&lsio_gpio4 1 GPIO_ACTIVE_LOW>;
+	};
+
 	hsio_axi_clk: clock-hsio-axi {
 		compatible = "fixed-clock";
 		#clock-cells = <0>;
@@ -37,20 +58,6 @@ hsio_subsys: bus@5f000000 {
 				     "hsio_pcieb_slv_axi_clk",
 				     "hsio_pcieb_dbi_axi_clk";
 		power-domains = <&pd IMX_SC_R_PCIE_B>;
-	};
-
-	phyx1_lpcg: clock-controller@5f090000 {
-		compatible = "fsl,imx8qxp-lpcg";
-		reg = <0x5f090000 0x10000>;
-		#clock-cells = <1>;
-		clocks = <&hsio_per_clk>, <&hsio_per_clk>,
-			<&hsio_per_clk>, <&hsio_per_clk>;
-		bit-offset = <0 4 8 16>;
-		clock-output-names = "hsio_phyx1_pclk",
-				     "hsio_phyx1_epcs_tx_clk",
-				     "hsio_phyx1_epcs_rx_clk",
-				     "hsio_phyx1_apb_clk";
-		power-domains = <&pd IMX_SC_R_SATA_0>;
 	};
 
 	phyx1_crr1_lpcg: clock-controller@5f0b0000 {

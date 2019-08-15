@@ -363,6 +363,7 @@
 #include "imx8qxp-ss-adma.dtsi"
 #include "imx8qxp-ss-conn.dtsi"
 #include "imx8qxp-ss-lsio.dtsi"
+#include "imx8qxp-ss-hsio.dtsi"
 #include "imx8qxp-ss-dc.dtsi"
 #include "imx8qxp-ss-lvds.dtsi"
 
