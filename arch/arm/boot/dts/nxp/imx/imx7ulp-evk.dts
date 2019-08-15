@@ -196,6 +196,22 @@
 	arm-supply= <&sw1_reg>;
 };
 
+&lpspi3 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	fsl,spi-num-chipselects = <1>;
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&pinctrl_lpspi3>;
+	pinctrl-1 = <&pinctrl_lpspi3>;
+	status = "okay";
+
+	spidev0: spi@0 {
+		reg = <0>;
+		compatible = "rohm,dh2228fv";
+		spi-max-frequency = <1000000>;
+	};
+};
+
 &lpuart4 {
 	pinctrl-names = "default", "sleep";
 	pinctrl-0 = <&pinctrl_lpuart4>;
@@ -304,6 +320,15 @@
 	pinctrl_pwm0: pwm0grp {
 		fsl,pins = <
 			IMX7ULP_PAD_PTF2__TPM4_CH1	0x2
+		>;
+	};
+
+	pinctrl_lpspi3: lpspi3grp {
+		fsl,pins = <
+			IMX7ULP_PAD_PTF16__LPSPI3_SIN	0x0
+			IMX7ULP_PAD_PTF17__LPSPI3_SOUT	0x0
+			IMX7ULP_PAD_PTF18__LPSPI3_SCK	0x0
+			IMX7ULP_PAD_PTF19__LPSPI3_PCS0	0x0
 		>;
 	};
 
