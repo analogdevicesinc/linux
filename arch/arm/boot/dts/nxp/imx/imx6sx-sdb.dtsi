@@ -279,6 +279,33 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_i2c3>;
 	status = "okay";
+
+	isl29023@44 {
+		compatible = "fsl,isl29023";
+		reg = <0x44>;
+		rext = <499>;
+		interrupt-parent = <&gpio6>;
+		interrupts = <5 1>;
+		shared-interrupt;
+	};
+
+	mag3110@e {
+		compatible = "fsl,mag3110";
+		reg = <0xe>;
+		position = <2>;
+		interrupt-parent = <&gpio6>;
+		interrupts = <5 1>;
+		shared-interrupt;
+	};
+
+	mma8451@1c {
+		compatible = "fsl,mma8451";
+		reg = <0x1c>;
+		position = <1>;
+		interrupt-parent = <&gpio6>;
+		interrupts = <2 8>;
+		interrupt-route = <2>;
+	};
 };
 
 &i2c4 {
