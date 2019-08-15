@@ -289,9 +289,7 @@ conn_subsys: bus@5b000000 {
 		compatible = "fsl,imx8qxp-lpcg";
 		reg = <0x5b280000 0x10000>;
 		#clock-cells = <1>;
-		clock-indices = <IMX_LPCG_CLK_0>, <IMX_LPCG_CLK_1>,
-				<IMX_LPCG_CLK_4>, <IMX_LPCG_CLK_5>,
-				<IMX_LPCG_CLK_6>, <IMX_LPCG_CLK_7>;
+		bit-offset = <0 4 16 20 24 28>;
 		clocks = <&clk IMX_SC_R_USB_2 IMX_SC_PM_CLK_PER>,
 			 <&clk IMX_SC_R_USB_2 IMX_SC_PM_CLK_MISC>,
 			 <&conn_ipg_clk>,
