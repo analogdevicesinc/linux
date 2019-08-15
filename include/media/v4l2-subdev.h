@@ -463,6 +463,10 @@ enum v4l2_subdev_pre_streamon_flags {
  *
  * @g_pixelaspect: callback to return the pixelaspect ratio.
  *
+ * @g_parm: callback for VIDIOC_G_PARM() ioctl handler code.
+ *
+ * @s_parm: callback for VIDIOC_S_PARM() ioctl handler code.
+ *
  * @s_rx_buffer: set a host allocated memory buffer for the subdev. The subdev
  *	can adjust @size to a lower value and must not write more data to the
  *	buffer starting at @data than the original value of @size.
@@ -493,6 +497,8 @@ struct v4l2_subdev_video_ops {
 	int (*g_input_status)(struct v4l2_subdev *sd, u32 *status);
 	int (*s_stream)(struct v4l2_subdev *sd, int enable);
 	int (*g_pixelaspect)(struct v4l2_subdev *sd, struct v4l2_fract *aspect);
+	int (*g_parm)(struct v4l2_subdev *sd, struct v4l2_streamparm *param);
+	int (*s_parm)(struct v4l2_subdev *sd, struct v4l2_streamparm *param);
 	int (*s_rx_buffer)(struct v4l2_subdev *sd, void *buf,
 			   unsigned int *size);
 	int (*pre_streamon)(struct v4l2_subdev *sd, u32 flags);
