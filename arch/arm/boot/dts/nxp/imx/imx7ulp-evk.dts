@@ -190,6 +190,10 @@
 			rpmsg-key,wakeup;
 		};
 	};
+
+	rpmsg_sensor: rpmsg-sensor {
+		compatible = "fsl,rpmsg-input";
+	};
 };
 
 &cpu0 {
