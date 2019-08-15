@@ -405,6 +405,7 @@ dtb-$(CONFIG_SOC_IMX7D) += \
 dtb-$(CONFIG_SOC_IMX7ULP) += \
 	imx7ulp-com.dtb \
 	imx7ulp-evk.dtb \
+	imx7ulp-evk-ft5416.dtb \
 	imx7ulp-evkb.dtb \
 	imx7ulp-evkb-emmc.dtb \
 	imx7ulp-evkb-sd1.dtb \

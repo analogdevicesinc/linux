@@ -238,6 +238,33 @@
 	status = "disabled";
 };
 
+&lpi2c7 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&pinctrl_lpi2c7 &pinctrl_touch_io>;
+	pinctrl-1 = <&pinctrl_lpi2c7 &pinctrl_touch_io>;
+	status = "okay";
+
+	focaltech@38 {
+		compatible = "focaltech,fts";
+		reg = <0x38>;
+		interrupt-parent = <&gpio_ptf>;
+		interrupts = <0 0x2>;
+		focaltech,panel-type = <FT5426>;
+		focaltech,reset-gpio = <&gpio_ptf 1 0x1>;
+		focaltech,irq-gpio = <&gpio_ptf 0 0x2>;
+		focaltech,max-touch-number = <5>;
+		focaltech,display-coords =  <0 0 480 854>;
+
+		focaltech,have-key;
+		focaltech,key-number = <3>;
+		focaltech,keys = <139 102 158>;
+		focaltech,key-y-coord = <2000>;
+		focaltech,key-x-coords = <200 600 800>;
+	};
+};
+
 &rpmsg{
 	/*
 	 * 64K for one rpmsg instance, default using 2 rpmsg instances:
@@ -318,6 +345,20 @@
 			IMX7ULP_PAD_PTF15__LPUART7_RX		0x3
 			IMX7ULP_PAD_PTF13__LPUART7_RTS_B	0x3
 			IMX7ULP_PAD_PTF12__LPUART7_CTS_B	0x3
+		>;
+	};
+
+	pinctrl_lpi2c7: lpi2c7grp {
+		fsl,pins = <
+			IMX7ULP_PAD_PTF12__LPI2C7_SCL	0x27
+			IMX7ULP_PAD_PTF13__LPI2C7_SDA	0x27
+		>;
+	};
+
+	pinctrl_touch_io: touchiogrp {
+		fsl,pins = <
+			IMX7ULP_PAD_PTF0__PTF0		0x10043
+			IMX7ULP_PAD_PTF1__PTF1		0x20043
 		>;
 	};
 
