@@ -679,6 +679,7 @@ static struct phy_driver adin_driver[] = {
 	{
 		PHY_ID_MATCH_MODEL(PHY_ID_ADIN1200),
 		.name		= "ADIN1200",
+		.features	= PHY_BASIC_FEATURES, /* FIXME: remove this when the `get_features` hook becomes available */
 		.probe		= adin_probe,
 		.config_init	= adin_config_init,
 		.soft_reset	= adin_soft_reset,
@@ -699,6 +700,7 @@ static struct phy_driver adin_driver[] = {
 	{
 		PHY_ID_MATCH_MODEL(PHY_ID_ADIN1300),
 		.name		= "ADIN1300",
+		.features	= PHY_GBIT_FEATURES, /* FIXME: remove this when the `get_features` hook becomes available */
 		.probe		= adin_probe,
 		.config_init	= adin_config_init,
 		.soft_reset	= adin_soft_reset,
