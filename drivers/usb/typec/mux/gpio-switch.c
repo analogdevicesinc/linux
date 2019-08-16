@@ -7,6 +7,7 @@
  *
  */
 
+#include <linux/delay.h>
 #include <linux/module.h>
 #include <linux/mutex.h>
 #include <linux/kernel.h>
@@ -19,6 +20,7 @@ struct gpio_typec_switch {
 	struct typec_switch *sw;
 	struct mutex lock;
 	struct gpio_desc *ss_sel;
+	struct gpio_desc *ss_reset;
 };
 
 static int switch_gpio_set(struct typec_switch *sw,
@@ -61,8 +63,17 @@ static int typec_switch_gpio_probe(struct platform_device *pdev)
 	sw_desc.set = switch_gpio_set;
 	mutex_init(&gpio_sw->lock);
 
+	/* Get the super speed mux reset GPIO, it's optional */
+	gpio_sw->ss_reset = devm_gpiod_get_optional(dev, "reset",
+						    GPIOD_OUT_HIGH);
+	if (IS_ERR(gpio_sw->ss_reset))
+		return PTR_ERR(gpio_sw->ss_reset);
+
+	if (gpio_sw->ss_reset)
+		usleep_range(700, 1000);
+
 	/* Get the super speed active channel selection GPIO */
-	gpio_sw->ss_sel = devm_gpiod_get(dev, NULL, GPIOD_OUT_LOW);
+	gpio_sw->ss_sel = devm_gpiod_get(dev, "switch", GPIOD_OUT_LOW);
 	if (IS_ERR(gpio_sw->ss_sel))
 		return PTR_ERR(gpio_sw->ss_sel);
 
