@@ -475,6 +475,19 @@
 			status = "disabled";
 		};
 
+		mipi_dsi: mipi_dsi@40a90000 {
+			compatible = "fsl,imx7ulp-mipi-dsi";
+			reg = <0x40a90000 0x1000>;
+			interrupts = <GIC_SPI 46 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&pcc3 IMX7ULP_CLK_DSI>;
+			clock-names = "mipi_dsi_clk";
+			data-lanes-num = <2>;
+			phy-ref-clkfreq = <24000000>;
+			max-data-rate  = <800000000>;
+			sim = <&sim>;
+			status = "disabled";
+		};
+
 		lcdif: lcdif@40aa0000 {
 			compatible = "fsl,imx7ulp-lcdif";
 			reg = <0x40aa0000 0x1000>;
