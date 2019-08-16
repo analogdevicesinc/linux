@@ -804,6 +804,16 @@
 	status = "okay";
 };
 
+&usb3phynop1 {
+	status = "okay";
+};
+
+&usbotg3 {
+	dr_mode = "otg";
+	extcon = <&ptn5110>;
+	status = "okay";
+};
+
 &usdhc1 {
 	assigned-clocks = <&clk IMX_SC_R_SDHC_0 IMX_SC_PM_CLK_PER>;
 	assigned-clock-rates = <200000000>;
