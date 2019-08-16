@@ -97,6 +97,7 @@ static int typec_switch_gpio_remove(struct platform_device *pdev)
 
 static const struct of_device_id of_typec_switch_gpio_match[] = {
 	{ .compatible = "nxp,ptn36043" },
+	{ .compatible = "nxp,cbtl04gp" },
 	{ /* Sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, of_typec_switch_gpio_match);
