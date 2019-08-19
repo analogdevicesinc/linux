@@ -191,6 +191,7 @@ struct axiadc_state {
 	struct device 			*dev_spi;
 	struct iio_info			iio_info;
 	struct clk 			*clk;
+	struct gpio_desc		*gpio_decimation;
 	size_t				regs_size;
 	void __iomem			*regs;
 	void __iomem			*slave_regs;
