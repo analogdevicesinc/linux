@@ -8,6 +8,7 @@
  * http://wiki.analog.com/resources/fpga/xilinx/fmc/ad9467
  */
 
+#include <linux/gpio/consumer.h>
 #include <linux/module.h>
 #include <linux/errno.h>
 #include <linux/slab.h>
@@ -242,7 +243,11 @@ static int axiadc_decimation_set(struct axiadc_state *st,
 			else
 				reg &= ~BIT(0);
 
-			axiadc_write(st, ADI_REG_GP_CONTROL, reg);
+			if (st->gpio_decimation)
+				gpiod_set_value(st->gpio_decimation,
+						reg & BIT(0));
+			else
+				axiadc_write(st, ADI_REG_GP_CONTROL, reg);
 			break;
 		default:
 			ret = -EINVAL;
@@ -864,6 +869,11 @@ static int axiadc_probe(struct platform_device *pdev)
 		st->decimation_factor = 1;
 		WARN_ON(st->iio_info.attrs != NULL);
 		st->iio_info.attrs = &axiadc_dec_attribute_group;
+		st->gpio_decimation = devm_gpiod_get_optional(&pdev->dev,
+							      "decimation",
+							      GPIOD_OUT_LOW);
+		if (IS_ERR(st->gpio_decimation))
+			dev_err(&pdev->dev, "decimation gpio error\n");
 	}
 
 	ret = iio_device_register(indio_dev);
