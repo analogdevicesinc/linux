@@ -30,3 +30,14 @@ config FB_MXC_OVERLAY
 	default n
 	help
 	  Enhanced LCD controller of MXC has overlay function.
+
+config FB_MXC_MIPI_DSI_NORTHWEST
+	tristate "MXC MIPI_DSI_NORTHWEST"
+	depends on FB_MXC_DISP_FRAMEWORK
+	depends on FB_MXS
+	select BACKLIGHT_CLASS_DEVICE
+
+config FB_MXC_EDID
+	depends on FB_MXC && I2C
+	tristate "MXC EDID support"
+	default y
