@@ -216,6 +216,31 @@
 	};
 };
 
+&lpi2c5 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&pinctrl_lpi2c5>;
+	pinctrl-1 = <&pinctrl_lpi2c5>;
+	status = "okay";
+
+	adv7535: adv7535@3d {
+		compatible = "adi,adv7535";
+		reg = <0x3d>; /* PD pin is low */
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_dsi_hdmi>;
+		interrupt-parent = <&gpio_ptc>;
+		interrupts = <18 IRQ_TYPE_EDGE_FALLING>;
+		video-mode = <1>; /*
+				   * Only support CEA modes.
+				   * Reference mxc_edid.c
+				   */
+		dsi-traffic-mode = <0>;
+		bpp = <24>;
+		status = "disabled";
+	};
+};
+
 &lpuart4 {
 	pinctrl-names = "default", "sleep";
 	pinctrl-0 = <&pinctrl_lpuart4>;
@@ -321,6 +346,13 @@
 };
 
 &iomuxc1 {
+	pinctrl_lpi2c5: lpi2c5grp {
+		fsl,pins = <
+			IMX7ULP_PAD_PTC4__LPI2C5_SCL	0x27
+			IMX7ULP_PAD_PTC5__LPI2C5_SDA	0x27
+		>;
+	};
+
 	pinctrl_lpuart4: lpuart4grp {
 		fsl,pins = <
 			IMX7ULP_PAD_PTC3__LPUART4_RX	0x3
@@ -443,4 +475,9 @@
 		>;
 	};
 
+	pinctrl_dsi_hdmi: dsi_hdmi_grp {
+		fsl,pins = <
+			IMX7ULP_PAD_PTC18__PTC18	0x10003	/* DSI_HDMI_INT */
+		>;
+	};
 };
