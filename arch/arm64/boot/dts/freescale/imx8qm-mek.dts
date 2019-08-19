@@ -442,6 +442,16 @@
 	status = "okay";
 };
 
+&usb3phynop1 {
+	status = "okay";
+};
+
+&usbotg3 {
+	dr_mode = "otg";
+	extcon = <&ptn5110>;
+	status = "okay";
+};
+
 &usdhc1 {
 	pinctrl-names = "default", "state_100mhz", "state_200mhz";
 	pinctrl-0 = <&pinctrl_usdhc1>;
