@@ -4,7 +4,11 @@
  */
 
 #include <linux/circ_buf.h>
+#include <linux/delay.h>
 #include <linux/err.h>
+#ifdef CONFIG_IMX_SCU
+#include <linux/firmware/imx/sci.h>
+#endif
 #include <linux/init.h>
 #include <linux/mailbox_client.h>
 #include <linux/module.h>
@@ -17,6 +21,8 @@
 #include <linux/virtio_ring.h>
 #include <linux/imx_rpmsg.h>
 #include "rpmsg_internal.h"
+
+#define IMX_SC_IRQ_GROUP_REBOOTED       5
 
 enum imx_rpmsg_variants {
 	IMX8QM,
@@ -52,9 +58,16 @@ struct imx_rpmsg_vproc {
 	struct delayed_work rpmsg_work;
 	struct circ_buf rx_buffer;
 	spinlock_t mu_lock;
+	u32 mub_partition;
 	struct notifier_block proc_nb;
 	struct platform_device *pdev;
 };
+
+/*
+ * The time consumption by remote ready is less than 1ms in the
+ * evaluation. Set the max wait timeout as 50ms here.
+ */
+#define REMOTE_READY_WAIT_MAX_RETRIES	500
 
 #define RPMSG_NUM_BUFS		(512)
 #define RPMSG_BUF_SIZE		(512)
@@ -354,12 +367,68 @@ static void rpmsg_work_handler(struct work_struct *work)
 	spin_unlock_irqrestore(&rpdev->mu_lock, flags);
 }
 
+#ifdef CONFIG_IMX_SCU
+static void imx_rpmsg_restore(struct imx_rpmsg_vproc *rpdev)
+{
+	int i;
+	int vdev_nums = rpdev->vdev_nums;
+
+	for (i = 0; i < vdev_nums; i++) {
+		unregister_virtio_device(&rpdev->ivdev[i]->vdev);
+		kfree(rpdev->ivdev[i]);
+	}
+
+	/* Make a double check that remote processor is ready or not */
+	for (i = 0; i < REMOTE_READY_WAIT_MAX_RETRIES; i++) {
+		if (rpdev->flags & REMOTE_IS_READY)
+			break;
+		udelay(100);
+	}
+	if (unlikely((rpdev->flags & REMOTE_IS_READY) == 0)) {
+		pr_err("Wait for remote ready timeout, assume it's dead.\n");
+		/*
+		 * In order to make the codes to be robust and back compatible.
+		 * When wait remote ready timeout, use the MU_SendMessageTimeout
+		 * to send the first kick-off message when register the vdev.
+		 */
+		rpdev->first_notify = rpdev->vdev_nums;
+	}
+
+	/* Allocate and setup ivdev again to register virtio devices */
+	if (set_vring_phy_buf(rpdev->pdev, rpdev, rpdev->vdev_nums))
+		pr_err("No vring buffer.\n");
+
+	for (i = 0; i < vdev_nums; i++) {
+		rpdev->ivdev[i]->vdev.id.device = VIRTIO_ID_RPMSG;
+		rpdev->ivdev[i]->vdev.config = &imx_rpmsg_config_ops;
+		rpdev->ivdev[i]->vdev.dev.parent = &rpdev->pdev->dev;
+		rpdev->ivdev[i]->vdev.dev.release = imx_rpmsg_vproc_release;
+		rpdev->ivdev[i]->base_vq_id = i * 2;
+		rpdev->ivdev[i]->rpdev = rpdev;
+
+		if (register_virtio_device(&rpdev->ivdev[i]->vdev))
+			pr_err("%s failed to register rpdev.\n", __func__);
+	}
+}
+
 static int imx_rpmsg_partition_notify(struct notifier_block *nb,
 				      unsigned long event, void *group)
 {
-	/* Reserved for the partition reset. */
+	struct imx_rpmsg_vproc *rpdev;
+
+	rpdev = container_of(nb, struct imx_rpmsg_vproc, proc_nb);
+
+	/* Ignore other irqs */
+	if (!((event & BIT(rpdev->mub_partition)) &&
+		(*(u8 *)group == IMX_SC_IRQ_GROUP_REBOOTED)))
+		return 0;
+
+	imx_rpmsg_restore(rpdev);
+	pr_info("Patition%d reset!\n", rpdev->mub_partition);
+
 	return 0;
 }
+#endif
 
 static void imx_rpmsg_rxdb_callback(struct mbox_client *c, void *msg)
 {
@@ -482,7 +551,9 @@ static int imx_rpmsg_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	rpdev->pdev = pdev;
+#ifdef CONFIG_IMX_SCU
 	rpdev->proc_nb.notifier_call = imx_rpmsg_partition_notify;
+#endif
 	variant = (uintptr_t)of_device_get_match_data(dev);
 	rpdev->variant = (enum imx_rpmsg_variants)variant;
 	rpdev->rx_buffer.buf = buf;
@@ -544,6 +615,32 @@ static int imx_rpmsg_probe(struct platform_device *pdev)
 		goto err_out;
 
 	platform_set_drvdata(pdev, rpdev);
+
+#ifdef CONFIG_IMX_SCU
+	if (rpdev->variant == IMX8QXP || rpdev->variant == IMX8QM) {
+		/* Get muB partition id and enable irq in SCFW then */
+		if (of_property_read_u32(np, "mub-partition",
+					&rpdev->mub_partition))
+			rpdev->mub_partition = 3; /* default partition 3 */
+
+		ret = imx_scu_irq_group_enable(IMX_SC_IRQ_GROUP_REBOOTED,
+					      BIT(rpdev->mub_partition),
+					      true);
+		if (ret) {
+			dev_warn(&pdev->dev, "Enable irq failed.\n");
+			return ret;
+		}
+
+		ret = imx_scu_irq_register_notifier(&rpdev->proc_nb);
+		if (ret) {
+			imx_scu_irq_group_enable(IMX_SC_IRQ_GROUP_REBOOTED,
+						BIT(rpdev->mub_partition),
+						false);
+			dev_warn(&pdev->dev, "reqister scu notifier failed.\n");
+			return ret;
+		}
+	}
+#endif
 
 	return ret;
 
