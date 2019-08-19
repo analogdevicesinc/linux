@@ -6,6 +6,7 @@
  * Licensed under the GPL-2.
  */
 
+#include <linux/gpio/consumer.h>
 #include <linux/module.h>
 #include <linux/interrupt.h>
 #include <linux/errno.h>
@@ -44,6 +45,7 @@ struct cf_axi_dds_state {
 	struct clk			*clk;
 	struct cf_axi_dds_chip_info	*chip_info;
 	struct gpio_desc		*plddrbypass_gpio;
+	struct gpio_desc		*interpolation_gpio;
 
 	bool				standalone;
 	bool				dp_disable;
@@ -398,7 +400,11 @@ static int cf_axi_interpolation_set(struct cf_axi_dds_state *st,
 			else
 				reg &= ~BIT(0);
 
-			dds_write(st, ADI_REG_DAC_GP_CONTROL, reg);
+			if (st->interpolation_gpio)
+				gpiod_set_value(st->interpolation_gpio,
+						reg & BIT(0));
+			else
+				dds_write(st, ADI_REG_DAC_GP_CONTROL, reg);
 			break;
 		default:
 			ret = -EINVAL;
@@ -1667,6 +1673,12 @@ static int cf_axi_dds_probe(struct platform_device *pdev)
 			st->interpolation_factor = 1;
 			WARN_ON(st->iio_info.attrs != NULL);
 			st->iio_info.attrs = &cf_axi_int_attribute_group;
+
+			st->interpolation_gpio = devm_gpiod_get_optional(&pdev->dev,
+							      "interpolation",
+							      GPIOD_OUT_LOW);
+			if (IS_ERR(st->interpolation_gpio))
+				dev_err(&pdev->dev, "interpolation gpio error\n");
 		}
 
 	}
