@@ -25,6 +25,7 @@
 #define LTC2947_PRE(x)			FIELD_PREP(LTC2947_PRE_MASK, x)
 #define LTC2947_DIV_MASK		GENMASK(7, 3)
 #define LTC2947_DIV(x)			FIELD_PREP(LTC2947_DIV_MASK, x)
+#define LTC2947_SHUTDOWN_MASK		BIT(0)
 /* 200Khz */
 #define LTC2947_CLK_MIN			200000
 /* 25Mhz */
@@ -115,6 +116,7 @@ struct ltc2947_data {
 	 */
 	struct mutex lock;
 	u32 lsb_energy;
+	bool reset;
 };
 /* used for raw sysfs entries */
 enum {
@@ -193,6 +195,11 @@ static int ltc2947_val_read(struct ltc2947_data *st, const u8 reg,
 
 	mutex_lock(&st->lock);
 
+	if (st->reset) {
+		mutex_unlock(&st->lock);
+		return -EPERM;
+	}
+
 	ret = regmap_write(st->map, LTC2947_REG_PAGE_CTRL, page);
 	if (ret) {
 		mutex_unlock(&st->lock);
@@ -253,6 +260,15 @@ static int ltc2947_val_write(struct ltc2947_data *st, const u8 reg,
 	int ret;
 
 	mutex_lock(&st->lock);
+	/*
+	 * Do not allow channel readings if device is in sleep state.
+	 * A read/write on the spi/i2c bus would bring the device prematurely
+	 * out of sleep.
+	 */
+	if (st->reset) {
+		mutex_unlock(&st->lock);
+		return -EPERM;
+	}
 	/* set device on correct page */
 	ret = regmap_write(st->map, LTC2947_REG_PAGE_CTRL, page);
 	if (ret) {
@@ -307,6 +323,12 @@ static int ltc2947_alarm_read(struct ltc2947_data *st, const u8 reg,
 	memset(alarms, 0, sizeof(alarms));
 
 	mutex_lock(&st->lock);
+
+	if (st->reset) {
+		ret = -EPERM;
+		goto unlock;
+	}
+
 	ret = regmap_write(st->map, LTC2947_REG_PAGE_CTRL, PAGE0);
 	if (ret)
 		goto unlock;
@@ -1226,6 +1248,7 @@ int ltc2947_core_probe(struct regmap *map, const char *name)
 
 	st->map = map;
 	st->dev = dev;
+	dev_set_drvdata(dev, st);
 	mutex_init(&st->lock);
 
 	ret = ltc2947_setup(st);
@@ -1238,6 +1261,62 @@ int ltc2947_core_probe(struct regmap *map, const char *name)
 	return PTR_ERR_OR_ZERO(hwmon);
 }
 EXPORT_SYMBOL_GPL(ltc2947_core_probe);
+
+static int __maybe_unused ltc2947_resume(struct device *dev)
+{
+	struct ltc2947_data *st = dev_get_drvdata(dev);
+	u32 ctrl = 0;
+	int ret;
+
+	mutex_lock(&st->lock);
+	/* dummy read to wake the device */
+	ret = regmap_read(st->map, LTC2947_REG_CTRL, &ctrl);
+	if (ret)
+		goto unlock;
+
+	/*
+	 * Wait for the device. It takes 100ms to wake up so, 10ms extra
+	 * should be enough.
+	 */
+	msleep(110);
+	ret = regmap_read(st->map, LTC2947_REG_CTRL, &ctrl);
+	if (ret)
+		goto unlock;
+	/* ctrl should be 0 */
+	if (ctrl != 0) {
+		dev_err(st->dev, "Device failed to wake up, ctl:%02X\n", ctrl);
+		ret = -ETIMEDOUT;
+		goto unlock;
+	}
+
+	st->reset = false;
+	/* set continuous mode */
+	ret = regmap_update_bits(st->map, LTC2947_REG_CTRL,
+				 LTC2947_CONT_MODE_MASK, LTC2947_CONT_MODE(1));
+unlock:
+	mutex_unlock(&st->lock);
+	return ret;
+}
+
+static int __maybe_unused ltc2947_suspend(struct device *dev)
+{
+	struct ltc2947_data *st = dev_get_drvdata(dev);
+	int ret;
+
+	mutex_lock(&st->lock);
+	ret = regmap_update_bits(st->map, LTC2947_REG_CTRL,
+				 LTC2947_SHUTDOWN_MASK, 1);
+	if (ret)
+		goto unlock;
+
+	st->reset = true;
+unlock:
+	mutex_unlock(&st->lock);
+	return ret;
+}
+
+SIMPLE_DEV_PM_OPS(ltc2947_pm_ops, ltc2947_suspend, ltc2947_resume);
+EXPORT_SYMBOL_GPL(ltc2947_pm_ops);
 
 const struct of_device_id ltc2947_of_match[] = {
 	{ .compatible = "adi,ltc2947" },
