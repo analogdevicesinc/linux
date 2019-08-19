@@ -48,6 +48,13 @@
 		status = "okay";
 	};
 
+	mipi_dsi_reset: mipi-dsi-reset {
+		compatible = "gpio-reset";
+		reset-gpios = <&gpio_ptc 19 GPIO_ACTIVE_LOW>;
+		reset-delay-us = <1000>;
+		#reset-cells = <0>;
+	};
+
 	modem_reset: modem-reset {
 		compatible = "gpio-reset";
 		reset-gpios = <&rpmsg_gpio0 15 GPIO_ACTIVE_LOW>;
@@ -241,6 +248,37 @@
 	};
 };
 
+&lcdif {
+	status = "okay";
+	disp-dev = "mipi_dsi_northwest";
+	display = <&display0>;
+
+	display0: display@0 {
+		bits-per-pixel = <16>;
+		bus-width = <24>;
+
+		display-timings {
+			native-mode = <&timing0>;
+			timing0: timing0 {
+			clock-frequency = <9200000>;
+			hactive = <480>;
+			vactive = <272>;
+			hfront-porch = <8>;
+			hback-porch = <4>;
+			hsync-len = <41>;
+			vback-porch = <2>;
+			vfront-porch = <4>;
+			vsync-len = <10>;
+
+			hsync-active = <0>;
+			vsync-active = <0>;
+			de-active = <1>;
+			pixelclk-active = <0>;
+			};
+		};
+	};
+};
+
 &lpuart4 {
 	pinctrl-names = "default", "sleep";
 	pinctrl-0 = <&pinctrl_lpuart4>;
@@ -287,6 +325,31 @@
 		focaltech,keys = <139 102 158>;
 		focaltech,key-y-coord = <2000>;
 		focaltech,key-x-coords = <200 600 800>;
+	};
+};
+
+&adv7535 {
+	status = "okay";
+
+	port {
+		dsi_to_hdmi: endpoint {
+			remote-endpoint = <&mipi_dsi_ep>;
+		};
+	};
+};
+
+&mipi_dsi {
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&pinctrl_mipi_dsi_reset>;
+	pinctrl-1 = <&pinctrl_mipi_dsi_reset>;
+	lcd_panel = "TRULY-WVGA-TFT3P5581E";
+	resets = <&mipi_dsi_reset>;
+	status = "okay";
+
+	port {
+		mipi_dsi_ep: endpoint {
+			remote-endpoint = <&dsi_to_hdmi>;
+		};
 	};
 };
 
@@ -350,6 +413,12 @@
 		fsl,pins = <
 			IMX7ULP_PAD_PTC4__LPI2C5_SCL	0x27
 			IMX7ULP_PAD_PTC5__LPI2C5_SDA	0x27
+		>;
+	};
+
+	pinctrl_mipi_dsi_reset: mipi_dsi_reset_grp {
+		fsl,pins = <
+			IMX7ULP_PAD_PTC19__PTC19	0x20003
 		>;
 	};
 
