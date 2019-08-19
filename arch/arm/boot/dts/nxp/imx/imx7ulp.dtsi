@@ -219,6 +219,31 @@
 			};
 		};
 
+		lpi2c4: lpi2c4@402b0000 {
+			compatible = "fsl,imx7ulp-lpi2c";
+			reg = <0x402b0000 0x10000>;
+			interrupts = <GIC_SPI 34 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&pcc2 IMX7ULP_CLK_LPI2C4>,
+				 <&scg1 IMX7ULP_CLK_NIC1_BUS_DIV>;
+			clock-names = "per", "ipg";
+			assigned-clocks = <&pcc2 IMX7ULP_CLK_LPI2C4>;
+			assigned-clock-parents = <&scg1 IMX7ULP_CLK_FIRC_BUS_CLK>;
+			assigned-clock-rates = <48000000>;
+			status = "disabled";
+		};
+
+		lpi2c5: lpi2c5@402c0000 {
+			compatible = "fsl,imx7ulp-lpi2c";
+			reg = <0x402c0000 0x10000>;
+			interrupts = <GIC_SPI 35 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&pcc2 IMX7ULP_CLK_LPI2C5>,
+				 <&scg1 IMX7ULP_CLK_NIC1_BUS_DIV>;
+			clock-names = "per", "ipg";
+			assigned-clocks = <&pcc2 IMX7ULP_CLK_LPI2C5>;
+			assigned-clock-parents = <&scg1 IMX7ULP_CLK_FIRC_BUS_CLK>;
+			assigned-clock-rates = <48000000>;
+		};
+
 		lpuart4: serial@402d0000 {
 			compatible = "fsl,imx7ulp-lpuart";
 			reg = <0x402d0000 0x1000>;
