@@ -316,7 +316,7 @@ static int __ltc2983_chan_custom_sensor_assign(struct ltc2983_data *st,
 		    (LTC2983_CUST_SENS_TBL_END_REG -
 		     LTC2983_CUST_SENS_TBL_START_REG) + 1) {
 			dev_err(dev,
-				"Not space left(%d) for new custom sensor(%d)",
+				"Not space left(%d) for new custom sensor(%zu)",
 							st->custom_table_size,
 							custom->size);
 			return -EINVAL;
@@ -331,7 +331,7 @@ static int __ltc2983_chan_custom_sensor_assign(struct ltc2983_data *st,
 
 	*chan_val |= LTC2983_CUSTOM_LEN(len);
 	*chan_val |= LTC2983_CUSTOM_ADDR(custom->offset);
-	dev_dbg(dev, "Assign custom sensor, reg:0x%04X, off:%d, sz:%d",
+	dev_dbg(dev, "Assign custom sensor, reg:0x%04X, off:%d, sz:%zu",
 							reg, custom->offset,
 							custom->size);
 	/* write custom sensor table */
@@ -369,7 +369,7 @@ static struct ltc2983_custom_sensor *__ltc2983_custom_sensor_new(
 	new_custom->size = n_entries * n_size;
 	/* check Steinhart size */
 	if (is_steinhart && new_custom->size != LTC2983_CUSTOM_STEINHART_SIZE) {
-		dev_err(dev, "Steinhart sensors size(%d) must be 24",
+		dev_err(dev, "Steinhart sensors size(%zu) must be 24",
 							new_custom->size);
 		return ERR_PTR(-EINVAL);
 	}
@@ -377,7 +377,7 @@ static struct ltc2983_custom_sensor *__ltc2983_custom_sensor_new(
 	if (st->custom_table_size + new_custom->size >
 	    (LTC2983_CUST_SENS_TBL_END_REG -
 	     LTC2983_CUST_SENS_TBL_START_REG) + 1) {
-		dev_err(dev, "No space left(%d) for new custom sensor(%d)",
+		dev_err(dev, "No space left(%d) for new custom sensor(%zu)",
 				st->custom_table_size, new_custom->size);
 		return ERR_PTR(-EINVAL);
 	}
