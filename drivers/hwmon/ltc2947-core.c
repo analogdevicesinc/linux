@@ -32,6 +32,14 @@
 #define LTC2947_ACCUM_POL_2_MASK	GENMASK(3, 2)
 #define LTC2947_ACCUM_POL_2(x)		FIELD_PREP(LTC2947_ACCUM_POL_2_MASK, x)
 #define LTC2947_REG_ACCUM_DEADBAND	0xE4
+#define LTC2947_REG_GPIOSTATCTL		0x67
+#define LTC2947_GPIO_EN_MASK		BIT(0)
+#define LTC2947_GPIO_EN(x)		FIELD_PREP(LTC2947_GPIO_EN_MASK, x)
+#define LTC2947_GPIO_FAN_EN_MASK	BIT(6)
+#define LTC2947_GPIO_FAN_EN(x)		FIELD_PREP(LTC2947_GPIO_FAN_EN_MASK, x)
+#define LTC2947_GPIO_FAN_POL_MASK	BIT(7)
+#define LTC2947_GPIO_FAN_POL(x)		FIELD_PREP(LTC2947_GPIO_FAN_POL_MASK, x)
+#define LTC2947_REG_GPIO_ACCUM		0xE3
 /* 200Khz */
 #define LTC2947_CLK_MIN			200000
 /* 25Mhz */
@@ -69,6 +77,9 @@
 #define LTC2947_REG_TEMP_MIN		0x56
 #define LTC2947_REG_TEMP_THRE_H		0x94
 #define LTC2947_REG_TEMP_THRE_L		0x96
+#define LTC2947_REG_TEMP_FAN_THRE_H	0x9C
+#define LTC2947_REG_TEMP_FAN_THRE_L	0x9E
+#define LTC2947_TEMP_FAN_CHAN		1
 /* Energy registers */
 #define LTC2947_REG_ENERGY1		0x06
 #define LTC2947_REG_ENERGY1_THRE_H	0x10
@@ -97,6 +108,8 @@
 #define LTC2947_MIN_POWER_MASK		BIT(3)
 #define LTC2947_MAX_TEMP_MASK		BIT(2)
 #define LTC2947_MIN_TEMP_MASK		BIT(3)
+#define LTC2947_MAX_TEMP_FAN_MASK	BIT(4)
+#define LTC2947_MIN_TEMP_FAN_MASK	BIT(5)
 #define LTC2947_SINGLE_SHOT_MASK	BIT(2)
 #define LTC2947_MAX_ENERGY1_MASK	BIT(0)
 #define LTC2947_MIN_ENERGY1_MASK	BIT(1)
@@ -123,6 +136,7 @@ struct ltc2947_data {
 	struct mutex lock;
 	u32 lsb_energy;
 	bool reset;
+	bool gpio_out;
 };
 /* used for raw sysfs entries */
 enum {
@@ -530,11 +544,17 @@ static ssize_t ltc2947_show_alert(struct device *dev,
 	return ret ? ret : sprintf(buf, "%li\n", alert);
 }
 
-static int ltc2947_read_temp(struct device *dev, const u32 attr, long *val)
+static int ltc2947_read_temp(struct device *dev, const u32 attr, long *val,
+			     const int channel)
 {
 	int ret;
 	struct ltc2947_data *st = dev_get_drvdata(dev);
 	s64 __val = 0;
+
+	if (channel < 0 || channel > LTC2947_TEMP_FAN_CHAN) {
+		dev_err(st->dev, "Invalid chan%d for temperature", channel);
+		return -EINVAL;
+	}
 
 	switch (attr) {
 	case hwmon_temp_input:
@@ -549,18 +569,36 @@ static int ltc2947_read_temp(struct device *dev, const u32 attr, long *val)
 				       &__val);
 		break;
 	case hwmon_temp_max_alarm:
-		return ltc2947_alarm_read(st, LTC2947_REG_STATVT,
-					  LTC2947_MAX_TEMP_MASK, val);
+		if (channel == LTC2947_TEMP_FAN_CHAN)
+			return ltc2947_alarm_read(st, LTC2947_REG_STATVT,
+						  LTC2947_MAX_TEMP_FAN_MASK,
+						  val);
+		else
+			return ltc2947_alarm_read(st, LTC2947_REG_STATVT,
+						  LTC2947_MAX_TEMP_MASK, val);
 	case hwmon_temp_min_alarm:
-		return	ltc2947_alarm_read(st, LTC2947_REG_STATVT,
-					   LTC2947_MIN_TEMP_MASK, val);
+		if (channel == LTC2947_TEMP_FAN_CHAN)
+			return	ltc2947_alarm_read(st, LTC2947_REG_STATVT,
+						   LTC2947_MIN_TEMP_FAN_MASK,
+						   val);
+		else
+			return	ltc2947_alarm_read(st, LTC2947_REG_STATVT,
+						   LTC2947_MIN_TEMP_MASK, val);
 	case hwmon_temp_max:
-		ret = ltc2947_val_read(st, LTC2947_REG_TEMP_THRE_H, PAGE1, 2,
-				       &__val);
+		if (channel == LTC2947_TEMP_FAN_CHAN)
+			ret = ltc2947_val_read(st, LTC2947_REG_TEMP_FAN_THRE_H,
+					       PAGE1, 2, &__val);
+		else
+			ret = ltc2947_val_read(st, LTC2947_REG_TEMP_THRE_H,
+					       PAGE1, 2, &__val);
 		break;
 	case hwmon_temp_min:
-		ret = ltc2947_val_read(st, LTC2947_REG_TEMP_THRE_L, PAGE1, 2,
-				       &__val);
+		if (channel == LTC2947_TEMP_FAN_CHAN)
+			ret = ltc2947_val_read(st, LTC2947_REG_TEMP_FAN_THRE_L,
+					       PAGE1, 2, &__val);
+		else
+			ret = ltc2947_val_read(st, LTC2947_REG_TEMP_THRE_L,
+					       PAGE1, 2, &__val);
 		break;
 	default:
 		return -EOPNOTSUPP;
@@ -742,16 +780,21 @@ static int ltc2947_read(struct device *dev, enum hwmon_sensor_types type,
 	case hwmon_power:
 		return ltc2947_read_power(dev, attr, val);
 	case hwmon_temp:
-		return ltc2947_read_temp(dev, attr, val);
+		return ltc2947_read_temp(dev, attr, val, channel);
 	default:
 		return -EOPNOTSUPP;
 	}
 }
 
 static int ltc2947_write_temp(struct device *dev, const u32 attr,
-			      long val)
+			      long val, const int channel)
 {
 	struct ltc2947_data *st = dev_get_drvdata(dev);
+
+	if (channel < 0 || channel > LTC2947_TEMP_FAN_CHAN) {
+		dev_err(st->dev, "Invalid chan%d for temperature", channel);
+		return -EINVAL;
+	}
 
 	switch (attr) {
 	case hwmon_temp_reset_history:
@@ -761,12 +804,32 @@ static int ltc2947_write_temp(struct device *dev, const u32 attr,
 					     LTC2947_REG_TEMP_MIN);
 	case hwmon_temp_max:
 		val = clamp_val(val, SHRT_MIN, SHRT_MAX);
-		return ltc2947_val_write(st, LTC2947_REG_TEMP_THRE_H, PAGE1, 2,
+		if (channel == LTC2947_TEMP_FAN_CHAN) {
+			if (!st->gpio_out)
+				return -ENOTSUPP;
+
+			return ltc2947_val_write(st,
+					LTC2947_REG_TEMP_FAN_THRE_H, PAGE1, 2,
 					DIV_ROUND_CLOSEST(val - 550, 204));
+		} else {
+			return ltc2947_val_write(st, LTC2947_REG_TEMP_THRE_H,
+					PAGE1, 2,
+					DIV_ROUND_CLOSEST(val - 550, 204));
+		}
 	case hwmon_temp_min:
 		val = clamp_val(val, SHRT_MIN, SHRT_MAX);
-		return ltc2947_val_write(st, LTC2947_REG_TEMP_THRE_L, PAGE1, 2,
+		if (channel == LTC2947_TEMP_FAN_CHAN) {
+			if (!st->gpio_out)
+				return -ENOTSUPP;
+
+			return ltc2947_val_write(st,
+					LTC2947_REG_TEMP_FAN_THRE_L, PAGE1, 2,
 					DIV_ROUND_CLOSEST(val - 550, 204));
+		} else {
+			return ltc2947_val_write(st, LTC2947_REG_TEMP_THRE_L,
+					PAGE1, 2,
+					DIV_ROUND_CLOSEST(val - 550, 204));
+		}
 	default:
 		return -ENOTSUPP;
 	}
@@ -873,7 +936,7 @@ static int ltc2947_write(struct device *dev,
 	case hwmon_power:
 		return ltc2947_write_power(dev, attr, val);
 	case hwmon_temp:
-		return ltc2947_write_temp(dev, attr, val);
+		return ltc2947_write_temp(dev, attr, val, channel);
 	default:
 		return -EOPNOTSUPP;
 	}
@@ -894,7 +957,10 @@ static int ltc2947_read_labels(struct device *dev,
 		*str = "IP-IM";
 		return 0;
 	case hwmon_temp:
-		*str = "Ambient";
+		if (channel == LTC2947_TEMP_FAN_CHAN)
+			*str = "TEMPFAN";
+		else
+			*str = "Ambient";
 		return 0;
 	case hwmon_power:
 		*str = "Power";
@@ -999,6 +1065,8 @@ static const u32 ltc2947_temp_config[] = {
 	HWMON_T_INPUT | HWMON_T_LOWEST | HWMON_T_HIGHEST | HWMON_T_MAX |
 	HWMON_T_MIN | HWMON_T_RESET_HISTORY | HWMON_T_MIN_ALARM |
 	HWMON_T_MAX_ALARM | HWMON_T_LABEL,
+	HWMON_T_MAX_ALARM | HWMON_T_MIN_ALARM | HWMON_T_MAX | HWMON_T_MIN |
+	HWMON_T_LABEL,
 	0
 };
 
@@ -1171,8 +1239,9 @@ static int ltc2947_setup(struct ltc2947_data *st)
 {
 	int ret;
 	struct clk *extclk;
-	u32 dummy, deadband;
+	u32 dummy, deadband, pol;
 	u32 accum[2];
+
 	/* clear status register by reading it */
 	ret = regmap_read(st->map, LTC2947_REG_STATUS, &dummy);
 	if (ret)
@@ -1253,6 +1322,38 @@ static int ltc2947_setup(struct ltc2947_data *st)
 		/* the LSB is the same as the current, so 3mA */
 		ret = regmap_write(st->map, LTC2947_REG_ACCUM_DEADBAND,
 				   deadband/(1000 * 3));
+		if (ret)
+			return ret;
+	}
+	/* check gpio cfg */
+	ret = of_property_read_u32(st->dev->of_node, "adi,gpio-out-pol", &pol);
+	if (!ret) {
+		/* setup GPIO as output */
+		u32 gpio_ctl = LTC2947_GPIO_EN(1) | LTC2947_GPIO_FAN_EN(1) |
+			LTC2947_GPIO_FAN_POL(pol);
+
+		st->gpio_out = true;
+		ret = regmap_write(st->map, LTC2947_REG_GPIOSTATCTL, gpio_ctl);
+		if (ret)
+			return ret;
+	}
+	ret = of_property_read_u32_array(st->dev->of_node, "adi,gpio-in-accum",
+					 accum, ARRAY_SIZE(accum));
+	if (!ret) {
+		/*
+		 * Setup the accum options. The gpioctl is already defined as
+		 * input by default.
+		 */
+		u32 accum_val = LTC2947_ACCUM_POL_1(accum[0]) |
+				LTC2947_ACCUM_POL_2(accum[1]);
+
+		if (st->gpio_out) {
+			dev_err(st->dev,
+				"Cannot have input gpio config if already configured as output");
+			return -EINVAL;
+		}
+
+		ret = regmap_write(st->map, LTC2947_REG_GPIO_ACCUM, accum_val);
 		if (ret)
 			return ret;
 	}
