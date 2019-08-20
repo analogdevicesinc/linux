@@ -406,12 +406,22 @@
 	status = "okay";
 };
 
-&rpmsg{
+&rpmsg0{
 	/*
 	 * 64K for one rpmsg instance:
 	 */
 	vdev-nums = <2>;
 	reg = <0x0 0x90000000 0x0 0x20000>;
+	memory-region = <&rpmsg_dma_reserved>;
+	status = "okay";
+};
+
+&rpmsg1{
+	/*
+	 * 64K for one rpmsg instance:
+	 */
+	vdev-nums = <2>;
+	reg = <0x0 0x90100000 0x0 0x20000>;
 	memory-region = <&rpmsg_dma_reserved>;
 	status = "okay";
 };
