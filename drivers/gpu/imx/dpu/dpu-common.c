@@ -28,6 +28,8 @@
 #include <video/dpu.h>
 #include "dpu-prv.h"
 
+#define IMX_DPU_BLITENG_NAME "imx-drm-dpu-bliteng"
+
 static bool display_plane_video_proc = true;
 module_param(display_plane_video_proc, bool, 0444);
 MODULE_PARM_DESC(display_plane_video_proc,
@@ -752,6 +754,9 @@ static struct dpu_platform_reg client_reg[] = {
 			.stream_id = 1,
 		},
 		.name = "imx-dpu-crtc",
+	}, {
+		.pdata = { },
+		.name = IMX_DPU_BLITENG_NAME,
 	}
 };
 
@@ -914,13 +919,18 @@ static int dpu_add_client_devices(struct dpu_soc *dpu)
 		struct platform_device *pdev;
 		struct device_node *of_node = NULL;
 
-		/* Associate subdevice with the corresponding port node. */
-		of_node = of_graph_get_port_by_id(dev->of_node, i);
-		if (!of_node) {
-			dev_info(dev,
-				"no port@%d node in %s, not using DISP%d\n",
-				i, dev->of_node->full_name, i);
-			continue;
+		if (!strcmp(reg[i].name, IMX_DPU_BLITENG_NAME)) {
+			/* As bliteng has no of_node, so to use dpu's. */
+			of_node = dev->of_node;
+		} else {
+			/* Associate subdevice with the corresponding port node. */
+			of_node = of_graph_get_port_by_id(dev->of_node, i);
+			if (!of_node) {
+				dev_info(dev,
+					"no port@%d node in %s, not using DISP%d\n",
+					i, dev->of_node->full_name, i);
+				continue;
+			}
 		}
 
 		reg[i].pdata.plane_grp = plane_grp;
