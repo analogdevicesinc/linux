@@ -1133,9 +1133,6 @@ static const struct hwmon_chip_info ltc2947_chip_info = {
 	.info = ltc2947_info,
 };
 
-static SENSOR_DEVICE_ATTR(test1, 0644, ltc2947_show_value,
-			  ltc2947_set_value, 0xFF);
-
 /* power attributes */
 static SENSOR_DEVICE_ATTR(power1_input, 0444, ltc2947_show_value,
 			  ltc2947_set_value, LTC2947_POWER_INPUT);
@@ -1198,7 +1195,6 @@ static SENSOR_DEVICE_ATTR(power1_fault, 0444, ltc2947_show_alert,
 			  NULL, LTC2947_FAULT);
 
 static struct attribute *ltc2947_attrs[] = {
-	&sensor_dev_attr_test1.dev_attr.attr,
 	&sensor_dev_attr_in0_fault.dev_attr.attr,
 	&sensor_dev_attr_in1_fault.dev_attr.attr,
 	&sensor_dev_attr_curr1_fault.dev_attr.attr,
