@@ -58,7 +58,7 @@
 };
 
 &dsp {
-	compatible = "fsl,imx8qxp-dsp";
+	compatible = "fsl,imx8qxp-dsp-v1";
 	reserved-region = <&dsp_reserved>;
 	reg = <0x596e8000 0x88000>;
 	clocks = <&esai0_lpcg 1>,
