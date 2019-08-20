@@ -1,0 +1,79 @@
+// SPDX-License-Identifier: GPL-2.0+
+// Copyright NXP 2019
+
+#include "imx8qm-mek.dts"
+
+/delete-node/ &cm41_i2c;
+
+&i2c_rpbus_1 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+
+	pca6416: gpio@20 {
+		compatible = "ti,tca6416";
+		reg = <0x20>;
+		gpio-controller;
+		#gpio-cells = <2>;
+	};
+};
+
+&cm41_i2c_lpcg {
+	status = "disabled";
+};
+
+&reg_can01_en {
+	status = "disabled";
+};
+
+&reg_can2_en {
+	status = "disabled";
+};
+
+&reg_can01_stby {
+	status = "disabled";
+};
+
+&reg_can2_stby {
+	status = "disabled";
+};
+
+&cm41_intmux {
+	status = "disabled";
+};
+
+&can0_lpcg {
+	status = "disabled";
+};
+
+&can1_lpcg {
+	status = "disabled";
+};
+
+&can2_lpcg {
+	status = "disabled";
+};
+
+&flexcan1 {
+	status = "disabled";
+};
+
+&flexcan2 {
+	status = "disabled";
+};
+
+&flexcan3 {
+	status = "disabled";
+};
+
+&flexspi0 {
+	status = "disabled";
+};
+
+&lpuart2 {
+	status = "disabled";
+};
+
+&uart2_lpcg {
+	status = "disabled";
+};

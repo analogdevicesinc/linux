@@ -553,4 +553,39 @@ dma_subsys: bus@5a000000 {
 				     "can0_lpcg_chi_clk";
 		power-domains = <&pd IMX_SC_R_CAN_0>;
 	};
+
+	i2c_rpbus_0: i2c-rpbus-0 {
+		compatible = "fsl,i2c-rpbus";
+		status = "disabled";
+	};
+
+	i2c_rpbus_1: i2c-rpbus-1 {
+		compatible = "fsl,i2c-rpbus";
+		status = "disabled";
+	};
+
+	i2c_rpbus_5: i2c-rpbus-5 {
+		compatible = "fsl,i2c-rpbus";
+		status = "disabled";
+	};
+
+	i2c_rpbus_12: i2c-rpbus-12 {
+		compatible = "fsl,i2c-rpbus";
+		status = "disabled";
+	};
+
+	i2c_rpbus_13: i2c-rpbus-13 {
+		compatible = "fsl,i2c-rpbus";
+		status = "disabled";
+	};
+
+	i2c_rpbus_14: i2c-rpbus-14 {
+		compatible = "fsl,i2c-rpbus";
+		status = "disabled";
+	};
+
+	i2c_rpbus_15: i2c-rpbus-15 {
+		compatible = "fsl,i2c-rpbus";
+		status = "disabled";
+	};
 };

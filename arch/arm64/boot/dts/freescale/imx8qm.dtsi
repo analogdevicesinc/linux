@@ -44,6 +44,8 @@
 		dpu1 = &dpu2;
 		ldb0 = &ldb1;
 		ldb1 = &ldb2;
+		i2c0 = &i2c_rpbus_0;
+		i2c1 = &i2c_rpbus_1;
 	};
 
 	cpus {
