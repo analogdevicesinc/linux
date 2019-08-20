@@ -215,6 +215,54 @@ dc0_subsys: bus@56000000 {
 		power-domains = <&pd IMX_SC_R_DC_0>;
 	};
 
+	dc0_prg1: prg@56040000 {
+		compatible = "fsl,imx8qxp-prg", "fsl,imx8qm-prg";
+		reg = <0x56040000 0x10000>;
+		clocks = <&dc0_prg0_lpcg 0>,
+			 <&dc0_prg0_lpcg 1>;
+		clock-names = "rtram", "apb";
+		power-domains = <&pd IMX_SC_R_DC_0>;
+		status = "disabled";
+	};
+
+	dc0_prg2: prg@56050000 {
+		compatible = "fsl,imx8qxp-prg", "fsl,imx8qm-prg";
+		reg = <0x56050000 0x10000>;
+		clocks = <&dc0_prg1_lpcg 0>,
+			 <&dc0_prg1_lpcg 1>;
+		clock-names = "rtram", "apb";
+		power-domains = <&pd IMX_SC_R_DC_0>;
+		status = "disabled";
+	};
+
+	dc0_dpr1_channel1: dpr-channel@560d0000 {
+		compatible = "fsl,imx8qxp-dpr-channel",
+			     "fsl,imx8qm-dpr-channel";
+		reg = <0x560d0000 0x10000>;
+		fsl,sc-resource = <IMX_SC_R_DC_0_BLIT0>;
+		fsl,prgs = <&dc0_prg1>;
+		clocks = <&dc0_dpr0_lpcg 0>,
+			 <&dc0_dpr0_lpcg 1>,
+			 <&dc0_rtram0_lpcg 0>;
+		clock-names = "apb", "b", "rtram";
+		power-domains = <&pd IMX_SC_R_DC_0>;
+		status = "disabled";
+	};
+
+	dc0_dpr1_channel2: dpr-channel@560e0000 {
+		compatible = "fsl,imx8qxp-dpr-channel",
+			     "fsl,imx8qm-dpr-channel";
+		reg = <0x560e0000 0x10000>;
+		fsl,sc-resource = <IMX_SC_R_DC_0_BLIT1>;
+		fsl,prgs = <&dc0_prg2>, <&dc0_prg1>;
+		clocks = <&dc0_dpr0_lpcg 0>,
+			 <&dc0_dpr0_lpcg 1>,
+			 <&dc0_rtram0_lpcg 0>;
+		clock-names = "apb", "b", "rtram";
+		power-domains = <&pd IMX_SC_R_DC_0>;
+		status = "disabled";
+	};
+
 	dpu1: dpu@56180000 {
 		#address-cells = <1>;
 		#size-cells = <0>;
