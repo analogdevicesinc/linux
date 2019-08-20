@@ -30,6 +30,17 @@ dc0_subsys: bus@56000000 {
 		clock-output-names = "dc0_axi_ext_clk";
 	};
 
+	dc0_disp_lpcg: clock-controller@56010000 {
+		compatible = "fsl,imx8qxp-lpcg";
+		reg = <0x56010000 0x4>;
+		#clock-cells = <1>;
+		clocks = <&clk IMX_SC_R_DC_0 IMX_SC_PM_CLK_MISC0>,
+			 <&clk IMX_SC_R_DC_0 IMX_SC_PM_CLK_MISC1>;
+		bit-offset = <0 4>;
+		clock-output-names = "dc0_disp0_lpcg_clk", "dc0_disp1_lpcg_clk";
+		power-domains = <&pd IMX_SC_R_DC_0>;
+	};
+
 	dc0_dpr0_lpcg: clock-controller@56010018 {
 		compatible = "fsl,imx8qxp-lpcg";
 		reg = <0x56010018 0x4>;
