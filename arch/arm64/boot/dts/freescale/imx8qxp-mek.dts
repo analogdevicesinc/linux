@@ -318,6 +318,23 @@
 	status = "okay";
 };
 
+&dc0_prg1 {
+	status = "okay";
+};
+
+&dc0_prg2 {
+	status = "okay";
+
+};
+
+&dc0_dpr1_channel1 {
+	status = "okay";
+};
+
+&dc0_dpr1_channel2 {
+	status = "okay";
+};
+
 &dpu1 {
 	status = "okay";
 };
