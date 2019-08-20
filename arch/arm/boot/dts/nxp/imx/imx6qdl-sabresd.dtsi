@@ -330,6 +330,14 @@
 		wakeup-gpios = <&gpio6 8 GPIO_ACTIVE_LOW>;
 	};
 
+	max11801@48 {
+		compatible = "maxim,max11801";
+		reg = <0x48>;
+		interrupt-parent = <&gpio3>;
+		interrupts = <26 2>;
+		work-mode = <1>;/*DCM mode*/
+	};
+
 	ov5640: camera@3c {
 		compatible = "ovti,ov5640";
 		pinctrl-names = "default";
