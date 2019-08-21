@@ -29,8 +29,6 @@
 		spi-max-frequency = <10000000>;
 		adi,spi-3wire-enable;
 
-		firmware = "ad9517.stp";
-
 		clocks = <&ad9517_ref_clk>, <&ad9517_ref_clk>;
 		clock-names = "refclk", "clkin";
 
