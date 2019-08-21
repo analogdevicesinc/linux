@@ -426,6 +426,76 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_i2c3>;
 	status = "okay";
+
+	max17135: max17135@48 {
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_max17135>;
+		compatible = "maxim,max17135";
+		reg = <0x48>;
+		status = "disabled";
+
+		vneg_pwrup = <1>;
+		gvee_pwrup = <2>;
+		vpos_pwrup = <10>;
+		gvdd_pwrup = <12>;
+		gvdd_pwrdn = <1>;
+		vpos_pwrdn = <2>;
+		gvee_pwrdn = <8>;
+		vneg_pwrdn = <10>;
+		gpio_pmic_pwrgood = <&gpio2 31 0>;
+		gpio_pmic_vcom_ctrl = <&gpio4 14 0>;
+		gpio_pmic_wakeup = <&gpio2 23 0>;
+		gpio_pmic_v3p3 = <&gpio2 30 0>;
+		gpio_pmic_intr = <&gpio2 22 0>;
+
+		regulators {
+			DISPLAY_reg: DISPLAY {
+				regulator-name = "DISPLAY";
+			};
+
+			GVDD_reg: GVDD {
+				/* 20v */
+				regulator-name = "GVDD";
+			};
+
+			GVEE_reg: GVEE {
+				/* -22v */
+				regulator-name = "GVEE";
+			};
+
+			HVINN_reg: HVINN {
+				/* -22v */
+				regulator-name = "HVINN";
+			};
+
+			HVINP_reg: HVINP {
+				/* 20v */
+				regulator-name = "HVINP";
+			};
+
+			VCOM_reg: VCOM {
+				regulator-name = "VCOM";
+				/* Real max value: -500000 */
+				regulator-max-microvolt = <4325000>;
+				/* Real min value: -4325000 */
+				regulator-min-microvolt = <500000>;
+			};
+
+			VNEG_reg: VNEG {
+				/* -15v */
+				regulator-name = "VNEG";
+			};
+
+			VPOS_reg: VPOS {
+				/* 15v */
+				regulator-name = "VPOS";
+			};
+
+			V3P3_reg: V3P3 {
+				regulator-name = "V3P3";
+			};
+		};
+	};
 };
 
 &i2c4 {
@@ -801,6 +871,16 @@
 			MX7D_PAD_UART3_TX_DATA__SAI3_TX_BCLK   0x1f
 			MX7D_PAD_UART3_CTS_B__SAI3_TX_SYNC     0x1f
 			MX7D_PAD_UART3_RTS_B__SAI3_TX_DATA0    0x30
+		>;
+	};
+
+	pinctrl_max17135: max17135grp-1 {
+		fsl,pins = <
+			MX7D_PAD_EPDC_PWR_STAT__GPIO2_IO31	0x80000000  /* pwrgood */
+			MX7D_PAD_I2C4_SCL__GPIO4_IO14		0x80000000  /* vcom_ctrl */
+			MX7D_PAD_EPDC_SDCE3__GPIO2_IO23		0x80000000  /* wakeup */
+			MX7D_PAD_EPDC_PWR_COM__GPIO2_IO30	0x80000000  /* v3p3 */
+			MX7D_PAD_EPDC_SDCE2__GPIO2_IO22		0x80000000  /* pwr int */
 		>;
 	};
 
