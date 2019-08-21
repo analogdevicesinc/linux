@@ -1,0 +1,41 @@
+// SPDX-License-Identifier: GPL-2.0+ OR MIT
+/*
+ * Copyright (C) 2015 Freescale Semiconductor, Inc.
+ * Copyright 2019 NXP
+ */
+
+&epdc {
+	status = "okay";
+};
+
+&fec1 {
+	status = "okay";
+};
+
+&fec2 {
+	status = "disabled";
+};
+
+&reg_can2_3v3 {
+	status = "disabled";
+};
+
+&reg_fec2_3v3 {
+	status = "disabled";
+};
+
+&flexcan2 {
+	status = "disabled";
+};
+
+&max17135 {
+	status = "okay";
+};
+
+&sim1 {
+	status = "disabled";
+};
+
+&uart5 {
+	status = "disabled";
+};

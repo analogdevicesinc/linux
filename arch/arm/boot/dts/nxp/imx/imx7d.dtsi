@@ -226,6 +226,17 @@
 		status = "disabled";
 	};
 
+	epdc: epdc@306f0000 {
+		compatible = "fsl,imx7d-epdc";
+		interrupts = <GIC_SPI 117 IRQ_TYPE_LEVEL_HIGH>;
+		reg = <0x306f0000 0x10000>;
+		clocks = <&clks IMX7D_CLK_DUMMY>, <&clks IMX7D_EPDC_PIXEL_ROOT_CLK>;
+		clock-names = "epdc_axi", "epdc_pix";
+		epdc-ram = <&gpr 0x4 30>;
+		qos = <&qosc>;
+		status = "disabled";
+	};
+
 	epxp: epxp@30700000 {
 		compatible = "fsl,imx7d-pxp-dma";
 		reg = <0x30700000 0x10000>;

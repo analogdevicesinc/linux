@@ -1,0 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0+ OR MIT
+/*
+ * Copyright (C) 2015 Freescale Semiconductor, Inc.
+ * Copyright 2019 NXP
+ */
+#include "imx7d-sdb.dts"
+#include "imx7d-sdb-epdc.dtsi"
