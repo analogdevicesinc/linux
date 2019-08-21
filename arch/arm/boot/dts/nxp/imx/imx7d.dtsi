@@ -234,6 +234,17 @@
 		clocks = <&clks IMX7D_PXP_CLK>;
 		clock-names = "axi";
 	};
+
+	mipi_dsi: mipi-dsi@30760000 {
+		compatible = "fsl,imx7d-mipi-dsi";
+		reg = <0x30760000 0x10000>;
+		interrupts = <GIC_SPI 41 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clks IMX7D_MIPI_DSI_ROOT_CLK>,
+			<&clks IMX7D_MIPI_DPHY_ROOT_CLK>;
+		clock-names = "mipi_cfg_clk", "mipi_pllref_clk";
+		mipi-phy-supply = <&reg_1p0d>;
+		status = "disabled";
+	};
 };
 
 &aips3 {
