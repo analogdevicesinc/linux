@@ -5,6 +5,7 @@
  * Copyright 2019 Analog Devices Inc.
  */
 
+#include <linux/bitfield.h>
 #include <linux/device.h>
 #include <linux/module.h>
 #include <linux/regulator/consumer.h>
@@ -16,8 +17,22 @@
 
 /* AD7292 registers definition */
 #define AD7292_REG_VENDOR_ID		0x00
+#define AD7292_REG_ADC_SEQ		0x03
+#define AD7292_REG_CONV_COMM		0x0E
+#define AD7292_REG_ADC_CH0		0x10
+#define AD7292_REG_ADC_CH1		0x11
+#define AD7292_REG_ADC_CH2		0x12
+#define AD7292_REG_ADC_CH3		0x13
+#define AD7292_REG_ADC_CH4		0x14
+#define AD7292_REG_ADC_CH5		0x15
+#define AD7292_REG_ADC_CH6		0x16
+#define AD7292_REG_ADC_CH7		0x17
 
 #define AD7292_RD_FLAG_MSK(x)		(BIT(7) | ((x) & 0x3F))
+
+/* AD7292_REG_ADC_CONVERSION */
+#define AD7292_ADC_DATA_MASK		GENMASK(15, 6)
+#define AD7292_ADC_DATA(x)		FIELD_GET(AD7292_ADC_DATA_MASK, x)
 
 #define AD7291_VOLTAGE_CHAN(_chan)					\
 {									\
@@ -53,6 +68,12 @@ static const struct iio_chan_spec ad7292_channels_diff[] = {
 	AD7291_VOLTAGE_CHAN(5),
 	AD7291_VOLTAGE_CHAN(6),
 	AD7291_VOLTAGE_CHAN(7)
+};
+
+static unsigned int ad7292_channel_address[8] = {
+	AD7292_REG_ADC_CH0, AD7292_REG_ADC_CH1, AD7292_REG_ADC_CH2,
+	AD7292_REG_ADC_CH3, AD7292_REG_ADC_CH4, AD7292_REG_ADC_CH5,
+	AD7292_REG_ADC_CH6, AD7292_REG_ADC_CH7
 };
 
 struct ad7292_state {
@@ -94,6 +115,33 @@ static int ad7292_spi_subreg_read(struct ad7292_state *st, unsigned int addr,
 	return (be16_to_cpu(st->data.d16) >> shift);
 }
 
+static int ad7292_single_conversion(struct ad7292_state *st,
+				    unsigned int chan_addr)
+{
+	int ret;
+
+	struct spi_transfer t[] = {
+		{
+			.tx_buf = &st->data,
+			.len = 4,
+			.delay_usecs = 6,
+		}, {
+			.rx_buf = &st->data.d16,
+			.len = 2,
+		},
+	};
+
+	st->data.d8[0] = chan_addr;
+	st->data.d8[1] = AD7292_RD_FLAG_MSK(AD7292_REG_CONV_COMM);
+
+	ret = spi_sync_transfer(st->spi, t, ARRAY_SIZE(t));
+
+	if (ret < 0)
+		return ret;
+
+	return be16_to_cpu(st->data.d16);
+}
+
 static int ad7292_setup(struct ad7292_state *st)
 {
 	return 0;
@@ -103,9 +151,18 @@ static int ad7292_read_raw(struct iio_dev *indio_dev,
 			   const struct iio_chan_spec *chan,
 			   int *val, int *val2, long info)
 {
+	struct ad7292_state *st = iio_priv(indio_dev);
+	unsigned int ch_addr;
+	int ret;
+
 	switch (info) {
 	case IIO_CHAN_INFO_RAW:
-		*val = 1000;
+		ch_addr = ad7292_channel_address[chan->channel];
+		ret = ad7292_single_conversion(st, ch_addr);
+		if (ret < 0)
+			return ret;
+
+		*val = AD7292_ADC_DATA(ret);
 
 		return IIO_VAL_INT;
 	default:
