@@ -891,7 +891,9 @@ static void __init imx7d_clocks_init(struct device_node *ccm_node)
 	hws[IMX7D_USB1_MAIN_480M_CLK] = imx_clk_hw_fixed_factor("pll_usb1_main_clk", "osc", 20, 1);
 	hws[IMX7D_USB_MAIN_480M_CLK] = imx_clk_hw_fixed_factor("pll_usb_main_clk", "osc", 20, 1);
 
-	imx_register_uart_clocks();
+	/* set parent of EPDC pixel clock */
+	clk_set_parent(hws[IMX7D_EPDC_PIXEL_ROOT_SRC]->clk, hws[IMX7D_PLL_SYS_MAIN_CLK]->clk);
 
+	imx_register_uart_clocks();
 }
 CLK_OF_DECLARE(imx7d, "fsl,imx7d-ccm", imx7d_clocks_init);
