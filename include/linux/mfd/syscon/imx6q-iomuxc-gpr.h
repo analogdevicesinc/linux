@@ -466,6 +466,16 @@
 #define IMX6SX_GPR12_PCIE_RX_EQ_MASK			(0x7 << 0)
 #define IMX6SX_GPR12_PCIE_RX_EQ_2			(0x2 << 0)
 
+/* For imx6dl iomux gpr register field definitions */
+#define IMX6DL_GPR3_LVDS1_MUX_CTL_MASK			(0x3 << 8)
+#define IMX6DL_GPR3_LVDS1_MUX_CTL_IPU1_DI0		(0x0 << 8)
+#define IMX6DL_GPR3_LVDS1_MUX_CTL_IPU1_DI1		(0x1 << 8)
+#define IMX6DL_GPR3_LVDS1_MUX_CTL_LCDIF			(0x2 << 8)
+#define IMX6DL_GPR3_LVDS0_MUX_CTL_MASK			(0x3 << 6)
+#define IMX6DL_GPR3_LVDS0_MUX_CTL_IPU1_DI0		(0x0 << 6)
+#define IMX6DL_GPR3_LVDS0_MUX_CTL_IPU1_DI1		(0x1 << 6)
+#define IMX6DL_GPR3_LVDS0_MUX_CTL_LCDIF			(0x2 << 6)
+
 /* For imx6ul iomux gpr register field define */
 #define IMX6UL_GPR1_ENET2_TX_CLK_DIR		BIT(18)
 #define IMX6UL_GPR1_ENET1_TX_CLK_DIR		BIT(17)
