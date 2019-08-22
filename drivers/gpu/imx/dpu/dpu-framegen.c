@@ -95,6 +95,7 @@ struct dpu_framegen {
 	struct clk *clk_pll;
 	struct clk *clk_bypass;
 	struct clk *clk_disp;
+	struct clk *clk_disp_lpcg;
 	struct mutex mutex;
 	int id;
 	bool inuse;
@@ -408,6 +409,7 @@ void framegen_enable_clock(struct dpu_framegen *fg)
 	if (!fg->use_bypass_clk)
 		clk_prepare_enable(fg->clk_pll);
 	clk_prepare_enable(fg->clk_disp);
+	clk_prepare_enable(fg->clk_disp_lpcg);
 }
 EXPORT_SYMBOL_GPL(framegen_enable_clock);
 
@@ -416,6 +418,7 @@ void framegen_disable_clock(struct dpu_framegen *fg)
 	if (!fg->use_bypass_clk)
 		clk_disable_unprepare(fg->clk_pll);
 	clk_disable_unprepare(fg->clk_disp);
+	clk_disable_unprepare(fg->clk_disp_lpcg);
 }
 EXPORT_SYMBOL_GPL(framegen_disable_clock);
 
@@ -501,6 +504,10 @@ int dpu_fg_init(struct dpu_soc *dpu, unsigned int id,
 	fg->clk_disp = devm_clk_get(dpu->dev, id ? "disp1" : "disp0");
 	if (IS_ERR(fg->clk_disp))
 		return PTR_ERR(fg->clk_disp);
+
+	fg->clk_disp_lpcg = devm_clk_get(dpu->dev, id ? "disp1_lpcg" : "disp0_lpcg");
+	if (IS_ERR(fg->clk_disp_lpcg))
+		return PTR_ERR(fg->clk_disp_lpcg);
 
 	fg->dpu = dpu;
 	fg->id = id;
