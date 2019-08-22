@@ -24,6 +24,12 @@ config FB_MXC_DISP_FRAMEWORK
 	  It is selected by drivers which use this framework as linkage code
 	  between display controllers and panels.
 
+config FB_MXC_SYNC_PANEL
+	depends on FB_MXC && !FB_IMX64
+	depends on MXC_IPU_V3
+	select FB_MXC_DISP_FRAMEWORK
+	tristate "Synchronous Panel Framebuffer"
+
 config FB_MXC_OVERLAY
 	depends on FB_MXC
 	tristate "Overlay Framebuffer"
