@@ -246,6 +246,11 @@
 		mipi-phy-supply = <&reg_1p0d>;
 		status = "disabled";
 	};
+
+	qosc: qosc@307f0000 {
+		compatible = "fsl,imx7d-qosc", "syscon";
+		reg = <0x307f0000 0x4000>;
+	};
 };
 
 &aips3 {
