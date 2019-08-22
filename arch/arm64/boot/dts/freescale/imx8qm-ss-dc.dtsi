@@ -9,6 +9,10 @@
 
 	dpu1_disp0: port@0 {
 		reg = <0>;
+
+		dpu1_disp0_hdmi: endpoint@0 {
+			remote-endpoint = <&hdmi_disp>;
+		};
 	};
 
 	dpu1_disp1: port@1 {

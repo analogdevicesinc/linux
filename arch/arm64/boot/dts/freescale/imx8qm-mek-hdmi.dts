@@ -1,0 +1,30 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2019 NXP
+ *	Sandor Yu <Sandor.yu@nxp.com>
+ */
+
+/dts-v1/;
+
+#include "imx8qm-mek.dts"
+
+&ldb1_phy {
+	status = "disabled";
+};
+
+&ldb1 {
+	status = "disabled";
+};
+
+&ldb2_phy {
+	status = "disabled";
+};
+
+&ldb2 {
+	status = "disabled";
+};
+
+&hdmi {
+	compatible = "cdn,imx8qm-hdmi";
+	status = "okay";
+};
