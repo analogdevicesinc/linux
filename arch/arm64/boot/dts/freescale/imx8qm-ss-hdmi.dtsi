@@ -172,6 +172,7 @@
 			interrupts = <10>, <13>;
 			interrupt-names = "plug_in", "plug_out";
 			csr = <&hdmi_csr>;
+			status = "disabled";
 
 			clocks = <&clk IMX_SC_R_HDMI_PLL_0 IMX_SC_PM_CLK_PLL>,
 					<&clk IMX_SC_R_HDMI_PLL_1 IMX_SC_PM_CLK_PLL>,
