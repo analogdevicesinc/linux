@@ -89,6 +89,7 @@ struct imx_rpmsg_vproc {
 struct imx_rpmsg_vq_info {
 	__u16 num;	/* number of entries in the virtio_ring */
 	__u16 vq_id;	/* a globaly unique index of this virtqueue */
+	__u32 mmsg;	/* the mailbox msg transferred on the virtqueue */
 	void *addr;	/* address where we mapped the virtio ring */
 	struct imx_rpmsg_vproc *rpdev;
 };
@@ -110,13 +111,10 @@ static int imx_rpmsg_finalize_features(struct virtio_device *vdev)
 static bool imx_rpmsg_notify(struct virtqueue *vq)
 {
 	int ret;
-	unsigned long flags;
-	unsigned int mu_rpmsg = 0;
 	struct imx_rpmsg_vq_info *rpvq = vq->priv;
 	struct imx_rpmsg_vproc *rpdev = rpvq->rpdev;
 
-	mu_rpmsg = rpvq->vq_id << 16;
-	spin_lock_irqsave(&rpdev->mu_lock, flags);
+	rpvq->mmsg = rpvq->vq_id << 16;
 	/*
 	 * Send the index of the triggered virtqueue as the mu payload.
 	 * Use the timeout MU send message here.
@@ -132,16 +130,15 @@ static bool imx_rpmsg_notify(struct virtqueue *vq)
 	if (unlikely(rpdev->first_notify > 0)) {
 		rpdev->first_notify--;
 		rpdev->cl.tx_tout = 20;
-		ret = mbox_send_message(rpdev->tx_ch, &mu_rpmsg);
+		ret = mbox_send_message(rpdev->tx_ch, &rpvq->mmsg);
 		if (ret < 0)
 			return false;
 	} else {
 		rpdev->cl.tx_tout = 0;
-		ret = mbox_send_message(rpdev->tx_ch, &mu_rpmsg);
+		ret = mbox_send_message(rpdev->tx_ch, &rpvq->mmsg);
 		if (ret < 0)
 			return false;
 	}
-	spin_unlock_irqrestore(&rpdev->mu_lock, flags);
 
 	return true;
 }
@@ -385,11 +382,12 @@ static void imx_rpmsg_restore(struct imx_rpmsg_vproc *rpdev)
 		udelay(100);
 	}
 	if (unlikely((rpdev->flags & REMOTE_IS_READY) == 0)) {
-		pr_err("Wait for remote ready timeout, assume it's dead.\n");
+		pr_info("Wait for remote ready timeout, use first_notify.\n");
 		/*
 		 * In order to make the codes to be robust and back compatible.
-		 * When wait remote ready timeout, use the MU_SendMessageTimeout
-		 * to send the first kick-off message when register the vdev.
+		 * When wait remote ready timeout, re-initialize the
+		 * first_notify to send the first kick-off message when
+		 * register the vdev.
 		 */
 		rpdev->first_notify = rpdev->vdev_nums;
 	}
@@ -459,7 +457,7 @@ static int imx_rpmsg_rxdb_channel_init(struct imx_rpmsg_vproc *rpdev)
 	rpdev->rxdb_ch = mbox_request_channel_byname(cl, "rxdb");
 	if (IS_ERR(rpdev->rxdb_ch)) {
 		ret = PTR_ERR(rpdev->rxdb_ch);
-		dev_err(cl->dev, "failed to request mbox chan rxdb, ret %d\n",
+		dev_dbg(cl->dev, "failed to request mbox chan rxdb, ret %d\n",
 			ret);
 		return ret;
 	}
@@ -470,25 +468,24 @@ static int imx_rpmsg_rxdb_channel_init(struct imx_rpmsg_vproc *rpdev)
 static void imx_rpmsg_rx_callback(struct mbox_client *c, void *msg)
 {
 	int buf_space;
-	unsigned long flags;
 	u32 *data = msg;
 	struct imx_rpmsg_vproc *rpdev = container_of(c,
 			struct imx_rpmsg_vproc, cl);
 	struct circ_buf *cb = &rpdev->rx_buffer;
 
-	spin_lock_irqsave(&rpdev->mu_lock, flags);
+	spin_lock(&rpdev->mu_lock);
 	buf_space = CIRC_SPACE(cb->head, cb->tail, PAGE_SIZE);
 	if (unlikely(!buf_space)) {
 		dev_err(c->dev, "RPMSG RX overflow!\n");
-		spin_unlock_irqrestore(&rpdev->mu_lock, flags);
+		spin_unlock(&rpdev->mu_lock);
 		return;
 	}
-	cb->buf[cb->head] = (u32) *data;
-	cb->buf[cb->head + 1] = (u32) *data >> 8;
-	cb->buf[cb->head + 2] = (u32) *data >> 16;
-	cb->buf[cb->head + 3] = (u32) *data >> 24;
+	cb->buf[cb->head] = (u8) *data;
+	cb->buf[cb->head + 1] = (u8) (*data >> 8);
+	cb->buf[cb->head + 2] = (u8) (*data >> 16);
+	cb->buf[cb->head + 3] = (u8) (*data >> 24);
 	cb->head = CIRC_ADD(cb->head, PAGE_SIZE, 4);
-	spin_unlock_irqrestore(&rpdev->mu_lock, flags);
+	spin_unlock(&rpdev->mu_lock);
 
 	schedule_delayed_work(&(rpdev->rpmsg_work), 0);
 }
@@ -502,7 +499,7 @@ static int imx_rpmsg_xtr_channel_init(struct imx_rpmsg_vproc *rpdev)
 
 	cl = &rpdev->cl;
 	cl->dev = dev;
-	cl->tx_block = false;
+	cl->tx_block = true;
 	cl->tx_tout = 20;
 	cl->knows_txdone = false;
 	cl->rx_callback = imx_rpmsg_rx_callback;
@@ -510,14 +507,14 @@ static int imx_rpmsg_xtr_channel_init(struct imx_rpmsg_vproc *rpdev)
 	rpdev->tx_ch = mbox_request_channel_byname(cl, "tx");
 	if (IS_ERR(rpdev->tx_ch)) {
 		ret = PTR_ERR(rpdev->tx_ch);
-		dev_err(cl->dev, "failed to request mbox tx chan, ret %d\n",
+		dev_dbg(cl->dev, "failed to request mbox tx chan, ret %d\n",
 			ret);
 		goto err_out;
 	}
 	rpdev->rx_ch = mbox_request_channel_byname(cl, "rx");
 	if (IS_ERR(rpdev->rx_ch)) {
 		ret = PTR_ERR(rpdev->rx_ch);
-		dev_err(cl->dev, "failed to request mbox rx chan, ret %d\n",
+		dev_dbg(cl->dev, "failed to request mbox rx chan, ret %d\n",
 			ret);
 		goto err_out;
 	}
