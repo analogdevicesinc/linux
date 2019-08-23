@@ -43,3 +43,22 @@
 &i2c3 {
 	compatible = "fsl,imx8qxp-lpi2c", "fsl,imx7ulp-lpi2c";
 };
+
+&audio_subsys {
+
+	dsp: dsp@596e8000 {
+		compatible = "fsl,imx8qxp-dsp";
+		reg = <0x596e8000 0x88000>;
+		clocks = <&dsp_lpcg 1>,
+			 <&dsp_ram_lpcg 0>,
+			 <&dsp_lpcg 2>;
+		clock-names = "ipg", "ocram", "core";
+		fsl,dsp-firmware = "imx/dsp/hifi4.bin";
+		power-domains = <&pd IMX_SC_R_MU_13A>,
+				<&pd IMX_SC_R_MU_13B>,
+				<&pd IMX_SC_R_DSP>,
+				<&pd IMX_SC_R_DSP_RAM>;
+		reserved-region = <&dsp_reserved>;
+		status = "disabled";
+	};
+};

@@ -216,13 +216,6 @@
 			"ASRC-Capture", "CPU-Capture",
 			"CPU-Capture", "Capture";
 	};
-
-	sound-amix-sai {
-		compatible = "fsl,imx-audio-amix";
-		model = "amix-audio-sai";
-		dais = <&sai4>, <&sai5>;
-		amix-controller = <&amix>;
-	};
 };
 
 &cm40_i2c {
