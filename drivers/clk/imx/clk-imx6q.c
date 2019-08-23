@@ -28,7 +28,8 @@ static const char *periph_clk2_sels[]	= { "pll3_usb_otg", "osc", "osc", "dummy",
 static const char *periph2_clk2_sels[]	= { "pll3_usb_otg", "pll2_bus", };
 static const char *periph_sels[]	= { "periph_pre", "periph_clk2", };
 static const char *periph2_sels[]	= { "periph2_pre", "periph2_clk2", };
-static const char *axi_sels[]		= { "periph", "pll2_pfd2_396m", "periph", "pll3_pfd1_540m", };
+static const char *axi_alt_sels[]	= { "pll2_pfd2_396m", "pll3_pfd1_540m", };
+static const char *axi_sels[]		= { "periph", "axi_alt_sel", };
 static const char *audio_sels[]	= { "pll4_audio_div", "pll3_pfd2_508m", "pll3_pfd3_454m", "pll3_usb_otg", };
 static const char *gpu_axi_sels[]	= { "axi", "ahb", };
 static const char *pre_axi_sels[]	= { "axi", "ahb", };
@@ -38,15 +39,17 @@ static const char *gpu3d_core_sels[]	= { "mmdc_ch0_axi", "pll3_usb_otg", "pll2_p
 static const char *gpu3d_shader_sels[] = { "mmdc_ch0_axi", "pll3_usb_otg", "pll2_pfd1_594m", "pll3_pfd0_720m", };
 static const char *ipu_sels[]		= { "mmdc_ch0_axi", "pll2_pfd2_396m", "pll3_120m", "pll3_pfd1_540m", };
 static const char *ldb_di_sels[]	= { "pll5_video_div", "pll2_pfd0_352m", "pll2_pfd2_396m", "mmdc_ch1_axi", "pll3_usb_otg", };
+static const char *ldb_di0_div_sels[]	= { "ldb_di0_div_3_5", "ldb_di0_div_7", };
+static const char *ldb_di1_div_sels[]	= { "ldb_di1_div_3_5", "ldb_di1_div_7", };
 static const char *ipu_di_pre_sels[]	= { "mmdc_ch0_axi", "pll3_usb_otg", "pll5_video_div", "pll2_pfd0_352m", "pll2_pfd2_396m", "pll3_pfd1_540m", };
 static const char *ipu1_di0_sels[]	= { "ipu1_di0_pre", "dummy", "dummy", "ldb_di0", "ldb_di1", };
 static const char *ipu1_di1_sels[]	= { "ipu1_di1_pre", "dummy", "dummy", "ldb_di0", "ldb_di1", };
 static const char *ipu2_di0_sels[]	= { "ipu2_di0_pre", "dummy", "dummy", "ldb_di0", "ldb_di1", };
 static const char *ipu2_di1_sels[]	= { "ipu2_di1_pre", "dummy", "dummy", "ldb_di0", "ldb_di1", };
-static const char *ipu1_di0_sels_2[]	= { "ipu1_di0_pre", "dummy", "dummy", "ldb_di0_podf", "ldb_di1_podf", };
-static const char *ipu1_di1_sels_2[]	= { "ipu1_di1_pre", "dummy", "dummy", "ldb_di0_podf", "ldb_di1_podf", };
-static const char *ipu2_di0_sels_2[]	= { "ipu2_di0_pre", "dummy", "dummy", "ldb_di0_podf", "ldb_di1_podf", };
-static const char *ipu2_di1_sels_2[]	= { "ipu2_di1_pre", "dummy", "dummy", "ldb_di0_podf", "ldb_di1_podf", };
+static const char *ipu1_di0_sels_2[]	= { "ipu1_di0_pre", "dummy", "dummy", "ldb_di0_div_sel", "ldb_di1_div_sel", };
+static const char *ipu1_di1_sels_2[]	= { "ipu1_di1_pre", "dummy", "dummy", "ldb_di0_div_sel", "ldb_di1_div_sel", };
+static const char *ipu2_di0_sels_2[]	= { "ipu2_di0_pre", "dummy", "dummy", "ldb_di0_div_sel", "ldb_di1_div_sel", };
+static const char *ipu2_di1_sels_2[]	= { "ipu2_di1_pre", "dummy", "dummy", "ldb_di0_div_sel", "ldb_di1_div_sel", };
 static const char *hsi_tx_sels[]	= { "pll3_120m", "pll2_pfd2_396m", };
 static const char *pcie_axi_sels[]	= { "axi", "ahb", };
 static const char *ssi_sels[]		= { "pll3_pfd2_508m", "pll3_pfd3_454m", "pll4_audio_div", };
@@ -92,6 +95,7 @@ static const char *pll7_bypass_sels[] = { "pll7", "pll7_bypass_src", };
 
 static struct clk_hw **hws;
 static struct clk_hw_onecell_data *clk_hw_data;
+static void __iomem *ccm_base;
 
 static struct clk_div_table clk_enet_ref_table[] = {
 	{ .val = 0, .div = 20, },
@@ -257,6 +261,11 @@ static bool pll6_bypassed(struct device_node *node)
 
 #define CCM_CCSR		0x0c
 #define CCM_CS2CDR		0x2c
+#define CCM_CSCDR3		0x3c
+#define CCM_CCGR0		0x68
+#define CCM_CCGR3		0x74
+
+#define ANATOP_PLL3_PFD		0xf0
 
 #define CCSR_PLL3_SW_CLK_SEL		BIT(0)
 
@@ -392,6 +401,62 @@ static void init_ldb_clks(struct device_node *np, void __iomem *ccm_base)
 #define PFD1_CLKGATE		BIT(15)
 #define PFD2_CLKGATE		BIT(23)
 #define PFD3_CLKGATE		BIT(31)
+
+/*
+ * workaround for ERR010579, when switching the clock source of IPU clock
+ * root in CCM. even setting CCGR3[CG0]=0x0 to gate off clock before
+ * switching, IPU may hang due to no IPU clock from CCM.
+ */
+static void __init init_ipu_clk(void __iomem *anatop_base)
+{
+	u32 val, origin_podf;
+
+	/* gate off the IPU1_IPU clock */
+	val = readl_relaxed(ccm_base + CCM_CCGR3);
+	val &= ~0x3;
+	writel_relaxed(val, ccm_base + CCM_CCGR3);
+
+	/* gate off IPU DCIC1/2 clocks */
+	val = readl_relaxed(ccm_base + CCM_CCGR0);
+	val &= ~(0xf << 24);
+	writel_relaxed(val, ccm_base + CCM_CCGR0);
+
+	/* set IPU_PODF to 3'b000 */
+	val = readl_relaxed(ccm_base + CCM_CSCDR3);
+	origin_podf = val & (0x7 << 11);
+	val &= ~(0x7 << 11);
+	writel_relaxed(val, ccm_base + CCM_CSCDR3);
+
+	/* disable PLL3_PFD1 */
+	val = readl_relaxed(anatop_base + ANATOP_PLL3_PFD);
+	val &= ~(0x1 << 15);
+	writel_relaxed(val, anatop_base + ANATOP_PLL3_PFD);
+
+	/* switch IPU_SEL clock to PLL3_PFD1 */
+	val = readl_relaxed(ccm_base + CCM_CSCDR3);
+	val |= (0x3 << 9);
+	writel_relaxed(val, ccm_base + CCM_CSCDR3);
+
+	 /* restore the IPU PODF*/
+	val = readl_relaxed(ccm_base + CCM_CSCDR3);
+	val |= origin_podf;
+	writel_relaxed(val, ccm_base + CCM_CSCDR3);
+
+	/* enable PLL3_PFD1 */
+	val = readl_relaxed(anatop_base + ANATOP_PLL3_PFD);
+	val |= (0x1 << 15);
+	writel_relaxed(val, anatop_base + ANATOP_PLL3_PFD);
+
+	/* enable IPU1_IPU clock */
+	val = readl_relaxed(ccm_base + CCM_CCGR3);
+	val |= 0x3;
+	writel_relaxed(val, ccm_base + CCM_CCGR3);
+
+	/* enable IPU DCIC1/2 clock */
+	val = readl_relaxed(ccm_base + CCM_CCGR0);
+	val |= (0xf << 24);
+	writel_relaxed(val, ccm_base + CCM_CCGR0);
+}
 
 static void disable_anatop_clocks(void __iomem *anatop_base)
 {
@@ -605,6 +670,7 @@ static void __init imx6q_clocks_init(struct device_node *ccm_node)
 
 	np = ccm_node;
 	base = of_iomap(np, 0);
+	ccm_base = base;
 	WARN_ON(!base);
 
 	/*                                              name                reg       shift width parent_names     num_parents */
@@ -614,7 +680,8 @@ static void __init imx6q_clocks_init(struct device_node *ccm_node)
 	hws[IMX6QDL_CLK_PERIPH2_PRE]      = imx_clk_hw_mux("periph2_pre",      base + 0x18, 21, 2, periph_pre_sels,   ARRAY_SIZE(periph_pre_sels));
 	hws[IMX6QDL_CLK_PERIPH_CLK2_SEL]  = imx_clk_hw_mux("periph_clk2_sel",  base + 0x18, 12, 2, periph_clk2_sels,  ARRAY_SIZE(periph_clk2_sels));
 	hws[IMX6QDL_CLK_PERIPH2_CLK2_SEL] = imx_clk_hw_mux("periph2_clk2_sel", base + 0x18, 20, 1, periph2_clk2_sels, ARRAY_SIZE(periph2_clk2_sels));
-	hws[IMX6QDL_CLK_AXI_SEL]          = imx_clk_hw_mux("axi_sel",          base + 0x14, 6,  2, axi_sels,          ARRAY_SIZE(axi_sels));
+	hws[IMX6QDL_CLK_AXI_ALT_SEL]      = imx_clk_hw_mux("axi_alt_sel",      base + 0x14, 7,  1, axi_alt_sels,      ARRAY_SIZE(axi_alt_sels));
+	hws[IMX6QDL_CLK_AXI_SEL]          = imx_clk_hw_mux("axi_sel",          base + 0x14, 6,  1, axi_sels,          ARRAY_SIZE(axi_sels));
 	hws[IMX6QDL_CLK_ESAI_SEL]         = imx_clk_hw_mux("esai_sel",         base + 0x20, 19, 2, audio_sels,        ARRAY_SIZE(audio_sels));
 	hws[IMX6QDL_CLK_ASRC_SEL]         = imx_clk_hw_mux("asrc_sel",         base + 0x30, 7,  2, audio_sels,        ARRAY_SIZE(audio_sels));
 	hws[IMX6QDL_CLK_SPDIF_SEL]        = imx_clk_hw_mux("spdif_sel",        base + 0x30, 20, 2, audio_sels,        ARRAY_SIZE(audio_sels));
@@ -660,6 +727,8 @@ static void __init imx6q_clocks_init(struct device_node *ccm_node)
 		hws[IMX6QDL_CLK_LDB_DI1_SEL]      = imx_clk_hw_mux_ldb("ldb_di1_sel", base + 0x2c, 12, 3, ldb_di_sels,      ARRAY_SIZE(ldb_di_sels));
 	}
 
+	hws[IMX6QDL_CLK_LDB_DI0_DIV_SEL]  = imx_clk_hw_mux_flags("ldb_di0_div_sel",  base + 0x20, 10, 1, ldb_di0_div_sels, ARRAY_SIZE(ldb_di0_div_sels), CLK_SET_RATE_PARENT);
+	hws[IMX6QDL_CLK_LDB_DI1_DIV_SEL]  = imx_clk_hw_mux_flags("ldb_di1_div_sel",  base + 0x20, 11, 1, ldb_di1_div_sels, ARRAY_SIZE(ldb_di1_div_sels), CLK_SET_RATE_PARENT);
 	hws[IMX6QDL_CLK_IPU1_DI0_PRE_SEL] = imx_clk_hw_mux_flags("ipu1_di0_pre_sel", base + 0x34, 6,  3, ipu_di_pre_sels,   ARRAY_SIZE(ipu_di_pre_sels), CLK_SET_RATE_PARENT);
 	hws[IMX6QDL_CLK_IPU1_DI1_PRE_SEL] = imx_clk_hw_mux_flags("ipu1_di1_pre_sel", base + 0x34, 15, 3, ipu_di_pre_sels,   ARRAY_SIZE(ipu_di_pre_sels), CLK_SET_RATE_PARENT);
 	hws[IMX6QDL_CLK_IPU2_DI0_PRE_SEL] = imx_clk_hw_mux_flags("ipu2_di0_pre_sel", base + 0x38, 6,  3, ipu_di_pre_sels,   ARRAY_SIZE(ipu_di_pre_sels), CLK_SET_RATE_PARENT);
@@ -728,6 +797,8 @@ static void __init imx6q_clocks_init(struct device_node *ccm_node)
 		hws[IMX6QDL_CLK_UART_SERIAL_PODF] = imx_clk_hw_divider("uart_serial_podf", "uart_sel", base + 0x24, 0, 6);
 		hws[IMX6QDL_CLK_LDB_DI0_DIV_3_5] = imx_clk_hw_fixed_factor("ldb_di0_div_3_5", "ldb_di0", 2, 7);
 		hws[IMX6QDL_CLK_LDB_DI1_DIV_3_5] = imx_clk_hw_fixed_factor("ldb_di1_div_3_5", "ldb_di1", 2, 7);
+		hws[IMX6QDL_CLK_LDB_DI0_DIV_7] = imx_clk_hw_fixed_factor("ldb_di0_div_7",   "ldb_di0", 1, 7);
+		hws[IMX6QDL_CLK_LDB_DI1_DIV_7] = imx_clk_hw_fixed_factor("ldb_di1_div_7",   "ldb_di1", 1, 7);
 	} else {
 		hws[IMX6QDL_CLK_ECSPI_ROOT] = imx_clk_hw_divider("ecspi_root", "pll3_60m", base + 0x38, 19, 6);
 		hws[IMX6QDL_CLK_CAN_ROOT] = imx_clk_hw_divider("can_root", "pll3_60m", base + 0x20, 2, 6);
@@ -735,6 +806,8 @@ static void __init imx6q_clocks_init(struct device_node *ccm_node)
 		hws[IMX6QDL_CLK_UART_SERIAL_PODF] = imx_clk_hw_divider("uart_serial_podf", "pll3_80m",          base + 0x24, 0,  6);
 		hws[IMX6QDL_CLK_LDB_DI0_DIV_3_5] = imx_clk_hw_fixed_factor("ldb_di0_div_3_5", "ldb_di0_sel", 2, 7);
 		hws[IMX6QDL_CLK_LDB_DI1_DIV_3_5] = imx_clk_hw_fixed_factor("ldb_di1_div_3_5", "ldb_di1_sel", 2, 7);
+		hws[IMX6QDL_CLK_LDB_DI0_DIV_7] = imx_clk_hw_fixed_factor("ldb_di0_div_7",   "ldb_di0_sel", 1, 7);
+		hws[IMX6QDL_CLK_LDB_DI1_DIV_7] = imx_clk_hw_fixed_factor("ldb_di1_div_7",   "ldb_di1_sel", 1, 7);
 	}
 
 	if (clk_on_imx6dl())
@@ -926,8 +999,19 @@ static void __init imx6q_clocks_init(struct device_node *ccm_node)
 	clk_hw_register_clkdev(hws[IMX6QDL_CLK_ENET_REF], "enet_ref", NULL);
 
 	clk_set_rate(hws[IMX6QDL_CLK_PLL3_PFD1_540M]->clk, 540000000);
-	if (clk_on_imx6dl())
+	if (clk_on_imx6dl()) {
+		init_ipu_clk(anatop_base);
 		clk_set_parent(hws[IMX6QDL_CLK_IPU1_SEL]->clk, hws[IMX6QDL_CLK_PLL3_PFD1_540M]->clk);
+		clk_set_parent(hws[IMX6QDL_CLK_AXI_ALT_SEL]->clk, hws[IMX6QDL_CLK_PLL3_PFD1_540M]->clk);
+		clk_set_parent(hws[IMX6QDL_CLK_AXI_SEL]->clk, hws[IMX6QDL_CLK_AXI_ALT_SEL]->clk);
+		/* set epdc/pxp axi clock to 200Mhz */
+		clk_set_parent(hws[IMX6QDL_CLK_IPU2_SEL]->clk, hws[IMX6QDL_CLK_PLL2_PFD2_396M]->clk);
+		clk_set_rate(hws[IMX6QDL_CLK_IPU2]->clk, 200000000);
+	} else {
+		clk_set_parent(hws[IMX6QDL_CLK_IPU1_SEL]->clk, hws[IMX6QDL_CLK_MMDC_CH0_AXI]->clk);
+
+		clk_set_parent(hws[IMX6QDL_CLK_IPU2_SEL]->clk, hws[IMX6QDL_CLK_MMDC_CH0_AXI]->clk);
+	}
 
 	clk_set_parent(hws[IMX6QDL_CLK_IPU1_DI0_PRE_SEL]->clk, hws[IMX6QDL_CLK_PLL5_VIDEO_DIV]->clk);
 	clk_set_parent(hws[IMX6QDL_CLK_IPU1_DI1_PRE_SEL]->clk, hws[IMX6QDL_CLK_PLL5_VIDEO_DIV]->clk);
