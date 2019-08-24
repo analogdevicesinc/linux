@@ -679,12 +679,14 @@
 			};
 
 			pxp: pxp@20f0000 {
-				compatible = "fsl,imx6sll-pxp", "fsl,imx6ull-pxp";
+				compatible = "fsl,imx6ull-pxp-dma", "fsl,imx7d-pxp-dma";
 				reg = <0x20f0000 0x4000>;
 				interrupts = <GIC_SPI 98 IRQ_TYPE_LEVEL_HIGH>,
 					<GIC_SPI 102 IRQ_TYPE_LEVEL_HIGH>;
-				clocks = <&clks IMX6SLL_CLK_PXP>;
-				clock-names = "axi";
+				clocks = <&clks IMX6SLL_CLK_DUMMY>,
+					 <&clks IMX6SLL_CLK_PXP>;
+				clock-names = "pxp_ipg", "pxp_axi";
+				status = "disabled";
 			};
 
 			lcdif: lcd-controller@20f8000 {
