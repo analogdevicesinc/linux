@@ -1094,11 +1094,13 @@
 			};
 
 			pxp: pxp@21cc000 {
-				compatible = "fsl,imx6ul-pxp";
-				reg = <0x021cc000 0x4000>;
+				compatible = "fsl,imx6ul-pxp-dma", "fsl,imx6sl-pxp-dma", "fsl,imx6dl-pxp-dma";
+				reg = <0x21cc000 0x4000>;
 				interrupts = <GIC_SPI 8 IRQ_TYPE_LEVEL_HIGH>;
-				clocks = <&clks IMX6UL_CLK_PXP>;
-				clock-names = "axi";
+				clocks = <&clks IMX6UL_CLK_PXP>,
+					 <&clks IMX6UL_CLK_DUMMY>;
+				clock-names = "pxp-axi", "disp-axi";
+				status = "disabled";
 			};
 
 			qspi: spi@21e0000 {
