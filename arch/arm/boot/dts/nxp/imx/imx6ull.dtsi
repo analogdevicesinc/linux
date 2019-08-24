@@ -36,9 +36,12 @@
 };
 
 &pxp {
-	compatible = "fsl,imx6ull-pxp";
+	compatible = "fsl,imx6ull-pxp-dma", "fsl,imx7d-pxp-dma";
 	interrupts = <GIC_SPI 8 IRQ_TYPE_LEVEL_HIGH>,
-		     <GIC_SPI 18 IRQ_TYPE_LEVEL_HIGH>;
+		<GIC_SPI 18 IRQ_TYPE_LEVEL_HIGH>;
+	clocks = <&clks IMX6UL_CLK_DUMMY>, <&clks IMX6UL_CLK_PXP>;
+	clock-names = "pxp_ipg", "pxp_axi";
+	status = "disabled";
 };
 
 &usdhc1 {
