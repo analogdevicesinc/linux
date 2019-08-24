@@ -689,6 +689,15 @@
 				status = "disabled";
 			};
 
+			epdc: epdc@20f4000 {
+				compatible = "fsl,imx6sll-epdc", "fsl,imx7d-epdc";
+				reg = <0x20f4000 0x4000>;
+				interrupts = <GIC_SPI 97 IRQ_TYPE_LEVEL_HIGH>;
+				clocks = <&clks IMX6SLL_CLK_EPDC_AXI>, <&clks IMX6SLL_CLK_EPDC_PIX>;
+				clock-names = "epdc_axi", "epdc_pix";
+				status = "disabled";
+			};
+
 			lcdif: lcd-controller@20f8000 {
 				compatible = "fsl,imx6sll-lcdif", "fsl,imx28-lcdif";
 				reg = <0x020f8000 0x4000>;
