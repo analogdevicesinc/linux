@@ -92,8 +92,12 @@
 
 		aips1: bus@2000000 {
 			pxp: pxp@20f0000 {
-				reg = <0x020f0000 0x4000>;
+				compatible = "fsl,imx6dl-pxp-dma";
+				reg = <0x20f0000 0x4000>;
 				interrupts = <0 98 IRQ_TYPE_LEVEL_HIGH>;
+				clocks = <&clks IMX6QDL_CLK_IPU2>, <&clks IMX6QDL_CLK_DUMMY>;
+				clock-names = "pxp-axi", "disp-axi";
+				status = "disabled";
 			};
 
 			epdc: epdc@20f4000 {
