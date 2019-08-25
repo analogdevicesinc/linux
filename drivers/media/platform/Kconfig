@@ -61,6 +61,15 @@ config VIDEO_MUX
 	help
 	  This driver provides support for N:1 video bus multiplexers.
 
+config VIDEO_MXC_OUTPUT
+	tristate "MXC Video For Linux Video Output"
+	depends on VIDEO_DEV && ARCH_MXC && FB_MXC
+	select VIDEOBUF_DMA_CONTIG
+	---help---
+	This is the video4linux2 output driver based on MXC module.
+
+source "drivers/media/platform/mxc/output/Kconfig"
+
 # Platform drivers - Please keep it alphabetically sorted
 source "drivers/media/platform/allegro-dvt/Kconfig"
 source "drivers/media/platform/amlogic/Kconfig"
