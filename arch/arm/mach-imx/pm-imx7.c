@@ -1218,7 +1218,7 @@ void __init imx7d_pm_init(void)
 	WARN_ON(!ocram_saved_in_ddr);
 
 	np = of_find_node_by_path(
-		"/soc/aips-bus@30800000/serial@30860000");
+		"/soc/aips-bus@30800000/spba-bus@30800000/serial@30860000");
 	if (np)
 		console_base = of_iomap(np, 0);
 
