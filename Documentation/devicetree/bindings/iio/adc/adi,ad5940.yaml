@@ -27,6 +27,16 @@ properties:
       The regulator to be used to supply the reference voltage.
     maxItems: 1
 
+  adi,interrupt-io:
+    description:
+      Output GPIO index of interrupt controller of AD5940.
+    maxItems: 1
+    enum:
+      - 0
+      - 3
+      - 6
+      - 7
+
   '#address-cells':
     const: 1
 
@@ -36,6 +46,8 @@ properties:
 required:
   - compatible
   - reg
+  - interrupts
+  - adi,interrupt-io
 
 channelNode:
   properties:
@@ -113,6 +125,10 @@ examples:
       reg = <0>;
       spi-max-frequency = <16000000>;
       vref-supply = <&adc_vref>;
+      interrupt-parent = <&gpio>;
+      interrupts = <24 2>;
+
+      adi,interrupt-io = <0>;
 
       #address-cells = <1>;
       #size-cells = <0>;
