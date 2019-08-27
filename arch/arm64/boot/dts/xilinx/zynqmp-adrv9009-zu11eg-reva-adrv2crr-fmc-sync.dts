@@ -6,7 +6,7 @@
  * Licensed under the GPL-2.
  */
 
-#include "zynqmp-adrv9009-zu11eg-adrv2crr-fmc.dts"
+#include "zynqmp-adrv9009-zu11eg-reva-adrv2crr-fmc.dts"
 
 &spi0 {
 	hmc7044_fmc_car: hmc7044-car@3 {
