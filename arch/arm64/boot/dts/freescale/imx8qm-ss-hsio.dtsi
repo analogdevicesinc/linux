@@ -39,7 +39,7 @@
 		bit-offset = <0 4>;
 		clock-output-names = "hsio_phyx2_pclk_0",
 				     "hsio_phyx2_pclk_1";
-		power-domains = <&pd IMX_SC_R_PCIE_A>;
+		power-domains = <&pd IMX_SC_R_SERDES_0>;
 	};
 
 	phyx1_lpcg: clock-controller@5f090000 {
