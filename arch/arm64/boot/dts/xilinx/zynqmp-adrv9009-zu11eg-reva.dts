@@ -17,7 +17,7 @@
 #include <dt-bindings/iio/frequency/hmc7044.h>
 
 / {
-	model = "Analog Devices ADRV9009-ZU11EG";
+	model = "Analog Devices ADRV9009-ZU11EG Rev.A";
 	compatible = "xlnx,zynqmp";
 
 	aliases {
