@@ -442,7 +442,6 @@
 };
 
 &esai0 {
-	compatible = "fsl,imx8qm-esai";
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_esai0>;
 	assigned-clocks = <&acm IMX_ADMA_ACM_ESAI0_MCLK_SEL>,
