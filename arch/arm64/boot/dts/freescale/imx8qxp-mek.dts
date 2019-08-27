@@ -630,11 +630,12 @@
 				#gpio-cells = <2>;
 			};
 
-			light-sensor@44 {
+			isl29023@44 {
 				pinctrl-names = "default";
 				pinctrl-0 = <&pinctrl_isl29023>;
-				compatible = "isil,isl29023";
+				compatible = "fsl,isl29023";
 				reg = <0x44>;
+				rext = <499>;
 				interrupt-parent = <&lsio_gpio1>;
 				interrupts = <2 IRQ_TYPE_EDGE_FALLING>;
 			};
