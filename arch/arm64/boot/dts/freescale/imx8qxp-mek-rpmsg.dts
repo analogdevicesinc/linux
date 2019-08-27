@@ -78,7 +78,7 @@
 		VD-supply = <&reg_audio>;
 		VLS-supply = <&reg_audio>;
 		VLC-supply = <&reg_audio>;
-		reset-gpio = <&pca9557_b 1 GPIO_ACTIVE_HIGH>;
+		reset-gpio = <&pca9557_b 1 GPIO_ACTIVE_LOW>;
 		power-domains = <&pd IMX_SC_R_MCLK_OUT_0>,
 				<&pd IMX_SC_R_AUDIO_CLK_0>,
 				<&pd IMX_SC_R_AUDIO_CLK_1>,
