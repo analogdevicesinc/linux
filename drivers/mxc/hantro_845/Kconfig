@@ -1,0 +1,14 @@
+#
+# Codec configuration
+#
+
+menu "MXC HANTRO(Video Processing Unit) 845 support"
+	depends on ARCH_FSL_IMX8MQ
+
+config MXC_HANTRO_845
+	tristate "Support for MXC HANTRO(Video Processing Unit) 845"
+	default y
+	---help---
+	  VPU codec device.
+
+endmenu
