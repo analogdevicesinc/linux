@@ -30,6 +30,10 @@
 				reg = <0>;
 				spi-max-frequency = <16000000>;
 				vref-supply = <&adc_vref>;
+				interrupt-parent = <&gpio>;
+				interrupts = <24 2>;
+
+				adi,interrupt-io = <0>;
 
 				#address-cells = <1>;
 				#size-cells = <0>;
