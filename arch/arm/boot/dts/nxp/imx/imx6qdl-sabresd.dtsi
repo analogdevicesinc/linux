@@ -537,8 +537,9 @@
 	};
 
 	light-sensor@44 {
-		compatible = "isil,isl29023";
+		compatible = "fsl,isl29023";
 		reg = <0x44>;
+		rext = <499>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_i2c3_isl29023_int>;
 		interrupt-parent = <&gpio3>;
