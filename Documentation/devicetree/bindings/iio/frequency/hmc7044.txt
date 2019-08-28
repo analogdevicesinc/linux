@@ -70,6 +70,9 @@ Adding channels:
 	- adi,high-performance-mode-disable: Disables the high performance mode
 	- adi,startup-mode-dynamic-enable: Enables pulse generator mode
 		(default mode is asynchronous)
+	- adi,dynamic-driver-enable: Driver is dynamically disabled with pulse
+		generator events. (only in adi,startup-mode-dynamic-enable mode)
+		(default driver is enabled/disabled with the channel)
 	- adi,force-mute-enable: When not generating pulses in dynamic mode
 		the output is forced to logic-0
 	- adi,coarse-digital-delay:  Adjusts the phase of the divider signal
