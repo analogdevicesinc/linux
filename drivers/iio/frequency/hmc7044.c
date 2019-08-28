@@ -234,6 +234,7 @@ struct hmc7044_chan_spec {
 	bool			disable;
 	bool			high_performance_mode_dis;
 	bool			start_up_mode_dynamic_enable;
+	bool			dynamic_driver_enable;
 	bool			output_control0_rb4_enable;
 	bool			force_mute_enable;
 	unsigned int		divider;
@@ -902,7 +903,7 @@ static int hmc7044_setup(struct iio_dev *indio_dev)
 		hmc7044_write(indio_dev, HMC7044_REG_CH_OUT_CRTL_8(chan->num),
 			      HMC7044_DRIVER_MODE(chan->driver_mode) |
 			      HMC7044_DRIVER_Z_MODE(chan->driver_impedance) |
-			      (chan->start_up_mode_dynamic_enable ?
+			      (chan->dynamic_driver_enable ?
 			      HMC7044_DYN_DRIVER_EN : 0) |
 			      (chan->force_mute_enable ?
 			      HMC7044_FORCE_MUTE_EN : 0));
@@ -1088,6 +1089,9 @@ static int hmc7044_parse_dt(struct device *dev,
 		hmc->channels[cnt].start_up_mode_dynamic_enable =
 			of_property_read_bool(chan_np,
 					      "adi,startup-mode-dynamic-enable");
+		hmc->channels[cnt].dynamic_driver_enable =
+			of_property_read_bool(chan_np,
+					      "adi,dynamic-driver-enable");
 		hmc->channels[cnt].output_control0_rb4_enable =
 			of_property_read_bool(chan_np,
 					      "adi,control0-rb4-enable");
