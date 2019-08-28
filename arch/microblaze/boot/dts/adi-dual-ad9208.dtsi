@@ -49,6 +49,7 @@
 			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;	// LVDS
 			adi,startup-mode-dynamic-enable;
 			adi,high-performance-mode-disable;
+			adi,dynamic-driver-enable;
 		};
 		hmc7044_c2: channel@2 {
 			reg = <2>;
@@ -63,6 +64,7 @@
 			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;	// LVDS
 			adi,startup-mode-dynamic-enable;
 			adi,high-performance-mode-disable;
+			adi,dynamic-driver-enable;
 		};
 		hmc7044_c8: channel@8 {
 			reg = <8>;
@@ -83,6 +85,7 @@
 			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;	// LVDS
 			adi,startup-mode-dynamic-enable;
 			adi,high-performance-mode-disable;
+			adi,dynamic-driver-enable;
 		};
 		hmc7044_c11: channel@11 {
 			reg = <11>;
@@ -91,6 +94,7 @@
 			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;	// LVDS
 			adi,startup-mode-dynamic-enable;
 			adi,high-performance-mode-disable;
+			adi,dynamic-driver-enable;
 		};
 
 	};
