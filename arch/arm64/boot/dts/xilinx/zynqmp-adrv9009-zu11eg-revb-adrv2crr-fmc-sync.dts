@@ -1,0 +1,4 @@
+
+#include "zynqmp-adrv9009-zu11eg-reva-adrv2crr-fmc-sync.dts"
+#include "zynqmp-adrv9009-zu11eg-revb.dts"
+
