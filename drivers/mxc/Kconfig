@@ -9,6 +9,7 @@ menu "MXC support drivers"
 if ARM64
 source "drivers/mxc/hantro/Kconfig"
 source "drivers/mxc/hantro_845/Kconfig"
+source "drivers/mxc/hantro_845_h1/Kconfig"
 endif
 
 endmenu
