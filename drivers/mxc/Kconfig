@@ -12,6 +12,8 @@ source "drivers/mxc/hantro_845/Kconfig"
 source "drivers/mxc/hantro_845_h1/Kconfig"
 endif
 
+source "drivers/mxc/vpu/Kconfig"
+
 endmenu
 
 endif
