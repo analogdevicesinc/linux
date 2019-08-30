@@ -26,5 +26,6 @@
 
 &hdmi {
 	compatible = "cdn,imx8qm-hdmi";
+	lane-mapping = <0x93>;
 	status = "okay";
 };
