@@ -302,6 +302,11 @@
 	status = "okay";
 };
 
+&dsp {
+	compatible = "fsl,imx8qm-dsp-v1";
+	status = "okay";
+};
+
 &asrc0 {
 	fsl,asrc-rate  = <48000>;
 	status = "okay";
