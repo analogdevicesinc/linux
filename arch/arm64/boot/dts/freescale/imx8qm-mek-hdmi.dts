@@ -3,10 +3,29 @@
  * Copyright 2019 NXP
  *	Sandor Yu <Sandor.yu@nxp.com>
  */
+ /* HDMI Only driver, LVDS is disabled */
 
 /dts-v1/;
 
 #include "imx8qm-mek.dts"
+
+/ {
+    sound-hdmi-tx {
+        compatible = "fsl,imx-audio-cdnhdmi";
+        model = "imx-audio-hdmi-tx";
+        audio-cpu = <&sai5>;
+        protocol = <1>;
+        hdmi-out;
+    };
+};
+
+&sai5 {
+	status = "okay";
+};
+
+&sai5_lpcg {
+	status = "okay";
+};
 
 &ldb1_phy {
 	status = "disabled";
