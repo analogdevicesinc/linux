@@ -44,8 +44,7 @@
 			bit-offset = <0 16>;
 			clock-output-names = "hdmi_lpcg_i2c0_clk",
 								"hdmi_lpcg_i2c0_ipg_clk";
-			power-domains = <&pd IMX_SC_R_HDMI>,
-							<&pd IMX_SC_R_HDMI_I2C_0>;
+			power-domains = <&pd IMX_SC_R_HDMI_I2C_0>;
 		};
 
 		hdmi_lpcg_lis_ipg: clock-controller@56263004 {
@@ -72,7 +71,7 @@
 			compatible = "fsl,imx8qxp-lpcg";
 			reg = <0x5626300c 0x4>;
 			#clock-cells = <1>;
-			clocks = <&clk IMX_SC_R_HDMI IMX_SC_PM_CLK_MISC4>;
+			clocks = <&clk IMX_SC_R_HDMI_I2S IMX_SC_PM_CLK_MISC0>;
 			bit-offset = <0>;
 			clock-output-names = "hdmi_lpcg_i2s_clk";
 			power-domains = <&pd IMX_SC_R_HDMI_I2S>;
