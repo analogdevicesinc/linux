@@ -52,6 +52,14 @@ properties:
       output stage will shut down until the ADF4371/ADF4372 achieves lock as
       measured by the digital lock detect circuitry.
 
+  adi,charge-pump-microamp:
+    description:
+      Sets the charge pump current. If this property is not specified, then the
+      charge pump current is set to the default 1750uA. The valid values are
+      listed below. However, if the set value is not supported, the driver will
+      look for the closest valid charge pump current.
+    enum: [ 350, 700, 1050, 1400, 1750, 2100, 2450, 2800, 3150, 3500, 3850, 4200, 4550, 4900, 5250, 5600 ]
+
   '#address-cells':
     const: 1
 
