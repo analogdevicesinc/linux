@@ -53,9 +53,11 @@ config FSL_SDK_FMAN_RTC_API
 	bool "FMan RTC (1588 timer) APIs"
 	depends on !PTP_1588_CLOCK_QORIQ
 	default n
-	---help---
-		This option enables RTC (1588 timer) initialization and APIs support.
-		It is not available if ptp_qoriq driver is used for RTC (1588 timer).
+	help
+		This option enables RTC (1588 timer) initialization and
+		APIs support. The ptp_qoriq driver is not available if
+		it is selected for RTC (1588 timer). Neither of them
+		were not able to be used together.
 
 config FMAN_MIB_CNT_OVF_IRQ_EN
 	bool "Enable the dTSEC MIB counters overflow interrupt"
