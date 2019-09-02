@@ -305,7 +305,7 @@ static int adin_get_downshift(struct phy_device *phydev, u8 *data)
 	enable = FIELD_GET(ADIN1300_DOWNSPEEDS_EN, val);
 	cnt = FIELD_GET(ADIN1300_DOWNSPEED_RETRIES_MSK, cnt);
 
-	*data = enable & cnt ? cnt : DOWNSHIFT_DEV_DISABLE;
+	*data = (enable && cnt) ? cnt : DOWNSHIFT_DEV_DISABLE;
 
 	return 0;
 }
