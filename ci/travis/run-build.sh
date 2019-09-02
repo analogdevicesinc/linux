@@ -115,7 +115,7 @@ __handle_sync_with_master() {
 					continue
 				}
 			done
-			if [ "$was_a_merge" != "0" ]; then
+			if [ "$was_a_merge" != "1" ]; then
 				echo_red "Failed to cherry-pick commits '$cm..${ORIGIN}/master'"
 				echo_red "$(cat $tmpfile)"
 				return 1
