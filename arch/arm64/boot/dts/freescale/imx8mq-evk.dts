@@ -193,6 +193,52 @@
 		audio-cpu = <&spdif2>;
 		audio-codec = <&hdmi_arc_in>;
 	};
+
+	sound-ak4458 {
+		compatible = "fsl,imx-audio-card";
+		model = "ak4458-audio";
+		pri-dai-link {
+			link-name = "akcodec";
+			format = "i2s";
+			cpu {
+				sound-dai = <&sai1>;
+			};
+			codec {
+				sound-dai = <&ak4458_1>, <&ak4458_2>;
+			};
+		};
+	};
+
+	sound-ak5558 {
+		compatible = "fsl,imx-audio-card";
+		model = "ak5558-audio";
+		pri-dai-link {
+			link-name = "akcodec";
+			format = "i2s";
+			cpu {
+				sound-dai = <&sai5>;
+			};
+			codec {
+				sound-dai = <&ak5558>;
+			};
+		};
+	};
+
+	sound-ak4497 {
+		compatible = "fsl,imx-audio-card";
+		model = "ak4497-audio";
+		status = "disabled";
+		pri-dai-link {
+			link-name = "akcodec";
+			format = "i2s";
+			cpu {
+				sound-dai = <&sai1>;
+			};
+			codec {
+				sound-dai = <&ak4497>;
+			};
+		};
+	};
 };
 
 &A53_0 {
@@ -209,6 +255,13 @@
 
 &A53_3 {
 	cpu-supply = <&buck2_reg>;
+};
+
+&clk {
+	assigned-clocks = <&clk IMX8MQ_AUDIO_PLL1_BYPASS>, <&clk IMX8MQ_AUDIO_PLL2_BYPASS>,
+			<&clk IMX8MQ_AUDIO_PLL1>, <&clk IMX8MQ_AUDIO_PLL2>;
+	assigned-clock-parents = <&clk IMX8MQ_AUDIO_PLL1>, <&clk IMX8MQ_AUDIO_PLL2>;
+	assigned-clock-rates = <0>, <0>, <786432000>, <722534400>;
 };
 
 &ddrc {
@@ -426,6 +479,35 @@
 		synaptics,diagonal-rotation;
 		status = "disabled";
 	};
+
+	ak4458_1: ak4458@10 {
+		#sound-dai-cells = <0>;
+		sound-name-prefix = "0";
+		compatible = "asahi-kasei,ak4458";
+		reg = <0x10>;
+	};
+
+	ak4458_2: ak4458@12 {
+		#sound-dai-cells = <0>;
+		sound-name-prefix = "1";
+		compatible = "asahi-kasei,ak4458";
+		reg = <0x12>;
+	};
+
+	ak5558: ak5558@13 {
+		#sound-dai-cells = <0>;
+		compatible = "asahi-kasei,ak5558";
+		reg = <0x13>;
+		reset-gpios = <&gpio3 17 GPIO_ACTIVE_LOW>;
+	};
+
+	ak4497: ak4497@11 {
+		#sound-dai-cells = <0>;
+		compatible = "asahi-kasei,ak4497";
+		reg = <0x11>;
+		reset-gpios = <&gpio3 16 GPIO_ACTIVE_LOW>;
+		dsd-path = <1>;
+	};
 };
 
 &lcdif {
@@ -512,12 +594,31 @@
 	};
 };
 
+&sai1 {
+	pinctrl-names = "default", "pcm_b2m", "dsd";
+	pinctrl-0 = <&pinctrl_sai1_pcm>;
+	pinctrl-1 = <&pinctrl_sai1_pcm_b2m>;
+	pinctrl-2 = <&pinctrl_sai1_dsd>;
+	assigned-clocks = <&clk IMX8MQ_CLK_SAI1>;
+	assigned-clock-parents = <&clk IMX8MQ_AUDIO_PLL1_OUT>;
+	assigned-clock-rates = <49152000>;
+	clocks = <&clk IMX8MQ_CLK_SAI1_IPG>, <&clk IMX8MQ_CLK_DUMMY>,
+		<&clk IMX8MQ_CLK_SAI1_ROOT>, <&clk IMX8MQ_CLK_DUMMY>,
+		<&clk IMX8MQ_CLK_DUMMY>, <&clk IMX8MQ_AUDIO_PLL1_OUT>,
+		<&clk IMX8MQ_AUDIO_PLL2_OUT>;
+	clock-names = "bus", "mclk0", "mclk1", "mclk2", "mclk3", "pll8k", "pll11k";
+	fsl,sai-multi-lane;
+	fsl,dataline = <0 0xff 0xff 2 0xff 0x11>;
+	dmas = <&sdma2 8 25 0>, <&sdma2 9 25 0>;
+	status = "okay";
+};
+
 &sai2 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_sai2>;
-	assigned-clocks = <&clk IMX8MQ_AUDIO_PLL1_BYPASS>, <&clk IMX8MQ_CLK_SAI2>;
-	assigned-clock-parents = <&clk IMX8MQ_AUDIO_PLL1>, <&clk IMX8MQ_AUDIO_PLL1_OUT>;
-	assigned-clock-rates = <0>, <24576000>;
+	assigned-clocks = <&clk IMX8MQ_CLK_SAI2>;
+	assigned-clock-parents = <&clk IMX8MQ_AUDIO_PLL1_OUT>;
+	assigned-clock-rates = <24576000>;
 	status = "okay";
 };
 
@@ -531,6 +632,33 @@
 	status = "okay";
 };
 
+&sai4 {
+	assigned-clocks = <&clk IMX8MQ_CLK_SAI4>;
+	assigned-clock-parents = <&clk IMX8MQ_AUDIO_PLL1_OUT>;
+	assigned-clock-rates = <24576000>;
+	clocks = <&clk IMX8MQ_CLK_SAI4_IPG>, <&clk IMX8MQ_CLK_DUMMY>,
+		<&clk IMX8MQ_CLK_SAI4_ROOT>, <&clk IMX8MQ_CLK_DUMMY>,
+		<&clk IMX8MQ_CLK_DUMMY>, <&clk IMX8MQ_AUDIO_PLL1_OUT>,
+		<&clk IMX8MQ_AUDIO_PLL2_OUT>;
+	clock-names = "bus", "mclk0", "mclk1", "mclk2", "mclk3", "pll8k", "pll11k";
+	status = "okay";
+};
+
+&sai5 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_sai5>;
+	assigned-clocks = <&clk IMX8MQ_CLK_SAI5>;
+	assigned-clock-parents = <&clk IMX8MQ_AUDIO_PLL1_OUT>;
+	assigned-clock-rates = <49152000>;
+	clocks = <&clk IMX8MQ_CLK_SAI5_IPG>, <&clk IMX8MQ_CLK_DUMMY>,
+		<&clk IMX8MQ_CLK_SAI5_ROOT>, <&clk IMX8MQ_CLK_DUMMY>,
+		<&clk IMX8MQ_CLK_DUMMY>, <&clk IMX8MQ_AUDIO_PLL1_OUT>,
+		<&clk IMX8MQ_AUDIO_PLL2_OUT>;
+	clock-names = "bus", "mclk0", "mclk1", "mclk2", "mclk3", "pll8k", "pll11k";
+	fsl,sai-asynchronous;
+	status = "okay";
+};
+
 &snvs_pwrkey {
 	status = "okay";
 };
@@ -541,6 +669,14 @@
 	assigned-clocks = <&clk IMX8MQ_CLK_SPDIF1>;
 	assigned-clock-parents = <&clk IMX8MQ_AUDIO_PLL1_OUT>;
 	assigned-clock-rates = <24576000>;
+	clocks = <&clk IMX8MQ_CLK_IPG_ROOT>, <&clk IMX8MQ_CLK_25M>,
+		<&clk IMX8MQ_CLK_SPDIF1>, <&clk IMX8MQ_CLK_DUMMY>,
+		<&clk IMX8MQ_CLK_DUMMY>, <&clk IMX8MQ_CLK_DUMMY>,
+		<&clk IMX8MQ_CLK_IPG_ROOT>, <&clk IMX8MQ_CLK_DUMMY>,
+		<&clk IMX8MQ_CLK_DUMMY>, <&clk IMX8MQ_CLK_DUMMY>,
+		<&clk IMX8MQ_AUDIO_PLL1_OUT>, <&clk IMX8MQ_AUDIO_PLL2_OUT>;
+	clock-names = "core", "rxtx0", "rxtx1", "rxtx2", "rxtx3", "rxtx4",
+		      "rxtx5", "rxtx6", "rxtx7", "spba", "pll8k", "pll11k";
 	status = "okay";
 };
 
@@ -632,6 +768,18 @@
 };
 
 &iomuxc {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_hog>;
+
+	pinctrl_hog: hoggrp {
+		fsl,pins = <
+			MX8MQ_IOMUXC_NAND_READY_B_GPIO3_IO16		0x19
+			MX8MQ_IOMUXC_NAND_WE_B_GPIO3_IO17		0x19
+			MX8MQ_IOMUXC_NAND_WP_B_GPIO3_IO18		0x19
+			MX8MQ_IOMUXC_GPIO1_IO08_GPIO1_IO8		0xd6
+		>;
+	};
+
 	pinctrl_buck2: vddarmgrp {
 		fsl,pins = <
 			MX8MQ_IOMUXC_GPIO1_IO13_GPIO1_IO13		0x19
@@ -733,7 +881,69 @@
 			MX8MQ_IOMUXC_SAI2_TXC_SAI2_TX_BCLK      0xd6
 			MX8MQ_IOMUXC_SAI2_MCLK_SAI2_MCLK        0xd6
 			MX8MQ_IOMUXC_SAI2_TXD0_SAI2_TX_DATA0    0xd6
-			MX8MQ_IOMUXC_GPIO1_IO08_GPIO1_IO8       0xd6
+		>;
+	};
+
+	pinctrl_sai1_pcm: sai1grp_pcm {
+		fsl,pins = <
+			MX8MQ_IOMUXC_SAI1_MCLK_SAI1_MCLK		0xd6
+			MX8MQ_IOMUXC_SAI1_TXFS_SAI1_TX_SYNC		0xd6
+			MX8MQ_IOMUXC_SAI1_RXD7_SAI1_TX_SYNC		0xd6
+			MX8MQ_IOMUXC_SAI1_TXC_SAI1_TX_BCLK		0xd6
+			MX8MQ_IOMUXC_SAI1_TXD0_SAI1_TX_DATA0		0xd6
+			MX8MQ_IOMUXC_SAI1_TXD1_SAI1_TX_DATA1		0xd6
+			MX8MQ_IOMUXC_SAI1_TXD2_SAI1_TX_DATA2		0xd6
+			MX8MQ_IOMUXC_SAI1_TXD3_SAI1_TX_DATA3		0xd6
+			MX8MQ_IOMUXC_SAI1_TXD4_SAI1_TX_DATA4		0xd6
+			MX8MQ_IOMUXC_SAI1_TXD5_SAI1_TX_DATA5		0xd6
+			MX8MQ_IOMUXC_SAI1_TXD6_SAI1_TX_DATA6		0xd6
+			MX8MQ_IOMUXC_SAI1_TXD7_SAI1_TX_DATA7		0xd6
+		>;
+	};
+
+	pinctrl_sai1_pcm_b2m: sai1grp_pcm_b2m {
+		fsl,pins = <
+			MX8MQ_IOMUXC_SAI1_MCLK_SAI1_TX_BCLK		0xd6
+			MX8MQ_IOMUXC_SAI1_TXFS_SAI1_TX_SYNC		0xd6
+			MX8MQ_IOMUXC_SAI1_RXD7_SAI1_TX_SYNC		0xd6
+			MX8MQ_IOMUXC_SAI1_TXC_SAI1_TX_BCLK		0xd6
+			MX8MQ_IOMUXC_SAI1_TXD0_SAI1_TX_DATA0		0xd6
+			MX8MQ_IOMUXC_SAI1_TXD1_SAI1_TX_DATA1		0xd6
+			MX8MQ_IOMUXC_SAI1_TXD2_SAI1_TX_DATA2		0xd6
+			MX8MQ_IOMUXC_SAI1_TXD3_SAI1_TX_DATA3		0xd6
+			MX8MQ_IOMUXC_SAI1_TXD4_SAI1_TX_DATA4		0xd6
+			MX8MQ_IOMUXC_SAI1_TXD5_SAI1_TX_DATA5		0xd6
+			MX8MQ_IOMUXC_SAI1_TXD6_SAI1_TX_DATA6		0xd6
+			MX8MQ_IOMUXC_SAI1_TXD7_SAI1_TX_DATA7		0xd6
+		>;
+	};
+
+	pinctrl_sai1_dsd: sai1grp_dsd {
+		fsl,pins = <
+			MX8MQ_IOMUXC_SAI1_MCLK_SAI1_MCLK		0xd6
+			MX8MQ_IOMUXC_SAI1_TXFS_SAI1_TX_SYNC		0xd6
+			MX8MQ_IOMUXC_SAI1_RXD7_SAI1_TX_DATA4		0xd6
+			MX8MQ_IOMUXC_SAI1_TXC_SAI1_TX_BCLK		0xd6
+			MX8MQ_IOMUXC_SAI1_TXD0_SAI1_TX_DATA0		0xd6
+			MX8MQ_IOMUXC_SAI1_TXD1_SAI1_TX_DATA1		0xd6
+			MX8MQ_IOMUXC_SAI1_TXD2_SAI1_TX_DATA2		0xd6
+			MX8MQ_IOMUXC_SAI1_TXD3_SAI1_TX_DATA3		0xd6
+			MX8MQ_IOMUXC_SAI1_TXD4_SAI1_TX_DATA4		0xd6
+			MX8MQ_IOMUXC_SAI1_TXD5_SAI1_TX_DATA5		0xd6
+			MX8MQ_IOMUXC_SAI1_TXD6_SAI1_TX_DATA6		0xd6
+			MX8MQ_IOMUXC_SAI1_TXD7_SAI1_TX_DATA7		0xd6
+		>;
+	};
+
+	pinctrl_sai5: sai5grp {
+		fsl,pins = <
+			MX8MQ_IOMUXC_SAI5_MCLK_SAI5_MCLK	0xd6
+			MX8MQ_IOMUXC_SAI5_RXC_SAI5_RX_BCLK	0xd6
+			MX8MQ_IOMUXC_SAI5_RXFS_SAI5_RX_SYNC	0xd6
+			MX8MQ_IOMUXC_SAI5_RXD0_SAI5_RX_DATA0	0xd6
+			MX8MQ_IOMUXC_SAI5_RXD1_SAI5_RX_DATA1    0xd6
+			MX8MQ_IOMUXC_SAI5_RXD2_SAI5_RX_DATA2    0xd6
+			MX8MQ_IOMUXC_SAI5_RXD3_SAI5_RX_DATA3    0xd6
 		>;
 	};
 
