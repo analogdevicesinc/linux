@@ -60,6 +60,11 @@ properties:
       look for the closest valid charge pump current.
     enum: [ 350, 700, 1050, 1400, 1750, 2100, 2450, 2800, 3150, 3500, 3850, 4200, 4550, 4900, 5250, 5600 ]
 
+  adi,loop-filter-inverting:
+    description:
+      If this property is present, then the phase detector polarity will be set
+      to negative because of the positive tuning of the VCO.
+
   '#address-cells':
     const: 1
 
