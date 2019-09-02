@@ -90,7 +90,7 @@ static int imx6q_set_target(struct cpufreq_policy *policy, unsigned int index)
 
 	new_freq = freq_table[index].frequency;
 	freq_hz = new_freq * 1000;
-	old_freq = clk_get_rate(clks[ARM].clk) / 1000;
+	old_freq = policy->cur;
 
 	/*
 	 * ON i.MX6ULL, the 24MHz setpoint is not seen by cpufreq
