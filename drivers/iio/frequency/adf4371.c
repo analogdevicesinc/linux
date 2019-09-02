@@ -52,6 +52,8 @@
 /* ADF4371_REG1E */
 #define ADF4371_CP_CURRENT_MSK		GENMASK(7, 4)
 #define ADF4371_CP_CURRENT(x)		FIELD_PREP(ADF4371_CP_CURRENT_MSK, x)
+#define ADF4371_PD_POL_MSK		BIT(3)
+#define ADF4371_PD_POL(x)		FIELD_PREP(ADF4371_PD_POL_MSK, x)
 
 /* ADF4371_REG20 */
 #define ADF4371_MUXOUT_MSK		GENMASK(7, 4)
@@ -249,6 +251,7 @@ struct adf4371_state {
 	unsigned int mod2;
 	unsigned int rf_div_sel;
 	unsigned int ref_div_factor;
+	unsigned int pd_pol;
 	bool has_clk_out_names;
 	bool mute_till_lock_en;
 	bool muxout_en;
@@ -711,7 +714,8 @@ static const struct clk_ops adf4371_clock_ops = {
 static int adf4371_setup(struct adf4371_state *st)
 {
 	unsigned int synth_timeout = 2, timeout = 1, vco_alc_timeout = 1;
-	unsigned int vco_band_div, tmp;
+	unsigned int vco_band_div, tmp, val;
+	unsigned long int mask;
 	bool en = true;
 	int ret;
 
@@ -734,10 +738,12 @@ static int adf4371_setup(struct adf4371_state *st)
 	if (ret < 0)
 		return ret;
 
-	/* Set the charge pump current */
-	ret = regmap_update_bits(st->regmap, ADF4371_REG(0x1E),
-				 ADF4371_CP_CURRENT_MSK,
-				 ADF4371_CP_CURRENT(st->cp_settings.regval));
+	mask = ADF4371_PD_POL_MSK | ADF4371_CP_CURRENT_MSK;
+	val = ADF4371_PD_POL(st->pd_pol) |
+	      ADF4371_CP_CURRENT(st->cp_settings.regval);
+
+	/* Set the phase detector polarity and the charge pump current */
+	ret = regmap_update_bits(st->regmap, ADF4371_REG(0x1E),  mask, val);
 	if (ret < 0)
 		return ret;
 
@@ -813,6 +819,16 @@ static int adf4371_parse_dt(struct adf4371_state *st)
 
 	if (device_property_read_bool(&st->spi->dev, "adi,mute-till-lock-en"))
 		st->mute_till_lock_en = true;
+	/*
+	 * If using an inverting loop filter and a VCO with positive tuning
+	 * slope, set the phase detector polarity to negative (set the PD_POL
+	 * bit to 0).
+	 */
+	if (device_property_read_bool(&st->spi->dev,
+				      "adi,loop-filter-inverting"))
+		st->pd_pol = 0;
+	else
+		st->pd_pol = 1;
 
 	ret = device_property_read_u32(&st->spi->dev,
 				       "adi,charge-pump-microamp", &tmp);
