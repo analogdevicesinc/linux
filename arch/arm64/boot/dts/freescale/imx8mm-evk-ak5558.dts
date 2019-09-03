@@ -1,0 +1,24 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright 2019 NXP
+ */
+
+
+#include "imx8mm-evk.dts"
+
+/ {
+	sound-ak5558 {
+		status = "okay";
+	};
+	sound-micfil {
+		status = "disabled";
+	};
+};
+
+&micfil {
+	status = "disabled";
+};
+
+&sai5 {
+	status = "okay";
+};
