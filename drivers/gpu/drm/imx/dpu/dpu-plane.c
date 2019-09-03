@@ -757,6 +757,7 @@ again:
 	fu->ops->set_src_stride(fu, src_w, src_w, mt_w, bpp, fb->pitches[0],
 				baseaddr, use_prefetch);
 	fu->ops->set_src_buf_dimensions(fu, src_w, src_h, 0, fb_is_interlaced);
+	fu->ops->set_pixel_blend_mode(fu, fb->format->format);
 	fu->ops->set_fmt(fu, fb->format->format, fb_is_interlaced);
 	fu->ops->enable_src_buf(fu);
 	fu->ops->set_framedimensions(fu, src_w, src_h, fb_is_interlaced);
@@ -901,7 +902,7 @@ again:
 	layerblend_pixengcfg_dynamic_prim_sel(lb, stage);
 	layerblend_pixengcfg_dynamic_sec_sel(lb, source);
 	layerblend_control(lb, LB_BLEND);
-	layerblend_blendcontrol(lb, need_hscaler || need_vscaler);
+	layerblend_blendcontrol(lb, state->normalized_zpos);
 	layerblend_pixengcfg_clken(lb, CLKEN__AUTOMATIC);
 	layerblend_position(lb, crtc_x, state->crtc_y);
 

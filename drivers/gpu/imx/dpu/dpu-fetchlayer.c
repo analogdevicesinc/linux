@@ -214,6 +214,7 @@ static const struct dpu_fetchunit_ops fl_ops = {
 	.set_src_stride		= fetchunit_set_src_stride,
 	.set_src_buf_dimensions	= fetchlayer_set_src_buf_dimensions,
 	.set_fmt		= fetchlayer_set_fmt,
+	.set_pixel_blend_mode	= fetchunit_set_pixel_blend_mode,
 	.enable_src_buf		= fetchunit_enable_src_buf,
 	.disable_src_buf	= fetchunit_disable_src_buf,
 	.is_enabled		= fetchunit_is_enabled,

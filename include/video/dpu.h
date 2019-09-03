@@ -350,6 +350,8 @@ struct dpu_fetchunit_ops {
 
 	void (*set_fmt)(struct dpu_fetchunit *fu, u32 fmt, bool deinterlace);
 
+	void (*set_pixel_blend_mode)(struct dpu_fetchunit *fu, u32 fb_format);
+
 	void (*enable_src_buf)(struct dpu_fetchunit *fu);
 	void (*disable_src_buf)(struct dpu_fetchunit *fu);
 	bool (*is_enabled)(struct dpu_fetchunit *fu);
@@ -546,7 +548,7 @@ void layerblend_shden(struct dpu_layerblend *lb, bool enable);
 void layerblend_shdtoksel(struct dpu_layerblend *lb, lb_shadow_sel_t sel);
 void layerblend_shdldsel(struct dpu_layerblend *lb, lb_shadow_sel_t sel);
 void layerblend_control(struct dpu_layerblend *lb, lb_mode_t mode);
-void layerblend_blendcontrol(struct dpu_layerblend *lb, bool sec_from_scaler);
+void layerblend_blendcontrol(struct dpu_layerblend *lb, unsigned int zpos);
 void layerblend_position(struct dpu_layerblend *lb, int x, int y);
 struct dpu_layerblend *dpu_lb_get(struct dpu_soc *dpu, int id);
 void dpu_lb_put(struct dpu_layerblend *lb);
@@ -631,6 +633,7 @@ void fetchunit_set_src_stride(struct dpu_fetchunit *fu,
 			      unsigned int width, unsigned int x_offset,
 			      unsigned int mt_w, int bpp, unsigned int stride,
 			      dma_addr_t baddr, bool use_prefetch);
+void fetchunit_set_pixel_blend_mode(struct dpu_fetchunit *fu, u32 fb_format);
 void fetchunit_enable_src_buf(struct dpu_fetchunit *fu);
 void fetchunit_disable_src_buf(struct dpu_fetchunit *fu);
 bool fetchunit_is_enabled(struct dpu_fetchunit *fu);

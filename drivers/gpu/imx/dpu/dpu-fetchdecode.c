@@ -302,6 +302,33 @@ void fetchdecode_clipoffset(struct dpu_fetchunit *fu, unsigned int x,
 }
 EXPORT_SYMBOL_GPL(fetchdecode_clipoffset);
 
+static void
+fetchdecode_set_pixel_blend_mode(struct dpu_fetchunit *fu, u32 fb_format)
+{
+	u32 val, mode = ALPHACONSTENABLE;
+
+	switch (fb_format) {
+	case DRM_FORMAT_ARGB8888:
+	case DRM_FORMAT_ABGR8888:
+	case DRM_FORMAT_RGBA8888:
+	case DRM_FORMAT_BGRA8888:
+		mode |= ALPHASRCENABLE;
+		break;
+	}
+
+	mutex_lock(&fu->mutex);
+	val = dpu_fu_read(fu, LAYERPROPERTY0);
+	val &= ~(PREMULCONSTRGB | ALPHA_ENABLE_MASK | RGB_ENABLE_MASK);
+	val |= mode;
+	dpu_fu_write(fu, LAYERPROPERTY0, val);
+
+	val = dpu_fu_read(fu, CONSTANTCOLOR0);
+	val &= ~CONSTANTALPHA_MASK;
+	val |= CONSTANTALPHA(0xff);
+	dpu_fu_write(fu, CONSTANTCOLOR0, val);
+	mutex_unlock(&fu->mutex);
+}
+
 static void fetchdecode_enable_src_buf(struct dpu_fetchunit *fu)
 {
 	u32 val;
@@ -556,6 +583,7 @@ static const struct dpu_fetchunit_ops fd_ops = {
 	.set_src_stride		= fetchdecode_set_src_stride,
 	.set_src_buf_dimensions	= fetchdecode_set_src_buf_dimensions,
 	.set_fmt		= fetchdecode_set_fmt,
+	.set_pixel_blend_mode	= fetchdecode_set_pixel_blend_mode,
 	.enable_src_buf		= fetchdecode_enable_src_buf,
 	.disable_src_buf	= fetchdecode_disable_src_buf,
 	.is_enabled		= fetchdecode_is_enabled,

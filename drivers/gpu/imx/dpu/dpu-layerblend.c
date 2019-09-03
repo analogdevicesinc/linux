@@ -54,12 +54,9 @@ static const lb_prim_sel_t prim_sels[] = {
 #define BLENDCONTROL				0x10
 #define ALPHA(a)				(((a) & 0xFF) << 16)
 #define PRIM_C_BLD_FUNC__ONE_MINUS_SEC_ALPHA	0x5
-#define PRIM_C_BLD_FUNC__PRIM_ALPHA		0x2
+#define PRIM_C_BLD_FUNC__ZERO			0x0
 #define SEC_C_BLD_FUNC__CONST_ALPHA		(0x6 << 4)
-#define SEC_C_BLD_FUNC__ONE_MINUS_PRIM_ALPHA	(0x3 << 4)
-#define PRIM_A_BLD_FUNC__ONE_MINUS_SEC_ALPHA	(0x5 << 8)
 #define PRIM_A_BLD_FUNC__ZERO			(0x0 << 8)
-#define SEC_A_BLD_FUNC__ONE			(0x1 << 12)
 #define SEC_A_BLD_FUNC__ZERO			(0x0 << 12)
 #define POSITION				0x14
 #define XPOS(x)					((x) & 0x7FFF)
@@ -208,16 +205,17 @@ void layerblend_control(struct dpu_layerblend *lb, lb_mode_t mode)
 }
 EXPORT_SYMBOL_GPL(layerblend_control);
 
-void layerblend_blendcontrol(struct dpu_layerblend *lb, bool sec_from_scaler)
+void layerblend_blendcontrol(struct dpu_layerblend *lb, unsigned int zpos)
 {
 	u32 val;
 
-	val = ALPHA(0xff) |
-	      PRIM_C_BLD_FUNC__PRIM_ALPHA |
-	      SEC_C_BLD_FUNC__ONE_MINUS_PRIM_ALPHA |
-	      PRIM_A_BLD_FUNC__ZERO;
+	val = ALPHA(0xff) | PRIM_A_BLD_FUNC__ZERO | SEC_A_BLD_FUNC__ZERO |
+	      SEC_C_BLD_FUNC__CONST_ALPHA;
 
-	val |= sec_from_scaler ? SEC_A_BLD_FUNC__ZERO : SEC_A_BLD_FUNC__ONE;
+	if (zpos == 0)
+		val |= PRIM_C_BLD_FUNC__ZERO;
+	else
+		val |= PRIM_C_BLD_FUNC__ONE_MINUS_SEC_ALPHA;
 
 	mutex_lock(&lb->mutex);
 	dpu_lb_write(lb, BLENDCONTROL, val);

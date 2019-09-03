@@ -212,6 +212,33 @@ void fetchunit_set_src_stride(struct dpu_fetchunit *fu,
 }
 EXPORT_SYMBOL_GPL(fetchunit_set_src_stride);
 
+void fetchunit_set_pixel_blend_mode(struct dpu_fetchunit *fu, u32 fb_format)
+{
+	u32 val, mode = ALPHACONSTENABLE;
+
+	switch (fb_format) {
+	case DRM_FORMAT_ARGB8888:
+	case DRM_FORMAT_ABGR8888:
+	case DRM_FORMAT_RGBA8888:
+	case DRM_FORMAT_BGRA8888:
+		mode |= ALPHASRCENABLE;
+		break;
+	}
+
+	mutex_lock(&fu->mutex);
+	val = dpu_fu_read(fu, LAYERPROPERTY(fu->sub_id));
+	val &= ~(PREMULCONSTRGB | ALPHA_ENABLE_MASK | RGB_ENABLE_MASK);
+	val |= mode;
+	dpu_fu_write(fu, LAYERPROPERTY(fu->sub_id), val);
+
+	val = dpu_fu_read(fu, CONSTANTCOLOR(fu->sub_id));
+	val &= ~CONSTANTALPHA_MASK;
+	val |= CONSTANTALPHA(0xff);
+	dpu_fu_write(fu, CONSTANTCOLOR(fu->sub_id), val);
+	mutex_unlock(&fu->mutex);
+}
+EXPORT_SYMBOL_GPL(fetchunit_set_pixel_blend_mode);
+
 void fetchunit_enable_src_buf(struct dpu_fetchunit *fu)
 {
 	u32 val;
