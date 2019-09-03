@@ -131,6 +131,7 @@
 
 		adi,loop-filter-charge-pump-current-microamp = <2500>;
 		adi,loop-filter-pfd-frequency-hz = <5000000>;
+		adi,power-up-frequency-hz = <100000000>;
 	};
 
 	converter@1 {
