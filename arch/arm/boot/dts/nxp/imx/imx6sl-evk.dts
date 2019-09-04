@@ -110,7 +110,7 @@
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_hp>;
 		model = "wm8962-audio";
-		ssi-controller = <&ssi2>;
+		audio-cpu = <&ssi2>;
 		audio-codec = <&codec>;
 		audio-routing =
 			"Headphone Jack", "HPOUTL",
