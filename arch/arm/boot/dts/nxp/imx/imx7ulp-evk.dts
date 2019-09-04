@@ -201,6 +201,28 @@
 	rpmsg_sensor: rpmsg-sensor {
 		compatible = "fsl,rpmsg-input";
 	};
+
+	rpmsg_audio: rpmsg_audio {
+		compatible = "fsl,imx7ulp-rpmsg-audio";
+		model = "wm8960-audio";
+		fsl,rpmsg-out;
+		fsl,rpmsg-in;
+		audio-routing =
+			"Headphone Jack", "HP_L",
+			"Headphone Jack", "HP_R",
+			"Ext Spk", "SPK_LP",
+			"Ext Spk", "SPK_LN",
+			"Ext Spk", "SPK_RP",
+			"Ext Spk", "SPK_RN",
+			"LINPUT2", "Mic Jack",
+			"LINPUT3", "Mic Jack",
+			"RINPUT1", "Main MIC",
+			"RINPUT2", "Main MIC",
+			"Mic Jack", "MICB",
+			"Main MIC", "MICB",
+			"Playback", "CPU-Playback",
+			"CPU-Capture", "Capture";
+	};
 };
 
 &cpu0 {
