@@ -35,7 +35,7 @@
 		compatible = "fsl,imx8qxp-lpcg";
 		reg = <0x5f080000 0x10000>;
 		#clock-cells = <1>;
-		clocks = <&hsio_per_clk>, <&hsio_per_clk>;
+		clocks = <&hsio_refa_clk>, <&hsio_per_clk>;
 		bit-offset = <0 4>;
 		clock-output-names = "hsio_phyx2_pclk_0",
 				     "hsio_phyx2_pclk_1";

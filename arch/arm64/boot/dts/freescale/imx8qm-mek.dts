@@ -582,7 +582,6 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_pciea>;
 	reset-gpio = <&lsio_gpio4 29 GPIO_ACTIVE_LOW>;
-	clkreq-gpio = <&lsio_gpio4 27 GPIO_ACTIVE_LOW>;
 	ext_osc = <1>;
 	status = "okay";
 };
@@ -608,12 +607,6 @@
 };
 
 &sata {
-	/* enable the clkreq-gpio if pcie is not enabled */
-	/*
-	 * pinctrl-names = "default";
-	 * pinctrl-0 = <&pinctrl_pciea>;
-	 * clkreq-gpio = <&lsio_gpio4 27 GPIO_ACTIVE_LOW>;
-	 */
 	ext_osc = <1>;
 	status = "okay";
 };
@@ -1056,7 +1049,6 @@
 
 	pinctrl_pciea: pcieagrp{
 		fsl,pins = <
-			IMX8QM_PCIE_CTRL0_CLKREQ_B_LSIO_GPIO4_IO27		0x06000021
 			IMX8QM_PCIE_CTRL0_WAKE_B_LSIO_GPIO4_IO28		0x04000021
 			IMX8QM_PCIE_CTRL0_PERST_B_LSIO_GPIO4_IO29		0x06000021
 		>;
