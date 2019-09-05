@@ -344,6 +344,7 @@
 &lcdif1 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_lcd>;
+	lcd-supply = <&reg_lcd_3v3>;
 	display = <&display0>;
 	status = "okay";
 
