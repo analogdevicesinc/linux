@@ -90,6 +90,26 @@
 			clocks = <&clks IMX6QDL_CLK_OCRAM>;
 		};
 
+		gpu: gpu@00130000 {
+			compatible = "fsl,imx6dl-gpu", "fsl,imx6q-gpu";
+			reg = <0x00130000 0x4000>, <0x00134000 0x4000>,
+				<0x10000000 0x0>, <0x0 0x8000000>;
+			reg-names = "iobase_3d", "iobase_2d",
+				"phys_baseaddr", "contiguous_mem";
+			interrupts = <0 9 IRQ_TYPE_LEVEL_HIGH>,
+				<0 10 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "irq_3d", "irq_2d";
+			clocks = <&clks IMX6QDL_CLK_OPENVG_AXI>, <&clks IMX6QDL_CLK_GPU3D_AXI>,
+				<&clks IMX6QDL_CLK_GPU2D_CORE>, <&clks IMX6QDL_CLK_GPU3D_CORE>,
+				<&clks IMX6QDL_CLK_DUMMY>;
+			clock-names = "gpu2d_axi_clk", "gpu3d_axi_clk",
+				"gpu2d_clk", "gpu3d_clk",
+				"gpu3d_shader_clk";
+			resets = <&src 0>, <&src 3>;
+			reset-names = "gpu3d", "gpu2d";
+			power-domains = <&pd_pu>;
+		};
+
 		aips1: bus@2000000 {
 			pxp: pxp@20f0000 {
 				compatible = "fsl,imx6dl-pxp-dma";
