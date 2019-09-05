@@ -133,6 +133,7 @@ build_sync_branches_with_master() {
 	BRANCH3="adi-4.19.0:cherry-pick"
 	BRANCH4="rpi-4.19.y:cherry-pick"
 	BRANCH5="rpi-4.14.y:cherry-pick"
+	BRANCH6="altera_4.14:cherry-pick"
 
 	# support sync-ing up to 100 branches; should be enough
 	for iter in $(seq 1 100) ; do
