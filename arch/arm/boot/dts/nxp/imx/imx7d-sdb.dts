@@ -532,6 +532,7 @@
 &lcdif {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_lcdif>;
+	lcd-supply = <&reg_lcd_3v3>;
 	display = <&display0>;
 	status = "okay";
 
