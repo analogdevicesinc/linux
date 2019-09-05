@@ -640,6 +640,13 @@ static int axiadc_channel_setup(struct iio_dev *indio_dev,
 	for (i = 0, cnt = 0; i < adc_chan_num; i++)
 		st->channels[cnt++] = adc_channels[i];
 
+	if (st->additional_channel && cnt < AXIADC_MAX_CHANNEL) {
+		st->channels[cnt] = adc_channels[0];
+		st->channels[cnt].channel = cnt;
+		st->channels[cnt].scan_index = cnt;
+		cnt++;
+	}
+
 	for (i = 0; i < st->max_usr_channel; i++) {
 		usr_ctrl = axiadc_read(st, ADI_REG_CHAN_USR_CNTRL_1(cnt));
 		st->channels[cnt].type = IIO_VOLTAGE;
@@ -817,6 +824,9 @@ static int axiadc_probe(struct platform_device *pdev)
 
 		}
 	}
+
+	st->additional_channel = of_property_read_bool(pdev->dev.of_node,
+		"adi,axi-additional-channel-available");
 
 	/* Reset all HDL Cores */
 	axiadc_write(st, ADI_REG_RSTN, 0);
