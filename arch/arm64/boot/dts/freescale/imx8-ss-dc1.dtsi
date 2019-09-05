@@ -340,6 +340,8 @@ dc1_subsys: bus@57000000 {
 				<&pd IMX_SC_R_DC_1_PLL_0>,
 				<&pd IMX_SC_R_DC_1_PLL_1>;
 		power-domain-names = "dc", "pll0", "pll1";
+		fsl,dpr-channels = <&dc1_dpr1_channel1>,
+				   <&dc1_dpr1_channel2>;
 		status = "disabled";
 	};
 };
