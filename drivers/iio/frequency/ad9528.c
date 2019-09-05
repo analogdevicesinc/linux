@@ -1425,7 +1425,12 @@ static int ad9528_probe(struct spi_device *spi)
 	struct ad9528_state *st;
 	struct gpio_desc *status0_gpio;
 	struct gpio_desc *status1_gpio;
+	struct clk *clk;
 	int ret;
+
+	clk = devm_clk_get(&spi->dev, NULL);
+	if (PTR_ERR(clk) == -EPROBE_DEFER)
+		return -EPROBE_DEFER;
 
 	if (spi->dev.of_node)
 		pdata = ad9528_parse_dt(&spi->dev);
