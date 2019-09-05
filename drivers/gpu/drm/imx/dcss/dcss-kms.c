@@ -19,6 +19,87 @@
 
 DEFINE_DRM_GEM_DMA_FOPS(dcss_cma_fops);
 
+static void dcss_kms_setup_opipe_gamut(u32 colorspace,
+				       const struct drm_display_mode *mode,
+				       enum dcss_hdr10_gamut *g,
+				       enum dcss_hdr10_nonlinearity *nl)
+{
+	u8 vic;
+
+	switch (colorspace) {
+	case DRM_MODE_COLORIMETRY_BT709_YCC:
+	case DRM_MODE_COLORIMETRY_XVYCC_709:
+		*g = G_REC709;
+		*nl = NL_REC709;
+		return;
+	case DRM_MODE_COLORIMETRY_SMPTE_170M_YCC:
+	case DRM_MODE_COLORIMETRY_XVYCC_601:
+	case DRM_MODE_COLORIMETRY_SYCC_601:
+	case DRM_MODE_COLORIMETRY_OPYCC_601:
+		*g = G_REC601_NTSC;
+		*nl = NL_REC709;
+		return;
+	case DRM_MODE_COLORIMETRY_BT2020_CYCC:
+	case DRM_MODE_COLORIMETRY_BT2020_RGB:
+	case DRM_MODE_COLORIMETRY_BT2020_YCC:
+		*g = G_REC2020;
+		*nl = NL_REC2084;
+		return;
+	case DRM_MODE_COLORIMETRY_OPRGB:
+		*g = G_ADOBE_ARGB;
+		*nl = NL_SRGB;
+		return;
+	default:
+		break;
+	}
+
+	/*
+	 * If we reached this point, it means the default colorimetry is used.
+	 */
+
+	/* non-CEA mode, sRGB is used */
+	vic = drm_match_cea_mode(mode);
+	if (vic == 0) {
+		*g = G_ADOBE_ARGB;
+		*nl = NL_SRGB;
+		return;
+	}
+
+	if (mode->vdisplay == 480 || mode->vdisplay == 576 ||
+	    mode->vdisplay == 240 || mode->vdisplay == 288) {
+		*g = G_REC601_NTSC;
+		*nl = NL_REC709;
+		return;
+	}
+
+	/* 2160p, 1080p, 720p */
+	*g = G_REC709;
+	*nl = NL_REC709;
+}
+
+#define YUV_MODE		BIT(0)
+
+void dcss_kms_setup_opipe(struct drm_connector_state *conn_state)
+{
+	struct drm_crtc *crtc = conn_state->crtc;
+	struct dcss_crtc *dcss_crtc = container_of(crtc, struct dcss_crtc,
+						   base);
+	int mode_flags = crtc->state->adjusted_mode.private_flags;
+	enum hdmi_quantization_range qr;
+
+	qr = drm_default_rgb_quant_range(&crtc->state->adjusted_mode);
+
+	dcss_kms_setup_opipe_gamut(conn_state->colorspace,
+				   &crtc->state->adjusted_mode,
+				   &dcss_crtc->opipe_g,
+				   &dcss_crtc->opipe_nl);
+
+	dcss_crtc->opipe_pr = qr == HDMI_QUANTIZATION_RANGE_FULL ? PR_FULL :
+								   PR_LIMITED;
+
+	dcss_crtc->output_is_yuv = !!(mode_flags & YUV_MODE);
+}
+
 static const struct drm_mode_config_funcs dcss_drm_mode_config_funcs = {
 	.fb_create = drm_gem_fb_create,
 	.atomic_check = drm_atomic_helper_check,

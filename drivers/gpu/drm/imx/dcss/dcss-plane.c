@@ -34,6 +34,19 @@ static const u32 dcss_common_formats[] = {
 	DRM_FORMAT_ABGR2101010,
 	DRM_FORMAT_RGBA1010102,
 	DRM_FORMAT_BGRA1010102,
+
+	/* YUV444 */
+	DRM_FORMAT_AYUV,
+
+	/* YUV422 */
+	DRM_FORMAT_UYVY,
+	DRM_FORMAT_VYUY,
+	DRM_FORMAT_YUYV,
+	DRM_FORMAT_YVYU,
+
+	/* YUV420 */
+	DRM_FORMAT_NV12,
+	DRM_FORMAT_NV21,
 };
 
 static const u64 dcss_video_format_modifiers[] = {
@@ -340,6 +353,28 @@ static bool dcss_plane_needs_setup(struct drm_plane_state *state,
 	       state->scaling_filter != old_state->scaling_filter;
 }
 
+static void dcss_plane_setup_hdr10_pipes(struct dcss_dev *dcss,
+					 struct drm_crtc *crtc,
+					 int ch_num,
+					 const struct drm_format_info *format)
+{
+	struct dcss_hdr10_pipe_cfg ipipe_cfg, opipe_cfg;
+	struct dcss_crtc *dcss_crtc = container_of(crtc, struct dcss_crtc,
+						   base);
+
+	opipe_cfg.is_yuv = dcss_crtc->output_is_yuv;
+	opipe_cfg.g = dcss_crtc->opipe_g;
+	opipe_cfg.nl = dcss_crtc->opipe_nl;
+	opipe_cfg.pr = dcss_crtc->opipe_pr;
+
+	ipipe_cfg.is_yuv = format->is_yuv;
+	ipipe_cfg.nl = opipe_cfg.nl == NL_REC2084 ? NL_REC2084 : NL_REC709;
+	ipipe_cfg.pr = PR_FULL;
+	ipipe_cfg.g = opipe_cfg.g == G_REC2020 ? G_REC2020 : G_REC709;
+
+	dcss_hdr10_setup(dcss->hdr10, ch_num,  &ipipe_cfg, &opipe_cfg);
+}
+
 static void dcss_plane_atomic_update(struct drm_plane *plane,
 				     struct drm_atomic_state *state)
 {
@@ -364,7 +399,9 @@ static void dcss_plane_atomic_update(struct drm_plane *plane,
 	modifiers_present = !!(fb->flags & DRM_MODE_FB_MODIFIERS);
 
 	if (old_state->fb && !drm_atomic_crtc_needs_modeset(crtc_state) &&
-	    !dcss_plane_needs_setup(new_state, old_state)) {
+	    !dcss_plane_needs_setup(new_state, old_state) &&
+	    !dcss_dtg_global_alpha_changed(dcss->dtg, dcss_plane->ch_num,
+					   new_state->alpha >> 8)) {
 		dcss_plane_atomic_set_base(dcss_plane);
 		if (plane->type == DRM_PLANE_TYPE_PRIMARY)
 			dcss_dec400d_shadow_trig(dcss->dec400d);
@@ -408,6 +445,9 @@ static void dcss_plane_atomic_update(struct drm_plane *plane,
 			  is_rotation_90_or_270 ? src_w : src_h,
 			  dst_w, dst_h,
 			  drm_mode_vrefresh(&crtc_state->mode));
+
+	dcss_plane_setup_hdr10_pipes(dcss, new_state->crtc,
+				     dcss_plane->ch_num, fb->format);
 
 	dcss_dtg_plane_pos_set(dcss->dtg, dcss_plane->ch_num,
 			       dst.x1, dst.y1, dst_w, dst_h);
@@ -498,7 +538,7 @@ struct dcss_plane *dcss_plane_init(struct drm_device *drm,
 					   DRM_MODE_REFLECT_X  |
 					   DRM_MODE_REFLECT_Y);
 
-	dcss_plane->ch_num = zpos;
+	dcss_plane->ch_num = 2 - zpos;
 
 	return dcss_plane;
 }

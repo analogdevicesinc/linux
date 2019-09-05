@@ -23,6 +23,11 @@ struct dcss_crtc {
 	int			irq;
 
 	bool disable_ctxld_kick_irq;
+
+	bool output_is_yuv;
+	enum dcss_hdr10_nonlinearity opipe_nl;
+	enum dcss_hdr10_gamut opipe_g;
+	enum dcss_hdr10_pixel_range opipe_pr;
 };
 
 struct dcss_kms_dev {
@@ -33,6 +38,7 @@ struct dcss_kms_dev {
 };
 
 struct dcss_kms_dev *dcss_kms_attach(struct dcss_dev *dcss);
+void dcss_kms_setup_opipe(struct drm_connector_state *conn_state);
 void dcss_kms_detach(struct dcss_kms_dev *kms);
 void dcss_kms_shutdown(struct dcss_kms_dev *kms);
 int dcss_crtc_init(struct dcss_crtc *crtc, struct drm_device *drm);

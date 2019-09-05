@@ -106,9 +106,16 @@ static int dcss_submodules_init(struct dcss_dev *dcss)
 	if (ret)
 		goto dec400d_err;
 
+	ret = dcss_hdr10_init(dcss, base_addr + devtype->hdr10_ofs);
+	if (ret)
+		goto hdr10_err;
+
 	dcss_clocks_disable(dcss);
 
 	return 0;
+
+hdr10_err:
+	dcss_dec400d_exit(dcss->dec400d);
 
 dec400d_err:
 	dcss_scaler_exit(dcss->scaler);
@@ -134,6 +141,7 @@ ctxld_err:
 static void dcss_submodules_stop(struct dcss_dev *dcss)
 {
 	dcss_clocks_enable(dcss);
+	dcss_hdr10_exit(dcss->hdr10);
 	dcss_dec400d_exit(dcss->dec400d);
 	dcss_scaler_exit(dcss->scaler);
 	dcss_dpr_exit(dcss->dpr);

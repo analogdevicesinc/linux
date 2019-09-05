@@ -109,10 +109,10 @@ void dcss_ss_exit(struct dcss_ss *ss)
 	dcss_writel(0, ss->base_reg + DCSS_SS_SYS_CTRL);
 }
 
-void dcss_ss_subsam_set(struct dcss_ss *ss)
+void dcss_ss_subsam_set(struct dcss_ss *ss, bool out_is_yuv)
 {
-	dcss_ss_write(ss, 0x41614161, DCSS_SS_COEFF);
-	dcss_ss_write(ss, 0, DCSS_SS_MODE);
+	dcss_ss_write(ss, out_is_yuv ? 0x21612161 : 0x41614161, DCSS_SS_COEFF);
+	dcss_ss_write(ss, out_is_yuv ? 2 : 0, DCSS_SS_MODE);
 	dcss_ss_write(ss, 0x03ff0000, DCSS_SS_CLIP_CB);
 	dcss_ss_write(ss, 0x03ff0000, DCSS_SS_CLIP_CR);
 }

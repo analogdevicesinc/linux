@@ -101,6 +101,7 @@ static struct dcss_type_data dcss_types[] = {
 		.ss_ofs = 0x1B000,
 		.dpr_ofs = 0x18000,
 		.dec400d_ofs = 0x15000,
+		.hdr10_ofs = 0x00000,
 	},
 };
 

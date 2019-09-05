@@ -140,7 +140,7 @@ bool dcss_dtg_vblank_irq_valid(struct dcss_dtg *dtg);
 void dcss_dtg_vblank_irq_enable(struct dcss_dtg *dtg, bool en);
 void dcss_dtg_vblank_irq_clear(struct dcss_dtg *dtg);
 void dcss_dtg_sync_set(struct dcss_dtg *dtg, struct videomode *vm);
-void dcss_dtg_css_set(struct dcss_dtg *dtg);
+void dcss_dtg_css_set(struct dcss_dtg *dtg, bool out_is_yuv);
 void dcss_dtg_enable(struct dcss_dtg *dtg);
 void dcss_dtg_shutoff(struct dcss_dtg *dtg);
 bool dcss_dtg_is_enabled(struct dcss_dtg *dtg);
@@ -157,7 +157,7 @@ int dcss_ss_init(struct dcss_dev *dcss, unsigned long subsam_base);
 void dcss_ss_exit(struct dcss_ss *ss);
 void dcss_ss_enable(struct dcss_ss *ss);
 void dcss_ss_shutoff(struct dcss_ss *ss);
-void dcss_ss_subsam_set(struct dcss_ss *ss);
+void dcss_ss_subsam_set(struct dcss_ss *ss, bool output_is_yuv);
 void dcss_ss_sync_set(struct dcss_ss *ss, struct videomode *vm,
 		      bool phsync, bool pvsync);
 
@@ -235,5 +235,40 @@ void dcss_dec400d_read_config(struct dcss_dec400d *dec400d,
 			      bool compress_en,
 			      u32 compress_format);
 void dcss_dec400d_addr_set(struct dcss_dec400d *dec400d, u32 baddr, u32 caddr);
+
+/* HDR10 */
+enum dcss_hdr10_nonlinearity {
+	NL_REC2084,
+	NL_REC709,
+	NL_BT1886,
+	NL_2100HLG,
+	NL_SRGB,
+};
+
+enum dcss_hdr10_pixel_range {
+	PR_LIMITED,
+	PR_FULL,
+};
+
+enum dcss_hdr10_gamut {
+	G_REC2020,
+	G_REC709,
+	G_REC601_NTSC,
+	G_REC601_PAL,
+	G_ADOBE_ARGB,
+};
+
+struct dcss_hdr10_pipe_cfg {
+	bool is_yuv;
+	enum dcss_hdr10_nonlinearity nl;
+	enum dcss_hdr10_pixel_range pr;
+	enum dcss_hdr10_gamut g;
+};
+
+int dcss_hdr10_init(struct dcss_dev *dcss, unsigned long hdr10_base);
+void dcss_hdr10_exit(struct dcss_hdr10 *hdr10);
+void dcss_hdr10_setup(struct dcss_hdr10 *hdr10, int ch_num,
+		      struct dcss_hdr10_pipe_cfg *ipipe_cfg,
+		      struct dcss_hdr10_pipe_cfg *opipe_cfg);
 
 #endif /* __DCSS_PRV_H__ */
