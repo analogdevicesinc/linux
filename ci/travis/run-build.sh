@@ -98,6 +98,10 @@ __handle_sync_with_master() {
 			echo_red "Commit '$cm' is not in branch master"
 			return 1
 		}
+		# Make sure that we are adding something new, or cherry-pick complains
+		if git diff --quiet "$cm" "${ORIGIN}/master" ; then
+			return 0
+		fi
 
 		tmpfile=$(mktemp)
 
