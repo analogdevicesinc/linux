@@ -7,7 +7,6 @@ branches:
   - adi-4.19.0
 
 os: linux
-dist: trusty
 
 notifications:
   email:
