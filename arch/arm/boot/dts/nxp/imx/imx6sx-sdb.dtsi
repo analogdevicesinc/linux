@@ -177,19 +177,6 @@
 		hp-det-gpio = <&gpio1 17 GPIO_ACTIVE_LOW>;
 	};
 
-	panel {
-		compatible = "sii,43wvf1g";
-		backlight = <&backlight_display>;
-		dvdd-supply = <&reg_lcd_3v3>;
-		avdd-supply = <&reg_lcd_5v>;
-
-		port {
-			panel_in: endpoint {
-				remote-endpoint = <&display_out>;
-			};
-		};
-	};
-
 	spdif_out: spdif-out {
 		compatible = "linux,spdif-dit";
 		#sound-dai-cells = <0>;
@@ -202,7 +189,6 @@
 		audio-cpu = <&spdif>;
 		audio-codec = <&spdif_out>;
 	};
-
 };
 
 &adc1 {
@@ -382,12 +368,6 @@
 				de-active = <1>;
 				pixelclk-active = <0>;
 			};
-		};
-	};
-
-	port {
-		display_out: endpoint {
-			remote-endpoint = <&panel_in>;
 		};
 	};
 };
