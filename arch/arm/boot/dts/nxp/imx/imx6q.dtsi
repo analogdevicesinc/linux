@@ -222,6 +222,7 @@
 			clock-names = "bus", "core";
 			power-domains = <&pd_pu>;
 			#cooling-cells = <2>;
+			status = "disabled";
 		};
 
 		gpu: gpu@00130000 {

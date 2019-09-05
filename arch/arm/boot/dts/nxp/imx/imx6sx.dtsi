@@ -245,6 +245,7 @@
 				 <&clks IMX6SX_CLK_GPU>;
 			clock-names = "bus", "core", "shader";
 			power-domains = <&pd_pu>;
+			status = "disabled";
 		};
 
 		gpu3d: gpu3d@1800000 {

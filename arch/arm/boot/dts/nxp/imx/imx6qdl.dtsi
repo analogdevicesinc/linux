@@ -221,6 +221,7 @@
 			clock-names = "bus", "core", "shader";
 			power-domains = <&pd_pu>;
 			#cooling-cells = <2>;
+			status = "disabled";
 		};
 
 		gpu_2d: gpu@134000 {
@@ -232,6 +233,7 @@
 			clock-names = "bus", "core";
 			power-domains = <&pd_pu>;
 			#cooling-cells = <2>;
+			status = "disabled";
 		};
 
 		ocrams: sram@00900000 {
