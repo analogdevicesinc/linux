@@ -159,18 +159,6 @@
 		status = "okay";
 	};
 
-	panel {
-		compatible = "innolux,at043tn24";
-		backlight = <&backlight>;
-		power-supply = <&reg_lcd_3v3>;
-
-		port {
-			panel_in: endpoint {
-				remote-endpoint = <&display_out>;
-			};
-		};
-	};
-
 	sound {
 		compatible = "fsl,imx7d-evk-wm8960",
 			     "fsl,imx-audio-wm8960";
@@ -558,12 +546,6 @@
 				de-active = <1>;
 				pixelclk-active = <0>;
 			};
-		};
-	};
-
-	port {
-		display_out: endpoint {
-			remote-endpoint = <&panel_in>;
 		};
 	};
 };
