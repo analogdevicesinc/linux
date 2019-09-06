@@ -1347,11 +1347,12 @@
 				};
 
 				pxp: pxp@2218000 {
-					compatible = "fsl,imx6sx-pxp", "fsl,imx6ull-pxp";
+					compatible = "fsl,imx6sx-pxp-dma", "fsl,imx6sl-pxp-dma", "fsl,imx6dl-pxp-dma";
 					reg = <0x02218000 0x4000>;
 					interrupts = <GIC_SPI 8 IRQ_TYPE_LEVEL_HIGH>;
-					clocks = <&clks IMX6SX_CLK_PXP_AXI>;
-					clock-names = "axi";
+					clocks = <&clks IMX6SX_CLK_PXP_AXI>,
+						 <&clks IMX6SX_CLK_DISPLAY_AXI>;
+					clock-names = "pxp-axi", "disp-axi";
 					power-domains = <&pd_disp>;
 					status = "disabled";
 				};

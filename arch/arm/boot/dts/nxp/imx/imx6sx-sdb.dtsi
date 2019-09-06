@@ -158,6 +158,11 @@
 		regulator-max-microvolt = <3300000>;
 	};
 
+	pxp_v4l2_out {
+		compatible = "fsl,imx6sx-pxp-v4l2", "fsl,imx6sl-pxp-v4l2";
+		status = "okay";
+	};
+
 	sound {
 		compatible = "fsl,imx6sx-sdb-wm8962", "fsl,imx-audio-wm8962";
 		pinctrl-names = "default";
@@ -376,6 +381,10 @@
 &pwm3 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_pwm3>;
+};
+
+&pxp {
+	status = "okay";
 };
 
 &snvs_poweroff {
