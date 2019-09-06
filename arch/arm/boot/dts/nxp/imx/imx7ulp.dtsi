@@ -454,7 +454,7 @@
 				 <&scg1 IMX7ULP_CLK_NIC1_BUS_DIV>;
 			clock-names = "per", "ipg";
 			assigned-clocks = <&pcc3 IMX7ULP_CLK_LPI2C6>;
-			assigned-clock-parents = <&scg1 IMX7ULP_CLK_FIRC>;
+			assigned-clock-parents = <&scg1 IMX7ULP_CLK_FIRC_BUS_CLK>;
 			assigned-clock-rates = <48000000>;
 			status = "disabled";
 		};
@@ -467,7 +467,7 @@
 				 <&scg1 IMX7ULP_CLK_NIC1_BUS_DIV>;
 			clock-names = "per", "ipg";
 			assigned-clocks = <&pcc3 IMX7ULP_CLK_LPI2C7>;
-			assigned-clock-parents = <&scg1 IMX7ULP_CLK_FIRC>;
+			assigned-clock-parents = <&scg1 IMX7ULP_CLK_FIRC_BUS_CLK>;
 			assigned-clock-rates = <48000000>;
 			status = "disabled";
 		};
