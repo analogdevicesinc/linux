@@ -48,6 +48,7 @@
 				interrupt-parent = <&gpio>;
 				vref-supply = <&adc_vref>;
 				adi,sync-in-gpios = <&gpio 22 1>;
+				reset-gpios = <&gpio 27 1>;
 				clocks = <&ad7768_mclk>;
 				clock-names = "mclk";
 			};
