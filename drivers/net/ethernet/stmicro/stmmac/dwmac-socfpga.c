@@ -52,7 +52,6 @@
 #define EMAC_SPLITTER_CTRL_SPEED_1000		0x0
 
 struct socfpga_dwmac {
-	int	interface;
 	u32	reg_offset;
 	u32	reg_shift;
 #if defined CONFIG_HAVE_ARM_SMCCC && defined CONFIG_ARCH_STRATIX10
@@ -240,8 +239,6 @@ static int socfpga_dwmac_parse_data(struct socfpga_dwmac *dwmac, struct device *
 	struct resource res_tse_pcs;
 	struct resource res_sgmii_adapter;
 
-	dwmac->interface = of_get_phy_mode(np);
-
 #if defined CONFIG_HAVE_ARM_SMCCC && defined CONFIG_ARCH_STRATIX10
 	sys_mgr_base_addr = devm_regmap_init(dev, NULL, (void *)dwmac,
 					     &s10_emac_regmap_cfg);
@@ -383,7 +380,9 @@ err_node_put:
 static int socfpga_dwmac_set_phy_mode(struct socfpga_dwmac *dwmac)
 {
 	struct regmap *sys_mgr_base_addr = dwmac->sys_mgr_base_addr;
-	int phymode = dwmac->interface;
+	struct net_device *ndev = dev_get_drvdata(dwmac->dev);
+	struct stmmac_priv *priv = netdev_priv(ndev);
+	int phymode = priv->plat->interface;
 	u32 reg_offset = dwmac->reg_offset;
 	u32 reg_shift = dwmac->reg_shift;
 #if defined CONFIG_HAVE_ARM_SMCCC && defined CONFIG_ARCH_STRATIX10
