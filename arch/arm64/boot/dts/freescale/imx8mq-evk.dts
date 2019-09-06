@@ -1101,3 +1101,7 @@
 &vpu {
 	status = "okay";
 };
+
+&gpu3d {
+	status = "okay";
+};
