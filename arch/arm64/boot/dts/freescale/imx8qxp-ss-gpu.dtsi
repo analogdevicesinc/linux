@@ -1,0 +1,15 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2019 NXP
+ *	Dong Aisheng <aisheng.dong@nxp.com>
+ */
+
+&gpu0_subsys {
+	imx8_gpu_ss: imx8_gpu0_ss {
+		compatible = "fsl,imx8qxp-gpu", "fsl,imx8-gpu-ss";
+		cores = <&gpu_3d0>;
+		reg = <0x80000000 0x80000000>, <0x0 0x10000000>;
+		reg-names = "phys_baseaddr", "contiguous_mem";
+		status = "disabled";
+	};
+};

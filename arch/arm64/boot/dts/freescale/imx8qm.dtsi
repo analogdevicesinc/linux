@@ -537,6 +537,8 @@
 	#include "imx8-ss-hsio.dtsi"
 	#include "imx8-ss-dc0.dtsi"
 	#include "imx8-ss-dc1.dtsi"
+	#include "imx8-ss-gpu0.dtsi"
+	#include "imx8-ss-gpu1.dtsi"
 	#include "imx8-ss-vpu.dtsi"
 };
 
@@ -550,3 +552,4 @@
 #include "imx8qm-ss-dc.dtsi"
 #include "imx8qm-ss-lvds.dtsi"
 #include "imx8qm-ss-hdmi.dtsi"
+#include "imx8qm-ss-gpu.dtsi"

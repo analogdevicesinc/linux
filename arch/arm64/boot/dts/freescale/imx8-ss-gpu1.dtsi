@@ -1,0 +1,31 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2019 NXP
+ *	Dong Aisheng <aisheng.dong@nxp.com>
+ */
+
+#include <dt-bindings/firmware/imx/rsrc.h>
+
+gpu1_subsys: bus@54100000 {
+	compatible = "simple-bus";
+	#address-cells = <1>;
+	#size-cells = <1>;
+	ranges = <0x54100000 0x0 0x54100000 0x40000>,
+		<0x80000000 0x0 0x80000000 0x80000000>,
+		<0x0 0x0 0x0 0x10000000>;
+
+	gpu_3d1: gpu@54100000 {
+		compatible = "fsl,imx8-gpu";
+		reg = <0x54100000 0x40000>;
+		interrupts = <GIC_SPI 65 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clk IMX_SC_R_GPU_1_PID0 IMX_SC_PM_CLK_PER>,
+			 <&clk IMX_SC_R_GPU_1_PID0 IMX_SC_PM_CLK_MISC>;
+		clock-names = "core", "shader";
+		assigned-clocks = <&clk IMX_SC_R_GPU_1_PID0 IMX_SC_PM_CLK_PER>,
+				  <&clk IMX_SC_R_GPU_1_PID0 IMX_SC_PM_CLK_MISC>;
+		assigned-clock-rates = <800000000>, <1000000000>;
+		fsl,sc_gpu_pid = <IMX_SC_R_GPU_1_PID0>;
+		power-domains = <&pd IMX_SC_R_GPU_1_PID0>;
+		status = "disabled";
+	};
+};

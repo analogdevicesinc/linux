@@ -372,6 +372,7 @@
 #include "imx8qxp-ss-hsio.dtsi"
 #include "imx8qxp-ss-dc.dtsi"
 #include "imx8qxp-ss-lvds.dtsi"
+#include "imx8qxp-ss-gpu.dtsi"
 
 &edma2 {
 	status = "okay";
