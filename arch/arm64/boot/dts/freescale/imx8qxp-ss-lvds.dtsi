@@ -142,8 +142,9 @@
 			reg = <0x56226000 0x4000>;
 			interrupts = <8>;
 			interrupt-parent = <&irqsteer_mipi_lvds0>;
-			clocks = <&mipi0_i2c0_lpcg 0>;
-			clock-names = "per";
+			clocks = <&mipi0_i2c0_lpcg 0>,
+				 <&mipi0_i2c0_lpcg 1>;
+			clock-names = "per", "ipg";
 			assigned-clocks = <&clk IMX_SC_R_MIPI_0_I2C_0 IMX_SC_PM_CLK_PER>;
 			assigned-clock-rates = <24000000>;
 			power-domains = <&pd IMX_SC_R_MIPI_0_I2C_0>;
@@ -230,8 +231,9 @@
 			reg = <0x56246000 0x4000>;
 			interrupts = <8>;
 			interrupt-parent = <&irqsteer_mipi_lvds1>;
-			clocks = <&mipi1_i2c0_lpcg 0>;
-			clock-names = "per";
+			clocks = <&mipi1_i2c0_lpcg 0>,
+				 <&mipi1_i2c0_lpcg 1>;
+			clock-names = "per", "ipg";
 			assigned-clocks = <&clk IMX_SC_R_MIPI_1_I2C_0 IMX_SC_PM_CLK_PER>;
 			assigned-clock-rates = <24000000>;
 			power-domains = <&pd IMX_SC_R_MIPI_1_I2C_0>;

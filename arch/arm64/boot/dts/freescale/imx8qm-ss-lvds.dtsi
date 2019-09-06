@@ -143,8 +143,9 @@
 			reg = <0x56247000 0x4000>;
 			interrupts = <9>;
 			interrupt-parent = <&irqsteer_lvds0>;
-			clocks = <&lvds0_i2c0_lpcg 0>;
-			clock-names = "per";
+			clocks = <&lvds0_i2c0_lpcg 0>,
+				 <&lvds0_i2c0_lpcg 1>;
+			clock-names = "per", "ipg";
 			assigned-clocks = <&clk IMX_SC_R_LVDS_0_I2C_0 IMX_SC_PM_CLK_PER>;
 			assigned-clock-rates = <24000000>;
 			power-domains = <&pd IMX_SC_R_LVDS_0_I2C_0>;
@@ -283,8 +284,9 @@
 			reg = <0x57247000 0x4000>;
 			interrupts = <9>;
 			interrupt-parent = <&irqsteer_lvds1>;
-			clocks = <&lvds1_i2c0_lpcg 0>;
-			clock-names = "per";
+			clocks = <&lvds1_i2c0_lpcg 0>,
+				 <&lvds1_i2c0_lpcg 1>;
+			clock-names = "per", "ipg";
 			assigned-clocks = <&clk IMX_SC_R_LVDS_1_I2C_0 IMX_SC_PM_CLK_PER>;
 			assigned-clock-rates = <24000000>;
 			power-domains = <&pd IMX_SC_R_LVDS_1_I2C_0>;

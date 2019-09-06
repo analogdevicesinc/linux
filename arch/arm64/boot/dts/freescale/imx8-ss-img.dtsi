@@ -265,8 +265,9 @@ img_subsys: bus@58000000 {
 		reg = <0x58226000 0x1000>;
 		interrupts = <8>;
 		interrupt-parent = <&irqsteer_csi0>;
-		clocks = <&clk IMX_SC_R_CSI_0_I2C_0 IMX_SC_PM_CLK_PER>;
-		clock-names = "per";
+		clocks = <&clk IMX_SC_R_CSI_0_I2C_0 IMX_SC_PM_CLK_PER>,
+			 <&img_ipg_clk>;
+		clock-names = "per", "ipg";
 		assigned-clocks = <&clk IMX_SC_R_CSI_0_I2C_0 IMX_SC_PM_CLK_PER>;
 		assigned-clock-rates = <24000000>;
 		power-domains = <&pd IMX_SC_R_CSI_0_I2C_0>;
@@ -278,8 +279,9 @@ img_subsys: bus@58000000 {
 		reg = <0x58246000 0x1000>;
 		interrupts = <8>;
 		interrupt-parent = <&irqsteer_csi1>;
-		clocks = <&clk IMX_SC_R_CSI_1_I2C_0 IMX_SC_PM_CLK_PER>;
-		clock-names = "per";
+		clocks = <&clk IMX_SC_R_CSI_1_I2C_0 IMX_SC_PM_CLK_PER>,
+			 <&img_ipg_clk>;
+		clock-names = "per", "ipg";
 		assigned-clocks = <&clk IMX_SC_R_CSI_1_I2C_0 IMX_SC_PM_CLK_PER>;
 		assigned-clock-rates = <24000000>;
 		power-domains = <&pd IMX_SC_R_CSI_1_I2C_0>;
