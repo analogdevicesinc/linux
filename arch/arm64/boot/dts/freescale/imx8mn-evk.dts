@@ -126,6 +126,10 @@
 	};
 };
 
+&gpu {
+	status= "okay";
+};
+
 &i2c3 {
 	camera@3c {
 		DOVDD-supply = <&buck5>;

@@ -159,6 +159,23 @@
 	};
 };
 
+&gpu {
+	assigned-clocks = <&clk IMX8MN_CLK_GPU_CORE_SRC>,
+			<&clk IMX8MN_CLK_GPU_SHADER_SRC>,
+			<&clk IMX8MN_CLK_GPU_AXI>,
+			<&clk IMX8MN_CLK_GPU_AHB>,
+			<&clk IMX8MN_GPU_PLL>,
+			<&clk IMX8MN_CLK_GPU_CORE_DIV>,
+			<&clk IMX8MN_CLK_GPU_SHADER_DIV>;
+	assigned-clock-parents = <&clk IMX8MN_GPU_PLL_OUT>,
+			<&clk IMX8MN_GPU_PLL_OUT>,
+			<&clk IMX8MN_SYS_PLL1_800M>,
+			<&clk IMX8MN_SYS_PLL1_800M>;
+	assigned-clock-rates = <0>, <0>, <800000000>, <400000000>, <1200000000>,
+			<400000000>, <400000000>;
+	status= "okay";
+};
+
 &i2c3 {
 	camera@3c {
 		DOVDD-supply = <&buck5_reg>;
