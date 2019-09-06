@@ -73,7 +73,7 @@
 #   include <linux/platform_device.h>
 #endif
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,9,0)) || defined(IMX8_SCU_CONTROL)
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,9,0))
 #  define IMX_GPU_SUBSYSTEM   1
 #  include <linux/component.h>
 #endif
@@ -97,10 +97,10 @@
 
 #include <linux/clk.h>
 
-#if defined(IMX8_SCU_CONTROL)
-#  include <soc/imx8/sc/sci.h>
-static sc_ipc_t gpu_ipcHandle;
-#endif
+#include <linux/firmware/imx/ipc.h>
+#include <linux/firmware/imx/svc/misc.h>
+#include <dt-bindings/firmware/imx/rsrc.h>
+static struct imx_sc_ipc *gpu_ipcHandle;
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(3,10,0)
 #  include <mach/hardware.h>
@@ -417,9 +417,8 @@ struct imx_priv
     struct reset_control *rstc[gcdMAX_GPU_COUNT];
 #endif
 
-#if defined(IMX8_SCU_CONTROL)
-    sc_rsrc_t sc_gpu_pid[gcdMAX_GPU_COUNT];
-#endif
+    unsigned int sc_gpu_pid[gcdMAX_GPU_COUNT];
+
 
     int gpu3dCount;
 
@@ -672,6 +671,7 @@ int remove_gpu_opp_table(void)
 #ifdef IMX_GPU_SUBSYSTEM
 
 static int use_imx_gpu_subsystem;
+static int use_imx_scu_control;
 
 /* sub device component ops. */
 static int mxc_gpu_sub_bind(struct device *dev,
@@ -793,24 +793,12 @@ static inline int get_power_imx8_subsystem(struct device *pdev)
     struct device_node *core_node;
     int core = gcvCORE_MAJOR;
 
-#if defined(IMX8_SCU_CONTROL)
-    sc_err_t sciErr;
-    uint32_t mu_id;
-
-    sciErr = sc_ipc_getMuID(&mu_id);
-
-    if (sciErr != SC_ERR_NONE) {
-        printk("galcore; cannot obtain mu id\n");
-        return -EINVAL;
-    }
-
-    sciErr = sc_ipc_open(&gpu_ipcHandle, mu_id);
-
-    if (sciErr != SC_ERR_NONE) {
-        printk("galcore: cannot open MU channel to SCU\n");
-        return -EINVAL;
-    }
-#endif
+	uint32_t ret;
+	ret = imx_scu_get_handle(&gpu_ipcHandle);
+	if (ret != 0) {
+		printk("galcore: cannot open MU channel to SCU\n");
+		return -EINVAL;
+	}
 
     while ((core_node = of_parse_phandle(node, "cores", i++)) != NULL) {
         struct platform_device *pdev_gpu = NULL;
@@ -862,11 +850,10 @@ static inline int get_power_imx8_subsystem(struct device *pdev)
         priv->imx_gpu_clks[core].clk_core   = clk_core;
         priv->imx_gpu_clks[core].clk_axi    = clk_axi;
 
-#if defined(IMX8_SCU_CONTROL)
+if(use_imx_scu_control==1)
         if (of_property_read_u32(core_node, "fsl,sc_gpu_pid", &priv->sc_gpu_pid[core])) {
             priv->sc_gpu_pid[core] = 0;
         }
-#endif
 
 #ifdef CONFIG_PM
         pm_runtime_get_noresume(&pdev_gpu->dev);
@@ -1290,10 +1277,6 @@ static inline void put_power(void)
     remove_gpu_opp_table();
 #endif
 
-#if defined(IMX8_SCU_CONTROL)
-    if (gpu_ipcHandle)
-        sc_ipc_close(gpu_ipcHandle);
-#endif
 }
 
 static inline int set_power(int gpu, int enable)
@@ -1320,23 +1303,27 @@ static inline int set_power(int gpu, int enable)
         pm_runtime_get_sync(priv->pmdev[gpu]);
 #endif
 
-#if defined(IMX8_SCU_CONTROL)
-        if (priv->sc_gpu_pid[gpu]) {
-            sc_err_t sciErr = sc_misc_set_control(gpu_ipcHandle, priv->sc_gpu_pid[gpu], SC_C_ID, gpu);
-            if (sciErr != SC_ERR_NONE)
-                printk("galcore: failed to set gpu id for 3d_%d\n", gpu);
-
-            if (priv->gpu3dCount > 1) {
-                sciErr = sc_misc_set_control(gpu_ipcHandle, priv->sc_gpu_pid[gpu], SC_C_SINGLE_MODE, 0);
-                if (sciErr != SC_ERR_NONE)
-                    printk("galcore: failed to set gpu dual mode for 3d_%d\n", gpu);
-            } else {
-                 sciErr = sc_misc_set_control(gpu_ipcHandle, priv->sc_gpu_pid[gpu], SC_C_SINGLE_MODE, 1);
-                 if (sciErr != SC_ERR_NONE)
-                     printk("galcore: failed to set gpu single mode for 3d_%d\n", gpu);
-            }
+	if (use_imx_scu_control==1)
+	if (priv->sc_gpu_pid[gpu]) {
+			uint32_t ret = imx_sc_misc_set_control(gpu_ipcHandle, priv->sc_gpu_pid[gpu], IMX_SC_C_ID, gpu);
+			if (ret) {
+					 printk( "galcore: failed to set gpu id for 3d_%d\n",gpu);
+					return -EIO;
+			}
+			 if (priv->gpu3dCount > 1) {
+					ret = imx_sc_misc_set_control(gpu_ipcHandle, priv->sc_gpu_pid[gpu], IMX_SC_C_SINGLE_MODE, 0);
+					if (ret) {
+						 printk( "galcore: failed to set gpu dual mode for 3d_%d\n",gpu);
+						return -EIO;
+					}
+			 } else {
+					ret = imx_sc_misc_set_control(gpu_ipcHandle, priv->sc_gpu_pid[gpu], IMX_SC_C_SINGLE_MODE, 1);
+					if (ret) {
+						 printk("galcore: failed to set gpu single mode for 3d_%d\n",gpu);
+						return -EIO;
+					}
+			 }
         }
-#endif
     } else {
 #ifdef CONFIG_PM
         pm_runtime_put_sync(priv->pmdev[gpu]);
@@ -1617,6 +1604,7 @@ int soc_platform_init(struct platform_driver *pdrv,
 #ifdef IMX_GPU_SUBSYSTEM
     if (of_find_compatible_node(NULL, NULL, "fsl,imx8-gpu-ss")) {
         use_imx_gpu_subsystem = 1;
+        use_imx_scu_control = 1;
     }
 
     if (of_find_compatible_node(NULL, NULL, "fsl,imx8x-gpu")) {
