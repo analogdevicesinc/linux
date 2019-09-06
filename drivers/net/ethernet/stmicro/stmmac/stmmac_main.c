@@ -957,7 +957,7 @@ static int stmmac_init_phy(struct net_device *dev)
 	struct phy_device *phydev;
 	char phy_id_fmt[MII_BUS_ID_SIZE + 3];
 	char bus_id[MII_BUS_ID_SIZE];
-	int interface = priv->plat->interface;
+	int interface = priv->plat->phy_interface;
 	int max_speed = priv->plat->max_speed;
 	priv->oldlink = false;
 	priv->speed = SPEED_UNKNOWN;
