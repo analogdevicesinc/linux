@@ -44,6 +44,11 @@
 		};
 	};
 
+	pxp_v4l2_out {
+		compatible = "fsl,imx6sl-pxp-v4l2";
+		status = "okay";
+	};
+
 	reg_usb_otg1_vbus: regulator-otg1-vbus {
 		compatible = "regulator-fixed";
 		pinctrl-names = "default";
