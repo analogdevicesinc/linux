@@ -52,6 +52,30 @@ properties:
     maxItems: 1
     default: 0
 
+    adi,gpio-out-pol:
+      description:
+        This property controls the GPIO polarity. Setting it to one makes the GPIO active high, setting it
+        to zero makets it active low. When this property is present, the GPIO is automatically configured
+        as output and set to control a fan as a function of measured temperature.
+      allOf:
+        - $ref: /schemas/types.yaml#/definitions/uint32
+        - enum: [0, 1]
+      maxItems: 1
+      default: 0
+
+      adi,gpio-in-accum:
+        description:
+          When set, this property sets the GPIO as input. It is then used to control the accumulation of
+          charge, energy and time. This function can be enabled/configured separately for each of the
+          two sets of accumulation registers. Check table 13 of the datasheet for more information on the
+          supported options. This property cannot be used together with adi,gpio-out-pol.
+        allOf:
+          - $ref: /schemas/types.yaml#/definitions/uint32
+          - enum: [0, 1, 2]
+        minItems: 2
+        maxItems: 2
+        default: {0 0}
+
 required:
   - compatible
   - reg
