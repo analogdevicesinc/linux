@@ -28,6 +28,30 @@ properties:
       an external clock is used, this property must be set accordingly.
     maxItems: 1
 
+  adi,accumulator-ctl-pol:
+    description:
+      This property controls the polarity of current that is accumulatred to calculate charge and
+      energy so that, they can be only accumulated for positive current for example. Since there are
+      two sets of registers for the accumulated values, this entry can also have two items which sets
+      energy1/charge1 and energy2/charger2 respectively. Check table 12 of the datasheet for more
+      information on the supported options.
+    allOf:
+      - $ref: /schemas/types.yaml#/definitions/uint32
+      - enum: [0, 1, 2, 3]
+    minItems: 2
+    maxItems: 2
+    default: {0 0}
+
+  adi,accumulation-deadband-microamp:
+    description:
+      This property controls the Accumulation Dead band which allows to set the level of current below which
+      no accumulation takes place.
+    allOf:
+      - $ref: /schemas/types.yaml#/definitions/uint32
+      - maximum: 255
+    maxItems: 1
+    default: 0
+
 required:
   - compatible
   - reg
@@ -42,6 +66,9 @@ examples:
            ltc2947_spi: ltc2947@0 {
                    compatible = "adi,ltc2947";
                    reg = <0>;
+                   /* accumulation takes place always for energ1/charge1. */
+                   /* accumulation only on positive current for energy2/charge2. */
+                   adi,accumulator-ctl-pol = <0 1>;
            };
     };
 ...
