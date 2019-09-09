@@ -257,7 +257,7 @@ EXPORT_SYMBOL(dpu_be_wait);
 static void dpu_be_init_units(struct dpu_bliteng *dpu_be)
 {
 	u32 staticcontrol;
-	u32 pixengcfg_unit_static, pixengcfg_unit_dynamic;
+	u32 pixengcfg_unit_dynamic;
 
 	staticcontrol =
 	1 << FETCHDECODE9_STATICCONTROL_SHDEN_SHIFT |
@@ -307,18 +307,6 @@ static void dpu_be_init_units(struct dpu_bliteng *dpu_be)
 	0 << STORE9_STATICCONTROL_BASEADDRESSAUTOUPDATE_SHIFT |
 	STORE9_STATICCONTROL_RESET_VALUE;
 	dpu_be_write(dpu_be, staticcontrol, STORE9_STATICCONTROL);
-
-	/* Safety_Pixengcfg Static */
-	pixengcfg_unit_static =
-	1 << PIXENGCFG_STORE9_STATIC_STORE9_SHDEN_SHIFT |
-	0 << PIXENGCFG_STORE9_STATIC_STORE9_POWERDOWN_SHIFT |
-	PIXENGCFG_STORE9_STATIC_STORE9_SYNC_MODE__SINGLE <<
-	PIXENGCFG_STORE9_STATIC_STORE9_SYNC_MODE_SHIFT |
-	PIXENGCFG_STORE9_STATIC_STORE9_SW_RESET__OPERATION <<
-	PIXENGCFG_STORE9_STATIC_STORE9_SW_RESET_SHIFT |
-	PIXENGCFG_DIVIDER_RESET <<
-	PIXENGCFG_STORE9_STATIC_STORE9_DIV_SHIFT;
-	dpu_be_write(dpu_be, pixengcfg_unit_static, PIXENGCFG_STORE9_STATIC);
 
 	/* Safety_Pixengcfg Dynamic */
 	pixengcfg_unit_dynamic =
