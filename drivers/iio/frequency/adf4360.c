@@ -545,9 +545,6 @@ static int __adf4360_power_down(struct adf4360_state *st, unsigned int mode)
 			}
 		}
 
-		if (st->chip_en_gpio)
-			gpiod_set_value(st->chip_en_gpio, 0x1);
-
 		st->initial_reg_seq = true;
 		st->power_down_mode = mode;
 		ret = adf4360_set_freq(st, st->freq_req);
@@ -596,12 +593,31 @@ static int adf4360_power_down(struct adf4360_state *st, unsigned int mode)
 	return ret;
 }
 
-static int adf4360_clk_enable(struct clk_hw *hw)
+static int adf4360_clk_prepare(struct clk_hw *hw)
 {
 	struct iio_dev *indio_dev = to_output(hw)->indio_dev;
 	struct adf4360_state *st = iio_priv(indio_dev);
 
 	return adf4360_power_down(st, ADF4360_POWER_DOWN_NORMAL);
+}
+
+static void adf4360_clk_unprepare(struct clk_hw *hw)
+{
+	struct iio_dev *indio_dev = to_output(hw)->indio_dev;
+	struct adf4360_state *st = iio_priv(indio_dev);
+
+	adf4360_power_down(st, ADF4360_POWER_DOWN_SOFT_ASYNC);
+}
+
+static int adf4360_clk_enable(struct clk_hw *hw)
+{
+	struct iio_dev *indio_dev = to_output(hw)->indio_dev;
+	struct adf4360_state *st = iio_priv(indio_dev);
+
+	if (st->chip_en_gpio)
+		gpiod_set_value(st->chip_en_gpio, 0x1);
+
+	return 0;
 }
 
 static void adf4360_clk_disable(struct clk_hw *hw)
@@ -611,8 +627,6 @@ static void adf4360_clk_disable(struct clk_hw *hw)
 
 	if (st->chip_en_gpio)
 		adf4360_power_down(st, ADF4360_POWER_DOWN_CE);
-	else
-		adf4360_power_down(st, ADF4360_POWER_DOWN_SOFT_ASYNC);
 }
 
 static int adf4360_clk_is_enabled(struct clk_hw *hw)
@@ -627,6 +641,8 @@ static const struct clk_ops adf4360_clk_ops = {
 	.recalc_rate = adf4360_clk_recalc_rate,
 	.round_rate = adf4360_clk_round_rate,
 	.set_rate = adf4360_clk_set_rate,
+	.prepare = adf4360_clk_prepare,
+	.unprepare = adf4360_clk_unprepare,
 	.enable = adf4360_clk_enable,
 	.disable = adf4360_clk_disable,
 	.is_enabled = adf4360_clk_is_enabled,
