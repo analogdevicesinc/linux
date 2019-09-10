@@ -226,7 +226,7 @@ static int ltc2947_val_read(struct ltc2947_data *st, const u8 reg,
 		return ret;
 	}
 
-	dev_dbg(st->dev, "Read val, reg:%02X, p:%d sz:%02X\n", reg, page,
+	dev_dbg(st->dev, "Read val, reg:%02X, p:%d sz:%zu\n", reg, page,
 								size);
 	switch (size) {
 	case 2:
@@ -239,7 +239,7 @@ static int ltc2947_val_read(struct ltc2947_data *st, const u8 reg,
 		ret = __ltc2947_val_read64(st, reg, &__val);
 		break;
 	default:
-		dev_err(st->dev, "Invalid size(%d) to read", size);
+		dev_err(st->dev, "Invalid size(%zu) to read", size);
 		ret = -EINVAL;
 		break;
 	}
@@ -296,7 +296,7 @@ static int ltc2947_val_write(struct ltc2947_data *st, const u8 reg,
 		return ret;
 	}
 
-	dev_dbg(st->dev, "Write val, r:%02X, p:%d, sz:%02X, val:%016llX\n",
+	dev_dbg(st->dev, "Write val, r:%02X, p:%d, sz:%zu, val:%016llX\n",
 		reg, page, size, val);
 
 	switch (size) {
@@ -307,7 +307,7 @@ static int ltc2947_val_write(struct ltc2947_data *st, const u8 reg,
 		ret = __ltc2947_val_write64(st, reg, val);
 		break;
 	default:
-		dev_err(st->dev, "Invalid size(%d) to write", size);
+		dev_err(st->dev, "Invalid size(%zu) to write", size);
 		ret = -EINVAL;
 		break;
 	}
