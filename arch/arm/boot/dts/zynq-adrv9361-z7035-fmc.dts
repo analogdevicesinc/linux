@@ -135,7 +135,7 @@
 &gem1 {
 	status = "okay";
 
-	phy-handle = <&gmiitorgmii>;
+	phy-handle = <&phy1>;
 	phy-mode = "gmii";
 
 	phy1: phy@1 {
