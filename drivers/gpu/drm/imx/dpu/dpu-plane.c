@@ -70,6 +70,16 @@ static const uint64_t dpu_format_modifiers[] = {
 	DRM_FORMAT_MOD_INVALID,
 };
 
+static unsigned int dpu_plane_get_default_zpos(enum drm_plane_type type)
+{
+	if (type == DRM_PLANE_TYPE_PRIMARY)
+		return 0;
+	else if (type == DRM_PLANE_TYPE_OVERLAY)
+		return 1;
+
+	return 0;
+}
+
 static void dpu_plane_destroy(struct drm_plane *plane)
 {
 	struct dpu_plane *dpu_plane = to_dpu_plane(plane);
@@ -92,11 +102,10 @@ static void dpu_plane_reset(struct drm_plane *plane)
 	if (!state)
 		return;
 
-	state->base.zpos = plane->type == DRM_PLANE_TYPE_PRIMARY ? 0 : 1;
-
 	plane->state = &state->base;
 	plane->state->plane = plane;
 	plane->state->rotation = DRM_MODE_ROTATE_0;
+	plane->state->zpos = dpu_plane_get_default_zpos(plane->type);
 }
 
 static struct drm_plane_state *
@@ -617,7 +626,6 @@ static void dpu_plane_atomic_update(struct drm_plane *plane,
 	bool update_aux_source = false;
 	bool use_prefetch;
 	bool need_modeset;
-	bool is_overlay = plane->type == DRM_PLANE_TYPE_OVERLAY;
 	bool fb_is_interlaced;
 
 	/*
@@ -878,7 +886,7 @@ again:
 		if (prefetch_start || uv_prefetch_start) {
 			dprc_first_frame_handle(dprc);
 
-			if (!need_modeset && is_overlay)
+			if (!need_modeset && state->normalized_zpos != 0)
 				framegen_wait_for_frame_counter_moving(fg);
 		}
 
@@ -949,7 +957,8 @@ struct dpu_plane *dpu_plane_create(struct drm_device *drm,
 	struct dpu_plane *dpu_plane;
 	struct drm_plane *plane;
 	const uint32_t *formats;
-	unsigned int format_count, ov_num;
+	unsigned int format_count;
+	unsigned int zpos = dpu_plane_get_default_zpos(type);
 	int ret;
 
 	dpu_plane = kzalloc(sizeof(*dpu_plane), GFP_KERNEL);
@@ -983,20 +992,8 @@ struct dpu_plane *dpu_plane_create(struct drm_device *drm,
 
 	drm_plane_helper_add(plane, &dpu_plane_helper_funcs);
 
-	switch (type) {
-	case DRM_PLANE_TYPE_PRIMARY:
-		ret = drm_plane_create_zpos_immutable_property(plane, 0);
-		break;
-	case DRM_PLANE_TYPE_OVERLAY:
-		/* filter out the primary plane */
-		ov_num = grp->hw_plane_num - 1;
-
-		ret = drm_plane_create_zpos_property(plane, 1, 1, ov_num);
-		break;
-	default:
-		ret = -EINVAL;
-	}
-
+	ret = drm_plane_create_zpos_property(plane,
+					     zpos, 0, grp->hw_plane_num - 1);
 	if (ret)
 		goto err;
 
