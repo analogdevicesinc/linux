@@ -264,6 +264,7 @@ struct adxl372_state {
 	u8				int2_bitmask;
 	u16				watermark;
 	__be16				fifo_buf[ADXL372_FIFO_SIZE];
+	bool				peak_fifo_mode_en;
 };
 
 static const unsigned long adxl372_channel_masks[] = {
@@ -726,6 +727,36 @@ static int adxl372_write_raw(struct iio_dev *indio_dev,
 	}
 }
 
+static ssize_t adxl372_peak_fifo_en_get(struct device *dev,
+					struct device_attribute *attr,
+					char *buf)
+{
+	struct adxl372_state *st = iio_priv(dev_to_iio_dev(dev));
+
+	return sprintf(buf, "%d\n", st->peak_fifo_mode_en);
+}
+
+static ssize_t adxl372_peak_fifo_en_set(struct device *dev,
+					struct device_attribute *attr,
+					const char *buf, size_t len)
+{
+	struct adxl372_state *st = iio_priv(dev_to_iio_dev(dev));
+	bool val;
+	int ret;
+
+	ret = kstrtobool(buf, &val);
+	if (ret)
+		return ret;
+
+	st->peak_fifo_mode_en = val;
+
+	return len;
+}
+
+static IIO_DEVICE_ATTR(peak_fifo_mode_enable, 0644,
+		       adxl372_peak_fifo_en_get,
+		       adxl372_peak_fifo_en_set, 0);
+
 static ssize_t adxl372_show_filter_freq_avail(struct device *dev,
 					      struct device_attribute *attr,
 					      char *buf)
@@ -815,11 +846,16 @@ static int adxl372_buffer_postenable(struct iio_dev *indio_dev)
 	st->fifo_format = adxl372_axis_lookup_table[i].fifo_format;
 	st->fifo_set_size = bitmap_weight(indio_dev->active_scan_mask,
 					  indio_dev->masklength);
+
+	/* Configure the FIFO to store sets of impact event peak. */
+	if (st->fifo_set_size == 3 && st->peak_fifo_mode_en)
+		st->fifo_format = ADXL372_XYZ_PEAK_FIFO;
 	/*
 	 * The 512 FIFO samples can be allotted in several ways, such as:
 	 * 170 sample sets of concurrent 3-axis data
 	 * 256 sample sets of concurrent 2-axis data (user selectable)
 	 * 512 sample sets of single-axis data
+	 * 170 sets of impact event peak (x, y, z)
 	 */
 	if ((st->watermark * st->fifo_set_size) > ADXL372_FIFO_SIZE)
 		st->watermark = (ADXL372_FIFO_SIZE  / st->fifo_set_size);
@@ -888,6 +924,7 @@ static IIO_DEVICE_ATTR(in_accel_filter_low_pass_3db_frequency_available,
 static struct attribute *adxl372_attributes[] = {
 	&iio_const_attr_sampling_frequency_available.dev_attr.attr,
 	&iio_dev_attr_in_accel_filter_low_pass_3db_frequency_available.dev_attr.attr,
+	&iio_dev_attr_peak_fifo_mode_enable.dev_attr.attr,
 	NULL,
 };
 
