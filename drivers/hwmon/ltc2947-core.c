@@ -601,7 +601,7 @@ static int ltc2947_read_temp(struct device *dev, const u32 attr, long *val,
 					       PAGE1, 2, &__val);
 		break;
 	default:
-		return -EOPNOTSUPP;
+		return -ENOTSUPP;
 	}
 
 	if (ret)
@@ -622,7 +622,7 @@ static int ltc2947_read_power(struct device *dev, const u32 attr, long *val)
 		return ltc2947_alarm_read(st, LTC2947_REG_STATIP,
 					  LTC2947_MAX_POWER_MASK, val);
 	default:
-		return -EOPNOTSUPP;
+		return -ENOTSUPP;
 	}
 
 	return 0;
@@ -664,7 +664,7 @@ static int ltc2947_read_curr(struct device *dev, const u32 attr, long *val)
 				       &__val);
 		break;
 	default:
-		return -EOPNOTSUPP;
+		return -ENOTSUPP;
 	}
 
 	if (ret)
@@ -758,7 +758,7 @@ static int ltc2947_read_in(struct device *dev, const u32 attr, long *val,
 		}
 		break;
 	default:
-		return -EOPNOTSUPP;
+		return -ENOTSUPP;
 	}
 
 	if (ret)
@@ -782,7 +782,7 @@ static int ltc2947_read(struct device *dev, enum hwmon_sensor_types type,
 	case hwmon_temp:
 		return ltc2947_read_temp(dev, attr, val, channel);
 	default:
-		return -EOPNOTSUPP;
+		return -ENOTSUPP;
 	}
 }
 
@@ -938,7 +938,7 @@ static int ltc2947_write(struct device *dev,
 	case hwmon_temp:
 		return ltc2947_write_temp(dev, attr, val, channel);
 	default:
-		return -EOPNOTSUPP;
+		return -ENOTSUPP;
 	}
 }
 
@@ -966,7 +966,7 @@ static int ltc2947_read_labels(struct device *dev,
 		*str = "Power";
 		return 0;
 	default:
-		return -EOPNOTSUPP;
+		return -ENOTSUPP;
 	}
 }
 
