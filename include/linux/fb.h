@@ -131,6 +131,18 @@ struct fb_cursor_user {
 /*	The resolution of the passed in fb_info about to change */
 #define FB_EVENT_MODE_CHANGE		0x01
 
+#ifdef CONFIG_FB_MXC_HDMI
+/* only used by mxc_hdmi.c */
+/*     The display on this fb_info is being suspended, no access to the
+ *     framebuffer is allowed any more after that call returns
+ */
+#define FB_EVENT_SUSPEND               0x02
+/*     The display on this fb_info was resumed, you can restore the display
+ *     if you own it
+ */
+#define FB_EVENT_RESUME                        0x03
+#endif
+
 #if (defined CONFIG_GUMSTIX_AM200EPD) || (defined CONFIG_FB_MXC_HDMI) || (defined CONFIG_FB_MXS_SII902X)
 /* only used by mach-pxa/am200epd.c */
 #define FB_EVENT_FB_REGISTERED          0x05
