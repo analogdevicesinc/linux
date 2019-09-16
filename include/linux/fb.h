@@ -131,7 +131,7 @@ struct fb_cursor_user {
 /*	The resolution of the passed in fb_info about to change */
 #define FB_EVENT_MODE_CHANGE		0x01
 
-#ifdef CONFIG_GUMSTIX_AM200EPD
+#if (defined CONFIG_GUMSTIX_AM200EPD) || (defined CONFIG_FB_MXC_HDMI) || (defined CONFIG_FB_MXS_SII902X)
 /* only used by mach-pxa/am200epd.c */
 #define FB_EVENT_FB_REGISTERED          0x05
 #define FB_EVENT_FB_UNREGISTERED        0x06
