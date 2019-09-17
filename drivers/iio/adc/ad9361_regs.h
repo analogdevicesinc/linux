@@ -2793,7 +2793,6 @@
  */
 
 #define MIN_ADC_CLK			25000000UL /* 25 MHz */
-//#define MIN_ADC_CLK			(MIN_BBPLL_FREQ / MAX_BBPLL_DIV) /* 11.17MHz */
 #define MAX_ADC_CLK			640000000UL /* 640 MHz */
 #define MAX_DAC_CLK			(MAX_ADC_CLK / 2)
 
@@ -2826,5 +2825,7 @@
 
 #define MAX_GAIN_TABLE_SIZE		90
 #define MAX_NUM_GAIN_TABLES		16 /* randomly picked */
+
+#define MAX_TX_ATTENUATION_DB		89750
 
 #endif

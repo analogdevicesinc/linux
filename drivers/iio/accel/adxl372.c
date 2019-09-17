@@ -264,6 +264,7 @@ struct adxl372_state {
 	u8				int2_bitmask;
 	u16				watermark;
 	__be16				fifo_buf[ADXL372_FIFO_SIZE];
+	bool				peak_fifo_mode_en;
 };
 
 static const unsigned long adxl372_channel_masks[] = {
@@ -474,12 +475,17 @@ static int adxl372_configure_fifo(struct adxl372_state *st)
 	if (ret < 0)
 		return ret;
 
-	fifo_samples = st->watermark & 0xFF;
+	/*
+	 * watermak stores the number of sets; we need to write the FIFO
+	 * registers with the number of samples
+	 */
+	fifo_samples = (st->watermark * st->fifo_set_size);
 	fifo_ctl = ADXL372_FIFO_CTL_FORMAT_MODE(st->fifo_format) |
 		   ADXL372_FIFO_CTL_MODE_MODE(st->fifo_mode) |
-		   ADXL372_FIFO_CTL_SAMPLES_MODE(st->watermark);
+		   ADXL372_FIFO_CTL_SAMPLES_MODE(fifo_samples);
 
-	ret = regmap_write(st->regmap, ADXL372_FIFO_SAMPLES, fifo_samples);
+	ret = regmap_write(st->regmap,
+			   ADXL372_FIFO_SAMPLES, fifo_samples & 0xFF);
 	if (ret < 0)
 		return ret;
 
@@ -548,8 +554,7 @@ static irqreturn_t adxl372_trigger_handler(int irq, void  *p)
 			goto err;
 
 		/* Each sample is 2 bytes */
-		for (i = 0; i < fifo_entries * sizeof(u16);
-		     i += st->fifo_set_size * sizeof(u16))
+		for (i = 0; i < fifo_entries; i += st->fifo_set_size)
 			iio_push_to_buffers(indio_dev, &st->fifo_buf[i]);
 	}
 err:
@@ -570,6 +575,14 @@ static int adxl372_setup(struct adxl372_state *st)
 		dev_err(st->dev, "Invalid chip id %x\n", regval);
 		return -ENODEV;
 	}
+
+	/*
+	 * Perform a software reset to make sure the device is in a consistent
+	 * state after start up.
+	 */
+	ret = regmap_write(st->regmap, ADXL372_RESET, ADXL372_RESET_CODE);
+	if (ret < 0)
+		return ret;
 
 	ret = adxl372_set_op_mode(st, ADXL372_STANDBY);
 	if (ret < 0)
@@ -607,6 +620,10 @@ static int adxl372_setup(struct adxl372_state *st)
 
 	/* Set inactivity timer to 10s */
 	ret = adxl372_set_inactivity_time_ms(st, 10000);
+	if (ret < 0)
+		return ret;
+
+	ret = adxl372_set_interrupts(st, 0, 0);
 	if (ret < 0)
 		return ret;
 
@@ -710,6 +727,36 @@ static int adxl372_write_raw(struct iio_dev *indio_dev,
 	}
 }
 
+static ssize_t adxl372_peak_fifo_en_get(struct device *dev,
+					struct device_attribute *attr,
+					char *buf)
+{
+	struct adxl372_state *st = iio_priv(dev_to_iio_dev(dev));
+
+	return sprintf(buf, "%d\n", st->peak_fifo_mode_en);
+}
+
+static ssize_t adxl372_peak_fifo_en_set(struct device *dev,
+					struct device_attribute *attr,
+					const char *buf, size_t len)
+{
+	struct adxl372_state *st = iio_priv(dev_to_iio_dev(dev));
+	bool val;
+	int ret;
+
+	ret = kstrtobool(buf, &val);
+	if (ret)
+		return ret;
+
+	st->peak_fifo_mode_en = val;
+
+	return len;
+}
+
+static IIO_DEVICE_ATTR(peak_fifo_mode_enable, 0644,
+		       adxl372_peak_fifo_en_get,
+		       adxl372_peak_fifo_en_set, 0);
+
 static ssize_t adxl372_show_filter_freq_avail(struct device *dev,
 					      struct device_attribute *attr,
 					      char *buf)
@@ -799,11 +846,16 @@ static int adxl372_buffer_postenable(struct iio_dev *indio_dev)
 	st->fifo_format = adxl372_axis_lookup_table[i].fifo_format;
 	st->fifo_set_size = bitmap_weight(indio_dev->active_scan_mask,
 					  indio_dev->masklength);
+
+	/* Configure the FIFO to store sets of impact event peak. */
+	if (st->fifo_set_size == 3 && st->peak_fifo_mode_en)
+		st->fifo_format = ADXL372_XYZ_PEAK_FIFO;
 	/*
 	 * The 512 FIFO samples can be allotted in several ways, such as:
 	 * 170 sample sets of concurrent 3-axis data
 	 * 256 sample sets of concurrent 2-axis data (user selectable)
 	 * 512 sample sets of single-axis data
+	 * 170 sets of impact event peak (x, y, z)
 	 */
 	if ((st->watermark * st->fifo_set_size) > ADXL372_FIFO_SIZE)
 		st->watermark = (ADXL372_FIFO_SIZE  / st->fifo_set_size);
@@ -872,6 +924,7 @@ static IIO_DEVICE_ATTR(in_accel_filter_low_pass_3db_frequency_available,
 static struct attribute *adxl372_attributes[] = {
 	&iio_const_attr_sampling_frequency_available.dev_attr.attr,
 	&iio_dev_attr_in_accel_filter_low_pass_3db_frequency_available.dev_attr.attr,
+	&iio_dev_attr_peak_fifo_mode_enable.dev_attr.attr,
 	NULL,
 };
 

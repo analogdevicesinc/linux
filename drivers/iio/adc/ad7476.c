@@ -12,9 +12,11 @@
 #include <linux/sysfs.h>
 #include <linux/spi/spi.h>
 #include <linux/regulator/consumer.h>
+#include <linux/gpio/consumer.h>
 #include <linux/err.h>
 #include <linux/module.h>
 #include <linux/bitops.h>
+#include <linux/delay.h>
 
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
@@ -34,6 +36,7 @@ struct ad7476_state {
 	struct spi_device		*spi;
 	const struct ad7476_chip_info	*chip_info;
 	struct regulator		*reg;
+	struct gpio_desc		*convst_gpio;
 	struct spi_transfer		xfer;
 	struct spi_message		msg;
 	/*
@@ -58,12 +61,24 @@ enum ad7476_supported_device_ids {
 	ID_AD7940,
 };
 
+static void ad7091_convst(struct ad7476_state *st)
+{
+	if (st->convst_gpio) {
+		gpiod_set_value(st->convst_gpio, 0);
+		udelay(1); /* CONVST pulse width: 10 ns min */
+		gpiod_set_value(st->convst_gpio, 1);
+		udelay(1); /* Conversion time: 650 ns max */
+	}
+}
+
 static irqreturn_t ad7476_trigger_handler(int irq, void  *p)
 {
 	struct iio_poll_func *pf = p;
 	struct iio_dev *indio_dev = pf->indio_dev;
 	struct ad7476_state *st = iio_priv(indio_dev);
 	int b_sent;
+
+	ad7091_convst(st);
 
 	b_sent = spi_sync(st->spi, &st->msg);
 	if (b_sent < 0)
@@ -86,6 +101,8 @@ static void ad7091_reset(struct ad7476_state *st)
 static int ad7476_scan_direct(struct ad7476_state *st)
 {
 	int ret;
+
+	ad7091_convst(st);
 
 	ret = spi_sync(st->spi, &st->msg);
 	if (ret)
@@ -203,7 +220,8 @@ static int ad7476_probe(struct spi_device *spi)
 {
 	struct ad7476_state *st;
 	struct iio_dev *indio_dev;
-	int ret;
+	struct iio_chan_spec *chan_spec;
+	int ret, i;
 
 	indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*st));
 	if (!indio_dev)
@@ -221,6 +239,13 @@ static int ad7476_probe(struct spi_device *spi)
 	if (ret)
 		return ret;
 
+	if (spi_get_device_id(spi)->driver_data == ID_AD7091R) {
+		st->convst_gpio = devm_gpiod_get_optional(&spi->dev,
+			"convst", GPIOD_OUT_HIGH);
+		if (IS_ERR(st->convst_gpio))
+			return PTR_ERR(st->convst_gpio);
+	}
+
 	spi_set_drvdata(spi, indio_dev);
 
 	st->spi = spi;
@@ -230,8 +255,17 @@ static int ad7476_probe(struct spi_device *spi)
 	indio_dev->dev.of_node = spi->dev.of_node;
 	indio_dev->name = spi_get_device_id(spi)->name;
 	indio_dev->modes = INDIO_DIRECT_MODE;
-	indio_dev->channels = st->chip_info->channel;
 	indio_dev->num_channels = 2;
+	chan_spec = devm_kcalloc(indio_dev->dev.parent, indio_dev->num_channels,
+		sizeof(*chan_spec), GFP_KERNEL);
+	if (!chan_spec)
+		return -ENOMEM;
+	for (i = 0; i < indio_dev->num_channels; i++) {
+		chan_spec[i] = st->chip_info->channel[i];
+		if ((chan_spec[i].type != IIO_TIMESTAMP) && st->convst_gpio)
+			chan_spec[i].info_mask_separate |= BIT(IIO_CHAN_INFO_RAW);
+	}
+	indio_dev->channels = chan_spec;
 	indio_dev->info = &ad7476_info;
 	/* Setup default message */
 
@@ -275,6 +309,7 @@ static int ad7476_remove(struct spi_device *spi)
 }
 
 static const struct spi_device_id ad7476_id[] = {
+	{"ad7091", ID_AD7091R},
 	{"ad7091r", ID_AD7091R},
 	{"ad7273", ID_AD7277},
 	{"ad7274", ID_AD7276},

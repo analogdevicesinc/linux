@@ -38,7 +38,7 @@
  * pb_gpio_0}));        0     78
  */
 
-#include "zynqmp-adrv9009-zu11eg.dts"
+#include "zynqmp-adrv9009-zu11eg-reva.dts"
 
 / {
 	leds {

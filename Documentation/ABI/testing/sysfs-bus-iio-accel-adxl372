@@ -1,0 +1,10 @@
+What:		/sys/bus/iio/devices/iio:deviceX/peak_fifo_mode_enable
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		This attribute allows to configure the FIFO to store sample
+		sets of impact event peak (x, y, z). As a precondition, all
+		three channels (x, y, z) need to be enabled.
+		Writing 1, peak fifo mode will be enabled, if cleared and
+		all three channels are enabled, sample sets of concurrent
+		3-axis data will be stored in the FIFO.

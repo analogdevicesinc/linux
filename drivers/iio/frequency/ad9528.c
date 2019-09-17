@@ -64,6 +64,8 @@
 #define AD9528_CHANNEL_SYNC			AD9528_1B(0x32A)
 #define AD9528_CHANNEL_SYNC_IGNORE		AD9528_2B(0x32B)
 
+#define AD9528_SYSREF_RESAMPLE_CTRL		AD9528_2B(0x32D)
+
 #define AD9528_SYSREF_K_DIVIDER			AD9528_2B(0x400)
 #define AD9528_SYSREF_CTRL			AD9528_2B(0x402)
 
@@ -370,6 +372,8 @@ static int ad9528_io_update(struct iio_dev *indio_dev)
 
 static int ad9528_sync(struct iio_dev *indio_dev)
 {
+	struct ad9528_state *st = iio_priv(indio_dev);
+	struct ad9528_platform_data *pdata = st->pdata;
 	int ret = ad9528_write(indio_dev,
 			AD9528_CHANNEL_SYNC, AD9528_CHANNEL_SYNC_SET);
 	if (ret < 0)
@@ -388,8 +392,10 @@ static int ad9528_sync(struct iio_dev *indio_dev)
 		return ret;
 
 	return ad9528_poll(indio_dev, AD9528_READBACK,
-			AD9528_VCXO_OK | AD9528_PLL2_LOCKED,
-			AD9528_VCXO_OK | AD9528_PLL2_LOCKED);
+			AD9528_VCXO_OK |
+			   AD_IFE(pll2_bypass_en, 0, AD9528_PLL2_LOCKED),
+			AD9528_VCXO_OK |
+			   AD_IFE(pll2_bypass_en, 0, AD9528_PLL2_LOCKED));
 }
 
 static ssize_t ad9528_store(struct device *dev,
@@ -898,7 +904,7 @@ static int ad9528_setup(struct iio_dev *indio_dev)
 	struct ad9528_platform_data *pdata = st->pdata;
 	struct ad9528_channel_spec *chan;
 	unsigned long active_mask = 0, ignoresync_mask = 0;
-	unsigned vco_freq, vco_ctrl, sysref_ctrl, stat_en_mask = 0;
+	unsigned vco_freq, vco_ctrl = 0, sysref_ctrl, stat_en_mask = 0;
 	unsigned int pll2_ndiv, pll2_ndiv_a_cnt, pll2_ndiv_b_cnt;
 	int ret, i;
 
@@ -981,6 +987,26 @@ static int ad9528_setup(struct iio_dev *indio_dev)
 	 * PLL2 Setup
 	 */
 
+	if (pdata->pll2_bypass_en) {
+		ret = ad9528_write(indio_dev, AD9528_PLL2_CTRL,
+				   AD9528_PLL2_CHARGE_PUMP_MODE_TRISTATE);
+		if (ret < 0)
+			return ret;
+
+		ret = ad9528_write(indio_dev, AD9528_SYSREF_RESAMPLE_CTRL, BIT(0));
+		if (ret < 0)
+			return ret;
+
+		pdata->sysref_src = SYSREF_SRC_EXTERNAL;
+
+		st->vco_out_freq[AD9528_VCO] = pdata->vcxo_freq;
+		st->vco_out_freq[AD9528_VCXO] = pdata->vcxo_freq;
+		st->vco_out_freq[AD9528_SYSREF] = pdata->vcxo_freq;
+
+		goto pll2_bypassed;
+	}
+
+
 	pll2_ndiv = pdata->pll2_vco_div_m1 * pdata->pll2_n2_div;
 	if (!ad9528_pll2_valid_calib_div(pll2_ndiv)) {
 		dev_err(&st->spi->dev,
@@ -1060,6 +1086,7 @@ static int ad9528_setup(struct iio_dev *indio_dev)
 	if (ret < 0)
 		return ret;
 
+pll2_bypassed:
 	st->clk_data.clks = st->clks;
 	st->clk_data.clk_num = AD9528_NUM_CHAN;
 
@@ -1133,7 +1160,9 @@ static int ad9528_setup(struct iio_dev *indio_dev)
 	if (ret < 0)
 		return ret;
 
-	ret = ad9528_write(indio_dev, AD9528_PD_EN, AD9528_PD_BIAS);
+	ret = ad9528_write(indio_dev, AD9528_PD_EN, AD9528_PD_BIAS |
+			   AD_IF(pll1_bypass_en, AD9528_PD_PLL1) |
+			   AD_IF(pll2_bypass_en, AD9528_PD_PLL2));
 	if (ret < 0)
 		return ret;
 
@@ -1141,19 +1170,21 @@ static int ad9528_setup(struct iio_dev *indio_dev)
 	if (ret < 0)
 		return ret;
 
-	ret = ad9528_write(indio_dev, AD9528_PLL2_VCO_CTRL,
-			vco_ctrl | AD9528_PLL2_VCO_CALIBRATE);
-	if (ret < 0)
-		return ret;
+	if (!pdata->pll2_bypass_en) {
+		ret = ad9528_write(indio_dev, AD9528_PLL2_VCO_CTRL,
+				vco_ctrl | AD9528_PLL2_VCO_CALIBRATE);
+		if (ret < 0)
+			return ret;
 
-	ret = ad9528_io_update(indio_dev);
-	if (ret < 0)
-		return ret;
+		ret = ad9528_io_update(indio_dev);
+		if (ret < 0)
+			return ret;
 
-	ret = ad9528_poll(indio_dev, AD9528_READBACK,
-			AD9528_IS_CALIBRATING, 0);
-	if (ret < 0)
-		return ret;
+		ret = ad9528_poll(indio_dev, AD9528_READBACK,
+				AD9528_IS_CALIBRATING, 0);
+		if (ret < 0)
+			return ret;
+	}
 
 	sysref_ctrl |= AD9528_SYSREF_PATTERN_REQ;
 	ret = ad9528_write(indio_dev, AD9528_SYSREF_CTRL, sysref_ctrl);
@@ -1312,6 +1343,7 @@ static struct ad9528_platform_data *ad9528_parse_dt(struct device *dev)
 		of_property_read_u32(np, "adi,pll2-vco-div-m1", &tmp);
 		pdata->pll2_vco_div_m1 = tmp;
 	}
+	pdata->pll2_bypass_en = of_property_read_bool(np, "adi,pll2-bypass-enable");
 
 	/* Loop Filter PLL2 */
 
@@ -1394,7 +1426,12 @@ static int ad9528_probe(struct spi_device *spi)
 	struct ad9528_state *st;
 	struct gpio_desc *status0_gpio;
 	struct gpio_desc *status1_gpio;
+	struct clk *clk;
 	int ret;
+
+	clk = devm_clk_get(&spi->dev, NULL);
+	if (PTR_ERR(clk) == -EPROBE_DEFER)
+		return -EPROBE_DEFER;
 
 	if (spi->dev.of_node)
 		pdata = ad9528_parse_dt(&spi->dev);

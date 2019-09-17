@@ -16,6 +16,7 @@
 #include <linux/regmap.h>
 #include <linux/sysfs.h>
 #include <linux/spi/spi.h>
+#include <linux/util_macros.h>
 
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
@@ -47,6 +48,12 @@
 /* ADF4371_REG1A */
 #define ADF4371_MOD2WORD_MSK		GENMASK(5, 0)
 #define ADF4371_MOD2WORD(x)		FIELD_PREP(ADF4371_MOD2WORD_MSK, x)
+
+/* ADF4371_REG1E */
+#define ADF4371_CP_CURRENT_MSK		GENMASK(7, 4)
+#define ADF4371_CP_CURRENT(x)		FIELD_PREP(ADF4371_CP_CURRENT_MSK, x)
+#define ADF4371_PD_POL_MSK		BIT(3)
+#define ADF4371_PD_POL(x)		FIELD_PREP(ADF4371_PD_POL_MSK, x)
 
 /* ADF4371_REG20 */
 #define ADF4371_MUXOUT_MSK		GENMASK(7, 4)
@@ -132,6 +139,11 @@ static const char * const adf4371_ch_names[] = {
 	"RF8x", "RFAUX8x", "RF16x", "RF32x"
 };
 
+static const unsigned int adf4371_cp_current_microamp[] = {
+	350, 700, 1050, 1400, 1750, 2100, 2450, 2800,
+	3150, 3500, 3850, 4200, 4550, 4900, 5250, 5600
+};
+
 static const char * const adf4371_muxout_modes[] = {
 	[ADF4371_TRISTATE] = "tristate",
 	[ADF4371_DIG_LOCK] = "digital_lock",
@@ -206,6 +218,11 @@ struct adf4371_channel_config {
 	unsigned long long freq;
 };
 
+struct adf4371_cp_settings {
+	unsigned int icp;
+	unsigned int regval;
+};
+
 struct adf4371_state {
 	struct spi_device *spi;
 	struct regmap *regmap;
@@ -215,6 +232,7 @@ struct adf4371_state {
 	struct clock_scale scale;
 	struct clk *clks[4];
 	struct clk_onecell_data clk_data;
+	struct adf4371_cp_settings cp_settings;
 	/*
 	 * Lock for accessing device registers. Some operations require
 	 * multiple consecutive R/W operations, during which the device
@@ -233,6 +251,7 @@ struct adf4371_state {
 	unsigned int mod2;
 	unsigned int rf_div_sel;
 	unsigned int ref_div_factor;
+	unsigned int pd_pol;
 	bool has_clk_out_names;
 	bool mute_till_lock_en;
 	bool muxout_en;
@@ -334,14 +353,15 @@ static int adf4371_set_freq(struct adf4371_state *st, unsigned long long freq,
 
 	adf4371_pll_fract_n_compute(freq, st->fpfd, &st->integer, &st->fract1,
 				    &st->fract2, &st->mod2);
+
 	st->buf[0] = st->integer >> 8;
 	st->buf[1] = 0x40; /* REG12 default */
 	st->buf[2] = 0x00;
-	st->buf[3] = st->fract2 & 0xFF;
-	st->buf[4] = st->fract2 >> 7;
-	st->buf[5] = st->fract2 >> 15;
+	st->buf[3] = st->fract1 & 0xFF;
+	st->buf[4] = st->fract1 >> 8;
+	st->buf[5] = st->fract1 >> 16;
 	st->buf[6] = ADF4371_FRAC2WORD_L(st->fract2 & 0x7F) |
-		     ADF4371_FRAC1WORD(st->fract1 >> 23);
+		     ADF4371_FRAC1WORD(st->fract1 >> 24);
 	st->buf[7] = ADF4371_FRAC2WORD_H(st->fract2 >> 7);
 	st->buf[8] = st->mod2 & 0xFF;
 	st->buf[9] = ADF4371_MOD2WORD(st->mod2 >> 8);
@@ -363,7 +383,11 @@ static int adf4371_set_freq(struct adf4371_state *st, unsigned long long freq,
 	if (ret < 0)
 		return ret;
 
-	cp_bleed = DIV_ROUND_UP(400 * 1750, st->integer * 375);
+	/*
+	 * The optimum bleed current is set by ((4/N) × ICP)/3.75,
+	 * where ICP is the charge pump current in μA
+	 */
+	cp_bleed = DIV_ROUND_UP(400 * st->cp_settings.icp, st->integer * 375);
 	cp_bleed = clamp(cp_bleed, 1U, 255U);
 	ret = regmap_write(st->regmap, ADF4371_REG(0x26), cp_bleed);
 	if (ret < 0)
@@ -690,7 +714,8 @@ static const struct clk_ops adf4371_clock_ops = {
 static int adf4371_setup(struct adf4371_state *st)
 {
 	unsigned int synth_timeout = 2, timeout = 1, vco_alc_timeout = 1;
-	unsigned int vco_band_div, tmp;
+	unsigned int vco_band_div, tmp, val;
+	unsigned long int mask;
 	bool en = true;
 	int ret;
 
@@ -710,6 +735,15 @@ static int adf4371_setup(struct adf4371_state *st)
 
 	ret = regmap_multi_reg_write(st->regmap, adf4371_reg_defaults,
 				     ARRAY_SIZE(adf4371_reg_defaults));
+	if (ret < 0)
+		return ret;
+
+	mask = ADF4371_PD_POL_MSK | ADF4371_CP_CURRENT_MSK;
+	val = ADF4371_PD_POL(st->pd_pol) |
+	      ADF4371_CP_CURRENT(st->cp_settings.regval);
+
+	/* Set the phase detector polarity and the charge pump current */
+	ret = regmap_update_bits(st->regmap, ADF4371_REG(0x1E),  mask, val);
 	if (ret < 0)
 		return ret;
 
@@ -779,12 +813,35 @@ static void adf4371_clk_disable(void *data)
 static int adf4371_parse_dt(struct adf4371_state *st)
 {
 	unsigned char num_channels;
-	unsigned int channel;
+	unsigned int channel, tmp;
 	struct fwnode_handle *child;
-	int ret;
+	int ret, i;
 
 	if (device_property_read_bool(&st->spi->dev, "adi,mute-till-lock-en"))
 		st->mute_till_lock_en = true;
+	/*
+	 * If using an inverting loop filter and a VCO with positive tuning
+	 * slope, set the phase detector polarity to negative (set the PD_POL
+	 * bit to 0).
+	 */
+	if (device_property_read_bool(&st->spi->dev,
+				      "adi,loop-filter-inverting"))
+		st->pd_pol = 0;
+	else
+		st->pd_pol = 1;
+
+	ret = device_property_read_u32(&st->spi->dev,
+				       "adi,charge-pump-microamp", &tmp);
+	if (ret < 0) {
+		/* Default charge pump current is 1.75mA */
+		st->cp_settings.icp = 1750;
+		st->cp_settings.regval = 0x04;
+	} else {
+		i = find_closest(tmp, adf4371_cp_current_microamp,
+				 ARRAY_SIZE(adf4371_cp_current_microamp));
+		st->cp_settings.regval = i;
+		st->cp_settings.icp = adf4371_cp_current_microamp[i];
+	}
 
 	ret = of_clk_get_scale(st->spi->dev.of_node, NULL, &st->scale);
 	if (ret < 0) {

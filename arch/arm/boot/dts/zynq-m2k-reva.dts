@@ -128,7 +128,10 @@
 		clocks = <&ref_clock>;
 		clock-names = "clkin";
 		clock-output-names = "ADF4360-9";
-		lockdetect-gpio = <&gpio_exp 9 0>;
+
+		adi,loop-filter-charge-pump-current-microamp = <2500>;
+		adi,loop-filter-pfd-frequency-hz = <5000000>;
+		adi,power-up-frequency-hz = <100000000>;
 	};
 
 	converter@1 {
@@ -381,6 +384,11 @@
 			compatible = "adi,axi-adc-trigger";
 			reg = <0x7C4c0000 0x10000>;
 			clocks = <&converter_clock>;
+		};
+
+		axi_sysid_0: axi-sysid-0@45000000 {
+			compatible = "adi,axi-sysid-1.00.a";
+			reg = <0x45000000 0x10000>;
 		};
 	};
 };

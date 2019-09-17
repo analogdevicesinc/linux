@@ -17,7 +17,7 @@
 #include <dt-bindings/iio/frequency/hmc7044.h>
 
 / {
-	model = "Analog Devices ADRV9009-ZU11EG";
+	model = "Analog Devices ADRV9009-ZU11EG Rev.A";
 	compatible = "xlnx,zynqmp";
 
 	aliases {
@@ -1379,6 +1379,12 @@
 			spibus-connected = <&trx0_adrv9009>;
 			adi,axi-pl-fifo-enable;
 			plddrbypass-gpios = <&gpio 168 0>;
+		};
+
+		axi_sysid_0: axi-sysid-0@85000000 {
+			compatible = "adi,axi-sysid-1.00.a";
+			reg = <0x0 0x85000000 0x10000>;
+			status = "disabled";
 		};
 	};
 };

@@ -29,6 +29,9 @@
 #define M2K_DAC_REG_CORRECTION_ENABLE 0x54
 #define M2K_DAC_REG_CORRECTION_COEFFICIENT(x) (0x58 + (x) * 4)
 
+#define M2K_DAC_DMA_SYNC_BIT	BIT(0)
+#define M2K_DAC_SYNC_START_BIT	BIT(1)
+
 
 struct m2k_dac {
 	void __iomem *regs;
@@ -241,6 +244,23 @@ static int m2k_dac_reg_access(struct iio_dev *indio_dev, unsigned int reg,
 	return 0;
 }
 
+static int m2k_dac_reg_update(struct iio_dev *indio_dev, unsigned int reg,
+			      unsigned int writeval, const unsigned int mask)
+{
+	struct m2k_dac_ch *ch = iio_priv(indio_dev);
+	struct m2k_dac *m2k_dac = ch->dac;
+	unsigned int regval;
+
+	reg &= 0xffff;
+
+	regval = ioread32(m2k_dac->regs + reg);
+	regval &= ~mask;
+	writeval &= mask;
+	iowrite32(writeval | regval, m2k_dac->regs + reg);
+
+	return 0;
+}
+
 static ssize_t m2k_dac_read_dma_sync(struct device *dev,
 	struct device_attribute *attr, char *buf)
 {
@@ -259,8 +279,6 @@ static ssize_t m2k_dac_write_dma_sync(struct device *dev,
 	struct device_attribute *attr, const char *buf, size_t len)
 {
 	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
-	struct m2k_dac_ch *ch = iio_priv(indio_dev);
-	struct m2k_dac *m2k_dac = ch->dac;
 	bool val;
 	int ret;
 
@@ -268,7 +286,41 @@ static ssize_t m2k_dac_write_dma_sync(struct device *dev,
 	if (ret < 0)
 		return ret;
 
-	iowrite32(val, m2k_dac->regs + M2K_DAC_REG_FLAGS);
+	m2k_dac_reg_update(indio_dev, M2K_DAC_REG_FLAGS, val,
+			   M2K_DAC_DMA_SYNC_BIT);
+
+	return len;
+}
+
+static ssize_t m2k_dac_read_dma_sync_start(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
+	struct m2k_dac_ch *ch = iio_priv(indio_dev);
+	struct m2k_dac *m2k_dac = ch->dac;
+	unsigned int val;
+
+	val = ioread32(m2k_dac->regs + M2K_DAC_REG_FLAGS);
+	val &= M2K_DAC_SYNC_START_BIT;
+
+	return sprintf(buf, "%d\n", val >> 1);
+}
+
+static ssize_t m2k_dac_write_dma_sync_start(struct device *dev,
+					    struct device_attribute *attr,
+					    const char *buf, size_t len)
+{
+	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
+	bool val;
+	int ret;
+
+	ret = strtobool(buf, &val);
+	if (ret < 0)
+		return ret;
+
+	m2k_dac_reg_update(indio_dev, M2K_DAC_REG_FLAGS,
+			   val << 1,
+			   M2K_DAC_SYNC_START_BIT);
 
 	return len;
 }
@@ -276,8 +328,12 @@ static ssize_t m2k_dac_write_dma_sync(struct device *dev,
 static IIO_DEVICE_ATTR(dma_sync, 0664,
 	m2k_dac_read_dma_sync, m2k_dac_write_dma_sync, 0);
 
+static IIO_DEVICE_ATTR(dma_sync_start, 0664,
+	m2k_dac_read_dma_sync_start, m2k_dac_write_dma_sync_start, 0);
+
 static struct attribute *m2k_dac_attributes[] = {
 	&iio_dev_attr_dma_sync.dev_attr.attr,
+	&iio_dev_attr_dma_sync_start.dev_attr.attr,
 	NULL
 };
 
@@ -328,6 +384,12 @@ static int m2k_dac_buffer_preenable(struct iio_dev *indio_dev)
 	struct m2k_dac_ch *ch = iio_priv(indio_dev);
 	struct m2k_dac *m2k_dac = ch->dac;
 
+	if (iio_buffer_enabled(m2k_dac->ch_indio_dev[0]) !=
+	    iio_buffer_enabled(m2k_dac->ch_indio_dev[1])) {
+		m2k_dac_reg_update(indio_dev, M2K_DAC_REG_FLAGS, 0,
+				   M2K_DAC_SYNC_START_BIT);
+	}
+
 	cf_axi_dds_datasel(m2k_dac->dds, ch->num, DATA_SEL_DMA);
 	return 0;
 }
@@ -336,6 +398,12 @@ static int m2k_dac_buffer_postdisable(struct iio_dev *indio_dev)
 {
 	struct m2k_dac_ch *ch = iio_priv(indio_dev);
 	struct m2k_dac *m2k_dac = ch->dac;
+
+	if (iio_buffer_enabled(m2k_dac->ch_indio_dev[0]) !=
+	    iio_buffer_enabled(m2k_dac->ch_indio_dev[1])) {
+		m2k_dac_reg_update(indio_dev, M2K_DAC_REG_FLAGS, 0,
+				   M2K_DAC_SYNC_START_BIT);
+	}
 
 	cf_axi_dds_datasel(m2k_dac->dds, ch->num, DATA_SEL_DDS);
 	return 0;

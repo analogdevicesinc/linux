@@ -105,6 +105,11 @@
 			#clock-cells = <1>;
 			clock-output-names = "adc_gt_clk", "rx_out_clk";
 		};
+
+		axi_sysid_0: axi-sysid-0@85000000 {
+			compatible = "adi,axi-sysid-1.00.a";
+			reg = <0x85000000 0x10000>;
+		};
 	};
 };
 

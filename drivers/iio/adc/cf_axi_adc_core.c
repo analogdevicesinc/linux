@@ -8,6 +8,7 @@
  * http://wiki.analog.com/resources/fpga/xilinx/fmc/ad9467
  */
 
+#include <linux/gpio/consumer.h>
 #include <linux/module.h>
 #include <linux/errno.h>
 #include <linux/slab.h>
@@ -48,7 +49,7 @@ int axiadc_set_pnsel(struct axiadc_state *st, int channel, enum adc_pn_sel sel)
 {
 	unsigned reg;
 
-	if (PCORE_VERSION_MAJOR(st->pcore_version) > 7) {
+	if (ADI_AXI_PCORE_VER_MAJOR(st->pcore_version) > 7) {
 		reg = axiadc_read(st, ADI_REG_CHAN_CNTRL_3(channel));
 		reg &= ~ADI_ADC_PN_SEL(~0);
 		reg |= ADI_ADC_PN_SEL(sel);
@@ -78,7 +79,7 @@ enum adc_pn_sel axiadc_get_pnsel(struct axiadc_state *st,
 {
 	unsigned val;
 
-	if (PCORE_VERSION_MAJOR(st->pcore_version) > 7) {
+	if (ADI_AXI_PCORE_VER_MAJOR(st->pcore_version) > 7) {
 		const char *ident[] = {"PN9", "PN23A", "UNDEF", "UNDEF",
 				"PN7", "PN15", "PN23", "PN31", "UNDEF", "PN_CUSTOM"};
 
@@ -242,7 +243,11 @@ static int axiadc_decimation_set(struct axiadc_state *st,
 			else
 				reg &= ~BIT(0);
 
-			axiadc_write(st, ADI_REG_GP_CONTROL, reg);
+			if (st->gpio_decimation)
+				gpiod_set_value(st->gpio_decimation,
+						reg & BIT(0));
+			else
+				axiadc_write(st, ADI_REG_GP_CONTROL, reg);
 			break;
 		default:
 			ret = -EINVAL;
@@ -635,6 +640,13 @@ static int axiadc_channel_setup(struct iio_dev *indio_dev,
 	for (i = 0, cnt = 0; i < adc_chan_num; i++)
 		st->channels[cnt++] = adc_channels[i];
 
+	if (st->additional_channel && cnt < AXIADC_MAX_CHANNEL) {
+		st->channels[cnt] = adc_channels[0];
+		st->channels[cnt].channel = cnt;
+		st->channels[cnt].scan_index = cnt;
+		cnt++;
+	}
+
 	for (i = 0; i < st->max_usr_channel; i++) {
 		usr_ctrl = axiadc_read(st, ADI_REG_CHAN_USR_CNTRL_1(cnt));
 		st->channels[cnt].type = IIO_VOLTAGE;
@@ -686,19 +698,19 @@ static int axiadc_attach_spi_client(struct device *dev, void *data)
 }
 
 static const struct axiadc_core_info ad9467_core_1_00_a_info = {
-	.version = PCORE_VERSION(10, 0, 'a'),
+	.version = ADI_AXI_PCORE_VER(10, 0, 'a'),
 };
 
 static const struct axiadc_core_info ad9361_6_00_a_info = {
-	.version = PCORE_VERSION(10, 0, 'a'),
+	.version = ADI_AXI_PCORE_VER(10, 0, 'a'),
 };
 
 static const struct axiadc_core_info ad9643_6_00_a_info = {
-	.version = PCORE_VERSION(10, 0, 'a'),
+	.version = ADI_AXI_PCORE_VER(10, 0, 'a'),
 };
 
 static const struct axiadc_core_info ad9680_6_00_a_info = {
-	.version = PCORE_VERSION(10, 0, 'a'),
+	.version = ADI_AXI_PCORE_VER(10, 0, 'a'),
 };
 
 /* Match table for of_platform binding */
@@ -710,6 +722,7 @@ static const struct of_device_id axiadc_of_match[] = {
 	{ .compatible = "adi,axi-ad9643-6.00.a", .data = &ad9643_6_00_a_info },
 	{ .compatible = "adi,axi-ad9361-6.00.a", .data = &ad9361_6_00_a_info },
 	{ .compatible = "adi,axi-ad9680-1.0", .data = &ad9680_6_00_a_info },
+	{ .compatible = "adi,axi-ad9694-1.0", .data = &ad9680_6_00_a_info },
 	{ .compatible = "adi,axi-ad9625-1.0", .data = &ad9680_6_00_a_info },
 	{ .compatible = "adi,axi-ad6676-1.0", .data = &ad9680_6_00_a_info },
 	{ .compatible = "adi,axi-ad9371-rx-1.0", .data = &ad9361_6_00_a_info },
@@ -813,6 +826,9 @@ static int axiadc_probe(struct platform_device *pdev)
 		}
 	}
 
+	st->additional_channel = of_property_read_bool(pdev->dev.of_node,
+		"adi,axi-additional-channel-available");
+
 	/* Reset all HDL Cores */
 	axiadc_write(st, ADI_REG_RSTN, 0);
 	mdelay(10);
@@ -820,17 +836,17 @@ static int axiadc_probe(struct platform_device *pdev)
 	mdelay(10);
 	axiadc_write(st, ADI_REG_RSTN, ADI_RSTN | ADI_MMCM_RSTN);
 
-	st->pcore_version = axiadc_read(st, ADI_REG_VERSION);
+	st->pcore_version = axiadc_read(st, ADI_AXI_REG_VERSION);
 
-	if (PCORE_VERSION_MAJOR(st->pcore_version) >
-		PCORE_VERSION_MAJOR(info->version)) {
+	if (ADI_AXI_PCORE_VER_MAJOR(st->pcore_version) >
+		ADI_AXI_PCORE_VER_MAJOR(info->version)) {
 		dev_err(&pdev->dev, "Major version mismatch between PCORE and driver. Driver expected %d.%.2d.%c, PCORE reported %d.%.2d.%c\n",
-			PCORE_VERSION_MAJOR(info->version),
-			PCORE_VERSION_MINOR(info->version),
-			PCORE_VERSION_LETTER(info->version),
-			PCORE_VERSION_MAJOR(st->pcore_version),
-			PCORE_VERSION_MINOR(st->pcore_version),
-			PCORE_VERSION_LETTER(st->pcore_version));
+			ADI_AXI_PCORE_VER_MAJOR(info->version),
+			ADI_AXI_PCORE_VER_MINOR(info->version),
+			ADI_AXI_PCORE_VER_PATCH(info->version),
+			ADI_AXI_PCORE_VER_MAJOR(st->pcore_version),
+			ADI_AXI_PCORE_VER_MINOR(st->pcore_version),
+			ADI_AXI_PCORE_VER_PATCH(st->pcore_version));
 		ret = -ENODEV;
 		goto err_put_converter;
 	}
@@ -853,7 +869,7 @@ static int axiadc_probe(struct platform_device *pdev)
 			goto err_put_converter;
 	}
 
-	if (!st->dp_disable && !axiadc_read(st, ADI_REG_ID) &&
+	if (!st->dp_disable && !axiadc_read(st, ADI_AXI_REG_ID) &&
 		of_find_property(pdev->dev.of_node, "dmas", NULL)) {
 		ret = axiadc_configure_ring_stream(indio_dev, NULL);
 		if (ret < 0)
@@ -864,6 +880,11 @@ static int axiadc_probe(struct platform_device *pdev)
 		st->decimation_factor = 1;
 		WARN_ON(st->iio_info.attrs != NULL);
 		st->iio_info.attrs = &axiadc_dec_attribute_group;
+		st->gpio_decimation = devm_gpiod_get_optional(&pdev->dev,
+							      "decimation",
+							      GPIOD_OUT_LOW);
+		if (IS_ERR(st->gpio_decimation))
+			dev_err(&pdev->dev, "decimation gpio error\n");
 	}
 
 	ret = iio_device_register(indio_dev);
@@ -872,12 +893,12 @@ static int axiadc_probe(struct platform_device *pdev)
 
 	dev_info(&pdev->dev, "ADI AIM (%d.%.2d.%c) at 0x%08llX mapped to 0x%p,"
 		 " probed ADC %s as %s\n",
-		PCORE_VERSION_MAJOR(st->pcore_version),
-		PCORE_VERSION_MINOR(st->pcore_version),
-		PCORE_VERSION_LETTER(st->pcore_version),
+		ADI_AXI_PCORE_VER_MAJOR(st->pcore_version),
+		ADI_AXI_PCORE_VER_MINOR(st->pcore_version),
+		ADI_AXI_PCORE_VER_PATCH(st->pcore_version),
 		 (unsigned long long)mem->start, st->regs,
 		 conv->chip_info->name,
-		 axiadc_read(st, ADI_REG_ID) ? "SLAVE" : "MASTER");
+		 axiadc_read(st, ADI_AXI_REG_ID) ? "SLAVE" : "MASTER");
 
 	if (iio_get_debugfs_dentry(indio_dev))
 		debugfs_create_file("pseudorandom_err_check", 0644,
@@ -917,7 +938,7 @@ static int axiadc_remove(struct platform_device *pdev)
 	struct axiadc_state *st = iio_priv(indio_dev);
 
 	iio_device_unregister(indio_dev);
-	if (!st->dp_disable && !axiadc_read(st, ADI_REG_ID) &&
+	if (!st->dp_disable && !axiadc_read(st, ADI_AXI_REG_ID) &&
 		of_find_property(pdev->dev.of_node, "dmas", NULL))
 		axiadc_unconfigure_ring_stream(indio_dev);
 

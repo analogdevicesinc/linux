@@ -85,7 +85,9 @@
 		clocks = <&ref_clock>;
 		clock-names = "clkin";
 		clock-output-names = "ADF4360-9";
-		lockdetect-gpio = <&gpio_exp 8 0>;
+
+		adi,loop-filter-charge-pump-current-microamp = <1870>;
+		adi,loop-filter-pfd-frequency-hz = <5000000>;
 	};
 
 	converter@1 {

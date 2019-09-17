@@ -1243,7 +1243,7 @@ static int ad9361_set_tx_atten(struct ad9361_rf_phy *phy, u32 atten_mdb,
 	dev_dbg(&phy->spi->dev, "%s : attenuation %u mdB tx1=%d tx2=%d",
 		__func__, atten_mdb, tx1, tx2);
 
-	if (atten_mdb > 89750) /* 89.75 dB */
+	if (atten_mdb > MAX_TX_ATTENUATION_DB) /* 89.75 dB */
 		return -EINVAL;
 
 	atten_mdb /= 250; /* Scale to 0.25dB / LSB */
@@ -8142,7 +8142,8 @@ static ssize_t ad9361_debugfs_write(struct file *file,
 {
 	struct ad9361_debugfs_entry *entry = file->private_data;
 	struct ad9361_rf_phy *phy = entry->phy;
-	u32 val, val2, val3, val4;
+	struct gpo_control *ctrl = &phy->pdata->gpo_ctrl;
+	u32 val, val2, val3, val4, mask;
 	char buf[80];
 	int ret;
 
@@ -8249,6 +8250,60 @@ static ssize_t ad9361_debugfs_write(struct file *file,
 	case DBGFS_BIST_DT_ANALYSIS:
 		entry->val = val;
 		return count;
+	case DBGFS_GPO_SET:
+		if (ret != 2)
+			return -EINVAL;
+
+		if (!ctrl->gpo_manual_mode_en) {
+			dev_warn(&phy->spi->dev, "GPO manual mode not enabled!");
+			return -EINVAL;
+		}
+
+		switch (val) {
+		case 0:
+		case 1:
+		case 2:
+		case 3:
+			mask = BIT(val);
+			if (val2)
+				val3 = mask;
+			else
+				val3 = 0;
+			break;
+		case 0xF:
+			mask = 0xF;
+			val3 = val2 & 0xF;
+			break;
+		default:
+			return -EINVAL;
+		}
+
+		mutex_lock(&phy->indio_dev->mlock);
+		ctrl->gpo_manual_mode_enable_mask &= ~mask;
+		ctrl->gpo_manual_mode_enable_mask |= val3;
+
+		ret = ad9361_spi_write(phy->spi, REG_GPO_FORCE_AND_INIT,
+			GPO_MANUAL_CTRL(ctrl->gpo_manual_mode_enable_mask) |
+			GPO_INIT_STATE(ctrl->gpo0_inactive_state_high_en |
+			(ctrl->gpo1_inactive_state_high_en << 1) |
+			(ctrl->gpo2_inactive_state_high_en << 2) |
+			(ctrl->gpo3_inactive_state_high_en << 3)));
+
+		/*
+		 * GPO manual mode conflicts with automatic ENSM slave
+		 * and eLNA mode
+		 */
+
+		val3 = ad9361_spi_read(phy->spi, REG_EXTERNAL_LNA_CTRL);
+		if (!(val3 & GPO_MANUAL_SELECT))
+			ad9361_spi_write(phy->spi, REG_EXTERNAL_LNA_CTRL,
+					 val3 | GPO_MANUAL_SELECT);
+		mutex_unlock(&phy->indio_dev->mlock);
+		if (ret < 0)
+			return ret;
+
+		entry->val = val;
+		return count;
 	default:
 		break;
 	}
@@ -8310,6 +8365,7 @@ static int ad9361_register_debugfs(struct iio_dev *indio_dev)
 	ad9361_add_debugfs_entry(phy, "loopback", DBGFS_LOOPBACK);
 	ad9361_add_debugfs_entry(phy, "bist_prbs", DBGFS_BIST_PRBS);
 	ad9361_add_debugfs_entry(phy, "bist_tone", DBGFS_BIST_TONE);
+	ad9361_add_debugfs_entry(phy, "gpo_set", DBGFS_GPO_SET);
 	ad9361_add_debugfs_entry(phy, "bist_timing_analysis",
 		DBGFS_BIST_DT_ANALYSIS);
 	ad9361_add_debugfs_entry(phy, "gaininfo_rx1", DBGFS_RXGAIN_1);

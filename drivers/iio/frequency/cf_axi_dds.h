@@ -11,19 +11,7 @@
 
 #include <linux/spi/spi.h>
 #include <linux/clk/clkscale.h>
-
-#define ADI_REG_VERSION		0x0000				/*Version and Scratch Registers */
-#define ADI_VERSION(x)		(((x) & 0xffffffff) << 0)	/* RO, Version number. */
-#define VERSION_IS(x,y,z)	((x) << 16 | (y) << 8 | (z))
-#define ADI_REG_ID		0x0004			 	/*Version and Scratch Registers */
-#define ADI_ID(x)		(((x) & 0xffffffff) << 0)   	/* RO, Instance identifier number. */
-#define ADI_REG_SCRATCH		0x0008			 	/*Version and Scratch Registers */
-#define ADI_SCRATCH(x)		(((x) & 0xffffffff) << 0)	/* RW, Scratch register. */
-
-#define PCORE_VERSION(major, minor, letter) ((major << 16) | (minor << 8) | letter)
-#define PCORE_VERSION_MAJOR(version) (version >> 16)
-#define PCORE_VERSION_MINOR(version) ((version >> 8) & 0xff)
-#define PCORE_VERSION_LETTER(version) (version & 0xff)
+#include <linux/fpga/adi-axi-common.h>
 
 /* DAC COMMON */
 
@@ -212,31 +200,7 @@ struct cf_axi_dds_chip_info {
 	struct iio_chan_spec channel[24];
 };
 
-struct cf_axi_dds_state {
-	struct device 		*dev_spi;
-	struct clk 		*clk;
-	struct cf_axi_dds_chip_info	*chip_info;
-	struct gpio_desc		*plddrbypass_gpio;
-
-	bool			standalone;
-	bool			dp_disable;
-	bool			enable;
-	bool			pl_dma_fifo_en;
-	enum fifo_ctrl		gpio_dma_fifo_ctrl;
-
-	struct iio_info		iio_info;
-	size_t			regs_size;
-	void __iomem		*regs;
-	void __iomem		*slave_regs;
-	void __iomem		*master_regs;
-	u64			dac_clk;
-	unsigned 		ddr_dds_interp_en;
-	unsigned		cached_freq[16];
-	unsigned		version;
-	unsigned		have_slave_channels;
-	unsigned		interpolation_factor;
-	struct notifier_block   clk_nb;
-};
+struct cf_axi_dds_state;
 
 enum {
 	CLK_DATA,
@@ -300,41 +264,22 @@ int cf_axi_dds_configure_buffer(struct iio_dev *indio_dev);
 void cf_axi_dds_unconfigure_buffer(struct iio_dev *indio_dev);
 int cf_axi_dds_datasel(struct cf_axi_dds_state *st,
 			       int channel, enum dds_data_select sel);
-void cf_axi_dds_stop(struct cf_axi_dds_state *st);
-void cf_axi_dds_start_sync(struct cf_axi_dds_state *st, bool force_on);
+void cf_axi_dds_start_sync(struct cf_axi_dds_state *st);
 int cf_axi_dds_pl_ddr_fifo_ctrl(struct cf_axi_dds_state *st, bool enable);
 
 /*
  * IO accessors
  */
 
-static inline void dds_write(struct cf_axi_dds_state *st,
-			     unsigned reg, unsigned val)
-{
-	iowrite32(val, st->regs + reg);
-}
+void dds_write(struct cf_axi_dds_state *st,
+	       unsigned int reg, unsigned int val);
+int dds_read(struct cf_axi_dds_state *st, unsigned int reg);
+void dds_slave_write(struct cf_axi_dds_state *st,
+		     unsigned int reg, unsigned int val);
+unsigned int dds_slave_read(struct cf_axi_dds_state *st, unsigned int reg);
+void dds_master_write(struct cf_axi_dds_state *st,
+		      unsigned int reg, unsigned int val);
 
-static inline unsigned int dds_read(struct cf_axi_dds_state *st, unsigned reg)
-{
-	return ioread32(st->regs + reg);
-}
-
-static inline void dds_slave_write(struct cf_axi_dds_state *st,
-			     unsigned reg, unsigned val)
-{
-	iowrite32(val, st->slave_regs + reg);
-}
-
-static inline unsigned int dds_slave_read(struct cf_axi_dds_state *st, unsigned reg)
-{
-	return ioread32(st->slave_regs + reg);
-}
-
-static inline void dds_master_write(struct cf_axi_dds_state *st,
-			     unsigned reg, unsigned val)
-{
-	if (st->master_regs)
-		iowrite32(val, st->master_regs + reg);
-}
+bool cf_axi_dds_dma_fifo_en(struct cf_axi_dds_state *st);
 
 #endif /* ADI_AXI_DDS_H_ */
