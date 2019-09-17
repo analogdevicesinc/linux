@@ -107,6 +107,15 @@ config FB_MXC_EINK_AUTO_UPDATE_MODE
 	bool "E-Ink Auto-update Mode Support"
 	depends on FB_MXC_EINK_PANEL
 
+config FB_MXC_HDMI
+	depends on FB_MXC_SYNC_PANEL
+	depends on MXC_IPU_V3
+	depends on I2C
+	tristate "MXC HDMI driver support"
+	select MFD_MXC_HDMI
+	help
+	  Driver for the on-chip MXC HDMI controller.
+
 config FB_MXS_SII902X
 	tristate "Si Image SII9022 DVI/HDMI Interface Chip"
 	depends on FB_MXS && I2C
