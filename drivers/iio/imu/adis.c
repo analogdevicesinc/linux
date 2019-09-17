@@ -71,7 +71,7 @@ int adis_write_reg(struct adis *adis, unsigned int reg,
 		},
 	};
 
-	mutex_lock(&adis->txrx_lock);
+	mutex_lock(&adis->state_lock);
 
 	spi_message_init(&msg);
 
@@ -113,7 +113,7 @@ int adis_write_reg(struct adis *adis, unsigned int reg,
 	}
 
 out_unlock:
-	mutex_unlock(&adis->txrx_lock);
+	mutex_unlock(&adis->state_lock);
 
 	return ret;
 }
@@ -165,7 +165,7 @@ int adis_read_reg(struct adis *adis, unsigned int reg,
 		},
 	};
 
-	mutex_lock(&adis->txrx_lock);
+	mutex_lock(&adis->state_lock);
 	spi_message_init(&msg);
 
 	if (adis->current_page != page) {
@@ -209,7 +209,7 @@ int adis_read_reg(struct adis *adis, unsigned int reg,
 	}
 
 out_unlock:
-	mutex_unlock(&adis->txrx_lock);
+	mutex_unlock(&adis->state_lock);
 
 	return ret;
 }
@@ -435,7 +435,7 @@ EXPORT_SYMBOL_GPL(adis_single_conversion);
 int adis_init(struct adis *adis, struct iio_dev *indio_dev,
 	struct spi_device *spi, const struct adis_data *data)
 {
-	mutex_init(&adis->txrx_lock);
+	mutex_init(&adis->state_lock);
 	adis->spi = spi;
 	adis->data = data;
 	iio_device_set_drvdata(indio_dev, adis);
