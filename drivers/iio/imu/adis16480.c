@@ -1072,7 +1072,7 @@ static irqreturn_t adis16480_trigger_handler(int irq, void *p)
 	if (!adis->buffer)
 		return -ENOMEM;
 
-	mutex_lock(&adis->txrx_lock);
+	mutex_lock(&adis->state_lock);
 	if (adis->current_page != 0) {
 		adis->tx[0] = ADIS_WRITE_REG(ADIS_REG_PAGE_ID);
 		adis->tx[1] = 0;
@@ -1084,7 +1084,7 @@ static irqreturn_t adis16480_trigger_handler(int irq, void *p)
 		dev_err(&adis->spi->dev, "Failed to read data: %d\n", ret);
 
 	adis->current_page = 0;
-	mutex_unlock(&adis->txrx_lock);
+	mutex_unlock(&adis->state_lock);
 
 	if (!(adis->burst && adis->burst->en)) {
 		buffer = adis->buffer;
