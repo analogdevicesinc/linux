@@ -122,6 +122,7 @@ dtb-$(CONFIG_SOC_IMX6Q) += \
 	imx6dl-sabreauto.dtb \
 	imx6dl-sabrelite.dtb \
 	imx6dl-sabresd.dtb \
+	imx6dl-sabresd-hdcp.dtb \
 	imx6dl-savageboard.dtb \
 	imx6dl-sielaff.dtb \
 	imx6dl-skov-revc-lt2.dtb \
@@ -233,6 +234,7 @@ dtb-$(CONFIG_SOC_IMX6Q) += \
 	imx6q-sabreauto.dtb \
 	imx6q-sabrelite.dtb \
 	imx6q-sabresd.dtb \
+	imx6q-sabresd-hdcp.dtb \
 	imx6q-sabresd-uart.dtb \
 	imx6q-savageboard.dtb \
 	imx6q-sbc6x.dtb \
@@ -270,6 +272,7 @@ dtb-$(CONFIG_SOC_IMX6Q) += \
 	imx6qp-prtwd3.dtb \
 	imx6qp-sabreauto.dtb \
 	imx6qp-sabresd.dtb \
+	imx6qp-sabresd-hdcp.dtb \
 	imx6qp-tx6qp-8037.dtb \
 	imx6qp-tx6qp-8037-mb7.dtb \
 	imx6qp-tx6qp-8137.dtb \
