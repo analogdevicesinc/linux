@@ -347,6 +347,13 @@ static int imx8mq_clocks_probe(struct platform_device *pdev)
 	hws[IMX8MQ_AUDIO_PLL2_BYPASS] = imx_clk_hw_mux("audio_pll2_bypass", base + 0x8, 14, 1, audio_pll2_bypass_sels, ARRAY_SIZE(audio_pll2_bypass_sels));
 	hws[IMX8MQ_VIDEO_PLL1_BYPASS] = imx_clk_hw_mux("video_pll1_bypass", base + 0x10, 14, 1, video_pll1_bypass_sels, ARRAY_SIZE(video_pll1_bypass_sels));
 
+	/* unbypass all the plls */
+	clk_set_parent(hws[IMX8MQ_GPU_PLL_BYPASS]->clk, hws[IMX8MQ_GPU_PLL]->clk);
+	clk_set_parent(hws[IMX8MQ_VPU_PLL_BYPASS]->clk, hws[IMX8MQ_VPU_PLL]->clk);
+	clk_set_parent(hws[IMX8MQ_AUDIO_PLL1_BYPASS]->clk, hws[IMX8MQ_AUDIO_PLL1]->clk);
+	clk_set_parent(hws[IMX8MQ_AUDIO_PLL2_BYPASS]->clk, hws[IMX8MQ_AUDIO_PLL2]->clk);
+	clk_set_parent(hws[IMX8MQ_VIDEO_PLL1_BYPASS]->clk, hws[IMX8MQ_VIDEO_PLL1]->clk);
+
 	/* PLL OUT GATE */
 	hws[IMX8MQ_ARM_PLL_OUT] = imx_clk_hw_gate("arm_pll_out", "arm_pll_bypass", base + 0x28, 21);
 	hws[IMX8MQ_GPU_PLL_OUT] = imx_clk_hw_gate("gpu_pll_out", "gpu_pll_bypass", base + 0x18, 21);
