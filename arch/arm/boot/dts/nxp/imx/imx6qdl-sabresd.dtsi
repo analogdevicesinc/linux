@@ -263,6 +263,18 @@
 				 <&clks IMX6QDL_CLK_PLL3_USB_OTG>;
 };
 
+&dcic1 {
+	dcic_id = <0>;
+	dcic_mux = "dcic-hdmi";
+	status = "okay";
+};
+
+&dcic2 {
+	dcic_id = <1>;
+	dcic_mux = "dcic-lvds1";
+	status = "okay";
+};
+
 &ecspi1 {
 	cs-gpios = <&gpio4 9 GPIO_ACTIVE_LOW>;
 	pinctrl-names = "default";

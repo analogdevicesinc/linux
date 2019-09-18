@@ -988,13 +988,23 @@
 			};
 
 			dcic1: dcic@20e4000 {
-				reg = <0x020e4000 0x4000>;
+				compatible = "fsl,imx6q-dcic";
+				reg = <0x20e4000 0x4000>;
 				interrupts = <0 124 IRQ_TYPE_LEVEL_HIGH>;
+				clocks = <&clks IMX6QDL_CLK_DCIC1>, <&clks IMX6QDL_CLK_DCIC1>;
+				clock-names = "dcic", "disp-axi";
+				gpr = <&gpr>;
+				status = "disabled";
 			};
 
 			dcic2: dcic@20e8000 {
-				reg = <0x020e8000 0x4000>;
+				compatible = "fsl,imx6q-dcic";
+				reg = <0x20e8000 0x4000>;
 				interrupts = <0 125 IRQ_TYPE_LEVEL_HIGH>;
+				clocks = <&clks IMX6QDL_CLK_DCIC2>, <&clks IMX6QDL_CLK_DCIC2>;
+				clock-names = "dcic", "disp-axi";
+				gpr = <&gpr>;
+				status = "disabled";
 			};
 
 			sdma: dma-controller@20ec000 {
