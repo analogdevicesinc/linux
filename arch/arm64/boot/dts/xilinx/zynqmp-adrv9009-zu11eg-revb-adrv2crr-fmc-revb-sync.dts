@@ -1,0 +1,22 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * dts file for ADRV2CRR-FMC using ADRV9009-ZU11EG Rev.B System on Module
+ *
+ * Copyright (C) 2019 Analog Devices Inc.
+ *
+ */
+
+#include "zynqmp-adrv9009-zu11eg-reva-adrv2crr-fmc-reva-sync.dts"
+#include "zynqmp-adrv9009-zu11eg-revb.dtsi"
+
+&dwc3_0 {
+	status = "okay";
+	dr_mode = "otg";
+};
+
+&hmc7044_fmc_car {
+	adi,pll1-clkin-frequencies = <122880000 122880000 0 38400000>;
+	adi,pll1-ref-prio-ctrl = <0xb1>;  // priorities: clkin 1,0,3,2
+	adi,pll1-ref-autorevert-enable;
+	adi,clkin0-buffer-mode  = <0x07>; // buffer en, AC coupling, 100ohm termination
+};
