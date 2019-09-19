@@ -1,0 +1,282 @@
+#include "zynqmp-zcu102-rev1.0.dts"
+
+&i2c1 {
+	i2c-mux@75 {
+ 		i2c@0 { /* HPC0 */
+ 			#address-cells = <1>;
+ 			#size-cells = <0>;
+ 			reg = <0>;
+ 			/* HPC0_IIC */
+ 			ad7291@2f {
+ 				compatible = "adi,ad7291";
+				reg = <0x2f>;
+ 			};
+
+ 			eeprom@50 {
+ 				compatible = "at24,24c02";
+ 				reg = <0x50>;
+ 			};
+
+ 		};
+		i2c@1 { /* HPC1 */
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <1>;
+			/* HPC0_IIC */
+			ad7291@2f {
+				compatible = "adi,ad7291";
+				reg = <0x2f>;
+			};
+
+			eeprom@50 {
+				compatible = "at24,24c02";
+				reg = <0x50>;
+			};
+
+		};
+
+	};
+};
+
+/ {
+	fpga_axi: fpga-axi@0 {
+		interrupt-parent = <&gic>;
+		compatible = "simple-bus";
+		#address-cells = <0x1>;
+		#size-cells = <0x1>;
+		ranges = <0 0 0 0xffffffff>;
+
+		axi_spi_vco_a: axi_quad_spi@9c500000 {
+			reg = <0x9c500000 0x10000>;
+			compatible = "xlnx,xps-spi-2.00.a";
+			bits-per-word = <8>;
+			clock-names = "ext_spi_clk", "s_axi_aclk";
+			clocks = <&clk 71>, <&clk 71>;
+			fifo-size = <16>;
+			interrupt-names = "ip2intc_irpt";
+			interrupt-parent = <&gic>;
+			interrupts = <0 106 1>;
+			num-cs = <0x1>;
+			xlnx,num-ss-bits = <0x1>;
+			xlnx,spi-mode = <0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+		};
+
+		axi_spi_vco_b: axi_quad_spi@9d100000 {
+			reg = <0x9d100000 0x10000>;
+			compatible = "xlnx,xps-spi-2.00.a";
+			bits-per-word = <8>;
+			clock-names = "ext_spi_clk", "s_axi_aclk";
+			clocks = <&clk 71>, <&clk 71>;
+			fifo-size = <16>;
+			interrupt-names = "ip2intc_irpt";
+			interrupt-parent = <&gic>;
+			interrupts = <0 101 1>;
+			num-cs = <0x1>;
+			xlnx,num-ss-bits = <0x1>;
+			xlnx,spi-mode = <0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+		};
+
+		axi_spi_afe_adc_a: axi_quad_spi@9c600000 {
+			reg = <0x9c600000 0x10000>;
+			compatible = "xlnx,xps-spi-2.00.a";
+			bits-per-word = <8>;
+			clock-names = "ext_spi_clk", "s_axi_aclk";
+			clocks = <&clk 71>, <&clk 71>;
+			fifo-size = <16>;
+			interrupt-names = "ip2intc_irpt";
+			interrupt-parent = <&gic>;
+			interrupts = <0 105 1>;
+			num-cs = <0x1>;
+			xlnx,num-ss-bits = <0x1>;
+			xlnx,spi-mode = <0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+		};
+
+		axi_spi_afe_adc_b: axi_quad_spi@9d200000 {
+			reg = <0x9d200000 0x10000>;
+			compatible = "xlnx,xps-spi-2.00.a";
+			bits-per-word = <8>;
+			clock-names = "ext_spi_clk", "s_axi_aclk";
+			clocks = <&clk 71>, <&clk 71>;
+			fifo-size = <16>;
+			interrupt-names = "ip2intc_irpt";
+			interrupt-parent = <&gic>;
+			interrupts = <0 100 1>;
+			num-cs = <0x1>;
+			xlnx,num-ss-bits = <0x1>;
+			xlnx,spi-mode = <0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+		};
+
+		axi_spi_clkgen_b: axi_quad_spi@9d500000 {
+			reg = <0x9d500000 0x10000>;
+			compatible = "xlnx,xps-spi-2.00.a";
+			bits-per-word = <8>;
+			clock-names = "ext_spi_clk", "s_axi_aclk";
+			clocks = <&clk 71>, <&clk 71>;
+			fifo-size = <16>;
+			interrupt-names = "ip2intc_irpt";
+			interrupt-parent = <&gic>;
+			interrupts = <0 97 1>;
+			num-cs = <0x1>;
+			xlnx,num-ss-bits = <0x1>;
+			xlnx,spi-mode = <0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+		};
+
+		axi_spi_adc_b: axi_quad_spi@9d400000 {
+			reg = <0x9d400000 0x10000>;
+			compatible = "xlnx,xps-spi-2.00.a";
+			bits-per-word = <8>;
+			clock-names = "ext_spi_clk", "s_axi_aclk";
+			clocks = <&clk 71>, <&clk 71>;
+			fifo-size = <16>;
+			interrupt-names = "ip2intc_irpt";
+			interrupt-parent = <&gic>;
+			interrupts = <0 98 1>;
+			num-cs = <0x1>;
+			xlnx,num-ss-bits = <0x1>;
+			xlnx,spi-mode = <0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+		};
+
+		axi_ad9094_adxcvr_a: axi-adxcvr-rx@84a50000 {
+			compatible = "adi,axi-adxcvr-1.0";
+			reg = <0x84a50000 0x1000>;
+
+			clocks = <&ad9528_a 3>;
+			clock-names = "conv";
+
+			#clock-cells = <1>;
+			clock-output-names = "adc_gt_clk", "rx_out_clk";
+
+			adi,sys-clk-select = <3>;
+			adi,out-clk-select = <3>;
+			adi,use-lpm-enable;
+		};
+
+		axi_ad9094_adxcvr_b: axi-adxcvr-rx-b@9d000000 {
+			compatible = "adi,axi-adxcvr-1.0";
+			reg = <0x9d000000 0x1000>;
+
+			clocks = <&ad9528_b 3>;
+			clock-names = "conv";
+
+			#clock-cells = <1>;
+			clock-output-names = "adc_gt_clk_b", "rx_out_clk_b";
+
+			adi,sys-clk-select = <3>;
+			adi,out-clk-select = <3>;
+			adi,use-lpm-enable;
+		};
+
+		axi_ad9094_rx_jesd_a: axi-jesd204-rx@84aa0000 {
+			compatible = "adi,axi-jesd204-rx-1.0";
+			reg = <0x84aa0000 0x1000>;
+
+			interrupts = <0 107 0>;
+
+			clocks = <&clk 71>, <&ad9528_a 4>, <&axi_ad9094_adxcvr_a 0>;
+			clock-names = "s_axi_aclk", "device_clk", "lane_clk";
+
+			adi,octets-per-frame = <1>;
+			adi,frames-per-multiframe = <32>;
+			adi,converter-resolution = <8>;
+			adi,bits-per-sample = <8>;
+			adi,converters-per-device = <2>;
+			adi,subclass = <1>;
+
+			#clock-cells = <0>;
+			clock-output-names = "jesd_adc_lane_clk";
+		};
+
+		axi_ad9094_rx_jesd_b: axi-jesd204-rx@9d080000 {
+			compatible = "adi,axi-jesd204-rx-1.0";
+			reg = <0x9d080000 0x1000>;
+
+			interrupts = <0 103 0>;
+
+			clocks = <&clk 71>, <&ad9528_b 4>, <&axi_ad9094_adxcvr_b 0>;
+			clock-names = "s_axi_aclk", "device_clk", "lane_clk";
+
+			adi,octets-per-frame = <1>;
+			adi,frames-per-multiframe = <32>;
+			adi,converter-resolution = <8>;
+			adi,bits-per-sample = <8>;
+			adi,converters-per-device = <2>;
+			adi,subclass = <1>;
+
+			#clock-cells = <0>;
+			clock-output-names = "jesd_adc_lane_clk_b";
+		};
+
+		axi_i2c_afe_dac_a: i2c@9c800000 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			clock-names = "s_axi_aclk";
+			clocks = <&clk 71>;
+			compatible = "xlnx,axi-iic-2.0", "xlnx,xps-iic-2.00.a";
+			interrupt-names = "iic2intc_irpt";
+			interrupt-parent = <&gic>;
+			interrupts = <0 108 4>;
+			reg = <0x9c800000 0x1000>;
+		};
+
+		axi_i2c_afe_dac_b: i2c@9d800000 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			clock-names = "s_axi_aclk";
+			clocks = <&clk 71>;
+			compatible = "xlnx,axi-iic-2.0", "xlnx,xps-iic-2.00.a";
+			interrupt-names = "iic2intc_irpt";
+			interrupt-parent = <&gic>;
+			interrupts = <0 96 4>;
+			reg = <0x9d800000 0x1000>;
+		};
+
+		axi_pulse_capture: axi-pulse-capture@9c700000 {
+			compatible = "adi,axi-pulse-capture-1.00.a";
+			reg = <0x9c700000 0x10000>;
+			interrupts = <0 104 4>;
+			clocks = <&axi_ad9094_adxcvr_a 1>;
+		};
+	};
+};
+
+&spi0 {
+	status = "okay";
+};
+
+&spi1 {
+	status = "okay";
+};
+
+#define spi_adc_a	spi0
+#define spi_clkgen_a	spi1
+#define spi_vco_a	axi_spi_vco_a
+#define spi_afe_adc_a	axi_spi_afe_adc_a
+#define i2c_afe_dac_a	axi_i2c_afe_dac_a
+
+#define spi_adc_b	axi_spi_adc_b
+#define spi_clkgen_b	axi_spi_clkgen_b
+#define spi_vco_b	axi_spi_vco_b
+#define spi_afe_adc_b	axi_spi_afe_adc_b
+#define i2c_afe_dac_b	axi_i2c_afe_dac_b
+
+#include "adi-dual-fmclidar1.dtsi"
+
+&ad7091_a {
+	convst-gpios = <&gpio 115 0>;
+};
+
+&ad7091_b {
+	convst-gpios = <&gpio 135 0>;
+};
