@@ -98,6 +98,13 @@
 #define HMC7044_LOCK_DETECT_SLIP	BIT(5)
 #define HMC7044_LOCK_DETECT_TIMER(x)	((x) & 0x1f)
 
+#define HMC7044_REG_PLL1_REF_SWITCH	0x0029
+#define HMC7044_BYPASS_DEBOUNCER	BIT(5)
+#define HMC7044_MANUAL_MODE_SWITCH(x)	(((x) & 0x3) << 3)
+#define HMC7044_HOLDOVER_DAC		BIT(2)
+#define HMC7044_AUTO_REVERT_SWITCH	BIT(1)
+#define HMC7044_AUTO_MODE_SWITCH	BIT(0)
+
 /* PLL2 */
 #define HMC7044_REG_PLL2_FREQ_DOUBLER	0x0032
 #define HMC7044_PLL2_FREQ_DOUBLER_DIS	BIT(0)
@@ -285,6 +292,7 @@ struct hmc7044 {
 	unsigned int			pll1_loop_bw;
 	unsigned int			sysref_timer_div;
 	unsigned int			pll1_ref_prio_ctrl;
+	bool				pll1_ref_autorevert_en;
 	bool				clkin0_rfsync_en;
 	bool				clkin1_vcoin_en;
 	bool				high_performance_mode_clock_dist_en;
@@ -912,6 +920,12 @@ static int hmc7044_setup(struct iio_dev *indio_dev)
 	hmc7044_write(indio_dev, HMC7044_REG_PLL1_REF_PRIO_CTRL,
 		      hmc->pll1_ref_prio_ctrl);
 
+	hmc7044_write(indio_dev, HMC7044_REG_PLL1_REF_SWITCH,
+		      HMC7044_HOLDOVER_DAC |
+		      (hmc->pll1_ref_autorevert_en ?
+		      HMC7044_AUTO_REVERT_SWITCH : 0) |
+		      HMC7044_AUTO_MODE_SWITCH);
+
 	/* Program the SYSREF timer */
 
 	/* Set the divide ratio */
@@ -1234,6 +1248,10 @@ static int hmc7044_parse_dt(struct device *dev,
 		hmc->pll1_ref_prio_ctrl = 0xE4;
 		of_property_read_u32(np, "adi,pll1-ref-prio-ctrl",
 				     &hmc->pll1_ref_prio_ctrl);
+
+		hmc->pll1_ref_autorevert_en =
+			of_property_read_bool(np,
+				"adi,pll1-ref-autorevert-enable");
 
 		hmc->sync_pin_mode = 1;
 		of_property_read_u32(np, "adi,sync-pin-mode",
