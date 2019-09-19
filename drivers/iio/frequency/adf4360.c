@@ -648,10 +648,10 @@ static const struct clk_ops adf4360_clk_ops = {
 	.is_enabled = adf4360_clk_is_enabled,
 };
 
-static int adf4360_read(struct iio_dev *indio_dev,
-			uintptr_t private,
-			const struct iio_chan_spec *chan,
-			char *buf)
+static ssize_t adf4360_read(struct iio_dev *indio_dev,
+			    uintptr_t private,
+			    const struct iio_chan_spec *chan,
+			    char *buf)
 {
 	struct adf4360_state *st = iio_priv(indio_dev);
 	unsigned long val;
@@ -675,10 +675,10 @@ static int adf4360_read(struct iio_dev *indio_dev,
 	return ret < 0 ? ret : sprintf(buf, "%lu\n", val);
 }
 
-static int adf4360_write(struct iio_dev *indio_dev,
-			 uintptr_t private,
-			 const struct iio_chan_spec *chan,
-			 const char *buf, size_t len)
+static ssize_t adf4360_write(struct iio_dev *indio_dev,
+			     uintptr_t private,
+			     const struct iio_chan_spec *chan,
+			     const char *buf, size_t len)
 {
 	struct adf4360_state *st = iio_priv(indio_dev);
 	unsigned long readin, tmp;
