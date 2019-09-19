@@ -366,7 +366,7 @@
 		adi,pulse-generator-mode = <HMC7044_PULSE_GEN_1_PULSE>;
 
 		adi,oscin-buffer-mode = <0x15>;
-		adi,clkin1-buffer-mode  = <0x09>;
+		adi,clkin1-buffer-mode  = <0x07>;
 		adi,clkin3-buffer-mode  = <0x11>;
 		adi,sync-pin-mode = <1>;
 
