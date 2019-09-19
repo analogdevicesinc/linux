@@ -186,6 +186,10 @@ static const struct of_device_id imx_sec_dsim_dt_ids[] = {
 		.compatible = "fsl,imx8mn-mipi-dsim",
 		.data = &imx8mm_mipi_dsim_plat_data,
 	},
+	{
+		.compatible = "fsl,imx8mp-mipi-dsim",
+		.data = &imx8mm_mipi_dsim_plat_data,
+	},
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, imx_sec_dsim_dt_ids);
