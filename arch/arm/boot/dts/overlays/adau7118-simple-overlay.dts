@@ -1,0 +1,60 @@
+// SPDX-License-Identifier: GPL-2.0
+
+/dts-v1/;
+/plugin/;
+
+/ {
+	compatible = "brcm,bcm2835";
+
+	fragment@0 {
+		target = <&i2s>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+
+	fragment@1 {
+		target = <&i2c1>;
+		__overlay__ {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "okay";
+
+			adau7118_codec: adau7118-codec@14 {
+				reg = <0x14>;
+				#sound-dai-cells = <0>;
+				compatible = "adi,adau7118";
+				status = "okay";
+			};
+		};
+	};
+
+	fragment@2 {
+		target = <&sound>;
+		sound_overlay: __overlay__ {
+			compatible = "simple-audio-card";
+			simple-audio-card,format = "i2s";
+			simple-audio-card,name = "adau7118";
+			simple-audio-card,bitclock-slave = <&dailink0_slave>;
+			simple-audio-card,frame-slave = <&dailink0_slave>;
+			simple-audio-card,widgets =
+				"Microphone", "Microphone Jack";
+			simple-audio-card,routing =
+				"PDM_DAT0", "Microphone Jack";
+			status = "okay";
+			simple-audio-card,cpu {
+				/* so that bclk is 64x FS */
+				dai-tdm-slot-num = <2>;
+				dai-tdm-slot-width = <32>;
+				sound-dai = <&i2s>;
+			};
+			dailink0_slave: simple-audio-card,codec {
+				sound-dai = <&adau7118_codec>;
+			};
+		};
+	};
+
+	__overrides__ {
+		card-name = <&sound_overlay>,"simple-audio-card,name";
+	};
+};
