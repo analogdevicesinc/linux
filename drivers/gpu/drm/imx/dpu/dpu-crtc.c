@@ -131,6 +131,8 @@ static void dpu_crtc_atomic_disable(struct drm_crtc *crtc,
 	framegen_wait_done(dpu_crtc->fg, adjusted_mode);
 	framegen_disable_clock(dpu_crtc->fg);
 
+	drm_crtc_vblank_off(crtc);
+
 	WARN_ON(!crtc->state->event);
 
 	if (crtc->state->event) {
@@ -140,8 +142,6 @@ static void dpu_crtc_atomic_disable(struct drm_crtc *crtc,
 
 		crtc->state->event = NULL;
 	}
-
-	drm_crtc_vblank_off(crtc);
 }
 
 static void dpu_drm_crtc_reset(struct drm_crtc *crtc)
