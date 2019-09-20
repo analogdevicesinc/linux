@@ -135,7 +135,7 @@ static void dpu_crtc_atomic_disable(struct drm_crtc *crtc,
 
 	WARN_ON(!crtc->state->event);
 
-	if (crtc->state->event) {
+	if (crtc->state->event && !crtc->state->active) {
 		spin_lock_irq(&crtc->dev->event_lock);
 		drm_crtc_send_vblank_event(crtc, crtc->state->event);
 		spin_unlock_irq(&crtc->dev->event_lock);
