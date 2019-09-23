@@ -2,6 +2,7 @@
 
 /include/ "zynq-zc706.dtsi"
 /include/ "zynq-zc706-adv7511.dtsi"
+#include <dt-bindings/gpio/gpio.h>
 
 &i2c_mux {
 	i2c@5 { /* HPC IIC */
@@ -96,6 +97,8 @@
 		dmas = <&rx_dma 0>;
 		dma-names = "rx";
 		spibus-connected = <&trx0_ad9371>;
+		adi,axi-decimation-core-available;
+		decimation-gpios = <&gpio0 115 GPIO_ACTIVE_LOW>;
 	};
 
 	axi_ad9371_core_rx_obs: axi-ad9371-rx-obs-hpc@44a08000 {
@@ -116,6 +119,8 @@
 		clock-names = "sampl_clk";
 		spibus-connected = <&trx0_ad9371>;
 		adi,axi-pl-fifo-enable;
+		adi,axi-interpolation-core-available;
+		interpolation-gpios = <&gpio0 116 GPIO_ACTIVE_LOW>;
 	};
 
 	axi_ad9371_rx_jesd: axi-jesd204-rx@44aa0000 {
