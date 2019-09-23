@@ -72,7 +72,7 @@
 			fifo-size = <16>;
 			interrupt-names = "ip2intc_irpt";
 			interrupt-parent = <&gic>;
-			interrupts = <0 101 1>;
+			interrupts = <0 94 1>;
 			num-cs = <0x1>;
 			xlnx,num-ss-bits = <0x1>;
 			xlnx,spi-mode = <0>;
@@ -106,7 +106,7 @@
 			fifo-size = <16>;
 			interrupt-names = "ip2intc_irpt";
 			interrupt-parent = <&gic>;
-			interrupts = <0 100 1>;
+			interrupts = <0 93 1>;
 			num-cs = <0x1>;
 			xlnx,num-ss-bits = <0x1>;
 			xlnx,spi-mode = <0>;
@@ -123,7 +123,7 @@
 			fifo-size = <16>;
 			interrupt-names = "ip2intc_irpt";
 			interrupt-parent = <&gic>;
-			interrupts = <0 97 1>;
+			interrupts = <0 90 1>;
 			num-cs = <0x1>;
 			xlnx,num-ss-bits = <0x1>;
 			xlnx,spi-mode = <0>;
@@ -140,7 +140,7 @@
 			fifo-size = <16>;
 			interrupt-names = "ip2intc_irpt";
 			interrupt-parent = <&gic>;
-			interrupts = <0 98 1>;
+			interrupts = <0 91 1>;
 			num-cs = <0x1>;
 			xlnx,num-ss-bits = <0x1>;
 			xlnx,spi-mode = <0>;
@@ -202,7 +202,7 @@
 			compatible = "adi,axi-jesd204-rx-1.0";
 			reg = <0x9d080000 0x1000>;
 
-			interrupts = <0 103 0>;
+			interrupts = <0 96 0>;
 
 			clocks = <&clk 71>, <&ad9528_b 4>, <&axi_ad9094_adxcvr_b 0>;
 			clock-names = "s_axi_aclk", "device_clk", "lane_clk";
@@ -238,7 +238,7 @@
 			compatible = "xlnx,axi-iic-2.0", "xlnx,xps-iic-2.00.a";
 			interrupt-names = "iic2intc_irpt";
 			interrupt-parent = <&gic>;
-			interrupts = <0 96 4>;
+			interrupts = <0 89 4>;
 			reg = <0x9d800000 0x1000>;
 		};
 
