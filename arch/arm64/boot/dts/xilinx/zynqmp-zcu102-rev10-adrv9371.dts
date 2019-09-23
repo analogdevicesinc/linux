@@ -101,6 +101,8 @@
 			dmas = <&rx_dma 0>;
 			dma-names = "rx";
 			spibus-connected = <&trx0_ad9371>;
+			adi,axi-decimation-core-available;
+			decimation-gpios = <&gpio 133 GPIO_ACTIVE_LOW>;
 		};
 
 		axi_ad9371_core_rx_obs: axi-ad9371-rx-obs-hpc@84a08000 {
@@ -121,6 +123,8 @@
 			clock-names = "sampl_clk";
 			spibus-connected = <&trx0_ad9371>;
 			adi,axi-pl-fifo-enable;
+			adi,axi-interpolation-core-available;
+			interpolation-gpios = <&gpio 134 GPIO_ACTIVE_LOW>;
 		};
 
 		axi_ad9371_rx_jesd: axi-jesd204-rx@84aa0000 {
