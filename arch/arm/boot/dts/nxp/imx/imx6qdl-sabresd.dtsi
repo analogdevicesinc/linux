@@ -146,6 +146,12 @@
 		mic-det-gpio = <&gpio1 9 GPIO_ACTIVE_LOW>;
 	};
 
+	sound-hdmi {
+		compatible = "fsl,imx6qdl-audio-hdmi";
+		model = "imx-audio-hdmi";
+		hdmi-controller = <&hdmi_audio>;
+	};
+
 	mxcfb1: fb@0 {
 		compatible = "fsl,mxc_sdc_fb";
 		disp_dev = "ldb";
@@ -309,6 +315,10 @@
 			reset-assert-us = <10000>;
 		};
 	};
+};
+
+&hdmi_audio {
+	status = "okay";
 };
 
 &hdmi_cec {
