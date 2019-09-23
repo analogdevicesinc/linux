@@ -97,6 +97,9 @@
 			clock-names = "sampl_clk";
 			spibus-connected = <&trx0_adrv9009>;
 			//adi,axi-pl-fifo-enable;
+			adi,axi-interpolation-core-available;
+			interpolation-gpios = <&gpio 134 GPIO_ACTIVE_LOW>;
+
 		};
 
 		axi_adrv9009_tx_jesd: axi-jesd204-tx@84a90000 {
