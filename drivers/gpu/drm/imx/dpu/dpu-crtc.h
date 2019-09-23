@@ -15,6 +15,7 @@
 #ifndef _DPU_CRTC_H_
 #define _DPU_CRTC_H_
 
+#include <drm/drm_vblank.h>
 #include <video/dpu.h>
 #include "dpu-plane.h"
 #include "imx-drm.h"
@@ -39,6 +40,8 @@ struct dpu_crtc {
 	struct completion	safety_shdld_done;
 	struct completion	content_shdld_done;
 	struct completion	dec_shdld_done;
+
+	struct drm_pending_vblank_event *event;
 };
 
 struct dpu_crtc_state {

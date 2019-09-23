@@ -43,6 +43,20 @@ alloc_dpu_plane_states(struct dpu_crtc *dpu_crtc)
 	return states;
 }
 
+static void dpu_crtc_queue_state_event(struct drm_crtc *crtc)
+{
+	struct dpu_crtc *dpu_crtc = to_dpu_crtc(crtc);
+
+	spin_lock_irq(&crtc->dev->event_lock);
+	if (crtc->state->event) {
+		WARN_ON(drm_crtc_vblank_get(crtc));
+		WARN_ON(dpu_crtc->event);
+		dpu_crtc->event = crtc->state->event;
+		crtc->state->event = NULL;
+	}
+	spin_unlock_irq(&crtc->dev->event_lock);
+}
+
 struct dpu_plane_state **
 crtc_state_get_dpu_plane_states(struct drm_crtc_state *state)
 {
@@ -111,13 +125,7 @@ static void dpu_crtc_atomic_enable(struct drm_crtc *crtc,
 	disable_irq(dpu_crtc->content_shdld_irq);
 	disable_irq(dpu_crtc->dec_shdld_irq);
 
-	if (crtc->state->event) {
-		spin_lock_irq(&crtc->dev->event_lock);
-		drm_crtc_send_vblank_event(crtc, crtc->state->event);
-		spin_unlock_irq(&crtc->dev->event_lock);
-
-		crtc->state->event = NULL;
-	}
+	dpu_crtc_queue_state_event(crtc);
 }
 
 static void dpu_crtc_atomic_disable(struct drm_crtc *crtc,
@@ -133,13 +141,12 @@ static void dpu_crtc_atomic_disable(struct drm_crtc *crtc,
 
 	drm_crtc_vblank_off(crtc);
 
+	spin_lock_irq(&crtc->dev->event_lock);
 	if (crtc->state->event && !crtc->state->active) {
-		spin_lock_irq(&crtc->dev->event_lock);
 		drm_crtc_send_vblank_event(crtc, crtc->state->event);
-		spin_unlock_irq(&crtc->dev->event_lock);
-
 		crtc->state->event = NULL;
 	}
+	spin_unlock_irq(&crtc->dev->event_lock);
 }
 
 static void dpu_drm_crtc_reset(struct drm_crtc *crtc)
@@ -238,8 +245,18 @@ static const struct drm_crtc_funcs dpu_crtc_funcs = {
 static irqreturn_t dpu_vbl_irq_handler(int irq, void *dev_id)
 {
 	struct dpu_crtc *dpu_crtc = dev_id;
+	struct drm_crtc *crtc = &dpu_crtc->base;
+	unsigned long flags;
 
-	drm_crtc_handle_vblank(&dpu_crtc->base);
+	drm_crtc_handle_vblank(crtc);
+
+	spin_lock_irqsave(&crtc->dev->event_lock, flags);
+	if (dpu_crtc->event) {
+		drm_crtc_send_vblank_event(crtc, dpu_crtc->event);
+		dpu_crtc->event = NULL;
+		drm_crtc_vblank_put(crtc);
+	}
+	spin_unlock_irqrestore(&crtc->dev->event_lock, flags);
 
 	return IRQ_HANDLED;
 }
@@ -419,13 +436,7 @@ static void dpu_crtc_atomic_flush(struct drm_crtc *crtc,
 
 		disable_irq(dpu_crtc->content_shdld_irq);
 
-		if (crtc->state->event) {
-			spin_lock_irq(&crtc->dev->event_lock);
-			drm_crtc_send_vblank_event(crtc, crtc->state->event);
-			spin_unlock_irq(&crtc->dev->event_lock);
-
-			crtc->state->event = NULL;
-		}
+		dpu_crtc_queue_state_event(crtc);
 	} else if (!crtc->state->active) {
 		extdst_pixengcfg_sync_trigger(ed);
 	}
