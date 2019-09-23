@@ -84,7 +84,7 @@
 #endif
 
 #if defined(CONFIG_ARM) && LINUX_VERSION_CODE >= KERNEL_VERSION(4, 3, 0)
-#include <dma.h>
+//#include <dma.h>
 #endif
 
 #define _GC_OBJ_ZONE    gcvZONE_OS
