@@ -2,7 +2,7 @@
 *
 *    The MIT License (MIT)
 *
-*    Copyright (c) 2014 - 2018 Vivante Corporation
+*    Copyright (c) 2014 - 2019 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 *
 *    The GPL License (GPL)
 *
-*    Copyright (C) 2014 - 2018 Vivante Corporation
+*    Copyright (C) 2014 - 2019 Vivante Corporation
 *
 *    This program is free software; you can redistribute it and/or
 *    modify it under the terms of the GNU General Public License
@@ -121,7 +121,7 @@ struct _gckHEAP
     gctUINT64                   timeStamp;
 #endif
 
-#if VIVANTE_PROFILER || gcmIS_DEBUG(gcdDEBUG_CODE)
+#if VIVANTE_PROFILER_SYSTEM_MEMORY || gcmIS_DEBUG(gcdDEBUG_CODE)
     /* Profile information. */
     gctUINT32                   allocCount;
     gctUINT64                   allocBytes;
@@ -284,7 +284,7 @@ _CompactKernelHeap(
                 heap->next->prev = heap->prev;
             }
 
-#if VIVANTE_PROFILER || gcmIS_DEBUG(gcdDEBUG_CODE)
+#if VIVANTE_PROFILER_SYSTEM_MEMORY || gcmIS_DEBUG(gcdDEBUG_CODE)
             /* Update profiling. */
             Heap->heapCount  -= 1;
             Heap->heapMemory -= heap->size + gcmSIZEOF(gcskHEAP);
@@ -382,7 +382,7 @@ gckHEAP_Construct(
     heap->timeStamp      = 0;
 #endif
 
-#if VIVANTE_PROFILER || gcmIS_DEBUG(gcdDEBUG_CODE)
+#if VIVANTE_PROFILER_SYSTEM_MEMORY || gcmIS_DEBUG(gcdDEBUG_CODE)
     /* Zero the counters. */
     heap->allocCount      = 0;
     heap->allocBytes      = 0;
@@ -658,7 +658,7 @@ gckHEAP_Allocate(
     /* No previous free. */
     prevFree = gcvNULL;
 
-#if VIVANTE_PROFILER || gcmIS_DEBUG(gcdDEBUG_CODE)
+#if VIVANTE_PROFILER_SYSTEM_MEMORY || gcmIS_DEBUG(gcdDEBUG_CODE)
     /* Update profiling. */
     Heap->heapCount  += 1;
     Heap->heapMemory += Heap->allocationSize;
@@ -730,7 +730,7 @@ UseNode:
     used->timeStamp = ++Heap->timeStamp;
 #endif
 
-#if VIVANTE_PROFILER || gcmIS_DEBUG(gcdDEBUG_CODE)
+#if VIVANTE_PROFILER_SYSTEM_MEMORY || gcmIS_DEBUG(gcdDEBUG_CODE)
     /* Update profile counters. */
     Heap->allocCount      += 1;
     Heap->allocBytes      += bytes;
@@ -811,7 +811,7 @@ gckHEAP_Free(
     /* Mark the node as freed. */
     node->next = gcvNULL;
 
-#if VIVANTE_PROFILER || gcmIS_DEBUG(gcdDEBUG_CODE)
+#if VIVANTE_PROFILER_SYSTEM_MEMORY || gcmIS_DEBUG(gcdDEBUG_CODE)
     /* Update profile counters. */
     Heap->allocBytes -= node->bytes;
 #endif
@@ -830,7 +830,7 @@ OnError:
     return status;
 }
 
-#if VIVANTE_PROFILER
+#if VIVANTE_PROFILER_SYSTEM_MEMORY
 gceSTATUS
 gckHEAP_ProfileStart(
     IN gckHEAP Heap
@@ -868,7 +868,7 @@ gckHEAP_ProfileEnd(
     gcmkVERIFY_OBJECT(Heap, gcvOBJ_HEAP);
     gcmkVERIFY_ARGUMENT(Title != gcvNULL);
 
-    gcmkPRINT("");
+    gcmkPRINT("\n");
     gcmkPRINT("=====[ HEAP - %s ]=====", Title);
     gcmkPRINT("Number of allocations           : %12u",   Heap->allocCount);
     gcmkPRINT("Number of bytes allocated       : %12llu", Heap->allocBytes);
@@ -884,9 +884,5 @@ gckHEAP_ProfileEnd(
     gcmkFOOTER_NO();
     return gcvSTATUS_OK;
 }
-#endif /* VIVANTE_PROFILER */
-
-/*******************************************************************************
-***** Test Code ****************************************************************
-*******************************************************************************/
+#endif /* VIVANTE_PROFILER_SYSTEM_MEMORY */
 

@@ -2,7 +2,7 @@
 *
 *    The MIT License (MIT)
 *
-*    Copyright (c) 2014 - 2018 Vivante Corporation
+*    Copyright (c) 2014 - 2019 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 *
 *    The GPL License (GPL)
 *
-*    Copyright (C) 2014 - 2018 Vivante Corporation
+*    Copyright (C) 2014 - 2019 Vivante Corporation
 *
 *    This program is free software; you can redistribute it and/or
 *    modify it under the terms of the GNU General Public License
@@ -566,7 +566,7 @@ gckVGCOMMAND_FetchCommand(
  ~0U : (~(~0U << ((1 ? 20:0) - (0 ? 20:0) + 1))))))) << (0 ? 20:0)))
                 );
 
-            gckOS_WriteMemory(
+           gckOS_WriteMemory(
                 Command->os,
                 &buffer[1],
                 gcmkFIXADDRESS(FetchAddress)
@@ -589,7 +589,7 @@ gckVGCOMMAND_FetchCommand(
             buffer = (gctUINT32_PTR) Logical;
 
             /* Append LINK. */
-            gckOS_WriteMemory(
+           gckOS_WriteMemory(
                 Command->os,
                 &buffer[0],
                   ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
@@ -614,7 +614,7 @@ gckVGCOMMAND_FetchCommand(
  ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)))
                 );
 
-            gckOS_WriteMemory(
+           gckOS_WriteMemory(
                 Command->os,
                 &buffer[1],
                 gcmkFIXADDRESS(FetchAddress)
@@ -691,7 +691,7 @@ gckVGCOMMAND_CallCommand(
             buffer = (gctUINT32_PTR) Logical;
 
             /* Append CALL. */
-            gckOS_WriteMemory(
+           gckOS_WriteMemory(
                 Command->os,
                 &buffer[0],
                   ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
@@ -716,7 +716,7 @@ gckVGCOMMAND_CallCommand(
  ~0U : (~(~0U << ((1 ? 20:0) - (0 ? 20:0) + 1))))))) << (0 ? 20:0)))
                 );
 
-            gckOS_WriteMemory(
+           gckOS_WriteMemory(
                 Command->os,
                 &buffer[1],
                 gcmkFIXADDRESS(FetchAddress)
@@ -787,7 +787,7 @@ gckVGCOMMAND_ReturnCommand(
             buffer = (gctUINT32_PTR) Logical;
 
             /* Append RETURN. */
-            gckOS_WriteMemory(
+           gckOS_WriteMemory(
                 Command->os,
                 &buffer[0],
                 ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
@@ -960,7 +960,7 @@ gckVGCOMMAND_EventCommand(
             buffer = (gctUINT32_PTR) Logical;
 
             /* Append EVENT. */
-            gckOS_WriteMemory(
+           gckOS_WriteMemory(
                 Command->os,
                 &buffer[0],
                   ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
@@ -1114,7 +1114,7 @@ gckVGCOMMAND_EventCommand(
             buffer = (gctUINT32_PTR) Logical;
 
             /* Append EVENT. */
-            gckOS_WriteMemory(
+           gckOS_WriteMemory(
                 Command->os,
                 &buffer[0],
                   ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
@@ -1152,7 +1152,7 @@ gckVGCOMMAND_EventCommand(
             /* Determine event source. */
             if (Block == gcvBLOCK_COMMAND)
             {
-                gckOS_WriteMemory(
+               gckOS_WriteMemory(
                     Command->os,
                     &buffer[1],
                       ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
@@ -1179,7 +1179,7 @@ gckVGCOMMAND_EventCommand(
             }
             else
             {
-                gckOS_WriteMemory(
+               gckOS_WriteMemory(
                     Command->os,
                     &buffer[1],
                       ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
@@ -1273,7 +1273,7 @@ gckVGCOMMAND_EndCommand(
             buffer = (gctUINT32_PTR) Logical;
 
             /* Append END. */
-            gckOS_WriteMemory(
+           gckOS_WriteMemory(
                 Command->os,
                 &buffer[0],
                   ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
@@ -1318,7 +1318,7 @@ gckVGCOMMAND_EndCommand(
             memory = (gctUINT32_PTR) Logical;
 
             /* Append EVENT. */
-            gckOS_WriteMemory(
+           gckOS_WriteMemory(
                 Command->os,
                 &memory[0],
                   ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
@@ -1353,7 +1353,7 @@ gckVGCOMMAND_EndCommand(
  ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)))
                 );
 
-            gckOS_WriteMemory(
+           gckOS_WriteMemory(
                 Command->os,
                 &memory[1],
                   ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
@@ -1379,7 +1379,7 @@ gckVGCOMMAND_EndCommand(
                 );
 
             /* Append END. */
-            gckOS_WriteMemory(
+           gckOS_WriteMemory(
                 Command->os,
                 &memory[2],
                 ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?

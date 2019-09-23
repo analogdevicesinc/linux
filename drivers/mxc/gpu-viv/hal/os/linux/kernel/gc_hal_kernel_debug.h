@@ -2,7 +2,7 @@
 *
 *    The MIT License (MIT)
 *
-*    Copyright (c) 2014 - 2018 Vivante Corporation
+*    Copyright (c) 2014 - 2019 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 *
 *    The GPL License (GPL)
 *
-*    Copyright (C) 2014 - 2018 Vivante Corporation
+*    Copyright (C) 2014 - 2019 Vivante Corporation
 *
 *    This program is free software; you can redistribute it and/or
 *    modify it under the terms of the GNU General Public License
@@ -85,13 +85,13 @@ typedef va_list gctARGUMENTS;
     va_arg(Arguments, Type)
 
 #define gcmkDECLARE_MUTEX(__mutex__) \
-    DEFINE_MUTEX(__mutex__); \
+    DEFINE_MUTEX(__mutex__)
 
 #define gcmkMUTEX_LOCK(__mutex__) \
-    mutex_lock(&__mutex__);
+    mutex_lock(&__mutex__)
 
 #define gcmkMUTEX_UNLOCK(__mutex__) \
-    mutex_unlock(&__mutex__);
+    mutex_unlock(&__mutex__)
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,24)
 #   define gcmkGETPROCESSID() \
@@ -110,23 +110,48 @@ typedef va_list gctARGUMENTS;
 #endif
 
 #define gcmkOUTPUT_STRING(String) \
-    if (gckDEBUGFS_IsEnabled()) \
+    printk("%s", String); \
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,14,0)
+#define gcmkDUMP_STRING(Os, String) \
+    do \
     { \
-        while (-ERESTARTSYS == gckDEBUGFS_Print(String)); \
+        mutex_lock(&Os->dumpFilpMutex); \
+        if (Os->dumpTarget == 0) \
+        { \
+            printk("%s", String); \
+        } \
+        else if (Os->dumpFilp && Os->dumpTarget == 1) \
+        { \
+            kernel_write(Os->dumpFilp, String, strlen(String), &Os->dumpFilp->f_pos); \
+        } \
+        mutex_unlock(&Os->dumpFilpMutex); \
     } \
-    else \
+    while (0)
+#else
+#define gcmkDUMP_STRING(Os, String) \
+    do \
     { \
-        printk(String); \
-    }
+        mutex_lock(&Os->dumpFilpMutex); \
+        if (Os->dumpTarget == 0) \
+        { \
+            printk("%s", String); \
+        } \
+        else if (Os->dumpFilp && Os->dumpTarget == 1) \
+        { \
+            mm_segment_t oldFs; \
+            oldFs = get_fs(); \
+            set_fs(KERNEL_DS); \
+            vfs_write(Os->dumpFilp, String, strlen(String), &Os->dumpFilp->f_pos); \
+            set_fs(oldFs); \
+        } \
+        mutex_unlock(&Os->dumpFilpMutex); \
+    } \
+    while (0)
+#endif
 
-#define gcmkSPRINTF(Destination, Size, Message, Value) \
-    snprintf(Destination, Size, Message, Value)
-
-#define gcmkSPRINTF2(Destination, Size, Message, Value1, Value2) \
-    snprintf(Destination, Size, Message, Value1, Value2)
-
-#define gcmkSPRINTF3(Destination, Size, Message, Value1, Value2, Value3) \
-    snprintf(Destination, Size, Message, Value1, Value2, Value3)
+#define gcmkSPRINTF(Destination, Size, ...) \
+    snprintf(Destination, Size, __VA_ARGS__)
 
 #define gcmkVSPRINTF(Destination, Size, Message, Arguments) \
     vsnprintf(Destination, Size, Message, *((va_list*)Arguments))

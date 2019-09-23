@@ -2,7 +2,7 @@
 *
 *    The MIT License (MIT)
 *
-*    Copyright (c) 2014 - 2018 Vivante Corporation
+*    Copyright (c) 2014 - 2019 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 *
 *    The GPL License (GPL)
 *
-*    Copyright (C) 2014 - 2018 Vivante Corporation
+*    Copyright (C) 2014 - 2019 Vivante Corporation
 *
 *    This program is free software; you can redistribute it and/or
 *    modify it under the terms of the GNU General Public License
@@ -58,13 +58,13 @@
 
 #define gcvVERSION_MAJOR        6
 
-#define gcvVERSION_MINOR        2
+#define gcvVERSION_MINOR        4
 
-#define gcvVERSION_PATCH        4
+#define gcvVERSION_PATCH        0
 
-#define gcvVERSION_BUILD     190076
+#define gcvVERSION_BUILD     222820
 
-#define gcvVERSION_STRING    "6.2.4.p4.190076"
+#define gcvVERSION_STRING    "6.4.0.222820"
 
 #endif /* __gc_hal_version_h_ */
 

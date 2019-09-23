@@ -2,7 +2,7 @@
 *
 *    The MIT License (MIT)
 *
-*    Copyright (c) 2014 - 2018 Vivante Corporation
+*    Copyright (c) 2014 - 2019 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 *
 *    The GPL License (GPL)
 *
-*    Copyright (C) 2014 - 2018 Vivante Corporation
+*    Copyright (C) 2014 - 2019 Vivante Corporation
 *
 *    This program is free software; you can redistribute it and/or
 *    modify it under the terms of the GNU General Public License
@@ -63,45 +63,67 @@
 
 typedef struct _gcsMODULE_PARAMETERS
 {
-    gctINT  irqLine;
-    gctUINT registerMemBase;
-    gctUINT registerMemSize;
-    gctINT  irqLine2D;
-    gctUINT registerMemBase2D;
-    gctUINT registerMemSize2D;
-    gctINT  irqLineVG;
-    gctUINT registerMemBaseVG;
-    gctUINT registerMemSizeVG;
-    gctUINT contiguousSize;
-    gctUINT contiguousBase;
-    gctUINT contiguousRequested;
-    gctUINT externalSize;
-    gctUINT externalBase;
-    gctUINT bankSize;
-    gctINT  fastClear;
-    gceCOMPRESSION_OPTION compression;
-    gctINT  powerManagement;
-    gctINT  gpuProfiler;
-    gctINT  signal;
-    gctUINT baseAddress;
-    gctUINT physSize;
-    gctUINT logFileSize;
-    gctUINT recovery;
-    gctUINT stuckDump;
-    gctUINT showArgs;
-    gctUINT gpu3DMinClock;
-    gctBOOL registerMemMapped;
-    gctPOINTER registerMemAddress;
-    gctINT  irqs[gcvCORE_COUNT];
-    gctUINT registerBases[gcvCORE_COUNT];
-    gctUINT registerSizes[gcvCORE_COUNT];
-    gctUINT chipIDs[gcvCORE_COUNT];
+    gctINT                  irqs[gcvCORE_COUNT];
+    gctPHYS_ADDR_T          registerBases[gcvCORE_COUNT];
+    gctSIZE_T               registerSizes[gcvCORE_COUNT];
+    gctINT                  bars[gcvCORE_COUNT];
+
+    gctPOINTER              registerBasesMapped[gcvCORE_COUNT];
+
+    gctUINT                 chipIDs[gcvCORE_COUNT];
+
+    /* Contiguous memory pool. */
+    gctPHYS_ADDR_T          contiguousBase;
+    gctSIZE_T               contiguousSize;
+    gctBOOL                 contiguousRequested;
+
+    /* External memory pool. */
+    gctPHYS_ADDR_T          externalBase;
+    gctSIZE_T               externalSize;
+
+    /* Per-core SRAM. */
+    gctPHYS_ADDR_T          sRAMBases[gcvCORE_COUNT][gcvSRAM_INTER_COUNT];
+    gctUINT32               sRAMSizes[gcvCORE_COUNT][gcvSRAM_INTER_COUNT];
+
+    /* Shared SRAM. */
+    gctPHYS_ADDR_T          extSRAMBases[gcvSRAM_EXT_COUNT];
+    gctUINT32               extSRAMSizes[gcvSRAM_EXT_COUNT];
+#if USE_LINUX_PCIE
+    gctUINT32               regOffsets[gcvCORE_COUNT];
+    gctINT32                sRAMBars[gcvSRAM_EXT_COUNT];
+    gctINT32                sRAMOffsets[gcvSRAM_EXT_COUNT];
+#endif
+
+    gctBOOL                 sRAMRequested;
+    gctUINT32               sRAMLoopMode;
+
+    gctPHYS_ADDR_T          baseAddress;
+    gctSIZE_T               physSize;
+    gctSIZE_T               bankSize;
+
+    gctUINT                 recovery;
+    gctINT                  powerManagement;
+
+    gctINT                  enableMmu;
+    gctINT                  fastClear;
+    gceCOMPRESSION_OPTION   compression;
+    gctUINT                 gpu3DMinClock;
+    gctUINT                 userClusterMask;
+    gctUINT                 smallBatch;
+
+    /* Debug or other information. */
+    gctUINT                 stuckDump;
+    gctINT                  gpuProfiler;
+
+    /* device type, 0 for char device, 1 for misc device. */
+    gctUINT                 deviceType;
+    gctUINT                 showArgs;
 }
 gcsMODULE_PARAMETERS;
 
-typedef struct soc_platform gcsPLATFORM;
+typedef struct _gcsPLATFORM gcsPLATFORM;
 
-typedef struct soc_platform_ops
+typedef struct _gcsPLATFORM_OPERATIONS
 {
 
     /*******************************************************************************
@@ -222,7 +244,7 @@ typedef struct soc_platform_ops
     gceSTATUS
     (*getCPUPhysical)(
         IN gcsPLATFORM * Platform,
-        IN gctUINT32 GPUPhysical,
+        IN gctPHYS_ADDR_T GPUPhysical,
         OUT gctPHYS_ADDR_T * CPUPhysical
         );
 
@@ -250,58 +272,38 @@ typedef struct soc_platform_ops
 
     /*******************************************************************************
     **
-    **  cache
-    **
-    **  Cache operation.
-    */
-    gceSTATUS
-    (*cache)(
-        IN gcsPLATFORM * Platform,
-        IN gctUINT32 ProcessID,
-        IN gctPHYS_ADDR Handle,
-        IN gctUINT32 Physical,
-        IN gctPOINTER Logical,
-        IN gctSIZE_T Bytes,
-        IN gceCACHEOPERATION Operation
-        );
-
-    /*******************************************************************************
-    **
     ** getPolicyID
     **
     ** Get policyID for a specified surface type.
     */
     gceSTATUS
     (*getPolicyID)(
-        IN gcsPLATFORM * Platform,
-        IN gceSURF_TYPE Type,
+        IN gcsPLATFORM *Platform,
+        IN gceVIDMEM_TYPE Type,
         OUT gctUINT32_PTR PolicyID,
         OUT gctUINT32_PTR AXIConfig
         );
 }
 gcsPLATFORM_OPERATIONS;
 
-struct soc_platform
+struct _gcsPLATFORM
 {
-#if USE_LINUX_PCIE
-    struct pci_dev* device;
-    struct pci_driver* driver;
-#else
-    struct platform_device* device;
-    struct platform_driver* driver;
-#endif
+    struct platform_device *device;
+    struct platform_driver *driver;
 
     const char *name;
     gcsPLATFORM_OPERATIONS* ops;
+
+    /* TODO: Remove AXI-SRAM size from feature database. */
+    gckDEVICE dev;
+
     /* PLATFORM specific flags */
     gctUINT32  flagBits;
+
+    void*                   priv;
 };
 
-#if USE_LINUX_PCIE
-int soc_platform_init(struct pci_driver *pdrv, gcsPLATFORM **platform);
-#else
-int soc_platform_init(struct platform_driver *pdrv, gcsPLATFORM **platform);
-#endif
-int soc_platform_terminate(gcsPLATFORM *platform);
+int gckPLATFORM_Init(struct platform_driver *pdrv, gcsPLATFORM **platform);
+int gckPLATFORM_Terminate(gcsPLATFORM *platform);
 
 #endif

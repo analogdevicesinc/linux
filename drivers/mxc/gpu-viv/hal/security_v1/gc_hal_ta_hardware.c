@@ -2,7 +2,7 @@
 *
 *    The MIT License (MIT)
 *
-*    Copyright (c) 2014 - 2018 Vivante Corporation
+*    Copyright (c) 2014 - 2019 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 *
 *    The GPL License (GPL)
 *
-*    Copyright (C) 2014 - 2018 Vivante Corporation
+*    Copyright (C) 2014 - 2019 Vivante Corporation
 *
 *    This program is free software; you can redistribute it and/or
 *    modify it under the terms of the GNU General Public License
@@ -196,7 +196,6 @@ _IdentifyHardwareByDatabase(
                   Hardware->customerID);
         gcmkONERROR(gcvSTATUS_NOT_FOUND);
     }
-
     /* Success. */
     gcmkFOOTER();
     return gcvSTATUS_OK;
@@ -678,7 +677,7 @@ gctaHARDWARE_SetMMU(
     gctaOS_WriteRegister(
         Hardware->ta->os, Hardware->ta->core,
         0x003A0,
-        (((((gctUINT32) (~0U)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+        ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  23:16) - (0 ?
  23:16) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ?
@@ -687,10 +686,8 @@ gctaHARDWARE_SetMMU(
  23:16))) | (((gctUINT32) ((gctUINT32) ((gctUINT32)((secureSafeAddress >> 32) & 0xFFFFFFFF)) & ((gctUINT32) ((((1 ?
  23:16) - (0 ?
  23:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 23:16) - (0 ?
- 23:16) + 1))))))) << (0 ?
- 23:16))) &((((gctUINT32) (~0U)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ ~0U : (~(~0U << ((1 ? 23:16) - (0 ? 23:16) + 1))))))) << (0 ? 23:16)))
+      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  31:31) - (0 ?
  31:31) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ?
@@ -699,20 +696,18 @@ gctaHARDWARE_SetMMU(
  31:31))) | (((gctUINT32) (0x0 & ((gctUINT32) ((((1 ?
  31:31) - (0 ?
  31:31) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 31:31) - (0 ? 31:31) + 1))))))) << (0 ? 31:31))))
-      | (((((gctUINT32) (~0U)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ ~0U : (~(~0U << ((1 ? 31:31) - (0 ? 31:31) + 1))))))) << (0 ? 31:31)))
+      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  7:0) - (0 ?
  7:0) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ?
  7:0) - (0 ?
  7:0) + 1))))))) << (0 ?
- 7:0))) | (((gctUINT32) ((gctUINT32) ((gctUINT32)((nonSecureSafeAddress >> 32) & 0xFFFFFFFF)) & ((gctUINT32) ((((1 ?
+ 7:0))) | (((gctUINT32) ((gctUINT32) ((gctUINT32)((secureSafeAddress >> 32) & 0xFFFFFFFF)) & ((gctUINT32) ((((1 ?
  7:0) - (0 ?
  7:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 7:0) - (0 ?
- 7:0) + 1))))))) << (0 ?
- 7:0))) &((((gctUINT32) (~0U)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ ~0U : (~(~0U << ((1 ? 7:0) - (0 ? 7:0) + 1))))))) << (0 ? 7:0)))
+      | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  15:15) - (0 ?
  15:15) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ?
@@ -721,7 +716,7 @@ gctaHARDWARE_SetMMU(
  15:15))) | (((gctUINT32) (0x0 & ((gctUINT32) ((((1 ?
  15:15) - (0 ?
  15:15) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:15) - (0 ? 15:15) + 1))))))) << (0 ? 15:15))))
+ ~0U : (~(~0U << ((1 ? 15:15) - (0 ? 15:15) + 1))))))) << (0 ? 15:15)))
         );
 
     /* Execute prepared command sequence. */

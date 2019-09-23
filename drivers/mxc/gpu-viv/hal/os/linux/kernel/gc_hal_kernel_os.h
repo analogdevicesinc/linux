@@ -2,7 +2,7 @@
 *
 *    The MIT License (MIT)
 *
-*    Copyright (c) 2014 - 2018 Vivante Corporation
+*    Copyright (c) 2014 - 2019 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 *
 *    The GPL License (GPL)
 *
-*    Copyright (C) 2014 - 2018 Vivante Corporation
+*    Copyright (C) 2014 - 2019 Vivante Corporation
 *
 *    This program is free software; you can redistribute it and/or
 *    modify it under the terms of the GNU General Public License
@@ -84,11 +84,10 @@ struct _LINUX_MDL
 
     /* Size and covered page count. */
     size_t                  bytes;
-    gctINT                  numPages;
+    size_t                  numPages;
 
     gctBOOL                 contiguous;
     dma_addr_t              dmaHandle;
-
     gctBOOL                 cacheable;
 
     struct mutex            mapsMutex;
@@ -103,6 +102,8 @@ struct _LINUX_MDL
     uint                    gid;
 
     struct list_head        link;
+
+    gctBOOL                 pageUnit1M;
 };
 
 extern PLINUX_MDL_MAP

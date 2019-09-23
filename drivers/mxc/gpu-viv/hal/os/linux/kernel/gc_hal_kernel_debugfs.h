@@ -2,7 +2,7 @@
 *
 *    The MIT License (MIT)
 *
-*    Copyright (c) 2014 - 2018 Vivante Corporation
+*    Copyright (c) 2014 - 2019 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 *
 *    The GPL License (GPL)
 *
-*    Copyright (C) 2014 - 2018 Vivante Corporation
+*    Copyright (C) 2014 - 2019 Vivante Corporation
 *
 *    This program is free software; you can redistribute it and/or
 *    modify it under the terms of the GNU General Public License
@@ -59,9 +59,6 @@
 #define __gc_hal_kernel_debugfs_h_
 
  #define MAX_LINE_SIZE 768           /* Max bytes for a line of debug info */
-
-
- typedef struct _gcsDEBUGFS_Node gcsDEBUGFS_Node;
 
 typedef struct _gcsDEBUGFS_DIR *gckDEBUGFS_DIR;
 typedef struct _gcsDEBUGFS_DIR
@@ -115,56 +112,4 @@ gckDEBUGFS_DIR_Deinit(
     IN gckDEBUGFS_DIR Dir
     );
 
-/*******************************************************************************
- **
- **                             System Related
- **
- *******************************************************************************/
-
-gctINT gckDEBUGFS_IsEnabled(void);
-
-gctINT gckDEBUGFS_Initialize(void);
-
-gctINT gckDEBUGFS_Terminate(void);
-
-
-/*******************************************************************************
- **
- **                             Node Related
- **
- *******************************************************************************/
-
-gctINT
-gckDEBUGFS_CreateNode(
-    IN gctPOINTER Device,
-    IN gctINT SizeInKB,
-    IN struct dentry * Root,
-    IN gctCONST_STRING NodeName,
-    OUT gcsDEBUGFS_Node **Node
-    );
-
-void gckDEBUGFS_FreeNode(
-            IN gcsDEBUGFS_Node  * Node
-            );
-
-
-
-void gckDEBUGFS_SetCurrentNode(
-            IN gcsDEBUGFS_Node  * Node
-            );
-
-
-
-void gckDEBUGFS_GetCurrentNode(
-            OUT gcsDEBUGFS_Node  ** Node
-            );
-
-
-ssize_t gckDEBUGFS_Print(
-                IN gctCONST_STRING  Message,
-                ...
-                );
-
 #endif
-
-

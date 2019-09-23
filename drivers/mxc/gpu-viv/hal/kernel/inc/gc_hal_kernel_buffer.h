@@ -2,7 +2,7 @@
 *
 *    The MIT License (MIT)
 *
-*    Copyright (c) 2014 - 2018 Vivante Corporation
+*    Copyright (c) 2014 - 2019 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 *
 *    The GPL License (GPL)
 *
-*    Copyright (C) 2014 - 2018 Vivante Corporation
+*    Copyright (C) 2014 - 2019 Vivante Corporation
 *
 *    This program is free software; you can redistribute it and/or
 *    modify it under the terms of the GNU General Public License
@@ -134,33 +134,6 @@ typedef struct _gcsSTATE_DELTA
 }
 gcsSTATE_DELTA;
 
-#define gcdPATCH_LIST_SIZE      1024
-
-/* Command buffer patch record. */
-typedef struct _gcsPATCH
-{
-    /* Handle of a video memory node. */
-    gctUINT32                   handle;
-
-    /* Flag */
-    gctUINT32                   flag;
-}
-gcsPATCH;
-
-/* List of patches for the command buffer. */
-typedef struct _gcsPATCH_LIST
-{
-    /* Array of patch records. */
-    struct _gcsPATCH            patch[gcdPATCH_LIST_SIZE];
-
-    /* Number of patches in the array. */
-    gctUINT                     count;
-
-    /* Next item in the list. */
-    struct _gcsPATCH_LIST       *next;
-}
-gcsPATCH_LIST;
-
 #define FENCE_NODE_LIST_INIT_COUNT         100
 
 typedef struct _gcsFENCE_APPEND_NODE
@@ -189,6 +162,43 @@ typedef struct _gcsFENCE_LIST
 gcsFENCE_LIST;
 
 /* Command buffer object. */
+/*
+ * Initial (before put commands):
+ *
+ *    +-------------------------------------------
+ * ...|reservedHead|
+ *    +-------------------------------------------
+ *    ^            ^
+ *    |            |
+ * startOffset   offset
+ *
+ *
+ * After put command, in commit:
+ *
+ *    +------------------------------------------+
+ * .. |reservedHead| .. commands .. |reservedTail| ..
+ *    +------------------------------------------+
+ *    ^                             ^
+ *    |                             |
+ * startOffset                    offset
+ *
+ *
+ * Commit done, becomes initial state:
+ *
+ *    +------------------------------------------+-----------------
+ * .. |reservedHead| .. commands .. |reservedTail|reservedHead| ..
+ *    +------------------------------------------+-----------------
+ *                                               ^            ^
+ *                                               |            |
+ *                                          startOffset    offset
+ *
+ * reservedHead:
+ * Select pipe commands.
+ *
+ * reservedTail:
+ * Link, Fence, ChipEnable
+ *
+ */
 struct _gcoCMDBUF
 {
     /* The object. */
@@ -205,11 +215,15 @@ struct _gcoCMDBUF
     gctBOOL                     using2D;
     gctBOOL                     using3D;
 
-    /* Size of reserved tail for each commit. */
+    /* Size of reserved head and tail for each commit. */
+    gctUINT32                   reservedHead;
     gctUINT32                   reservedTail;
 
-    /* Physical address of command buffer. Just a name. */
-    gctUINT32                   physical;
+    /* Video memory handle of command buffer. */
+    gctUINT32                   videoMemNode;
+
+    /* GPU address of command buffer. */
+    gctUINT32                   address;
 
     /* Logical address of command buffer. */
     gctUINT64                   logical;
@@ -230,23 +244,10 @@ struct _gcoCMDBUF
     gctUINT64                   lastReserve;
     gctUINT32                   lastOffset;
 
-#if gcdSECURE_USER
-    /* Hint array for the current command buffer. */
-    gctUINT                     hintArraySize;
-    gctUINT64                   hintArray;
-    gctUINT64                   hintArrayTail;
-#endif
-
     /* Last load state command location and hardware address. */
     gctUINT64                   lastLoadStatePtr;
     gctUINT32                   lastLoadStateAddress;
     gctUINT32                   lastLoadStateCount;
-
-    /* List of patches. */
-    gctUINT64                   patchHead;
-
-    /* Link to next gcoCMDBUF object in one commit. */
-    gctUINT64                   nextCMDBUF;
 
     /*
     * Put pointer type member after this line.
@@ -274,6 +275,15 @@ typedef struct _gcsQUEUE
 }
 gcsQUEUE;
 
+/* A record chunk include multiple records to save allocation. */
+typedef struct _gcsQUEUE_CHUNK
+{
+    struct _gcsQUEUE_CHUNK *    next;
+
+    gcsQUEUE                    record[16];
+}
+gcsQUEUE_CHUNK;
+
 /* Event queue. */
 struct _gcoQUEUE
 {
@@ -284,15 +294,17 @@ struct _gcoQUEUE
     gcsQUEUE_PTR                head;
     gcsQUEUE_PTR                tail;
 
-    /* chunks of the records. */
-    gctPOINTER                  chunks;
-
     /* List of free records. */
     gcsQUEUE_PTR                freeList;
+
+    /* chunks of the records. */
+    gcsQUEUE_CHUNK *            chunks;
 
     #define gcdIN_QUEUE_RECORD_LIMIT 16
     /* Number of records currently in queue */
     gctUINT32                   recordCount;
+    /* Number of records which release resource currently in queue */
+    gctUINT32                   tmpBufferRecordCount;
 
     /* Max size of pending unlock node in vidmem pool not committed */
     gctUINT                     maxUnlockBytes;

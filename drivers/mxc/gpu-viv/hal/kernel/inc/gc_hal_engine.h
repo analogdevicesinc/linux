@@ -2,7 +2,7 @@
 *
 *    The MIT License (MIT)
 *
-*    Copyright (c) 2014 - 2018 Vivante Corporation
+*    Copyright (c) 2014 - 2019 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 *
 *    The GPL License (GPL)
 *
-*    Copyright (C) 2014 - 2018 Vivante Corporation
+*    Copyright (C) 2014 - 2019 Vivante Corporation
 *
 *    This program is free software; you can redistribute it and/or
 *    modify it under the terms of the GNU General Public License
@@ -127,13 +127,14 @@ typedef struct _gcoBUFOBJ *             gcoBUFOBJ;
 
 typedef enum _gcePROGRAM_STAGE
 {
-    gcvPROGRAM_STAGE_VERTEX   = 0x0,
-    gcvPROGRAM_STAGE_TCS      = 0x1,
-    gcvPROGRAM_STAGE_TES      = 0x2,
-    gcvPROGRAM_STAGE_GEOMETRY = 0x3,
-    gcvPROGRAM_STAGE_FRAGMENT = 0x4,
-    gcvPROGRAM_STAGE_COMPUTE  = 0x5,
-    gcvPROGRAM_STAGE_OPENCL   = 0x6,
+    gcvPROGRAM_STAGE_VERTEX         = 0x0,
+    gcvPROGRAM_STAGE_TCS            = 0x1,
+    gcvPROGRAM_STAGE_TES            = 0x2,
+    gcvPROGRAM_STAGE_GEOMETRY       = 0x3,
+    gcvPROGRAM_STAGE_FRAGMENT       = 0x4,
+    gcvPROGRAM_STAGE_GRAPHICS_COUNT = 0x5,
+    gcvPROGRAM_STAGE_COMPUTE        = 0x5,
+    gcvPROGRAM_STAGE_OPENCL         = 0x6,
     gcvPROGRAM_STAGE_LAST
 }
 gcePROGRAM_STAGE;
@@ -326,8 +327,8 @@ typedef enum _gceSPLIT_DRAW_TYPE
     gcvSPLIT_DRAW_XFB,
     gcvSPLIT_DRAW_INDEX_FETCH,
     gcvSPLIT_DRAW_TCS,
-    gcvSPLIT_DRAW_WIDE_LINE,
     gcvSPLIT_DRAW_STIPPLE,
+    gcvSPLIT_DRAW_WIDE_LINE,
     gcvSPLIT_DRAW_LAST
 }
 gceSPLIT_DRAW_TYPE;
@@ -682,7 +683,7 @@ gceSTATUS
 gcoINDEX_GetIndexRange(
     IN gcoINDEX Index,
     IN gceINDEX_TYPE Type,
-    IN gctUINT32 Offset,
+    IN gctSIZE_T Offset,
     IN gctUINT32 Count,
     OUT gctUINT32 * MinimumIndex,
     OUT gctUINT32 * MaximumIndex
@@ -1645,10 +1646,11 @@ typedef struct _gcsTHREAD_WALKER_INFO
 
     gctUINT32   threadAllocation;
     gctBOOL     barrierUsed;
-
+    gctUINT32   memoryAccessFlag; /* same as gceMEMORY_ACCESS_FLAG */
     gctBOOL     indirect;
     gctUINT32   groupNumberUniformIdx;
     gctUINT32   baseAddress;
+    gctBOOL     bDual16;
 }
 gcsTHREAD_WALKER_INFO;
 
@@ -2032,6 +2034,7 @@ typedef struct _gcsTEXTURE
     gceTEXTURE_SRGBDECODE       sRGB;
 
     gcuVALUE                    borderColor[4];
+    gctBOOL                     descDirty;
 }
 gcsTEXTURE, * gcsTEXTURE_PTR;
 
@@ -2402,6 +2405,7 @@ typedef enum _gceVERTEX_FORMAT
     gcvVERTEX_FIXED,
     gcvVERTEX_HALF,
     gcvVERTEX_FLOAT,
+    gcvVERTEX_DOUBLE,
     gcvVERTEX_UNSIGNED_INT_10_10_10_2,
     gcvVERTEX_INT_10_10_10_2,
     gcvVERTEX_UNSIGNED_INT_2_10_10_10_REV,
@@ -2424,6 +2428,7 @@ typedef enum _gceATTRIB_SCHEME
     gcvATTRIB_SCHEME_UBYTE_TO_UVEC4,
     gcvATTRIB_SCHEME_USHORT_TO_UVEC4,
     gcvATTRIB_SCHEME_UINT_TO_UVEC4,
+    gcvATTRIB_SCHEME_DOUBLE_TO_FLOAT,
 } gceATTRIB_SCHEME;
 
 gceSTATUS
@@ -2890,7 +2895,7 @@ gceSTATUS
 gcoBUFOBJ_IndexBind (
     IN gcoBUFOBJ Index,
     IN gceINDEX_TYPE Type,
-    IN gctUINT32 Offset,
+    IN gctSIZE_T Offset,
     IN gctSIZE_T Count
     );
 
@@ -2899,7 +2904,7 @@ gceSTATUS
 gcoBUFOBJ_IndexGetRange(
     IN gcoBUFOBJ Index,
     IN gceINDEX_TYPE Type,
-    IN gctUINT32 Offset,
+    IN gctSIZE_T Offset,
     IN gctUINT32 Count,
     OUT gctUINT32 * MinimumIndex,
     OUT gctUINT32 * MaximumIndex
@@ -2956,8 +2961,9 @@ gcoBUFOBJ_ReAllocBufNode(
 
 /* Handle GPU cache operations */
 gceSTATUS
-gcoBUFOBJ_GPUCacheOperation(
-    gcoBUFOBJ BufObj
+gcoBUFOBJ_SetCPUWrite(
+    gcoBUFOBJ BufObj,
+    gctBOOL Value
     );
 
 /* Dump buffer. */

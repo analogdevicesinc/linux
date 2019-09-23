@@ -2,7 +2,7 @@
 *
 *    The MIT License (MIT)
 *
-*    Copyright (c) 2014 - 2018 Vivante Corporation
+*    Copyright (c) 2014 - 2019 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 *
 *    The GPL License (GPL)
 *
-*    Copyright (C) 2014 - 2018 Vivante Corporation
+*    Copyright (C) 2014 - 2019 Vivante Corporation
 *
 *    This program is free software; you can redistribute it and/or
 *    modify it under the terms of the GNU General Public License
@@ -86,7 +86,7 @@ struct dma_buf *viv_gem_prime_export(struct drm_device *drm,
     if (gal_dev)
     {
         gckKERNEL kernel = gal_dev->device->map[gal_dev->device->defaultHwType].kernels[0];
-        gcmkVERIFY_OK(gckVIDMEM_NODE_Export(kernel, viv_obj->node_handle, flags,
+        gcmkVERIFY_OK(gckVIDMEM_NODE_Export(kernel, viv_obj->node_object, flags,
                                             (gctPOINTER*)&dmabuf, gcvNULL));
     }
 
@@ -168,7 +168,7 @@ static int viv_ioctl_gem_create(struct drm_device *drm, void *data,
     gckVIDMEM_NODE nodeObject;
     gctUINT32 flags = gcvALLOC_FLAG_DMABUF_EXPORTABLE;
     gceSTATUS status = gcvSTATUS_OK;
-    gcePOOL pool = gcvPOOL_DEFAULT;
+    gctUINT64 alignSize = PAGE_ALIGN(args->size);
 
     gal_dev = (gckGALDEVICE)drm->dev_private;
     if (!gal_dev)
@@ -192,19 +192,15 @@ static int viv_ioctl_gem_create(struct drm_device *drm, void *data,
     {
         flags |= gcvALLOC_FLAG_CMA_LIMIT;
     }
-    if (args->flags & DRM_VIV_GEM_VIRTUAL_POOL) {
-        flags &= ~(gcvALLOC_FLAG_CMA_LIMIT | gcvALLOC_FLAG_CONTIGUOUS);
-        pool = gcvPOOL_VIRTUAL;
-    }
 
     gckOS_ZeroMemory(&iface, sizeof(iface));
     iface.command = gcvHAL_ALLOCATE_LINEAR_VIDEO_MEMORY;
     iface.hardwareType = gal_dev->device->defaultHwType;
-    iface.u.AllocateLinearVideoMemory.bytes = PAGE_ALIGN(args->size);
+    iface.u.AllocateLinearVideoMemory.bytes = alignSize;
     iface.u.AllocateLinearVideoMemory.alignment = 256;
-    iface.u.AllocateLinearVideoMemory.type = gcvSURF_RENDER_TARGET; /* should be general */
+    iface.u.AllocateLinearVideoMemory.type = gcvVIDMEM_TYPE_GENERIC;
     iface.u.AllocateLinearVideoMemory.flag = flags;
-    iface.u.AllocateLinearVideoMemory.pool = pool;
+    iface.u.AllocateLinearVideoMemory.pool = gcvPOOL_DEFAULT;
     gcmkONERROR(gckDEVICE_Dispatch(gal_dev->device, &iface));
 
     kernel = gal_dev->device->map[gal_dev->device->defaultHwType].kernels[0];
@@ -213,7 +209,7 @@ static int viv_ioctl_gem_create(struct drm_device *drm, void *data,
 
     /* ioctl output */
     gem_obj = kzalloc(sizeof(struct viv_gem_object), GFP_KERNEL);
-    drm_gem_private_object_init(drm, gem_obj, iface.u.AllocateLinearVideoMemory.bytes);
+    drm_gem_private_object_init(drm, gem_obj, (size_t)alignSize);
     ret = drm_gem_handle_create(file, gem_obj, &args->handle);
 
     viv_obj = container_of(gem_obj, struct viv_gem_object, base);
@@ -297,14 +293,14 @@ static int viv_ioctl_gem_unlock(struct drm_device *drm, void *data,
     iface.command = gcvHAL_UNLOCK_VIDEO_MEMORY;
     iface.hardwareType = gal_dev->device->defaultHwType;
     iface.u.UnlockVideoMemory.node = (gctUINT64)viv_obj->node_handle;
-    iface.u.UnlockVideoMemory.type = gcvSURF_TYPE_UNKNOWN;
+    iface.u.UnlockVideoMemory.type = gcvVIDMEM_TYPE_GENERIC;
     gcmkONERROR(gckDEVICE_Dispatch(gal_dev->device, &iface));
 
     memset(&iface, 0, sizeof(iface));
     iface.command = gcvHAL_BOTTOM_HALF_UNLOCK_VIDEO_MEMORY;
     iface.hardwareType = gal_dev->device->defaultHwType;
     iface.u.BottomHalfUnlockVideoMemory.node = (gctUINT64)viv_obj->node_handle;
-    iface.u.BottomHalfUnlockVideoMemory.type = gcvSURF_TYPE_UNKNOWN;
+    iface.u.BottomHalfUnlockVideoMemory.type = gcvVIDMEM_TYPE_GENERIC;
     gcmkONERROR(gckDEVICE_Dispatch(gal_dev->device, &iface));
 
 OnError:
@@ -559,9 +555,12 @@ static int viv_ioctl_gem_attach_aux(struct drm_device *drm, void *data,
         struct viv_gem_object *viv_ts_obj;
         gckKERNEL kernel = gal_dev->device->map[gal_dev->device->defaultHwType].kernels[0];
         gcsHAL_INTERFACE iface;
-        gctBOOL is2BitPerTile = gckHARDWARE_IsFeatureAvailable(kernel->hardware , gcvFEATURE_TILE_STATUS_2BITS);
+        gctBOOL is128BTILE = gckHARDWARE_IsFeatureAvailable(kernel->hardware , gcvFEATURE_128BTILE);
+        gctBOOL is2BitPerTile = is128BTILE ? gcvFALSE : gckHARDWARE_IsFeatureAvailable(kernel->hardware , gcvFEATURE_TILE_STATUS_2BITS);
         gctBOOL isCompressionDEC400 = gckHARDWARE_IsFeatureAvailable(kernel->hardware , gcvFEATURE_COMPRESSION_DEC400);
         gctPOINTER entry = gcvNULL;
+        gckVIDMEM_NODE ObjNode = gcvNULL;
+        gctUINT32 processID = 0;
         gctUINT32 tileStatusFiller = (isCompressionDEC400 || ((kernel->hardware->identity.chipModel == gcv500) && (kernel->hardware->identity.chipRevision > 2)))
                                   ? 0xFFFFFFFF
                                   : is2BitPerTile ? 0x55555555 : 0x11111111;
@@ -585,10 +584,13 @@ static int viv_ioctl_gem_attach_aux(struct drm_device *drm, void *data,
         iface.u.LockVideoMemory.cacheable = viv_ts_obj->cacheable;
         gcmkONERROR(gckDEVICE_Dispatch(gal_dev->device, &iface));
 
+        gcmkONERROR(gckOS_GetProcessID(&processID));
+        gcmkONERROR(gckVIDMEM_HANDLE_Lookup(kernel, processID, viv_ts_obj->node_handle, &ObjNode));
+        gcmkONERROR(gckVIDMEM_NODE_LockCPU(kernel, ObjNode, gcvFALSE, gcvFALSE, &entry));
+
         /* Fill tile status node with tileStatusFiller. */
-        gcmkONERROR(gckVIDMEM_NODE_LockCPU(kernel, viv_ts_obj->node_handle, &entry));
         memset(entry , tileStatusFiller , (__u64)gem_ts_obj->size);
-        gcmkONERROR(gckVIDMEM_NODE_UnlockCPU(kernel, viv_ts_obj->node_handle, entry));
+        gcmkONERROR(gckVIDMEM_NODE_UnlockCPU(kernel, ObjNode, 0, gcvFALSE));
 
         /* UnLock tile status node. */
         memset(&iface, 0, sizeof(iface));

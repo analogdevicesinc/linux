@@ -2,7 +2,7 @@
 *
 *    The MIT License (MIT)
 *
-*    Copyright (c) 2014 - 2018 Vivante Corporation
+*    Copyright (c) 2014 - 2019 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 *
 *    The GPL License (GPL)
 *
-*    Copyright (C) 2014 - 2018 Vivante Corporation
+*    Copyright (C) 2014 - 2019 Vivante Corporation
 *
 *    This program is free software; you can redistribute it and/or
 *    modify it under the terms of the GNU General Public License
@@ -135,7 +135,6 @@ typedef enum _gceTASK
     gcvTASK_UNLOCK_VIDEO_MEMORY,
     gcvTASK_FREE_VIDEO_MEMORY,
     gcvTASK_FREE_CONTIGUOUS_MEMORY,
-    gcvTASK_UNMAP_USER_MEMORY
 }
 gceTASK;
 
@@ -271,27 +270,6 @@ typedef struct _gcsTASK_FREE_CONTIGUOUS_MEMORY
     IN gctPOINTER               logical;
 }
 gcsTASK_FREE_CONTIGUOUS_MEMORY;
-
-typedef struct _gcsTASK_UNMAP_USER_MEMORY * gcsTASK_UNMAP_USER_MEMORY_PTR;
-typedef struct _gcsTASK_UNMAP_USER_MEMORY
-{
-    /* Task ID (gcvTASK_UNMAP_USER_MEMORY). */
-    IN gceTASK                  id;
-
-    /* Base address of user memory to unmap. */
-    IN gctPOINTER               memory;
-
-    /* Size of user memory in bytes to unmap. */
-    IN gctSIZE_T                size;
-
-    /* Info record returned by gcvHAL_MAP_USER_MEMORY. */
-    IN gctPOINTER               info;
-
-    /* Physical address of mapped memory as returned by
-       gcvHAL_MAP_USER_MEMORY. */
-    IN gctUINT32                address;
-}
-gcsTASK_UNMAP_USER_MEMORY;
 
 #ifdef __cplusplus
 }

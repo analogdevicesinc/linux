@@ -2,7 +2,7 @@
 *
 *    The MIT License (MIT)
 *
-*    Copyright (c) 2014 - 2018 Vivante Corporation
+*    Copyright (c) 2014 - 2019 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 *
 *    The GPL License (GPL)
 *
-*    Copyright (C) 2014 - 2018 Vivante Corporation
+*    Copyright (C) 2014 - 2019 Vivante Corporation
 *
 *    This program is free software; you can redistribute it and/or
 *    modify it under the terms of the GNU General Public License
@@ -594,7 +594,9 @@ extern "C" {
 #define VPNC_HIIDLECYCLES                (VPNG_HI + 16)
 #define VPNC_HIREAD8BYTE                 (VPNG_HI + 17)
 #define VPNC_HIWRITE8BYTE                (VPNG_HI + 18)
-#define VPNC_HI_COUNT                    VPNC_HIWRITE8BYTE - VPNG_HI
+#define VPNC_HIOCBREAD16BYTE             (VPNG_HI + 19)
+#define VPNC_HIOCBWRITE16BYTE            (VPNG_HI + 20)
+#define VPNC_HI_COUNT                    VPNC_HIOCBWRITE16BYTE - VPNG_HI
 
 /* HW: L2 Counters. */
 #define VPNC_L2AXI0READREQCOUNT          (VPNG_L2 + 1)
@@ -681,6 +683,12 @@ extern "C" {
 #define DEFAULT_PROFILE_FILE_NAME   "vprofiler.vpd"
 #endif
 
+#define VPHEADER_VERSION "VP20"
+
+#define VPFILETYPE_GL "10"
+
+#define VPFILETYPE_CL "00"
+
 #if gcdENDIAN_BIG
 #define BIG_ENDIAN_TRANS_INT(x) ((gctUINT32)(\
         (((gctUINT32)(x) & (gctUINT32)0x000000FFUL) << 24) | \
@@ -760,18 +768,24 @@ extern "C" {
     } \
     while (gcvFALSE)
 
+
 #define gcmGET_COUNTER(counter, counterId) \
     do \
     { \
-        if ((gctUINT32)*(memory + counterId + offset) == 0xdeaddead) \
+        if (*(memory + (counterId + offset) * (1 << clusterIDWidth)) == 0xdeaddead) \
         { \
             counter = 0xdeaddead; \
         } \
         else \
         { \
-            gctUINT64_PTR Memory = memory; \
-            Memory += TOTAL_PROBE_NUMBER * CoreId; \
-            counter = (gctUINT32)*(Memory + counterId + offset); \
+            gctUINT32 i; \
+            gctUINT32_PTR Memory = memory; \
+            counter = 0; \
+            Memory = memory + TOTAL_PROBE_NUMBER * CoreId * (1 << clusterIDWidth); \
+            for (i = 0; i < (gctUINT32)(1 << clusterIDWidth); i++) \
+            { \
+                counter += *(Memory + (counterId + offset) * (1 << clusterIDWidth) + i); \
+            } \
         } \
     } \
     while (gcvFALSE)
@@ -779,18 +793,22 @@ extern "C" {
 #define gcmGET_LATENCY_COUNTER(minLatency, maxLatency, counterId) \
     do \
     { \
-        if ((gctUINT32)*(memory + counterId + offset) == 0xdeaddead) \
+        if (*(memory + (counterId + offset) * (1 << clusterIDWidth)) == 0xdeaddead) \
         { \
             minLatency = maxLatency = 0xdeaddead; \
         } \
         else \
         { \
-            gctUINT64_PTR Memory = memory; \
-            Memory += TOTAL_PROBE_NUMBER * CoreId; \
-            maxLatency = (((gctUINT32)*(Memory + counterId + offset) & 0xfff000) >> 12); \
-            minLatency = ((gctUINT32)*(Memory + counterId + offset) & 0x000fff); \
-            if (minLatency == 4095) \
-                minLatency = 0; \
+            gctUINT32 i; \
+            gctUINT32_PTR Memory = memory; \
+            Memory = memory + TOTAL_PROBE_NUMBER * CoreId * (1 << clusterIDWidth); \
+            for (i = 0; i < (gctUINT32)(1 << clusterIDWidth); i++) \
+            { \
+                maxLatency += ((*(Memory + (counterId + offset) * (1 << clusterIDWidth) + i) & 0xfff000) >> 12); \
+                minLatency += (*(Memory + (counterId + offset) * (1 << clusterIDWidth) + i) & 0x000fff); \
+                if (minLatency == 4095) \
+                    minLatency = 0; \
+            } \
         } \
     } \
     while (gcvFALSE)
@@ -1005,6 +1023,8 @@ typedef struct _gcsPROFILER_COUNTERS_PART2
     gctUINT32       hi_total_idle_cycle_count;
     gctUINT32       hi_total_read_8B_count;
     gctUINT32       hi_total_write_8B_count;
+    gctUINT32       hi_total_readOCB_16B_count;
+    gctUINT32       hi_total_writeOCB_16B_count;
 
     /* L2 */
     gctUINT32       l2_total_axi0_read_request_count;
@@ -1133,7 +1153,7 @@ gcoPROFILER_Destroy(
     );
 
 gceSTATUS
-gcoPROFILER_Enable(
+gcoPROFILER_Initialize(
     IN gcoPROFILER Profiler
     );
 
@@ -1143,7 +1163,7 @@ gcoPROFILER_Disable(
     );
 
 gceSTATUS
-gcoPROFILER_Begin(
+gcoPROFILER_EnableCounters(
     IN gcoPROFILER Profiler,
     IN gceCOUNTER_OPTYPE operationType
     );

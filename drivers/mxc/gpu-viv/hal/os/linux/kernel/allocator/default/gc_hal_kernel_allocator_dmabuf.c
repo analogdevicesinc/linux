@@ -2,7 +2,7 @@
 *
 *    The MIT License (MIT)
 *
-*    Copyright (c) 2014 - 2018 Vivante Corporation
+*    Copyright (c) 2014 - 2019 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 *
 *    The GPL License (GPL)
 *
-*    Copyright (C) 2014 - 2018 Vivante Corporation
+*    Copyright (C) 2014 - 2019 Vivante Corporation
 *
 *    This program is free software; you can redistribute it and/or
 *    modify it under the terms of the GNU General Public License
@@ -370,7 +370,11 @@ _DmabufMapUser(
     userLogical += buf_desc->sgt->sgl->offset;
 
     /* To make sure the mapping is created. */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 0, 0)
     if (access_ok(userLogical, 4))
+#else
+    if (access_ok(VERIFY_READ, userLogical, 4))
+#endif
     {
         uint32_t mem;
         get_user(mem, (uint32_t *)userLogical);
@@ -382,7 +386,7 @@ _DmabufMapUser(
     MdlMap->cacheable = Cacheable;
 
 OnError:
-    if (gcmIS_ERROR(status) && userLogical)
+    if (gcmIS_ERROR(status) && MdlMap->vmaAddr)
     {
         _DmabufUnmapUser(Allocator, Mdl, MdlMap, Mdl->numPages << PAGE_SHIFT);
     }
@@ -393,6 +397,8 @@ static gceSTATUS
 _DmabufMapKernel(
     IN gckALLOCATOR Allocator,
     IN PLINUX_MDL Mdl,
+    IN gctSIZE_T Offset,
+    IN gctSIZE_T Bytes,
     OUT gctPOINTER *Logical
     )
 {
@@ -418,7 +424,7 @@ _DmabufCache(
     IN PLINUX_MDL Mdl,
     IN gctSIZE_T Offset,
     IN gctPOINTER Logical,
-    IN gctUINT32 Bytes,
+    IN gctSIZE_T Bytes,
     IN gceCACHEOPERATION Operation
     )
 {

@@ -2,7 +2,7 @@
 *
 *    The MIT License (MIT)
 *
-*    Copyright (c) 2014 - 2018 Vivante Corporation
+*    Copyright (c) 2014 - 2019 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 *
 *    The GPL License (GPL)
 *
-*    Copyright (C) 2014 - 2018 Vivante Corporation
+*    Copyright (C) 2014 - 2019 Vivante Corporation
 *
 *    This program is free software; you can redistribute it and/or
 *    modify it under the terms of the GNU General Public License
@@ -54,6 +54,7 @@
 
 
 #include "gc_hal_kernel_linux.h"
+#include "gc_hal_dump.h"
 
 #include <linux/pagemap.h>
 #include <linux/seq_file.h>
@@ -83,7 +84,7 @@
 #endif
 
 #if defined(CONFIG_ARM) && LINUX_VERSION_CODE >= KERNEL_VERSION(4, 3, 0)
-//#include <dma.h>
+#include <dma.h>
 #endif
 
 #define _GC_OBJ_ZONE    gcvZONE_OS
@@ -121,16 +122,15 @@ _CreateMdlMap(
     IN gctINT ProcessID
     )
 {
-    PLINUX_MDL_MAP  mdlMap;
+    PLINUX_MDL_MAP mdlMap = gcvNULL;
+    gceSTATUS status = gcvSTATUS_OK;
 
-    gcmkHEADER_ARG("Mdl=0x%X ProcessID=%d", Mdl, ProcessID);
+    gcmkHEADER_ARG("Mdl=%p ProcessID=%d", Mdl, ProcessID);
 
     mdlMap = (PLINUX_MDL_MAP)kmalloc(sizeof(struct _LINUX_MDL_MAP), GFP_KERNEL | gcdNOWARN);
-
     if (mdlMap == gcvNULL)
     {
-        gcmkFOOTER_NO();
-        return gcvNULL;
+        gcmkONERROR(gcvSTATUS_OUT_OF_MEMORY);
     }
 
     mdlMap->pid     = ProcessID;
@@ -139,7 +139,8 @@ _CreateMdlMap(
 
     list_add(&mdlMap->link, &Mdl->mapsHead);
 
-    gcmkFOOTER_ARG("0x%X", mdlMap);
+OnError:
+    gcmkFOOTER_ARG("ret=%p", mdlMap);
     return mdlMap;
 }
 
@@ -150,7 +151,7 @@ _DestroyMdlMap(
     IN PLINUX_MDL_MAP MdlMap
     )
 {
-    gcmkHEADER_ARG("Mdl=0x%X MdlMap=0x%X", Mdl, MdlMap);
+    gcmkHEADER_ARG("Mdl=%p MdlMap=%p", Mdl, MdlMap);
 
     /* Verify the arguments. */
     gcmkVERIFY_ARGUMENT(MdlMap != gcvNULL);
@@ -169,27 +170,25 @@ FindMdlMap(
     IN gctINT ProcessID
     )
 {
-    PLINUX_MDL_MAP mdlMap;
+    PLINUX_MDL_MAP mdlMap = gcvNULL;
 
-    gcmkHEADER_ARG("Mdl=0x%X ProcessID=%d", Mdl, ProcessID);
+    gcmkHEADER_ARG("Mdl=%p ProcessID=%d", Mdl, ProcessID);
 
-    if (Mdl == gcvNULL)
+    if (Mdl)
     {
-        gcmkFOOTER_NO();
-        return gcvNULL;
-    }
-
-    list_for_each_entry(mdlMap, &Mdl->mapsHead, link)
-    {
-        if (mdlMap->pid == ProcessID)
+        PLINUX_MDL_MAP iter = gcvNULL;
+        list_for_each_entry(iter, &Mdl->mapsHead, link)
         {
-            gcmkFOOTER_ARG("0x%X", mdlMap);
-            return mdlMap;
+            if (iter->pid == ProcessID)
+            {
+                mdlMap = iter;
+                break;
+            }
         }
     }
 
-    gcmkFOOTER_NO();
-    return gcvNULL;
+    gcmkFOOTER_ARG("ret=%p", mdlMap);
+    return mdlMap;
 }
 
 
@@ -212,7 +211,7 @@ _CreateMdl(
         INIT_LIST_HEAD(&mdl->mapsHead);
     }
 
-    gcmkFOOTER_ARG("0x%X", mdl);
+    gcmkFOOTER_ARG("%p", mdl);
     return mdl;
 }
 
@@ -221,7 +220,7 @@ _DestroyMdl(
     IN PLINUX_MDL Mdl
     )
 {
-    gcmkHEADER_ARG("Mdl=0x%X", Mdl);
+    gcmkHEADER_ARG("Mdl=%p", Mdl);
 
     /* Verify the arguments. */
     gcmkVERIFY_ARGUMENT(Mdl != gcvNULL);
@@ -429,7 +428,15 @@ _QueryProcessPageTable(
         if (pgd_none(*pgd) || pgd_bad(*pgd))
             return gcvSTATUS_NOT_FOUND;
 
+#if (defined(CONFIG_CPU_CSKYV2) || defined(CONFIG_X86)) \
+    && LINUX_VERSION_CODE >= KERNEL_VERSION (4,12,0)
+        pud = pud_offset((p4d_t*)pgd, logical);
+#elif (defined(CONFIG_CPU_CSKYV2)) \
+    && LINUX_VERSION_CODE >= KERNEL_VERSION (4,11,0)
+        pud = pud_offset((p4d_t*)pgd, logical);
+#else
         pud = pud_offset(pgd, logical);
+#endif
         if (pud_none(*pud) || pud_bad(*pud))
             return gcvSTATUS_NOT_FOUND;
 
@@ -466,7 +473,7 @@ _ShrinkMemory(
     gcsPLATFORM * platform;
     gceSTATUS status = gcvSTATUS_OK;
 
-    gcmkHEADER_ARG("Os=0x%X", Os);
+    gcmkHEADER_ARG("Os=%p", Os);
     gcmkVERIFY_OBJECT(Os, gcvOBJ_OS);
 
     platform = Os->device->platform;
@@ -477,13 +484,154 @@ _ShrinkMemory(
     }
     else
     {
-        gcmkFOOTER_NO();
-        return gcvSTATUS_NOT_SUPPORTED;
+        status = gcvSTATUS_NOT_SUPPORTED;
     }
 
-    gcmkFOOTER_NO();
+    gcmkFOOTER();
     return status;
 }
+
+#if gcdDUMP_IN_KERNEL
+
+#define DUMP_TO_KERNEL_DMESG    0
+#define DUMP_TO_FILE            1
+#define DUMP_IGNORE             2
+
+static void set_dump_file(gckOS os, char * fname)
+{
+    if (os->dumpFilp)
+    {
+        /* close exist opened file. */
+        printk("galcore: end dump to file: %s\n", os->dumpFileName);
+
+        filp_close(os->dumpFilp, NULL);
+        os->dumpFilp = NULL;
+    }
+
+    if (fname[0] == '\0' || !strcmp(fname, "[ignored]"))
+    {
+        /* empty or [ignored] means ignored. */
+        printk("galcore: dump ignored\n");
+
+        os->dumpTarget = DUMP_IGNORE;
+        strcpy(os->dumpFileName, "[ignored]");
+    }
+    else if (!strcmp(fname, "[dmesg]"))
+    {
+        /* [dmesg] means dump to kernel dmesg. */
+        printk("galcore: dump to kernel dmesg\n");
+
+        os->dumpTarget = DUMP_TO_KERNEL_DMESG;
+        strcpy(os->dumpFileName, "[dmesg]");
+    }
+    else if (fname[0] != '/')
+    {
+        /* invalid path, switch to kernel dmesg. */
+        printk(KERN_ERR "galcore: invalid path: %s\n", fname);
+        printk(KERN_ERR "galcore: must be absolute path start with '/'\n");
+        printk("galcore: dump to kernel dmesg\n");
+
+        os->dumpTarget = DUMP_TO_KERNEL_DMESG;
+        strcpy(os->dumpFileName, "[dmesg]");
+    }
+    else
+    {
+        /* try open file. */
+        os->dumpFilp = filp_open(fname, O_RDWR | O_CREAT, 0644);
+
+        if (IS_ERR(os->dumpFilp))
+        {
+            printk(KERN_ERR "galcore: failed to open file: %s\n", fname);
+            printk("galcore: dump to kernel dmesg\n");
+
+            os->dumpFilp = NULL;
+            os->dumpTarget = DUMP_TO_KERNEL_DMESG;
+            strcpy(os->dumpFileName, "[dmesg]");
+        }
+        else
+        {
+            printk("galcore: start dump to file: %s\n", fname);
+
+            os->dumpTarget = DUMP_TO_FILE;
+            strcpy(os->dumpFileName, fname);
+        }
+    }
+}
+
+static int dump_file_show(struct seq_file *m, void *unused)
+{
+    gcsINFO_NODE *node = m->private;
+    gckOS os = node->device;
+
+    seq_printf(m, "%s\n", os->dumpFileName);
+    return 0;
+}
+
+static int dump_file_write(const char __user *buf, size_t count, void* data)
+{
+    gcsINFO_NODE *node = data;
+    gckOS os = node->device;
+    char fname[256];
+    size_t len = min(count, sizeof(fname) - 1);
+
+    if (copy_from_user(fname, buf, len))
+    {
+        return -EFAULT;
+    }
+
+    /* Remove tailing space. */
+    while (len > 0 && (fname[len - 1] == '\n' || fname[len - 1] == ' '))
+    {
+        fname[len - 1] = '\0';
+    }
+
+    fname[len] = '\0';
+
+    mutex_lock(&os->dumpFilpMutex);
+    set_dump_file(os, fname);
+    mutex_unlock(&os->dumpFilpMutex);
+
+    return count;
+}
+
+static gcsINFO dumpDebugList[] =
+{
+    {"dump_file", dump_file_show, dump_file_write},
+};
+
+static gceSTATUS
+_DumpDebugfsInit(
+    IN gckOS Os
+    )
+{
+    gceSTATUS status;
+    gckGALDEVICE device = Os->device;
+    gckDEBUGFS_DIR dir = &Os->dumpDebugfsDir;
+
+    gcmkONERROR(gckDEBUGFS_DIR_Init(dir, device->debugfsDir.root, "dump"));
+
+    gcmkONERROR(
+        gckDEBUGFS_DIR_CreateFiles(dir, dumpDebugList,
+                                   gcmCOUNTOF(dumpDebugList), Os));
+
+OnError:
+    return status;
+}
+
+static void
+_DumpDebugfsCleanup(
+    IN gckOS Os
+    )
+{
+    gckDEBUGFS_DIR dir = &Os->dumpDebugfsDir;
+
+    if (dir->root)
+    {
+        gckDEBUGFS_DIR_RemoveFiles(dir, dumpDebugList, gcmCOUNTOF(dumpDebugList));
+        gckDEBUGFS_DIR_Deinit(dir);
+    }
+}
+#endif
 
 /*******************************************************************************
 **
@@ -507,22 +655,20 @@ gckOS_Construct(
     OUT gckOS * Os
     )
 {
-    gckOS os;
-    gceSTATUS status;
+    gckOS os = gcvNULL;
+    gceSTATUS status = gcvSTATUS_OK;
 
-    gcmkHEADER_ARG("Context=0x%X", Context);
+    gcmkHEADER_ARG("Context=%p", Context);
 
     /* Verify the arguments. */
     gcmkVERIFY_ARGUMENT(Os != gcvNULL);
 
     /* Allocate the gckOS object. */
-    os = (gckOS) kmalloc(gcmSIZEOF(struct _gckOS), GFP_KERNEL | gcdNOWARN);
+    os = (gckOS)kmalloc(gcmSIZEOF(struct _gckOS), GFP_KERNEL | gcdNOWARN);
 
     if (os == gcvNULL)
     {
-        /* Out of memory. */
-        gcmkFOOTER_ARG("status=%d", gcvSTATUS_OUT_OF_MEMORY);
-        return gcvSTATUS_OUT_OF_MEMORY;
+        gcmkONERROR(gcvSTATUS_OUT_OF_MEMORY);
     }
 
     /* Zero the memory. */
@@ -582,13 +728,11 @@ gckOS_Construct(
 
     gckOS_ImportAllocators(os);
 
-#ifdef CONFIG_IOMMU_SUPPORT
-    if (((gckGALDEVICE)(os->device))->args.mmu == gcvFALSE)
+#if defined(CONFIG_IOMMU_SUPPORT)
+    if (0)
     {
         /* Only use IOMMU when internal MMU is not enabled. */
-        status = gckIOMMU_Construct(os, &os->iommu);
-
-        if (gcmIS_ERROR(status))
+        if (gcmIS_ERROR(gckIOMMU_Construct(os, &os->iommu)))
         {
             gcmkTRACE_ZONE(
                 gcvLEVEL_INFO, gcvZONE_OS,
@@ -599,23 +743,33 @@ gckOS_Construct(
     }
 #endif
 
+#if gcdDUMP_IN_KERNEL
+    mutex_init(&os->dumpFilpMutex);
+
+    /* Set default dump file. */
+    set_dump_file(os, gcdDUMP_FILE_IN_KERNEL);
+
+    /* Init debugfs for kernel dump feature. */
+    _DumpDebugfsInit(os);
+#endif
+
     /* Return pointer to the gckOS object. */
     *Os = os;
 
-    /* Success. */
-    gcmkFOOTER_ARG("*Os=0x%X", *Os);
-    return gcvSTATUS_OK;
-
 OnError:
-    if (os->workqueue != gcvNULL)
+    if (gcmIS_ERROR(status) && os)
     {
-        destroy_workqueue(os->workqueue);
+        if (os->workqueue != gcvNULL)
+        {
+            destroy_workqueue(os->workqueue);
+        }
+
+        kfree(os);
+        os = gcvNULL;
     }
 
-    kfree(os);
-
     /* Return the error. */
-    gcmkFOOTER();
+    gcmkFOOTER_ARG("*Os=%p", os);
     return status;
 }
 
@@ -639,7 +793,7 @@ gckOS_Destroy(
     IN gckOS Os
     )
 {
-    gcmkHEADER_ARG("Os=0x%X", Os);
+    gcmkHEADER_ARG("Os=%p", Os);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Os, gcvOBJ_OS);
@@ -670,12 +824,25 @@ gckOS_Destroy(
     }
 #endif
 
-    /* Flush the debug cache. */
-    gcmkDEBUGFLUSH(~0U);
-
     /* Mark the gckOS object as unknown. */
     Os->object.type = gcvOBJ_UNKNOWN;
 
+
+#if gcdDUMP_IN_KERNEL
+    mutex_lock(&Os->dumpFilpMutex);
+
+    if (Os->dumpFilp)
+    {
+        filp_close(Os->dumpFilp, NULL);
+        Os->dumpFilp = NULL;
+        Os->dumpTarget = DUMP_IGNORE;
+    }
+
+    mutex_unlock(&Os->dumpFilpMutex);
+
+    /* Cleanup debugfs for kernel dump feature. */
+    _DumpDebugfsCleanup(Os);
+#endif
 
     /* Free the gckOS object. */
     kfree(Os);
@@ -708,7 +875,7 @@ gckOS_CreateKernelMapping(
     }
     else
     {
-        gcmkONERROR(allocator->ops->MapKernel(allocator, mdl, Logical));
+        gcmkONERROR(allocator->ops->MapKernel(allocator, mdl, Offset, Bytes, Logical));
     }
 
 OnError:
@@ -741,75 +908,6 @@ gckOS_DestroyKernelMapping(
     return gcvSTATUS_OK;
 }
 
-gceSTATUS
-gckOS_CreateKernelVirtualMapping(
-    IN gckOS Os,
-    IN gctPHYS_ADDR Physical,
-    IN gctSIZE_T Bytes,
-    OUT gctPOINTER * Logical,
-    OUT gctSIZE_T * PageCount
-    )
-{
-    gceSTATUS status;
-    PLINUX_MDL mdl = (PLINUX_MDL)Physical;
-    gckALLOCATOR allocator = mdl->allocator;
-
-    gcmkHEADER();
-
-    *PageCount = mdl->numPages;
-
-    gcmkONERROR(allocator->ops->MapKernel(allocator, mdl, Logical));
-
-    gcmkFOOTER_NO();
-    return gcvSTATUS_OK;
-
-OnError:
-    gcmkFOOTER();
-    return status;
-}
-
-gceSTATUS
-gckOS_DestroyKernelVirtualMapping(
-    IN gckOS Os,
-    IN gctPHYS_ADDR Physical,
-    IN gctSIZE_T Bytes,
-    IN gctPOINTER Logical
-    )
-{
-    PLINUX_MDL mdl = (PLINUX_MDL)Physical;
-    gckALLOCATOR allocator = mdl->allocator;
-
-    gcmkHEADER();
-
-    allocator->ops->UnmapKernel(allocator, mdl, Logical);
-
-    gcmkFOOTER_NO();
-    return gcvSTATUS_OK;
-}
-
-gceSTATUS
-gckOS_CreateUserVirtualMapping(
-    IN gckOS Os,
-    IN gctPHYS_ADDR Physical,
-    IN gctSIZE_T Bytes,
-    OUT gctPOINTER * Logical,
-    OUT gctSIZE_T * PageCount
-    )
-{
-    return gckOS_LockPages(Os, Physical, Bytes, gcvFALSE, Logical, PageCount);
-}
-
-gceSTATUS
-gckOS_DestroyUserVirtualMapping(
-    IN gckOS Os,
-    IN gctPHYS_ADDR Physical,
-    IN gctSIZE_T Bytes,
-    IN gctPOINTER Logical
-    )
-{
-    return gckOS_UnlockPages(Os, Physical, Bytes, Logical);
-}
-
 /*******************************************************************************
 **
 **  gckOS_Allocate
@@ -836,9 +934,9 @@ gckOS_Allocate(
     OUT gctPOINTER * Memory
     )
 {
-    gceSTATUS status;
+    gceSTATUS status = gcvSTATUS_OK;
 
-    gcmkHEADER_ARG("Os=0x%X Bytes=%lu", Os, Bytes);
+    gcmkHEADER_ARG("Os=%p Bytes=0x%zx", Os, Bytes);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Os, gcvOBJ_OS);
@@ -847,13 +945,9 @@ gckOS_Allocate(
 
     gcmkONERROR(gckOS_AllocateMemory(Os, Bytes, Memory));
 
-    /* Success. */
-    gcmkFOOTER_ARG("*Memory=0x%X", *Memory);
-    return gcvSTATUS_OK;
-
 OnError:
     /* Return the status. */
-    gcmkFOOTER();
+    gcmkFOOTER_ARG("*Memory=%p", gcmOPT_POINTER(Memory));
     return status;
 }
 
@@ -881,19 +975,15 @@ gckOS_Free(
     IN gctPOINTER Memory
     )
 {
-    gceSTATUS status;
+    gceSTATUS status = gcvSTATUS_OK;
 
-    gcmkHEADER_ARG("Os=0x%X Memory=0x%X", Os, Memory);
+    gcmkHEADER_ARG("Os=%p Memory=%p", Os, Memory);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Os, gcvOBJ_OS);
     gcmkVERIFY_ARGUMENT(Memory != gcvNULL);
 
     gcmkONERROR(gckOS_FreeMemory(Os, Memory));
-
-    /* Success. */
-    gcmkFOOTER_NO();
-    return gcvSTATUS_OK;
 
 OnError:
     /* Return the status. */
@@ -924,10 +1014,10 @@ gckOS_AllocateMemory(
     OUT gctPOINTER * Memory
     )
 {
-    gctPOINTER memory;
-    gceSTATUS status;
+    gctPOINTER memory = gcvNULL;
+    gceSTATUS status = gcvSTATUS_OK;
 
-    gcmkHEADER_ARG("Os=0x%X Bytes=%lu", Os, Bytes);
+    gcmkHEADER_ARG("Os=%p Bytes=0x%zx", Os, Bytes);
 
     /* Verify the arguments. */
     gcmkVERIFY_ARGUMENT(Bytes > 0);
@@ -954,13 +1044,9 @@ gckOS_AllocateMemory(
     /* Return pointer to the memory allocation. */
     *Memory = memory;
 
-    /* Success. */
-    gcmkFOOTER_ARG("*Memory=0x%X", *Memory);
-    return gcvSTATUS_OK;
-
 OnError:
     /* Return the status. */
-    gcmkFOOTER();
+    gcmkFOOTER_ARG("*Memory=%p", gcmOPT_POINTER(Memory));
     return status;
 }
 
@@ -985,7 +1071,7 @@ gckOS_FreeMemory(
     IN gctPOINTER Memory
     )
 {
-    gcmkHEADER_ARG("Memory=0x%X", Memory);
+    gcmkHEADER_ARG("Os=%p Memory=%p", Os, Memory);
 
     /* Verify the arguments. */
     gcmkVERIFY_ARGUMENT(Memory != gcvNULL);
@@ -1039,13 +1125,13 @@ gckOS_MapMemory(
     OUT gctPOINTER * Logical
     )
 {
-    gceSTATUS status;
+    gceSTATUS status = gcvSTATUS_OK;
     PLINUX_MDL_MAP  mdlMap;
     PLINUX_MDL      mdl = (PLINUX_MDL) Physical;
     gckALLOCATOR allocator;
     gctINT pid = _GetProcessID();
 
-    gcmkHEADER_ARG("Os=0x%X Physical=0x%X Bytes=%lu", Os, Physical, Bytes);
+    gcmkHEADER_ARG("Os=%p Physical=%p Bytes=0x%zx", Os, Physical, Bytes);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Os, gcvOBJ_OS);
@@ -1060,7 +1146,6 @@ gckOS_MapMemory(
     if (mdlMap == gcvNULL)
     {
         mdlMap = _CreateMdlMap(mdl, pid);
-
         if (mdlMap == gcvNULL)
         {
             gcmkONERROR(gcvSTATUS_OUT_OF_MEMORY);
@@ -1080,8 +1165,7 @@ gckOS_MapMemory(
     mutex_unlock(&mdl->mapsMutex);
 
     *Logical = mdlMap->vmaAddr;
-
-    gcmkFOOTER_ARG("*Logical=0x%X", *Logical);
+    gcmkFOOTER_ARG("*Logical=%p", Logical);
     return gcvSTATUS_OK;
 
 OnError:
@@ -1123,7 +1207,7 @@ gckOS_UnmapMemory(
     IN gctPOINTER Logical
     )
 {
-    gcmkHEADER_ARG("Os=0x%X Physical=0x%X Bytes=%lu Logical=0x%X",
+    gcmkHEADER_ARG("Os=%p Physical=0%p Bytes=0x%zx Logical=%p",
                    Os, Physical, Bytes, Logical);
 
     /* Verify the arguments. */
@@ -1176,10 +1260,11 @@ gckOS_UnmapMemoryEx(
     IN gctUINT32 PID
     )
 {
-    PLINUX_MDL_MAP          mdlMap;
-    PLINUX_MDL              mdl = (PLINUX_MDL)Physical;
+    PLINUX_MDL_MAP mdlMap;
+    PLINUX_MDL mdl = (PLINUX_MDL)Physical;
+    gceSTATUS status = gcvSTATUS_OK;
 
-    gcmkHEADER_ARG("Os=0x%X Physical=0x%X Bytes=%lu Logical=0x%X PID=%d",
+    gcmkHEADER_ARG("Os=%p Physical=%p Bytes=0x%zx Logical=%p PID=%d",
                    Os, Physical, Bytes, Logical, PID);
 
     /* Verify the arguments. */
@@ -1200,9 +1285,7 @@ gckOS_UnmapMemoryEx(
         if (mdlMap == gcvNULL || mdlMap->vmaAddr == gcvNULL)
         {
             mutex_unlock(&mdl->mapsMutex);
-
-            gcmkFOOTER_ARG("status=%d", gcvSTATUS_INVALID_ARGUMENT);
-            return gcvSTATUS_INVALID_ARGUMENT;
+            gcmkONERROR(gcvSTATUS_INVALID_ARGUMENT);
         }
 
         BUG_ON(!allocator || !allocator->ops->UnmapUser);
@@ -1214,58 +1297,9 @@ gckOS_UnmapMemoryEx(
         mutex_unlock(&mdl->mapsMutex);
     }
 
-    /* Success. */
+OnError:
     gcmkFOOTER_NO();
-    return gcvSTATUS_OK;
-}
-
-/*******************************************************************************
-**
-**  gckOS_UnmapUserLogical
-**
-**  Unmap user logical memory out of physical memory.
-**
-**  INPUT:
-**
-**      gckOS Os
-**          Pointer to an gckOS object.
-**
-**      gctPHYS_ADDR Physical
-**          Start of physical address memory.
-**
-**      gctSIZE_T Bytes
-**          Number of bytes to unmap.
-**
-**      gctPOINTER Memory
-**          Pointer to a previously mapped memory region.
-**
-**  OUTPUT:
-**
-**      Nothing.
-*/
-gceSTATUS
-gckOS_UnmapUserLogical(
-    IN gckOS Os,
-    IN gctPHYS_ADDR Physical,
-    IN gctSIZE_T Bytes,
-    IN gctPOINTER Logical
-    )
-{
-    gcmkHEADER_ARG("Os=0x%X Physical=0x%X Bytes=%lu Logical=0x%X",
-                   Os, Physical, Bytes, Logical);
-
-    /* Verify the arguments. */
-    gcmkVERIFY_OBJECT(Os, gcvOBJ_OS);
-    gcmkVERIFY_ARGUMENT(Physical != 0);
-    gcmkVERIFY_ARGUMENT(Bytes > 0);
-    gcmkVERIFY_ARGUMENT(Logical != gcvNULL);
-
-    gckOS_UnmapMemory(Os, Physical, Bytes, Logical);
-
-    /* Success. */
-    gcmkFOOTER_NO();
-    return gcvSTATUS_OK;
-
+    return status;
 }
 
 /*******************************************************************************
@@ -1312,14 +1346,14 @@ gckOS_AllocateNonPagedMemory(
     )
 {
     gctSIZE_T bytes;
-    gctINT numPages;
+    gctSIZE_T numPages;
     PLINUX_MDL mdl = gcvNULL;
     PLINUX_MDL_MAP mdlMap = gcvNULL;
     gctPOINTER addr;
     gceSTATUS status = gcvSTATUS_NOT_SUPPORTED;
     gckALLOCATOR allocator;
 
-    gcmkHEADER_ARG("Os=0x%X InUserSpace=%d *Bytes=%lu",
+    gcmkHEADER_ARG("Os=%p InUserSpace=%d *Bytes=0x%zx",
                    Os, InUserSpace, gcmOPT_VALUE(Bytes));
 
     /* Verify the arguments. */
@@ -1344,6 +1378,10 @@ gckOS_AllocateNonPagedMemory(
 
     gcmkASSERT(Flag & gcvALLOC_FLAG_CONTIGUOUS);
 
+#if gcdENABLE_CACHEABLE_COMMAND_BUFFER
+    Flag &= ~gcvALLOC_FLAG_CACHEABLE;
+#endif
+
     Flag |= gcvALLOC_FLAG_CMA_PREEMPT;
 
     /* Walk all allocators. */
@@ -1355,36 +1393,37 @@ gckOS_AllocateNonPagedMemory(
 
 #ifndef NO_DMA_COHERENT
         /* Point to dma coherent allocator. */
-        if (strcmp(allocator->name, "dma"))
+        if (!strcmp(allocator->name, "dma") ||
+            ((Flag & allocator->capability) == Flag && numPages == 1))
         {
             /*!VIV:
              * For historical issue, we force allocate all non-paged memory from
              * dma coherent pool when it is not disabled.
              *
-             * The code below changes the scheme a little: force allocate
-             * non-paged memory whose size is larger than 1 pages, can try other
-             * allocators otherwise. This is to save memory usage of dma
-             * coherent pool.
+             * The code here changes the scheme a little: can try other
+             * allocators when page count is 1. This is to save memory usage of
+             * dma coherent pool.
              */
-            if (((Flag & allocator->capability) != Flag) ||
-                (numPages > 1))
+            status = allocator->ops->Alloc(allocator, mdl, numPages, Flag);
+
+            if (gcmIS_SUCCESS(status))
             {
-                continue;
+                mdl->allocator = allocator;
+                break;
             }
         }
 #else
-        if ((Flag & allocator->capability) != Flag)
+        if ((Flag & allocator->capability) == Flag)
         {
-            continue;
+            status = allocator->ops->Alloc(allocator, mdl, numPages, Flag);
+
+            if (gcmIS_SUCCESS(status))
+            {
+                mdl->allocator = allocator;
+                break;
+            }
         }
 #endif
-        status = allocator->ops->Alloc(allocator, mdl, numPages, Flag);
-
-        if (gcmIS_SUCCESS(status))
-        {
-            mdl->allocator = allocator;
-            break;
-        }
     }
 
     /* Check status. */
@@ -1397,7 +1436,7 @@ gckOS_AllocateNonPagedMemory(
 
     mdl->contiguous = gcvTRUE;
 
-    gcmkONERROR(allocator->ops->MapKernel(allocator, mdl, &addr));
+    gcmkONERROR(allocator->ops->MapKernel(allocator, mdl, 0, bytes, &addr));
 
     if (!strcmp(allocator->name, "gfp"))
     {
@@ -1439,19 +1478,26 @@ gckOS_AllocateNonPagedMemory(
     *Physical = (gctPHYS_ADDR) mdl;
 
     /* Success. */
-    gcmkFOOTER_ARG("*Bytes=%lu *Physical=0x%X *Logical=0x%X",
-                   *Bytes, *Physical, *Logical);
-    return gcvSTATUS_OK;
+    status = gcvSTATUS_OK;
 
 OnError:
-    if (mdl != gcvNULL)
+    if (gcmIS_ERROR(status))
     {
-        /* Free LINUX_MDL. */
-        gcmkVERIFY_OK(_DestroyMdl(mdl));
-    }
+        if (mdlMap)
+        {
+            /* Free LINUX_MDL_MAP. */
+            gcmkVERIFY_OK(_DestroyMdlMap(mdl, mdlMap));
+        }
 
+        if (mdl)
+        {
+            /* Free LINUX_MDL. */
+            gcmkVERIFY_OK(_DestroyMdl(mdl));
+        }
+    }
     /* Return the status. */
-    gcmkFOOTER();
+    gcmkFOOTER_ARG("*Bytes=0x%zx *Physical=%p *Logical=%p",
+                   gcmOPT_VALUE(Bytes), gcmOPT_POINTER(Physical), gcmOPT_POINTER(Logical));
     return status;
 }
 
@@ -1467,14 +1513,14 @@ OnError:
 **      gckOS Os
 **          Pointer to an gckOS object.
 **
-**      gctSIZE_T Bytes
-**          Number of bytes allocated.
-**
 **      gctPHYS_ADDR Physical
 **          Physical address of the allocated memory.
 **
 **      gctPOINTER Logical
 **          Logical address of the allocated memory.
+**
+**      gctSIZE_T Bytes
+**          Number of bytes allocated.
 **
 **  OUTPUT:
 **
@@ -1482,14 +1528,14 @@ OnError:
 */
 gceSTATUS gckOS_FreeNonPagedMemory(
     IN gckOS Os,
-    IN gctSIZE_T Bytes,
     IN gctPHYS_ADDR Physical,
-    IN gctPOINTER Logical
+    IN gctPOINTER Logical,
+    IN gctSIZE_T Bytes
     )
 {
     PLINUX_MDL mdl = (PLINUX_MDL)Physical;
 
-    gcmkHEADER_ARG("Os=0x%X Bytes=%lu Physical=0x%X Logical=0x%X",
+    gcmkHEADER_ARG("Os=%p Bytes=0x%zx Physical=%p Logical=%p",
                    Os, Bytes, Physical, Logical);
 
     /* Verify the arguments. */
@@ -1527,11 +1573,11 @@ _FindAllocator(
 gceSTATUS
 gckOS_RequestReservedMemory(
     gckOS Os,
-    unsigned long Start,
-    unsigned long Size,
+    gctPHYS_ADDR_T Start,
+    gctSIZE_T Size,
     const char * Name,
     gctBOOL Requested,
-    void ** MemoryHandle
+    gctPOINTER * MemoryHandle
     )
 {
     PLINUX_MDL mdl = gcvNULL;
@@ -1601,7 +1647,7 @@ OnError:
 void
 gckOS_ReleaseReservedMemory(
     gckOS Os,
-    void * MemoryHandle
+    gctPOINTER MemoryHandle
     )
 {
     gckALLOCATOR allocator;
@@ -1652,6 +1698,11 @@ gckOS_ReadRegisterEx(
     OUT gctUINT32 * Data
     )
 {
+    if (Address > Os->device->registerSizes[Core] - 1)
+    {
+        return gcvSTATUS_INVALID_ARGUMENT;
+    }
+
     if (in_irq())
     {
         uint32_t data;
@@ -1723,45 +1774,20 @@ gckOS_ReadRegisterEx(
     return gcvSTATUS_OK;
 }
 
-/*******************************************************************************
-**
-**  gckOS_WriteRegister
-**
-**  Write data to a register.
-**
-**  INPUT:
-**
-**      gckOS Os
-**          Pointer to an gckOS object.
-**
-**      gctUINT32 Address
-**          Address of register.
-**
-**      gctUINT32 Data
-**          Data for register.
-**
-**  OUTPUT:
-**
-**      Nothing.
-*/
-gceSTATUS
-gckOS_WriteRegister(
-    IN gckOS Os,
-    IN gctUINT32 Address,
-    IN gctUINT32 Data
-    )
-{
-    return gckOS_WriteRegisterEx(Os, gcvCORE_MAJOR, Address, Data);
-}
-
-gceSTATUS
-gckOS_WriteRegisterEx(
+static gceSTATUS
+_WriteRegisterEx(
     IN gckOS Os,
     IN gceCORE Core,
     IN gctUINT32 Address,
-    IN gctUINT32 Data
+    IN gctUINT32 Data,
+    IN gctBOOL Dump
     )
 {
+    if (Address > Os->device->registerSizes[Core] - 1)
+    {
+        return gcvSTATUS_INVALID_ARGUMENT;
+    }
+
     if (in_irq())
     {
         spin_lock(&Os->registerAccessLock);
@@ -1784,6 +1810,11 @@ gckOS_WriteRegisterEx(
     else
     {
         unsigned long flags;
+
+        if (Dump)
+        {
+            gcmkDUMP(Os, "@[register.write %u 0x%05X 0x%08X]", Core, Address, Data);
+        }
 
         spin_lock_irqsave(&Os->registerAccessLock, flags);
 
@@ -1814,6 +1845,59 @@ gckOS_WriteRegisterEx(
 
 /*******************************************************************************
 **
+**  gckOS_WriteRegister
+**
+**  Write data to a register.
+**
+**  INPUT:
+**
+**      gckOS Os
+**          Pointer to an gckOS object.
+**
+**      gctUINT32 Address
+**          Address of register.
+**
+**      gctUINT32 Data
+**          Data for register.
+**
+**  OUTPUT:
+**
+**      Nothing.
+*/
+gceSTATUS
+gckOS_WriteRegister(
+    IN gckOS Os,
+    IN gctUINT32 Address,
+    IN gctUINT32 Data
+    )
+{
+    return _WriteRegisterEx(Os, gcvCORE_MAJOR, Address, Data, gcvTRUE);
+}
+
+gceSTATUS
+gckOS_WriteRegisterEx(
+    IN gckOS Os,
+    IN gceCORE Core,
+    IN gctUINT32 Address,
+    IN gctUINT32 Data
+    )
+{
+    return _WriteRegisterEx(Os, Core, Address, Data, gcvTRUE);
+}
+
+gceSTATUS
+gckOS_WriteRegisterEx_NoDump(
+    IN gckOS Os,
+    IN gceCORE Core,
+    IN gctUINT32 Address,
+    IN gctUINT32 Data
+    )
+{
+    return _WriteRegisterEx(Os, Core, Address, Data, gcvFALSE);
+}
+
+/*******************************************************************************
+**
 **  gckOS_GetPageSize
 **
 **  Get the system's page size.
@@ -1833,7 +1917,7 @@ gceSTATUS gckOS_GetPageSize(
     OUT gctSIZE_T * PageSize
     )
 {
-    gcmkHEADER_ARG("Os=0x%X", Os);
+    gcmkHEADER_ARG("Os=%p", Os);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Os, gcvOBJ_OS);
@@ -1843,13 +1927,13 @@ gceSTATUS gckOS_GetPageSize(
     *PageSize = (gctSIZE_T) PAGE_SIZE;
 
     /* Success. */
-    gcmkFOOTER_ARG("*PageSize=%d", *PageSize);
+    gcmkFOOTER_ARG("*PageSize=0x%zx", *PageSize);
     return gcvSTATUS_OK;
 }
 
 /*******************************************************************************
 **
-**  gckOS_GetPhysicalAddressProcess
+**  _GetPhysicalAddressProcess
 **
 **  Get the physical system address of a corresponding virtual address for a
 **  given process.
@@ -1881,7 +1965,7 @@ _GetPhysicalAddressProcess(
     PLINUX_MDL mdl;
     gceSTATUS status = gcvSTATUS_INVALID_ADDRESS;
 
-    gcmkHEADER_ARG("Os=0x%X Logical=0x%X ProcessID=%d", Os, Logical, ProcessID);
+    gcmkHEADER_ARG("Os=%p Logical=%p ProcessID=%d", Os, Logical, ProcessID);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Os, gcvOBJ_OS);
@@ -1922,14 +2006,11 @@ _GetPhysicalAddressProcess(
     mutex_unlock(&Os->mdlMutex);
 
     gcmkONERROR(status);
-
     /* Success. */
-    gcmkFOOTER_ARG("*Address=%p", *Address);
-    return gcvSTATUS_OK;
 
 OnError:
     /* Return the status. */
-    gcmkFOOTER();
+    gcmkFOOTER_ARG("*Address=%p", *Address);
     return status;
 }
 
@@ -1964,7 +2045,7 @@ gckOS_GetPhysicalAddress(
     gceSTATUS status;
     gctUINT32 processID;
 
-    gcmkHEADER_ARG("Os=0x%X Logical=0x%X", Os, Logical);
+    gcmkHEADER_ARG("Os=%p Logical=%p", Os, Logical);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Os, gcvOBJ_OS);
@@ -1984,7 +2065,7 @@ gckOS_GetPhysicalAddress(
     }
 
     /* Success. */
-    gcmkFOOTER_ARG("*Address=%p", *Address);
+    gcmkFOOTER_ARG("*Address=0x%llx", *Address);
     return gcvSTATUS_OK;
 
 OnError:
@@ -1992,6 +2073,21 @@ OnError:
     gcmkFOOTER();
     return status;
 }
+
+gceSTATUS
+gckOS_GetPhysicalFromHandle(
+    IN gckOS Os,
+    IN gctPHYS_ADDR Physical,
+    IN gctUINT32 Offset,
+    OUT gctPHYS_ADDR_T * PhysicalAddress
+    )
+{
+    PLINUX_MDL mdl = (PLINUX_MDL)Physical;
+    gckALLOCATOR allocator = mdl->allocator;
+
+    return allocator->ops->Physical(allocator, mdl, Offset, PhysicalAddress);
+}
+
 
 /*******************************************************************************
 **
@@ -2020,89 +2116,6 @@ gceSTATUS gckOS_UserLogicalToPhysical(
 {
     return gckOS_GetPhysicalAddress(Os, Logical, Address);
 }
-
-#if gcdSECURE_USER
-static gceSTATUS
-gckOS_AddMapping(
-    IN gckOS Os,
-    IN gctUINT32 Physical,
-    IN gctPOINTER Logical,
-    IN gctSIZE_T Bytes
-    )
-{
-    gceSTATUS status;
-    gcsUSER_MAPPING_PTR map;
-
-    gcmkHEADER_ARG("Os=0x%X Physical=0x%X Logical=0x%X Bytes=%lu",
-                   Os, Physical, Logical, Bytes);
-
-    gcmkONERROR(gckOS_Allocate(Os,
-                               gcmSIZEOF(gcsUSER_MAPPING),
-                               (gctPOINTER *) &map));
-
-    map->next     = Os->userMap;
-    map->physical = Physical - Os->device->baseAddress;
-    map->logical  = Logical;
-    map->bytes    = Bytes;
-    map->start    = (gctINT8_PTR) Logical;
-    map->end      = map->start + Bytes;
-
-    Os->userMap = map;
-
-    gcmkFOOTER_NO();
-    return gcvSTATUS_OK;
-
-OnError:
-    gcmkFOOTER();
-    return status;
-}
-
-static gceSTATUS
-gckOS_RemoveMapping(
-    IN gckOS Os,
-    IN gctPOINTER Logical,
-    IN gctSIZE_T Bytes
-    )
-{
-    gceSTATUS status;
-    gcsUSER_MAPPING_PTR map, prev;
-
-    gcmkHEADER_ARG("Os=0x%X Logical=0x%X Bytes=%lu", Os, Logical, Bytes);
-
-    for (map = Os->userMap, prev = gcvNULL; map != gcvNULL; map = map->next)
-    {
-        if ((map->logical == Logical) && (map->bytes == Bytes))
-        {
-            break;
-        }
-
-        prev = map;
-    }
-
-    if (map == gcvNULL)
-    {
-        gcmkONERROR(gcvSTATUS_INVALID_ADDRESS);
-    }
-
-    if (prev == gcvNULL)
-    {
-        Os->userMap = map->next;
-    }
-    else
-    {
-        prev->next = map->next;
-    }
-
-    gcmkONERROR(gcmkOS_SAFE_FREE(Os, map));
-
-    gcmkFOOTER_NO();
-    return gcvSTATUS_OK;
-
-OnError:
-    gcmkFOOTER();
-    return status;
-}
-#endif
 
 gceSTATUS
 _ConvertLogical2Physical(
@@ -2160,7 +2173,7 @@ _ConvertLogical2Physical(
 **      gckOS Os
 **          Pointer to an gckOS object.
 **
-**      gctUINT32 Physical
+**      gctPHYS_ADDR_T Physical
 **          Physical address of the memory to map.
 **
 **      gctSIZE_T Bytes
@@ -2175,7 +2188,7 @@ _ConvertLogical2Physical(
 gceSTATUS
 gckOS_MapPhysical(
     IN gckOS Os,
-    IN gctUINT32 Physical,
+    IN gctPHYS_ADDR_T Physical,
     IN gctSIZE_T Bytes,
     OUT gctPOINTER * Logical
     )
@@ -2183,9 +2196,10 @@ gckOS_MapPhysical(
     gctPOINTER logical;
     PLINUX_MDL mdl;
     gctBOOL found = gcvFALSE;
-    gctUINT32 physical = Physical;
+    dma_addr_t physical = Physical;
+    gceSTATUS status = gcvSTATUS_OK;
 
-    gcmkHEADER_ARG("Os=0x%X Physical=0x%X Bytes=%lu", Os, Physical, Bytes);
+    gcmkHEADER_ARG("Os=%p Physical=0x%llx Bytes=0x%zx", Os, Physical, Bytes);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Os, gcvOBJ_OS);
@@ -2222,18 +2236,16 @@ gckOS_MapPhysical(
             gctUINT32 offset = physical & ~PAGE_MASK;
             struct page ** pages;
             struct page * page;
-            gctUINT numPages;
-            gctINT i;
+            gctSIZE_T numPages;
+            gctSIZE_T i;
             pgprot_t pgprot;
 
             numPages = GetPageCount(PAGE_ALIGN(offset + Bytes), 0);
 
             pages = kmalloc(sizeof(struct page *) * numPages, GFP_KERNEL | gcdNOWARN);
-
             if (!pages)
             {
-                gcmkFOOTER_ARG("status=%d", gcvSTATUS_OUT_OF_MEMORY);
-                return gcvSTATUS_OUT_OF_MEMORY;
+                gcmkONERROR(gcvSTATUS_OUT_OF_MEMORY);
             }
 
             page = pfn_to_page(pfn);
@@ -2262,8 +2274,7 @@ gckOS_MapPhysical(
                     );
 
                 /* Out of resources. */
-                gcmkFOOTER_ARG("status=%d", gcvSTATUS_OUT_OF_RESOURCES);
-                return gcvSTATUS_OUT_OF_RESOURCES;
+                gcmkONERROR(gcvSTATUS_OUT_OF_RESOURCES);
             }
 
             logical += offset;
@@ -2283,8 +2294,7 @@ gckOS_MapPhysical(
                     );
 
                 /* Out of resources. */
-                gcmkFOOTER_ARG("status=%d", gcvSTATUS_OUT_OF_RESOURCES);
-                return gcvSTATUS_OUT_OF_RESOURCES;
+                gcmkONERROR(gcvSTATUS_OUT_OF_RESOURCES);
             }
         }
 
@@ -2292,9 +2302,10 @@ gckOS_MapPhysical(
         *Logical = logical;
     }
 
+OnError:
     /* Success. */
-    gcmkFOOTER_ARG("*Logical=0x%X", *Logical);
-    return gcvSTATUS_OK;
+    gcmkFOOTER_ARG("*Logical=%p", *Logical);
+    return status;
 }
 
 /*******************************************************************************
@@ -2328,7 +2339,7 @@ gckOS_UnmapPhysical(
     PLINUX_MDL  mdl;
     gctBOOL found = gcvFALSE;
 
-    gcmkHEADER_ARG("Os=0x%X Logical=0x%X Bytes=%lu", Os, Logical, Bytes);
+    gcmkHEADER_ARG("Os=%p Logical=%p Bytes=0x%zx", Os, Logical, Bytes);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Os, gcvOBJ_OS);
@@ -2387,9 +2398,9 @@ gckOS_DeleteMutex(
     IN gctPOINTER Mutex
     )
 {
-    gceSTATUS status;
+    gceSTATUS status = gcvSTATUS_OK;
 
-    gcmkHEADER_ARG("Os=0x%X Mutex=0x%X", Os, Mutex);
+    gcmkHEADER_ARG("Os=%p Mutex=%p", Os, Mutex);
 
     /* Validate the arguments. */
     gcmkVERIFY_OBJECT(Os, gcvOBJ_OS);
@@ -2400,9 +2411,6 @@ gckOS_DeleteMutex(
 
     /* Free the mutex structure. */
     gcmkONERROR(gckOS_Free(Os, Mutex));
-
-    gcmkFOOTER_NO();
-    return gcvSTATUS_OK;
 
 OnError:
     /* Return status. */
@@ -2440,7 +2448,8 @@ gckOS_AcquireMutex(
     IN gctUINT32 Timeout
     )
 {
-    gcmkHEADER_ARG("Os=0x%X Mutex=0x%0x Timeout=%u", Os, Mutex, Timeout);
+    gceSTATUS status = gcvSTATUS_TIMEOUT;
+    gcmkHEADER_ARG("Os=%p Mutex=%p Timeout=%u", Os, Mutex, Timeout);
 
     /* Validate the arguments. */
     gcmkVERIFY_OBJECT(Os, gcvOBJ_OS);
@@ -2452,32 +2461,33 @@ gckOS_AcquireMutex(
         mutex_lock(Mutex);
 
         /* Success. */
-        gcmkFOOTER_NO();
-        return gcvSTATUS_OK;
+        status = gcvSTATUS_OK;
     }
-
-    for (;;)
+    else
     {
-        /* Try to acquire the mutex. */
-        if (mutex_trylock(Mutex))
+        for (;;)
         {
-            /* Success. */
-            gcmkFOOTER_NO();
-            return gcvSTATUS_OK;
-        }
+            /* Try to acquire the mutex. */
+            if (mutex_trylock(Mutex))
+            {
+                /* Success. */
+                status = gcvSTATUS_OK;
+                break;
+            }
 
-        if (Timeout-- == 0)
-        {
-            break;
-        }
+            if (Timeout-- == 0)
+            {
+                break;
+            }
 
-        /* Wait for 1 millisecond. */
-        gcmkVERIFY_OK(gckOS_Delay(Os, 1));
+            /* Wait for 1 millisecond. */
+            gcmkVERIFY_OK(gckOS_Delay(Os, 1));
+        }
     }
 
     /* Timeout. */
-    gcmkFOOTER_ARG("status=%d", gcvSTATUS_TIMEOUT);
-    return gcvSTATUS_TIMEOUT;
+    gcmkFOOTER();
+    return status;
 }
 
 /*******************************************************************************
@@ -2504,7 +2514,7 @@ gckOS_ReleaseMutex(
     IN gctPOINTER Mutex
     )
 {
-    gcmkHEADER_ARG("Os=0x%X Mutex=0x%0x", Os, Mutex);
+    gcmkHEADER_ARG("Os=%p Mutex=%p", Os, Mutex);
 
     /* Validate the arguments. */
     gcmkVERIFY_OBJECT(Os, gcvOBJ_OS);
@@ -2616,12 +2626,14 @@ gckOS_AtomSetMask(
     )
 {
     gctUINT32 oval, nval;
+
     do
     {
         oval = atomic_read((atomic_t *) Atom);
         nval = oval | Mask;
     }
     while (atomic_cmpxchg((atomic_t *) Atom, oval, nval) != oval);
+
     return gcvSTATUS_OK;
 }
 
@@ -2682,9 +2694,9 @@ gckOS_AtomConstruct(
     OUT gctPOINTER * Atom
     )
 {
-    gceSTATUS status;
+    gceSTATUS status = gcvSTATUS_OK;
 
-    gcmkHEADER_ARG("Os=0x%X", Os);
+    gcmkHEADER_ARG("Os=%p", Os);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Os, gcvOBJ_OS);
@@ -2696,13 +2708,9 @@ gckOS_AtomConstruct(
     /* Initialize the atom. */
     atomic_set((atomic_t *) *Atom, 0);
 
-    /* Success. */
-    gcmkFOOTER_ARG("*Atom=0x%X", *Atom);
-    return gcvSTATUS_OK;
-
 OnError:
     /* Return the status. */
-    gcmkFOOTER();
+    gcmkFOOTER_ARG("*Atom=%p", *Atom);
     return status;
 }
 
@@ -2730,9 +2738,9 @@ gckOS_AtomDestroy(
     OUT gctPOINTER Atom
     )
 {
-    gceSTATUS status;
+    gceSTATUS status = gcvSTATUS_OK;
 
-    gcmkHEADER_ARG("Os=0x%X Atom=0x%0x", Os, Atom);
+    gcmkHEADER_ARG("Os=%p Atom=%p", Os, Atom);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Os, gcvOBJ_OS);
@@ -2740,10 +2748,6 @@ gckOS_AtomDestroy(
 
     /* Free the atom. */
     gcmkONERROR(gcmkOS_SAFE_FREE(Os, Atom));
-
-    /* Success. */
-    gcmkFOOTER_NO();
-    return gcvSTATUS_OK;
 
 OnError:
     /* Return the status. */
@@ -2841,7 +2845,6 @@ gckOS_AtomIncrement(
     OUT gctINT32_PTR Value
     )
 {
-    /* Increment the atom. */
     *Value = atomic_inc_return((atomic_t *) Atom) - 1;
     return gcvSTATUS_OK;
 }
@@ -2901,7 +2904,7 @@ gckOS_Delay(
     IN gctUINT32 Delay
     )
 {
-    gcmkHEADER_ARG("Os=0x%X Delay=%u", Os, Delay);
+    gcmkHEADER_ARG("Os=%p Delay=%u", Os, Delay);
 
     if (Delay > 0)
     {
@@ -2999,12 +3002,21 @@ gckOS_GetTime(
     OUT gctUINT64_PTR Time
     )
 {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 17, 0)
     struct timespec64 tv;
     gcmkHEADER();
 
     /* Return the time of day in microseconds. */
     ktime_get_real_ts64(&tv);
-    *Time = (tv.tv_sec * 1000000ULL) + tv.tv_nsec / 1000;
+    *Time = (tv.tv_sec * 1000000ULL) + (tv.tv_nsec / 1000);
+#else
+    struct timeval tv;
+    gcmkHEADER();
+
+     /* Return the time of day in microseconds. */
+    do_gettimeofday(&tv);
+    *Time = (tv.tv_sec * 1000000ULL) + tv.tv_usec;
+#endif
 
     gcmkFOOTER_NO();
     return gcvSTATUS_OK;
@@ -3051,62 +3063,16 @@ gckOS_MemoryBarrier(
 **      gckOS Os
 **          Pointer to an gckOS object.
 **
-**      gctSIZE_T Bytes
-**          Number of bytes to allocate.
-**
-**  OUTPUT:
-**
-**      gctPHYS_ADDR * Physical
-**          Pointer to a variable that receives the physical address of the
-**          memory allocation.
-*/
-gceSTATUS
-gckOS_AllocatePagedMemory(
-    IN gckOS Os,
-    IN gctSIZE_T Bytes,
-    OUT gctPHYS_ADDR * Physical
-    )
-{
-    gceSTATUS status;
-
-    gcmkHEADER_ARG("Os=0x%X Bytes=%lu", Os, Bytes);
-
-    /* Verify the arguments. */
-    gcmkVERIFY_OBJECT(Os, gcvOBJ_OS);
-    gcmkVERIFY_ARGUMENT(Bytes > 0);
-    gcmkVERIFY_ARGUMENT(Physical != gcvNULL);
-
-    /* Allocate the memory. */
-    gcmkONERROR(gckOS_AllocatePagedMemoryEx(Os, gcvALLOC_FLAG_NONE, Bytes, gcvNULL, Physical));
-
-    /* Success. */
-    gcmkFOOTER_ARG("*Physical=0x%X", *Physical);
-    return gcvSTATUS_OK;
-
-OnError:
-    /* Return the status. */
-    gcmkFOOTER();
-    return status;
-}
-
-/*******************************************************************************
-**
-**  gckOS_AllocatePagedMemoryEx
-**
-**  Allocate memory from the paged pool.
-**
-**  INPUT:
-**
-**      gckOS Os
-**          Pointer to an gckOS object.
-**
 **      gctUINT32 Flag
 **          Allocation attribute.
 **
-**      gctSIZE_T Bytes
+**      gctSIZE_T * Bytes
 **          Number of bytes to allocate.
 **
 **  OUTPUT:
+**
+**      gctSIZE_T * Bytes
+**          Return number of bytes actually allocated.
 **
 **      gctUINT32 * Gid
 **          Save the global ID for the piece of allocated memory.
@@ -3116,28 +3082,28 @@ OnError:
 **          memory allocation.
 */
 gceSTATUS
-gckOS_AllocatePagedMemoryEx(
+gckOS_AllocatePagedMemory(
     IN gckOS Os,
     IN gctUINT32 Flag,
-    IN gctSIZE_T Bytes,
+    IN OUT gctSIZE_T * Bytes,
     OUT gctUINT32 * Gid,
     OUT gctPHYS_ADDR * Physical
     )
 {
-    gctINT numPages;
+    gctSIZE_T numPages;
     PLINUX_MDL mdl = gcvNULL;
     gctSIZE_T bytes;
     gceSTATUS status = gcvSTATUS_NOT_SUPPORTED;
     gckALLOCATOR allocator;
 
-    gcmkHEADER_ARG("Os=0x%X Flag=%x Bytes=%lu", Os, Flag, Bytes);
+    gcmkHEADER_ARG("Os=%p Flag=%x *Bytes=0x%zx", Os, Flag, *Bytes);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Os, gcvOBJ_OS);
-    gcmkVERIFY_ARGUMENT(Bytes > 0);
+    gcmkVERIFY_ARGUMENT(*Bytes > 0);
     gcmkVERIFY_ARGUMENT(Physical != gcvNULL);
 
-    bytes = gcmALIGN(Bytes, PAGE_SIZE);
+    bytes = gcmALIGN(*Bytes, PAGE_SIZE);
 
     numPages = GetPageCount(bytes, 0);
 
@@ -3146,6 +3112,15 @@ gckOS_AllocatePagedMemoryEx(
     {
         gcmkONERROR(gcvSTATUS_OUT_OF_MEMORY);
     }
+
+#if defined(CONFIG_ZONE_DMA32) && LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,37)
+    /* redirect DMA32 pool for CMA LIMIT request */
+    if (Flag & gcvALLOC_FLAG_CMA_LIMIT)
+    {
+        Flag &= ~gcvALLOC_FLAG_CMA_LIMIT;
+        Flag |= gcvALLOC_FLAG_4GB_ADDR | gcvALLOC_FLAG_CONTIGUOUS;
+    }
+#endif
 
     if (Os->allocatorLimitMarker && (Flag & gcvALLOC_FLAG_CMA_LIMIT))
     {
@@ -3187,11 +3162,6 @@ gckOS_AllocatePagedMemoryEx(
     mdl->contiguous = Flag & gcvALLOC_FLAG_CONTIGUOUS;
     mdl->cacheable  = Flag & gcvALLOC_FLAG_CACHEABLE;
 
-    if (Gid != gcvNULL)
-    {
-        *Gid = mdl->gid;
-    }
-
     /*
      * Add this to a global list.
      * Will be used by get physical address
@@ -3201,22 +3171,29 @@ gckOS_AllocatePagedMemoryEx(
     list_add_tail(&mdl->link, &Os->mdlHead);
     mutex_unlock(&Os->mdlMutex);
 
+    /* Return allocated bytes. */
+    *Bytes = bytes;
+
+    if (Gid != gcvNULL)
+    {
+        *Gid = mdl->gid;
+    }
+
     /* Return physical address. */
     *Physical = (gctPHYS_ADDR) mdl;
 
     /* Success. */
-    gcmkFOOTER_ARG("*Physical=0x%X", *Physical);
-    return gcvSTATUS_OK;
+    status = gcvSTATUS_OK;
 
 OnError:
-    if (mdl != gcvNULL)
+    if (gcmIS_ERROR(status) && mdl)
     {
         /* Free the memory. */
         _DestroyMdl(mdl);
     }
 
     /* Return the status. */
-    gcmkFOOTER_ARG("Os=0x%X Flag=%x Bytes=%lu", Os, Flag, Bytes);
+    gcmkFOOTER_ARG("*Physical=%p", *Physical);
     return status;
 }
 
@@ -3250,7 +3227,7 @@ gckOS_FreePagedMemory(
 {
     PLINUX_MDL mdl = (PLINUX_MDL)Physical;
 
-    gcmkHEADER_ARG("Os=0x%X Physical=0x%X Bytes=%lu", Os, Physical, Bytes);
+    gcmkHEADER_ARG("Os=%p Physical=%p Bytes=0x%zx", Os, Physical, Bytes);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Os, gcvOBJ_OS);
@@ -3290,10 +3267,6 @@ gckOS_FreePagedMemory(
 **      gctPOINTER * Logical
 **          Pointer to a variable that receives the address of the mapped
 **          memory.
-**
-**      gctSIZE_T * PageCount
-**          Pointer to a variable that receives the number of pages required for
-**          the page table according to the GPU page size.
 */
 gceSTATUS
 gckOS_LockPages(
@@ -3301,24 +3274,22 @@ gckOS_LockPages(
     IN gctPHYS_ADDR Physical,
     IN gctSIZE_T Bytes,
     IN gctBOOL Cacheable,
-    OUT gctPOINTER * Logical,
-    OUT gctSIZE_T * PageCount
+    OUT gctPOINTER * Logical
     )
 {
-    gceSTATUS       status;
+    gceSTATUS       status = gcvSTATUS_OK;
     PLINUX_MDL      mdl;
     PLINUX_MDL_MAP  mdlMap;
     gckALLOCATOR    allocator;
 
-    gcmkHEADER_ARG("Os=0x%X Physical=0x%X Bytes=%lu", Os, Physical, Logical);
+    gcmkHEADER_ARG("Os=%p Physical=%p Bytes=0x%zx", Os, Physical, Logical);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Os, gcvOBJ_OS);
     gcmkVERIFY_ARGUMENT(Physical != gcvNULL);
     gcmkVERIFY_ARGUMENT(Logical != gcvNULL);
-    gcmkVERIFY_ARGUMENT(PageCount != gcvNULL);
 
-    mdl = (PLINUX_MDL) Physical;
+    mdl = (PLINUX_MDL)Physical;
     allocator = mdl->allocator;
 
     mutex_lock(&mdl->mapsMutex);
@@ -3331,24 +3302,13 @@ gckOS_LockPages(
 
         if (mdlMap == gcvNULL)
         {
-            mutex_unlock(&mdl->mapsMutex);
-
-            gcmkFOOTER_ARG("*status=%d", gcvSTATUS_OUT_OF_MEMORY);
-            return gcvSTATUS_OUT_OF_MEMORY;
+            gcmkONERROR(gcvSTATUS_OUT_OF_MEMORY);
         }
     }
 
     if (mdlMap->vmaAddr == gcvNULL)
     {
-        status = allocator->ops->MapUser(allocator, mdl, mdlMap, Cacheable);
-
-        if (gcmIS_ERROR(status))
-        {
-            mutex_unlock(&mdl->mapsMutex);
-
-            gcmkFOOTER_ARG("*status=%d", status);
-            return status;
-        }
+        gcmkONERROR(allocator->ops->MapUser(allocator, mdl, mdlMap, Cacheable));
     }
 
     mdlMap->count++;
@@ -3356,54 +3316,14 @@ gckOS_LockPages(
     /* Convert pointer to MDL. */
     *Logical = mdlMap->vmaAddr;
 
-    /* Return the page number according to the GPU page size. */
-    gcmkASSERT((PAGE_SIZE % 4096) == 0);
-    gcmkASSERT((PAGE_SIZE / 4096) >= 1);
-
-    *PageCount = mdl->numPages * (PAGE_SIZE / 4096);
-
+OnError:
     mutex_unlock(&mdl->mapsMutex);
-
     /* Success. */
-    gcmkFOOTER_ARG("*Logical=0x%X *PageCount=%lu", *Logical, *PageCount);
-    return gcvSTATUS_OK;
+    gcmkFOOTER_ARG("*Logical=%p", *Logical);
+    return status;
 }
 
-/*******************************************************************************
-**
-**  gckOS_MapPages
-**
-**  Map paged memory into a page table.
-**
-**  INPUT:
-**
-**      gckOS Os
-**          Pointer to an gckOS object.
-**
-**      gctPHYS_ADDR Physical
-**          Physical address of the allocation.
-**
-**      gctSIZE_T PageCount
-**          Number of pages required for the physical address.
-**
-**      gctPOINTER PageTable
-**          Pointer to the page table to fill in.
-**
-**  OUTPUT:
-**
-**      Nothing.
-*/
-gceSTATUS
-gckOS_MapPages(
-    IN gckOS Os,
-    IN gctPHYS_ADDR Physical,
-    IN gctSIZE_T PageCount,
-    IN gctPOINTER PageTable
-    )
-{
-    return gcvSTATUS_NOT_SUPPORTED;
-}
-
+/* PageCount is GPU page count. */
 gceSTATUS
 gckOS_MapPagesEx(
     IN gckOS Os,
@@ -3413,7 +3333,7 @@ gckOS_MapPagesEx(
     IN gctUINT32 Address,
     IN gctPOINTER PageTable,
     IN gctBOOL Writable,
-    IN gceSURF_TYPE Type
+    IN gceVIDMEM_TYPE Type
     )
 {
     gceSTATUS status = gcvSTATUS_OK;
@@ -3421,13 +3341,7 @@ gckOS_MapPagesEx(
     gctUINT32*  table;
     gctUINT32   offset = 0;
 
-#if gcdPROCESS_ADDRESS_SPACE
-    gckKERNEL kernel = Os->device->kernels[Core];
-    gckMMU      mmu;
-#endif
-
     gctUINT32 bytes = PageCount * 4;
-
     gckALLOCATOR allocator;
 
     gctUINT32 policyID = 0;
@@ -3435,8 +3349,8 @@ gckOS_MapPagesEx(
 
     gcsPLATFORM * platform = Os->device->platform;
 
-    gcmkHEADER_ARG("Os=0x%X Core=%d Physical=0x%X PageCount=%u PageTable=0x%X",
-                   Os, Core, Physical, PageCount, PageTable);
+    gcmkHEADER_ARG("Os=%p Core=%d Physical=%p PageCount=0x%zx Address=0x%x PageTable=%p",
+                   Os, Core, Physical, PageCount, Address, PageTable);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Os, gcvOBJ_OS);
@@ -3458,10 +3372,6 @@ gckOS_MapPagesEx(
         (gctUINT32)(gctUINTPTR_T)Physical,
         (gctUINT32)(gctUINTPTR_T)PageCount
         );
-
-#if gcdPROCESS_ADDRESS_SPACE
-    gcmkONERROR(gckKERNEL_GetProcessMMU(kernel, &mmu));
-#endif
 
     table = (gctUINT32 *)PageTable;
 
@@ -3537,21 +3447,12 @@ gckOS_MapPagesEx(
             {
                 for (i = 0; i < (PAGE_SIZE / 4096); i++)
                 {
-#if gcdPROCESS_ADDRESS_SPACE
-                    gctUINT32_PTR pageTableEntry;
-                    gckMMU_GetPageEntry(mmu, Address + offset + (i * 4096), &pageTableEntry);
-                    gcmkONERROR(
-                        gckMMU_SetPage(mmu,
-                            phys + (i * 4096),
-                            Writable,
-                            pageTableEntry));
-#else
                     gcmkONERROR(
                         gckMMU_SetPage(Os->device->kernels[Core]->mmu,
                             phys + (i * 4096),
+                            gcvPAGE_TYPE_4K,
                             Writable,
                             table++));
-#endif
                 }
             }
         }
@@ -3580,30 +3481,28 @@ gckOS_MapPagesEx(
 #  endif
     {
         gckMMU mmu = Os->device->kernels[Core]->mmu;
-        gcsADDRESS_AREA * area = &mmu->area[0];
+        gcsADDRESS_AREA * area = &mmu->dynamicArea4K;
 
-        offset = (gctUINT8_PTR)PageTable - (gctUINT8_PTR)area->pageTableLogical;
+        offset = (gctUINT8_PTR)PageTable - (gctUINT8_PTR)area->stlbLogical;
 
         /* must be in dynamic area. */
-        gcmkASSERT(offset < area->pageTableSize);
+        gcmkASSERT(offset < area->stlbSize);
 
-        gcmkVERIFY_OK(gckOS_CacheClean(
-            Os,
-            0,
-            area->pageTablePhysical,
+        gcmkVERIFY_OK(gckVIDMEM_NODE_CleanCache(
+            Os->device->kernels[Core],
+            area->stlbVideoMem,
             offset,
             PageTable,
             bytes
             ));
 
-        if (mmu->mtlbPhysical)
+        if (mmu->mtlbVideoMem)
         {
             /* Flush MTLB table. */
-            gcmkVERIFY_OK(gckOS_CacheClean(
-                Os,
-                0,
-                mmu->mtlbPhysical,
-                0,
+            gcmkVERIFY_OK(gckVIDMEM_NODE_CleanCache(
+                Os->device->kernels[Core],
+                mmu->mtlbVideoMem,
+                offset,
                 mmu->mtlbLogical,
                 mmu->mtlbSize
                 ));
@@ -3611,12 +3510,12 @@ gckOS_MapPagesEx(
     }
 
 OnError:
-
     /* Return the status. */
     gcmkFOOTER();
     return status;
 }
 
+/* PageCount is GPU page count. */
 gceSTATUS
 gckOS_UnmapPages(
     IN gckOS Os,
@@ -3628,11 +3527,140 @@ gckOS_UnmapPages(
     if (Os->iommu)
     {
         gcmkVERIFY_OK(gckIOMMU_Unmap(
-            Os->iommu, Address, PageCount * PAGE_SIZE));
+            Os->iommu, Address, PageCount * 4096));
     }
 #endif
 
     return gcvSTATUS_OK;
+}
+
+/* Map 1M size GPU page */
+gceSTATUS
+gckOS_Map1MPages(
+    IN gckOS Os,
+    IN gceCORE Core,
+    IN gctPHYS_ADDR Physical,
+    IN gctSIZE_T PageCount,
+    IN gctUINT32 Address,
+    IN gctPOINTER PageTable,
+    IN gctBOOL Writable,
+    IN gceVIDMEM_TYPE Type
+    )
+{
+    gceSTATUS status = gcvSTATUS_OK;
+    PLINUX_MDL mdl;
+    gctUINT32* table;
+    gctUINT32  offset = 0;
+
+    gctSIZE_T bytes = PageCount * 4;
+    gckALLOCATOR allocator;
+
+    gctUINT32 policyID = 0;
+    gctUINT32 axiConfig = 0;
+
+    gcsPLATFORM * platform = Os->device->platform;
+
+    gcmkHEADER_ARG("Os=%p Core=%d Physical=%p PageCount=0x%zx Address=0x%x PageTable=%p",
+                   Os, Core, Physical, PageCount, Address, PageTable);
+
+    /* Verify the arguments. */
+    gcmkVERIFY_OBJECT(Os, gcvOBJ_OS);
+    gcmkVERIFY_ARGUMENT(Physical != gcvNULL);
+    gcmkVERIFY_ARGUMENT(PageCount > 0);
+    gcmkVERIFY_ARGUMENT(PageTable != gcvNULL);
+
+    /* Convert pointer to MDL. */
+    mdl = (PLINUX_MDL)Physical;
+
+    allocator = mdl->allocator;
+
+    gcmkASSERT(allocator != gcvNULL);
+
+    gcmkTRACE_ZONE(
+        gcvLEVEL_INFO, gcvZONE_OS,
+        "%s(%d): Physical->0x%X PageCount->0x%X",
+        __FUNCTION__, __LINE__,
+        (gctUINT32)(gctUINTPTR_T)Physical,
+        (gctUINT32)(gctUINTPTR_T)PageCount
+        );
+
+    table = (gctUINT32 *)PageTable;
+
+    if (platform && platform->ops->getPolicyID)
+    {
+        platform->ops->getPolicyID(platform, Type, &policyID, &axiConfig);
+
+        gcmkBUG_ON(policyID > 0x1F);
+
+        /* ID[3:0] is used in STLB. */
+        policyID &= 0xF;
+    }
+
+    while (PageCount-- > 0)
+    {
+        gctPHYS_ADDR_T phys = ~0U;
+
+        allocator->ops->Physical(allocator, mdl, offset, &phys);
+
+        gcmkVERIFY_OK(gckOS_CPUPhysicalToGPUPhysical(Os, phys, &phys));
+
+        if (policyID)
+        {
+            /* AxUSER must not used for address currently. */
+            gcmkBUG_ON((phys >> 32) & 0xF);
+
+            /* Merge policyID to AxUSER[7:4].*/
+            phys |= ((gctPHYS_ADDR_T)policyID << 36);
+        }
+
+        /* Get the start physical of 1M page. */
+        phys &= ~((1 << 20) - 1);
+
+        gcmkONERROR(
+            gckMMU_SetPage(Os->device->kernels[Core]->mmu,
+            phys,
+            gcvPAGE_TYPE_1M,
+            Writable,
+            table++));
+
+        offset += gcd1M_PAGE_SIZE;
+    }
+
+    /* Flush the page table cache. */
+    {
+        gckMMU mmu = Os->device->kernels[Core]->mmu;
+        gcsADDRESS_AREA * area = &mmu->dynamicArea1M;
+
+        offset = (gctUINT8_PTR)PageTable - (gctUINT8_PTR)area->stlbLogical;
+
+        /* must be in dynamic area. */
+        gcmkASSERT(offset < area->stlbSize);
+
+        gcmkVERIFY_OK(gckVIDMEM_NODE_CleanCache(
+            Os->device->kernels[Core],
+            area->stlbVideoMem,
+            offset,
+            PageTable,
+            bytes
+            ));
+
+        if (mmu->mtlbVideoMem)
+        {
+            /* Flush MTLB table. */
+            gcmkVERIFY_OK(gckVIDMEM_NODE_CleanCache(
+                Os->device->kernels[Core],
+                mmu->mtlbVideoMem,
+                offset,
+                mmu->mtlbLogical,
+                mmu->mtlbSize
+                ));
+        }
+    }
+
+OnError:
+    /* Return the status. */
+    gcmkFOOTER();
+    return status;
 }
 
 /*******************************************************************************
@@ -3672,7 +3700,7 @@ gckOS_UnlockPages(
     gckALLOCATOR allocator = mdl->allocator;
     gctINT pid = _GetProcessID();
 
-    gcmkHEADER_ARG("Os=0x%X Physical=0x%X Bytes=%u Logical=0x%X",
+    gcmkHEADER_ARG("Os=%p Physical=%p Bytes=0x%zx Logical=%p",
                    Os, Physical, Bytes, Logical);
 
     /* Verify the arguments. */
@@ -3706,244 +3734,6 @@ gckOS_UnlockPages(
     return gcvSTATUS_OK;
 }
 
-
-/*******************************************************************************
-**
-**  gckOS_AllocateContiguous
-**
-**  Allocate memory from the contiguous pool.
-**
-**  INPUT:
-**
-**      gckOS Os
-**          Pointer to an gckOS object.
-**
-**      gctBOOL InUserSpace
-**          gcvTRUE if the pages need to be mapped into user space.
-**
-**      gctSIZE_T * Bytes
-**          Pointer to the number of bytes to allocate.
-**
-**  OUTPUT:
-**
-**      gctSIZE_T * Bytes
-**          Pointer to a variable that receives the number of bytes allocated.
-**
-**      gctPHYS_ADDR * Physical
-**          Pointer to a variable that receives the physical address of the
-**          memory allocation.
-**
-**      gctPOINTER * Logical
-**          Pointer to a variable that receives the logical address of the
-**          memory allocation.
-*/
-gceSTATUS
-gckOS_AllocateContiguous(
-    IN gckOS Os,
-    IN gctBOOL InUserSpace,
-    IN OUT gctSIZE_T * Bytes,
-    OUT gctPHYS_ADDR * Physical,
-    OUT gctPOINTER * Logical
-    )
-{
-    gceSTATUS status;
-
-    gcmkHEADER_ARG("Os=0x%X InUserSpace=%d *Bytes=%lu",
-                   Os, InUserSpace, gcmOPT_VALUE(Bytes));
-
-    /* Verify the arguments. */
-    gcmkVERIFY_OBJECT(Os, gcvOBJ_OS);
-    gcmkVERIFY_ARGUMENT(Bytes != gcvNULL);
-    gcmkVERIFY_ARGUMENT(*Bytes > 0);
-    gcmkVERIFY_ARGUMENT(Physical != gcvNULL);
-    gcmkVERIFY_ARGUMENT(Logical != gcvNULL);
-
-    /* Same as non-paged memory for now. */
-    gcmkONERROR(gckOS_AllocateNonPagedMemory(Os,
-                                             InUserSpace,
-                                             gcvALLOC_FLAG_CONTIGUOUS,
-                                             Bytes,
-                                             Physical,
-                                             Logical));
-
-    /* Success. */
-    gcmkFOOTER_ARG("*Bytes=%lu *Physical=0x%X *Logical=0x%X",
-                   *Bytes, *Physical, *Logical);
-    return gcvSTATUS_OK;
-
-OnError:
-    /* Return the status. */
-    gcmkFOOTER();
-    return status;
-}
-
-/*******************************************************************************
-**
-**  gckOS_FreeContiguous
-**
-**  Free memory allocated from the contiguous pool.
-**
-**  INPUT:
-**
-**      gckOS Os
-**          Pointer to an gckOS object.
-**
-**      gctPHYS_ADDR Physical
-**          Physical address of the allocation.
-**
-**      gctPOINTER Logical
-**          Logicval address of the allocation.
-**
-**      gctSIZE_T Bytes
-**          Number of bytes of the allocation.
-**
-**  OUTPUT:
-**
-**      Nothing.
-*/
-gceSTATUS
-gckOS_FreeContiguous(
-    IN gckOS Os,
-    IN gctPHYS_ADDR Physical,
-    IN gctPOINTER Logical,
-    IN gctSIZE_T Bytes
-    )
-{
-    gceSTATUS status;
-
-    gcmkHEADER_ARG("Os=0x%X Physical=0x%X Logical=0x%X Bytes=%lu",
-                   Os, Physical, Logical, Bytes);
-
-    /* Verify the arguments. */
-    gcmkVERIFY_OBJECT(Os, gcvOBJ_OS);
-    gcmkVERIFY_ARGUMENT(Physical != gcvNULL);
-    gcmkVERIFY_ARGUMENT(Logical != gcvNULL);
-    gcmkVERIFY_ARGUMENT(Bytes > 0);
-
-    /* Same of non-paged memory for now. */
-    gcmkONERROR(gckOS_FreeNonPagedMemory(Os, Bytes, Physical, Logical));
-
-    /* Success. */
-    gcmkFOOTER_NO();
-    return gcvSTATUS_OK;
-
-OnError:
-    /* Return the status. */
-    gcmkFOOTER();
-    return status;
-}
-
-#if gcdENABLE_VG
-/******************************************************************************
-**
-**  gckOS_GetKernelLogical
-**
-**  Return the kernel logical pointer that corresponods to the specified
-**  hardware address.
-**
-**  INPUT:
-**
-**      gckOS Os
-**          Pointer to an gckOS object.
-**
-**      gctUINT32 Address
-**          Hardware physical address.
-**
-**  OUTPUT:
-**
-**      gctPOINTER * KernelPointer
-**          Pointer to a variable receiving the pointer in kernel address space.
-*/
-gceSTATUS
-gckOS_GetKernelLogical(
-    IN gckOS Os,
-    IN gctUINT32 Address,
-    OUT gctPOINTER * KernelPointer
-    )
-{
-    return gckOS_GetKernelLogicalEx(Os, gcvCORE_MAJOR, Address, KernelPointer);
-}
-
-gceSTATUS
-gckOS_GetKernelLogicalEx(
-    IN gckOS Os,
-    IN gceCORE Core,
-    IN gctUINT32 Address,
-    OUT gctPOINTER * KernelPointer
-    )
-{
-    gceSTATUS status;
-
-    gcmkHEADER_ARG("Os=0x%X Core=%d Address=0x%08x", Os, Core, Address);
-
-    do
-    {
-        gckGALDEVICE device;
-        gckKERNEL kernel;
-        gcePOOL pool;
-        gctUINT32 offset;
-        gctPOINTER logical;
-
-        /* Extract the pointer to the gckGALDEVICE class. */
-        device = (gckGALDEVICE) Os->device;
-
-        /* Kernel shortcut. */
-        kernel = device->kernels[Core];
-#if gcdENABLE_VG
-       if (Core == gcvCORE_VG)
-       {
-           gcmkERR_BREAK(gckVGHARDWARE_SplitMemory(
-                kernel->vg->hardware, Address, &pool, &offset
-                ));
-       }
-       else
-#endif
-       {
-        /* Split the memory address into a pool type and offset. */
-            gcmkERR_BREAK(gckHARDWARE_SplitMemory(
-                kernel->hardware, Address, &pool, &offset
-                ));
-       }
-
-        /* Dispatch on pool. */
-        switch (pool)
-        {
-        case gcvPOOL_LOCAL_INTERNAL:
-            /* Internal memory. */
-            logical = device->internalLogical;
-            break;
-
-        case gcvPOOL_LOCAL_EXTERNAL:
-            /* External memory. */
-            logical = device->externalLogical;
-            break;
-
-        case gcvPOOL_SYSTEM:
-            /* System memory. */
-            logical = device->contiguousLogical;
-            break;
-
-        default:
-            /* Invalid memory pool. */
-            gcmkFOOTER();
-            return gcvSTATUS_INVALID_ARGUMENT;
-        }
-
-        /* Build logical address of specified address. */
-        * KernelPointer = ((gctUINT8_PTR) logical) + offset;
-
-        /* Success. */
-        gcmkFOOTER_ARG("*KernelPointer=0x%X", *KernelPointer);
-        return gcvSTATUS_OK;
-    }
-    while (gcvFALSE);
-
-    /* Return status. */
-    gcmkFOOTER();
-    return status;
-}
-#endif
-
 /*******************************************************************************
 **
 **  gckOS_MapUserPointer
@@ -3975,7 +3765,7 @@ gckOS_MapUserPointer(
     OUT gctPOINTER * KernelPointer
     )
 {
-    gcmkHEADER_ARG("Os=0x%X Pointer=0x%X Size=%lu", Os, Pointer, Size);
+    gcmkHEADER_ARG("Os=%p Pointer=%p Size=0x%zx", Os, Pointer, Size);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Os, gcvOBJ_OS);
@@ -3985,7 +3775,7 @@ gckOS_MapUserPointer(
 
     *KernelPointer = Pointer;
 
-    gcmkFOOTER_ARG("*KernelPointer=0x%X", *KernelPointer);
+    gcmkFOOTER_ARG("*KernelPointer=%p", *KernelPointer);
     return gcvSTATUS_OK;
 }
 
@@ -4021,7 +3811,7 @@ gckOS_UnmapUserPointer(
     IN gctPOINTER KernelPointer
     )
 {
-    gcmkHEADER_ARG("Os=0x%X Pointer=0x%X Size=%lu KernelPointer=0x%X",
+    gcmkHEADER_ARG("Os=%p Pointer=%p Size=0x%zx KernelPointer=%p",
                    Os, Pointer, Size, KernelPointer);
 
     gcmkFOOTER_NO();
@@ -4056,7 +3846,7 @@ gckOS_QueryNeedCopy(
     OUT gctBOOL_PTR NeedCopy
     )
 {
-    gcmkHEADER_ARG("Os=0x%X ProcessID=%d", Os, ProcessID);
+    gcmkHEADER_ARG("Os=%p ProcessID=%d", Os, ProcessID);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Os, gcvOBJ_OS);
@@ -4102,9 +3892,9 @@ gckOS_CopyFromUserData(
     IN gctSIZE_T Size
     )
 {
-    gceSTATUS status;
+    gceSTATUS status = gcvSTATUS_OK;
 
-    gcmkHEADER_ARG("Os=0x%X KernelPointer=0x%X Pointer=0x%X Size=%lu",
+    gcmkHEADER_ARG("Os=%p KernelPointer=%p Pointer=%p Size=0x%zx",
                    Os, KernelPointer, Pointer, Size);
 
     /* Verify the arguments. */
@@ -4119,10 +3909,6 @@ gckOS_CopyFromUserData(
         /* Could not copy all the bytes. */
         gcmkONERROR(gcvSTATUS_OUT_OF_RESOURCES);
     }
-
-    /* Success. */
-    gcmkFOOTER_NO();
-    return gcvSTATUS_OK;
 
 OnError:
     /* Return the status. */
@@ -4162,9 +3948,9 @@ gckOS_CopyToUserData(
     IN gctSIZE_T Size
     )
 {
-    gceSTATUS status;
+    gceSTATUS status = gcvSTATUS_OK;
 
-    gcmkHEADER_ARG("Os=0x%X KernelPointer=0x%X Pointer=0x%X Size=%lu",
+    gcmkHEADER_ARG("Os=%p KernelPointer=%p Pointer=%p Size=0x%zx",
                    Os, KernelPointer, Pointer, Size);
 
     /* Verify the arguments. */
@@ -4179,10 +3965,6 @@ gckOS_CopyToUserData(
         /* Could not copy all the bytes. */
         gcmkONERROR(gcvSTATUS_OUT_OF_RESOURCES);
     }
-
-    /* Success. */
-    gcmkFOOTER_NO();
-    return gcvSTATUS_OK;
 
 OnError:
     /* Return the status. */
@@ -4218,14 +4000,19 @@ gckOS_WriteMemory(
     IN gctUINT32 Data
     )
 {
-    gceSTATUS status;
-    gcmkHEADER_ARG("Os=0x%X Address=0x%X Data=%u", Os, Address, Data);
+    gceSTATUS status = gcvSTATUS_OK;
+
+    gcmkHEADER_ARG("Os=%p Address=%p Data=%u", Os, Address, Data);
 
     /* Verify the arguments. */
     gcmkVERIFY_ARGUMENT(Address != gcvNULL);
 
     /* Write memory. */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 0, 0)
     if (access_ok(Address, 4))
+#else
+    if (access_ok(VERIFY_WRITE, Address, 4))
+#endif
     {
         /* User address. */
         if (put_user(Data, (gctUINT32*)Address))
@@ -4233,15 +4020,15 @@ gckOS_WriteMemory(
             gcmkONERROR(gcvSTATUS_INVALID_ADDRESS);
         }
     }
-    else
+    else if (virt_addr_valid(Address) || is_vmalloc_addr(Address))
     {
         /* Kernel address. */
         *(gctUINT32 *)Address = Data;
     }
-
-    /* Success. */
-    gcmkFOOTER_NO();
-    return gcvSTATUS_OK;
+    else
+    {
+        gcmkONERROR(gcvSTATUS_INVALID_ADDRESS);
+    }
 
 OnError:
     gcmkFOOTER();
@@ -4255,14 +4042,18 @@ gckOS_ReadMappedPointer(
     IN gctUINT32_PTR Data
     )
 {
-    gceSTATUS status;
-    gcmkHEADER_ARG("Os=0x%X Address=0x%X Data=%u", Os, Address, Data);
+    gceSTATUS status = gcvSTATUS_OK;
+    gcmkHEADER_ARG("Os=%p Address=%p Data=%u", Os, Address, Data);
 
     /* Verify the arguments. */
     gcmkVERIFY_ARGUMENT(Address != gcvNULL);
 
     /* Write memory. */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 0, 0)
     if (access_ok(Address, 4))
+#else
+    if (access_ok(VERIFY_READ, Address, 4))
+#endif
     {
         /* User address. */
         if (get_user(*Data, (gctUINT32*)Address))
@@ -4276,90 +4067,9 @@ gckOS_ReadMappedPointer(
         *Data = *(gctUINT32_PTR)Address;
     }
 
-    /* Success. */
-    gcmkFOOTER_NO();
-    return gcvSTATUS_OK;
-
 OnError:
     gcmkFOOTER();
     return status;
-}
-
-/*******************************************************************************
-**
-**  gckOS_MapUserMemory
-**
-**  Lock down a user buffer and return an DMA'able address to be used by the
-**  hardware to access it.
-**
-**  INPUT:
-**
-**      gctPOINTER Memory
-**          Pointer to memory to lock down.
-**
-**      gctSIZE_T Size
-**          Size in bytes of the memory to lock down.
-**
-**  OUTPUT:
-**
-**      gctPOINTER * Info
-**          Pointer to variable receiving the information record required by
-**          gckOS_UnmapUserMemory.
-**
-**      gctUINT32_PTR Address
-**          Pointer to a variable that will receive the address DMA'able by the
-**          hardware.
-*/
-gceSTATUS
-gckOS_MapUserMemory(
-    IN gckOS Os,
-    IN gceCORE Core,
-    IN gctPOINTER Memory,
-    IN gctUINT32 Physical,
-    IN gctSIZE_T Size,
-    OUT gctPOINTER * Info,
-    OUT gctUINT32_PTR Address
-    )
-{
-    return gcvSTATUS_NOT_SUPPORTED;
-}
-
-/*******************************************************************************
-**
-**  gckOS_UnmapUserMemory
-**
-**  Unlock a user buffer and that was previously locked down by
-**  gckOS_MapUserMemory.
-**
-**  INPUT:
-**
-**      gctPOINTER Memory
-**          Pointer to memory to unlock.
-**
-**      gctSIZE_T Size
-**          Size in bytes of the memory to unlock.
-**
-**      gctPOINTER Info
-**          Information record returned by gckOS_MapUserMemory.
-**
-**      gctUINT32_PTR Address
-**          The address returned by gckOS_MapUserMemory.
-**
-**  OUTPUT:
-**
-**      Nothing.
-*/
-gceSTATUS
-gckOS_UnmapUserMemory(
-    IN gckOS Os,
-    IN gceCORE Core,
-    IN gctPOINTER Memory,
-    IN gctSIZE_T Size,
-    IN gctPOINTER Info,
-    IN gctUINT32 Address
-    )
-{
-    return gcvSTATUS_NOT_SUPPORTED;
 }
 
 /*******************************************************************************
@@ -4384,7 +4094,7 @@ gckOS_GetBaseAddress(
     OUT gctUINT32_PTR BaseAddress
     )
 {
-    gcmkHEADER_ARG("Os=0x%X", Os);
+    gcmkHEADER_ARG("Os=%p", Os);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Os, gcvOBJ_OS);
@@ -4412,7 +4122,7 @@ gckOS_SuspendInterruptEx(
     IN gceCORE Core
     )
 {
-    gcmkHEADER_ARG("Os=0x%X Core=%d", Os, Core);
+    gcmkHEADER_ARG("Os=%p Core=%d", Os, Core);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Os, gcvOBJ_OS);
@@ -4437,7 +4147,7 @@ gckOS_ResumeInterruptEx(
     IN gceCORE Core
     )
 {
-    gcmkHEADER_ARG("Os=0x%X Core=%d", Os, Core);
+    gcmkHEADER_ARG("Os=%p Core=%d", Os, Core);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Os, gcvOBJ_OS);
@@ -4455,7 +4165,7 @@ gckOS_MemCopy(
     IN gctSIZE_T Bytes
     )
 {
-    gcmkHEADER_ARG("Destination=0x%X Source=0x%X Bytes=%lu",
+    gcmkHEADER_ARG("Destination=%p Source=%p Bytes=0x%zx",
                    Destination, Source, Bytes);
 
     gcmkVERIFY_ARGUMENT(Destination != gcvNULL);
@@ -4474,7 +4184,7 @@ gckOS_ZeroMemory(
     IN gctSIZE_T Bytes
     )
 {
-    gcmkHEADER_ARG("Memory=0x%X Bytes=%lu", Memory, Bytes);
+    gcmkHEADER_ARG("Memory=%p Bytes=0x%zx", Memory, Bytes);
 
     gcmkVERIFY_ARGUMENT(Memory != gcvNULL);
     gcmkVERIFY_ARGUMENT(Bytes > 0);
@@ -4500,7 +4210,7 @@ _CacheOperation(
     )
 {
     PLINUX_MDL mdl = (PLINUX_MDL)Handle;
-    PLINUX_MDL_MAP mdlMap;
+    PLINUX_MDL_MAP mdlMap = gcvNULL;
     gckALLOCATOR allocator;
 
     if (!mdl || !mdl->allocator)
@@ -4513,11 +4223,14 @@ _CacheOperation(
 
     if (allocator->ops->Cache)
     {
-        mutex_lock(&mdl->mapsMutex);
+        if (ProcessID)
+        {
+            mutex_lock(&mdl->mapsMutex);
 
-        mdlMap = FindMdlMap(mdl, ProcessID);
+            mdlMap = FindMdlMap(mdl, ProcessID);
 
-        mutex_unlock(&mdl->mapsMutex);
+            mutex_unlock(&mdl->mapsMutex);
+        }
 
         if (ProcessID && mdlMap == gcvNULL)
         {
@@ -4533,8 +4246,6 @@ _CacheOperation(
             return gcvSTATUS_OK;
         }
     }
-
-    _MemoryBarrier();
 
     return gcvSTATUS_OK;
 }
@@ -4599,13 +4310,8 @@ gckOS_CacheClean(
 {
     gceSTATUS status;
 
-    gcmkHEADER_ARG("Os=0x%X ProcessID=%d Handle=0x%X Logical=%p Bytes=%lu",
-                   Os, ProcessID, Handle, Logical, Bytes);
-
-    /* Verify the arguments. */
-    gcmkVERIFY_OBJECT(Os, gcvOBJ_OS);
-    gcmkVERIFY_ARGUMENT(Logical != gcvNULL);
-    gcmkVERIFY_ARGUMENT(Bytes > 0);
+    gcmkHEADER_ARG("Os=%p ProcessID=%d Handle=%p Offset=0x%llx Logical=%p Bytes=0x%zx",
+                   Os, ProcessID, Handle, Offset, Logical, Bytes);
 
     gcmkONERROR(_CacheOperation(Os, ProcessID,
                                 Handle, Offset, Logical, Bytes,
@@ -4614,7 +4320,6 @@ gckOS_CacheClean(
 OnError:
     gcmkFOOTER();
     return status;
-
 }
 
 /*******************************************************************************
@@ -4634,9 +4339,6 @@ OnError:
 **
 **      gctPHYS_ADDR Handle
 **          Physical address handle.  If gcvNULL it is video memory.
-**
-**      gctSIZE_T Offset
-**          Offset to this memory block.
 **
 **      gctPOINTER Logical
 **          Logical address to flush.
@@ -4658,11 +4360,6 @@ gckOS_CacheInvalidate(
 
     gcmkHEADER_ARG("Os=%p ProcessID=%d Handle=%p Offset=0x%llx Logical=%p Bytes=0x%zx",
                    Os, ProcessID, Handle, Offset, Logical, Bytes);
-
-    /* Verify the arguments. */
-    gcmkVERIFY_OBJECT(Os, gcvOBJ_OS);
-    gcmkVERIFY_ARGUMENT(Logical != gcvNULL);
-    gcmkVERIFY_ARGUMENT(Bytes > 0);
 
     gcmkONERROR(_CacheOperation(Os, ProcessID,
                                 Handle, Offset, Logical, Bytes,
@@ -4691,9 +4388,6 @@ OnError:
 **      gctPHYS_ADDR Handle
 **          Physical address handle.  If gcvNULL it is video memory.
 **
-**      gctSIZE_T Offset
-**          Offset to this memory block.
-**
 **      gctPOINTER Logical
 **          Logical address to flush.
 **
@@ -4714,11 +4408,6 @@ gckOS_CacheFlush(
 
     gcmkHEADER_ARG("Os=%p ProcessID=%d Handle=%p Offset=0x%llx Logical=%p Bytes=0x%zx",
                    Os, ProcessID, Handle, Offset, Logical, Bytes);
-
-    /* Verify the arguments. */
-    gcmkVERIFY_OBJECT(Os, gcvOBJ_OS);
-    gcmkVERIFY_ARGUMENT(Logical != gcvNULL);
-    gcmkVERIFY_ARGUMENT(Bytes > 0);
 
     gcmkONERROR(_CacheOperation(Os, ProcessID,
                                 Handle, Offset, Logical, Bytes,
@@ -4779,14 +4468,10 @@ gckOS_Broadcast(
     IN gceBROADCAST Reason
     )
 {
-    gceSTATUS status;
-#if gcdPOWER_SUSPEND_WHEN_IDLE
-    gceCHIPPOWERSTATE state = gcvPOWER_SUSPEND_BROADCAST;
-#else
-    gceCHIPPOWERSTATE state = gcvPOWER_IDLE_BROADCAST;
-#endif
+    gceSTATUS status = gcvSTATUS_OK;
+    gceCHIPPOWERSTATE state;
 
-    gcmkHEADER_ARG("Os=0x%X Hardware=0x%X Reason=%d", Os, Hardware, Reason);
+    gcmkHEADER_ARG("Os=%p Hardware=%p Reason=%d", Os, Hardware, Reason);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Os, gcvOBJ_OS);
@@ -4803,16 +4488,21 @@ gckOS_Broadcast(
 
         /* Put GPU OFF. */
         gcmkONERROR(
-            gckHARDWARE_SetPowerManagementState(Hardware,
-                                                gcvPOWER_OFF_BROADCAST));
+            gckHARDWARE_SetPowerState(Hardware,
+                                      gcvPOWER_OFF_BROADCAST));
         break;
 
     case gcvBROADCAST_GPU_IDLE:
         gcmkTRACE_ZONE(gcvLEVEL_INFO, gcvZONE_OS, "GPU idle.");
+#if gcdPOWER_SUSPEND_WHEN_IDLE
+        state = gcvPOWER_SUSPEND_BROADCAST;
+#else
+        state = gcvPOWER_IDLE_BROADCAST;
+#endif
 
-        /* Put GPU IDLE. */
+        /* Put GPU IDLE or SUSPEND. */
         gcmkONERROR(
-            gckHARDWARE_SetPowerManagementState(Hardware, state));
+            gckHARDWARE_SetPowerState(Hardware, state));
 
         /* Add idle process DB. */
         gcmkONERROR(gckKERNEL_AddProcessDB(Hardware->kernel,
@@ -4832,7 +4522,7 @@ gckOS_Broadcast(
 
         /* Put GPU ON. */
         gcmkONERROR(
-            gckHARDWARE_SetPowerManagementState(Hardware, gcvPOWER_ON_AUTO));
+            gckHARDWARE_SetPowerState(Hardware, gcvPOWER_ON_AUTO));
         break;
 
     case gcvBROADCAST_GPU_STUCK:
@@ -4864,10 +4554,6 @@ gckOS_Broadcast(
         /* Skip unimplemented broadcast. */
         break;
     }
-
-    /* Success. */
-    gcmkFOOTER_NO();
-    return gcvSTATUS_OK;
 
 OnError:
     /* Return the status. */
@@ -4904,7 +4590,7 @@ gckOS_BroadcastHurry(
     IN gctUINT Urgency
     )
 {
-    gcmkHEADER_ARG("Os=0x%x Hardware=0x%x Urgency=%u", Os, Hardware, Urgency);
+    gcmkHEADER_ARG("Os=%p Hardware=%p Urgency=%u", Os, Hardware, Urgency);
 
     /* Do whatever you need to do to speed up the GPU now. */
 
@@ -4943,7 +4629,7 @@ gckOS_BroadcastCalibrateSpeed(
     IN gctUINT Time
     )
 {
-    gcmkHEADER_ARG("Os=0x%x Hardware=0x%x Idle=%u Time=%u",
+    gcmkHEADER_ARG("Os=%p Hardware=%p Idle=%u Time=%u",
                    Os, Hardware, Idle, Time);
 
     /* Do whatever you need to do to callibrate the GPU speed. */
@@ -4979,10 +4665,10 @@ gckOS_CreateSemaphore(
     OUT gctPOINTER * Semaphore
     )
 {
-    gceSTATUS status;
+    gceSTATUS status = gcvSTATUS_OK;
     struct semaphore *sem = gcvNULL;
 
-    gcmkHEADER_ARG("Os=0x%X", Os);
+    gcmkHEADER_ARG("Os=%p", Os);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Os, gcvOBJ_OS);
@@ -5000,10 +4686,6 @@ gckOS_CreateSemaphore(
 
     /* Return to caller. */
     *Semaphore = (gctPOINTER) sem;
-
-    /* Success. */
-    gcmkFOOTER_NO();
-    return gcvSTATUS_OK;
 
 OnError:
     /* Return the status. */
@@ -5035,7 +4717,7 @@ gckOS_AcquireSemaphore(
     IN gctPOINTER Semaphore
     )
 {
-    gcmkHEADER_ARG("Os=0x%08X Semaphore=0x%08X", Os, Semaphore);
+    gcmkHEADER_ARG("Os=%p Semaphore=%p", Os, Semaphore);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Os, gcvOBJ_OS);
@@ -5073,9 +4755,9 @@ gckOS_TryAcquireSemaphore(
     IN gctPOINTER Semaphore
     )
 {
-    gceSTATUS status;
+    gceSTATUS status = gcvSTATUS_OK;
 
-    gcmkHEADER_ARG("Os=0x%x", Os);
+    gcmkHEADER_ARG("Os=%p", Os);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Os, gcvOBJ_OS);
@@ -5086,13 +4768,11 @@ gckOS_TryAcquireSemaphore(
     {
         /* Timeout. */
         status = gcvSTATUS_TIMEOUT;
-        gcmkFOOTER();
-        return status;
     }
 
     /* Success. */
-    gcmkFOOTER_NO();
-    return gcvSTATUS_OK;
+    gcmkFOOTER();
+    return status;
 }
 
 /*******************************************************************************
@@ -5119,7 +4799,7 @@ gckOS_ReleaseSemaphore(
     IN gctPOINTER Semaphore
     )
 {
-    gcmkHEADER_ARG("Os=0x%X Semaphore=0x%X", Os, Semaphore);
+    gcmkHEADER_ARG("Os=%p Semaphore=%p", Os, Semaphore);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Os, gcvOBJ_OS);
@@ -5157,7 +4837,7 @@ gckOS_DestroySemaphore(
     IN gctPOINTER Semaphore
     )
 {
-    gcmkHEADER_ARG("Os=0x%X Semaphore=0x%X", Os, Semaphore);
+    gcmkHEADER_ARG("Os=%p Semaphore=%p", Os, Semaphore);
 
      /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Os, gcvOBJ_OS);
@@ -5265,7 +4945,7 @@ gckOS_SetGPUPower(
     gctBOOL powerChange = gcvFALSE;
     gctBOOL clockChange = gcvFALSE;
 
-    gcmkHEADER_ARG("Os=0x%X Core=%d Clock=%d Power=%d", Os, Core, Clock, Power);
+    gcmkHEADER_ARG("Os=%p Core=%d Clock=%d Power=%d", Os, Core, Clock, Power);
     gcmkVERIFY_OBJECT(Os, gcvOBJ_OS);
 
     platform = Os->device->platform;
@@ -5355,7 +5035,7 @@ gckOS_ResetGPU(
     gceSTATUS status = gcvSTATUS_NOT_SUPPORTED;
     gcsPLATFORM * platform;
 
-    gcmkHEADER_ARG("Os=0x%X Core=%d", Os, Core);
+    gcmkHEADER_ARG("Os=%p Core=%d", Os, Core);
     gcmkVERIFY_OBJECT(Os, gcvOBJ_OS);
 
     platform = Os->device->platform;
@@ -5614,10 +5294,10 @@ gckOS_CreateSignal(
     OUT gctSIGNAL * Signal
     )
 {
-    gceSTATUS status;
-    gcsSIGNAL_PTR signal;
+    gceSTATUS status = gcvSTATUS_OK;
+    gcsSIGNAL_PTR signal = gcvNULL;
 
-    gcmkHEADER_ARG("Os=0x%X ManualReset=%d", Os, ManualReset);
+    gcmkHEADER_ARG("Os=%p ManualReset=%d", Os, ManualReset);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Os, gcvOBJ_OS);
@@ -5653,16 +5333,13 @@ gckOS_CreateSignal(
 
     *Signal = (gctSIGNAL)(gctUINTPTR_T)signal->id;
 
-    gcmkFOOTER_ARG("*Signal=0x%X", *Signal);
-    return gcvSTATUS_OK;
-
 OnError:
-    if (signal != gcvNULL)
+    if (gcmIS_ERROR(status) && signal)
     {
         kfree(signal);
     }
 
-    gcmkFOOTER_NO();
+    gcmkFOOTER_ARG("*Signal=%p", *Signal);
     return status;
 }
 
@@ -5690,12 +5367,12 @@ gckOS_DestroySignal(
     IN gctSIGNAL Signal
     )
 {
-    gceSTATUS status;
+    gceSTATUS status = gcvSTATUS_OK;
     gcsSIGNAL_PTR signal;
     gctBOOL acquired = gcvFALSE;
     unsigned long flags = 0;
 
-    gcmkHEADER_ARG("Os=0x%X Signal=0x%X", Os, Signal);
+    gcmkHEADER_ARG("Os=%p Signal=%p", Os, Signal);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Os, gcvOBJ_OS);
@@ -5725,12 +5402,7 @@ gckOS_DestroySignal(
     }else{
         spin_unlock_irqrestore(&Os->signalLock, flags);
     }
-
     acquired = gcvFALSE;
-
-    /* Success. */
-    gcmkFOOTER_NO();
-    return gcvSTATUS_OK;
 
 OnError:
     if (acquired)
@@ -5741,7 +5413,6 @@ OnError:
         }else{
             spin_unlock_irqrestore(&Os->signalLock, flags);
         }
-
     }
 
     gcmkFOOTER();
@@ -5788,7 +5459,7 @@ gckOS_Signal(
 #endif
     unsigned long flags = 0;
 
-    gcmkHEADER_ARG("Os=0x%X Signal=0x%X State=%d", Os, Signal, State);
+    gcmkHEADER_ARG("Os=%p Signal=%p State=%d", Os, Signal, State);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Os, gcvOBJ_OS);
@@ -5871,10 +5542,6 @@ gckOS_Signal(
 
     spin_unlock_irqrestore(&Os->signalLock, flags);
 
-    /* Success. */
-    gcmkFOOTER_NO();
-    return gcvSTATUS_OK;
-
 OnError:
     gcmkFOOTER();
     return status;
@@ -5910,8 +5577,7 @@ gckOS_UserSignal(
 {
     gceSTATUS status;
 
-    gcmkHEADER_ARG("Os=0x%X Signal=0x%X Process=%d",
-                   Os, Signal, (gctINT32)(gctUINTPTR_T)Process);
+    gcmkHEADER_ARG("Os=%p Signal=%p Process=%p", Os, Signal, Process);
 
     /* Signal. */
     status = gckOS_Signal(Os, Signal, gcvTRUE);
@@ -5954,7 +5620,7 @@ gckOS_WaitSignal(
     gcsSIGNAL_PTR signal = gcvNULL;
     int done;
 
-    gcmkHEADER_ARG("Os=0x%X Signal=0x%X Wait=0x%08X", Os, Signal, Wait);
+    gcmkHEADER_ARG("Os=%p Signal=%p Wait=0x%08X", Os, Signal, Wait);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Os, gcvOBJ_OS);
@@ -6028,7 +5694,7 @@ gckOS_WaitSignal(
 
 OnError:
     /* Return status. */
-    gcmkFOOTER_ARG("Signal=0x%lX status=%d", Signal, status);
+    gcmkFOOTER();
     return status;
 }
 
@@ -6092,10 +5758,10 @@ gckOS_MapSignal(
     OUT gctSIGNAL * MappedSignal
     )
 {
-    gceSTATUS status;
+    gceSTATUS status = gcvSTATUS_OK;
     gcsSIGNAL_PTR signal = gcvNULL;
     unsigned long flags = 0;
-    gcmkHEADER_ARG("Os=0x%X Signal=0x%X Process=0x%X", Os, Signal, Process);
+    gcmkHEADER_ARG("Os=%p Signal=%p Process=%p", Os, Signal, Process);
 
     gcmkVERIFY_ARGUMENT(Signal != gcvNULL);
     gcmkVERIFY_ARGUMENT(MappedSignal != gcvNULL);
@@ -6112,16 +5778,10 @@ gckOS_MapSignal(
 
     *MappedSignal = (gctSIGNAL) Signal;
 
-    spin_unlock_irqrestore(&Os->signalLock, flags);
-
-    /* Success. */
-    gcmkFOOTER_ARG("*MappedSignal=0x%X", *MappedSignal);
-    return gcvSTATUS_OK;
-
 OnError:
     spin_unlock_irqrestore(&Os->signalLock, flags);
 
-    gcmkFOOTER_NO();
+    gcmkFOOTER_ARG("*MappedSignal=%p", *MappedSignal);
     return status;
 }
 
@@ -6289,7 +5949,7 @@ gckOS_CreateSemaphoreVG(
     gceSTATUS status;
     struct semaphore * newSemaphore;
 
-    gcmkHEADER_ARG("Os=0x%X Semaphore=0x%x", Os, Semaphore);
+    gcmkHEADER_ARG("Os=%p Semaphore=%p", Os, Semaphore);
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Os, gcvOBJ_OS);
     gcmkVERIFY_ARGUMENT(Semaphore != gcvNULL);
@@ -6326,7 +5986,7 @@ gckOS_IncrementSemaphore(
     IN gctSEMAPHORE Semaphore
     )
 {
-    gcmkHEADER_ARG("Os=0x%X Semaphore=0x%x", Os, Semaphore);
+    gcmkHEADER_ARG("Os=%p Semaphore=%p", Os, Semaphore);
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Os, gcvOBJ_OS);
     gcmkVERIFY_ARGUMENT(Semaphore != gcvNULL);
@@ -6348,7 +6008,7 @@ gckOS_DecrementSemaphore(
     gceSTATUS status;
     gctINT result;
 
-    gcmkHEADER_ARG("Os=0x%X Semaphore=0x%x", Os, Semaphore);
+    gcmkHEADER_ARG("Os=%p Semaphore=%p", Os, Semaphore);
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Os, gcvOBJ_OS);
     gcmkVERIFY_ARGUMENT(Semaphore != gcvNULL);
@@ -6391,7 +6051,7 @@ gckOS_StartThread(
     gceSTATUS status;
     struct task_struct * thread;
 
-    gcmkHEADER_ARG("Os=0x%X ", Os);
+    gcmkHEADER_ARG("Os=%p", Os);
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Os, gcvOBJ_OS);
     gcmkVERIFY_ARGUMENT(ThreadFunction != gcvNULL);
@@ -6435,7 +6095,7 @@ gckOS_StopThread(
     IN gctTHREAD Thread
     )
 {
-    gcmkHEADER_ARG("Os=0x%X Thread=0x%x", Os, Thread);
+    gcmkHEADER_ARG("Os=%p Thread=%p", Os, Thread);
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Os, gcvOBJ_OS);
     gcmkVERIFY_ARGUMENT(Thread != gcvNULL);
@@ -6454,7 +6114,7 @@ gckOS_VerifyThread(
     IN gctTHREAD Thread
     )
 {
-    gcmkHEADER_ARG("Os=0x%X Thread=0x%x", Os, Thread);
+    gcmkHEADER_ARG("Os=%p Thread=%p", Os, Thread);
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Os, gcvOBJ_OS);
     gcmkVERIFY_ARGUMENT(Thread != gcvNULL);
@@ -6512,9 +6172,9 @@ gckOS_CreateTimer(
     OUT gctPOINTER * Timer
     )
 {
-    gceSTATUS status;
+    gceSTATUS status = gcvSTATUS_OK;
     gcsOSTIMER_PTR pointer;
-    gcmkHEADER_ARG("Os=0x%X Function=0x%X Data=0x%X", Os, Function, Data);
+    gcmkHEADER_ARG("Os=%p Function=0%p Data=%p", Os, Function, Data);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Os, gcvOBJ_OS);
@@ -6528,9 +6188,6 @@ gckOS_CreateTimer(
     INIT_DELAYED_WORK(&pointer->work, _TimerFunction);
 
     *Timer = pointer;
-
-    gcmkFOOTER_NO();
-    return gcvSTATUS_OK;
 
 OnError:
     gcmkFOOTER();
@@ -6562,7 +6219,8 @@ gckOS_DestroyTimer(
     )
 {
     gcsOSTIMER_PTR timer;
-    gcmkHEADER_ARG("Os=0x%X Timer=0x%X", Os, Timer);
+
+    gcmkHEADER_ARG("Os=%p Timer=%p", Os, Timer);
 
     gcmkVERIFY_OBJECT(Os, gcvOBJ_OS);
     gcmkVERIFY_ARGUMENT(Timer != gcvNULL);
@@ -6612,7 +6270,7 @@ gckOS_StartTimer(
 {
     gcsOSTIMER_PTR timer;
 
-    gcmkHEADER_ARG("Os=0x%X Timer=0x%X Delay=%u", Os, Timer, Delay);
+    gcmkHEADER_ARG("Os=%p Timer=%p Delay=%u", Os, Timer, Delay);
 
     gcmkVERIFY_OBJECT(Os, gcvOBJ_OS);
     gcmkVERIFY_ARGUMENT(Timer != gcvNULL);
@@ -6665,7 +6323,7 @@ gckOS_StopTimer(
     )
 {
     gcsOSTIMER_PTR timer;
-    gcmkHEADER_ARG("Os=0x%X Timer=0x%X", Os, Timer);
+    gcmkHEADER_ARG("Os=%p Timer=%p", Os, Timer);
 
     gcmkVERIFY_OBJECT(Os, gcvOBJ_OS);
     gcmkVERIFY_ARGUMENT(Timer != gcvNULL);
@@ -6686,24 +6344,25 @@ gckOS_GetProcessNameByPid(
     )
 {
     struct task_struct *task;
+    gceSTATUS status = gcvSTATUS_OK;
 
     /* Get the task_struct of the task with pid. */
     rcu_read_lock();
 
     task = FIND_TASK_BY_PID(Pid);
-
-    if (task == gcvNULL)
+    if (task)
     {
-        rcu_read_unlock();
-        return gcvSTATUS_NOT_FOUND;
+        /* Get name of process. */
+        strncpy(String, task->comm, Length);
     }
-
-    /* Get name of process. */
-    strncpy(String, task->comm, Length);
+    else
+    {
+        status = gcvSTATUS_NOT_FOUND;
+    }
 
     rcu_read_unlock();
 
-    return gcvSTATUS_OK;
+    return status;
 }
 
 gceSTATUS
@@ -6711,7 +6370,7 @@ gckOS_DumpCallStack(
     IN gckOS Os
     )
 {
-    gcmkHEADER_ARG("Os=0x%X", Os);
+    gcmkHEADER_ARG("Os=%p", Os);
 
     gcmkVERIFY_OBJECT(Os, gcvOBJ_OS);
 
@@ -6765,6 +6424,7 @@ gckOS_CreateSyncTimeline(
     OUT gctHANDLE * Timeline
     )
 {
+    gceSTATUS status = gcvSTATUS_OK;
     struct viv_sync_timeline * timeline;
     char name[32];
 
@@ -6773,14 +6433,18 @@ gckOS_CreateSyncTimeline(
     /* Create viv sync timeline. */
     timeline = viv_sync_timeline_create(name, Os);
 
-    if (timeline == gcvNULL)
+    if (timeline)
+    {
+        *Timeline = (gctHANDLE)timeline;
+    }
+    else
     {
         /* Out of memory. */
-        return gcvSTATUS_OUT_OF_MEMORY;
+        status = gcvSTATUS_OUT_OF_MEMORY;
     }
 
-    *Timeline = (gctHANDLE) timeline;
-    return gcvSTATUS_OK;
+
+    return status;
 }
 
 gceSTATUS
@@ -6813,10 +6477,9 @@ gckOS_CreateNativeFence(
     struct sync_fence * fence;
     char name[32];
     gcsSIGNAL_PTR signal;
-    gceSTATUS status;
+    gceSTATUS status = gcvSTATUS_OK;
 
-    gcmkHEADER_ARG("Os=0x%X Timeline=0x%X Signal=%d",
-                   Os, Timeline, (gctUINT)(gctUINTPTR_T)Signal);
+    gcmkHEADER_ARG("Os=%p Timeline=%p Signal=%p", Os, Timeline, Signal);
 
     gcmkONERROR(
         _QueryIntegerId(&Os->signalDB,
@@ -6862,22 +6525,24 @@ gckOS_CreateNativeFence(
     sync_fence_install(fence, fd);
 
     *FenceFD = fd;
-    gcmkFOOTER_ARG("*FenceFD=%d", fd);
     return gcvSTATUS_OK;
 
 OnError:
-    /* Error roll back. */
-    if (pt)
+    if (gcmIS_ERROR(status))
     {
-        sync_pt_free(pt);
+        /* Error roll back. */
+        if (pt)
+        {
+            sync_pt_free(pt);
+        }
+
+        if (fd > 0)
+        {
+            put_unused_fd(fd);
+        }
     }
 
-    if (fd > 0)
-    {
-        put_unused_fd(fd);
-    }
-
-    gcmkFOOTER();
+    gcmkFOOTER_ARG("*FenceFD=%d", fd);
     return status;
 }
 
@@ -6901,10 +6566,9 @@ gckOS_WaitNativeFence(
 {
     struct sync_timeline * timeline;
     struct sync_fence * fence;
-    gctBOOL wait;
     gceSTATUS status = gcvSTATUS_OK;
 
-    gcmkHEADER_ARG("Os=0x%X Timeline=0x%X FenceFD=%d Timeout=%u",
+    gcmkHEADER_ARG("Os=%p Timeline=%p FenceFD=%d Timeout=%u",
                    Os, Timeline, FenceFD, Timeout);
 
     /* Get shortcut. */
@@ -6923,14 +6587,13 @@ gckOS_WaitNativeFence(
         /* Already signaled. */
         sync_fence_put(fence);
 
-        gcmkFOOTER_NO();
-        return gcvSTATUS_OK;
+        goto OnError;
     }
-
-    wait = gcvFALSE;
+    else
+    {
+        gctBOOL wait = gcvFALSE;
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0)
-    {
         int i;
 
         for (i = 0; i < fence->num_fences; i++)
@@ -6945,86 +6608,78 @@ gckOS_WaitNativeFence(
                 break;
             }
         }
-    }
 #else
-    {
-        struct list_head *pos;
-        list_for_each(pos, &fence->pt_list_head)
         {
-            struct sync_pt * pt =
-            container_of(pos, struct sync_pt, pt_list);
-
-            /* Do not need to wait on same timeline. */
-            if (pt->parent != timeline)
+            struct list_head *pos;
+            list_for_each(pos, &fence->pt_list_head)
             {
-                wait = gcvTRUE;
+                struct sync_pt * pt =
+                container_of(pos, struct sync_pt, pt_list);
+
+                /* Do not need to wait on same timeline. */
+                if (pt->parent != timeline)
+                {
+                    wait = gcvTRUE;
+                    break;
+                }
+            }
+        }
+#endif
+
+        if (wait)
+        {
+            int err;
+            long timeout = (Timeout == gcvINFINITE) ? - 1 : (long) Timeout;
+            err = sync_fence_wait(fence, timeout);
+
+            /* Put the fence. */
+            sync_fence_put(fence);
+
+            switch (err)
+            {
+            case 0:
+                break;
+            case -ETIME:
+                status = gcvSTATUS_TIMEOUT;
+                break;
+            default:
+                gcmkONERROR(gcvSTATUS_GENERIC_IO);
+                break;
+            }
+        }
+        else
+        {
+            int err;
+            struct sync_fence_waiter *waiter;
+            waiter = (struct sync_fence_waiter *)kmalloc(
+                    sizeof (struct sync_fence_waiter), gcdNOWARN | GFP_KERNEL);
+
+            if (!waiter)
+            {
+                sync_fence_put(fence);
+                gcmkONERROR(gcvSTATUS_OUT_OF_MEMORY);
+            }
+
+            /* Schedule a waiter callback. */
+            sync_fence_waiter_init(waiter, _NativeFenceSignaled);
+            err = sync_fence_wait_async(fence, waiter);
+
+            switch (err)
+            {
+            case 0:
+                /* Put fence in callback function. */
+                break;
+            case 1:
+                /* already signaled. */
+                sync_fence_put(fence);
+                break;
+            default:
+                sync_fence_put(fence);
+                gcmkONERROR(gcvSTATUS_GENERIC_IO);
                 break;
             }
         }
     }
-#endif
-
-    if (wait)
-    {
-        int err;
-        long timeout = (Timeout == gcvINFINITE) ? - 1 : (long) Timeout;
-        err = sync_fence_wait(fence, timeout);
-
-        /* Put the fence. */
-        sync_fence_put(fence);
-
-        switch (err)
-        {
-        case 0:
-            break;
-        case -ETIME:
-            status = gcvSTATUS_TIMEOUT;
-            break;
-        default:
-            gcmkONERROR(gcvSTATUS_GENERIC_IO);
-            break;
-        }
-    }
-    else
-    {
-        int err;
-        struct sync_fence_waiter *waiter;
-        waiter = (struct sync_fence_waiter *)kmalloc(
-                sizeof (struct sync_fence_waiter), gcdNOWARN | GFP_KERNEL);
-
-        /*
-         * schedule a callback to put the sync_fence. Otherwise after this function
-         * is returned, the caller may free it since it's signaled. Then there's
-         * be a real signal on a free'ed sync fence.
-         */
-        if (!waiter)
-        {
-            sync_fence_put(fence);
-            gcmkONERROR(gcvSTATUS_OUT_OF_MEMORY);
-        }
-
-        /* Schedule a waiter callback. */
-        sync_fence_waiter_init(waiter, _NativeFenceSignaled);
-        err = sync_fence_wait_async(fence, waiter);
-
-        switch (err)
-        {
-        case 0:
-            /* Put fence in callback function. */
-            break;
-        case 1:
-            /* already signaled. */
-            sync_fence_put(fence);
-            break;
-        default:
-            sync_fence_put(fence);
-            gcmkONERROR(gcvSTATUS_GENERIC_IO);
-            break;
-        }
-    }
-
-    gcmkFOOTER_NO();
-    return gcvSTATUS_OK;
 
 OnError:
     gcmkFOOTER();
@@ -7275,8 +6930,7 @@ gckOS_WaitNativeFence(
     {
         struct dma_fence *f = fences[i];
 
-        if (f->context != timeline->context &&
-            !dma_fence_is_signaled(f))
+        if(!dma_fence_is_signaled(fence))
         {
             signed long ret;
             ret = dma_fence_wait_timeout(f, 1, timeout);
@@ -7328,7 +6982,7 @@ gckOS_AllocatePageArray(
     gctSIZE_T   bytes;
     gckALLOCATOR allocator;
 
-    gcmkHEADER_ARG("Os=0x%X Physical=0x%X PageCount=%u",
+    gcmkHEADER_ARG("Os=%p Physical=%p PageCount=%u",
                    Os, Physical, PageCount);
 
     /* Verify the arguments. */
@@ -7416,7 +7070,7 @@ gckOS_GPUPhysicalToCPUPhysical(
     )
 {
     gcsPLATFORM * platform;
-    gcmkHEADER_ARG("GPUPhysical=0x%X", GPUPhysical);
+    gcmkHEADER_ARG("Os=%p GPUPhysical=0x%x", Os, GPUPhysical);
 
     platform = Os->device->platform;
 
@@ -7430,39 +7084,15 @@ gckOS_GPUPhysicalToCPUPhysical(
         *CPUPhysical = GPUPhysical;
     }
 
-    gcmkFOOTER_NO();
+    gcmkFOOTER_ARG("CPUPhysical=0x%llx", gcmOPT_VALUE(CPUPhysical));
     return gcvSTATUS_OK;
-}
-
-gceSTATUS
-gckOS_PhysicalToPhysicalAddress(
-    IN gckOS Os,
-    IN gctPOINTER Physical,
-    IN gctUINT32 Offset,
-    OUT gctPHYS_ADDR_T * PhysicalAddress
-    )
-{
-    PLINUX_MDL mdl = (PLINUX_MDL)Physical;
-    gckALLOCATOR allocator = mdl->allocator;
-
-    if (allocator)
-    {
-        return allocator->ops->Physical(allocator, mdl, Offset, PhysicalAddress);
-    }
-
-    return gcvSTATUS_NOT_SUPPORTED;
 }
 
 static int fd_release(struct inode *inode, struct file *file)
 {
     gcsFDPRIVATE_PTR private = (gcsFDPRIVATE_PTR)file->private_data;
 
-    if (private && private->release)
-    {
-        return private->release(private);
-    }
-
-    return 0;
+    return (private && private->release) ? private->release(private) : 0;
 }
 
 static const struct file_operations fd_fops =
@@ -7495,39 +7125,35 @@ gceSTATUS
 gckOS_QueryOption(
     IN gckOS Os,
     IN gctCONST_STRING Option,
-    OUT gctUINT32 * Value
+    OUT gctUINT64 * Value
     )
 {
     gckGALDEVICE device = Os->device;
+    gceSTATUS status = gcvSTATUS_OK;
 
     if (!strcmp(Option, "physBase"))
     {
         *Value = device->physBase;
-        return gcvSTATUS_OK;
     }
     else if (!strcmp(Option, "physSize"))
     {
         *Value = device->physSize;
-        return gcvSTATUS_OK;
     }
     else if (!strcmp(Option, "mmu"))
     {
 #if gcdSECURITY
         *Value = 0;
 #else
-        *Value = device->args.mmu;
+        *Value = device->args.enableMmu;
 #endif
-        return gcvSTATUS_OK;
     }
     else if (!strcmp(Option, "contiguousSize"))
     {
         *Value = device->contiguousSize;
-        return gcvSTATUS_OK;
     }
     else if (!strcmp(Option, "contiguousBase"))
     {
-        *Value = (gctUINT32)device->contiguousBase;
-        return gcvSTATUS_OK;
+        *Value = device->contiguousBase;
     }
     else if (!strcmp(Option, "externalSize"))
     {
@@ -7542,35 +7168,65 @@ gckOS_QueryOption(
     else if (!strcmp(Option, "recovery"))
     {
         *Value = device->args.recovery;
-        return gcvSTATUS_OK;
     }
     else if (!strcmp(Option, "stuckDump"))
     {
         *Value = device->args.stuckDump;
-        return gcvSTATUS_OK;
     }
     else if (!strcmp(Option, "powerManagement"))
     {
         *Value = device->args.powerManagement;
-        return gcvSTATUS_OK;
     }
     else if (!strcmp(Option, "TA"))
     {
         *Value = 0;
-        return gcvSTATUS_OK;
     }
     else if (!strcmp(Option, "gpuProfiler"))
     {
         *Value = device->args.gpuProfiler;
-        return gcvSTATUS_OK;
+    }
+    else if (!strcmp(Option, "userClusterMask"))
+    {
+        *Value = device->args.userClusterMask;
+    }
+    else if (!strcmp(Option, "smallBatch"))
+    {
+        *Value = device->args.smallBatch;
+    }
+    else if (!strcmp(Option, "sRAMBases"))
+    {
+        memcpy(Value, device->args.sRAMBases, gcmSIZEOF(gctUINT64) * gcvSRAM_INTER_COUNT * gcvCORE_COUNT);
+    }
+    else if (!strcmp(Option, "sRAMSizes"))
+    {
+        memcpy(Value, device->args.sRAMSizes, gcmSIZEOF(gctUINT32) * gcvSRAM_INTER_COUNT * gcvCORE_COUNT);
+    }
+    else if (!strcmp(Option, "extSRAMBases"))
+    {
+        memcpy(Value, device->args.extSRAMBases, gcmSIZEOF(gctUINT64) * gcvSRAM_EXT_COUNT);
+    }
+    else if (!strcmp(Option, "extSRAMSizes"))
+    {
+        memcpy(Value, device->args.extSRAMSizes, gcmSIZEOF(gctUINT32) * gcvSRAM_EXT_COUNT);
+    }
+    else if (!strcmp(Option, "sRAMRequested"))
+    {
+        *Value = device->args.sRAMRequested;
+    }
+    else if (!strcmp(Option, "sRAMLoopMode"))
+    {
+        *Value = device->args.sRAMLoopMode;
     }
     else if (!strcmp(Option, "platformFlagBits"))
     {
         *Value = device->platform->flagBits;
-        return gcvSTATUS_OK;
+    }
+    else
+    {
+        status = gcvSTATUS_NOT_SUPPORTED;
     }
 
-    return gcvSTATUS_NOT_SUPPORTED;
+    return status;
 }
 
 gceSTATUS
@@ -7681,7 +7337,8 @@ gckOS_WrapMemory(
     IN gcsUSER_MEMORY_DESC_PTR Desc,
     OUT gctSIZE_T *Bytes,
     OUT gctPHYS_ADDR * Physical,
-    OUT gctBOOL *Contiguous
+    OUT gctBOOL *Contiguous,
+    OUT gctSIZE_T * PageCountCpu
     )
 {
     PLINUX_MDL mdl = gcvNULL;
@@ -7690,11 +7347,12 @@ gckOS_WrapMemory(
     gcsATTACH_DESC desc;
     gctSIZE_T bytes = 0;
 
-    gcmkHEADER_ARG("Os=0x%X ", Os);
+    gcmkHEADER_ARG("Os=%p ", Os);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Os, gcvOBJ_OS);
     gcmkVERIFY_ARGUMENT(Physical != gcvNULL);
+    gcmkVERIFY_ARGUMENT(Desc != gcvNULL);
 
     mdl = _CreateMdl(Os);
     if (mdl == gcvNULL)
@@ -7776,6 +7434,11 @@ gckOS_WrapMemory(
 
     *Contiguous = mdl->contiguous;
 
+    if (PageCountCpu)
+    {
+        *PageCountCpu = mdl->numPages;
+    }
+
     /*
      * Add this to a global list.
      * Will be used by get physical address
@@ -7786,36 +7449,33 @@ gckOS_WrapMemory(
     mutex_unlock(&Os->mdlMutex);
 
     /* Success. */
-    gcmkFOOTER_ARG("*Physical=0x%X", *Physical);
-    return gcvSTATUS_OK;
+    status = gcvSTATUS_OK;
 
 OnError:
-    if (mdl != gcvNULL)
+    if (gcmIS_ERROR(status) && mdl)
     {
         /* Free the memory. */
         _DestroyMdl(mdl);
     }
 
     /* Return the status. */
-    gcmkFOOTER();
+    gcmkFOOTER_ARG("*Physical=%p", *Physical);
     return status;
 }
 
 gceSTATUS
 gckOS_GetPolicyID(
     IN gckOS Os,
-    IN gceSURF_TYPE Type,
+    IN gceVIDMEM_TYPE Type,
     OUT gctUINT32_PTR PolicyID,
     OUT gctUINT32_PTR AXIConfig
     )
 {
     gcsPLATFORM * platform = Os->device->platform;
+    gceSTATUS status = (platform && platform->ops->getPolicyID)
+                     ? platform->ops->getPolicyID(platform, Type, PolicyID, AXIConfig)
+                     : gcvSTATUS_NOT_SUPPORTED;
 
-    if (platform && platform->ops->getPolicyID)
-    {
-        return platform->ops->getPolicyID(platform, Type, PolicyID, AXIConfig);
-    }
-
-    return gcvSTATUS_NOT_SUPPORTED;
+    return status;
 }
 

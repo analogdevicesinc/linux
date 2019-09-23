@@ -2,7 +2,7 @@
 *
 *    The MIT License (MIT)
 *
-*    Copyright (c) 2014 - 2018 Vivante Corporation
+*    Copyright (c) 2014 - 2019 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 *
 *    The GPL License (GPL)
 *
-*    Copyright (C) 2014 - 2018 Vivante Corporation
+*    Copyright (C) 2014 - 2019 Vivante Corporation
 *
 *    This program is free software; you can redistribute it and/or
 *    modify it under the terms of the GNU General Public License
@@ -64,7 +64,6 @@
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4,19,0)
 #include <linux/dma-direct.h>
 #endif
-
 #include <linux/slab.h>
 #include <linux/platform_device.h>
 
@@ -217,9 +216,9 @@ _DmaGetSGT(
 
     gceSTATUS status = gcvSTATUS_OK;
     gctSIZE_T offset = Offset & ~PAGE_MASK; /* Offset to the first page */
-    gctINT skipPages = Offset >> PAGE_SHIFT;     /* skipped pages */
-    gctINT numPages = (PAGE_ALIGN(Offset + Bytes) >> PAGE_SHIFT) - skipPages;
-    gctINT i;
+    gctSIZE_T skipPages = Offset >> PAGE_SHIFT;     /* skipped pages */
+    gctSIZE_T numPages = (PAGE_ALIGN(Offset + Bytes) >> PAGE_SHIFT) - skipPages;
+    gctSIZE_T i;
 
     gcmkASSERT(Offset + Bytes <= Mdl->numPages << PAGE_SHIFT);
 
@@ -321,7 +320,7 @@ _DmaMmap(
             pgprot_writecombine(vma->vm_page_prot)) < 0)
 #else
     /* map kernel memory to user space.. */
-    if (dma_mmap_writecombine(gcvNULL,
+    if (dma_mmap_writecombine(galcore_device,
             vma,
             (gctINT8_PTR)mdlPriv->kvaddr + (skipPages << PAGE_SHIFT),
             mdlPriv->dmaHandle + (skipPages << PAGE_SHIFT),
@@ -463,11 +462,13 @@ static gceSTATUS
 _DmaMapKernel(
     IN gckALLOCATOR Allocator,
     IN PLINUX_MDL Mdl,
+    IN gctSIZE_T Offset,
+    IN gctSIZE_T Bytes,
     OUT gctPOINTER *Logical
     )
 {
     struct mdl_dma_priv *mdlPriv=(struct mdl_dma_priv *)Mdl->priv;
-    *Logical =mdlPriv->kvaddr;
+    *Logical = (uint8_t *)mdlPriv->kvaddr + Offset;
     return gcvSTATUS_OK;
 }
 
@@ -487,7 +488,7 @@ _DmaCache(
     IN PLINUX_MDL Mdl,
     IN gctSIZE_T Offset,
     IN gctPOINTER Logical,
-    IN gctUINT32 Bytes,
+    IN gctSIZE_T Bytes,
     IN gceCACHEOPERATION Operation
     )
 {

@@ -2,7 +2,7 @@
 *
 *    The MIT License (MIT)
 *
-*    Copyright (c) 2014 - 2018 Vivante Corporation
+*    Copyright (c) 2014 - 2019 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 *
 *    The GPL License (GPL)
 *
-*    Copyright (C) 2014 - 2018 Vivante Corporation
+*    Copyright (C) 2014 - 2019 Vivante Corporation
 *
 *    This program is free software; you can redistribute it and/or
 *    modify it under the terms of the GNU General Public License
@@ -318,7 +318,7 @@ _VGPowerTimerFunction(
 {
     gckVGHARDWARE hardware = (gckVGHARDWARE)Data;
     gcmkVERIFY_OK(
-        gckVGHARDWARE_SetPowerManagementState(hardware, gcvPOWER_OFF_TIMEOUT));
+        gckVGHARDWARE_SetPowerState(hardware, gcvPOWER_OFF_TIMEOUT));
 }
 #endif
 
@@ -923,6 +923,9 @@ gckVGHARDWARE_ConvertFormat(
     case gcvSURF_A8L8:
     case gcvSURF_YUY2:
     case gcvSURF_UYVY:
+#if gcdVG_ONLY
+    case gcvSURF_YV16:
+#endif
     case gcvSURF_D16:
         /* 16-bpp format. */
         bitsPerPixel  = 16;
@@ -1171,74 +1174,6 @@ gckVGHARDWARE_Execute(
     gcmkFOOTER();
     /* Return the status. */
     return status;
-}
-
-/*******************************************************************************
-**
-**  gckVGHARDWARE_AlignToTile
-**
-**  Align the specified width and height to tile boundaries.
-**
-**  INPUT:
-**
-**      gckVGHARDWARE Hardware
-**          Pointer to an gckVGHARDWARE object.
-**
-**      gceSURF_TYPE Type
-**          Type of alignment.
-**
-**      gctUINT32 * Width
-**          Pointer to the width to be aligned.  If 'Width' is gcvNULL, no width
-**          will be aligned.
-**
-**      gctUINT32 * Height
-**          Pointer to the height to be aligned.  If 'Height' is gcvNULL, no height
-**          will be aligned.
-**
-**  OUTPUT:
-**
-**      gctUINT32 * Width
-**          Pointer to a variable that will receive the aligned width.
-**
-**      gctUINT32 * Height
-**          Pointer to a variable that will receive the aligned height.
-*/
-gceSTATUS
-gckVGHARDWARE_AlignToTile(
-    IN gckVGHARDWARE Hardware,
-    IN gceSURF_TYPE Type,
-    IN OUT gctUINT32 * Width,
-    IN OUT gctUINT32 * Height
-    )
-{
-    gcmkHEADER_ARG("Hardware=0x%x Type=0x%x Width=0x%x Height=0x%x",
-                   Hardware, Type, Width, Height);
-    /* Verify the arguments. */
-    gcmkVERIFY_OBJECT(Hardware, gcvOBJ_HARDWARE);
-
-    if (Width != gcvNULL)
-    {
-        /* Align the width. */
-        *Width = gcmALIGN(*Width, (Type == gcvSURF_TEXTURE) ? 4 : 16);
-    }
-
-    if (Height != gcvNULL)
-    {
-        /* Special case for VG images. */
-        if ((*Height == 0) && (Type == gcvSURF_IMAGE))
-        {
-            *Height = 4;
-        }
-        else
-        {
-            /* Align the height. */
-            *Height = gcmALIGN(*Height, 4);
-        }
-    }
-
-    gcmkFOOTER_NO();
-    /* Success. */
-    return gcvSTATUS_OK;
 }
 
 /*******************************************************************************
@@ -1813,7 +1748,7 @@ static gceSTATUS _CommandStall(
 
 /*******************************************************************************
 **
-**  gckHARDWARE_SetPowerManagementState
+**  gckVGHARDWARE_SetPowerState
 **
 **  Set GPU to a specified power state.
 **
@@ -1827,7 +1762,7 @@ static gceSTATUS _CommandStall(
 **
 */
 gceSTATUS
-gckVGHARDWARE_SetPowerManagementState(
+gckVGHARDWARE_SetPowerState(
     IN gckVGHARDWARE Hardware,
     IN gceCHIPPOWERSTATE State
     )
@@ -1838,7 +1773,6 @@ gckVGHARDWARE_SetPowerManagementState(
     gctUINT flag/*, clock*/;
 
     gctBOOL acquired        = gcvFALSE;
-    gctBOOL stall           = gcvTRUE;
     gctBOOL commitMutex     = gcvFALSE;
     gctBOOL mutexAcquired   = gcvFALSE;
 
@@ -1862,41 +1796,27 @@ gckVGHARDWARE_SetPowerManagementState(
     {
         /* gcvPOWER_ON           */
         {   /* ON                */ 0,
-            /* OFF               */ gcvPOWER_FLAG_ACQUIRE   |
-                                    gcvPOWER_FLAG_STALL     |
-                                    gcvPOWER_FLAG_STOP      |
-                                    gcvPOWER_FLAG_POWER_OFF |
-                                    gcvPOWER_FLAG_CLOCK_OFF,
             /* IDLE              */ gcvPOWER_FLAG_NOP,
             /* SUSPEND           */ gcvPOWER_FLAG_ACQUIRE   |
                                     gcvPOWER_FLAG_STALL     |
                                     gcvPOWER_FLAG_STOP      |
                                     gcvPOWER_FLAG_CLOCK_OFF,
-        },
-
-        /* gcvPOWER_OFF          */
-        {   /* ON                */ gcvPOWER_FLAG_INITIALIZE |
-                                    gcvPOWER_FLAG_START      |
-                                    gcvPOWER_FLAG_RELEASE    |
-                                    gcvPOWER_FLAG_DELAY,
-            /* OFF               */ 0,
-            /* IDLE              */ gcvPOWER_FLAG_INITIALIZE |
-                                    gcvPOWER_FLAG_START      |
-                                    gcvPOWER_FLAG_RELEASE    |
-                                    gcvPOWER_FLAG_DELAY,
-            /* SUSPEND           */ gcvPOWER_FLAG_INITIALIZE |
+            /* OFF               */ gcvPOWER_FLAG_ACQUIRE   |
+                                    gcvPOWER_FLAG_STALL     |
+                                    gcvPOWER_FLAG_STOP      |
+                                    gcvPOWER_FLAG_POWER_OFF |
                                     gcvPOWER_FLAG_CLOCK_OFF,
         },
 
         /* gcvPOWER_IDLE         */
         {   /* ON                */ gcvPOWER_FLAG_NOP,
-            /* OFF               */ gcvPOWER_FLAG_ACQUIRE   |
-                                    gcvPOWER_FLAG_STOP      |
-                                    gcvPOWER_FLAG_POWER_OFF |
-                                    gcvPOWER_FLAG_CLOCK_OFF,
             /* IDLE              */ 0,
             /* SUSPEND           */ gcvPOWER_FLAG_ACQUIRE   |
                                     gcvPOWER_FLAG_STOP      |
+                                    gcvPOWER_FLAG_CLOCK_OFF,
+            /* OFF               */ gcvPOWER_FLAG_ACQUIRE   |
+                                    gcvPOWER_FLAG_STOP      |
+                                    gcvPOWER_FLAG_POWER_OFF |
                                     gcvPOWER_FLAG_CLOCK_OFF,
         },
 
@@ -1905,14 +1825,28 @@ gckVGHARDWARE_SetPowerManagementState(
                                     gcvPOWER_FLAG_RELEASE   |
                                     gcvPOWER_FLAG_DELAY     |
                                     gcvPOWER_FLAG_CLOCK_ON,
-            /* OFF               */ gcvPOWER_FLAG_SAVE      |
-                                    gcvPOWER_FLAG_POWER_OFF |
-                                    gcvPOWER_FLAG_CLOCK_OFF,
             /* IDLE              */ gcvPOWER_FLAG_START     |
                                     gcvPOWER_FLAG_DELAY     |
                                     gcvPOWER_FLAG_RELEASE   |
                                     gcvPOWER_FLAG_CLOCK_ON,
             /* SUSPEND           */ 0,
+            /* OFF               */ gcvPOWER_FLAG_SAVE      |
+                                    gcvPOWER_FLAG_POWER_OFF |
+                                    gcvPOWER_FLAG_CLOCK_OFF,
+        },
+
+        /* gcvPOWER_OFF          */
+        {   /* ON                */ gcvPOWER_FLAG_INITIALIZE |
+                                    gcvPOWER_FLAG_START      |
+                                    gcvPOWER_FLAG_RELEASE    |
+                                    gcvPOWER_FLAG_DELAY,
+            /* IDLE              */ gcvPOWER_FLAG_INITIALIZE |
+                                    gcvPOWER_FLAG_START      |
+                                    gcvPOWER_FLAG_RELEASE    |
+                                    gcvPOWER_FLAG_DELAY,
+            /* SUSPEND           */ gcvPOWER_FLAG_INITIALIZE |
+                                    gcvPOWER_FLAG_CLOCK_OFF,
+            /* OFF               */ 0,
         },
     };
 
@@ -2120,7 +2054,7 @@ gckVGHARDWARE_SetPowerManagementState(
     /* Get time until powered on. */
     gcmkPROFILE_QUERY(time, onTime);
 
-    if ((flag & gcvPOWER_FLAG_STALL) && stall)
+    if (flag & gcvPOWER_FLAG_STALL)
     {
         /* Acquire the mutex. */
         gcmkONERROR(gckOS_AcquireMutex(
@@ -2294,7 +2228,7 @@ OnError:
 
 /*******************************************************************************
 **
-**  gckHARDWARE_QueryPowerManagementState
+**  gckHARDWARE_QueryPowerState
 **
 **  Get GPU power state.
 **
@@ -2329,7 +2263,7 @@ gckVGHARDWARE_QueryPowerManagementState(
 
 /*******************************************************************************
 **
-**  gckVGHARDWARE_SetPowerManagement
+**  gckVGHARDWARE_EnablePowerManagement
 **
 **  Configure GPU power management function.
 **  Only used in driver initialization stage.
@@ -2339,14 +2273,14 @@ gckVGHARDWARE_QueryPowerManagementState(
 **      gckVGHARDWARE Harwdare
 **          Pointer to an gckHARDWARE object.
 **
-**      gctBOOL PowerManagement
-**          Power Mangement State.
+**      gctBOOL Enable
+**          Power Mangement Enabling State.
 **
 */
 gceSTATUS
-gckVGHARDWARE_SetPowerManagement(
+gckVGHARDWARE_EnablePowerManagement(
     IN gckVGHARDWARE Hardware,
-    IN gctBOOL PowerManagement
+    IN gctBOOL Enable
     )
 {
     gcmkHEADER_ARG("Hardware=0x%x", Hardware);
@@ -2354,7 +2288,7 @@ gckVGHARDWARE_SetPowerManagement(
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Hardware, gcvOBJ_HARDWARE);
 
-    Hardware->options.powerManagement = PowerManagement;
+    Hardware->options.powerManagement = Enable;
 
     /* Success. */
     gcmkFOOTER_NO();

@@ -2,7 +2,7 @@
 *
 *    The MIT License (MIT)
 *
-*    Copyright (c) 2014 - 2018 Vivante Corporation
+*    Copyright (c) 2014 - 2019 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 *
 *    The GPL License (GPL)
 *
-*    Copyright (C) 2014 - 2018 Vivante Corporation
+*    Copyright (C) 2014 - 2019 Vivante Corporation
 *
 *    This program is free software; you can redistribute it and/or
 *    modify it under the terms of the GNU General Public License
@@ -56,67 +56,88 @@
 #ifndef __gc_hal_dump_h_
 #define __gc_hal_dump_h_
 
-#ifdef __cplusplus
-extern "C" {
+/*
+    gcdDUMP_KEY
+
+        Set this to a string that appears in 'cat /proc/<pid>/cmdline'. E.g. 'camera'.
+        HAL will create dumps for the processes matching this key.
+*/
+#ifndef gcdDUMP_KEY
+#   define gcdDUMP_KEY                          "process"
 #endif
 
 /*
-**    FILE LAYOUT:
-**
-**        gcsDUMP_FILE structure
-**
-**        gcsDUMP_DATA frame
-**            gcsDUMP_DATA or gcDUMP_DATA_SIZE records rendingring the frame
-**            gctUINT8 data[length]
+    gcdDUMP_PATH
+
+        The dump file location. Some processes cannot write to the sdcard.
+        Try apps' data dir, e.g. /data/data/com.android.launcher
 */
+#ifndef gcdDUMP_PATH
+#if defined(ANDROID)
+#   define gcdDUMP_PATH                         "/mnt/sdcard/"
+#else
+#   define gcdDUMP_PATH                         "./"
+#endif
+#endif
 
-#define gcvDUMP_FILE_SIGNATURE        gcmCC('g','c','D','B')
+/*
+    gcdDUMP_FILE_IN_KERNEL
 
-typedef struct _gcsDUMP_FILE
-{
-    gctUINT32           signature;    /* File signature */
-    gctSIZE_T             length;        /* Length of file */
-    gctUINT32             frames;        /* Number of frames in file */
-}
-gcsDUMP_FILE;
+        Default dump file for gcdDUMP_IN_KERNEL.
+        The file will be writen globally in kernel side.
+        Can be overwriten in runtime by debugfs:/gc/dump/dump_file
 
-typedef enum _gceDUMP_TAG
-{
-    gcvTAG_SURFACE                  = gcmCC('s','u','r','f'),
-    gcvTAG_FRAME                    = gcmCC('f','r','m',' '),
-    gcvTAG_COMMAND                  = gcmCC('c','m','d',' '),
-    gcvTAG_INDEX                    = gcmCC('i','n','d','x'),
-    gcvTAG_STREAM                   = gcmCC('s','t','r','m'),
-    gcvTAG_TEXTURE                  = gcmCC('t','e','x','t'),
-    gcvTAG_RENDER_TARGET            = gcmCC('r','n','d','r'),
-    gcvTAG_DEPTH                    = gcmCC('z','b','u','f'),
-    gcvTAG_RESOLVE                  = gcmCC('r','s','l','v'),
-    gcvTAG_DELETE                   = gcmCC('d','e','l',' '),
-    gcvTAG_BUFOBJ                   = gcmCC('b','u','f','o'),
-}
-gceDUMP_TAG;
+        2 pseudo files:
+        [dmesg]:    means dump to kernel debug message.
+        [ignored]:  means dump ignored, nothing will be dumpped.
+ */
+#ifndef gcdDUMP_FILE_IN_KERNEL
+#  define gcdDUMP_FILE_IN_KERNEL                "[dmesg]"
+#endif
 
-typedef struct _gcsDUMP_SURFACE
-{
-    gceDUMP_TAG            type;        /* Type of record. */
-    gctUINT32             address;    /* Address of the surface. */
-    gctINT16              width;        /* Width of surface. */
-    gctINT16               height;        /* Height of surface. */
-    gceSURF_FORMAT        format;        /* Surface pixel format. */
-    gctSIZE_T            length;        /* Number of bytes inside the surface. */
-}
-gcsDUMP_SURFACE;
+/*
+    gcdDUMP_VERIFY_PER_DRAW
 
-typedef struct _gcsDUMP_DATA
-{
-    gceDUMP_TAG             type;        /* Type of record. */
-    gctSIZE_T             length;        /* Number of bytes of data. */
-    gctUINT32             address;    /* Address for the data. */
-}
-gcsDUMP_DATA;
+        Sub feature of gcdDUMP.
+        When set to 1, verify RT and images(if used) for every single draw to ease simulation debug.
+        Only valid for ES3 driver for now.
+*/
+#ifndef gcdDUMP_VERIFY_PER_DRAW
+#   define gcdDUMP_VERIFY_PER_DRAW              0
+#endif
 
-#ifdef __cplusplus
-}
+/* Standalone dump features below. */
+
+/*
+    gcdDUMP_FRAMERATE
+        When set to a value other than zero, averaqe frame rate will be dumped.
+        The value set is the starting frame that the average will be calculated.
+        This is needed because sometimes first few frames are too slow to be included
+        in the average. Frame count starts from 1.
+*/
+#ifndef gcdDUMP_FRAMERATE
+#   define gcdDUMP_FRAMERATE                    0
+#endif
+
+
+/*
+    gcdDUMP_FRAME_TGA
+
+    When set to a value other than 0, a dump of the frame specified by the value,
+    will be done into frame.tga. Frame count starts from 1.
+ */
+#ifndef gcdDUMP_FRAME_TGA
+#   define gcdDUMP_FRAME_TGA                    0
+#endif
+
+/*
+    gcdDUMP_AHB_ACCESS
+
+        When set to 1, a dump of all AHB register access will be printed to kernel
+        message.
+*/
+#ifndef gcdDUMP_AHB_ACCESS
+#   define gcdDUMP_AHB_ACCESS                   0
 #endif
 
 #endif /* __gc_hal_dump_h_ */

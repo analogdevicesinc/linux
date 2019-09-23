@@ -2,7 +2,7 @@
 *
 *    The MIT License (MIT)
 *
-*    Copyright (c) 2014 - 2018 Vivante Corporation
+*    Copyright (c) 2014 - 2019 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 *
 *    The GPL License (GPL)
 *
-*    Copyright (C) 2014 - 2018 Vivante Corporation
+*    Copyright (C) 2014 - 2019 Vivante Corporation
 *
 *    This program is free software; you can redistribute it and/or
 *    modify it under the terms of the GNU General Public License
@@ -142,11 +142,12 @@ gceSTATUS gckVGMMU_Construct(
 
     /* Allocate the page table. */
     mmu->pageTableSize = (gctUINT32)MmuSize;
-    status = gckOS_AllocateContiguous(os,
-                                      gcvFALSE,
-                                      &mmu->pageTableSize,
-                                      &mmu->pageTablePhysical,
-                                      &mmu->pageTableLogical);
+    status = gckOS_AllocateNonPagedMemory(os,
+                                          gcvFALSE,
+                                          gcvALLOC_FLAG_CONTIGUOUS,
+                                          &mmu->pageTableSize,
+                                          &mmu->pageTablePhysical,
+                                          &mmu->pageTableLogical);
 
     if (status < 0)
     {
@@ -183,10 +184,10 @@ gceSTATUS gckVGMMU_Construct(
     if (status < 0)
     {
         /* Free the page table. */
-        gcmkVERIFY_OK(gckOS_FreeContiguous(mmu->os,
-                                      mmu->pageTablePhysical,
-                                      mmu->pageTableLogical,
-                                      mmu->pageTableSize));
+        gcmkVERIFY_OK(gckOS_FreeNonPagedMemory(mmu->os,
+                                               mmu->pageTablePhysical,
+                                               mmu->pageTableLogical,
+                                               mmu->pageTableSize));
 
         /* Roll back. */
         gcmkVERIFY_OK(gckOS_DeleteMutex(os, mmu->mutex));
@@ -246,10 +247,10 @@ gceSTATUS gckVGMMU_Destroy(
     gcmkVERIFY_OBJECT(Mmu, gcvOBJ_MMU);
 
     /* Free the page table. */
-    gcmkVERIFY_OK(gckOS_FreeContiguous(Mmu->os,
-                                  Mmu->pageTablePhysical,
-                                  Mmu->pageTableLogical,
-                                  Mmu->pageTableSize));
+    gcmkVERIFY_OK(gckOS_FreeNonPagedMemory(Mmu->os,
+                                           Mmu->pageTablePhysical,
+                                           Mmu->pageTableLogical,
+                                           Mmu->pageTableSize));
 
     /* Roll back. */
     gcmkVERIFY_OK(gckOS_DeleteMutex(Mmu->os, Mmu->mutex));

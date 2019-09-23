@@ -2,7 +2,7 @@
 *
 *    The MIT License (MIT)
 *
-*    Copyright (c) 2014 - 2018 Vivante Corporation
+*    Copyright (c) 2014 - 2019 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 *
 *    The GPL License (GPL)
 *
-*    Copyright (C) 2014 - 2018 Vivante Corporation
+*    Copyright (C) 2014 - 2019 Vivante Corporation
 *
 *    This program is free software; you can redistribute it and/or
 *    modify it under the terms of the GNU General Public License
@@ -68,12 +68,19 @@
 #   include "linux/types.h"
 #elif defined(UNDER_CE)
 #include <crtdefs.h>
+typedef signed char        int8_t;
+typedef short              int16_t;
+typedef int                int32_t;
+typedef long long          int64_t;
+typedef unsigned char      uint8_t;
+typedef unsigned short     uint16_t;
+typedef unsigned int       uint32_t;
+typedef unsigned long long uint64_t;
 #elif defined(_MSC_VER) && (_MSC_VER <= 1500)
 #include <crtdefs.h>
 #include "vadefs.h"
 #elif defined(__QNXNTO__)
 #define _QNX_SOURCE
-#include <stdlib.h>
 #include <stdint.h>
 #include <stddef.h>
 #else
@@ -136,6 +143,7 @@ extern "C" {
 #else
 #   error "gcmINLINE: Platform could not be determined"
 #endif
+
 
 /* Possible debug flags. */
 #define gcdDEBUG_NONE           0
@@ -244,6 +252,7 @@ typedef gctUINT32               gctTRACE;
 #define gcvMAXUINT64            0xffffffffffffffff
 #define gcvMINUINT64            0x0
 #define gcvMAXUINTPTR_T         (~(gctUINTPTR_T)0)
+#define gcvMAXSIZE_T            ((gctSIZE_T)(-1))
 
 typedef float                   gctFLOAT;
 typedef signed int              gctFIXED_POINT;
@@ -263,6 +272,8 @@ typedef void *                  gctPOINTER;
 typedef const void *            gctCONST_POINTER;
 
 typedef char                    gctCHAR;
+typedef signed char             gctSIGNED_CHAR;
+typedef unsigned char           gctUNSIGNED_CHAR;
 typedef char *                  gctSTRING;
 typedef const char *            gctCONST_STRING;
 
@@ -485,7 +496,6 @@ typedef enum _gceSTATUS
     gcvSTATUS_DEVICE                =   -27,
     gcvSTATUS_NOT_MULTI_PIPE_ALIGNED =   -28,
     gcvSTATUS_OUT_OF_SAMPLER         =   -29,
-    gcvSTATUS_CLOCK_ERROR           =   -30,
 
     /* Linker errors. */
     gcvSTATUS_GLOBAL_TYPE_MISMATCH              =   -1000,
@@ -833,6 +843,11 @@ gceSTATUS;
     gcmPTR2INT32(& (((struct s *) 0)->field)) \
 )
 
+#define __gcmOFFSETOF(type, field) \
+(\
+    gcmPTR2INT32(& (((type *) 0)->field)) \
+)
+
 /*******************************************************************************
 **
 **  gcmCONTAINEROF
@@ -847,7 +862,7 @@ gceSTATUS;
 */
 #define gcmCONTAINEROF(Pointer, Type, Member) \
 (\
-    (struct Type *)((gctUINTPTR_T)Pointer - gcmOFFSETOF(Type, Member)) \
+    (Type *)((gctUINTPTR_T)Pointer - __gcmOFFSETOF(Type, Member)) \
 )
 
 /*******************************************************************************
@@ -994,8 +1009,9 @@ typedef enum _gceTRACEMODE
     gcvTRACEMODE_NONE     = 0,
     gcvTRACEMODE_FULL     = 1,
     gcvTRACEMODE_LOGGER   = 2,
-    gcvTRACEMODE_PRE      = 3,
-    gcvTRACEMODE_POST     = 4,
+    gcvTRACEMODE_ALLZONE  = 3,
+    gcvTRACEMODE_PRE      = 4,
+    gcvTRACEMODE_POST     = 5,
 } gceTRACEMODE;
 
 typedef struct _gcsLISTHEAD * gcsLISTHEAD_PTR;
@@ -1005,6 +1021,106 @@ typedef struct _gcsLISTHEAD
     gcsLISTHEAD_PTR     next;
 }
 gcsLISTHEAD;
+
+/*
+ * 'Patch' here means a mechanism to let kernel side modify user space reserved
+ * command buffer location, or something the like, during the command buffer
+ * commit.
+ *
+ * Reasons of using 'patch':
+ * 1. Some resources/states are managed globally only in kernel side, such as
+ *    MCFE semaphore, etc.
+ * 2. For the sake of security or optimization, like video memory address.
+ *
+ * Patches are arranged in arrays, each array has the same type. The 'patchArray'
+ * in 'gcsHAL_PATCH_LIST' pointers the concrete patch item array.
+ *
+ * NOTICE:
+ * Be aware of the order and values! Tables in gc_hal_user_buffer.c and
+ * gc_hal_kernel_command.c depend on this.
+ */
+/* The patch types. */
+enum _gceHAL_PATCH_TYPE
+{
+    gcvHAL_PATCH_VIDMEM_ADDRESS = 1,
+    gcvHAL_PATCH_MCFE_SEMAPHORE,
+    gcvHAL_PATCH_VIDMEM_TIMESTAMP,
+
+    /* Must be the last one for counting. */
+    gcvHAL_PATCH_TYPE_COUNT,
+};
+
+/* The patch array. */
+typedef struct _gcsHAL_PATCH_LIST
+{
+    /* Patch type. */
+    gctUINT32           type;
+
+    /* Patch item count. */
+    gctUINT32           count;
+
+    /*
+     * Pointer to the patch items.
+     *
+     * gcsHAL_PATCH_VIDMEM_ADDRESS * patchArray;
+     * gcsHAL_PATCH_MCFE_SEMAPHORE * patchArray;
+     * gcsHAL_PATCH_VIDMEM_TIMESTAMP * patchArray;
+     * ...
+     */
+    gctUINT64           patchArray;
+
+    /* struct _gcsHAL_PATCH_LIST * next; */
+    gctUINT64           next;
+}
+gcsHAL_PATCH_LIST;
+
+/*
+ * Patch a GPU address in the place (gcvHAL_PATCH_VIDMEM_ADDRESS).
+ * Size of a GPU address is always 32 bits.
+ */
+typedef struct _gcsHAL_PATCH_VIDMEM_ADDRESS
+{
+    /* Patch location in the command buffer. */
+    gctUINT32           location;
+
+    /* Handle of the video memory node. */
+    gctUINT32           node;
+
+    /* Address offset in the video memory node. */
+    gctUINT32           offset;
+}
+gcsHAL_PATCH_VIDMEM_ADDRESS;
+
+/*
+ * Patch a MCFE semaphore command in the place (gcvHAL_PATCH_MCFE_SEMAPHORE).
+ * Size of the semaphore command is fixed at _64_ bits!
+ */
+typedef struct _gcsHAL_PATCH_MCFE_SEMAPHORE
+{
+    /* Patch location in the command buffer. */
+    gctUINT32           location;
+
+    /* semaphore direction: 1 = Send, 0 = Wait. */
+    gctUINT32           sendSema;
+
+    /* Handle of the semaphore. */
+    gctUINT32           semaHandle;
+}
+gcsHAL_PATCH_MCFE_SEMAPHORE;
+
+/*
+ * Patch timestamp of given video memory node (gcvHAL_PATCH_VIDMEM_TIMESTAMP).
+ * Pure software-wise, not command relevant.
+ */
+typedef struct _gcsHAL_PATCH_VIDMEM_TIMESTAMP
+{
+    /* Handle of a video memory node. */
+    gctUINT32           handle;
+
+    gctUINT32           flag;
+}
+gcsHAL_PATCH_VIDMEM_TIMESTAMP;
+
 
 /*
     gcvFEATURE_DATABASE_DATE_MASK

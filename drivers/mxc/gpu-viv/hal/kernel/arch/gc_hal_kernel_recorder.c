@@ -2,7 +2,7 @@
 *
 *    The MIT License (MIT)
 *
-*    Copyright (c) 2014 - 2018 Vivante Corporation
+*    Copyright (c) 2014 - 2019 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 *
 *    The GPL License (GPL)
 *
-*    Copyright (C) 2014 - 2018 Vivante Corporation
+*    Copyright (C) 2014 - 2019 Vivante Corporation
 *
 *    This program is free software; you can redistribute it and/or
 *    modify it under the terms of the GNU General Public License
@@ -486,15 +486,8 @@ gckRECORDER_Construct(
     gckRECORDER recorder = gcvNULL;
     gctSIZE_T mapSize;
     gctUINT i;
-    gctBOOL virtualCommandBuffer = Hardware->kernel->virtualCommandBuffer;
-
-    /* MMU is not ready now. */
-    Hardware->kernel->virtualCommandBuffer = gcvFALSE;
 
     gcmkONERROR(gckCONTEXT_Construct(Os, Hardware, 0, &context));
-
-    /* Restore. */
-    Hardware->kernel->virtualCommandBuffer = virtualCommandBuffer;
 
     gcmkONERROR(gckOS_Allocate(Os, gcmSIZEOF(gcsRECORDER), (gctPOINTER *)&recorder));
 
@@ -708,18 +701,18 @@ gckRECORDER_Dump(
             previous = _Previous(last);
 
             gcmkPRINT("#[mirror]");
-            gckOS_DumpBuffer(os, mirror->logical[previous], mirror->bytes, gcvDUMP_BUFFER_CONTEXT, gcvTRUE);
-            gcmkPRINT("@[kernel.execute]");
+            gckOS_DumpBuffer(os, gcvDUMP_BUFFER_KERNEL_CONTEXT, mirror->logical[previous], ~0U, mirror->bytes);
+            gcmkPRINT("#[kernel.execute]");
         }
 
         if (delta->contextBytes)
         {
-            gckOS_DumpBuffer(os, delta->context, delta->contextBytes, gcvDUMP_BUFFER_CONTEXT, gcvTRUE);
-            gcmkPRINT("@[kernel.execute]");
+            gckOS_DumpBuffer(os, gcvDUMP_BUFFER_KERNEL_CONTEXT, delta->context, ~0U, delta->contextBytes);
+            gcmkPRINT("#[kernel.execute]");
         }
 
-        gckOS_DumpBuffer(os, delta->command, delta->commandBytes, gcvDUMP_BUFFER_USER, gcvTRUE);
-        gcmkPRINT("@[kernel.execute]");
+        gckOS_DumpBuffer(os, gcvDUMP_BUFFER_KERNEL_COMMAND, delta->command, ~0U, delta->commandBytes);
+        gcmkPRINT("#[kernel.execute]");
 
         last = _Next(last);
     }

@@ -2,7 +2,7 @@
 *
 *    The MIT License (MIT)
 *
-*    Copyright (c) 2014 - 2018 Vivante Corporation
+*    Copyright (c) 2014 - 2019 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 *
 *    The GPL License (GPL)
 *
-*    Copyright (C) 2014 - 2018 Vivante Corporation
+*    Copyright (C) 2014 - 2019 Vivante Corporation
 *
 *    This program is free software; you can redistribute it and/or
 *    modify it under the terms of the GNU General Public License
@@ -92,17 +92,16 @@
 /* Page offset definitions. */
 #define gcdMMU_OFFSET_4K_BITS       (32 - gcdMMU_MTLB_BITS - gcdMMU_STLB_4K_BITS)
 #define gcdMMU_OFFSET_4K_MASK       ((1U << gcdMMU_OFFSET_4K_BITS) - 1)
-#define gcdMMU_OFFSET_16K_BITS      (32 - gcdMMU_MTLB_BITS - gcdMMU_STLB_16K_BITS)
-#define gcdMMU_OFFSET_16K_MASK      ((1U << gcdMMU_OFFSET_16K_BITS) - 1)
+#define gcdMMU_OFFSET_64K_BITS      (32 - gcdMMU_MTLB_BITS - gcdMMU_STLB_64K_BITS)
+#define gcdMMU_OFFSET_64K_MASK      ((1U << gcdMMU_OFFSET_64K_BITS) - 1)
 
 #define gcdMMU_MTLB_PRESENT         0x00000001
 #define gcdMMU_MTLB_EXCEPTION       0x00000002
-#define gcdMMU_MTLB_4K_PAGE         0x00000000
+#define gcdMMU_MTLB_4K_PAGE         (0 << 2)
 
 #define gcdMMU_STLB_PRESENT         0x00000001
 #define gcdMMU_STLB_EXCEPTION       0x00000002
 #define gcdMMU_STLB_SECURITY        (1 << 4)
-#define gcdMMU_STLB_4K_PAGE         0x00000000
 
 #define gcdUSE_MMU_EXCEPTION        1
 

@@ -2,7 +2,7 @@
 *
 *    The MIT License (MIT)
 *
-*    Copyright (c) 2014 - 2018 Vivante Corporation
+*    Copyright (c) 2014 - 2019 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 *
 *    The GPL License (GPL)
 *
-*    Copyright (C) 2014 - 2018 Vivante Corporation
+*    Copyright (C) 2014 - 2019 Vivante Corporation
 *
 *    This program is free software; you can redistribute it and/or
 *    modify it under the terms of the GNU General Public License
@@ -107,7 +107,7 @@ This define enables the use of VM for gckCommand and fence buffers.
 /*
     VIVANTE_PROFILER
 
-        This define enables the profiler.
+        This define enables the profiler for hardware counters.
 */
 #ifndef VIVANTE_PROFILER
 #   define VIVANTE_PROFILER                     1
@@ -167,65 +167,73 @@ This define enables the use of VM for gckCommand and fence buffers.
 #define COMMAND_PROCESSOR_VERSION               1
 
 /*
-    gcdDUMP_KEY
-
-        Set this to a string that appears in 'cat /proc/<pid>/cmdline'. E.g. 'camera'.
-        HAL will create dumps for the processes matching this key.
-*/
-#ifndef gcdDUMP_KEY
-#   define gcdDUMP_KEY                          "process"
-#endif
-
-/*
-    gcdDUMP_PATH
-
-        The dump file location. Some processes cannot write to the sdcard.
-        Try apps' data dir, e.g. /data/data/com.android.launcher
-*/
-#ifndef gcdDUMP_PATH
-#if defined(ANDROID)
-#   define gcdDUMP_PATH                         "/mnt/sdcard/"
-#else
-#   define gcdDUMP_PATH                         "./"
-#endif
-#endif
-
-/*
     gcdDUMP
 
+        Dump for hw capture.
         When set to 1, a dump of all states and memory uploads, as well as other
         hardware related execution will be printed to the debug console.  This
         data can be used for playing back applications.
 
         When set to 2, for vxc, all output memory will be dump.
 
+        Please get tweak settings in gc_hal_dump.h.
 */
 #ifndef gcdDUMP
 #   define gcdDUMP                              0
 #endif
 
 /*
+    gcdDUMP_IN_KERNEL
+
+        Enhanced feature for hw capture capture.
+        Required for MCFE.
+        When set to 1, all dumps will happen in the kernel.  This is handy if
+        you want the kernel to dump its command buffers as well and the data
+        needs to be in sync.
+
+        Dump in kernel implies kernel command dump.
+        See debugfs:/gc/dump/ for runtime configuration.
+*/
+#ifndef gcdDUMP_IN_KERNEL
+#   define gcdDUMP_IN_KERNEL                    0
+#endif
+
+/*
+    gcdDUMP_2D
+
+        Dump for 2D capture.
+        When set to non-zero, it will dump the 2D command and surface.
+
+        Please get tweak settings in gc_hal_dump.h.
+*/
+#ifndef gcdDUMP_2D
+#   define gcdDUMP_2D                           0
+#endif
+
+/*
     gcdDUMP_API
 
+        Dump driver level API.
         When set to 1, a high level dump of the EGL and GL/VG APs's are
         captured.
+
+        Please get tweak settings in gc_hal_dump.h.
 */
 #ifndef gcdDUMP_API
 #   define gcdDUMP_API                          0
 #endif
 
-#ifndef gcdDUMP_2DVG
-#   define gcdDUMP_2DVG                         0
-#endif
-
 /*
-    gcdDUMP_AHB_ACCESS
+    gcdDUMP_PER_OPERATION
 
-        When set to 1, a dump of all AHB register access will be printed to kernel
-        message.
+        Operation based dump.
+
+        Dump the block as below.
+        1. Multiple operations belong to the same SW tiling block.
+        2. Single operation which is NOT in any SW tiling block.
 */
-#ifndef gcdDUMP_AHB_ACCESS
-#   define gcdDUMP_AHB_ACCESS                   0
+#ifndef gcdDUMP_PER_OPERATION
+#   define gcdDUMP_PER_OPERATION                0
 #endif
 
 /*
@@ -311,29 +319,6 @@ This define enables the use of VM for gckCommand and fence buffers.
 #endif
 
 /*
-    gcdDUMP_VERIFY_PER_DRAW
-
-        When set to 1, verify RT and images(if used) for every single draw to ease simulation debug.
-        Only valid for ES3 driver for now.
-*/
-#ifndef gcdDUMP_VERIFY_PER_DRAW
-#   define gcdDUMP_VERIFY_PER_DRAW                0
-#endif
-
-
-
-/*
-    gcdDUMP_FRAMERATE
-        When set to a value other than zero, averaqe frame rate will be dumped.
-        The value set is the starting frame that the average will be calculated.
-        This is needed because sometimes first few frames are too slow to be included
-        in the average. Frame count starts from 1.
-*/
-#ifndef gcdDUMP_FRAMERATE
-#   define gcdDUMP_FRAMERATE                    0
-#endif
-
-/*
     gcdENABLE_FSCALE_VAL_ADJUST
         When non-zero, FSCALE_VAL when gcvPOWER_ON can be adjusted externally.
  */
@@ -341,46 +326,6 @@ This define enables the use of VM for gckCommand and fence buffers.
 #   define gcdENABLE_FSCALE_VAL_ADJUST          1
 #endif
 
-/*
-    gcdDUMP_IN_KERNEL
-
-        When set to 1, all dumps will happen in the kernel.  This is handy if
-        you want the kernel to dump its command buffers as well and the data
-        needs to be in sync.
-*/
-#ifndef gcdDUMP_IN_KERNEL
-#   define gcdDUMP_IN_KERNEL                    0
-#endif
-
-/*
-    gcdDUMP_COMMAND
-
-        When set to non-zero, the command queue will dump all incoming command
-        and context buffers as well as all other modifications to the command
-        queue.
-*/
-#ifndef gcdDUMP_COMMAND
-#   define gcdDUMP_COMMAND                      0
-#endif
-
-/*
-    gcdDUMP_2D
-
-        When set to non-zero, it will dump the 2D command and surface.
-*/
-#ifndef gcdDUMP_2D
-#   define gcdDUMP_2D                           0
-#endif
-
-/*
-    gcdDUMP_FRAME_TGA
-
-    When set to a value other than 0, a dump of the frame specified by the value,
-    will be done into frame.tga. Frame count starts from 1.
- */
-#ifndef gcdDUMP_FRAME_TGA
-#   define gcdDUMP_FRAME_TGA                    0
-#endif
 /*
     gcdNULL_DRIVER
 
@@ -469,61 +414,20 @@ This define enables the use of VM for gckCommand and fence buffers.
 #ifndef gcdGC355_VGMMU_MEMORY_SIZE_KB
 #   define gcdGC355_VGMMU_MEMORY_SIZE_KB   32
 #endif
-/*
-    gcdSECURE_USER
-
-        Use logical addresses instead of physical addresses in user land.  In
-        this case a hint table is created for both command buffers and context
-        buffers, and that hint table will be used to patch up those buffers in
-        the kernel when they are ready to submit.
-*/
-#ifndef gcdSECURE_USER
-#   define gcdSECURE_USER                       0
-#endif
 
 /*
-    gcdSECURE_CACHE_SLOTS
-
-        Number of slots in the logical to DMA address cache table.  Each time a
-        logical address needs to be translated into a DMA address for the GPU,
-        this cache will be walked.  The replacement scheme is LRU.
-*/
-#ifndef gcdSECURE_CACHE_SLOTS
-#   define gcdSECURE_CACHE_SLOTS                1024
-#endif
-
-/*
-    gcdSECURE_CACHE_METHOD
-
-        Replacement scheme used for Secure Cache.  The following options are
-        available:
-
-            gcdSECURE_CACHE_LRU
-                A standard LRU cache.
-
-            gcdSECURE_CACHE_LINEAR
-                A linear walker with the idea that an application will always
-                render the scene in a similar way, so the next entry in the
-                cache should be a hit most of the time.
-
-            gcdSECURE_CACHE_HASH
-                A 256-entry hash table.
-
-            gcdSECURE_CACHE_TABLE
-                A simple cache but with potential of a lot of cache replacement.
-*/
-#ifndef gcdSECURE_CACHE_METHOD
-#   define gcdSECURE_CACHE_METHOD               gcdSECURE_CACHE_HASH
-#endif
-
-/*
-    gcdREGISTER_ACCESS_FROM_USER
+    gcdREGISTER_READ_FROM_USER
+    gcdREGISTER_WRITE_FROM_USER
 
         Set to 1 to allow IOCTL calls to get through from user land.  This
         should only be in debug or development drops.
 */
-#ifndef gcdREGISTER_ACCESS_FROM_USER
-#   define gcdREGISTER_ACCESS_FROM_USER         1
+#ifndef gcdREGISTER_READ_FROM_USER
+#   define gcdREGISTER_READ_FROM_USER           1
+#endif
+
+#ifndef gcdREGISTER_WRITE_FROM_USER
+#   define gcdREGISTER_WRITE_FROM_USER          0
 #endif
 
 /*
@@ -564,7 +468,11 @@ This define enables the use of VM for gckCommand and fence buffers.
         If the value is 0, no timeout will be checked for.
 */
 #ifndef gcdGPU_TIMEOUT
+#if gcdFPGA_BUILD
+#   define gcdGPU_TIMEOUT                   2000000
+#else
 #   define gcdGPU_TIMEOUT                   20000
+#endif
 #endif
 
 /*
@@ -725,22 +633,6 @@ This define enables the use of VM for gckCommand and fence buffers.
 #endif
 
 /*
-   gcdPAGED_MEMORY_CACHEABLE
-
-        When non-zero, paged memory will be cacheable.
-
-        Normally, driver will detemines whether a video memory
-        is cacheable or not. When cacheable is not neccessary,
-        it will be writecombine.
-
-        This option is only for those SOC which can't enable
-        writecombine without enabling cacheable.
-*/
-#ifndef gcdPAGED_MEMORY_CACHEABLE
-#   define gcdPAGED_MEMORY_CACHEABLE            0
-#endif
-
-/*
    gcdENABLE_CACHEABLE_COMMAND_BUFFER
 
         When non-zero, command buffer will be cacheable.
@@ -801,17 +693,6 @@ This define enables the use of VM for gckCommand and fence buffers.
 #endif
 
 /*
-    gcdPROCESS_ADDRESS_SPACE
-
-        When non-zero, every process which attaches to galcore has its own GPU
-        address space, size of which is gcdPROCESS_ADDRESS_SPACE_SIZE.
-*/
-#ifndef gcdPROCESS_ADDRESS_SPACE
-#   define gcdPROCESS_ADDRESS_SPACE             0
-#   define gcdPROCESS_ADDRESS_SPACE_SIZE        0x80000000
-#endif
-
-/*
     gcdSHARED_PAGETABLE
 
         When non-zero, multiple GPUs in one chip with same MMU use
@@ -833,7 +714,7 @@ This define enables the use of VM for gckCommand and fence buffers.
         whose requesting size is less than gcdSMALL_BLOCK_SIZE.
 
         For Linux, it's the size of a page. If this requeset fallbacks
-        to gcvPOOL_CONTIGUOUS or gcvPOOL_VIRTUAL, memory will be wasted
+        to gcvPOOL_VIRTUAL, memory will be wasted
         because they allocate a page at least.
 */
 #ifndef gcdSMALL_BLOCK_SIZE
@@ -842,8 +723,21 @@ This define enables the use of VM for gckCommand and fence buffers.
 #endif
 
 /*
+    gcdENABLE_GPU_1M_PAGE
+        When non-zero, GPU page size will be 1M until the pool is out of memory
+        and low-level to 4K pages. When zero, it uses 4k GPU pages.
+*/
+#ifndef gcdENABLE_GPU_1M_PAGE
+#if !gcdSECURITY && defined(LINUX)
+#   define gcdENABLE_GPU_1M_PAGE                1
+#else
+#   define gcdENABLE_GPU_1M_PAGE                0
+#endif
+#endif
+
+/*
     gcdCONTIGUOUS_SIZE_LIMIT
-        When non-zero, size of video node from gcvPOOL_CONTIGUOUS is
+        When non-zero, size of video node from gcvPOOL_VIRTUAL contiguous is
         limited by gcdCONTIGUOUS_SIZE_LIMIT.
 */
 #ifndef gcdCONTIGUOUS_SIZE_LIMIT
@@ -1257,6 +1151,9 @@ This define enables the use of VM for gckCommand and fence buffers.
 #   define gcdGC355_PROFILER                    0
 #endif
 
+/*
+    This definition must be paired with VIVANTE_PROFILER_SYSTEM_MEMORY
+*/
 #ifndef gcdGC355_MEM_PRINT
 #   define gcdGC355_MEM_PRINT                      0
 #else
@@ -1326,6 +1223,13 @@ This define enables the use of VM for gckCommand and fence buffers.
 #endif
 
 /*
+    When enabled, use 1K mode for MMU version 2.0. otherwise use 4K mode.
+*/
+#ifndef gcdENABLE_MMU_1KMODE
+#   define gcdENABLE_MMU_1KMODE                  1
+#endif
+
+/*
     gcdENABLE_TRUST_APPLICATION
 
     When enabled, trust application is used to handle 'security' registers.
@@ -1350,7 +1254,11 @@ This define enables the use of VM for gckCommand and fence buffers.
 #endif
 
 #ifndef gcdMMU_SECURE_AREA_SIZE
+#if defined(gcdENABLE_MMU_1KMODE)
+#   define gcdMMU_SECURE_AREA_SIZE              32
+#else
 #   define gcdMMU_SECURE_AREA_SIZE              128
+#endif
 #endif
 
 /*
@@ -1364,10 +1272,6 @@ VIV:gcdUSE_MMU_EXCEPTION
 
 #ifndef gcdVX_OPTIMIZER
 #   define gcdVX_OPTIMIZER                      0
-#endif
-
-#ifndef gcdOCL_READ_IMAGE_OPTIMIZATION
-#   define gcdOCL_READ_IMAGE_OPTIMIZATION       0
 #endif
 
 #ifndef gcdALLOC_ON_FAULT
@@ -1402,6 +1306,54 @@ VIV:gcdUSE_MMU_EXCEPTION
 #   define gcdENABLE_KERNEL_FENCE               0
 #endif
 
+/*
+    gcdUSE_VXC_BINARY
+        When enabled, will use prebuilt shader binary in VX driver.
+ */
+#ifndef gcdUSE_VXC_BINARY
+#   define gcdUSE_VXC_BINARY                    0
+#endif
+
+/*
+    gcdFEATURE_SANITYCHECK
+        When enabled, will do hardware feature sanity check, each
+        used hardware feature should be printed out.
+ */
+#ifndef gcdFEATURE_SANITYCHECK
+#   define gcdFEATURE_SANITYCHECK                0
+#endif
+
+
+/*
+    VIVANTE_PROFILER_SYSTEM_MEMORY
+
+        This define enables the profiling data for system memory allocated by driver
+*/
+#ifndef VIVANTE_PROFILER_SYSTEM_MEMORY
+#   define VIVANTE_PROFILER_SYSTEM_MEMORY        1
+#   define VP_MALLOC_OFFSET                     (16)
+
+#endif
+
+#define gcdHAL_TEST 1
+#define gcdUSE_ZWP_SYNCHRONIZATION 1
+
+/*
+    gcdUSE_SINGLE_CONTEXT
+        When enabled, will enable single context.
+ */
+#ifndef gcdUSE_SINGLE_CONTEXT
+#   define gcdUSE_SINGLE_CONTEXT                   0
+#endif
+
+/*
+    gcdKERNEL_QUERY_PERFORMANCE_COUNTER_V8
+        When enabled, will enable query new performance counter of V8.0 in kernel
+        space.
+ */
+#ifndef gcdKERNEL_QUERY_PERFORMANCE_COUNTER_V8
+#   define gcdKERNEL_QUERY_PERFORMANCE_COUNTER_V8  0
+#endif
 
 #endif /* __gc_hal_options_h_ */
 

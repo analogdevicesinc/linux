@@ -2,7 +2,7 @@
 *
 *    The MIT License (MIT)
 *
-*    Copyright (c) 2014 - 2018 Vivante Corporation
+*    Copyright (c) 2014 - 2019 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 *
 *    The GPL License (GPL)
 *
-*    Copyright (C) 2014 - 2018 Vivante Corporation
+*    Copyright (C) 2014 - 2019 Vivante Corporation
 *
 *    This program is free software; you can redistribute it and/or
 *    modify it under the terms of the GNU General Public License
@@ -61,7 +61,6 @@ extern "C" {
 #endif
 
 
-#include "gc_hal_rename.h"
 #include "gc_hal_types.h"
 #include "gc_hal_enum.h"
 #include "gc_hal_base.h"
@@ -289,27 +288,6 @@ typedef gctTHREADFUNCRESULT (gctTHREADFUNCTYPE * gctTHREADFUNC) (
     (address)\
 )
 
-/******************************************************************************\
-****************************** Kernel Debug Macro ******************************
-\******************************************************************************/
-
-/* Return the kernel logical pointer for the given physical one. */
-gceSTATUS
-gckOS_GetKernelLogical(
-    IN gckOS Os,
-    IN gctUINT32 Address,
-    OUT gctPOINTER * KernelPointer
-    );
-
-/* Return the kernel logical pointer for the given physical one. */
-gceSTATUS
-gckOS_GetKernelLogicalEx(
-    IN gckOS Os,
-    IN gceCORE Core,
-    IN gctUINT32 Address,
-    OUT gctPOINTER * KernelPointer
-    );
-
 /*----------------------------------------------------------------------------*/
 /*----------------------------- Semaphore Object -----------------------------*/
 
@@ -384,7 +362,6 @@ gckKERNEL_UnmapMemory(
 gceSTATUS
 gckVGKERNEL_Dispatch(
     IN gckKERNEL Kernel,
-    IN gctBOOL FromUser,
     IN OUT struct _gcsHAL_INTERFACE * Interface
     );
 
@@ -483,15 +460,6 @@ gckVGHARDWARE_SplitMemory(
     OUT gctUINT32 * Offset
     );
 
-/* Align size to tile boundary. */
-gceSTATUS
-gckVGHARDWARE_AlignToTile(
-    IN gckVGHARDWARE Hardware,
-    IN gceSURF_TYPE Type,
-    IN OUT gctUINT32_PTR Width,
-    IN OUT gctUINT32_PTR Height
-    );
-
 /* Convert logical address to hardware specific address. */
 gceSTATUS
 gckVGHARDWARE_ConvertLogical(
@@ -545,7 +513,7 @@ gckVGHARDWARE_ReadInterrupt(
 
 /* Power management. */
 gceSTATUS
-gckVGHARDWARE_SetPowerManagementState(
+gckVGHARDWARE_SetPowerState(
     IN gckVGHARDWARE Hardware,
     IN gceCHIPPOWERSTATE State
     );
@@ -557,9 +525,9 @@ gckVGHARDWARE_QueryPowerManagementState(
     );
 
 gceSTATUS
-gckVGHARDWARE_SetPowerManagement(
+gckVGHARDWARE_EnablePowerManagement(
     IN gckVGHARDWARE Hardware,
-    IN gctBOOL PowerManagement
+    IN gctBOOL Enable
     );
 
 gceSTATUS

@@ -2,7 +2,7 @@
 *
 *    The MIT License (MIT)
 *
-*    Copyright (c) 2014 - 2018 Vivante Corporation
+*    Copyright (c) 2014 - 2019 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 *
 *    The GPL License (GPL)
 *
-*    Copyright (C) 2014 - 2018 Vivante Corporation
+*    Copyright (C) 2014 - 2019 Vivante Corporation
 *
 *    This program is free software; you can redistribute it and/or
 *    modify it under the terms of the GNU General Public License
@@ -87,8 +87,8 @@ typedef struct _gcsCONTEXT
     /* Context busy signal. */
     gctSIGNAL                   signal;
 
-    /* Physical address of the context buffer. */
-    gctPHYS_ADDR                physical;
+    /* Video memory of the context buffer. */
+    gckVIDMEM_NODE              videoMem;
 
     /* Logical address of the context buffer. */
     gctUINT32_PTR               logical;
@@ -166,11 +166,6 @@ struct _gckCONTEXT
     gctBOOL                     lastFixed;
 
     gctUINT32                   pipeSelectBytes;
-
-    /* Hint array. */
-#if gcdSECURE_USER
-    gctBOOL_PTR                 hint;
-#endif
 
     gcsPROFILER_COUNTERS_PART1    latestProfiler_part1;
     gcsPROFILER_COUNTERS_PART1    histroyProfiler_part1;

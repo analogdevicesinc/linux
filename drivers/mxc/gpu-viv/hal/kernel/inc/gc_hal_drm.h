@@ -2,7 +2,7 @@
 *
 *    The MIT License (MIT)
 *
-*    Copyright (c) 2014 - 2018 Vivante Corporation
+*    Copyright (c) 2014 - 2019 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 *
 *    The GPL License (GPL)
 *
-*    Copyright (C) 2014 - 2018 Vivante Corporation
+*    Copyright (C) 2014 - 2019 Vivante Corporation
 *
 *    This program is free software; you can redistribute it and/or
 *    modify it under the terms of the GNU General Public License
@@ -69,7 +69,6 @@ extern "C" {
 #define DRM_VIV_GEM_CACHED          (1u << 1)
 #define DRM_VIV_GEM_SECURE          (1u << 2)
 #define DRM_VIV_GEM_CMA_LIMIT       (1u << 3)
-#define DRM_VIV_GEM_VIRTUAL_POOL    (1u << 4)
 
 struct drm_viv_gem_create {
     __u64 size;

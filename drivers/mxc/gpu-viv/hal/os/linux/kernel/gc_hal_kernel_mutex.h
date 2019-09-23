@@ -2,7 +2,7 @@
 *
 *    The MIT License (MIT)
 *
-*    Copyright (c) 2014 - 2018 Vivante Corporation
+*    Copyright (c) 2014 - 2019 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 *
 *    The GPL License (GPL)
 *
-*    Copyright (C) 2014 - 2018 Vivante Corporation
+*    Copyright (C) 2014 - 2019 Vivante Corporation
 *
 *    This program is free software; you can redistribute it and/or
 *    modify it under the terms of the GNU General Public License
@@ -60,27 +60,18 @@
 #include <linux/mutex.h>
 
 /* Create a new mutex. */
-#define gckOS_CreateMutex(Os, Mutex)                                \
-({                                                                  \
-    gceSTATUS _status;                                              \
-    gcmkHEADER_ARG("Os=0x%X", Os);                                  \
-                                                                    \
-    /* Validate the arguments. */                                   \
-    gcmkVERIFY_OBJECT(Os, gcvOBJ_OS);                               \
-    gcmkVERIFY_ARGUMENT(Mutex != gcvNULL);                          \
-                                                                    \
-    /* Allocate the mutex structure. */                             \
-    _status = gckOS_Allocate(Os, gcmSIZEOF(struct mutex), Mutex);   \
-                                                                    \
-    if (gcmIS_SUCCESS(_status))                                     \
-    {                                                               \
-        /* Initialize the mutex. */                                 \
-        mutex_init(*(struct mutex **)Mutex);                        \
-    }                                                               \
-                                                                    \
-    /* Return status. */                                            \
-    gcmkFOOTER_ARG("*Mutex=0x%X", *(struct mutex **)Mutex);         \
-    _status;                                                        \
+#define gckOS_CreateMutex(Os, Mutex)                                        \
+({                                                                          \
+    /* Allocate the mutex structure. */                                     \
+    gceSTATUS _status = gckOS_Allocate(Os, gcmSIZEOF(struct mutex), Mutex); \
+                                                                            \
+    if (gcmIS_SUCCESS(_status))                                             \
+    {                                                                       \
+        /* Initialize the mutex. */                                         \
+        mutex_init(*(struct mutex **)Mutex);                                \
+    }                                                                       \
+                                                                            \
+    _status;                                                                \
 })
 
 #endif
