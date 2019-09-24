@@ -1,0 +1,3 @@
+
+#include "zynqmp-zcu102-rev1.0.dts"
+#include "adi-cn0506-rgmii.dtsi"
