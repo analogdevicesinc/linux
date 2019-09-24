@@ -284,6 +284,7 @@
 #include "adi-adrv9009.dtsi"
 
 &trx0_adrv9009 {
+	adi,jesd204-ser-pre-emphasis = <4>;
 	reset-gpios = <&sys_gpio_out 20 0>;
 	test-gpios = <&sys_gpio_out 21 0>;
 	sysref-req-gpios = <&sys_gpio_out 26 0>;

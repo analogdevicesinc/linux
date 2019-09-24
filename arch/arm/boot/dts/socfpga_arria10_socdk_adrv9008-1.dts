@@ -140,6 +140,7 @@
 	clock-names = "jesd_rx_clk", "dev_clk", "fmc_clk", "sysref_dev_clk",
 		"sysref_fmc_clk";
 
+	adi,jesd204-ser-pre-emphasis = <4>;
 	reset-gpios = <&sys_gpio_out 20 0>;
 	test-gpios = <&sys_gpio_out 21 0>;
 	sysref-req-gpios = <&sys_gpio_out 26 0>;
