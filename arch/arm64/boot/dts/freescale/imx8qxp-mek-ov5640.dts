@@ -1,0 +1,71 @@
+// SPDX-License-Identifier: GPL-2.0+
+// Copyright NXP 2019
+
+#include "imx8qxp-mek.dts"
+
+&isi_1 {
+	status = "disabled";
+
+	cap_device {
+		status = "disabled";
+	};
+};
+
+&isi_2 {
+	status = "disabled";
+
+	cap_device {
+		status = "disabled";
+	};
+};
+
+&isi_3 {
+	status = "disabled";
+
+	cap_device {
+		status = "disabled";
+	};
+};
+
+&mipi_csi_0 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	/delete-property/virtual-channel;
+	status = "okay";
+
+	/* Camera 0  MIPI CSI-2 (CSIS0) */
+	port@0 {
+		reg = <0>;
+		mipi_csi0_ep: endpoint {
+			remote-endpoint = <&ov5640_mipi_ep>;
+			data-lanes = <1 2>;
+		};
+	};
+};
+
+&i2c_mipi_csi0 {
+	ov5640_mipi: ov5640_mipi@3c {
+		compatible = "ovti,ov5640";
+		reg = <0x3c>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_mipi_csi0>;
+		clocks = <&xtal24m>;
+		clock-names = "xclk";
+		csi_id = <0>;
+		powerdown-gpios = <&lsio_gpio3 7 GPIO_ACTIVE_HIGH>;
+		reset-gpios = <&lsio_gpio3 8 GPIO_ACTIVE_LOW>;
+		mclk = <24000000>;
+		mclk_source = <0>;
+		mipi_csi;
+		status = "okay";
+		port {
+			ov5640_mipi_ep: endpoint {
+				remote-endpoint = <&mipi_csi0_ep>;
+				data-lanes = <1 2>;
+				clocks-lanes = <0>;
+			};
+		};
+	};
+
+	/delete-node/max9286_mipi@6a;
+};
