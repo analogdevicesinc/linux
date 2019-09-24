@@ -1,0 +1,154 @@
+// SPDX-License-Identifier: GPL-2.0+
+// Copyright NXP 2019
+
+#include "imx8qm-mek.dts"
+
+&isi_0 {
+	status = "okay";
+
+	cap_device {
+		status = "okay";
+	};
+
+	m2m_device {
+		status = "okay";
+	};
+};
+
+&isi_1 {
+	status = "disabled";
+
+	cap_device {
+		status = "disabled";
+	};
+};
+
+&isi_2 {
+	status = "disabled";
+
+	cap_device {
+		status = "disabled";
+	};
+};
+
+&isi_3 {
+	status = "disabled";
+
+	cap_device {
+		status = "disabled";
+	};
+};
+
+&isi_4 {
+	status = "okay";
+
+	cap_device {
+		status = "okay";
+	};
+};
+
+&isi_5 {
+	status = "disabled";
+
+	cap_device {
+		status = "disabled";
+	};
+};
+
+&isi_6 {
+	status = "disabled";
+
+	cap_device {
+		status = "disabled";
+	};
+};
+
+&isi_7 {
+	status = "disabled";
+
+	cap_device {
+		status = "disabled";
+	};
+};
+
+&mipi_csi_0 {
+	/delete-property/virtual-channel;
+
+	/* Camera 0  MIPI CSI-2 (CSIS0) */
+	port@0 {
+		reg = <0>;
+		mipi_csi0_ep: endpoint {
+			remote-endpoint = <&ov5640_mipi_0_ep>;
+			data-lanes = <1 2>;
+			bus-type = <4>;
+		};
+	};
+};
+
+&mipi_csi_1 {
+	/delete-property/virtual-channel;
+
+	/* Camera 1  MIPI CSI-2 (CSIS0) */
+	port@1 {
+		reg = <1>;
+		mipi_csi1_ep: endpoint {
+			remote-endpoint = <&ov5640_mipi_1_ep>;
+			data-lanes = <1 2>;
+			bus-type = <4>;
+		};
+	};
+};
+
+&i2c_mipi_csi0 {
+	ov5640_mipi_0: ov5640_mipi@3c {
+		compatible = "ovti,ov5640";
+		reg = <0x3c>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_mipi_csi0>;
+		clocks = <&xtal24m>;
+		clock-names = "xclk";
+		csi_id = <0>;
+		powerdown-gpios = <&lsio_gpio1 28 GPIO_ACTIVE_HIGH>;
+		reset-gpios = <&lsio_gpio1 27 GPIO_ACTIVE_LOW>;
+		mclk = <24000000>;
+		mclk_source = <0>;
+		mipi_csi;
+		status = "okay";
+		port {
+			ov5640_mipi_0_ep: endpoint {
+				remote-endpoint = <&mipi_csi0_ep>;
+				data-lanes = <1 2>;
+				clocks-lanes = <0>;
+			};
+		};
+	};
+
+	/delete-node/max9286_mipi@6a;
+};
+
+&i2c_mipi_csi1 {
+	ov5640_mipi_1: ov5640_mipi@3c {
+		compatible = "ovti,ov5640";
+		reg = <0x3c>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_mipi_csi1>;
+		clocks = <&xtal24m>;
+		clock-names = "xclk";
+		csi_id = <0>;
+		powerdown-gpios = <&lsio_gpio1 31 GPIO_ACTIVE_HIGH>;
+		reset-gpios = <&lsio_gpio1 30 GPIO_ACTIVE_LOW>;
+		mclk = <24000000>;
+		mclk_source = <0>;
+		mipi_csi;
+		status = "okay";
+		port {
+			ov5640_mipi_1_ep: endpoint {
+				remote-endpoint = <&mipi_csi1_ep>;
+				data-lanes = <1 2>;
+				clocks-lanes = <0>;
+			};
+		};
+	};
+
+	/delete-node/max9286_mipi@6a;
+};

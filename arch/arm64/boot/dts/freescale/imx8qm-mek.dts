@@ -765,10 +765,70 @@
 
 &isi_0 {
 	status = "okay";
+
+	cap_device {
+		status = "okay";
+	};
+
+	m2m_device {
+		status = "okay";
+	};
+};
+
+&isi_1 {
+	status = "okay";
+
+	cap_device {
+		status = "okay";
+	};
+};
+
+&isi_2 {
+	status = "okay";
+
+	cap_device {
+		status = "okay";
+	};
+};
+
+&isi_3 {
+	status = "okay";
+
+	cap_device {
+		status = "okay";
+	};
 };
 
 &isi_4 {
 	status = "okay";
+
+	cap_device {
+		status = "okay";
+	};
+};
+
+&isi_5 {
+	status = "okay";
+
+	cap_device {
+		status = "okay";
+	};
+};
+
+&isi_6 {
+	status = "okay";
+
+	cap_device {
+		status = "okay";
+	};
+};
+
+&isi_7 {
+	status = "okay";
+
+	cap_device {
+		status = "okay";
+	};
 };
 
 &irqsteer_csi0 {
@@ -782,15 +842,15 @@
 &mipi_csi_0 {
 	#address-cells = <1>;
 	#size-cells = <0>;
+	virtual-channel;
 	status = "okay";
 
 	/* Camera 0  MIPI CSI-2 (CSIS0) */
 	port@0 {
 		reg = <0>;
 		mipi_csi0_ep: endpoint {
-			remote-endpoint = <&ov5640_mipi_0_ep>;
-			data-lanes = <1 2>;
-			bus-type = <4>;
+			remote-endpoint = <&max9286_0_ep>;
+			data-lanes = <1 2 3 4>;
 		};
 	};
 };
@@ -798,15 +858,15 @@
 &mipi_csi_1 {
 	#address-cells = <1>;
 	#size-cells = <0>;
+	virtual-channel;
 	status = "okay";
 
-	/* Camera 0  MIPI CSI-2 (CSIS0) */
+	/* Camera 1  MIPI CSI-2 (CSIS1) */
 	port@1 {
 		reg = <1>;
 		mipi_csi1_ep: endpoint {
-			remote-endpoint = <&ov5640_mipi_1_ep>;
-			data-lanes = <1 2>;
-			bus-type = <4>;
+			remote-endpoint = <&max9286_1_ep>;
+			data-lanes = <1 2 3 4>;
 		};
 	};
 };
@@ -819,25 +879,22 @@
 	clock-frequency = <100000>;
 	status = "okay";
 
-	ov5640_mipi_0: ov5640_mipi@3c {
-		compatible = "ovti,ov5640";
-		reg = <0x3c>;
+	max9286_mipi@6a {
+		compatible = "maxim,max9286_mipi";
+		reg = <0x6a>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_mipi_csi0>;
-		clocks = <&xtal24m>;
-		clock-names = "xclk";
-		csi_id = <0>;
-		powerdown-gpios = <&lsio_gpio1 28 GPIO_ACTIVE_HIGH>;
-		reset-gpios = <&lsio_gpio1 27 GPIO_ACTIVE_LOW>;
-		mclk = <24000000>;
+		clocks = <&clk_dummy>;
+		clock-names = "capture_mclk";
+		mclk = <27000000>;
 		mclk_source = <0>;
-		mipi_csi;
+		pwn-gpios = <&lsio_gpio1 27 GPIO_ACTIVE_HIGH>;
+		virtual-channel;
 		status = "okay";
 		port {
-			ov5640_mipi_0_ep: endpoint {
+			max9286_0_ep: endpoint {
 				remote-endpoint = <&mipi_csi0_ep>;
-				data-lanes = <1 2>;
-				clocks-lanes = <0>;
+				data-lanes = <1 2 3 4>;
 			};
 		};
 	};
@@ -851,28 +908,26 @@
 	clock-frequency = <100000>;
 	status = "okay";
 
-	ov5640_mipi_1: ov5640_mipi@3c {
-		compatible = "ovti,ov5640";
-		reg = <0x3c>;
+	max9286_mipi@6a {
+		compatible = "maxim,max9286_mipi";
+		reg = <0x6a>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_mipi_csi1>;
-		clocks = <&xtal24m>;
-		clock-names = "xclk";
-		csi_id = <0>;
-		powerdown-gpios = <&lsio_gpio1 31 GPIO_ACTIVE_HIGH>;
-		reset-gpios = <&lsio_gpio1 30 GPIO_ACTIVE_LOW>;
-		mclk = <24000000>;
+		clocks = <&clk_dummy>;
+		clock-names = "capture_mclk";
+		mclk = <27000000>;
 		mclk_source = <0>;
-		mipi_csi;
+		pwn-gpios = <&lsio_gpio1 30 GPIO_ACTIVE_HIGH>;
+		virtual-channel;
 		status = "okay";
 		port {
-			ov5640_mipi_1_ep: endpoint {
+			max9286_1_ep: endpoint {
 				remote-endpoint = <&mipi_csi1_ep>;
-				data-lanes = <1 2>;
-				clocks-lanes = <0>;
+				data-lanes = <1 2 3 4>;
 			};
 		};
 	};
+
 };
 
 &iomuxc {
