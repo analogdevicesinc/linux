@@ -2,4 +2,4 @@
 
 /include/ "zynq-zc706.dtsi"
 /include/ "zynq-zc706-adv7511.dtsi"
-/include/ "adi-adin1300-dual.dtsi"
+/include/ "adi-adin1300-dual-rgmii.dtsi"
