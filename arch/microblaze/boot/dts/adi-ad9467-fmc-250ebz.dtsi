@@ -29,7 +29,6 @@
 		compatible = "ad9517-4";
 		reg = <1>;
 		spi-max-frequency = <10000000>;
-		firmware = "ad9517.stp";
 		clocks = <&ad9517_ref_clk>, <&ad9517_ref_clk>;
 		clock-names = "refclk", "clkin";
 		clock-output-names = "out0", "out1", "out2", "out3", "out4", "out5", "out6", "out7";
