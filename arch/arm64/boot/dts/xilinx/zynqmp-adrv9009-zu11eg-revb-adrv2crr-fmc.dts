@@ -7,7 +7,7 @@
  */
 
 #include "zynqmp-adrv9009-zu11eg-reva-adrv2crr-fmc.dts"
-#include "zynqmp-adrv9009-zu11eg-revb.dts"
+#include "zynqmp-adrv9009-zu11eg-revb.dtsi"
 
 &dwc3_0 {
 	status = "okay";
