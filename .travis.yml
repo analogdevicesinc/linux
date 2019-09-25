@@ -16,7 +16,6 @@ notifications:
 env:
   matrix:
   - BUILD_TYPE=checkpatch
-  - BUILD_TYPE=dtb_build_test
   - DEFCONFIG_NAME=adi_bcm2709_defconfig ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf-
   - BUILD_TYPE=compile_test DEFCONFIG_NAME=adi_bcm2709_defconfig ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf-
 
