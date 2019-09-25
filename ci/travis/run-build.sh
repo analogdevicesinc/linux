@@ -4,13 +4,13 @@ set -e
 . ./ci/travis/lib.sh
 
 build_default() {
-	make ${DEFCONFIG_NAME}
+	make ${DEFCONFIG}
 	make -j`getconf _NPROCESSORS_ONLN` $IMAGE UIMAGE_LOADADDR=0x8000
 }
 
 build_compile_test() {
 	export COMPILE_TEST=y
-	make ${DEFCONFIG_NAME}
+	make ${DEFCONFIG}
 	make -j`getconf _NPROCESSORS_ONLN`
 }
 
@@ -27,8 +27,10 @@ build_checkpatch() {
 }
 
 build_dtb_build_test() {
+	make ${DEFCONFIG:-defconfig}
 	for file in $DTS_FILES; do
-		make ${DTS_PREFIX}`basename $file | sed  -e 's\dts\dtb\g'` || exit 1
+		dtb_file=$(echo $file | sed 's/dts\//_/g' | cut -d'_' -f2 | sed 's\dts\dtb\g')
+		make ${dtb_file} || exit 1
 	done
 }
 
