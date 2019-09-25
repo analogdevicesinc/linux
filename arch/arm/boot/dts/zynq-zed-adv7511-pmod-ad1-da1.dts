@@ -1,5 +1,6 @@
 /dts-v1/;
 
+/include/ "zynq-zed.dtsi"
 /include/ "zynq-zed-adv7511.dtsi"
 
 / {
