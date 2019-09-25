@@ -10,9 +10,6 @@
  * OUT 6,7	-- CML no pull-up(will be LVPECL on rev C)
  */
 
-#include "zynqmp-adrv9009-zu11eg-reva.dts"
-#include "zynqmp-adrv9009-zu11eg-revb.dtsi"
-
 / {
 	model = "Analog Devices ADRV9009-ZU11EG Rev.B";
 };
