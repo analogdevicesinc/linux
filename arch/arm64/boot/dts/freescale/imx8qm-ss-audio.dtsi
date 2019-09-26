@@ -141,6 +141,16 @@
 			<&pd IMX_SC_R_AUDIO_PLL_1>;
 };
 
+&spdif1 {
+	power-domains = <&pd IMX_SC_R_SPDIF_1>,
+			<&pd IMX_SC_R_DMA_2_CH10>,
+			<&pd IMX_SC_R_DMA_2_CH11>,
+			<&pd IMX_SC_R_AUDIO_CLK_0>,
+			<&pd IMX_SC_R_AUDIO_CLK_1>,
+			<&pd IMX_SC_R_AUDIO_PLL_0>,
+			<&pd IMX_SC_R_AUDIO_PLL_1>;
+};
+
 &sai0 {
 	power-domains = <&pd IMX_SC_R_SAI_0>,
 			<&pd IMX_SC_R_DMA_2_CH12>,
@@ -234,6 +244,12 @@
 	bit-offset = <20 16>;
 	clock-output-names = "spdif0_lpcg_tx_clk",
 			     "spdif0_lpcg_gclkw";
+};
+
+&spdif1_lpcg {
+	bit-offset = <20 16>;
+	clock-output-names = "spdif1_lpcg_tx_clk",
+			     "spdif1_lpcg_gclkw";
 };
 
 &sai0_lpcg {

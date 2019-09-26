@@ -7,7 +7,7 @@
 
 /dts-v1/;
 
-#include "imx8qm-mek.dts"
+#include "imx8qm-mek-rpmsg.dts"
 
 / {
     sound-hdmi-tx {
@@ -17,6 +17,14 @@
         protocol = <1>;
         hdmi-out;
     };
+
+	sound-hdmi-arc {
+		compatible = "fsl,imx-audio-spdif";
+		model = "imx-hdmi-arc";
+		spdif-controller = <&spdif1>;
+		spdif-in;
+		spdif-out;
+	};
 };
 
 &sai5 {
@@ -46,5 +54,13 @@
 &hdmi {
 	compatible = "cdn,imx8qm-hdmi";
 	lane-mapping = <0x93>;
+	status = "okay";
+};
+
+&spdif1 {
+	status = "okay";
+};
+
+&spdif1_lpcg {
 	status = "okay";
 };
