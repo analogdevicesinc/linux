@@ -1179,7 +1179,7 @@ static int ad9694_setup(struct spi_device *spi)
 
 	ret |= ad9680_spi_write(spi, 0x108, 0x00); /* Clock divider = 1 */
 
-	memset(&link_config, sizeof(link_config), 0x00);
+	memset(&link_config, 0x00, sizeof(link_config));
 	link_config.did = 0;
 	link_config.bid = 0;
 	link_config.num_lanes = 2;
