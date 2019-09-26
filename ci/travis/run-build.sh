@@ -29,7 +29,7 @@ build_checkpatch() {
 build_dtb_build_test() {
 	make ${DEFCONFIG:-defconfig}
 	for file in $DTS_FILES; do
-		dtb_file=$(echo $file | sed 's/dts\//_/g' | cut -d'_' -f2 | sed 's\dts\dtb\g')
+		dtb_file=$(echo $file | sed 's/dts\//=/g' | cut -d'=' -f2 | sed 's\dts\dtb\g')
 		make ${dtb_file} || exit 1
 	done
 }
