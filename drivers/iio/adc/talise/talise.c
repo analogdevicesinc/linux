@@ -1770,7 +1770,6 @@ uint32_t TALISE_programFir(taliseDevice_t *device, talisefirName_t filterToProgr
 uint32_t TALISE_calculateDigitalClocks(taliseDevice_t *device, taliseDigClocks_t *digClocks)
 {
     talRecoveryActions_t retVal = TALACT_NO_ACTION;
-    adiHalErr_t halError = ADIHAL_OK;
     uint8_t hsDivTimes10 = 25;
     uint8_t hsClkDivHsDigClk4or5 = 20;
     uint32_t localHsDigClkDiv2_Hz = 0;
@@ -3186,7 +3185,6 @@ uint32_t TALISE_setRxPfirSyncClk(taliseDevice_t *device, taliseRxProfile_t *rxPr
 uint32_t TALISE_getApiVersion (taliseDevice_t *device, uint32_t *siVer, uint32_t *majorVer, uint32_t *minorVer, uint32_t *buildVer)
 {
     talRecoveryActions_t retVal = TALACT_NO_ACTION;
-    adiHalErr_t halError = ADIHAL_OK;
 
 #if TALISE_VERBOSE
     halError = talWriteToLog(device->devHalInfo, ADIHAL_LOG_MSG, TAL_ERR_OK, "TALISE_getApiVersion()\n");
