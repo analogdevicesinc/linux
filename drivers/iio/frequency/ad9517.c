@@ -304,7 +304,7 @@ static int ad9517_calc_divider_hi_lo(unsigned ratio, unsigned *hi, unsigned *lo)
 
 static int ad9517_calc_d12_dividers(unsigned vco, unsigned out,  unsigned *d1_val, unsigned *d2_val)
 {
-	unsigned d1, d2, _d2, _d1, ratio;
+	unsigned d1, d2, _d2 = 0, _d1 = 0, ratio;
 	unsigned err, min = UINT_MAX;
 
 	ratio = DIV_ROUND_CLOSEST(vco, out);
