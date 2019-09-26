@@ -263,13 +263,12 @@ int ad917x_nco_set_phase_offset(ad917x_handle_t *h,
 					const ad917x_channel_select_t channels, const uint16_t ch_po)
 {
 	int err;
-	uint8_t tmp_reg;
+	uint8_t tmp_reg = 0;
 
 	if (h == NULL)
 		return API_ERROR_INVALID_HANDLE_PTR;
 	if (dacs != 0) {
 		/* DAC PAGE */
-		tmp_reg = 0;
 		if (dacs & AD917X_DAC0)
 			tmp_reg |= AD917X_MAINDAC_PAGE_0;
 		if (dacs & AD917X_DAC1)
