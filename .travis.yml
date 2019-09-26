@@ -17,9 +17,9 @@ env:
   matrix:
   - BUILD_TYPE=checkpatch
   - BUILD_TYPE=dtb_build_test ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- DTS_FILES=arch/arm/boot/dts/socfpga_*.dts
-  - DEFCONFIG_NAME=socfpga_adi_defconfig ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- IMAGE=zImage
+  - DEFCONFIG=socfpga_adi_defconfig ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- IMAGE=zImage
   - BUILD_TYPE=compile_test
-    DEFCONFIG_NAME=socfpga_adi_defconfig ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- IMAGE=zImage
+    DEFCONFIG=socfpga_adi_defconfig ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- IMAGE=zImage
 
 before_install:
   - sudo apt-get update -qq
