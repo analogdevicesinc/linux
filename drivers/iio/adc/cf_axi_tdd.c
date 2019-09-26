@@ -310,7 +310,7 @@ static ssize_t cf_axi_tdd_show(struct device *dev,
 		case ADI_TDD_DMA_GATE_TX_EN:
 			ret = sprintf(buf, "%s\n", "tx_only");
 			break;
-		case 0:
+		default:
 			ret = sprintf(buf, "%s\n", "none");
 			break;
 		}
