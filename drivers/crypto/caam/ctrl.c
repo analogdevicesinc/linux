@@ -889,6 +889,20 @@ static int caam_probe(struct platform_device *pdev)
 	ctrlpriv->caam_off_during_pm = caam_imx && caam_off_during_pm();
 
 	if (imx_soc_match) {
+		np = of_find_compatible_node(NULL, NULL, "fsl,imx-scu");
+
+		ctrlpriv->scu_en = !!np;
+		of_node_put(np);
+
+		reg_access = !ctrlpriv->scu_en;
+
+		/*
+		 * CAAM clocks cannot be controlled from kernel.
+		 * They are automatically turned on by SCU f/w.
+		 */
+		if (ctrlpriv->scu_en)
+			goto iomap_ctrl;
+
 		/*
 		 * Until Layerscape and i.MX OP-TEE get in sync,
 		 * only i.MX OP-TEE use cases disallow access to
@@ -898,7 +912,7 @@ static int caam_probe(struct platform_device *pdev)
 		ctrlpriv->optee_en = !!np;
 		of_node_put(np);
 
-		reg_access = !ctrlpriv->optee_en;
+		reg_access = reg_access && !ctrlpriv->optee_en;
 
 		if (!imx_soc_match->data) {
 			dev_err(dev, "No clock data provided for i.MX SoC");

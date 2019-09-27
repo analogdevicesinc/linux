@@ -114,6 +114,7 @@ struct caam_drv_private {
 	u8 qi_present;		/* Nonzero if QI present in device */
 	u8 blob_present;	/* Nonzero if BLOB support present in device */
 	u8 mc_en;		/* Nonzero if MC f/w is active */
+	u8 scu_en;		/* Nonzero if SCU f/w is active */
 	u8 optee_en;		/* Nonzero if OP-TEE f/w is active */
 	bool pr_support;        /* RNG prediction resistance available */
 	int secvio_irq;		/* Security violation interrupt number */
