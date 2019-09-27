@@ -203,6 +203,20 @@
 	};
 };
 
+&can1 {
+        pinctrl-names = "default";
+        pinctrl-0 = <&pinctrl_flexcan1>;
+        xceiver-supply = <&reg_can_3v3>;
+        status = "okay";
+};
+
+&can2 {
+        pinctrl-names = "default";
+        pinctrl-0 = <&pinctrl_flexcan2>;
+        xceiver-supply = <&reg_can_3v3>;
+        status = "okay";
+};
+
 &gpc {
 	fsl,cpu_pupscr_sw2iso = <0xf>;
 	fsl,cpu_pupscr_sw = <0x0>;
