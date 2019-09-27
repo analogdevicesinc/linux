@@ -1295,15 +1295,15 @@
 			};
 
 			mipi_csi: mipi@21dc000 {
-				compatible = "fsl,imx6-mipi-csi2";
+				compatible = "fsl,imx6q-mipi-csi2";
 				reg = <0x021dc000 0x4000>;
 				#address-cells = <1>;
 				#size-cells = <0>;
 				interrupts = <0 100 0x04>, <0 101 0x04>;
 				clocks = <&clks IMX6QDL_CLK_HSI_TX>,
 					 <&clks IMX6QDL_CLK_VIDEO_27M>,
-					 <&clks IMX6QDL_CLK_EIM_PODF>;
-				clock-names = "dphy", "ref", "pix";
+					 <&clks IMX6QDL_CLK_EIM_SEL>;
+				clock-names = "dphy_clk", "cfg_clk", "pixel_clk";
 				status = "disabled";
 			};
 

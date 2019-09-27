@@ -224,6 +224,22 @@
 			default-state = "off";
 		};
 	};
+
+	v4l2_cap_0 {
+		compatible = "fsl,imx6q-v4l2-capture";
+		ipu_id = <0>;
+		csi_id = <0>;
+		mclk_source = <0>;
+		status = "okay";
+	};
+
+	v4l2_cap_1 {
+		compatible = "fsl,imx6q-v4l2-capture";
+		ipu_id = <0>;
+		csi_id = <1>;
+		mclk_source = <0>;
+		status = "okay";
+	};
 };
 
 &ipu1_csi0_from_ipu1_csi0_mux {
@@ -234,7 +250,9 @@
 };
 
 &ipu1_csi0_mux_from_parallel_sensor {
+#if 0
 	remote-endpoint = <&ov5642_to_ipu1_csi0_mux>;
+#endif
 };
 
 &ipu1_csi0 {
@@ -245,6 +263,11 @@
 &mipi_csi {
 	status = "okay";
 
+	ipu_id = <0>;
+	csi_id = <1>;
+	v_channel = <0>;
+	lanes = <2>;
+#if 0
 	port@0 {
 		reg = <0>;
 
@@ -254,6 +277,7 @@
 			data-lanes = <1 2>;
 		};
 	};
+#endif
 };
 
 &audmux {
@@ -379,6 +403,7 @@
 		vddio-supply = <&reg_sensors>;
 	};
 
+#if 0
 	ov5642: camera@3c {
 		compatible = "ovti,ov5642";
 		pinctrl-names = "default";
@@ -402,6 +427,23 @@
 				vsync-active = <1>;
 			};
 		};
+	};
+#endif
+	ov564x: ov564x@3c {
+		compatible = "ovti,ov564x";
+		reg = <0x3c>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_ipu1_2>;
+		clocks = <&clks IMX6QDL_CLK_CKO>;
+		clock-names = "csi_mclk";
+		DOVDD-supply = <&vgen4_reg>; /* 1.8v */
+		AVDD-supply = <&vgen3_reg>;  /* 2.8v, on rev C board is VGEN3, on rev B board is VGEN5 */
+		DVDD-supply = <&vgen2_reg>;  /* 1.5v*/
+		pwn-gpios = <&gpio1 16 1>;   /* active low: SD1_DAT0 */
+		rst-gpios = <&gpio1 17 0>;   /* active high: SD1_DAT1 */
+		csi_id = <0>;
+		mclk = <24000000>;
+		mclk_source = <0>;
 	};
 };
 
@@ -429,6 +471,7 @@
 		work-mode = <1>;/*DCM mode*/
 	};
 
+#if 0
 	ov5640: camera@3c {
 		compatible = "ovti,ov5640";
 		pinctrl-names = "default";
@@ -450,6 +493,22 @@
 				data-lanes = <1 2>;
 			};
 		};
+	};
+#endif
+
+	ov564x_mipi: ov564x_mipi@3c { /* i2c2 driver */
+		compatible = "ovti,ov564x_mipi";
+		reg = <0x3c>;
+		clocks = <&clks IMX6QDL_CLK_CKO>;
+		clock-names = "csi_mclk";
+		DOVDD-supply = <&vgen4_reg>; /* 1.8v */
+		AVDD-supply = <&vgen3_reg>;  /* 2.8v rev C board is VGEN3 rev B board is VGEN5 */
+		DVDD-supply = <&vgen2_reg>;  /* 1.5v*/
+		pwn-gpios = <&gpio1 19 1>;   /* active low: SD1_CLK */
+		rst-gpios = <&gpio1 20 0>;   /* active high: SD1_DAT2 */
+		csi_id = <1>;
+		mclk = <24000000>;
+		mclk_source = <0>;
 	};
 
 	pmic: pmic@8 {
@@ -762,6 +821,25 @@
 				MX6QDL_PAD_DISP0_DAT21__IPU1_DISP0_DATA21  0x10
 				MX6QDL_PAD_DISP0_DAT22__IPU1_DISP0_DATA22  0x10
 				MX6QDL_PAD_DISP0_DAT23__IPU1_DISP0_DATA23  0x10
+			>;
+		};
+
+		pinctrl_ipu1_2: ipu1grp-2 { /* parallel camera */
+			fsl,pins = <
+				MX6QDL_PAD_CSI0_DAT12__IPU1_CSI0_DATA12    0x80000000
+				MX6QDL_PAD_CSI0_DAT13__IPU1_CSI0_DATA13    0x80000000
+				MX6QDL_PAD_CSI0_DAT14__IPU1_CSI0_DATA14    0x80000000
+				MX6QDL_PAD_CSI0_DAT15__IPU1_CSI0_DATA15    0x80000000
+				MX6QDL_PAD_CSI0_DAT16__IPU1_CSI0_DATA16    0x80000000
+				MX6QDL_PAD_CSI0_DAT17__IPU1_CSI0_DATA17    0x80000000
+				MX6QDL_PAD_CSI0_DAT18__IPU1_CSI0_DATA18    0x80000000
+				MX6QDL_PAD_CSI0_DAT19__IPU1_CSI0_DATA19    0x80000000
+				MX6QDL_PAD_CSI0_DATA_EN__IPU1_CSI0_DATA_EN 0x80000000
+				MX6QDL_PAD_CSI0_PIXCLK__IPU1_CSI0_PIXCLK   0x80000000
+				MX6QDL_PAD_CSI0_MCLK__IPU1_CSI0_HSYNC      0x80000000
+				MX6QDL_PAD_CSI0_VSYNC__IPU1_CSI0_VSYNC     0x80000000
+				MX6QDL_PAD_SD1_DAT1__GPIO1_IO17            0x80000000
+				MX6QDL_PAD_SD1_DAT0__GPIO1_IO16            0x80000000
 			>;
 		};
 
