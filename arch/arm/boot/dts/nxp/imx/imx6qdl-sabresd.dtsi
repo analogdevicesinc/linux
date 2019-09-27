@@ -240,6 +240,11 @@
 		mclk_source = <0>;
 		status = "okay";
 	};
+
+	v4l2_out {
+		compatible = "fsl,mxc_v4l2_output";
+		status = "okay";
+	};
 };
 
 &ipu1_csi0_from_ipu1_csi0_mux {
