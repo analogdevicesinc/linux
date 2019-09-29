@@ -117,6 +117,16 @@
 	assigned-clock-rates = <786432000>;
 };
 
+&csi {
+	status = "disabled";
+
+	port {
+		csi1_ep: endpoint {
+			remote-endpoint = <&ov5640_ep>;
+		};
+	};
+};
+
 &i2c2 {
 	clock-frequency = <100000>;
 	pinctrl-names = "default";
@@ -134,38 +144,23 @@
 		clock-names = "mclk";
 	};
 
-	camera@3c {
+	ov5640: ov5640@3c {
 		compatible = "ovti,ov5640";
 		reg = <0x3c>;
 		pinctrl-names = "default";
-		pinctrl-0 = <&pinctrl_camera_clock>;
+		pinctrl-0 = <&pinctrl_csi1>;
 		clocks = <&clks IMX6UL_CLK_CSI>;
-		clock-names = "xclk";
-		powerdown-gpios = <&gpio_spi 6 GPIO_ACTIVE_HIGH>;
-		reset-gpios = <&gpio_spi 5 GPIO_ACTIVE_LOW>;
-
+		clock-names = "csi_mclk";
+		pwn-gpios = <&gpio_spi 6 1>;
+		rst-gpios = <&gpio_spi 5 0>;
+		csi_id = <0>;
+		mclk = <24000000>;
+		mclk_source = <0>;
+		status = "disabled";
 		port {
-			ov5640_to_parallel: endpoint {
-				remote-endpoint = <&parallel_from_ov5640>;
-				bus-width = <8>;
-				data-shift = <2>; /* lines 9:2 are used */
-				hsync-active = <0>;
-				vsync-active = <0>;
-				pclk-sample = <1>;
+			ov5640_ep: endpoint {
+				remote-endpoint = <&csi1_ep>;
 			};
-		};
-	};
-};
-
-&csi {
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_csi1>;
-	status = "okay";
-
-	port {
-		parallel_from_ov5640: endpoint {
-			remote-endpoint = <&ov5640_to_parallel>;
-			bus-type = <MEDIA_BUS_TYPE_PARALLEL>;
 		};
 	};
 };
