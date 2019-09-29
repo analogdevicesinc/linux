@@ -97,6 +97,7 @@ struct caam_ctl_state {
  * Driver-private storage for a single CAAM block instance
  */
 struct caam_drv_private {
+
 	/* Physical-presence section */
 	struct caam_ctrl __iomem *ctrl; /* controller region */
 	struct caam_deco __iomem *deco; /* DECO/CCB views */
@@ -117,7 +118,6 @@ struct caam_drv_private {
 	u8 scu_en;		/* Nonzero if SCU f/w is active */
 	u8 optee_en;		/* Nonzero if OP-TEE f/w is active */
 	bool pr_support;        /* RNG prediction resistance available */
-	int secvio_irq;		/* Security violation interrupt number */
 	int virt_en;		/* Virtualization enabled in CAAM */
 	int era;		/* CAAM Era (internal HW revision) */
 

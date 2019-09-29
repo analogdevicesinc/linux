@@ -8,6 +8,14 @@ config CRYPTO_DEV_FSL_CAAM_CRYPTO_API_DESC
 config CRYPTO_DEV_FSL_CAAM_AHASH_API_DESC
 	tristate
 
+config CRYPTO_DEV_FSL_CAAM_SECVIO
+	tristate "CAAM/SNVS Security Violation Handler"
+	depends on ARCH_MXC
+	help
+	  Enables installation of an interrupt handler with registrable
+          handler functions which can be specified to act on the consequences
+          of a security violation.
+
 config CRYPTO_DEV_FSL_CAAM
 	tristate "Freescale CAAM-Multicore platform driver backend"
 	depends on FSL_SOC || ARCH_MXC || ARCH_LAYERSCAPE || COMPILE_TEST
