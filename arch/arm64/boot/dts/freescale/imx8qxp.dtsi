@@ -354,6 +354,7 @@
 
 	/* sorted in register address */
 	#include "imx8-ss-img.dtsi"
+	#include "imx8-ss-security.dtsi"
 	#include "imx8-ss-cm40.dtsi"
 	#include "imx8-ss-vpu.dtsi"
 	#include "imx8-ss-dc0.dtsi"
