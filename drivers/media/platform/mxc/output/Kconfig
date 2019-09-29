@@ -1,0 +1,5 @@
+config VIDEO_MXC_IPU_OUTPUT
+	tristate "IPU v4l2 output support"
+	depends on VIDEO_MXC_OUTPUT && MXC_IPU
+	help
+	This is the video4linux2 driver for IPU post processing video output.
