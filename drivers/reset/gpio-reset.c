@@ -14,6 +14,7 @@
 #include <linux/module.h>
 #include <linux/of_gpio.h>
 #include <linux/platform_device.h>
+#include <linux/pinctrl/consumer.h>
 #include <linux/reset-controller.h>
 
 struct gpio_reset_data {
