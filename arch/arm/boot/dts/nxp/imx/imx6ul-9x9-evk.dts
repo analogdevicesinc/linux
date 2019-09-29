@@ -172,6 +172,16 @@
 	regulator-allow-bypass;
 };
 
+&csi {
+	status = "disabled";
+
+	port {
+		csi1_ep: endpoint {
+			remote-endpoint = <&ov5640_ep>;
+		};
+	};
+};
+
 &fec1 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_enet1>;
@@ -351,6 +361,26 @@
 		wlf,shared-lrclk;
 		wlf,hp-cfg = <3 2 3>;
 		wlf,gpio-cfg = <1 3>;
+	};
+
+	ov5640: ov5640@3c {
+		compatible = "ovti,ov5640";
+		reg = <0x3c>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_csi1>;
+		clocks = <&clks IMX6UL_CLK_CSI>;
+		clock-names = "csi_mclk";
+		pwn-gpios = <&gpio_spi 6 1>;
+		rst-gpios = <&gpio_spi 5 0>;
+		csi_id = <0>;
+		mclk = <24000000>;
+		mclk_source = <0>;
+		status = "disabled";
+		port {
+			ov5640_ep: endpoint {
+				remote-endpoint = <&csi1_ep>;
+			};
+		};
 	};
 };
 
