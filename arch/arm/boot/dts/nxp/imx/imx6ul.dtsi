@@ -1076,11 +1076,13 @@
 			};
 
 			csi: csi@21c4000 {
-				compatible = "fsl,imx6ul-csi";
+				compatible = "fsl,imx6ul-csi", "fsl,imx7-csi", "fsl,imx6s-csi";
 				reg = <0x021c4000 0x4000>;
 				interrupts = <GIC_SPI 7 IRQ_TYPE_LEVEL_HIGH>;
-				clocks = <&clks IMX6UL_CLK_CSI>;
-				clock-names = "mclk";
+				clocks = <&clks IMX6UL_CLK_DUMMY>,
+					<&clks IMX6UL_CLK_CSI>,
+					<&clks IMX6UL_CLK_DUMMY>;
+				clock-names = "disp-axi", "csi_mclk", "disp_dcic";
 				status = "disabled";
 			};
 
