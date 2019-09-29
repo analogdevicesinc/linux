@@ -189,6 +189,11 @@
 			};
 		};
 
+		caam_sm: caam-sm@100000 {
+			 compatible = "fsl,imx7d-caam-sm", "fsl,imx6q-caam-sm";
+			 reg = <0x100000 0x8000>;
+		};
+
 		funnel@30083000 {
 			compatible = "arm,coresight-dynamic-funnel", "arm,primecell";
 			reg = <0x30083000 0x1000>;

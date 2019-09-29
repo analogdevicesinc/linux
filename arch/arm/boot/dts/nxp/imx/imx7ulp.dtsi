@@ -109,6 +109,11 @@
 		reg = <0x1fffc000 0x4000>;
 	};
 
+	caam_sm: caam-sm@26000000 {
+		 compatible = "fsl,imx6q-caam-sm";
+		 reg = <0x26000000 0x8000>;
+	};
+
 	ahbbridge0: bus@40000000 {
 		compatible = "simple-bus";
 		#address-cells = <1>;

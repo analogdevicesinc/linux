@@ -215,6 +215,11 @@
 			clocks = <&clks IMX6UL_CLK_APBHDMA>;
 		};
 
+		caam_sm: caam-sm@100000 {
+			 compatible = "fsl,imx7d-caam-sm", "fsl,imx6q-caam-sm";
+			 reg = <0x100000 0x3fff>;
+		};
+
 		gpmi: nand-controller@1806000 {
 			compatible = "fsl,imx6q-gpmi-nand";
 			#address-cells = <1>;
