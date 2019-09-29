@@ -1,0 +1,25 @@
+/* SPDX-License-Identifier: GPL-2.0 */
+/*
+ * Copyright (C) 2014-2015 Freescale Semiconductor, Inc.
+ * Copyright 2019 NXP
+ */
+
+#include "imx6sx-sdb.dts"
+
+/ {
+	reg_lcd_3v3: regulator-lcd-3v3 {
+		status = "okay";
+	};
+};
+
+&csi1 {
+	status = "disabled";
+};
+
+&lcdif1 {
+	status = "okay";
+};
+
+&ov5640 {
+	status = "disabled";
+};

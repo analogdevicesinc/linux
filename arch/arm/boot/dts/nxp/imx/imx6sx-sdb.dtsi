@@ -93,6 +93,7 @@
 		regulator-name = "lcd-3v3";
 		gpio = <&gpio3 27 0>;
 		enable-active-high;
+		status = "disabled";
 	};
 
 	reg_peri_3v3: regulator-peri-3v3 {
@@ -401,7 +402,7 @@
 	pinctrl-0 = <&pinctrl_lcd>;
 	lcd-supply = <&reg_lcd_3v3>;
 	display = <&display0>;
-	status = "okay";
+	status = "disabled";
 
 	display0: display@0 {
 		bits-per-pixel = <16>;
