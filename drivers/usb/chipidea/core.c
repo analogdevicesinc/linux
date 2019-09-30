@@ -210,7 +210,7 @@ static void ci_hdrc_enter_lpm_common(struct ci_hdrc *ci, bool enable)
 				0);
 }
 
-static void ci_hdrc_enter_lpm(struct ci_hdrc *ci, bool enable)
+void ci_hdrc_enter_lpm(struct ci_hdrc *ci, bool enable)
 {
 	return ci->platdata->enter_lpm(ci, enable);
 }
