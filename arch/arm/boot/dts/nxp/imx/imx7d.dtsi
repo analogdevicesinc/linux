@@ -199,6 +199,9 @@
 	};
 };
 
+/delete-node/&csi;
+/delete-node/&video_mux;
+
 &aips2 {
 	pcie_phy: pcie-phy@306d0000 {
 		  compatible = "fsl,imx7d-pcie-phy";
@@ -245,6 +248,31 @@
 		clocks = <&clks IMX7D_PXP_IPG_CLK>, <&clks IMX7D_PXP_AXI_CLK>;
 		clock-names = "pxp_ipg", "pxp_axi";
 		status = "disabled";
+	};
+
+	csi1: csi1@30710000 {
+		compatible = "fsl,imx7d-csi", "fsl,imx6s-csi";
+		reg = <0x30710000 0x10000>;
+		interrupts = <GIC_SPI 7 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clks IMX7D_CLK_DUMMY>,
+			<&clks IMX7D_CSI_MCLK_ROOT_CLK>,
+			<&clks IMX7D_CLK_DUMMY>;
+		clock-names = "disp-axi", "csi_mclk", "disp_dcic";
+		status = "disabled";
+	};
+
+	mipi_csi: mipi-csi@30750000 {
+		compatible = "fsl,imx7d-mipi-csi";
+		reg = <0x30750000 0x10000>;
+		interrupts = <GIC_SPI 25 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clks IMX7D_MIPI_CSI_ROOT_CLK>,
+				<&clks IMX7D_MIPI_DPHY_ROOT_CLK>;
+		clock-names = "mipi_clk", "phy_clk";
+		mipi-phy-supply = <&reg_1p0d>;
+		csis-phy-reset = <&src 0x28 2>;
+		bus-width = <4>;
+		status = "disabled";
+		/delete-node/ ports;
 	};
 
 	mipi_dsi: mipi-dsi@30760000 {
