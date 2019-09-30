@@ -200,33 +200,27 @@ img_subsys: bus@58000000 {
 		power-domains = <&pd IMX_SC_R_CSI_1>;
 	};
 
-	img_jpeg_dec_lpcg: clock-controller@585d0000 {
+	img_jpeg_dec_clk: clock-controller@585d0000 {
 		compatible = "fsl,imx8qxp-lpcg";
 		reg = <0x585d0000 0x10000>;
 		#clock-cells = <1>;
 		clocks = <&img_ipg_clk>, <&img_ipg_clk>;
-		clock-indices = <IMX_LPCG_CLK_0>,
-				<IMX_LPCG_CLK_4>;
-		clock-output-names = "img_jpeg_dec_lpcg_clk",
-				     "img_jpeg_dec_lpcg_ipg_clk";
+		bit-offset = <0 16>;
+		clock-output-names = "img_jpeg_dec_clk",
+				     "img_jpeg_dec_ipg_clk";
 		power-domains = <&pd IMX_SC_R_MJPEG_DEC_MP>;
 	};
 
-	img_jpeg_enc_lpcg: clock-controller@585f0000 {
+	img_jpeg_enc_clk: clock-controller@585f0000 {
 		compatible = "fsl,imx8qxp-lpcg";
 		reg = <0x585f0000 0x10000>;
 		#clock-cells = <1>;
 		clocks = <&img_ipg_clk>, <&img_ipg_clk>;
-		clock-indices = <IMX_LPCG_CLK_0>,
-				<IMX_LPCG_CLK_4>;
-		clock-output-names = "img_jpeg_enc_lpcg_clk",
-				     "img_jpeg_enc_lpcg_ipg_clk";
+		bit-offset = <0 16>;
+		clock-output-names = "img_jpeg_enc_clk",
+				     "img_jpeg_enc_ipg_clk";
 		power-domains = <&pd IMX_SC_R_MJPEG_ENC_MP>;
 	};
-
-	img_lpcg: clock-controller@58500000 {
-		compatible = "fsl,imx8qxp-lpcg-img";
-		reg = <0x58500000 0xb0000>;
 
 	irqsteer_csi0: irqsteer@58220000 {
 		compatible = "fsl,imx-irqsteer";
