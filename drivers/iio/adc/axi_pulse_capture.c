@@ -530,7 +530,6 @@ static const struct attribute_group axi_pulse_capture_attribute_group = {
 };
 
 static const struct iio_info axi_pulse_capture_info = {
-	.driver_module = THIS_MODULE,
 	.debugfs_reg_access = &axi_pulse_capture_reg_access,
 	.read_raw = axi_pulse_capture_read_raw,
 	.write_raw = axi_pulse_capture_write_raw,
