@@ -449,6 +449,7 @@
 		csi_id = <0>;
 		mclk = <24000000>;
 		mclk_source = <0>;
+		status = "disabled";
 	};
 };
 
@@ -514,6 +515,7 @@
 		csi_id = <1>;
 		mclk = <24000000>;
 		mclk_source = <0>;
+		status = "disabled";
 	};
 
 	pmic: pmic@8 {
