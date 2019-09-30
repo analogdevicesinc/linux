@@ -991,6 +991,8 @@ static int mipi_csis_subdev_host(struct csi_state *state)
 	struct device_node *node, *port, *rem;
 	int ret;
 
+	v4l2_async_notifier_init(&state->subdev_notifier);
+
 	/* Attach sensors linked to csi receivers */
 	for_each_available_child_of_node(parent, node) {
 		if (of_node_cmp(node->name, "port"))
@@ -1009,6 +1011,7 @@ static int mipi_csis_subdev_host(struct csi_state *state)
 			return -1;
 		}
 
+		INIT_LIST_HEAD(&state->asd.list);
 		state->asd.match_type = V4L2_ASYNC_MATCH_FWNODE;
 		state->asd.match.fwnode = of_fwnode_handle(rem);
 		state->async_subdevs[0] = &state->asd;
@@ -1017,8 +1020,9 @@ static int mipi_csis_subdev_host(struct csi_state *state)
 		break;
 	}
 
-	state->subdev_notifier.subdevs = state->async_subdevs;
-	state->subdev_notifier.num_subdevs = 1;
+	v4l2_async_notifier_add_subdev(&state->subdev_notifier,
+					&state->asd);
+	state->subdev_notifier.v4l2_dev = &state->v4l2_dev;
 	state->subdev_notifier.ops = &mxc_mipi_csi_subdev_ops;
 
 	ret = v4l2_async_notifier_register(&state->v4l2_dev,
