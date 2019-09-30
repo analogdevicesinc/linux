@@ -1,0 +1,17 @@
+// SPDX-License-Identifier: GPL-2.0
+//
+//Copyright (C) 2013 Freescale Semiconductor, Inc.
+
+#include "imx6sl-evk.dts"
+
+&csi {
+	status = "okay";
+};
+
+&i2c3 {
+	status = "okay";
+};
+
+&epdc {
+	status = "disabled";
+};
