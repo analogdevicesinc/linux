@@ -59,19 +59,20 @@
 
 	fragment@4 {
 		target = <&i2c1>;
-		__overlay__ {
+		__dormant__ {
 			pinctrl-0 = <&i2c1_pins>;
 			status = "okay";
 		};
 	};
 
+/* Fragment valid only for ADI ToF REV B */
 	fragment@5 {
 		target = <&i2c1>;
-		__overlay__ {
+		__dormant__ {
 			#address-cells = <1>;
 			#size-cells = <0>;
 
-			eeprom: eeprom@56 {
+			eeprom_i2c1: eeprom@56 {
 				compatible = "atmel,24c1024";
 				reg = <0x56>;
 				pagesize = <32>;
@@ -79,11 +80,31 @@
 		};
 	};
 
+/* Fragment valid only for ADI ToF REV C */
 	fragment@6 {
+		target = <&i2c_vc>;
+		__dormant__ {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			eeprom_i2c_vc: eeprom@56 {
+				compatible = "atmel,24c1024";
+				reg = <0x56>;
+				pagesize = <32>;
+			};
+		};
+	};
+
+	fragment@7 {
 		target = <&i2c1_pins>;
-		__overlay__ {
+		__dormant__ {
 			brcm,pins = <2 3>;
 			brcm,function = <4>; /* alt 0 */
 		};
+	};
+
+	__overrides__ {
+		revb = <0>,"+4+5-6+7";
+		revc = <0>,"-4-5+6-7";
 	};
 };
