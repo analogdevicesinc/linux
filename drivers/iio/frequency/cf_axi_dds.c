@@ -1408,7 +1408,7 @@ static const struct file_operations cf_axi_dds_debugfs_fops = {
 	.write = cf_axi_dds_debugfs_write,
 };
 
-static int dds_converter_match(struct device *dev, void *data)
+static int dds_converter_match(struct device *dev, const void *data)
 {
 	return dev->driver && dev->of_node == data;
 }
