@@ -924,9 +924,12 @@ static int axi_hdmi_rx_probe(struct platform_device *pdev)
 	hdmi_rx->asd.match_type = V4L2_ASYNC_MATCH_FWNODE;
 	hdmi_rx->asd.match.fwnode = of_fwnode_handle(of_graph_get_remote_port_parent(ep_node));
 
-	hdmi_rx->asds[0] = &hdmi_rx->asd;
-	hdmi_rx->notifier.subdevs = hdmi_rx->asds;
-	hdmi_rx->notifier.num_subdevs = ARRAY_SIZE(hdmi_rx->asds);
+	v4l2_async_notifier_init(&hdmi_rx->notifier);
+	ret = v4l2_async_notifier_add_subdev(&hdmi_rx->notifier,
+					     &hdmi_rx->asd);
+	if (ret < 0)
+		goto err_device_unregister;
+
 	hdmi_rx->notifier.ops = &axi_hdmi_rx_async_ops;
 
 	ret = v4l2_async_notifier_register(&hdmi_rx->v4l2_dev,
