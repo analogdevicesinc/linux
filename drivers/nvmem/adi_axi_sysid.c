@@ -234,7 +234,9 @@ static int axi_sysid_remove(struct platform_device *pdev)
 {
 	struct nvmem_device *nvmem = platform_get_drvdata(pdev);
 
-	return nvmem_unregister(nvmem);
+	nvmem_unregister(nvmem);
+
+	return 0;
 }
 
 static struct platform_driver axi_sysid_driver = {
