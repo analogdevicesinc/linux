@@ -185,10 +185,31 @@ static struct imageon_bridge *imageon_bridge_parse_dt(struct device *dev)
 	return bridge;
 }
 
+static int imageon_bridge_notifier_init(struct imageon_bridge *bridge)
+{
+	struct v4l2_async_notifier *notifier = &bridge->notifier;
+	int ret;
+
+	v4l2_async_notifier_init(notifier);
+
+	ret = v4l2_async_notifier_add_subdev(notifier,
+			&bridge->imageon_subdev[INPUT_SUBDEV].asd);
+	if (ret < 0)
+		return ret;
+
+	ret = v4l2_async_notifier_add_subdev(notifier,
+			&bridge->imageon_subdev[OUTPUT_SUBDEV].asd);
+	if (ret < 0)
+		return ret;
+
+	notifier->ops = &imageon_async_ops;
+
+	return v4l2_async_notifier_register(&bridge->v4l2_dev, notifier);
+}
+
 static int imageon_bridge_probe(struct platform_device *pdev)
 {
 	struct imageon_bridge *bridge;
-	struct v4l2_async_subdev **asubdevs;
 	int ret;
 
 	bridge = imageon_bridge_parse_dt(&pdev->dev);
@@ -234,24 +255,9 @@ static int imageon_bridge_probe(struct platform_device *pdev)
 		goto err;
 	}
 
-	asubdevs = devm_kzalloc(&pdev->dev, sizeof(struct v4l2_async_subdev*) * 2,
-		GFP_KERNEL);
-	if (bridge == NULL) {
-		ret = -ENOMEM;
-		goto err;
-	}
-
-	asubdevs[INPUT_SUBDEV] = &bridge->imageon_subdev[INPUT_SUBDEV].asd;
-	asubdevs[OUTPUT_SUBDEV] = &bridge->imageon_subdev[OUTPUT_SUBDEV].asd;
-
-	bridge->notifier.subdevs = asubdevs;
-	bridge->notifier.num_subdevs = 2;
-	bridge->notifier.ops = &imageon_async_ops;
-
-	ret = v4l2_async_notifier_register(&bridge->v4l2_dev,
-		&bridge->notifier);
-	if (ret) {
-		dev_err(&pdev->dev, "failed to register device nodes\n");
+	ret = imageon_bridge_notifier_init(bridge);
+	if (ret < 0) {
+		dev_err(&pdev->dev, "failed to initialize bridge notifier\n");
 		goto err;
 	}
 
