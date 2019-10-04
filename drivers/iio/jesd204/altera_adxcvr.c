@@ -91,6 +91,7 @@ struct adxcvr_state {
 	struct jesd204_dev	*jdev;
 	unsigned int 		version;
 	bool			is_transmit;
+	bool			skip_pll_reconfig;
 	u32			lanes_per_link;
 
 	unsigned int reset_counter;
@@ -486,6 +487,49 @@ static struct adxcvr_state *clk_hw_to_adxcvr(struct clk_hw *clk_hw)
 #include "altera_a10_atx_pll.c"
 #include "altera_a10_cdr_pll.c"
 
+static unsigned long adxcvr_dummy_pll_recalc_rate(struct clk_hw *clk_hw,
+	unsigned long parent_rate)
+{
+	struct adxcvr_state *st = clk_hw_to_adxcvr(clk_hw);
+
+	return st->lane_rate;
+}
+
+static long adxcvr_dummy_pll_round_rate(struct clk_hw *clk_hw,
+	unsigned long rate, unsigned long *parent_rate)
+{
+	return rate;
+}
+
+static int adxcvr_dummy_pll_set_rate(struct clk_hw *clk_hw,
+	unsigned long rate, unsigned long parent_rate)
+{
+	struct adxcvr_state *st = clk_hw_to_adxcvr(clk_hw);
+
+	adxcvr_pre_lane_rate_change(st);
+
+	if (st->is_transmit) {
+		atx_pll_acquire_arbitration(st);
+		atx_pll_update(st, XCVR_REG_CALIB_ATX_PLL_EN,
+			XCVR_CALIB_ATX_PLL_EN_MASK, XCVR_CALIB_ATX_PLL_EN);
+		atx_pll_release_arbitration(st, true);
+
+		atx_pll_calibration_check(st);
+		xcvr_calib_tx(st);
+	}
+
+	adxcvr_post_lane_rate_change(st, rate);
+	st->lane_rate = rate;
+
+	return 0;
+}
+
+static const struct clk_ops adxcvr_dummy_pll_ops = {
+	.recalc_rate = adxcvr_dummy_pll_recalc_rate,
+	.round_rate = adxcvr_dummy_pll_round_rate,
+	.set_rate = adxcvr_dummy_pll_set_rate,
+};
+
 static int adxcvr_register_lane_clk(struct adxcvr_state *st)
 {
 	struct clk_init_data init;
@@ -508,6 +552,8 @@ static int adxcvr_register_lane_clk(struct adxcvr_state *st)
 		init.ops = &adxcvr_atx_pll_ops;
 	else
 		init.ops = &adxcvr_cdr_pll_ops;
+	if (st->skip_pll_reconfig)
+		init.ops = &adxcvr_dummy_pll_ops;
 	init.flags = CLK_SET_RATE_GATE | CLK_SET_PARENT_GATE;
 	init.num_parents = 1;
 	init.parent_names = &parent_name;
@@ -588,6 +634,9 @@ static int adxcvr_probe(struct platform_device *pdev)
 		if (IS_ERR(st->atx_pll_regs))
 			return PTR_ERR(st->atx_pll_regs);
 	}
+
+	st->skip_pll_reconfig = of_property_read_bool(pdev->dev.of_node,
+		"adi,skip-pll-reconfiguration");
 
 	st->dev = &pdev->dev;
 	platform_set_drvdata(pdev, st);
