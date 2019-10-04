@@ -47,7 +47,7 @@
 #include "../crypto/caam/error.h"
 #include "../crypto/caam/desc_constr.h"
 
-#define DESC_DMA_MEMCPY_LEN	((CAAM_DESC_BYTES_MAX - DESC_JOB_IO_LEN) / \
+#define DESC_DMA_MEMCPY_LEN	((CAAM_DESC_BYTES_MAX - DESC_JOB_IO_LEN_MIN) / \
 				 CAAM_CMD_SZ)
 
 /*
