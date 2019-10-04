@@ -147,12 +147,16 @@ static void adxcvr_release_arbitration(void __iomem *addr, bool calibrate)
 
 static void atx_pll_write(struct adxcvr_state *st, unsigned reg, unsigned val)
 {
-	iowrite32(val, st->atx_pll_regs + reg * 4);
+	if (st->atx_pll_regs)
+		iowrite32(val, st->atx_pll_regs + reg * 4);
 }
 
 static unsigned int atx_pll_read(struct adxcvr_state *st, unsigned reg)
 {
-	return ioread32(st->atx_pll_regs + reg * 4);
+	if (st->atx_pll_regs)
+		return ioread32(st->atx_pll_regs + reg * 4);
+	else
+		return 0;
 }
 
 static void atx_pll_update(struct adxcvr_state *st, unsigned int reg,
@@ -181,13 +185,17 @@ static void atx_pll_release_arbitration(struct adxcvr_state *st,
 static void adxcfg_write(struct adxcvr_state *st, unsigned lane, unsigned reg,
 	unsigned val)
 {
-	iowrite32(val, st->adxcfg_regs[lane] + reg * 4);
+	if (st->adxcfg_regs[lane])
+		iowrite32(val, st->adxcfg_regs[lane] + reg * 4);
 }
 
 static unsigned int adxcfg_read(struct adxcvr_state *st, unsigned lane,
 	unsigned reg)
 {
-	return ioread32(st->adxcfg_regs[lane] + reg * 4);
+	if (st->adxcfg_regs[lane])
+		return ioread32(st->adxcfg_regs[lane] + reg * 4);
+	else
+		return 0;
 }
 
 static void adxcfg_update(struct adxcvr_state *st, unsigned int lane,
@@ -483,6 +491,38 @@ static struct adxcvr_state *clk_hw_to_adxcvr(struct clk_hw *clk_hw)
 #include "altera_a10_atx_pll.c"
 #include "altera_a10_cdr_pll.c"
 
+static unsigned long adxcvr_dummy_pll_recalc_rate(struct clk_hw *clk_hw,
+	unsigned long parent_rate)
+{
+	struct adxcvr_state *st = clk_hw_to_adxcvr(clk_hw);
+
+	return st->lane_rate;
+}
+
+static long adxcvr_dummy_pll_round_rate(struct clk_hw *clk_hw,
+	unsigned long rate, unsigned long *parent_rate)
+{
+	return rate;
+}
+
+static int adxcvr_dummy_pll_set_rate(struct clk_hw *clk_hw,
+	unsigned long rate, unsigned long parent_rate)
+{
+	struct adxcvr_state *st = clk_hw_to_adxcvr(clk_hw);
+
+	adxcvr_pre_lane_rate_change(st);
+	adxcvr_post_lane_rate_change(st, rate);
+	st->lane_rate = rate;
+
+	return 0;
+}
+
+static const struct clk_ops adxcvr_dummy_pll_ops = {
+	.recalc_rate = adxcvr_dummy_pll_recalc_rate,
+	.round_rate = adxcvr_dummy_pll_round_rate,
+	.set_rate = adxcvr_dummy_pll_set_rate,
+};
+
 static int adxcvr_register_lane_clk(struct adxcvr_state *st)
 {
 	struct clk_init_data init;
@@ -504,7 +544,10 @@ static int adxcvr_register_lane_clk(struct adxcvr_state *st)
 	if (st->atx_pll_regs)
 		init.ops = &adxcvr_atx_pll_ops;
 	else
-		init.ops = &adxcvr_cdr_pll_ops;
+		if (st->adxcfg_regs[0])
+			init.ops = &adxcvr_cdr_pll_ops;
+		else
+			init.ops = &adxcvr_dummy_pll_ops;
 	init.flags = CLK_SET_RATE_GATE | CLK_SET_PARENT_GATE;
 	init.num_parents = 1;
 	init.parent_names = &parent_name;
@@ -560,10 +603,12 @@ static int adxcvr_probe(struct platform_device *pdev)
 		sprintf(adxcfg_name, "adxcfg-%d", lane);
 		mem_adxcfg = platform_get_resource_byname(pdev,
 						IORESOURCE_MEM, adxcfg_name);
-		st->adxcfg_regs[lane] = devm_ioremap_resource(&pdev->dev,
-							      mem_adxcfg);
-		if (IS_ERR(st->adxcfg_regs[lane]))
-			return PTR_ERR(st->adxcfg_regs[lane]);
+		if (mem_adxcfg) {
+			st->adxcfg_regs[lane] =
+				devm_ioremap_resource(&pdev->dev, mem_adxcfg);
+			if (IS_ERR(st->adxcfg_regs[lane]))
+				return PTR_ERR(st->adxcfg_regs[lane]);
+		}
 	}
 
 	st->link_clk = devm_clk_get(&pdev->dev, "link");
@@ -573,10 +618,12 @@ static int adxcvr_probe(struct platform_device *pdev)
 	if (st->is_transmit) {
 		mem_atx_pll = platform_get_resource_byname(pdev,
 					IORESOURCE_MEM, "atx-pll");
-		st->atx_pll_regs = devm_ioremap_resource(&pdev->dev,
+		if (mem_atx_pll) {
+			st->atx_pll_regs = devm_ioremap_resource(&pdev->dev,
 							 mem_atx_pll);
-		if (IS_ERR(st->atx_pll_regs))
-			return PTR_ERR(st->atx_pll_regs);
+			if (IS_ERR(st->atx_pll_regs))
+				return PTR_ERR(st->atx_pll_regs);
+		}
 	}
 
 	st->dev = &pdev->dev;
