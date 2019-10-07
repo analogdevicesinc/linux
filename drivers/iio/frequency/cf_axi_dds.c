@@ -1032,6 +1032,36 @@ static struct cf_axi_dds_chip_info cf_axi_dds_chip_info_tbl[] = {
 		.num_dds_channels = 8,
 		.num_buf_channels = 4,
 	},
+	[ID_AD9154] = {
+		.name = "AD9154",
+		.channel = {
+			{
+				.type = IIO_TEMP,
+				.indexed = 1,
+				.channel = 0,
+				.scan_index = -1,
+				.info_mask_separate =
+					BIT(IIO_CHAN_INFO_PROCESSED) |
+					BIT(IIO_CHAN_INFO_CALIBBIAS),
+			},
+			CF_AXI_DDS_CHAN_BUF(0),
+			CF_AXI_DDS_CHAN_BUF(1),
+			CF_AXI_DDS_CHAN_BUF(2),
+			CF_AXI_DDS_CHAN_BUF(3),
+			CF_AXI_DDS_CHAN(0, 0, "1A"),
+			CF_AXI_DDS_CHAN(1, 0, "1B"),
+			CF_AXI_DDS_CHAN(2, 0, "2A"),
+			CF_AXI_DDS_CHAN(3, 0, "2B"),
+			CF_AXI_DDS_CHAN(4, 0, "3A"),
+			CF_AXI_DDS_CHAN(5, 0, "3B"),
+			CF_AXI_DDS_CHAN(6, 0, "4A"),
+			CF_AXI_DDS_CHAN(7, 0, "4B"),
+		},
+		.num_channels = 13,
+		.num_dp_disable_channels = 5,
+		.num_dds_channels = 8,
+		.num_buf_channels = 4,
+	},
 	[ID_AD9152] = {
 		.name = "AD9152",
 		.channel = {
@@ -1437,6 +1467,7 @@ static const struct of_device_id cf_axi_dds_of_match[] = {
 	{ .compatible = "adi,axi-ad9122-6.00.a", .data = &ad9122_6_00_a_info},
 	{ .compatible = "adi,axi-ad9136-1.0", .data = &ad9144_7_00_a_info },
 	{ .compatible = "adi,axi-ad9144-1.0", .data = &ad9144_7_00_a_info, },
+	{ .compatible = "adi,axi-ad9154-1.0", .data = &ad9144_7_00_a_info, },
 	{ .compatible = "adi,axi-ad9739a-8.00.b", .data = &ad9739a_8_00_b_info},
 	{
 	    .compatible = "adi,axi-ad9361x2-dds-6.00.a",

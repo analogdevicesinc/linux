@@ -34,6 +34,7 @@ enum chip_id {
 	CHIPID_AD9136 = AD9144_CHIPID(0x91, 0x44, 0x6),
 	CHIPID_AD9144 = AD9144_CHIPID(0x91, 0x44, 0x0),
 	CHIPID_AD9152 = AD9144_CHIPID(0x91, 0x52, 0x0),
+	CHIPID_AD9154 = AD9144_CHIPID(0x91, 0x54, 0x9),
 };
 
 enum ad9144_sysref_mode {
@@ -459,6 +460,7 @@ static int ad9144_dac_calibrate(struct ad9144_state *st)
 
 	switch (st->id) {
 	case CHIPID_AD9144:
+	case CHIPID_AD9154:
 		dac_mask = GENMASK(st->num_converters - 1, 0);
 		break;
 	default: /* AD9135/AD9136 */
@@ -487,6 +489,7 @@ static int ad9144_dac_calibrate(struct ad9144_state *st)
 	for (i = 0; i < st->num_converters; i++) {
 		switch (st->id) {
 		case CHIPID_AD9144:
+		case CHIPID_AD9154:
 			dac_mask = BIT(i);
 			break;
 		default:
@@ -577,7 +580,8 @@ static void ad9144_setup_samplerate(struct ad9144_state *st)
 	regmap_write(map, 0x280, 0x00);	// disable serdes pll
 
 	regmap_write(map, 0x2a7, 0x01);	// input termination calibration
-	if (AD9144_ID_GET_PRODUCT_ID(st->id) == 0x9144)
+	if (AD9144_ID_GET_PRODUCT_ID(st->id) == 0x9144 ||
+	    AD9144_ID_GET_PRODUCT_ID(st->id) == 0x9154)
 		regmap_write(map, 0x2ae, 0x01);	// input termination calibration
 
 	regmap_write(map, 0x230, serdes_cdr);
@@ -654,7 +658,10 @@ static int ad9144_setup(struct ad9144_state *st,
 		pd_clk = 0x04;
 		break;
 	case CHIPID_AD9144:
+	case CHIPID_AD9154:
 		pd_clk = GENMASK(7 - DIV_ROUND_UP(st->num_converters, 2), 6);
+		if (st->id == CHIPID_AD9154)
+			pd_clk |= 2;
 		pd_dac = GENMASK(6 - st->num_converters, 3);
 		break;
 	default: /* AD9135/AD9136 */
@@ -677,19 +684,26 @@ static int ad9144_setup(struct ad9144_state *st,
 
 	regmap_write(map, 0x314, 0x01);	// pclk == qbd master clock
 
-	if (AD9144_ID_GET_PRODUCT_ID(st->id) == 0x9144) {
+	if (AD9144_ID_GET_PRODUCT_ID(st->id) == 0x9144 ||
+	    AD9144_ID_GET_PRODUCT_ID(st->id) == 0x9154) {
 		regmap_multi_reg_write(map, ad9144_required_device_config,
 			ARRAY_SIZE(ad9144_required_device_config));
 
-		/*
-		 * SERDES optimization according to table 39 AD9144 Rev. B
-		 * datasheet.
-		 */
-		regmap_write(map, 0x296, 0x03);
-		regmap_write(map, 0x28a, 0x7b);
+		if (AD9144_ID_GET_PRODUCT_ID(st->id) == 0x9144) {
+			/*
+			 * SERDES optimization according to table 39 AD9144 Rev. B
+			 * datasheet.
+			 */
+			regmap_write(map, 0x296, 0x03);
+			regmap_write(map, 0x28a, 0x7b);
 
-		regmap_write(map, 0x2b1, 0xb7);	// jesd termination
-		regmap_write(map, 0x2b2, 0x87);	// jesd termination
+			regmap_write(map, 0x2b1, 0xb7);	// jesd termination
+			regmap_write(map, 0x2b2, 0x87);	// jesd termination
+		} else {
+			regmap_write(map, 0x28a, 0x7b);
+			regmap_write(map, 0x291, 0x4c);
+			regmap_write(map, 0x296, 0x1b);
+		}
 	}
 
 	regmap_multi_reg_write(map, ad9144_optimal_serdes_settings,
@@ -705,13 +719,15 @@ static int ad9144_setup(struct ad9144_state *st,
 		val = 0x01;
 		break;
 	case 4:
-		if (AD9144_ID_GET_PRODUCT_ID(st->id) == 0x9144)
+		if (AD9144_ID_GET_PRODUCT_ID(st->id) == 0x9144 ||
+		    AD9144_ID_GET_PRODUCT_ID(st->id) == 0x9154)
 			val = 0x03;
 		else
 			val = 0x02;
 		break;
 	case 8:
-		if (AD9144_ID_GET_PRODUCT_ID(st->id) == 0x9144)
+		if (AD9144_ID_GET_PRODUCT_ID(st->id) == 0x9144 ||
+		    AD9144_ID_GET_PRODUCT_ID(st->id) == 0x9154)
 			val = 0x04;
 		else
 			val = 0x03;
@@ -741,7 +757,8 @@ static int ad9144_setup(struct ad9144_state *st,
 	/* LMFC settings for link 0 */
 	regmap_write(map, 0x304, 0x00);	// lmfc delay
 	regmap_write(map, 0x306, 0x0a);	// receive buffer delay
-	if (AD9144_ID_GET_PRODUCT_ID(st->id) == 0x9144) {
+	if (AD9144_ID_GET_PRODUCT_ID(st->id) == 0x9144 ||
+	    AD9144_ID_GET_PRODUCT_ID(st->id) == 0x9154) {
 		/* LMFC settings for link 1 */
 		regmap_write(map, 0x305, 0x00);	// lmfc delay
 		regmap_write(map, 0x307, 0x0a);	// receive buffer delay
@@ -819,6 +836,7 @@ static int ad9144_set_sample_rate(struct cf_axi_converter *conv,
 		}
 		break;
 	case CHIPID_AD9144:
+	case CHIPID_AD9154:
 		max_lane_rate_khz = 12400000;
 		switch (st->interpolation) {
 		case 1:
@@ -1177,6 +1195,9 @@ static int ad9144_probe(struct spi_device *spi)
 	case CHIPID_AD9144:
 		conv->id = ID_AD9144;
 		break;
+	case CHIPID_AD9154:
+		conv->id = ID_AD9154;
+		break;
 	default:
 		conv->id = ID_AD9152;
 		break;
@@ -1248,6 +1269,7 @@ static const struct spi_device_id ad9144_id[] = {
 	{ "ad9136", CHIPID_AD9136 },
 	{ "ad9144", CHIPID_AD9144 },
 	{ "ad9152", CHIPID_AD9152 },
+	{ "ad9154", CHIPID_AD9154 },
 	{}
 };
 
