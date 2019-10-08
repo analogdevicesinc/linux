@@ -8,7 +8,7 @@
 
 &gmac1 {
 	status = "okay";
-	mac-mode = "mii";
+	phy-mode = "mii";
 	phy-handle = <&ethernet_gmac1_phy1>;
 
 	mdio {
@@ -24,7 +24,7 @@
 
 &gmac2 {
 	status = "okay";
-	mac-mode = "mii";
+	phy-mode = "mii";
 	phy-handle = <&ethernet_gmac2_phy2>;
 
 	mdio {
