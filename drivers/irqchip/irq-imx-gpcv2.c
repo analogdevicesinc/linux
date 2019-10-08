@@ -126,7 +126,9 @@ static void imx_gpcv2_wake_request_fixup(void)
 static int imx_gpcv2_irq_set_wake(struct irq_data *d, unsigned int on)
 {
 	struct gpcv2_irqchip_data *cd = d->chip_data;
+#ifdef CONFIG_ARM64
 	struct arm_smccc_res res;
+#endif
 	unsigned int idx = d->hwirq / 32;
 	unsigned long flags;
 	u32 mask, val;
