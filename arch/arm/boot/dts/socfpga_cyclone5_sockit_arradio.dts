@@ -156,14 +156,21 @@
 					compatible = "adi,axi-dmac-1.00.a";
 					reg = <0x00004000 0x00004000>;
 					interrupt-parent = <&intc>;
-					interrupts = <0 42 4>;
+					interrupts = <0 43 4>;
 					#dma-cells = <1>;
 					clocks = <&dma_clk>;
 
-					dma-channel {
-						adi,buswidth = <64>;
-						adi,type = <1>;
-						adi,cyclic;
+					adi,channels {
+						#size-cells = <0>;
+						#address-cells = <1>;
+
+						dma-channel@0 {
+							reg = <0>;
+							adi,source-bus-width = <64>;
+							adi,source-bus-type = <0>;
+							adi,destination-bus-width = <64>;
+							adi,destination-bus-type = <1>;
+						};
 					};
 				};
 
@@ -171,13 +178,21 @@
 					compatible = "adi,axi-dmac-1.00.a";
 					reg = <0x00000000 0x00004000>;
 					interrupt-parent = <&intc>;
-					interrupts = <0 43 4>;
+					interrupts = <0 42 4>;
 					#dma-cells = <1>;
 					clocks = <&dma_clk>;
 
-					dma-channel {
-						adi,buswidth = <64>;
-						adi,type = <0>;
+					adi,channels {
+						#size-cells = <0>;
+						#address-cells = <1>;
+
+						dma-channel@0 {
+							reg = <0>;
+							adi,source-bus-width = <64>;
+							adi,source-bus-type = <2>;
+							adi,destination-bus-width = <128>;
+							adi,destination-bus-type = <0>;
+						};
 					};
 				};
 
