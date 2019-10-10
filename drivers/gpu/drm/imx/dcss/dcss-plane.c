@@ -6,6 +6,8 @@
 #include <drm/drm_atomic.h>
 #include <drm/drm_atomic_helper.h>
 #include <drm/drm_blend.h>
+#include <linux/dma-buf.h>
+#include <drm/drm_drv.h>
 #include <drm/drm_fb_dma_helper.h>
 #include <drm/drm_framebuffer.h>
 #include <drm/drm_gem_atomic_helper.h>
@@ -42,6 +44,7 @@ static const u64 dcss_video_format_modifiers[] = {
 static const u64 dcss_graphics_format_modifiers[] = {
 	DRM_FORMAT_MOD_VIVANTE_TILED,
 	DRM_FORMAT_MOD_VIVANTE_SUPER_TILED,
+	DRM_FORMAT_MOD_VIVANTE_SUPER_TILED_FC,
 	DRM_FORMAT_MOD_LINEAR,
 	DRM_FORMAT_MOD_INVALID,
 };
@@ -79,7 +82,8 @@ static bool dcss_plane_format_mod_supported(struct drm_plane *plane,
 		case DRM_FORMAT_ARGB2101010:
 			return modifier == DRM_FORMAT_MOD_LINEAR ||
 			       modifier == DRM_FORMAT_MOD_VIVANTE_TILED ||
-			       modifier == DRM_FORMAT_MOD_VIVANTE_SUPER_TILED;
+			       modifier == DRM_FORMAT_MOD_VIVANTE_SUPER_TILED ||
+			       modifier == DRM_FORMAT_MOD_VIVANTE_SUPER_TILED_FC;
 		default:
 			return modifier == DRM_FORMAT_MOD_LINEAR;
 		}
@@ -211,6 +215,74 @@ static int dcss_plane_atomic_check(struct drm_plane *plane,
 	return 0;
 }
 
+static struct drm_gem_object *dcss_plane_gem_import(struct drm_device *dev,
+						    struct dma_buf *dma_buf)
+{
+	struct drm_gem_object *obj;
+
+	if (IS_ERR(dma_buf))
+		return ERR_CAST(dma_buf);
+
+	mutex_lock(&dev->object_name_lock);
+
+	obj = dev->driver->gem_prime_import(dev, dma_buf);
+
+	mutex_unlock(&dev->object_name_lock);
+
+	return obj;
+}
+
+static void dcss_plane_set_primary_base(struct dcss_plane *dcss_plane,
+					u32 baddr)
+{
+	struct drm_plane *plane = &dcss_plane->base;
+	struct dcss_dev *dcss = plane->dev->dev_private;
+	struct drm_plane_state *state = plane->state;
+	struct drm_framebuffer *fb = state->fb;
+	struct drm_gem_dma_object *dma_obj = drm_fb_dma_get_gem_obj(fb, 0);
+	struct dma_buf *dma_buf = dma_obj->base.dma_buf;
+	struct drm_gem_object *gem_obj;
+	dma_addr_t caddr;
+	bool compressed = true;
+	u32 compressed_format = _VIV_CFMT_ARGB8;
+	_VIV_VIDMEM_METADATA *mdata;
+
+	if (dcss_plane_fb_is_linear(fb) ||
+	    ((fb->flags & DRM_MODE_FB_MODIFIERS) &&
+	     (fb->modifier == DRM_FORMAT_MOD_VIVANTE_TILED ||
+	      fb->modifier == DRM_FORMAT_MOD_VIVANTE_SUPER_TILED))) {
+		dcss_dec400d_bypass(dcss->dec400d);
+		return;
+	}
+
+	if (!dma_buf) {
+		caddr = dma_obj->dma_addr + ALIGN(fb->height, 64) * fb->pitches[0];
+	} else {
+		mdata = dma_buf->priv;
+		if (!mdata || mdata->magic != VIV_VIDMEM_METADATA_MAGIC)
+			return;
+
+		gem_obj = dcss_plane_gem_import(plane->dev, mdata->ts_dma_buf);
+		if (IS_ERR(gem_obj))
+			return;
+
+		caddr = to_drm_gem_dma_obj(gem_obj)->dma_addr;
+
+		/* release gem_obj */
+		drm_gem_object_put(gem_obj);
+
+		dcss_dec400d_fast_clear_config(dcss->dec400d, mdata->fc_value,
+					       mdata->fc_enabled);
+
+		compressed = !!mdata->compressed;
+		compressed_format = mdata->compress_format;
+	}
+
+	dcss_dec400d_read_config(dcss->dec400d, 0, compressed,
+				 compressed_format);
+	dcss_dec400d_addr_set(dcss->dec400d, baddr, caddr);
+}
+
 static void dcss_plane_atomic_set_base(struct dcss_plane *dcss_plane)
 {
 	struct drm_plane *plane = &dcss_plane->base;
@@ -243,6 +315,9 @@ static void dcss_plane_atomic_set_base(struct dcss_plane *dcss_plane)
 
 	dcss_dpr_addr_set(dcss->dpr, dcss_plane->ch_num, p1_ba, p2_ba,
 			  fb->pitches[0]);
+
+	if (plane->type == DRM_PLANE_TYPE_PRIMARY)
+		dcss_plane_set_primary_base(dcss_plane, p1_ba);
 }
 
 static bool dcss_plane_needs_setup(struct drm_plane_state *state,
@@ -291,6 +366,8 @@ static void dcss_plane_atomic_update(struct drm_plane *plane,
 	if (old_state->fb && !drm_atomic_crtc_needs_modeset(crtc_state) &&
 	    !dcss_plane_needs_setup(new_state, old_state)) {
 		dcss_plane_atomic_set_base(dcss_plane);
+		if (plane->type == DRM_PLANE_TYPE_PRIMARY)
+			dcss_dec400d_shadow_trig(dcss->dec400d);
 		return;
 	}
 
@@ -336,6 +413,9 @@ static void dcss_plane_atomic_update(struct drm_plane *plane,
 			       dst.x1, dst.y1, dst_w, dst_h);
 	dcss_dtg_plane_alpha_set(dcss->dtg, dcss_plane->ch_num,
 				 fb->format, new_state->alpha >> 8);
+
+	if (plane->type == DRM_PLANE_TYPE_PRIMARY)
+		dcss_dec400d_enable(dcss->dec400d);
 
 	if (!dcss_plane->ch_num && (new_state->alpha >> 8) == 0)
 		enable = false;

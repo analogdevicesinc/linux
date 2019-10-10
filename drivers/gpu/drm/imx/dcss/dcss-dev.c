@@ -102,9 +102,16 @@ static int dcss_submodules_init(struct dcss_dev *dcss)
 	if (ret)
 		goto scaler_err;
 
+	ret = dcss_dec400d_init(dcss, base_addr + devtype->dec400d_ofs);
+	if (ret)
+		goto dec400d_err;
+
 	dcss_clocks_disable(dcss);
 
 	return 0;
+
+dec400d_err:
+	dcss_scaler_exit(dcss->scaler);
 
 scaler_err:
 	dcss_dpr_exit(dcss->dpr);
@@ -127,6 +134,7 @@ ctxld_err:
 static void dcss_submodules_stop(struct dcss_dev *dcss)
 {
 	dcss_clocks_enable(dcss);
+	dcss_dec400d_exit(dcss->dec400d);
 	dcss_scaler_exit(dcss->scaler);
 	dcss_dpr_exit(dcss->dpr);
 	dcss_ss_exit(dcss->ss);

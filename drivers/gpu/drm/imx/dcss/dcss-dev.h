@@ -175,4 +175,65 @@ int dcss_scaler_get_min_max_ratios(struct dcss_scaler *scl, int ch_num,
 				   int *min, int *max);
 void dcss_scaler_write_sclctrl(struct dcss_scaler *scl);
 
+/* DEC400D */
+
+#define VIV_VIDMEM_METADATA_MAGIC fourcc_code('v', 'i', 'v', 'm')
+
+/* Compressed format now was defined same as dec400d, should be general. */
+typedef enum _VIV_COMPRESS_FMT
+{
+    _VIV_CFMT_ARGB8 = 0,
+    _VIV_CFMT_XRGB8,
+    _VIV_CFMT_AYUV,
+    _VIV_CFMT_UYVY,
+    _VIV_CFMT_YUY2,
+    _VIV_CFMT_YUV_ONLY,
+    _VIV_CFMT_UV_MIX,
+    _VIV_CFMT_ARGB4,
+    _VIV_CFMT_XRGB4,
+    _VIV_CFMT_A1R5G5B5,
+    _VIV_CFMT_X1R5G5B5,
+    _VIV_CFMT_R5G6B5,
+    _VIV_CFMT_Z24S8,
+    _VIV_CFMT_Z24,
+    _VIV_CFMT_Z16,
+    _VIV_CFMT_A2R10G10B10,
+    _VIV_CFMT_BAYER,
+    _VIV_CFMT_SIGNED_BAYER,
+    _VIV_CFMT_VAA16,
+    _VIV_CFMT_S8,
+
+    _VIV_CFMT_MAX,
+} _VIV_COMPRESS_FMT;
+
+/* Metadata for cross-device fd share with additional (ts) info. */
+typedef struct _VIV_VIDMEM_METADATA
+{
+    uint32_t magic;
+
+    int32_t  ts_fd;
+    void *   ts_dma_buf;
+
+    uint32_t fc_enabled;
+    uint32_t fc_value;
+    uint32_t fc_value_upper;
+
+    uint32_t compressed;
+    uint32_t compress_format;
+} _VIV_VIDMEM_METADATA;
+
+int dcss_dec400d_init(struct dcss_dev *dcss, unsigned long dec400d_base);
+void dcss_dec400d_exit(struct dcss_dec400d *dec400d);
+void dcss_dec400d_bypass(struct dcss_dec400d *dec400d);
+void dcss_dec400d_shadow_trig(struct dcss_dec400d *dec400d);
+void dcss_dec400d_enable(struct dcss_dec400d *dec400d);
+void dcss_dec400d_fast_clear_config(struct dcss_dec400d *dec400d,
+				    u32 fc_value,
+				    bool enable);
+void dcss_dec400d_read_config(struct dcss_dec400d *dec400d,
+			      u32 read_id,
+			      bool compress_en,
+			      u32 compress_format);
+void dcss_dec400d_addr_set(struct dcss_dec400d *dec400d, u32 baddr, u32 caddr);
+
 #endif /* __DCSS_PRV_H__ */
