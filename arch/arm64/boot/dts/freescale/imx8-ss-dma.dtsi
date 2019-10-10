@@ -224,6 +224,21 @@ dma_subsys: bus@5a000000 {
 				<&pd IMX_SC_R_DMA_3_CH7>;
 	};
 
+	emvsim0: sim0@5a0d0000 {
+		compatible = "fsl,imx8-emvsim";
+		reg = <0x5a0d0000 0x10000>;
+		interrupts = <GIC_SPI 230 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-parent = <&gic>;
+		clocks = <&emvsim0_lpcg 0>,
+			 <&emvsim0_lpcg 1>;
+		clock-names = "sim", "ipg";
+		assigned-clocks = <&clk IMX_SC_R_EMVSIM_0 IMX_SC_PM_CLK_PER>;
+		assigned-clock-rates = <24000000>;
+		power-domains = <&pd IMX_SC_R_EMVSIM_0>, <&pd IMX_SC_R_BOARD_R2>;
+		power-domain-names = "sim_pd", "sim_aux_pd";
+		status = "disabled";
+	};
+
 	spi0_lpcg: clock-controller@5a400000 {
 		compatible = "fsl,imx8qxp-lpcg";
 		reg = <0x5a400000 0x10000>;
@@ -330,6 +345,18 @@ dma_subsys: bus@5a000000 {
 		clock-output-names = "adma_pwm_lpcg_clk",
 				     "adma_pwm_lpcg_ipg_clk";
 		power-domains = <&pd IMX_SC_R_LCD_0_PWM_0>;
+	};
+
+	emvsim0_lpcg: clock-controller@5a4d0000 {
+		compatible = "fsl,imx8qxp-lpcg";
+		reg = <0x5a4d0000 0x10000>;
+		#clock-cells = <1>;
+		clocks = <&clk IMX_SC_R_EMVSIM_0 IMX_SC_PM_CLK_PER>,
+			 <&dma_ipg_clk>;
+		bit-offset = <0 16>;
+		clock-output-names = "emvsim0_lpcg_clk",
+				     "emvsim0_lpcg_ipg_clk";
+		power-domains = <&pd IMX_SC_R_EMVSIM_0>;
 	};
 
 	i2c0: i2c@5a800000 {

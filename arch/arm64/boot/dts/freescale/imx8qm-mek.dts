@@ -488,6 +488,12 @@
 	};
 };
 
+&emvsim0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_sim0>;
+	status = "okay";
+};
+
 &lpuart0 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_lpuart0>;
@@ -1061,6 +1067,16 @@
 	pinctrl_lpspi2_cs: lpspi2cs {
 		fsl,pins = <
 			IMX8QM_SPI2_CS0_LSIO_GPIO3_IO10		0x21
+		>;
+	};
+
+	pinctrl_sim0: sim0grp {
+		fsl,pins = <
+			IMX8QM_SIM0_CLK_DMA_SIM0_CLK		0xc0000021
+			IMX8QM_SIM0_IO_DMA_SIM0_IO		0xc2000021
+			IMX8QM_SIM0_PD_DMA_SIM0_PD		0xc0000021
+			IMX8QM_SIM0_POWER_EN_DMA_SIM0_POWER_EN	0xc0000021
+			IMX8QM_SIM0_RST_DMA_SIM0_RST		0xc0000021
 		>;
 	};
 
