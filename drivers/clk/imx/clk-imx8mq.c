@@ -614,6 +614,13 @@ static int imx8mq_clocks_probe(struct platform_device *pdev)
 		goto unregister_hws;
 	}
 
+	clk_set_parent(hws[IMX8MQ_CLK_CSI1_CORE]->clk, hws[IMX8MQ_SYS1_PLL_266M]->clk);
+	clk_set_parent(hws[IMX8MQ_CLK_CSI1_PHY_REF]->clk, hws[IMX8MQ_SYS2_PLL_1000M]->clk);
+	clk_set_parent(hws[IMX8MQ_CLK_CSI1_ESC]->clk, hws[IMX8MQ_SYS1_PLL_800M]->clk);
+	clk_set_parent(hws[IMX8MQ_CLK_CSI2_CORE]->clk, hws[IMX8MQ_SYS1_PLL_266M]->clk);
+	clk_set_parent(hws[IMX8MQ_CLK_CSI2_PHY_REF]->clk, hws[IMX8MQ_SYS2_PLL_1000M]->clk);
+	clk_set_parent(hws[IMX8MQ_CLK_CSI2_ESC]->clk, hws[IMX8MQ_SYS1_PLL_800M]->clk);
+
 	imx_register_uart_clocks();
 
 	return 0;
