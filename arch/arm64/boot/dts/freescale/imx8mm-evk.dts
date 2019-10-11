@@ -15,6 +15,17 @@
 	aliases {
 		spi0 = &flexspi;
 	};
+
+	reg_sd1_vmmc: sd1_regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "WLAN_EN";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		gpio = <&gpio2 10 GPIO_ACTIVE_HIGH>;
+		off-on-delay = <20000>;
+		startup-delay-us = <100>;
+		enable-active-high;
+	};
 };
 
 &ddrc {
@@ -51,6 +62,19 @@
 		spi-tx-bus-width = <1>;
 		spi-rx-bus-width = <4>;
 	};
+};
+
+&usdhc1 {
+	pinctrl-names = "default", "state_100mhz", "state_200mhz";
+	pinctrl-0 = <&pinctrl_usdhc1>, <&pinctrl_usdhc1_gpio>;
+	pinctrl-1 = <&pinctrl_usdhc1_100mhz>, <&pinctrl_usdhc1_gpio>;
+	pinctrl-2 = <&pinctrl_usdhc1_200mhz>, <&pinctrl_usdhc1_gpio>;
+	bus-width = <4>;
+	vmmc-supply = <&reg_sd1_vmmc>;
+	pm-ignore-notify;
+	keep-power-in-suspend;
+	non-removable;
+	status = "okay";
 };
 
 &usdhc3 {
