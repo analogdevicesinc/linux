@@ -1,9 +1,10 @@
 # SPDX-License-Identifier: GPL-2.0
-all: test mod
+all: test mod virtio-ivshmem-console
 test: virtio_test vringh_test vhost_net_test
 virtio_test: virtio_ring.o virtio_test.o
 vringh_test: vringh_test.o vringh.o virtio_ring.o
 vhost_net_test: virtio_ring.o vhost_net_test.o
+virtio-ivshmem-console: virtio-ivshmem-console.o
 
 try-run = $(shell set -e;		\
 	if ($(1)) >/dev/null 2>&1;	\
@@ -52,5 +53,6 @@ oot-clean: OOT_BUILD+=clean
 clean:
 	${RM} *.o vringh_test virtio_test vhost_net_test vhost_test/*.o \
               vhost_test/.*.cmd vhost_test/Module.symvers \
-              vhost_test/modules.order *.d
+              vhost_test/modules.order *.d \
+              virtio-ivshmem-console
 -include *.d
