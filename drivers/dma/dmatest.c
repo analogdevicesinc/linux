@@ -1182,13 +1182,16 @@ static int param_set_dmatest_type(const char *val,
 	unsigned int mask;
 	char val_buf[32], *p;
 	int ret, en = 1;
+	int err;
 
 	strlcpy(val_buf, val, sizeof(val_buf));
 
 	if ((p = strchr(val_buf, '='))) {
 		*p = 0;
 		p++;
-		kstrtoint(p, 10, &en);
+		err = kstrtoint(p, 10, &en);
+		if (err)
+			return err;
 	}
 
 	ret = find_string(strim(val_buf), transaction_type_names,
