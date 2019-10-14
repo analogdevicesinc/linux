@@ -312,7 +312,7 @@ int ad917x_nco_get_phase_offset(ad917x_handle_t *h,
 					const ad917x_channel_select_t channels, uint16_t *ch_po)
 {
 	int err;
-	uint8_t tmp_reg;
+	uint8_t tmp_reg = 0;
 	if (h == NULL)
 		return API_ERROR_INVALID_HANDLE_PTR;
 	if ((dacs_po == NULL) || (ch_po == NULL))
