@@ -870,7 +870,7 @@
 
 			port {
 				dpi0_out: endpoint {
-
+					remote-endpoint = <&dp1_out>;
 				};
 			};
 		};
@@ -1029,6 +1029,22 @@
 			reg = <0x0 0xf1f0000 0x0 0x10000>;
 			#clock-cells = <0>;
 			clocks = <&osc_27m>;
+		};
+
+		hdptx0: display@f200000 {
+			compatible = "cdn,ls1028a-dp";
+			reg = <0x0 0xf200000 0x0 0xfffff>;
+			interrupts = <0 221 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clockgen 2 2>, <&clockgen 2 2>, <&clockgen 2 2>,
+				 <&clockgen 2 2>, <&clockgen 2 2>, <&dpclk>;
+			clock-names = "clk_core", "pclk", "sclk",
+				      "cclk", "clk_vif", "clk_pxl";
+
+			port {
+				dp1_out: endpoint {
+					remote-endpoint = <&dpi0_out>;
+				};
+			};
 		};
 
 		tmu: tmu@1f80000 {
@@ -1351,5 +1367,4 @@
 			status = "disabled";
 		};
 	};
-
 };
