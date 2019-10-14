@@ -3,6 +3,9 @@ set -e
 
 . ./ci/travis/lib.sh
 
+KCFLAGS="-Werror -Wno-error=frame-larger-than="
+export KCFLAGS
+
 build_default() {
 	make ${DEFCONFIG}
 	make -j`getconf _NPROCESSORS_ONLN` $IMAGE UIMAGE_LOADADDR=0x8000
