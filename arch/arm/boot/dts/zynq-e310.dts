@@ -28,7 +28,6 @@
 	};
 
 	chosen {
-		linux,stdout-path = "serial0:115200n8";
 		stdout-path = "serial0:115200n8";
 	};
 
