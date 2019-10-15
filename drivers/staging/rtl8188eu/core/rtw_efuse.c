@@ -29,7 +29,7 @@ enum{
  *				and disable LDO 2.5V.
  */
 
-void efuse_power_switch(struct adapter *pAdapter, u8 write, u8 pwrstate)
+static void efuse_power_switch(struct adapter *pAdapter, u8 write, u8 pwrstate)
 {
 	u8 tempval;
 	u16 tmpv16;
