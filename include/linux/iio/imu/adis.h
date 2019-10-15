@@ -387,11 +387,15 @@ struct adis_burst {
 	unsigned int	write_delay;
 };
 
+int
+devm_adis_setup_buffer_and_trigger(struct adis *adis, struct iio_dev *indio_dev,
+				   irqreturn_t (*trigger_handler)(int, void *));
 int adis_setup_buffer_and_trigger(struct adis *adis,
 	struct iio_dev *indio_dev, irqreturn_t (*trigger_handler)(int, void *));
 void adis_cleanup_buffer_and_trigger(struct adis *adis,
 	struct iio_dev *indio_dev);
 
+int devm_adis_probe_trigger(struct adis *adis, struct iio_dev *indio_dev);
 int adis_probe_trigger(struct adis *adis, struct iio_dev *indio_dev);
 void adis_remove_trigger(struct adis *adis);
 
@@ -399,6 +403,13 @@ int adis_update_scan_mode(struct iio_dev *indio_dev,
 	const unsigned long *scan_mask);
 
 #else /* CONFIG_IIO_BUFFER */
+
+static inline int
+devm_adis_setup_buffer_and_trigger(struct adis *adis, struct iio_dev *indio_dev,
+				   irqreturn_t (*trigger_handler)(int, void *))
+{
+	return 0;
+}
 
 static inline int adis_setup_buffer_and_trigger(struct adis *adis,
 	struct iio_dev *indio_dev, irqreturn_t (*trigger_handler)(int, void *))
@@ -409,6 +420,12 @@ static inline int adis_setup_buffer_and_trigger(struct adis *adis,
 static inline void adis_cleanup_buffer_and_trigger(struct adis *adis,
 	struct iio_dev *indio_dev)
 {
+}
+
+static inline int devm_adis_probe_trigger(struct adis *adis,
+					  struct iio_dev *indio_dev)
+{
+	return 0;
 }
 
 static inline int adis_probe_trigger(struct adis *adis,
