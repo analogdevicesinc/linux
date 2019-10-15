@@ -1047,7 +1047,8 @@ static ssize_t mw_stream_chan_store(struct device *dev, struct device_attribute 
 static ssize_t mw_stream_chan_show(struct device *dev, struct device_attribute *attr,
         char *buf)
 {
-    return sprintf(buf, "%llu\n", atomic64_read(&rxcount)); 
+	return sprintf(buf, "%llu\n",
+		       (unsigned long long)atomic64_read(&rxcount));
 }
 
 static DEVICE_ATTR(dma_irq, S_IRUGO, mw_stream_chan_show, mw_stream_chan_store);
