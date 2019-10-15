@@ -485,8 +485,9 @@ static unsigned int ad7192_get_temp_scale(bool unipolar)
 static int ad7192_set_3db_filter_freq(struct ad7192_state *st,
 				      int val, int val2)
 {
-	int freq_avail[4], i, ret, idx, freq;
+	int freq_avail[4], i, ret, freq;
 	unsigned int diff_new, diff_old;
+	int idx = 0;
 
 	diff_old = U32_MAX;
 	freq = val * 1000 + val2;
