@@ -115,27 +115,6 @@
 
 		clocks = <&converter_clock>;
 		clock-names = "clk";
-
-		ports {
-			#address-cells = <1>;
-			#size-cells = <0>;
-
-			port@0 {
-				reg = <0>;
-
-				ad9963_tx: endpoint {
-					remote-endpoint = <>;
-				};
-			};
-
-			port@1 {
-				reg = <1>;
-
-				ad9963_rx: endpoint {
-					remote-endpoint = <>;
-				};
-			};
-		};
 	};
 };
 
