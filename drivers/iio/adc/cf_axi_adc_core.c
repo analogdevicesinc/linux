@@ -698,39 +698,28 @@ static int axiadc_attach_spi_client(struct device *dev, void *data)
 	return ret;
 }
 
-static const struct axiadc_core_info ad9467_core_1_00_a_info = {
-	.version = ADI_AXI_PCORE_VER(10, 0, 'a'),
-};
-
-static const struct axiadc_core_info ad9361_6_00_a_info = {
-	.version = ADI_AXI_PCORE_VER(10, 0, 'a'),
-};
-
-static const struct axiadc_core_info ad9643_6_00_a_info = {
-	.version = ADI_AXI_PCORE_VER(10, 0, 'a'),
-};
-
-static const struct axiadc_core_info ad9680_6_00_a_info = {
+static const struct axiadc_core_info axi_adc_10_0_a_info = {
 	.version = ADI_AXI_PCORE_VER(10, 0, 'a'),
 };
 
 /* Match table for of_platform binding */
 static const struct of_device_id axiadc_of_match[] = {
-	{ .compatible = "xlnx,cf-ad9467-core-1.00.a", .data = &ad9467_core_1_00_a_info },
-	{ .compatible =	"xlnx,axi-ad9234-1.00.a", .data = &ad9680_6_00_a_info },
-	{ .compatible =	"xlnx,axi-ad9250-1.00.a", .data = &ad9680_6_00_a_info },
-	{ .compatible =	"xlnx,axi-ad9434-1.00.a", .data = &ad9680_6_00_a_info },
-	{ .compatible = "adi,axi-ad9643-6.00.a", .data = &ad9643_6_00_a_info },
-	{ .compatible = "adi,axi-ad9361-6.00.a", .data = &ad9361_6_00_a_info },
-	{ .compatible = "adi,axi-ad9680-1.0", .data = &ad9680_6_00_a_info },
-	{ .compatible = "adi,axi-ad9694-1.0", .data = &ad9680_6_00_a_info },
-	{ .compatible = "adi,axi-ad9625-1.0", .data = &ad9680_6_00_a_info },
-	{ .compatible = "adi,axi-ad6676-1.0", .data = &ad9680_6_00_a_info },
-	{ .compatible = "adi,axi-ad9371-rx-1.0", .data = &ad9361_6_00_a_info },
-	{ .compatible = "adi,axi-ad9684-1.0", .data = &ad9680_6_00_a_info },
-	{ .compatible = "adi,axi-adrv9009-rx-1.0", .data = &ad9361_6_00_a_info },
-	{ .compatible = "adi,axi-ad9208-1.0", .data = &ad9680_6_00_a_info },
-	{ .compatible = "adi,axi-ad9081-rx-1.0", .data = &ad9680_6_00_a_info },
+	{ .compatible = "xlnx,cf-ad9467-core-1.00.a", .data = &axi_adc_10_0_a_info },
+	{ .compatible =	"xlnx,axi-ad9234-1.00.a", .data = &axi_adc_10_0_a_info },
+	{ .compatible =	"xlnx,axi-ad9250-1.00.a", .data = &axi_adc_10_0_a_info },
+	{ .compatible =	"xlnx,axi-ad9434-1.00.a", .data = &axi_adc_10_0_a_info },
+	{ .compatible = "adi,axi-ad9643-6.00.a", .data = &axi_adc_10_0_a_info },
+	{ .compatible = "adi,axi-ad9361-6.00.a", .data = &axi_adc_10_0_a_info },
+	{ .compatible = "adi,axi-ad9680-1.0", .data = &axi_adc_10_0_a_info },
+	{ .compatible = "adi,axi-ad9694-1.0", .data = &axi_adc_10_0_a_info },
+	{ .compatible = "adi,axi-ad9625-1.0", .data = &axi_adc_10_0_a_info },
+	{ .compatible = "adi,axi-ad6676-1.0", .data = &axi_adc_10_0_a_info },
+	{ .compatible = "adi,axi-ad9371-rx-1.0", .data = &axi_adc_10_0_a_info },
+	{ .compatible = "adi,axi-ad9684-1.0", .data = &axi_adc_10_0_a_info },
+	{ .compatible = "adi,axi-adrv9009-rx-1.0", .data = &axi_adc_10_0_a_info },
+	{ .compatible = "adi,axi-ad9208-1.0", .data = &axi_adc_10_0_a_info },
+	{ .compatible = "adi,axi-ad9081-rx-1.0", .data = &axi_adc_10_0_a_info },
+	{ .compatible = "adi,axi-adc-10.0.a", .data = &axi_adc_10_0_a_info },
 	{ /* end of list */ },
 };
 MODULE_DEVICE_TABLE(of, axiadc_of_match);
