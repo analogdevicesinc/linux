@@ -174,7 +174,7 @@
 		#size-cells = <0x1>;
 		ranges;
 
-		fmc_i2c: i2c@41620000 {
+		fmc_i2c: i2c@41600000 {
 			compatible = "xlnx,axi-iic-1.01.b", "xlnx,xps-iic-2.00.a";
 			interrupt-parent = <&intc>;
 			interrupts = <0 58 0x4>;
@@ -370,7 +370,7 @@
 			};
 		};
 
-		logic_analyzer@7010000 {
+		logic_analyzer@70100000 {
 			compatible = "adi,m2k-logic-analyzer";
 			reg = <0x70100000 0x10000>;
 
@@ -380,9 +380,9 @@
 			dma-names = "tx", "rx";
 		};
 
-		m2k-adc-trigger@7C4c0000 {
+		m2k-adc-trigger@7c4c0000 {
 			compatible = "adi,axi-adc-trigger";
-			reg = <0x7C4c0000 0x10000>;
+			reg = <0x7c4c0000 0x10000>;
 			clocks = <&converter_clock>;
 		};
 
