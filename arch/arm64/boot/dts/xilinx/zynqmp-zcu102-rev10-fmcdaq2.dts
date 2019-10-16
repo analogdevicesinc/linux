@@ -43,7 +43,7 @@
 			#dma-cells = <1>;
 			#clock-cells = <0>;
 			interrupts = <0 109 0>;
-			clocks = <&clk 71>;
+			clocks = <&zynqmp_clk 71>;
 
 			adi,channels {
 				#size-cells = <0>;
@@ -65,7 +65,7 @@
 			#dma-cells = <1>;
 			#clock-cells = <0>;
 			interrupts = <0 108 0>;
-			clocks = <&clk 71>;
+			clocks = <&zynqmp_clk 71>;
 
 			adi,channels {
 				#size-cells = <0>;
@@ -96,7 +96,7 @@
 
 			interrupts = <0 106 0>;
 
-			clocks = <&clk 71>, <&axi_ad9144_adxcvr 1>, <&axi_ad9144_adxcvr 0>;
+			clocks = <&zynqmp_clk 71>, <&axi_ad9144_adxcvr 1>, <&axi_ad9144_adxcvr 0>;
 			clock-names = "s_axi_aclk", "device_clk", "lane_clk";
 
 			adi,octets-per-frame = <1>;
@@ -123,7 +123,7 @@
 
 			interrupts = <0 107 0>;
 
-			clocks = <&clk 71>, <&axi_ad9680_adxcvr 1>, <&axi_ad9680_adxcvr 0>;
+			clocks = <&zynqmp_clk 71>, <&axi_ad9680_adxcvr 1>, <&axi_ad9680_adxcvr 0>;
 			clock-names = "s_axi_aclk", "device_clk", "lane_clk";
 
 			adi,octets-per-frame = <1>;
