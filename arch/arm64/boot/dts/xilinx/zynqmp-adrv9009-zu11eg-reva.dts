@@ -1196,7 +1196,7 @@
 
 			interrupts = <0 109 0>;
 
-			clocks = <&clk 71>, <&hmc7044 7>, <&axi_adrv9009_adxcvr_rx 0>;
+			clocks = <&zynqmp_clk 71>, <&hmc7044 7>, <&axi_adrv9009_adxcvr_rx 0>;
 			clock-names = "s_axi_aclk", "device_clk", "lane_clk";
 
 			#clock-cells = <0>;
@@ -1230,7 +1230,7 @@
 
 			interrupts = <0 107 0>;
 
-			clocks = <&clk 71>, <&hmc7044 6>, <&axi_adrv9009_adxcvr_rx_os 0>;
+			clocks = <&zynqmp_clk 71>, <&hmc7044 6>, <&axi_adrv9009_adxcvr_rx_os 0>;
 			clock-names = "s_axi_aclk", "device_clk", "lane_clk";
 
 			#clock-cells = <0>;
@@ -1262,7 +1262,7 @@
 
 			interrupts = <0 108 0>;
 
-			clocks = <&clk 71>, <&hmc7044 6>, <&axi_adrv9009_adxcvr_tx 0>;
+			clocks = <&zynqmp_clk 71>, <&hmc7044 6>, <&axi_adrv9009_adxcvr_tx 0>;
 			clock-names = "s_axi_aclk", "device_clk", "lane_clk";
 
 			#clock-cells = <0>;
@@ -1279,7 +1279,7 @@
 		axi_fan_control: axi-fan-control@80000000 {
 			compatible = "adi,axi-fan-control-1.00.a";
 			reg = <0x0 0x80000000 0x10000>;
-			clocks = <&clk 71>;
+			clocks = <&zynqmp_clk 71>;
 			interrupts = <0 110 0>;
 
 			adi,pulses-per-revolution = <2>;
@@ -1291,7 +1291,7 @@
 			#dma-cells = <1>;
 			#clock-cells = <0>;
 			interrupts = <0 106 0>;
-			clocks = <&clk 73>;
+			clocks = <&zynqmp_clk 73>;
 
 			adi,channels {
 				#size-cells = <0>;
@@ -1313,7 +1313,7 @@
 			#dma-cells = <1>;
 			#clock-cells = <0>;
 			interrupts = <0 104 0>;
-			clocks = <&clk 73>;
+			clocks = <&zynqmp_clk 73>;
 
 			adi,channels {
 				#size-cells = <0>;
@@ -1335,7 +1335,7 @@
 			#dma-cells = <1>;
 			#clock-cells = <0>;
 			interrupts = <0 105 0>;
-			clocks = <&clk 73>;
+			clocks = <&zynqmp_clk 73>;
 
 			adi,channels {
 				#size-cells = <0>;
