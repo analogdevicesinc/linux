@@ -223,6 +223,15 @@
 	};
 };
 
+&csi2 {
+	status = "okay";
+	port {
+		csi2_ep: endpoint {
+			remote-endpoint = <&vadc_ep>;
+		};
+	};
+};
+
 &gpc {
 	fsl,ldo-bypass = <1>;
 };
@@ -993,6 +1002,17 @@
 			fsl,pins = <
 				MX6SX_PAD_GPIO1_IO13__WDOG1_WDOG_ANY 0x30b0
 			>;
+		};
+	};
+};
+
+&vadc {
+	vadc_in = <0>;
+	csi_id = <1>;
+	status = "okay";
+	port {
+		vadc_ep: endpoint {
+			remote-endpoint = <&csi2_ep>;
 		};
 	};
 };
