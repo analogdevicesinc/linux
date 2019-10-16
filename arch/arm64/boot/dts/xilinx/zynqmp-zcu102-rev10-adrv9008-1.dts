@@ -41,7 +41,7 @@
 			#dma-cells = <1>;
 			#clock-cells = <0>;
 			interrupts = <0 109 0>;
-			clocks = <&clk 73>;
+			clocks = <&zynqmp_clk 73>;
 
 			adi,channels {
 				#size-cells = <0>;
@@ -73,7 +73,7 @@
 
 			interrupts = <0 106 0>;
 
-			clocks = <&clk 71>, <&axi_rx_clkgen>, <&axi_adrv9009_adxcvr_rx 0>;
+			clocks = <&zynqmp_clk 71>, <&axi_rx_clkgen>, <&axi_adrv9009_adxcvr_rx 0>;
 			clock-names = "s_axi_aclk", "device_clk", "lane_clk";
 
 			#clock-cells = <0>;

@@ -42,7 +42,7 @@
 			reg = <0x80010000 0x10000>;
 			#dma-cells = <1>;
 			interrupts = <0 109 0>;
-			clocks = <&clk 71>;
+			clocks = <&zynqmp_clk 71>;
 
 			adi,channels {
 				#size-cells = <0>;
@@ -63,7 +63,7 @@
 			reg = <0x80020000 0x10000>;
 			#dma-cells = <1>;
 			interrupts = <0 108 0>;
-			clocks = <&clk 71>;
+			clocks = <&zynqmp_clk 71>;
 
 			adi,channels {
 				#size-cells = <0>;
