@@ -1297,8 +1297,16 @@
 	resolution-max = <1920 1080>;
 	fps-max = <120>;
 	power-domains = <&pd IMX_SC_R_VPU_ENC_0>, <&pd IMX_SC_R_VPU_ENC_1>,
-			<&pd IMX_SC_R_VPU>, <&pd IMX_SC_R_VPU_MU_1>, <&pd IMX_SC_R_VPU_MU_2>;
-	power-domain-names = "vpuenc1", "vpuenc2", "vpu", "vpumu1", "vpumu2";
+			<&pd IMX_SC_R_VPU>;
+	power-domain-names = "vpuenc1", "vpuenc2", "vpu";
+	mbox-names = "enc1_tx0", "enc1_tx1", "enc1_rx",
+		     "enc2_tx0", "enc2_tx1", "enc2_rx";
+	mboxes = <&mu1_m0 0 0
+		  &mu1_m0 0 1
+		  &mu1_m0 1 0
+		  &mu2_m0 0 0
+		  &mu2_m0 0 1
+		  &mu2_m0 1 0>;
 	status = "okay";
 
 	core0@1020000 {

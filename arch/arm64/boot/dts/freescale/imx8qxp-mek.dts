@@ -885,6 +885,10 @@
 	reg-rpc-system = <0x40000000>;
 	resolution-max = <1920 1080>;
 	fps-max = <120>;
+	mbox-names = "enc1_tx0", "enc1_tx1", "enc1_rx";
+	mboxes = <&mu1_m0 0 0
+		  &mu1_m0 0 1
+		  &mu1_m0 1 0>;
 	status = "okay";
 
 	core0@1020000 {
