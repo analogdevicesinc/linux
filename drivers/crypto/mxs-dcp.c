@@ -333,6 +333,9 @@ static int mxs_dcp_aes_block_crypt(struct crypto_async_request *arq)
 	int init = 0;
 	bool limit_hit = false;
 
+	if (!req->cryptlen)
+		return 0;
+
 	actx->fill = 0;
 
 	/* Copy the key from the temporary location. */
