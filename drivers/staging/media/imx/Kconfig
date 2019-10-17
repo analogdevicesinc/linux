@@ -34,5 +34,11 @@ config IMX8_ISI_CORE
 	depends on VIDEO_V4L2 && VIDEO_V4L2_SUBDEV_API
 	default y
 
+config IMX8_ISI_CAPTURE
+	bool "IMX8 Image Sensor Interface Capture Device Driver"
+	depends on IMX8_ISI_CORE
+	select VIDEOBUF2_DMA_CONTIG
+	default y
+
 endmenu
 endif  #VIDEO_IMX_CAPTURE
