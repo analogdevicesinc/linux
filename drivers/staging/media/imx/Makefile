@@ -18,3 +18,4 @@ obj-$(CONFIG_VIDEO_IMX_MEDIA) += imx6-mipi-csi2.o
 obj-$(CONFIG_IMX8_CAPTURE_DRIVER) += imx8-capture.o
 obj-$(CONFIG_IMX8_ISI_CORE) += imx8-capture.o
 obj-$(CONFIG_IMX8_ISI_CAPTURE) 	  += imx8-isi-cap.o
+obj-$(CONFIG_IMX8_ISI_M2M)	+= imx8-isi-m2m.o
