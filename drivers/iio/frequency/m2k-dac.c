@@ -605,7 +605,7 @@ static int m2k_dac_alloc_channel(struct platform_device *pdev,
 	return 0;
 }
 
-static int dds_dev_match(struct device *dev, void *data)
+static int dds_dev_match(struct device *dev, const void *data)
 {
 	int ret;
 
