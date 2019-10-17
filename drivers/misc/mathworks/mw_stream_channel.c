@@ -767,7 +767,7 @@ static void mwadma_mmap_close(struct vm_area_struct *vma)
 /*
  * @brief mwadma_mmap_fault
  */
-static int mwadma_mmap_fault(struct vm_fault *vmf)
+static vm_fault_t mwadma_mmap_fault(struct vm_fault *vmf)
 {
     struct vm_area_struct *vma = vmf->vma;
     struct mwadma_dev * mwdev = vma->vm_private_data;
