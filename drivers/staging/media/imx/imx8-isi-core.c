@@ -6,6 +6,46 @@
 
 #include "imx8-isi-hw.h"
 
+struct mxc_isi_dev *mxc_isi_get_hostdata(struct platform_device *pdev)
+{
+	struct mxc_isi_dev *mxc_isi;
+
+	if (!pdev || !pdev->dev.parent)
+		return NULL;
+
+	device_lock(pdev->dev.parent);
+	mxc_isi = (struct mxc_isi_dev *)dev_get_drvdata(pdev->dev.parent);
+	if (!mxc_isi) {
+		dev_err(&pdev->dev, "Cann't get host data\n");
+		device_unlock(pdev->dev.parent);
+		return NULL;
+	}
+	device_unlock(pdev->dev.parent);
+
+	return mxc_isi;
+}
+
+struct device *mxc_isi_dev_get_parent(struct platform_device *pdev)
+{
+	struct device *dev = &pdev->dev;
+	struct device_node *parent;
+	struct platform_device *parent_pdev;
+
+	if (!pdev)
+		return NULL;
+
+	/* Get parent for isi capture device */
+	parent = of_get_parent(dev->of_node);
+	parent_pdev = of_find_device_by_node(parent);
+	if (!parent_pdev) {
+		of_node_put(parent);
+		return NULL;
+	}
+	of_node_put(parent);
+
+	return &parent_pdev->dev;
+}
+
 static irqreturn_t mxc_isi_irq_handler(int irq, void *priv)
 {
 	struct mxc_isi_dev *mxc_isi = priv;
@@ -17,8 +57,12 @@ static irqreturn_t mxc_isi_irq_handler(int irq, void *priv)
 	status = mxc_isi_get_irq_status(mxc_isi);
 	mxc_isi_clean_irq_status(mxc_isi, status);
 
-	if (status & CHNL_STS_FRM_STRD_MASK)
-		mxc_isi_cap_frame_write_done(mxc_isi);
+	if (status & CHNL_STS_FRM_STRD_MASK) {
+		if (mxc_isi->m2m_enabled)
+			mxc_isi_m2m_frame_write_done(mxc_isi);
+		else
+			mxc_isi_cap_frame_write_done(mxc_isi);
+	}
 
 	if (status & (CHNL_STS_AXI_WR_ERR_Y_MASK |
 		      CHNL_STS_AXI_WR_ERR_U_MASK |
@@ -51,7 +95,6 @@ static int mxc_isi_parse_dt(struct mxc_isi_dev *mxc_isi)
 	int ret = 0;
 
 	mxc_isi->id = of_alias_get_id(node, "isi");
-	mxc_isi->parallel_csi = of_property_read_bool(node, "parallel_csi");
 	mxc_isi->chain_buf = of_property_read_bool(node, "fsl,chain_buf");
 
 	ret = of_property_read_u32_array(node, "interface", mxc_isi->interface, 3);
@@ -88,10 +131,9 @@ static int mxc_isi_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-	init_waitqueue_head(&mxc_isi->irq_queue);
 	spin_lock_init(&mxc_isi->slock);
 	mutex_init(&mxc_isi->lock);
-	atomic_set(&mxc_isi->open_count, 0);
+	atomic_set(&mxc_isi->usage_count, 0);
 
 	mxc_isi->clk = devm_clk_get(dev, NULL);
 	if (IS_ERR(mxc_isi->clk)) {
@@ -126,30 +168,25 @@ static int mxc_isi_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-	ret = mxc_isi_initialize_capture_subdev(mxc_isi);
-	if (ret < 0) {
-		dev_err(dev, "failed to init cap subdev (%d)\n", ret);
-		return -EINVAL;
-	}
-
-	platform_set_drvdata(pdev, mxc_isi);
-
 	mxc_isi_channel_set_chain_buf(mxc_isi);
 
+	ret = of_platform_populate(dev->of_node, NULL, NULL, dev);
+	if (ret < 0)
+		dev_warn(dev, "Populate child platform device fail\n");
+
 	clk_disable_unprepare(mxc_isi->clk);
+
+	platform_set_drvdata(pdev, mxc_isi);
 	pm_runtime_enable(dev);
 
 	dev_info(dev, "mxc_isi.%d registered successfully\n", mxc_isi->id);
-
 	return 0;
 }
 
 static int mxc_isi_remove(struct platform_device *pdev)
 {
-	struct mxc_isi_dev *mxc_isi = platform_get_drvdata(pdev);
 	struct device *dev = &pdev->dev;
 
-	mxc_isi_unregister_capture_subdev(mxc_isi);
 	pm_runtime_disable(dev);
 
 	return 0;

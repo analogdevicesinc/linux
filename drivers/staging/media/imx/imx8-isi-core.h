@@ -37,6 +37,8 @@
 #include "imx8-common.h"
 
 #define MXC_ISI_DRIVER_NAME	"mxc-isi"
+#define MXC_ISI_CAPTURE		"mxc-isi-cap"
+#define MXC_ISI_M2M		"mxc-isi-m2m"
 #define MXC_MAX_PLANES		3
 
 enum mxc_isi_out_fmt {
@@ -95,6 +97,25 @@ enum mxc_isi_in_fmt {
 	MXC_ISI_IN_FMT_BGR8P	= 0x0,
 };
 
+enum mxc_isi_m2m_in_fmt {
+	MXC_ISI_M2M_IN_FMT_BGR8P	= 0x0,
+	MXC_ISI_M2M_IN_FMT_RGB8P,
+	MXC_ISI_M2M_IN_FMT_XRGB8,
+	MXC_ISI_M2M_IN_FMT_RGBX8,
+	MXC_ISI_M2M_IN_FMT_XBGR8,
+	MXC_ISI_M2M_IN_FMT_RGB565,
+	MXC_ISI_M2M_IN_FMT_A2BGR10,
+	MXC_ISI_M2M_IN_FMT_A2RGB10,
+	MXC_ISI_M2M_IN_FMT_YUV444_1P8P,
+	MXC_ISI_M2M_IN_FMT_YUV444_1P10,
+	MXC_ISI_M2M_IN_FMT_YUV444_1P10P,
+	MXC_ISI_M2M_IN_FMT_YUV444_1P12,
+	MXC_ISI_M2M_IN_FMT_YUV444_1P8,
+	MXC_ISI_M2M_IN_FMT_YUV422_1P8P,
+	MXC_ISI_M2M_IN_FMT_YUV422_1P10,
+	MXC_ISI_M2M_IN_FMT_YUV422_1P10P,
+};
+
 struct mxc_isi_fmt {
 	char	*name;
 	u32	mbus_code;
@@ -113,6 +134,8 @@ struct mxc_isi_ctrls {
 	struct v4l2_ctrl *hflip;
 	struct v4l2_ctrl *vflip;
 	struct v4l2_ctrl *alpha;
+	struct v4l2_ctrl *num_cap_buf;
+	struct v4l2_ctrl *num_out_buf;
 	bool ready;
 };
 
@@ -168,77 +191,111 @@ struct mxc_isi_buffer {
 	bool discard;
 };
 
+struct mxc_isi_m2m_dev {
+	struct platform_device	*pdev;
+
+	struct video_device vdev;
+	struct v4l2_device  v4l2_dev;
+	struct v4l2_m2m_dev *m2m_dev;
+	struct v4l2_fh      fh;
+	struct v4l2_pix_format_mplane pix;
+
+	struct list_head	out_active;
+	struct mxc_isi_ctrls	ctrls;
+
+	struct mxc_isi_frame src_f;
+	struct mxc_isi_frame dst_f;
+
+	struct mutex lock;
+	spinlock_t   slock;
+
+	unsigned int aborting;
+	unsigned int frame_count;
+
+	u32 req_cap_buf_num;
+	u32 req_out_buf_num;
+
+	u8 id;
+};
+
 struct mxc_isi_ctx {
-	struct mxc_isi_dev *isi_dev;
+	struct mxc_isi_m2m_dev *isi_m2m;
 	struct v4l2_fh	    fh;
 };
 
 struct mxc_isi_cap_dev {
-	struct v4l2_subdev	sd;
-	struct video_device	vdev;
-	struct v4l2_fh		fh;
-	struct media_pad	cap_pad;
-	struct media_pad	sd_pads[MXC_ISI_SD_PADS_NUM];
-	struct vb2_queue	vb2_q;
-	struct list_head	out_pending;
-	struct list_head	out_active;
-	struct list_head	out_discard;
+	struct v4l2_subdev  sd;
+	struct video_device vdev;
+	struct v4l2_fh      fh;
+	struct vb2_queue    vb2_q;
+	struct v4l2_pix_format_mplane pix;
 
-	struct mxc_isi_frame	src_f;
-	struct mxc_isi_frame	dst_f;
-	u32			frame_count;
+	struct mxc_isi_dev     *mxc_isi;
+	struct platform_device *pdev;
+	struct mxc_isi_ctrls   ctrls;
+	struct mxc_isi_buffer  buf_discard[2];
 
-	u32 buf_index;
+	struct media_pad cap_pad;
+	struct media_pad sd_pads[MXC_ISI_SD_PADS_NUM];
+
+	struct list_head out_pending;
+	struct list_head out_active;
+	struct list_head out_discard;
+
+	struct mxc_isi_frame src_f;
+	struct mxc_isi_frame dst_f;
+
+	u32 frame_count;
+	u32 id;
+
+	struct mutex lock;
+	spinlock_t   slock;
+
+	/* dirty buffer */
+	size_t     discard_size[MXC_MAX_PLANES];
+	void       *discard_buffer[MXC_MAX_PLANES];
+	dma_addr_t discard_buffer_dma[MXC_MAX_PLANES];
 };
 
 struct mxc_isi_dev {
-	struct mxc_isi_cap_dev	isi_cap;
-	struct platform_device	*pdev;
-	struct v4l2_device	*v4l2_dev;
-	struct clk		*clk;
+	/* Pointer to isi capture child device driver data */
+	struct mxc_isi_cap_dev *isi_cap;
 
-	struct mutex		lock;
-	wait_queue_head_t	irq_queue;
-	spinlock_t		slock;
+	/* Pointer to isi m2m child device driver data */
+	struct mxc_isi_m2m_dev *isi_m2m;
 
-	int			id;
-	void __iomem		*regs;
-	unsigned long		state;
+	struct platform_device *pdev;
+	struct clk *clk;
 
-	u32	interface[MAX_PORTS];
-	u32	flags;
-	u32	skip_m2m;
-	u8	chain_buf;
+	struct mutex lock;
+	spinlock_t   slock;
 
-	atomic_t open_count;
+	void __iomem *regs;
+
+	u8 chain_buf;
+	u8 alpha;
+	bool m2m_enabled;
+
+	/* manage share ISI channel resource */
+	atomic_t usage_count;
 
 	/* scale factor */
-	u32	xfactor;
-	u32	yfactor;
-	u32	pre_dec_x;
-	u32	pre_dec_y;
+	u32 xfactor;
+	u32 yfactor;
+	u32 pre_dec_x;
+	u32 pre_dec_y;
 
-	unsigned int	hflip:1;
-	unsigned int	vflip:1;
+	u32 interface[MAX_PORTS];
+	int id;
 
-	unsigned int	cscen:1;
-	unsigned int	scale:1;
-	unsigned int	alphaen:1;
-	unsigned int	crop:1;
-	unsigned int	deinterlace:1;
-	unsigned int	parallel_csi:1;
-	unsigned int	is_m2m:1;
-	unsigned int	is_streaming:1;
-
-	struct mxc_isi_ctrls		ctrls;
-	struct mxc_isi_roi_alpha	alpha_roi[5];
-	struct v4l2_pix_format_mplane   pix;
-	u8 alpha;
-
-	size_t		discard_size[MXC_MAX_PLANES];
-	void		*discard_buffer[MXC_MAX_PLANES];
-	dma_addr_t	discard_buffer_dma[MXC_MAX_PLANES];
-	struct mxc_isi_buffer buf_discard[2];
+	unsigned int hflip:1;
+	unsigned int vflip:1;
+	unsigned int cscen:1;
+	unsigned int scale:1;
+	unsigned int alphaen:1;
+	unsigned int crop:1;
+	unsigned int deinterlace:1;
+	unsigned int is_streaming:1;
 };
 
 static inline void set_frame_bounds(struct mxc_isi_frame *f,
@@ -270,7 +327,12 @@ static inline void set_frame_crop(struct mxc_isi_frame *f,
 	f->c_height = height;
 }
 
-int mxc_isi_initialize_capture_subdev(struct mxc_isi_dev *mxc_isi);
-void mxc_isi_unregister_capture_subdev(struct mxc_isi_dev *mxc_isi);
+#if defined(CONFIG_IMX8_ISI_CORE)
+struct mxc_isi_dev *mxc_isi_get_hostdata(struct platform_device *pdev);
+struct device *mxc_isi_dev_get_parent(struct platform_device *pdev);
+#else
+static inline struct mxc_isi_dev *mxc_isi_get_hostdata(struct platform_device *pdev) {}
+static inline struct struct device *mxc_isi_dev_get_parent(struct platform_device *pdev) {}
+#endif
 
 #endif /* __MXC_ISI_CORE_H__ */
