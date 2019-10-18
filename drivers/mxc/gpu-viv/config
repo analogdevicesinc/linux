@@ -62,7 +62,6 @@ VIVANTE_ENABLE_DRM                ?= 1
 NO_DMA_COHERENT                   ?= 0
 USE_PLATFORM_DRIVER               ?= 1
 ENABLE_GPU_CLOCK_BY_DRIVER        ?= 0
-FORCE_ALL_VIDEO_MEMORY_CACHED     ?= 0
 CACHE_FUNCTION_UNIMPLEMENTED      ?= 0
 USE_BANK_ALIGNMENT                ?= 1
 BANK_BIT_START                    ?= 13

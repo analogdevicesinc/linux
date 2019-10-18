@@ -1670,12 +1670,13 @@ gckWLFE_AtomicExecute(
     )
 {
     gctUINT32 control;
+    gceSTATUS status = gcvSTATUS_OK;
 
     /* Enable all events. */
-    gckOS_WriteRegisterEx(Hardware->os, Hardware->core, 0x00014, ~0U);
+    gcmkONERROR(gckOS_WriteRegisterEx(Hardware->os, Hardware->core, 0x00014, ~0U));
 
     /* Write address register. */
-    gckOS_WriteRegisterEx(Hardware->os, Hardware->core, 0x00654, Address);
+    gcmkONERROR(gckOS_WriteRegisterEx(Hardware->os, Hardware->core, 0x00654, Address));
 
     /* Build control register. */
     control = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
@@ -1715,25 +1716,25 @@ gckWLFE_AtomicExecute(
     }
 
     /* Make sure writing to command buffer and previous AHB register is done. */
-    gckOS_MemoryBarrier(Hardware->os, gcvNULL);
+    gcmkONERROR(gckOS_MemoryBarrier(Hardware->os, gcvNULL));
 
     /* Write control register. */
     switch (Hardware->options.secureMode)
     {
     case gcvSECURE_NONE:
-        gckOS_WriteRegisterEx(Hardware->os, Hardware->core, 0x00658, control);
+        gcmkONERROR(gckOS_WriteRegisterEx(Hardware->os, Hardware->core, 0x00658, control));
         break;
     case gcvSECURE_IN_NORMAL:
 
 #if defined(__KERNEL__)
-        gckOS_WriteRegisterEx(Hardware->os, Hardware->core, 0x00658, control);
+        gcmkONERROR(gckOS_WriteRegisterEx(Hardware->os, Hardware->core, 0x00658, control));
 #endif
-        gckOS_WriteRegisterEx(Hardware->os, Hardware->core, 0x003A4, control);
+        gcmkONERROR(gckOS_WriteRegisterEx(Hardware->os, Hardware->core, 0x003A4, control));
         break;
 #if gcdENABLE_TRUST_APPLICATION
     case gcvSECURE_IN_TA:
         /* Send message to TA. */
-        gckKERNEL_SecurityStartCommand(Hardware->kernel, Address, (gctUINT32)Bytes);
+        gcmkONERROR(gckKERNEL_SecurityStartCommand(Hardware->kernel, Address, (gctUINT32)Bytes));
         break;
 #endif
     default:
@@ -1748,6 +1749,10 @@ gckWLFE_AtomicExecute(
 
     /* Success. */
     return gcvSTATUS_OK;
+
+OnError:
+    /* Return the status. */
+    return status;
 }
 
 

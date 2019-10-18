@@ -1080,21 +1080,20 @@ _RemoveFromBlockList(
     {
         if (vidMemBlock->addresses[hwType] == VidMemBlock->addresses[hwType])
         {
+            if (previous)
+            {
+                previous->next = vidMemBlock->next;
+            }
+            else
+            {
+                Kernel->vidMemBlock = vidMemBlock->next;
+            }
+            vidMemBlock->next = gcvNULL;
+
             break;
         }
         previous = vidMemBlock;
     }
-
-    if (previous)
-    {
-        previous->next = vidMemBlock->next;
-    }
-    else
-    {
-        Kernel->vidMemBlock = vidMemBlock->next;
-    }
-
-    vidMemBlock->next = gcvNULL;
 
     return gcvSTATUS_OK;
 }
@@ -1598,12 +1597,19 @@ gckVIDMEM_BLOCK_Construct(
 OnError:
     if (vidMemBlock != gcvNULL)
     {
+        if (vidMemBlock->mutex)
+        {
+            gcmkVERIFY_OK(gckOS_DeleteMutex(os, vidMemBlock->mutex));
+        }
+
         if (vidMemBlock->physical)
         {
             gcmkVERIFY_OK(gckOS_FreePagedMemory(os,
                                                 vidMemBlock->physical,
                                                 vidMemBlock->bytes));
         }
+
+        gcmkVERIFY_OK(gcmkOS_SAFE_FREE(os, vidMemBlock));
     }
 
     if (node != gcvNULL)
@@ -1935,6 +1941,11 @@ gckVIDMEM_Free(
                  node != gcvNULL && node->VidMem.nextFree == gcvNULL;
                  node = node->VidMem.next) ;
 
+            if (node == gcvNULL)
+            {
+                gcmkONERROR(gcvSTATUS_INVALID_DATA);
+            }
+
             /* Insert this node in the free list. */
             Node->VidMem.nextFree = node;
             Node->VidMem.prevFree = node->VidMem.prevFree;
@@ -1978,7 +1989,9 @@ gckVIDMEM_Free(
     }
     else if (vidMemBlock && vidMemBlock->object.type == gcvOBJ_VIDMEM_BLOCK)
     {
-        gcmkONERROR(gckOS_AcquireMutex(vidMemBlock->os, vidMemBlock->mutex, gcvINFINITE));
+        gckOS os = vidMemBlock->os;
+
+        gcmkONERROR(gckOS_AcquireMutex(os, vidMemBlock->mutex, gcvINFINITE));
         vbMutexAcquired = gcvTRUE;
         kernel = Node->VirtualChunk.kernel;
 
@@ -2008,6 +2021,11 @@ gckVIDMEM_Free(
                  node != gcvNULL && node->VirtualChunk.nextFree == gcvNULL;
                  node = node->VirtualChunk.next);
 
+            if (node == gcvNULL)
+            {
+                gcmkONERROR(gcvSTATUS_INVALID_DATA);
+            }
+
             /* Insert this chunk in the free list. */
             Node->VirtualChunk.nextFree = node;
             Node->VirtualChunk.prevFree = node->VirtualChunk.prevFree;
@@ -2021,7 +2039,7 @@ gckVIDMEM_Free(
             )
             {
                 /* Merge this chunk with the next chunk. */
-                gcmkONERROR(_MergeVirtualChunk(vidMemBlock->os, node = Node));
+                gcmkONERROR(_MergeVirtualChunk(os, node = Node));
                 gcmkASSERT(node->VirtualChunk.nextFree != node);
                 gcmkASSERT(node->VirtualChunk.prevFree != node);
             }
@@ -2032,17 +2050,17 @@ gckVIDMEM_Free(
             )
             {
                 /* Merge this chunk with the previous chunk. */
-                gcmkONERROR(_MergeVirtualChunk(vidMemBlock->os, node = Node->VirtualChunk.prev));
+                gcmkONERROR(_MergeVirtualChunk(os, node = Node->VirtualChunk.prev));
                 gcmkASSERT(node->VirtualChunk.nextFree != node);
                 gcmkASSERT(node->VirtualChunk.prevFree != node);
             }
         }
 
         /* Release the mutex. */
-        gcmkVERIFY_OK(gckOS_ReleaseMutex(vidMemBlock->os, vidMemBlock->mutex));
+        gcmkVERIFY_OK(gckOS_ReleaseMutex(os, vidMemBlock->mutex));
 
         /* Acquire the vidMem block mutex */
-        gcmkONERROR(gckOS_AcquireMutex(vidMemBlock->os, kernel->vidMemBlockMutex, gcvINFINITE));
+        gcmkONERROR(gckOS_AcquireMutex(os, kernel->vidMemBlockMutex, gcvINFINITE));
         vbListMutexAcquired = gcvTRUE;
 
         /* Only free the vidmem block when all the chunks are freed. */
@@ -2054,7 +2072,7 @@ gckVIDMEM_Free(
         }
 
         /* Release the vidMem block mutex. */
-        gcmkVERIFY_OK(gckOS_ReleaseMutex(vidMemBlock->os, kernel->vidMemBlockMutex));
+        gcmkVERIFY_OK(gckOS_ReleaseMutex(os, kernel->vidMemBlockMutex));
 
         /* Success. */
         gcmkFOOTER_NO();

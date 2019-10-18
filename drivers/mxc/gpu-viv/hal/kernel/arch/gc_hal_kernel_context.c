@@ -2955,22 +2955,14 @@ _InitializeContextBuffer(
     }
 
     /* Query how many uniforms can support. */
-    {if (Context->hardware->identity.numConstants > 256){    unifiedUniform = gcvTRUE;
-if ((Context->hardware->identity.chipModel == gcv880) && ((Context->hardware->identity.chipRevision & 0xfff0) == 0x5120)){    vertexUniforms   = 512;
-    fragmentUniforms   = 64;
-}else{    vertexUniforms   = gcmMIN(512, Context->hardware->identity.numConstants - 64);
-    fragmentUniforms   = gcmMIN(512, Context->hardware->identity.numConstants - 64);
-}}else if (Context->hardware->identity.numConstants == 256){    if (Context->hardware->identity.chipModel == gcv2000 && (Context->hardware->identity.chipRevision == 0x5118 || Context->hardware->identity.chipRevision == 0x5140))    {        unifiedUniform = gcvFALSE;
-        vertexUniforms   = 256;
-        fragmentUniforms   = 64;
-    }    else    {        unifiedUniform = gcvFALSE;
-        vertexUniforms   = 256;
-        fragmentUniforms   = 256;
-    }}else{    unifiedUniform = gcvFALSE;
-    vertexUniforms   = 168;
-    fragmentUniforms   = 64;
-}};
-
+    gcmCONFIGUREUNIFORMS2(Context->hardware->identity.chipModel,
+                         Context->hardware->identity.chipRevision,
+                         halti5,
+                         smallBatch,
+                         Context->hardware->identity.numConstants,
+                         unifiedUniform,
+                         vertexUniforms,
+                         fragmentUniforms);
 
 #if !gcdENABLE_UNIFIED_CONSTANT
     if (Context->hardware->identity.numConstants > 256)
@@ -4706,58 +4698,62 @@ gckCONTEXT_Update(
                     dirtyRecordArraySize,
                     (gctPOINTER *) &recordArray
                     ));
-            }
 
-            /* Merge all pending states. */
-            for (j = 0; j < kDelta->recordCount; j += 1)
-            {
-                if (j >= Context->numStates)
+                if (recordArray == gcvNULL)
                 {
-                    break;
+                    gcmkONERROR(gcvSTATUS_INVALID_ARGUMENT);
                 }
 
-                /* Get the current state record. */
-                record = &recordArray[j];
-
-                /* Get the state address. */
-                gcmkONERROR(gckOS_ReadMappedPointer(kernel->os, &record->address, &address));
-
-                /* Make sure the state is a part of the mapping table. */
-                if (address >= Context->maxState)
+                /* Merge all pending states. */
+                for (j = 0; j < kDelta->recordCount; j += 1)
                 {
-                    gcmkTRACE(
-                        gcvLEVEL_ERROR,
-                        "%s(%d): State 0x%04X (0x%04X) is not mapped.\n",
-                        __FUNCTION__, __LINE__,
-                        address, address << 2
-                        );
-
-                    continue;
-                }
-
-                /* Get the state index. */
-                index = map[address].index;
-
-                /* Skip the state if not mapped. */
-                if (index == 0)
-                {
-                    continue;
-                }
-
-                /* Get the data mask. */
-                gcmkONERROR(gckOS_ReadMappedPointer(kernel->os, &record->mask, &mask));
-
-                /* Get the new data value. */
-                gcmkONERROR(gckOS_ReadMappedPointer(kernel->os, &record->data, &data));
-
-                /* Masked states that are being completly reset or regular states. */
-                if ((mask == 0) || (mask == ~0U))
-                {
-                    /* Process special states. */
-                    if (address == 0x0595)
+                    if (j >= Context->numStates)
                     {
-                        /* Force auto-disable to be disabled. */
-                        data = ((((gctUINT32) (data)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+                        break;
+                    }
+
+                    /* Get the current state record. */
+                    record = &recordArray[j];
+
+                    /* Get the state address. */
+                    gcmkONERROR(gckOS_ReadMappedPointer(kernel->os, &record->address, &address));
+
+                    /* Make sure the state is a part of the mapping table. */
+                    if (address >= Context->maxState)
+                    {
+                        gcmkTRACE(
+                            gcvLEVEL_ERROR,
+                            "%s(%d): State 0x%04X (0x%04X) is not mapped.\n",
+                            __FUNCTION__, __LINE__,
+                            address, address << 2
+                            );
+
+                        continue;
+                    }
+
+                    /* Get the state index. */
+                    index = map[address].index;
+
+                    /* Skip the state if not mapped. */
+                    if (index == 0)
+                    {
+                        continue;
+                    }
+
+                    /* Get the data mask. */
+                    gcmkONERROR(gckOS_ReadMappedPointer(kernel->os, &record->mask, &mask));
+
+                    /* Get the new data value. */
+                    gcmkONERROR(gckOS_ReadMappedPointer(kernel->os, &record->data, &data));
+
+                    /* Masked states that are being completly reset or regular states. */
+                    if ((mask == 0) || (mask == ~0U))
+                    {
+                        /* Process special states. */
+                        if (address == 0x0595)
+                        {
+                            /* Force auto-disable to be disabled. */
+                            data = ((((gctUINT32) (data)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  5:5) - (0 ?
  5:5) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ?
@@ -4767,7 +4763,7 @@ gckCONTEXT_Update(
  5:5) - (0 ?
  5:5) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ? 5:5) - (0 ? 5:5) + 1))))))) << (0 ? 5:5)));
-                        data = ((((gctUINT32) (data)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+                            data = ((((gctUINT32) (data)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  4:4) - (0 ?
  4:4) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ?
@@ -4777,7 +4773,7 @@ gckCONTEXT_Update(
  4:4) - (0 ?
  4:4) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ? 4:4) - (0 ? 4:4) + 1))))))) << (0 ? 4:4)));
-                        data = ((((gctUINT32) (data)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+                            data = ((((gctUINT32) (data)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  13:13) - (0 ?
  13:13) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ?
@@ -4787,18 +4783,19 @@ gckCONTEXT_Update(
  13:13) - (0 ?
  13:13) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ? 13:13) - (0 ? 13:13) + 1))))))) << (0 ? 13:13)));
+                        }
+
+                        /* Set new data. */
+                        buffer->logical[index] = data;
                     }
 
-                    /* Set new data. */
-                    buffer->logical[index] = data;
-                }
-
-                /* Masked states that are being set partially. */
-                else
-                {
-                    buffer->logical[index]
-                        = (~mask & buffer->logical[index])
-                        | (mask & data);
+                    /* Masked states that are being set partially. */
+                    else
+                    {
+                        buffer->logical[index]
+                            = (~mask & buffer->logical[index])
+                            | (mask & data);
+                    }
                 }
             }
 

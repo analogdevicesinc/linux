@@ -147,9 +147,9 @@ _CMAFSLAlloc(
 
     gcmkHEADER_ARG("Mdl=%p NumPages=0x%zx", Mdl, NumPages);
 
-    if (os->allocatorLimitMarker && !(Flags & gcvALLOC_FLAG_CMA_PREEMPT))
+    if (os->allocatorLimitMarker)
     {
-        if (Flags & gcvALLOC_FLAG_CMA_LIMIT)
+        if ((Flags & gcvALLOC_FLAG_CMA_LIMIT) && !(Flags & gcvALLOC_FLAG_CMA_PREEMPT))
         {
             priv->cmaLimitRequest = gcvTRUE;
         }
@@ -169,7 +169,7 @@ _CMAFSLAlloc(
     }
 #endif
 
-    mdl_priv->kvaddr = dma_alloc_wc(&os->device->platform->device->dev,
+    mdl_priv->kvaddr = dma_alloc_writecombine(&os->device->platform->device->dev,
             NumPages * PAGE_SIZE,
             &mdl_priv->physical,
             gfp);
@@ -276,7 +276,7 @@ _CMAFSLFree(
     gckOS os = Allocator->os;
     struct mdl_cma_priv *mdlPriv=(struct mdl_cma_priv *)Mdl->priv;
     gcsCMA_PRIV_PTR priv = (gcsCMA_PRIV_PTR)Allocator->privateData;
-    dma_free_wc(&os->device->platform->device->dev,
+    dma_free_writecombine(&os->device->platform->device->dev,
             Mdl->numPages * PAGE_SIZE,
             mdlPriv->kvaddr,
             mdlPriv->physical);
@@ -306,7 +306,7 @@ _CMAFSLMmap(
     if (Mdl->contiguous)
     {
         /* map kernel memory to user space.. */
-        if (dma_mmap_wc(&os->device->platform->device->dev,
+        if (dma_mmap_writecombine(&os->device->platform->device->dev,
                 vma,
                 (gctINT8_PTR)mdlPriv->kvaddr + (skipPages << PAGE_SHIFT),
                 mdlPriv->physical + (skipPages << PAGE_SHIFT),
@@ -580,7 +580,7 @@ _CMAFSLAlloctorInit(
 #endif
                           ;
 #if defined(CONFIG_ARM64)
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 0, 0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,0,0)
     Os->allocatorLimitMarker = (Os->device->baseAddress + totalram_pages() * PAGE_SIZE) > 0x100000000;
 #else
     Os->allocatorLimitMarker = (Os->device->baseAddress + totalram_pages * PAGE_SIZE) > 0x100000000;
@@ -593,9 +593,8 @@ _CMAFSLAlloctorInit(
     if (Os->allocatorLimitMarker)
     {
         allocator->capability |= gcvALLOC_FLAG_CMA_LIMIT;
+        allocator->capability |= gcvALLOC_FLAG_CMA_PREEMPT;
     }
-
-    allocator->capability |= gcvALLOC_FLAG_CMA_PREEMPT;
 
     *Allocator = allocator;
 

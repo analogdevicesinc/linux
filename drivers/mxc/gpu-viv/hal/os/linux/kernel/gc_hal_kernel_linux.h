@@ -165,6 +165,18 @@
 
 #endif
 
+#if LINUX_VERSION_CODE > KERNEL_VERSION(5,0,0)
+#ifndef dma_alloc_writecombine
+#define dma_alloc_writecombine dma_alloc_wc
+#endif
+#ifndef dma_free_writecombine
+#define dma_free_writecombine dma_free_wc
+#endif
+#ifndef dma_mmap_writecombine
+#define dma_mmap_writecombine dma_mmap_wc
+#endif
+#endif
+
 extern struct device *galcore_device;
 
 /******************************************************************************\

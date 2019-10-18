@@ -98,7 +98,7 @@ gckASYNC_FE_Construct(
     gcmkONERROR(gckOS_AtomSet(Hardware->os, fe->freeDscriptors, data));
 
     /* Enable interrupts. */
-    gckOS_WriteRegisterEx(Hardware->os, Hardware->core, 0x000D8, ~0U);
+    gcmkONERROR(gckOS_WriteRegisterEx(Hardware->os, Hardware->core, 0x000D8, ~0U));
 
     *FE = fe;
 
@@ -106,9 +106,13 @@ gckASYNC_FE_Construct(
     return gcvSTATUS_OK;
 
 OnError:
-    if (fe->freeDscriptors)
+    if (fe)
     {
-        gckOS_AtomDestroy(Hardware->os, fe->freeDscriptors);
+        if (fe->freeDscriptors)
+        {
+            gckOS_AtomDestroy(Hardware->os, fe->freeDscriptors);
+        }
+        gcmkOS_SAFE_FREE(Hardware->os, fe);
     }
 
     gcmkFOOTER();
@@ -632,24 +636,34 @@ gckASYNC_FE_Execute(
     IN gctUINT32 Bytes
     )
 {
-    gckOS_WriteRegisterEx(
+    gceSTATUS status;
+
+    status = gckOS_WriteRegisterEx(
         Hardware->os,
         Hardware->core,
         0x007DC,
         Address
         );
+    if (gcmIS_ERROR(status))
+    {
+        return status;
+    }
 
     gckOS_MemoryBarrier(
         Hardware->os,
         gcvNULL
         );
 
-    gckOS_WriteRegisterEx(
+    status = gckOS_WriteRegisterEx(
         Hardware->os,
         Hardware->core,
         0x007E0,
         Address + Bytes
         );
+    if (gcmIS_ERROR(status))
+    {
+        return status;
+    }
 
     return gcvSTATUS_OK;
 }

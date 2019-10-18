@@ -3786,6 +3786,17 @@ gckKERNEL_AttachProcessEx(
                                             gcvBROADCAST_LAST_PROCESS));
             }
         }
+
+        if (Kernel->timeoutPID == PID)
+        {
+            Kernel->timeOut = Kernel->hardware->type == gcvHARDWARE_2D
+                            ? gcdGPU_2D_TIMEOUT
+                            : gcdGPU_TIMEOUT;
+
+            gcmkVERIFY_OK(gckOS_StopTimer(Kernel->os, Kernel->monitorTimer));
+
+            gcmkVERIFY_OK(gckOS_StartTimer(Kernel->os, Kernel->monitorTimer, 100));
+        }
     }
 
     /* Success. */
@@ -4297,6 +4308,7 @@ gckKERNEL_AllocateIntegerId(
     gctUINT32 pos;
     gctUINT32 n, i;
     gckOS os = database->os;
+    gctPOINTER * table = gcvNULL;
 
     gcmkHEADER_ARG("Database=%p Pointer=%p", Database, Pointer);
 
@@ -4304,7 +4316,6 @@ gckKERNEL_AllocateIntegerId(
 
     if (database->freeCount < 1)
     {
-        gctPOINTER * table = gcvNULL;
         gctUINT32 * bitmap = gcvNULL;
         gctUINT32 expand;
         gctUINT32 capacity;
@@ -4378,6 +4389,11 @@ gckKERNEL_AllocateIntegerId(
     return gcvSTATUS_OK;
 
 OnError:
+    if (table)
+    {
+        gckOS_Free(os, table);
+    }
+
     gcmkVERIFY_OK(gckOS_ReleaseMutex(os, database->mutex));
 
     gcmkFOOTER();
@@ -5410,6 +5426,10 @@ gckDEVICE_SetTimeOut(
     gctUINT i;
     gceHARDWARE_TYPE type = Interface->hardwareType;
     gcsCORE_LIST *coreList;
+    gctUINT32 processID = 0;
+
+    /* Get the current process ID. */
+    gckOS_GetProcessID(&processID);
 
     coreList = &Device->map[type];
 
@@ -5418,6 +5438,8 @@ gckDEVICE_SetTimeOut(
         kernel = coreList->kernels[i];
 
         kernel->timeOut = Interface->u.SetTimeOut.timeOut;
+
+        kernel->timeoutPID = processID;
     }
 #endif
 

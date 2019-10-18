@@ -2362,14 +2362,22 @@ gckEVENT_Dump(
 
     if (Event->kernel->recovery == 0)
     {
-        gckOS_ReadRegisterEx(
-            Event->os,
-            Event->kernel->core,
-            0x10,
-            &intrAcknowledge
-            );
+        gceSTATUS status;
 
-        gcmkPRINT("  INTR_ACKNOWLEDGE=0x%x", intrAcknowledge);
+        status = gckOS_ReadRegisterEx(
+                    Event->os,
+                    Event->kernel->core,
+                    0x10,
+                    &intrAcknowledge
+                    );
+        if (gcmIS_ERROR(status))
+        {
+            gcmkPRINT("  READ INTR_ACKNOWLEDGE ERROR!");
+        }
+        else
+        {
+            gcmkPRINT("  INTR_ACKNOWLEDGE=0x%x", intrAcknowledge);
+        }
     }
 #endif
 

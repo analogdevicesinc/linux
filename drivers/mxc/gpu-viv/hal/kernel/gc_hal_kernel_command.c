@@ -799,7 +799,7 @@ _CheckFlushMcfeMMU(
     gcmkONERROR(gckMCFE_WaitSemaphore(Hardware, buffer, id, &bytes));
 
     /* Execute flush mmu and send semaphores. */
-    gckCOMMAND_ExecuteMultiChannel(Command, 0, 0, reqBytes);
+    gcmkONERROR(gckCOMMAND_ExecuteMultiChannel(Command, 0, 0, reqBytes));
 
     /* Need sync from system channel. */
     Command->syncChannel[0] = ~1ull;

@@ -880,7 +880,7 @@ _PowerStateTimerFunc(
 {
     gckHARDWARE hardware = (gckHARDWARE)Data;
 
-    gckHARDWARE_SetPowerState(hardware, hardware->nextPowerState);
+    gcmkVERIFY_OK(gckHARDWARE_SetPowerState(hardware, hardware->nextPowerState));
 }
 
 static gceSTATUS
@@ -1070,7 +1070,7 @@ _DumpFEStack(
 
     for (i = 0; i < gcmCOUNTOF(_feStacks); i++)
     {
-        gckOS_WriteRegisterEx(Os, Core, Descriptor->index, _feStacks[i].clear);
+        gcmkVERIFY_OK(gckOS_WriteRegisterEx(Os, Core, Descriptor->index, _feStacks[i].clear));
 
         for (j = 0; j < _feStacks[i].count; j++)
         {
@@ -1506,6 +1506,7 @@ _QueryFeatureDatabase(
         {
             available = gcvTRUE;
         }
+
         break;
 
     case gcvFEATURE_DEC300_COMPRESSION:
@@ -1794,32 +1795,9 @@ _SetHardwareOptions(
         options->enableMMU = gcvFALSE;
     }
 
-    {    Hardware->options.uscAttribCacheRatio = 0x2;
-       if (featureUSC)    {        if (featureSeparateLS)        {            Hardware->options.uscL1CacheRatio = 0x0;
-        }        else        {            gctUINT L1cacheSize;
-                       if (featureComputeOnly)            {                L1cacheSize = featureL1CacheSize;
-            }            else            {                gctUINT attribBufSizeInKB;
-                if (featureTS)                {
-                    attribBufSizeInKB = 42;
-                }                else                {
-                    attribBufSizeInKB = 8;
-                }                L1cacheSize = featureUSCMaxPages - attribBufSizeInKB;
-            }            gcmkASSERT(L1cacheSize);
-            if (L1cacheSize >= featureL1CacheSize)            {                Hardware->options.uscL1CacheRatio = 0x0;
-            }            else            {                static const gctINT s_uscCacheRatio[] =                {                    100000,                    50000,                    25000,                    12500,                    62500,                    3125,                    75000,                    0,                };
-                gctINT maxL1cacheSize = L1cacheSize * 100000;
-                gctINT delta = 2147483647;
-                gctINT i = 0;
-                gctINT curIndex = -1;
-                for (;
- i < gcmCOUNTOF(s_uscCacheRatio);
- ++i)                {                    gctINT curL1cacheSize = featureL1CacheSize * s_uscCacheRatio[i];
-                                     if ((maxL1cacheSize >= curL1cacheSize) &&                        ((maxL1cacheSize - curL1cacheSize) < delta))                    {                        curIndex = i;
-                        delta = maxL1cacheSize - curL1cacheSize;
-                    }                }                gcmkASSERT(-1 != curIndex);
-                Hardware->options.uscL1CacheRatio = curIndex;
-            }        }    }};
-
+    gcmCONFIGUSC2(gcmk, featureUSC, featureSeparateLS, featureComputeOnly, featureTS,
+                 featureL1CacheSize, featureUSCMaxPages,
+                 Hardware->options.uscAttribCacheRatio, Hardware->options.uscL1CacheRatio);
 
     status = gckOS_QueryOption(Hardware->os, "smallBatch", &data);
     options->smallBatch = (data != 0);
@@ -2293,6 +2271,12 @@ gckHARDWARE_Construct(
 
     hardware->minFscaleValue = 1;
     hardware->waitCount = 200;
+
+    if (_IsHardwareMatch(hardware, gcv600, 0x4653)
+        || _IsHardwareMatch(hardware, gcv400, 0x4645))
+    {
+        hardware->minFscaleValue = 20;
+    }
 
     gckSTATETIMER_Reset(&hardware->powerStateCounter, 0);
 
@@ -4390,6 +4374,7 @@ _ResumeWaitLinkFE(
     gckHARDWARE Hardware
     )
 {
+    gceSTATUS status;
     gctUINT32 resume;
     gctUINT32 bytes;
     gctUINT32 idle;
@@ -4397,10 +4382,10 @@ _ResumeWaitLinkFE(
     /* Make sure FE is idle. */
     do
     {
-        gckOS_ReadRegisterEx(Hardware->os,
+        gcmkONERROR(gckOS_ReadRegisterEx(Hardware->os,
                              Hardware->core,
                              0x00004,
-                             &idle);
+                             &idle));
     }
     while (idle != 0x7FFFFFFF);
 
@@ -4418,20 +4403,23 @@ _ResumeWaitLinkFE(
  ~0U : (~(~0U << ((1 ? 0:0) - (0 ? 0:0) + 1))))))) << (0 ? 0:0))),
              idle);
 
-    gckOS_ReadRegisterEx(Hardware->os,
+    gcmkONERROR(gckOS_ReadRegisterEx(Hardware->os,
                          Hardware->core,
                          0x00664,
-                         &resume);
+                         &resume));
 
-    gckOS_ReadRegisterEx(Hardware->os,
+    gcmkONERROR(gckOS_ReadRegisterEx(Hardware->os,
                          Hardware->core,
                          0x00664,
-                         &resume);
+                         &resume));
 
     bytes = Hardware->hasL2Cache ? 24 : 16;
 
     /* Start Command Parser. */
     gckWLFE_AtomicExecute(Hardware, resume, bytes);
+
+OnError:
+    return;
 }
 
 /*******************************************************************************
@@ -14014,7 +14002,7 @@ gckHARDWARE_DumpGPUState(
     }
 
     /* Record control. */
-    gckOS_ReadRegisterEx(os, core, 0x0, &oldControl);
+    gcmkONERROR(gckOS_ReadRegisterEx(os, core, 0x0, &oldControl));
 
     for (pipe = 0; pipe < maxNumOfPipes; pipe++)
     {
@@ -14886,11 +14874,7 @@ _PrepareFunctions(
         mode = gcvMMU_MODE_4K;
 #endif
 
-#if defined(CONFIG_ZONE_DMA32)
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,37)
         flags |= gcvALLOC_FLAG_4GB_ADDR;
-#endif
-#endif
 
 #if gcdENABLE_CACHEABLE_COMMAND_BUFFER
         flags |= gcvALLOC_FLAG_CACHEABLE;
@@ -17522,7 +17506,11 @@ gckHARDWARE_QueryFrequency(
     mcStart = shStart = 0;
     mcClk   = shClk   = 0;
 
-    gckOS_QueryOption(Hardware->os, "powerManagement", &powerManagement);
+    status = gckOS_QueryOption(Hardware->os, "powerManagement", &powerManagement);
+    if (gcmIS_ERROR(status))
+    {
+        powerManagement = 0;
+    }
 
     if (powerManagement)
     {

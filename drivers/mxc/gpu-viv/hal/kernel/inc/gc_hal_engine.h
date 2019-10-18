@@ -2715,6 +2715,7 @@ typedef struct _gcsVERTEXARRAY_INDEX_INFO
     gctSIZE_T        count;
     gceINDEX_TYPE    indexType;
     gctPOINTER       indexMemory;
+    gctUINT          restartElement;
 
     union _gcsVERTEXARRAY_INDEX_INFO_UNION
     {
@@ -2896,7 +2897,8 @@ gcoBUFOBJ_IndexBind (
     IN gcoBUFOBJ Index,
     IN gceINDEX_TYPE Type,
     IN gctSIZE_T Offset,
-    IN gctSIZE_T Count
+    IN gctSIZE_T Count,
+    IN gctUINT   RestartElement
     );
 
 /* Find min and max index for the index buffer */

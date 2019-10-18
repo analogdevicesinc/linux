@@ -630,6 +630,8 @@ struct _gckKERNEL
     gctUINT32                   sRAMSizes[gcvSRAM_INTER_COUNT];
     gctBOOL                     sRAMPhysFaked[gcvSRAM_INTER_COUNT];
     gctUINT64                   sRAMLoopMode;
+
+    gctUINT32                   timeoutPID;
 };
 
 struct _FrequencyHistory

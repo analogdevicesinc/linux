@@ -328,9 +328,9 @@ _ShowVideoMemoryRecord(
                 continue;
             }
 
-            gckVIDMEM_NODE_GetPhysical(record->kernel, nodeObject, 0, &physical);
-            gckVIDMEM_NODE_GetReference(record->kernel, nodeObject, &refCount);
-            gckVIDMEM_NODE_GetLockCount(record->kernel, nodeObject, &lockCount);
+            gcmkONERROR(gckVIDMEM_NODE_GetPhysical(record->kernel, nodeObject, 0, &physical));
+            gcmkONERROR(gckVIDMEM_NODE_GetReference(record->kernel, nodeObject, &refCount));
+            gcmkONERROR(gckVIDMEM_NODE_GetLockCount(record->kernel, nodeObject, &lockCount));
 
             seq_printf(m, "%#8x %#18lx %10lu %12s %8s %#12llx %4d %4d\n",
                 handle,
@@ -344,6 +344,9 @@ _ShowVideoMemoryRecord(
                 );
         }
     }
+
+OnError:
+    return;
 }
 
 static void
@@ -1391,7 +1394,9 @@ static int threadRoutine(void *ctxt)
 
         down = down_interruptible(&device->semas[core]);
         if (down && down != -EINTR)
-             return down;
+        {
+            return down;
+        }
 
         if (unlikely(device->killThread))
         {

@@ -1374,11 +1374,14 @@ gckOS_AllocateNonPagedMemory(
 
     gcmkASSERT(Flag & gcvALLOC_FLAG_CONTIGUOUS);
 
+    if (Os->allocatorLimitMarker)
+    {
+        Flag |= gcvALLOC_FLAG_CMA_LIMIT;
+        Flag |= gcvALLOC_FLAG_CMA_PREEMPT;
 #if gcdENABLE_CACHEABLE_COMMAND_BUFFER
-    Flag &= ~gcvALLOC_FLAG_CACHEABLE;
+        Flag &= ~gcvALLOC_FLAG_CACHEABLE;
 #endif
-
-    Flag |= gcvALLOC_FLAG_CMA_PREEMPT;
+    }
 
     /* Walk all allocators. */
     list_for_each_entry(allocator, &Os->allocatorList, link)
@@ -3091,6 +3094,7 @@ gckOS_AllocatePagedMemory(
     gctSIZE_T bytes;
     gceSTATUS status = gcvSTATUS_NOT_SUPPORTED;
     gckALLOCATOR allocator;
+    gctBOOL zoneDMA32 = gcvFALSE;
 
     gcmkHEADER_ARG("Os=%p Flag=%x *Bytes=0x%zx", Os, Flag, *Bytes);
 
@@ -3107,6 +3111,17 @@ gckOS_AllocatePagedMemory(
     if (mdl == gcvNULL)
     {
         gcmkONERROR(gcvSTATUS_OUT_OF_MEMORY);
+    }
+
+#if defined(CONFIG_ZONE_DMA32)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,37)
+    zoneDMA32 = gcvTRUE;
+#endif
+#endif
+
+    if ((Flag & gcvALLOC_FLAG_4GB_ADDR) && !zoneDMA32)
+    {
+        Flag &= ~gcvALLOC_FLAG_4GB_ADDR;
     }
 
 #if defined(CONFIG_ZONE_DMA32) && LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,37)

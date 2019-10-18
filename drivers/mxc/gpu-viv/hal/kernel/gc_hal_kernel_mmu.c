@@ -956,6 +956,8 @@ _FillFlatMapping(
             allocFlag |= gcvALLOC_FLAG_CACHEABLE;
 #endif
 
+            allocFlag |= gcvALLOC_FLAG_4GB_ADDR;
+
             gcmkONERROR(gckKERNEL_AllocateVideoMemory(
                 kernel,
                 gcdMMU_STLB_1M_SIZE,
@@ -1175,7 +1177,6 @@ _FillFlatMapping(
 
         gcmkASSERT(Mmu->gpuAddressRangeCount <= gcdMAX_FLAT_MAPPING_COUNT);
 
-
         return gcvSTATUS_OK;
 OnError:
         /* Roll back the allocation.
@@ -1256,6 +1257,8 @@ _ConstructDynamicStlb(
 #if gcdENABLE_CACHEABLE_COMMAND_BUFFER
     allocFlag |= gcvALLOC_FLAG_CACHEABLE;
 #endif
+
+    allocFlag |= gcvALLOC_FLAG_4GB_ADDR;
 
     /* Construct Slave TLB. */
     gcmkONERROR(gckKERNEL_AllocateVideoMemory(
@@ -1724,6 +1727,8 @@ _Construct(
 #if gcdENABLE_CACHEABLE_COMMAND_BUFFER
         allocFlag |= gcvALLOC_FLAG_CACHEABLE;
 #endif
+
+        allocFlag |= gcvALLOC_FLAG_4GB_ADDR;
 
         /* 1K mode is 1024 byte aligned. */
         gcmkONERROR(gckKERNEL_AllocateVideoMemory(

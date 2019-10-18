@@ -131,21 +131,28 @@ static ulong contiguousSize = gcdDEFAULT_CONTIGUOUS_SIZE;
 module_param(contiguousSize, ulong, 0644);
 MODULE_PARM_DESC(contiguousSize, "Size of memory reserved for GC");
 
-static gctPHYS_ADDR_T contiguousBase = 0;
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 17, 0)
+static gctPHYS_ADDR_T contiguousBase = 0;
 module_param(contiguousBase, ullong, 0644);
-MODULE_PARM_DESC(contiguousBase, "Base address of memory reserved for GC, if it is 0, GC driver will try to allocate a buffer whose size defined by contiguousSize");
+#else
+static ulong contiguousBase = 0;
+module_param(contiguousBase, ulong, 0644);
 #endif
+MODULE_PARM_DESC(contiguousBase, "Base address of memory reserved for GC, if it is 0, GC driver will try to allocate a buffer whose size defined by contiguousSize");
 
 static ulong externalSize = 0;
 module_param(externalSize, ulong, 0644);
 MODULE_PARM_DESC(externalSize, "Size of external memory, if it is 0, means there is no external pool");
 
-static gctPHYS_ADDR_T externalBase = 0;
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 17, 0)
+static gctPHYS_ADDR_T externalBase = 0;
 module_param(externalBase, ullong, 0644);
-MODULE_PARM_DESC(externalBase, "Base address of external memory");
+#else
+static ulong externalBase = 0;
+module_param(externalBase, ulong, 0644);
 #endif
+MODULE_PARM_DESC(externalBase, "Base address of external memory");
+
 
 static int fastClear = -1;
 module_param(fastClear, int, 0644);
@@ -559,9 +566,17 @@ gckOS_DumpParam(
 #endif
 
     printk("  contiguousSize    = 0x%08lX\n", contiguousSize);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 17, 0)
     printk("  contiguousBase    = 0x%llX\n",  contiguousBase);
+#else
+    printk("  contiguousBase    = 0x%lX\n",  contiguousBase);
+#endif
     printk("  externalSize      = 0x%08lX\n", externalSize);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 17, 0)
     printk("  externalBase      = 0x%llX\n",  externalBase);
+#else
+    printk("  externalBase      = 0x%lX\n",  externalBase);
+#endif
     printk("  bankSize          = 0x%08lX\n", bankSize);
     printk("  fastClear         = %d\n",      fastClear);
     printk("  compression       = %d\n",      compression);
@@ -692,7 +707,7 @@ static int drv_open(
                 gcmkVERIFY_OK(gckKERNEL_AttachProcess(galDevice->kernels[i], gcvFALSE));
             }
         }
-
+        kfree(data);
         gcmkFOOTER_ARG("status=%d", status);
         return -ENOTTY;
     }
