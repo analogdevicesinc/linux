@@ -15,9 +15,13 @@
 #include <linux/smp.h>
 #include <linux/cpuidle.h>
 
-#define FSL_SIP_GPC			0xC2000000
-#define FSL_SIP_CONFIG_GPC_SET_WAKE	0x02
-#define FSL_SIP_CONFIG_GPC_CORE_WAKE	0x05
+#define FSL_SIP_GPC                     0xC2000000
+#define FSL_SIP_CONFIG_GPC_MASK         0x00
+#define FSL_SIP_CONFIG_GPC_UNMASK       0x01
+#define FSL_SIP_CONFIG_GPC_SET_WAKE     0x02
+#define FSL_SIP_CONFIG_GPC_PM_DOMAIN    0x03
+#define FSL_SIP_CONFIG_GPC_SET_AFF      0x04
+#define FSL_SIP_CONFIG_GPC_CORE_WAKE    0x05
 
 #define IMR_NUM			4
 #define GPC_MAX_IRQS            (IMR_NUM * 32)
@@ -27,6 +31,7 @@
 #define GPC_IMR1_CORE2		0x1c0
 #define GPC_IMR1_CORE3		0x1d0
 
+static unsigned int err11171;
 
 struct gpcv2_irqchip_data {
 	struct raw_spinlock	rlock;
@@ -154,6 +159,21 @@ static int imx_gpcv2_irq_set_wake(struct irq_data *d, unsigned int on)
 	return 0;
 }
 
+static int imx8mq_gpcv2_irq_set_wake(struct irq_data *d, unsigned int on)
+{
+	struct arm_smccc_res res;
+
+	arm_smccc_smc(FSL_SIP_GPC, FSL_SIP_CONFIG_GPC_SET_WAKE,
+		d->hwirq, on, 0, 0, 0, 0, &res);
+
+	/*
+	 * Do *not* call into the parent, as the GIC doesn't have any
+	 * wake-up facility...
+	 */
+
+	return 0;
+}
+
 static void imx_gpcv2_irq_unmask(struct irq_data *d)
 {
 	struct gpcv2_irqchip_data *cd = d->chip_data;
@@ -166,6 +186,16 @@ static void imx_gpcv2_irq_unmask(struct irq_data *d)
 	val &= ~BIT(d->hwirq % 32);
 	writel_relaxed(val, reg);
 	raw_spin_unlock(&cd->rlock);
+
+	irq_chip_unmask_parent(d);
+}
+
+static void imx8mq_gpcv2_irq_unmask(struct irq_data *d)
+{
+	struct arm_smccc_res res;
+
+	arm_smccc_smc(FSL_SIP_GPC, FSL_SIP_CONFIG_GPC_UNMASK,
+		d->hwirq, 0, 0, 0, 0, 0, &res);
 
 	irq_chip_unmask_parent(d);
 }
@@ -185,6 +215,41 @@ static void imx_gpcv2_irq_mask(struct irq_data *d)
 
 	irq_chip_mask_parent(d);
 }
+
+static void imx8mq_gpcv2_irq_mask(struct irq_data *d)
+{
+	struct arm_smccc_res res;
+
+	arm_smccc_smc(FSL_SIP_GPC, FSL_SIP_CONFIG_GPC_MASK,
+		d->hwirq, 0, 0, 0, 0, 0, &res);
+
+	irq_chip_mask_parent(d);
+}
+
+int imx8mq_gpcv2_irq_set_affinity(struct irq_data *d, const struct cpumask *cpumask,
+		      bool force)
+{
+	struct arm_smccc_res res;
+	int cpu = cpumask_any_and(cpumask, cpu_online_mask);
+
+	arm_smccc_smc(FSL_SIP_GPC, FSL_SIP_CONFIG_GPC_SET_AFF,
+		d->hwirq, cpu, 0, 0, 0, 0, &res);
+
+	return irq_chip_set_affinity_parent(d, cpumask, force);
+}
+
+static struct irq_chip gpcv2_imx8mq_irqchip_data_chip = {
+	.name			= "GPCv2 i.MX8MQ",
+	.irq_eoi		= irq_chip_eoi_parent,
+	.irq_mask		= imx8mq_gpcv2_irq_mask,
+	.irq_unmask		= imx8mq_gpcv2_irq_unmask,
+	.irq_set_wake		= imx8mq_gpcv2_irq_set_wake,
+	.irq_retrigger		= irq_chip_retrigger_hierarchy,
+	.irq_set_type		= irq_chip_set_type_parent,
+#ifdef CONFIG_SMP
+	.irq_set_affinity	= imx8mq_gpcv2_irq_set_affinity,
+#endif
+};
 
 static struct irq_chip gpcv2_irqchip_data_chip = {
 	.name			= "GPCv2",
@@ -240,6 +305,7 @@ static int imx_gpcv2_domain_alloc(struct irq_domain *domain,
 
 	for (i = 0; i < nr_irqs; i++) {
 		irq_domain_set_hwirq_and_chip(domain, irq + i, hwirq + i,
+				err11171 ? &gpcv2_imx8mq_irqchip_data_chip :
 				&gpcv2_irqchip_data_chip, domain->host_data);
 	}
 
@@ -311,37 +377,43 @@ static int __init imx_gpcv2_irqchip_init(struct device_node *node,
 	}
 	irq_set_default_host(domain);
 
-	/* Initially mask all interrupts */
-	for (i = 0; i < IMR_NUM; i++) {
-		void __iomem *reg = cd->gpc_base + i * 4;
+	if (of_machine_is_compatible("fsl,imx8mq")) {
+		/* sw workaround for IPI can't wakeup CORE
+		ERRATA(ERR011171) on i.MX8MQ */
+		err11171 = true;
+		imx_gpcv2_wake_request_fixup();
+	} else {
+		/* Initially mask all interrupts */
+		for (i = 0; i < IMR_NUM; i++) {
+			void __iomem *reg = cd->gpc_base + i * 4;
 
-		switch (core_num) {
-		case 4:
-			writel_relaxed(~0, reg + GPC_IMR1_CORE2);
-			writel_relaxed(~0, reg + GPC_IMR1_CORE3);
-			fallthrough;
-		case 2:
-			writel_relaxed(~0, reg + GPC_IMR1_CORE0);
-			writel_relaxed(~0, reg + GPC_IMR1_CORE1);
+			switch (core_num) {
+			case 4:
+				writel_relaxed(~0, reg + GPC_IMR1_CORE2);
+				writel_relaxed(~0, reg + GPC_IMR1_CORE3);
+				fallthrough;
+			case 2:
+				writel_relaxed(~0, reg + GPC_IMR1_CORE0);
+				writel_relaxed(~0, reg + GPC_IMR1_CORE1);
+			}
+			cd->wakeup_sources[i] = ~0;
 		}
-		cd->wakeup_sources[i] = ~0;
+
+		/* Let CORE0 as the default CPU to wake up by GPC */
+		cd->cpu2wakeup = GPC_IMR1_CORE0;
+
+		/*
+		 * Due to hardware design failure, need to make sure GPR
+		 * interrupt(#32) is unmasked during RUN mode to avoid entering
+		 * DSM by mistake.
+		 */
+		writel_relaxed(~0x1, cd->gpc_base + cd->cpu2wakeup);
 	}
 
-	if (of_property_read_bool(node, "broken-wake-request-signals"))
-		imx_gpcv2_wake_request_fixup();
-
-	/* Let CORE0 as the default CPU to wake up by GPC */
-	cd->cpu2wakeup = GPC_IMR1_CORE0;
-
-	/*
-	 * Due to hardware design failure, need to make sure GPR
-	 * interrupt(#32) is unmasked during RUN mode to avoid entering
-	 * DSM by mistake.
-	 */
-	writel_relaxed(~0x1, cd->gpc_base + cd->cpu2wakeup);
-
 	imx_gpcv2_instance = cd;
-	register_syscore_ops(&imx_gpcv2_syscore_ops);
+
+	if (!err11171)
+		register_syscore_ops(&imx_gpcv2_syscore_ops);
 
 	/*
 	 * Clear the OF_POPULATED flag set in of_irq_init so that
