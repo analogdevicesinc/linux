@@ -5,6 +5,7 @@
  */
 
 #include <dt-bindings/clock/imx8mq-clock.h>
+#include <linux/clk.h>
 #include <linux/clk-provider.h>
 #include <linux/err.h>
 #include <linux/io.h>
@@ -13,6 +14,7 @@
 #include <linux/types.h>
 #include <linux/slab.h>
 #include <linux/platform_device.h>
+#include <linux/slab.h>
 #include <soc/imx/soc.h>
 
 #include "clk.h"
@@ -281,6 +283,34 @@ static const char * const pllout_monitor_sels[] = {"osc_25m", "osc_27m", "dummy"
 
 static struct clk_hw_onecell_data *clk_hw_data;
 static struct clk_hw **hws;
+
+static int imx_clk_init_on(struct device_node *np,
+				  struct clk_hw * const clks[])
+{
+	u32 *array;
+	int i, ret, elems;
+
+	elems = of_property_count_u32_elems(np, "init-on-array");
+	if (elems < 0)
+		return elems;
+	array = kzalloc(elems * sizeof(elems), GFP_KERNEL);
+	if (!array)
+		return -ENOMEM;
+
+	ret = of_property_read_u32_array(np, "init-on-array", array, elems);
+	if (ret)
+		return ret;
+
+	for (i = 0; i < elems; i++) {
+		ret = clk_prepare_enable(clks[array[i]]->clk);
+		if (ret)
+			pr_err("clk_prepare_enable failed %d\n", array[i]);
+	}
+
+	kfree(array);
+
+	return 0;
+}
 
 static int imx8mq_clocks_probe(struct platform_device *pdev)
 {
@@ -613,6 +643,9 @@ static int imx8mq_clocks_probe(struct platform_device *pdev)
 		dev_err(dev, "failed to register hws for i.MX8MQ\n");
 		goto unregister_hws;
 	}
+
+	/* enable all the clocks just for bringup */
+	imx_clk_init_on(np, hws);
 
 	clk_set_parent(hws[IMX8MQ_CLK_CSI1_CORE]->clk, hws[IMX8MQ_SYS1_PLL_266M]->clk);
 	clk_set_parent(hws[IMX8MQ_CLK_CSI1_PHY_REF]->clk, hws[IMX8MQ_SYS2_PLL_1000M]->clk);
