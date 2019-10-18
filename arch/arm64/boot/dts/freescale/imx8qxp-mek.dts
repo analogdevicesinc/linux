@@ -211,9 +211,7 @@
 			"RINPUT2", "Main MIC",
 			"Mic Jack", "MICB",
 			"Main MIC", "MICB",
-			"CPU-Playback", "ASRC-Playback",
 			"Playback", "CPU-Playback",
-			"ASRC-Capture", "CPU-Capture",
 			"CPU-Capture", "Capture";
 	};
 };
