@@ -66,6 +66,7 @@ struct adis {
 	struct spi_message	msg;
 	struct spi_transfer	*xfer;
 	unsigned int		current_page;
+	unsigned int		irq_mask;
 	void			*buffer;
 
 	uint8_t			tx[10] ____cacheline_aligned;
