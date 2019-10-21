@@ -1949,6 +1949,7 @@ static int ov5640_probe(struct i2c_client *client)
 static void ov5640_remove(struct i2c_client *client)
 {
 	v4l2_int_device_unregister(&ov5640_int_device);
+	ov5640_regulator_disable();
 }
 
 module_i2c_driver(ov5640_i2c_driver);
