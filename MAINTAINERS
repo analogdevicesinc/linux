@@ -921,6 +921,13 @@ S:	Supported
 F:	drivers/net/phy/adin.c
 F:	Documentation/devicetree/bindings/net/adi,adin.yaml
 
+ANALOG DEVICES INC ADIS16475 DRIVER
+M:	Nuno Sa <nuno.sa@analog.com>
+L:	linux-iio@vger.kernel.org
+W:	http://ez.analog.com/community/linux-device-drivers
+S:	Supported
+F:	drivers/iio/imu/adis16475.c
+
 ANALOG DEVICES INC ADP5061 DRIVER
 M:	Stefan Popa <stefan.popa@analog.com>
 L:	linux-pm@vger.kernel.org
