@@ -605,7 +605,6 @@ int vfp_restore_user_hwstate(struct user_vfp *ufp, struct user_vfp_exc *ufp_exc)
 	struct thread_info *thread = current_thread_info();
 	struct vfp_hard_struct *hwstate = &thread->vfpstate.hard;
 	unsigned long fpexc;
-	int err = 0;
 	u32 fpsid = fmrx(FPSID);
 
 	/* Disable VFP to avoid corrupting the new thread state. */
