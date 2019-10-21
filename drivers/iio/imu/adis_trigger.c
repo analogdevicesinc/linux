@@ -35,6 +35,20 @@ static inline void adis_trigger_setup(struct adis *adis)
 	iio_trigger_set_drvdata(adis->trig, adis);
 }
 
+static inline int __adis_validate_irq_mask(struct adis *adis)
+{
+	if (!adis->irq_mask) {
+		adis->irq_mask = IRQF_TRIGGER_RISING;
+		return 0;
+	} else if (adis->irq_mask != IRQF_TRIGGER_RISING &&
+		   adis->irq_mask != IRQF_TRIGGER_FALLING) {
+		dev_err(&adis->spi->dev, "Invalid IRQ mask:%08x\n",
+			adis->irq_mask);
+		return -EINVAL;
+	}
+
+	return 0;
+}
 /**
  * adis_probe_trigger() - Sets up trigger for a adis device
  * @adis: The adis device
@@ -55,9 +69,13 @@ int adis_probe_trigger(struct adis *adis, struct iio_dev *indio_dev)
 
 	adis_trigger_setup(adis);
 
+	ret = __adis_validate_irq_mask(adis);
+	if (ret)
+		return ret;
+
 	ret = request_irq(adis->spi->irq,
 			  &iio_trigger_generic_data_rdy_poll,
-			  IRQF_TRIGGER_RISING,
+			  adis->irq_mask,
 			  indio_dev->name,
 			  adis->trig);
 	if (ret)
@@ -96,9 +114,13 @@ int devm_adis_probe_trigger(struct adis *adis, struct iio_dev *indio_dev)
 
 	adis_trigger_setup(adis);
 
+	ret = __adis_validate_irq_mask(adis);
+	if (ret)
+		return ret;
+
 	ret = devm_request_irq(&adis->spi->dev, adis->spi->irq,
 			       &iio_trigger_generic_data_rdy_poll,
-			       IRQF_TRIGGER_RISING,
+			       adis->irq_mask,
 			       indio_dev->name,
 			       adis->trig);
 	if (ret)
