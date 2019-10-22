@@ -217,7 +217,7 @@
 
 		caam_sm: caam-sm@100000 {
 			 compatible = "fsl,imx7d-caam-sm", "fsl,imx6q-caam-sm";
-			 reg = <0x100000 0x3fff>;
+			 reg = <0x100000 0x8000>;
 		};
 
 		gpmi: nand-controller@1806000 {
