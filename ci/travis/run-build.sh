@@ -1,7 +1,18 @@
 #!/bin/bash
 set -e
 
+# cd to docker build dir if it exists
+if [ -d /docker_build_dir ] ; then
+	cd /docker_build_dir
+fi
+
 . ./ci/travis/lib.sh
+
+if [ -f "${FULL_BUILD_DIR}/env" ] ; then
+	echo_blue "Loading environment variables"
+	cat "${FULL_BUILD_DIR}/env"
+	. "${FULL_BUILD_DIR}/env"
+fi
 
 KCFLAGS="-Werror -Wno-error=frame-larger-than="
 export KCFLAGS
