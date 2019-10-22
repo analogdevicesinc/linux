@@ -6,12 +6,29 @@ set -e
 KCFLAGS="-Werror -Wno-error=frame-larger-than="
 export KCFLAGS
 
+APT_LIST="build-essential bc u-boot-tools"
+
+if [ "$ARCH" == "arm64" ] ; then
+	APT_LIST="$APT_LIST gcc-aarch64-linux-gnu"
+else
+	APT_LIST="$APT_LIST gcc-arm-linux-gnueabihf"
+fi
+
+apt_update_install() {
+	sudo -s <<-EOF
+		apt-get -qq update
+		apt-get -y install $@
+	EOF
+}
+
 build_default() {
+	apt_update_install $APT_LIST
 	make ${DEFCONFIG}
 	make -j`getconf _NPROCESSORS_ONLN` $IMAGE UIMAGE_LOADADDR=0x8000
 }
 
 build_compile_test() {
+	apt_update_install $APT_LIST
 	export COMPILE_TEST=y
 	make ${DEFCONFIG}
 	make -j`getconf _NPROCESSORS_ONLN`
@@ -30,6 +47,7 @@ build_checkpatch() {
 }
 
 build_dtb_build_test() {
+	apt_update_install $APT_LIST
 	make ${DEFCONFIG:-defconfig}
 	for file in $DTS_FILES; do
 		dtb_file=$(echo $file | sed 's/dts\//=/g' | cut -d'=' -f2 | sed 's\dts\dtb\g')
