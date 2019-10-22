@@ -14,11 +14,11 @@ notifications:
 
 env:
   matrix:
-  - BUILD_TYPE=checkpatch
+  - BUILD_TYPE=checkpatch DO_NOT_DOCKERIZE=1
   - BUILD_TYPE=dtb_build_test ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- DTS_FILES=arch/arm/boot/dts/socfpga_*.dts
   - DEFCONFIG=socfpga_adi_defconfig ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- IMAGE=zImage
   - BUILD_TYPE=compile_test
     DEFCONFIG=socfpga_adi_defconfig ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- IMAGE=zImage
 
 script:
-  - ./ci/travis/run-build.sh
+  - ./ci/travis/run-build-docker.sh
