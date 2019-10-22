@@ -517,6 +517,9 @@ enum adis16475_variant {
 	ADIS16475_1,
 	ADIS16475_2,
 	ADIS16475_3,
+	ADIS16477_1,
+	ADIS16477_2,
+	ADIS16477_3,
 };
 
 static const struct adis16475_chip_info adis16475_chip_info[] = {
@@ -549,6 +552,39 @@ static const struct adis16475_chip_info adis16475_chip_info[] = {
 		.gyro_max_scale = IIO_RAD_TO_DEGREE(10 << 16),
 		.accel_max_val = 1,
 		.accel_max_scale = IIO_M_S_2_TO_G(4000 << 16),
+		.temp_scale = 100,
+		.int_clk = 2000,
+		.max_dec = 1999,
+	},
+	[ADIS16477_1] = {
+		.num_channels = ARRAY_SIZE(adis16475_channels),
+		.channels = adis16475_channels,
+		.gyro_max_val = 1,
+		.gyro_max_scale = IIO_RAD_TO_DEGREE(160 << 16),
+		.accel_max_val = 1,
+		.accel_max_scale = IIO_M_S_2_TO_G(800 << 16),
+		.temp_scale = 100,
+		.int_clk = 2000,
+		.max_dec = 1999,
+	},
+	[ADIS16477_2] = {
+		.num_channels = ARRAY_SIZE(adis16475_channels),
+		.channels = adis16475_channels,
+		.gyro_max_val = 1,
+		.gyro_max_scale = IIO_RAD_TO_DEGREE(40 << 16),
+		.accel_max_val = 1,
+		.accel_max_scale = IIO_M_S_2_TO_G(800 << 16),
+		.temp_scale = 100,
+		.int_clk = 2000,
+		.max_dec = 1999,
+	},
+	[ADIS16477_3] = {
+		.num_channels = ARRAY_SIZE(adis16475_channels),
+		.channels = adis16475_channels,
+		.gyro_max_val = 1,
+		.gyro_max_scale = IIO_RAD_TO_DEGREE(10 << 16),
+		.accel_max_val = 1,
+		.accel_max_scale = IIO_M_S_2_TO_G(800 << 16),
 		.temp_scale = 100,
 		.int_clk = 2000,
 		.max_dec = 1999,
@@ -969,6 +1005,9 @@ static const struct spi_device_id adis16475_ids[] = {
 	{ "adis16475-1", ADIS16475_1 },
 	{ "adis16475-2", ADIS16475_2 },
 	{ "adis16475-3", ADIS16475_3 },
+	{ "adis16477-1", ADIS16477_1 },
+	{ "adis16477-2", ADIS16477_2 },
+	{ "adis16477-3", ADIS16477_3 },
 	{ }
 };
 MODULE_DEVICE_TABLE(spi, adis16475_ids);
@@ -977,6 +1016,9 @@ static const struct of_device_id adis16475_of_match[] = {
 	{ .compatible = "adi,adis16475-1" },
 	{ .compatible = "adi,adis16475-2" },
 	{ .compatible = "adi,adis16475-3" },
+	{ .compatible = "adi,adis16477-1" },
+	{ .compatible = "adi,adis16477-2" },
+	{ .compatible = "adi,adis16477-3" },
 	{ },
 };
 MODULE_DEVICE_TABLE(of, adis16480_of_match);
