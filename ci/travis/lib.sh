@@ -31,12 +31,13 @@ ensure_command_exists wget
 ensure_command_exists sudo
 
 LOCAL_BUILD_DIR="patches-build"
+FULL_BUILD_DIR="${TRAVIS_BUILD_DIR}/${LOCAL_BUILD_DIR}"
 
 # Get the common stuff from libiio
-[ -f ${TRAVIS_BUILD_DIR}/${LOCAL_BUILD_DIR}/lib.sh ] || {
-	mkdir -p ${TRAVIS_BUILD_DIR}/${LOCAL_BUILD_DIR}
+[ -f "${FULL_BUILD_DIR}/lib.sh" ] || {
+	mkdir -p "${FULL_BUILD_DIR}"
 	wget https://raw.githubusercontent.com/analogdevicesinc/libiio/master/CI/travis/lib.sh \
-		-O ${TRAVIS_BUILD_DIR}/${LOCAL_BUILD_DIR}/lib.sh
+		-O "${FULL_BUILD_DIR}/lib.sh"
 }
 
-. ${TRAVIS_BUILD_DIR}/${LOCAL_BUILD_DIR}/lib.sh
+. "${FULL_BUILD_DIR}/lib.sh"
