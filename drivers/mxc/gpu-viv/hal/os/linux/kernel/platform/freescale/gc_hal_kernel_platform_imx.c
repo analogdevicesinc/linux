@@ -1041,6 +1041,38 @@ static int patch_param_imx6(struct platform_device *pdev,
     return 0;
 }
 
+static bool is_layerscape;
+
+static int patch_param_ls(struct platform_device *pdev,
+		gcsMODULE_PARAMETERS *args)
+{
+	struct device_node *node = pdev->dev.of_node;
+	struct resource *res;
+	int core = gcvCORE_MAJOR;
+	struct platform_device *pdev_gpu;
+	int irqLine = -1;
+
+	pdev_gpu = of_find_device_by_node(node);
+	if (!pdev_gpu)
+		return gcvSTATUS_DEVICE;
+
+	of_node_put(node);
+
+	irqLine = platform_get_irq(pdev_gpu, 0);
+	if (irqLine < 0)
+		return gcvSTATUS_NOT_FOUND;
+
+	res = platform_get_resource(pdev_gpu, IORESOURCE_MEM, 0);
+	if (!res)
+		return gcvSTATUS_NOT_FOUND;
+
+	args->irqs[core] = irqLine;
+	args->registerBases[core] = res->start;
+	args->registerSizes[core] = res->end - res->start + 1;
+
+	return 0;
+}
+
 static int patch_param(struct platform_device *pdev,
                 gcsMODULE_PARAMETERS *args)
 {
@@ -1056,12 +1088,16 @@ static int patch_param(struct platform_device *pdev,
 
     pdevice = pdev;
 
+	if (is_layerscape) {
+		patch_param_ls(pdev, args);
+	} else {
 #ifdef IMX_GPU_SUBSYSTEM
-    if (pdev->dev.of_node && use_imx_gpu_subsystem)
-        patch_param_imx8_subsystem(pdev, args);
-    else
+		if (pdev->dev.of_node && use_imx_gpu_subsystem)
+			patch_param_imx8_subsystem(pdev, args);
+		else
 #endif
-        patch_param_imx6(pdev, args);
+			patch_param_imx6(pdev, args);
+	}
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3,5,0)
     if(args->compression == gcvCOMPRESSION_OPTION_DEFAULT)
@@ -1751,6 +1787,20 @@ static struct _gcsPLATFORM imx_platform =
     .ops  = &imx_platform_ops,
 };
 
+static const struct of_device_id gpu_match[] = {
+	{ .compatible = "fsl,ls1028a-gpu"},
+	{ /* sentinel */ }
+};
+
+struct _gcsPLATFORM_OPERATIONS ls_platform_ops = {
+	.adjustParam  = _AdjustParam,
+};
+
+static struct _gcsPLATFORM ls_platform = {
+	.name = __FILE__,
+	.ops  = &ls_platform_ops,
+};
+
 int gckPLATFORM_Init(struct platform_driver *pdrv,
             struct _gcsPLATFORM **platform)
 {
@@ -1765,6 +1815,14 @@ int gckPLATFORM_Init(struct platform_driver *pdrv,
     }
 #endif
 
+	if (of_find_compatible_node(NULL, NULL, "fsl,ls1028a-gpu")) {
+		is_layerscape = 1;
+		pdrv->driver.of_match_table = gpu_match;
+		*platform = &ls_platform;
+
+		return 0;
+	}
+
     adjust_platform_driver(pdrv);
     init_priv();
 
@@ -1778,6 +1836,9 @@ int gckPLATFORM_Init(struct platform_driver *pdrv,
 
 int gckPLATFORM_Terminate(struct _gcsPLATFORM *platform)
 {
+	if (is_layerscape)
+		return 0;
+
 #ifdef IMX_GPU_SUBSYSTEM
     unregister_mxc_gpu_sub_driver();
 #endif
