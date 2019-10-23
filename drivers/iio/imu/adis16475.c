@@ -1008,6 +1008,14 @@ static const struct spi_device_id adis16475_ids[] = {
 	{ "adis16477-1", ADIS16477_1 },
 	{ "adis16477-2", ADIS16477_2 },
 	{ "adis16477-3", ADIS16477_3 },
+	/* This devices are identical to adis16475 in terms of chip_info */
+	{ "adis16465-1", ADIS16475_1 },
+	{ "adis16465-2", ADIS16475_2 },
+	{ "adis16465-3", ADIS16475_3 },
+	/* This devices are identical to adis16477 in terms of chip_info */
+	{ "adis16467-1", ADIS16477_1 },
+	{ "adis16467-2", ADIS16477_2 },
+	{ "adis16467-3", ADIS16477_3 },
 	{ }
 };
 MODULE_DEVICE_TABLE(spi, adis16475_ids);
@@ -1019,6 +1027,12 @@ static const struct of_device_id adis16475_of_match[] = {
 	{ .compatible = "adi,adis16477-1" },
 	{ .compatible = "adi,adis16477-2" },
 	{ .compatible = "adi,adis16477-3" },
+	{ .compatible = "adi,adis16465-1" },
+	{ .compatible = "adi,adis16465-2" },
+	{ .compatible = "adi,adis16465-3" },
+	{ .compatible = "adi,adis16467-1" },
+	{ .compatible = "adi,adis16467-2" },
+	{ .compatible = "adi,adis16467-3" },
 	{ },
 };
 MODULE_DEVICE_TABLE(of, adis16475_of_match);
