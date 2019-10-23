@@ -14,8 +14,28 @@ if [ -f "${FULL_BUILD_DIR}/env" ] ; then
 	. "${FULL_BUILD_DIR}/env"
 fi
 
-KCFLAGS="-Werror -Wno-error=frame-larger-than="
+KCFLAGS="-Werror"
+# FIXME: remove the line below once Talise & Mykonos APIs
+#	 dont't use 1024 bytes on stack
+KCFLAGS="$KCFLAGS -Wno-error=frame-larger-than="
 export KCFLAGS
+
+# FIXME: remove this function once kernel gets upgrade and
+#	 GCC doesn't report these warnings anymore
+adjust_kcflags_against_gcc() {
+	if [ -n "$CROSS_COMPILE" ] ; then
+		GCC="${CROSS_COMPILE}gcc"
+	else
+		GCC=gcc
+	fi
+	if [ "$($GCC -dumpversion)" -ge "8" ]; then
+		KCFLAGS="$KCFLAGS -Wno-error=attribute-alias= -Wno-error=stringop-truncation"
+		KCFLAGS="$KCFLAGS -Wno-error=address-of-packed-member -Wno-error=packed-not-aligned"
+		KCFLAGS="$KCFLAGS -Wno-error=stringop-overflow= -Wno-error=sizeof-pointer-memaccess"
+		KCFLAGS="$KCFLAGS -Wno-error=missing-attributes"
+	fi
+	export KCFLAGS
+}
 
 APT_LIST="build-essential bc u-boot-tools"
 
@@ -30,6 +50,7 @@ apt_update_install() {
 		apt-get -qq update
 		apt-get -y install $@
 	EOF
+	adjust_kcflags_against_gcc
 }
 
 build_default() {
