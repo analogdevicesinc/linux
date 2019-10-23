@@ -34,6 +34,9 @@
 #ifndef __DWC_HCD_H__
 #define __DWC_HCD_H__
 
+#pragma GCC diagnostic ignored "-Wint-to-pointer-cast"
+#pragma GCC diagnostic ignored "-Wpointer-to-int-cast"
+
 #include "dwc_otg_os_dep.h"
 #include "usb.h"
 #include "dwc_otg_hcd_if.h"
