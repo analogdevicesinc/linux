@@ -855,7 +855,7 @@ static int patch_param_imx8_subsystem(struct platform_device *pdev,
         if (!res)
             break;
 
-        while(!priv->pmdev[core] && core < gcvCORE_COUNT)
+        while(!priv->pmdev[core] && core < (gcvCORE_COUNT-1))
             core++;
 
         args->irqs[core] = irqLine;
