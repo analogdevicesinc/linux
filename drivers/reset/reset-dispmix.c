@@ -340,7 +340,7 @@ static int dispmix_reset_probe(struct platform_device *pdev)
 	if (IS_ERR(regs))
 		return PTR_ERR(regs);
 
-	apb_clk = devm_clk_get(dev, "disp-apb");
+	apb_clk = devm_clk_get(dev, "disp_apb_root_clk");
 	if (IS_ERR(apb_clk)) {
 		dev_err(dev, "Unable to get disp apb clock\n");
 		return PTR_ERR(apb_clk);
