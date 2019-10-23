@@ -879,7 +879,8 @@ static int mw_axidma_alloc(struct mwadma_dev *mwdev, size_t bufferSize)
 
     else {
         dev_info(IP2DEVP(mwdev), "Address of buffer = 0x%p, Length = %u Bytes\n",\
-                (void *)MWDEV_TO_MWIP(mwdev)->dma_info.phys,(unsigned int)bufferSize);
+                (void *)((uintptr_t)MWDEV_TO_MWIP(mwdev)->dma_info.phys),
+		(unsigned int)bufferSize);
         MWDEV_TO_MWIP(mwdev)->dma_info.size = bufferSize;
     }
     return 0;

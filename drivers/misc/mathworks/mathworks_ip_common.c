@@ -86,7 +86,7 @@ static int	mathworks_ip_dma_info(struct mathworks_ip_info *thisIpcore, void *arg
 	
 	/* Populate the struct with information */
 	dinfo.size = thisIpcore->dma_info.size;
-	dinfo.phys = (void *)thisIpcore->dma_info.phys;
+	dinfo.phys = (void *)((uintptr_t)thisIpcore->dma_info.phys);
 	
 	/* Copy the struct back to user space */
 	if( copy_to_user((struct mathworks_ip_dma_info*)arg, &dinfo, sizeof(struct mathworks_ip_dma_info)) ) {
@@ -108,7 +108,7 @@ static int	mathworks_ip_reg_info(struct mathworks_ip_info *thisIpcore, void *arg
 
 	/* Populate the struct with information */
 	rinfo.size = resource_size(thisIpcore->mem);
-	rinfo.phys = (void *)thisIpcore->mem->start;
+	rinfo.phys = (void *)((uintptr_t)thisIpcore->mem->start);
 
 	/* Copy the struct back to user space */
 	if( copy_to_user((struct mathworks_ip_reg_info*)arg, &rinfo, sizeof(struct mathworks_ip_reg_info)) ) {
@@ -448,7 +448,9 @@ struct mathworks_ip_info *devm_mathworks_ip_of_init(
 	ipDev->mem = platform_get_resource(pdev, IORESOURCE_MEM,0);
 	if(ipDev->mem)
 	{
-		dev_info(&pdev->dev, "Dev memory resource found at %p %08lX. \n", (void *)ipDev->mem->start, (unsigned long)resource_size(ipDev->mem));
+		dev_info(&pdev->dev, "Dev memory resource found at %p %08lX. \n",
+			 (void *)((uintptr_t)ipDev->mem->start),
+			 (unsigned long)resource_size(ipDev->mem));
 		ipDev->mem  = devm_request_mem_region(&pdev->dev, ipDev->mem->start, resource_size(ipDev->mem), pdev->name);
 
 		if (!ipDev->mem)
