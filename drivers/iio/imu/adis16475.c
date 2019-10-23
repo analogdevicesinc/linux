@@ -1002,6 +1002,8 @@ static int adis16475_probe(struct spi_device *spi)
 }
 
 static const struct spi_device_id adis16475_ids[] = {
+	/* Identical to adis16477-3 */
+	{ "adis16470", ADIS16477_3 },
 	{ "adis16475-1", ADIS16475_1 },
 	{ "adis16475-2", ADIS16475_2 },
 	{ "adis16475-3", ADIS16475_3 },
@@ -1021,6 +1023,7 @@ static const struct spi_device_id adis16475_ids[] = {
 MODULE_DEVICE_TABLE(spi, adis16475_ids);
 
 static const struct of_device_id adis16475_of_match[] = {
+	{ .compatible = "adi,adis16470" },
 	{ .compatible = "adi,adis16475-1" },
 	{ .compatible = "adi,adis16475-2" },
 	{ .compatible = "adi,adis16475-3" },
