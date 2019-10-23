@@ -40,6 +40,9 @@
 #include <soc/bcm2835/raspberrypi-firmware.h>
 #include <linux/mutex.h>
 
+#pragma GCC diagnostic ignored "-Wint-to-pointer-cast"
+#pragma GCC diagnostic ignored "-Wpointer-to-int-cast"
+
 //#define BCM2708_FB_DEBUG
 #define MODULE_NAME "bcm2708_fb"
 
