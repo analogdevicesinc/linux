@@ -23,6 +23,7 @@
 #include <linux/slab.h>
 #include <linux/sysfs.h>
 #include <linux/module.h>
+#include <linux/gpio/consumer.h>
 
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
@@ -151,6 +152,9 @@ struct adis16480_chip_info {
 	const unsigned int *filter_freqs;
 	bool has_pps_clk_mode;
 	struct adis_burst *burst;
+	u16 reset_ms;
+	u16 sw_reset_ms;
+	u16 self_test_ms;
 };
 
 enum adis16480_int_pin {
@@ -913,6 +917,9 @@ static const struct adis16480_chip_info adis16480_chip_info[] = {
 		.int_clk = 2460000,
 		.max_dec_rate = 2048,
 		.filter_freqs = adis16480_def_filter_freqs,
+		.reset_ms = 500,
+		.sw_reset_ms = 74,
+		.self_test_ms = 10,
 	},
 	[ADIS16480] = {
 		.channels = adis16480_channels,
@@ -925,6 +932,10 @@ static const struct adis16480_chip_info adis16480_chip_info[] = {
 		.int_clk = 2460000,
 		.max_dec_rate = 2048,
 		.filter_freqs = adis16480_def_filter_freqs,
+		.reset_ms = 560,
+		.sw_reset_ms = 560,
+		.self_test_ms = 12,
+
 	},
 	[ADIS16485] = {
 		.channels = adis16485_channels,
@@ -937,6 +948,9 @@ static const struct adis16480_chip_info adis16480_chip_info[] = {
 		.int_clk = 2460000,
 		.max_dec_rate = 2048,
 		.filter_freqs = adis16480_def_filter_freqs,
+		.reset_ms = 560,
+		.sw_reset_ms = 120,
+		.self_test_ms = 12,
 	},
 	[ADIS16488] = {
 		.channels = adis16480_channels,
@@ -949,6 +963,9 @@ static const struct adis16480_chip_info adis16480_chip_info[] = {
 		.int_clk = 2460000,
 		.max_dec_rate = 2048,
 		.filter_freqs = adis16480_def_filter_freqs,
+		.reset_ms = 500,
+		.sw_reset_ms = 120,
+		.self_test_ms = 12,
 	},
 	[ADIS16490] = {
 		.channels = adis16485_channels,
@@ -962,6 +979,9 @@ static const struct adis16480_chip_info adis16480_chip_info[] = {
 		.max_dec_rate = 4250,
 		.filter_freqs = adis16495_def_filter_freqs,
 		.has_pps_clk_mode = true,
+		.reset_ms = 170,
+		.sw_reset_ms = 130,
+		.self_test_ms = 40,
 	},
 	[ADIS16495_1] = {
 		.channels = adis16495_channels,
@@ -976,6 +996,9 @@ static const struct adis16480_chip_info adis16480_chip_info[] = {
 		.filter_freqs = adis16495_def_filter_freqs,
 		.has_pps_clk_mode = true,
 		.burst = &adis16495_burst,
+		.reset_ms = 250,
+		.sw_reset_ms = 210,
+		.self_test_ms = 20,
 	},
 	[ADIS16495_2] = {
 		.channels = adis16495_channels,
@@ -990,6 +1013,9 @@ static const struct adis16480_chip_info adis16480_chip_info[] = {
 		.filter_freqs = adis16495_def_filter_freqs,
 		.has_pps_clk_mode = true,
 		.burst = &adis16495_burst,
+		.reset_ms = 250,
+		.sw_reset_ms = 210,
+		.self_test_ms = 20,
 	},
 	[ADIS16495_3] = {
 		.channels = adis16495_channels,
@@ -1004,6 +1030,9 @@ static const struct adis16480_chip_info adis16480_chip_info[] = {
 		.filter_freqs = adis16495_def_filter_freqs,
 		.has_pps_clk_mode = true,
 		.burst = &adis16495_burst,
+		.reset_ms = 250,
+		.sw_reset_ms = 210,
+		.self_test_ms = 20,
 	},
 	[ADIS16497_1] = {
 		.channels = adis16495_channels,
@@ -1018,6 +1047,9 @@ static const struct adis16480_chip_info adis16480_chip_info[] = {
 		.filter_freqs = adis16495_def_filter_freqs,
 		.has_pps_clk_mode = true,
 		.burst = &adis16495_burst,
+		.reset_ms = 250,
+		.sw_reset_ms = 210,
+		.self_test_ms = 20,
 	},
 	[ADIS16497_2] = {
 		.channels = adis16495_channels,
@@ -1032,6 +1064,9 @@ static const struct adis16480_chip_info adis16480_chip_info[] = {
 		.filter_freqs = adis16495_def_filter_freqs,
 		.has_pps_clk_mode = true,
 		.burst = &adis16495_burst,
+		.reset_ms = 250,
+		.sw_reset_ms = 210,
+		.self_test_ms = 20,
 	},
 	[ADIS16497_3] = {
 		.channels = adis16495_channels,
@@ -1046,6 +1081,9 @@ static const struct adis16480_chip_info adis16480_chip_info[] = {
 		.filter_freqs = adis16495_def_filter_freqs,
 		.has_pps_clk_mode = true,
 		.burst = &adis16495_burst,
+		.reset_ms = 250,
+		.sw_reset_ms = 210,
+		.self_test_ms = 20,
 	},
 };
 
@@ -1205,12 +1243,12 @@ static int adis16480_initial_setup(struct iio_dev *indio_dev)
 	int ret;
 
 	adis_reset(&st->adis);
-	msleep(70);
+	msleep(st->chip_info->sw_reset_ms);
 
 	ret = adis_write_reg_16(&st->adis, ADIS16480_REG_GLOB_CMD, BIT(1));
 	if (ret)
 		return ret;
-	msleep(30);
+	msleep(st->chip_info->self_test_ms);
 
 	ret = adis_check_status(&st->adis);
 	if (ret)
@@ -1434,6 +1472,7 @@ static int adis16480_probe(struct spi_device *spi)
 	struct iio_dev *indio_dev;
 	struct adis16480 *st;
 	int ret;
+	struct gpio_desc *gpio;
 
 	indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*st));
 	if (indio_dev == NULL)
@@ -1450,6 +1489,12 @@ static int adis16480_probe(struct spi_device *spi)
 	indio_dev->num_channels = st->chip_info->num_channels;
 	indio_dev->info = &adis16480_info;
 	indio_dev->modes = INDIO_DIRECT_MODE;
+
+	gpio = devm_gpiod_get_optional(&spi->dev, "reset", GPIOD_OUT_LOW);
+	if (IS_ERR(gpio))
+		return PTR_ERR(gpio);
+	else if (gpio)
+		msleep(st->chip_info->reset_ms);
 
 	ret = adis_init(&st->adis, indio_dev, spi, &adis16480_data);
 	if (ret)
