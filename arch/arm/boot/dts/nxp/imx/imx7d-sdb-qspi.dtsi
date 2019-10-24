@@ -7,9 +7,9 @@
  */
 
 /* disable epdc, conflict with qspi */
-/* &epdc { */
-        /* status = "disabled"; */
-/* }; */
+&epdc {
+	status = "disabled";
+};
 
 &iomuxc {
 	qspi1 {
@@ -35,10 +35,10 @@
 	flash0: mx25l51245g@0 {
 		#address-cells = <1>;
 		#size-cells = <1>;
-		compatible = "macronix,mx25l51245g";
+		compatible = "jedec,spi-nor";
 		spi-max-frequency = <29000000>;
-		/* take off one dummy cycle */
-		spi-nor,ddr-quad-read-dummy = <5>;
+		spi-rx-bus-width = <4>;
+		spi-tx-bus-width = <4>;
 		reg = <0>;
 	};
 };
