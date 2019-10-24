@@ -78,6 +78,7 @@ struct ad9144_platform_data {
 	unsigned int fcenter_shift;
 	bool spi4wire;
 	u8 jesd_link_mode;
+	u8 jesd_subclass;
 };
 
 struct ad9144_state {
@@ -1058,6 +1059,9 @@ static struct ad9144_platform_data *ad9144_parse_dt(struct device *dev)
 	of_property_read_u32(np, "adi,jesd-link-mode", &tmp);
 	pdata->jesd_link_mode = (tmp > 13 ? 4 : tmp);
 
+	tmp = 1;
+	of_property_read_u32(np, "adi,jesd-subclass", &tmp);
+	pdata->jesd_subclass = (tmp > 1 ? 1 : tmp);
 	/*
 	 * DO NOT copy this. It is as wrong as it gets, we have to do it to
 	 * preserve backwards compatibility with earlier versions of the driver
@@ -1250,7 +1254,7 @@ static int ad9144_probe(struct spi_device *spi)
 
 	link_config.high_density = ad9144_jesd_modes[pdata->jesd_link_mode].hd;
 	link_config.scrambling = true;
-	link_config.subclass = 1;
+	link_config.subclass = pdata->jesd_subclass;
 	link_config.sysref.mode = AD9144_SYSREF_ONESHOT;
 
 	for (i = 0; i < 8; i++)
