@@ -424,6 +424,7 @@ _NonContiguous1MPagesAlloc(
 
             if (order >= MAX_ORDER)
             {
+                kfree(pages);
                 _NonContiguous1MPagesFree(MdlPriv, MdlPriv->numPages1M);
                 return gcvNULL;
             }
@@ -433,6 +434,7 @@ _NonContiguous1MPagesAlloc(
 
         if (MdlPriv->Pages1M[i] == gcvNULL)
         {
+            kfree(pages);
             _NonContiguous1MPagesFree(MdlPriv, MdlPriv->numPages1M);
             return gcvNULL;
         }
