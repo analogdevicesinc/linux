@@ -347,6 +347,7 @@ static const struct adis_data adis16260_data = {
 	.diag_stat_reg = ADIS16260_DIAG_STAT,
 
 	.self_test_mask = ADIS16260_MSC_CTRL_MEM_TEST,
+	.self_test_reg = ADIS16260_MSC_CTRL,
 
 	.status_error_msgs = adis1620_status_error_msgs,
 	.status_error_mask = BIT(ADIS16260_DIAG_STAT_FLASH_CHK_BIT) |

@@ -473,6 +473,7 @@ static const struct adis_data adis16136_data = {
 	.msc_ctrl_reg = ADIS16136_REG_MSC_CTRL,
 
 	.self_test_mask = ADIS16136_MSC_CTRL_SELF_TEST,
+	.self_test_reg = ADIS16136_REG_MSC_CTRL,
 
 	.read_delay = 10,
 	.write_delay = 10,
