@@ -101,12 +101,13 @@ static void printk_pixelformat(char *prefix, int val)
 static bool is_rgb(u32 pix_fmt)
 {
 	if ((pix_fmt == V4L2_PIX_FMT_RGB565) ||
-	    (pix_fmt == V4L2_PIX_FMT_RGB24) ||
-	    (pix_fmt == V4L2_PIX_FMT_RGB32) ||
-	    (pix_fmt == V4L2_PIX_FMT_BGR32) ||
+	    (pix_fmt == V4L2_PIX_FMT_RGB24)  ||
+	    (pix_fmt == V4L2_PIX_FMT_RGB32)  ||
+	    (pix_fmt == V4L2_PIX_FMT_BGR32)  ||
 	    (pix_fmt == V4L2_PIX_FMT_XRGB32) ||
 	    (pix_fmt == V4L2_PIX_FMT_XBGR32) ||
-	    (pix_fmt == V4L2_PIX_FMT_BGR24) ||
+	    (pix_fmt == V4L2_PIX_FMT_BGR24)  ||
+	    (pix_fmt == V4L2_PIX_FMT_RGBA)   ||
 	    (pix_fmt == V4L2_PIX_FMT_ABGR32) ||
 	    (pix_fmt == V4L2_PIX_FMT_ARGB32))
 		return true;
@@ -116,9 +117,10 @@ static bool is_rgb(u32 pix_fmt)
 
 static bool is_yuv(u32 pix_fmt)
 {
-	if ((pix_fmt == V4L2_PIX_FMT_YUYV) ||
+	if ((pix_fmt == V4L2_PIX_FMT_YUYV)  ||
 	    (pix_fmt == V4L2_PIX_FMT_YUV32) ||
 	    (pix_fmt == V4L2_PIX_FMT_YUV444M) ||
+	    (pix_fmt == V4L2_PIX_FMT_YUV24) ||
 	    (pix_fmt == V4L2_PIX_FMT_NV12))
 		return true;
 	else
@@ -129,7 +131,7 @@ static void chain_buf(struct mxc_isi_dev *mxc_isi, struct mxc_isi_frame *frm)
 {
 	u32 val;
 
-	if (frm->o_width > 2048) {
+	if (frm->o_width > ISI_2K) {
 		val = readl(mxc_isi->regs + CHNL_CTRL);
 		val &= ~CHNL_CTRL_CHAIN_BUF_MASK;
 		val |= (CHNL_CTRL_CHAIN_BUF_2_CHAIN << CHNL_CTRL_CHAIN_BUF_OFFSET);
@@ -174,16 +176,18 @@ void mxc_isi_channel_set_outbuf(struct mxc_isi_dev *mxc_isi,
 
 	val = readl(mxc_isi->regs + CHNL_OUT_BUF_CTRL);
 
-	if (framecount % 2 == 0) {
+	if (framecount == 0 || ((mxc_isi->status & 0x100) && (framecount != 1))) {
 		writel(paddr->y, mxc_isi->regs + CHNL_OUT_BUF1_ADDR_Y);
 		writel(paddr->cb, mxc_isi->regs + CHNL_OUT_BUF1_ADDR_U);
 		writel(paddr->cr, mxc_isi->regs + CHNL_OUT_BUF1_ADDR_V);
 		val ^= CHNL_OUT_BUF_CTRL_LOAD_BUF1_ADDR_MASK;
-	} else if (framecount % 2 == 1) {
+		buf->id = MXC_ISI_BUF1;
+	} else if (framecount == 1 || mxc_isi->status & 0x200) {
 		writel(paddr->y, mxc_isi->regs + CHNL_OUT_BUF2_ADDR_Y);
 		writel(paddr->cb, mxc_isi->regs + CHNL_OUT_BUF2_ADDR_U);
 		writel(paddr->cr, mxc_isi->regs + CHNL_OUT_BUF2_ADDR_V);
 		val ^= CHNL_OUT_BUF_CTRL_LOAD_BUF2_ADDR_MASK;
+		buf->id = MXC_ISI_BUF2;
 	}
 	writel(val, mxc_isi->regs + CHNL_OUT_BUF_CTRL);
 }
@@ -701,7 +705,6 @@ void mxc_isi_m2m_config_src(struct mxc_isi_dev *mxc_isi,
 void mxc_isi_m2m_config_dst(struct mxc_isi_dev *mxc_isi,
 			    struct mxc_isi_frame *dst_f)
 {
-	/*struct mxc_isi_frame *dst_f = &mxc_isi->isi_m2m->dst_f;*/
 	u32 val;
 
 	/* out format */

@@ -33,6 +33,8 @@
 #include <media/v4l2-ctrls.h>
 #include <media/videobuf2-core.h>
 #include <media/videobuf2-dma-contig.h>
+#include <linux/regmap.h>
+#include <linux/reset.h>
 
 #include "imx8-common.h"
 
@@ -40,6 +42,8 @@
 #define MXC_ISI_CAPTURE		"mxc-isi-cap"
 #define MXC_ISI_M2M		"mxc-isi-m2m"
 #define MXC_MAX_PLANES		3
+
+struct mxc_isi_dev;
 
 enum mxc_isi_out_fmt {
 	MXC_ISI_OUT_FMT_RGBA32	= 0x0,
@@ -188,6 +192,7 @@ struct mxc_isi_buffer {
 	struct vb2_v4l2_buffer  v4l2_buf;
 	struct list_head	list;
 	struct frame_addr	paddr;
+	enum mxc_isi_buf_id	id;
 	bool discard;
 };
 
@@ -221,6 +226,12 @@ struct mxc_isi_m2m_dev {
 struct mxc_isi_ctx {
 	struct mxc_isi_m2m_dev *isi_m2m;
 	struct v4l2_fh	    fh;
+};
+
+struct mxc_isi_dev_ops {
+	int (*clk_get)(struct mxc_isi_dev *mxc_isi);
+	int (*clk_enable)(struct mxc_isi_dev *mxc_isi);
+	void (*clk_disable)(struct mxc_isi_dev *mxc_isi);
 };
 
 struct mxc_isi_cap_dev {
@@ -265,7 +276,20 @@ struct mxc_isi_dev {
 	struct mxc_isi_m2m_dev *isi_m2m;
 
 	struct platform_device *pdev;
+
+	/* clk for imx8qxp/qm platform */
 	struct clk *clk;
+
+	/* clks for imx8mn platform */
+	struct clk *clk_disp_axi;
+	struct clk *clk_disp_apb;
+	struct clk *clk_root_disp_axi;
+	struct clk *clk_root_disp_apb;
+
+	const struct mxc_isi_dev_ops *ops;
+
+	struct reset_control *soft_resetn;
+	struct reset_control *clk_enable;
 
 	struct mutex lock;
 	spinlock_t   slock;
@@ -284,6 +308,8 @@ struct mxc_isi_dev {
 	u32 yfactor;
 	u32 pre_dec_x;
 	u32 pre_dec_y;
+
+	u32 status;
 
 	u32 interface[MAX_PORTS];
 	int id;

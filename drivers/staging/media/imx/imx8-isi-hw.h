@@ -447,6 +447,13 @@
 #define  CHNL_SCL_IMG_CFG_WIDTH_OFFSET		0
 #define  CHNL_SCL_IMG_CFG_WIDTH_MASK		0x1FFF
 
+/* Channel Flow Control Register */
+#define  CHNL_FLOW_CTRL				0x9C
+#define  CHNL_FLOW_CTRL_FC_DENOM_MASK		0xFF
+#define  CHNL_FLOW_CTRL_FC_DENOM_OFFSET		0
+#define  CHNL_FLOW_CTRL_FC_NUMER_MASK		0xFF0000
+#define  CHNL_FLOW_CTRL_FC_NUMER_OFFSET		0
+
 enum isi_csi_coeff {
 	YUV2RGB = 0,
 	RGB2YUV,
