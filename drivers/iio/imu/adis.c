@@ -8,6 +8,7 @@
  */
 
 #include <linux/delay.h>
+#include <linux/gpio/consumer.h>
 #include <linux/mutex.h>
 #include <linux/device.h>
 #include <linux/kernel.h>
@@ -354,34 +355,40 @@ static int adis_self_test(struct adis *adis)
 }
 
 /**
- * adis_inital_startup() - Performs device self-test
+ * __adis_initial_startup() - Device initial setup
  * @adis: The adis device
+ *
+ * This functions makes sure the device is not in reset, via rst pin.
+ * Furthermore it performs a SW reset (only in the case we are not coming from
+ * reset already) and a self test.
  *
  * Returns 0 if the device is operational, a negative error code otherwise.
  *
  * This function should be called early on in the device initialization sequence
  * to ensure that the device is in a sane and known state and that it is usable.
  */
-int adis_initial_startup(struct adis *adis)
+int __adis_initial_startup(struct adis *adis)
 {
 	int ret;
+	struct gpio_desc *gpio;
 
-	mutex_lock(&adis->state_lock);
-
-	ret = adis_self_test(adis);
-	if (ret) {
-		dev_err(&adis->spi->dev, "Self-test failed, trying reset.\n");
+	/* check if the device has rst pin low */
+	gpio = devm_gpiod_get_optional(&adis->spi->dev, "reset", GPIOD_ASIS);
+	if (IS_ERR(gpio)) {
+		return PTR_ERR(gpio);
+	} else if (gpio && gpiod_get_value_cansleep(gpio)) {
+		/* bring device out of reset */
+		gpiod_set_value_cansleep(gpio, 0);
+		msleep(adis->timeouts->reset_ms);
+	} else {
 		__adis_reset(adis);
-		ret = adis_self_test(adis);
-		if (ret) {
-			dev_err(&adis->spi->dev, "Second self-test failed, giving up.\n");
-			goto out_unlock;
-		}
 	}
 
-out_unlock:
-	mutex_unlock(&adis->state_lock);
-	return ret;
+	ret = adis_self_test(adis);
+	if (ret)
+		return ret;
+
+	return 0;
 }
 EXPORT_SYMBOL_GPL(adis_initial_startup);
 
