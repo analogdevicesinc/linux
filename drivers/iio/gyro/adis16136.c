@@ -60,6 +60,7 @@
 struct adis16136_chip_info {
 	unsigned int precision;
 	unsigned int fullscale;
+	const struct adis_timeout *timeouts;
 };
 
 struct adis16136 {
@@ -491,22 +492,38 @@ enum adis16136_id {
 	ID_ADIS16137,
 };
 
+static const struct adis_timeout adis16133_timeouts = {
+	.reset_ms = 75,
+	.sw_reset_ms = 75,
+	.self_test_ms = 50,
+};
+
+static const struct adis_timeout adis16136_timeouts = {
+	.reset_ms = 128,
+	.sw_reset_ms = 75,
+	.self_test_ms = 245,
+};
+
 static const struct adis16136_chip_info adis16136_chip_info[] = {
 	[ID_ADIS16133] = {
 		.precision = IIO_DEGREE_TO_RAD(1200),
 		.fullscale = 24000,
+		.timeouts = &adis16133_timeouts,
 	},
 	[ID_ADIS16135] = {
 		.precision = IIO_DEGREE_TO_RAD(300),
 		.fullscale = 24000,
+		.timeouts = &adis16133_timeouts,
 	},
 	[ID_ADIS16136] = {
 		.precision = IIO_DEGREE_TO_RAD(450),
 		.fullscale = 24623,
+		.timeouts = &adis16136_timeouts,
 	},
 	[ID_ADIS16137] = {
 		.precision = IIO_DEGREE_TO_RAD(1000),
 		.fullscale = 24609,
+		.timeouts = &adis16136_timeouts,
 	},
 };
 
@@ -533,7 +550,8 @@ static int adis16136_probe(struct spi_device *spi)
 	indio_dev->info = &adis16136_info;
 	indio_dev->modes = INDIO_DIRECT_MODE;
 
-	ret = adis_init(&adis16136->adis, indio_dev, spi, &adis16136_data);
+	ret = adis_init(&adis16136->adis, indio_dev, spi, &adis16136_data,
+			adis16136->chip_info->timeouts);
 	if (ret)
 		return ret;
 

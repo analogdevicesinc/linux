@@ -234,6 +234,12 @@ static const char * const adis16201_status_error_msgs[] = {
 	[ADIS16201_DIAG_STAT_POWER_LOW_BIT] = "Power supply below 3.15V",
 };
 
+static const struct adis_timeout adis16201_timeouts = {
+	.reset_ms = ADIS16201_STARTUP_DELAY_MS,
+	.sw_reset_ms = ADIS16201_STARTUP_DELAY_MS,
+	.self_test_ms = ADIS16201_STARTUP_DELAY_MS,
+};
+
 static const struct adis_data adis16201_data = {
 	.read_delay = 20,
 	.msc_ctrl_reg = ADIS16201_MSC_CTRL_REG,
@@ -272,7 +278,8 @@ static int adis16201_probe(struct spi_device *spi)
 	indio_dev->num_channels = ARRAY_SIZE(adis16201_channels);
 	indio_dev->modes = INDIO_DIRECT_MODE;
 
-	ret = adis_init(st, indio_dev, spi, &adis16201_data);
+	ret = adis_init(st, indio_dev, spi, &adis16201_data,
+			&adis16201_timeouts);
 	if (ret)
 		return ret;
 

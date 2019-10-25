@@ -383,6 +383,12 @@ static const char * const adis16460_status_error_msgs[] = {
 	[ADIS16460_DIAG_STAT_FLASH_UPT] = "Flash update failure",
 };
 
+static const struct adis_timeout adis16460_timeouts = {
+	.reset_ms = 225,
+	.sw_reset_ms = 225,
+	.self_test_ms = 10,
+};
+
 static const struct adis_data adis16460_data = {
 	.diag_stat_reg = ADIS16460_REG_DIAG_STAT,
 	.glob_cmd_reg = ADIS16460_REG_GLOB_CMD,
@@ -422,7 +428,8 @@ static int adis16460_probe(struct spi_device *spi)
 	indio_dev->info = &adis16460_info;
 	indio_dev->modes = INDIO_DIRECT_MODE;
 
-	ret = adis_init(&st->adis, indio_dev, spi, &adis16460_data);
+	ret = adis_init(&st->adis, indio_dev, spi, &adis16460_data,
+			&adis16460_timeouts);
 	if (ret)
 		return ret;
 

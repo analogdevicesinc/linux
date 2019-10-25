@@ -55,11 +55,24 @@ struct adis_data {
 	bool has_paging;
 };
 
+/**
+ * struct adis_timeouts - ADIS chip variant timeouts
+ * @reset_ms - Wait time after rst pin goes inactive
+ * @sw_reset_ms - Wait time after sw reset command
+ * @self_test_ms - Wait time after self test command
+ */
+struct adis_timeout {
+	u16 reset_ms;
+	u16 sw_reset_ms;
+	u16 self_test_ms;
+};
+
 struct adis {
 	struct spi_device	*spi;
 	struct iio_trigger	*trig;
 
 	const struct adis_data	*data;
+	const struct adis_timeout *timeouts;
 	struct adis_burst	*burst;
 
 	struct mutex		state_lock;
@@ -74,7 +87,8 @@ struct adis {
 };
 
 int adis_init(struct adis *adis, struct iio_dev *indio_dev,
-	struct spi_device *spi, const struct adis_data *data);
+	      struct spi_device *spi, const struct adis_data *data,
+	      const struct adis_timeout *timeouts);
 int __adis_reset(struct adis *adis);
 
 /**

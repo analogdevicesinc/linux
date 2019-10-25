@@ -648,6 +648,12 @@ static struct adis_burst adis16475_burst = {
 	.write_delay = 5,
 };
 
+static const struct adis_timeout adis16475_timeouts = {
+	.reset_ms = 200,
+	.sw_reset_ms = 200,
+	.self_test_ms = 20,
+};
+
 static const struct adis_data adis16475_data = {
 	.msc_ctrl_reg = ADIS16475_REG_MSG_CTRL,
 	.glob_cmd_reg = ADIS16475_REG_GLOB_CMD,
@@ -957,7 +963,8 @@ static int adis16475_probe(struct spi_device *spi)
 	st->info = &adis16475_chip_info[id->driver_data];
 	spi_set_drvdata(spi, indio_dev);
 
-	ret = adis_init(&st->adis, indio_dev, spi, &adis16475_data);
+	ret = adis_init(&st->adis, indio_dev, spi, &adis16475_data,
+			&adis16475_timeouts);
 	if (ret)
 		return ret;
 
