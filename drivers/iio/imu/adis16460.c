@@ -340,15 +340,7 @@ static int adis16460_initial_setup(struct iio_dev *indio_dev)
 	unsigned int device_id;
 	int ret;
 
-	adis_reset(&st->adis);
-	msleep(222);
-
-	ret = adis_write_reg_16(&st->adis, ADIS16460_REG_GLOB_CMD, BIT(1));
-	if (ret)
-		return ret;
-	msleep(75);
-
-	ret = adis_check_status(&st->adis);
+	ret = __adis_initial_startup(&st->adis);
 	if (ret)
 		return ret;
 
@@ -392,6 +384,8 @@ static const struct adis_timeout adis16460_timeouts = {
 static const struct adis_data adis16460_data = {
 	.diag_stat_reg = ADIS16460_REG_DIAG_STAT,
 	.glob_cmd_reg = ADIS16460_REG_GLOB_CMD,
+	.self_test_mask = BIT(2),
+	.self_test_reg = ADIS16460_REG_GLOB_CMD,
 	.has_paging = false,
 	.read_delay = 5,
 	.write_delay = 5,
