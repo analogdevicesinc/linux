@@ -37,7 +37,7 @@ adjust_kcflags_against_gcc() {
 	export KCFLAGS
 }
 
-APT_LIST="build-essential bc u-boot-tools flex bison"
+APT_LIST="build-essential bc u-boot-tools flex bison libssl-dev"
 
 if [ "$ARCH" == "arm64" ] ; then
 	APT_LIST="$APT_LIST gcc-aarch64-linux-gnu"
