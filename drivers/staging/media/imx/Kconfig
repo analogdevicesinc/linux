@@ -13,3 +13,11 @@ config VIDEO_IMX_MEDIA
 	help
 	  Say yes here to enable support for video4linux media controller
 	  drivers for the i.MX5/6 SOC.
+
+config IMX8_MIPI_CSI2_SAM
+	tristate "IMX8 MIPI CSI2 SAMSUNG Controller"
+	depends on VIDEO_V4L2 && VIDEO_V4L2_SUBDEV_API
+	default y
+	help
+	  Enable support for video4linux MIPI CSI2 Samsung driver for
+	  i.MX8MN platform.
