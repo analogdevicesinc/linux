@@ -659,6 +659,9 @@ static const struct adis_data adis16475_data = {
 	.glob_cmd_reg = ADIS16475_REG_GLOB_CMD,
 	.diag_stat_reg = ADIS16475_REG_DIAG_STAT,
 
+	.self_test_mask = BIT(2),
+	.self_test_reg = ADIS16475_REG_GLOB_CMD,
+
 	.cs_change_delay = 16,
 	.read_delay = 5,
 	.write_delay = 5,
@@ -912,17 +915,7 @@ static int adis16475_check_state(struct iio_dev *indio_dev)
 	u16 prod_id;
 	u32 device_id;
 
-	ret = __adis_reset(&st->adis);
-	if (ret)
-		return ret;
-
-	msleep(200);
-	ret = __adis_write_reg_16(&st->adis, ADIS16475_REG_GLOB_CMD, BIT(2));
-	if (ret)
-		return ret;
-
-	msleep(20);
-	ret = __adis_check_status(&st->adis);
+	ret = __adis_initial_startup(&st->adis);
 	if (ret)
 		return ret;
 
