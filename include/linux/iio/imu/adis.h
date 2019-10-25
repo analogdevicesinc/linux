@@ -45,7 +45,6 @@ struct adis_data {
 
 	unsigned int self_test_mask;
 	bool self_test_no_autoclear;
-	unsigned int startup_delay;
 
 	const char * const *status_error_msgs;
 	unsigned int status_error_mask;
