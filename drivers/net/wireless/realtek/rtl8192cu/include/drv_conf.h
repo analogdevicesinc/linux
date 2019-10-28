@@ -21,6 +21,8 @@
 #define __DRV_CONF_H__
 #include "autoconf.h"
 
+#pragma GCC diagnostic ignored "-Wmisleading-indentation"
+
 #if defined (PLATFORM_LINUX) && defined (PLATFORM_WINDOWS)
 
 #error "Shall be Linux or Windows, but not both!\n"
