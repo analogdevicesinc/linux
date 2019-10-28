@@ -1874,7 +1874,7 @@ _Construct(
         Kernel,
         256,
         gcvVIDMEM_TYPE_COMMAND,
-        gcvALLOC_FLAG_CONTIGUOUS | gcvALLOC_FLAG_4K_PAGES,
+        gcvALLOC_FLAG_CONTIGUOUS | gcvALLOC_FLAG_4K_PAGES | gcvALLOC_FLAG_4GB_ADDR,
         &mmu->safePageSize,
         &pool,
         &mmu->safePageVideoMem
