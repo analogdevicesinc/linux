@@ -441,7 +441,7 @@ _CMAFSLMapUser(
     up_write(&current->mm->mmap_sem);
 
 OnError:
-    if (gcmIS_ERROR(status) && userLogical)
+    if (gcmIS_ERROR(status) && userLogical && !IS_ERR(userLogical))
     {
         _CMAFSLUnmapUser(Allocator, Mdl, userLogical, Mdl->numPages * PAGE_SIZE);
     }
