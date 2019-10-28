@@ -34,7 +34,7 @@ vpu_subsys: bus@2c000000 {
 		reg-names = "vpu_regs";
 		power-domains = <&pd IMX_SC_R_VPU_ENC_0>,
 				<&pd IMX_SC_R_VPU>, <&pd IMX_SC_R_VPU_MU_1>;
-		power-domain-names = "vpuenc", "vpu", "vpumu1";
+		power-domain-names = "vpuenc1", "vpu", "vpumu1";
 		#address-cells = <1>;
 		#size-cells = <1>;
 		status = "disabled";

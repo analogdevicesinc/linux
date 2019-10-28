@@ -1296,9 +1296,9 @@
 	reg-rpc-system = <0x40000000>;
 	resolution-max = <1920 1080>;
 	fps-max = <120>;
-	power-domains = <&pd IMX_SC_R_VPU_ENC_0>,
+	power-domains = <&pd IMX_SC_R_VPU_ENC_0>, <&pd IMX_SC_R_VPU_ENC_1>,
 			<&pd IMX_SC_R_VPU>, <&pd IMX_SC_R_VPU_MU_1>, <&pd IMX_SC_R_VPU_MU_2>;
-	power-domain-names = "vpuenc", "vpu", "vpumu1", "vpumu2";
+	power-domain-names = "vpuenc1", "vpuenc2", "vpu", "vpumu1", "vpumu2";
 	status = "okay";
 
 	core0@1020000 {
