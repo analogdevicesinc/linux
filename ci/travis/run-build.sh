@@ -23,16 +23,17 @@ export KCFLAGS
 # FIXME: remove this function once kernel gets upgrade and
 #	 GCC doesn't report these warnings anymore
 adjust_kcflags_against_gcc() {
-	if [ -n "$CROSS_COMPILE" ] ; then
-		GCC="${CROSS_COMPILE}gcc"
-	else
-		GCC=gcc
-	fi
-	if [ "$($GCC -dumpversion)" -ge "8" ]; then
-		KCFLAGS="$KCFLAGS -Wno-error=attribute-alias= -Wno-error=stringop-truncation"
-		KCFLAGS="$KCFLAGS -Wno-error=address-of-packed-member -Wno-error=packed-not-aligned"
+	GCC="${CROSS_COMPILE}gcc"
+	if [ "$($GCC -dumpversion | cut -d. -f1)" -ge "8" ]; then
+		KCFLAGS="$KCFLAGS -Wno-error=stringop-truncation"
+		KCFLAGS="$KCFLAGS -Wno-error=packed-not-aligned"
 		KCFLAGS="$KCFLAGS -Wno-error=stringop-overflow= -Wno-error=sizeof-pointer-memaccess"
 		KCFLAGS="$KCFLAGS -Wno-error=missing-attributes"
+	fi
+
+	if [ "$($GCC -dumpversion | cut -d. -f1)" -ge "9" ]; then
+		KCFLAGS="$KCFLAGS -Wno-error=address-of-packed-member -Wno-error=attribute-alias="
+		KCFLAGS="$KCFLAGS -Wno-error=stringop-truncation"
 	fi
 	export KCFLAGS
 }
