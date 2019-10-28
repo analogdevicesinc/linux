@@ -503,7 +503,7 @@ mt76x2_get_power_info_2g(struct mt76x2_dev *dev, struct mt76x2_tx_power_info *t,
 {
 	int channel = chan->hw_value;
 	int delta_idx;
-	u8 data[6];
+	u8 data[6] = {};
 	u16 val;
 
 	if (channel < 6)
@@ -532,7 +532,7 @@ mt76x2_get_power_info_5g(struct mt76x2_dev *dev, struct mt76x2_tx_power_info *t,
 	enum mt76x2_cal_channel_group group;
 	int delta_idx;
 	u16 val;
-	u8 data[5];
+	u8 data[5] = {};
 
 	group = mt76x2_get_cal_channel_group(channel);
 	offset += group * MT_TX_POWER_GROUP_SIZE_5G;
