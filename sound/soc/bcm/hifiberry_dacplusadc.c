@@ -17,6 +17,8 @@
  * General Public License for more details.
  */
 
+#pragma GCC diagnostic ignored "-Warray-bounds"
+
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/kernel.h>
