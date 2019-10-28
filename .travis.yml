@@ -18,7 +18,6 @@ env:
   - DEFCONFIG=adi_bcm2709_defconfig ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf-
   - DEFCONFIG=adi_bcm2711_defconfig ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf-
   - DEFCONFIG=adi_bcmrpi_defconfig ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf-
-  - BUILD_TYPE=compile_test DEFCONFIG=adi_bcm2709_defconfig ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf-
 
 script:
   - ./ci/travis/run-build-docker.sh
