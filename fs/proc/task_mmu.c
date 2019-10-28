@@ -24,6 +24,8 @@
 #include <asm/tlbflush.h>
 #include "internal.h"
 
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+
 void task_mem(struct seq_file *m, struct mm_struct *mm)
 {
 	unsigned long text, lib, swap, ptes, pmds, anon, file, shmem;

@@ -20,6 +20,8 @@
 #ifndef __OSDEP_SERVICE_H_
 #define __OSDEP_SERVICE_H_
 
+#pragma GCC diagnostic ignored "-Wcast-function-type"
+
 #include <drv_conf.h>
 #include <basic_types.h>
 //#include <rtl871x_byteorder.h>

@@ -18,6 +18,8 @@
  *
  ******************************************************************************/
 
+#pragma GCC diagnostic ignored "-Wcast-function-type"
+
 #include <linux/module.h>
 #include <linux/netdevice.h>
 
