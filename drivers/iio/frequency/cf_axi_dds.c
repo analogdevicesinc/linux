@@ -549,6 +549,7 @@ static int cf_axi_dds_read_raw(struct iio_dev *indio_dev,
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_CALIBPHASE:
 		phase = 1;
+		/* fall-through */
 	case IIO_CHAN_INFO_CALIBSCALE:
 
 		reg = dds_read(st, ADI_REG_CHAN_CNTRL_8(chan->channel));
@@ -711,6 +712,7 @@ static int cf_axi_dds_write_raw(struct iio_dev *indio_dev,
 		break;
 	case IIO_CHAN_INFO_CALIBPHASE:
 		phase = 1;
+		/* fall-through */
 	case IIO_CHAN_INFO_CALIBSCALE:
 
 		ret = cf_axi_dds_to_signed_mag_fmt(val, val2, &i);
