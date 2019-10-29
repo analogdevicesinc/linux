@@ -319,6 +319,7 @@ static int jesd204b_probe(struct platform_device *pdev)
 			device_create_file(&pdev->dev, &dev_attr_lane6_syncstat);
 			device_create_file(&pdev->dev, &dev_attr_lane7_syncstat);
 		}
+		/* fall-through */
 	case 4:
 		device_create_file(&pdev->dev, &dev_attr_lane2_info);
 		device_create_file(&pdev->dev, &dev_attr_lane3_info);
@@ -326,10 +327,12 @@ static int jesd204b_probe(struct platform_device *pdev)
 			device_create_file(&pdev->dev, &dev_attr_lane2_syncstat);
 			device_create_file(&pdev->dev, &dev_attr_lane3_syncstat);
 		}
+		/* fall-through */
 	case 2:
 		device_create_file(&pdev->dev, &dev_attr_lane1_info);
 		if (!st->transmit)
 			device_create_file(&pdev->dev, &dev_attr_lane1_syncstat);
+		/* fall-through */
 	case 1:
 		device_create_file(&pdev->dev, &dev_attr_lane0_info);
 		if (!st->transmit)
