@@ -662,7 +662,7 @@ static inline void _dpa_bp_free_pf(void *addr)
 #ifndef CONFIG_PPC
 extern bool dpaa_errata_a010022; /* SoC affected by A010022 errata */
 #define NONREC_MARK	0x01
-#define HAS_DMA_ISSUE(start, size) \
+#define CROSS_4K(start, size) \
 	(((uintptr_t)(start) + (size)) > \
 	 (((uintptr_t)(start) + 0x1000) & ~0xFFF))
 /* The headroom needs to accommodate our private data (64 bytes) but
