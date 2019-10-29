@@ -9,6 +9,8 @@
 #ifndef _ADI_HAL_H_
 #define _ADI_HAL_H_
 
+#pragma GCC diagnostic ignored "-Wvla"
+
 /* include standard types and definitions */
 #include <linux/kernel.h>
 #include <linux/math64.h>
