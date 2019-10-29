@@ -1,0 +1,32 @@
+#
+# Industrial I/O Generic Regmap Access drivers
+#
+# When adding new entries keep the list in alphabetical order
+
+menu "IIO Regmap Access Drivers"
+
+config IIO_REGMAP
+	tristate
+
+config IIO_REGMAP_I2C
+	tristate "IIO Regmap Access Driver via I2C"
+	depends on REGMAP_I2C
+	select IIO_REGMAP
+	help
+	  Say Y to build support for IIO Regmap Access Driver via I2C used
+	  in order to access registers of devices connected through I2C.
+
+	  To compile this driver as a module, say M here: the module will
+	  be called iio-regmap-i2c.
+
+config IIO_REGMAP_SPI
+	tristate "IIO Regmap Access Driver via SPI"
+	depends on REGMAP_SPI
+	select IIO_REGMAP
+	help
+	  Say Y to build support for IIO Regmap Access Driver via SPI used
+	  in order to access registers of devices connected through SPI.
+
+	  To compile this driver as a module, say M here: the module will
+	  be called iio-regmap-spi.
+endmenu
