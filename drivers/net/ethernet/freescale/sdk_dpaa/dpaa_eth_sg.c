@@ -809,8 +809,8 @@ static struct sk_buff *a010022_realign_skb(struct sk_buff *skb,
 {
 	int trans_offset = skb_transport_offset(skb);
 	int net_offset = skb_network_offset(skb);
-	int nsize, headroom, npage_order;
 	struct sk_buff *nskb = NULL;
+	int nsize, headroom;
 	struct page *npage;
 	void *npage_addr;
 
@@ -825,8 +825,7 @@ static struct sk_buff *a010022_realign_skb(struct sk_buff *skb,
 		SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
 
 	/* Reserve enough memory to accommodate Jumbo frames */
-	npage_order = (nsize - 1) / PAGE_SIZE;
-	npage = alloc_pages(GFP_ATOMIC | __GFP_COMP, npage_order);
+	npage = alloc_pages(GFP_ATOMIC | __GFP_COMP, get_order(nsize));
 	if (unlikely(!npage)) {
 		WARN_ONCE(1, "Memory allocation failure\n");
 		return NULL;
@@ -869,7 +868,6 @@ static struct sk_buff *a010022_realign_skb(struct sk_buff *skb,
 	/* We don't want the buffer to be recycled so we mark it accordingly */
 	nskb->mark = NONREC_MARK;
 
-	dev_kfree_skb(skb);
 	return nskb;
 
 err:
@@ -911,8 +909,13 @@ int __hot skb_to_sg_fd(struct dpa_priv_s *priv,
 	 * is in place and we need to avoid crossing a 4k boundary.
 	 */
 #ifndef CONFIG_PPC
-	if (unlikely(dpaa_errata_a010022))
-		sgt_buf = page_address(alloc_page(GFP_ATOMIC));
+	if (unlikely(dpaa_errata_a010022)) {
+		struct page *new_page = alloc_page(GFP_ATOMIC);
+
+		if (unlikely(!new_page))
+			return -ENOMEM;
+		sgt_buf = page_address(new_page);
+	}
 	else
 #endif
 		sgt_buf = netdev_alloc_frag(priv->tx_headroom + sgt_size);
@@ -1061,6 +1064,7 @@ int __hot dpa_tx_extended(struct sk_buff *skb, struct net_device *net_dev,
 	int err = 0;
 	bool nonlinear;
 	int *countptr, offset = 0;
+	struct sk_buff *nskb;
 
 	priv = netdev_priv(net_dev);
 	/* Non-migratable context, safe to use raw_cpu_ptr */
@@ -1072,9 +1076,11 @@ int __hot dpa_tx_extended(struct sk_buff *skb, struct net_device *net_dev,
 
 #ifndef CONFIG_PPC
 	if (unlikely(dpaa_errata_a010022) && a010022_check_skb(skb, priv)) {
-		skb = a010022_realign_skb(skb, priv);
-		if (!skb)
+		nskb = a010022_realign_skb(skb, priv);
+		if (!nskb)
 			goto skb_to_fd_failed;
+		dev_kfree_skb(skb);
+		skb = nskb;
 	}
 #endif
 
@@ -1130,15 +1136,17 @@ int __hot dpa_tx_extended(struct sk_buff *skb, struct net_device *net_dev,
 
 		/* Code borrowed from skb_unshare(). */
 		if (skb_cloned(skb)) {
-			struct sk_buff *nskb = skb_copy(skb, GFP_ATOMIC);
+			nskb = skb_copy(skb, GFP_ATOMIC);
 			kfree_skb(skb);
 			skb = nskb;
 #ifndef CONFIG_PPC
 			if (unlikely(dpaa_errata_a010022) &&
 			    a010022_check_skb(skb, priv)) {
-				skb = a010022_realign_skb(skb, priv);
-				if (!skb)
+				nskb = a010022_realign_skb(skb, priv);
+				if (!nskb)
 					goto skb_to_fd_failed;
+				dev_kfree_skb(skb);
+				skb = nskb;
 			}
 #endif
 			/* skb_copy() has now linearized the skbuff. */
