@@ -33,6 +33,7 @@ obj-y += light/
 obj-y += logic/
 obj-y += magnetometer/
 obj-y += multiplexer/
+obj-y += regmap/
 obj-y += orientation/
 obj-y += potentiometer/
 obj-y += potentiostat/
@@ -41,3 +42,4 @@ obj-y += proximity/
 obj-y += resolver/
 obj-y += temperature/
 obj-y += trigger/
+
