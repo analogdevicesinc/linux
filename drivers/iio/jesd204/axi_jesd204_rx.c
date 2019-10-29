@@ -673,11 +673,14 @@ static int axi_jesd204_rx_probe(struct platform_device *pdev)
 		device_create_file(&pdev->dev, &dev_attr_lane5_info);
 		device_create_file(&pdev->dev, &dev_attr_lane6_info);
 		device_create_file(&pdev->dev, &dev_attr_lane7_info);
+		/* fall-through */
 	case 4:
 		device_create_file(&pdev->dev, &dev_attr_lane2_info);
 		device_create_file(&pdev->dev, &dev_attr_lane3_info);
+		/* fall-through */
 	case 2:
 		device_create_file(&pdev->dev, &dev_attr_lane1_info);
+		/* fall-through */
 	case 1:
 		device_create_file(&pdev->dev, &dev_attr_lane0_info);
 		break;
