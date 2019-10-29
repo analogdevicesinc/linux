@@ -662,6 +662,7 @@ static int xilinx_xcvr_gtx2_cpll_write_config(struct xilinx_xcvr *xcvr,
 	switch (conf->fb_div_N2) {
 	case 1:
 		val |= 0x10;
+		/* fall-through */
 	case 2:
 		val |= 0x00;
 		break;
