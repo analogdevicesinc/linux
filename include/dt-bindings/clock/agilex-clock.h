@@ -44,7 +44,7 @@
 
 /* Gate clocks */
 #define AGILEX_MPU_CLK			30
-#define AGILEX_MPU_L2RAM_CLK		31
+#define AGILEX_MPU_CCU_CLK		31
 #define AGILEX_MPU_PERIPH_CLK		32
 #define AGILEX_L4_MAIN_CLK		33
 #define AGILEX_L4_MP_CLK		34
