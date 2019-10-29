@@ -90,6 +90,7 @@ source "drivers/iio/light/Kconfig"
 source "drivers/iio/logic/Kconfig"
 source "drivers/iio/magnetometer/Kconfig"
 source "drivers/iio/multiplexer/Kconfig"
+source "drivers/iio/regmap/Kconfig"
 source "drivers/iio/orientation/Kconfig"
 if IIO_TRIGGER
    source "drivers/iio/trigger/Kconfig"
