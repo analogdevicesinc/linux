@@ -778,16 +778,6 @@ static int dpa_private_netdev_init(struct net_device *net_dev)
 	/* Advertise NETIF_F_HW_ACCEL_MQ to avoid Tx timeout warnings */
 	net_dev->features |= NETIF_F_HW_ACCEL_MQ;
 
-#ifndef CONFIG_PPC
-	/* Due to the A010022 FMan errata, we can not use S/G frames. We need
-	 * to stop advertising S/G and GSO support.
-	 */
-	if (unlikely(dpaa_errata_a010022)) {
-		net_dev->hw_features &= ~NETIF_F_SG;
-		net_dev->features &= ~NETIF_F_GSO;
-	}
-#endif
-
 	return dpa_netdev_init(net_dev, mac_addr, tx_timeout);
 }
 

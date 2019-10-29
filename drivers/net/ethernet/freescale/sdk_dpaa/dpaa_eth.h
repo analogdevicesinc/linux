@@ -661,7 +661,6 @@ static inline void _dpa_bp_free_pf(void *addr)
 
 #ifndef CONFIG_PPC
 extern bool dpaa_errata_a010022; /* SoC affected by A010022 errata */
-#define NONREC_MARK	0x01
 #define CROSS_4K(start, size) \
 	(((uintptr_t)(start) + (size)) > \
 	 (((uintptr_t)(start) + 0x1000) & ~0xFFF))

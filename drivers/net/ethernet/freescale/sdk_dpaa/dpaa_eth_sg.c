@@ -327,12 +327,6 @@ EXPORT_SYMBOL(_dpa_cleanup_tx_fd);
 #ifndef CONFIG_FSL_DPAA_TS
 bool dpa_skb_is_recyclable(struct sk_buff *skb)
 {
-#ifndef CONFIG_PPC
-	/* Do no recycle skbs realigned by the errata workaround */
-	if (unlikely(dpaa_errata_a010022) && skb->mark == NONREC_MARK)
-		return false;
-#endif
-
 	/* No recycling possible if skb buffer is kmalloc'ed  */
 	if (skb->head_frag == 0)
 		return false;
@@ -905,9 +899,6 @@ static struct sk_buff *a010022_realign_skb(struct sk_buff *skb,
 	 */
 	skb_set_network_header(nskb, net_offset);
 	skb_set_transport_header(nskb, trans_offset);
-
-	/* We don't want the buffer to be recycled so we mark it accordingly */
-	nskb->mark = NONREC_MARK;
 
 	return nskb;
 
