@@ -355,6 +355,7 @@ static int axiadc_read_raw(struct iio_dev *indio_dev,
 	switch (m) {
 	case IIO_CHAN_INFO_CALIBPHASE:
 		phase = 1;
+		/* fall-through */
 	case IIO_CHAN_INFO_CALIBSCALE:
 		tmp = axiadc_read(st, ADI_REG_CHAN_CNTRL_2(channel));
 		/*  format is 1.1.14 (sign, integer and fractional bits) */
@@ -453,6 +454,7 @@ static int axiadc_write_raw(struct iio_dev *indio_dev,
 	switch (mask) {
 	case IIO_CHAN_INFO_CALIBPHASE:
 		phase = 1;
+		/* fall-through */
 	case IIO_CHAN_INFO_CALIBSCALE:
 		/*  format is 1.1.14 (sign, integer and fractional bits) */
 		switch (val) {
