@@ -17,3 +17,13 @@
 			  <&clks IMX6UL_CLK_PLL4_AUDIO_DIV>;
 	assigned-clock-rates = <320000000>, <786432000>;
 };
+
+&csi {
+	status = "okay";
+};
+
+&ov5640 {
+	status = "okay";
+};
+
+/delete-node/ &sim2;
