@@ -1012,6 +1012,25 @@ static void adp5589_keypad_remove(struct adp5589_kpad *kpad)
 	}
 }
 
+static int adp5589_i2c_get_driver_data(struct i2c_client *i2c,
+				       const struct i2c_device_id *id)
+{
+	const struct of_device_id *match;
+
+	if (id)
+		return id->driver_data;
+
+	if (!IS_ENABLED(CONFIG_OF) || !i2c->dev.of_node)
+		return -ENODEV;
+
+	match = of_match_node(i2c->dev.driver->of_match_table,
+			      i2c->dev.of_node);
+	if (match)
+		return (uintptr_t)match->data;
+
+	return -ENODEV;
+}
+
 static const struct adp5589_gpio_platform_data adp5589_default_gpio_pdata = {
 	.gpio_start = -1,
 };
@@ -1023,7 +1042,6 @@ static const struct adp5589_kpad_platform_data adp5589_default_pdata = {
 static int adp5589_probe(struct i2c_client *client,
 			 const struct i2c_device_id *id)
 {
-	unsigned int dev_id;
 	struct adp5589_kpad *kpad;
 	const struct adp5589_kpad_platform_data *pdata =
 		dev_get_platdata(&client->dev);
@@ -1045,21 +1063,11 @@ static int adp5589_probe(struct i2c_client *client,
 
 	kpad->client = client;
 
-	if (id) {
-		dev_id = id->driver_data;
-	} else if (client->dev.of_node) {
-		const struct of_device_id *of_id;
+	ret = adp5589_i2c_get_driver_data(client, id);
+	if (ret < 0)
+		return ret;
 
-		of_id = of_match_node(client->dev.driver->of_match_table,
-			client->dev.of_node);
-		if (!of_id)
-			return -ENODEV;
-		dev_id = (unsigned int)of_id->data;
-	} else {
-		return -ENODEV;
-	}
-
-	switch (dev_id) {
+	switch (ret) {
 	case ADP5585_02:
 		kpad->support_row5 = true;
 		/* fall through */
