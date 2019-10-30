@@ -556,6 +556,7 @@ static int axi_hdmi_rx_try_fmt_vid_cap(struct file *file, void *priv_fh,
 		break;
 	default:
 		pix->pixelformat = V4L2_PIX_FMT_RGB24;
+		/* fall-through */
 	case V4L2_PIX_FMT_RGB24:
 	case V4L2_PIX_FMT_BGR24:
 		pix->colorspace = V4L2_COLORSPACE_SRGB;
