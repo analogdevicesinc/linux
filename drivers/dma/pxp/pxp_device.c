@@ -3,7 +3,6 @@
  * Copyright (C) 2010-2015 Freescale Semiconductor, Inc. All Rights Reserved.
  */
 #include <linux/interrupt.h>
-#include <linux/miscdevice.h>
 #include <linux/platform_device.h>
 #include <linux/fs.h>
 #include <linux/slab.h>
@@ -21,6 +20,9 @@
 
 static struct pxp_buffer_hash bufhash;
 static struct pxp_irq_info irq_info[NR_PXP_VIRT_CHANNEL];
+static int major;
+static struct class *pxp_class;
+static struct device *pxp_dev;
 
 static int pxp_ht_create(struct pxp_buffer_hash *hash, int order)
 {
@@ -214,7 +216,7 @@ static int pxp_channel_handle_delete(struct pxp_file *file_priv,
 
 static int pxp_alloc_dma_buffer(struct pxp_buf_obj *obj)
 {
-	obj->virtual = dma_alloc_coherent(NULL, PAGE_ALIGN(obj->size),
+	obj->virtual = dma_alloc_coherent(pxp_dev, PAGE_ALIGN(obj->size),
 			       (dma_addr_t *) (&obj->offset),
 			       GFP_DMA | GFP_KERNEL);
 	pr_debug("[ALLOC] mem alloc phys_addr = 0x%lx\n", obj->offset);
@@ -230,7 +232,7 @@ static int pxp_alloc_dma_buffer(struct pxp_buf_obj *obj)
 static void pxp_free_dma_buffer(struct pxp_buf_obj *obj)
 {
 	if (obj->virtual != NULL) {
-		dma_free_coherent(0, PAGE_ALIGN(obj->size),
+		dma_free_coherent(pxp_dev, PAGE_ALIGN(obj->size),
 				  obj->virtual, (dma_addr_t)obj->offset);
 	}
 }
@@ -834,31 +836,62 @@ static const struct file_operations pxp_device_fops = {
 	.mmap = pxp_device_mmap,
 };
 
-static struct miscdevice pxp_device_miscdev = {
-	.minor = MISC_DYNAMIC_MINOR,
-	.name = "pxp_device",
-	.fops = &pxp_device_fops,
-};
-
 int register_pxp_device(void)
 {
 	int ret;
 
-	ret = misc_register(&pxp_device_miscdev);
-	if (ret)
-		return ret;
+	if (!major) {
+		major = register_chrdev(0, "pxp_device", &pxp_device_fops);
+		if (major < 0) {
+			printk(KERN_ERR "Unable to register pxp device\n");
+			ret = major;
+			goto register_cdev_fail;
+		}
+
+		pxp_class = class_create("pxp_device");
+		if (IS_ERR(pxp_class)) {
+			ret = PTR_ERR(pxp_class);
+			goto pxp_class_fail;
+		}
+
+		pxp_dev = device_create(pxp_class, NULL, MKDEV(major, 0),
+				NULL, "pxp_device");
+		if (IS_ERR(pxp_dev)) {
+			ret = PTR_ERR(pxp_dev);
+			goto dev_create_fail;
+		}
+		pxp_dev->dma_mask = kmalloc(sizeof(*pxp_dev->dma_mask),
+						GFP_KERNEL);
+		*pxp_dev->dma_mask = DMA_BIT_MASK(32);
+		pxp_dev->coherent_dma_mask = DMA_BIT_MASK(32);
+	}
 
 	ret = pxp_ht_create(&bufhash, BUFFER_HASH_ORDER);
-	if (ret)
-		return ret;
+	if (ret) {
+		goto ht_create_fail;
+	}
 	spin_lock_init(&(bufhash.hash_lock));
 
 	pr_debug("PxP_Device registered Successfully\n");
 	return 0;
+
+ht_create_fail:
+	device_destroy(pxp_class, MKDEV(major, 0));
+dev_create_fail:
+	class_destroy(pxp_class);
+pxp_class_fail:
+	unregister_chrdev(major, "pxp_device");
+register_cdev_fail:
+	return ret;
 }
 
 void unregister_pxp_device(void)
 {
 	pxp_ht_destroy(&bufhash);
-	misc_deregister(&pxp_device_miscdev);
+	if (major) {
+		device_destroy(pxp_class, MKDEV(major, 0));
+		class_destroy(pxp_class);
+		unregister_chrdev(major, "pxp_device");
+		major = 0;
+	}
 }
