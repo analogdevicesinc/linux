@@ -318,8 +318,10 @@ static long adxcvr_clk_round_rate(struct clk_hw *hw,
 	dev_dbg(st->dev, "%s: Rate %lu Hz Parent Rate %lu Hz",
 		__func__, rate, *prate);
 
-	/* Just check if we can support the requested rate */
-	if (st->cpll_enable)
+	/* Just check if we can support the requested rate
+	 * CPLL allows rates of up to 6.6 Gbps
+	 */
+	if (st->cpll_enable && rate < 6600000)
 		ret = xilinx_xcvr_calc_cpll_config(&st->xcvr, *prate, rate,
 			NULL, NULL);
 	else
