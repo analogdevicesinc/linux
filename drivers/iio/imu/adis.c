@@ -316,7 +316,7 @@ int __adis_check_status(struct adis *adis)
 	int i;
 
 	ret = __adis_read_reg_16(adis, adis->data->diag_stat_reg, &status);
-	if (ret < 0)
+	if (ret)
 		return ret;
 
 	status &= adis->data->status_error_mask;
