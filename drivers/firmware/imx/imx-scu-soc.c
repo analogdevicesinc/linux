@@ -12,6 +12,8 @@
 
 static struct imx_sc_ipc *imx_sc_soc_ipc_handle;
 
+extern bool TKT340553_SW_WORKAROUND;
+
 struct imx_sc_msg_misc_get_soc_id {
 	struct imx_sc_rpc_msg hdr;
 	union {
@@ -82,6 +84,7 @@ static const char *imx_scu_soc_name(u32 id)
 {
 	switch (id) {
 	case 0x1:
+		TKT340553_SW_WORKAROUND = true;
 		return "i.MX8QM";
 	case 0x2:
 		return "i.MX8QXP";
