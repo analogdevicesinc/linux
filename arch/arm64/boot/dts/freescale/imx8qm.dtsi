@@ -48,7 +48,7 @@
 		i2c1 = &i2c_rpbus_1;
 	};
 
-	cpus {
+	cpus: cpus {
 		#address-cells = <2>;
 		#size-cells = <0>;
 
