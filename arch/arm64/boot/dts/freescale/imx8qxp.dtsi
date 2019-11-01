@@ -70,7 +70,7 @@
 		i2c15 = &i2c_rpbus_15;
 	};
 
-	cpus {
+	cpus: cpus {
 		#address-cells = <2>;
 		#size-cells = <0>;
 
