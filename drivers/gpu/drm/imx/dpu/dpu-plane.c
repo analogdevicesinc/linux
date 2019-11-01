@@ -430,7 +430,7 @@ static void dpu_plane_atomic_update(struct drm_plane *plane,
 	fu->ops->set_fmt(fu, fb->format->format, fb_is_interlaced);
 	fu->ops->enable_src_buf(fu);
 	fu->ops->set_framedimensions(fu, src_w, src_h, fb_is_interlaced);
-	fu->ops->set_baseaddress(fu, baseaddr);
+	fu->ops->set_baseaddress(fu, src_w, 0, 0, 0, 0, bpp, baseaddr);
 	fu->ops->set_stream_id(fu, dplane->stream_id ?
 					DPU_PLANE_SRC_TO_DISP_STREAM1 :
 					DPU_PLANE_SRC_TO_DISP_STREAM0);
@@ -454,7 +454,8 @@ static void dpu_plane_atomic_update(struct drm_plane *plane,
 						fb_is_interlaced);
 		fe->ops->set_framedimensions(fe, src_w, src_h,
 						fb_is_interlaced);
-		fe->ops->set_baseaddress(fe, uv_baseaddr);
+		fe->ops->set_baseaddress(fe, src_w, 0, 0, 0, 0, bpp,
+						uv_baseaddr);
 		fe->ops->enable_src_buf(fe);
 		fe->ops->set_stream_id(fe, dplane->stream_id ?
 					DPU_PLANE_SRC_TO_DISP_STREAM1 :

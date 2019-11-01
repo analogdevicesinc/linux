@@ -126,8 +126,28 @@ void fetchunit_set_burstlength(struct dpu_fetchunit *fu,
 }
 EXPORT_SYMBOL_GPL(fetchunit_set_burstlength);
 
-void fetchunit_set_baseaddress(struct dpu_fetchunit *fu, dma_addr_t baddr)
+void fetchunit_set_baseaddress(struct dpu_fetchunit *fu, unsigned int width,
+			       unsigned int x_offset, unsigned int y_offset,
+			       unsigned int mt_w, unsigned int mt_h,
+			       int bpp, dma_addr_t baddr)
 {
+	unsigned int burst_size, stride;
+	bool nonzero_mod = !!mt_w;
+
+	if (nonzero_mod) {
+		/* consider PRG x offset to calculate buffer address */
+		baddr += (x_offset % mt_w) * (bpp / 8);
+
+		burst_size = fetchunit_burst_size_fixup_tkt343664(baddr);
+
+		stride = width * (bpp / 8);
+		stride = fetchunit_stride_fixup_tkt339017(stride, burst_size,
+							  baddr, nonzero_mod);
+
+		/* consider PRG y offset to calculate buffer address */
+		baddr += (y_offset % mt_h) * stride;
+	}
+
 	mutex_lock(&fu->mutex);
 	dpu_fu_write(fu, BASEADDRESS(fu->sub_id), baddr);
 	mutex_unlock(&fu->mutex);
