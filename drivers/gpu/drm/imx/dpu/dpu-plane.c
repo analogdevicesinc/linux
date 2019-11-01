@@ -423,7 +423,7 @@ static void dpu_plane_atomic_update(struct drm_plane *plane,
 	if (need_fetcheco)
 		uv_baseaddr = drm_plane_state_to_uvbaseaddr(state);
 
-	fu->ops->set_burstlength(fu);
+	fu->ops->set_burstlength(fu, 0, 0, bpp, baseaddr, false);
 	fu->ops->set_src_bpp(fu, bpp);
 	fu->ops->set_src_stride(fu, fb->pitches[0]);
 	fu->ops->set_src_buf_dimensions(fu, src_w, src_h, 0, fb_is_interlaced);
@@ -445,7 +445,7 @@ static void dpu_plane_atomic_update(struct drm_plane *plane,
 
 		fetchdecode_pixengcfg_dynamic_src_sel(fu,
 						(fd_dynamic_src_sel_t)fe_id);
-		fe->ops->set_burstlength(fe);
+		fe->ops->set_burstlength(fe, 0, 0, bpp, uv_baseaddr, false);
 		fe->ops->set_src_bpp(fe, 16);
 		fe->ops->set_src_stride(fe, fb->pitches[1]);
 		fe->ops->set_fmt(fe, fb->format->format, fb_is_interlaced);

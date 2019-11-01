@@ -328,7 +328,9 @@ enum {
 struct dpu_fetchunit;
 
 struct dpu_fetchunit_ops {
-	void (*set_burstlength)(struct dpu_fetchunit *fu);
+	void (*set_burstlength)(struct dpu_fetchunit *fu,
+			        unsigned int x_offset, unsigned int mt_w,
+			        int bpp, dma_addr_t baddr, bool use_prefetch);
 
 	void (*set_baseaddress)(struct dpu_fetchunit *fu, dma_addr_t baddr);
 
@@ -574,7 +576,9 @@ fetchunit_stride_fixup_tkt339017(unsigned int stride, unsigned int burst_size,
 void fetchunit_shden(struct dpu_fetchunit *fu, bool enable);
 void fetchunit_baddr_autoupdate(struct dpu_fetchunit *fu, u8 layer_mask);
 void fetchunit_shdldreq_sticky(struct dpu_fetchunit *fu, u8 layer_mask);
-void fetchunit_set_burstlength(struct dpu_fetchunit *fu);
+void fetchunit_set_burstlength(struct dpu_fetchunit *fu,
+			       unsigned int x_offset, unsigned int mt_w,
+			       int bpp, dma_addr_t baddr, bool use_prefetch);
 void fetchunit_set_baseaddress(struct dpu_fetchunit *fu, dma_addr_t baddr);
 void fetchunit_set_src_bpp(struct dpu_fetchunit *fu, int bpp);
 void fetchunit_set_src_stride(struct dpu_fetchunit *fu, unsigned int stride);

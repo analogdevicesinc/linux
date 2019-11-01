@@ -94,16 +94,35 @@ void fetchunit_shdldreq_sticky(struct dpu_fetchunit *fu, u8 layer_mask)
 }
 EXPORT_SYMBOL_GPL(fetchunit_shdldreq_sticky);
 
-void fetchunit_set_burstlength(struct dpu_fetchunit *fu)
+void fetchunit_set_burstlength(struct dpu_fetchunit *fu,
+			       unsigned int x_offset, unsigned int mt_w,
+			       int bpp, dma_addr_t baddr, bool use_prefetch)
 {
+	struct dpu_soc *dpu = fu->dpu;
+	unsigned int burst_size, burst_length;
+	bool nonzero_mod = !!mt_w;
 	u32 val;
+
+	if (use_prefetch) {
+		/* consider PRG x offset to calculate buffer address */
+		if (nonzero_mod)
+			baddr += (x_offset % mt_w) * (bpp / 8);
+
+		burst_size = fetchunit_burst_size_fixup_tkt343664(baddr);
+		burst_length = burst_size / 8;
+	} else {
+		burst_length = 16;
+	}
 
 	mutex_lock(&fu->mutex);
 	val = dpu_fu_read(fu, BURSTBUFFERMANAGEMENT);
 	val &= ~SETBURSTLENGTH_MASK;
-	val |= SETBURSTLENGTH(16);
+	val |= SETBURSTLENGTH(burst_length);
 	dpu_fu_write(fu, BURSTBUFFERMANAGEMENT, val);
 	mutex_unlock(&fu->mutex);
+
+	dev_dbg(dpu->dev, "%s%d burst length is %u\n",
+					fu->name, fu->id, burst_length);
 }
 EXPORT_SYMBOL_GPL(fetchunit_set_burstlength);
 
