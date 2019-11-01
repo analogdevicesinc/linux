@@ -26,6 +26,19 @@
 #define CONSTANTCOLOR(n)		(0x30 + (n) * 0x28)
 #define LAYERPROPERTY(n)		(0x34 + (n) * 0x28)
 
+/* base address has to align to burst size */
+unsigned int fetchunit_burst_size_fixup_tkt343664(dma_addr_t baddr)
+{
+	unsigned int burst_size;
+
+	burst_size = 1 << (ffs(baddr) - 1);
+	burst_size = round_up(burst_size, 8);
+	burst_size = min(burst_size, 128U);
+
+	return burst_size;
+}
+EXPORT_SYMBOL_GPL(fetchunit_burst_size_fixup_tkt343664);
+
 void fetchunit_shden(struct dpu_fetchunit *fu, bool enable)
 {
 	u32 val;
