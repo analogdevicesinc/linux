@@ -339,7 +339,10 @@ struct dpu_fetchunit_ops {
 
 	void (*set_src_bpp)(struct dpu_fetchunit *fu, int bpp);
 
-	void (*set_src_stride)(struct dpu_fetchunit *fu, unsigned int stride);
+	void (*set_src_stride)(struct dpu_fetchunit *fu,
+			       unsigned int width, unsigned int x_offset,
+			       unsigned int mt_w, int bpp, unsigned int stride,
+			       dma_addr_t baddr, bool use_prefetch);
 
 	void (*set_src_buf_dimensions)(struct dpu_fetchunit *fu,
 				       unsigned int w, unsigned int h, u32 fmt,
@@ -587,7 +590,10 @@ void fetchunit_set_baseaddress(struct dpu_fetchunit *fu, unsigned int width,
 			       unsigned int mt_w, unsigned int mt_h,
 			       int bpp, dma_addr_t baddr);
 void fetchunit_set_src_bpp(struct dpu_fetchunit *fu, int bpp);
-void fetchunit_set_src_stride(struct dpu_fetchunit *fu, unsigned int stride);
+void fetchunit_set_src_stride(struct dpu_fetchunit *fu,
+			      unsigned int width, unsigned int x_offset,
+			      unsigned int mt_w, int bpp, unsigned int stride,
+			      dma_addr_t baddr, bool use_prefetch);
 void fetchunit_enable_src_buf(struct dpu_fetchunit *fu);
 void fetchunit_disable_src_buf(struct dpu_fetchunit *fu);
 bool fetchunit_is_enabled(struct dpu_fetchunit *fu);

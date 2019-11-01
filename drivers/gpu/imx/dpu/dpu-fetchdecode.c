@@ -133,9 +133,26 @@ static void fetchdecode_set_src_bpp(struct dpu_fetchunit *fu, int bpp)
 }
 
 static void
-fetchdecode_set_src_stride(struct dpu_fetchunit *fu, unsigned int stride)
+fetchdecode_set_src_stride(struct dpu_fetchunit *fu,
+			   unsigned int width, unsigned int x_offset,
+			   unsigned int mt_w, int bpp, unsigned int stride,
+			   dma_addr_t baddr, bool use_prefetch)
 {
+	unsigned int burst_size;
+	bool nonzero_mod = !!mt_w;
 	u32 val;
+
+	if (use_prefetch) {
+		/* consider PRG x offset to calculate buffer address */
+		if (nonzero_mod)
+			baddr += (x_offset % mt_w) * (bpp / 8);
+
+		burst_size = fetchunit_burst_size_fixup_tkt343664(baddr);
+
+		stride = width * (bpp / 8);
+		stride = fetchunit_stride_fixup_tkt339017(stride, burst_size,
+							  baddr, nonzero_mod);
+	}
 
 	mutex_lock(&fu->mutex);
 	val = dpu_fu_read(fu, SOURCEBUFFERATTRIBUTES0);

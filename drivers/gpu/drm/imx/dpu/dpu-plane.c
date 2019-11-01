@@ -425,7 +425,8 @@ static void dpu_plane_atomic_update(struct drm_plane *plane,
 
 	fu->ops->set_burstlength(fu, 0, 0, bpp, baseaddr, false);
 	fu->ops->set_src_bpp(fu, bpp);
-	fu->ops->set_src_stride(fu, fb->pitches[0]);
+	fu->ops->set_src_stride(fu, src_w, 0, 0, bpp, fb->pitches[0],
+				baseaddr, false);
 	fu->ops->set_src_buf_dimensions(fu, src_w, src_h, 0, fb_is_interlaced);
 	fu->ops->set_fmt(fu, fb->format->format, fb_is_interlaced);
 	fu->ops->enable_src_buf(fu);
@@ -447,7 +448,8 @@ static void dpu_plane_atomic_update(struct drm_plane *plane,
 						(fd_dynamic_src_sel_t)fe_id);
 		fe->ops->set_burstlength(fe, 0, 0, bpp, uv_baseaddr, false);
 		fe->ops->set_src_bpp(fe, 16);
-		fe->ops->set_src_stride(fe, fb->pitches[1]);
+		fe->ops->set_src_stride(fe, src_w, 0, 0, bpp, fb->pitches[1],
+					uv_baseaddr, false);
 		fe->ops->set_fmt(fe, fb->format->format, fb_is_interlaced);
 		fe->ops->set_src_buf_dimensions(fe, src_w, src_h,
 						fb->format->format,
