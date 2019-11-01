@@ -14,6 +14,11 @@ if [ -f "${FULL_BUILD_DIR}/env" ] ; then
 	. "${FULL_BUILD_DIR}/env"
 fi
 
+if [ -z "$NUM_JOBS" ] ; then
+	NUM_JOBS=$(getconf _NPROCESSORS_ONLN)
+	NUM_JOBS=${NUM_JOBS:-1}
+fi
+
 KCFLAGS="-Werror"
 # FIXME: remove the line below once Talise & Mykonos APIs
 #	 dont't use 1024 bytes on stack
@@ -69,14 +74,14 @@ apt_update_install() {
 build_default() {
 	apt_update_install $APT_LIST
 	make ${DEFCONFIG}
-	make -j`getconf _NPROCESSORS_ONLN` $IMAGE UIMAGE_LOADADDR=0x8000
+	make -j$NUM_JOBS $IMAGE UIMAGE_LOADADDR=0x8000
 }
 
 build_compile_test() {
 	apt_update_install $APT_LIST
 	export COMPILE_TEST=y
 	make ${DEFCONFIG}
-	make -j`getconf _NPROCESSORS_ONLN`
+	make -j$NUM_JOBS
 }
 
 build_checkpatch() {
