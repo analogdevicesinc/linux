@@ -700,9 +700,9 @@ static const struct power_supply_desc adp5061_desc = {
 	.num_properties		= ARRAY_SIZE(adp5061_props),
 };
 
-static int adp5061_get_charging_enabled(struct device *dev,
-					struct device_attribute *attr,
-					char *buf)
+static ssize_t adp5061_get_charging_enabled(struct device *dev,
+					    struct device_attribute *attr,
+					    char *buf)
 {
 	struct power_supply *psy = dev_get_drvdata(dev);
 	struct adp5061_state *st = power_supply_get_drvdata(psy);
@@ -717,9 +717,9 @@ static int adp5061_get_charging_enabled(struct device *dev,
 	return sprintf(buf, "%d\n", regval);
 }
 
-static int adp5061_set_charging_enabled(struct device *dev,
-					struct device_attribute *attr,
-					const char *buf, size_t count)
+static ssize_t adp5061_set_charging_enabled(struct device *dev,
+					    struct device_attribute *attr,
+					    const char *buf, size_t count)
 {
 	struct power_supply *psy = dev_get_drvdata(dev);
 	struct adp5061_state *st = power_supply_get_drvdata(psy);
@@ -740,9 +740,9 @@ static int adp5061_set_charging_enabled(struct device *dev,
 	return count;
 }
 
-static int adp5061_get_chg_vlim_enabled(struct device *dev,
-					struct device_attribute *attr,
-					char *buf)
+static ssize_t adp5061_get_chg_vlim_enabled(struct device *dev,
+					    struct device_attribute *attr,
+					    char *buf)
 {
 	struct power_supply *psy = dev_get_drvdata(dev);
 	struct adp5061_state *st = power_supply_get_drvdata(psy);
@@ -757,9 +757,9 @@ static int adp5061_get_chg_vlim_enabled(struct device *dev,
 	return sprintf(buf, "%d\n", regval);
 }
 
-static int adp5061_set_chg_vlim_enabled(struct device *dev,
-					struct device_attribute *attr,
-					const char *buf, size_t count)
+static ssize_t adp5061_set_chg_vlim_enabled(struct device *dev,
+					    struct device_attribute *attr,
+					    const char *buf, size_t count)
 {
 	struct power_supply *psy = dev_get_drvdata(dev);
 	struct adp5061_state *st = power_supply_get_drvdata(psy);
