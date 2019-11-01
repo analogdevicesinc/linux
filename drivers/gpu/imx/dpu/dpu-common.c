@@ -26,6 +26,7 @@
 #include <linux/platform_device.h>
 #include <linux/pm_domain.h>
 #include <video/dpu.h>
+#include <video/imx8-prefetch.h>
 #include "dpu-prv.h"
 
 #define IMX_DPU_BLITENG_NAME "imx-drm-dpu-bliteng"
@@ -147,6 +148,7 @@ static const struct dpu_unit _fds = {
 	.ids = fd_ids,
 	.pec_ofss = fd_pec_ofss,
 	.ofss = fd_ofss,
+	.dprc_ids = fd_dprc_ids,
 };
 
 static const struct dpu_unit _fes = {
@@ -171,6 +173,7 @@ static const struct dpu_unit _fls = {
 	.ids = fl_ids,
 	.pec_ofss = fl_pec_ofss,
 	.ofss = fl_ofss,
+	.dprc_ids = fl_dprc_ids,
 };
 
 static const struct dpu_unit _fws = {
@@ -179,6 +182,7 @@ static const struct dpu_unit _fws = {
 	.ids = fw_ids,
 	.pec_ofss = fw_pec_ofss,
 	.ofss = fw_ofss,
+	.dprc_ids = fw_dprc_ids,
 };
 
 static const struct dpu_unit _hss = {
@@ -707,6 +711,12 @@ static int dpu_submodules_init(struct dpu_soc *dpu,
 		struct platform_device *pdev, unsigned long dpu_base)
 {
 	const struct dpu_data *data = dpu->data;
+	const struct dpu_unit *fds = data->fds;
+	const struct dpu_unit *fls = data->fls;
+	const struct dpu_unit *fws = data->fws;
+	struct dpu_fetchunit *fu;
+	struct dprc *dprc;
+	int i;
 
 	DPU_UNITS_INIT(cf);
 	DPU_UNITS_INIT(dec);
@@ -720,6 +730,39 @@ static int dpu_submodules_init(struct dpu_soc *dpu,
 	DPU_UNITS_INIT(lb);
 	DPU_UNITS_INIT(tcon);
 	DPU_UNITS_INIT(vs);
+
+	for (i = 0; i < fds->num; i++) {
+		dprc = dprc_lookup_by_phandle(dpu->dev, "fsl,dpr-channels",
+					      fds->dprc_ids[i]);
+		if (!dprc)
+			return -EPROBE_DEFER;
+
+		fu = dpu_fd_get(dpu, i);
+		fetchunit_get_dprc(fu, dprc);
+		dpu_fd_put(fu);
+	}
+
+	for (i = 0; i < fls->num; i++) {
+		dprc = dprc_lookup_by_phandle(dpu->dev, "fsl,dpr-channels",
+					      fls->dprc_ids[i]);
+		if (!dprc)
+			return -EPROBE_DEFER;
+
+		fu = dpu_fl_get(dpu, i);
+		fetchunit_get_dprc(fu, dprc);
+		dpu_fl_put(fu);
+	}
+
+	for (i = 0; i < fws->num; i++) {
+		dprc = dprc_lookup_by_phandle(dpu->dev, "fsl,dpr-channels",
+					      fws->dprc_ids[i]);
+		if (!dprc)
+			return -EPROBE_DEFER;
+
+		fu = dpu_fw_get(dpu, fw_ids[i]);
+		fetchunit_get_dprc(fu, dprc);
+		dpu_fw_put(fu);
+	}
 
 	return 0;
 }

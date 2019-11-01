@@ -53,6 +53,15 @@ fetchunit_stride_fixup_tkt339017(unsigned int stride, unsigned int burst_size,
 }
 EXPORT_SYMBOL_GPL(fetchunit_stride_fixup_tkt339017);
 
+void fetchunit_get_dprc(struct dpu_fetchunit *fu, void *data)
+{
+	if (WARN_ON(!fu))
+		return;
+
+	fu->dprc = data;
+}
+EXPORT_SYMBOL_GPL(fetchunit_get_dprc);
+
 void fetchunit_shden(struct dpu_fetchunit *fu, bool enable)
 {
 	u32 val;
@@ -264,6 +273,33 @@ void fetchunit_set_stream_id(struct dpu_fetchunit *fu, unsigned int id)
 	}
 }
 EXPORT_SYMBOL_GPL(fetchunit_set_stream_id);
+
+void fetchunit_pin_off(struct dpu_fetchunit *fu)
+{
+	if (WARN_ON(!fu))
+		return;
+
+	fu->pin_off = true;
+}
+EXPORT_SYMBOL_GPL(fetchunit_pin_off);
+
+void fetchunit_unpin_off(struct dpu_fetchunit *fu)
+{
+	if (WARN_ON(!fu))
+		return;
+
+	fu->pin_off = false;
+}
+EXPORT_SYMBOL_GPL(fetchunit_unpin_off);
+
+bool fetchunit_is_pinned_off(struct dpu_fetchunit *fu)
+{
+	if (WARN_ON(!fu))
+		return false;
+
+	return fu->pin_off;
+}
+EXPORT_SYMBOL_GPL(fetchunit_is_pinned_off);
 
 bool fetchunit_is_fetchdecode(struct dpu_fetchunit *fu)
 {

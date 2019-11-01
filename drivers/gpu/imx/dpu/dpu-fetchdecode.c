@@ -563,6 +563,9 @@ static const struct dpu_fetchunit_ops fd_ops = {
 	.set_controltrigger	= fetchdecode_set_controltrigger,
 	.get_stream_id		= fetchunit_get_stream_id,
 	.set_stream_id		= fetchunit_set_stream_id,
+	.pin_off		= fetchunit_pin_off,
+	.unpin_off		= fetchunit_unpin_off,
+	.is_pinned_off		= fetchunit_is_pinned_off,
 };
 
 void _dpu_fd_init(struct dpu_soc *dpu, unsigned int id)

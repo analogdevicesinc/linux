@@ -155,6 +155,7 @@ struct dpu_unit {
 	const unsigned int *ids;
 	const unsigned long *pec_ofss;	/* PixEngCFG */
 	const unsigned long *ofss;
+	const unsigned int *dprc_ids;
 };
 
 struct cm_reg_ofs {
@@ -324,6 +325,10 @@ static const unsigned int hs_ids[] = {4, 5, 9};
 static const unsigned int lb_ids[] = {0, 1, 2, 3};
 static const unsigned int tcon_ids[] = {0, 1};
 static const unsigned int vs_ids[] = {4, 5, 9};
+
+static const unsigned int fd_dprc_ids[] = {3, 4};
+static const unsigned int fl_dprc_ids[] = {2};
+static const unsigned int fw_dprc_ids[] = {5};
 
 struct dpu_pixel_format {
 	u32 pixel_format;
