@@ -290,6 +290,14 @@
 			     "mqs0_lpcg_ipg_clk";
 };
 
+&dsp_lpcg {
+	status = "disabled";
+};
+
+&dsp_ram_lpcg {
+	status = "disabled";
+};
+
 &audio_subsys {
 	acm: acm@59e00000 {
 		compatible = "nxp,imx8qm-acm";

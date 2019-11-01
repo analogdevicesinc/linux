@@ -528,9 +528,9 @@
 		dsp: dsp@556e8000 {
 			compatible = "fsl,imx8qm-dsp";
 			reg = <0x556e8000 0x88000>;
-			clocks = <&dsp_lpcg 1>,
-				 <&dsp_ram_lpcg 0>,
-				 <&dsp_lpcg 2>;
+			clocks = <&clk_dummy>,
+				 <&clk_dummy>,
+				 <&clk_dummy>;
 			clock-names = "ipg", "ocram", "core";
 			fsl,dsp-firmware = "imx/dsp/hifi4.bin";
 			power-domains = <&pd IMX_SC_R_MU_13A>,
