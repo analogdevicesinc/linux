@@ -568,6 +568,9 @@ u32 dpu_vproc_get_hscale_cap(u32 cap_mask);
 u32 dpu_vproc_get_vscale_cap(u32 cap_mask);
 
 unsigned int fetchunit_burst_size_fixup_tkt343664(dma_addr_t baddr);
+unsigned int
+fetchunit_stride_fixup_tkt339017(unsigned int stride, unsigned int burst_size,
+				 dma_addr_t baddr, bool nonzero_mod);
 void fetchunit_shden(struct dpu_fetchunit *fu, bool enable);
 void fetchunit_baddr_autoupdate(struct dpu_fetchunit *fu, u8 layer_mask);
 void fetchunit_shdldreq_sticky(struct dpu_fetchunit *fu, u8 layer_mask);

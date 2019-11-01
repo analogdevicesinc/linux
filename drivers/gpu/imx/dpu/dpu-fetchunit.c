@@ -39,6 +39,20 @@ unsigned int fetchunit_burst_size_fixup_tkt343664(dma_addr_t baddr)
 }
 EXPORT_SYMBOL_GPL(fetchunit_burst_size_fixup_tkt343664);
 
+/* fixup for burst size vs stride mismatch */
+unsigned int
+fetchunit_stride_fixup_tkt339017(unsigned int stride, unsigned int burst_size,
+				 dma_addr_t baddr, bool nonzero_mod)
+{
+	if (nonzero_mod)
+		stride = round_up(stride + round_up(baddr % 8, 8), burst_size);
+	else
+		stride = round_up(stride, burst_size);
+
+	return stride;
+}
+EXPORT_SYMBOL_GPL(fetchunit_stride_fixup_tkt339017);
+
 void fetchunit_shden(struct dpu_fetchunit *fu, bool enable)
 {
 	u32 val;
