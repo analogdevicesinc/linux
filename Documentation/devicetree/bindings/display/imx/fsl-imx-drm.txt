@@ -131,6 +131,8 @@ Required properties:
   Documentation/devicetree/bindings/clock/imx8qxp-lpcg.txt.
 - power-domains: phandles pointing to power domain.
 - power-domain-names: power domain names relevant to power-domains phandles.
+- fsl,dpr-channels: phandles to the DPR channels attached to this DPU,
+  sorted by memory map addresses.
 Optional properties:
 - port@[0-1]: Port nodes with endpoint definitions as defined in
   Documentation/devicetree/bindings/media/video-interfaces.txt.
@@ -214,6 +216,9 @@ dpu: dpu@56180000 {
 			<&pd IMX_SC_R_DC_0_PLL_0>,
 			<&pd IMX_SC_R_DC_0_PLL_1>;
 	power-domain-names = "dc", "pll0", "pll1";
+	fsl,dpr-channels = <&dc0_dpr1_channel1>, <&dc0_dpr1_channel2>,
+			   <&dc0_dpr1_channel3>, <&dc0_dpr2_channel1>,
+			   <&dc0_dpr2_channel2>, <&dc0_dpr2_channel3>;
 
 	dpu_disp0: port@0 {
 		reg = <0>;
