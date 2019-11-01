@@ -871,7 +871,6 @@ static int m2k_la_probe(struct platform_device *pdev)
 	indio_dev_rx->info = &m2k_la_txrx_iio_info;
 	indio_dev_rx->channels = m2k_la_rx_chan_spec,
 	indio_dev_rx->num_channels = ARRAY_SIZE(m2k_la_rx_chan_spec);
-	iio_device_attach_buffer(indio_dev_rx, buffer_rx);
 
 	buffer_rx = iio_dmaengine_buffer_alloc(&pdev->dev, "rx",
 			&m2k_la_dma_buffer_ops, indio_dev_rx);
