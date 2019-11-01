@@ -534,14 +534,42 @@ static const char * const m2k_fabric_gpio_names_revd[] = {
 	[M2K_FABRIC_GPIO_EN_SC1] = "en-sc",
 };
 
+static int m2k_fabric_gpios_init(struct device *dev,
+				 struct m2k_fabric *m2k_fabric)
+{
+	const char * const *gpio_names = NULL;
+	unsigned int num_gpio_names;
+	int i;
+
+	if (m2k_fabric->revc) {
+		gpio_names = m2k_fabric_gpio_names_revc;
+		num_gpio_names = ARRAY_SIZE(m2k_fabric_gpio_names_revc);
+	} else if (m2k_fabric->revd || m2k_fabric->reve) {
+		gpio_names = m2k_fabric_gpio_names_revd;
+		num_gpio_names = ARRAY_SIZE(m2k_fabric_gpio_names_revd);
+	}
+
+	if (!gpio_names)
+		return 0;
+
+	for (i = 0; i < num_gpio_names; i++) {
+		if (!gpio_names[i])
+			continue;
+		m2k_fabric->switch_gpios[i] = devm_gpiod_get(dev,
+				gpio_names[i], GPIOD_OUT_LOW);
+		if (IS_ERR(m2k_fabric->switch_gpios[i]))
+			return PTR_ERR(m2k_fabric->switch_gpios[i]);
+	}
+
+	return 0;
+}
+
 static int m2k_fabric_probe(struct platform_device *pdev)
 {
-	const char * const *gpio_names;
-	unsigned int num_gpio_names;
 	struct m2k_fabric *m2k_fabric;
 	struct iio_dev *indio_dev;
-	unsigned int i;
 	bool revc, revd, reve, remain_powerdown;
+	int ret;
 
 	indio_dev = devm_iio_device_alloc(&pdev->dev, sizeof(*m2k_fabric));
 	if (!indio_dev)
@@ -569,22 +597,9 @@ static int m2k_fabric_probe(struct platform_device *pdev)
 	if (clk_prepare_enable(m2k_fabric->clk) < 0)
 		return -EINVAL;
 
-	if (m2k_fabric->revc) {
-		gpio_names = m2k_fabric_gpio_names_revc;
-		num_gpio_names = ARRAY_SIZE(m2k_fabric_gpio_names_revc);
-	} else if (m2k_fabric->revd || m2k_fabric->reve) {
-		gpio_names = m2k_fabric_gpio_names_revd;
-		num_gpio_names = ARRAY_SIZE(m2k_fabric_gpio_names_revd);
-	}
-
-	for (i = 0; i < num_gpio_names; i++) {
-		if (!gpio_names[i])
-			continue;
-		m2k_fabric->switch_gpios[i] = devm_gpiod_get(&pdev->dev,
-				gpio_names[i], GPIOD_OUT_LOW);
-		if (IS_ERR(m2k_fabric->switch_gpios[i]))
-			return PTR_ERR(m2k_fabric->switch_gpios[i]);
-	}
+	ret = m2k_fabric_gpios_init(&pdev->dev, m2k_fabric);
+	if (ret)
+		return ret;
 
 	m2k_fabric->usr_pow_gpio[0] = devm_gpiod_get(&pdev->dev, "en-usr-pow",
 			GPIOD_OUT_HIGH);
