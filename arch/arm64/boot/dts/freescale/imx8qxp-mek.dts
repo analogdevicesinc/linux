@@ -17,6 +17,14 @@
 		stdout-path = &lpuart0;
 	};
 
+	brcmfmac: brcmfmac {
+		compatible = "cypress,brcmfmac";
+		pinctrl-names = "init", "idle", "default";
+		pinctrl-0 = <&pinctrl_wifi_init>;
+		pinctrl-1 = <&pinctrl_wifi_init>;
+		pinctrl-2 = <&pinctrl_wifi>;
+	};
+
 	memory@80000000 {
 		device_type = "memory";
 		reg = <0x00000000 0x80000000 0 0x40000000>;
@@ -782,7 +790,6 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_pcieb>;
 	disable-gpio = <&pca9557_a 2 GPIO_ACTIVE_LOW>;
-	disable2-gpio = <&pca9557_a 0 GPIO_ACTIVE_LOW>;
 	reset-gpio = <&lsio_gpio4 0 GPIO_ACTIVE_LOW>;
 	ext_osc = <1>;
 	status = "okay";
@@ -1328,4 +1335,17 @@
 			IMX8QXP_CSI_RESET_LSIO_GPIO3_IO03	0xC0000041
 		>;
 	};
+
+	pinctrl_wifi: wifigrp{
+		fsl,pins = <
+			IMX8QXP_SCU_BOOT_MODE3_SCU_DSC_RTC_CLOCK_OUTPUT_32K	0x20
+		>;
+	};
+
+	pinctrl_wifi_init: wifi_initgrp{
+		fsl,pins = <
+			/* reserve pin init/idle_state to support multiple wlan cards */
+		>;
+	};
+
 };
