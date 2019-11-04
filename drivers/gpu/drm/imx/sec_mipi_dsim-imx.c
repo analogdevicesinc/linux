@@ -234,6 +234,18 @@ static int sec_dsim_of_parse_resets(struct imx_sec_dsim_device *dsim)
 	return 0;
 }
 
+static void sec_dsim_of_put_resets(struct imx_sec_dsim_device *dsim)
+{
+	if (dsim->soft_resetn)
+		reset_control_put(dsim->soft_resetn);
+
+	if (dsim->clk_enable)
+		reset_control_put(dsim->clk_enable);
+
+	if (dsim->mipi_reset)
+		reset_control_put(dsim->mipi_reset);
+}
+
 static int imx_sec_dsim_bind(struct device *dev, struct device *master,
 			     void *data)
 {
@@ -291,6 +303,7 @@ static int imx_sec_dsim_bind(struct device *dev, struct device *master,
 		dev_err(dev, "failed to bind sec dsim bridge: %d\n", ret);
 		pm_runtime_disable(dev);
 		drm_encoder_cleanup(encoder);
+		sec_dsim_of_put_resets(dsim_dev);
 		return ret;
 	}
 
