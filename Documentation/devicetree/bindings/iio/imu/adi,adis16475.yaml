@@ -29,6 +29,13 @@ properties:
       - adi,adis16467-1
       - adi,adis16467-2
       - adi,adis16467-3
+      - adi,adis16500
+      - adi,adis16505-1
+      - adi,adis16505-2
+      - adi,adis16505-3
+      - adi,adis16507-1
+      - adi,adis16507-2
+      - adi,adis16507-3
 
   reg:
     maxItems: 1
@@ -75,6 +82,33 @@ required:
   - interrupts
   - spi-cpha
   - spi-cpol
+
+if:
+  properties:
+    compatible:
+      contains:
+        enum:
+          - adi,adis16500
+          - adi,adis16505-1
+          - adi,adis16505-2
+          - adi,adis16505-3
+          - adi,adis16507-1
+          - adi,adis16507-2
+          - adi,adis16507-3
+
+then:
+  properties:
+    clock-names:
+      oneOf:
+        - const: sync
+        - const: direct-sync
+        - const: scaled-sync
+
+    adi,burst32-enable:
+      description:
+        Enable burst32 mode. In this mode, a burst reading contains calibrated
+        gyroscope and accelerometer data in 32-bit format.
+      type: boolean
 
 examples:
   - |
