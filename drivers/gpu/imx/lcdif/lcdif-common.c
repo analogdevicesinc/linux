@@ -748,7 +748,10 @@ static int imx_lcdif_runtime_suspend(struct device *dev)
 static int imx_lcdif_runtime_resume(struct device *dev)
 {
 	int ret = 0;
+	const struct of_device_id *of_id;
+	const char *compatible;
 	struct lcdif_soc *lcdif = dev_get_drvdata(dev);
+	struct regmap *gpr = lcdif->gpr;
 
 	if (unlikely(!atomic_read(&lcdif->rpm_suspended))) {
 		dev_warn(lcdif->dev, "Unbalanced %s!\n", __func__);
@@ -766,8 +769,20 @@ static int imx_lcdif_runtime_resume(struct device *dev)
 		return ret;
 	}
 
-	disp_mix_bus_rstn_reset(lcdif->gpr, false);
-	disp_mix_lcdif_clks_enable(lcdif->gpr, true);
+	of_id = of_match_device(imx_lcdif_dt_ids, lcdif->dev);
+	compatible = of_id->compatible;
+
+	if (!strcmp(compatible, "fsl,imx8mn-lcdif")) {
+		regmap_update_bits(gpr, DISP_MIX_SFT_RSTN_CSR,
+				   BIT(8) | BIT(5) | BIT(4),
+				   BIT(8) | BIT(5) | BIT(4));
+		regmap_update_bits(gpr, DISP_MIX_CLK_EN_CSR,
+				   BIT(8) | BIT(5) | BIT(4),
+				   BIT(8) | BIT(5) | BIT(4));
+	} else {
+		disp_mix_bus_rstn_reset(lcdif->gpr, false);
+		disp_mix_lcdif_clks_enable(lcdif->gpr, true);
+	}
 
 	/* Pull LCDIF out of reset */
 	writel(0x0, lcdif->base + LCDIF_CTRL);
