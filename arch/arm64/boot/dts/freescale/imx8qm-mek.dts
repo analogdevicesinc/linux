@@ -32,6 +32,14 @@
 		reg = <0x00000000 0x80000000 0 0x40000000>;
 	};
 
+	brcmfmac: brcmfmac {
+		compatible = "cypress,brcmfmac";
+		pinctrl-names = "init", "idle", "default";
+		pinctrl-0 = <&pinctrl_wifi_init>;
+		pinctrl-1 = <&pinctrl_wifi_init>;
+		pinctrl-2 = <&pinctrl_wifi>;
+	};
+
 	modem_reset: modem-reset {
 		compatible = "gpio-reset";
 		pinctrl-names = "default", "sleep";
@@ -106,6 +114,18 @@
 			linux,cma-default;
 		};
 
+	};
+
+	epdev_on: fixedregulator@100 {
+		compatible = "regulator-fixed";
+		pinctrl-names = "default", "sleep";
+		pinctrl-0 = <&pinctrl_wlreg_on>;
+		pinctrl-1 = <&pinctrl_wlreg_on_sleep>;
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		regulator-name = "epdev_on";
+		gpio = <&lsio_gpio1 13 0>;
+		enable-active-high;
 	};
 
 	reg_fec2_supply: fec2_nvcc {
@@ -588,8 +608,9 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_pciea>;
 	reset-gpio = <&lsio_gpio4 29 GPIO_ACTIVE_LOW>;
-	clkreq-gpio = <&lsio_gpio4 27 GPIO_ACTIVE_LOW>;
+	disable-gpio = <&lsio_gpio4 9 GPIO_ACTIVE_LOW>;
 	ext_osc = <1>;
+	epdev_on-supply = <&epdev_on>;
 	status = "okay";
 };
 
@@ -1135,6 +1156,7 @@
 			IMX8QM_PCIE_CTRL0_WAKE_B_LSIO_GPIO4_IO28		0x04000021
 			IMX8QM_PCIE_CTRL0_CLKREQ_B_LSIO_GPIO4_IO27		0x06000021
 			IMX8QM_PCIE_CTRL0_PERST_B_LSIO_GPIO4_IO29		0x06000021
+			IMX8QM_USDHC2_RESET_B_LSIO_GPIO4_IO09			0x06000021
 		>;
 	};
 
@@ -1250,6 +1272,30 @@
 		fsl,pins = <
 			IMX8QM_LVDS1_I2C1_SCL_LVDS1_I2C1_SCL	0xc600004c
 			IMX8QM_LVDS1_I2C1_SDA_LVDS1_I2C1_SDA	0xc600004c
+		>;
+	};
+
+	pinctrl_wifi: wifigrp{
+		fsl,pins = <
+			IMX8QM_SCU_GPIO0_07_SCU_DSC_RTC_CLOCK_OUTPUT_32K	0x20
+		>;
+	};
+
+	pinctrl_wifi_init: wifi_initgrp{
+		fsl,pins = <
+			/* reserve pin init/idle_state to support multiple wlan cards */
+		>;
+	};
+
+	pinctrl_wlreg_on: wlregongrp{
+		fsl,pins = <
+			IMX8QM_LVDS1_I2C0_SDA_LSIO_GPIO1_IO13		0x06000000
+		>;
+	};
+
+	pinctrl_wlreg_on_sleep: wlregon_sleepgrp{
+		fsl,pins = <
+			IMX8QM_LVDS1_I2C0_SDA_LSIO_GPIO1_IO13		0x07800000
 		>;
 	};
 };
