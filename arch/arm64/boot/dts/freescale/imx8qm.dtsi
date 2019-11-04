@@ -48,6 +48,10 @@
 		ldb1 = &ldb2;
 		i2c0 = &i2c_rpbus_0;
 		i2c1 = &i2c_rpbus_1;
+		dphy0 = &mipi0_dphy;
+		dphy1 = &mipi1_dphy;
+		mipi_dsi0 = &mipi0_dsi_host;
+		mipi_dsi1 = &mipi1_dsi_host;
 	};
 
 	cpus: cpus {
@@ -572,5 +576,6 @@
 #include "imx8qm-ss-hsio.dtsi"
 #include "imx8qm-ss-dc.dtsi"
 #include "imx8qm-ss-lvds.dtsi"
+#include "imx8qm-ss-mipi.dtsi"
 #include "imx8qm-ss-hdmi.dtsi"
 #include "imx8qm-ss-gpu.dtsi"
