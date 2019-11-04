@@ -896,7 +896,17 @@ static int adis16475_config_irq_pin(struct adis16475 *st)
 	val &= ~ADIS16475_MSG_CTRL_DR_POL_MASK;
 	val |= ADIS16475_MSG_CTRL_DR_POL(polarity);
 
-	return __adis_write_reg_16(&st->adis, ADIS16475_REG_MSG_CTRL, val);
+	ret = __adis_write_reg_16(&st->adis, ADIS16475_REG_MSG_CTRL, val);
+	if (ret)
+		return ret;
+	/*
+	 * There is a delay writing to any bits written to the MSC_CTRL
+	 * register. It should not be bigger than 200us, so 250 should be more
+	 * than enough!
+	 */
+	usleep_range(250, 260);
+
+	return 0;
 }
 
 static int adis16475_check_state(struct iio_dev *indio_dev)
