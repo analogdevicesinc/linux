@@ -87,6 +87,7 @@ examples:
                     compatible = "adi,adis16475-3";
                     reg = <0>;
                     spi-cpha;
+                    spi-cpol;
                     spi-max-frequency = <2000000>;
                     interrupts = <4 IRQ_TYPE_EDGE_RISING>;
                     interrupt-parent = <&gpio>;
