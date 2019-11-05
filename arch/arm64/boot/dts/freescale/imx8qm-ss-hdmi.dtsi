@@ -146,7 +146,7 @@
 
 		i2c0_hdmi: i2c@56266000 {
 			compatible = "fsl,imx8qm-lpi2c";
-			reg = <0x0 0x56266000 0x0 0x1000>;
+			reg = <0x56266000 0x1000>;
 			interrupts = <8 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-parent = <&irqsteer_hdmi>;
 			clocks = <&hdmi_lpcg_i2c0 0>,
