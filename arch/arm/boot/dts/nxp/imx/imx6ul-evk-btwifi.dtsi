@@ -1,0 +1,72 @@
+/*
+ * Copyright (C) 2015 Freescale Semiconductor, Inc.
+ * Copyright 2019 NXP
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+/*
+ * NOTE: This DTS file is written for plugging in Murata Wi-Fi/BT EVK into Slot
+ * SD1 and using Murata i.MX InterConnect Ver 2.0 Adapter. Bluetooth UART &
+ * control signals are connected via ribbon cable (J1701 connector).
+ */
+
+/ {
+	modem_reset: modem-reset {
+		compatible = "gpio-reset";
+		reset-gpios = <&gpio_spi 4 GPIO_ACTIVE_LOW>;
+		reset-delay-us = <1000>;
+		#reset-cells = <0>;
+	};
+
+	usdhc1_pwrseq: usdhc1_pwrseq {
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_wifi>;
+		compatible = "mmc-pwrseq-simple";
+		reset-gpios = <&gpio5 1 GPIO_ACTIVE_LOW>;
+	};
+};
+
+&iomuxc {
+	pinctrl_wifi: wifigrp {
+		fsl,pins = <
+			MX6UL_PAD_SNVS_TAMPER1__GPIO5_IO01 0x03029
+		>;
+	};
+};
+
+&reg_sd1_vmmc {
+	regulator-always-on;
+};
+
+&uart2 {
+	resets = <&modem_reset>;
+};
+
+&usdhc1 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_usdhc1>;
+	no-1-8-v;
+	non-removable;
+	pm-ignore-notify;
+	mmc-pwrseq = <&usdhc1_pwrseq>;
+	cap-power-off-card;
+	/delete-property/ wakeup-source;
+	/delete-property/ enable-sdio-wakeup;
+
+	brcmf: bcrmf@1 {
+		reg = <1>;
+		compatible = "brcm,bcm4329-fmac";
+	};
+};
+
+&gpio_spi {
+	/* Murata: modify default setting so that BT_nPWD/BT_REG_ON
+	 * is low (0V) during kernel boot.
+	 */
+	registers-default = /bits/ 8 <0x47>;
+};

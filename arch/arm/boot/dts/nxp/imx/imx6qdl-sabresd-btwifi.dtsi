@@ -1,0 +1,104 @@
+/*
+ * Copyright (C) 2015 Freescale Semiconductor, Inc.
+ * Copyright 2019 NXP
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+/*
+ * NOTE: This DTS file is wrote for plugging in Murata 1MW M.2
+ * into SD2 slot by using Murata uSD-to-M.2 Adapter.
+ *
+ * By default, OOB IRQ is enabled with below HW rework.
+ * HW rework:
+ *	Install R209,R210,R211,R212,R213,R214,R215 on SDB board.
+ */
+
+/ {
+	leds {
+		compatible = "gpio-leds";
+		status = "disabled";
+	};
+
+	modem_reset: modem-reset {
+		compatible = "gpio-reset";
+		reset-gpios = <&gpio1 2 GPIO_ACTIVE_LOW>;
+		reset-delay-us = <1000>;
+		#reset-cells = <0>;
+	};
+
+	usdhc1_pwrseq: usdhc1_pwrseq {
+		compatible = "mmc-pwrseq-simple";
+		reset-gpios = <&gpio4 7 GPIO_ACTIVE_LOW>;
+	};
+};
+
+&ecspi1 {
+	status = "disabled";
+};
+
+&iomuxc {
+	imx6qdl-sabresd-murata-v2 {
+		pinctrl_btreg: btreggrp {
+			fsl,pins = <
+				MX6QDL_PAD_GPIO_2__GPIO1_IO02 0x1b0b0
+			>;
+		};
+
+		/* add MUXing entry for SD2 4-bit interface and configure control pins */
+		pinctrl_wifi: wifigrp {
+			fsl,pins = <
+				MX6QDL_PAD_SD2_CMD__SD2_CMD		0x17059
+				MX6QDL_PAD_SD2_CLK__SD2_CLK		0x10059
+				MX6QDL_PAD_SD2_DAT0__SD2_DATA0		0x17059
+				MX6QDL_PAD_SD2_DAT1__SD2_DATA1		0x17059
+				MX6QDL_PAD_SD2_DAT2__SD2_DATA2		0x17059
+				MX6QDL_PAD_SD2_DAT3__SD2_DATA3		0x17059
+				MX6QDL_PAD_KEY_ROW0__GPIO4_IO07		0x13069	/* WL_REG_ON */
+				MX6QDL_PAD_KEY_COL0__GPIO4_IO06		0x0b001	/* WL_HOST_WAKE */
+			>;
+		};
+	};
+};
+
+&pinctrl_gpio_leds {
+	fsl,pins = <
+	>;
+};
+
+&uart5 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_uart5_1
+		     &pinctrl_btreg>;
+	fsl,uart-has-rtscts;
+	resets = <&modem_reset>;
+	status = "okay";
+	/* for DTE mode, add below change */
+	/* fsl,dte-mode; */
+	/* pinctrl-0 = <&pinctrl_uart5dte_1>; */
+};
+
+&usdhc2 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_wifi>;
+	bus-width = <4>;
+	no-1-8-v;
+	non-removable;
+	keep-power-in-suspend;
+	mmc-pwrseq = <&usdhc1_pwrseq>;
+	pm-ignore-notify;
+	cap-power-off-card;
+	/delete-property/ enable-sdio-wakeup;
+
+	brcmf: bcrmf@1 {
+		reg = <1>;
+		compatible = "brcm,bcm4329-fmac";
+		interrupt-parent = <&gpio4>;
+		interrupts = <6 IRQ_TYPE_LEVEL_LOW>;
+		interrupt-names = "host-wake";
+	};
+};

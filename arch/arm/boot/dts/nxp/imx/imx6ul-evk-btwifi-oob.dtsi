@@ -1,0 +1,30 @@
+/*
+ * Copyright 2017-2019 NXP
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+&pinctrl_wifi {
+	fsl,pins = <
+		/* MUXing for WL_HOST_WAKE */
+		MX6UL_PAD_ENET2_RX_ER__GPIO2_IO15  0x0b001 /* input: 100K Pull-up */
+	>;
+};
+
+/*
+ * For WL_HOST_WAKE (OOB_IRQ) to function correctly, we must disable
+ * the secondary ethernet port (FEC2). Hardware re-work is to remove
+ * R1633 and populate R1704 with 0 Ohm resistor.
+ * Refer to Murata Hardware Reference Manual for more details.
+ */
+&fec2 {
+	status = "disabled";
+};
+
+&brcmf {
+	interrupt-parent = <&gpio2>;
+	interrupts = <15 IRQ_TYPE_LEVEL_LOW>;  /* M.2 WL_HOST_WAKE is active low */
+	interrupt-names = "host-wake";
+};

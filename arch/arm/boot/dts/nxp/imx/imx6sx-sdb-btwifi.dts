@@ -1,0 +1,87 @@
+/*
+ * Copyright (C) 2015 Freescale Semiconductor, Inc.
+ * Copyright 2019 NXP
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+/*
+ * NOTE: This DTS file is wrote for plugging in Murata 1MW M.2
+ * into SD2 slot by using Murata uSD-to-M.2 Adapter.
+ *
+ * By default, OOB IRQ is not enabled since i.MX6SX SDB board needs to rework.
+ * How to enable OOB IRQ ?
+ * HW rework:
+ *	Install R328 on i.MX6SX SDB board.
+ * SW change:
+ *	pinctrl_wifi: wifigrp {
+ *		fsl,pins = <
+ *			MX6SX_PAD_ENET1_RX_CLK__GPIO2_IO_4      0x0b001
+ *		>;
+ *	};
+ *	brcmf: bcrmf@1 {
+ *		reg = <1>;
+ *		compatible = "brcm,bcm4329-fmac";
+ *		interrupt-parent = <&gpio2>;
+ *		interrupts = <4 IRQ_TYPE_LEVEL_LOW>;
+ *		interrupt-names = "host-wake";
+ *	};
+ */
+
+#include "imx6sx-sdb.dts"
+
+/ {
+	modem_reset: modem-reset {
+		compatible = "gpio-reset";
+		reset-gpios = <&gpio4 10 GPIO_ACTIVE_LOW>;
+		reset-delay-us = <1000>;
+		#reset-cells = <0>;
+	};
+
+	usdhc2_pwrseq: usdhc2_pwrseq {
+		compatible = "mmc-pwrseq-simple";
+	};
+};
+
+&iomuxc {
+	imx6sx-sdb-murata-wifibt {
+		pinctrl_bt: btgrp {
+			fsl,pins = <
+				MX6SX_PAD_NAND_DATA06__GPIO4_IO_10	0x13069 /* BT_REG_ON */
+			>;
+		};
+
+		pinctrl_wifi: wifigrp {
+			fsl,pins = <
+			>;
+		};
+	};
+};
+
+&uart5 { /* for bluetooth */
+	pinctrl-0 = <&pinctrl_uart5 &pinctrl_bt>;
+	resets = <&modem_reset>;
+};
+
+
+&usdhc2 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_usdhc2 &pinctrl_wifi>;
+	bus-width = <4>;
+	no-1-8-v;	/* force 3.3V VIO */
+	non-removable;
+	mmc-pwrseq = <&usdhc2_pwrseq>;
+	pm-ignore-notify;
+	cap-power-off-card;
+	/delete-property/ wakeup-source;
+	status = "okay";
+
+	brcmf: bcrmf@1 {
+		reg = <1>;
+		compatible = "brcm,bcm4329-fmac";
+	};
+};
