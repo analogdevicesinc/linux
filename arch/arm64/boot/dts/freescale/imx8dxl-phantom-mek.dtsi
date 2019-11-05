@@ -140,7 +140,7 @@
 			regulator-min-microvolt = <3000000>;
 			regulator-max-microvolt = <3000000>;
 			gpio = <&lsio_gpio4 19 GPIO_ACTIVE_HIGH>;
-			off-on-delay = <3480>;
+			off-on-delay-us = <3480>;
 			enable-active-high;
 		};
 
