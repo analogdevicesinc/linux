@@ -163,6 +163,7 @@
 			pinctrl-names = "default";
 			pinctrl-0 = <&pinctrl_usdhc0_rst>;
 			gpio = <&gpio_ptd 0 GPIO_ACTIVE_HIGH>;
+			off-on-delay-us = <20000>;
 			enable-active-high;
 		};
 
@@ -173,6 +174,7 @@
 			regulator-max-microvolt = <3300000>;
 			gpio = <&rpmsg_gpio0 14 GPIO_ACTIVE_HIGH>;
 			startup-delay-us = <100>;
+			off-on-delay-us = <20000>;
 			enable-active-high;
 		};
 	};
