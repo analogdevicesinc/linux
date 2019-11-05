@@ -355,6 +355,14 @@ static int adxcvr_clk_set_rate(struct clk_hw *hw,
 	if (ret < 0)
 		return ret;
 
+	if ((st->xcvr.type == XILINX_XCVR_TYPE_US_GTH3) ||
+	    (st->xcvr.type == XILINX_XCVR_TYPE_US_GTH4)) {
+		if (st->sys_clk_sel == ADXCVR_GTH_SYSCLK_QPLL1)
+			qpll_conf.qpll = 1;
+		else
+			qpll_conf.qpll = 0;
+	}
+
 	for (i = 0; i < st->num_lanes; i++) {
 
 		if (st->cpll_enable)
