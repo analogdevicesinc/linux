@@ -845,6 +845,8 @@
 			caam_snvs: caam-snvs@30370000 {
 				compatible = "fsl,imx6q-caam-snvs";
 				reg = <0x30370000 0x10000>;
+				clocks = <&clk IMX8MQ_CLK_SNVS_ROOT>;
+				clock-names = "ipg";
 			};
 
 			snvs: snvs@30370000 {
