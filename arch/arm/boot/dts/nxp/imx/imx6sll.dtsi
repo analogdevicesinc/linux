@@ -137,28 +137,28 @@
 			fsl,max_ddr_freq = <400000000>;
 		};
 
-		ocrams: sram@00900000 {
+		ocrams: sram@900000 {
 			compatible = "fsl,lpm-sram";
-			reg = <0x00900000 0x4000>;
+			reg = <0x900000 0x4000>;
 		};
 
-		ocrams_ddr: sram@00904000 {
+		ocrams_ddr: sram@904000 {
 			compatible = "fsl,ddr-lpm-sram";
-			reg = <0x00904000 0x1000>;
+			reg = <0x904000 0x1000>;
 		};
 
-		ocram: sram@00905000 {
+		ocram: sram@905000 {
 			compatible = "mmio-sram";
-			reg = <0x00905000 0x1B000>;
-			ranges = <0 0x00905000 0x1B000>;
+			reg = <0x905000 0x1B000>;
+			ranges = <0 0x905000 0x1B000>;
 			#address-cells = <1>;
 			#size-cells = <1>;
 		};
 
-		ocram_optee: sram@00918000 {
+		ocram_optee: sram@918000 {
 			compatible = "fsl,optee-lpm-sram";
-			reg = <0x00918000 0x8000>;
-			overw_reg = <&ocram 0x00905000 0x13000>;
+			reg = <0x918000 0x8000>;
+			overw_reg = <&ocram 0x905000 0x13000>;
 		};
 
 		intc: interrupt-controller@a01000 {

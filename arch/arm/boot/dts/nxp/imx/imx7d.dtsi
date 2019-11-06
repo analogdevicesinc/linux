@@ -94,21 +94,21 @@
 			interrupt-names = "irq_busfreq_0", "irq_busfreq_1";
 		};
 
-		ocrams_ddr: sram@00900000 {
+		ocrams_ddr: sram@900000 {
 			compatible = "fsl,ddr-lpm-sram";
-			reg = <0x00900000 0x1000>;
+			reg = <0x900000 0x1000>;
 			clocks = <&clks IMX7D_OCRAM_CLK>;
 		};
 
 		ocram: sram@901000 {
 			compatible = "mmio-sram";
-			reg = <0x00901000 0x1f000>;
+			reg = <0x901000 0x1f000>;
 			clocks = <&clks IMX7D_OCRAM_CLK>;
 		};
 
-		ocrams: sram@00180000 {
+		ocrams: sram@180000 {
 			compatible = "fsl,lpm-sram";
-			reg = <0x00180000 0x8000>;
+			reg = <0x180000 0x8000>;
 			clocks = <&clks IMX7D_OCRAM_S_CLK>;
 			status = "disabled";
 		};
@@ -122,9 +122,9 @@
 			overw_clock = <&ocrams &clks IMX7D_OCRAM_CLK>;
 		};
 
-		ocrams_mf: sram-mf@00900000 {
+		ocrams_mf: sram-mf@900000 {
 			compatible = "fsl,mega-fast-sram";
-			reg = <0x00900000 0x20000>;
+			reg = <0x900000 0x20000>;
 			clocks = <&clks IMX7D_OCRAM_CLK>;
 		};
 

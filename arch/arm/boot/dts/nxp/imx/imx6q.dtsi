@@ -175,19 +175,19 @@
 			fsl,max_ddr_freq = <528000000>;
 		};
 
-		ocram: sram@00905000 {
+		ocram: sram@905000 {
 			compatible = "mmio-sram";
-			reg = <0x00905000 0x3b000>;
-			ranges = <0 0x00905000 0x3b000>;
+			reg = <0x905000 0x3B000>;
+			ranges = <0 0x905000 0x3B000>;
 			#address-cells = <1>;
 			#size-cells = <1>;
 			clocks = <&clks IMX6QDL_CLK_OCRAM>;
 		};
 
-		ocram_optee: sram@00938000 {
+		ocram_optee: sram@938000 {
 			compatible = "fsl,optee-lpm-sram";
-			reg = <0x00938000 0x8000>;
-			overw_reg = <&ocram 0x00905000 0x33000>;
+			reg = <0x938000 0x8000>;
+			overw_reg = <&ocram 0x905000 0x33000>;
 		};
 
 		aips1: bus@2000000 { /* AIPS1 */

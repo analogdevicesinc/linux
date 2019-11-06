@@ -187,33 +187,33 @@
 			fsl,max_ddr_freq = <400000000>;
 		};
 
-		ocrams: sram@008f8000 {
+		ocrams: sram@8f8000 {
 			compatible = "fsl,lpm-sram";
-			reg = <0x008f8000 0x4000>;
-			ranges = <0 0x008f8000 0x4000>;
+			reg = <0x8f8000 0x4000>;
+			ranges = <0 0x8f8000 0x4000>;
 			#address-cells = <1>;
 			#size-cells = <1>;
 			clocks = <&clks IMX6SX_CLK_OCRAM_S>;
 		};
 
-		ocrams_ddr: sram@00900000 {
+		ocrams_ddr: sram@900000 {
 			compatible = "fsl,ddr-lpm-sram";
-			reg = <0x00900000 0x1000>;
+			reg = <0x900000 0x1000>;
 			clocks = <&clks IMX6SX_CLK_OCRAM>;
 		};
 
-		ocram: sram@00901000 {
+		ocram: sram@901000 {
 			compatible = "mmio-sram";
-			reg = <0x00901000 0x1F000>;
-			ranges = <0 0x00901000 0x1F000>;
+			reg = <0x901000 0x1F000>;
+			ranges = <0 0x901000 0x1F000>;
 			#address-cells = <1>;
 			#size-cells = <1>;
 			clocks = <&clks IMX6SX_CLK_OCRAM>;
 		};
 
-		ocram_mf: sram-mf@00900000 {
+		ocram_mf: sram-mf@900000 {
 			compatible = "fsl,mega-fast-sram";
-			reg = <0x00900000 0x20000>;
+			reg = <0x900000 0x20000>;
 			clocks = <&clks IMX6SX_CLK_OCRAM>;
 		};
 
