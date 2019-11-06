@@ -168,7 +168,7 @@ static const char * const adf4360_power_level_modes[] = {
 	[ADF4360_PL_3_5] = "3500-uA",
 	[ADF4360_PL_5] = "5000-uA",
 	[ADF4360_PL_7_5] = "7500-uA",
-	[ADF4360_PL_11] = "1100-uA",
+	[ADF4360_PL_11] = "11000-uA",
 };
 
 static const unsigned int adf4360_power_lvl_microamp[] = {
