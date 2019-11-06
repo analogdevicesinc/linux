@@ -8,6 +8,7 @@
 #include <linux/device.h>
 #include <linux/iio/iio.h>
 #include <linux/init.h>
+#include <linux/firmware.h>
 #include <linux/module.h>
 #include <linux/regmap.h>
 #include <linux/spi/spi.h>
@@ -22,6 +23,16 @@ static int iio_regmap_spi_probe(struct spi_device *spi)
 	const struct spi_device_id *id = spi_get_device_id(spi);
 	struct regmap *regmap;
 	int ret;
+	struct regmap_config *regmap_cfg;
+
+	regmap_cfg = devm_kzalloc(&spi->dev, sizeof(*regmap_cfg),
+				  GFP_KERNEL);
+	if (!regmap_cfg)
+		return -ENOMEM;
+
+	ret = config_regmap(&spi->dev, regmap_cfg);
+	if (ret < 0)
+		return ret;
 
 	regmap = devm_regmap_init_spi(spi, &iio_regmap_spi_regmap_config);
 	if (IS_ERR(regmap)) {

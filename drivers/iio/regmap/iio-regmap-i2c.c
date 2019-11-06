@@ -7,25 +7,35 @@
 
 #include <linux/device.h>
 #include <linux/err.h>
+#include <linux/firmware.h>
 #include <linux/i2c.h>
 #include <linux/iio/iio.h>
 #include <linux/module.h>
 #include <linux/regmap.h>
+#include <linux/slab.h>
 
 #include "iio-regmap.h"
-
-static const struct regmap_config iio_regmap_config = {
-};
 
 static int iio_regmap_i2c_probe(struct i2c_client *client,
 				const struct i2c_device_id *id)
 {
 	struct regmap *regmap;
+	int ret;
+	struct regmap_config *regmap_cfg;
 
-	regmap = devm_regmap_init_i2c(client, &iio_regmap_config);
-	if (IS_ERR(regmap)) {
+	regmap_cfg = devm_kzalloc(&client->dev, sizeof(*regmap_cfg),
+				  GFP_KERNEL);
+	if (!regmap_cfg)
+		return -ENOMEM;
+
+	ret = config_regmap(&client->dev, regmap_cfg);
+	if (ret < 0)
+		return ret;
+
+	regmap = devm_regmap_init_i2c(client, regmap_cfg);
+	if (!regmap) {
 		dev_err(&client->dev, "devm_regmap_init_i2c failed!\n");
-		return PTR_ERR(regmap);
+		return -1;
 	}
 
 	return iio_regmap_probe(&client->dev, regmap, client->name);
