@@ -8,6 +8,7 @@
  */
 
 #include <linux/delay.h>
+#include <linux/gpio/consumer.h>
 #include <linux/mutex.h>
 #include <linux/device.h>
 #include <linux/kernel.h>
@@ -382,36 +383,64 @@ static int adis_self_test(struct adis *adis)
 }
 
 /**
- * adis_inital_startup() - Performs device self-test
+ * __adis_initial_startup() - Device initial setup
  * @adis: The adis device
+ *
+ * This functions makes sure the device is not in reset, via rst pin.
+ * Furthermore it performs a SW reset (only in the case we are not coming from
+ * reset already) and a self test. It also compares the product id with the
+ * device id if the prod_id_reg variable is set.
  *
  * Returns 0 if the device is operational, a negative error code otherwise.
  *
  * This function should be called early on in the device initialization sequence
  * to ensure that the device is in a sane and known state and that it is usable.
  */
-int adis_initial_startup(struct adis *adis)
+int __adis_initial_startup(struct adis *adis)
 {
 	int ret;
+	struct gpio_desc *gpio;
+	const struct adis_timeout *timeouts = adis->data->timeouts;
+	const char *iio_name = spi_get_device_id(adis->spi)->name;
+	u16 prod_id, dev_id;
 
-	mutex_lock(&adis->state_lock);
-
-	ret = adis_self_test(adis);
-	if (ret) {
-		dev_err(&adis->spi->dev, "Self-test failed, trying reset.\n");
-		__adis_reset(adis);
-		ret = adis_self_test(adis);
-		if (ret) {
-			dev_err(&adis->spi->dev, "Second self-test failed, giving up.\n");
-			goto out_unlock;
-		}
+	/* check if the device has rst pin low */
+	gpio = devm_gpiod_get_optional(&adis->spi->dev, "reset", GPIOD_ASIS);
+	if (IS_ERR(gpio)) {
+		return PTR_ERR(gpio);
+	} else if (gpio && gpiod_get_value_cansleep(gpio)) {
+		/* bring device out of reset */
+		gpiod_set_value_cansleep(gpio, 0);
+		msleep(timeouts->reset_ms);
+	} else {
+		ret = __adis_reset(adis);
+		if (ret)
+			return ret;
 	}
 
-out_unlock:
-	mutex_unlock(&adis->state_lock);
-	return ret;
+	ret = adis_self_test(adis);
+	if (ret)
+		return ret;
+
+	if (!adis->data->prod_id_reg)
+		return 0;
+
+	ret = adis_read_reg_16(adis, adis->data->prod_id_reg, &prod_id);
+	if (ret)
+		return ret;
+
+	ret = sscanf(iio_name, "adis%hu\n", &dev_id);
+	if (ret != 1)
+		return -EINVAL;
+
+	if (prod_id != dev_id)
+		dev_warn(&adis->spi->dev,
+			 "Device ID(%u) and product ID(%u) do not match.",
+			 dev_id, prod_id);
+
+	return 0;
 }
-EXPORT_SYMBOL_GPL(adis_initial_startup);
+EXPORT_SYMBOL_GPL(__adis_initial_startup);
 
 /**
  * adis_single_conversion() - Performs a single sample conversion

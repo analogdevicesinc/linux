@@ -42,6 +42,7 @@ struct adis_timeout {
  * @glob_cmd_reg: Register address of the GLOB_CMD register
  * @msc_ctrl_reg: Register address of the MSC_CTRL register
  * @diag_stat_reg: Register address of the DIAG_STAT register
+ * @prod_id_reg: Register address of the PROD_ID register
  * @self_test_reg: Register address to request self test command
  * @status_error_msgs: Array of error messgaes
  * @status_error_mask:
@@ -55,6 +56,7 @@ struct adis_data {
 	unsigned int glob_cmd_reg;
 	unsigned int msc_ctrl_reg;
 	unsigned int diag_stat_reg;
+	unsigned int prod_id_reg;
 
 	unsigned int self_test_mask;
 	unsigned int self_test_reg;
@@ -297,6 +299,7 @@ static inline int adis_read_reg_32(struct adis *adis, unsigned int reg,
 
 int adis_enable_irq(struct adis *adis, bool enable);
 int __adis_check_status(struct adis *adis);
+int __adis_initial_startup(struct adis *adis);
 
 static inline int adis_check_status(struct adis *adis)
 {
@@ -304,6 +307,18 @@ static inline int adis_check_status(struct adis *adis)
 
 	mutex_lock(&adis->state_lock);
 	ret = __adis_check_status(adis);
+	mutex_unlock(&adis->state_lock);
+
+	return ret;
+}
+
+/* locked version of __adis_initial_startup() */
+static inline int adis_initial_startup(struct adis *adis)
+{
+	int ret;
+
+	mutex_lock(&adis->state_lock);
+	ret = __adis_initial_startup(adis);
 	mutex_unlock(&adis->state_lock);
 
 	return ret;
@@ -332,7 +347,6 @@ static inline int adis_update_bits_base(struct adis *adis, unsigned int reg,
 
 	return ret;
 }
-
 /**
  * adis_update_bits() - Wrapper macro for adis_update_bits_base - Locked version
  * @adis: The adis device
@@ -370,8 +384,6 @@ static inline int adis_update_bits_base(struct adis *adis, unsigned int reg,
 		__adis_update_bits_base(adis, reg, mask, val, 4),	\
 		__adis_update_bits_base(adis, reg, mask, val, 2));	\
 })
-
-int adis_initial_startup(struct adis *adis);
 
 int adis_single_conversion(struct iio_dev *indio_dev,
 	const struct iio_chan_spec *chan, unsigned int error_mask,
