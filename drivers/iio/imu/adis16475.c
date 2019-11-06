@@ -11,7 +11,6 @@
 #include <linux/debugfs.h>
 #include <linux/delay.h>
 #include <linux/device.h>
-#include <linux/gpio/consumer.h>
 #include <linux/kernel.h>
 #include <linux/iio/buffer.h>
 #include <linux/iio/iio.h>
@@ -1084,44 +1083,6 @@ burst16:
 	return 0;
 }
 
-static int adis16475_check_state(struct iio_dev *indio_dev)
-{
-	int ret;
-	struct adis16475 *st = iio_priv(indio_dev);
-	u16 prod_id;
-	u32 device_id;
-	const struct adis_timeout *timeouts = st->info->timeouts;
-
-	ret = __adis_reset(&st->adis);
-	if (ret)
-		return ret;
-
-	msleep(timeouts->reset_ms);
-	ret = __adis_write_reg_16(&st->adis, ADIS16475_REG_GLOB_CMD, BIT(2));
-	if (ret)
-		return ret;
-
-	msleep(timeouts->self_test_ms);
-	ret = __adis_check_status(&st->adis);
-	if (ret)
-		return ret;
-
-	ret = __adis_read_reg_16(&st->adis, ADIS16475_REG_PROD_ID, &prod_id);
-	if (ret)
-		return ret;
-
-	ret = sscanf(indio_dev->name, "adis%u", &device_id);
-	if (ret != 1)
-		return ret;
-
-	if (device_id != prod_id)
-		dev_warn(&st->adis.spi->dev,
-			 "Device ID(%u) and product ID(%u) do not match.",
-			device_id, prod_id);
-
-	return 0;
-}
-
 static struct adis_data *adis16475_adis_data_alloc(struct adis16475 *st)
 {
 	struct adis_data *data;
@@ -1134,6 +1095,9 @@ static struct adis_data *adis16475_adis_data_alloc(struct adis16475 *st)
 	data->msc_ctrl_reg = ADIS16475_REG_MSG_CTRL;
 	data->glob_cmd_reg = ADIS16475_REG_GLOB_CMD;
 	data->diag_stat_reg = ADIS16475_REG_DIAG_STAT;
+	data->prod_id_reg = ADIS16475_REG_PROD_ID;
+	data->self_test_mask = BIT(2);
+	data->self_test_reg = ADIS16475_REG_GLOB_CMD;
 	data->cs_change_delay = 16;
 	data->read_delay = 5;
 	data->write_delay = 5;
@@ -1155,7 +1119,6 @@ static int adis16475_probe(struct spi_device *spi)
 {
 	struct iio_dev *indio_dev;
 	struct adis16475 *st;
-	struct gpio_desc *desc;
 	const struct spi_device_id *id = spi_get_device_id(spi);
 	const struct adis_data *adis16475_data;
 	int ret;
@@ -1176,11 +1139,6 @@ static int adis16475_probe(struct spi_device *spi)
 	if (ret)
 		return ret;
 
-	/* make sure that the device is not in reset (if applicable) */
-	desc = devm_gpiod_get_optional(&spi->dev, "reset", GPIOD_OUT_LOW);
-	if (IS_ERR(desc))
-		return PTR_ERR(desc);
-
 	indio_dev->dev.parent = &spi->dev;
 	indio_dev->name = id->name;
 	indio_dev->channels = st->info->channels;
@@ -1188,7 +1146,7 @@ static int adis16475_probe(struct spi_device *spi)
 	indio_dev->info = &adis16475_info;
 	indio_dev->modes = INDIO_DIRECT_MODE;
 
-	ret = adis16475_check_state(indio_dev);
+	ret = __adis_initial_startup(&st->adis);
 	if (ret)
 		return ret;
 
