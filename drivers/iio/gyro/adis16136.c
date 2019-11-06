@@ -522,7 +522,6 @@ static struct adis_data *adis16136_adis_data_alloc(struct adis16136 *st)
 	data->glob_cmd_reg = ADIS16136_REG_GLOB_CMD;
 	data->diag_stat_reg = ADIS16136_REG_DIAG_STAT;
 	data->self_test_mask = ADIS16136_MSC_CTRL_SELF_TEST;
-	data->startup_delay = 80;
 	data->read_delay = 10;
 	data->write_delay = 10;
 	data->status_error_msgs = adis16136_status_error_msgs;

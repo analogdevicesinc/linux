@@ -1150,7 +1150,6 @@ static struct adis_data *adis16400_adis_data_alloc(struct adis16400_state *st)
 	data->read_delay = 50;
 	data->write_delay = 50;
 	data->self_test_mask = ADIS16400_MSC_CTRL_MEM_TEST;
-	data->startup_delay = ADIS16400_STARTUP_DELAY;
 	data->status_error_msgs = adis16400_status_error_msgs;
 	data->status_error_mask = BIT(ADIS16400_DIAG_STAT_ZACCL_FAIL) |
 				BIT(ADIS16400_DIAG_STAT_YACCL_FAIL) |
