@@ -23,7 +23,6 @@
 #include <linux/slab.h>
 #include <linux/sysfs.h>
 #include <linux/module.h>
-#include <linux/gpio/consumer.h>
 
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
@@ -1242,41 +1241,6 @@ static int adis16480_enable_irq(struct adis *adis, bool enable)
 	return __adis_write_reg_16(adis, ADIS16480_REG_FNCTIO_CTRL, val);
 }
 
-static int adis16480_initial_setup(struct iio_dev *indio_dev)
-{
-	struct adis16480 *st = iio_priv(indio_dev);
-	uint16_t prod_id;
-	unsigned int device_id;
-	int ret;
-	const struct adis_timeout *timeouts = st->chip_info->timeouts;
-
-	adis_reset(&st->adis);
-	msleep(timeouts->sw_reset_ms);
-
-	ret = adis_write_reg_16(&st->adis, ADIS16480_REG_GLOB_CMD, BIT(1));
-	if (ret)
-		return ret;
-	msleep(timeouts->self_test_ms);
-
-	ret = adis_check_status(&st->adis);
-	if (ret)
-		return ret;
-
-	ret = adis_read_reg_16(&st->adis, ADIS16480_REG_PROD_ID, &prod_id);
-	if (ret)
-		return ret;
-
-	ret = sscanf(indio_dev->name, "adis%u\n", &device_id);
-	if (ret != 1)
-		return -EINVAL;
-
-	if (prod_id != device_id)
-		dev_warn(&indio_dev->dev, "Device ID(%u) and product ID(%u) do not match.",
-				device_id, prod_id);
-
-	return 0;
-}
-
 #define ADIS16480_DIAG_STAT_XGYRO_FAIL 0
 #define ADIS16480_DIAG_STAT_YGYRO_FAIL 1
 #define ADIS16480_DIAG_STAT_ZGYRO_FAIL 2
@@ -1462,7 +1426,10 @@ static struct adis_data *adis16480_adis_data_alloc(struct adis16480 *st)
 
 	data->glob_cmd_reg = ADIS16480_REG_GLOB_CMD;
 	data->diag_stat_reg = ADIS16480_REG_DIAG_STS;
+	data->prod_id_reg = ADIS16480_REG_PROD_ID;
 	data->has_paging = true;
+	data->self_test_mask = BIT(1);
+	data->self_test_reg = ADIS16480_REG_GLOB_CMD;
 	data->read_delay = 5;
 	data->write_delay = 5;
 	data->status_error_msgs = adis16480_status_error_msgs;
@@ -1489,7 +1456,6 @@ static int adis16480_probe(struct spi_device *spi)
 	struct iio_dev *indio_dev;
 	struct adis16480 *st;
 	int ret;
-	struct gpio_desc *gpio;
 
 	indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*st));
 	if (indio_dev == NULL)
@@ -1507,12 +1473,6 @@ static int adis16480_probe(struct spi_device *spi)
 	indio_dev->info = &adis16480_info;
 	indio_dev->modes = INDIO_DIRECT_MODE;
 
-	gpio = devm_gpiod_get_optional(&spi->dev, "reset", GPIOD_OUT_LOW);
-	if (IS_ERR(gpio))
-		return PTR_ERR(gpio);
-	else if (gpio)
-		msleep(st->chip_info->timeouts->reset_ms);
-
 	adis16480_data = adis16480_adis_data_alloc(st);
 	if (IS_ERR(adis16480_data))
 		return PTR_ERR(adis16480_data);
@@ -1521,18 +1481,22 @@ static int adis16480_probe(struct spi_device *spi)
 	if (ret)
 		return ret;
 
-	ret = adis16480_config_irq_pin(spi->dev.of_node, st);
+	ret = __adis_initial_startup(&st->adis);
 	if (ret)
 		return ret;
 
+	ret = adis16480_config_irq_pin(spi->dev.of_node, st);
+	if (ret)
+		goto error_stop_device;
+
 	ret = adis16480_get_ext_clocks(st);
 	if (ret)
-		return ret;
+		goto error_stop_device;
 
 	if (!IS_ERR_OR_NULL(st->ext_clk)) {
 		ret = adis16480_ext_clk_config(st, spi->dev.of_node, true);
 		if (ret)
-			return ret;
+			goto error_stop_device;
 
 		st->clk_freq = clk_get_rate(st->ext_clk);
 		st->clk_freq *= 1000; /* micro */
@@ -1552,24 +1516,20 @@ static int adis16480_probe(struct spi_device *spi)
 	if (ret)
 		goto error_clk_disable_unprepare;
 
-	ret = adis16480_initial_setup(indio_dev);
-	if (ret)
-		goto error_cleanup_buffer;
-
 	ret = iio_device_register(indio_dev);
 	if (ret)
-		goto error_stop_device;
+		goto error_cleanup_buffer;
 
 	adis16480_debugfs_init(indio_dev);
 
 	return 0;
 
-error_stop_device:
-	adis16480_stop_device(indio_dev);
 error_cleanup_buffer:
 	adis_cleanup_buffer_and_trigger(&st->adis, indio_dev);
 error_clk_disable_unprepare:
 	clk_disable_unprepare(st->ext_clk);
+error_stop_device:
+	adis16480_stop_device(indio_dev);
 	return ret;
 }
 
