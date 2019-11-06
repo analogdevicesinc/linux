@@ -243,16 +243,13 @@ static int gpio_clk_driver_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	clk_flags = of_property_read_bool(node, "clk-set-rate-parent-enable") ?
-			CLK_SET_RATE_PARENT : 0;
-
 	if (is_mux)
 		clk = clk_register_gpio_mux(&pdev->dev, node->name,
-				parent_names, num_parents, gpiod, clk_flags);
+				parent_names, num_parents, gpiod, 0);
 	else
 		clk = clk_register_gpio_gate(&pdev->dev, node->name,
 				parent_names ?  parent_names[0] : NULL, gpiod,
-				clk_flags);
+				CLK_SET_RATE_PARENT);
 	if (IS_ERR(clk))
 		return PTR_ERR(clk);
 
