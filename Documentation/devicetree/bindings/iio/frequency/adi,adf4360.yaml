@@ -120,6 +120,13 @@ properties:
       muxout control is set to lock detect.
     maxItems: 1
 
+  adi,power-out-level-microamp:
+    description: |
+      Chip support setting of output power level. This property is optional.
+      If it is not provided by default 11000 uA will be set.
+    allOf:
+      - enum: [3500, 5000, 7500, 11000]
+
 required:
   - compatible
   - reg

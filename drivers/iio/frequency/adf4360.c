@@ -171,6 +171,13 @@ static const char * const adf4360_power_level_modes[] = {
 	[ADF4360_PL_11] = "1100-uA",
 };
 
+static const unsigned int adf4360_power_lvl_microamp[] = {
+	[ADF4360_PL_3_5] = 3500,
+	[ADF4360_PL_5] = 5000,
+	[ADF4360_PL_7_5] = 7500,
+	[ADF4360_PL_11] = 11000,
+};
+
 static const unsigned int adf4360_cpi_modes[] = {
 	[ADF4360_CPI_0_31] = 310,
 	[ADF4360_CPI_0_62] = 620,
@@ -1128,6 +1135,14 @@ static int adf4360_parse_dt(struct adf4360_state *st)
 	else
 		st->freq_req = st->vco_min;
 
+	ret = device_property_read_u32(dev, "adi,power-out-level-microamp",
+				       &tmp);
+	if (ret == 0)
+		st->power_level = find_closest(tmp, adf4360_power_lvl_microamp,
+					ARRAY_SIZE(adf4360_power_lvl_microamp));
+	else
+		st->power_level = ADF4360_PL_11;
+
 	return 0;
 }
 
@@ -1153,7 +1168,6 @@ static int adf4360_probe(struct spi_device *spi)
 	st->part_id = id->driver_data;
 	st->muxout_mode = ADF4360_MUXOUT_LOCK_DETECT;
 	st->mtld = true;
-	st->power_level = ADF4360_PL_11;
 
 	ret = adf4360_parse_dt(st);
 	if (ret) {
