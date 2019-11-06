@@ -382,7 +382,7 @@ audio_subsys: bus@59000000 {
 		interrupts = <GIC_SPI 380 IRQ_TYPE_LEVEL_HIGH>,
 			<GIC_SPI 381 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&asrc1_lpcg 0>,
-			<&clk_dummy>,
+			<&asrc1_lpcg 0>,
 			<&aud_pll_div0_lpcg 0>,
 			<&aud_pll_div1_lpcg 0>,
 			<&acm IMX_ADMA_ACM_AUD_CLK0_SEL>,
