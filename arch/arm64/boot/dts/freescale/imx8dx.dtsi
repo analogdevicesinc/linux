@@ -1,0 +1,13 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright (C) 2016 Freescale Semiconductor, Inc.
+ * Copyright 2017-2019 NXP
+ */
+
+/dts-v1/;
+
+#include "imx8dxp.dtsi"
+
+/ {
+	/delete-node/ vpu_decoder;
+};
