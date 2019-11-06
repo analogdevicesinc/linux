@@ -254,6 +254,19 @@ img_subsys: bus@58000000 {
 		status = "disabled";
 	};
 
+	gpio0_mipi_csi0: gpio@58222000 {
+		compatible = "fsl,imx8qm-gpio", "fsl,imx35-gpio";
+		reg = <0x0 0x58222000 0x0 0x1000>;
+		interrupts = <0 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-parent = <&irqsteer_csi0>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+		power-domains = <&pd IMX_SC_R_CSI_0>, <&pd IMX_SC_R_ISI_CH0>;
+		power-domain-names = "pd_csi", "pd_isi_ch0";
+	};
+
 	i2c_mipi_csi0: i2c@58226000 {
 		compatible = "fsl,imx8qxp-lpi2c", "fsl,imx7ulp-lpi2c";
 		reg = <0x58226000 0x1000>;
@@ -266,6 +279,19 @@ img_subsys: bus@58000000 {
 		assigned-clock-rates = <24000000>;
 		power-domains = <&pd IMX_SC_R_CSI_0_I2C_0>;
 		status = "disabled";
+	};
+
+	gpio0_mipi_csi1: gpio@58242000 {
+		compatible = "fsl,imx8qm-gpio", "fsl,imx35-gpio";
+		reg = <0x0 0x58242000 0x0 0x1000>;
+		interrupts = <0 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-parent = <&irqsteer_csi1>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+		power-domains = <&pd IMX_SC_R_CSI_1>, <&pd IMX_SC_R_ISI_CH0>;
+		power-domain-names = "pd_csi", "pd_isi_ch0";
 	};
 
 	i2c_mipi_csi1: i2c@58246000 {
