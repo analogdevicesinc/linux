@@ -239,7 +239,7 @@ dtb-$(CONFIG_ARCH_MXC) += imx8qxp-colibri-iris-v2.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx8dxl-phantom-mek.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx8qxp-mek.dtb imx8qxp-mek-dsp.dtb imx8qxp-mek-ov5640.dtb \
 			  imx8qxp-mek-enet2.dtb imx8qxp-mek-enet2-tja1100.dtb imx8qxp-mek-sof.dtb \
-			  imx8qxp-mek-rpmsg.dtb
+			  imx8qxp-mek-rpmsg.dtb imx8qxp-mek-a0.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx8ulp-evk.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx93-9x9-qsb.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx93-11x11-evk.dtb
