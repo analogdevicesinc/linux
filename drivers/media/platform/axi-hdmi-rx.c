@@ -827,6 +827,11 @@ static int axi_hdmi_rx_async_complete(struct v4l2_async_notifier *notifier)
 	return axi_hdmi_rx_nodes_register(hdmi_rx);
 }
 
+static const struct v4l2_async_notifier_operations axi_hdmi_rx_async_ops = {
+	.bound = axi_hdmi_rx_async_bound,
+	.complete = axi_hdmi_rx_async_complete,
+};
+
 static int axi_hdmi_rx_load_edid(struct platform_device *pdev,
 	struct axi_hdmi_rx *hdmi_rx)
 {
@@ -916,13 +921,12 @@ static int axi_hdmi_rx_probe(struct platform_device *pdev)
 		hdmi_rx->bus_width = 16;
 
 	hdmi_rx->asd.match_type = V4L2_ASYNC_MATCH_FWNODE;
-	hdmi_rx->asd.match.fwnode.fwnode = of_fwnode_handle(of_graph_get_remote_port_parent(ep_node));
+	hdmi_rx->asd.match.fwnode = of_fwnode_handle(of_graph_get_remote_port_parent(ep_node));
 
 	hdmi_rx->asds[0] = &hdmi_rx->asd;
 	hdmi_rx->notifier.subdevs = hdmi_rx->asds;
 	hdmi_rx->notifier.num_subdevs = ARRAY_SIZE(hdmi_rx->asds);
-	hdmi_rx->notifier.bound = axi_hdmi_rx_async_bound;
-	hdmi_rx->notifier.complete = axi_hdmi_rx_async_complete;
+	hdmi_rx->notifier.ops = &axi_hdmi_rx_async_ops;
 
 	ret = v4l2_async_notifier_register(&hdmi_rx->v4l2_dev,
 		&hdmi_rx->notifier);
