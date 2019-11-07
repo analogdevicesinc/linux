@@ -163,6 +163,12 @@
 	};
 };
 
+&dcic2 {
+	clocks = <&clks IMX6QDL_CLK_DCIC1 >,
+		<&clks IMX6QDL_CLK_DCIC2>; /* DCIC2 depend on DCIC1 clock in imx6dl*/
+	clock-names = "dcic", "disp-axi";
+};
+
 &gpio1 {
 	gpio-ranges = <&iomuxc  0 131 2>, <&iomuxc  2 137 8>, <&iomuxc 10 189 2>,
 		      <&iomuxc 12 194 1>, <&iomuxc 13 193 1>, <&iomuxc 14 192 1>,
