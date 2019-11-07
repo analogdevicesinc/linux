@@ -181,7 +181,6 @@ static int ad9963_debugfs_reg_access(struct iio_dev *indio_dev,
 static const struct iio_info ad9963_info = {
 	.read_raw = &ad9963_read_raw,
 	.write_raw = &ad9963_write_raw,
-	.driver_module = THIS_MODULE,
 	.debugfs_reg_access = ad9963_debugfs_reg_access,
 };
 

@@ -370,7 +370,6 @@ static const struct attribute_group ad5270_attribute_group[] = {
 static struct iio_info ad5270_info = {
 	.read_raw = ad5270_read_raw,
 	.write_raw = ad5270_write_raw,
-	.driver_module = THIS_MODULE,
 	.attrs = NULL,
 };
 

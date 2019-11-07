@@ -669,7 +669,6 @@ static const struct iio_chan_spec axi_adc_trig_chan_spec[] = {
 };
 
 static const struct iio_info axi_adc_trig_iio_info = {
-	.driver_module = THIS_MODULE,
 	.read_raw = axi_adc_trig_read_raw,
 	.debugfs_reg_access = axi_adc_trig_reg_access,
 };

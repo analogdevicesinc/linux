@@ -606,7 +606,6 @@ static const struct iio_info ad7173_info = {
 	.write_raw = &ad7173_write_raw,
 	.write_raw_get_fmt = &ad7173_write_raw_get_fmt,
 	.validate_trigger = ad_sd_validate_trigger,
-	.driver_module = THIS_MODULE,
 };
 
 static const struct iio_chan_spec ad7173_channel_template = {

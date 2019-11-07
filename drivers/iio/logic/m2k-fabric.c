@@ -501,7 +501,6 @@ static const struct iio_chan_spec m2k_fabric_chan_spec_reve[] = {
 };
 
 static const struct iio_info m2k_fabric_iio_info = {
-	.driver_module = THIS_MODULE,
 };
 
 static const char * const m2k_fabric_gpio_names_revc[] = {

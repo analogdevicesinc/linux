@@ -669,7 +669,6 @@ static const struct iio_chan_spec adf4355_chan[] = {
 
 static const struct iio_info adf5355_info = {
 	.debugfs_reg_access = &adf5355_reg_access,
-	.driver_module = THIS_MODULE,
 };
 
 #ifdef CONFIG_OF

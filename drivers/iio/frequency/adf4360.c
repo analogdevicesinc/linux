@@ -952,7 +952,6 @@ static const struct iio_info adf4360_iio_info = {
 	.read_raw = &adf4360_read_raw,
 	.write_raw = &adf4360_write_raw,
 	.debugfs_reg_access = &adf4360_reg_access,
-	.driver_module = THIS_MODULE,
 };
 
 static int adf4360_get_gpio(struct adf4360_state *st)

@@ -167,7 +167,6 @@ unlock:
 
 static const struct iio_info ad7091r_info = {
 	.read_raw = ad7091r_read_raw,
-	.driver_module = THIS_MODULE,
 };
 
 static irqreturn_t ad7091r_event_handler(int irq, void *private)

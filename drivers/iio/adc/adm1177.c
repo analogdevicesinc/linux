@@ -144,7 +144,6 @@ static const struct iio_chan_spec adm1177_channels[] = {
 
 static const struct iio_info adm1177_info = {
 	.read_raw = &adm1177_read_raw,
-	.driver_module = THIS_MODULE,
 };
 
 static int adm1177_probe(struct i2c_client *client,

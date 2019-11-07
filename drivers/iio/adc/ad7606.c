@@ -521,13 +521,11 @@ static const struct iio_buffer_setup_ops ad7606_buffer_ops = {
 };
 
 static const struct iio_info ad7606_info_no_os_or_range = {
-	.driver_module = THIS_MODULE,
 	.read_raw = &ad7606_read_raw,
 	.validate_trigger = &ad7606_validate_trigger,
 };
 
 static const struct iio_info ad7606_info_os_and_range = {
-	.driver_module = THIS_MODULE,
 	.read_raw = &ad7606_read_raw,
 	.write_raw = &ad7606_write_raw,
 	.attrs = &ad7606_attribute_group_os_and_range,
@@ -535,7 +533,6 @@ static const struct iio_info ad7606_info_os_and_range = {
 };
 
 static const struct iio_info ad7606_info_os_range_and_debug = {
-	.driver_module = THIS_MODULE,
 	.read_raw = &ad7606_read_raw,
 	.write_raw = &ad7606_write_raw,
 	.debugfs_reg_access = &ad7606_reg_access,
@@ -544,7 +541,6 @@ static const struct iio_info ad7606_info_os_range_and_debug = {
 };
 
 static const struct iio_info ad7606_info_os = {
-	.driver_module = THIS_MODULE,
 	.read_raw = &ad7606_read_raw,
 	.write_raw = &ad7606_write_raw,
 	.attrs = &ad7606_attribute_group_os,
@@ -552,7 +548,6 @@ static const struct iio_info ad7606_info_os = {
 };
 
 static const struct iio_info ad7606_info_range = {
-	.driver_module = THIS_MODULE,
 	.read_raw = &ad7606_read_raw,
 	.write_raw = &ad7606_write_raw,
 	.attrs = &ad7606_attribute_group_range,

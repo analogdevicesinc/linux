@@ -966,7 +966,6 @@ static const struct iio_info ad9517_info = {
 	.read_raw = &ad9517_read_raw,
 	.write_raw = ad9517_write_raw,
 	.debugfs_reg_access = &ad9517_reg_access,
-	.driver_module = THIS_MODULE,
 };
 
 #define AD9517_CHAN(_chan, _addr)				\

@@ -456,7 +456,6 @@ static const struct iio_info ad738x_info = {
 	.read_raw = &ad738x_read_raw,
 	.debugfs_reg_access = &ad738x_reg_access,
 	.update_scan_mode = ad738x_update_scan_mode,
-	.driver_module = THIS_MODULE,
 };
 
 static int ad738x_probe(struct spi_device *spi)

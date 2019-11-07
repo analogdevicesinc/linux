@@ -479,7 +479,6 @@ static int adc_reg_access(struct iio_dev *indio_dev,
 static const struct iio_info adc_info = {
 	.read_raw = axiadc_read_raw,
 	.write_raw = axiadc_write_raw,
-	.driver_module = THIS_MODULE,
 	.debugfs_reg_access = &adc_reg_access,
 	.update_scan_mode = axiadc_update_scan_mode,
 };

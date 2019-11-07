@@ -8069,7 +8069,6 @@ static const struct iio_info ad9361_phy_info = {
 	.read_avail = ad9361_phy_read_avail,
 	.debugfs_reg_access = &ad9361_phy_reg_access,
 	.attrs = &ad9361_phy_attribute_group,
-	.driver_module = THIS_MODULE,
 };
 
 #ifdef CONFIG_OF

@@ -67,7 +67,6 @@ static int axiadc_update_scan_mode(struct iio_dev *indio_dev,
 }
 
 static const struct iio_info axiadc_info = {
-	.driver_module = THIS_MODULE,
 	.debugfs_reg_access = &axiadc_reg_access,
 	.update_scan_mode = &axiadc_update_scan_mode,
 };

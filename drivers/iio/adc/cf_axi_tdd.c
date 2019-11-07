@@ -396,7 +396,6 @@ static int cf_axi_tdd_reg_access(struct iio_dev *indio_dev,
 }
 
 static const struct iio_info cf_axi_tdd_info = {
-	.driver_module = THIS_MODULE,
 	.debugfs_reg_access = &cf_axi_tdd_reg_access,
 	.attrs = &cf_axi_tdd_attribute_group,
 };

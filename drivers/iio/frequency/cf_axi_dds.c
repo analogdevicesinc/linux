@@ -1312,7 +1312,6 @@ static struct cf_axi_dds_chip_info cf_axi_dds_chip_info_ad9936 = {
 };
 
 static const struct iio_info cf_axi_dds_info = {
-	.driver_module = THIS_MODULE,
 	.read_raw = &cf_axi_dds_read_raw,
 	.write_raw = &cf_axi_dds_write_raw,
 	.debugfs_reg_access = &cf_axi_dds_reg_access,

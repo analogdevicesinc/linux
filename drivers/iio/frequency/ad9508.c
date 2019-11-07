@@ -352,7 +352,6 @@ static const struct iio_info ad9508_info = {
 	.write_raw = &ad9508_write_raw,
 	.debugfs_reg_access = &ad9508_reg_access,
 	.attrs = &ad9508_attribute_group,
-	.driver_module = THIS_MODULE,
 };
 
 static unsigned long ad9508_clk_recalc_rate(struct clk_hw *hw,

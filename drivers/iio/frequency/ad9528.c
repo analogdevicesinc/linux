@@ -668,7 +668,6 @@ static const struct iio_info ad9528_info = {
 	.write_raw = &ad9528_write_raw,
 	.debugfs_reg_access = &ad9528_reg_access,
 	.attrs = &ad9528_attribute_group,
-	.driver_module = THIS_MODULE,
 };
 
 static bool ad9528_pll2_valid_calib_div(unsigned int div)

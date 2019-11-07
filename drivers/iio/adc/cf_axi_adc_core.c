@@ -673,7 +673,6 @@ static int axiadc_channel_setup(struct iio_dev *indio_dev,
 }
 
 static const struct iio_info axiadc_info = {
-	.driver_module = THIS_MODULE,
 	.read_raw = &axiadc_read_raw,
 	.write_raw = &axiadc_write_raw,
 	.read_event_value = &axiadc_read_event_value,

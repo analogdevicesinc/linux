@@ -436,7 +436,6 @@ static const struct attribute_group mc_ctrl_attribute_group = {
 };
 
 static const struct iio_info mc_ctrl_info = {
-	.driver_module = THIS_MODULE,
 	.debugfs_reg_access = &mc_ctrl_reg_access,
 	.attrs = &mc_ctrl_attribute_group,
 };

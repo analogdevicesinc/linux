@@ -749,14 +749,12 @@ static int m2k_la_reg_access(struct iio_dev *indio_dev, unsigned int reg,
 }
 
 static const struct iio_info m2k_la_iio_info = {
-	.driver_module = THIS_MODULE,
 	.read_raw = m2k_la_read_raw,
 	.write_raw = m2k_la_write_raw,
 	.debugfs_reg_access = m2k_la_reg_access,
 };
 
 static const struct iio_info m2k_la_txrx_iio_info = {
-	.driver_module = THIS_MODULE,
 	.read_raw = m2k_la_txrx_read_raw,
 	.write_raw = m2k_la_txrx_write_raw,
 };
