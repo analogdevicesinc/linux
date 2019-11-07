@@ -455,6 +455,7 @@ dtb-$(CONFIG_SOC_IMX7ULP) += \
 	imx7ulp-evkb.dtb \
 	imx7ulp-evkb-emmc.dtb \
 	imx7ulp-evkb-sd1.dtb \
+	imx7ulp-evkb-spi-slave.dtb \
 	imx7ulp-evkb-lpuart.dtb \
 	imx7ulp-evkb-mipi.dtb \
 	imx7ulp-evkb-rm68200-wxga.dtb \
