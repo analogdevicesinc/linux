@@ -247,7 +247,7 @@ static int ad9963_m2k_setup(struct ad9963 *ad9963)
 	regmap_write(ad9963->regmap, AD9963_REG_ADC_ADDRESS, 0x03);
 	regmap_write(ad9963->regmap, AD9963_REG_RXCML, 0x02);
 	/* PD Internal Reference, enable DLL */
-	regmap_write(ad9963->regmap, AD9963_REG_POWER_DOWN0, 0xc0);
+	regmap_write(ad9963->regmap, AD9963_REG_POWER_DOWN0, 0x80);
 
 	/* Configure DLL, DAC source = DLL, DLL rate = 3/2 * 100 = 150 */
 	regmap_write(ad9963->regmap, AD9963_REG_DLL_CTRL0, 0x52);
