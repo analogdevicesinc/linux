@@ -105,7 +105,7 @@ static int imageon_bridge_async_bound(struct v4l2_async_notifier *notifier,
 	};
 	int ret;
 
-	if (bridge->imageon_subdev[INPUT_SUBDEV].asd.match.fwnode.fwnode
+	if (bridge->imageon_subdev[INPUT_SUBDEV].asd.match.fwnode
 			== of_fwnode_handle(subdev->dev->of_node)) {
 
 		bridge->imageon_subdev[INPUT_SUBDEV].subdev = subdev;
@@ -120,7 +120,7 @@ static int imageon_bridge_async_bound(struct v4l2_async_notifier *notifier,
 			return ret;
 	}
 
-	if (bridge->imageon_subdev[OUTPUT_SUBDEV].asd.match.fwnode.fwnode
+	if (bridge->imageon_subdev[OUTPUT_SUBDEV].asd.match.fwnode
 			== of_fwnode_handle(subdev->dev->of_node)) {
 
 		bridge->imageon_subdev[OUTPUT_SUBDEV].subdev = subdev;
@@ -151,6 +151,12 @@ static int imageon_bridge_async_complete(struct v4l2_async_notifier *notifier)
 	return 0;
 }
 
+
+static const struct v4l2_async_notifier_operations imageon_async_ops = {
+	.bound = imageon_bridge_async_bound,
+	.complete = imageon_bridge_async_complete,
+};
+
 static struct imageon_bridge *imageon_bridge_parse_dt(struct device *dev)
 {
 	struct imageon_bridge *bridge;
@@ -172,7 +178,7 @@ static struct imageon_bridge *imageon_bridge_parse_dt(struct device *dev)
 		ep = next;
 
 		bridge->imageon_subdev[index].asd.match_type = V4L2_ASYNC_MATCH_FWNODE;
-		bridge->imageon_subdev[index].asd.match.fwnode.fwnode =
+		bridge->imageon_subdev[index].asd.match.fwnode =
 			of_fwnode_handle(of_graph_get_remote_port_parent(next));
 	}
 
@@ -240,8 +246,7 @@ static int imageon_bridge_probe(struct platform_device *pdev)
 
 	bridge->notifier.subdevs = asubdevs;
 	bridge->notifier.num_subdevs = 2;
-	bridge->notifier.bound = imageon_bridge_async_bound;
-	bridge->notifier.complete = imageon_bridge_async_complete;
+	bridge->notifier.ops = &imageon_async_ops;
 
 	ret = v4l2_async_notifier_register(&bridge->v4l2_dev,
 		&bridge->notifier);
