@@ -140,6 +140,21 @@
 				#clock-cells = <1>;
 			};
 
+			mc_cgm1: mc_cgm1@4003F000 {
+				compatible = "fsl,s32v234-mc_cgm1";
+				reg = <0x0 0x4003F000 0x0 0x1000>;
+			};
+
+			mc_cgm2: mc_cgm2@40042000 {
+				compatible = "fsl,s32v234-mc_cgm2";
+				reg = <0x0 0x40042000 0x0 0x1000>;
+			};
+
+			mc_cgm3: mc_cgm3@40045000 {
+				compatible = "fsl,s32v234-mc_cgm3";
+				reg = <0x0 0x40045000 0x0 0x1000>;
+			};
+
 			mc_me: mc_me@4004a000 {
 				compatible = "fsl,s32v234-mc_me";
 				reg = <0x0 0x4004A000 0x0 0x1000>;
