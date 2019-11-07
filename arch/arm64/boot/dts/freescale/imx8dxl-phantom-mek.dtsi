@@ -630,3 +630,12 @@
 	/delete-node/ cpu@2;
 	/delete-node/ cpu@3;
 };
+
+&pcieb{
+	compatible = "fsl,imx8qxp-pcie","snps,dw-pcie";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_pcieb>;
+	reset-gpio = <&lsio_gpio4 0 GPIO_ACTIVE_LOW>;
+	ext_osc = <1>;
+	status = "okay";
+};
