@@ -53,6 +53,8 @@ struct simple_card_data {
 	struct snd_soc_dai_link dai_link[];	/* dynamically allocated */
 };
 
+#define ADRV936X_BOX_DRIVER_NAME	"asoc-simple-card-adrv936x-box"
+
 #define simple_priv_to_dev(priv) ((priv)->snd_card.dev)
 #define simple_priv_to_link(priv, i) ((priv)->snd_card.dai_link + i)
 #define simple_priv_to_props(priv, i) ((priv)->dai_props + i)
@@ -189,6 +191,7 @@ static int adrv9363x_box_card_dai_init(struct snd_soc_pcm_runtime *rtd)
 	struct simple_card_data *priv =	snd_soc_card_get_drvdata(rtd->card);
 	struct snd_soc_dai *codec = rtd->codec_dai;
 	struct snd_soc_dai *cpu = rtd->cpu_dai;
+	struct snd_soc_component *component;
 	struct simple_dai_props *dai_props;
 	int ret;
 
@@ -226,7 +229,14 @@ static int adrv9363x_box_card_dai_init(struct snd_soc_pcm_runtime *rtd)
 				       &simple_card_mic_jack_gpio);
 	}
 
-	adau17x1_set_micbias_voltage(rtd->codec,
+	component = snd_soc_rtdcom_lookup(rtd, ADRV936X_BOX_DRIVER_NAME);
+	if (!component) {
+		dev_err(simple_priv_to_dev(priv),
+			"Could not find SoC component\n");
+		return -EFAULT;
+	}
+
+	adau17x1_set_micbias_voltage(component,
 		ADAU17X1_MICBIAS_0_65_AVDD);
 
 	snd_soc_dapm_force_enable_pin(&rtd->card->dapm, "MICBIAS");
@@ -691,7 +701,7 @@ MODULE_DEVICE_TABLE(of, adrv9363x_box_of_match);
 
 static struct platform_driver adrv9363x_box_card = {
 	.driver = {
-		.name = "asoc-simple-card-adrv936x-box",
+		.name = ADRV936X_BOX_DRIVER_NAME,
 		.of_match_table = adrv9363x_box_of_match,
 	},
 	.probe = adrv9363x_box_card_probe,
