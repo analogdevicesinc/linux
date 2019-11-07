@@ -1141,7 +1141,7 @@ static int adf4360_parse_dt(struct adf4360_state *st)
 		st->power_level = find_closest(tmp, adf4360_power_lvl_microamp,
 					ARRAY_SIZE(adf4360_power_lvl_microamp));
 	else
-		st->power_level = ADF4360_PL_11;
+		st->power_level = ADF4360_PL_5;
 
 	return 0;
 }
