@@ -324,6 +324,8 @@ dtb-$(CONFIG_SOC_IMX6UL) += \
 	imx6ul-14x14-evk-emmc.dtb \
 	imx6ul-14x14-evk-btwifi.dtb \
 	imx6ul-14x14-evk-btwifi-oob.dtb \
+	imx6ul-14x14-evk-ecspi-slave.dtb \
+	imx6ul-14x14-evk-ecspi.dtb \
 	imx6ul-9x9-evk.dtb \
 	imx6ul-9x9-evk-btwifi.dtb \
 	imx6ul-9x9-evk-btwifi-oob.dtb \
