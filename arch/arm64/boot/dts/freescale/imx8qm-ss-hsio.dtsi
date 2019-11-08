@@ -161,6 +161,7 @@
 				<&pd IMX_SC_R_SERDES_0>,
 				<&pd IMX_SC_R_SERDES_1>,
 				<&pd IMX_SC_R_HSIO_GPIO>;
+		fsl,sc_rsrc_id = <IMX_SC_R_SATA_0>;
 		iommus = <&smmu 0x13 0x7f80>;
 		status = "disabled";
 	};
