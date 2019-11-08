@@ -296,6 +296,12 @@ static const char * const adis16209_status_error_msgs[] = {
 	[ADIS16209_DIAG_STAT_POWER_LOW_BIT] = "Power supply below 3.15V",
 };
 
+static const struct adis_timeout adis16209_timeouts = {
+	.reset_ms = ADIS16209_STARTUP_DELAY,
+	.self_test_ms = ADIS16209_STARTUP_DELAY,
+	.sw_reset_ms = ADIS16209_STARTUP_DELAY,
+};
+
 static const struct adis_data adis16209_data = {
 	.read_delay = 30,
 	.msc_ctrl_reg = ADIS16209_MSC_CTRL,
@@ -305,6 +311,7 @@ static const struct adis_data adis16209_data = {
 	.self_test_mask = ADIS16209_MSC_CTRL_SELF_TEST_EN,
 	.self_test_no_autoclear = true,
 	.startup_delay = ADIS16209_STARTUP_DELAY,
+	.timeouts = &adis16209_timeouts,
 
 	.status_error_msgs = adis16209_status_error_msgs,
 	.status_error_mask = BIT(ADIS16209_DIAG_STAT_SELFTEST_FAIL_BIT) |
