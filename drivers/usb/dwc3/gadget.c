@@ -1606,32 +1606,28 @@ static int dwc3_gadget_ep_dequeue(struct usb_ep *ep,
 
 	list_for_each_entry(r, &dep->pending_list, list) {
 		if (r == req)
+			goto out1;
+	}
+
+	list_for_each_entry(r, &dep->started_list, list) {
+		if (r == req)
 			break;
 	}
 
 	if (r != req) {
-		list_for_each_entry(r, &dep->started_list, list) {
-			if (r == req)
-				break;
-		}
-		if (r == req) {
-			/* wait until it is processed */
-			dwc3_stop_active_transfer(dep, true, true);
-
-			if (!r->trb)
-				goto out0;
-
-			dwc3_gadget_move_cancelled_request(req);
-			if (dep->flags & DWC3_EP_TRANSFER_STARTED)
-				goto out0;
-			else
-				goto out1;
-		}
 		dev_err(dwc->dev, "request %pK was not queued to %s\n",
 				request, ep->name);
 		ret = -EINVAL;
 		goto out0;
 	}
+
+	dep->aborted_trbs = r->trb;
+	if (r->num_pending_sgs)
+		dep->num_aborted_trbs = r->num_pending_sgs;
+	else
+		dep->num_aborted_trbs = 1;
+
+	dwc3_stop_active_transfer(dep, true, true);
 
 out1:
 	dwc3_gadget_giveback(dep, req, -ECONNRESET);
@@ -2769,6 +2765,19 @@ static void dwc3_endpoint_interrupt(struct dwc3 *dwc,
 		cmd = DEPEVT_PARAMETER_CMD(event->parameters);
 
 		if (cmd == DWC3_DEPCMD_ENDTRANSFER) {
+			if (dep->aborted_trbs) {
+				struct dwc3_trb *trb = dep->aborted_trbs;
+				int i = 0;
+
+				for (i = 0; i < dep->num_aborted_trbs; i++) {
+					trb->ctrl &= ~DWC3_TRB_CTRL_HWO;
+					dwc3_ep_inc_deq(dep);
+					trb++;
+				}
+
+				dep->aborted_trbs = NULL;
+				dep->num_aborted_trbs = 0;
+			}
 			dep->flags &= ~DWC3_EP_TRANSFER_STARTED;
 			dwc3_gadget_ep_cleanup_cancelled_requests(dep);
 		}
