@@ -1693,32 +1693,28 @@ static int dwc3_gadget_ep_dequeue(struct usb_ep *ep,
 
 	list_for_each_entry(r, &dep->pending_list, list) {
 		if (r == req)
+			goto out1;
+	}
+
+	list_for_each_entry(r, &dep->started_list, list) {
+		if (r == req)
 			break;
 	}
 
 	if (r != req) {
-		list_for_each_entry(r, &dep->started_list, list) {
-			if (r == req)
-				break;
-		}
-		if (r == req) {
-			/* wait until it is processed */
-			dwc3_stop_active_transfer(dep, true, true);
-
-			if (!r->trb)
-				goto out0;
-
-			dwc3_gadget_move_cancelled_request(req);
-			if (dep->flags & DWC3_EP_TRANSFER_STARTED)
-				goto out0;
-			else
-				goto out1;
-		}
 		dev_err(dwc->dev, "request %pK was not queued to %s\n",
 				request, ep->name);
 		ret = -EINVAL;
 		goto out0;
 	}
+
+	dep->aborted_trbs = r->trb;
+	if (r->num_pending_sgs)
+		dep->num_aborted_trbs = r->num_pending_sgs;
+	else
+		dep->num_aborted_trbs = 1;
+
+	dwc3_stop_active_transfer(dep, true, true);
 
 out1:
 	dwc3_gadget_giveback(dep, req, -ECONNRESET);
