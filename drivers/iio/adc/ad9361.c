@@ -4140,9 +4140,17 @@ static int ad9361_set_trx_clock_chain(struct ad9361_rf_phy *phy,
 	 * If it is disabled we restore the values from the initial calibration.
 	 */
 
-	if (!phy->pdata->dig_interface_tune_fir_disable &&
-		!(st->bypass_tx_fir && st->bypass_rx_fir))
+	if ((!phy->pdata->dig_interface_tune_fir_disable &&
+		!(st->bypass_tx_fir && st->bypass_rx_fir)) &&
+		!phy->pdata->bb_clk_change_dig_tune_en)
 		ret = ad9361_dig_tune(phy, 0, SKIP_STORE_RESULT);
+	if (ret < 0)
+		return ret;
+
+	if (phy->pdata->bb_clk_change_dig_tune_en)
+		ret = ad9361_dig_tune(phy, 0, 0);
+	if (ret < 0)
+		return ret;
 
 	return ad9361_bb_clk_change_handler(phy);
 }
@@ -4160,6 +4168,31 @@ bool ad9361_uses_rx2tx2(struct ad9361_rf_phy *phy)
 	return phy && phy->pdata && phy->pdata->rx2tx2;
 }
 EXPORT_SYMBOL(ad9361_uses_rx2tx2);
+
+bool ad9361_axi_half_dac_rate(struct ad9361_rf_phy *phy)
+{
+	return phy && phy->pdata && phy->pdata->axi_half_dac_rate_en;
+}
+EXPORT_SYMBOL(ad9361_axi_half_dac_rate);
+
+bool ad9361_bb_clk_change_dig_tune_en(struct ad9361_rf_phy *phy)
+{
+	return phy && phy->pdata && phy->pdata->bb_clk_change_dig_tune_en;
+}
+EXPORT_SYMBOL(ad9361_bb_clk_change_dig_tune_en);
+
+u32 ad9361_get_dig_interface_tune_skipmode(struct ad9361_rf_phy *phy)
+{
+	return phy && phy->pdata && phy->pdata->dig_interface_tune_skipmode;
+}
+EXPORT_SYMBOL(ad9361_get_dig_interface_tune_skipmode);
+
+void ad9361_set_dig_interface_tune_skipmode(struct ad9361_rf_phy *phy, u32 skip)
+{
+	if (phy && phy->pdata)
+		phy->pdata->dig_interface_tune_skipmode = skip;
+}
+EXPORT_SYMBOL(ad9361_set_dig_interface_tune_skipmode);
 
 int ad9361_get_dig_tune_data(struct ad9361_rf_phy *phy,
 			     struct ad9361_dig_tune_data *data)
@@ -9009,6 +9042,13 @@ static struct ad9361_phy_platform_data
 	ad9361_of_get_u32(iodev, np, "adi,txmon-2-lo-cm", 48,
 			&pdata->txmon_ctrl.tx2_mon_lo_cm);
 
+	/* AXI Converter */
+	ad9361_of_get_bool(iodev, np, "adi,axi-half-dac-rate-enable",
+			&pdata->axi_half_dac_rate_en);
+
+	/* Digital tune after modifying the sampling rate */
+	ad9361_of_get_bool(iodev, np, "adi,bb-clk-change-dig-tune-enable",
+			&pdata->bb_clk_change_dig_tune_en);
 
 	return pdata;
 }
