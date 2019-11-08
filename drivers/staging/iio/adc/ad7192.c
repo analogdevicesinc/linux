@@ -1,9 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0
 /*
  * AD7190 AD7192 AD7193 AD7195 SPI ADC driver
  *
  * Copyright 2011-2015 Analog Devices Inc.
- *
- * Licensed under the GPL-2.
  */
 
 #include <linux/interrupt.h>
@@ -25,8 +24,6 @@
 #include <linux/iio/trigger_consumer.h>
 #include <linux/iio/triggered_buffer.h>
 #include <linux/iio/adc/ad_sigma_delta.h>
-
-#include "ad7192.h"
 
 /* Registers */
 #define AD7192_REG_COMM		0 /* Communications Register (WO, 8-bit) */
@@ -158,6 +155,11 @@
  * The DOUT/RDY output must also be wired to an interrupt capable GPIO.
  */
 
+enum {
+   AD7192_SYSCALIB_ZERO_SCALE,
+   AD7192_SYSCALIB_FULL_SCALE,
+};
+
 struct ad7192_state {
 	struct regulator		*avdd;
 	struct regulator		*dvdd;
@@ -172,8 +174,78 @@ struct ad7192_state {
 	u8				devid;
 	u8				clock_sel;
 	struct mutex			lock;	/* protect sensor state */
+	u8				syscalib_mode[8];
 
 	struct ad_sigma_delta		sd;
+};
+
+static const char * const ad7192_syscalib_modes[] = {
+	[AD7192_SYSCALIB_ZERO_SCALE] = "zero_scale",
+	[AD7192_SYSCALIB_FULL_SCALE] = "full_scale",
+};
+
+static int ad7192_set_syscalib_mode(struct iio_dev *indio_dev,
+				    const struct iio_chan_spec *chan,
+				    unsigned int mode)
+{
+	struct ad7192_state *st = iio_priv(indio_dev);
+
+	st->syscalib_mode[chan->channel] = mode;
+
+	return 0;
+}
+
+static int ad7192_get_syscalib_mode(struct iio_dev *indio_dev,
+				    const struct iio_chan_spec *chan)
+{
+	struct ad7192_state *st = iio_priv(indio_dev);
+
+	return st->syscalib_mode[chan->channel];
+}
+
+static ssize_t ad7192_write_syscalib(struct iio_dev *indio_dev,
+				     uintptr_t private,
+				     const struct iio_chan_spec *chan,
+				     const char *buf, size_t len)
+{
+	struct ad7192_state *st = iio_priv(indio_dev);
+	bool sys_calib;
+	int ret, temp;
+
+	ret = strtobool(buf, &sys_calib);
+	if (ret)
+		return ret;
+
+	temp = st->syscalib_mode[chan->channel];
+	if (sys_calib) {
+		if (temp == AD7192_SYSCALIB_ZERO_SCALE)
+			ret = ad_sd_calibrate(&st->sd, AD7192_MODE_CAL_SYS_ZERO,
+					      chan->address);
+		else
+			ret = ad_sd_calibrate(&st->sd, AD7192_MODE_CAL_SYS_FULL,
+					      chan->address);
+	}
+
+	return ret ? ret : len;
+}
+
+static const struct iio_enum ad7192_syscalib_mode_enum = {
+	.items = ad7192_syscalib_modes,
+	.num_items = ARRAY_SIZE(ad7192_syscalib_modes),
+	.set = ad7192_set_syscalib_mode,
+	.get = ad7192_get_syscalib_mode
+};
+
+static const struct iio_chan_spec_ext_info ad7192_calibsys_ext_info[] = {
+	{
+		.name = "sys_calibration",
+		.write = ad7192_write_syscalib,
+		.shared = IIO_SEPARATE,
+	},
+	IIO_ENUM("sys_calibration_mode", IIO_SEPARATE,
+		 &ad7192_syscalib_mode_enum),
+	IIO_ENUM_AVAILABLE("sys_calibration_mode", &ad7192_syscalib_mode_enum),
+	{}
 };
 
 static struct ad7192_state *ad_sigma_delta_to_ad7192(struct ad_sigma_delta *sd)
@@ -405,7 +477,7 @@ static ssize_t ad7192_set(struct device *dev,
 	return ret ? ret : len;
 }
 
-static inline void ad7192_get_available_filter_freq(struct ad7192_state *st,
+static void ad7192_get_available_filter_freq(struct ad7192_state *st,
 						    int *freq)
 {
 	unsigned int fadc;
@@ -424,9 +496,9 @@ static inline void ad7192_get_available_filter_freq(struct ad7192_state *st,
 	freq[3] = DIV_ROUND_CLOSEST(fadc * 272, 1024);
 }
 
-static int ad7192_show_filter_avail(struct device *dev,
-				    struct device_attribute *attr,
-				    char *buf)
+static ssize_t ad7192_show_filter_avail(struct device *dev,
+					struct device_attribute *attr,
+					char *buf)
 {
 	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
 	struct ad7192_state *st = iio_priv(indio_dev);
@@ -774,9 +846,11 @@ static int ad7192_channels_config(struct iio_dev *indio_dev)
 		*chan = channels[i];
 		chan->info_mask_shared_by_all |=
 			BIT(IIO_CHAN_INFO_LOW_PASS_FILTER_3DB_FREQUENCY);
-		if (chan->type != IIO_TEMP)
+		if (chan->type != IIO_TEMP) {
 			chan->info_mask_shared_by_type_available |=
 				BIT(IIO_CHAN_INFO_SCALE);
+			chan->ext_info = ad7192_calibsys_ext_info;
+		}
 		chan++;
 	}
 
@@ -785,15 +859,9 @@ static int ad7192_channels_config(struct iio_dev *indio_dev)
 
 static int ad7192_probe(struct spi_device *spi)
 {
-	const struct ad7192_platform_data *pdata = spi->dev.platform_data;
 	struct ad7192_state *st;
 	struct iio_dev *indio_dev;
 	int ret, voltage_uv = 0;
-
-	if (!pdata) {
-		dev_err(&spi->dev, "no platform data?\n");
-		return -ENODEV;
-	}
 
 	if (!spi->irq) {
 		dev_err(&spi->dev, "no IRQ?\n");
@@ -832,12 +900,10 @@ static int ad7192_probe(struct spi_device *spi)
 
 	voltage_uv = regulator_get_voltage(st->avdd);
 
-	if (pdata->vref_mv)
-		st->int_vref_mv = pdata->vref_mv;
-	else if (voltage_uv)
+	if (voltage_uv)
 		st->int_vref_mv = voltage_uv / 1000;
 	else
-		dev_warn(&spi->dev, "reference voltage undefined\n");
+		dev_err(&spi->dev, "Device tree error, reference voltage undefined\n");
 
 	spi_set_drvdata(spi, indio_dev);
 	st->devid = spi_get_device_id(spi)->driver_data;
@@ -928,11 +994,23 @@ static const struct spi_device_id ad7192_id[] = {
 	{"ad7195", ID_AD7195},
 	{}
 };
+
 MODULE_DEVICE_TABLE(spi, ad7192_id);
+
+static const struct of_device_id ad7192_of_match[] = {
+	{ .compatible = "adi,ad7190" },
+	{ .compatible = "adi,ad7192" },
+	{ .compatible = "adi,ad7193" },
+	{ .compatible = "adi,ad7195" },
+	{}
+};
+
+MODULE_DEVICE_TABLE(of, ad7192_of_match);
 
 static struct spi_driver ad7192_driver = {
 	.driver = {
 		.name	= "ad7192",
+		.of_match_table = ad7192_of_match,
 	},
 	.probe		= ad7192_probe,
 	.remove		= ad7192_remove,
@@ -940,6 +1018,6 @@ static struct spi_driver ad7192_driver = {
 };
 module_spi_driver(ad7192_driver);
 
-MODULE_AUTHOR("Michael Hennerich <hennerich@blackfin.uclinux.org>");
+MODULE_AUTHOR("Michael Hennerich <michael.hennerich@analog.com>");
 MODULE_DESCRIPTION("Analog Devices AD7190, AD7192, AD7193, AD7195 ADC");
 MODULE_LICENSE("GPL v2");
