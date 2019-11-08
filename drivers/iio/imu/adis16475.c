@@ -77,6 +77,7 @@ struct adis16475_clks {
 struct adis16475_chip_info {
 	const struct iio_chan_spec *channels;
 	const struct adis16475_clks *clks;
+	const struct adis_timeout *timeouts;
 	u32 num_channels;
 	u32 gyro_max_val;
 	u32 gyro_max_scale;
@@ -85,8 +86,6 @@ struct adis16475_chip_info {
 	u32 temp_scale;
 	u32 int_clk;
 	u16 max_dec;
-	u16 reset_ms;
-	u16 self_test_ms;
 	u8 num_clks;
 	bool has_burst32;
 };
@@ -557,6 +556,18 @@ static const struct adis16475_clks adis16475_ext_clks[] = {
 	{ "pulse-sync", ADIS16475_CLK_PULSE, 1000, 2100 },
 };
 
+static const struct adis_timeout adis16475_timeouts = {
+	.reset_ms = 200,
+	.sw_reset_ms = 200,
+	.self_test_ms = 20,
+};
+
+static const struct adis_timeout adis1650x_timeouts = {
+	.reset_ms = 260,
+	.sw_reset_ms = 260,
+	.self_test_ms = 30,
+};
+
 static const struct adis16475_chip_info adis16475_chip_info[] = {
 	[ADIS16475_1] = {
 		.num_channels = ARRAY_SIZE(adis16475_channels),
@@ -568,8 +579,7 @@ static const struct adis16475_chip_info adis16475_chip_info[] = {
 		.temp_scale = 100,
 		.int_clk = 2000,
 		.max_dec = 1999,
-		.reset_ms = 200,
-		.self_test_ms = 20,
+		.timeouts = &adis16475_timeouts,
 		.clks = adis16475_ext_clks,
 		.num_clks = ARRAY_SIZE(adis16475_ext_clks),
 	},
@@ -583,8 +593,7 @@ static const struct adis16475_chip_info adis16475_chip_info[] = {
 		.temp_scale = 100,
 		.int_clk = 2000,
 		.max_dec = 1999,
-		.reset_ms = 200,
-		.self_test_ms = 20,
+		.timeouts = &adis16475_timeouts,
 		.clks = adis16475_ext_clks,
 		.num_clks = ARRAY_SIZE(adis16475_ext_clks),
 	},
@@ -598,8 +607,7 @@ static const struct adis16475_chip_info adis16475_chip_info[] = {
 		.temp_scale = 100,
 		.int_clk = 2000,
 		.max_dec = 1999,
-		.reset_ms = 200,
-		.self_test_ms = 20,
+		.timeouts = &adis16475_timeouts,
 		.clks = adis16475_ext_clks,
 		.num_clks = ARRAY_SIZE(adis16475_ext_clks),
 	},
@@ -613,8 +621,7 @@ static const struct adis16475_chip_info adis16475_chip_info[] = {
 		.temp_scale = 100,
 		.int_clk = 2000,
 		.max_dec = 1999,
-		.reset_ms = 200,
-		.self_test_ms = 20,
+		.timeouts = &adis16475_timeouts,
 		.clks = adis16475_ext_clks,
 		.num_clks = ARRAY_SIZE(adis16475_ext_clks),
 	},
@@ -628,8 +635,7 @@ static const struct adis16475_chip_info adis16475_chip_info[] = {
 		.temp_scale = 100,
 		.int_clk = 2000,
 		.max_dec = 1999,
-		.reset_ms = 200,
-		.self_test_ms = 20,
+		.timeouts = &adis16475_timeouts,
 		.clks = adis16475_ext_clks,
 		.num_clks = ARRAY_SIZE(adis16475_ext_clks),
 	},
@@ -643,8 +649,7 @@ static const struct adis16475_chip_info adis16475_chip_info[] = {
 		.temp_scale = 100,
 		.int_clk = 2000,
 		.max_dec = 1999,
-		.reset_ms = 200,
-		.self_test_ms = 20,
+		.timeouts = &adis16475_timeouts,
 		.clks = adis16475_ext_clks,
 		.num_clks = ARRAY_SIZE(adis16475_ext_clks),
 	},
@@ -658,8 +663,7 @@ static const struct adis16475_chip_info adis16475_chip_info[] = {
 		.temp_scale = 100,
 		.int_clk = 2000,
 		.max_dec = 1999,
-		.reset_ms = 260,
-		.self_test_ms = 30,
+		.timeouts = &adis1650x_timeouts,
 		.clks = adis16475_ext_clks,
 		/* pulse sync not supported */
 		.num_clks = ARRAY_SIZE(adis16475_ext_clks) - 1,
@@ -675,8 +679,7 @@ static const struct adis16475_chip_info adis16475_chip_info[] = {
 		.temp_scale = 100,
 		.int_clk = 2000,
 		.max_dec = 1999,
-		.reset_ms = 260,
-		.self_test_ms = 30,
+		.timeouts = &adis1650x_timeouts,
 		.clks = adis16475_ext_clks,
 		/* pulse sync not supported */
 		.num_clks = ARRAY_SIZE(adis16475_ext_clks) - 1,
@@ -692,8 +695,7 @@ static const struct adis16475_chip_info adis16475_chip_info[] = {
 		.temp_scale = 100,
 		.int_clk = 2000,
 		.max_dec = 1999,
-		.reset_ms = 260,
-		.self_test_ms = 30,
+		.timeouts = &adis1650x_timeouts,
 		.clks = adis16475_ext_clks,
 		/* pulse sync not supported */
 		.num_clks = ARRAY_SIZE(adis16475_ext_clks) - 1,
@@ -709,8 +711,7 @@ static const struct adis16475_chip_info adis16475_chip_info[] = {
 		.temp_scale = 100,
 		.int_clk = 2000,
 		.max_dec = 1999,
-		.reset_ms = 260,
-		.self_test_ms = 30,
+		.timeouts = &adis1650x_timeouts,
 		.clks = adis16475_ext_clks,
 		/* pulse sync not supported */
 		.num_clks = ARRAY_SIZE(adis16475_ext_clks) - 1,
@@ -726,8 +727,7 @@ static const struct adis16475_chip_info adis16475_chip_info[] = {
 		.temp_scale = 100,
 		.int_clk = 2000,
 		.max_dec = 1999,
-		.reset_ms = 260,
-		.self_test_ms = 30,
+		.timeouts = &adis1650x_timeouts,
 		.clks = adis16475_ext_clks,
 		/* pulse sync not supported */
 		.num_clks = ARRAY_SIZE(adis16475_ext_clks) - 1,
@@ -743,8 +743,7 @@ static const struct adis16475_chip_info adis16475_chip_info[] = {
 		.temp_scale = 100,
 		.int_clk = 2000,
 		.max_dec = 1999,
-		.reset_ms = 260,
-		.self_test_ms = 30,
+		.timeouts = &adis1650x_timeouts,
 		.clks = adis16475_ext_clks,
 		/* pulse sync not supported */
 		.num_clks = ARRAY_SIZE(adis16475_ext_clks) - 1,
@@ -807,27 +806,6 @@ static struct adis_burst adis16475_burst = {
 	.extra_len = 3 * sizeof(u16),
 	.read_delay = 5,
 	.write_delay = 5,
-};
-
-static const struct adis_data adis16475_data = {
-	.msc_ctrl_reg = ADIS16475_REG_MSG_CTRL,
-	.glob_cmd_reg = ADIS16475_REG_GLOB_CMD,
-	.diag_stat_reg = ADIS16475_REG_DIAG_STAT,
-
-	.cs_change_delay = 16,
-	.read_delay = 5,
-	.write_delay = 5,
-
-	.status_error_msgs = adis16475_status_error_msgs,
-	.status_error_mask = BIT(ADIS16475_DIAG_STAT_DATA_PATH) |
-		BIT(ADIS16475_DIAG_STAT_FLASH_MEM) |
-		BIT(ADIS16475_DIAG_STAT_SPI) |
-		BIT(ADIS16475_DIAG_STAT_STANDBY) |
-		BIT(ADIS16475_DIAG_STAT_SENSOR) |
-		BIT(ADIS16475_DIAG_STAT_MEMORY) |
-		BIT(ADIS16475_DIAG_STAT_CLK),
-
-	.enable_irq = adis16475_enable_irq
 };
 
 static u16 adis16475_validate_crc(const u8 *buffer, const u16 crc,
@@ -1112,17 +1090,18 @@ static int adis16475_check_state(struct iio_dev *indio_dev)
 	struct adis16475 *st = iio_priv(indio_dev);
 	u16 prod_id;
 	u32 device_id;
+	const struct adis_timeout *timeouts = st->info->timeouts;
 
 	ret = __adis_reset(&st->adis);
 	if (ret)
 		return ret;
 
-	msleep(st->info->reset_ms);
+	msleep(timeouts->reset_ms);
 	ret = __adis_write_reg_16(&st->adis, ADIS16475_REG_GLOB_CMD, BIT(2));
 	if (ret)
 		return ret;
 
-	msleep(st->info->self_test_ms);
+	msleep(timeouts->self_test_ms);
 	ret = __adis_check_status(&st->adis);
 	if (ret)
 		return ret;
@@ -1143,12 +1122,42 @@ static int adis16475_check_state(struct iio_dev *indio_dev)
 	return 0;
 }
 
+static struct adis_data *adis16475_adis_data_alloc(struct adis16475 *st)
+{
+	struct adis_data *data;
+	struct device *dev = &st->adis.spi->dev;
+
+	data = devm_kzalloc(dev, sizeof(struct adis_data), GFP_KERNEL);
+	if (!data)
+		return ERR_PTR(-ENOMEM);
+
+	data->msc_ctrl_reg = ADIS16475_REG_MSG_CTRL;
+	data->glob_cmd_reg = ADIS16475_REG_GLOB_CMD;
+	data->diag_stat_reg = ADIS16475_REG_DIAG_STAT;
+	data->cs_change_delay = 16;
+	data->read_delay = 5;
+	data->write_delay = 5;
+	data->status_error_msgs = adis16475_status_error_msgs;
+	data->status_error_mask = BIT(ADIS16475_DIAG_STAT_DATA_PATH) |
+				BIT(ADIS16475_DIAG_STAT_FLASH_MEM) |
+				BIT(ADIS16475_DIAG_STAT_SPI) |
+				BIT(ADIS16475_DIAG_STAT_STANDBY) |
+				BIT(ADIS16475_DIAG_STAT_SENSOR) |
+				BIT(ADIS16475_DIAG_STAT_MEMORY) |
+				BIT(ADIS16475_DIAG_STAT_CLK);
+	data->enable_irq = adis16475_enable_irq;
+	data->timeouts = st->info->timeouts;
+
+	return data;
+}
+
 static int adis16475_probe(struct spi_device *spi)
 {
 	struct iio_dev *indio_dev;
 	struct adis16475 *st;
 	struct gpio_desc *desc;
 	const struct spi_device_id *id = spi_get_device_id(spi);
+	const struct adis_data *adis16475_data;
 	int ret;
 
 	indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*st));
@@ -1159,7 +1168,11 @@ static int adis16475_probe(struct spi_device *spi)
 	st->info = &adis16475_chip_info[id->driver_data];
 	spi_set_drvdata(spi, indio_dev);
 
-	ret = adis_init(&st->adis, indio_dev, spi, &adis16475_data);
+	adis16475_data = adis16475_adis_data_alloc(st);
+	if (IS_ERR(adis16475_data))
+		return PTR_ERR(adis16475_data);
+
+	ret = adis_init(&st->adis, indio_dev, spi, adis16475_data);
 	if (ret)
 		return ret;
 

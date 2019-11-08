@@ -60,6 +60,7 @@
 struct adis16136_chip_info {
 	unsigned int precision;
 	unsigned int fullscale;
+	const struct adis_timeout *timeouts;
 };
 
 struct adis16136 {
@@ -466,24 +467,6 @@ static const char * const adis16136_status_error_msgs[] = {
 	[ADIS16136_DIAG_STAT_FLASH_CHKSUM_FAIL] = "Flash checksum error",
 };
 
-static const struct adis_data adis16136_data = {
-	.diag_stat_reg = ADIS16136_REG_DIAG_STAT,
-	.glob_cmd_reg = ADIS16136_REG_GLOB_CMD,
-	.msc_ctrl_reg = ADIS16136_REG_MSC_CTRL,
-
-	.self_test_mask = ADIS16136_MSC_CTRL_SELF_TEST,
-	.startup_delay = 80,
-
-	.read_delay = 10,
-	.write_delay = 10,
-
-	.status_error_msgs = adis16136_status_error_msgs,
-	.status_error_mask = BIT(ADIS16136_DIAG_STAT_FLASH_UPDATE_FAIL) |
-		BIT(ADIS16136_DIAG_STAT_SPI_FAIL) |
-		BIT(ADIS16136_DIAG_STAT_SELF_TEST_FAIL) |
-		BIT(ADIS16136_DIAG_STAT_FLASH_CHKSUM_FAIL),
-};
-
 enum adis16136_id {
 	ID_ADIS16133,
 	ID_ADIS16135,
@@ -491,30 +474,73 @@ enum adis16136_id {
 	ID_ADIS16137,
 };
 
+static const struct adis_timeout adis16133_timeouts = {
+	.reset_ms = 75,
+	.sw_reset_ms = 75,
+	.self_test_ms = 50,
+};
+
+static const struct adis_timeout adis16136_timeouts = {
+	.reset_ms = 128,
+	.sw_reset_ms = 75,
+	.self_test_ms = 245,
+};
+
 static const struct adis16136_chip_info adis16136_chip_info[] = {
 	[ID_ADIS16133] = {
 		.precision = IIO_DEGREE_TO_RAD(1200),
 		.fullscale = 24000,
+		.timeouts = &adis16133_timeouts,
 	},
 	[ID_ADIS16135] = {
 		.precision = IIO_DEGREE_TO_RAD(300),
 		.fullscale = 24000,
+		.timeouts = &adis16133_timeouts,
 	},
 	[ID_ADIS16136] = {
 		.precision = IIO_DEGREE_TO_RAD(450),
 		.fullscale = 24623,
+		.timeouts = &adis16136_timeouts,
 	},
 	[ID_ADIS16137] = {
 		.precision = IIO_DEGREE_TO_RAD(1000),
 		.fullscale = 24609,
+		.timeouts = &adis16136_timeouts,
 	},
 };
+
+static struct adis_data *adis16136_adis_data_alloc(struct adis16136 *st)
+{
+	struct adis_data *data;
+	struct device *dev = &st->adis.spi->dev;
+
+	data = devm_kzalloc(dev, sizeof(struct adis_data), GFP_KERNEL);
+	if (!data)
+		return ERR_PTR(-ENOMEM);
+
+	data->msc_ctrl_reg = ADIS16136_REG_MSC_CTRL;
+	data->glob_cmd_reg = ADIS16136_REG_GLOB_CMD;
+	data->diag_stat_reg = ADIS16136_REG_DIAG_STAT;
+	data->self_test_mask = ADIS16136_MSC_CTRL_SELF_TEST;
+	data->startup_delay = 80;
+	data->read_delay = 10;
+	data->write_delay = 10;
+	data->status_error_msgs = adis16136_status_error_msgs;
+	data->status_error_mask = BIT(ADIS16136_DIAG_STAT_FLASH_UPDATE_FAIL) |
+				BIT(ADIS16136_DIAG_STAT_SPI_FAIL) |
+				BIT(ADIS16136_DIAG_STAT_SELF_TEST_FAIL) |
+				BIT(ADIS16136_DIAG_STAT_FLASH_CHKSUM_FAIL);
+	data->timeouts = st->chip_info->timeouts;
+
+	return data;
+}
 
 static int adis16136_probe(struct spi_device *spi)
 {
 	const struct spi_device_id *id = spi_get_device_id(spi);
 	struct adis16136 *adis16136;
 	struct iio_dev *indio_dev;
+	const struct adis_data *adis16136_data;
 	int ret;
 
 	indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*adis16136));
@@ -533,7 +559,11 @@ static int adis16136_probe(struct spi_device *spi)
 	indio_dev->info = &adis16136_info;
 	indio_dev->modes = INDIO_DIRECT_MODE;
 
-	ret = adis_init(&adis16136->adis, indio_dev, spi, &adis16136_data);
+	adis16136_data = adis16136_adis_data_alloc(adis16136);
+	if (IS_ERR(adis16136_data))
+		return PTR_ERR(adis16136_data);
+
+	ret = adis_init(&adis16136->adis, indio_dev, spi, adis16136_data);
 	if (ret)
 		return ret;
 
