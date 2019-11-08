@@ -680,7 +680,12 @@ static int ad9361_post_setup(struct iio_dev *indio_dev)
 	struct ad9361_rf_phy *phy = conv->phy;
 	bool rx2tx2 = ad9361_uses_rx2tx2(phy);
 	unsigned tmp, num_chan, flags;
+	unsigned int skipmode;
 	int i, ret;
+
+	skipmode = ad9361_get_dig_interface_tune_skipmode(phy);
+	if (ad9361_bb_clk_change_dig_tune_en(phy))
+		ad9361_set_dig_interface_tune_skipmode(phy, SKIP_ALL);
 
 	num_chan = ad9361_num_phy_chan(conv);
 
@@ -722,6 +727,9 @@ static int ad9361_post_setup(struct iio_dev *indio_dev)
 		if (ret < 0)
 			goto error;
 	}
+
+	if (ad9361_bb_clk_change_dig_tune_en(phy))
+		ad9361_set_dig_interface_tune_skipmode(phy, skipmode);
 
 	ret = ad9361_set_trx_clock_chain_default(phy);
 

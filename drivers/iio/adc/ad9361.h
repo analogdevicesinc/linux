@@ -184,6 +184,10 @@ int ad9361_write_clock_data_delays(struct ad9361_rf_phy *phy);
 bool ad9361_uses_lvds_mode(struct ad9361_rf_phy *phy);
 int ad9361_set_rx_port(struct ad9361_rf_phy *phy, enum rx_port_sel sel);
 int ad9361_set_tx_port(struct ad9361_rf_phy *phy, enum tx_port_sel sel);
+bool ad9361_bb_clk_change_dig_tune_en(struct ad9361_rf_phy *phy);
+u32 ad9361_get_dig_interface_tune_skipmode(struct ad9361_rf_phy *phy);
+void ad9361_set_dig_interface_tune_skipmode(struct ad9361_rf_phy *phy,
+					    u32 skip);
 
 #ifdef CONFIG_AD9361_EXT_BAND_CONTROL
 int ad9361_register_ext_band_control(struct ad9361_rf_phy *phy);
