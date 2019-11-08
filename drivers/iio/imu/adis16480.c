@@ -152,9 +152,7 @@ struct adis16480_chip_info {
 	const unsigned int *filter_freqs;
 	bool has_pps_clk_mode;
 	struct adis_burst *burst;
-	u16 reset_ms;
-	u16 sw_reset_ms;
-	u16 self_test_ms;
+	const struct adis_timeout *timeouts;
 };
 
 enum adis16480_int_pin {
@@ -904,6 +902,30 @@ enum adis16480_variant {
 	ADIS16497_3,
 };
 
+static const struct adis_timeout adis16485_timeouts = {
+	.reset_ms = 560,
+	.sw_reset_ms = 120,
+	.self_test_ms = 12,
+};
+
+static const struct adis_timeout adis16480_timeouts = {
+	.reset_ms = 560,
+	.sw_reset_ms = 560,
+	.self_test_ms = 12,
+};
+
+static const struct adis_timeout adis16495_timeouts = {
+	.reset_ms = 170,
+	.sw_reset_ms = 130,
+	.self_test_ms = 40,
+};
+
+static const struct adis_timeout adis16495_1_timeouts = {
+	.reset_ms = 250,
+	.sw_reset_ms = 210,
+	.self_test_ms = 20,
+};
+
 static const struct adis16480_chip_info adis16480_chip_info[] = {
 	[ADIS16375] = {
 		.channels = adis16485_channels,
@@ -922,9 +944,7 @@ static const struct adis16480_chip_info adis16480_chip_info[] = {
 		.int_clk = 2460000,
 		.max_dec_rate = 2048,
 		.filter_freqs = adis16480_def_filter_freqs,
-		.reset_ms = 500,
-		.sw_reset_ms = 74,
-		.self_test_ms = 10,
+		.timeouts = &adis16485_timeouts,
 	},
 	[ADIS16480] = {
 		.channels = adis16480_channels,
@@ -937,9 +957,7 @@ static const struct adis16480_chip_info adis16480_chip_info[] = {
 		.int_clk = 2460000,
 		.max_dec_rate = 2048,
 		.filter_freqs = adis16480_def_filter_freqs,
-		.reset_ms = 560,
-		.sw_reset_ms = 560,
-		.self_test_ms = 12,
+		.timeouts = &adis16480_timeouts,
 
 	},
 	[ADIS16485] = {
@@ -953,9 +971,7 @@ static const struct adis16480_chip_info adis16480_chip_info[] = {
 		.int_clk = 2460000,
 		.max_dec_rate = 2048,
 		.filter_freqs = adis16480_def_filter_freqs,
-		.reset_ms = 560,
-		.sw_reset_ms = 120,
-		.self_test_ms = 12,
+		.timeouts = &adis16485_timeouts,
 	},
 	[ADIS16488] = {
 		.channels = adis16480_channels,
@@ -968,9 +984,7 @@ static const struct adis16480_chip_info adis16480_chip_info[] = {
 		.int_clk = 2460000,
 		.max_dec_rate = 2048,
 		.filter_freqs = adis16480_def_filter_freqs,
-		.reset_ms = 500,
-		.sw_reset_ms = 120,
-		.self_test_ms = 12,
+		.timeouts = &adis16485_timeouts,
 	},
 	[ADIS16490] = {
 		.channels = adis16485_channels,
@@ -984,9 +998,7 @@ static const struct adis16480_chip_info adis16480_chip_info[] = {
 		.max_dec_rate = 4250,
 		.filter_freqs = adis16495_def_filter_freqs,
 		.has_pps_clk_mode = true,
-		.reset_ms = 170,
-		.sw_reset_ms = 130,
-		.self_test_ms = 40,
+		.timeouts = &adis16495_timeouts,
 	},
 	[ADIS16495_1] = {
 		.channels = adis16495_channels,
@@ -1001,9 +1013,7 @@ static const struct adis16480_chip_info adis16480_chip_info[] = {
 		.filter_freqs = adis16495_def_filter_freqs,
 		.has_pps_clk_mode = true,
 		.burst = &adis16495_burst,
-		.reset_ms = 250,
-		.sw_reset_ms = 210,
-		.self_test_ms = 20,
+		.timeouts = &adis16495_1_timeouts,
 	},
 	[ADIS16495_2] = {
 		.channels = adis16495_channels,
@@ -1018,9 +1028,7 @@ static const struct adis16480_chip_info adis16480_chip_info[] = {
 		.filter_freqs = adis16495_def_filter_freqs,
 		.has_pps_clk_mode = true,
 		.burst = &adis16495_burst,
-		.reset_ms = 250,
-		.sw_reset_ms = 210,
-		.self_test_ms = 20,
+		.timeouts = &adis16495_1_timeouts,
 	},
 	[ADIS16495_3] = {
 		.channels = adis16495_channels,
@@ -1035,9 +1043,7 @@ static const struct adis16480_chip_info adis16480_chip_info[] = {
 		.filter_freqs = adis16495_def_filter_freqs,
 		.has_pps_clk_mode = true,
 		.burst = &adis16495_burst,
-		.reset_ms = 250,
-		.sw_reset_ms = 210,
-		.self_test_ms = 20,
+		.timeouts = &adis16495_1_timeouts,
 	},
 	[ADIS16497_1] = {
 		.channels = adis16495_channels,
@@ -1052,9 +1058,7 @@ static const struct adis16480_chip_info adis16480_chip_info[] = {
 		.filter_freqs = adis16495_def_filter_freqs,
 		.has_pps_clk_mode = true,
 		.burst = &adis16495_burst,
-		.reset_ms = 250,
-		.sw_reset_ms = 210,
-		.self_test_ms = 20,
+		.timeouts = &adis16495_1_timeouts,
 	},
 	[ADIS16497_2] = {
 		.channels = adis16495_channels,
@@ -1069,9 +1073,7 @@ static const struct adis16480_chip_info adis16480_chip_info[] = {
 		.filter_freqs = adis16495_def_filter_freqs,
 		.has_pps_clk_mode = true,
 		.burst = &adis16495_burst,
-		.reset_ms = 250,
-		.sw_reset_ms = 210,
-		.self_test_ms = 20,
+		.timeouts = &adis16495_1_timeouts,
 	},
 	[ADIS16497_3] = {
 		.channels = adis16495_channels,
@@ -1086,9 +1088,7 @@ static const struct adis16480_chip_info adis16480_chip_info[] = {
 		.filter_freqs = adis16495_def_filter_freqs,
 		.has_pps_clk_mode = true,
 		.burst = &adis16495_burst,
-		.reset_ms = 250,
-		.sw_reset_ms = 210,
-		.self_test_ms = 20,
+		.timeouts = &adis16495_1_timeouts,
 	},
 };
 
@@ -1248,14 +1248,15 @@ static int adis16480_initial_setup(struct iio_dev *indio_dev)
 	uint16_t prod_id;
 	unsigned int device_id;
 	int ret;
+	const struct adis_timeout *timeouts = st->chip_info->timeouts;
 
 	adis_reset(&st->adis);
-	msleep(st->chip_info->sw_reset_ms);
+	msleep(timeouts->sw_reset_ms);
 
 	ret = adis_write_reg_16(&st->adis, ADIS16480_REG_GLOB_CMD, BIT(1));
 	if (ret)
 		return ret;
-	msleep(st->chip_info->self_test_ms);
+	msleep(timeouts->self_test_ms);
 
 	ret = adis_check_status(&st->adis);
 	if (ret)
@@ -1298,29 +1299,6 @@ static const char * const adis16480_status_error_msgs[] = {
 	[ADIS16480_DIAG_STAT_YMAGN_FAIL] = "Y-axis magnetometer self-test failure",
 	[ADIS16480_DIAG_STAT_ZMAGN_FAIL] = "Z-axis magnetometer self-test failure",
 	[ADIS16480_DIAG_STAT_BARO_FAIL] = "Barometer self-test failure",
-};
-
-static const struct adis_data adis16480_data = {
-	.diag_stat_reg = ADIS16480_REG_DIAG_STS,
-	.glob_cmd_reg = ADIS16480_REG_GLOB_CMD,
-	.has_paging = true,
-
-	.read_delay = 5,
-	.write_delay = 5,
-
-	.status_error_msgs = adis16480_status_error_msgs,
-	.status_error_mask = BIT(ADIS16480_DIAG_STAT_XGYRO_FAIL) |
-		BIT(ADIS16480_DIAG_STAT_YGYRO_FAIL) |
-		BIT(ADIS16480_DIAG_STAT_ZGYRO_FAIL) |
-		BIT(ADIS16480_DIAG_STAT_XACCL_FAIL) |
-		BIT(ADIS16480_DIAG_STAT_YACCL_FAIL) |
-		BIT(ADIS16480_DIAG_STAT_ZACCL_FAIL) |
-		BIT(ADIS16480_DIAG_STAT_XMAGN_FAIL) |
-		BIT(ADIS16480_DIAG_STAT_YMAGN_FAIL) |
-		BIT(ADIS16480_DIAG_STAT_ZMAGN_FAIL) |
-		BIT(ADIS16480_DIAG_STAT_BARO_FAIL),
-
-	.enable_irq = adis16480_enable_irq,
 };
 
 static int adis16480_config_irq_pin(struct device_node *of_node,
@@ -1473,9 +1451,41 @@ static int adis16480_get_ext_clocks(struct adis16480 *st)
 	return 0;
 }
 
+static struct adis_data *adis16480_adis_data_alloc(struct adis16480 *st)
+{
+	struct adis_data *data;
+	struct device *dev = &st->adis.spi->dev;
+
+	data = devm_kzalloc(dev, sizeof(struct adis_data), GFP_KERNEL);
+	if (!data)
+		return ERR_PTR(-ENOMEM);
+
+	data->glob_cmd_reg = ADIS16480_REG_GLOB_CMD;
+	data->diag_stat_reg = ADIS16480_REG_DIAG_STS;
+	data->has_paging = true;
+	data->read_delay = 5;
+	data->write_delay = 5;
+	data->status_error_msgs = adis16480_status_error_msgs;
+	data->status_error_mask = BIT(ADIS16480_DIAG_STAT_XGYRO_FAIL) |
+				BIT(ADIS16480_DIAG_STAT_YGYRO_FAIL) |
+				BIT(ADIS16480_DIAG_STAT_ZGYRO_FAIL) |
+				BIT(ADIS16480_DIAG_STAT_XACCL_FAIL) |
+				BIT(ADIS16480_DIAG_STAT_YACCL_FAIL) |
+				BIT(ADIS16480_DIAG_STAT_ZACCL_FAIL) |
+				BIT(ADIS16480_DIAG_STAT_XMAGN_FAIL) |
+				BIT(ADIS16480_DIAG_STAT_YMAGN_FAIL) |
+				BIT(ADIS16480_DIAG_STAT_ZMAGN_FAIL) |
+				BIT(ADIS16480_DIAG_STAT_BARO_FAIL);
+	data->enable_irq = adis16480_enable_irq;
+	data->timeouts = st->chip_info->timeouts;
+
+	return data;
+}
+
 static int adis16480_probe(struct spi_device *spi)
 {
 	const struct spi_device_id *id = spi_get_device_id(spi);
+	const struct adis_data *adis16480_data;
 	struct iio_dev *indio_dev;
 	struct adis16480 *st;
 	int ret;
@@ -1501,9 +1511,13 @@ static int adis16480_probe(struct spi_device *spi)
 	if (IS_ERR(gpio))
 		return PTR_ERR(gpio);
 	else if (gpio)
-		msleep(st->chip_info->reset_ms);
+		msleep(st->chip_info->timeouts->reset_ms);
 
-	ret = adis_init(&st->adis, indio_dev, spi, &adis16480_data);
+	adis16480_data = adis16480_adis_data_alloc(st);
+	if (IS_ERR(adis16480_data))
+		return PTR_ERR(adis16480_data);
+
+	ret = adis_init(&st->adis, indio_dev, spi, adis16480_data);
 	if (ret)
 		return ret;
 
