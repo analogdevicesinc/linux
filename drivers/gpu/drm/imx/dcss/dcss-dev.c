@@ -98,6 +98,14 @@ static int dcss_submodules_init(struct dcss_dev *dcss)
 	if (ret)
 		goto dpr_err;
 
+	ret = dcss_wrscl_init(dcss, base_addr + devtype->wrscl_ofs);
+	if (ret)
+		goto wrscl_err;
+
+	ret = dcss_rdsrc_init(dcss, base_addr + devtype->rdsrc_ofs);
+	if (ret)
+		goto rdsrc_err;
+
 	ret = dcss_scaler_init(dcss, base_addr + devtype->scaler_ofs);
 	if (ret)
 		goto scaler_err;
@@ -121,6 +129,12 @@ dec400d_err:
 	dcss_scaler_exit(dcss->scaler);
 
 scaler_err:
+	dcss_rdsrc_exit(dcss->rdsrc);
+
+rdsrc_err:
+	dcss_wrscl_exit(dcss->wrscl);
+
+wrscl_err:
 	dcss_dpr_exit(dcss->dpr);
 
 dpr_err:
@@ -144,6 +158,8 @@ static void dcss_submodules_stop(struct dcss_dev *dcss)
 	dcss_hdr10_exit(dcss->hdr10);
 	dcss_dec400d_exit(dcss->dec400d);
 	dcss_scaler_exit(dcss->scaler);
+	dcss_rdsrc_exit(dcss->rdsrc);
+	dcss_wrscl_exit(dcss->wrscl);
 	dcss_dpr_exit(dcss->dpr);
 	dcss_ss_exit(dcss->ss);
 	dcss_dtg_exit(dcss->dtg);

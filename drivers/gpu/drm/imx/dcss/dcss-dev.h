@@ -271,4 +271,53 @@ void dcss_hdr10_setup(struct dcss_hdr10 *hdr10, int ch_num,
 		      struct dcss_hdr10_pipe_cfg *ipipe_cfg,
 		      struct dcss_hdr10_pipe_cfg *opipe_cfg);
 
+/* enums common to both WRSCL and RDSRC */
+enum dcss_wrscl_rdsrc_psize {
+	PSIZE_64,
+	PSIZE_128,
+	PSIZE_256,
+	PSIZE_512,
+	PSIZE_1024,
+	PSIZE_2048,
+	PSIZE_4096,
+};
+
+enum dcss_wrscl_rdsrc_tsize {
+	TSIZE_64,
+	TSIZE_128,
+	TSIZE_256,
+	TSIZE_512,
+};
+
+enum dcss_wrscl_rdsrc_fifo_size {
+	FIFO_512,
+	FIFO_1024,
+	FIFO_2048,
+	FIFO_4096,
+};
+
+enum dcss_wrscl_rdsrc_bpp {
+	BPP_38, /* 38 bit unpacked components */
+	BPP_32_UPCONVERT,
+	BPP_32_10BIT_OUTPUT,
+	BPP_20, /* 10-bit YUV422 */
+	BPP_16, /* 8-bit YUV422 */
+};
+
+/* WRSCL */
+int dcss_wrscl_init(struct dcss_dev *dcss, unsigned long wrscl_base);
+void dcss_wrscl_exit(struct dcss_wrscl *wrscl);
+u32 dcss_wrscl_setup(struct dcss_wrscl *wrscl, u32 pix_format, u32 pix_clk_hz,
+		     u32 dst_xres, u32 dst_yres);
+void dcss_wrscl_enable(struct dcss_wrscl *wrscl);
+void dcss_wrscl_disable(struct dcss_wrscl *wrscl);
+
+/* RDSRC */
+int dcss_rdsrc_init(struct dcss_dev *dcss, unsigned long rdsrc_base);
+void dcss_rdsrc_exit(struct dcss_rdsrc *rdsrc);
+void dcss_rdsrc_setup(struct dcss_rdsrc *rdsrc, u32 pix_format, u32 dst_xres,
+		      u32 dst_yres, u32 base_addr);
+void dcss_rdsrc_enable(struct dcss_rdsrc *rdsrc);
+void dcss_rdsrc_disable(struct dcss_rdsrc *rdsrc);
+
 #endif /* __DCSS_PRV_H__ */

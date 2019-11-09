@@ -79,6 +79,7 @@ struct dcss_scaler_ch {
 	u32 c_hstart;
 
 	bool use_nn_interpolation;
+	int ch_num;
 };
 
 struct dcss_scaler {
@@ -88,6 +89,10 @@ struct dcss_scaler {
 	u32 ctx_id;
 
 	struct dcss_scaler_ch ch[3];
+
+	struct dcss_wrscl *wrscl;
+	struct dcss_rdsrc *rdsrc;
+	int ch_using_wrscl;
 };
 
 /* scaler coefficients generator */
@@ -309,6 +314,7 @@ static int dcss_scaler_ch_init_all(struct dcss_scaler *scl,
 		}
 
 		ch->scl = scl;
+		ch->ch_num = i;
 	}
 
 	return 0;
@@ -326,6 +332,9 @@ int dcss_scaler_init(struct dcss_dev *dcss, unsigned long scaler_base)
 	scaler->dev = dcss->dev;
 	scaler->ctxld = dcss->ctxld;
 	scaler->ctx_id = CTX_SB_HP;
+	scaler->wrscl = dcss->wrscl;
+	scaler->rdsrc = dcss->rdsrc;
+	scaler->ch_using_wrscl = -1;
 
 	if (dcss_scaler_ch_init_all(scaler, scaler_base))
 		return -ENOMEM;
@@ -349,7 +358,19 @@ void dcss_scaler_ch_enable(struct dcss_scaler *scl, int ch_num, bool en)
 	struct dcss_scaler_ch *ch = &scl->ch[ch_num];
 	u32 scaler_ctrl;
 
-	scaler_ctrl = en ? SCALER_EN | REPEAT_EN : 0;
+	if (scl->ch_using_wrscl == ch_num) {
+		if (en) {
+			scaler_ctrl = SCALE2MEM_EN | MEM2OFIFO_EN | REPEAT_EN;
+		} else {
+			dcss_wrscl_disable(scl->wrscl);
+			dcss_rdsrc_disable(scl->rdsrc);
+
+			scl->ch_using_wrscl = -1;
+			scaler_ctrl = 0;
+		}
+	} else {
+		scaler_ctrl = en ? SCALER_EN | REPEAT_EN : 0;
+	}
 
 	if (en)
 		dcss_scaler_write(ch, ch->sdata_ctrl, DCSS_SCALER_SDATA_CTRL);
@@ -471,7 +492,11 @@ static const struct dcss_scaler_factors dcss_scaler_factors[] = {
 	{3, 8}, {5, 8}, {5, 8},
 };
 
-static void dcss_scaler_fractions_set(struct dcss_scaler_ch *ch,
+static const struct dcss_scaler_factors dcss_scaler_wrscl_factors[] = {
+	{5, 8}, {7, 8}, {7, 8},
+};
+
+static bool dcss_scaler_fractions_set(struct dcss_scaler_ch *ch,
 				      int src_xres, int src_yres,
 				      int dst_xres, int dst_yres,
 				      u32 src_format, u32 dst_format,
@@ -480,6 +505,7 @@ static void dcss_scaler_fractions_set(struct dcss_scaler_ch *ch,
 	int src_c_xres, src_c_yres, dst_c_xres, dst_c_yres;
 	u32 l_vinc, l_hinc, c_vinc, c_hinc;
 	u32 c_vstart, c_hstart;
+	u8 upscale_factor, downscale_factor;
 
 	src_c_xres = src_xres;
 	src_c_yres = src_yres;
@@ -556,13 +582,27 @@ static void dcss_scaler_fractions_set(struct dcss_scaler_ch *ch,
 
 	dcss_scaler_write(ch, c_hstart, DCSS_SCALER_H_CHR_START);
 	dcss_scaler_write(ch, c_hinc, DCSS_SCALER_H_CHR_INC);
+
+	downscale_factor = dcss_scaler_factors[ch->ch_num].downscale;
+	upscale_factor = dcss_scaler_factors[ch->ch_num].upscale;
+
+	/* return if WR_SCL/RD_SRC is needed to scale */
+	return l_vinc > downscale_fp(downscale_factor, 13)  ||
+	       l_vinc < upscale_fp(upscale_factor, 13)	    ||
+	       l_hinc > downscale_fp(downscale_factor, 13)  ||
+	       l_hinc < upscale_fp(upscale_factor, 13);
 }
 
 int dcss_scaler_get_min_max_ratios(struct dcss_scaler *scl, int ch_num,
 				   int *min, int *max)
 {
-	*min = upscale_fp(dcss_scaler_factors[ch_num].upscale, 16);
-	*max = downscale_fp(dcss_scaler_factors[ch_num].downscale, 16);
+	const struct dcss_scaler_factors *factors_map = dcss_scaler_factors;
+
+	if (scl->ch_using_wrscl == -1 || scl->ch_using_wrscl == ch_num)
+		factors_map = dcss_scaler_wrscl_factors;
+
+	*min = upscale_fp(factors_map[ch_num].upscale, 16);
+	*max = downscale_fp(factors_map[ch_num].downscale, 16);
 
 	return 0;
 }
@@ -765,6 +805,43 @@ void dcss_scaler_set_filter(struct dcss_scaler *scl, int ch_num,
 	ch->use_nn_interpolation = scaling_filter == DRM_SCALING_FILTER_NEAREST_NEIGHBOR;
 }
 
+static void dcss_scaler_setup_path(struct dcss_scaler_ch *ch,
+				   u32 pix_format, int dst_xres,
+				   int dst_yres, u32 vrefresh_hz,
+				   bool wrscl_needed)
+{
+	struct dcss_scaler *scl = ch->scl;
+	u32 base_addr;
+
+	/* nothing to do if WRSCL path is needed but it's already used */
+	if (wrscl_needed && scl->ch_using_wrscl != -1 &&
+	    scl->ch_using_wrscl != ch->ch_num)
+		return;
+
+	if (!wrscl_needed) {
+		/* Channel has finished using WRSCL. Release WRSCL/RDSRC. */
+		if (scl->ch_using_wrscl == ch->ch_num) {
+			dcss_wrscl_disable(scl->wrscl);
+			dcss_rdsrc_disable(scl->rdsrc);
+
+			scl->ch_using_wrscl = -1;
+		}
+
+		return;
+	}
+
+	base_addr = dcss_wrscl_setup(scl->wrscl, pix_format, vrefresh_hz,
+				     dst_xres, dst_yres);
+
+	dcss_rdsrc_setup(scl->rdsrc, pix_format, dst_xres, dst_yres,
+			 base_addr);
+
+	dcss_wrscl_enable(scl->wrscl);
+	dcss_rdsrc_enable(scl->rdsrc);
+
+	scl->ch_using_wrscl = ch->ch_num;
+}
+
 void dcss_scaler_setup(struct dcss_scaler *scl, int ch_num,
 		       const struct drm_format_info *format,
 		       int src_xres, int src_yres, int dst_xres, int dst_yres,
@@ -777,6 +854,7 @@ void dcss_scaler_setup(struct dcss_scaler *scl, int ch_num,
 	enum buffer_format src_format = BUF_FMT_ARGB8888_YUV444;
 	enum buffer_format dst_format = BUF_FMT_ARGB8888_YUV444;
 	u32 pix_format = format->format;
+	bool use_wrscl;
 
 	if (format->is_yuv) {
 		dcss_scaler_yuv_enable(ch, true);
@@ -799,9 +877,9 @@ void dcss_scaler_setup(struct dcss_scaler *scl, int ch_num,
 		pixel_depth = format->depth;
 	}
 
-	dcss_scaler_fractions_set(ch, src_xres, src_yres, dst_xres,
-				  dst_yres, src_format, dst_format,
-				  PSC_LOC_HORZ_0_VERT_1_OVER_4);
+	use_wrscl = dcss_scaler_fractions_set(ch, src_xres, src_yres, dst_xres,
+					      dst_yres, src_format, dst_format,
+					      PSC_LOC_HORZ_0_VERT_1_OVER_4);
 
 	if (format->is_yuv)
 		dcss_scaler_yuv_coef_set(ch, src_format, dst_format,
@@ -817,6 +895,9 @@ void dcss_scaler_setup(struct dcss_scaler *scl, int ch_num,
 	dcss_scaler_format_set(ch, src_format, dst_format);
 	dcss_scaler_res_set(ch, src_xres, src_yres, dst_xres, dst_yres,
 			    pix_format, dst_format);
+
+	dcss_scaler_setup_path(ch, pix_format, dst_xres,
+			       dst_yres, vrefresh_hz, use_wrscl);
 }
 
 /* This function will be called from interrupt context. */
