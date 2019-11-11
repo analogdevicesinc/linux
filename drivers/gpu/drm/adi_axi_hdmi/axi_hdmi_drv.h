@@ -24,7 +24,6 @@ struct axi_hdmi_encoder;
 
 struct axi_hdmi_private {
 	struct drm_device *drm_dev;
-	struct drm_fbdev_cma *fbdev;
 	struct drm_crtc *crtc;
 	struct axi_hdmi_encoder *encoder;
 	struct i2c_client *encoder_slave;
