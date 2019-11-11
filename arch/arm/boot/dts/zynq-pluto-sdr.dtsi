@@ -7,6 +7,8 @@
  */
 /include/ "zynq.dtsi"
 
+#include <dt-bindings/interrupt-controller/irq.h>
+
 / {
 	model = "Analog Devices PlutoSDR Rev.A (Z7010/AD9363)";
 	memory {
