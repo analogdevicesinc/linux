@@ -59,7 +59,7 @@
 	axi_pulse_capture: axi-pulse-capture@7c700000 {
 		compatible = "adi,axi-pulse-capture-1.00.a";
 		reg = <0x7c700000 0x10000>;
-		interrupts = <0 52 0>;
+		interrupts = <0 52 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&axi_ad9094_adxcvr 1>;
 	};
 
