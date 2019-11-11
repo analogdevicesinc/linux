@@ -1,6 +1,6 @@
 /dts-v1/;
 
-/include/ "zynq-zed.dtsi"
+#include "zynq-zed.dtsi"
 
 / {
 	fpga_axi: fpga-axi@0 {

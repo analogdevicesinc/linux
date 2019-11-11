@@ -1,5 +1,5 @@
 /dts-v1/;
-/include/ "zynq-adrv9364-z7020.dtsi"
+#include "zynq-adrv9364-z7020.dtsi"
 
 
 &axi_i2c0 {
