@@ -13,7 +13,7 @@
 			compatible = "xlnx,axi-iic-1.02.a", "xlnx,xps-iic-2.00.a";
 			reg = <0x43c40000 0x10000>;
 			interrupt-parent = <&intc>;
-			interrupts = <0 55 4>;
+			interrupts = <0 55 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clkc 15>;
 			clock-names = "pclk";
 

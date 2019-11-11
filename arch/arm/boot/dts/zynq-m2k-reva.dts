@@ -157,7 +157,7 @@
 		fmc_i2c: i2c@41600000 {
 			compatible = "xlnx,axi-iic-1.01.b", "xlnx,xps-iic-2.00.a";
 			interrupt-parent = <&intc>;
-			interrupts = <0 58 0x4>;
+			interrupts = <0 58 IRQ_TYPE_LEVEL_HIGH>;
 			reg = <0x41600000 0x10000>;
 			clocks = <&clkc 15>;
 			clock-names = "pclk";

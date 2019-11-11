@@ -15,7 +15,7 @@
 	eth0: eth0@e000b000 {
 		compatible = "xlnx,ps7-ethernet-1.00.a";
 		reg = <0xe000b000 0x1000>;
-		interrupts = <0 22 4>;
+		interrupts = <0 22 IRQ_TYPE_LEVEL_HIGH>;
 		interrupt-parent = <&intc>;
 		#address-cells = <0x1>;
 		#size-cells = <0x0>;
@@ -54,7 +54,7 @@
 	eth1: eth1@e000c000 {
 		compatible = "xlnx,ps7-ethernet-1.00.a";
 		reg = <0xe000c000 0x1000>;
-		interrupts = <0 45 4>;
+		interrupts = <0 45 IRQ_TYPE_LEVEL_HIGH>;
 		interrupt-parent = <&intc>;
 		#address-cells = <0x1>;
 		#size-cells = <0x0>;
@@ -84,7 +84,7 @@
 		compatible = "xlnx,axi-iic-1.01.b", "xlnx,xps-iic-2.00.a";
 		reg = <0x41620000 0x10000>;
 		interrupt-parent = <&intc>;
-		interrupts = <0 55 0x4>;
+		interrupts = <0 55 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&clkc 15>;
 		clock-names = "pclk";
 
@@ -101,7 +101,7 @@
 		compatible = "xlnx,axi-iic-1.01.b", "xlnx,xps-iic-2.00.a";
 		reg = <0x41510000 0x10000>;
 		interrupt-parent = <&intc>;
-		interrupts = <0 56 0x4>;
+		interrupts = <0 56 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&clkc 15>;
 		clock-names = "pclk";
 
