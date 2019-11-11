@@ -116,9 +116,7 @@ static inline void dpu_fg_write(struct dpu_framegen *fg,
 
 void framegen_enable(struct dpu_framegen *fg)
 {
-	mutex_lock(&fg->mutex);
 	dpu_fg_write(fg, FGENABLE, FGEN);
-	mutex_unlock(&fg->mutex);
 
 	dpu_pxlink_set_mst_enable(fg->dpu, fg->id, true);
 }
@@ -128,17 +126,13 @@ void framegen_disable(struct dpu_framegen *fg)
 {
 	dpu_pxlink_set_mst_enable(fg->dpu, fg->id, false);
 
-	mutex_lock(&fg->mutex);
 	dpu_fg_write(fg, FGENABLE, 0);
-	mutex_unlock(&fg->mutex);
 }
 EXPORT_SYMBOL_GPL(framegen_disable);
 
 void framegen_shdtokgen(struct dpu_framegen *fg)
 {
-	mutex_lock(&fg->mutex);
 	dpu_fg_write(fg, FGSLR, SHDTOKGEN);
-	mutex_unlock(&fg->mutex);
 }
 EXPORT_SYMBOL_GPL(framegen_shdtokgen);
 
@@ -146,12 +140,10 @@ void framegen_syncmode(struct dpu_framegen *fg, fgsyncmode_t mode)
 {
 	u32 val;
 
-	mutex_lock(&fg->mutex);
 	val = dpu_fg_read(fg, FGSTCTRL);
 	val &= ~FGSYNCMODE_MASK;
 	val |= mode;
 	dpu_fg_write(fg, FGSTCTRL, val);
-	mutex_unlock(&fg->mutex);
 }
 EXPORT_SYMBOL_GPL(framegen_syncmode);
 
@@ -176,7 +168,6 @@ void framegen_cfg_videomode(struct dpu_framegen *fg, struct drm_display_mode *m,
 	vsync = m->crtc_vsync_end - m->crtc_vsync_start;
 	vsbp = m->crtc_vtotal - m->crtc_vsync_start;
 
-	mutex_lock(&fg->mutex);
 	/* video mode */
 	dpu_fg_write(fg, HTCFG1, HACT(hact)   | HTOTAL(htotal));
 	dpu_fg_write(fg, HTCFG2, HSYNC(hsync) | HSBP(hsbp) | HSEN);
@@ -206,7 +197,6 @@ void framegen_cfg_videomode(struct dpu_framegen *fg, struct drm_display_mode *m,
 
 	/* constant color */
 	dpu_fg_write(fg, FGCCR, 0);
-	mutex_unlock(&fg->mutex);
 
 	disp_clock_rate = m->clock * 1000;
 
@@ -239,22 +229,18 @@ void framegen_pkickconfig(struct dpu_framegen *fg, bool enable)
 {
 	u32 val;
 
-	mutex_lock(&fg->mutex);
 	val = dpu_fg_read(fg, PKICKCONFIG);
 	if (enable)
 		val |= EN;
 	else
 		val &= ~EN;
 	dpu_fg_write(fg, PKICKCONFIG, val);
-	mutex_unlock(&fg->mutex);
 }
 EXPORT_SYMBOL_GPL(framegen_pkickconfig);
 
 void framegen_sacfg(struct dpu_framegen *fg, unsigned int x, unsigned int y)
 {
-	mutex_lock(&fg->mutex);
 	dpu_fg_write(fg, SACFG, STARTX(x) | STARTY(y));
-	mutex_unlock(&fg->mutex);
 }
 EXPORT_SYMBOL_GPL(framegen_sacfg);
 
@@ -262,12 +248,10 @@ void framegen_displaymode(struct dpu_framegen *fg, fgdm_t mode)
 {
 	u32 val;
 
-	mutex_lock(&fg->mutex);
 	val = dpu_fg_read(fg, FGINCTRL);
 	val &= ~FGDM_MASK;
 	val |= mode;
 	dpu_fg_write(fg, FGINCTRL, val);
-	mutex_unlock(&fg->mutex);
 }
 EXPORT_SYMBOL_GPL(framegen_displaymode);
 
@@ -275,12 +259,10 @@ void framegen_panic_displaymode(struct dpu_framegen *fg, fgdm_t mode)
 {
 	u32 val;
 
-	mutex_lock(&fg->mutex);
 	val = dpu_fg_read(fg, FGINCTRLPANIC);
 	val &= ~FGDM_MASK;
 	val |= mode;
 	dpu_fg_write(fg, FGINCTRLPANIC, val);
-	mutex_unlock(&fg->mutex);
 }
 EXPORT_SYMBOL_GPL(framegen_panic_displaymode);
 
@@ -313,11 +295,9 @@ void framegen_wait_done(struct dpu_framegen *fg, struct drm_display_mode *m)
 	}
 	timeout = jiffies + pending_framedur_jiffies;
 
-	mutex_lock(&fg->mutex);
 	do {
 		val = dpu_fg_read(fg, FGENSTS);
 	} while ((val & ENSTS) && time_before(jiffies, timeout));
-	mutex_unlock(&fg->mutex);
 
 	dev_dbg(fg->dpu->dev, "FrameGen%d pending frame duration is %ums\n",
 			 fg->id, jiffies_to_msecs(pending_framedur_jiffies));
@@ -343,11 +323,9 @@ void framegen_read_timestamp(struct dpu_framegen *fg,
 {
 	u32 stamp;
 
-	mutex_lock(&fg->mutex);
 	stamp = dpu_fg_read(fg, FGTIMESTAMP);
 	*frame_index = framegen_frame_index(stamp);
 	*line_index = framegen_line_index(stamp);
-	mutex_unlock(&fg->mutex);
 }
 EXPORT_SYMBOL_GPL(framegen_read_timestamp);
 
@@ -376,11 +354,7 @@ EXPORT_SYMBOL_GPL(framegen_wait_for_frame_counter_moving);
 
 bool framegen_secondary_is_syncup(struct dpu_framegen *fg)
 {
-	u32 val;
-
-	mutex_lock(&fg->mutex);
-	val = dpu_fg_read(fg, FGCHSTAT);
-	mutex_unlock(&fg->mutex);
+	u32 val = dpu_fg_read(fg, FGCHSTAT);
 
 	return val & SECSYNCSTAT;
 }

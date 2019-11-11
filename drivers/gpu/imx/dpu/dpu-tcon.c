@@ -78,7 +78,6 @@ static inline void dpu_tcon_write(struct dpu_tcon *tcon,
 
 int tcon_set_fmt(struct dpu_tcon *tcon, u32 bus_format)
 {
-	mutex_lock(&tcon->mutex);
 	switch (bus_format) {
 	case MEDIA_BUS_FMT_RGB888_1X24:
 		dpu_tcon_write(tcon, MAPBIT3_0,   0x19181716);
@@ -101,10 +100,8 @@ int tcon_set_fmt(struct dpu_tcon *tcon, u32 bus_format)
 		dpu_tcon_write(tcon, MAPBIT31_28, 0x00000908);
 		break;
 	default:
-		mutex_unlock(&tcon->mutex);
 		return -EINVAL;
 	}
-	mutex_unlock(&tcon->mutex);
 
 	return 0;
 }
@@ -115,7 +112,6 @@ void tcon_cfg_videomode(struct dpu_tcon *tcon, struct drm_display_mode *m)
 	u32 val;
 	int y;
 
-	mutex_lock(&tcon->mutex);
 	val = dpu_tcon_read(tcon, TCON_CTRL);
 	val &= ~BYPASS;
 	dpu_tcon_write(tcon, TCON_CTRL, val);
@@ -171,7 +167,6 @@ void tcon_cfg_videomode(struct dpu_tcon *tcon, struct drm_display_mode *m)
 
 	dpu_tcon_write(tcon, SMXSIGS(3), 0x6);
 	dpu_tcon_write(tcon, SMXFCTTABLE(3), 0x2);
-	mutex_unlock(&tcon->mutex);
 }
 EXPORT_SYMBOL_GPL(tcon_cfg_videomode);
 
