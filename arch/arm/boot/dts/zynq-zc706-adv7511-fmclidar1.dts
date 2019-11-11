@@ -31,7 +31,7 @@
 		fifo-size = <16>;
 		interrupt-names = "ip2intc_irpt";
 		interrupt-parent = <&intc>;
-		interrupts = <0 54 1>;
+		interrupts = <0 54 IRQ_TYPE_EDGE_RISING>;
 		num-cs = <0x1>;
 		xlnx,num-ss-bits = <0x1>;
 		xlnx,spi-mode = <0>;
@@ -48,7 +48,7 @@
 		fifo-size = <16>;
 		interrupt-names = "ip2intc_irpt";
 		interrupt-parent = <&intc>;
-		interrupts = <0 53 1>;
+		interrupts = <0 53 IRQ_TYPE_EDGE_RISING>;
 		num-cs = <0x1>;
 		xlnx,num-ss-bits = <0x1>;
 		xlnx,spi-mode = <0>;
