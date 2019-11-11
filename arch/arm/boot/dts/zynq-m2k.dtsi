@@ -7,6 +7,8 @@
  */
 /include/ "zynq.dtsi"
 
+#include <dt-bindings/interrupt-controller/irq.h>
+
 / {
 	model = "Analog Devices M2k Rev.A (Z7010)";
 	memory {
