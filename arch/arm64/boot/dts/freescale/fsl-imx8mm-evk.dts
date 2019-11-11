@@ -671,6 +671,8 @@
 	adv_bridge: adv7535@3d {
 		compatible = "adi,adv7533";
 		reg = <0x3d>;
+		interrupt-parent = <&gpio1>;
+		interrupts = <9 IRQ_TYPE_LEVEL_LOW>;
 		adi,addr-cec = <0x3b>;
 		adi,dsi-lanes = <4>;
 		status = "okay";
