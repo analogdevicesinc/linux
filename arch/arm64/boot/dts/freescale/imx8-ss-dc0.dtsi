@@ -235,6 +235,76 @@ dc0_subsys: bus@56000000 {
 		status = "disabled";
 	};
 
+	dc0_prg3: prg@56060000 {
+		compatible = "fsl,imx8qxp-prg", "fsl,imx8qm-prg";
+		reg = <0x56060000 0x10000>;
+		clocks = <&dc0_prg2_lpcg 0>,
+			 <&dc0_prg2_lpcg 1>;
+		clock-names = "rtram", "apb";
+		power-domains = <&pd IMX_SC_R_DC_0>;
+		status = "disabled";
+	};
+
+	dc0_prg4: prg@56070000 {
+		compatible = "fsl,imx8qxp-prg", "fsl,imx8qm-prg";
+		reg = <0x56070000 0x10000>;
+		clocks = <&dc0_prg3_lpcg 0>,
+			 <&dc0_prg3_lpcg 1>;
+		clock-names = "rtram", "apb";
+		power-domains = <&pd IMX_SC_R_DC_0>;
+		status = "disabled";
+	};
+
+	dc0_prg5: prg@56080000 {
+		compatible = "fsl,imx8qxp-prg", "fsl,imx8qm-prg";
+		reg = <0x56080000 0x10000>;
+		clocks = <&dc0_prg4_lpcg 0>,
+			 <&dc0_prg4_lpcg 1>;
+		clock-names = "rtram", "apb";
+		power-domains = <&pd IMX_SC_R_DC_0>;
+		status = "disabled";
+	};
+
+	dc0_prg6: prg@56090000 {
+		compatible = "fsl,imx8qxp-prg", "fsl,imx8qm-prg";
+		reg = <0x56090000 0x10000>;
+		clocks = <&dc0_prg5_lpcg 0>,
+			 <&dc0_prg5_lpcg 1>;
+		clock-names = "rtram", "apb";
+		power-domains = <&pd IMX_SC_R_DC_0>;
+		status = "disabled";
+	};
+
+	dc0_prg7: prg@560a0000 {
+		compatible = "fsl,imx8qxp-prg", "fsl,imx8qm-prg";
+		reg = <0x560a0000 0x10000>;
+		clocks = <&dc0_prg6_lpcg 0>,
+			 <&dc0_prg6_lpcg 1>;
+		clock-names = "rtram", "apb";
+		power-domains = <&pd IMX_SC_R_DC_0>;
+		status = "disabled";
+	};
+
+	dc0_prg8: prg@560b0000 {
+		compatible = "fsl,imx8qxp-prg", "fsl,imx8qm-prg";
+		reg = <0x560b0000 0x10000>;
+		clocks = <&dc0_prg7_lpcg 0>,
+			 <&dc0_prg7_lpcg 1>;
+		clock-names = "rtram", "apb";
+		power-domains = <&pd IMX_SC_R_DC_0>;
+		status = "disabled";
+	};
+
+	dc0_prg9: prg@560c0000 {
+		compatible = "fsl,imx8qxp-prg", "fsl,imx8qm-prg";
+		reg = <0x560c0000 0x10000>;
+		clocks = <&dc0_prg8_lpcg 0>,
+			 <&dc0_prg8_lpcg 1>;
+		clock-names = "rtram", "apb";
+		power-domains = <&pd IMX_SC_R_DC_0>;
+		status = "disabled";
+	};
+
 	dc0_dpr1_channel1: dpr-channel@560d0000 {
 		compatible = "fsl,imx8qxp-dpr-channel",
 			     "fsl,imx8qm-dpr-channel";
