@@ -1,4 +1,4 @@
 /dts-v1/;
 
-/include/ "zynq-microzed.dtsi"
-/include/ "adi-zynq-cn0363.dtsi"
+#include "zynq-microzed.dtsi"
+#include "adi-zynq-cn0363.dtsi"

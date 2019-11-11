@@ -1,7 +1,7 @@
 /dts-v1/;
 
-/include/ "zynq-zc706.dtsi"
-/include/ "zynq-zc706-adv7511.dtsi"
+#include "zynq-zc706.dtsi"
+#include "zynq-zc706-adv7511.dtsi"
 
 &i2c_mux {
 	fmc_i2c: i2c@6 {
@@ -73,4 +73,4 @@
 	};
 };
 
-/include/ "adi-fmcomms1.dtsi"
+#include "adi-fmcomms1.dtsi"
