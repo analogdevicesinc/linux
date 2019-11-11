@@ -1,3 +1,4 @@
+#include <dt-bindings/interrupt-controller/irq.h>
 
 #include "socfpga_cyclone5.dtsi"
 
@@ -175,7 +176,7 @@
 					compatible = "adi,axi-dmac-1.00.a";
 					reg = <0x00004000 0x00004000>;
 					interrupt-parent = <&intc>;
-					interrupts = <0 42 4>;
+					interrupts = <0 42 IRQ_TYPE_LEVEL_HIGH>;
 					#dma-cells = <1>;
 					clocks = <&axi_dmac0_clk>;
 					clock-names = "axi_dmac0_clkin";
@@ -198,7 +199,7 @@
 					compatible = "adi,axi-dmac-1.00.a";
 					reg = <0x00000000 0x00004000>;
 					interrupt-parent = <&intc>;
-					interrupts = <0 43 4>;
+					interrupts = <0 43 IRQ_TYPE_LEVEL_HIGH>;
 					#dma-cells = <1>;
 					clocks = <&axi_dmac0_clk>;
 					clock-names = "axi_dmac0_clkin";
