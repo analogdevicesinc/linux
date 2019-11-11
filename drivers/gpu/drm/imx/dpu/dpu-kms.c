@@ -181,6 +181,8 @@ dpu_atomic_assign_plane_source_per_crtc(struct drm_plane_state **states, int n)
 		mutex_lock(&grp->mutex);
 		for (j = 0; j < total_asrc_num; j++) {
 			k = ffs(src_a_mask) - 1;
+			if (k < 0)
+				return -EINVAL;
 
 			fu = source_to_fu(&grp->res, sources[k]);
 			if (!fu)
