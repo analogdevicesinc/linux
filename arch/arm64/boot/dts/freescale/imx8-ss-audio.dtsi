@@ -192,12 +192,6 @@ audio_subsys: bus@59000000 {
 		fsl,asrc-rate  = <8000>;
 		fsl,asrc-width = <16>;
 		power-domains = <&pd IMX_SC_R_ASRC_0>,
-				<&pd IMX_SC_R_DMA_0_CH0>,
-				<&pd IMX_SC_R_DMA_0_CH1>,
-				<&pd IMX_SC_R_DMA_0_CH2>,
-				<&pd IMX_SC_R_DMA_0_CH3>,
-				<&pd IMX_SC_R_DMA_0_CH4>,
-				<&pd IMX_SC_R_DMA_0_CH5>,
 				<&pd IMX_SC_R_AUDIO_CLK_0>,
 				<&pd IMX_SC_R_AUDIO_CLK_1>,
 				<&pd IMX_SC_R_AUDIO_PLL_0>,
@@ -217,8 +211,6 @@ audio_subsys: bus@59000000 {
 		dmas = <&edma0 6 0 1>, <&edma0 7 0 0>;
 		dma-names = "rx", "tx";
 		power-domains = <&pd IMX_SC_R_ESAI_0>,
-				<&pd IMX_SC_R_DMA_0_CH6>,
-				<&pd IMX_SC_R_DMA_0_CH7>,
 				<&pd IMX_SC_R_AUDIO_CLK_0>,
 				<&pd IMX_SC_R_AUDIO_CLK_1>,
 				<&pd IMX_SC_R_AUDIO_PLL_0>,
@@ -249,8 +241,6 @@ audio_subsys: bus@59000000 {
 		dmas = <&edma0 8 0 5>, <&edma0 9 0 4>;
 		dma-names = "rx", "tx";
 		power-domains = <&pd IMX_SC_R_SPDIF_0>,
-				<&pd IMX_SC_R_DMA_0_CH8>,
-				<&pd IMX_SC_R_DMA_0_CH9>,
 				<&pd IMX_SC_R_AUDIO_CLK_0>,
 				<&pd IMX_SC_R_AUDIO_CLK_1>,
 				<&pd IMX_SC_R_AUDIO_PLL_0>,
@@ -281,8 +271,6 @@ audio_subsys: bus@59000000 {
 		dmas = <&edma0 10 0 5>, <&edma0 11 0 4>;
 		dma-names = "rx", "tx";
 		power-domains = <&pd IMX_SC_R_SPDIF_1>,
-				<&pd IMX_SC_R_DMA_0_CH10>,
-				<&pd IMX_SC_R_DMA_0_CH11>,
 				<&pd IMX_SC_R_AUDIO_CLK_0>,
 				<&pd IMX_SC_R_AUDIO_CLK_1>,
 				<&pd IMX_SC_R_AUDIO_PLL_0>,
@@ -303,8 +291,6 @@ audio_subsys: bus@59000000 {
 		dma-names = "rx", "tx";
 		dmas = <&edma0 12 0 1>, <&edma0 13 0 0>;
 		power-domains = <&pd IMX_SC_R_SAI_0>,
-				<&pd IMX_SC_R_DMA_0_CH12>,
-				<&pd IMX_SC_R_DMA_0_CH13>,
 				<&pd IMX_SC_R_AUDIO_CLK_0>,
 				<&pd IMX_SC_R_AUDIO_CLK_1>,
 				<&pd IMX_SC_R_AUDIO_PLL_0>,
@@ -325,8 +311,6 @@ audio_subsys: bus@59000000 {
 		dma-names = "rx", "tx";
 		dmas = <&edma0 14 0 1>, <&edma0 15 0 0>;
 		power-domains = <&pd IMX_SC_R_SAI_1>,
-				<&pd IMX_SC_R_DMA_0_CH14>,
-				<&pd IMX_SC_R_DMA_0_CH15>,
 				<&pd IMX_SC_R_AUDIO_CLK_0>,
 				<&pd IMX_SC_R_AUDIO_CLK_1>,
 				<&pd IMX_SC_R_AUDIO_PLL_0>,
@@ -347,7 +331,6 @@ audio_subsys: bus@59000000 {
 		dma-names = "rx";
 		dmas = <&edma0 16 0 1>;
 		power-domains = <&pd IMX_SC_R_SAI_2>,
-				<&pd IMX_SC_R_DMA_0_CH16>,
 				<&pd IMX_SC_R_AUDIO_CLK_0>,
 				<&pd IMX_SC_R_AUDIO_CLK_1>,
 				<&pd IMX_SC_R_AUDIO_PLL_0>,
@@ -368,7 +351,6 @@ audio_subsys: bus@59000000 {
 		dma-names = "rx";
 		dmas = <&edma0 17 0 1>;
 		power-domains = <&pd IMX_SC_R_SAI_3>,
-				<&pd IMX_SC_R_DMA_0_CH17>,
 				<&pd IMX_SC_R_AUDIO_CLK_0>,
 				<&pd IMX_SC_R_AUDIO_CLK_1>,
 				<&pd IMX_SC_R_AUDIO_PLL_0>,
@@ -413,12 +395,6 @@ audio_subsys: bus@59000000 {
 		fsl,asrc-rate  = <8000>;
 		fsl,asrc-width = <16>;
 		power-domains = <&pd IMX_SC_R_ASRC_1>,
-				<&pd IMX_SC_R_DMA_1_CH0>,
-				<&pd IMX_SC_R_DMA_1_CH1>,
-				<&pd IMX_SC_R_DMA_1_CH2>,
-				<&pd IMX_SC_R_DMA_1_CH3>,
-				<&pd IMX_SC_R_DMA_1_CH4>,
-				<&pd IMX_SC_R_DMA_1_CH5>,
 				<&pd IMX_SC_R_AUDIO_CLK_0>,
 				<&pd IMX_SC_R_AUDIO_CLK_1>,
 				<&pd IMX_SC_R_AUDIO_PLL_0>,
@@ -439,8 +415,6 @@ audio_subsys: bus@59000000 {
 		dma-names = "rx", "tx";
 		dmas = <&edma1 8 0 1>, <&edma1 9 0 0>;
 		power-domains = <&pd IMX_SC_R_SAI_4>,
-				<&pd IMX_SC_R_DMA_1_CH8>,
-				<&pd IMX_SC_R_DMA_1_CH9>,
 				<&pd IMX_SC_R_AUDIO_CLK_0>,
 				<&pd IMX_SC_R_AUDIO_CLK_1>,
 				<&pd IMX_SC_R_AUDIO_PLL_0>,
@@ -461,7 +435,6 @@ audio_subsys: bus@59000000 {
 		dma-names = "tx";
 		dmas = <&edma1 10 0 0>;
 		power-domains = <&pd IMX_SC_R_SAI_5>,
-				<&pd IMX_SC_R_DMA_1_CH10>,
 				<&pd IMX_SC_R_AUDIO_CLK_0>,
 				<&pd IMX_SC_R_AUDIO_CLK_1>,
 				<&pd IMX_SC_R_AUDIO_PLL_0>,
