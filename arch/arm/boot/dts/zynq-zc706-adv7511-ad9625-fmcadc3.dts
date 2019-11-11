@@ -1,4 +1,4 @@
-/include/ "zynq-zc706-adv7511-ad9625-fmcadc2.dts"
+#include "zynq-zc706-adv7511-ad9625-fmcadc2.dts"
 
 &spi0 {
 	/* FMCADC3 only:
