@@ -126,6 +126,12 @@ static void dpu_crtc_atomic_enable(struct drm_crtc *crtc,
 	disable_irq(dpu_crtc->dec_shdld_irq);
 
 	dpu_crtc_queue_state_event(crtc);
+
+	if (framegen_secondary_requests_to_read_empty_fifo(dpu_crtc->fg)) {
+		framegen_secondary_clear_channel_status(dpu_crtc->fg);
+		DRM_WARN("[CRTC:%d:%s] %s: FrameGen requests to read empty FIFO\n",
+				crtc->base.id, crtc->name, __func__);
+	}
 }
 
 static void dpu_crtc_atomic_disable(struct drm_crtc *crtc,
@@ -435,6 +441,12 @@ static void dpu_crtc_atomic_flush(struct drm_crtc *crtc,
 					crtc->base.id, crtc->name, __func__);
 
 		disable_irq(dpu_crtc->content_shdld_irq);
+
+		if (framegen_secondary_requests_to_read_empty_fifo(dpu_crtc->fg)) {
+			framegen_secondary_clear_channel_status(dpu_crtc->fg);
+			DRM_WARN("[CRTC:%d:%s] %s: FrameGen requests to read empty FIFO\n",
+					crtc->base.id, crtc->name, __func__);
+		}
 
 		dpu_crtc_queue_state_event(crtc);
 	} else if (!crtc->state->active) {
