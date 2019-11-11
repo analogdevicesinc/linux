@@ -140,6 +140,7 @@ static struct drm_driver axi_hdmi_driver = {
 	.gem_free_object	= drm_gem_cma_free_object,
 	.gem_vm_ops		= &drm_gem_cma_vm_ops,
 	.dumb_create		= drm_gem_cma_dumb_create,
+	.gem_prime_vmap		= drm_gem_cma_prime_vmap,
 	.fops			= &axi_hdmi_driver_fops,
 	.name			= DRIVER_NAME,
 	.desc			= DRIVER_DESC,
