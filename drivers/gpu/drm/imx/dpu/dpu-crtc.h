@@ -24,7 +24,8 @@ struct dpu_crtc {
 	struct device		*dev;
 	struct drm_crtc		base;
 	struct imx_drm_crtc	*imx_crtc;
-	struct dpu_constframe	*cf;
+	struct dpu_constframe	*pa_cf;
+	struct dpu_constframe	*sa_cf;
 	struct dpu_disengcfg	*dec;
 	struct dpu_extdst	*ed;
 	struct dpu_framegen	*fg;

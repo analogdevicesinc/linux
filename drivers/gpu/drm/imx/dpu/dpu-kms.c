@@ -74,44 +74,6 @@ static int dpu_atomic_sort_planes_per_crtc(struct drm_crtc_state *crtc_state,
 }
 
 static void
-dpu_atomic_compute_plane_base_per_crtc(struct drm_plane_state **states, int n)
-{
-	struct dpu_plane_state *dpstate;
-	int i, left, right, top, bottom, tmp;
-
-	/* compute the plane base */
-	left   = states[0]->crtc_x;
-	top    = states[0]->crtc_y;
-	right  = states[0]->crtc_x + states[0]->crtc_w;
-	bottom = states[0]->crtc_y + states[0]->crtc_h;
-
-	for (i = 1; i < n; i++) {
-		left = min(states[i]->crtc_x, left);
-		top =  min(states[i]->crtc_y, top);
-
-		tmp = states[i]->crtc_x + states[i]->crtc_w;
-		right = max(tmp, right);
-
-		tmp = states[i]->crtc_y + states[i]->crtc_h;
-		bottom = max(tmp, bottom);
-	}
-
-	/* BTW, be smart to compute the layer offset */
-	for (i = 0; i < n; i++) {
-		dpstate = to_dpu_plane_state(states[i]);
-		dpstate->layer_x = states[i]->crtc_x - left;
-		dpstate->layer_y = states[i]->crtc_y - top;
-	}
-
-	/* finally, store the base in plane state */
-	dpstate = to_dpu_plane_state(states[0]);
-	dpstate->base_x = left;
-	dpstate->base_y = top;
-	dpstate->base_w = right - left;
-	dpstate->base_h = bottom - top;
-}
-
-static void
 dpu_atomic_set_top_plane_per_crtc(struct drm_plane_state **states, int n)
 {
 	struct dpu_plane_state *dpstate;
@@ -387,8 +349,7 @@ dpu_atomic_put_possible_states_per_crtc(struct drm_crtc_state *crtc_state)
 			/*
 			 * Should be enough to check the below real HW plane
 			 * resources only.
-			 * Vproc resources and things like layer_x/y should
-			 * be fine.
+			 * Things like vproc resources should be fine.
 			 */
 			if (old_dpstate->stage  != new_dpstate->stage  ||
 			    old_dpstate->source != new_dpstate->source ||
@@ -558,7 +519,6 @@ static int dpu_drm_atomic_check(struct drm_device *dev,
 			return -EINVAL;
 		}
 
-		dpu_atomic_compute_plane_base_per_crtc(states, n);
 		dpu_atomic_set_top_plane_per_crtc(states, n);
 
 		ret = dpu_atomic_assign_plane_source_per_crtc(states, n);

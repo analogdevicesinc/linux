@@ -528,8 +528,11 @@ static void dpu_crtc_mode_set_nofb(struct drm_crtc *crtc)
 	tcon_cfg_videomode(dpu_crtc->tcon, mode);
 	tcon_set_fmt(dpu_crtc->tcon, imx_crtc_state->bus_format);
 
-	constframe_framedimensions(dpu_crtc->cf,
+	constframe_framedimensions(dpu_crtc->pa_cf,
 				mode->crtc_hdisplay, mode->crtc_vdisplay);
+	constframe_framedimensions(dpu_crtc->sa_cf,
+				mode->crtc_hdisplay, mode->crtc_vdisplay);
+	constframe_constantcolor(dpu_crtc->sa_cf, 0, 0, 0, 0);
 
 	ed_src = dpu_crtc->stream_id ? ED_SRC_CONSTFRAME5 : ED_SRC_CONSTFRAME4;
 	extdst_pixengcfg_src_sel(dpu_crtc->ed, ed_src);
@@ -550,8 +553,10 @@ static const struct drm_crtc_helper_funcs dpu_helper_funcs = {
 
 static void dpu_crtc_put_resources(struct dpu_crtc *dpu_crtc)
 {
-	if (!IS_ERR_OR_NULL(dpu_crtc->cf))
-		dpu_cf_put(dpu_crtc->cf);
+	if (!IS_ERR_OR_NULL(dpu_crtc->pa_cf))
+		dpu_cf_put(dpu_crtc->pa_cf);
+	if (!IS_ERR_OR_NULL(dpu_crtc->sa_cf))
+		dpu_cf_put(dpu_crtc->sa_cf);
 	if (!IS_ERR_OR_NULL(dpu_crtc->dec))
 		dpu_dec_put(dpu_crtc->dec);
 	if (!IS_ERR_OR_NULL(dpu_crtc->ed))
@@ -568,9 +573,15 @@ static int dpu_crtc_get_resources(struct dpu_crtc *dpu_crtc)
 	unsigned int stream_id = dpu_crtc->stream_id;
 	int ret;
 
-	dpu_crtc->cf = dpu_cf_get(dpu, stream_id + 4);
-	if (IS_ERR(dpu_crtc->cf)) {
-		ret = PTR_ERR(dpu_crtc->cf);
+	dpu_crtc->pa_cf = dpu_cf_get(dpu, stream_id + 4);
+	if (IS_ERR(dpu_crtc->pa_cf)) {
+		ret = PTR_ERR(dpu_crtc->pa_cf);
+		goto err_out;
+	}
+
+	dpu_crtc->sa_cf = dpu_cf_get(dpu, stream_id);
+	if (IS_ERR(dpu_crtc->sa_cf)) {
+		ret = PTR_ERR(dpu_crtc->sa_cf);
 		goto err_out;
 	}
 

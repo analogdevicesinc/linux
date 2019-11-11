@@ -492,7 +492,6 @@ void framegen_syncmode(struct dpu_framegen *fg, fgsyncmode_t mode);
 void framegen_cfg_videomode(struct dpu_framegen *fg, struct drm_display_mode *m,
 			    unsigned int encoder_type);
 void framegen_pkickconfig(struct dpu_framegen *fg, bool enable);
-void framegen_sacfg(struct dpu_framegen *fg, unsigned int x, unsigned int y);
 void framegen_displaymode(struct dpu_framegen *fg, fgdm_t mode);
 void framegen_panic_displaymode(struct dpu_framegen *fg, fgdm_t mode);
 void framegen_wait_done(struct dpu_framegen *fg, struct drm_display_mode *m);
@@ -627,7 +626,6 @@ bool fetchunit_is_fetchwarp(struct dpu_fetchunit *fu);
 #define DPU_PLANE_SRC_DISABLED		0
 
 struct dpu_plane_res {
-	struct dpu_constframe	*cf[2];
 	struct dpu_extdst	*ed[2];
 	struct dpu_fetchunit	*fd[2];
 	struct dpu_fetchunit	*fe[2];

@@ -193,8 +193,9 @@ void framegen_cfg_videomode(struct dpu_framegen *fg, struct drm_display_mode *m,
 	/* skikconfig */
 	dpu_fg_write(fg, SKICKCONFIG, COL(kick_col) | ROW(kick_row) | EN);
 
-	/* primary position config */
+	/* primary and secondary area position config */
 	dpu_fg_write(fg, PACFG, STARTX(0) | STARTY(0));
+	dpu_fg_write(fg, SACFG, STARTX(0) | STARTY(0));
 
 	/* alpha */
 	val = dpu_fg_read(fg, FGINCTRL);
@@ -247,12 +248,6 @@ void framegen_pkickconfig(struct dpu_framegen *fg, bool enable)
 	dpu_fg_write(fg, PKICKCONFIG, val);
 }
 EXPORT_SYMBOL_GPL(framegen_pkickconfig);
-
-void framegen_sacfg(struct dpu_framegen *fg, unsigned int x, unsigned int y)
-{
-	dpu_fg_write(fg, SACFG, STARTX(x) | STARTY(y));
-}
-EXPORT_SYMBOL_GPL(framegen_sacfg);
 
 void framegen_displaymode(struct dpu_framegen *fg, fgdm_t mode)
 {

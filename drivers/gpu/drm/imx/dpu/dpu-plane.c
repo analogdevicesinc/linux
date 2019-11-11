@@ -116,12 +116,6 @@ dpu_drm_atomic_plane_duplicate_state(struct drm_plane *plane)
 	copy->stage = state->stage;
 	copy->source = state->source;
 	copy->blend = state->blend;
-	copy->layer_x = state->layer_x;
-	copy->layer_y = state->layer_y;
-	copy->base_x = state->base_x;
-	copy->base_y = state->base_y;
-	copy->base_w = state->base_w;
-	copy->base_h = state->base_h;
 	copy->is_top = state->is_top;
 	copy->use_prefetch = state->use_prefetch;
 
@@ -227,7 +221,6 @@ static int dpu_plane_atomic_check(struct drm_plane *plane,
 {
 	struct dpu_plane *dplane = to_dpu_plane(plane);
 	struct dpu_plane_state *dpstate = to_dpu_plane_state(state);
-	struct dpu_plane_state *old_dpstate = to_dpu_plane_state(plane->state);
 	struct dpu_plane_res *res = &dplane->grp->res;
 	struct drm_crtc_state *crtc_state;
 	struct drm_framebuffer *fb = state->fb;
@@ -238,23 +231,11 @@ static int dpu_plane_atomic_check(struct drm_plane *plane,
 	int min_scale, bpp, ret;
 	bool fb_is_interlaced;
 
-	/* pure software check */
-	if (plane->type != DRM_PLANE_TYPE_PRIMARY)
-		if (WARN_ON(dpstate->base_x || dpstate->base_y ||
-			    dpstate->base_w || dpstate->base_h))
-			return -EINVAL;
-
 	/* ok to disable */
 	if (!fb) {
 		dpstate->stage = LB_PRIM_SEL__DISABLE;
 		dpstate->source = LB_SEC_SEL__DISABLE;
 		dpstate->blend = ID_NONE;
-		dpstate->layer_x = 0;
-		dpstate->layer_y = 0;
-		dpstate->base_x = 0;
-		dpstate->base_y = 0;
-		dpstate->base_w = 0;
-		dpstate->base_h = 0;
 		dpstate->is_top = false;
 		dpstate->use_prefetch = false;
 		return 0;
@@ -299,12 +280,6 @@ static int dpu_plane_atomic_check(struct drm_plane *plane,
 				plane->base.id, plane->name);
 		return ret;
 	}
-
-	/* mode set is needed when base x/y is changed */
-	if (plane->type == DRM_PLANE_TYPE_PRIMARY)
-		if ((dpstate->base_x != old_dpstate->base_x) ||
-		    (dpstate->base_y != old_dpstate->base_y))
-			crtc_state->mode_changed = true;
 
 	/* no off screen */
 	if (state->dst.x1 < 0 || state->dst.y1 < 0 ||
@@ -514,7 +489,6 @@ static void dpu_plane_atomic_update(struct drm_plane *plane,
 	struct dpu_hscaler *hs = NULL;
 	struct dpu_vscaler *vs = NULL;
 	struct dpu_layerblend *lb;
-	struct dpu_constframe *cf;
 	struct dpu_extdst *ed;
 	struct dpu_framegen *fg;
 	dma_addr_t baseaddr, uv_baseaddr = 0;
@@ -765,16 +739,7 @@ static void dpu_plane_atomic_update(struct drm_plane *plane,
 	layerblend_control(lb, LB_BLEND);
 	layerblend_blendcontrol(lb, need_hscaler || need_vscaler);
 	layerblend_pixengcfg_clken(lb, CLKEN__AUTOMATIC);
-	layerblend_position(lb, dpstate->layer_x, dpstate->layer_y);
-
-	if (plane->type == DRM_PLANE_TYPE_PRIMARY) {
-		cf = res->cf[dplane->stream_id];
-		constframe_framedimensions(cf,
-					dpstate->base_w, dpstate->base_h);
-		constframe_constantcolor(cf, 0, 0, 0, 0);
-
-		framegen_sacfg(fg, dpstate->base_x, dpstate->base_y);
-	}
+	layerblend_position(lb, state->crtc_x, state->crtc_y);
 
 	if (dpstate->is_top) {
 		ed = res->ed[dplane->stream_id];

@@ -816,11 +816,6 @@ static int dpu_get_plane_resource(struct dpu_soc *dpu,
 	struct dpu_plane_grp *grp = plane_res_to_grp(res);
 	int i;
 
-	for (i = 0; i < ARRAY_SIZE(res->cf); i++) {
-		res->cf[i] = dpu_cf_get(dpu, i);
-		if (IS_ERR(res->cf[i]))
-			return PTR_ERR(res->cf[i]);
-	}
 	for (i = 0; i < ARRAY_SIZE(res->ed); i++) {
 		res->ed[i] = dpu_ed_get(dpu, i);
 		if (IS_ERR(res->ed[i]))
@@ -881,10 +876,6 @@ static void dpu_put_plane_resource(struct dpu_plane_res *res)
 	struct dpu_plane_grp *grp = plane_res_to_grp(res);
 	int i;
 
-	for (i = 0; i < ARRAY_SIZE(res->cf); i++) {
-		if (!IS_ERR_OR_NULL(res->cf[i]))
-			dpu_cf_put(res->cf[i]);
-	}
 	for (i = 0; i < ARRAY_SIZE(res->ed); i++) {
 		if (!IS_ERR_OR_NULL(res->ed[i]))
 			dpu_ed_put(res->ed[i]);
