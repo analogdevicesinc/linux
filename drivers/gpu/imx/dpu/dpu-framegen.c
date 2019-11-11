@@ -117,18 +117,26 @@ static inline void dpu_fg_write(struct dpu_framegen *fg,
 void framegen_enable(struct dpu_framegen *fg)
 {
 	dpu_fg_write(fg, FGENABLE, FGEN);
-
-	dpu_pxlink_set_mst_enable(fg->dpu, fg->id, true);
 }
 EXPORT_SYMBOL_GPL(framegen_enable);
 
 void framegen_disable(struct dpu_framegen *fg)
 {
-	dpu_pxlink_set_mst_enable(fg->dpu, fg->id, false);
-
 	dpu_fg_write(fg, FGENABLE, 0);
 }
 EXPORT_SYMBOL_GPL(framegen_disable);
+
+void framegen_enable_pixel_link(struct dpu_framegen *fg)
+{
+	dpu_pxlink_set_mst_enable(fg->dpu, fg->id, true);
+}
+EXPORT_SYMBOL_GPL(framegen_enable_pixel_link);
+
+void framegen_disable_pixel_link(struct dpu_framegen *fg)
+{
+	dpu_pxlink_set_mst_enable(fg->dpu, fg->id, false);
+}
+EXPORT_SYMBOL_GPL(framegen_disable_pixel_link);
 
 void framegen_shdtokgen(struct dpu_framegen *fg)
 {
