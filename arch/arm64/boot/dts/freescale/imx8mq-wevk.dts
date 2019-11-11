@@ -48,6 +48,12 @@
 		reset-gpios = <&gpio1 14 GPIO_ACTIVE_LOW>;
 		gpio-controller;
 		#gpio-cells = <2>;
+
+		m2-bt-level-shifter-hog {
+			gpio-hog;
+			gpios = <5 GPIO_ACTIVE_LOW>;
+			output-low;
+		};
 	};
 };
 
@@ -55,23 +61,13 @@
 	/delete-node/ wl-reg-on-hog; /* This pin is not used on wevk board */
 };
 
-&uart3 { /* BT */
-	pinctrl-assert-gpios = <&pca6416 5 GPIO_ACTIVE_LOW>;
-};
-
 &pcie0 {
 	vpcie-supply = <&reg_pcie0>;
-
-	wifi_wake_host {
-		compatible = "nxp,wifi-wake-host";
-		interrupt-parent = <&gpio3>;
-		interrupts = <14 IRQ_TYPE_LEVEL_LOW>;
-		interrupt-names = "host-wake";
-	};
+	host-wake-gpio = <&gpio3 14 GPIO_ACTIVE_LOW>;
 };
 
 &pcie1 {
-	/delete-node/ wifi_wake_host;
+	/delete-property/ host-wake-gpio;
 };
 
 &ethphy0 {
