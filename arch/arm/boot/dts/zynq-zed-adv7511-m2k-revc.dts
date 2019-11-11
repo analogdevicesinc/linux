@@ -170,7 +170,7 @@
 		compatible = "adi,axi-dmac-1.00.a";
 		reg = <0x7c440000 0x10000>;
 		#dma-cells = <1>;
-		interrupts = <0 54 0>;
+		interrupts = <0 54 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&clkc 15>;
 
 		dma-channel {
@@ -184,7 +184,7 @@
 		compatible = "adi,axi-dmac-1.00.a";
 		reg = <0x7c460000 0x10000>;
 		#dma-cells = <1>;
-		interrupts = <0 36 0>;
+		interrupts = <0 36 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&clkc 15>;
 
 		dma-channel {
@@ -197,7 +197,7 @@
 		compatible = "adi,axi-dmac-1.00.a";
 		reg = <0x7c480000 0x10000>;
 		#dma-cells = <1>;
-		interrupts = <0 53 0>;
+		interrupts = <0 53 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&clkc 15>;
 
 		dma-channel {
@@ -212,7 +212,7 @@
 		compatible = "adi,axi-dmac-1.00.a";
 		reg = <0x7c460000 0x10000>;
 		#dma-cells = <1>;
-		interrupts = <0 52 0>;
+		interrupts = <0 52 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&clkc 15>;
 
 		dma-channel {
@@ -257,7 +257,7 @@
 		reg = <0x7c400000 0x10000>;
 
 		#dma-cells = <1>;
-		interrupts = <0 57 0>;
+		interrupts = <0 57 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&clkc 15>;
 
 		dma-channel {
@@ -272,7 +272,7 @@
 		reg = <0x7c420000 0x10000>;
 
 		#dma-cells = <1>;
-		interrupts = <0 56 0>;
+		interrupts = <0 56 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&clkc 15>;
 
 		dma-channel {
