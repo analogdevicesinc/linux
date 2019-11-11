@@ -127,6 +127,8 @@ static void dpu_crtc_atomic_enable(struct drm_crtc *crtc,
 
 	dpu_crtc_queue_state_event(crtc);
 
+	framegen_wait_for_secondary_syncup(dpu_crtc->fg);
+
 	if (framegen_secondary_requests_to_read_empty_fifo(dpu_crtc->fg)) {
 		framegen_secondary_clear_channel_status(dpu_crtc->fg);
 		DRM_WARN("[CRTC:%d:%s] %s: FrameGen requests to read empty FIFO\n",
