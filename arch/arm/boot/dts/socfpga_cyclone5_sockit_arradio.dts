@@ -231,7 +231,7 @@
 					compatible = "altr,spi-14.0", "altr,spi-1.0";
 					reg = <0x00008000 0x00000020>;
 					interrupt-parent = <&intc>;
-					interrupts = <0 41 4>;
+					interrupts = <0 41 IRQ_TYPE_LEVEL_HIGH>;
 					#address-cells = <0x1>;
 					#size-cells = <0x0>;
 					adc0_ad9361: ad9361-phy@0 {

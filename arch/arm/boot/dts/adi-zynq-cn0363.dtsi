@@ -50,7 +50,7 @@
 		compatible = "adi,axi-spi-engine-1.00.a";
 		reg = <0x44a00000 0x1000>;
 		interrupt-parent = <&intc>;
-		interrupts = <0 56 4>;
+		interrupts = <0 56 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&clkc 15 &clkc 15>;
 		clock-names = "s_axi_aclk", "spi_clk";
 		num-cs = <2>;
