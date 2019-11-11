@@ -196,6 +196,9 @@ static u32 dcss_dpr_x_pix_wide_adjust(struct dcss_dpr_ch *ch, u32 pix_wide,
 
 	pix_in_64byte = pix_in_64byte_map[ch->pix_size][ch->tile];
 
+	if (pix_format == DRM_FORMAT_NV12_10LE40)
+		pix_wide = pix_wide * 10 / 8;
+
 	div_64byte_mod = pix_wide % pix_in_64byte;
 	offset = (div_64byte_mod == 0) ? 0 : (pix_in_64byte - div_64byte_mod);
 
@@ -223,7 +226,8 @@ void dcss_dpr_set_res(struct dcss_dpr *dpr, int ch_num, u32 xres, u32 yres)
 	u32 pix_x_wide, pix_y_high;
 
 	if (pix_format == DRM_FORMAT_NV12 ||
-	    pix_format == DRM_FORMAT_NV21)
+	    pix_format == DRM_FORMAT_NV21 ||
+	    pix_format == DRM_FORMAT_NV12_10LE40)
 		max_planes = 2;
 
 	for (plane = 0; plane < max_planes; plane++) {
@@ -277,6 +281,7 @@ static void dcss_dpr_pix_size_set(struct dcss_dpr_ch *ch,
 	switch (format->format) {
 	case DRM_FORMAT_NV12:
 	case DRM_FORMAT_NV21:
+	case DRM_FORMAT_NV12_10LE40:
 		val = PIX_SIZE_8;
 		break;
 
@@ -386,6 +391,7 @@ static void dcss_dpr_rtram_set(struct dcss_dpr_ch *ch, u32 pix_format)
 	switch (pix_format) {
 	case DRM_FORMAT_NV21:
 	case DRM_FORMAT_NV12:
+	case DRM_FORMAT_NV12_10LE40:
 		ch->rtram_3buf_en = true;
 		ch->rtram_4line_en = false;
 		break;
