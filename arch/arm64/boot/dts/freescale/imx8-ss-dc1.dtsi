@@ -334,6 +334,62 @@ dc1_subsys: bus@57000000 {
 		status = "disabled";
 	};
 
+	dc1_dpr1_channel3: dpr-channel@570f0000 {
+		compatible = "fsl,imx8qxp-dpr-channel",
+			     "fsl,imx8qm-dpr-channel";
+		reg = <0x570f0000 0x10000>;
+		fsl,sc-resource = <IMX_SC_R_DC_1_FRAC0>;
+		fsl,prgs = <&dc1_prg3>;
+		clocks = <&dc1_dpr0_lpcg 0>,
+			 <&dc1_dpr0_lpcg 1>,
+			 <&dc1_rtram0_lpcg 0>;
+		clock-names = "apb", "b", "rtram";
+		power-domains = <&pd IMX_SC_R_DC_1>;
+		status = "disabled";
+	};
+
+	dc1_dpr2_channel1: dpr-channel@57100000 {
+		compatible = "fsl,imx8qxp-dpr-channel",
+			     "fsl,imx8qm-dpr-channel";
+		reg = <0x57100000 0x10000>;
+		fsl,sc-resource = <IMX_SC_R_DC_1_VIDEO0>;
+		fsl,prgs = <&dc1_prg4>, <&dc1_prg5>;
+		clocks = <&dc1_dpr1_lpcg 0>,
+			 <&dc1_dpr1_lpcg 1>,
+			 <&dc1_rtram1_lpcg 0>;
+		clock-names = "apb", "b", "rtram";
+		power-domains = <&pd IMX_SC_R_DC_1>;
+		status = "disabled";
+	};
+
+	dc1_dpr2_channel2: dpr-channel@57110000 {
+		compatible = "fsl,imx8qxp-dpr-channel",
+			     "fsl,imx8qm-dpr-channel";
+		reg = <0x57110000 0x10000>;
+		fsl,sc-resource = <IMX_SC_R_DC_1_VIDEO1>;
+		fsl,prgs = <&dc1_prg6>, <&dc1_prg7>;
+		clocks = <&dc1_dpr1_lpcg 0>,
+			 <&dc1_dpr1_lpcg 1>,
+			 <&dc1_rtram1_lpcg 0>;
+		clock-names = "apb", "b", "rtram";
+		power-domains = <&pd IMX_SC_R_DC_1>;
+		status = "disabled";
+	};
+
+	dc1_dpr2_channel3: dpr-channel@57120000 {
+		compatible = "fsl,imx8qxp-dpr-channel",
+			     "fsl,imx8qm-dpr-channel";
+		reg = <0x57120000 0x10000>;
+		fsl,sc-resource = <IMX_SC_R_DC_1_WARP>;
+		fsl,prgs = <&dc1_prg8>, <&dc1_prg9>;
+		clocks = <&dc1_dpr1_lpcg 0>,
+			 <&dc1_dpr1_lpcg 1>,
+			 <&dc1_rtram1_lpcg 0>;
+		clock-names = "apb", "b", "rtram";
+		power-domains = <&pd IMX_SC_R_DC_1>;
+		status = "disabled";
+	};
+
 	dpu2: dpu@57180000 {
 		#address-cells = <1>;
 		#size-cells = <0>;
