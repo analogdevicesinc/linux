@@ -1,0 +1,129 @@
+/dts-v1/;
+#include <dt-bindings/interrupt-controller/irq.h>
+#include "socfpga_arria10_socdk.dtsi"
+
+&mmc {
+	status = "okay";
+	num-slots = <1>;
+	cap-sd-highspeed;
+	broken-cd;
+	bus-width = <4>;
+	altr,dw-mshc-ciu-div = <3>;
+	altr,dw-mshc-sdr-timing = <0 3>;
+};
+
+/ {
+	clocks {
+		dmac_clkin: clock@2 {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <250000000>;
+			clock-output-names = "dma_clock";
+		};
+	};
+
+	soc {
+		sys_hps_bridges: bridge@ff200000 {
+			compatible = "simple-bus";
+			reg = <0xff200000 0x00200000>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			ranges = <0x00000000 0xff200000 0x00200000>;
+
+			gpio: gpio@20 {
+				compatible = "altr,pio-1.0";
+				reg = <0x00000020 0x00000010>;
+				altr,gpio-bank-width = <32>;
+				resetvalue = <0>;
+				#gpio-cells = <2>;
+				gpio-controller;
+			};
+
+			sys_spi: spi@40 {
+				compatible = "altr,spi-1.0";
+				reg = <0x00000040 0x00000020>;
+				interrupt-parent = <&intc>;
+				interrupts = <0 26 IRQ_TYPE_LEVEL_HIGH>;
+				#address-cells = <0x1>;
+				#size-cells = <0x0>;
+			};
+
+			cf_ad9361_adc_core_0: cf-ad9361-lpc@20000 {
+				compatible = "adi,axi-ad9361-6.00.a";
+				reg = <0x00020000 0x00010000>;
+				dmas = <&adc_dma 0>;
+				dma-names = "rx";
+				spibus-connected = <&adc0_ad9361>;
+			};
+
+			cf_ad9361_dac_core_0: cf-ad9361-dds-core-lpc@24000 {
+				compatible = "adi,axi-ad9361-dds-6.00.a";
+				reg = <0x00024000 0x00001000>;
+				dmas = <&dac_dma 0>;
+				dma-names = "tx";
+				clocks = <&adc0_ad9361 13>;
+				clock-names = "sampl_clk";
+			};
+
+			adc_dma: adc_dma@40000 {
+				compatible = "adi,axi-dmac-1.00.a";
+				reg = <0x00040000 0x00001000>;
+				interrupt-parent = <&intc>;
+				interrupts = <0 21 IRQ_TYPE_LEVEL_HIGH>;
+				#dma-cells = <1>;
+				clocks = <&dmac_clkin>;
+
+				adi,channels {
+					#size-cells = <0>;
+					#address-cells = <1>;
+					dma-channel@0 {
+						reg = <0>;
+						adi,source-bus-width = <64>;
+						adi,source-bus-type = <2>;
+						adi,destination-bus-width = <128>;
+						adi,destination-bus-type = <0>;
+					};
+				};
+			};
+
+			dac_dma: dac_dma@44000 {
+				compatible = "adi,axi-dmac-1.00.a";
+				reg = <0x00044000 0x00001000>;
+				interrupt-parent = <&intc>;
+				interrupts = <0 22 IRQ_TYPE_LEVEL_HIGH>;
+				#dma-cells = <1>;
+				clocks = <&dmac_clkin>;
+				adi,channels {
+					#size-cells = <0>;
+					#address-cells = <1>;
+					dma-channel@0 {
+						reg = <0>;
+						adi,source-bus-width = <64>;
+						adi,source-bus-type = <0>;
+						adi,destination-bus-width = <64>;
+						adi,destination-bus-type = <1>;
+					};
+				};
+			};
+		};
+	};
+};
+
+
+#define fmc_spi sys_spi
+#define fmc_i2c i2c0
+
+#include "adi-fmcomms2.dtsi"
+
+&adc0_ad9361 {
+	/delete-property/ spi-cpha;
+
+	/* GPIO */
+	reset-gpios = <&gpio 14 0>;
+	sync-gpios = <&gpio 13 0>;
+	en_agc-gpios = <&gpio 12 0>;
+
+	/* AXI Converter */
+	adi,axi-half-dac-rate-enable;
+	adi,bb-clk-change-dig-tune-enable;
+};
