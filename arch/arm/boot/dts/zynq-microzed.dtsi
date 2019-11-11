@@ -1,4 +1,4 @@
-/include/ "zynq.dtsi"
+#include "zynq.dtsi"
 
 / {
 	model = "Avnet MicroZed";

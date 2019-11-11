@@ -1,5 +1,5 @@
 /dts-v1/;
-/include/ "zynq.dtsi"
+#include "zynq.dtsi"
 
 / {
 	model = "Analog Devices ADRV9364-Z7020";

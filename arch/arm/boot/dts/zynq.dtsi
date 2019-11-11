@@ -1,5 +1,5 @@
 
-/include/ "zynq-7000.dtsi"
+#include "zynq-7000.dtsi"
 
 / {
 	interrupt-parent = <&intc>;

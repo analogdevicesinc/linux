@@ -1,7 +1,7 @@
 /dts-v1/;
 
-/include/ "zynq-zed.dtsi"
-/include/ "zynq-zed-adv7511.dtsi"
+#include "zynq-zed.dtsi"
+#include "zynq-zed-adv7511.dtsi"
 
 &fpga_axi {
 	fmc_i2c: i2c@41620000 {
@@ -77,4 +77,4 @@
 	};
 };
 
-/include/ "adi-fmcomms1.dtsi"
+#include "adi-fmcomms1.dtsi"

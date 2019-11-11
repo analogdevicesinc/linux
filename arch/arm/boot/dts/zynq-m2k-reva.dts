@@ -1,6 +1,6 @@
 /dts-v1/;
 
-/include/ "zynq-m2k.dtsi"
+#include "zynq-m2k.dtsi"
 
 #include <dt-bindings/input/input.h>
 #include <dt-bindings/gpio/gpio.h>

@@ -1,5 +1,5 @@
 /dts-v1/;
-/include/ "zynq-pluto-sdr.dtsi"
+#include "zynq-pluto-sdr.dtsi"
 
 
 &axi_i2c0 {

@@ -5,7 +5,7 @@
  *
  * Licensed under the GPL-2.
  */
-/include/ "zynq.dtsi"
+#include "zynq.dtsi"
 
 #include <dt-bindings/interrupt-controller/irq.h>
 
