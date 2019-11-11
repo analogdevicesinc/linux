@@ -346,6 +346,22 @@
 	status = "okay";
 };
 
+&dc0_dpr1_channel3 {
+	status = "okay";
+};
+
+&dc0_dpr2_channel1 {
+	status = "okay";
+};
+
+&dc0_dpr2_channel2 {
+	status = "okay";
+};
+
+&dc0_dpr2_channel3 {
+	status = "okay";
+};
+
 &dpu1 {
 	status = "okay";
 };
@@ -499,6 +515,22 @@
 };
 
 &dc1_dpr1_channel2 {
+	status = "okay";
+};
+
+&dc1_dpr1_channel3 {
+	status = "okay";
+};
+
+&dc1_dpr2_channel1 {
+	status = "okay";
+};
+
+&dc1_dpr2_channel2 {
+	status = "okay";
+};
+
+&dc1_dpr2_channel3 {
 	status = "okay";
 };
 
