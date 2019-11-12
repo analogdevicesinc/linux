@@ -278,6 +278,7 @@ static const struct dpu_data dpu_data_qm = {
 			  DPU_PLANE_SRC_FD0_ID | DPU_PLANE_SRC_FD1_ID,
 	.syncmode_min_prate = 300000,
 	.singlemode_max_width = 1920,
+	.master_stream_id = 1,
 };
 
 static const struct of_device_id dpu_dt_ids[] = {
