@@ -520,7 +520,7 @@ static void dpu_crtc_mode_set_nofb(struct drm_crtc *crtc)
 		}
 	}
 
-	framegen_cfg_videomode(dpu_crtc->fg, mode, encoder_type);
+	framegen_cfg_videomode(dpu_crtc->fg, mode, false, encoder_type);
 	framegen_displaymode(dpu_crtc->fg, FGDM__SEC_ON_TOP);
 
 	framegen_panic_displaymode(dpu_crtc->fg, FGDM__TEST);

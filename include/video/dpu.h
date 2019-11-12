@@ -494,7 +494,7 @@ void framegen_disable_pixel_link(struct dpu_framegen *fg);
 void framegen_shdtokgen(struct dpu_framegen *fg);
 void framegen_syncmode(struct dpu_framegen *fg, fgsyncmode_t mode);
 void framegen_cfg_videomode(struct dpu_framegen *fg, struct drm_display_mode *m,
-			    unsigned int encoder_type);
+			    bool side_by_side, unsigned int encoder_type);
 void framegen_pkickconfig(struct dpu_framegen *fg, bool enable);
 void framegen_displaymode(struct dpu_framegen *fg, fgdm_t mode);
 void framegen_panic_displaymode(struct dpu_framegen *fg, fgdm_t mode);

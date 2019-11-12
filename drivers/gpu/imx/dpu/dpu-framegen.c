@@ -102,6 +102,7 @@ struct dpu_framegen {
 	int id;
 	bool inuse;
 	bool use_bypass_clk;
+	bool side_by_side;
 	struct dpu_soc *dpu;
 };
 
@@ -154,11 +155,13 @@ void framegen_syncmode(struct dpu_framegen *fg, fgsyncmode_t mode)
 	val &= ~FGSYNCMODE_MASK;
 	val |= mode;
 	dpu_fg_write(fg, FGSTCTRL, val);
+
+	dpu_pxlink_set_dc_sync_mode(fg->dpu, mode != FGSYNCMODE__OFF);
 }
 EXPORT_SYMBOL_GPL(framegen_syncmode);
 
 void framegen_cfg_videomode(struct dpu_framegen *fg, struct drm_display_mode *m,
-			    unsigned int encoder_type)
+			    bool side_by_side, unsigned int encoder_type)
 {
 	struct dpu_soc *dpu = fg->dpu;
 	u32 hact, htotal, hsync, hsbp;
@@ -168,10 +171,19 @@ void framegen_cfg_videomode(struct dpu_framegen *fg, struct drm_display_mode *m,
 	unsigned long disp_clock_rate, pll_clock_rate = 0;
 	int div = 0;
 
+	fg->side_by_side = side_by_side;
+
 	hact = m->crtc_hdisplay;
 	htotal = m->crtc_htotal;
 	hsync = m->crtc_hsync_end - m->crtc_hsync_start;
 	hsbp = m->crtc_htotal - m->crtc_hsync_start;
+
+	if (side_by_side) {
+		hact /= 2;
+		htotal /= 2;
+		hsync /= 2;
+		hsbp /= 2;
+	}
 
 	vact = m->crtc_vdisplay;
 	vtotal = m->crtc_vtotal;
@@ -186,6 +198,12 @@ void framegen_cfg_videomode(struct dpu_framegen *fg, struct drm_display_mode *m,
 
 	kick_col = hact + 1;
 	kick_row = vact;
+	/*
+	 * FrameGen as slave needs to be kicked later for
+	 * one line comparing to the master.
+	 */
+	if (side_by_side && framegen_is_slave(fg))
+		kick_row++;
 
 	/* pkickconfig */
 	dpu_fg_write(fg, PKICKCONFIG, COL(kick_col) | ROW(kick_row) | EN);
@@ -212,7 +230,10 @@ void framegen_cfg_videomode(struct dpu_framegen *fg, struct drm_display_mode *m,
 	disp_clock_rate = m->clock * 1000;
 
 	if (encoder_type == DRM_MODE_ENCODER_TMDS) {
-		dpu_pxlink_set_mst_addr(dpu, fg->id, 1);
+		if (side_by_side)
+			dpu_pxlink_set_mst_addr(dpu, fg->id, fg->id ? 2 : 1);
+		else
+			dpu_pxlink_set_mst_addr(dpu, fg->id, 1);
 
 		clk_set_parent(fg->clk_disp, fg->clk_bypass);
 
