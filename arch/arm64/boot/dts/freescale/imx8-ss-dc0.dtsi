@@ -479,6 +479,7 @@ dc0_subsys: bus@56000000 {
 				   <&dc0_dpr2_channel1>,
 				   <&dc0_dpr2_channel2>,
 				   <&dc0_dpr2_channel3>;
+		fsl,pixel-combiner = <&dc0_pc>;
 		status = "disabled";
 	};
 };
