@@ -58,6 +58,7 @@
 			MX6SLL_PAD_SD3_DATA3__SD3_DATA3 0x170b9
 
 			MX6SLL_PAD_KEY_COL0__GPIO3_IO24 0x17059 /* WL_REG_ON */
+			MX6SLL_PAD_KEY_COL1__GPIO3_IO26 0x0b001
 		>;
 	};
 };
@@ -93,5 +94,8 @@
 	brcmf: bcrmf@1 {
 		reg = <1>;
 		compatible = "brcm,bcm4329-fmac";
+		interrupt-parent = <&gpio3>;
+		interrupts = <26 IRQ_TYPE_LEVEL_LOW>;
+		interrupt-names = "host-wake";
 	};
 };
