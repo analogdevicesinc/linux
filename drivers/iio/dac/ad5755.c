@@ -14,7 +14,7 @@
 #include <linux/slab.h>
 #include <linux/sysfs.h>
 #include <linux/delay.h>
-#include <linux/of.h>
+#include <linux/property.h>
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
 #include <linux/platform_data/ad5755.h>
@@ -604,8 +604,8 @@ static const struct ad5755_platform_data ad5755_default_pdata = {
 #ifdef CONFIG_OF
 static struct ad5755_platform_data *ad5755_parse_dt(struct device *dev)
 {
-	struct device_node *np = dev->of_node;
-	struct device_node *pp;
+	struct fwnode_handle *fwnode;
+	struct fwnode_handle *child;
 	struct ad5755_platform_data *pdata;
 	unsigned int tmp;
 	unsigned int tmparray[3];
@@ -616,15 +616,15 @@ static struct ad5755_platform_data *ad5755_parse_dt(struct device *dev)
 		return NULL;
 
 	pdata->ext_dc_dc_compenstation_resistor =
-	    of_property_read_bool(np, "adi,ext-dc-dc-compenstation-resistor");
+		device_property_read_bool(dev, "adi,ext-dc-dc-compenstation-resistor");
 
-	if (!of_property_read_u32(np, "adi,dc-dc-phase", &tmp))
+	if (!device_property_read_u32(dev, "adi,dc-dc-phase", &tmp))
 		pdata->dc_dc_phase = tmp;
 	else
 		pdata->dc_dc_phase = AD5755_DC_DC_PHASE_ALL_SAME_EDGE;
 
 	pdata->dc_dc_freq = AD5755_DC_DC_FREQ_410kHZ;
-	if (!of_property_read_u32(np, "adi,dc-dc-freq-hz", &tmp)) {
+	if (!device_property_read_u32(dev, "adi,dc-dc-freq-hz", &tmp)) {
 		for (i = 0; i < ARRAY_SIZE(ad5755_dcdc_freq_table); i++) {
 			if (tmp == ad5755_dcdc_freq_table[i][0]) {
 				pdata->dc_dc_freq = ad5755_dcdc_freq_table[i][1];
@@ -639,7 +639,7 @@ static struct ad5755_platform_data *ad5755_parse_dt(struct device *dev)
 	}
 
 	pdata->dc_dc_maxv = AD5755_DC_DC_MAXV_23V;
-	if (!of_property_read_u32(np, "adi,dc-dc-max-microvolt", &tmp)) {
+	if (!device_property_read_u32(dev, "adi,dc-dc-max-microvolt", &tmp)) {
 		for (i = 0; i < ARRAY_SIZE(ad5755_dcdc_maxv_table); i++) {
 			if (tmp == ad5755_dcdc_maxv_table[i][0]) {
 				pdata->dc_dc_maxv = ad5755_dcdc_maxv_table[i][1];
@@ -653,25 +653,26 @@ static struct ad5755_platform_data *ad5755_parse_dt(struct device *dev)
 	}
 
 	devnr = 0;
-	for_each_child_of_node(np, pp) {
+	fwnode = dev_fwnode(dev);
+	fwnode_for_each_child_node(fwnode, child) {
 		if (devnr >= AD5755_NUM_CHANNELS) {
 			dev_err(dev,
 				"There is to many channels defined in DT\n");
 			goto error_out;
 		}
 
-		if (!of_property_read_u32(pp, "adi,mode", &tmp))
+		if (!fwnode_property_read_u32(child, "adi,mode", &tmp))
 			pdata->dac[devnr].mode = tmp;
 		else
 			pdata->dac[devnr].mode = AD5755_MODE_CURRENT_4mA_20mA;
 
 		pdata->dac[devnr].ext_current_sense_resistor =
-		    of_property_read_bool(pp, "adi,ext-current-sense-resistor");
+			fwnode_property_read_bool(child, "adi,ext-current-sense-resistor");
 
 		pdata->dac[devnr].enable_voltage_overrange =
-		    of_property_read_bool(pp, "adi,enable-voltage-overrange");
+			fwnode_property_read_bool(child, "adi,enable-voltage-overrange");
 
-		if (!of_property_read_u32_array(pp, "adi,slew", tmparray, 3)) {
+		if (!fwnode_property_read_u32_array(child, "adi,slew", tmparray, 3)) {
 			pdata->dac[devnr].slew.enable = tmparray[0];
 
 			pdata->dac[devnr].slew.rate = AD5755_SLEW_RATE_64k;
@@ -751,7 +752,7 @@ static int ad5755_probe(struct spi_device *spi)
 	indio_dev->modes = INDIO_DIRECT_MODE;
 	indio_dev->num_channels = AD5755_NUM_CHANNELS;
 
-	if (spi->dev.of_node)
+	if (dev_fwnode(&spi->dev))
 		pdata = ad5755_parse_dt(&spi->dev);
 	else
 		pdata = spi->dev.platform_data;
