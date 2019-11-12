@@ -192,6 +192,8 @@ struct dpu_data {
 	const struct cm_reg_ofs *cm_reg_ofs;
 	const unsigned long *unused_irq;
 
+	unsigned int master_stream_id;
+
 	u32 plane_src_mask;
 };
 
