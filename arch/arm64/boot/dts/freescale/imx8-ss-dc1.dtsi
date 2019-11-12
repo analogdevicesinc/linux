@@ -480,6 +480,7 @@ dc1_subsys: bus@57000000 {
 				   <&dc1_dpr2_channel1>,
 				   <&dc1_dpr2_channel2>,
 				   <&dc1_dpr2_channel3>;
+		fsl,pixel-combiner = <&dc1_pc>;
 		status = "disabled";
 	};
 };
