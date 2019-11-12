@@ -118,10 +118,26 @@ void tcon_set_operation_mode(struct dpu_tcon *tcon)
 }
 EXPORT_SYMBOL_GPL(tcon_set_operation_mode);
 
-void tcon_cfg_videomode(struct dpu_tcon *tcon, struct drm_display_mode *m)
+void tcon_cfg_videomode(struct dpu_tcon *tcon,
+			struct drm_display_mode *m, bool side_by_side)
 {
 	u32 val;
+	int hdisplay, hsync_start, hsync_end;
+	int vdisplay, vsync_start, vsync_end;
 	int y;
+
+	hdisplay = m->hdisplay;
+	vdisplay = m->vdisplay;
+	hsync_start = m->hsync_start;
+	vsync_start = m->vsync_start;
+	hsync_end = m->hsync_end;
+	vsync_end = m->vsync_end;
+
+	if (side_by_side) {
+		hdisplay /= 2;
+		hsync_start /= 2;
+		hsync_end /= 2;
+	}
 
 	/*
 	 * TKT320590:
@@ -133,22 +149,20 @@ void tcon_cfg_videomode(struct dpu_tcon *tcon, struct drm_display_mode *m)
 	dpu_tcon_write(tcon, TCON_CTRL, val);
 
 	/* dsp_control[0]: hsync */
-	dpu_tcon_write(tcon, SPGPOSON(0), X(m->hsync_start));
+	dpu_tcon_write(tcon, SPGPOSON(0), X(hsync_start));
 	dpu_tcon_write(tcon, SPGMASKON(0), 0xffff);
 
-	dpu_tcon_write(tcon, SPGPOSOFF(0), X(m->hsync_end));
+	dpu_tcon_write(tcon, SPGPOSOFF(0), X(hsync_end));
 	dpu_tcon_write(tcon, SPGMASKOFF(0), 0xffff);
 
 	dpu_tcon_write(tcon, SMXSIGS(0), 0x2);
 	dpu_tcon_write(tcon, SMXFCTTABLE(0), 0x1);
 
 	/* dsp_control[1]: vsync */
-	dpu_tcon_write(tcon, SPGPOSON(1),
-				X(m->hsync_start) | Y(m->vsync_start - 1));
+	dpu_tcon_write(tcon, SPGPOSON(1), X(hsync_start) | Y(vsync_start - 1));
 	dpu_tcon_write(tcon, SPGMASKON(1), 0x0);
 
-	dpu_tcon_write(tcon, SPGPOSOFF(1),
-				X(m->hsync_start) | Y(m->vsync_end - 1));
+	dpu_tcon_write(tcon, SPGPOSOFF(1), X(hsync_start) | Y(vsync_end - 1));
 	dpu_tcon_write(tcon, SPGMASKOFF(1), 0x0);
 
 	dpu_tcon_write(tcon, SMXSIGS(1), 0x3);
@@ -159,21 +173,27 @@ void tcon_cfg_videomode(struct dpu_tcon *tcon, struct drm_display_mode *m)
 	dpu_tcon_write(tcon, SPGPOSON(2), 0x0);
 	dpu_tcon_write(tcon, SPGMASKON(2), 0xffff);
 
-	dpu_tcon_write(tcon, SPGPOSOFF(2), X(m->hdisplay));
+	dpu_tcon_write(tcon, SPGPOSOFF(2), X(hdisplay));
 	dpu_tcon_write(tcon, SPGMASKOFF(2), 0xffff);
 
 	/* vertical */
 	dpu_tcon_write(tcon, SPGPOSON(3), 0x0);
 	dpu_tcon_write(tcon, SPGMASKON(3), 0x7fff0000);
 
-	dpu_tcon_write(tcon, SPGPOSOFF(3), Y(m->vdisplay));
+	dpu_tcon_write(tcon, SPGPOSOFF(3), Y(vdisplay));
 	dpu_tcon_write(tcon, SPGMASKOFF(3), 0x7fff0000);
 
 	dpu_tcon_write(tcon, SMXSIGS(2), 0x2c);
 	dpu_tcon_write(tcon, SMXFCTTABLE(2), 0x8);
 
 	/* dsp_control[3]: kachuck */
-	y = m->vdisplay + 1;
+	y = vdisplay + 1;
+	/*
+	 * If sync mode fixup is present, the kachuck signal from slave tcon
+	 * should be one line later than the one from master tcon.
+	 */
+	if (side_by_side && tcon_is_slave(tcon))
+		y++;
 
 	dpu_tcon_write(tcon, SPGPOSON(4), X(0x0) | Y(y));
 	dpu_tcon_write(tcon, SPGMASKON(4), 0x0);
