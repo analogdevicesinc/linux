@@ -30,6 +30,12 @@ struct dpu_crtc {
 	struct dpu_extdst	*ed;
 	struct dpu_framegen	*fg;
 	struct dpu_tcon		*tcon;
+	struct dpu_constframe	*aux_pa_cf;
+	struct dpu_constframe	*aux_sa_cf;
+	struct dpu_disengcfg	*aux_dec;
+	struct dpu_extdst	*aux_ed;
+	struct dpu_framegen	*aux_fg;
+	struct dpu_tcon		*aux_tcon;
 	struct dpu_plane	**plane;
 	unsigned int		hw_plane_num;
 	unsigned int		stream_id;
