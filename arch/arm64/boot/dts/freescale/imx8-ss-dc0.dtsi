@@ -215,6 +215,14 @@ dc0_subsys: bus@56000000 {
 		power-domains = <&pd IMX_SC_R_DC_0>;
 	};
 
+	dc0_pc: pixel-combiner@56020000 {
+		compatible = "fsl,imx8qxp-pixel-combiner",
+			     "fsl,imx8qm-pixel-combiner";
+		reg = <0x56020000 0x10000>;
+		power-domains = <&pd IMX_SC_R_DC_0>;
+		status = "disabled";
+	};
+
 	dc0_prg1: prg@56040000 {
 		compatible = "fsl,imx8qxp-prg", "fsl,imx8qm-prg";
 		reg = <0x56040000 0x10000>;
