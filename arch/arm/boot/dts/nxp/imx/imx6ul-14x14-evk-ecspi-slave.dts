@@ -13,5 +13,6 @@
 /delete-node/&spidev0;
 
 &ecspi4 {
+	#address-cells = <0>;
 	spi-slave;
 };
