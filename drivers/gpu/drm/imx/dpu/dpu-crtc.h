@@ -33,6 +33,7 @@ struct dpu_crtc {
 	struct dpu_plane	**plane;
 	unsigned int		hw_plane_num;
 	unsigned int		stream_id;
+	unsigned int		crtc_grp_id;
 	int			vbl_irq;
 	int			safety_shdld_irq;
 	int			content_shdld_irq;
