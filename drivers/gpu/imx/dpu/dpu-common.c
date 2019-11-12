@@ -112,6 +112,10 @@ static const unsigned long hs_pec_ofss[] = {0xb00, 0xb60, 0x8c0};
 static const unsigned long lb_ofss[] = {0xa400, 0xa800, 0xac00, 0xb000};
 static const unsigned long lb_pec_ofss[] = {0xba0, 0xbc0, 0xbe0, 0xc00};
 
+/* Store Unit */
+static const unsigned long st_ofss[] = {0x4000};
+static const unsigned long st_pec_ofss[] = {0x940};
+
 /* Timing Controller Unit */
 static const unsigned long tcon_ofss[] = {0xcc00, 0xe800};
 
@@ -202,6 +206,14 @@ static const struct dpu_unit _lbs = {
 	.ofss = lb_ofss,
 };
 
+static const struct dpu_unit _sts = {
+	.name = "Store",
+	.num = ARRAY_SIZE(st_ids),
+	.ids = st_ids,
+	.pec_ofss = st_pec_ofss,
+	.ofss = st_ofss,
+};
+
 static const struct dpu_unit _tcons = {
 	.name = "TCon",
 	.num = ARRAY_SIZE(tcon_ids),
@@ -248,6 +260,7 @@ static const struct dpu_data dpu_data_qxp = {
 	.fws = &_fws,
 	.hss = &_hss,
 	.lbs = &_lbs,
+	.sts = &_sts,
 	.tcons = &_tcons,
 	.vss = &_vss,
 	.cm_reg_ofs = &_cm_reg_ofs,
@@ -270,6 +283,7 @@ static const struct dpu_data dpu_data_qm = {
 	.fws = &_fws,
 	.hss = &_hss,
 	.lbs = &_lbs,
+	.sts = &_sts,
 	.tcons = &_tcons,
 	.vss = &_vss,
 	.cm_reg_ofs = &_cm_reg_ofs,
@@ -523,6 +537,7 @@ static void dpu_units_addr_dbg(struct dpu_soc *dpu,
 	DPU_UNITS_ADDR_DBG(fw);
 	DPU_UNITS_ADDR_DBG(hs);
 	DPU_UNITS_ADDR_DBG(lb);
+	DPU_UNITS_ADDR_DBG(st);
 	DPU_UNITS_ADDR_DBG(tcon);
 	DPU_UNITS_ADDR_DBG(vs);
 }
@@ -716,6 +731,7 @@ _dpu_submodules_init(struct dpu_soc *dpu, struct platform_device *pdev)
 	_DPU_UNITS_INIT(fw);
 	_DPU_UNITS_INIT(hs);
 	_DPU_UNITS_INIT(lb);
+	_DPU_UNITS_INIT(st);
 	_DPU_UNITS_INIT(tcon);
 	_DPU_UNITS_INIT(vs);
 
@@ -775,6 +791,7 @@ static int dpu_submodules_init(struct dpu_soc *dpu,
 	DPU_UNITS_INIT(fw);
 	DPU_UNITS_INIT(hs);
 	DPU_UNITS_INIT(lb);
+	DPU_UNITS_INIT(st);
 	DPU_UNITS_INIT(tcon);
 	DPU_UNITS_INIT(vs);
 
