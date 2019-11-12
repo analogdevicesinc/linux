@@ -581,6 +581,8 @@ struct dpu_fetchunit *fetchdecode_get_fetcheco(struct dpu_fetchunit *fu);
 struct dpu_hscaler *fetchdecode_get_hscaler(struct dpu_fetchunit *fu);
 struct dpu_vscaler *fetchdecode_get_vscaler(struct dpu_fetchunit *fu);
 
+unsigned int dpu_get_master_stream_id(struct dpu_soc *dpu);
+
 bool dpu_vproc_has_fetcheco_cap(u32 cap_mask);
 bool dpu_vproc_has_hscale_cap(u32 cap_mask);
 bool dpu_vproc_has_vscale_cap(u32 cap_mask);

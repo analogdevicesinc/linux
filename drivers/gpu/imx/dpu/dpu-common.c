@@ -268,6 +268,12 @@ static const struct of_device_id dpu_dt_ids[] = {
 };
 MODULE_DEVICE_TABLE(of, dpu_dt_ids);
 
+unsigned int dpu_get_master_stream_id(struct dpu_soc *dpu)
+{
+	return dpu->data->master_stream_id;
+}
+EXPORT_SYMBOL_GPL(dpu_get_master_stream_id);
+
 bool dpu_vproc_has_fetcheco_cap(u32 cap_mask)
 {
 	return !!(cap_mask & DPU_VPROC_CAP_FETCHECO);
