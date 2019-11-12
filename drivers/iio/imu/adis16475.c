@@ -400,15 +400,18 @@ static int adis16475_read_raw(struct iio_dev *indio_dev,
 		ret = adis_read_reg_32(&st->adis,
 				       adis16475_calib_regs[chan->scan_index],
 				       val);
-		if (ret)
-			return ret;
-		return IIO_VAL_INT;
+		break;
 	case IIO_CHAN_INFO_LOW_PASS_FILTER_3DB_FREQUENCY:
-		ret = adis16475_get_filter(st, &tmp);
+		ret = adis16475_get_filter(st, val);
 		break;
 	case IIO_CHAN_INFO_SAMP_FREQ:
 		ret = adis16475_get_freq(st, &tmp);
-		break;
+		if (ret)
+			return ret;
+
+		*val = tmp / 1000;
+		*val2 = (tmp % 1000) * 1000;
+		return IIO_VAL_INT_PLUS_MICRO;
 	default:
 		return -EINVAL;
 	}
@@ -416,10 +419,7 @@ static int adis16475_read_raw(struct iio_dev *indio_dev,
 	if (ret)
 		return ret;
 
-	*val = tmp / 1000;
-	*val2 = (tmp % 1000) * 1000;
-
-	return IIO_VAL_INT_PLUS_MICRO;
+	return IIO_VAL_INT;
 }
 
 static int adis16475_write_raw(struct iio_dev *indio_dev,
@@ -434,8 +434,7 @@ static int adis16475_write_raw(struct iio_dev *indio_dev,
 		tmp = val * 1000 + val2 / 1000;
 		return adis16475_set_freq(st, tmp);
 	case IIO_CHAN_INFO_LOW_PASS_FILTER_3DB_FREQUENCY:
-		tmp = val * 1000 + val2 / 1000;
-		return adis16475_set_filter(st, tmp);
+		return adis16475_set_filter(st, val);
 	case IIO_CHAN_INFO_CALIBBIAS:
 		return adis_write_reg_32(&st->adis,
 					 adis16475_calib_regs[chan->scan_index],
