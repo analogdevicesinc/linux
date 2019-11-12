@@ -313,6 +313,10 @@
 	status = "okay";
 };
 
+&dc0_pc {
+	status = "okay";
+};
+
 &dsp {
 	compatible = "fsl,imx8qxp-dsp-v1";
 	status = "okay";
