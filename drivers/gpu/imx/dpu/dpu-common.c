@@ -26,6 +26,7 @@
 #include <linux/platform_device.h>
 #include <linux/pm_domain.h>
 #include <video/dpu.h>
+#include <video/imx8-pc.h>
 #include <video/imx8-prefetch.h>
 #include "dpu-prv.h"
 
@@ -235,7 +236,7 @@ static const struct cm_reg_ofs _cm_reg_ofs = {
 
 static const unsigned long unused_irq[] = {0x00000000, 0xfffe0008};
 
-static const struct dpu_data dpu_data = {
+static const struct dpu_data dpu_data_qxp = {
 	.cm_ofs = 0x0,
 	.cfs = &_cfs,
 	.decs = &_decs,
@@ -253,20 +254,56 @@ static const struct dpu_data dpu_data = {
 	.unused_irq = unused_irq,
 	.plane_src_mask = DPU_PLANE_SRC_FL0_ID | DPU_PLANE_SRC_FW2_ID |
 			  DPU_PLANE_SRC_FD0_ID | DPU_PLANE_SRC_FD1_ID,
+	.syncmode_min_prate = UINT_MAX,	/* pc is unused */
+	.singlemode_max_width = UINT_MAX, 	/* pc is unused */
+};
+
+static const struct dpu_data dpu_data_qm = {
+	.cm_ofs = 0x0,
+	.cfs = &_cfs,
+	.decs = &_decs,
+	.eds = &_eds,
+	.fds = &_fds,
+	.fes = &_fes,
+	.fgs = &_fgs,
+	.fls = &_fls,
+	.fws = &_fws,
+	.hss = &_hss,
+	.lbs = &_lbs,
+	.tcons = &_tcons,
+	.vss = &_vss,
+	.cm_reg_ofs = &_cm_reg_ofs,
+	.unused_irq = unused_irq,
+	.plane_src_mask = DPU_PLANE_SRC_FL0_ID | DPU_PLANE_SRC_FW2_ID |
+			  DPU_PLANE_SRC_FD0_ID | DPU_PLANE_SRC_FD1_ID,
+	.syncmode_min_prate = 300000,
+	.singlemode_max_width = 1920,
 };
 
 static const struct of_device_id dpu_dt_ids[] = {
 	{
 		.compatible = "fsl,imx8qxp-dpu",
-		.data = &dpu_data,
+		.data = &dpu_data_qxp,
 	}, {
 		.compatible = "fsl,imx8qm-dpu",
-		.data = &dpu_data,
+		.data = &dpu_data_qm,
 	}, {
 		/* sentinel */
 	}
 };
 MODULE_DEVICE_TABLE(of, dpu_dt_ids);
+
+unsigned int dpu_get_syncmode_min_prate(struct dpu_soc *dpu)
+{
+	return dpu->data->syncmode_min_prate;
+}
+EXPORT_SYMBOL_GPL(dpu_get_syncmode_min_prate);
+
+unsigned int dpu_get_singlemode_max_width(struct dpu_soc *dpu)
+{
+	return dpu->data->singlemode_max_width;
+}
+EXPORT_SYMBOL_GPL(dpu_get_singlemode_max_width);
 
 unsigned int dpu_get_master_stream_id(struct dpu_soc *dpu)
 {
@@ -720,8 +757,11 @@ static int dpu_submodules_init(struct dpu_soc *dpu,
 	const struct dpu_unit *fds = data->fds;
 	const struct dpu_unit *fls = data->fls;
 	const struct dpu_unit *fws = data->fws;
+	const struct dpu_unit *tcons = data->tcons;
 	struct dpu_fetchunit *fu;
 	struct dprc *dprc;
+	struct dpu_tcon *tcon;
+	struct pc *pc;
 	int i;
 
 	DPU_UNITS_INIT(cf);
@@ -768,6 +808,16 @@ static int dpu_submodules_init(struct dpu_soc *dpu,
 		fu = dpu_fw_get(dpu, fw_ids[i]);
 		fetchunit_get_dprc(fu, dprc);
 		dpu_fw_put(fu);
+	}
+
+	pc = pc_lookup_by_phandle(dpu->dev, "fsl,pixel-combiner");
+	if (!pc)
+		return -EPROBE_DEFER;
+
+	for (i = 0; i < tcons->num; i++) {
+		tcon = dpu_tcon_get(dpu, i);
+		tcon_get_pc(tcon, pc);
+		dpu_tcon_put(tcon);
 	}
 
 	return 0;

@@ -557,6 +557,10 @@ void tcon_cfg_videomode(struct dpu_tcon *tcon,
 			struct drm_display_mode *m, bool side_by_side);
 bool tcon_is_master(struct dpu_tcon *tcon);
 bool tcon_is_slave(struct dpu_tcon *tcon);
+void tcon_configure_pc(struct dpu_tcon *tcon, unsigned int di,
+			unsigned int frame_width, u32 mode, u32 format);
+void tcon_enable_pc(struct dpu_tcon *tcon);
+void tcon_disable_pc(struct dpu_tcon *tcon);
 struct dpu_tcon *dpu_tcon_get(struct dpu_soc *dpu, int id);
 void dpu_tcon_put(struct dpu_tcon *tcon);
 struct dpu_tcon *dpu_aux_tcon_peek(struct dpu_tcon *tcon);
@@ -587,6 +591,8 @@ struct dpu_fetchunit *fetchdecode_get_fetcheco(struct dpu_fetchunit *fu);
 struct dpu_hscaler *fetchdecode_get_hscaler(struct dpu_fetchunit *fu);
 struct dpu_vscaler *fetchdecode_get_vscaler(struct dpu_fetchunit *fu);
 
+unsigned int dpu_get_syncmode_min_prate(struct dpu_soc *dpu);
+unsigned int dpu_get_singlemode_max_width(struct dpu_soc *dpu);
 unsigned int dpu_get_master_stream_id(struct dpu_soc *dpu);
 
 bool dpu_vproc_has_fetcheco_cap(u32 cap_mask);

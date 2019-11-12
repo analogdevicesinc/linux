@@ -192,6 +192,8 @@ struct dpu_data {
 	const struct cm_reg_ofs *cm_reg_ofs;
 	const unsigned long *unused_irq;
 
+	unsigned int syncmode_min_prate;	/* need pixel combiner, KHz */
+	unsigned int singlemode_max_width;
 	unsigned int master_stream_id;
 
 	u32 plane_src_mask;
@@ -314,6 +316,8 @@ static inline u32 yuv_color(u8 y, u8 u, u8 v)
 {
 	return (y << 24) | (u << 16) | (v << 8);
 }
+
+void tcon_get_pc(struct dpu_tcon *tcon, void *data);
 
 static const unsigned int cf_ids[] = {0, 1, 4, 5};
 static const unsigned int dec_ids[] = {0, 1};
