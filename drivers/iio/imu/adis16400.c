@@ -1135,10 +1135,10 @@ static void adis16400_setup_chan_mask(struct adis16400_state *st)
 	}
 }
 
-static struct adis_data *adis16400_adis_data_alloc(struct adis16400_state *st)
+static struct adis_data *adis16400_adis_data_alloc(struct adis16400_state *st,
+						   struct device *dev)
 {
 	struct adis_data *data;
-	struct device *dev = &st->adis.spi->dev;
 
 	data = devm_kzalloc(dev, sizeof(struct adis_data), GFP_KERNEL);
 	if (!data)
@@ -1204,7 +1204,7 @@ static int adis16400_probe(struct spi_device *spi)
 			st->adis.burst->extra_len = sizeof(u16);
 	}
 
-	adis16400_data = adis16400_adis_data_alloc(st);
+	adis16400_data = adis16400_adis_data_alloc(st, &spi->dev);
 	if (IS_ERR(adis16400_data))
 		return PTR_ERR(adis16400_data);
 
