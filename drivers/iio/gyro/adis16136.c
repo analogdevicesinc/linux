@@ -509,10 +509,10 @@ static const struct adis16136_chip_info adis16136_chip_info[] = {
 	},
 };
 
-static struct adis_data *adis16136_adis_data_alloc(struct adis16136 *st)
+static struct adis_data *adis16136_adis_data_alloc(struct adis16136 *st,
+						   struct device *dev)
 {
 	struct adis_data *data;
-	struct device *dev = &st->adis.spi->dev;
 
 	data = devm_kzalloc(dev, sizeof(struct adis_data), GFP_KERNEL);
 	if (!data)
@@ -559,7 +559,7 @@ static int adis16136_probe(struct spi_device *spi)
 	indio_dev->info = &adis16136_info;
 	indio_dev->modes = INDIO_DIRECT_MODE;
 
-	adis16136_data = adis16136_adis_data_alloc(adis16136);
+	adis16136_data = adis16136_adis_data_alloc(adis16136, &spi->dev);
 	if (IS_ERR(adis16136_data))
 		return PTR_ERR(adis16136_data);
 
