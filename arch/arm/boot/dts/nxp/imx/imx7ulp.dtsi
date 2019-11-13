@@ -61,6 +61,21 @@
 		};
 	};
 
+        reserved-memory {
+                #address-cells = <1>;
+                #size-cells = <1>;
+                ranges;
+
+                /* global autoconfigured region for contiguous allocations */
+                linux,cma {
+                        compatible = "shared-dma-pool";
+                        reusable;
+                        size = <0xC000000>;
+                        alignment = <0x2000>;
+                        linux,cma-default;
+                };
+        };
+
 	intc: interrupt-controller@40021000 {
 		compatible = "arm,cortex-a7-gic";
 		#interrupt-cells = <3>;
