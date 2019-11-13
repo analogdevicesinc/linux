@@ -468,6 +468,8 @@
 	phy-handle = <&ethphy0>;
 	phy-reset-gpio=<&lsio_gpio5 9 GPIO_ACTIVE_HIGH>;
 	fsl,magic-packet;
+	nvmem-cells = <&fec_mac1>;
+	nvmem-cell-names = "mac-address";
 	fsl,rgmii_rxc_dly;
 	status = "okay";
 
