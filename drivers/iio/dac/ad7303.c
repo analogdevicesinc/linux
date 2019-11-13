@@ -21,8 +21,6 @@
 #include <linux/iio/trigger_consumer.h>
 #include <linux/iio/sysfs.h>
 
-#include <linux/platform_data/ad7303.h>
-
 #define AD7303_CFG_EXTERNAL_VREF BIT(15)
 #define AD7303_CFG_POWER_DOWN(ch) BIT(11 + (ch))
 #define AD7303_CFG_ADDR_OFFSET	10
@@ -292,16 +290,8 @@ static int ad7303_probe(struct spi_device *spi)
 	if (ret)
 		return ret;
 
-	if (spi->dev.of_node) {
-		ext_ref = device_property_read_bool(&spi->dev,
-					       "adi,use-external-reference");
-	} else {
-		struct ad7303_platform_data *pdata = spi->dev.platform_data;
-		if (pdata && pdata->use_external_ref)
-			ext_ref = true;
-		else
-			ext_ref = false;
-	}
+	ext_ref = device_property_read_bool(&spi->dev,
+					    "adi,use-external-reference");
 
 	if (ext_ref) {
 		st->vref_reg = devm_regulator_get(&spi->dev, "REF");
