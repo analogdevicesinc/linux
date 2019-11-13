@@ -136,5 +136,7 @@ int dpu_dec_init(struct dpu_soc *dpu, unsigned int id,
 	dec->id = id;
 	mutex_init(&dec->mutex);
 
+	_dpu_dec_init(dpu, id);
+
 	return 0;
 }
