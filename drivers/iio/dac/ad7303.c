@@ -13,7 +13,7 @@
 #include <linux/slab.h>
 #include <linux/sysfs.h>
 #include <linux/regulator/consumer.h>
-#include <linux/of.h>
+#include <linux/property.h>
 
 #include <linux/iio/iio.h>
 #include <linux/iio/buffer.h>
@@ -293,8 +293,8 @@ static int ad7303_probe(struct spi_device *spi)
 		return ret;
 
 	if (spi->dev.of_node) {
-		ext_ref = of_property_read_bool(spi->dev.of_node,
-				"adi,use-external-reference");
+		ext_ref = device_property_read_bool(&spi->dev,
+					       "adi,use-external-reference");
 	} else {
 		struct ad7303_platform_data *pdata = spi->dev.platform_data;
 		if (pdata && pdata->use_external_ref)
