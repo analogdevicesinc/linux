@@ -423,5 +423,6 @@ int dpu_pxlink_set_mst_addr(struct dpu_soc *dpu, int disp_id, u32 val);
 int dpu_pxlink_set_mst_enable(struct dpu_soc *dpu, int disp_id, bool enable);
 int dpu_pxlink_set_mst_valid(struct dpu_soc *dpu, int disp_id, bool enable);
 int dpu_pxlink_set_sync_ctrl(struct dpu_soc *dpu, int disp_id, bool enable);
+int dpu_pxlink_set_dc_sync_mode(struct dpu_soc *dpu, bool enable);
 int dpu_pxlink_init(struct dpu_soc *dpu);
 #endif				/* __DPU_PRV_H__ */

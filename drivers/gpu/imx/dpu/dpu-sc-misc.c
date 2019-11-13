@@ -61,6 +61,13 @@ int dpu_pxlink_set_sync_ctrl(struct dpu_soc *dpu, int disp_id, bool enable)
 	return dpu_sc_misc_set_ctrl(dpu, rsc, ctrl, enable);
 }
 
+int dpu_pxlink_set_dc_sync_mode(struct dpu_soc *dpu, bool enable)
+{
+	u32 rsc = dpu->id ? IMX_SC_R_DC_1 : IMX_SC_R_DC_0;
+
+	return dpu_sc_misc_set_ctrl(dpu, rsc, IMX_SC_C_MODE, enable);
+}
+
 int dpu_pxlink_init(struct dpu_soc *dpu)
 {
 	int disp_id, ret = 0;
