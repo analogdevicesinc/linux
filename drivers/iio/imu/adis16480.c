@@ -1415,10 +1415,10 @@ static int adis16480_get_ext_clocks(struct adis16480 *st)
 	return 0;
 }
 
-static struct adis_data *adis16480_adis_data_alloc(struct adis16480 *st)
+static struct adis_data *adis16480_adis_data_alloc(struct adis16480 *st,
+						   struct device *dev)
 {
 	struct adis_data *data;
-	struct device *dev = &st->adis.spi->dev;
 
 	data = devm_kzalloc(dev, sizeof(struct adis_data), GFP_KERNEL);
 	if (!data)
@@ -1473,7 +1473,7 @@ static int adis16480_probe(struct spi_device *spi)
 	indio_dev->info = &adis16480_info;
 	indio_dev->modes = INDIO_DIRECT_MODE;
 
-	adis16480_data = adis16480_adis_data_alloc(st);
+	adis16480_data = adis16480_adis_data_alloc(st, &spi->dev);
 	if (IS_ERR(adis16480_data))
 		return PTR_ERR(adis16480_data);
 
