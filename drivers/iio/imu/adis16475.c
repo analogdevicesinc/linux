@@ -1082,10 +1082,10 @@ burst16:
 	return 0;
 }
 
-static struct adis_data *adis16475_adis_data_alloc(struct adis16475 *st)
+static struct adis_data *adis16475_adis_data_alloc(struct adis16475 *st,
+						   struct device *dev)
 {
 	struct adis_data *data;
-	struct device *dev = &st->adis.spi->dev;
 
 	data = devm_kzalloc(dev, sizeof(struct adis_data), GFP_KERNEL);
 	if (!data)
@@ -1130,7 +1130,7 @@ static int adis16475_probe(struct spi_device *spi)
 	st->info = &adis16475_chip_info[id->driver_data];
 	spi_set_drvdata(spi, indio_dev);
 
-	adis16475_data = adis16475_adis_data_alloc(st);
+	adis16475_data = adis16475_adis_data_alloc(st, &spi->dev);
 	if (IS_ERR(adis16475_data))
 		return PTR_ERR(adis16475_data);
 
