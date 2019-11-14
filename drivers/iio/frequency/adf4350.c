@@ -552,7 +552,7 @@ static int adf4350_probe(struct spi_device *spi)
 			st->regs[ADF4350_REG2] = ADF4350_REG2_MUXOUT((i & 1) ?
 				ADF4350_MUXOUT_DVDD : ADF4350_MUXOUT_GND);
 			adf4350_sync_config(st, false);
-			ret = gpio_get_value(st->pdata->gpio_lock_detect);
+			ret = gpiod_get_value(st->lock_detect_gpiod);
 			if (ret != ((i & 1) ? 1 : 0)) {
 				ret = -ENODEV;
 				dev_err(&spi->dev, "Probe failed (muxout)");
