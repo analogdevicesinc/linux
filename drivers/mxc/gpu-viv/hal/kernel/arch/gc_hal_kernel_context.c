@@ -4179,6 +4179,7 @@ _DestroyContext(
                     kernel,
                     buffer->videoMem,
                     0,
+                    gcvFALSE,
                     gcvFALSE
                     ));
 

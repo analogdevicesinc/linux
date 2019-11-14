@@ -405,6 +405,7 @@ gckKERNEL_Construct(
     gctUINT64 data;
     gctUINT32 recovery;
     gctUINT32 stuckDump;
+    gctUINT64 dynamicMap = 1;
 
     gcmkHEADER_ARG("Os=%p Context=%p", Os, Context);
 
@@ -609,7 +610,8 @@ gckKERNEL_Construct(
         gcmkONERROR(
             gckMMU_SetupSRAM(kernel->mmu, kernel->hardware, kernel->device));
 
-        if (kernel->hardware->mmuVersion && !kernel->mmu->dynamicAreaSetuped)
+        status = gckOS_QueryOption(Os, "mmuDynamicMap", &dynamicMap);
+        if (dynamicMap && kernel->hardware->mmuVersion && !kernel->mmu->dynamicAreaSetuped)
         {
             gcmkONERROR(
                 gckMMU_SetupDynamicSpace(kernel->mmu));
@@ -1223,6 +1225,7 @@ AllocateMemory:
                                                            videoMemory,
                                                            pool,
                                                            Type,
+                                                           Flag,
                                                            Alignment,
                                                            (pool == gcvPOOL_SYSTEM ||
                                                             pool == gcvPOOL_INTERNAL_SRAM ||
@@ -1354,6 +1357,7 @@ _AllocateLinearMemory(
     gctUINT32 alignment = Interface->u.AllocateLinearVideoMemory.alignment;
     gceVIDMEM_TYPE type = (Interface->u.AllocateLinearVideoMemory.type & 0xFF);
     gctUINT32 flag = Interface->u.AllocateLinearVideoMemory.flag;
+    gctUINT64 mappingInOne  = 1;
 
     gcmkHEADER_ARG("Kernel=%p pool=%d bytes=%lu alignment=%lu type=%d",
                    Kernel, pool, bytes, alignment, type);
@@ -1368,6 +1372,15 @@ _AllocateLinearMemory(
     if (Interface->u.AllocateLinearVideoMemory.extSRAMIndex >= 0)
     {
         Kernel->extSRAMIndex = Interface->u.AllocateLinearVideoMemory.extSRAMIndex;
+    }
+
+    gckOS_QueryOption(Kernel->os, "allMapInOne", &mappingInOne);
+    if (mappingInOne == 0)
+    {
+        /* TODO: it should page align if driver uses dynamic mapping for mapped user memory.
+         * it should be adjusted with different os.
+         */
+        alignment = gcmALIGN(alignment, 4096);
     }
 
     /* Allocate video memory node. */
@@ -1577,7 +1590,7 @@ _LockVideoMemory(
 OnError:
     if (logical)
     {
-        gckVIDMEM_NODE_UnlockCPU(Kernel, nodeObject, ProcessID, gcvTRUE);
+        gckVIDMEM_NODE_UnlockCPU(Kernel, nodeObject, ProcessID, gcvTRUE, gcvFALSE);
     }
 
     if (address != gcvINVALID_ADDRESS)
@@ -1635,6 +1648,7 @@ _UnlockVideoMemory(
     gcuVIDMEM_NODE_PTR node;
     gckVIDMEM_BLOCK vidMemBlock = gcvNULL;
     gctSIZE_T bytes;
+    gctUINT64 mappingInOne = 1;
 
     gcmkHEADER_ARG("Kernel=%p ProcessID=%d",
                    Kernel, ProcessID);
@@ -1649,9 +1663,10 @@ _UnlockVideoMemory(
         &nodeObject
         ));
 
+    gckOS_QueryOption(Kernel->os, "allMapInOne", &mappingInOne);
     /* Unlock CPU. */
     gcmkONERROR(gckVIDMEM_NODE_UnlockCPU(
-        Kernel, nodeObject, ProcessID, gcvTRUE));
+        Kernel, nodeObject, ProcessID, gcvTRUE, mappingInOne == 1));
 
     /* Unlock video memory. */
     gcmkONERROR(gckVIDMEM_NODE_Unlock(
@@ -3356,7 +3371,8 @@ gckKERNEL_Dispatch(
     case gcvHAL_SET_FSCALE_VALUE:
 #if gcdENABLE_FSCALE_VAL_ADJUST
         status = gckHARDWARE_SetFscaleValue(Kernel->hardware,
-                                            Interface->u.SetFscaleValue.value);
+                                            Interface->u.SetFscaleValue.value,
+                                            Interface->u.SetFscaleValue.shValue);
 #else
         status = gcvSTATUS_NOT_SUPPORTED;
 #endif
@@ -5106,6 +5122,7 @@ gckFENCE_Destory(
             Fence->kernel,
             Fence->videoMem,
             0,
+            gcvFALSE,
             gcvFALSE
             ));
 

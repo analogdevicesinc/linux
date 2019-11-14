@@ -1579,6 +1579,7 @@ gckCOMMAND_Destroy(
                 Command->kernel,
                 Command->queues[i].videoMem,
                 0,
+                gcvFALSE,
                 gcvFALSE
                 ));
 
@@ -2857,6 +2858,7 @@ _CommitWaitLinkOnce(
             Command->kernel,
             commandBufferVideoMem,
             ProcessID,
+            gcvFALSE,
             gcvFALSE
             ));
 
@@ -4382,6 +4384,7 @@ gckCOMMAND_DumpExecutingBuffer(
             kernel,
             nodeObject,
             0,
+            gcvFALSE,
             gcvFALSE
             ));
     }
@@ -4461,6 +4464,7 @@ gckCOMMAND_DumpExecutingBuffer(
                 kernel,
                 nodeObject,
                 0,
+                gcvFALSE,
                 gcvFALSE
                 ));
         }

@@ -118,6 +118,12 @@ typedef struct _gcsMODULE_PARAMETERS
     /* device type, 0 for char device, 1 for misc device. */
     gctUINT                 deviceType;
     gctUINT                 showArgs;
+
+    /* mmu page table pool, 0 mean auto, 1 means virsual*/
+    gctUINT                 mmuPageTablePool;
+
+    gctUINT                 mmuDynamicMap;
+    gctUINT                 allMapInOne;
 }
 gcsMODULE_PARAMETERS;
 

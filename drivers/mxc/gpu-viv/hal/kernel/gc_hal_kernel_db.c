@@ -1226,7 +1226,7 @@ gckKERNEL_DestroyProcessDB(
 
                 /* Unlock CPU. */
                 gcmkVERIFY_OK(gckVIDMEM_NODE_UnlockCPU(
-                    record->kernel, nodeObject, ProcessID, gcvTRUE));
+                    record->kernel, nodeObject, ProcessID, gcvTRUE, gcvFALSE));
 
                 /* Unlock what we still locked */
                 status = gckVIDMEM_NODE_Unlock(record->kernel,

@@ -303,6 +303,7 @@ gckKERNEL_MapVideoMemory(
     IN gckKERNEL Kernel,
     IN gctBOOL InUserSpace,
     IN gcePOOL Pool,
+    IN gctPHYS_ADDR Physical,
     IN gctUINT32 Offset,
     IN gctUINT32 Bytes,
     OUT gctPOINTER * Logical
@@ -313,6 +314,7 @@ gckKERNEL_MapVideoMemory(
     gctPHYS_ADDR physHandle = gcvNULL;
     gceSTATUS status      = gcvSTATUS_OK;
     gctPOINTER logical    = gcvNULL;
+    gctUINT64 mappingInOne  = 1;
 
     gcmkHEADER_ARG("Kernel=%p InUserSpace=%d Pool=%d Offset=%X Bytes=%X",
                    Kernel, InUserSpace, Pool, Offset, Bytes);
@@ -321,65 +323,203 @@ gckKERNEL_MapVideoMemory(
     gcmkVERIFY_OBJECT(Kernel, gcvOBJ_KERNEL);
     gcmkVERIFY_ARGUMENT(Logical != NULL);
 
-    /* Extract the pointer to the gckGALDEVICE class. */
-    device = (gckGALDEVICE) Kernel->context;
-
-    /* Dispatch on pool. */
-    switch (Pool)
+    if (Physical)
     {
-    case gcvPOOL_LOCAL_INTERNAL:
-        physHandle = (PLINUX_MDL)device->internalPhysical;
-        bytes = device->internalSize;
-        break;
-
-    case gcvPOOL_LOCAL_EXTERNAL:
-        physHandle = (PLINUX_MDL)device->externalPhysical;
-        bytes = device->externalSize;
-        break;
-
-    case gcvPOOL_SYSTEM:
-        /* System memory. */
-        physHandle = (PLINUX_MDL)device->contiguousPhysical;
-        bytes = device->contiguousSize;
-        break;
-
-    case gcvPOOL_EXTERNAL_SRAM:
-        /* External shared SRAM memory. */
-        physHandle = (PLINUX_MDL)device->extSRAMPhysical[Kernel->extSRAMIndex];
-        bytes = device->extSRAMSizes[Kernel->extSRAMIndex];
-        break;
-
-    case gcvPOOL_INTERNAL_SRAM:
-        /* Per core SRAM reserved usage. */
-        if (Kernel->sRAMPhysFaked[Kernel->sRAMIndex])
-        {
-            *Logical = gcvNULL;
-
-            gcmkFOOTER_NO();
-            return gcvSTATUS_OK;
-        }
-        /* Per core SRAM memory block. */
-        else
-        {
-            physHandle = (PLINUX_MDL)Kernel->sRAMPhysical[Kernel->sRAMIndex];
-            bytes = Kernel->sRAMSizes[Kernel->sRAMIndex];
-            break;
-        }
-
-    default:
-        /* Invalid memory pool. */
-        gcmkONERROR(gcvSTATUS_INVALID_ARGUMENT);
+        gcmkONERROR(gckOS_QueryOption(Kernel->os, "allMapInOne", &mappingInOne));
     }
 
-    gcmkONERROR(gckOS_MapMemory(Kernel->os, physHandle, bytes, &logical));
+    if (mappingInOne)
+    {
+        /* Extract the pointer to the gckGALDEVICE class. */
+        device = (gckGALDEVICE) Kernel->context;
 
+        /* Dispatch on pool. */
+        switch (Pool)
+        {
+        case gcvPOOL_LOCAL_INTERNAL:
+            physHandle = (PLINUX_MDL)device->internalPhysical;
+            bytes = device->internalSize;
+            break;
+
+        case gcvPOOL_LOCAL_EXTERNAL:
+            physHandle = (PLINUX_MDL)device->externalPhysical;
+            bytes = device->externalSize;
+            break;
+
+        case gcvPOOL_SYSTEM:
+            /* System memory. */
+            physHandle = (PLINUX_MDL)device->contiguousPhysical;
+            bytes = device->contiguousSize;
+            break;
+
+        case gcvPOOL_EXTERNAL_SRAM:
+            /* External shared SRAM memory. */
+            physHandle = (PLINUX_MDL)device->extSRAMPhysical[Kernel->extSRAMIndex];
+            bytes = device->extSRAMSizes[Kernel->extSRAMIndex];
+            break;
+
+        case gcvPOOL_INTERNAL_SRAM:
+            /* Per core SRAM reserved usage. */
+            if (Kernel->sRAMPhysFaked[Kernel->sRAMIndex])
+            {
+                *Logical = gcvNULL;
+
+                gcmkFOOTER_NO();
+                return gcvSTATUS_OK;
+            }
+            /* Per core SRAM memory block. */
+            else
+            {
+                physHandle = (PLINUX_MDL)Kernel->sRAMPhysical[Kernel->sRAMIndex];
+                bytes = Kernel->sRAMSizes[Kernel->sRAMIndex];
+                break;
+            }
+
+        default:
+            /* Invalid memory pool. */
+            gcmkONERROR(gcvSTATUS_INVALID_ARGUMENT);
+        }
+
+    }
+    else
+    {
+        physHandle = (PLINUX_MDL)Physical;
+        bytes = Bytes;
+        Offset = 0;
+    }
+
+    gcmkONERROR(gckOS_LockPages(Kernel->os, physHandle, bytes, gcvFALSE, &logical));
     /* Build logical address of specified address. */
     *Logical = (gctPOINTER)((gctUINT8_PTR)logical + Offset);
-
 OnError:
     /* Retunn the status. */
     gcmkFOOTER_ARG("*Logical=%p", gcmOPT_POINTER(Logical));
     return status;
+}
+
+
+/*******************************************************************************
+**
+**  gckKERNEL_UnmapVideoMemory
+**
+**  Unmap video memory for the current process.
+**
+**  INPUT:
+**
+**      gckKERNEL Kernel
+**          Pointer to an gckKERNEL object.
+**
+**      gcePOOL Pool
+**          Specify pool type.
+
+**      gctUINT32 Address
+**          Hardware specific memory address.
+**
+**      gctUINT32 Pid
+**          Process ID of the current process.
+**
+**      gctSIZE_T Bytes
+**          Number of bytes to map.
+**
+**  OUTPUT:
+**
+**      Nothing.
+*/
+gceSTATUS
+gckKERNEL_UnmapVideoMemory(
+    IN gckKERNEL Kernel,
+    IN gcePOOL Pool,
+    IN gctPHYS_ADDR Physical,
+    IN gctPOINTER Logical,
+    IN gctUINT32 Pid,
+    IN gctSIZE_T Bytes
+    )
+{
+    gceSTATUS status      = gcvSTATUS_OK;
+    gckGALDEVICE device   = gcvNULL;
+    gctSIZE_T bytes       = 0;
+    gctPHYS_ADDR physHandle = gcvNULL;
+    gctUINT64 mappingInOne  = 1;
+
+    gcmkHEADER_ARG("Logical=0x%08x pid=%u Bytes=%u",
+                   Logical, Pid, Bytes);
+
+    /* Verify the arguments. */
+    gcmkVERIFY_OBJECT(Kernel, gcvOBJ_KERNEL);
+
+    if (Logical == gcvNULL)
+    {
+        return gcvSTATUS_OK;
+    }
+
+    if (Physical)
+    {
+        gcmkONERROR(gckOS_QueryOption(Kernel->os, "allMapInOne", &mappingInOne));
+    }
+
+    if (mappingInOne)
+    {
+        /* Extract the pointer to the gckGALDEVICE class. */
+        device = (gckGALDEVICE) Kernel->context;
+
+        /* Dispatch on pool. */
+        switch (Pool)
+        {
+        case gcvPOOL_LOCAL_INTERNAL:
+            physHandle = (PLINUX_MDL)device->internalPhysical;
+            bytes = device->internalSize;
+            break;
+
+        case gcvPOOL_LOCAL_EXTERNAL:
+            physHandle = (PLINUX_MDL)device->externalPhysical;
+            bytes = device->externalSize;
+            break;
+
+        case gcvPOOL_SYSTEM:
+            /* System memory. */
+            physHandle = (PLINUX_MDL)device->contiguousPhysical;
+            bytes = device->contiguousSize;
+            break;
+
+        case gcvPOOL_EXTERNAL_SRAM:
+            /* External shared SRAM memory. */
+            physHandle = (PLINUX_MDL)device->extSRAMPhysical[Kernel->extSRAMIndex];
+            bytes = device->extSRAMSizes[Kernel->extSRAMIndex];
+            break;
+
+        case gcvPOOL_INTERNAL_SRAM:
+            /* Per core SRAM reserved usage. */
+            if (Kernel->sRAMPhysFaked[Kernel->sRAMIndex])
+            {
+                gcmkFOOTER_NO();
+                return gcvSTATUS_OK;
+            }
+            /* Per core SRAM memory block. */
+            else
+            {
+                physHandle = (PLINUX_MDL)Kernel->sRAMPhysical[Kernel->sRAMIndex];
+                bytes = Kernel->sRAMSizes[Kernel->sRAMIndex];
+                break;
+            }
+
+        default:
+            /* Invalid memory pool. */
+            gcmkONERROR(gcvSTATUS_INVALID_ARGUMENT);
+        }
+    }
+    else
+    {
+        physHandle = (PLINUX_MDL)Physical;
+        bytes = Bytes;
+    }
+
+    gcmkONERROR(gckOS_UnlockPages(Kernel->os, physHandle, bytes, Logical));
+
+OnError:
+    /* Retunn the status. */
+    gcmkFOOTER_NO();
+    return status;
+
 }
 
 /*******************************************************************************

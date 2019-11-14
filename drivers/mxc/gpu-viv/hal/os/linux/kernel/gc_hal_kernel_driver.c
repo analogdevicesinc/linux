@@ -223,6 +223,9 @@ static int smallBatch = 1;
 module_param(smallBatch, int, 0644);
 MODULE_PARM_DESC(smallBatch, "Enable/disable small batch");
 
+static int allMapInOne = 1;
+module_param(allMapInOne, int, 0644);
+MODULE_PARM_DESC(allMapInOne, "Mapping kernel video memory to user, 0 means mapping every time, otherwise only mapping one time");
 /*******************************************************************************
 ***************************** SRAM description *********************************
 *******************************************************************************/
@@ -255,9 +258,17 @@ static uint sRAMRequested = 1;
 module_param(sRAMRequested, uint, 0644);
 MODULE_PARM_DESC(sRAMRequested, "Default 1 means AXI-SRAM is already reserved for GPU, 0 means GPU driver need request the memory region.");
 
+static uint mmuPageTablePool = 1;
+module_param(mmuPageTablePool, uint, 0644);
+MODULE_PARM_DESC(mmuPageTablePool, "Default 1 means alloc mmu page table in virsual memory, 0 means auto select memory pool.");
+
 static uint sRAMLoopMode = 0;
 module_param(sRAMLoopMode, uint, 0644);
 MODULE_PARM_DESC(sRAMLoopMode, "Default 0 means SRAM pool must be specified when allocating SRAM memory, 1 means SRAM memory will be looped as default pool.");
+
+static uint mmuDynamicMap = 1;
+module_param(mmuDynamicMap, uint, 0644);
+MODULE_PARM_DESC(mmuDynamicMap, "Default 1 means enable mmu dynamic mapping in virsual memory, 0 means disable dynnamic mapping.");
 
 #if USE_LINUX_PCIE
 static int bar = 1;
@@ -280,11 +291,6 @@ static int sRAMOffsets[gcvSRAM_EXT_COUNT] = {[0 ... gcvSRAM_EXT_COUNT - 1] = -1}
 module_param_array(sRAMOffsets, int, NULL, 0644);
 MODULE_PARM_DESC(sRAMOffsets, "Array of SRAM offset inside bar of shared external SRAMs.");
 #endif
-
-static uint mmuPageTablePool = 1;
-module_param(mmuPageTablePool, uint, 0644);
-MODULE_PARM_DESC(mmuPageTablePool, "Default 1 means alloc mmu page table in virsual memory, 0 means auto select memory pool.");
-
 
 static int gpu3DMinClock = 1;
 static int contiguousRequested = 0;
@@ -415,6 +421,10 @@ _InitModuleParam(
     p->deviceType  = type;
     p->showArgs    = showArgs;
 
+    p->mmuPageTablePool = mmuPageTablePool;
+
+    p->mmuDynamicMap = mmuDynamicMap;
+    p->allMapInOne = allMapInOne;
 #if !gcdENABLE_3D
     p->irqs[gcvCORE_MAJOR]          = irqLine = -1;
     p->registerBases[gcvCORE_MAJOR] = registerMemBase = 0;
@@ -524,6 +534,10 @@ _SyncModuleParam(
 
     type        = p->deviceType;
     showArgs    = p->showArgs;
+
+    mmuPageTablePool = p->mmuDynamicMap;
+    mmuDynamicMap = p->mmuDynamicMap;
+    allMapInOne = p->allMapInOne;
 }
 
 void
@@ -588,6 +602,7 @@ gckOS_DumpParam(
     printk("  gpuProfiler       = %d\n",      gpuProfiler);
     printk("  userClusterMask   = 0x%x\n",    userClusterMask);
     printk("  smallBatch        = %d\n",      smallBatch);
+    printk("  allMapInOne       = %d\n",      allMapInOne);
 
     printk("  irqs              = ");
     for (i = 0; i < gcvCORE_COUNT; i++)
@@ -650,6 +665,9 @@ gckOS_DumpParam(
         printk("0x%llx, ", extSRAMBases[i]);
     }
     printk("\n");
+
+    printk("  mmuPageTablePool  = %d\n", mmuPageTablePool);
+    printk("  mmuDynamicMap     = %d\n", mmuDynamicMap);
 
     printk("Build options:\n");
     printk("  gcdGPU_TIMEOUT    = %d\n", gcdGPU_TIMEOUT);

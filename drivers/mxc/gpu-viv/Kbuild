@@ -72,12 +72,15 @@ HAL_KERNEL_DIR  := hal/kernel
 TA_DIR          := hal/security_v1
 HOST := $(shell hostname)
 
-# Include platform config if exists.
--include $(AQROOT)/$(OS_KERNEL_DIR)/platform/$(soc_vendor)/gc_hal_kernel_platform_$(soc_board).config
-
 MODULE_NAME ?= galcore
 CUSTOMER_ALLOCATOR_OBJS    ?=
 ALLOCATOR_ARRAY_H_LOCATION ?= $(OS_KERNEL_DIR)/allocator/default/
+SOC_PLATFORM_LOCATION      ?= $(OS_KERNEL_DIR)/platform/$(soc_vendor)
+
+# Set common platform driver source
+SOC_PLATFORM_OBJS ?= $(SOC_PLATFORM_LOCATION)/gc_hal_kernel_platform_$(soc_board).o
+# Include platform config if exists.
+-include $(AQROOT)/$(SOC_PLATFORM_LOCATION)/gc_hal_kernel_platform_$(soc_board).config
 
 ifeq ($(CONFIG_KASAN),)
 EXTRA_CFLAGS += -Werror -Wno-implicit-fallthrough
@@ -93,8 +96,10 @@ OBJS := $(OS_KERNEL_DIR)/gc_hal_kernel_device.o \
         $(OS_KERNEL_DIR)/allocator/default/gc_hal_kernel_allocator_dma.o \
         $(OS_KERNEL_DIR)/allocator/default/gc_hal_kernel_allocator_gfp.o \
         $(OS_KERNEL_DIR)/allocator/default/gc_hal_kernel_allocator_reserved_mem.o \
-        $(OS_KERNEL_DIR)/gc_hal_kernel_driver.o \
-        $(OS_KERNEL_DIR)/platform/$(soc_vendor)/gc_hal_kernel_platform_$(soc_board).o
+        $(OS_KERNEL_DIR)/gc_hal_kernel_driver.o
+
+# Source files for soc platform board
+OBJS += $(SOC_PLATFORM_OBJS)
 
 ifneq ($(CONFIG_DMA_SHARED_BUFFER),)
 OBJS += $(OS_KERNEL_DIR)/allocator/default/gc_hal_kernel_allocator_dmabuf.o
@@ -304,6 +309,7 @@ EXTRA_CFLAGS += -I$(AQROOT)/hal/kernel/inc
 EXTRA_CFLAGS += -I$(AQROOT)/hal/os/linux/kernel
 EXTRA_CFLAGS += -I$(AQROOT)/$(ALLOCATOR_ARRAY_H_LOCATION)
 EXTRA_CFLAGS += -I$(AQROOT)/hal/security_v1/
+EXTRA_CFLAGS += -I$(AQROOT)/$(SOC_PLATFORM_LOCATION)
 
 ifneq ($(CONFIG_ARM), )
 EXTRA_CFLAGS += -Iarch/arm/mm

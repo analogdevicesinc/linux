@@ -75,6 +75,7 @@ struct reserved_mem
 {
     unsigned long start;
     unsigned long size;
+    unsigned int offset_in_page;
     char name[32];
     int  release;
 
@@ -178,6 +179,7 @@ reserved_mem_attach(
 
     res->start = Desc->reservedMem.start;
     res->size  = Desc->reservedMem.size;
+    res->offset_in_page = Desc->reservedMem.start & (PAGE_SIZE - 1);
     strncpy(res->name, Desc->reservedMem.name, sizeof(res->name)-1);
     res->release = 0;
 
@@ -281,17 +283,19 @@ reserved_mem_unmap_user(
     IN gctUINT32 Size
     )
 {
+    struct reserved_mem *res = (struct reserved_mem*)Mdl->priv;
+
     if (unlikely(!current->mm))
         return;
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3,4,0)
-    if (vm_munmap((unsigned long)MdlMap->vmaAddr, (unsigned long)Size) < 0)
+    if (vm_munmap((unsigned long)MdlMap->vmaAddr - res->offset_in_page, res->size) < 0)
     {
         printk("%s: vm_munmap failed\n", __func__);
     }
 #else
     down_write(&current->mm->mmap_sem);
-    if (do_munmap(current->mm, (unsigned long)MdlMap->vmaAddr, (unsigned long)Size) < 0)
+    if (do_munmap(current->mm, (unsigned long)MdlMap->vmaAddr - res->offset_in_page, res->size) < 0)
     {
         printk("%s: do_munmap failed\n", __func__);
     }
@@ -357,7 +361,7 @@ reserved_mem_map_user(
 
         gcmkERR_BREAK(reserved_mem_mmap(Allocator, Mdl, gcvFALSE, 0, Mdl->numPages, vma));
 
-        MdlMap->vmaAddr = userLogical;
+        MdlMap->vmaAddr = userLogical + res->offset_in_page;
         MdlMap->cacheable = gcvFALSE;
         MdlMap->vma = vma;
     }

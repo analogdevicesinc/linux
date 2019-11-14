@@ -398,6 +398,40 @@ typedef struct _gcsALLOCATOR_OPERATIONS
 }
 gcsALLOCATOR_OPERATIONS;
 
+/* defination of allocator operations wrapper*/
+#define gcmALLOCATOR_Alloc(Allocator, Mdl, NumPages, Flag)     \
+            (Allocator)->ops->Alloc((Allocator), (Mdl), (NumPages), (Flag))
+
+#define gcmALLOCATOR_Free(Allocator, Mdl)      \
+            (Allocator)->ops->Free((Allocator), (Mdl))
+
+#define gcmALLOCATOR_Mmap(Allocator, Mdl, Cacheable, skipPages, numPages, vma) \
+            (Allocator)->ops->Mmap((Allocator), (Mdl), (Cacheable), (skipPages), (numPages), (vma))
+
+#define gcmALLOCATOR_MapUser(Allocator, Mdl, MdlMap, Cacheable)    \
+            (Allocator)->ops->MapUser((Allocator), (Mdl), (MdlMap), (Cacheable))
+
+#define gcmALLOCATOR_UnmapUser(Allocator, Mdl, MdlMap, Size)   \
+            (Allocator)->ops->UnmapUser((Allocator), (Mdl), (MdlMap), (Size))
+
+#define gcmALLOCATOR_MapKernel(Allocator, Mdl, Offset, Bytes, Logical) \
+            (Allocator)->ops->MapKernel((Allocator), (Mdl), (Offset), (Bytes), (Logical))
+
+#define gcmALLOCATOR_UnmapKernel(Allocator, Mdl, Logical) \
+            (Allocator)->ops->UnmapKernel((Allocator), (Mdl), (Logical))
+
+#define gcmALLOCATOR_Cache(Allocator, Mdl, Offset, Logical, Bytes, Operation)  \
+            (Allocator)->ops->Cache((Allocator), (Mdl), (Offset), (Logical), (Bytes), (Operation))
+
+#define gcmALLOCATOR_Physical(Allocator, Mdl, Offset, Phys)    \
+            (Allocator)->ops->Physical((Allocator), (Mdl), (Offset), (Phys))
+
+#define gcmALLOCATOR_Attach(Allocator, Desc, Mdl)  \
+            (Allocator)->ops->Attach((Allocator), (Desc), (Mdl))
+
+#define gcmALLOCATOR_GetSGT(Allocator, Mdl, Offset, Bytes, SGT) \
+            (Allocator)->ops->GetSGT((Allocator), (Mdl), (Offset), (Bytes), (SGT))
+
 typedef struct _gcsALLOCATOR
 {
     /* Pointer to gckOS Object. */

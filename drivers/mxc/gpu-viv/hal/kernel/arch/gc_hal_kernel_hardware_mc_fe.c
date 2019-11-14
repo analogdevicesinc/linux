@@ -203,6 +203,7 @@ _DestroyDescRingBuf(
             kernel,
             Channel->ringBufVideoMem,
             0,
+            gcvFALSE,
             gcvFALSE
             ));
 

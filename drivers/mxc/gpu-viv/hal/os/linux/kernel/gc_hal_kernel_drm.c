@@ -590,7 +590,7 @@ static int viv_ioctl_gem_attach_aux(struct drm_device *drm, void *data,
 
         /* Fill tile status node with tileStatusFiller. */
         memset(entry , tileStatusFiller , (__u64)gem_ts_obj->size);
-        gcmkONERROR(gckVIDMEM_NODE_UnlockCPU(kernel, ObjNode, 0, gcvFALSE));
+        gcmkONERROR(gckVIDMEM_NODE_UnlockCPU(kernel, ObjNode, 0, gcvFALSE, gcvFALSE));
 
         /* UnLock tile status node. */
         memset(&iface, 0, sizeof(iface));

@@ -472,7 +472,8 @@ depr_gcoSURF_ResolveRect(
 gceSTATUS
 gcoSURF_Resample(
     IN gcoSURF SrcSurf,
-    IN gcoSURF DstSurf
+    IN gcoSURF DstSurf,
+    IN gctBOOL sRGBDecode
     );
 
 /* Resolve rectangular area of a surface. */
@@ -1540,7 +1541,8 @@ gco3D_SetQuery(
     IN gco3D Engine,
     IN gctUINT32 QueryHeader,
     IN gceQueryType Type,
-    IN gctBOOL Enable
+    IN gctBOOL Enable,
+    IN gctUINT32 Index
     );
 
 gceSTATUS

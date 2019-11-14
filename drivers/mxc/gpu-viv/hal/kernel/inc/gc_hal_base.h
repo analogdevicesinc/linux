@@ -144,6 +144,8 @@ typedef struct _gcsNN_FIXED_FEATURE
     gctUINT  maxOTNumber;
     gctUINT  equivalentVipsramWidthInByte;
     gctUINT  shaderCoreCount;
+    gctUINT  latencyHidingAtFullAxiBw;
+    gctUINT  axiBusWidth;
 } gcsNN_FIXED_FEATURE;
 
 /* Features can be customized from outside */
@@ -644,7 +646,8 @@ gcoHAL_GetProductName(
 
 gceSTATUS
 gcoHAL_SetFscaleValue(
-    IN gctUINT FscaleValue
+    IN gctUINT FscaleValue,
+    IN gctUINT ShaderFscaleValue
     );
 
 gceSTATUS
@@ -735,10 +738,11 @@ gceSTATUS
 gcoHAL_QuerySRAM(
     IN gcoHAL Hal,
     IN gcePOOL Type,
-    OUT gctUINT32 *Base,
     OUT gctUINT32 *Size,
-    OUT gctPHYS_ADDR_T *gpuPhysical,
-    OUT gctPHYS_ADDR_T *cpuPhysical
+    OUT gctUINT32 *GPUVirtAddr,
+    OUT gctPHYS_ADDR_T *GPUPhysAddr,
+    OUT gctUINT32 *GPUPhysName,
+    OUT gctPHYS_ADDR_T *CPUPhysAddr
     );
 
 #ifdef LINUX

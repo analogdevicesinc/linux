@@ -1095,13 +1095,11 @@ typedef union _gcuVIDMEM_NODE
         gctSIZE_T               bytes;
         gctUINT32               alignment;
 
-#ifdef __QNXNTO__
         /* Client virtual address. */
         gctPOINTER              logical;
 
         /* Process ID owning this memory. */
         gctUINT32               processID;
-#endif
 
         /* Locked counter. */
         gctINT32                locked;
@@ -1111,6 +1109,9 @@ typedef union _gcuVIDMEM_NODE
 
         /* Kernel virtual address. */
         gctPOINTER              kvaddr;
+
+        /* mdl record pointer. */
+        gctPHYS_ADDR            physical;
 
 #if gcdENABLE_VG
         gctPOINTER              kernelVirtual;
@@ -1405,6 +1406,8 @@ typedef struct _gcsDEVICE
     gctUINT32                   extSRAMSizes[gcvSRAM_EXT_COUNT];
     /* GPU/VIP virtual address of external SRAMs. */
     gctUINT32                   extSRAMBaseAddresses[gcvSRAM_EXT_COUNT];
+    /* MDL. */
+    gctPHYS_ADDR                extSRAMPhysical[gcvSRAM_EXT_COUNT];
 
     /* Show SRAM mapping info or not. */
     gctUINT                     showSRAMMapInfo;
@@ -1480,6 +1483,7 @@ gckVIDMEM_NODE_AllocateLinear(
     IN gckVIDMEM VideoMemory,
     IN gcePOOL Pool,
     IN gceVIDMEM_TYPE Type,
+    IN gctUINT32 Flag,
     IN gctUINT32 Alignment,
     IN gctBOOL Specified,
     IN OUT gctSIZE_T * Bytes,
@@ -1579,7 +1583,8 @@ gckVIDMEM_NODE_UnlockCPU(
     IN gckKERNEL Kernel,
     IN gckVIDMEM_NODE NodeObject,
     IN gctUINT32 ProcessID,
-    IN gctBOOL FromUser
+    IN gctBOOL FromUser,
+    IN gctBOOL Defer
     );
 
 gceSTATUS
@@ -1721,6 +1726,9 @@ struct _gckMMU
     gctUINT32                   mtlbEntries;
     /* mtlb physical address. */
     gctPHYS_ADDR_T              mtlbPhysical;
+
+    /* memory pool used for page table */
+    gcePOOL                     pool;
 
     gctPOINTER                  staticSTLB;
     gctBOOL                     enabled;

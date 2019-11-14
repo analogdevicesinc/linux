@@ -57,8 +57,6 @@
 
 #define _GC_OBJ_ZONE    gcvZONE_MMU
 
-#define gcdMMU_PGTABLE_POOL     gcvPOOL_VIRTUAL
-
 typedef enum _gceMMU_TYPE
 {
     gcvMMU_USED     = (0 << 4),
@@ -632,6 +630,25 @@ OnError:
     return status;
 }
 
+static gcePOOL _GetPageTablePool(IN gckOS Os)
+{
+    gcePOOL pool = gcvPOOL_DEFAULT;
+    gctUINT64 data = 0;
+    gceSTATUS status;
+
+    status = gckOS_QueryOption(Os, "mmuPageTablePool", &data);
+
+    if (status  == gcvSTATUS_OK)
+    {
+        if (data == 1)
+        {
+            pool = gcvPOOL_VIRTUAL;
+        }
+    }
+
+    return pool;
+}
+
 static gceSTATUS
 _FillFlatMapping(
     IN gckMMU Mmu,
@@ -936,7 +953,7 @@ _FillFlatMapping(
         /* Need allocate a new chunk of stlbs */
         if (totalNewStlbs)
         {
-            gcePOOL pool = gcdMMU_PGTABLE_POOL;
+            gcePOOL pool = Mmu->pool;
             gctUINT32 allocFlag = gcvALLOC_FLAG_CONTIGUOUS;
 
             gcmkONERROR(
@@ -1249,7 +1266,7 @@ _ConstructDynamicStlb(
     gctBOOL acquired = gcvFALSE;
     gckKERNEL kernel = Mmu->hardware->kernel;
     gctUINT32 allocFlag = gcvALLOC_FLAG_CONTIGUOUS;
-    gcePOOL pool = gcdMMU_PGTABLE_POOL;
+    gcePOOL pool = Mmu->pool;
     gctUINT32 address;
     gctUINT32 mtlbEntry;
     gctUINT32 i;
@@ -1621,7 +1638,7 @@ _Construct(
     mmu->enabled          = gcvFALSE;
 
     mmu->dynamicAreaSetuped = gcvFALSE;
-
+    mmu->pool = _GetPageTablePool(mmu->os);
     gcsLIST_Init(&mmu->hardwareList);
 
     /* Use 4K page size for MMU version 0. */
@@ -1645,7 +1662,7 @@ _Construct(
 
         area->mapLogical = pointer;
 
-        pool = gcdMMU_PGTABLE_POOL;
+        pool = mmu->pool;
 
 #if gcdENABLE_CACHEABLE_COMMAND_BUFFER
         allocFlag |= gcvALLOC_FLAG_CACHEABLE;
@@ -1722,7 +1739,7 @@ _Construct(
     {
         mmu->mtlbSize = gcdMMU_MTLB_SIZE;
 
-        pool = gcdMMU_PGTABLE_POOL;
+        pool = mmu->pool;
 
 #if gcdENABLE_CACHEABLE_COMMAND_BUFFER
         allocFlag |= gcvALLOC_FLAG_CACHEABLE;
@@ -1867,7 +1884,7 @@ _Construct(
     /* A 64 byte for safe address, we use 256 here. */
     mmu->safePageSize = 256;
 
-    pool = gcdMMU_PGTABLE_POOL;
+    pool = mmu->pool;
 
     /* Allocate safe page from video memory. */
     gcmkONERROR(gckKERNEL_AllocateVideoMemory(
@@ -3201,11 +3218,16 @@ gckMMU_SetupSRAM(
 
                 Device->extSRAMBaseAddresses[i] = 0;
 
+                Hardware->options.extSRAMCPUPhysAddrs[i] = Device->extSRAMBases[i];
+
                 gcmkONERROR(gckOS_CPUPhysicalToGPUPhysical(
                     Mmu->os,
                     Device->extSRAMBases[i],
                     &Device->extSRAMBases[i]
                     ));
+
+                Hardware->options.extSRAMGPUPhysAddrs[i] = Device->extSRAMBases[i];
+
                 gcmkONERROR(_FillFlatMapping(
                     Mmu,
                     Device->extSRAMBases[i],
@@ -3216,6 +3238,8 @@ gckMMU_SetupSRAM(
                     ));
 
                 kernel->extSRAMBaseAddresses[i] = Device->extSRAMBaseAddresses[i];
+
+                Hardware->options.extSRAMGPUVirtAddrs[i] = Device->extSRAMBaseAddresses[i];
                 Hardware->options.extSRAMSizes[i] = Device->extSRAMSizes[i];
 
                 if (Device->showSRAMMapInfo)
@@ -3244,6 +3268,7 @@ gckMMU_SetupSRAM(
                                  = Device->sRAMSizes[Hardware->core][i];
 
             kernel->sRAMPhysFaked[i] = Device->sRAMPhysFaked[Hardware->core][i];
+            Hardware->options.sRAMGPUVirtAddrs[i] = Device->sRAMBaseAddresses[Hardware->core][i];
 
             /* If the internal SRAM usage is reserve. */
             if (kernel->sRAMPhysFaked[i])

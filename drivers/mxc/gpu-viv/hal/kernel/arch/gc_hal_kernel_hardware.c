@@ -62,6 +62,17 @@
 
 #define _GC_OBJ_ZONE    gcvZONE_HARDWARE
 
+/*
+There is a afifo that is receiving the “write-done” signal coming from AXI bus for each write request from GPU.
+In normal situation, these “write-done” are coming back in several cycles apart since the write request is generally multiple bursts.
+Things are working as expected in normal frequency working mode for AXI and GPU core clock.
+When the AXI clock is much faster than the GPU core clock, and the “write-done” traffic coming to GPU grouped together,
+This afifo could become full for it has depth of 5 entries, and GPU clock is too slow to latch-in the data.
+This causes the problem observed in the ticket.
+Suggest to keep AXI to GPU core clocks ratio not more than 2:1.
+*/
+#define MIN_FSCALE_LIMIT               32
+
 #define gcmSEMAPHORESTALL(buffer) \
         do \
         { \
@@ -1870,6 +1881,19 @@ gckSTATETIMER_Reset(
     gckOS_ZeroMemory(StateTimer->elapse, gcmSIZEOF(StateTimer->elapse));
 }
 
+gceSTATUS
+gckHARDWARE_StartTimerReset(
+    IN gckHARDWARE Hardware
+    )
+{
+    gceSTATUS status = gcvSTATUS_OK;
+    gcmkHEADER();
+
+    gckSTATETIMER_Reset(&Hardware->powerStateCounter, 0);
+
+    gcmkFOOTER();
+    return status;
+}
 
 static void
 gckSTATETIMER_Accumulate(
@@ -2275,10 +2299,8 @@ gckHARDWARE_Construct(
     if (_IsHardwareMatch(hardware, gcv600, 0x4653)
         || _IsHardwareMatch(hardware, gcv400, 0x4645))
     {
-        hardware->minFscaleValue = 20;
+        hardware->minFscaleValue = MIN_FSCALE_LIMIT;
     }
-
-    gckSTATETIMER_Reset(&hardware->powerStateCounter, 0);
 
 #if gcdLINK_QUEUE_SIZE
     gcmkONERROR(gckQUEUE_Allocate(hardware->os, &hardware->linkQueue, gcdLINK_QUEUE_SIZE));
@@ -2416,6 +2438,7 @@ gckHARDWARE_PreDestroy(
             Hardware->kernel,
             Hardware->auxFuncVideoMem,
             0,
+            gcvFALSE,
             gcvFALSE
             ));
 
@@ -2434,6 +2457,7 @@ gckHARDWARE_PreDestroy(
             Hardware->kernel,
             Hardware->mmuFuncVideoMem,
             0,
+            gcvFALSE,
             gcvFALSE
             ));
 
@@ -2452,6 +2476,7 @@ gckHARDWARE_PreDestroy(
             Hardware->kernel,
             Hardware->pagetableArray.videoMem,
             0,
+            gcvFALSE,
             gcvFALSE
             ));
 
@@ -10222,7 +10247,8 @@ gckHARDWARE_SetGpuProfiler(
 gceSTATUS
 gckHARDWARE_SetFscaleValue(
     IN gckHARDWARE Hardware,
-    IN gctUINT32   FscaleValue
+    IN gctUINT32   FscaleValue,
+    IN gctUINT32   ShaderFscaleValue
     )
 {
     gceSTATUS status;
@@ -10371,6 +10397,7 @@ gckHARDWARE_SetFscaleValue(
  11:11) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ? 11:11) - (0 ? 11:11) + 1))))))) << (0 ? 11:11)))));
 
+        /* Scale the core clock. */
         clock = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  0:0) - (0 ?
  0:0) + 1) == 32) ?
@@ -10432,6 +10459,73 @@ gckHARDWARE_SetFscaleValue(
  9:9) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ? 9:9) - (0 ? 9:9) + 1))))))) << (0 ? 9:9)))));
 
+        /* A option to support shader clock scaling. */
+        if (ShaderFscaleValue != ~0U && ShaderFscaleValue > 0 && ShaderFscaleValue < 64)
+        {
+            /* Scale the shader clock. */
+            clock = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 16:16) - (0 ?
+ 16:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 16:16) - (0 ?
+ 16:16) + 1))))))) << (0 ?
+ 16:16))) | (((gctUINT32) ((gctUINT32) (0) & ((gctUINT32) ((((1 ?
+ 16:16) - (0 ?
+ 16:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 16:16) - (0 ? 16:16) + 1))))))) << (0 ? 16:16)))
+                  | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 17:17) - (0 ?
+ 17:17) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 17:17) - (0 ?
+ 17:17) + 1))))))) << (0 ?
+ 17:17))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
+ 17:17) - (0 ?
+ 17:17) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 17:17) - (0 ? 17:17) + 1))))))) << (0 ? 17:17)))
+                  | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 7:1) - (0 ?
+ 7:1) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 7:1) - (0 ?
+ 7:1) + 1))))))) << (0 ?
+ 7:1))) | (((gctUINT32) ((gctUINT32) (ShaderFscaleValue) & ((gctUINT32) ((((1 ?
+ 7:1) - (0 ?
+ 7:1) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 7:1) - (0 ? 7:1) + 1))))))) << (0 ? 7:1)))
+                  | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1))))))) << (0 ?
+ 0:0))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 0:0) - (0 ? 0:0) + 1))))))) << (0 ? 0:0)));
+
+
+            gcmkONERROR(gckOS_WriteRegisterEx(Hardware->os,
+                                              Hardware->core,
+                                              0x0010C,
+                                              clock));
+
+            /* Done loading the frequency scaler. */
+            gcmkONERROR(gckOS_WriteRegisterEx(Hardware->os,
+                                              Hardware->core,
+                                              0x0010C,
+                                              ((((gctUINT32) (clock)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1))))))) << (0 ?
+ 0:0))) | (((gctUINT32) ((gctUINT32) (0) & ((gctUINT32) ((((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 0:0) - (0 ? 0:0) + 1))))))) << (0 ? 0:0)))));
+        }
+
         /* Restore all clock gating. */
         gcmkONERROR(
             gckOS_WriteRegisterEx(Hardware->os,
@@ -10477,6 +10571,15 @@ gckHARDWARE_SetMinFscaleValue(
     IN gctUINT MinFscaleValue
     )
 {
+    if (_IsHardwareMatch(Hardware, gcv600, 0x4653)
+        || _IsHardwareMatch(Hardware, gcv400, 0x4645))
+    {
+        if (MinFscaleValue < MIN_FSCALE_LIMIT)
+        {
+            MinFscaleValue = MIN_FSCALE_LIMIT;
+        }
+    }
+
     if (MinFscaleValue >= 1 && MinFscaleValue <= 64)
     {
         Hardware->minFscaleValue = MinFscaleValue;

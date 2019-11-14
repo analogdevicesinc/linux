@@ -131,10 +131,8 @@ _Split(
     node->VidMem.locked    = 0;
     node->VidMem.parent    = Node->VidMem.parent;
     node->VidMem.pool      = Node->VidMem.pool;
-#ifdef __QNXNTO__
     node->VidMem.processID = 0;
     node->VidMem.logical   = gcvNULL;
-#endif
     node->VidMem.kvaddr    = gcvNULL;
 
     /* Insert node behind specified node. */
@@ -346,10 +344,8 @@ gckVIDMEM_Construct(
 
         node->VidMem.locked    = 0;
 
-#ifdef __QNXNTO__
         node->VidMem.processID = 0;
         node->VidMem.logical   = gcvNULL;
-#endif
 
 #if gcdENABLE_VG
         node->VidMem.kernelVirtual = gcvNULL;
@@ -742,6 +738,9 @@ OnError:
 **      gceVIDMEM_TYPE Type
 **          Type of surface to allocate (use by bank optimization).
 **
+**      gctUINT32 Flag
+**          Flag of allocatetion.
+**
 **      gctBOOL Specified
 **          If user must use this pool, it should set Specified to gcvTRUE,
 **          otherwise allocator may reserve some memory for other usage, such
@@ -759,6 +758,7 @@ gckVIDMEM_AllocateLinear(
     IN gctSIZE_T Bytes,
     IN gctUINT32 Alignment,
     IN gceVIDMEM_TYPE Type,
+    IN gctUINT32 Flag,
     IN gctBOOL Specified,
     OUT gcuVIDMEM_NODE_PTR * Node
     )
@@ -768,6 +768,7 @@ gckVIDMEM_AllocateLinear(
     gctUINT32 alignment;
     gctINT bank, i;
     gctBOOL acquired = gcvFALSE;
+    gctUINT64 mappingInOne = 1;
 
     gcmkHEADER_ARG("Memory=0x%x Bytes=%lu Alignment=%u Type=%d",
                    Memory, Bytes, Alignment, Type);
@@ -904,10 +905,8 @@ gckVIDMEM_AllocateLinear(
     /* Fill in the information. */
     node->VidMem.alignment = alignment;
     node->VidMem.parent    = Memory;
-#ifdef __QNXNTO__
     node->VidMem.logical   = gcvNULL;
     gcmkONERROR(gckOS_GetProcessID(&node->VidMem.processID));
-#endif
 
     /* Adjust the number of free bytes. */
     Memory->freeBytes   -= node->VidMem.bytes;
@@ -920,6 +919,18 @@ gckVIDMEM_AllocateLinear(
 #if gcdENABLE_VG
     node->VidMem.kernelVirtual = gcvNULL;
 #endif
+    gckOS_QueryOption(Memory->os, "allMapInOne", &mappingInOne);
+    if (!mappingInOne)
+    {
+        gcmkONERROR(gckOS_RequestReservedMemory(
+                Memory->os,
+                Memory->physicalBase + node->VidMem.offset,
+                node->VidMem.bytes,
+                "gal reserved memory",
+                gcvTRUE,
+                &node->VidMem.physical
+                ));
+    }
 
     /* Release the mutex. */
     gcmkVERIFY_OK(gckOS_ReleaseMutex(Memory->os, Memory->mutex));
@@ -1849,6 +1860,7 @@ gckVIDMEM_Free(
     gctBOOL mutexAcquired = gcvFALSE;
     gctBOOL vbMutexAcquired = gcvFALSE;
     gctBOOL vbListMutexAcquired = gcvFALSE;
+    gctUINT64 mappingInOne = 1;
 
     gcmkHEADER_ARG("Node=0x%x", Node);
 
@@ -1892,6 +1904,8 @@ gckVIDMEM_Free(
         {
             gckKERNEL_UnmapVideoMemory(
                 Kernel,
+                Node->VidMem.pool,
+                Node->VidMem.physical,
                 Node->VidMem.logical,
                 Node->VidMem.processID,
                 Node->VidMem.bytes
@@ -1974,6 +1988,13 @@ gckVIDMEM_Free(
                 gcmkASSERT(node->VidMem.nextFree != node);
                 gcmkASSERT(node->VidMem.prevFree != node);
             }
+        }
+
+        gckOS_QueryOption(memory->os, "allMapInOne", &mappingInOne);
+        if (!mappingInOne)
+        {
+            gckOS_ReleaseReservedMemory(memory->os, Node->VidMem.physical);
+            Node->VidMem.physical = gcvNULL;
         }
 
         /* Release the mutex. */
@@ -3072,6 +3093,7 @@ gckVIDMEM_NODE_AllocateLinear(
     IN gckVIDMEM VideoMemory,
     IN gcePOOL Pool,
     IN gceVIDMEM_TYPE Type,
+    IN gctUINT32 Flag,
     IN gctUINT32 Alignment,
     IN gctBOOL Specified,
     IN OUT gctSIZE_T * Bytes,
@@ -3092,6 +3114,7 @@ gckVIDMEM_NODE_AllocateLinear(
                                  bytes,
                                  Alignment,
                                  Type,
+                                 Flag,
                                  Specified,
                                  &node));
 
@@ -3575,28 +3598,16 @@ gckVIDMEM_NODE_LockCPU(
         if (FromUser)
         {
             /* Map video memory pool to user space. */
-#ifdef __QNXNTO__
-            if (node->VidMem.logical == gcvNULL)
-            {
-                gcmkONERROR(
-                    gckKERNEL_MapVideoMemory(Kernel,
-                                             gcvTRUE,
-                                             node->VidMem.pool,
-                                             (gctUINT32)node->VidMem.offset,
-                                             (gctUINT32)node->VidMem.bytes,
-                                             &node->VidMem.logical));
-            }
-
-            logical = node->VidMem.logical;
-#else
             gcmkONERROR(
                 gckKERNEL_MapVideoMemory(Kernel,
                                          gcvTRUE,
                                          node->VidMem.pool,
+                                         node->VidMem.physical,
                                          (gctUINT32)node->VidMem.offset,
                                          (gctUINT32)node->VidMem.bytes,
-                                         &logical));
-#endif
+                                         &node->VidMem.logical));
+
+            logical = node->VidMem.logical;
         }
         else
         {
@@ -3700,7 +3711,8 @@ gckVIDMEM_NODE_UnlockCPU(
     IN gckKERNEL Kernel,
     IN gckVIDMEM_NODE NodeObject,
     IN gctUINT32 ProcessID,
-    IN gctBOOL FromUser
+    IN gctBOOL FromUser,
+    IN gctBOOL Defer
     )
 {
     gceSTATUS status;
@@ -3719,7 +3731,29 @@ gckVIDMEM_NODE_UnlockCPU(
     {
         if (FromUser)
         {
+#ifdef __QNXNTO__
             /* Do nothing here. */
+#else
+            if (!Defer)
+            {
+                /* Unmap the video memory. */
+                if (node->VidMem.logical != gcvNULL)
+                {
+                    gckKERNEL_UnmapVideoMemory(
+                        Kernel,
+                        node->VidMem.pool,
+                        node->VidMem.physical,
+                        node->VidMem.logical,
+                        node->VidMem.processID,
+                        node->VidMem.bytes
+                        );
+
+                    node->VidMem.logical = gcvNULL;
+                }
+                /* Reset. */
+                node->VidMem.processID = 0;
+            }
+#endif
         }
         else
         {

@@ -1700,21 +1700,22 @@ gckKERNEL_MapVideoMemory(
     IN gckKERNEL Kernel,
     IN gctBOOL InUserSpace,
     IN gcePOOL Pool,
+    IN gctPHYS_ADDR Physical,
     IN gctUINT32 Offset,
     IN gctUINT32 Bytes,
     OUT gctPOINTER * Logical
     );
 
-#ifdef __QNXNTO__
 /* Unmap dedicated video memory. */
 gceSTATUS
 gckKERNEL_UnmapVideoMemory(
     IN gckKERNEL Kernel,
+    IN gcePOOL Pool,
+    IN gctPHYS_ADDR Physical,
     IN gctPOINTER Logical,
     IN gctUINT32 Pid,
-    IN gctUINT32 Bytes
+    IN gctSIZE_T Bytes
     );
-#endif
 
 /* Map memory. */
 gceSTATUS
@@ -1997,6 +1998,14 @@ gckHARDWARE_ReadInterrupt(
     OUT gctUINT32_PTR IDs
     );
 
+/*
+* State timer helper.
+*/
+gceSTATUS
+gckHARDWARE_StartTimerReset(
+    IN gckHARDWARE Hardware
+    );
+
 /* Power management. */
 gceSTATUS
 gckHARDWARE_SetPowerState(
@@ -2026,7 +2035,8 @@ gckHARDWARE_SetGpuProfiler(
 gceSTATUS
 gckHARDWARE_SetFscaleValue(
     IN gckHARDWARE Hardware,
-    IN gctUINT32   FscaleValue
+    IN gctUINT32   FscaleValue,
+    IN gctUINT32   ShaderFscaleValue
     );
 
 gceSTATUS

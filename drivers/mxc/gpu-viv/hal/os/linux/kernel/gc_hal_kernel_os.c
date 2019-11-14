@@ -232,9 +232,9 @@ _DestroyMdl(
         {
             if (Mdl->addr)
             {
-                allocator->ops->UnmapKernel(allocator, Mdl, Mdl->addr);
+                gcmALLOCATOR_UnmapKernel(allocator, Mdl, Mdl->addr);
             }
-            allocator->ops->Free(allocator, Mdl);
+            gcmALLOCATOR_Free(allocator, Mdl);
         }
 
         mutex_lock(&Mdl->mapsMutex);
@@ -871,7 +871,7 @@ gckOS_CreateKernelMapping(
     }
     else
     {
-        gcmkONERROR(allocator->ops->MapKernel(allocator, mdl, Offset, Bytes, Logical));
+        gcmkONERROR(gcmALLOCATOR_MapKernel(allocator, mdl, Offset, Bytes, Logical));
     }
 
 OnError:
@@ -897,7 +897,7 @@ gckOS_DestroyKernelMapping(
     }
     else
     {
-        allocator->ops->UnmapKernel(allocator, mdl, Logical);
+        gcmALLOCATOR_UnmapKernel(allocator, mdl, Logical);
     }
 
     gcmkFOOTER_NO();
@@ -1152,10 +1152,7 @@ gckOS_MapMemory(
     {
         allocator = mdl->allocator;
 
-        gcmkONERROR(
-            allocator->ops->MapUser(allocator,
-                                    mdl, mdlMap,
-                                    gcvFALSE));
+        gcmkONERROR(gcmALLOCATOR_MapUser(allocator, mdl, mdlMap, gcvFALSE));
     }
 
     mutex_unlock(&mdl->mapsMutex);
@@ -1278,15 +1275,17 @@ gckOS_UnmapMemoryEx(
 
         mdlMap = FindMdlMap(mdl, PID);
 
-        if (mdlMap == gcvNULL || mdlMap->vmaAddr == gcvNULL)
+        if (mdlMap == gcvNULL)
         {
             mutex_unlock(&mdl->mapsMutex);
             gcmkONERROR(gcvSTATUS_INVALID_ARGUMENT);
         }
 
-        BUG_ON(!allocator || !allocator->ops->UnmapUser);
-
-        allocator->ops->UnmapUser(allocator, mdl, mdlMap, mdl->bytes);
+        if (mdlMap->vmaAddr != gcvNULL)
+        {
+            BUG_ON(!allocator || !allocator->ops->UnmapUser);
+            gcmALLOCATOR_UnmapUser(allocator, mdl, mdlMap, mdl->bytes);
+        }
 
         gcmkVERIFY_OK(_DestroyMdlMap(mdl, mdlMap));
 
@@ -1396,15 +1395,7 @@ gckOS_AllocateNonPagedMemory(
         if (!strcmp(allocator->name, "dma") ||
             ((Flag & allocator->capability) == Flag && numPages == 1))
         {
-            /*!VIV:
-             * For historical issue, we force allocate all non-paged memory from
-             * dma coherent pool when it is not disabled.
-             *
-             * The code here changes the scheme a little: can try other
-             * allocators when page count is 1. This is to save memory usage of
-             * dma coherent pool.
-             */
-            status = allocator->ops->Alloc(allocator, mdl, numPages, Flag);
+            status = gcmALLOCATOR_Alloc(allocator, mdl, numPages, Flag);
 
             if (gcmIS_SUCCESS(status))
             {
@@ -1415,7 +1406,7 @@ gckOS_AllocateNonPagedMemory(
 #else
         if ((Flag & allocator->capability) == Flag)
         {
-            status = allocator->ops->Alloc(allocator, mdl, numPages, Flag);
+            status = gcmALLOCATOR_Alloc(allocator, mdl, numPages, Flag);
 
             if (gcmIS_SUCCESS(status))
             {
@@ -1436,7 +1427,7 @@ gckOS_AllocateNonPagedMemory(
 
     mdl->contiguous = gcvTRUE;
 
-    gcmkONERROR(allocator->ops->MapKernel(allocator, mdl, 0, bytes, &addr));
+    gcmkONERROR(gcmALLOCATOR_MapKernel(allocator, mdl, 0, bytes, &addr));
 
     if (!strcmp(allocator->name, "gfp"))
     {
@@ -1455,7 +1446,7 @@ gckOS_AllocateNonPagedMemory(
             gcmkONERROR(gcvSTATUS_OUT_OF_MEMORY);
         }
 
-        gcmkONERROR(allocator->ops->MapUser(allocator, mdl, mdlMap, gcvFALSE));
+        gcmkONERROR(gcmALLOCATOR_MapUser(allocator, mdl, mdlMap, gcvFALSE));
 
         *Logical = mdlMap->vmaAddr;
     }
@@ -1609,7 +1600,7 @@ gckOS_RequestReservedMemory(
     }
 
     /* Call attach. */
-    gcmkONERROR(allocator->ops->Attach(allocator, &desc, mdl));
+    gcmkONERROR(gcmALLOCATOR_Attach(allocator, &desc, mdl));
 
     /* Assign alloator. */
     mdl->allocator  = allocator;
@@ -1650,15 +1641,12 @@ gckOS_ReleaseReservedMemory(
     gctPOINTER MemoryHandle
     )
 {
-    gckALLOCATOR allocator;
     PLINUX_MDL mdl = (PLINUX_MDL)MemoryHandle;
 
-    allocator = _FindAllocator(Os, gcvALLOC_FLAG_LINUX_RESERVED_MEM);
-
-    /* If no allocator, how comes the memory? */
-    BUG_ON(!allocator);
-
-    allocator->ops->Free(allocator, mdl);
+    if (mdl)
+    {
+        gcmkVERIFY_OK(_DestroyMdl(mdl));
+    }
 }
 
 /*******************************************************************************
@@ -2085,7 +2073,7 @@ gckOS_GetPhysicalFromHandle(
     PLINUX_MDL mdl = (PLINUX_MDL)Physical;
     gckALLOCATOR allocator = mdl->allocator;
 
-    return allocator->ops->Physical(allocator, mdl, Offset, PhysicalAddress);
+    return gcmALLOCATOR_Physical(allocator, mdl, Offset, PhysicalAddress);
 }
 
 
@@ -2154,7 +2142,7 @@ _ConvertLogical2Physical(
     {
         offset = (gctINT8_PTR) Logical - vBase;
 
-        allocator->ops->Physical(allocator, Mdl, offset, Physical);
+        gcmALLOCATOR_Physical(allocator, Mdl, offset, Physical);
 
         status = gcvSTATUS_OK;
     }
@@ -3156,7 +3144,7 @@ gckOS_AllocatePagedMemory(
             continue;
         }
 
-        status = allocator->ops->Alloc(allocator, mdl, numPages, Flag);
+        status = gcmALLOCATOR_Alloc(allocator, mdl, numPages, Flag);
 
         if (gcmIS_SUCCESS(status))
         {
@@ -3321,7 +3309,7 @@ gckOS_LockPages(
 
     if (mdlMap->vmaAddr == gcvNULL)
     {
-        gcmkONERROR(allocator->ops->MapUser(allocator, mdl, mdlMap, Cacheable));
+        gcmkONERROR(gcmALLOCATOR_MapUser(allocator, mdl, mdlMap, Cacheable));
     }
 
     mdlMap->count++;
@@ -3408,7 +3396,7 @@ gckOS_MapPagesEx(
         gctUINT i;
         gctPHYS_ADDR_T phys = ~0U;
 
-        allocator->ops->Physical(allocator, mdl, offset, &phys);
+        gcmALLOCATOR_Physical(allocator, mdl, offset, &phys);
 
         gcmkVERIFY_OK(gckOS_CPUPhysicalToGPUPhysical(Os, phys, &phys));
 
@@ -3613,7 +3601,7 @@ gckOS_Map1MPages(
     {
         gctPHYS_ADDR_T phys = ~0U;
 
-        allocator->ops->Physical(allocator, mdl, offset, &phys);
+        gcmALLOCATOR_Physical(allocator, mdl, offset, &phys);
 
         gcmkVERIFY_OK(gckOS_CPUPhysicalToGPUPhysical(Os, phys, &phys));
 
@@ -3729,7 +3717,7 @@ gckOS_UnlockPages(
         {
             if (--mdlMap->count == 0)
             {
-                allocator->ops->UnmapUser(
+                gcmALLOCATOR_UnmapUser(
                     allocator,
                     mdl,
                     mdlMap,
@@ -4253,7 +4241,7 @@ _CacheOperation(
         if ((!ProcessID && mdl->cacheable) ||
             (mdlMap && mdlMap->cacheable))
         {
-            allocator->ops->Cache(allocator,
+            gcmALLOCATOR_Cache(allocator,
                 mdl, Offset, Logical, Bytes, Operation);
 
             return gcvSTATUS_OK;
@@ -7032,7 +7020,7 @@ gckOS_AllocatePageArray(
 
         gctPHYS_ADDR_T phys_addr;
 
-        allocator->ops->Physical(allocator, mdl, offset * PAGE_SIZE, &phys_addr);
+        gcmALLOCATOR_Physical(allocator, mdl, offset * PAGE_SIZE, &phys_addr);
 
         phys = (unsigned long)phys_addr;
 
@@ -7234,6 +7222,18 @@ gckOS_QueryOption(
     {
         *Value = device->platform->flagBits;
     }
+    else if (!strcmp(Option, "mmuPageTablePool"))
+    {
+        *Value = device->args.mmuPageTablePool;
+    }
+    else if (!strcmp(Option, "mmuDynamicMap"))
+    {
+        *Value = device->args.mmuDynamicMap;
+    }
+    else if (!strcmp(Option, "allMapInOne"))
+    {
+        *Value = device->args.allMapInOne;
+    }
     else
     {
         status = gcvSTATUS_NOT_SUPPORTED;
@@ -7270,7 +7270,7 @@ gckOS_MemoryGetSGT(
 
     if (Bytes > 0)
     {
-        gcmkONERROR(allocator->ops->GetSGT(allocator, mdl, Offset, Bytes, SGT));
+        gcmkONERROR(gcmALLOCATOR_GetSGT(allocator, mdl, Offset, Bytes, SGT));
     }
 
 OnError:
@@ -7315,7 +7315,7 @@ gckOS_MemoryMmap(
 
     mutex_unlock(&mdl->mapsMutex);
 
-    gcmkONERROR(allocator->ops->Mmap(allocator, mdl, cacheable, skipPages, numPages, Vma));
+    gcmkONERROR(gcmALLOCATOR_Mmap(allocator, mdl, cacheable, skipPages, numPages, Vma));
 
 OnError:
     return status;
@@ -7424,7 +7424,7 @@ gckOS_WrapMemory(
             }
         }
 
-        status = allocator->ops->Attach(allocator, &desc, mdl);
+        status = gcmALLOCATOR_Attach(allocator, &desc, mdl);
 
         if (gcmIS_SUCCESS(status))
         {
