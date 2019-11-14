@@ -150,6 +150,19 @@
 			};
 		};
 
+		pwm_lvds0: pwm@56244000 {
+			compatible = "fsl,imx8qm-pwm", "fsl,imx27-pwm";
+			reg = <0x56244000 0x1000>;
+			clocks = <&lvds0_pwm_lpcg 0>,
+				 <&lvds0_pwm_lpcg 1>;
+			clock-names = "per", "ipg";
+			assigned-clocks = <&clk IMX_SC_R_LVDS_0_PWM_0 IMX_SC_PM_CLK_PER>;
+			assigned-clock-rates = <24000000>;
+			#pwm-cells = <2>;
+			power-domains = <&pd IMX_SC_R_LVDS_0_PWM_0>;
+			status = "disabled";
+		};
+
 		i2c1_lvds0: i2c@56247000 {
 			compatible = "fsl,imx8qm-lpi2c", "fsl,imx7ulp-lpi2c";
 			reg = <0x56247000 0x4000>;
@@ -301,6 +314,19 @@
 					};
 				};
 			};
+		};
+
+		pwm_lvds1: pwm@57244000 {
+			compatible = "fsl,imx8qm-pwm", "fsl,imx27-pwm";
+			reg = <0x57244000 0x1000>;
+			clocks = <&lvds1_pwm_lpcg 0>,
+				 <&lvds1_pwm_lpcg 1>;
+			clock-names = "per", "ipg";
+			assigned-clocks = <&clk IMX_SC_R_LVDS_1_PWM_0 IMX_SC_PM_CLK_PER>;
+			assigned-clock-rates = <24000000>;
+			#pwm-cells = <2>;
+			power-domains = <&pd IMX_SC_R_LVDS_1_PWM_0>;
+			status = "disabled";
 		};
 
 		i2c1_lvds1: i2c@57247000 {
