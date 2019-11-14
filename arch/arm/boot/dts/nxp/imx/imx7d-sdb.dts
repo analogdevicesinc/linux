@@ -24,6 +24,19 @@
 		reg = <0x80000000 0x80000000>;
 	};
 
+	reserved-memory {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+
+		linux,cma {
+			compatible = "shared-dma-pool";
+			reusable;
+			size = <0x14000000>;
+			linux,cma-default;
+		};
+	};
+
 	modem_reset: modem-reset {
 		compatible = "gpio-reset";
 		reset-gpios = <&gpio4 23 GPIO_ACTIVE_LOW>;
