@@ -1,0 +1,21 @@
+// SPDX-License-Identifier: GPL-2.0+
+
+/*
+ * Copyright 2019 NXP
+ */
+
+#include "imx8qxp-mek-rpmsg.dts"
+
+&i2c0_mipi_lvds0 {
+	lvds-to-hdmi-bridge@4c {
+		split-mode;
+	};
+};
+
+&ldb1 {
+	fsl,dual-channel;
+};
+
+&ldb2 {
+	status = "disabled";
+};
