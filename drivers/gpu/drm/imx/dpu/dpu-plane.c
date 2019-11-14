@@ -28,11 +28,7 @@
 
 #define FRAC_16_16(mult, div)    (((mult) << 16) / (div))
 
-/*
- * RGB and packed/2planar YUV formats
- * are widely supported by many fetch units.
- */
-static const uint32_t dpu_primary_formats[] = {
+static const uint32_t dpu_formats[] = {
 	DRM_FORMAT_ARGB8888,
 	DRM_FORMAT_XRGB8888,
 	DRM_FORMAT_ABGR8888,
@@ -40,19 +36,6 @@ static const uint32_t dpu_primary_formats[] = {
 	DRM_FORMAT_RGBA8888,
 	DRM_FORMAT_RGBX8888,
 	DRM_FORMAT_BGRA8888,
-	DRM_FORMAT_BGRX8888,
-	DRM_FORMAT_RGB565,
-
-	DRM_FORMAT_YUYV,
-	DRM_FORMAT_UYVY,
-	DRM_FORMAT_NV12,
-	DRM_FORMAT_NV21,
-};
-
-static const uint32_t dpu_overlay_formats[] = {
-	DRM_FORMAT_XRGB8888,
-	DRM_FORMAT_XBGR8888,
-	DRM_FORMAT_RGBX8888,
 	DRM_FORMAT_BGRX8888,
 	DRM_FORMAT_RGB565,
 
@@ -956,8 +939,6 @@ struct dpu_plane *dpu_plane_create(struct drm_device *drm,
 {
 	struct dpu_plane *dpu_plane;
 	struct drm_plane *plane;
-	const uint32_t *formats;
-	unsigned int format_count;
 	unsigned int zpos = dpu_plane_get_default_zpos(type);
 	int ret;
 
@@ -970,22 +951,9 @@ struct dpu_plane *dpu_plane_create(struct drm_device *drm,
 
 	plane = &dpu_plane->base;
 
-	switch (type) {
-	case DRM_PLANE_TYPE_PRIMARY:
-		formats = dpu_primary_formats;
-		format_count = ARRAY_SIZE(dpu_primary_formats);
-		break;
-	case DRM_PLANE_TYPE_OVERLAY:
-		formats = dpu_overlay_formats;
-		format_count = ARRAY_SIZE(dpu_overlay_formats);
-		break;
-	default:
-		ret = -EINVAL;
-		goto err;
-	}
-
 	ret = drm_universal_plane_init(drm, plane, possible_crtcs,
-				       &dpu_plane_funcs, formats, format_count,
+				       &dpu_plane_funcs,
+				       dpu_formats, ARRAY_SIZE(dpu_formats),
 				       dpu_format_modifiers, type, NULL);
 	if (ret)
 		goto err;
