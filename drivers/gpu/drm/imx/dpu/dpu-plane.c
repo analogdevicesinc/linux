@@ -971,17 +971,15 @@ struct dpu_plane *dpu_plane_create(struct drm_device *drm,
 		format_count = ARRAY_SIZE(dpu_overlay_formats);
 		break;
 	default:
-		kfree(dpu_plane);
-		return ERR_PTR(-EINVAL);
+		ret = -EINVAL;
+		goto err;
 	}
 
 	ret = drm_universal_plane_init(drm, plane, possible_crtcs,
 				       &dpu_plane_funcs, formats, format_count,
 				       dpu_format_modifiers, type, NULL);
-	if (ret) {
-		kfree(dpu_plane);
-		return ERR_PTR(ret);
-	}
+	if (ret)
+		goto err;
 
 	drm_plane_helper_add(plane, &dpu_plane_helper_funcs);
 
@@ -999,10 +997,12 @@ struct dpu_plane *dpu_plane_create(struct drm_device *drm,
 		ret = -EINVAL;
 	}
 
-	if (ret) {
-		kfree(dpu_plane);
-		return ERR_PTR(ret);
-	}
+	if (ret)
+		goto err;
 
 	return dpu_plane;
+
+err:
+	kfree(dpu_plane);
+	return ERR_PTR(ret);
 }
