@@ -15,11 +15,10 @@
 #include <linux/err.h>
 #include <linux/module.h>
 #include <linux/gcd.h>
-#include <linux/gpio.h>
 #include <asm/div64.h>
 #include <linux/clk.h>
 #include <linux/of.h>
-#include <linux/of_gpio.h>
+#include <linux/gpio/consumer.h>
 
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
@@ -62,7 +61,6 @@ static struct adf4350_platform_data default_pdata = {
 	.r3_user_settings = ADF4350_REG3_12BIT_CLKDIV_MODE(0),
 	.r4_user_settings = ADF4350_REG4_OUTPUT_PWR(3) |
 			    ADF4350_REG4_MUTE_TILL_LOCK_EN,
-	.gpio_lock_detect = -1,
 };
 
 static int adf4350_sync_config(struct adf4350_state *st, bool sync_all)
@@ -297,8 +295,8 @@ static ssize_t adf4350_read(struct iio_dev *indio_dev,
 			(u64)st->fpfd;
 		do_div(val, st->r1_mod * (1 << st->r4_rf_div_sel));
 		/* PLL unlocked? return error */
-		if (gpio_is_valid(st->pdata->gpio_lock_detect))
-			if (!gpio_get_value(st->pdata->gpio_lock_detect)) {
+		if (st->pdata->gpio_lock_detect)
+			if (!gpiod_get_value(st->pdata->gpio_lock_detect)) {
 				dev_dbg(&st->spi->dev, "PLL un-locked\n");
 				ret = -EBUSY;
 			}
@@ -361,7 +359,6 @@ static struct adf4350_platform_data *adf4350_parse_dt(struct device *dev)
 	struct device_node *np = dev->of_node;
 	struct adf4350_platform_data *pdata;
 	unsigned int tmp;
-	int ret;
 
 	pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
 	if (!pdata)
@@ -381,11 +378,10 @@ static struct adf4350_platform_data *adf4350_parse_dt(struct device *dev)
 	of_property_read_u32(np, "adi,reference-div-factor", &tmp);
 	pdata->ref_div_factor = tmp;
 
-	ret = of_get_gpio(np, 0);
-	if (ret < 0)
-		pdata->gpio_lock_detect = -1;
-	else
-		pdata->gpio_lock_detect = ret;
+	pdata->gpio_lock_detect = devm_gpiod_get_optional(dev, "lock_detect",
+							  GPIOD_IN);
+	if (IS_ERR(pdata->gpio_lock_detect))
+		return NULL;
 
 	pdata->ref_doubler_en = of_property_read_bool(np,
 			"adi,reference-doubler-enable");
@@ -541,23 +537,15 @@ static int adf4350_probe(struct spi_device *spi)
 
 	memset(st->regs_hw, 0xFF, sizeof(st->regs_hw));
 
-	if (gpio_is_valid(pdata->gpio_lock_detect)) {
+	if (pdata->gpio_lock_detect) {
 		int i;
-		ret = devm_gpio_request(&spi->dev, pdata->gpio_lock_detect,
-					indio_dev->name);
-		if (ret) {
-			dev_err(&spi->dev, "fail to request lock detect GPIO-%d",
-				pdata->gpio_lock_detect);
-			goto error_disable_reg;
-		}
-		gpio_direction_input(pdata->gpio_lock_detect);
 
 		/* ADF4350/1 are write only devices, try to probe it this way */
 		for (i = 0; i < 4; i++) {
 			st->regs[ADF4350_REG2] = ADF4350_REG2_MUXOUT((i & 1) ?
 				ADF4350_MUXOUT_DVDD : ADF4350_MUXOUT_GND);
 			adf4350_sync_config(st, false);
-			ret = gpio_get_value(st->pdata->gpio_lock_detect);
+			ret = gpiod_get_value(st->pdata->gpio_lock_detect);
 			if (ret != ((i & 1) ? 1 : 0)) {
 				ret = -ENODEV;
 				dev_err(&spi->dev, "Probe failed (muxout)");
