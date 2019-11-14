@@ -230,6 +230,7 @@ struct axiadc_converter {
 
 	struct delayed_work	watchdog_work;
 	bool			sample_rate_read_only;
+	bool			running;
 
 	int (*reg_access)(struct iio_dev *indio_dev, unsigned int reg,
 		unsigned int writeval, unsigned int *readval);
