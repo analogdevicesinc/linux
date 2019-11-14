@@ -848,9 +848,12 @@ static int ad9680_set_sample_rate(struct axiadc_converter *conv,
 	/* Disable link */
 	ad9680_spi_write(conv->spi, 0x571, 0x15);
 
-	clk_disable_unprepare(conv->lane_clk);
-	clk_disable_unprepare(conv->sysref_clk);
-	clk_disable_unprepare(conv->clk);
+	if (conv->running) {
+		clk_disable_unprepare(conv->lane_clk);
+		clk_disable_unprepare(conv->sysref_clk);
+		clk_disable_unprepare(conv->clk);
+		conv->running = false;
+	}
 
 	ret = clk_set_rate(conv->clk, sample_rate);
 	if (ret) {
@@ -870,6 +873,7 @@ static int ad9680_set_sample_rate(struct axiadc_converter *conv,
 	}
 	ret = clk_prepare_enable(conv->sysref_clk);
 	if (ret) {
+		clk_disable_unprepare(conv->clk);
 		dev_err(&conv->spi->dev, "Failed to enable SYSREF clock: %d\n", ret);
 		return ret;
 	}
@@ -885,11 +889,14 @@ static int ad9680_set_sample_rate(struct axiadc_converter *conv,
 
 	ret = clk_prepare_enable(conv->lane_clk);
 	if (ret < 0) {
+		clk_disable_unprepare(conv->clk);
+		clk_disable_unprepare(conv->sysref_clk);
 		dev_err(&conv->spi->dev, "Failed to enable JESD204 link: %d\n", ret);
 		return ret;
 	}
 
 	conv->adc_clk = sample_rate;
+	conv->running = true;
 
 	return 0;
 }
@@ -910,20 +917,31 @@ static int ad9680_request_clks(struct axiadc_converter *conv)
 	}
 
 	conv->clk = devm_clk_get(&conv->spi->dev, "adc_clk");
-	if (IS_ERR(conv->clk) && PTR_ERR(conv->clk) != -ENOENT)
-		return PTR_ERR(conv->clk);
-
-	if (!IS_ERR(conv->clk)) {
+	if (IS_ERR(conv->clk)) {
+		if (PTR_ERR(conv->clk) != -ENOENT) {
+			clk_disable_unprepare(conv->sysref_clk);
+			return PTR_ERR(conv->clk);
+		}
+		conv->clk = NULL;
+	} else {
 		ret = clk_prepare_enable(conv->clk);
-		if (ret < 0)
+		if (ret < 0) {
+			clk_disable_unprepare(conv->sysref_clk);
 			return ret;
+		}
 
 		conv->adc_clk = clk_get_rate(conv->clk);
 	}
 
 	conv->lane_clk = devm_clk_get(&conv->spi->dev, "jesd_adc_clk");
-	if (IS_ERR(conv->lane_clk) && PTR_ERR(conv->lane_clk) != -ENOENT)
-		return PTR_ERR(conv->lane_clk);
+	if (IS_ERR(conv->lane_clk)) {
+		if (PTR_ERR(conv->lane_clk) != -ENOENT) {
+			clk_disable_unprepare(conv->clk);
+			clk_disable_unprepare(conv->sysref_clk);
+			return PTR_ERR(conv->lane_clk);
+		}
+		conv->lane_clk = NULL;
+	}
 
 	return 0;
 }
@@ -1055,11 +1073,11 @@ static int ad9680_setup(struct spi_device *spi, bool ad9234)
 
 	ret = ad9680_setup_link(spi, &link_config);
 	if (ret < 0)
-		return ret;
+		goto err;
 
 	ret = ad9680_setup_jesd204_link(conv, conv->adc_clk);
 	if (ret < 0)
-		return ret;
+		goto err;
 	mdelay(20);
 	pll_stat = ad9680_spi_read(conv->spi, 0x56f);
 
@@ -1069,8 +1087,13 @@ static int ad9680_setup(struct spi_device *spi, bool ad9234)
 	ret = clk_prepare_enable(conv->lane_clk);
 	if (ret < 0) {
 		dev_err(&spi->dev, "Failed to enable JESD204 link: %d\n", ret);
-		return ret;
+		goto err;
 	}
+
+	return 0;
+err:
+	clk_disable_unprepare(conv->clk);
+	clk_disable_unprepare(conv->sysref_clk);
 
 	return ret;
 }
@@ -1207,14 +1230,14 @@ static int ad9694_setup(struct spi_device *spi)
 
 	ret = ad9680_setup_link(spi, &link_config);
 	if (ret < 0)
-		return ret;
+		goto err;
 
 	ret |= ad9680_spi_write(spi, 0x001, 0x02); /* datapath soft reset */
 	mdelay(1);
 
 	ret = ad9694_setup_jesd204_link(conv, conv->adc_clk);
 	if (ret < 0)
-		return ret;
+		goto err;
 	mdelay(20);
 	pll_stat = ad9680_spi_read(conv->spi, 0x56f);
 
@@ -1255,13 +1278,18 @@ static int ad9694_setup(struct spi_device *spi)
 	ret = clk_prepare_enable(conv->lane_clk);
 	if (ret < 0) {
 		dev_err(&spi->dev, "Failed to enable JESD204 link: %d\n", ret);
-		return ret;
+		goto err;
 	}
 
 	schedule_delayed_work(&conv->watchdog_work, HZ);
 
 	conv->sample_rate_read_only = true;
+	conv->running = true;
 
+	return 0;
+err:
+	clk_disable_unprepare(conv->clk);
+	clk_disable_unprepare(conv->sysref_clk);
 	return ret;
 }
 
@@ -1270,6 +1298,7 @@ static void ad9694_serdes_pll_watchdog(struct work_struct *work)
 	struct axiadc_converter *conv =
 		container_of(work, struct axiadc_converter, watchdog_work.work);
 	unsigned int clock_detected, serdes_locked;
+	int ret;
 
 	clock_detected = ad9680_spi_read(conv->spi, 0x11b);
 	serdes_locked = ad9680_spi_read(conv->spi, 0x56f);
@@ -1278,7 +1307,10 @@ static void ad9694_serdes_pll_watchdog(struct work_struct *work)
 	if ((clock_detected & 0x01) && !(serdes_locked & 0x80)) {
 		dev_err(&conv->spi->dev, "Lost SERDES PLL lock, re-initializing.");
 
-		clk_disable_unprepare(conv->lane_clk);
+		if (conv->running) {
+			clk_disable_unprepare(conv->lane_clk);
+			conv->running = false;
+		}
 
 		 /* datapath soft reset */
 		ad9680_spi_write(conv->spi, 0x001, 0x02);
@@ -1298,7 +1330,10 @@ static void ad9694_serdes_pll_watchdog(struct work_struct *work)
 		dev_info(&conv->spi->dev, "AD9694 PLL %s\n",
 			 (serdes_locked & 0x80) ? "LOCKED" : "UNLOCKED");
 
-		clk_prepare_enable(conv->lane_clk);
+		ret = clk_prepare_enable(conv->lane_clk);
+		WARN_ON(!!ret);
+		if (ret == 0)
+			conv->running = true;
 	}
 
 	schedule_delayed_work(&conv->watchdog_work, HZ);
@@ -1523,7 +1558,12 @@ static int ad9680_remove(struct spi_device *spi)
 	struct axiadc_converter *conv = spi_get_drvdata(spi);
 
 	cancel_delayed_work_sync(&conv->watchdog_work);
-	clk_disable_unprepare(conv->clk);
+	if (conv->running) {
+		clk_disable_unprepare(conv->lane_clk);
+		clk_disable_unprepare(conv->sysref_clk);
+		clk_disable_unprepare(conv->clk);
+		conv->running = false;
+	}
 
 	return 0;
 }
