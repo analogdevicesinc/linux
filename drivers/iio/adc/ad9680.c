@@ -848,9 +848,9 @@ static int ad9680_set_sample_rate(struct axiadc_converter *conv,
 	/* Disable link */
 	ad9680_spi_write(conv->spi, 0x571, 0x15);
 
-	clk_disable_unprepare(conv->lane_clk);
-	clk_disable_unprepare(conv->sysref_clk);
-	clk_disable_unprepare(conv->clk);
+	clk_disable(conv->lane_clk);
+	clk_disable(conv->sysref_clk);
+	clk_disable(conv->clk);
 
 	ret = clk_set_rate(conv->clk, sample_rate);
 	if (ret) {
@@ -863,12 +863,12 @@ static int ad9680_set_sample_rate(struct axiadc_converter *conv,
 	if (ret < 0)
 		return ret;
 
-	ret = clk_prepare_enable(conv->clk);
+	ret = clk_enable(conv->clk);
 	if (ret) {
 		dev_err(&conv->spi->dev, "Failed to enable converter clock: %d\n", ret);
 		return ret;
 	}
-	ret = clk_prepare_enable(conv->sysref_clk);
+	ret = clk_enable(conv->sysref_clk);
 	if (ret) {
 		dev_err(&conv->spi->dev, "Failed to enable SYSREF clock: %d\n", ret);
 		return ret;
@@ -883,7 +883,7 @@ static int ad9680_set_sample_rate(struct axiadc_converter *conv,
 	dev_info(&conv->spi->dev, "PLL %s\n",
 		 (pll_stat & 0x80) ? "LOCKED" : "UNLOCKED");
 
-	ret = clk_prepare_enable(conv->lane_clk);
+	ret = clk_enable(conv->lane_clk);
 	if (ret < 0) {
 		dev_err(&conv->spi->dev, "Failed to enable JESD204 link: %d\n", ret);
 		return ret;
@@ -1278,7 +1278,7 @@ static void ad9694_serdes_pll_watchdog(struct work_struct *work)
 	if ((clock_detected & 0x01) && !(serdes_locked & 0x80)) {
 		dev_err(&conv->spi->dev, "Lost SERDES PLL lock, re-initializing.");
 
-		clk_disable_unprepare(conv->lane_clk);
+		clk_disable(conv->lane_clk);
 
 		 /* datapath soft reset */
 		ad9680_spi_write(conv->spi, 0x001, 0x02);
@@ -1298,7 +1298,7 @@ static void ad9694_serdes_pll_watchdog(struct work_struct *work)
 		dev_info(&conv->spi->dev, "AD9694 PLL %s\n",
 			 (serdes_locked & 0x80) ? "LOCKED" : "UNLOCKED");
 
-		clk_prepare_enable(conv->lane_clk);
+		clk_enable(conv->lane_clk);
 	}
 
 	schedule_delayed_work(&conv->watchdog_work, HZ);
