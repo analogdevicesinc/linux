@@ -165,6 +165,20 @@
 			};
 		};
 
+		pwm_mipi_lvds0: pwm@56224000 {
+			compatible = "fsl,imx8qxp-pwm", "fsl,imx27-pwm";
+			reg = <0x56224000 0x1000>;
+			clocks = <&mipi0_pwm_lpcg 0>,
+				 <&mipi0_pwm_lpcg 1>,
+				 <&mipi0_pwm_lpcg 2>;
+			clock-names = "per", "ipg", "32k";
+			assigned-clocks = <&clk IMX_SC_R_MIPI_0_I2C_0 IMX_SC_PM_CLK_PER>;
+			assigned-clock-rates = <24000000>;
+			#pwm-cells = <2>;
+			power-domains = <&pd IMX_SC_R_MIPI_0_PWM_0>;
+			status = "disabled";
+		};
+
 		i2c0_mipi_lvds0: i2c@56226000 {
 			compatible = "fsl,imx8qxp-lpi2c", "fsl,imx7ulp-lpi2c";
 			reg = <0x56226000 0x4000>;
@@ -252,6 +266,20 @@
 					};
 				};
 			};
+		};
+
+		pwm_mipi_lvds1: pwm@56244000 {
+			compatible = "fsl,imx8qxp-pwm", "fsl,imx27-pwm";
+			reg = <0x56244000 0x1000>;
+			clocks = <&mipi1_pwm_lpcg 0>,
+				 <&mipi1_pwm_lpcg 1>,
+				 <&mipi1_pwm_lpcg 2>;
+			clock-names = "per", "ipg", "32k";
+			assigned-clocks = <&clk IMX_SC_R_MIPI_1_I2C_0 IMX_SC_PM_CLK_PER>;
+			assigned-clock-rates = <24000000>;
+			#pwm-cells = <2>;
+			power-domains = <&pd IMX_SC_R_MIPI_1_PWM_0>;
+			status = "disabled";
 		};
 
 		i2c0_mipi_lvds1: i2c@56246000 {
