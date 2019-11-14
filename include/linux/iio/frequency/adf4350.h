@@ -122,7 +122,7 @@ struct adf4350_platform_data {
 	unsigned		r2_user_settings;
 	unsigned		r3_user_settings;
 	unsigned		r4_user_settings;
-	int			gpio_lock_detect;
+	struct gpio_desc	*gpio_lock_detect;
 };
 
 #endif /* IIO_PLL_ADF4350_H_ */
