@@ -28,6 +28,18 @@
 			power-domains = <&pd IMX_SC_R_LVDS_0>;
 		};
 
+		lvds0_pwm_lpcg: clock-controller@5624300c {
+			compatible = "fsl,imx8qxp-lpcg";
+			reg = <0x5624300c 0x4>;
+			#clock-cells = <1>;
+			clocks = <&clk IMX_SC_R_LVDS_0_PWM_0 IMX_SC_PM_CLK_PER>,
+				 <&lvds_ipg_clk>;
+			bit-offset = <0 16>;
+			clock-output-names = "lvds0_pwm_lpcg_clk",
+					     "lvds0_pwm_lpcg_ipg_clk";
+			power-domains = <&pd IMX_SC_R_LVDS_0_PWM_0>;
+		};
+
 		lvds0_i2c0_lpcg: clock-controller@56243010 {
 			compatible = "fsl,imx8qxp-lpcg";
 			reg = <0x56243010 0x4>;
@@ -167,6 +179,18 @@
 			bit-offset = <16>;
 			clock-output-names = "lvds1_lis_lpcg_ipg_clk";
 			power-domains = <&pd IMX_SC_R_LVDS_1>;
+		};
+
+		lvds1_pwm_lpcg: clock-controller@5724300c {
+			compatible = "fsl,imx8qxp-lpcg";
+			reg = <0x5724300c 0x4>;
+			#clock-cells = <1>;
+			clocks = <&clk IMX_SC_R_LVDS_1_PWM_0 IMX_SC_PM_CLK_PER>,
+				 <&lvds_ipg_clk>;
+			bit-offset = <0 16>;
+			clock-output-names = "lvds1_pwm_lpcg_clk",
+					     "lvds1_pwm_lpcg_ipg_clk";
+			power-domains = <&pd IMX_SC_R_LVDS_1_PWM_0>;
 		};
 
 		lvds1_i2c0_lpcg: clock-controller@57243010 {
