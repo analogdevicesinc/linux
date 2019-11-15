@@ -14,16 +14,19 @@
 
 #include "iio-regmap.h"
 
-static const struct regmap_config iio_regmap_spi_regmap_config = {
-};
-
 static int iio_regmap_spi_probe(struct spi_device *spi)
 {
 	const struct spi_device_id *id = spi_get_device_id(spi);
+	struct regmap_config *regmap_cfg;
 	struct regmap *regmap;
-	int ret;
 
-	regmap = devm_regmap_init_spi(spi, &iio_regmap_spi_regmap_config);
+	regmap_cfg = iio_regmap_read_config(&spi->dev);
+	if (IS_ERR(regmap_cfg)) {
+		dev_err(&spi->dev, "Reading regmap config failed!\n");
+		return PTR_ERR(regmap_cfg);
+	}
+
+	regmap = devm_regmap_init_spi(spi, regmap_cfg);
 	if (IS_ERR(regmap)) {
 		dev_err(&spi->dev, "devm_regmap_init_spi failed!\n");
 		return PTR_ERR(regmap);
