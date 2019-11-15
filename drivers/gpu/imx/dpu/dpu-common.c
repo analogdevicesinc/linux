@@ -267,6 +267,7 @@ static const struct dpu_data dpu_data_qxp = {
 	.unused_irq = unused_irq,
 	.plane_src_mask = DPU_PLANE_SRC_FL0_ID | DPU_PLANE_SRC_FW2_ID |
 			  DPU_PLANE_SRC_FD0_ID | DPU_PLANE_SRC_FD1_ID,
+	.has_dual_ldb = true,
 	.syncmode_min_prate = UINT_MAX,	/* pc is unused */
 	.singlemode_max_width = UINT_MAX, 	/* pc is unused */
 };
@@ -290,6 +291,7 @@ static const struct dpu_data dpu_data_qm = {
 	.unused_irq = unused_irq,
 	.plane_src_mask = DPU_PLANE_SRC_FL0_ID | DPU_PLANE_SRC_FW2_ID |
 			  DPU_PLANE_SRC_FD0_ID | DPU_PLANE_SRC_FD1_ID,
+	.has_dual_ldb = false,
 	.syncmode_min_prate = 300000,
 	.singlemode_max_width = 1920,
 	.master_stream_id = 1,

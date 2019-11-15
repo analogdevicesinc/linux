@@ -205,6 +205,8 @@ struct dpu_data {
 	unsigned int master_stream_id;
 
 	u32 plane_src_mask;
+
+	bool has_dual_ldb;
 };
 
 struct dpu_soc {
