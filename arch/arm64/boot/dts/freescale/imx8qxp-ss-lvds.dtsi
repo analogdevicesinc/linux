@@ -124,10 +124,15 @@
 			#size-cells = <0>;
 			compatible = "fsl,imx8qxp-ldb";
 			clocks = <&clk IMX_SC_R_LVDS_0 IMX_SC_PM_CLK_MISC2>,
-				 <&clk IMX_SC_R_LVDS_0 IMX_SC_PM_CLK_BYPASS>;
-			clock-names = "pixel", "bypass";
-			power-domains = <&pd IMX_SC_R_LVDS_0>;
+				 <&clk IMX_SC_R_LVDS_0 IMX_SC_PM_CLK_BYPASS>,
+				 <&clk IMX_SC_R_LVDS_1 IMX_SC_PM_CLK_MISC2>,
+				 <&clk IMX_SC_R_LVDS_1 IMX_SC_PM_CLK_BYPASS>;
+			clock-names = "pixel", "bypass",
+				      "aux_pixel", "aux_bypass";
+			power-domains = <&pd IMX_SC_R_LVDS_0>,
+					<&pd IMX_SC_R_LVDS_1>;
 			gpr = <&lvds_region1>;
+			fsl,auxldb = <&ldb2>;
 			status = "disabled";
 
 			lvds-channel@0 {
@@ -227,10 +232,15 @@
 			#size-cells = <0>;
 			compatible = "fsl,imx8qxp-ldb";
 			clocks = <&clk IMX_SC_R_LVDS_1 IMX_SC_PM_CLK_MISC2>,
-				 <&clk IMX_SC_R_LVDS_1 IMX_SC_PM_CLK_BYPASS>;
-			clock-names = "pixel", "bypass";
-			power-domains = <&pd IMX_SC_R_LVDS_1>;
+				 <&clk IMX_SC_R_LVDS_1 IMX_SC_PM_CLK_BYPASS>,
+				 <&clk IMX_SC_R_LVDS_0 IMX_SC_PM_CLK_MISC2>,
+				 <&clk IMX_SC_R_LVDS_0 IMX_SC_PM_CLK_BYPASS>;
+			clock-names = "pixel", "bypass",
+				      "aux_pixel", "aux_bypass";
+			power-domains = <&pd IMX_SC_R_LVDS_1>,
+					<&pd IMX_SC_R_LVDS_0>;
 			gpr = <&lvds_region2>;
+			fsl,auxldb = <&ldb1>;
 			status = "disabled";
 
 			lvds-channel@0 {
