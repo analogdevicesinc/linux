@@ -32,6 +32,10 @@
 	status = "disabled";
 };
 
+&gpio0_mipi_csi1 {
+	status = "disabled";
+};
+
 &mipi_csi_1 {
 	status = "disabled";
 };
