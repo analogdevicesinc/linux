@@ -199,6 +199,10 @@
 	};
 };
 
+&lvds_subsys {
+	status = "disabled";
+};
+
 &rpmsg{
 	/*
 	 * 64K for one rpmsg instance:
