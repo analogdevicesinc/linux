@@ -100,6 +100,7 @@ struct dpu_framegen {
 	struct clk *clk_disp_lpcg;
 	struct mutex mutex;
 	int id;
+	unsigned int encoder_type;
 	bool inuse;
 	bool use_bypass_clk;
 	bool side_by_side;
@@ -172,6 +173,7 @@ void framegen_cfg_videomode(struct dpu_framegen *fg, struct drm_display_mode *m,
 	int div = 0;
 
 	fg->side_by_side = side_by_side;
+	fg->encoder_type = encoder_type;
 
 	hact = m->crtc_hdisplay;
 	htotal = m->crtc_htotal;
