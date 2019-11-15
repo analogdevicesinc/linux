@@ -22,6 +22,8 @@ Required properties:
  - gpr : should be <&gpr> on i.MX53 and i.MX6q.
          The phandle points to the iomuxc-gpr region containing the LVDS
          control register.
+ - fsl,auxldb : phandle to auxiliary LDB which is used in dual channel mode.
+                Only required by i.MX8qxp.
 - clocks, clock-names : phandles to the LDB divider and selector clocks and to
                         the display interface selector clocks or pixel and
                         bypass clocks as described in
@@ -39,6 +41,9 @@ Required properties:
         The following clocks are expected on i.MX8qm and i.MX8qxp:
                 "pixel" - pixel clock
                 "bypass" - bypass clock
+        The following clocks are expected on i.MX8qxp:
+                "aux_pixel" - auxiliary pixel clock in dual channel mode
+                "aux_bypass" - auxiliary bypass clock in dual channel mode
         The needed clock numbers for each are documented in
         Documentation/devicetree/bindings/clock/imx5-clock.yaml, and in
         Documentation/devicetree/bindings/clock/imx6q-clock.yaml and in
@@ -55,7 +60,6 @@ Optional properties:
  - fsl,dual-channel : boolean. if it exists, only LVDS channel 0 should
    be configured - one input will be distributed on both outputs in dual
    channel mode
-   Currently, i.MX8qxp doesn't support dual channel mode.
 
 LVDS Channel
 ============
