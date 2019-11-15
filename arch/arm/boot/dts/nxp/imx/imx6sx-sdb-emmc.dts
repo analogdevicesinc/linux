@@ -20,6 +20,7 @@
 	pinctrl-1 = <&pinctrl_usdhc4_1_100mhz>;
 	pinctrl-2 = <&pinctrl_usdhc4_1_200mhz>;
 	bus-width = <8>;
+	auto-cmd23-broken;
 	/*
 	 * overwrite cd-gpios and wp-gpios since they are reused as eMMC DATA
 	 * signals after rework
