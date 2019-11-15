@@ -202,6 +202,10 @@
 	status = "okay";
 };
 
+&gpc {
+	 fsl,ldo-bypass = <1>;
+};
+
 &i2c1 {
 	clock-frequency = <100000>;
 	pinctrl-names = "default";
