@@ -11,18 +11,23 @@
 #include <linux/iio/iio.h>
 #include <linux/module.h>
 #include <linux/regmap.h>
+#include <linux/slab.h>
 
 #include "iio-regmap.h"
-
-static const struct regmap_config iio_regmap_config = {
-};
 
 static int iio_regmap_i2c_probe(struct i2c_client *client,
 				const struct i2c_device_id *id)
 {
+	struct regmap_config *regmap_cfg;
 	struct regmap *regmap;
 
-	regmap = devm_regmap_init_i2c(client, &iio_regmap_config);
+	regmap_cfg = iio_regmap_read_config(&client->dev);
+	if (IS_ERR(regmap_cfg)) {
+		dev_err(&client->dev, "Reading regmap config failed!\n");
+		return PTR_ERR(regmap_cfg);
+	}
+
+	regmap = devm_regmap_init_i2c(client, regmap_cfg);
 	if (IS_ERR(regmap)) {
 		dev_err(&client->dev, "devm_regmap_init_i2c failed!\n");
 		return PTR_ERR(regmap);
