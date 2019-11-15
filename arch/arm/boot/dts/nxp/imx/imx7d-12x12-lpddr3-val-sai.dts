@@ -1,0 +1,49 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright (C) 2015 Freescale Semiconductor, Inc.
+ */
+
+#include "imx7d-12x12-lpddr3-val.dts"
+
+/ {
+	sound {
+		compatible = "fsl,imx-audio-wm8958";
+		model = "wm8958-audio";
+		audio-cpu = <&sai1>;
+		audio-codec = <&codec>;
+		hp-det-gpio = <&gpio1 12 1>;
+		audio-routing =
+			"Headphone Jack", "HPOUT1L",
+			"Headphone Jack", "HPOUT1R",
+			"Ext Spk", "SPKOUTLP",
+			"Ext Spk", "SPKOUTLN",
+			"Ext Spk", "SPKOUTRP",
+			"Ext Spk", "SPKOUTRN",
+			"IN1LN", "MICBIAS2";
+	};
+};
+
+&iomuxc {
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&pinctrl_hog_1 &pinctrl_hog_headphone_det>;
+	pinctrl-1 = <&pinctrl_hog_1 &pinctrl_hog_sd2_vselect>;
+};
+
+&sai1 {
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&pinctrl_sai1>;
+	pinctrl-1 = <&pinctrl_sai1>;
+	status = "okay";
+};
+
+&sdma {
+	status = "okay";
+};
+
+&sim1 {
+	status = "disabled";
+};
+
+&usdhc2 {
+	no-1-8-v;
+};
