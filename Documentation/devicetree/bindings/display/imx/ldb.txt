@@ -36,7 +36,7 @@ Required properties:
         On i.MX6q the following additional clocks are needed:
                 "di2_sel" - IPU2 DI0 mux
                 "di3_sel" - IPU2 DI1 mux
-        The following clocks are expected on i.MX8qm:
+        The following clocks are expected on i.MX8qm and i.MX8qxp:
                 "pixel" - pixel clock
                 "bypass" - bypass clock
         The needed clock numbers for each are documented in
