@@ -409,6 +409,7 @@
 	pinctrl-1 = <&pinctrl_usdhc0>;
 	pinctrl-2 = <&pinctrl_usdhc0>;
 	pinctrl-3 = <&pinctrl_usdhc0>;
+	fsl,delay-line = <15>;
 	cd-gpios = <&gpio_ptc 10 GPIO_ACTIVE_LOW>;
 	vmmc-supply = <&reg_vsd_3v3>;
 	vqmmc-supply = <&vldo2_reg>;
