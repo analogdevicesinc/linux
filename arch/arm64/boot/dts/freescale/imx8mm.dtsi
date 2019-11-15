@@ -359,6 +359,7 @@
 					clock-names = "bus", "mclk1", "mclk2", "mclk3";
 					dmas = <&sdma2 0 2 0>, <&sdma2 1 2 0>;
 					dma-names = "rx", "tx";
+					fsl,dataline = <0 0xff 0xff>;
 					status = "disabled";
 				};
 
@@ -401,6 +402,7 @@
 					clock-names = "bus", "mclk1", "mclk2", "mclk3";
 					dmas = <&sdma2 8 2 0>, <&sdma2 9 2 0>;
 					dma-names = "rx", "tx";
+					fsl,dataline = <0 0xf 0xf>;
 					status = "disabled";
 				};
 
