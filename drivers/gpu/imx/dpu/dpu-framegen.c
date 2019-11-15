@@ -132,13 +132,21 @@ EXPORT_SYMBOL_GPL(framegen_disable);
 
 void framegen_enable_pixel_link(struct dpu_framegen *fg)
 {
-	dpu_pxlink_set_mst_enable(fg->dpu, fg->id, true);
+	struct dpu_soc *dpu = fg->dpu;
+	const struct dpu_data *data = dpu->data;
+
+	if (!(data->has_dual_ldb && fg->encoder_type == DRM_MODE_ENCODER_LVDS))
+		dpu_pxlink_set_mst_enable(fg->dpu, fg->id, true);
 }
 EXPORT_SYMBOL_GPL(framegen_enable_pixel_link);
 
 void framegen_disable_pixel_link(struct dpu_framegen *fg)
 {
-	dpu_pxlink_set_mst_enable(fg->dpu, fg->id, false);
+	struct dpu_soc *dpu = fg->dpu;
+	const struct dpu_data *data = dpu->data;
+
+	if (!(data->has_dual_ldb && fg->encoder_type == DRM_MODE_ENCODER_LVDS))
+		dpu_pxlink_set_mst_enable(fg->dpu, fg->id, false);
 }
 EXPORT_SYMBOL_GPL(framegen_disable_pixel_link);
 
