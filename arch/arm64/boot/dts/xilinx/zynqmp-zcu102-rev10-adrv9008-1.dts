@@ -64,7 +64,7 @@
 			dma-names = "rx";
 			spibus-connected = <&trx0_adrv9009>;
 			adi,axi-decimation-core-available;
-			decimation-gpios = <&gpio 133 GPIO_ACTIVE_LOW>;
+			decimation-gpios = <&gpio 139 GPIO_ACTIVE_HIGH>;
 		};
 
 		axi_adrv9009_rx_jesd: axi-jesd204-rx@84aa0000 {
