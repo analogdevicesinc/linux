@@ -38,7 +38,8 @@
 
 #include "iio-regmap.h"
 
-#define REG_OP_STRLEN	20
+#define REG_OP_STRLEN		20
+#define WAIT_POLL_NR_TIMES	10
 
 enum iio_regmap_opcode {
 	IIO_REGMAP_READ,
@@ -301,6 +302,141 @@ static int parse_register_ops(struct device *dev, const char *input_fw,
 	return op_nr;
 }
 
+static int run_read_op(struct device *dev, struct regmap *regmap, bool use_mask,
+		       const struct iio_regmap_op *op)
+{
+	int ret;
+	unsigned int value;
+
+	ret = regmap_read(regmap, op->addr, &value);
+	if (ret < 0) {
+		dev_err(dev, "regmap_read failed, addr: %x, code: %d",
+		reop->addr, ret);
+		return ret;
+	}
+	if (use_mask)
+		value &= use_mask;
+	if (op->dbg)
+		dev_info(dev, "Register: [%x], value: [%x].", op->addr, value);
+	return 0;
+}
+
+static int run_wait_mask_op(struct device *dev, struct regmap *regmap,
+			    const struct iio_regmap_op *op)
+{
+	int ret;
+	unsigned int value;
+	unsigned int wait_time;
+	unsigned int wait_nr_times = WAIT_POLL_NR_TIMES;
+
+	wait_time = op->time % WAIT_POLL_NR_TIMES;
+	if (wait_time)
+		mdelay(wait_time);
+	wait_time = op->time / WAIT_POLL_NR_TIMES;
+
+	while (wait_nr_times != 0) {
+		if (wait_time)
+			mdelay(wait_time);
+
+		ret = regmap_read(regmap, op->addr, &value);
+		if (ret < 0) {
+			dev_err(dev, "regmap_read failed, addr:%x, code: %d",
+				op->addr, ret);
+			return ret;
+		}
+
+		wait_nr_times--;
+		value &= op->mask;
+		if (value == op->val)
+			break;
+
+		if (wait_nr_times == 0) {
+			dev_err(dev,
+				"Invalid reg [%x] value:[%x], expected[%x]",
+				op->addr, value, op->val);
+			return -ETIMEDOUT;
+		}
+	}
+
+	return 0;
+}
+
+static int run_write_mask_op(struct device *dev, struct regmap *regmap,
+			     const struct iio_regmap_op *op)
+{
+	int ret;
+	unsigned int register_value;
+
+	ret = regmap_read(regmap, op->addr, &register_value);
+	if (ret < 0) {
+		dev_err(dev, "regmap_read failed, addr: %x, code: %d",
+			op->addr, ret);
+		return ret;
+	}
+
+	register_value &= ~op->mask;
+	register_value |= op->val;
+
+	ret = regmap_write(regmap, op->addr, op->val);
+	if (ret < 0)
+		dev_err(dev, "regmap_write failed, addr: %x, code: %d",
+		op->addr, ret);
+	return ret;
+}
+
+static int run_write_op(struct device *dev, struct regmap *regmap,
+			const struct iio_regmap_op *op)
+{
+	int ret;
+
+	ret = regmap_write(regmap, op->addr, op->val);
+	if (ret < 0)
+		dev_err(dev, "regmap_write failed, addr: %x, code: %d",
+			op->addr, ret);
+	return ret;
+}
+
+static int iio_run_regmap_ops(struct device *dev, struct regmap *regmap,
+			      const struct iio_regmap_op *reg_ops,
+			      unsigned int nr_ops)
+{
+	const struct iio_regmap_op *reg_op = 0;
+	int ret = 0;
+
+	if (!reg_ops || !regmap)
+		return -EINVAL;
+
+	for (reg_op = reg_ops; reg_op < reg_ops + nr_ops; reg_op++) {
+		switch (reg_op->op) {
+		case IIO_REGMAP_READ:
+			ret = run_read_op(dev, regmap, false, reg_op);
+			break;
+		case IIO_REGMAP_READ_MASK:
+			ret = run_read_op(dev, regmap, true, reg_op);
+			break;
+		case IIO_REGMAP_WAIT_MASK:
+			ret = run_wait_mask_op(dev, regmap, reg_op);
+			break;
+		case IIO_REGMAP_WAIT_MS:
+			if (reg_op->time)
+				mdelay(reg_op->time);
+			break;
+		case IIO_REGMAP_WRITE:
+			ret = run_write_op(dev, regmap, reg_op);
+			break;
+		case IIO_REGMAP_WRITE_MASK:
+			ret = run_write_mask_op(dev, regmap, reg_op);
+			break;
+		default:
+			dev_err(dev, "Invalid op code: %d.", reg_op->op);
+			return -EINVAL;
+		}
+		if (ret < 0)
+			return ret;
+	}
+	return 0;
+}
+
 /* Retrieve from device node the firmware name then
  * read from firmware register operations,
  * allocate a copy of the firmware data
@@ -394,8 +530,9 @@ int iio_regmap_probe(struct device *dev, struct regmap *regmap,
 		return PTR_ERR(register_ops);
 	}
 
-	return ret;
+	return iio_run_regmap_ops(dev, regmap, register_ops, nr_ops);
 }
+
 EXPORT_SYMBOL_GPL(iio_regmap_probe);
 
 MODULE_AUTHOR("Alexandru Tachici <alexandru.tachici@analog.com>");
