@@ -13,7 +13,7 @@
 		dma-names = "rx";
 		spibus-connected = <&trx0_ad9371>;
 		adi,axi-decimation-core-available;
-		decimation-gpios = <&axi_gpio 61 GPIO_ACTIVE_LOW>;
+		decimation-gpios = <&axi_gpio 61 GPIO_ACTIVE_HIGH>;
 	};
 	axi_ad9371_core_rx_obs: axi-ad9371-rx-obs-hpc@44a08000 {
 		compatible = "adi,axi-ad9371-obs-1.0";
@@ -33,7 +33,7 @@
 		spibus-connected = <&trx0_ad9371>;
 		adi,axi-pl-fifo-enable;
 		adi,axi-interpolation-core-available;
-		interpolation-gpios = <&axi_gpio 62 GPIO_ACTIVE_LOW>;
+		interpolation-gpios = <&axi_gpio 62 GPIO_ACTIVE_HIGH>;
 	};
 	rx_dma: rx-dmac@7c400000 {
 		compatible = "adi,axi-dmac-1.00.a";
