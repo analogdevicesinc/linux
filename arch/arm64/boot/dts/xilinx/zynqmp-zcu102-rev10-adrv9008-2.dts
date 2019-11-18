@@ -98,7 +98,7 @@
 			spibus-connected = <&trx0_adrv9009>;
 			//adi,axi-pl-fifo-enable;
 			adi,axi-interpolation-core-available;
-			interpolation-gpios = <&gpio 134 GPIO_ACTIVE_LOW>;
+			interpolation-gpios = <&gpio 140 GPIO_ACTIVE_HIGH>;
 
 		};
 
