@@ -100,7 +100,7 @@
 		dma-names = "rx";
 		spibus-connected = <&trx0_adrv9009>;
 		adi,axi-decimation-core-available;
-		decimation-gpios = <&gpio0 115 GPIO_ACTIVE_LOW>;
+		decimation-gpios = <&gpio0 115 GPIO_ACTIVE_HIGH>;
 	};
 
 	axi_adrv9009_core_rx_obs: axi-adrv9009-rx-obs-hpc@44a08000 {
@@ -122,7 +122,7 @@
 		spibus-connected = <&trx0_adrv9009>;
 		adi,axi-pl-fifo-enable;
 		adi,axi-interpolation-core-available;
-		interpolation-gpios = <&gpio0 116 GPIO_ACTIVE_LOW>;
+		interpolation-gpios = <&gpio0 116 GPIO_ACTIVE_HIGH>;
 	};
 
 	axi_adrv9009_rx_jesd: axi-jesd204-rx@44aa0000 {
