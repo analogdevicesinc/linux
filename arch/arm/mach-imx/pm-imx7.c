@@ -90,6 +90,9 @@
 #define BM_CCM_ROOT_MUX		0x7000000
 #define BM_CCM_ROOT_ENABLE	0x10000000
 
+#define SYS_COUNTER_CNTSR	0x4
+#define BM_SYS_COUNTER_CNTSR_FCR1 0x200
+#define BM_SYS_COUNTER_CNTSR_FCR0 0x100
 #define BM_SYS_COUNTER_CNTCR_FCR1 0x200
 #define BM_SYS_COUNTER_CNTCR_FCR0 0x100
 
@@ -743,6 +746,9 @@ static int imx7_pm_enter(suspend_state_t state)
 	val &= ~BM_SYS_COUNTER_CNTCR_FCR0;
 	val |= BM_SYS_COUNTER_CNTCR_FCR1;
 	writel_relaxed(val, system_counter_ctrl_base);
+	while (!(readl_relaxed(system_counter_ctrl_base + SYS_COUNTER_CNTSR)
+		& BM_SYS_COUNTER_CNTSR_FCR1))
+		;
 
 	switch (state) {
 	case PM_SUSPEND_STANDBY:
@@ -848,6 +854,9 @@ static int imx7_pm_enter(suspend_state_t state)
 	val &= ~BM_SYS_COUNTER_CNTCR_FCR1;
 	val |= BM_SYS_COUNTER_CNTCR_FCR0;
 	writel_relaxed(val, system_counter_ctrl_base);
+	while (!(readl_relaxed(system_counter_ctrl_base + SYS_COUNTER_CNTSR)
+		& BM_SYS_COUNTER_CNTSR_FCR0))
+		;
 
 	return 0;
 }
