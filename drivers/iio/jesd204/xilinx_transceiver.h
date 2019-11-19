@@ -56,6 +56,11 @@ struct xilinx_xcvr {
 	enum adi_axi_fpga_speed_grade speed_grade;
 	enum adi_axi_fpga_dev_pack dev_package;
 	unsigned int voltage;
+
+	unsigned int vco0_min;
+	unsigned int vco0_max;
+	unsigned int vco1_min;
+	unsigned int vco1_max;
 };
 
 #define ENC_8B10B					810
