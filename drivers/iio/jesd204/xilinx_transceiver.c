@@ -321,6 +321,31 @@ static void xilinx_xcvr_setup_qpll_vco_range(struct xilinx_xcvr *xcvr,
 	}
 }
 
+static int xilinx_xcvr_get_cpll_vco_ranges(struct xilinx_xcvr *xcvr,
+					   unsigned int *vco_min,
+					   unsigned int *vco_max)
+{
+	switch (xcvr->type) {
+	case XILINX_XCVR_TYPE_S7_GTX2:
+		*vco_min = 1600000;
+		*vco_max = 3300000;
+		break;
+	case XILINX_XCVR_TYPE_US_GTH3:
+	case XILINX_XCVR_TYPE_US_GTH4:
+	case XILINX_XCVR_TYPE_US_GTY4:
+		*vco_min = 2000000;
+		*vco_max = 6250000;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	if (ADI_AXI_PCORE_VER_MAJOR(xcvr->version) > 0x10)
+		xilinx_xcvr_setup_cpll_vco_range(xcvr, vco_max);
+
+	return 0;
+}
+
 int xilinx_xcvr_calc_cpll_config(struct xilinx_xcvr *xcvr,
 	unsigned int refclk_hz, unsigned int lane_rate_khz,
 	struct xilinx_xcvr_cpll_config *conf,
@@ -331,24 +356,11 @@ int xilinx_xcvr_calc_cpll_config(struct xilinx_xcvr *xcvr,
 	unsigned int vco_freq;
 	unsigned int vco_min;
 	unsigned int vco_max;
+	int ret;
 
-	switch (xcvr->type) {
-	case XILINX_XCVR_TYPE_S7_GTX2:
-		vco_min = 1600000;
-		vco_max = 3300000;
-		break;
-	case XILINX_XCVR_TYPE_US_GTH3:
-	case XILINX_XCVR_TYPE_US_GTH4:
-	case XILINX_XCVR_TYPE_US_GTY4:
-		vco_min = 2000000;
-		vco_max = 6250000;
-		break;
-	default:
-		return -EINVAL;
-	}
-
-	if (ADI_AXI_PCORE_VER_MAJOR(xcvr->version) > 0x10)
-		xilinx_xcvr_setup_cpll_vco_range(xcvr, &vco_max);
+	ret = xilinx_xcvr_get_cpll_vco_ranges(xcvr, &vco_min, &vco_max);
+	if (ret)
+		return ret;
 
 	for (m = 1; m <= 2; m++) {
 		for (d = 1; d <= 8; d <<= 1) {
@@ -384,6 +396,48 @@ int xilinx_xcvr_calc_cpll_config(struct xilinx_xcvr *xcvr,
 }
 EXPORT_SYMBOL_GPL(xilinx_xcvr_calc_cpll_config);
 
+static int xilinx_xcvr_get_qpll_vco_ranges(struct xilinx_xcvr *xcvr,
+	struct xilinx_xcvr_qpll_config *conf,
+	unsigned int *vco0_min, unsigned int *vco0_max,
+	unsigned int *vco1_min, unsigned int *vco1_max)
+{
+	switch (xcvr->type) {
+	case XILINX_XCVR_TYPE_S7_GTX2:
+		*vco0_min = 5930000;
+		*vco0_max = 8000000;
+		*vco1_min = 9800000;
+		*vco1_max = 12500000;
+		break;
+	case XILINX_XCVR_TYPE_US_GTH3:
+	case XILINX_XCVR_TYPE_US_GTH4:
+	case XILINX_XCVR_TYPE_US_GTY4:
+		if (conf != NULL) {
+			if (conf->qpll) {
+				*vco0_min = 8000000;
+				*vco0_max = 13000000;
+			} else {
+				*vco0_min = 9800000;
+				*vco0_max = 16375000;
+			}
+		} else {
+			*vco0_min = 8000000;
+			*vco0_max = 16375000;
+		}
+		*vco1_min = *vco0_min;
+		*vco1_max = *vco0_max;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	if (ADI_AXI_PCORE_VER_MAJOR(xcvr->version) > 0x10)
+		xilinx_xcvr_setup_qpll_vco_range(xcvr,
+						 vco0_min, vco0_max,
+						 vco1_min, vco1_max);
+
+	return 0;
+}
+
 int xilinx_xcvr_calc_qpll_config(struct xilinx_xcvr *xcvr,
 	unsigned int refclk_hz, unsigned int lane_rate_khz,
 	struct xilinx_xcvr_qpll_config *conf,
@@ -398,6 +452,7 @@ int xilinx_xcvr_calc_qpll_config(struct xilinx_xcvr *xcvr,
 	unsigned int vco1_min;
 	unsigned int vco1_max;
 	const u8 *N;
+	int ret;
 
 	static const u8 N_gtx2[] = {16, 20, 32, 40, 64, 66, 80, 100, 0};
 	static const u8 N_gth34[] = {16, 20, 32, 40, 64, 66, 75, 80, 100,
@@ -406,39 +461,21 @@ int xilinx_xcvr_calc_qpll_config(struct xilinx_xcvr *xcvr,
 	switch (xcvr->type) {
 	case XILINX_XCVR_TYPE_S7_GTX2:
 		N = N_gtx2;
-		vco0_min = 5930000;
-		vco0_max = 8000000;
-		vco1_min = 9800000;
-		vco1_max = 12500000;
 		break;
 	case XILINX_XCVR_TYPE_US_GTH3:
 	case XILINX_XCVR_TYPE_US_GTH4:
 	case XILINX_XCVR_TYPE_US_GTY4:
 		N = N_gth34;
-
-		if (conf != NULL) {
-			if (conf->qpll) {
-				vco0_min = 8000000;
-				vco0_max = 13000000;
-			} else {
-				vco0_min = 9800000;
-				vco0_max = 16375000;
-			}
-		} else {
-			vco0_min = 8000000;
-			vco0_max = 16375000;
-		}
-		vco1_min = vco0_min;
-		vco1_max = vco0_max;
 		break;
 	default:
 		return -EINVAL;
 	}
 
-	if (ADI_AXI_PCORE_VER_MAJOR(xcvr->version) > 0x10)
-		xilinx_xcvr_setup_qpll_vco_range(xcvr,
-						 &vco0_min, &vco0_max,
-						 &vco1_min, &vco1_max);
+	ret = xilinx_xcvr_get_qpll_vco_ranges(xcvr, conf,
+					      &vco0_min, &vco0_max,
+					      &vco1_min, &vco1_max);
+	if (ret)
+		return ret;
 
 	for (m = 1; m <= 4; m++) {
 		for (d = 1; d <= 16; d <<= 1) {
