@@ -492,6 +492,46 @@ static int adxcvr_clk_register(struct device *dev,
 	return ret;
 }
 
+static void adxcvr_parse_dt_vco_ranges(struct adxcvr_state *st,
+				       struct device_node *np)
+{
+	u32 tmp;
+
+	if (st->cpll_enable) {
+		if (of_property_read_u32(np, "adi,vco-min-khz", &tmp) == 0)
+			st->xcvr.vco0_min = tmp;
+		else
+			st->xcvr.vco0_min = 0;
+
+		if (of_property_read_u32(np, "adi,vco-max-khz", &tmp) == 0)
+			st->xcvr.vco0_max = tmp;
+		else
+			st->xcvr.vco0_max = 0;
+
+		return;
+	}
+
+	if (of_property_read_u32(np, "adi,vco0-min-khz", &tmp) == 0)
+		st->xcvr.vco0_min = tmp;
+	else
+		st->xcvr.vco0_min = 0;
+
+	if (of_property_read_u32(np, "adi,vco0-max-khz", &tmp) == 0)
+		st->xcvr.vco0_max = tmp;
+	else
+		st->xcvr.vco0_max = 0;
+
+	if (of_property_read_u32(np, "adi,vco1-min-khz", &tmp) == 0)
+		st->xcvr.vco1_min = tmp;
+	else
+		st->xcvr.vco1_min = 0;
+
+	if (of_property_read_u32(np, "adi,vco1-max-khz", &tmp) == 0)
+		st->xcvr.vco1_max = tmp;
+	else
+		st->xcvr.vco1_max = 0;
+}
+
 static int adxcvr_parse_dt(struct adxcvr_state *st, struct device_node *np)
 {
 	of_property_read_u32(np, "adi,sys-clk-select", &st->sys_clk_sel);
@@ -499,6 +539,8 @@ static int adxcvr_parse_dt(struct adxcvr_state *st, struct device_node *np)
 
 	st->cpll_enable = of_property_read_bool(np, "adi,use-cpll-enable");
 	st->lpm_enable = of_property_read_bool(np, "adi,use-lpm-enable");
+
+	adxcvr_parse_dt_vco_ranges(st, np);
 
 	INIT_WORK(&st->work, adxcvr_work_func);
 
