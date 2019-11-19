@@ -343,6 +343,12 @@ static int xilinx_xcvr_get_cpll_vco_ranges(struct xilinx_xcvr *xcvr,
 	if (ADI_AXI_PCORE_VER_MAJOR(xcvr->version) > 0x10)
 		xilinx_xcvr_setup_cpll_vco_range(xcvr, vco_max);
 
+	if (xcvr->vco0_min)
+		*vco_min = xcvr->vco0_min;
+
+	if (xcvr->vco0_max)
+		*vco_max = xcvr->vco0_max;
+
 	return 0;
 }
 
@@ -434,6 +440,18 @@ static int xilinx_xcvr_get_qpll_vco_ranges(struct xilinx_xcvr *xcvr,
 		xilinx_xcvr_setup_qpll_vco_range(xcvr,
 						 vco0_min, vco0_max,
 						 vco1_min, vco1_max);
+
+	if (xcvr->vco0_min)
+		*vco0_min = xcvr->vco0_min;
+
+	if (xcvr->vco0_max)
+		*vco0_max = xcvr->vco0_max;
+
+	if (xcvr->vco1_min)
+		*vco0_min = xcvr->vco1_min;
+
+	if (xcvr->vco1_max)
+		*vco1_max = xcvr->vco1_max;
 
 	return 0;
 }
