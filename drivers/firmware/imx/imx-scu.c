@@ -7,6 +7,7 @@
  *
  */
 
+#include <linux/arm-smccc.h>
 #include <linux/err.h>
 #include <linux/firmware/imx/ipc.h>
 #include <linux/firmware/imx/sci.h>
@@ -20,6 +21,9 @@
 #include <linux/of_platform.h>
 #include <linux/platform_device.h>
 
+#include <xen/xen.h>
+
+#define FSL_HVC_SC                      0xC6000000
 #define SCU_MU_CHAN_NUM		8
 #define MAX_RX_TIMEOUT		(msecs_to_jiffies(3000))
 
@@ -205,6 +209,7 @@ int imx_scu_call_rpc(struct imx_sc_ipc *sc_ipc, void *msg, bool have_resp)
 {
 	uint8_t saved_svc, saved_func;
 	struct imx_sc_rpc_msg *hdr;
+	struct arm_smccc_res res;
 	int ret;
 
 	if (WARN_ON(!sc_ipc || !msg))
@@ -220,33 +225,44 @@ int imx_scu_call_rpc(struct imx_sc_ipc *sc_ipc, void *msg, bool have_resp)
 	}
 	sc_ipc->count = 0;
 	sc_ipc->rx_size = 0;
-	ret = imx_scu_ipc_write(sc_ipc, msg);
-	if (ret < 0) {
-		dev_err(sc_ipc->dev, "RPC send msg failed: %d\n", ret);
-		goto out;
-	}
+	if (xen_initial_domain()) {
+		arm_smccc_hvc(FSL_HVC_SC, (uint64_t)msg, !have_resp, 0, 0, 0,
+			      0, 0, &res);
+		if (res.a0)
+			printk("Error FSL_HVC_SC %ld\n", res.a0);
 
-	if (have_resp) {
-		if (!wait_for_completion_timeout(&sc_ipc->done,
-						 MAX_RX_TIMEOUT)) {
-			dev_err(sc_ipc->dev, "RPC send msg timeout\n");
-			mutex_unlock(&sc_ipc->lock);
-			return -ETIMEDOUT;
+		ret = res.a0;
+
+	} else {
+		ret = imx_scu_ipc_write(sc_ipc, msg);
+		if (ret < 0) {
+			dev_err(sc_ipc->dev, "RPC send msg failed: %d\n", ret);
+			goto out;
 		}
 
-		/* response status is stored in hdr->func field */
-		hdr = msg;
-		ret = hdr->func;
-		/*
-		 * Some special SCU firmware APIs do NOT have return value
-		 * in hdr->func, but they do have response data, those special
-		 * APIs are defined as void function in SCU firmware, so they
-		 * should be treated as return success always.
-		 */
-		if ((saved_svc == IMX_SC_RPC_SVC_MISC) &&
-			(saved_func == IMX_SC_MISC_FUNC_UNIQUE_ID ||
-			 saved_func == IMX_SC_MISC_FUNC_GET_BUTTON_STATUS))
-			ret = 0;
+		if (have_resp) {
+			if (!wait_for_completion_timeout(&sc_ipc->done,
+							 MAX_RX_TIMEOUT)) {
+				dev_err(sc_ipc->dev, "RPC send msg timeout\n");
+				mutex_unlock(&sc_ipc->lock);
+				return -ETIMEDOUT;
+			}
+
+			/* response status is stored in hdr->func field */
+			hdr = msg;
+			ret = hdr->func;
+
+			/*
+			 * Some special SCU firmware APIs do NOT have return value
+			 * in hdr->func, but they do have response data, those special
+			 * APIs are defined as void function in SCU firmware, so they
+			 * should be treated as return success always.
+			 */
+			if ((saved_svc == IMX_SC_RPC_SVC_MISC) &&
+				(saved_func == IMX_SC_MISC_FUNC_UNIQUE_ID ||
+				 saved_func == IMX_SC_MISC_FUNC_GET_BUTTON_STATUS))
+				ret = 0;
+		}
 	}
 
 out:
