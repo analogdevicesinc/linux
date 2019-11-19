@@ -362,7 +362,7 @@ static struct adf4350_platform_data *adf4350_parse_dt(struct device *dev)
 
 	pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
 	if (!pdata)
-		return NULL;
+		return ERR_PTR(-ENOMEM);
 
 	strncpy(&pdata->name[0], np->name, SPI_NAME_SIZE - 1);
 
@@ -381,7 +381,7 @@ static struct adf4350_platform_data *adf4350_parse_dt(struct device *dev)
 	pdata->gpio_lock_detect = devm_gpiod_get_optional(dev, "lock_detect",
 							  GPIOD_IN);
 	if (IS_ERR(pdata->gpio_lock_detect))
-		return NULL;
+		return ERR_CAST(pdata->gpio_lock_detect);
 
 	pdata->ref_doubler_en = of_property_read_bool(np,
 			"adi,reference-doubler-enable");
@@ -475,8 +475,8 @@ static int adf4350_probe(struct spi_device *spi)
 
 	if (spi->dev.of_node) {
 		pdata = adf4350_parse_dt(&spi->dev);
-		if (pdata == NULL)
-			return -EINVAL;
+		if (IS_ERR(pdata))
+			return PTR_ERR(pdata);
 	} else {
 		pdata = spi->dev.platform_data;
 	}
