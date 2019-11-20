@@ -983,11 +983,10 @@ void __init imx7_pm_map_io(void)
 
 static int __init imx7_suspend_init(const struct imx7_pm_socdata *socdata)
 {
-	struct device_node *node;
-	int i, ret = 0;
 	const u32 (*ddrc_offset_array)[2];
 	const u32 (*ddrc_phy_offset_array)[2];
 	unsigned long iram_paddr;
+	int i;
 
 	suspend_set_ops(&imx7_pm_ops);
 
@@ -1101,19 +1100,14 @@ static int __init imx7_suspend_init(const struct imx7_pm_socdata *socdata)
 	}
 
 	if (psci_ops.cpu_suspend)
-		goto put_node;
+		return 0;
 
 	imx7_suspend_in_ocram_fn = fncpy(
 		suspend_ocram_base + sizeof(*pm_info),
 		&imx7_suspend,
 		MX7_SUSPEND_OCRAM_SIZE - sizeof(*pm_info));
 
-	goto put_node;
-
-put_node:
-	of_node_put(node);
-
-	return ret;
+	return 0;
 }
 
 static void __init imx7_pm_common_init(const struct imx7_pm_socdata
