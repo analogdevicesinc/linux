@@ -75,7 +75,7 @@
 #define IMX_SIP_WAKEUP_SRC_IRQSTEER     0x2
 
 static u32 wu[IMX_WU_MAX_IRQS];
-static u32 wu_num;
+static int wu_num;
 static void __iomem *gic_dist_base;
 
 /* SCU Power Mode Protocol definition */
@@ -357,8 +357,10 @@ static void imx_sc_pd_enable_irqsteer_wakeup(struct device_node *np)
 	unsigned int i;
 
 	wu_num = of_property_count_u32_elems(np, "wakeup-irq");
-	if (wu_num <= 0)
+	if (wu_num <= 0) {
 		pr_warn("no irqsteer wakeup source supported!\n");
+		return;
+	}
 
 	gic_node = of_find_compatible_node(NULL, NULL, "arm,gic-v3");
 	WARN_ON(!gic_node);
