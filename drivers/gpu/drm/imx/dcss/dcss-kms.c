@@ -220,6 +220,8 @@ struct dcss_kms_dev *dcss_kms_attach(struct dcss_dev *dcss)
 
 	drm_mode_config_reset(drm);
 
+	dcss_crtc_attach_color_mgmt_properties(crtc);
+
 	drm_kms_helper_poll_init(drm);
 
 	ret = drm_dev_register(drm, 0);

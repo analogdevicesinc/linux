@@ -556,6 +556,7 @@ struct dcss_plane *dcss_plane_init(struct drm_device *drm,
 					   DRM_MODE_REFLECT_Y);
 
 	dcss_plane->ch_num = 2 - zpos;
+	dcss_plane->type = type;
 
 	return dcss_plane;
 }

@@ -236,6 +236,26 @@ int dcss_crtc_init(struct dcss_crtc *crtc, struct drm_device *drm)
 	return 0;
 }
 
+void dcss_crtc_attach_color_mgmt_properties(struct dcss_crtc *crtc)
+{
+	int i;
+
+	/* create color management properties only for video planes */
+	for (i = 1; i < 3; i++) {
+		if (crtc->plane[i]->type == DRM_PLANE_TYPE_PRIMARY)
+			return;
+
+		drm_plane_create_color_properties(&crtc->plane[i]->base,
+					BIT(DRM_COLOR_YCBCR_BT601) |
+					BIT(DRM_COLOR_YCBCR_BT709) |
+					BIT(DRM_COLOR_YCBCR_BT2020),
+					BIT(DRM_COLOR_YCBCR_FULL_RANGE) |
+					BIT(DRM_COLOR_YCBCR_LIMITED_RANGE),
+					DRM_COLOR_YCBCR_BT709,
+					DRM_COLOR_YCBCR_FULL_RANGE);
+	}
+}
+
 void dcss_crtc_deinit(struct dcss_crtc *crtc, struct drm_device *drm)
 {
 	free_irq(crtc->irq, crtc);

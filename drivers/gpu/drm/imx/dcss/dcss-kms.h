@@ -12,6 +12,8 @@ struct dcss_plane {
 	struct drm_plane base;
 
 	int ch_num;
+
+	enum drm_plane_type type;
 };
 
 struct dcss_crtc {
@@ -47,5 +49,6 @@ struct dcss_plane *dcss_plane_init(struct drm_device *drm,
 				   unsigned int possible_crtcs,
 				   enum drm_plane_type type,
 				   unsigned int zpos);
+void dcss_crtc_attach_color_mgmt_properties(struct dcss_crtc *crtc);
 
 #endif
