@@ -140,6 +140,7 @@
 		adi,out-clk-select = <4>;
 		adi,use-lpm-enable;
 		adi,use-cpll-enable;
+		adi,vco-max-khz = <6166670>;
 	};
 
 	axi_ad9152_adxcvr: axi-adxcvr-tx@44a60000 {
