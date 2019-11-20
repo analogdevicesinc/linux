@@ -897,6 +897,7 @@
 			power-domains = <&pd_sd0>;
 			nvmem-cells = <&soc_revision>;
 			nvmem-cell-names = "soc_revision";
+			broken-mmc-highspeed;
 		};
 
 		sdhci1: sdhci@ff170000 {
@@ -913,6 +914,7 @@
 			power-domains = <&pd_sd1>;
 			nvmem-cells = <&soc_revision>;
 			nvmem-cell-names = "soc_revision";
+			broken-mmc-highspeed;
 		};
 
 		smmu: smmu@fd800000 {
