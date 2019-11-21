@@ -237,7 +237,7 @@ void framegen_cfg_videomode(struct dpu_framegen *fg, struct drm_display_mode *m,
 	/* constant color */
 	dpu_fg_write(fg, FGCCR, 0);
 
-	disp_clock_rate = m->clock * 1000;
+	disp_clock_rate = m->crtc_clock * 1000;
 
 	if (encoder_type == DRM_MODE_ENCODER_TMDS) {
 		if (side_by_side)
