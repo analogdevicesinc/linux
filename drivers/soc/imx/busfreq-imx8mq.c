@@ -41,6 +41,7 @@
 #define LOW_BUS_FREQ_100MTS	0x2
 #define LOW_BUS_FREQ_667MTS	0x1
 #define WAIT_BUS_FREQ_DONE	0xf
+#define DLL_ON_DRATE		667
 
 static struct device *busfreq_dev;
 static int low_bus_freq_mode;
@@ -52,6 +53,12 @@ static int high_bus_count, audio_bus_count, low_bus_count;
 static int cur_bus_freq_mode;
 static int busfreq_suspended;
 static bool cancel_reduce_bus_freq;
+
+static unsigned int fsp_table[4];
+static unsigned long origin_noc_rate;
+static int low_bus_mode_fsp_index;
+/* no bypass or dll off mode support if lowest fsp > 667mts */
+static bool bypass_support = true;
 
 static struct clk *dram_pll_clk;
 static struct clk *sys1_pll_800m;
@@ -74,16 +81,6 @@ static struct delayed_work bus_freq_daemon;
 
 DEFINE_MUTEX(bus_freq_mutex);
 
-static irqreturn_t wait_in_wfe_irq(int irq, void *dev_id)
-{
-	struct arm_smccc_res res;
-	/* call smc trap to ATF */
-	arm_smccc_smc(FSL_SIP_DDR_DVFS, WAIT_BUS_FREQ_DONE, 0,
-		0, 0, 0, 0, 0, &res);
-
-	return IRQ_HANDLED;
-}
-
 static void update_bus_freq(int target_freq)
 {
 	struct arm_smccc_res res;
@@ -102,24 +99,6 @@ static void update_bus_freq(int target_freq)
 	local_irq_enable();
 }
 
-/* Match B0 or older */
-static const struct soc_device_attribute imx8mq_b0_older_soc_match[] = {
-       {
-               .soc_id = "i.MX8MQ",
-               .revision = "2.0",
-       },
-       {
-               .soc_id = "i.MX8MQ",
-               .revision = "1.*",
-       },
-       { /* sentinel */ }
-};
-
-static inline bool imx8mq_supports_100mts(void)
-{
-	return !soc_device_match(imx8mq_b0_older_soc_match);
-}
-
 static void reduce_bus_freq(void)
 {
 	u32 rate;
@@ -133,50 +112,14 @@ static void reduce_bus_freq(void)
 	 */
 	if (audio_bus_count) {
 		if (cur_bus_freq_mode == BUS_FREQ_HIGH) {
-
-			if (of_machine_is_compatible("fsl,imx8mq")) {
-				if (!imx8mq_supports_100mts()) {
-					update_bus_freq(LOW_BUS_FREQ_667MTS);
-
-					/*
-					 * the dram_apb and dram_core clk rate is changed
-					 * in ATF side, below two lines of code is just used
-					 * to upate the clock tree info in kernel side.
-					 */
-					clk_set_rate(dram_apb_pre_div, 160000000);
-					clk_get_rate(dram_pll_clk);
-				} else {
-					/* prepare the necessary clk before frequency change */
-					clk_prepare_enable(sys1_pll_40m);
-					clk_prepare_enable(dram_alt_root);
-					clk_prepare_enable(sys1_pll_100m);
-
-					update_bus_freq(LOW_BUS_FREQ_100MTS);
-
-					clk_set_parent(dram_alt_src, sys1_pll_100m);
-					clk_set_parent(dram_core_clk, dram_alt_root);
-					clk_set_parent(dram_apb_src, sys1_pll_40m);
-					clk_set_rate(dram_apb_pre_div, 20000000);
-					clk_disable_unprepare(sys1_pll_100m);
-					clk_disable_unprepare(sys1_pll_40m);
-					clk_disable_unprepare(dram_alt_root);
-				}
-				/* reduce the NOC & bus clock */
-				rate = clk_get_rate(noc_div);
-				if (rate == 0) {
-					WARN_ON(1);
-					return;
-				}
-				clk_set_rate(noc_div, rate / 8);
-			} else {
+			if (bypass_support) {
 				/* prepare the necessary clk before frequency change */
 				clk_prepare_enable(sys1_pll_40m);
 				clk_prepare_enable(dram_alt_root);
 				clk_prepare_enable(sys1_pll_100m);
 
-				update_bus_freq(LOW_BUS_FREQ_100MTS);
+				update_bus_freq(low_bus_mode_fsp_index);
 
-				/* correct the clock tree info */
 				clk_set_parent(dram_alt_src, sys1_pll_100m);
 				clk_set_parent(dram_core_clk, dram_alt_root);
 				clk_set_parent(dram_apb_src, sys1_pll_40m);
@@ -184,15 +127,22 @@ static void reduce_bus_freq(void)
 				clk_disable_unprepare(sys1_pll_100m);
 				clk_disable_unprepare(sys1_pll_40m);
 				clk_disable_unprepare(dram_alt_root);
-
-				/* change the NOC rate */
-				rate = clk_get_rate(noc_div);
-				if (rate == 0) {
-					WARN_ON(1);
-					return;
-				}
-				clk_set_rate(noc_div, rate / 5);
+			} else {
+				update_bus_freq(low_bus_mode_fsp_index);
+				/*
+				 * the dram_apb and dram_core clk rate is changed
+				 * in ATF side, below two lines of code is just used
+				 * to update the clock tree info in kernel side.
+				 */
+				clk_set_rate(dram_apb_pre_div, 160000000);
+				clk_get_rate(dram_pll_clk);
 			}
+			/* change the NOC rate */
+			if (of_machine_is_compatible("fsl,imx8mq"))
+				clk_set_rate(noc_div, origin_noc_rate / 8);
+			else
+				clk_set_rate(noc_div, origin_noc_rate / 5);
+
 			rate = clk_get_rate(ahb_div);
 			if (rate == 0) {
 				WARN_ON(1);
@@ -207,49 +157,14 @@ static void reduce_bus_freq(void)
 		cur_bus_freq_mode = BUS_FREQ_AUDIO;
 	} else {
 		if (cur_bus_freq_mode == BUS_FREQ_HIGH) {
-			if (of_machine_is_compatible("fsl,imx8mq")) {
-				if (!imx8mq_supports_100mts()) {
-					update_bus_freq(LOW_BUS_FREQ_667MTS);
-
-					/*
-					 * the dram_apb and dram_core clk rate is changed
-					 * in ATF side, below two lines of code is just used
-					 * to upate the clock tree info in kernel side.
-					 */
-					clk_set_rate(dram_apb_pre_div, 160000000);
-					clk_get_rate(dram_pll_clk);
-				} else {
-					/* prepare the necessary clk before frequency change */
-					clk_prepare_enable(sys1_pll_40m);
-					clk_prepare_enable(dram_alt_root);
-					clk_prepare_enable(sys1_pll_100m);
-
-					update_bus_freq(LOW_BUS_FREQ_100MTS);
-
-					clk_set_parent(dram_alt_src, sys1_pll_100m);
-					clk_set_parent(dram_core_clk, dram_alt_root);
-					clk_set_parent(dram_apb_src, sys1_pll_40m);
-					clk_set_rate(dram_apb_pre_div, 20000000);
-					clk_disable_unprepare(sys1_pll_100m);
-					clk_disable_unprepare(sys1_pll_40m);
-					clk_disable_unprepare(dram_alt_root);
-				}
-				/* reduce the NOC & bus clock */
-				rate = clk_get_rate(noc_div);
-				if (rate == 0) {
-					WARN_ON(1);
-					return;
-				}
-				clk_set_rate(noc_div, rate / 8);
-			} else {
+			if (bypass_support) {
 				/* prepare the necessary clk before frequency change */
 				clk_prepare_enable(sys1_pll_40m);
 				clk_prepare_enable(dram_alt_root);
 				clk_prepare_enable(sys1_pll_100m);
 
-				update_bus_freq(LOW_BUS_FREQ_100MTS);
+				update_bus_freq(low_bus_mode_fsp_index);
 
-				/* correct the clock tree info */
 				clk_set_parent(dram_alt_src, sys1_pll_100m);
 				clk_set_parent(dram_core_clk, dram_alt_root);
 				clk_set_parent(dram_apb_src, sys1_pll_40m);
@@ -257,15 +172,22 @@ static void reduce_bus_freq(void)
 				clk_disable_unprepare(sys1_pll_100m);
 				clk_disable_unprepare(sys1_pll_40m);
 				clk_disable_unprepare(dram_alt_root);
-
-				/* change the NOC clock rate  */
-				rate = clk_get_rate(noc_div);
-				if (rate == 0) {
-					WARN_ON(1);
-					return;
-				}
-				clk_set_rate(noc_div, rate / 5);
+			} else {
+				update_bus_freq(low_bus_mode_fsp_index);
+				/*
+				 * the dram_apb and dram_core clk rate is changed
+				 * in ATF side, below two lines of code is just used
+				 * to update the clock tree info in kernel side.
+				 */
+				clk_set_rate(dram_apb_pre_div, 160000000);
+				clk_get_rate(dram_pll_clk);
 			}
+
+			/* change the NOC rate */
+			if (of_machine_is_compatible("fsl,imx8mq"))
+				clk_set_rate(noc_div, origin_noc_rate / 8);
+			else
+				clk_set_rate(noc_div, origin_noc_rate / 5);
 
 			rate = clk_get_rate(ahb_div);
 			if (rate == 0) {
@@ -341,30 +263,7 @@ static int set_high_bus_freq(int high_bus_freq)
 	if (high_bus_freq_mode)
 		return 0;
 
-	if (of_machine_is_compatible("fsl,imx8mq")) {
-		if (!imx8mq_supports_100mts()) {
-			/* switch the DDR freqeuncy */
-			update_bus_freq(HIGH_FREQ_3200MTS);
-
-			clk_set_rate(dram_apb_pre_div, 200000000);
-			clk_get_rate(dram_pll_clk);
-		} else {
-			/*  enable the clks needed in frequency */
-			clk_prepare_enable(sys1_pll_800m);
-			clk_prepare_enable(dram_pll_clk);
-
-			/* switch the DDR freqeuncy */
-			update_bus_freq(HIGH_FREQ_3200MTS);
-
-			/* correct the clock tree info */
-			clk_set_parent(dram_apb_src, sys1_pll_800m);
-			clk_set_rate(dram_apb_pre_div, 160000000);
-			clk_set_parent(dram_core_clk, dram_pll_clk);
-			clk_disable_unprepare(sys1_pll_800m);
-			clk_disable_unprepare(dram_pll_clk);
-		}
-		clk_set_rate(noc_div, 800000000);
-	} else {
+	if (bypass_support) {
 		/*  enable the clks needed in frequency */
 		clk_prepare_enable(sys1_pll_800m);
 		clk_prepare_enable(dram_pll_clk);
@@ -378,9 +277,15 @@ static int set_high_bus_freq(int high_bus_freq)
 		clk_set_parent(dram_core_clk, dram_pll_clk);
 		clk_disable_unprepare(sys1_pll_800m);
 		clk_disable_unprepare(dram_pll_clk);
-		clk_set_rate(noc_div, 750000000);
+	} else {
+		/* switch the DDR freqeuncy */
+		update_bus_freq(HIGH_FREQ_3200MTS);
+
+		clk_set_rate(dram_apb_pre_div, 200000000);
+		clk_get_rate(dram_pll_clk);
 	}
 
+	clk_set_rate(noc_div, origin_noc_rate);
 	clk_set_rate(ahb_div, 133333333);
 	clk_set_parent(main_axi_src, sys2_pll_333m);
 
@@ -571,37 +476,6 @@ static struct notifier_block imx_busfreq_reboot_notifier = {
 static DEVICE_ATTR(enable, 0644, bus_freq_scaling_enable_show,
 			bus_freq_scaling_enable_store);
 
-static int init_busfreq_irq(struct platform_device *busfreq_pdev)
-{
-	struct device *dev = &busfreq_pdev->dev;
-	u32 cpu;
-	int err;
-
-	for_each_online_cpu(cpu) {
-		int irq;
-		/*
-		 * set up a reserved interrupt to get all
-		 * the active cores into a WFE state before
-		 * changing the DDR frequency.
-		 */
-		irq = platform_get_irq(busfreq_pdev, cpu);
-		err = request_irq(irq, wait_in_wfe_irq,
-				IRQF_PERCPU, "ddrc", NULL);
-		if (err) {
-			dev_err(dev, "Busfreq request irq failed %d, err = %d\n",
-				irq, err);
-			return err;
-		}
-		err = irq_set_affinity(irq, cpumask_of(cpu));
-		if (err) {
-			dev_err(dev, "busfreq can't set irq affinity irq = %d\n", irq);
-			return err;
-		}
-	}
-
-	return 0;
-}
-
 static int imx8mq_init_busfreq_clk(struct platform_device *pdev)
 {
 	dram_pll_clk = devm_clk_get(&pdev->dev, "dram_pll");
@@ -669,9 +543,11 @@ static int imx8mm_init_busfreq_clk(struct platform_device *pdev)
  * @return         The function returns 0 on success
  *
  */
+
 static int busfreq_probe(struct platform_device *pdev)
 {
-	int err;
+	int i, err;
+	struct arm_smccc_res res;
 
 	busfreq_dev = &pdev->dev;
 
@@ -686,12 +562,38 @@ static int busfreq_probe(struct platform_device *pdev)
 		return err;
 	}
 
-	/* init the irq used for ddr frequency change */
-	err = init_busfreq_irq(pdev);
-	if (err) {
-		dev_err(busfreq_dev, "init busfreq irq failed!\n");
-		return err;
+	origin_noc_rate = clk_get_rate(noc_div);
+	if (origin_noc_rate == 0) {
+		WARN_ON(1);
+		return -EINVAL;
 	}
+
+	/*
+	 * Get the supported frequency, normally the lowest frequency point
+	 * is used for low bus & audio bus mode.
+	 */
+	for (i = 0; i < 4; i++) {
+		arm_smccc_smc(FSL_SIP_DDR_DVFS, 0x11, i, 0, 0, 0, 0, 0, &res);
+		err = res.a0;
+		if (err < 0)
+			return -EINVAL;
+
+		fsp_table[i] = res.a0;
+	}
+
+	/* get the lowest fsp index */
+	for (i = 0; i < 4; i++)
+		if (fsp_table[i] == 0)
+			break;
+
+	low_bus_mode_fsp_index = i - 1;
+
+	/*
+	 * if lowest fsp data rate higher than 666mts, then no dll off mode or
+	 * bypass mode support.
+	 */
+	if (fsp_table[low_bus_mode_fsp_index] >= DLL_ON_DRATE)
+		bypass_support = false;
 
 	/* create the sysfs file */
 	err = sysfs_create_file(&busfreq_dev->kobj, &dev_attr_enable.attr);
