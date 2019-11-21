@@ -880,7 +880,7 @@ static int mxc_isi_source_fmt_init(struct mxc_isi_cap_dev *isi_cap)
 	ret = v4l2_subdev_call(src_sd, pad, set_fmt, NULL, &src_fmt);
 	if (ret < 0 && ret != -ENOIOCTLCMD) {
 		v4l2_err(&isi_cap->sd, "set remote fmt fail!\n");
-		return -EINVAL;
+		return ret;
 	}
 
 	memset(&src_fmt, 0, sizeof(src_fmt));
@@ -889,7 +889,7 @@ static int mxc_isi_source_fmt_init(struct mxc_isi_cap_dev *isi_cap)
 	ret = v4l2_subdev_call(src_sd, pad, get_fmt, NULL, &src_fmt);
 	if (ret < 0 && ret != -ENOIOCTLCMD) {
 		v4l2_err(&isi_cap->sd, "get remote fmt fail!\n");
-		return -EINVAL;
+		return ret;
 	}
 
 	/* Pixel link master will transfer format to RGB32 or YUV32 */
@@ -1003,6 +1003,33 @@ static int mxc_isi_config_parm(struct mxc_isi_cap_dev *isi_cap)
 	return 0;
 }
 
+static int mxc_isi_cap_g_parm(struct file *file, void *fh,
+			      struct v4l2_streamparm *a)
+{
+	struct mxc_isi_cap_dev *isi_cap = video_drvdata(file);
+	struct v4l2_subdev *sd;
+
+	sd = mxc_get_remote_subdev(isi_cap, __func__);
+	if (!sd)
+		return -ENODEV;
+
+	return v4l2_g_parm_cap(video_devdata(file), sd, a);
+}
+
+static int mxc_isi_cap_s_parm(struct file *file, void *fh,
+			      struct v4l2_streamparm *a)
+{
+	struct mxc_isi_cap_dev *isi_cap = video_drvdata(file);
+	struct v4l2_subdev *sd;
+
+	sd = mxc_get_remote_subdev(isi_cap, __func__);
+	if (!sd)
+		return -ENODEV;
+
+	return v4l2_s_parm_cap(video_devdata(file), sd, a);
+}
+
+
 static int mxc_isi_cap_streamon(struct file *file, void *priv,
 				enum v4l2_buf_type type)
 {
@@ -1014,15 +1041,17 @@ static int mxc_isi_cap_streamon(struct file *file, void *priv,
 
 	ret = mxc_isi_config_parm(isi_cap);
 	if (ret < 0)
-		return -EINVAL;
+		return ret;
 
 	ret = vb2_ioctl_streamon(file, priv, type);
 	mxc_isi_channel_enable(mxc_isi, mxc_isi->m2m_enabled);
-	mxc_isi_pipeline_enable(isi_cap, 1);
+	ret = mxc_isi_pipeline_enable(isi_cap, 1);
+	if (ret < 0 && ret != -ENOIOCTLCMD)
+		return ret;
 
 	mxc_isi->is_streaming = 1;
 
-	return ret;
+	return 0;
 }
 
 static int mxc_isi_cap_streamoff(struct file *file, void *priv,
@@ -1237,6 +1266,9 @@ static const struct v4l2_ioctl_ops mxc_isi_capture_ioctl_ops = {
 	.vidioc_expbuf			= vb2_ioctl_expbuf,
 	.vidioc_prepare_buf		= vb2_ioctl_prepare_buf,
 	.vidioc_create_bufs		= vb2_ioctl_create_bufs,
+
+	.vidioc_g_parm			= mxc_isi_cap_g_parm,
+	.vidioc_s_parm			= mxc_isi_cap_s_parm,
 
 	.vidioc_streamon		= mxc_isi_cap_streamon,
 	.vidioc_streamoff		= mxc_isi_cap_streamoff,
