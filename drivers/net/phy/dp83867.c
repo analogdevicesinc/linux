@@ -260,6 +260,13 @@ static int dp83867_config_init(struct phy_device *phydev)
 		dp83867 = (struct dp83867_private *)phydev->priv;
 	}
 
+	/* RX_DV/RX_CTRL strapped in mode 1 or mode 2 workaround */
+	if (dp83867->rxctrl_strap_quirk) {
+		val = phy_read_mmd(phydev, DP83867_DEVADDR, DP83867_CFG4);
+		val &= ~BIT(7);
+		phy_write_mmd(phydev, DP83867_DEVADDR, DP83867_CFG4, val);
+	}
+
 	if (phy_interface_is_rgmii(phydev)) {
 		ret = phy_write(phydev, MII_DP83867_PHYCTRL,
 			(DP83867_MDI_CROSSOVER_AUTO << DP83867_MDI_CROSSOVER) |
@@ -291,16 +298,6 @@ static int dp83867_config_init(struct phy_device *phydev)
 		if (ret)
 			return ret;
 
-		/* This is a SW workaround for link instability if
-		 * RX_CTRL is not strapped to mode 3 or 4 in HW.
-		 */
-		if (dp83867->rxctrl_strap_quirk) {
-			val = phy_read_mmd(phydev, DP83867_DEVADDR,
-					   DP83867_CFG4);
-			val &= ~DP83867_CFG4_RESVDBIT7;
-			phy_write_mmd(phydev, DP83867_DEVADDR, DP83867_CFG4,
-				      val);
-		}
 	} else {
 		/* Set SGMIICTL1 6-wire mode */
 		if (dp83867->wiremode_6)
@@ -424,8 +421,6 @@ static struct phy_driver dp83867_driver[] = {
 		.ack_interrupt	= dp83867_ack_interrupt,
 		.config_intr	= dp83867_config_intr,
 
-		.config_aneg	= genphy_config_aneg,
-		.read_status	= genphy_read_status,
 		.suspend	= genphy_suspend,
 		.resume		= genphy_resume,
 	},

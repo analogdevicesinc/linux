@@ -17,6 +17,7 @@
  * Should be integrated with plane
  */
 
+#include <linux/clk.h>
 #include <linux/device.h>
 #include <linux/err.h>
 #include <linux/gpio/consumer.h>
@@ -60,6 +61,11 @@
 #define XCSC_RESET_ASSERT		(1)
 #define XCSC_RESET_DEASSERT		(0)
 
+#define XCSC_MIN_WIDTH			(64)
+#define XCSC_MAX_WIDTH			(8192)
+#define XCSC_MIN_HEIGHT			(64)
+#define XCSC_MAX_HEIGHT			(4320)
+
 static const u32 xilinx_csc_video_fmts[] = {
 	MEDIA_BUS_FMT_RGB888_1X24,
 	MEDIA_BUS_FMT_VUY8_1X24,
@@ -87,7 +93,10 @@ enum vpss_csc_color_fmt {
  * @clip_max: clipping maximum value
  * @width: width of the video
  * @height: height of video
+ * @max_width: maximum number of pixels in a line
+ * @max_height: maximum number of lines per frame
  * @rst_gpio: Handle to GPIO specifier to assert/de-assert the reset line
+ * @aclk: IP clock struct
  */
 struct xilinx_csc {
 	void __iomem *base;
@@ -100,7 +109,10 @@ struct xilinx_csc {
 	s32 clip_max;
 	u32 width;
 	u32 height;
+	u32 max_width;
+	u32 max_height;
 	struct gpio_desc *rst_gpio;
+	struct clk *aclk;
 };
 
 static inline void xilinx_csc_write(void __iomem *base, u32 offset, u32 val)
@@ -300,6 +312,13 @@ static int xilinx_csc_bridge_set_input(struct xlnx_bridge *bridge, u32 width,
 	struct xilinx_csc *csc = bridge_to_layer(bridge);
 
 	xcsc_set_default_state(csc);
+
+	if (height > csc->max_height || height < XCSC_MIN_HEIGHT)
+		return -EINVAL;
+
+	if (width > csc->max_width || width < XCSC_MIN_WIDTH)
+		return -EINVAL;
+
 	csc->height = height;
 	csc->width = width;
 
@@ -419,6 +438,13 @@ static int xcsc_parse_of(struct xilinx_csc *csc)
 	int ret;
 	struct device_node *node = csc->dev->of_node;
 
+	csc->aclk = devm_clk_get(csc->dev, NULL);
+	if (IS_ERR(csc->aclk)) {
+		ret = PTR_ERR(csc->aclk);
+		dev_err(csc->dev, "failed to get aclk %d\n", ret);
+		return ret;
+	}
+
 	ret = of_property_read_u32(node, "xlnx,video-width",
 				   &csc->color_depth);
 	if (ret < 0) {
@@ -436,6 +462,26 @@ static int xcsc_parse_of(struct xilinx_csc *csc)
 		if (PTR_ERR(csc->rst_gpio) != -EPROBE_DEFER)
 			dev_err(csc->dev, "Reset GPIO not setup in DT");
 		return PTR_ERR(csc->rst_gpio);
+	}
+
+	ret = of_property_read_u32(node, "xlnx,max-height", &csc->max_height);
+	if (ret < 0) {
+		dev_err(csc->dev, "xlnx,max-height is missing!");
+		return -EINVAL;
+	} else if (csc->max_height > XCSC_MAX_HEIGHT ||
+		   csc->max_height < XCSC_MIN_HEIGHT) {
+		dev_err(csc->dev, "Invalid height in dt");
+		return -EINVAL;
+	}
+
+	ret = of_property_read_u32(node, "xlnx,max-width", &csc->max_width);
+	if (ret < 0) {
+		dev_err(csc->dev, "xlnx,max-width is missing!");
+		return -EINVAL;
+	} else if (csc->max_width > XCSC_MAX_WIDTH ||
+		   csc->max_width < XCSC_MIN_WIDTH) {
+		dev_err(csc->dev, "Invalid width in dt");
+		return -EINVAL;
 	}
 
 	return 0;
@@ -462,6 +508,13 @@ static int xilinx_csc_probe(struct platform_device *pdev)
 	ret = xcsc_parse_of(csc);
 	if (ret < 0)
 		return ret;
+
+	ret = clk_prepare_enable(csc->aclk);
+	if (ret) {
+		dev_err(csc->dev, "failed to enable clock %d\n", ret);
+		return ret;
+	}
+
 	gpiod_set_value_cansleep(csc->rst_gpio, XCSC_RESET_DEASSERT);
 	csc->bridge.enable = &xilinx_csc_bridge_enable;
 	csc->bridge.disable = &xilinx_csc_bridge_disable;
@@ -474,12 +527,16 @@ static int xilinx_csc_probe(struct platform_device *pdev)
 	ret = xlnx_bridge_register(&csc->bridge);
 	if (ret) {
 		dev_info(csc->dev, "Bridge registration failed\n");
-		return ret;
+		goto err_clk;
 	}
 
 	dev_info(csc->dev, "Xilinx VPSS CSC DRM experimental driver probed\n");
 
 	return 0;
+
+err_clk:
+	clk_disable_unprepare(csc->aclk);
+	return ret;
 }
 
 static int xilinx_csc_remove(struct platform_device *pdev)
@@ -487,6 +544,7 @@ static int xilinx_csc_remove(struct platform_device *pdev)
 	struct xilinx_csc *csc = platform_get_drvdata(pdev);
 
 	xlnx_bridge_unregister(&csc->bridge);
+	clk_disable_unprepare(csc->aclk);
 
 	return 0;
 }

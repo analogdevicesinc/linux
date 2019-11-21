@@ -14,6 +14,10 @@
 
 #include <linux/dmaengine.h>
 
+/* Modes to enable early callback */
+#define EARLY_CALLBACK			BIT(1) /* To avoid first frame delay */
+#define EARLY_CALLBACK_LOW_LATENCY	BIT(2) /* Low latency mode */
+
 /**
  * enum vid_frmwork_type - Linux video framework type
  * @XDMA_DRM: fourcc is of type DRM
@@ -129,25 +133,25 @@ int xilinx_xdma_set_fid(struct dma_chan *chan,
  *
  * @chan: dma channel instance
  * @async_tx: descriptor whose parent structure contains fid.
- * @enable: Output param - Early callback enabled
+ * @earlycb: Output param - Early callback mode
  *
  * Return: 0 on success, -EINVAL in case of invalid chan
  */
 int xilinx_xdma_get_earlycb(struct dma_chan *chan,
 			    struct dma_async_tx_descriptor *async_tx,
-			    bool *enable);
+			    u32 *earlycb);
 
 /**
  * xilinx_xdma_set_earlycb - Enable/Disable early callback
  * @chan: dma channel instance
  * @async_tx: dma async tx descriptor for the buffer
- * @enable: Flag to enable or disable early callback for descriptor.
+ * @earlycb: Enable early callback mode for descriptor
  *
  * Return: 0 on success, -EINVAL in case of invalid chan
  */
 int xilinx_xdma_set_earlycb(struct dma_chan *chan,
 			    struct dma_async_tx_descriptor *async_tx,
-			    bool enable);
+			    u32 earlycb);
 #else
 static inline void xilinx_xdma_drm_config(struct dma_chan *chan, u32 drm_fourcc)
 { }
@@ -184,14 +188,14 @@ static inline int xilinx_xdma_set_fid(struct dma_chan *chan,
 
 static inline int xilinx_xdma_get_earlycb(struct dma_chan *chan,
 					  struct dma_async_tx_descriptor *atx,
-					  bool *enable)
+					  u32 *earlycb)
 {
 	return -ENODEV;
 }
 
 static inline int xilinx_xdma_set_earlycb(struct dma_chan *chan,
 					  struct dma_async_tx_descriptor *atx,
-					  bool enable)
+					  u32 earlycb)
 {
 	return -ENODEV;
 }

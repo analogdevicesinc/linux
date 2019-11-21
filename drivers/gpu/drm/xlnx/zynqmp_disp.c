@@ -662,6 +662,9 @@ static void zynqmp_disp_blend_layer_coeff(struct zynqmp_disp_blend *blend,
 	u16 sdtv_coeffs[] = { 0x1000, 0x166f, 0x0,
 			      0x1000, 0x7483, 0x7a7f,
 			      0x1000, 0x0, 0x1c5a };
+	u16 sdtv_coeffs_yonly[] = { 0x0, 0x0, 0x1000,
+				    0x0, 0x0, 0x1000,
+				    0x0, 0x0, 0x1000 };
 	u16 swap_coeffs[] = { 0x1000, 0x0, 0x0,
 			      0x0, 0x1000, 0x0,
 			      0x0, 0x0, 0x1000 };
@@ -670,6 +673,7 @@ static void zynqmp_disp_blend_layer_coeff(struct zynqmp_disp_blend *blend,
 			      0x0, 0x0, 0x0 };
 	u16 *coeffs;
 	u32 sdtv_offsets[] = { 0x0, 0x1800, 0x1800 };
+	u32 sdtv_offsets_yonly[] = { 0x1800, 0x1800, 0x0 };
 	u32 null_offsets[] = { 0x0, 0x0, 0x0 };
 	u32 *offsets;
 
@@ -683,8 +687,19 @@ static void zynqmp_disp_blend_layer_coeff(struct zynqmp_disp_blend *blend,
 		offsets = null_offsets;
 	} else {
 		if (!layer->fmt->rgb) {
-			coeffs = sdtv_coeffs;
-			offsets = sdtv_offsets;
+			/*
+			 * In case of Y_ONLY formats, pixels are unpacked
+			 * differently compared to YCbCr
+			 */
+			if (layer->fmt->drm_fmt == DRM_FORMAT_Y8 ||
+			    layer->fmt->drm_fmt == DRM_FORMAT_Y10) {
+				coeffs = sdtv_coeffs_yonly;
+				offsets = sdtv_offsets_yonly;
+			} else {
+				coeffs = sdtv_coeffs;
+				offsets = sdtv_offsets;
+			}
+
 			s0 = 1;
 			s1 = 2;
 		} else {
@@ -924,6 +939,24 @@ static const struct zynqmp_disp_fmt av_buf_vid_fmts[] = {
 		.sf[0]		= ZYNQMP_DISP_AV_BUF_8BIT_SF,
 		.sf[1]		= ZYNQMP_DISP_AV_BUF_8BIT_SF,
 		.sf[2]		= ZYNQMP_DISP_AV_BUF_8BIT_SF,
+	}, {
+		.drm_fmt	= DRM_FORMAT_Y8,
+		.disp_fmt	= ZYNQMP_DISP_AV_BUF_FMT_NL_VID_MONO,
+		.rgb		= false,
+		.swap		= false,
+		.chroma_sub	= false,
+		.sf[0]		= ZYNQMP_DISP_AV_BUF_8BIT_SF,
+		.sf[1]		= ZYNQMP_DISP_AV_BUF_8BIT_SF,
+		.sf[2]		= ZYNQMP_DISP_AV_BUF_8BIT_SF,
+	}, {
+		.drm_fmt	= DRM_FORMAT_Y10,
+		.disp_fmt	= ZYNQMP_DISP_AV_BUF_FMT_NL_VID_YONLY_10,
+		.rgb		= false,
+		.swap		= false,
+		.chroma_sub	= false,
+		.sf[0]		= ZYNQMP_DISP_AV_BUF_10BIT_SF,
+		.sf[1]		= ZYNQMP_DISP_AV_BUF_10BIT_SF,
+		.sf[2]		= ZYNQMP_DISP_AV_BUF_10BIT_SF,
 	}, {
 		.drm_fmt	= DRM_FORMAT_BGR888,
 		.disp_fmt	= ZYNQMP_DISP_AV_BUF_FMT_NL_VID_RGB888,
@@ -2643,6 +2676,9 @@ zynqmp_disp_plane_atomic_update(struct drm_plane *plane,
 	if (!plane->state->crtc || !plane->state->fb)
 		return;
 
+	if (plane->state->fb == old_state->fb)
+		return;
+
 	if (old_state->fb &&
 	    old_state->fb->format->format != plane->state->fb->format->format)
 		zynqmp_disp_plane_disable(plane);
@@ -2679,11 +2715,14 @@ static void
 zynqmp_disp_plane_atomic_async_update(struct drm_plane *plane,
 				      struct drm_plane_state *new_state)
 {
-	struct drm_plane_state *old_state =
-		drm_atomic_get_old_plane_state(new_state->state, plane);
+	int ret;
 
 	if (plane->state->fb == new_state->fb)
 		return;
+
+	if (plane->state->fb &&
+	    plane->state->fb->format->format != new_state->fb->format->format)
+		zynqmp_disp_plane_disable(plane);
 
 	 /* Update the current state with new configurations */
 	drm_atomic_set_fb_for_plane(plane->state, new_state->fb);
@@ -2698,7 +2737,19 @@ zynqmp_disp_plane_atomic_async_update(struct drm_plane *plane,
 	plane->state->src_h = new_state->src_h;
 	plane->state->state = new_state->state;
 
-	zynqmp_disp_plane_atomic_update(plane, old_state);
+	ret = zynqmp_disp_plane_mode_set(plane, plane->state->fb,
+					 plane->state->crtc_x,
+					 plane->state->crtc_y,
+					 plane->state->crtc_w,
+					 plane->state->crtc_h,
+					 plane->state->src_x >> 16,
+					 plane->state->src_y >> 16,
+					 plane->state->src_w >> 16,
+					 plane->state->src_h >> 16);
+	if (ret)
+		return;
+
+	zynqmp_disp_plane_enable(plane);
 }
 
 static const struct drm_plane_helper_funcs zynqmp_disp_plane_helper_funcs = {
@@ -2907,7 +2958,7 @@ zynqmp_disp_crtc_atomic_begin(struct drm_crtc *crtc,
 	drm_crtc_vblank_on(crtc);
 	/* Don't rely on vblank when disabling crtc */
 	spin_lock_irq(&crtc->dev->event_lock);
-	if (crtc->primary->state->fb && crtc->state->event) {
+	if (crtc->state->event) {
 		/* Consume the flip_done event from atomic helper */
 		crtc->state->event->pipe = drm_crtc_index(crtc);
 		WARN_ON(drm_crtc_vblank_get(crtc) != 0);

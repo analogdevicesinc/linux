@@ -10,6 +10,7 @@
 #include <drm/drm_atomic_helper.h>
 #include <drm/drm_crtc_helper.h>
 #include <drm/drmP.h>
+#include <linux/clk.h>
 #include <linux/component.h>
 #include <linux/device.h>
 #include <linux/of_device.h>
@@ -169,6 +170,9 @@ enum payload_line_2 {
  * @use_ds2_3ga_prop: Use DS2 instead of DS3 in 3GA mode parameter
  * @use_ds2_3ga_val: Use DS2 instead of DS3 in 3GA mode parameter value
  * @video_mode: current display mode
+ * @axi_clk: AXI Lite interface clock
+ * @sditx_clk: SDI Tx Clock
+ * @vidin_clk: Video Clock
  */
 struct xlnx_sdi {
 	struct drm_encoder encoder;
@@ -204,6 +208,9 @@ struct xlnx_sdi {
 	struct drm_property *use_ds2_3ga_prop;
 	bool use_ds2_3ga_val;
 	struct drm_display_mode video_mode;
+	struct clk *axi_clk;
+	struct clk *sditx_clk;
+	struct clk *vidin_clk;
 };
 
 #define connector_to_sdi(c) container_of(c, struct xlnx_sdi, connector)
@@ -638,13 +645,13 @@ xlnx_sdi_drm_connector_create_property(struct drm_connector *base_connector)
 	struct drm_device *dev = base_connector->dev;
 	struct xlnx_sdi *sdi  = connector_to_sdi(base_connector);
 
-	sdi->is_frac_prop = drm_property_create_bool(dev, 1, "is_frac");
+	sdi->is_frac_prop = drm_property_create_bool(dev, 0, "is_frac");
 	sdi->sdi_mode = drm_property_create_range(dev, 0,
 						  "sdi_mode", 0, 5);
 	sdi->sdi_data_strm = drm_property_create_range(dev, 0,
 						       "sdi_data_stream", 2, 8);
-	sdi->sdi_420_in = drm_property_create_bool(dev, 1, "sdi_420_in");
-	sdi->sdi_420_out = drm_property_create_bool(dev, 1, "sdi_420_out");
+	sdi->sdi_420_in = drm_property_create_bool(dev, 0, "sdi_420_in");
+	sdi->sdi_420_out = drm_property_create_bool(dev, 0, "sdi_420_out");
 	sdi->height_out = drm_property_create_range(dev, 0,
 						    "height_out", 2, 4096);
 	sdi->width_out = drm_property_create_range(dev, 0,
@@ -654,9 +661,9 @@ xlnx_sdi_drm_connector_create_property(struct drm_connector *base_connector)
 	sdi->out_fmt = drm_property_create_range(dev, 0,
 						 "out_fmt", 0, 16384);
 	if (sdi->enable_st352_chroma) {
-		sdi->en_st352_c_prop = drm_property_create_bool(dev, 1,
+		sdi->en_st352_c_prop = drm_property_create_bool(dev, 0,
 								"en_st352_c");
-		sdi->use_ds2_3ga_prop = drm_property_create_bool(dev, 1,
+		sdi->use_ds2_3ga_prop = drm_property_create_bool(dev, 0,
 								 "use_ds2_3ga");
 	}
 }
@@ -726,7 +733,7 @@ static int xlnx_sdi_create_connector(struct drm_encoder *encoder)
 
 	drm_connector_helper_add(connector, &xlnx_sdi_connector_helper_funcs);
 	drm_connector_register(connector);
-	drm_mode_connector_attach_encoder(connector, encoder);
+	drm_connector_attach_encoder(connector, encoder);
 	xlnx_sdi_drm_connector_create_property(connector);
 	xlnx_sdi_drm_connector_attach_property(connector);
 
@@ -1043,6 +1050,45 @@ static int xlnx_sdi_probe(struct platform_device *pdev)
 	}
 	platform_set_drvdata(pdev, sdi);
 
+	sdi->axi_clk = devm_clk_get(dev, "s_axi_aclk");
+	if (IS_ERR(sdi->axi_clk)) {
+		ret = PTR_ERR(sdi->axi_clk);
+		dev_err(dev, "failed to get s_axi_aclk %d\n", ret);
+		return ret;
+	}
+
+	sdi->sditx_clk = devm_clk_get(dev, "sdi_tx_clk");
+	if (IS_ERR(sdi->sditx_clk)) {
+		ret = PTR_ERR(sdi->sditx_clk);
+		dev_err(dev, "failed to get sdi_tx_clk %d\n", ret);
+		return ret;
+	}
+
+	sdi->vidin_clk = devm_clk_get(dev, "video_in_clk");
+	if (IS_ERR(sdi->vidin_clk)) {
+		ret = PTR_ERR(sdi->vidin_clk);
+		dev_err(dev, "failed to get video_in_clk %d\n", ret);
+		return ret;
+	}
+
+	ret = clk_prepare_enable(sdi->axi_clk);
+	if (ret) {
+		dev_err(dev, "failed to enable axi_clk %d\n", ret);
+		return ret;
+	}
+
+	ret = clk_prepare_enable(sdi->sditx_clk);
+	if (ret) {
+		dev_err(dev, "failed to enable sditx_clk %d\n", ret);
+		goto err_disable_axi_clk;
+	}
+
+	ret = clk_prepare_enable(sdi->vidin_clk);
+	if (ret) {
+		dev_err(dev, "failed to enable vidin_clk %d\n", ret);
+		goto err_disable_sditx_clk;
+	}
+
 	/* in case all "port" nodes are grouped under a "ports" node */
 	ports = of_get_child_by_name(sdi->dev->of_node, "ports");
 	if (!ports) {
@@ -1063,7 +1109,8 @@ static int xlnx_sdi_probe(struct platform_device *pdev)
 		if (!endpoint) {
 			dev_err(dev, "No remote port at %s\n", port->name);
 			of_node_put(endpoint);
-			return -EINVAL;
+			ret = -EINVAL;
+			goto err_disable_vidin_clk;
 		}
 
 		of_node_put(endpoint);
@@ -1071,7 +1118,7 @@ static int xlnx_sdi_probe(struct platform_device *pdev)
 		ret = of_property_read_u32(port, "reg", &index);
 		if (ret) {
 			dev_err(dev, "reg property not present - %d\n", ret);
-			return ret;
+			goto err_disable_vidin_clk;
 		}
 
 		portmask |= (1 << index);
@@ -1087,7 +1134,8 @@ static int xlnx_sdi_probe(struct platform_device *pdev)
 		sdi->enable_anc_data = false;
 	} else {
 		dev_err(dev, "Incorrect dt node!\n");
-		return -EINVAL;
+		ret = -EINVAL;
+		goto err_disable_vidin_clk;
 	}
 
 	sdi->enable_st352_chroma = of_property_read_bool(sdi->dev->of_node,
@@ -1096,14 +1144,16 @@ static int xlnx_sdi_probe(struct platform_device *pdev)
 	/* disable interrupt */
 	xlnx_sdi_writel(sdi->base, XSDI_TX_GLBL_IER, 0);
 	irq = platform_get_irq(pdev, 0);
-	if (irq < 0)
-		return irq;
+	if (irq < 0) {
+		ret = irq;
+		goto err_disable_vidin_clk;
+	}
 
 	ret = devm_request_threaded_irq(sdi->dev, irq, NULL,
 					xlnx_sdi_irq_handler, IRQF_ONESHOT,
 					dev_name(sdi->dev), sdi);
 	if (ret < 0)
-		return ret;
+		goto err_disable_vidin_clk;
 
 	/* initialize the wait queue for GT reset event */
 	init_waitqueue_head(&sdi->wait_event);
@@ -1114,7 +1164,8 @@ static int xlnx_sdi_probe(struct platform_device *pdev)
 		sdi->bridge = of_xlnx_bridge_get(vpss_node);
 		if (!sdi->bridge) {
 			dev_info(sdi->dev, "Didn't get bridge instance\n");
-			return -EPROBE_DEFER;
+			ret = -EPROBE_DEFER;
+			goto err_disable_vidin_clk;
 		}
 	}
 
@@ -1125,12 +1176,30 @@ static int xlnx_sdi_probe(struct platform_device *pdev)
 	 */
 	pdev->dev.platform_data = &sdi->video_mode;
 
-	return component_add(dev, &xlnx_sdi_component_ops);
+	ret = component_add(dev, &xlnx_sdi_component_ops);
+	if (ret < 0)
+		goto err_disable_vidin_clk;
+
+	return ret;
+
+err_disable_vidin_clk:
+	clk_disable_unprepare(sdi->vidin_clk);
+err_disable_sditx_clk:
+	clk_disable_unprepare(sdi->sditx_clk);
+err_disable_axi_clk:
+	clk_disable_unprepare(sdi->axi_clk);
+
+	return ret;
 }
 
 static int xlnx_sdi_remove(struct platform_device *pdev)
 {
+	struct xlnx_sdi *sdi = platform_get_drvdata(pdev);
+
 	component_del(&pdev->dev, &xlnx_sdi_component_ops);
+	clk_disable_unprepare(sdi->vidin_clk);
+	clk_disable_unprepare(sdi->sditx_clk);
+	clk_disable_unprepare(sdi->axi_clk);
 
 	return 0;
 }

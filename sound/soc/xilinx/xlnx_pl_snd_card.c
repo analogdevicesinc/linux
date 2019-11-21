@@ -6,6 +6,7 @@
  */
 
 #include <linux/clk.h>
+#include <linux/idr.h>
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/of_device.h>
@@ -15,12 +16,23 @@
 #include "xlnx_snd_common.h"
 
 #define I2S_CLOCK_RATIO 384
+#define XLNX_MAX_PL_SND_DEV 5
+
+static DEFINE_IDA(xlnx_snd_card_dev);
 
 enum {
 	I2S_AUDIO = 0,
 	HDMI_AUDIO,
 	SDI_AUDIO,
+	SPDIF_AUDIO,
 	XLNX_MAX_IFACE,
+};
+
+static const char *xlnx_snd_card_name[XLNX_MAX_IFACE] = {
+	[I2S_AUDIO]	= "xlnx-i2s-snd-card",
+	[HDMI_AUDIO]	= "xlnx-hdmi-snd-card",
+	[SDI_AUDIO]	= "xlnx-sdi-snd-card",
+	[SPDIF_AUDIO]	= "xlnx-spdif-snd-card",
 };
 
 static const char *dev_compat[][XLNX_MAX_IFACE] = {
@@ -28,18 +40,29 @@ static const char *dev_compat[][XLNX_MAX_IFACE] = {
 		"xlnx,i2s-transmitter-1.0",
 		"xlnx,v-hdmi-tx-ss-3.1",
 		"xlnx,v-uhdsdi-audio-2.0",
+		"xlnx,spdif-2.0",
 	},
+
 	[XLNX_CAPTURE] = {
 		"xlnx,i2s-receiver-1.0",
 		"xlnx,v-hdmi-rx-ss-3.1",
 		"xlnx,v-uhdsdi-audio-2.0",
+		"xlnx,spdif-2.0",
 	},
 };
 
-static struct snd_soc_card xlnx_card = {
-	.name = "xilinx FPGA sound card",
-	.owner = THIS_MODULE,
-};
+static int xlnx_spdif_card_hw_params(struct snd_pcm_substream *substream,
+				     struct snd_pcm_hw_params *params)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct pl_card_data *prv = snd_soc_card_get_drvdata(rtd->card);
+	u32 sample_rate = params_rate(params);
+
+	/* mclk must be >=1024 * sampleing rate */
+	prv->mclk_val = 1024 * sample_rate;
+	prv->mclk_ratio = 1024;
+	return clk_set_rate(prv->mclk, prv->mclk_val);
+}
 
 static int xlnx_sdi_card_hw_params(struct snd_pcm_substream *substream,
 				   struct snd_pcm_hw_params *params)
@@ -48,21 +71,8 @@ static int xlnx_sdi_card_hw_params(struct snd_pcm_substream *substream,
 	struct pl_card_data *prv = snd_soc_card_get_drvdata(rtd->card);
 	u32 sample_rate = params_rate(params);
 
-	switch (sample_rate) {
-	case 32000:
-		prv->mclk_ratio = 576;
-		break;
-	case 44100:
-		prv->mclk_ratio = 418;
-		break;
-	case 48000:
-		prv->mclk_ratio = 384;
-		break;
-	default:
-		return -EINVAL;
-	}
-
-	return 0;
+	prv->mclk_val = prv->mclk_ratio * sample_rate;
+	return clk_set_rate(prv->mclk, prv->mclk_val);
 }
 
 static int xlnx_hdmi_card_hw_params(struct snd_pcm_substream *substream,
@@ -76,13 +86,11 @@ static int xlnx_hdmi_card_hw_params(struct snd_pcm_substream *substream,
 	case 32000:
 	case 44100:
 	case 48000:
+	case 88200:
 	case 96000:
 	case 176400:
 	case 192000:
-		prv->mclk_ratio = 768;
-		break;
-	case 88200:
-		prv->mclk_ratio = 192;
+		prv->mclk_ratio = 512;
 		break;
 	default:
 		return -EINVAL;
@@ -148,10 +156,13 @@ static int xlnx_i2s_card_hw_params(struct snd_pcm_substream *substream,
 		}
 	}
 
+	prv->mclk_val = prv->mclk_ratio * sample_rate;
 	clk_div = DIV_ROUND_UP(prv->mclk_ratio, 2 * ch * data_width);
 	ret = snd_soc_dai_set_clkdiv(cpu_dai, 0, clk_div);
+	if (ret)
+		return ret;
 
-	return ret;
+	return clk_set_rate(prv->mclk, prv->mclk_val);
 }
 
 static const struct snd_soc_ops xlnx_sdi_card_ops = {
@@ -164,6 +175,10 @@ static const struct snd_soc_ops xlnx_i2s_card_ops = {
 
 static const struct snd_soc_ops xlnx_hdmi_card_ops = {
 	.hw_params = xlnx_hdmi_card_hw_params,
+};
+
+static const struct snd_soc_ops xlnx_spdif_card_ops = {
+	.hw_params = xlnx_spdif_card_hw_params,
 };
 
 static struct snd_soc_dai_link xlnx_snd_dai[][XLNX_MAX_PATHS] = {
@@ -187,6 +202,7 @@ static struct snd_soc_dai_link xlnx_snd_dai[][XLNX_MAX_PATHS] = {
 			.codec_dai_name = "i2s-hifi",
 			.codec_name = "hdmi-audio-codec.0",
 			.cpu_dai_name = "snd-soc-dummy-dai",
+			.ops = &xlnx_hdmi_card_ops,
 		},
 		{
 			.name = "xilinx-hdmi-capture",
@@ -199,6 +215,7 @@ static struct snd_soc_dai_link xlnx_snd_dai[][XLNX_MAX_PATHS] = {
 			.name = "xlnx-sdi-playback",
 			.codec_dai_name = "xlnx_sdi_tx",
 			.cpu_dai_name = "snd-soc-dummy-dai",
+			.ops = &xlnx_sdi_card_ops,
 		},
 		{
 			.name = "xlnx-sdi-capture",
@@ -207,6 +224,21 @@ static struct snd_soc_dai_link xlnx_snd_dai[][XLNX_MAX_PATHS] = {
 		},
 
 	},
+	[SPDIF_AUDIO] = {
+		{
+			.name = "xilinx-spdif_playback",
+			.codec_dai_name = "snd-soc-dummy-dai",
+			.codec_name = "snd-soc-dummy",
+			.ops = &xlnx_spdif_card_ops,
+		},
+		{
+			.name = "xilinx-spdif_capture",
+			.codec_dai_name = "snd-soc-dummy-dai",
+			.codec_name = "snd-soc-dummy",
+			.ops = &xlnx_spdif_card_ops,
+		},
+	},
+
 };
 
 static int find_link(struct device_node *node, int direction)
@@ -228,20 +260,23 @@ static int find_link(struct device_node *node, int direction)
 static int xlnx_snd_probe(struct platform_device *pdev)
 {
 	u32 i;
+	size_t sz;
+	char *buf;
 	int ret, audio_interface;
 	struct snd_soc_dai_link *dai;
 	struct pl_card_data *prv;
 	struct platform_device *iface_pdev;
 
-	struct snd_soc_card *card = &xlnx_card;
+	struct snd_soc_card *card;
 	struct device_node **node = pdev->dev.platform_data;
 
-	/*
-	 * TODO:support multi instance of sound card later. currently,
-	 * single instance supported.
-	 */
-	if (!node || card->instantiated)
+	if (!node)
 		return -ENODEV;
+
+	card = devm_kzalloc(&pdev->dev, sizeof(struct snd_soc_card),
+			    GFP_KERNEL);
+	if (!card)
+		return -ENOMEM;
 
 	card->dev = &pdev->dev;
 
@@ -281,6 +316,7 @@ static int xlnx_snd_probe(struct platform_device *pdev)
 			prv->mclk = devm_clk_get(&iface_pdev->dev, "aud_mclk");
 			if (IS_ERR(prv->mclk))
 				return PTR_ERR(prv->mclk);
+
 		}
 		of_node_put(pnode);
 
@@ -319,6 +355,16 @@ static int xlnx_snd_probe(struct platform_device *pdev)
 			dev_dbg(card->dev, "%s registered\n",
 				card->dai_link[i].name);
 			break;
+		case SPDIF_AUDIO:
+			*dai = xlnx_snd_dai[SPDIF_AUDIO][i];
+			dai->platform_of_node = pnode;
+			dai->cpu_of_node = node[i];
+			card->num_links++;
+			prv->mclk_ratio = 384;
+			snd_soc_card_set_drvdata(card, prv);
+			dev_dbg(card->dev, "%s registered\n",
+				card->dai_link[i].name);
+			break;
 		default:
 			dev_err(card->dev, "Invalid audio interface\n");
 			return -ENODEV;
@@ -326,15 +372,48 @@ static int xlnx_snd_probe(struct platform_device *pdev)
 	}
 
 	if (card->num_links) {
+		/*
+		 *  Example : i2s card name = xlnx-i2s-snd-card-0
+		 *  length = number of chars in "xlnx-i2s-snd-card"
+		 *	    + 1 ('-'), + 1 (card instance num)
+		 *	    + 1 ('\0')
+		 */
+		sz = strlen(xlnx_snd_card_name[audio_interface]) + 3;
+		buf = devm_kzalloc(card->dev, sz, GFP_KERNEL);
+		if (!buf)
+			return -ENOMEM;
+
+		prv->xlnx_snd_dev_id = ida_simple_get(&xlnx_snd_card_dev, 0,
+						      XLNX_MAX_PL_SND_DEV,
+						      GFP_KERNEL);
+		if (prv->xlnx_snd_dev_id < 0)
+			return prv->xlnx_snd_dev_id;
+
+		snprintf(buf, sz, "%s-%d", xlnx_snd_card_name[audio_interface],
+			 prv->xlnx_snd_dev_id);
+		card->name = buf;
+
 		ret = devm_snd_soc_register_card(card->dev, card);
 		if (ret) {
 			dev_err(card->dev, "%s registration failed\n",
 				card->name);
+			ida_simple_remove(&xlnx_snd_card_dev,
+					  prv->xlnx_snd_dev_id);
 			return ret;
 		}
-	}
-	dev_info(card->dev, "%s registered\n", card->name);
 
+		dev_set_drvdata(card->dev, prv);
+		dev_info(card->dev, "%s registered\n", card->name);
+	}
+
+	return 0;
+}
+
+static int xlnx_snd_remove(struct platform_device *pdev)
+{
+	struct pl_card_data *pdata = dev_get_drvdata(&pdev->dev);
+
+	ida_simple_remove(&xlnx_snd_card_dev, pdata->xlnx_snd_dev_id);
 	return 0;
 }
 
@@ -343,6 +422,7 @@ static struct platform_driver xlnx_snd_driver = {
 		.name = "xlnx_snd_card",
 	},
 	.probe = xlnx_snd_probe,
+	.remove = xlnx_snd_remove,
 };
 
 module_platform_driver(xlnx_snd_driver);

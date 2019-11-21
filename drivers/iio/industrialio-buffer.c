@@ -213,16 +213,16 @@ ssize_t iio_buffer_chrdev_write(struct file *filp, const char __user *buf,
  * @wait:	Poll table structure pointer for which the driver adds
  *		a wait queue
  *
- * Return: (POLLIN | POLLRDNORM) if data is available for reading
+ * Return: (EPOLLIN | EPOLLRDNORM) if data is available for reading
  *	   or 0 for other cases
  */
-unsigned int iio_buffer_poll(struct file *filp,
+__poll_t iio_buffer_poll(struct file *filp,
 			     struct poll_table_struct *wait)
 {
 	struct iio_dev *indio_dev = filp->private_data;
 	struct iio_buffer *rb = indio_dev->buffer;
 
-	if (!indio_dev->info)
+	if (!indio_dev->info || rb == NULL)
 		return 0;
 
 	poll_wait(filp, &rb->pollq, wait);
@@ -230,11 +230,11 @@ unsigned int iio_buffer_poll(struct file *filp,
 	switch (indio_dev->direction) {
 	case IIO_DEVICE_DIRECTION_IN:
 		if (iio_buffer_ready(indio_dev, rb, rb->watermark, 0))
-			return POLLIN | POLLRDNORM;
+			return EPOLLIN | EPOLLRDNORM;
 		break;
 	case IIO_DEVICE_DIRECTION_OUT:
 		if (iio_buffer_space_available(rb))
-			return POLLOUT | POLLWRNORM;
+			return EPOLLOUT | EPOLLWRNORM;
 	}
 
 	/* need a way of knowing if there may be enough data... */
@@ -1508,7 +1508,7 @@ static int iio_push_to_buffer(struct iio_buffer *buffer, const void *data)
 	 * We can't just test for watermark to decide if we wake the poll queue
 	 * because read may request less samples than the watermark.
 	 */
-	wake_up_interruptible_poll(&buffer->pollq, POLLIN | POLLRDNORM);
+	wake_up_interruptible_poll(&buffer->pollq, EPOLLIN | EPOLLRDNORM);
 	return 0;
 }
 

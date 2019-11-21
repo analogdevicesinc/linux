@@ -12,6 +12,7 @@
  * Scaler Controller
  */
 
+#include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/fs.h>
 #include <linux/gpio/consumer.h>
@@ -71,7 +72,7 @@
 #define XM2MVSC_HFLTCOEFF_L	0x2800
 #define XM2MVSC_HFLTCOEFF(x)	(XM2MVSC_HFLTCOEFF_L + 0x2000 * (x))
 
-#define XM2MSC_CHAN_REGS_START(x)	(0x100 + 0x200 * x)
+#define XM2MSC_CHAN_REGS_START(x)	(0x100 + 0x200 * (x))
 
 /*
  * IP has reserved area between XM2MSC_DSTIMGBUF0 and
@@ -108,6 +109,37 @@
 	min(ffz(x->out_streamed_chan),	\
 	    ffz(x->cap_streamed_chan)); })
 
+#define XM2MSC_ALIGN_MUL	8
+
+/*
+ * These are temporary variables. Once the stride and height
+ * alignment support added to plugin, these variables will
+ * be remove.
+ */
+static unsigned int output_stride_align[XM2MSC_MAX_CHAN] = {
+					1, 1, 1, 1, 1, 1, 1, 1 };
+module_param_array(output_stride_align, uint, NULL, 0644);
+MODULE_PARM_DESC(output_stride_align,
+		 "Per Cahnnel stride alignment requied at output.");
+
+static unsigned int capture_stride_align[XM2MSC_MAX_CHAN] = {
+					1, 1, 1, 1, 1, 1, 1, 1 };
+module_param_array(capture_stride_align, uint, NULL, 0644);
+MODULE_PARM_DESC(capture_stride_align,
+		 "Per channel stride alignment requied at capture.");
+
+static unsigned int output_height_align[XM2MSC_MAX_CHAN] = {
+					1, 1, 1, 1, 1, 1, 1, 1 };
+module_param_array(output_height_align, uint, NULL, 0644);
+MODULE_PARM_DESC(output_height_align,
+		 "Per Channel height alignment requied at output.");
+
+static unsigned int capture_height_align[XM2MSC_MAX_CHAN] = {
+					1, 1, 1, 1, 1, 1, 1, 1 };
+module_param_array(capture_height_align, uint, NULL, 0644);
+MODULE_PARM_DESC(capture_height_align,
+		 "Per channel height alignment requied at capture.");
+
 /* Xilinx Video Specific Color/Pixel Formats */
 enum xm2msc_pix_fmt {
 	XILINX_M2MSC_FMT_RGBX8		= 10,
@@ -133,13 +165,13 @@ enum xm2msc_pix_fmt {
  * @name: human-readable device tree name for this entry
  * @fourcc: standard format identifier
  * @xm2msc_fmt: Xilinx Video Specific Color/Pixel Formats
- * @num_planes: number of planes supported by format
+ * @num_buffs: number of physically non-contiguous data planes/buffs
  */
 struct xm2msc_fmt {
 	char *name;
 	u32 fourcc;
 	enum xm2msc_pix_fmt xm2msc_fmt;
-	u32 num_planes;
+	u32 num_buffs;
 };
 
 static const struct xm2msc_fmt formats[] = {
@@ -147,97 +179,121 @@ static const struct xm2msc_fmt formats[] = {
 		.name = "xbgr8888",
 		.fourcc = V4L2_PIX_FMT_BGRX32,
 		.xm2msc_fmt = XILINX_M2MSC_FMT_RGBX8,
-		.num_planes = 1,
+		.num_buffs = 1,
 	},
 	{
 		.name = "xvuy8888",
 		.fourcc = V4L2_PIX_FMT_XVUY32,
 		.xm2msc_fmt = XILINX_M2MSC_FMT_YUVX8,
-		.num_planes = 1,
+		.num_buffs = 1,
 	},
 	{
 		.name = "yuyv",
 		.fourcc = V4L2_PIX_FMT_YUYV,
 		.xm2msc_fmt = XILINX_M2MSC_FMT_YUYV8,
-		.num_planes = 1,
+		.num_buffs = 1,
 	},
 	{
 		.name = "xbgr2101010",
 		.fourcc = V4L2_PIX_FMT_XBGR30,
 		.xm2msc_fmt = XILINX_M2MSC_FMT_RGBX10,
-		.num_planes = 1,
+		.num_buffs = 1,
 	},
 	{
 		.name = "yuvx2101010",
 		.fourcc = V4L2_PIX_FMT_XVUY10,
 		.xm2msc_fmt = XILINX_M2MSC_FMT_YUVX10,
-		.num_planes = 1,
+		.num_buffs = 1,
 	},
 	{
 		.name = "nv16",
 		.fourcc = V4L2_PIX_FMT_NV16M,
 		.xm2msc_fmt = XILINX_M2MSC_FMT_Y_UV8,
-		.num_planes = 2,
+		.num_buffs = 2,
+	},
+	{
+		.name = "nv16",
+		.fourcc = V4L2_PIX_FMT_NV16,
+		.xm2msc_fmt = XILINX_M2MSC_FMT_Y_UV8,
+		.num_buffs = 1,
 	},
 	{
 		.name = "nv12",
 		.fourcc = V4L2_PIX_FMT_NV12M,
 		.xm2msc_fmt = XILINX_M2MSC_FMT_Y_UV8_420,
-		.num_planes = 2,
+		.num_buffs = 2,
+	},
+	{
+		.name = "nv12",
+		.fourcc = V4L2_PIX_FMT_NV12,
+		.xm2msc_fmt = XILINX_M2MSC_FMT_Y_UV8_420,
+		.num_buffs = 1,
 	},
 	{
 		.name = "bgr888",
 		.fourcc = V4L2_PIX_FMT_RGB24,
 		.xm2msc_fmt = XILINX_M2MSC_FMT_RGB8,
-		.num_planes = 1,
+		.num_buffs = 1,
 	},
 	{
 		.name = "vuy888",
 		.fourcc = V4L2_PIX_FMT_VUY24,
 		.xm2msc_fmt = XILINX_M2MSC_FMT_YUV8,
-		.num_planes = 1,
+		.num_buffs = 1,
 	},
 	{
 		.name = "xv20",
 		.fourcc = V4L2_PIX_FMT_XV20M,
 		.xm2msc_fmt = XILINX_M2MSC_FMT_Y_UV10,
-		.num_planes = 2,
+		.num_buffs = 2,
+	},
+	{
+		.name = "xv20",
+		.fourcc = V4L2_PIX_FMT_XV20,
+		.xm2msc_fmt = XILINX_M2MSC_FMT_Y_UV10,
+		.num_buffs = 1,
 	},
 	{
 		.name = "xv15",
 		.fourcc = V4L2_PIX_FMT_XV15M,
 		.xm2msc_fmt = XILINX_M2MSC_FMT_Y_UV10_420,
-		.num_planes = 2,
+		.num_buffs = 2,
+	},
+	{
+		.name = "xv15",
+		.fourcc = V4L2_PIX_FMT_XV15,
+		.xm2msc_fmt = XILINX_M2MSC_FMT_Y_UV10_420,
+		.num_buffs = 1,
 	},
 	{
 		.name = "y8",
 		.fourcc = V4L2_PIX_FMT_GREY,
 		.xm2msc_fmt = XILINX_M2MSC_FMT_Y8,
-		.num_planes = 1,
+		.num_buffs = 1,
 	},
 	{
 		.name = "y10",
 		.fourcc = V4L2_PIX_FMT_Y10,
 		.xm2msc_fmt = XILINX_M2MSC_FMT_Y10,
-		.num_planes = 1,
+		.num_buffs = 1,
 	},
 	{
 		.name = "xrgb8888",
 		.fourcc = V4L2_PIX_FMT_XBGR32,
 		.xm2msc_fmt = XILINX_M2MSC_FMT_BGRX8,
-		.num_planes = 1,
+		.num_buffs = 1,
 	},
 	{
 		.name = "uyvy",
 		.fourcc = V4L2_PIX_FMT_UYVY,
 		.xm2msc_fmt = XILINX_M2MSC_FMT_UYVY8,
-		.num_planes = 1,
+		.num_buffs = 1,
 	},
 	{
 		.name = "rgb888",
 		.fourcc = V4L2_PIX_FMT_BGR24,
 		.xm2msc_fmt = XILINX_M2MSC_FMT_BGR8,
-		.num_planes = 1,
+		.num_buffs = 1,
 	},
 };
 
@@ -247,7 +303,7 @@ static const struct xm2msc_fmt formats[] = {
  * @width: frame width
  * @height: frame height
  * @stride: bytes per lines
- * @nplanes: Current number of planes
+ * @nbuffs: Current number of buffs
  * @bytesperline: bytes per line per plane
  * @sizeimage: image size per plane
  * @colorspace: supported colorspace
@@ -258,7 +314,7 @@ struct xm2msc_q_data {
 	unsigned int width;
 	unsigned int height;
 	unsigned int stride;
-	unsigned int nplanes;
+	unsigned int nbuffs;
 	unsigned int bytesperline[2];
 	unsigned int sizeimage[2];
 	enum v4l2_colorspace colorspace;
@@ -272,6 +328,10 @@ struct xm2msc_q_data {
  * @xm2msc_dev: Pointer to struct xm2m_msc_dev
  * @num: HW Scaling Channel number
  * @minor: Minor number of the video device
+ * @output_stride_align: required align stride value at output pad
+ * @capture_stride_align: required align stride valure at capture pad
+ * @output_height_align: required align height value at output pad
+ * @capture_height_align: required align heigh value at capture pad
  * @status: channel status, CHAN_ATTACHED or CHAN_OPENED
  * @frames: number of frames processed
  * @vfd: V4L2 device
@@ -285,6 +345,10 @@ struct xm2msc_chan_ctx {
 	struct xm2m_msc_dev *xm2msc_dev;
 	u32 num;
 	u32 minor;
+	u32 output_stride_align;
+	u32 capture_stride_align;
+	u32 output_height_align;
+	u32 capture_height_align;
 	u8 status;
 	unsigned long frames;
 
@@ -301,12 +365,14 @@ struct xm2msc_chan_ctx {
  * @dev: pointer to struct device instance used by the driver
  * @regs: IO mapped base address of the HW/IP
  * @irq: interrupt number
+ * @clk: video core clock
  * @max_chan: maximum number of Scaling Channels
  * @max_ht: maximum number of rows in a plane
  * @max_wd: maximum number of column in a plane
  * @taps: number of taps set in HW
  * @supported_fmt: bitmap for all supported fmts by HW
  * @dma_addr_size: Size of dma address pointer in IP (either 32 or 64)
+ * @ppc: Pixels per clock set in IP (1, 2 or 4)
  * @rst_gpio: reset gpio handler
  * @opened_chan: bitmap for all open channel
  * @out_streamed_chan: bitmap for all out streamed channel
@@ -327,12 +393,14 @@ struct xm2m_msc_dev {
 	struct device *dev;
 	void __iomem *regs;
 	int irq;
+	struct clk *clk;
 	u32 max_chan;
 	u32 max_ht;
 	u32 max_wd;
 	u32 taps;
 	u32 supported_fmt;
 	u32 dma_addr_size;
+	u8 ppc;
 	struct gpio_desc *rst_gpio;
 
 	u32 opened_chan;
@@ -370,6 +438,21 @@ static inline void xm2msc_write64reg(void __iomem *addr, u64 value)
 static inline void xm2msc_writereg(void __iomem *addr, u32 value)
 {
 	iowrite32(value, addr);
+}
+
+static bool xm2msc_is_yuv_singlebuff(u32 fourcc)
+{
+	if (fourcc == V4L2_PIX_FMT_NV12 || fourcc == V4L2_PIX_FMT_XV15 ||
+	    fourcc ==  V4L2_PIX_FMT_NV16 || fourcc == V4L2_PIX_FMT_XV20)
+		return true;
+
+	return false;
+}
+
+static inline u32 xm2msc_yuv_1stplane_size(struct xm2msc_q_data *q_data,
+					   u32 row_align)
+{
+	return	q_data->bytesperline[0] * ALIGN(q_data->height, row_align);
 }
 
 static struct xm2msc_q_data *get_q_data(struct xm2msc_chan_ctx *chan_ctx,
@@ -733,9 +816,9 @@ xm2msc_pr_q(struct device *dev, struct xm2msc_q_data *q, int chan,
 	dev_dbg(dev, "width height stride clrspace field planes\n");
 	dev_dbg(dev, "  %d  %d    %d     %d       %d    %d\n",
 		q->width, q->height, q->stride,
-		q->colorspace, q->field, q->nplanes);
+		q->colorspace, q->field, q->nbuffs);
 
-	for (i = 0; i < q->nplanes; i++) {
+	for (i = 0; i < q->nbuffs; i++) {
 		dev_dbg(dev, "[plane %d ] bytesperline sizeimage\n", i);
 		dev_dbg(dev, "                %d        %d\n",
 			q->bytesperline[i], q->sizeimage[i]);
@@ -970,8 +1053,8 @@ static bool xm2msc_alljob_ready(struct xm2m_msc_dev *xm2msc)
 		chan_ctx = &xm2msc->xm2msc_chan[chan];
 
 		if (!xm2msc_job_ready((void *)chan_ctx)) {
-			dev_info(xm2msc->dev, "chan %d not ready\n",
-				 chan_ctx->num);
+			dev_dbg(xm2msc->dev, "chan %d not ready\n",
+				chan_ctx->num);
 			return false;
 		}
 	}
@@ -1018,9 +1101,11 @@ static void xm2msc_job_abort(void *priv)
 static int xm2msc_set_bufaddr(struct xm2m_msc_dev *xm2msc)
 {
 	unsigned int chan;
+	u32 row_align;
 	struct xm2msc_chan_ctx *chan_ctx;
 	struct vb2_v4l2_buffer *src_vb, *dst_vb;
 	void __iomem *base;
+	struct xm2msc_q_data *q_data;
 	dma_addr_t src_luma, dst_luma;
 	dma_addr_t src_croma, dst_croma;
 
@@ -1043,15 +1128,29 @@ static int xm2msc_set_bufaddr(struct xm2m_msc_dev *xm2msc)
 		src_luma = vb2_dma_contig_plane_dma_addr(&src_vb->vb2_buf, 0);
 		dst_luma = vb2_dma_contig_plane_dma_addr(&dst_vb->vb2_buf, 0);
 
-		if (chan_ctx->q_data[XM2MSC_CHAN_OUT].nplanes == 2)
+		q_data = &chan_ctx->q_data[XM2MSC_CHAN_OUT];
+		row_align = chan_ctx->output_height_align;
+		if (chan_ctx->q_data[XM2MSC_CHAN_OUT].nbuffs == 2)
+			/* fmts having 2 planes 2 buffers */
 			src_croma =
-			    vb2_dma_contig_plane_dma_addr(&src_vb->vb2_buf, 1);
-		else
+				vb2_dma_contig_plane_dma_addr(&src_vb->vb2_buf,
+							      1);
+		else if (xm2msc_is_yuv_singlebuff(q_data->fmt->fourcc))
+			/* fmts having 2 planes 1 contiguous buffer */
+			src_croma = src_luma +
+				xm2msc_yuv_1stplane_size(q_data, row_align);
+		else /* fmts having 1 planes 1 contiguous buffer */
 			src_croma = 0;
 
-		if (chan_ctx->q_data[XM2MSC_CHAN_CAP].nplanes == 2)
+		q_data = &chan_ctx->q_data[XM2MSC_CHAN_CAP];
+		row_align = chan_ctx->capture_height_align;
+		if (chan_ctx->q_data[XM2MSC_CHAN_CAP].nbuffs == 2)
 			dst_croma =
-			    vb2_dma_contig_plane_dma_addr(&dst_vb->vb2_buf, 1);
+				vb2_dma_contig_plane_dma_addr(&dst_vb->vb2_buf,
+							      1);
+		else if (xm2msc_is_yuv_singlebuff(q_data->fmt->fourcc))
+			dst_croma = dst_luma +
+				xm2msc_yuv_1stplane_size(q_data, row_align);
 		else
 			dst_croma = 0;
 
@@ -1283,13 +1382,51 @@ static int xm2msc_querybuf(struct file *file, void *fh,
 	return v4l2_m2m_querybuf(file, chan_ctx->m2m_ctx, buf);
 }
 
+static void
+xm2msc_cal_imagesize(struct xm2msc_chan_ctx *chan_ctx,
+		     struct xm2msc_q_data *q_data, u32 type)
+{
+	unsigned int i;
+	u32 fourcc = q_data->fmt->fourcc;
+	u32 height = q_data->height;
+
+	if (type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
+		height = ALIGN(height, chan_ctx->output_height_align);
+	else if (type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE)
+		height = ALIGN(height, chan_ctx->capture_height_align);
+
+	for (i = 0; i < q_data->nbuffs; i++) {
+		q_data->bytesperline[i] = q_data->stride;
+		q_data->sizeimage[i] = q_data->stride * height;
+	}
+
+	switch (fourcc) {
+	case V4L2_PIX_FMT_NV12:
+	case V4L2_PIX_FMT_XV15:
+		/*
+		 * Adding chroma plane size as NV12/XV15
+		 * have a contiguous buffer for luma and chroma
+		 */
+		q_data->sizeimage[0] +=
+				q_data->stride * (height / 2);
+		break;
+	case V4L2_PIX_FMT_NV12M:
+	case V4L2_PIX_FMT_XV15M:
+		q_data->sizeimage[1] =
+				q_data->stride * (height / 2);
+		break;
+	default:
+		break;
+	}
+}
+
 static unsigned int
-xm2msc_cal_stride(unsigned int width, enum xm2msc_pix_fmt xfmt)
+xm2msc_cal_stride(unsigned int width, enum xm2msc_pix_fmt xfmt, u8 ppc)
 {
 	unsigned int stride;
+	u32 align;
 
 	/* Stride in Bytes = (Width × Bytes per Pixel); */
-	/* TODO: The Width value must be a multiple of Pixels per Clock */
 	switch (xfmt) {
 	case XILINX_M2MSC_FMT_RGBX8:
 	case XILINX_M2MSC_FMT_YUVX8:
@@ -1322,6 +1459,10 @@ xm2msc_cal_stride(unsigned int width, enum xm2msc_pix_fmt xfmt)
 		stride = 0;
 	}
 
+	/* The data size is 64*pixels per clock bits */
+	align = ppc * XM2MSC_ALIGN_MUL;
+	stride = ALIGN(stride, align);
+
 	return stride;
 }
 
@@ -1339,6 +1480,15 @@ vidioc_try_fmt(struct xm2msc_chan_ctx *chan_ctx, struct v4l2_format *f)
 		dev_dbg(xm2msc->dev,
 			"Wrong input parameters %d, wxh: %dx%d.\n",
 			f->type, f->fmt.pix.width, f->fmt.pix.height);
+
+	/* The width value must be a multiple of pixels per clock */
+	if (pix->width % chan_ctx->xm2msc_dev->ppc) {
+		dev_info(xm2msc->dev,
+			 "Wrong align parameters %d, wxh: %dx%d.\n",
+			 f->type, f->fmt.pix.width, f->fmt.pix.height);
+		pix->width = ALIGN(pix->width, chan_ctx->xm2msc_dev->ppc);
+	}
+
 	/*
 	 * V4L2 specification suggests the driver corrects the
 	 * format struct if any of the dimensions is unsupported
@@ -1383,37 +1533,73 @@ vidioc_try_fmt(struct xm2msc_chan_ctx *chan_ctx, struct v4l2_format *f)
 	return 0;
 }
 
+static void xm2msc_get_align(struct xm2msc_chan_ctx *chan_ctx)
+{
+	/*
+	 * TODO: This is a temporary solution, will be reverted once stride and
+	 * height align value come from application.
+	 */
+	chan_ctx->output_stride_align = output_stride_align[chan_ctx->num];
+	chan_ctx->capture_stride_align = capture_stride_align[chan_ctx->num];
+	chan_ctx->output_height_align = output_height_align[chan_ctx->num];
+	chan_ctx->capture_height_align = capture_height_align[chan_ctx->num];
+	if (output_stride_align[chan_ctx->num] != 1 ||
+	    capture_stride_align[chan_ctx->num] != 1 ||
+	    output_height_align[chan_ctx->num] != 1 ||
+	    capture_height_align[chan_ctx->num] != 1) {
+		dev_info(chan_ctx->xm2msc_dev->dev,
+			 "You entered values other than default values.\n");
+		dev_info(chan_ctx->xm2msc_dev->dev,
+			 "Please note this may not be available for longer");
+		dev_info(chan_ctx->xm2msc_dev->dev,
+			 "and align values will come from application\n");
+		dev_info(chan_ctx->xm2msc_dev->dev,
+			 "value entered are -\n"
+			 "output_stride_align = %d\n"
+			 "output_height_align = %d\n"
+			 "capture_stride_align = %d\n"
+			 "capture_height_align = %d\n",
+			chan_ctx->output_stride_align,
+			chan_ctx->output_height_align,
+			chan_ctx->capture_stride_align,
+			chan_ctx->capture_height_align);
+	}
+}
+
 static int
 vidioc_s_fmt(struct xm2msc_chan_ctx *chan_ctx, struct v4l2_format *f)
 {
 	struct v4l2_pix_format_mplane *pix = &f->fmt.pix_mp;
 	struct xm2msc_q_data *q_data = get_q_data(chan_ctx, f->type);
 	unsigned int i;
+	unsigned int align = 1;
 
 	q_data = get_q_data(chan_ctx, f->type);
 
 	q_data->width = pix->width;
 	q_data->height = pix->height;
 	q_data->stride = xm2msc_cal_stride(pix->width,
-					   q_data->fmt->xm2msc_fmt);
+					   q_data->fmt->xm2msc_fmt,
+					   chan_ctx->xm2msc_dev->ppc);
+
+	xm2msc_get_align(chan_ctx);
+
+	if (f->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
+		align = chan_ctx->output_stride_align;
+	else if (f->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE)
+		align = chan_ctx->capture_stride_align;
+
+	q_data->stride = ALIGN(q_data->stride, align);
+
 	q_data->colorspace = pix->colorspace;
 	q_data->field = pix->field;
-	q_data->nplanes = q_data->fmt->num_planes;
+	q_data->nbuffs = q_data->fmt->num_buffs;
 
-	for (i = 0; i < q_data->nplanes; i++) {
-		q_data->bytesperline[i] = q_data->stride;
+	xm2msc_cal_imagesize(chan_ctx, q_data, f->type);
+
+	for (i = 0; i < q_data->nbuffs; i++) {
 		pix->plane_fmt[i].bytesperline = q_data->bytesperline[i];
-		q_data->sizeimage[i] = q_data->stride * q_data->height;
 		pix->plane_fmt[i].sizeimage = q_data->sizeimage[i];
-	}
-
-	/* Size of 2nd plane of Y_UV10_420 & Y_UV8_420 is half of 1st plane */
-	if (q_data->fmt->xm2msc_fmt == XILINX_M2MSC_FMT_Y_UV10_420 ||
-	    q_data->fmt->xm2msc_fmt == XILINX_M2MSC_FMT_Y_UV8_420) {
-		q_data->sizeimage[1] =
-			q_data->stride * (q_data->height / 2);
-		pix->plane_fmt[1].sizeimage =
-			q_data->stride * (q_data->height / 2);
 	}
 
 	xm2msc_pr_q(chan_ctx->xm2msc_dev->dev, q_data,
@@ -1483,7 +1669,7 @@ static int vidioc_g_fmt(struct xm2msc_chan_ctx *chan_ctx, struct v4l2_format *f)
 	pix->field = V4L2_FIELD_NONE;
 	pix->pixelformat = q_data->fmt->fourcc;
 	pix->colorspace = q_data->colorspace;
-	pix->num_planes = q_data->nplanes;
+	pix->num_planes = q_data->nbuffs;
 
 	for (i = 0; i < pix->num_planes; i++) {
 		pix->plane_fmt[i].bytesperline = q_data->bytesperline[i];
@@ -1583,14 +1769,14 @@ static int xm2msc_queue_setup(struct vb2_queue *vq,
 	if (!q_data)
 		return -EINVAL;
 
-	*nplanes = q_data->nplanes;
+	*nplanes = q_data->nbuffs;
 
 	for (i = 0; i < *nplanes; i++)
 		sizes[i] = q_data->sizeimage[i];
 
 	dev_dbg(chan_ctx->xm2msc_dev->dev, "get %d buffer(s) of size %d",
 		*nbuffers, sizes[0]);
-	if (q_data->nplanes == 2)
+	if (q_data->nbuffs == 2)
 		dev_dbg(chan_ctx->xm2msc_dev->dev, " and %d\n", sizes[1]);
 
 	return 0;
@@ -1601,14 +1787,14 @@ static int xm2msc_buf_prepare(struct vb2_buffer *vb)
 	struct xm2msc_chan_ctx *chan_ctx = vb2_get_drv_priv(vb->vb2_queue);
 	struct xm2m_msc_dev *xm2msc = chan_ctx->xm2msc_dev;
 	struct xm2msc_q_data *q_data;
-	unsigned int i, num_planes;
+	unsigned int i, num_buffs;
 
 	q_data = get_q_data(chan_ctx, vb->vb2_queue->type);
 	if (!q_data)
 		return -EINVAL;
-	num_planes = q_data->nplanes;
+	num_buffs = q_data->nbuffs;
 
-	for (i = 0; i < num_planes; i++) {
+	for (i = 0; i < num_buffs; i++) {
 		if (vb2_plane_size(vb, i) < q_data->sizeimage[i]) {
 			v4l2_err(&xm2msc->v4l2_dev, "data will not fit into plane ");
 				   v4l2_err(&xm2msc->v4l2_dev, "(%lu < %lu)\n",
@@ -1618,7 +1804,7 @@ static int xm2msc_buf_prepare(struct vb2_buffer *vb)
 		}
 	}
 
-	for (i = 0; i < num_planes; i++)
+	for (i = 0; i < num_buffs; i++)
 		vb2_set_plane_payload(vb, i, q_data->sizeimage[i]);
 
 	return 0;
@@ -1709,7 +1895,7 @@ static int queue_init(void *priv, struct vb2_queue *src_vq,
 
 	memset(src_vq, 0, sizeof(*src_vq));
 	src_vq->type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
-	src_vq->io_modes = VB2_DMABUF | VB2_MMAP;
+	src_vq->io_modes = VB2_DMABUF | VB2_MMAP | VB2_USERPTR;
 	src_vq->drv_priv = chan_ctx;
 	src_vq->buf_struct_size = sizeof(struct v4l2_m2m_buffer);
 	src_vq->ops = &xm2msc_qops;
@@ -1724,7 +1910,7 @@ static int queue_init(void *priv, struct vb2_queue *src_vq,
 
 	memset(dst_vq, 0, sizeof(*dst_vq));
 	dst_vq->type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
-	dst_vq->io_modes = VB2_MMAP | VB2_DMABUF;
+	dst_vq->io_modes = VB2_MMAP | VB2_DMABUF | VB2_USERPTR;
 	dst_vq->drv_priv = chan_ctx;
 	dst_vq->buf_struct_size = sizeof(struct v4l2_m2m_buffer);
 	dst_vq->ops = &xm2msc_qops;
@@ -1760,6 +1946,58 @@ static const struct v4l2_ioctl_ops xm2msc_ioctl_ops = {
 	.vidioc_streamon = xm2msc_streamon,
 	.vidioc_streamoff = xm2msc_streamoff,
 };
+
+static void xm2msc_set_q_data(struct xm2msc_chan_ctx *chan_ctx,
+			      const struct xm2msc_fmt *fmt,
+			      enum v4l2_buf_type type)
+{
+	struct xm2msc_q_data *q_data;
+	struct xm2m_msc_dev *xm2msc = chan_ctx->xm2msc_dev;
+
+	q_data = get_q_data(chan_ctx, type);
+
+	q_data->fmt = fmt;
+	q_data->width = xm2msc->max_wd;
+	q_data->height = xm2msc->max_ht;
+	q_data->field = V4L2_FIELD_NONE;
+	q_data->nbuffs = q_data->fmt->num_buffs;
+
+	q_data->stride = xm2msc_cal_stride(q_data->width,
+					   q_data->fmt->xm2msc_fmt,
+					   xm2msc->ppc);
+
+	xm2msc_cal_imagesize(chan_ctx, q_data, type);
+}
+
+static int xm2msc_set_chan_parm(struct xm2msc_chan_ctx *chan_ctx)
+{
+	int ret = 0;
+	unsigned int i;
+	struct xm2m_msc_dev *xm2msc = chan_ctx->xm2msc_dev;
+
+	chan_ctx->output_stride_align = 1;
+	chan_ctx->output_height_align = 1;
+	chan_ctx->capture_stride_align = 1;
+	chan_ctx->capture_height_align = 1;
+
+	for (i = 0; i < ARRAY_SIZE(formats); i++) {
+		if (xm2msc_chk_fmt(xm2msc, i))
+			break;
+	}
+
+	/* No supported format */
+	if (i == ARRAY_SIZE(formats)) {
+		dev_err(xm2msc->dev, "no supported format found\n");
+		return -EINVAL;
+	}
+
+	xm2msc_set_q_data(chan_ctx, &formats[i],
+			  V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE);
+	xm2msc_set_q_data(chan_ctx, &formats[i],
+			  V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE);
+
+	return ret;
+}
 
 static int xm2msc_open(struct file *file)
 {
@@ -1818,6 +2056,7 @@ static int xm2msc_open(struct file *file)
 	chan_ctx->status |= CHAN_OPENED;
 	chan_ctx->xm2msc_dev = xm2msc;
 	chan_ctx->frames = 0;
+
 	xm2msc_set_chan(chan_ctx, true);
 
 	v4l2_info(&xm2msc->v4l2_dev, "Channel %d instance created\n", chan);
@@ -1920,6 +2159,13 @@ static int xm2msc_parse_of(struct platform_device *pdev,
 	int ret;
 	u32 i, j;
 
+	xm2msc->clk = devm_clk_get(dev, NULL);
+	if (IS_ERR(xm2msc->clk)) {
+		ret = PTR_ERR(xm2msc->clk);
+		dev_err(dev, "failed to get clk (%d)\n", ret);
+		return ret;
+	}
+
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	xm2msc->regs = devm_ioremap_resource(dev, res);
 	if (IS_ERR((__force void *)xm2msc->regs))
@@ -1974,6 +2220,13 @@ static int xm2msc_parse_of(struct platform_device *pdev,
 	if (ret || (xm2msc->dma_addr_size != 32 &&
 		    xm2msc->dma_addr_size != 64)) {
 		dev_err(dev, "missing/invalid addr width dts prop\n");
+		return -EINVAL;
+	}
+
+	ret = of_property_read_u8(node, "xlnx,pixels-per-clock",
+				  &xm2msc->ppc);
+	if (ret || (xm2msc->ppc != 1 && xm2msc->ppc != 2 && xm2msc->ppc != 4)) {
+		dev_err(dev, "missing or invalid pixels per clock dts prop\n");
 		return -EINVAL;
 	}
 
@@ -2075,13 +2328,19 @@ static int xm2m_msc_probe(struct platform_device *pdev)
 
 	xm2msc->dev = &pdev->dev;
 
+	ret = clk_prepare_enable(xm2msc->clk);
+	if (ret) {
+		dev_err(&pdev->dev, "failed to enable clk (%d)\n", ret);
+		return ret;
+	}
+
 	xm2msc_reset(xm2msc);
 
 	spin_lock_init(&xm2msc->lock);
 
 	ret = v4l2_device_register(&pdev->dev, &xm2msc->v4l2_dev);
 	if (ret)
-		return ret;
+		goto reg_dev_err;
 
 	for (chan = 0; chan < xm2msc->max_chan; chan++) {
 		chan_ctx = &xm2msc->xm2msc_chan[chan];
@@ -2124,6 +2383,12 @@ static int xm2m_msc_probe(struct platform_device *pdev)
 			chan_ctx->regs += XM2MSC_RESERVED_AREA;
 		chan_ctx->num = chan;
 		chan_ctx->minor = vfd->minor;
+
+		/* Set channel parameters to default values */
+		ret = xm2msc_set_chan_parm(chan_ctx);
+		if (ret)
+			goto unreg_dev;
+
 		xm2msc_pr_chanctx(chan_ctx, __func__);
 	}
 
@@ -2143,9 +2408,11 @@ static int xm2m_msc_probe(struct platform_device *pdev)
 
 	return 0;
 
- unreg_dev:
+unreg_dev:
 	xm2msc_unreg_video_n_m2m(xm2msc);
 	v4l2_device_unregister(&xm2msc->v4l2_dev);
+reg_dev_err:
+	clk_disable_unprepare(xm2msc->clk);
 	return ret;
 }
 
@@ -2155,6 +2422,7 @@ static int xm2m_msc_remove(struct platform_device *pdev)
 
 	xm2msc_unreg_video_n_m2m(xm2msc);
 	v4l2_device_unregister(&xm2msc->v4l2_dev);
+	clk_disable_unprepare(xm2msc->clk);
 	return 0;
 }
 

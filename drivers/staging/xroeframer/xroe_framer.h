@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0
+/* SPDX-License-Identifier: GPL-2.0 */
 /*
  * Copyright (C) 2018 Xilinx, Inc.
  *
@@ -25,13 +25,6 @@
 #include <linux/uaccess.h>
 #include <uapi/linux/stat.h> /* S_IRUSR, S_IWUSR */
 
-/* TODO: Remove hardcoded addresses once the subsequent, individual devices
- * ("stats" & "radio_ctrl") have been properly implemented in the DT
- */
-#define STATS_BASE 0x0000C000
-#define STATS_SIZE 0x00000050
-#define RADIO_CTRL_BASE 0xA0060000
-#define RADIO_CTRL_SIZE 0x0000FFFF
 /* TODO: Remove hardcoded value of number of Ethernet ports and read the value
  * from the device tree.
  */
@@ -51,19 +44,16 @@ struct framer_local {
 	void __iomem *base_addr;
 };
 
-struct ioctl_arguments {
-	 u32 *offset;
-	 u32 *value;
-};
-
 int xroe_sysfs_init(void);
 int xroe_sysfs_ipv4_init(void);
 int xroe_sysfs_ipv6_init(void);
 int xroe_sysfs_udp_init(void);
+int xroe_sysfs_stats_init(void);
 void xroe_sysfs_exit(void);
 void xroe_sysfs_ipv4_exit(void);
 void xroe_sysfs_ipv6_exit(void);
 void xroe_sysfs_udp_exit(void);
+void xroe_sysfs_stats_exit(void);
 int utils_write32withmask(void __iomem *working_address, u32 value,
 			  u32 mask, u32 offset);
 int utils_check_address_offset(u32 offset, size_t device_size);

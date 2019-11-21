@@ -13,6 +13,7 @@
  * GNU General Public License for more details.
  */
 
+#include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/device.h>
 #include <linux/gpio/consumer.h>
@@ -28,8 +29,6 @@
 #define XSCALER_MAX_WIDTH		(8192)
 #define XSCALER_MIN_HEIGHT		(64)
 #define XSCALER_MAX_HEIGHT		(4320)
-#define XSCALER_DEF_MAX_WIDTH		(3840)
-#define XSCALER_DEF_MAX_HEIGHT		(2160)
 #define XSCALER_MAX_PHASES		(64)
 
 /* Modify to defaults incase it is not configured from application */
@@ -715,6 +714,16 @@ xvsc_coeff_taps12[XV_VSCALER_MAX_V_PHASES][XV_VSCALER_TAPS_12] = {
 #define XV_VSCALER_CTRL_WIDTH_HWREG_VFLTCOEFF		(16)
 #define XV_VSCALER_CTRL_DEPTH_HWREG_VFLTCOEFF		(384)
 
+#define XSCALER_CLK_PROP	BIT(0)
+
+/**
+ * struct xscaler_feature - dt or IP property structure
+ * @flags: Bitmask of properties enabled in IP or dt
+ */
+struct xscaler_feature {
+	u32 flags;
+};
+
 /**
  * struct xscaler_device - Xilinx Scaler device structure
  * @xvip: Xilinx Video IP device
@@ -733,6 +742,9 @@ xvsc_coeff_taps12[XV_VSCALER_MAX_V_PHASES][XV_VSCALER_TAPS_12] = {
  * @vscaler_coeff: The complete array of V-scaler coefficients
  * @is_polyphase: Track if scaling algorithm is polyphase or not
  * @rst_gpio: GPIO reset line to bring VPSS Scaler out of reset
+ * @cfg: Pointer to scaler config structure
+ * @aclk_axis: AXI4-Stream video interface clock
+ * @aclk_ctrl: AXI4-Lite control interface clock
  */
 struct xscaler_device {
 	struct xvip_device xvip;
@@ -754,7 +766,27 @@ struct xscaler_device {
 	bool is_polyphase;
 
 	struct gpio_desc *rst_gpio;
+	const struct xscaler_feature *cfg;
+	struct clk *aclk_axis;
+	struct clk *aclk_ctrl;
 };
+
+static const struct xscaler_feature xlnx_scaler_v1_0 = {
+	.flags = XSCALER_CLK_PROP,
+};
+
+static const struct xscaler_feature xlnx_scaler = {
+	.flags = 0,
+};
+
+static const struct of_device_id xscaler_of_id_table[] = {
+	{ .compatible = "xlnx,v-vpss-scaler",
+		.data = &xlnx_scaler},
+	{ .compatible = "xlnx,v-vpss-scaler-1.0",
+		.data = &xlnx_scaler_v1_0},
+	{ /* end of table */ }
+};
+MODULE_DEVICE_TABLE(of, xscaler_of_id_table);
 
 static inline struct xscaler_device *to_scaler(struct v4l2_subdev *subdev)
 {
@@ -1166,21 +1198,25 @@ xv_vscaler_setup_video_fmt(struct xscaler_device *xscaler, u32 code_in)
 
 	switch (code_in) {
 	case MEDIA_BUS_FMT_VYYUYY8_1X24:
+	case MEDIA_BUS_FMT_VYYUYY10_4X20:
 		dev_dbg(xscaler->xvip.dev,
 			"Vscaler Input Media Format YUV 420");
 		video_in = XVIDC_CSF_YCRCB_420;
 		break;
 	case MEDIA_BUS_FMT_UYVY8_1X16:
+	case MEDIA_BUS_FMT_UYVY10_1X20:
 		dev_dbg(xscaler->xvip.dev,
 			"Vscaler Input Media Format YUV 422");
 		video_in = XVIDC_CSF_YCRCB_422;
 		break;
 	case MEDIA_BUS_FMT_VUY8_1X24:
+	case MEDIA_BUS_FMT_VUY10_1X30:
 		dev_dbg(xscaler->xvip.dev,
 			"Vscaler Input Media Format YUV 444");
 		video_in = XVIDC_CSF_YCRCB_444;
 		break;
 	case MEDIA_BUS_FMT_RBG888_1X24:
+	case MEDIA_BUS_FMT_RBG101010_1X30:
 		dev_dbg(xscaler->xvip.dev,
 			"Vscaler Input Media Format RGB");
 		video_in = XVIDC_CSF_RGB;
@@ -1233,21 +1269,25 @@ static int xv_hscaler_setup_video_fmt(struct xscaler_device *xscaler,
 
 	switch (code_out) {
 	case MEDIA_BUS_FMT_VYYUYY8_1X24:
+	case MEDIA_BUS_FMT_VYYUYY10_4X20:
 		dev_dbg(xscaler->xvip.dev,
 			"Hscaler Output Media Format YUV 420\n");
 		video_out = XVIDC_CSF_YCRCB_420;
 		break;
 	case MEDIA_BUS_FMT_UYVY8_1X16:
+	case MEDIA_BUS_FMT_UYVY10_1X20:
 		dev_dbg(xscaler->xvip.dev,
 			"Hscaler Output Media Format YUV 422\n");
 		video_out = XVIDC_CSF_YCRCB_422;
 		break;
 	case MEDIA_BUS_FMT_VUY8_1X24:
+	case MEDIA_BUS_FMT_VUY10_1X30:
 		dev_dbg(xscaler->xvip.dev,
 			"Hscaler Output Media Format YUV 444\n");
 		video_out = XVIDC_CSF_YCRCB_444;
 		break;
 	case MEDIA_BUS_FMT_RBG888_1X24:
+	case MEDIA_BUS_FMT_RBG101010_1X30:
 		dev_dbg(xscaler->xvip.dev,
 			"Hscaler Output Media Format RGB\n");
 		video_out = XVIDC_CSF_RGB;
@@ -1469,6 +1509,7 @@ static int xscaler_set_format(struct v4l2_subdev *subdev,
 				XSCALER_MIN_WIDTH, xscaler->max_pixels);
 	format->height = clamp_t(unsigned int, fmt->format.height,
 				 XSCALER_MIN_HEIGHT, xscaler->max_lines);
+	format->code = fmt->format.code;
 	fmt->format = *format;
 	return 0;
 }
@@ -1542,10 +1583,28 @@ static int xscaler_parse_of(struct xscaler_device *xscaler)
 	int ret;
 	u32 port_id, dt_ppc;
 
+	if (xscaler->cfg->flags & XSCALER_CLK_PROP) {
+		xscaler->aclk_axis = devm_clk_get(dev, "aclk_axis");
+		if (IS_ERR(xscaler->aclk_axis)) {
+			ret = PTR_ERR(xscaler->aclk_axis);
+			dev_err(dev, "failed to get aclk_axis (%d)\n", ret);
+			return ret;
+		}
+		xscaler->aclk_ctrl = devm_clk_get(dev, "aclk_ctrl");
+		if (IS_ERR(xscaler->aclk_ctrl)) {
+			ret = PTR_ERR(xscaler->aclk_ctrl);
+			dev_err(dev, "failed to get aclk_ctrl (%d)\n", ret);
+			return ret;
+		}
+	} else {
+		dev_info(dev, "assuming all required clocks are enabled!\n");
+	}
+
 	ret = of_property_read_u32(node, "xlnx,max-height",
 				   &xscaler->max_lines);
 	if (ret < 0) {
-		xscaler->max_lines = XSCALER_DEF_MAX_HEIGHT;
+		dev_err(dev, "xlnx,max-height is missing!");
+		return -EINVAL;
 	} else if (xscaler->max_lines > XSCALER_MAX_HEIGHT ||
 		   xscaler->max_lines < XSCALER_MIN_HEIGHT) {
 		dev_err(dev, "Invalid height in dt");
@@ -1555,7 +1614,8 @@ static int xscaler_parse_of(struct xscaler_device *xscaler)
 	ret = of_property_read_u32(node, "xlnx,max-width",
 				   &xscaler->max_pixels);
 	if (ret < 0) {
-		xscaler->max_pixels = XSCALER_DEF_MAX_WIDTH;
+		dev_err(dev, "xlnx,max-width is missing!");
+		return -EINVAL;
 	} else if (xscaler->max_pixels > XSCALER_MAX_WIDTH ||
 		   xscaler->max_pixels < XSCALER_MIN_WIDTH) {
 		dev_err(dev, "Invalid width in dt");
@@ -1672,12 +1732,28 @@ static int xscaler_probe(struct platform_device *pdev)
 	struct v4l2_subdev *subdev;
 	struct v4l2_mbus_framefmt *default_format;
 	int ret;
+	const struct of_device_id *match;
+	struct device_node *node = pdev->dev.of_node;
+	struct resource *res;
 
 	xscaler = devm_kzalloc(&pdev->dev, sizeof(*xscaler), GFP_KERNEL);
 	if (!xscaler)
 		return -ENOMEM;
 
 	xscaler->xvip.dev = &pdev->dev;
+
+	match = of_match_node(xscaler_of_id_table, node);
+	if (!match)
+		return -ENODEV;
+
+	if (!strncmp(match->compatible, xscaler_of_id_table[0].compatible,
+		     strlen(xscaler_of_id_table[0].compatible))) {
+		dev_warn(&pdev->dev,
+			 "%s - compatible string is getting deprecated!\n",
+			 match->compatible);
+	}
+
+	xscaler->cfg = match->data;
 
 	ret = xscaler_parse_of(xscaler);
 	if (ret < 0)
@@ -1686,9 +1762,31 @@ static int xscaler_probe(struct platform_device *pdev)
 	/* Initialize coefficient parameters */
 	xscaler->max_num_phases = XSCALER_MAX_PHASES;
 
-	ret = xvip_init_resources(&xscaler->xvip);
-	if (ret < 0)
-		return ret;
+	if (xscaler->cfg->flags & XSCALER_CLK_PROP) {
+		res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+		xscaler->xvip.iomem = devm_ioremap_resource(xscaler->xvip.dev,
+							    res);
+		if (IS_ERR(xscaler->xvip.iomem))
+			return PTR_ERR(xscaler->xvip.iomem);
+
+		ret = clk_prepare_enable(xscaler->aclk_axis);
+		if (ret) {
+			dev_err(&pdev->dev, "failed to enable aclk_axis (%d)\n",
+				ret);
+			goto res_cleanup;
+		}
+
+		ret = clk_prepare_enable(xscaler->aclk_ctrl);
+		if (ret) {
+			dev_err(&pdev->dev, "failed to enable aclk_ctrl (%d)\n",
+				ret);
+			goto axis_clk_cleanup;
+		}
+	} else {
+		ret = xvip_init_resources(&xscaler->xvip);
+		if (ret < 0)
+			return ret;
+	}
 
 	/* Reset the Global IP Reset through a PS GPIO */
 	gpiod_set_value_cansleep(xscaler->rst_gpio, XSCALER_RESET_DEASSERT);
@@ -1744,6 +1842,10 @@ static int xscaler_probe(struct platform_device *pdev)
 
 error:
 	media_entity_cleanup(&subdev->entity);
+	clk_disable_unprepare(xscaler->aclk_ctrl);
+axis_clk_cleanup:
+	clk_disable_unprepare(xscaler->aclk_axis);
+res_cleanup:
 	xvip_cleanup_resources(&xscaler->xvip);
 	return ret;
 }
@@ -1755,16 +1857,12 @@ static int xscaler_remove(struct platform_device *pdev)
 
 	v4l2_async_unregister_subdev(subdev);
 	media_entity_cleanup(&subdev->entity);
+	clk_disable_unprepare(xscaler->aclk_ctrl);
+	clk_disable_unprepare(xscaler->aclk_axis);
 	xvip_cleanup_resources(&xscaler->xvip);
 
 	return 0;
 }
-
-static const struct of_device_id xscaler_of_id_table[] = {
-	{ .compatible = "xlnx,v-vpss-scaler" },
-	{ /* end of table */ }
-};
-MODULE_DEVICE_TABLE(of, xscaler_of_id_table);
 
 static struct platform_driver xscaler_driver = {
 	.driver			= {

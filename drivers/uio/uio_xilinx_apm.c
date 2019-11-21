@@ -230,7 +230,8 @@ static int xapm_probe(struct platform_device *pdev)
 
 	xapm->param.clk = devm_clk_get(&pdev->dev, NULL);
 	if (IS_ERR(xapm->param.clk)) {
-		dev_err(&pdev->dev, "axi clock error\n");
+		if (PTR_ERR(xapm->param.clk) != -EPROBE_DEFER)
+			dev_err(&pdev->dev, "axi clock error\n");
 		return PTR_ERR(xapm->param.clk);
 	}
 
@@ -239,6 +240,7 @@ static int xapm_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Unable to enable clock.\n");
 		return ret;
 	}
+	pm_runtime_get_noresume(&pdev->dev);
 	pm_runtime_set_active(&pdev->dev);
 	pm_runtime_enable(&pdev->dev);
 	/* Initialize mode as Advanced so that if no mode in dts, default
@@ -273,6 +275,7 @@ static int xapm_probe(struct platform_device *pdev)
 	xapm->info.irq = irq;
 	xapm->info.handler = xapm_handler;
 	xapm->info.priv = xapm;
+	xapm->info.irq_flags = IRQF_SHARED;
 
 	memcpy(ptr, &xapm->param, sizeof(struct xapm_param));
 

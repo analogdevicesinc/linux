@@ -587,8 +587,7 @@ static void adf7242_rx_cal_work(struct work_struct *work)
 	struct adf7242_local *lp =
 	container_of(work, struct adf7242_local, work.work);
 
-	/*
-	 * Reissuing RC_RX every 400ms - to adjust for offset
+	/* Reissuing RC_RX every 400ms - to adjust for offset
 	 * drift in receiver (datasheet page 61, OCL section)
 	 */
 
@@ -1267,7 +1266,8 @@ static int adf7242_probe(struct spi_device *spi)
 
 	spi_set_drvdata(spi, lp);
 	INIT_DELAYED_WORK(&lp->work, adf7242_rx_cal_work);
-	lp->wqueue = alloc_ordered_workqueue(dev_name(&spi->dev), WQ_MEM_RECLAIM);
+	lp->wqueue = alloc_ordered_workqueue(dev_name(&spi->dev),
+					     WQ_MEM_RECLAIM);
 
 	ret = adf7242_hw_init(lp);
 	if (ret)
@@ -1308,8 +1308,7 @@ static int adf7242_remove(struct spi_device *spi)
 {
 	struct adf7242_local *lp = spi_get_drvdata(spi);
 
-	if (!IS_ERR_OR_NULL(lp->debugfs_root))
-		debugfs_remove_recursive(lp->debugfs_root);
+	debugfs_remove_recursive(lp->debugfs_root);
 
 	cancel_delayed_work_sync(&lp->work);
 	destroy_workqueue(lp->wqueue);

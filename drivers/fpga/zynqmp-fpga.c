@@ -1,15 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
- * Copyright (C) 2016 Xilinx, Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * Copyright (C) 2016 - 2019 Xilinx, Inc.
  */
 
 #include <linux/clk.h>
@@ -20,7 +11,8 @@
 #include <linux/module.h>
 #include <linux/of_address.h>
 #include <linux/string.h>
-#include <linux/firmware/xilinx/zynqmp/firmware.h>
+#include <linux/seq_file.h>
+#include <linux/firmware/xlnx-zynqmp.h>
 
 /* Constant Definitions */
 #define IXR_FPGA_DONE_MASK	0X00000008U
@@ -35,6 +27,8 @@ module_param(readback_type, bool, 0644);
 MODULE_PARM_DESC(readback_type,
 		 "readback_type 0-configuration register read "
 		 "1- configuration data read (default: 0)");
+
+static const struct zynqmp_eemi_ops *eemi_ops;
 
 /**
  * struct zynqmp_configreg - Configuration register offsets
@@ -81,6 +75,7 @@ struct zynqmp_fpga_priv {
 	struct device *dev;
 	struct mutex lock;
 	struct clk *clk;
+	char *key;
 	u32 flags;
 	u32 size;
 };
@@ -93,6 +88,7 @@ static int zynqmp_fpga_ops_write_init(struct fpga_manager *mgr,
 
 	priv = mgr->priv;
 	priv->flags = info->flags;
+	priv->key = info->key;
 
 	return 0;
 }
@@ -105,9 +101,8 @@ static int zynqmp_fpga_ops_write(struct fpga_manager *mgr,
 	size_t dma_size;
 	dma_addr_t dma_addr;
 	int ret;
-	const struct zynqmp_eemi_ops *eemi_ops = zynqmp_pm_get_eemi_ops();
 
-	if (!eemi_ops || !eemi_ops->fpga_load)
+	if (!eemi_ops->fpga_load)
 		return -ENXIO;
 
 	priv = mgr->priv;
@@ -120,7 +115,7 @@ static int zynqmp_fpga_ops_write(struct fpga_manager *mgr,
 	if (ret)
 		goto err_unlock;
 
-	if (mgr->flags & IXR_FPGA_ENCRYPTION_EN)
+	if (priv->flags & IXR_FPGA_ENCRYPTION_EN)
 		dma_size = size + ENCRYPTED_KEY_LEN;
 	else
 		dma_size = size;
@@ -133,17 +128,16 @@ static int zynqmp_fpga_ops_write(struct fpga_manager *mgr,
 
 	memcpy(kbuf, buf, size);
 
-	if (mgr->flags & IXR_FPGA_ENCRYPTION_EN)
-		memcpy(kbuf + size, mgr->key, ENCRYPTED_KEY_LEN);
+	if (priv->flags & IXR_FPGA_ENCRYPTION_EN)
+		memcpy(kbuf + size, priv->key, ENCRYPTED_KEY_LEN);
 
 	wmb(); /* ensure all writes are done before initiate FW call */
 
-	if (mgr->flags & IXR_FPGA_ENCRYPTION_EN)
+	if (priv->flags & IXR_FPGA_ENCRYPTION_EN)
 		ret = eemi_ops->fpga_load(dma_addr, dma_addr + size,
-							mgr->flags);
+					  priv->flags);
 	else
-		ret = eemi_ops->fpga_load(dma_addr, size,
-						mgr->flags);
+		ret = eemi_ops->fpga_load(dma_addr, size, priv->flags);
 
 	dma_free_coherent(priv->dev, dma_size, kbuf, dma_addr);
 disable_clk:
@@ -162,9 +156,8 @@ static int zynqmp_fpga_ops_write_complete(struct fpga_manager *mgr,
 static enum fpga_mgr_states zynqmp_fpga_ops_state(struct fpga_manager *mgr)
 {
 	u32 status;
-	const struct zynqmp_eemi_ops *eemi_ops = zynqmp_pm_get_eemi_ops();
 
-	if (!eemi_ops || !eemi_ops->fpga_get_status)
+	if (!eemi_ops->fpga_get_status)
 		return FPGA_MGR_STATE_UNKNOWN;
 
 	eemi_ops->fpga_get_status(&status);
@@ -177,7 +170,6 @@ static enum fpga_mgr_states zynqmp_fpga_ops_state(struct fpga_manager *mgr)
 static int zynqmp_fpga_read_cfgreg(struct fpga_manager *mgr,
 				   struct seq_file *s)
 {
-	const struct zynqmp_eemi_ops *eemi_ops = zynqmp_pm_get_eemi_ops();
 	struct zynqmp_fpga_priv *priv = mgr->priv;
 	int ret, val;
 	unsigned int *buf;
@@ -218,7 +210,6 @@ disable_clk:
 static int zynqmp_fpga_read_cfgdata(struct fpga_manager *mgr,
 				    struct seq_file *s)
 {
-	const struct zynqmp_eemi_ops *eemi_ops = zynqmp_pm_get_eemi_ops();
 	struct zynqmp_fpga_priv *priv;
 	int ret, data_offset;
 	unsigned int *buf;
@@ -276,11 +267,10 @@ prepare_clk:
 
 static int zynqmp_fpga_ops_read(struct fpga_manager *mgr, struct seq_file *s)
 {
-	const struct zynqmp_eemi_ops *eemi_ops = zynqmp_pm_get_eemi_ops();
 	struct zynqmp_fpga_priv *priv = mgr->priv;
 	int ret;
 
-	if (!eemi_ops || !eemi_ops->fpga_read)
+	if (!eemi_ops->fpga_read)
 		return -ENXIO;
 
 	if (!mutex_trylock(&priv->lock))
@@ -308,6 +298,11 @@ static int zynqmp_fpga_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct zynqmp_fpga_priv *priv;
 	int err, ret;
+	struct fpga_manager *mgr;
+
+	eemi_ops = zynqmp_pm_get_eemi_ops();
+	if (IS_ERR(eemi_ops))
+		return PTR_ERR(eemi_ops);
 
 	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
 	if (!priv)
@@ -318,6 +313,13 @@ static int zynqmp_fpga_probe(struct platform_device *pdev)
 	ret = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(44));
 	if (ret < 0)
 		dev_err(dev, "no usable DMA configuration");
+
+	mgr = fpga_mgr_create(dev, "Xilinx ZynqMP FPGA Manager",
+			      &zynqmp_fpga_ops, priv);
+	if (!mgr)
+		return -ENOMEM;
+
+	platform_set_drvdata(pdev, mgr);
 
 	priv->clk = devm_clk_get(dev, "ref_clk");
 	if (IS_ERR(priv->clk)) {
@@ -332,10 +334,10 @@ static int zynqmp_fpga_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	err = fpga_mgr_register(dev, "Xilinx ZynqMP FPGA Manager",
-				&zynqmp_fpga_ops, priv);
+	err = fpga_mgr_register(mgr);
 	if (err) {
 		dev_err(dev, "unable to register FPGA manager");
+		fpga_mgr_free(mgr);
 		clk_unprepare(priv->clk);
 		return err;
 	}
@@ -351,7 +353,7 @@ static int zynqmp_fpga_remove(struct platform_device *pdev)
 	mgr = platform_get_drvdata(pdev);
 	priv = mgr->priv;
 
-	fpga_mgr_unregister(&pdev->dev);
+	fpga_mgr_unregister(mgr);
 	clk_unprepare(priv->clk);
 
 	return 0;

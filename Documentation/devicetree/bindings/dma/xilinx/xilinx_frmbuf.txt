@@ -8,15 +8,15 @@ is format aware, only one buffer pointer is needed by the IP blocks even
 when planar or semi-planar format are used.
 
 FB Read Required propertie(s):
-- compatible		: Should be "xlnx,axi-frmbuf-rd-v2" or
-			  "xlnx,axi-frmbuf-rd-v2.1"
+- compatible		: Should be "xlnx,axi-frmbuf-rd-v2.1". Older string
+			  "xlnx,axi-frmbuf-rd-v2" is now deprecated.
 
 Note: Compatible string "xlnx,axi-frmbuf-rd" and the hardware it
 represented is no longer supported.
 
 FB Write Required propertie(s):
-- compatible		: Should be "xlnx,axi-frmbuf-wr-v2" or
-			  "xlnx,axi-frmbuf-wr-v2.1"
+- compatible		: Should be "xlnx,axi-frmbuf-wr-v2.1". Older string
+			  "xlnx,axi-frmbuf-wr-v2" is now deprecated.
 
 Note: Compatible string "xlnx,axi-frmbuf-wr" and the hardware it
 represented is no longer supported.
@@ -34,6 +34,12 @@ Required Properties Common to both FB Read and FB Write:
 
 Required Properties Common to both FB Read and FB Write for v2.1:
 - xlnx,pixels-per-clock	: Pixels per clock set in IP (1, 2 or 4)
+- clocks: Reference to the AXI Streaming clock feeding the AP_CLK
+- clock-names: Must have "ap_clk"
+- xlnx,max-height	: Maximum number of lines.
+			  Valid range from 64 to 4320.
+- xlnx,max-width	: Maximum number of pixels in a line.
+			  Valid range from 64 to 8192.
 
 Optional Properties Common to both FB Read and FB Write for v2.1:
 - xlnx,dma-align	: DMA alignment required in bytes.
@@ -45,10 +51,6 @@ Optional Properties Common to both FB Read and FB Write for v2.1:
 			  1, 2 or 4.
 - xlnx,fid		: Field ID enabled for interlaced video support.
 			  Can be absent for progressive video.
-
-Optional properties:
-- xlnx,max-height	: Maximum number of lines.
-- xlnx,max-width	: Maximum number of pixels in a line.
 
 VIDEO FORMATS
 The following table describes the legal string values to be used for
@@ -65,6 +67,8 @@ RGBA8		abgr8888	<not supported>		DRM_FORMAT_ABGR8888
 BGRA8		argb8888	<not supported>		DRM_FORMAT_ARGB8888
 BGRX8		xrgb8888	V4L2_PIX_FMT_XBGR32	DRM_FORMAT_XRGB8888
 RGBX10		xbgr2101010	V4L2_PIX_FMT_XBGR30	DRM_FORMAT_XBGR2101010
+RGBX12		xbgr2121212	V4L2_PIX_FMT_XBGR40	<not supported>
+RGBX16		rgb16		V4L2_PIX_FMT_BGR40	<not supported>
 YUV8		vuy888		V4L2_PIX_FMT_VUY24	DRM_FORMAT_VUY888
 YUVX8		xvuy8888	V4L2_PIX_FMT_XVUY32	DRM_FORMAT_XVUY8888
 YUYV8		yuyv		V4L2_PIX_FMT_YUYV	DRM_FORMAT_YUYV
@@ -82,7 +86,7 @@ Y_UV10		xv20		V4L2_PIX_FMT_XV20	<not supported>
 Y_UV10_420	xv15		V4L2_PIX_FMT_XV15M	DRM_FORMAT_XV15
 Y_UV10_420	xv15		V4L2_PIX_FMT_XV20	<not supported>
 
-Examples
+Examples:
 
 FB Read Example:
 ++++++++
@@ -97,6 +101,8 @@ v_frmbuf_rd_0: v_frmbuf_rd@80000000 {
 	xlnx,vid-formats = "bgr888","xbgr8888";
 	xlnx,pixels-per-clock = <1>;
 	xlnx,dma-align = <8>;
+	clocks = <&vid_stream_clk>;
+	clock-names = "ap_clk"
 };
 
 FB Write Example:
@@ -112,4 +118,6 @@ v_frmbuf_wr_0: v_frmbuf_wr@80000000 {
 	xlnx,vid-formats = "bgr888","yuyv","nv16","nv12";
 	xlnx,pixels-per-clock = <2>;
 	xlnx,dma-align = <16>;
+	clocks = <&vid_stream_clk>;
+	clock-names = "ap_clk"
 };

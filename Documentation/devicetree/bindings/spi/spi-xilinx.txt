@@ -2,11 +2,10 @@ Xilinx SPI controller Device Tree Bindings
 -------------------------------------------------
 
 Required properties:
-- compatible		: Should be "xlnx,xps-spi-2.00.a" or "xlnx,xps-spi-2.00.b"
+- compatible		: Should be "xlnx,xps-spi-2.00.a", "xlnx,xps-spi-2.00.b" or "xlnx,axi-quad-spi-1.00.a"
 - reg			: Physical base address and size of SPI registers map.
 - interrupts		: Property with a value describing the interrupt
 			  number.
-- interrupt-parent	: Must be core interrupt controller
 - fifo-size		: Depth of TX/RX Fifos
 
 Optional properties:
@@ -15,6 +14,7 @@ Optional properties:
 - clock-names		: Can be one or more strings from "axi_clk", "axi4_clk"
 			  and "spi_clk" depending on IP configurations.
 - clocks		: Input clock specifier. Refer to common clock bindings.
+- xlnx,startup-block	: Indicates whether startup block is enabled or disabled.
 
 Example:
 	axi_quad_spi@41e00000 {
@@ -27,5 +27,6 @@ Example:
 			num-cs = <0x1>;
 			fifo-size = <256>;
 			bits-per-word = <8>;
+			xlnx,startup-block;
 	};
 

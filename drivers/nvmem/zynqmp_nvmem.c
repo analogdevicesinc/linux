@@ -1,15 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
- * Copyright (C) 2017 Xilinx, Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * Copyright (C) 2017 - 2019 Xilinx, Inc.
  */
 
 #include <linux/dma-mapping.h>
@@ -17,7 +8,7 @@
 #include <linux/nvmem-provider.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
-#include <linux/firmware/xilinx/zynqmp/firmware.h>
+#include <linux/firmware/xlnx-zynqmp.h>
 
 #define SILICON_REVISION_MASK 0xF
 #define WORD_INBYTES		(4)
@@ -32,6 +23,8 @@
 #define EFUSE_NOT_ENABLED	(29)
 #define EFUSE_READ		(0)
 #define EFUSE_WRITE		(1)
+
+static const struct zynqmp_eemi_ops *eemi_ops;
 
 /**
  * struct xilinx_efuse - the basic structure
@@ -54,7 +47,6 @@ struct xilinx_efuse {
 static int zynqmp_efuse_access(void *context, unsigned int offset,
 			       void *val, size_t bytes, unsigned int flag)
 {
-	const struct zynqmp_eemi_ops *eemi_ops = zynqmp_pm_get_eemi_ops();
 	size_t words = bytes / WORD_INBYTES;
 	struct device *dev = context;
 	dma_addr_t dma_addr, dma_buf;
@@ -62,7 +54,7 @@ static int zynqmp_efuse_access(void *context, unsigned int offset,
 	char *data;
 	int ret;
 
-	if (!eemi_ops || !eemi_ops->efuse_access)
+	if (!eemi_ops->efuse_access)
 		return -ENXIO;
 
 	if (bytes % WORD_INBYTES != 0) {
@@ -129,9 +121,8 @@ static int zynqmp_nvmem_read(void *context, unsigned int offset,
 {
 	int ret;
 	int idcode, version;
-	const struct zynqmp_eemi_ops *eemi_ops = zynqmp_pm_get_eemi_ops();
 
-	if (!eemi_ops || !eemi_ops->get_chipid)
+	if (!eemi_ops->get_chipid)
 		return -ENXIO;
 
 	switch (offset) {
@@ -188,6 +179,10 @@ MODULE_DEVICE_TABLE(of, zynqmp_nvmem_match);
 static int zynqmp_nvmem_probe(struct platform_device *pdev)
 {
 	struct nvmem_device *nvmem;
+
+	eemi_ops = zynqmp_pm_get_eemi_ops();
+	if (IS_ERR(eemi_ops))
+		return PTR_ERR(eemi_ops);
 
 	econfig.dev = &pdev->dev;
 	econfig.priv = &pdev->dev;

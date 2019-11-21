@@ -1366,11 +1366,17 @@ zynqmp_dp_connector_detect(struct drm_connector *connector, bool force)
 	}
 
 	if (state & ZYNQMP_DP_TX_INTR_SIGNAL_STATE_HPD) {
+		dp->status = connector_status_connected;
 		ret = drm_dp_dpcd_read(&dp->aux, 0x0, dp->dpcd,
 				       sizeof(dp->dpcd));
 		if (ret < 0) {
-			dev_dbg(dp->dev, "DPCD read failes");
-			goto disconnected;
+			dev_dbg(dp->dev, "DPCD read first try fails");
+			ret = drm_dp_dpcd_read(&dp->aux, 0x0, dp->dpcd,
+					       sizeof(dp->dpcd));
+			if (ret < 0) {
+				dev_dbg(dp->dev, "DPCD read retry fails");
+				goto disconnected;
+			}
 		}
 
 		link_config->max_rate = min_t(int,
@@ -1380,7 +1386,6 @@ zynqmp_dp_connector_detect(struct drm_connector *connector, bool force)
 					       drm_dp_max_lane_count(dp->dpcd),
 					       dp->num_lanes);
 
-		dp->status = connector_status_connected;
 		return connector_status_connected;
 	}
 
@@ -1399,7 +1404,7 @@ static int zynqmp_dp_connector_get_modes(struct drm_connector *connector)
 	if (!edid)
 		return 0;
 
-	drm_mode_connector_update_edid_property(connector, edid);
+	drm_connector_update_edid_property(connector, edid);
 	ret = drm_add_edid_modes(connector, edid);
 	kfree(edid);
 
@@ -1689,7 +1694,7 @@ int zynqmp_dp_bind(struct device *dev, struct device *master, void *data)
 
 	drm_connector_helper_add(connector, &zynqmp_dp_connector_helper_funcs);
 	drm_connector_register(connector);
-	drm_mode_connector_attach_encoder(connector, encoder);
+	drm_connector_attach_encoder(connector, encoder);
 	connector->dpms = DRM_MODE_DPMS_OFF;
 
 	dp->drm = drm;

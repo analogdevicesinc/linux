@@ -452,14 +452,12 @@ static const struct iio_info ad9834_info = {
 	.write_raw = &ad9834_write_raw,
 	.read_raw = &ad9834_read_raw,
 	.attrs = &ad9834_attribute_group,
-	.driver_module = THIS_MODULE,
 };
 
 static const struct iio_info ad9833_info = {
 	.write_raw = &ad9834_write_raw,
 	.read_raw = &ad9834_read_raw,
 	.attrs = &ad9833_attribute_group,
-	.driver_module = THIS_MODULE,
 };
 
 static int ad9834_probe(struct spi_device *spi)

@@ -1,4 +1,6 @@
-Xilinx Zynq MPSoC Firmware Device Tree Bindings
+-----------------------------------------------------------------
+Device Tree Bindings for the Xilinx Zynq MPSoC Firmware Interface
+-----------------------------------------------------------------
 
 The zynqmp-firmware node describes the interface to platform firmware.
 ZynqMP has an interface to communicate with secure firmware. Firmware
@@ -9,16 +11,34 @@ power management service, FPGA service and other platform management
 services.
 
 Required properties:
- - compatible:	Must contain:  "xlnx,zynqmp-firmware"
+ - compatible:	Must contain any of below:
+		"xlnx,zynqmp-firmware" for Zynq Ultrascale+ MPSoC
+		"xlnx,versal-firmware-wip" for Versal
  - method:	The method of calling the PM-API firmware layer.
 		Permitted values are:
 		  - "smc" : SMC #0, following the SMCCC
 		  - "hvc" : HVC #0, following the SMCCC
 
-Examples:
-	firmware {
-		zynqmp_firmware: zynqmp-firmware {
-			compatible = "xlnx,zynqmp-firmware";
-			method = "smc";
-		};
+-------
+Example
+-------
+
+Zynq Ultrascale+ MPSoC
+----------------------
+firmware {
+	zynqmp_firmware: zynqmp-firmware {
+		compatible = "xlnx,zynqmp-firmware";
+		method = "smc";
+		...
 	};
+};
+
+Versal
+------
+firmware {
+	versal_firmware: versal-firmware {
+		compatible = "xlnx,versal-firmware-wip";
+		method = "smc";
+		...
+	};
+};

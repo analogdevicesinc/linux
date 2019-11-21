@@ -428,6 +428,9 @@ int xroe_sysfs_init(void)
 	if (ret)
 		return ret;
 	ret = xroe_sysfs_udp_init();
+	if (ret)
+		return ret;
+	ret = xroe_sysfs_stats_init();
 	return ret;
 }
 
@@ -445,6 +448,7 @@ void xroe_sysfs_exit(void)
 	xroe_sysfs_ipv4_exit();
 	xroe_sysfs_ipv6_exit();
 	xroe_sysfs_udp_exit();
+	xroe_sysfs_stats_exit();
 	for (i = 0; i < MAX_NUM_ETH_PORTS; i++)
 		kobject_put(kobj_eth_ports[i]);
 	kobject_put(kobj_framer);
@@ -523,12 +527,10 @@ void utils_sysfs_store_wrapper(u32 address, u32 offset, u32 mask, u32 value,
 {
 	int port;
 	void __iomem *working_address;
-	u32 buffer;
 
 	port = utils_sysfs_path_to_eth_port_num(kobj);
 	working_address = (void __iomem *)(lp->base_addr +
 			  (address + (0x100 * port)));
-	buffer = ioread32(working_address);
 	utils_write32withmask(working_address, value, mask, offset);
 }
 

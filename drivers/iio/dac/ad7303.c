@@ -230,7 +230,6 @@ static const struct iio_info ad7303_info = {
 	.read_raw = ad7303_read_raw,
 	.write_raw = ad7303_write_raw,
 	.update_scan_mode = ad7303_update_scan_mode,
-	.driver_module = THIS_MODULE,
 };
 
 static const struct iio_chan_spec_ext_info ad7303_ext_info[] = {

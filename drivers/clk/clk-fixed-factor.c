@@ -171,14 +171,23 @@ static struct clk *_of_fixed_factor_clk_setup(struct device_node *node)
 
 	of_property_read_string(node, "clock-output-names", &clk_name);
 	parent_name = of_clk_get_parent_name(node, 0);
+	if (!parent_name)
+		return ERR_PTR(-EPROBE_DEFER);
 
 	if (of_match_node(set_rate_parent_matches, node))
 		flags |= CLK_SET_RATE_PARENT;
 
 	clk = clk_register_fixed_factor(NULL, clk_name, parent_name, flags,
 					mult, div);
-	if (IS_ERR(clk))
+	if (IS_ERR(clk)) {
+		/*
+		 * If parent clock is not registered, registration would fail.
+		 * Clear OF_POPULATED flag so that clock registration can be
+		 * attempted again from probe function.
+		 */
+		of_node_clear_flag(node, OF_POPULATED);
 		return clk;
+	}
 
 	ret = of_clk_add_provider(node, of_clk_src_simple_get, clk);
 	if (ret) {

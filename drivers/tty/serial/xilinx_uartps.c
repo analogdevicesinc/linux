@@ -1,13 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
  * Cadence UART driver (found in Xilinx Zynq)
  *
  * 2011 - 2014 (C) Xilinx Inc.
- *
- * This program is free software; you can redistribute it
- * and/or modify it under the terms of the GNU General Public
- * License as published by the Free Software Foundation;
- * either version 2 of the License, or (at your option) any
- * later version.
  *
  * This driver has originally been pushed by Xilinx using a Zynq-branding. This
  * still shows in the naming of this file, the kconfig symbols and some symbols
@@ -198,6 +193,7 @@ struct cdns_uart {
 	int			id;
 	struct notifier_block	clk_rate_change_nb;
 	u32			quirks;
+	bool cts_override;
 };
 struct cdns_platform_data {
 	u32 quirks;
@@ -223,6 +219,13 @@ static void cdns_uart_handle_rx(void *dev_id, unsigned int isrstatus)
 	bool is_rxbs_support;
 
 	is_rxbs_support = cdns_uart->quirks & CDNS_UART_RXBS_SUPPORT;
+
+	/*
+	 * RXEMPTY will never be set if RX is disabled as read bytes
+	 * will not be removed from the FIFO
+	 */
+	if (readl(port->membase + CDNS_UART_CR) & CDNS_UART_CR_RX_DIS)
+		return;
 
 	while ((readl(port->membase + CDNS_UART_SR) &
 		CDNS_UART_SR_RXEMPTY) != CDNS_UART_SR_RXEMPTY) {
@@ -370,6 +373,8 @@ static irqreturn_t cdns_uart_isr(int irq, void *dev_id)
 		cdns_uart_handle_tx(dev_id);
 		isrstatus &= ~CDNS_UART_IXR_TXEMPTY;
 	}
+	isrstatus &= port->read_status_mask;
+	isrstatus &= ~port->ignore_status_mask;
 	if (isrstatus & CDNS_UART_IXR_RXMASK)
 		cdns_uart_handle_rx(dev_id, isrstatus);
 
@@ -1000,6 +1005,11 @@ static void cdns_uart_config_port(struct uart_port *port, int flags)
  */
 static unsigned int cdns_uart_get_mctrl(struct uart_port *port)
 {
+	struct cdns_uart *cdns_uart_data = port->private_data;
+
+	if (cdns_uart_data->cts_override)
+		return 0;
+
 	return TIOCM_CTS | TIOCM_DSR | TIOCM_CAR;
 }
 
@@ -1007,6 +1017,10 @@ static void cdns_uart_set_mctrl(struct uart_port *port, unsigned int mctrl)
 {
 	u32 val;
 	u32 mode_reg;
+	struct cdns_uart *cdns_uart_data = port->private_data;
+
+	if (cdns_uart_data->cts_override)
+		return;
 
 	val = readl(port->membase + CDNS_UART_MODEMCR);
 	mode_reg = readl(port->membase + CDNS_UART_MR);
@@ -1127,8 +1141,33 @@ static void cdns_early_write(struct console *con, const char *s,
 static int __init cdns_early_console_setup(struct earlycon_device *device,
 					   const char *opt)
 {
-	if (!device->port.membase)
+	struct uart_port *port = &device->port;
+
+	if (!port->membase)
 		return -ENODEV;
+
+	/* initialise control register */
+	writel(CDNS_UART_CR_TX_EN|CDNS_UART_CR_TXRST|CDNS_UART_CR_RXRST,
+	       port->membase + CDNS_UART_CR);
+
+	/* only set baud if specified on command line - otherwise
+	 * assume it has been initialized by a boot loader.
+	 */
+	if (port->uartclk && device->baud) {
+		u32 cd = 0, bdiv = 0;
+		u32 mr;
+		int div8;
+
+		cdns_uart_calc_baud_divs(port->uartclk, device->baud,
+					 &bdiv, &cd, &div8);
+		mr = CDNS_UART_MR_PARITY_NONE;
+		if (div8)
+			mr |= CDNS_UART_MR_CLKSEL;
+
+		writel(mr,   port->membase + CDNS_UART_MR);
+		writel(cd,   port->membase + CDNS_UART_BAUDGEN);
+		writel(bdiv, port->membase + CDNS_UART_BAUDDIV);
+	}
 
 	device->con->write = cdns_early_write;
 
@@ -1311,8 +1350,7 @@ static int cdns_uart_resume(struct device *device)
 #endif /* ! CONFIG_PM_SLEEP */
 static int __maybe_unused cdns_runtime_suspend(struct device *dev)
 {
-	struct platform_device *pdev = to_platform_device(dev);
-	struct uart_port *port = platform_get_drvdata(pdev);
+	struct uart_port *port = dev_get_drvdata(dev);
 	struct cdns_uart *cdns_uart = port->private_data;
 
 	clk_disable(cdns_uart->uartclk);
@@ -1322,8 +1360,7 @@ static int __maybe_unused cdns_runtime_suspend(struct device *dev)
 
 static int __maybe_unused cdns_runtime_resume(struct device *dev)
 {
-	struct platform_device *pdev = to_platform_device(dev);
-	struct uart_port *port = platform_get_drvdata(pdev);
+	struct uart_port *port = dev_get_drvdata(dev);
 	struct cdns_uart *cdns_uart = port->private_data;
 
 	clk_enable(cdns_uart->pclk);
@@ -1375,7 +1412,7 @@ static int cdns_get_id(struct platform_device *pdev)
 	if (!alias_bitmap_initialized) {
 		ret = of_alias_get_alias_list(cdns_uart_of_match, "serial",
 					      alias_bitmap, MAX_UART_INSTANCES);
-		if (ret) {
+		if (ret && ret != -EOVERFLOW) {
 			mutex_unlock(&bitmap_lock);
 			return ret;
 		}
@@ -1606,6 +1643,8 @@ static int cdns_uart_probe(struct platform_device *pdev)
 	port->dev = &pdev->dev;
 	port->uartclk = clk_get_rate(cdns_uart_data->uartclk);
 	port->private_data = cdns_uart_data;
+	port->read_status_mask = CDNS_UART_IXR_TXEMPTY | CDNS_UART_IXR_RXTRIG |
+			CDNS_UART_IXR_OVERRUN | CDNS_UART_IXR_TOUT;
 	cdns_uart_data->port = port;
 	platform_set_drvdata(pdev, port);
 
@@ -1640,6 +1679,8 @@ static int cdns_uart_probe(struct platform_device *pdev)
 		console_port = NULL;
 #endif
 
+	cdns_uart_data->cts_override = of_property_read_bool(pdev->dev.of_node,
+							     "cts-override");
 	return 0;
 
 err_out_pm_disable:
@@ -1658,7 +1699,8 @@ err_out_unregister_driver:
 	uart_unregister_driver(cdns_uart_data->cdns_uart_driver);
 err_out_id:
 	mutex_lock(&bitmap_lock);
-	clear_bit(cdns_uart_data->id, bitmap);
+	if (cdns_uart_data->id < MAX_UART_INSTANCES)
+		clear_bit(cdns_uart_data->id, bitmap);
 	mutex_unlock(&bitmap_lock);
 	return rc;
 }
@@ -1683,7 +1725,8 @@ static int cdns_uart_remove(struct platform_device *pdev)
 	rc = uart_remove_one_port(cdns_uart_data->cdns_uart_driver, port);
 	port->mapbase = 0;
 	mutex_lock(&bitmap_lock);
-	clear_bit(cdns_uart_data->id, bitmap);
+	if (cdns_uart_data->id < MAX_UART_INSTANCES)
+		clear_bit(cdns_uart_data->id, bitmap);
 	mutex_unlock(&bitmap_lock);
 	clk_disable_unprepare(cdns_uart_data->uartclk);
 	clk_disable_unprepare(cdns_uart_data->pclk);

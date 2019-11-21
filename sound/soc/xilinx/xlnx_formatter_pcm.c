@@ -14,10 +14,13 @@
 #include <linux/platform_device.h>
 #include <linux/sizes.h>
 
+#include <sound/asoundef.h>
 #include <sound/soc.h>
 #include <sound/pcm_params.h>
 
 #include "xlnx_snd_common.h"
+
+#define DRV_NAME "xlnx_formatter_pcm"
 
 #define XLNX_S2MM_OFFSET	0
 #define XLNX_MM2S_OFFSET	0x100
@@ -41,6 +44,7 @@
 #define AUD_STS_IOC_IRQ_MASK	BIT(31)
 #define AUD_STS_CH_STS_MASK	BIT(29)
 #define AUD_CTRL_IOC_IRQ_MASK	BIT(13)
+#define AUD_CTRL_TOUT_IRQ_MASK	BIT(14)
 #define AUD_CTRL_DMA_EN_MASK	BIT(0)
 
 #define CFG_MM2S_CH_MASK	GENMASK(11, 8)
@@ -55,7 +59,9 @@
 #define CFG_S2MM_XFER_SHIFT	29
 #define CFG_S2MM_PKG_MASK	BIT(28)
 
+#define AUD_CTRL_DATA_WIDTH_MASK	GENMASK(18, 16)
 #define AUD_CTRL_DATA_WIDTH_SHIFT	16
+#define AUD_CTRL_ACTIVE_CH_MASK		GENMASK(22, 19)
 #define AUD_CTRL_ACTIVE_CH_SHIFT	19
 #define PERIOD_CFG_PERIODS_SHIFT	16
 
@@ -63,40 +69,7 @@
 #define PERIODS_MAX		6
 #define PERIOD_BYTES_MIN	192
 #define PERIOD_BYTES_MAX	(50 * 1024)
-
-/* audio params macros */
-#define PROF_SAMPLERATE_MASK		GENMASK(7, 6)
-#define PROF_SAMPLERATE_SHIFT		6
-#define PROF_CHANNEL_COUNT_MASK		GENMASK(11, 8)
-#define PROF_CHANNEL_COUNT_SHIFT	8
-#define PROF_MAX_BITDEPTH_MASK		GENMASK(18, 16)
-#define PROF_MAX_BITDEPTH_SHIFT		16
-#define PROF_BITDEPTH_MASK		GENMASK(21, 19)
-#define PROF_BITDEPTH_SHIFT		19
-
-#define AES_FORMAT_MASK			BIT(0)
-#define PROF_SAMPLERATE_UNDEFINED	0
-#define PROF_SAMPLERATE_44100		1
-#define PROF_SAMPLERATE_48000		2
-#define PROF_SAMPLERATE_32000		3
-#define PROF_CHANNELS_UNDEFINED		0
-#define PROF_TWO_CHANNELS		8
-#define PROF_STEREO_CHANNELS		2
-#define PROF_MAX_BITDEPTH_UNDEFINED	0
-#define PROF_MAX_BITDEPTH_20		2
-#define PROF_MAX_BITDEPTH_24		4
-
-#define CON_SAMPLE_RATE_MASK		GENMASK(27, 24)
-#define CON_SAMPLE_RATE_SHIFT		24
-#define CON_CHANNEL_COUNT_MASK		GENMASK(23, 20)
-#define CON_CHANNEL_COUNT_SHIFT		20
-#define CON_MAX_BITDEPTH_MASK		BIT(1)
-#define CON_BITDEPTH_MASK		GENMASK(3, 1)
-#define CON_BITDEPTH_SHIFT		0x1
-
-#define CON_SAMPLERATE_44100		0
-#define CON_SAMPLERATE_48000		2
-#define CON_SAMPLERATE_32000		3
+#define XLNX_PARAM_UNKNOWN	0
 
 static const struct snd_pcm_hardware xlnx_pcm_hardware = {
 	.info = SNDRV_PCM_INFO_INTERLEAVED | SNDRV_PCM_INFO_BLOCK_TRANSFER |
@@ -127,6 +100,9 @@ struct xlnx_pcm_drv_data {
 	struct platform_device *pdev;
 	struct device_node *nodes[XLNX_MAX_PATHS];
 	struct clk *axi_clk;
+	struct clk *mm2s_axis_clk;
+	struct clk *s2mm_axis_clk;
+	struct clk *aud_mclk;
 };
 
 /*
@@ -145,18 +121,6 @@ struct xlnx_pcm_stream_param {
 	u64 buffer_size;
 };
 
-/**
- * struct audio_params - audio stream parameters
- * @srate: sampling rate
- * @sig_bits: significant bits in container
- * @channels: number of channels
- */
-struct audio_params {
-	u32 srate;
-	u32 sig_bits;
-	u32 channels;
-};
-
 enum bit_depth {
 	BIT_DEPTH_8,
 	BIT_DEPTH_16,
@@ -172,148 +136,152 @@ enum {
 	PCM_TO_AES
 };
 
-static int parse_professional_format(u32 chsts_reg1_val, u32 chsts_reg2_val,
-				     struct audio_params *params)
+static void xlnx_parse_aes_params(u32 chsts_reg1_val, u32 chsts_reg2_val,
+				  struct device *dev)
 {
-	u32 padded, val;
+	u32 padded, srate, bit_depth, status[2];
 
-	val = (chsts_reg1_val & PROF_SAMPLERATE_MASK) >> PROF_SAMPLERATE_SHIFT;
-	switch (val) {
-	case PROF_SAMPLERATE_44100:
-		params->srate = 44100;
-		break;
-	case PROF_SAMPLERATE_48000:
-		params->srate = 48000;
-		break;
-	case PROF_SAMPLERATE_32000:
-		params->srate = 32000;
-		break;
-	case PROF_SAMPLERATE_UNDEFINED:
-	default:
-		/* not indicated */
-		return -EINVAL;
+	if (chsts_reg1_val & IEC958_AES0_PROFESSIONAL) {
+		status[0] = chsts_reg1_val & 0xff;
+		status[1] = (chsts_reg1_val >> 16) & 0xff;
+
+		switch (status[0] & IEC958_AES0_PRO_FS) {
+		case IEC958_AES0_PRO_FS_44100:
+			srate = 44100;
+			break;
+		case IEC958_AES0_PRO_FS_48000:
+			srate = 48000;
+			break;
+		case IEC958_AES0_PRO_FS_32000:
+			srate = 32000;
+			break;
+		case IEC958_AES0_PRO_FS_NOTID:
+		default:
+			srate = XLNX_PARAM_UNKNOWN;
+			break;
+		}
+
+		switch (status[1] & IEC958_AES2_PRO_SBITS) {
+		case IEC958_AES2_PRO_WORDLEN_NOTID:
+		case IEC958_AES2_PRO_SBITS_20:
+			padded = 0;
+			break;
+		case IEC958_AES2_PRO_SBITS_24:
+			padded = 4;
+			break;
+		default:
+			bit_depth = XLNX_PARAM_UNKNOWN;
+			goto log_params;
+		}
+
+		switch (status[1] & IEC958_AES2_PRO_WORDLEN) {
+		case IEC958_AES2_PRO_WORDLEN_20_16:
+			bit_depth = 16 + padded;
+			break;
+		case IEC958_AES2_PRO_WORDLEN_22_18:
+			bit_depth = 18 + padded;
+			break;
+		case IEC958_AES2_PRO_WORDLEN_23_19:
+			bit_depth = 19 + padded;
+			break;
+		case IEC958_AES2_PRO_WORDLEN_24_20:
+			bit_depth = 20 + padded;
+			break;
+		case IEC958_AES2_PRO_WORDLEN_NOTID:
+		default:
+			bit_depth = XLNX_PARAM_UNKNOWN;
+			break;
+		}
+
+	} else {
+		status[0] = (chsts_reg1_val >> 24) & 0xff;
+		status[1] = chsts_reg2_val & 0xff;
+
+		switch (status[0] & IEC958_AES3_CON_FS) {
+		case IEC958_AES3_CON_FS_44100:
+			srate = 44100;
+			break;
+		case IEC958_AES3_CON_FS_48000:
+			srate = 48000;
+			break;
+		case IEC958_AES3_CON_FS_32000:
+			srate = 32000;
+			break;
+		default:
+			srate = XLNX_PARAM_UNKNOWN;
+			break;
+		}
+
+		if (status[1] & IEC958_AES4_CON_MAX_WORDLEN_24)
+			padded = 4;
+		else
+			padded = 0;
+
+		switch (status[1] & IEC958_AES4_CON_WORDLEN) {
+		case IEC958_AES4_CON_WORDLEN_20_16:
+			bit_depth = 16 + padded;
+			break;
+		case IEC958_AES4_CON_WORDLEN_22_18:
+			bit_depth = 18 + padded;
+			break;
+		case IEC958_AES4_CON_WORDLEN_23_19:
+			bit_depth = 19 + padded;
+			break;
+		case IEC958_AES4_CON_WORDLEN_24_20:
+			bit_depth = 20 + padded;
+			break;
+		case IEC958_AES4_CON_WORDLEN_21_17:
+			bit_depth = 17 + padded;
+			break;
+		case IEC958_AES4_CON_WORDLEN_NOTID:
+		default:
+			bit_depth = XLNX_PARAM_UNKNOWN;
+			break;
+		}
 	}
 
-	val = (chsts_reg1_val & PROF_CHANNEL_COUNT_MASK) >>
-	       PROF_CHANNEL_COUNT_SHIFT;
-	switch (val) {
-	case PROF_CHANNELS_UNDEFINED:
-	case PROF_STEREO_CHANNELS:
-	case PROF_TWO_CHANNELS:
-		params->channels = 2;
-		break;
-	default:
-		/* TODO: handle more channels in future*/
-		return -EINVAL;
-	}
-
-	val = (chsts_reg1_val & PROF_MAX_BITDEPTH_MASK) >>
-	       PROF_MAX_BITDEPTH_SHIFT;
-	switch (val) {
-	case PROF_MAX_BITDEPTH_UNDEFINED:
-	case PROF_MAX_BITDEPTH_20:
-		padded = 0;
-		break;
-	case PROF_MAX_BITDEPTH_24:
-		padded = 4;
-		break;
-	default:
-		/* user defined values are not supported */
-		return -EINVAL;
-	}
-
-	val = (chsts_reg1_val & PROF_BITDEPTH_MASK) >> PROF_BITDEPTH_SHIFT;
-	switch (val) {
-	case 1:
-		params->sig_bits = 16 + padded;
-		break;
-	case 2:
-		params->sig_bits = 18 + padded;
-		break;
-	case 4:
-		params->sig_bits = 19 + padded;
-		break;
-	case 5:
-		params->sig_bits = 20 + padded;
-		break;
-	case 6:
-		params->sig_bits = 17 + padded;
-		break;
-	case 0:
-	default:
-		return -EINVAL;
-	}
-
-	return 0;
-}
-
-static int parse_consumer_format(u32 chsts_reg1_val, u32 chsts_reg2_val,
-				 struct audio_params *params)
-{
-	u32 padded, val;
-
-	val = (chsts_reg1_val & CON_SAMPLE_RATE_MASK) >> CON_SAMPLE_RATE_SHIFT;
-	switch (val) {
-	case CON_SAMPLERATE_44100:
-		params->srate = 44100;
-		break;
-	case CON_SAMPLERATE_48000:
-		params->srate = 48000;
-		break;
-	case CON_SAMPLERATE_32000:
-		params->srate = 32000;
-		break;
-	default:
-		return -EINVAL;
-	}
-
-	val = (chsts_reg1_val & CON_CHANNEL_COUNT_MASK) >>
-	       CON_CHANNEL_COUNT_SHIFT;
-	params->channels = val;
-
-	/*
-	 * if incorrect channel count embedded is less than 2, set it to
-	 * supported default which is 2 in our case
-	 */
-	if (params->channels < 2)
-		params->channels = 2;
-
-	if (chsts_reg2_val & CON_MAX_BITDEPTH_MASK)
-		padded = 4;
+log_params:
+	if (srate != XLNX_PARAM_UNKNOWN)
+		dev_info(dev, "sample rate = %d\n", srate);
 	else
-		padded = 0;
+		dev_info(dev, "sample rate = unknown\n");
 
-	val = (chsts_reg2_val & CON_BITDEPTH_MASK) >> CON_BITDEPTH_SHIFT;
-	switch (val) {
-	case 1:
-		params->sig_bits = 16 + padded;
-		break;
-	case 2:
-		params->sig_bits = 18 + padded;
-		break;
-	case 4:
-		params->sig_bits = 19 + padded;
-		break;
-	case 5:
-		params->sig_bits = 20 + padded;
-		break;
-	case 6:
-		params->sig_bits = 17 + padded;
-		break;
-	case 0:
-	default:
-		return -EINVAL;
+	if (bit_depth != XLNX_PARAM_UNKNOWN)
+		dev_info(dev, "bit_depth = %d\n", bit_depth);
+	else
+		dev_info(dev, "bit_depth = unknown\n");
+}
+
+static int xlnx_formatter_pcm_reset(void __iomem *mmio_base)
+{
+	u32 val, retries = 0;
+
+	val = readl(mmio_base + XLNX_AUD_CTRL);
+	val |= AUD_CTRL_RESET_MASK;
+	writel(val, mmio_base + XLNX_AUD_CTRL);
+
+	val = readl(mmio_base + XLNX_AUD_CTRL);
+	/* Poll for maximum timeout of approximately 100ms (1 * 100)*/
+	while ((val & AUD_CTRL_RESET_MASK) && (retries < 100)) {
+		mdelay(1);
+		retries++;
+		val = readl(mmio_base + XLNX_AUD_CTRL);
 	}
+	if (val & AUD_CTRL_RESET_MASK)
+		return -ENODEV;
 
 	return 0;
 }
 
-void xlnx_formatter_pcm_reset(void __iomem *mmio_base)
+static void xlnx_formatter_disable_irqs(void __iomem *mmio_base, int stream)
 {
 	u32 val;
 
 	val = readl(mmio_base + XLNX_AUD_CTRL);
-	val |= AUD_CTRL_RESET_MASK;
+	val &= ~AUD_CTRL_IOC_IRQ_MASK;
+	if (stream == SNDRV_PCM_STREAM_CAPTURE)
+		val &= ~AUD_CTRL_TOUT_IRQ_MASK;
+
 	writel(val, mmio_base + XLNX_AUD_CTRL);
 }
 
@@ -363,8 +331,9 @@ static int xlnx_formatter_pcm_open(struct snd_pcm_substream *substream)
 	struct xlnx_pcm_stream_param *stream_data;
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct snd_soc_pcm_runtime *prtd = substream->private_data;
-	struct device *dev = prtd->platform->dev;
-	struct xlnx_pcm_drv_data *adata = dev_get_drvdata(dev);
+	struct snd_soc_component *component = snd_soc_rtdcom_lookup(prtd,
+								    DRV_NAME);
+	struct xlnx_pcm_drv_data *adata = dev_get_drvdata(component->dev);
 
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK &&
 	    !adata->mm2s_presence)
@@ -403,7 +372,8 @@ static int xlnx_formatter_pcm_open(struct snd_pcm_substream *substream)
 
 	stream_data->xfer_mode = (val & data_xfer_mode) >> data_xfer_shift;
 	stream_data->ch_limit = (val & ch_count_mask) >> ch_count_shift;
-	dev_info(dev, "stream %d : format = %d mode = %d ch_limit = %d\n",
+	dev_info(component->dev,
+		 "stream %d : format = %d mode = %d ch_limit = %d\n",
 		 substream->stream, stream_data->interleaved,
 		 stream_data->xfer_mode, stream_data->ch_limit);
 
@@ -414,11 +384,12 @@ static int xlnx_formatter_pcm_open(struct snd_pcm_substream *substream)
 	err = snd_pcm_hw_constraint_step(runtime, 0,
 					 SNDRV_PCM_HW_PARAM_PERIOD_BYTES, 64);
 	if (err) {
-		dev_err(dev, "unable to set constraint on period bytes\n");
+		dev_err(component->dev,
+			"unable to set constraint on period bytes\n");
 		return err;
 	}
 
-	/* enable interrupt on complete */
+	/* enable DMA IOC irq */
 	val = readl(stream_data->mmio + XLNX_AUD_CTRL);
 	val |= AUD_CTRL_IOC_IRQ_MASK;
 	writel(val, stream_data->mmio + XLNX_AUD_CTRL);
@@ -428,21 +399,22 @@ static int xlnx_formatter_pcm_open(struct snd_pcm_substream *substream)
 
 static int xlnx_formatter_pcm_close(struct snd_pcm_substream *substream)
 {
-	u32 val;
-
+	int ret;
 	struct xlnx_pcm_stream_param *stream_data =
 			substream->runtime->private_data;
+	struct snd_soc_pcm_runtime *prtd = substream->private_data;
+	struct snd_soc_component *component = snd_soc_rtdcom_lookup(prtd,
+								    DRV_NAME);
 
-	/* disable interrupt on complete */
-	val = readl(stream_data->mmio + XLNX_AUD_CTRL);
-	val &= ~AUD_CTRL_IOC_IRQ_MASK;
-	writel(val, stream_data->mmio + XLNX_AUD_CTRL);
+	ret = xlnx_formatter_pcm_reset(stream_data->mmio);
+	if (ret) {
+		dev_err(component->dev, "audio formatter reset failed\n");
+		goto err_reset;
+	}
+	xlnx_formatter_disable_irqs(stream_data->mmio, substream->stream);
 
+err_reset:
 	kfree(stream_data);
-
-	if (substream->stream == SNDRV_PCM_STREAM_CAPTURE)
-		xlnx_formatter_pcm_reset(stream_data->mmio + XLNX_S2MM_OFFSET);
-
 	return 0;
 }
 
@@ -468,18 +440,14 @@ static int xlnx_formatter_pcm_hw_params(struct snd_pcm_substream *substream,
 	u32 aes_reg1_val, aes_reg2_val, sample_rate;
 	int status;
 	u64 size;
-	struct audio_params *aes_params;
 	struct pl_card_data *prv;
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct xlnx_pcm_stream_param *stream_data = runtime->private_data;
 	struct snd_soc_pcm_runtime *prtd = substream->private_data;
-	struct device *dev = prtd->platform->dev;
-	struct xlnx_pcm_drv_data *adata = dev_get_drvdata(dev);
+	struct snd_soc_component *component = snd_soc_rtdcom_lookup(prtd,
+								    DRV_NAME);
+	struct xlnx_pcm_drv_data *adata = dev_get_drvdata(component->dev);
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-
-	aes_params = kzalloc(sizeof(*aes_params), GFP_KERNEL);
-	if (!aes_params)
-		return -ENOMEM;
 
 	bits_per_sample = params_width(params);
 	sample_rate = params_rate(params);
@@ -502,18 +470,8 @@ static int xlnx_formatter_pcm_hw_params(struct snd_pcm_substream *substream,
 			aes_reg2_val = readl(stream_data->mmio +
 					 XLNX_AUD_CH_STS_START + 0x4);
 
-			if (aes_reg1_val & AES_FORMAT_MASK)
-				status = parse_professional_format(aes_reg1_val,
-								   aes_reg2_val,
-								   aes_params);
-			else
-				status = parse_consumer_format(aes_reg1_val,
-							       aes_reg2_val,
-							       aes_params);
-			dev_info(dev, "rate = %d bit depth = %d ch = %d\n",
-				 aes_params->srate, aes_params->sig_bits,
-				 aes_params->channels);
-			kfree(aes_params);
+			xlnx_parse_aes_params(aes_reg1_val, aes_reg2_val,
+					      component->dev);
 		}
 	}
 
@@ -530,6 +488,7 @@ static int xlnx_formatter_pcm_hw_params(struct snd_pcm_substream *substream,
 	writel(high, stream_data->mmio + XLNX_AUD_BUFF_ADDR_MSB);
 
 	val = readl(stream_data->mmio + XLNX_AUD_CTRL);
+	val &= ~AUD_CTRL_DATA_WIDTH_MASK;
 	bits_per_sample = params_width(params);
 	switch (bits_per_sample) {
 	case 8:
@@ -549,6 +508,7 @@ static int xlnx_formatter_pcm_hw_params(struct snd_pcm_substream *substream,
 		break;
 	}
 
+	val &= ~AUD_CTRL_ACTIVE_CH_MASK;
 	val |= active_ch << AUD_CTRL_ACTIVE_CH_SHIFT;
 	writel(val, stream_data->mmio + XLNX_AUD_CTRL);
 
@@ -601,8 +561,10 @@ static int xlnx_formatter_pcm_trigger(struct snd_pcm_substream *substream,
 
 static int xlnx_formatter_pcm_new(struct snd_soc_pcm_runtime *rtd)
 {
+	struct snd_soc_component *component = snd_soc_rtdcom_lookup(rtd,
+								    DRV_NAME);
 	return snd_pcm_lib_preallocate_pages_for_all(rtd->pcm,
-			SNDRV_DMA_TYPE_DEV, rtd->platform->dev,
+			SNDRV_DMA_TYPE_DEV, component->dev,
 			xlnx_pcm_hardware.buffer_bytes_max,
 			xlnx_pcm_hardware.buffer_bytes_max);
 }
@@ -617,10 +579,146 @@ static const struct snd_pcm_ops xlnx_formatter_pcm_ops = {
 	.pointer = xlnx_formatter_pcm_pointer,
 };
 
-static struct snd_soc_platform_driver xlnx_asoc_platform = {
+static struct snd_soc_component_driver xlnx_asoc_component = {
+	.name = DRV_NAME,
 	.ops = &xlnx_formatter_pcm_ops,
 	.pcm_new = xlnx_formatter_pcm_new,
 };
+
+static int configure_mm2s(struct xlnx_pcm_drv_data *aud_drv_data,
+			  struct platform_device *pdev)
+{
+	int ret;
+	struct device *dev = &pdev->dev;
+
+	aud_drv_data->mm2s_axis_clk = devm_clk_get(dev, "m_axis_mm2s_aclk");
+	if (IS_ERR(aud_drv_data->mm2s_axis_clk)) {
+		ret = PTR_ERR(aud_drv_data->mm2s_axis_clk);
+		dev_err(dev, "failed to get m_axis_mm2s_aclk(%d)\n", ret);
+		return ret;
+	}
+	ret = clk_prepare_enable(aud_drv_data->mm2s_axis_clk);
+	if (ret) {
+		dev_err(dev, "failed to enable m_axis_mm2s_aclk(%d)\n", ret);
+		return ret;
+	}
+
+	aud_drv_data->aud_mclk = devm_clk_get(dev, "aud_mclk");
+	if (IS_ERR(aud_drv_data->aud_mclk)) {
+		ret = PTR_ERR(aud_drv_data->aud_mclk);
+		dev_err(dev, "failed to get aud_mclk(%d)\n", ret);
+		goto axis_clk_err;
+	}
+	ret = clk_prepare_enable(aud_drv_data->aud_mclk);
+	if (ret) {
+		dev_err(dev, "failed to enable aud_mclk(%d)\n", ret);
+		goto axis_clk_err;
+	}
+
+	aud_drv_data->mm2s_irq = platform_get_irq_byname(pdev,
+							 "irq_mm2s");
+	if (aud_drv_data->mm2s_irq < 0) {
+		dev_err(dev, "xlnx audio mm2s irq resource failed\n");
+		ret = aud_drv_data->mm2s_irq;
+		goto mm2s_err;
+	}
+	ret = devm_request_irq(dev, aud_drv_data->mm2s_irq,
+			       xlnx_mm2s_irq_handler, 0,
+			       "xlnx_formatter_pcm_mm2s_irq",
+			       dev);
+	if (ret) {
+		dev_err(dev, "xlnx audio mm2s irq request failed\n");
+		goto mm2s_err;
+	}
+	ret = xlnx_formatter_pcm_reset(aud_drv_data->mmio +
+				       XLNX_MM2S_OFFSET);
+	if (ret) {
+		dev_err(dev, "audio formatter reset failed\n");
+		goto mm2s_err;
+	}
+	xlnx_formatter_disable_irqs(aud_drv_data->mmio +
+				    XLNX_MM2S_OFFSET,
+				    SNDRV_PCM_STREAM_PLAYBACK);
+
+	aud_drv_data->nodes[XLNX_PLAYBACK] =
+		of_parse_phandle(dev->of_node, "xlnx,tx", 0);
+	if (!aud_drv_data->nodes[XLNX_PLAYBACK])
+		dev_err(dev, "tx node not found\n");
+	else
+		dev_info(dev,
+			 "sound card device will use DAI link: %s\n",
+			 (aud_drv_data->nodes[XLNX_PLAYBACK])->name);
+	of_node_put(aud_drv_data->nodes[XLNX_PLAYBACK]);
+
+	aud_drv_data->mm2s_presence = true;
+	return 0;
+
+mm2s_err:
+	clk_disable_unprepare(aud_drv_data->aud_mclk);
+axis_clk_err:
+	clk_disable_unprepare(aud_drv_data->mm2s_axis_clk);
+
+	return ret;
+}
+
+static int configure_s2mm(struct xlnx_pcm_drv_data *aud_drv_data,
+			  struct platform_device *pdev)
+{
+	int ret;
+	struct device *dev = &pdev->dev;
+
+	aud_drv_data->s2mm_axis_clk = devm_clk_get(dev, "s_axis_s2mm_aclk");
+	if (IS_ERR(aud_drv_data->s2mm_axis_clk)) {
+		ret = PTR_ERR(aud_drv_data->s2mm_axis_clk);
+		dev_err(dev, "failed to get s_axis_s2mm_aclk(%d)\n", ret);
+		return ret;
+	}
+	ret = clk_prepare_enable(aud_drv_data->s2mm_axis_clk);
+	if (ret) {
+		dev_err(dev, "failed to enable s_axis_s2mm_aclk(%d)\n", ret);
+		return ret;
+	}
+
+	aud_drv_data->s2mm_irq = platform_get_irq_byname(pdev, "irq_s2mm");
+	if (aud_drv_data->s2mm_irq < 0) {
+		dev_err(dev, "xlnx audio s2mm irq resource failed\n");
+		ret = aud_drv_data->s2mm_irq;
+		goto s2mm_err;
+	}
+	ret = devm_request_irq(dev, aud_drv_data->s2mm_irq,
+			       xlnx_s2mm_irq_handler, 0,
+			       "xlnx_formatter_pcm_s2mm_irq",
+			       dev);
+	if (ret) {
+		dev_err(dev, "xlnx audio s2mm irq request failed\n");
+		goto s2mm_err;
+	}
+	ret = xlnx_formatter_pcm_reset(aud_drv_data->mmio +
+				       XLNX_S2MM_OFFSET);
+	if (ret) {
+		dev_err(dev, "audio formatter reset failed\n");
+		goto s2mm_err;
+	}
+	xlnx_formatter_disable_irqs(aud_drv_data->mmio +
+				    XLNX_S2MM_OFFSET,
+				    SNDRV_PCM_STREAM_CAPTURE);
+
+	aud_drv_data->nodes[XLNX_CAPTURE] =
+		of_parse_phandle(dev->of_node, "xlnx,rx", 0);
+	if (!aud_drv_data->nodes[XLNX_CAPTURE])
+		dev_err(dev, "rx node not found\n");
+	else
+		dev_info(dev, "sound card device will use DAI link: %s\n",
+			 (aud_drv_data->nodes[XLNX_CAPTURE])->name);
+	of_node_put(aud_drv_data->nodes[XLNX_CAPTURE]);
+
+	aud_drv_data->s2mm_presence = true;
+	return 0;
+
+s2mm_err:
+	clk_disable_unprepare(aud_drv_data->s2mm_axis_clk);
+	return ret;
+}
 
 static int xlnx_formatter_pcm_probe(struct platform_device *pdev)
 {
@@ -631,103 +729,54 @@ static int xlnx_formatter_pcm_probe(struct platform_device *pdev)
 	struct resource *res;
 	struct device *dev = &pdev->dev;
 
-	aud_drv_data = devm_kzalloc(&pdev->dev,
-				    sizeof(*aud_drv_data), GFP_KERNEL);
+	aud_drv_data = devm_kzalloc(dev, sizeof(*aud_drv_data), GFP_KERNEL);
 	if (!aud_drv_data)
 		return -ENOMEM;
 
-	aud_drv_data->axi_clk = devm_clk_get(&pdev->dev, "s_axi_lite_aclk");
+	aud_drv_data->axi_clk = devm_clk_get(dev, "s_axi_lite_aclk");
 	if (IS_ERR(aud_drv_data->axi_clk)) {
 		ret = PTR_ERR(aud_drv_data->axi_clk);
-		dev_err(&pdev->dev, "failed to get s_axi_lite_aclk(%d)\n", ret);
+		dev_err(dev, "failed to get s_axi_lite_aclk(%d)\n", ret);
 		return ret;
 	}
 	ret = clk_prepare_enable(aud_drv_data->axi_clk);
 	if (ret) {
-		dev_err(&pdev->dev,
-			"failed to enable s_axi_lite_aclk(%d)\n", ret);
+		dev_err(dev, "failed to enable s_axi_lite_aclk(%d)\n", ret);
 		return ret;
 	}
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res) {
-		dev_err(&pdev->dev,
-			"audio formatter node:addr to resource failed\n");
+		dev_err(dev, "audio formatter node:addr to resource failed\n");
 		ret = -ENXIO;
 		goto clk_err;
 	}
-	aud_drv_data->mmio = devm_ioremap_resource(&pdev->dev, res);
+	aud_drv_data->mmio = devm_ioremap_resource(dev, res);
 	if (IS_ERR(aud_drv_data->mmio)) {
-		dev_err(&pdev->dev, "audio formatter ioremap failed\n");
+		dev_err(dev, "audio formatter ioremap failed\n");
 		ret = PTR_ERR(aud_drv_data->mmio);
 		goto clk_err;
 	}
 
 	val = readl(aud_drv_data->mmio + XLNX_AUD_CORE_CONFIG);
 	if (val & AUD_CFG_MM2S_MASK) {
-		aud_drv_data->mm2s_presence = true;
-		aud_drv_data->mm2s_irq = platform_get_irq_byname(pdev,
-								 "irq_mm2s");
-		if (aud_drv_data->mm2s_irq < 0) {
-			dev_err(&pdev->dev, "xlnx audio mm2s irq resource failed\n");
-			ret = aud_drv_data->mm2s_irq;
+		ret = configure_mm2s(aud_drv_data, pdev);
+		if (ret)
 			goto clk_err;
-		}
-		ret = devm_request_irq(&pdev->dev, aud_drv_data->mm2s_irq,
-				       xlnx_mm2s_irq_handler, 0,
-				       "xlnx_formatter_pcm_mm2s_irq",
-				       &pdev->dev);
-		if (ret) {
-			dev_err(&pdev->dev, "xlnx audio mm2s irq request failed\n");
-			goto clk_err;
-		}
-		xlnx_formatter_pcm_reset(aud_drv_data->mmio + XLNX_MM2S_OFFSET);
-
-		aud_drv_data->nodes[XLNX_PLAYBACK] =
-			of_parse_phandle(dev->of_node, "xlnx,tx", 0);
-		if (!aud_drv_data->nodes[XLNX_PLAYBACK])
-			dev_err(&pdev->dev, "tx node not found\n");
-		else
-			dev_info(&pdev->dev,
-				 "sound card device will use DAI link: %s\n",
-				 (aud_drv_data->nodes[XLNX_PLAYBACK])->name);
-		of_node_put(aud_drv_data->nodes[XLNX_PLAYBACK]);
 	}
+
 	if (val & AUD_CFG_S2MM_MASK) {
-		aud_drv_data->s2mm_presence = true;
-		aud_drv_data->s2mm_irq = platform_get_irq_byname(pdev,
-								 "irq_s2mm");
-		if (aud_drv_data->s2mm_irq < 0) {
-			dev_err(&pdev->dev, "xlnx audio s2mm irq resource failed\n");
-			ret = aud_drv_data->s2mm_irq;
+		ret = configure_s2mm(aud_drv_data, pdev);
+		if (ret)
 			goto clk_err;
-		}
-		ret = devm_request_irq(&pdev->dev, aud_drv_data->s2mm_irq,
-				       xlnx_s2mm_irq_handler, 0,
-				       "xlnx_formatter_pcm_s2mm_irq",
-				       &pdev->dev);
-		if (ret) {
-			dev_err(&pdev->dev, "xlnx audio s2mm irq request failed\n");
-			goto clk_err;
-		}
-		xlnx_formatter_pcm_reset(aud_drv_data->mmio + XLNX_S2MM_OFFSET);
-
-		aud_drv_data->nodes[XLNX_CAPTURE] =
-			of_parse_phandle(dev->of_node, "xlnx,rx", 0);
-		if (!aud_drv_data->nodes[XLNX_CAPTURE])
-			dev_err(&pdev->dev, "rx node not found\n");
-		else
-			dev_info(&pdev->dev,
-				 "sound card device will use DAI link: %s\n",
-				 (aud_drv_data->nodes[XLNX_CAPTURE])->name);
-		of_node_put(aud_drv_data->nodes[XLNX_CAPTURE]);
 	}
 
-	dev_set_drvdata(&pdev->dev, aud_drv_data);
+	dev_set_drvdata(dev, aud_drv_data);
 
-	ret = devm_snd_soc_register_platform(&pdev->dev, &xlnx_asoc_platform);
+	ret = devm_snd_soc_register_component(dev, &xlnx_asoc_component,
+					      NULL, 0);
 	if (ret) {
-		dev_err(&pdev->dev, "pcm platform device register failed\n");
+		dev_err(dev, "pcm platform device register failed\n");
 		goto clk_err;
 	}
 
@@ -735,15 +784,15 @@ static int xlnx_formatter_pcm_probe(struct platform_device *pdev)
 	if (aud_drv_data->nodes[XLNX_PLAYBACK] ||
 	    aud_drv_data->nodes[XLNX_CAPTURE])
 		aud_drv_data->pdev =
-			platform_device_register_resndata(&pdev->dev,
-							  "xlnx_snd_card", 0,
+			platform_device_register_resndata(dev, "xlnx_snd_card",
+							  PLATFORM_DEVID_AUTO,
 							  NULL, 0,
 							  &aud_drv_data->nodes,
 							  pdata_size);
 	if (!aud_drv_data->pdev)
-		dev_err(&pdev->dev, "sound card device creation failed\n");
+		dev_err(dev, "sound card device creation failed\n");
 
-	dev_info(&pdev->dev, "pcm platform device registered\n");
+	dev_info(dev, "pcm platform device registered\n");
 	return 0;
 
 clk_err:
@@ -753,18 +802,23 @@ clk_err:
 
 static int xlnx_formatter_pcm_remove(struct platform_device *pdev)
 {
+	int ret = 0;
 	struct xlnx_pcm_drv_data *adata = dev_get_drvdata(&pdev->dev);
 
 	platform_device_unregister(adata->pdev);
 
 	if (adata->s2mm_presence)
-		xlnx_formatter_pcm_reset(adata->mmio + XLNX_S2MM_OFFSET);
+		ret = xlnx_formatter_pcm_reset(adata->mmio + XLNX_S2MM_OFFSET);
 
+	/* Try MM2S reset, even if S2MM  reset fails */
 	if (adata->mm2s_presence)
-		xlnx_formatter_pcm_reset(adata->mmio + XLNX_MM2S_OFFSET);
+		ret = xlnx_formatter_pcm_reset(adata->mmio + XLNX_MM2S_OFFSET);
+
+	if (ret)
+		dev_err(&pdev->dev, "audio formatter reset failed\n");
 
 	clk_disable_unprepare(adata->axi_clk);
-	return 0;
+	return ret;
 }
 
 static const struct of_device_id xlnx_formatter_pcm_of_match[] = {
@@ -777,7 +831,7 @@ static struct platform_driver xlnx_formatter_pcm_driver = {
 	.probe	= xlnx_formatter_pcm_probe,
 	.remove	= xlnx_formatter_pcm_remove,
 	.driver	= {
-		.name	= "xlnx_formatter_pcm",
+		.name	= DRV_NAME,
 		.of_match_table	= xlnx_formatter_pcm_of_match,
 	},
 };

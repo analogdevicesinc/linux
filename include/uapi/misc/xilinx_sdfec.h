@@ -12,16 +12,15 @@
 #define __XILINX_SDFEC_H__
 
 /* Shared LDPC Tables */
-#define XSDFEC_LDPC_SC_TABLE_ADDR_BASE		(0x10000)
-#define XSDFEC_LDPC_SC_TABLE_ADDR_HIGH		(0x103FC)
-#define XSDFEC_LDPC_LA_TABLE_ADDR_BASE		(0x18000)
-#define XSDFEC_LDPC_LA_TABLE_ADDR_HIGH		(0x18FFC)
-#define XSDFEC_LDPC_QC_TABLE_ADDR_BASE		(0x20000)
-#define XSDFEC_LDPC_QC_TABLE_ADDR_HIGH		(0x27FFC)
+#define XSDFEC_LDPC_SC_TABLE_ADDR_BASE (0x10000)
+#define XSDFEC_LDPC_SC_TABLE_ADDR_HIGH (0x103FC)
+#define XSDFEC_LDPC_LA_TABLE_ADDR_BASE (0x18000)
+#define XSDFEC_LDPC_LA_TABLE_ADDR_HIGH (0x18FFC)
+#define XSDFEC_LDPC_QC_TABLE_ADDR_BASE (0x20000)
+#define XSDFEC_LDPC_QC_TABLE_ADDR_HIGH (0x27FFC)
 
 /**
  * enum xsdfec_code - Code Type.
- * @XSDFEC_CODE_INVALID: Driver is in a invalid mode.
  * @XSDFEC_TURBO_CODE: Driver is configured for Turbo mode.
  * @XSDFEC_LDPC_CODE: Driver is configured for LDPC mode.
  *
@@ -30,26 +29,21 @@
  * changed by the driver.
  */
 enum xsdfec_code {
-	XSDFEC_CODE_INVALID = 0,
-	XSDFEC_TURBO_CODE,
+	XSDFEC_TURBO_CODE = 0,
 	XSDFEC_LDPC_CODE,
 };
 
 /**
  * enum xsdfec_order - Order
- * @XSDFEC_INVALID_ORDER: Invalid order value
  * @XSDFEC_MAINTAIN_ORDER: Maintain order execution of blocks.
  * @XSDFEC_OUT_OF_ORDER: Out-of-order execution of blocks.
- * @XSDFEC_ORDER_MAX: Used to indicate out of bound order values.
  *
  * This enum is used to indicate whether the order of blocks can change from
  * input to output.
  */
 enum xsdfec_order {
-	XSDFEC_INVALID_ORDER = 0,
-	XSDFEC_MAINTAIN_ORDER,
+	XSDFEC_MAINTAIN_ORDER = 0,
 	XSDFEC_OUT_OF_ORDER,
-	XSDFEC_ORDER_MAX,
 };
 
 /**
@@ -180,17 +174,19 @@ struct xsdfec_ldpc_params {
 	u32 la_off;
 	u32 qc_off;
 	u32 sc_table[XSDFEC_LDPC_SC_TABLE_ADDR_HIGH -
-			XSDFEC_LDPC_SC_TABLE_ADDR_BASE];
+		     XSDFEC_LDPC_SC_TABLE_ADDR_BASE];
 	u32 la_table[XSDFEC_LDPC_LA_TABLE_ADDR_HIGH -
-			XSDFEC_LDPC_LA_TABLE_ADDR_BASE];
+		     XSDFEC_LDPC_LA_TABLE_ADDR_BASE];
 	u32 qc_table[XSDFEC_LDPC_QC_TABLE_ADDR_HIGH -
-			XSDFEC_LDPC_QC_TABLE_ADDR_BASE];
+		     XSDFEC_LDPC_QC_TABLE_ADDR_BASE];
 	u16 code_id;
 };
 
 /**
  * struct xsdfec_status - Status of SD-FEC core.
- * @fec_id: ID of SD-FEC instance
+ * @fec_id: ID of SD-FEC instance. ID is limited to the number of active
+ *          SD-FEC's in the FPGA and is related to the driver instance
+ *          Minor number.
  * @state: State of the SD-FEC core
  * @activity: Describes if the SD-FEC instance is Active
  */
@@ -212,7 +208,9 @@ struct xsdfec_irq {
 
 /**
  * struct xsdfec_config - Configuration of SD-FEC core.
- * @fec_id: ID of SD-FEC instance
+ * @fec_id: ID of SD-FEC instance. ID is limited to the number of active
+ *          SD-FEC's in the FPGA and is related to the driver instance
+ *          Minor number.
  * @code: The codes being used by the SD-FEC instance
  * @order: Order of Operation
  * @bypass: Is the core being bypassed
@@ -239,7 +237,8 @@ struct xsdfec_config {
 /**
  * struct xsdfec_stats - Stats retrived by ioctl XSDFEC_GET_STATS. Used
  *			 to buffer atomic_t variables from struct
- *			 xsdfec_dev.
+ *			 xsdfec_dev. Counts are accumulated until
+ *			 the user clears them.
  * @isr_err_count: Count of ISR errors
  * @cecc_count: Count of Correctable ECC errors (SBE)
  * @uecc_count: Count of Uncorrectable ECC errors (MBE)
@@ -288,7 +287,7 @@ inline void xsdfec_calculate_shared_ldpc_table_entry_size(
 /*
  * XSDFEC IOCTL List
  */
-#define XSDFEC_MAGIC		'f'
+#define XSDFEC_MAGIC 'f'
 /**
  * DOC: XSDFEC_START_DEV
  *
@@ -298,7 +297,7 @@ inline void xsdfec_calculate_shared_ldpc_table_entry_size(
  *
  * This fails if the XSDFEC_SET_ORDER ioctl has not been previously called
  */
-#define XSDFEC_START_DEV	_IO(XSDFEC_MAGIC, 0)
+#define XSDFEC_START_DEV _IO(XSDFEC_MAGIC, 0)
 /**
  * DOC: XSDFEC_STOP_DEV
  *
@@ -306,7 +305,7 @@ inline void xsdfec_calculate_shared_ldpc_table_entry_size(
  *
  * ioctl to stop the SD-FEC core
  */
-#define XSDFEC_STOP_DEV		_IO(XSDFEC_MAGIC, 1)
+#define XSDFEC_STOP_DEV _IO(XSDFEC_MAGIC, 1)
 /**
  * DOC: XSDFEC_GET_STATUS
  *
@@ -314,7 +313,7 @@ inline void xsdfec_calculate_shared_ldpc_table_entry_size(
  *
  * ioctl that returns status of SD-FEC core
  */
-#define XSDFEC_GET_STATUS	_IOR(XSDFEC_MAGIC, 3, struct xsdfec_status *)
+#define XSDFEC_GET_STATUS _IOR(XSDFEC_MAGIC, 2, struct xsdfec_status *)
 /**
  * DOC: XSDFEC_SET_IRQ
  * @Parameters
@@ -327,7 +326,7 @@ inline void xsdfec_calculate_shared_ldpc_table_entry_size(
  *
  * ioctl to enable or disable irq
  */
-#define XSDFEC_SET_IRQ		_IOW(XSDFEC_MAGIC, 4, struct xsdfec_irq *)
+#define XSDFEC_SET_IRQ _IOW(XSDFEC_MAGIC, 3, struct xsdfec_irq *)
 /**
  * DOC: XSDFEC_SET_TURBO
  * @Parameters
@@ -342,7 +341,7 @@ inline void xsdfec_calculate_shared_ldpc_table_entry_size(
  *
  * This can only be used when the driver is in the XSDFEC_STOPPED state
  */
-#define XSDFEC_SET_TURBO	_IOW(XSDFEC_MAGIC, 5, struct xsdfec_turbo *)
+#define XSDFEC_SET_TURBO _IOW(XSDFEC_MAGIC, 4, struct xsdfec_turbo *)
 /**
  * DOC: XSDFEC_ADD_LDPC_CODE_PARAMS
  * @Parameters
@@ -362,8 +361,8 @@ inline void xsdfec_calculate_shared_ldpc_table_entry_size(
  *
  * - SD-FEC Code Write Protection is disabled
  */
-#define XSDFEC_ADD_LDPC_CODE_PARAMS	\
-	_IOW(XSDFEC_MAGIC, 6, struct xsdfec_ldpc_params *)
+#define XSDFEC_ADD_LDPC_CODE_PARAMS                                            \
+	_IOW(XSDFEC_MAGIC, 5, struct xsdfec_ldpc_params *)
 /**
  * DOC: XSDFEC_GET_CONFIG
  * @Parameters
@@ -376,7 +375,7 @@ inline void xsdfec_calculate_shared_ldpc_table_entry_size(
  *
  * ioctl that returns SD-FEC core configuration
  */
-#define XSDFEC_GET_CONFIG	_IOR(XSDFEC_MAGIC, 7, struct xsdfec_config *)
+#define XSDFEC_GET_CONFIG _IOR(XSDFEC_MAGIC, 6, struct xsdfec_config *)
 /**
  * DOC: XSDFEC_GET_TURBO
  * @Parameters
@@ -389,7 +388,7 @@ inline void xsdfec_calculate_shared_ldpc_table_entry_size(
  *
  * ioctl that returns SD-FEC turbo param values
  */
-#define XSDFEC_GET_TURBO	_IOR(XSDFEC_MAGIC, 8, struct xsdfec_turbo *)
+#define XSDFEC_GET_TURBO _IOR(XSDFEC_MAGIC, 7, struct xsdfec_turbo *)
 /**
  * DOC: XSDFEC_SET_ORDER
  * @Parameters
@@ -404,7 +403,7 @@ inline void xsdfec_calculate_shared_ldpc_table_entry_size(
  *
  * This can only be used when the driver is in the XSDFEC_STOPPED state
  */
-#define XSDFEC_SET_ORDER	_IOW(XSDFEC_MAGIC, 10, unsigned long *)
+#define XSDFEC_SET_ORDER _IOW(XSDFEC_MAGIC, 8, unsigned long *)
 /**
  * DOC: XSDFEC_SET_BYPASS
  * @Parameters
@@ -421,7 +420,7 @@ inline void xsdfec_calculate_shared_ldpc_table_entry_size(
  *
  * This can only be used when the driver is in the XSDFEC_STOPPED state
  */
-#define XSDFEC_SET_BYPASS	_IOW(XSDFEC_MAGIC, 11, bool *)
+#define XSDFEC_SET_BYPASS _IOW(XSDFEC_MAGIC, 9, bool *)
 /**
  * DOC: XSDFEC_IS_ACTIVE
  * @Parameters
@@ -433,7 +432,7 @@ inline void xsdfec_calculate_shared_ldpc_table_entry_size(
  *
  * ioctl that determines if SD-FEC is processing data
  */
-#define XSDFEC_IS_ACTIVE	_IOR(XSDFEC_MAGIC, 12, bool *)
+#define XSDFEC_IS_ACTIVE _IOR(XSDFEC_MAGIC, 10, bool *)
 /**
  * DOC: XSDFEC_CLEAR_STATS
  *
@@ -441,7 +440,7 @@ inline void xsdfec_calculate_shared_ldpc_table_entry_size(
  *
  * ioctl that clears error stats collected during interrupts
  */
-#define XSDFEC_CLEAR_STATS	_IO(XSDFEC_MAGIC, 13)
+#define XSDFEC_CLEAR_STATS _IO(XSDFEC_MAGIC, 11)
 /**
  * DOC: XSDFEC_GET_STATS
  * @Parameters
@@ -456,7 +455,7 @@ inline void xsdfec_calculate_shared_ldpc_table_entry_size(
  *
  * This can only be used when the driver is in the XSDFEC_STOPPED state
  */
-#define XSDFEC_GET_STATS	_IOR(XSDFEC_MAGIC, 14, struct xsdfec_stats *)
+#define XSDFEC_GET_STATS _IOR(XSDFEC_MAGIC, 12, struct xsdfec_stats *)
 /**
  * DOC: XSDFEC_SET_DEFAULT_CONFIG
  *
@@ -466,6 +465,6 @@ inline void xsdfec_calculate_shared_ldpc_table_entry_size(
  *
  * This can only be used when the driver is in the XSDFEC_STOPPED state
  */
-#define XSDFEC_SET_DEFAULT_CONFIG _IO(XSDFEC_MAGIC, 15)
+#define XSDFEC_SET_DEFAULT_CONFIG _IO(XSDFEC_MAGIC, 13)
 
 #endif /* __XILINX_SDFEC_H__ */

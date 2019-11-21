@@ -35,8 +35,6 @@
 #define AD2S1210_SET_RES1		0x02
 #define AD2S1210_SET_RES0		0x01
 
-#define AD2S1210_SET_ENRESOLUTION	(AD2S1210_SET_ENRES1 |	\
-					 AD2S1210_SET_ENRES0)
 #define AD2S1210_SET_RESOLUTION		(AD2S1210_SET_RES1 | AD2S1210_SET_RES0)
 
 #define AD2S1210_REG_POSITION		0x80
@@ -52,10 +50,6 @@
 #define AD2S1210_REG_CONTROL		0x92
 #define AD2S1210_REG_SOFT_RESET		0xF0
 #define AD2S1210_REG_FAULT		0xFF
-
-/* pin SAMPLE, A0, A1, RES0, RES1, is controlled by driver */
-#define AD2S1210_SAA		3
-#define AD2S1210_PN		(AD2S1210_SAA + AD2S1210_RES)
 
 #define AD2S1210_MIN_CLKIN	6144000
 #define AD2S1210_MAX_CLKIN	10240000
@@ -177,12 +171,15 @@ int ad2s1210_update_frequency_control_word(struct ad2s1210_state *st)
 
 static unsigned char ad2s1210_read_resolution_pin(struct ad2s1210_state *st)
 {
+	int resolution;
+
 	if (st->mode == MOD_CONFIG_ONLY)
 		return ad2s1210_resolution_value[0];
 
-	return ad2s1210_resolution_value[
-		(gpiod_get_value(st->res[0]) << 1) |
-		gpiod_get_value(st->res[1])];
+	resolution = (gpiod_get_value(st->res[0]) << 1) |
+		      gpiod_get_value(st->res[1]);
+
+	return ad2s1210_resolution_value[resolution];
 }
 
 static const int ad2s1210_res_pins[4][2] = {
@@ -670,7 +667,6 @@ error_ret:
 static const struct iio_info ad2s1210_info = {
 	.read_raw = ad2s1210_read_raw,
 	.attrs = &ad2s1210_attribute_group,
-	.driver_module = THIS_MODULE,
 };
 
 static int ad2s1210_setup_gpios(struct ad2s1210_state *st)

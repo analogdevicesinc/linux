@@ -21,6 +21,7 @@
  */
 
 #include <linux/bitops.h>
+#include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/dma/xilinx_frmbuf.h>
 #include <linux/dmapool.h>
@@ -94,7 +95,9 @@
 #define XILINX_FRMBUF_FMT_BGRA8			26
 #define XILINX_FRMBUF_FMT_BGRX8			27
 #define XILINX_FRMBUF_FMT_UYVY8			28
-#define XILINX_FRMBUF_FMT_BGR8				29
+#define XILINX_FRMBUF_FMT_BGR8			29
+#define XILINX_FRMBUF_FMT_RGBX12		30
+#define XILINX_FRMBUF_FMT_RGB16			35
 
 /* FID Register */
 #define XILINX_FRMBUF_FID_MASK			BIT(0)
@@ -107,6 +110,7 @@
 #define XILINX_PPC_PROP				BIT(0)
 #define XILINX_FLUSH_PROP			BIT(1)
 #define XILINX_FID_PROP				BIT(2)
+#define XILINX_CLK_PROP				BIT(3)
 
 #define XILINX_FRMBUF_MAX_HEIGHT		(4320)
 #define XILINX_FRMBUF_MIN_HEIGHT		(64)
@@ -143,7 +147,7 @@ struct xilinx_frmbuf_tx_descriptor {
 	struct xilinx_frmbuf_desc_hw hw;
 	struct list_head node;
 	u32 fid;
-	bool earlycb;
+	u32 earlycb;
 };
 
 /**
@@ -445,6 +449,24 @@ static const struct xilinx_frmbuf_format_desc xilinx_frmbuf_formats[] = {
 		.v4l2_fmt = 0,
 		.fmt_bitmask = BIT(21),
 	},
+	{
+		.dts_name = "xbgr4121212",
+		.id = XILINX_FRMBUF_FMT_RGBX12,
+		.bpw = 40,
+		.ppw = 1,
+		.num_planes = 1,
+		.v4l2_fmt = V4L2_PIX_FMT_XBGR40,
+		.fmt_bitmask = BIT(22),
+	},
+	{
+		.dts_name = "rgb16",
+		.id = XILINX_FRMBUF_FMT_RGB16,
+		.bpw = 48,
+		.ppw = 1,
+		.num_planes = 1,
+		.v4l2_fmt = V4L2_PIX_FMT_BGR48,
+		.fmt_bitmask = BIT(23),
+	},
 };
 
 /**
@@ -472,6 +494,7 @@ struct xilinx_frmbuf_feature {
  * @cfg: Pointer to Framebuffer Feature config struct
  * @max_width: Maximum pixel width supported in IP.
  * @max_height: Maximum number of lines supported in IP.
+ * @ap_clk: Video core clock
  */
 struct xilinx_frmbuf_device {
 	void __iomem *regs;
@@ -487,6 +510,7 @@ struct xilinx_frmbuf_device {
 	const struct xilinx_frmbuf_feature *cfg;
 	u32 max_width;
 	u32 max_height;
+	struct clk *ap_clk;
 };
 
 static const struct xilinx_frmbuf_feature xlnx_fbwr_cfg_v20 = {
@@ -495,7 +519,8 @@ static const struct xilinx_frmbuf_feature xlnx_fbwr_cfg_v20 = {
 
 static const struct xilinx_frmbuf_feature xlnx_fbwr_cfg_v21 = {
 	.direction = DMA_DEV_TO_MEM,
-	.flags = XILINX_PPC_PROP | XILINX_FLUSH_PROP | XILINX_FID_PROP,
+	.flags = XILINX_PPC_PROP | XILINX_FLUSH_PROP
+		| XILINX_FID_PROP | XILINX_CLK_PROP,
 };
 
 static const struct xilinx_frmbuf_feature xlnx_fbrd_cfg_v20 = {
@@ -504,7 +529,8 @@ static const struct xilinx_frmbuf_feature xlnx_fbrd_cfg_v20 = {
 
 static const struct xilinx_frmbuf_feature xlnx_fbrd_cfg_v21 = {
 	.direction = DMA_MEM_TO_DEV,
-	.flags = XILINX_PPC_PROP | XILINX_FLUSH_PROP | XILINX_FID_PROP,
+	.flags = XILINX_PPC_PROP | XILINX_FLUSH_PROP
+		| XILINX_FID_PROP | XILINX_CLK_PROP,
 };
 
 static const struct of_device_id xilinx_frmbuf_of_ids[] = {
@@ -796,7 +822,7 @@ EXPORT_SYMBOL(xilinx_xdma_set_fid);
 
 int xilinx_xdma_get_earlycb(struct dma_chan *chan,
 			    struct dma_async_tx_descriptor *async_tx,
-			    bool *enable)
+			    u32 *earlycb)
 {
 	struct xilinx_frmbuf_device *xdev;
 	struct xilinx_frmbuf_tx_descriptor *desc;
@@ -805,21 +831,21 @@ int xilinx_xdma_get_earlycb(struct dma_chan *chan,
 	if (IS_ERR(xdev))
 		return PTR_ERR(xdev);
 
-	if (!async_tx || !enable)
+	if (!async_tx || !earlycb)
 		return -EINVAL;
 
 	desc = to_dma_tx_descriptor(async_tx);
 	if (!desc)
 		return -EINVAL;
 
-	*enable = desc->earlycb;
+	*earlycb = desc->earlycb;
 	return 0;
 }
 EXPORT_SYMBOL(xilinx_xdma_get_earlycb);
 
 int xilinx_xdma_set_earlycb(struct dma_chan *chan,
 			    struct dma_async_tx_descriptor *async_tx,
-			    bool enable)
+			    u32 earlycb)
 {
 	struct xilinx_frmbuf_device *xdev;
 	struct xilinx_frmbuf_tx_descriptor *desc;
@@ -835,7 +861,7 @@ int xilinx_xdma_set_earlycb(struct dma_chan *chan,
 	if (!desc)
 		return -EINVAL;
 
-	desc->earlycb = enable;
+	desc->earlycb = earlycb;
 	return 0;
 }
 EXPORT_SYMBOL(xilinx_xdma_set_earlycb);
@@ -1070,6 +1096,19 @@ static void xilinx_frmbuf_start_transfer(struct xilinx_frmbuf_chan *chan)
 				struct xilinx_frmbuf_tx_descriptor,
 				node);
 
+	if (desc->earlycb == EARLY_CALLBACK_LOW_LATENCY) {
+		dma_async_tx_callback callback;
+		void *callback_param;
+
+		callback = desc->async_tx.callback;
+		callback_param = desc->async_tx.callback_param;
+		if (callback) {
+			callback(callback_param);
+			desc->async_tx.callback = NULL;
+			chan->active_desc = desc;
+		}
+	}
+
 	/* Start the transfer */
 	chan->write_addr(chan, XILINX_FRMBUF_ADDR_OFFSET,
 			 desc->hw.luma_plane_addr);
@@ -1158,7 +1197,7 @@ static irqreturn_t xilinx_frmbuf_irq_handler(int irq, void *data)
 
 	/* Check if callback function needs to be called early */
 	desc = chan->staged_desc;
-	if (desc && desc->earlycb) {
+	if (desc && desc->earlycb == EARLY_CALLBACK) {
 		callback = desc->async_tx.callback;
 		callback_param = desc->async_tx.callback_param;
 		if (callback) {
@@ -1466,6 +1505,17 @@ static int xilinx_frmbuf_probe(struct platform_device *pdev)
 
 	dma_dir = (enum dma_transfer_direction)xdev->cfg->direction;
 
+	if (xdev->cfg->flags & XILINX_CLK_PROP) {
+		xdev->ap_clk = devm_clk_get(xdev->dev, "ap_clk");
+		if (IS_ERR(xdev->ap_clk)) {
+			err = PTR_ERR(xdev->ap_clk);
+			dev_err(xdev->dev, "failed to get ap_clk (%d)\n", err);
+			return err;
+		}
+	} else {
+		dev_info(xdev->dev, "assuming clock is enabled!\n");
+	}
+
 	xdev->rst_gpio = devm_gpiod_get(&pdev->dev, "reset",
 					GPIOD_OUT_HIGH);
 	if (IS_ERR(xdev->rst_gpio)) {
@@ -1488,7 +1538,8 @@ static int xilinx_frmbuf_probe(struct platform_device *pdev)
 
 	err = of_property_read_u32(node, "xlnx,max-height", &xdev->max_height);
 	if (err < 0) {
-		xdev->max_height = XILINX_FRMBUF_MAX_HEIGHT;
+		dev_err(xdev->dev, "xlnx,max-height is missing!");
+		return -EINVAL;
 	} else if (xdev->max_height > XILINX_FRMBUF_MAX_HEIGHT ||
 		   xdev->max_height < XILINX_FRMBUF_MIN_HEIGHT) {
 		dev_err(&pdev->dev, "Invalid height in dt");
@@ -1497,7 +1548,8 @@ static int xilinx_frmbuf_probe(struct platform_device *pdev)
 
 	err = of_property_read_u32(node, "xlnx,max-width", &xdev->max_width);
 	if (err < 0) {
-		xdev->max_width = XILINX_FRMBUF_MAX_WIDTH;
+		dev_err(xdev->dev, "xlnx,max-width is missing!");
+		return -EINVAL;
 	} else if (xdev->max_width > XILINX_FRMBUF_MAX_WIDTH ||
 		   xdev->max_width < XILINX_FRMBUF_MIN_WIDTH) {
 		dev_err(&pdev->dev, "Invalid width in dt");
@@ -1528,6 +1580,15 @@ static int xilinx_frmbuf_probe(struct platform_device *pdev)
 	xdev->common.copy_align = fls(align) - 1;
 	xdev->common.dev = &pdev->dev;
 
+	if (xdev->cfg->flags & XILINX_CLK_PROP) {
+		err = clk_prepare_enable(xdev->ap_clk);
+		if (err) {
+			dev_err(&pdev->dev, " failed to enable ap_clk (%d)\n",
+				err);
+			return err;
+		}
+	}
+
 	INIT_LIST_HEAD(&xdev->common.channels);
 	dma_cap_set(DMA_SLAVE, xdev->common.cap_mask);
 	dma_cap_set(DMA_PRIVATE, xdev->common.cap_mask);
@@ -1535,7 +1596,7 @@ static int xilinx_frmbuf_probe(struct platform_device *pdev)
 	/* Initialize the channels */
 	err = xilinx_frmbuf_chan_probe(xdev, node);
 	if (err < 0)
-		return err;
+		goto disable_clk;
 
 	xdev->chan.direction = dma_dir;
 
@@ -1546,8 +1607,8 @@ static int xilinx_frmbuf_probe(struct platform_device *pdev)
 		xdev->common.directions = BIT(DMA_MEM_TO_DEV);
 		dev_info(&pdev->dev, "Xilinx AXI frmbuf DMA_MEM_TO_DEV\n");
 	} else {
-		xilinx_frmbuf_chan_remove(&xdev->chan);
-		return -EINVAL;
+		err = -EINVAL;
+		goto remove_chan;
 	}
 
 	/* read supported video formats and update internal table */
@@ -1558,7 +1619,7 @@ static int xilinx_frmbuf_probe(struct platform_device *pdev)
 	if (err < 0) {
 		dev_err(&pdev->dev,
 			"Missing or invalid xlnx,vid-formats dts prop\n");
-		return err;
+		goto remove_chan;
 	}
 
 	for (i = 0; i < hw_vid_fmt_cnt; i++) {
@@ -1594,18 +1655,23 @@ static int xilinx_frmbuf_probe(struct platform_device *pdev)
 
 	/* Register the DMA engine with the core */
 	dma_async_device_register(&xdev->common);
-	err = of_dma_controller_register(node, of_dma_xilinx_xlate, xdev);
 
+	err = of_dma_controller_register(node, of_dma_xilinx_xlate, xdev);
 	if (err < 0) {
 		dev_err(&pdev->dev, "Unable to register DMA to DT\n");
-		xilinx_frmbuf_chan_remove(&xdev->chan);
-		dma_async_device_unregister(&xdev->common);
-		return err;
+		goto error;
 	}
 
 	dev_info(&pdev->dev, "Xilinx AXI FrameBuffer Engine Driver Probed!!\n");
 
 	return 0;
+error:
+	dma_async_device_unregister(&xdev->common);
+remove_chan:
+	xilinx_frmbuf_chan_remove(&xdev->chan);
+disable_clk:
+	clk_disable_unprepare(xdev->ap_clk);
+	return err;
 }
 
 /**
@@ -1620,6 +1686,7 @@ static int xilinx_frmbuf_remove(struct platform_device *pdev)
 
 	dma_async_device_unregister(&xdev->common);
 	xilinx_frmbuf_chan_remove(&xdev->chan);
+	clk_disable_unprepare(xdev->ap_clk);
 
 	return 0;
 }

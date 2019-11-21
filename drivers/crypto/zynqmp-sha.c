@@ -1,16 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
  * Copyright (C) 2017 Xilinx, Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
  */
+
 #include <asm/cacheflush.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -28,7 +20,7 @@
 #include <crypto/sha.h>
 #include <crypto/hash.h>
 #include <crypto/internal/hash.h>
-#include <linux/firmware/xilinx/zynqmp/firmware.h>
+#include <linux/firmware/xlnx-zynqmp.h>
 
 #define ZYNQMP_SHA3_INIT	1
 #define ZYNQMP_SHA3_UPDATE	2
@@ -36,6 +28,7 @@
 
 #define ZYNQMP_SHA_QUEUE_LENGTH	1
 
+static const struct zynqmp_eemi_ops *eemi_ops;
 struct zynqmp_sha_dev;
 
 /*
@@ -80,12 +73,11 @@ static int zynqmp_sha_init(struct ahash_request *req)
 	struct crypto_ahash *tfm = crypto_ahash_reqtfm(req);
 	struct zynqmp_sha_ctx *tctx = crypto_ahash_ctx(tfm);
 	struct zynqmp_sha_reqctx *ctx = ahash_request_ctx(req);
-	const struct zynqmp_eemi_ops *eemi_ops = zynqmp_pm_get_eemi_ops();
 	struct zynqmp_sha_dev *dd = NULL;
 	struct zynqmp_sha_dev *tmp;
 	int ret;
 
-	if (!eemi_ops || !eemi_ops->sha_hash)
+	if (!eemi_ops->sha_hash)
 		return -ENOTSUPP;
 
 	spin_lock_bh(&zynqmp_sha.lock);
@@ -113,7 +105,6 @@ static int zynqmp_sha_update(struct ahash_request *req)
 {
 	struct zynqmp_sha_ctx *tctx = crypto_tfm_ctx(req->base.tfm);
 	struct zynqmp_sha_dev *dd = tctx->dd;
-	const struct zynqmp_eemi_ops *eemi_ops = zynqmp_pm_get_eemi_ops();
 	char *kbuf;
 	size_t dma_size = req->nbytes;
 	dma_addr_t dma_addr;
@@ -122,7 +113,7 @@ static int zynqmp_sha_update(struct ahash_request *req)
 	if (!req->nbytes)
 		return 0;
 
-	if (!eemi_ops || !eemi_ops->sha_hash)
+	if (!eemi_ops->sha_hash)
 		return -ENOTSUPP;
 
 	kbuf = dma_alloc_coherent(dd->dev, dma_size, &dma_addr, GFP_KERNEL);
@@ -142,13 +133,12 @@ static int zynqmp_sha_final(struct ahash_request *req)
 {
 	struct zynqmp_sha_ctx *tctx = crypto_tfm_ctx(req->base.tfm);
 	struct zynqmp_sha_dev *dd = tctx->dd;
-	const struct zynqmp_eemi_ops *eemi_ops = zynqmp_pm_get_eemi_ops();
 	char *kbuf;
 	size_t dma_size = SHA384_DIGEST_SIZE;
 	dma_addr_t dma_addr;
 	int ret;
 
-	if (!eemi_ops || !eemi_ops->sha_hash)
+	if (!eemi_ops->sha_hash)
 		return -ENOTSUPP;
 
 	kbuf = dma_alloc_coherent(dd->dev, dma_size, &dma_addr, GFP_KERNEL);
@@ -240,6 +230,10 @@ static int zynqmp_sha_probe(struct platform_device *pdev)
 	struct zynqmp_sha_dev *sha_dd;
 	struct device *dev = &pdev->dev;
 	int err;
+
+	eemi_ops = zynqmp_pm_get_eemi_ops();
+	if (IS_ERR(eemi_ops))
+		return PTR_ERR(eemi_ops);
 
 	sha_dd = devm_kzalloc(&pdev->dev, sizeof(*sha_dd), GFP_KERNEL);
 	if (!sha_dd)

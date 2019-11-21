@@ -20,6 +20,7 @@
  *  - Add support for extended VLAN support.
  */
 
+#include <linux/circ_buf.h>
 #include <linux/delay.h>
 #include <linux/etherdevice.h>
 #include <linux/module.h>
@@ -105,8 +106,8 @@ static struct axienet_option axienet_options[] = {
 		.m_or = XAE_FCC_FCTX_MASK,
 	}, { /* Turn on promiscuous frame filtering */
 		.opt = XAE_OPTION_PROMISC,
-		.reg = XAE_FMI_OFFSET,
-		.m_or = XAE_FMI_PM_MASK,
+		.reg = XAE_FMC_OFFSET,
+		.m_or = XAE_FMC_PM_MASK,
 	}, { /* Enable transmitter */
 		.opt = XAE_OPTION_TXEN,
 		.reg = XAE_TC_OFFSET,
@@ -285,9 +286,9 @@ void axienet_set_multicast_list(struct net_device *ndev)
 		 * the flag is already set. If not we set it.
 		 */
 		ndev->flags |= IFF_PROMISC;
-		reg = axienet_ior(lp, XAE_FMI_OFFSET);
-		reg |= XAE_FMI_PM_MASK;
-		axienet_iow(lp, XAE_FMI_OFFSET, reg);
+		reg = axienet_ior(lp, XAE_FMC_OFFSET);
+		reg |= XAE_FMC_PM_MASK;
+		axienet_iow(lp, XAE_FMC_OFFSET, reg);
 		dev_info(&ndev->dev, "Promiscuous mode enabled.\n");
 	} else if (!netdev_mc_empty(ndev)) {
 		struct netdev_hw_addr *ha;
@@ -305,25 +306,25 @@ void axienet_set_multicast_list(struct net_device *ndev)
 			af1reg = (ha->addr[4]);
 			af1reg |= (ha->addr[5] << 8);
 
-			reg = axienet_ior(lp, XAE_FMI_OFFSET) & 0xFFFFFF00;
+			reg = axienet_ior(lp, XAE_FMC_OFFSET) & 0xFFFFFF00;
 			reg |= i;
 
-			axienet_iow(lp, XAE_FMI_OFFSET, reg);
+			axienet_iow(lp, XAE_FMC_OFFSET, reg);
 			axienet_iow(lp, XAE_AF0_OFFSET, af0reg);
 			axienet_iow(lp, XAE_AF1_OFFSET, af1reg);
 			i++;
 		}
 	} else {
-		reg = axienet_ior(lp, XAE_FMI_OFFSET);
-		reg &= ~XAE_FMI_PM_MASK;
+		reg = axienet_ior(lp, XAE_FMC_OFFSET);
+		reg &= ~XAE_FMC_PM_MASK;
 
-		axienet_iow(lp, XAE_FMI_OFFSET, reg);
+		axienet_iow(lp, XAE_FMC_OFFSET, reg);
 
 		for (i = 0; i < XAE_MULTICAST_CAM_TABLE_NUM; i++) {
-			reg = axienet_ior(lp, XAE_FMI_OFFSET) & 0xFFFFFF00;
+			reg = axienet_ior(lp, XAE_FMC_OFFSET) & 0xFFFFFF00;
 			reg |= i;
 
-			axienet_iow(lp, XAE_FMI_OFFSET, reg);
+			axienet_iow(lp, XAE_FMC_OFFSET, reg);
 			axienet_iow(lp, XAE_AF0_OFFSET, 0);
 			axienet_iow(lp, XAE_AF1_OFFSET, 0);
 		}
@@ -803,11 +804,17 @@ static inline int axienet_check_tx_bd_space(struct axienet_dma_q *q,
 #ifdef CONFIG_AXIENET_HAS_MCDMA
 	struct aximcdma_bd *cur_p;
 
+	if (CIRC_SPACE(q->tx_bd_tail, q->tx_bd_ci, TX_BD_NUM) < (num_frag + 1))
+		return NETDEV_TX_BUSY;
+
 	cur_p = &q->txq_bd_v[(q->tx_bd_tail + num_frag) % TX_BD_NUM];
 	if (cur_p->sband_stats & XMCDMA_BD_STS_ALL_MASK)
 		return NETDEV_TX_BUSY;
 #else
 	struct axidma_bd *cur_p;
+
+	if (CIRC_SPACE(q->tx_bd_tail, q->tx_bd_ci, TX_BD_NUM) < (num_frag + 1))
+		return NETDEV_TX_BUSY;
 
 	cur_p = &q->tx_bd_v[(q->tx_bd_tail + num_frag) % TX_BD_NUM];
 	if (cur_p->status & XAXIDMA_BD_STS_ALL_MASK)
@@ -1001,7 +1008,8 @@ static int axienet_skb_tstsmp(struct sk_buff **__skb, struct axienet_dma_q *q,
 }
 #endif
 
-int axienet_queue_xmit(struct sk_buff *skb, struct net_device *ndev, u16 map)
+static int axienet_queue_xmit(struct sk_buff *skb,
+			      struct net_device *ndev, u16 map)
 {
 	u32 ii;
 	u32 num_frag;
@@ -1459,27 +1467,6 @@ static irqreturn_t axienet_err_irq(int irq, void *_ndev)
 	return IRQ_HANDLED;
 }
 
-/**
- * map_dma_q_irq - Map dma q based on interrupt number.
- * @irq:	irq number
- * @lp:		axienet local structure
- *
- * Return: DMA queue.
- *
- * This returns the DMA number on which interrupt has occurred.
- */
-int map_dma_q_irq(int irq, struct axienet_local *lp)
-{
-	int i;
-
-	for_each_rx_dma_queue(lp, i) {
-		if (irq == lp->dq[i]->tx_irq || irq == lp->dq[i]->rx_irq)
-			return i;
-	}
-	pr_err("Error mapping DMA irq\n");
-	return -ENODEV;
-}
-
 static int axienet_mii_init(struct net_device *ndev)
 {
 	struct axienet_local *lp = netdev_priv(ndev);
@@ -1528,7 +1515,6 @@ static void axienet_int_phy_aneg(struct axienet_local *lp)
  * @ndev:	Pointer to net_device structure
  *
  * Return: 0, on success.
- *	    -ENODEV, if PHY cannot be connected to
  *	    non-zero error value on failure
  *
  * This is the driver open routine. It calls phy_start to start the PHY device.
@@ -1860,13 +1846,29 @@ static int axienet_change_mtu(struct net_device *ndev, int new_mtu)
 static void axienet_poll_controller(struct net_device *ndev)
 {
 	struct axienet_local *lp = netdev_priv(ndev);
+	int i;
 
-	disable_irq(lp->tx_irq);
-	disable_irq(lp->rx_irq);
-	axienet_rx_irq(lp->tx_irq, ndev);
-	axienet_tx_irq(lp->rx_irq, ndev);
-	enable_irq(lp->tx_irq);
-	enable_irq(lp->rx_irq);
+	for_each_tx_dma_queue(lp, i)
+		disable_irq(lp->dq[i]->tx_irq);
+	for_each_rx_dma_queue(lp, i)
+		disable_irq(lp->dq[i]->rx_irq);
+
+	for_each_rx_dma_queue(lp, i)
+#ifdef CONFIG_AXIENET_HAS_MCDMA
+		axienet_mcdma_rx_irq(lp->dq[i]->rx_irq, ndev);
+#else
+		axienet_rx_irq(lp->dq[i]->rx_irq, ndev);
+#endif
+	for_each_tx_dma_queue(lp, i)
+#ifdef CONFIG_AXIENET_HAS_MCDMA
+		axienet_mcdma_tx_irq(lp->dq[i]->tx_irq, ndev);
+#else
+		axienet_tx_irq(lp->dq[i]->tx_irq, ndev);
+#endif
+	for_each_tx_dma_queue(lp, i)
+		enable_irq(lp->dq[i]->tx_irq);
+	for_each_rx_dma_queue(lp, i)
+		enable_irq(lp->dq[i]->rx_irq);
 }
 #endif
 
@@ -2011,6 +2013,8 @@ static int axienet_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
 	case SIOCGMIIPHY:
 	case SIOCGMIIREG:
 	case SIOCSMIIREG:
+		if (!dev->phydev)
+			return -EOPNOTSUPP;
 		return phy_mii_ioctl(dev->phydev, rq, cmd);
 #if defined (CONFIG_XILINX_AXI_EMAC_HWTSTAMP) || defined (CONFIG_XILINX_TSN_PTP)
 	case SIOCSHWTSTAMP:
@@ -2128,18 +2132,18 @@ static void axienet_ethtools_get_regs(struct net_device *ndev,
 	data[15] = axienet_ior(lp, XAE_TC_OFFSET);
 	data[16] = axienet_ior(lp, XAE_FCC_OFFSET);
 	data[17] = axienet_ior(lp, XAE_EMMC_OFFSET);
-	data[18] = axienet_ior(lp, XAE_PHYC_OFFSET);
+	data[18] = axienet_ior(lp, XAE_RMFC_OFFSET);
 	data[19] = axienet_ior(lp, XAE_MDIO_MC_OFFSET);
 	data[20] = axienet_ior(lp, XAE_MDIO_MCR_OFFSET);
 	data[21] = axienet_ior(lp, XAE_MDIO_MWD_OFFSET);
 	data[22] = axienet_ior(lp, XAE_MDIO_MRD_OFFSET);
-	data[23] = axienet_ior(lp, XAE_MDIO_MIS_OFFSET);
-	data[24] = axienet_ior(lp, XAE_MDIO_MIP_OFFSET);
-	data[25] = axienet_ior(lp, XAE_MDIO_MIE_OFFSET);
-	data[26] = axienet_ior(lp, XAE_MDIO_MIC_OFFSET);
+	data[23] = axienet_ior(lp, XAE_TEMAC_IS_OFFSET);
+	data[24] = axienet_ior(lp, XAE_TEMAC_IP_OFFSET);
+	data[25] = axienet_ior(lp, XAE_TEMAC_IE_OFFSET);
+	data[26] = axienet_ior(lp, XAE_TEMAC_IC_OFFSET);
 	data[27] = axienet_ior(lp, XAE_UAW0_OFFSET);
 	data[28] = axienet_ior(lp, XAE_UAW1_OFFSET);
-	data[29] = axienet_ior(lp, XAE_FMI_OFFSET);
+	data[29] = axienet_ior(lp, XAE_FMC_OFFSET);
 	data[30] = axienet_ior(lp, XAE_AF0_OFFSET);
 	data[31] = axienet_ior(lp, XAE_AF1_OFFSET);
 }
@@ -2382,6 +2386,13 @@ static int __maybe_unused axienet_mcdma_probe(struct platform_device *pdev,
 		return ret;
 	}
 
+	ret = of_property_read_u8(np, "xlnx,addrwidth", (u8 *)&lp->dma_mask);
+	if (ret < 0 || lp->dma_mask < XAE_DMA_MASK_MIN ||
+	    lp->dma_mask > XAE_DMA_MASK_MAX) {
+		dev_info(&pdev->dev, "missing/invalid xlnx,addrwidth property, using default\n");
+		lp->dma_mask = XAE_DMA_MASK_MIN;
+	}
+
 	lp->mcdma_regs = devm_ioremap_resource(&pdev->dev, &dmares);
 	if (IS_ERR(lp->mcdma_regs)) {
 		dev_err(&pdev->dev, "iormeap failed for the dma\n");
@@ -2409,7 +2420,7 @@ static int __maybe_unused axienet_dma_probe(struct platform_device *pdev,
 #endif
 
 	for_each_rx_dma_queue(lp, i) {
-		q = kmalloc(sizeof(*q), GFP_KERNEL);
+		q = kzalloc(sizeof(*q), GFP_KERNEL);
 
 		/* parent */
 		q->lp = lp;
@@ -2433,6 +2444,14 @@ static int __maybe_unused axienet_dma_probe(struct platform_device *pdev,
 				return -ENODEV;
 			q->eth_hasdre = of_property_read_bool(np,
 							"xlnx,include-dre");
+			ret = of_property_read_u8(np, "xlnx,addrwidth",
+						  (u8 *)&lp->dma_mask);
+			if (ret <  0 || lp->dma_mask < XAE_DMA_MASK_MIN ||
+			    lp->dma_mask > XAE_DMA_MASK_MAX) {
+				dev_info(&pdev->dev, "missing/invalid xlnx,addrwidth property, using default\n");
+				lp->dma_mask = XAE_DMA_MASK_MIN;
+			}
+
 		} else {
 			return -EINVAL;
 		}
@@ -2479,33 +2498,283 @@ static int __maybe_unused axienet_dma_probe(struct platform_device *pdev,
 	return 0;
 }
 
+static int axienet_clk_init(struct platform_device *pdev,
+			    struct clk **axi_aclk, struct clk **axis_clk,
+			    struct clk **ref_clk, struct clk **tmpclk)
+{
+	int err;
+
+	*tmpclk = NULL;
+
+	/* The "ethernet_clk" is deprecated and will be removed sometime in
+	 * the future. For proper clock usage check axiethernet binding
+	 * documentation.
+	 */
+	*axi_aclk = devm_clk_get(&pdev->dev, "ethernet_clk");
+	if (IS_ERR(*axi_aclk)) {
+		if (PTR_ERR(*axi_aclk) != -ENOENT) {
+			err = PTR_ERR(*axi_aclk);
+			return err;
+		}
+
+		*axi_aclk = devm_clk_get(&pdev->dev, "s_axi_lite_clk");
+		if (IS_ERR(*axi_aclk)) {
+			if (PTR_ERR(*axi_aclk) != -ENOENT) {
+				err = PTR_ERR(*axi_aclk);
+				return err;
+			}
+			*axi_aclk = NULL;
+		}
+
+	} else {
+		dev_warn(&pdev->dev, "ethernet_clk is deprecated and will be removed sometime in the future\n");
+	}
+
+	*axis_clk = devm_clk_get(&pdev->dev, "axis_clk");
+	if (IS_ERR(*axis_clk)) {
+		if (PTR_ERR(*axis_clk) != -ENOENT) {
+			err = PTR_ERR(*axis_clk);
+			return err;
+		}
+		*axis_clk = NULL;
+	}
+
+	*ref_clk = devm_clk_get(&pdev->dev, "ref_clk");
+	if (IS_ERR(*ref_clk)) {
+		if (PTR_ERR(*ref_clk) != -ENOENT) {
+			err = PTR_ERR(*ref_clk);
+			return err;
+		}
+		*ref_clk = NULL;
+	}
+
+	err = clk_prepare_enable(*axi_aclk);
+	if (err) {
+		dev_err(&pdev->dev, "failed to enable axi_aclk/ethernet_clk (%d)\n", err);
+		return err;
+	}
+
+	err = clk_prepare_enable(*axis_clk);
+	if (err) {
+		dev_err(&pdev->dev, "failed to enable axis_clk (%d)\n", err);
+		goto err_disable_axi_aclk;
+	}
+
+	err = clk_prepare_enable(*ref_clk);
+	if (err) {
+		dev_err(&pdev->dev, "failed to enable ref_clk (%d)\n", err);
+		goto err_disable_axis_clk;
+	}
+
+	return 0;
+
+err_disable_axis_clk:
+	clk_disable_unprepare(*axis_clk);
+err_disable_axi_aclk:
+	clk_disable_unprepare(*axi_aclk);
+
+	return err;
+}
+
+static int axienet_dma_clk_init(struct platform_device *pdev)
+{
+	int err;
+	struct net_device *ndev = platform_get_drvdata(pdev);
+	struct axienet_local *lp = netdev_priv(ndev);
+
+	/* The "dma_clk" is deprecated and will be removed sometime in
+	 * the future. For proper clock usage check axiethernet binding
+	 * documentation.
+	 */
+	lp->dma_tx_clk = devm_clk_get(&pdev->dev, "dma_clk");
+	if (IS_ERR(lp->dma_tx_clk)) {
+		if (PTR_ERR(lp->dma_tx_clk) != -ENOENT) {
+			err = PTR_ERR(lp->dma_tx_clk);
+			return err;
+		}
+
+		lp->dma_tx_clk = devm_clk_get(&pdev->dev, "m_axi_mm2s_aclk");
+		if (IS_ERR(lp->dma_tx_clk)) {
+			if (PTR_ERR(lp->dma_tx_clk) != -ENOENT) {
+				err = PTR_ERR(lp->dma_tx_clk);
+				return err;
+			}
+			lp->dma_tx_clk = NULL;
+		}
+	} else {
+		dev_warn(&pdev->dev, "dma_clk is deprecated and will be removed sometime in the future\n");
+	}
+
+	lp->dma_rx_clk = devm_clk_get(&pdev->dev, "m_axi_s2mm_aclk");
+	if (IS_ERR(lp->dma_rx_clk)) {
+		if (PTR_ERR(lp->dma_rx_clk) != -ENOENT) {
+			err = PTR_ERR(lp->dma_rx_clk);
+			return err;
+		}
+		lp->dma_rx_clk = NULL;
+	}
+
+	lp->dma_sg_clk = devm_clk_get(&pdev->dev, "m_axi_sg_aclk");
+	if (IS_ERR(lp->dma_sg_clk)) {
+		if (PTR_ERR(lp->dma_sg_clk) != -ENOENT) {
+			err = PTR_ERR(lp->dma_sg_clk);
+			return err;
+		}
+		lp->dma_sg_clk = NULL;
+	}
+
+	err = clk_prepare_enable(lp->dma_tx_clk);
+	if (err) {
+		dev_err(&pdev->dev, "failed to enable tx_clk/dma_clk (%d)\n", err);
+		return err;
+	}
+
+	err = clk_prepare_enable(lp->dma_rx_clk);
+	if (err) {
+		dev_err(&pdev->dev, "failed to enable rx_clk (%d)\n", err);
+		goto err_disable_txclk;
+	}
+
+	err = clk_prepare_enable(lp->dma_sg_clk);
+	if (err) {
+		dev_err(&pdev->dev, "failed to enable sg_clk (%d)\n", err);
+		goto err_disable_rxclk;
+	}
+
+	return 0;
+
+err_disable_rxclk:
+	clk_disable_unprepare(lp->dma_rx_clk);
+err_disable_txclk:
+	clk_disable_unprepare(lp->dma_tx_clk);
+
+	return err;
+}
+
+static void axienet_clk_disable(struct platform_device *pdev)
+{
+	struct net_device *ndev = platform_get_drvdata(pdev);
+	struct axienet_local *lp = netdev_priv(ndev);
+
+	clk_disable_unprepare(lp->dma_sg_clk);
+	clk_disable_unprepare(lp->dma_tx_clk);
+	clk_disable_unprepare(lp->dma_rx_clk);
+	clk_disable_unprepare(lp->eth_sclk);
+	clk_disable_unprepare(lp->eth_refclk);
+	clk_disable_unprepare(lp->eth_dclk);
+	clk_disable_unprepare(lp->aclk);
+}
+
+static int xxvenet_clk_init(struct platform_device *pdev,
+			    struct clk **axi_aclk, struct clk **axis_clk,
+			    struct clk **tmpclk, struct clk **dclk)
+{
+	int err;
+
+	*tmpclk = NULL;
+
+	/* The "ethernet_clk" is deprecated and will be removed sometime in
+	 * the future. For proper clock usage check axiethernet binding
+	 * documentation.
+	 */
+	*axi_aclk = devm_clk_get(&pdev->dev, "ethernet_clk");
+	if (IS_ERR(*axi_aclk)) {
+		if (PTR_ERR(*axi_aclk) != -ENOENT) {
+			err = PTR_ERR(*axi_aclk);
+			return err;
+		}
+
+		*axi_aclk = devm_clk_get(&pdev->dev, "s_axi_aclk");
+		if (IS_ERR(*axi_aclk)) {
+			if (PTR_ERR(*axi_aclk) != -ENOENT) {
+				err = PTR_ERR(*axi_aclk);
+				return err;
+			}
+			*axi_aclk = NULL;
+		}
+
+	} else {
+		dev_warn(&pdev->dev, "ethernet_clk is deprecated and will be removed sometime in the future\n");
+	}
+
+	*axis_clk = devm_clk_get(&pdev->dev, "rx_core_clk");
+	if (IS_ERR(*axis_clk)) {
+		if (PTR_ERR(*axis_clk) != -ENOENT) {
+			err = PTR_ERR(*axis_clk);
+			return err;
+		}
+		*axis_clk = NULL;
+	}
+
+	*dclk = devm_clk_get(&pdev->dev, "dclk");
+	if (IS_ERR(*dclk)) {
+		if (PTR_ERR(*dclk) != -ENOENT) {
+			err = PTR_ERR(*dclk);
+			return err;
+		}
+		*dclk = NULL;
+	}
+
+	err = clk_prepare_enable(*axi_aclk);
+	if (err) {
+		dev_err(&pdev->dev, "failed to enable axi_clk/ethernet_clk (%d)\n", err);
+		return err;
+	}
+
+	err = clk_prepare_enable(*axis_clk);
+	if (err) {
+		dev_err(&pdev->dev, "failed to enable axis_clk (%d)\n", err);
+		goto err_disable_axi_aclk;
+	}
+
+	err = clk_prepare_enable(*dclk);
+	if (err) {
+		dev_err(&pdev->dev, "failed to enable dclk (%d)\n", err);
+		goto err_disable_axis_clk;
+	}
+
+	return 0;
+
+err_disable_axis_clk:
+	clk_disable_unprepare(*axis_clk);
+err_disable_axi_aclk:
+	clk_disable_unprepare(*axi_aclk);
+
+	return err;
+}
+
 static const struct axienet_config axienet_1g_config = {
 	.mactype = XAXIENET_1G,
 	.setoptions = axienet_setoptions,
+	.clk_init = axienet_clk_init,
 	.tx_ptplen = XAE_TX_PTP_LEN,
 };
 
 static const struct axienet_config axienet_2_5g_config = {
 	.mactype = XAXIENET_2_5G,
 	.setoptions = axienet_setoptions,
+	.clk_init = axienet_clk_init,
 	.tx_ptplen = XAE_TX_PTP_LEN,
 };
 
 static const struct axienet_config axienet_10g_config = {
 	.mactype = XAXIENET_LEGACY_10G,
 	.setoptions = axienet_setoptions,
+	.clk_init = xxvenet_clk_init,
 	.tx_ptplen = XAE_TX_PTP_LEN,
 };
 
 static const struct axienet_config axienet_10g25g_config = {
 	.mactype = XAXIENET_10G_25G,
 	.setoptions = xxvenet_setoptions,
+	.clk_init = xxvenet_clk_init,
 	.tx_ptplen = XXV_TX_PTP_LEN,
 };
 
 static const struct axienet_config axienet_usxgmii_config = {
 	.mactype = XAXIENET_10G_25G,
 	.setoptions = xxvenet_setoptions,
+	.clk_init = xxvenet_clk_init,
 	.tx_ptplen = 0,
 };
 
@@ -2541,6 +2810,10 @@ MODULE_DEVICE_TABLE(of, axienet_of_match);
  */
 static int axienet_probe(struct platform_device *pdev)
 {
+	int (*axienet_clk_init)(struct platform_device *pdev,
+				struct clk **axi_aclk, struct clk **axis_clk,
+				struct clk **ref_clk, struct clk **tmpclk) =
+					axienet_clk_init;
 	int ret = 0;
 #ifdef CONFIG_XILINX_AXI_EMAC_HWTSTAMP
 	struct device_node *np;
@@ -2626,8 +2899,10 @@ static int axienet_probe(struct platform_device *pdev)
 		const struct of_device_id *match;
 
 		match = of_match_node(axienet_of_match, pdev->dev.of_node);
-		if (match && match->data)
+		if (match && match->data) {
 			lp->axienet_config = match->data;
+			axienet_clk_init = lp->axienet_config->clk_init;
+		}
 	}
 
 	ret = of_property_read_u32(pdev->dev.of_node, "xlnx,txcsum", &value);
@@ -2770,51 +3045,34 @@ static int axienet_probe(struct platform_device *pdev)
 			pr_err("Getting DMA resource failed\n");
 			goto free_netdev;
 		}
-	}
 
-	lp->dma_clk = devm_clk_get(&pdev->dev, "dma_clk");
-	if (IS_ERR(lp->dma_clk)) {
-		if (PTR_ERR(lp->dma_clk) != -ENOENT) {
-			ret = PTR_ERR(lp->dma_clk);
+		if (dma_set_mask_and_coherent(lp->dev, DMA_BIT_MASK(lp->dma_mask)) != 0) {
+			dev_warn(&pdev->dev, "default to %d-bit dma mask\n", XAE_DMA_MASK_MIN);
+			if (dma_set_mask_and_coherent(lp->dev, DMA_BIT_MASK(XAE_DMA_MASK_MIN)) != 0) {
+				dev_err(&pdev->dev, "dma_set_mask_and_coherent failed, aborting\n");
+				goto free_netdev;
+			}
+		}
+
+		ret = axienet_dma_clk_init(pdev);
+		if (ret) {
+			dev_err(&pdev->dev, "DMA clock init failed %d\n", ret);
 			goto free_netdev;
 		}
-
-		/* Clock framework support is optional, continue on
-		 * anyways if we don't find a matching clock.
-		 */
-		 lp->dma_clk = NULL;
 	}
 
-	ret = clk_prepare_enable(lp->dma_clk);
+	ret = axienet_clk_init(pdev, &lp->aclk, &lp->eth_sclk,
+			       &lp->eth_refclk, &lp->eth_dclk);
 	if (ret) {
-		dev_err(&pdev->dev, "Unable to enable dma clock.\n");
-		goto free_netdev;
-	}
-
-	lp->eth_clk = devm_clk_get(&pdev->dev, "ethernet_clk");
-	if (IS_ERR(lp->eth_clk)) {
-		if (PTR_ERR(lp->eth_clk) != -ENOENT) {
-			ret = PTR_ERR(lp->eth_clk);
-			goto err_disable_dmaclk;
-		}
-
-		/* Clock framework support is optional, continue on
-		 * anyways if we don't find a matching clock.
-		 */
-		 lp->eth_clk = NULL;
-	}
-
-	ret = clk_prepare_enable(lp->eth_clk);
-	if (ret) {
-		dev_err(&pdev->dev, "Unable to enable eth clock.\n");
-		goto err_disable_dmaclk;
+		dev_err(&pdev->dev, "Ethernet clock init failed %d\n", ret);
+		goto err_disable_clk;
 	}
 
 	/* Retrieve the MAC address */
 	mac_addr = of_get_mac_address(pdev->dev.of_node);
 	if (!mac_addr) {
 		dev_err(&pdev->dev, "could not find MAC address\n");
-		goto err_disable_ethclk;
+		goto err_disable_clk;
 	}
 	axienet_set_mac_address(ndev, mac_addr);
 
@@ -2848,7 +3106,7 @@ static int axienet_probe(struct platform_device *pdev)
 	if (ret) {
 		dev_err(lp->dev, "register_netdev() error (%i)\n", ret);
 		axienet_mdio_teardown(lp);
-		goto err_disable_ethclk;
+		goto err_disable_clk;
 	}
 
 #ifdef CONFIG_XILINX_TSN_PTP
@@ -2879,11 +3137,8 @@ static int axienet_probe(struct platform_device *pdev)
 	}
 #endif
 	return 0;
-
-err_disable_dmaclk:
-	clk_disable_unprepare(lp->dma_clk);
-err_disable_ethclk:
-	clk_disable_unprepare(lp->eth_clk);
+err_disable_clk:
+	axienet_clk_disable(pdev);
 free_netdev:
 	free_netdev(ndev);
 
@@ -2910,8 +3165,7 @@ static int axienet_remove(struct platform_device *pdev)
 			netif_napi_del(&lp->napi[i]);
 	}
 	unregister_netdev(ndev);
-	clk_disable_unprepare(lp->eth_clk);
-	clk_disable_unprepare(lp->dma_clk);
+	axienet_clk_disable(pdev);
 
 #ifdef CONFIG_AXIENET_HAS_MCDMA
 	axeinet_mcdma_remove_sysfs(&lp->dev->kobj);

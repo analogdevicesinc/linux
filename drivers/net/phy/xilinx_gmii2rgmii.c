@@ -44,7 +44,11 @@ static int xgmiitorgmii_read_status(struct phy_device *phydev)
 	u16 val = 0;
 	int err;
 
-	err = priv->phy_drv->read_status(phydev);
+	if (priv->phy_drv->read_status)
+		err = priv->phy_drv->read_status(phydev);
+	else
+		err = genphy_read_status(phydev);
+
 	if (err < 0)
 		return err;
 
@@ -87,7 +91,7 @@ static int xgmiitorgmii_probe(struct mdio_device *mdiodev)
 	}
 
 	if (!priv->phy_dev->drv) {
-		dev_err(dev, "External PHY driver not probed\n");
+		dev_info(dev, "Attached phy not ready\n");
 		return -EPROBE_DEFER;
 	}
 

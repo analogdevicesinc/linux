@@ -265,7 +265,7 @@ static unsigned long xvcu_divider_recalc_rate(struct clk_hw *hw,
 	val &= div_mask(divider->width);
 
 	return divider_recalc_rate(hw, parent_rate, val, divider->table,
-				   divider->flags);
+				   divider->flags, divider->width);
 }
 
 static long xvcu_divider_round_rate(struct clk_hw *hw, unsigned long rate,
@@ -486,9 +486,9 @@ static int xvcu_pll_enable(struct clk_hw *hw)
 
 	xvcu_pll_enable_disable(pll, 1);
 
-	ret = readl_poll_timeout(pll->pll_status, reg,
-				 reg & VCU_PLL_STATUS_LOCK_STATUS_MASK,
-				 1, VCU_PLL_LOCK_TIMEOUT);
+	ret = readl_poll_timeout_atomic(pll->pll_status, reg,
+					reg & VCU_PLL_STATUS_LOCK_STATUS_MASK,
+					1, VCU_PLL_LOCK_TIMEOUT);
 	if (ret) {
 		pr_err("VCU PLL is not locked\n");
 		return ret;

@@ -555,6 +555,7 @@ struct d40_gen_dmac {
  * @reg_val_backup_v4: Backup of registers that only exits on dma40 v3 and
  * later
  * @reg_val_backup_chan: Backup data for standard channel parameter registers.
+ * @regs_interrupt: Scratch space for registers during interrupt.
  * @gcc_pwr_off_mask: Mask to maintain the channels that can be turned off.
  * @gen_dmac: the struct for generic registers values to represent u8500/8540
  * DMA controller
@@ -592,6 +593,7 @@ struct d40_base {
 	u32				  reg_val_backup[BACKUP_REGS_SZ];
 	u32				  reg_val_backup_v4[BACKUP_REGS_SZ_MAX];
 	u32				 *reg_val_backup_chan;
+	u32				 *regs_interrupt;
 	u16				  gcc_pwr_off_mask;
 	struct d40_gen_dmac		  gen_dmac;
 };
@@ -1637,7 +1639,7 @@ static irqreturn_t d40_handle_interrupt(int irq, void *data)
 	struct d40_chan *d40c;
 	unsigned long flags;
 	struct d40_base *base = data;
-	u32 regs[base->gen_dmac.il_size];
+	u32 *regs = base->regs_interrupt;
 	struct d40_interrupt_lookup *il = base->gen_dmac.il;
 	u32 il_size = base->gen_dmac.il_size;
 
@@ -2485,19 +2487,6 @@ static struct dma_async_tx_descriptor *d40_prep_memcpy(struct dma_chan *chan,
 }
 
 static struct dma_async_tx_descriptor *
-d40_prep_memcpy_sg(struct dma_chan *chan,
-		   struct scatterlist *dst_sg, unsigned int dst_nents,
-		   struct scatterlist *src_sg, unsigned int src_nents,
-		   unsigned long dma_flags)
-{
-	if (dst_nents != src_nents)
-		return NULL;
-
-	return d40_prep_sg(chan, src_sg, dst_sg, src_nents,
-			   DMA_MEM_TO_MEM, dma_flags);
-}
-
-static struct dma_async_tx_descriptor *
 d40_prep_slave_sg(struct dma_chan *chan, struct scatterlist *sgl,
 		  unsigned int sg_len, enum dma_transfer_direction direction,
 		  unsigned long dma_flags, void *context)
@@ -2821,9 +2810,6 @@ static void d40_ops_init(struct d40_base *base, struct dma_device *dev)
 		dev->copy_align = DMAENGINE_ALIGN_4_BYTES;
 	}
 
-	if (dma_has_cap(DMA_SG, dev->cap_mask))
-		dev->device_prep_dma_sg = d40_prep_memcpy_sg;
-
 	if (dma_has_cap(DMA_CYCLIC, dev->cap_mask))
 		dev->device_prep_dma_cyclic = dma40_prep_dma_cyclic;
 
@@ -2865,7 +2851,6 @@ static int __init d40_dmaengine_init(struct d40_base *base,
 
 	dma_cap_zero(base->dma_memcpy.cap_mask);
 	dma_cap_set(DMA_MEMCPY, base->dma_memcpy.cap_mask);
-	dma_cap_set(DMA_SG, base->dma_memcpy.cap_mask);
 
 	d40_ops_init(base, &base->dma_memcpy);
 
@@ -2883,7 +2868,6 @@ static int __init d40_dmaengine_init(struct d40_base *base,
 	dma_cap_zero(base->dma_both.cap_mask);
 	dma_cap_set(DMA_SLAVE, base->dma_both.cap_mask);
 	dma_cap_set(DMA_MEMCPY, base->dma_both.cap_mask);
-	dma_cap_set(DMA_SG, base->dma_both.cap_mask);
 	dma_cap_set(DMA_CYCLIC, base->dma_slave.cap_mask);
 
 	d40_ops_init(base, &base->dma_both);
@@ -2907,8 +2891,7 @@ static int __init d40_dmaengine_init(struct d40_base *base,
 #ifdef CONFIG_PM_SLEEP
 static int dma40_suspend(struct device *dev)
 {
-	struct platform_device *pdev = to_platform_device(dev);
-	struct d40_base *base = platform_get_drvdata(pdev);
+	struct d40_base *base = dev_get_drvdata(dev);
 	int ret;
 
 	ret = pm_runtime_force_suspend(dev);
@@ -2922,8 +2905,7 @@ static int dma40_suspend(struct device *dev)
 
 static int dma40_resume(struct device *dev)
 {
-	struct platform_device *pdev = to_platform_device(dev);
-	struct d40_base *base = platform_get_drvdata(pdev);
+	struct d40_base *base = dev_get_drvdata(dev);
 	int ret = 0;
 
 	if (base->lcpa_regulator) {
@@ -2988,8 +2970,7 @@ static void d40_save_restore_registers(struct d40_base *base, bool save)
 
 static int dma40_runtime_suspend(struct device *dev)
 {
-	struct platform_device *pdev = to_platform_device(dev);
-	struct d40_base *base = platform_get_drvdata(pdev);
+	struct d40_base *base = dev_get_drvdata(dev);
 
 	d40_save_restore_registers(base, true);
 
@@ -3003,8 +2984,7 @@ static int dma40_runtime_suspend(struct device *dev)
 
 static int dma40_runtime_resume(struct device *dev)
 {
-	struct platform_device *pdev = to_platform_device(dev);
-	struct d40_base *base = platform_get_drvdata(pdev);
+	struct d40_base *base = dev_get_drvdata(dev);
 
 	d40_save_restore_registers(base, false);
 
@@ -3280,13 +3260,22 @@ static struct d40_base * __init d40_hw_detect_init(struct platform_device *pdev)
 	if (!base->lcla_pool.alloc_map)
 		goto free_backup_chan;
 
+	base->regs_interrupt = kmalloc_array(base->gen_dmac.il_size,
+					     sizeof(*base->regs_interrupt),
+					     GFP_KERNEL);
+	if (!base->regs_interrupt)
+		goto free_map;
+
 	base->desc_slab = kmem_cache_create(D40_NAME, sizeof(struct d40_desc),
 					    0, SLAB_HWCACHE_ALIGN,
 					    NULL);
 	if (base->desc_slab == NULL)
-		goto free_map;
+		goto free_regs;
+
 
 	return base;
+ free_regs:
+	kfree(base->regs_interrupt);
  free_map:
 	kfree(base->lcla_pool.alloc_map);
  free_backup_chan:
