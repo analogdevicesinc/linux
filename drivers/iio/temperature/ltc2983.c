@@ -1308,7 +1308,7 @@ static const struct of_device_id ltc2983_of_match[] = {
 	{ .compatible = "adi,ltc2983" },
 	{},
 };
-MODULE_DEVICE_TABLE(of, ltc2983_id_table);
+MODULE_DEVICE_TABLE(of, ltc2983_of_match);
 
 static struct spi_driver ltc2983_driver = {
 	.driver = {
