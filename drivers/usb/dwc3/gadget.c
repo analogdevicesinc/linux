@@ -1442,7 +1442,7 @@ static int dwc3_gadget_ep_dequeue(struct usb_ep *ep,
 	if (r->unaligned || r->zero)
 		dep->num_aborted_trbs += 1;
 
-	dwc3_stop_active_transfer(dep, dep->number);
+	dwc3_stop_active_transfer(dep, true);
 
 out1:
 	/* giveback the request */
