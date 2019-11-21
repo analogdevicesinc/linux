@@ -105,4 +105,17 @@ config IMX_RPMSG_PINGPONG
 	  Only the module mode is supported here, the demo would be kicked off
 	  immediately when this module is insmoded.
 
+config IMX_RPMSG_TTY
+	tristate "IMX RPMSG tty driver -- loadable modules only"
+	default m
+	depends on HAVE_IMX_RPMSG && m
+	help
+	  Demostrate the string transmission from A core to the remote M core
+	  on the iMX AMP platforms.
+
+	  Only the module mode is supported here. The according device node
+	  would be created after this module is insmoded. the demo would be
+	  executed by the command "echo <string> > <accordingly node>", thus
+	  remote M core would receive the string.
+
 endmenu

@@ -3,6 +3,7 @@
  * Copyright 2019 NXP
  */
 
+#include <linux/slab.h>
 #include <linux/circ_buf.h>
 #include <linux/delay.h>
 #include <linux/err.h>
