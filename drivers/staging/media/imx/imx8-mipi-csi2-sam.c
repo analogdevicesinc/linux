@@ -1016,7 +1016,8 @@ static int mipi_csis_s_rx_buffer(struct v4l2_subdev *mipi_sd, void *buf,
 	return 0;
 }
 
-static int mipi_csis_s_parm(struct v4l2_subdev *mipi_sd, struct v4l2_streamparm *a)
+static int mipi_csis_s_frame_interval(struct v4l2_subdev *mipi_sd,
+				struct v4l2_subdev_frame_interval *interval)
 {
 	struct csi_state *state = mipi_sd_to_csi_state(mipi_sd);
 	struct media_pad *source_pad;
@@ -1036,10 +1037,11 @@ static int mipi_csis_s_parm(struct v4l2_subdev *mipi_sd, struct v4l2_streamparm 
 		return -EINVAL;
 	}
 
-	return v4l2_subdev_call(sen_sd, video, s_parm, a);
+	return v4l2_subdev_call(sen_sd, video, s_frame_interval, interval);
 }
 
-static int mipi_csis_g_parm(struct v4l2_subdev *mipi_sd, struct v4l2_streamparm *a)
+static int mipi_csis_g_frame_interval(struct v4l2_subdev *mipi_sd,
+				struct v4l2_subdev_frame_interval *interval)
 {
 	struct csi_state *state = mipi_sd_to_csi_state(mipi_sd);
 	struct media_pad *source_pad;
@@ -1059,7 +1061,7 @@ static int mipi_csis_g_parm(struct v4l2_subdev *mipi_sd, struct v4l2_streamparm 
 		return -EINVAL;
 	}
 
-	return v4l2_subdev_call(sen_sd, video, g_parm, a);
+	return v4l2_subdev_call(sen_sd, video, g_frame_interval, interval);
 }
 
 static int mipi_csis_enum_framesizes(struct v4l2_subdev *mipi_sd,
@@ -1135,8 +1137,8 @@ static struct v4l2_subdev_video_ops mipi_csis_video_ops = {
 	.s_rx_buffer = mipi_csis_s_rx_buffer,
 	.s_stream = mipi_csis_s_stream,
 
-	.s_parm = mipi_csis_s_parm,
-	.g_parm = mipi_csis_g_parm,
+	.g_frame_interval = mipi_csis_g_frame_interval,
+	.s_frame_interval = mipi_csis_s_frame_interval,
 };
 
 static const struct v4l2_subdev_pad_ops mipi_csis_pad_ops = {
