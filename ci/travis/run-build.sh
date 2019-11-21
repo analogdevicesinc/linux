@@ -188,16 +188,11 @@ __handle_sync_with_master() {
 
 build_sync_branches_with_master() {
 	GIT_FETCH_DEPTH=50
-	BRANCH1="xcomm_zynq:fast-forward"
-	BRANCH3="adi-4.19.0:cherry-pick"
-	BRANCH4="rpi-4.19.y:cherry-pick"
-	BRANCH6="altera_4.14:cherry-pick"
-	BRANCH7="adi-iio:cherry-pick"
+	BRANCHES="xcomm_zynq:fast-forward adi-4.19.0:cherry-pick"
+	BRANCHES="$BRANCHES rpi-4.19.y:cherry-pick altera_4.14:cherry-pick"
+	BRANCHES="$BRANCHES adi-iio:cherry-pick"
 
-	# support sync-ing up to 100 branches; should be enough
-	for iter in $(seq 1 100) ; do
-		local branch="$(eval "echo \$BRANCH${iter}")"
-		[ -n "$branch" ] || break
+	for iter in $BRANCHES ; do
 		local dst_branch="$(echo $branch | cut -d: -f1)"
 		[ -n "$dst_branch" ] || break
 		local method="$(echo $branch | cut -d: -f2)"
