@@ -217,6 +217,22 @@
 		clock-output-names = "clk_ext4";
 	};
 
+	busfreq { /* BUSFREQ */
+		compatible = "fsl,imx_busfreq";
+		clocks = <&clk IMX8MN_DRAM_PLL_OUT>, <&clk IMX8MN_CLK_DRAM_ALT>,
+			 <&clk IMX8MN_CLK_DRAM_APB>, <&clk IMX8MN_CLK_DRAM_APB>,
+			 <&clk IMX8MN_CLK_DRAM_CORE>, <&clk IMX8MN_CLK_DRAM_ALT_ROOT>,
+			 <&clk IMX8MN_SYS_PLL1_40M>, <&clk IMX8MN_SYS_PLL1_100M>,
+			 <&clk IMX8MN_SYS_PLL2_333M>, <&clk IMX8MN_CLK_NOC>,
+			 <&clk IMX8MN_CLK_AHB>, <&clk IMX8MN_CLK_MAIN_AXI>,
+			 <&clk IMX8MN_CLK_24M>, <&clk IMX8MN_SYS_PLL1_800M>,
+			 <&clk IMX8MN_DRAM_PLL>;
+		clock-names = "dram_pll", "dram_alt_src", "dram_apb_src", "dram_apb_pre_div",
+			      "dram_core", "dram_alt_root", "sys_pll1_40m", "sys_pll1_100m",
+			      "sys_pll2_333m", "noc_div", "ahb_div", "main_axi_src", "osc_24m",
+			      "sys_pll1_800m", "dram_pll_div";
+	};
+
 	pmu {
 		compatible = "arm,cortex-a53-pmu";
 		interrupts = <GIC_PPI 7
