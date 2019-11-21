@@ -189,10 +189,8 @@ __handle_sync_with_master() {
 build_sync_branches_with_master() {
 	GIT_FETCH_DEPTH=50
 	BRANCH1="xcomm_zynq:fast-forward"
-	BRANCH2="adi-4.14.0:cherry-pick"
 	BRANCH3="adi-4.19.0:cherry-pick"
 	BRANCH4="rpi-4.19.y:cherry-pick"
-	BRANCH5="rpi-4.14.y:cherry-pick"
 	BRANCH6="altera_4.14:cherry-pick"
 	BRANCH7="adi-iio:cherry-pick"
 
