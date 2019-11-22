@@ -1152,8 +1152,6 @@ static int __devinit gpu_probe(struct platform_device *pdev)
 
     galcore_device->dma_mask = &dma_mask;
 
-    galcore_device->coherent_dma_mask = dma_mask;
-
     if (platform->ops->getPower)
     {
         if (gcmIS_ERROR(platform->ops->getPower(platform)))
