@@ -54,7 +54,7 @@
 			"edma2-chan14-rx", "edma2-chan15-tx", /* sai1 */
 			"edma2-chan21-tx",		/* gpt5 */
 			"edma2-chan23-rx";		/* gpt7 */
-	pdomains = <&pd IMX_SC_R_DMA_2_CH8>, <&pd IMX_SC_R_DMA_2_CH9>,
+	power-domains = <&pd IMX_SC_R_DMA_2_CH8>, <&pd IMX_SC_R_DMA_2_CH9>,
 		   <&pd IMX_SC_R_DMA_2_CH12>, <&pd IMX_SC_R_DMA_2_CH13>,
 		   <&pd IMX_SC_R_DMA_2_CH14>, <&pd IMX_SC_R_DMA_2_CH15>,
 		   <&pd IMX_SC_R_DMA_2_CH21>,
