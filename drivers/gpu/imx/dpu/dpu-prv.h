@@ -435,7 +435,7 @@ static const struct dpu_pixel_format dpu_pixel_format_matrix[] = {
 	},
 };
 
-int dpu_sc_misc_init(struct dpu_soc *dpu);
+int dpu_sc_misc_get_handle(struct dpu_soc *dpu);
 int dpu_pxlink_set_mst_addr(struct dpu_soc *dpu, int disp_id, u32 val);
 int dpu_pxlink_set_mst_enable(struct dpu_soc *dpu, int disp_id, bool enable);
 int dpu_pxlink_set_mst_valid(struct dpu_soc *dpu, int disp_id, bool enable);

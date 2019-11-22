@@ -21,7 +21,7 @@ dpu_sc_misc_set_ctrl(struct dpu_soc *dpu, u32 rsc, u8 ctrl, u32 val)
 	return imx_sc_misc_set_control(dpu->dpu_ipc_handle, rsc, ctrl, val);
 }
 
-int dpu_sc_misc_init(struct dpu_soc *dpu)
+int dpu_sc_misc_get_handle(struct dpu_soc *dpu)
 {
 	return imx_scu_get_handle(&dpu->dpu_ipc_handle);
 }

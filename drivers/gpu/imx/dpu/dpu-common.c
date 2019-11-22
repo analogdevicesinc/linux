@@ -1116,7 +1116,7 @@ static int dpu_probe(struct platform_device *pdev)
 	if (ret < 0)
 		return ret;
 
-	ret = dpu_sc_misc_init(dpu);
+	ret = dpu_sc_misc_get_handle(dpu);
 	if (ret < 0)
 		return ret;
 
