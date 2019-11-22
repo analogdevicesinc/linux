@@ -116,7 +116,7 @@ int __adis_read_reg(struct adis *adis, unsigned int reg,
 	unsigned int *val, unsigned int size);
 
 /**
- * __adis_write_reg_8() - Write single byte to a register (unlocked version)
+ * __adis_write_reg_8() - Write single byte to a register (unlocked)
  * @adis: The adis device
  * @reg: The address of the register to be written
  * @value: The value to write
@@ -128,7 +128,7 @@ static inline int __adis_write_reg_8(struct adis *adis, unsigned int reg,
 }
 
 /**
- * __adis_write_reg_16() - Write 2 bytes to a pair of registers (unlocked version)
+ * __adis_write_reg_16() - Write 2 bytes to a pair of registers (unlocked)
  * @adis: The adis device
  * @reg: The address of the lower of the two registers
  * @value: Value to be written
@@ -140,7 +140,7 @@ static inline int __adis_write_reg_16(struct adis *adis, unsigned int reg,
 }
 
 /**
- * __adis_write_reg_32() - write 4 bytes to four registers (unlocked version)
+ * __adis_write_reg_32() - write 4 bytes to four registers (unlocked)
  * @adis: The adis device
  * @reg: The address of the lower of the four register
  * @value: Value to be written
@@ -152,7 +152,7 @@ static inline int __adis_write_reg_32(struct adis *adis, unsigned int reg,
 }
 
 /**
- * __adis_read_reg_16() - read 2 bytes from a 16-bit register (unlocked version)
+ * __adis_read_reg_16() - read 2 bytes from a 16-bit register (unlocked)
  * @adis: The adis device
  * @reg: The address of the lower of the two registers
  * @val: The value read back from the device
@@ -171,7 +171,7 @@ static inline int __adis_read_reg_16(struct adis *adis, unsigned int reg,
 }
 
 /**
- * __adis_read_reg_32() - read 4 bytes from a 32-bit register (unlocked version)
+ * __adis_read_reg_32() - read 4 bytes from a 32-bit register (unlocked)
  * @adis: The adis device
  * @reg: The address of the lower of the two registers
  * @val: The value read back from the device
