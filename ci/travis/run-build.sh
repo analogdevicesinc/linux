@@ -192,7 +192,7 @@ build_sync_branches_with_master() {
 	BRANCHES="$BRANCHES rpi-4.19.y:cherry-pick altera_4.14:cherry-pick"
 	BRANCHES="$BRANCHES adi-iio:cherry-pick"
 
-	for iter in $BRANCHES ; do
+	for branch in $BRANCHES ; do
 		local dst_branch="$(echo $branch | cut -d: -f1)"
 		[ -n "$dst_branch" ] || break
 		local method="$(echo $branch | cut -d: -f2)"
