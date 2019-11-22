@@ -1196,6 +1196,8 @@ static int dpu_resume(struct device *dev)
 	struct platform_device *pdev = to_platform_device(dev);
 	struct dpu_soc *dpu = platform_get_drvdata(pdev);
 
+	dpu_sc_misc_init(dpu);
+
 	_dpu_submodules_init(dpu, pdev);
 
 	return 0;
