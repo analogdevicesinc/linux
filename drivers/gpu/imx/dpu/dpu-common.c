@@ -1138,11 +1138,11 @@ static int dpu_probe(struct platform_device *pdev)
 	if (ret)
 		goto failed_submodules_init;
 
-	ret = dpu_pxlink_init(dpu);
+	ret = dpu_sc_misc_init(dpu);
 	if (ret < 0) {
 		dev_err(dpu->dev,
 			"failed to initialize pixel link %d\n", ret);
-		goto failed_pxlink_init;
+		goto failed_sc_misc_init;
 	}
 
 	platform_set_drvdata(pdev, dpu);
@@ -1160,7 +1160,7 @@ static int dpu_probe(struct platform_device *pdev)
 
 failed_add_clients:
 	platform_set_drvdata(pdev, NULL);
-failed_pxlink_init:
+failed_sc_misc_init:
 failed_submodules_init:
 	dpu_irq_exit(dpu);
 failed_irq:
