@@ -302,6 +302,14 @@ JESD_LANE(4);
 JESD_LANE(5);
 JESD_LANE(6);
 JESD_LANE(7);
+JESD_LANE(8);
+JESD_LANE(9);
+JESD_LANE(10);
+JESD_LANE(11);
+JESD_LANE(12);
+JESD_LANE(13);
+JESD_LANE(14);
+JESD_LANE(15);
 
 static irqreturn_t axi_jesd204_rx_irq(int irq, void *devid)
 {
@@ -668,6 +676,15 @@ static int axi_jesd204_rx_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, jesd);
 
 	switch (jesd->num_lanes) {
+	case 16:
+		device_create_file(&pdev->dev, &dev_attr_lane15_info);
+		device_create_file(&pdev->dev, &dev_attr_lane14_info);
+		device_create_file(&pdev->dev, &dev_attr_lane13_info);
+		device_create_file(&pdev->dev, &dev_attr_lane12_info);
+		device_create_file(&pdev->dev, &dev_attr_lane11_info);
+		device_create_file(&pdev->dev, &dev_attr_lane10_info);
+		device_create_file(&pdev->dev, &dev_attr_lane9_info);
+		device_create_file(&pdev->dev, &dev_attr_lane8_info);
 	case 8:
 		device_create_file(&pdev->dev, &dev_attr_lane4_info);
 		device_create_file(&pdev->dev, &dev_attr_lane5_info);
