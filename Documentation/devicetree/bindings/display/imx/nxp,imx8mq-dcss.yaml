@@ -46,6 +46,8 @@ properties:
       - description: RTRAM clock
       - description: Pixel clock, can be driven either by HDMI phy clock or MIPI
       - description: DTRC clock, needed by video decompressor
+      - description: PLL source clock, usually VIDEO2_PLL, used when output is HDMI;
+      - description: PLL PHY reference clock, used when output is HDMI;
 
   clock-names:
     items:
@@ -54,6 +56,8 @@ properties:
       - const: rtrm
       - const: pix
       - const: dtrc
+      - const: pll_src
+      - const: pll_phy_ref
 
   assigned-clocks:
     items:
@@ -91,8 +95,10 @@ examples:
         interrupt-parent = <&irqsteer>;
         clocks = <&clk IMX8MQ_CLK_DISP_APB_ROOT>, <&clk IMX8MQ_CLK_DISP_AXI_ROOT>,
                  <&clk IMX8MQ_CLK_DISP_RTRM_ROOT>, <&clk IMX8MQ_VIDEO2_PLL_OUT>,
-                 <&clk IMX8MQ_CLK_DISP_DTRC>;
-        clock-names = "apb", "axi", "rtrm", "pix", "dtrc";
+                 <&clk IMX8MQ_CLK_DISP_DTRC>, <&clk IMX8MQ_VIDEO2_PLL1_REF_SEL>,
+                 <&clk IMX8MQ_CLK_PHY_27MHZ>;
+        clock-names = "apb", "axi", "rtrm", "pix", "dtrc",
+                      "pll_src", "pll_phy_ref";
         assigned-clocks = <&clk IMX8MQ_CLK_DISP_AXI>, <&clk IMX8MQ_CLK_DISP_RTRM>,
                           <&clk IMX8MQ_VIDEO2_PLL1_REF_SEL>;
         assigned-clock-parents = <&clk IMX8MQ_SYS1_PLL_800M>, <&clk IMX8MQ_SYS1_PLL_800M>,
