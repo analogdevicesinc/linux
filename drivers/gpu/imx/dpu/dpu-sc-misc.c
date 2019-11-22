@@ -68,6 +68,14 @@ int dpu_pxlink_set_dc_sync_mode(struct dpu_soc *dpu, bool enable)
 	return dpu_sc_misc_set_ctrl(dpu, rsc, IMX_SC_C_MODE, enable);
 }
 
+/* KACHUNK_CNT is needed for blit engine */
+int dpu_sc_misc_set_kachunk_cnt(struct dpu_soc *dpu, u32 cnt)
+{
+	u32 rsc = dpu->id ? IMX_SC_R_DC_1 : IMX_SC_R_DC_0;
+
+	return dpu_sc_misc_set_ctrl(dpu, rsc, IMX_SC_C_KACHUNK_CNT, cnt);
+}
+
 int dpu_sc_misc_init(struct dpu_soc *dpu)
 {
 	int disp_id, ret = 0;
@@ -78,6 +86,8 @@ int dpu_sc_misc_init(struct dpu_soc *dpu)
 		ret |= dpu_pxlink_set_mst_valid(dpu, disp_id, false);
 		ret |= dpu_pxlink_set_sync_ctrl(dpu, disp_id, false);
 	}
+
+	ret |= dpu_sc_misc_set_kachunk_cnt(dpu, 32);
 
 	return ret;
 }
