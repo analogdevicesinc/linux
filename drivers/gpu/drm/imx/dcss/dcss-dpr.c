@@ -106,12 +106,17 @@ struct dcss_dpr_ch {
 
 	bool sys_ctrl_chgd;
 
+	u32 pitch;
+
 	int ch_num;
 	int irq;
+
+	bool use_dtrc;
 };
 
 struct dcss_dpr {
 	struct device *dev;
+	struct dcss_dtrc *dtrc;
 	struct dcss_ctxld *ctxld;
 	u32  ctx_id;
 
@@ -163,6 +168,7 @@ int dcss_dpr_init(struct dcss_dev *dcss, unsigned long dpr_base)
 	dpr->dev = dcss->dev;
 	dpr->ctxld = dcss->ctxld;
 	dpr->ctx_id = CTX_SB_HP;
+	dpr->dtrc = dcss->dtrc;
 
 	if (dcss_dpr_ch_init_all(dpr, dpr_base))
 		return -ENOMEM;
@@ -236,12 +242,16 @@ void dcss_dpr_set_res(struct dcss_dpr *dpr, int ch_num, u32 xres, u32 yres)
 		pix_x_wide = dcss_dpr_x_pix_wide_adjust(ch, xres, pix_format);
 		pix_y_high = dcss_dpr_y_pix_high_adjust(ch, yres, pix_format);
 
+		if (plane == 0)
+			ch->pitch = pix_x_wide;
+
 		dcss_dpr_write(ch, pix_x_wide,
 			       DCSS_DPR_FRAME_1P_PIX_X_CTRL + plane * gap);
 		dcss_dpr_write(ch, pix_y_high,
 			       DCSS_DPR_FRAME_1P_PIX_Y_CTRL + plane * gap);
 
-		dcss_dpr_write(ch, 2, DCSS_DPR_FRAME_1P_CTRL0 + plane * gap);
+		dcss_dpr_write(ch, ch->use_dtrc ? 7 : 2,
+			       DCSS_DPR_FRAME_1P_CTRL0 + plane * gap);
 	}
 }
 
@@ -250,9 +260,19 @@ void dcss_dpr_addr_set(struct dcss_dpr *dpr, int ch_num, u32 luma_base_addr,
 {
 	struct dcss_dpr_ch *ch = &dpr->ch[ch_num];
 
-	dcss_dpr_write(ch, luma_base_addr, DCSS_DPR_FRAME_1P_BASE_ADDR);
+	if (ch->use_dtrc) {
+		luma_base_addr = 0x0;
+		chroma_base_addr = 0x10000000;
+	}
 
-	dcss_dpr_write(ch, chroma_base_addr, DCSS_DPR_FRAME_2P_BASE_ADDR);
+	if (!dcss_dtrc_ch_running(dpr->dtrc, ch_num)) {
+		dcss_dpr_write(ch, luma_base_addr, DCSS_DPR_FRAME_1P_BASE_ADDR);
+		dcss_dpr_write(ch, chroma_base_addr,
+			       DCSS_DPR_FRAME_2P_BASE_ADDR);
+	}
+
+	if (ch->use_dtrc)
+		pitch = ch->pitch;
 
 	ch->frame_ctrl &= ~PITCH_MASK;
 	ch->frame_ctrl |= (((u32)pitch << PITCH_POS) & PITCH_MASK);
@@ -502,6 +522,7 @@ void dcss_dpr_format_set(struct dcss_dpr *dpr, int ch_num,
 	struct dcss_dpr_ch *ch = &dpr->ch[ch_num];
 
 	ch->format = *format;
+	ch->use_dtrc = ch_num && modifier != DRM_FORMAT_MOD_LINEAR;
 
 	dcss_dpr_yuv_en(ch, format->is_yuv);
 

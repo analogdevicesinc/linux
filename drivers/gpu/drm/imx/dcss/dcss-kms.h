@@ -11,9 +11,13 @@
 struct dcss_plane {
 	struct drm_plane base;
 
+	uint64_t dtrc_table_ofs_val;
+	struct drm_property *dtrc_table_ofs_prop;
+
 	int ch_num;
 
 	enum drm_plane_type type;
+	bool use_dtrc;
 };
 
 struct dcss_crtc {

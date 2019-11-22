@@ -94,6 +94,10 @@ static int dcss_submodules_init(struct dcss_dev *dcss)
 	if (ret)
 		goto ss_err;
 
+	ret = dcss_dtrc_init(dcss, base_addr + devtype->dtrc_ofs);
+	if (ret)
+		goto dtrc_err;
+
 	ret = dcss_dpr_init(dcss, base_addr + devtype->dpr_ofs);
 	if (ret)
 		goto dpr_err;
@@ -138,6 +142,9 @@ wrscl_err:
 	dcss_dpr_exit(dcss->dpr);
 
 dpr_err:
+	dcss_dtrc_exit(dcss->dtrc);
+
+dtrc_err:
 	dcss_ss_exit(dcss->ss);
 
 ss_err:
@@ -161,6 +168,7 @@ static void dcss_submodules_stop(struct dcss_dev *dcss)
 	dcss_rdsrc_exit(dcss->rdsrc);
 	dcss_wrscl_exit(dcss->wrscl);
 	dcss_dpr_exit(dcss->dpr);
+	dcss_dtrc_exit(dcss->dtrc);
 	dcss_ss_exit(dcss->ss);
 	dcss_dtg_exit(dcss->dtg);
 	dcss_ctxld_exit(dcss->ctxld);

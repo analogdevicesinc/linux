@@ -6,6 +6,7 @@
 #ifndef __DCSS_PRV_H__
 #define __DCSS_PRV_H__
 
+#include <drm/drm_atomic.h>
 #include <drm/drm_fourcc.h>
 #include <drm/drm_plane.h>
 #include <linux/io.h>
@@ -120,6 +121,9 @@ int dcss_ctxld_enable(struct dcss_ctxld *ctxld);
 void dcss_ctxld_register_completion(struct dcss_ctxld *ctxld,
 				    struct completion *dis_completion);
 void dcss_ctxld_assert_locked(struct dcss_ctxld *ctxld);
+void dcss_ctxld_register_dtrc_cb(struct dcss_ctxld *ctxld,
+				 bool (*cb)(void *),
+				 void *data);
 
 /* DPR */
 int dcss_dpr_init(struct dcss_dev *dcss, unsigned long dpr_base);
@@ -319,5 +323,19 @@ void dcss_rdsrc_setup(struct dcss_rdsrc *rdsrc, u32 pix_format, u32 dst_xres,
 		      u32 dst_yres, u32 base_addr);
 void dcss_rdsrc_enable(struct dcss_rdsrc *rdsrc);
 void dcss_rdsrc_disable(struct dcss_rdsrc *rdsrc);
+
+/* DTRC */
+int dcss_dtrc_init(struct dcss_dev *dcss, unsigned long dtrc_base);
+void dcss_dtrc_exit(struct dcss_dtrc *dtrc);
+void dcss_dtrc_bypass(struct dcss_dtrc *dtrc, int ch_num);
+void dcss_dtrc_set_format_mod(struct dcss_dtrc *dtrc, int ch_num, u64 modifier);
+void dcss_dtrc_addr_set(struct dcss_dtrc *dtrc, int ch_num,
+			u32 p1_ba, u32 p2_ba, uint64_t dec_table_ofs);
+bool dcss_dtrc_ch_running(struct dcss_dtrc *dtrc, int ch_num);
+bool dcss_dtrc_is_running(struct dcss_dtrc *dtrc);
+void dcss_dtrc_enable(struct dcss_dtrc *dtrc, int ch_num, bool enable);
+void dcss_dtrc_set_res(struct dcss_dtrc *dtrc, int ch_num,
+		       struct drm_plane_state *state, u32 *dtrc_w, u32 *dtrc_h);
+void dcss_dtrc_switch_banks(struct dcss_dtrc *dtrc);
 
 #endif /* __DCSS_PRV_H__ */
