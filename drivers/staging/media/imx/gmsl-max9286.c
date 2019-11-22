@@ -2791,7 +2791,7 @@ static int max9286_enum_frame_interval(struct v4l2_subdev *sd,
 		for (j = 0; j < (ov10635_mode_MAX + 1); j++) {
 			if (fie->width == ov10635_mode_info_data[i][j].width &&
 			    fie->height == ov10635_mode_info_data[i][j].height &&
-			    !ov10635_mode_info_data[i][j].init_data_ptr)
+			    ov10635_mode_info_data[i][j].init_data_ptr)
 				count++;
 
 			if (fie->index == (count - 1)) {
