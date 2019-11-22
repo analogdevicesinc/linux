@@ -18,6 +18,11 @@
 
 static void dcss_clocks_enable(struct dcss_dev *dcss)
 {
+	if (dcss->hdmi_output) {
+		clk_prepare_enable(dcss->pll_phy_ref_clk);
+		clk_prepare_enable(dcss->pll_src_clk);
+	}
+
 	clk_prepare_enable(dcss->axi_clk);
 	clk_prepare_enable(dcss->apb_clk);
 	clk_prepare_enable(dcss->rtrm_clk);
@@ -32,6 +37,11 @@ static void dcss_clocks_disable(struct dcss_dev *dcss)
 	clk_disable_unprepare(dcss->rtrm_clk);
 	clk_disable_unprepare(dcss->apb_clk);
 	clk_disable_unprepare(dcss->axi_clk);
+
+	if (dcss->hdmi_output) {
+		clk_disable_unprepare(dcss->pll_src_clk);
+		clk_disable_unprepare(dcss->pll_phy_ref_clk);
+	}
 }
 
 static void dcss_disable_dtg_and_ss_cb(void *data)
@@ -131,17 +141,20 @@ static int dcss_clks_init(struct dcss_dev *dcss)
 	struct {
 		const char *id;
 		struct clk **clk;
+		bool required;
 	} clks[] = {
-		{"apb",   &dcss->apb_clk},
-		{"axi",   &dcss->axi_clk},
-		{"pix",   &dcss->pix_clk},
-		{"rtrm",  &dcss->rtrm_clk},
-		{"dtrc",  &dcss->dtrc_clk},
+		{"apb",   &dcss->apb_clk, true},
+		{"axi",   &dcss->axi_clk, true},
+		{"pix",   &dcss->pix_clk, true},
+		{"rtrm",  &dcss->rtrm_clk, true},
+		{"dtrc",  &dcss->dtrc_clk, true},
+		{"pll_src",  &dcss->pll_src_clk, dcss->hdmi_output},
+		{"pll_phy_ref",  &dcss->pll_phy_ref_clk, dcss->hdmi_output},
 	};
 
 	for (i = 0; i < ARRAY_SIZE(clks); i++) {
 		*clks[i].clk = devm_clk_get(dcss->dev, clks[i].id);
-		if (IS_ERR(*clks[i].clk)) {
+		if (IS_ERR(*clks[i].clk) && clks[i].required) {
 			dev_err(dcss->dev, "failed to get %s clock\n",
 				clks[i].id);
 			return PTR_ERR(*clks[i].clk);
