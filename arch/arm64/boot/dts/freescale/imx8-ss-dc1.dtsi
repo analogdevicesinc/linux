@@ -468,7 +468,7 @@ dc1_subsys: bus@57000000 {
 			 <&clk IMX_SC_R_DC_1_VIDEO0 IMX_SC_PM_CLK_BYPASS>,
 			 <&clk IMX_SC_R_DC_1 IMX_SC_PM_CLK_MISC0>,
 			 <&clk IMX_SC_R_DC_1 IMX_SC_PM_CLK_MISC1>,
-			 <&dc0_disp_lpcg 0>, <&dc0_disp_lpcg 1>;
+			 <&dc1_disp_lpcg 0>, <&dc1_disp_lpcg 1>;
 		clock-names = "pll0", "pll1", "bypass0", "disp0", "disp1", "disp0_lpcg", "disp1_lpcg";
 		power-domains = <&pd IMX_SC_R_DC_1>,
 				<&pd IMX_SC_R_DC_1_PLL_0>,
