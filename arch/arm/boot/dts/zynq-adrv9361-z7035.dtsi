@@ -42,7 +42,6 @@
 		compatible = "gpio-gate-clock";
 		clocks = <&xo_40mhz_fixed_clk>;
 		enable-gpios = <&gpio0 105 0>; /* Set to 1 for extern AD9361_CLK (J1 on PZSDRCC-FMC) */
-		clk-set-rate-parent-enable;
 		clock-output-names = "ad9361_ext_refclk";
 	};
 
