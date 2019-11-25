@@ -213,7 +213,6 @@ static int gpio_clk_driver_probe(struct platform_device *pdev)
 	struct clk *clk;
 	bool is_mux;
 	int ret;
-	unsigned long clk_flags;
 
 	num_parents = of_clk_get_parent_count(node);
 	if (num_parents) {
