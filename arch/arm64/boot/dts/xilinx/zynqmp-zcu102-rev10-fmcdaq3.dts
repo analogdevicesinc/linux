@@ -42,7 +42,7 @@
 			#dma-cells = <1>;
 			compatible = "adi,axi-dmac-1.00.a";
 			reg = <0x9c400000 0x10000>;
-			interrupts = <0 109 0>;
+			interrupts = <0 109 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&zynqmp_clk 71>;
 
 			adi,channels {
@@ -63,7 +63,7 @@
 			#dma-cells = <1>;
 			compatible = "adi,axi-dmac-1.00.a";
 			reg = <0x9c420000 0x10000>;
-			interrupts = <0 108 0>;
+			interrupts = <0 108 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&zynqmp_clk 71>;
 
 			adi,channels {
