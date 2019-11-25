@@ -72,7 +72,7 @@
 			compatible = "adi,axi-jesd204-rx-1.0";
 			reg = <0x84aa0000 0x1000>;
 
-			interrupts = <0 106 0>;
+			interrupts = <0 106 IRQ_TYPE_LEVEL_HIGH>;
 
 			clocks = <&zynqmp_clk 71>, <&axi_rx_clkgen>, <&axi_adrv9009_adxcvr_rx 0>;
 			clock-names = "s_axi_aclk", "device_clk", "lane_clk";

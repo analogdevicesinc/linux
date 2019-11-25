@@ -132,7 +132,7 @@
 			compatible = "adi,axi-jesd204-rx-1.0";
 			reg = <0x84aa0000 0x1000>;
 
-			interrupts = <0 106 0>;
+			interrupts = <0 106 IRQ_TYPE_LEVEL_HIGH>;
 
 			clocks = <&zynqmp_clk 71>, <&axi_rx_clkgen>, <&axi_ad9371_adxcvr_rx 0>;
 			clock-names = "s_axi_aclk", "device_clk", "lane_clk";
@@ -148,7 +148,7 @@
 			compatible = "adi,axi-jesd204-tx-1.0";
 			reg = <0x84a90000 0x1000>;
 
-			interrupts = <0 105 0>;
+			interrupts = <0 105 IRQ_TYPE_LEVEL_HIGH>;
 
 			clocks = <&zynqmp_clk 71>, <&axi_tx_clkgen>, <&axi_ad9371_adxcvr_tx 0>;
 			clock-names = "s_axi_aclk", "device_clk", "lane_clk";
@@ -168,7 +168,7 @@
 			compatible = "adi,axi-jesd204-rx-1.0";
 			reg = <0x84ab0000 0x1000>;
 
-			interrupts = <0 104 0>;
+			interrupts = <0 104 IRQ_TYPE_LEVEL_HIGH>;
 
 			clocks = <&zynqmp_clk 71>, <&axi_rx_os_clkgen>, <&axi_ad9371_adxcvr_rx_os 0>;
 			clock-names = "s_axi_aclk", "device_clk", "lane_clk";
