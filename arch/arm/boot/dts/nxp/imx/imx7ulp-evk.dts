@@ -402,8 +402,9 @@
 };
 
 &usdhc0 {
-	assigned-clocks = <&pcc2 IMX7ULP_CLK_USDHC0>;
-	assigned-clock-parents = <&scg1 IMX7ULP_CLK_APLL_PFD1>;
+	assigned-clocks = <&scg1 IMX7ULP_CLK_APLL_PFD1>, <&pcc2 IMX7ULP_CLK_USDHC0>;
+	assigned-clock-parents = <0>, <&scg1 IMX7ULP_CLK_APLL_PFD1>;
+	assigned-clock-rates = <0>, <352800000>;
 	pinctrl-names = "default", "state_100mhz", "state_200mhz", "sleep";
 	pinctrl-0 = <&pinctrl_usdhc0>;
 	pinctrl-1 = <&pinctrl_usdhc0>;
@@ -417,6 +418,9 @@
 };
 
 &usdhc1 {
+	assigned-clocks = <&scg1 IMX7ULP_CLK_APLL_PFD1>, <&pcc2 IMX7ULP_CLK_USDHC1>;
+	assigned-clock-parents = <0>, <&scg1 IMX7ULP_CLK_APLL_PFD1>;
+	assigned-clock-rates = <0>, <352800000>;
 	pinctrl-names = "default", "sleep";
 	pinctrl-0 = <&pinctrl_usdhc1>;
 	pinctrl-1 = <&pinctrl_usdhc1>;
