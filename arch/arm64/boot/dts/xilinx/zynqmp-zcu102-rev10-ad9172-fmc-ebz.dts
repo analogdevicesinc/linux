@@ -6,6 +6,7 @@
  */
 
 #include "zynqmp-zcu102-rev1.0.dts"
+#include <dt-bindings/interrupt-controller/irq.h>
 
 &i2c1 {
 	i2c-mux@75 {
