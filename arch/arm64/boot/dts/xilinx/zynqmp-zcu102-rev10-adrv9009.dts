@@ -52,7 +52,7 @@
 			reg = <0x9c400000 0x10000>;
 			#dma-cells = <1>;
 			#clock-cells = <0>;
-			interrupts = <0 109 0>;
+			interrupts = <0 109 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&zynqmp_clk 73>;
 
 			adi,channels {
@@ -74,7 +74,7 @@
 			reg = <0x9c440000 0x10000>;
 			#dma-cells = <1>;
 			#clock-cells = <0>;
-			interrupts = <0 107 0>;
+			interrupts = <0 107 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&zynqmp_clk 73>;
 
 			adi,channels {
@@ -96,7 +96,7 @@
 			reg = <0x9c420000 0x10000>;
 			#dma-cells = <1>;
 			#clock-cells = <0>;
-			interrupts = <0 108 0>;
+			interrupts = <0 108 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&zynqmp_clk 73>;
 
 			adi,channels {
