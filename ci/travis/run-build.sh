@@ -41,8 +41,20 @@ adjust_kcflags_against_gcc() {
 APT_LIST="build-essential bc u-boot-tools flex bison libssl-dev"
 
 if [ "$ARCH" == "arm64" ] ; then
+	if [ -z "$CROSS_COMPILE" ] ; then
+		CROSS_COMPILE=aarch64-linux-gnu-
+		export CROSS_COMPILE
+	fi
+
 	APT_LIST="$APT_LIST gcc-aarch64-linux-gnu"
-else
+fi
+
+if [ "$ARCH" == "arm" ] ; then
+	if [ -z "$CROSS_COMPILE" ] ; then
+		CROSS_COMPILE=arm-linux-gnueabihf-
+		export CROSS_COMPILE
+	fi
+
 	APT_LIST="$APT_LIST gcc-arm-linux-gnueabihf"
 fi
 
