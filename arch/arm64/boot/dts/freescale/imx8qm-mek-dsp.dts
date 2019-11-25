@@ -59,6 +59,11 @@
 		   <&pd IMX_SC_R_DMA_2_CH14>, <&pd IMX_SC_R_DMA_2_CH15>,
 		   <&pd IMX_SC_R_DMA_2_CH21>,
 		   <&pd IMX_SC_R_DMA_2_CH23>;
+	power-domain-names = "edma2-chan8", "edma2-chan9",
+			     "edma2-chan12", "edma2-chan13",
+			     "edma2-chan14", "edma2-chan15",
+			     "edma2-chan21",
+			     "edma2-chan23";
 	status = "okay";
 };
 
