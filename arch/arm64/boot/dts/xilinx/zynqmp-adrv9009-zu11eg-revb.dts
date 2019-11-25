@@ -13,39 +13,3 @@
 #include "zynqmp-adrv9009-zu11eg-reva.dts"
 #include "zynqmp-adrv9009-zu11eg-revb.dtsi"
 
-/ {
-	model = "Analog Devices ADRV9009-ZU11EG Rev.B";
-};
-
-&hmc7044_c1 {
-	adi,force-mute-enable;
-	adi,driver-mode = <HMC7044_DRIVER_MODE_LVPECL>;
-	adi,control0-rb4-enable;
-};
-
-&hmc7044_c3 {
-	adi,force-mute-enable;
-	adi,driver-mode = <HMC7044_DRIVER_MODE_LVPECL>;
-	adi,control0-rb4-enable;
-};
-
-&hmc7044_c8 {
-	adi,force-mute-enable;
-	adi,driver-mode = <HMC7044_DRIVER_MODE_LVPECL>;
-	adi,control0-rb4-enable;
-};
-
-&hmc7044_c9 {
-	adi,force-mute-enable;
-	adi,driver-mode = <HMC7044_DRIVER_MODE_LVPECL>;
-	adi,control0-rb4-enable;
-};
-
-&hmc7044_c6 {
-	adi,driver-mode = <HMC7044_DRIVER_MODE_CML>;
-};
-
-&hmc7044_c7 {
-	adi,driver-mode = <HMC7044_DRIVER_MODE_CML>;
-};
-
