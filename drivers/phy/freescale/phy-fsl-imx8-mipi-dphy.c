@@ -57,6 +57,8 @@
 
 enum mixel_dphy_devtype {
 	MIXEL_IMX8MQ,
+	MIXEL_IMX8QM,
+	MIXEL_IMX8QX,
 };
 
 struct mixel_dphy_devdata {
@@ -74,6 +76,20 @@ static const struct mixel_dphy_devdata mixel_dphy_devdata[] = {
 		.reg_rxlprp = 0x40,
 		.reg_rxcdrp = 0x44,
 		.reg_rxhs_settle = 0x48,
+	},
+	[MIXEL_IMX8QM] = {
+		.reg_tx_rcal = 0x00,
+		.reg_auto_pd_en = 0x38,
+		.reg_rxlprp = 0x3c,
+		.reg_rxcdrp = 0x40,
+		.reg_rxhs_settle = 0x44,
+	},
+	[MIXEL_IMX8QX] = {
+		.reg_tx_rcal = 0x00,
+		.reg_auto_pd_en = 0x38,
+		.reg_rxlprp = 0x3c,
+		.reg_rxcdrp = 0x40,
+		.reg_rxhs_settle = 0x44,
 	},
 };
 
@@ -424,6 +440,10 @@ static const struct phy_ops mixel_dphy_phy_ops = {
 static const struct of_device_id mixel_dphy_of_match[] = {
 	{ .compatible = "fsl,imx8mq-mipi-dphy",
 	  .data = &mixel_dphy_devdata[MIXEL_IMX8MQ] },
+	{ .compatible = "fsl,imx8qm-mipi-dphy",
+	  .data = &mixel_dphy_devdata[MIXEL_IMX8QM] },
+	{ .compatible = "fsl,imx8qx-mipi-dphy",
+	  .data = &mixel_dphy_devdata[MIXEL_IMX8QX] },
 	{ /* sentinel */ },
 };
 MODULE_DEVICE_TABLE(of, mixel_dphy_of_match);
