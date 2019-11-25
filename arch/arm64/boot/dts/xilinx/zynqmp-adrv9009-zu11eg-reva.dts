@@ -1281,7 +1281,7 @@
 			compatible = "adi,axi-fan-control-1.00.a";
 			reg = <0x0 0x80000000 0x10000>;
 			clocks = <&zynqmp_clk 71>;
-			interrupts = <0 110 0>;
+			interrupts = <0 110 IRQ_TYPE_LEVEL_HIGH>;
 
 			adi,pulses-per-revolution = <2>;
 		};
