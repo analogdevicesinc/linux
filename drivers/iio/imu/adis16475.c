@@ -121,7 +121,7 @@ static ssize_t adis16475_show_firmware_revision(struct file *file,
 	int ret;
 
 	ret = adis_read_reg_16(&st->adis, ADIS16475_REG_FIRM_REV, &rev);
-	if (ret < 0)
+	if (ret)
 		return ret;
 
 	len = scnprintf(buf, sizeof(buf), "%x.%x\n", rev >> 8, rev & 0xff);
@@ -147,11 +147,11 @@ static ssize_t adis16475_show_firmware_date(struct file *file,
 	int ret;
 
 	ret = adis_read_reg_16(&st->adis, ADIS16475_REG_FIRM_Y, &year);
-	if (ret < 0)
+	if (ret)
 		return ret;
 
 	ret = adis_read_reg_16(&st->adis, ADIS16475_REG_FIRM_DM, &md);
-	if (ret < 0)
+	if (ret)
 		return ret;
 
 	len = snprintf(buf, sizeof(buf), "%.2x-%.2x-%.4x\n", md >> 8, md & 0xff,
@@ -174,7 +174,7 @@ static int adis16475_show_serial_number(void *arg, u64 *val)
 	int ret;
 
 	ret = adis_read_reg_16(&st->adis, ADIS16475_REG_SERIAL_NUM, &serial);
-	if (ret < 0)
+	if (ret)
 		return ret;
 
 	*val = serial;
@@ -191,7 +191,7 @@ static int adis16475_show_product_id(void *arg, u64 *val)
 	int ret;
 
 	ret = adis_read_reg_16(&st->adis, ADIS16475_REG_PROD_ID, &prod_id);
-	if (ret < 0)
+	if (ret)
 		return ret;
 
 	*val = prod_id;
@@ -209,7 +209,7 @@ static int adis16475_show_flash_count(void *arg, u64 *val)
 
 	ret = adis_read_reg_32(&st->adis, ADIS16475_REG_FLASH_CNT,
 			       &flash_count);
-	if (ret < 0)
+	if (ret)
 		return ret;
 
 	*val = flash_count;
