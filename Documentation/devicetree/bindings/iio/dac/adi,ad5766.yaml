@@ -1,0 +1,37 @@
+# SPDX-License-Identifier: GPL-2.0-only
+# Copyright 2019 Analog Devices Inc.
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/bindings/iio/dac/adi,ad5766.yaml
+$schema: $schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Analog Devices AD5766 DAC Device Driver
+
+maintainers:
+  - Denis Gheorghescu <denis.gheorghescu@analog.com>
+
+description: |
+  Bindings for the Analog Devices AD5766 DAC device. Datasheet can be
+  found here:
+    https://www.analog.com/media/en/technical-documentation/data-sheets/ad5766-5767.pdf
+properties:
+  compatible:
+    enum:
+      - adi,ad5766
+      - adi,ad5767
+
+required:
+  - compatible
+  - reg:
+	maxItems: 1
+  - interupts
+
+examples:
+  - |
+    ad5766: ad5766@0 {
+      compatible = "adi,ad5766";
+      reg = <0>;
+      spi-cpol: true
+      spi-max-frequency:
+	maximum: 25000000
+    };
