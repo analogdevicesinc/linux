@@ -889,6 +889,7 @@
 	disable-gpio = <&pca9557_a 2 GPIO_ACTIVE_LOW>;
 	reset-gpio = <&lsio_gpio4 0 GPIO_ACTIVE_LOW>;
 	ext_osc = <1>;
+	reserved-region = <&rpmsg_reserved>;
 	status = "okay";
 };
 
