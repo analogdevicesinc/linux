@@ -85,20 +85,26 @@ static struct syscore_ops imx_gpcv2_syscore_ops = {
 	.resume		= gpcv2_wakeup_source_restore,
 };
 
+#ifdef CONFIG_ARM64
 static void (*__gic_v3_smp_cross_call)(const struct cpumask *, unsigned int);
+#endif
 
+#ifdef CONFIG_SMP
 static void imx_gpcv2_raise_softirq(const struct cpumask *mask,
 					  unsigned int irq)
 {
 	struct arm_smccc_res res;
 
+#ifdef CONFIG_ARM64
 	/* call the hijacked smp cross call handler */
 	__gic_v3_smp_cross_call(mask, irq);
+#endif
 
 	/* now call into EL3 and take care of the wakeup */
 	arm_smccc_smc(FSL_SIP_GPC, FSL_SIP_CONFIG_GPC_CORE_WAKE,
 			*cpumask_bits(mask), 0, 0, 0, 0, 0, &res);
 }
+#endif
 
 static void imx_gpcv2_wake_request_fixup(void)
 {
@@ -119,8 +125,10 @@ static void imx_gpcv2_wake_request_fixup(void)
 	__gic_v3_smp_cross_call = __smp_cross_call;
 #endif
 
+#ifdef CONFIG_SMP
 	/* register our workaround handler for smp cross call */
 	set_smp_cross_call(imx_gpcv2_raise_softirq);
+#endif
 
 	iomux_gpr = syscon_regmap_lookup_by_compatible("fsl,imx6q-iomuxc-gpr");
 	if (!IS_ERR(iomux_gpr))
