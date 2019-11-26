@@ -389,7 +389,7 @@ int xilinx_xcvr_calc_cpll_config(struct xilinx_xcvr *xcvr,
 		for (d = 1; d <= 8; d <<= 1) {
 			for (n1 = 5; n1 >= 4; n1--) {
 				for (n2 = 5; n2 >= 1; n2--) {
-					vco_freq = refclk_khz * n1 * n2 / m;
+					vco_freq = (refclk_khz * n1 * n2) / m;
 
 					if (vco_freq > vco_max || vco_freq < vco_min)
 						continue;
@@ -511,7 +511,7 @@ int xilinx_xcvr_calc_qpll_config(struct xilinx_xcvr *xcvr,
 	for (m = 1; m <= 4; m++) {
 		for (d = 1; d <= 16; d <<= 1) {
 			for (n = 0; N[n] != 0; n++) {
-				vco_freq = refclk_khz * N[n] / m;
+				vco_freq = (refclk_khz * N[n]) / m;
 
 				/*
 				 * high band = 9.8G to 12.5GHz VCO
