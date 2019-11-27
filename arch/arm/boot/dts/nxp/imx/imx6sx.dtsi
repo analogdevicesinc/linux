@@ -827,7 +827,6 @@
 			irq_sec_vio: caam_secvio {
 				compatible = "fsl,imx6q-caam-secvio";
 				interrupts = <GIC_SPI 20 IRQ_TYPE_LEVEL_HIGH>;
-				secvio_src = <0x8000001d>;
 				jtag-tamper = "disabled";
 				watchdog-tamper = "enabled";
 				internal-boot-tamper = "enabled";
