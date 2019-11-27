@@ -19,6 +19,7 @@
 		};
 
 		dpu_disp0_mipi_dsi: endpoint@2 {
+			remote-endpoint = <&mipi0_dsi_in>;
 		};
 	};
 
@@ -34,6 +35,7 @@
 		};
 
 		dpu_disp1_mipi_dsi: endpoint@2 {
+			remote-endpoint = <&mipi1_dsi_in>;
 		};
 	};
 };

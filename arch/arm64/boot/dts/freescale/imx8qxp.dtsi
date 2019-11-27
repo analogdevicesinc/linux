@@ -68,6 +68,8 @@
 		i2c13 = &i2c_rpbus_13;
 		i2c14 = &i2c_rpbus_14;
 		i2c15 = &i2c_rpbus_15;
+		mipi_dsi0 = &mipi0_dsi_host;
+		mipi_dsi1 = &mipi1_dsi_host;
 	};
 
 	cpus: cpus {
