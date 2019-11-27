@@ -409,8 +409,8 @@ static int imx_sec_dsim_runtime_resume(struct device *dev)
 #endif
 
 static const struct dev_pm_ops imx_sec_dsim_pm_ops = {
-	SET_SYSTEM_SLEEP_PM_OPS(imx_sec_dsim_suspend,
-				imx_sec_dsim_resume)
+	SET_LATE_SYSTEM_SLEEP_PM_OPS(imx_sec_dsim_suspend,
+				     imx_sec_dsim_resume)
 	SET_RUNTIME_PM_OPS(imx_sec_dsim_runtime_suspend,
 			   imx_sec_dsim_runtime_resume,
 			   NULL)
