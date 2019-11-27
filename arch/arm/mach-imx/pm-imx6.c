@@ -683,7 +683,7 @@ int imx6_set_lpm(enum mxc_cpu_pwr_mode mode)
 		if (cpu_is_imx6sl() || cpu_is_imx6sx() || cpu_is_imx6sll())
 			val |= BM_CLPCR_BYPASS_PMIC_READY;
 		if (cpu_is_imx6sl() || cpu_is_imx6sx() || cpu_is_imx6ul() ||
-		    cpu_is_imx6ull() || cpu_is_imx6sll())
+		    cpu_is_imx6ull() || cpu_is_imx6ulz() || cpu_is_imx6sll())
 			val |= BM_CLPCR_BYP_MMDC_CH0_LPM_HS;
 		else if (cpu_is_imx6q() &&
 		    imx_mmdc_get_ddr_type() == IMX_DDR_TYPE_LPDDR2 &&
@@ -708,7 +708,7 @@ int imx6_set_lpm(enum mxc_cpu_pwr_mode mode)
 		if (cpu_is_imx6sl() || cpu_is_imx6sx() || cpu_is_imx6sll())
 			val |= BM_CLPCR_BYPASS_PMIC_READY;
 		if (cpu_is_imx6sl() || cpu_is_imx6sx() || cpu_is_imx6ul() ||
-		    cpu_is_imx6ull() || cpu_is_imx6sll())
+		    cpu_is_imx6ull() || cpu_is_imx6ulz() || cpu_is_imx6sll())
 			val |= BM_CLPCR_BYP_MMDC_CH0_LPM_HS;
 		else if (cpu_is_imx6q() &&
 		    imx_mmdc_get_ddr_type() == IMX_DDR_TYPE_LPDDR2 &&
@@ -890,7 +890,7 @@ static int imx6q_pm_enter(suspend_state_t state)
 			imx6_enable_rbc(true);
 		imx_gpc_pre_suspend(true);
 		imx_anatop_pre_suspend();
-		if ((cpu_is_imx6ull() || cpu_is_imx6sll()) &&
+		if ((cpu_is_imx6ull() || cpu_is_imx6ulz() || cpu_is_imx6sll()) &&
 			imx_gpc_is_mf_mix_off())
 			imx6_console_save(console_saved_reg);
 		if (cpu_is_imx6sx() && imx_gpc_is_mf_mix_off()) {
@@ -931,7 +931,7 @@ static int imx6q_pm_enter(suspend_state_t state)
 					sizeof(qspi_regs_imx6sx) /
 					sizeof(struct qspi_regs));
 		}
-		if ((cpu_is_imx6ull() || cpu_is_imx6sll()) &&
+		if ((cpu_is_imx6ull() || cpu_is_imx6ulz() || cpu_is_imx6sll()) &&
 			imx_gpc_is_mf_mix_off())
 			imx6_console_restore(console_saved_reg);
 		if (cpu_is_imx6q() || cpu_is_imx6dl())
@@ -1196,7 +1196,7 @@ static int __init imx6q_suspend_init(const struct imx6_pm_socdata *socdata)
 	}
 
 	/* need to overwrite the value for some mmdc registers */
-	if ((cpu_is_imx6sx() || cpu_is_imx6ul() || cpu_is_imx6ull()) &&
+	if ((cpu_is_imx6sx() || cpu_is_imx6ul() || cpu_is_imx6ull() || cpu_is_imx6ulz()) &&
 		pm_info->ddr_type != IMX_DDR_TYPE_LPDDR2) {
 		pm_info->mmdc_val[20][1] = (pm_info->mmdc_val[20][1]
 			& 0xffff0000) | 0x0202;
@@ -1215,7 +1215,7 @@ static int __init imx6q_suspend_init(const struct imx6_pm_socdata *socdata)
 		pm_info->mmdc_val[32][1] = 0xa1310003;
 	}
 
-	if ((cpu_is_imx6ul() || cpu_is_imx6ull()) &&
+	if ((cpu_is_imx6ul() || cpu_is_imx6ull() || cpu_is_imx6ulz()) &&
 		pm_info->ddr_type == IMX_DDR_TYPE_LPDDR2) {
 		pm_info->mmdc_val[0][1] = 0x8000;
 		pm_info->mmdc_val[2][1] = 0xa1390003;
@@ -1392,7 +1392,7 @@ void __init imx6ul_pm_init(void)
 	else
 		imx6_pm_common_init(&imx6ul_pm_data);
 
-	if (cpu_is_imx6ull()) {
+	if (cpu_is_imx6ull() || cpu_is_imx6ulz()) {
 		np = of_find_node_by_path(
 			"/soc/aips-bus@02000000/spba-bus@02000000/serial@02020000");
 		if (np)

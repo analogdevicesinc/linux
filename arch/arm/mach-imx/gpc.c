@@ -115,8 +115,8 @@ unsigned int imx_gpc_is_m4_sleeping(void)
 
 bool imx_gpc_usb_wakeup_enabled(void)
 {
-	if (!(cpu_is_imx6sx() || cpu_is_imx6ul() || cpu_is_imx6ull()
-		|| cpu_is_imx6sll()))
+	if (!(cpu_is_imx6sx() || cpu_is_imx6ul() || cpu_is_imx6ull() ||
+	      cpu_is_imx6ulz() || cpu_is_imx6sll()))
 		return false;
 
 	/*
@@ -196,8 +196,8 @@ void imx_gpc_pre_suspend(bool arm_power_off)
 	int i;
 
 	/* power down the mega-fast power domain */
-	if ((cpu_is_imx6sx() || cpu_is_imx6ul() || cpu_is_imx6ull()
-		|| cpu_is_imx6sll()) && arm_power_off)
+	if ((cpu_is_imx6sx() || cpu_is_imx6ul() || cpu_is_imx6ull() ||
+	     cpu_is_imx6ulz() || cpu_is_imx6sll()) && arm_power_off)
 		imx_gpc_mf_mix_off();
 
 	/* Tell GPC to power off ARM core when suspend */
@@ -218,8 +218,8 @@ void imx_gpc_post_resume(void)
 	/* Keep ARM core powered on for other low-power modes */
 	imx_gpc_set_arm_power_in_lpm(false);
 	/* Keep M/F mix powered on for other low-power modes */
-	if (cpu_is_imx6sx() || cpu_is_imx6ul() || cpu_is_imx6ull()
-		|| cpu_is_imx6sll())
+	if (cpu_is_imx6sx() || cpu_is_imx6ul() || cpu_is_imx6ull() ||
+	    cpu_is_imx6ulz() || cpu_is_imx6sll())
 		writel_relaxed(0x0, gpc_base + GPC_PGC_MF_PDN);
 
 	for (i = 0; i < IMR_NUM; i++)
@@ -385,8 +385,8 @@ int imx_gpc_mf_power_on(unsigned int irq, unsigned int on)
 
 int imx_gpc_mf_request_on(unsigned int irq, unsigned int on)
 {
-	if (cpu_is_imx6sx() || cpu_is_imx6ul() || cpu_is_imx6ull()
-		|| cpu_is_imx6sll())
+	if (cpu_is_imx6sx() || cpu_is_imx6ul() || cpu_is_imx6ull() ||
+	    cpu_is_imx6ulz() || cpu_is_imx6sll())
 		return imx_gpc_mf_power_on(irq, on);
 	else if (cpu_is_imx7d())
 		return imx_gpcv2_mf_power_on(irq, on);
@@ -468,8 +468,8 @@ static int __init imx_gpc_init(struct device_node *node,
 		writel_relaxed(~0, gpc_base + GPC_IMR1 + i * 4);
 
 	/* Read supported wakeup source in M/F domain */
-	if (cpu_is_imx6sx() || cpu_is_imx6ul() || cpu_is_imx6ull()
-		|| cpu_is_imx6sll()) {
+	if (cpu_is_imx6sx() || cpu_is_imx6ul() || cpu_is_imx6ull() ||
+	    cpu_is_imx6ulz() || cpu_is_imx6sll()) {
 		of_property_read_u32_index(node, "fsl,mf-mix-wakeup-irq", 0,
 			&gpc_mf_irqs[0]);
 		of_property_read_u32_index(node, "fsl,mf-mix-wakeup-irq", 1,

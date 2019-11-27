@@ -59,8 +59,8 @@ static void imx_anatop_enable_weak2p5(bool enable)
 
 	regmap_read(anatop, ANADIG_ANA_MISC0, &val);
 
-	if (cpu_is_imx6sx() || cpu_is_imx6ul() || cpu_is_imx6ull()
-		|| cpu_is_imx6sll())
+	if (cpu_is_imx6sx() || cpu_is_imx6ul() || cpu_is_imx6ull() ||
+	    cpu_is_imx6ulz() || cpu_is_imx6sll())
 		mask = BM_ANADIG_ANA_MISC0_V3_STOP_MODE_CONFIG;
 	else if (cpu_is_imx6sl())
 		mask = BM_ANADIG_ANA_MISC0_V2_STOP_MODE_CONFIG;
@@ -88,7 +88,7 @@ static inline void imx_anatop_enable_2p5_pulldown(bool enable)
 static inline void imx_anatop_disconnect_high_snvs(bool enable)
 {
 	if (cpu_is_imx6sx() || cpu_is_imx6ul() || cpu_is_imx6ull() ||
-		cpu_is_imx6sll())
+	    cpu_is_imx6ulz() || cpu_is_imx6sll())
 		regmap_write(anatop, ANADIG_ANA_MISC0 +
 			(enable ? REG_SET : REG_CLR),
 			BM_ANADIG_ANA_MISC0_V2_DISCON_HIGH_SNVS);
@@ -143,7 +143,7 @@ void imx_anatop_pre_suspend(void)
 	imx_anatop_enable_fet_odrive(true);
 
 	if (cpu_is_imx6sl() || cpu_is_imx6sx() || cpu_is_imx6ul() ||
-		cpu_is_imx6ull() || cpu_is_imx6sll())
+	    cpu_is_imx6ull() || cpu_is_imx6ulz() || cpu_is_imx6sll())
 		imx_anatop_disconnect_high_snvs(true);
 }
 
@@ -168,7 +168,7 @@ void imx_anatop_post_resume(void)
 	imx_anatop_enable_fet_odrive(false);
 
 	if (cpu_is_imx6sl() || cpu_is_imx6sx() || cpu_is_imx6ul() ||
-		cpu_is_imx6ull() || cpu_is_imx6sll())
+	    cpu_is_imx6ull() || cpu_is_imx6ulz() || cpu_is_imx6sll())
 		imx_anatop_disconnect_high_snvs(false);
 }
 
