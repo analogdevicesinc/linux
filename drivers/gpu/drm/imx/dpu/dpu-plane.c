@@ -877,8 +877,8 @@ again:
 			       fb->modifier, baseaddr, uv_baseaddr,
 			       prefetch_start, uv_prefetch_start,
 			       fb_is_interlaced);
-		if (prefetch_start || uv_prefetch_start)
-			dprc_enable(dprc);
+
+		dprc_enable(dprc);
 
 		dprc_reg_update(dprc);
 
