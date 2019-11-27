@@ -677,9 +677,16 @@ static bool imx_clk_is_resource_owned(u32 rsrc)
 	/*
 	 * A-core resources are special. SCFW reports they are not "owned" by
 	 * current partition but linux can still adjust them for cpufreq.
+	 *
+	 * So force this to return false when running as a VM guest and always
+	 * true otherwise.
 	 */
-	if (rsrc == IMX_SC_R_A53 || rsrc == IMX_SC_R_A72 || rsrc == IMX_SC_R_A35)
+	if (rsrc == IMX_SC_R_A53 || rsrc == IMX_SC_R_A72 ||
+	    rsrc == IMX_SC_R_A35) {
+		if (xen_domain() && !xen_initial_domain())
+			return false;
 		return true;
+	}
 
 	return imx_sc_rm_is_resource_owned(ccm_ipc_handle, rsrc);
 }
