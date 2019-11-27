@@ -28,6 +28,7 @@
 							<&clk IMX_SC_R_HDMI IMX_SC_PM_CLK_MISC4>;
 			assigned-clock-rates = <800000000>, <84375000>;
 			power-domains = <&pd IMX_SC_R_HDMI>;
+			status = "disabled";
 		};
 
 		hdmi_lpcg_i2c0: clock-controller@56263000 {
@@ -40,6 +41,7 @@
 			clock-output-names = "hdmi_lpcg_i2c0_clk",
 								"hdmi_lpcg_i2c0_ipg_clk";
 			power-domains = <&pd IMX_SC_R_HDMI_I2C_0>;
+			status = "disabled";
 		};
 
 		hdmi_lpcg_lis_ipg: clock-controller@56263004 {
@@ -50,6 +52,7 @@
 			bit-offset = <16>;
 			clock-output-names = "hdmi_lpcg_lis_ipg_clk";
 			power-domains = <&pd IMX_SC_R_HDMI>;
+			status = "disabled";
 		};
 
 		hdmi_lpcg_pwm_ipg: clock-controller@56263008 {
@@ -60,6 +63,7 @@
 			bit-offset = <16>;
 			clock-output-names = "hdmi_lpcg_pwm_ipg_clk";
 			power-domains = <&pd IMX_SC_R_HDMI>;
+			status = "disabled";
 		};
 
 		hdmi_lpcg_i2s: clock-controller@5626300c {
@@ -70,6 +74,7 @@
 			bit-offset = <0>;
 			clock-output-names = "hdmi_lpcg_i2s_clk";
 			power-domains = <&pd IMX_SC_R_HDMI_I2S>;
+			status = "disabled";
 		};
 
 		hdmi_lpcg_gpio_ipg: clock-controller@56263010 {
@@ -80,6 +85,7 @@
 			bit-offset = <16>;
 			clock-output-names = "hdmi_lpcg_gpio_ipg_clk";
 			power-domains = <&pd IMX_SC_R_HDMI>;
+			status = "disabled";
 		};
 
 		hdmi_lpcg_msi_hclk: clock-controller@56263014 {
@@ -90,6 +96,7 @@
 			bit-offset = <0>;
 			clock-output-names = "hdmi_lpcg_msi_hclk_clk";
 			power-domains = <&pd IMX_SC_R_HDMI>;
+			status = "disabled";
 		};
 
 		hdmi_lpcg_pxl: clock-controller@56263018 {
@@ -100,6 +107,7 @@
 			bit-offset = <0>;
 			clock-output-names = "hdmi_lpcg_pxl_clk";
 			power-domains = <&pd IMX_SC_R_HDMI>;
+			status = "disabled";
 		};
 
 		hdmi_lpcg_phy: clock-controller@5626301c {
@@ -112,6 +120,7 @@
 			clock-output-names = "hdmi_lpcg_phy_vif_clk",
 							"hdmi_lpcg_phy_pclk";
 			power-domains = <&pd IMX_SC_R_HDMI>;
+			status = "disabled";
 		};
 
 		hdmi_lpcg_apb_mux_csr: clock-controller@56263020 {
@@ -122,6 +131,7 @@
 			bit-offset = <16>;
 			clock-output-names = "hdmi_lpcg_apb_mux_csr_clk";
 			power-domains = <&pd IMX_SC_R_HDMI>;
+			status = "disabled";
 		};
 
 		hdmi_lpcg_apb_mux_ctrl: clock-controller@56263024 {
@@ -132,6 +142,7 @@
 			bit-offset = <16>;
 			clock-output-names = "hdmi_lpcg_apb_mux_ctrl_clk";
 			power-domains = <&pd IMX_SC_R_HDMI>;
+			status = "disabled";
 		};
 
 		hdmi_lpcg_apb: clock-controller@56263028 {
@@ -142,6 +153,7 @@
 			bit-offset = <16>;
 			clock-output-names = "hdmi_lpcg_apb_clk";
 			power-domains = <&pd IMX_SC_R_HDMI>;
+			status = "disabled";
 		};
 
 		i2c0_hdmi: i2c@56266000 {
