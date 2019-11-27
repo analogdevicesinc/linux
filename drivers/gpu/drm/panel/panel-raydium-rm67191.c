@@ -271,8 +271,6 @@ static int rad_panel_prepare(struct drm_panel *panel)
 		return ret;
 
 	if (rad->reset) {
-		gpiod_set_value_cansleep(rad->reset, 1);
-		usleep_range(3000, 5000);
 		gpiod_set_value_cansleep(rad->reset, 0);
 		usleep_range(18000, 20000);
 	}
@@ -564,9 +562,15 @@ static int rad_panel_probe(struct mipi_dsi_device *dsi)
 		return ret;
 	}
 
-	panel->reset = devm_gpiod_get_optional(dev, "reset", GPIOD_OUT_LOW);
-	if (IS_ERR(panel->reset))
-		return PTR_ERR(panel->reset);
+	panel->reset = devm_gpiod_get_optional(dev, "reset",
+					       GPIOD_OUT_LOW |
+					       GPIOD_FLAGS_BIT_NONEXCLUSIVE);
+	if (IS_ERR(panel->reset)) {
+		ret = PTR_ERR(panel->reset);
+		dev_err(dev, "Failed to get reset gpio (%d)\n", ret);
+		return ret;
+	}
+	gpiod_set_value_cansleep(panel->reset, 1);
 
 	memset(&bl_props, 0, sizeof(bl_props));
 	bl_props.type = BACKLIGHT_RAW;
