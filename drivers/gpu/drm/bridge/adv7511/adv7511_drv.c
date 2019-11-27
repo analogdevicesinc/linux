@@ -1259,7 +1259,6 @@ static int adv7511_probe(struct i2c_client *i2c)
 #if IS_ENABLED(CONFIG_OF_DYNAMIC)
 	struct device_node *remote_node = NULL, *endpoint = NULL;
 	struct of_changeset ocs;
-	struct property *prop;
 #endif
 	unsigned int main_i2c_addr = i2c->addr << 1;
 	unsigned int edid_i2c_addr = main_i2c_addr + 4;
@@ -1440,38 +1439,31 @@ uninit_regulators:
 	if (endpoint)
 		remote_node = of_graph_get_remote_port_parent(endpoint);
 
-	if (remote_node) {
-		int num_endpoints = 0;
+	if (!remote_node)
+		return ret;
 
-		/*
-		 * Remote node should have two endpoints (input and output: us)
-		 * If remote node has more than two endpoints, probably that it
-		 * has more outputs, so there is no need to disable it.
-		 */
-		endpoint = NULL;
-		while ((endpoint = of_graph_get_next_endpoint(remote_node,
-							      endpoint)))
-			num_endpoints++;
+	/* Find remote's endpoint connected to us and detach it */
+	endpoint = NULL;
+	while ((endpoint = of_graph_get_next_endpoint(remote_node,
+						      endpoint))) {
+		struct device_node *us;
 
-		if (num_endpoints > 2) {
-			of_node_put(remote_node);
-			return ret;
-		}
+		us = of_graph_get_remote_port_parent(endpoint);
+		if (us == dev->of_node)
+			break;
+	}
+	of_node_put(remote_node);
 
-		prop = devm_kzalloc(dev, sizeof(*prop), GFP_KERNEL);
-		prop->name = devm_kstrdup(dev, "status", GFP_KERNEL);
-		prop->value = devm_kstrdup(dev, "disabled", GFP_KERNEL);
-		prop->length = 9;
-		of_changeset_init(&ocs);
-		of_changeset_update_property(&ocs, remote_node, prop);
-		ret = of_changeset_apply(&ocs);
-		if (!ret)
-			dev_warn(dev,
-				"Probe failed. Remote port '%s' disabled\n",
-				remote_node->full_name);
+	if (!endpoint)
+		return ret;
 
-		of_node_put(remote_node);
-	};
+	of_changeset_init(&ocs);
+	of_changeset_detach_node(&ocs, endpoint);
+	ret = of_changeset_apply(&ocs);
+	if (!ret)
+		dev_warn(dev,
+			 "Probe failed. Remote port '%s' disabled\n",
+			 remote_node->full_name);
 #endif
 
 	return ret;
