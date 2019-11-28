@@ -12,22 +12,6 @@
 		status = "disabled";
 	};
 
-	dspaudio: dspaudio {
-		compatible = "fsl,dsp-audio";
-		pinctrl-names = "default";
-		pinctrl-0 = <&pinctrl_esai0>;
-		status = "disabled";
-	};
-
-	sound-dsp {
-		compatible = "fsl,imx-dsp-audio";
-		model = "dsp-audio";
-		cpu-dai = <&dspaudio>;
-		audio-codec = <&cs42888>;
-		audio-platform = <&dsp>;
-		status = "disabled";
-	};
-
 	esai0_port: esai-port {
 		#sound-dai-cells = <0>;
 		compatible = "fsl,esai-dai";
