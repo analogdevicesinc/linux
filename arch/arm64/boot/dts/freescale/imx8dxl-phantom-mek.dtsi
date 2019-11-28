@@ -619,6 +619,7 @@
 
 &usbphy1 {
 	fsl,tx-d-cal = <114>;
+	status = "okay";
 };
 
 &usdhc1 {
