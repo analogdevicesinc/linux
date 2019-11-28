@@ -32,6 +32,10 @@
 	status = "okay";
 };
 
+&sii902x {
+	status = "disabled";
+};
+
 &sim1 {
 	status = "disabled";
 };
