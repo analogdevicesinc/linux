@@ -632,6 +632,9 @@
 			clock-names = "gpu3d_clk", "gpu3d_shader_clk",
 				"gpu3d_axi_clk", "gpu2d_clk",
 				"gpu2d_axi_clk";
+			assigned-clocks =  <&scg1 IMX7ULP_CLK_APLL_PFD2>, <&pcc3 IMX7ULP_CLK_GPU3D>, <&pcc3 IMX7ULP_CLK_GPU2D>;
+			assigned-clock-parents = <0>, <&scg1 IMX7ULP_CLK_APLL_PFD2>, <&scg1 IMX7ULP_CLK_APLL_PFD2>;
+			assigned-clock-rates = <400000000>, <400000000>, <400000000>;
 		};
 	};
 
