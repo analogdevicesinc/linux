@@ -27,6 +27,69 @@
 		audio-platform = <&dsp>;
 		status = "disabled";
 	};
+
+	esai0_port: esai-port {
+		#sound-dai-cells = <0>;
+		compatible = "fsl,esai-dai";
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_esai0>;
+
+		power-domains = <&pd IMX_SC_R_ESAI_0>,
+			<&pd IMX_SC_R_DMA_0_CH6>,
+			<&pd IMX_SC_R_DMA_0_CH7>,
+			<&pd IMX_SC_R_AUDIO_CLK_0>,
+			<&pd IMX_SC_R_AUDIO_CLK_1>,
+			<&pd IMX_SC_R_AUDIO_PLL_0>,
+			<&pd IMX_SC_R_AUDIO_PLL_1>;
+
+		clocks = <&esai0_lpcg 1>, <&esai0_lpcg 0>,  <&esai0_lpcg 1>,
+			<&clk_dummy>;
+		clock-names = "core", "extal", "fsys", "spba";
+		assigned-clocks = <&acm IMX_ADMA_ACM_ESAI0_MCLK_SEL>,
+			<&clk IMX_SC_R_AUDIO_PLL_0 IMX_SC_PM_CLK_PLL>,
+			<&clk IMX_SC_R_AUDIO_PLL_0 IMX_SC_PM_CLK_MISC0>,
+			<&clk IMX_SC_R_AUDIO_PLL_0 IMX_SC_PM_CLK_MISC1>,
+			<&esai0_lpcg 0>;
+		assigned-clock-parents = <&aud_pll_div0_lpcg 0>;
+		assigned-clock-rates = <0>, <786432000>, <49152000>, <12288000>, <49152000>;
+		status="okay";
+	};
+
+	sof-audio-cs42888 {
+		compatible = "simple-audio-card";
+		model = "imx-cs42888";
+		simple-audio-card,widgets =
+			"Line", "Line Out Jack",
+			"Line", "Line In Jack";
+		simple-audio-card,routing =
+			"Line Out Jack", "AOUT1L",
+			"Line Out Jack", "AOUT1R",
+			"Line Out Jack", "AOUT2L",
+			"Line Out Jack", "AOUT2R",
+			"Line Out Jack", "AOUT3L",
+			"Line Out Jack", "AOUT3R",
+			"Line Out Jack", "AOUT4L",
+			"Line Out Jack", "AOUT4R",
+			"AIN1L", "Line In Jack",
+			"AIN1R", "Line In Jack",
+			"AIN2L", "Line In Jack",
+			"AIN2R", "Line In Jack",
+			"Playback",  "ESAI0.OUT";
+		status = "okay";
+		simple-audio-card,dai-link {
+			format = "i2s";
+			cpu {
+				sound-dai = <&esai0_port>;
+			};
+			plat {
+				sound-dai = <&dsp>;
+			};
+			codec {
+				sound-dai = <&cs42888>;
+			};
+		};
+	};
 };
 
 &edma0 {
@@ -59,44 +122,14 @@
 };
 
 &dsp {
+	#sound-dai-cells = <0>;
 	compatible = "fsl,imx8qxp-dsp";
 	reg = <0x596e8000 0x88000>;
-	clocks = <&esai0_lpcg 1>,
-		<&esai0_lpcg 0>,
-		<&asrc0_lpcg 0>,
-		<&clk_dummy>,
-		<&aud_pll_div0_lpcg 0>,
-		<&aud_pll_div1_lpcg 0>,
-		<&acm IMX_ADMA_ACM_AUD_CLK0_SEL>,
-		<&acm IMX_ADMA_ACM_AUD_CLK1_SEL>;
-	clock-names = "esai_ipg", "esai_mclk", "asrc_ipg", "asrc_mem",
-			"asrck_0", "asrck_1", "asrck_2", "asrck_3";
-	assigned-clocks = <&acm IMX_ADMA_ACM_ESAI0_MCLK_SEL>,
-			<&clk IMX_SC_R_AUDIO_PLL_0 IMX_SC_PM_CLK_PLL>,
-			<&clk IMX_SC_R_AUDIO_PLL_0 IMX_SC_PM_CLK_MISC0>,
-			<&clk IMX_SC_R_AUDIO_PLL_0 IMX_SC_PM_CLK_MISC1>,
-			<&esai0_lpcg 0>;
-	assigned-clock-parents = <&aud_pll_div0_lpcg 0>;
-	assigned-clock-rates = <0>, <786432000>, <49152000>, <12288000>, <49152000>;
 	power-domains = <&pd IMX_SC_R_MU_13A>,
 			<&pd IMX_SC_R_MU_13B>,
 			<&pd IMX_SC_R_IRQSTR_DSP>,
 			<&pd IMX_SC_R_DSP>,
-			<&pd IMX_SC_R_DSP_RAM>,
-			<&pd IMX_SC_R_ESAI_0>,
-			<&pd IMX_SC_R_DMA_0_CH6>,
-			<&pd IMX_SC_R_DMA_0_CH7>,
-			<&pd IMX_SC_R_AUDIO_CLK_0>,
-			<&pd IMX_SC_R_AUDIO_CLK_1>,
-			<&pd IMX_SC_R_AUDIO_PLL_0>,
-			<&pd IMX_SC_R_AUDIO_PLL_1>,
-			<&pd IMX_SC_R_ASRC_0>,
-			<&pd IMX_SC_R_DMA_0_CH0>,
-			<&pd IMX_SC_R_DMA_0_CH1>,
-			<&pd IMX_SC_R_DMA_0_CH2>,
-			<&pd IMX_SC_R_DMA_0_CH3>,
-			<&pd IMX_SC_R_DMA_0_CH4>,
-			<&pd IMX_SC_R_DMA_0_CH5>;
+			<&pd IMX_SC_R_DSP_RAM>;
 	mbox-names = "txdb0", "txdb1",
 		"rxdb0", "rxdb1";
 	mboxes = <&lsio_mu13 2 0>,
@@ -124,9 +157,11 @@
 };
 
 &cs42888 {
+	#sound-dai-cells = <0>;
 	assigned-clocks = <&clk IMX_SC_R_AUDIO_PLL_0 IMX_SC_PM_CLK_PLL>,
 			  <&clk IMX_SC_R_AUDIO_PLL_0 IMX_SC_PM_CLK_SLV_BUS>,
 			  <&clk IMX_SC_R_AUDIO_PLL_0 IMX_SC_PM_CLK_MST_BUS>,
 			  <&mclkout0_lpcg 0>;
 	assigned-clock-rates = <786432000>, <49152000>, <12288000>, <12288000>;
+	status = "okay";
 };
