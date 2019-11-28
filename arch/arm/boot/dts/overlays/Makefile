@@ -137,6 +137,7 @@ dtbo-$(CONFIG_ARCH_BCM2835) += \
 	rpi-ad7768-1.dtbo \
 	rpi-ad9834.dtbo \
 	rpi-adgs1408.dtbo \
+	rpi-adxl345.dtbo \
 	rpi-adxl372.dtbo \
 	rpi-adxl375.dtbo \
 	rpi-ad5770r.dtbo \
