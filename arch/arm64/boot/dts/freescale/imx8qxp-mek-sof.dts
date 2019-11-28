@@ -102,6 +102,18 @@
 			"edma0-chan14-rx", "edma0-chan15-tx", /* sai1 */
 			"edma0-chan21-tx",		/* gpt5 */
 			"edma0-chan23-rx";		/* gpt7 */
+	power-domains = <&pd IMX_SC_R_DMA_0_CH8>,
+			<&pd IMX_SC_R_DMA_0_CH9>,
+			<&pd IMX_SC_R_DMA_0_CH12>,
+			<&pd IMX_SC_R_DMA_0_CH13>,
+			<&pd IMX_SC_R_DMA_0_CH14>,
+			<&pd IMX_SC_R_DMA_0_CH15>,
+			<&pd IMX_SC_R_DMA_0_CH21>,
+			<&pd IMX_SC_R_DMA_0_CH23>;
+	power-domain-names = "edma0-chan8", "edma0-chan9",
+			"edma0-chan12", "edma0-chan13",
+			"edma0-chan14", "edma0-chan15",
+			"edma0-chan21", "edma0-chan23";
 	status = "okay";
 };
 
