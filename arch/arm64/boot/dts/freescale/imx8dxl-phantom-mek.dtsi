@@ -158,6 +158,8 @@
 
 		reg_usb_otg1_vbus: regulator@0 {
 			compatible = "regulator-fixed";
+			pinctrl-names = "default";
+			pinctrl-0 = <&pinctrl_reg_usb_vbus>;
 			reg = <0>;
 			regulator-name = "usb_otg1_vbus";
 			regulator-min-microvolt = <5000000>;
@@ -375,7 +377,7 @@
 				IMX8QXP_EMMC0_STROBE_CONN_EMMC0_STROBE	0x00000041
 			>;
 		};
-		pinctrl_usb_otg1: usbotg1grp {
+		pinctrl_reg_usb_vbus: regusbvbusgrp {
 			fsl,pins = <
 				IMX8QXP_USB_SS3_TC0_LSIO_GPIO4_IO03	0x06000021
 			>;
@@ -607,8 +609,6 @@
 
 &usbotg1 {
 	vbus-supply = <&reg_usb_otg1_vbus>;
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_usb_otg1>;
 	srp-disable;
 	hnp-disable;
 	adp-disable;
