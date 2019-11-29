@@ -1,0 +1,22 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright 2019 NXP
+ */
+
+/dts-v1/;
+
+#include "imx8mm-evk.dts"
+
+/ {
+	model = "FSL i.MX8MM LPDDR4 EVK RevB board";
+};
+
+/*
+ * External OSC is used as PCIe REFCLK on RevC board.
+ * Use the -revb.dts file to distiguish the different
+ * HW design.
+ */
+&pcie0{
+	ext_osc = <0>;
+	status = "okay";
+};
