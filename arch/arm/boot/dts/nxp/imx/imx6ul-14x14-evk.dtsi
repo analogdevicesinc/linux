@@ -22,7 +22,7 @@
 		linux,cma {
 			compatible = "shared-dma-pool";
 			reusable;
-			size = <0x14000000>;
+			size = <0x6000000>;
 			linux,cma-default;
 		};
 	};
