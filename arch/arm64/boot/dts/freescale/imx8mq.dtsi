@@ -892,20 +892,23 @@
 						  <&clk IMX8MQ_AUDIO_PLL1_BYPASS>,
 						  <&clk IMX8MQ_AUDIO_PLL2_BYPASS>,
 						  <&clk IMX8MQ_AUDIO_PLL1>,
-						  <&clk IMX8MQ_AUDIO_PLL2>;
+						  <&clk IMX8MQ_AUDIO_PLL2>,
+						  <&clk IMX8MQ_CLK_NAND_USDHC_BUS>;
 				assigned-clock-rates = <0>, <0>,
 						       <800000000>,
 						       <0>,
 						       <0>,
 						       <0>,
 						       <786432000>,
-						       <722534400>;
+						       <722534400>,
+						       <0>;
 				assigned-clock-parents = <&clk IMX8MQ_SYS1_PLL_800M>,
 							 <&clk IMX8MQ_ARM_PLL_OUT>,
 							 <0>,
 							 <&clk IMX8MQ_SYS2_PLL_500M>,
 							 <&clk IMX8MQ_AUDIO_PLL1>,
-							 <&clk IMX8MQ_AUDIO_PLL2>;
+							 <&clk IMX8MQ_AUDIO_PLL2>,
+							 <&clk IMX8MQ_SYS1_PLL_266M>;
 			};
 
 			src: reset-controller@30390000 {
