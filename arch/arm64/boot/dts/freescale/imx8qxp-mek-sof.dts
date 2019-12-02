@@ -121,6 +121,7 @@
 	#sound-dai-cells = <0>;
 	compatible = "fsl,imx8qxp-dsp";
 	reg = <0x596e8000 0x88000>;
+	tplg-name = "sof-imx8qxp-cs42888.tplg";
 	status = "okay";
 };
 
