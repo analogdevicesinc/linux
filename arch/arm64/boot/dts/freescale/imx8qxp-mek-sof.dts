@@ -121,7 +121,6 @@
 	#sound-dai-cells = <0>;
 	compatible = "fsl,imx8qxp-dsp";
 	reg = <0x596e8000 0x88000>;
-	memory-region = <&dsp_reserved>;
 	status = "okay";
 };
 
