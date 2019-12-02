@@ -136,6 +136,10 @@
 	status = "okay";
 };
 
+&amix {
+	status = "disabled";
+};
+
 &esai0 {
 	status = "disabled";
 };
