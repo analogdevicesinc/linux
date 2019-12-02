@@ -27,6 +27,7 @@
 #include <linux/platform_device.h>
 #include <video/dpu.h>
 #include <video/imx8-pc.h>
+#include <video/imx8-prefetch.h>
 #include "dpu-crtc.h"
 #include "dpu-kms.h"
 #include "dpu-plane.h"
@@ -635,17 +636,118 @@ static void dpu_crtc_atomic_flush(struct drm_crtc *crtc,
 	struct dpu_crtc_state *old_dcstate =
 					to_dpu_crtc_state(old_imx_crtc_state);
 	struct dpu_plane *dplane = to_dpu_plane(crtc->primary);
+	struct dpu_plane_state *old_dpstate;
 	struct dpu_plane_res *res = &dplane->grp->res;
 	struct dpu_extdst *ed = res->ed[dplane->stream_id], *aux_ed;
+	struct dpu_fetchunit *fu;
+	dpu_block_id_t source;
 	struct completion *shdld_done;
 	struct completion *m_content_shdld_done = NULL;
 	struct completion *s_content_shdld_done = NULL;
 	unsigned long ret;
-	bool need_modeset = drm_atomic_crtc_needs_modeset(crtc->state);
 	int i;
+	bool need_modeset = drm_atomic_crtc_needs_modeset(crtc->state);
+	bool need_wait4fgfcm = false, need_aux_wait4fgfcm = false;
+	bool use_prefetch;
 
 	if (!crtc->state->active && !old_crtc_state->active)
 		return;
+
+	/*
+	 * Scan over old plane fetchunits to determine if we
+	 * need to wait for FrameGen frame counter moving in
+	 * the next loop prior to DPRC repeat_en disablement
+	 * or not.
+	 */
+	for (i = 0; i < dpu_crtc->hw_plane_num; i++) {
+		bool aux_source_flag;
+
+		old_dpstate = old_dcstate->dpu_plane_states[i];
+		if (!old_dpstate)
+			continue;
+
+		aux_source_flag = false;
+again1:
+		source = aux_source_flag ?
+				old_dpstate->aux_source : old_dpstate->source;
+		use_prefetch = aux_source_flag ?
+					old_dpstate->use_aux_prefetch :
+					old_dpstate->use_prefetch;
+		fu = source_to_fu(res, source);
+		if (!fu)
+			return;
+
+		if (!fu->ops->is_enabled(fu) && use_prefetch && !need_modeset) {
+			if (aux_source_flag)
+				need_aux_wait4fgfcm = true;
+			else
+				need_wait4fgfcm = true;
+		}
+
+		if (old_dpstate->need_aux_source && !aux_source_flag) {
+			aux_source_flag = true;
+			goto again1;
+		}
+	}
+
+	for (i = 0; i < dpu_crtc->hw_plane_num; i++) {
+		struct dpu_fetchunit *fe;
+		struct dpu_hscaler *hs;
+		struct dpu_vscaler *vs;
+		bool aux_source_disable;
+
+		old_dpstate = old_dcstate->dpu_plane_states[i];
+		if (!old_dpstate)
+			continue;
+
+		/*
+		 * Sync with FrameGen frame counter moving so that
+		 * we may disable DPRC repeat_en correctly.
+		 * FIXME: to disable preemption and irq to make sure
+		 *        DPRC repeat_en will be disabled ASAP.
+		 */
+		if (need_wait4fgfcm || need_aux_wait4fgfcm)
+			framegen_wait_for_frame_counter_moving(
+					dcstate->use_pc ?
+						dpu_crtc->m_fg : dpu_crtc->fg);
+
+		aux_source_disable = false;
+again2:
+		source = aux_source_disable ?
+				old_dpstate->aux_source : old_dpstate->source;
+		use_prefetch = aux_source_disable ?
+					old_dpstate->use_aux_prefetch :
+					old_dpstate->use_prefetch;
+		fu = source_to_fu(res, source);
+		if (!fu)
+			return;
+
+		if (!fu->ops->is_enabled(fu)) {
+			fu->ops->set_stream_id(fu, DPU_PLANE_SRC_DISABLED);
+			if (fu->dprc && use_prefetch)
+				dprc_disable_repeat_en(fu->dprc);
+		}
+
+		if (!fetchunit_is_fetchdecode(fu))
+			continue;
+
+		fe = fetchdecode_get_fetcheco(fu);
+		if (!fe->ops->is_enabled(fe))
+			fe->ops->set_stream_id(fe, DPU_PLANE_SRC_DISABLED);
+
+		hs = fetchdecode_get_hscaler(fu);
+		if (!hscaler_is_enabled(hs))
+			hscaler_set_stream_id(hs, DPU_PLANE_SRC_DISABLED);
+
+		vs = fetchdecode_get_vscaler(fu);
+		if (!vscaler_is_enabled(vs))
+			vscaler_set_stream_id(vs, DPU_PLANE_SRC_DISABLED);
+
+		if (old_dpstate->need_aux_source && !aux_source_disable) {
+			aux_source_disable = true;
+			goto again2;
+		}
+	}
 
 	if (dcstate->use_pc) {
 		aux_dpu_crtc = dpu_crtc_get_aux_dpu_crtc(dpu_crtc);
@@ -729,51 +831,6 @@ static void dpu_crtc_atomic_flush(struct drm_crtc *crtc,
 			}
 		} else {
 			extdst_pixengcfg_sync_trigger(ed);
-		}
-	}
-
-	for (i = 0; i < dpu_crtc->hw_plane_num; i++) {
-		struct dpu_plane_state *old_dpstate;
-		struct dpu_fetchunit *fu;
-		struct dpu_fetchunit *fe;
-		struct dpu_hscaler *hs;
-		struct dpu_vscaler *vs;
-		dpu_block_id_t source;
-		bool aux_source_disable;
-
-		old_dpstate = old_dcstate->dpu_plane_states[i];
-		if (!old_dpstate)
-			continue;
-
-		aux_source_disable = false;
-again:
-		source = aux_source_disable ?
-				old_dpstate->aux_source : old_dpstate->source;
-		fu = source_to_fu(res, old_dpstate->source);
-		if (!fu)
-			return;
-
-		if (!fu->ops->is_enabled(fu))
-			fu->ops->set_stream_id(fu, DPU_PLANE_SRC_DISABLED);
-
-		if (!fetchunit_is_fetchdecode(fu))
-			continue;
-
-		fe = fetchdecode_get_fetcheco(fu);
-		if (!fe->ops->is_enabled(fe))
-			fe->ops->set_stream_id(fe, DPU_PLANE_SRC_DISABLED);
-
-		hs = fetchdecode_get_hscaler(fu);
-		if (!hscaler_is_enabled(hs))
-			hscaler_set_stream_id(hs, DPU_PLANE_SRC_DISABLED);
-
-		vs = fetchdecode_get_vscaler(fu);
-		if (!vscaler_is_enabled(vs))
-			vscaler_set_stream_id(vs, DPU_PLANE_SRC_DISABLED);
-
-		if (old_dpstate->need_aux_source && !aux_source_disable) {
-			aux_source_disable = true;
-			goto again;
 		}
 	}
 }
