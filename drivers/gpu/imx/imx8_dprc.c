@@ -543,6 +543,15 @@ void dprc_configure(struct dprc *dprc, unsigned int stream_id,
 }
 EXPORT_SYMBOL_GPL(dprc_configure);
 
+void dprc_disable_repeat_en(struct dprc *dprc)
+{
+	if (WARN_ON(!dprc))
+		return;
+
+	dprc_write(dprc, REPEAT_EN, SYSTEM_CTRL0 + CLR);
+}
+EXPORT_SYMBOL_GPL(dprc_disable_repeat_en);
+
 void dprc_reg_update(struct dprc *dprc)
 {
 	if (WARN_ON(!dprc))
