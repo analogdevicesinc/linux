@@ -1865,6 +1865,7 @@ static int ov5640_probe(struct i2c_client *client)
 
 	retval = init_device();
 	if (retval < 0) {
+		ov5640_regualtor_disable();
 		clk_disable_unprepare(ov5640_data.sensor_clk);
 		pr_warning("camera ov5640 init failed\n");
 		ov5640_power_down(1);
