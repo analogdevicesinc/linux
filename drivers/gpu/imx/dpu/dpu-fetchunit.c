@@ -309,33 +309,6 @@ void fetchunit_set_stream_id(struct dpu_fetchunit *fu, unsigned int id)
 }
 EXPORT_SYMBOL_GPL(fetchunit_set_stream_id);
 
-void fetchunit_pin_off(struct dpu_fetchunit *fu)
-{
-	if (WARN_ON(!fu))
-		return;
-
-	fu->pin_off = true;
-}
-EXPORT_SYMBOL_GPL(fetchunit_pin_off);
-
-void fetchunit_unpin_off(struct dpu_fetchunit *fu)
-{
-	if (WARN_ON(!fu))
-		return;
-
-	fu->pin_off = false;
-}
-EXPORT_SYMBOL_GPL(fetchunit_unpin_off);
-
-bool fetchunit_is_pinned_off(struct dpu_fetchunit *fu)
-{
-	if (WARN_ON(!fu))
-		return false;
-
-	return fu->pin_off;
-}
-EXPORT_SYMBOL_GPL(fetchunit_is_pinned_off);
-
 bool fetchunit_is_fetchdecode(struct dpu_fetchunit *fu)
 {
 	if (WARN_ON(!fu))

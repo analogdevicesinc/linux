@@ -369,10 +369,6 @@ struct dpu_fetchunit_ops {
 
 	unsigned int (*get_stream_id)(struct dpu_fetchunit *fu);
 	void (*set_stream_id)(struct dpu_fetchunit *fu, unsigned int id);
-
-	void (*pin_off)(struct dpu_fetchunit *fu);
-	void (*unpin_off)(struct dpu_fetchunit *fu);
-	bool (*is_pinned_off)(struct dpu_fetchunit *fu);
 };
 
 struct dpu_fetchunit {
@@ -387,7 +383,6 @@ struct dpu_fetchunit {
 	struct dpu_soc *dpu;
 	/* see DPU_PLANE_SRC_xxx */
 	unsigned int stream_id;
-	bool pin_off;
 	struct dprc *dprc;
 	const struct dpu_fetchunit_ops *ops;
 };
@@ -647,9 +642,6 @@ void fetchunit_disable_src_buf(struct dpu_fetchunit *fu);
 bool fetchunit_is_enabled(struct dpu_fetchunit *fu);
 unsigned int fetchunit_get_stream_id(struct dpu_fetchunit *fu);
 void fetchunit_set_stream_id(struct dpu_fetchunit *fu, unsigned int id);
-void fetchunit_pin_off(struct dpu_fetchunit *fu);
-void fetchunit_unpin_off(struct dpu_fetchunit *fu);
-bool fetchunit_is_pinned_off(struct dpu_fetchunit *fu);
 bool fetchunit_is_fetchdecode(struct dpu_fetchunit *fu);
 bool fetchunit_is_fetcheco(struct dpu_fetchunit *fu);
 bool fetchunit_is_fetchlayer(struct dpu_fetchunit *fu);
