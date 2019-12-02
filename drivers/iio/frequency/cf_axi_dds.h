@@ -182,6 +182,9 @@ enum {
 	ID_AD9172_M2,
 	ID_AD9172_M4,
 	ID_AD9172_M6,
+	ID_AD9172_DUAL_M2,
+	ID_AD9172_DUAL_M4,
+	ID_AD9172_DUAL_M6,
 };
 
 enum fifo_ctrl {
@@ -198,7 +201,7 @@ struct cf_axi_dds_chip_info {
 	unsigned int num_buf_channels;
 	unsigned num_shadow_slave_channels;
 	const unsigned long *scan_masks;
-	struct iio_chan_spec channel[24];
+	struct iio_chan_spec channel[36];
 };
 
 struct cf_axi_dds_state;

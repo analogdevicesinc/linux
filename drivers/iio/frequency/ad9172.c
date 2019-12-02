@@ -55,7 +55,7 @@ struct ad9172_state {
 	u32 channel_interpolation;
 	u32 interpolation;
 	u32 jesd_link_mode;
-	u32 jesd_dual_link_mode;
+	bool jesd_dual_link_mode;
 	u32 jesd_subclass;
 	u32 clock_output_config;
 	signal_type_t syncoutb_type;
@@ -275,10 +275,10 @@ static int ad9172_setup(struct ad9172_state *st)
 	ret = ad917x_jesd_get_link_status(ad917x_h, JESD_LINK_0, &link_status);
 	if (ret != 0) {
 		dev_err(dev,
-			"DAC:MODE:JESD: ERROR : Get Link status failed \r\n");
+			"DAC:MODE:JESD: ERROR : Get Link 0 status failed \r\n");
 		return -EIO;
 	}
-
+	dev_info(dev, "Link 0 Status");
 	dev_info(dev, "code_grp_sync: %x\n", link_status.code_grp_sync_stat);
 	dev_info(dev, "frame_sync_stat: %x\n", link_status.frame_sync_stat);
 	dev_info(dev, "good_checksum_stat: %x\n",
@@ -287,6 +287,24 @@ static int ad9172_setup(struct ad9172_state *st)
 		 link_status.init_lane_sync_stat);
 	dev_info(dev, "%d lanes @ %lu kBps\n",
 		 st->appJesdConfig.jesd_L, lane_rate_kHz);
+
+	if (st->jesd_dual_link_mode) {
+		ret = ad917x_jesd_get_link_status(ad917x_h, JESD_LINK_0, &link_status);
+		if (ret != 0) {
+			dev_err(dev,
+				"DAC:MODE:JESD: ERROR : Get Link 1 status failed \r\n");
+			return -EIO;
+		}
+		dev_info(dev, "Link 1 Status");
+		dev_info(dev, "code_grp_sync: %x\n", link_status.code_grp_sync_stat);
+		dev_info(dev, "frame_sync_stat: %x\n", link_status.frame_sync_stat);
+		dev_info(dev, "good_checksum_stat: %x\n",
+			link_status.good_checksum_stat);
+		dev_info(dev, "init_lane_sync_stat: %x\n",
+			link_status.init_lane_sync_stat);
+		dev_info(dev, "%d lanes @ %lu kBps\n",
+			st->appJesdConfig.jesd_L, lane_rate_kHz);
+	}
 
 	if (st->jesd_dual_link_mode || st->interpolation == 1)
 		dac_mask = AD917X_DAC0 | AD917X_DAC1;
@@ -834,6 +852,11 @@ static int ad9172_parse_dt(struct spi_device *spi, struct ad9172_state *st)
 	of_property_read_u32(np, "adi,clock-output-divider",
 			     &st->clock_output_config);
 
+	if (of_property_read_bool(np, "adi,jesd-dual-link-mode"))
+		st->jesd_dual_link_mode = true;
+	else
+		st->jesd_dual_link_mode = false;
+
 	if (of_property_read_bool(np, "adi,syncoutb-signal-type-lvds-enable"))
 		st->syncoutb_type = SIGNAL_LVDS;
 	else
@@ -928,28 +951,31 @@ static int ad9172_probe(struct spi_device *spi)
 	} else {
 		switch (st->appJesdConfig.jesd_M) {
 		case 2:
-			conv->id = ID_AD9172_M2;
-
-			if (st->jesd_dual_link_mode)
+			if (st->jesd_dual_link_mode) {
+				conv->id = ID_AD9172_DUAL_M2;
 				conv->attrs = &ad9172_attribute_group_dual_m2;
-			else
+			} else {
+				conv->id = ID_AD9172_M2;
 				conv->attrs = &ad9172_attribute_group_m2;
+			}
 			break;
 		case 4:
-			conv->id = ID_AD9172_M4;
-
-			if (st->jesd_dual_link_mode)
+			if (st->jesd_dual_link_mode) {
+				conv->id = ID_AD9172_DUAL_M4;
 				conv->attrs = &ad9172_attribute_group_dual_m4;
-			else
+			} else {
+				conv->id = ID_AD9172_M4;
 				conv->attrs = &ad9172_attribute_group_m4;
+			}
 			break;
 		case 6:
-			conv->id = ID_AD9172_M6;
-
-			if (st->jesd_dual_link_mode)
+			if (st->jesd_dual_link_mode) {
+				conv->id = ID_AD9172_DUAL_M6;
 				conv->attrs = &ad9172_attribute_group_dual_m6;
-			else
+			} else {
+				conv->id = ID_AD9172_M6;
 				conv->attrs = &ad9172_attribute_group_m6;
+			}
 			break;
 		default:
 			return -EINVAL;
