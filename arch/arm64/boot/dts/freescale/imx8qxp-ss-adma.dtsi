@@ -57,7 +57,8 @@
 		power-domains = <&pd IMX_SC_R_MU_13A>,
 				<&pd IMX_SC_R_MU_13B>,
 				<&pd IMX_SC_R_DSP>,
-				<&pd IMX_SC_R_DSP_RAM>;
+				<&pd IMX_SC_R_DSP_RAM>,
+				<&pd IMX_SC_R_IRQSTR_DSP>;
 		reserved-region = <&dsp_reserved>;
 		status = "disabled";
 	};

@@ -121,11 +121,6 @@
 	#sound-dai-cells = <0>;
 	compatible = "fsl,imx8qxp-dsp";
 	reg = <0x596e8000 0x88000>;
-	power-domains = <&pd IMX_SC_R_MU_13A>,
-			<&pd IMX_SC_R_MU_13B>,
-			<&pd IMX_SC_R_IRQSTR_DSP>,
-			<&pd IMX_SC_R_DSP>,
-			<&pd IMX_SC_R_DSP_RAM>;
 	mbox-names = "txdb0", "txdb1",
 		"rxdb0", "rxdb1";
 	mboxes = <&lsio_mu13 2 0>,
