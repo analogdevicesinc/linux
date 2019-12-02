@@ -1,5 +1,5 @@
 config DRM_IMX_DPU
-	tristate
+	tristate "Freescale i.MX DPU DRM support"
 	depends on DRM_IMX
 	depends on IMX_DPU_CORE
 	default y if DRM_IMX=y
