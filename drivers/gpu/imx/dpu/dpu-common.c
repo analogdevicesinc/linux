@@ -22,7 +22,6 @@
 #include <linux/module.h>
 #include <linux/of_device.h>
 #include <linux/of_graph.h>
-#include <linux/of_irq.h>
 #include <linux/platform_device.h>
 #include <linux/pm_domain.h>
 #include <video/dpu.h>
@@ -1108,7 +1107,9 @@ static int dpu_probe(struct platform_device *pdev)
 	dpu->dev = &pdev->dev;
 	dpu->data = data;
 	dpu->id = of_alias_get_id(np, "dpu");
-	dpu->irq_line_num = of_irq_count(np);
+	dpu->irq_line_num = platform_irq_count(pdev);
+	if (dpu->irq_line_num < 0)
+		return dpu->irq_line_num;
 
 	dpu_units_addr_dbg(dpu, pdev, dpu_base);
 
