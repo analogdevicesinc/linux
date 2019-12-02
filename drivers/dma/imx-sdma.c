@@ -1741,7 +1741,6 @@ static int sdma_runtime_resume(struct device *dev)
 		dev_dbg(sdma->dev, "firmware not ready.\n");
 	else if (sdma_load_script(sdma))
 		dev_warn(sdma->dev, "failed to load script.\n");
-
 	sdma->is_on = true;
 
 	return 0;
@@ -1843,11 +1842,6 @@ static struct sdma_desc *sdma_transfer_init(struct sdma_channel *sdmac,
 				enum dma_transfer_direction direction, u32 bds)
 {
 	struct sdma_desc *desc;
-
-	if (!sdmac->sdma->fw_loaded && sdmac->is_ram_script) {
-		dev_warn_once(sdmac->sdma->dev, "sdma firmware not ready!\n");
-		goto err_out;
-	}
 
 	desc = kzalloc((sizeof(*desc)), GFP_NOWAIT);
 	if (!desc)
@@ -1958,9 +1952,12 @@ static struct dma_async_tx_descriptor *sdma_prep_slave_sg(
 	int channel = sdmac->channel;
 	struct scatterlist *sg;
 	struct sdma_desc *desc;
-	
+	int ret;
+
 	sdma_pm_clk_enable(sdmac->sdma, false, true);
-	sdma_config_write(chan, &sdmac->slave_config, direction);
+	ret = sdma_config_write(chan, &sdmac->slave_config, direction);
+	if (ret)
+		goto err_out;
 
 	desc = sdma_transfer_init(sdmac, direction, sg_len);
 	if (!desc)
@@ -2050,6 +2047,7 @@ static struct dma_async_tx_descriptor *sdma_prep_dma_cyclic(
 	int channel = sdmac->channel;
 	int i = 0, buf = 0;
 	struct sdma_desc *desc;
+	int ret;
 
 	dev_dbg(sdma->dev, "%s channel: %d\n", __func__, channel);
 
@@ -2058,7 +2056,9 @@ static struct dma_async_tx_descriptor *sdma_prep_dma_cyclic(
 	if (sdmac->peripheral_type != IMX_DMATYPE_HDMI)
 		num_periods = buf_len / period_len;
 
-	sdma_config_write(chan, &sdmac->slave_config, direction);
+	ret = sdma_config_write(chan, &sdmac->slave_config, direction);
+	if (ret)
+		goto err_out;
 
 	desc = sdma_transfer_init(sdmac, direction, num_periods);
 	if (!desc)
@@ -2129,6 +2129,12 @@ static int sdma_config_write(struct dma_chan *chan,
 	struct sdma_channel *sdmac = to_sdma_chan(chan);
 
 	sdmac->watermark_level = 0;
+	sdma_get_pc(sdmac, sdmac->peripheral_type);
+
+	if (!sdmac->sdma->fw_loaded && sdmac->is_ram_script) {
+		dev_warn_once(sdmac->sdma->dev, "sdma firmware not ready!\n");
+		return -EPERM;
+	}
 
 	if (direction == DMA_DEV_TO_MEM) {
 		sdmac->per_address = dmaengine_cfg->src_addr;
@@ -2262,8 +2268,19 @@ static void sdma_load_firmware(const struct firmware *fw, void *context)
 	const struct sdma_firmware_header *header;
 
 	if (!fw) {
-		dev_info(sdma->dev, "external firmware not found, using ROM firmware\n");
-		/* In this case we just use the ROM firmware. */
+		/* Load firmware once more time if timeout */
+		if (sdma->fw_fail)
+			dev_info(sdma->dev, "external firmware not found, using ROM firmware\n");
+		else {
+			/*add a bit delay to wait for firmware priv released */
+			msleep(20);
+			request_firmware_nowait(THIS_MODULE,
+					FW_ACTION_UEVENT, sdma->fw_name,
+					sdma->dev, GFP_KERNEL, sdma,
+					sdma_load_firmware);
+			sdma->fw_fail++;
+		}
+
 		return;
 	}
 
