@@ -11,6 +11,7 @@
 /dts-v1/;
 #include "socfpga_arria10_socdk.dtsi"
 #include <dt-bindings/iio/frequency/ad9528.h>
+#include <dt-bindings/interrupt-controller/irq.h>
 
 &mmc {
 	status = "okay";
@@ -60,7 +61,7 @@
 				compatible = "altr,spi-1.0";
 				reg = <0x00000040 0x00000020>;
 				interrupt-parent = <&intc>;
-				interrupts = <0 26 4>;
+				interrupts = <0 26 IRQ_TYPE_LEVEL_HIGH>;
 				#address-cells = <0x1>;
 				#size-cells = <0x0>;
 			};
@@ -70,7 +71,7 @@
 				reg = <0x00020000 0x4000>;
 
 				interrupt-parent = <&intc>;
-				interrupts = <0 28 0>;
+				interrupts = <0 28 IRQ_TYPE_LEVEL_HIGH>;
 
 				clocks = <&sys_clk>, <&tx_device_clk_pll>, <&axi_ad9371_tx_xcvr>;
 				clock-names = "s_axi_aclk", "device_clk", "lane_clk";
@@ -91,7 +92,7 @@
 				reg = <0x00030000 0x4000>;
 
 				interrupt-parent = <&intc>;
-				interrupts = <0 27 0>;
+				interrupts = <0 27 IRQ_TYPE_LEVEL_HIGH>;
 
 				clocks = <&sys_clk>, <&rx_device_clk_pll>, <&axi_ad9371_rx_xcvr>;
 				clock-names = "s_axi_aclk", "device_clk", "lane_clk";
@@ -111,7 +112,7 @@
 				reg = <0x00040000 0x4000>;
 
 				interrupt-parent = <&intc>;
-				interrupts = <0 29 0>;
+				interrupts = <0 29 IRQ_TYPE_LEVEL_HIGH>;
 
 				clocks = <&sys_clk>, <&rx_os_device_clk_pll>, <&axi_ad9371_rx_os_xcvr>;
 				clock-names = "s_axi_aclk", "device_clk", "lane_clk";
@@ -175,7 +176,7 @@
 				compatible = "adi,axi-dmac-1.00.a";
 				reg = <0x0002c000 0x00004000>;
 				interrupt-parent = <&intc>;
-				interrupts = <0 30 4>;
+				interrupts = <0 30 IRQ_TYPE_LEVEL_HIGH>;
 				#dma-cells = <1>;
 				clocks = <&dma_clk>;
 
@@ -190,7 +191,7 @@
 				compatible = "adi,axi-dmac-1.00.a";
 				reg = <0x0003c000 0x00004000>;
 				interrupt-parent = <&intc>;
-				interrupts = <0 31 4>;
+				interrupts = <0 31 IRQ_TYPE_LEVEL_HIGH>;
 				#dma-cells = <1>;
 				clocks = <&dma_clk>;
 
@@ -205,7 +206,7 @@
 				compatible = "adi,axi-dmac-1.00.a";
 				reg = <0x0004c000 0x00004000>;
 				interrupt-parent = <&intc>;
-				interrupts = <0 32 4>;
+				interrupts = <0 32 IRQ_TYPE_LEVEL_HIGH>;
 				#dma-cells = <1>;
 				clocks = <&dma_clk>;
 
