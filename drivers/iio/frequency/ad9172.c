@@ -289,7 +289,7 @@ static int ad9172_setup(struct ad9172_state *st)
 		 st->appJesdConfig.jesd_L, lane_rate_kHz);
 
 	if (st->jesd_dual_link_mode) {
-		ret = ad917x_jesd_get_link_status(ad917x_h, JESD_LINK_0, &link_status);
+		ret = ad917x_jesd_get_link_status(ad917x_h, JESD_LINK_1, &link_status);
 		if (ret != 0) {
 			dev_err(dev,
 				"DAC:MODE:JESD: ERROR : Get Link 1 status failed \r\n");
