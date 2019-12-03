@@ -510,6 +510,32 @@ static bool tcpci_is_vbus_vsafe0v(struct tcpc_dev *tcpc)
 	return !!(reg & TCPC_EXTENDED_STATUS_VSAFE0V);
 }
 
+static int tcpci_vbus_force_discharge(struct tcpc_dev *tcpc, bool enable)
+{
+	struct tcpci *tcpci = tcpc_to_tcpci(tcpc);
+	unsigned int reg;
+	int ret;
+
+	if (enable)
+		regmap_write(tcpci->regmap,
+			TCPC_VBUS_VOLTAGE_ALARM_LO_CFG, 0x1c);
+	else
+		regmap_write(tcpci->regmap,
+			TCPC_VBUS_VOLTAGE_ALARM_LO_CFG, 0);
+
+	regmap_read(tcpci->regmap, TCPC_POWER_CTRL, &reg);
+
+	if (enable)
+		reg |= TCPC_POWER_CTRL_FORCEDISCH;
+	else
+		reg &= ~TCPC_POWER_CTRL_FORCEDISCH;
+	ret = regmap_write(tcpci->regmap, TCPC_POWER_CTRL, reg);
+	if (ret < 0)
+		return ret;
+
+	return 0;
+}
+
 static int tcpci_set_vbus(struct tcpc_dev *tcpc, bool source, bool sink)
 {
 	struct tcpci *tcpci = tcpc_to_tcpci(tcpc);
@@ -537,6 +563,9 @@ static int tcpci_set_vbus(struct tcpc_dev *tcpc, bool source, bool sink)
 		if (ret < 0)
 			return ret;
 	}
+
+	if (!source && !sink)
+		tcpci_vbus_force_discharge(tcpc, true);
 
 	if (source) {
 		ret = regmap_write(tcpci->regmap, TCPC_COMMAND,
@@ -684,7 +713,8 @@ static int tcpci_init(struct tcpc_dev *tcpc)
 
 	reg = TCPC_ALERT_TX_SUCCESS | TCPC_ALERT_TX_FAILED |
 		TCPC_ALERT_TX_DISCARDED | TCPC_ALERT_RX_STATUS |
-		TCPC_ALERT_RX_HARD_RST | TCPC_ALERT_CC_STATUS;
+		TCPC_ALERT_RX_HARD_RST | TCPC_ALERT_CC_STATUS |
+		TCPC_ALERT_V_ALARM_LO;
 	if (tcpci->controls_vbus)
 		reg |= TCPC_ALERT_POWER_STATUS;
 	/* Enable VSAFE0V status interrupt when detecting VSAFE0V is supported */
@@ -739,6 +769,9 @@ process_status:
 		else
 			tcpm_vbus_change(tcpci->port);
 	}
+
+	if (status & TCPC_ALERT_V_ALARM_LO)
+		tcpci_vbus_force_discharge(&tcpci->tcpc, false);
 
 	if (status & TCPC_ALERT_RX_STATUS) {
 		struct pd_message msg;
