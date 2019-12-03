@@ -122,6 +122,44 @@
 			gpios = <&gpio 85 0>;
 		};
 	};
+
+	audio_clock: audio_clock {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <12288000>;
+	};
+
+	talise_sound {
+		compatible = "simple-audio-card";
+		simple-audio-card,name = "ADRV9009 ZU11EG ADAU1761";
+		simple-audio-card,widgets =
+			"Microphone", "Mic In",
+			"Headphone", "Headphone Out",
+			"Line", "Line In",
+			"Line", "Line Out";
+		simple-audio-card,routing =
+			"Line Out", "LOUT",
+			"Line Out", "ROUT",
+			"Headphone Out", "LHP",
+			"Headphone Out", "RHP",
+			"Mic In", "MICBIAS",
+			"LINN", "Mic In",
+			"RINN", "Mic In",
+			"LAUX", "Line In",
+			"RAUX", "Line In";
+
+		simple-audio-card,dai-link@0 {
+			format = "i2s";
+			cpu {
+				sound-dai = <&axi_i2s_adi>;
+				frame-master;
+				bitclock-master;
+			};
+			codec {
+				sound-dai = <&adau1761>;
+			};
+		};
+	};
 };
 
 &serdes {
@@ -237,7 +275,15 @@
 			#size-cells = <0>;
 			reg = <0>;
 
-			/* 3B */
+			adau1761: adau1761@3b {
+				compatible = "adi,adau1761";
+				reg = <0x3b>;
+
+				clocks = <&audio_clock>;
+				clock-names = "mclk";
+
+				#sound-dai-cells = <0>;
+			};
 
 		};
 		i2c@1 { /* AD9545 */
@@ -353,5 +399,62 @@
 			adi,high-performance-mode-disable;
 			adi,driver-impedance-mode = <3>;
 		};
+	};
+};
+
+&fpga_axi {
+	i2s_tx_dma: dma@81001000  {
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x0 0x81001000 0x1000>;
+		#dma-cells = <1>;
+		#clock-cells = <0>;
+		interrupts = <0 95 0>;
+		clocks = <&clk 73>;
+
+		adi,channels {
+			#size-cells = <0>;
+			#address-cells = <1>;
+
+			dma-channel@0 {
+				reg = <0>;
+				adi,source-bus-width = <64>;
+				adi,source-bus-type = <0>;
+				adi,destination-bus-width = <32>;
+				adi,destination-bus-type = <1>;
+			};
+		};
+	};
+
+	i2s_rx_dma: dma@81000000  {
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x0 0x81000000 0x1000>;
+		#dma-cells = <1>;
+		#clock-cells = <0>;
+		interrupts = <0 96 0>;
+		clocks = <&clk 73>;
+
+		adi,channels {
+			#size-cells = <0>;
+			#address-cells = <1>;
+
+			dma-channel@0 {
+				reg = <0>;
+				adi,source-bus-width = <32>;
+				adi,source-bus-type = <1>;
+				adi,destination-bus-width = <64>;
+				adi,destination-bus-type = <0>;
+			};
+		};
+	};
+
+	axi_i2s_adi: axi-i2s-adi@82000000 {
+		compatible = "adi,axi-i2s-1.00.a";
+		reg = <0x0 0x82000000 0x10000>;
+		dmas = <&i2s_tx_dma 0 &i2s_rx_dma 0>;
+		dma-names = "tx", "rx";
+		clocks = <&clk 73>, <&audio_clock>;
+		clock-names = "axi", "ref";
+
+		#sound-dai-cells = <0>;
 	};
 };
