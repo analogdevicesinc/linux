@@ -1,3 +1,13 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Complete Radio Card platform containing AD9371
+ * Link: https://wiki.analog.com/resources/eval/user-guides/mykonos/quickstart
+ *
+ * hdl_project: <adrv9371x/a10soc>
+ * board_revision: <A>
+ *
+ * Copyright 2016-2019 Analog Devices Inc.
+ */
 /dts-v1/;
 #include "socfpga_arria10_socdk.dtsi"
 #include <dt-bindings/iio/frequency/ad9528.h>
