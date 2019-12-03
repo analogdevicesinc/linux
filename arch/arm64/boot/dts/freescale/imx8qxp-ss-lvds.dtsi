@@ -104,9 +104,9 @@
 			power-domains = <&pd IMX_SC_R_MIPI_0>;
 		};
 
-		lvds_region1: lvds_region@56220000 {
+		lvds_region1: lvds_region@56221000 {
 			compatible = "syscon";
-			reg = <0x56220000 0x10000>;
+			reg = <0x56221000 0xf0>;
 		};
 
 		ldb1_phy: ldb_phy@56221000 {
@@ -266,9 +266,9 @@
 			power-domains = <&pd IMX_SC_R_MIPI_1>;
 		};
 
-		lvds_region2: lvds_region@56240000 {
+		lvds_region2: lvds_region@56241000 {
 			compatible = "syscon";
-			reg = <0x56240000 0x10000>;
+			reg = <0x56241000 0xf0>;
 		};
 
 		ldb2_phy: ldb_phy@56241000 {
