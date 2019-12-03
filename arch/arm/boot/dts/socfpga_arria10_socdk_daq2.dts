@@ -10,6 +10,7 @@
  */
 /dts-v1/;
 #include "socfpga_arria10_socdk.dtsi"
+#include <dt-bindings/interrupt-controller/irq.h>
 
 &mmc {
 	status = "okay";
@@ -64,7 +65,7 @@
 				compatible = "altr,spi-16.0", "altr,spi-1.0";
 				reg = <0x40 0x20>;
 				interrupt-parent = <&intc>;
-				interrupts = <0 26 4>;
+				interrupts = <0 26 IRQ_TYPE_LEVEL_HIGH>;
 				#address-cells = <0x1>;
 				#size-cells = <0x0>;
 			};
@@ -74,7 +75,7 @@
 				reg = <0x4c000 0x4000>;
 				#dma-cells = <1>;
 				interrupt-parent = <&intc>;
-				interrupts = <0 29 0>;
+				interrupts = <0 29 IRQ_TYPE_LEVEL_HIGH>;
 				clocks = <&dma_clk>;
 
 				dma-channel {
@@ -89,7 +90,7 @@
 				reg = <0x2c000 0x4000>;
 				#dma-cells = <1>;
 				interrupt-parent = <&intc>;
-				interrupts = <0 30 0>;
+				interrupts = <0 30 IRQ_TYPE_LEVEL_HIGH>;
 				clocks = <&dma_clk>;
 
 				dma-channel {
@@ -115,7 +116,7 @@
 				reg = <0x20000 0x4000>;
 
 				interrupt-parent = <&intc>;
-				interrupts = <0 28 0>;
+				interrupts = <0 28 IRQ_TYPE_LEVEL_HIGH>;
 
 				clocks = <&sys_clk>, <&tx_device_clk_pll>, <&axi_ad9144_xcvr>;
 				clock-names = "s_axi_aclk", "device_clk", "lane_clk";
@@ -143,7 +144,7 @@
 				reg = <0x40000 0x4000>;
 
 				interrupt-parent = <&intc>;
-				interrupts = <0 27 0>;
+				interrupts = <0 27 IRQ_TYPE_LEVEL_HIGH>;
 
 				clocks = <&sys_clk>, <&rx_device_clk_pll>, <&axi_ad9680_xcvr>;
 				clock-names = "s_axi_aclk", "device_clk", "lane_clk";
