@@ -276,7 +276,6 @@ int spi_mem_exec_op(struct spi_mem *mem, const struct spi_mem_op *op)
 		xfers[xferpos].tx_buf = tmpbuf + op->addr.nbytes + 1;
 		xfers[xferpos].len = op->dummy.nbytes;
 		xfers[xferpos].tx_nbits = op->dummy.buswidth;
-		xfers[xferpos].dummy = op->dummy.nbytes * 8;
 		spi_message_add_tail(&xfers[xferpos], &msg);
 		xferpos++;
 		totalxferlen += op->dummy.nbytes;
@@ -291,7 +290,6 @@ int spi_mem_exec_op(struct spi_mem *mem, const struct spi_mem_op *op)
 			xfers[xferpos].tx_nbits = op->data.buswidth;
 		}
 
-		xfers[xferpos].stripe = update_stripe(op->cmd.opcode);
 		xfers[xferpos].len = op->data.nbytes;
 		spi_message_add_tail(&xfers[xferpos], &msg);
 		xferpos++;
