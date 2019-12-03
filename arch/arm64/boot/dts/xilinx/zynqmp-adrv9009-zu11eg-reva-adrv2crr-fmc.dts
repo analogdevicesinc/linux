@@ -409,7 +409,7 @@
 		#dma-cells = <1>;
 		#clock-cells = <0>;
 		interrupts = <0 95 0>;
-		clocks = <&clk 73>;
+		clocks = <&zynqmp_clk 73>;
 
 		adi,channels {
 			#size-cells = <0>;
@@ -431,7 +431,7 @@
 		#dma-cells = <1>;
 		#clock-cells = <0>;
 		interrupts = <0 96 0>;
-		clocks = <&clk 73>;
+		clocks = <&zynqmp_clk 73>;
 
 		adi,channels {
 			#size-cells = <0>;
@@ -452,7 +452,7 @@
 		reg = <0x0 0x82000000 0x10000>;
 		dmas = <&i2s_tx_dma 0 &i2s_rx_dma 0>;
 		dma-names = "tx", "rx";
-		clocks = <&clk 73>, <&audio_clock>;
+		clocks = <&zynqmp_clk 73>, <&audio_clock>;
 		clock-names = "axi", "ref";
 
 		#sound-dai-cells = <0>;
