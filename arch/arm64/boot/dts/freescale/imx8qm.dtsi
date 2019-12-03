@@ -347,6 +347,7 @@
 			compatible = "fsl,imx8qm-scu-ocotp";
 			#address-cells = <1>;
 			#size-cells = <1>;
+			read-only;
 
 			fec_mac0: mac@1c4 {
 				reg = <0x1c4 6>;
