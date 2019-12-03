@@ -118,9 +118,9 @@
 			status = "disabled";
 		};
 
-		mipi0_csr: csr@56220000 {
+		mipi0_csr: csr@56221000 {
 			compatible = "syscon";
-			reg = <0x56220000 0x10000>;
+			reg = <0x56221000 0x240>;
 		};
 
 		mipi0_dphy: dphy@56228300 {
@@ -284,9 +284,9 @@
 			status = "disabled";
 		};
 
-		mipi1_csr: csr@57220000 {
+		mipi1_csr: csr@57221000 {
 			compatible = "syscon";
-			reg = <0x57220000 0x10000>;
+			reg = <0x57221000 0x240>;
 		};
 
 		mipi1_dphy: dphy@57228300 {
