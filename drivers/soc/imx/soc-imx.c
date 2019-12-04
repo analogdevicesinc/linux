@@ -96,7 +96,10 @@ static int __init imx_soc_device_init(void)
 		break;
 	case MXC_CPU_IMX6Q:
 		ocotp_compat = "fsl,imx6q-ocotp";
-		soc_id = "i.MX6Q";
+		if (imx_get_soc_revision() >= IMX_CHIP_REVISION_2_0)
+			soc_id = "i.MX6QP";
+		else
+			soc_id = "i.MX6Q";
 		break;
 	case MXC_CPU_IMX6UL:
 		ocotp_compat = "fsl,imx6ul-ocotp";
