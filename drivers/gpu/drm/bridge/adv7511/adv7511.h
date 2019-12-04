@@ -333,6 +333,7 @@ struct adv7511 {
 
 	struct regmap *regmap;
 	struct regmap *regmap_cec;
+	struct regmap *regmap_edid;
 	enum drm_connector_status status;
 	bool powered;
 
