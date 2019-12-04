@@ -359,6 +359,26 @@ static int ad7124_write_raw(struct iio_dev *indio_dev,
 	}
 }
 
+static int ad7124_update_scan_mode(struct iio_dev *indio_dev,
+				   const unsigned long *scan_mask)
+{
+	struct ad7124_state *st = iio_priv(indio_dev);
+	bool bit_set;
+	int ret;
+	int i;
+
+	for (i = 0; i < indio_dev->masklength; i++) {
+		bit_set = test_bit(i, indio_dev->active_scan_mask);
+		ret = ad7124_spi_write_mask(st, AD7124_CHANNEL(i),
+					    AD7124_CHANNEL_EN_MSK,
+					    AD7124_CHANNEL_EN(bit_set),
+					    2);
+		if (ret < 0)
+			return ret;
+	}
+	return 0;
+}
+
 static IIO_CONST_ATTR(in_voltage_scale_available,
 	"0.000001164 0.000002328 0.000004656 0.000009313 0.000018626 0.000037252 0.000074505 0.000149011 0.000298023");
 
@@ -375,6 +395,7 @@ static const struct iio_info ad7124_info = {
 	.read_raw = ad7124_read_raw,
 	.write_raw = ad7124_write_raw,
 	.validate_trigger = ad_sd_validate_trigger,
+	.update_scan_mode = ad7124_update_scan_mode,
 	.attrs = &ad7124_attrs_group,
 };
 
