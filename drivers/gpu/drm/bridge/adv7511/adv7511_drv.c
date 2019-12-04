@@ -522,9 +522,6 @@ static int adv7511_get_edid_block(void *data, u8 *buf, unsigned int block,
 				  size_t len)
 {
 	struct adv7511 *adv7511 = data;
-	struct i2c_msg xfer[2];
-	uint8_t offset;
-	unsigned int i;
 	int ret;
 
 	if (len > 128)
@@ -547,32 +544,8 @@ static int adv7511_get_edid_block(void *data, u8 *buf, unsigned int block,
 				return ret;
 		}
 
-		/* Break this apart, hopefully more I2C controllers will
-		 * support 64 byte transfers than 256 byte transfers
-		 */
-
-		xfer[0].addr = adv7511->i2c_edid->addr;
-		xfer[0].flags = 0;
-		xfer[0].len = 1;
-		xfer[0].buf = &offset;
-		xfer[1].addr = adv7511->i2c_edid->addr;
-		xfer[1].flags = I2C_M_RD;
-		xfer[1].len = 64;
-		xfer[1].buf = adv7511->edid_buf;
-
-		offset = 0;
-
-		for (i = 0; i < 4; ++i) {
-			ret = i2c_transfer(adv7511->i2c_edid->adapter, xfer,
-					   ARRAY_SIZE(xfer));
-			if (ret < 0)
-				return ret;
-			else if (ret != 2)
-				return -EIO;
-
-			xfer[1].buf += 64;
-			offset += 64;
-		}
+		ret = regmap_bulk_read(adv7511->regmap_edid, 0,
+				       adv7511->edid_buf, 256);
 
 		adv7511->current_edid_segment = block / 2;
 	}
@@ -584,6 +557,14 @@ static int adv7511_get_edid_block(void *data, u8 *buf, unsigned int block,
 
 	return 0;
 }
+
+static const struct regmap_config adv7511_edid_regmap_config = {
+	.reg_bits = 8,
+	.val_bits = 8,
+
+	.max_register = 0xff,
+	.cache_type = REGCACHE_NONE,
+};
 
 /* -----------------------------------------------------------------------------
  * ADV75xx helpers
@@ -1188,6 +1169,13 @@ static int adv7511_probe(struct i2c_client *i2c, const struct i2c_device_id *id)
 	if (!adv7511->i2c_edid) {
 		ret = -EINVAL;
 		goto uninit_regulators;
+	}
+
+	adv7511->regmap_edid = devm_regmap_init_i2c(adv7511->i2c_edid,
+						&adv7511_edid_regmap_config);
+	if (IS_ERR(adv7511->regmap_edid)) {
+		ret = PTR_ERR(adv7511->regmap_edid);
+		goto err_i2c_unregister_edid;
 	}
 
 	regmap_write(adv7511->regmap, ADV7511_REG_EDID_I2C_ADDR,
