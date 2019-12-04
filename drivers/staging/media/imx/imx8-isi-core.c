@@ -6,6 +6,28 @@
 
 #include "imx8-isi-hw.h"
 
+static const struct soc_device_attribute imx8_soc[] = {
+	{
+		.soc_id   = "i.MX8QXP",
+		.revision = "1.0",
+	}, {
+		.soc_id   = "i.MX8QXP",
+		.revision = "1.1",
+	}, {
+		.soc_id   = "i.MX8QXP",
+		.revision = "1.2",
+	}, {
+		.soc_id   = "i.MX8QM",
+		.revision = "1.0",
+	}, {
+		.soc_id   = "i.MX8QM",
+		.revision = "1.1",
+	}, {
+		.soc_id   = "i.MX8MN",
+		.revision = "1.0",
+	},
+};
+
 static const struct of_device_id mxc_isi_of_match[];
 
 struct mxc_isi_dev *mxc_isi_get_hostdata(struct platform_device *pdev)
@@ -329,6 +351,20 @@ static int mxc_isi_of_parse_resets(struct mxc_isi_dev *mxc_isi)
 	return 0;
 }
 
+static bool mxc_isi_buf_active_reverse(const struct soc_device_attribute *data)
+{
+	const struct soc_device_attribute *match;
+
+	match = soc_device_match(data);
+	if (!match)
+		return false;
+
+	if (strcmp(match->revision, "1.1") > 0)
+		return true;
+
+	return false;
+}
+
 static int mxc_isi_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -352,6 +388,8 @@ static int mxc_isi_probe(struct platform_device *pdev)
 		dev_err(dev, "Can't get platform device data\n");
 		return -EINVAL;
 	}
+
+	mxc_isi->buf_active_reverse = mxc_isi_buf_active_reverse(imx8_soc);
 
 	ret = mxc_isi_parse_dt(mxc_isi);
 	if (ret < 0)

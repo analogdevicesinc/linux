@@ -517,5 +517,6 @@ void mxc_isi_disable_irq(struct mxc_isi_dev *mxc_isi);
 void dump_isi_regs(struct mxc_isi_dev *mxc_isi);
 
 u32 mxc_isi_get_irq_status(struct mxc_isi_dev *mxc_isi);
+bool is_buf_active(struct mxc_isi_dev *mxc_isi, int buf_id);
 
 #endif /* __MXC_ISI_HW_H__ */

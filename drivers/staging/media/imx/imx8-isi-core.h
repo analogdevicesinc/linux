@@ -35,6 +35,7 @@
 #include <media/videobuf2-dma-contig.h>
 #include <linux/regmap.h>
 #include <linux/reset.h>
+#include <linux/sys_soc.h>
 
 #include "imx8-common.h"
 
@@ -299,6 +300,7 @@ struct mxc_isi_dev {
 	u8 chain_buf;
 	u8 alpha;
 	bool m2m_enabled;
+	bool buf_active_reverse;
 
 	/* manage share ISI channel resource */
 	atomic_t usage_count;

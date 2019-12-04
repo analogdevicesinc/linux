@@ -268,6 +268,16 @@ void mxc_isi_cap_frame_write_done(struct mxc_isi_dev *mxc_isi)
 
 	buf = list_first_entry(&isi_cap->out_active, struct mxc_isi_buffer, list);
 
+	/*
+	 * Skip frame when buffer number is not match ISI trigger
+	 * buffer
+	 */
+	if ((is_buf_active(mxc_isi, 1) && buf->id == MXC_ISI_BUF1) ||
+	    (is_buf_active(mxc_isi, 2) && buf->id == MXC_ISI_BUF2)) {
+		dev_dbg(dev, "status=0x%x id=%d\n", mxc_isi->status, buf->id);
+		return;
+	}
+
 	if (buf->discard) {
 		list_move_tail(isi_cap->out_active.next, &isi_cap->out_discard);
 	} else {
