@@ -2399,7 +2399,15 @@ _Commit(
         }
 
         /* Determine the objects. */
-        kernel = Device->map[HwType].kernels[subCommit->coreId];
+        if (HwType == gcvHARDWARE_3D || HwType == gcvHARDWARE_3D2D || HwType == gcvHARDWARE_VIP)
+        {
+            kernel = Device->coreInfoArray[subCommit->coreId].kernel;
+        }
+        else
+        {
+            kernel = Device->map[HwType].kernels[subCommit->coreId];
+        }
+
         if (Engine == gcvENGINE_BLT)
         {
             command  = kernel->asyncCommand;
@@ -2414,8 +2422,8 @@ _Commit(
                                     kernel->hardware,
                                     gcvBROADCAST_GPU_COMMIT));
 
+        /* Commit command buffers. */
         {
-            /* Commit command buffers. */
             status = gckCOMMAND_Commit(command,
                                        subCommit,
                                        ProcessId,
@@ -2461,7 +2469,15 @@ _Commit(
 
     subCommit = &Commit->subCommit;
     userPtr = gcvNULL;
-    kernel = Device->map[HwType].kernels[subCommit->coreId];
+
+    if (HwType == gcvHARDWARE_3D || HwType == gcvHARDWARE_3D2D || HwType == gcvHARDWARE_VIP)
+    {
+        kernel = Device->coreInfoArray[subCommit->coreId].kernel;
+    }
+    else
+    {
+        kernel = Device->map[HwType].kernels[subCommit->coreId];
+    }
 
     if (!kernel->hardware->options.gpuProfiler || !kernel->profileEnable)
     {
@@ -2505,7 +2521,14 @@ _Commit(
             }
         }
 
-        kernel = Device->map[HwType].kernels[subCommit->coreId];
+        if (HwType == gcvHARDWARE_3D || HwType == gcvHARDWARE_3D2D || HwType == gcvHARDWARE_VIP)
+        {
+            kernel = Device->coreInfoArray[subCommit->coreId].kernel;
+        }
+        else
+        {
+            kernel = Device->map[HwType].kernels[subCommit->coreId];
+        }
 
         if ((kernel->hardware->options.gpuProfiler == gcvTRUE) &&
             (kernel->profileEnable == gcvTRUE))
@@ -5365,18 +5388,18 @@ gckDEVICE_ChipInfo(
     IN gcsHAL_INTERFACE_PTR Interface
     )
 {
+    gctUINT i;
+    gcsCORE_INFO * info = Device->coreInfoArray;
+
+    for (i = 0; i < Device->coreNum; i++)
     {
-        gctUINT i;
-        gcsCORE_INFO * info = Device->coreInfoArray;
+        Interface->u.ChipInfo.types[i] = info[i].type;
+        Interface->u.ChipInfo.ids[i] = info[i].chipID;
 
-        for (i = 0; i < Device->coreNum; i++)
-        {
-            Interface->u.ChipInfo.types[i] = info[i].type;
-            Interface->u.ChipInfo.ids[i] = info[i].chipID;
-        }
-
-        Interface->u.ChipInfo.count = Device->coreNum;
+        Interface->u.ChipInfo.coreIndexs[i] = info[i].core;
     }
+
+    Interface->u.ChipInfo.count = Device->coreNum;
 
     return gcvSTATUS_OK;
 }
@@ -5444,15 +5467,23 @@ gckDEVICE_SetTimeOut(
     gceHARDWARE_TYPE type = Interface->hardwareType;
     gcsCORE_LIST *coreList;
     gctUINT32 processID = 0;
+    gcsCORE_INFO *info = Device->coreInfoArray;
+
+    coreList = &Device->map[type];
 
     /* Get the current process ID. */
     gckOS_GetProcessID(&processID);
 
-    coreList = &Device->map[type];
-
-    for (i = 0; i < coreList->num; i++)
+    for (i = 0; i < Device->coreNum; i++)
     {
-        kernel = coreList->kernels[i];
+        if (type == gcvHARDWARE_3D || type == gcvHARDWARE_3D2D || type == gcvHARDWARE_VIP)
+        {
+            kernel = info[i].kernel;
+        }
+        else
+        {
+            kernel = coreList->kernels[i];
+        }
 
         kernel->timeOut = Interface->u.SetTimeOut.timeOut;
 
@@ -5502,8 +5533,14 @@ gckDEVICE_Dispatch(
     else
     {
         /* Need go through gckKERNEL dispatch. */
-        kernel = Device->map[type].kernels[coreIndex];
-
+        if (type == gcvHARDWARE_3D || type == gcvHARDWARE_3D2D || type == gcvHARDWARE_VIP)
+        {
+            kernel = Device->coreInfoArray[coreIndex].kernel;
+        }
+        else
+        {
+            kernel = Device->map[type].kernels[coreIndex];
+        }
 
 #if gcdENABLE_VG
         if (kernel->vg)

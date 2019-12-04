@@ -2159,10 +2159,15 @@ gckHARDWARE_Construct(
     {
         hardware->type = gcvHARDWARE_3D2D;
     }
-    else
-    if (gckHARDWARE_IsFeatureAvailable(hardware, gcvFEATURE_PIPE_2D))
+    else if (gckHARDWARE_IsFeatureAvailable(hardware, gcvFEATURE_PIPE_2D))
     {
         hardware->type = gcvHARDWARE_2D;
+    }
+    else if (gckHARDWARE_IsFeatureAvailable(hardware, gcvFEATURE_NN_ENGINE)
+     || gckHARDWARE_IsFeatureAvailable(hardware, gcvFEATURE_TP_ENGINE)
+    )
+    {
+        hardware->type = gcvHARDWARE_VIP;
     }
     else
     {

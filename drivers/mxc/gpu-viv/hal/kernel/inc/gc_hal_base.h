@@ -323,6 +323,7 @@ typedef struct _gcsTLS * gcsTLS_PTR;
 typedef struct _gcsTLS
 {
     gceHARDWARE_TYPE            currentType;
+    gceHARDWARE_TYPE            targetType;
 
     /* To which core device control is called,
     * it is index in a hardware type.
@@ -1008,6 +1009,24 @@ gceSTATUS
 gcoHAL_GetCurrentCoreIndex(
     IN gcoHAL Hal,
     OUT gctUINT32 *Core
+    );
+
+gceSTATUS
+gcoHAL_ConvertCoreIndexGlobal(
+    IN gcoHAL Hal,
+    IN gceHARDWARE_TYPE Type,
+    IN gctUINT32 CoreCount,
+    IN gctUINT32 *LocalCoreIndexs,
+    OUT gctUINT32 *GlobalCoreIndexs
+    );
+
+gceSTATUS
+gcoHAL_ConvertCoreIndexLocal(
+    IN gcoHAL Hal,
+    IN gceHARDWARE_TYPE Type,
+    IN gctUINT32 CoreCount,
+    IN gctUINT32 *GlobalCoreIndexs,
+    OUT gctUINT32 *LocalCoreIndexs
     );
 
 gceSTATUS

@@ -281,6 +281,8 @@ typedef struct _gcsHAL_CHIP_INFO
 
     /* Chip IDs. */
     OUT gctUINT32               ids[gcvCORE_COUNT];
+
+    OUT gctUINT32               coreIndexs[gcvCORE_COUNT];
 }
 gcsHAL_CHIP_INFO;
 
