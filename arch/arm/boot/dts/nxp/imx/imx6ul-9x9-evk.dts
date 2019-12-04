@@ -40,7 +40,7 @@
 		linux,cma {
 			compatible = "shared-dma-pool";
 			reusable;
-			size = <0x6000000>;
+			size = <0xa000000>;
 			linux,cma-default;
 		};
 	};
