@@ -58,6 +58,8 @@
 /* ADF4371_REG20 */
 #define ADF4371_MUXOUT_MSK		GENMASK(7, 4)
 #define ADF4371_MUXOUT(x)		FIELD_PREP(ADF4371_MUXOUT_MSK, x)
+#define ADF4371_MUXOUT_LVL_MSK		BIT(2)
+#define ADF4371_MUXOUT_LVL(x)		FIELD_PREP(ADF4371_MUXOUT_LVL_MSK, x)
 #define ADF4371_MUXOUT_EN_MSK		BIT(3)
 #define ADF4371_MUXOUT_EN(x)		FIELD_PREP(ADF4371_MUXOUT_EN_MSK, x)
 
@@ -250,12 +252,14 @@ struct adf4371_state {
 	unsigned int fract1;
 	unsigned int fract2;
 	unsigned int mod2;
+	unsigned int muxout_default_mode;
 	unsigned int rf_div_sel;
 	unsigned int ref_div_factor;
 	unsigned int pd_pol;
 	bool has_clk_out_names;
 	bool mute_till_lock_en;
 	bool muxout_en;
+	bool muxout_1v8_en;
 	bool spi_3wire_en;
 	u8 buf[10] ____cacheline_aligned;
 };
@@ -761,6 +765,16 @@ static int adf4371_setup(struct adf4371_state *st)
 			return ret;
 	}
 
+	ret = regmap_update_bits(st->regmap, ADF4371_REG(0x20),
+				 ADF4371_MUXOUT_MSK |
+				 ADF4371_MUXOUT_EN_MSK |
+				 ADF4371_MUXOUT_LVL_MSK,
+				 ADF4371_MUXOUT(st->muxout_default_mode) |
+				 ADF4371_MUXOUT_EN(st->muxout_en) |
+				 ADF4371_MUXOUT_LVL(!st->muxout_1v8_en));
+	if (ret < 0)
+		return ret;
+
 	/* Set address in ascending order, so the bulk_write() will work */
 	ret = regmap_update_bits(st->regmap, ADF4371_REG(0x0),
 				 ADF4371_ADDR_ASC_MSK | ADF4371_ADDR_ASC_R_MSK,
@@ -827,6 +841,19 @@ static int adf4371_parse_dt(struct adf4371_state *st)
 
 	if (device_property_read_bool(&st->spi->dev, "adi,mute-till-lock-en"))
 		st->mute_till_lock_en = true;
+
+	if (device_property_read_bool(&st->spi->dev, "adi,muxout-level-1v8-enable"))
+		st->muxout_1v8_en = true;
+
+	ret = device_property_read_u32(&st->spi->dev,"adi,muxout-select", &tmp);
+	if (ret < 0 && tmp > 10) {
+		st->muxout_default_mode = 0; /* Tristate */
+	} else {
+		st->muxout_default_mode = tmp;
+		if (tmp > 0)
+			st->muxout_en = true;
+	}
+
 	/*
 	 * If using an inverting loop filter and a VCO with positive tuning
 	 * slope, set the phase detector polarity to negative (set the PD_POL
