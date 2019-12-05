@@ -51,6 +51,22 @@
 	status = "disabled";
 };
 
+&mipi0_dsi_host {
+	status = "disabled";
+};
+
+&mipi1_dphy {
+	status = "disabled";
+};
+
+&mipi1_dsi_host {
+	status = "disabled";
+};
+
+&mipi1_dphy {
+	status = "disabled";
+};
+
 &irqsteer_hdmi {
 	status = "okay";
 };
