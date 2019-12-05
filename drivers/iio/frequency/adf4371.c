@@ -264,6 +264,9 @@ static unsigned long long adf4371_pll_fract_n_get_rate(struct adf4371_state *st,
 	unsigned long long val, tmp;
 	unsigned int ref_div_sel;
 
+	if (st->mod2 == 0)
+		return 0;
+
 	val = (((u64)st->integer * ADF4371_MODULUS1) + st->fract1) * st->fpfd;
 	tmp = (u64)st->fract2 * st->fpfd;
 	do_div(tmp, st->mod2);
