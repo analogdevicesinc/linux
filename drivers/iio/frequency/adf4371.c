@@ -255,6 +255,7 @@ struct adf4371_state {
 	bool has_clk_out_names;
 	bool mute_till_lock_en;
 	bool muxout_en;
+	bool spi_3wire_en;
 	u8 buf[10] ____cacheline_aligned;
 };
 
@@ -727,7 +728,7 @@ static int adf4371_setup(struct adf4371_state *st)
 	if (ret < 0)
 		return ret;
 
-	if (st->spi->mode & SPI_3WIRE)
+	if (st->spi->mode & SPI_3WIRE || st->spi_3wire_en)
 		en = false;
 
 	ret = regmap_update_bits(st->regmap, ADF4371_REG(0x0),
@@ -819,6 +820,9 @@ static int adf4371_parse_dt(struct adf4371_state *st)
 	unsigned int channel, tmp;
 	struct fwnode_handle *child;
 	int ret, i;
+
+	if(device_property_read_bool(&st->spi->dev, "adi,spi-3wire-enable"))
+		st->spi_3wire_en = true;
 
 	if (device_property_read_bool(&st->spi->dev, "adi,mute-till-lock-en"))
 		st->mute_till_lock_en = true;
