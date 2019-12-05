@@ -22,6 +22,12 @@
 
 #include "adv7511.h"
 
+#if defined(DEBUG)
+#define adv_trace	trace_printk
+#else
+#define adv_trace(...)
+#endif /* adv_trace */
+
 /* ADI recommended values for proper operation. */
 static const struct reg_sequence adv7511_fixed_registers[] = {
 	{ 0x98, 0x03 },
@@ -462,6 +468,9 @@ static int adv7511_irq_process(struct adv7511 *adv7511, bool process_hpd)
 	if (ret < 0)
 		return ret;
 
+	adv_trace(": IRQ reg 0x96 = 0x%02x, IRQ reg 0x97 = 0x%02x\n", irq0,
+		  irq1);
+
 	regmap_write(adv7511->regmap, ADV7511_REG_INT(0), irq0);
 	regmap_write(adv7511->regmap, ADV7511_REG_INT(1), irq1);
 
@@ -867,7 +876,16 @@ static int adv7511_bridge_attach(struct drm_bridge *bridge)
 		regmap_write(adv->regmap, ADV7511_REG_INT_ENABLE(0),
 			     ADV7511_INT0_HPD);
 
+	adv7511_debugfs_init(adv);
+
 	return ret;
+}
+
+static void adv7511_bridge_detach(struct drm_bridge *bridge)
+{
+	struct adv7511 *adv = bridge_to_adv7511(bridge);
+
+	adv7511_debugfs_remove(adv);
 }
 
 static const struct drm_bridge_funcs adv7511_bridge_funcs = {
@@ -875,6 +893,7 @@ static const struct drm_bridge_funcs adv7511_bridge_funcs = {
 	.disable = adv7511_bridge_disable,
 	.mode_set = adv7511_bridge_mode_set,
 	.attach = adv7511_bridge_attach,
+	.detach = adv7511_bridge_detach,
 };
 
 /* -----------------------------------------------------------------------------
