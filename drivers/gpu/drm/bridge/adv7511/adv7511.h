@@ -220,6 +220,11 @@
 
 #define ADV7533_REG_CEC_OFFSET		0x70
 
+#define ADV7533_REG_TPG			0x55
+#define ADV7533_TPG_ENABLE		0x80
+#define ADV7533_TPG_RAMP		0x20
+#define ADV7533_TPG_COLORBAR		0x00
+
 enum adv7511_input_clock {
 	ADV7511_INPUT_CLOCK_1X,
 	ADV7511_INPUT_CLOCK_2X,
@@ -352,6 +357,7 @@ struct adv7511 {
 
 	struct drm_bridge bridge;
 	struct drm_connector connector;
+	struct dentry *debugfs;
 
 	bool embedded_sync;
 	enum adv7511_sync_polarity vsync_polarity;
@@ -455,5 +461,19 @@ static inline void adv7511_audio_exit(struct adv7511 *adv7511)
 {
 }
 #endif /* CONFIG_DRM_I2C_ADV7511_AUDIO */
+
+#ifdef CONFIG_DEBUG_FS
+int adv7511_debugfs_init(struct adv7511 *adv7511);
+void adv7511_debugfs_remove(struct adv7511 *adv7511);
+#else
+static inline int adv7511_debugfs_init(struct adv7511 *adv7511)
+{
+	return 0;
+}
+static inline void adv7511_debugfs_remove(struct adv7511 *adv7511)
+{
+	return 0;
+}
+#endif
 
 #endif /* __DRM_I2C_ADV7511_H__ */
