@@ -52,6 +52,29 @@ properties:
       used, and the 4 to 3 wire conversion is done with some external logic
       in between.
 
+  adi,muxout-level-1v8-enable:
+    description:
+      When set the output level of the mux out pin is set to 1.8V.
+      (default is 3.3V)
+
+  adi,muxout-select:
+    description: |
+      Select the mux out signal source. Valid values are:
+      0: tristate, high impedance output
+      1: digital lock detect
+      2: charge pump up
+      3: charge pump down
+      4: RDIV2
+      5: N divider output
+      6: VCO test modes
+      8: high
+      9: VCO calibration R band/2
+      10: VCO calibration N band/2
+      If this field is left empty, tristate is selected.
+    allOf:
+      - $ref: /schemas/types.yaml#/definitions/uint32
+      - enum: [0, 1, 3, 4, 5, 6, 8, 9, 10]
+
   adi,mute-till-lock-en:
     description:
       If this property is present, then the supply current to RF8P and RF8N
