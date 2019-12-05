@@ -894,7 +894,9 @@ static void adf4371_clk_del_provider(void *data)
 	of_clk_del_provider(st->spi->dev.of_node);
 }
 
-static int adf4371_clk_register(struct iio_dev *indio_dev, unsigned int channel)
+static int adf4371_clk_register(struct iio_dev *indio_dev,
+				unsigned int channel,
+				const char *parent_name)
 {
 	struct adf4371_state *st = iio_priv(indio_dev);
 	struct clk_init_data init;
@@ -907,7 +909,8 @@ static int adf4371_clk_register(struct iio_dev *indio_dev, unsigned int channel)
 	}
 	init.name = st->adf4371_clk_names[channel];
 	init.ops = &adf4371_clock_ops;
-	init.num_parents = 0;
+	init.parent_names = (parent_name ? &parent_name : NULL);
+	init.num_parents = (parent_name ? 1 : 0);
 	init.flags = CLK_GET_RATE_NOCACHE;
 
 	st->outputs[channel].hw.init = &init;
@@ -935,7 +938,8 @@ static int adf4371_clks_register(struct iio_dev *indio_dev)
 		return -ENOMEM;
 
 	for (i = 0; i < st->chip_info->num_channels; i++) {
-		ret = adf4371_clk_register(indio_dev, i);
+		ret = adf4371_clk_register(indio_dev, i,
+					   __clk_get_name(st->clkin));
 		if (ret < 0) {
 			dev_err(&st->spi->dev,
 				"Clock provider register failed\n");
