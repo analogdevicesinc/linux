@@ -1158,6 +1158,7 @@ static int mipi_csis_probe(struct platform_device *pdev)
 			goto e_sd_host;
 	}
 
+	mipi_csis_clk_disable(state);
 	dev_info(&pdev->dev,
 			"lanes: %d, hs_settle: %d, clk_settle: %d, wclk: %d, freq: %u\n",
 		 state->num_lanes, state->hs_settle, state->clk_settle,
