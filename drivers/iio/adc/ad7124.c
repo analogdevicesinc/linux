@@ -14,9 +14,13 @@
 #include <linux/regulator/consumer.h>
 #include <linux/spi/spi.h>
 
+#include <linux/iio/buffer.h>
 #include <linux/iio/iio.h>
-#include <linux/iio/adc/ad_sigma_delta.h>
+#include <linux/iio/trigger.h>
+#include <linux/iio/trigger_consumer.h>
+#include <linux/iio/triggered_buffer.h>
 #include <linux/iio/sysfs.h>
+#include <linux/iio/adc/ad_sigma_delta.h>
 
 /* AD7124 registers */
 #define AD7124_COMMS			0x00
@@ -142,7 +146,7 @@ static const struct iio_chan_spec ad7124_channel_template = {
 		.sign = 'u',
 		.realbits = 24,
 		.storagebits = 32,
-		.shift = 8,
+		.shift = 0,
 		.endianness = IIO_BE,
 	},
 };
@@ -586,6 +590,39 @@ static int ad7124_setup(struct ad7124_state *st)
 	return ret;
 }
 
+static irqreturn_t ad_sd_trigger_handler(int irq, void *p)
+{
+	struct iio_poll_func *pf = p;
+	struct iio_dev *indio_dev = pf->indio_dev;
+	struct ad_sigma_delta *sigma_delta = iio_device_get_drvdata(indio_dev);
+	int s_pos = 0;
+	int ret;
+
+	sigma_delta->current_slot++;
+
+	ret = spi_sync_locked(sigma_delta->spi, &sigma_delta->spi_msg);
+	if (ret == 0 && sigma_delta->current_slot == sigma_delta->active_slots) {
+		for (s_pos = 0; s_pos < sigma_delta->active_slots; s_pos++) {
+			memcpy(sigma_delta->buf_data + s_pos * 4 + 1,
+			       sigma_delta->buf_data + s_pos * 4, 3);
+			sigma_delta->buf_data[s_pos * 4] = 0;
+		}
+		iio_push_to_buffers_with_timestamp(indio_dev,
+			sigma_delta->buf_data, pf->timestamp);
+		sigma_delta->current_slot = 0;
+		sigma_delta->spi_transfer[1].rx_buf = sigma_delta->buf_data;
+	} else {
+		sigma_delta->spi_transfer[1].rx_buf +=
+			indio_dev->channels[0].scan_type.storagebits / 8;
+	}
+
+	iio_trigger_notify_done(indio_dev->trig);
+	sigma_delta->irq_dis = false;
+	enable_irq(sigma_delta->spi->irq);
+
+	return IRQ_HANDLED;
+}
+
 static int ad7124_probe(struct spi_device *spi)
 {
 	const struct spi_device_id *id;
@@ -603,7 +640,6 @@ static int ad7124_probe(struct spi_device *spi)
 	st->chip_info = &ad7124_chip_info_tbl[id->driver_data];
 
 	ad_sd_init(&st->sd, indio_dev, spi, &ad7124_sigma_delta_info);
-
 	spi_set_drvdata(spi, indio_dev);
 
 	indio_dev->dev.parent = &spi->dev;
@@ -652,6 +688,7 @@ static int ad7124_probe(struct spi_device *spi)
 	ret = ad_sd_setup_buffer_and_trigger(indio_dev);
 	if (ret < 0)
 		goto error_clk_disable_unprepare;
+	indio_dev->pollfunc->thread = ad_sd_trigger_handler;
 
 	ret = iio_device_register(indio_dev);
 	if (ret < 0) {
