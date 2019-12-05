@@ -10,17 +10,27 @@
 #define phydev_warn(_phydev, format, args...)	\
 	dev_warn(&_phydev->mdio.dev, format, ##args)
 
+#include <linux/version.h>
 
-static int adin_read_mmd(struct phy_device *phydev, int devad, u16 regnum);
-static int adin_write_mmd(struct phy_device *phydev, int devad, u16 regnum,
-			  u16 val);
+#if LINUX_VERSION_CODE > KERNEL_VERSION(4,19,999)
+#error "Please check this compat layer and see what needs to be removed. After that, please adjust the KERNEL_VERSION(x,y,z) until all things are un-needed. Somewhere around version 5.3, all these should go way."
+#endif
+
+/* FIXME: These go away starting at kernel 5.0.
+ *        Unfortunately, these need to be macros/renames, because there are
+ *        already __mdiobus_{read,write} in 4.19, but no phy_modify_mmd_*()
+ *        functions yet. And MMD hooks need to be locked, because the MDIO
+ *        lock re-work isn't present in this kernel version.
+ */
+#define __mdiobus_read		mdiobus_read
+#define __mdiobus_write		mdiobus_write
 
 static inline int phy_modify_mmd_changed(struct phy_device *phydev, int devad,
 					 u32 regnum, u16 mask, u16 set)
 {
 	int new, ret;
 
-	ret = adin_read_mmd(phydev, devad, regnum);
+	ret = phy_read_mmd(phydev, devad, regnum);
 	if (ret < 0)
 		return ret;
 
@@ -28,7 +38,7 @@ static inline int phy_modify_mmd_changed(struct phy_device *phydev, int devad,
 	if (new == ret)
 		return 0;
 
-	ret = adin_write_mmd(phydev, devad, regnum, new);
+	ret = phy_write_mmd(phydev, devad, regnum, new);
 
 	return ret < 0 ? ret : 1;
 }
