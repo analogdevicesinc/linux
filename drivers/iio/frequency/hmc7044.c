@@ -1000,7 +1000,7 @@ static int hmc7043_setup(struct iio_dev *indio_dev)
 	int ret;
 
 	if (hmc->clkin_freq_ccf[0])
-		hmc->pll2_freq = hmc->clkin_freq_ccf[i];
+		hmc->pll2_freq = hmc->clkin_freq_ccf[0];
 	else
 		hmc->pll2_freq  = hmc->clkin_freq[0] / 1000;
 
