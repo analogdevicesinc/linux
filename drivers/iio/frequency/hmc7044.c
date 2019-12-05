@@ -468,9 +468,9 @@ static ssize_t hmc7044_show(struct device *dev,
 
 	mutex_lock(&hmc->lock);
 	ret = hmc7044_read(indio_dev, HMC7044_REG_REQ_MODE_0, &val);
-	if (ret >= 0) {
+	if (ret >= 0)
 		ret = sprintf(buf, "%d\n", !!(val & (u32)this_attr->address));
-	}
+
 	mutex_unlock(&hmc->lock);
 
 	return ret;
@@ -515,9 +515,9 @@ static ssize_t hmc7044_sync_pin_mode_show(struct device *dev,
 
 	mutex_lock(&hmc->lock);
 	ret = hmc7044_read(indio_dev, HMC7044_REG_GLOB_MODE, &val);
-	if (ret >= 0) {
+	if (ret >= 0)
 		ret = sprintf(buf, "%s\n", sync_pin_modes[(val >> 6) & 0x3]);
-	}
+
 	mutex_unlock(&hmc->lock);
 
 	return ret;
