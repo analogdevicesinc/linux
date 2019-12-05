@@ -3,7 +3,7 @@
  * HMC7044 SPI High Performance, 3.2 GHz, 14-Output Jitter
  * Attenuator with JESD204B
  *
- * Copyright 2018 Analog Devices Inc.
+ * Copyright 2018-2019 Analog Devices Inc.
  */
 #include <linux/module.h>
 #include <linux/spi/spi.h>
@@ -207,6 +207,11 @@
 #define HMC7044_OUT_DIV_MIN	1
 #define HMC7044_OUT_DIV_MAX	4094
 
+enum HMC7044_variant {
+	HMC7044,
+	HMC7043
+};
+
 static const char* const pll1_fsm_states[] = {
 	"Reset",
 	"Acquisition",
@@ -248,6 +253,7 @@ struct hmc7044_chan_spec {
 
 struct hmc7044 {
 	struct spi_device		*spi;
+	u32				device_id;
 	u32				clkin_freq[4];
 	u32				clkin_freq_ccf[4];
 	u32				vcxo_freq;
@@ -550,8 +556,21 @@ static struct attribute *hmc7044_attributes[] = {
 	NULL,
 };
 
+static struct attribute *hmc7043_attributes[] = {
+	&iio_dev_attr_reseed_request.dev_attr.attr,
+	&iio_dev_attr_mute_request.dev_attr.attr,
+	&iio_dev_attr_sysref_request.dev_attr.attr,
+	&iio_dev_attr_reset_dividers_request.dev_attr.attr,
+	&iio_dev_attr_sleep_request.dev_attr.attr,
+	NULL,
+};
+
 static const struct attribute_group hmc7044_attribute_group = {
 	.attrs = hmc7044_attributes,
+};
+
+static const struct attribute_group hmc7043_attribute_group = {
+	.attrs = hmc7043_attributes,
 };
 
 static int hmc7044_reg_access(struct iio_dev *indio_dev, unsigned int reg,
@@ -575,6 +594,13 @@ static const struct iio_info hmc7044_iio_info = {
 	.write_raw = &hmc7044_write_raw,
 	.debugfs_reg_access = &hmc7044_reg_access,
 	.attrs = &hmc7044_attribute_group,
+};
+
+static const struct iio_info hmc7043_iio_info = {
+	.read_raw = &hmc7044_read_raw,
+	.write_raw = &hmc7044_write_raw,
+	.debugfs_reg_access = &hmc7044_reg_access,
+	.attrs = &hmc7043_attribute_group,
 };
 
 static long hmc7044_get_clk_attr(struct clk_hw *hw,
@@ -653,7 +679,8 @@ static const struct clk_ops hmc7044_clk_ops = {
 
 static int hmc7044_clk_register(struct iio_dev *indio_dev,
 				unsigned int num,
-				unsigned int address)
+				unsigned int address,
+				const char *parent_name)
 {
 	struct hmc7044 *hmc = iio_priv(indio_dev);
 	struct clk_init_data init;
@@ -662,7 +689,8 @@ static int hmc7044_clk_register(struct iio_dev *indio_dev,
 	init.name = hmc->clk_out_names[num];
 	init.ops = &hmc7044_clk_ops;
 	init.flags = 0;
-	init.num_parents = 0;
+	init.parent_names = (parent_name ? &parent_name : NULL);
+	init.num_parents = (parent_name ? 1 : 0);
 
 	hmc->outputs[num].hw.init = &init;
 	hmc->outputs[num].indio_dev = indio_dev;
@@ -951,7 +979,7 @@ static int hmc7044_setup(struct iio_dev *indio_dev)
 		if (chan->num >= HMC7044_NUM_CHAN || chan->disable)
 			continue;
 
-		ret = hmc7044_clk_register(indio_dev, chan->num, i);
+		ret = hmc7044_clk_register(indio_dev, chan->num, i, NULL);
 		if (ret)
 			return ret;
 	}
@@ -964,6 +992,133 @@ static int hmc7044_setup(struct iio_dev *indio_dev)
 				   &hmc->clk_data);
 }
 
+static int hmc7043_setup(struct iio_dev *indio_dev)
+{
+	struct hmc7044 *hmc = iio_priv(indio_dev);
+	struct hmc7044_chan_spec *chan;
+	unsigned int i;
+	int ret;
+
+	if (hmc->clkin_freq_ccf[0])
+		hmc->pll2_freq = hmc->clkin_freq_ccf[i];
+	else
+		hmc->pll2_freq  = hmc->clkin_freq[0] / 1000;
+
+	if (!hmc->pll2_freq) {
+		dev_err(&hmc->spi->dev, "Failed to get valid parent rate");
+		return -EINVAL;
+	}
+
+	/* Resets all registers to default values */
+	hmc7044_write(indio_dev, HMC7044_REG_SOFT_RESET, HMC7044_SOFT_RESET);
+	mdelay(10);
+	hmc7044_write(indio_dev, HMC7044_REG_SOFT_RESET, 0);
+	mdelay(10);
+
+	/* Disable all channels */
+	for (i = 0; i < HMC7044_NUM_CHAN; i++)
+		hmc7044_write(indio_dev, HMC7044_REG_CH_OUT_CRTL_0(i), 0);
+
+	/* Program the SYSREF timer */
+
+	/* Set the divide ratio */
+	hmc7044_write(indio_dev, HMC7044_REG_SYSREF_TIMER_LSB,
+		HMC7044_SYSREF_TIMER_LSB(hmc->sysref_timer_div));
+	hmc7044_write(indio_dev, HMC7044_REG_SYSREF_TIMER_MSB,
+		HMC7044_SYSREF_TIMER_MSB(hmc->sysref_timer_div));
+
+	/* Set the pulse generator mode configuration */
+	hmc7044_write(indio_dev, HMC7044_REG_PULSE_GEN,
+		HMC7044_PULSE_GEN_MODE(hmc->pulse_gen_mode));
+
+	/* Enable the input buffers */
+	hmc7044_write(indio_dev, HMC7044_REG_CLKIN0_BUF_CTRL,
+		hmc->in_buf_mode[0]);
+	hmc7044_write(indio_dev, HMC7044_REG_CLKIN1_BUF_CTRL,
+		hmc->in_buf_mode[1]);
+
+	/* Set GPIOs */
+	hmc7044_write(indio_dev, HMC7044_REG_GPI_CTRL(0),
+		hmc->gpi_ctrl[0]);
+
+	hmc7044_write(indio_dev, HMC7044_REG_GPO_CTRL(0),
+		hmc->gpo_ctrl[0]);
+
+	/* Program the output channels */
+	for (i = 0; i < hmc->num_channels; i++) {
+		chan = &hmc->channels[i];
+
+		if (chan->num >= HMC7044_NUM_CHAN || chan->disable)
+			continue;
+
+		hmc7044_write(indio_dev, HMC7044_REG_CH_OUT_CRTL_1(chan->num),
+			HMC7044_DIV_LSB(chan->divider));
+		hmc7044_write(indio_dev, HMC7044_REG_CH_OUT_CRTL_2(chan->num),
+			HMC7044_DIV_MSB(chan->divider));
+		hmc7044_write(indio_dev, HMC7044_REG_CH_OUT_CRTL_8(chan->num),
+			HMC7044_DRIVER_MODE(chan->driver_mode) |
+			HMC7044_DRIVER_Z_MODE(chan->driver_impedance) |
+			(chan->dynamic_driver_enable ?
+			HMC7044_DYN_DRIVER_EN : 0) |
+			(chan->force_mute_enable ?
+			HMC7044_FORCE_MUTE_EN : 0));
+
+		hmc7044_write(indio_dev, HMC7044_REG_CH_OUT_CRTL_3(chan->num),
+			chan->fine_delay & 0x1F);
+		hmc7044_write(indio_dev, HMC7044_REG_CH_OUT_CRTL_4(chan->num),
+			chan->coarse_delay & 0x1F);
+		hmc7044_write(indio_dev, HMC7044_REG_CH_OUT_CRTL_7(chan->num),
+			chan->out_mux_mode & 0x3);
+
+		hmc7044_write(indio_dev, HMC7044_REG_CH_OUT_CRTL_0(chan->num),
+			(chan->start_up_mode_dynamic_enable ?
+			HMC7044_START_UP_MODE_DYN_EN : 0) |
+			(chan->output_control0_rb4_enable ? BIT(4) : 0) |
+			(chan->high_performance_mode_dis ?
+			0 : HMC7044_HI_PERF_MODE) | HMC7044_SYNC_EN |
+			HMC7044_CH_EN);
+
+		hmc->iio_channels[i].type = IIO_ALTVOLTAGE;
+		hmc->iio_channels[i].output = 1;
+		hmc->iio_channels[i].indexed = 1;
+		hmc->iio_channels[i].channel = chan->num;
+		hmc->iio_channels[i].address = i;
+		hmc->iio_channels[i].extend_name = chan->extended_name;
+		hmc->iio_channels[i].info_mask_separate =
+			BIT(IIO_CHAN_INFO_FREQUENCY) |
+			BIT(IIO_CHAN_INFO_PHASE);
+	}
+	mdelay(10);
+
+	/* Do a restart to reset the system and initiate calibration */
+	hmc7044_write(indio_dev, HMC7044_REG_REQ_MODE_0,
+		HMC7044_RESTART_DIV_FSM);
+	mdelay(1);
+	hmc7044_write(indio_dev, HMC7044_REG_REQ_MODE_0,
+		(hmc->high_performance_mode_clock_dist_en ?
+		HMC7044_HIGH_PERF_DISTRIB_PATH : 0));
+	mdelay(1);
+
+	for (i = 0; i < hmc->num_channels; i++) {
+		chan = &hmc->channels[i];
+
+		if (chan->num >= HMC7044_NUM_CHAN || chan->disable)
+			continue;
+
+		ret = hmc7044_clk_register(indio_dev, chan->num, i,
+			__clk_get_name(hmc->clk_input[0]));
+		if (ret)
+			return ret;
+	}
+
+	hmc->clk_data.clks = hmc->clks;
+	hmc->clk_data.clk_num = HMC7044_NUM_CHAN;
+
+	return of_clk_add_provider(hmc->spi->dev.of_node,
+				of_clk_src_onecell_get,
+				&hmc->clk_data);
+}
+
 static int hmc7044_parse_dt(struct device *dev,
 			    struct hmc7044 *hmc)
 {
@@ -971,24 +1126,70 @@ static int hmc7044_parse_dt(struct device *dev,
 	unsigned int cnt = 0;
 	int ret;
 
-	ret = of_property_read_u32_array(np, "adi,pll1-clkin-frequencies",
-			hmc->clkin_freq, ARRAY_SIZE(hmc->clkin_freq));
-	if (ret)
-		return ret;
+	if (hmc->device_id == HMC7044) {
+		ret = of_property_read_u32_array(np,
+						 "adi,pll1-clkin-frequencies",
+						 hmc->clkin_freq,
+						 ARRAY_SIZE(hmc->clkin_freq));
+		if (ret)
+			return ret;
 
-	hmc->pll1_loop_bw = 200;
-	of_property_read_u32(np, "adi,pll1-loop-bandwidth-hz",
-			     &hmc->pll1_loop_bw);
+		hmc->pll1_loop_bw = 200;
+		of_property_read_u32(np, "adi,pll1-loop-bandwidth-hz",
+				&hmc->pll1_loop_bw);
 
-	ret = of_property_read_u32(np, "adi,vcxo-frequency",
-				   &hmc->vcxo_freq);
-	if (ret)
-		return ret;
+		ret = of_property_read_u32(np, "adi,vcxo-frequency",
+					&hmc->vcxo_freq);
+		if (ret)
+			return ret;
 
-	ret = of_property_read_u32(np, "adi,pll2-output-frequency",
-				   &hmc->pll2_freq);
-	if (ret)
-		return ret;
+		ret = of_property_read_u32(np, "adi,pll2-output-frequency",
+					&hmc->pll2_freq);
+		if (ret)
+			return ret;
+
+		ret = of_property_read_u32_array(np, "adi,gpi-controls",
+				hmc->gpi_ctrl, ARRAY_SIZE(hmc->gpi_ctrl));
+		if (ret)
+			return ret;
+
+		ret = of_property_read_u32_array(np, "adi,gpo-controls",
+				hmc->gpo_ctrl, ARRAY_SIZE(hmc->gpo_ctrl));
+		if (ret)
+			return ret;
+
+		hmc->in_buf_mode[3] = 0;
+		of_property_read_u32(np, "adi,clkin3-buffer-mode",
+				     &hmc->in_buf_mode[3]);
+		hmc->in_buf_mode[4] = 0;
+		of_property_read_u32(np, "adi,oscin-buffer-mode",
+				     &hmc->in_buf_mode[4]);
+
+		hmc->pll1_ref_prio_ctrl = 0xE4;
+		of_property_read_u32(np, "adi,pll1-ref-prio-ctrl",
+				     &hmc->pll1_ref_prio_ctrl);
+
+		hmc->sync_pin_mode = 1;
+		of_property_read_u32(np, "adi,sync-pin-mode",
+				     &hmc->sync_pin_mode);
+
+		hmc->clkin1_vcoin_en =
+			of_property_read_bool(np, "adi,clkin1-vco-in-enable");
+
+		hmc->high_performance_mode_pll_vco_en =
+			of_property_read_bool(np,
+				"adi,high-performance-mode-pll-vco-enable");
+	} else {
+		ret = of_property_read_u32_array(np, "adi,gpi-controls",
+				hmc->gpi_ctrl, 1);
+		if (ret)
+			return ret;
+
+		ret = of_property_read_u32_array(np, "adi,gpo-controls",
+				hmc->gpo_ctrl, 1);
+		if (ret)
+			return ret;
+	}
 
 	hmc->sysref_timer_div = 256;
 	of_property_read_u32(np, "adi,sysref-timer-divider",
@@ -1007,39 +1208,12 @@ static int hmc7044_parse_dt(struct device *dev,
 	hmc->in_buf_mode[2] = 0;
 	of_property_read_u32(np, "adi,clkin2-buffer-mode",
 			     &hmc->in_buf_mode[2]);
-	hmc->in_buf_mode[3] = 0;
-	of_property_read_u32(np, "adi,clkin3-buffer-mode",
-			     &hmc->in_buf_mode[3]);
-	hmc->in_buf_mode[4] = 0;
-	of_property_read_u32(np, "adi,oscin-buffer-mode",
-			     &hmc->in_buf_mode[4]);
 
-	hmc->pll1_ref_prio_ctrl = 0xE4;
-	of_property_read_u32(np, "adi,pll1-ref-prio-ctrl",
-			     &hmc->pll1_ref_prio_ctrl);
-
-	hmc->sync_pin_mode = 1;
-	of_property_read_u32(np, "adi,sync-pin-mode",
-			     &hmc->sync_pin_mode);
 	hmc->clkin0_rfsync_en =
 		of_property_read_bool(np, "adi,clkin0-rf-sync-enable");
-	hmc->clkin1_vcoin_en =
-		of_property_read_bool(np, "adi,clkin1-vco-in-enable");
 
 	hmc->high_performance_mode_clock_dist_en = of_property_read_bool(np,
 		"adi,high-performance-mode-clock-dist-enable");
-	hmc->high_performance_mode_pll_vco_en = of_property_read_bool(np,
-		"adi,high-performance-mode-pll-vco-enable");
-
-	ret = of_property_read_u32_array(np, "adi,gpi-controls",
-			hmc->gpi_ctrl, ARRAY_SIZE(hmc->gpi_ctrl));
-	if (ret)
-		return ret;
-
-	ret = of_property_read_u32_array(np, "adi,gpo-controls",
-			hmc->gpo_ctrl, ARRAY_SIZE(hmc->gpo_ctrl));
-	if (ret)
-		return ret;
 
 	ret = of_property_read_string_array(np, "clock-output-names",
 			hmc->clk_out_names, ARRAY_SIZE(hmc->clk_out_names));
@@ -1214,14 +1388,18 @@ static int hmc7044_probe(struct spi_device *spi)
 	spi_set_drvdata(spi, indio_dev);
 
 	hmc->spi = spi;
-
+	hmc->device_id = spi_get_device_id(spi)->driver_data;
 	ret = hmc7044_parse_dt(&spi->dev, hmc);
 	if (ret)
 		return ret;
 
 	indio_dev->dev.parent = &spi->dev;
 	indio_dev->name = spi_get_device_id(spi)->name;
-	indio_dev->info = &hmc7044_iio_info;
+	if (hmc->device_id == HMC7044)
+		indio_dev->info = &hmc7044_iio_info;
+	else
+		indio_dev->info = &hmc7043_iio_info;
+
 	indio_dev->modes = INDIO_DIRECT_MODE;
 	indio_dev->channels = hmc->iio_channels;
 	indio_dev->num_channels = hmc->num_channels;
@@ -1231,18 +1409,22 @@ static int hmc7044_probe(struct spi_device *spi)
 	else
 		indio_dev->name = spi_get_device_id(spi)->name;
 
-	ret = hmc7044_setup(indio_dev);
+	if (hmc->device_id == HMC7044)
+		ret = hmc7044_setup(indio_dev);
+	else
+		ret = hmc7043_setup(indio_dev);
+
 	if (ret)
 		return ret;
 
 	ret = iio_device_register(indio_dev);
 
-	if (iio_get_debugfs_dentry(indio_dev)) {
+	if (iio_get_debugfs_dentry(indio_dev) && (hmc->device_id == HMC7044)) {
 		struct dentry *stats;
 
 		stats = debugfs_create_devm_seqfile(&spi->dev, "status",
-						    iio_get_debugfs_dentry(indio_dev),
-						    hmc7044_status_show);
+					iio_get_debugfs_dentry(indio_dev),
+					hmc7044_status_show);
 		if (PTR_ERR_OR_ZERO(stats))
 			dev_err(&spi->dev,
 				"Failed to create debugfs entry");
@@ -1264,7 +1446,8 @@ static int hmc7044_remove(struct spi_device *spi)
 }
 
 static const struct spi_device_id hmc7044_id[] = {
-	{"hmc7044", 0},
+	{"hmc7044", HMC7044},
+	{"hmc7043", HMC7043},
 	{}
 };
 MODULE_DEVICE_TABLE(spi, hmc7044_id);

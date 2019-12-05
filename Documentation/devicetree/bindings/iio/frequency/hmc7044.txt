@@ -1,6 +1,6 @@
-Analog Devices HMC7044 device driver
+Analog Devices HMC7044, HMC7043 device driver
 
-Required properties:
+Required properties hmc7044:
 	- compatible: Should be "adi,hmc7044".
 	- reg: SPI chip select number.
 	- spi-max-frequency: Max SPI frequency to use (<= 10000000).
@@ -22,7 +22,20 @@ Required properties:
 	- clock-output-names: An array of 14 elements, representing the
 		names of the output clocks.
 
-Optional properties:
+Required properties hcm7043:
+	- compatible: Should be "adi,hmc7043".
+	- reg: SPI chip select number.
+	- spi-max-frequency: Max SPI frequency to use (<= 10000000).
+	- adi,gpi-controls: Single element, representing
+		the GPI selection (Bits [4:1]) and the GPI enable bit
+		([0]) - see register 0x0046.
+	- adi,gpo-controls: Single element, representing
+		the GPO selection (Bits [7:2]), the GPO mode (Bit [1])
+		and the GPO enable bit ([0]) - see register 0x0050.
+	- clock-output-names: An array of 14 elements, representing the
+		names of the output clocks.
+
+Optional properties hmc7044:
 	- adi,pll1-loop-bandwidth-hz: The PLL1 loop bandwidth. If this is
 		not specified, 200 will be used by default.
 	- adi,sysref-timer-divider: This sets the internal beat frequency
@@ -53,6 +66,37 @@ Optional properties:
 		specifying the Input Buffer Mode (Bits [4:1]) and the
 		Buffer enable bit ([0]) - see register 0x000E. If this is
 		not specified, 0 will be used by default.
+	- adi,pll1-ref-prio-ctrl: Refer to register 0x14 description.
+	- adi,sync-pin-mode: SYNC pin configuration with respect to PLL2.
+		0 - Disabled
+		1 - SYNC. A rising edge is carried through PLL2.
+			Useful for multichip synchronization.
+		2 - Pulse generator. Request a pulse generator stream from any
+			channels configured for dynamic startup. This behaves in
+			the same way as a GPI requested pulse generator.
+		3 - Causes SYNC if alarm exists, otherwise causes
+			pulse generator.
+	- adi,clkin0-rf-sync-enable: CLKIN0 input is used for external RF sync.
+	- adi,clkin1-vco-in-enable: CLKIN1 input is used for external VCO.
+
+Optional properties hmc7043:
+	- adi,sysref-timer-divider: This sets the internal beat frequency
+		of the master timer, which controls synchronization and
+		pulse generator events. It should be set to a submultiple
+		of the lowest output SYSREF frequency, no faster than 4
+		MHz. If this is not specified, 1024 will be used by default.
+	- adi,pulse-generator-mode: Pulse Generator Mode Selection
+		[Bits 2:0] - see register 0x005A. If this is not specified,
+		0 will be used by default.
+	- adi,clkin0-buffer-mode - CLKIN0 Input Buffer Control, for
+		specifying the Input Buffer Mode (Bits [4:1]) and the
+		Buffer enable bit ([0]) - see register 0x000A. If this is
+		not specified, 0 will be used by default.
+	- adi,clkin1-buffer-mode - CLKIN1 Input Buffer Control, for
+		specifying the Input Buffer Mode (Bits [4:1]) and the
+		Buffer enable bit ([0]) - see register 0x000B. If this is
+		not specified, 0 will be used by default.
+	- adi,clkin0-rf-sync-enable: CLKIN0 input is used for external RF sync.
 
 Adding channels:
 	Channels can be specified using child nodes.
@@ -84,18 +128,6 @@ Adding channels:
 		1 = analog delay
 		2 = other channel of pair
 		3 = input VCO clock.
-	- adi,pll1-ref-prio-ctrl: Refer to register 0x14 description.
-	- adi,sync-pin-mode: SYNC pin configuration with respect to PLL2.
-		0 - Disabled
-		1 - SYNC. A rising edge is carried through PLL2.
-		    Useful for multichip synchronization.
-		2 - Pulse generator. Request a pulse generator stream from any
-		    channels configured for dynamic startup. This behaves in
-		    the same way as a GPI requested pulse generator.
-		3 - Causes SYNC if alarm exists, otherwise causes
-		    pulse generator.
-	- adi,clkin0-rf-sync-enable: CLKIN0 input is used for external RF sync.
-	- adi,clkin1-vco-in-enable: CLKIN1 input is used for external VCO.
 	- adi,driver-impedance-mode: Output driver impedance selection.
 		0 - Internal resistor disable.
 		1 - Internal 100 Ω resistor enable per output pin.
