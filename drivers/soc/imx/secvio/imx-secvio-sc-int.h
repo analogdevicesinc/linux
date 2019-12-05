@@ -25,6 +25,7 @@ struct imx_secvio_sc_data {
 
 	struct notifier_block irq_nb;
 	struct notifier_block report_nb;
+	struct notifier_block audit_nb;
 
 	struct nvmem_device *nvmem;
 
@@ -66,5 +67,17 @@ int imx_secvio_sc_debugfs(struct device *dev)
 	return 0;
 }
 #endif /* CONFIG_DEBUG_FS */
+
+#ifdef CONFIG_AUDIT
+int report_to_audit_notify(struct notifier_block *nb, unsigned long status,
+			   void *notif_info);
+#else /* CONFIG_AUDIT */
+static inline
+int report_to_audit_notify(struct notifier_block *nb, unsigned long status,
+			   void *notif_info)
+{
+	return 0;
+}
+#endif /* CONFIG_AUDIT */
 
 #endif /* SECVIO_SC_H */

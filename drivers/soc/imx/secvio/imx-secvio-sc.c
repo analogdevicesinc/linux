@@ -590,6 +590,21 @@ static int imx_secvio_sc_setup(struct device *dev)
 		goto clean;
 	}
 
+	/* Register the notification to report to audit FW */
+	data->audit_nb.notifier_call = report_to_audit_notify;
+	ret = register_imx_secvio_sc_notifier(&data->audit_nb);
+	if (ret) {
+		dev_err(dev, "Failed to register report audit handler\n");
+		goto clean;
+	}
+
+	ret = devm_add_action(dev, if_unregister_imx_secvio_sc_notifier,
+			      &data->audit_nb);
+	if (ret) {
+		dev_err(dev, "Failed to add action to remove audit notif\n");
+		goto clean;
+	}
+
 	/* Register misc device for IOCTL */
 	data->miscdev.name = devm_kstrdup(dev, "secvio-sc", GFP_KERNEL);
 	data->miscdev.minor = MISC_DYNAMIC_MINOR;
