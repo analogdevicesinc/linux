@@ -845,7 +845,7 @@ static int adf4371_parse_dt(struct adf4371_state *st)
 	if (device_property_read_bool(&st->spi->dev, "adi,muxout-level-1v8-enable"))
 		st->muxout_1v8_en = true;
 
-	ret = device_property_read_u32(&st->spi->dev,"adi,muxout-select", &tmp);
+	ret = device_property_read_u32(&st->spi->dev, "adi,muxout-select", &tmp);
 	if (ret < 0 && tmp > 10) {
 		st->muxout_default_mode = 0; /* Tristate */
 	} else {
