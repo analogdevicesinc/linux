@@ -165,6 +165,7 @@ static const struct adf4371_pwrdown adf4371_pwrdown_ch[4] = {
 };
 
 static const struct reg_sequence adf4371_reg_defaults[] = {
+	{ ADF4371_REG(0x01), 0x00 },
 	{ ADF4371_REG(0x12), 0x40 },
 	{ ADF4371_REG(0x1E), 0x48 },
 	{ ADF4371_REG(0x20), 0x14 },
