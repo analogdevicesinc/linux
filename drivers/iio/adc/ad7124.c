@@ -22,6 +22,8 @@
 #include <linux/iio/sysfs.h>
 #include <linux/iio/adc/ad_sigma_delta.h>
 
+#define AD7124_SEQUENCER_SLOTS		16
+
 /* AD7124 registers */
 #define AD7124_COMMS			0x00
 #define AD7124_STATUS			0x00
@@ -640,6 +642,7 @@ static int ad7124_probe(struct spi_device *spi)
 	st->chip_info = &ad7124_chip_info_tbl[id->driver_data];
 
 	ad_sd_init(&st->sd, indio_dev, spi, &ad7124_sigma_delta_info);
+	st->sd.num_slots = AD7124_SEQUENCER_SLOTS;
 	spi_set_drvdata(spi, indio_dev);
 
 	indio_dev->dev.parent = &spi->dev;
