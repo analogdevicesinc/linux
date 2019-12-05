@@ -985,7 +985,12 @@ static int adf4371_probe(struct spi_device *spi)
 
 	st->chip_info = &adf4371_chip_info[id->driver_data];
 	indio_dev->dev.parent = &spi->dev;
-	indio_dev->name = id->name;
+
+	if (spi->dev.of_node)
+		indio_dev->name = spi->dev.of_node->name;
+	else
+		indio_dev->name = id->name;
+
 	indio_dev->info = &adf4371_info;
 	indio_dev->modes = INDIO_DIRECT_MODE;
 	indio_dev->channels = st->chip_info->channels;
