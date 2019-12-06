@@ -390,7 +390,8 @@ static void cf_axi_dds_set_sed_pattern(struct iio_dev *indio_dev, unsigned chan,
 }
 
 static int cf_axi_dds_default_setup(struct cf_axi_dds_state *st, u32 chan,
-				    u32 phase, u32 freq, u32 scale) {
+				    u32 phase, u32 freq, u32 scale)
+{
 
 	unsigned long long val64;
 	u32 val;
@@ -407,15 +408,6 @@ static int cf_axi_dds_default_setup(struct cf_axi_dds_state *st, u32 chan,
 
 	dds_write(st, ADI_REG_CHAN_CNTRL_1_IIOCHAN(chan), ADI_DDS_SCALE(scale));
 	dds_write(st, ADI_REG_CHAN_CNTRL_2_IIOCHAN(chan), val);
-
-	if (chan % 2)
-		dds_write(st, ADI_REG_CHAN_CNTRL_8(chan),
-			ADI_IQCOR_COEFF_2(0x4000) |
-			ADI_IQCOR_COEFF_1(0));
-	else
-		dds_write(st, ADI_REG_CHAN_CNTRL_8(chan),
-			ADI_IQCOR_COEFF_2(0) |
-			ADI_IQCOR_COEFF_1(0x4000));
 
 	return 0;
 }
@@ -1789,7 +1781,7 @@ static int cf_axi_dds_probe(struct platform_device *pdev)
 	cf_axi_dds_datasel(st, -1, DATA_SEL_DDS);
 
 	if (!st->dp_disable) {
-		unsigned scale, frequency;
+		u32 scale, frequency, phase, i;
 		scale = 0x1000; /* 0.250 */
 		frequency = 40000000;
 
@@ -1797,32 +1789,27 @@ static int cf_axi_dds_probe(struct platform_device *pdev)
 		of_property_read_u32(np, "adi,axi-dds-default-frequency",
 				     &frequency);
 
-		cf_axi_dds_default_setup(st, 0, 90000, frequency, scale);
-		cf_axi_dds_default_setup(st, 1, 90000, frequency, scale);
+		for (i = 0; i < st->chip_info->num_dds_channels; i += 2) {
+			if ((i / 2) % 2)
+				phase = 0;
+			else
+				phase = 90000;
 
-
-		if (st->chip_info->num_dds_channels >= 4) {
-			cf_axi_dds_default_setup(st, 2, 0, frequency, scale);
-			cf_axi_dds_default_setup(st, 3, 0, frequency, scale);
+			cf_axi_dds_default_setup(st, i, phase,
+						 frequency, scale);
+			cf_axi_dds_default_setup(st, i + 1, phase,
+						 frequency, scale);
 		}
 
-		if (st->chip_info->num_dds_channels >= 8) {
-			cf_axi_dds_default_setup(st, 4, 90000, frequency, scale);
-			cf_axi_dds_default_setup(st, 5, 90000, frequency, scale);
-			cf_axi_dds_default_setup(st, 6, 0, frequency, scale);
-			cf_axi_dds_default_setup(st, 7, 0, frequency, scale);
-		}
-
-		if (st->chip_info->num_dds_channels >= 16) {
-			cf_axi_dds_default_setup(st, 8, 90000, frequency, scale);
-			cf_axi_dds_default_setup(st, 9, 90000, frequency, scale);
-			cf_axi_dds_default_setup(st, 10, 0, frequency, scale);
-			cf_axi_dds_default_setup(st, 11, 0, frequency, scale);
-			cf_axi_dds_default_setup(st, 12, 90000, frequency, scale);
-			cf_axi_dds_default_setup(st, 13, 90000, frequency, scale);
-			cf_axi_dds_default_setup(st, 14, 0, frequency, scale);
-			cf_axi_dds_default_setup(st, 15, 0, frequency, scale);
-		}
+		for (i = 0; i < st->chip_info->num_buf_channels; i++)
+			if (i % 2)
+				dds_write(st, ADI_REG_CHAN_CNTRL_8(i),
+					ADI_IQCOR_COEFF_2(0x4000) |
+					ADI_IQCOR_COEFF_1(0));
+			else
+				dds_write(st, ADI_REG_CHAN_CNTRL_8(i),
+					ADI_IQCOR_COEFF_2(0) |
+					ADI_IQCOR_COEFF_1(0x4000));
 
 		cf_axi_dds_update_chan_spec(st, st->chip_info->channel,
 				st->chip_info->num_channels);
