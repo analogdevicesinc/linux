@@ -18,6 +18,13 @@
 			clock-output-names = "mipi_ipg_clk";
 		};
 
+		mipi_pll_div2_clk: clock-mipi-div2-pll {
+			compatible = "fixed-clock";
+			#clock-cells = <0>;
+			clock-frequency = <432000000>;
+			clock-output-names = "mipi_pll_div2_clk";
+		};
+
 		mipi0_lis_lpcg: clock-controller@56223000 {
 			compatible = "fsl,imx8qxp-lpcg";
 			reg = <0x56223000 0x4>;
@@ -223,9 +230,13 @@
 				      "phy_ref",
 				      "tx_esc",
 				      "rx_esc";
-			assigned-clocks = <&clk IMX_SC_R_MIPI_0 IMX_SC_PM_CLK_MST_BUS>,
+			assigned-clocks = <&clk IMX_SC_R_MIPI_0 IMX_SC_PM_CLK_PHY>,
+					  <&clk IMX_SC_R_MIPI_0 IMX_SC_PM_CLK_MST_BUS>,
 					  <&clk IMX_SC_R_MIPI_0 IMX_SC_PM_CLK_SLV_BUS>;
-			assigned-clock-rates = <18000000>, <72000000>;
+			assigned-clock-parents = <&mipi_pll_div2_clk>,
+						 <&mipi_pll_div2_clk>,
+						 <&mipi_pll_div2_clk>;
+			assigned-clock-rates = <0>, <18000000>, <72000000>;
 			interrupts = <16>;
 			interrupt-parent = <&irqsteer_mipi_lvds0>;
 			power-domains = <&pd IMX_SC_R_MIPI_0>;
@@ -385,9 +396,13 @@
 				      "phy_ref",
 				      "tx_esc",
 				      "rx_esc";
-			assigned-clocks = <&clk IMX_SC_R_MIPI_1 IMX_SC_PM_CLK_MST_BUS>,
+			assigned-clocks = <&clk IMX_SC_R_MIPI_1 IMX_SC_PM_CLK_PHY>,
+					  <&clk IMX_SC_R_MIPI_1 IMX_SC_PM_CLK_MST_BUS>,
 					  <&clk IMX_SC_R_MIPI_1 IMX_SC_PM_CLK_SLV_BUS>;
-			assigned-clock-rates = <18000000>, <72000000>;
+			assigned-clock-parents = <&mipi_pll_div2_clk>,
+						 <&mipi_pll_div2_clk>,
+						 <&mipi_pll_div2_clk>;
+			assigned-clock-rates = <0>, <18000000>, <72000000>;
 			interrupts = <16>;
 			interrupt-parent = <&irqsteer_mipi_lvds1>;
 			power-domains = <&pd IMX_SC_R_MIPI_1>;
