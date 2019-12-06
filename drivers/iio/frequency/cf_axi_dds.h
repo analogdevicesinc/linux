@@ -13,6 +13,18 @@
 #include <linux/clk/clkscale.h>
 #include <linux/fpga/adi-axi-common.h>
 
+#define ADI_REG_CONFIG			0x000C
+#define ADI_IQCORRECTION_DISABLE	(1 << 0)
+#define ADI_DCFILTER_DISABLE		(1 << 1)
+#define ADI_DATAFORMAT_DISABLE		(1 << 2)
+#define ADI_USERPORTS_DISABLE		(1 << 3)
+#define ADI_MODE_1R1T			(1 << 4)
+#define ADI_DELAY_CONTROL_DISABLE	(1 << 5)
+#define ADI_DDS_DISABLE			(1 << 6)
+#define ADI_CMOS_OR_LVDS_N		(1 << 7)
+#define ADI_PPS_RECEIVER_ENABLE		(1 << 8)
+#define ADI_SCALECORRECTION_ONLY	(1 << 9)
+
 /* DAC COMMON */
 
 #define ADI_REG_RSTN		0x0040
@@ -94,6 +106,21 @@ enum dds_data_select {
 #define ADI_REG_DAC_DP_DISABLE	0x00C0
 #define ADI_DAC_DP_DISABLE	(1 << 0)
 
+/* JESD TPL */
+
+#define ADI_REG_TPL_CNTRL		0x0200
+#define ADI_REG_TPL_STATUS		0x0204
+#define ADI_REG_TPL_DESCRIPTOR_1	0x0240
+#define ADI_REG_TPL_DESCRIPTOR_2	0x0244
+
+#define ADI_TO_JESD_M(x)		(((x) >> 0) & 0xFF)
+#define ADI_TO_JESD_L(x)		(((x) >> 8) & 0xFF)
+#define ADI_TO_JESD_S(x)		(((x) >> 16) & 0xFF)
+#define ADI_TO_JESD_F(x)		(((x) >> 24) & 0xFF)
+
+#define ADI_TO_JESD_N(x)		(((x) >> 0) & 0xFF)
+#define ADI_TO_JESD_NP(x)		(((x) >> 8) & 0xFF)
+
 /* DAC CHANNEL */
 
 #define ADI_REG_CHAN_CNTRL_1_IIOCHAN(x)	(0x0400 + ((x) >> 1) * 0x40 + ((x) & 1) * 0x8)
@@ -169,6 +196,11 @@ enum dds_data_select {
 /* debugfs direct register access */
 #define DEBUGFS_DRA_PCORE_REG_MAGIC	0x80000000
 
+#define AXIDDS_MAX_NUM_BUF_CHAN 64
+#define AXIDDS_MAX_NUM_DDS_CHAN (2 * AXIDDS_MAX_NUM_BUF_CHAN)
+#define AXIDDS_MAX_NUM_CHANNELS (AXIDDS_MAX_NUM_BUF_CHAN + \
+				 AXIDDS_MAX_NUM_DDS_CHAN)
+
 enum {
 	ID_AD9122,
 	ID_AD9739A,
@@ -198,7 +230,7 @@ struct cf_axi_dds_chip_info {
 	unsigned int num_buf_channels;
 	unsigned num_shadow_slave_channels;
 	const unsigned long *scan_masks;
-	struct iio_chan_spec channel[24];
+	struct iio_chan_spec channel[AXIDDS_MAX_NUM_CHANNELS];
 };
 
 struct cf_axi_dds_state;

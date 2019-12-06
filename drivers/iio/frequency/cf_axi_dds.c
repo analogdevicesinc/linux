@@ -40,6 +40,41 @@
 
 static const unsigned int interpolation_factors_available[] = {1, 8};
 
+static const char * const dds_extend_names[] = {
+	"TX1_I_F1", "TX1_I_F2", "TX1_Q_F1", "TX1_Q_F2",
+	"TX2_I_F1", "TX2_I_F2", "TX2_Q_F1", "TX2_Q_F2",
+	"TX3_I_F1", "TX3_I_F2", "TX3_Q_F1", "TX3_Q_F2",
+	"TX4_I_F1", "TX4_I_F2", "TX4_Q_F1", "TX4_Q_F2",
+	"TX5_I_F1", "TX5_I_F2", "TX5_Q_F1", "TX5_Q_F2",
+	"TX6_I_F1", "TX6_I_F2", "TX6_Q_F1", "TX6_Q_F2",
+	"TX7_I_F1", "TX7_I_F2", "TX7_Q_F1", "TX7_Q_F2",
+	"TX8_I_F1", "TX8_I_F2", "TX8_Q_F1", "TX8_Q_F2",
+	"TX9_I_F1", "TX9_I_F2", "TX9_Q_F1", "TX9_Q_F2",
+	"TX10_I_F1", "TX10_I_F2", "TX10_Q_F1", "TX10_Q_F2",
+	"TX11_I_F1", "TX11_I_F2", "TX11_Q_F1", "TX11_Q_F2",
+	"TX12_I_F1", "TX12_I_F2", "TX12_Q_F1", "TX12_Q_F2",
+	"TX13_I_F1", "TX13_I_F2", "TX13_Q_F1", "TX13_Q_F2",
+	"TX14_I_F1", "TX14_I_F2", "TX14_Q_F1", "TX14_Q_F2",
+	"TX15_I_F1", "TX15_I_F2", "TX15_Q_F1", "TX15_Q_F2",
+	"TX16_I_F1", "TX16_I_F2", "TX16_Q_F1", "TX16_Q_F2",
+	"TX17_I_F1", "TX17_I_F2", "TX17_Q_F1", "TX17_Q_F2",
+	"TX18_I_F1", "TX18_I_F2", "TX18_Q_F1", "TX18_Q_F2",
+	"TX19_I_F1", "TX19_I_F2", "TX19_Q_F1", "TX19_Q_F2",
+	"TX20_I_F1", "TX20_I_F2", "TX20_Q_F1", "TX20_Q_F2",
+	"TX21_I_F1", "TX21_I_F2", "TX21_Q_F1", "TX21_Q_F2",
+	"TX22_I_F1", "TX22_I_F2", "TX22_Q_F1", "TX22_Q_F2",
+	"TX23_I_F1", "TX23_I_F2", "TX23_Q_F1", "TX23_Q_F2",
+	"TX24_I_F1", "TX24_I_F2", "TX24_Q_F1", "TX24_Q_F2",
+	"TX25_I_F1", "TX25_I_F2", "TX25_Q_F1", "TX25_Q_F2",
+	"TX26_I_F1", "TX26_I_F2", "TX26_Q_F1", "TX26_Q_F2",
+	"TX27_I_F1", "TX27_I_F2", "TX27_Q_F1", "TX27_Q_F2",
+	"TX28_I_F1", "TX28_I_F2", "TX28_Q_F1", "TX28_Q_F2",
+	"TX29_I_F1", "TX29_I_F2", "TX29_Q_F1", "TX29_Q_F2",
+	"TX30_I_F1", "TX30_I_F2", "TX30_Q_F1", "TX30_Q_F2",
+	"TX31_I_F1", "TX31_I_F2", "TX31_Q_F1", "TX31_Q_F2",
+	"TX32_I_F1", "TX32_I_F2", "TX32_Q_F1", "TX32_Q_F2",
+};
+
 struct cf_axi_dds_state {
 	struct device			*dev_spi;
 	struct clk			*clk;
@@ -60,11 +95,12 @@ struct cf_axi_dds_state {
 	void __iomem			*master_regs;
 	u64				dac_clk;
 	unsigned int			ddr_dds_interp_en;
-	unsigned int			cached_freq[16];
+	unsigned int			cached_freq[AXIDDS_MAX_NUM_DDS_CHAN];
 	unsigned int			version;
 	unsigned int			have_slave_channels;
 	unsigned int			interpolation_factor;
 	struct notifier_block		clk_nb;
+	struct cf_axi_dds_chip_info	chip_info_generated;
 };
 
 bool cf_axi_dds_dma_fifo_en(struct cf_axi_dds_state *st)
@@ -1388,13 +1424,91 @@ static void dds_converter_put(struct device *conv_dev)
 	put_device(conv_dev);
 }
 
+static int cf_axi_dds_setup_chip_info_tbl(struct cf_axi_dds_state *st,
+					  const char *name, bool complex)
+{
+	u32 i, c, reg, m, n, np;
+
+	reg = dds_read(st, ADI_REG_TPL_DESCRIPTOR_1);
+	m = ADI_TO_JESD_M(reg);
+
+	if (m == 0 || m > ARRAY_SIZE(st->chip_info_generated.channel))
+		return -EINVAL;
+
+	reg = dds_read(st, ADI_REG_TPL_DESCRIPTOR_2);
+	n = ADI_TO_JESD_N(reg);
+	np = ADI_TO_JESD_NP(reg);
+
+	reg = dds_read(st, ADI_REG_CONFIG);
+
+	for (c = 0, i = 0; i < m; i++, c++) {
+		st->chip_info_generated.channel[c].type = IIO_VOLTAGE;
+		st->chip_info_generated.channel[c].output = 1;
+		st->chip_info_generated.channel[c].indexed = 1;
+		st->chip_info_generated.channel[c].modified = complex ? 1 : 0;
+		st->chip_info_generated.channel[c].channel =
+			complex ? i / 2 : i;
+		st->chip_info_generated.channel[c].channel2 =
+			(i & 1) ? IIO_MOD_Q : IIO_MOD_I;
+		st->chip_info_generated.channel[c].scan_index = i;
+		st->chip_info_generated.channel[c].info_mask_shared_by_type =
+		BIT(IIO_CHAN_INFO_SAMP_FREQ);
+
+		if (!(reg & ADI_IQCORRECTION_DISABLE))
+			st->chip_info_generated.channel[c].info_mask_separate =
+			BIT(IIO_CHAN_INFO_CALIBSCALE) |
+			BIT(IIO_CHAN_INFO_CALIBPHASE);
+
+		st->chip_info_generated.channel[c].scan_type.realbits = n;
+		st->chip_info_generated.channel[c].scan_type.storagebits = np;
+		st->chip_info_generated.channel[c].scan_type.sign = 's';
+	}
+
+	if (!(reg & ADI_DDS_DISABLE)) {
+		for (i = 0; i < 2 * m; i++, c++) {
+			if (c > ARRAY_SIZE(st->chip_info_generated.channel))
+				return -EINVAL;
+			st->chip_info_generated.channel[c].type =
+				IIO_ALTVOLTAGE;
+			st->chip_info_generated.channel[c].output = 1;
+			st->chip_info_generated.channel[c].indexed = 1;
+			st->chip_info_generated.channel[c].channel = i;
+			st->chip_info_generated.channel[c].scan_index = -1;
+			st->chip_info_generated.channel
+				[c].info_mask_shared_by_type =
+				BIT(IIO_CHAN_INFO_SAMP_FREQ);
+			st->chip_info_generated.channel[c].info_mask_separate =
+				BIT(IIO_CHAN_INFO_RAW) |
+				BIT(IIO_CHAN_INFO_SCALE) |
+				BIT(IIO_CHAN_INFO_PHASE) |
+				BIT(IIO_CHAN_INFO_FREQUENCY);
+
+			st->chip_info_generated.channel[c].ext_info =
+				cf_axi_dds_ext_info;
+			if (i < ARRAY_SIZE(dds_extend_names))
+				st->chip_info_generated.channel[
+					c].extend_name = dds_extend_names[i];
+		}
+	}
+
+	st->chip_info_generated.num_channels = c;
+	st->chip_info_generated.num_dp_disable_channels = m;
+	st->chip_info_generated.num_dds_channels = i;
+	st->chip_info_generated.num_buf_channels = m;
+	st->chip_info_generated.name = name;
+
+	return 0;
+}
+
 struct axidds_core_info {
 	unsigned int version;
 	bool standalone;
 	bool rate_format_skip_en;
+	bool complex_modified;
 	struct cf_axi_dds_chip_info *chip_info;
 	unsigned int data_format;
 	unsigned int rate;
+	const char *name;
 };
 
 static const struct axidds_core_info ad9122_6_00_a_info = {
@@ -1558,7 +1672,19 @@ static int cf_axi_dds_probe(struct platform_device *pdev)
 		st->clk_nb.notifier_call = cf_axi_dds_rate_change;
 		clk_notifier_register(st->clk, &st->clk_nb);
 
-		st->chip_info = info->chip_info;
+		if (info->chip_info) {
+			st->chip_info = info->chip_info;
+		} else {
+			ret = cf_axi_dds_setup_chip_info_tbl(st, info->name,
+					info->complex_modified);
+			if (ret) {
+				dev_err(&pdev->dev,
+					"Invalid number of converters identified");
+				goto err_iio_device_free;
+			}
+
+			st->chip_info = &st->chip_info_generated;
+		}
 	} else {
 		st->dev_spi = dds_converter_find(&pdev->dev);
 		if (IS_ERR(st->dev_spi)) {
@@ -1712,7 +1838,6 @@ static int cf_axi_dds_probe(struct platform_device *pdev)
 			if (IS_ERR(st->interpolation_gpio))
 				dev_err(&pdev->dev, "interpolation gpio error\n");
 		}
-
 	}
 
 	st->enable = true;
