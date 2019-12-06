@@ -692,6 +692,11 @@ static int ad7124_probe(struct spi_device *spi)
 	if (ret < 0)
 		goto error_clk_disable_unprepare;
 	indio_dev->pollfunc->thread = ad_sd_trigger_handler;
+	ret = irq_set_irq_type(st->sd.spi->irq, IRQ_TYPE_EDGE_FALLING);
+	if (ret < 0) {
+		dev_err(&spi->dev, "Failed to set irq to EDGE_FALLING\n");
+		goto error_clk_disable_unprepare;
+	}
 
 	ret = iio_device_register(indio_dev);
 	if (ret < 0) {
