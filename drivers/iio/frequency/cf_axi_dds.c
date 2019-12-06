@@ -1570,6 +1570,13 @@ static const struct axidds_core_info ad9963_1_00_a_info = {
 	.chip_info = &cf_axi_dds_chip_info_ad9936,
 };
 
+static const struct axidds_core_info ad9081_1_00_a_info = {
+	.version = ADI_AXI_PCORE_VER(9, 1, 'b'),
+	.name = "AD9081",
+	.standalone = true,
+	.complex_modified = true,
+};
+
 /* Match table for of_platform binding */
 static const struct of_device_id cf_axi_dds_of_match[] = {
 	{ .compatible = "adi,axi-ad9122-6.00.a", .data = &ad9122_6_00_a_info},
@@ -1604,6 +1611,9 @@ static const struct of_device_id cf_axi_dds_of_match[] = {
 	}, {
 	    .compatible = "adi,axi-ad9172-1.0",
 	    .data = &ad9162_1_00_a_info,
+	}, {
+	    .compatible = "adi,axi-ad9081-tx-1.0",
+	    .data = &ad9081_1_00_a_info,
 	},
 	{ },
 };
