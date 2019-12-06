@@ -21,9 +21,10 @@
 #define ADI_DATAFORMAT_DISABLE		(1 << 2)
 #define ADI_USERPORTS_DISABLE		(1 << 3)
 #define ADI_MODE_1R1T			(1 << 4)
-#define ADI_SCALECORRECTION_ONLY	(1 << 5)
+#define ADI_DELAY_CONTROL_DISABLE 	(1 << 5)
 #define ADI_CMOS_OR_LVDS_N		(1 << 7)
 #define ADI_PPS_RECEIVER_ENABLE		(1 << 8)
+#define ADI_SCALECORRECTION_ONLY	(1 << 9)
 
 #define ADI_REG_RSTN			0x0040
 #define ADI_RSTN				(1 << 0)
