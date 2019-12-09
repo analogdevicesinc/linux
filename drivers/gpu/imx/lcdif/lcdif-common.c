@@ -75,7 +75,7 @@ static const struct of_device_id imx_lcdif_dt_ids[] = {
 	{ .compatible = "fsl,imx8mn-lcdif", .data = &imx8mm_pdata, },
 	{ /* sentinel */ }
 };
-MODULE_DEVICE_TABLE(of, lcdif_dt_ids);
+MODULE_DEVICE_TABLE(of, imx_lcdif_dt_ids);
 
 #ifdef CONFIG_PM
 static int imx_lcdif_runtime_suspend(struct device *dev);
