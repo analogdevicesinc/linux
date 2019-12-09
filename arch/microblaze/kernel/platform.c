@@ -12,7 +12,6 @@
 
 #include <linux/init.h>
 #include <linux/of_platform.h>
-#include <asm/prom.h>
 #include <asm/setup.h>
 
 #include <linux/clk-provider.h>
