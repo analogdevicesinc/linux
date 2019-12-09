@@ -38,7 +38,7 @@
 
 struct ls1012a_eth_platform_data {
 	/* board specific information */
-	u32 mii_config;
+	phy_interface_t mii_config;
 	u32 phy_flags;
 	u32 gem_id;
 	u32 phy_id;

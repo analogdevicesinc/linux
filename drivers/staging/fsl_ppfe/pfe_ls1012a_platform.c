@@ -30,6 +30,7 @@ static int pfe_get_gemac_if_properties(struct device_node *gem,
 	int phy_id = 0;
 	const u32 *addr;
 	const void *mac_addr;
+	int err;
 
 	addr = of_get_property(gem, "reg", &size);
 	port = be32_to_cpup(addr);
@@ -81,8 +82,8 @@ static int pfe_get_gemac_if_properties(struct device_node *gem,
 	}
 
 process_phynode:
-	pdata->ls1012a_eth_pdata[port].mii_config = of_get_phy_mode(gem);
-	if ((pdata->ls1012a_eth_pdata[port].mii_config) < 0)
+	err = of_get_phy_mode(gem, &pdata->ls1012a_eth_pdata[port].mii_config);
+	if (err)
 		pr_err("%s:%d Incorrect Phy mode....\n", __func__,
 		       __LINE__);
 
