@@ -8,6 +8,8 @@
 #include <linux/types.h>
 #include <linux/debugfs.h>
 #include <drm/drm_print.h>
+#include <drm/drm_device.h>
+#include <drm/drm_file.h>
 
 #include "adv7511.h"
 
