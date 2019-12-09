@@ -535,8 +535,7 @@ static int mxc_isi_m2m_querycap(struct file *file, void *priv,
 	strscpy(cap->card, MXC_ISI_M2M, sizeof(cap->card));
 	snprintf(cap->bus_info, sizeof(cap->bus_info), "platform:%s.%d",
 		 dev_name(&isi_m2m->pdev->dev), isi_m2m->id);
-	cap->device_caps = V4L2_CAP_STREAMING | V4L2_CAP_VIDEO_M2M_MPLANE |
-		V4L2_CAP_VIDEO_CAPTURE_MPLANE | V4L2_CAP_VIDEO_OUTPUT_MPLANE;
+	cap->device_caps = V4L2_CAP_STREAMING | V4L2_CAP_VIDEO_M2M_MPLANE;
 	cap->capabilities = cap->device_caps | V4L2_CAP_DEVICE_CAPS;
 
 	return 0;
@@ -1121,8 +1120,7 @@ static int isi_m2m_probe(struct platform_device *pdev)
 	vdev->minor	= -1;
 	vdev->release	= video_device_release_empty;
 	vdev->vfl_dir = VFL_DIR_M2M;
-	vdev->device_caps = V4L2_CAP_STREAMING | V4L2_CAP_VIDEO_M2M_MPLANE |
-		V4L2_CAP_VIDEO_CAPTURE_MPLANE | V4L2_CAP_VIDEO_OUTPUT_MPLANE;
+	vdev->device_caps = V4L2_CAP_STREAMING | V4L2_CAP_VIDEO_M2M_MPLANE;
 
 	ret = mxc_isi_m2m_ctrls_create(isi_m2m);
 	if (ret)
