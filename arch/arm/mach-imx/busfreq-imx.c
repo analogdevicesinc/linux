@@ -131,6 +131,7 @@ static struct clk *pll1_bypass_clk;
 static struct clk *pll1_sys_clk;
 static struct clk *pll1_sw_clk;
 
+static struct clk *axi_alt_sel_clk;
 static struct clk *pll3_pfd1_540m_clk;
 
 static struct clk *ocram_clk;
@@ -407,7 +408,8 @@ static void exit_lpm_imx6_smp(void)
 	clk_set_parent(periph_clk, periph_pre_clk);
 	if (cpu_is_imx6dl()) {
 		/* Set axi to pll3_pfd1_540m */
-		clk_set_parent(axi_sel_clk, pll3_pfd1_540m_clk);
+		clk_set_parent(axi_alt_sel_clk, pll3_pfd1_540m_clk);
+		clk_set_parent(axi_sel_clk, axi_alt_sel_clk);
 	}
 	/*
 	 * As periph_pre_clk's parent is not changed from
@@ -1130,9 +1132,11 @@ static int busfreq_probe(struct platform_device *pdev)
 	}
 
 	if (cpu_is_imx6dl()) {
+		axi_alt_sel_clk = devm_clk_get(&pdev->dev, "axi_alt_sel");
 		axi_sel_clk = devm_clk_get(&pdev->dev, "axi_sel");
 		pll3_pfd1_540m_clk = devm_clk_get(&pdev->dev, "pll3_pfd1_540m");
-		if (IS_ERR(axi_sel_clk) || IS_ERR(pll3_pfd1_540m_clk)) {
+		if (IS_ERR(axi_alt_sel_clk) || IS_ERR(axi_sel_clk)
+			|| IS_ERR(pll3_pfd1_540m_clk)) {
 			dev_err(busfreq_dev,
 				"%s: failed to get busfreq clk\n", __func__);
 			return -EINVAL;
