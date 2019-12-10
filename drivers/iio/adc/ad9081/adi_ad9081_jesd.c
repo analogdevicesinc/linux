@@ -921,6 +921,7 @@ int32_t adi_ad9081_jesd_rx_bring_up(adi_ad9081_device_t *device,
 		  (jesd204b_en > 0 ? 5 : 11);
 	if (bit_rate <= 2000000000ULL) {
 		AD9081_LOG_ERR("jrx bit rate is lower than 2Gbps.");
+		return API_CMS_ERROR_INVALID_PARAM;
 	} else if (bit_rate > 2000000000ULL && bit_rate <= 4000000000ULL) {
 		b_lcpll = b_lcpll * 4;
 		rx_div_rate = 1;
