@@ -795,11 +795,12 @@ static const struct mipi_dsi_host_ops sec_mipi_dsim_host_ops = {
 static int sec_mipi_dsim_bridge_attach(struct drm_bridge *bridge)
 {
 	int ret;
+	bool attach_bridge = false;
 	struct sec_mipi_dsim *dsim = bridge->driver_private;
 	struct device *dev = dsim->dev;
 	struct device_node *np = dev->of_node;
-	struct device_node *endpoint, *remote;
-	struct drm_bridge *next = NULL;
+	struct device_node *endpoint, *remote = NULL;
+	struct drm_bridge *next = ERR_PTR(-ENODEV);
 	struct drm_encoder *encoder = dsim->encoder;
 
 	/* TODO: All bridges and planes should have already been added */
@@ -814,7 +815,14 @@ static int sec_mipi_dsim_bridge_attach(struct drm_bridge *bridge)
 	if (!endpoint)
 		return -ENODEV;
 
-	while(endpoint && !next) {
+	while (endpoint) {
+		/* check the endpoint can attach bridge or not */
+		attach_bridge = of_property_read_bool(endpoint, "attach-bridge");
+		if (!attach_bridge) {
+			endpoint = of_graph_get_next_endpoint(np, endpoint);
+			continue;
+		}
+
 		remote = of_graph_get_remote_port_parent(endpoint);
 
 		if (!remote || !of_device_is_available(remote)) {
@@ -832,6 +840,10 @@ static int sec_mipi_dsim_bridge_attach(struct drm_bridge *bridge)
 
 		endpoint = of_graph_get_next_endpoint(np, endpoint);
 	}
+
+	/* No workable bridge exists */
+	if (IS_ERR(next))
+		return PTR_ERR(next);
 
 	/* For the panel driver loading is after dsim bridge,
 	 * defer bridge binding to wait for panel driver ready.
@@ -1823,6 +1835,7 @@ int sec_mipi_dsim_bind(struct device *dev, struct device *master, void *data,
 	struct drm_bridge *bridge;
 	struct drm_connector *connector;
 	struct sec_mipi_dsim *dsim;
+	struct device_node *node = NULL;
 
 	dev_dbg(dev, "sec-dsim bridge bind begin\n");
 
@@ -1921,10 +1934,30 @@ int sec_mipi_dsim_bind(struct device *dev, struct device *master, void *data,
 	ret = drm_bridge_attach(encoder, bridge, NULL);
 	if (ret) {
 		dev_err(dev, "Failed to attach bridge: %s\n", dev_name(dev));
+
+		/* no bridge exists, so defer probe to wait
+		 * panel driver loading
+		 */
+		if (ret != -EPROBE_DEFER) {
+			for_each_available_child_of_node(dev->of_node, node) {
+				/* skip nodes without reg property */
+				if (!of_find_property(node, "reg", NULL))
+					continue;
+
+				/* error codes only ENODEV or EPROBE_DEFER */
+				dsim->panel = of_drm_find_panel(node);
+				if (!IS_ERR(dsim->panel))
+					goto panel;
+
+				ret = PTR_ERR(dsim->panel);
+			}
+		}
+
 		mipi_dsi_host_unregister(&dsim->dsi_host);
 		return ret;
 	}
 
+panel:
 	if (dsim->panel) {
 		/* A panel has been attached */
 		connector = &dsim->connector;
