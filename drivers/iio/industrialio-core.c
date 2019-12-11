@@ -1638,7 +1638,7 @@ static const struct file_operations iio_buffer_none_fileops = {
 };
 
 static const struct file_operations iio_buffer_in_fileops = {
-	.read = iio_buffer_read_first_n_outer_addr,
+	.read = iio_buffer_read_outer_addr,
 	.release = iio_chrdev_release,
 	.open = iio_chrdev_open,
 	.poll = iio_buffer_poll_addr,
