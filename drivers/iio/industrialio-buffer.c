@@ -95,7 +95,7 @@ static bool iio_buffer_ready(struct iio_dev *indio_dev, struct iio_buffer *buf,
 }
 
 /**
- * iio_buffer_read_first_n_outer() - chrdev read for buffer access
+ * iio_buffer_read_outer() - chrdev read for buffer access
  * @filp:	File structure pointer for the char device
  * @buf:	Destination buffer for iio buffer read
  * @n:		First n bytes to read
@@ -107,8 +107,8 @@ static bool iio_buffer_ready(struct iio_dev *indio_dev, struct iio_buffer *buf,
  * Return: negative values corresponding to error codes or ret != 0
  *	   for ending the reading activity
  **/
-ssize_t iio_buffer_read_first_n_outer(struct file *filp, char __user *buf,
-				      size_t n, loff_t *f_ps)
+ssize_t iio_buffer_read_outer(struct file *filp, char __user *buf,
+			      size_t n, loff_t *f_ps)
 {
 	struct iio_dev *indio_dev = filp->private_data;
 	struct iio_buffer *rb = indio_dev->buffer;
