@@ -41,6 +41,7 @@ static void iio_hw_buf_release(struct iio_buffer *buffer)
 {
 	struct hw_consumer_buffer *hw_buf =
 		iio_buffer_to_hw_consumer_buffer(buffer);
+	iio_buffer_free_scanmask(buffer);
 	kfree(hw_buf);
 }
 
@@ -54,6 +55,7 @@ static struct hw_consumer_buffer *iio_hw_consumer_get_buffer(
 {
 	size_t mask_size = BITS_TO_LONGS(indio_dev->masklength) * sizeof(long);
 	struct hw_consumer_buffer *buf;
+	int ret;
 
 	list_for_each_entry(buf, &hwc->buffers, head) {
 		if (buf->indio_dev == indio_dev)
@@ -69,9 +71,18 @@ static struct hw_consumer_buffer *iio_hw_consumer_get_buffer(
 	buf->buffer.scan_mask = buf->scan_mask;
 
 	iio_buffer_init(&buf->buffer);
+
+	ret = iio_buffer_alloc_scanmask(&buf->buffer, indio_dev);
+	if (ret)
+		goto err_free_buf;
+
 	list_add_tail(&buf->head, &hwc->buffers);
 
 	return buf;
+
+err_free_buf:
+	kfree(buf);
+	return NULL;
 }
 
 /**
@@ -106,7 +117,7 @@ struct iio_hw_consumer *iio_hw_consumer_alloc(struct device *dev)
 			ret = -ENOMEM;
 			goto err_put_buffers;
 		}
-		set_bit(chan->channel->scan_index, buf->buffer.scan_mask);
+		iio_buffer_channel_enable(&buf->buffer, chan);
 		chan++;
 	}
 
