@@ -15,7 +15,7 @@ if NVMEM
 
 config NVMEM_AXI_SYSID
 	tristate "Analog Devices AXI System ID Support"
-	depends on ARCH_ZYNQMP || ARCH_ZYNQ
+	depends on ARCH_ZYNQMP || ARCH_ZYNQ || MICROBLAZE || ARCH_SOCFPGA || NIOS2
 	depends on HAS_IOMEM
 	help
 	  Say Y here to include AXI System ID support.
