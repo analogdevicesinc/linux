@@ -178,6 +178,7 @@
 			interrupt-parent = <&irqsteer_hdmi>;
 			interrupts = <10>, <13>;
 			interrupt-names = "plug_in", "plug_out";
+			firmware-name = "hdmitxfw.bin";
 			status = "disabled";
 
 			clocks = <&clk IMX_SC_R_HDMI_PLL_0 IMX_SC_PM_CLK_PLL>,
