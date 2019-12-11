@@ -117,6 +117,7 @@
 
 &hdmi {
 	compatible = "cdn,imx8qm-hdmi";
+	firmware-name = "hdmitxfw.bin";
 	lane-mapping = <0x93>;
 	hdcp-config = <0x3>;
 	status = "okay";
