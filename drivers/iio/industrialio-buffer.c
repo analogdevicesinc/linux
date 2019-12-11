@@ -120,9 +120,6 @@ ssize_t iio_buffer_read_first_n_outer(struct file *filp, char __user *buf,
 	if (!indio_dev->info)
 		return -ENODEV;
 
-	if (!indio_dev->info)
-		return -ENODEV;
-
 	if (!rb || !rb->access->read)
 		return -EINVAL;
 
