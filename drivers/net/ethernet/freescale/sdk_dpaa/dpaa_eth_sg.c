@@ -1,4 +1,5 @@
 /* Copyright 2012 Freescale Semiconductor Inc.
+ * Copyright 2019 NXP
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -100,8 +101,8 @@ static int _dpa_bp_add_8_bufs(const struct dpa_bp *dpa_bp)
 		 * We only need enough space to store a pointer, but allocate
 		 * an entire cacheline for performance reasons.
 		 */
-#ifndef CONFIG_PPC
-		if (unlikely(dpaa_errata_a010022)) {
+#ifdef FM_ERRATUM_A010022
+		if (unlikely(fm_has_errata_a010022())) {
 			struct page *new_page = alloc_page(GFP_ATOMIC);
 			if (unlikely(!new_page))
 				goto netdev_alloc_failed;
@@ -764,7 +765,7 @@ int __hot skb_to_contig_fd(struct dpa_priv_s *priv,
 }
 EXPORT_SYMBOL(skb_to_contig_fd);
 
-#ifndef CONFIG_PPC
+#ifdef FM_ERRATUM_A010022
 /* Verify the conditions that trigger the A010022 errata:
  * - 4K memory address boundary crossings when the data/SG fragments aren't
  *   aligned to 256 bytes
@@ -940,8 +941,8 @@ int __hot skb_to_sg_fd(struct dpa_priv_s *priv,
 	/* Get a page frag to store the SGTable, or a full page if the errata
 	 * is in place and we need to avoid crossing a 4k boundary.
 	 */
-#ifndef CONFIG_PPC
-	if (unlikely(dpaa_errata_a010022)) {
+#ifdef FM_ERRATUM_A010022
+	if (unlikely(fm_has_errata_a010022())) {
 		struct page *new_page = alloc_page(GFP_ATOMIC);
 
 		if (unlikely(!new_page))
@@ -1120,8 +1121,8 @@ int __hot dpa_tx_extended(struct sk_buff *skb, struct net_device *net_dev,
 
 	clear_fd(&fd);
 
-#ifndef CONFIG_PPC
-	if (unlikely(dpaa_errata_a010022) && a010022_check_skb(skb, priv))
+#ifdef FM_ERRATUM_A010022
+	if (unlikely(fm_has_errata_a010022()) && a010022_check_skb(skb, priv))
 		skb_need_wa = true;
 #endif
 
@@ -1193,12 +1194,12 @@ int __hot dpa_tx_extended(struct sk_buff *skb, struct net_device *net_dev,
 			 * more fragments than we support. In this case,
 			 * we have no choice but to linearize it ourselves.
 			 */
-#ifndef CONFIG_PPC
+#ifdef FM_ERRATUM_A010022
 			/* No point in linearizing the skb now if we are going
 			 * to realign and linearize it again further down due
 			 * to the A010022 errata
 			 */
-			if (unlikely(dpaa_errata_a010022))
+			if (unlikely(fm_has_errata_a010022()))
 				skb_need_wa = true;
 			else
 #endif
@@ -1208,15 +1209,15 @@ int __hot dpa_tx_extended(struct sk_buff *skb, struct net_device *net_dev,
 			/* Common out-of-memory error path */
 			goto enomem;
 
-#ifndef CONFIG_PPC
+#ifdef FM_ERRATUM_A010022
 		/* Verify the skb a second time if it has been updated since
 		 * the previous check
 		 */
-		if (unlikely(dpaa_errata_a010022) && skb_changed &&
+		if (unlikely(fm_has_errata_a010022()) && skb_changed &&
 		    a010022_check_skb(skb, priv))
 			skb_need_wa = true;
 
-		if (unlikely(dpaa_errata_a010022) && skb_need_wa) {
+		if (unlikely(fm_has_errata_a010022()) && skb_need_wa) {
 			nskb = a010022_realign_skb(skb, priv);
 			if (!nskb)
 				goto skb_to_fd_failed;

@@ -1,4 +1,5 @@
 /* Copyright 2008-2013 Freescale Semiconductor Inc.
+ * Copyright 2019 NXP
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -104,11 +105,6 @@ static const char rtx[][3] = {
 	[RX] = "RX",
 	[TX] = "TX"
 };
-
-#ifndef CONFIG_PPC
-bool dpaa_errata_a010022;
-EXPORT_SYMBOL(dpaa_errata_a010022);
-#endif
 
 /* BM */
 
@@ -1133,26 +1129,6 @@ static struct platform_driver dpa_driver = {
 	.remove		= dpa_remove
 };
 
-#ifndef CONFIG_PPC
-static bool __init __cold soc_has_errata_a010022(void)
-{
-#ifdef CONFIG_SOC_BUS
-	const struct soc_device_attribute soc_msi_matches[] = {
-		{ .family = "QorIQ LS1043A",
-		  .data = NULL },
-		{ },
-	};
-
-	if (soc_device_match(soc_msi_matches))
-		return true;
-
-	return false;
-#else
-	return true; /* cannot identify SoC */
-#endif
-}
-#endif
-
 static int __init __cold dpa_load(void)
 {
 	int	 _errno;
@@ -1167,11 +1143,6 @@ static int __init __cold dpa_load(void)
 	dpa_rx_extra_headroom = fm_get_rx_extra_headroom();
 	dpa_max_frm = fm_get_max_frm();
 	dpa_num_cpus = num_possible_cpus();
-
-#ifndef CONFIG_PPC
-	/* Detect if the current SoC requires the 4K alignment workaround */
-	dpaa_errata_a010022 = soc_has_errata_a010022();
-#endif
 
 #ifdef CONFIG_FSL_DPAA_DBG_LOOP
 	memset(dpa_loop_netdevs, 0, sizeof(dpa_loop_netdevs));

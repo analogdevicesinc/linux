@@ -1,4 +1,5 @@
 /* Copyright 2008-2012 Freescale Semiconductor Inc.
+ * Copyright 2019 NXP
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -98,15 +99,15 @@ struct dpa_buffer_layout_s {
  * space to account for further alignments.
  */
 #define DPA_MAX_FRM_SIZE	9600
-#ifdef CONFIG_PPC
+#ifndef FM_ERRATUM_A010022
 #define DPA_BP_RAW_SIZE \
 	((DPA_MAX_FRM_SIZE + DPA_MAX_FD_OFFSET + \
 	  sizeof(struct skb_shared_info) + 128) & ~(SMP_CACHE_BYTES - 1))
-#else /* CONFIG_PPC */
-#define DPA_BP_RAW_SIZE ((unlikely(dpaa_errata_a010022)) ? 2048 : \
+#else /* FM_ERRATUM_A010022 */
+#define DPA_BP_RAW_SIZE ((unlikely(fm_has_errata_a010022())) ? 2048 : \
 	((DPA_MAX_FRM_SIZE + DPA_MAX_FD_OFFSET + \
 	  sizeof(struct skb_shared_info) + 128) & ~(SMP_CACHE_BYTES - 1)))
-#endif /* CONFIG_PPC */
+#endif /* FM_ERRATUM_A010022 */
 #endif /* CONFIG_FSL_DPAA_ETH_JUMBO_FRAME */
 
 /* This is what FMan is ever allowed to use.
@@ -659,8 +660,7 @@ static inline void _dpa_bp_free_pf(void *addr)
  * on egress.
  */
 
-#ifndef CONFIG_PPC
-extern bool dpaa_errata_a010022; /* SoC affected by A010022 errata */
+#ifdef FM_ERRATUM_A010022
 #define CROSS_4K(start, size) \
 	(((uintptr_t)(start) + (size)) > \
 	 (((uintptr_t)(start) + 0x1000) & ~0xFFF))
@@ -668,6 +668,6 @@ extern bool dpaa_errata_a010022; /* SoC affected by A010022 errata */
  * we reserve 256 bytes instead to guarantee 256 data alignment.
  */
 #define DPAA_A010022_HEADROOM	256
-#endif  /* !CONFIG_PPC */
+#endif  /* FM_ERRATUM_A010022 */
 
 #endif	/* __DPA_H */
