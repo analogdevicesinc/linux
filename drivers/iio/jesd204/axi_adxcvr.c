@@ -255,6 +255,23 @@ static void adxcvr_clk_disable(struct clk_hw *hw)
 	adxcvr_write(st, ADXCVR_REG_RESETN, 0);
 }
 
+static void adxcvr_init_qpll_conf(struct adxcvr_state *st,
+				  struct xilinx_xcvr_qpll_config *conf)
+{
+	switch (st->xcvr.type) {
+	case XILINX_XCVR_TYPE_US_GTH3:
+	case XILINX_XCVR_TYPE_US_GTH4:
+	case XILINX_XCVR_TYPE_US_GTY4:
+		if (st->sys_clk_sel == ADXCVR_GTH_SYSCLK_QPLL1)
+			conf->qpll = 1;
+		else
+			conf->qpll = 0;
+		break;
+	default:
+		conf->qpll = 0;
+	}
+}
+
 static unsigned long adxcvr_clk_recalc_rate(struct clk_hw *hw,
 					    unsigned long parent_rate)
 {
@@ -289,13 +306,7 @@ static unsigned long adxcvr_clk_recalc_rate(struct clk_hw *hw,
 	} else {
 		struct xilinx_xcvr_qpll_config qpll_conf;
 
-		if ((st->xcvr.type == XILINX_XCVR_TYPE_US_GTH3) ||
-		    (st->xcvr.type == XILINX_XCVR_TYPE_US_GTH4)) {
-			if (st->sys_clk_sel == ADXCVR_GTH_SYSCLK_QPLL1)
-				qpll_conf.qpll = 1;
-			else
-				qpll_conf.qpll = 0;
-		}
+		adxcvr_init_qpll_conf(st, &qpll_conf);
 
 		xilinx_xcvr_qpll_read_config(&st->xcvr, ADXCVR_DRP_PORT_COMMON(0),
 			&qpll_conf);
@@ -344,13 +355,7 @@ static int adxcvr_clk_set_rate(struct clk_hw *hw,
 	dev_dbg(st->dev, "%s: Rate %lu Hz Parent Rate %lu Hz",
 		__func__, rate, parent_rate);
 
-	if ((st->xcvr.type == XILINX_XCVR_TYPE_US_GTH3) ||
-	    (st->xcvr.type == XILINX_XCVR_TYPE_US_GTH4)) {
-		if (st->sys_clk_sel == ADXCVR_GTH_SYSCLK_QPLL1)
-			qpll_conf.qpll = 1;
-		else
-			qpll_conf.qpll = 0;
-	}
+	adxcvr_init_qpll_conf(st, &qpll_conf);
 
 	clk25_div = DIV_ROUND_CLOSEST(parent_rate, 25000000);
 
