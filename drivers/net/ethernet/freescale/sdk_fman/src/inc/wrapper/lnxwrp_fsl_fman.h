@@ -1,5 +1,6 @@
 /*
  * Copyright 2008-2012 Freescale Semiconductor Inc.
+ * Copyright 2019 NXP
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -487,6 +488,15 @@ int fm_get_max_frm(void);
  @Description   Get the extra headroom size
 *//***************************************************************************/
 int fm_get_rx_extra_headroom(void);
+
+/**************************************************************************//**
+ @Function	fm_has_errata_a010022
+
+ @Description   Detect if the SoC is vulnerable to the A010022 errata
+*//***************************************************************************/
+#ifdef FM_ERRATUM_A010022
+bool fm_has_errata_a010022(void);
+#endif
 
 /**************************************************************************//**
 @Function     fm_port_set_rate_limit

@@ -1,5 +1,6 @@
 /*
  * Copyright 2012 Freescale Semiconductor Inc.
+ * Copyright 2019 NXP
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -269,6 +270,8 @@ typedef enum
 #define FM_LEN_CHECK_ERRATA_FMAN_SW002
 #define FM_AID_MODE_NO_TNUM_SW005 /* refer to pdm TKT068794 - only support of port_id on aid */
 #define FM_ERROR_VSP_NO_MATCH_SW006 /* refer to pdm TKT174304 - no match between errorQ and VSP */
+
+#define FM_ERRATUM_A010022
 
 /*****************************************************************************
  RMan INTEGRATION-SPECIFIC DEFINITIONS
