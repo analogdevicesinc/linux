@@ -59,6 +59,10 @@
 #define AD9081_RX_JESD_S				1
 #define AD9081_RX_JESD_HD				1
 
+/* Interface */
+
+#define AD9081_SPI_MAX_SPEED_HZ			20000000
+
 / {
 	clocks {
 		clkin_j41: clock@0 {
@@ -117,23 +121,11 @@
 	};
 };
 
-// 0 - mxfe_cs[0]
-// 1 - mxfe_cs[1]
-// 2 - mxfe_cs[2]
-// 3 - mxfe_cs[3]
-// 4 - adf4371_cs[0]
-// 5 - adf4371_cs[1]
-// 6 - adf4371_cs[2]
-// 7 - adf4371_cs[3]
-// 8 - hmc7043_slen
+&axi_spi2 {
 
-&fmc_spi {
-
-	num-cs = <9>;
-
-	adf4371_clk0: adf4371-0@4 {
+	adf4371_clk0: adf4371-0@0 {
 		compatible = "adi,adf4371";
-		reg = <4>;
+		reg = <0>;
 
 		#address-cells = <1>;
 		#clock-cells = <1>;
@@ -153,9 +145,9 @@
 		};
 	};
 
-	adf4371_clk1: adf4371-1@5 {
+	adf4371_clk1: adf4371-1@1 {
 		compatible = "adi,adf4371";
-		reg = <5>;
+		reg = <1>;
 
 		#address-cells = <1>;
 		#clock-cells = <1>;
@@ -175,9 +167,9 @@
 		};
 	};
 
-	adf4371_clk2: adf4371-2@6 {
+	adf4371_clk2: adf4371-2@2 {
 		compatible = "adi,adf4371";
-		reg = <6>;
+		reg = <2>;
 
 		#address-cells = <1>;
 		#clock-cells = <1>;
@@ -197,9 +189,9 @@
 		};
 	};
 
-	adf4371_clk3: adf4371-3@7 {
+	adf4371_clk3: adf4371-3@3 {
 		compatible = "adi,adf4371";
-		reg = <7>;
+		reg = <3>;
 
 		#address-cells = <1>;
 		#clock-cells = <1>;
@@ -219,12 +211,12 @@
 		};
 	};
 
-	hmc7043: hmc7043@8 {
+	hmc7043: hmc7043@4 {
 		#address-cells = <1>;
 		#size-cells = <0>;
 		#clock-cells = <1>;
 		compatible = "adi,hmc7043";
-		reg = <8>;
+		reg = <4>;
 		spi-max-frequency = <10000000>;
 
 		clocks = <&clkin_j41>;
@@ -305,7 +297,7 @@
 		#size-cells = <0>;
 		compatible = "adi,ad9081";
 		reg = <0>;
-		spi-max-frequency = <20000000>;
+		spi-max-frequency = <AD9081_SPI_MAX_SPEED_HZ>;
 
 		/* Clocks */
 		clocks =
@@ -533,7 +525,7 @@
 		#size-cells = <0>;
 		compatible = "adi,ad9081";
 		reg = <1>;
-		spi-max-frequency = <20000000>;
+		spi-max-frequency = <AD9081_SPI_MAX_SPEED_HZ>;
 
 		/* Clocks */
 		clocks =
@@ -761,7 +753,7 @@
 		#size-cells = <0>;
 		compatible = "adi,ad9081";
 		reg = <2>;
-		spi-max-frequency = <20000000>;
+		spi-max-frequency = <AD9081_SPI_MAX_SPEED_HZ>;
 
 		/* Clocks */
 		clocks = <&adf4371_clk2 2>, <&hmc7043 8>, <&hmc7043 1>, <&hmc7043 9>;
@@ -987,7 +979,7 @@
 		#size-cells = <0>;
 		compatible = "adi,ad9081";
 		reg = <3>;
-		spi-max-frequency = <20000000>;
+		spi-max-frequency = <AD9081_SPI_MAX_SPEED_HZ>;
 
 		/* Clocks */
 		clocks = <&axi_ad9081_rx_jesd>, <&axi_ad9081_tx_jesd>,
