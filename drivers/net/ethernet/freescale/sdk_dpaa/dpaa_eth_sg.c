@@ -101,8 +101,8 @@ static int _dpa_bp_add_8_bufs(const struct dpa_bp *dpa_bp)
 		 * We only need enough space to store a pointer, but allocate
 		 * an entire cacheline for performance reasons.
 		 */
-#ifdef FM_ERRATUM_A010022
-		if (unlikely(fm_has_errata_a010022())) {
+#ifdef FM_ERRATUM_A050385
+		if (unlikely(fm_has_errata_a050385())) {
 			struct page *new_page = alloc_page(GFP_ATOMIC);
 			if (unlikely(!new_page))
 				goto netdev_alloc_failed;
@@ -765,15 +765,15 @@ int __hot skb_to_contig_fd(struct dpa_priv_s *priv,
 }
 EXPORT_SYMBOL(skb_to_contig_fd);
 
-#ifdef FM_ERRATUM_A010022
-/* Verify the conditions that trigger the A010022 errata:
+#ifdef FM_ERRATUM_A050385
+/* Verify the conditions that trigger the A050385 errata:
  * - 4K memory address boundary crossings when the data/SG fragments aren't
  *   aligned to 256 bytes
  * - data and SG fragments that aren't aligned to 16 bytes
  * - SG fragments that aren't mod 16 bytes in size (except for the last
  *   fragment)
  */
-static bool a010022_check_skb(struct sk_buff *skb, struct dpa_priv_s *priv)
+static bool a050385_check_skb(struct sk_buff *skb, struct dpa_priv_s *priv)
 {
 	skb_frag_t *frag;
 	int i, nr_frags;
@@ -840,7 +840,7 @@ static bool a010022_check_skb(struct sk_buff *skb, struct dpa_priv_s *priv)
  * page. Build a new skb around the new buffer and release the old one.
  * A performance drop should be expected.
  */
-static struct sk_buff *a010022_realign_skb(struct sk_buff *skb,
+static struct sk_buff *a050385_realign_skb(struct sk_buff *skb,
 					   struct dpa_priv_s *priv)
 {
 	int trans_offset = skb_transport_offset(skb);
@@ -850,7 +850,7 @@ static struct sk_buff *a010022_realign_skb(struct sk_buff *skb,
 	struct page *npage;
 	void *npage_addr;
 
-	headroom = DPAA_A010022_HEADROOM;
+	headroom = DPAA_A050385_HEADROOM;
 
 	/* For the new skb we only need the old one's data (both non-paged and
 	 * paged). We can skip the old tailroom.
@@ -941,8 +941,8 @@ int __hot skb_to_sg_fd(struct dpa_priv_s *priv,
 	/* Get a page frag to store the SGTable, or a full page if the errata
 	 * is in place and we need to avoid crossing a 4k boundary.
 	 */
-#ifdef FM_ERRATUM_A010022
-	if (unlikely(fm_has_errata_a010022())) {
+#ifdef FM_ERRATUM_A050385
+	if (unlikely(fm_has_errata_a050385())) {
 		struct page *new_page = alloc_page(GFP_ATOMIC);
 
 		if (unlikely(!new_page))
@@ -1099,9 +1099,9 @@ int __hot dpa_tx_extended(struct sk_buff *skb, struct net_device *net_dev,
 	int *countptr, offset = 0;
 	struct sk_buff *nskb;
 
-	/* Flags to help optimize the A010022 errata restriction checks.
+	/* Flags to help optimize the A050385 errata restriction checks.
 	 *
-	 * First flag marks if the skb changed between the first A010022 check
+	 * First flag marks if the skb changed between the first A050385 check
 	 * and the moment it's converted to an FD.
 	 *
 	 * The second flag marks if the skb needs to be realigned in order to
@@ -1121,8 +1121,8 @@ int __hot dpa_tx_extended(struct sk_buff *skb, struct net_device *net_dev,
 
 	clear_fd(&fd);
 
-#ifdef FM_ERRATUM_A010022
-	if (unlikely(fm_has_errata_a010022()) && a010022_check_skb(skb, priv))
+#ifdef FM_ERRATUM_A050385
+	if (unlikely(fm_has_errata_a050385()) && a050385_check_skb(skb, priv))
 		skb_need_wa = true;
 #endif
 
@@ -1176,7 +1176,7 @@ int __hot dpa_tx_extended(struct sk_buff *skb, struct net_device *net_dev,
 		/* We're going to store the skb backpointer at the beginning
 		 * of the data buffer, so we need a privately owned skb
 		 *
-		 * Under the A010022 errata, we are going to have a privately
+		 * Under the A050385 errata, we are going to have a privately
 		 * owned skb after realigning the current one, so no point in
 		 * copying it here in that case.
 		 */
@@ -1194,12 +1194,12 @@ int __hot dpa_tx_extended(struct sk_buff *skb, struct net_device *net_dev,
 			 * more fragments than we support. In this case,
 			 * we have no choice but to linearize it ourselves.
 			 */
-#ifdef FM_ERRATUM_A010022
+#ifdef FM_ERRATUM_A050385
 			/* No point in linearizing the skb now if we are going
 			 * to realign and linearize it again further down due
-			 * to the A010022 errata
+			 * to the A050385 errata
 			 */
-			if (unlikely(fm_has_errata_a010022()))
+			if (unlikely(fm_has_errata_a050385()))
 				skb_need_wa = true;
 			else
 #endif
@@ -1209,16 +1209,16 @@ int __hot dpa_tx_extended(struct sk_buff *skb, struct net_device *net_dev,
 			/* Common out-of-memory error path */
 			goto enomem;
 
-#ifdef FM_ERRATUM_A010022
+#ifdef FM_ERRATUM_A050385
 		/* Verify the skb a second time if it has been updated since
 		 * the previous check
 		 */
-		if (unlikely(fm_has_errata_a010022()) && skb_changed &&
-		    a010022_check_skb(skb, priv))
+		if (unlikely(fm_has_errata_a050385()) && skb_changed &&
+		    a050385_check_skb(skb, priv))
 			skb_need_wa = true;
 
-		if (unlikely(fm_has_errata_a010022()) && skb_need_wa) {
-			nskb = a010022_realign_skb(skb, priv);
+		if (unlikely(fm_has_errata_a050385()) && skb_need_wa) {
+			nskb = a050385_realign_skb(skb, priv);
 			if (!nskb)
 				goto skb_to_fd_failed;
 			dev_kfree_skb(skb);
