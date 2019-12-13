@@ -68,6 +68,14 @@
 #define TX_CLK25_DIV			0x6a
 #define TX_CLK25_DIV_MASK		0x1f
 
+#define GTH34_QPLL0_FBDIV_DIV		0x14
+#define GTH34_QPLL0_REFCLK_DIV		0x18
+#define GTH34_QPLL1_FBDIV		0x94
+#define GTH34_QPLL1_REFCLK_DIV		0x98
+
+#define GTH34_QPLL_FBDIV(x)		(0x14 + (x) * 0x80)
+#define GTH34_QPLL_REFCLK_DIV(x)	(0x18 + (x) * 0x80)
+
 static int xilinx_xcvr_drp_read(struct xilinx_xcvr *xcvr,
 	unsigned int drp_port, unsigned int reg)
 {
@@ -783,15 +791,8 @@ static int xilinx_xcvr_gth34_qpll_read_config(struct xilinx_xcvr *xcvr,
 {
 	int val;
 
-	#define QPLL0_FBDIV_DIV 0x14
-	#define QPLL0_REFCLK_DIV 0x18
-	#define QPLL1_FBDIV 0x94
-	#define QPLL1_REFCLK_DIV 0x98
-
-	#define QPLL_FBDIV(x) (0x14 + (x) * 0x80)
-	#define QPLL_REFCLK_DIV(x) (0x18 + (x) * 0x80)
-
-	val = xilinx_xcvr_drp_read(xcvr, drp_port, QPLL_REFCLK_DIV(conf->qpll));
+	val = xilinx_xcvr_drp_read(xcvr, drp_port,
+			GTH34_QPLL_REFCLK_DIV(conf->qpll));
 	if (val < 0)
 		return val;
 
@@ -813,7 +814,8 @@ static int xilinx_xcvr_gth34_qpll_read_config(struct xilinx_xcvr *xcvr,
 		break;
 	}
 
-	val = xilinx_xcvr_drp_read(xcvr, drp_port, QPLL_FBDIV(conf->qpll));
+	val = xilinx_xcvr_drp_read(xcvr, drp_port,
+			GTH34_QPLL_FBDIV(conf->qpll));
 	if (val < 0)
 		return val;
 
@@ -938,13 +940,13 @@ static int xilinx_xcvr_gth34_qpll_write_config(struct xilinx_xcvr *xcvr,
 		return -EINVAL;
 	}
 
-	ret = xilinx_xcvr_drp_update(xcvr, drp_port, QPLL_FBDIV(conf->qpll),
-		0xff, fbdiv);
+	ret = xilinx_xcvr_drp_update(xcvr, drp_port,
+			GTH34_QPLL_FBDIV(conf->qpll), 0xff, fbdiv);
 	if (ret < 0)
 		return ret;
 
-	return xilinx_xcvr_drp_update(xcvr, drp_port, QPLL_REFCLK_DIV(conf->qpll),
-		0xf80, refclk << 7);
+	return xilinx_xcvr_drp_update(xcvr, drp_port,
+			GTH34_QPLL_REFCLK_DIV(conf->qpll), 0xf80, refclk << 7);
 }
 
 static int xilinx_xcvr_gtx2_qpll_write_config(struct xilinx_xcvr *xcvr,
