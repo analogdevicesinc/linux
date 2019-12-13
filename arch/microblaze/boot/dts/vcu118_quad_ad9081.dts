@@ -15,6 +15,19 @@
 };
 
 &amba_pl {
+		axi_spi2: axi_quad_spi@44a80000 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			bits-per-word = <8>;
+			compatible = "xlnx,xps-spi-2.00.a";
+			fifo-size = <16>;
+			interrupt-parent = <&axi_intc>;
+			interrupts = <7 0>;
+			num-cs = <0x8>;
+			reg = <0x44a80000 0x10000>;
+			xlnx,num-ss-bits = <0x8>;
+			xlnx,spi-mode = <0>;
+		};
 
 		rx_dma: dma@7c420000 {
 			compatible = "adi,axi-dmac-1.00.a";
