@@ -75,7 +75,6 @@ struct xilinx_xcvr_qpll_config {
 	unsigned int refclk_div;
 	unsigned int fb_div;
 	unsigned int band;
-	unsigned int qpll;
 };
 
 int xilinx_xcvr_configure_cdr(struct xilinx_xcvr *xcvr, unsigned int drp_port,
@@ -96,15 +95,18 @@ int xilinx_xcvr_cpll_calc_lane_rate(struct xilinx_xcvr *xcvr,
 	unsigned int out_div);
 
 int xilinx_xcvr_calc_qpll_config(struct xilinx_xcvr *xcvr,
-	unsigned int refclk_hz, unsigned int lanerate_khz,
-	struct xilinx_xcvr_qpll_config *conf,
+	unsigned int sys_clk_sel, unsigned int refclk_hz,
+	unsigned int lanerate_khz, struct xilinx_xcvr_qpll_config *conf,
 	unsigned int *out_div);
 int xilinx_xcvr_qpll_read_config(struct xilinx_xcvr *xcvr,
-	unsigned int drp_port, struct xilinx_xcvr_qpll_config *conf);
+	unsigned int drp_port, unsigned int sys_clk_sel,
+	struct xilinx_xcvr_qpll_config *conf);
 int xilinx_xcvr_qpll_write_config(struct xilinx_xcvr *xcvr,
-	unsigned int drp_port, const struct xilinx_xcvr_qpll_config *conf);
+	unsigned int sys_clk_sell, unsigned int drp_port,
+	const struct xilinx_xcvr_qpll_config *conf);
 int xilinx_xcvr_qpll_calc_lane_rate(struct xilinx_xcvr *xcvr,
-	unsigned int ref_clk_hz, const struct xilinx_xcvr_qpll_config *conf,
+	unsigned int sys_clk_sel, unsigned int ref_clk_hz,
+	const struct xilinx_xcvr_qpll_config *conf,
 	unsigned int out_div);
 
 int xilinx_xcvr_read_out_div(struct xilinx_xcvr *xcvr, unsigned int drp_port,

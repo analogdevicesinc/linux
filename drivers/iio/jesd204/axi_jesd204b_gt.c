@@ -652,12 +652,13 @@ static unsigned long jesd204b_gt_clk_recalc_rate(struct clk_hw *hw,
 		struct xilinx_xcvr_qpll_config qpll_conf;
 
 		ret = xilinx_xcvr_qpll_read_config(&st->xcvr,
+			gt_link->sys_clk_sel,
 			JESD204B_GT_DRP_PORT_COMMON, &qpll_conf);
 		if (ret < 0)
 			return ret;
 
 		lane_rate = xilinx_xcvr_qpll_calc_lane_rate(&st->xcvr, parent_rate,
-			&qpll_conf, out_div); 
+			gt_link->sys_clk_sel, &qpll_conf, out_div);
 
 		dev_dbg(st->dev, "%s QPLL  %lu %lu\n", __func__,
 			gt_link->lane_rate, lane_rate);
@@ -684,7 +685,8 @@ static long jesd204b_gt_clk_round_rate(struct clk_hw *hw, unsigned long rate,
 		ret = xilinx_xcvr_calc_cpll_config(&st->xcvr, *prate / 1000, rate,
 				NULL, NULL);
 	else
-		ret = xilinx_xcvr_calc_qpll_config(&st->xcvr, *prate / 1000, rate,
+		ret = xilinx_xcvr_calc_qpll_config(&st->xcvr,
+				gt_link->sys_clk_sel, *prate / 1000, rate,
 				NULL, NULL);
 
 	if (ret < 0)
@@ -713,7 +715,8 @@ static int jesd204b_gt_clk_set_rate(struct clk_hw *hw, unsigned long rate,
 		ret = xilinx_xcvr_calc_cpll_config(&st->xcvr, parent_rate, rate,
 				&cpll_conf, &out_div);
 	else
-		ret = xilinx_xcvr_calc_qpll_config(&st->xcvr, parent_rate, rate,
+		ret = xilinx_xcvr_calc_qpll_config(&st->xcvr,
+				gt_link->sys_clk_sel, parent_rate, rate,
 				&qpll_conf, &out_div);
 
 
@@ -734,6 +737,7 @@ static int jesd204b_gt_clk_set_rate(struct clk_hw *hw, unsigned long rate,
 		} else {
 			if (!pll_done) {
 				xilinx_xcvr_qpll_write_config(&st->xcvr,
+				    gt_link->sys_clk_sel,
 				    JESD204B_GT_DRP_PORT_COMMON, &qpll_conf);
 				pll_done = 1;
 			}
