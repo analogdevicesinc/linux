@@ -490,12 +490,12 @@ int fm_get_max_frm(void);
 int fm_get_rx_extra_headroom(void);
 
 /**************************************************************************//**
- @Function	fm_has_errata_a010022
+ @Function	fm_has_errata_a050385
 
- @Description   Detect if the SoC is vulnerable to the A010022 errata
+ @Description   Detect if the SoC is vulnerable to the A050385 errata
 *//***************************************************************************/
-#ifdef FM_ERRATUM_A010022
-bool fm_has_errata_a010022(void);
+#ifdef FM_ERRATUM_A050385
+bool fm_has_errata_a050385(void);
 #endif
 
 /**************************************************************************//**

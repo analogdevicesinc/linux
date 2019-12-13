@@ -271,7 +271,7 @@ typedef enum
 #define FM_AID_MODE_NO_TNUM_SW005 /* refer to pdm TKT068794 - only support of port_id on aid */
 #define FM_ERROR_VSP_NO_MATCH_SW006 /* refer to pdm TKT174304 - no match between errorQ and VSP */
 
-#define FM_ERRATUM_A010022
+#define FM_ERRATUM_A050385
 
 /*****************************************************************************
  RMan INTEGRATION-SPECIFIC DEFINITIONS
