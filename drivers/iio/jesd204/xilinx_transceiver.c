@@ -81,6 +81,8 @@
 	(0x14 + xilinx_xcvr_qpll_sel((xcvr), (x)) * 0x80)
 #define GTH34_QPLL_REFCLK_DIV(xcvr, x)	\
 	(0x18 + xilinx_xcvr_qpll_sel((xcvr), (x)) * 0x80)
+#define GTY4_QPLL_CLKOUT_RATE(xcvr, x)	\
+	(0x0E + xilinx_xcvr_qpll_sel((xcvr), (x)) * 0x80)
 
 static int xilinx_xcvr_drp_read(struct xilinx_xcvr *xcvr,
 	unsigned int drp_port, unsigned int reg)
@@ -542,6 +544,25 @@ int xilinx_xcvr_calc_qpll_config(struct xilinx_xcvr *xcvr,
 						conf->refclk_div = m;
 						conf->fb_div = N[n];
 						conf->band = band;
+						conf->qty4_full_rate = 0;
+					}
+
+					if (out_div)
+						*out_div = d;
+
+					return 0;
+				}
+
+				if (xcvr->type != XILINX_XCVR_TYPE_US_GTY4)
+					continue;
+
+				if (refclk_khz / m / d == lane_rate_khz / 2 / N[n]) {
+
+					if (conf) {
+						conf->refclk_div = m;
+						conf->fb_div = N[n];
+						conf->band = band;
+						conf->qty4_full_rate = 1;
 					}
 
 					if (out_div)
@@ -810,6 +831,13 @@ static int xilinx_xcvr_gth34_qpll_read_config(struct xilinx_xcvr *xcvr,
 	int val;
 
 	val = xilinx_xcvr_drp_read(xcvr, drp_port,
+			GTY4_QPLL_CLKOUT_RATE(xcvr, sys_clk_sel));
+	if (val < 0)
+		return val;
+
+	conf->qty4_full_rate = val & 0x1;
+
+	val = xilinx_xcvr_drp_read(xcvr, drp_port,
 			GTH34_QPLL_REFCLK_DIV(xcvr, sys_clk_sel));
 	if (val < 0)
 		return val;
@@ -961,10 +989,19 @@ static int xilinx_xcvr_gth34_qpll_write_config(struct xilinx_xcvr *xcvr,
 		return -EINVAL;
 	}
 
+
 	ret = xilinx_xcvr_drp_update(xcvr, drp_port,
 			GTH34_QPLL_FBDIV(xcvr, sys_clk_sel), 0xff, fbdiv);
 	if (ret < 0)
 		return ret;
+
+	if (xcvr->type == XILINX_XCVR_TYPE_US_GTY4) {
+		ret = xilinx_xcvr_drp_update(xcvr, drp_port,
+			GTY4_QPLL_CLKOUT_RATE(xcvr, sys_clk_sel),
+			0x1, conf->qty4_full_rate);
+		if (ret < 0)
+			return ret;
+	}
 
 	return xilinx_xcvr_drp_update(xcvr, drp_port,
 			GTH34_QPLL_REFCLK_DIV(xcvr, sys_clk_sel),
@@ -1084,8 +1121,10 @@ int xilinx_xcvr_qpll_calc_lane_rate(struct xilinx_xcvr *xcvr,
 	if (conf->refclk_div == 0 || out_div == 0)
 		return 0;
 
-	/* FIXME: do we need to use sys_clk_sel here ? */
+	if (conf->qty4_full_rate == 1)
+		refclk_hz *= 2;
 
+	/* FIXME: do we need to use sys_clk_sel here ? */
 	return DIV_ROUND_CLOSEST_ULL((unsigned long long)refclk_hz * conf->fb_div,
 			conf->refclk_div * out_div * 1000);
 }
