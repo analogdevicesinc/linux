@@ -124,13 +124,6 @@ build_default() {
 	fi
 }
 
-build_compile_test() {
-	apt_update_install $APT_LIST
-	export COMPILE_TEST=y
-	make ${DEFCONFIG}
-	make -j$NUM_JOBS
-}
-
 build_checkpatch() {
 	if [ -n "$TRAVIS_BRANCH" ]; then
 		__update_git_ref "${TRAVIS_BRANCH}" "${TRAVIS_BRANCH}"
