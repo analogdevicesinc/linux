@@ -737,7 +737,12 @@ struct qman_portal *qman_create_portal(
 	}
 	/* Success */
 	portal->config = config;
-	qm_isr_disable_write(__p, 0);
+	/*
+	 * Undisable all the IRQs except the dequeue available bits.
+	 * If left enabled they cause problems with sleep mode. Since
+	 * they are not used in push mode we can safely turn them off
+	 */
+	qm_isr_disable_write(__p, QM_DQAVAIL_MASK);
 	qm_isr_uninhibit(__p);
 	/* Write a sane SDQCR */
 	qm_dqrr_sdqcr_set(__p, portal->sdqcr);
