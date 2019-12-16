@@ -77,6 +77,8 @@ check_all_adi_files_have_been_built() {
 	local o_files
 	local ret=0
 
+	c_files="drivers/misc/mathworks/*.c $c_files"
+
 	# Convert them to .o files via sed, and extract only the filenames
 	for file in $c_files ; do
 		file1=$(echo $file | sed 's/\.c/\.o/g')
