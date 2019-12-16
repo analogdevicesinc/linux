@@ -25,8 +25,6 @@ env:
   - DEFCONFIG=adi_zynqmp_defconfig ARCH=arm64 IMAGE=Image
     CHECK_ALL_ADI_DRIVERS_HAVE_BEEN_BUILT=1
   - DEFCONFIG=zynq_m2k_defconfig ARCH=arm IMAGE=uImage
-  - BUILD_TYPE=compile_test DEFCONFIG=zynq_xcomm_adv7511_defconfig ARCH=arm
-  - BUILD_TYPE=compile_test DEFCONFIG=adi_zynqmp_defconfig ARCH=arm64
 
 script:
   - ./ci/travis/run-build-docker.sh
