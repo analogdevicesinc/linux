@@ -513,7 +513,7 @@ int iio_regmap_probe(struct device *dev, struct regmap *regmap,
 	const struct iio_regmap_op *register_ops;
 	struct iio_dev *indio_dev;
 	struct iio_regmap *st;
-	int nr_ops;
+	int nr_ops = 0;
 	int ret;
 
 	indio_dev = devm_iio_device_alloc(dev, sizeof(*st));
