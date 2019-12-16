@@ -8,12 +8,6 @@ build_default() {
 	make -j`getconf _NPROCESSORS_ONLN` $IMAGE UIMAGE_LOADADDR=0x8000
 }
 
-build_compile_test() {
-	export COMPILE_TEST=y
-	make ${DEFCONFIG}
-	make -j`getconf _NPROCESSORS_ONLN`
-}
-
 build_checkpatch() {
 	if [ -n "$TRAVIS_BRANCH" ]; then
 		__update_git_ref "${TRAVIS_BRANCH}" "${TRAVIS_BRANCH}"
