@@ -71,10 +71,32 @@ apt_update_install() {
 	adjust_kcflags_against_gcc
 }
 
+check_all_adi_files_have_been_built() {
+	# Collect all .c files that contain the 'Analog Devices' string/name
+	local c_files=$(git grep -i "Analog Devices" | cut -d: -f1 | sort | uniq  | grep "\.c")
+	local o_files
+	local ret=0
+
+	# Convert them to .o files via sed, and extract only the filenames
+	for file in $c_files ; do
+		file1=$(echo $file | sed 's/\.c/\.o/g')
+		if [ ! -f "$file1" ] ; then
+			echo_red "File '$file1' has not been compiled"
+			ret=1
+		fi
+	done
+
+	return $ret
+}
+
 build_default() {
 	apt_update_install $APT_LIST
 	make ${DEFCONFIG}
 	make -j$NUM_JOBS $IMAGE UIMAGE_LOADADDR=0x8000
+
+	if [ "$CHECK_ALL_ADI_DRIVERS_HAVE_BEEN_BUILT" == "1" ] ; then
+		check_all_adi_files_have_been_built
+	fi
 }
 
 build_compile_test() {
