@@ -152,6 +152,51 @@ struct ad9081_phy {
 	struct ad9081_jesd_link jesd_rx_link[2];
 };
 
+int32_t adi_ad9081_dac_gpio0_as_master_salve_en_set(adi_ad9081_device_t *device,
+					uint8_t master, uint8_t enable)
+{
+	int32_t err;
+	uint8_t val;
+
+	AD9081_NULL_POINTER_RETURN(device);
+	AD9081_LOG_FUNC();
+	AD9081_INVALID_PARAM_RETURN(enable > 1);
+
+	if (enable > 0) {
+		if (master)
+			val = 10; /* master out */
+		else
+			val = 11; /* slave in */
+
+		err = adi_ad9081_hal_bf_set(device, REG_GPIO_CFG0_ADDR,
+					BF_GPIO0_CFG_INFO, val);
+	}
+
+	return API_CMS_ERROR_OK;
+}
+
+static int ad9081_nco_sync_master_slave(struct ad9081_phy *phy, bool master)
+{
+	int ret;
+
+	ret = adi_ad9081_dac_gpio0_as_master_salve_en_set(&phy->ad9081, master, 1);
+	if (ret < 0)
+		return ret;
+	/* source  0: sysref, 1: lmfc rising edge, 2: lmfc falling edge */
+	ret = adi_ad9081_dac_nco_master_slave_trigger_source_set(&phy->ad9081, 1);
+	if (ret < 0)
+		return ret;
+
+	ret = adi_ad9081_dac_nco_master_slave_mode_set(&phy->ad9081, master ? 1 : 2);
+
+	adi_ad9081_dac_nco_sync_reset_via_sysref_set(&phy->ad9081, 1);
+
+	if (master)
+		return adi_ad9081_dac_nco_master_slave_trigger_set(&phy->ad9081);
+
+	return ret;
+}
+
 unsigned long ad9081_calc_lanerate(struct ad9081_jesd_link *link,
 				   u64 converter_rate, u32 intp_decim)
 {
@@ -1484,6 +1529,10 @@ static int ad9081_setup(struct spi_device *spi, bool ad9234)
 	do_div(sample_rate, phy->tx_main_interp * phy->tx_chan_interp);
 
 	clk_set_rate(phy->clks[TX_SAMPL_CLK], sample_rate);
+
+	ret = ad9081_nco_sync_master_slave(phy, !IS_ERR_OR_NULL(phy->jesd_rx_clk));
+	if (ret != 0)
+		return ret;
 
 	return 0;
 }
