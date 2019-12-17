@@ -43,6 +43,8 @@ enum { ID_AD9081,
 
 enum {	CDDC_NCO_FREQ,
 	FDDC_NCO_FREQ,
+	CDDC_NCO_PHASE,
+	FDDC_NCO_PHASE,
 	FDDC_NCO_GAIN,
 	DAC_MAIN_TEST_TONE_EN,
 	DAC_CHAN_TEST_TONE_EN,
@@ -82,12 +84,14 @@ struct ad9081_clock {
 #define to_clk_priv(_hw) container_of(_hw, struct ad9081_clock, hw)
 
 struct dac_settings_cache {
+	u32 chan_gain[MAX_NUM_CHANNELIZER];
+	u16 main_test_tone_offset[MAX_NUM_CHANNELIZER];
+	u16 chan_test_tone_offset[MAX_NUM_CHANNELIZER];
+	s32 main_phase[MAX_NUM_CHANNELIZER];
+	s32 chan_phase[MAX_NUM_CHANNELIZER];
 	u8 main_test_tone_en[MAX_NUM_CHANNELIZER];
 	u8 chan_test_tone_en[MAX_NUM_CHANNELIZER];
 	u8 enable[MAX_NUM_CHANNELIZER];
-	u16 main_test_tone_offset[MAX_NUM_CHANNELIZER];
-	u16 chan_test_tone_offset[MAX_NUM_CHANNELIZER];
-	u32 chan_gain[MAX_NUM_CHANNELIZER];
 };
 
 struct device_settings_cache {
@@ -135,6 +139,8 @@ struct ad9081_phy {
 	u64 adc_frequency_hz;
 	s64 rx_fddc_shift[MAX_NUM_CHANNELIZER];
 	s64 rx_cddc_shift[MAX_NUM_MAIN_DATAPATHS];
+	s32 rx_fddc_phase[MAX_NUM_MAIN_DATAPATHS];
+	s32 rx_cddc_phase[MAX_NUM_CHANNELIZER];
 
 	u8 rx_cddc_c2r[MAX_NUM_MAIN_DATAPATHS];
 	u8 rx_fddc_c2r[MAX_NUM_CHANNELIZER];
@@ -678,6 +684,39 @@ static ssize_t ad9081_ext_info_read(struct iio_dev *indio_dev,
 			ret = 0;
 		}
 		break;
+	case CDDC_NCO_PHASE:
+		if (chan->output) {
+			for (i = 0; i < ARRAY_SIZE(phy->tx_dac_chan_xbar);
+			i++) {
+				if (phy->tx_dac_chan_xbar[i] &
+				BIT(chan->channel)) {
+					val = phy->dac_cache.main_phase[i];
+					ret = 0;
+					break;
+				}
+			}
+		} else {
+			fddc_num =
+				phy->jesd_rx_link[0].link_converter_select[
+					chan->address] / 2;
+			adi_ad9081_adc_xbar_find_cddc(&phy->ad9081,
+						BIT(fddc_num), &cddc);
+			val = phy->rx_cddc_phase[ilog2(cddc)];
+			ret = 0;
+		}
+		break;
+	case FDDC_NCO_PHASE:
+		if (chan->output) {
+			val = phy->dac_cache.chan_phase[chan->channel];
+			ret = 0;
+		} else {
+			fddc_num =
+				phy->jesd_rx_link[0].link_converter_select[
+					chan->address] / 2;
+			val = phy->rx_fddc_phase[fddc_num];
+			ret = 0;
+		}
+		break;
 	case FDDC_NCO_GAIN:
 		val = phy->dac_cache.chan_gain[chan->channel];
 		mutex_unlock(&indio_dev->mlock);
@@ -753,10 +792,11 @@ static ssize_t ad9081_ext_info_write(struct iio_dev *indio_dev,
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
 	struct ad9081_phy *phy = conv->phy;
 	long long readin;
-	u8 mask;
 	bool enable;
 	int i, ret, readin_32;
-	u8 cddc, fddc_num;
+	u8 cddc, fddc_num, mask;
+	s16 val16;
+	s64 val64;
 
 	mutex_lock(&indio_dev->mlock);
 
@@ -816,6 +856,77 @@ static ssize_t ad9081_ext_info_write(struct iio_dev *indio_dev,
 				&phy->ad9081, BIT(fddc_num), readin);
 			if (!ret)
 				phy->rx_fddc_shift[fddc_num] = readin;
+			else
+				ret = -EFAULT;
+		}
+		break;
+	case CDDC_NCO_PHASE:
+		ret = kstrtoll(buf, 10, &readin);
+		if (ret)
+			goto out;
+
+		readin = clamp_t(long long, readin, -180000, 180000);
+
+		if (chan->output) {
+			val16 = div_s64(readin * 32768, 180000LL);
+
+			/* set main nco */
+			for (i = 0; i < ARRAY_SIZE(phy->tx_dac_chan_xbar);
+			i++) {
+				if (phy->tx_dac_chan_xbar[i] &
+				BIT(chan->channel)) {
+					ret = adi_ad9081_dac_duc_nco_phase_offset_set(
+						&phy->ad9081, BIT(i), val16,
+						AD9081_DAC_CH_NONE, 0);
+					if (!ret)
+						phy->dac_cache.main_phase[i] = readin;
+					else
+						ret = -EFAULT;
+				}
+			}
+
+		} else {
+			val64 = div_s64(readin * 14073748835533, 18000LL);
+			cddc = ad9081_get_main_adc_mask(phy, chan->address);
+
+			ret =  adi_ad9081_adc_ddc_coarse_nco_phase_offset_set(
+				&phy->ad9081, cddc, val64);
+			if (!ret)
+				phy->rx_cddc_phase[ilog2(cddc)] = readin;
+			else
+				ret = -EFAULT;
+		}
+		break;
+	case FDDC_NCO_PHASE:
+		ret = kstrtoll(buf, 10, &readin);
+		if (ret)
+			goto out;
+
+		readin = clamp_t(long long, readin, -180000, 180000);
+
+		if (chan->output) {
+
+			val16 = div_s64(readin * 32768, 180000LL);
+			ret = adi_ad9081_dac_duc_nco_phase_offset_set(
+					&phy->ad9081,
+					AD9081_DAC_NONE, 0,
+					BIT(chan->channel),
+					val16);
+			if (!ret)
+				phy->dac_cache.chan_phase[chan->channel] = readin;
+			else
+				ret = -EFAULT;
+
+		} else {
+			val64 = div_s64(readin * 14073748835533, 18000LL);
+			fddc_num =
+				phy->jesd_rx_link[0].link_converter_select[
+					chan->address] / 2;
+
+			ret = adi_ad9081_adc_ddc_fine_nco_phase_offset_set(
+				&phy->ad9081, BIT(fddc_num), val64);
+			if (!ret)
+				phy->rx_fddc_phase[fddc_num] = readin;
 			else
 				ret = -EFAULT;
 		}
@@ -904,6 +1015,20 @@ static struct iio_chan_spec_ext_info rxadc_ext_info[] = {
 		.private = FDDC_NCO_FREQ,
 	},
 	{
+		.name = "main_nco_phase",
+		.read = ad9081_ext_info_read,
+		.write = ad9081_ext_info_write,
+		.shared = false,
+		.private = CDDC_NCO_PHASE,
+	},
+	{
+		.name = "channel_nco_phase",
+		.read = ad9081_ext_info_read,
+		.write = ad9081_ext_info_write,
+		.shared = false,
+		.private = FDDC_NCO_PHASE,
+	},
+	{
 		.name = "adc_frequency",
 		.read = ad9081_ext_info_read,
 		.shared = true,
@@ -926,6 +1051,20 @@ static struct iio_chan_spec_ext_info txdac_ext_info[] = {
 		.write = ad9081_ext_info_write,
 		.shared = false,
 		.private = FDDC_NCO_FREQ,
+	},
+	{
+		.name = "main_nco_phase",
+		.read = ad9081_ext_info_read,
+		.write = ad9081_ext_info_write,
+		.shared = false,
+		.private = CDDC_NCO_PHASE,
+	},
+	{
+		.name = "channel_nco_phase",
+		.read = ad9081_ext_info_read,
+		.write = ad9081_ext_info_write,
+		.shared = false,
+		.private = FDDC_NCO_PHASE,
 	},
 	{
 		.name = "channel_nco_gain_scale",
