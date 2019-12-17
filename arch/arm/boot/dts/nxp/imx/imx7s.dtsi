@@ -859,6 +859,11 @@
 					};
 				};
 			};
+
+			ddrc: ddrc@307a0000 {
+				compatible = "fsl,imx7-ddrc";
+				reg = <0x307a0000 0x10000>;
+			};
 		};
 
 		aips3: bus@30800000 {
