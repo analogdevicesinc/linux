@@ -172,6 +172,16 @@
 		};
 
 		aips2: bus@2100000 {
+			mipi_dsi: mipi@21e0000 {
+				compatible = "fsl,imx6dl-mipi-dsi";
+				reg = <0x21e0000 0x4000>;
+				interrupts = <0 102 0x4>;
+				gpr = <&gpr>;
+				clocks = <&clks IMX6QDL_CLK_HSI_TX>, <&clks IMX6QDL_CLK_VIDEO_27M>;
+				clock-names = "mipi_pllref_clk", "mipi_cfg_clk";
+				status = "disabled";
+			};
+
 			i2c4: i2c@21f8000 {
 				#address-cells = <1>;
 				#size-cells = <0>;
