@@ -352,8 +352,8 @@ static int dispmix_reset_probe(struct platform_device *pdev)
 	pdata = of_id->data;
 
 	/* init mmio regmap */
-	regmap = devm_regmap_init_mmio_clk(dev, __clk_get_name(apb_clk),
-					   regs, pdata->config);
+	regmap = regmap_init_mmio_clk(NULL, NULL,
+				      regs, pdata->config);
 	if (IS_ERR(regmap)) {
 		dev_err(dev, "Failed to init mmio regmap: %ld\n",
 			PTR_ERR(regmap));
