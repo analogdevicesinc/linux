@@ -394,3 +394,7 @@
 	clock-latency = <61036>;
 	#cooling-cells = <2>;
 };
+
+&dsp {
+	memory-region = <&dsp_reserved>;
+};
