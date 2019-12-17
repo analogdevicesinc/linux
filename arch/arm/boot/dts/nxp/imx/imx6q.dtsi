@@ -222,6 +222,18 @@
 			};
 		};
 
+		aips-bus@2100000 { /* AIPS2 */
+			mipi_dsi: mipi@21e0000 {
+				compatible = "fsl,imx6q-mipi-dsi";
+				reg = <0x21e0000 0x4000>;
+				interrupts = <0 102 0x4>;
+				gpr = <&gpr>;
+				clocks = <&clks IMX6QDL_CLK_HSI_TX>, <&clks IMX6QDL_CLK_VIDEO_27M>;
+				clock-names = "mipi_pllref_clk", "mipi_cfg_clk";
+				status = "disabled";
+			};
+		};
+
 		sata: sata@2200000 {
 			compatible = "fsl,imx6q-ahci";
 			reg = <0x02200000 0x4000>;
