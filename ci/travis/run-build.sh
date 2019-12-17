@@ -75,6 +75,7 @@ check_all_adi_files_have_been_built() {
 	# Collect all .c files that contain the 'Analog Devices' string/name
 	local c_files=$(git grep -i "Analog Devices" | cut -d: -f1 | sort | uniq  | grep "\.c")
 	local o_files
+	local exceptions_file="ci/travis/${DEFCONFIG}_compile_exceptions"
 	local ret=0
 
 	c_files="drivers/misc/mathworks/*.c $c_files"
@@ -82,7 +83,29 @@ check_all_adi_files_have_been_built() {
 	# Convert them to .o files via sed, and extract only the filenames
 	for file in $c_files ; do
 		file1=$(echo $file | sed 's/\.c/\.o/g')
+		if [ -f "$exceptions_file" ] ; then
+			if grep -q "$file1" "$exceptions_file" ; then
+				continue
+			fi
+		fi
 		if [ ! -f "$file1" ] ; then
+			if [ "$ret" = "0" ] ; then
+				echo
+				echo_red "The following files need to be built OR"
+				echo_green "      added to '$exceptions_file'"
+
+				echo
+
+				echo_green "  If adding the '$exceptions_file', please make sure"
+				echo_green "  to check if it's better to add the correct Kconfig symbol"
+				echo_green "  to one of the following files:"
+
+				for file in $(find -name Kconfig.adi) ; do
+					echo_green "   $file"
+				done
+
+				echo
+			fi
 			echo_red "File '$file1' has not been compiled"
 			ret=1
 		fi
