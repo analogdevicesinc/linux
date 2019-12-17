@@ -95,6 +95,13 @@
 		hdmi-5v-supply = <&swbst_reg>;
     };
 
+	reg_mipi_dsi_pwr_on: mipi_dsi_pwr_on {
+		compatible = "regulator-fixed";
+		regulator-name = "mipi_dsi_pwr_on";
+		gpio = <&gpio6 14 0>;
+		enable-active-high;
+	};
+
 	gpio-keys {
 		compatible = "gpio-keys";
 		pinctrl-names = "default";
@@ -245,6 +252,14 @@
 		compatible = "fsl,mxc_v4l2_output";
 		status = "okay";
 	};
+
+	mipi_dsi_reset: reset-controller {
+		compatible = "gpio-reset";
+		reset-gpios = <&gpio6 11 GPIO_ACTIVE_LOW>;
+		reset-delay-us = <50>;
+		#reset-cells = <0>;
+		status = "okay";
+	};
 };
 
 &ipu1_csi0_from_ipu1_csi0_mux {
@@ -283,6 +298,15 @@
 		};
 	};
 #endif
+};
+
+&mipi_dsi {
+        dev_id = <0>;
+        disp_id = <1>;
+        lcd_panel = "TRULY-WVGA";
+        disp-power-on-supply = <&reg_mipi_dsi_pwr_on>;
+	resets = <&mipi_dsi_reset>;
+        status = "okay";
 };
 
 &audmux {
@@ -684,6 +708,7 @@
 				MX6QDL_PAD_ENET_RXD0__GPIO1_IO27 0x80000000
 				MX6QDL_PAD_EIM_A25__GPIO5_IO02 0x80000000
 				MX6QDL_PAD_EIM_D23__GPIO3_IO23 0x80000000
+				MX6QDL_PAD_NANDF_CS0__GPIO6_IO11 0x80000000
 			>;
 		};
 
