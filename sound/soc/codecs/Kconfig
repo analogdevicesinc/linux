@@ -10,6 +10,9 @@ config SND_SOC_I2C_AND_SPI
 
 menu "CODEC drivers"
 
+# Not upstream
+source "sound/soc/codecs/Kconfig.adi"
+
 config SND_SOC_ALL_CODECS
 	tristate "Build all ASoC CODEC drivers"
 	depends on COMPILE_TEST
