@@ -80,7 +80,7 @@
 				interrupt-parent = <&intc>;
 				interrupts = <0 30 4>;
 
-				clocks = <&sys_clk>, <&ad9528 2>, <&axi_ad9094_adxcvr 0>;
+				clocks = <&sys_clk>, <&ad9528 3>, <&axi_ad9094_adxcvr 0>;
 				clock-names = "s_axi_aclk", "device_clk", "lane_clk";
 
 				adi,octets-per-frame = <1>;
@@ -154,7 +154,7 @@
 				compatible = "adi,axi-pulse-capture-1.00.a";
 				reg = <0x00060000 0x10000>;
 				interrupts = <0 32 4>;
-				clocks = <&ad9528 2>;
+				clocks = <&ad9528 3>;
 			};
 		};
 	};
