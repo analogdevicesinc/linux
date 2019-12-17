@@ -75,12 +75,33 @@ struct imxdpu_videomode {
 	u16 clip_height;
 };
 
+enum ov10635_mode {
+	ov10635_mode_MIN = 0,
+	ov10635_mode_WXGA_1280_800 = 0,
+	ov10635_mode_720P_1280_720 = 1,
+	ov10635_mode_WVGA_752_480 = 2,
+	ov10635_mode_VGA_640_480 = 3,
+	ov10635_mode_CIF_352_288 = 4,
+	ov10635_mode_QVGA_320_240 = 5,
+	ov10635_mode_MAX = 5,
+};
+
+enum ov10635_frame_rate {
+	OV10635_15_FPS = 0,
+	OV10635_30_FPS,
+};
+
 struct sensor_data {
 	struct v4l2_subdev	subdev;
 	struct media_pad pads[MIPI_CSI2_SENS_VCX_PADS_NUM];
 	struct i2c_client *i2c_client;
 	struct v4l2_mbus_framefmt format;
-	struct v4l2_captureparm streamcap;
+	enum ov10635_frame_rate current_fr;
+	enum ov10635_mode current_mode;
+	struct v4l2_fract frame_interval;
+
+	/* lock to protect shared members */
+	struct mutex lock;
 	char running;
 
 	/* control settings */
@@ -115,22 +136,6 @@ struct reg_value {
 	unsigned short reg_addr;
 	unsigned char val;
 	unsigned int delay_ms;
-};
-
-enum ov10635_mode {
-	ov10635_mode_MIN = 0,
-	ov10635_mode_WXGA_1280_800 = 0,
-	ov10635_mode_720P_1280_720 = 1,
-	ov10635_mode_WVGA_752_480 = 2,
-	ov10635_mode_VGA_640_480 = 3,
-	ov10635_mode_CIF_352_288 = 4,
-	ov10635_mode_QVGA_320_240 = 5,
-	ov10635_mode_MAX = 5,
-};
-
-enum ov10635_frame_rate {
-	OV10635_15_FPS = 0,
-	OV10635_30_FPS,
 };
 
 static int ov10635_framerates[] = {
@@ -2704,9 +2709,9 @@ static int max9286_hardware_init(struct sensor_data *max9286_data)
 static int ov10635_change_mode(struct sensor_data *max9286_data)
 {
 	struct reg_value *reg_setting = NULL;
-	enum ov10635_mode mode = max9286_data->streamcap.capturemode;
+	enum ov10635_mode mode = max9286_data->current_mode;
 	enum ov10635_frame_rate rate =
-				to_ov10635_frame_rate(&max9286_data->streamcap.timeperframe);
+				to_ov10635_frame_rate(&max9286_data->frame_interval);
 	int arysize = 0, retval = 0;
 
 	if (mode > ov10635_mode_MAX || mode < ov10635_mode_MIN) {
@@ -2861,12 +2866,12 @@ static struct ov10635_mode_info *match(struct v4l2_mbus_framefmt *fmt,
 	return info;
 }
 
-static void try_to_find_resolution(struct sensor_data *sensor,
+static bool try_to_find_resolution(struct sensor_data *sensor,
+				   const enum ov10635_frame_rate fr,
 				   struct v4l2_mbus_framefmt *mf)
 {
-	enum ov10635_mode mode = sensor->streamcap.capturemode;
-	struct v4l2_fract *timeperframe = &sensor->streamcap.timeperframe;
-	enum ov10635_frame_rate frame_rate = to_ov10635_frame_rate(timeperframe);
+	enum ov10635_mode mode = sensor->current_mode;
+	enum ov10635_frame_rate frame_rate = fr;
 	struct device *dev = &sensor->i2c_client->dev;
 	struct ov10635_mode_info *info;
 	bool found = false;
@@ -2882,12 +2887,12 @@ static void try_to_find_resolution(struct sensor_data *sensor,
 			frame_rate ^= 0x1;
 			info = match(mf, frame_rate);
 			if (info) {
-				sensor->streamcap.capturemode = -1;
+				sensor->current_mode = -1;
 				dev_err(dev, "%s %dx%d only support %s(fps)\n",
 					__func__,
 					info->width, info->height,
 					(frame_rate == 0) ? "15fps" : "30fps");
-				return;
+				return false;
 			}
 			goto max_resolution;
 		}
@@ -2901,10 +2906,12 @@ max_resolution:
 		info = get_max_resolution(frame_rate);
 	}
 
-	sensor->streamcap.capturemode = info->mode;
-	sensor->streamcap.timeperframe.denominator = (frame_rate) ? 30 : 15;
+	sensor->current_mode = info->mode;
+	sensor->frame_interval.denominator = (frame_rate) ? 30 : 15;
 	sensor->format.width  = info->width;
 	sensor->format.height = info->height;
+
+	return found;
 }
 
 static int max9286_set_fmt(struct v4l2_subdev *sd,
@@ -2913,6 +2920,7 @@ static int max9286_set_fmt(struct v4l2_subdev *sd,
 {
 	struct sensor_data *max9286_data = subdev_to_sensor_data(sd);
 	struct v4l2_mbus_framefmt *mf = &fmt->format;
+	enum ov10635_frame_rate frame_rate = max9286_data->current_fr;
 	int ret;
 
 	if (fmt->pad)
@@ -2922,7 +2930,7 @@ static int max9286_set_fmt(struct v4l2_subdev *sd,
 	mf->colorspace = max9286_data->format.colorspace;
 	mf->field      = V4L2_FIELD_NONE;
 
-	try_to_find_resolution(max9286_data, mf);
+	try_to_find_resolution(max9286_data, frame_rate, mf);
 
 	if (fmt->which == V4L2_SUBDEV_FORMAT_TRY)
 		return 0;
@@ -2948,6 +2956,97 @@ static int max9286_set_frame_desc(struct v4l2_subdev *sd,
 static int max9286_set_power(struct v4l2_subdev *sd, int on)
 {
 	return 0;
+}
+
+static int ov10635_try_frame_interval(struct sensor_data *sensor,
+				      struct v4l2_fract *fi,
+				      u32 width, u32 height)
+{
+	enum ov10635_frame_rate rate = OV10635_15_FPS;
+	int minfps, maxfps, best_fps, fps;
+	int i;
+
+	minfps = ov10635_framerates[OV10635_15_FPS];
+	maxfps = ov10635_framerates[OV10635_30_FPS];
+
+	if (fi->numerator == 0) {
+		fi->denominator = ov10635_framerates[OV10635_30_FPS];
+		fi->numerator = 1;
+		rate = OV10635_30_FPS;
+		goto out;
+	}
+
+	fps = clamp_val(DIV_ROUND_CLOSEST(fi->denominator, fi->numerator),
+			minfps, maxfps);
+
+	best_fps = minfps;
+	for (i = 0; i < ARRAY_SIZE(ov10635_framerates); i++) {
+		int curr_fps = ov10635_framerates[i];
+
+		if (abs(curr_fps - fps) < abs(best_fps - fps)) {
+			best_fps = curr_fps;
+			rate = i;
+		}
+	}
+
+	fi->numerator = 1;
+	fi->denominator = best_fps;
+
+out:
+	return rate;
+}
+
+static int max9286_g_frame_interval(struct v4l2_subdev *sd,
+				    struct v4l2_subdev_frame_interval *fi)
+{
+	struct sensor_data *max9286_data = subdev_to_sensor_data(sd);
+
+	mutex_lock(&max9286_data->lock);
+	fi->interval = max9286_data->frame_interval;
+	mutex_unlock(&max9286_data->lock);
+
+	return 0;
+}
+
+static int max9286_s_frame_interval(struct v4l2_subdev *sd,
+				    struct v4l2_subdev_frame_interval *fi)
+{
+	struct sensor_data *max9286_data = subdev_to_sensor_data(sd);
+	enum ov10635_mode mode = max9286_data->current_mode;
+	enum ov10635_frame_rate fr = max9286_data->current_fr;
+	struct v4l2_mbus_framefmt mf;
+	bool found = false;
+	int frame_rate, ret = 0;
+
+	if (fi->pad != 0)
+		return -EINVAL;
+
+	mutex_lock(&max9286_data->lock);
+
+	memset(&mf, 0, sizeof(mf));
+	mf.width  = ov10635_mode_info_data[fr][mode].width;
+	mf.height = ov10635_mode_info_data[fr][mode].height;
+	frame_rate = ov10635_try_frame_interval(max9286_data, &fi->interval,
+						mf.width, mf.height);
+	if (frame_rate < 0) {
+		fi->interval = max9286_data->frame_interval;
+		goto out;
+	}
+
+	mf.width  = ov10635_mode_info_data[frame_rate][mode].width;
+	mf.height = ov10635_mode_info_data[frame_rate][mode].height;
+	found = try_to_find_resolution(max9286_data, frame_rate, &mf);
+	if (!found) {
+		ret = -EINVAL;
+		goto out;
+	}
+
+	max9286_data->current_fr = frame_rate;
+	max9286_data->frame_interval = fi->interval;
+
+out:
+	mutex_unlock(&max9286_data->lock);
+	return ret;
 }
 
 static int max9286_s_stream(struct v4l2_subdev *sd, int enable)
@@ -3000,7 +3099,9 @@ static const struct v4l2_subdev_core_ops max9286_core_ops = {
 };
 
 static const struct v4l2_subdev_video_ops max9286_video_ops = {
-	.s_stream		= max9286_s_stream,
+	.g_frame_interval = max9286_g_frame_interval,
+	.s_frame_interval = max9286_s_frame_interval,
+	.s_stream	  = max9286_s_stream,
 };
 
 static const struct v4l2_subdev_ops max9286_subdev_ops = {
@@ -3091,6 +3192,8 @@ static int max9286_probe(struct i2c_client *client)
 
 	clk_prepare_enable(max9286_data->sensor_clk);
 
+	mutex_init(&max9286_data->lock);
+
 	max9286_data->i2c_client        = client;
 	max9286_data->format.code       = MEDIA_BUS_FMT_YUYV8_1X16;
 	max9286_data->format.width      = ov10635_mode_info_data[1][0].width;
@@ -3104,9 +3207,9 @@ static int max9286_probe(struct i2c_client *client)
 	 */
 	max9286_data->format.reserved[0] = 72 * 8;
 	max9286_data->format.field = V4L2_FIELD_NONE;
-	max9286_data->streamcap.capturemode = 0;
-	max9286_data->streamcap.timeperframe.denominator = 30;
-	max9286_data->streamcap.timeperframe.numerator = 1;
+	max9286_data->current_mode = 0;
+	max9286_data->frame_interval.denominator = 30;
+	max9286_data->frame_interval.numerator = 1;
 	max9286_data->is_mipi = 1;
 
 	retval = max9286_read_reg(max9286_data, 0x1e);
@@ -3124,9 +3227,8 @@ static int max9286_probe(struct i2c_client *client)
 		return -ENODEV;
 	}
 
-	max9286_data->streamcap.capability = V4L2_CAP_TIMEPERFRAME;
-	max9286_data->streamcap.timeperframe.denominator = 30;
-	max9286_data->streamcap.timeperframe.numerator   = 1;
+	max9286_data->frame_interval.denominator = 30;
+	max9286_data->frame_interval.numerator   = 1;
 	max9286_data->v_channel = 0;
 	max9286_data->cap_mode.clip_top  = 0;
 	max9286_data->cap_mode.clip_left = 0;
