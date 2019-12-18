@@ -26,6 +26,8 @@ if MEDIA_SUPPORT
 
 comment "Multimedia core support"
 
+source "drivers/media/Kconfig.adi"
+
 #
 # Multimedia support - automatically enable V4L2 and DVB core
 #

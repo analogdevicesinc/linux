@@ -1,0 +1,23 @@
+
+# This file exists solely to be include in drivers/media/Kconfig
+
+config MEDIA_ALL_ADI_DRIVERS
+	tristate "Build all Analog Devices Media Drivers"
+	select VIDEO_ADV7170
+	select VIDEO_ADV7175
+	select VIDEO_ADV7343
+	select VIDEO_ADV7393
+	select VIDEO_ADV7511
+	select VIDEO_ADV7511_CEC
+	select VIDEO_AD9389B
+	select VIDEO_ADDI9036
+	select VIDEO_ADV7180
+	select VIDEO_ADV7183
+	select VIDEO_ADV748X
+	select VIDEO_ADV7604
+	select VIDEO_ADV7604_CEC
+	select VIDEO_ADV7842
+	select VIDEO_ADV7842_CEC
+	select VIDEO_AXI_HDMI_RX
+	select ADI_AXI_VIDEO_FRAME_BUFFER
+	select VIDEO_ADP1653
