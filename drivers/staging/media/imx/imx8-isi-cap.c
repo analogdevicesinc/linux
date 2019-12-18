@@ -1359,7 +1359,7 @@ static int mxc_isi_subdev_get_fmt(struct v4l2_subdev *sd,
 {
 	struct mxc_isi_cap_dev *isi_cap = v4l2_get_subdevdata(sd);
 	struct mxc_isi_frame *f;
-	struct v4l2_mbus_framefmt *mf;
+	struct v4l2_mbus_framefmt *mf = &fmt->format;
 
 	mutex_lock(&isi_cap->lock);
 
@@ -1396,9 +1396,9 @@ static int mxc_isi_subdev_get_fmt(struct v4l2_subdev *sd,
 	/* Source/Sink pads crop rectangle size */
 	mf->width = f->width;
 	mf->height = f->height;
+	mf->colorspace = V4L2_COLORSPACE_JPEG;
 
 	mutex_unlock(&isi_cap->lock);
-	mf->colorspace = V4L2_COLORSPACE_JPEG;
 
 	return 0;
 }
