@@ -1,0 +1,127 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+# Copyright 2019 Analog Devices Inc.
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/bindings/iio/frequency/adi,ltc6952.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Analog Devices LTC6952 ultralow jitter, JESD204B/C clock generation IC.
+
+maintainers:
+  - Mircea Caprioru <mircea.caprioru@analog.com>
+
+description: |
+  Analog Devices LTC6952 ultralow jitter, JESD204B/C clock generation IC.
+  https://www.analog.com/media/en/technical-documentation/data-sheets/ltc6952.pdf 
+
+properties:
+  compatible:
+    enum:
+      - adi,ltc6952
+
+  reg:
+    maxItems: 1
+
+  clock-output-names:
+    description: |
+      Clock output signal names indexed by the first cell in the clock
+      specifier (see clock/clock-bindings.txt)
+    maxItems: 1
+
+  adi,vco-frequency-hz:
+    description: |
+      VCO input frequency. This is fed to the internal distribution path and
+      feedback dividers.
+    allOf:
+      - $ref: /schemas/types.yaml#/definitions/uint32
+    maxItems: 1
+
+  adi,ref-frequency-hz:
+    description: |
+      Reference input frequency. This is fed in the reference divider.
+    allOf:
+      - $ref: /schemas/types.yaml#/definitions/uint32
+    maxItems: 1
+
+required:
+  - compatible
+  - reg
+  - clock-output-names
+
+patternProperties:
+  "^channel@[0-9]$":
+    type: object
+    description: Represents the external channels which are connected to the device.
+
+    properties:
+      reg:
+        description: |
+          The channel number. It can have up to 11 channels numbered from 0 to 10.
+        maxItems: 1
+
+      adi,extended-name:
+        description: Descriptive channel name.
+        maxItems: 1
+
+      adi,divider:
+        description: |
+          Channel divider. This divides the incoming VCO frequency.
+        maxItems: 1
+
+      adi,digital-delay:
+        description: |
+          Each output divider can have the start time of the output delayed by
+          integer multiples of half of the VCO period after a synchronization
+          event.
+        allOf:
+          - $ref: /schemas/types.yaml#/definitions/uint32
+          - minimum: 0
+          - maximum: 4095
+        maxItems: 1
+
+      adi,analog-delay:
+        description: |
+          Each output has a fine analog delay feature to further adjust its
+          output delay time (tADELx) in small steps.
+        allOf:
+          - $ref: /schemas/types.yaml#/definitions/uint32
+          - minimum: 0
+          - maximum: 63
+        maxItems: 1
+
+    required:
+      - reg
+
+examples:
+   - |
+     ltc6952@0 {
+       compatible = "adi,ltc6952";
+       reg = <0>;
+
+       #address-cells = <1>;
+       #size-cells = <0>;
+
+       spi-max-frequency = <10000000>;
+
+       clock-output-names = "ltc6952_out0", "ltc6952_out1", "ltc6952_out2",
+         "ltc6952_out3", "ltc6952_out4", "ltc6952_out5", "ltc6952_out6",
+         "ltc6952_out7", "ltc6952_out8", "ltc6952_out9", "ltc6952_out10";
+       #clock-cells = <1>;
+
+       adi,vco-frequency-hz = <4000000000>;
+       adi,ref-frequency-hz = <100000000>;
+
+       ltc6952_c0: channel@0 {
+         reg = <0>;
+         adi,extended-name = "REF_CLK";
+         adi,divider = <10>;
+         adi,digital-delay = <100>;
+         adi,analog-delay = <0>;
+       };
+
+       ltc6952_c1: channel@1 {
+         reg = <1>;
+         adi,extended-name = "TEST_CLK";
+         adi,divider = <10>;
+       };
+     };
