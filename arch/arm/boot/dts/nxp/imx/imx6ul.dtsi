@@ -783,6 +783,7 @@
 				interrupt-parent = <&intc>;
 				clocks = <&clks IMX6UL_CLK_IPG>;
 				clock-names = "ipg";
+				fsl,mf-mix-wakeup-irq = <0x7c00000 0x7d00 0x0 0x1400640>;
 
 				pgc {
 					#address-cells = <1>;
