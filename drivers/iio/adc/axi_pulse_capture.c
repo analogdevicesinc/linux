@@ -614,7 +614,7 @@ static int axi_pulse_capture_probe(struct platform_device *pdev)
 	axi_pulse_capture_config(pulse);
 
 	indio_dev->dev.parent = &pdev->dev;
-	indio_dev->name = dev_name(&pdev->dev);
+	indio_dev->name = pdev->dev.of_node->name;
 	indio_dev->modes = INDIO_DIRECT_MODE;
 	indio_dev->channels = axi_pulse_capture_channels;
 	indio_dev->num_channels = ARRAY_SIZE(axi_pulse_capture_channels);
