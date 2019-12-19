@@ -1158,6 +1158,14 @@ F:	drivers/iio/amplifiers/hmc425a.c
 F:	drivers/staging/iio/*/ad*
 X:	drivers/iio/*/adjd*
 
+ANALOG DEVICES INC LTC6952 DRIVER
+M:	Mircea Caprioru <mircea.caprioru@analog.com>
+L:	linux-iio@vger.kernel.org
+W:	http://ez.analog.com/community/linux-device-drivers
+S:	Supported
+F:	drivers/iio/frequency/ltc6952.c
+F:	Documentation/devicetree/bindings/iio/frequency/adi,ltc6952.yaml
+
 ANALOGBITS PLL LIBRARIES
 M:	Paul Walmsley <paul.walmsley@sifive.com>
 S:	Supported
