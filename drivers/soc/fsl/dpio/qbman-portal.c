@@ -302,7 +302,7 @@ struct qbman_swp *qbman_swp_init(const struct qbman_swp_desc *d)
 			1, /* mem stashing priority enable */
 			1, /* mem stashing enable */
 			1, /* dequeue stashing priority enable */
-			0, /* dequeue stashing enable enable */
+			1, /* dequeue stashing enable enable */
 			0); /* EQCR_CI stashing priority enable */
 	} else {
 		memset(p->addr_cena, 0, 64 * 1024);
@@ -316,7 +316,7 @@ struct qbman_swp *qbman_swp_init(const struct qbman_swp_desc *d)
 			1, /* mem stashing priority enable */
 			1, /* mem stashing enable */
 			1, /* dequeue stashing priority enable */
-			0, /* dequeue stashing enable */
+			1, /* dequeue stashing enable */
 			0); /* EQCR_CI stashing priority enable */
 		reg |= 1 << SWP_CFG_CPBS_SHIFT | /* memory-backed mode */
 		       1 << SWP_CFG_VPM_SHIFT |  /* VDQCR read triggered mode */
