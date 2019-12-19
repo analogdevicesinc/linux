@@ -1,5 +1,5 @@
 /dts-v1/;
-/include/ "zynq-nh7020.dtsi"
+#include "zynq-nh7020.dtsi"
 
 
 &axi_i2c0 {
