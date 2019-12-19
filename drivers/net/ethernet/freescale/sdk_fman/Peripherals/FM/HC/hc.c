@@ -642,6 +642,8 @@ t_Error FmHcPcdKgSetClsPlan(t_Handle h_FmHc, t_FmPcdKgInterModuleClsPlanSet *p_S
     t_DpaaFD                fmFd;
     uint8_t                 i, idx;
     uint32_t                seqNum;
+    const void *src;
+    void *dest;
     t_Error                 err = E_OK;
 
     ASSERT_COND(p_FmHc);
@@ -659,7 +661,9 @@ t_Error FmHcPcdKgSetClsPlan(t_Handle h_FmHc, t_FmPcdKgInterModuleClsPlanSet *p_S
 
         idx = (uint8_t)(i - p_Set->baseEntry);
         ASSERT_COND(idx < FM_PCD_MAX_NUM_OF_CLS_PLANS);
-        memcpy(&p_HcFrame->hcSpecificData.clsPlanEntries, &p_Set->vectors[idx], CLS_PLAN_NUM_PER_GRP*sizeof(uint32_t));
+	dest = (void *)&p_HcFrame->hcSpecificData.clsPlanEntries;
+	src = &p_Set->vectors[idx];
+        memcpy(dest, src, CLS_PLAN_NUM_PER_GRP*sizeof(uint32_t));
         p_HcFrame->commandSequence = seqNum;
 
         BUILD_FD(sizeof(t_HcFrame));
