@@ -61,6 +61,7 @@ static int low_bus_mode_fsp_index;
 static bool bypass_support = true;
 
 static struct clk *dram_pll_clk;
+static struct clk *dram_pll;
 static struct clk *sys1_pll_800m;
 static struct clk *sys1_pll_400m;
 static struct clk *sys1_pll_100m;
@@ -135,7 +136,7 @@ static void reduce_bus_freq(void)
 				 * to update the clock tree info in kernel side.
 				 */
 				clk_set_rate(dram_apb_pre_div, 160000000);
-				clk_get_rate(dram_pll_clk);
+				clk_get_rate(dram_pll);
 			}
 			/* change the NOC rate */
 			if (of_machine_is_compatible("fsl,imx8mq"))
@@ -180,7 +181,7 @@ static void reduce_bus_freq(void)
 				 * to update the clock tree info in kernel side.
 				 */
 				clk_set_rate(dram_apb_pre_div, 160000000);
-				clk_get_rate(dram_pll_clk);
+				clk_get_rate(dram_pll);
 			}
 
 			/* change the NOC rate */
@@ -282,7 +283,7 @@ static int set_high_bus_freq(int high_bus_freq)
 		update_bus_freq(HIGH_FREQ_3200MTS);
 
 		clk_set_rate(dram_apb_pre_div, 200000000);
-		clk_get_rate(dram_pll_clk);
+		clk_get_rate(dram_pll);
 	}
 
 	clk_set_rate(noc_div, origin_noc_rate);
@@ -508,6 +509,7 @@ static int imx8mq_init_busfreq_clk(struct platform_device *pdev)
 
 static int imx8mm_init_busfreq_clk(struct platform_device *pdev)
 {
+	dram_pll = devm_clk_get(&pdev->dev, "dram_pll_div");
 	dram_pll_clk = devm_clk_get(&pdev->dev, "dram_pll");
 	dram_alt_src = devm_clk_get(&pdev->dev, "dram_alt_src");
 	dram_alt_root = devm_clk_get(&pdev->dev, "dram_alt_root");
