@@ -142,6 +142,7 @@ struct ad9081_phy {
 	s32 rx_fddc_phase[MAX_NUM_MAIN_DATAPATHS];
 	s32 rx_cddc_phase[MAX_NUM_CHANNELIZER];
 
+	u32 rx_nyquist_zone;
 	u8 rx_cddc_c2r[MAX_NUM_MAIN_DATAPATHS];
 	u8 rx_fddc_c2r[MAX_NUM_CHANNELIZER];
 	u8 rx_fddc_dcm[MAX_NUM_CHANNELIZER];
@@ -1530,6 +1531,10 @@ static int ad9081_setup(struct spi_device *spi, bool ad9234)
 
 	clk_set_rate(phy->clks[TX_SAMPL_CLK], sample_rate);
 
+	ret = adi_ad9081_adc_nyquist_zone_set(&phy->ad9081, phy->rx_nyquist_zone);
+	if (ret != 0)
+		return ret;
+
 	ret = ad9081_nco_sync_master_slave(phy, !IS_ERR_OR_NULL(phy->jesd_rx_clk));
 	if (ret != 0)
 		return ret;
@@ -2120,6 +2125,9 @@ static int ad9081_parse_dt_rx(struct ad9081_phy *phy, struct device_node *np)
 
 	of_property_read_u64(of_trx_path, "adi,adc-frequency-hz",
 			     &phy->adc_frequency_hz);
+
+	of_property_read_u32(of_trx_path, "adi,nyquist-zone",
+			     &phy->rx_nyquist_zone);
 
 	/* The 4 DAC Main Datapaths */
 
