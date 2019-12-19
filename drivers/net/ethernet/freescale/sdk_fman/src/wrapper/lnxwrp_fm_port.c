@@ -1494,11 +1494,11 @@ void LNXWRP_FM_Port_Free(void)
 static int __init __cold fm_port_load(void)
 {
 	if (LNXWRP_FM_Port_Init() != E_OK) {
-		printk(KERN_CRIT "Failed to init FM Ports wrapper!\n");
+		printk(KERN_ERR "Failed to init FM Ports wrapper!\n");
 		return -ENODEV;
 	}
 
-	printk(KERN_CRIT "Freescale FM Ports module\n");
+	printk(KERN_INFO "Freescale FM Ports module\n");
 
 	return 0;
 }

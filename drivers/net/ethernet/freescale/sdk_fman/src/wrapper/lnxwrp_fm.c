@@ -2904,7 +2904,7 @@ static int __init __cold fm_load (void)
         return -ENODEV;
     }
 
-	printk(KERN_CRIT "Freescale FM module," \
+	printk(KERN_INFO "Freescale FM module," \
 		" FMD API version %d.%d.%d\n",
 		FMD_API_VERSION_MAJOR,
 		FMD_API_VERSION_MINOR,
