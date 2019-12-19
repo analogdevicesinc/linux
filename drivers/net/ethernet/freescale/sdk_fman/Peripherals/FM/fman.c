@@ -460,8 +460,8 @@ uint8_t fman_get_num_of_tasks(struct fman_bmi_regs *bmi_rg, uint8_t port_id)
 {
 	uint32_t tmp;
 
-    if ((port_id > 63) || (port_id < 1))
-        return 0;
+	if ((port_id > 63) || (port_id < 1))
+		return 0;
 
 	tmp = ioread32be(&bmi_rg->fmbm_pp[port_id - 1]);
 	return (uint8_t)(((tmp & BMI_NUM_OF_TASKS_MASK) >>
@@ -472,8 +472,8 @@ uint8_t fman_get_num_extra_tasks(struct fman_bmi_regs *bmi_rg, uint8_t port_id)
 {
 	uint32_t tmp;
 
-    if ((port_id > 63) || (port_id < 1))
-        return 0;
+	if ((port_id > 63) || (port_id < 1))
+		return 0;
 
 	tmp = ioread32be(&bmi_rg->fmbm_pp[port_id - 1]);
 	return (uint8_t)((tmp & BMI_NUM_OF_EXTRA_TASKS_MASK) >>
