@@ -1245,6 +1245,7 @@ static long hantrodec_ioctl(struct file *filp, unsigned int cmd, unsigned long a
 			PDEBUG("hantrodec: pp_core[%li]  %s\n",
 					tmp, pp_owner[tmp] == NULL ? "FREE" : "RESERVED");
 		}
+		break;
 	}
 	default:
 		return -ENOTTY;
