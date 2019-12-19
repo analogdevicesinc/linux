@@ -1014,6 +1014,14 @@ F:	drivers/iio/adc/ltc2497*
 X:	drivers/iio/*/adjd*
 F:	drivers/staging/iio/*/ad*
 
+ANALOG DEVICES INC LTC6952 DRIVER
+M:	Mircea Caprioru <mircea.caprioru@analog.com>
+L:	linux-iio@vger.kernel.org
+W:	http://ez.analog.com/community/linux-device-drivers
+S:	Supported
+F:	drivers/iio/frequency/ltc6952.c
+F:	Documentation/devicetree/bindings/iio/frequency/adi,ltc6952.yaml
+
 ANDES ARCHITECTURE
 M:	Greentime Hu <green.hu@gmail.com>
 M:	Vincent Chen <deanbo422@gmail.com>
