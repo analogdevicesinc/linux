@@ -1,5 +1,9 @@
 subdir-ccflags-y := -Werror
 
+# Include netcomm SW specific definitions
+include $(srctree)/drivers/net/ethernet/freescale/sdk_fman/ncsw_config.mk
+ccflags-y += -I$(NET_DPA)
+
 # Common
 obj-$(CONFIG_FSL_SDK_DPA)		+= dpa_alloc.o
 obj-$(CONFIG_FSL_SDK_DPA)	+= qbman_driver.o

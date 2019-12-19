@@ -365,6 +365,38 @@ int dpa_alloc_pop(struct dpa_alloc *alloc, u32 *result, u32 *count);
 int dpa_alloc_check(struct dpa_alloc *list, u32 id);
 #endif /* __KERNEL__ */
 
+
+/************************************
+ * Link Status support for user space
+ * interface
+ ************************************/
+#define IF_NAME_MAX_LEN 16
+#define NODE_NAME_LEN	32
+
+struct usdpaa_ioctl_link_status {
+	/* network device node name */
+	char		if_name[IF_NAME_MAX_LEN];
+	/* Eventfd value */
+	uint32_t	efd;
+};
+
+#define USDPAA_IOCTL_ENABLE_LINK_STATUS_INTERRUPT \
+	_IOW(USDPAA_IOCTL_MAGIC, 0x0E, struct usdpaa_ioctl_link_status)
+
+#define USDPAA_IOCTL_DISABLE_LINK_STATUS_INTERRUPT \
+	_IOW(USDPAA_IOCTL_MAGIC, 0x0F, char *)
+
+struct usdpaa_ioctl_link_status_args {
+	/* network device node name */
+	char    if_name[IF_NAME_MAX_LEN];
+	/* link status(UP/DOWN) */
+	int     link_status;
+};
+
+#define USDPAA_IOCTL_GET_LINK_STATUS \
+	_IOWR(USDPAA_IOCTL_MAGIC, 0x10, struct usdpaa_ioctl_link_status_args)
+
+
 #ifdef __cplusplus
 }
 #endif
