@@ -74,7 +74,8 @@ static void adxcvr_eyescan_es_realignment(struct adxcvr_state *st, u32 lane)
 	/*
 	 * AR# 70872: Manual Eye Scan with UltraScale+ GTH
 	 */
-	if (st->xcvr.type == XILINX_XCVR_TYPE_US_GTH4) {
+	if (st->xcvr.type == XILINX_XCVR_TYPE_US_GTH4 ||
+		st->xcvr.type == XILINX_XCVR_TYPE_US_GTY4) {
 		dev_dbg(st->dev, "Executing realignment sequence\n");
 
 		adxcvr_eyescan_write(st, ADXCVR_REG_ES_REQ, 0);
@@ -123,7 +124,8 @@ static int adxcvr_eyescan_es(struct adxcvr_state *st, u32 lane)
 
 	} while (stat & ADXCVR_ES_REQ);
 
-	if (st->xcvr.type == XILINX_XCVR_TYPE_US_GTH4) {
+	if (st->xcvr.type == XILINX_XCVR_TYPE_US_GTH4 ||
+		st->xcvr.type == XILINX_XCVR_TYPE_US_GTY4) {
 		u32 midpoint = ((ES_VSIZE + 1) / 2) * hsize + hsize / 2;
 		u64 errors;
 
