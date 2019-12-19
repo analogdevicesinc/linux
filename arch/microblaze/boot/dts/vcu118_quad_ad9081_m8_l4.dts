@@ -414,6 +414,7 @@
 			#address-cells = <1>;
 
 			adi,adc-frequency-hz = /bits/ 64 <AD9081_ADC_FREQUENCY>;
+			adi,nyquist-zone = <AD9081_ADC_NYQUIST_ZONE_EVEN>;
 
 			adi,main-data-paths {
 				#address-cells = <1>;
@@ -642,6 +643,7 @@
 			#address-cells = <1>;
 
 			adi,adc-frequency-hz = /bits/ 64 <AD9081_ADC_FREQUENCY>;
+			adi,nyquist-zone = <AD9081_ADC_NYQUIST_ZONE_EVEN>;
 
 			adi,main-data-paths {
 				#address-cells = <1>;
@@ -868,6 +870,7 @@
 			#address-cells = <1>;
 
 			adi,adc-frequency-hz = /bits/ 64 <AD9081_ADC_FREQUENCY>;
+			adi,nyquist-zone = <AD9081_ADC_NYQUIST_ZONE_EVEN>;
 
 			adi,main-data-paths {
 				#address-cells = <1>;
@@ -1097,6 +1100,7 @@
 			#address-cells = <1>;
 
 			adi,adc-frequency-hz = /bits/ 64 <AD9081_ADC_FREQUENCY>;
+			adi,nyquist-zone = <AD9081_ADC_NYQUIST_ZONE_EVEN>;
 
 			adi,main-data-paths {
 				#address-cells = <1>;
