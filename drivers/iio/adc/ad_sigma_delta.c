@@ -566,7 +566,7 @@ static int ad_sd_probe_trigger(struct iio_dev *indio_dev)
 
 	ret = request_irq(sigma_delta->spi->irq,
 			  ad_sd_data_rdy_trig_poll,
-			  IRQF_TRIGGER_LOW,
+			  sigma_delta->irq_flags,
 			  indio_dev->name,
 			  sigma_delta);
 	if (ret)
@@ -659,10 +659,17 @@ EXPORT_SYMBOL_GPL(ad_sd_cleanup_buffer_and_trigger);
 int ad_sd_init(struct ad_sigma_delta *sigma_delta, struct iio_dev *indio_dev,
 	struct spi_device *spi, const struct ad_sigma_delta_info *info)
 {
+	unsigned long set_trigger_flags;
+
 	sigma_delta->spi = spi;
 	sigma_delta->info = info;
 	sigma_delta->num_slots = 1;
 	sigma_delta->active_slots = 1;
+
+	set_trigger_flags = sigma_delta->irq_flags & IRQF_TRIGGER_MASK;
+	if (set_trigger_flags == IRQF_TRIGGER_NONE)
+		sigma_delta->irq_flags |= IRQF_TRIGGER_LOW;
+
 	iio_device_set_drvdata(indio_dev, sigma_delta);
 
 	return 0;
