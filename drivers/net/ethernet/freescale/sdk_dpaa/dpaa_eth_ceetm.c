@@ -33,6 +33,8 @@
 #include "dpaa_eth_ceetm.h"
 
 #define DPA_CEETM_DESCRIPTION "FSL DPAA CEETM qdisc"
+MODULE_LICENSE("Dual BSD/GPL");
+MODULE_DESCRIPTION(DPA_CEETM_DESCRIPTION);
 
 const struct nla_policy ceetm_policy[TCA_CEETM_MAX + 1] = {
 	[TCA_CEETM_COPT] = { .len = sizeof(struct tc_ceetm_copt) },
