@@ -2077,6 +2077,7 @@ drop:
 	dev_kfree_skb_any(skb);
 	return NET_XMIT_SUCCESS;
 }
+EXPORT_SYMBOL(ceetm_tx);
 
 static int __init ceetm_register(void)
 {
