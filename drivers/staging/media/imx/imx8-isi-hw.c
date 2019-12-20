@@ -460,7 +460,7 @@ void mxc_isi_channel_set_scaling(struct mxc_isi_dev *mxc_isi,
 	u32 xdec = 0, ydec = 0;
 	u32 val0, val1;
 
-	if (dst_f->height == src_f->height ||
+	if (dst_f->height == src_f->height &&
 	    dst_f->width == src_f->width) {
 		mxc_isi->scale = 0;
 		mxc_isi_channel_clear_scaling(mxc_isi);
