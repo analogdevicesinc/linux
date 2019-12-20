@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * hmc425a and similar Gain Amplifiers
+ * HMC425A and similar Gain Amplifiers
  *
  * Copyright 2019 Analog Devices Inc.
  */
@@ -21,34 +21,34 @@
 
 #define HMC425A_NR_GPIOS	6
 
-enum hmc425_type {
-	ID_HMC425 ,
+enum hmc425a_type {
+	ID_HMC425A,
 };
 
-struct hmc425_info {
+struct hmc425a_info {
 	int gain_min;
 	int gain_max;
 };
 
-struct hmc425_state {
+struct hmc425a_state {
 	struct regulator *reg;
 	struct mutex lock; /* protect sensor state */
-	struct hmc425_info *info;
+	struct hmc425a_info *info;
 	struct gpio_descs *gpios;
-	enum hmc425_type type;
+	enum hmc425a_type type;
 	u32 value;
 };
 
-static struct hmc425_info hmc425_infos[] = {
-	[ID_HMC425] = {
+static struct hmc425a_info hmc425a_infos[] = {
+	[ID_HMC425A] = {
 		.gain_min = -31500,
 		.gain_max = 0,
 	},
 };
 
-static int hmc425_write(struct iio_dev *indio_dev, u32 value)
+static int hmc425a_write(struct iio_dev *indio_dev, u32 value)
 {
-	struct hmc425_state *st = iio_priv(indio_dev);
+	struct hmc425a_state *st = iio_priv(indio_dev);
 	int i, values[HMC425A_NR_GPIOS];
 
 	for (i = 0; i < st->gpios->ndescs; i++)
@@ -60,11 +60,11 @@ static int hmc425_write(struct iio_dev *indio_dev, u32 value)
 	return 0;
 }
 
-static int hmc425_read_raw(struct iio_dev *indio_dev,
+static int hmc425a_read_raw(struct iio_dev *indio_dev,
 			   struct iio_chan_spec const *chan, int *val,
 			   int *val2, long m)
 {
-	struct hmc425_state *st = iio_priv(indio_dev);
+	struct hmc425a_state *st = iio_priv(indio_dev);
 	int ret;
 	int code, gain = 0;
 
@@ -74,7 +74,7 @@ static int hmc425_read_raw(struct iio_dev *indio_dev,
 		code = st->value;
 
 		switch (st->type) {
-		case ID_HMC425:
+		case ID_HMC425A:
 			gain = ~code * -500;
 			break;
 		}
@@ -93,12 +93,12 @@ static int hmc425_read_raw(struct iio_dev *indio_dev,
 	return ret;
 };
 
-static int hmc425_write_raw(struct iio_dev *indio_dev,
+static int hmc425a_write_raw(struct iio_dev *indio_dev,
 			    struct iio_chan_spec const *chan, int val, int val2,
 			    long mask)
 {
-	struct hmc425_state *st = iio_priv(indio_dev);
-	struct hmc425_info *inf = st->info;
+	struct hmc425a_state *st = iio_priv(indio_dev);
+	struct hmc425a_info *inf = st->info;
 	int code = 0, gain;
 	int ret;
 
@@ -112,7 +112,7 @@ static int hmc425_write_raw(struct iio_dev *indio_dev,
 		return -EINVAL;
 
 	switch (st->type) {
-	case ID_HMC425:
+	case ID_HMC425A:
 		code = ~((abs(gain) / 500) & 0x3F);
 		break;
 	}
@@ -122,7 +122,7 @@ static int hmc425_write_raw(struct iio_dev *indio_dev,
 	case IIO_CHAN_INFO_HARDWAREGAIN:
 		st->value = code;
 
-		ret = hmc425_write(indio_dev, st->value);
+		ret = hmc425a_write(indio_dev, st->value);
 		break;
 	default:
 		ret = -EINVAL;
@@ -132,34 +132,34 @@ static int hmc425_write_raw(struct iio_dev *indio_dev,
 	return ret;
 }
 
-static const struct iio_info hmc425_info = {
-	.read_raw = &hmc425_read_raw,
-	.write_raw = &hmc425_write_raw,
+static const struct iio_info hmc425a_info = {
+	.read_raw = &hmc425a_read_raw,
+	.write_raw = &hmc425a_write_raw,
 };
 
-#define hmc425_CHAN(_channel)                                          \
+#define HMC245A_CHAN(_channel)                                          \
 {                                                                      \
 	.type = IIO_VOLTAGE, .output = 1, .indexed = 1,                \
 	.channel = _channel,                                           \
 	.info_mask_separate = BIT(IIO_CHAN_INFO_HARDWAREGAIN),         \
 }
 
-static const struct iio_chan_spec hmc425_channels[] = {
-	hmc425_CHAN(0),
+static const struct iio_chan_spec hmc425a_channels[] = {
+	HMC425A_CHAN(0),
 };
 
 /* Match table for of_platform binding */
-static const struct of_device_id hmc425_of_match[] = {
-	{ .compatible = "adi,hmc425a", .data = (void *) ID_HMC425 },
+static const struct of_device_id hmc425a_of_match[] = {
+	{ .compatible = "adi,hmc425a", .data = (void *) ID_HMC425A },
 	{},
 };
-MODULE_DEVICE_TABLE(of, hmc425_of_match);
+MODULE_DEVICE_TABLE(of, hmc425a_of_match);
 
-static int hmc425_probe(struct platform_device *pdev)
+static int hmc425a_probe(struct platform_device *pdev)
 {
 	struct iio_dev *indio_dev;
 	const struct of_device_id *id;
-	struct hmc425_state *st;
+	struct hmc425a_state *st;
 	struct device_node *np = pdev->dev.of_node;
 	int ret;
 
@@ -193,18 +193,18 @@ static int hmc425_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, indio_dev);
 	mutex_init(&st->lock);
 
-	id = of_match_device(hmc425_of_match, &pdev->dev);
+	id = of_match_device(hmc425a_of_match, &pdev->dev);
 	if (!id) {
 		ret = -ENODEV;
 		goto error_disable_reg;
 	}
 
-	st->type = (enum hmc425_type)id->data;
+	st->type = (enum hmc425a_type)id->data;
 
 	switch (st->type) {
-	case ID_HMC425:
-		indio_dev->channels = hmc425_channels;
-		indio_dev->num_channels = ARRAY_SIZE(hmc425_channels);
+	case ID_HMC425A:
+		indio_dev->channels = hmc425a_channels;
+		indio_dev->num_channels = ARRAY_SIZE(hmc425a_channels);
 		st->value = 0x3F;
 		break;
 	default:
@@ -213,10 +213,10 @@ static int hmc425_probe(struct platform_device *pdev)
 		goto error_disable_reg;
 	}
 
-	st->info = &hmc425_infos[st->type];
+	st->info = &hmc425a_infos[st->type];
 	indio_dev->dev.parent = &pdev->dev;
 	indio_dev->name = np->name;
-	indio_dev->info = &hmc425_info;
+	indio_dev->info = &hmc425a_info;
 	indio_dev->modes = INDIO_DIRECT_MODE;
 
 	ret = iio_device_register(indio_dev);
@@ -232,10 +232,10 @@ error_disable_reg:
 	return ret;
 }
 
-static int hmc425_remove(struct platform_device *pdev)
+static int hmc425a_remove(struct platform_device *pdev)
 {
 	struct iio_dev *indio_dev = platform_get_drvdata(pdev);
-	struct hmc425_state *st = iio_priv(indio_dev);
+	struct hmc425a_state *st = iio_priv(indio_dev);
 	struct regulator *reg = st->reg;
 
 	iio_device_unregister(indio_dev);
@@ -246,15 +246,15 @@ static int hmc425_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static struct platform_driver hmc425_driver = {
+static struct platform_driver hmc425a_driver = {
 	.driver = {
 		.name = KBUILD_MODNAME,
-		.of_match_table = hmc425_of_match,
+		.of_match_table = hmc425a_of_match,
 	},
-	.probe = hmc425_probe,
-	.remove = hmc425_remove,
+	.probe = hmc425a_probe,
+	.remove = hmc425a_remove,
 };
-module_platform_driver(hmc425_driver);
+module_platform_driver(hmc425a_driver);
 
 MODULE_AUTHOR("Michael Hennerich <michael.hennerich@analog.com>");
 MODULE_DESCRIPTION(
