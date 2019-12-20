@@ -64,6 +64,7 @@ struct ad_sigma_delta_info {
  * @spi: The spi device associated with the Sigma Delta device.
  * @trig: The IIO trigger associated with the Sigma Delta device.
  * @num_slots: Number of sequencer slots
+ * @irq_flags: flags for the interrupt used by the triggered buffer
  *
  * Most of the fields are private to the sigma delta library code and should not
  * be accessed by individual drivers.
@@ -73,6 +74,7 @@ struct ad_sigma_delta {
 	struct iio_trigger	*trig;
 
 	unsigned int		num_slots;
+	unsigned long		irq_flags;
 
 /* private: */
 	struct completion	completion;
