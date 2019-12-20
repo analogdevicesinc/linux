@@ -212,9 +212,11 @@ unsigned long ad9081_calc_lanerate(struct ad9081_jesd_link *link,
 	case 2:
 		encoding_n = 66; /* JESD 204C */
 		encoding_d = 64;
+		break;
 	default:
 		encoding_n = 10; /* JESD 204AB */
 		encoding_d = 8;
+		break;
 	}
 
 	rate = link->jesd_param.jesd_m * link->jesd_param.jesd_np * encoding_n *
