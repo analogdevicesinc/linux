@@ -15,7 +15,7 @@
 #ifndef __SEC_MIPI_DSIM_H__
 #define __SEC_MIPI_DSIM_H__
 
-#include <drm/drmP.h>
+#include <drm/drm_vblank.h>
 #include <linux/bsearch.h>
 
 struct sec_mipi_dsim_dphy_timing;

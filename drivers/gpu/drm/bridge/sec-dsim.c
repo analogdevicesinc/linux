@@ -26,7 +26,7 @@
 #include <linux/of_graph.h>
 #include <linux/pm_runtime.h>
 #include <drm/bridge/sec_mipi_dsim.h>
-#include <drm/drmP.h>
+#include <drm/drm_vblank.h>
 #include <drm/drm_atomic_helper.h>
 #include <drm/drm_bridge.h>
 #include <drm/drm_connector.h>
