@@ -47,7 +47,7 @@
 			compatible = "xlnx,xps-spi-2.00.a";
 			bits-per-word = <8>;
 			clock-names = "ext_spi_clk", "s_axi_aclk";
-			clocks = <&clk 71>, <&clk 71>;
+			clocks = <&zynqmp_clk 71>, <&zynqmp_clk 71>;
 			fifo-size = <16>;
 			interrupt-names = "ip2intc_irpt";
 			interrupt-parent = <&gic>;
@@ -64,7 +64,7 @@
 			compatible = "xlnx,xps-spi-2.00.a";
 			bits-per-word = <8>;
 			clock-names = "ext_spi_clk", "s_axi_aclk";
-			clocks = <&clk 71>, <&clk 71>;
+			clocks = <&zynqmp_clk 71>, <&zynqmp_clk 71>;
 			fifo-size = <16>;
 			interrupt-names = "ip2intc_irpt";
 			interrupt-parent = <&gic>;
@@ -80,7 +80,7 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 			clock-names = "s_axi_aclk";
-			clocks = <&clk 71>;
+			clocks = <&zynqmp_clk 71>;
 			compatible = "xlnx,axi-iic-2.0", "xlnx,xps-iic-2.00.a";
 			interrupt-names = "iic2intc_irpt";
 			interrupt-parent = <&gic>;
@@ -109,7 +109,7 @@
 
 			interrupts = <0 107 IRQ_TYPE_LEVEL_HIGH>;
 
-			clocks = <&clk 71>, <&ad9528 4>, <&axi_ad9094_adxcvr 0>;
+			clocks = <&zynqmp_clk 71>, <&ad9528 4>, <&axi_ad9094_adxcvr 0>;
 			clock-names = "s_axi_aclk", "device_clk", "lane_clk";
 
 			adi,octets-per-frame = <1>;
@@ -135,7 +135,7 @@
 			reg = <0x9c400000 0x10000>;
 			#dma-cells = <1>;
 			interrupts = <0 109 IRQ_TYPE_LEVEL_HIGH>;
-			clocks = <&clk 71>;
+			clocks = <&zynqmp_clk 71>;
 
 			adi,channels {
 				#size-cells = <0>;
