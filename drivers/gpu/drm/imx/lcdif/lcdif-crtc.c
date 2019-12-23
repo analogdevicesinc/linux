@@ -19,7 +19,7 @@
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
-#include <drm/drmP.h>
+#include <drm/drm_vblank.h>
 #include <drm/drm_atomic_helper.h>
 #include <video/imx-lcdif.h>
 #include <video/videomode.h>
