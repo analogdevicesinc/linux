@@ -12,7 +12,10 @@
  * for more details.
  */
 
-#include <drm/drmP.h>
+#include <drm/drm_vblank.h>
+#include <drm/drm_print.h>
+#include <drm/drm_drv.h>
+#include <drm/drm_ioctl.h>
 #include <drm/imx_drm.h>
 #include <linux/component.h>
 #include <linux/device.h>
