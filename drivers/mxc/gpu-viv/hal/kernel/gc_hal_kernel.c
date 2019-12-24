@@ -5393,10 +5393,18 @@ gckDEVICE_ChipInfo(
 
     for (i = 0; i < Device->coreNum; i++)
     {
-        Interface->u.ChipInfo.types[i] = info[i].type;
+        gceHARDWARE_TYPE type = info[i].type;
+        Interface->u.ChipInfo.types[i] = type;
         Interface->u.ChipInfo.ids[i] = info[i].chipID;
 
-        Interface->u.ChipInfo.coreIndexs[i] = info[i].core;
+        if (type == gcvHARDWARE_3D || type == gcvHARDWARE_3D2D || type == gcvHARDWARE_VIP)
+        {
+            Interface->u.ChipInfo.coreIndexs[i] = i;
+        }
+        else
+        {
+            Interface->u.ChipInfo.coreIndexs[i] = info[i].core;
+        }
     }
 
     Interface->u.ChipInfo.count = Device->coreNum;
