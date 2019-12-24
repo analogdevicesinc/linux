@@ -2077,14 +2077,14 @@ static int ov5640_probe(struct i2c_client *client)
 
 	retval = ov5640_read_reg(OV5640_CHIP_ID_HIGH_BYTE, &chip_id_high);
 	if (retval < 0 || chip_id_high != 0x56) {
-		pr_warning("camera ov5640_mipi is not found\n");
+		pr_warn("camera ov5640_mipi is not found\n");
 		ov5640_power_off();
 		clk_disable_unprepare(ov5640_data.sensor_clk);
 		return -ENODEV;
 	}
 	retval = ov5640_read_reg(OV5640_CHIP_ID_LOW_BYTE, &chip_id_low);
 	if (retval < 0 || chip_id_low != 0x40) {
-		pr_warning("camera ov5640_mipi is not found\n");
+		pr_warn("camera ov5640_mipi is not found\n");
 		ov5640_power_off();
 		clk_disable_unprepare(ov5640_data.sensor_clk);
 		return -ENODEV;

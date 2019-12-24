@@ -1148,7 +1148,7 @@ static int ov5640_change_mode_direct(enum ov5640_frame_rate frame_rate,
 
 	/* skip 9 vysnc: start capture at 10th vsync */
 	if (mode == ov5640_mode_XGA_1024_768 && frame_rate == ov5640_30_fps) {
-		pr_warning("ov5640: actual frame rate of XGA is 22.5fps\n");
+		pr_warn("ov5640: actual frame rate of XGA is 22.5fps\n");
 		/* 1/22.5 * 9*/
 		msleep(400);
 		return retval;
@@ -1282,7 +1282,7 @@ static int ov5640_change_mode_exposure_calc(enum ov5640_frame_rate frame_rate,
 	/* skip 2 vysnc: start capture at 3rd vsync
 	 * frame rate of QSXGA and 1080P is 7.5fps: 1/7.5 * 2
 	 */
-	pr_warning("ov5640: the actual frame rate of %s is 7.5fps\n",
+	pr_warn("ov5640: the actual frame rate of %s is 7.5fps\n",
 		mode == ov5640_mode_1080P_1920_1080 ? "1080P" : "QSXGA");
 	msleep(267);
 err:
@@ -1652,7 +1652,7 @@ static int ioctl_enum_frameintervals(struct v4l2_int_device *s,
 
 	if (fival->width == 0 || fival->height == 0 ||
 	    fival->pixel_format == 0) {
-		pr_warning("Please assign pixelformat, width and height.\n");
+		pr_warn("Please assign pixelformat, width and height.\n");
 		return -EINVAL;
 	}
 
@@ -1918,14 +1918,14 @@ static int ov5640_probe(struct i2c_client *client)
 	if (retval < 0 || chip_id_high != 0x56) {
 		clk_disable_unprepare(ov5640_data.sensor_clk);
 		ov5640_regulator_disable();
-		pr_warning("camera ov5640 is not found\n");
+		pr_warn("camera ov5640 is not found\n");
 		return -ENODEV;
 	}
 	retval = ov5640_read_reg(OV5640_CHIP_ID_LOW_BYTE, &chip_id_low);
 	if (retval < 0 || chip_id_low != 0x40) {
 		clk_disable_unprepare(ov5640_data.sensor_clk);
 		ov5640_regulator_disable();
-		pr_warning("camera ov5640 is not found\n");
+		pr_warn("camera ov5640 is not found\n");
 		return -ENODEV;
 	}
 
