@@ -75,10 +75,17 @@ struct viv_gem_object {
     gctBOOL               cacheable;
 };
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,4,0)
+struct dma_buf *viv_gem_prime_export(struct drm_gem_object *gem_obj,
+                int flags)
+{
+    struct drm_device *drm = gem_obj->dev;
+#else
 struct dma_buf *viv_gem_prime_export(struct drm_device *drm,
                 struct drm_gem_object *gem_obj,
                 int flags)
 {
+#endif
     struct viv_gem_object *viv_obj = container_of(gem_obj, struct viv_gem_object, base);
     struct dma_buf *dmabuf = gcvNULL;
     gckGALDEVICE gal_dev = (gckGALDEVICE)drm->dev_private;
@@ -776,7 +783,11 @@ static const struct file_operations viv_drm_fops = {
 };
 
 static struct drm_driver viv_drm_driver = {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,4,0)
+    .driver_features    = DRIVER_GEM | DRIVER_RENDER,
+#else
     .driver_features    = DRIVER_GEM | DRIVER_PRIME | DRIVER_RENDER,
+#endif
     .open = viv_drm_open,
     .postclose = viv_drm_postclose,
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4,7,0)
