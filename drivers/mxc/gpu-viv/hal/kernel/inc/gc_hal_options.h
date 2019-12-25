@@ -729,7 +729,7 @@ This define enables the use of VM for gckCommand and fence buffers.
 */
 #ifndef gcdENABLE_GPU_1M_PAGE
 #if !gcdSECURITY && defined(LINUX)
-#   define gcdENABLE_GPU_1M_PAGE                1
+#   define gcdENABLE_GPU_1M_PAGE                0
 #else
 #   define gcdENABLE_GPU_1M_PAGE                0
 #endif
