@@ -619,6 +619,7 @@
 			snps,dis_rxdet_inp3_quirk;
 			snps,quirk-frame-length-adjustment = <0x20>;
 			snps,incr-burst-type-adjustment = <1>, <4>, <8>, <16>;
+			dma-coherent;
 			status = "disabled";
 		};
 
@@ -629,6 +630,7 @@
 			snps,dis_rxdet_inp3_quirk;
 			snps,quirk-frame-length-adjustment = <0x20>;
 			snps,incr-burst-type-adjustment = <1>, <4>, <8>, <16>;
+			dma-coherent;
 			status = "disabled";
 		};
 
