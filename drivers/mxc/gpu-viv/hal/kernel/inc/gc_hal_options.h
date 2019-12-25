@@ -769,7 +769,7 @@
 #ifdef EMULATOR
 #            define gcdENABLE_GPU_1M_PAGE           0
 #        else
-#            define gcdENABLE_GPU_1M_PAGE           1
+#            define gcdENABLE_GPU_1M_PAGE           0
 #        endif
 #    else
 #        define gcdENABLE_GPU_1M_PAGE               0
