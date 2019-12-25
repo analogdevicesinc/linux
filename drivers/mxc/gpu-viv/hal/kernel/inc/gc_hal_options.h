@@ -1354,6 +1354,14 @@ This define enables the use of VM for gckCommand and fence buffers.
 #   define gcdKERNEL_QUERY_PERFORMANCE_COUNTER_V8  0
 #endif
 
+/*
+    gcdIGNORE_DRIVER_VERSIONS_MISMATCH
+        When enabled, driver will ignore user and kernel driver version mismatch.
+*/
+#ifndef gcdIGNORE_DRIVER_VERSIONS_MISMATCH
+#   define gcdIGNORE_DRIVER_VERSIONS_MISMATCH  0
+#endif
+
 #endif /* __gc_hal_options_h_ */
 
 
