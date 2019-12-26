@@ -60,8 +60,15 @@ static struct lcdifv3_soc_pdata imx8mp_lcdif1_pdata = {
 	.de_invert    = false,
 };
 
+static struct lcdifv3_soc_pdata imx8mp_lcdif2_pdata = {
+	.hsync_invert = false,
+	.vsync_invert = false,
+	.de_invert    = true,
+};
+
 static const struct of_device_id imx_lcdifv3_dt_ids[] = {
 	{ .compatible = "fsl,imx8mp-lcdif1", .data = &imx8mp_lcdif1_pdata, },
+	{ .compatible = "fsl,imx8mp-lcdif2", .data = &imx8mp_lcdif2_pdata, },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, imx_lcdifv3_dt_ids);
