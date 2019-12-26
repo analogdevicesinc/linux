@@ -291,7 +291,7 @@
 		clocks = <&clks IMX7D_MIPI_DSI_ROOT_CLK>,
 			<&clks IMX7D_MIPI_DPHY_ROOT_CLK>;
 		clock-names = "mipi_cfg_clk", "mipi_pllref_clk";
-		mipi-phy-supply = <&reg_1p0d>;
+		power-domains = <&pgc_mipi_phy>;
 		status = "disabled";
 	};
 
