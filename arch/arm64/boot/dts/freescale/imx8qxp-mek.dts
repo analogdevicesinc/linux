@@ -264,8 +264,11 @@
 	#address-cells = <1>;
 	#size-cells = <0>;
 	clock-frequency = <100000>;
-	pinctrl-names = "default";
+	pinctrl-names = "default", "gpio";
 	pinctrl-0 = <&pinctrl_cm40_i2c>;
+	pinctrl-1 = <&pinctrl_cm40_i2c_gpio>;
+	scl-gpios = <&lsio_gpio1 10 GPIO_ACTIVE_HIGH>;
+	sda-gpios = <&lsio_gpio1 9 GPIO_ACTIVE_HIGH>;
 	status = "okay";
 
 	pca6416: gpio@20 {
@@ -1227,6 +1230,13 @@
 		fsl,pins = <
 			IMX8QXP_ADC_IN1_M40_I2C0_SDA                            0x0600004c
 			IMX8QXP_ADC_IN0_M40_I2C0_SCL                            0x0600004c
+		>;
+	};
+
+	pinctrl_cm40_i2c_gpio: cm40i2cgrp-gpio {
+		fsl,pins = <
+			IMX8QXP_ADC_IN1_LSIO_GPIO1_IO09		0xc600004c
+			IMX8QXP_ADC_IN0_LSIO_GPIO1_IO10		0xc600004c
 		>;
 	};
 
