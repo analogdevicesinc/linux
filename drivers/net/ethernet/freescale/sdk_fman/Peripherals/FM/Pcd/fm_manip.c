@@ -671,6 +671,7 @@ static t_Error BuildHmct(t_FmPcdManip *p_Manip,
                         break;
                     case (e_FM_PCD_MANIP_INSRT_BY_HDR_UDP_LITE):
                         tmpReg = HMCD_INSRT_UDP_LITE;
+			/* fall through */
                     case (e_FM_PCD_MANIP_INSRT_BY_HDR_UDP):
                         tmpReg |= (uint32_t)(HMCD_OPCODE_UDP_INSRT)
                                 << HMCD_OC_SHIFT;

@@ -1799,16 +1799,19 @@ int fm_get_counter(void *h_fm, e_FmCounters cnt_e, uint32_t *cnt_val)
 	switch (cnt_e) {
 	case (e_FM_COUNTERS_DEQ_1):
 	case (e_FM_COUNTERS_DEQ_2):
+		/* fall through */
 	case (e_FM_COUNTERS_DEQ_3):
 		if (p_fm->p_FmStateStruct->revInfo.majorRev >= 6)
 			return -EINVAL; /* counter not available */
 
+		/* Else fall through */
 	case (e_FM_COUNTERS_ENQ_TOTAL_FRAME):
 	case (e_FM_COUNTERS_DEQ_TOTAL_FRAME):
 	case (e_FM_COUNTERS_DEQ_0):
 	case (e_FM_COUNTERS_DEQ_FROM_DEFAULT):
 	case (e_FM_COUNTERS_DEQ_FROM_CONTEXT):
 	case (e_FM_COUNTERS_DEQ_FROM_FD):
+		/* fall through */
 	case (e_FM_COUNTERS_DEQ_CONFIRM):
 		if (!(ioread32be(&p_fm->p_FmQmiRegs->fmqm_gc) &
 			QMI_CFG_EN_COUNTERS))

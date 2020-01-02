@@ -376,6 +376,7 @@ static inline void compat_copy_fm_pcd_cc_next_engine(
             case e_IOC_FM_PCD_DONE:
             case e_IOC_FM_PCD_PLCR:
                 param->manip_id = compat_pcd_id2ptr(compat_param->manip_id);
+		/* fall through */
             default:
                 memcpy(&param->params, &compat_param->params, sizeof(param->params));
         }
@@ -403,6 +404,7 @@ static inline void compat_copy_fm_pcd_cc_next_engine(
             case e_IOC_FM_PCD_DONE:
             case e_IOC_FM_PCD_PLCR:
                 compat_param->manip_id = compat_pcd_ptr2id(param->manip_id);
+		/* fall through */
             default:
                 memcpy(&compat_param->params, &param->params, sizeof(compat_param->params));
         }

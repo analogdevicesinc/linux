@@ -198,6 +198,7 @@ static uint8_t GetGenHdrCode(e_NetHeaderType hdr, e_FmPcdHdrIndex hdrIndex, bool
         {
             case (HEADER_TYPE_NONE):
                 ASSERT_COND(FALSE);
+		/* Else fall through */
             case (HEADER_TYPE_ETH):
                 return KG_SCH_GEN_ETH;
             case (HEADER_TYPE_LLC_SNAP):
@@ -252,6 +253,7 @@ static uint8_t GetGenHdrCode(e_NetHeaderType hdr, e_FmPcdHdrIndex hdrIndex, bool
         {
             case (HEADER_TYPE_NONE):
                 ASSERT_COND(FALSE);
+		/* Else fall through */
             case (HEADER_TYPE_ETH):
                 return KG_SCH_GEN_ETH_NO_V;
             case (HEADER_TYPE_LLC_SNAP):
@@ -269,12 +271,14 @@ static uint8_t GetGenHdrCode(e_NetHeaderType hdr, e_FmPcdHdrIndex hdrIndex, bool
                     REPORT_ERROR(MAJOR, E_NOT_SUPPORTED, ("Illegal MPLS header index"));
                 return 0;
             case (HEADER_TYPE_IPv4):
+		/* fall through */
             case (HEADER_TYPE_IPv6):
                 if ((hdrIndex == e_FM_PCD_HDR_INDEX_NONE) || (hdrIndex == e_FM_PCD_HDR_INDEX_1))
                     return KG_SCH_GEN_L3_NO_V;
                 if ((hdrIndex == e_FM_PCD_HDR_INDEX_2) || (hdrIndex == e_FM_PCD_HDR_INDEX_LAST))
                     return KG_SCH_GEN_IP2_NO_V;
                 REPORT_ERROR(MAJOR, E_NOT_SUPPORTED, ("Illegal IP header index"));
+		/* fall through */
             case (HEADER_TYPE_MINENCAP):
                 return KG_SCH_GEN_IP2_NO_V;
             case (HEADER_TYPE_USER_DEFINED_L3):

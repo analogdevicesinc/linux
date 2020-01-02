@@ -4804,6 +4804,7 @@ uint32_t FM_GetCounter(t_Handle h_Fm, e_FmCounters counter)
     {
         case (e_FM_COUNTERS_DEQ_1):
         case (e_FM_COUNTERS_DEQ_2):
+            /* fall through */
         case (e_FM_COUNTERS_DEQ_3):
             if ((p_Fm->p_FmStateStruct->revInfo.majorRev == 4) ||
                 (p_Fm->p_FmStateStruct->revInfo.majorRev >= 6))
@@ -4811,12 +4812,14 @@ uint32_t FM_GetCounter(t_Handle h_Fm, e_FmCounters counter)
                 REPORT_ERROR(MAJOR, E_NOT_SUPPORTED, ("Requested counter not supported"));
                 return 0;
             }
+            /* fall through */
         case (e_FM_COUNTERS_ENQ_TOTAL_FRAME):
         case (e_FM_COUNTERS_DEQ_TOTAL_FRAME):
         case (e_FM_COUNTERS_DEQ_0):
         case (e_FM_COUNTERS_DEQ_FROM_DEFAULT):
         case (e_FM_COUNTERS_DEQ_FROM_CONTEXT):
         case (e_FM_COUNTERS_DEQ_FROM_FD):
+            /* fall through */
         case (e_FM_COUNTERS_DEQ_CONFIRM):
             if (!(GET_UINT32(p_Fm->p_FmQmiRegs->fmqm_gc) & QMI_CFG_EN_COUNTERS))
             {

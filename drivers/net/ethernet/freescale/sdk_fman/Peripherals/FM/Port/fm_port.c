@@ -1394,6 +1394,7 @@ static t_Error SetPcd(t_FmPort *p_FmPort, t_FmPortPcdParams *p_PcdParams)
             case (e_FM_PORT_PCD_SUPPORT_PRS_AND_KG_AND_CC):
             case (e_FM_PORT_PCD_SUPPORT_PRS_AND_KG_AND_CC_AND_PLCR):
                 tmpReg = NIA_KG_CC_EN;
+                /* fall through */
             case (e_FM_PORT_PCD_SUPPORT_PRS_AND_KG):
             case (e_FM_PORT_PCD_SUPPORT_PRS_AND_KG_AND_PLCR):
                 if (p_PcdParams->p_KgParams->directScheme)
@@ -2404,6 +2405,8 @@ t_Handle FM_PORT_Config(t_FmPortParams *p_FmPortParams)
             WRITE_UINT32( p_FmPort->p_FmPortBmiRegs->txPortBmiRegs.fmbm_tfp,
                          tmpReg);
 #endif /* FM_WRONG_RESET_VALUES_ERRATA_FMAN_A005127 */
+
+            /* fall through */
         case (e_FM_PORT_TYPE_TX_10G):
                 tmpReg =
                         GET_UINT32(p_FmPort->p_FmPortBmiRegs->txPortBmiRegs.fmbm_tfp);
@@ -2435,6 +2438,7 @@ t_Handle FM_PORT_Config(t_FmPortParams *p_FmPortParams)
             p_FmPort->p_FmPortDriverParam->noScatherGather =
                     DEFAULT_PORT_noScatherGather;
 #endif /* (DPAA_VERSION >= 11) */
+            /* fall through */
         case (e_FM_PORT_TYPE_OH_HOST_COMMAND):
             p_FmPort->p_FmPortDriverParam->deqPrefetchOption =
                     DEFAULT_PORT_deqPrefetchOption_HC;
@@ -4270,6 +4274,7 @@ t_Error FM_PORT_ModifyCounter(t_Handle h_FmPort, e_FmPortCounters counter,
                 RETURN_ERROR(
                         MINOR, E_INVALID_STATE,
                         ("Requested counter is not available for Rx ports"));
+            /* fall through */
         case (e_FM_PORT_COUNTERS_ENQ_TOTAL):
             bmiCounter = FALSE;
             break;
