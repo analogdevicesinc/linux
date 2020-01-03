@@ -381,7 +381,7 @@ EXPORT_SYMBOL_GPL(framegen_read_timestamp);
 void framegen_wait_for_frame_counter_moving(struct dpu_framegen *fg)
 {
 	u32 frame_index, line_index, last_frame_index;
-	unsigned long timeout = jiffies + msecs_to_jiffies(50);
+	unsigned long timeout = jiffies + msecs_to_jiffies(100);
 
 	framegen_read_timestamp(fg, &frame_index, &line_index);
 	do {
