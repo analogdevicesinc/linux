@@ -289,6 +289,12 @@ static void dpu_crtc_atomic_disable(struct drm_crtc *crtc,
 					to_imx_crtc_state(old_crtc_state);
 	struct dpu_crtc_state *dcstate = to_dpu_crtc_state(imx_crtc_state);
 	struct drm_display_mode *adjusted_mode = &old_crtc_state->adjusted_mode;
+	struct dpu_plane *dplane = to_dpu_plane(crtc->primary);
+	struct dpu_plane_res *res = &dplane->grp->res;
+	struct dpu_plane_state *dpstate;
+	struct dpu_fetchunit *fu;
+	unsigned long flags;
+	int i;
 
 	if (dcstate->use_pc) {
 		tcon_disable_pc(dpu_crtc->tcon);
@@ -296,9 +302,59 @@ static void dpu_crtc_atomic_disable(struct drm_crtc *crtc,
 		framegen_disable_pixel_link(dpu_crtc->m_fg);
 		framegen_disable_pixel_link(dpu_crtc->s_fg);
 
+		/* don't relinquish CPU until DPRC repeat_en is disabled */
+		local_irq_save(flags);
+		preempt_disable();
+		/*
+		 * Sync to FrameGen frame counter moving so that
+		 * FrameGen can be disabled in the next frame.
+		 */
+		framegen_wait_for_frame_counter_moving(dpu_crtc->m_fg);
+
 		/* First turn off the master stream, second the slave stream. */
 		framegen_disable(dpu_crtc->m_fg);
 		framegen_disable(dpu_crtc->s_fg);
+
+		/*
+		 * There is one frame leftover after FrameGen disablement.
+		 * Sync to FrameGen frame counter moving so that
+		 * DPRC repeat_en can be disabled in the next frame.
+		 */
+		framegen_wait_for_frame_counter_moving(dpu_crtc->m_fg);
+
+		for (i = 0; i < dpu_crtc->hw_plane_num; i++) {
+			dpu_block_id_t source;
+			bool aux_source_flag;
+			bool use_prefetch;
+
+			dpstate = dcstate->dpu_plane_states[i];
+			if (!dpstate)
+				continue;
+
+			aux_source_flag = false;
+again:
+			source = aux_source_flag ? dpstate->aux_source :
+						   dpstate->source;
+			use_prefetch = aux_source_flag ?
+						dpstate->use_aux_prefetch :
+						dpstate->use_prefetch;
+			fu = source_to_fu(res, source);
+			if (!fu) {
+				local_irq_restore(flags);
+				preempt_enable();
+				return;
+			}
+
+			if (fu->dprc && use_prefetch)
+				dprc_disable_repeat_en(fu->dprc);
+
+			if (dpstate->need_aux_source && !aux_source_flag) {
+				aux_source_flag = true;
+				goto again;
+			}
+		}
+		local_irq_restore(flags);
+		preempt_enable();
 
 		framegen_wait_done(dpu_crtc->m_fg, adjusted_mode);
 		framegen_wait_done(dpu_crtc->s_fg, adjusted_mode);
@@ -307,7 +363,41 @@ static void dpu_crtc_atomic_disable(struct drm_crtc *crtc,
 					dpu_crtc->aux_fg : dpu_crtc->fg);
 	} else {
 		framegen_disable_pixel_link(dpu_crtc->fg);
+
+		/* don't relinquish CPU until DPRC repeat_en is disabled */
+		local_irq_save(flags);
+		preempt_disable();
+		/*
+		 * Sync to FrameGen frame counter moving so that
+		 * FrameGen can be disabled in the next frame.
+		 */
+		framegen_wait_for_frame_counter_moving(dpu_crtc->fg);
 		framegen_disable(dpu_crtc->fg);
+		/*
+		 * There is one frame leftover after FrameGen disablement.
+		 * Sync to FrameGen frame counter moving so that
+		 * DPRC repeat_en can be disabled in the next frame.
+		 */
+		framegen_wait_for_frame_counter_moving(dpu_crtc->fg);
+
+		for (i = 0; i < dpu_crtc->hw_plane_num; i++) {
+			dpstate = dcstate->dpu_plane_states[i];
+			if (!dpstate)
+				continue;
+
+			fu = source_to_fu(res, dpstate->source);
+			if (!fu) {
+				local_irq_restore(flags);
+				preempt_enable();
+				return;
+			}
+
+			if (fu->dprc && dpstate->use_prefetch)
+				dprc_disable_repeat_en(fu->dprc);
+		}
+		local_irq_restore(flags);
+		preempt_enable();
+
 		framegen_wait_done(dpu_crtc->fg, adjusted_mode);
 		framegen_disable_clock(dpu_crtc->fg);
 	}
