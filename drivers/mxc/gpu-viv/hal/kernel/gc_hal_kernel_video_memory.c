@@ -579,6 +579,8 @@ _GetSurfaceBankAlignment(
     switch (Type)
     {
     case gcvVIDMEM_TYPE_COLOR_BUFFER:
+    case gcvVIDMEM_TYPE_TEXTURE:
+    case gcvVIDMEM_TYPE_BITMAP:
         bank = (BaseAddress & bankMask) >> (gcdBANK_BIT_START);
 
         /* Align to the first bank. */
