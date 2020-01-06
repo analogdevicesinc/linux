@@ -178,7 +178,8 @@ static int hmc425_probe(struct platform_device *pdev)
 	}
 
 	if (st->gpios->ndescs != HMC425A_NR_GPIOS) {
-		dev_err(&pdev->dev, "%d GPIOs needed to operate\n");
+		dev_err(&pdev->dev, "%d GPIOs needed to operate\n",
+			HMC425A_NR_GPIOS);
 		return -ENODEV;
 	}
 
