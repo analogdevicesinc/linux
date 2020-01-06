@@ -292,7 +292,7 @@ static void __exit iio_exit(void)
 	if (iio_devt)
 		unregister_chrdev_region(iio_devt, IIO_DEV_MAX);
 	bus_unregister(&iio_bus_type);
-	debugfs_remove_recursive(iio_debugfs_dentry);
+	debugfs_remove(iio_debugfs_dentry);
 }
 
 #if defined(CONFIG_DEBUG_FS)
