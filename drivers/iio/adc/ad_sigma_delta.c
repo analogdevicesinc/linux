@@ -381,10 +381,11 @@ static void ad_sd_prepare_transfer_msg(struct iio_dev *indio_dev)
 	else
 		data_reg = AD_SD_REG_DATA;
 
-	/* We store 24 bit samples in a 32 bit word. Keep the upper
-	 * byte set to zero. */
-	if (reg_size == 3)
-		rx += 1;
+	/* We store reg_size bytes samples in a 32 bit word. Keep the upper
+	 * reg_size bytes set to zero.
+	 */
+	rx += 4 - reg_size;
+
 	ad_sd_prepare_read_reg(sigma_delta, &sigma_delta->spi_msg,
 		sigma_delta->spi_transfer, data_reg, reg_size, tx,
 		rx, true);
