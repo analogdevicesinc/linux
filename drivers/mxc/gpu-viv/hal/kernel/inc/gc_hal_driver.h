@@ -1084,6 +1084,7 @@ typedef struct _gcsHAL_DATABASE
     /* Information. */
     OUT gcuDATABASE_INFO        vidMem;
     OUT gcuDATABASE_INFO        nonPaged;
+    OUT gcuDATABASE_INFO        contiguous;
     OUT gcuDATABASE_INFO        gpuIdle;
 
     /* Detail information about video memory. */

@@ -822,8 +822,16 @@ gckKERNEL_AddProcessDB(
         count = &database->nonPaged;
         break;
 
+    case gcvDB_CONTIGUOUS:
+        count = &database->contiguous;
+        break;
+
     case gcvDB_MAP_MEMORY:
         count = &database->mapMemory;
+        break;
+
+    case gcvDB_MAP_USER_MEMORY:
+        count = &database->mapUserMemory;
         break;
 
     default:
@@ -961,9 +969,19 @@ gckKERNEL_RemoveProcessDB(
         database->nonPaged.freeCount++;
         break;
 
+    case gcvDB_CONTIGUOUS:
+        database->contiguous.bytes -= bytes;
+        database->contiguous.freeCount++;
+        break;
+
     case gcvDB_MAP_MEMORY:
         database->mapMemory.bytes -= bytes;
         database->mapMemory.freeCount++;
+        break;
+
+    case gcvDB_MAP_USER_MEMORY:
+        database->mapUserMemory.bytes -= bytes;
+        database->mapUserMemory.freeCount++;
         break;
 
     default:
@@ -1465,6 +1483,12 @@ gckKERNEL_QueryProcessDB(
     case gcvDB_NON_PAGED:
         gckOS_MemCopy(&Info->counters,
                                   &database->nonPaged,
+                                  gcmSIZEOF(database->vidMem));
+        break;
+
+    case gcvDB_CONTIGUOUS:
+        gckOS_MemCopy(&Info->counters,
+                                  &database->contiguous,
                                   gcmSIZEOF(database->vidMem));
         break;
 

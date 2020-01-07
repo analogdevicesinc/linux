@@ -4743,3 +4743,60 @@ gckVIDMEM_NODE_Find(
 
     return status;
 }
+
+gceSTATUS
+gckVIDMEM_NODE_IsContiguous(
+    IN gckKERNEL Kernel,
+    IN gckVIDMEM_NODE NodeObject,
+    OUT gctBOOL * Contiguous
+    )
+{
+    gceSTATUS status;
+    gckOS os = Kernel->os;
+    gctBOOL acquired = gcvFALSE;
+    gcuVIDMEM_NODE_PTR node = NodeObject->node;
+    gckVIDMEM_BLOCK vidMemBlock = node->VirtualChunk.parent;
+
+    gcmkHEADER();
+
+    /* Grab the mutex. */
+    gcmkONERROR(gckOS_AcquireMutex(os, NodeObject->mutex, gcvINFINITE));
+    acquired = gcvTRUE;
+
+    *Contiguous = gcvFALSE;
+
+    if (node->VidMem.parent->object.type == gcvOBJ_VIDMEM)
+    {
+        *Contiguous = gcvTRUE;
+    }
+    else if (vidMemBlock && vidMemBlock->object.type == gcvOBJ_VIDMEM_BLOCK)
+    {
+        if (vidMemBlock->contiguous)
+        {
+            *Contiguous = gcvTRUE;
+        }
+    }
+    else
+    {
+        if (node->Virtual.contiguous)
+        {
+            *Contiguous = gcvTRUE;
+        }
+    }
+
+    gcmkVERIFY_OK(gckOS_ReleaseMutex(os, NodeObject->mutex));
+
+    gcmkFOOTER();
+    return gcvSTATUS_OK;
+
+OnError:
+    if (acquired)
+    {
+        /* Release the mutex. */
+        gcmkVERIFY_OK(gckOS_ReleaseMutex(os, NodeObject->mutex));
+    }
+
+    /* Return the status. */
+    gcmkFOOTER();
+    return status;
+}

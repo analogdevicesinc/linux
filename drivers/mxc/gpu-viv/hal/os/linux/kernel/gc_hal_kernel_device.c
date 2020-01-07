@@ -270,8 +270,13 @@ static const char * poolStr[gcvPOOL_NUMBER_OF_POOLS] =
     "External",
     "Unified",
     "System",
+    /* VIV: Abstract definition */
+    "Sram",
     "Virtual",
     "User",
+    /* VIV: internal SRAM, external SRAM */
+    "Insram",
+    "Exsram",
 };
 
 static void
@@ -350,6 +355,15 @@ OnError:
 }
 
 static void
+_ShowCommandBufferRecord(
+    IN struct seq_file *m,
+    IN gcsDATABASE_PTR Database
+    )
+{
+    return;
+}
+
+static void
 _ShowNonPagedRecord(
     IN struct seq_file *m,
     IN gcsDATABASE_PTR Database
@@ -381,6 +395,15 @@ _ShowNonPagedRecord(
                 );
         }
     }
+}
+
+static void
+_ShowContiguousRecord(
+    IN struct seq_file *m,
+    IN gcsDATABASE_PTR Database
+    )
+{
+    return;
 }
 
 static void
@@ -527,6 +550,15 @@ _ShowMapMemoryRecord(
 }
 
 static void
+_ShowMapUserMemoryRecord(
+    IN struct seq_file *m,
+    IN gcsDATABASE_PTR Database
+    )
+{
+    return;
+}
+
+static void
 _ShowShbufRecord(
     IN struct seq_file *m,
     IN gcsDATABASE_PTR Database
@@ -556,6 +588,176 @@ _ShowShbufRecord(
 }
 
 static void
+_ShowCounters(
+    struct seq_file *File,
+    gcsDATABASE_PTR Database
+    )
+{
+    gctUINT i = 0;
+
+    static const char * otherCounterNames[] = {
+        "AllocNonPaged",
+        "AllocContiguous",
+        "MapUserMemory",
+        "MapMemory",
+    };
+
+    gcsDATABASE_COUNTERS * otherCounters[] = {
+        &Database->nonPaged,
+        &Database->contiguous,
+        &Database->mapUserMemory,
+        &Database->mapMemory,
+    };
+
+    seq_printf(File, "%-16s %16s %16s %16s\n", "", "Current", "Maximum", "Total");
+
+    /* Print surface type counters. */
+    seq_printf(File, "%-16s %16lld %16lld %16lld\n",
+               "All-Types",
+               Database->vidMem.bytes,
+               Database->vidMem.maxBytes,
+               Database->vidMem.totalBytes);
+
+    for (i = 1; i < gcvVIDMEM_TYPE_COUNT; i++)
+    {
+        seq_printf(File, "%-16s %16lld %16lld %16lld\n",
+                   vidmemTypeStr[i],
+                   Database->vidMemType[i].bytes,
+                   Database->vidMemType[i].maxBytes,
+                   Database->vidMemType[i].totalBytes);
+    }
+    seq_puts(File, "\n");
+
+    /* Print surface pool counters. */
+    seq_printf(File, "%-16s %16lld %16lld %16lld\n",
+               "All-Pools",
+               Database->vidMem.bytes,
+               Database->vidMem.maxBytes,
+               Database->vidMem.totalBytes);
+
+    for (i = 1; i < gcvPOOL_NUMBER_OF_POOLS; i++)
+    {
+        seq_printf(File, "%-16s %16lld %16lld %16lld\n",
+                   poolStr[i],
+                   Database->vidMemPool[i].bytes,
+                   Database->vidMemPool[i].maxBytes,
+                   Database->vidMemPool[i].totalBytes);
+    }
+    seq_puts(File, "\n");
+
+    /* Print other counters. */
+    for (i = 0; i < gcmCOUNTOF(otherCounterNames); i++)
+    {
+        seq_printf(File, "%-16s %16lld %16lld %16lld\n",
+                   otherCounterNames[i],
+                   otherCounters[i]->bytes,
+                   otherCounters[i]->maxBytes,
+                   otherCounters[i]->totalBytes);
+    }
+    seq_puts(File, "\n");
+}
+
+static int
+_ShowRecord(
+    IN struct seq_file *File,
+    IN gcsDATABASE_PTR Database,
+    IN gcsDATABASE_RECORD_PTR Record
+    )
+{
+    gctUINT32 handle;
+    gckVIDMEM_NODE nodeObject;
+    gctPHYS_ADDR_T physical;
+    gceSTATUS status;
+
+    static const char * recordTypes[gcvDB_NUM_TYPES] = {
+        "Unknown",
+        "VideoMemory",
+        "CommandBuffer",
+        "NonPaged",
+        "Contiguous",
+        "Signal",
+        "VidMemLock",
+        "Context",
+        "Idel",
+        "MapMemory",
+        "MapUserMemory",
+        "ShBuf",
+    };
+
+    handle = gcmPTR2INT32(Record->data);
+
+    if (Record->type == gcvDB_VIDEO_MEMORY || Record->type == gcvDB_VIDEO_MEMORY_LOCKED)
+    {
+        status = gckVIDMEM_HANDLE_Lookup2(
+            Record->kernel,
+            Database,
+            handle,
+            &nodeObject
+        );
+
+        if (gcmIS_ERROR(status))
+        {
+            seq_printf(File, "%6u Invalid Node\n", handle);
+            gcmkONERROR(gcvSTATUS_INVALID_ARGUMENT);
+        }
+        gcmkONERROR(gckVIDMEM_NODE_GetPhysical(Record->kernel, nodeObject, 0, &physical));
+    }
+    else
+    {
+        physical = (gctUINT64)Record->physical;
+    }
+
+    seq_printf(File, "%-14s %3d %16x %16zx %16zu\n",
+        recordTypes[Record->type],
+        Record->kernel->core,
+        gcmPTR2INT32(Record->data),
+        (size_t) physical,
+        Record->bytes
+        );
+
+OnError:
+    return status;
+}
+
+static void
+_ShowDataBaseOldFormat(
+    IN struct seq_file *File,
+    IN gcsDATABASE_PTR Database
+    )
+{
+    gctINT pid;
+    gctUINT i;
+    char name[24];
+
+    /* Process ID and name */
+    pid = Database->processID;
+    gcmkVERIFY_OK(gckOS_GetProcessNameByPid(pid, gcmSIZEOF(name), name));
+
+    seq_printf(File, "--------------------------------------------------------------------------------\n");
+    seq_printf(File, "Process: %-8d %s\n", pid, name);
+
+    seq_printf(File, "Records:\n");
+
+    seq_printf(File, "%14s %3s %16s %16s %16s\n",
+               "Type", "GPU", "Data/Node", "Physical/Node", "Bytes");
+
+    for (i = 0; i < gcmCOUNTOF(Database->list); i++)
+    {
+        gcsDATABASE_RECORD_PTR record = Database->list[i];
+
+        while (record != NULL)
+        {
+            _ShowRecord(File, Database, record);
+            record = record->next;
+        }
+    }
+
+    seq_printf(File, "Counters:\n");
+
+    _ShowCounters(File, Database);
+}
+
+static void
 _ShowDatabase(
     IN struct seq_file *File,
     IN gcsDATABASE_PTR Database
@@ -569,12 +771,15 @@ _ShowDatabase(
     {
         _ShowDummyRecord,
         _ShowVideoMemoryRecord,
+        _ShowCommandBufferRecord,
         _ShowNonPagedRecord,
+        _ShowContiguousRecord,
         _ShowSignalRecord,
         _ShowLockRecord,
         _ShowContextRecord,
         _ShowDummyRecord,
         _ShowMapMemoryRecord,
+        _ShowMapUserMemoryRecord,
         _ShowShbufRecord,
     };
 
@@ -606,6 +811,50 @@ _ShowDatabase(
             showFuncs[i](File, Database);
         }
     }
+}
+
+static int
+gc_db_show_old(struct seq_file *m, void *data)
+{
+    gcsDATABASE_PTR database;
+    gctINT i;
+    static gctUINT64 idleTime = 0;
+    gcsINFO_NODE *node = m->private;
+    gckGALDEVICE device = node->device;
+    gckKERNEL kernel = _GetValidKernel(device);
+
+    if (!kernel)
+        return -ENXIO;
+
+    /* Acquire the database mutex. */
+    gcmkVERIFY_OK(
+        gckOS_AcquireMutex(kernel->os, kernel->db->dbMutex, gcvINFINITE));
+
+    if (kernel->db->idleTime)
+    {
+        /* Record idle time if DB upated. */
+        idleTime = kernel->db->idleTime;
+        kernel->db->idleTime = 0;
+    }
+
+    /* Idle time since last call */
+    seq_printf(m, "GPU Idle: %llu ns\n",  idleTime);
+
+    /* Walk the databases. */
+    for (i = 0; i < gcmCOUNTOF(kernel->db->db); ++i)
+    {
+        for (database = kernel->db->db[i];
+             database != gcvNULL;
+             database = database->next)
+        {
+            _ShowDataBaseOldFormat(m, database);
+        }
+    }
+
+    /* Release the database mutex. */
+    gcmkVERIFY_OK(gckOS_ReleaseMutex(kernel->os, kernel->db->dbMutex));
+
+    return 0 ;
 }
 
 static int
@@ -807,6 +1056,92 @@ gc_dump_trigger_show(struct seq_file *m, void *data)
 static int dumpProcess = 0;
 
 static void
+_ShowVideoMemoryOldFormat(
+    struct seq_file *File,
+    gcsDATABASE_PTR Database
+    )
+{
+    gctUINT i = 0;
+
+    static const char * otherCounterNames[] = {
+        "AllocNonPaged",
+        "AllocContiguous",
+        "MapUserMemory",
+        "MapMemory",
+    };
+
+    gcsDATABASE_COUNTERS * otherCounters[] = {
+        &Database->nonPaged,
+        &Database->contiguous,
+        &Database->mapUserMemory,
+        &Database->mapMemory,
+    };
+
+    seq_printf(File, "%-16s %16s %16s %16s\n", "", "Current", "Maximum", "Total");
+
+    /* Print surface type counters. */
+    seq_printf(File, "%-16s %16llu %16llu %16llu\n",
+               "All-Types",
+               Database->vidMem.bytes,
+               Database->vidMem.maxBytes,
+               Database->vidMem.totalBytes);
+
+    for (i = 1; i < gcvVIDMEM_TYPE_COUNT; i++)
+    {
+        seq_printf(File, "%-16s %16llu %16llu %16llu\n",
+                   vidmemTypeStr[i],
+                   Database->vidMemType[i].bytes,
+                   Database->vidMemType[i].maxBytes,
+                   Database->vidMemType[i].totalBytes);
+    }
+    seq_puts(File, "\n");
+
+    seq_printf(File, "%-16s %16llu %16llu %16llu\n",
+               "All-Types",
+               Database->vidMem.bytes,
+               Database->vidMem.maxBytes,
+               Database->vidMem.totalBytes);
+
+    for (i = 1; i < gcvVIDMEM_TYPE_COUNT; i++)
+    {
+        seq_printf(File, "%-16s %16llu %16llu %16llu\n",
+                   vidmemTypeStr[i],
+                   Database->vidMemType[i].bytes,
+                   Database->vidMemType[i].maxBytes,
+                   Database->vidMemType[i].totalBytes);
+    }
+    seq_puts(File, "\n");
+
+    /* Print surface pool counters. */
+    seq_printf(File, "%-16s %16llu %16llu %16llu\n",
+               "All-Pools",
+               Database->vidMem.bytes,
+               Database->vidMem.maxBytes,
+               Database->vidMem.totalBytes);
+
+    for (i = 1; i < gcvPOOL_NUMBER_OF_POOLS; i++)
+    {
+        seq_printf(File, "%-16s %16llu %16llu %16llu\n",
+                   poolStr[i],
+                   Database->vidMemPool[i].bytes,
+                   Database->vidMemPool[i].maxBytes,
+                   Database->vidMemPool[i].totalBytes);
+    }
+    seq_puts(File, "\n");
+
+    /* Print other counters. */
+    for (i = 0; i < gcmCOUNTOF(otherCounterNames); i++)
+    {
+        seq_printf(File, "%-16s %16llu %16llu %16llu\n",
+                   otherCounterNames[i],
+                   otherCounters[i]->bytes,
+                   otherCounters[i]->maxBytes,
+                   otherCounters[i]->totalBytes);
+    }
+    seq_puts(File, "\n");
+}
+
+static void
 _ShowVideoMemory(
     struct seq_file *File,
     gcsDATABASE_PTR Database
@@ -872,6 +1207,61 @@ _ShowVideoMemory(
     seq_puts(File, "\n");
 }
 
+static int gc_vidmem_show_old(struct seq_file *m, void *unused)
+{
+    gceSTATUS status;
+    gcsDATABASE_PTR database;
+    gcsINFO_NODE *node = m->private;
+    gckGALDEVICE device = node->device;
+    char name[64];
+    int i;
+
+    gckKERNEL kernel = _GetValidKernel(device);
+
+    if (!kernel)
+        return -ENXIO;
+
+    if (dumpProcess == 0)
+    {
+        /* Acquire the database mutex. */
+        gcmkVERIFY_OK(
+        gckOS_AcquireMutex(kernel->os, kernel->db->dbMutex, gcvINFINITE));
+
+        for (i = 0; i < gcmCOUNTOF(kernel->db->db); i++)
+        {
+            for (database = kernel->db->db[i];
+                 database != gcvNULL;
+                 database = database->next)
+            {
+                gckOS_GetProcessNameByPid(database->processID, gcmSIZEOF(name), name);
+                seq_printf(m, "VidMem Usage (Process %u: %s):\n", database->processID, name);
+                _ShowVideoMemoryOldFormat(m, database);
+                seq_puts(m, "\n");
+            }
+        }
+
+        /* Release the database mutex. */
+        gcmkVERIFY_OK(gckOS_ReleaseMutex(kernel->os, kernel->db->dbMutex));
+    }
+    else
+    {
+        /* Find the database. */
+        status = gckKERNEL_FindDatabase(kernel, dumpProcess, gcvFALSE, &database);
+
+        if (gcmIS_ERROR(status))
+        {
+            seq_printf(m, "ERROR: process %d not found\n", dumpProcess);
+            return 0;
+        }
+
+        gckOS_GetProcessNameByPid(dumpProcess, gcmSIZEOF(name), name);
+        seq_printf(m, "VidMem Usage (Process %d: %s):\n", dumpProcess, name);
+        _ShowVideoMemoryOldFormat(m, database);
+    }
+
+    return 0;
+}
+
 static int gc_vidmem_show(struct seq_file *m, void *unused)
 {
     gceSTATUS status;
@@ -899,7 +1289,7 @@ static int gc_vidmem_show(struct seq_file *m, void *unused)
                  database = database->next)
             {
                 gckOS_GetProcessNameByPid(database->processID, gcmSIZEOF(name), name);
-                seq_printf(m, "Memory Usage (Process %u: %s):\n", database->processID, name);
+                seq_printf(m, "VidMem Usage (Process %u: %s):\n", database->processID, name);
                 _ShowVideoMemory(m, database);
                 seq_puts(m, "\n");
             }
@@ -920,7 +1310,7 @@ static int gc_vidmem_show(struct seq_file *m, void *unused)
         }
 
         gckOS_GetProcessNameByPid(dumpProcess, gcmSIZEOF(name), name);
-        seq_printf(m, "Memory Usage (Process %d: %s):\n", dumpProcess, name);
+        seq_printf(m, "VidMem Usage (Process %d: %s):\n", dumpProcess, name);
         _ShowVideoMemory(m, database);
     }
 
@@ -1009,9 +1399,11 @@ static gcsINFO InfoList[] =
     {"clients", gc_clients_show},
     {"meminfo", gc_meminfo_show},
     {"idle", gc_idle_show},
-    {"database", gc_db_show},
+    {"database", gc_db_show_old},
+    {"database64x", gc_db_show},
     {"version", gc_version_show},
-    {"vidmem", gc_vidmem_show, gc_vidmem_write},
+    {"vidmem", gc_vidmem_show_old, gc_vidmem_write},
+    {"vidmem64x", gc_vidmem_show, gc_vidmem_write},
     {"dump_trigger", gc_dump_trigger_show, gc_dump_trigger_write},
     {"clk", gc_clk_show},
 };

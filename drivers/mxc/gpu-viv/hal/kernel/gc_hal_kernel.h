@@ -231,12 +231,15 @@ extern "C" {
 typedef enum _gceDATABASE_TYPE
 {
     gcvDB_VIDEO_MEMORY = 1,             /* Video memory created. */
+    gcvDB_COMMAND_BUFFER,               /* Command Buffer. */
     gcvDB_NON_PAGED,                    /* Non paged memory. */
+    gcvDB_CONTIGUOUS,                   /* Contiguous memory. */
     gcvDB_SIGNAL,                       /* Signal. */
     gcvDB_VIDEO_MEMORY_LOCKED,          /* Video memory locked. */
     gcvDB_CONTEXT,                      /* Context */
     gcvDB_IDLE,                         /* GPU idle. */
     gcvDB_MAP_MEMORY,                   /* Map memory */
+    gcvDB_MAP_USER_MEMORY,              /* Map user memory */
     gcvDB_SHBUF,                        /* Shared buffer. */
 
     gcvDB_NUM_TYPES,
@@ -288,6 +291,8 @@ typedef struct _gcsDATABASE
     /* Sizes to query. */
     gcsDATABASE_COUNTERS                vidMem;
     gcsDATABASE_COUNTERS                nonPaged;
+    gcsDATABASE_COUNTERS                contiguous;
+    gcsDATABASE_COUNTERS                mapUserMemory;
     gcsDATABASE_COUNTERS                mapMemory;
 
     gcsDATABASE_COUNTERS                vidMemType[gcvVIDMEM_TYPE_COUNT];
@@ -1678,6 +1683,13 @@ gckVIDMEM_NODE_Find(
     IN gctUINT32 Address,
     OUT gckVIDMEM_NODE * NodeObject,
     OUT gctUINT32 * Offset
+    );
+
+gceSTATUS
+gckVIDMEM_NODE_IsContiguous(
+    IN gckKERNEL Kernel,
+    IN gckVIDMEM_NODE NodeObject,
+    OUT gctBOOL * Contiguous
     );
 
 typedef struct _gcsADDRESS_AREA * gcsADDRESS_AREA_PTR;
