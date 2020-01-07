@@ -6,6 +6,8 @@
  * Licensed under the GPL-2.
  */
 
+#define DEBUG
+
 #include <linux/device.h>
 #include <linux/gpio/consumer.h>
 #include <linux/module.h>
@@ -110,6 +112,7 @@ static bool adv7511_register_volatile(struct device *dev, unsigned int reg)
 	case ADV7511_REG_BKSV(2):
 	case ADV7511_REG_BKSV(3):
 	case ADV7511_REG_BKSV(4):
+	case ADV7511_REG_BKSV_COUNT:
 	case ADV7511_REG_DDC_STATUS:
 	case ADV7511_REG_EDID_READ_CTRL:
 	case ADV7511_REG_BSTATUS(0):
@@ -262,6 +265,9 @@ static void adv7511_set_config_csc(struct adv7511 *adv7511,
 		output_format_422 = false;
 		output_format_ycbcr = false;
 	}
+
+	config.avi_infoframe.active_aspect = HDMI_ACTIVE_ASPECT_PICTURE;
+	config.avi_infoframe.picture_aspect = HDMI_PICTURE_ASPECT_NONE;
 
 	adv7511_packet_disable(adv7511, ADV7511_PACKET_ENABLE_AVI_INFOFRAME);
 
@@ -457,6 +463,7 @@ static void adv7511_hpd_work(struct work_struct *work)
 
 static int adv7511_irq_process(struct adv7511 *adv7511, bool process_hpd)
 {
+	struct adv7511_hdcp *hdcp = &adv7511->hdcp;
 	unsigned int irq0, irq1;
 	int ret;
 
@@ -468,11 +475,11 @@ static int adv7511_irq_process(struct adv7511 *adv7511, bool process_hpd)
 	if (ret < 0)
 		return ret;
 
-	adv_trace(": IRQ reg 0x96 = 0x%02x, IRQ reg 0x97 = 0x%02x\n", irq0,
+	adv_trace("IRQ reg 0x96 = 0x%02x, IRQ reg 0x97 = 0x%02x\n", irq0,
 		  irq1);
 
 	regmap_write(adv7511->regmap, ADV7511_REG_INT(0), irq0);
-	regmap_write(adv7511->regmap, ADV7511_REG_INT(1), irq1);
+	regmap_write(adv7511->regmap, ADV7511_REG_INT(1), irq1 & 0xBF);
 
 	if (process_hpd && irq0 & ADV7511_INT0_HPD && adv7511->bridge.encoder)
 		schedule_work(&adv7511->hpd_work);
@@ -482,6 +489,27 @@ static int adv7511_irq_process(struct adv7511 *adv7511, bool process_hpd)
 
 		if (adv7511->i2c_main->irq)
 			wake_up_all(&adv7511->wq);
+	}
+
+	if (irq1 & ADV7511_INT1_BKSV) {
+		/* Mask BKSV ready interrupt */
+		regmap_update_bits(adv7511->regmap, ADV7511_REG_INT_ENABLE(1),
+				   ADV7511_INT1_BKSV, 0);
+		ret = schedule_work(&hdcp->bksv_work);
+	}
+
+	if (irq0 & ADV7511_INT0_HDCP_AUTHENTICATED) {
+		/* validate BKSVs */
+		adv_trace("Validate BKSVs\n");
+		/* ToDo: call DRM BKSVs check function */
+		// drm_hdcp_check_ksvs_revoked(drm_dev, ksv_fifo, ksv_count);
+		if (!true)
+			regmap_update_bits(adv7511->regmap,
+					   ADV7511_REG_BLACK_IMAGE,
+					   ADV7511_BLACK_IMAGE_CTRL,
+					   ADV7511_BLACK_IMAGE_CTRL);
+
+		schedule_delayed_work(&hdcp->check_work, 0);
 	}
 
 #ifdef CONFIG_DRM_I2C_ADV7511_CEC
@@ -498,6 +526,181 @@ static irqreturn_t adv7511_irq_handler(int irq, void *devid)
 
 	ret = adv7511_irq_process(adv7511, true);
 	return ret < 0 ? IRQ_NONE : IRQ_HANDLED;
+}
+
+/* -----------------------------------------------------------------------------
+ * HDCP functionality
+ */
+
+static void adv7511_hdcp_enable(struct adv7511 *adv7511)
+{
+	struct adv7511_hdcp *hdcp = &adv7511->hdcp;
+	unsigned int ret;
+
+	mutex_lock(&hdcp->mutex);
+
+	/* Enable BKSV ready interrupt */
+	regmap_update_bits(adv7511->regmap, ADV7511_REG_INT_ENABLE(1),
+			   ADV7511_INT1_BKSV, ADV7511_INT1_BKSV);
+
+	/* Enable HDCP Authenticated interrupt */
+	regmap_update_bits(adv7511->regmap, ADV7511_REG_INT_ENABLE(0),
+			   ADV7511_INT0_HDCP_AUTHENTICATED,
+			   ADV7511_INT0_HDCP_AUTHENTICATED);
+
+	ret = regmap_update_bits(adv7511->regmap, ADV7511_REG_HDCP_HDMI_CFG,
+				 ADV7511_HDCP_CTRL_DESIRED,
+				 ADV7511_HDCP_CTRL_DESIRED);
+	mutex_unlock(&hdcp->mutex);
+}
+
+static void adv7511_hdcp_disable(struct adv7511 *adv7511)
+{
+	struct adv7511_hdcp *hdcp = &adv7511->hdcp;
+	unsigned int ret;
+
+	mutex_lock(&hdcp->mutex);
+
+	ret = regmap_update_bits(adv7511->regmap, ADV7511_REG_HDCP_HDMI_CFG,
+				 ADV7511_HDCP_CTRL_DESIRED, 0);
+
+	/* Disable BKSV ready interrupt */
+	regmap_update_bits(adv7511->regmap, ADV7511_REG_INT_ENABLE(1),
+			   ADV7511_INT1_BKSV, 0);
+
+	/* Disable HDCP Authenticated interrupt */
+	regmap_update_bits(adv7511->regmap, ADV7511_REG_INT_ENABLE(0),
+			   ADV7511_INT0_HDCP_AUTHENTICATED, 0);
+
+	/* Disable Black Image */
+	regmap_update_bits(adv7511->regmap, ADV7511_REG_BLACK_IMAGE,
+			   ADV7511_BLACK_IMAGE_CTRL, 0);
+
+	cancel_delayed_work(&hdcp->check_work);
+
+	kfree(hdcp->ksv_fifo);
+	hdcp->ksv_fifo = NULL;
+
+	mutex_unlock(&hdcp->mutex);
+}
+
+static void adv7511_hdcp_check_work(struct work_struct *work)
+{
+	struct adv7511_hdcp *hdcp = container_of(to_delayed_work(
+							 work), struct adv7511_hdcp,
+						 check_work);
+	struct adv7511 *adv7511 = container_of(hdcp, struct adv7511, hdcp);
+	struct drm_connector_state *state =  adv7511->connector.state;
+	unsigned int val;
+	int ret;
+
+	mutex_lock(&hdcp->mutex);
+
+	/*
+	 * This worker is used to periodically check the HDCP link status and
+	 * flip between ENABLED/DESIRED.
+	 */
+	ret = regmap_read(adv7511->regmap, ADV7511_REG_HDCP_STATUS, &val);
+	if (!ret) {
+		if (val & ADV7511_STATUS_HDCP_ENC_ON)
+			state->content_protection =
+				DRM_MODE_CONTENT_PROTECTION_ENABLED;
+		else
+			state->content_protection =
+				DRM_MODE_CONTENT_PROTECTION_DESIRED;
+	}
+
+	schedule_delayed_work(&hdcp->check_work,
+			      msecs_to_jiffies(DRM_HDCP_CHECK_PERIOD_MS));
+
+	mutex_unlock(&hdcp->mutex);
+}
+
+static void adv7511_hdcp_bksv_work(struct work_struct *work)
+{
+	struct adv7511_hdcp *hdcp = container_of(work, struct adv7511_hdcp,
+						 bksv_work);
+	struct adv7511 *adv7511 = container_of(hdcp, struct adv7511, hdcp);
+	u8 *ksv_fifo_ptr;
+	unsigned int reg, ksv_count;
+	int ret;
+
+	mutex_lock(&hdcp->mutex);
+	/* handle first BKSV read */
+	if (hdcp->ksv_fifo == NULL) {
+		hdcp->ksv_fifo = kcalloc(DRM_HDCP_KSV_LEN, sizeof(u8),
+					 GFP_KERNEL);
+		if (!hdcp->ksv_fifo)
+			goto err;
+
+		ret = regmap_bulk_read(adv7511->regmap, ADV7511_REG_BKSV(0),
+				       hdcp->ksv_fifo, DRM_HDCP_KSV_LEN);
+		hdcp->ksv_count = 1;
+	/* handle BKSVs in case of repeater sink */
+	} else {
+		ret = regmap_read(adv7511->regmap, ADV7511_REG_BCAPS, &reg);
+		hdcp->repeater_sink = (bool)(ADV7511_BCAPS_REPEATER & reg);
+		ret = regmap_read(adv7511->regmap, ADV7511_REG_BKSV_COUNT,
+				    &reg);
+		ksv_count = reg & GENMASK(6, 0);
+
+		if (hdcp->repeater_sink && ksv_count) {
+			hdcp->ksv_count += ksv_count;
+			ksv_fifo_ptr = krealloc(hdcp->ksv_fifo,
+						hdcp->ksv_count * DRM_HDCP_KSV_LEN,
+						GFP_KERNEL);
+			if (!ksv_fifo_ptr)
+				goto err;
+
+			hdcp->ksv_fifo = ksv_fifo_ptr;
+			ret = regmap_bulk_read(adv7511->regmap_edid, 0x00,
+					       hdcp->ksv_fifo +
+					       (hdcp->ksv_count - ksv_count) * DRM_HDCP_KSV_LEN,
+					       ksv_count * DRM_HDCP_KSV_LEN);
+		}
+	}
+	regmap_write(adv7511->regmap, ADV7511_REG_INT(1), ADV7511_INT1_BKSV);
+	/* Enable BKSV ready interrupt */
+	regmap_update_bits(adv7511->regmap, ADV7511_REG_INT_ENABLE(1),
+			   ADV7511_INT1_BKSV, ADV7511_INT1_BKSV);
+	adv_trace("Clear BKSV IRQ\n");
+	mutex_unlock(&hdcp->mutex);
+err:
+	mutex_unlock(&hdcp->mutex);
+}
+
+static int adv7511_connector_atomic_check(struct drm_connector *connector,
+					  struct drm_connector_state *state)
+{
+	struct adv7511 *adv =
+		container_of(connector, struct adv7511, connector);
+	u8 *hdcp_status = &adv->hdcp.status;
+
+	if (*hdcp_status != state->content_protection) {
+		*hdcp_status = state->content_protection;
+		if (*hdcp_status == DRM_MODE_CONTENT_PROTECTION_DESIRED)
+			adv7511_hdcp_enable(adv);
+		else if (*hdcp_status == DRM_MODE_CONTENT_PROTECTION_UNDESIRED)
+			adv7511_hdcp_disable(adv);
+	}
+
+	return 0;
+}
+
+static int adv7511_init_hdcp(struct adv7511 *adv)
+{
+	struct adv7511_hdcp *hdcp = &adv->hdcp;
+	int ret;
+
+	ret = drm_connector_attach_content_protection_property(&adv->connector);
+	if (ret)
+		return ret;
+
+	mutex_init(&hdcp->mutex);
+	INIT_DELAYED_WORK(&hdcp->check_work, adv7511_hdcp_check_work);
+	INIT_WORK(&hdcp->bksv_work, adv7511_hdcp_bksv_work);
+
+	return 0;
 }
 
 /* -----------------------------------------------------------------------------
@@ -615,6 +818,8 @@ static int adv7511_get_modes(struct adv7511 *adv7511,
 	cec_s_phys_addr_from_edid(adv7511->cec_adap, edid);
 
 	kfree(edid);
+	kfree(adv7511->hdcp.ksv_fifo);
+	adv7511->hdcp.ksv_fifo = NULL;
 
 	return count;
 }
@@ -797,6 +1002,7 @@ adv7511_connector_mode_valid(struct drm_connector *connector,
 static struct drm_connector_helper_funcs adv7511_connector_helper_funcs = {
 	.get_modes = adv7511_connector_get_modes,
 	.mode_valid = adv7511_connector_mode_valid,
+	.atomic_check = adv7511_connector_atomic_check,
 };
 
 static enum drm_connector_status
@@ -878,6 +1084,8 @@ static int adv7511_bridge_attach(struct drm_bridge *bridge)
 	if (adv->i2c_main->irq)
 		regmap_write(adv->regmap, ADV7511_REG_INT_ENABLE(0),
 			     ADV7511_INT0_HPD);
+
+	adv7511_init_hdcp(adv);
 
 	adv7511_debugfs_init(adv);
 
@@ -1271,6 +1479,7 @@ static int adv7511_remove(struct i2c_client *i2c)
 
 	if (adv7511->type == ADV7533 || adv7511->type == ADV7535)
 		adv7533_detach_dsi(adv7511);
+	adv7511_hdcp_disable(adv7511);
 	i2c_unregister_device(adv7511->i2c_cec);
 	if (adv7511->cec_clk)
 		clk_disable_unprepare(adv7511->cec_clk);

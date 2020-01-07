@@ -16,6 +16,7 @@
 
 #include <drm/drm_crtc_helper.h>
 #include <drm/drm_mipi_dsi.h>
+#include <drm/drm_hdcp.h>
 
 #define ADV7511_REG_CHIP_REVISION		0x00
 #define ADV7511_REG_N0				0x01
@@ -76,12 +77,14 @@
 #define ADV7511_REG_AN(x)			(0xb0 + (x)) /* 0xb0 - 0xb7 */
 #define ADV7511_REG_HDCP_STATUS			0xb8
 #define ADV7511_REG_BCAPS			0xbe
-#define ADV7511_REG_BKSV(x)			(0xc0 + (x)) /* 0xc0 - 0xc3 */
+#define ADV7511_REG_BKSV(x)			(0xbf + (x)) /* 0xbf - 0xc3 */
 #define ADV7511_REG_EDID_SEGMENT		0xc4
+#define ADV7511_REG_BKSV_COUNT			0xc7
 #define ADV7511_REG_DDC_STATUS			0xc8
 #define ADV7511_REG_EDID_READ_CTRL		0xc9
 #define ADV7511_REG_BSTATUS(x)			(0xca + (x)) /* 0xca - 0xcb */
 #define ADV7511_REG_TIMING_GEN_SEQ		0xd0
+#define ADV7511_REG_BLACK_IMAGE			0xd5
 #define ADV7511_REG_POWER2			0xd6
 #define ADV7511_REG_HSYNC_PLACEMENT_MSB		0xfa
 
@@ -123,6 +126,10 @@
 
 #define ADV7511_POWER_POWER_DOWN		BIT(6)
 
+#define ADV7511_HDCP_CTRL_DESIRED		BIT(7)
+
+#define ADV7511_BLACK_IMAGE_CTRL		BIT(0)
+
 #define ADV7511_HDMI_CFG_MODE_MASK		0x2
 #define ADV7511_HDMI_CFG_MODE_DVI		0x0
 #define ADV7511_HDMI_CFG_MODE_HDMI		0x2
@@ -153,8 +160,15 @@
 
 #define ADV7511_STATUS_POWER_DOWN_POLARITY	BIT(7)
 #define ADV7511_STATUS_HPD			BIT(6)
+#define ADV7511_STATUS_HDCP_ENC_ON		BIT(6)
 #define ADV7511_STATUS_MONITOR_SENSE		BIT(5)
 #define ADV7511_STATUS_I2S_32BIT_MODE		BIT(3)
+
+#define ADV7511_BCAPS_REPEATER			BIT(6)
+#define ADV7511_BCAPS_BKSV_FIFO_RDY		BIT(5)
+#define ADV7511_BCAPS_FAST_DDC			BIT(4)
+#define ADV7511_BCAPS_HDMI1_1			BIT(1)
+#define ADV7511_BCAPS_FAST_REAUTH		BIT(0)
 
 #define ADV7511_PACKET_ENABLE_N_CTS		BIT(8+6)
 #define ADV7511_PACKET_ENABLE_AUDIO_SAMPLE	BIT(8+5)
@@ -244,6 +258,27 @@ enum adv7511_input_sync_pulse {
 	ADV7511_INPUT_SYNC_PULSE_NONE = 3,
 };
 
+enum adv7511_hdcp_controller_err {
+	ADV7511_HDCP_CONTROLLER_ERR_NO_ERR = 0,
+	ADV7511_HDCP_CONTROLLER_ERR_BAD_BKSV = 1,
+	ADV7511_HDCP_CONTROLLER_ERR_RI_MISM = 2,
+	ADV7511_HDCP_CONTROLLER_ERR_PJ_MISM = 3,
+	ADV7511_HDCP_CONTROLLER_ERR_I2C_ERR = 4,
+	ADV7511_HDCP_CONTROLLER_ERR_TIME_OUT = 5,
+	ADV7511_HDCP_CONTROLLER_ERR_MAX_REP = 6,
+	ADV7511_HDCP_CONTROLLER_ERR_SHA_FAIL = 7,
+	ADV7511_HDCP_CONTROLLER_ERR_MAX_DEV = 8,
+};
+
+enum adv7511_hdcp_controller_state {
+	ADV7511_HDCP_CONTROLLER_STATE_RST = 0,
+	ADV7511_HDCP_CONTROLLER_STATE_EDID = 1,
+	ADV7511_HDCP_CONTROLLER_STATE_IDLE = 2,
+	ADV7511_HDCP_CONTROLLER_STATE_INIT = 3,
+	ADV7511_HDCP_CONTROLLER_STATE_EN = 4,
+	ADV7511_HDCP_CONTROLLER_STATE_INIT_RPTR = 5,
+};
+
 /**
  * enum adv7511_sync_polarity - Polarity for the input sync signals
  * @ADV7511_SYNC_POLARITY_PASSTHROUGH:  Sync polarity matches that of
@@ -330,6 +365,19 @@ enum adv7511_type {
 
 #define ADV7511_MAX_ADDRS 3
 
+struct adv7511_hdcp {
+	/* Mutex for HDCP state */
+	struct mutex mutex;
+	struct work_struct bksv_work;
+	struct delayed_work check_work;
+	enum adv7511_hdcp_controller_state ctrl_state;
+	enum adv7511_hdcp_controller_err err_state;
+	u8 *ksv_fifo;
+	u32 ksv_count;
+	u8 status;
+	bool repeater_sink;
+};
+
 struct adv7511 {
 	struct i2c_client *i2c_main;
 	struct i2c_client *i2c_edid;
@@ -384,6 +432,7 @@ struct adv7511 {
 	bool cec_enabled_adap;
 	struct clk *cec_clk;
 	u32 cec_clk_freq;
+	struct adv7511_hdcp hdcp;
 };
 
 #ifdef CONFIG_DRM_I2C_ADV7511_CEC
