@@ -190,7 +190,6 @@ static const struct iio_chan_spec ad7124_channel_template = {
 		.sign = 'u',
 		.realbits = 24,
 		.storagebits = 32,
-		.shift = 8,
 		.endianness = IIO_BE,
 	},
 };
@@ -503,7 +502,8 @@ static int ad7124_prepare_read(struct ad7124_state *st, int address)
 	return ad7124_enable_channel(st, &st->channels[address]);
 }
 
-static int ad7124_set_channel(struct ad_sigma_delta *sd, unsigned int channel)
+static int ad7124_set_channel(struct ad_sigma_delta *sd, unsigned int slot,
+			      unsigned int channel)
 {
 	struct ad7124_state *st = container_of(sd, struct ad7124_state, sd);
 	int ret;
