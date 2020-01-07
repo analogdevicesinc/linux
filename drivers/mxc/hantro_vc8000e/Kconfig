@@ -1,0 +1,15 @@
+#
+# Codec configuration
+#
+
+menu "MXC HANTRO(Video Processing Unit) VC8000E encoder support"
+#	depends on ARCH_FSL_IMX8MP
+	depends on ARCH_MXC
+
+config MXC_HANTRO_VC8000E
+	tristate "Support for MXC HANTRO(Video Processing Unit) VC8000E encoder"
+	default y
+	---help---
+	  VPU codec device.
+
+endmenu
