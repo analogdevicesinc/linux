@@ -444,8 +444,8 @@ static long hantroenc_ioctl(struct file *filp,
 	if (err)
 		return -EFAULT;
 
-	switch (cmd) {
-	case HX280ENC_IOCGHWOFFSET: {
+	switch (_IOC_NR(cmd)) {
+	case _IOC_NR(HX280ENC_IOCGHWOFFSET): {
 		u32 id;
 
 		__get_user(id, (u32 *)arg);
@@ -456,7 +456,7 @@ static long hantroenc_ioctl(struct file *filp,
 		__put_user(hantroenc_data[id].core_cfg.base_addr, (unsigned long *) arg);
 		break;
 	}
-	case HX280ENC_IOCGHWIOSIZE:	{
+	case _IOC_NR(HX280ENC_IOCGHWIOSIZE):	{
 		u32 id;
 		u32 io_size;
 
@@ -470,16 +470,16 @@ static long hantroenc_ioctl(struct file *filp,
 
 		return 0;
 	}
-	case HX280ENC_IOCGSRAMOFFSET:
+	case _IOC_NR(HX280ENC_IOCGSRAMOFFSET):
 		__put_user(sram_base, (unsigned long *) arg);
 		break;
-	case HX280ENC_IOCGSRAMEIOSIZE:
+	case _IOC_NR(HX280ENC_IOCGSRAMEIOSIZE):
 		__put_user(sram_size, (unsigned int *) arg);
 		break;
-	case HX280ENC_IOCG_CORE_NUM:
+	case _IOC_NR(HX280ENC_IOCG_CORE_NUM):
 		__put_user(total_core_num, (unsigned int *) arg);
 		break;
-	case HX280ENC_IOCH_ENC_RESERVE: {
+	case _IOC_NR(HX280ENC_IOCH_ENC_RESERVE): {
 		u32 core_info;
 		int ret;
 
@@ -490,7 +490,7 @@ static long hantroenc_ioctl(struct file *filp,
 			__put_user(core_info, (u32 *) arg);
 		return ret;
 	}
-	case HX280ENC_IOCH_ENC_RELEASE: {
+	case _IOC_NR(HX280ENC_IOCH_ENC_RELEASE): {
 		u32 core_info;
 
 		__get_user(core_info, (u32 *)arg);
@@ -502,7 +502,7 @@ static long hantroenc_ioctl(struct file *filp,
 		break;
 	}
 
-	case HX280ENC_IOCG_CORE_WAIT: {
+	case _IOC_NR(HX280ENC_IOCG_CORE_WAIT): {
 		u32 core_info;
 		u32 irq_status;
 		u32 i;
@@ -601,6 +601,89 @@ static int hantroenc_release(struct inode *inode, struct file *filp)
 	return 0;
 }
 
+static long hantroenc_ioctl32(struct file *filp, unsigned int cmd, unsigned long arg)
+{
+	long err = 0;
+
+#define HX280ENC_IOCTL32(err, filp, cmd, arg) { \
+	mm_segment_t old_fs = get_fs(); \
+	set_fs(KERNEL_DS); \
+	err = hantroenc_ioctl(filp, cmd, arg); \
+	if (err) \
+		return err; \
+	set_fs(old_fs); \
+}
+
+union {
+	unsigned long kux;
+	unsigned int kui;
+} karg;
+	void __user *up = compat_ptr(arg);
+
+	switch (_IOC_NR(cmd)) {
+	case _IOC_NR(HX280ENC_IOCGHWOFFSET): {
+		err = get_user(karg.kux, (s32 __user *)up);
+		if (err)
+			return err;
+		HX280ENC_IOCTL32(err, filp, cmd, (unsigned long)&karg);
+		err = put_user(((s32)karg.kux), (s32 __user *)up);
+		break;
+	}
+	case _IOC_NR(HX280ENC_IOCGHWIOSIZE): {
+		err = get_user(karg.kui, (s32 __user *)up);
+		if (err)
+			return err;
+		HX280ENC_IOCTL32(err, filp, cmd, (unsigned long)&karg);
+		err = put_user(((s32)karg.kui), (s32 __user *)up);
+		break;
+	}
+	case _IOC_NR(HX280ENC_IOCGSRAMOFFSET): {
+		err = get_user(karg.kux, (s32 __user *)up);
+		if (err)
+			return err;
+		HX280ENC_IOCTL32(err, filp, cmd, (unsigned long)&karg);
+		err = put_user(((s32)karg.kux), (s32 __user *)up);
+		break;
+	}
+	case _IOC_NR(HX280ENC_IOCGSRAMEIOSIZE):{
+		err = get_user(karg.kui, (s32 __user *)up);
+		if (err)
+			return err;
+		HX280ENC_IOCTL32(err, filp, cmd, (unsigned long)&karg);
+		err = put_user(((s32)karg.kui), (s32 __user *)up);
+		break;
+	}
+	case _IOC_NR(HX280ENC_IOCG_CORE_NUM): {
+		err = get_user(karg.kui, (s32 __user *)up);
+		if (err)
+			return err;
+		HX280ENC_IOCTL32(err, filp, cmd, (unsigned long)&karg);
+		err = put_user(((s32)karg.kui), (s32 __user *)up);
+		break;
+	}
+	case _IOC_NR(HX280ENC_IOCH_ENC_RESERVE): {
+		err = get_user(karg.kui, (s32 __user *)up);
+		if (err)
+			return err;
+		HX280ENC_IOCTL32(err, filp, cmd, (unsigned long)&karg);
+		err = put_user(((s32)karg.kui), (s32 __user *)up);
+		break;
+	}
+	case _IOC_NR(HX280ENC_IOCH_ENC_RELEASE): {
+		err = get_user(karg.kui, (s32 __user *)up);
+		if (err)
+			return err;
+		HX280ENC_IOCTL32(err, filp, cmd, (unsigned long)&karg);
+		break;
+	}
+	case _IOC_NR(HX280ENC_IOCG_CORE_WAIT): {
+		HX280ENC_IOCTL32(err, filp, cmd, (unsigned long)up);
+		break;
+	}
+	}
+	return 0;
+}
+
 /* VFS methods */
 static struct file_operations hantroenc_fops = {
 	.owner = THIS_MODULE,
@@ -610,6 +693,9 @@ static struct file_operations hantroenc_fops = {
 	.fasync = NULL,
 #ifndef VSI
 	.mmap = hantroenc_mmap,
+#endif
+#ifdef CONFIG_COMPAT
+	.compat_ioctl = hantroenc_ioctl32,
 #endif
 };
 
