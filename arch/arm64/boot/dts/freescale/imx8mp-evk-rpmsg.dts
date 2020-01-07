@@ -1,0 +1,86 @@
+// SPDX-License-Identifier: (GPL-2.0 OR MIT)
+/*
+ * Copyright 2020 NXP
+ */
+
+/dts-v1/;
+
+#include "imx8mp-evk.dts"
+
+/ {
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		m4_reserved: m4@80000000 {
+			no-map;
+			reg = <0 0x80000000 0 0x1000000>;
+		};
+
+		vdev0vring0: vdev0vring0@55000000 {
+			reg = <0 0x55000000 0 0x8000>;
+			no-map;
+		};
+
+		vdev0vring1: vdev0vring1@55008000 {
+			reg = <0 0x55008000 0 0x8000>;
+			no-map;
+		};
+
+		vdevbuffer: vdevbuffer@55400000 {
+			compatible = "shared-dma-pool";
+			reg = <0 0x55400000 0 0x100000>;
+			no-map;
+		};
+
+		rsc_table: rsc-table@550ff000 {
+			reg = <0 0x550ff000 0 0x1000>;
+			no-map;
+		};
+	};
+	imx8mp-cm7 {
+		compatible = "fsl,imx8mn-cm7";
+		rsc-da = <0x55000000>;
+		clocks = <&clk IMX8MP_CLK_M7_DIV>;
+		mbox-names = "tx", "rx", "rxdb";
+		mboxes = <&mu 0 1
+			  &mu 1 1
+			  &mu 3 1>;
+		memory-region = <&vdevbuffer>, <&vdev0vring0>, <&vdev0vring1>, <&rsc_table>;
+		status = "okay";
+	};
+};
+
+/*
+ * ATTENTION: M7 may use IPs like below
+ * ECSPI0/ECSPI2, FLEXCAN, GPIO1/GPIO5, GPT1, I2C3, I2S3, UART4,
+ * PWM4, SDMA1/SDMA2
+ */
+&ecspi2 {
+	status = "disabled";
+};
+
+&flexcan1 {
+	status = "disabled";
+};
+
+&flexspi {
+	status = "disabled";
+};
+
+&i2c3 {
+	status = "disabled";
+};
+
+&pwm4{
+	status = "disabled";
+};
+
+&sdma2{
+	status = "disabled";
+};
+
+&uart4 {
+	status = "disabled";
+};
