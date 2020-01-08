@@ -15,7 +15,6 @@ notifications:
 env:
   matrix:
   - BUILD_TYPE=sync_branches_with_master_travis DO_NOT_DOCKERIZE=1
-  - BUILD_TYPE=checkpatch DO_NOT_DOCKERIZE=1
   - BUILD_TYPE=dtb_build_test ARCH=arm DTS_FILES=arch/arm/boot/dts/zynq-*.dts DO_NOT_DOCKERIZE=1
   - BUILD_TYPE=dtb_build_test ARCH=arm64 DTS_FILES=arch/arm64/boot/dts/xilinx/zynqmp-*.dts DO_NOT_DOCKERIZE=1
   - DEFCONFIG=zynq_xcomm_adv7511_defconfig ARCH=arm IMAGE=uImage
