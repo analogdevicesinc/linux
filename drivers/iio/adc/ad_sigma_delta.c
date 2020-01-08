@@ -567,7 +567,7 @@ static int ad_sd_probe_trigger(struct iio_dev *indio_dev)
 
 	ret = request_irq(sigma_delta->spi->irq,
 			  ad_sd_data_rdy_trig_poll,
-			  IRQF_TRIGGER_LOW,
+			  sigma_delta->info->irq_flags,
 			  indio_dev->name,
 			  sigma_delta);
 	if (ret)
@@ -664,6 +664,7 @@ int ad_sd_init(struct ad_sigma_delta *sigma_delta, struct iio_dev *indio_dev,
 	sigma_delta->info = info;
 	sigma_delta->num_slots = 1;
 	sigma_delta->active_slots = 1;
+
 	iio_device_set_drvdata(indio_dev, sigma_delta);
 
 	return 0;
