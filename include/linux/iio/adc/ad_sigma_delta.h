@@ -43,6 +43,7 @@ struct iio_dev;
  * @addr_shift: Shift of the register address in the communications register.
  * @read_mask: Mask for the communications register having the read bit set.
  * @data_reg: Address of the data register, if 0 the default address of 0x3 will
+ * @irq_flags: flags for the interrupt used by the triggered buffer
  *   be used.
  * @irq_flags: flags for the interrupt used by the triggered buffer
  */

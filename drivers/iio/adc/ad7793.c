@@ -220,7 +220,7 @@ static const struct ad_sigma_delta_info ad7793_sigma_delta_info = {
 	.has_registers = true,
 	.addr_shift = 3,
 	.read_mask = BIT(6),
-	.irq_flags = IRQF_TRIGGER_LOW,
+	.irq_flags = IRQF_TRIGGER_FALLING
 };
 
 static const struct ad_sd_calib_data ad7793_calib_arr[6] = {
@@ -814,7 +814,7 @@ static struct ad7793_platform_data *ad7793_parse_dt(struct device *dev)
 	tmp = AD7793_IEXEC1_IOUT1_IEXEC2_IOUT2;
 	of_property_read_u32(np, "adi,current-source-direction", &tmp);
 	pdata->current_source_direction = tmp;
-	
+
 	return pdata;
 }
 #else
@@ -831,7 +831,7 @@ static int ad7793_probe(struct spi_device *spi)
 	struct ad7793_state *st;
 	struct iio_dev *indio_dev;
 	int ret, vref_mv = 0;
-	
+
 	if (spi->dev.of_node)
 		pdata = ad7793_parse_dt(&spi->dev);
 	else
