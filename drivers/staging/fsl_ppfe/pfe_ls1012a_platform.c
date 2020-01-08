@@ -29,16 +29,19 @@ static int pfe_get_gemac_if_properties(struct device_node *gem,
 	int size;
 	int phy_id = 0;
 	const u32 *addr;
-	const void *mac_addr;
+	const u8 *mac_addr;
 	int err;
 
 	addr = of_get_property(gem, "reg", &size);
-	port = be32_to_cpup(addr);
+	if (addr)
+		port = be32_to_cpup(addr);
+	else
+		goto err;
 
 	pdata->ls1012a_eth_pdata[port].gem_id = port;
 
 	mac_addr = of_get_mac_address(gem);
-	if (mac_addr) {
+	if (!IS_ERR_OR_NULL(mac_addr)) {
 		memcpy(pdata->ls1012a_eth_pdata[port].mac_addr, mac_addr,
 		       ETH_ALEN);
 	}
