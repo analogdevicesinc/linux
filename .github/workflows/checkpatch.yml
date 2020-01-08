@@ -1,0 +1,16 @@
+name: Run Linux's checkpatch.pl script
+
+on: [pull_request]
+
+jobs:
+  checkpatch:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Fetch 'github.head_ref'
+      run: git clone --depth=50 --single-branch --branch ${{ github.head_ref }} https://github.com/${{ github.repository }} .
+    - name: Fetch 'github.base_ref'
+      run: git fetch --depth=50 origin +refs/heads/${{ github.base_ref }}:${{ github.base_ref }}
+    - name: checkpatch.pl
+      run: ./scripts/checkpatch.pl --git ${{ github.base_ref }}..${{ github.head_ref }}
