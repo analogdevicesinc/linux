@@ -3,7 +3,8 @@ Typec orientation switch via a GPIO
 
 Required properties:
 - compatible: should be set one of following:
-	- "nxp,ptn36043" for NXP Type-C SuperSpeed active switch.
+	- "nxp,ptn36043" or "nxp,cbtl04gp" for NXP Type-C SuperSpeed
+	  active switch.
 
 - gpios: the GPIO used to switch the super speed active channel,
 		GPIO_ACTIVE_HIGH: GPIO state high for cc1;
