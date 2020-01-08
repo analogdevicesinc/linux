@@ -20,8 +20,7 @@ endif
 
 ifeq ($(CONFIG_FSL_DPAA_CEETM),y)
 ccflags-y += -I$(srctree)/drivers/net/ethernet/freescale/sdk_fman/src/wrapper
-obj-$(CONFIG_FSL_SDK_DPAA_ETH) += fsl_ceetm.o
-fsl_ceetm-objs += dpaa_eth_ceetm.o
+fsl_dpa-objs += dpaa_eth_ceetm.o
 endif
 
 fsl_mac-objs += mac.o mac-api.o

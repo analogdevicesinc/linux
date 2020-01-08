@@ -33,16 +33,13 @@
 #include <linux/init.h>
 #include "dpaa_eth_ceetm.h"
 
-#define DPA_CEETM_DESCRIPTION "FSL DPAA CEETM qdisc"
-MODULE_LICENSE("Dual BSD/GPL");
-MODULE_DESCRIPTION(DPA_CEETM_DESCRIPTION);
-
 const struct nla_policy ceetm_policy[TCA_CEETM_MAX + 1] = {
 	[TCA_CEETM_COPT] = { .len = sizeof(struct tc_ceetm_copt) },
 	[TCA_CEETM_QOPS] = { .len = sizeof(struct tc_ceetm_qopt) },
 };
 
 struct Qdisc_ops ceetm_qdisc_ops;
+EXPORT_SYMBOL(ceetm_qdisc_ops);
 
 /* Obtain the DCP and the SP ids from the FMan port */
 static void get_dcp_and_sp(struct net_device *dev, enum qm_dc_portal *dcp_id,
@@ -2086,30 +2083,3 @@ drop:
 	dev_kfree_skb_any(skb);
 	return NET_XMIT_SUCCESS;
 }
-EXPORT_SYMBOL(ceetm_tx);
-
-static int __init ceetm_register(void)
-{
-	int _errno = 0;
-
-	pr_info(KBUILD_MODNAME ": " DPA_CEETM_DESCRIPTION "\n");
-
-	_errno = register_qdisc(&ceetm_qdisc_ops);
-	if (unlikely(_errno))
-		pr_err(KBUILD_MODNAME
-		       ": %s:%hu:%s(): register_qdisc() = %d\n",
-		       KBUILD_BASENAME ".c", __LINE__, __func__, _errno);
-
-	return _errno;
-}
-
-static void __exit ceetm_unregister(void)
-{
-	pr_debug(KBUILD_MODNAME ": %s:%s() ->\n",
-		 KBUILD_BASENAME ".c", __func__);
-
-	unregister_qdisc(&ceetm_qdisc_ops);
-}
-
-module_init(ceetm_register);
-module_exit(ceetm_unregister);

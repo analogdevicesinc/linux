@@ -72,6 +72,9 @@
 #ifdef CONFIG_FSL_DPAA_DBG_LOOP
 #include "dpaa_debugfs.h"
 #endif /* CONFIG_FSL_DPAA_DBG_LOOP */
+#ifdef CONFIG_FSL_DPAA_CEETM
+#include "dpaa_eth_ceetm.h"
+#endif
 
 /* CREATE_TRACE_POINTS only needs to be defined once. Other dpa files
  * using trace events only need to #include <trace/events/sched.h>
@@ -114,6 +117,10 @@ static uint8_t dpa_priv_common_bpid;
 
 #ifdef CONFIG_FSL_DPAA_DBG_LOOP
 struct net_device *dpa_loop_netdevs[20];
+#endif
+
+#ifdef CONFIG_FSL_DPAA_CEETM
+extern struct Qdisc_ops ceetm_qdisc_ops;
 #endif
 
 #ifdef CONFIG_PM
@@ -1158,6 +1165,14 @@ static int __init __cold dpa_load(void)
 	pr_debug(KBUILD_MODNAME ": %s:%s() ->\n",
 		KBUILD_BASENAME".c", __func__);
 
+#ifdef CONFIG_FSL_DPAA_CEETM
+	_errno = register_qdisc(&ceetm_qdisc_ops);
+	if (unlikely(_errno))
+		pr_err(KBUILD_MODNAME
+		       ": %s:%hu:%s(): register_qdisc() = %d\n",
+		       KBUILD_BASENAME ".c", __LINE__, __func__, _errno);
+#endif
+
 	return _errno;
 }
 module_init(dpa_load);
@@ -1166,6 +1181,10 @@ static void __exit __cold dpa_unload(void)
 {
 	pr_debug(KBUILD_MODNAME ": -> %s:%s()\n",
 		KBUILD_BASENAME".c", __func__);
+
+#ifdef CONFIG_FSL_DPAA_CEETM
+	unregister_qdisc(&ceetm_qdisc_ops);
+#endif
 
 	platform_driver_unregister(&dpa_driver);
 
