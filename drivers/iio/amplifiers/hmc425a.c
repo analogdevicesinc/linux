@@ -137,7 +137,7 @@ static const struct iio_info hmc425a_info = {
 	.write_raw = &hmc425a_write_raw,
 };
 
-#define HMC245A_CHAN(_channel)                                          \
+#define HMC425A_CHAN(_channel)                                          \
 {                                                                      \
 	.type = IIO_VOLTAGE, .output = 1, .indexed = 1,                \
 	.channel = _channel,                                           \
