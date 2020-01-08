@@ -462,6 +462,7 @@ static const struct ad_sigma_delta_info ad7173_sigma_delta_info = {
 	.data_reg = AD7173_REG_DATA,
 	.addr_shift = 0,
 	.read_mask = BIT(6),
+	.irq_flags = IRQF_TRIGGER_FALLING
 };
 
 static int ad7173_setup(struct iio_dev *indio_dev)
