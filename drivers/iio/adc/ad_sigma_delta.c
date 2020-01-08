@@ -661,6 +661,7 @@ int ad_sd_init(struct ad_sigma_delta *sigma_delta, struct iio_dev *indio_dev,
 	sigma_delta->info = info;
 	sigma_delta->num_slots = 1;
 	sigma_delta->active_slots = 1;
+
 	iio_device_set_drvdata(indio_dev, sigma_delta);
 
 	return 0;
