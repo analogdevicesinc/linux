@@ -1115,10 +1115,6 @@
 	status = "okay";
 };
 
-&snvs_pwrkey {
-	status = "okay";
-};
-
 &ssi2 {
 	status = "okay";
 };
