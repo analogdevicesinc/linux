@@ -18,7 +18,7 @@
 #define DESC_QI_AEAD_GIVENC_LEN		(DESC_AEAD_GIVENC_LEN + 3 * CAAM_CMD_SZ)
 
 #define DESC_TLS_BASE			(4 * CAAM_CMD_SZ)
-#define DESC_TLS10_ENC_LEN		(DESC_TLS_BASE + 29 * CAAM_CMD_SZ)
+#define DESC_TLS10_ENC_LEN		(DESC_TLS_BASE + 30  * CAAM_CMD_SZ)
 
 /* Note: Nonce is counted in cdata.keylen */
 #define DESC_AEAD_CTR_RFC3686_LEN	(4 * CAAM_CMD_SZ)
