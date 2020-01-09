@@ -6,14 +6,14 @@
 #ifndef _SECUREKEY_DESC_H_
 #define _SECUREKEY_DESC_H_
 
-#include "compat.h"
-#include "regs.h"
-#include "intern.h"
-#include "desc.h"
-#include "desc_constr.h"
-#include "jr.h"
-#include "error.h"
-#include "pdb.h"
+#include "../../drivers/crypto/caam/compat.h"
+#include "../../drivers/crypto/caam/regs.h"
+#include "../../drivers/crypto/caam/intern.h"
+#include "../../drivers/crypto/caam/desc.h"
+#include "../../drivers/crypto/caam/desc_constr.h"
+#include "../../drivers/crypto/caam/jr.h"
+#include "../../drivers/crypto/caam/error.h"
+#include "../../drivers/crypto/caam/pdb.h"
 
 #define SK_BLOB_KEY_SZ		32	/* Blob key size. */
 #define SK_BLOB_MAC_SZ		16	/* Blob MAC size. */
