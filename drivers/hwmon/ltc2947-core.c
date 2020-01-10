@@ -5,6 +5,7 @@
  * Copyright 2019 Analog Devices Inc.
  */
 #include <linux/bitfield.h>
+#include <linux/bits.h>
 #include <linux/clk.h>
 #include <linux/device.h>
 #include <linux/hwmon.h>
@@ -44,8 +45,8 @@
 #define LTC2947_CLK_MIN			200000
 /* 25Mhz */
 #define LTC2947_CLK_MAX			25000000
-#define PAGE0				0
-#define PAGE1				1
+#define LTC2947_PAGE0			0
+#define LTC2947_PAGE1			1
 /* Voltage registers */
 #define LTC2947_REG_VOLTAGE		0xA0
 #define LTC2947_REG_VOLTAGE_MAX		0x50
@@ -59,18 +60,29 @@
 #define LTC2947_REG_DVCC_THRE_L		0x9A
 #define LTC2947_VOLTAGE_GEN_CHAN	0
 #define LTC2947_VOLTAGE_DVCC_CHAN	1
+/* in mV */
+#define VOLTAGE_MAX			15500
+#define VOLTAGE_MIN			-300
+#define VDVCC_MAX			15000
+#define VDVCC_MIN			4750
 /* Current registers */
 #define LTC2947_REG_CURRENT		0x90
 #define LTC2947_REG_CURRENT_MAX		0x40
 #define LTC2947_REG_CURRENT_MIN		0x42
 #define LTC2947_REG_CURRENT_THRE_H	0x80
 #define LTC2947_REG_CURRENT_THRE_L	0x82
+/* in mA */
+#define CURRENT_MAX			30000
+#define CURRENT_MIN			-30000
 /* Power registers */
 #define LTC2947_REG_POWER		0x93
 #define LTC2947_REG_POWER_MAX		0x44
 #define LTC2947_REG_POWER_MIN		0x46
 #define LTC2947_REG_POWER_THRE_H	0x84
 #define LTC2947_REG_POWER_THRE_L	0x86
+/* in uW */
+#define POWER_MAX			450000000
+#define POWER_MIN			-450000000
 /* Temperature registers */
 #define LTC2947_REG_TEMP		0xA2
 #define LTC2947_REG_TEMP_MAX		0x54
@@ -80,26 +92,19 @@
 #define LTC2947_REG_TEMP_FAN_THRE_H	0x9C
 #define LTC2947_REG_TEMP_FAN_THRE_L	0x9E
 #define LTC2947_TEMP_FAN_CHAN		1
+/* in millidegress Celsius */
+#define TEMP_MAX			85000
+#define TEMP_MIN			-40000
 /* Energy registers */
 #define LTC2947_REG_ENERGY1		0x06
-#define LTC2947_REG_ENERGY1_THRE_H	0x10
-#define LTC2947_REG_ENERGY1_THRE_L	0x16
 #define LTC2947_REG_ENERGY2		0x16
-#define LTC2947_REG_ENERGY2_THRE_H	0x30
-#define LTC2947_REG_ENERGY2_THRE_L	0x36
-#define ENERGY_MIN			0xFFFF800000000000LL
-#define ENERGY_MAX			0x00007FFFFFFFFFFFLL
 /* Status/Alarm/Overflow registers */
 #define LTC2947_REG_STATUS		0x80
 #define LTC2947_REG_STATVT		0x81
 #define LTC2947_REG_STATIP		0x82
-#define LTC2947_REG_STATC		0x83
-#define LTC2947_REG_STATE		0x84
-#define LTC2947_REG_STATCEOF		0x85
 #define LTC2947_REG_STATVDVCC		0x87
 
 #define LTC2947_ALERTS_SIZE	(LTC2947_REG_STATVDVCC - LTC2947_REG_STATUS)
-#define LTC2947_UPDATE_VAL_MASK		BIT(4)
 #define LTC2947_MAX_VOLTAGE_MASK	BIT(0)
 #define LTC2947_MIN_VOLTAGE_MASK	BIT(1)
 #define LTC2947_MAX_CURRENT_MASK	BIT(0)
@@ -110,20 +115,6 @@
 #define LTC2947_MIN_TEMP_MASK		BIT(3)
 #define LTC2947_MAX_TEMP_FAN_MASK	BIT(4)
 #define LTC2947_MIN_TEMP_FAN_MASK	BIT(5)
-#define LTC2947_SINGLE_SHOT_MASK	BIT(2)
-#define LTC2947_MAX_ENERGY1_MASK	BIT(0)
-#define LTC2947_MIN_ENERGY1_MASK	BIT(1)
-#define LTC2947_MAX_ENERGY2_MASK	BIT(2)
-#define LTC2947_MIN_ENERGY2_MASK	BIT(3)
-#define LTC2947_MIN_ENERGY1_O_MASK	BIT(4)
-#define LTC2947_MIN_ENERGY2_O_MASK	BIT(5)
-#define LTC2947_ADCERR_MASK		BIT(5)
-/*
- * For accumulated values there's a fault if the ADC conversions are invalid
- * (ADCERR) or if there is an overflow of the internal timebase register
- * (which indicates invalid TBCTL configuration).
- */
-#define LTC2947_ENERGY_FAULT_MASK	GENMASK(6, 5)
 
 struct ltc2947_data {
 	struct regmap *map;
@@ -135,31 +126,7 @@ struct ltc2947_data {
 	 */
 	struct mutex lock;
 	u32 lsb_energy;
-	bool reset;
 	bool gpio_out;
-};
-/* used for raw sysfs entries */
-enum {
-	LTC2947_POWER_INPUT,
-	LTC2947_POWER_THRE_L,
-	LTC2947_POWER_THRE_H,
-	LTC2947_POWER_HIGHEST,
-	LTC2947_POWER_LOWEST,
-	LTC2947_POWER_MIN_ALARM,
-	LTC2947_ENERGY1_INPUT,
-	LTC2947_ENERGY1_THRE_H,
-	LTC2947_ENERGY1_THRE_L,
-	LTC2947_ENERGY1_MAX_ALARM,
-	LTC2947_ENERGY1_MIN_ALARM,
-	LTC2947_ENERGY2_INPUT,
-	LTC2947_ENERGY2_THRE_H,
-	LTC2947_ENERGY2_THRE_L,
-	LTC2947_ENERGY2_MAX_ALARM,
-	LTC2947_ENERGY2_MIN_ALARM,
-	LTC2947_ENERGY1_OVERF_ALARM,
-	LTC2947_ENERGY2_OVERF_ALARM,
-	LTC2947_FAULT = LTC2947_ADCERR_MASK,
-	LTC2947_ENERGY_FAULT = LTC2947_ENERGY_FAULT_MASK,
 };
 
 static int __ltc2947_val_read16(const struct ltc2947_data *st, const u8 reg,
@@ -215,11 +182,6 @@ static int ltc2947_val_read(struct ltc2947_data *st, const u8 reg,
 
 	mutex_lock(&st->lock);
 
-	if (st->reset) {
-		mutex_unlock(&st->lock);
-		return -EPERM;
-	}
-
 	ret = regmap_write(st->map, LTC2947_REG_PAGE_CTRL, page);
 	if (ret) {
 		mutex_unlock(&st->lock);
@@ -227,7 +189,8 @@ static int ltc2947_val_read(struct ltc2947_data *st, const u8 reg,
 	}
 
 	dev_dbg(st->dev, "Read val, reg:%02X, p:%d sz:%zu\n", reg, page,
-								size);
+		size);
+
 	switch (size) {
 	case 2:
 		ret = __ltc2947_val_read16(st, reg, &__val);
@@ -239,7 +202,6 @@ static int ltc2947_val_read(struct ltc2947_data *st, const u8 reg,
 		ret = __ltc2947_val_read64(st, reg, &__val);
 		break;
 	default:
-		dev_err(st->dev, "Invalid size(%zu) to read", size);
 		ret = -EINVAL;
 		break;
 	}
@@ -280,15 +242,6 @@ static int ltc2947_val_write(struct ltc2947_data *st, const u8 reg,
 	int ret;
 
 	mutex_lock(&st->lock);
-	/*
-	 * Do not allow channel readings if device is in sleep state.
-	 * A read/write on the spi/i2c bus would bring the device prematurely
-	 * out of sleep.
-	 */
-	if (st->reset) {
-		mutex_unlock(&st->lock);
-		return -EPERM;
-	}
 	/* set device on correct page */
 	ret = regmap_write(st->map, LTC2947_REG_PAGE_CTRL, page);
 	if (ret) {
@@ -307,7 +260,6 @@ static int ltc2947_val_write(struct ltc2947_data *st, const u8 reg,
 		ret = __ltc2947_val_write64(st, reg, val);
 		break;
 	default:
-		dev_err(st->dev, "Invalid size(%zu) to write", size);
 		ret = -EINVAL;
 		break;
 	}
@@ -325,11 +277,11 @@ static int ltc2947_reset_history(struct ltc2947_data *st, const u8 reg_h,
 	 * let's reset the tracking register's. Tracking register's have all
 	 * 2 bytes size
 	 */
-	ret = ltc2947_val_write(st, reg_h, PAGE0, 2, 0x8000U);
+	ret = ltc2947_val_write(st, reg_h, LTC2947_PAGE0, 2, 0x8000U);
 	if (ret)
 		return ret;
 
-	return ltc2947_val_write(st, reg_l, PAGE0, 2, 0x7FFFU);
+	return ltc2947_val_write(st, reg_l, LTC2947_PAGE0, 2, 0x7FFFU);
 }
 
 static int ltc2947_alarm_read(struct ltc2947_data *st, const u8 reg,
@@ -344,12 +296,7 @@ static int ltc2947_alarm_read(struct ltc2947_data *st, const u8 reg,
 
 	mutex_lock(&st->lock);
 
-	if (st->reset) {
-		ret = -EPERM;
-		goto unlock;
-	}
-
-	ret = regmap_write(st->map, LTC2947_REG_PAGE_CTRL, PAGE0);
+	ret = regmap_write(st->map, LTC2947_REG_PAGE_CTRL, LTC2947_PAGE0);
 	if (ret)
 		goto unlock;
 
@@ -371,66 +318,6 @@ unlock:
 	return ret;
 }
 
-static ssize_t ltc2947_set_value(struct device *dev,
-				 struct device_attribute *da,
-				 const char *buf, size_t count)
-{
-	struct ltc2947_data *st = dev_get_drvdata(dev);
-	struct sensor_device_attribute *attr = to_sensor_dev_attr(da);
-	int ret;
-	u8 reg, page = PAGE1;
-	s64 val = 0;
-
-	ret = kstrtoll(buf, 10, &val);
-	if (ret) {
-		dev_err(st->dev, "Failed to convert the value\n");
-		return ret;
-	}
-
-	switch (attr->index) {
-	case LTC2947_POWER_THRE_H:
-		val = clamp_val(val, SHRT_MIN, SHRT_MAX);
-		ret = ltc2947_val_write(st, LTC2947_REG_POWER_THRE_H, PAGE1, 2,
-					div_s64(val, 200000));
-		return ret ? ret : count;
-	case LTC2947_POWER_THRE_L:
-		val = clamp_val(val, SHRT_MIN, SHRT_MAX);
-		ret = ltc2947_val_write(st, LTC2947_REG_POWER_THRE_L, PAGE1, 2,
-					div_s64(val, 200000));
-		return ret ? ret : count;
-	case LTC2947_ENERGY1_THRE_H:
-		reg = LTC2947_REG_ENERGY1_THRE_H;
-		break;
-	case LTC2947_ENERGY1_THRE_L:
-		reg = LTC2947_REG_ENERGY1_THRE_L;
-		break;
-	case LTC2947_ENERGY2_THRE_H:
-		reg = LTC2947_REG_ENERGY2_THRE_H;
-		break;
-	case LTC2947_ENERGY2_THRE_L:
-		reg = LTC2947_REG_ENERGY2_THRE_L;
-		break;
-	case LTC2947_ENERGY1_INPUT:
-		reg = LTC2947_REG_ENERGY1;
-		page = PAGE0;
-		break;
-	case LTC2947_ENERGY2_INPUT:
-		reg = LTC2947_REG_ENERGY2;
-		page = PAGE0;
-		break;
-	default:
-		return -ENOTSUPP;
-	}
-
-	val = clamp_val(val, ENERGY_MIN, ENERGY_MAX);
-	/* we are losing the fractional part here... */
-	val = div_s64(val * 1000, st->lsb_energy);
-
-	ret = ltc2947_val_write(st, reg, page, 6, val);
-
-	return ret ? ret : count;
-}
-
 static ssize_t ltc2947_show_value(struct device *dev,
 				  struct device_attribute *da, char *buf)
 {
@@ -439,53 +326,7 @@ static ssize_t ltc2947_show_value(struct device *dev,
 	int ret;
 	s64 val = 0;
 
-	switch (attr->index) {
-	case LTC2947_POWER_INPUT:
-		ret = ltc2947_val_read(st, LTC2947_REG_POWER, PAGE0, 3, &val);
-		return ret ? ret : sprintf(buf, "%lld\n", val * 50000);
-	case LTC2947_POWER_THRE_H:
-		ret = ltc2947_val_read(st, LTC2947_REG_POWER_THRE_H, PAGE1, 2,
-				       &val);
-		return ret ? ret : sprintf(buf, "%lld\n", val * 200000);
-	case LTC2947_POWER_THRE_L:
-		ret = ltc2947_val_read(st, LTC2947_REG_POWER_THRE_L, PAGE1, 2,
-				       &val);
-		return ret ? ret : sprintf(buf, "%lld\n", val * 200000);
-	case LTC2947_POWER_HIGHEST:
-		ret = ltc2947_val_read(st, LTC2947_REG_POWER_MAX, PAGE0, 2,
-				       &val);
-		return ret ? ret : sprintf(buf, "%lld\n", val * 200000);
-	case LTC2947_POWER_LOWEST:
-		ret = ltc2947_val_read(st, LTC2947_REG_POWER_MIN, PAGE0, 2,
-				       &val);
-		return ret ? ret : sprintf(buf, "%lld\n", val * 200000);
-	case LTC2947_ENERGY1_THRE_H:
-		ret = ltc2947_val_read(st, LTC2947_REG_ENERGY1_THRE_H, PAGE1, 6,
-				       &val);
-		break;
-	case LTC2947_ENERGY1_THRE_L:
-		ret = ltc2947_val_read(st, LTC2947_REG_ENERGY1_THRE_L, PAGE1, 6,
-				       &val);
-		break;
-	case LTC2947_ENERGY2_THRE_H:
-		ret = ltc2947_val_read(st, LTC2947_REG_ENERGY2_THRE_H, PAGE1, 6,
-				       &val);
-		break;
-	case LTC2947_ENERGY2_THRE_L:
-		ret = ltc2947_val_read(st, LTC2947_REG_ENERGY2_THRE_L, PAGE1, 6,
-				       &val);
-		break;
-	case LTC2947_ENERGY1_INPUT:
-		ret = ltc2947_val_read(st, LTC2947_REG_ENERGY1, PAGE0, 6, &val);
-		break;
-	case LTC2947_ENERGY2_INPUT:
-		ret = ltc2947_val_read(st, LTC2947_REG_ENERGY2, PAGE0, 6, &val);
-		break;
-	default:
-		return -EINVAL;
-	}
-
-	/* if we got here, must be an energy reading... */
+	ret = ltc2947_val_read(st, attr->index, LTC2947_PAGE0, 6, &val);
 	if (ret)
 		return ret;
 
@@ -495,55 +336,6 @@ static ssize_t ltc2947_show_value(struct device *dev,
 	return sprintf(buf, "%lld\n", val);
 }
 
-static ssize_t ltc2947_show_alert(struct device *dev,
-				  struct device_attribute *da, char *buf)
-{
-	struct ltc2947_data *st = dev_get_drvdata(dev);
-	struct sensor_device_attribute *attr = to_sensor_dev_attr(da);
-	long alert;
-	int ret = 0;
-
-	switch (attr->index) {
-	case LTC2947_POWER_MIN_ALARM:
-		ret = ltc2947_alarm_read(st, LTC2947_REG_STATIP,
-					 LTC2947_MIN_POWER_MASK, &alert);
-		break;
-	case LTC2947_ENERGY1_MAX_ALARM:
-		ret = ltc2947_alarm_read(st, LTC2947_REG_STATE,
-					 LTC2947_MAX_ENERGY1_MASK, &alert);
-		break;
-	case LTC2947_ENERGY1_MIN_ALARM:
-		ret = ltc2947_alarm_read(st, LTC2947_REG_STATE,
-					 LTC2947_MIN_ENERGY1_MASK, &alert);
-		break;
-	case LTC2947_ENERGY2_MAX_ALARM:
-		ret = ltc2947_alarm_read(st, LTC2947_REG_STATE,
-					 LTC2947_MAX_ENERGY2_MASK, &alert);
-		break;
-	case LTC2947_ENERGY2_MIN_ALARM:
-		ret = ltc2947_alarm_read(st, LTC2947_REG_STATE,
-					 LTC2947_MIN_ENERGY2_MASK, &alert);
-		break;
-	case LTC2947_ENERGY1_OVERF_ALARM:
-		ret = ltc2947_alarm_read(st, LTC2947_REG_STATCEOF,
-					 LTC2947_MIN_ENERGY1_O_MASK, &alert);
-		break;
-	case LTC2947_ENERGY2_OVERF_ALARM:
-		ret = ltc2947_alarm_read(st, LTC2947_REG_STATCEOF,
-					 LTC2947_MIN_ENERGY2_O_MASK, &alert);
-		break;
-	case LTC2947_FAULT:
-	case LTC2947_ENERGY_FAULT:
-		ret = ltc2947_alarm_read(st, LTC2947_REG_STATUS, attr->index,
-					 &alert);
-		break;
-	default:
-		return -EINVAL;
-	}
-
-	return ret ? ret : sprintf(buf, "%li\n", alert);
-}
-
 static int ltc2947_read_temp(struct device *dev, const u32 attr, long *val,
 			     const int channel)
 {
@@ -551,54 +343,50 @@ static int ltc2947_read_temp(struct device *dev, const u32 attr, long *val,
 	struct ltc2947_data *st = dev_get_drvdata(dev);
 	s64 __val = 0;
 
-	if (channel < 0 || channel > LTC2947_TEMP_FAN_CHAN) {
-		dev_err(st->dev, "Invalid chan%d for temperature", channel);
-		return -EINVAL;
-	}
-
 	switch (attr) {
 	case hwmon_temp_input:
-		ret = ltc2947_val_read(st, LTC2947_REG_TEMP, PAGE0, 2, &__val);
+		ret = ltc2947_val_read(st, LTC2947_REG_TEMP, LTC2947_PAGE0,
+				       2, &__val);
 		break;
 	case hwmon_temp_highest:
-		ret = ltc2947_val_read(st, LTC2947_REG_TEMP_MAX, PAGE0, 2,
-				       &__val);
+		ret = ltc2947_val_read(st, LTC2947_REG_TEMP_MAX, LTC2947_PAGE0,
+				       2, &__val);
 		break;
 	case hwmon_temp_lowest:
-		ret = ltc2947_val_read(st, LTC2947_REG_TEMP_MIN, PAGE0, 2,
-				       &__val);
+		ret = ltc2947_val_read(st, LTC2947_REG_TEMP_MIN, LTC2947_PAGE0,
+				       2, &__val);
 		break;
 	case hwmon_temp_max_alarm:
 		if (channel == LTC2947_TEMP_FAN_CHAN)
 			return ltc2947_alarm_read(st, LTC2947_REG_STATVT,
 						  LTC2947_MAX_TEMP_FAN_MASK,
 						  val);
-		else
-			return ltc2947_alarm_read(st, LTC2947_REG_STATVT,
-						  LTC2947_MAX_TEMP_MASK, val);
+
+		return ltc2947_alarm_read(st, LTC2947_REG_STATVT,
+					  LTC2947_MAX_TEMP_MASK, val);
 	case hwmon_temp_min_alarm:
 		if (channel == LTC2947_TEMP_FAN_CHAN)
 			return	ltc2947_alarm_read(st, LTC2947_REG_STATVT,
 						   LTC2947_MIN_TEMP_FAN_MASK,
 						   val);
-		else
-			return	ltc2947_alarm_read(st, LTC2947_REG_STATVT,
-						   LTC2947_MIN_TEMP_MASK, val);
+
+		return	ltc2947_alarm_read(st, LTC2947_REG_STATVT,
+					   LTC2947_MIN_TEMP_MASK, val);
 	case hwmon_temp_max:
 		if (channel == LTC2947_TEMP_FAN_CHAN)
 			ret = ltc2947_val_read(st, LTC2947_REG_TEMP_FAN_THRE_H,
-					       PAGE1, 2, &__val);
+					       LTC2947_PAGE1, 2, &__val);
 		else
 			ret = ltc2947_val_read(st, LTC2947_REG_TEMP_THRE_H,
-					       PAGE1, 2, &__val);
+					       LTC2947_PAGE1, 2, &__val);
 		break;
 	case hwmon_temp_min:
 		if (channel == LTC2947_TEMP_FAN_CHAN)
 			ret = ltc2947_val_read(st, LTC2947_REG_TEMP_FAN_THRE_L,
-					       PAGE1, 2, &__val);
+					       LTC2947_PAGE1, 2, &__val);
 		else
 			ret = ltc2947_val_read(st, LTC2947_REG_TEMP_THRE_L,
-					       PAGE1, 2, &__val);
+					       LTC2947_PAGE1, 2, &__val);
 		break;
 	default:
 		return -ENOTSUPP;
@@ -616,14 +404,46 @@ static int ltc2947_read_temp(struct device *dev, const u32 attr, long *val,
 static int ltc2947_read_power(struct device *dev, const u32 attr, long *val)
 {
 	struct ltc2947_data *st = dev_get_drvdata(dev);
+	int ret;
+	u32 lsb = 200000; /* in uW */
+	s64 __val = 0;
 
 	switch (attr) {
+	case hwmon_power_input:
+		ret = ltc2947_val_read(st, LTC2947_REG_POWER, LTC2947_PAGE0,
+				       3, &__val);
+		lsb = 50000;
+		break;
+	case hwmon_power_input_highest:
+		ret = ltc2947_val_read(st, LTC2947_REG_POWER_MAX, LTC2947_PAGE0,
+				       2, &__val);
+		break;
+	case hwmon_power_input_lowest:
+		ret = ltc2947_val_read(st, LTC2947_REG_POWER_MIN, LTC2947_PAGE0,
+				       2, &__val);
+		break;
 	case hwmon_power_max_alarm:
 		return ltc2947_alarm_read(st, LTC2947_REG_STATIP,
 					  LTC2947_MAX_POWER_MASK, val);
+	case hwmon_power_min_alarm:
+		return ltc2947_alarm_read(st, LTC2947_REG_STATIP,
+					  LTC2947_MIN_POWER_MASK, val);
+	case hwmon_power_max:
+		ret = ltc2947_val_read(st, LTC2947_REG_POWER_THRE_H,
+				       LTC2947_PAGE1, 2, &__val);
+		break;
+	case hwmon_power_min:
+		ret = ltc2947_val_read(st, LTC2947_REG_POWER_THRE_L,
+				       LTC2947_PAGE1, 2, &__val);
+		break;
 	default:
 		return -ENOTSUPP;
 	}
+
+	if (ret)
+		return ret;
+
+	*val = __val * lsb;
 
 	return 0;
 }
@@ -637,17 +457,17 @@ static int ltc2947_read_curr(struct device *dev, const u32 attr, long *val)
 
 	switch (attr) {
 	case hwmon_curr_input:
-		ret = ltc2947_val_read(st, LTC2947_REG_CURRENT, PAGE0, 3,
-				       &__val);
+		ret = ltc2947_val_read(st, LTC2947_REG_CURRENT,
+				       LTC2947_PAGE0, 3, &__val);
 		lsb = 3;
 		break;
 	case hwmon_curr_highest:
-		ret = ltc2947_val_read(st, LTC2947_REG_CURRENT_MAX, PAGE0, 2,
-				       &__val);
+		ret = ltc2947_val_read(st, LTC2947_REG_CURRENT_MAX,
+				       LTC2947_PAGE0, 2, &__val);
 		break;
 	case hwmon_curr_lowest:
-		ret = ltc2947_val_read(st, LTC2947_REG_CURRENT_MIN, PAGE0, 2,
-				       &__val);
+		ret = ltc2947_val_read(st, LTC2947_REG_CURRENT_MIN,
+				       LTC2947_PAGE0, 2, &__val);
 		break;
 	case hwmon_curr_max_alarm:
 		return ltc2947_alarm_read(st, LTC2947_REG_STATIP,
@@ -656,12 +476,12 @@ static int ltc2947_read_curr(struct device *dev, const u32 attr, long *val)
 		return ltc2947_alarm_read(st, LTC2947_REG_STATIP,
 					  LTC2947_MIN_CURRENT_MASK, val);
 	case hwmon_curr_max:
-		ret = ltc2947_val_read(st, LTC2947_REG_CURRENT_THRE_H, PAGE1, 2,
-				       &__val);
+		ret = ltc2947_val_read(st, LTC2947_REG_CURRENT_THRE_H,
+				       LTC2947_PAGE1, 2, &__val);
 		break;
 	case hwmon_curr_min:
-		ret = ltc2947_val_read(st, LTC2947_REG_CURRENT_THRE_L, PAGE1, 2,
-				       &__val);
+		ret = ltc2947_val_read(st, LTC2947_REG_CURRENT_THRE_L,
+				       LTC2947_PAGE1, 2, &__val);
 		break;
 	default:
 		return -ENOTSUPP;
@@ -691,32 +511,32 @@ static int ltc2947_read_in(struct device *dev, const u32 attr, long *val,
 	switch (attr) {
 	case hwmon_in_input:
 		if (channel == LTC2947_VOLTAGE_DVCC_CHAN) {
-			ret = ltc2947_val_read(st, LTC2947_REG_DVCC, PAGE0, 2,
-					       &__val);
+			ret = ltc2947_val_read(st, LTC2947_REG_DVCC,
+					       LTC2947_PAGE0, 2, &__val);
 			lsb = 145;
 		} else {
-			ret = ltc2947_val_read(st, LTC2947_REG_VOLTAGE, PAGE0,
-					       2, &__val);
+			ret = ltc2947_val_read(st, LTC2947_REG_VOLTAGE,
+					       LTC2947_PAGE0, 2, &__val);
 		}
 		break;
 	case hwmon_in_highest:
 		if (channel == LTC2947_VOLTAGE_DVCC_CHAN) {
-			ret = ltc2947_val_read(st, LTC2947_REG_DVCC_MAX, PAGE0,
-					       2, &__val);
+			ret = ltc2947_val_read(st, LTC2947_REG_DVCC_MAX,
+					       LTC2947_PAGE0, 2, &__val);
 			lsb = 145;
 		} else {
 			ret = ltc2947_val_read(st, LTC2947_REG_VOLTAGE_MAX,
-					       PAGE0, 2, &__val);
+					       LTC2947_PAGE0, 2, &__val);
 		}
 		break;
 	case hwmon_in_lowest:
 		if (channel == LTC2947_VOLTAGE_DVCC_CHAN) {
-			ret = ltc2947_val_read(st, LTC2947_REG_DVCC_MIN, PAGE0,
-					       2, &__val);
+			ret = ltc2947_val_read(st, LTC2947_REG_DVCC_MIN,
+					       LTC2947_PAGE0, 2, &__val);
 			lsb = 145;
 		} else {
 			ret = ltc2947_val_read(st, LTC2947_REG_VOLTAGE_MIN,
-					       PAGE0, 2, &__val);
+					       LTC2947_PAGE0, 2, &__val);
 		}
 		break;
 	case hwmon_in_max_alarm:
@@ -724,37 +544,35 @@ static int ltc2947_read_in(struct device *dev, const u32 attr, long *val,
 			return ltc2947_alarm_read(st, LTC2947_REG_STATVDVCC,
 						  LTC2947_MAX_VOLTAGE_MASK,
 						  val);
-		else
-			return ltc2947_alarm_read(st, LTC2947_REG_STATVT,
-						  LTC2947_MAX_VOLTAGE_MASK,
-						  val);
+
+		return ltc2947_alarm_read(st, LTC2947_REG_STATVT,
+					  LTC2947_MAX_VOLTAGE_MASK, val);
 	case hwmon_in_min_alarm:
 		if (channel == LTC2947_VOLTAGE_DVCC_CHAN)
 			return ltc2947_alarm_read(st, LTC2947_REG_STATVDVCC,
 						  LTC2947_MIN_VOLTAGE_MASK,
 						  val);
-		else
-			return ltc2947_alarm_read(st, LTC2947_REG_STATVT,
-						  LTC2947_MIN_VOLTAGE_MASK,
-						  val);
+
+		return ltc2947_alarm_read(st, LTC2947_REG_STATVT,
+					  LTC2947_MIN_VOLTAGE_MASK, val);
 	case hwmon_in_max:
 		if (channel == LTC2947_VOLTAGE_DVCC_CHAN) {
 			ret = ltc2947_val_read(st, LTC2947_REG_DVCC_THRE_H,
-					       PAGE1, 2, &__val);
+					       LTC2947_PAGE1, 2, &__val);
 			lsb = 145;
 		} else {
 			ret = ltc2947_val_read(st, LTC2947_REG_VOLTAGE_THRE_H,
-					       PAGE1, 2, &__val);
+					       LTC2947_PAGE1, 2, &__val);
 		}
 		break;
 	case hwmon_in_min:
 		if (channel == LTC2947_VOLTAGE_DVCC_CHAN) {
 			ret = ltc2947_val_read(st, LTC2947_REG_DVCC_THRE_L,
-					       PAGE1, 2, &__val);
+					       LTC2947_PAGE1, 2, &__val);
 			lsb = 145;
 		} else {
 			ret = ltc2947_val_read(st, LTC2947_REG_VOLTAGE_THRE_L,
-					       PAGE1, 2, &__val);
+					       LTC2947_PAGE1, 2, &__val);
 		}
 		break;
 	default:
@@ -803,33 +621,35 @@ static int ltc2947_write_temp(struct device *dev, const u32 attr,
 		return ltc2947_reset_history(st, LTC2947_REG_TEMP_MAX,
 					     LTC2947_REG_TEMP_MIN);
 	case hwmon_temp_max:
-		val = clamp_val(val, SHRT_MIN, SHRT_MAX);
+		val = clamp_val(val, TEMP_MIN, TEMP_MAX);
 		if (channel == LTC2947_TEMP_FAN_CHAN) {
 			if (!st->gpio_out)
 				return -ENOTSUPP;
 
 			return ltc2947_val_write(st,
-					LTC2947_REG_TEMP_FAN_THRE_H, PAGE1, 2,
-					DIV_ROUND_CLOSEST(val - 550, 204));
-		} else {
-			return ltc2947_val_write(st, LTC2947_REG_TEMP_THRE_H,
-					PAGE1, 2,
+					LTC2947_REG_TEMP_FAN_THRE_H,
+					LTC2947_PAGE1, 2,
 					DIV_ROUND_CLOSEST(val - 550, 204));
 		}
+
+		return ltc2947_val_write(st, LTC2947_REG_TEMP_THRE_H,
+					 LTC2947_PAGE1, 2,
+					 DIV_ROUND_CLOSEST(val - 550, 204));
 	case hwmon_temp_min:
-		val = clamp_val(val, SHRT_MIN, SHRT_MAX);
+		val = clamp_val(val, TEMP_MIN, TEMP_MAX);
 		if (channel == LTC2947_TEMP_FAN_CHAN) {
 			if (!st->gpio_out)
 				return -ENOTSUPP;
 
 			return ltc2947_val_write(st,
-					LTC2947_REG_TEMP_FAN_THRE_L, PAGE1, 2,
-					DIV_ROUND_CLOSEST(val - 550, 204));
-		} else {
-			return ltc2947_val_write(st, LTC2947_REG_TEMP_THRE_L,
-					PAGE1, 2,
+					LTC2947_REG_TEMP_FAN_THRE_L,
+					LTC2947_PAGE1, 2,
 					DIV_ROUND_CLOSEST(val - 550, 204));
 		}
+
+		return ltc2947_val_write(st, LTC2947_REG_TEMP_THRE_L,
+					 LTC2947_PAGE1, 2,
+					 DIV_ROUND_CLOSEST(val - 550, 204));
 	default:
 		return -ENOTSUPP;
 	}
@@ -846,6 +666,16 @@ static int ltc2947_write_power(struct device *dev, const u32 attr,
 			return -EINVAL;
 		return ltc2947_reset_history(st, LTC2947_REG_POWER_MAX,
 					     LTC2947_REG_POWER_MIN);
+	case hwmon_power_max:
+		val = clamp_val(val, POWER_MIN, POWER_MAX);
+		return ltc2947_val_write(st, LTC2947_REG_POWER_THRE_H,
+					 LTC2947_PAGE1, 2,
+					 DIV_ROUND_CLOSEST(val, 200000));
+	case hwmon_power_min:
+		val = clamp_val(val, POWER_MIN, POWER_MAX);
+		return ltc2947_val_write(st, LTC2947_REG_POWER_THRE_L,
+					 LTC2947_PAGE1, 2,
+					 DIV_ROUND_CLOSEST(val, 200000));
 	default:
 		return -ENOTSUPP;
 	}
@@ -863,13 +693,15 @@ static int ltc2947_write_curr(struct device *dev, const u32 attr,
 		return ltc2947_reset_history(st, LTC2947_REG_CURRENT_MAX,
 					     LTC2947_REG_CURRENT_MIN);
 	case hwmon_curr_max:
-		val = clamp_val(val, SHRT_MIN, SHRT_MAX);
-		return ltc2947_val_write(st, LTC2947_REG_CURRENT_THRE_H, PAGE1,
-					 2, DIV_ROUND_CLOSEST(val, 12));
+		val = clamp_val(val, CURRENT_MIN, CURRENT_MAX);
+		return ltc2947_val_write(st, LTC2947_REG_CURRENT_THRE_H,
+					 LTC2947_PAGE1, 2,
+					 DIV_ROUND_CLOSEST(val, 12));
 	case hwmon_curr_min:
-		val = clamp_val(val, SHRT_MIN, SHRT_MAX);
-		return ltc2947_val_write(st, LTC2947_REG_CURRENT_THRE_L, PAGE1,
-					 2, DIV_ROUND_CLOSEST(val, 12));
+		val = clamp_val(val, CURRENT_MIN, CURRENT_MAX);
+		return ltc2947_val_write(st, LTC2947_REG_CURRENT_THRE_L,
+					 LTC2947_PAGE1, 2,
+					 DIV_ROUND_CLOSEST(val, 12));
 	default:
 		return -ENOTSUPP;
 	}
@@ -893,32 +725,33 @@ static int ltc2947_write_in(struct device *dev, const u32 attr, long val,
 		if (channel == LTC2947_VOLTAGE_DVCC_CHAN)
 			return ltc2947_reset_history(st, LTC2947_REG_DVCC_MAX,
 						     LTC2947_REG_DVCC_MIN);
-		else
-			return ltc2947_reset_history(st,
-						     LTC2947_REG_VOLTAGE_MAX,
-						     LTC2947_REG_VOLTAGE_MIN);
+
+		return ltc2947_reset_history(st, LTC2947_REG_VOLTAGE_MAX,
+					     LTC2947_REG_VOLTAGE_MIN);
 	case hwmon_in_max:
-		val = clamp_val(val, SHRT_MIN, SHRT_MAX);
-
-		if (channel == LTC2947_VOLTAGE_DVCC_CHAN)
+		if (channel == LTC2947_VOLTAGE_DVCC_CHAN) {
+			val = clamp_val(val, VDVCC_MIN, VDVCC_MAX);
 			return ltc2947_val_write(st, LTC2947_REG_DVCC_THRE_H,
-						 PAGE1, 2,
+						 LTC2947_PAGE1, 2,
 						 DIV_ROUND_CLOSEST(val, 145));
-		else
-			return ltc2947_val_write(st, LTC2947_REG_VOLTAGE_THRE_H,
-						 PAGE1, 2,
-						 DIV_ROUND_CLOSEST(val, 2));
-	case hwmon_in_min:
-		val = clamp_val(val, SHRT_MIN, SHRT_MAX);
+		}
 
-		if (channel == LTC2947_VOLTAGE_DVCC_CHAN)
+		val = clamp_val(val, VOLTAGE_MIN, VOLTAGE_MAX);
+		return ltc2947_val_write(st, LTC2947_REG_VOLTAGE_THRE_H,
+					 LTC2947_PAGE1, 2,
+					 DIV_ROUND_CLOSEST(val, 2));
+	case hwmon_in_min:
+		if (channel == LTC2947_VOLTAGE_DVCC_CHAN) {
+			val = clamp_val(val, VDVCC_MIN, VDVCC_MAX);
 			return ltc2947_val_write(st, LTC2947_REG_DVCC_THRE_L,
-						 PAGE1, 2,
+						 LTC2947_PAGE1, 2,
 						 DIV_ROUND_CLOSEST(val, 145));
-		else
-			return ltc2947_val_write(st, LTC2947_REG_VOLTAGE_THRE_L,
-						 PAGE1, 2,
-						 DIV_ROUND_CLOSEST(val, 2));
+		}
+
+		val = clamp_val(val, VOLTAGE_MIN, VOLTAGE_MAX);
+		return ltc2947_val_write(st, LTC2947_REG_VOLTAGE_THRE_L,
+					 LTC2947_PAGE1, 2,
+					 DIV_ROUND_CLOSEST(val, 2));
 	default:
 		return -ENOTSUPP;
 	}
@@ -1013,11 +846,18 @@ static int ltc2947_curr_is_visible(const u32 attr)
 static int ltc2947_power_is_visible(const u32 attr)
 {
 	switch (attr) {
+	case hwmon_power_input:
+	case hwmon_power_input_highest:
+	case hwmon_power_input_lowest:
 	case hwmon_power_label:
 	case hwmon_power_max_alarm:
+	case hwmon_power_min_alarm:
 		return 0444;
 	case hwmon_power_reset_history:
 		return 0200;
+	case hwmon_power_max:
+	case hwmon_power_min:
+		return 0644;
 	default:
 		return 0;
 	}
@@ -1061,63 +901,33 @@ static umode_t ltc2947_is_visible(const void *data,
 	}
 }
 
-static const u32 ltc2947_temp_config[] = {
-	HWMON_T_INPUT | HWMON_T_LOWEST | HWMON_T_HIGHEST | HWMON_T_MAX |
-	HWMON_T_MIN | HWMON_T_RESET_HISTORY | HWMON_T_MIN_ALARM |
-	HWMON_T_MAX_ALARM | HWMON_T_LABEL,
-	HWMON_T_MAX_ALARM | HWMON_T_MIN_ALARM | HWMON_T_MAX | HWMON_T_MIN |
-	HWMON_T_LABEL,
-	0
-};
-
-static const struct hwmon_channel_info ltc2947_temp = {
-	.type = hwmon_temp,
-	.config = ltc2947_temp_config,
-};
-
-/* all the other properties require u64 */
-static const u32 ltc2947_power_config[] = {
-	HWMON_P_RESET_HISTORY | HWMON_P_MAX_ALARM | HWMON_P_LABEL,
-	0
-};
-
-static const struct hwmon_channel_info ltc2947_power = {
-	.type = hwmon_power,
-	.config = ltc2947_power_config,
-};
-
-static const u32 ltc2947_curr_config[] = {
-	HWMON_C_INPUT | HWMON_C_LOWEST | HWMON_C_HIGHEST | HWMON_C_MAX |
-	HWMON_C_MIN | HWMON_C_RESET_HISTORY | HWMON_C_MIN_ALARM |
-	HWMON_C_MAX_ALARM | HWMON_C_LABEL,
-	0
-};
-
-static const struct hwmon_channel_info ltc2947_curr = {
-	.type = hwmon_curr,
-	.config = ltc2947_curr_config,
-};
-
-static const u32 ltc2947_in_config[] = {
-	HWMON_I_INPUT | HWMON_I_LOWEST | HWMON_I_HIGHEST | HWMON_I_MAX |
-	HWMON_I_MIN | HWMON_I_RESET_HISTORY | HWMON_I_MIN_ALARM |
-	HWMON_I_MAX_ALARM | HWMON_I_LABEL,
-	HWMON_I_INPUT | HWMON_I_LOWEST | HWMON_I_HIGHEST | HWMON_I_LABEL |
-	HWMON_I_MAX | HWMON_I_MIN | HWMON_I_RESET_HISTORY | HWMON_I_MIN_ALARM |
-	HWMON_I_MAX_ALARM,
-	0
-};
-
-static const struct hwmon_channel_info ltc2947_in = {
-	.type = hwmon_in,
-	.config = ltc2947_in_config,
-};
-
 static const struct hwmon_channel_info *ltc2947_info[] = {
-	&ltc2947_in,
-	&ltc2947_curr,
-	&ltc2947_power,
-	&ltc2947_temp,
+	HWMON_CHANNEL_INFO(in,
+			   HWMON_I_INPUT | HWMON_I_LOWEST | HWMON_I_HIGHEST |
+			   HWMON_I_MAX | HWMON_I_MIN | HWMON_I_RESET_HISTORY |
+			   HWMON_I_MIN_ALARM | HWMON_I_MAX_ALARM |
+			   HWMON_I_LABEL,
+			   HWMON_I_INPUT | HWMON_I_LOWEST | HWMON_I_HIGHEST |
+			   HWMON_I_MAX | HWMON_I_MIN | HWMON_I_RESET_HISTORY |
+			   HWMON_I_MIN_ALARM | HWMON_I_MAX_ALARM |
+			   HWMON_I_LABEL),
+	HWMON_CHANNEL_INFO(curr,
+			   HWMON_C_INPUT | HWMON_C_LOWEST | HWMON_C_HIGHEST |
+			   HWMON_C_MAX | HWMON_C_MIN | HWMON_C_RESET_HISTORY |
+			   HWMON_C_MIN_ALARM | HWMON_C_MAX_ALARM |
+			   HWMON_C_LABEL),
+	HWMON_CHANNEL_INFO(power,
+			   HWMON_P_INPUT | HWMON_P_INPUT_LOWEST |
+			   HWMON_P_INPUT_HIGHEST | HWMON_P_MAX | HWMON_P_MIN |
+			   HWMON_P_RESET_HISTORY | HWMON_P_MAX_ALARM |
+			   HWMON_P_MIN_ALARM | HWMON_P_LABEL),
+	HWMON_CHANNEL_INFO(temp,
+			   HWMON_T_INPUT | HWMON_T_LOWEST | HWMON_T_HIGHEST |
+			   HWMON_T_MAX | HWMON_T_MIN | HWMON_T_RESET_HISTORY |
+			   HWMON_T_MIN_ALARM | HWMON_T_MAX_ALARM |
+			   HWMON_T_LABEL,
+			   HWMON_T_MAX_ALARM | HWMON_T_MIN_ALARM | HWMON_T_MAX |
+			   HWMON_T_MIN | HWMON_T_LABEL),
 	NULL
 };
 
@@ -1133,93 +943,15 @@ static const struct hwmon_chip_info ltc2947_chip_info = {
 	.info = ltc2947_info,
 };
 
-/* power attributes */
-static SENSOR_DEVICE_ATTR(power1_input, 0444, ltc2947_show_value,
-			  ltc2947_set_value, LTC2947_POWER_INPUT);
-static SENSOR_DEVICE_ATTR(power1_max, 0644, ltc2947_show_value,
-			  ltc2947_set_value, LTC2947_POWER_THRE_H);
-static SENSOR_DEVICE_ATTR(power1_min, 0644, ltc2947_show_value,
-			  ltc2947_set_value, LTC2947_POWER_THRE_L);
-static SENSOR_DEVICE_ATTR(power1_input_highest, 0444, ltc2947_show_value,
-			  ltc2947_set_value, LTC2947_POWER_HIGHEST);
-static SENSOR_DEVICE_ATTR(power1_input_lowest, 0444, ltc2947_show_value,
-			  ltc2947_set_value, LTC2947_POWER_LOWEST);
-static SENSOR_DEVICE_ATTR(power1_min_alarm, 0444, ltc2947_show_alert, NULL,
-			  LTC2947_POWER_MIN_ALARM);
-/* energy attributes */
+/* energy attributes are 6bytes wide so we need u64 */
 static SENSOR_DEVICE_ATTR(energy1_input, 0444, ltc2947_show_value, NULL,
-			  LTC2947_ENERGY1_INPUT);
-static SENSOR_DEVICE_ATTR(energy1_max, 0644, ltc2947_show_value,
-			  ltc2947_set_value, LTC2947_ENERGY1_THRE_H);
-static SENSOR_DEVICE_ATTR(energy1_min, 0644, ltc2947_show_value,
-			  ltc2947_set_value, LTC2947_ENERGY1_THRE_L);
-static SENSOR_DEVICE_ATTR(energy1_max_alarm, 0444, ltc2947_show_alert, NULL,
-			  LTC2947_ENERGY1_MAX_ALARM);
-static SENSOR_DEVICE_ATTR(energy1_min_alarm, 0444, ltc2947_show_alert, NULL,
-			  LTC2947_ENERGY1_MIN_ALARM);
+			  LTC2947_REG_ENERGY1);
 static SENSOR_DEVICE_ATTR(energy2_input, 0444, ltc2947_show_value, NULL,
-			  LTC2947_ENERGY2_INPUT);
-static SENSOR_DEVICE_ATTR(energy2_max, 0644, ltc2947_show_value,
-			  ltc2947_set_value, LTC2947_ENERGY2_THRE_H);
-static SENSOR_DEVICE_ATTR(energy2_min, 0644, ltc2947_show_value,
-			  ltc2947_set_value, LTC2947_ENERGY2_THRE_L);
-static SENSOR_DEVICE_ATTR(energy2_max_alarm, 0444, ltc2947_show_alert, NULL,
-			  LTC2947_ENERGY2_MAX_ALARM);
-static SENSOR_DEVICE_ATTR(energy2_min_alarm, 0444, ltc2947_show_alert, NULL,
-			  LTC2947_ENERGY2_MIN_ALARM);
-/*
- *
- */
-static SENSOR_DEVICE_ATTR(energy1_overflow_alarm, 0444, ltc2947_show_alert,
-			  NULL, LTC2947_ENERGY1_OVERF_ALARM);
-static SENSOR_DEVICE_ATTR(energy2_overflow_alarm, 0444, ltc2947_show_alert,
-			  NULL, LTC2947_ENERGY2_OVERF_ALARM);
-
-/*
- * Fault attributes indicate that the readings in the respective channel are
- * not to be trusted
- */
-static SENSOR_DEVICE_ATTR(energy1_fault, 0444, ltc2947_show_alert,
-			  NULL, LTC2947_ENERGY_FAULT);
-static SENSOR_DEVICE_ATTR(energy2_fault, 0444, ltc2947_show_alert,
-			  NULL, LTC2947_ENERGY_FAULT);
-static SENSOR_DEVICE_ATTR(in0_fault, 0444, ltc2947_show_alert,
-			  NULL, LTC2947_FAULT);
-static SENSOR_DEVICE_ATTR(in1_fault, 0444, ltc2947_show_alert,
-			  NULL, LTC2947_FAULT);
-static SENSOR_DEVICE_ATTR(curr1_fault, 0444, ltc2947_show_alert,
-			  NULL, LTC2947_FAULT);
-static SENSOR_DEVICE_ATTR(temp1_fault, 0444, ltc2947_show_alert,
-			  NULL, LTC2947_FAULT);
-static SENSOR_DEVICE_ATTR(power1_fault, 0444, ltc2947_show_alert,
-			  NULL, LTC2947_FAULT);
+			  LTC2947_REG_ENERGY2);
 
 static struct attribute *ltc2947_attrs[] = {
-	&sensor_dev_attr_in0_fault.dev_attr.attr,
-	&sensor_dev_attr_in1_fault.dev_attr.attr,
-	&sensor_dev_attr_curr1_fault.dev_attr.attr,
-	&sensor_dev_attr_temp1_fault.dev_attr.attr,
-	&sensor_dev_attr_power1_input.dev_attr.attr,
-	&sensor_dev_attr_power1_max.dev_attr.attr,
-	&sensor_dev_attr_power1_min.dev_attr.attr,
-	&sensor_dev_attr_power1_input_highest.dev_attr.attr,
-	&sensor_dev_attr_power1_input_lowest.dev_attr.attr,
-	&sensor_dev_attr_power1_min_alarm.dev_attr.attr,
-	&sensor_dev_attr_power1_fault.dev_attr.attr,
 	&sensor_dev_attr_energy1_input.dev_attr.attr,
-	&sensor_dev_attr_energy1_max.dev_attr.attr,
-	&sensor_dev_attr_energy1_min.dev_attr.attr,
-	&sensor_dev_attr_energy1_max_alarm.dev_attr.attr,
-	&sensor_dev_attr_energy1_min_alarm.dev_attr.attr,
 	&sensor_dev_attr_energy2_input.dev_attr.attr,
-	&sensor_dev_attr_energy2_max.dev_attr.attr,
-	&sensor_dev_attr_energy2_min.dev_attr.attr,
-	&sensor_dev_attr_energy2_max_alarm.dev_attr.attr,
-	&sensor_dev_attr_energy2_min_alarm.dev_attr.attr,
-	&sensor_dev_attr_energy1_overflow_alarm.dev_attr.attr,
-	&sensor_dev_attr_energy2_overflow_alarm.dev_attr.attr,
-	&sensor_dev_attr_energy1_fault.dev_attr.attr,
-	&sensor_dev_attr_energy2_fault.dev_attr.attr,
 	NULL,
 };
 ATTRIBUTE_GROUPS(ltc2947);
@@ -1240,6 +972,19 @@ static int ltc2947_setup(struct ltc2947_data *st)
 
 	/* clear status register by reading it */
 	ret = regmap_read(st->map, LTC2947_REG_STATUS, &dummy);
+	if (ret)
+		return ret;
+	/*
+	 * Set max/min for power here since the default values x scale
+	 * would overflow on 32bit arch
+	 */
+	ret = ltc2947_val_write(st, LTC2947_REG_POWER_THRE_H, LTC2947_PAGE1, 2,
+				POWER_MAX / 200000);
+	if (ret)
+		return ret;
+
+	ret = ltc2947_val_write(st, LTC2947_REG_POWER_THRE_L, LTC2947_PAGE1, 2,
+				POWER_MIN / 200000);
 	if (ret)
 		return ret;
 
@@ -1317,7 +1062,7 @@ static int ltc2947_setup(struct ltc2947_data *st)
 	if (!ret) {
 		/* the LSB is the same as the current, so 3mA */
 		ret = regmap_write(st->map, LTC2947_REG_ACCUM_DEADBAND,
-				   deadband/(1000 * 3));
+				   deadband / (1000 * 3));
 		if (ret)
 			return ret;
 	}
@@ -1392,12 +1137,10 @@ static int __maybe_unused ltc2947_resume(struct device *dev)
 	u32 ctrl = 0;
 	int ret;
 
-	mutex_lock(&st->lock);
 	/* dummy read to wake the device */
 	ret = regmap_read(st->map, LTC2947_REG_CTRL, &ctrl);
 	if (ret)
-		goto unlock;
-
+		return ret;
 	/*
 	 * Wait for the device. It takes 100ms to wake up so, 10ms extra
 	 * should be enough.
@@ -1405,38 +1148,24 @@ static int __maybe_unused ltc2947_resume(struct device *dev)
 	msleep(110);
 	ret = regmap_read(st->map, LTC2947_REG_CTRL, &ctrl);
 	if (ret)
-		goto unlock;
+		return ret;
 	/* ctrl should be 0 */
 	if (ctrl != 0) {
 		dev_err(st->dev, "Device failed to wake up, ctl:%02X\n", ctrl);
-		ret = -ETIMEDOUT;
-		goto unlock;
+		return -ETIMEDOUT;
 	}
 
-	st->reset = false;
 	/* set continuous mode */
-	ret = regmap_update_bits(st->map, LTC2947_REG_CTRL,
-				 LTC2947_CONT_MODE_MASK, LTC2947_CONT_MODE(1));
-unlock:
-	mutex_unlock(&st->lock);
-	return ret;
+	return regmap_update_bits(st->map, LTC2947_REG_CTRL,
+				  LTC2947_CONT_MODE_MASK, LTC2947_CONT_MODE(1));
 }
 
 static int __maybe_unused ltc2947_suspend(struct device *dev)
 {
 	struct ltc2947_data *st = dev_get_drvdata(dev);
-	int ret;
 
-	mutex_lock(&st->lock);
-	ret = regmap_update_bits(st->map, LTC2947_REG_CTRL,
-				 LTC2947_SHUTDOWN_MASK, 1);
-	if (ret)
-		goto unlock;
-
-	st->reset = true;
-unlock:
-	mutex_unlock(&st->lock);
-	return ret;
+	return regmap_update_bits(st->map, LTC2947_REG_CTRL,
+				  LTC2947_SHUTDOWN_MASK, 1);
 }
 
 SIMPLE_DEV_PM_OPS(ltc2947_pm_ops, ltc2947_suspend, ltc2947_resume);
@@ -1448,3 +1177,7 @@ const struct of_device_id ltc2947_of_match[] = {
 };
 EXPORT_SYMBOL_GPL(ltc2947_of_match);
 MODULE_DEVICE_TABLE(of, ltc2947_of_match);
+
+MODULE_AUTHOR("Nuno Sa <nuno.sa@analog.com>");
+MODULE_DESCRIPTION("LTC2947 power and energy monitor core driver");
+MODULE_LICENSE("GPL");
