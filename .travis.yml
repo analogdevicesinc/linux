@@ -12,12 +12,15 @@ notifications:
     on_success: change
     on_failure: always
 
-env:
-  matrix:
-  - BUILD_TYPE=checkpatch DO_NOT_DOCKERIZE=1
-  - DEFCONFIG=adi_bcm2709_defconfig ARCH=arm
-  - DEFCONFIG=adi_bcm2711_defconfig ARCH=arm
-  - DEFCONFIG=adi_bcmrpi_defconfig ARCH=arm
+matrix:
+  include:
+    - checkpatch: 1
+      env: BUILD_TYPE=checkpatch DO_NOT_DOCKERIZE=1
+    - env: DEFCONFIG=adi_bcm2709_defconfig ARCH=arm
+    - env: DEFCONFIG=adi_bcm2711_defconfig ARCH=arm
+    - env: DEFCONFIG=adi_bcmrpi_defconfig ARCH=arm
+  allow_failures:
+    - checkpatch: 1
 
 script:
   - ./ci/travis/run-build-docker.sh
