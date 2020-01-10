@@ -27,7 +27,6 @@ static int ltc2947_probe(struct i2c_client *i2c,
 	return ltc2947_core_probe(map, i2c->name);
 }
 
-
 static const struct i2c_device_id ltc2947_id[] = {
 	{"ltc2947", 0},
 	{}
@@ -48,4 +47,3 @@ module_i2c_driver(ltc2947_driver);
 MODULE_AUTHOR("Nuno Sa <nuno.sa@analog.com>");
 MODULE_DESCRIPTION("LTC2947 I2C power and energy monitor driver");
 MODULE_LICENSE("GPL");
-

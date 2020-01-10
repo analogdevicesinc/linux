@@ -43,7 +43,6 @@ static struct spi_driver ltc2947_driver = {
 	.probe = ltc2947_probe,
 	.id_table = ltc2947_id,
 };
-
 module_spi_driver(ltc2947_driver);
 
 MODULE_AUTHOR("Nuno Sa <nuno.sa@analog.com>");
