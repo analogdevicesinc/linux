@@ -71,6 +71,42 @@
 #define ADIN1300_CLOCK_STOP_REG			0x9400
 #define ADIN1300_LPI_WAKE_ERR_CNT_REG		0xa000
 
+#define ADIN1300_SOP_CTRL			0x9428
+#define   ADIN1300_SOP_N_8_CYCM_1		GENMASK(6, 4)
+#define   ADIN1300_SOP_NCYC_EN			BIT(3)
+#define   ADIN1300_SOP_SFD_EN			BIT(2)
+#define   ADIN1300_SOP_RX_EN			BIT(1)
+#define   ADIN1300_SOP_TX_EN			BIT(0)
+
+enum {
+	SOP_DELAY_10,
+	SOP_DELAY_100,
+	SOP_DELAY_1000,
+	__SOP_DELAY_MAX,
+};
+
+#define ADIN1300_SOP_RX_DELAY			0x9429
+#define   ADIN1300_SOP_RX_10_DEL_NCYC_MSK	GENMASK(15, 11)
+#define   ADIN1300_SOP_RX_10_DEL_NCYC_SEL(x)	\
+		FIELD_PREP(ADIN1300_SOP_RX_10_DEL_NCYC_MSK, x)
+#define   ADIN1300_SOP_RX_100_DEL_NCYC_MSK	GENMASK(10, 6)
+#define   ADIN1300_SOP_RX_100_DEL_NCYC_SEL(x)	\
+		FIELD_PREP(ADIN1300_SOP_RX_100_DEL_NCYC_MSK, x)
+#define   ADIN1300_SOP_RX_1000_DEL_NCYC_MSK	GENMASK(5, 0)
+#define   ADIN1300_SOP_RX_1000_DEL_NCYC_SEL(x)	\
+		FIELD_PREP(ADIN1300_SOP_RX_1000_DEL_NCYC_MSK, x)
+
+#define ADIN1300_SOP_TX_DELAY			0x942a
+#define   ADIN1300_SOP_TX_10_DEL_N_8_NS_MSK	GENMASK(12, 8)
+#define   ADIN1300_SOP_TX_10_DEL_N_8_NS_SEL(x)	\
+		FIELD_PREP(ADIN1300_SOP_TX_10_DEL_N_8_NS_MSK, x)
+#define   ADIN1300_SOP_TX_100_DEL_N_8_NS_MSK	GENMASK(7, 4)
+#define   ADIN1300_SOP_TX_100_DEL_N_8_NS_SEL(x)	\
+		FIELD_PREP(ADIN1300_SOP_TX_100_DEL_N_8_NS_MSK, x)
+#define   ADIN1300_SOP_TX_1000_DEL_N_8_NS_MSK	GENMASK(3, 0)
+#define   ADIN1300_SOP_TX_1000_DEL_N_8_NS_SEL(x)\
+		FIELD_PREP(ADIN1300_SOP_TX_1000_DEL_N_8_NS_MSK, x)
+
 #define ADIN1300_GE_SOFT_RESET_REG		0xff0c
 #define   ADIN1300_GE_SOFT_RESET		BIT(0)
 
@@ -105,6 +141,21 @@
 #define ADIN1300_RMII_16_BITS			0x0003
 #define ADIN1300_RMII_20_BITS			0x0004
 #define ADIN1300_RMII_24_BITS			0x0005
+
+#define ADIN1300_GE_IO_GP_CLK_OR_CNTRL		0xff3d
+#define ADIN1300_GE_IO_GP_OUT_OR_CNTRL		0xff3e
+#define ADIN1300_GE_IO_INT_N_OR_CNTRL		0xff3f
+#define ADIN1300_GE_IO_LED_A_OR_CNTRL		0xff41
+
+/* Common definitions for ADIN1300_GE_IO_* regs */
+enum ge_io_fn {
+	GE_IO_FN_DFLT,
+	GE_IO_FN_LINK_STATUS,
+	GE_IO_FN_TX_SOP_IND,
+	GE_IO_FN_RX_SOP_IND,
+	GE_IO_FN_CRS,
+	GE_IO_FN_COL,
+};
 
 /**
  * struct adin_cfg_reg_map - map a config value to aregister value
@@ -172,6 +223,13 @@ static const struct adin_map adin_hw_stats[] = {
 	{ "odd_preamble_packet_count",		0x9412 },
 	{ "dribble_bits_frames_count",		0x9413 },
 	{ "false_carrier_events_count",		0x9414 },
+};
+
+static const struct adin_map adin_ge_io_pins[] = {
+	{ "gp_clk",	ADIN1300_GE_IO_GP_CLK_OR_CNTRL,	GENMASK(2, 0) },
+	{ "link_st",	ADIN1300_GE_IO_GP_OUT_OR_CNTRL,	GENMASK(2, 0) },
+	{ "int_n",	ADIN1300_GE_IO_INT_N_OR_CNTRL,	GENMASK(2, 0) },
+	{ "led_0",	ADIN1300_GE_IO_LED_A_OR_CNTRL,	GENMASK(3, 0) },
 };
 
 /**
@@ -383,6 +441,145 @@ static int adin_set_edpd(struct phy_device *phydev, u16 tx_interval)
 			  val);
 }
 
+static int adin_set_pin_function(struct phy_device *phydev,
+				 const char *prop_name,
+				 enum ge_io_fn ge_io_fn,
+				 int *selected_pin)
+{
+	struct device *dev = &phydev->mdio.dev;
+	const struct adin_map *p;
+	const char *pin_name;
+	int i, rc;
+
+	rc = device_property_read_string(dev, prop_name, &pin_name);
+	if (rc) {
+		phydev_err(phydev, "Could not get property '%s', error: %d\n",
+			   prop_name, rc);
+		return rc;
+	}
+
+	p = NULL;
+	for (i = 0; i < ARRAY_SIZE(adin_ge_io_pins); i++) {
+		if (strcmp(adin_ge_io_pins[i].string, pin_name) == 0) {
+			if (selected_pin)
+				*selected_pin = i;
+			p = &adin_ge_io_pins[i];
+			break;
+		}
+	}
+
+	if (!p) {
+		phydev_err(phydev, "Invalid pin name %s\n", pin_name);
+		return -EINVAL;
+	}
+
+	return phy_modify_mmd(phydev, MDIO_MMD_VEND1, p->val1, p->val2,
+			      ge_io_fn);
+}
+
+static int adin_config_1588_sop_rx(struct phy_device *phydev, int *rx_sop_pin)
+{
+	struct device *dev = &phydev->mdio.dev;
+	u8 values[__SOP_DELAY_MAX];
+	u16 val;
+	int rc;
+
+	rc = device_property_read_u8_array(dev,
+					   "adi,1588-rx-sop-delays-cycles",
+					   values, ARRAY_SIZE(values));
+	if (rc)
+		return 0;
+
+	rc = adin_set_pin_function(phydev, "adi,1588-rx-sop-pin-name",
+				   GE_IO_FN_RX_SOP_IND, rx_sop_pin);
+	if (rc)
+		return rc;
+
+	val = ADIN1300_SOP_RX_10_DEL_NCYC_SEL(values[SOP_DELAY_10]) |
+	      ADIN1300_SOP_RX_100_DEL_NCYC_SEL(values[SOP_DELAY_100]) |
+	      ADIN1300_SOP_RX_1000_DEL_NCYC_SEL(values[SOP_DELAY_1000]);
+
+	rc = phy_write_mmd(phydev, MDIO_MMD_VEND1, ADIN1300_SOP_RX_DELAY, val);
+	if (rc < 0) {
+		adin_set_pin_function(phydev, "adi,1588-rx-sop-pin-name",
+				      GE_IO_FN_DFLT, NULL);
+		return rc;
+	}
+
+	return 1;
+}
+
+static int adin_config_1588_sop_tx(struct phy_device *phydev, int rx_sop_pin)
+{
+	struct device *dev = &phydev->mdio.dev;
+	u8 values[__SOP_DELAY_MAX];
+	int tx_sop_pin = -1;
+	u16 val;
+	int i, rc;
+
+	rc = device_property_read_u8_array(dev,
+					   "adi,1588-tx-sop-delays-ns",
+					   values, ARRAY_SIZE(values));
+	if (rc)
+		return 0;
+
+	for (i = 0; i < __SOP_DELAY_MAX; i++) {
+		if (values[i] % 8 != 0) {
+			phydev_err(phydev,
+				   "SOP TX delays must be multiples of 8\n");
+			return -EINVAL;
+		}
+	}
+
+	val = ADIN1300_SOP_TX_10_DEL_N_8_NS_SEL(values[SOP_DELAY_10] / 8) |
+	      ADIN1300_SOP_TX_100_DEL_N_8_NS_SEL(values[SOP_DELAY_100] / 8) |
+	      ADIN1300_SOP_TX_1000_DEL_N_8_NS_SEL(values[SOP_DELAY_1000] / 8);
+
+	rc = adin_set_pin_function(phydev, "adi,1588-tx-sop-pin-name",
+				   GE_IO_FN_TX_SOP_IND, &tx_sop_pin);
+	if (rc)
+		return rc;
+
+	if (rx_sop_pin == tx_sop_pin) {
+		phydev_err(phydev,
+			   "TX SOP can't use the same pin as RX SOP\n");
+		return -EFAULT;
+	}
+
+	rc = phy_write_mmd(phydev, MDIO_MMD_VEND1, ADIN1300_SOP_TX_DELAY, val);
+	if (rc < 0) {
+		adin_set_pin_function(phydev, "adi,1588-tx-sop-pin-name",
+				      GE_IO_FN_DFLT, NULL);
+		return rc;
+	}
+
+	return 1;
+}
+
+static int adin_config_1588_sop(struct phy_device *phydev)
+{
+	int rx_sop_pin = -1;
+	u16 val = 0;
+	int rc;
+
+	rc = adin_config_1588_sop_rx(phydev, &rx_sop_pin);
+	if (rc < 0)
+		return rc;
+	if (rc == 1)
+		val |= ADIN1300_SOP_RX_EN;
+
+	rc = adin_config_1588_sop_tx(phydev, rx_sop_pin);
+	if (rc < 0)
+		return rc;
+	if (rc == 1)
+		val |= ADIN1300_SOP_TX_EN;
+
+	if (val)
+		val |= ADIN1300_SOP_SFD_EN;
+
+	return phy_write_mmd(phydev, MDIO_MMD_VEND1, ADIN1300_SOP_CTRL, val);
+}
+
 static int adin_get_tunable(struct phy_device *phydev,
 			    struct ethtool_tunable *tuna, void *data)
 {
@@ -432,6 +629,10 @@ static int adin_config_init(struct phy_device *phydev)
 		return rc;
 
 	rc = adin_set_edpd(phydev, ETHTOOL_PHY_EDPD_DFLT_TX_MSECS);
+	if (rc < 0)
+		return rc;
+
+	rc = adin_config_1588_sop(phydev);
 	if (rc < 0)
 		return rc;
 
