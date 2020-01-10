@@ -495,6 +495,11 @@
 		nvmem-cells = <&imx8mp_uid>;
 		nvmem-cell-names = "soc_unique_id";
 
+		caam_sm: caam-sm@100000 {
+			compatible = "fsl,imx6q-caam-sm";
+			reg = <0x100000 0x8000>;
+		};
+
 		etm0: etm@28440000 {
 			compatible = "arm,coresight-etm4x", "arm,primecell";
 			reg = <0x28440000 0x1000>;
