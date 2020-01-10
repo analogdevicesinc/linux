@@ -12,12 +12,14 @@ notifications:
     on_success: change
     on_failure: always
 
-env:
-  matrix:
-  - BUILD_TYPE=checkpatch DO_NOT_DOCKERIZE=1
-  - BUILD_TYPE=dtb_build_test ARCH=arm DTS_FILES=arch/arm/boot/dts/socfpga_*.dts DO_NOT_DOCKERIZE=1
-  - DEFCONFIG=socfpga_adi_defconfig ARCH=arm IMAGE=zImage
-  - BUILD_TYPE=compile_test DEFCONFIG=socfpga_adi_defconfig ARCH=arm IMAGE=zImage
+matrix:
+  include:
+    - checkpatch: 1
+      env: BUILD_TYPE=checkpatch DO_NOT_DOCKERIZE=1
+    - env: BUILD_TYPE=dtb_build_test ARCH=arm DTS_FILES=arch/arm/boot/dts/socfpga_*.dts DO_NOT_DOCKERIZE=1
+    - env: DEFCONFIG=socfpga_adi_defconfig ARCH=arm IMAGE=zImage
+  allow_failures:
+    - checkpatch: 1
 
 script:
   - ./ci/travis/run-build-docker.sh
