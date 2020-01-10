@@ -667,7 +667,7 @@ _ShowRecord(
     gctUINT32 handle;
     gckVIDMEM_NODE nodeObject;
     gctPHYS_ADDR_T physical;
-    gceSTATUS status;
+    gceSTATUS status = gcvSTATUS_OK;
 
     static const char * recordTypes[gcvDB_NUM_TYPES] = {
         "Unknown",
