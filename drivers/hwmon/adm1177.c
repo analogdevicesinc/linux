@@ -5,35 +5,21 @@
  * Copyright 2015-2019 Analog Devices Inc.
  */
 
-#include <linux/module.h>
+#include <linux/bits.h>
 #include <linux/device.h>
-#include <linux/init.h>
-#include <linux/i2c.h>
 #include <linux/hwmon.h>
+#include <linux/i2c.h>
+#include <linux/init.h>
+#include <linux/module.h>
 #include <linux/regulator/consumer.h>
 
 /*  Command Byte Operations */
 #define ADM1177_CMD_V_CONT	BIT(0)
-#define ADM1177_CMD_V_ONCE	BIT(1)
 #define ADM1177_CMD_I_CONT	BIT(2)
-#define ADM1177_CMD_I_ONCE	BIT(3)
 #define ADM1177_CMD_VRANGE	BIT(4)
-#define ADM1177_CMD_STATUS_RD	BIT(6)
 
 /* Extended Register */
-#define ADM1177_REG_ALERT_EN	1
 #define ADM1177_REG_ALERT_TH	2
-#define ADM1177_REG_CONTROL	3
-
-/* ADM1177_REG_ALERT_EN */
-#define ADM1177_EN_ADC_OC1	BIT(0)
-#define ADM1177_EN_ADC_OC4	BIT(1)
-#define ADM1177_EN_HS_ALERT	BIT(2)
-#define ADM1177_EN_OFF_ALERT	BIT(3)
-#define ADM1177_CLEAR		BIT(4)
-
-/* ADM1177_REG_CONTROL */
-#define ADM1177_SWOFF		BIT(0)
 
 #define ADM1177_BITS		12
 
@@ -41,7 +27,6 @@
  * struct adm1177_state - driver instance specific data
  * @client		pointer to i2c client
  * @reg			regulator info for the the power supply of the device
- * @command		internal control register
  * @r_sense_uohm	current sense resistor value
  * @alert_threshold_ua	current limit for shutdown
  * @vrange_high		internal voltage divider
@@ -49,7 +34,6 @@
 struct adm1177_state {
 	struct i2c_client	*client;
 	struct regulator	*reg;
-	u8			command;
 	u32			r_sense_uohm;
 	u32			alert_threshold_ua;
 	bool			vrange_high;
@@ -57,15 +41,33 @@ struct adm1177_state {
 
 static int adm1177_read_raw(struct adm1177_state *st, u8 num, u8 *data)
 {
-	struct i2c_client *client = st->client;
-
-	return i2c_master_recv(client, data, num);
+	return i2c_master_recv(st->client, data, num);
 }
 
 static int adm1177_write_cmd(struct adm1177_state *st, u8 cmd)
 {
-	st->command = cmd;
 	return i2c_smbus_write_byte(st->client, cmd);
+}
+
+static int adm1177_write_alert_thr(struct adm1177_state *st,
+				   u32 alert_threshold_ua)
+{
+	u64 val;
+	int ret;
+
+	val = 0xFFULL * alert_threshold_ua * st->r_sense_uohm;
+	val = div_u64(val, 105840000U);
+	val = div_u64(val, 1000U);
+	if (val > 0xFF)
+		val = 0xFF;
+
+	ret = i2c_smbus_write_byte_data(st->client, ADM1177_REG_ALERT_TH,
+					val);
+	if (!ret)
+		return ret;
+
+	st->alert_threshold_ua = alert_threshold_ua;
+	return 0;
 }
 
 static int adm1177_read(struct device *dev, enum hwmon_sensor_types type,
@@ -78,32 +80,60 @@ static int adm1177_read(struct device *dev, enum hwmon_sensor_types type,
 
 	switch (type) {
 	case hwmon_curr:
-		ret = adm1177_read_raw(st, 3, data);
-		if (ret < 0)
-			return ret;
-		dummy = (data[1] << 4) | (data[2] & 0xF);
-		/*
-		 * convert in milliamperes
-		 * ((105.84mV / 4096) x raw) / senseResistor(ohm)
-		 */
-		*val = div_u64((105840000ull * dummy), 4096 * st->r_sense_uohm);
-		return 0;
+		switch (attr) {
+		case hwmon_curr_input:
+			ret = adm1177_read_raw(st, 3, data);
+			if (ret < 0)
+				return ret;
+			dummy = (data[1] << 4) | (data[2] & 0xF);
+			/*
+			 * convert to milliamperes
+			 * ((105.84mV / 4096) x raw) / senseResistor(ohm)
+			 */
+			*val = div_u64((105840000ull * dummy),
+				       4096 * st->r_sense_uohm);
+			return 0;
+		case hwmon_curr_max_alarm:
+			*val = st->alert_threshold_ua;
+			return 0;
+		default:
+			return -EOPNOTSUPP;
+		}
 	case hwmon_in:
 		ret = adm1177_read_raw(st, 3, data);
 		if (ret < 0)
 			return ret;
 		dummy = (data[0] << 4) | (data[2] >> 4);
 		/*
-		 * convert in millivolts based on resistor devision
+		 * convert to millivolts based on resistor devision
 		 * (V_fullscale / 4096) * raw
 		 */
-		if (st->command & ADM1177_CMD_VRANGE)
-			*val = 6650;
+		if (st->vrange_high)
+			dummy *= 26350;
 		else
-			*val = 26350;
+			dummy *= 6650;
 
-		*val = ((*val * dummy) / 4096);
+		*val = DIV_ROUND_CLOSEST(dummy, 4096);
 		return 0;
+	default:
+		return -EOPNOTSUPP;
+	}
+}
+
+static int adm1177_write(struct device *dev, enum hwmon_sensor_types type,
+			 u32 attr, int channel, long val)
+{
+	struct adm1177_state *st = dev_get_drvdata(dev);
+
+	switch (type) {
+	case hwmon_curr:
+		switch (attr) {
+		case hwmon_curr_max_alarm:
+			adm1177_write_alert_thr(st, val);
+			return 0;
+		default:
+			return -EOPNOTSUPP;
+		}
 	default:
 		return -EOPNOTSUPP;
 	}
@@ -128,6 +158,10 @@ static umode_t adm1177_is_visible(const void *data,
 			if (st->r_sense_uohm)
 				return 0444;
 			return 0;
+		case hwmon_curr_max_alarm:
+			if (st->r_sense_uohm)
+				return 0644;
+			return 0;
 		}
 		break;
 	default:
@@ -136,35 +170,18 @@ static umode_t adm1177_is_visible(const void *data,
 	return 0;
 }
 
-static const u32 adm1177_curr_config[] = {
-	HWMON_C_INPUT,
-	0
-};
-
-static const struct hwmon_channel_info adm1177_curr = {
-	.type = hwmon_curr,
-	.config = adm1177_curr_config,
-};
-
-static const u32 adm1177_in_config[] = {
-	HWMON_I_INPUT,
-	0
-};
-
-static const struct hwmon_channel_info adm1177_in = {
-	.type = hwmon_in,
-	.config = adm1177_in_config,
-};
-
 static const struct hwmon_channel_info *adm1177_info[] = {
-	&adm1177_curr,
-	&adm1177_in,
+	HWMON_CHANNEL_INFO(curr,
+			   HWMON_C_INPUT | HWMON_C_MAX_ALARM),
+	HWMON_CHANNEL_INFO(in,
+			   HWMON_I_INPUT),
 	NULL
 };
 
 static const struct hwmon_ops adm1177_hwmon_ops = {
 	.is_visible = adm1177_is_visible,
 	.read = adm1177_read,
+	.write = adm1177_write,
 };
 
 static const struct hwmon_chip_info adm1177_chip_info = {
@@ -185,6 +202,7 @@ static int adm1177_probe(struct i2c_client *client,
 	struct device *dev = &client->dev;
 	struct device *hwmon_dev;
 	struct adm1177_state *st;
+	u32 alert_threshold_ua;
 	int ret;
 
 	st = devm_kzalloc(dev, sizeof(*st), GFP_KERNEL);
@@ -209,29 +227,25 @@ static int adm1177_probe(struct i2c_client *client,
 			return ret;
 	}
 
-	if (device_property_read_u32(dev, "adi,r-sense-micro-ohms",
+	if (device_property_read_u32(dev, "shunt-resistor-micro-ohms",
 				     &st->r_sense_uohm))
 		st->r_sense_uohm = 0;
 	if (device_property_read_u32(dev, "adi,shutdown-threshold-microamp",
-				     &st->alert_threshold_ua))
-		st->alert_threshold_ua = 0;
+				     &alert_threshold_ua)) {
+		if (st->r_sense_uohm)
+			/*
+			 * set maximum default value from datasheet based on
+			 * shunt-resistor
+			 */
+			alert_threshold_ua = div_u64(105840000000,
+						     st->r_sense_uohm);
+		else
+			alert_threshold_ua = 0;
+	}
 	st->vrange_high = device_property_read_bool(dev,
 						    "adi,vrange-high-enable");
-	if (st->alert_threshold_ua) {
-		u64 val;
-
-		val = (0xFFUL * st->alert_threshold_ua * st->r_sense_uohm);
-		val = div_u64(val, 105840000U);
-		if (val > 0xFF) {
-			dev_warn(&client->dev,
-				 "Requested shutdown current %d uA above limit\n",
-				 st->alert_threshold_ua);
-
-			val = 0xFF;
-		}
-		i2c_smbus_write_byte_data(st->client, ADM1177_REG_ALERT_TH,
-					  val);
-	}
+	if (alert_threshold_ua && st->r_sense_uohm)
+		adm1177_write_alert_thr(st, alert_threshold_ua);
 
 	ret = adm1177_write_cmd(st, ADM1177_CMD_V_CONT |
 				    ADM1177_CMD_I_CONT |
