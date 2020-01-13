@@ -1,3 +1,13 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Prototyping platform for LiDAR applications
+ * Link: https://wiki.analog.com/resources/eval/user-guides/ad-fmclidar1-ebz
+ *
+ * hdl_project: <ad_fmclidar1_ebz/zc706>
+ * board_revision: <B>
+ *
+ * Copyright 2020 Analog Devices Inc.
+ */
 /dts-v1/;
 
 #include "zynq-zc706.dtsi"
