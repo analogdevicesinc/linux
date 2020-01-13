@@ -155,13 +155,13 @@ static const struct adin_clause45_mmd_map adin_clause45_mmd_map[] = {
 	{ MDIO_MMD_PCS, MDIO_PCS_EEE_WK_ERR,	ADIN1300_LPI_WAKE_ERR_CNT_REG },
 };
 
-struct adin_hw_stat {
+struct adin_map {
 	const char *string;
-	u16 reg1;
-	u16 reg2;
+	u16 val1;
+	u16 val2;
 };
 
-static const struct adin_hw_stat adin_hw_stats[] = {
+static const struct adin_map adin_hw_stats[] = {
 	{ "total_frames_checked_count",		0x940A, 0x940B }, /* hi + lo */
 	{ "length_error_frames_count",		0x940C },
 	{ "alignment_error_frames_count",	0x940D },
@@ -656,21 +656,21 @@ static void adin_get_strings(struct phy_device *phydev, u8 *data)
 }
 
 static int adin_read_mmd_stat_regs(struct phy_device *phydev,
-				   const struct adin_hw_stat *stat,
+				   const struct adin_map *stat,
 				   u32 *val)
 {
 	int ret;
 
-	ret = phy_read_mmd(phydev, MDIO_MMD_VEND1, stat->reg1);
+	ret = phy_read_mmd(phydev, MDIO_MMD_VEND1, stat->val1);
 	if (ret < 0)
 		return ret;
 
 	*val = (ret & 0xffff);
 
-	if (stat->reg2 == 0)
+	if (stat->val2 == 0)
 		return 0;
 
-	ret = phy_read_mmd(phydev, MDIO_MMD_VEND1, stat->reg2);
+	ret = phy_read_mmd(phydev, MDIO_MMD_VEND1, stat->val2);
 	if (ret < 0)
 		return ret;
 
@@ -682,17 +682,17 @@ static int adin_read_mmd_stat_regs(struct phy_device *phydev,
 
 static u64 adin_get_stat(struct phy_device *phydev, int i)
 {
-	const struct adin_hw_stat *stat = &adin_hw_stats[i];
+	const struct adin_map *stat = &adin_hw_stats[i];
 	struct adin_priv *priv = phydev->priv;
 	u32 val;
 	int ret;
 
-	if (stat->reg1 > 0x1f) {
+	if (stat->val1 > 0x1f) {
 		ret = adin_read_mmd_stat_regs(phydev, stat, &val);
 		if (ret < 0)
 			return (u64)(~0);
 	} else {
-		ret = phy_read(phydev, stat->reg1);
+		ret = phy_read(phydev, stat->val1);
 		if (ret < 0)
 			return (u64)(~0);
 		val = (ret & 0xffff);
