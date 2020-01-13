@@ -2345,7 +2345,7 @@ static int ad9081_probe(struct spi_device *spi)
 	struct ad9081_phy *phy;
 	adi_cms_chip_id_t chip_id;
 	u8 api_rev[3];
-	u32 spi_id;
+	u32 spi_id, fw_rev[2];
 	int ret;
 
 	conv = devm_kzalloc(&spi->dev, sizeof(*conv), GFP_KERNEL);
@@ -2495,9 +2495,13 @@ static int ad9081_probe(struct spi_device *spi)
 	adi_ad9081_device_api_revision_get(&phy->ad9081, &api_rev[0],
 					   &api_rev[1], &api_rev[2]);
 
-	dev_info(&spi->dev, "%s Rev. %u Grade %u (API %u.%u.%u) probed\n",
+	adi_ad9081_device_firmware_revision_get(&phy->ad9081, &fw_rev[0]);
+	adi_ad9081_device_firmware_patch_revision_get(&phy->ad9081, &fw_rev[1]);
+
+	dev_info(&spi->dev, "%s Rev. %u Grade %u Firmware %u.%u (API %u.%u.%u) probed\n",
 		 conv->chip_info->name, chip_id.dev_revision,
-		 chip_id.prod_grade, api_rev[0], api_rev[1], api_rev[2]);
+		 chip_id.prod_grade, fw_rev[0], fw_rev[1],
+		 api_rev[0], api_rev[1], api_rev[2]);
 
 	return 0;
 
