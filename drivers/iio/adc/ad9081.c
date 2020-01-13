@@ -57,6 +57,7 @@ enum {	CDDC_NCO_FREQ,
 
 enum {
 	AD9081_LOOPBACK_MODE,
+	AD9081_ADC_CLK_PWDN,
 };
 
 struct ad9081_jesd_link {
@@ -96,6 +97,7 @@ struct dac_settings_cache {
 
 struct device_settings_cache {
 	u8 loopback_mode;
+	u8 adc_clk_pwdn;
 };
 
 struct ad9081_phy {
@@ -1637,6 +1639,7 @@ static ssize_t ad9081_phy_store(struct device *dev,
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
 	struct ad9081_phy *phy = conv->phy;
 	unsigned long res;
+	bool bres;
 	int ret = 0;
 
 	mutex_lock(&indio_dev->mlock);
@@ -1652,7 +1655,16 @@ static ssize_t ad9081_phy_store(struct device *dev,
 		adi_ad9081_jesd_loopback_mode_set(&phy->ad9081, res);
 		phy->device_cache.loopback_mode = res;
 		break;
+	case AD9081_ADC_CLK_PWDN:
+		ret = strtobool(buf, &bres);
+		if (ret < 0) {
+			ret = -EINVAL;
+			break;
+		}
 
+		adi_ad9081_adc_clk_enable_set(&phy->ad9081, !bres);
+		phy->device_cache.adc_clk_pwdn = bres;
+		break;
 	default:
 		ret = -EINVAL;
 	}
@@ -1677,6 +1689,9 @@ static ssize_t ad9081_phy_show(struct device *dev,
 	case AD9081_LOOPBACK_MODE:
 		ret = sprintf(buf, "%u\n", phy->device_cache.loopback_mode);
 		break;
+	case AD9081_ADC_CLK_PWDN:
+		ret = sprintf(buf, "%u\n", phy->device_cache.adc_clk_pwdn);
+		break;
 	default:
 		ret = -EINVAL;
 	}
@@ -1690,8 +1705,14 @@ static IIO_DEVICE_ATTR(loopback_mode, S_IRUGO | S_IWUSR,
 		ad9081_phy_store,
 		AD9081_LOOPBACK_MODE);
 
+static IIO_DEVICE_ATTR(adc_clk_powerdown, S_IRUGO | S_IWUSR,
+		ad9081_phy_show,
+		ad9081_phy_store,
+		AD9081_ADC_CLK_PWDN);
+
 static struct attribute *ad9081_phy_attributes[] = {
 	&iio_dev_attr_loopback_mode.dev_attr.attr,
+	&iio_dev_attr_adc_clk_powerdown.dev_attr.attr,
 	NULL,
 };
 
