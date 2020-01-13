@@ -1,9 +1,12 @@
+// SPDX-License-Identifier: GPL-2.0
 /*
- * Devicetree for AD9375 RF Transceiver
+ * AD9375
+ * Link: https://wiki.analog.com/resources/eval/user-guides/mykonos/quickstart
  *
- * Copyright 2018 Analog Devices Inc.
+ * hdl_project: <adrv9371x/zcu102>
+ * board_revision: <A>
  *
- * Licensed under the GPL-2.
+ * Copyright 2016-2020 Analog Devices Inc.
  */
 
 #include "zynqmp-zcu102-rev10-adrv9371.dts"
