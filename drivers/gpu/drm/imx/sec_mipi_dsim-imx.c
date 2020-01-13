@@ -205,6 +205,15 @@ static int sec_dsim_of_parse_resets(struct imx_sec_dsim_device *dsim)
 	const char *compat;
 	uint32_t len, rstc_num = 0;
 
+	/* TODO: bypass resets for imx8mp platform */
+	compat = of_get_property(np, "compatible", NULL);
+	if (unlikely(!compat))
+		return -ENODEV;
+
+	len = strlen(compat);
+	if (!of_compat_cmp(compat, "fsl,imx8mp-mipi-dsim", len))
+		return 0;
+
 	ret = of_parse_phandle_with_args(np, "resets", "#reset-cells",
 					 0, &args);
 	if (ret)
