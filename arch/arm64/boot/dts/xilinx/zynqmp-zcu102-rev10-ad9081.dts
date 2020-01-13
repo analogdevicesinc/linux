@@ -2,10 +2,11 @@
 /*
  * dts file for AD9081-FMC-EBZ on Xilinx ZynqMP ZCU102 Rev 1.0
  *
- * Copyright (C) 2019 Analog Devices Inc.
+ * Copyright (C) 2019-2020 Analog Devices Inc.
  */
 
 #include "zynqmp-zcu102-rev1.0.dts"
+#include <dt-bindings/interrupt-controller/irq.h>
 
 &i2c1 {
 	i2c-mux@75 {
@@ -35,7 +36,7 @@
 			reg = <0x9c420000 0x10000>;
 			#dma-cells = <1>;
 			#clock-cells = <0>;
-			interrupts = <0 109 0>;
+			interrupts = <0 109 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&zynqmp_clk 73>;
 
 			adi,channels {
@@ -57,7 +58,7 @@
 			reg = <0x9c430000 0x10000>;
 			#dma-cells = <1>;
 			#clock-cells = <0>;
-			interrupts = <0 108 0>;
+			interrupts = <0 108 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&zynqmp_clk 73>;
 
 			adi,channels {
@@ -97,7 +98,7 @@
 			compatible = "adi,axi-jesd204-rx-1.0";
 			reg = <0x84a90000 0x1000>;
 
-			interrupts = <0 107 0>;
+			interrupts = <0 107 IRQ_TYPE_LEVEL_HIGH>;
 
 			clocks = <&zynqmp_clk 71>, <&hmc7044 10>, <&axi_ad9081_adxcvr_rx 0>;
 			clock-names = "s_axi_aclk", "device_clk", "lane_clk";
@@ -113,7 +114,7 @@
 			compatible = "adi,axi-jesd204-tx-1.0";
 			reg = <0x84b90000 0x1000>;
 
-			interrupts = <0 106 0>;
+			interrupts = <0 106 IRQ_TYPE_LEVEL_HIGH>;
 
 			clocks = <&zynqmp_clk 71>, <&hmc7044 6>, <&axi_ad9081_adxcvr_tx 0>;
 			clock-names = "s_axi_aclk", "device_clk", "lane_clk";
