@@ -1,9 +1,12 @@
+// SPDX-License-Identifier: GPL-2.0
 /*
- * dts file for FMCOMMS2/3 AD9361 on Xilinx ZynqMP ZCU102 Rev 1.0
+ * Analog Devices AD-FMCDAQ2-EBZ
+ * Link: https://wiki.analog.com/resources/eval/user-guides/ad-fmcdaq2-ebz
  *
- * Copyright (C) 2016-2017 Analog Devices Inc.
+ * hdl_project: <daq2/zcu102>
+ * board_revision: <>
  *
- * Licensed under the GPL-2.
+ * Copyright 2016-2020 Analog Devices Inc.
  */
 
 #include "zynqmp-zcu102-rev1.0.dts"
