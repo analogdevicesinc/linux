@@ -1,3 +1,13 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices AD9371
+ * Link: https://wiki.analog.com/resources/eval/user-guides/mykonos/quickstart
+ *
+ * hdl_project: <adrv9371x/zcu102>
+ * board_revision: <A>
+ *
+ * Copyright 2016-2020 Analog Devices Inc.
+ */
 #include "zynqmp-zcu102-rev1.0.dts"
 #include <dt-bindings/interrupt-controller/irq.h>
 

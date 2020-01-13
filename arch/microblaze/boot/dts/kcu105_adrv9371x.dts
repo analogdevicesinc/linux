@@ -1,4 +1,13 @@
-
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * AD9371
+ * Link: https://wiki.analog.com/resources/eval/user-guides/mykonos/quickstart
+ *
+ * hdl_project: <adrv9371x/kcu105>
+ * board_revision: <A>
+ *
+ * Copyright 2016-2020 Analog Devices Inc.
+ */
 /dts-v1/;
 /include/ "kcu105.dtsi"
 
