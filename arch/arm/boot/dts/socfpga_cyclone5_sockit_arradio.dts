@@ -1,3 +1,13 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * ARRADIO AD9361 HSMC board
+ * Link: https://wiki.analog.com/resources/eval/user-guides/arradio
+ *
+ * hdl_project: <arradio/c5soc>
+ * board_revision: <>
+ *
+ * Copyright 2020 Analog Devices Inc.
+ */
 #include <dt-bindings/interrupt-controller/irq.h>
 
 #include "socfpga_cyclone5.dtsi"
