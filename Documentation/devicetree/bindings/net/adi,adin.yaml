@@ -36,6 +36,60 @@ properties:
     enum: [ 4, 8, 12, 16, 20, 24 ]
     default: 8
 
+  adi,1588-rx-sop-delays-cycles:
+    allOf:
+      - $ref: /schemas/types.yaml#definitions/uint8-array
+      - items:
+          - minItems: 3
+            maxItems: 3
+    description: |
+      Enables Start Packet detection (SOP) for received IEEE 1588 time stamp
+      controls, and configures the number of cycles (of the MII RX_CLK clock)
+      to delay the indication of RX SOP frames for 10/100/1000 BASE-T links.
+      The first element (in the array) configures the delay for 10BASE-T,
+      the second for 100BASE-T, and the third for 1000BASE-T.
+
+  adi,1588-rx-sop-pin-name:
+    description: |
+      This option must be used in together with 'adi,1588-rx-sop-delays-cycles'
+      to specify which physical pin should be used to signal the MAC that
+      the PHY is currently processing an IEEE 1588 timestamp control packet.
+      The driver will report an error if the value of this property is the
+      same as 'adi,1588-tx-sop-pin-name'
+    enum:
+      - gp_clk
+      - link_st
+      - int_n
+      - led_0
+
+  adi,1588-tx-sop-delays-ns:
+    allOf:
+      - $ref: /schemas/types.yaml#definitions/uint8-array
+      - items:
+          - minItems: 3
+            maxItems: 3
+    description: |
+      Enables Start Packet detection (SOP) for IEEE 1588 time stamp controls,
+      and configures the number of nano-seconds to delay the indication of
+      TX frames for 10/100/1000 BASE-T links.
+      The first element (in the array) configures the delay for 10BASE-T,
+      the second for 100BASE-T, and the third for 1000BASE-T.
+      The delays must be multiples of 8 ns (i.e. 8, 16, 24, etc).
+
+  adi,1588-tx-sop-pin-name:
+    description: |
+      This option must be used in together with 'adi,1588-tx-sop-delays-ns'
+      to specify which physical pin should be used to signal the MAC that
+      the PHY is currently processing an IEEE 1588 timestamp control packet
+      on the TX path.
+      The driver will report an error if the value of this property is the
+      same as 'adi,1588-rx-sop-pin-name'
+    enum:
+      - gp_clk
+      - link_st
+      - int_n
+      - led_0
+
 examples:
   - |
     ethernet {
@@ -62,5 +116,11 @@ examples:
             reg = <1>;
 
             adi,fifo-depth-bits = <16>;
+
+            adi,1588-rx-sop-delays-cycles = [ 00 00 00 ];
+            adi,1588-rx-sop-pin-name = "int_n";
+
+            adi,1588-tx-sop-delays-ns = [ 00 08 10 ];
+            adi,1588-tx-sop-pin-name = "led_0";
         };
     };
