@@ -14,6 +14,13 @@ if [ -f "${FULL_BUILD_DIR}/env" ] ; then
 	. "${FULL_BUILD_DIR}/env"
 fi
 
+# Run once for the entire script
+sudo apt-get -qq update
+
+apt_install() {
+	sudo apt-get install -y $@
+}
+
 if [ -z "$NUM_JOBS" ] ; then
 	NUM_JOBS=$(getconf _NPROCESSORS_ONLN)
 	NUM_JOBS=${NUM_JOBS:-1}
@@ -64,10 +71,7 @@ if [ "$ARCH" == "arm" ] ; then
 fi
 
 apt_update_install() {
-	sudo -s <<-EOF
-		apt-get -qq update
-		apt-get -y install $@
-	EOF
+	apt_install $@
 	adjust_kcflags_against_gcc
 }
 
@@ -125,6 +129,7 @@ build_default() {
 }
 
 build_checkpatch() {
+	apt_install python-ply
 	if [ -n "$TRAVIS_BRANCH" ]; then
 		__update_git_ref "${TRAVIS_BRANCH}" "${TRAVIS_BRANCH}"
 	fi
