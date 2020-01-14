@@ -4,6 +4,7 @@ set -e
 . ./ci/travis/lib.sh
 
 ENV_VARS="BUILD_TYPE DEFCONFIG ARCH CROSS_COMPILE DTS_FILES IMAGE"
+ENV_VARS="$ENV_VARS TRAVIS_COMMIT TRAVIS_PULL_REQUEST"
 
 if [ "$DO_NOT_DOCKERIZE" = "1" ] ; then
 	. ./ci/travis/run-build.sh
