@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2019 NXP Semiconductor
+ * Copyright 2019-2020 NXP
  *
  */
 #include <dt-bindings/pinctrl/pads-imx8qxp.h>
@@ -655,22 +655,28 @@ void mxc_isi_channel_disable(struct mxc_isi_dev *mxc_isi)
 
 void  mxc_isi_enable_irq(struct mxc_isi_dev *mxc_isi)
 {
+	struct mxc_isi_ier_reg *ier_reg = mxc_isi->pdata->ier_reg;
 	u32 val;
 
 	val = CHNL_IER_FRM_RCVD_EN_MASK |
-		CHNL_IER_OFLW_Y_BUF_EN_MASK |
 		CHNL_IER_AXI_WR_ERR_U_EN_MASK |
 		CHNL_IER_AXI_WR_ERR_V_EN_MASK |
-		CHNL_IER_AXI_WR_ERR_Y_EN_MASK |
-		CHNL_IER_OFLW_PANIC_V_BUF_EN_MASK |
-		CHNL_IER_EXCS_OFLW_V_BUF_EN_MASK |
-		CHNL_IER_OFLW_V_BUF_EN_MASK |
-		CHNL_IER_OFLW_PANIC_U_BUF_EN_MASK |
-		CHNL_IER_EXCS_OFLW_U_BUF_EN_MASK |
-		CHNL_IER_OFLW_U_BUF_EN_MASK |
-		CHNL_IER_OFLW_PANIC_Y_BUF_EN_MASK |
-		CHNL_IER_EXCS_OFLW_Y_BUF_EN_MASK |
-		CHNL_IER_OFLW_Y_BUF_EN_MASK;
+		CHNL_IER_AXI_WR_ERR_Y_EN_MASK;
+
+	/* Y/U/V overflow enable */
+	val |= ier_reg->oflw_y_buf_en.mask |
+	       ier_reg->oflw_u_buf_en.mask |
+	       ier_reg->oflw_v_buf_en.mask;
+
+	/* Y/U/V excess overflow enable */
+	val |= ier_reg->excs_oflw_y_buf_en.mask |
+	       ier_reg->excs_oflw_u_buf_en.mask |
+	       ier_reg->excs_oflw_v_buf_en.mask;
+
+	/* Y/U/V panic enable */
+	val |= ier_reg->panic_y_buf_en.mask |
+	       ier_reg->panic_u_buf_en.mask |
+	       ier_reg->panic_v_buf_en.mask;
 
 	writel(val, mxc_isi->regs + CHNL_IER);
 }

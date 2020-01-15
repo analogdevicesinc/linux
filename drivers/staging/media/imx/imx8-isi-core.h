@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2019 NXP Semiconductor
+ * Copyright 2019-2020 NXP
  */
 
 #ifndef __MXC_ISI_CORE_H__
@@ -229,10 +229,37 @@ struct mxc_isi_ctx {
 	struct v4l2_fh	    fh;
 };
 
+struct mxc_isi_reg {
+	u32 offset;
+	u32 mask;
+};
+
+struct mxc_isi_ier_reg {
+	/* Overflow Y/U/V triggier enable*/
+	struct mxc_isi_reg oflw_y_buf_en;
+	struct mxc_isi_reg oflw_u_buf_en;
+	struct mxc_isi_reg oflw_v_buf_en;
+
+	/* Excess overflow Y/U/V triggier enable*/
+	struct mxc_isi_reg excs_oflw_y_buf_en;
+	struct mxc_isi_reg excs_oflw_u_buf_en;
+	struct mxc_isi_reg excs_oflw_v_buf_en;
+
+	/* Panic Y/U/V triggier enable*/
+	struct mxc_isi_reg panic_y_buf_en;
+	struct mxc_isi_reg panic_v_buf_en;
+	struct mxc_isi_reg panic_u_buf_en;
+};
+
 struct mxc_isi_dev_ops {
 	int (*clk_get)(struct mxc_isi_dev *mxc_isi);
 	int (*clk_enable)(struct mxc_isi_dev *mxc_isi);
 	void (*clk_disable)(struct mxc_isi_dev *mxc_isi);
+};
+
+struct mxc_isi_plat_data {
+	struct mxc_isi_dev_ops *ops;
+	struct mxc_isi_ier_reg  *ier_reg;
 };
 
 struct mxc_isi_cap_dev {
@@ -287,7 +314,7 @@ struct mxc_isi_dev {
 	struct clk *clk_root_disp_axi;
 	struct clk *clk_root_disp_apb;
 
-	const struct mxc_isi_dev_ops *ops;
+	const struct mxc_isi_plat_data *pdata;
 
 	struct reset_control *soft_resetn;
 	struct reset_control *clk_enable;

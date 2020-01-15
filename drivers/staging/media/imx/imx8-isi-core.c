@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2019 NXP Semiconductor
+ * Copyright 2019-2020 NXP
  *
  */
 
@@ -74,6 +74,7 @@ static irqreturn_t mxc_isi_irq_handler(int irq, void *priv)
 {
 	struct mxc_isi_dev *mxc_isi = priv;
 	struct device *dev = &mxc_isi->pdev->dev;
+	struct mxc_isi_ier_reg *ier_reg = mxc_isi->pdata->ier_reg;
 	u32 status;
 
 	spin_lock(&mxc_isi->slock);
@@ -94,19 +95,19 @@ static irqreturn_t mxc_isi_irq_handler(int irq, void *priv)
 		      CHNL_STS_AXI_WR_ERR_V_MASK))
 		dev_dbg(dev, "%s, IRQ AXI Error stat=0x%X\n", __func__, status);
 
-	if (status & (CHNL_STS_OFLW_PANIC_Y_BUF_MASK |
-		      CHNL_STS_OFLW_PANIC_U_BUF_MASK |
-		      CHNL_STS_OFLW_PANIC_V_BUF_MASK))
+	if (status & (ier_reg->panic_y_buf_en.mask |
+		      ier_reg->panic_u_buf_en.mask |
+		      ier_reg->panic_v_buf_en.mask))
 		dev_dbg(dev, "%s, IRQ Panic OFLW Error stat=0x%X\n", __func__, status);
 
-	if (status & (CHNL_STS_OFLW_Y_BUF_MASK |
-		      CHNL_STS_OFLW_U_BUF_MASK |
-		      CHNL_STS_OFLW_V_BUF_MASK))
+	if (status & (ier_reg->oflw_y_buf_en.mask |
+		      ier_reg->oflw_u_buf_en.mask |
+		      ier_reg->oflw_v_buf_en.mask))
 		dev_dbg(dev, "%s, IRQ OFLW Error stat=0x%X\n", __func__, status);
 
-	if (status & (CHNL_STS_EXCS_OFLW_Y_BUF_MASK |
-		      CHNL_STS_EXCS_OFLW_U_BUF_MASK |
-		      CHNL_STS_EXCS_OFLW_V_BUF_MASK))
+	if (status & (ier_reg->excs_oflw_y_buf_en.mask |
+		      ier_reg->excs_oflw_u_buf_en.mask |
+		      ier_reg->excs_oflw_v_buf_en.mask))
 		dev_dbg(dev, "%s, IRQ EXCS OFLW Error stat=0x%X\n", __func__, status);
 
 	spin_unlock(&mxc_isi->slock);
@@ -170,10 +171,41 @@ static void mxc_imx8_clk_disable(struct mxc_isi_dev *mxc_isi)
 	clk_disable_unprepare(mxc_isi->clk);
 }
 
-static struct mxc_isi_dev_ops mxc_imx8_data = {
+static struct mxc_isi_dev_ops mxc_imx8_clk_ops = {
 	.clk_get     = mxc_imx8_clk_get,
 	.clk_enable  = mxc_imx8_clk_enable,
 	.clk_disable = mxc_imx8_clk_disable,
+};
+
+/* For i.MX8QM/QXP B0 ISI IER version */
+static struct mxc_isi_ier_reg mxc_imx8_isi_ier_v0 = {
+	.oflw_y_buf_en = { .offset = 16, .mask = 0x10000  },
+	.oflw_u_buf_en = { .offset = 19, .mask = 0x80000  },
+	.oflw_v_buf_en = { .offset = 22, .mask = 0x400000 },
+
+	.excs_oflw_y_buf_en = { .offset = 17, .mask = 0x20000  },
+	.excs_oflw_u_buf_en = { .offset = 20, .mask = 0x100000 },
+	.excs_oflw_v_buf_en = { .offset = 23, .mask = 0x800000 },
+
+	.panic_y_buf_en = {.offset = 18, .mask = 0x40000   },
+	.panic_u_buf_en = {.offset = 21, .mask = 0x200000  },
+	.panic_v_buf_en = {.offset = 24, .mask = 0x1000000 },
+};
+
+/* For i.MX8QXP C0 and i.MX8MN ISI IER version */
+static struct mxc_isi_ier_reg mxc_imx8_isi_ier_v1 = {
+	.oflw_y_buf_en = { .offset = 19, .mask = 0x80000  },
+	.oflw_u_buf_en = { .offset = 21, .mask = 0x200000 },
+	.oflw_v_buf_en = { .offset = 23, .mask = 0x800000 },
+
+	.panic_y_buf_en = {.offset = 20, .mask = 0x100000  },
+	.panic_u_buf_en = {.offset = 22, .mask = 0x400000  },
+	.panic_v_buf_en = {.offset = 24, .mask = 0x1000000 },
+};
+
+static struct mxc_isi_plat_data mxc_imx8_data = {
+	.ops      = &mxc_imx8_clk_ops,
+	.ier_reg  = &mxc_imx8_isi_ier_v0,
 };
 
 static int mxc_imx8mn_clk_get(struct mxc_isi_dev *mxc_isi)
@@ -247,10 +279,15 @@ static void mxc_imx8mn_clk_disable(struct mxc_isi_dev *mxc_isi)
 	clk_disable_unprepare(mxc_isi->clk_disp_apb);
 }
 
-static struct mxc_isi_dev_ops mxc_imx8mn_data = {
+static struct mxc_isi_dev_ops mxc_imx8mn_clk_ops = {
 	.clk_get     = mxc_imx8mn_clk_get,
 	.clk_enable  = mxc_imx8mn_clk_enable,
 	.clk_disable = mxc_imx8mn_clk_disable,
+};
+
+static struct mxc_isi_plat_data mxc_imx8mn_data = {
+	.ops      = &mxc_imx8mn_clk_ops,
+	.ier_reg  = &mxc_imx8_isi_ier_v1,
 };
 
 static int mxc_isi_parse_dt(struct mxc_isi_dev *mxc_isi)
@@ -276,7 +313,7 @@ static int mxc_isi_parse_dt(struct mxc_isi_dev *mxc_isi)
 
 static int mxc_isi_clk_get(struct mxc_isi_dev *mxc_isi)
 {
-	const struct mxc_isi_dev_ops *ops = mxc_isi->ops;
+	const struct mxc_isi_dev_ops *ops = mxc_isi->pdata->ops;
 
 	if (!ops || !ops->clk_get)
 		return -EINVAL;
@@ -286,7 +323,7 @@ static int mxc_isi_clk_get(struct mxc_isi_dev *mxc_isi)
 
 static int mxc_isi_clk_enable(struct mxc_isi_dev *mxc_isi)
 {
-	const struct mxc_isi_dev_ops *ops = mxc_isi->ops;
+	const struct mxc_isi_dev_ops *ops = mxc_isi->pdata->ops;
 
 	if (!ops || !ops->clk_enable)
 		return -EINVAL;
@@ -296,7 +333,7 @@ static int mxc_isi_clk_enable(struct mxc_isi_dev *mxc_isi)
 
 static void mxc_isi_clk_disable(struct mxc_isi_dev *mxc_isi)
 {
-	const struct mxc_isi_dev_ops *ops = mxc_isi->ops;
+	const struct mxc_isi_dev_ops *ops = mxc_isi->pdata->ops;
 
 	if (!ops || !ops->clk_disable)
 		return;
@@ -383,8 +420,8 @@ static int mxc_isi_probe(struct platform_device *pdev)
 	if (!of_id)
 		return -EINVAL;
 
-	mxc_isi->ops = of_id->data;
-	if (!mxc_isi->ops) {
+	mxc_isi->pdata = of_id->data;
+	if (!mxc_isi->pdata) {
 		dev_err(dev, "Can't get platform device data\n");
 		return -EINVAL;
 	}
