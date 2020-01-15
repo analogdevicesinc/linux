@@ -268,6 +268,7 @@ build_sync_branches_with_master_travis() {
 	[ -n "$TRAVIS_PULL_REQUEST" ] || return 0
 	[ "$TRAVIS_PULL_REQUEST" == "false" ] || return 0
 	[ "$TRAVIS_BRANCH" == "master" ] || return 0
+	[ "$TRAVIS_REPO_SLUG" == "analogdevicesinc/linux" ] || return 0
 
 	git remote set-url $ORIGIN "git@github.com:analogdevicesinc/linux.git"
 	openssl aes-256-cbc -d -in ci/travis/deploy_key.enc -out /tmp/deploy_key -base64 -K $encrypt_key -iv $encrypt_iv
