@@ -229,6 +229,16 @@ struct mxc_isi_ctx {
 	struct v4l2_fh	    fh;
 };
 
+struct mxc_isi_chan_src {
+	u32 src_dc0;
+	u32 src_dc1;
+	u32 src_mipi0;
+	u32 src_mipi1;
+	u32 src_hdmi;
+	u32 src_csi;
+	u32 src_mem;
+};
+
 struct mxc_isi_reg {
 	u32 offset;
 	u32 mask;
@@ -259,6 +269,7 @@ struct mxc_isi_dev_ops {
 
 struct mxc_isi_plat_data {
 	struct mxc_isi_dev_ops *ops;
+	struct mxc_isi_chan_src *chan_src;
 	struct mxc_isi_ier_reg  *ier_reg;
 };
 

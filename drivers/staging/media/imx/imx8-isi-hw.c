@@ -234,31 +234,31 @@ void mxc_isi_channel_source_config(struct mxc_isi_dev *mxc_isi)
 
 	switch (mxc_isi->interface[IN_PORT]) {
 	case ISI_INPUT_INTERFACE_MIPI0_CSI2:
-		val |= CHNL_CTRL_SRC_INPUT_MIPI0;
+		val |= mxc_isi->pdata->chan_src->src_mipi0;
 		if (mxc_isi->interface[SUB_IN_PORT] <= CHNL_CTRL_MIPI_VC_ID_VC3 &&
 		    mxc_isi->interface[SUB_IN_PORT] >= CHNL_CTRL_MIPI_VC_ID_VC0)
 			val |= (mxc_isi->interface[SUB_IN_PORT] << CHNL_CTRL_MIPI_VC_ID_OFFSET);
 		break;
 	case ISI_INPUT_INTERFACE_MIPI1_CSI2:
-		val |= CHNL_CTRL_SRC_INPUT_MIPI1;
+		val |= mxc_isi->pdata->chan_src->src_mipi1;
 		if (mxc_isi->interface[SUB_IN_PORT] <= CHNL_CTRL_MIPI_VC_ID_VC3 &&
 		    mxc_isi->interface[SUB_IN_PORT] >= CHNL_CTRL_MIPI_VC_ID_VC0)
 			val |= (mxc_isi->interface[SUB_IN_PORT] << CHNL_CTRL_MIPI_VC_ID_OFFSET);
 		break;
 	case ISI_INPUT_INTERFACE_DC0:
-		val |= CHNL_CTRL_SRC_INPUT_DC0;
+		val |= mxc_isi->pdata->chan_src->src_dc0;
 		break;
 	case ISI_INPUT_INTERFACE_DC1:
-		val |= CHNL_CTRL_SRC_INPUT_DC1;
+		val |= mxc_isi->pdata->chan_src->src_dc1;
 		break;
 	case ISI_INPUT_INTERFACE_HDMI:
-		val |= CHNL_CTRL_SRC_INPUT_HDMI;
+		val |= mxc_isi->pdata->chan_src->src_hdmi;
 		break;
 	case ISI_INPUT_INTERFACE_PARALLEL_CSI:
-		val |= CHNL_CTRL_SRC_INPUT_CSI;
+		val |= mxc_isi->pdata->chan_src->src_csi;
 		break;
 	case ISI_INPUT_INTERFACE_MEM:
-		val |= CHNL_CTRL_SRC_INPUT_MEMORY;
+		val |= mxc_isi->pdata->chan_src->src_mem;
 		val |= (CHNL_CTRL_SRC_TYPE_MEMORY << CHNL_CTRL_SRC_TYPE_OFFSET);
 		break;
 	default:

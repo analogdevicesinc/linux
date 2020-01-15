@@ -177,6 +177,16 @@ static struct mxc_isi_dev_ops mxc_imx8_clk_ops = {
 	.clk_disable = mxc_imx8_clk_disable,
 };
 
+static struct mxc_isi_chan_src mxc_imx8_chan_src = {
+	.src_dc0   = 0,
+	.src_dc1   = 1,
+	.src_mipi0 = 2,
+	.src_mipi1 = 3,
+	.src_hdmi  = 4,
+	.src_csi   = 4,
+	.src_mem   = 5,
+};
+
 /* For i.MX8QM/QXP B0 ISI IER version */
 static struct mxc_isi_ier_reg mxc_imx8_isi_ier_v0 = {
 	.oflw_y_buf_en = { .offset = 16, .mask = 0x10000  },
@@ -205,6 +215,7 @@ static struct mxc_isi_ier_reg mxc_imx8_isi_ier_v1 = {
 
 static struct mxc_isi_plat_data mxc_imx8_data = {
 	.ops      = &mxc_imx8_clk_ops,
+	.chan_src = &mxc_imx8_chan_src,
 	.ier_reg  = &mxc_imx8_isi_ier_v0,
 };
 
@@ -279,6 +290,11 @@ static void mxc_imx8mn_clk_disable(struct mxc_isi_dev *mxc_isi)
 	clk_disable_unprepare(mxc_isi->clk_disp_apb);
 }
 
+static struct mxc_isi_chan_src mxc_imx8mn_chan_src = {
+	.src_mipi0 = 0,
+	.src_mipi1 = 1,
+};
+
 static struct mxc_isi_dev_ops mxc_imx8mn_clk_ops = {
 	.clk_get     = mxc_imx8mn_clk_get,
 	.clk_enable  = mxc_imx8mn_clk_enable,
@@ -287,6 +303,7 @@ static struct mxc_isi_dev_ops mxc_imx8mn_clk_ops = {
 
 static struct mxc_isi_plat_data mxc_imx8mn_data = {
 	.ops      = &mxc_imx8mn_clk_ops,
+	.chan_src = &mxc_imx8mn_chan_src,
 	.ier_reg  = &mxc_imx8_isi_ier_v1,
 };
 
