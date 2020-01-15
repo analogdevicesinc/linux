@@ -25,6 +25,8 @@ static const struct soc_device_attribute imx8_soc[] = {
 	}, {
 		.soc_id   = "i.MX8MN",
 		.revision = "1.0",
+	}, {
+		.soc_id   = "i.MX8MP",
 	},
 };
 
@@ -211,6 +213,17 @@ static struct mxc_isi_ier_reg mxc_imx8_isi_ier_v1 = {
 	.panic_y_buf_en = {.offset = 20, .mask = 0x100000  },
 	.panic_u_buf_en = {.offset = 22, .mask = 0x400000  },
 	.panic_v_buf_en = {.offset = 24, .mask = 0x1000000 },
+};
+
+/* For i.MX8MP ISI IER version */
+static struct mxc_isi_ier_reg mxc_imx8_isi_ier_v2 = {
+	.oflw_y_buf_en = { .offset = 18, .mask = 0x40000  },
+	.oflw_u_buf_en = { .offset = 20, .mask = 0x100000 },
+	.oflw_v_buf_en = { .offset = 22, .mask = 0x400000 },
+
+	.panic_y_buf_en = {.offset = 19, .mask = 0x80000  },
+	.panic_u_buf_en = {.offset = 21, .mask = 0x200000 },
+	.panic_v_buf_en = {.offset = 23, .mask = 0x800000 },
 };
 
 static struct mxc_isi_plat_data mxc_imx8_data = {
@@ -424,6 +437,9 @@ static int mxc_isi_soc_match(struct mxc_isi_dev *mxc_isi,
 			memcpy(ier_reg, &mxc_imx8_isi_ier_v1, sizeof(*ier_reg));
 			mxc_isi->buf_active_reverse = true;
 		}
+	} else if (!strcmp(match->soc_id, "i.MX8MP")) {
+		memcpy(ier_reg, &mxc_imx8_isi_ier_v2, sizeof(*ier_reg));
+		mxc_isi->buf_active_reverse = true;
 	}
 
 	return 0;
@@ -473,7 +489,7 @@ static int mxc_isi_probe(struct platform_device *pdev)
 	mutex_init(&mxc_isi->lock);
 	atomic_set(&mxc_isi->usage_count, 0);
 
-	if (of_device_is_compatible(dev->of_node, "nxp,imx8mn-isi")) {
+	if (!of_property_read_bool(dev->of_node, "no-reset-control")) {
 		ret = mxc_isi_of_parse_resets(mxc_isi);
 		if (ret) {
 			dev_warn(dev, "Can not parse reset control\n");
