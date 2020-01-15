@@ -1,5 +1,21 @@
+// SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (C) 2019 NXP Semiconductor, Inc. All Rights Reserved.
+ * Freescale i.MX8MN/P SoC series MIPI-CSI V3.3 receiver driver
+ * Copyright (C) 2015-2016 Freescale Semiconductor, Inc. All Rights Reserved.
+ * Copyright 2019 NXP
+ * Copyright 2020 NXP
+ *
+ * Samsung S5P/EXYNOS SoC series MIPI-CSI receiver driver
+ *
+ * Copyright (C) 2011 - 2013 Samsung Electronics Co., Ltd.
+ * Copyright (C) 2015-2016 Freescale Semiconductor, Inc. All Rights Reserved.
+ * Copyright 2019 NXP
+ * Author: Sylwester Nawrocki <s.nawrocki@samsung.com>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
  */
 
 #include <linux/clk.h>
@@ -337,7 +353,6 @@ struct csi_state {
 	u32 clk_settle;
 	u32 num_lanes;
 	u32 max_num_lanes;
-	int id;
 	u8 wclk_ext;
 
 	u8 vchannel;
@@ -1176,7 +1191,7 @@ static int mipi_csis_parse_dt(struct platform_device *pdev,
 {
 	struct device_node *node = pdev->dev.of_node;
 
-	state->id = of_alias_get_id(node, "csi");
+	state->index = of_alias_get_id(node, "csi");
 
 	if (of_property_read_u32(node, "clock-frequency", &state->clk_frequency))
 		state->clk_frequency = DEFAULT_SCLK_CSIS_FREQ;
