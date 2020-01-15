@@ -327,7 +327,6 @@ struct csi_state {
 	struct phy *phy;
 	void __iomem *regs;
 	struct clk *mipi_clk;
-	struct clk *phy_clk;
 	struct clk *disp_axi;
 	struct clk *disp_apb;
 	int irq;
@@ -695,12 +694,6 @@ static int mipi_csis_clk_enable(struct csi_state *state)
 		return ret;
 	}
 
-	ret = clk_prepare_enable(state->phy_clk);
-	if (ret) {
-		dev_err(dev, "enable phy_clk failed!\n");
-		return ret;
-	}
-
 	ret = clk_prepare_enable(state->disp_axi);
 	if (ret) {
 		dev_err(dev, "enable disp_axi clk failed!\n");
@@ -719,7 +712,6 @@ static int mipi_csis_clk_enable(struct csi_state *state)
 static void mipi_csis_clk_disable(struct csi_state *state)
 {
 	clk_disable_unprepare(state->mipi_clk);
-	clk_disable_unprepare(state->phy_clk);
 	clk_disable_unprepare(state->disp_axi);
 	clk_disable_unprepare(state->disp_apb);
 }
@@ -732,12 +724,6 @@ static int mipi_csis_clk_get(struct csi_state *state)
 	state->mipi_clk = devm_clk_get(dev, "mipi_clk");
 	if (IS_ERR(state->mipi_clk)) {
 		dev_err(dev, "Could not get mipi csi clock\n");
-		return -ENODEV;
-	}
-
-	state->phy_clk = devm_clk_get(dev, "phy_clk");
-	if (IS_ERR(state->phy_clk)) {
-		dev_err(dev, "Could not get mipi phy clock\n");
 		return -ENODEV;
 	}
 
