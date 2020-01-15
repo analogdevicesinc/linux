@@ -757,6 +757,9 @@ static int disp_mix_sft_rstn(struct reset_control *reset, bool enable)
 {
 	int ret;
 
+	if (!reset)
+		return 0;
+
 	ret = enable ? reset_control_assert(reset) :
 			 reset_control_deassert(reset);
 	return ret;
@@ -765,6 +768,9 @@ static int disp_mix_sft_rstn(struct reset_control *reset, bool enable)
 static int disp_mix_clks_enable(struct reset_control *reset, bool enable)
 {
 	int ret;
+
+	if (!reset)
+		return 0;
 
 	ret = enable ? reset_control_assert(reset) :
 			 reset_control_deassert(reset);
@@ -1323,10 +1329,12 @@ static int mipi_csis_probe(struct platform_device *pdev)
 		return PTR_ERR(state->gasket);
 	}
 
-	ret = mipi_csis_of_parse_resets(state);
-	if (ret < 0) {
-		dev_err(dev, "Can not parse reset control\n");
-		return ret;
+	if (!of_property_read_bool(dev->of_node, "no-reset-control")) {
+		ret = mipi_csis_of_parse_resets(state);
+		if (ret < 0) {
+			dev_err(dev, "Can not parse reset control\n");
+			return ret;
+		}
 	}
 
 	mem_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
