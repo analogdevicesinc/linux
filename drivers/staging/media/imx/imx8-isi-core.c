@@ -405,18 +405,28 @@ static int mxc_isi_of_parse_resets(struct mxc_isi_dev *mxc_isi)
 	return 0;
 }
 
-static bool mxc_isi_buf_active_reverse(const struct soc_device_attribute *data)
+static int mxc_isi_soc_match(struct mxc_isi_dev *mxc_isi,
+			     const struct soc_device_attribute *data)
 {
+	struct mxc_isi_ier_reg *ier_reg = mxc_isi->pdata->ier_reg;
 	const struct soc_device_attribute *match;
 
 	match = soc_device_match(data);
 	if (!match)
-		return false;
+		return -EINVAL;
 
-	if (strcmp(match->revision, "1.1") > 0)
-		return true;
+	mxc_isi->buf_active_reverse = false;
 
-	return false;
+	if (!strcmp(match->soc_id, "i.MX8QXP") ||
+	    !strcmp(match->soc_id, "i.MX8QM")) {
+		/* Chip C0 */
+		if (strcmp(match->revision, "1.1") > 0) {
+			memcpy(ier_reg, &mxc_imx8_isi_ier_v1, sizeof(*ier_reg));
+			mxc_isi->buf_active_reverse = true;
+		}
+	}
+
+	return 0;
 }
 
 static int mxc_isi_probe(struct platform_device *pdev)
@@ -443,7 +453,11 @@ static int mxc_isi_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-	mxc_isi->buf_active_reverse = mxc_isi_buf_active_reverse(imx8_soc);
+	ret = mxc_isi_soc_match(mxc_isi, imx8_soc);
+	if (ret < 0) {
+		dev_err(dev, "Can't match soc version\n");
+		return ret;
+	}
 
 	ret = mxc_isi_parse_dt(mxc_isi);
 	if (ret < 0)
