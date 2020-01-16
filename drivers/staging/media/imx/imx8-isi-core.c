@@ -204,6 +204,13 @@ static struct mxc_isi_ier_reg mxc_imx8_isi_ier_v0 = {
 	.panic_v_buf_en = {.offset = 24, .mask = 0x1000000 },
 };
 
+/* Panic will assert when the buffers are 50% full */
+static struct mxc_isi_set_thd mxc_imx8_isi_thd_v0 = {
+	.panic_set_thd_y = { .mask = 0x03, .offset = 0, .threshold = 0x2 },
+	.panic_set_thd_u = { .mask = 0x18, .offset = 3, .threshold = 0x2 },
+	.panic_set_thd_v = { .mask = 0xC0, .offset = 6, .threshold = 0x2 },
+};
+
 /* For i.MX8QXP C0 and i.MX8MN ISI IER version */
 static struct mxc_isi_ier_reg mxc_imx8_isi_ier_v1 = {
 	.oflw_y_buf_en = { .offset = 19, .mask = 0x80000  },
@@ -226,10 +233,18 @@ static struct mxc_isi_ier_reg mxc_imx8_isi_ier_v2 = {
 	.panic_v_buf_en = {.offset = 23, .mask = 0x800000 },
 };
 
+/* Panic will assert when the buffers are 50% full */
+static struct mxc_isi_set_thd mxc_imx8_isi_thd_v1 = {
+	.panic_set_thd_y = { .mask = 0x0000F, .offset = 0,  .threshold = 0x7 },
+	.panic_set_thd_u = { .mask = 0x00F00, .offset = 8,  .threshold = 0x7 },
+	.panic_set_thd_v = { .mask = 0xF0000, .offset = 16, .threshold = 0x7 },
+};
+
 static struct mxc_isi_plat_data mxc_imx8_data = {
 	.ops      = &mxc_imx8_clk_ops,
 	.chan_src = &mxc_imx8_chan_src,
 	.ier_reg  = &mxc_imx8_isi_ier_v0,
+	.set_thd  = &mxc_imx8_isi_thd_v0,
 };
 
 static int mxc_imx8mn_clk_get(struct mxc_isi_dev *mxc_isi)
@@ -318,6 +333,7 @@ static struct mxc_isi_plat_data mxc_imx8mn_data = {
 	.ops      = &mxc_imx8mn_clk_ops,
 	.chan_src = &mxc_imx8mn_chan_src,
 	.ier_reg  = &mxc_imx8_isi_ier_v1,
+	.set_thd  = &mxc_imx8_isi_thd_v1,
 };
 
 static int mxc_isi_parse_dt(struct mxc_isi_dev *mxc_isi)
@@ -422,6 +438,7 @@ static int mxc_isi_soc_match(struct mxc_isi_dev *mxc_isi,
 			     const struct soc_device_attribute *data)
 {
 	struct mxc_isi_ier_reg *ier_reg = mxc_isi->pdata->ier_reg;
+	struct mxc_isi_set_thd *set_thd = mxc_isi->pdata->set_thd;
 	const struct soc_device_attribute *match;
 
 	match = soc_device_match(data);
@@ -435,6 +452,7 @@ static int mxc_isi_soc_match(struct mxc_isi_dev *mxc_isi,
 		/* Chip C0 */
 		if (strcmp(match->revision, "1.1") > 0) {
 			memcpy(ier_reg, &mxc_imx8_isi_ier_v1, sizeof(*ier_reg));
+			memcpy(set_thd, &mxc_imx8_isi_thd_v1, sizeof(*set_thd));
 			mxc_isi->buf_active_reverse = true;
 		}
 	} else if (!strcmp(match->soc_id, "i.MX8MP")) {

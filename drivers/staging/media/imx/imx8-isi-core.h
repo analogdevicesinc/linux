@@ -267,10 +267,23 @@ struct mxc_isi_dev_ops {
 	void (*clk_disable)(struct mxc_isi_dev *mxc_isi);
 };
 
+struct mxc_isi_panic_thd {
+	u32 mask;
+	u32 offset;
+	u32 threshold;
+};
+
+struct mxc_isi_set_thd {
+	struct mxc_isi_panic_thd panic_set_thd_y;
+	struct mxc_isi_panic_thd panic_set_thd_u;
+	struct mxc_isi_panic_thd panic_set_thd_v;
+};
+
 struct mxc_isi_plat_data {
 	struct mxc_isi_dev_ops *ops;
 	struct mxc_isi_chan_src *chan_src;
 	struct mxc_isi_ier_reg  *ier_reg;
+	struct mxc_isi_set_thd *set_thd;
 };
 
 struct mxc_isi_cap_dev {

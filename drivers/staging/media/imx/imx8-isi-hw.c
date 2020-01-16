@@ -360,6 +360,25 @@ void mxc_isi_channel_set_alpha(struct mxc_isi_dev *mxc_isi)
 	writel(val, mxc_isi->regs + CHNL_IMG_CTRL);
 }
 
+void mxc_isi_channel_set_panic_threshold(struct mxc_isi_dev *mxc_isi)
+{
+	struct mxc_isi_set_thd *set_thd = mxc_isi->pdata->set_thd;
+	u32 val;
+
+	val = readl(mxc_isi->regs + CHNL_OUT_BUF_CTRL);
+
+	val &= ~(set_thd->panic_set_thd_y.mask);
+	val |= set_thd->panic_set_thd_y.threshold << set_thd->panic_set_thd_y.offset;
+
+	val &= ~(set_thd->panic_set_thd_u.mask);
+	val |= set_thd->panic_set_thd_u.threshold << set_thd->panic_set_thd_u.offset;
+
+	val &= ~(set_thd->panic_set_thd_v.mask);
+	val |= set_thd->panic_set_thd_v.threshold << set_thd->panic_set_thd_v.offset;
+
+	writel(val, mxc_isi->regs + CHNL_OUT_BUF_CTRL);
+}
+
 void mxc_isi_channel_set_chain_buf(struct mxc_isi_dev *mxc_isi)
 {
 	u32 val;
@@ -592,6 +611,8 @@ void mxc_isi_channel_config(struct mxc_isi_dev *mxc_isi,
 	mxc_isi_channel_set_flip(mxc_isi);
 
 	mxc_isi_channel_set_alpha(mxc_isi);
+
+	mxc_isi_channel_set_panic_threshold(mxc_isi);
 
 	val = readl(mxc_isi->regs + CHNL_CTRL);
 	val &= ~CHNL_CTRL_CHNL_BYPASS_MASK;
