@@ -1,0 +1,35 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2020 NXP
+ */
+
+/dts-v1/;
+#include "imx8dx.dtsi"
+#include "imx8x-mek.dtsi"
+
+/ {
+	model = "Freescale i.MX8DX MEK";
+	compatible = "fsl,imx8dx-mek", "fsl,imx8dx", "fsl,imx8qxp";
+
+	reserved-memory {
+		linux,cma {
+			compatible = "shared-dma-pool";
+			reusable;
+			size = <0 0x14000000>;
+			alloc-ranges = <0 0x96000000 0 0x14000000>;
+			linux,cma-default;
+		};
+	};
+};
+
+&thermal_zones {
+	pmic-thermal0 {
+		cooling-maps {
+			map0 {
+				cooling-device =
+				<&A35_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+				<&A35_1 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+			};
+		};
+	};
+};
