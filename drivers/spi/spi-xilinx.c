@@ -13,6 +13,7 @@
  * published by the Free Software Foundation.
  */
 
+#include <linux/gpio.h>
 #include <linux/module.h>
 #include <linux/interrupt.h>
 #include <linux/of.h>
@@ -387,6 +388,16 @@ static int xspi_setup(struct spi_device *qspi)
 	if (ret < 0)
 		return ret;
 
+	/*FIXME: Check if this is valid in next Linux LTS*/
+	if (!gpio_is_valid(qspi->cs_gpio)) 
+		dev_warn(&qspi->dev, "%d is not a valid gpio\n",
+			qspi->cs_gpio);
+
+	ret = gpio_direction_output(qspi->cs_gpio, !(qspi->mode & SPI_CS_HIGH));
+	if (ret < 0)
+		dev_warn(&qspi->dev, "could not set CS gpio %d as output\n",
+			qspi->cs_gpio);
+
 	ret = xspi_setup_transfer(qspi, NULL);
 	pm_runtime_put_sync(xqspi->dev);
 
@@ -631,7 +642,7 @@ static int xilinx_spi_probe(struct platform_device *pdev)
 {
 	struct xilinx_spi *xspi;
 	struct resource *res;
-	int ret, num_cs = 0, bits_per_word = 8;
+	int ret, num_cs = 0, bits_per_word = 8, i;
 	struct spi_master *master;
 	struct device_node *nc;
 	u32 tmp, rx_bus_width, fifo_size;
@@ -810,6 +821,27 @@ static int xilinx_spi_probe(struct platform_device *pdev)
 	if (ret) {
 		dev_err(&pdev->dev, "spi_register_master failed\n");
 		goto clk_unprepare_all;
+	}
+
+	/*FIXME: Check if this is valid in next Linux LTS*/
+	if (!master->cs_gpios) {
+		dev_warn(&pdev->dev, "no CS gpios available\n");
+	} else {
+		for (i = 0; i < master->num_chipselect; i++) {
+			if (!gpio_is_valid(master->cs_gpios[i])) {
+				dev_err(&pdev->dev, "%i is not a valid gpio\n",
+					master->cs_gpios[i]);
+				return -EINVAL;
+			}
+
+			ret = devm_gpio_request(&pdev->dev, master->cs_gpios[0],
+						"Xilinx SPI driver");
+			if (ret < 0) {
+				dev_err(&pdev->dev, "can't get CS gpio %i\n",
+					master->cs_gpios[i]);
+				return ret;
+			}
+		}
 	}
 
 	return ret;
