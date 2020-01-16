@@ -117,10 +117,11 @@ static void lcdifv3_enable_plane_panic(struct lcdifv3_soc *lcdifv3)
 
 	/* As suggestion, the thres_low should be 1/3 FIFO,
 	 * and thres_high should be 2/3 FIFO (The FIFO size
-	 * is 2K bytes).
+	 * is 8KB = 512 * 128bit).
+	 * threshold = n * 128bit (n: 0 ~ 511)
 	 */
-	thres_low  = DIV_ROUND_UP(2048, 3);
-	thres_high = DIV_ROUND_UP(2048 * 2, 3);
+	thres_low  = DIV_ROUND_UP(512, 3);
+	thres_high = DIV_ROUND_UP(512 * 2, 3);
 
 	panic_thres = PANIC0_THRES_PANIC_THRES_LOW(thres_low)	|
 		      PANIC0_THRES_PANIC_THRES_HIGH(thres_high);
