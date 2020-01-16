@@ -758,6 +758,70 @@ static IIO_DEVICE_ATTR(peak_fifo_mode_enable, 0644,
 		       adxl372_peak_fifo_en_get,
 		       adxl372_peak_fifo_en_set, 0);
 
+static ssize_t adxl372_time_activity_get(struct device *dev,
+					 struct device_attribute *attr,
+					 char *buf)
+{
+	struct adxl372_state *st = iio_priv(dev_to_iio_dev(dev));
+
+	return sprintf(buf, "%d\n", st->act_time_ms);
+}
+
+static ssize_t adxl372_time_activity_set(struct device *dev,
+					 struct device_attribute *attr,
+					 const char *buf, size_t len)
+{
+	struct adxl372_state *st = iio_priv(dev_to_iio_dev(dev));
+	unsigned int val;
+	int ret;
+
+	ret = kstrtouint(buf, 0, &val);
+	if (ret)
+		return ret;
+
+	ret = adxl372_set_activity_time_ms(st, val);
+	if (ret < 0)
+		return ret;
+
+	return len;
+}
+
+static IIO_DEVICE_ATTR(time_activity, 0644,
+		       adxl372_time_activity_get,
+		       adxl372_time_activity_set, 0);
+
+static ssize_t adxl372_time_inactivity_get(struct device *dev,
+					   struct device_attribute *attr,
+					   char *buf)
+{
+	struct adxl372_state *st = iio_priv(dev_to_iio_dev(dev));
+
+	return sprintf(buf, "%d\n", st->inact_time_ms);
+}
+
+static ssize_t adxl372_time_inactivity_set(struct device *dev,
+					   struct device_attribute *attr,
+					   const char *buf, size_t len)
+{
+	struct adxl372_state *st = iio_priv(dev_to_iio_dev(dev));
+	unsigned int val;
+	int ret;
+
+	ret = kstrtouint(buf, 0, &val);
+	if (ret)
+		return ret;
+
+	ret = adxl372_set_inactivity_time_ms(st, val);
+	if (ret)
+		return ret;
+
+	return len;
+}
+
+static IIO_DEVICE_ATTR(time_inactivity, 0644,
+		       adxl372_time_inactivity_get,
+		       adxl372_time_inactivity_set, 0);
+
 static ssize_t adxl372_show_filter_freq_avail(struct device *dev,
 					      struct device_attribute *attr,
 					      char *buf)
@@ -926,6 +990,8 @@ static struct attribute *adxl372_attributes[] = {
 	&iio_const_attr_sampling_frequency_available.dev_attr.attr,
 	&iio_dev_attr_in_accel_filter_low_pass_3db_frequency_available.dev_attr.attr,
 	&iio_dev_attr_peak_fifo_mode_enable.dev_attr.attr,
+	&iio_dev_attr_time_inactivity.dev_attr.attr,
+	&iio_dev_attr_time_activity.dev_attr.attr,
 	NULL,
 };
 
