@@ -2012,48 +2012,52 @@ gckGALDEVICE_Construct(
     device->externalBase = Args->externalBase;
     device->externalSize = Args->externalSize;
 
-    if (device->irqLines[gcvCORE_MAJOR] != -1)
+    /* Add core for all available major cores. */
+    for (i = gcvCORE_MAJOR; i <= gcvCORE_3D_MAX; i++)
     {
-        gcmkONERROR(gcTA_Construct(
-            device->taos,
-            gcvCORE_MAJOR,
-            &globalTA[gcvCORE_MAJOR]
-            ));
+        if (device->irqLines[i] != -1)
+        {
+            gcmkONERROR(gcTA_Construct(
+                device->taos,
+                (gceCORE)i,
+                &globalTA[i]
+                ));
 
-        gcmkONERROR(gckDEVICE_AddCore(
-            device->device,
-            gcvCORE_MAJOR,
-            Args->chipIDs[gcvCORE_MAJOR],
-            device,
-            &device->kernels[gcvCORE_MAJOR]
-            ));
+            gcmkONERROR(gckDEVICE_AddCore(
+                device->device,
+                (gceCORE)i,
+                Args->chipIDs[i],
+                device,
+                &device->kernels[i]
+                ));
 
-        gcmkONERROR(gckHARDWARE_SetFastClear(
-            device->kernels[gcvCORE_MAJOR]->hardware,
-            Args->fastClear,
-            Args->compression
-            ));
+            gcmkONERROR(gckHARDWARE_SetFastClear(
+                device->kernels[i]->hardware,
+                Args->fastClear,
+                Args->compression
+                ));
 
-        gcmkONERROR(gckHARDWARE_EnablePowerManagement(
-            device->kernels[gcvCORE_MAJOR]->hardware,
-            Args->powerManagement
-            ));
+            gcmkONERROR(gckHARDWARE_EnablePowerManagement(
+                device->kernels[i]->hardware,
+                Args->powerManagement
+                ));
 
 #if gcdENABLE_FSCALE_VAL_ADJUST
-        gcmkONERROR(gckHARDWARE_SetMinFscaleValue(
-            device->kernels[gcvCORE_MAJOR]->hardware,
-            Args->gpu3DMinClock
-            ));
+            gcmkONERROR(gckHARDWARE_SetMinFscaleValue(
+                device->kernels[i]->hardware,
+                Args->gpu3DMinClock
+                ));
 #endif
 
-        gcmkONERROR(gckHARDWARE_SetGpuProfiler(
-            device->kernels[gcvCORE_MAJOR]->hardware,
-            Args->gpuProfiler
-            ));
-    }
-    else
-    {
-        device->kernels[gcvCORE_MAJOR] = gcvNULL;
+            gcmkONERROR(gckHARDWARE_SetGpuProfiler(
+                device->kernels[i]->hardware,
+                Args->gpuProfiler
+                ));
+        }
+        else
+        {
+            device->kernels[i] = gcvNULL;
+        }
     }
 
     if (device->irqLines[gcvCORE_2D] != -1)
@@ -2120,43 +2124,6 @@ gckGALDEVICE_Construct(
     else
     {
         device->kernels[gcvCORE_VG] = gcvNULL;
-    }
-
-    /* Add core for multiple core. */
-    for (i = gcvCORE_3D1; i <= gcvCORE_3D_MAX; i++)
-    {
-        if (device->irqLines[i] != -1)
-        {
-            gcmkONERROR(gcTA_Construct(
-                device->taos,
-                (gceCORE)i,
-                &globalTA[i]
-                ));
-
-            gckDEVICE_AddCore(
-                device->device,
-                i,
-                Args->chipIDs[i],
-                device,
-                &device->kernels[i]
-                );
-
-            gcmkONERROR(gckHARDWARE_SetFastClear(
-                device->kernels[i]->hardware,
-                Args->fastClear,
-                Args->compression
-                ));
-
-            gcmkONERROR(gckHARDWARE_EnablePowerManagement(
-                device->kernels[i]->hardware,
-                Args->powerManagement
-                ));
-
-            gcmkONERROR(gckHARDWARE_SetGpuProfiler(
-                device->kernels[i]->hardware,
-                Args->gpuProfiler
-                ));
-        }
     }
 
     /* Setup external SRAM memory region. */
