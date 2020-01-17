@@ -136,7 +136,7 @@ static void lcdifv3_enable_plane_panic(struct lcdifv3_soc *lcdifv3)
 	 * automatically.
 	 */
 	writel(INT_ENABLE_D1_PLANE_PANIC_EN,
-	       lcdifv3->base + LCDIFV3_PANIC0_THRES);
+	       lcdifv3->base + LCDIFV3_INT_ENABLE_D1);
 }
 
 int lcdifv3_vblank_irq_get(struct lcdifv3_soc *lcdifv3)
