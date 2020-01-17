@@ -806,6 +806,31 @@ static struct adis_burst adis16475_burst = {
 	.write_delay = 5,
 };
 
+static const struct adis_data adis16475_data = {
+	.msc_ctrl_reg = ADIS16475_REG_MSG_CTRL,
+	.glob_cmd_reg = ADIS16475_REG_GLOB_CMD,
+	.diag_stat_reg = ADIS16475_REG_DIAG_STAT,
+	.prod_id_reg = ADIS16475_REG_PROD_ID,
+
+	.self_test_mask = BIT(2),
+	.self_test_reg = ADIS16475_REG_GLOB_CMD,
+
+	.cs_change_delay = 16,
+	.read_delay = 5,
+	.write_delay = 5,
+
+	.status_error_msgs = adis16475_status_error_msgs,
+	.status_error_mask = BIT(ADIS16475_DIAG_STAT_DATA_PATH) |
+		BIT(ADIS16475_DIAG_STAT_FLASH_MEM) |
+		BIT(ADIS16475_DIAG_STAT_SPI) |
+		BIT(ADIS16475_DIAG_STAT_STANDBY) |
+		BIT(ADIS16475_DIAG_STAT_SENSOR) |
+		BIT(ADIS16475_DIAG_STAT_MEMORY) |
+		BIT(ADIS16475_DIAG_STAT_CLK),
+
+	.enable_irq = adis16475_enable_irq
+};
+
 static u16 adis16475_validate_crc(const u8 *buffer, const u16 crc,
 				  const bool burst32)
 {
@@ -1087,28 +1112,12 @@ static struct adis_data *adis16475_adis_data_alloc(struct adis16475 *st,
 {
 	struct adis_data *data;
 
-	data = devm_kzalloc(dev, sizeof(struct adis_data), GFP_KERNEL);
+	data = devm_kmalloc(dev, sizeof(struct adis_data), GFP_KERNEL);
 	if (!data)
 		return ERR_PTR(-ENOMEM);
 
-	data->msc_ctrl_reg = ADIS16475_REG_MSG_CTRL;
-	data->glob_cmd_reg = ADIS16475_REG_GLOB_CMD;
-	data->diag_stat_reg = ADIS16475_REG_DIAG_STAT;
-	data->prod_id_reg = ADIS16475_REG_PROD_ID;
-	data->self_test_mask = BIT(2);
-	data->self_test_reg = ADIS16475_REG_GLOB_CMD;
-	data->cs_change_delay = 16;
-	data->read_delay = 5;
-	data->write_delay = 5;
-	data->status_error_msgs = adis16475_status_error_msgs;
-	data->status_error_mask = BIT(ADIS16475_DIAG_STAT_DATA_PATH) |
-				BIT(ADIS16475_DIAG_STAT_FLASH_MEM) |
-				BIT(ADIS16475_DIAG_STAT_SPI) |
-				BIT(ADIS16475_DIAG_STAT_STANDBY) |
-				BIT(ADIS16475_DIAG_STAT_SENSOR) |
-				BIT(ADIS16475_DIAG_STAT_MEMORY) |
-				BIT(ADIS16475_DIAG_STAT_CLK);
-	data->enable_irq = adis16475_enable_irq;
+	memcpy(data, &adis16475_data, sizeof(*data));
+
 	data->timeouts = st->info->timeouts;
 
 	return data;
