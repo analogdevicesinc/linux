@@ -48,7 +48,7 @@
 		xlnx,spi-mode = <0>;
 
 		spidev0: spidev@0 {
-			compatible = "spidev";
+			compatible = "adi,swspi";
 			reg = <0>;	/* CE0 */
 			#address-cells = <1>;
 			#size-cells = <0>;
