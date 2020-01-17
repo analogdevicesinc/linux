@@ -467,6 +467,24 @@ static const char * const adis16136_status_error_msgs[] = {
 	[ADIS16136_DIAG_STAT_FLASH_CHKSUM_FAIL] = "Flash checksum error",
 };
 
+static const struct adis_data adis16136_data = {
+	.diag_stat_reg = ADIS16136_REG_DIAG_STAT,
+	.glob_cmd_reg = ADIS16136_REG_GLOB_CMD,
+	.msc_ctrl_reg = ADIS16136_REG_MSC_CTRL,
+
+	.self_test_mask = ADIS16136_MSC_CTRL_SELF_TEST,
+	.self_test_reg = ADIS16136_REG_MSC_CTRL,
+
+	.read_delay = 10,
+	.write_delay = 10,
+
+	.status_error_msgs = adis16136_status_error_msgs,
+	.status_error_mask = BIT(ADIS16136_DIAG_STAT_FLASH_UPDATE_FAIL) |
+		BIT(ADIS16136_DIAG_STAT_SPI_FAIL) |
+		BIT(ADIS16136_DIAG_STAT_SELF_TEST_FAIL) |
+		BIT(ADIS16136_DIAG_STAT_FLASH_CHKSUM_FAIL),
+};
+
 enum adis16136_id {
 	ID_ADIS16133,
 	ID_ADIS16135,
@@ -514,22 +532,12 @@ static struct adis_data *adis16136_adis_data_alloc(struct adis16136 *st,
 {
 	struct adis_data *data;
 
-	data = devm_kzalloc(dev, sizeof(struct adis_data), GFP_KERNEL);
+	data = devm_kmalloc(dev, sizeof(struct adis_data), GFP_KERNEL);
 	if (!data)
 		return ERR_PTR(-ENOMEM);
 
-	data->msc_ctrl_reg = ADIS16136_REG_MSC_CTRL;
-	data->glob_cmd_reg = ADIS16136_REG_GLOB_CMD;
-	data->diag_stat_reg = ADIS16136_REG_DIAG_STAT;
-	data->self_test_mask = ADIS16136_MSC_CTRL_SELF_TEST;
-	data->self_test_reg = ADIS16136_REG_MSC_CTRL;
-	data->read_delay = 10;
-	data->write_delay = 10;
-	data->status_error_msgs = adis16136_status_error_msgs;
-	data->status_error_mask = BIT(ADIS16136_DIAG_STAT_FLASH_UPDATE_FAIL) |
-				BIT(ADIS16136_DIAG_STAT_SPI_FAIL) |
-				BIT(ADIS16136_DIAG_STAT_SELF_TEST_FAIL) |
-				BIT(ADIS16136_DIAG_STAT_FLASH_CHKSUM_FAIL);
+	memcpy(data, &adis16136_data, sizeof(*data));
+
 	data->timeouts = st->chip_info->timeouts;
 
 	return data;
