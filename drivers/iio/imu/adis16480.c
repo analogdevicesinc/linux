@@ -1266,6 +1266,32 @@ static const char * const adis16480_status_error_msgs[] = {
 	[ADIS16480_DIAG_STAT_BARO_FAIL] = "Barometer self-test failure",
 };
 
+static const struct adis_data adis16480_data = {
+	.diag_stat_reg = ADIS16480_REG_DIAG_STS,
+	.glob_cmd_reg = ADIS16480_REG_GLOB_CMD,
+	.has_paging = true,
+
+	.read_delay = 5,
+	.write_delay = 5,
+
+	.self_test_mask = BIT(1),
+	.self_test_reg = ADIS16480_REG_GLOB_CMD,
+
+	.status_error_msgs = adis16480_status_error_msgs,
+	.status_error_mask = BIT(ADIS16480_DIAG_STAT_XGYRO_FAIL) |
+		BIT(ADIS16480_DIAG_STAT_YGYRO_FAIL) |
+		BIT(ADIS16480_DIAG_STAT_ZGYRO_FAIL) |
+		BIT(ADIS16480_DIAG_STAT_XACCL_FAIL) |
+		BIT(ADIS16480_DIAG_STAT_YACCL_FAIL) |
+		BIT(ADIS16480_DIAG_STAT_ZACCL_FAIL) |
+		BIT(ADIS16480_DIAG_STAT_XMAGN_FAIL) |
+		BIT(ADIS16480_DIAG_STAT_YMAGN_FAIL) |
+		BIT(ADIS16480_DIAG_STAT_ZMAGN_FAIL) |
+		BIT(ADIS16480_DIAG_STAT_BARO_FAIL),
+
+	.enable_irq = adis16480_enable_irq,
+};
+
 static int adis16480_config_irq_pin(struct device_node *of_node,
 				    struct adis16480 *st)
 {
@@ -1421,30 +1447,12 @@ static struct adis_data *adis16480_adis_data_alloc(struct adis16480 *st,
 {
 	struct adis_data *data;
 
-	data = devm_kzalloc(dev, sizeof(struct adis_data), GFP_KERNEL);
+	data = devm_kmalloc(dev, sizeof(struct adis_data), GFP_KERNEL);
 	if (!data)
 		return ERR_PTR(-ENOMEM);
 
-	data->glob_cmd_reg = ADIS16480_REG_GLOB_CMD;
-	data->diag_stat_reg = ADIS16480_REG_DIAG_STS;
-	data->prod_id_reg = ADIS16480_REG_PROD_ID;
-	data->has_paging = true;
-	data->self_test_mask = BIT(1);
-	data->self_test_reg = ADIS16480_REG_GLOB_CMD;
-	data->read_delay = 5;
-	data->write_delay = 5;
-	data->status_error_msgs = adis16480_status_error_msgs;
-	data->status_error_mask = BIT(ADIS16480_DIAG_STAT_XGYRO_FAIL) |
-				BIT(ADIS16480_DIAG_STAT_YGYRO_FAIL) |
-				BIT(ADIS16480_DIAG_STAT_ZGYRO_FAIL) |
-				BIT(ADIS16480_DIAG_STAT_XACCL_FAIL) |
-				BIT(ADIS16480_DIAG_STAT_YACCL_FAIL) |
-				BIT(ADIS16480_DIAG_STAT_ZACCL_FAIL) |
-				BIT(ADIS16480_DIAG_STAT_XMAGN_FAIL) |
-				BIT(ADIS16480_DIAG_STAT_YMAGN_FAIL) |
-				BIT(ADIS16480_DIAG_STAT_ZMAGN_FAIL) |
-				BIT(ADIS16480_DIAG_STAT_BARO_FAIL);
-	data->enable_irq = adis16480_enable_irq;
+	memcpy(data, &adis16480_data, sizeof(*data));
+
 	data->timeouts = st->chip_info->timeouts;
 
 	return data;
