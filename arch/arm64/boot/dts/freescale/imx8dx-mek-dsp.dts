@@ -1,0 +1,137 @@
+// SPDX-License-Identifier: GPL-2.0+
+// Copyright NXP 2018
+
+#include "imx8dx-mek-rpmsg.dts"
+
+/ {
+	sound-cs42888 {
+		status = "disabled";
+	};
+
+	sound-wm8960 {
+		status = "disabled";
+	};
+
+	dspaudio: dspaudio {
+		compatible = "fsl,dsp-audio";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_esai0>;
+		status = "okay";
+	};
+
+	sound-dsp {
+		compatible = "fsl,imx-dsp-audio";
+		model = "dsp-audio";
+		cpu-dai = <&dspaudio>;
+		audio-codec = <&cs42888>;
+		audio-platform = <&dsp>;
+	};
+};
+
+&edma0 {
+	compatible = "fsl,imx8qm-edma";
+	reg = <0x59280000 0x10000>, /* spdif0 rx */
+		<0x59290000 0x10000>, /* spdif0 tx */
+		<0x592c0000 0x10000>, /* sai0 rx */
+		<0x592d0000 0x10000>, /* sai0 tx */
+		<0x592e0000 0x10000>, /* sai1 rx */
+		<0x592f0000 0x10000>, /* sai1 tx */
+		<0x59350000 0x10000>,
+		<0x59370000 0x10000>;
+	#dma-cells = <3>;
+	shared-interrupt;
+	dma-channels = <8>;
+	interrupts = <GIC_SPI 457 IRQ_TYPE_LEVEL_HIGH>, /* spdif0 */
+			<GIC_SPI 459 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 315 IRQ_TYPE_LEVEL_HIGH>, /* sai0 */
+			<GIC_SPI 315 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 317 IRQ_TYPE_LEVEL_HIGH>, /* sai1 */
+			<GIC_SPI 317 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 391 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 393 IRQ_TYPE_LEVEL_HIGH>;
+	interrupt-names = "edma0-chan8-rx", "edma0-chan9-tx", /* spdif0 */
+			"edma0-chan12-rx", "edma0-chan13-tx", /* sai0 */
+			"edma0-chan14-rx", "edma0-chan15-tx", /* sai1 */
+			"edma0-chan21-tx",              /* gpt5 */
+			"edma0-chan23-rx";              /* gpt7 */
+	power-domains = <&pd IMX_SC_R_DMA_0_CH8>,
+			<&pd IMX_SC_R_DMA_0_CH9>,
+			<&pd IMX_SC_R_DMA_0_CH12>,
+			<&pd IMX_SC_R_DMA_0_CH13>,
+			<&pd IMX_SC_R_DMA_0_CH14>,
+			<&pd IMX_SC_R_DMA_0_CH15>,
+			<&pd IMX_SC_R_DMA_0_CH21>,
+			<&pd IMX_SC_R_DMA_0_CH23>;
+	power-domain-names = "edma0-chan8", "edma0-chan9",
+			     "edma0-chan12", "edma0-chan13",
+			     "edma0-chan14", "edma0-chan15",
+			     "edma0-chan21", "edma0-chan23";
+	status = "okay";
+};
+
+&dsp {
+	compatible = "fsl,imx8qxp-dsp-v1";
+	reserved-region = <&dsp_reserved>;
+	reg = <0x596e8000 0x88000>;
+	clocks = <&esai0_lpcg 1>,
+		<&esai0_lpcg 0>,
+		<&asrc0_lpcg 0>,
+		<&clk_dummy>,
+		<&aud_pll_div0_lpcg 0>,
+		<&aud_pll_div1_lpcg 0>,
+		<&acm IMX_ADMA_ACM_AUD_CLK0_SEL>,
+		<&acm IMX_ADMA_ACM_AUD_CLK1_SEL>;
+	clock-names = "esai_ipg", "esai_mclk", "asrc_ipg", "asrc_mem",
+			"asrck_0", "asrck_1", "asrck_2", "asrck_3";
+	assigned-clocks = <&acm IMX_ADMA_ACM_ESAI0_MCLK_SEL>,
+			<&clk IMX_SC_R_AUDIO_PLL_0 IMX_SC_PM_CLK_PLL>,
+			<&clk IMX_SC_R_AUDIO_PLL_0 IMX_SC_PM_CLK_MISC0>,
+			<&clk IMX_SC_R_AUDIO_PLL_0 IMX_SC_PM_CLK_MISC1>,
+			<&esai0_lpcg 0>;
+	assigned-clock-parents = <&aud_pll_div0_lpcg 0>;
+	assigned-clock-rates = <0>, <786432000>, <49152000>, <12288000>, <49152000>;
+	fsl,dsp-firmware = "imx/dsp/hifi4.bin";
+	power-domains = <&pd IMX_SC_R_MU_13A>,
+			<&pd IMX_SC_R_MU_13B>,
+			<&pd IMX_SC_R_IRQSTR_DSP>,
+			<&pd IMX_SC_R_DSP>,
+			<&pd IMX_SC_R_DSP_RAM>,
+			<&pd IMX_SC_R_ESAI_0>,
+			<&pd IMX_SC_R_DMA_0_CH6>,
+			<&pd IMX_SC_R_DMA_0_CH7>,
+			<&pd IMX_SC_R_AUDIO_CLK_0>,
+			<&pd IMX_SC_R_AUDIO_CLK_1>,
+			<&pd IMX_SC_R_AUDIO_PLL_0>,
+			<&pd IMX_SC_R_AUDIO_PLL_1>,
+			<&pd IMX_SC_R_ASRC_0>,
+			<&pd IMX_SC_R_DMA_0_CH0>,
+			<&pd IMX_SC_R_DMA_0_CH1>,
+			<&pd IMX_SC_R_DMA_0_CH2>,
+			<&pd IMX_SC_R_DMA_0_CH3>,
+			<&pd IMX_SC_R_DMA_0_CH4>,
+			<&pd IMX_SC_R_DMA_0_CH5>;
+};
+
+&esai0 {
+	status = "disabled";
+};
+
+&asrc0 {
+	status = "disabled";
+};
+
+&sai1 {
+	status = "disabled";
+};
+
+&wm8960 {
+	status = "disabled";
+};
+
+&cs42888 {
+	assigned-clocks = <&clk IMX_SC_R_AUDIO_PLL_0 IMX_SC_PM_CLK_PLL>,
+			  <&clk IMX_SC_R_AUDIO_PLL_0 IMX_SC_PM_CLK_SLV_BUS>,
+			  <&clk IMX_SC_R_AUDIO_PLL_0 IMX_SC_PM_CLK_MST_BUS>,
+			  <&mclkout0_lpcg 0>;
+	assigned-clock-rates = <786432000>, <49152000>, <12288000>, <12288000>;
+};
