@@ -193,6 +193,7 @@ error_buffer_cleanup:
 	return ret;
 }
 EXPORT_SYMBOL_GPL(adis_setup_buffer_and_trigger);
+
 /**
  * devm_adis_setup_buffer_and_trigger() - Sets up buffer and trigger for the managed adis device
  * @adis: The adis device
@@ -227,6 +228,7 @@ devm_adis_setup_buffer_and_trigger(struct adis *adis, struct iio_dev *indio_dev,
 	return 0;
 }
 EXPORT_SYMBOL_GPL(devm_adis_setup_buffer_and_trigger);
+
 /**
  * adis_cleanup_buffer_and_trigger() - Free buffer and trigger resources
  * @adis: The adis device.
