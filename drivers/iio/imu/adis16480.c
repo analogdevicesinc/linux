@@ -959,7 +959,6 @@ static const struct adis16480_chip_info adis16480_chip_info[] = {
 		.max_dec_rate = 2048,
 		.filter_freqs = adis16480_def_filter_freqs,
 		.timeouts = &adis16480_timeouts,
-
 	},
 	[ADIS16485] = {
 		.channels = adis16485_channels,
