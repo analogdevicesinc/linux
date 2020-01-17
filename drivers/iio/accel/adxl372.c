@@ -5,6 +5,7 @@
  * Copyright 2018 Analog Devices Inc.
  */
 
+#include <linux/bitfield.h>
 #include <linux/bitops.h>
 #include <linux/interrupt.h>
 #include <linux/irq.h>
@@ -131,6 +132,14 @@
 #define ADXL372_INT1_MAP_LOW_MSK		BIT(7)
 #define ADXL372_INT1_MAP_LOW_MODE(x)		(((x) & 0x1) << 7)
 
+/* ADX372_THRESH */
+#define ADXL372_THRESH_VAL_H_MSK		GENMASK(10, 3)
+#define ADXL372_THRESH_VAL_H_SEL(x)		\
+		FIELD_GET(ADXL372_THRESH_VAL_H_MSK, x)
+#define ADXL372_THRESH_VAL_L_MSK		GENMASK(2, 0)
+#define ADXL372_THRESH_VAL_L_SEL(x)		\
+		FIELD_GET(ADXL372_THRESH_VAL_L_MSK, x)
+
 /* The ADXL372 includes a deep, 512 sample FIFO buffer */
 #define ADXL372_FIFO_SIZE			512
 
@@ -222,6 +231,32 @@ static const struct adxl372_axis_lookup adxl372_axis_lookup_table[] = {
 	{ BIT(0) | BIT(1) | BIT(2), ADXL372_XYZ_FIFO },
 };
 
+static ssize_t adxl372_read_threshold_value(struct iio_dev *, uintptr_t,
+					    const struct iio_chan_spec *,
+					    char *);
+
+static ssize_t adxl372_write_threshold_value(struct iio_dev *, uintptr_t,
+					     struct iio_chan_spec const *,
+					     const char *, size_t);
+
+static const struct iio_chan_spec_ext_info adxl372_ext_info[] = {
+	{
+		.name = "threshold_activity",
+		.shared = IIO_SEPARATE,
+		.read = adxl372_read_threshold_value,
+		.write = adxl372_write_threshold_value,
+		.private = ADXL372_X_THRESH_ACT_H,
+	},
+	{
+		.name = "threshold_inactivity",
+		.shared = IIO_SEPARATE,
+		.read = adxl372_read_threshold_value,
+		.write = adxl372_write_threshold_value,
+		.private = ADXL372_X_THRESH_INACT_H,
+	},
+	{},
+};
+
 #define ADXL372_ACCEL_CHANNEL(index, reg, axis) {			\
 	.type = IIO_ACCEL,						\
 	.address = reg,							\
@@ -239,6 +274,7 @@ static const struct adxl372_axis_lookup adxl372_axis_lookup_table[] = {
 		.shift = 4,						\
 		.endianness = IIO_BE,					\
 	},								\
+	.ext_info = adxl372_ext_info,					\
 }
 
 static const struct iio_chan_spec adxl372_channels[] = {
@@ -276,6 +312,61 @@ static const unsigned long adxl372_channel_masks[] = {
 	BIT(0) | BIT(1) | BIT(2),
 	0
 };
+
+static ssize_t adxl372_read_threshold_value(struct iio_dev *indio_dev,
+					    uintptr_t private,
+					    const struct iio_chan_spec *chan,
+					    char *buf)
+{
+	struct adxl372_state *st = iio_priv(indio_dev);
+	unsigned int addr;
+	__be16 __regval;
+	u16 regval;
+	int ret;
+
+	addr = (unsigned int)chan->ext_info->private;
+	addr = addr + chan->scan_index * 2;
+
+	ret = regmap_bulk_read(st->regmap, addr, &__regval, sizeof(__regval));
+	if (ret < 0)
+		return ret;
+
+	regval = be16_to_cpu(__regval);
+	regval >>= 5;
+
+	return sprintf(buf, "%d\n", regval);
+}
+
+static ssize_t adxl372_write_threshold_value(struct iio_dev *indio_dev,
+					     uintptr_t private,
+					     const struct iio_chan_spec *chan,
+					     const char *buf,
+					     size_t len)
+{
+	struct adxl372_state *st = iio_priv(indio_dev);
+	unsigned int addr;
+	u16 threshold;
+	int ret;
+
+	ret = kstrtou16(buf, 0, &threshold);
+	if (ret < 0)
+		return ret;
+
+	addr = chan->ext_info->private;
+	addr = addr + chan->scan_index * 2;
+
+	ret = regmap_write(st->regmap, addr,
+			   ADXL372_THRESH_VAL_H_SEL(threshold));
+	if (ret < 0)
+		return ret;
+
+	ret = regmap_update_bits(st->regmap, addr + 1, GENMASK(7, 5),
+				 ADXL372_THRESH_VAL_L_SEL(threshold) << 5);
+	if (ret < 0)
+		return ret;
+
+	return len;
+}
 
 static int adxl372_read_axis(struct adxl372_state *st, u8 addr)
 {
