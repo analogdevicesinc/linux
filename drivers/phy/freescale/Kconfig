@@ -2,6 +2,15 @@
 
 if (ARCH_MXC && ARM64) || COMPILE_TEST
 
+config PHY_FSL_IMX8MP_LVDS
+	tristate "Freescale i.MX8MP LVDS PHY"
+	depends on OF && HAS_IOMEM
+	select GENERIC_PHY
+	select REGMAP
+	help
+	  Enable this to add support for the LVDS PHY as found
+	  on NXP's i.MX8MP SoC.
+
 config PHY_FSL_IMX8MQ_USB
 	tristate "Freescale i.MX8M USB3 PHY"
 	depends on OF && HAS_IOMEM
