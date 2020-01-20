@@ -1269,6 +1269,7 @@ static const char * const adis16480_status_error_msgs[] = {
 static const struct adis_data adis16480_data = {
 	.diag_stat_reg = ADIS16480_REG_DIAG_STS,
 	.glob_cmd_reg = ADIS16480_REG_GLOB_CMD,
+	.prod_id_reg = ADIS16480_REG_PROD_ID,
 	.has_paging = true,
 
 	.read_delay = 5,
