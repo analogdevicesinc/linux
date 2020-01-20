@@ -1389,7 +1389,7 @@ static int adis16480_ext_clk_config(struct adis16480 *st,
 	 * has two assignments, the enable bit for a lower priority function
 	 * automatically resets to zero (disabling the lower priority function).
 	 */
-	if (pin == (val & ADIS16480_DRDY_SEL_MSK))
+	if (pin == ADIS16480_DRDY_SEL(val))
 		dev_warn(&st->adis.spi->dev,
 			"DIO%x pin supports only one function at a time\n",
 			pin + 1);
