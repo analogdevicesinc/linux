@@ -1,0 +1,43 @@
+language: c
+
+branches:
+  except:
+  - xcomm_zynq
+  - adi-5.4.0 # current rebased versions of master; change this when updating kernel ver
+
+os: linux
+
+notifications:
+  email:
+    on_success: change
+    on_failure: always
+
+matrix:
+  include:
+    - sync_branches: 1
+      env: BUILD_TYPE=sync_branches_with_main_travis DO_NOT_DOCKERIZE=1
+      if: branch = master
+    - checkpatch: 1
+      env: BUILD_TYPE=checkpatch DO_NOT_DOCKERIZE=1
+    - env: BUILD_TYPE=dtb_build_test DO_NOT_DOCKERIZE=1
+           APPLY_DTB_BUILD_PATCHES="true"
+           DTS_FILES="arch/arm/boot/dts/zynq-*.dts
+                      arch/arm/boot/dts/socfpga_*.dts
+                      arch/arm64/boot/dts/xilinx/zynqmp-*.dts
+                      arch/microblaze/boot/dts/*.dts
+                      arch/nios2/boot/dts/*.dts"
+    - env: DEFCONFIG=socfpga_adi_defconfig ARCH=arm IMAGE=zImage
+           CHECK_ALL_ADI_DRIVERS_HAVE_BEEN_BUILT=1
+    - env: DEFCONFIG=zynq_xcomm_adv7511_defconfig ARCH=arm IMAGE=uImage
+           CHECK_ALL_ADI_DRIVERS_HAVE_BEEN_BUILT=1
+    - env: DEFCONFIG=zynq_pluto_defconfig ARCH=arm IMAGE=uImage
+    - env: DEFCONFIG=zynq_sidekiqz2_defconfig ARCH=arm IMAGE=uImage
+    - env: DEFCONFIG=adi_zynqmp_defconfig ARCH=arm64 IMAGE=Image
+           CHECK_ALL_ADI_DRIVERS_HAVE_BEEN_BUILT=1
+    - env: DEFCONFIG=zynq_m2k_defconfig ARCH=arm IMAGE=uImage
+  allow_failures:
+    - sync_branches: 1
+    - checkpatch: 1
+
+script:
+  - ./ci/travis/run-build-docker.sh
