@@ -1,0 +1,108 @@
+name: Build the ADI kernel matrix
+
+on:
+  push:
+    branches:
+      - 'staging/**'
+  pull_request:
+    branches:
+      - main
+      - master
+      - '20[1-9][0-9]_R[1-9]'
+
+jobs:
+  checkpatch:
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'pull_request' }}
+    env:
+      BUILD_TYPE: checkpatch
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        fetch-depth: 50
+    - name: Run Linux's checkpatch script
+      run: ./ci/travis/run-build.sh
+
+  check_is_new_adi_driver_dual_licensed:
+    runs-on: ubuntu-latest
+    env:
+      BUILD_TYPE: check_is_new_adi_driver_dual_licensed
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        fetch-depth: 50
+    - name: Check that this is a new ADI driver and is dual-licensed
+      run: ./ci/travis/run-build.sh
+
+  dtb_build_test:
+    runs-on: ubuntu-latest
+    env:
+      BUILD_TYPE: dtb_build_test
+      APPLY_DTB_BUILD_PATCHES: true
+      DTS_FILES: "arch/arm/boot/dts/zynq-*.dts
+                  arch/arm/boot/dts/socfpga_*.dts
+                  arch/arm64/boot/dts/xilinx/zynqmp-*.dts
+                  arch/microblaze/boot/dts/*.dts
+                  arch/nios2/boot/dts/*.dts"
+    steps:
+    - uses: actions/checkout@v2
+    - name: Build device-trees
+      run: ./ci/travis/run-build.sh
+
+  zynq_adi_default:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Build the Zynq ADI kernel flavour (all ADI drivers)
+      env:
+        DEFCONFIG: zynq_xcomm_adv7511_defconfig
+        ARCH: arm
+        IMAGE: uImage
+        CHECK_ALL_ADI_DRIVERS_HAVE_BEEN_BUILT: 1
+      run: ./ci/travis/run-build-docker.sh
+
+  socfpga_adi_default:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Build the SoCFPGA ADI kernel flavour (all ADI drivers)
+      env:
+        DEFCONFIG: socfpga_adi_defconfig
+        ARCH: arm
+        IMAGE: zImage
+        CHECK_ALL_ADI_DRIVERS_HAVE_BEEN_BUILT: 1
+      run: ./ci/travis/run-build-docker.sh
+
+  zynqmp_adi_default:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Build the ZynqMP ADI kernel flavour (all ADI drivers)
+      env:
+        DEFCONFIG: adi_zynqmp_defconfig
+        ARCH: arm64
+        IMAGE: Image
+        CHECK_ALL_ADI_DRIVERS_HAVE_BEEN_BUILT: 1
+      run: ./ci/travis/run-build-docker.sh
+
+  zynq_pluto:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Build the ADALM-PLUTO kernel
+      env:
+        DEFCONFIG: zynq_pluto_defconfig
+        ARCH: arm
+        IMAGE: uImage
+      run: ./ci/travis/run-build-docker.sh
+
+  zynq_m2k:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Build the Zynq ADALM-2000 kernel
+      env:
+        DEFCONFIG: zynq_m2k_defconfig
+        ARCH: arm
+        IMAGE: uImage
+      run: ./ci/travis/run-build-docker.sh

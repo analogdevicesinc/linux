@@ -1,0 +1,43 @@
+trigger:
+- rpi-4.19.y
+- rpi-5.4.y
+
+pr:
+- rpi-4.19.y
+- rpi-5.4.y
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+jobs:
+
+- job: checkpatch
+  condition: eq(variables['Build.Reason'], 'PullRequest')
+  variables:
+    BUILD_TYPE: checkpatch
+    TARGET_BRANCH: $[ variables['System.PullRequest.TargetBranch'] ]
+  steps:
+  - checkout: self
+    fetchDepth: 50
+    clean: true
+  - script: ./ci/travis/run-build.sh
+    displayName: 'Checkpatch Script'
+
+- job: BuildDockerized
+  strategy:
+    matrix:
+      bcm2709_arm_adi:
+        DEFCONFIG: adi_bcm2709_defconfig
+        ARCH: arm
+      bcm2711_arm_adi:
+        DEFCONFIG: adi_bcm2711_defconfig
+        ARCH: arm
+      bcmrpi_arm_adi:
+        DEFCONFIG: adi_bcmrpi_defconfig
+        ARCH: arm
+  steps:
+  - checkout: self
+    fetchDepth: 1
+    clean: true
+  - script: ./ci/travis/run-build-docker.sh
+    displayName: "Build test for '$(DEFCONFIG)'"
