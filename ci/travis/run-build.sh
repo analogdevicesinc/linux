@@ -178,11 +178,15 @@ build_checkpatch() {
 }
 
 build_dtb_build_test() {
-	apt_update_install $APT_LIST
-	make ${DEFCONFIG:-defconfig}
+	local last_arch
 	for file in $DTS_FILES; do
 		dtb_file=$(echo $file | sed 's/dts\//=/g' | cut -d'=' -f2 | sed 's\dts\dtb\g')
-		make ${dtb_file} || exit 1
+		arch=$(echo $file |  cut -d'/' -f2)
+		if [ "$last_arch" != "$arch" ] ; then
+			ARCH=$arch make defconfig
+			last_arch=$arch
+		fi
+		ARCH=$arch make ${dtb_file} || exit 1
 	done
 }
 
