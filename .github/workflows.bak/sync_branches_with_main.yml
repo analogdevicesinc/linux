@@ -1,0 +1,19 @@
+name: Synchronize legacy branches with main branch
+
+on:
+  push:
+    branches:
+      - main
+      - master
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        fetch-depth: 50
+    - name: Synchronize legacy branches with main branch
+      env:
+        BUILD_TYPE: sync_branches_with_main
+      run: MAIN_BRANCH="${GITHUB_REF#refs/heads/}" ./ci/travis/run-build.sh
