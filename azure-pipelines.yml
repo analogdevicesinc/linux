@@ -1,0 +1,105 @@
+variables:
+  isMain: $[eq(variables['Build.SourceBranch'], 'refs/heads/master')]
+
+trigger:
+- main
+- master
+- staging/*
+- 20*
+
+pr:
+- main
+- master
+- 20*
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+jobs:
+
+- job: sync_branches_with_main
+  condition: and(ne(variables['Build.Reason'], 'PullRequest'), eq(variables.isMain, true))
+  variables:
+    BUILD_TYPE: sync_branches_with_main
+    MAIN_BRANCH: $[ variables['Build.SourceBranchName'] ]
+    CI: true
+  steps:
+  - checkout: self
+    fetchDepth: 50
+    clean: true
+    persistCredentials: true
+  - script: ./ci/travis/run-build.sh
+    displayName: 'Sync Branches With Main Branch'
+
+- job: checkpatch
+  condition: eq(variables['Build.Reason'], 'PullRequest')
+  variables:
+    BUILD_TYPE: checkpatch
+    TARGET_BRANCH: $[ variables['System.PullRequest.TargetBranch'] ]
+  steps:
+  - checkout: self
+    fetchDepth: 50
+    clean: true
+  - script: ./ci/travis/run-build.sh
+    displayName: 'Checkpatch Script'
+
+- job: check_is_new_adi_driver_dual_licensed
+  condition: eq(variables['Build.Reason'], 'PullRequest')
+  variables:
+    BUILD_TYPE: check_is_new_adi_driver_dual_licensed
+    TARGET_BRANCH: $[ variables['System.PullRequest.TargetBranch'] ]
+  steps:
+  - checkout: self
+    fetchDepth: 50
+    clean: true
+  - script: ./ci/travis/run-build.sh
+    displayName: 'Check Is New ADI Driver & Dual Licensed'
+
+- job: dtb_build_test
+  variables:
+    APPLY_DTB_BUILD_PATCHES: true
+    BUILD_TYPE: dtb_build_test
+    DTS_FILES: "arch/arm/boot/dts/zynq-*.dts
+                arch/arm/boot/dts/socfpga_*.dts
+                arch/arm64/boot/dts/xilinx/zynqmp-*.dts
+                arch/microblaze/boot/dts/*.dts
+                arch/nios2/boot/dts/*.dts"
+  steps:
+  - checkout: self
+    fetchDepth: 1
+    clean: true
+  - script: ./ci/travis/run-build.sh
+    displayName: 'Device-Tree Build Test'
+
+- job: BuildDockerized
+  strategy:
+    matrix:
+      zynq_adi_default:
+        DEFCONFIG: zynq_xcomm_adv7511_defconfig
+        ARCH: arm
+        IMAGE: uImage
+        CHECK_ALL_ADI_DRIVERS_HAVE_BEEN_BUILT: 1
+      socfpga_adi_default:
+        DEFCONFIG: socfpga_adi_defconfig
+        ARCH: arm
+        IMAGE: zImage
+        CHECK_ALL_ADI_DRIVERS_HAVE_BEEN_BUILT: 1
+      zynqmp_adi_default:
+        DEFCONFIG: adi_zynqmp_defconfig
+        ARCH: arm64
+        IMAGE: Image
+        CHECK_ALL_ADI_DRIVERS_HAVE_BEEN_BUILT: 1
+      zynq_pluto:
+        DEFCONFIG: zynq_pluto_defconfig
+        ARCH: arm
+        IMAGE: uImage
+      zynq_m2k:
+        DEFCONFIG: zynq_m2k_defconfig
+        ARCH: arm
+        IMAGE: uImage
+  steps:
+  - checkout: self
+    fetchDepth: 1
+    clean: true
+  - script: ./ci/travis/run-build-docker.sh
+    displayName: "Build test for '$(DEFCONFIG)'"
