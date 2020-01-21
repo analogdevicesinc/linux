@@ -15,6 +15,10 @@
 
 #include "jesd204-priv.h"
 
+static struct bus_type jesd204_bus_type = {
+	.name = "jesd204",
+};
+
 static DEFINE_MUTEX(jesd204_device_list_lock);
 static LIST_HEAD(jesd204_device_list);
 static LIST_HEAD(jesd204_topologies);
@@ -243,6 +247,12 @@ static int __init jesd204_init(void)
 
 	mutex_init(&jesd204_device_list_lock);
 
+	ret  = bus_register(&jesd204_bus_type);
+	if (ret < 0) {
+		pr_err("could not register bus type\n");
+		return ret;
+	}
+
 	ret = jesd204_of_create_devices();
 	if (ret < 0)
 		goto error_unreg_devices;
@@ -259,6 +269,7 @@ static void __exit jesd204_exit(void)
 {
 	jesd204_of_unregister_devices();
 	mutex_destroy(&jesd204_device_list_lock);
+	bus_unregister(&jesd204_bus_type);
 }
 
 subsys_initcall(jesd204_init);
