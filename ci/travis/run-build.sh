@@ -191,6 +191,11 @@ build_dtb_build_test() {
 			ARCH=$arch make defconfig
 			last_arch=$arch
 		fi
+		# XXX: hack for nios2, which doesn't have `arch/nios2/boot/dts/Makefile`
+		# but even an empty one is fine
+		if [ ! -f arch/$arch/boot/dts/Makefile ] ; then
+			touch arch/$arch/boot/dts/Makefile
+		fi
 		ARCH=$arch make ${dtb_file} -j$NUM_JOBS || exit 1
 	done
 }
