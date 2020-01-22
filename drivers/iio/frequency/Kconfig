@@ -72,6 +72,17 @@ config ADF4377
 	  To compile this driver as a module, choose M here: the
 	  module will be called adf4377.
 
+config ADF5355
+	tristate "Analog Devices ADF5355/ADF4355 Wideband Synthesizers"
+	depends on SPI
+	depends on COMMON_CLK
+	help
+	  Say yes here to build support for Analog Devices ADF5355/ADF4355
+	  Wideband Synthesizers. The driver provides direct access via sysfs.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called adf5355.
+
 config ADMFM2000
 	tristate "Analog Devices ADMFM2000 Dual Microwave Down Converter"
 	depends on GPIOLIB
