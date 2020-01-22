@@ -191,7 +191,7 @@ build_dtb_build_test() {
 			ARCH=$arch make defconfig
 			last_arch=$arch
 		fi
-		ARCH=$arch make ${dtb_file} || exit 1
+		ARCH=$arch make ${dtb_file} -j$NUM_JOBS || exit 1
 	done
 }
 
