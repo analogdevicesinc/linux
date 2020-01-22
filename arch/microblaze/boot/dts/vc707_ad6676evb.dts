@@ -10,7 +10,7 @@
  * Copyright (C) 2016-2019 Analog Devices Inc.
  */
 /dts-v1/;
-/include/ "vc707.dtsi"
+#include "vc707.dtsi"
 
 #define fmc_i2c fmc1_hpc_iic
 #define fmc_spi axi_spi

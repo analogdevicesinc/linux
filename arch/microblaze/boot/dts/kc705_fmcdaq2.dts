@@ -9,7 +9,7 @@
  * Copyright 2016-2020 Analog Devices Inc.
  */
 /dts-v1/;
-/include/ "kc705.dtsi"
+#include "kc705.dtsi"
 
 #define fmc_i2c fmc_hpc_iic
 #define fmc_spi axi_spi
