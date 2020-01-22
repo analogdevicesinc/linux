@@ -59,5 +59,16 @@ config ADF4371
 
 	  To compile this driver as a module, choose M here: the
 	  module will be called adf4371.
+
+config ADF5355
+	tristate "Analog Devices ADF5355/ADF4355 Wideband Synthesizers"
+	depends on SPI
+	depends on COMMON_CLK
+	help
+	  Say yes here to build support for Analog Devices ADF5355/ADF4355
+	  Wideband Synthesizers. The driver provides direct access via sysfs.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called adf5355.
 endmenu
 endmenu
