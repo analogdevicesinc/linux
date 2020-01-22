@@ -1,2 +1,2 @@
 /dts-v1/;
-/include/ "kc705.dtsi"
+#include "kc705.dtsi"
