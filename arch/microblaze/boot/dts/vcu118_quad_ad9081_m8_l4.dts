@@ -9,7 +9,7 @@
 #include <dt-bindings/iio/adc/adi,ad9081.h>
 #include <dt-bindings/gpio/gpio.h>
 
-#include "vcu118_quad_ad9081.dts"
+#include "vcu118_quad_ad9081.dtsi"
 
 #define ADRF4360_RF16_FREQUENCY_HZ 12000000000
 //#define ADRF4360_RF16_FREQUENCY_HZ 500000000
