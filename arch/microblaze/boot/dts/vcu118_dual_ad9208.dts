@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /dts-v1/;
-/include/ "vcu118.dtsi"
+#include "vcu118.dtsi"
 
 #define fmc_i2c fmcp_hspc_iic
 #define fmc_spi axi_spi
