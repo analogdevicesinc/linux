@@ -1,0 +1,87 @@
+Analog Devices ADF5355/ADF4355 device driver
+
+Required properties:
+	- compatible: Should be one of
+		* "adi,adf5355": When using the ADF5355 device
+		* "adi,adf4355-2": When using the ADF4355-2 device
+	- reg: SPI chip select numbert for the device
+	- spi-max-frequency: Max SPI frequency to use (< 20000000)
+	- clocks: From common clock binding. Clock is phandle to clock for
+		ADF5355 Reference Clock (CLKIN).
+
+Optional properties:
+	- gpios:	GPIO Lock detect - If set with a valid phandle and GPIO
+			number, pll lock state is tested upon read.
+	- clock-output-names : From common clock binding to override the
+			default output clock name.
+	- adi,power-up-frequency: If set in Hz the PLL tunes to
+			the desired frequency on probe.
+	- adi,reference-div-factor: If set the driver skips dynamic calculation
+			and uses this default value instead.
+	- adi,reference-doubler-enable: Enables reference doubler.
+	- adi,reference-div2-enable: Enables reference divider.
+	- adi,reference-differential-input-enable: The device permits use of
+			either differential or single ended reference sources.
+			For differential sources set this property.
+	- adi,phase-detector-polarity-negative-enable: When a passive loop
+			filter or a noninverting active loop filter is used,
+			clear for positive. If an active filter with an
+			inverting characteristic is used, set this to negative.
+	- adi,charge-pump-current: Set the charge pump current in uA.
+			Set this value to the charge pump current that the loop
+			filter is designed with. For the lowest spurs, the
+			900 uA setting is recommended.
+	- adi,charge-pump-negative-bleed-enable: Use of constant negative bleed.
+			(recommended for most fractional-N applications)
+	- adi,charge-pump-gated-bleed-enable: Enables gated bleed.
+	- adi,muxout-select: On chip multiplexer output selection.
+			Valid values for the multiplexer output are:
+			0: Three-State Output (default)
+			1: DVDD
+			2: DGND
+			3: R-Counter output
+			4: N-Divider output
+			5: Analog lock detect
+			6: Digital lock detect
+	- adi,muxout-level-3v3-enable: MUXOUT is programmable to two logic
+			levels. Clear this to select 1.8 V logic,
+			and set it to select 3.3 V logic.
+	- adi,mute-till-lock-enable: If enabled, the supply current to the RF
+			output stage is shut down until the device achieves lock,
+			as determined by the digital lock detect circuitry.
+	- adi,output-b-enable: Enables or disables the primary RF output
+	- adi,output-a-enable: Enables or disables the auxiliary/high RF output
+	- adi,output-a-power: Primary RF output power selection.
+			Valid values for the power mode are:
+			0: -4dBm (default)
+			1: -1dBm
+			2: +2dBm
+			3: +5dBm
+	- adi,output-b-power: Auxiliary output power selection.
+			Valid values for the power mode are:
+			0: -4dBm (default)
+			1: -1dBm
+			2: +2dBm
+			3: +5dBm
+
+
+Example:
+			adf5355@0 {
+				compatible = "adf5355";
+				reg = <0>;
+				spi-max-frequency = <1000000>;
+				clocks = <&adf4351_clkin>;
+				clock-names = "clkin";
+				clock-output-names = "adf5355_out";
+				adi,charge-pump-current = <900>;
+				adi,muxout-select = <6>;
+				adi,mute-till-lock-enable;
+				adi,output-a-power = <2>;
+				adi,output-b-power = <2>;
+				adi,output-b-enable;
+				adi,output-a-enable;
+				adi,charge-pump-negative-bleed-enable;
+				adi,reference-differential-input-enable;
+				adi,muxout-level-3v3-enable;
+				adi,power-up-frequency = <123000000>;
+			};
