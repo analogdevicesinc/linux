@@ -185,11 +185,7 @@ build_checkpatch() {
 }
 
 build_dtb_build_test() {
-	if [ "$TRAVIS" = "true" ] ; then
-		for patch in $(ls ci/travis/*.patch | sort) ; do
-			patch -p1 < $patch
-		done
-	fi
+	apt_update_install $APT_LIST
 	local last_arch
 	for file in $DTS_FILES; do
 		dtb_file=$(echo $file | sed 's/dts\//=/g' | cut -d'=' -f2 | sed 's\dts\dtb\g')
