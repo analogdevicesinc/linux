@@ -1020,6 +1020,9 @@ int dwc3_core_init(struct dwc3 *dwc)
 	if (ret)
 		goto err0a;
 
+	if (dwc->mask_phy_rst)
+		dwc3_mask_phy_reset(dwc->dev, TRUE);
+
 	dwc3_core_setup_global_control(dwc);
 	dwc3_core_num_eps(dwc);
 
@@ -1469,6 +1472,8 @@ static void dwc3_get_properties(struct dwc3 *dwc)
 				"snps,enable_guctl1_ipd_quirk");
 	dwc->dis_metastability_quirk = device_property_read_bool(dev,
 				"snps,dis_metastability_quirk");
+	dwc->mask_phy_rst = device_property_read_bool(dev,
+				"snps,mask_phy_reset");
 
 	dwc->dis_split_quirk = device_property_read_bool(dev,
 				"snps,dis-split-quirk");
