@@ -1,0 +1,39 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+# %YAML 1.2
+---
+$id: http://devicetree.org/schemas/iio/amplifier/ad916x-amp.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Analog devices AD916x internal Amplifier.
+
+maintainers:
+  - Nuno Sá <nuno.sa@analog.com>
+
+description: |
+  Analog Devices AD916x Amplifier is an internal buffer which can be seen in some of the AD916x
+  devices (eg. ad9166).
+
+properties:
+  compatible:
+    enum:
+      - adi,ad9166-amp
+
+  reg:
+    maxItems: 1
+
+required:
+  - compatible
+  - reg
+
+examples:
+  - |
+    spi0 {
+        #address-cells = <1>;
+        #size-cells = <0>;
+
+        amplifier@0 {
+            compatible = "adi,ad9166-amp";
+            reg = <0>;
+        };
+    };
+...
