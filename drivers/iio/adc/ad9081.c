@@ -58,6 +58,7 @@ enum {	CDDC_NCO_FREQ,
 enum {
 	AD9081_LOOPBACK_MODE,
 	AD9081_ADC_CLK_PWDN,
+	AD9081_MCS,
 };
 
 struct ad9081_jesd_link {
@@ -1587,6 +1588,106 @@ static int ad9081_setup(struct spi_device *spi, bool ad9234)
 	return 0;
 }
 
+static int ad9081_multichip_sync(struct ad9081_phy *phy, int step)
+{
+	int ret;
+
+	dev_dbg(&phy->spi->dev, "%s:%d\n",__func__, step);
+
+	switch (step & 0xFF) {
+	case 0:
+		/* enable txfe link */
+		ret = adi_ad9081_jesd_tx_link_enable_set(&phy->ad9081,
+			(phy->jesd_rx_link[0].jesd_param.jesd_duallink > 0) ?
+			AD9081_LINK_ALL : AD9081_LINK_0, 0);
+		if (ret != 0)
+			return ret;
+
+		if (!IS_ERR_OR_NULL(phy->jesd_rx_clk))
+			clk_disable_unprepare(phy->jesd_rx_clk);
+
+		break;
+	case 1:
+		/* enable txfe link */
+		ret = adi_ad9081_jesd_tx_link_enable_set(&phy->ad9081,
+			(phy->jesd_rx_link[0].jesd_param.jesd_duallink > 0) ?
+			AD9081_LINK_ALL : AD9081_LINK_0, 1);
+		if (ret != 0)
+			return ret;
+
+		if (!IS_ERR_OR_NULL(phy->jesd_rx_clk)) {
+			ret = clk_prepare_enable(phy->jesd_rx_clk);
+			if (ret < 0) {
+				dev_err(&phy->spi->dev,
+					"Failed to enable JESD204 link: %d\n", ret);
+				return ret;
+			}
+		}
+		ad9081_jesd_tx_link_status_print(phy);
+		break;
+	case 2:
+
+		ret = adi_ad9081_jesd_rx_link_enable_set(&phy->ad9081,
+			(phy->jesd_tx_link.jesd_param.jesd_duallink > 0) ?
+			AD9081_LINK_ALL : AD9081_LINK_0, 0);
+		if (ret != 0)
+			return ret;
+
+		if (!IS_ERR_OR_NULL(phy->jesd_tx_clk))
+			clk_disable_unprepare(phy->jesd_tx_clk);
+
+		break;
+	case 3:
+
+		if (!IS_ERR_OR_NULL(phy->jesd_tx_clk)) {
+			ret = clk_prepare_enable(phy->jesd_tx_clk);
+			if (ret < 0) {
+				dev_err(&phy->spi->dev,
+					"Failed to enable JESD204 link: %d\n", ret);
+				return ret;
+			}
+		}
+
+		ret = adi_ad9081_jesd_rx_link_enable_set(&phy->ad9081,
+			(phy->jesd_tx_link.jesd_param.jesd_duallink > 0) ?
+			AD9081_LINK_ALL : AD9081_LINK_0, 1);
+		if (ret != 0)
+			return ret;
+
+		ad9081_jesd_rx_link_status_print(phy);
+		break;
+	case 4:
+		ret = adi_ad9081_jesd_oneshot_sync(&phy->ad9081);
+		break;
+	case 5:
+		ret = ad9081_nco_sync_master_slave(phy, !IS_ERR_OR_NULL(phy->jesd_rx_clk));
+		if (ret != 0)
+			return ret;
+		break;
+	case 6:
+		ret = adi_ad9081_dac_nco_sync_set(&phy->ad9081, step >> 8);
+		break;
+	case 7:
+		ret = adi_ad9081_jesd_rx_link_enable_set(&phy->ad9081,
+			(phy->jesd_tx_link.jesd_param.jesd_duallink > 0) ?
+			AD9081_LINK_ALL : AD9081_LINK_0, 0);
+		if (ret != 0)
+			return ret;
+		mdelay(1);
+		ret = adi_ad9081_jesd_rx_link_enable_set(&phy->ad9081,
+			(phy->jesd_tx_link.jesd_param.jesd_duallink > 0) ?
+			AD9081_LINK_ALL : AD9081_LINK_0, 1);
+		ad9081_jesd_rx_link_status_print(phy);
+		if (ret != 0)
+			return ret;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 static int ad9081_read_raw(struct iio_dev *indio_dev,
 			   const struct iio_chan_spec *chan, int *val,
 			   int *val2, long info)
@@ -1706,6 +1807,15 @@ static ssize_t ad9081_phy_store(struct device *dev,
 		adi_ad9081_adc_clk_enable_set(&phy->ad9081, !bres);
 		phy->device_cache.adc_clk_pwdn = bres;
 		break;
+	case AD9081_MCS:
+		ret = kstrtoul(buf, 0, &res);
+		if (ret) {
+			ret = -EINVAL;
+			break;
+		}
+		/* setup txfe loopback mode */
+		ret = ad9081_multichip_sync(phy, res);
+		break;
 	default:
 		ret = -EINVAL;
 	}
@@ -1751,9 +1861,15 @@ static IIO_DEVICE_ATTR(adc_clk_powerdown, S_IRUGO | S_IWUSR,
 		ad9081_phy_store,
 		AD9081_ADC_CLK_PWDN);
 
+static IIO_DEVICE_ATTR(multichip_sync, S_IWUSR,
+		NULL,
+		ad9081_phy_store,
+		AD9081_MCS);
+
 static struct attribute *ad9081_phy_attributes[] = {
 	&iio_dev_attr_loopback_mode.dev_attr.attr,
 	&iio_dev_attr_adc_clk_powerdown.dev_attr.attr,
+	&iio_dev_attr_multichip_sync.dev_attr.attr,
 	NULL,
 };
 
