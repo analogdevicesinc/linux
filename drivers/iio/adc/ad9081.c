@@ -1310,10 +1310,10 @@ int ad9081_jesd_rx_link_status_print(struct ad9081_phy *phy)
 				l, stat >> 8);
 
 		if (!phy->jesd_rx_link[l - 1].jesd_param.jesd_duallink)
-			return 0;
+			return stat & 0xF;
 	}
 
-	return 0;
+	return stat & 0xF;
 }
 
 static int ad9081_setup(struct spi_device *spi, bool ad9234)
@@ -1456,17 +1456,14 @@ static int ad9081_setup(struct spi_device *spi, bool ad9234)
 	if (ret != 0 || !dcm)
 		return ret;
 
-	if (!IS_ERR_OR_NULL(phy->jesd_rx_clk)) {
-		lane_rate_kbps = ad9081_calc_lanerate(&phy->jesd_rx_link[0],
-						phy->adc_frequency_hz,
-						dcm);
-
-		ret = clk_set_rate(phy->jesd_rx_clk, lane_rate_kbps);
-		if (ret < 0) {
-			dev_err(&spi->dev, "Failed to set lane rate to %lu kHz: %d\n",
-				lane_rate_kbps, ret);
-		}
+	if (phy->config_sync_01_swapped) {
+		adi_ad9081_jesd_rx_syncb_driver_powerdown_set(&phy->ad9081, 0);
+		adi_ad9081_hal_reg_set(&phy->ad9081,
+			REG_GENERAL_JRX_CTRL_ADDR, 0x80);
+		adi_ad9081_jesd_tx_sync_mode_set(&phy->ad9081,
+			AD9081_LINK_0, 1);
 	}
+
 	if (!IS_ERR_OR_NULL(phy->jesd_tx_clk)) {
 		lane_rate_kbps =
 			ad9081_calc_lanerate(&phy->jesd_tx_link,
@@ -1480,27 +1477,15 @@ static int ad9081_setup(struct spi_device *spi, bool ad9234)
 		}
 	}
 
-	if (phy->config_sync_01_swapped) {
-		adi_ad9081_jesd_rx_syncb_driver_powerdown_set(&phy->ad9081, 0);
-		adi_ad9081_hal_reg_set(&phy->ad9081,
-			REG_GENERAL_JRX_CTRL_ADDR, 0x80);
-		adi_ad9081_jesd_tx_sync_mode_set(&phy->ad9081,
-			AD9081_LINK_0, 1);
-	}
+	if (!IS_ERR_OR_NULL(phy->jesd_rx_clk)) {
+		lane_rate_kbps = ad9081_calc_lanerate(&phy->jesd_rx_link[0],
+						phy->adc_frequency_hz,
+						dcm);
 
-	/* enable txfe link */
-	ret = adi_ad9081_jesd_tx_link_enable_set(&phy->ad9081,
-		(phy->jesd_rx_link[0].jesd_param.jesd_duallink > 0) ?
-		AD9081_LINK_ALL : AD9081_LINK_0, 1);
-	if (ret != 0)
-		return ret;
-
-	if (!IS_ERR_OR_NULL(phy->jesd_tx_clk)) {
-		ret = clk_prepare_enable(phy->jesd_tx_clk);
+		ret = clk_set_rate(phy->jesd_rx_clk, lane_rate_kbps);
 		if (ret < 0) {
-			dev_err(&spi->dev,
-				"Failed to enable JESD204 link: %d\n", ret);
-			return ret;
+			dev_err(&spi->dev, "Failed to set lane rate to %lu kHz: %d\n",
+				lane_rate_kbps, ret);
 		}
 	}
 
@@ -1510,7 +1495,9 @@ static int ad9081_setup(struct spi_device *spi, bool ad9234)
 	if (ret != 0)
 		return ret;
 
+
 	if (!IS_ERR_OR_NULL(phy->jesd_rx_clk)) {
+		msleep(10);
 		ret = clk_prepare_enable(phy->jesd_rx_clk);
 		if (ret < 0) {
 			dev_err(&spi->dev,
@@ -1519,8 +1506,62 @@ static int ad9081_setup(struct spi_device *spi, bool ad9234)
 		}
 	}
 
+	ret = adi_ad9081_jesd_tx_link_enable_set(&phy->ad9081,
+		(phy->jesd_rx_link[0].jesd_param.jesd_duallink > 0) ?
+		AD9081_LINK_ALL : AD9081_LINK_0, 1);
+	if (ret != 0)
+		return ret;
+
+	/* enable txfe link */
+	if (!IS_ERR_OR_NULL(phy->jesd_tx_clk)) {
+		int stat, retry = 5;
+
+		ret = clk_prepare_enable(phy->jesd_tx_clk);
+		if (ret < 0) {
+			dev_err(&spi->dev,
+				"Failed to enable JESD204 link: %d\n", ret);
+			return ret;
+
+		}
+
+		do {	/* temp workaround until API is fixed */
+			mdelay(10);
+			stat = ad9081_jesd_rx_link_status_print(phy);
+			if (stat <= 0) {
+				ret = adi_ad9081_jesd_rx_link_enable_set(
+					&phy->ad9081,
+					(phy->jesd_tx_link.jesd_param.jesd_duallink > 0) ?
+					AD9081_LINK_ALL : AD9081_LINK_0, 0);
+				if (ret != 0)
+					return ret;
+
+				clk_disable_unprepare(phy->jesd_tx_clk);
+
+				mdelay(100);
+
+				ret = clk_prepare_enable(phy->jesd_tx_clk);
+				if (ret < 0) {
+					dev_err(&spi->dev,
+						"Failed to enable JESD204 link: %d\n",
+						ret);
+					return ret;
+
+				}
+
+				ret = adi_ad9081_jesd_rx_link_enable_set(
+					&phy->ad9081,
+					(phy->jesd_tx_link.jesd_param.jesd_duallink > 0) ?
+					AD9081_LINK_ALL : AD9081_LINK_0, 1);
+				if (ret != 0)
+					return ret;
+
+				mdelay(100);
+			}
+		} while (stat <= 0 && retry--);
+	}
+
+
 	ad9081_jesd_tx_link_status_print(phy);
-	ad9081_jesd_rx_link_status_print(phy);
 
 	adi_ad9081_dac_irqs_status_get(&phy->ad9081, &status64);
 	dev_dbg(&spi->dev, "DAC IRQ status 0x%llX\n", status64);
