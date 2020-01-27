@@ -1332,7 +1332,7 @@ static int ad9081_setup(struct spi_device *spi, bool ad9234)
 
 	ret = adi_ad9081_hal_bf_set(&phy->ad9081, REG_SYSREF_AVERAGE_ADDR,
 		BF_SYSREF_AVERAGE_INFO,
-		BF_SYSREF_AVERAGE(5));
+		BF_SYSREF_AVERAGE(7));
 
 	ret = adi_ad9081_device_clk_config_set(
 		&phy->ad9081, phy->dac_frequency_hz, phy->adc_frequency_hz,
