@@ -34,7 +34,7 @@ static struct jesd204_dev *jesd204_dev_alloc(struct device_node *np)
 			return ERR_PTR(-ENOMEM);
 
 		jdev = &jdev_top->jdev;
-		list_add(&jdev_top->list, &jesd204_topologies);
+		list_add(&jdev_top->entry, &jesd204_topologies);
 		jesd204_topologies_count++;
 	} else {
 		jdev = kzalloc(sizeof(*jdev), GFP_KERNEL);
@@ -48,7 +48,7 @@ static struct jesd204_dev *jesd204_dev_alloc(struct device_node *np)
 	jdev->np = of_node_get(np);
 	kref_init(&jdev->ref);
 
-	list_add(&jdev->list, &jesd204_device_list);
+	list_add(&jdev->entry, &jesd204_device_list);
 	jesd204_device_count++;
 
 	return jdev;
@@ -61,7 +61,7 @@ static struct jesd204_dev *jesd204_dev_find_by_of_node(struct device_node *np)
 	if (!np)
 		return NULL;
 
-	list_for_each_entry(jdev_it, &jesd204_device_list, list) {
+	list_for_each_entry(jdev_it, &jesd204_device_list, entry) {
 		if (jdev_it->np == np) {
 			jdev = jdev_it;
 			break;
@@ -130,7 +130,7 @@ static void jesd204_of_unregister_devices(void)
 {
 	struct jesd204_dev *jdev, *j;
 
-	list_for_each_entry_safe(jdev, j, &jesd204_device_list, list) {
+	list_for_each_entry_safe(jdev, j, &jesd204_device_list, entry) {
 		jesd204_dev_unregister(jdev);
 	}
 }
@@ -149,13 +149,13 @@ static void __jesd204_dev_release(struct kref *ref)
 	if (jdev->is_top) {
 		jdev_top = jesd204_dev_top_dev(jdev);
 		if (jdev_top) {
-			list_del(&jdev_top->list);
+			list_del(&jdev_top->entry);
 			jesd204_topologies_count--;
 		}
 	} else
 		jdev_top = NULL;
 
-	list_del(&jdev->list);
+	list_del(&jdev->entry);
 	of_node_put(jdev->np);
 
 	if (jdev_top)
