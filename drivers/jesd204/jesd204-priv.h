@@ -15,7 +15,7 @@ struct jesd204_dev_top;
 
 /**
  * struct jesd204_dev - JESD204 device
- * @list		list entry for the framework to keep a list of devices
+ * @entry		list entry for the framework to keep a list of devices
  * @is_top		true if this device is a top device in a topology of
  *			devices that make up a JESD204 link (typically the
  *			device that is the ADC, DAC, or transceiver)
@@ -24,7 +24,7 @@ struct jesd204_dev_top;
  * @ref			ref count for this JESD204 device
  */
 struct jesd204_dev {
-	struct list_head		list;
+	struct list_head		entry;
 
 	bool				is_top;
 
@@ -35,12 +35,12 @@ struct jesd204_dev {
 
 /**
  * struct jesd204_dev_top - JESD204 top device (in a JESD204 topology)
- * @list		list entry for the framework to keep a list of top
+ * @entry		list entry for the framework to keep a list of top
  *			devices (and implicitly topologies)
  * @jdev		JESD204 device data
  */
 struct jesd204_dev_top {
-	struct list_head		list;
+	struct list_head		entry;
 
 	struct jesd204_dev		jdev;
 };
