@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: GPL-2.0
 /*!
  * @brief     APIs to call HAL functions
- * 
+ *
  * @copyright copyright(c) 2018 analog devices, inc. all rights reserved.
  *            This software is proprietary to Analog Devices, Inc. and its
  *            licensor. By using this software you agree to the terms of the
  *            associated analog devices software license agreement.
  */
 
-/*! 
+/*!
  * @addtogroup __AD9081_HAL__
  * @{
  */

@@ -102,4 +102,4 @@
 #define BF_PFILT_COEFF_PAGE3_GET(val) ((val >> 0x00000003) & 0x00000001)
 
 #endif /* __ADI_AD9081_BF_RX_PAGING_H__ */
-       /*! @} */
+/*! @} */

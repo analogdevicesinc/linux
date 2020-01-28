@@ -95,4 +95,4 @@
 #define BF_CHIP_ID_H_GET(val) (val & 0x000000FF)
 
 #endif /* __ADI_AD9081_BF_MAIN_H__ */
-       /*! @} */
+/*! @} */

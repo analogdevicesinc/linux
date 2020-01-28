@@ -316,4 +316,4 @@
 #define BF_COARSE_TIMESTAMP_READ_ENABLE_GET(val) (val & 0x00000001)
 
 #endif /* __ADI_AD9081_BF_NB_COARSE_NCO_H__ */
-       /*! @} */
+/*! @} */

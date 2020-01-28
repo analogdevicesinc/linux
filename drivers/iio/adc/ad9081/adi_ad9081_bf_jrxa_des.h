@@ -430,4 +430,4 @@
 #define BF_SEL_LF_QUARTERRATE_DES_RC_GET(val) (val & 0x000000FF)
 
 #endif /* __ADI_AD9081_BF_JRXA_DES_H__ */
-       /*! @} */
+/*! @} */
