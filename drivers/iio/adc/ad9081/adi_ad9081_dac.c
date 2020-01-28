@@ -137,6 +137,23 @@ int32_t adi_ad9081_dac_duc_nco_gain_set(adi_ad9081_device_t *device,
 	return API_CMS_ERROR_OK;
 }
 
+int32_t adi_ad9081_dac_duc_nco_gains_set(adi_ad9081_device_t *device,
+					 uint16_t gains[8])
+{
+	int32_t err;
+	uint8_t i;
+	AD9081_NULL_POINTER_RETURN(device);
+	AD9081_LOG_FUNC();
+
+	for (i = 0; i < 8; i++) {
+		err = adi_ad9081_dac_duc_nco_gain_set(
+			device, AD9081_DAC_CH_0 << i, gains[i]);
+		AD9081_ERROR_RETURN(err);
+	}
+
+	return API_CMS_ERROR_OK;
+}
+
 int32_t adi_ad9081_dac_duc_chan_skew_set(adi_ad9081_device_t *device,
 					 uint8_t channels, uint8_t skew)
 {
@@ -1681,6 +1698,30 @@ int32_t adi_ad9081_dac_nco_master_slave_mode_set(adi_ad9081_device_t *device,
 	err = adi_ad9081_hal_bf_set(device, REG_NCOSYNC_MS_MODE_ADDR,
 				    BF_NCO_SYNC_MS_MODE_INFO, mode);
 	AD9081_ERROR_RETURN(err);
+
+	return API_CMS_ERROR_OK;
+}
+
+int32_t adi_ad9081_dac_nco_master_slave_gpio_set(adi_ad9081_device_t *device,
+						 uint8_t gpio_index,
+						 uint8_t output)
+{
+	int32_t err;
+	AD9081_NULL_POINTER_RETURN(device);
+	AD9081_LOG_FUNC();
+	AD9081_INVALID_PARAM_RETURN(gpio_index > 5);
+
+	if ((gpio_index & 1) == 0) {
+		err = adi_ad9081_hal_bf_set(
+			device, REG_GPIO_CFG0_ADDR + (gpio_index >> 1), 0x0400,
+			(output > 0) ? 10 : 11);
+		AD9081_ERROR_RETURN(err);
+	} else {
+		err = adi_ad9081_hal_bf_set(
+			device, REG_GPIO_CFG0_ADDR + (gpio_index >> 1), 0x0404,
+			(output > 0) ? 10 : 11);
+		AD9081_ERROR_RETURN(err);
+	}
 
 	return API_CMS_ERROR_OK;
 }
