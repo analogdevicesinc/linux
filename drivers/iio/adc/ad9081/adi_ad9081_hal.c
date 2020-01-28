@@ -73,7 +73,8 @@ int32_t adi_ad9081_hal_log_write(adi_ad9081_device_t *device,
 	va_list argp;
 	AD9081_NULL_POINTER_RETURN(device);
 
-	if (device->hal_info.log_write != NULL) {
+	if (((log_type & ADI_REPORT_VERBOSE) > 0) &&
+	    (device->hal_info.log_write != NULL)) {
 		va_start(argp, comment);
 		if (API_CMS_ERROR_OK !=
 		    device->hal_info.log_write(device->hal_info.user_data,
@@ -252,6 +253,10 @@ int32_t adi_ad9081_hal_reg_get(adi_ad9081_device_t *device, uint32_t reg,
 					      in_data, out_data, 0x3))
 			return API_CMS_ERROR_SPI_XFER;
 		*data = out_data[2];
+		if (API_CMS_ERROR_OK !=
+		    AD9081_LOG_SPIR((in_data[0] << 8) + in_data[1],
+				    out_data[2]))
+			return API_CMS_ERROR_LOG_WRITE;
 	} else { /* access extended 32-bit data space */
 		in_data[0] = 0x3D;
 		in_data[1] = 0x21;
@@ -260,6 +265,8 @@ int32_t adi_ad9081_hal_reg_get(adi_ad9081_device_t *device, uint32_t reg,
 		    device->hal_info.spi_xfer(device->hal_info.user_data,
 					      in_data, out_data, 0x3))
 			return API_CMS_ERROR_SPI_XFER;
+		if (API_CMS_ERROR_OK != AD9081_LOG_SPIW(0x3d21, in_data[2]))
+			return API_CMS_ERROR_LOG_WRITE;
 		in_data[0] = 0x3D;
 		in_data[1] = 0x22;
 		in_data[2] = (reg >> 16) & 0xFF;
@@ -267,6 +274,8 @@ int32_t adi_ad9081_hal_reg_get(adi_ad9081_device_t *device, uint32_t reg,
 		    device->hal_info.spi_xfer(device->hal_info.user_data,
 					      in_data, out_data, 0x3))
 			return API_CMS_ERROR_SPI_XFER;
+		if (API_CMS_ERROR_OK != AD9081_LOG_SPIW(0x3d22, in_data[2]))
+			return API_CMS_ERROR_LOG_WRITE;
 		in_data[0] = 0x3D;
 		in_data[1] = 0x23;
 		in_data[2] = (reg >> 24) & 0xFF;
@@ -274,6 +283,8 @@ int32_t adi_ad9081_hal_reg_get(adi_ad9081_device_t *device, uint32_t reg,
 		    device->hal_info.spi_xfer(device->hal_info.user_data,
 					      in_data, out_data, 0x3))
 			return API_CMS_ERROR_SPI_XFER;
+		if (API_CMS_ERROR_OK != AD9081_LOG_SPIW(0x3d23, in_data[2]))
+			return API_CMS_ERROR_LOG_WRITE;
 		if (((reg >= 0x4F00000) && (reg <= 0x4FFFFFF)) ||
 		    ((reg >= 0x6001000) && (reg <= 0x60010FF))) {
 			/* 32-bit address, 8-bit data */
@@ -284,6 +295,10 @@ int32_t adi_ad9081_hal_reg_get(adi_ad9081_device_t *device, uint32_t reg,
 						      in_data, out_data, 0x3))
 				return API_CMS_ERROR_SPI_XFER;
 			*data = out_data[2];
+			if (API_CMS_ERROR_OK !=
+			    AD9081_LOG_SPIR((in_data[0] << 8) + in_data[1],
+					    out_data[2]))
+				return API_CMS_ERROR_LOG_WRITE;
 		} else {
 			/* 32-bit address, 32-bit data */
 			reg += (device->hal_info.addr_inc ==
@@ -308,6 +323,10 @@ int32_t adi_ad9081_hal_reg_get(adi_ad9081_device_t *device, uint32_t reg,
 						    (out_data[3] << 16) +
 						    (out_data[2] << 24);
 			}
+			if (API_CMS_ERROR_OK !=
+			    AD9081_LOG_SPIR32((in_data[0] << 8) + in_data[1],
+					      *(uint32_t *)data))
+				return API_CMS_ERROR_LOG_WRITE;
 		}
 	}
 
@@ -329,6 +348,9 @@ int32_t adi_ad9081_hal_reg_set(adi_ad9081_device_t *device, uint32_t reg,
 		    device->hal_info.spi_xfer(device->hal_info.user_data,
 					      in_data, out_data, 0x3))
 			return API_CMS_ERROR_SPI_XFER;
+		if (API_CMS_ERROR_OK !=
+		    AD9081_LOG_SPIW(reg & 0x3fff, in_data[2]))
+			return API_CMS_ERROR_LOG_WRITE;
 	} else { /* access extended 32-bit data space */
 		in_data[0] = 0x3D;
 		in_data[1] = 0x21;
@@ -337,6 +359,8 @@ int32_t adi_ad9081_hal_reg_set(adi_ad9081_device_t *device, uint32_t reg,
 		    device->hal_info.spi_xfer(device->hal_info.user_data,
 					      in_data, out_data, 0x3))
 			return API_CMS_ERROR_SPI_XFER;
+		if (API_CMS_ERROR_OK != AD9081_LOG_SPIW(0x3d21, in_data[2]))
+			return API_CMS_ERROR_LOG_WRITE;
 		in_data[0] = 0x3D;
 		in_data[1] = 0x22;
 		in_data[2] = (reg >> 16) & 0xFF;
@@ -344,6 +368,8 @@ int32_t adi_ad9081_hal_reg_set(adi_ad9081_device_t *device, uint32_t reg,
 		    device->hal_info.spi_xfer(device->hal_info.user_data,
 					      in_data, out_data, 0x3))
 			return API_CMS_ERROR_SPI_XFER;
+		if (API_CMS_ERROR_OK != AD9081_LOG_SPIW(0x3d22, in_data[2]))
+			return API_CMS_ERROR_LOG_WRITE;
 		in_data[0] = 0x3D;
 		in_data[1] = 0x23;
 		in_data[2] = (reg >> 24) & 0xFF;
@@ -351,15 +377,22 @@ int32_t adi_ad9081_hal_reg_set(adi_ad9081_device_t *device, uint32_t reg,
 		    device->hal_info.spi_xfer(device->hal_info.user_data,
 					      in_data, out_data, 0x3))
 			return API_CMS_ERROR_SPI_XFER;
+		if (API_CMS_ERROR_OK != AD9081_LOG_SPIW(0x3d23, in_data[2]))
+			return API_CMS_ERROR_LOG_WRITE;
 		if (((reg >= 0x4F00000) && (reg <= 0x4FFFFFF)) ||
 		    ((reg >= 0x6001000) && (reg <= 0x60010FF))) {
 			/* 32-bit address, 8-bit data */
 			in_data[0] = ((reg >> 8) & 0x3F) | 0x40;
 			in_data[1] = ((reg >> 0) & 0xFF);
+			in_data[2] = (uint8_t)(data & 0xFF);
 			if (API_CMS_ERROR_OK !=
 			    device->hal_info.spi_xfer(device->hal_info.user_data,
 						      in_data, out_data, 0x3))
 				return API_CMS_ERROR_SPI_XFER;
+			if (API_CMS_ERROR_OK !=
+			    AD9081_LOG_SPIW((in_data[0] << 8) + in_data[1],
+					    in_data[2]))
+				return API_CMS_ERROR_LOG_WRITE;
 		} else {
 			/* 32-bit address, 32-bit data */
 			if (device->hal_info.addr_inc == SPI_ADDR_INC_AUTO) {
@@ -382,6 +415,10 @@ int32_t adi_ad9081_hal_reg_set(adi_ad9081_device_t *device, uint32_t reg,
 				    device->hal_info.user_data, in_data,
 				    out_data, 0x20000006))
 				return API_CMS_ERROR_SPI_XFER;
+			if (API_CMS_ERROR_OK !=
+			    AD9081_LOG_SPIW32((in_data[0] << 8) + in_data[1],
+					      data))
+				return API_CMS_ERROR_LOG_WRITE;
 		}
 	}
 
@@ -575,12 +612,12 @@ int32_t adi_ad9081_hal_error_report(adi_ad9081_device_t *device,
 {
 	if (device == NULL)
 		return API_CMS_ERROR_NULL_PARAM;
+
 	if (API_CMS_ERROR_OK !=
 	    adi_ad9081_hal_log_write(
 		    device, log_type, "%s, \"%s\" in %s(...), line%d in %s",
-		    comment, var_name, func_name, line_num, file_name)) {
+		    comment, var_name, func_name, line_num, file_name))
 		return API_CMS_ERROR_LOG_WRITE;
-	}
 
 	return API_CMS_ERROR_OK;
 }

@@ -284,4 +284,4 @@
 #define BF_D_IMPALA_REV_ID_GET(val) (val & 0x000000FF)
 
 #endif /* __ADI_AD9081_BF_IMPALA_TC_H__ */
-       /*! @} */
+/*! @} */

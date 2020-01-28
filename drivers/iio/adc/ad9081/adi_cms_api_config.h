@@ -17,8 +17,8 @@
 #define __ADI_CMS_API_CONFIG_H__
 
 /*============= D E F I N E S ==============*/
-#define ADI_REPORT_VERBOSE 1  /*!< generate verbose log report      */
-#define ADI_INVALID_POINTER 0 /*!< specify invalide pointer address */
+#define ADI_REPORT_VERBOSE ADI_CMS_LOG_ALL /*!< verbose log report control */
+#define ADI_INVALID_POINTER 0 /*!< invalid pointer address    */
 
 #endif /* __ADI_API_CONFIG_H__ */
-       /*! @} */
+/*! @} */

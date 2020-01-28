@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: GPL-2.0
 /*!
  * @brief     device configuration header
- * 
+ *
  * @copyright copyright(c) 2018 analog devices, inc. all rights reserved.
  *            This software is proprietary to Analog Devices, Inc. and its
  *            licensor. By using this software you agree to the terms of the
  *            associated analog devices software license agreement.
  */
 
-/*! 
+/*!
  * @addtogroup __ADI_AD9081_CONFIG_H__
  * @{
  */
@@ -40,35 +40,47 @@
 #define __FUNCTION_NAME__ __FUNCTION__
 #endif
 
-/* error report */
-#if ADI_REPORT_VERBOSE > 0
-#define AD9081_ERROR_REPORT(error, var, comment)                               \
-	adi_ad9081_hal_error_report(device, ADI_CMS_LOG_ERR, error, __FILE__,  \
-				    __FUNCTION_NAME__, __LINE__, #var,         \
-				    comment)
+/* var error report */
+#define AD9081_MSG_REPORT(var, comment)                                        \
+	adi_ad9081_hal_error_report(device, ADI_CMS_LOG_MSG, API_CMS_ERROR_OK, \
+				    __FILE__, __FUNCTION_NAME__, __LINE__,     \
+				    #var, comment)
 #define AD9081_WARN_REPORT(var, comment)                                       \
 	adi_ad9081_hal_error_report(device, ADI_CMS_LOG_WARN,                  \
 				    API_CMS_ERROR_OK, __FILE__,                \
 				    __FUNCTION_NAME__, __LINE__, #var,         \
 				    comment)
-#define AD9081_MSG_REPORT(var, comment)                                        \
-	adi_ad9081_hal_error_report(device, ADI_CMS_LOG_MSG, API_CMS_ERROR_OK, \
-				    __FILE__, __FUNCTION_NAME__, __LINE__,     \
-				    #var, comment)
-#else
 #define AD9081_ERROR_REPORT(error, var, comment)                               \
-	adi_ad9081_hal_error_report(device, ADI_CMS_LOG_ERR, error, "", "",    \
-				    __LINE__, "", "")
-#define AD9081_WARN_REPORT(var, comment)                                       \
-	adi_ad9081_hal_error_report(device, ADI_CMS_LOG_WARN,                  \
-				    API_CMS_ERROR_OK, "", "", __LINE__, "",    \
-				    "")
-#define AD9081_MSG_REPORT(var, comment)                                        \
-	adi_ad9081_hal_error_report(device, ADI_CMS_LOG_MSG, API_CMS_ERROR_OK, \
-				    "", "", __LINE__, "", "")
-#endif
+	adi_ad9081_hal_error_report(device, ADI_CMS_LOG_ERR, error, __FILE__,  \
+				    __FUNCTION_NAME__, __LINE__, #var,         \
+				    comment)
 
-/* error check */
+/* log report */
+#define AD9081_LOG_FUNC()                                                      \
+	adi_ad9081_hal_log_write(device, ADI_CMS_LOG_API, "%s(...)",           \
+				 __FUNCTION_NAME__)
+#define AD9081_LOG_SPIR(addr, data)                                            \
+	adi_ad9081_hal_log_write(device, ADI_CMS_LOG_SPI,                      \
+				 "ad9081: r@%.4x = %.2x", addr, data)
+#define AD9081_LOG_SPIW(addr, data)                                            \
+	adi_ad9081_hal_log_write(device, ADI_CMS_LOG_SPI,                      \
+				 "ad9081: w@%.4x = %.2x", addr, data)
+#define AD9081_LOG_SPIR32(addr, data)                                          \
+	adi_ad9081_hal_log_write(device, ADI_CMS_LOG_SPI,                      \
+				 "ad9081: r32@%.4x = %.8x", addr, data)
+#define AD9081_LOG_SPIW32(addr, data)                                          \
+	adi_ad9081_hal_log_write(device, ADI_CMS_LOG_SPI,                      \
+				 "ad9081: w32@%.4x = %.8x", addr, data)
+#define AD9081_LOG_VAR(type, msg, ...)                                         \
+	adi_ad9081_hal_log_write(device, type, msg, ##__VA_ARGS__)
+#define AD9081_LOG_MSG(msg)                                                    \
+	adi_ad9081_hal_log_write(device, ADI_CMS_LOG_MSG, msg)
+#define AD9081_LOG_WARN(msg)                                                   \
+	adi_ad9081_hal_log_write(device, ADI_CMS_LOG_WARN, msg)
+#define AD9081_LOG_ERR(msg)                                                    \
+	adi_ad9081_hal_log_write(device, ADI_CMS_LOG_ERR, msg)
+
+/* var error check */
 #define AD9081_ERROR_RETURN(r)                                                 \
 	{                                                                      \
 		if (r != API_CMS_ERROR_OK) {                                   \
@@ -98,27 +110,6 @@
 		}                                                              \
 	}
 
-/* log report */
-#if ADI_REPORT_VERBOSE > 0
-#define AD9081_LOG_FUNC()                                                      \
-	adi_ad9081_hal_log_write(device, ADI_CMS_LOG_MSG, "%s(...)",           \
-				 __FUNCTION_NAME__)
-#define AD9081_LOG_VAR(type, msg, ...)                                         \
-	adi_ad9081_hal_log_write(device, type, msg, ##__VA_ARGS__)
-#define AD9081_LOG_MSG(msg)                                                    \
-	adi_ad9081_hal_log_write(device, ADI_CMS_LOG_MSG, msg)
-#define AD9081_LOG_WARN(msg)                                                   \
-	adi_ad9081_hal_log_write(device, ADI_CMS_LOG_WARN, msg)
-#define AD9081_LOG_ERR(msg)                                                    \
-	adi_ad9081_hal_log_write(device, ADI_CMS_LOG_ERR, msg)
-#else
-#define AD9081_LOG_FUNC(type)
-#define AD9081_LOG_VAR(type, msg, ...)
-#define AD9081_LOG_MSG(msg)
-#define AD9081_LOG_WARN(msg)
-#define AD9081_LOG_ERR(msg)
-#endif
-
 /*============= E X P O R T S ==============*/
 #ifdef __cplusplus
 extern "C" {
@@ -140,6 +131,8 @@ int32_t adi_ad9081_device_die_id_get(adi_ad9081_device_t *device, uint8_t *id);
 int32_t adi_ad9081_device_power_status_check(adi_ad9081_device_t *device);
 int32_t adi_ad9081_device_reg8_access_check(adi_ad9081_device_t *device);
 int32_t adi_ad9081_device_reg32_access_check(adi_ad9081_device_t *device);
+int32_t adi_ad9081_device_boot_pre_clock(adi_ad9081_device_t *device);
+int32_t adi_ad9081_device_boot_post_clock(adi_ad9081_device_t *device);
 
 int32_t adi_ad9081_dac_d2a_dual_spi_enable_set(adi_ad9081_device_t *device,
 					       uint8_t duals, uint8_t enable);
@@ -156,8 +149,53 @@ int32_t adi_ad9081_dac_shuffle_enable_set(adi_ad9081_device_t *device,
 int32_t adi_ad9081_dac_data_xor_set(adi_ad9081_device_t *device, uint8_t dacs,
 				    uint8_t enable);
 
+int32_t adi_ad9081_adc_select_set(adi_ad9081_device_t *device, uint8_t adcs);
 int32_t adi_ad9081_adc_core_setup(adi_ad9081_device_t *device,
 				  uint8_t adc_cores);
+uint8_t
+adi_ad9081_adc_ddc_coarse_dcm_decode(adi_ad9081_adc_coarse_ddc_dcm_e cddc_dcm);
+uint8_t
+adi_ad9081_adc_ddc_fine_dcm_decode(adi_ad9081_adc_fine_ddc_dcm_e fddc_dcm);
+int32_t adi_ad9081_adc_fdelay_cdelay_pfir_sel_to_gpio_mapping_set(
+	adi_ad9081_device_t *device, uint8_t sel0, uint8_t sel1);
+int32_t adi_ad9081_adc_common_hop_en_set(adi_ad9081_device_t *device,
+					 uint8_t enable);
+int32_t adi_ad9081_adc_ddc_coarse_trig_nco_reset_enable_set(
+	adi_ad9081_device_t *device, uint8_t cddcs, uint8_t enable);
+int32_t adi_ad9081_adc_ddc_coarse_nco_channel_update_mode_set(
+	adi_ad9081_device_t *device, uint8_t cddcs, uint8_t mode);
+int32_t
+adi_ad9081_adc_ddc_coarse_gpio_chip_xfer_mode_set(adi_ad9081_device_t *device,
+						  uint8_t cddcs, uint8_t mode);
+int32_t adi_ad9081_adc_ddc_coarse_trig_hop_en_set(adi_ad9081_device_t *device,
+						  uint8_t cddcs,
+						  uint8_t enable);
+int32_t adi_ad9081_adc_ddc_coarse_dither_en_set(adi_ad9081_device_t *device,
+						uint8_t cddcs,
+						uint8_t amp_dither_en,
+						uint8_t phase_dither_en);
+int32_t adi_ad9081_adc_ddc_coarse_chip_xfer_set(adi_ad9081_device_t *device,
+						uint8_t cddcs);
+int32_t
+adi_ad9081_adc_ddc_coarse_chip_xfer_status_get(adi_ad9081_device_t *device,
+					       uint8_t cddcs, uint8_t *status);
+int32_t adi_ad9081_adc_ddc_coarse_psw_set(adi_ad9081_device_t *device,
+					  uint8_t cddcs, uint64_t psw);
+int32_t adi_ad9081_adc_ddc_fine_trig_nco_reset_enable_set(
+	adi_ad9081_device_t *device, uint8_t fddcs, uint8_t enable);
+int32_t adi_ad9081_adc_ddc_fine_nco_channel_update_mode_set(
+	adi_ad9081_device_t *device, uint8_t fddcs, uint8_t mode);
+int32_t
+adi_ad9081_adc_ddc_fine_gpio_chip_xfer_mode_set(adi_ad9081_device_t *device,
+						uint8_t fddcs, uint8_t mode);
+int32_t adi_ad9081_adc_ddc_fine_trig_hop_en_set(adi_ad9081_device_t *device,
+						uint8_t fddcs, uint8_t enable);
+int32_t adi_ad9081_adc_ddc_fine_dither_en_set(adi_ad9081_device_t *device,
+					      uint8_t fddcs,
+					      uint8_t amp_dither_en,
+					      uint8_t phase_dither_en);
+int32_t adi_ad9081_adc_ddc_fine_chip_xfer_set(adi_ad9081_device_t *device,
+					      uint8_t fddcs);
 
 int32_t adi_ad9081_jesd_tx_conv_mask_set(adi_ad9081_device_t *device,
 					 adi_ad9081_jesd_link_select_e links,
@@ -166,6 +204,8 @@ int32_t adi_ad9081_jesd_tx_pll_status_get(adi_ad9081_device_t *device,
 					  uint8_t *pll_locked);
 int32_t adi_ad9081_jesd_pll_lock_status_get(adi_ad9081_device_t *device,
 					    uint8_t *locked);
+int32_t adi_ad9081_jesd_rx_startup_des(adi_ad9081_device_t *device,
+				       uint8_t deser_rate_config);
 
 #ifdef __cplusplus
 }
