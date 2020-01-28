@@ -4505,4 +4505,4 @@
 #define BF_GAIN_LOAD_STROBE_GET(val) ((val >> 0x00000007) & 0x00000001)
 
 #endif /* __ADI_AD9081_BF_AD9081_H__ */
-       /*! @} */
+/*! @} */

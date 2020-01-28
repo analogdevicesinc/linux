@@ -603,4 +603,4 @@
 #define BF_RXENGP1_3F_CTRL_GET(val) ((val >> 0x00000007) & 0x00000001)
 
 #endif /* __ADI_AD9081_BF_NB_DDC_DFORMAT_H__ */
-       /*! @} */
+/*! @} */

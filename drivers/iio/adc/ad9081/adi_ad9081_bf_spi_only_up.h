@@ -225,4 +225,4 @@
 #define BF_SYNC_EN_GET(val) (val & 0x00000001)
 
 #endif /* __ADI_AD9081_BF_SPI_ONLY_UP_H__ */
-       /*! @} */
+/*! @} */

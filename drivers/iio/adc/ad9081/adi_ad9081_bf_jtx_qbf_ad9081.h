@@ -108,4 +108,4 @@
 #define BF_DIVM_LCPLL_RC_RX_GET(val) (val & 0x00000003)
 
 #endif /* __ADI_AD9081_BF_JTX_QBF_AD9081_H__ */
-       /*! @} */
+/*! @} */

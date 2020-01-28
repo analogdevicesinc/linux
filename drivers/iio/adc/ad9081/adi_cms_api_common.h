@@ -34,8 +34,8 @@
  * @brief  Enumerate error code
  */
 typedef enum {
-	API_CMS_ERROR_OK = 0,	  /*!< No Error */
-	API_CMS_ERROR_ERROR = -1,      /*!< General Error  */
+	API_CMS_ERROR_OK = 0, /*!< No Error */
+	API_CMS_ERROR_ERROR = -1, /*!< General Error  */
 	API_CMS_ERROR_NULL_PARAM = -2, /*!< Null parameter */
 	API_CMS_ERROR_SPI_SDO =
 		-10, /*!< Wrong value assigned to the SDO in device structure */
@@ -48,50 +48,48 @@ typedef enum {
 	API_CMS_ERROR_INVALID_PARAM = -14, /*!< Invalid parameter passed */
 	API_CMS_ERROR_INVALID_RESET_CTRL_PTR =
 		-15, /*!< Invalid pointer to the reset control function assigned */
-	API_CMS_ERROR_NOT_SUPPORTED = -16,     /*!< Not supported */
-	API_CMS_ERROR_VCO_OUT_OF_RANGE = -20,  /*!< The VCO is out of range */
-	API_CMS_ERROR_PLL_NOT_LOCKED = -21,    /*!< PLL is not locked */
-	API_CMS_ERROR_DLL_NOT_LOCKED = -22,    /*!< DLL is not locked */
+	API_CMS_ERROR_NOT_SUPPORTED = -16, /*!< Not supported */
+	API_CMS_ERROR_VCO_OUT_OF_RANGE = -20, /*!< The VCO is out of range */
+	API_CMS_ERROR_PLL_NOT_LOCKED = -21, /*!< PLL is not locked */
+	API_CMS_ERROR_DLL_NOT_LOCKED = -22, /*!< DLL is not locked */
 	API_CMS_ERROR_MODE_NOT_IN_TABLE = -23, /*!< JESD Mode not in table */
 	API_CMS_ERROR_FTW_LOAD_ACK = -30, /*!< FTW acknowledge not received */
 	API_CMS_ERROR_NCO_NOT_ENABLED = -31, /*!< The NCO is not enabled */
 	API_CMS_ERROR_INIT_SEQ_FAIL =
-		-40,			 /*!< Initialization sequence failed */
+		-40, /*!< Initialization sequence failed */
 	API_CMS_ERROR_TEST_FAILED = -50, /*!< Test failed */
-	API_CMS_ERROR_SPI_XFER = -60,    /*!< SPI transfer error */
+	API_CMS_ERROR_SPI_XFER = -60, /*!< SPI transfer error */
 	API_CMS_ERROR_TX_EN_PIN_CTRL = -62, /*!< TX enable function error */
 	API_CMS_ERROR_RESET_PIN_CTRL = -63, /*!< HW reset function error */
-	API_CMS_ERROR_EVENT_HNDL = -64,     /*!< Event handling error */
-	API_CMS_ERROR_HW_OPEN = -65,	/*!< HW open function error */
-	API_CMS_ERROR_HW_CLOSE = -66,       /*!< HW close function error */
-	API_CMS_ERROR_LOG_OPEN = -67,       /*!< Log open error */
-	API_CMS_ERROR_LOG_WRITE = -68,      /*!< Log write error */
-	API_CMS_ERROR_LOG_CLOSE = -69,      /*!< Log close error */
-	API_CMS_ERROR_DELAY_US = -70	/*!< Delay error */
+	API_CMS_ERROR_EVENT_HNDL = -64, /*!< Event handling error */
+	API_CMS_ERROR_HW_OPEN = -65, /*!< HW open function error */
+	API_CMS_ERROR_HW_CLOSE = -66, /*!< HW close function error */
+	API_CMS_ERROR_LOG_OPEN = -67, /*!< Log open error */
+	API_CMS_ERROR_LOG_WRITE = -68, /*!< Log write error */
+	API_CMS_ERROR_LOG_CLOSE = -69, /*!< Log close error */
+	API_CMS_ERROR_DELAY_US = -70 /*!< Delay error */
 } adi_cms_error_e;
 
 /*!
  * @brief  Enumerate log source type
  */
 typedef enum {
-	ADI_CMS_LOG_NONE = 0x0000, /*!< all types not selected */
-	ADI_CMS_LOG_MSG = 0x0001,  /*!< log message type */
-	ADI_CMS_LOG_WARN = 0x0002, /*!< warning message type */
-	ADI_CMS_LOG_ERR = 0x0004,  /*!< error message type */
-	ADI_CMS_LOG_API = 0x0008,  /*!< an API for logging purpose */
-	ADI_CMS_LOG_BF = 0x0020,   /*!< bit field for logging purposes */
-	ADI_CMS_LOG_HAL = 0x0040,  /*!< ADI HAL for logging purposes */
-	ADI_CMS_LOG_SPI = 0x0080,  /*!< SPI transaction type */
-	ADI_CMS_LOG_ALL = 0xFFFF   /*!< all types selected */
+	ADI_CMS_LOG_NONE = 0x0000, /*!< all not selected */
+	ADI_CMS_LOG_ERR = 0x0001, /*!< error message */
+	ADI_CMS_LOG_WARN = 0x0002, /*!< warning message */
+	ADI_CMS_LOG_MSG = 0x0004, /*!< tips info message */
+	ADI_CMS_LOG_SPI = 0x0010, /*!< spi r/w info message */
+	ADI_CMS_LOG_API = 0x0020, /*!< api info message */
+	ADI_CMS_LOG_ALL = 0xFFFF /*!< all selected */
 } adi_cms_log_type_e;
 
 /*!
  * @brief  ADI Device Identification Data
  */
 typedef struct {
-	uint8_t chip_type;    /*!< Chip Type Code */
-	uint16_t prod_id;     /*!< Product ID Code */
-	uint8_t prod_grade;   /*!< Product Grade Code */
+	uint8_t chip_type; /*!< Chip Type Code */
+	uint16_t prod_id; /*!< Product ID Code */
+	uint8_t prod_grade; /*!< Product Grade Code */
 	uint8_t dev_revision; /*!< Device Revision */
 } adi_cms_chip_id_t;
 
@@ -100,16 +98,16 @@ typedef struct {
  */
 typedef struct {
 	uint16_t reg; /*!< Register address */
-	uint8_t val;  /*!< Register value */
+	uint8_t val; /*!< Register value */
 } adi_cms_reg_data_t;
 
 /*!
  * @brief  SPI mode settings
  */
 typedef enum {
-	SPI_NONE = 0,      /*!< Keep this for test */
-	SPI_SDO = 1,       /*!< SDO  active, 4-wire only */
-	SPI_SDIO = 2,      /*!< SDIO active, 3-wire only */
+	SPI_NONE = 0, /*!< Keep this for test */
+	SPI_SDO = 1, /*!< SDO  active, 4-wire only */
+	SPI_SDIO = 2, /*!< SDIO active, 3-wire only */
 	SPI_CONFIG_MAX = 3 /*!< Keep it last */
 } adi_cms_spi_sdo_config_e;
 
@@ -126,7 +124,7 @@ typedef enum {
  */
 typedef enum {
 	SPI_ADDR_DEC_AUTO = 0, /*!< auto decremented */
-	SPI_ADDR_INC_AUTO = 1  /*!< auto incremented */
+	SPI_ADDR_INC_AUTO = 1 /*!< auto incremented */
 } adi_cms_spi_addr_inc_e;
 
 /*!
@@ -141,19 +139,19 @@ typedef enum {
  * @brief  Enumerate Impedance Types
  */
 typedef enum {
-	ADI_CMS_NO_INTERNAL_RESISTOR = 0,      /*!< disable internal resistor */
+	ADI_CMS_NO_INTERNAL_RESISTOR = 0, /*!< disable internal resistor */
 	ADI_CMS_INTERNAL_RESISTOR_100_OHM = 1, /*!< internal 100ohm resistor */
-	ADI_CMS_INTERNAL_RESISTOR_50_OHM = 2,  /*!< internal  50ohm resistor */
-	ADI_CMS_INTERNAL_RESISTOR_UNKNOWN = 3  /*!< unknown type */
+	ADI_CMS_INTERNAL_RESISTOR_50_OHM = 2, /*!< internal  50ohm resistor */
+	ADI_CMS_INTERNAL_RESISTOR_UNKNOWN = 3 /*!< unknown type */
 } adi_cms_signal_impedance_type_e;
 
 /*!
  * @brief  Enumerate Signal Types
  */
 typedef enum {
-	SIGNAL_CMOS = 0,   /*!< CMOS signal */
-	SIGNAL_LVDS = 1,   /*!< LVDS signal */
-	SIGNAL_CML = 2,    /*!< CML  signal */
+	SIGNAL_CMOS = 0, /*!< CMOS signal */
+	SIGNAL_LVDS = 1, /*!< LVDS signal */
+	SIGNAL_CML = 2, /*!< CML  signal */
 	SIGNAL_LVPECL = 3, /*!< LVPECL signal */
 	SIGNAL_UNKNOWN = 4 /*!< UNKNOW signal */
 } adi_cms_signal_type_e;
@@ -162,8 +160,8 @@ typedef enum {
  * @brief  Enumerate coupling mode
  */
 typedef enum {
-	COUPLING_AC = 0,     /*!< AC coupled signal */
-	COUPLING_DC = 1,     /*!< DC signal */
+	COUPLING_AC = 0, /*!< AC coupled signal */
+	COUPLING_DC = 1, /*!< DC signal */
 	COUPLING_UNKNOWN = 2 /*!< UNKNOWN coupling */
 } adi_cms_signal_coupling_e;
 
@@ -172,17 +170,17 @@ typedef enum {
  */
 typedef enum {
 	JESD_LINK_NONE = 0, /*!< JESD link none  */
-	JESD_LINK_0 = 1,    /*!< JESD link 0 */
-	JESD_LINK_1 = 2,    /*!< JESD link 1 */
-	JESD_LINK_ALL = 3   /*!< All JESD links  */
+	JESD_LINK_0 = 1, /*!< JESD link 0 */
+	JESD_LINK_1 = 2, /*!< JESD link 1 */
+	JESD_LINK_ALL = 3 /*!< All JESD links  */
 } adi_cms_jesd_link_e;
 
 /*!
  * @brief  Enumerates SYNCOUTB Output Signals
  */
 typedef enum {
-	SYNCOUTB_0 = 0x0,   /*!< SYNCOUTB 0 */
-	SYNCOUTB_1 = 0x1,   /*!< SYNCOUTB 1 */
+	SYNCOUTB_0 = 0x0, /*!< SYNCOUTB 0 */
+	SYNCOUTB_1 = 0x1, /*!< SYNCOUTB 1 */
 	SYNCOUTB_ALL = 0xFF /*!< ALL SYNCOUTB SIGNALS */
 } adi_cms_jesd_syncoutb_e;
 
@@ -190,10 +188,10 @@ typedef enum {
  * @brief  Enumerates SYSREF Synchronization Mode
  */
 typedef enum {
-	SYSREF_NONE = 0,    /*!< No SYSREF Support */
+	SYSREF_NONE = 0, /*!< No SYSREF Support */
 	SYSREF_ONESHOT = 1, /*!< ONE-SHOT SYSREF */
-	SYSREF_CONT = 2,    /*!< Continuous SysRef sync. */
-	SYSREF_MON = 3,     /*!< SYSREF monitor mode */
+	SYSREF_CONT = 2, /*!< Continuous SysRef sync. */
+	SYSREF_MON = 3, /*!< SYSREF monitor mode */
 	SYSREF_MODE_INVALID = 4
 } adi_cms_jesd_sysref_mode_e;
 
@@ -202,12 +200,12 @@ typedef enum {
  */
 typedef enum {
 	PRBS_NONE = 0, /*!< PRBS   off */
-	PRBS7 = 1,     /*!< PRBS7  pattern */
-	PRBS9 = 2,     /*!< PRBS9  pattern */
-	PRBS15 = 3,    /*!< PRBS15 pattern */
-	PRBS23 = 4,    /*!< PRBS23 pattern */
-	PRBS31 = 5,    /*!< PRBS31 pattern */
-	PRBS_MAX = 6   /*!< Number of member */
+	PRBS7 = 1, /*!< PRBS7  pattern */
+	PRBS9 = 2, /*!< PRBS9  pattern */
+	PRBS15 = 3, /*!< PRBS15 pattern */
+	PRBS23 = 4, /*!< PRBS23 pattern */
+	PRBS31 = 5, /*!< PRBS31 pattern */
+	PRBS_MAX = 6 /*!< Number of member */
 } adi_cms_jesd_prbs_pattern_e;
 
 /*!
@@ -223,26 +221,26 @@ typedef enum {
  * @brief  Defines JESD Parameters
  */
 typedef struct {
-	uint8_t jesd_l;		  /*!< No of lanes */
-	uint8_t jesd_f;		  /*!< No of octets in a frame */
-	uint8_t jesd_m;		  /*!< No of converters */
-	uint8_t jesd_s;		  /*!< No of samples */
-	uint8_t jesd_hd;	  /*!< High Density */
-	uint16_t jesd_k;	  /*!< No of frames for a multi-frame */
-	uint8_t jesd_n;		  /*!< Converter resolution */
-	uint8_t jesd_np;	  /*!< Bit packing sample */
-	uint8_t jesd_cf;	  /*!< Parameter CF */
-	uint8_t jesd_cs;	  /*!< Parameter CS */
-	uint8_t jesd_did;	 /*!< Device ID DID */
-	uint8_t jesd_bid;	 /*!< Bank ID.  BID */
-	uint8_t jesd_lid0;	/*!< Lane ID for lane0 */
-	uint8_t jesd_subclass;    /*!< Subclass */
-	uint8_t jesd_scr;	 /*!< Scramble enable */
-	uint8_t jesd_duallink;    /*!< Link mode (single/dual) */
-	uint8_t jesd_jesdv;       /*!< Version (0:204A, 1:204B, 2:204C) */
-	uint8_t jesd_mode_id;     /*!< JESD mode ID */
+	uint8_t jesd_l; /*!< No of lanes */
+	uint8_t jesd_f; /*!< No of octets in a frame */
+	uint8_t jesd_m; /*!< No of converters */
+	uint8_t jesd_s; /*!< No of samples */
+	uint8_t jesd_hd; /*!< High Density */
+	uint16_t jesd_k; /*!< No of frames for a multi-frame */
+	uint8_t jesd_n; /*!< Converter resolution */
+	uint8_t jesd_np; /*!< Bit packing sample */
+	uint8_t jesd_cf; /*!< Parameter CF */
+	uint8_t jesd_cs; /*!< Parameter CS */
+	uint8_t jesd_did; /*!< Device ID DID */
+	uint8_t jesd_bid; /*!< Bank ID.  BID */
+	uint8_t jesd_lid0; /*!< Lane ID for lane0 */
+	uint8_t jesd_subclass; /*!< Subclass */
+	uint8_t jesd_scr; /*!< Scramble enable */
+	uint8_t jesd_duallink; /*!< Link mode (single/dual) */
+	uint8_t jesd_jesdv; /*!< Version (0:204A, 1:204B, 2:204C) */
+	uint8_t jesd_mode_id; /*!< JESD mode ID */
 	uint8_t jesd_mode_c2r_en; /*!< JESD mode C2R enable */
-	uint8_t jesd_mode_s_sel;  /*!< JESD mode S value */
+	uint8_t jesd_mode_s_sel; /*!< JESD mode S value */
 } adi_cms_jesd_param_t;
 
 /**
@@ -384,4 +382,4 @@ typedef int32_t (*adi_tx_en_pin_ctrl_t)(void *user_data, uint8_t enable);
 typedef int32_t (*adi_reset_pin_ctrl_t)(void *user_data, uint8_t enable);
 
 #endif /* __ADI_API_COMMON_H__ */
-       /*! @} */
+/*! @} */
