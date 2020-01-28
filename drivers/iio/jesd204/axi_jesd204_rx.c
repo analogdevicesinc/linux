@@ -14,6 +14,7 @@
 #include <linux/err.h>
 #include <linux/interrupt.h>
 #include <linux/io.h>
+#include <linux/bitfield.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/of.h>
@@ -21,6 +22,7 @@
 #include <linux/regmap.h>
 #include <linux/slab.h>
 #include <linux/fpga/adi-axi-common.h>
+#include "axi_jesd204.h"
 
 #define JESD204_RX_REG_MAGIC				0x0c
 
@@ -49,6 +51,9 @@
 #define JESD204_RX_REG_LINK_STATUS			0x280
 
 #define JESD204_RX_REG_LANE_STATUS(x)		(((x) * 32) + 0x300)
+#define JESD204_EMB_STATE_MASK			GENMASK(10, 8)
+#define JESD204_EMB_STATE_GET(x) \
+			FIELD_GET(JESD204_EMB_STATE_MASK, x)
 #define JESD204_RX_REG_LANE_LATENCY(x)		(((x) * 32) + 0x304)
 #define JESD204_RX_REG_LANE_ERRORS(x)		(((x) * 32) + 0x308)
 #define JESD204_RX_REG_ILAS(x, y)		(((x) * 32 + (y) * 4) + 0x310)
@@ -90,6 +95,7 @@ struct axi_jesd204_rx {
 	unsigned int num_lanes;
 	unsigned int data_path_width;
 	unsigned int version;
+	enum jesd204_encoder encoder;
 
 	struct delayed_work watchdog_work;
 
@@ -98,10 +104,23 @@ struct axi_jesd204_rx {
 	struct clk *lane_clk;
 };
 
+enum {
+	JESD204_EMB_STATE_INIT = 1,
+	JESD204_EMB_STATE_HUNT,
+	JESD204_EMB_STATE_LOCK = 4
+};
+
 static const char * const axi_jesd204_rx_link_status_label[] = {
 	"RESET",
 	"WAIT FOR PHY",
 	"CGS",
+	"DATA",
+};
+
+static const char * const axi_jesd204_rx_link_status_64b66b_l[] = {
+	"RESET",
+	"WAIT_BS",
+	"BLOCK_SYNC",
 	"DATA",
 };
 
@@ -148,15 +167,26 @@ static ssize_t axi_jesd204_rx_status_read(struct device *dev,
 		clock_rate / 1000, clock_rate % 1000);
 
 	if (!link_disabled) {
+		const char *_status = (jesd->encoder == JESD204_ENCODER_8B10B) ?
+			axi_jesd204_rx_link_status_label[link_status & 0x3] :
+			axi_jesd204_rx_link_status_64b66b_l[link_status & 0x3];
 
 		clock_rate = clk_get_rate(jesd->lane_clk);
-		link_rate = DIV_ROUND_CLOSEST(clock_rate, 40);
-		lmfc_rate = clock_rate / (10 * ((link_config0 & 0xFF) + 1));
+		if (jesd->encoder == JESD204_ENCODER_64B66B) {
+			link_rate = DIV_ROUND_CLOSEST(clock_rate, 66);
+			lmfc_rate = (clock_rate * 8) /
+				(66 * ((link_config0 & 0xFF) + 1));
+		} else {
+			link_rate = DIV_ROUND_CLOSEST(clock_rate, 40);
+			lmfc_rate = clock_rate /
+				(10 * ((link_config0 & 0xFF) + 1));
+		}
 		ret += scnprintf(buf + ret, PAGE_SIZE - ret,
 			"Lane rate: %d.%.3d MHz\n"
-			"Lane rate / 40: %d.%.3d MHz\n"
-			"LMFC rate: %d.%.3d MHz\n",
+			"Lane rate / %d: %d.%.3d MHz\n"
+			"LMFC/LEMC rate: %d.%.3d MHz\n",
 			clock_rate / 1000, clock_rate % 1000,
+			(jesd->encoder == JESD204_ENCODER_8B10B) ? 40 : 66,
 			link_rate / 1000, link_rate % 1000,
 			lmfc_rate / 1000, lmfc_rate % 1000);
 
@@ -164,7 +194,7 @@ static ssize_t axi_jesd204_rx_status_read(struct device *dev,
 			"Link status: %s\n"
 			"SYSREF captured: %s\n"
 			"SYSREF alignment error: %s\n",
-			axi_jesd204_rx_link_status_label[link_status & 0x3],
+			_status,
 			(sysref_config & JESD204_RX_REG_SYSREF_CONF_SYSREF_DISABLE) ?
 				"disabled" : (sysref_status & 1) ? "Yes" : "No",
 			(sysref_config & JESD204_RX_REG_SYSREF_CONF_SYSREF_DISABLE) ?
@@ -193,25 +223,16 @@ static unsigned int axi_jesd204_rx_get_lane_errors(struct axi_jesd204_rx *jesd,
 }
 
 /* FIXME: This violates every single sysfs ABI recommendation */
-static ssize_t axi_jesd204_rx_laneinfo_read(struct device *dev,
-			struct device_attribute *attr,
-			char *buf, unsigned int lane)
+static ssize_t __axi_jesd204_rx_laneinfo_8b10b_read(struct axi_jesd204_rx *jesd,
+						    const u32 lane,
+						    const u32 lane_status,
+						    char *buf,
+						    const int pos)
 {
-	struct axi_jesd204_rx *jesd = dev_get_drvdata(dev);
-	unsigned int lane_status;
-	unsigned int lane_latency;
-	unsigned int octets_per_multiframe;
-	unsigned int val[4];
-	unsigned int errors;
-	int ret = 0;
-
-	lane_status = readl_relaxed(jesd->base + JESD204_RX_REG_LANE_STATUS(lane));
-
-	if (ADI_AXI_PCORE_VER_MINOR(jesd->version) >= 2) {
-		errors = axi_jesd204_rx_get_lane_errors(jesd, lane);
-		ret += scnprintf(buf + ret, PAGE_SIZE - ret, "Errors: %u\n",
-				 errors);
-	}
+	int ret = pos;
+	u32 lane_latency;
+	u32 val[4];
+	u32 octets_per_multiframe;
 
 	ret += scnprintf(buf + ret, PAGE_SIZE - ret, "CGS state: %s\n",
 		axi_jesd204_rx_lane_status_label[lane_status & 0x3]);
@@ -286,6 +307,66 @@ static ssize_t axi_jesd204_rx_laneinfo_read(struct device *dev,
 	return ret;
 }
 
+static const char *const axi_jesd204_rx_emb_state_label[] = {
+	"INVALID",
+	"EMB_INIT",
+	"EMB_HUNT",
+	"INVALID",
+	"EMB_LOCK",
+	"INVALID",
+	"INVALID",
+	"INVALID",
+};
+
+static int __axi_jesd204_rx_laneinfo_64b66b_read(struct axi_jesd204_rx *jesd,
+						 const u32 lane,
+						 const u32 lane_status,
+						 char *buf,
+						 const int pos)
+{
+	int ret = pos;
+	u8 extend_multiblock;
+
+	extend_multiblock = JESD204_EMB_STATE_GET(lane_status);
+
+	ret += scnprintf(buf + ret, PAGE_SIZE - ret,
+			 "State of Extended multiblock alignment:%s\n",
+			 axi_jesd204_rx_emb_state_label[extend_multiblock]);
+
+	return ret;
+}
+
+/* FIXME: This violates every single sysfs ABI recommendation */
+static ssize_t axi_jesd204_rx_laneinfo_read(struct device *dev,
+					    struct device_attribute *attr,
+					    char *buf, unsigned int lane)
+{
+	struct axi_jesd204_rx *jesd = dev_get_drvdata(dev);
+	unsigned int lane_status;
+	unsigned int errors;
+	int ret = 0;
+
+	lane_status = readl_relaxed(jesd->base +
+				    JESD204_RX_REG_LANE_STATUS(lane));
+
+	if (ADI_AXI_PCORE_VER_MINOR(jesd->version) >= 2) {
+		errors = axi_jesd204_rx_get_lane_errors(jesd, lane);
+		ret += scnprintf(buf + ret, PAGE_SIZE - ret, "Errors: %u\n",
+				 errors);
+	}
+
+	if (jesd->encoder == JESD204_ENCODER_8B10B)
+		ret = __axi_jesd204_rx_laneinfo_8b10b_read(jesd, lane,
+							   lane_status, buf,
+							   ret);
+	else if (jesd->encoder == JESD204_ENCODER_64B66B)
+		ret = __axi_jesd204_rx_laneinfo_64b66b_read(jesd, lane,
+							    lane_status, buf,
+							    ret);
+
+	return ret;
+}
+
 #define JESD_LANE(_x) \
 static ssize_t axi_jesd204_rx_lane##_x##_info_read(struct device *dev, \
 			struct device_attribute *attr, char *buf) \
@@ -336,6 +417,12 @@ static int axi_jesd204_rx_apply_config(struct axi_jesd204_rx *jesd,
 		config->octets_per_frame;
 
 	multiframe_align = 1 << jesd->data_path_width;
+
+	if (jesd->encoder == JESD204_ENCODER_64B66B &&
+	    (octets_per_multiframe % 256) != 0) {
+		dev_err(jesd->dev, "octets_per_frame * frames_per_multiframe must be a multiple of 256");
+		return -EINVAL;
+	}
 
 	if (octets_per_multiframe % multiframe_align != 0) {
 		dev_err(jesd->dev,
@@ -458,10 +545,17 @@ static bool axi_jesd204_rx_check_lane_status(struct axi_jesd204_rx *jesd,
 	char error_str[sizeof(" (4294967295 errors)")];
 
 	status = readl_relaxed(jesd->base + JESD204_RX_REG_LANE_STATUS(lane));
-	status &= 0x3;
-	if (status != 0x0)
-		return false;
 
+	if (jesd->encoder == JESD204_ENCODER_8B10B) {
+		status &= 0x3;
+		if (status != 0x0)
+			return false;
+	} else {
+		status = JESD204_EMB_STATE_GET(status);
+		if (status > JESD204_EMB_STATE_INIT &&
+		    status <= JESD204_EMB_STATE_LOCK)
+			return false;
+	}
 
 	if (ADI_AXI_PCORE_VER_MINOR(jesd->version) >= 2) {
 		errors = axi_jesd204_rx_get_lane_errors(jesd, lane);
@@ -595,6 +689,7 @@ static int axi_jesd204_rx_probe(struct platform_device *pdev)
 	struct resource *res;
 	int irq;
 	int ret;
+	u32 synth_1;
 
 	if (!pdev->dev.of_node)
 		return -ENODEV;
@@ -644,6 +739,9 @@ static int axi_jesd204_rx_probe(struct platform_device *pdev)
 
 	jesd->num_lanes = readl_relaxed(jesd->base + JESD204_RX_REG_SYNTH_NUM_LANES);
 	jesd->data_path_width = readl_relaxed(jesd->base + JESD204_RX_REG_SYNTH_DATA_PATH_WIDTH);
+
+	synth_1 = readl_relaxed(jesd->base + JESD204_REG_SYNTH_REG_1);
+	jesd->encoder = JESD204_ENCODER_GET(synth_1);
 
 	ret = axi_jesd204_rx_apply_config(jesd, &config);
 	if (ret)
@@ -744,6 +842,7 @@ static int axi_jesd204_rx_remove(struct platform_device *pdev)
 
 static const struct of_device_id axi_jesd204_rx_of_match[] = {
 	{ .compatible = "adi,axi-jesd204-rx-1.0" },
+	{ .compatible = "adi,axi-jesd204-rx-1.3" },
 	{ /* end of list */ },
 };
 MODULE_DEVICE_TABLE(of, adxcvr_of_match);
