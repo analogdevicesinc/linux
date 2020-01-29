@@ -792,8 +792,6 @@ static int axiadc_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, indio_dev);
 
-	st->dp_disable = axiadc_read(st, ADI_REG_ADC_DP_DISABLE);
-
 	conv = to_converter(st->dev_spi);
 	if (IS_ERR(conv)) {
 		dev_err(&pdev->dev, "Failed to get converter device: %d\n",
@@ -848,7 +846,7 @@ static int axiadc_probe(struct platform_device *pdev)
 	indio_dev->available_scan_masks = conv->chip_info->scan_masks;
 
 	axiadc_channel_setup(indio_dev, conv->chip_info->channel,
-			     st->dp_disable ? 0 : conv->chip_info->num_channels);
+			     conv->chip_info->num_channels);
 
 	st->iio_info = axiadc_info;
 	st->iio_info.attrs = conv->attrs;
@@ -860,14 +858,14 @@ static int axiadc_probe(struct platform_device *pdev)
 			goto err_put_converter;
 	}
 
-	if (!st->dp_disable && !axiadc_read(st, ADI_AXI_REG_ID) &&
+	if (!axiadc_read(st, ADI_AXI_REG_ID) &&
 		of_find_property(pdev->dev.of_node, "dmas", NULL)) {
 		ret = axiadc_configure_ring_stream(indio_dev, NULL);
 		if (ret < 0)
 			goto err_put_converter;
 	}
 
-	if (!st->dp_disable && of_property_read_bool(pdev->dev.of_node, "adi,axi-decimation-core-available")) {
+	if (of_property_read_bool(pdev->dev.of_node, "adi,axi-decimation-core-available")) {
 		st->decimation_factor = 1;
 		WARN_ON(st->iio_info.attrs != NULL);
 		st->iio_info.attrs = &axiadc_dec_attribute_group;
@@ -906,8 +904,7 @@ static int axiadc_probe(struct platform_device *pdev)
 	return 0;
 
 err_unconfigure_ring:
-	if (!st->dp_disable)
-			axiadc_unconfigure_ring_stream(indio_dev);
+	axiadc_unconfigure_ring_stream(indio_dev);
 err_put_converter:
 	put_device(axiadc_spidev.dev_spi);
 	module_put(axiadc_spidev.dev_spi->driver->owner);
@@ -929,7 +926,7 @@ static int axiadc_remove(struct platform_device *pdev)
 	struct axiadc_state *st = iio_priv(indio_dev);
 
 	iio_device_unregister(indio_dev);
-	if (!st->dp_disable && !axiadc_read(st, ADI_AXI_REG_ID) &&
+	if (!axiadc_read(st, ADI_AXI_REG_ID) &&
 		of_find_property(pdev->dev.of_node, "dmas", NULL))
 		axiadc_unconfigure_ring_stream(indio_dev);
 
