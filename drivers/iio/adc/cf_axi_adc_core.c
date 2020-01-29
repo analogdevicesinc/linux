@@ -238,7 +238,7 @@ static int axiadc_decimation_set(struct axiadc_state *st,
 		case 8:
 			reg = axiadc_read(st, ADI_REG_GP_CONTROL);
 
-			if (st->decimation_factor == 8)
+			if (decimation_factor == 8)
 				reg |= BIT(0);
 			else
 				reg &= ~BIT(0);
@@ -248,6 +248,7 @@ static int axiadc_decimation_set(struct axiadc_state *st,
 						reg & BIT(0));
 			else
 				axiadc_write(st, ADI_REG_GP_CONTROL, reg);
+			st->decimation_factor = decimation_factor;
 			break;
 		default:
 			ret = -EINVAL;
@@ -285,10 +286,8 @@ static ssize_t axiadc_decimation_store(struct axiadc_state *st,
 	val = DIV_ROUND_CLOSEST(parent, frequency);
 
 	for (i = 0; i < ARRAY_SIZE(decimation_factors_available); i++) {
-		if (val == decimation_factors_available[i]) {
-			st->decimation_factor = val;
+		if (val == decimation_factors_available[i])
 			return axiadc_decimation_set(st, val);
-		}
 	}
 
 	return -EINVAL;
