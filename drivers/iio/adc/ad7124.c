@@ -77,6 +77,8 @@
 #define AD7124_SINC3_FILTER 2
 #define AD7124_SINC4_FILTER 0
 
+#define AD7124_REG_NO 57
+
 enum ad7124_ids {
 	ID_AD7124_4,
 	ID_AD7124_8,
@@ -99,7 +101,7 @@ static const unsigned int ad7124_gain[8] = {
 	1, 2, 4, 8, 16, 32, 64, 128
 };
 
-static const unsigned int ad7124_reg_size[] = {
+static const unsigned int ad7124_reg_size[AD7124_REG_NO] = {
 	1, 2, 3, 3, 2, 1, 3, 3, 1, 2, 2, 2, 2,
 	2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
 	2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3,
@@ -444,6 +446,8 @@ static int ad7124_reg_access(struct iio_dev *indio_dev,
 	struct ad7124_state *st = iio_priv(indio_dev);
 	int ret;
 
+	if (reg >= AD7124_REG_NO)
+		return -EINVAL;
 
 	if (readval)
 		ret = ad_sd_read_reg(&st->sd, reg, ad7124_reg_size[reg],
