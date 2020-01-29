@@ -42,7 +42,7 @@
 
 	sof-audio-cs42888 {
 		compatible = "simple-audio-card";
-		model = "imx-cs42888";
+		label = "imx-cs42888";
 		simple-audio-card,widgets =
 			"Line", "Line Out Jack",
 			"Line", "Line In Jack";

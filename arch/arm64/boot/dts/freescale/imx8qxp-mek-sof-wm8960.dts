@@ -42,7 +42,7 @@
 
 	sof-sound-wm8960 {
 		compatible = "simple-audio-card";
-		model = "wm8960-audio";
+		label = "wm8960-audio";
 		simple-audio-card,bitclock-master = <&sndcodec>;
 		simple-audio-card,frame-master = <&sndcodec>;
 		hp-det-gpio = <&lsio_gpio1 0 0>;
