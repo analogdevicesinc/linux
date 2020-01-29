@@ -1,0 +1,157 @@
+// SPDX-License-Identifier: GPL-2.0+
+// Copyright NXP 2018
+
+#include "imx8qm-mek.dts"
+
+/ {
+	sound-cs42888 {
+		status = "disabled";
+	};
+
+	sound-wm8960 {
+		status = "disabled";
+	};
+
+	sai1_port: sai-port {
+		#sound-dai-cells = <0>;
+		compatible = "fsl,sai-dai";
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_sai1>;
+
+		power-domains = <&pd IMX_SC_R_SAI_1>,
+			<&pd IMX_SC_R_DMA_2_CH14>,
+			<&pd IMX_SC_R_DMA_2_CH15>,
+			<&pd IMX_SC_R_AUDIO_CLK_0>,
+			<&pd IMX_SC_R_AUDIO_CLK_1>,
+			<&pd IMX_SC_R_AUDIO_PLL_0>,
+			<&pd IMX_SC_R_AUDIO_PLL_1>;
+
+		clock-names = "bus", "mclk0", "mclk1", "mclk2", "mclk3";
+		clocks = <&sai1_lpcg 1>, <&clk_dummy>, <&sai1_lpcg 0>,
+			<&clk_dummy>, <&clk_dummy>;
+		assigned-clocks = <&acm IMX_ADMA_ACM_SAI1_MCLK_SEL>,
+				<&clk IMX_SC_R_AUDIO_PLL_0 IMX_SC_PM_CLK_PLL>,
+				<&clk IMX_SC_R_AUDIO_PLL_0 IMX_SC_PM_CLK_MISC0>,
+				<&clk IMX_SC_R_AUDIO_PLL_0 IMX_SC_PM_CLK_MISC1>,
+				<&sai1_lpcg 0>; /* FIXME: should be sai1, original code is 0 */
+		assigned-clock-parents = <&aud_pll_div0_lpcg 0>;
+		assigned-clock-rates = <0>, <786432000>, <49152000>, <12288000>, <49152000>;
+		status="okay";
+	};
+
+	sof-sound-wm8960 {
+		compatible = "simple-audio-card";
+		label = "wm8960-audio";
+		simple-audio-card,bitclock-master = <&sndcodec>;
+		simple-audio-card,frame-master = <&sndcodec>;
+		hp-det-gpio = <&lsio_gpio1 0 0>;
+		mic-det-gpio = <&lsio_gpio1 0 0>;
+		simple-audio-card,widgets =
+			"Headphone", "Headphone Jack",
+			"Speaker", "Ext Spk",
+			"Microphone", "Mic Jack";
+		simple-audio-card,audio-routing =
+			"Headphone Jack", "HP_L",
+			"Headphone Jack", "HP_R",
+			"Ext Spk", "SPK_LP",
+			"Ext Spk", "SPK_LN",
+			"Ext Spk", "SPK_RP",
+			"Ext Spk", "SPK_RN",
+			"LINPUT2", "Mic Jack",
+			"LINPUT3", "Mic Jack",
+			"RINPUT1", "Mic Jack",
+			"RINPUT2", "Mic Jack",
+			"Playback", "SAI1.OUT",
+			"SAI1.IN", "Capture";
+		simple-audio-card,dai-link {
+			format = "i2s";
+			cpu {
+				sound-dai = <&sai1_port>;
+			};
+			plat {
+				sound-dai = <&dsp>;
+			};
+			sndcodec: codec {
+				sound-dai = <&wm8960>;
+			};
+		};
+	};
+};
+
+&edma0 {
+	compatible = "fsl,imx8qm-edma";
+	reg = <0x59280000 0x10000>, /* spdif0 rx */
+		<0x59290000 0x10000>, /* spdif0 tx */
+		<0x592c0000 0x10000>, /* sai0 rx */
+		<0x592d0000 0x10000>, /* sai0 tx */
+		<0x59350000 0x10000>,
+		<0x59370000 0x10000>;
+	#dma-cells = <3>;
+	shared-interrupt;
+	dma-channels = <6>;
+	interrupts = <GIC_SPI 457 IRQ_TYPE_LEVEL_HIGH>, /* spdif0 */
+			<GIC_SPI 459 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 315 IRQ_TYPE_LEVEL_HIGH>, /* sai0 */
+			<GIC_SPI 315 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 391 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 393 IRQ_TYPE_LEVEL_HIGH>;
+	interrupt-names = "edma0-chan8-rx", "edma0-chan9-tx", /* spdif0 */
+			"edma0-chan12-rx", "edma0-chan13-tx", /* sai0 */
+			"edma0-chan21-tx",		/* gpt5 */
+			"edma0-chan23-rx";		/* gpt7 */
+
+	power-domains = <&pd IMX_SC_R_DMA_0_CH8>,
+			<&pd IMX_SC_R_DMA_0_CH9>,
+			<&pd IMX_SC_R_DMA_0_CH12>,
+			<&pd IMX_SC_R_DMA_0_CH13>,
+			<&pd IMX_SC_R_DMA_0_CH21>,
+			<&pd IMX_SC_R_DMA_0_CH23>;
+	power-domain-names = "edma0-chan8", "edma0-chan9",
+			"edma0-chan12", "edma0-chan13",
+			"edma0-chan21", "edma0-chan23";
+	status = "okay";
+};
+
+&dsp {
+	compatible = "fsl,imx8qm-dsp";
+	#sound-dai-cells = <0>;
+	tplg-name = "sof-imx8qxp-wm8960.tplg";
+	machine-drv-name = "asoc-simple-card";
+	status = "okay";
+	power-domains = <&pd IMX_SC_R_MU_13A>,
+			<&pd IMX_SC_R_MU_13B>,
+			<&pd IMX_SC_R_DSP>,
+			<&pd IMX_SC_R_DSP_RAM>,
+			<&pd IMX_SC_R_IRQSTR_DSP>;
+	mbox-names = "txdb0", "txdb1", "rxdb0", "rxdb1";
+	mboxes = <&lsio_mu13 2 0>,
+		<&lsio_mu13 2 1>,
+		<&lsio_mu13 3 0>,
+		<&lsio_mu13 3 1>;
+};
+
+&wm8960 {
+	#sound-dai-cells = <0>;
+	status = "okay";
+};
+
+&amix {
+	status = "disabled";
+};
+
+&esai0 {
+	status = "disabled";
+};
+
+&asrc0 {
+	status = "disabled";
+};
+
+&sai1 {
+	status = "disabled";
+};
+
+&cs42888 {
+	status = "disabled";
+};
