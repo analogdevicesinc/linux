@@ -10,7 +10,8 @@
 
 /* JESD204C Supported encoding scheme */
 enum jesd204_encoder {
-	JESD204_ENCODER_8B10B = 0x01,
+	JESD204_ENCODER_UNKNOWN,
+	JESD204_ENCODER_8B10B,
 	JESD204_ENCODER_64B66B
 };
 
