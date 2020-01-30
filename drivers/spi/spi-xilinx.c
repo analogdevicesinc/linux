@@ -443,14 +443,17 @@ static int xspi_setup(struct spi_device *qspi)
 	/*FIXME: Drop this when we get to kernel version 5.3-5.5, since this is
 	 * done by the SPI framework.
 	 */
-	if (!gpio_is_valid(qspi->cs_gpio))
-		dev_warn(&qspi->dev, "%d is not a valid gpio\n",
-			qspi->cs_gpio);
+	if (qspi->master->cs_gpios) {
+		if (!gpio_is_valid(qspi->cs_gpio))
+			dev_warn(&qspi->dev, "%d is not a valid gpio\n",
+				qspi->cs_gpio);
 
-	ret = gpio_direction_output(qspi->cs_gpio, !(qspi->mode & SPI_CS_HIGH));
-	if (ret < 0)
-		dev_warn(&qspi->dev, "could not set CS gpio %d as output\n",
-			qspi->cs_gpio);
+		ret = gpio_direction_output(qspi->cs_gpio,
+					    !(qspi->mode & SPI_CS_HIGH));
+		if (ret < 0)
+			dev_warn(&qspi->dev, "could not set CS gpio %d as output\n",
+				qspi->cs_gpio);
+	}
 
 	ret = xspi_setup_transfer(qspi, NULL);
 	pm_runtime_put_sync(xqspi->dev);
