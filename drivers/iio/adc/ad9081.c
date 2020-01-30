@@ -2,7 +2,7 @@
 /*
  * Driver for AD9081 and similar mixed signal front end (MxFE®)
  *
- * Copyright 2019 Analog Devices Inc.
+ * Copyright 2019-2020 Analog Devices Inc.
  */
 //#define DEBUG
 #include <linux/debugfs.h>
@@ -164,16 +164,19 @@ static int ad9081_nco_sync_master_slave(struct ad9081_phy *phy, bool master)
 	if (ret < 0)
 		return ret;
 	/* source  0: sysref, 1: lmfc rising edge, 2: lmfc falling edge */
-	ret = adi_ad9081_dac_nco_master_slave_trigger_source_set(&phy->ad9081, 1);
+	ret = adi_ad9081_dac_nco_master_slave_trigger_source_set(
+		&phy->ad9081, 1);
 	if (ret < 0)
 		return ret;
 
-	ret = adi_ad9081_dac_nco_master_slave_mode_set(&phy->ad9081, master ? 1 : 2);
+	ret = adi_ad9081_dac_nco_master_slave_mode_set(&phy->ad9081,
+		master ? 1 : 2);
 
 	adi_ad9081_dac_nco_sync_reset_via_sysref_set(&phy->ad9081, 1);
 
 	if (master)
-		return adi_ad9081_dac_nco_master_slave_trigger_set(&phy->ad9081);
+		return adi_ad9081_dac_nco_master_slave_trigger_set(
+			&phy->ad9081);
 
 	return ret;
 }
@@ -905,7 +908,8 @@ static ssize_t ad9081_ext_info_write(struct iio_dev *indio_dev,
 						&phy->ad9081, BIT(i), val16,
 						AD9081_DAC_CH_NONE, 0);
 					if (!ret)
-						phy->dac_cache.main_phase[i] = readin;
+						phy->dac_cache.main_phase[i] =
+							readin;
 					else
 						ret = -EFAULT;
 				}
@@ -939,7 +943,8 @@ static ssize_t ad9081_ext_info_write(struct iio_dev *indio_dev,
 					BIT(chan->channel),
 					val16);
 			if (!ret)
-				phy->dac_cache.chan_phase[chan->channel] = readin;
+				phy->dac_cache.chan_phase[chan->channel] =
+					readin;
 			else
 				ret = -EFAULT;
 
@@ -1569,11 +1574,13 @@ static int ad9081_setup(struct spi_device *spi, bool ad9234)
 
 	clk_set_rate(phy->clks[TX_SAMPL_CLK], sample_rate);
 
-	ret = adi_ad9081_adc_nyquist_zone_set(&phy->ad9081, phy->rx_nyquist_zone);
+	ret = adi_ad9081_adc_nyquist_zone_set(&phy->ad9081,
+		phy->rx_nyquist_zone);
 	if (ret != 0)
 		return ret;
 
-	ret = ad9081_nco_sync_master_slave(phy, !IS_ERR_OR_NULL(phy->jesd_rx_clk));
+	ret = ad9081_nco_sync_master_slave(phy,
+		!IS_ERR_OR_NULL(phy->jesd_rx_clk));
 	if (ret != 0)
 		return ret;
 
@@ -1584,7 +1591,7 @@ static int ad9081_multichip_sync(struct ad9081_phy *phy, int step)
 {
 	int ret;
 
-	dev_dbg(&phy->spi->dev, "%s:%d\n",__func__, step);
+	dev_dbg(&phy->spi->dev, "%s:%d\n", __func__, step);
 
 	switch (step & 0xFF) {
 	case 0:
@@ -1611,7 +1618,8 @@ static int ad9081_multichip_sync(struct ad9081_phy *phy, int step)
 			ret = clk_prepare_enable(phy->jesd_rx_clk);
 			if (ret < 0) {
 				dev_err(&phy->spi->dev,
-					"Failed to enable JESD204 link: %d\n", ret);
+					"Failed to enable JESD204 link: %d\n",
+					ret);
 				return ret;
 			}
 		}
@@ -1635,7 +1643,8 @@ static int ad9081_multichip_sync(struct ad9081_phy *phy, int step)
 			ret = clk_prepare_enable(phy->jesd_tx_clk);
 			if (ret < 0) {
 				dev_err(&phy->spi->dev,
-					"Failed to enable JESD204 link: %d\n", ret);
+					"Failed to enable JESD204 link: %d\n",
+					ret);
 				return ret;
 			}
 		}
@@ -1652,7 +1661,8 @@ static int ad9081_multichip_sync(struct ad9081_phy *phy, int step)
 		ret = adi_ad9081_jesd_oneshot_sync(&phy->ad9081);
 		break;
 	case 5:
-		ret = ad9081_nco_sync_master_slave(phy, !IS_ERR_OR_NULL(phy->jesd_rx_clk));
+		ret = ad9081_nco_sync_master_slave(phy,
+			!IS_ERR_OR_NULL(phy->jesd_rx_clk));
 		if (ret != 0)
 			return ret;
 		break;
