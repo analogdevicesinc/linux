@@ -159,10 +159,12 @@ static ssize_t axi_jesd204_tx_status_read(struct device *dev,
 		ret += scnprintf(buf + ret, PAGE_SIZE - ret,
 			"Lane rate: %d.%.3d MHz\n"
 			"Lane rate / %d: %d.%.3d MHz\n"
-			"LMFC/LEMC rate: %d.%.3d MHz\n",
+			"%s rate: %d.%.3d MHz\n",
 			clock_rate / 1000, clock_rate % 1000,
 			(jesd->encoder == JESD204_ENCODER_8B10B) ? 40 : 66,
 			link_rate / 1000, link_rate % 1000,
+			(jesd->encoder == JESD204_ENCODER_8B10B) ? "LMFC" :
+				"LEMC",
 			lmfc_rate / 1000, lmfc_rate % 1000);
 
 		ret += scnprintf(buf + ret, PAGE_SIZE - ret,
@@ -555,6 +557,10 @@ static int axi_jesd204_tx_probe(struct platform_device *pdev)
 
 	synth_1 = readl_relaxed(jesd->base + JESD204_REG_SYNTH_REG_1);
 	jesd->encoder = JESD204_ENCODER_GET(synth_1);
+
+	/* backward compatibility with older HDL cores */
+	if (jesd->encoder == JESD204_ENCODER_UNKNOWN)
+		jesd->encoder = JESD204_ENCODER_8B10B;
 
 	ret = axi_jesd204_tx_parse_dt_config(pdev->dev.of_node, jesd, &config);
 	if (ret)
