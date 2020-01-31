@@ -63,7 +63,7 @@ static int adm1177_write_alert_thr(struct adm1177_state *st,
 
 	ret = i2c_smbus_write_byte_data(st->client, ADM1177_REG_ALERT_TH,
 					val);
-	if (!ret)
+	if (ret)
 		return ret;
 
 	st->alert_threshold_ua = alert_threshold_ua;
