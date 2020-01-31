@@ -249,7 +249,7 @@ unlock:
 static void axi_laser_irq_otw_state_exit(struct axi_pulse_capture *pulse)
 {
 	/* clear the irq */
-	pulse_capture_iowrite(pulse, ADI_REG_IRQ_SRC, ADI_IRQ_SRC_OTW_EXIT);
+	pulse_capture_iowrite(pulse, ADI_REG_IRQ_PENDING, ADI_IRQ_SRC_OTW_EXIT);
 	pulse->otw = false;
 
 	if (pulse->saved_en == LASER_DISABLE)
@@ -266,7 +266,7 @@ static void axi_laser_irq_otw_state_enter(struct axi_pulse_capture *pulse)
 	pulse_capture_iowrite(pulse, ADI_REG_CONFIG, PULSE_GEN_RESET);
 	pulse_capture_iowrite(pulse, ADI_REG_DRIVER_ENABLE, LASER_DISABLE);
 	/* clear the irq */
-	pulse_capture_iowrite(pulse, ADI_REG_IRQ_SRC, ADI_IRQ_SRC_OTW_ENTER);
+	pulse_capture_iowrite(pulse, ADI_REG_IRQ_PENDING, ADI_IRQ_SRC_OTW_ENTER);
 	pulse->otw = true;
 }
 
@@ -304,6 +304,8 @@ unlock:
 
 static void axi_pulse_capture_config(struct axi_pulse_capture *pulse)
 {
+	u32 driver_otw;
+
 	/* default period of 50 kHz */
 	axi_pulse_capture_params_set(pulse, ADI_REG_PULSE_PERIOD, 50000);
 	/* default pulse width of 20 ns (50Mhz) */
@@ -314,6 +316,9 @@ static void axi_pulse_capture_config(struct axi_pulse_capture *pulse)
 	 * All interrupts are disabled on the core at startup.
 	 * Let's only enable the otw irqs.
 	 */
+	driver_otw = pulse_capture_ioread(pulse, ADI_REG_DRIVER_OTW);
+	pulse_capture_iowrite(pulse, ADI_REG_IRQ_PENDING,
+		driver_otw ? ADI_IRQ_MASK_OUT_ALL : ADI_IRQ_SRC_OTW_EXIT);
 	pulse_capture_iowrite(pulse, ADI_REG_IRQ_MASK,
 			  (ADI_IRQ_MASK_OUT_ALL &
 			  ~(ADI_IRQ_SRC_OTW_ENTER |
