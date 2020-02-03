@@ -399,6 +399,7 @@ static void ad_sd_prepare_transfer_msg(struct iio_dev *indio_dev)
 static int ad_sd_buffer_postenable(struct iio_dev *indio_dev)
 {
 	struct ad_sigma_delta *sigma_delta = iio_device_get_drvdata(indio_dev);
+	unsigned int reg_size;
 	unsigned int i, slot;
 	int ret;
 
@@ -435,6 +436,8 @@ static int ad_sd_buffer_postenable(struct iio_dev *indio_dev)
 		spi_engine_offload_enable(sigma_delta->spi, true);
 	} else {
 		sigma_delta->spi_transfer[1].rx_buf = sigma_delta->buf_data;
+		reg_size = sigma_delta->spi_transfer[1].len;
+		sigma_delta->spi_transfer[1].rx_buf += 4 - reg_size;
 		sigma_delta->irq_dis = false;
 		enable_irq(sigma_delta->spi->irq);
 	}
