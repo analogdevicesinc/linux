@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: GPL-2.0
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
 %YAML 1.2
 ---
 $id: http://devicetree.org/schemas/sound/adi,adau7118.yaml#
@@ -26,15 +26,11 @@ properties:
   "#sound-dai-cells":
     const: 0
 
-  IOVDD-supply:
+  iovdd-supply:
     description: Digital Input/Output Power Supply.
-    $ref: "/schemas/types.yaml#/definitions/phandle"
-    maxItems: 1
 
-  DVDD-supply:
+  dvdd-supply:
     description: Internal Core Digital Power Supply.
-    $ref: "/schemas/types.yaml#/definitions/phandle"
-    maxItems: 1
 
   adi,decimation-ratio:
     description: |
@@ -42,7 +38,7 @@ properties:
     allOf:
       - $ref: /schemas/types.yaml#/definitions/uint32
       - enum: [64, 32, 16]
-    default: 64
+        default: 64
 
   adi,pdm-clk-map:
     description: |
@@ -52,41 +48,38 @@ properties:
     allOf:
       - $ref: /schemas/types.yaml#/definitions/uint32-array
       - minItems: 4
-      - maxItems: 4
-      - enum: [0, 1]
-    default: [0, 0, 1, 1]
-
-if:
-  properties:
-    IOVDD-supply: true
-then:
-  required:
-    - DVDD-supply
+        maxItems: 4
+        items:
+          maximum: 1
+        default: [0, 0, 1, 1]
 
 required:
   - "#sound-dai-cells"
   - compatible
+  - iovdd-supply
+  - dvdd-supply
 
 examples:
   - |
-    i2c0 {
+    i2c {
         /* example with i2c support */
         #address-cells = <1>;
         #size-cells = <0>;
-        status = "okay";
-        adau7118_codec: adau7118-codec@14 {
+        adau7118_codec: audio-codec@14 {
                 compatible = "adi,adau7118";
-                reg = <14>;
-                status = "okay";
+                reg = <0x14>;
+                #sound-dai-cells = <0>;
+                iovdd-supply = <&supply>;
+                dvdd-supply = <&supply>;
                 adi,pdm-clk-map = <1 1 0 0>;
                 adi,decimation-ratio = <16>;
         };
     };
 
-    / {
-            /* example with hw standalone mode */
-            adau7118_codec: adau7118-code {
-                 compatible = "adi,adau7118";
-                 status = "okay";
-            };
+    /* example with hw standalone mode */
+    adau7118_codec_hw: adau7118-codec-hw {
+            compatible = "adi,adau7118";
+            #sound-dai-cells = <0>;
+            iovdd-supply = <&supply>;
+            dvdd-supply = <&supply>;
     };
