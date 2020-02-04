@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0
-/*
- * Analog Devices ADAU7118 8 channel PDM-to-I2S/TDM Converter driver over I2C
- *
- * Copyright 2019 Analog Devices Inc.
- */
+//
+// Analog Devices ADAU7118 8 channel PDM-to-I2S/TDM Converter driver over I2C
+//
+// Copyright 2019 Analog Devices Inc.
+
 #include <linux/i2c.h>
 #include <linux/module.h>
 #include <linux/regmap.h>
@@ -48,14 +48,12 @@ static int adau7118_probe_i2c(struct i2c_client *i2c,
 
 	map = devm_regmap_init_i2c(i2c, &adau7118_regmap_config);
 	if (IS_ERR(map)) {
-		dev_err(&i2c->dev, "Failed to init regmap %ld\n",
-							PTR_ERR(map));
+		dev_err(&i2c->dev, "Failed to init regmap %ld\n", PTR_ERR(map));
 		return PTR_ERR(map);
 	}
 
 	return adau7118_probe(&i2c->dev, map, false);
 }
-
 
 static const struct of_device_id adau7118_of_match[] = {
 	{ .compatible = "adi,adau7118" },

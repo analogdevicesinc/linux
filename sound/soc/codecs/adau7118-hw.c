@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: GPL-2.0
-/*
- * Analog Devices ADAU7118 8 channel PDM-to-I2S/TDM Converter Standalone Hw
- * driver
- *
- * Copyright 2019 Analog Devices Inc.
- */
+//
+// Analog Devices ADAU7118 8 channel PDM-to-I2S/TDM Converter Standalone Hw
+// driver
+//
+// Copyright 2019 Analog Devices Inc.
+
 #include <linux/module.h>
 #include <linux/mod_devicetable.h>
 #include <linux/platform_device.h>
