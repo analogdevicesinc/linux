@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0
-/*
- * Analog Devices ADAU7118 8 channel PDM-to-I2S/TDM Converter driver
- *
- * Copyright 2019 Analog Devices Inc.
- */
+//
+// Analog Devices ADAU7118 8 channel PDM-to-I2S/TDM Converter driver
+//
+// Copyright 2019 Analog Devices Inc.
+
 #include <linux/bitfield.h>
 #include <linux/module.h>
 #include <linux/regmap.h>
@@ -31,7 +31,6 @@
 #define ADAU7118_SPT_SLOT(x)		FIELD_PREP(ADAU7118_SPT_SLOT_MASK, x)
 #define ADAU7118_FULL_SOFT_R_MASK	BIT(1)
 #define ADAU7118_FULL_SOFT_R(x)		FIELD_PREP(ADAU7118_FULL_SOFT_R_MASK, x)
-
 
 struct adau7118_data {
 	struct regmap *map;
@@ -170,7 +169,7 @@ static int adau7118_set_fmt(struct snd_soc_dai *dai, unsigned int fmt)
 		break;
 	default:
 		dev_err(st->dev, "Invalid format %d",
-				fmt & SND_SOC_DAIFMT_FORMAT_MASK);
+			fmt & SND_SOC_DAIFMT_FORMAT_MASK);
 		return -EINVAL;
 	}
 
@@ -192,7 +191,7 @@ static int adau7118_set_fmt(struct snd_soc_dai *dai, unsigned int fmt)
 		break;
 	default:
 		dev_err(st->dev, "Invalid Inv mask %d",
-					fmt & SND_SOC_DAIFMT_INV_MASK);
+			fmt & SND_SOC_DAIFMT_INV_MASK);
 		return -EINVAL;
 	}
 
@@ -200,8 +199,10 @@ static int adau7118_set_fmt(struct snd_soc_dai *dai, unsigned int fmt)
 					    ADAU7118_REG_SPT_CTRL2,
 					    ADAU7118_LRCLK_BCLK_POL_MASK,
 					    regval);
+	if (ret < 0)
+		return ret;
 
-	return ret < 0 ? ret : 0;
+	return 0;
 }
 
 static int adau7118_set_tristate(struct snd_soc_dai *dai, int tristate)
@@ -216,8 +217,10 @@ static int adau7118_set_tristate(struct snd_soc_dai *dai, int tristate)
 					    ADAU7118_REG_SPT_CTRL1,
 					    ADAU7118_TRISTATE_MASK,
 					    ADAU7118_TRISTATE(tristate));
+	if (ret < 0)
+		return ret;
 
-	return ret < 0 ? ret : 0;
+	return 0;
 }
 
 static int adau7118_set_tdm_slot(struct snd_soc_dai *dai, unsigned int tx_mask,
@@ -284,8 +287,7 @@ static int adau7118_hw_params(struct snd_pcm_substream *substream,
 
 	if (data_width > slots_width) {
 		dev_err(st->dev, "Invalid data_width:%d, slots_width:%d",
-								data_width,
-								slots_width);
+			data_width, slots_width);
 		return -EINVAL;
 	}
 
@@ -322,7 +324,7 @@ static int adau7118_hw_params(struct snd_pcm_substream *substream,
 }
 
 static int adau7118_set_bias_level(struct snd_soc_component *component,
-	enum snd_soc_bias_level level)
+				   enum snd_soc_bias_level level)
 {
 	struct adau7118_data *st = snd_soc_component_get_drvdata(component);
 	int ret = 0;
@@ -337,9 +339,6 @@ static int adau7118_set_bias_level(struct snd_soc_component *component,
 	case SND_SOC_BIAS_STANDBY:
 		if (snd_soc_component_get_bias_level(component) ==
 							SND_SOC_BIAS_OFF) {
-			if (!st->iovdd)
-				return 0;
-
 			/* power on */
 			ret = regulator_enable(st->iovdd);
 			if (ret)
@@ -362,9 +361,6 @@ static int adau7118_set_bias_level(struct snd_soc_component *component,
 		break;
 	case SND_SOC_BIAS_OFF:
 		/* power off */
-		if (!st->iovdd)
-			return 0;
-
 		ret = regulator_disable(st->dvdd);
 		if (ret)
 			return ret;
@@ -415,22 +411,6 @@ static int adau7118_component_probe(struct snd_soc_component *component)
 	return ret;
 }
 
-#ifdef CONFIG_PM
-static int adau7118_suspend(struct snd_soc_component *component)
-{
-	return snd_soc_component_force_bias_level(component, SND_SOC_BIAS_OFF);
-}
-
-static int adau7118_resume(struct snd_soc_component *component)
-{
-	return snd_soc_component_force_bias_level(component,
-						  SND_SOC_BIAS_STANDBY);
-}
-#else
-#define adau7118_suspend NULL
-#define adau7118_resume NULL
-#endif
-
 static const struct snd_soc_dai_ops adau7118_ops = {
 	.hw_params = adau7118_hw_params,
 	.set_channel_map = adau7118_set_channel_map,
@@ -458,11 +438,8 @@ static struct snd_soc_dai_driver adau7118_dai = {
 static const struct snd_soc_component_driver adau7118_component_driver = {
 	.probe			= adau7118_component_probe,
 	.set_bias_level		= adau7118_set_bias_level,
-	.suspend		= adau7118_suspend,
-	.resume			= adau7118_resume,
 	.dapm_widgets		= adau7118_widgets,
 	.num_dapm_widgets	= ARRAY_SIZE(adau7118_widgets),
-	.idle_bias_on		= 1,
 	.use_pmdown_time	= 1,
 	.endianness		= 1,
 	.non_legacy_dai_naming	= 1,
@@ -486,41 +463,27 @@ static void adau7118_regulator_disable(void *data)
 
 static int adau7118_regulator_setup(struct adau7118_data *st)
 {
-	int ret = 0;
-
-	st->iovdd = devm_regulator_get_optional(st->dev, "IOVDD");
-	if (!IS_ERR(st->iovdd)) {
-		/*
-		 * Only get dvdd if iovdd is present. Furthermore,
-		 * if iovdd is present, dvdd must also be given. The two
-		 * supplies should be controlled together since dvdd should
-		 * not be applied before iovdd.
-		 */
-		st->dvdd = devm_regulator_get(st->dev, "DVDD");
-		if (IS_ERR(st->dvdd)) {
-			dev_err(st->dev, "Could not get dvdd: %ld\n",
-							PTR_ERR(st->dvdd));
-			return PTR_ERR(st->dvdd);
-		}
-		/* just assume the device is in reset */
-		if (!st->hw_mode) {
-			regcache_mark_dirty(st->map);
-			regcache_cache_only(st->map, true);
-		}
-
-		ret = devm_add_action_or_reset(st->dev,
-					       adau7118_regulator_disable, st);
-	} else {
-		if (PTR_ERR(st->iovdd) == -ENODEV) {
-			st->iovdd = NULL;
-		} else {
-			dev_err(st->dev, "Failed to get IOVDD %ld\n",
-							PTR_ERR(st->iovdd));
-			return PTR_ERR(st->iovdd);
-		}
+	st->iovdd = devm_regulator_get(st->dev, "iovdd");
+	if (IS_ERR(st->iovdd)) {
+		dev_err(st->dev, "Could not get iovdd: %ld\n",
+			PTR_ERR(st->iovdd));
+		return PTR_ERR(st->iovdd);
 	}
 
-	return ret;
+	st->dvdd = devm_regulator_get(st->dev, "dvdd");
+	if (IS_ERR(st->dvdd)) {
+		dev_err(st->dev, "Could not get dvdd: %ld\n",
+			PTR_ERR(st->dvdd));
+		return PTR_ERR(st->dvdd);
+	}
+	/* just assume the device is in reset */
+	if (!st->hw_mode) {
+		regcache_mark_dirty(st->map);
+		regcache_cache_only(st->map, true);
+	}
+
+	return devm_add_action_or_reset(st->dev, adau7118_regulator_disable,
+					st);
 }
 
 static int adau7118_parset_dt(const struct adau7118_data *st)
@@ -550,7 +513,6 @@ static int adau7118_parset_dt(const struct adau7118_data *st)
 			dev_err(st->dev, "Invalid dec ratio: %u", dec_ratio);
 			return -EINVAL;
 		}
-
 
 		ret = regmap_update_bits(st->map,
 					 ADAU7118_REG_DEC_RATIO_CLK_MAP,
