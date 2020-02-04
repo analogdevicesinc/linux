@@ -9,15 +9,15 @@ security_subsys: bus@31400000 {
 	compatible = "simple-bus";
 	#address-cells = <1>;
 	#size-cells = <1>;
-	ranges = <0x31400000 0x0 0x31400000 0xc00000>;
+	ranges = <0x31400000 0x0 0x31400000 0x410000>;
 
 	crypto: crypto@31400000 {
 		compatible = "fsl,sec-v4.0";
-		reg = <0x31400000 0x400000>;
+		reg = <0x31400000 0x90000>;
 		interrupts = <GIC_SPI 148 IRQ_TYPE_LEVEL_HIGH>;
 		#address-cells = <1>;
 		#size-cells = <1>;
-		ranges = <0 0x31400000 0x400000>;
+		ranges = <0 0x31400000 0x90000>;
 		fsl,sec-era = <9>;
 		power-domains = <&pd IMX_SC_R_CAAM_JR2>;
 		power-domain-names = "jr";
@@ -42,5 +42,93 @@ security_subsys: bus@31400000 {
 	caam_sm: caam-sm@31800000 {
 		compatible = "fsl,imx6q-caam-sm";
 		reg = <0x31800000 0x10000>;
+	};
+
+	mu2: mu@31560000 {
+		compatible = "fsl,imx8qxp-mu", "fsl,imx6sx-mu";
+		reg = <0x31560000 0x10000>;
+		interrupts = <GIC_SPI 448 IRQ_TYPE_LEVEL_HIGH>;
+		#mbox-cells = <2>;
+		power-domains = <&pd IMX_SC_R_SECO_MU_2>;
+		power-domain-names = "seco";
+		status = "disabled";
+	};
+
+	mu3: mu@31570000 {
+		compatible = "fsl,imx8qxp-mu", "fsl,imx6sx-mu";
+		reg = <0x31570000 0x10000>;
+		interrupts = <GIC_SPI 449 IRQ_TYPE_LEVEL_HIGH>;
+		#mbox-cells = <2>;
+		power-domains = <&pd IMX_SC_R_SECO_MU_3>;
+		status = "disabled";
+	};
+
+	mu4: mu@31580000 {
+		compatible = "fsl,imx8qxp-mu", "fsl,imx6sx-mu";
+		reg = <0x31580000 0x10000>;
+		interrupts = <GIC_SPI 450 IRQ_TYPE_LEVEL_HIGH>;
+		#mbox-cells = <2>;
+		power-domains = <&pd IMX_SC_R_SECO_MU_4>;
+		status = "disabled";
+	};
+
+	seco_mu1: seco_mu1 {
+		compatible = "fsl,imx-seco-mu";
+		mbox-names = "tx0", "tx1", "tx2", "tx3",
+			     "rx0", "rx1", "rx2", "rx3",
+			     "tx_started";
+		mboxes = <&mu2 0 0
+			  &mu2 0 1
+			  &mu2 0 2
+			  &mu2 0 3
+			  &mu2 1 0
+			  &mu2 1 1
+			  &mu2 1 2
+			  &mu2 1 3
+			  &mu2 2 0>;
+
+		fsl,seco_mu_id = <1>;
+		fsl,seco_max_users = <4>;
+		status = "disabled";
+	};
+
+	seco_mu2: seco_mu2 {
+		compatible = "fsl,imx-seco-mu";
+		mbox-names = "tx0", "tx1", "tx2", "tx3",
+			     "rx0", "rx1", "rx2", "rx3",
+			     "tx_started";
+		mboxes = <&mu3 0 0
+			  &mu3 0 1
+			  &mu3 0 2
+			  &mu3 0 3
+			  &mu3 1 0
+			  &mu3 1 1
+			  &mu3 1 2
+			  &mu3 1 3
+			  &mu3 2 0>;
+
+		fsl,seco_mu_id = <2>;
+		fsl,seco_max_users = <2>;
+		status = "disabled";
+	};
+
+	seco_mu3: seco_mu3 {
+		compatible = "fsl,imx-seco-mu";
+		mbox-names = "tx0", "tx1", "tx2", "tx3",
+			     "rx0", "rx1", "rx2", "rx3",
+			     "tx_started";
+		mboxes = <&mu4 0 0
+			  &mu4 0 1
+			  &mu4 0 2
+			  &mu4 0 3
+			  &mu4 1 0
+			  &mu4 1 1
+			  &mu4 1 2
+			  &mu4 1 3
+			  &mu4 2 0>;
+
+		fsl,seco_mu_id = <3>;
+		fsl,seco_max_users = <2>;
+		status = "disabled";
 	};
 };
