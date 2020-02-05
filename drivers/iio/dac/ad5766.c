@@ -105,14 +105,6 @@ static int ad5766_write_raw(struct iio_dev *indio_dev,
 			return -EINVAL;
 		val <<= chan->scan_type.shift;
 		break;
-	case IIO_CHAN_INFO_CALIBBIAS:
-		if (val >= 128 || val < -128)
-			return -EINVAL;
-		break;
-	case IIO_CHAN_INFO_CALIBSCALE:
-		if (val >= 32 || val < -32)
-			return -EINVAL;
-		break;
 	default:
 		return -EINVAL;
 	}
