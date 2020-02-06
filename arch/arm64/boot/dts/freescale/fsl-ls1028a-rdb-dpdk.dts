@@ -1,0 +1,41 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * NXP LS1028A RDB Board device tree file for DPDK
+ *
+ * Copyright 2018-2020 NXP
+ */
+
+/dts-v1/;
+#include "fsl-ls1028a-rdb.dts"
+
+&enetc_port0 {
+	/* Leave the port with SGMII in-band autoneg enabled */
+	/delete-property/ phy-handle;
+};
+
+/delete-node/ &enetc_mdio_pf3;
+
+/* l2switch ports */
+&mscc_felix_port0 {
+	/delete-property/ phy-handle;
+};
+
+&mscc_felix_port1 {
+	/delete-property/ phy-handle;
+};
+
+&mscc_felix_port2 {
+	/delete-property/ phy-handle;
+};
+
+&mscc_felix_port3 {
+	/delete-property/ phy-handle;
+};
+
+&mscc_felix_port5 {
+	status = "okay";
+};
+
+&enetc_port3 {
+	status = "okay";
+};
