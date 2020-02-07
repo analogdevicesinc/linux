@@ -68,8 +68,12 @@ static int clk_pllv3_wait_lock(struct clk_pllv3 *pll)
 	if ((pll->powerup_set && !val) || (!pll->powerup_set && val))
 		return 0;
 
-	return readl_relaxed_poll_timeout(pll->base, val, val & BM_PLL_LOCK,
-					  500, PLL_LOCK_TIMEOUT);
+	if (!(imx_src_is_m4_enabled() && clk_on_imx6sx()))
+		return readl_relaxed_poll_timeout(pll->base, val, val & BM_PLL_LOCK,
+						  500, PLL_LOCK_TIMEOUT);
+	else
+		return readl_relaxed_poll_timeout_atomic(pll->base, val, val & BM_PLL_LOCK,
+						  10, PLL_LOCK_TIMEOUT);
 }
 
 static int clk_pllv3_do_hardware(struct clk_hw *hw, bool enable)
