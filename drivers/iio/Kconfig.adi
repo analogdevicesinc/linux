@@ -33,7 +33,6 @@ config IIO_ALL_ADI_DRIVERS
 	select AD7887
 	select AD799X
 	select AD9963
-	select ADM1177
 	select CF_AXI_ADC
 	select AD9208
 	select AD9081
