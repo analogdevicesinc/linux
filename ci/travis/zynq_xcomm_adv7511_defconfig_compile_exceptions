@@ -37,3 +37,4 @@ drivers/misc/xilinx_lcd.o
 sound/pci/ac97/ac97_codec.o
 sound/pci/ac97/ac97_proc.o
 sound/soc/codecs/ad1980.o
+drivers/iio/adc/adm1177.o
