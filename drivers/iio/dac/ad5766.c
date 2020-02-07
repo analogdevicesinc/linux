@@ -34,16 +34,64 @@ enum ad5766_type {
 	ID_AD5767,
 };
 
+#define AD576x_CHANNEL(_chan, _bits) {				\
+	.type = IIO_VOLTAGE,					\
+	.indexed = 1,						\
+	.output = 1,						\
+	.channel = (_chan),					\
+	.address = (_chan),					\
+	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW),		\
+	.scan_type = {						\
+		.sign = 'u',					\
+		.realbits = (_bits),				\
+		.storagebits = 16,				\
+		.shift = 16 - (_bits),				\
+	},							\
+}
+
+#define DECLARE_AD576x_CHANNELS(_name, _bits)			\
+const struct iio_chan_spec _name[] = {				\
+	AD576x_CHANNEL(0, (_bits)),				\
+	AD576x_CHANNEL(1, (_bits)),				\
+	AD576x_CHANNEL(2, (_bits)),				\
+	AD576x_CHANNEL(3, (_bits)),				\
+	AD576x_CHANNEL(4, (_bits)),				\
+	AD576x_CHANNEL(5, (_bits)),				\
+	AD576x_CHANNEL(6, (_bits)),				\
+	AD576x_CHANNEL(7, (_bits)),				\
+	AD576x_CHANNEL(8, (_bits)),				\
+	AD576x_CHANNEL(9, (_bits)),				\
+	AD576x_CHANNEL(10, (_bits)),				\
+	AD576x_CHANNEL(11, (_bits)),				\
+	AD576x_CHANNEL(12, (_bits)),				\
+	AD576x_CHANNEL(13, (_bits)),				\
+	AD576x_CHANNEL(14, (_bits)),				\
+	AD576x_CHANNEL(15, (_bits)),				\
+}
+
+/**
+ * struct ad5766_chip_info - chip specific information
+ * @num_channels:	number of channels
+ * @channel:	        channel specification
+ */
+
+struct ad5766_chip_info {
+	unsigned int			num_channels;
+	const struct iio_chan_spec	*channels;
+};
+
 /**
  * struct ad5766_state - driver instance specific data
  * @spi:		Spi device
  * @lock:		Mutex lock
+ * @chip_info:		Chip model specific constants
  * @data:		Spi transfer buffers
  */
 
 struct ad5766_state {
-	struct spi_device	*spi;
-	struct mutex		lock;
+	struct spi_device		*spi;
+	struct mutex			lock;
+	const struct ad5766_chip_info 	*chip_info;
 	union {
 		u32	d32;
 		u16	w16[2];
@@ -66,6 +114,20 @@ static int ad5766_read_raw(struct iio_dev *indio_dev,
 static const struct iio_info ad5766_info = {
 	.read_raw = ad5766_read_raw,
 	.write_raw = ad5766_write_raw,
+};
+
+static DECLARE_AD576x_CHANNELS(ad5766_channels, 16);
+static DECLARE_AD576x_CHANNELS(ad5767_channels, 12);
+
+static const struct ad5766_chip_info ad5766_chip_infos[] = {
+	[ID_AD5766] = {
+		.num_channels = ARRAY_SIZE(ad5766_channels),
+		.channels = ad5766_channels,
+	},
+	[ID_AD5767] = {
+		.num_channels = ARRAY_SIZE(ad5767_channels),
+		.channels = ad5767_channels,
+	},
 };
 
 static int _ad5766_spi_write(struct ad5766_state *st,
@@ -180,6 +242,7 @@ static int ad5766_setup(struct ad5766_state *st)
 
 static int ad5766_probe(struct spi_device *spi)
 {
+	enum ad5766_type type = spi_get_device_id(spi)->driver_data;
 	struct iio_dev *indio_dev;
 	struct ad5766_state *st;
 	int ret;
@@ -194,6 +257,10 @@ static int ad5766_probe(struct spi_device *spi)
 	mutex_init(&st->lock);
 
 	st->spi = spi;
+	st->chip_info = &ad5766_chip_infos[type];
+
+	indio_dev->channels = st->chip_info->channels;
+	indio_dev->num_channels = st->chip_info->num_channels;
 	indio_dev->info = &ad5766_info;
 	indio_dev->dev.parent = &spi->dev;
 	indio_dev->dev.of_node = spi->dev.of_node;
