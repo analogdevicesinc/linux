@@ -78,6 +78,7 @@ Optional properties hmc7044:
 			pulse generator.
 	- adi,clkin0-rf-sync-enable: CLKIN0 input is used for external RF sync.
 	- adi,clkin1-vco-in-enable: CLKIN1 input is used for external VCO.
+	- adi,rf-reseeder-disable: Disables RF reseed for SYSREF.
 
 Optional properties hmc7043:
 	- adi,sysref-timer-divider: This sets the internal beat frequency
@@ -97,6 +98,7 @@ Optional properties hmc7043:
 		Buffer enable bit ([0]) - see register 0x000B. If this is
 		not specified, 0 will be used by default.
 	- adi,clkin0-rf-sync-enable: CLKIN0 input is used for external RF sync.
+	- adi,rf-reseeder-disable: Disables RF reseed for SYSREF.
 
 Adding channels:
 	Channels can be specified using child nodes.
