@@ -266,6 +266,7 @@ struct hmc7044 {
 	bool				clkin1_vcoin_en;
 	bool				high_performance_mode_clock_dist_en;
 	bool				high_performance_mode_pll_vco_en;
+	bool				rf_reseeder_en;
 	unsigned int			sync_pin_mode;
 	unsigned int			pulse_gen_mode;
 	unsigned int			in_buf_mode[5];
@@ -832,7 +833,7 @@ static int hmc7044_setup(struct iio_dev *indio_dev)
 
 	/* Select the VCO range */
 	hmc7044_write(indio_dev, HMC7044_REG_EN_CTRL_0,
-		      HMC7044_RF_RESEEDER_EN |
+		      (hmc->rf_reseeder_en ? HMC7044_RF_RESEEDER_EN : 0) |
 		      HMC7044_VCO_SEL(high_vco_en ?
 				      HMC7044_VCO_HIGH :
 				      HMC7044_VCO_LOW) |
@@ -1024,6 +1025,11 @@ static int hmc7043_setup(struct iio_dev *indio_dev)
 	for (i = 0; i < HMC7044_NUM_CHAN; i++)
 		hmc7044_write(indio_dev, HMC7044_REG_CH_OUT_CRTL_0(i), 0);
 
+
+	hmc7044_write(indio_dev, HMC7044_REG_EN_CTRL_0,
+		(hmc->rf_reseeder_en ? HMC7044_RF_RESEEDER_EN : 0) |
+		HMC7044_SYSREF_TIMER_EN);
+
 	/* Program the SYSREF timer */
 
 	/* Set the divide ratio */
@@ -1195,6 +1201,9 @@ static int hmc7044_parse_dt(struct device *dev,
 		if (ret)
 			return ret;
 	}
+
+	hmc->rf_reseeder_en =
+		!of_property_read_bool(np, "adi,rf-reseeder-disable");
 
 	hmc->sysref_timer_div = 256;
 	of_property_read_u32(np, "adi,sysref-timer-divider",
