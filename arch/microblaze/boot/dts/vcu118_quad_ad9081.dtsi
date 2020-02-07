@@ -14,6 +14,10 @@
 	xlnx,kind-of-intr = <0x4f0>;
 };
 
+&axi_ethernet {
+	local-mac-address = [00 0a 35 AD 90 81];
+};
+
 &amba_pl {
 		axi_spi2: axi_quad_spi@44a80000 {
 			#address-cells = <1>;
