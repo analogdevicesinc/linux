@@ -232,7 +232,7 @@ MODULE_DEVICE_TABLE(of, nau7802_dt_ids);
 
 static struct i2c_driver adm1177_driver = {
 	.driver = {
-		.name = KBUILD_MODNAME,
+		.name = "adm1177-iio",
 		.of_match_table = adm1177_dt_ids,
 	},
 	.probe = adm1177_probe,
