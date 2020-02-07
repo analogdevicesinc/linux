@@ -42,3 +42,4 @@ drivers/media/platform/imageon-bridge.o
 drivers/gpio/gpio-adi-daq1.o
 drivers/iio/jesd204/axi_jesd204b_gt.o
 drivers/iio/jesd204/axi_jesd204b_v51.o
+drivers/iio/adc/adm1177.o
