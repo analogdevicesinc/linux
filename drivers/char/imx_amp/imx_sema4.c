@@ -23,6 +23,8 @@
 #include <linux/imx_sema4.h>
 
 static struct imx_sema4_mutex_device *imx6_sema4;
+static unsigned long sema4_flags;
+
 
 /*!
  * \brief mutex create function.
@@ -203,15 +205,11 @@ EXPORT_SYMBOL(imx_sema4_mutex_trylock);
 int imx_sema4_mutex_lock(struct imx_sema4_mutex *mutex_ptr)
 {
 	int ret = 0;
-	unsigned long flags;
 
-	spin_lock_irqsave(&imx6_sema4->lock, flags);
+	spin_lock_irqsave(&imx6_sema4->lock, sema4_flags);
 	ret = _imx_sema4_mutex_lock(mutex_ptr);
-	spin_unlock_irqrestore(&imx6_sema4->lock, flags);
 	while (-EBUSY == ret) {
-		spin_lock_irqsave(&imx6_sema4->lock, flags);
 		ret = _imx_sema4_mutex_lock(mutex_ptr);
-		spin_unlock_irqrestore(&imx6_sema4->lock, flags);
 		if (ret == 0)
 			break;
 	}
@@ -259,6 +257,7 @@ int imx_sema4_mutex_unlock(struct imx_sema4_mutex *mutex_ptr)
 	if (mutex_ptr->gate_val == SEMA4_A9_LOCK)
 		pr_err("%d ERROR, failed to unlock the mutex.\n", __LINE__);
 
+	spin_unlock_irqrestore(&imx6_sema4->lock, sema4_flags);
 out:
 	return ret;
 }
