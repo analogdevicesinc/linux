@@ -155,6 +155,16 @@ check_all_adi_files_have_been_built() {
 }
 
 build_default() {
+	[ -n "$DEFCONFIG" ] || {
+		echo_red "No DEFCONFIG provided"
+		return 1
+	}
+
+	[ -n "$ARCH" ] || {
+		echo_red "No ARCH provided"
+		return 1
+	}
+
 	apt_update_install $APT_LIST
 	make ${DEFCONFIG}
 	make -j$NUM_JOBS $IMAGE UIMAGE_LOADADDR=0x8000
