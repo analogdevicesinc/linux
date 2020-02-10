@@ -100,6 +100,7 @@
 /* ADXL372_FIFO_CTL */
 #define ADXL372_FIFO_CTL_FORMAT_MSK		GENMASK(5, 3)
 #define ADXL372_FIFO_CTL_FORMAT_MODE(x)		(((x) & 0x7) << 3)
+#define ADXL372_FIFO_CTL_FORMAT_SEL(x)		(((x) >> 3) & 0x7)
 #define ADXL372_FIFO_CTL_MODE_MSK		GENMASK(2, 1)
 #define ADXL372_FIFO_CTL_MODE_MODE(x)		(((x) & 0x3) << 1)
 #define ADXL372_FIFO_CTL_SAMPLES_MSK		BIT(1)
@@ -298,6 +299,8 @@ struct adxl372_state {
 	unsigned long			int2_bitmask;
 	u16				watermark;
 	__be16				fifo_buf[ADXL372_FIFO_SIZE];
+	__be16				fifo_sample[3];
+	unsigned int			axis_nr_top;
 	bool				peak_fifo_mode_en;
 	struct mutex			threshold_m; /* lock for threshold */
 };
@@ -741,6 +744,36 @@ static int adxl372_setup(struct adxl372_state *st)
 	return adxl372_set_op_mode(st, ADXL372_FULL_BW_MEASUREMENT);
 }
 
+static int adxl372_read_one_fifo_axis(struct iio_dev *indio_dev,
+				      unsigned int *readval)
+{
+	struct adxl372_state *st = iio_priv(indio_dev);
+	unsigned int nr_axis_en;
+	unsigned int read_reg_val;
+	int ret;
+
+	ret = regmap_read(st->regmap, ADXL372_FIFO_CTL, &read_reg_val);
+	if (ret < 0)
+		return ret;
+
+	nr_axis_en = hweight_long(ADXL372_FIFO_CTL_FORMAT_SEL(read_reg_val));
+	if (nr_axis_en == 0)
+		nr_axis_en = 3;
+
+	if (st->axis_nr_top >= nr_axis_en || st->axis_nr_top == 0) {
+		ret = regmap_noinc_read(st->regmap, ADXL372_FIFO_DATA,
+					st->fifo_sample,
+					nr_axis_en * sizeof(u16));
+		if (ret < 0)
+			return ret;
+		st->axis_nr_top = 0;
+	}
+
+	*readval = be16_to_cpu(st->fifo_sample[st->axis_nr_top++]);
+
+	return 0;
+}
+
 static int adxl372_reg_access(struct iio_dev *indio_dev,
 			      unsigned int reg,
 			      unsigned int writeval,
@@ -748,10 +781,14 @@ static int adxl372_reg_access(struct iio_dev *indio_dev,
 {
 	struct adxl372_state *st = iio_priv(indio_dev);
 
-	if (readval)
+	if (readval) {
+		if (reg == ADXL372_FIFO_DATA)
+			return adxl372_read_one_fifo_axis(indio_dev, readval);
+
 		return regmap_read(st->regmap, reg, readval);
-	else
+	} else {
 		return regmap_write(st->regmap, reg, writeval);
+	}
 }
 
 static int adxl372_read_raw(struct iio_dev *indio_dev,
