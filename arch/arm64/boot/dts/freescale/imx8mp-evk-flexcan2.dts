@@ -1,0 +1,14 @@
+// SPDX-License-Identifier: (GPL-2.0 OR MIT)
+/*
+ * Copyright 2020 NXP
+ */
+
+#include "imx8mp-evk.dts"
+
+&flexcan2 {
+	status = "okay";/* can2 pin conflict with pdm */
+};
+
+&micfil {
+	status = "disabled";
+};
