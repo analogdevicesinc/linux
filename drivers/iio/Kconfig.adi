@@ -91,6 +91,7 @@ config IIO_ALL_ADI_DRIVERS
 	select CF_AXI_DDS_AD9140
 	select CF_AXI_DDS_AD9162
 	select CF_AXI_DDS_AD9172
+	select AD916X_AMP
 	select M2K_DAC
 	select ADIS16080
 	select ADIS16130
