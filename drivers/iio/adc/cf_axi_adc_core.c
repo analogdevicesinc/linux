@@ -703,7 +703,6 @@ static const struct axiadc_core_info axi_adc_10_0_a_info = {
 
 /* Match table for of_platform binding */
 static const struct of_device_id axiadc_of_match[] = {
-	{ .compatible = "xlnx,cf-ad9467-core-1.00.a", .data = &axi_adc_10_0_a_info },
 	{ .compatible =	"xlnx,axi-ad9234-1.00.a", .data = &axi_adc_10_0_a_info },
 	{ .compatible =	"xlnx,axi-ad9250-1.00.a", .data = &axi_adc_10_0_a_info },
 	{ .compatible =	"xlnx,axi-ad9434-1.00.a", .data = &axi_adc_10_0_a_info },

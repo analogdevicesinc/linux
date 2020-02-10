@@ -18,7 +18,7 @@
 
 &amba_pl {
 	axi_ad9467: cf-ad9467-core-lpc@44a00000 {
-		compatible = "xlnx,cf-ad9467-core-1.00.a";
+		compatible = "adi,axi-adc-10.0.a";
 		reg = <0x44a00000 0x10000>;
 		xlnx,s-axi-min-size = <0x0000FFFF>;
 		dmas = <&rx_dma 0>;
