@@ -127,3 +127,4 @@ config IIO_ALL_ADI_DRIVERS
 	select AD2S90
 	select AD2S1210
 	select LTC6952
+	select LTC2471
