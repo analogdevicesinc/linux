@@ -44,6 +44,7 @@ properties:
       - description: TX_ESC clock (used in escape mode)
       - description: PHY_REF clock
       - description: LCDIF clock
+      - description: PHY_PARENT clock (optional)
 
   clock-names:
     items:
@@ -52,6 +53,7 @@ properties:
       - const: tx_esc
       - const: phy_ref
       - const: lcdif
+      - const: phy_parent
 
   mux-controls:
     description:
