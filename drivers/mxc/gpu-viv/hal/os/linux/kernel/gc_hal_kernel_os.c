@@ -3121,16 +3121,20 @@ gckOS_AllocatePagedMemory(
         Flag &= ~gcvALLOC_FLAG_CMA_LIMIT;
         Flag |= gcvALLOC_FLAG_4GB_ADDR | gcvALLOC_FLAG_CONTIGUOUS;
     }
+#else
+    if (Flag & gcvALLOC_FLAG_CMA_LIMIT)
+    {
+        if (Os->allocatorLimitMarker)
+        {
+            Flag &= ~gcvALLOC_FLAG_CACHEABLE;
+        }
+        else
+        {
+            Flag &= ~gcvALLOC_FLAG_CMA_LIMIT;
+            Flag |= gcvALLOC_FLAG_CONTIGUOUS;
+        }
+    }
 #endif
-
-    if (Os->allocatorLimitMarker && (Flag & gcvALLOC_FLAG_CMA_LIMIT))
-    {
-        Flag &= ~gcvALLOC_FLAG_CACHEABLE;
-    }
-    else
-    {
-        Flag &= ~gcvALLOC_FLAG_CMA_LIMIT;
-    }
 
     /* Walk all allocators. */
     list_for_each_entry(allocator, &Os->allocatorList, link)
