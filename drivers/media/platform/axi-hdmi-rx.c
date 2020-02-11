@@ -27,8 +27,8 @@
 #include <media/v4l2-ioctl.h>
 #include <media/i2c/adv7604.h>
 
-#define AXI_HDMI_RX_REG_VERSION		0x000
-#define AXI_HDMI_RX_REG_ID		0x004
+#include <linux/fpga/adi-axi-common.h>
+
 #define AXI_HDMI_RX_REG_ENABLE		0x040
 #define AXI_HDMI_RX_REG_CONFIG		0x044
 #define AXI_HDMI_RX_REG_CLK_COUNT	0x054
@@ -299,8 +299,8 @@ static int axi_hdmi_rx_g_register(struct file *file, void *priv_fh,
 	struct axi_hdmi_rx *hdmi_rx = video_drvdata(file);
 
 	switch (reg->reg) {
-	case AXI_HDMI_RX_REG_VERSION:
-	case AXI_HDMI_RX_REG_ID:
+	case ADI_AXI_REG_VERSION:
+	case ADI_AXI_REG_ID:
 	case AXI_HDMI_RX_REG_ENABLE:
 	case AXI_HDMI_RX_REG_CONFIG:
 	case AXI_HDMI_RX_REG_CLK_COUNT:
