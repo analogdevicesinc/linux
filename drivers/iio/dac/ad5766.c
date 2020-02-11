@@ -41,6 +41,8 @@ enum ad5766_type {
 	.channel = (_chan),					\
 	.address = (_chan),					\
 	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW),		\
+	.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_OFFSET) |	\
+		BIT(IIO_CHAN_INFO_SCALE),			\
 	.scan_type = {						\
 		.sign = 'u',					\
 		.realbits = (_bits),				\
@@ -129,6 +131,12 @@ static const struct ad5766_chip_info ad5766_chip_infos[] = {
 		.channels = ad5767_channels,
 	},
 };
+
+static void _ad5766_get_span_range(int *min, int *max)
+{
+	*min = -5;
+	*max = 5;
+}
 
 static int _ad5766_spi_write(struct ad5766_state *st,
 			     u8 command,
@@ -222,7 +230,7 @@ static int ad5766_read_raw(struct iio_dev *indio_dev,
 			   int *val2,
 			   long m)
 {
-	int ret;
+	int ret, min, max;
 
 	switch (m) {
 	case IIO_CHAN_INFO_RAW:
@@ -230,6 +238,19 @@ static int ad5766_read_raw(struct iio_dev *indio_dev,
 		if (ret)
 			return ret;
 
+		return IIO_VAL_INT;
+
+	case IIO_CHAN_INFO_SCALE:
+		_ad5766_get_span_range(&min, &max);
+		*val = max - min;
+		*val2 = indio_dev->channels->scan_type.realbits;
+		
+		return IIO_VAL_FRACTIONAL_LOG2;
+
+	case IIO_CHAN_INFO_OFFSET:
+		_ad5766_get_span_range(&min, &max);
+		*val = min;
+		
 		return IIO_VAL_INT;
 	}
 	return -EINVAL;
