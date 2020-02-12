@@ -6,6 +6,16 @@
  * Licensed under the GPL-2.
  */
 
+/**
+ * Note:
+ * This driver is an old copy from the cf_axi_adc/axi-adc driver.
+ * And some things were common with that driver. The cf_axi_adc/axi-adc
+ * driver is a more complete implementation, while this one is just caring
+ * about Motor Control.
+ * The code duplication [here] is intentional, as we try to cleanup the
+ * AXI ADC and decouple it from this driver.
+ */
+
 #include <linux/module.h>
 #include <linux/io.h>
 #include <linux/platform_device.h>
@@ -14,10 +24,11 @@
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
 
-#include "cf_axi_adc.h"
+#include <linux/fpga/adi-axi-common.h>
 
-#define MC_REG_VERSION			0x00
-#define MC_REG_ID			0x04
+#define ADI_REG_RSTN			0x0040
+#define ADI_RSTN			(1 << 0)
+
 #define MC_REG_SCRATCH			0x08
 #define MC_REG_START_SPEED		0x0C
 #define MC_REG_CONTROL			0x10
@@ -39,6 +50,20 @@
 #define MC_CONTROL_MATLAB(x)		(((x) & 0x1) << 12)
 #define MC_CONTROL_CALIB_ADC(x)		(((x) & 0x1) << 16)
 #define MC_CONTROL_GPO(x)		(((x) & 0x7FF) << 20)
+
+struct axiadc_state {
+	void __iomem			*regs;
+};
+
+static inline void axiadc_write(struct axiadc_state *st, unsigned reg, unsigned val)
+{
+	iowrite32(val, st->regs + reg);
+}
+
+static inline unsigned int axiadc_read(struct axiadc_state *st, unsigned reg)
+{
+	return ioread32(st->regs + reg);
+}
 
 static const char mc_ctrl_sensors[3][8] = {"hall", "bemf", "resolver"};
 
@@ -468,8 +493,6 @@ static int mc_ctrl_probe(struct platform_device *pdev)
 	/* Reset all HDL Cores */
 	axiadc_write(st, ADI_REG_RSTN, 0);
 	axiadc_write(st, ADI_REG_RSTN, ADI_RSTN);
-
-	st->pcore_version = axiadc_read(st, ADI_AXI_REG_ID);
 
 	ret = iio_device_register(indio_dev);
 
