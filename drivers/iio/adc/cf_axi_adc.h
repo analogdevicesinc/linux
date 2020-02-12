@@ -296,11 +296,6 @@ struct axiadc_converter {
 
 struct axiadc_converter *to_converter(struct device *dev);
 
-struct axiadc_spidev {
-	struct device_node *of_nspi;
-	struct device *dev_spi;
-};
-
 /*
  * IO accessors
  */

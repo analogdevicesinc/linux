@@ -685,6 +685,11 @@ static const struct iio_info axiadc_info = {
 	.update_scan_mode = &axiadc_update_scan_mode,
 };
 
+struct axiadc_spidev {
+	struct device_node *of_nspi;
+	struct device *dev_spi;
+};
+
 static int axiadc_attach_spi_client(struct device *dev, void *data)
 {
 	struct axiadc_spidev *axiadc_spidev = data;
