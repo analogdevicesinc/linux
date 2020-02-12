@@ -489,9 +489,12 @@ static void platform_device_unregister_children(struct platform_device *pdev)
 	device_for_each_child(&pdev->dev, NULL, platform_remove_device_fn);
 }
 
+static DEFINE_MUTEX(lcdifv3_client_id_mutex);
+static int lcdifv3_client_id;
+
 static int lcdifv3_add_client_devices(struct lcdifv3_soc *lcdifv3)
 {
-	int ret = 0, i;
+	int ret = 0, i, id;
 	struct device *dev = lcdifv3->dev;
 	struct platform_device *pdev = NULL;
 	struct device_node *of_node;
@@ -505,7 +508,11 @@ static int lcdifv3_add_client_devices(struct lcdifv3_soc *lcdifv3)
 		}
 		of_node_put(of_node);
 
-		pdev = platform_device_alloc(client_reg[i].name, i);
+		mutex_lock(&lcdifv3_client_id_mutex);
+		id = lcdifv3_client_id++;
+		mutex_unlock(&lcdifv3_client_id_mutex);
+
+		pdev = platform_device_alloc(client_reg[i].name, id);
 		if (!pdev) {
 			dev_err(dev, "Can't allocate port pdev\n");
 			ret = -ENOMEM;
