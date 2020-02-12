@@ -6,6 +6,16 @@
  * Licensed under the GPL-2.
  */
 
+/**
+ * Note:
+ * This driver is an old copy from the cf_axi_adc/axi-adc driver.
+ * And some things were common with that driver. The cf_axi_adc/axi-adc
+ * driver is a more complete implementation, while this one is just caring
+ * about Motor Control.
+ * The code duplication [here] is intentional, as we try to cleanup the
+ * AXI ADC and decouple it from this driver.
+ */
+
 #include <linux/module.h>
 #include <linux/io.h>
 #include <linux/dmaengine.h>
@@ -19,7 +29,26 @@
 #include <linux/iio/buffer.h>
 #include <linux/iio/hw_consumer.h>
 
-#include "cf_axi_adc.h"
+#include <linux/dma-direction.h>
+#include <linux/iio/buffer_impl.h>
+#include <linux/iio/buffer-dma.h>
+#include <linux/iio/buffer-dmaengine.h>
+
+/* ADC Common */
+#define ADI_REG_RSTN			0x0040
+#define ADI_RSTN			(1 << 0)
+
+#define ADI_REG_STATUS			0x005C
+#define ADI_REG_DMA_STATUS		0x0088
+
+/* ADC Channel */
+#define ADI_REG_CHAN_CNTRL(c)		(0x0400 + (c) * 0x40)
+#define ADI_IQCOR_ENB			(1 << 9)
+#define ADI_FORMAT_SIGNEXT		(1 << 6)
+#define ADI_FORMAT_ENABLE		(1 << 4)
+#define ADI_ENABLE			(1 << 0)
+
+#define ADI_REG_CHAN_CNTRL_2(c)		(0x0414 + (c) * 0x40)
 
 #define ADI_REG_CORRECTION_ENABLE 0x48
 #define ADI_REG_CORRECTION_COEFFICIENT(x) (0x4c + (x) * 4)
@@ -31,6 +60,15 @@ struct adc_chip_info {
 	const struct iio_chan_spec *channels;
 	unsigned int num_channels;
 	unsigned int ctrl_flags;
+};
+
+struct axiadc_state {
+	void __iomem			*regs;
+	void __iomem			*slave_regs;
+	struct iio_hw_consumer		*frontend;
+	struct clk 			*clk;
+	unsigned int                    oversampling_ratio;
+	unsigned int			adc_def_output_mode;
 };
 
 #define CN0363_CHANNEL(_address, _type, _ch, _mod, _rb) { \
@@ -233,11 +271,76 @@ static const struct adc_chip_info adrv9009_obs_rx_single_chip_info = {
 	.ctrl_flags = ADI_FORMAT_SIGNEXT | ADI_FORMAT_ENABLE,
 };
 
+static inline void axiadc_write(struct axiadc_state *st, unsigned reg, unsigned val)
+{
+	iowrite32(val, st->regs + reg);
+}
+
+static inline unsigned int axiadc_read(struct axiadc_state *st, unsigned reg)
+{
+	return ioread32(st->regs + reg);
+}
+
+static inline void axiadc_slave_write(struct axiadc_state *st, unsigned reg, unsigned val)
+{
+	iowrite32(val, st->slave_regs + reg);
+}
+
+static inline unsigned int axiadc_slave_read(struct axiadc_state *st, unsigned reg)
+{
+	return ioread32(st->slave_regs + reg);
+}
+
 static int axiadc_hw_consumer_postenable(struct iio_dev *indio_dev)
 {
 	struct axiadc_state *st = iio_priv(indio_dev);
 
 	return iio_hw_consumer_enable(st->frontend);
+}
+
+static int axiadc_hw_submit_block(struct iio_dma_buffer_queue *queue,
+	struct iio_dma_buffer_block *block)
+{
+	struct iio_dev *indio_dev = queue->driver_data;
+	struct axiadc_state *st = iio_priv(indio_dev);
+
+	block->block.bytes_used = block->block.size;
+
+	iio_dmaengine_buffer_submit_block(queue, block, DMA_FROM_DEVICE);
+
+	axiadc_write(st, ADI_REG_STATUS, ~0);
+	axiadc_write(st, ADI_REG_DMA_STATUS, ~0);
+
+	return 0;
+}
+
+static const struct iio_dma_buffer_ops axiadc_dma_buffer_ops = {
+	.submit = axiadc_hw_submit_block,
+	.abort = iio_dmaengine_buffer_abort,
+};
+
+static int axiadc_configure_ring_stream(struct iio_dev *indio_dev,
+	const char *dma_name)
+{
+	struct iio_buffer *buffer;
+
+	if (dma_name == NULL)
+		dma_name = "rx";
+
+	buffer = iio_dmaengine_buffer_alloc(indio_dev->dev.parent, dma_name,
+			&axiadc_dma_buffer_ops, indio_dev);
+	if (IS_ERR(buffer))
+		return PTR_ERR(buffer);
+
+	indio_dev->modes |= INDIO_BUFFER_HARDWARE;
+	iio_device_attach_buffer(indio_dev, buffer);
+
+	return 0;
+}
+
+static void axiadc_unconfigure_ring_stream(struct iio_dev *indio_dev)
+{
+	iio_dmaengine_buffer_free(indio_dev->buffer);
 }
 
 static int axiadc_hw_consumer_predisable(struct iio_dev *indio_dev)
@@ -543,8 +646,6 @@ static int adc_probe(struct platform_device *pdev)
 	/* Reset all HDL Cores */
 	axiadc_write(st, ADI_REG_RSTN, 0);
 	axiadc_write(st, ADI_REG_RSTN, ADI_RSTN);
-
-	st->pcore_version = axiadc_read(st, ADI_AXI_REG_VERSION);
 
 	if (info->has_frontend) {
 		st->frontend = iio_hw_consumer_alloc(&pdev->dev);
