@@ -300,15 +300,7 @@ struct axiadc_converter {
 
 
 
-static inline struct axiadc_converter *to_converter(struct device *dev)
-{
-	struct axiadc_converter *conv = spi_get_drvdata(to_spi_device(dev));
-
-	if (conv)
-		return conv;
-
-	return ERR_PTR(-ENODEV);
-};
+struct axiadc_converter *to_converter(struct device *dev);
 
 struct axiadc_spidev {
 	struct device_node *of_nspi;
@@ -319,32 +311,14 @@ struct axiadc_spidev {
  * IO accessors
  */
 
-static inline void axiadc_write(struct axiadc_state *st, unsigned reg, unsigned val)
-{
-	iowrite32(val, st->regs + reg);
-}
+void axiadc_write(struct axiadc_state *st, unsigned int reg, unsigned int val);
+unsigned int axiadc_read(struct axiadc_state *st, unsigned int reg);
+void axiadc_slave_write(struct axiadc_state *st, unsigned int reg,
+			unsigned int val);
+unsigned int axiadc_slave_read(struct axiadc_state *st, unsigned int reg);
 
-static inline unsigned int axiadc_read(struct axiadc_state *st, unsigned reg)
-{
-	return ioread32(st->regs + reg);
-}
-
-static inline void axiadc_slave_write(struct axiadc_state *st, unsigned reg, unsigned val)
-{
-	iowrite32(val, st->slave_regs + reg);
-}
-
-static inline unsigned int axiadc_slave_read(struct axiadc_state *st, unsigned reg)
-{
-	return ioread32(st->slave_regs + reg);
-}
-
-
-static inline void axiadc_idelay_set(struct axiadc_state *st,
-				unsigned lane, unsigned val)
-{
-	axiadc_write(st, ADI_REG_DELAY(lane), val);
-}
+void axiadc_idelay_set(struct axiadc_state *st, unsigned int lane,
+		       unsigned int val);
 
 int axiadc_set_pnsel(struct axiadc_state *st, int channel, enum adc_pn_sel sel);
 enum adc_pn_sel axiadc_get_pnsel(struct axiadc_state *st,

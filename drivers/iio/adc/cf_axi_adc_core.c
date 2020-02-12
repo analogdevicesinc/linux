@@ -37,6 +37,47 @@ struct axiadc_core_info {
 	unsigned int version;
 };
 
+struct axiadc_converter *to_converter(struct device *dev)
+{
+	struct axiadc_converter *conv = spi_get_drvdata(to_spi_device(dev));
+
+	if (conv)
+		return conv;
+
+	return ERR_PTR(-ENODEV);
+}
+EXPORT_SYMBOL_GPL(to_converter);
+
+void axiadc_write(struct axiadc_state *st, unsigned reg, unsigned val)
+{
+	iowrite32(val, st->regs + reg);
+}
+EXPORT_SYMBOL_GPL(axiadc_write);
+
+unsigned int axiadc_read(struct axiadc_state *st, unsigned reg)
+{
+	return ioread32(st->regs + reg);
+}
+EXPORT_SYMBOL_GPL(axiadc_read);
+
+void axiadc_slave_write(struct axiadc_state *st, unsigned reg, unsigned val)
+{
+	iowrite32(val, st->slave_regs + reg);
+}
+EXPORT_SYMBOL_GPL(axiadc_slave_write);
+
+unsigned int axiadc_slave_read(struct axiadc_state *st, unsigned reg)
+{
+	return ioread32(st->slave_regs + reg);
+}
+EXPORT_SYMBOL_GPL(axiadc_slave_read);
+
+void axiadc_idelay_set(struct axiadc_state *st, unsigned lane, unsigned val)
+{
+	axiadc_write(st, ADI_REG_DELAY(lane), val);
+}
+EXPORT_SYMBOL_GPL(axiadc_idelay_set);
+
 static int axiadc_chan_to_regoffset(struct iio_chan_spec const *chan)
 {
 	if (chan->modified)
