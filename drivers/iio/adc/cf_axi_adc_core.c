@@ -37,6 +37,25 @@ struct axiadc_core_info {
 	unsigned int version;
 };
 
+struct axiadc_state {
+	struct device 			*dev_spi;
+	struct iio_info			iio_info;
+	struct clk 			*clk;
+	struct gpio_desc		*gpio_decimation;
+	size_t				regs_size;
+	void __iomem			*regs;
+	void __iomem			*slave_regs;
+	unsigned int			max_usr_channel;
+	unsigned int			id;
+	unsigned int			pcore_version;
+	unsigned int			decimation_factor;
+	unsigned long long		adc_clk;
+	unsigned int			have_slave_channels;
+	bool				additional_channel;
+
+	struct iio_chan_spec		channels[AXIADC_MAX_CHANNEL];
+};
+
 struct axiadc_converter *to_converter(struct device *dev)
 {
 	struct axiadc_converter *conv = spi_get_drvdata(to_spi_device(dev));
