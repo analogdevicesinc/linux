@@ -108,11 +108,6 @@ enum adc_pn_sel axiadc_get_pnsel(struct axiadc_state *st,
 	}
 }
 
-static void axiadc_toggle_scale_offset_en(struct axiadc_state *st)
-{
-	return;
-}
-
 static unsigned int axiadc_num_phys_channels(struct axiadc_state *st)
 {
 	struct axiadc_converter *conv = to_converter(st->dev_spi);
@@ -490,8 +485,6 @@ static int axiadc_write_raw(struct iio_dev *indio_dev,
 
 		axiadc_write(st, ADI_REG_CHAN_CNTRL_2(channel), tmp);
 
-		axiadc_toggle_scale_offset_en(st);
-
 		return 0;
 
 	case IIO_CHAN_INFO_HIGH_PASS_FILTER_3DB_FREQUENCY:
@@ -524,7 +517,6 @@ static int axiadc_write_raw(struct iio_dev *indio_dev,
 		tmp |= ADI_DCFILT_OFFSET((short)val);
 
 		axiadc_write(st, ADI_REG_CHAN_CNTRL_1(channel), tmp);
-		axiadc_toggle_scale_offset_en(st);
 		return 0;
 
 	case IIO_CHAN_INFO_SAMP_FREQ:
