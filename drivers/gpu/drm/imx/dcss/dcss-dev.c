@@ -306,6 +306,9 @@ static int dcss_dev_suspend(struct device *dev)
 	struct drm_device *ddev = dcss_drv_dev_to_drm(dev);
 	int ret;
 
+	if (!dcss)
+		return 0;
+
 	drm_mode_config_helper_suspend(ddev);
 
 	if (pm_runtime_suspended(dev))
@@ -324,6 +327,9 @@ static int dcss_dev_resume(struct device *dev)
 {
 	struct dcss_dev *dcss = dcss_drv_dev_to_dcss(dev);
 	struct drm_device *ddev = dcss_drv_dev_to_drm(dev);
+
+	if (!dcss)
+		return 0;
 
 	if (pm_runtime_suspended(dev)) {
 		drm_mode_config_helper_resume(ddev);
@@ -346,6 +352,9 @@ static int dcss_dev_runtime_suspend(struct device *dev)
 	struct dcss_dev *dcss = dcss_drv_dev_to_dcss(dev);
 	int ret;
 
+	if (!dcss)
+		return 0;
+
 	ret = dcss_ctxld_suspend(dcss->ctxld);
 	if (ret)
 		return ret;
@@ -358,6 +367,9 @@ static int dcss_dev_runtime_suspend(struct device *dev)
 static int dcss_dev_runtime_resume(struct device *dev)
 {
 	struct dcss_dev *dcss = dcss_drv_dev_to_dcss(dev);
+
+	if (!dcss)
+		return 0;
 
 	dcss_clocks_enable(dcss);
 
