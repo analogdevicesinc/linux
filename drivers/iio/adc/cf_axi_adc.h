@@ -210,17 +210,12 @@ struct axiadc_state {
 	void __iomem			*regs;
 	void __iomem			*slave_regs;
 	unsigned				max_usr_channel;
-	unsigned			adc_def_output_mode;
-	unsigned			max_count;
 	unsigned			id;
 	unsigned			pcore_version;
 	unsigned			decimation_factor;
-	unsigned int                    oversampling_ratio;
 	unsigned long long		adc_clk;
 	unsigned			have_slave_channels;
 	bool				additional_channel;
-
-	struct iio_hw_consumer		*frontend;
 
 	struct iio_chan_spec		channels[AXIADC_MAX_CHANNEL];
 };
@@ -247,7 +242,6 @@ struct axiadc_converter {
 
 	int (*reg_access)(struct iio_dev *indio_dev, unsigned int reg,
 		unsigned int writeval, unsigned int *readval);
-	int (*setup)(struct spi_device *spi, unsigned mode);
 
 	struct iio_chan_spec const	*channels;
 	int				num_channels;
