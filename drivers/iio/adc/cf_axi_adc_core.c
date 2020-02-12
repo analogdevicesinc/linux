@@ -49,26 +49,10 @@ int axiadc_set_pnsel(struct axiadc_state *st, int channel, enum adc_pn_sel sel)
 {
 	unsigned reg;
 
-	if (ADI_AXI_PCORE_VER_MAJOR(st->pcore_version) > 7) {
-		reg = axiadc_read(st, ADI_REG_CHAN_CNTRL_3(channel));
-		reg &= ~ADI_ADC_PN_SEL(~0);
-		reg |= ADI_ADC_PN_SEL(sel);
-		axiadc_write(st, ADI_REG_CHAN_CNTRL_3(channel), reg);
-	} else {
-		reg = axiadc_read(st, ADI_REG_CHAN_CNTRL(channel));
-
-		if (sel == ADC_PN_CUSTOM) {
-			reg |= ADI_PN_SEL;
-		} else if (sel == ADC_PN9) {
-			reg &= ~ADI_PN23_TYPE;
-			reg &= ~ADI_PN_SEL;
-		} else {
-			reg |= ADI_PN23_TYPE;
-			reg &= ~ADI_PN_SEL;
-		}
-
-		axiadc_write(st, ADI_REG_CHAN_CNTRL(channel), reg);
-	}
+	reg = axiadc_read(st, ADI_REG_CHAN_CNTRL_3(channel));
+	reg &= ~ADI_ADC_PN_SEL(~0);
+	reg |= ADI_ADC_PN_SEL(sel);
+	axiadc_write(st, ADI_REG_CHAN_CNTRL_3(channel), reg);
 
 	return 0;
 }
@@ -78,34 +62,19 @@ enum adc_pn_sel axiadc_get_pnsel(struct axiadc_state *st,
 			       int channel, const char **name)
 {
 	unsigned val;
+	const char *ident[] = {"PN9", "PN23A", "UNDEF", "UNDEF",
+			"PN7", "PN15", "PN23", "PN31", "UNDEF", "PN_CUSTOM"};
 
-	if (ADI_AXI_PCORE_VER_MAJOR(st->pcore_version) > 7) {
-		const char *ident[] = {"PN9", "PN23A", "UNDEF", "UNDEF",
-				"PN7", "PN15", "PN23", "PN31", "UNDEF", "PN_CUSTOM"};
+	val = ADI_TO_ADC_PN_SEL(axiadc_read(st, ADI_REG_CHAN_CNTRL_3(channel)));
 
-		val = ADI_TO_ADC_PN_SEL(axiadc_read(st, ADI_REG_CHAN_CNTRL_3(channel)));
-
-		if (name) {
-			if (val >= ARRAY_SIZE(ident))
-				*name = "UNDEF";
-			else
-				*name = ident[val];
-		}
-
-		return val;
-	} else {
-		val = axiadc_read(st, ADI_REG_CHAN_CNTRL(channel));;
-
-		if (name) {
-			if (val & ADI_PN_SEL)
-				*name = "PN_CUSTOM";
-			else if (val & ADI_PN23_TYPE)
-				*name = "PN23";
-			else
-				*name = "PN9";
-		}
-		return val & (ADI_PN23_TYPE | ADI_PN_SEL);
+	if (name) {
+		if (val >= ARRAY_SIZE(ident))
+			*name = "UNDEF";
+		else
+			*name = ident[val];
 	}
+
+	return val;
 }
 
 static unsigned int axiadc_num_phys_channels(struct axiadc_state *st)
