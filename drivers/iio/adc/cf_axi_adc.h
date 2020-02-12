@@ -296,8 +296,4 @@ int axiadc_set_pnsel(struct axiadc_state *st, int channel, enum adc_pn_sel sel);
 enum adc_pn_sel axiadc_get_pnsel(struct axiadc_state *st,
 			       int channel, const char **name);
 
-int axiadc_configure_ring_stream(struct iio_dev *indio_dev,
-	const char *dma_name);
-void axiadc_unconfigure_ring_stream(struct iio_dev *indio_dev);
-
 #endif /* ADI_AXI_ADC_H_ */
