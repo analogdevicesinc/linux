@@ -189,6 +189,8 @@ enum adc_data_sel {
 #include <linux/spi/spi.h>
 #include <linux/clk/clkscale.h>
 
+struct axiadc_state;
+
 struct axiadc_chip_info {
 	char				*name;
 	unsigned			num_channels;
@@ -199,25 +201,6 @@ struct axiadc_chip_info {
 	int				max_testmode;
 	unsigned long			max_rate;
 	struct iio_chan_spec		channel[AXIADC_MAX_CHANNEL];
-};
-
-struct axiadc_state {
-	struct device 			*dev_spi;
-	struct iio_info			iio_info;
-	struct clk 			*clk;
-	struct gpio_desc		*gpio_decimation;
-	size_t				regs_size;
-	void __iomem			*regs;
-	void __iomem			*slave_regs;
-	unsigned				max_usr_channel;
-	unsigned			id;
-	unsigned			pcore_version;
-	unsigned			decimation_factor;
-	unsigned long long		adc_clk;
-	unsigned			have_slave_channels;
-	bool				additional_channel;
-
-	struct iio_chan_spec		channels[AXIADC_MAX_CHANNEL];
 };
 
 struct axiadc_converter {
