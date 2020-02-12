@@ -345,8 +345,8 @@ void lcdifv3_set_fb_hcrop(struct lcdifv3_soc *lcdifv3, u32 src_w,
 	 *    be less than AXI bus width.
 	 * 2. P_SIZE should never be less than T_SIZE.
 	 */
-	ctrldescl0_3 |= CTRLDESCL0_3_P_SIZE(1);
-	ctrldescl0_3 |= CTRLDESCL0_3_T_SIZE(1);
+	ctrldescl0_3 |= CTRLDESCL0_3_P_SIZE(2);
+	ctrldescl0_3 |= CTRLDESCL0_3_T_SIZE(2);
 
 	/* config pitch */
 	ctrldescl0_3 |= CTRLDESCL0_3_PITCH(pitch);
