@@ -167,28 +167,17 @@ int adrv9009_hdl_loopback(struct adrv9009_rf_phy *phy, bool enable)
 	st = iio_priv(conv->indio_dev);
 	version = axiadc_read(st, 0x4000);
 
-	/* Still there but implemented a bit different */
-	if (ADI_AXI_PCORE_VER_MAJOR(version) > 7)
-		addr = 0x4418;
-	else
-		addr = 0x4414;
+	addr = 0x4418;
 
 	for (chan = 0; chan < conv->chip_info->num_channels; chan++) {
 		reg = axiadc_read(st, addr + (chan) * 0x40);
 
-		if (ADI_AXI_PCORE_VER_MAJOR(version) > 7) {
-			if (enable && reg != 0x8) {
-				conv->scratch_reg[chan] = reg;
-				reg = 0x8;
-			} else if (reg == 0x8)
-				reg = conv->scratch_reg[chan];
-		} else {
-			/* DAC_LB_ENB If set enables loopback of receive data */
-			if (enable)
-				reg |= BIT(1);
-			else
-				reg &= ~BIT(1);
-		}
+		if (enable && reg != 0x8) {
+			conv->scratch_reg[chan] = reg;
+			reg = 0x8;
+		} else if (reg == 0x8)
+			reg = conv->scratch_reg[chan];
+
 		axiadc_write(st, addr + (chan) * 0x40, reg);
 	}
 
