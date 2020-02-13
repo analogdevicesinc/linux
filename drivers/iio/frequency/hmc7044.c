@@ -76,6 +76,9 @@
 #define HMC7044_100_OHM_EN		BIT(1)
 #define HMC7044_BUF_EN			BIT(0)
 
+#define HMC7044_REG_PLL1_CP_CTRL	0x001A
+#define HMC7044_PLL1_CP_CURRENT(x)	((x) & 0xf)
+
 #define HMC7044_REG_CLKIN_PRESCALER(x)	(0x001C + (x))
 #define HMC7044_REG_OSCIN_PRESCALER	0x0020
 
@@ -201,6 +204,11 @@
 #define HMC7044_MIN_PFD1	1
 #define HMC7044_MAX_PFD1	50000
 
+#define HMC7044_CP_CURRENT_STEP	120
+#define HMC7044_CP_CURRENT_MIN	120
+#define HMC7044_CP_CURRENT_MAX	1920
+#define HMC7044_CP_CURRENT_DEF	1080
+
 #define HMC7044_R1_MAX		65535
 #define HMC7044_N1_MAX		65535
 
@@ -264,6 +272,7 @@ struct hmc7044 {
 	u32				vcxo_freq;
 	u32				pll1_pfd;
 	u32				pfd1_limit;
+	u32				pll1_cp_current;
 	u32				pll2_freq;
 	unsigned int			pll1_loop_bw;
 	unsigned int			sysref_timer_div;
@@ -861,6 +870,10 @@ static int hmc7044_setup(struct iio_dev *indio_dev)
 
 	/* Program PLL1 */
 
+	hmc7044_write(indio_dev, HMC7044_REG_PLL1_CP_CTRL,
+		HMC7044_PLL1_CP_CURRENT(hmc->pll1_cp_current /
+			HMC7044_CP_CURRENT_STEP - 1));
+
 	/* Set the lock detect timer threshold */
 	hmc7044_write(indio_dev, HMC7044_REG_PLL1_LOCK_DETECT,
 		      HMC7044_LOCK_DETECT_TIMER(pll1_lock_detect));
@@ -1167,6 +1180,12 @@ static int hmc7044_parse_dt(struct device *dev,
 		} else {
 			hmc->pfd1_limit = HMC7044_RECOMM_PFD1;
 		}
+
+		hmc->pll1_cp_current = HMC7044_CP_CURRENT_DEF;
+		of_property_read_u32(np, "adi,pll1-charge-pump-current-ua",
+				&hmc->pll1_cp_current);
+		hmc->pll1_cp_current = clamp_t(u32, hmc->pll1_cp_current,
+			HMC7044_CP_CURRENT_MIN, HMC7044_CP_CURRENT_MAX);
 
 		ret = of_property_read_u32(np, "adi,vcxo-frequency",
 					&hmc->vcxo_freq);
