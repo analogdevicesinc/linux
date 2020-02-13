@@ -41,6 +41,9 @@ Optional properties hmc7044:
 	- adi,pfd1-maximum-limit-frequency-hz: If this is specified, the
 		driver will try to find a PLL1 PFD rate close to this
 		value. Otherwise, the maximum limit will be 10 MHz.
+	- adi,pll1-charge-pump-current-ua - PLL1 charge pump current. The
+		accepted range is 120 - 1920 uA. If this is not specified,
+		the current will be set to 1080 uA.
 	- adi,sysref-timer-divider: This sets the internal beat frequency
 		of the master timer, which controls synchronization and
 		pulse generator events. It should be set to a submultiple
