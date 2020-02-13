@@ -197,7 +197,7 @@
 
 #define HMC7044_RECOMM_LCM_MIN	30000
 #define HMC7044_RECOMM_LCM_MAX	70000
-#define HMC7044_RECOMM_FPD1	10000
+#define HMC7044_RECOMM_PFD1	10000
 
 #define HMC7044_R1_MAX		65535
 #define HMC7044_N1_MAX		65535
@@ -762,7 +762,7 @@ static int hmc7044_setup(struct iio_dev *indio_dev)
 				    &n1, &r1);
 
 	pfd1_freq = vcxo_freq / n1;
-	while ((pfd1_freq > HMC7044_RECOMM_FPD1) &&
+	while ((pfd1_freq > HMC7044_RECOMM_PFD1) &&
 	       (n1 <= HMC7044_N1_MAX / 2) &&
 	       (r1 <= HMC7044_R1_MAX / 2)) {
 		pfd1_freq /= 2;
