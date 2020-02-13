@@ -1004,7 +1004,7 @@ static int hmc7043_setup(struct iio_dev *indio_dev)
 	if (hmc->clkin_freq_ccf[0])
 		hmc->pll2_freq = hmc->clkin_freq_ccf[0];
 	else
-		hmc->pll2_freq  = hmc->clkin_freq[0] / 1000;
+		hmc->pll2_freq  = hmc->clkin_freq[0];
 
 	if (!hmc->pll2_freq) {
 		dev_err(&hmc->spi->dev, "Failed to get valid parent rate");
