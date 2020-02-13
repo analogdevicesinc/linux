@@ -198,6 +198,8 @@
 #define HMC7044_RECOMM_LCM_MIN	30000
 #define HMC7044_RECOMM_LCM_MAX	70000
 #define HMC7044_RECOMM_PFD1	10000
+#define HMC7044_MIN_PFD1	1
+#define HMC7044_MAX_PFD1	50000
 
 #define HMC7044_R1_MAX		65535
 #define HMC7044_N1_MAX		65535
@@ -261,6 +263,7 @@ struct hmc7044 {
 	u32				clkin_freq_ccf[4];
 	u32				vcxo_freq;
 	u32				pll1_pfd;
+	u32				pfd1_limit;
 	u32				pll2_freq;
 	unsigned int			pll1_loop_bw;
 	unsigned int			sysref_timer_div;
@@ -763,7 +766,7 @@ static int hmc7044_setup(struct iio_dev *indio_dev)
 				    &n1, &r1);
 
 	pfd1_freq = vcxo_freq / n1;
-	while ((pfd1_freq > HMC7044_RECOMM_PFD1) &&
+	while ((pfd1_freq > hmc->pfd1_limit) &&
 	       (n1 <= HMC7044_N1_MAX / 2) &&
 	       (r1 <= HMC7044_R1_MAX / 2)) {
 		pfd1_freq /= 2;
@@ -1154,6 +1157,17 @@ static int hmc7044_parse_dt(struct device *dev,
 		hmc->pll1_loop_bw = 200;
 		of_property_read_u32(np, "adi,pll1-loop-bandwidth-hz",
 				&hmc->pll1_loop_bw);
+
+		hmc->pfd1_limit = 0;
+		of_property_read_u32(np, "adi,pfd1-maximum-limit-frequency-hz",
+				&hmc->pfd1_limit);
+		if (hmc->pfd1_limit) {
+			hmc->pfd1_limit /= 1000;
+			hmc->pfd1_limit = clamp_t(u32, hmc->pfd1_limit,
+				HMC7044_MIN_PFD1, HMC7044_MAX_PFD1);
+		} else {
+			hmc->pfd1_limit = HMC7044_RECOMM_PFD1;
+		}
 
 		ret = of_property_read_u32(np, "adi,vcxo-frequency",
 					&hmc->vcxo_freq);
