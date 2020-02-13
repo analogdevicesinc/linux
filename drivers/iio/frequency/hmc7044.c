@@ -139,6 +139,9 @@
 #define HMC7044_REG_SYSREF_TIMER_MSB	0x005D
 #define HMC7044_SYSREF_TIMER_MSB(x)	(((x) & 0xf00) >> 8)
 
+#define HMC7044_CLK_INPUT_CTRL		0x0064
+#define HMC7044_LOW_FREQ_INPUT_MODE	BIT(0)
+#define HMC7044_DIV_2_INPUT_MODE	BIT(1)
 
 /* Status and Alarm readback */
 #define HMC7044_REG_ALARM_READBACK	0x007D
@@ -1024,6 +1027,9 @@ static int hmc7043_setup(struct iio_dev *indio_dev)
 	for (i = 0; i < HMC7044_NUM_CHAN; i++)
 		hmc7044_write(indio_dev, HMC7044_REG_CH_OUT_CRTL_0(i), 0);
 
+	if (hmc->pll2_freq < 1000000000U)
+		hmc7044_write(indio_dev, HMC7044_CLK_INPUT_CTRL,
+			      HMC7044_LOW_FREQ_INPUT_MODE);
 
 	hmc7044_write(indio_dev, HMC7044_REG_EN_CTRL_0,
 		(hmc->rf_reseeder_en ? HMC7044_RF_RESEEDER_EN : 0) |
