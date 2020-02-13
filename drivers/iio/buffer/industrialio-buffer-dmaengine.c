@@ -110,6 +110,36 @@ int iio_dmaengine_buffer_submit_block(struct iio_dma_buffer_queue *queue,
 }
 EXPORT_SYMBOL_GPL(iio_dmaengine_buffer_submit_block);
 
+/**
+ * iio_dma_buffer_block_cyclic() - Check if cyclic transfers are enabled
+ * @block: DMA block
+ */
+bool iio_dma_buffer_block_cyclic(const struct iio_dma_buffer_block *block)
+{
+	return !!test_bit(IIO_BUFFER_BLOCK_FLAG_CYCLIC, &block->block.flags);
+}
+EXPORT_SYMBOL_GPL(iio_dma_buffer_block_cyclic);
+
+/**
+ * iio_dma_buffer_block_cyclic_disable() - Disable cyclic transfers
+ * @block: DMA block
+ */
+void iio_dma_buffer_block_cyclic_disable(struct iio_dma_buffer_block *block)
+{
+	clear_bit(IIO_BUFFER_BLOCK_FLAG_CYCLIC, &block->block.flags);
+}
+EXPORT_SYMBOL_GPL(iio_dma_buffer_block_cyclic_disable);
+
+/**
+ * iio_dma_buffer_block_empty() - Check if block is empty
+ * @block: DMA block
+ */
+bool iio_dma_buffer_block_empty(const struct iio_dma_buffer_block *block)
+{
+	return block->block.bytes_used == 0;
+}
+EXPORT_SYMBOL_GPL(iio_dma_buffer_block_empty);
+
 void iio_dmaengine_buffer_abort(struct iio_dma_buffer_queue *queue)
 {
 	struct dmaengine_buffer *dmaengine_buffer =
