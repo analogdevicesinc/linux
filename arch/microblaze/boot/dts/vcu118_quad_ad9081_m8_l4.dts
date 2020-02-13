@@ -238,9 +238,8 @@
 
 		adi,rf-reseeder-disable;
 
-		adi,clkin0-buffer-mode  = <0x07>;
-		adi,clkin1-buffer-mode  = <0x07>;
-		adi,oscin-buffer-mode = <0x15>;
+		adi,clkin0-buffer-mode  = <0x07>; /* RFSYNC */
+		adi,clkin1-buffer-mode  = <0x07>; /* CLKIN 500 MHz */
 
 		adi,gpi-controls = <0x00>;
 		adi,gpo-controls = <0x37>;
@@ -273,6 +272,10 @@
 			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;
 			adi,startup-mode-dynamic-enable;
 			adi,high-performance-mode-disable;
+
+			adi,coarse-digital-delay = <0>;
+			adi,fine-analog-delay = <24>; /* max analog */
+			adi,output-mux-mode = <1>;
 		};
 
 		hmc7043_c3: channel@3 {
@@ -282,6 +285,10 @@
 			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;
 			adi,startup-mode-dynamic-enable;
 			adi,high-performance-mode-disable;
+
+			adi,coarse-digital-delay = <1>; /* 1 ns */
+			adi,fine-analog-delay = <0>;
+			adi,output-mux-mode = <0>;
 		};
 
 		hmc7043_c5: channel@5 {
@@ -291,6 +298,10 @@
 			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;
 			adi,startup-mode-dynamic-enable;
 			adi,high-performance-mode-disable;
+
+			adi,coarse-digital-delay = <0>;
+			adi,fine-analog-delay = <16>;
+			adi,output-mux-mode = <1>;
 		};
 
 		hmc7043_c7: channel@7 {
@@ -300,6 +311,10 @@
 			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;
 			adi,startup-mode-dynamic-enable;
 			adi,high-performance-mode-disable;
+
+			adi,coarse-digital-delay = <0>;
+			adi,fine-analog-delay = <0>;
+			adi,output-mux-mode = <0>;
 		};
 
 		hmc7043_c9: channel@9 {
@@ -335,6 +350,7 @@
 		dev_clk-clock-scales = <1 10>;
 
 		adi,jesd-sync-pins-01-swap-enable;
+		//adi,lmfc-delay-dac-clk-cycles = <14>;
 
 		adi,tx-dacs {
 			#size-cells = <0>;
@@ -564,6 +580,7 @@
 		dev_clk-clock-scales = <1 10>;
 
 		adi,jesd-sync-pins-01-swap-enable;
+		//adi,lmfc-delay-dac-clk-cycles = <16>;
 
 		adi,tx-dacs {
 			#size-cells = <0>;
@@ -791,6 +808,7 @@
 		dev_clk-clock-scales = <1 10>;
 
 		adi,jesd-sync-pins-01-swap-enable;
+		//adi,lmfc-delay-dac-clk-cycles = <9>;
 
 		adi,tx-dacs {
 			#size-cells = <0>;
@@ -1021,6 +1039,7 @@
 
 		adi,multidevice-instance-count = <4>;
 		adi,jesd-sync-pins-01-swap-enable;
+		//adi,lmfc-delay-dac-clk-cycles = <3>;
 
 		adi,tx-dacs {
 			#size-cells = <0>;
