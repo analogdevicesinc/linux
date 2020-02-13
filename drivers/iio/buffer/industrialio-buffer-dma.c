@@ -16,6 +16,7 @@
 #include <linux/iio/buffer.h>
 #include <linux/iio/buffer_impl.h>
 #include <linux/iio/buffer-dma.h>
+#include <linux/iio/buffer-dma_impl.h>
 #include <linux/dma-mapping.h>
 #include <linux/sizes.h>
 
