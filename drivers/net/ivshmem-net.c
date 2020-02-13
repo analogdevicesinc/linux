@@ -37,8 +37,6 @@
 
 #define IVSHM_NET_FLAG_RUN		0
 
-#define IVSHM_NET_MTU_MIN		256
-#define IVSHM_NET_MTU_MAX		65535
 #define IVSHM_NET_MTU_DEF		16384
 
 #define IVSHM_NET_FRAME_SIZE(s) ALIGN(18 + (s), SMP_CACHE_BYTES)
@@ -198,7 +196,7 @@ static int ivshm_net_calc_qsize(struct net_device *ndev)
 
 	qsize = in->shmlen - vrsize;
 
-	if (qsize < 4 * IVSHM_NET_MTU_MIN)
+	if (qsize < 4 * ETH_MIN_MTU)
 		return -EINVAL;
 
 	in->vrsize = vrsize;
@@ -684,26 +682,10 @@ static int ivshm_net_stop(struct net_device *ndev)
 
 static int ivshm_net_change_mtu(struct net_device *ndev, int mtu)
 {
-	struct ivshm_net *in = netdev_priv(ndev);
-	struct ivshm_net_queue *tx = &in->tx;
-
-	if (mtu < IVSHM_NET_MTU_MIN || mtu > IVSHM_NET_MTU_MAX)
-		return -EINVAL;
-
-	if (in->tx.size / mtu < 4)
-		return -EINVAL;
-
-	if (ivshm_net_tx_space(in) < 2 * IVSHM_NET_FRAME_SIZE(mtu))
+	if (netif_running(ndev)) {
+		netdev_err(ndev, "must be stopped to change its MTU\n");
 		return -EBUSY;
-
-	if (in->tx.size - tx->head < IVSHM_NET_FRAME_SIZE(mtu) &&
-	    tx->head < tx->tail)
-		return -EBUSY;
-
-	netif_tx_lock_bh(ndev);
-	if (in->tx.size - tx->head < IVSHM_NET_FRAME_SIZE(mtu))
-		tx->head = 0;
-	netif_tx_unlock_bh(ndev);
+	}
 
 	ndev->mtu = mtu;
 
@@ -976,6 +958,8 @@ static int ivshm_net_probe(struct pci_dev *pdev,
 	ndev->netdev_ops = &ivshm_net_ops;
 	ndev->ethtool_ops = &ivshm_net_ethtool_ops;
 	ndev->mtu = min_t(u32, IVSHM_NET_MTU_DEF, in->qsize / 16);
+	ndev->min_mtu = ETH_MIN_MTU;
+	ndev->max_mtu = min_t(u32, ETH_MAX_MTU, in->qsize / 4);
 	ndev->hw_features = NETIF_F_HW_CSUM | NETIF_F_SG;
 	ndev->features = ndev->hw_features;
 
