@@ -111,14 +111,19 @@ apt_update_install() {
 	adjust_kcflags_against_gcc
 }
 
+__get_all_c_files() {
+	git grep -i "$@" | cut -d: -f1 | sort | uniq  | grep "\.c"
+}
+
 check_all_adi_files_have_been_built() {
 	# Collect all .c files that contain the 'Analog Devices' string/name
-	local c_files=$(git grep -i "Analog Devices" | cut -d: -f1 | sort | uniq  | grep "\.c")
+	local c_files=$(__get_all_c_files "Analog Devices")
+	local ltc_c_files=$(__get_all_c_files "Linear Technology")
 	local o_files
 	local exceptions_file="ci/travis/${DEFCONFIG}_compile_exceptions"
 	local ret=0
 
-	c_files="drivers/misc/mathworks/*.c $c_files"
+	c_files="drivers/misc/mathworks/*.c $c_files $ltc_c_files"
 
 	# Convert them to .o files via sed, and extract only the filenames
 	for file in $c_files ; do
