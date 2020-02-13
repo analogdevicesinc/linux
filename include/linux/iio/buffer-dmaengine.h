@@ -21,5 +21,7 @@ void iio_dmaengine_buffer_abort(struct iio_dma_buffer_queue *queue);
 struct iio_buffer *iio_dmaengine_buffer_alloc(struct device *dev,
 	const char *channel, const struct iio_dma_buffer_ops *ops, void *data);
 void iio_dmaengine_buffer_free(struct iio_buffer *buffer);
-
+bool iio_dma_buffer_block_cyclic(const struct iio_dma_buffer_block *block);
+void iio_dma_buffer_block_cyclic_disable(struct iio_dma_buffer_block *block);
+bool iio_dma_buffer_block_empty(const struct iio_dma_buffer_block *block);
 #endif

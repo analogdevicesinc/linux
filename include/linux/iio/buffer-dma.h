@@ -167,5 +167,5 @@ int iio_dma_buffer_mmap(struct iio_buffer *buffer,
 int iio_dma_buffer_write(struct iio_buffer *buf, size_t n,
 	const char __user *user_buffer);
 bool iio_dma_buffer_space_available(struct iio_buffer *buf);
-
+void *iio_dma_buffer_get_drvdata(const struct iio_dma_buffer_queue *queue);
 #endif

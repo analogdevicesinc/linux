@@ -780,6 +780,16 @@ static const struct vm_operations_struct iio_dma_buffer_vm_ops = {
 	.close = iio_dma_buffer_mmap_close,
 };
 
+/**
+ * iio_dma_buffer_get_drvdata() - DMA buffer get driver data
+ * @queue: DMA Buffer
+ */
+void *iio_dma_buffer_get_drvdata(const struct iio_dma_buffer_queue *queue)
+{
+	return queue->driver_data;
+}
+EXPORT_SYMBOL_GPL(iio_dma_buffer_get_drvdata);
+
 int iio_dma_buffer_mmap(struct iio_buffer *buffer,
 	struct vm_area_struct *vma)
 {

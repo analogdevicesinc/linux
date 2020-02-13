@@ -30,7 +30,7 @@ struct iio_buffer_block {
 	__u32 size;
 	__u32 bytes_used;
 	__u32 type;
-	__u32 flags;
+	unsigned long flags;
 	union {
 		__u32 offset;
 	} data;
