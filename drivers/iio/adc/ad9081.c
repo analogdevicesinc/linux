@@ -122,6 +122,7 @@ struct ad9081_phy {
 	struct clk_onecell_data clk_data;
 
 	u32 multidevice_instance_count;
+	u32 lmfc_delay;
 	bool config_sync_01_swapped;
 
 	struct device_settings_cache device_cache;
@@ -1333,6 +1334,12 @@ static int ad9081_setup(struct spi_device *spi, bool ad9234)
 	of_clk_get_scale(spi->dev.of_node, "dev_clk", &devclk_clkscale);
 	dev_frequency_hz = clk_get_rate_scaled(phy->dev_clk, &devclk_clkscale);
 
+	ret = adi_ad9081_hal_bf_set(&phy->ad9081, REG_SYNC_LMFC_DELAY_ADDR,
+		BF_SYNC_LMFC_DELAY_SET_INFO,
+		BF_SYNC_LMFC_DELAY_SET(phy->lmfc_delay));
+	if (ret != 0)
+		return ret;
+
 	ret = adi_ad9081_hal_bf_set(&phy->ad9081, REG_SYSREF_AVERAGE_ADDR,
 		BF_SYSREF_AVERAGE_INFO,
 		BF_SYSREF_AVERAGE(7));
@@ -2395,6 +2402,10 @@ static int ad9081_parse_dt(struct ad9081_phy *phy, struct device *dev)
 
 	phy->config_sync_01_swapped =
 		of_property_read_bool(np, "adi,jesd-sync-pins-01-swap-enable");
+
+	phy->lmfc_delay = 0;
+	of_property_read_u32(np, "adi,lmfc-delay-dac-clk-cycles",
+			&phy->lmfc_delay);
 
 	ret = ad9081_parse_dt_tx(phy, np);
 	if (ret < 0) {
