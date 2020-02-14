@@ -332,6 +332,7 @@ static const struct irq_domain_ops gpcv2_irqchip_data_domain_ops = {
 static const struct of_device_id gpcv2_of_match[] = {
 	{ .compatible = "fsl,imx7d-gpc",  .data = (const void *) 2 },
 	{ .compatible = "fsl,imx8mq-gpc", .data = (const void *) 4 },
+	{ .compatible = "fsl,imx8mp-gpc", .data = (const void *) 4 },
 	{ /* END */ }
 };
 
@@ -385,7 +386,8 @@ static int __init imx_gpcv2_irqchip_init(struct device_node *node,
 	}
 	irq_set_default_host(domain);
 
-	if (of_machine_is_compatible("fsl,imx8mq")) {
+	if (of_machine_is_compatible("fsl,imx8mq") ||
+	    of_machine_is_compatible("fsl,imx8mp")) {
 		/* sw workaround for IPI can't wakeup CORE
 		ERRATA(ERR011171) on i.MX8MQ */
 		err11171 = true;
@@ -434,3 +436,4 @@ static int __init imx_gpcv2_irqchip_init(struct device_node *node,
 
 IRQCHIP_DECLARE(imx_gpcv2_imx7d, "fsl,imx7d-gpc", imx_gpcv2_irqchip_init);
 IRQCHIP_DECLARE(imx_gpcv2_imx8mq, "fsl,imx8mq-gpc", imx_gpcv2_irqchip_init);
+IRQCHIP_DECLARE(imx_gpcv2_imx8mp, "fsl,imx8mp-gpc", imx_gpcv2_irqchip_init);

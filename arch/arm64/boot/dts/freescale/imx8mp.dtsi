@@ -15,7 +15,7 @@
 #include "imx8mp-pinfunc.h"
 
 / {
-	interrupt-parent = <&gic>;
+	interrupt-parent = <&gpc>;
 	#address-cells = <2>;
 	#size-cells = <2>;
 
@@ -349,6 +349,7 @@
 			     <GIC_PPI 10 (GIC_CPU_MASK_SIMPLE(4) | IRQ_TYPE_LEVEL_LOW)>;
 		clock-frequency = <8000000>;
 		arm,no-tick-in-suspend;
+		interrupt-parent = <&gic>;
 	};
 
 	soc: soc@0 {
