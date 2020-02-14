@@ -25,6 +25,8 @@ config INPUT
 
 if INPUT
 
+source "drivers/input/Kconfig.adi"
+
 config INPUT_LEDS
 	tristate "Export input device LEDs in sysfs"
 	depends on LEDS_CLASS
