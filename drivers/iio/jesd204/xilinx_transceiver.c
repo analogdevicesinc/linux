@@ -309,13 +309,16 @@ static void xilinx_xcvr_setup_cpll_vco_range(struct xilinx_xcvr *xcvr,
 					     unsigned int *vco_max)
 {
 	if  ((xcvr->type == XILINX_XCVR_TYPE_US_GTH3) |
-	     (xcvr->type == XILINX_XCVR_TYPE_US_GTH4) |
-	     (xcvr->type == XILINX_XCVR_TYPE_US_GTY4)) {
-		if (xcvr->voltage < 850)
+	     (xcvr->type == XILINX_XCVR_TYPE_US_GTH4)) {
+		if ((xcvr->voltage < 850))
 			*vco_max = 4250000;
 		else if ((xcvr->speed_grade / 10) == 1)
 			*vco_max = 4250000;
 	}
+
+	if (xcvr->type == XILINX_XCVR_TYPE_US_GTY4)
+		if ((xcvr->speed_grade / 10) == 1)
+			*vco_max = 4250000;
 }
 
 static void xilinx_xcvr_setup_qpll_vco_range(struct xilinx_xcvr *xcvr,
