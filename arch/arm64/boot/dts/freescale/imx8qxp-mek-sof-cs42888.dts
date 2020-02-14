@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0+
 // Copyright NXP 2018
 
-#include "imx8qxp-mek.dts"
+#include "imx8qxp-mek-rpmsg.dts"
 
 / {
 	sound-cs42888 {
