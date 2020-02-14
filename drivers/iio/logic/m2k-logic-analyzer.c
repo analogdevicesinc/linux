@@ -8,6 +8,8 @@
 #include <linux/platform_device.h>
 #include <linux/dmaengine.h>
 
+#include <linux/iio/buffer.h>
+#include <linux/iio/buffer_impl.h>
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
 #include <linux/iio/buffer-dma.h>
@@ -716,10 +718,9 @@ static const struct iio_chan_spec m2k_la_rx_chan_spec[] = {
 static int m2k_la_submit_block(struct iio_dma_buffer_queue *queue,
 	struct iio_dma_buffer_block *block)
 {
-	struct iio_dev *indio_dev = queue->driver_data;
+	struct iio_dev *indio_dev = iio_dma_buffer_get_drvdata(queue);
 
 	if (indio_dev->direction == IIO_DEVICE_DIRECTION_IN) {
-		block->block.bytes_used = block->block.size;
 		iio_dmaengine_buffer_submit_block(queue, block, DMA_DEV_TO_MEM);
 	} else {
 		iio_dmaengine_buffer_submit_block(queue, block, DMA_MEM_TO_DEV);
@@ -762,6 +763,21 @@ static const struct iio_info m2k_la_txrx_iio_info = {
 static int m2k_la_tx_preenable(struct iio_dev *indio_dev)
 {
 	struct m2k_la *m2k_la = iio_device_get_drvdata(indio_dev);
+	/*
+	 * FIXME: We should not directly access channel_mask since it's a
+	 * private member of iio_buf. We need to use the channel_mask, instead
+	 * of the scan_mask, because we are mapping all 16 channels to
+	 * scan_index 0 and using bit shifts to get the correct bit for the
+	 * expected channel. AFAICT, we should have one scan index per channel
+	 * and then, we could use something like validate_scan_mask callback
+	 * to store our "mask" and set M2K_LA_REG_GPO_EN. For that, we
+	 * need to change the channel definition so that, each channel has it's
+	 * own scan index (and maybe have storage_bits to 8?). This is on the
+	 * "plain" iio side, however, with buffer dma things are probably not
+	 * that straight. We need to take into account the DMA bus width and we
+	 * probably would need some kind of "mux/demux" from/to MEM <-> DEV to
+	 * match the IIO channel scan definitions...
+	 */
 	uint32_t mask = *indio_dev->buffer->channel_mask;
 
 	m2k_la_write(m2k_la, M2K_LA_REG_GPO_EN, ~mask);

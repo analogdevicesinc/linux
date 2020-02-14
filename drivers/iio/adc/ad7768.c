@@ -12,6 +12,7 @@
 #include <linux/dmaengine.h>
 #include <linux/regulator/consumer.h>
 
+#include <linux/iio/buffer.h>
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
 #include <linux/iio/buffer_impl.h>
@@ -324,8 +325,6 @@ static const struct iio_info ad7768_info = {
 static int hw_submit_block(struct iio_dma_buffer_queue *queue,
 	struct iio_dma_buffer_block *block)
 {
-	block->block.bytes_used = block->block.size;
-
 	return iio_dmaengine_buffer_submit_block(queue, block, DMA_DEV_TO_MEM);
 }
 
