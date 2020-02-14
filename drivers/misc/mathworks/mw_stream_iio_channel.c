@@ -6,6 +6,7 @@
  * Licensed under the GPL-2.
  */
 
+#include <linux/iio/buffer.h>
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
 #include <linux/iio/buffer_impl.h>
@@ -74,7 +75,7 @@ static void mw_stream_iio_chan_ida_remove(void *opaque){
 
 static int mw_stream_iio_buffer_submit_block(struct iio_dma_buffer_queue *queue, struct iio_dma_buffer_block *block)
 {
-	struct iio_dev *indio_dev = queue->driver_data;
+	struct iio_dev *indio_dev = iio_dma_buffer_get_drvdata(queue);
 	struct mw_stream_iio_chandev *mwchan = iio_priv(indio_dev);
 	int direction;
 

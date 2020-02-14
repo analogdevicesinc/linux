@@ -37,7 +37,6 @@
 #include <linux/iio/buffer.h>
 
 #include <linux/dma-direction.h>
-#include <linux/iio/buffer_impl.h>
 #include <linux/iio/buffer-dma.h>
 #include <linux/iio/buffer-dmaengine.h>
 
@@ -83,10 +82,8 @@ static inline unsigned int axiadc_read(struct axiadc_state *st, unsigned reg)
 static int axiadc_hw_submit_block(struct iio_dma_buffer_queue *queue,
 	struct iio_dma_buffer_block *block)
 {
-	struct iio_dev *indio_dev = queue->driver_data;
+	struct iio_dev *indio_dev = iio_dma_buffer_get_drvdata(queue);
 	struct axiadc_state *st = iio_priv(indio_dev);
-
-	block->block.bytes_used = block->block.size;
 
 	iio_dmaengine_buffer_submit_block(queue, block, DMA_FROM_DEVICE);
 

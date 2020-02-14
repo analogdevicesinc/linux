@@ -317,8 +317,6 @@ static int ad400x_buffer_postdisable(struct iio_dev *indio_dev)
 static int hw_submit_block(struct iio_dma_buffer_queue *queue,
 			   struct iio_dma_buffer_block *block)
 {
-	block->block.bytes_used = block->block.size;
-
 	return iio_dmaengine_buffer_submit_block(queue, block, DMA_DEV_TO_MEM);
 }
 

@@ -13,9 +13,9 @@
 #include <linux/dmaengine.h>
 #include <linux/uaccess.h>
 
+#include <linux/iio/buffer.h>
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
-#include <linux/iio/buffer_impl.h>
 #include <linux/iio/buffer-dma.h>
 #include <linux/iio/buffer-dmaengine.h>
 
@@ -24,14 +24,15 @@
 static int dds_buffer_submit_block(struct iio_dma_buffer_queue *queue,
 	struct iio_dma_buffer_block *block)
 {
-	struct cf_axi_dds_state *st = iio_priv(queue->driver_data);
+	struct iio_dev *indio_dev = iio_dma_buffer_get_drvdata(queue);
+	struct cf_axi_dds_state *st = iio_priv(indio_dev);
 
-	if (block->block.bytes_used) {
+	if (!iio_dma_buffer_block_empty(block)) {
 		bool enable_fifo = false;
 
 		if (cf_axi_dds_dma_fifo_en(st) &&
-			(block->block.flags & IIO_BUFFER_BLOCK_FLAG_CYCLIC)) {
-			block->block.flags &= ~IIO_BUFFER_BLOCK_FLAG_CYCLIC;
+		    iio_dma_buffer_block_cyclic(block)) {
+			iio_dma_buffer_block_cyclic_disable(block);
 			enable_fifo = true;
 		}
 
