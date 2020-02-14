@@ -324,31 +324,14 @@ static void xilinx_xcvr_setup_qpll_vco_range(struct xilinx_xcvr *xcvr,
 					     unsigned int *vco1_min,
 					     unsigned int *vco1_max)
 {
-	switch (xcvr->type) {
-	case XILINX_XCVR_TYPE_S7_GTX2:
-		if ((xcvr->dev_package == ADI_AXI_FPGA_DEV_FB) |
-		    (xcvr->dev_package == ADI_AXI_FPGA_DEV_SB))
-			*vco0_max = 6600000;
+	if (xcvr->type == XILINX_XCVR_TYPE_S7_GTX2) {
+		if ((xcvr->family == ADI_AXI_FPGA_FAMILY_KINTEX))
+			if ((xcvr->dev_package == ADI_AXI_FPGA_DEV_FB) |
+			    (xcvr->dev_package == ADI_AXI_FPGA_DEV_RF) |
+			    (xcvr->dev_package == ADI_AXI_FPGA_DEV_FF))
+				*vco0_max = 6600000;
 		if ((xcvr->speed_grade / 10) == 2)
 			*vco1_max = 10312500;
-		break;
-	case XILINX_XCVR_TYPE_US_GTH3:
-	case XILINX_XCVR_TYPE_US_GTH4:
-	case XILINX_XCVR_TYPE_US_GTY4:
-		*vco1_min = 8000000;
-		*vco1_max = 13000000;
-		if (((xcvr->voltage < 900) | (xcvr->voltage > 720)) &
-		    ((xcvr->speed_grade / 10) == 1)) {
-			*vco0_max = 12500000;
-			*vco1_max = *vco0_max;
-		}
-		if (xcvr->voltage == 720) {
-			if ((xcvr->speed_grade / 10) == 2)
-				*vco0_max = 12500000;
-			else if ((xcvr->speed_grade / 10) == 1)
-				*vco0_max = 10312500;
-			*vco1_max = *vco0_max;
-		}
 	}
 }
 
