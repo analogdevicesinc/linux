@@ -2271,7 +2271,7 @@ gckOS_MapPhysical(
         {
             /* Map memory as cached memory. */
             request_mem_region(physical, Bytes, "MapRegion");
-            logical = (gctPOINTER) ioremap_nocache(physical, Bytes);
+            logical = (gctPOINTER) ioremap(physical, Bytes);
 
             if (logical == gcvNULL)
             {

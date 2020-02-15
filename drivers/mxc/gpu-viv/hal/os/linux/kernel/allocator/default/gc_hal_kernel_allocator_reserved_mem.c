@@ -399,7 +399,7 @@ reserved_mem_map_kernel(
 #elif LINUX_VERSION_CODE >= KERNEL_VERSION(4,3,0)
     vaddr = memremap(res->start + Offset, Bytes, MEMREMAP_WT);
 #else
-    vaddr = ioremap_nocache(res->start + Offset, Bytes);
+    vaddr = ioremap(res->start + Offset, Bytes);
 #endif
 
     if (!vaddr)

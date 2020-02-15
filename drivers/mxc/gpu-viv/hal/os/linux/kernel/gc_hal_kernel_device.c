@@ -1962,7 +1962,7 @@ gckGALDEVICE_Construct(
                     gcmkONERROR(gcvSTATUS_OUT_OF_RESOURCES);
                 }
 
-                device->registerBases[i] = (gctPOINTER)ioremap_nocache(
+                device->registerBases[i] = (gctPOINTER)ioremap(
                         physical, device->requestedRegisterMemSizes[i]);
 
                 if (device->registerBases[i] == gcvNULL)
