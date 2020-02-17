@@ -43,6 +43,7 @@ struct adis_timeout {
  * @msc_ctrl_reg: Register address of the MSC_CTRL register
  * @diag_stat_reg: Register address of the DIAG_STAT register
  * @prod_id_reg: Register address of the PROD_ID register
+ * @prod_id: Product ID code that should be expected when reading @prod_id_reg
  * @self_test_reg: Register address to request self test command
  * @status_error_msgs: Array of error messgaes
  * @status_error_mask:
@@ -57,6 +58,8 @@ struct adis_data {
 	unsigned int msc_ctrl_reg;
 	unsigned int diag_stat_reg;
 	unsigned int prod_id_reg;
+
+	unsigned int prod_id;
 
 	unsigned int self_test_mask;
 	unsigned int self_test_reg;
