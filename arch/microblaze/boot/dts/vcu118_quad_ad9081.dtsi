@@ -90,7 +90,7 @@
 
 		axi_ad9081_core_tx: axi-ad9081-tx-3@44b10000 {
 			compatible = "adi,axi-ad9081-tx-1.0";
-			reg = <0x44b10000 0x4000>;
+			reg = <0x44b10000 0x8000>;
 			dmas = <&tx_dma 0>;
 			dma-names = "tx";
 			clocks = <&trx3_ad9081 1>;
