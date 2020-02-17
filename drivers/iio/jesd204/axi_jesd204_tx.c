@@ -188,6 +188,16 @@ static ssize_t axi_jesd204_tx_status_read(struct device *dev,
 
 static DEVICE_ATTR(status, 0444, axi_jesd204_tx_status_read, NULL);
 
+static ssize_t encoder_show(struct device *dev, struct device_attribute *attr,
+			    char *buf)
+{
+	struct axi_jesd204_tx *jesd = dev_get_drvdata(dev);
+
+	return sprintf(buf, "%s", axi_jesd204_encoder_label[jesd->encoder]);
+}
+
+static DEVICE_ATTR_RO(encoder);
+
 static irqreturn_t axi_jesd204_tx_irq(int irq, void *devid)
 {
 	struct axi_jesd204_tx *jesd = devid;
@@ -561,6 +571,8 @@ static int axi_jesd204_tx_probe(struct platform_device *pdev)
 	/* backward compatibility with older HDL cores */
 	if (jesd->encoder == JESD204_ENCODER_UNKNOWN)
 		jesd->encoder = JESD204_ENCODER_8B10B;
+	else if (jesd->encoder >= JESD204_ENCODER_MAX)
+		goto err_axi_clk_disable;
 
 	ret = axi_jesd204_tx_parse_dt_config(pdev->dev.of_node, jesd, &config);
 	if (ret)
@@ -592,6 +604,7 @@ static int axi_jesd204_tx_probe(struct platform_device *pdev)
 		goto err_disable_device_clk;
 
 	device_create_file(&pdev->dev, &dev_attr_status);
+	device_create_file(&pdev->dev, &dev_attr_encoder);
 
 	platform_set_drvdata(pdev, jesd);
 
