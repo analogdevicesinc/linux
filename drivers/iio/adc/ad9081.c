@@ -1335,6 +1335,28 @@ static int ad9081_setup(struct spi_device *spi, bool ad9234)
 	of_clk_get_scale(spi->dev.of_node, "dev_clk", &devclk_clkscale);
 	dev_frequency_hz = clk_get_rate_scaled(phy->dev_clk, &devclk_clkscale);
 
+	if (!IS_ERR_OR_NULL(phy->jesd_tx_clk)) {
+		lane_rate_kbps =
+			ad9081_calc_lanerate(&phy->jesd_tx_link,
+				phy->dac_frequency_hz,
+				phy->tx_main_interp * phy->tx_chan_interp);
+
+		ret = clk_set_rate(phy->jesd_tx_clk, lane_rate_kbps);
+		if (ret < 0) {
+			dev_err(&spi->dev, "Failed to set lane rate to %lu kHz: %d\n",
+				lane_rate_kbps, ret);
+		}
+
+		ret = clk_prepare_enable(phy->jesd_tx_clk);
+		if (ret < 0) {
+			dev_err(&spi->dev,
+				"Failed to enable JESD204 link: %d\n", ret);
+			return ret;
+
+		}
+	}
+
+
 	ret = adi_ad9081_hal_bf_set(&phy->ad9081, REG_SYNC_LMFC_DELAY_ADDR,
 		BF_SYNC_LMFC_DELAY_SET_INFO,
 		BF_SYNC_LMFC_DELAY_SET(phy->lmfc_delay));
@@ -1477,18 +1499,7 @@ static int ad9081_setup(struct spi_device *spi, bool ad9234)
 			AD9081_LINK_0, 1);
 	}
 
-	if (!IS_ERR_OR_NULL(phy->jesd_tx_clk)) {
-		lane_rate_kbps =
-			ad9081_calc_lanerate(&phy->jesd_tx_link,
-				phy->dac_frequency_hz,
-				phy->tx_main_interp * phy->tx_chan_interp);
 
-		ret = clk_set_rate(phy->jesd_tx_clk, lane_rate_kbps);
-		if (ret < 0) {
-			dev_err(&spi->dev, "Failed to set lane rate to %lu kHz: %d\n",
-				lane_rate_kbps, ret);
-		}
-	}
 
 	if (!IS_ERR_OR_NULL(phy->jesd_rx_clk)) {
 		lane_rate_kbps = ad9081_calc_lanerate(&phy->jesd_rx_link[0],
@@ -1529,13 +1540,7 @@ static int ad9081_setup(struct spi_device *spi, bool ad9234)
 	if (!IS_ERR_OR_NULL(phy->jesd_tx_clk)) {
 		int stat, retry = 5;
 
-		ret = clk_prepare_enable(phy->jesd_tx_clk);
-		if (ret < 0) {
-			dev_err(&spi->dev,
-				"Failed to enable JESD204 link: %d\n", ret);
-			return ret;
 
-		}
 
 		do {	/* temp workaround until API is fixed */
 			mdelay(10);
