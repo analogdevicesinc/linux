@@ -982,3 +982,6 @@ static struct platform_driver axi_hdmi_rx_driver = {
 	.remove = axi_hdmi_rx_remove,
 };
 module_platform_driver(axi_hdmi_rx_driver);
+
+MODULE_LICENSE("GPL v2");
+MODULE_DESCRIPTION("ADI AXI HDMI RX driver");
