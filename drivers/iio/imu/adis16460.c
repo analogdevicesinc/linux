@@ -152,7 +152,7 @@ static int adis16460_debugfs_init(struct iio_dev *indio_dev)
 static int adis16460_set_freq(struct iio_dev *indio_dev, int val, int val2)
 {
 	struct adis16460 *st = iio_priv(indio_dev);
-	unsigned int t;
+	int t;
 
 	t =  val * 1000 + val2 / 1000;
 	if (t <= 0)
@@ -359,6 +359,7 @@ static const struct adis_data adis16460_data = {
 	.diag_stat_reg = ADIS16460_REG_DIAG_STAT,
 	.glob_cmd_reg = ADIS16460_REG_GLOB_CMD,
 	.prod_id_reg = ADIS16460_REG_PROD_ID,
+	.prod_id = 16460,
 	.self_test_mask = BIT(2),
 	.self_test_reg = ADIS16460_REG_GLOB_CMD,
 	.has_paging = false,
