@@ -230,8 +230,9 @@ int32_t ad9081_log_write(void *user_data, int32_t log_type, const char *message,
 	case ADI_CMS_LOG_ERR:
 		dev_err(&conv->spi->dev, "%s", logMessage);
 		break;
-	case ADI_CMS_LOG_API:
 	case ADI_CMS_LOG_SPI:
+		break;
+	case ADI_CMS_LOG_API:
 		dev_dbg(&conv->spi->dev, "%s", logMessage);
 		break;
 	case ADI_CMS_LOG_ALL:
