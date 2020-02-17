@@ -4073,6 +4073,7 @@ static int ad9361_set_trx_clock_chain(struct ad9361_rf_phy *phy,
 {
 	struct device *dev = &phy->spi->dev;
 	struct ad9361_rf_phy_state *st = phy->state;
+	struct axiadc_converter *conv = spi_get_drvdata(phy->spi);
 	int ret, i, j, n;
 
 	dev_dbg(&phy->spi->dev, "%s", __func__);
@@ -4142,12 +4143,12 @@ static int ad9361_set_trx_clock_chain(struct ad9361_rf_phy *phy,
 
 	if ((!phy->pdata->dig_interface_tune_fir_disable &&
 		!(st->bypass_tx_fir && st->bypass_rx_fir)) &&
-		!phy->pdata->bb_clk_change_dig_tune_en)
+		!phy->pdata->bb_clk_change_dig_tune_en && conv)
 		ret = ad9361_dig_tune(phy, 0, SKIP_STORE_RESULT);
 	if (ret < 0)
 		return ret;
 
-	if (phy->pdata->bb_clk_change_dig_tune_en)
+	if (phy->pdata->bb_clk_change_dig_tune_en && conv)
 		ret = ad9361_dig_tune(phy, 0, 0);
 	if (ret < 0)
 		return ret;
