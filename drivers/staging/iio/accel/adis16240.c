@@ -1,14 +1,12 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
  * ADIS16240 Programmable Impact Sensor and Recorder driver
  *
  * Copyright 2010 Analog Devices Inc.
- *
- * Licensed under the GPL-2 or later.
  */
 
 #include <linux/interrupt.h>
 #include <linux/irq.h>
-#include <linux/gpio.h>
 #include <linux/delay.h>
 #include <linux/device.h>
 #include <linux/kernel.h>
@@ -176,7 +174,7 @@
 /* Power supply above 3.625 V */
 #define ADIS16240_DIAG_STAT_POWER_HIGH_BIT	1
 
- /* Power supply below 3.15 V */
+ /* Power supply below 2.225 V */
 #define ADIS16240_DIAG_STAT_POWER_LOW_BIT	0
 
 /* GLOB_CMD */
@@ -310,15 +308,12 @@ static int adis16240_write_raw(struct iio_dev *indio_dev,
 			       long mask)
 {
 	struct adis *st = iio_priv(indio_dev);
-	int bits = 10;
-	s16 val16;
 	u8 addr;
 
 	switch (mask) {
 	case IIO_CHAN_INFO_CALIBBIAS:
-		val16 = val & ((1 << bits) - 1);
 		addr = adis16240_addresses[chan->scan_index][0];
-		return adis_write_reg_16(st, addr, val16);
+		return adis_write_reg_16(st, addr, val & GENMASK(9, 0));
 	}
 	return -EINVAL;
 }
@@ -411,6 +406,13 @@ static int adis16240_probe(struct spi_device *spi)
 	indio_dev->num_channels = ARRAY_SIZE(adis16240_channels);
 	indio_dev->modes = INDIO_DIRECT_MODE;
 
+	spi->mode = SPI_MODE_3;
+	ret = spi_setup(spi);
+	if (ret) {
+		dev_err(&spi->dev, "spi_setup failed!\n");
+		return ret;
+	}
+
 	ret = adis_init(st, indio_dev, spi, &adis16240_data);
 	if (ret)
 		return ret;
@@ -443,9 +445,16 @@ static int adis16240_remove(struct spi_device *spi)
 	return 0;
 }
 
+static const struct of_device_id adis16240_of_match[] = {
+	{ .compatible = "adi,adis16240" },
+	{ },
+};
+MODULE_DEVICE_TABLE(of, adis16240_of_match);
+
 static struct spi_driver adis16240_driver = {
 	.driver = {
 		.name = "adis16240",
+		.of_match_table = adis16240_of_match,
 	},
 	.probe = adis16240_probe,
 	.remove = adis16240_remove,
