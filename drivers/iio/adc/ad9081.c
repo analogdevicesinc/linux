@@ -166,18 +166,18 @@ static int ad9081_nco_sync_master_slave(struct ad9081_phy *phy, bool master)
 		return ret;
 	/* source  0: sysref, 1: lmfc rising edge, 2: lmfc falling edge */
 	ret = adi_ad9081_dac_nco_master_slave_trigger_source_set(
-		&phy->ad9081, 1);
+		&phy->ad9081, 1); /* REG 0xCC */
 	if (ret < 0)
 		return ret;
 
 	ret = adi_ad9081_dac_nco_master_slave_mode_set(&phy->ad9081,
-		master ? 1 : 2);
+		master ? 1 : 2); /* REG 0xCC */
 
 	adi_ad9081_dac_nco_sync_reset_via_sysref_set(&phy->ad9081, 1);
 
 	if (master)
 		return adi_ad9081_dac_nco_master_slave_trigger_set(
-			&phy->ad9081);
+			&phy->ad9081); /* REG 0xBC */
 
 	return ret;
 }
