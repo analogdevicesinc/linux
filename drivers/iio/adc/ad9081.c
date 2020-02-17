@@ -2246,10 +2246,10 @@ static int ad9081_parse_dt_tx(struct ad9081_phy *phy, struct device_node *np)
 				if (ret)
 					break;
 
-				if (index > MAX_NUM_MAIN_DATAPATHS) {
+				if (index >= MAX_NUM_CHANNELIZER) {
 					dev_err(&phy->spi->dev,
 						"invalid device tree configuration: index (%d > %d)\n",
-						index, MAX_NUM_MAIN_DATAPATHS);
+						index, MAX_NUM_CHANNELIZER);
 					return -EINVAL;
 				}
 
