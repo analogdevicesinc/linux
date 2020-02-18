@@ -1457,13 +1457,16 @@ static int __init qman_debugfs_module_init(void)
 
 	fqid_max = 0;
 	init_ccsrmempeek();
-	if (qman_ccsr_start) {
-		if (!qman_ccsrmempeek(&reg, QM_FQD_AR)) {
-			/* extract the size of the FQD window */
-			reg = reg & 0x3f;
-			/* calculate valid frame queue descriptor range */
-			fqid_max = (1 << (reg + 1)) / QM_FQD_BLOCK_SIZE;
-		}
+	if (!qman_ccsr_start) {
+		/* No QMan node found in device tree */
+		return 0;
+	}
+
+	if (!qman_ccsrmempeek(&reg, QM_FQD_AR)) {
+		/* extract the size of the FQD window */
+		reg = reg & 0x3f;
+		/* calculate valid frame queue descriptor range */
+		fqid_max = (1 << (reg + 1)) / QM_FQD_BLOCK_SIZE;
 	}
 	dfs_root = debugfs_create_dir("qman", NULL);
 	fqd_root = debugfs_create_dir("fqd", dfs_root);

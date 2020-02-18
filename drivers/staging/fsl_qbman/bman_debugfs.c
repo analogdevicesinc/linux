@@ -33,6 +33,7 @@
 #include <linux/debugfs.h>
 #include <linux/seq_file.h>
 #include <linux/uaccess.h>
+#include <linux/of.h>
 
 static struct dentry *dfs_root; /* debugfs root directory */
 
@@ -83,9 +84,14 @@ static int __init bman_debugfs_module_init(void)
 {
 	int ret = 0;
 	struct dentry *d;
+	struct device_node *dn;
 
+	dn = of_find_compatible_node(NULL, NULL, "fsl,bman");
+	if (!dn) {
+		pr_debug("No fsl,bman node\n");
+		return 0;
+	}
 	dfs_root = debugfs_create_dir("bman", NULL);
-
 	if (dfs_root == NULL) {
 		ret = -ENOMEM;
 		pr_err("Cannot create bman debugfs dir\n");
