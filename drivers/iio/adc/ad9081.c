@@ -1386,7 +1386,7 @@ static int ad9081_setup(struct spi_device *spi, bool ad9234)
 	struct clock_scale devclk_clkscale;
 	u64 dev_frequency_hz, sample_rate, status64;
 	unsigned long lane_rate_kbps;
-	int ret, i;
+	int ret, i, stat, retry = 5;
 	adi_cms_jesd_param_t jesd_param[2];
 	adi_ad9081_jtx_conv_sel_t jesd_conv_sel[2];
 	u8 txfe_pll_stat, dcm;
@@ -1594,23 +1594,21 @@ static int ad9081_setup(struct spi_device *spi, bool ad9234)
 	if (ret != 0)
 		return ret;
 
+	ret = 0;
 	/* enable txfe link */
-	if (!IS_ERR_OR_NULL(phy->jesd_tx_clk)) {
-		int stat, retry = 5;
 
+	do {	/* temp workaround until API is fixed */
+		mdelay(10);
+		stat = ad9081_jesd_rx_link_status_print(phy);
+		if (stat <= 0) {
+			ret = adi_ad9081_jesd_rx_link_enable_set(
+				&phy->ad9081,
+				(phy->jesd_tx_link.jesd_param.jesd_duallink > 0) ?
+				AD9081_LINK_ALL : AD9081_LINK_0, 0);
+			if (ret != 0)
+				return ret;
 
-
-		do {	/* temp workaround until API is fixed */
-			mdelay(10);
-			stat = ad9081_jesd_rx_link_status_print(phy);
-			if (stat <= 0) {
-				ret = adi_ad9081_jesd_rx_link_enable_set(
-					&phy->ad9081,
-					(phy->jesd_tx_link.jesd_param.jesd_duallink > 0) ?
-					AD9081_LINK_ALL : AD9081_LINK_0, 0);
-				if (ret != 0)
-					return ret;
-
+			if (!IS_ERR_OR_NULL(phy->jesd_tx_clk)) {
 				clk_disable_unprepare(phy->jesd_tx_clk);
 
 				mdelay(100);
@@ -1621,21 +1619,21 @@ static int ad9081_setup(struct spi_device *spi, bool ad9234)
 						"Failed to enable JESD204 link: %d\n",
 						ret);
 					return ret;
-
 				}
-
-				ret = adi_ad9081_jesd_rx_link_enable_set(
-					&phy->ad9081,
-					(phy->jesd_tx_link.jesd_param.jesd_duallink > 0) ?
-					AD9081_LINK_ALL : AD9081_LINK_0, 1);
-				if (ret != 0)
-					return ret;
-
+			} else {
 				mdelay(100);
 			}
-		} while (stat <= 0 && retry--);
-	}
 
+			ret = adi_ad9081_jesd_rx_link_enable_set(
+				&phy->ad9081,
+				(phy->jesd_tx_link.jesd_param.jesd_duallink > 0) ?
+				AD9081_LINK_ALL : AD9081_LINK_0, 1);
+			if (ret != 0)
+				return ret;
+
+			mdelay(100);
+		}
+	} while (stat <= 0 && retry--);
 
 	ad9081_jesd_tx_link_status_print(phy);
 
