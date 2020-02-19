@@ -125,6 +125,8 @@ struct ad9081_phy {
 	struct ad9081_clock clk_priv[NUM_AD9081_CLKS];
 	struct clk_onecell_data clk_data;
 
+	u32 mcs_cached_val;
+
 	u32 multidevice_instance_count;
 	u32 lmfc_delay;
 	bool config_sync_01_swapped;
@@ -1979,6 +1981,9 @@ static ssize_t ad9081_phy_show(struct device *dev,
 	case AD9081_DAC_FFH_MODE_SET:
 		ret = sprintf(buf, "%u\n", phy->ffh_hopf_mode);
 		break;
+	case AD9081_MCS:
+		ret = sprintf(buf, "%u\n", phy->mcs_cached_val);
+		break;
 	default:
 		ret = -EINVAL;
 	}
@@ -1997,8 +2002,8 @@ static IIO_DEVICE_ATTR(adc_clk_powerdown, S_IRUGO | S_IWUSR,
 		ad9081_phy_store,
 		AD9081_ADC_CLK_PWDN);
 
-static IIO_DEVICE_ATTR(multichip_sync, S_IWUSR,
-		NULL,
+static IIO_DEVICE_ATTR(multichip_sync, S_IRUGO | S_IWUSR,
+		ad9081_phy_show,
 		ad9081_phy_store,
 		AD9081_MCS);
 
