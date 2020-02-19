@@ -552,7 +552,7 @@ static int addi9036_probe(struct i2c_client *client,
 	}
 	fwnode_handle_put(endpoint);
 
-	if (addi9036->ep.bus_type != V4L2_MBUS_CSI2) {
+	if (addi9036->ep.bus_type != V4L2_MBUS_CSI2_DPHY) {
 		dev_err(dev, "invalid bus type, must be MIPI CSI2\n");
 		return -EINVAL;
 	}
