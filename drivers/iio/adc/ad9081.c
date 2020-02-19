@@ -1338,14 +1338,18 @@ int ad9081_jesd_rx_link_status_print(struct ad9081_phy *phy)
 		if (ret)
 			return -EFAULT;
 
-		dev_info(&phy->spi->dev,
-			 "JESD TX (JRX) Link%d 0x%X lanes in DATA\n",
-			 l, stat & 0xF);
-
-		if (phy->jesd_rx_link[l - 1].jesd_param.jesd_jesdv == 2)
+		if (phy->jesd_rx_link[l - 1].jesd_param.jesd_jesdv == 2) {
 			dev_info(&phy->spi->dev,
-				"JESD TX Link%d 204C status %d\n",
+				"JESD TX (JRX) Link%d 204C status %d\n",
 				l, stat >> 8);
+
+			if ((stat >> 8) == 6) /* FIXME DUAL Link */
+				return 0xF;
+		} else {
+			dev_info(&phy->spi->dev,
+				"JESD TX (JRX) Link%d 0x%X lanes in DATA\n",
+				l, stat & 0xF);
+		}
 
 		if (!phy->jesd_rx_link[l - 1].jesd_param.jesd_duallink)
 			return stat & 0xF;
