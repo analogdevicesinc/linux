@@ -51,7 +51,8 @@ enum {	CDDC_NCO_FREQ,
 	DAC_MAIN_TEST_TONE_OFFSET,
 	DAC_CHAN_TEST_TONE_OFFSET,
 	TRX_CONVERTER_RATE,
-	TRX_ENABLE
+	TRX_ENABLE,
+	CDDC_FFH_HOPF_SET,
 };
 
 
@@ -59,6 +60,9 @@ enum {
 	AD9081_LOOPBACK_MODE,
 	AD9081_ADC_CLK_PWDN,
 	AD9081_MCS,
+	AD9081_DAC_FFH_FREQ_SET,
+	AD9081_DAC_FFH_INDEX_SET,
+	AD9081_DAC_FFH_MODE_SET,
 };
 
 struct ad9081_jesd_link {
@@ -133,6 +137,12 @@ struct ad9081_phy {
 	u32 tx_main_interp;
 	u32 tx_chan_interp;
 	u8 tx_dac_chan_xbar[MAX_NUM_MAIN_DATAPATHS];
+	u8 tx_main_ffh_select[MAX_NUM_MAIN_DATAPATHS];
+
+	u8 ffh_hopf_index;
+	u8 ffh_hopf_mode;
+	u32 ffh_hopf_vals[32];
+
 
 	struct dac_settings_cache dac_cache;
 
@@ -777,6 +787,18 @@ static ssize_t ad9081_ext_info_read(struct iio_dev *indio_dev,
 
 		ret = 0;
 		break;
+	case CDDC_FFH_HOPF_SET:
+		if (chan->output) {
+			for (i = 0; i < ARRAY_SIZE(phy->tx_dac_chan_xbar);
+			     i++) {
+				if (phy->tx_dac_chan_xbar[i] &
+				    BIT(chan->channel)) {
+					val = phy->tx_main_ffh_select[i];
+					ret = 0;
+					break;
+				}
+			}
+		}
 	default:
 		ret = -EINVAL;
 	}
@@ -1020,6 +1042,30 @@ static ssize_t ad9081_ext_info_write(struct iio_dev *indio_dev,
 			phy->dac_cache.chan_test_tone_offset[chan->channel] =
 				readin_32;
 		break;
+
+	case CDDC_FFH_HOPF_SET:
+		ret = kstrtoll(buf, 10, &readin);
+		if (ret)
+			goto out;
+
+		if (chan->output) {
+			/* set main nco */
+			for (i = 0; i < ARRAY_SIZE(phy->tx_dac_chan_xbar);
+			     i++) {
+				if (phy->tx_dac_chan_xbar[i] &
+				    BIT(chan->channel)) {
+					ret = adi_ad9081_dac_duc_main_nco_hopf_select_set(
+							&phy->ad9081, BIT(i), readin);
+					if (!ret)
+						phy->tx_main_ffh_select[i] = readin;
+					else
+						ret = -EFAULT;
+
+				}
+			}
+
+		}
+		break;
 	default:
 		ret = -EINVAL;
 	}
@@ -1139,6 +1185,13 @@ static struct iio_chan_spec_ext_info txdac_ext_info[] = {
 		.read = ad9081_ext_info_read,
 		.shared = true,
 		.private = TRX_CONVERTER_RATE,
+	},
+	{
+		.name = "main_nco_ffh_select",
+		.read = ad9081_ext_info_read,
+		.write = ad9081_ext_info_write,
+		.shared = false,
+		.private = CDDC_FFH_HOPF_SET,
 	},
 	{},
 };
@@ -1355,7 +1408,6 @@ static int ad9081_setup(struct spi_device *spi, bool ad9234)
 
 		}
 	}
-
 
 	ret = adi_ad9081_hal_bf_set(&phy->ad9081, REG_SYNC_LMFC_DELAY_ADDR,
 		BF_SYNC_LMFC_DELAY_SET_INFO,
@@ -1803,6 +1855,7 @@ static ssize_t ad9081_phy_store(struct device *dev,
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
 	struct ad9081_phy *phy = conv->phy;
 	unsigned long res;
+	uint64_t ftw;
 	bool bres;
 	int ret = 0;
 
@@ -1837,6 +1890,58 @@ static ssize_t ad9081_phy_store(struct device *dev,
 		}
 		/* setup txfe loopback mode */
 		ret = ad9081_multichip_sync(phy, res);
+		if (!ret)
+			phy->mcs_cached_val = res;
+
+		break;
+	case AD9081_DAC_FFH_INDEX_SET:
+		ret = kstrtoul(buf, 0, &res);
+		if (ret) {
+			ret = -EINVAL;
+			break;
+		}
+		phy->ffh_hopf_index = res;
+		break;
+	case AD9081_DAC_FFH_FREQ_SET:
+		ret = kstrtoul(buf, 0, &res);
+		if (ret) {
+			ret = -EINVAL;
+			break;
+		}
+		ret = adi_ad9081_hal_calc_tx_nco_ftw32(&phy->ad9081,
+				phy->ad9081.dev_info.dac_freq_hz, res,
+				&ftw);
+		if (ret) {
+			ret = -EINVAL;
+			break;
+		}
+
+		ret = adi_ad9081_dac_duc_main_nco_hopf_ftw_set(&phy->ad9081,
+						 AD9081_DAC_ALL,
+						 phy->ffh_hopf_index,
+						 ftw);
+		if (ret) {
+			ret = -EINVAL;
+			break;
+		}
+
+		phy->ffh_hopf_vals[phy->ffh_hopf_index] = res;
+		break;
+	case AD9081_DAC_FFH_MODE_SET:
+		ret = kstrtoul(buf, 0, &res);
+		if (ret) {
+			ret = -EINVAL;
+			break;
+		}
+
+		ret = adi_ad9081_dac_duc_main_nco_hopf_mode_set(&phy->ad9081,
+						  AD9081_DAC_ALL, res);
+		if (ret) {
+			ret = -EINVAL;
+			break;
+		}
+
+		phy->ffh_hopf_mode = res;
 		break;
 	default:
 		ret = -EINVAL;
@@ -1865,6 +1970,15 @@ static ssize_t ad9081_phy_show(struct device *dev,
 	case AD9081_ADC_CLK_PWDN:
 		ret = sprintf(buf, "%u\n", phy->device_cache.adc_clk_pwdn);
 		break;
+	case AD9081_DAC_FFH_INDEX_SET:
+		ret = sprintf(buf, "%u\n", phy->ffh_hopf_index);
+		break;
+	case AD9081_DAC_FFH_FREQ_SET:
+		ret = sprintf(buf, "%u\n", phy->ffh_hopf_vals[phy->ffh_hopf_index]);
+		break;
+	case AD9081_DAC_FFH_MODE_SET:
+		ret = sprintf(buf, "%u\n", phy->ffh_hopf_mode);
+		break;
 	default:
 		ret = -EINVAL;
 	}
@@ -1888,10 +2002,28 @@ static IIO_DEVICE_ATTR(multichip_sync, S_IWUSR,
 		ad9081_phy_store,
 		AD9081_MCS);
 
+static IIO_DEVICE_ATTR(out_voltage_main_ffh_frequency, S_IRUGO | S_IWUSR,
+		ad9081_phy_show,
+		ad9081_phy_store,
+		AD9081_DAC_FFH_FREQ_SET);
+
+static IIO_DEVICE_ATTR(out_voltage_main_ffh_index, S_IRUGO | S_IWUSR,
+		ad9081_phy_show,
+		ad9081_phy_store,
+		AD9081_DAC_FFH_INDEX_SET);
+
+static IIO_DEVICE_ATTR(out_voltage_main_ffh_mode, S_IRUGO | S_IWUSR,
+		ad9081_phy_show,
+		ad9081_phy_store,
+		AD9081_DAC_FFH_MODE_SET);
+
 static struct attribute *ad9081_phy_attributes[] = {
 	&iio_dev_attr_loopback_mode.dev_attr.attr,
 	&iio_dev_attr_adc_clk_powerdown.dev_attr.attr,
 	&iio_dev_attr_multichip_sync.dev_attr.attr,
+	&iio_dev_attr_out_voltage_main_ffh_frequency.dev_attr.attr,
+	&iio_dev_attr_out_voltage_main_ffh_index.dev_attr.attr,
+	&iio_dev_attr_out_voltage_main_ffh_mode.dev_attr.attr,
 	NULL,
 };
 
