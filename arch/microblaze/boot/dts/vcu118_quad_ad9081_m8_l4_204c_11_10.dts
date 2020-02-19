@@ -370,11 +370,10 @@
 		spi-max-frequency = <AD9081_SPI_MAX_SPEED_HZ>;
 
 		/* Clocks */
-		clocks =
+		clocks = <&axi_ad9081_tx_jesd>,
 			<&adf4371_clk0 2>, <&hmc7043 8>, <&hmc7043 1>, <&hmc7043 9>;
 
-		clock-names =
-			"dev_clk", "fmc_clk", "sysref_dev_clk",
+		clock-names = "jesd_tx_clk", "dev_clk", "fmc_clk", "sysref_dev_clk",
 			"sysref_fmc_clk";
 
 		clock-output-names = "rx_sampl_clk", "tx_sampl_clk";
@@ -1133,10 +1132,10 @@
 		spi-max-frequency = <AD9081_SPI_MAX_SPEED_HZ>;
 
 		/* Clocks */
-		clocks = <&axi_ad9081_rx_jesd>, <&axi_ad9081_tx_jesd>,
+		clocks = <&axi_ad9081_rx_jesd>,
 			<&adf4371_clk3 2>, <&hmc7043 8>, <&hmc7043 1>, <&hmc7043 9>;
 
-		clock-names = "jesd_rx_clk", "jesd_tx_clk",
+		clock-names = "jesd_rx_clk",
 			"dev_clk", "fmc_clk", "sysref_dev_clk",
 			"sysref_fmc_clk";
 
