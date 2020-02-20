@@ -5,8 +5,6 @@ sound/isa/ad1848/ad1848.o
 sound/pci/ac97/ac97_patch.o
 sound/pci/ad1889.o
 sound/pci/hda/patch_analog.o
-drivers/gpu/drm/i2c/adv7511_audio.o
-drivers/gpu/drm/i2c/adv7511_core.o
 drivers/iio/adc/max1027.o
 drivers/input/misc/adxl34x.o
 drivers/input/misc/adxl34x-i2c.o
