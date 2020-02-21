@@ -40,6 +40,7 @@
 
 #define ADI_REG_STATUS			0x005C
 #define ADI_REG_DMA_STATUS		0x0088
+#define ADI_REG_USR_CNTRL_1		0x00A0
 
 /* ADC Channel */
 #define ADI_REG_CHAN_CNTRL(c)		(0x0400 + (c) * 0x40)
@@ -52,6 +53,8 @@
 
 #define ADI_REG_CORRECTION_ENABLE 0x48
 #define ADI_REG_CORRECTION_COEFFICIENT(x) (0x4c + (x) * 4)
+
+#define ADI_MAX_CHANNEL			128
 
 struct adc_chip_info {
 	int (*special_probe)(struct platform_device *pdev);
@@ -69,6 +72,8 @@ struct axiadc_state {
 	struct clk 			*clk;
 	unsigned int                    oversampling_ratio;
 	unsigned int			adc_def_output_mode;
+	unsigned int			max_usr_channel;
+	struct iio_chan_spec		channels[ADI_MAX_CHANNEL];
 };
 
 #define CN0363_CHANNEL(_address, _type, _ch, _mod, _rb) { \
@@ -113,24 +118,6 @@ static const struct adc_chip_info cn0363_chip_info = {
 	.channels = cn0363_channels,
 	.num_channels = ARRAY_SIZE(cn0363_channels),
 };
-
-#define AD9361_OBS_RX_CHANNEL(_ch, _mod, _si) { \
-	.type = IIO_VOLTAGE, \
-	.indexed = 1, \
-	.channel = _ch, \
-	.modified = (_mod == 0) ? 0 : 1, \
-	.channel2 = _mod, \
-	.address = _ch, \
-	.scan_index = _si, \
-	.info_mask_shared_by_all = BIT(IIO_CHAN_INFO_SAMP_FREQ), \
-	.scan_type = { \
-		.sign = 's', \
-		.realbits = 16, \
-		.storagebits = 16, \
-		.shift = 0, \
-		.endianness = IIO_LE, \
-	}, \
-}
 
 static int axiadc_m2k_special_probe(struct platform_device *pdev);
 
@@ -221,16 +208,10 @@ static const struct iio_chan_spec_ext_info m2k_chan_ext_info[] = {
 	}, \
 }
 
-static const struct iio_chan_spec ad9371_obs_rx_channels[] = {
-	AD9361_OBS_RX_CHANNEL(0, IIO_MOD_I, 0),
-	AD9361_OBS_RX_CHANNEL(0, IIO_MOD_Q, 1),
-};
-
 static const struct adc_chip_info ad9371_obs_rx_chip_info = {
 	.special_probe = NULL,
 	.has_no_sample_clk = false,
-	.channels = ad9371_obs_rx_channels,
-	.num_channels = ARRAY_SIZE(ad9371_obs_rx_channels),
+	.channels = NULL,
 	.ctrl_flags = ADI_FORMAT_SIGNEXT | ADI_FORMAT_ENABLE,
 };
 
@@ -247,27 +228,17 @@ static const struct adc_chip_info m2k_adc_chip_info = {
 	.ctrl_flags = ADI_FORMAT_SIGNEXT | ADI_FORMAT_ENABLE,
 };
 
-static const struct iio_chan_spec adrv9009_obs_rx_channels[] = {
-	AD9361_OBS_RX_CHANNEL(0, IIO_MOD_I, 0),
-	AD9361_OBS_RX_CHANNEL(0, IIO_MOD_Q, 1),
-	AD9361_OBS_RX_CHANNEL(1, IIO_MOD_I, 2),
-	AD9361_OBS_RX_CHANNEL(1, IIO_MOD_Q, 3),
-
-};
-
 static const struct adc_chip_info adrv9009_obs_rx_chip_info = {
 	.special_probe = NULL,
 	.has_no_sample_clk = false,
-	.channels = adrv9009_obs_rx_channels,
-	.num_channels = ARRAY_SIZE(adrv9009_obs_rx_channels),
+	.channels = NULL,
 	.ctrl_flags = ADI_FORMAT_SIGNEXT | ADI_FORMAT_ENABLE,
 };
 
 static const struct adc_chip_info adrv9009_obs_rx_single_chip_info = {
 	.special_probe = NULL,
 	.has_no_sample_clk = false,
-	.channels = adrv9009_obs_rx_channels,
-	.num_channels = 2,
+	.channels = NULL,
 	.ctrl_flags = ADI_FORMAT_SIGNEXT | ADI_FORMAT_ENABLE,
 };
 
@@ -599,6 +570,38 @@ static const struct of_device_id adc_of_match[] = {
 };
 MODULE_DEVICE_TABLE(of, adc_of_match);
 
+static void adc_fill_channel_data(struct iio_dev *indio_dev)
+{
+	struct axiadc_state *st = iio_priv(indio_dev);
+	int i;
+
+	st->max_usr_channel = axiadc_read(st, ADI_REG_USR_CNTRL_1);
+
+	if (st->max_usr_channel == 0)
+		dev_warn(indio_dev->dev.parent,
+			 "Zero read from REG_USR_CNTRL_1\n");
+
+	for (i = 0; (i < st->max_usr_channel) && (i < ADI_MAX_CHANNEL); i++) {
+		st->channels[i].type = IIO_VOLTAGE;
+		st->channels[i].indexed = 1;
+		st->channels[i].channel = i / 2;
+		st->channels[i].address = i / 2;
+		st->channels[i].channel2 = (i & 1) ? IIO_MOD_Q : IIO_MOD_I;
+		st->channels[i].modified = 1;
+		st->channels[i].scan_index = i;
+		st->channels[i].info_mask_shared_by_all =
+			BIT(IIO_CHAN_INFO_SAMP_FREQ);
+		st->channels[i].scan_type.sign = 's';
+		st->channels[i].scan_type.realbits = 16;
+		st->channels[i].scan_type.storagebits = 16;
+		st->channels[i].scan_type.shift = 0;
+		st->channels[i].scan_type.endianness = IIO_LE;
+	}
+
+	indio_dev->channels = st->channels;
+	indio_dev->num_channels = st->max_usr_channel;
+}
+
 static int adc_probe(struct platform_device *pdev)
 {
 	const struct adc_chip_info *info;
@@ -655,8 +658,13 @@ static int adc_probe(struct platform_device *pdev)
 
 	st->adc_def_output_mode = info->ctrl_flags;
 
-	indio_dev->channels = info->channels;
-	indio_dev->num_channels = info->num_channels;
+	if (!info->channels) {
+		adc_fill_channel_data(indio_dev);
+	} else {
+		indio_dev->channels = info->channels;
+		indio_dev->num_channels = info->num_channels;
+	}
+
 	ret = axiadc_configure_ring_stream(indio_dev, "rx");
 	if (ret)
 		goto err_free_frontend;
