@@ -1068,7 +1068,10 @@ static int patch_param(struct platform_device *pdev,
 {
     struct resource* res;
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,1,0)
+    struct device_node *node;
+    struct resource res_mem;
+#elif LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
 #elif LINUX_VERSION_CODE >= KERNEL_VERSION(3,5,0)
     struct device_node *dn =pdev->dev.of_node;
     const u32 *prop;
@@ -1110,7 +1113,21 @@ static int patch_param(struct platform_device *pdev,
     }
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4,1,0)
-    res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "contiguous_mem");
+    node = of_parse_phandle(pdev->dev.of_node, "memory-region", 0);
+
+    if (node && !of_address_to_resource(node, 0, &res_mem))
+    {
+        res = &res_mem;
+    }
+    else
+    {
+        res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "contiguous_mem");
+    }
+
+    if (node)
+    {
+        of_node_put(node);
+    }
 
     if (res) {
         if (args->contiguousBase == 0)
