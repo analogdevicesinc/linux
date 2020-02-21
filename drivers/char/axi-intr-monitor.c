@@ -209,7 +209,7 @@ static struct of_device_id axi_intr_mon_of_match[] = {
 	{ .compatible = "adi,axi-intr-monitor-1.00.a", },
 	{ /* end of table */}
 };
-MODULE_DEVICE_TABLE(of, xdevcfg_of_match);
+MODULE_DEVICE_TABLE(of, axi_intr_mon_of_match);
 
 static struct platform_driver axi_intr_mon_driver = {
 	.probe = axi_intr_mon_probe,
