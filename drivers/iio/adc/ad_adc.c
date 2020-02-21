@@ -208,7 +208,7 @@ static const struct iio_chan_spec_ext_info m2k_chan_ext_info[] = {
 	}, \
 }
 
-static const struct adc_chip_info ad9371_obs_rx_chip_info = {
+static const struct adc_chip_info obs_rx_chip_info = {
 	.special_probe = NULL,
 	.has_no_sample_clk = false,
 	.channels = NULL,
@@ -225,20 +225,6 @@ static const struct adc_chip_info m2k_adc_chip_info = {
 	.has_no_sample_clk = true,
 	.channels = m2k_adc_channels,
 	.num_channels = ARRAY_SIZE(m2k_adc_channels),
-	.ctrl_flags = ADI_FORMAT_SIGNEXT | ADI_FORMAT_ENABLE,
-};
-
-static const struct adc_chip_info adrv9009_obs_rx_chip_info = {
-	.special_probe = NULL,
-	.has_no_sample_clk = false,
-	.channels = NULL,
-	.ctrl_flags = ADI_FORMAT_SIGNEXT | ADI_FORMAT_ENABLE,
-};
-
-static const struct adc_chip_info adrv9009_obs_rx_single_chip_info = {
-	.special_probe = NULL,
-	.has_no_sample_clk = false,
-	.channels = NULL,
 	.ctrl_flags = ADI_FORMAT_SIGNEXT | ADI_FORMAT_ENABLE,
 };
 
@@ -560,12 +546,12 @@ static const struct iio_info adc_info = {
 static const struct of_device_id adc_of_match[] = {
 	{ .compatible = "adi,cn0363-adc-1.00.a", .data = &cn0363_chip_info },
 	{ .compatible = "adi,axi-ad9371-obs-1.0",
-				.data = &ad9371_obs_rx_chip_info },
+				.data = &obs_rx_chip_info },
 	{ .compatible = "adi,m2k-adc-1.00.a", .data = &m2k_adc_chip_info },
 	{ .compatible = "adi,axi-adrv9009-obs-1.0",
-				.data = &adrv9009_obs_rx_chip_info },
+				.data = &obs_rx_chip_info },
 	{ .compatible = "adi,axi-adrv9009-obs-single-1.0",
-				.data = &adrv9009_obs_rx_single_chip_info },
+				.data = &obs_rx_chip_info },
 	{ /* end of list */ },
 };
 MODULE_DEVICE_TABLE(of, adc_of_match);
