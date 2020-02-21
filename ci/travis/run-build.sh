@@ -190,6 +190,14 @@ build_default() {
 	}
 }
 
+build_allmodconfig() {
+	APT_LIST="$APT_LIST git"
+
+	apt_update_install $APT_LIST
+	make allmodconfig
+	make -j$NUM_JOBS
+}
+
 build_checkpatch() {
 	apt_install python-ply
 	if [ -n "$TRAVIS_BRANCH" ]; then
