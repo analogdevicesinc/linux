@@ -76,7 +76,7 @@ struct adis16475_clks {
 struct adis16475_chip_info {
 	const struct iio_chan_spec *channels;
 	const struct adis16475_clks *clks;
-	const struct adis_timeout *timeouts;
+	const struct adis_data adis_data;
 	u32 num_channels;
 	u32 gyro_max_val;
 	u32 gyro_max_scale;
@@ -533,243 +533,28 @@ static const struct iio_chan_spec adis16475_channels[] = {
 };
 
 enum adis16475_variant {
+	ADIS16470,
 	ADIS16475_1,
 	ADIS16475_2,
 	ADIS16475_3,
 	ADIS16477_1,
 	ADIS16477_2,
 	ADIS16477_3,
+	ADIS16465_1,
+	ADIS16465_2,
+	ADIS16465_3,
+	ADIS16467_1,
+	ADIS16467_2,
+	ADIS16467_3,
 	ADIS16500,
 	ADIS16505_1,
 	ADIS16505_2,
 	ADIS16505_3,
 	ADIS16507_1,
 	ADIS16507_2,
+	ADIS16507_3,
+
 };
-
-static const struct adis16475_clks adis16475_ext_clks[] = {
-	{ "sync", ADIS16475_CLK_OUTPUT, 1900, 2100 },
-	{ "direct-sync", ADIS16475_CLK_DIRECT, 1900, 2100 },
-	{ "scaled-sync", ADIS16475_CLK_SCALED, 1, 128 },
-	{ "pulse-sync", ADIS16475_CLK_PULSE, 1000, 2100 },
-};
-
-static const struct adis_timeout adis16475_timeouts = {
-	.reset_ms = 200,
-	.sw_reset_ms = 200,
-	.self_test_ms = 20,
-};
-
-static const struct adis_timeout adis1650x_timeouts = {
-	.reset_ms = 260,
-	.sw_reset_ms = 260,
-	.self_test_ms = 30,
-};
-
-static const struct adis16475_chip_info adis16475_chip_info[] = {
-	[ADIS16475_1] = {
-		.num_channels = ARRAY_SIZE(adis16475_channels),
-		.channels = adis16475_channels,
-		.gyro_max_val = 1,
-		.gyro_max_scale = IIO_RAD_TO_DEGREE(160 << 16),
-		.accel_max_val = 1,
-		.accel_max_scale = IIO_M_S_2_TO_G(4000 << 16),
-		.temp_scale = 100,
-		.int_clk = 2000,
-		.max_dec = 1999,
-		.timeouts = &adis16475_timeouts,
-		.clks = adis16475_ext_clks,
-		.num_clks = ARRAY_SIZE(adis16475_ext_clks),
-	},
-	[ADIS16475_2] = {
-		.num_channels = ARRAY_SIZE(adis16475_channels),
-		.channels = adis16475_channels,
-		.gyro_max_val = 1,
-		.gyro_max_scale = IIO_RAD_TO_DEGREE(40 << 16),
-		.accel_max_val = 1,
-		.accel_max_scale = IIO_M_S_2_TO_G(4000 << 16),
-		.temp_scale = 100,
-		.int_clk = 2000,
-		.max_dec = 1999,
-		.timeouts = &adis16475_timeouts,
-		.clks = adis16475_ext_clks,
-		.num_clks = ARRAY_SIZE(adis16475_ext_clks),
-	},
-	[ADIS16475_3] = {
-		.num_channels = ARRAY_SIZE(adis16475_channels),
-		.channels = adis16475_channels,
-		.gyro_max_val = 1,
-		.gyro_max_scale = IIO_RAD_TO_DEGREE(10 << 16),
-		.accel_max_val = 1,
-		.accel_max_scale = IIO_M_S_2_TO_G(4000 << 16),
-		.temp_scale = 100,
-		.int_clk = 2000,
-		.max_dec = 1999,
-		.timeouts = &adis16475_timeouts,
-		.clks = adis16475_ext_clks,
-		.num_clks = ARRAY_SIZE(adis16475_ext_clks),
-	},
-	[ADIS16477_1] = {
-		.num_channels = ARRAY_SIZE(adis16475_channels),
-		.channels = adis16475_channels,
-		.gyro_max_val = 1,
-		.gyro_max_scale = IIO_RAD_TO_DEGREE(160 << 16),
-		.accel_max_val = 1,
-		.accel_max_scale = IIO_M_S_2_TO_G(800 << 16),
-		.temp_scale = 100,
-		.int_clk = 2000,
-		.max_dec = 1999,
-		.timeouts = &adis16475_timeouts,
-		.clks = adis16475_ext_clks,
-		.num_clks = ARRAY_SIZE(adis16475_ext_clks),
-	},
-	[ADIS16477_2] = {
-		.num_channels = ARRAY_SIZE(adis16475_channels),
-		.channels = adis16475_channels,
-		.gyro_max_val = 1,
-		.gyro_max_scale = IIO_RAD_TO_DEGREE(40 << 16),
-		.accel_max_val = 1,
-		.accel_max_scale = IIO_M_S_2_TO_G(800 << 16),
-		.temp_scale = 100,
-		.int_clk = 2000,
-		.max_dec = 1999,
-		.timeouts = &adis16475_timeouts,
-		.clks = adis16475_ext_clks,
-		.num_clks = ARRAY_SIZE(adis16475_ext_clks),
-	},
-	[ADIS16477_3] = {
-		.num_channels = ARRAY_SIZE(adis16475_channels),
-		.channels = adis16475_channels,
-		.gyro_max_val = 1,
-		.gyro_max_scale = IIO_RAD_TO_DEGREE(10 << 16),
-		.accel_max_val = 1,
-		.accel_max_scale = IIO_M_S_2_TO_G(800 << 16),
-		.temp_scale = 100,
-		.int_clk = 2000,
-		.max_dec = 1999,
-		.timeouts = &adis16475_timeouts,
-		.clks = adis16475_ext_clks,
-		.num_clks = ARRAY_SIZE(adis16475_ext_clks),
-	},
-	[ADIS16500] = {
-		.num_channels = ARRAY_SIZE(adis16475_channels),
-		.channels = adis16475_channels,
-		.gyro_max_val = 1,
-		.gyro_max_scale = IIO_RAD_TO_DEGREE(10 << 16),
-		.accel_max_val = 392,
-		.accel_max_scale = 32000 << 16,
-		.temp_scale = 100,
-		.int_clk = 2000,
-		.max_dec = 1999,
-		.timeouts = &adis1650x_timeouts,
-		.clks = adis16475_ext_clks,
-		/* pulse sync not supported */
-		.num_clks = ARRAY_SIZE(adis16475_ext_clks) - 1,
-		.has_burst32 = true,
-	},
-	[ADIS16505_1] = {
-		.num_channels = ARRAY_SIZE(adis16475_channels),
-		.channels = adis16475_channels,
-		.gyro_max_val = 1,
-		.gyro_max_scale = IIO_RAD_TO_DEGREE(160 << 16),
-		.accel_max_val = 78,
-		.accel_max_scale = 32000 << 16,
-		.temp_scale = 100,
-		.int_clk = 2000,
-		.max_dec = 1999,
-		.timeouts = &adis1650x_timeouts,
-		.clks = adis16475_ext_clks,
-		/* pulse sync not supported */
-		.num_clks = ARRAY_SIZE(adis16475_ext_clks) - 1,
-		.has_burst32 = true
-	},
-	[ADIS16505_2] = {
-		.num_channels = ARRAY_SIZE(adis16475_channels),
-		.channels = adis16475_channels,
-		.gyro_max_val = 1,
-		.gyro_max_scale = IIO_RAD_TO_DEGREE(40 << 16),
-		.accel_max_val = 78,
-		.accel_max_scale = 32000 << 16,
-		.temp_scale = 100,
-		.int_clk = 2000,
-		.max_dec = 1999,
-		.timeouts = &adis1650x_timeouts,
-		.clks = adis16475_ext_clks,
-		/* pulse sync not supported */
-		.num_clks = ARRAY_SIZE(adis16475_ext_clks) - 1,
-		.has_burst32 = true
-	},
-	[ADIS16505_3] = {
-		.num_channels = ARRAY_SIZE(adis16475_channels),
-		.channels = adis16475_channels,
-		.gyro_max_val = 1,
-		.gyro_max_scale = IIO_RAD_TO_DEGREE(10 << 16),
-		.accel_max_val = 78,
-		.accel_max_scale = 32000 << 16,
-		.temp_scale = 100,
-		.int_clk = 2000,
-		.max_dec = 1999,
-		.timeouts = &adis1650x_timeouts,
-		.clks = adis16475_ext_clks,
-		/* pulse sync not supported */
-		.num_clks = ARRAY_SIZE(adis16475_ext_clks) - 1,
-		.has_burst32 = true
-	},
-	[ADIS16507_1] = {
-		.num_channels = ARRAY_SIZE(adis16475_channels),
-		.channels = adis16475_channels,
-		.gyro_max_val = 1,
-		.gyro_max_scale = IIO_RAD_TO_DEGREE(160 << 16),
-		.accel_max_val = 392,
-		.accel_max_scale = 32000 << 16,
-		.temp_scale = 100,
-		.int_clk = 2000,
-		.max_dec = 1999,
-		.timeouts = &adis1650x_timeouts,
-		.clks = adis16475_ext_clks,
-		/* pulse sync not supported */
-		.num_clks = ARRAY_SIZE(adis16475_ext_clks) - 1,
-		.has_burst32 = true
-	},
-	[ADIS16507_2] = {
-		.num_channels = ARRAY_SIZE(adis16475_channels),
-		.channels = adis16475_channels,
-		.gyro_max_val = 1,
-		.gyro_max_scale = IIO_RAD_TO_DEGREE(40 << 16),
-		.accel_max_val = 392,
-		.accel_max_scale = 32000 << 16,
-		.temp_scale = 100,
-		.int_clk = 2000,
-		.max_dec = 1999,
-		.timeouts = &adis1650x_timeouts,
-		.clks = adis16475_ext_clks,
-		/* pulse sync not supported */
-		.num_clks = ARRAY_SIZE(adis16475_ext_clks) - 1,
-		.has_burst32 = true
-	},
-};
-
-static const struct iio_info adis16475_info = {
-	.read_raw = &adis16475_read_raw,
-	.write_raw = &adis16475_write_raw,
-	.update_scan_mode = adis_update_scan_mode,
-	.attrs = &adis16495_attribute_group,
-	.debugfs_reg_access = adis_debugfs_reg_access,
-};
-
-static int adis16475_enable_irq(struct adis *adis, bool enable)
-{
-	/*
-	 * There is no way to gate the data-ready signal internally inside the
-	 * ADIS16475. We can only control it's polarity...
-	 */
-	if (enable)
-		enable_irq(adis->spi->irq);
-	else
-		disable_irq(adis->spi->irq);
-
-	return 0;
-}
 
 enum {
 	ADIS16475_DIAG_STAT_DATA_PATH = 1,
@@ -791,6 +576,368 @@ static const char * const adis16475_status_error_msgs[] = {
 	[ADIS16475_DIAG_STAT_CLK] = "Clock error",
 };
 
+static int adis16475_enable_irq(struct adis *adis, bool enable)
+{
+	/*
+	 * There is no way to gate the data-ready signal internally inside the
+	 * ADIS16475. We can only control it's polarity...
+	 */
+	if (enable)
+		enable_irq(adis->spi->irq);
+	else
+		disable_irq(adis->spi->irq);
+
+	return 0;
+}
+
+#define ADIS16475_DATA(_prod_id, _timeouts)				\
+{									\
+	.msc_ctrl_reg = ADIS16475_REG_MSG_CTRL,				\
+	.glob_cmd_reg = ADIS16475_REG_GLOB_CMD,				\
+	.diag_stat_reg = ADIS16475_REG_DIAG_STAT,			\
+	.prod_id_reg = ADIS16475_REG_PROD_ID,				\
+	.prod_id = (_prod_id),						\
+	.self_test_mask = BIT(2),					\
+	.self_test_reg = ADIS16475_REG_GLOB_CMD,			\
+	.cs_change_delay = 16,						\
+	.read_delay = 5,						\
+	.write_delay = 5,						\
+	.status_error_msgs = adis16475_status_error_msgs,		\
+	.status_error_mask = BIT(ADIS16475_DIAG_STAT_DATA_PATH) |	\
+		BIT(ADIS16475_DIAG_STAT_FLASH_MEM) |			\
+		BIT(ADIS16475_DIAG_STAT_SPI) |				\
+		BIT(ADIS16475_DIAG_STAT_STANDBY) |			\
+		BIT(ADIS16475_DIAG_STAT_SENSOR) |			\
+		BIT(ADIS16475_DIAG_STAT_MEMORY) |			\
+		BIT(ADIS16475_DIAG_STAT_CLK),				\
+	.enable_irq = adis16475_enable_irq,				\
+	.timeouts = (_timeouts),					\
+}
+
+static const struct adis16475_clks adis16475_ext_clks[] = {
+	{ "sync", ADIS16475_CLK_OUTPUT, 1900, 2100 },
+	{ "direct-sync", ADIS16475_CLK_DIRECT, 1900, 2100 },
+	{ "scaled-sync", ADIS16475_CLK_SCALED, 1, 128 },
+	{ "pulse-sync", ADIS16475_CLK_PULSE, 1000, 2100 },
+};
+
+static const struct adis_timeout adis16475_timeouts = {
+	.reset_ms = 200,
+	.sw_reset_ms = 200,
+	.self_test_ms = 20,
+};
+
+static const struct adis_timeout adis1650x_timeouts = {
+	.reset_ms = 260,
+	.sw_reset_ms = 260,
+	.self_test_ms = 30,
+};
+
+static const struct adis16475_chip_info adis16475_chip_info[] = {
+	[ADIS16470] = {
+		.num_channels = ARRAY_SIZE(adis16475_channels),
+		.channels = adis16475_channels,
+		.gyro_max_val = 1,
+		.gyro_max_scale = IIO_RAD_TO_DEGREE(10 << 16),
+		.accel_max_val = 1,
+		.accel_max_scale = IIO_M_S_2_TO_G(800 << 16),
+		.temp_scale = 100,
+		.int_clk = 2000,
+		.max_dec = 1999,
+		.clks = adis16475_ext_clks,
+		.num_clks = ARRAY_SIZE(adis16475_ext_clks),
+		.adis_data = ADIS16475_DATA(16470, &adis16475_timeouts),
+	},
+	[ADIS16475_1] = {
+		.num_channels = ARRAY_SIZE(adis16475_channels),
+		.channels = adis16475_channels,
+		.gyro_max_val = 1,
+		.gyro_max_scale = IIO_RAD_TO_DEGREE(160 << 16),
+		.accel_max_val = 1,
+		.accel_max_scale = IIO_M_S_2_TO_G(4000 << 16),
+		.temp_scale = 100,
+		.int_clk = 2000,
+		.max_dec = 1999,
+		.clks = adis16475_ext_clks,
+		.num_clks = ARRAY_SIZE(adis16475_ext_clks),
+		.adis_data = ADIS16475_DATA(16475, &adis16475_timeouts),
+	},
+	[ADIS16475_2] = {
+		.num_channels = ARRAY_SIZE(adis16475_channels),
+		.channels = adis16475_channels,
+		.gyro_max_val = 1,
+		.gyro_max_scale = IIO_RAD_TO_DEGREE(40 << 16),
+		.accel_max_val = 1,
+		.accel_max_scale = IIO_M_S_2_TO_G(4000 << 16),
+		.temp_scale = 100,
+		.int_clk = 2000,
+		.max_dec = 1999,
+		.clks = adis16475_ext_clks,
+		.num_clks = ARRAY_SIZE(adis16475_ext_clks),
+		.adis_data = ADIS16475_DATA(16475, &adis16475_timeouts),
+	},
+	[ADIS16475_3] = {
+		.num_channels = ARRAY_SIZE(adis16475_channels),
+		.channels = adis16475_channels,
+		.gyro_max_val = 1,
+		.gyro_max_scale = IIO_RAD_TO_DEGREE(10 << 16),
+		.accel_max_val = 1,
+		.accel_max_scale = IIO_M_S_2_TO_G(4000 << 16),
+		.temp_scale = 100,
+		.int_clk = 2000,
+		.max_dec = 1999,
+		.clks = adis16475_ext_clks,
+		.num_clks = ARRAY_SIZE(adis16475_ext_clks),
+		.adis_data = ADIS16475_DATA(16475, &adis16475_timeouts),
+	},
+	[ADIS16477_1] = {
+		.num_channels = ARRAY_SIZE(adis16475_channels),
+		.channels = adis16475_channels,
+		.gyro_max_val = 1,
+		.gyro_max_scale = IIO_RAD_TO_DEGREE(160 << 16),
+		.accel_max_val = 1,
+		.accel_max_scale = IIO_M_S_2_TO_G(800 << 16),
+		.temp_scale = 100,
+		.int_clk = 2000,
+		.max_dec = 1999,
+		.clks = adis16475_ext_clks,
+		.num_clks = ARRAY_SIZE(adis16475_ext_clks),
+		.adis_data = ADIS16475_DATA(16477, &adis16475_timeouts),
+	},
+	[ADIS16477_2] = {
+		.num_channels = ARRAY_SIZE(adis16475_channels),
+		.channels = adis16475_channels,
+		.gyro_max_val = 1,
+		.gyro_max_scale = IIO_RAD_TO_DEGREE(40 << 16),
+		.accel_max_val = 1,
+		.accel_max_scale = IIO_M_S_2_TO_G(800 << 16),
+		.temp_scale = 100,
+		.int_clk = 2000,
+		.max_dec = 1999,
+		.clks = adis16475_ext_clks,
+		.num_clks = ARRAY_SIZE(adis16475_ext_clks),
+		.adis_data = ADIS16475_DATA(16477, &adis16475_timeouts),
+	},
+	[ADIS16477_3] = {
+		.num_channels = ARRAY_SIZE(adis16475_channels),
+		.channels = adis16475_channels,
+		.gyro_max_val = 1,
+		.gyro_max_scale = IIO_RAD_TO_DEGREE(10 << 16),
+		.accel_max_val = 1,
+		.accel_max_scale = IIO_M_S_2_TO_G(800 << 16),
+		.temp_scale = 100,
+		.int_clk = 2000,
+		.max_dec = 1999,
+		.clks = adis16475_ext_clks,
+		.num_clks = ARRAY_SIZE(adis16475_ext_clks),
+		.adis_data = ADIS16475_DATA(16477, &adis16475_timeouts),
+	},
+	[ADIS16465_1] = {
+		.num_channels = ARRAY_SIZE(adis16475_channels),
+		.channels = adis16475_channels,
+		.gyro_max_val = 1,
+		.gyro_max_scale = IIO_RAD_TO_DEGREE(160 << 16),
+		.accel_max_val = 1,
+		.accel_max_scale = IIO_M_S_2_TO_G(4000 << 16),
+		.temp_scale = 100,
+		.int_clk = 2000,
+		.max_dec = 1999,
+		.clks = adis16475_ext_clks,
+		.num_clks = ARRAY_SIZE(adis16475_ext_clks),
+		.adis_data = ADIS16475_DATA(16465, &adis16475_timeouts),
+	},
+	[ADIS16465_2] = {
+		.num_channels = ARRAY_SIZE(adis16475_channels),
+		.channels = adis16475_channels,
+		.gyro_max_val = 1,
+		.gyro_max_scale = IIO_RAD_TO_DEGREE(40 << 16),
+		.accel_max_val = 1,
+		.accel_max_scale = IIO_M_S_2_TO_G(4000 << 16),
+		.temp_scale = 100,
+		.int_clk = 2000,
+		.max_dec = 1999,
+		.clks = adis16475_ext_clks,
+		.num_clks = ARRAY_SIZE(adis16475_ext_clks),
+		.adis_data = ADIS16475_DATA(16465, &adis16475_timeouts),
+	},
+	[ADIS16465_3] = {
+		.num_channels = ARRAY_SIZE(adis16475_channels),
+		.channels = adis16475_channels,
+		.gyro_max_val = 1,
+		.gyro_max_scale = IIO_RAD_TO_DEGREE(10 << 16),
+		.accel_max_val = 1,
+		.accel_max_scale = IIO_M_S_2_TO_G(4000 << 16),
+		.temp_scale = 100,
+		.int_clk = 2000,
+		.max_dec = 1999,
+		.clks = adis16475_ext_clks,
+		.num_clks = ARRAY_SIZE(adis16475_ext_clks),
+		.adis_data = ADIS16475_DATA(16465, &adis16475_timeouts),
+	},
+	[ADIS16467_1] = {
+		.num_channels = ARRAY_SIZE(adis16475_channels),
+		.channels = adis16475_channels,
+		.gyro_max_val = 1,
+		.gyro_max_scale = IIO_RAD_TO_DEGREE(160 << 16),
+		.accel_max_val = 1,
+		.accel_max_scale = IIO_M_S_2_TO_G(800 << 16),
+		.temp_scale = 100,
+		.int_clk = 2000,
+		.max_dec = 1999,
+		.clks = adis16475_ext_clks,
+		.num_clks = ARRAY_SIZE(adis16475_ext_clks),
+		.adis_data = ADIS16475_DATA(16467, &adis16475_timeouts),
+	},
+	[ADIS16467_2] = {
+		.num_channels = ARRAY_SIZE(adis16475_channels),
+		.channels = adis16475_channels,
+		.gyro_max_val = 1,
+		.gyro_max_scale = IIO_RAD_TO_DEGREE(40 << 16),
+		.accel_max_val = 1,
+		.accel_max_scale = IIO_M_S_2_TO_G(800 << 16),
+		.temp_scale = 100,
+		.int_clk = 2000,
+		.max_dec = 1999,
+		.clks = adis16475_ext_clks,
+		.num_clks = ARRAY_SIZE(adis16475_ext_clks),
+		.adis_data = ADIS16475_DATA(16467, &adis16475_timeouts),
+	},
+	[ADIS16467_3] = {
+		.num_channels = ARRAY_SIZE(adis16475_channels),
+		.channels = adis16475_channels,
+		.gyro_max_val = 1,
+		.gyro_max_scale = IIO_RAD_TO_DEGREE(10 << 16),
+		.accel_max_val = 1,
+		.accel_max_scale = IIO_M_S_2_TO_G(800 << 16),
+		.temp_scale = 100,
+		.int_clk = 2000,
+		.max_dec = 1999,
+		.clks = adis16475_ext_clks,
+		.num_clks = ARRAY_SIZE(adis16475_ext_clks),
+		.adis_data = ADIS16475_DATA(16467, &adis16475_timeouts),
+	},
+	[ADIS16500] = {
+		.num_channels = ARRAY_SIZE(adis16475_channels),
+		.channels = adis16475_channels,
+		.gyro_max_val = 1,
+		.gyro_max_scale = IIO_RAD_TO_DEGREE(10 << 16),
+		.accel_max_val = 392,
+		.accel_max_scale = 32000 << 16,
+		.temp_scale = 100,
+		.int_clk = 2000,
+		.max_dec = 1999,
+		.clks = adis16475_ext_clks,
+		/* pulse sync not supported */
+		.num_clks = ARRAY_SIZE(adis16475_ext_clks) - 1,
+		.has_burst32 = true,
+		.adis_data = ADIS16475_DATA(16500, &adis1650x_timeouts),
+	},
+	[ADIS16505_1] = {
+		.num_channels = ARRAY_SIZE(adis16475_channels),
+		.channels = adis16475_channels,
+		.gyro_max_val = 1,
+		.gyro_max_scale = IIO_RAD_TO_DEGREE(160 << 16),
+		.accel_max_val = 78,
+		.accel_max_scale = 32000 << 16,
+		.temp_scale = 100,
+		.int_clk = 2000,
+		.max_dec = 1999,
+		.clks = adis16475_ext_clks,
+		/* pulse sync not supported */
+		.num_clks = ARRAY_SIZE(adis16475_ext_clks) - 1,
+		.has_burst32 = true,
+		.adis_data = ADIS16475_DATA(16505, &adis1650x_timeouts),
+	},
+	[ADIS16505_2] = {
+		.num_channels = ARRAY_SIZE(adis16475_channels),
+		.channels = adis16475_channels,
+		.gyro_max_val = 1,
+		.gyro_max_scale = IIO_RAD_TO_DEGREE(40 << 16),
+		.accel_max_val = 78,
+		.accel_max_scale = 32000 << 16,
+		.temp_scale = 100,
+		.int_clk = 2000,
+		.max_dec = 1999,
+		.clks = adis16475_ext_clks,
+		/* pulse sync not supported */
+		.num_clks = ARRAY_SIZE(adis16475_ext_clks) - 1,
+		.has_burst32 = true,
+		.adis_data = ADIS16475_DATA(16505, &adis1650x_timeouts),
+	},
+	[ADIS16505_3] = {
+		.num_channels = ARRAY_SIZE(adis16475_channels),
+		.channels = adis16475_channels,
+		.gyro_max_val = 1,
+		.gyro_max_scale = IIO_RAD_TO_DEGREE(10 << 16),
+		.accel_max_val = 78,
+		.accel_max_scale = 32000 << 16,
+		.temp_scale = 100,
+		.int_clk = 2000,
+		.max_dec = 1999,
+		.clks = adis16475_ext_clks,
+		/* pulse sync not supported */
+		.num_clks = ARRAY_SIZE(adis16475_ext_clks) - 1,
+		.has_burst32 = true,
+		.adis_data = ADIS16475_DATA(16505, &adis1650x_timeouts),
+	},
+	[ADIS16507_1] = {
+		.num_channels = ARRAY_SIZE(adis16475_channels),
+		.channels = adis16475_channels,
+		.gyro_max_val = 1,
+		.gyro_max_scale = IIO_RAD_TO_DEGREE(160 << 16),
+		.accel_max_val = 392,
+		.accel_max_scale = 32000 << 16,
+		.temp_scale = 100,
+		.int_clk = 2000,
+		.max_dec = 1999,
+		.clks = adis16475_ext_clks,
+		/* pulse sync not supported */
+		.num_clks = ARRAY_SIZE(adis16475_ext_clks) - 1,
+		.has_burst32 = true,
+		.adis_data = ADIS16475_DATA(16507, &adis1650x_timeouts),
+	},
+	[ADIS16507_2] = {
+		.num_channels = ARRAY_SIZE(adis16475_channels),
+		.channels = adis16475_channels,
+		.gyro_max_val = 1,
+		.gyro_max_scale = IIO_RAD_TO_DEGREE(40 << 16),
+		.accel_max_val = 392,
+		.accel_max_scale = 32000 << 16,
+		.temp_scale = 100,
+		.int_clk = 2000,
+		.max_dec = 1999,
+		.clks = adis16475_ext_clks,
+		/* pulse sync not supported */
+		.num_clks = ARRAY_SIZE(adis16475_ext_clks) - 1,
+		.has_burst32 = true,
+		.adis_data = ADIS16475_DATA(16507, &adis1650x_timeouts),
+	},
+	[ADIS16507_3] = {
+		.num_channels = ARRAY_SIZE(adis16475_channels),
+		.channels = adis16475_channels,
+		.gyro_max_val = 1,
+		.gyro_max_scale = IIO_RAD_TO_DEGREE(10 << 16),
+		.accel_max_val = 392,
+		.accel_max_scale = 32000 << 16,
+		.temp_scale = 100,
+		.int_clk = 2000,
+		.max_dec = 1999,
+		.clks = adis16475_ext_clks,
+		/* pulse sync not supported */
+		.num_clks = ARRAY_SIZE(adis16475_ext_clks) - 1,
+		.has_burst32 = true,
+		.adis_data = ADIS16475_DATA(16507, &adis1650x_timeouts),
+	},
+};
+
+static const struct iio_info adis16475_info = {
+	.read_raw = &adis16475_read_raw,
+	.write_raw = &adis16475_write_raw,
+	.update_scan_mode = adis_update_scan_mode,
+	.attrs = &adis16495_attribute_group,
+	.debugfs_reg_access = adis_debugfs_reg_access,
+};
+
 static struct adis_burst adis16475_burst = {
 	.en = true,
 	.reg_cmd = ADIS16475_REG_GLOB_CMD,
@@ -804,31 +951,6 @@ static struct adis_burst adis16475_burst = {
 	.extra_len = 3 * sizeof(u16),
 	.read_delay = 5,
 	.write_delay = 5,
-};
-
-static const struct adis_data adis16475_data = {
-	.msc_ctrl_reg = ADIS16475_REG_MSG_CTRL,
-	.glob_cmd_reg = ADIS16475_REG_GLOB_CMD,
-	.diag_stat_reg = ADIS16475_REG_DIAG_STAT,
-	.prod_id_reg = ADIS16475_REG_PROD_ID,
-
-	.self_test_mask = BIT(2),
-	.self_test_reg = ADIS16475_REG_GLOB_CMD,
-
-	.cs_change_delay = 16,
-	.read_delay = 5,
-	.write_delay = 5,
-
-	.status_error_msgs = adis16475_status_error_msgs,
-	.status_error_mask = BIT(ADIS16475_DIAG_STAT_DATA_PATH) |
-		BIT(ADIS16475_DIAG_STAT_FLASH_MEM) |
-		BIT(ADIS16475_DIAG_STAT_SPI) |
-		BIT(ADIS16475_DIAG_STAT_STANDBY) |
-		BIT(ADIS16475_DIAG_STAT_SENSOR) |
-		BIT(ADIS16475_DIAG_STAT_MEMORY) |
-		BIT(ADIS16475_DIAG_STAT_CLK),
-
-	.enable_irq = adis16475_enable_irq
 };
 
 static u16 adis16475_validate_crc(const u8 *buffer, const u16 crc,
@@ -1107,28 +1229,11 @@ burst16:
 	return 0;
 }
 
-static struct adis_data *adis16475_adis_data_alloc(struct adis16475 *st,
-						   struct device *dev)
-{
-	struct adis_data *data;
-
-	data = devm_kmalloc(dev, sizeof(struct adis_data), GFP_KERNEL);
-	if (!data)
-		return ERR_PTR(-ENOMEM);
-
-	memcpy(data, &adis16475_data, sizeof(*data));
-
-	data->timeouts = st->info->timeouts;
-
-	return data;
-}
-
 static int adis16475_probe(struct spi_device *spi)
 {
 	struct iio_dev *indio_dev;
 	struct adis16475 *st;
 	const struct spi_device_id *id = spi_get_device_id(spi);
-	const struct adis_data *adis16475_data;
 	int ret;
 
 	indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*st));
@@ -1139,11 +1244,7 @@ static int adis16475_probe(struct spi_device *spi)
 	st->info = &adis16475_chip_info[id->driver_data];
 	spi_set_drvdata(spi, indio_dev);
 
-	adis16475_data = adis16475_adis_data_alloc(st, &spi->dev);
-	if (IS_ERR(adis16475_data))
-		return PTR_ERR(adis16475_data);
-
-	ret = adis_init(&st->adis, indio_dev, spi, adis16475_data);
+	ret = adis_init(&st->adis, indio_dev, spi, &st->info->adis_data);
 	if (ret)
 		return ret;
 
@@ -1187,30 +1288,26 @@ static int adis16475_probe(struct spi_device *spi)
 }
 
 static const struct spi_device_id adis16475_ids[] = {
-	/* Identical to adis16477-3 */
-	{ "adis16470", ADIS16477_3 },
+	{ "adis16470", ADIS16470 },
 	{ "adis16475-1", ADIS16475_1 },
 	{ "adis16475-2", ADIS16475_2 },
 	{ "adis16475-3", ADIS16475_3 },
 	{ "adis16477-1", ADIS16477_1 },
 	{ "adis16477-2", ADIS16477_2 },
 	{ "adis16477-3", ADIS16477_3 },
-	/* This devices are identical to adis16475 in terms of chip_info */
-	{ "adis16465-1", ADIS16475_1 },
-	{ "adis16465-2", ADIS16475_2 },
-	{ "adis16465-3", ADIS16475_3 },
-	/* This devices are identical to adis16477 in terms of chip_info */
-	{ "adis16467-1", ADIS16477_1 },
-	{ "adis16467-2", ADIS16477_2 },
-	{ "adis16467-3", ADIS16477_3 },
+	{ "adis16465-1", ADIS16465_1 },
+	{ "adis16465-2", ADIS16465_2 },
+	{ "adis16465-3", ADIS16465_3 },
+	{ "adis16467-1", ADIS16467_1 },
+	{ "adis16467-2", ADIS16467_2 },
+	{ "adis16467-3", ADIS16467_3 },
 	{ "adis16500", ADIS16500 },
 	{ "adis16505-1", ADIS16505_1 },
 	{ "adis16505-2", ADIS16505_2 },
 	{ "adis16505-3", ADIS16505_3 },
 	{ "adis16507-1", ADIS16507_1 },
 	{ "adis16507-2", ADIS16507_2 },
-	/* Identical to adis16500 */
-	{ "adis16507-3", ADIS16500 },
+	{ "adis16507-3", ADIS16507_3 },
 	{ }
 };
 MODULE_DEVICE_TABLE(spi, adis16475_ids);
