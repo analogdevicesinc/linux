@@ -190,10 +190,11 @@ build_default() {
 	}
 }
 
-build_compile_test() {
+build_allmodconfig() {
+	APT_LIST="$APT_LIST git"
+
 	apt_update_install $APT_LIST
-	export COMPILE_TEST=y
-	make ${DEFCONFIG}
+	make allmodconfig
 	make -j$NUM_JOBS
 }
 
