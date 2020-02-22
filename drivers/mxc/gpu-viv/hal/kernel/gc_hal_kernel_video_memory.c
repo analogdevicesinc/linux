@@ -4083,90 +4083,12 @@ static void _dmabuf_release(struct dma_buf *dmabuf)
     gcmkVERIFY_OK(gckVIDMEM_NODE_Dereference(nodeObject->kernel, nodeObject));
 }
 
-static void *_dmabuf_kmap(struct dma_buf *dmabuf, unsigned long offset)
-{
-    gckVIDMEM_NODE nodeObject = dmabuf->priv;
-    gcuVIDMEM_NODE_PTR node = nodeObject->node;
-    gckVIDMEM_BLOCK vidMemBlock = node->VirtualChunk.parent;
-    gctINT8_PTR kvaddr = gcvNULL;
-    gctPHYS_ADDR physical = gcvNULL;
-    gctSIZE_T bytes = 0;
-
-    offset = (offset << PAGE_SHIFT);
-    if (node->VidMem.parent->object.type == gcvOBJ_VIDMEM)
-    {
-        physical = node->VidMem.parent->physical;
-        offset += node->VidMem.offset;
-        bytes = node->VidMem.bytes;
-    }
-    else if (vidMemBlock && vidMemBlock->object.type == gcvOBJ_VIDMEM_BLOCK)
-    {
-        physical = vidMemBlock->physical;
-        offset += node->VirtualChunk.offset;
-        bytes = node->VirtualChunk.bytes;
-    }
-    else
-    {
-        physical = node->Virtual.physical;
-        bytes = node->Virtual.bytes;
-    }
-
-    if (gcmIS_SUCCESS(gckOS_CreateKernelMapping(
-            nodeObject->kernel->os, physical, 0, bytes, (gctPOINTER*)&kvaddr)))
-    {
-        kvaddr += offset;
-    }
-
-    return (gctPOINTER)kvaddr;
-}
-
-static void _dmabuf_kunmap(struct dma_buf *dmabuf, unsigned long offset, void *ptr)
-{
-    gckVIDMEM_NODE nodeObject = dmabuf->priv;
-    gcuVIDMEM_NODE_PTR node = nodeObject->node;
-    gckVIDMEM_BLOCK vidMemBlock = node->VirtualChunk.parent;
-    gctINT8_PTR kvaddr = (gctINT8_PTR)ptr - (offset << PAGE_SHIFT);
-    gctPHYS_ADDR physical = gcvNULL;
-
-    if (node->VidMem.parent->object.type == gcvOBJ_VIDMEM)
-    {
-        physical = node->VidMem.parent->physical;
-        kvaddr -= node->VidMem.offset;
-    }
-    else if (vidMemBlock && vidMemBlock->object.type == gcvOBJ_VIDMEM_BLOCK)
-    {
-        physical = vidMemBlock->physical;
-        kvaddr -= node->VirtualChunk.offset;
-    }
-    else
-    {
-        physical = node->Virtual.physical;
-    }
-
-    gcmkVERIFY_OK(gckOS_DestroyKernelMapping(
-            nodeObject->kernel->os, physical, (gctPOINTER*)&kvaddr));
-}
-
 static struct dma_buf_ops _dmabuf_ops =
 {
     .map_dma_buf = _dmabuf_map,
     .unmap_dma_buf = _dmabuf_unmap,
     .mmap = _dmabuf_mmap,
     .release = _dmabuf_release,
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,19,0)
-    .map = _dmabuf_kmap,
-    .unmap = _dmabuf_kunmap,
-#  elif LINUX_VERSION_CODE >= KERNEL_VERSION(4,12,0)
-    .map_atomic = _dmabuf_kmap,
-    .unmap_atomic = _dmabuf_kunmap,
-    .map = _dmabuf_kmap,
-    .unmap = _dmabuf_kunmap,
-#  else
-    .kmap_atomic = _dmabuf_kmap,
-    .kunmap_atomic = _dmabuf_kunmap,
-    .kmap = _dmabuf_kmap,
-    .kunmap = _dmabuf_kunmap,
-#  endif
 };
 #endif
 
