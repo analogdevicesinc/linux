@@ -48,6 +48,7 @@
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
 #include <linux/clk.h>
+#include <linux/compat.h>
 //#include <linux/busfreq-imx.h>
 
 #ifdef CONFIG_DEVICE_THERMAL
@@ -289,7 +290,7 @@ static int hantro_ctrlblk_reset(struct device *dev)
 
 	//config G1/G2
 	hantro_clk_enable(dev);
-	iobase = (volatile u8 *)ioremap_nocache(BLK_CTL_BASE, 0x10000);
+	iobase = (volatile u8 *)ioremap(BLK_CTL_BASE, 0x10000);
 	iowrite32(0x3, iobase);  //VPUMIX G1/G2 block soft reset  control
 	iowrite32(0x3, iobase+4); //VPUMIX G1/G2 block clock enable control
 	iowrite32(0xFFFFFFFF, iobase + 0x8); // all G1 fuse dec enable
@@ -511,7 +512,7 @@ static int hantrodec_choose_core(int is_g1)
 		return -EBUSY;
 	}
 
-	reg = (volatile u8 *) ioremap_nocache(blk_base, 0x1000);
+	reg = (volatile u8 *) ioremap(blk_base, 0x1000);
 
 	if (reg == NULL) {
 		pr_err("blk_ctl: failed to ioremap HW regs\n");
@@ -1617,7 +1618,7 @@ static int ReserveIO(void)
 				return -EBUSY;
 			}
 
-			hantrodec_data.hwregs[i] = (volatile u8 *) ioremap_nocache(multicorebase[i],
+			hantrodec_data.hwregs[i] = (volatile u8 *) ioremap(multicorebase[i],
 			hantrodec_data.iosize[i]);
 
 			if (hantrodec_data.hwregs[i] == NULL) {

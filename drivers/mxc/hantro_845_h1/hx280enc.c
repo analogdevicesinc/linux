@@ -72,6 +72,7 @@ static struct clk *hantro_clk_h1_bus;
 #endif
 
 #include <linux/delay.h>
+#include <linux/compat.h>
 
 /* module description */
 MODULE_LICENSE("GPL");
@@ -190,7 +191,7 @@ static int hantro_h1_ctrlblk_reset(struct device *dev)
 
 	//config H1
 	hantro_h1_clk_enable(dev);
-	iobase = (volatile u8 *)ioremap_nocache(BLK_CTL_BASE, 0x10000);
+	iobase = (volatile u8 *)ioremap(BLK_CTL_BASE, 0x10000);
 
 	val = ioread32(iobase);
 	val &= (~0x4);
@@ -638,7 +639,7 @@ static int ReserveIO(void)
 		PDEBUG(KERN_INFO "hx280enc: failed to reserve HW regs\n");
 		return -EBUSY;
 	}
-	hx280enc_data.hwregs = (volatile u8 *) ioremap_nocache(hx280enc_data.iobaseaddr, hx280enc_data.iosize);
+	hx280enc_data.hwregs = (volatile u8 *) ioremap(hx280enc_data.iobaseaddr, hx280enc_data.iosize);
 	if (hx280enc_data.hwregs == NULL)	{
 		PDEBUG(KERN_INFO "hx280enc: failed to ioremap HW regs\n");
 		ReleaseIO();

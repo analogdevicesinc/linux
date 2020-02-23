@@ -48,7 +48,7 @@
 #include <linux/pm_runtime.h>
 #include <linux/clk.h>
 #include <linux/busfreq-imx.h>
-
+#include <linux/compat.h>
 #include <linux/delay.h>
 
 //#define CONFIG_DEVICE_THERMAL_HANTRO
@@ -273,7 +273,7 @@ static int hantro_ctrlblk_reset(hantrodec_t *dev)
 
 	//config G1/G2
 	hantro_clk_enable(&dev->clk);
-	iobase = (volatile u8 *)ioremap_nocache(BLK_CTL_BASE, 0x10000);
+	iobase = (volatile u8 *)ioremap(BLK_CTL_BASE, 0x10000);
 	if (dev->core_id == 0) {
 		val = ioread32(iobase);
 		val &= (~0x2);
@@ -552,7 +552,7 @@ static int hantrodec_choose_core(int is_g1)
 		return -EBUSY;
 	}
 
-	reg = (volatile u8 *) ioremap_nocache(blk_base, 0x1000);
+	reg = (volatile u8 *) ioremap(blk_base, 0x1000);
 
 	if (reg == NULL) {
 		pr_err("blk_ctl: failed to ioremap HW regs\n");
@@ -1725,7 +1725,7 @@ static int ReserveIO(int i)
 				return -EBUSY;
 			}
 
-			hantrodec_data[i].hwregs = (volatile u8 *) ioremap_nocache(multicorebase[i],
+			hantrodec_data[i].hwregs = (volatile u8 *) ioremap(multicorebase[i],
 			hantrodec_data[i].iosize);
 
 			if (hantrodec_data[i].hwregs == NULL) {
