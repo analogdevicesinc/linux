@@ -52,6 +52,7 @@
 #include <linux/version.h>
 #include <linux/vmalloc.h>
 #include <linux/timer.h>
+#include <linux/compat.h>
 
 /* our own stuff */
 #include "hx280enc.h"
@@ -182,7 +183,7 @@ static int hantro_vc8000e_ctrlblk_reset(struct device *dev)
 
 	//config vc8000e
 	hantro_vc8000e_clk_enable(dev);
-	iobase = (volatile u8 *)ioremap_nocache(BLK_CTL_BASE, 0x10000);
+	iobase = (volatile u8 *)ioremap(BLK_CTL_BASE, 0x10000);
 
 	val = ioread32(iobase);
 	val &= (~0x4);
@@ -809,7 +810,7 @@ static int ReserveIO(void)
 		}
 
 		hantroenc_data[i].hwregs =
-			(volatile u8 *) ioremap_nocache(hantroenc_data[i].core_cfg.base_addr,
+			(volatile u8 *) ioremap(hantroenc_data[i].core_cfg.base_addr,
 		hantroenc_data[i].core_cfg.iosize);
 
 		if (hantroenc_data[i].hwregs == NULL) {
