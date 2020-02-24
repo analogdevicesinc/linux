@@ -20,6 +20,8 @@
 #include <linux/iio/buffer-dma.h>
 #include <linux/iio/buffer-dmaengine.h>
 
+#include "buffer-dma_impl.h"
+
 /*
  * The IIO DMAengine buffer combines the generic IIO DMA buffer infrastructure
  * with the DMAengine framework. The generic IIO DMA buffer infrastructure is

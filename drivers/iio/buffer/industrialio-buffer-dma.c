@@ -19,6 +19,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/sizes.h>
 
+#include "buffer-dma_impl.h"
 /*
  * For DMA buffers the storage is sub-divided into so called blocks. Each block
  * has its own memory buffer. The size of the block is the granularity at which
