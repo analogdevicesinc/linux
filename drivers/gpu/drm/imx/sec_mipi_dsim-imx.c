@@ -110,10 +110,10 @@ static int imx_sec_dsim_encoder_helper_atomic_check(struct drm_encoder *encoder,
 	u32 bus_format;
 	unsigned int num_bus_formats;
 	struct imx_sec_dsim_device *dsim_dev = enc_to_dsim(encoder);
-	struct drm_bridge *bridge = encoder->bridge;
 	struct drm_display_mode *adjusted_mode = &crtc_state->adjusted_mode;
 	struct imx_crtc_state *imx_crtc_state = to_imx_crtc_state(crtc_state);
 	struct drm_display_info *display_info = &conn_state->connector->display_info;
+	struct drm_bridge *bridge = drm_bridge_chain_get_first_bridge(encoder);
 
 	num_bus_formats = display_info->num_bus_formats;
 	if (unlikely(!num_bus_formats))
