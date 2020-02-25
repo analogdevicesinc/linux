@@ -948,18 +948,13 @@ static struct map_desc ddr_iram_io_desc __initdata = {
 	.type		= MT_MEMORY_RWX_NONCACHED,
 };
 
-const static char *ddr_freq_iram_match[] __initconst = {
-	"fsl,ddr-lpm-sram",
-	NULL
-};
-
 static int __init imx_dt_find_ddr_sram(unsigned long node,
 		const char *uname, int depth, void *data)
 {
 	unsigned long ddr_iram_addr;
 	const __be32 *prop;
 
-	if (of_flat_dt_match(node, ddr_freq_iram_match)) {
+	if (of_flat_dt_is_compatible(node, "fsl,ddr-lpm-sram")) {
 		unsigned int len;
 
 		prop = of_get_flat_dt_prop(node, "reg", &len);
