@@ -854,7 +854,7 @@ static int sec_mipi_dsim_bridge_attach(struct drm_bridge *bridge)
 		return -EPROBE_DEFER;
 
 	/* duplicate bridges or next bridge exists */
-	WARN_ON(bridge == next || bridge->next || dsim->next);
+	WARN_ON(bridge == next || drm_bridge_get_next_bridge(bridge) || dsim->next);
 
 	dsim->next = next;
 	next->encoder = encoder;
@@ -865,9 +865,6 @@ static int sec_mipi_dsim_bridge_attach(struct drm_bridge *bridge)
 		dsim->next = NULL;
 		return ret;
 	}
-
-	/* bridge chains */
-	bridge->next = next;
 
 	return 0;
 }
