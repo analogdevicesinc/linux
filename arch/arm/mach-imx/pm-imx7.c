@@ -386,11 +386,6 @@ static struct map_desc imx7_pm_io_desc[] __initdata = {
 	imx_map_entry(MX7D, AIPS3, MT_DEVICE),
 };
 
-static const char * const low_power_ocram_match[] __initconst = {
-	"fsl,lpm-sram",
-	NULL
-};
-
 static void imx7_gpio_save(void)
 {
 	u32 i;
@@ -888,7 +883,7 @@ static int __init imx7_dt_find_lpsram(unsigned long node, const char *uname,
 	unsigned long lpram_addr;
 	const __be32 *prop = of_get_flat_dt_prop(node, "reg", NULL);
 
-	if (of_flat_dt_match(node, low_power_ocram_match)) {
+	if (of_flat_dt_is_compatible(node, "fsl,lpm-sram")) {
 		if (!prop)
 			return -EINVAL;
 
