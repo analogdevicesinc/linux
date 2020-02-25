@@ -276,11 +276,6 @@ static void __iomem *aips3_base;
 static void __iomem *aips4_base;
 static void __iomem *aips5_base;
 
-static const char * const low_power_ocram_match[] __initconst = {
-	"fsl,lpm-sram",
-	NULL
-};
-
 static void imx7ulp_gpio_save(void)
 {
 	int i;
@@ -556,7 +551,7 @@ static int __init imx7ulp_dt_find_lpsram(unsigned long node, const char *uname,
 	unsigned long lpram_addr;
 	const __be32 *prop = of_get_flat_dt_prop(node, "reg", NULL);
 
-	if (of_flat_dt_match(node, low_power_ocram_match)) {
+	if (of_flat_dt_is_compatible(node, "fsl,lpm-sram")) {
 		if (!prop)
 			return -EINVAL;
 
