@@ -520,7 +520,7 @@ static int ov5640_update_slave_id(struct ov5640 *sensor)
 	tmp_client = sensor->i2c_client;
 
 	sensor->i2c_client =
-		i2c_new_dummy(tmp_client->adapter, DEFAULT_SCCB_ID >> 1);
+		i2c_new_dummy_device(tmp_client->adapter, DEFAULT_SCCB_ID >> 1);
 	if (!sensor->i2c_client) {
 		dev_err(dev, "Failed to communicate on 0x%x\n",
 			DEFAULT_SCCB_ID);
