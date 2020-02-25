@@ -1797,7 +1797,7 @@ static int sec_mipi_dsim_connector_get_modes(struct drm_connector *connector)
 	if (WARN_ON(!dsim->panel))
 		return -ENODEV;
 
-	return drm_panel_get_modes(dsim->panel);
+	return drm_panel_get_modes(dsim->panel, connector);
 }
 
 static const struct drm_connector_helper_funcs
