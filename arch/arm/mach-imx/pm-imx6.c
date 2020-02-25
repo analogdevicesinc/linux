@@ -572,11 +572,6 @@ static struct map_desc imx6_pm_io_desc[] __initdata = {
 	imx_map_entry(MX6Q, L2,	MT_DEVICE),
 };
 
-static const char * const low_power_ocram_match[] __initconst = {
-	"fsl,lpm-sram",
-	NULL
-};
-
 /*
  * This structure is for passing necessary data for low level ocram
  * suspend code(arch/arm/mach-imx/suspend-imx6.S), if this struct
@@ -973,7 +968,7 @@ static int __init imx6_dt_find_lpsram(unsigned long node, const char *uname,
 	unsigned long lpram_addr;
 	const __be32 *prop = of_get_flat_dt_prop(node, "reg", NULL);
 
-	if (of_flat_dt_match(node, low_power_ocram_match)) {
+	if (of_flat_dt_is_compatible(node, "fsl,lpm-sram")) {
 		if (!prop)
 			return -EINVAL;
 
