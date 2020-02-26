@@ -121,7 +121,9 @@ static irqreturn_t adis_trigger_handler(int irq, void *p)
 	struct iio_poll_func *pf = p;
 	struct iio_dev *indio_dev = pf->indio_dev;
 	struct adis *adis = iio_device_get_drvdata(indio_dev);
+	struct adis_burst *burst = adis->burst;
 	int ret;
+	void *iio_buffer = adis->buffer;
 
 	if (!adis->buffer)
 		return -ENOMEM;
@@ -145,8 +147,50 @@ static irqreturn_t adis_trigger_handler(int irq, void *p)
 		mutex_unlock(&adis->state_lock);
 	}
 
-	iio_push_to_buffers_with_timestamp(indio_dev, adis->buffer,
-		pf->timestamp);
+	if (burst && burst->en) {
+		u32 off = 0;
+		size_t data_length, length = burst->burst_len;
+		void *__iio_buf;
+		/*
+		 * If there's no map_to_iio_buffer, there is no point in
+		 * continuing...
+		 */
+		if (!burst->map_to_iio_buffer) {
+			dev_err(&adis->spi->dev,
+				"No map_to_iio_buffer() provided. Most likely the data pushed to iio is wrong...");
+			goto push_to_buffer;
+		}
+
+		if (burst->fixup_buffer) {
+			ret = burst->fixup_buffer(adis, &off, &data_length);
+			if (ret < 0)
+				goto push_to_buffer;
+			else if (data_length > burst->burst_len - off)
+				dev_err(&adis->spi->dev,
+					"Provided data length(%zu) > burst length(%zu). Data will be truncated",
+					data_length, burst->burst_len);
+			else
+				length = data_length;
+		}
+
+		if (burst->validate_checksum) {
+			bool invalid;
+
+			invalid = burst->validate_checksum(adis->buffer + off,
+							   length);
+			if (invalid) {
+				dev_err(&adis->spi->dev, "Burst checksum error...");
+				goto push_to_buffer;
+			}
+		}
+
+		burst->map_to_iio_buffer(adis, off, &__iio_buf);
+		iio_buffer = __iio_buf;
+	}
+
+push_to_buffer:
+	iio_push_to_buffers_with_timestamp(indio_dev, iio_buffer,
+					   pf->timestamp);
 
 	iio_trigger_notify_done(indio_dev->trig);
 

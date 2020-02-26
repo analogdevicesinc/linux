@@ -475,6 +475,18 @@ int adis_single_conversion(struct iio_dev *indio_dev,
  * @en			burst mode enabled
  * @reg_cmd		register command that triggers burst
  * @burst_len		length of the burst data
+ * @fixup_buffer	Some devices have some trailing data before the real
+ *			sensor data. This callback is intended for those devices
+ *			so that, driver's can set the @offset and real
+ *			@data_len to be used.
+ * @validate_checksum	Validates the data checksum. @data is a points to the
+ *			beginning of valid data. @data_len is the data length
+ *			which might not be equal to @burst_len.
+ * @map_to_iio_buffer	Maps the received burst data to an iio buffer matching
+ *			the curren scan_mask. @offset is the offset to valid
+ *			data in the buffer. It's zero if no @fixup_buffer
+ *			is available. @iio_buffer is the output buffer to be
+ *			passed to iio.
  */
 struct adis_burst {
 	bool		en;
@@ -482,6 +494,10 @@ struct adis_burst {
 	size_t		burst_len;
 	unsigned int	read_delay;
 	unsigned int	write_delay;
+	int (*fixup_buffer)(struct adis *adis, u32 *offset, size_t *data_len);
+	bool (*validate_checksum)(const void *data, const size_t data_len);
+	void (*map_to_iio_buffer)(struct adis *adis, const u32 offset,
+				  void **iio_buffer);
 };
 
 int
