@@ -175,15 +175,8 @@ struct adis16480 {
 static struct adis_burst adis16495_burst = {
 	.en = true,
 	.reg_cmd = ADIS16495_REG_BURST_CMD,
-	/*
-	 * adis_update_scan_mode_burst() sets the burst length in respect with
-	 * the number of channels and allocates 16 bits for each. However, for
-	 * adis1649x devices, the data for each channel is composed of a 16-bit
-	 * low and 16-bit high part. Besides this, the burst sequence contains
-	 * data for BURST_ID, SYS_E_FLAG, TIME_STAMP, CRC_LWR, CRC_UPR, one or
-	 * two don't care segments.
-	 */
-	.extra_len = 12 * sizeof(u16),
+	/* By default we have 20 elements with 2 bytes each */
+	.burst_len = ADIS16495_BURST_MAX_DATA * sizeof(u16),
 	.read_delay = 5,
 	.write_delay = 5,
 };
@@ -1496,7 +1489,7 @@ static int adis16480_probe(struct spi_device *spi)
 	/* If burst mode is supported, enable it by default */
 	if (st->chip_info->burst) {
 		st->adis.burst = st->chip_info->burst;
-		st->adis.burst->extra_len = st->chip_info->burst->extra_len;
+		st->adis.burst->burst_len = st->chip_info->burst->burst_len;
 		indio_dev->info = &adis16495_info;
 	}
 

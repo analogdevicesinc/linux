@@ -794,14 +794,8 @@ static const char * const adis16475_status_error_msgs[] = {
 static struct adis_burst adis16475_burst = {
 	.en = true,
 	.reg_cmd = ADIS16475_REG_GLOB_CMD,
-	/*
-	 * adis_update_scan_mode_burst() sets the burst length in respect with
-	 * the number of channels and allocates 16 bits for each. However,
-	 * adis1647x devices also need space for DIAG_STAT, DATA_CNTR or
-	 * TIME_STAMP (depending on the clock mode but for us these bytes are
-	 * don't care...) and CRC.
-	 */
-	.extra_len = 3 * sizeof(u16),
+	/* By default we have 10 elements with 2 bytes each */
+	.burst_len = ADIS16475_BURST_MAX_DATA * sizeof(u16),
 	.read_delay = 5,
 	.write_delay = 5,
 };
@@ -1097,7 +1091,7 @@ static int adis16475_burst_config(struct adis16475 *st)
 	 * In 32bit mode we need extra 2 bytes for all gyro and accel
 	 * channels.
 	 */
-	adis16475_burst.extra_len += 6 * sizeof(u16);
+	adis16475_burst.burst_len += 6 * sizeof(u16);
 burst16:
 	st->adis.burst = &adis16475_burst;
 	/* it's enabled by default so spi max speed needs to be 1MHz */

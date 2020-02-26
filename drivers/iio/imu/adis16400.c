@@ -1192,9 +1192,11 @@ static int adis16400_probe(struct spi_device *spi)
 	if (!(st->variant->flags & ADIS16400_NO_BURST)) {
 		adis16400_setup_chan_mask(st);
 		indio_dev->available_scan_masks = st->avail_scan_mask;
+		/* all output channels but the timestamp */
+		adis16400_burst.burst_len = (indio_dev->num_channels - 1) * 2;
 		st->adis.burst = &adis16400_burst;
 		if (st->variant->flags & ADIS16400_BURST_DIAG_STAT)
-			st->adis.burst->extra_len = sizeof(u16);
+			st->adis.burst->burst_len += sizeof(u16);
 	}
 
 	adis16400_data = &st->variant->adis_data;

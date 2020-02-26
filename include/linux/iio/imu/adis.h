@@ -474,12 +474,12 @@ int adis_single_conversion(struct iio_dev *indio_dev,
  * struct adis_burst - ADIS data for burst transfers
  * @en			burst mode enabled
  * @reg_cmd		register command that triggers burst
- * @extra_len		extra length to account in the SPI RX buffer
+ * @burst_len		length of the burst data
  */
 struct adis_burst {
 	bool		en;
 	unsigned int	reg_cmd;
-	unsigned int	extra_len;
+	size_t		burst_len;
 	unsigned int	read_delay;
 	unsigned int	write_delay;
 };

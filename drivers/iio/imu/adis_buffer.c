@@ -23,12 +23,8 @@ static int adis_update_scan_mode_burst(struct iio_dev *indio_dev,
 	const unsigned long *scan_mask)
 {
 	struct adis *adis = iio_device_get_drvdata(indio_dev);
-	unsigned int burst_length;
 	u8 *tx;
-
-	/* All but the timestamp channel */
-	burst_length = (indio_dev->num_channels - 1) * sizeof(u16);
-	burst_length += adis->burst->extra_len;
+	const u32 burst_length = adis->burst->burst_len;
 
 	adis->xfer = kcalloc(2, sizeof(*adis->xfer), GFP_KERNEL);
 	if (!adis->xfer)
