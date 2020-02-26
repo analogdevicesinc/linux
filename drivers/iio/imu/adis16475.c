@@ -58,6 +58,7 @@
 /* number of data elements in burst mode */
 #define ADIS16475_BURST_MAX_DATA	10
 #define ADIS16475_MAX_SCAN_DATA		15
+#define to_adis16475(_adis)	container_of(_adis, struct adis16475, adis)
 
 enum clk_mode {
 	ADIS16475_CLK_DIRECT = 1,
@@ -791,15 +792,6 @@ static const char * const adis16475_status_error_msgs[] = {
 	[ADIS16475_DIAG_STAT_CLK] = "Clock error",
 };
 
-static struct adis_burst adis16475_burst = {
-	.en = true,
-	.reg_cmd = ADIS16475_REG_GLOB_CMD,
-	/* By default we have 10 elements with 2 bytes each */
-	.burst_len = ADIS16475_BURST_MAX_DATA * sizeof(u16),
-	.read_delay = 5,
-	.write_delay = 5,
-};
-
 static const struct adis_data adis16475_data = {
 	.msc_ctrl_reg = ADIS16475_REG_MSG_CTRL,
 	.glob_cmd_reg = ADIS16475_REG_GLOB_CMD,
@@ -825,47 +817,30 @@ static const struct adis_data adis16475_data = {
 	.enable_irq = adis16475_enable_irq
 };
 
-static u16 adis16475_validate_crc(const u8 *buffer, const u16 crc,
-				  const bool burst32)
+static bool adis16475_validate_crc(const void *data, const size_t data_len)
 {
 	int i;
-	u16 __crc = 0;
-	/* extra 6 elements for low gyro and accel */
-	const u16 sz = burst32 ? ADIS16475_BURST_MAX_DATA + 6 :
-		ADIS16475_BURST_MAX_DATA;
+	const u8 *buffer = (u8 *)data;
+	u16 __crc = 0, crc = get_unaligned_be16(&buffer[data_len - 2]);
 
-	for (i = 0; i < sz * 2 - 2; i++)
+	for (i = 0; i < data_len - 2; i++)
 		__crc += buffer[i];
 
 	return (__crc != crc);
 }
 
-static irqreturn_t adis16475_trigger_handler(int irq, void *p)
+static void adis16475_map_to_iio_buffer(struct adis *adis, const u32 offset,
+					void **iio_buffer)
 {
-	struct iio_poll_func *pf = p;
-	struct iio_dev *indio_dev = pf->indio_dev;
-	struct adis16475 *st = iio_priv(indio_dev);
-	struct adis *adis = &st->adis;
-	int ret, bit, i = 0;
-	u16 crc, data[ADIS16475_MAX_SCAN_DATA], *buffer, crc_res;
+	struct adis16475 *st = to_adis16475(adis);
+	struct iio_dev *indio_dev = iio_priv_to_dev(st);
+	int bit, i = 0;
+	static u16 data[ADIS16475_MAX_SCAN_DATA];
+	const u16 *buffer = (u16 *)(adis->buffer + offset);
 	/* offset until the first element after gyro and accel */
-	const u8 offset = st->burst32 ? 13 : 7;
+	const u8 _offset = st->burst32 ? 13 : 7;
 
-	ret = spi_sync(adis->spi, &adis->msg);
-	if (ret)
-		return ret;
-
-	buffer = (u16 *)adis->buffer;
-
-	if (!(adis->burst && adis->burst->en))
-		goto push_to_buffers;
-
-	/* We always validate the crc to at least print a message */
-	crc = get_unaligned_be16(&buffer[offset + 2]);
-	crc_res = adis16475_validate_crc((u8 *)adis->buffer, crc,
-					 st->burst32);
-	if (crc_res)
-		dev_err(&adis->spi->dev, "Invalid crc\n");
+	memset(data, 0, sizeof(data));
 
 	for_each_set_bit(bit, indio_dev->active_scan_mask,
 			 indio_dev->masklength) {
@@ -875,13 +850,7 @@ static irqreturn_t adis16475_trigger_handler(int irq, void *p)
 		 */
 		switch (bit) {
 		case ADIS16475_SCAN_TEMP:
-			data[i++] = get_unaligned(&buffer[offset]);
-			break;
-		case ADIS16475_SCAN_DIAG_S_FLAGS:
-			data[i++] = get_unaligned(&buffer[0]);
-			break;
-		case ADIS16475_SCAN_CRC_FAILURE:
-			data[i++] = crc_res;
+			data[i++] = get_unaligned(&buffer[_offset]);
 			break;
 		case ADIS16475_SCAN_GYRO_X ... ADIS16475_SCAN_ACCEL_Z:
 			/*
@@ -902,14 +871,19 @@ static irqreturn_t adis16475_trigger_handler(int irq, void *p)
 		}
 	}
 
-	buffer = data;
-
-push_to_buffers:
-	iio_push_to_buffers_with_timestamp(indio_dev, buffer, pf->timestamp);
-	iio_trigger_notify_done(indio_dev->trig);
-
-	return IRQ_HANDLED;
+	*iio_buffer = data;
 }
+
+static struct adis_burst adis16475_burst = {
+	.en = true,
+	.reg_cmd = ADIS16475_REG_GLOB_CMD,
+	/* By default we have 10 elements with 2 bytes each */
+	.burst_len = ADIS16475_BURST_MAX_DATA * sizeof(u16),
+	.read_delay = 5,
+	.write_delay = 5,
+	.validate_checksum = adis16475_validate_crc,
+	.map_to_iio_buffer = adis16475_map_to_iio_buffer,
+};
 
 static void adis16475_disable_clk(void *data)
 {
@@ -1164,8 +1138,7 @@ static int adis16475_probe(struct spi_device *spi)
 	if (ret)
 		return ret;
 
-	ret = devm_adis_setup_buffer_and_trigger(&st->adis, indio_dev,
-						 adis16475_trigger_handler);
+	ret = devm_adis_setup_buffer_and_trigger(&st->adis, indio_dev, NULL);
 	if (ret)
 		return ret;
 
