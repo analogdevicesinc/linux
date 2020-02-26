@@ -195,6 +195,14 @@
 		audio-cpu = <&spdif>;
 		audio-codec = <&spdif_out>;
 	};
+
+	sii902x_reset: sii902x-reset {
+		compatible = "gpio-reset";
+		reset-gpios = <&gpio3 27 1>;
+		reset-delay-us = <100000>;
+		#reset-cells = <0>;
+		status = "disabled";
+	};
 };
 
 &adc1 {
@@ -326,6 +334,17 @@
 				remote-endpoint = <&csi1_ep>;
 			};
 		};
+	};
+
+	sii902x@39 {
+		compatible = "SiI,sii902x";
+		interrupt-parent = <&gpio4>;
+		interrupts = <21 2>;
+		mode_str ="1280x720M@60";
+		bits-per-pixel = <16>;
+		resets = <&sii902x_reset>;
+		reg = <0x39>;
+		status = "disabled";
 	};
 };
 
