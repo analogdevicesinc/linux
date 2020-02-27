@@ -1,0 +1,126 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * AD9154-FMC-EBZ on Xilinx ZynqMP ZCU102 Rev 1.0
+ *
+ * JESD Link Mode 0 Example: M4, L8, S1, F1,  NP'16, Interpolation: 2
+ *
+ * https://wiki.analog.com/resources/eval/user-guides/ad-dac-fmc-ebz
+ *
+ * hdl_project: <dac_fmc_ebz/zcu102>
+ * ADI_DAC_DEVICE: <AD9154>
+ * ADI_DAC_MODE: <00>
+ * board_revision: <A>
+ *
+ * Copyright (C) 2020 Analog Devices Inc.
+ */
+
+#include "zynqmp-zcu102-rev1.0.dts"
+#include <dt-bindings/interrupt-controller/irq.h>
+
+&i2c1 {
+	i2c-mux@75 {
+		i2c@0 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0>;
+			
+			eeprom@50 {
+				compatible = "at24,24c02";
+				reg = <0x50>;
+			};
+
+		};
+	};
+};
+
+/ {
+	fpga_axi: fpga-axi@0 {
+		interrupt-parent = <&gic>;
+		compatible = "simple-bus";
+		#address-cells = <0x1>;
+		#size-cells = <0x1>;
+		ranges = <0 0 0 0xffffffff>;
+
+		tx_dma: tx-dmac@9c420000 {
+			#dma-cells = <1>;
+			compatible = "adi,axi-dmac-1.00.a";
+			reg = <0x9c420000 0x10000>;
+			interrupts = <0 108 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&zynqmp_clk 71>;
+
+			adi,channels {
+				#size-cells = <0>;
+				#address-cells = <1>;
+
+				dma-channel@0 {
+					reg = <0>;
+					adi,source-bus-width = <128>;
+					adi,source-bus-type = <0>;
+					adi,destination-bus-width = <256>;
+					adi,destination-bus-type = <1>;
+					adi,cyclic;
+				};
+			};
+		};
+
+		axi_ad9154_core: axi-ad9154-hpc@84a04000 {
+			compatible = "adi,axi-ad9154-1.0";
+			reg = <0x84a04000 0x10000>;
+			dmas = <&tx_dma 0>;
+			dma-names = "tx";
+			spibus-connected = <&dac0_ad9154>;
+			adi,axi-pl-fifo-enable;
+		};
+
+		axi_ad9154_jesd: axi-jesd204-tx@84a90000 {
+			compatible = "adi,axi-jesd204-tx-1.0";
+			reg = <0x84a90000 0x4000>;
+
+			interrupts = <0 106 IRQ_TYPE_LEVEL_HIGH>;
+
+			clocks = <&zynqmp_clk 71>, <&axi_ad9154_adxcvr 1>, <&axi_ad9154_adxcvr 0>;
+			clock-names = "s_axi_aclk", "device_clk", "lane_clk";
+
+			adi,octets-per-frame = <1>;
+			adi,frames-per-multiframe = <32>;
+			adi,converter-resolution = <16>;
+			adi,bits-per-sample = <16>;
+			adi,converters-per-device = <4>;
+
+			#clock-cells = <0>;
+			clock-output-names = "jesd_dac_lane_clk";
+		};
+
+		axi_ad9154_adxcvr: axi-adxcvr-tx@84a60000 {
+			compatible = "adi,axi-adxcvr-1.0";
+			reg = <0x84a60000 0x1000>;
+
+			clocks = <&clk_ad9516 9>;
+			clock-names = "conv";
+
+			adi,sys-clk-select = <3>;
+			adi,out-clk-select = <3>;
+			adi,use-lpm-enable;
+
+			#clock-cells = <1>;
+			clock-output-names = "dac_gt_clk", "tx_out_clk";
+		};
+
+		axi_sysid_0: axi-sysid-0@85000000 {
+			compatible = "adi,axi-sysid-1.00.a";
+			reg = <0x85000000 0x10000>;
+		};
+	};
+};
+
+&spi0 {
+	status = "okay";
+};
+
+#define fmc_spi spi0
+
+#include "adi-ad9154-fmc-ebz.dtsi"
+
+&dac0_ad9154 {
+	txen-gpios = <&gpio 99 0>, <&gpio 102 0>;
+};
