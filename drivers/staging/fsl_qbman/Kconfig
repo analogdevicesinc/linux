@@ -1,0 +1,228 @@
+config FSL_SDK_DPA
+	bool "Freescale Datapath Queue and Buffer management"
+	depends on !FSL_DPAA
+	select FSL_QMAN_FQ_LOOKUP if PPC64
+	select FSL_QMAN_FQ_LOOKUP if ARM64
+
+
+menu "Freescale Datapath QMan/BMan options"
+	depends on FSL_SDK_DPA
+
+config FSL_DPA_CHECKING
+	bool "additional driver checking"
+	default n
+	---help---
+	  Compiles in additional checks to sanity-check the drivers and any
+	  use of it by other code. Not recommended for performance.
+
+config FSL_DPA_CAN_WAIT
+	bool
+	default y
+
+config FSL_DPA_CAN_WAIT_SYNC
+	bool
+	default y
+
+config FSL_DPA_PIRQ_FAST
+	bool
+	default y
+
+config FSL_DPA_PIRQ_SLOW
+	bool
+	default y
+
+config FSL_DPA_PORTAL_SHARE
+	bool
+	default y
+
+config FSL_SDK_BMAN
+	bool "Freescale Buffer Manager (BMan) support"
+	default y
+
+if FSL_SDK_BMAN
+
+config FSL_BMAN_CONFIG
+	bool "BMan device management"
+	default y
+	---help---
+	  If this linux image is running natively, you need this option. If this
+	  linux image is running as a guest OS under the hypervisor, only one
+	  guest OS ("the control plane") needs this option.
+
+config FSL_BMAN_TEST
+	tristate "BMan self-tests"
+	default n
+	---help---
+	  This option compiles self-test code for BMan.
+
+config FSL_BMAN_TEST_HIGH
+	bool "BMan high-level self-test"
+	depends on FSL_BMAN_TEST
+	default y
+	---help---
+	  This requires the presence of cpu-affine portals, and performs
+	  high-level API testing with them (whichever portal(s) are affine to
+	  the cpu(s) the test executes on).
+
+config FSL_BMAN_TEST_THRESH
+	bool "BMan threshold test"
+	depends on FSL_BMAN_TEST
+	default y
+	---help---
+	  Multi-threaded (SMP) test of BMan pool depletion. A pool is seeded
+	  before multiple threads (one per cpu) create pool objects to track
+	  depletion state changes. The pool is then drained to empty by a
+	  "drainer" thread, and the other threads that they observe exactly
+	  the depletion state changes that are expected.
+
+config FSL_BMAN_DEBUGFS
+	tristate "BMan debugfs interface"
+	depends on DEBUG_FS
+	default y
+	---help---
+	  This option compiles debugfs code for BMan.
+
+endif # FSL_SDK_BMAN
+
+config FSL_SDK_QMAN
+	bool "Freescale Queue Manager (QMan) support"
+	default y
+
+if FSL_SDK_QMAN
+
+config FSL_QMAN_POLL_LIMIT
+	int
+	default 32
+
+config FSL_QMAN_CONFIG
+	bool "QMan device management"
+	default y
+	---help---
+	  If this linux image is running natively, you need this option. If this
+	  linux image is running as a guest OS under the hypervisor, only one
+	  guest OS ("the control plane") needs this option.
+
+config FSL_QMAN_TEST
+	tristate "QMan self-tests"
+	default n
+	---help---
+	  This option compiles self-test code for QMan.
+
+config FSL_QMAN_TEST_STASH_POTATO
+	bool "QMan 'hot potato' data-stashing self-test"
+	depends on FSL_QMAN_TEST
+	default y
+	---help---
+	  This performs a "hot potato" style test enqueuing/dequeuing a frame
+	  across a series of FQs scheduled to different portals (and cpus), with
+	  DQRR, data and context stashing always on.
+
+config FSL_QMAN_TEST_HIGH
+	bool "QMan high-level self-test"
+	depends on FSL_QMAN_TEST
+	default y
+	---help---
+	  This requires the presence of cpu-affine portals, and performs
+	  high-level API testing with them (whichever portal(s) are affine to
+	  the cpu(s) the test executes on).
+
+config FSL_QMAN_DEBUGFS
+	tristate "QMan debugfs interface"
+	depends on DEBUG_FS
+	default y
+	---help---
+	  This option compiles debugfs code for QMan.
+
+# H/w settings that can be hard-coded for now.
+config FSL_QMAN_FQD_SZ
+	int "size of Frame Queue Descriptor region"
+	default 10
+	---help---
+	  This is the size of the FQD region defined as: PAGE_SIZE * (2^value)
+	  ex: 10 => PAGE_SIZE * (2^10)
+	  Note: Default device-trees now require minimum Kconfig setting of 10.
+
+config FSL_QMAN_PFDR_SZ
+	int "size of the PFDR pool"
+	default 13
+	---help---
+	  This is the size of the PFDR pool defined as: PAGE_SIZE * (2^value)
+	  ex: 13 => PAGE_SIZE * (2^13)
+
+# Corenet initiator settings. Stash request queues are 4-deep to match cores'
+# ability to snart. Stash priority is 3, other priorities are 2.
+config FSL_QMAN_CI_SCHED_CFG_SRCCIV
+	int
+	depends on FSL_QMAN_CONFIG
+	default 4
+config FSL_QMAN_CI_SCHED_CFG_SRQ_W
+	int
+	depends on FSL_QMAN_CONFIG
+	default 3
+config FSL_QMAN_CI_SCHED_CFG_RW_W
+	int
+	depends on FSL_QMAN_CONFIG
+	default 2
+config FSL_QMAN_CI_SCHED_CFG_BMAN_W
+	int
+	depends on FSL_QMAN_CONFIG
+	default 2
+
+# portal interrupt settings
+config FSL_QMAN_PIRQ_DQRR_ITHRESH
+	int
+	default 12
+config FSL_QMAN_PIRQ_MR_ITHRESH
+	int
+	default 4
+config FSL_QMAN_PIRQ_IPERIOD
+	int
+	default 100
+
+# 64 bit kernel support
+config FSL_QMAN_FQ_LOOKUP
+	bool
+	default n
+
+config QMAN_CEETM_UPDATE_PERIOD
+	int "Token update period for shaping, in nanoseconds"
+	default 1000
+	 ---help---
+	Traffic shaping works by performing token calculations (using
+	credits) on shaper instances periodically. This update period
+	sets the granularity for how often those token rate credit
+	updates are performed, and thus determines the accuracy and
+	range of traffic rates that can be configured by users. The
+	reference manual recommends a 1 microsecond period as providing
+	a good balance between granularity and range.
+
+	Unless you know what you are doing, leave this value at its default.
+
+config FSL_QMAN_INIT_TIMEOUT
+	int "timeout for qman init stage, in seconds"
+	default 10
+	---help---
+	The timeout setting to quit the initialization loop for non-control
+	partition in case the control partition fails to boot-up.
+
+endif # FSL_SDK_QMAN
+
+config FSL_USDPAA
+        bool "Freescale USDPAA process driver"
+        depends on FSL_SDK_DPA
+        default y
+	---help---
+        This driver provides user-space access to kernel-managed
+        resource interfaces for USDPAA applications, on the assumption
+        that each process will open this device once. Specifically, this
+        device exposes functionality that would be awkward if exposed
+        via the portal devices - ie. this device exposes functionality
+        that is inherently process-wide rather than portal-specific.
+        This device is necessary for obtaining access to DMA memory and
+        for allocation of Qman and Bman resources. In short, if you wish
+        to use USDPAA applications, you need this.
+
+        If unsure, say Y.
+
+
+endmenu
