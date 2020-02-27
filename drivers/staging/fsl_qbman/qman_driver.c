@@ -534,7 +534,6 @@ static void portal_set_cpu(struct qm_portal_config *pcfg, int cpu)
 	stash_attr.cpu = cpu;
 	stash_attr.cache = PAMU_ATTR_CACHE_L1;
 	/* set stash information for the window */
-	stash_attr.window = 0;
 	ret = iommu_domain_set_attr(pcfg->iommu_domain,
 				    DOMAIN_ATTR_FSL_PAMU_STASH,
 				    &stash_attr);
@@ -679,7 +678,6 @@ static void qman_portal_update_sdest(const struct qm_portal_config *pcfg,
 		stash_attr.cpu = cpu;
 		stash_attr.cache = PAMU_ATTR_CACHE_L1;
 		/* set stash information for the window */
-		stash_attr.window = 0;
 		ret = iommu_domain_set_attr(pcfg->iommu_domain,
 				DOMAIN_ATTR_FSL_PAMU_STASH, &stash_attr);
 		if (ret < 0) {

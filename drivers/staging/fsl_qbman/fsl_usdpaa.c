@@ -1516,8 +1516,6 @@ static void portal_config_pamu(struct qm_portal_config *pcfg, uint8_t sdest,
 	}
 	stash_attr.cpu = cpu;
 	stash_attr.cache = cache;
-	/* set stash information for the window */
-	stash_attr.window = 0;
 
 	ret = iommu_domain_set_attr(pcfg->iommu_domain,
 				    DOMAIN_ATTR_FSL_PAMU_STASH,
