@@ -210,7 +210,7 @@ int __cold dpa_stop(struct net_device *net_dev)
 }
 EXPORT_SYMBOL(dpa_stop);
 
-void __cold dpa_timeout(struct net_device *net_dev)
+void __cold dpa_timeout(struct net_device *net_dev, unsigned int txqueue)
 {
 	const struct dpa_priv_s	*priv;
 	struct dpa_percpu_priv_s *percpu_priv;

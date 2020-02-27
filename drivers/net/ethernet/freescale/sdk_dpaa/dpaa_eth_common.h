@@ -141,7 +141,7 @@ int dpa_netdev_init(struct net_device *net_dev,
 		    uint16_t tx_timeout);
 int __cold dpa_start(struct net_device *net_dev);
 int __cold dpa_stop(struct net_device *net_dev);
-void __cold dpa_timeout(struct net_device *net_dev);
+void __cold dpa_timeout(struct net_device *net_dev, unsigned int txqueue);
 void __cold
 dpa_get_stats64(struct net_device *net_dev,
 		struct rtnl_link_stats64 *stats);
