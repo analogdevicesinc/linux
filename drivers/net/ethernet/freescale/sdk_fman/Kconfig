@@ -51,7 +51,6 @@ endmenu
 
 config FSL_SDK_FMAN_RTC_API
 	bool "FMan RTC (1588 timer) APIs"
-	depends on !PTP_1588_CLOCK_QORIQ
 	default n
 	help
 		This option enables RTC (1588 timer) initialization and
