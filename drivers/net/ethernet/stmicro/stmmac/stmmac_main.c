@@ -7964,7 +7964,7 @@ int stmmac_resume(struct device *dev)
 	} else {
 		pinctrl_pm_select_default_state(priv->device);
 		/* reset the phy so that it's ready */
-		if (priv->mii)
+		if (priv->mii && priv->mdio_rst_after_resume)
 			stmmac_mdio_reset(priv->mii);
 	}
 
