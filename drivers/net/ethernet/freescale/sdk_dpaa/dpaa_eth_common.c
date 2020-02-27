@@ -815,7 +815,8 @@ bool dpa_bpid2pool_use(int bpid)
 
 #ifdef CONFIG_FMAN_PFC
 u16 dpa_select_queue(struct net_device *net_dev, struct sk_buff *skb,
-		     void *accel_priv, select_queue_fallback_t fallback)
+		     struct net_device *sb_dev,
+		     select_queue_fallback_t fallback)
 {
 	return dpa_get_queue_mapping(skb);
 }

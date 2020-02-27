@@ -174,7 +174,8 @@ bool dpa_bpid2pool_use(int bpid);
 void dpa_bp_drain(struct dpa_bp *bp);
 #ifdef CONFIG_FMAN_PFC
 u16 dpa_select_queue(struct net_device *net_dev, struct sk_buff *skb,
-		     void *accel_priv, select_queue_fallback_t fallback);
+		     struct net_device *sb_dev,
+		     select_queue_fallback_t fallback);
 #endif
 struct dpa_fq *dpa_fq_alloc(struct device *dev,
 			    u32 fq_start,
