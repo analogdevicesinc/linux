@@ -1,0 +1,5 @@
+header-y += integrations/
+header-y += Peripherals/
+
+header-y += ioctls.h
+header-y += net_ioctls.h
