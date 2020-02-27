@@ -94,7 +94,7 @@ unsigned long p_block_mapped(phys_addr_t pa)
  * an unsigned long (for example, 32-bit implementations cannot support a 4GB
  * size).
  */
-static void settlbcam(int index, unsigned long virt, phys_addr_t phys,
+void settlbcam(int index, unsigned long virt, phys_addr_t phys,
 		unsigned long size, unsigned long flags, unsigned int pid)
 {
 	unsigned int tsize;
@@ -133,6 +133,18 @@ static void settlbcam(int index, unsigned long virt, phys_addr_t phys,
 	tlbcam_addrs[index].start = virt;
 	tlbcam_addrs[index].limit = virt + size - 1;
 	tlbcam_addrs[index].phys = phys;
+}
+
+void cleartlbcam(unsigned long virt, unsigned int pid)
+{
+	int i = 0;
+	for (i = 0; i < NUM_TLBCAMS; i++) {
+		if (tlbcam_addrs[i].start == virt) {
+			TLBCAM[i].MAS1 = 0;
+			loadcam_entry(i);
+			return;
+		}
+	}
 }
 
 static unsigned long calc_cam_sz(unsigned long ram, unsigned long virt,
