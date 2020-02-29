@@ -786,7 +786,7 @@ _FillFlatMapping(
     specificFlatMapping = (reqVirtualBase && !virtualRangeOverlapped && !physicalRangeOverlapped);
 
     /************************ Setup flat mapping in dynamic range. ****************/
-    if (area->mappingStart != gcvINVALID_ADDRESS && mtlb >= area->mappingStart && mtlb < area->mappingEnd)
+    if (area->mappingStart != gcvINVALID_ADDRESS && mtlb >= area->mappingStart && mtlb < area->mappingEnd && !needShiftMapping)
     {
         /* This path is useless now, keep it 4K page size */
 
