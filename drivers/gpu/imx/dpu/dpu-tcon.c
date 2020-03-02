@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2016 Freescale Semiconductor, Inc.
- * Copyright 2017-2019 NXP
+ * Copyright 2017-2020 NXP
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -92,6 +92,7 @@ int tcon_set_fmt(struct dpu_tcon *tcon, u32 bus_format)
 	case MEDIA_BUS_FMT_RGB101010_1X30:
 	case MEDIA_BUS_FMT_RGB888_1X30_PADLO:
 	case MEDIA_BUS_FMT_RGB666_1X30_PADLO:
+	case MEDIA_BUS_FMT_RGB565_1X30_PADLO:
 		dpu_tcon_write(tcon, MAPBIT3_0,   0x17161514);
 		dpu_tcon_write(tcon, MAPBIT7_4,   0x1b1a1918);
 		dpu_tcon_write(tcon, MAPBIT11_8,  0x0b0a1d1c);
