@@ -18,6 +18,8 @@ Optional properties:
    located inside this power domain
  - power-supply: Power supply used to power the domain
  - parent-domains: the phandle to the parent power domain
+ - active-wakeup: keep the PM domain powered in case the attached device wakeup
+   is enabled.
 
 example:
 	vpu_g1_pd: vpug1-pd {

@@ -179,6 +179,8 @@ static int imx8m_pm_domain_probe(struct platform_device *pdev)
 
 	domain->pd.power_off = imx8m_pd_power_off;
 	domain->pd.power_on = imx8m_pd_power_on;
+	if (of_property_read_bool(np, "active-wakeup"))
+		domain->pd.flags |= GENPD_FLAG_ACTIVE_WAKEUP;
 
 	pm_genpd_init(&domain->pd, NULL, true);
 
