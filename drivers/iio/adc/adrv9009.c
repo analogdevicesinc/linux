@@ -3460,7 +3460,7 @@ static ssize_t adrv9009_debugfs_write(struct file *file,
 				entry->val = val2;
 				ret = TALISE_setGpio3v3PinLevel(phy->talDevice, level);
 			} else if (val >= 0 && val < 12) {
-				ret = TALISE_getGpio3v3PinLevel(phy->talDevice, &level);
+				ret = TALISE_getGpio3v3SetLevel(phy->talDevice, &level);
 				if (ret < 0) {
 					mutex_unlock(&phy->indio_dev->mlock);
 					return ret;
