@@ -1200,13 +1200,16 @@ static struct cf_axi_dds_chip_info cf_axi_dds_chip_info_tbl[] = {
 	[ID_AD9162_COMPLEX] = {
 		.name = "AD9162",
 		.channel = {
-			CF_AXI_DDS_CHAN_BUF(0),
-			CF_AXI_DDS_CHAN_BUF(1),
-			CF_AXI_DDS_CHAN(0, 0, "1A"),
-			CF_AXI_DDS_CHAN(1, 0, "1B"),
+			CF_AXI_DDS_CHAN_BUF_MOD(0, IIO_MOD_I, 0),
+			CF_AXI_DDS_CHAN_BUF_MOD(0, IIO_MOD_Q, 1),
+			CF_AXI_DDS_CHAN(0, 0, "TX1_I_F1"),
+			CF_AXI_DDS_CHAN(1, 0, "TX1_I_F2"),
+			CF_AXI_DDS_CHAN(2, 0, "TX1_Q_F1"),
+			CF_AXI_DDS_CHAN(3, 0, "TX1_Q_F2"),
 		},
-		.num_channels = 4,
-		.num_dds_channels = 2,
+		.num_channels = 6,
+		.num_dp_disable_channels = 2,
+		.num_dds_channels = 4,
 		.num_buf_channels = 2,
 	},
 	[ID_AD9172_M2] = {
@@ -2080,7 +2083,7 @@ static int cf_axi_dds_probe(struct platform_device *pdev)
 	if (info && !info->rate_format_skip_en)
 		dds_write(st, ADI_REG_RATECNTRL, ADI_RATE(rate));
 
-	if (conv) {
+	if (conv && conv->setup) {
 		ret = conv->setup(conv);
 		if (ret < 0)
 			goto err_converter_put;
