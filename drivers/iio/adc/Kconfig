@@ -201,6 +201,15 @@ config AD9680
 	  AD9234, AD9680, AD9684 high speed ADCs.
 	  Provides direct access via sysfs.
 
+config ADMC
+	tristate "Analog Devices Motor Control (AD-FMCMOTCON) drivers"
+	depends on SPI
+	select CF_AXI_ADC
+	help
+	  Say yes here to build support for Analog Devices:
+	  AD-FMCMOTCON1 device drivers. Provides direct access
+	  via sysfs.
+
 config AT91_SAMA5D2_ADC
 	tristate "Atmel AT91 SAMA5D2 ADC"
 	depends on ARCH_AT91 || COMPILE_TEST
