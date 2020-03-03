@@ -157,6 +157,31 @@ config AD799X
 	  To compile this driver as a module, choose M here: the module will be
 	  called ad799x.
 
+config AD9963
+	tristate "Analog Devices AD9963 ADC driver"
+	depends on SPI
+	select REGMAP_SPI
+	select ADMC
+	select IIO_BUFFER
+	select IIO_TRIGGERED_BUFFER
+	help
+	  Say yes here to build support for Analog Devices AD9963 ADC driver
+
+	  To compile this driver as a module, choose M here: the module will be
+	  called ad9963.
+
+config ADM1177
+	tristate "Analog Devices ADM1177 Digital Power Monitor driver"
+	depends on I2C
+	help
+	  Say yes here to build support for Analog Devices:
+	  ADM1177 Hot Swap Controller and Digital Power Monitor
+	  with Soft Start Pin. Provides direct access
+	  via sysfs.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called adm1177.
+
 config ASPEED_ADC
 	tristate "Aspeed ADC"
 	depends on ARCH_ASPEED || COMPILE_TEST
