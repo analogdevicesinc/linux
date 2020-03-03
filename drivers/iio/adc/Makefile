@@ -25,6 +25,9 @@ obj-$(CONFIG_ADM1177) += adm1177.o
 cf_axi_adc-y := cf_axi_adc_core.o
 obj-$(CONFIG_CF_AXI_ADC) += cf_axi_adc.o
 
+ad9361_drv-y := ad9361.o ad9361_conv.o
+ad9361_drv-$(CONFIG_AD9361_EXT_BAND_CONTROL) += ad9361_ext_band_ctrl.o
+obj-$(CONFIG_AD9361) += ad9361_drv.o
 
 ad9371_drv-y := ad9371.o ad9371_conv.o mykonos/common.o  mykonos/mykonos.o  mykonos/mykonos_gpio.o  mykonos/mykonos_user.o
 obj-$(CONFIG_AD9371) += ad9371_drv.o
