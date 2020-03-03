@@ -14,3 +14,6 @@ obj-$(CONFIG_CF_AXI_DDS_AD9122) += ad9122.o
 obj-$(CONFIG_CF_AXI_DDS_AD9144) += ad9144.o
 obj-$(CONFIG_CF_AXI_DDS_AD9739A) += ad9739a.o
 
+ad916x_drv-y := ad916x/ad916x_api.o  ad916x/ad916x_irq_api.o  ad916x/ad916x_jesd_api.o  ad916x/ad916x_jesd_test_api.o  ad916x/ad916x_nco_api.o  ad916x/ad916x_reg.o  ad916x/api_errors.o  ad916x/utils.o
+obj-$(CONFIG_CF_AXI_DDS_AD9162) += ad9162.o ad916x_drv.o
+
