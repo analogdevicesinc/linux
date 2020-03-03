@@ -168,6 +168,21 @@ config AT91_ADC
 	  To compile this driver as a module, choose M here: the module will be
 	  called at91_adc.
 
+config CF_AXI_ADC
+	tristate "Analog Devices High-Speed AXI ADC driver core"
+	select IIO_BUFFER
+	select IIO_BUFFER_HW_CONSUMER
+	select IIO_BUFFER_DMAENGINE
+	help
+	  Say yes here to build support for Analog Devices AD9467 and AD9643,
+	  High-Speed LVDS analog to digital converters (ADC).
+	  FPGA interface HDL is available here:
+	  http://wiki.analog.com/resources/fpga/xilinx/fmc/ad9467
+	  If unsure, say N (but it's safe to say "Y").
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called cf_axi_adc.
+
 config AT91_SAMA5D2_ADC
 	tristate "Atmel AT91 SAMA5D2 ADC"
 	depends on ARCH_AT91 || COMPILE_TEST
