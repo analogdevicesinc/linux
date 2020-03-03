@@ -32,6 +32,18 @@ config HMC7044
 	  To compile this driver as a module, choose M here: the
 	  module will be called hmc7044.
 
+config LTC6952
+	tristate "Analog Devices LTC6952 Clock Ultralow Jitter with JESD204B/C"
+	depends on SPI
+	depends on COMMON_CLK
+	help
+	  Say yes here to build support for Analog Devices LTC6952 Clock Ultralow
+	  Jitter Attenuator with JESD204B/C. The driver provides direct access
+	  via sysfs.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called ltc6952.
+
 endmenu
 
 menu "Direct Digital Synthesis"
