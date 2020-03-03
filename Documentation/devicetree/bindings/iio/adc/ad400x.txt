@@ -1,0 +1,28 @@
+Analog Devices AD400X ADC device driver
+
+Required properties for the AD400X:
+	- compatible: Must be one of
+		* "adi,ad4003"
+		* "adi,ad4007"
+		* "adi,ad4011"
+		* "adi,ad4020"
+	- reg: SPI chip select number for the device.
+	- spi-max-frequency: See Documentation/devicetree/bindings/spi/spi-bus.txt.
+	- dmas: DMA specifier, consisting of a phandle to DMA controller node.
+	- dma-names: Must be "rx".
+	- vref-supply: phandle to the regulator for ADC reference voltage.
+
+Example:
+
+ad4020: adc@0 {
+	compatible = "adi,ad4020";
+	reg = <0>;
+	spi-max-frequency = <71000000>;
+
+	dmas = <&rx_dma 0>;
+	dma-names = "rx";
+
+	vref-supply = <&vref>;
+	#io-channel-cells = <1>;
+};
+
