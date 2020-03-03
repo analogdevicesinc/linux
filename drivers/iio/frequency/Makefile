@@ -19,6 +19,7 @@ cf_axi_dds_drv-y := cf_axi_dds.o cf_axi_dds_buffer_stream.o
 obj-$(CONFIG_CF_AXI_DDS) += cf_axi_dds_drv.o
 obj-$(CONFIG_CF_AXI_DDS_AD9122) += ad9122.o
 obj-$(CONFIG_CF_AXI_DDS_AD9144) += ad9144.o
+obj-$(CONFIG_HMC7044) += hmc7044.o
 
 ad916x_drv-y := ad9162.o ad916x/ad916x_api.o  ad916x/ad916x_irq_api.o  ad916x/ad916x_jesd_api.o  ad916x/ad916x_jesd_test_api.o  ad916x/ad916x_nco_api.o  ad916x/ad916x_reg.o  ad916x/api_errors.o  ad916x/utils.o
 obj-$(CONFIG_CF_AXI_DDS_AD9162) += ad916x_drv.o
