@@ -25,3 +25,5 @@ obj-$(CONFIG_CF_AXI_DDS_AD9162) += ad916x_drv.o
 
 ad917x_drv-y := ad9172.o ad917x/ad917x_api.o  ad917x/ad917x_jesd_api.o  ad917x/ad917x_nco_api.o  ad917x/ad917x_reg.o
 obj-$(CONFIG_CF_AXI_DDS_AD9172) += ad917x_drv.o
+obj-$(CONFIG_M2K_DAC) += m2k-dac.o
+
