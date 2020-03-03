@@ -22,6 +22,19 @@ config AD9523
 
 endmenu
 
+menu "Direct Digital Synthesis"
+
+config CF_AXI_DDS
+	tristate "Analog Devices CoreFPGA AXI DDS driver"
+	depends on SPI
+	depends on COMMON_CLK
+	select IIO_BUFFER_DMAENGINE
+	help
+	  Say yes here to build support for Analog Devices DDS chip
+	  AD9122, provides direct access via sysfs.
+
+endmenu
+
 #
 # Phase-Locked Loop (PLL) frequency synthesizers
 #
