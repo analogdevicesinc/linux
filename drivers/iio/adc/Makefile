@@ -25,6 +25,10 @@ obj-$(CONFIG_ADM1177) += adm1177.o
 cf_axi_adc-y := cf_axi_adc_core.o
 obj-$(CONFIG_CF_AXI_ADC) += cf_axi_adc.o
 
+
+ad9371_drv-y := ad9371.o ad9371_conv.o mykonos/common.o  mykonos/mykonos.o  mykonos/mykonos_gpio.o  mykonos/mykonos_user.o
+obj-$(CONFIG_AD9371) += ad9371_drv.o
+
 adrv9009_drv-y := adrv9009.o adrv9009_conv.o \
 	talise/talise_agc.o \
 	talise/talise_arm.o \

@@ -220,6 +220,14 @@ config CF_AXI_ADC
 	  To compile this driver as a module, choose M here: the
 	  module will be called cf_axi_adc.
 
+config AD9371
+	tristate "Analog Devices AD9371 RF Transceiver driver"
+	depends on SPI
+	help
+	  Say yes here to build support for Analog Devices:
+	  AD9371 RF Transceivers. Provides direct access
+	  via sysfs.
+
 config ADRV9009
 	tristate "Analog Devices ADRV9009/ADRV9008 RF Transceiver driver"
 	depends on SPI
