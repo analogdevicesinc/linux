@@ -25,6 +25,23 @@ obj-$(CONFIG_ADM1177) += adm1177.o
 cf_axi_adc-y := cf_axi_adc_core.o
 obj-$(CONFIG_CF_AXI_ADC) += cf_axi_adc.o
 
+adrv9009_drv-y := adrv9009.o adrv9009_conv.o \
+	talise/talise_agc.o \
+	talise/talise_arm.o \
+	talise/talise.o \
+	talise/talise_cals.o \
+	talise/talise_error.o \
+	talise/talise_gpio.o \
+	talise/talise_hal.o \
+	talise/talise_jesd204.o \
+	talise/talise_radioctrl.o \
+	talise/talise_rx.o \
+	talise/talise_tx.o \
+	talise/talise_user.o \
+	talise/linux_hal.o
+
+obj-$(CONFIG_ADRV9009) += adrv9009_drv.o
+
 obj-$(CONFIG_AD9467) += ad9467.o
 obj-$(CONFIG_AD9680) += ad9680.o
 obj-$(CONFIG_ADMC) += admc_adc.o admc_speed.o admc_ctrl.o ad_adc.o
