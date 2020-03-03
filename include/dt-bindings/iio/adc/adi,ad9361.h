@@ -1,0 +1,21 @@
+/*
+ * This header provides constants for AD9361
+ */
+
+#ifndef _DT_BINDINGS_IIO_ADC_AD9361_H
+#define _DT_BINDINGS_IIO_ADC_AD9361_H
+
+#define AD9361_EXT_BAND_CTL_OP_LOW	0
+#define AD9361_EXT_BAND_CTL_OP_HIGH	1
+#define AD9361_EXT_BAND_CTL_OP_INPUT	2
+#define AD9361_EXT_BAND_CTL_OP_NOP	3
+
+/* define AD9361_EXT_BAND_SHORTHANDS if you want these shorthands */
+#ifdef AD9361_EXT_BAND_CTL_SHORTHANDS
+#define _	(AD9361_EXT_BAND_CTL_OP_NOP)
+#define L	(AD9361_EXT_BAND_CTL_OP_LOW)
+#define H	(AD9361_EXT_BAND_CTL_OP_HIGH)
+#define I	(AD9361_EXT_BAND_CTL_OP_INPUT)
+#endif
+
+#endif
