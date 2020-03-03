@@ -34,6 +34,15 @@ ad9208_drv-y := ad9208.o \
 
 obj-$(CONFIG_AD9208) += ad9208_drv.o
 
+ad9081_drv-y := ad9081.o \
+	ad9081/adi_ad9081_adc.o \
+	ad9081/adi_ad9081_device.o \
+	ad9081/adi_ad9081_jesd.o \
+	ad9081/adi_ad9081_hal.o \
+	ad9081/adi_ad9081_dac.o
+
+obj-$(CONFIG_AD9081) += ad9081_drv.o
+
 ad9361_drv-y := ad9361.o ad9361_conv.o
 ad9361_drv-$(CONFIG_AD9361_EXT_BAND_CONTROL) += ad9361_ext_band_ctrl.o
 obj-$(CONFIG_AD9361) += ad9361_drv.o
