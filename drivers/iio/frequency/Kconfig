@@ -13,6 +13,7 @@ menu "Clock Generator/Distribution"
 config AD9523
 	tristate "Analog Devices AD9523 Low Jitter Clock Generator"
 	depends on SPI
+	depends on COMMON_CLK
 	help
 	  Say yes here to build support for Analog Devices AD9523 Low Jitter
 	  Clock Generator. The driver provides direct access via sysfs.
