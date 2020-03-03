@@ -3,6 +3,7 @@
 #
 
 # When adding new entries keep the list in alphabetical order
+obj-$(CONFIG_AD9508) += ad9508.o
 obj-$(CONFIG_AD9523) += ad9523.o
 obj-$(CONFIG_AD9528) += ad9528.o
 obj-$(CONFIG_AD9548) += ad9548.o
