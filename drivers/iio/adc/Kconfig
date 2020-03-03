@@ -225,6 +225,9 @@ config AXI_PULSE_CAPTURE
 	  To compile this driver as a module, choose M here: the module will be
 	  called axi_pulse_capture.
 
+config AXI_FMCADC5_SYNC
+	tristate "Analog Devices FMCADC5 5Gbps Interleave Synchronizer"
+
 config AT91_SAMA5D2_ADC
 	tristate "Atmel AT91 SAMA5D2 ADC"
 	depends on ARCH_AT91 || COMPILE_TEST

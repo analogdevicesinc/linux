@@ -28,6 +28,7 @@ obj-$(CONFIG_ADMC) += admc_adc.o admc_speed.o admc_ctrl.o ad_adc.o
 
 obj-$(CONFIG_CF_AXI_TDD) += cf_axi_tdd.o
 obj-$(CONFIG_AXI_PULSE_CAPTURE) += axi_pulse_capture.o
+obj-$(CONFIG_AXI_FMCADC5_SYNC) += axi_fmcadc5_sync.o
 
 obj-$(CONFIG_ASPEED_ADC) += aspeed_adc.o
 obj-$(CONFIG_AT91_ADC) += at91_adc.o
