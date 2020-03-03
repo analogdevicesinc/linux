@@ -1,0 +1,12 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2021 NXP
+ */
+
+#include "imx8mn-evk-rm67199.dts"
+
+&mipi_dsi {
+	panel@0 {
+		video-mode = <3>;	/* command mode */
+	};
+};
