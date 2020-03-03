@@ -22,7 +22,7 @@ security_subsys: bus@31400000 {
 		power-domains = <&pd IMX_SC_R_CAAM_JR2>;
 		power-domain-names = "jr";
 
-		sec_jr2: jr2@30000 {
+		sec_jr2: jr@30000 {
 			compatible = "fsl,sec-v4.0-job-ring";
 			reg = <0x30000 0x10000>;
 			interrupts = <GIC_SPI 453 IRQ_TYPE_LEVEL_HIGH>;
@@ -30,7 +30,7 @@ security_subsys: bus@31400000 {
 			power-domain-names = "jr";
 		};
 
-		sec_jr3: jr3@40000 {
+		sec_jr3: jr@40000 {
 			compatible = "fsl,sec-v4.0-job-ring";
 			reg = <0x40000 0x10000>;
 			interrupts = <GIC_SPI 454 IRQ_TYPE_LEVEL_HIGH>;
