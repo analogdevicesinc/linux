@@ -192,6 +192,15 @@ config AD9467
 	  AD9467, AD9643, AD9250, AD9265, AD9683, AD9434, AD9625, AD9652
 	  high speed ADCs. Provides direct access via sysfs.
 
+config AD9680
+	tristate "Analog Devices AD9680 and similar high speed ADCs"
+	depends on SPI
+	select CF_AXI_ADC
+	help
+	  Say yes here to build support for Analog Devices:
+	  AD9234, AD9680, AD9684 high speed ADCs.
+	  Provides direct access via sysfs.
+
 config AT91_SAMA5D2_ADC
 	tristate "Atmel AT91 SAMA5D2 ADC"
 	depends on ARCH_AT91 || COMPILE_TEST
