@@ -1,0 +1,198 @@
+Analog Devices HMC7044, HMC7043 device driver
+
+Required properties hmc7044:
+	- compatible: Should be "adi,hmc7044".
+	- reg: SPI chip select number.
+	- spi-max-frequency: Max SPI frequency to use (<= 10000000).
+	- adi,pll1-clkin-frequencies: An array of 4 elements, each
+		representing the frequency of CLKINx PLL1 reference
+		input (CLKIN0, CLKIN1, CLKIN2, CLKIN3).
+	- adi,vcxo-frequency: The frequency of the VCXO.
+	- adi,pll2-output-frequency: The desired output frequency of
+		the PLL2.
+	- adi,gpi-controls: An array of 4 elements (each corresponding
+		to GPI1, GPI2, GPI3 and GPI4, respectively), representing
+		the GPI selection (Bits [4:1]) and the GPI enable bit
+		([0]) - see registers 0x0046, 0x0047, 0x0048, 0x0049.
+	- adi,gpo-controls: An array of 4 elements (each corresponding
+		to GPO1, GPO2, GPO3 and GPO4, respectively), representing
+		the GPO selection (Bits [7:2]), the GPO mode (Bit [1])
+		and the GPO enable bit ([0]) - see registers 0x0050,
+		0x0051, 0x0052, 0x0053.
+	- clock-output-names: An array of 14 elements, representing the
+		names of the output clocks.
+
+Required properties hcm7043:
+	- compatible: Should be "adi,hmc7043".
+	- reg: SPI chip select number.
+	- spi-max-frequency: Max SPI frequency to use (<= 10000000).
+	- adi,gpi-controls: Single element, representing
+		the GPI selection (Bits [4:1]) and the GPI enable bit
+		([0]) - see register 0x0046.
+	- adi,gpo-controls: Single element, representing
+		the GPO selection (Bits [7:2]), the GPO mode (Bit [1])
+		and the GPO enable bit ([0]) - see register 0x0050.
+	- clock-output-names: An array of 14 elements, representing the
+		names of the output clocks.
+
+Optional properties hmc7044:
+	- adi,pll1-loop-bandwidth-hz: The PLL1 loop bandwidth. If this is
+		not specified, 200 will be used by default.
+	- adi,pfd1-maximum-limit-frequency-hz: If this is specified, the
+		driver will try to find a PLL1 PFD rate close to this
+		value. Otherwise, the maximum limit will be 10 MHz.
+	- adi,pll1-charge-pump-current-ua - PLL1 charge pump current. The
+		accepted range is 120 - 1920 uA. If this is not specified,
+		the current will be set to 1080 uA.
+	- adi,sysref-timer-divider: This sets the internal beat frequency
+		of the master timer, which controls synchronization and
+		pulse generator events. It should be set to a submultiple
+		of the lowest output SYSREF frequency, no faster than 4
+		MHz. If this is not specified, 1024 will be used by default.
+	- adi,pulse-generator-mode: Pulse Generator Mode Selection
+		[Bits 2:0] - see register 0x005A. If this is not specified,
+		0 will be used by default.
+	- adi,clkin0-buffer-mode - CLKIN0 Input Buffer Control, for
+		specifying the Input Buffer Mode (Bits [4:1]) and the
+		Buffer enable bit ([0]) - see register 0x000A. If this is
+		not specified, 0 will be used by default.
+	- adi,clkin1-buffer-mode - CLKIN1 Input Buffer Control, for
+		specifying the Input Buffer Mode (Bits [4:1]) and the
+		Buffer enable bit ([0]) - see register 0x000B. If this is
+		not specified, 0 will be used by default.
+	- adi,clkin2-buffer-mode - CLKIN2 Input Buffer Control, for
+		specifying the Input Buffer Mode (Bits [4:1]) and the
+		Buffer enable bit ([0]) - see register 0x000C. If this is
+		not specified, 0 will be used by default.
+	- adi,clkin3-buffer-mode - CLKIN3 Input Buffer Control, for
+		specifying the Input Buffer Mode (Bits [4:1]) and the
+		Buffer enable bit ([0]) - see register 0x000D. If this is
+		not specified, 0 will be used by default.
+	- adi,oscin-buffer-mode - OSCIN Input Buffer Control, for
+		specifying the Input Buffer Mode (Bits [4:1]) and the
+		Buffer enable bit ([0]) - see register 0x000E. If this is
+		not specified, 0 will be used by default.
+	- adi,pll1-ref-prio-ctrl: Refer to register 0x14 description.
+	- adi,sync-pin-mode: SYNC pin configuration with respect to PLL2.
+		0 - Disabled
+		1 - SYNC. A rising edge is carried through PLL2.
+			Useful for multichip synchronization.
+		2 - Pulse generator. Request a pulse generator stream from any
+			channels configured for dynamic startup. This behaves in
+			the same way as a GPI requested pulse generator.
+		3 - Causes SYNC if alarm exists, otherwise causes
+			pulse generator.
+	- adi,clkin0-rf-sync-enable: CLKIN0 input is used for external RF sync.
+	- adi,clkin1-vco-in-enable: CLKIN1 input is used for external VCO.
+	- adi,rf-reseeder-disable: Disables RF reseed for SYSREF.
+
+Optional properties hmc7043:
+	- adi,sysref-timer-divider: This sets the internal beat frequency
+		of the master timer, which controls synchronization and
+		pulse generator events. It should be set to a submultiple
+		of the lowest output SYSREF frequency, no faster than 4
+		MHz. If this is not specified, 1024 will be used by default.
+	- adi,pulse-generator-mode: Pulse Generator Mode Selection
+		[Bits 2:0] - see register 0x005A. If this is not specified,
+		0 will be used by default.
+	- adi,clkin0-buffer-mode - CLKIN0 Input Buffer Control, for
+		specifying the Input Buffer Mode (Bits [4:1]) and the
+		Buffer enable bit ([0]) - see register 0x000A. If this is
+		not specified, 0 will be used by default.
+	- adi,clkin1-buffer-mode - CLKIN1 Input Buffer Control, for
+		specifying the Input Buffer Mode (Bits [4:1]) and the
+		Buffer enable bit ([0]) - see register 0x000B. If this is
+		not specified, 0 will be used by default.
+	- adi,clkin0-rf-sync-enable: CLKIN0 input is used for external RF sync.
+	- adi,rf-reseeder-disable: Disables RF reseed for SYSREF.
+
+Adding channels:
+	Channels can be specified using child nodes.
+	The following properties are applicable to them:
+
+	- reg: The identifier of the channel.
+	- adi,extended-name: Descriptive channel name.
+	- adi,divider: Channel divider. The divider supports even divide ratios
+		from 2 to 4094. The supported odd divide ratios are 1, 3, and 5.
+	- adi,driver-mode: Output driver mode. Must be one of:
+		0 - CML mode,
+		1 - LVPECL mode,
+		2 - LVDS mode,
+		3 - CMOS mode.
+	- adi,high-performance-mode-disable: Disables the high performance mode
+	- adi,startup-mode-dynamic-enable: Enables pulse generator mode
+		(default mode is asynchronous)
+	- adi,dynamic-driver-enable: Driver is dynamically disabled with pulse
+		generator events. (only in adi,startup-mode-dynamic-enable mode)
+		(default driver is enabled/disabled with the channel)
+	- adi,force-mute-enable: When not generating pulses in dynamic mode
+		the output is forced to logic-0
+	- adi,coarse-digital-delay:  Adjusts the phase of the divider signal
+		by up to 17 1/2 cycles of the VCO
+	- adi,fine-analog-delay: Adjusts the delay of the divider signal
+		in 24 fine delay steps. Step size = 25 ps.
+	- adi,output-mux-mode: Configures the output mux selection:
+		0 = divider channel (default)
+		1 = analog delay
+		2 = other channel of pair
+		3 = input VCO clock.
+	- adi,driver-impedance-mode: Output driver impedance selection.
+		0 - Internal resistor disable.
+		1 - Internal 100 Ω resistor enable per output pin.
+		3 - Internal 50 Ω resistor enable per output pin.
+
+Example:
+
+	hmc7044: hmc7044@0 {
+		compatible = "adi,hmc7044";
+		reg = <0>;
+		spi-max-frequency = <10000000>;
+
+		adi,pll1-clkin-frequencies = <122880000 0 0 0>;
+
+		adi,pll1-loop-bandwidth = <200>;
+
+		adi,vcxo-frequency = <122880000>;
+
+		adi,pll2-output-frequency = <2949120000>;
+
+		adi,sysref-timer-divider = <1024>;
+		adi,pulse-generator-mode = <0>;
+
+		adi,clkin0-buffer-mode = <0x15>;
+		adi,oscin-buffer-mode = <0x15>;
+
+		adi,gpi-controls = <0x00 0x00 0x00 0x00>;
+		adi,gpo-controls = <0x1f 0x2b 0x00 0x00>;
+
+		clock-output-names = "hmc7044_out0", "hmc7044_out1", "hmc7044_out2",
+				     "hmc7044_out3", "hmc7044_out4", "hmc7044_out5",
+				     "hmc7044_out6", "hmc7044_out7", "hmc7044_out8",
+				     "hmc7044_out9", "hmc7044_out10", "hmc7044_out11",
+				     "hmc7044_out12", "hmc7044_out13";
+
+		hmc7044_c2: channel@2 {
+			reg = <2>;
+			adi,extended-name = "DAC_CLK";
+			adi,divider = <1>;
+			adi,driver-mode = <1>;
+		};
+		hmc7044_c3: channel@3 {
+			reg = <3>;
+			adi,extended-name = "DAC_SYSREF";
+			adi,divider = <512>;
+			adi,driver-mode = <1>;
+		};
+		hmc7044_c12: channel@12 {
+			reg = <12>;
+			adi,extended-name = "FPGA_CLK";
+			adi,divider = <8>;
+			adi,driver-mode = <2>;
+		};
+		hmc7044_c13: channel@13 {
+			reg = <13>;
+			adi,extended-name = "FPGA_SYSREF";
+			adi,divider = <512>;
+			adi,driver-mode = <2>;
+		};
+	};
