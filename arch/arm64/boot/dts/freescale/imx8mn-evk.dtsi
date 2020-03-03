@@ -62,6 +62,17 @@
 		linux,autosuspend-period = <125>;
 	};
 
+	reg_audio_board: regulator-audio-board {
+		compatible = "regulator-fixed";
+		regulator-name = "EXT_PWREN";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		enable-active-high;
+		startup-delay-us = <300000>;
+		gpio = <&pca6416 1 GPIO_ACTIVE_HIGH>;
+		regulator-always-on;
+	};
+
 	audio_codec_bt_sco: audio-codec-bt-sco {
 		compatible = "linux,bt-sco";
 		#sound-dai-cells = <1>;
@@ -135,9 +146,46 @@
 			};
 		};
 	};
+
+	sound-ak5558 {
+		compatible = "fsl,imx-audio-card";
+		model = "ak5558-audio";
+		status = "disabled";
+		pri-dai-link {
+			link-name = "akcodec";
+			format = "i2s";
+			fsl,mclk-equal-bclk;
+			cpu {
+				sound-dai = <&sai5>;
+			};
+			codec {
+				sound-dai = <&ak5558>;
+			};
+		};
+		fe-dai-link {
+			link-name = "HiFi-ASRC-FE";
+			format = "i2s";
+			cpu {
+				sound-dai = <&easrc>;
+			};
+		};
+		be-dai-link {
+			link-name = "HiFi-ASRC-BE";
+			format = "dsp_b";
+			dai-tdm-slot-num = <8>;
+			dai-tdm-slot-width = <32>;
+			cpu {
+				sound-dai = <&sai5>;
+			};
+			codec {
+				sound-dai = <&ak5558>;
+			};
+		};
+	};
 };
 
 &easrc {
+	#sound-dai-cells = <0>;
 	fsl,asrc-rate = <48000>;
 	status = "okay";
 };
@@ -233,7 +281,7 @@
 };
 
 &i2c3 {
-	clock-frequency = <400000>;
+	clock-frequency = <100000>;
 	pinctrl-names = "default", "gpio";
 	pinctrl-0 = <&pinctrl_i2c3>;
 	pinctrl-1 = <&pinctrl_i2c3_gpio>;
@@ -246,6 +294,44 @@
 		reg = <0x20>;
 		gpio-controller;
 		#gpio-cells = <2>;
+	};
+
+	ak4458_1: ak4458@10 {
+		#sound-dai-cells = <0>;
+		compatible = "asahi-kasei,ak4458";
+		reg = <0x10>;
+		AVDD-supply = <&reg_audio_board>;
+		DVDD-supply = <&reg_audio_board>;
+		status = "disabled";
+	};
+
+	ak4458_2: ak4458@12 {
+		#sound-dai-cells = <0>;
+		compatible = "asahi-kasei,ak4458";
+		reg = <0x12>;
+		AVDD-supply = <&reg_audio_board>;
+		DVDD-supply = <&reg_audio_board>;
+		status = "disabled";
+	};
+
+	ak5558: ak5558@13 {
+		#sound-dai-cells = <0>;
+		compatible = "asahi-kasei,ak5558";
+		reg = <0x13>;
+		reset-gpios = <&pca6416 3 GPIO_ACTIVE_LOW>;
+		AVDD-supply = <&reg_audio_board>;
+		DVDD-supply = <&reg_audio_board>;
+		status = "disabled";
+	};
+
+	ak4497: ak4497@11 {
+		#sound-dai-cells = <0>;
+		compatible = "asahi-kasei,ak4497";
+		reg = <0x11>;
+		reset-gpios = <&pca6416 5 GPIO_ACTIVE_LOW>;
+		AVDD-supply = <&reg_audio_board>;
+		DVDD-supply = <&reg_audio_board>;
+		status = "disabled";
 	};
 
 	camera@3c {
@@ -320,6 +406,22 @@
 	status = "okay";
 };
 
+&sai5 {
+	#sound-dai-cells = <0>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_sai5>;
+	assigned-clocks = <&clk IMX8MN_CLK_SAI5>;
+	assigned-clock-parents = <&clk IMX8MN_AUDIO_PLL1_OUT>;
+	assigned-clock-rates = <49152000>;
+	clocks = <&clk IMX8MN_CLK_SAI5_IPG>, <&clk IMX8MN_CLK_DUMMY>,
+		<&clk IMX8MN_CLK_SAI5_ROOT>, <&clk IMX8MN_CLK_DUMMY>,
+		<&clk IMX8MN_CLK_DUMMY>, <&clk IMX8MN_AUDIO_PLL1_OUT>,
+		<&clk IMX8MN_AUDIO_PLL2_OUT>;
+	clock-names = "bus", "mclk0", "mclk1", "mclk2", "mclk3", "pll8k", "pll11k";
+	fsl,sai-asynchronous;
+	status = "disabled";
+};
+
 &snvs_pwrkey {
 	status = "okay";
 };
@@ -330,6 +432,14 @@
 	assigned-clocks = <&clk IMX8MN_CLK_SPDIF1>;
 	assigned-clock-parents = <&clk IMX8MN_AUDIO_PLL1_OUT>;
 	assigned-clock-rates = <24576000>;
+	clocks = <&clk IMX8MN_CLK_AUDIO_AHB>, <&clk IMX8MN_CLK_24M>,
+		<&clk IMX8MN_CLK_SPDIF1>, <&clk IMX8MN_CLK_DUMMY>,
+		<&clk IMX8MN_CLK_DUMMY>, <&clk IMX8MN_CLK_DUMMY>,
+		<&clk IMX8MN_CLK_AUDIO_AHB>, <&clk IMX8MN_CLK_DUMMY>,
+		<&clk IMX8MN_CLK_DUMMY>, <&clk IMX8MN_CLK_DUMMY>,
+		<&clk IMX8MN_AUDIO_PLL1_OUT>, <&clk IMX8MN_AUDIO_PLL2_OUT>;
+	clock-names = "core", "rxtx0", "rxtx1", "rxtx2", "rxtx3",
+		"rxtx4", "rxtx5", "rxtx6", "rxtx7", "spba", "pll8k", "pll11k";
 	status = "okay";
 };
 
@@ -519,6 +629,30 @@
 	pinctrl_pmic: pmicirqgrp {
 		fsl,pins = <
 			MX8MN_IOMUXC_GPIO1_IO03_GPIO1_IO3	0x141
+		>;
+	};
+
+	pinctrl_pdm: pdmgrp {
+		fsl,pins = <
+			MX8MN_IOMUXC_SAI5_MCLK_SAI5_MCLK	0xd6
+			MX8MN_IOMUXC_SAI5_RXC_PDM_CLK		0xd6
+			MX8MN_IOMUXC_SAI5_RXFS_SAI5_RX_SYNC	0xd6
+			MX8MN_IOMUXC_SAI5_RXD0_PDM_BIT_STREAM0	0xd6
+			MX8MN_IOMUXC_SAI5_RXD1_PDM_BIT_STREAM1	0xd6
+			MX8MN_IOMUXC_SAI5_RXD2_PDM_BIT_STREAM2	0xd6
+			MX8MN_IOMUXC_SAI5_RXD3_PDM_BIT_STREAM3	0xd6
+		>;
+	};
+
+	pinctrl_sai5: sai5grp {
+		fsl,pins = <
+			MX8MN_IOMUXC_SAI5_MCLK_SAI5_MCLK	0xd6
+			MX8MN_IOMUXC_SAI5_RXC_SAI5_RX_BCLK	0xd6
+			MX8MN_IOMUXC_SAI5_RXFS_SAI5_RX_SYNC	0xd6
+			MX8MN_IOMUXC_SAI5_RXD0_SAI5_RX_DATA0	0xd6
+			MX8MN_IOMUXC_SAI5_RXD1_SAI5_RX_DATA1    0xd6
+			MX8MN_IOMUXC_SAI5_RXD2_SAI5_RX_DATA2    0xd6
+			MX8MN_IOMUXC_SAI5_RXD3_SAI5_RX_DATA3    0xd6
 		>;
 	};
 
