@@ -744,7 +744,6 @@
 		adi,gpo-controls = <0x1f 0x2b 0x00 0x00>;
 
 		adi,high-performance-mode-clock-dist-enable;
-		adi,high-performance-mode-pll-vco-enable;
 
 		clock-output-names =
 			"hmc7044_fmc_out0_DEV_REFCLK_C", "hmc7044_fmc_out1_DEV_SYSREF_C",
