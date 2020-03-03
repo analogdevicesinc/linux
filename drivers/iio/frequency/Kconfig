@@ -52,6 +52,17 @@ config AD9548
 	  To compile this driver as a module, choose M here: the
 	  module will be called ad9548.
 
+config AD9517
+	tristate "Analog Devices AD9517 12-Output Clock Generator"
+	depends on SPI
+	depends on COMMON_CLK
+	help
+	  Say yes here to build support for Analog Devices AD9517
+	  12-Output Clock Generator.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called ad9517.
+
 config HMC7044
 	tristate "Analog Devices HMC7044, HMC7043 Clock Jitter Attenuator with JESD204B"
 	depends on SPI
