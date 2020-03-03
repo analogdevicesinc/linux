@@ -220,6 +220,15 @@ config CF_AXI_ADC
 	  To compile this driver as a module, choose M here: the
 	  module will be called cf_axi_adc.
 
+config AD9208
+	tristate "Analog Devices AD9208 and similar high speed ADCs"
+	depends on SPI
+	select CF_AXI_ADC
+	help
+	  Say yes here to build support for Analog Devices:
+	  AD9208, AD9689, AD9695, AD9697, AD9694, AD6688, AD6684 high speed ADCs.
+	  Provides direct access via sysfs.
+
 config AD9361
 	tristate "Analog Devices AD9361, AD9364 RF Agile Transceiver driver"
 	depends on SPI
