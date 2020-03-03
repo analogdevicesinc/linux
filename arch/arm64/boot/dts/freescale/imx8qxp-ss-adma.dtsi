@@ -44,6 +44,14 @@
 	compatible = "fsl,imx8qxp-lpi2c", "fsl,imx7ulp-lpi2c";
 };
 
+&asrc0 {
+	compatible = "fsl,imx8qxp-asrc";
+};
+
+&asrc1 {
+	compatible = "fsl,imx8qxp-asrc";
+};
+
 &audio_subsys {
 
 	dsp: dsp@596e8000 {

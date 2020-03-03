@@ -156,7 +156,7 @@ audio_subsys: bus@59000000 {
 	};
 
 	asrc0: asrc@59000000 {
-		compatible = "fsl,imx8qm-asrc0";
+		compatible = "fsl,imx8qm-asrc";
 		reg = <0x59000000 0x10000>;
 		interrupts = <GIC_SPI 372 IRQ_TYPE_LEVEL_HIGH>,
 			<GIC_SPI 373 IRQ_TYPE_LEVEL_HIGH>;
@@ -191,6 +191,7 @@ audio_subsys: bus@59000000 {
 				"txa", "txb", "txc";
 		fsl,asrc-rate  = <8000>;
 		fsl,asrc-width = <16>;
+		fsl,asrc-clk-map = <0>;
 		power-domains = <&pd IMX_SC_R_ASRC_0>,
 				<&pd IMX_SC_R_AUDIO_CLK_0>,
 				<&pd IMX_SC_R_AUDIO_CLK_1>,
@@ -359,7 +360,7 @@ audio_subsys: bus@59000000 {
 	};
 
 	asrc1: asrc@59800000 {
-		compatible = "fsl,imx8qm-asrc1";
+		compatible = "fsl,imx8qm-asrc";
 		reg = <0x59800000 0x10000>;
 		interrupts = <GIC_SPI 380 IRQ_TYPE_LEVEL_HIGH>,
 			<GIC_SPI 381 IRQ_TYPE_LEVEL_HIGH>;
@@ -394,6 +395,7 @@ audio_subsys: bus@59000000 {
 				"txa", "txb", "txc";
 		fsl,asrc-rate  = <8000>;
 		fsl,asrc-width = <16>;
+		fsl,asrc-clk-map = <1>;
 		power-domains = <&pd IMX_SC_R_ASRC_1>,
 				<&pd IMX_SC_R_AUDIO_CLK_0>,
 				<&pd IMX_SC_R_AUDIO_CLK_1>,
