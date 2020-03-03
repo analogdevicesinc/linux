@@ -74,6 +74,7 @@ struct axiadc_state {
 	unsigned int			adc_def_output_mode;
 	unsigned int			max_usr_channel;
 	struct iio_chan_spec		channels[ADI_MAX_CHANNEL];
+	unsigned int			adc_calibbias[2];
 };
 
 #define CN0363_CHANNEL(_address, _type, _ch, _mod, _rb) { \
@@ -195,7 +196,8 @@ static const struct iio_chan_spec_ext_info m2k_chan_ext_info[] = {
 	.channel = _ch, \
 	.address = _ch, \
 	.scan_index = _ch, \
-	.info_mask_separate = BIT(IIO_CHAN_INFO_CALIBSCALE), \
+	.info_mask_separate = BIT(IIO_CHAN_INFO_CALIBSCALE) | \
+			BIT(IIO_CHAN_INFO_CALIBBIAS), \
 	.info_mask_shared_by_all = BIT(IIO_CHAN_INFO_SAMP_FREQ) | \
 			BIT(IIO_CHAN_INFO_OVERSAMPLING_RATIO), \
 	.ext_info = m2k_chan_ext_info, \
@@ -429,6 +431,9 @@ static int axiadc_read_raw(struct iio_dev *indio_dev,
 		reg = axiadc_slave_read(st,
 			       ADI_REG_CORRECTION_COEFFICIENT(chan->channel));
 		return cf_axi_dds_signed_mag_fmt_to_iio(reg, val, val2);
+	case IIO_CHAN_INFO_CALIBBIAS:
+		*val = st->adc_calibbias[chan->channel];
+		return IIO_VAL_INT;
 	default:
 		break;
 	}
@@ -465,6 +470,12 @@ static int axiadc_m2k_special_probe(struct platform_device *pdev)
 				     0x40000000);
 			axiadc_write(st, ADI_REG_CHAN_CNTRL(chan),
 				     ADI_IQCOR_ENB);
+		}
+		if (indio_dev->channels[i].info_mask_separate &
+			BIT(IIO_CHAN_INFO_CALIBBIAS)) {
+			unsigned int chan = indio_dev->channels[i].channel;
+			//set initial claibration to neutral value
+			st->adc_calibbias[chan] = 2048;
 		}
 	}
 
@@ -505,6 +516,12 @@ static int axiadc_write_raw(struct iio_dev *indio_dev,
 		axiadc_slave_write(st,
 				ADI_REG_CORRECTION_COEFFICIENT(chan->channel),
 				reg);
+		return 0;
+	case IIO_CHAN_INFO_CALIBBIAS:
+		if (val < 0 || val > 0xFFFF)
+			return -EINVAL;
+
+		st->adc_calibbias[chan->channel] = val;
 		return 0;
 	default:
 		break;
