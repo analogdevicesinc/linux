@@ -1,0 +1,23 @@
+
+# This file exists solely to be include in Kconfig.adi
+
+config MEDIA_ALL_ADI_DRIVERS
+	tristate "Build all Analog Devices Media Drivers"
+	imply VIDEO_ADV_DEBUG
+	imply VIDEO_ADV7170
+	imply VIDEO_ADV7175
+	imply VIDEO_ADV7343
+	imply VIDEO_ADV7393
+	imply VIDEO_AD9389B
+	imply VIDEO_ADDI9036
+	imply VIDEO_ADV7180
+	imply VIDEO_ADV7183
+	imply VIDEO_ADV748X
+	imply VIDEO_ADV7604
+	imply VIDEO_ADV7604_CEC
+	imply VIDEO_ADV7842
+	imply VIDEO_ADV7842_CEC
+	imply VIDEO_AXI_HDMI_RX
+	imply ADI_AXI_VIDEO_FRAME_BUFFER
+	imply VIDEO_ADP1653
+	imply USB_VIDEO_CLASS
