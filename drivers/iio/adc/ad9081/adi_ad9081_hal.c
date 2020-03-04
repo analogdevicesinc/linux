@@ -767,8 +767,8 @@ int32_t adi_ad9081_hal_calc_tx_nco_ftw(adi_ad9081_device_t *device,
 }
 
 int32_t adi_ad9081_hal_calc_tx_nco_ftw32(adi_ad9081_device_t *device,
-				uint64_t dac_freq, int64_t nco_shift,
-				uint64_t *ftw)
+					 uint64_t dac_freq, int64_t nco_shift,
+					 uint64_t *ftw)
 {
 	uint64_t hi, lo;
 	AD9081_NULL_POINTER_RETURN(device);
@@ -776,12 +776,10 @@ int32_t adi_ad9081_hal_calc_tx_nco_ftw32(adi_ad9081_device_t *device,
 	AD9081_INVALID_PARAM_RETURN(dac_freq == 0);
 
 	if (nco_shift >= 0) {
-		adi_ad9081_hal_mult_128(4294967296ull, nco_shift, &hi,
-					&lo);
+		adi_ad9081_hal_mult_128(4294967296ull, nco_shift, &hi, &lo);
 		adi_ad9081_hal_div_128(hi, lo, 0, dac_freq, &hi, ftw);
 	} else {
-		adi_ad9081_hal_mult_128(4294967296ull, -nco_shift, &hi,
-					&lo);
+		adi_ad9081_hal_mult_128(4294967296ull, -nco_shift, &hi, &lo);
 		adi_ad9081_hal_div_128(hi, lo, 0, dac_freq, &hi, ftw);
 		*ftw = 4294967296ull - *ftw;
 	}
