@@ -460,7 +460,7 @@ typedef struct {
 	uint8_t right_spo; /*!< Right good SPO */
 } adi_ad9081_spo_t;
 
-/*! 
+/*!
  * @brief JESD TX Virtual Converter Select
  */
 typedef struct {
@@ -516,10 +516,10 @@ typedef struct {
  * @brief Device Internal Information Structure
  */
 typedef struct {
-	/* passed by user and set by API */
 	uint64_t dev_freq_hz; /*!< Device clock frequency in Hz */
 	uint64_t dac_freq_hz; /*!< DAC clock frequency in Hz */
 	uint64_t adc_freq_hz; /*!< ADC clock frequency in Hz */
+	uint8_t dev_rev; /*!< Device revision, 0:r0, 1:r1, 2:r1r, 3:r2 */
 } adi_ad9081_info_t;
 
 /*!
@@ -1029,11 +1029,25 @@ adi_ad9081_dac_mode_set(adi_ad9081_device_t *device,
 			adi_ad9081_dac_mode_e mode);
 
 /**
+ * @brief  Set DAC complex modulation enable
+ *
+ * @param  device   Pointer to the device structure
+ * @param  groups   Mode switch groups, @see adi_ad9081_dac_mode_switch_group_select_e
+ * @param  enable   1 to enable complex modulation
+ *
+ * @return API_CMS_ERROR_OK                     API Completed Successfully
+ * @return <0                                   Failed. @see adi_cms_error_e for details.
+ */
+int32_t adi_ad9081_dac_complex_modulation_enable_set(
+	adi_ad9081_device_t *device,
+	adi_ad9081_dac_mode_switch_group_select_e groups, uint8_t enable);
+
+/**
  * @brief  Set Fine DUC gain
  *
  * @param  device   Pointer to the device structure
  * @param  channels Channel mask
- * @param  gain     Gain value
+ * @param  gain     Gain value (0~4095)
  *
  * @return API_CMS_ERROR_OK                     API Completed Successfully
  * @return <0                                   Failed. @see adi_cms_error_e for details.
@@ -1045,7 +1059,7 @@ int32_t adi_ad9081_dac_duc_nco_gain_set(adi_ad9081_device_t *device,
  * @brief  Set Fine DUC gain
  *
  * @param  device   Pointer to the device structure
- * @param  gains    Channel gain values
+ * @param  gains    Channel gain values (0~4095)
  *
  * @return API_CMS_ERROR_OK                     API Completed Successfully
  * @return <0                                   Failed. @see adi_cms_error_e for details.
@@ -1194,8 +1208,8 @@ int32_t adi_ad9081_dac_duc_main_nco_hopf_select_set(adi_ad9081_device_t *device,
  *
  * @param  device     Pointer to the device structure
  * @param  dacs       DAC mask, like AD9081_DAC_0, ...
- * @param  enable     0 or 1, if gpio aligned strobe signal not given, set this bit to use internal glitch free logic to 
- *                    remove GPIO glitch, but this will introduce longer response, since the glitch remove logic will 
+ * @param  enable     0 or 1, if gpio aligned strobe signal not given, set this bit to use internal glitch free logic to
+ *                    remove GPIO glitch, but this will introduce longer response, since the glitch remove logic will
  *                    need 4 pipes delay.
  *
  * @return API_CMS_ERROR_OK                     API Completed Successfully
@@ -1330,7 +1344,7 @@ int32_t adi_ad9081_dac_soft_off_gain_ramp_rate_set(adi_ad9081_device_t *device,
  * @param  dacs        Target DAC Channel Output
  * @param  enable      bit0: spi soft-off,           bit1: txen soft-off
  *                     bit2: rotate soft-off,        bit3: jesd error soft-off
- *                     bit4: hwip err soft-off,      bit5: 
+ *                     bit4: hwip err soft-off,      bit5:
  *                     bit6: long paerr soft-off,    bit7: short paerr soft-off
  *                     bit8: dll unlock soft-off,    bit9: 204c crc err soft-off
  *                     bit10:                        bit11: hi-lo-fail soft-off
@@ -1447,9 +1461,9 @@ int32_t adi_ad9081_dac_xbar_set(adi_ad9081_device_t *device, uint8_t dacs,
  * @param  enable     Enable or disable interrupts
  *                    bit0:  PRBS_I        bit1:  PRBS_Q        bit2: SYSREF         bit3:
  *                    bit4:  CAPTURE_DONE  bit5:  LANE_FIFO     bit6: DATA_READY     bit7:
- *                    bit8:                bit9:                bit10:               bit11: PAERR0  
+ *                    bit8:                bit9:                bit10:               bit11: PAERR0
  *                    bit12:               bit13:               bit14:               bit15: PAERR1
- *                    bit16:               bit17:               bit18:               bit19: PAERR2  
+ *                    bit16:               bit17:               bit18:               bit19: PAERR2
  *                    bit20:               bit21:               bit22:               bit23: PAERR3
  *                    bit24: PLL_LOCK_FAST bit25: PLL_LOCK_SLOW bit26: PLL_LOST_FAST bit27: PLL_LOST_SLOW
  *                    bit28: DLL_LOCK01    bit29: DLL_LOST01    bit30: DLL_LOCK23    bit31: DLL_LOST23
@@ -1469,9 +1483,9 @@ int32_t adi_ad9081_dac_irqs_enable_set(adi_ad9081_device_t *device,
  * @param  status     Interrupt status
  *                    bit0:  PRBS_I        bit1:  PRBS_Q        bit2: SYSREF         bit3:
  *                    bit4:  CAPTURE_DONE  bit5:  LANE_FIFO     bit6: DATA_READY     bit7:
- *                    bit8:                bit9:                bit10:               bit11: PAERR0  
+ *                    bit8:                bit9:                bit10:               bit11: PAERR0
  *                    bit12:               bit13:               bit14:               bit15: PAERR1
- *                    bit16:               bit17:               bit18:               bit19: PAERR2  
+ *                    bit16:               bit17:               bit18:               bit19: PAERR2
  *                    bit20:               bit21:               bit22:               bit23: PAERR3
  *                    bit24: PLL_LOCK_FAST bit25: PLL_LOCK_SLOW bit26: PLL_LOST_FAST bit27: PLL_LOST_SLOW
  *                    bit28: DLL_LOCK01    bit29: DLL_LOST01    bit30: DLL_LOCK23    bit31: DLL_LOST23
@@ -1491,9 +1505,9 @@ int32_t adi_ad9081_dac_irqs_status_get(adi_ad9081_device_t *device,
  * @param  clear      Interrupt status clear bits
  *                    bit0:  PRBS_I        bit1:  PRBS_Q        bit2: SYSREF         bit3:
  *                    bit4:  CAPTURE_DONE  bit5:  LANE_FIFO     bit6: DATA_READY     bit7:
- *                    bit8:                bit9:                bit10:               bit11: PAERR0  
+ *                    bit8:                bit9:                bit10:               bit11: PAERR0
  *                    bit12:               bit13:               bit14:               bit15: PAERR1
- *                    bit16:               bit17:               bit18:               bit19: PAERR2  
+ *                    bit16:               bit17:               bit18:               bit19: PAERR2
  *                    bit20:               bit21:               bit22:               bit23: PAERR3
  *                    bit24: PLL_LOCK_FAST bit25: PLL_LOCK_SLOW bit26: PLL_LOST_FAST bit27: PLL_LOST_SLOW
  *                    bit28: DLL_LOCK01    bit29: DLL_LOST01    bit30: DLL_LOCK23    bit31: DLL_LOST23
@@ -1734,6 +1748,18 @@ int32_t adi_ad9081_dac_spi_enable_set(adi_ad9081_device_t *device,
  */
 int32_t adi_ad9081_adc_power_up_set(adi_ad9081_device_t *device, uint8_t adcs,
 				    uint8_t enable);
+
+/**
+ * @brief  Reset rx digital datapath
+ *
+ * @param  device   Pointer to the device structure
+ * @param  reset    1 to reset, 0 to release
+ *
+ * @return API_CMS_ERROR_OK                     API Completed Successfully
+ * @return <0                                   Failed. @see adi_cms_error_e for details.
+ */
+int32_t adi_ad9081_adc_digital_datapath_reset_set(adi_ad9081_device_t *device,
+						  uint8_t reset);
 
 /**
  * @brief  Read back the current ADC clock frequency
@@ -2271,10 +2297,10 @@ int32_t adi_ad9081_adc_ddc_fine_nco_channel_selection_set(
  *                        2: profile_pins[1:0] are used. Pin level control {2'b0, profile_pins[1:0]}
  *                        3: profile_pins[2:0] are used. Pin level control {1'b0, profile_pins[2:0]}
  *                        4: profile_pins[3:0] are used. Pin level control {profile_pins[3:0]}
- *                        8: profile_pins[0] increment internal counter at rising edge of profile_pins[0] pin  
- *                        9: profile_pins[1] increment internal counter at rising edge of profile_pins[1] pin  
- *                       10: profile_pins[2] increment internal counter at rising edge of profile_pins[2] pin  
- *                       11: profile_pins[3] increment internal counter at rising edge of profile_pins[3] pin  
+ *                        8: profile_pins[0] increment internal counter at rising edge of profile_pins[0] pin
+ *                        9: profile_pins[1] increment internal counter at rising edge of profile_pins[1] pin
+ *                       10: profile_pins[2] increment internal counter at rising edge of profile_pins[2] pin
+ *                       11: profile_pins[3] increment internal counter at rising edge of profile_pins[3] pin
  *                       12: FHT expire based control - increment internal counter when FHT is expired
  *
  * @return API_CMS_ERROR_OK                     API Completed Successfully
@@ -2410,7 +2436,7 @@ int32_t adi_ad9081_adc_smon_en_to_gpio_mapping_set(adi_ad9081_device_t *device,
  * @param  device     Pointer to the device structure
  * @param  spi_en     enable pin
  * @param  pol        polarity
- * @param  rxen       value  
+ * @param  rxen       value
  *
  * @return API_CMS_ERROR_OK                     API Completed Successfully
  * @return <0                                   Failed. @see adi_cms_error_e for details.
@@ -2425,7 +2451,7 @@ int32_t adi_ad9081_adc_rxen1_gpio_ctrl_set(adi_ad9081_device_t *device,
  * @param  device     Pointer to the device structure
  * @param  spi_en     enable pin
  * @param  pol        polarity
- * @param  rxen       value  
+ * @param  rxen       value
  *
  * @return API_CMS_ERROR_OK                     API Completed Successfully
  * @return <0                                   Failed. @see adi_cms_error_e for details.
@@ -2475,7 +2501,7 @@ int32_t adi_ad9081_adc_cddc_fddc_jtx_clk_en_via_rxen3_gpio_set(
  * @param  use_txen   use txen as rxen
  * @param  spi_en     enable pin
  * @param  rxen0_pol  polarity
- * @param  rxen0      value  
+ * @param  rxen0      value
  *
  * @return API_CMS_ERROR_OK                     API Completed Successfully
  * @return <0                                   Failed. @see adi_cms_error_e for details.
@@ -2491,7 +2517,7 @@ int32_t adi_ad9081_adc_rxen0_ctrl_set(adi_ad9081_device_t *device,
  * @param  use_txen   use txen as rxen
  * @param  spi_en     enable pin
  * @param  rxen1_pol  polarity
- * @param  rxen1      value  
+ * @param  rxen1      value
  *
  * @return API_CMS_ERROR_OK                     API Completed Successfully
  * @return <0                                   Failed. @see adi_cms_error_e for details.
@@ -3331,7 +3357,7 @@ int32_t adi_ad9081_adc_smon_status_read_select_set(adi_ad9081_device_t *device,
  *
  * @param  device         Pointer to the device structure
  * @param  adcs           @see adi_ad9081_adc_select_e
- * @param  enable         1 to enable signal monitor peak detector 
+ * @param  enable         1 to enable signal monitor peak detector
  *
  * @return API_CMS_ERROR_OK                     API Completed Successfully
  * @return <0                                   Failed. @see adi_cms_error_e for details.
@@ -3345,7 +3371,7 @@ adi_ad9081_adc_smon_peak_detector_enable_set(adi_ad9081_device_t *device,
  *
  * @param  device         Pointer to the device structure
  * @param  adcs           @see adi_ad9081_adc_select_e
- * @param  select         0: jesd link0, 1: jesd link1 
+ * @param  select         0: jesd link0, 1: jesd link1
  *
  * @return API_CMS_ERROR_OK                     API Completed Successfully
  * @return <0                                   Failed. @see adi_cms_error_e for details.
@@ -3597,7 +3623,7 @@ int32_t adi_ad9081_jesd_rx_bring_up(adi_ad9081_device_t *device,
 				    uint8_t lanes);
 
 /**
- * @brief  JRX sysref enable setting
+ * @brief  Set JRX sysref enable
  *
  * @param  device     Pointer to the device structure
  * @param  enable     1:Enable, 0:Disable
@@ -3607,6 +3633,18 @@ int32_t adi_ad9081_jesd_rx_bring_up(adi_ad9081_device_t *device,
  */
 int32_t adi_ad9081_jesd_rx_sysref_enable_set(adi_ad9081_device_t *device,
 					     uint8_t enable);
+
+/**
+ * @brief  Set JRX sysref input mode
+ *
+ * @param  device     Pointer to the device structure
+ * @param  input_mode 0:AC couple, 1:DC couple
+ *
+ * @return API_CMS_ERROR_OK                     API Completed Successfully
+ * @return <0                                   Failed. @see adi_cms_error_e for details.
+ */
+int32_t adi_ad9081_jesd_rx_sysref_input_mode_set(adi_ad9081_device_t *device,
+						 uint8_t input_mode);
 
 /**
  * @brief  Set LMFC delay
@@ -3627,7 +3665,7 @@ int32_t adi_ad9081_jesd_rx_lmfc_delay_set(adi_ad9081_device_t *device,
  *
  * @param  device     Pointer to the device structure
  * @param  links      Target link
- * @param  sync_mode  0: '1', 1: sync# signal from link0, 2: sync# signal from link1, 3: ANDed sync# signal from link0 & link1  
+ * @param  sync_mode  0: '1', 1: sync# signal from link0, 2: sync# signal from link1, 3: ANDed sync# signal from link0 & link1
  *
  * @return API_CMS_ERROR_OK                     API Completed Successfully
  * @return <0                                   Failed. @see adi_cms_error_e for details.
@@ -3653,7 +3691,7 @@ int32_t adi_ad9081_jesd_rx_run_cal_mask_set(adi_ad9081_device_t *device,
  *
  * @param  device        Pointer to the device structure
  * @param  mask          Value for rx_boost_mask, bit0 -> lane0, ...
- * 
+ *
  * @return API_CMS_ERROR_OK                     API Completed Successfully
  * @return <0                                   Failed. @see adi_cms_error_e for details.
  */
@@ -3664,7 +3702,7 @@ int32_t adi_ad9081_jesd_rx_boost_mask_set(adi_ad9081_device_t *device,
  * @brief  Calibrate 204C for JRX
  *
  * @param  device        Pointer to the device structure
- * 
+ *
  * @return API_CMS_ERROR_OK                     API Completed Successfully
  * @return <0                                   Failed. @see adi_cms_error_e for details.
  */
@@ -4347,7 +4385,7 @@ int32_t adi_ad9081_jesd_tx_sample_data_prbs_test(
  * @brief  Enable ILAS Test Mode (Repeated ILAS)
  *
  * @param device         Pointer to the device reference handle
- * @param links          Target link 
+ * @param links          Target link
  * @param enable         Test mode enable
  *
  * @return API_CMS_ERROR_OK                     API Completed Successfully
@@ -4361,7 +4399,7 @@ int32_t adi_ad9081_jesd_tx_ilas_test_mode_enable_set(
  * @brief  Enable Continuous D21.5 Test Mode
  *
  * @param device         Pointer to the device reference handle
- * @param links          Target link 
+ * @param links          Target link
  * @param lane_id        Lane index (0~7)
  * @param enable         Test mode enable
  *
@@ -4376,7 +4414,7 @@ int32_t adi_ad9081_jesd_tx_continuous_d215_enable_set(
  * @brief  Enable RPAT Test Mode
  *
  * @param device         Pointer to the device reference handle
- * @param links          Target link 
+ * @param links          Target link
  * @param lane_id        Lane index (0~7)
  * @param enable         Test mode enable
  *
@@ -4391,7 +4429,7 @@ int32_t adi_ad9081_jesd_tx_rpat_enable_set(adi_ad9081_device_t *device,
  * @brief  Enable JSPAT Test Mode
  *
  * @param device         Pointer to the device reference handle
- * @param links          Target link 
+ * @param links          Target link
  * @param lane_id        Lane index (0~7)
  * @param enable         Test mode enable
  *
@@ -4406,7 +4444,7 @@ int32_t adi_ad9081_jesd_tx_jspat_enable_set(adi_ad9081_device_t *device,
  * @brief  Enable JTSPAT Test Mode
  *
  * @param device         Pointer to the device reference handle
- * @param links          Target link 
+ * @param links          Target link
  * @param lane_id        Lane index (0~7)
  * @param enable         Test mode enable
  *

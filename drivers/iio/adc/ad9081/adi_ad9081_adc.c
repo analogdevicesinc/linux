@@ -29,7 +29,7 @@ int32_t adi_ad9081_adc_select_set(adi_ad9081_device_t *device, uint8_t adcs)
 				     &page_val);
 	AD9081_ERROR_RETURN(err);
 
-	page_val = (adcs & 0x0F) | (page_val & 0xF0);
+	page_val = (adcs & 0x0f) | (page_val & 0xf0);
 	err = adi_ad9081_hal_reg_set(device, REG_ADC_COARSE_PAGE_ADDR,
 				     page_val);
 	AD9081_ERROR_RETURN(err);
@@ -79,6 +79,19 @@ int32_t adi_ad9081_adc_power_up_set(adi_ad9081_device_t *device, uint8_t adcs,
 	adc_cores |= ((adcs & AD9081_ADC_2) > 0) ? 0x2 : 0x0;
 	adc_cores |= ((adcs & AD9081_ADC_3) > 0) ? 0x2 : 0x0;
 	err = adi_ad9081_adc_core_setup(device, adc_cores);
+	AD9081_ERROR_RETURN(err);
+
+	return API_CMS_ERROR_OK;
+}
+
+int32_t adi_ad9081_adc_digital_datapath_reset_set(adi_ad9081_device_t *device,
+						  uint8_t reset)
+{
+	int32_t err;
+	AD9081_NULL_POINTER_RETURN(device);
+	AD9081_LOG_FUNC();
+
+	err = adi_ad9081_hal_bf_set(device, 0x0380, 0x0100, reset);
 	AD9081_ERROR_RETURN(err);
 
 	return API_CMS_ERROR_OK;
@@ -153,7 +166,7 @@ int32_t adi_ad9081_adc_ddc_coarse_select_set(adi_ad9081_device_t *device,
 				     &page_val);
 	AD9081_ERROR_RETURN(err);
 
-	page_val = (cddcs << 4) | (page_val & 0x0F);
+	page_val = (cddcs << 4) | (page_val & 0x0f);
 	err = adi_ad9081_hal_reg_set(device, REG_ADC_COARSE_PAGE_ADDR,
 				     page_val);
 	AD9081_ERROR_RETURN(err);
@@ -2067,11 +2080,18 @@ int32_t adi_ad9081_adc_nyquist_zone_set(adi_ad9081_device_t *device,
 					adi_ad9081_adc_nyquist_zone_e zone)
 {
 	int32_t err;
-	uint32_t reg_nyquist_zone_addr;
+	uint32_t reg_nyquist_zone_addr = 0x2110;
 	AD9081_NULL_POINTER_RETURN(device);
 	AD9081_LOG_FUNC();
 
-	reg_nyquist_zone_addr = 0x210f;
+	if (device->dev_info.dev_rev == 1) { /* r1 */
+		reg_nyquist_zone_addr = 0x210f;
+	}
+	if (device->dev_info.dev_rev == 2 ||
+	    device->dev_info.dev_rev == 3) { /* r1r/r2 */
+		reg_nyquist_zone_addr = 0x2110;
+	}
+
 	if (zone == AD9081_ADC_NYQUIST_ZONE_ODD) {
 		err = adi_ad9081_hal_reg_set(device, reg_nyquist_zone_addr,
 					     0x01);
