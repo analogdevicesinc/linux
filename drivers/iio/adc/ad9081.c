@@ -1413,12 +1413,11 @@ static int ad9081_setup(struct spi_device *spi, bool ad9234)
 	of_clk_get_scale(spi->dev.of_node, "dev_clk", &devclk_clkscale);
 	dev_frequency_hz = clk_get_rate_scaled(phy->dev_clk, &devclk_clkscale);
 
-	if (!IS_ERR_OR_NULL(phy->jesd_tx_clk)) {
-		tx_lane_rate_kbps =
-			ad9081_calc_lanerate(&phy->jesd_tx_link,
+	tx_lane_rate_kbps = ad9081_calc_lanerate(&phy->jesd_tx_link,
 				phy->dac_frequency_hz,
 				phy->tx_main_interp * phy->tx_chan_interp);
 
+	if (!IS_ERR_OR_NULL(phy->jesd_tx_clk)) {
 		ret = clk_set_rate(phy->jesd_tx_clk, tx_lane_rate_kbps);
 		if (ret < 0) {
 			dev_err(&spi->dev, "Failed to set lane rate to %lu kHz: %d\n",
@@ -1580,8 +1579,6 @@ static int ad9081_setup(struct spi_device *spi, bool ad9234)
 		adi_ad9081_jesd_tx_sync_mode_set(&phy->ad9081,
 			AD9081_LINK_0, 1);
 	}
-
-
 
 	if (!IS_ERR_OR_NULL(phy->jesd_rx_clk)) {
 		rx_lane_rate_kbps = ad9081_calc_lanerate(&phy->jesd_rx_link[0],
