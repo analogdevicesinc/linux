@@ -1,0 +1,194 @@
+
+# This file exists solely to be include in Kconfig.adi
+# It's a bit of hurry-ed-up job; many symbols need to be depended
+# on I2C or SPI, but that can be done later; the ADI image has
+# these symbols enabled anyway
+
+config IIO_ALL_ADI_DRIVERS
+	tristate "Build all Analog Devices IIO Drivers"
+	imply IIO_BUFFER
+	imply IIO_SW_DEVICE
+	imply IIO_SW_TRIGGER
+	imply IIO_TRIGGERED_EVENT
+	imply IIO_HRTIMER_TRIGGER
+	imply IIO_INTERRUPT_TRIGGER
+	imply IIO_SYSFS_TRIGGER
+	imply IIO_TIGHTLOOP_TRIGGER
+	imply IIO_BUFFER_CB
+	imply IIO_BUFFER_DMA
+	imply IIO_BUFFER_DMAENGINE
+	imply IIO_BUFFER_HW_CONSUMER
+	imply IIO_KFIFO_BUF
+	imply IIO_TRIGGERED_BUFFER
+	imply ALTERA_ARRIA10_JESD204_PHY if ARCH_INTEL_SOCFPGA
+	imply ADIS16201
+	imply ADIS16209
+	imply ADXL313_I2C if I2C
+	imply ADXL313_SPI if SPI
+	imply ADXL345_I2C if I2C
+	imply ADXL345_SPI if SPI
+	imply ADXL355_I2C if I2C
+	imply ADXL355_SPI if SPI
+	imply ADXL367_I2C if I2C
+	imply ADXL367_SPI if SPI
+	imply ADXL372_I2C if I2C
+	imply ADXL372_SPI if SPI
+	imply AD400X
+	imply AD4630
+	imply AD4130
+	imply AD4134
+	imply AD6676
+	imply AD7091R5
+	imply AD7124
+	imply AD7173
+	imply AD7266
+	imply AD7291
+	imply AD7293
+	imply AD7298
+	imply AD738X
+	imply AD7923
+	imply AD7949
+	imply AD7476
+	imply AD7606_IFACE_PARALLEL
+	imply AD7606_IFACE_SPI
+	imply AD7766
+	imply AD7768
+	imply AD7768_1
+	imply AD7791
+	imply AD7793
+	imply AD7887
+	imply AD799X
+	imply AD9963
+	imply CF_AXI_ADC
+	imply AD9208
+	imply AD9081
+	imply AD9083
+	imply AD9361
+	imply AD9361_EXT_BAND_CONTROL
+	imply AD9371
+	imply ADAQ8092
+	imply ADAR1000
+	imply ADAR3000
+	imply ADRV9009
+	imply ADRV9001
+	imply AD9467
+	imply AD9680
+	imply ADMC
+	imply CF_AXI_TDD
+	imply AXI_PULSE_CAPTURE
+	imply AXI_FMCADC5_SYNC
+	imply XILINX_XADC if (ARCH_ZYNQ || ARCH_ZYNQMP || MICROBLAZE)
+	imply LTC2497
+	imply LTC2308
+	imply LTC2387
+	imply AD8366
+	imply ADA4250
+	imply HMC425
+	imply AD5270
+	imply AD5360
+	imply AD5380
+	imply AD5421
+	imply AD5624R_SPI if SPI
+	imply AD3552R
+	imply AD5064
+	imply AD5504
+	imply AD5446
+	imply AD5449
+	imply AD5592R_BASE
+	imply AD5592R
+	imply AD5593R
+	imply AD5755
+	imply AD5758
+	imply AD5761
+	imply AD5764
+	imply AD5766
+	imply AD5770R
+	imply AD5791
+	imply AD5686
+	imply AD5686_SPI if SPI
+	imply AD5696_I2C if I2C
+	imply AD7303
+	imply AD8801
+	imply AD9508
+	imply AD9517
+	imply AD9523
+	imply AD9528
+	imply AD9548
+	imply ADF4159
+	imply ADF4350
+	imply ADF4360
+	imply ADF4371
+	imply ADF4377
+	imply ADF5355
+	imply ADL5960
+	imply ADMV1013
+	imply ADMV1014
+	imply ADMV4420
+	imply ADMV8818
+	imply ADRF6780
+	imply CF_AXI_DDS
+	imply CF_AXI_DDS_AD9122
+	imply CF_AXI_DDS_AD9144
+	imply CF_AXI_DDS_AD9739A
+	imply CF_AXI_DDS_AD9783
+	imply HMC7044
+	imply CF_AXI_DDS_AD9162
+	imply CF_AXI_DDS_AD9172
+	imply AD916X_AMP
+	imply M2K_DAC
+	imply ADIS16080
+	imply ADIS16130
+	imply ADIS16136
+	imply ADIS16260
+	imply ADIS16400
+	imply ADIS16460
+	imply ADIS16475
+	imply ADIS16480
+	imply M2K_LOGIC_ANALYZER
+	imply AD5272
+	imply IIO_REGMAP_I2C
+	imply IIO_REGMAP_SPI
+	imply AD2S1200
+	imply LTC1660
+	imply LTC2983
+	imply ADIS16203
+	imply ADIS16240
+	imply AD7780
+	imply AD7816
+	imply AD7192
+	imply AD7280
+	imply AD7292
+	imply ADT7316
+	imply ADT7316_SPI if SPI
+	imply ADT7316_I2C if I2C
+	imply AD7150
+	imply AD7152
+	imply AD7746
+	imply AD9832
+	imply AD9834
+	imply AD5933
+	imply ADE7854
+	imply ADE7854_I2C if I2C
+	imply ADE7854_SPI if SPI
+	imply AD2S90
+	imply AD2S1210
+	imply LTC6952
+	imply LTC2471
+	imply LTC2496
+	imply LTC2632
+	imply LTC2485
+	imply ADXRS290
+	imply ADXRS450
+	imply AXI_JESD204_TX
+	imply AXI_JESD204_RX
+	imply AXI_ADXCVR
+	imply ONE_BIT_ADC_DAC
+	imply ADUX1020
+	imply IIO_GEN_MUX
+	imply AD74115
+	imply AD74413R
+	imply ADI_IIO_FAKEDEV
+	imply LTC2688
+	imply MAX11410
+	imply AD5110
+	imply MAX31865
