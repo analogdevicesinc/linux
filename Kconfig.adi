@@ -1,0 +1,92 @@
+
+# This file exists solely to be include in the main Kconfig
+
+config KERNEL_ALL_ADI_DRIVERS
+	tristate "Build all Analog Devices Kernel Drivers"
+	select SPI
+	select I2C
+	select IIO
+	select PWM
+	select JESD204
+	select STAGING
+	select FB_TFT
+	select HWMON
+	select POWER_RESET
+	select POWER_SUPPLY
+	select SOUND
+	select SND
+	select SND_SOC
+	select I2C_MUX
+	select LEDS_CLASS_FLASH
+	select PHYLIB
+	select MULTIPLEXER
+	select MEDIA_SUPPORT
+	select MEDIA_CONTROLLER
+	select MEDIA_CAMERA_SUPPORT
+	select VIDEO_V4L2
+	select VIDEO_V4L2_SUBDEV_API
+	select V4L_PLATFORM_DRIVERS
+	select BACKLIGHT_LCD_SUPPORT
+	select BACKLIGHT_CLASS_DEVICE
+	select CLK_ALL_ADI_DRIVERS
+	select HWMON_ALL_ADI_DRIVERS
+	select IIO_ALL_ADI_DRIVERS
+	select INPUT_ALL_ADI_DRIVERS
+	select MEDIA_ALL_ADI_DRIVERS
+	select SND_SOC_ALL_ADI_CODECS
+	select USB_ALL_ADI_DRIVERS
+	select POWER_RESET_LTC2952
+	select CHARGER_ADP5061
+	select I2C_MUX_LTC4306
+	select CHARGER_LTC3651
+	select BATTERY_GAUGE_LTC2941
+	select MUX_ADG792A
+	select MUX_ADGS1408
+	select AD525X_DPOT
+	select AD525X_DPOT_I2C
+	select AD525X_DPOT_SPI
+	select ADIN_PHY
+	select ADIN_T1L_PHY
+	select IPV6
+	select BRIDGE
+	select MEDIA_USB_SUPPORT
+	select NET_DSA
+	select MICROCHIP_KSZ
+	select MICROCHIP_KSZ_SPI_DRIVER
+	select GPIO_ADP5588
+	select GPIO_ADP5588_IRQ
+	select GPIO_ADP5520
+	select GPIO_ADI_DAQ1
+	select SPI_AD9250FMC
+	select SPI_AXI_SPI_ENGINE
+	select MAC802154
+	select IEEE802154
+	select IEEE802154_DRIVERS
+	select IEEE802154_ADF7242
+	select PMIC_ADP5520
+	select PWM_AXI_PWMGEN
+	select LEDS_ADP5520
+	select BACKLIGHT_ADP5520
+	select BACKLIGHT_ADP8860
+	select BACKLIGHT_ADP8870
+	select REGULATOR_AD5398
+	select REGULATOR_LTC3589
+	select REGULATOR_LTC3676
+	select DRM
+	select DRM_ADI_AXI_HDMI
+	select DRM_I2C_ADV7511
+	select DRM_I2C_ADV7511_AUDIO
+	select DRM_I2C_ADV7533
+	select NVMEM_AXI_SYSID if (ARCH_ZYNQMP || ARCH_ZYNQ || MICROBLAZE || ARCH_SOCFPGA || NIOS2)
+	select INPUT_PCF8574
+	select AXI_INTR_MONITOR
+	select FB_TFT_SEPS525
+	select LEDS_AS3645A
+
+source "drivers/clk/Kconfig.adi"
+source "drivers/hwmon/Kconfig.adi"
+source "drivers/iio/Kconfig.adi"
+source "drivers/input/Kconfig.adi"
+source "drivers/media/Kconfig.adi"
+source "drivers/usb/Kconfig.adi"
+source "sound/soc/codecs/Kconfig.adi"
