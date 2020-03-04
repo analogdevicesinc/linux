@@ -1417,19 +1417,20 @@ static int ad9081_setup(struct spi_device *spi, bool ad9234)
 				phy->dac_frequency_hz,
 				phy->tx_main_interp * phy->tx_chan_interp);
 
+	/* The 204c calibration routine requires the link to be up */
 	if (!IS_ERR_OR_NULL(phy->jesd_tx_clk)) {
 		ret = clk_set_rate(phy->jesd_tx_clk, tx_lane_rate_kbps);
 		if (ret < 0) {
 			dev_err(&spi->dev, "Failed to set lane rate to %lu kHz: %d\n",
 				tx_lane_rate_kbps, ret);
 		}
-
-		ret = clk_prepare_enable(phy->jesd_tx_clk);
-		if (ret < 0) {
-			dev_err(&spi->dev,
-				"Failed to enable JESD204 link: %d\n", ret);
-			return ret;
-
+		if (phy->jesd_tx_link.jesd_param.jesd_jesdv == 2) {
+			ret = clk_prepare_enable(phy->jesd_tx_clk);
+			if (ret < 0) {
+				dev_err(&spi->dev,
+					"Failed to enable JESD204 link: %d\n", ret);
+				return ret;
+			}
 		}
 	}
 
@@ -1621,46 +1622,62 @@ static int ad9081_setup(struct spi_device *spi, bool ad9234)
 	if (ret != 0)
 		return ret;
 
-	ret = 0;
-	/* enable txfe link */
+	if (!IS_ERR_OR_NULL(phy->jesd_tx_clk) &&
+		(phy->jesd_tx_link.jesd_param.jesd_jesdv == 1)) {
+		ret = clk_prepare_enable(phy->jesd_tx_clk);
+		if (ret < 0) {
+			dev_err(&spi->dev,
+				"Failed to enable JESD204 link: %d\n", ret);
+			return ret;
+		}
+	}
 
-	do {	/* temp workaround until API is fixed */
-		mdelay(10);
-		stat = ad9081_jesd_rx_link_status_print(phy);
-		if (stat <= 0) {
-			ret = adi_ad9081_jesd_rx_link_enable_set(
-				&phy->ad9081,
-				(phy->jesd_tx_link.jesd_param.jesd_duallink > 0) ?
-				AD9081_LINK_ALL : AD9081_LINK_0, 0);
-			if (ret != 0)
-				return ret;
+	/*
+	 * 204c doesn't have a SYNC, so the link should come up.
+	 * This needs to be revisited once we move this driver to the
+	 * new JESD framework ...
+	 */
 
-			if (!IS_ERR_OR_NULL(phy->jesd_tx_clk)) {
-				clk_disable_unprepare(phy->jesd_tx_clk);
-
-				mdelay(100);
-
-				ret = clk_prepare_enable(phy->jesd_tx_clk);
-				if (ret < 0) {
-					dev_err(&spi->dev,
-						"Failed to enable JESD204 link: %d\n",
-						ret);
+	if (phy->jesd_tx_link.jesd_param.jesd_jesdv == 2 ||
+		!IS_ERR_OR_NULL(phy->jesd_tx_clk)) {
+		do {	/* temp workaround until API is fixed */
+			mdelay(10);
+			stat = ad9081_jesd_rx_link_status_print(phy);
+			if (stat <= 0) {
+				ret = adi_ad9081_jesd_rx_link_enable_set(
+					&phy->ad9081,
+					(phy->jesd_tx_link.jesd_param.jesd_duallink > 0) ?
+					AD9081_LINK_ALL : AD9081_LINK_0, 0);
+				if (ret != 0)
 					return ret;
+
+				if (!IS_ERR_OR_NULL(phy->jesd_tx_clk)) {
+					clk_disable_unprepare(phy->jesd_tx_clk);
+
+					mdelay(100);
+
+					ret = clk_prepare_enable(phy->jesd_tx_clk);
+					if (ret < 0) {
+						dev_err(&spi->dev,
+							"Failed to enable JESD204 link: %d\n",
+							ret);
+						return ret;
+					}
+				} else {
+					mdelay(100);
 				}
-			} else {
+
+				ret = adi_ad9081_jesd_rx_link_enable_set(
+					&phy->ad9081,
+					(phy->jesd_tx_link.jesd_param.jesd_duallink > 0) ?
+					AD9081_LINK_ALL : AD9081_LINK_0, 1);
+				if (ret != 0)
+					return ret;
+
 				mdelay(100);
 			}
-
-			ret = adi_ad9081_jesd_rx_link_enable_set(
-				&phy->ad9081,
-				(phy->jesd_tx_link.jesd_param.jesd_duallink > 0) ?
-				AD9081_LINK_ALL : AD9081_LINK_0, 1);
-			if (ret != 0)
-				return ret;
-
-			mdelay(100);
-		}
-	} while (stat <= 0 && retry--);
+		} while (stat <= 0 && retry--);
+	}
 
 	ad9081_jesd_tx_link_status_print(phy);
 
