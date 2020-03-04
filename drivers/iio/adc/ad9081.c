@@ -1311,20 +1311,36 @@ int ad9081_jesd_tx_link_status_print(struct ad9081_phy *phy)
 		if (ret)
 			return -EFAULT;
 
-		dev_info(&phy->spi->dev,
-			 "JESD RX (JTX) Link%d in %s, SYNC %s, PLL %s, PHASE %s, MODE %s\n",
-			 l, ad9081_jtx_qbf_states[stat & 0xF],
-			 stat & BIT(4) ? "deasserted" : "asserted",
-			 stat & BIT(5) ? "locked" : "unlocked",
-			 stat & BIT(6) ? "established" : "lost",
-			 stat & BIT(7) ? "invalid" : "valid");
+		if (phy->jesd_rx_link[l - 1].jesd_param.jesd_jesdv == 2)
+			dev_info(&phy->spi->dev,
+				"JESD RX (JTX) Link%d PLL %s, PHASE %s, MODE %s\n",
+				l,
+				stat & BIT(5) ? "locked" : "unlocked",
+				stat & BIT(6) ? "established" : "lost",
+				stat & BIT(7) ? "invalid" : "valid");
+		else
+			dev_info(&phy->spi->dev,
+				"JESD RX (JTX) Link%d in %s, SYNC %s, PLL %s, PHASE %s, MODE %s\n",
+				l, ad9081_jtx_qbf_states[stat & 0xF],
+				stat & BIT(4) ? "deasserted" : "asserted",
+				stat & BIT(5) ? "locked" : "unlocked",
+				stat & BIT(6) ? "established" : "lost",
+				stat & BIT(7) ? "invalid" : "valid");
 
-		if (!phy->jesd_tx_link.jesd_param.jesd_duallink)
+
+		if (!phy->jesd_rx_link[l - 1].jesd_param.jesd_duallink)
 			return 0;
 	}
 
 	return 0;
 }
+
+static const char *const ad9081_jrx_204c_states[] = {
+	"Reset", "Undef", "Sync header alignment done",
+	"Extended multiblock sync complete",
+	"Extended multiblock alignment complete",
+	"Undef", "Link is good", "Undef",
+};
 
 int ad9081_jesd_rx_link_status_print(struct ad9081_phy *phy)
 {
@@ -1338,20 +1354,23 @@ int ad9081_jesd_rx_link_status_print(struct ad9081_phy *phy)
 		if (ret)
 			return -EFAULT;
 
-		if (phy->jesd_rx_link[l - 1].jesd_param.jesd_jesdv == 2) {
+		if (phy->jesd_tx_link.jesd_param.jesd_jesdv == 2) {
+			stat >>= 8;
 			dev_info(&phy->spi->dev,
-				"JESD TX (JRX) Link%d 204C status %d\n",
-				l, stat >> 8);
+				"JESD TX (JRX) Link%d 204C status: %s (%d)\n",
+				l, ad9081_jrx_204c_states[stat & 0x7], stat);
 
-			if ((stat >> 8) == 6) /* FIXME DUAL Link */
+			if (stat == 6) /* FIXME DUAL Link */
 				return 0xF;
+			else
+				return 0;
 		} else {
 			dev_info(&phy->spi->dev,
 				"JESD TX (JRX) Link%d 0x%X lanes in DATA\n",
 				l, stat & 0xF);
 		}
 
-		if (!phy->jesd_rx_link[l - 1].jesd_param.jesd_duallink)
+		if (!phy->jesd_tx_link.jesd_param.jesd_duallink)
 			return stat & 0xF;
 	}
 
