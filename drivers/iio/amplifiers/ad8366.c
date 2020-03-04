@@ -33,19 +33,47 @@ enum ad8366_type {
 	ID_HMC1119,
 };
 
+struct ad8366_info {
+	int gain_min;
+	int gain_max;
+};
+
 struct ad8366_state {
 	struct spi_device	*spi;
-	struct regulator		*reg;
-	struct gpio_desc		*reset_gpio;
+	struct regulator	*reg;
 	struct mutex            lock; /* protect sensor state */
+	struct gpio_desc	*reset_gpio;
 	unsigned char		ch[2];
 	enum ad8366_type	type;
-
+	struct ad8366_info	*info;
 	/*
 	 * DMA (thus cache coherency maintenance) requires the
 	 * transfer buffers to live in their own cache lines.
 	 */
 	unsigned char		data[2] ____cacheline_aligned;
+};
+
+static struct ad8366_info ad8366_infos[] = {
+	[ID_AD8366] = {
+		.gain_min = 4500,
+		.gain_max = 20500,
+	},
+	[ID_ADA4961] = {
+		.gain_min = -6000,
+		.gain_max = 15000,
+	},
+	[ID_ADL5240] = {
+		.gain_min = -11500,
+		.gain_max = 20000,
+	},
+	[ID_HMC271] = {
+		.gain_min = -31000,
+		.gain_max = 0,
+	},
+	[ID_HMC1119] = {
+		.gain_min = -31750,
+		.gain_max = 0,
+	},
 };
 
 static int ad8366_write(struct iio_dev *indio_dev,
@@ -114,7 +142,6 @@ static int ad8366_read_raw(struct iio_dev *indio_dev,
 		case ID_HMC1119:
 			gain = -1 * code * 250;
 			break;
-
 		}
 
 		/* Values in dB */
@@ -138,38 +165,33 @@ static int ad8366_write_raw(struct iio_dev *indio_dev,
 			    long mask)
 {
 	struct ad8366_state *st = iio_priv(indio_dev);
+	struct ad8366_info *inf = st->info;
 	int code = 0, gain;
 	int ret;
+
 	/* Values in dB */
 	if (val < 0)
-		gain = (((s8)val * 1000) - ((s32)val2 / 1000));
+		gain = (val * 1000) - (val2 / 1000);
 	else
-		gain = (((s8)val * 1000) + ((s32)val2 / 1000));
+		gain = (val * 1000) + (val2 / 1000);
+
+	if (gain > inf->gain_max || gain < inf->gain_min)
+		return -EINVAL;
 
 	switch (st->type) {
 	case ID_AD8366:
-		if (gain > 20500 || gain < 4500)
-			return -EINVAL;
 		code = (gain - 4500) / 253;
 		break;
 	case ID_ADA4961:
-		if (gain > 15000 || gain < -6000)
-			return -EINVAL;
 		code = (15000 - gain) / 1000;
 		break;
 	case ID_ADL5240:
-		if (gain < -11500 || gain > 20000)
-			return -EINVAL;
 		code = ((gain - 500 - 20000) / 500) & 0x3F;
 		break;
 	case ID_HMC271:
-		if (gain < -31000 || gain > 0)
-			return -EINVAL;
 		code = ((gain - 1000) / 1000) & 0x1F;
 		break;
 	case ID_HMC1119:
-		if (gain < -31750 || gain > 0)
-			return -EINVAL;
 		code = (abs(gain) / 250) & 0x7F;
 		break;
 	}
@@ -245,8 +267,7 @@ static int ad8366_probe(struct spi_device *spi)
 	spi_set_drvdata(spi, indio_dev);
 	mutex_init(&st->lock);
 	st->spi = spi;
-
-	indio_dev->dev.parent = &spi->dev;
+	st->type = spi_get_device_id(spi)->driver_data;
 
 	/* try to get a unique name */
 	if (spi->dev.platform_data)
@@ -256,7 +277,6 @@ static int ad8366_probe(struct spi_device *spi)
 	else
 		indio_dev->name = spi_get_device_id(spi)->name;
 
-	st->type = spi_get_device_id(spi)->driver_data;
 	switch (st->type) {
 	case ID_AD8366:
 		indio_dev->channels = ad8366_channels;
@@ -266,12 +286,8 @@ static int ad8366_probe(struct spi_device *spi)
 	case ID_ADL5240:
 	case ID_HMC271:
 	case ID_HMC1119:
-
-		st->reset_gpio = devm_gpiod_get(&spi->dev, "reset");
-		if (!IS_ERR(st->reset_gpio)) {
-			gpiod_direction_output(st->reset_gpio, 1);
-		}
-
+		st->reset_gpio = devm_gpiod_get(&spi->dev, "reset",
+			GPIOD_OUT_HIGH);
 		indio_dev->channels = ada4961_channels;
 		indio_dev->num_channels = ARRAY_SIZE(ada4961_channels);
 		break;
@@ -281,6 +297,9 @@ static int ad8366_probe(struct spi_device *spi)
 		goto error_disable_reg;
 	}
 
+	st->info = &ad8366_infos[st->type];
+	indio_dev->dev.parent = &spi->dev;
+	indio_dev->name = spi_get_device_id(spi)->name;
 	indio_dev->info = &ad8366_info;
 	indio_dev->modes = INDIO_DIRECT_MODE;
 
@@ -316,10 +335,10 @@ static int ad8366_remove(struct spi_device *spi)
 }
 
 static const struct spi_device_id ad8366_id[] = {
-	{"ad8366", ID_AD8366},
+	{"ad8366",  ID_AD8366},
 	{"ada4961", ID_ADA4961},
 	{"adl5240", ID_ADL5240},
-	{"hmc271", ID_HMC271},
+	{"hmc271",  ID_HMC271},
 	{"hmc1119", ID_HMC1119},
 	{}
 };
