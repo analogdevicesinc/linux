@@ -25,6 +25,8 @@ menuconfig HWMON
 
 if HWMON
 
+source "drivers/hwmon/Kconfig.adi"
+
 config HWMON_VID
 	tristate
 

@@ -1,0 +1,136 @@
+
+# This file exists solely to be include in drivers/iio/Kconfig
+# It's a bit of hurry-ed-up job; many symbols need to be depended
+# on I2C or SPI, but that can be done later; the ADI image has
+# these symbols enabled anyway
+
+config IIO_ALL_ADI_DRIVERS
+	tristate "Build all Analog Devices IIO Drivers"
+	select ADIS16201
+	select ADIS16209
+	select ADXL345_I2C if I2C
+	select ADXL345_SPI if SPI
+	select ADXL372_I2C if I2C
+	select ADXL372_SPI if SPI
+	select AD400X
+	select AD6676
+	select AD7091R5
+	select AD7124
+	select AD7173
+	select AD7266
+	select AD7291
+	select AD7298
+	select AD738X
+	select AD7923
+	select AD7476
+	select AD7606_IFACE_PARALLEL
+	select AD7606_IFACE_SPI
+	select AD7766
+	select AD7768
+	select AD7768_1
+	select AD7791
+	select AD7793
+	select AD7887
+	select AD799X
+	select AD9963
+	select CF_AXI_ADC
+	select AD9208
+	select AD9081
+	select AD9361
+	select AD9361_EXT_BAND_CONTROL
+	select AD9371
+	select ADRV9009
+	select AD9467
+	select AD9680
+	select ADMC
+	select CF_AXI_TDD
+	select AXI_PULSE_CAPTURE
+	select AXI_FMCADC5_SYNC
+	select XILINX_XADC
+	select LTC2497
+	select AD8366
+	select HMC425
+	select AD5270
+	select AD5360
+	select AD5380
+	select AD5421
+	select AD5624R_SPI if SPI
+	select AD5064
+	select AD5504
+	select AD5446
+	select AD5449
+	select AD5592R_BASE
+	select AD5592R
+	select AD5593R
+	select AD5755
+	select AD5758
+	select AD5761
+	select AD5764
+	select AD5766
+	select AD5770R
+	select AD5791
+	select AD5686
+	select AD5686_SPI if SPI
+	select AD5696_I2C if I2C
+	select AD7303
+	select AD8801
+	select AD9508
+	select AD9517
+	select AD9523
+	select AD9528
+	select AD9548
+	select ADF4350
+	select ADF4360
+	select ADF4371
+	select ADF5355
+	select CF_AXI_DDS
+	select CF_AXI_DDS_AD9122
+	select CF_AXI_DDS_AD9144
+	select CF_AXI_DDS_AD9739A
+	select HMC7044
+	select CF_AXI_DDS_AD9162
+	select CF_AXI_DDS_AD9172
+	select AD916X_AMP
+	select M2K_DAC
+	select ADIS16080
+	select ADIS16130
+	select ADIS16136
+	select ADIS16260
+	select ADIS16400
+	select ADIS16460
+	select ADIS16475
+	select ADIS16480
+	select M2K_LOGIC_ANALYZER
+	select AD5272
+	select IIO_REGMAP_I2C
+	select IIO_REGMAP_SPI
+	select AD2S1200
+	select LTC2983
+	select ADIS16203
+	select ADIS16240
+	select AD7780
+	select AD7816
+	select AD7192
+	select AD7280
+	select ADT7316
+	select ADT7316_SPI if SPI
+	select ADT7316_I2C if I2C
+	select AD7150
+	select AD7152
+	select AD7746
+	select AD9832
+	select AD9834
+	select AD5933
+	select ADE7854
+	select ADE7854_I2C if I2C
+	select ADE7854_SPI if SPI
+	select AD2S90
+	select AD2S1210
+	select LTC6952
+	select LTC2471
+	select LTC2632
+	select LTC2485
+	select ADXRS450
+	select AXI_JESD204_TX
+	select AXI_JESD204_RX
+	select AXI_ADXCVR

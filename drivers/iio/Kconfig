@@ -12,6 +12,9 @@ menuconfig IIO
 
 if IIO
 
+# Not upstream
+source "drivers/iio/Kconfig.adi"
+
 config IIO_BUFFER
 	bool "Enable buffer support within IIO"
 	help

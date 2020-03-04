@@ -1,0 +1,38 @@
+
+# This file exists solely to be include in sound/soc/codecs/Kconfig
+# Unfortunately, this is the best approach to build all ADI codecs
+# in a single change, since all that's needed is to select the
+# 'SND_SOC_ALL_ADI_CODECS' symbol and all should work
+# It's not likely that this will be upstreamed soon, but the
+# way it is now, the change is manage-able over time when merging
+# upstream code in ADI linux tree
+
+config SND_SOC_ALL_ADI_CODECS
+	tristate "Build all Analog Devices ASoC CODEC drivers"
+	select SND_SOC_AD1836 if SPI_MASTER
+	select SND_SOC_AD193X_SPI if SPI_MASTER
+	select SND_SOC_AD193X_I2C if I2C
+	select SND_SOC_AD1980 if SND_SOC_AC97_BUS
+	select SND_SOC_ADAU1373 if I2C
+	select SND_SOC_ADAU1761_I2C if I2C
+	select SND_SOC_ADAU1761_SPI if SPI
+	select SND_SOC_ADAU1781_I2C if I2C
+	select SND_SOC_ADAU1781_SPI if SPI
+	select SND_SOC_ADAV801 if SPI_MASTER
+	select SND_SOC_ADAV803 if I2C
+	select SND_SOC_ADAU1977_SPI if SPI_MASTER
+	select SND_SOC_ADAU1977_I2C if I2C
+	select SND_SOC_ADAU1701 if I2C
+	select SND_SOC_ADAU7002
+	select SND_SOC_ADAU7118_I2C if I2C
+	select SND_SOC_ADAU7118_HW
+	select SND_SOC_SSM2305
+	select SND_SOC_SSM2518 if I2C
+	select SND_SOC_SSM2602_SPI if SPI_MASTER
+	select SND_SOC_SSM2602_I2C if I2C
+	select SND_SOC_SSM4567 if I2C
+	select SND_SOC_ADI
+	select SND_SOC_ADI_AXI_I2S
+	select SND_SOC_ADI_AXI_SPDIF
+	select SND_SOC_ADRV936X_BOX
+	select SND_SIMPLE_CARD
