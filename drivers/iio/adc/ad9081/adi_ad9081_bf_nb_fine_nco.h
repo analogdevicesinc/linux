@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: GPL-2.0
 /*!
- * @brief     SPI Register Definition Header File, automatically generated file at 16/10/2018 02:21:17.
- * 
+ * @brief     SPI Register Definition Header File, automatically generated file at 1/20/2020 6:24:26 AM.
+ *
  * @copyright copyright(c) 2018 - Analog Devices Inc.All Rights Reserved.
  *            This software is proprietary to Analog Devices, Inc. and its
  *            licensor. By using this software you agree to the terms of the
  *            associated analog devices software license agreement.
  */
 
-/*! 
+/*!
  * @addtogroup __AD9081_BF__
  * @{
  */

@@ -18,7 +18,7 @@
 #include "adi_ad9081_hal.h"
 
 /*============= D A T A ====================*/
-static uint8_t ad9081_api_revision[3] = { 0, 7, 6 };
+static uint8_t ad9081_api_revision[3] = { 0, 7, 8 };
 
 /*============= C O D E ====================*/
 int32_t adi_ad9081_device_boot_pre_clock(adi_ad9081_device_t *device)
@@ -42,6 +42,7 @@ int32_t adi_ad9081_device_boot_pre_clock(adi_ad9081_device_t *device)
 		}
 	}
 	if (core_status < 0x71) {
+		/* boot has some problem */
 		AD9081_LOG_ERR(
 			"Boot did not reach expected spot in boot_pre_clock()");
 
@@ -63,15 +64,29 @@ int32_t adi_ad9081_device_boot_pre_clock(adi_ad9081_device_t *device)
 	/* log chip id */
 	err = adi_ad9081_device_chip_id_get(device, &chip_id);
 	AD9081_ERROR_RETURN(err);
+	device->dev_info.dev_rev = chip_id.dev_revision;
 	err = adi_ad9081_hal_log_write(device, ADI_CMS_LOG_MSG,
 				       "device is ad%x r%d", chip_id.prod_id,
 				       chip_id.dev_revision);
 	AD9081_ERROR_RETURN(err);
+	if (device->dev_info.dev_rev == 0) { /* not support r0 */
+		AD9081_LOG_ERR("Current device revision is not supported");
+		return API_CMS_ERROR_ERROR;
+	}
+	if (device->dev_info.dev_rev == 1) { /* test 32bit r/w for r1 */
+		err = adi_ad9081_device_reg32_access_check(device);
+		AD9081_ERROR_RETURN(err);
+	}
 
 	/* log laminate and die id */
 	err = adi_ad9081_device_laminate_id_get(device, &laminate_id);
 	AD9081_ERROR_RETURN(err);
 	err = adi_ad9081_device_die_id_get(device, &die_id);
+	AD9081_ERROR_RETURN(err);
+
+	/* ad9081api-621 */
+	err = adi_ad9081_hal_bf_set(device, 0x21b2, 0x0104,
+				    0x1); /* ckt_reset_bypass_en_shadow */
 	AD9081_ERROR_RETURN(err);
 
 	return API_CMS_ERROR_OK;
@@ -86,38 +101,50 @@ int32_t adi_ad9081_device_boot_post_clock(adi_ad9081_device_t *device)
 	AD9081_LOG_FUNC();
 
 	/* bypass the boot loader's power up sequence */
-	err = adi_ad9081_hal_bf_set(
-		device, 0x01001618, 0x0100,
-		0); /* pup1_startup_bypass_en@alt_boot_reg6 */
-	AD9081_ERROR_RETURN(err);
-	err = adi_ad9081_hal_bf_set(
-		device, 0x01001618, 0x0101,
-		0); /* pup2_clockenable_bypass_en@alt_boot_reg6 */
-	AD9081_ERROR_RETURN(err);
-	err = adi_ad9081_hal_bf_set(
-		device, 0x01001610, 0x0113,
-		1); /* pll_lock_check_disable@alt_boot_reg4 */
-	AD9081_ERROR_RETURN(err);
-	err = adi_ad9081_hal_bf_set(
-		device, 0x01001618, 0x0102,
-		0); /* pup4a_dacenable_bypass_en@alt_boot_reg6 */
-	AD9081_ERROR_RETURN(err);
-	err = adi_ad9081_hal_bf_set(
-		device, 0x01001618, 0x0103,
-		0); /* pup4b_adcenable_bypass_en@alt_boot_reg6 */
-	AD9081_ERROR_RETURN(err);
-	err = adi_ad9081_hal_bf_set(
-		device, 0x01001618, 0x0104,
-		0); /* pup5_dacdll_bypass_en@alt_boot_reg6 */
-	AD9081_ERROR_RETURN(err);
-	err = adi_ad9081_hal_bf_set(
-		device, 0x01001618, 0x0105,
-		1); /* pup6_daccal_bypass_en@alt_boot_reg6 */
-	AD9081_ERROR_RETURN(err);
-	err = adi_ad9081_hal_bf_set(
-		device, 0x01001618, 0x0106,
-		0); /* pup6_daccalwait_bypass_en@alt_boot_reg6 */
-	AD9081_ERROR_RETURN(err);
+	if (device->dev_info.dev_rev == 1) { /* r1 */
+		err = adi_ad9081_hal_bf_set(
+			device, 0x01001618, 0x0100,
+			0); /* pup1_startup_bypass_en@alt_boot_reg6 */
+		AD9081_ERROR_RETURN(err);
+		err = adi_ad9081_hal_bf_set(
+			device, 0x01001618, 0x0101,
+			0); /* pup2_clockenable_bypass_en@alt_boot_reg6 */
+		AD9081_ERROR_RETURN(err);
+		err = adi_ad9081_hal_bf_set(
+			device, 0x01001610, 0x0113,
+			1); /* pll_lock_check_disable@alt_boot_reg4 */
+		AD9081_ERROR_RETURN(err);
+		err = adi_ad9081_hal_bf_set(
+			device, 0x01001618, 0x0102,
+			0); /* pup4a_dacenable_bypass_en@alt_boot_reg6 */
+		AD9081_ERROR_RETURN(err);
+		err = adi_ad9081_hal_bf_set(
+			device, 0x01001618, 0x0103,
+			0); /* pup4b_adcenable_bypass_en@alt_boot_reg6 */
+		AD9081_ERROR_RETURN(err);
+		err = adi_ad9081_hal_bf_set(
+			device, 0x01001618, 0x0104,
+			0); /* pup5_dacdll_bypass_en@alt_boot_reg6 */
+		AD9081_ERROR_RETURN(err);
+		err = adi_ad9081_hal_bf_set(
+			device, 0x01001618, 0x0105,
+			1); /* pup6_daccal_bypass_en@alt_boot_reg6 */
+		AD9081_ERROR_RETURN(err);
+		err = adi_ad9081_hal_bf_set(
+			device, 0x01001618, 0x0106,
+			0); /* pup6_daccalwait_bypass_en@alt_boot_reg6 */
+		AD9081_ERROR_RETURN(err);
+	}
+	if (device->dev_info.dev_rev == 2 ||
+	    device->dev_info.dev_rev == 3) { /* r1r/r2 */
+		/* @msg3: bit0: pll_lock_check_disable,     bit1: pup1_startup_bypass_en
+         *        bit2: pup2_clockenable_bypass_en, bit3: pup4a_dacenable_bypass_en
+         *        bit4: pup4b_adcenable_bypass_en,  bit5: pup5_dacdll_bypass_en
+         *        bit6: pup6_daccal_bypass_en,      bit7: pup6_daccalwait_bypass_en
+         */
+		err = adi_ad9081_hal_reg_set(device, 0x3743, 0x01);
+		AD9081_ERROR_RETURN(err);
+	}
 
 	/* trigger edge interrupt */
 	err = adi_ad9081_hal_bf_set(device, REG_UP_CTRL_ADDR,
@@ -168,19 +195,14 @@ int32_t adi_ad9081_device_clk_pll_lock_status_get(adi_ad9081_device_t *device,
 						  uint8_t *status)
 {
 	int32_t err;
-	uint8_t pll_lock_fast, pll_lock_slow;
 	AD9081_NULL_POINTER_RETURN(device);
 	AD9081_LOG_FUNC();
 	AD9081_NULL_POINTER_RETURN(status);
 
-	/* check pll lock status */
-	err = adi_ad9081_hal_bf_get(device, REG_CLK_PLL_STATUS_ADDR,
-				    BF_PLL_LOCK_FAST_INFO, &pll_lock_fast, 1);
+	/* check pll lock status, bit0 : lock_slow, bit1: lock_fast */
+	err = adi_ad9081_hal_reg_get(device, REG_CLK_PLL_STATUS_ADDR, status);
 	AD9081_ERROR_RETURN(err);
-	err = adi_ad9081_hal_bf_get(device, REG_CLK_PLL_STATUS_ADDR,
-				    BF_PLL_LOCK_SLOW_INFO, &pll_lock_slow, 1);
-	AD9081_ERROR_RETURN(err);
-	*status = (pll_lock_fast << 1) | pll_lock_slow;
+	*status = *status & 0x03;
 
 	return API_CMS_ERROR_OK;
 }
@@ -195,38 +217,11 @@ int32_t adi_ad9081_device_clk_pll_enable_set(adi_ad9081_device_t *device,
 	err = adi_ad9081_hal_bf_set(device, REG_PLL_BYPASS_ADDR,
 				    BF_PLL_BYPASS_INFO, !pll_en);
 	AD9081_ERROR_RETURN(err);
-	err = adi_ad9081_hal_bf_set(device, REG_POWERDOWN_REG_0_ADDR,
-				    BF_D_PD_REG_INFO, !pll_en);
+	err = adi_ad9081_hal_reg_set(device, REG_POWERDOWN_REG_0_ADDR,
+				     pll_en > 0 ? 0x00 : 0x9f);
 	AD9081_ERROR_RETURN(err);
-	err = adi_ad9081_hal_bf_set(device, REG_POWERDOWN_REG_0_ADDR,
-				    BF_D_PD_CURR_INFO, !pll_en);
-	AD9081_ERROR_RETURN(err);
-	err = adi_ad9081_hal_bf_set(device, REG_POWERDOWN_REG_0_ADDR,
-				    BF_D_PD_VCO_BUF_INFO, !pll_en);
-	AD9081_ERROR_RETURN(err);
-	err = adi_ad9081_hal_bf_set(device, REG_POWERDOWN_REG_0_ADDR,
-				    BF_D_PD_VCO_DRIVER_INFO, !pll_en);
-	AD9081_ERROR_RETURN(err);
-	err = adi_ad9081_hal_bf_set(device, REG_POWERDOWN_REG_0_ADDR,
-				    BF_D_PD_VCO_DIV_INFO, !pll_en);
-	AD9081_ERROR_RETURN(err);
-	err = adi_ad9081_hal_bf_set(device, REG_POWERDOWN_REG_0_ADDR,
-				    BF_D_PD_DIV8_INFO, !pll_en);
-	AD9081_ERROR_RETURN(err);
-	err = adi_ad9081_hal_bf_set(device, REG_POWERDOWN_REG_1_ADDR,
-				    BF_D_PD_CP_INFO, !pll_en);
-	AD9081_ERROR_RETURN(err);
-	err = adi_ad9081_hal_bf_set(device, REG_POWERDOWN_REG_1_ADDR,
-				    BF_D_PD_COARSE_BUFF_INFO, !pll_en);
-	AD9081_ERROR_RETURN(err);
-	err = adi_ad9081_hal_bf_set(device, REG_POWERDOWN_REG_1_ADDR,
-				    BF_D_PD_VCM_F_INFO, !pll_en);
-	AD9081_ERROR_RETURN(err);
-	err = adi_ad9081_hal_bf_set(device, REG_POWERDOWN_REG_1_ADDR,
-				    BF_D_PD_VCM_C_INFO, !pll_en);
-	AD9081_ERROR_RETURN(err);
-	err = adi_ad9081_hal_bf_set(device, REG_POWERDOWN_REG_1_ADDR,
-				    BF_D_PD_REFCLK_DIV_INFO, !pll_en);
+	err = adi_ad9081_hal_reg_set(device, REG_POWERDOWN_REG_1_ADDR,
+				     pll_en > 0 ? 0x00 : 0x1f);
 	AD9081_ERROR_RETURN(err);
 
 	return API_CMS_ERROR_OK;
@@ -268,37 +263,11 @@ int32_t adi_ad9081_device_clk_pll_div_set(adi_ad9081_device_t *device,
 	AD9081_ERROR_RETURN(err);
 
 	/* reset dividers */
-	err = adi_ad9081_hal_bf_set(device, REG_RESET_REG_ADDR,
-				    BF_D_RESET_FEEDBACK_DIV_INFO, 0x1);
-	AD9081_ERROR_RETURN(err);
-	err = adi_ad9081_hal_bf_set(device, REG_RESET_REG_ADDR,
-				    BF_D_RESET_REF_DIV_INFO, 0x1);
-	AD9081_ERROR_RETURN(err);
-	err = adi_ad9081_hal_bf_set(device, REG_RESET_REG_ADDR,
-				    BF_D_PFD_RESET_INFO, 0x1);
-	AD9081_ERROR_RETURN(err);
-	err = adi_ad9081_hal_bf_set(device, REG_RESET_REG_ADDR,
-				    BF_D_CAL_RESET_INFO, 0x1);
-	AD9081_ERROR_RETURN(err);
-	err = adi_ad9081_hal_bf_set(device, REG_RESET_REG_ADDR,
-				    BF_D_RESET_VCO_DIV_INFO, 0x1);
+	err = adi_ad9081_hal_reg_set(device, REG_RESET_REG_ADDR, 0x1f);
 	AD9081_ERROR_RETURN(err);
 
-	/* stop resetting dividers */
-	err = adi_ad9081_hal_bf_set(device, REG_RESET_REG_ADDR,
-				    BF_D_RESET_FEEDBACK_DIV_INFO, 0x0);
-	AD9081_ERROR_RETURN(err);
-	err = adi_ad9081_hal_bf_set(device, REG_RESET_REG_ADDR,
-				    BF_D_RESET_REF_DIV_INFO, 0x0);
-	AD9081_ERROR_RETURN(err);
-	err = adi_ad9081_hal_bf_set(device, REG_RESET_REG_ADDR,
-				    BF_D_PFD_RESET_INFO, 0x0);
-	AD9081_ERROR_RETURN(err);
-	err = adi_ad9081_hal_bf_set(device, REG_RESET_REG_ADDR,
-				    BF_D_CAL_RESET_INFO, 0x0);
-	AD9081_ERROR_RETURN(err);
-	err = adi_ad9081_hal_bf_set(device, REG_RESET_REG_ADDR,
-				    BF_D_RESET_VCO_DIV_INFO, 0x0);
+	/* release dividers */
+	err = adi_ad9081_hal_reg_set(device, REG_RESET_REG_ADDR, 0x00);
 	AD9081_ERROR_RETURN(err);
 
 	/* set dividers */
@@ -500,11 +469,41 @@ int32_t adi_ad9081_device_clk_up_div_set(adi_ad9081_device_t *device,
 	err = adi_ad9081_hal_bf_set(device, REG_SPI_ENABLE_DAC_ADDR,
 				    BF_SPI_EN_D2ACENTER_INFO, 0x1);
 	AD9081_ERROR_RETURN(err);
-	err = adi_ad9081_hal_reg_set(
-		device, 0x01001614,
-		(in_div_spi << 31) | (cdiv << 24) | (mdiv << 16) |
-			(sdiv << 12) | (pdiv << 8) | cdiv); /* @alt_boot_reg5 */
-	AD9081_ERROR_RETURN(err);
+	if (device->dev_info.dev_rev == 1) { /* r1 */
+		err = adi_ad9081_hal_reg_set(
+			device, 0x01001614,
+			(in_div_spi << 31) | (cdiv << 24) | (mdiv << 16) |
+				(sdiv << 12) | (pdiv << 8) |
+				cdiv); /* @alt_boot_reg5 */
+		AD9081_ERROR_RETURN(err);
+	}
+	if (device->dev_info.dev_rev == 2 ||
+	    device->dev_info.dev_rev == 3) { /* r1r/r2 */
+		err = adi_ad9081_hal_bf_set(
+			device, 0x21b3, 0x0500,
+			cdiv); /* cdiv_firm_user@up_clk_div_1 */
+		AD9081_ERROR_RETURN(err);
+		err = adi_ad9081_hal_bf_set(
+			device, 0x21b3, 0x0107,
+			in_div_spi); /* uc_clk_sel_firm_user@up_clk_div_1 */
+		AD9081_ERROR_RETURN(err);
+		err = adi_ad9081_hal_bf_set(
+			device, 0x21b4, 0x0300,
+			pdiv); /* pdiv_firm_user@up_clk_div_2 */
+		AD9081_ERROR_RETURN(err);
+		err = adi_ad9081_hal_bf_set(
+			device, 0x21b4, 0x0304,
+			sdiv); /* sdiv_firm_user@up_clk_div_2 */
+		AD9081_ERROR_RETURN(err);
+		err = adi_ad9081_hal_bf_set(
+			device, 0x21b5, 0x0800,
+			mdiv); /* mdiv_firm_user@up_clk_div_3 */
+		AD9081_ERROR_RETURN(err);
+		err = adi_ad9081_hal_bf_set(
+			device, 0x21b3, 0x0106,
+			1); /* crp_change_en_user@up_clk_div_1 */
+		AD9081_ERROR_RETURN(err);
+	}
 
 	return API_CMS_ERROR_OK;
 }
@@ -857,9 +856,9 @@ int32_t adi_ad9081_device_init(adi_ad9081_device_t *device)
 
 	/* log API information */
 	err = adi_ad9081_hal_log_write(
-		device, ADI_CMS_LOG_MSG, "api v%d.%d.%d commit %s for ad%x r1",
+		device, ADI_CMS_LOG_MSG, "api v%d.%d.%d commit %s for ad%x ",
 		ad9081_api_revision[0], ad9081_api_revision[1],
-		ad9081_api_revision[2], "375c5c0", AD9081_ID);
+		ad9081_api_revision[2], "724378a", AD9081_ID);
 	AD9081_ERROR_RETURN(err);
 
 	/* get host cpu endian mode */
@@ -868,16 +867,12 @@ int32_t adi_ad9081_device_init(adi_ad9081_device_t *device)
 	else
 		AD9081_LOG_MSG("host is using big endian mode.");
 
-	/* configure spi */
+	/* configure spi pol/mode */
 	err = adi_ad9081_device_spi_config(device);
 	AD9081_ERROR_RETURN(err);
 
-	/* 8bit reg read/write test */
+	/* test 8bit reg r/w */
 	err = adi_ad9081_device_reg8_access_check(device);
-	AD9081_ERROR_RETURN(err);
-
-	/* 32bit reg read/write test */
-	err = adi_ad9081_device_reg32_access_check(device);
 	AD9081_ERROR_RETURN(err);
 
 	/* check power status */
@@ -1045,7 +1040,18 @@ int32_t adi_ad9081_device_firmware_revision_get(adi_ad9081_device_t *device,
 	AD9081_LOG_FUNC();
 	AD9081_NULL_POINTER_RETURN(rev);
 
-	return adi_ad9081_hal_reg_get(device, 0x01001578, (uint8_t *)rev);
+	if (device->dev_info.dev_rev == 1) { /* r1 */
+		return adi_ad9081_hal_reg_get(device, 0x01001578,
+					      (uint8_t *)rev);
+	}
+	if (device->dev_info.dev_rev == 2) { /* r1r */
+		return adi_ad9081_hal_reg_get(device, 0x2126, (uint8_t *)rev);
+	}
+	if (device->dev_info.dev_rev == 3) { /* r2 */
+		return adi_ad9081_hal_reg_get(device, 0x2130, (uint8_t *)rev);
+	}
+
+	return API_CMS_ERROR_OK;
 }
 
 int32_t
@@ -1056,7 +1062,18 @@ adi_ad9081_device_firmware_patch_revision_get(adi_ad9081_device_t *device,
 	AD9081_LOG_FUNC();
 	AD9081_NULL_POINTER_RETURN(rev);
 
-	return adi_ad9081_hal_reg_get(device, 0x0100156c, (uint8_t *)rev);
+	if (device->dev_info.dev_rev == 1) { /* r1 */
+		return adi_ad9081_hal_reg_get(device, 0x0100156c,
+					      (uint8_t *)rev);
+	}
+	if (device->dev_info.dev_rev == 2) { /* r1r */
+		return adi_ad9081_hal_reg_get(device, 0x2127, (uint8_t *)rev);
+	}
+	if (device->dev_info.dev_rev == 3) { /* r2 */
+		return adi_ad9081_hal_reg_get(device, 0x2131, (uint8_t *)rev);
+	}
+
+	return API_CMS_ERROR_OK;
 }
 
 int32_t adi_ad9081_device_laminate_id_get(adi_ad9081_device_t *device,
