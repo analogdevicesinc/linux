@@ -103,9 +103,6 @@ enum dds_data_select {
 
 #define ADI_REG_DAC_GP_CONTROL	0x00BC
 
-#define ADI_REG_DAC_DP_DISABLE	0x00C0
-#define ADI_DAC_DP_DISABLE	(1 << 0)
-
 /* JESD TPL */
 
 #define ADI_REG_TPL_CNTRL		0x0200
@@ -226,7 +223,6 @@ struct cf_axi_dds_chip_info {
 	const char *name;
 	unsigned int num_channels;
 	unsigned int num_dds_channels;
-	unsigned int num_dp_disable_channels;
 	unsigned int num_buf_channels;
 	unsigned num_shadow_slave_channels;
 	const unsigned long *scan_masks;
