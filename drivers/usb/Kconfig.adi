@@ -1,0 +1,43 @@
+
+# This file exists solely to be include in Kconfig.adi
+
+config USB_ALL_ADI_DRIVERS
+	tristate "Build all USB drivers for the Analog Devices kernel"
+	select USB
+	select USB_SUPPORT
+	select USB_SERIAL
+	select USB_HIDDEV
+	select USB_ANNOUNCE_NEW_DEVICES
+	select USB_OTG
+	select USB_OTG_FSM
+	select USB_UAS
+	select USB_EHCI_HCD
+	select USB_STORAGE
+	select USB_MASS_STORAGE
+	select USB_CHIPIDEA
+	select USB_CHIPIDEA_UDC
+	select USB_CHIPIDEA_HOST
+	select USB_SERIAL_GENERIC
+	select USB_SERIAL_FTDI_SIO
+	select USB_ULPI
+	select USB_GADGET
+	select USB_GADGET_XILINX
+	select USB_CONFIGFS
+	select USB_CONFIGFS_SERIAL
+	select USB_CONFIGFS_ACM
+	select USB_CONFIGFS_NCM
+	select USB_CONFIGFS_ECM
+	select USB_CONFIGFS_ECM_SUBSET
+	select USB_CONFIGFS_RNDIS
+	select USB_CONFIGFS_EEM
+	select USB_CONFIGFS_MASS_STORAGE
+	select USB_CONFIGFS_F_FS
+	select USB_F_RNDIS
+	select USB_SERIAL_UPD78F0730
+	select USB_DWC2
+	select USB_DWC3
+	select USB_XHCI_HCD
+	select NOP_USB_XCEIV
+	select USB_USBNET
+	select USB_DEFAULT_PERSIST
+	select TYPEC
