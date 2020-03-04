@@ -63,6 +63,16 @@ properties:
       - maximum: 40000
     maxItems: 1
 
+  adi,temperature-single-point-calibration:
+    description:
+      Single point calibration tuple for the temperature sensor. It should be
+      a pair of temperature (in degrees celsius) and a raw value correspondent
+      to the sensor reading for the given temperature.
+    allOf:
+      - $ref: /schemas/types.yaml#/definitions/int32-array
+      - minItems: 2
+        maxItems: 2
+
 patternProperties:
   "^($clock-names-)?clock-scales":
     description:
