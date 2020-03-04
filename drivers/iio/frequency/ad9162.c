@@ -27,9 +27,18 @@
 
 #include "ad916x/AD916x.h"
 
+#define AD9162_REG_TEMP_SENS_LSB	0x132
+#define AD9162_REG_TEMP_SENS_MSB	0x133
+#define AD9162_REG_TEMP_UPDATE		0x134
+#define AD9162_TEMP_UPDATE		0x01
+#define AD9162_REG_TEMP_CTRL		0x135
+#define AD9162_TEMP_ENABLE		0xA1
 
 #define to_ad916x_state(__conv)	\
 	container_of(__conv, struct ad9162_state, conv)
+
+#define ad9162_temp_slope(tref, code) \
+		DIV_ROUND_CLOSEST(((tref) + 190) * 1000, (code))
 
 #define AD916X_TEST_WORD_MAX	0x7FFF
 
@@ -41,6 +50,7 @@ enum ad916x_variant {
 enum {
 	AD916x_NCO_FREQ,
 	AD916x_SAMPLING_FREQUENCY,
+	AD916x_TEMP_CALIB,
 };
 
 struct ad916x_chip_info {
@@ -97,8 +107,29 @@ static int ad9162_write(struct spi_device *spi, unsigned int reg,
 	return regmap_write(st->map, reg, val);
 }
 
-static int ad9162_get_temperature_code(struct cf_axi_converter *conv)
+static int ad9162_get_temperature_code(struct ad9162_state *st, u16 *code)
 {
+	int ret;
+	u8 _val_lsb = 0, _val_msb = 0;
+
+	/* update the sensor with a new value */
+	ret = ad916x_register_write(&st->dac_h, AD9162_REG_TEMP_UPDATE,
+				    AD9162_TEMP_UPDATE);
+	if (ret)
+		return ret;
+
+	ret = ad916x_register_read(&st->dac_h, AD9162_REG_TEMP_SENS_LSB,
+				   &_val_lsb);
+	if (ret)
+		return ret;
+
+	ret = ad916x_register_read(&st->dac_h, AD9162_REG_TEMP_SENS_MSB,
+				   &_val_msb);
+	if (ret)
+		return ret;
+
+	*code = (_val_msb << 8) | _val_lsb;
+
 	return 0;
 }
 
@@ -229,7 +260,7 @@ static int ad9162_setup(struct ad9162_state *st)
 	ad916x_chip_id_t dac_chip_id;
 	int ret = 0;
 	u64 dac_rate_Hz;
-	u32 fsc;
+	u32 fsc, sgl_pt[2];
 	ad916x_handle_t *ad916x_h = &st->dac_h;
 
 	/* Initialise DAC Module */
@@ -279,6 +310,28 @@ static int ad9162_setup(struct ad9162_state *st)
 
 	dev_dbg(dev, "DAC CLK rate: %llu\n", dac_rate_Hz);
 
+	/* enable temperature sensor */
+	ret = ad916x_register_write(ad916x_h, AD9162_REG_TEMP_CTRL,
+				    AD9162_TEMP_ENABLE);
+	if (ret) {
+		dev_err(dev, "Failed to enable the temperature sensor\n");
+		return ret;
+	}
+	/* check for sensor calibration point */
+	ret = device_property_read_u32_array(dev,
+					     "adi,temperature-single-point-calibration",
+					     sgl_pt, ARRAY_SIZE(sgl_pt));
+	if (!ret) {
+		if (!sgl_pt[1]) {
+			dev_err(dev,
+				"adi,temperature-single-point-calibration: Raw code cannot be 0!\n");
+			return -EINVAL;
+		}
+		st->conv.temp_calib = sgl_pt[0];
+		st->conv.temp_calib_code = sgl_pt[1];
+		st->conv.temp_slope = ad9162_temp_slope(sgl_pt[0], sgl_pt[1]);
+	}
+
 	return 0;
 }
 
@@ -323,7 +376,7 @@ static int ad9162_read_raw(struct iio_dev *indio_dev,
 	struct ad9162_state *st = to_ad916x_state(conv);
 	unsigned int tmp;
 	int ret;
-	u16 amplitude_raw;
+	u16 amplitude_raw, code;
 
 	switch (m) {
 	case IIO_CHAN_INFO_SAMP_FREQ:
@@ -335,24 +388,43 @@ static int ad9162_read_raw(struct iio_dev *indio_dev,
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_PROCESSED:
 		if (!conv->temp_calib_code)
-			return -EINVAL;
+			return -ENOTSUPP;
 
-		tmp = ad9162_get_temperature_code(conv);
-
-		*val = ((tmp - conv->temp_calib_code) * 77
-			+ conv->temp_calib * 10 + 10000) / 10;
-
-		return IIO_VAL_INT;
-	case IIO_CHAN_INFO_RAW:
-		mutex_lock(&st->lock);
-		ret = ad916x_dc_test_get_mode(&st->dac_h, &amplitude_raw,
-					      &tmp);
-		mutex_unlock(&st->lock);
-		if (ret)
+		ret = ad9162_get_temperature_code(st, &code);
+		if (ret < 0)
 			return ret;
 
-		*val = amplitude_raw;
+		/* value in milli degrees */
+		*val = 1000 * conv->temp_calib + conv->temp_slope *
+					(code - conv->temp_calib_code);
 		return IIO_VAL_INT;
+	case IIO_CHAN_INFO_RAW:
+		switch (chan->type) {
+		case IIO_ALTVOLTAGE:
+			mutex_lock(&st->lock);
+			ret = ad916x_dc_test_get_mode(&st->dac_h,
+						      &amplitude_raw,
+						      &tmp);
+			mutex_unlock(&st->lock);
+
+			if (ret)
+				return ret;
+
+			*val = amplitude_raw;
+			return IIO_VAL_INT;
+		case IIO_TEMP:
+			mutex_lock(&st->lock);
+			ret = ad9162_get_temperature_code(st, &code);
+			mutex_unlock(&st->lock);
+
+			if (ret)
+				return ret;
+
+			*val = code;
+			return IIO_VAL_INT;
+		default:
+			return -EINVAL;
+		}
 	}
 	return -EINVAL;
 }
@@ -368,14 +440,6 @@ static int ad9162_write_raw(struct iio_dev *indio_dev,
 	switch (mask) {
 	case IIO_CHAN_INFO_CALIBBIAS:
 		conv->temp_calib_code = val;
-		break;
-	case IIO_CHAN_INFO_PROCESSED:
-		/*
-		 * Writing in_temp0_input with the device temperature in milli
-		 * degrees Celsius triggers the calibration.
-		 */
-		conv->temp_calib_code = ad9162_get_temperature_code(conv);
-		conv->temp_calib = val;
 		break;
 	case IIO_CHAN_INFO_RAW:
 		if (val > AD916X_TEST_WORD_MAX || val < 0)
@@ -525,7 +589,8 @@ static ssize_t ad916x_write_ext(struct iio_dev *indio_dev,
 	struct cf_axi_converter *conv = iio_device_get_drvdata(indio_dev);
 	struct ad9162_state *st = to_ad916x_state(conv);
 	s64 freq_hz;
-	u16 test_word;
+	int tref;
+	u16 test_word, code;
 	u64 samp_freq_hz;
 	/* en just because we have to pass it to ad916x_dc_test_get_mod */
 	int ret, en;
@@ -553,6 +618,20 @@ static ssize_t ad916x_write_ext(struct iio_dev *indio_dev,
 			break;
 
 		ret = ad916x_set_data_clk(st, samp_freq_hz);
+		break;
+	case AD916x_TEMP_CALIB:
+		/* value in milli degrees */
+		ret = kstrtoint(buf, 10, &tref);
+		if (ret)
+			break;
+
+		ret = ad9162_get_temperature_code(st, &code);
+		if (ret < 0 || code == 0)
+			break;
+
+		conv->temp_calib = DIV_ROUND_CLOSEST(tref, 1000);
+		conv->temp_slope = ad9162_temp_slope(conv->temp_calib, code);
+		conv->temp_calib_code = code;
 		break;
 	default:
 		ret = -EINVAL;
@@ -622,7 +701,13 @@ static const struct iio_chan_spec_ext_info ad916x_ext_info[] = {
 	{},
 };
 
-#define AD916x_CHAN(index) { \
+static const struct iio_chan_spec_ext_info ad916x_temp_ext_info[] = {
+	_AD916x_CHAN_EXT_INFO("single_point_calib", AD916x_TEMP_CALIB,
+			      IIO_SEPARATE),
+	{},
+};
+
+#define AD916x_VOLTAGE_CHAN(index) { \
 	.type = IIO_ALTVOLTAGE,	\
 	.indexed = 1, \
 	.channel = index, \
@@ -631,8 +716,18 @@ static const struct iio_chan_spec_ext_info ad916x_ext_info[] = {
 	.ext_info = ad916x_ext_info, \
 }
 
+#define AD916x_TEMP_CHAN(index) { \
+	.type = IIO_TEMP,	\
+	.indexed = 1, \
+	.channel = index, \
+	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) | \
+			BIT(IIO_CHAN_INFO_PROCESSED), \
+	.ext_info = ad916x_temp_ext_info, \
+}
+
 static const struct iio_chan_spec ad916x_chann_spec[] = {
-	AD916x_CHAN(0),
+	AD916x_VOLTAGE_CHAN(0),
+	AD916x_TEMP_CHAN(0),
 };
 
 /*
@@ -648,7 +743,7 @@ static struct ad916x_chip_info ad916x_info[] = {
 		.channels = ad916x_chann_spec,
 	},
 	[AD9166] = {
-		.num_channels = 1,
+		.num_channels = 2,
 		.channels = ad916x_chann_spec,
 	}
 };
