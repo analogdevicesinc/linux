@@ -333,6 +333,14 @@ void lcdifv3_set_fb_hcrop(struct lcdifv3_soc *lcdifv3, u32 src_w,
 	/* config pitch */
 	ctrldescl0_3 |= CTRLDESCL0_3_PITCH(pitch);
 
+	/* enable frame clear to clear FIFO data on
+	 * every vsync blank period to make sure no
+	 * dirty data exits to affect next frame
+	 * display, otherwise some flicker issue may
+	 * be observed in some cases.
+	 */
+	ctrldescl0_3 |= CTRLDESCL0_3_STATE_CLEAR_VSYNC;
+
 	writel(ctrldescl0_3, lcdifv3->base + LCDIFV3_CTRLDESCL0_3);
 }
 EXPORT_SYMBOL(lcdifv3_set_fb_hcrop);
