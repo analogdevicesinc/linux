@@ -96,7 +96,7 @@
 			clocks = <&trx3_ad9081 1>;
 			clock-names = "sampl_clk";
 			spibus-connected = <&trx3_ad9081>;
-			//adi,axi-pl-fifo-enable;
+			adi,axi-pl-fifo-enable;
 		};
 
 		axi_ad9081_rx_jesd: axi-jesd204-rx@44a90000 {
