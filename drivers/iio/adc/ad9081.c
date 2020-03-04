@@ -1385,7 +1385,7 @@ static int ad9081_setup(struct spi_device *spi, bool ad9234)
 	struct ad9081_phy *phy = conv->phy;
 	struct clock_scale devclk_clkscale;
 	u64 dev_frequency_hz, sample_rate, status64;
-	unsigned long lane_rate_kbps;
+	unsigned long rx_lane_rate_kbps, tx_lane_rate_kbps;
 	int ret, i, stat, retry = 5;
 	adi_cms_jesd_param_t jesd_param[2];
 	adi_ad9081_jtx_conv_sel_t jesd_conv_sel[2];
@@ -1395,15 +1395,15 @@ static int ad9081_setup(struct spi_device *spi, bool ad9234)
 	dev_frequency_hz = clk_get_rate_scaled(phy->dev_clk, &devclk_clkscale);
 
 	if (!IS_ERR_OR_NULL(phy->jesd_tx_clk)) {
-		lane_rate_kbps =
+		tx_lane_rate_kbps =
 			ad9081_calc_lanerate(&phy->jesd_tx_link,
 				phy->dac_frequency_hz,
 				phy->tx_main_interp * phy->tx_chan_interp);
 
-		ret = clk_set_rate(phy->jesd_tx_clk, lane_rate_kbps);
+		ret = clk_set_rate(phy->jesd_tx_clk, tx_lane_rate_kbps);
 		if (ret < 0) {
 			dev_err(&spi->dev, "Failed to set lane rate to %lu kHz: %d\n",
-				lane_rate_kbps, ret);
+				tx_lane_rate_kbps, ret);
 		}
 
 		ret = clk_prepare_enable(phy->jesd_tx_clk);
@@ -1418,6 +1418,11 @@ static int ad9081_setup(struct spi_device *spi, bool ad9234)
 	ret = adi_ad9081_hal_bf_set(&phy->ad9081, REG_SYNC_LMFC_DELAY_ADDR,
 		BF_SYNC_LMFC_DELAY_SET_INFO,
 		BF_SYNC_LMFC_DELAY_SET(phy->lmfc_delay));
+	if (ret != 0)
+		return ret;
+
+	/* AC couple SYSREF */
+	ret = adi_ad9081_jesd_rx_sysref_input_mode_set(&phy->ad9081, 0);
 	if (ret != 0)
 		return ret;
 
@@ -1560,15 +1565,22 @@ static int ad9081_setup(struct spi_device *spi, bool ad9234)
 
 
 	if (!IS_ERR_OR_NULL(phy->jesd_rx_clk)) {
-		lane_rate_kbps = ad9081_calc_lanerate(&phy->jesd_rx_link[0],
+		rx_lane_rate_kbps = ad9081_calc_lanerate(&phy->jesd_rx_link[0],
 						phy->adc_frequency_hz,
 						dcm);
 
-		ret = clk_set_rate(phy->jesd_rx_clk, lane_rate_kbps);
+		ret = clk_set_rate(phy->jesd_rx_clk, rx_lane_rate_kbps);
 		if (ret < 0) {
 			dev_err(&spi->dev, "Failed to set lane rate to %lu kHz: %d\n",
-				lane_rate_kbps, ret);
+			rx_lane_rate_kbps, ret);
 		}
+	}
+
+	if ((phy->jesd_tx_link.jesd_param.jesd_jesdv == 2) &&
+		(tx_lane_rate_kbps > 16230000UL)) {
+		ret = adi_ad9081_jesd_rx_calibrate_204c(&phy->ad9081);
+		if (ret < 0)
+			return ret;
 	}
 
 	ret = adi_ad9081_jesd_rx_link_enable_set(&phy->ad9081,
@@ -1576,7 +1588,6 @@ static int ad9081_setup(struct spi_device *spi, bool ad9234)
 		AD9081_LINK_ALL : AD9081_LINK_0, 1);
 	if (ret != 0)
 		return ret;
-
 
 	if (!IS_ERR_OR_NULL(phy->jesd_rx_clk)) {
 		msleep(10);
