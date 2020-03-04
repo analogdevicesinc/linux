@@ -83,7 +83,6 @@ struct cf_axi_dds_state {
 	struct gpio_desc		*interpolation_gpio;
 
 	bool				standalone;
-	bool				dp_disable;
 	bool				enable;
 	bool				pl_dma_fifo_en;
 	enum fifo_ctrl			gpio_dma_fifo_ctrl;
@@ -1002,7 +1001,6 @@ static struct cf_axi_dds_chip_info cf_axi_dds_chip_info_tbl[] = {
 			CF_AXI_DDS_CHAN(3, 0, "2B"),
 		},
 		.num_channels = 7,
-		.num_dp_disable_channels = 3,
 		.num_dds_channels = 4,
 		.num_buf_channels = 2,
 	},
@@ -1038,7 +1036,6 @@ static struct cf_axi_dds_chip_info cf_axi_dds_chip_info_tbl[] = {
 			CF_AXI_DDS_CHAN(3, 0, "2B"),
 		},
 		.num_channels = 7,
-		.num_dp_disable_channels = 3,
 		.num_dds_channels = 4,
 		.num_buf_channels = 2,
 	},
@@ -1068,7 +1065,6 @@ static struct cf_axi_dds_chip_info cf_axi_dds_chip_info_tbl[] = {
 			CF_AXI_DDS_CHAN(7, 0, "4B"),
 		},
 		.num_channels = 13,
-		.num_dp_disable_channels = 5,
 		.num_dds_channels = 8,
 		.num_buf_channels = 4,
 	},
@@ -1098,7 +1094,6 @@ static struct cf_axi_dds_chip_info cf_axi_dds_chip_info_tbl[] = {
 			CF_AXI_DDS_CHAN(7, 0, "4B"),
 		},
 		.num_channels = 13,
-		.num_dp_disable_channels = 5,
 		.num_dds_channels = 8,
 		.num_buf_channels = 4,
 	},
@@ -1122,7 +1117,6 @@ static struct cf_axi_dds_chip_info cf_axi_dds_chip_info_tbl[] = {
 			CF_AXI_DDS_CHAN(3, 0, "2B"),
 		},
 		.num_channels = 7,
-		.num_dp_disable_channels = 3,
 		.num_dds_channels = 4,
 		.num_buf_channels = 2,
 	},
@@ -1160,7 +1154,6 @@ static struct cf_axi_dds_chip_info cf_axi_dds_chip_info_tbl[] = {
 			CF_AXI_DDS_CHAN(3, 0, "TX1_Q_F2"),
 		},
 		.num_channels = 6,
-		.num_dp_disable_channels = 2,
 		.num_dds_channels = 4,
 		.num_buf_channels = 2,
 	},
@@ -1182,7 +1175,6 @@ static struct cf_axi_dds_chip_info cf_axi_dds_chip_info_tbl[] = {
 
 		},
 		.num_channels = 12,
-		.num_dp_disable_channels = 4,
 		.num_dds_channels = 8,
 		.num_buf_channels = 4,
 	},
@@ -1209,7 +1201,6 @@ static struct cf_axi_dds_chip_info cf_axi_dds_chip_info_tbl[] = {
 			CF_AXI_DDS_CHAN(11, 0, "6B"),
 		},
 		.num_channels = 18,
-		.num_dp_disable_channels = 6,
 		.num_dds_channels = 12,
 		.num_buf_channels = 6,
 	},
@@ -1495,7 +1486,6 @@ static int cf_axi_dds_setup_chip_info_tbl(struct cf_axi_dds_state *st,
 	}
 
 	st->chip_info_generated.num_channels = c;
-	st->chip_info_generated.num_dp_disable_channels = m;
 	st->chip_info_generated.num_dds_channels = i;
 	st->chip_info_generated.num_buf_channels = m;
 	st->chip_info_generated.name = name;
@@ -1723,7 +1713,6 @@ static int cf_axi_dds_probe(struct platform_device *pdev)
 
 	st->standalone = info->standalone;
 	st->version = dds_read(st, ADI_AXI_REG_VERSION);
-	st->dp_disable = dds_read(st, ADI_REG_DAC_DP_DISABLE);
 
 	if (ADI_AXI_PCORE_VER_MAJOR(st->version) >
 		ADI_AXI_PCORE_VER_MAJOR(info->version)) {
@@ -1742,9 +1731,7 @@ static int cf_axi_dds_probe(struct platform_device *pdev)
 	indio_dev->name = np->name;
 	indio_dev->channels = st->chip_info->channel;
 	indio_dev->modes = INDIO_DIRECT_MODE;
-	indio_dev->num_channels = (st->dp_disable ?
-		st->chip_info->num_dp_disable_channels :
-		st->chip_info->num_channels);
+	indio_dev->num_channels = st->chip_info->num_channels;
 
 	st->iio_info = cf_axi_dds_info;
 	if (conv)
@@ -1801,7 +1788,7 @@ static int cf_axi_dds_probe(struct platform_device *pdev)
 
 	cf_axi_dds_datasel(st, -1, DATA_SEL_DDS);
 
-	if (!st->dp_disable) {
+	{
 		u32 scale, frequency, phase, i;
 
 		scale = 0x1000; /* 0.250 */
@@ -1854,7 +1841,7 @@ static int cf_axi_dds_probe(struct platform_device *pdev)
 	cf_axi_dds_start_sync(st);
 	cf_axi_dds_sync_frame(indio_dev);
 
-	if (!st->dp_disable && !dds_read(st, ADI_AXI_REG_ID)) {
+	if (!dds_read(st, ADI_AXI_REG_ID)) {
 
 		if (st->chip_info->num_shadow_slave_channels) {
 			u32 regs[2];
@@ -1936,7 +1923,7 @@ static int cf_axi_dds_remove(struct platform_device *pdev)
 
 	iio_device_unregister(indio_dev);
 
-	if (!st->dp_disable && !dds_read(st, ADI_AXI_REG_ID) &&
+	if (!dds_read(st, ADI_AXI_REG_ID) &&
 		of_find_property(pdev->dev.of_node, "dmas", NULL))
 		cf_axi_dds_unconfigure_buffer(indio_dev);
 
