@@ -29,6 +29,8 @@
 #define AD9081_TX_MAIN_NCO_SHIFT		2800000000
 #define AD9081_TX_CHAN_NCO_SHIFT		0
 
+#define AD9081_GAIN						2048
+
 #define AD9081_TX_JESD_MODE				9
 #define AD9081_TX_JESD_SUBCLASS			1
 #define AD9081_TX_JESD_VERSION			1
@@ -393,25 +395,25 @@
 
 				trx0_ad9081_tx_fddc_chan0: channel@0 {
 					reg = <0>;
-					adi,gain = <2048>; /* 2048 * 10^(gain_dB/20) */
+					adi,gain = <AD9081_GAIN>; /* value * 10^(gain_dB/20) */
 					adi,nco-frequency-shift-hz =  /bits/ 64 <AD9081_TX_CHAN_NCO_SHIFT>;
 
 				};
 				trx0_ad9081_tx_fddc_chan1: channel@1 {
 					reg = <1>;
-					adi,gain = <2048>; /* 2048 * 10^(gain_dB/20) */
+					adi,gain = <AD9081_GAIN>; /* value * 10^(gain_dB/20) */
 					adi,nco-frequency-shift-hz =  /bits/ 64 <AD9081_TX_CHAN_NCO_SHIFT>;
 
 				};
 				trx0_ad9081_tx_fddc_chan2: channel@2 {
 					reg = <2>;
-					adi,gain = <2048>; /* 2048 * 10^(gain_dB/20) */
+					adi,gain = <AD9081_GAIN>; /* value * 10^(gain_dB/20) */
 					adi,nco-frequency-shift-hz =  /bits/ 64 <AD9081_TX_CHAN_NCO_SHIFT>;
 
 				};
 				trx0_ad9081_tx_fddc_chan3: channel@3 {
 					reg = <3>;
-					adi,gain = <2048>; /* 2048 * 10^(gain_dB/20) */
+					adi,gain = <AD9081_GAIN>; /* value * 10^(gain_dB/20) */
 					adi,nco-frequency-shift-hz =  /bits/ 64 <AD9081_TX_CHAN_NCO_SHIFT>;
 
 				};
@@ -498,28 +500,28 @@
 				trx0_ad9081_rx_fddc_chan0: channel@0 {
 					reg = <0>;
 					adi,decimation = <AD9081_RX_CHAN_DECIMATION>;
-					adi,gain = <2048>; /* 2048 * 10^(gain_dB/20) */
+					adi,gain = <AD9081_GAIN>; /* value * 10^(gain_dB/20) */
 					adi,nco-frequency-shift-hz =  /bits/ 64 <AD9081_RX_CHAN_NCO_SHIFT>;
 
 				};
 				trx0_ad9081_rx_fddc_chan1: channel@1 {
 					reg = <1>;
 					adi,decimation = <AD9081_RX_CHAN_DECIMATION>;
-					adi,gain = <2048>; /* 2048 * 10^(gain_dB/20) */
+					adi,gain = <AD9081_GAIN>; /* value * 10^(gain_dB/20) */
 					adi,nco-frequency-shift-hz =  /bits/ 64 <AD9081_RX_CHAN_NCO_SHIFT>;
 
 				};
 				trx0_ad9081_rx_fddc_chan4: channel@4 {
 					reg = <4>;
 					adi,decimation = <AD9081_RX_CHAN_DECIMATION>;
-					adi,gain = <2048>; /* 2048 * 10^(gain_dB/20) */
+					adi,gain = <AD9081_GAIN>; /* value * 10^(gain_dB/20) */
 					adi,nco-frequency-shift-hz =  /bits/ 64 <AD9081_RX_CHAN_NCO_SHIFT>;
 
 				};
 				trx0_ad9081_rx_fddc_chan5: channel@5 {
 					reg = <5>;
 					adi,decimation = <AD9081_RX_CHAN_DECIMATION>;
-					adi,gain = <2048>; /* 2048 * 10^(gain_dB/20) */
+					adi,gain = <AD9081_GAIN>; /* value * 10^(gain_dB/20) */
 					adi,nco-frequency-shift-hz =  /bits/ 64 <AD9081_RX_CHAN_NCO_SHIFT>;
 
 				};
@@ -623,25 +625,25 @@
 
 				trx1_ad9081_tx_fddc_chan0: channel@0 {
 					reg = <0>;
-					adi,gain = <2048>; /* 2048 * 10^(gain_dB/20) */
+					adi,gain = <AD9081_GAIN>; /* value * 10^(gain_dB/20) */
 					adi,nco-frequency-shift-hz =  /bits/ 64 <AD9081_TX_CHAN_NCO_SHIFT>;
 
 				};
 				trx1_ad9081_tx_fddc_chan1: channel@1 {
 					reg = <1>;
-					adi,gain = <2048>; /* 2048 * 10^(gain_dB/20) */
+					adi,gain = <AD9081_GAIN>; /* value * 10^(gain_dB/20) */
 					adi,nco-frequency-shift-hz =  /bits/ 64 <AD9081_TX_CHAN_NCO_SHIFT>;
 
 				};
 				trx1_ad9081_tx_fddc_chan2: channel@2 {
 					reg = <2>;
-					adi,gain = <2048>; /* 2048 * 10^(gain_dB/20) */
+					adi,gain = <AD9081_GAIN>; /* value * 10^(gain_dB/20) */
 					adi,nco-frequency-shift-hz =  /bits/ 64 <AD9081_TX_CHAN_NCO_SHIFT>;
 
 				};
 				trx1_ad9081_tx_fddc_chan3: channel@3 {
 					reg = <3>;
-					adi,gain = <2048>; /* 2048 * 10^(gain_dB/20) */
+					adi,gain = <AD9081_GAIN>; /* value * 10^(gain_dB/20) */
 					adi,nco-frequency-shift-hz =  /bits/ 64 <AD9081_TX_CHAN_NCO_SHIFT>;
 
 				};
@@ -728,28 +730,28 @@
 				trx1_ad9081_rx_fddc_chan0: channel@0 {
 					reg = <0>;
 					adi,decimation = <AD9081_RX_CHAN_DECIMATION>;
-					adi,gain = <2048>; /* 2048 * 10^(gain_dB/20) */
+					adi,gain = <AD9081_GAIN>; /* value * 10^(gain_dB/20) */
 					adi,nco-frequency-shift-hz =  /bits/ 64 <AD9081_RX_CHAN_NCO_SHIFT>;
 
 				};
 				trx1_ad9081_rx_fddc_chan1: channel@1 {
 					reg = <1>;
 					adi,decimation = <AD9081_RX_CHAN_DECIMATION>;
-					adi,gain = <2048>; /* 2048 * 10^(gain_dB/20) */
+					adi,gain = <AD9081_GAIN>; /* value * 10^(gain_dB/20) */
 					adi,nco-frequency-shift-hz =  /bits/ 64 <AD9081_RX_CHAN_NCO_SHIFT>;
 
 				};
 				trx1_ad9081_rx_fddc_chan4: channel@4 {
 					reg = <4>;
 					adi,decimation = <AD9081_RX_CHAN_DECIMATION>;
-					adi,gain = <2048>; /* 2048 * 10^(gain_dB/20) */
+					adi,gain = <AD9081_GAIN>; /* value * 10^(gain_dB/20) */
 					adi,nco-frequency-shift-hz =  /bits/ 64 <AD9081_RX_CHAN_NCO_SHIFT>;
 
 				};
 				trx1_ad9081_rx_fddc_chan5: channel@5 {
 					reg = <5>;
 					adi,decimation = <AD9081_RX_CHAN_DECIMATION>;
-					adi,gain = <2048>; /* 2048 * 10^(gain_dB/20) */
+					adi,gain = <AD9081_GAIN>; /* value * 10^(gain_dB/20) */
 					adi,nco-frequency-shift-hz =  /bits/ 64 <AD9081_RX_CHAN_NCO_SHIFT>;
 
 				};
@@ -851,25 +853,25 @@
 
 				trx2_ad9081_tx_fddc_chan0: channel@0 {
 					reg = <0>;
-					adi,gain = <2048>; /* 2048 * 10^(gain_dB/20) */
+					adi,gain = <AD9081_GAIN>; /* value * 10^(gain_dB/20) */
 					adi,nco-frequency-shift-hz =  /bits/ 64 <AD9081_TX_CHAN_NCO_SHIFT>;
 
 				};
 				trx2_ad9081_tx_fddc_chan1: channel@1 {
 					reg = <1>;
-					adi,gain = <2048>; /* 2048 * 10^(gain_dB/20) */
+					adi,gain = <AD9081_GAIN>; /* value * 10^(gain_dB/20) */
 					adi,nco-frequency-shift-hz =  /bits/ 64 <AD9081_TX_CHAN_NCO_SHIFT>;
 
 				};
 				trx2_ad9081_tx_fddc_chan2: channel@2 {
 					reg = <2>;
-					adi,gain = <2048>; /* 2048 * 10^(gain_dB/20) */
+					adi,gain = <AD9081_GAIN>; /* value * 10^(gain_dB/20) */
 					adi,nco-frequency-shift-hz =  /bits/ 64 <AD9081_TX_CHAN_NCO_SHIFT>;
 
 				};
 				trx2_ad9081_tx_fddc_chan3: channel@3 {
 					reg = <3>;
-					adi,gain = <2048>; /* 2048 * 10^(gain_dB/20) */
+					adi,gain = <AD9081_GAIN>; /* value * 10^(gain_dB/20) */
 					adi,nco-frequency-shift-hz =  /bits/ 64 <AD9081_TX_CHAN_NCO_SHIFT>;
 
 				};
@@ -956,28 +958,28 @@
 				trx2_ad9081_rx_fddc_chan0: channel@0 {
 					reg = <0>;
 					adi,decimation = <AD9081_RX_CHAN_DECIMATION>;
-					adi,gain = <2048>; /* 2048 * 10^(gain_dB/20) */
+					adi,gain = <AD9081_GAIN>; /* value * 10^(gain_dB/20) */
 					adi,nco-frequency-shift-hz =  /bits/ 64 <AD9081_RX_CHAN_NCO_SHIFT>;
 
 				};
 				trx2_ad9081_rx_fddc_chan1: channel@1 {
 					reg = <1>;
 					adi,decimation = <AD9081_RX_CHAN_DECIMATION>;
-					adi,gain = <2048>; /* 2048 * 10^(gain_dB/20) */
+					adi,gain = <AD9081_GAIN>; /* value * 10^(gain_dB/20) */
 					adi,nco-frequency-shift-hz =  /bits/ 64 <AD9081_RX_CHAN_NCO_SHIFT>;
 
 				};
 				trx2_ad9081_rx_fddc_chan4: channel@4 {
 					reg = <4>;
 					adi,decimation = <AD9081_RX_CHAN_DECIMATION>;
-					adi,gain = <2048>; /* 2048 * 10^(gain_dB/20) */
+					adi,gain = <AD9081_GAIN>; /* value * 10^(gain_dB/20) */
 					adi,nco-frequency-shift-hz =  /bits/ 64 <AD9081_RX_CHAN_NCO_SHIFT>;
 
 				};
 				trx2_ad9081_rx_fddc_chan5: channel@5 {
 					reg = <5>;
 					adi,decimation = <AD9081_RX_CHAN_DECIMATION>;
-					adi,gain = <2048>; /* 2048 * 10^(gain_dB/20) */
+					adi,gain = <AD9081_GAIN>; /* value * 10^(gain_dB/20) */
 					adi,nco-frequency-shift-hz =  /bits/ 64 <AD9081_RX_CHAN_NCO_SHIFT>;
 
 				};
@@ -1082,25 +1084,25 @@
 
 				trx3_ad9081_tx_fddc_chan0: channel@0 {
 					reg = <0>;
-					adi,gain = <2048>; /* 2048 * 10^(gain_dB/20) */
+					adi,gain = <AD9081_GAIN>; /* value * 10^(gain_dB/20) */
 					adi,nco-frequency-shift-hz =  /bits/ 64 <AD9081_TX_CHAN_NCO_SHIFT>;
 
 				};
 				trx3_ad9081_tx_fddc_chan1: channel@1 {
 					reg = <1>;
-					adi,gain = <2048>; /* 2048 * 10^(gain_dB/20) */
+					adi,gain = <AD9081_GAIN>; /* value * 10^(gain_dB/20) */
 					adi,nco-frequency-shift-hz =  /bits/ 64 <AD9081_TX_CHAN_NCO_SHIFT>;
 
 				};
 				trx3_ad9081_tx_fddc_chan2: channel@2 {
 					reg = <2>;
-					adi,gain = <2048>; /* 2048 * 10^(gain_dB/20) */
+					adi,gain = <AD9081_GAIN>; /* value * 10^(gain_dB/20) */
 					adi,nco-frequency-shift-hz =  /bits/ 64 <AD9081_TX_CHAN_NCO_SHIFT>;
 
 				};
 				trx3_ad9081_tx_fddc_chan3: channel@3 {
 					reg = <3>;
-					adi,gain = <2048>; /* 2048 * 10^(gain_dB/20) */
+					adi,gain = <AD9081_GAIN>; /* value * 10^(gain_dB/20) */
 					adi,nco-frequency-shift-hz =  /bits/ 64 <AD9081_TX_CHAN_NCO_SHIFT>;
 
 				};
@@ -1187,28 +1189,28 @@
 				trx3_ad9081_rx_fddc_chan0: channel@0 {
 					reg = <0>;
 					adi,decimation = <AD9081_RX_CHAN_DECIMATION>;
-					adi,gain = <2048>; /* 2048 * 10^(gain_dB/20) */
+					adi,gain = <AD9081_GAIN>; /* value * 10^(gain_dB/20) */
 					adi,nco-frequency-shift-hz =  /bits/ 64 <AD9081_RX_CHAN_NCO_SHIFT>;
 
 				};
 				trx3_ad9081_rx_fddc_chan1: channel@1 {
 					reg = <1>;
 					adi,decimation = <AD9081_RX_CHAN_DECIMATION>;
-					adi,gain = <2048>; /* 2048 * 10^(gain_dB/20) */
+					adi,gain = <AD9081_GAIN>; /* value * 10^(gain_dB/20) */
 					adi,nco-frequency-shift-hz =  /bits/ 64 <AD9081_RX_CHAN_NCO_SHIFT>;
 
 				};
 				trx3_ad9081_rx_fddc_chan4: channel@4 {
 					reg = <4>;
 					adi,decimation = <AD9081_RX_CHAN_DECIMATION>;
-					adi,gain = <2048>; /* 2048 * 10^(gain_dB/20) */
+					adi,gain = <AD9081_GAIN>; /* value * 10^(gain_dB/20) */
 					adi,nco-frequency-shift-hz =  /bits/ 64 <AD9081_RX_CHAN_NCO_SHIFT>;
 
 				};
 				trx3_ad9081_rx_fddc_chan5: channel@5 {
 					reg = <5>;
 					adi,decimation = <AD9081_RX_CHAN_DECIMATION>;
-					adi,gain = <2048>; /* 2048 * 10^(gain_dB/20) */
+					adi,gain = <AD9081_GAIN>; /* value * 10^(gain_dB/20) */
 					adi,nco-frequency-shift-hz =  /bits/ 64 <AD9081_RX_CHAN_NCO_SHIFT>;
 
 				};
