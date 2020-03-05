@@ -22,7 +22,7 @@ cm40_subsys: bus@34000000 {
 	cm40_i2c: i2c@37230000 {
 		compatible = "fsl,imx8qxp-lpi2c", "fsl,imx7ulp-lpi2c";
 		reg = <0x37230000 0x1000>;
-		interrupts = <9 IRQ_TYPE_LEVEL_HIGH>;
+		interrupts = <9 0>;
 		interrupt-parent = <&cm40_intmux>;
 		clocks = <&cm40_i2c_lpcg 0>,
 			 <&cm40_i2c_lpcg 1>;
@@ -46,7 +46,7 @@ cm40_subsys: bus@34000000 {
 	};
 
 	cm40_intmux: intmux@37400000 {
-		compatible = "nxp,imx8qxp-intmux", "nxp,imx-intmux";
+		compatible = "fsl,imx8qxp-intmux", "fsl,imx-intmux";
 		reg = <0x37400000 0x1000>;
 		interrupts = <GIC_SPI 16 IRQ_TYPE_LEVEL_HIGH>,
 			     <GIC_SPI 17 IRQ_TYPE_LEVEL_HIGH>,
