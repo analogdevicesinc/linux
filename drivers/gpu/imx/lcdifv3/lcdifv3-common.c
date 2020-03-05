@@ -459,6 +459,16 @@ void lcdifv3_disable_controller(struct lcdifv3_soc *lcdifv3)
 	disp_para = readl(lcdifv3->base + LCDIFV3_DISP_PARA);
 	ctrldescl0_5 = readl(lcdifv3->base + LCDIFV3_CTRLDESCL0_5);
 
+	/* disable dma */
+	ctrldescl0_5 &= ~CTRLDESCL0_5_EN;
+	writel(ctrldescl0_5, lcdifv3->base + LCDIFV3_CTRLDESCL0_5);
+
+	/* dma config only takes effect at the end of
+	 * one frame, so add delay to wait dma disable
+	 * done before turn off disp.
+	 */
+	usleep_range(20000, 25000);
+
 	/* disp off */
 	disp_para &= ~DISP_PARA_DISP_ON;
 	writel(disp_para, lcdifv3->base + LCDIFV3_DISP_PARA);
