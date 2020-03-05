@@ -63,6 +63,10 @@
 #define ADF4371_MUXOUT_EN_MSK		BIT(3)
 #define ADF4371_MUXOUT_EN(x)		FIELD_PREP(ADF4371_MUXOUT_EN_MSK, x)
 
+/* ADF4371_REG22 */
+#define ADF4371_REFIN_MODE_MASK		BIT(6)
+#define ADF4371_REFIN_MODE(x)		FIELD_PREP(ADF4371_REFIN_MODE_MASK, x)
+
 /* ADF4371_REG24 */
 #define ADF4371_RF_DIV_SEL_MSK		GENMASK(6, 4)
 #define ADF4371_RF_DIV_SEL(x)		FIELD_PREP(ADF4371_RF_DIV_SEL_MSK, x)
@@ -261,6 +265,7 @@ struct adf4371_state {
 	bool muxout_en;
 	bool muxout_1v8_en;
 	bool spi_3wire_en;
+	bool differential_ref_clk;
 	u8 buf[10] ____cacheline_aligned;
 };
 
@@ -747,6 +752,14 @@ static int adf4371_setup(struct adf4371_state *st)
 	if (ret < 0)
 		return ret;
 
+	if (st->differential_ref_clk) {
+		ret = regmap_update_bits(st->regmap,  ADF4371_REG(0x22),
+					 ADF4371_REFIN_MODE_MASK,
+					 ADF4371_REFIN_MODE(1));
+		if (ret < 0)
+			return ret;
+	}
+
 	mask = ADF4371_PD_POL_MSK | ADF4371_CP_CURRENT_MSK;
 	val = ADF4371_PD_POL(st->pd_pol) |
 	      ADF4371_CP_CURRENT(st->cp_settings.regval);
@@ -844,6 +857,10 @@ static int adf4371_parse_dt(struct adf4371_state *st)
 
 	if (device_property_read_bool(&st->spi->dev, "adi,muxout-level-1v8-enable"))
 		st->muxout_1v8_en = true;
+
+	if (device_property_read_bool(&st->spi->dev,
+				      "adi,differential-ref-clock"))
+		st->differential_ref_clk = true;
 
 	ret = device_property_read_u32(&st->spi->dev, "adi,muxout-select", &tmp);
 	if (ret < 0 && tmp > 10) {
