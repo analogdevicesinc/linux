@@ -205,27 +205,6 @@ static int cf_axi_dds_signed_mag_fmt_to_iio(unsigned int val, int *r_val,
 	return IIO_VAL_INT_PLUS_MICRO;
 }
 
-#ifdef CF_AXI_DDS_HAVE_TWOS_FMT
-static unsigned int cf_axi_dds_to_twos_fmt(int val, int val2)
-{
-	s64 sval64;
-
-	if (val < 0)
-		val2 = -val2;
-	sval64 = ((val * 1000000ULL + (long long)val2) * 0x4000);
-
-	return div_s64(sval64, 1000000UL);
-}
-
-static int cf_axi_dds_twos_fmt_to_iio(s16 val, int *r_val, int *r_val2)
-{
-	*r_val = val;
-	*r_val2 = 14;
-
-	return IIO_VAL_FRACTIONAL_LOG2;
-}
-#endif
-
 int cf_axi_dds_pl_ddr_fifo_ctrl(struct cf_axi_dds_state *st, bool enable)
 {
 	enum fifo_ctrl mode;
