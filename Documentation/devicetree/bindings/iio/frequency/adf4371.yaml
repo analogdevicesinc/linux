@@ -57,6 +57,10 @@ properties:
       When set the output level of the mux out pin is set to 1.8V.
       (default is 3.3V)
 
+  adi,differential-ref-clock:
+    description: Choose differential reference clock.
+    type: boolean
+
   adi,muxout-select:
     description: |
       Select the mux out signal source. Valid values are:
