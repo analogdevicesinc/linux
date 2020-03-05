@@ -93,13 +93,13 @@
           reg = <0x6A>;
         };
         
-        // disabled at the moment... interrupt not working.
-        //mpu9250@69 {
-        //  compatible = "invensense,mpu9250";
-        //  reg = <0x69>;
-        //  interrupt-parent = <&portb>;
-        //  interrupts = <15 IRQ_TYPE_EDGE_RISING>;
-        //};
+
+        mpu9250@69 {
+          compatible = "invensense,mpu9250";
+          reg = <0x69>;
+          interrupt-parent = <&intc>;
+          interrupts = <0 51 IRQ_TYPE_LEVEL_HIGH>;
+        };
 
       };
       
