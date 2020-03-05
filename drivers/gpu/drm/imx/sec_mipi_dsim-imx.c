@@ -375,6 +375,10 @@ static int imx_sec_dsim_resume(struct device *dev)
 #ifdef CONFIG_PM
 static int imx_sec_dsim_runtime_suspend(struct device *dev)
 {
+	/* check sec dsim is bound or not */
+	if (unlikely(!dsim_dev))
+		return 0;
+
 	if (atomic_inc_return(&dsim_dev->rpm_suspended) > 1)
 		return 0;
 
@@ -388,6 +392,10 @@ static int imx_sec_dsim_runtime_suspend(struct device *dev)
 static int imx_sec_dsim_runtime_resume(struct device *dev)
 {
 	int ret;
+
+	/* check sec dsim is bound or not */
+	if (unlikely(!dsim_dev))
+		return 0;
 
 	if (unlikely(!atomic_read(&dsim_dev->rpm_suspended))) {
 		dev_warn(dsim_dev->dev,
