@@ -214,18 +214,15 @@ static int uio_dmem_genirq_probe(struct platform_device *pdev)
 	priv->pdev = pdev;
 	mutex_init(&priv->alloc_lock);
 
-	/* Multiple IRQs are not supported */
 	if (!uioinfo->irq) {
+		/* Multiple IRQs are not supported */
 		ret = platform_get_irq(pdev, 0);
-		uioinfo->irq = ret;
 		if (ret == -ENXIO && pdev->dev.of_node)
-			uioinfo->irq = UIO_IRQ_NONE;
-		else if (ret < 0) {
-			dev_err(&pdev->dev, "failed to get IRQ\n");
+			ret = UIO_IRQ_NONE;
+		else if (ret < 0)
 			goto bad1;
-		}
+		uioinfo->irq = ret;
 	}
-
 	uiomem = &uioinfo->mem[0];
 
 	for (i = 0; i < pdev->num_resources; ++i) {
