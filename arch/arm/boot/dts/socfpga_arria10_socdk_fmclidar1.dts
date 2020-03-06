@@ -186,5 +186,6 @@
 #include "adi-fmclidar1.dtsi"
 
 &ad7091 {
+	/delete-property/ spi-cpol;
 	convst-gpios = <&sys_gpio 5 0>;
 };
