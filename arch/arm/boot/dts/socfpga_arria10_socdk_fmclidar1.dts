@@ -47,6 +47,13 @@
 			#size-cells = <1>;
 			ranges = <0x00000000 0xff200000 0x00200000>;
 
+			sys_gpio: gpio@20 {
+				compatible = "altr,pio-1.0";
+				reg = <0x00000020 0x00000010>;
+				#gpio-cells = <2>;
+				gpio-controller;
+			};
+
 			spi_adc: spi@40 {
 				compatible = "altr,spi-1.0";
 				reg = <0x00000040 0x00000020>;
@@ -177,3 +184,7 @@
 #define i2c_afe_dac i2c1
 
 #include "adi-fmclidar1.dtsi"
+
+&ad7091 {
+	convst-gpios = <&sys_gpio 5 0>;
+};
