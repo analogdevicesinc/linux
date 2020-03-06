@@ -25,13 +25,8 @@ static uint32_t lcdifv3_pixel_formats[] = {
 	DRM_FORMAT_RGB565,
 	DRM_FORMAT_XBGR8888,
 	DRM_FORMAT_ABGR8888,
-	DRM_FORMAT_RGBX8888,
-	DRM_FORMAT_RGBA8888,
 	DRM_FORMAT_ARGB1555,
 	DRM_FORMAT_XRGB1555,
-	DRM_FORMAT_ABGR1555,
-	DRM_FORMAT_XBGR1555,
-	DRM_FORMAT_BGR565,
 };
 
 static int lcdifv3_plane_atomic_check(struct drm_plane *plane,
