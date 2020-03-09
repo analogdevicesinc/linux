@@ -1608,6 +1608,14 @@ static int ad9081_setup(struct spi_device *spi, bool ad9234)
 	if (ret != 0)
 		return ret;
 
+	ret = adi_ad9081_jesd_tx_link_enable_set(&phy->ad9081,
+		(phy->jesd_rx_link[0].jesd_param.jesd_duallink > 0) ?
+		AD9081_LINK_ALL : AD9081_LINK_0, 1);
+	if (ret != 0)
+		return ret;
+
+	msleep(10);
+
 	if (!IS_ERR_OR_NULL(phy->jesd_rx_clk)) {
 		msleep(10);
 		ret = clk_prepare_enable(phy->jesd_rx_clk);
@@ -1617,12 +1625,6 @@ static int ad9081_setup(struct spi_device *spi, bool ad9234)
 			return ret;
 		}
 	}
-
-	ret = adi_ad9081_jesd_tx_link_enable_set(&phy->ad9081,
-		(phy->jesd_rx_link[0].jesd_param.jesd_duallink > 0) ?
-		AD9081_LINK_ALL : AD9081_LINK_0, 1);
-	if (ret != 0)
-		return ret;
 
 	if (!IS_ERR_OR_NULL(phy->jesd_tx_clk) &&
 		(phy->jesd_tx_link.jesd_param.jesd_jesdv == 1)) {
