@@ -92,7 +92,7 @@
 		interrupt-parent = <&axi_intc>;
 		interrupts = <14 2>;
 
-		clocks = <&clk_bus_0>, <&hmc7044 6>, <&axi_ad9081_adxcvr_rx 0>;
+		clocks = <&clk_bus_0>, <&hmc7044 8>, <&axi_ad9081_adxcvr_rx 0>;
 		clock-names = "s_axi_aclk", "device_clk", "lane_clk";
 
 		#clock-cells = <0>;
@@ -129,13 +129,13 @@
 		compatible = "adi,axi-adxcvr-1.0";
 		reg = <0x44a60000 0x1000>;
 
-		clocks = <&hmc7044 12>, <&hmc7044 10>;
+		clocks = <&hmc7044 12>, <&hmc7044 8>;
 		clock-names = "conv", "div40";
 
 		#clock-cells = <1>;
 		clock-output-names = "rx_gt_clk", "rx_out_clk";
 
-		adi,sys-clk-select = <3>;
+		adi,sys-clk-select = <0>;
 		adi,out-clk-select = <4>;
 		adi,use-lpm-enable;
 		adi,use-cpll-enable;
