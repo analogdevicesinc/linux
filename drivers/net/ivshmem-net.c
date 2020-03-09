@@ -86,9 +86,6 @@ struct ivshm_net {
 	u32 qlen;
 	u32 qsize;
 
-	spinlock_t tx_free_lock;
-	spinlock_t tx_clean_lock;
-
 	struct napi_struct napi;
 
 	u32 state;
@@ -294,50 +291,7 @@ static u32 ivshm_net_tx_advance(struct ivshm_net_queue *q, u32 *pos, u32 len)
 	return p;
 }
 
-static int ivshm_net_tx_frame(struct net_device *ndev, struct sk_buff *skb,
-			      bool xmit_more)
-{
-	struct ivshm_net *in = netdev_priv(ndev);
-	struct ivshm_net_queue *tx = &in->tx;
-	struct vring *vr = &tx->vr;
-	struct vring_desc *desc;
-	unsigned int desc_idx;
-	unsigned int avail;
-	u32 head;
-	void *buf;
-
-	BUG_ON(tx->num_free < 1);
-
-	spin_lock(&in->tx_free_lock);
-	desc_idx = tx->free_head;
-	desc = &vr->desc[desc_idx];
-	tx->free_head = desc->next;
-	tx->num_free--;
-	spin_unlock(&in->tx_free_lock);
-
-	head = ivshm_net_tx_advance(tx, &tx->head, skb->len);
-
-	buf = tx->data + head;
-	skb_copy_and_csum_dev(skb, buf);
-
-	desc->addr = buf - in->shm[IVSHM_NET_SECTION_TX];
-	desc->len = skb->len;
-	desc->flags = 0;
-
-	avail = tx->last_avail_idx++ & (vr->num - 1);
-	vr->avail->ring[avail] = desc_idx;
-	tx->num_added++;
-
-	if (!xmit_more) {
-		virt_store_release(&vr->avail->idx, tx->last_avail_idx);
-		ivshm_net_notify_tx(in, tx->num_added);
-		tx->num_added = 0;
-	}
-
-	return 0;
-}
-
-static void ivshm_net_tx_clean(struct net_device *ndev)
+static bool ivshm_net_tx_clean(struct net_device *ndev)
 {
 	struct ivshm_net *in = netdev_priv(ndev);
 	struct ivshm_net_queue *tx = &in->tx;
@@ -345,22 +299,16 @@ static void ivshm_net_tx_clean(struct net_device *ndev)
 	struct vring *vr = &tx->vr;
 	struct vring_desc *desc;
 	struct vring_desc *fdesc;
+	u16 last = tx->last_used_idx;
 	unsigned int num;
-	u16 used_idx;
-	u16 last;
+	bool tx_ok;
 	u32 fhead;
-
-	if (!spin_trylock(&in->tx_clean_lock))
-		return;
-
-	used_idx = virt_load_acquire(&vr->used->idx);
-	last = tx->last_used_idx;
 
 	fdesc = NULL;
 	fhead = 0;
 	num = 0;
 
-	while (last != used_idx) {
+	while (last != virt_load_acquire(&vr->used->idx)) {
 		void *data;
 		u32 len;
 		u32 tail;
@@ -393,22 +341,38 @@ static void ivshm_net_tx_clean(struct net_device *ndev)
 			desc->next = fhead;
 
 		fhead = used->id;
-		last++;
+
+		tx->last_used_idx = ++last;
 		num++;
+		tx->num_free++;
+		BUG_ON(tx->num_free > vr->num);
+
+		tx_ok = ivshm_net_tx_ok(ndev);
+		if (!tx_ok)
+			ivshm_net_enable_tx_irq(in);
 	}
-
-	tx->last_used_idx = last;
-
-	spin_unlock(&in->tx_clean_lock);
 
 	if (num) {
-		spin_lock(&in->tx_free_lock);
 		fdesc->next = tx->free_head;
 		tx->free_head = fhead;
-		tx->num_free += num;
-		BUG_ON(tx->num_free > vr->num);
-		spin_unlock(&in->tx_free_lock);
+	} else {
+		tx_ok = ivshm_net_tx_ok(ndev);
 	}
+
+	return tx_ok;
+}
+
+static void ivshm_net_tx_poll(struct net_device *ndev)
+{
+	struct netdev_queue *txq = netdev_get_tx_queue(ndev, 0);
+
+	if (!__netif_tx_trylock(txq))
+		return;
+
+	if (ivshm_net_tx_clean(ndev) && netif_queue_stopped(ndev))
+		netif_wake_queue(ndev);
+
+	__netif_tx_unlock(txq);
 }
 
 static struct vring_desc *ivshm_net_rx_desc(struct net_device *ndev)
@@ -455,7 +419,7 @@ static int ivshm_net_poll(struct napi_struct *napi, int budget)
 
 	in->stats.napi_poll++;
 
-	ivshm_net_tx_clean(ndev);
+	ivshm_net_tx_poll(ndev);
 
 	while (received < budget) {
 		struct vring_desc *desc;
@@ -503,18 +467,34 @@ static int ivshm_net_poll(struct napi_struct *napi, int budget)
 	in->stats.rx_packets += received;
 	in->stats.napi_poll_n[received ? 1 + min(ilog2(received), 8) : 0]++;
 
-	if (ivshm_net_tx_ok(ndev))
-		netif_wake_queue(ndev);
-
 	return received;
 }
 
 static netdev_tx_t ivshm_net_xmit(struct sk_buff *skb, struct net_device *ndev)
 {
 	struct ivshm_net *in = netdev_priv(ndev);
+	struct ivshm_net_queue *tx = &in->tx;
 	bool xmit_more = netdev_xmit_more();
+	struct vring *vr = &tx->vr;
+	struct vring_desc *desc;
+	unsigned int desc_idx;
+	unsigned int avail;
+	u32 head;
+	void *buf;
 
-	ivshm_net_tx_clean(ndev);
+	if (!ivshm_net_tx_clean(ndev)) {
+		netif_stop_queue(ndev);
+
+		netdev_err(ndev, "BUG: tx ring full when queue awake!\n");
+		return NETDEV_TX_BUSY;
+	}
+
+	desc_idx = tx->free_head;
+	desc = &vr->desc[desc_idx];
+	tx->free_head = desc->next;
+	tx->num_free--;
+
+	head = ivshm_net_tx_advance(tx, &tx->head, skb->len);
 
 	if (!ivshm_net_tx_ok(ndev)) {
 		ivshm_net_enable_tx_irq(in);
@@ -523,7 +503,23 @@ static netdev_tx_t ivshm_net_xmit(struct sk_buff *skb, struct net_device *ndev)
 		in->stats.tx_pause++;
 	}
 
-	ivshm_net_tx_frame(ndev, skb, xmit_more);
+	buf = tx->data + head;
+	skb_copy_and_csum_dev(skb, buf);
+
+	desc->addr = buf - in->shm[IVSHM_NET_SECTION_TX];
+	desc->len = skb->len;
+	desc->flags = 0;
+
+	avail = tx->last_avail_idx++ & (vr->num - 1);
+	vr->avail->ring[avail] = desc_idx;
+	tx->num_added++;
+
+	virt_store_release(&vr->avail->idx, tx->last_avail_idx);
+
+	if (!xmit_more) {
+		ivshm_net_notify_tx(in, tx->num_added);
+		tx->num_added = 0;
+	}
 
 	in->stats.tx_packets++;
 	ndev->stats.tx_packets++;
@@ -943,8 +939,6 @@ static int ivshm_net_probe(struct pci_dev *pdev,
 
 	in->peer_id = !id;
 	in->pdev = pdev;
-	spin_lock_init(&in->tx_free_lock);
-	spin_lock_init(&in->tx_clean_lock);
 
 	ret = ivshm_net_calc_qsize(ndev);
 	if (ret)
