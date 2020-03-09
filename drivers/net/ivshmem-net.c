@@ -235,7 +235,7 @@ static void ivshm_net_notify_rx(struct ivshm_net *in, unsigned int num)
 
 	virt_mb();
 
-	evt = vring_used_event(&in->rx.vr);
+	evt = READ_ONCE(vring_used_event(&in->rx.vr));
 	old = in->rx.last_used_idx - num;
 	new = in->rx.last_used_idx;
 
