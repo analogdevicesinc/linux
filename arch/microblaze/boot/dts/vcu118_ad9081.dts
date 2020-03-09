@@ -74,7 +74,6 @@
 		spibus-connected = <&trx0_ad9081>;
 	};
 
-
 	axi_ad9081_core_tx: axi-ad9081-tx-hpc@44b10000 {
 		compatible = "adi,axi-ad9081-tx-1.0";
 		reg = <0x44b10000 0x4000>;
@@ -83,7 +82,7 @@
 		clocks = <&trx0_ad9081 1>;
 		clock-names = "sampl_clk";
 		spibus-connected = <&trx0_ad9081>;
-		//adi,axi-pl-fifo-enable;
+		adi,axi-pl-fifo-enable;
 	};
 
 	axi_ad9081_rx_jesd: axi-jesd204-rx@44a90000 {
@@ -172,4 +171,8 @@
 	rx1-enable-gpios = <&axi_gpio 56 0>;
 	tx2-enable-gpios = <&axi_gpio 59 0>;
 	tx1-enable-gpios = <&axi_gpio 58 0>;
+};
+
+&axi_ad9081_core_tx {
+	plddrbypass-gpios = <&axi_gpio 60 0>;
 };
