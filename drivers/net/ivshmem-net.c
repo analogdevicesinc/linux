@@ -273,10 +273,12 @@ static size_t ivshm_net_tx_space(struct ivshm_net *in)
 	return space;
 }
 
-static bool ivshm_net_tx_ok(struct ivshm_net *in, unsigned int mtu)
+static bool ivshm_net_tx_ok(struct net_device *ndev)
 {
+	struct ivshm_net *in = netdev_priv(ndev);
+
 	return in->tx.num_free >= 2 &&
-		ivshm_net_tx_space(in) >= 2 * IVSHM_NET_FRAME_SIZE(mtu);
+		ivshm_net_tx_space(in) >= 2 * IVSHM_NET_FRAME_SIZE(ndev->mtu);
 }
 
 static u32 ivshm_net_tx_advance(struct ivshm_net_queue *q, u32 *pos, u32 len)
@@ -501,7 +503,7 @@ static int ivshm_net_poll(struct napi_struct *napi, int budget)
 	in->stats.rx_packets += received;
 	in->stats.napi_poll_n[received ? 1 + min(ilog2(received), 8) : 0]++;
 
-	if (ivshm_net_tx_ok(in, ndev->mtu))
+	if (ivshm_net_tx_ok(ndev))
 		netif_wake_queue(ndev);
 
 	return received;
@@ -514,7 +516,7 @@ static netdev_tx_t ivshm_net_xmit(struct sk_buff *skb, struct net_device *ndev)
 
 	ivshm_net_tx_clean(ndev);
 
-	if (!ivshm_net_tx_ok(in, ndev->mtu)) {
+	if (!ivshm_net_tx_ok(ndev)) {
 		ivshm_net_enable_tx_irq(in);
 		netif_stop_queue(ndev);
 		xmit_more = false;
