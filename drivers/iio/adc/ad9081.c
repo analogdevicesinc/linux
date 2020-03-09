@@ -125,6 +125,8 @@ struct ad9081_phy {
 	struct ad9081_clock clk_priv[NUM_AD9081_CLKS];
 	struct clk_onecell_data clk_data;
 
+	struct delayed_work dwork;
+
 	u32 mcs_cached_val;
 
 	u32 multidevice_instance_count;
@@ -1704,6 +1706,8 @@ static int ad9081_setup(struct spi_device *spi, bool ad9234)
 	if (ret != 0)
 		return ret;
 
+	schedule_delayed_work(&phy->dwork, msecs_to_jiffies(1000));
+
 	return 0;
 }
 
@@ -2180,6 +2184,29 @@ static int ad9081_status_show(struct seq_file *file, void *offset)
 	}
 
 	return 0;
+}
+
+static void ad9081_work_func(struct work_struct *work)
+{
+	u8 status;
+	int ret;
+	struct ad9081_phy *phy =
+		container_of(work, struct ad9081_phy, dwork.work);
+
+	ret = adi_ad9081_hal_reg_get(&phy->ad9081, REG_IRQ_STATUS0_ADDR,
+				     &status);
+
+	if (!(status & BIT(6))) {
+		dev_err(&phy->spi->dev, "IRQ_STATUS0: 0x%X\n", status);
+		if (phy->jesd_tx_link.jesd_param.jesd_jesdv == 2) {
+			ad9081_multichip_sync(phy, 7);
+		} else {
+			ad9081_multichip_sync(phy, 2);
+			mdelay(20);
+			ad9081_multichip_sync(phy, 3);
+		}
+	}
+	schedule_delayed_work(&phy->dwork, msecs_to_jiffies(1000));
 }
 
 static int ad9081_post_iio_register(struct iio_dev *indio_dev)
@@ -2830,6 +2857,9 @@ static int ad9081_probe(struct spi_device *spi)
 	ret = of_clk_add_provider(spi->dev.of_node, of_clk_src_onecell_get,
 				  &phy->clk_data);
 
+	INIT_DELAYED_WORK(&phy->dwork, ad9081_work_func);
+
+
 	switch (conv->id) {
 	case CHIPID_AD9081:
 		ret = ad9081_setup_chip_info_tbl(phy, true,
@@ -2902,6 +2932,8 @@ static int ad9081_remove(struct spi_device *spi)
 {
 	struct axiadc_converter *conv = spi_get_drvdata(spi);
 	struct ad9081_phy *phy = conv->phy;
+
+	cancel_delayed_work_sync(&phy->dwork);
 
 	if (!IS_ERR_OR_NULL(phy->jesd_tx_clk))
 		clk_disable_unprepare(phy->jesd_tx_clk);
