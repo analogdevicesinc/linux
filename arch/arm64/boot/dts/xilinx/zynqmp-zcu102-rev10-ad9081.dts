@@ -142,7 +142,7 @@
 			#clock-cells = <1>;
 			clock-output-names = "rx_gt_clk", "rx_out_clk";
 
-			adi,sys-clk-select = <3>;
+			adi,sys-clk-select = <0>;
 			adi,out-clk-select = <4>;
  			adi,use-lpm-enable;
  			adi,use-cpll-enable;
