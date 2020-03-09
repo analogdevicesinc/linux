@@ -494,6 +494,21 @@ static const struct attribute_group cf_axi_int_attribute_group = {
 	.attrs = cf_axi_attributes,
 };
 
+static int cf_axi_dds_reg_index(struct iio_chan_spec const *chan)
+{
+	if (chan->modified)
+		switch (chan->channel2) {
+		case IIO_MOD_I:
+			return chan->channel * 2;
+		case IIO_MOD_Q:
+			return chan->channel * 2 + 1;
+		default:
+			return chan->channel;
+		}
+
+	return chan->channel;
+}
+
 static int cf_axi_dds_read_raw(struct iio_dev *indio_dev,
 			   struct iio_chan_spec const *chan,
 			   int *val,
@@ -504,7 +519,7 @@ static int cf_axi_dds_read_raw(struct iio_dev *indio_dev,
 	struct cf_axi_converter *conv;
 	unsigned long long val64;
 	unsigned long freq;
-	unsigned int reg, phase = 0;
+	unsigned int reg, channel, phase = 0;
 	int ret;
 
 	mutex_lock(&indio_dev->mlock);
@@ -565,11 +580,12 @@ static int cf_axi_dds_read_raw(struct iio_dev *indio_dev,
 		phase = 1;
 		/* fall-through */
 	case IIO_CHAN_INFO_CALIBSCALE:
+		channel = cf_axi_dds_reg_index(chan);
 
-		reg = dds_read(st, ADI_REG_CHAN_CNTRL_8(chan->channel));
+		reg = dds_read(st, ADI_REG_CHAN_CNTRL_8(channel));
 		/*  format is 1.1.14 (sign, integer and fractional bits) */
 
-		if (!((phase + chan->channel) % 2))
+		if (!((phase + channel) % 2))
 			reg = ADI_TO_IQCOR_COEFF_1(reg);
 		else
 			reg = ADI_TO_IQCOR_COEFF_2(reg);
@@ -599,7 +615,7 @@ static int cf_axi_dds_write_raw(struct iio_dev *indio_dev,
 	struct cf_axi_dds_state *st = iio_priv(indio_dev);
 	struct cf_axi_converter *conv;
 	unsigned long long val64;
-	unsigned int reg, i, phase = 0;
+	unsigned int reg, i, channel, phase = 0;
 	int ret = 0;
 
 	if (st->dev_spi)
@@ -730,14 +746,15 @@ static int cf_axi_dds_write_raw(struct iio_dev *indio_dev,
 		phase = 1;
 		/* fall-through */
 	case IIO_CHAN_INFO_CALIBSCALE:
+		channel = cf_axi_dds_reg_index(chan);
 
 		ret = cf_axi_dds_to_signed_mag_fmt(val, val2, &i);
 		if (ret < 0)
 			break;
 
-		reg = dds_read(st, ADI_REG_CHAN_CNTRL_8(chan->channel));
+		reg = dds_read(st, ADI_REG_CHAN_CNTRL_8(channel));
 
-		if (!((chan->channel + phase) % 2)) {
+		if (!((channel + phase) % 2)) {
 			reg &= ~ADI_IQCOR_COEFF_1(~0);
 			reg |= ADI_IQCOR_COEFF_1(i);
 		} else {
@@ -745,8 +762,8 @@ static int cf_axi_dds_write_raw(struct iio_dev *indio_dev,
 			reg |= ADI_IQCOR_COEFF_2(i);
 		}
 
-		dds_write(st, ADI_REG_CHAN_CNTRL_8(chan->channel), reg);
-		dds_write(st, ADI_REG_CHAN_CNTRL_6(chan->channel),
+		dds_write(st, ADI_REG_CHAN_CNTRL_8(channel), reg);
+		dds_write(st, ADI_REG_CHAN_CNTRL_6(channel),
 			  ADI_IQCOR_ENB);
 		break;
 	default:
