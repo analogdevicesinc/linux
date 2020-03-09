@@ -105,8 +105,8 @@
 
 		hmc7044_c8: channel@8 {
 			reg = <8>;
-			adi,extended-name = "FPGA_REFCLK1";
-			adi,divider = <6>;	// 775
+			adi,extended-name = "CORE_CLK_RX_ALT2";
+			adi,divider = <12>;	// 250
 			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;	// LVDS
 		};
 		hmc7044_c10: channel@10 {
