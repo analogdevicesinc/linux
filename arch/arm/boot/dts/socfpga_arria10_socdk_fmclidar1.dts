@@ -177,11 +177,11 @@
 	};
 };
 
-&i2c1 {
+&i2c0 {
 	status = "okay";
 };
 
-#define i2c_afe_dac i2c1
+#define i2c_afe_dac i2c0
 
 #include "adi-fmclidar1.dtsi"
 
