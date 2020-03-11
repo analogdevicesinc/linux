@@ -555,6 +555,8 @@ static int adv7511_get_edid_block(void *data, u8 *buf, unsigned int block,
 
 		ret = regmap_bulk_read(adv7511->regmap_edid, 0,
 				       adv7511->edid_buf, 256);
+		if (ret < 0)
+			return ret;
 
 		adv7511->current_edid_segment = block / 2;
 	}
