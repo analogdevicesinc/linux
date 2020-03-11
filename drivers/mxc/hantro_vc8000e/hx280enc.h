@@ -78,6 +78,7 @@
 #define HX280ENC_IOCH_ENC_RESERVE   _IOR(HX280ENC_IOC_MAGIC, 11, unsigned int *)
 #define HX280ENC_IOCH_ENC_RELEASE   _IOR(HX280ENC_IOC_MAGIC, 12, unsigned int *)
 #define HX280ENC_IOCG_CORE_NUM      _IOR(HX280ENC_IOC_MAGIC, 13, unsigned int *)
+#define HX280ENC_IOCG_EN_CORE      _IOR(HX280ENC_IOC_MAGIC, 14, unsigned int *)
 
 #define HX280ENC_IOCG_CORE_WAIT     _IOR(HX280ENC_IOC_MAGIC, 19, unsigned int *)
 #define HX280ENC_IOC_MAXNR 30

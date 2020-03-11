@@ -116,6 +116,7 @@ typedef struct {
 	volatile u8 *hwregs;
 	u32 reg_buf[CORE_0_IO_SIZE/4];
 	struct semaphore core_suspend_sem;
+	u32 reg_corrupt;
 	struct fasync_struct *async_queue;
 #ifndef VSI
 	struct device *dev;
@@ -267,13 +268,14 @@ static int CheckEncIrq(hantroenc_t *dev, u32 *core_info, u32 *irq_status)
 	return rdy;
 }
 
-static unsigned int WaitEncReady(hantroenc_t *dev, u32 *core_info, u32 *irq_status)
+static int WaitEncReady(hantroenc_t *dev, u32 *core_info, u32 *irq_status)
 {
 	PDEBUG("%s\n", __func__);
 
-	if (wait_event_interruptible(enc_wait_queue, CheckEncIrq(dev, core_info, irq_status)))	{
-		PDEBUG("ENC wait_event_interruptible interrupted\n");
-		return -ERESTARTSYS;
+	if (wait_event_timeout(enc_wait_queue,
+		CheckEncIrq(dev, core_info, irq_status), msecs_to_jiffies(200)) == 0)	{
+		pr_err("%s: wait interrupt timeout !\n", __func__);
+		return -1;
 	}
 
 	return 0;
@@ -386,6 +388,7 @@ static void ReleaseEncoder(hantroenc_t *dev, u32 *core_info)
 				dev[core_id].is_reserved = 0;
 				dev[core_id].irq_received = 0;
 				dev[core_id].irq_status = 0;
+				dev[core_id].reg_corrupt = 0;
 			} else if (dev[core_id].pid != current->pid)
 				pr_err("WARNING:pid(%d) is trying to release core reserved by pid(%d)\n",
 					current->pid, dev[core_id].pid);
@@ -409,7 +412,6 @@ static long hantroenc_ioctl(struct file *filp,
 		unsigned int cmd, unsigned long arg)
 {
 	int err = 0;
-	unsigned int tmp;
 
 	PDEBUG("ioctl cmd 0x%08x\n", cmd);
 	/*
@@ -501,6 +503,31 @@ static long hantroenc_ioctl(struct file *filp,
 
 		break;
 	}
+	case _IOC_NR(HX280ENC_IOCG_EN_CORE): {
+		u32 core_id;
+		u32 reg_value;
+
+		__get_user(core_id, (u32 *)arg);
+		PDEBUG("Enable ENC Core\n");
+
+		if (hantroenc_data[core_id].is_reserved == 0)
+			return -EPERM;
+
+		if (hantroenc_data[core_id].reg_corrupt)	{
+			/*need to re-config HW if exception happen between reserve and enable*/
+			hantroenc_data[core_id].reg_corrupt = 0;
+			return -EAGAIN;
+		}
+
+		if (down_interruptible(&hantroenc_data[core_id].core_suspend_sem))
+			return -ERESTARTSYS;
+
+		reg_value = (u32)ioread32((void *)(hantroenc_data[core_id].hwregs + 0x14));
+		reg_value |= 0x01;
+		iowrite32(reg_value, (void *)(hantroenc_data[core_id].hwregs + 0x14));
+
+		break;
+	}
 
 	case _IOC_NR(HX280ENC_IOCG_CORE_WAIT): {
 		u32 core_info;
@@ -517,16 +544,15 @@ static long hantroenc_ioctl(struct file *filp,
 				if (i > total_core_num-1)
 					return -1;
 
-				if ((hantroenc_data[i].is_valid == 0) || (down_interruptible(&hantroenc_data[i].core_suspend_sem)))
+				if (hantroenc_data[i].is_reserved == 0)
 					return -1;
-				else
-					break;
+				break;
 			}
 			core_mapping = core_mapping>>1;
 			i++;
 		}
-		tmp = WaitEncReady(hantroenc_data, &core_info, &irq_status);
-		if (tmp == 0) {
+		err = WaitEncReady(hantroenc_data, &core_info, &irq_status);
+		if (err == 0) {
 			__put_user(irq_status, (unsigned int *)arg);
 			return core_info;//return core_id
 		} else {
@@ -676,6 +702,14 @@ union {
 		HX280ENC_IOCTL32(err, filp, cmd, (unsigned long)&karg);
 		break;
 	}
+	case _IOC_NR(HX280ENC_IOCG_EN_CORE): {
+		err = get_user(karg.kui, (s32 __user *)up);
+		if (err)
+			return err;
+		HX280ENC_IOCTL32(err, filp, cmd, (unsigned long)&karg);
+		break;
+	}
+
 	case _IOC_NR(HX280ENC_IOCG_CORE_WAIT): {
 		HX280ENC_IOCTL32(err, filp, cmd, (unsigned long)up);
 		break;
@@ -707,12 +741,16 @@ static int hantro_enc_suspend(struct device *dev, pm_message_t state)
 	PDEBUG("%s start..\n", __func__);
 
 	for (i = 0; i < total_core_num; i++) {
+		/*if HW is active, need to wait until frame ready interrupt*/
 		if ((hantroenc_data[i].is_reserved == 0) || (down_interruptible(&hantroenc_data[i].core_suspend_sem)))
 			continue;
 
-		reg_buf = hantroenc_data[i].reg_buf;
-		for (j = 0; j < hantroenc_data[i].core_cfg.iosize; j += 4)
-			reg_buf[j/4] = ioread32((void *)(hantroenc_data[i].hwregs + j));
+		hantroenc_data[i].reg_corrupt = 1;
+		if (hantroenc_data[i].irq_status & 0x04) {
+			reg_buf = hantroenc_data[i].reg_buf;
+			for (j = 0; j < hantroenc_data[i].core_cfg.iosize; j += 4)
+				reg_buf[j/4] = ioread32((void *)(hantroenc_data[i].hwregs + j));
+		}
 
 		up(&hantroenc_data[i].core_suspend_sem);
 	}
@@ -733,8 +771,11 @@ static int hantro_enc_resume(struct device *dev)
 			continue;
 		reg_buf = hantroenc_data[i].reg_buf;
 
-		for (j = 0; j < hantroenc_data[i].core_cfg.iosize; j += 4)
-			iowrite32(reg_buf[j/4], (void *)(hantroenc_data[i].hwregs + j));
+		if (hantroenc_data[i].irq_status & 0x04) {
+			for (j = 0; j < hantroenc_data[i].core_cfg.iosize; j += 4)
+				iowrite32(reg_buf[j/4], (void *)(hantroenc_data[i].hwregs + j));
+			hantroenc_data[i].reg_corrupt = 0;
+		}
 	}
 
 	PDEBUG("%s succeed!\n", __func__);
@@ -1017,7 +1058,7 @@ static irqreturn_t hantroenc_isr(int irq, void *dev_id)
 		if (irq_status & 0x04)  // if frame_rdy IRQ is received, then HW will not be used any more.
 			up(&hantroenc_data[dev->core_id].core_suspend_sem);
 
-		wake_up_interruptible_all(&enc_wait_queue);
+		wake_up_all(&enc_wait_queue);
 		handled++;
 	}
 
