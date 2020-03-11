@@ -531,7 +531,7 @@ static int adv7511_get_edid_block(void *data, u8 *buf, unsigned int block,
 				  size_t len)
 {
 	struct adv7511 *adv7511 = data;
-	int ret;
+	int ret, off;
 
 	if (len > 128)
 		return -EINVAL;
@@ -553,10 +553,12 @@ static int adv7511_get_edid_block(void *data, u8 *buf, unsigned int block,
 				return ret;
 		}
 
-		ret = regmap_bulk_read(adv7511->regmap_edid, 0,
-				       adv7511->edid_buf, 256);
-		if (ret < 0)
-			return ret;
+		for (off = 0; off < 256; off+= 64) {
+			ret = regmap_bulk_read(adv7511->regmap_edid, off,
+					       &adv7511->edid_buf[off], 64);
+			if (ret < 0)
+				return ret;
+		}
 
 		adv7511->current_edid_segment = block / 2;
 	}
