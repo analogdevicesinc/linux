@@ -1651,7 +1651,7 @@ static int cf_axi_dds_probe(struct platform_device *pdev)
 	dev_dbg(&pdev->dev, "Device Tree Probing \'%s\'\n",
 			np->name);
 
-	indio_dev = iio_device_alloc(sizeof(*st));
+	indio_dev = devm_iio_device_alloc(&pdev->dev, sizeof(*st));
 	if (!indio_dev)
 		return -ENOMEM;
 
@@ -1660,21 +1660,17 @@ static int cf_axi_dds_probe(struct platform_device *pdev)
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	st->regs_size = resource_size(res);
 	st->regs = devm_ioremap(&pdev->dev, res->start, resource_size(res));
-	if (!st->regs) {
-		ret = -ENOMEM;
-		goto err_iio_device_free;
-	}
+	if (!st->regs)
+		return -ENOMEM;
 
 	if (info->standalone) {
 		st->clk = devm_clk_get(&pdev->dev, "sampl_clk");
-		if (IS_ERR(st->clk)) {
-			ret = PTR_ERR(st->clk);
-			goto err_iio_device_free;
-		}
+		if (IS_ERR(st->clk))
+			return PTR_ERR(st->clk);
 
 		ret = clk_prepare_enable(st->clk);
 		if (ret < 0)
-			goto err_iio_device_free;
+			return ret;
 
 		st->dac_clk = clk_get_rate(st->clk);
 
@@ -1689,17 +1685,15 @@ static int cf_axi_dds_probe(struct platform_device *pdev)
 			if (ret) {
 				dev_err(&pdev->dev,
 					"Invalid number of converters identified");
-				goto err_iio_device_free;
+				return ret;
 			}
 
 			st->chip_info = &st->chip_info_generated;
 		}
 	} else {
 		st->dev_spi = dds_converter_find(&pdev->dev);
-		if (IS_ERR(st->dev_spi)) {
-			ret = PTR_ERR(st->dev_spi);
-			goto err_iio_device_free;
-		}
+		if (IS_ERR(st->dev_spi))
+			return PTR_ERR(st->dev_spi);
 
 		conv = to_converter(st->dev_spi);
 		if (IS_ERR(conv)) {
@@ -1919,8 +1913,6 @@ err_converter_put:
 		clk_notifier_unregister(st->clk, &st->clk_nb);
 		clk_disable_unprepare(st->clk);
 	}
-err_iio_device_free:
-	iio_device_free(indio_dev);
 
 	return ret;
 }
@@ -1942,7 +1934,6 @@ static int cf_axi_dds_remove(struct platform_device *pdev)
 		clk_notifier_unregister(st->clk, &st->clk_nb);
 		clk_disable_unprepare(st->clk);
 	}
-	iio_device_free(indio_dev);
 
 	return 0;
 }
