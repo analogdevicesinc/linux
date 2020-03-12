@@ -17,6 +17,7 @@ obj-y += accel/
 obj-y += adc/
 obj-y += afe/
 obj-y += amplifiers/
+obj-y += beamformer/
 obj-y += buffer/
 obj-y += chemical/
 obj-y += common/
