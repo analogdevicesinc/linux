@@ -18,6 +18,7 @@ obj-y += adc/
 obj-y += addac/
 obj-y += afe/
 obj-y += amplifiers/
+obj-y += beamformer/
 obj-y += buffer/
 obj-y += cdc/
 obj-y += chemical/
