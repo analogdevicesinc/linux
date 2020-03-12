@@ -19,11 +19,11 @@ matrix:
     - checkpatch: 1
       env: BUILD_TYPE=checkpatch DO_NOT_DOCKERIZE=1
     - env: BUILD_TYPE=dtb_build_test DO_NOT_DOCKERIZE=1
-           DTS_FILES="arch/arm/boot/dts/zynq-*.dts"
-           DTS_FILES="$DTS_FILES arch/arm/boot/dts/socfpga_*.dts"
-           DTS_FILES="$DTS_FILES arch/arm64/boot/dts/xilinx/zynqmp-*.dts"
-           DTS_FILES="$DTS_FILES arch/microblaze/boot/dts/*.dts"
-           DTS_FILES="$DTS_FILES arch/nios2/boot/dts/*.dts"
+           DTS_FILES="arch/arm/boot/dts/zynq-*.dts
+                      arch/arm/boot/dts/socfpga_*.dts
+                      arch/arm64/boot/dts/xilinx/zynqmp-*.dts
+                      arch/microblaze/boot/dts/*.dts
+                      arch/nios2/boot/dts/*.dts"
     - env: DEFCONFIG=zynq_xcomm_adv7511_defconfig ARCH=arm IMAGE=uImage
            CHECK_ALL_ADI_DRIVERS_HAVE_BEEN_BUILT=1
     - env: DEFCONFIG=zynq_pluto_defconfig ARCH=arm IMAGE=uImage
