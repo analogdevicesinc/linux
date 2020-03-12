@@ -642,6 +642,7 @@ typedef enum _gceFEATURE
     gcvFEATURE_NN_TENSOR_ADD,
     gcvFEATURE_VIP_SCALER_4K,
     gcvFEATURE_NN_PER_CHANNEL_QUANT_ASYM,
+    gcvFEATURE_PE_A8B8G8R8, /* For PE support A8B8G8R8 format feature*/
 
     /* Insert features above this comment only. */
     gcvFEATURE_COUNT                /* Not a feature. */

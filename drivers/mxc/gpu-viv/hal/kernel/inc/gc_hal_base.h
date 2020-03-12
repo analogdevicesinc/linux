@@ -5363,7 +5363,7 @@ gcoHAL_GetUserDebugOption(
 }
 
 /*----------------------------------------------------------------------------*/
-#define gcmSETSINGLESTATE_DUMY(StateDelta, CommandBuffer, Memory, FixedPoint, \
+#define gcmSETSINGLESTATE_DUMMY(StateDelta, CommandBuffer, Memory, FixedPoint, \
                                 Address, Data) \
  { \
     gctUINT32 __temp_data32__; \
