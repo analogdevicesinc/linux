@@ -224,8 +224,7 @@
 		adi,full-port-enable;
 		adi,digital-interface-tune-fir-disable;
 
-		/* Temporary workaround - HDL issue? need to investigate further */
-		adi,digital-interface-tune-skip-mode = <0>; /* SKIP TX */
+		adi,digital-interface-tune-skip-mode = <0>; /* TUNE RX & TX */
 		adi,tx-fb-clock-delay = <0>;
 		adi,tx-data-delay = <9>;
 		adi,swap-ports-enable;
