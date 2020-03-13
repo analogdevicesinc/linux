@@ -246,7 +246,7 @@
 			#interrupt-cells = <1>;
 			fsl,channel = <0>;
 			fsl,num-irqs = <32>;
-			clocks = <&lvds0_lis_lpcg 0>;
+			clocks = <&lvds1_lis_lpcg 0>;
 			clock-names = "ipg";
 			power-domains = <&pd IMX_SC_R_LVDS_1>;
 		};
