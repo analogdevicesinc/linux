@@ -11,18 +11,18 @@
 		#size-cells = <1>;
 		ranges = <0x56240000 0x0 0x56240000 0x10000>;
 
-		lvds_ipg_clk: clock-lvds-ipg {
+		lvds0_ipg_clk: clock-lvds-ipg {
 			compatible = "fixed-clock";
 			#clock-cells = <0>;
 			clock-frequency = <24000000>;
-			clock-output-names = "lvds_ipg_clk";
+			clock-output-names = "lvds0_ipg_clk";
 		};
 
 		lvds0_lis_lpcg: clock-controller@56243000 {
 			compatible = "fsl,imx8qxp-lpcg";
 			reg = <0x56243000 0x4>;
 			#clock-cells = <1>;
-			clocks = <&lvds_ipg_clk>;
+			clocks = <&lvds0_ipg_clk>;
 			bit-offset = <16>;
 			clock-output-names = "lvds0_lis_lpcg_ipg_clk";
 			power-domains = <&pd IMX_SC_R_LVDS_0>;
@@ -33,7 +33,7 @@
 			reg = <0x5624300c 0x4>;
 			#clock-cells = <1>;
 			clocks = <&clk IMX_SC_R_LVDS_0_PWM_0 IMX_SC_PM_CLK_PER>,
-				 <&lvds_ipg_clk>;
+				 <&lvds0_ipg_clk>;
 			bit-offset = <0 16>;
 			clock-output-names = "lvds0_pwm_lpcg_clk",
 					     "lvds0_pwm_lpcg_ipg_clk";
@@ -45,7 +45,7 @@
 			reg = <0x56243010 0x4>;
 			#clock-cells = <1>;
 			clocks = <&clk IMX_SC_R_LVDS_0_I2C_0 IMX_SC_PM_CLK_PER>,
-				 <&lvds_ipg_clk>;
+				 <&lvds0_ipg_clk>;
 			bit-offset = <0 16>;
 			clock-output-names = "lvds0_i2c0_lpcg_clk",
 					     "lvds0_i2c0_lpcg_ipg_clk";
@@ -57,7 +57,7 @@
 			reg = <0x56243014 0x4>;
 			#clock-cells = <1>;
 			clocks = <&clk IMX_SC_R_LVDS_0_I2C_0 IMX_SC_PM_CLK_PER>,
-				 <&lvds_ipg_clk>;
+				 <&lvds0_ipg_clk>;
 			bit-offset = <0 16>;
 			clock-output-names = "lvds0_i2c1_lpcg_clk",
 					     "lvds0_i2c1_lpcg_ipg_clk";
@@ -184,11 +184,18 @@
 		#size-cells = <1>;
 		ranges = <0x57240000 0x0 0x57240000 0x10000>;
 
+		lvds1_ipg_clk: clock-lvds-ipg {
+			compatible = "fixed-clock";
+			#clock-cells = <0>;
+			clock-frequency = <24000000>;
+			clock-output-names = "lvds1_ipg_clk";
+		};
+
 		lvds1_lis_lpcg: clock-controller@57243000 {
 			compatible = "fsl,imx8qxp-lpcg";
 			reg = <0x57243000 0x4>;
 			#clock-cells = <1>;
-			clocks = <&lvds_ipg_clk>;
+			clocks = <&lvds1_ipg_clk>;
 			bit-offset = <16>;
 			clock-output-names = "lvds1_lis_lpcg_ipg_clk";
 			power-domains = <&pd IMX_SC_R_LVDS_1>;
@@ -199,7 +206,7 @@
 			reg = <0x5724300c 0x4>;
 			#clock-cells = <1>;
 			clocks = <&clk IMX_SC_R_LVDS_1_PWM_0 IMX_SC_PM_CLK_PER>,
-				 <&lvds_ipg_clk>;
+				 <&lvds1_ipg_clk>;
 			bit-offset = <0 16>;
 			clock-output-names = "lvds1_pwm_lpcg_clk",
 					     "lvds1_pwm_lpcg_ipg_clk";
@@ -211,7 +218,7 @@
 			reg = <0x57243010 0x4>;
 			#clock-cells = <1>;
 			clocks = <&clk IMX_SC_R_LVDS_1_I2C_0 IMX_SC_PM_CLK_PER>,
-				 <&lvds_ipg_clk>;
+				 <&lvds1_ipg_clk>;
 			bit-offset = <0 16>;
 			clock-output-names = "lvds1_i2c0_lpcg_clk",
 					     "lvds1_i2c0_lpcg_ipg_clk";
@@ -223,7 +230,7 @@
 			reg = <0x57243014 0x4>;
 			#clock-cells = <1>;
 			clocks = <&clk IMX_SC_R_LVDS_1_I2C_0 IMX_SC_PM_CLK_PER>,
-				 <&lvds_ipg_clk>;
+				 <&lvds1_ipg_clk>;
 			bit-offset = <0 16>;
 			clock-output-names = "lvds1_i2c1_lpcg_clk",
 					     "lvds1_i2c1_lpcg_ipg_clk";
