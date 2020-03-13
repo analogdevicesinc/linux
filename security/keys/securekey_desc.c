@@ -393,7 +393,7 @@ static int sk_job_submit(struct device *jrdev, struct sk_req *req)
 
 	/* caam_jr_enqueue function for Enqueue a job descriptor */
 	ret = caam_jr_enqueue(jrdev, req->hwdesc, caam_op_done, req);
-	if (!ret)
+	if (ret == -EINPROGRESS)
 		wait_for_completion_interruptible(&req->comp);
 
 	ret = req->ret;
