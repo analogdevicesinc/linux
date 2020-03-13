@@ -219,8 +219,9 @@ static void caam_dma_issue_pending(struct dma_chan *chan)
 
 	spin_lock_bh(&ctx->edesc_lock);
 	list_for_each_entry_safe(edesc, _edesc, &ctx->pending_q, node) {
-		if (caam_jr_enqueue(ctx->jrdev, edesc->jd,
-				    caam_dma_done, edesc) < 0)
+		int ret = caam_jr_enqueue(ctx->jrdev, edesc->jd,
+					  caam_dma_done, edesc);
+		if (ret != -EINPROGRESS)
 			break;
 		list_del(&edesc->node);
 	}
