@@ -321,6 +321,8 @@ static void mxc_imx8mn_clk_disable(struct mxc_isi_dev *mxc_isi)
 static struct mxc_isi_chan_src mxc_imx8mn_chan_src = {
 	.src_mipi0 = 0,
 	.src_mipi1 = 1,
+	/* For i.MX8MP */
+	.src_mem = 2,
 };
 
 static struct mxc_isi_dev_ops mxc_imx8mn_clk_ops = {

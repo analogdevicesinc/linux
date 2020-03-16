@@ -641,7 +641,7 @@ void mxc_isi_channel_enable(struct mxc_isi_dev *mxc_isi, bool m2m_enabled)
 
 	if (m2m_enabled) {
 		val &= ~(CHNL_CTRL_SRC_TYPE_MASK | CHNL_CTRL_SRC_INPUT_MASK);
-		val |= (CHNL_CTRL_SRC_INPUT_MEMORY << CHNL_CTRL_SRC_INPUT_OFFSET |
+		val |= (mxc_isi->pdata->chan_src->src_mem << CHNL_CTRL_SRC_INPUT_OFFSET |
 			CHNL_CTRL_SRC_TYPE_MEMORY << CHNL_CTRL_SRC_TYPE_OFFSET);
 	}
 
