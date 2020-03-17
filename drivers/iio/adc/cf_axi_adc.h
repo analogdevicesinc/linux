@@ -178,6 +178,8 @@ enum adc_data_sel {
 #define ADI_USR_DECIMATION_N(x)			(((x) & 0xFFFF) << 0)
 #define ADI_TO_USR_DECIMATION_N(x)		(((x) >> 0) & 0xFFFF)
 
+#define ADI_REG_ADC_DP_DISABLE 			0x00C0
+
 /* PCORE Version > 8.00 */
 #define ADI_REG_DELAY(l)				(0x0800 + (l) * 0x4)
 
