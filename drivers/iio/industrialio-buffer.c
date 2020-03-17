@@ -280,8 +280,10 @@ int iio_buffer_alloc_scanmask(struct iio_buffer *buffer,
 
 	buffer->channel_mask = bitmap_zalloc(indio_dev->num_channels,
 					     GFP_KERNEL);
-	if (buffer->channel_mask == NULL)
+	if (buffer->channel_mask == NULL) {
+		bitmap_free(buffer->scan_mask);
 		return -ENOMEM;
+	}
 
 	return 0;
 }
