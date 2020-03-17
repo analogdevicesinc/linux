@@ -157,67 +157,35 @@
 		<&clk_dummy>,
 		<&clk_dummy>,
 		<&clk_dummy>;
-	power-domains = <&pd IMX_SC_R_ASRC_0>,
-			<&pd IMX_SC_R_AUDIO_CLK_0>,
-			<&pd IMX_SC_R_AUDIO_CLK_1>,
-			<&pd IMX_SC_R_AUDIO_PLL_0>,
-			<&pd IMX_SC_R_AUDIO_PLL_1>;
+	power-domains = <&pd IMX_SC_R_ASRC_0>;
 };
 
 &esai0 {
-	power-domains = <&pd IMX_SC_R_ESAI_0>,
-			<&pd IMX_SC_R_AUDIO_CLK_0>,
-			<&pd IMX_SC_R_AUDIO_CLK_1>,
-			<&pd IMX_SC_R_AUDIO_PLL_0>,
-			<&pd IMX_SC_R_AUDIO_PLL_1>;
+	power-domains = <&pd IMX_SC_R_ESAI_0>;
 };
 
 &spdif0 {
-	power-domains = <&pd IMX_SC_R_SPDIF_0>,
-			<&pd IMX_SC_R_AUDIO_CLK_0>,
-			<&pd IMX_SC_R_AUDIO_CLK_1>,
-			<&pd IMX_SC_R_AUDIO_PLL_0>,
-			<&pd IMX_SC_R_AUDIO_PLL_1>;
+	power-domains = <&pd IMX_SC_R_SPDIF_0>;
 };
 
 &spdif1 {
-	power-domains = <&pd IMX_SC_R_SPDIF_1>,
-			<&pd IMX_SC_R_AUDIO_CLK_0>,
-			<&pd IMX_SC_R_AUDIO_CLK_1>,
-			<&pd IMX_SC_R_AUDIO_PLL_0>,
-			<&pd IMX_SC_R_AUDIO_PLL_1>;
+	power-domains = <&pd IMX_SC_R_SPDIF_1>;
 };
 
 &sai0 {
-	power-domains = <&pd IMX_SC_R_SAI_0>,
-			<&pd IMX_SC_R_AUDIO_CLK_0>,
-			<&pd IMX_SC_R_AUDIO_CLK_1>,
-			<&pd IMX_SC_R_AUDIO_PLL_0>,
-			<&pd IMX_SC_R_AUDIO_PLL_1>;
+	power-domains = <&pd IMX_SC_R_SAI_0>;
 };
 
 &sai1 {
-	power-domains = <&pd IMX_SC_R_SAI_1>,
-			<&pd IMX_SC_R_AUDIO_CLK_0>,
-			<&pd IMX_SC_R_AUDIO_CLK_1>,
-			<&pd IMX_SC_R_AUDIO_PLL_0>,
-			<&pd IMX_SC_R_AUDIO_PLL_1>;
+	power-domains = <&pd IMX_SC_R_SAI_1>;
 };
 
 &sai2 {
-	power-domains = <&pd IMX_SC_R_SAI_2>,
-			<&pd IMX_SC_R_AUDIO_CLK_0>,
-			<&pd IMX_SC_R_AUDIO_CLK_1>,
-			<&pd IMX_SC_R_AUDIO_PLL_0>,
-			<&pd IMX_SC_R_AUDIO_PLL_1>;
+	power-domains = <&pd IMX_SC_R_SAI_2>;
 };
 
 &sai3 {
-	power-domains = <&pd IMX_SC_R_SAI_3>,
-			<&pd IMX_SC_R_AUDIO_CLK_0>,
-			<&pd IMX_SC_R_AUDIO_CLK_1>,
-			<&pd IMX_SC_R_AUDIO_PLL_0>,
-			<&pd IMX_SC_R_AUDIO_PLL_1>;
+	power-domains = <&pd IMX_SC_R_SAI_3>;
 };
 
 &asrc1 {
@@ -240,11 +208,7 @@
 		<&clk_dummy>,
 		<&clk_dummy>,
 		<&clk_dummy>;
-	power-domains = <&pd IMX_SC_R_ASRC_1>,
-			<&pd IMX_SC_R_AUDIO_CLK_0>,
-			<&pd IMX_SC_R_AUDIO_CLK_1>,
-			<&pd IMX_SC_R_AUDIO_PLL_0>,
-			<&pd IMX_SC_R_AUDIO_PLL_1>;
+	power-domains = <&pd IMX_SC_R_ASRC_1>;
 };
 
 &amix {
@@ -364,11 +328,7 @@
 		dma-names = "rx";
 		dmas = <&edma0 18 0 1>;
 		fsl,dataline = <0 0xf 0x0>;
-		power-domains = <&pd IMX_SC_R_SAI_4>,
-				<&pd IMX_SC_R_AUDIO_CLK_0>,
-				<&pd IMX_SC_R_AUDIO_CLK_1>,
-				<&pd IMX_SC_R_AUDIO_PLL_0>,
-				<&pd IMX_SC_R_AUDIO_PLL_1>;
+		power-domains = <&pd IMX_SC_R_SAI_4>;
 		status = "disabled";
 	};
 
@@ -385,11 +345,7 @@
 		dma-names = "tx";
 		dmas = <&edma0 19 0 0>;
 		fsl,dataline = <0 0x0 0xf>;
-		power-domains = <&pd IMX_SC_R_SAI_5>,
-				<&pd IMX_SC_R_AUDIO_CLK_0>,
-				<&pd IMX_SC_R_AUDIO_CLK_1>,
-				<&pd IMX_SC_R_AUDIO_PLL_0>,
-				<&pd IMX_SC_R_AUDIO_PLL_1>;
+		power-domains = <&pd IMX_SC_R_SAI_5>;
 		status = "disabled";
 	};
 
@@ -404,11 +360,7 @@
 		clock-names = "core", "extal", "fsys", "spba";
 		dmas = <&edma1 6 0 1>, <&edma1 7 0 0>;
 		dma-names = "rx", "tx";
-		power-domains = <&pd IMX_SC_R_ESAI_1>,
-				<&pd IMX_SC_R_AUDIO_CLK_0>,
-				<&pd IMX_SC_R_AUDIO_CLK_1>,
-				<&pd IMX_SC_R_AUDIO_PLL_0>,
-				<&pd IMX_SC_R_AUDIO_PLL_1>;
+		power-domains = <&pd IMX_SC_R_ESAI_1>;
 		status = "disabled";
 	};
 
@@ -424,11 +376,7 @@
 		clock-names = "bus", "mclk0", "mclk1", "mclk2", "mclk3";
 		dma-names = "rx", "tx";
 		dmas = <&edma1 8 0 1>, <&edma1 9 0 0>;
-		power-domains = <&pd IMX_SC_R_SAI_6>,
-				<&pd IMX_SC_R_AUDIO_CLK_0>,
-				<&pd IMX_SC_R_AUDIO_CLK_1>,
-				<&pd IMX_SC_R_AUDIO_PLL_0>,
-				<&pd IMX_SC_R_AUDIO_PLL_1>;
+		power-domains = <&pd IMX_SC_R_SAI_6>;
 		status = "disabled";
 	};
 
@@ -444,11 +392,7 @@
 		clock-names = "bus", "mclk0", "mclk1", "mclk2", "mclk3";
 		dma-names = "tx";
 		dmas = <&edma1 10 0 0>;
-		power-domains = <&pd IMX_SC_R_SAI_7>,
-				<&pd IMX_SC_R_AUDIO_CLK_0>,
-				<&pd IMX_SC_R_AUDIO_CLK_1>,
-				<&pd IMX_SC_R_AUDIO_PLL_0>,
-				<&pd IMX_SC_R_AUDIO_PLL_1>;
+		power-domains = <&pd IMX_SC_R_SAI_7>;
 		status = "disabled";
 	};
 

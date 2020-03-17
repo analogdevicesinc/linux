@@ -27,16 +27,6 @@
 		VLS-supply = <&reg_audio>;
 		VLC-supply = <&reg_audio>;
 		reset-gpio = <&lsio_gpio4 25 GPIO_ACTIVE_LOW>;
-		power-domains = <&pd IMX_SC_R_MCLK_OUT_0>,
-				<&pd IMX_SC_R_AUDIO_CLK_0>,
-				<&pd IMX_SC_R_AUDIO_CLK_1>,
-				<&pd IMX_SC_R_AUDIO_PLL_0>,
-				<&pd IMX_SC_R_AUDIO_PLL_1>;
-		power-domain-names = "pd_mclk_out_0",
-					"pd_audio_clk_0",
-					"pd_audio_clk_1",
-					"pd_audio_clk_0",
-					"pd_audio_clk_1";
 		assigned-clocks = <&clk IMX_SC_R_AUDIO_PLL_0 IMX_SC_PM_CLK_PLL>,
 				<&clk IMX_SC_R_AUDIO_PLL_0 IMX_SC_PM_CLK_SLV_BUS>,
 				<&clk IMX_SC_R_AUDIO_PLL_0 IMX_SC_PM_CLK_MST_BUS>,
