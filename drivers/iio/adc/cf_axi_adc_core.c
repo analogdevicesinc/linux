@@ -865,7 +865,7 @@ static int axiadc_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, indio_dev);
 
-	st->dp_disable = axiadc_read(st, ADI_REG_ADC_DP_DISABLE);
+	st->dp_disable = false; /* FIXME: resolve later which reg & bit to read for this */
 
 	conv = to_converter(st->dev_spi);
 	if (IS_ERR(conv)) {
