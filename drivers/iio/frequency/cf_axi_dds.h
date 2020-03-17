@@ -103,9 +103,6 @@ enum dds_data_select {
 
 #define ADI_REG_DAC_GP_CONTROL	0x00BC
 
-#define ADI_REG_DAC_DP_DISABLE	0x00C0
-#define ADI_DAC_DP_DISABLE	(1 << 0)
-
 /* JESD TPL */
 
 #define ADI_REG_TPL_CNTRL		0x0200
