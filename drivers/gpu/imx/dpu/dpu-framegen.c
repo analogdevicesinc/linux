@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2016 Freescale Semiconductor, Inc.
- * Copyright 2017-2019 NXP
+ * Copyright 2017-2020 NXP
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -137,6 +137,11 @@ void framegen_enable_pixel_link(struct dpu_framegen *fg)
 
 	if (!(data->has_dual_ldb && fg->encoder_type == DRM_MODE_ENCODER_LVDS))
 		dpu_pxlink_set_mst_enable(fg->dpu, fg->id, true);
+
+	if (fg->encoder_type == DRM_MODE_ENCODER_DPI) {
+		dpu_pxlink_set_mst_valid(fg->dpu, fg->id, true);
+		dpu_pxlink_set_sync_ctrl(fg->dpu, fg->id, true);
+	}
 }
 EXPORT_SYMBOL_GPL(framegen_enable_pixel_link);
 
@@ -144,6 +149,11 @@ void framegen_disable_pixel_link(struct dpu_framegen *fg)
 {
 	struct dpu_soc *dpu = fg->dpu;
 	const struct dpu_data *data = dpu->data;
+
+	if (fg->encoder_type == DRM_MODE_ENCODER_DPI) {
+		dpu_pxlink_set_mst_valid(fg->dpu, fg->id, false);
+		dpu_pxlink_set_sync_ctrl(fg->dpu, fg->id, false);
+	}
 
 	if (!(data->has_dual_ldb && fg->encoder_type == DRM_MODE_ENCODER_LVDS))
 		dpu_pxlink_set_mst_enable(fg->dpu, fg->id, false);
@@ -249,7 +259,8 @@ void framegen_cfg_videomode(struct dpu_framegen *fg, struct drm_display_mode *m,
 
 		fg->use_bypass_clk = true;
 	} else {
-		dpu_pxlink_set_mst_addr(dpu, fg->id, 0);
+		dpu_pxlink_set_mst_addr(dpu, fg->id,
+				encoder_type == DRM_MODE_ENCODER_DPI ? 1 : 0);
 
 		clk_set_parent(fg->clk_disp, fg->clk_pll);
 
