@@ -1713,7 +1713,7 @@ static int cf_axi_dds_probe(struct platform_device *pdev)
 
 	st->standalone = info->standalone;
 	st->version = dds_read(st, ADI_AXI_REG_VERSION);
-	st->dp_disable = dds_read(st, ADI_REG_DAC_DP_DISABLE);
+	st->dp_disable = false; /* FIXME: resolve later which reg & bit to read for this */
 
 	if (ADI_AXI_PCORE_VER_MAJOR(st->version) >
 		ADI_AXI_PCORE_VER_MAJOR(info->version)) {
