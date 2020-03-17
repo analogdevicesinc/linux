@@ -27,7 +27,7 @@
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
 #include <linux/iio/buffer.h>
-#include <linux/iio/hw_consumer.h>
+#include <linux/iio/hw-consumer.h>
 
 #include <linux/dma-direction.h>
 #include <linux/iio/buffer_impl.h>
