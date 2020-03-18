@@ -4,6 +4,7 @@
  * Copyright 2020 NXP
  */
 
+#include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/io.h>
 #include <linux/kernel.h>
@@ -46,6 +47,7 @@ struct imx8mp_lvds_phy_priv {
 	struct device *dev;
 	struct regmap *regmap;
 	struct mutex lock;
+	struct clk *apb_clk;
 	struct imx8mp_lvds_phy *phys[2];
 };
 
@@ -71,10 +73,14 @@ static int imx8mp_lvds_phy_init(struct phy *phy)
 {
 	struct imx8mp_lvds_phy_priv *priv = dev_get_drvdata(phy->dev.parent);
 
+	clk_prepare_enable(priv->apb_clk);
+
 	mutex_lock(&priv->lock);
 	phy_write(phy, LVDS_CTRL,
 			CC_ADJ(0x2) | PRE_EMPH_EN | PRE_EMPH_ADJ(0x3));
 	mutex_unlock(&priv->lock);
+
+	clk_disable_unprepare(priv->apb_clk);
 
 	return 0;
 }
@@ -86,6 +92,8 @@ static int imx8mp_lvds_phy_power_on(struct phy *phy)
 	unsigned int id = lvds_phy->id;
 	unsigned int val;
 	bool bg_en;
+
+	clk_prepare_enable(priv->apb_clk);
 
 	mutex_lock(&priv->lock);
 	val = phy_read(phy, LVDS_CTRL);
@@ -104,6 +112,8 @@ static int imx8mp_lvds_phy_power_on(struct phy *phy)
 	phy_write(phy, LVDS_CTRL, val);
 	mutex_unlock(&priv->lock);
 
+	clk_disable_unprepare(priv->apb_clk);
+
 	/* Wait 5us to ensure the phy be settling. */
 	usleep_range(5, 10);
 
@@ -117,6 +127,8 @@ static int imx8mp_lvds_phy_power_off(struct phy *phy)
 	unsigned int id = lvds_phy->id;
 	unsigned int val;
 
+	clk_prepare_enable(priv->apb_clk);
+
 	mutex_lock(&priv->lock);
 	val = phy_read(phy, LVDS_CTRL);
 	val &= ~BG_EN;
@@ -126,6 +138,8 @@ static int imx8mp_lvds_phy_power_off(struct phy *phy)
 	val &= ~CH_EN(id);
 	phy_write(phy, LVDS_CTRL, val);
 	mutex_unlock(&priv->lock);
+
+	clk_disable_unprepare(priv->apb_clk);
 
 	return 0;
 }
@@ -163,6 +177,12 @@ static int imx8mp_lvds_phy_probe(struct platform_device *pdev)
 	}
 
 	priv->dev = dev;
+
+	priv->apb_clk = devm_clk_get(dev, "apb");
+	if (IS_ERR(priv->apb_clk)) {
+		dev_err(dev, "cannot get apb clock\n");
+		return PTR_ERR(priv->apb_clk);
+	}
 
 	mutex_init(&priv->lock);
 	dev_set_drvdata(dev, priv);
