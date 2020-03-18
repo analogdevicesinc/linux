@@ -29,6 +29,13 @@ properties:
     $ref: /schemas/types.yaml#/definitions/phandle
     description: phandle to block control syscon
 
+  clocks:
+    maxItems: 1
+
+  clock-names:
+    items:
+      - const: apb
+
   port@0:
     type: object
     description: A port node pointing to the PHY instance0's port node
@@ -74,6 +81,8 @@ examples:
         #address-cells = <1>;
         #size-cells = <0>;
         gpr = <&mediamix_blk_ctl>;
+        clocks = <&clk IMX8MP_CLK_MEDIA_APB_ROOT>;
+        clock-names = "apb";
 
         ldb_phy1: port@0 {
             reg = <0>;
