@@ -18,7 +18,7 @@
 #include "adi_ad9081_hal.h"
 
 /*============= D A T A ====================*/
-static uint8_t ad9081_api_revision[3] = { 0, 7, 8 };
+static uint8_t ad9081_api_revision[3] = { 1, 0, 0 };
 
 /*============= C O D E ====================*/
 int32_t adi_ad9081_device_boot_pre_clock(adi_ad9081_device_t *device)
@@ -85,9 +85,13 @@ int32_t adi_ad9081_device_boot_pre_clock(adi_ad9081_device_t *device)
 	AD9081_ERROR_RETURN(err);
 
 	/* ad9081api-621 */
-	err = adi_ad9081_hal_bf_set(device, 0x21b2, 0x0104,
-				    0x1); /* ckt_reset_bypass_en_shadow */
-	AD9081_ERROR_RETURN(err);
+	if (device->dev_info.dev_rev == 2 ||
+	    device->dev_info.dev_rev == 3) { /* r1r/r2 */
+		err = adi_ad9081_hal_bf_set(
+			device, 0x21b2, 0x0104,
+			0x1); /* ckt_reset_bypass_en_shadow */
+		AD9081_ERROR_RETURN(err);
+	}
 
 	return API_CMS_ERROR_OK;
 }
@@ -858,7 +862,7 @@ int32_t adi_ad9081_device_init(adi_ad9081_device_t *device)
 	err = adi_ad9081_hal_log_write(
 		device, ADI_CMS_LOG_MSG, "api v%d.%d.%d commit %s for ad%x ",
 		ad9081_api_revision[0], ad9081_api_revision[1],
-		ad9081_api_revision[2], "724378a", AD9081_ID);
+		ad9081_api_revision[2], "74e60ae", AD9081_ID);
 	AD9081_ERROR_RETURN(err);
 
 	/* get host cpu endian mode */
@@ -1108,6 +1112,23 @@ int32_t adi_ad9081_device_deinit(adi_ad9081_device_t *device)
 
 	/* software reset */
 	err = adi_ad9081_device_reset(device, AD9081_SOFT_RESET);
+	AD9081_ERROR_RETURN(err);
+
+	return API_CMS_ERROR_OK;
+}
+
+int32_t adi_ad9081_device_direct_loopback_set(adi_ad9081_device_t *device,
+					      uint8_t mode, uint8_t mapping)
+{
+	int32_t err;
+	AD9081_NULL_POINTER_RETURN(device);
+	AD9081_LOG_FUNC();
+
+	err = adi_ad9081_hal_bf_set(device, REG_CLOCKING_CTRL_ADDR,
+				    BF_DIRECT_LOOPBACK_MODE_INFO, mode);
+	AD9081_ERROR_RETURN(err);
+	err = adi_ad9081_hal_bf_set(device, REG_LOOPBACK_CB_CTRL_ADDR,
+				    BF_LOOPBACK_CB_CTRL_INFO, mapping);
 	AD9081_ERROR_RETURN(err);
 
 	return API_CMS_ERROR_OK;

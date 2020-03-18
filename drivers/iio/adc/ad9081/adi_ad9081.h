@@ -576,6 +576,24 @@ int32_t adi_ad9081_device_init(adi_ad9081_device_t *device);
 int32_t adi_ad9081_device_deinit(adi_ad9081_device_t *device);
 
 /**
+ * @brief  Configure ad9081 direct loopback mode (ADC sample rate must be same as DAC sample rate)
+ *
+ * @param  device  Pointer to the device structure
+ * @param  mode    bit[0]: set 1 to enable ana loop back feature
+ *                 bit[1]: set 1 to enable direct adc data to dac
+ *                         set 0 to control adc data overflow before loop back to dac
+ * @param  mapping bit[1:0]: controls which ADC map to DAC0, 0: ADC0, 1: ADC1
+ *                 bit[3:2]: controls which ADC map to DAC1, 0: ADC0, 1: ADC1
+ *                 bit[5:4]: controls which ADC map to DAC2, 0: ADC0, 1: ADC1
+ *                 bit[7:6]: controls which ADC map to DAC3, 0: ADC0, 1: ADC1
+ *
+ * @return API_CMS_ERROR_OK                     API Completed Successfully
+ * @return <0                                   Failed. @see adi_cms_error_e for details.
+ */
+int32_t adi_ad9081_device_direct_loopback_set(adi_ad9081_device_t *device,
+					      uint8_t mode, uint8_t mapping);
+
+/**
  * @brief  Perform SPI interface configuration
  *
  * @param  device Pointer to the device structure
@@ -1589,6 +1607,37 @@ int32_t adi_ad9081_dac_spi_as_tx_en_set(adi_ad9081_device_t *device,
  */
 int32_t adi_ad9081_dac_tx_enable_set(adi_ad9081_device_t *device, uint8_t dacs,
 				     uint8_t enable);
+
+/**
+ * @brief  Set Enable on DAC DSA
+ *
+ * @param  device  Pointer to the device structure
+ * @param  dacs    Target DAC Channel to enable data output
+ * @param  enable  1 to enable dac dsa, 0 to disable
+ *
+ * @return API_CMS_ERROR_OK                     API Completed Successfully
+ * @return <0                                   Failed. @see adi_cms_error_e for details.
+ */
+int32_t adi_ad9081_dac_duc_main_dsa_enable_set(adi_ad9081_device_t *device,
+					       uint8_t dacs, uint8_t enable);
+
+/**
+ * @brief  Configure DAC DSA
+ *
+ * @param  device  Pointer to the device structure
+ * @param  dacs    Target DAC Channel to enable data output
+ * @param  code    Attenuation code, 0 equals no attention and 235 equals 47dB attenuation.
+ * @param  cutover Governs the switch over from analog to digital gain control
+ * @param  boost   Boost ability to elevate the full_scale current above the 26mA baseline current
+ * @param  gain    12 bit data path digital gain
+ *
+ * @return API_CMS_ERROR_OK                     API Completed Successfully
+ * @return <0                                   Failed. @see adi_cms_error_e for details.
+ */
+int32_t adi_ad9081_dac_duc_main_dsa_set(adi_ad9081_device_t *device,
+					uint8_t dacs, uint8_t code,
+					uint8_t cutover, uint8_t boost,
+					uint16_t gain);
 
 /**
  * @brief  Set full scale current of DAC outputs
