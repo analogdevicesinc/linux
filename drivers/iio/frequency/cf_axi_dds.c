@@ -243,30 +243,43 @@ static int cf_axi_get_parent_sampling_frequency(struct cf_axi_dds_state *st,
 	return 0;
 }
 
+
+void __cf_axi_dds_datasel(struct cf_axi_dds_state *st,
+	int channel, enum dds_data_select sel)
+{
+	unsigned int val;
+
+	if ((unsigned int)channel > (st->have_slave_channels - 1)) {
+		val = dds_slave_read(st,
+			ADI_REG_CHAN_CNTRL_7(channel -
+			st->have_slave_channels));
+
+		val &= ~ADI_DAC_DDS_SEL(~0);
+		val |= ADI_DAC_DDS_SEL(sel);
+
+		dds_slave_write(st,
+			ADI_REG_CHAN_CNTRL_7(channel -
+			st->have_slave_channels), val);
+	} else {
+		val = dds_read(st, ADI_REG_CHAN_CNTRL_7(channel));
+
+		val &= ~ADI_DAC_DDS_SEL(~0);
+		val |= ADI_DAC_DDS_SEL(sel);
+
+		dds_write(st, ADI_REG_CHAN_CNTRL_7(channel), val);
+	}
+}
+
 int cf_axi_dds_datasel(struct cf_axi_dds_state *st,
 			       int channel, enum dds_data_select sel)
 {
-	if (channel < 0) { /* ALL */
-		unsigned int i;
+	unsigned int i;
 
-		for (i = 0; i < st->chip_info->num_buf_channels; i++) {
-			if (i > (st->have_slave_channels - 1))
-				dds_slave_write(st,
-					ADI_REG_CHAN_CNTRL_7(i -
-					st->have_slave_channels), sel);
-			else
-				dds_write(st,
-				ADI_REG_CHAN_CNTRL_7(i), sel);
-		}
-	} else {
-		if ((unsigned int)channel > (st->have_slave_channels - 1))
-			dds_slave_write(st,
-				ADI_REG_CHAN_CNTRL_7(channel -
-				st->have_slave_channels), sel);
-		else
-			dds_write(st, ADI_REG_CHAN_CNTRL_7(channel),
-				  sel);
-	}
+	if (channel < 0) /* ALL */
+		for (i = 0; i < st->chip_info->num_buf_channels; i++)
+			__cf_axi_dds_datasel(st, i, sel);
+	else
+		__cf_axi_dds_datasel(st, channel, sel);
 
 	return 0;
 }
@@ -279,11 +292,11 @@ static enum dds_data_select cf_axi_dds_get_datasel(struct cf_axi_dds_state *st,
 		channel = 0;
 
 	if ((unsigned int)channel > (st->have_slave_channels - 1))
-		return dds_slave_read(st,
+		return ADI_TO_DAC_DDS_SEL(dds_slave_read(st,
 			ADI_REG_CHAN_CNTRL_7(channel -
-			st->have_slave_channels));
+			st->have_slave_channels)));
 
-	return dds_read(st, ADI_REG_CHAN_CNTRL_7(channel));
+	return ADI_TO_DAC_DDS_SEL(dds_read(st, ADI_REG_CHAN_CNTRL_7(channel)));
 }
 
 static int cf_axi_dds_sync_frame(struct iio_dev *indio_dev)
@@ -1423,6 +1436,96 @@ static void dds_converter_put(struct device *conv_dev)
 	put_device(conv_dev);
 }
 
+static ssize_t cf_axi_dds_ext_info_read(struct iio_dev *indio_dev,
+				uintptr_t private,
+				const struct iio_chan_spec *chan, char *buf)
+{
+	struct cf_axi_dds_state *st = iio_priv(indio_dev);
+	long long val;
+	unsigned int index;
+	int ret = 0;
+
+	mutex_lock(&indio_dev->mlock);
+
+	switch (private) {
+	case CHANNEL_XBAR:
+		index = cf_axi_dds_reg_index(chan);
+		val = dds_read(st, ADI_REG_CHAN_CNTRL_7(index));
+
+		if (val & ADI_DAC_ENABLE_MASK)
+			val = ADI_TO_DAC_SRC_CH_SEL(val);
+		else
+			val = index;
+		break;
+	default:
+		ret = -EINVAL;
+	}
+
+	mutex_unlock(&indio_dev->mlock);
+
+	if (ret == 0)
+		ret = sprintf(buf, "%lld\n", val);
+
+	return ret;
+}
+
+static ssize_t cf_axi_dds_ext_info_write(struct iio_dev *indio_dev,
+				uintptr_t private,
+				const struct iio_chan_spec *chan,
+				const char *buf, size_t len)
+{
+	struct cf_axi_dds_state *st = iio_priv(indio_dev);
+	long long readin;
+	unsigned int index, val;
+	int ret;
+
+	mutex_lock(&indio_dev->mlock);
+
+	switch (private) {
+	case CHANNEL_XBAR:
+		ret = kstrtoll(buf, 10, &readin);
+		if (ret)
+			goto out;
+
+		if (readin >= st->chip_info->num_buf_channels) {
+			ret = -EINVAL;
+			goto out;
+		}
+
+		index = cf_axi_dds_reg_index(chan);
+
+		val = dds_read(st, ADI_REG_CHAN_CNTRL_7(index));
+
+		val &= ADI_DAC_DDS_SEL(~0);
+		val |= ADI_DAC_SRC_CH_SEL(readin);
+
+		if (readin != index)
+			val |= ADI_DAC_ENABLE_MASK;
+
+		dds_write(st, ADI_REG_CHAN_CNTRL_7(index), val);
+
+		break;
+	default:
+		ret = -EINVAL;
+	}
+
+out:
+	mutex_unlock(&indio_dev->mlock);
+
+	return ret ? ret : len;
+}
+
+static struct iio_chan_spec_ext_info axidds_ext_info[] = {
+	{
+		.name = "channel_crossbar_select",
+		.read = cf_axi_dds_ext_info_read,
+		.write = cf_axi_dds_ext_info_write,
+		.shared = false,
+		.private = CHANNEL_XBAR,
+	},
+	{},
+};
+
 static int cf_axi_dds_setup_chip_info_tbl(struct cf_axi_dds_state *st,
 					  const char *name, bool complex)
 {
@@ -1451,12 +1554,16 @@ static int cf_axi_dds_setup_chip_info_tbl(struct cf_axi_dds_state *st,
 			(i & 1) ? IIO_MOD_Q : IIO_MOD_I;
 		st->chip_info_generated.channel[c].scan_index = i;
 		st->chip_info_generated.channel[c].info_mask_shared_by_type =
-		BIT(IIO_CHAN_INFO_SAMP_FREQ);
+			BIT(IIO_CHAN_INFO_SAMP_FREQ);
 
 		if (!(reg & ADI_IQCORRECTION_DISABLE))
 			st->chip_info_generated.channel[c].info_mask_separate =
 			BIT(IIO_CHAN_INFO_CALIBSCALE) |
 			BIT(IIO_CHAN_INFO_CALIBPHASE);
+
+		if (reg & ADI_XBAR_ENABLE)
+			st->chip_info_generated.channel[c].ext_info =
+			axidds_ext_info;
 
 		st->chip_info_generated.channel[c].scan_type.realbits = n;
 		st->chip_info_generated.channel[c].scan_type.storagebits = np;
