@@ -405,6 +405,7 @@ _QueryProcessPageTable(
         struct vm_area_struct *vma;
         spinlock_t *ptl;
         pgd_t *pgd;
+	p4d_t *p4d;
         pud_t *pud;
         pmd_t *pmd;
         pte_t *pte;
@@ -431,7 +432,11 @@ _QueryProcessPageTable(
     && LINUX_VERSION_CODE >= KERNEL_VERSION (4,11,0)
         pud = pud_offset((p4d_t*)pgd, logical);
 #else
-        pud = pud_offset(pgd, logical);
+	p4d = p4d_offset(pgd, logical);
+	if (p4d_none(READ_ONCE(*p4d)))
+		return false;
+
+	pud = pud_offset(p4d, logical);
 #endif
         if (pud_none(*pud) || pud_bad(*pud))
             return gcvSTATUS_NOT_FOUND;
