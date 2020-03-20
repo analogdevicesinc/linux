@@ -169,12 +169,6 @@ struct iio_buffer {
 	struct kref ref;
 };
 
-static inline int iio_buffer_write(struct iio_buffer *buffer, size_t n,
-	const char __user *buf)
-{
-	return buffer->access->write(buffer, n, buf);
-}
-
 /**
  * iio_update_buffers() - add or remove buffer from active list
  * @indio_dev:		device to add buffer to
