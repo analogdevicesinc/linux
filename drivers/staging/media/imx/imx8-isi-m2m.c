@@ -1126,7 +1126,7 @@ static int isi_m2m_probe(struct platform_device *pdev)
 	if (ret)
 		goto free_m2m;
 
-	ret = video_register_device(vdev, VFL_TYPE_GRABBER, -1);
+	ret = video_register_device(vdev, VFL_TYPE_VIDEO, -1);
 	if (ret < 0) {
 		dev_err(&pdev->dev, "%s fail to register video device\n", __func__);
 		goto ctrl_free;
