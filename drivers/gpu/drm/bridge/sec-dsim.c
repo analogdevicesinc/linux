@@ -792,7 +792,8 @@ static const struct mipi_dsi_host_ops sec_mipi_dsim_host_ops = {
 	.transfer = sec_mipi_dsim_host_transfer,
 };
 
-static int sec_mipi_dsim_bridge_attach(struct drm_bridge *bridge)
+static int sec_mipi_dsim_bridge_attach(struct drm_bridge *bridge,
+					enum drm_bridge_attach_flags flags)
 {
 	int ret;
 	bool attach_bridge = false;
@@ -858,7 +859,7 @@ static int sec_mipi_dsim_bridge_attach(struct drm_bridge *bridge)
 
 	dsim->next = next;
 	next->encoder = encoder;
-	ret = drm_bridge_attach(encoder, next, bridge);
+	ret = drm_bridge_attach(encoder, next, bridge, flags);
 	if (ret) {
 		dev_err(dev, "Unable to attach bridge %s: %d\n",
 			remote->name, ret);
@@ -1928,7 +1929,7 @@ int sec_mipi_dsim_bind(struct device *dev, struct device *master, void *data,
 	bridge->encoder = encoder;
 
 	/* attach sec dsim bridge and its next bridge if exists */
-	ret = drm_bridge_attach(encoder, bridge, NULL);
+	ret = drm_bridge_attach(encoder, bridge, NULL, 0);
 	if (ret) {
 		dev_err(dev, "Failed to attach bridge: %s\n", dev_name(dev));
 
