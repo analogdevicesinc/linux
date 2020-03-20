@@ -426,7 +426,7 @@ static int adxcvr_clk_register(struct device *dev,
 
 	init.name = clk_names[0];
 	init.ops = &clkout_ops;
-	init.flags = CLK_SET_RATE_GATE | CLK_SET_RATE_PARENT;
+	init.flags = CLK_SET_RATE_PARENT;
 
 	init.parent_names = (parent_name ? &parent_name : NULL);
 	init.num_parents = (parent_name ? 1 : 0);
