@@ -16,6 +16,16 @@
  * where absolute virtual addresses to the data section have to be
  * turned into relative ones.
  */
+	.macro is_cortex_a7
+
+	/* Read the primary cpu number is MPIDR */
+	mrc     p15, 0, r5, c0, c0, 0
+	ldr     r6, =0xfff0
+	and     r5, r5, r6
+	ldr     r6, =0xc070
+	cmp     r5, r6
+
+	.endm
 
 ENTRY(v7_cpu_resume)
 	bl	v7_invalidate_l1
