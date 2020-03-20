@@ -719,11 +719,17 @@ static void it6263_bridge_mode_set(struct drm_bridge *bridge,
 						AFE_IP_ER0 | AFE_IP_RESETB);
 }
 
-static int it6263_bridge_attach(struct drm_bridge *bridge)
+static int it6263_bridge_attach(struct drm_bridge *bridge,
+				enum drm_bridge_attach_flags flags)
 {
 	struct it6263 *it6263 = bridge_to_it6263(bridge);
 	struct drm_device *drm = bridge->dev;
 	int ret;
+
+	if (flags & DRM_BRIDGE_ATTACH_NO_CONNECTOR) {
+		DRM_ERROR("Fix bridge driver to make connector optional!");
+		return -EINVAL;
+	}
 
 	if (!drm_core_check_feature(drm, DRIVER_ATOMIC)) {
 		dev_err(&it6263->hdmi_i2c->dev,
