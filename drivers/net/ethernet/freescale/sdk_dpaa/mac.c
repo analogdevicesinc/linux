@@ -273,7 +273,7 @@ static int __cold mac_probe(struct platform_device *_of_dev)
 
 	/* Get the MAC address */
 	mac_addr = of_get_mac_address(mac_node);
-	if (unlikely(mac_addr == NULL)) {
+	if (IS_ERR_OR_NULL(mac_addr)) {
 		dev_err(dev, "of_get_mac_address(%s) failed\n",
 				mac_node->full_name);
 		_errno = -EINVAL;
