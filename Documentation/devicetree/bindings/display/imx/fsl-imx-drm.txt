@@ -322,6 +322,77 @@ dpr-channel@560e0000 {
 	power-domains = <&pd IMX_SC_R_DC_0>;
 };
 
+LCDIF mux display support
+=========================
+
+Required properties:
+- compatible: Should be "fsl,imx-lcdif-mux-display"
+- #address-cells : should be <1>
+- #size-cells : should be <0>
+- pinctrl-names : should be "default"
+- pinctrl-0 : phandle pointing to parallel display pin settings
+- clocks : phandle to the LCD pixel bypass divider clock and the LCD pixel clock
+  as described in Documentation/devicetree/bindings/clock/clock-bindings.txt and
+  Documentation/devicetree/bindings/clock/imx8qxp-clock.txt.
+- clock-names: should be "bypass_div" and "pixel"
+- assigned-clocks: phandle to the LCD pixel selector clock
+- assigned-clock-parents: phandle to the LCD pixel bypass divider clock
+- fsl,lcdif-mux-regs: should be <&lcdif_mux_regs> on i.MX8qxp.
+                      The phandle points to a syscon region containing
+                      LCDIF mux control register.
+- power-domains: phandle pointing to power domain
+- port@[0-1]: Port nodes with endpoint definitions as defined in
+  Documentation/devicetree/bindings/media/video-interfaces.txt.
+  Port 0 is the input port connected to the DPU display interface,
+  port 1 is the output port connected to a panel or a bridge.
+Optional properties:
+- fsl,interface-pix-fmt: How this display is connected to the
+  display interface, can be "rgb565", "rgb666" and "rgb888".
+
+example:
+
+display@disp1 {
+	compatible = "fsl,imx-lcdif-mux-display";
+	#address-cells = <1>;
+	#size-cells = <0>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_lcdif>;
+	clocks = <&clk IMX_SC_R_LCD_0 IMX_SC_PM_CLK_BYPASS>,
+		 <&clk IMX_SC_R_LCD_0 IMX_SC_PM_CLK_MISC0>;
+	clock-names = "bypass_div", "pixel";
+	assigned-clocks = <&clk IMX_SC_R_LCD_0 IMX_SC_PM_CLK_MISC0>;
+	assigned-clock-parents = <&clk IMX_SC_R_LCD_0 IMX_SC_PM_CLK_BYPASS>;
+	fsl,lcdif-mux-regs = <&lcdif_mux_regs>;
+	fsl,interface-pix-fmt = "rgb666";
+	power-domains = <&pd IMX_SC_R_LCD_0>;
+
+	port@0 {
+		reg = <0>;
+
+		lcd_display_in: endpoint {
+			remote-endpoint = <&dpu_disp1_lcdif>;
+		};
+	};
+
+	port@1 {
+		reg = <1>;
+
+		lcd_display_out: endpoint {
+			remote-endpoint = <&lcd_panel_in>;
+		};
+	};
+};
+
+panel {
+	...
+
+	port {
+		lcd_panel_in: endpoint {
+			remote-endpoint = <&lcd_display_out>;
+		};
+	};
+};
+
 Parallel display support
 ========================
 
