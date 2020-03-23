@@ -162,6 +162,69 @@ static ssize_t iio_buffer_read(struct file *filp, char __user *buf,
 	return ret;
 }
 
+static size_t iio_buffer_space_available(struct iio_buffer *buf)
+{
+	if (buf->access->space_available)
+		return buf->access->space_available(buf);
+
+	return SIZE_MAX;
+}
+
+static ssize_t iio_buffer_write(struct file *filp, const char __user *buf,
+				size_t n, loff_t *f_ps)
+{
+	struct iio_dev_buffer_pair *ib = filp->private_data;
+	struct iio_buffer *rb = ib->buffer;
+	struct iio_dev *indio_dev = ib->indio_dev;
+	DEFINE_WAIT_FUNC(wait, woken_wake_function);
+	size_t datum_size;
+	size_t to_wait;
+	int ret;
+
+	if (!rb || !rb->access->write)
+		return -EINVAL;
+
+	datum_size = rb->bytes_per_datum;
+
+	/*
+	 * If datum_size is 0 there will never be anything to read from the
+	 * buffer, so signal end of file now.
+	 */
+	if (!datum_size)
+		return 0;
+
+	if (filp->f_flags & O_NONBLOCK)
+		to_wait = 0;
+	else
+		to_wait = min_t(size_t, n / datum_size, rb->watermark);
+
+	add_wait_queue(&rb->pollq, &wait);
+	do {
+		if (!indio_dev->info) {
+			ret = -ENODEV;
+			break;
+		}
+
+		if (iio_buffer_space_available(rb) < to_wait) {
+			if (signal_pending(current)) {
+				ret = -ERESTARTSYS;
+				break;
+			}
+
+			wait_woken(&wait, TASK_INTERRUPTIBLE,
+				   MAX_SCHEDULE_TIMEOUT);
+			continue;
+		}
+
+		ret = rb->access->write(rb, n, buf);
+		if (ret == 0 && (filp->f_flags & O_NONBLOCK))
+			ret = -EAGAIN;
+	} while (ret == 0);
+	remove_wait_queue(&rb->pollq, &wait);
+
+	return ret;
+}
+
 /**
  * iio_buffer_poll() - poll the buffer to find out if it has data
  * @filp:	File structure pointer for device access
@@ -182,8 +245,18 @@ static __poll_t iio_buffer_poll(struct file *filp,
 		return 0;
 
 	poll_wait(filp, &rb->pollq, wait);
-	if (iio_buffer_ready(indio_dev, rb, rb->watermark, 0))
-		return EPOLLIN | EPOLLRDNORM;
+
+	switch (rb->direction) {
+	case IIO_BUFFER_DIRECTION_IN:
+		if (iio_buffer_ready(indio_dev, rb, rb->watermark, 0))
+			return EPOLLIN | EPOLLRDNORM;
+		break;
+	case IIO_BUFFER_DIRECTION_OUT:
+		if (iio_buffer_space_available(rb) >= rb->watermark)
+			return EPOLLOUT | EPOLLWRNORM;
+		break;
+	}
+
 	return 0;
 }
 
@@ -231,6 +304,16 @@ void iio_buffer_wakeup_poll(struct iio_dev *indio_dev)
 		wake_up(&buffer->pollq);
 	}
 }
+
+int iio_buffer_remove_sample(struct iio_buffer *buffer, u8 *data)
+{
+	if (!buffer || !buffer->access)
+		return -EINVAL;
+	if (!buffer->access->write)
+		return -ENOSYS;
+	return buffer->access->remove_from(buffer, data);
+}
+EXPORT_SYMBOL_GPL(iio_buffer_remove_sample);
 
 void iio_buffer_init(struct iio_buffer *buffer)
 {
@@ -803,6 +886,8 @@ static int iio_verify_update(struct iio_dev *indio_dev,
 	}
 
 	if (insert_buffer) {
+		if (insert_buffer->direction == IIO_BUFFER_DIRECTION_OUT)
+			strict_scanmask = true;
 		bitmap_or(compound_mask, compound_mask,
 			  insert_buffer->scan_mask, indio_dev->masklength);
 		scan_timestamp |= insert_buffer->scan_timestamp;
@@ -945,6 +1030,8 @@ static int iio_update_demux(struct iio_dev *indio_dev)
 	int ret;
 
 	list_for_each_entry(buffer, &iio_dev_opaque->buffer_list, buffer_list) {
+		if (buffer->direction == IIO_BUFFER_DIRECTION_OUT)
+			continue;
 		ret = iio_buffer_update_demux(indio_dev, buffer);
 		if (ret < 0)
 			goto error_clear_mux_table;
@@ -1155,6 +1242,11 @@ int iio_update_buffers(struct iio_dev *indio_dev,
 	mutex_lock(&indio_dev->info_exist_lock);
 	mutex_lock(&indio_dev->mlock);
 
+	if (insert_buffer->direction == IIO_BUFFER_DIRECTION_OUT) {
+		ret = -EINVAL;
+		goto out_unlock;
+	}
+
 	if (insert_buffer && iio_buffer_is_active(insert_buffer))
 		insert_buffer = NULL;
 
@@ -1273,6 +1365,22 @@ static ssize_t iio_dma_show_data_available(struct device *dev,
 	return sprintf(buf, "%zu\n", iio_buffer_data_available(buffer));
 }
 
+static ssize_t direction_show(struct device *dev,
+			      struct device_attribute *attr,
+			      char *buf)
+{
+	struct iio_buffer *buffer = to_iio_dev_attr(attr)->buffer;
+
+	switch (buffer->direction) {
+	case IIO_BUFFER_DIRECTION_IN:
+		return sprintf(buf, "in\n");
+	case IIO_BUFFER_DIRECTION_OUT:
+		return sprintf(buf, "out\n");
+	default:
+		return -EINVAL;
+	}
+}
+
 static DEVICE_ATTR(length, S_IRUGO | S_IWUSR, iio_buffer_read_length,
 		   iio_buffer_write_length);
 static struct device_attribute dev_attr_length_ro = __ATTR(length,
@@ -1285,12 +1393,20 @@ static struct device_attribute dev_attr_watermark_ro = __ATTR(watermark,
 	S_IRUGO, iio_buffer_show_watermark, NULL);
 static DEVICE_ATTR(data_available, S_IRUGO,
 		iio_dma_show_data_available, NULL);
+static DEVICE_ATTR_RO(direction);
 
+/**
+ * When adding new attributes here, put the at the end, at least until
+ * the code that handles the lengh/length_ro & watermark/watermark_ro
+ * assignments gets cleaned up. Otherwise these can create some weird
+ * duplicate attributes errors under some setups.
+ */
 static struct attribute *iio_buffer_attrs[] = {
 	&dev_attr_length.attr,
 	&dev_attr_enable.attr,
 	&dev_attr_watermark.attr,
 	&dev_attr_data_available.attr,
+	&dev_attr_direction.attr,
 };
 
 #define to_dev_attr(_attr) container_of(_attr, struct device_attribute, attr)
@@ -1401,6 +1517,7 @@ static const struct file_operations iio_buffer_chrdev_fileops = {
 	.owner = THIS_MODULE,
 	.llseek = noop_llseek,
 	.read = iio_buffer_read,
+	.write = iio_buffer_write,
 	.poll = iio_buffer_poll,
 	.unlocked_ioctl = iio_buffer_ioctl,
 	.compat_ioctl = compat_ptr_ioctl,
@@ -1920,8 +2037,16 @@ static int iio_buffer_mmap(struct file *filep, struct vm_area_struct *vma)
 	if (!(vma->vm_flags & VM_SHARED))
 		return -EINVAL;
 
-	if (!(vma->vm_flags & VM_READ))
-		return -EINVAL;
+	switch (buffer->direction) {
+	case IIO_BUFFER_DIRECTION_IN:
+		if (!(vma->vm_flags & VM_READ))
+			return -EINVAL;
+		break;
+	case IIO_BUFFER_DIRECTION_OUT:
+		if (!(vma->vm_flags & VM_WRITE))
+			return -EINVAL;
+		break;
+	}
 
 	return buffer->access->mmap(buffer, vma);
 }

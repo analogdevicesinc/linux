@@ -1170,6 +1170,13 @@ Contact:	linux-iio@vger.kernel.org
 Description:
 		Number of scans contained by the buffer.
 
+What:		/sys/bus/iio/devices/iio:deviceX/bufferY/direction
+KernelVersion:	5.11
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Returns the direction of the data stream of the buffer.
+		The output is "in" or "out".
+
 What:		/sys/bus/iio/devices/iio:deviceX/buffer/enable
 KernelVersion:	2.6.35
 What:		/sys/bus/iio/devices/iio:deviceX/bufferY/enable
