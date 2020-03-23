@@ -289,6 +289,7 @@ static int adrv9009_set_jesd_lanerate(struct adrv9009_rf_phy *phy,
 				      taliseJesd204bDeframerConfig_t *deframer,
 				      u32 *lmfc)
 {
+	bool clk_enable = __clk_is_enabled(link_clk);
 	unsigned long lane_rate_kHz;
 	u32 m, l, k, f, lmfc_tmp;
 	int ret;
@@ -315,12 +316,17 @@ static int adrv9009_set_jesd_lanerate(struct adrv9009_rf_phy *phy,
 
 	lane_rate_kHz = input_rate_khz * m * 20 / l;
 
+	if (clk_enable)
+		clk_disable_unprepare(link_clk);
+
 	ret = clk_set_rate(link_clk, lane_rate_kHz);
-	if (ret < 0) {
-		dev_err(&phy->spi->dev,
-			"Request %s lanerate %lu kHz failed (%d)\n",
-			framer ? "framer" : "deframer", lane_rate_kHz, ret);
-		return ret;
+	if (ret < 0)
+		goto error;
+
+	if (clk_enable) {
+		ret = clk_prepare_enable(link_clk);
+		if (ret)
+			goto error;
 	}
 
 	lmfc_tmp = (lane_rate_kHz * 100) / (k * f);
@@ -331,6 +337,12 @@ static int adrv9009_set_jesd_lanerate(struct adrv9009_rf_phy *phy,
 		*lmfc = lmfc_tmp;
 
 	return 0;
+
+error:
+	dev_err(&phy->spi->dev,
+		"Request %s lanerate %lu kHz failed (%d)\n",
+		framer ? "framer" : "deframer", lane_rate_kHz, ret);
+	return ret;
 }
 
 static bool adrv9009_check_sysref_rate(unsigned int lmfc, unsigned int sysref)
