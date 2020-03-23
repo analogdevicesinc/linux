@@ -110,6 +110,8 @@ struct iio_dma_buffer_queue {
 
 	bool active;
 
+	void *driver_data;
+
 	unsigned int num_blocks;
 	struct iio_dma_buffer_block **blocks;
 	unsigned int max_offset;
@@ -144,7 +146,8 @@ int iio_dma_buffer_set_length(struct iio_buffer *buffer, unsigned int length);
 int iio_dma_buffer_request_update(struct iio_buffer *buffer);
 
 int iio_dma_buffer_init(struct iio_dma_buffer_queue *queue,
-	struct device *dma_dev, const struct iio_dma_buffer_ops *ops);
+	struct device *dma_dev, const struct iio_dma_buffer_ops *ops,
+	void *driver_data);
 void iio_dma_buffer_exit(struct iio_dma_buffer_queue *queue);
 void iio_dma_buffer_release(struct iio_dma_buffer_queue *queue);
 

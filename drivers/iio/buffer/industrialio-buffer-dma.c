@@ -892,13 +892,15 @@ EXPORT_SYMBOL_GPL(iio_dma_buffer_set_length);
  * allocations are done from a memory region that can be accessed by the device.
  */
 int iio_dma_buffer_init(struct iio_dma_buffer_queue *queue,
-	struct device *dev, const struct iio_dma_buffer_ops *ops)
+	struct device *dev, const struct iio_dma_buffer_ops *ops,
+	void *driver_data)
 {
 	iio_buffer_init(&queue->buffer);
 	queue->buffer.length = PAGE_SIZE;
 	queue->buffer.watermark = queue->buffer.length / 2;
 	queue->dev = dev;
 	queue->ops = ops;
+	queue->driver_data = driver_data;
 
 	INIT_LIST_HEAD(&queue->incoming);
 	INIT_LIST_HEAD(&queue->outgoing);
