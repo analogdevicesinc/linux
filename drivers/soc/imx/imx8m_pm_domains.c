@@ -181,8 +181,10 @@ static int imx8m_pm_domain_probe(struct platform_device *pdev)
 	domain->pd.power_on = imx8m_pd_power_on;
 	if (of_property_read_bool(np, "active-wakeup"))
 		domain->pd.flags |= GENPD_FLAG_ACTIVE_WAKEUP;
+	if (of_property_read_bool(np, "rpm-always-on"))
+		domain->pd.flags |= GENPD_FLAG_RPM_ALWAYS_ON;
 
-	pm_genpd_init(&domain->pd, NULL, true);
+	pm_genpd_init(&domain->pd, NULL, !(domain->pd.flags & GENPD_FLAG_RPM_ALWAYS_ON));
 
 	ret = of_genpd_add_provider_simple(np, &domain->pd);
 	if (ret) {

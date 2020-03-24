@@ -20,6 +20,7 @@ Optional properties:
  - parent-domains: the phandle to the parent power domain
  - active-wakeup: keep the PM domain powered in case the attached device wakeup
    is enabled.
+ - rpm-always-on: keep the PM domain powered except for system suspend.
 
 example:
 	vpu_g1_pd: vpug1-pd {
