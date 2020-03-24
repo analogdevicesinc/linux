@@ -1,0 +1,65 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2020 NXP
+ */
+
+/dts-v1/;
+
+#include <dt-bindings/usb/pd.h>
+#include "imx8qm-mek.dts"
+
+/*
+ * Add the PCIeA x2 lanes and PCIeB x1 lane usecase
+ * hsio-cfg = <PCIEAX2PCIEBX1>
+ * NOTE: In this case, the HSIO nodes contained
+ * hsio-cfg = <PCIEAX1PCIEBX1SATA> would be re-configured.
+ */
+&pciea{
+	ext_osc = <1>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_pciea>;
+	disable-gpio = <&lsio_gpio4 9 GPIO_ACTIVE_LOW>;
+	reset-gpio = <&lsio_gpio4 29 GPIO_ACTIVE_LOW>;
+	epdev_on-supply = <&epdev_on>;
+	num-lanes = <2>;
+	clocks = <&pciea_lpcg 0>,
+		 <&pciea_lpcg 1>,
+		 <&pciea_lpcg 2>,
+		 <&phyx2_lpcg 0>,
+		 <&phyx2_crr0_lpcg 0>,
+		 <&pciea_crr2_lpcg 0>,
+		 <&misc_crr5_lpcg 0>;
+	clock-names = "pcie", "pcie_bus", "pcie_inbound_axi",
+		      "pcie_phy", "phy_per","pcie_per", "misc_per";
+	hsio-cfg = <PCIEAX2PCIEBX1>;
+	status = "okay";
+};
+
+&pcieb{
+	ext_osc = <1>;
+	clocks = <&pcieb_lpcg 0>,
+		 <&pcieb_lpcg 1>,
+		 <&pcieb_lpcg 2>,
+		 <&phyx1_lpcg 0>,
+		 <&phyx2_lpcg 0>,
+		 <&phyx1_crr1_lpcg 0>,
+		 <&pcieb_crr3_lpcg 0>,
+		 <&pciea_crr2_lpcg 0>,
+		 <&misc_crr5_lpcg 0>;
+	clock-names = "pcie", "pcie_bus", "pcie_inbound_axi",
+		      "pcie_phy", "pcie_phy_pclk", "phy_per",
+		      "pcie_per", "pciex2_per", "misc_per";
+	power-domains = <&pd IMX_SC_R_PCIE_B>,
+			<&pd IMX_SC_R_PCIE_A>,
+			<&pd IMX_SC_R_SERDES_0>,
+			<&pd IMX_SC_R_SERDES_1>,
+			<&pd IMX_SC_R_HSIO_GPIO>;
+	power-domain-names = "pcie", "pcie_per", "pcie_phy",
+			     "pcie_serdes", "hsio_gpio";
+	hsio-cfg = <PCIEAX2PCIEBX1>;
+	status = "okay";
+};
+
+&sata {
+	status = "disabled";
+};
