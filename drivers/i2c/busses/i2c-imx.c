@@ -1322,7 +1322,6 @@ static int i2c_imx_xfer_common(struct i2c_adapter *adapter,
 	unsigned int i, temp;
 	int result;
 	bool is_lastmsg = false;
-	bool enable_runtime_pm = false;
 	struct imx_i2c_struct *i2c_imx = i2c_get_adapdata(adapter);
 
 	/* Start I2C transfer */
