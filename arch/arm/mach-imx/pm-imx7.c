@@ -1171,32 +1171,32 @@ void __init imx7d_pm_init(void)
 		WARN_ON(!lpm_ocram_saved_in_ddr);
 
 		np = of_find_node_by_path(
-			"/soc/aips-bus@30000000/iomuxc@30330000");
+			"/soc/bus@30000000/iomuxc@30330000");
 		if (np)
 			iomuxc_base = of_iomap(np, 0);
 		WARN_ON(!iomuxc_base);
 
 		np = of_find_node_by_path(
-			"/soc/aips-bus@30000000/gpt@302d0000");
+			"/soc/bus@30000000/gpt@302d0000");
 		if (np)
 			gpt1_base = of_iomap(np, 0);
 		WARN_ON(!gpt1_base);
 
 		np = of_find_node_by_path(
-			"/soc/aips-bus@30400000/system-counter-cmp@306b0000");
+			"/soc/bus@30400000/system-counter-cmp@306b0000");
 		if (np)
 			system_counter_cmp_base = of_iomap(np, 0);
 		WARN_ON(!system_counter_cmp_base);
 
 		np = of_find_node_by_path(
-			"/soc/aips-bus@30000000/gpio@30200000");
+			"/soc/bus@30000000/gpio@30200000");
 		if (np)
 			gpio1_base = of_iomap(np, 0);
 		WARN_ON(!gpio1_base);
 	}
 
 	np = of_find_node_by_path(
-		"/soc/aips-bus@30400000/system-counter-ctrl@306c0000");
+		"/soc/bus@30400000/system-counter-ctrl@306c0000");
 	if (np)
 		system_counter_ctrl_base = of_iomap(np, 0);
 	WARN_ON(!system_counter_ctrl_base);
@@ -1216,7 +1216,7 @@ void __init imx7d_pm_init(void)
 	WARN_ON(!ocram_saved_in_ddr);
 
 	np = of_find_node_by_path(
-		"/soc/aips-bus@30800000/spba-bus@30800000/serial@30860000");
+		"/soc/bus@30800000/spba-bus@30800000/serial@30860000");
 	if (np)
 		console_base = of_iomap(np, 0);
 

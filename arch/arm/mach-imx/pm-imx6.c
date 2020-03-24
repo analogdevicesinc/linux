@@ -1307,7 +1307,7 @@ void __init imx6sl_pm_init(void)
 	if (cpu_is_imx6sll()) {
 		imx6_pm_common_init(&imx6sll_pm_data);
 		np = of_find_node_by_path(
-			"/soc/aips-bus@02000000/spba-bus@02000000/serial@02020000");
+			"/soc/bus@2000000/spba-bus@2000000/serial@2020000");
 		if (np)
 			console_base = of_iomap(np, 0);
 		/* i.MX6SLL has bus auto clock gating function */
@@ -1366,7 +1366,7 @@ void __init imx6sx_pm_init(void)
 	WARN_ON(!ocram_saved_in_ddr);
 
 	np = of_find_node_by_path(
-		"/soc/aips-bus@02000000/spba-bus@02000000/serial@02020000");
+		"/soc/bus@2000000/spba-bus@2000000/serial@2020000");
 	if (np)
 		console_base = of_iomap(np, 0);
 	if (imx_src_is_m4_enabled()) {
@@ -1389,7 +1389,7 @@ void __init imx6ul_pm_init(void)
 
 	if (cpu_is_imx6ull() || cpu_is_imx6ulz()) {
 		np = of_find_node_by_path(
-			"/soc/aips-bus@02000000/spba-bus@02000000/serial@02020000");
+			"/soc/bus@2000000/spba-bus@2000000/serial@2020000");
 		if (np)
 			console_base = of_iomap(np, 0);
 	}
