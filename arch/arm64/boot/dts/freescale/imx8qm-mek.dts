@@ -869,6 +869,14 @@
 	status = "okay";
 };
 
+&pcieb{
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_pcieb>;
+	reset-gpio = <&lsio_gpio5 0 GPIO_ACTIVE_LOW>;
+	ext_osc = <1>;
+	status = "okay";
+};
+
 &rpmsg0{
 	/*
 	 * 64K for one rpmsg instance:
@@ -891,7 +899,7 @@
 
 &sata {
 	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_pcieb>;
+	pinctrl-0 = <&pinctrl_sata>;
 	clkreq-gpio = <&lsio_gpio4 30 GPIO_ACTIVE_LOW>;
 	ext_osc = <1>;
 	status = "okay";
@@ -1470,13 +1478,19 @@
 	pinctrl_pciea: pcieagrp{
 		fsl,pins = <
 			IMX8QM_PCIE_CTRL0_WAKE_B_LSIO_GPIO4_IO28		0x04000021
-			IMX8QM_PCIE_CTRL0_CLKREQ_B_LSIO_GPIO4_IO27		0x06000021
 			IMX8QM_PCIE_CTRL0_PERST_B_LSIO_GPIO4_IO29		0x06000021
 			IMX8QM_USDHC2_RESET_B_LSIO_GPIO4_IO09			0x06000021
 		>;
 	};
 
 	pinctrl_pcieb: pciebgrp{
+		fsl,pins = <
+			IMX8QM_PCIE_CTRL1_WAKE_B_LSIO_GPIO4_IO31		0x04000021
+			IMX8QM_PCIE_CTRL1_PERST_B_LSIO_GPIO5_IO00		0x06000021
+		>;
+	};
+
+	pinctrl_sata: satagrp{
 		fsl,pins = <
 			IMX8QM_PCIE_CTRL1_CLKREQ_B_LSIO_GPIO4_IO30		0x06000021
 		>;

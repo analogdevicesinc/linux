@@ -94,7 +94,7 @@ hsio_subsys: bus@5f000000 {
 		compatible = "fsl,imx8qm-pcie","snps,dw-pcie";
 		reg = <0x5f010000 0x10000>, /* Controller reg */
 		      <0x7ff00000 0x80000>, /* PCI cfg space */
-		      <0x5f110000 0x60000>; /* lpcg, csr, msic, gpio */
+		      <0x5f080000 0xf0000>; /* lpcg, csr, msic, gpio */
 		reg-names = "dbi", "config", "hsio";
 		#address-cells = <3>;
 		#size-cells = <2>;
@@ -113,17 +113,6 @@ hsio_subsys: bus@5f000000 {
 				 <0 0 0 2 &gic 0 106 4>,
 				 <0 0 0 3 &gic 0 107 4>,
 				 <0 0 0 4 &gic 0 108 4>;
-		/*
-		 * Set the clks/pds for imx8qxp in default, clks/pds should be
-		 * refined for exact hw design of imx8 pcie.
-		 For example, when hsio-cfg = <PCIEAX1PCIEBX1SATA>,
-		 set clks below.
-			clocks = <&hsio_lpcg IMX8QM_HSIO_PCIE_B_MSTR_AXI_CLK>,
-				<&hsio_lpcg IMX8QM_HSIO_PCIE_B_SLV_AXI_CLK>,
-				<&hsio_lpcg IMX8QM_HSIO_PHY_X2_PCLK_1>,
-				<&hsio_lpcg IMX8QM_HSIO_PCIE_X1_PER_CLK>,
-				<&hsio_lpcg IMX8QM_HSIO_PCIE_B_DBI_AXI_CLK>;
-		 */
 		clocks = <&pcieb_lpcg 0>,
 			 <&pcieb_lpcg 1>,
 			 <&pcieb_lpcg 2>,
@@ -132,7 +121,7 @@ hsio_subsys: bus@5f000000 {
 			 <&pcieb_crr3_lpcg 0>,
 			 <&misc_crr5_lpcg 0>;
 		clock-names = "pcie", "pcie_bus", "pcie_inbound_axi",
-			      "pcie_phy", "phy_per","pcie_per", "misc_per";
+			      "pcie_phy", "phy_per", "pcie_per", "misc_per";
 		power-domains = <&pd IMX_SC_R_PCIE_B>,
 				<&pd IMX_SC_R_SERDES_1>,
 				<&pd IMX_SC_R_HSIO_GPIO>;

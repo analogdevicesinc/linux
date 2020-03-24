@@ -35,10 +35,13 @@
 		compatible = "fsl,imx8qxp-lpcg";
 		reg = <0x5f080000 0x10000>;
 		#clock-cells = <1>;
-		clocks = <&hsio_refa_clk>, <&hsio_per_clk>;
-		bit-offset = <0 4>;
+		clocks = <&hsio_refa_clk>, <&hsio_per_clk>,
+			<&hsio_refa_clk>, <&hsio_per_clk>;
+		bit-offset = <0 4 16 20>;
 		clock-output-names = "hsio_phyx2_pclk_0",
-				     "hsio_phyx2_pclk_1";
+				     "hsio_phyx2_pclk_1",
+				     "hsio_phyx2_apbclk_0",
+				     "hsio_phyx2_apbclk_1";
 		power-domains = <&pd IMX_SC_R_SERDES_0>;
 	};
 
@@ -90,7 +93,7 @@
 		compatible = "fsl,imx8qm-pcie","snps,dw-pcie";
 		reg = <0x5f000000 0x10000>, /* Controller reg */
 		      <0x6ff00000 0x80000>, /* PCI cfg space */
-		      <0x5f110000 0x60000>; /* lpcg, csr, msic, gpio */
+		      <0x5f080000 0xf0000>; /* lpcg, csr, msic, gpio */
 		reg-names = "dbi", "config", "hsio";
 		#address-cells = <3>;
 		#size-cells = <2>;
@@ -121,7 +124,7 @@
 			 <&pciea_crr2_lpcg 0>,
 			 <&misc_crr5_lpcg 0>;
 		clock-names = "pcie", "pcie_bus", "pcie_inbound_axi",
-			      "pcie_phy", "phy_per","pcie_per", "misc_per";
+			      "pcie_phy", "phy_per", "pcie_per", "misc_per";
 		power-domains = <&pd IMX_SC_R_PCIE_A>,
 				<&pd IMX_SC_R_SERDES_0>,
 				<&pd IMX_SC_R_HSIO_GPIO>;
@@ -129,6 +132,53 @@
 		fsl,max-link-speed = <3>;
 		hsio-cfg = <PCIEAX1PCIEBX1SATA>;
 		local-addr = <0x40000000>;
+		status = "disabled";
+	};
+
+	pcieb: pcie@0x5f010000 {
+		compatible = "fsl,imx8qm-pcie","snps,dw-pcie";
+		reg = <0x5f010000 0x10000>, /* Controller reg */
+		      <0x7ff00000 0x80000>, /* PCI cfg space */
+		      <0x5f080000 0xf0000>; /* lpcg, csr, msic, gpio */
+		reg-names = "dbi", "config", "hsio";
+		#address-cells = <3>;
+		#size-cells = <2>;
+		device_type = "pci";
+		bus-range = <0x00 0xff>;
+		ranges = <0x81000000 0 0x00000000 0x7ff80000 0 0x00010000 /* downstream I/O */
+			  0x82000000 0 0x70000000 0x70000000 0 0x0ff00000>; /* non-prefetchable memory */
+		num-lanes = <1>;
+		num-viewport = <4>;
+		interrupts = <GIC_SPI 102 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 104 IRQ_TYPE_LEVEL_HIGH>; /* eDMA */
+		interrupt-names = "msi", "dma";
+		#interrupt-cells = <1>;
+		interrupt-map-mask = <0 0 0 0x7>;
+		interrupt-map =  <0 0 0 1 &gic 0 105 4>,
+				 <0 0 0 2 &gic 0 106 4>,
+				 <0 0 0 3 &gic 0 107 4>,
+				 <0 0 0 4 &gic 0 108 4>;
+		clocks = <&pcieb_lpcg 0>,
+			 <&pcieb_lpcg 1>,
+			 <&pcieb_lpcg 2>,
+			 <&phyx2_lpcg 1>,
+			 <&phyx2_lpcg 0>,
+			 <&phyx2_crr0_lpcg 0>,
+			 <&pcieb_crr3_lpcg 0>,
+			 <&pciea_crr2_lpcg 0>,
+			 <&misc_crr5_lpcg 0>;
+		clock-names = "pcie", "pcie_bus", "pcie_inbound_axi",
+			      "pcie_phy", "pcie_phy_pclk", "phy_per",
+			      "pcie_per", "pciex2_per", "misc_per";
+		power-domains = <&pd IMX_SC_R_PCIE_B>,
+				<&pd IMX_SC_R_PCIE_A>,
+				<&pd IMX_SC_R_SERDES_0>,
+				<&pd IMX_SC_R_HSIO_GPIO>;
+		power-domain-names = "pcie", "pcie_per", "pcie_phy",
+				     "hsio_gpio";
+		fsl,max-link-speed = <3>;
+		hsio-cfg = <PCIEAX1PCIEBX1SATA>;
+		local-addr = <0x80000000>;
 		status = "disabled";
 	};
 
