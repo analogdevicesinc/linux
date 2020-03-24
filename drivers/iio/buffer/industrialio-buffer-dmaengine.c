@@ -37,6 +37,8 @@ struct dmaengine_buffer {
 
 	u32 align;
 	u32 max_size;
+
+	bool is_tx;
 };
 
 static struct dmaengine_buffer *iio_buffer_to_dmaengine_buffer(
@@ -64,9 +66,12 @@ static int iio_dmaengine_buffer_submit_block(struct iio_dma_buffer_queue *queue,
 	struct dmaengine_buffer *dmaengine_buffer =
 		iio_buffer_to_dmaengine_buffer(&queue->buffer);
 	struct dma_async_tx_descriptor *desc;
+	enum dma_transfer_direction direction;
 	dma_cookie_t cookie;
 
-	block->block.bytes_used = min(block->block.size,
+	if (!dmaengine_buffer->is_tx)
+		block->block.bytes_used = block->block.size;
+	block->block.bytes_used = min(block->block.bytes_used,
 		dmaengine_buffer->max_size);
 	block->block.bytes_used = rounddown(block->block.bytes_used,
 		dmaengine_buffer->align);
@@ -75,8 +80,10 @@ static int iio_dmaengine_buffer_submit_block(struct iio_dma_buffer_queue *queue,
 		return 0;
 	}
 
+	direction = dmaengine_buffer->is_tx ? DMA_MEM_TO_DEV : DMA_DEV_TO_MEM;
+
 	desc = dmaengine_prep_slave_single(dmaengine_buffer->chan,
-		block->phys_addr, block->block.bytes_used, DMA_DEV_TO_MEM,
+		block->phys_addr, block->block.bytes_used, direction,
 		DMA_PREP_INTERRUPT);
 	if (!desc)
 		return -ENOMEM;
@@ -117,12 +124,14 @@ static void iio_dmaengine_buffer_release(struct iio_buffer *buf)
 
 static const struct iio_buffer_access_funcs iio_dmaengine_buffer_ops = {
 	.read = iio_dma_buffer_read,
+	.write = iio_dma_buffer_write,
 	.set_bytes_per_datum = iio_dma_buffer_set_bytes_per_datum,
 	.set_length = iio_dma_buffer_set_length,
 	.request_update = iio_dma_buffer_request_update,
 	.enable = iio_dma_buffer_enable,
 	.disable = iio_dma_buffer_disable,
 	.data_available = iio_dma_buffer_data_available,
+	.space_available = iio_dma_buffer_space_available,
 	.release = iio_dmaengine_buffer_release,
 
 	.alloc_blocks = iio_dma_buffer_alloc_blocks,
@@ -162,6 +171,7 @@ static const struct attribute *iio_dmaengine_buffer_attrs[] = {
 /**
  * iio_dmaengine_buffer_alloc() - Allocate new buffer which uses DMAengine
  * @dev: Parent device for the buffer
+ * @direction: Set the direction of the data.
  * @channel: DMA channel name, typically "rx".
  * @ops: Custom iio_dma_buffer_ops, if NULL default ops will be used
  * @driver_data: Driver data to be passed to custom iio_dma_buffer_ops
@@ -174,11 +184,12 @@ static const struct attribute *iio_dmaengine_buffer_attrs[] = {
  * release it.
  */
 static struct iio_buffer *iio_dmaengine_buffer_alloc(struct device *dev,
-	const char *channel, const struct iio_dma_buffer_ops *ops,
-	void *driver_data)
+	enum iio_buffer_direction direction, const char *channel,
+	const struct iio_dma_buffer_ops *ops, void *driver_data)
 {
 	struct dmaengine_buffer *dmaengine_buffer;
 	unsigned int width, src_width, dest_width;
+	bool is_tx = (direction == IIO_BUFFER_DIRECTION_OUT);
 	struct dma_slave_caps caps;
 	struct dma_chan *chan;
 	int ret;
@@ -186,6 +197,9 @@ static struct iio_buffer *iio_dmaengine_buffer_alloc(struct device *dev,
 	dmaengine_buffer = kzalloc(sizeof(*dmaengine_buffer), GFP_KERNEL);
 	if (!dmaengine_buffer)
 		return ERR_PTR(-ENOMEM);
+
+	if (!channel)
+		channel = is_tx ? "tx" : "rx";
 
 	chan = dma_request_chan(dev, channel);
 	if (IS_ERR(chan)) {
@@ -212,6 +226,7 @@ static struct iio_buffer *iio_dmaengine_buffer_alloc(struct device *dev,
 	dmaengine_buffer->chan = chan;
 	dmaengine_buffer->align = width;
 	dmaengine_buffer->max_size = dma_get_max_seg_size(chan->device->dev);
+	dmaengine_buffer->is_tx = is_tx;
 
 	iio_dma_buffer_init(&dmaengine_buffer->queue, chan->device->dev,
 		ops ? ops : &iio_dmaengine_default_ops, driver_data);
@@ -251,7 +266,8 @@ static void __devm_iio_dmaengine_buffer_free(struct device *dev, void *res)
 /**
  * devm_iio_dmaengine_buffer_alloc() - Resource-managed iio_dmaengine_buffer_alloc()
  * @dev: Parent device for the buffer
- * @channel: DMA channel name, typically "rx".
+ * @direction: Direction of the data stream (in/out).
+ * @channel: DMA channel name, typically "rx" for input, "tx" for output.
  * @ops: Custom iio_dma_buffer_ops, if NULL default ops will be used
  * @driver_data: Driver data to be passed to custom iio_dma_buffer_ops
  *
@@ -262,8 +278,8 @@ static void __devm_iio_dmaengine_buffer_free(struct device *dev, void *res)
  * The buffer will be automatically de-allocated once the device gets destroyed.
  */
 static struct iio_buffer *devm_iio_dmaengine_buffer_alloc(struct device *dev,
-	const char *channel, const struct iio_dma_buffer_ops *ops,
-	void *driver_data)
+	enum iio_buffer_direction direction, const char *channel,
+	const struct iio_dma_buffer_ops *ops, void *driver_data)
 {
 	struct iio_buffer **bufferp, *buffer;
 
@@ -272,7 +288,8 @@ static struct iio_buffer *devm_iio_dmaengine_buffer_alloc(struct device *dev,
 	if (!bufferp)
 		return ERR_PTR(-ENOMEM);
 
-	buffer = iio_dmaengine_buffer_alloc(dev, channel, ops, driver_data);
+	buffer = iio_dmaengine_buffer_alloc(dev, direction, channel, ops,
+					    driver_data);
 	if (IS_ERR(buffer)) {
 		devres_free(bufferp);
 		return buffer;
@@ -288,7 +305,8 @@ static struct iio_buffer *devm_iio_dmaengine_buffer_alloc(struct device *dev,
  * devm_iio_dmaengine_buffer_setup() - Setup a DMA buffer for an IIO device
  * @dev: Parent device for the buffer
  * @indio_dev: IIO device to which to attach this buffer.
- * @channel: DMA channel name, typically "rx".
+ * @direction: Direction of the data stream (in/out).
+ * @channel: DMA channel name, typically "rx" for input, "tx" for output.
  * @ops: Custom iio_dma_buffer_ops, if NULL default ops will be used
  * @driver_data: Driver data to be passed to custom iio_dma_buffer_ops
  *
@@ -298,14 +316,15 @@ static struct iio_buffer *devm_iio_dmaengine_buffer_alloc(struct device *dev,
  * IIO device.
  */
 int devm_iio_dmaengine_buffer_setup(struct device *dev,
-	struct iio_dev *indio_dev, const char *channel,
-	const struct iio_dma_buffer_ops *ops,
+	struct iio_dev *indio_dev, enum iio_buffer_direction direction,
+	const char *channel, const struct iio_dma_buffer_ops *ops,
 	void *driver_data)
 {
 	struct iio_buffer *buffer;
 
 	buffer = devm_iio_dmaengine_buffer_alloc(indio_dev->dev.parent,
-						 channel, ops, driver_data);
+						 direction, channel, ops,
+						 driver_data);
 	if (IS_ERR(buffer))
 		return PTR_ERR(buffer);
 

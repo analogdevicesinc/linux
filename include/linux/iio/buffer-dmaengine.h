@@ -7,13 +7,15 @@
 #ifndef __IIO_DMAENGINE_H__
 #define __IIO_DMAENGINE_H__
 
+#include <linux/iio/buffer.h>
+
 struct iio_dev;
 struct iio_dma_buffer_ops;
 struct device;
 
 int devm_iio_dmaengine_buffer_setup(struct device *dev,
-	struct iio_dev *indio_dev, const char *channel,
-	const struct iio_dma_buffer_ops *ops,
+	struct iio_dev *indio_dev, enum iio_buffer_direction direction,
+       	const char *channel, const struct iio_dma_buffer_ops *ops,
 	void *driver_data);
 
 #endif

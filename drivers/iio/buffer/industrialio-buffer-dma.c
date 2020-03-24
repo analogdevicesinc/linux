@@ -223,7 +223,8 @@ void iio_dma_buffer_block_done(struct iio_dma_buffer_block *block)
 	spin_unlock_irqrestore(&queue->list_lock, flags);
 
 	iio_buffer_block_put_atomic(block);
-	wake_up_interruptible_poll(&queue->buffer.pollq, EPOLLIN | EPOLLRDNORM);
+	wake_up_interruptible_poll(&queue->buffer.pollq,
+		(uintptr_t)queue->poll_wakup_flags);
 }
 EXPORT_SYMBOL_GPL(iio_dma_buffer_block_done);
 
@@ -252,7 +253,8 @@ void iio_dma_buffer_block_list_abort(struct iio_dma_buffer_queue *queue,
 	}
 	spin_unlock_irqrestore(&queue->list_lock, flags);
 
-	wake_up_interruptible_poll(&queue->buffer.pollq, EPOLLIN | EPOLLRDNORM);
+	wake_up_interruptible_poll(&queue->buffer.pollq,
+		(uintptr_t)queue->poll_wakup_flags);
 }
 EXPORT_SYMBOL_GPL(iio_dma_buffer_block_list_abort);
 
@@ -353,9 +355,6 @@ int iio_dma_buffer_request_update(struct iio_buffer *buffer)
 		}
 
 		block->block.id = i;
-
-		block->state = IIO_BLOCK_STATE_QUEUED;
-		list_add_tail(&block->head, &queue->incoming);
 	}
 
 out_unlock:
@@ -437,7 +436,29 @@ int iio_dma_buffer_enable(struct iio_buffer *buffer,
 	struct iio_dma_buffer_block *block, *_block;
 
 	mutex_lock(&queue->lock);
+
+	if (buffer->direction == IIO_BUFFER_DIRECTION_IN)
+		queue->poll_wakup_flags = POLLIN | POLLRDNORM;
+	else
+		queue->poll_wakup_flags = POLLOUT | POLLWRNORM;
+
 	queue->fileio.enabled = !queue->num_blocks;
+	if (queue->fileio.enabled) {
+		unsigned int i;
+
+		for (i = 0; i < ARRAY_SIZE(queue->fileio.blocks); i++) {
+			struct iio_dma_buffer_block *block =
+			    queue->fileio.blocks[i];
+			if (buffer->direction == IIO_BUFFER_DIRECTION_IN) {
+				block->state = IIO_BLOCK_STATE_QUEUED;
+				list_add_tail(&block->head, &queue->incoming);
+			} else {
+				block->state = IIO_BLOCK_STATE_DEQUEUED;
+				list_add_tail(&block->head, &queue->outgoing);
+			}
+		}
+	}
+
 	queue->active = true;
 	list_for_each_entry_safe(block, _block, &queue->incoming, head) {
 		list_del(&block->head);
@@ -567,6 +588,61 @@ out_unlock:
 }
 EXPORT_SYMBOL_GPL(iio_dma_buffer_read);
 
+int iio_dma_buffer_write(struct iio_buffer *buf, size_t n,
+	const char __user *user_buffer)
+{
+	struct iio_dma_buffer_queue *queue = iio_buffer_to_queue(buf);
+	struct iio_dma_buffer_block *block;
+	int ret;
+
+	if (n < buf->bytes_per_datum)
+		return -EINVAL;
+
+	mutex_lock(&queue->lock);
+
+	if (!queue->fileio.enabled) {
+		ret = -EBUSY;
+		goto out_unlock;
+	}
+
+	if (!queue->fileio.active_block) {
+		block = iio_dma_buffer_dequeue(queue);
+		if (block == NULL) {
+			ret = 0;
+			goto out_unlock;
+		}
+		queue->fileio.pos = 0;
+		queue->fileio.active_block = block;
+	} else {
+		block = queue->fileio.active_block;
+	}
+
+	n = rounddown(n, buf->bytes_per_datum);
+	if (n > block->block.size - queue->fileio.pos)
+		n = block->block.size - queue->fileio.pos;
+
+	if (copy_from_user(block->vaddr + queue->fileio.pos, user_buffer, n)) {
+		ret = -EFAULT;
+		goto out_unlock;
+	}
+
+	queue->fileio.pos += n;
+
+	if (queue->fileio.pos == block->block.size) {
+		queue->fileio.active_block = NULL;
+		block->block.bytes_used = block->block.size;
+		iio_dma_buffer_enqueue(queue, block);
+	}
+
+	ret = n;
+
+out_unlock:
+	mutex_unlock(&queue->lock);
+
+	return ret;
+}
+EXPORT_SYMBOL_GPL(iio_dma_buffer_write);
+
 /**
  * iio_dma_buffer_data_available() - DMA buffer data_available callback
  * @buf: Buffer to check for data availability
@@ -588,18 +664,42 @@ size_t iio_dma_buffer_data_available(struct iio_buffer *buf)
 	 */
 
 	mutex_lock(&queue->lock);
-	if (queue->fileio.active_block)
-		data_available += queue->fileio.active_block->block.size;
+	if (queue->fileio.active_block) {
+		data_available += queue->fileio.active_block->block.bytes_used -
+			queue->fileio.pos;
+	}
 
 	spin_lock_irq(&queue->list_lock);
 	list_for_each_entry(block, &queue->outgoing, head)
-		data_available += block->block.size;
+		data_available += block->block.bytes_used;
 	spin_unlock_irq(&queue->list_lock);
 	mutex_unlock(&queue->lock);
 
 	return data_available;
 }
 EXPORT_SYMBOL_GPL(iio_dma_buffer_data_available);
+
+size_t iio_dma_buffer_space_available(struct iio_buffer *buf)
+{
+	struct iio_dma_buffer_queue *queue = iio_buffer_to_queue(buf);
+	struct iio_dma_buffer_block *block;
+	size_t space_available = 0;
+
+	mutex_lock(&queue->lock);
+	if (queue->fileio.active_block) {
+		space_available += queue->fileio.active_block->block.size -
+			queue->fileio.pos;
+	}
+
+	spin_lock_irq(&queue->list_lock);
+	list_for_each_entry(block, &queue->outgoing, head)
+		space_available += block->block.size;
+	spin_unlock_irq(&queue->list_lock);
+	mutex_unlock(&queue->lock);
+
+	return space_available;
+}
+EXPORT_SYMBOL_GPL(iio_dma_buffer_space_available);
 
 int iio_dma_buffer_alloc_blocks(struct iio_buffer *buffer,
 				struct iio_buffer_block_alloc_req *req)
