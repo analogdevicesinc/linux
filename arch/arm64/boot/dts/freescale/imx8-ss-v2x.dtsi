@@ -1,0 +1,115 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2021 NXP
+ */
+
+#include <dt-bindings/firmware/imx/rsrc.h>
+
+v2x_subsys: bus@2C000000 {
+	compatible = "simple-bus";
+	#address-cells = <1>;
+	#size-cells = <1>;
+	ranges = <0x2c000000 0x0 0x2c000000 0x50000>;
+
+	v2x_sv0: mu@2C000000 {
+		compatible = "fsl,imx8-mu-seco";
+		reg = <0x2c000000 0x10000>;
+		interrupts = <GIC_SPI 340 IRQ_TYPE_LEVEL_HIGH>;
+		#mbox-cells = <2>;
+		power-domains = <&pd IMX_SC_R_V2X_MU_0>;
+		status = "okay";
+	};
+	v2x_sv1: mu@2c010000 {
+		compatible = "fsl,imx8-mu-seco";
+		reg = <0x2c010000 0x10000>;
+		interrupts = <GIC_SPI 342 IRQ_TYPE_LEVEL_HIGH>;
+		#mbox-cells = <2>;
+		power-domains = <&pd IMX_SC_R_V2X_MU_1>;
+		status = "okay";
+	};
+	v2x_she: mu@2c020000 {
+		compatible = "fsl,imx8-mu-seco";
+		reg = <0x2c020000 0x10000>;
+		interrupts = <GIC_SPI 344 IRQ_TYPE_LEVEL_HIGH>;
+		#mbox-cells = <2>;
+		power-domains = <&pd IMX_SC_R_V2X_MU_2>;
+		status = "okay";
+	};
+	v2x_sg0: mu@2c030000 {
+		compatible = "fsl,imx8-mu-seco";
+		reg = <0x2c030000 0x10000>;
+		interrupts = <GIC_SPI 348 IRQ_TYPE_LEVEL_HIGH>;
+		#mbox-cells = <2>;
+		power-domains = <&pd IMX_SC_R_V2X_MU_3>;
+		status = "okay";
+	};
+	v2x_sg1: mu@2c040000 {
+		compatible = "fsl,imx8-mu-seco";
+		reg = <0x2c040000 0x10000>;
+		interrupts = <GIC_SPI 350 IRQ_TYPE_LEVEL_HIGH>;
+		#mbox-cells = <2>;
+		power-domains = <&pd IMX_SC_R_V2X_MU_4>;
+		status = "okay";
+	};
+};
+
+v2x_mu_sv0: v2x_mu_sv0 {
+	compatible = "fsl,imx-seco-mu";
+	mbox-names = "txdb", "rxdb";
+	mboxes = <&v2x_sv0 2 0
+		  &v2x_sv0 3 0>;
+
+	fsl,seco_mu_id = <4>;
+	fsl,seco_max_users = <2>;
+	fsl,cmd_tag = /bits/ 8 <0x18>;
+	fsl,rsp_tag = /bits/ 8 <0xe2>;
+	status = "okay";
+};
+v2x_mu_sv1: v2x_mu_sv1 {
+	compatible = "fsl,imx-seco-mu";
+	mbox-names = "txdb", "rxdb";
+	mboxes = <&v2x_sv1 2 0
+		  &v2x_sv1 3 0>;
+
+	fsl,seco_mu_id = <5>;
+	fsl,seco_max_users = <2>;
+	fsl,cmd_tag = /bits/ 8 <0x19>;
+	fsl,rsp_tag = /bits/ 8 <0xe3>;
+	status = "okay";
+};
+v2x_mu_she: v2x_mu_she {
+	compatible = "fsl,imx-seco-mu";
+	mbox-names = "txdb", "rxdb";
+	mboxes = <&v2x_she 2 0
+		  &v2x_she 3 0>;
+
+	fsl,seco_mu_id = <6>;
+	fsl,seco_max_users = <2>;
+	fsl,cmd_tag = /bits/ 8 <0x1a>;
+	fsl,rsp_tag = /bits/ 8 <0xe4>;
+	status = "okay";
+};
+v2x_mu_sg0: v2x_mu_sg0 {
+	compatible = "fsl,imx-seco-mu";
+	mbox-names = "txdb", "rxdb";
+	mboxes = <&v2x_sg0 2 0
+		  &v2x_sg0 3 0>;
+
+	fsl,seco_mu_id = <7>;
+	fsl,seco_max_users = <2>;
+	fsl,cmd_tag = /bits/ 8 <0x1d>;
+	fsl,rsp_tag = /bits/ 8 <0xe7>;
+	status = "okay";
+};
+v2x_mu_sg1: v2x_mu_sg1 {
+	compatible = "fsl,imx-seco-mu";
+	mbox-names = "txdb", "rxdb";
+	mboxes = <&v2x_sg1 2 0
+		  &v2x_sg1 3 0>;
+
+	fsl,seco_mu_id = <8>;
+	fsl,seco_max_users = <2>;
+	fsl,cmd_tag = /bits/ 8 <0x1e>;
+	fsl,rsp_tag = /bits/ 8 <0xe8>;
+	status = "okay";
+};
