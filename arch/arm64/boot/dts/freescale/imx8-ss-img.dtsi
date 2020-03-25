@@ -254,6 +254,22 @@ img_subsys: bus@58000000 {
 		status = "disabled";
 	};
 
+	irqsteer_parallel: irqsteer@58260000 {
+		compatible = "fsl,imx-irqsteer";
+		reg = <0x58260000 0x1000>;
+		interrupts = <GIC_SPI 322 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-controller;
+		interrupt-parent = <&gic>;
+		#interrupt-cells = <1>;
+		clocks = <&clk_dummy>;
+		clock-names = "ipg";
+		fsl,channel = <0>;
+		fsl,num-irqs = <32>;
+		power-domains = <&pd IMX_SC_R_PI_0>, <&pd IMX_SC_R_ISI_CH0>;
+		power-domain-names = "pd_pi", "pd_isi_ch0";
+		status = "disabled";
+	};
+
 	gpio0_mipi_csi0: gpio@58222000 {
 		compatible = "fsl,imx8qm-gpio", "fsl,imx35-gpio";
 		reg = <0x58222000 0x1000>;
@@ -278,6 +294,20 @@ img_subsys: bus@58000000 {
 		assigned-clocks = <&clk IMX_SC_R_CSI_0_I2C_0 IMX_SC_PM_CLK_PER>;
 		assigned-clock-rates = <24000000>;
 		power-domains = <&pd IMX_SC_R_CSI_0_I2C_0>;
+		status = "disabled";
+	};
+
+	i2c0_parallel: i2c@58266000 {
+		compatible = "fsl,imx8qxp-lpi2c", "fsl,imx7ulp-lpi2c";
+		reg = <0x58266000 0x1000>;
+		interrupts = <8>;
+		interrupt-parent = <&irqsteer_parallel>;
+		clocks = <&clk IMX_SC_R_PI_0_I2C_0 IMX_SC_PM_CLK_PER>,
+			 <&img_ipg_clk>;
+		clock-names = "per", "ipg";
+		assigned-clocks = <&clk IMX_SC_R_PI_0_I2C_0 IMX_SC_PM_CLK_PER>;
+		assigned-clock-rates = <24000000>;
+		power-domains = <&pd IMX_SC_R_PI_0_I2C_0>;
 		status = "disabled";
 	};
 
