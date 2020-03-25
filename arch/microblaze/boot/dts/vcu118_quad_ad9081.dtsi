@@ -176,14 +176,14 @@
 		};
 
 		axi_gpio_2: gpio@7c440000 {
-			#gpio-cells = <3>;
+			#gpio-cells = <2>;
 			#interrupt-cells = <2>;
 			clock-frequency = <100000000>;
 			clock-names = "s_axi_aclk";
 			clocks = <&clk_bus_0>;
 			compatible = "xlnx,axi-gpio-2.0", "xlnx,xps-gpio-1.00.a";
-			gpio-controller ;
-			interrupt-controller ;
+			gpio-controller;
+			interrupt-controller;
 			interrupt-names = "ip2intc_irpt";
 			interrupt-parent = <&axi_intc>;
 			interrupts = <8 2>;
