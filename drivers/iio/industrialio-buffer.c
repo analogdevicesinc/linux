@@ -781,6 +781,13 @@ static int iio_verify_update(struct iio_dev *indio_dev,
 	bool scan_timestamp;
 	unsigned int modes;
 
+	if (insert_buffer &&
+	    bitmap_empty(insert_buffer->scan_mask, indio_dev->masklength)) {
+		dev_dbg(&indio_dev->dev,
+			"At least one scan element must be enabled first\n");
+		return -EINVAL;
+	}
+
 	memset(config, 0, sizeof(*config));
 	config->watermark = ~0;
 
@@ -1135,12 +1142,6 @@ static int __iio_update_buffers(struct iio_dev *indio_dev,
 		return ret;
 
 	if (insert_buffer) {
-		if (bitmap_empty(insert_buffer->scan_mask,
-			indio_dev->masklength)) {
-			ret = -EINVAL;
-			goto err_free_config;
-		}
-
 		ret = iio_buffer_request_update(indio_dev, insert_buffer);
 		if (ret)
 			goto err_free_config;
