@@ -234,3 +234,8 @@
 &uart3_lpcg {
 	status = "disabled";
 };
+
+&imx8x_cm4 {
+	/* Assume you have partitioned M4, so M4 is ont controled by Linux */
+	/delete-property/ power-domains;
+};
