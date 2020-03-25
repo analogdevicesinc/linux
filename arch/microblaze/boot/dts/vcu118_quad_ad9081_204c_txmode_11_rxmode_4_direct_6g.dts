@@ -130,7 +130,7 @@
 &axi_gpio_2 {
 	ad9081_gpio0_mux {
 		gpio-hog;
-		gpios = <108 GPIO_ACTIVE_HIGH>;
+		gpios = <44 GPIO_ACTIVE_HIGH>;
 		output-high; /* output-high gpio_mode - connect GPIO_0 of MxFE3 (output) to GPIO_0 of MxFE0,1,2 (input) */
 		line-name = "GPIO_0 HDL mux mode";
 	};
