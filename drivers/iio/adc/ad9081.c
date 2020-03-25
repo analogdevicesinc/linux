@@ -68,6 +68,7 @@ enum {
 struct ad9081_jesd_link {
 	bool is_jrx;
 	adi_cms_jesd_param_t jesd_param;
+	u32 jrx_tpl_phase_adjust;
 	u8 logiclane_mapping[8];
 	u8 link_converter_select[16];
 	u64 lane_rate;
@@ -131,6 +132,8 @@ struct ad9081_phy {
 
 	u32 multidevice_instance_count;
 	u32 lmfc_delay;
+	u32 nco_sync_ms_extra_lmfc_num;
+
 	bool config_sync_01_swapped;
 
 	struct device_settings_cache device_cache;
@@ -175,6 +178,19 @@ static int ad9081_nco_sync_master_slave(struct ad9081_phy *phy, bool master)
 {
 	int ret;
 
+	/* avoid the glitch before nco reset */
+	ret = adi_ad9081_hal_bf_set(&phy->ad9081,
+		REG_MAIN_AUTO_CLK_GATING_ADDR, 0x00000400, 7);
+	if (ret != 0)
+		return ret;
+
+	ret = adi_ad9081_hal_bf_set(&phy->ad9081,
+		REG_NCOSYNC_MS_MODE_ADDR,
+		BF_NCO_SYNC_MS_EXTRA_LMFC_NUM_INFO,
+		phy->nco_sync_ms_extra_lmfc_num);
+	if (ret != 0)
+		return ret;
+
 	ret = adi_ad9081_dac_nco_master_slave_gpio_set(&phy->ad9081, 0, master);
 	if (ret < 0)
 		return ret;
@@ -187,6 +203,7 @@ static int ad9081_nco_sync_master_slave(struct ad9081_phy *phy, bool master)
 	ret = adi_ad9081_dac_nco_master_slave_mode_set(&phy->ad9081,
 		master ? 1 : 2); /* REG 0xCC */
 
+	adi_ad9081_dac_nco_sync_reset_via_sysref_set(&phy->ad9081, 0);
 	adi_ad9081_dac_nco_sync_reset_via_sysref_set(&phy->ad9081, 1);
 
 	if (master)
@@ -1447,14 +1464,14 @@ static int ad9081_setup(struct spi_device *spi, bool ad9234)
 	if (ret != 0)
 		return ret;
 
-	ret = adi_ad9081_hal_bf_set(&phy->ad9081, REG_SYSREF_AVERAGE_ADDR,
-		BF_SYSREF_AVERAGE_INFO,
-		BF_SYSREF_AVERAGE(7));
+	ret = adi_ad9081_hal_bf_set(&phy->ad9081, REG_SYNC_DEBUG0_ADDR,
+		BF_AVRG_FLOW_EN_INFO, 1);
 	if (ret != 0)
 		return ret;
 
-	ret = adi_ad9081_hal_bf_set(&phy->ad9081, REG_SYNC_DEBUG0_ADDR,
-		BF_AVRG_FLOW_EN_INFO, 1);
+	ret = adi_ad9081_hal_bf_set(&phy->ad9081, REG_SYSREF_AVERAGE_ADDR,
+		BF_SYSREF_AVERAGE_INFO,
+		BF_SYSREF_AVERAGE(7));
 	if (ret != 0)
 		return ret;
 
@@ -1526,6 +1543,9 @@ static int ad9081_setup(struct spi_device *spi, bool ad9234)
 					       phy->dac_cache.chan_gain);
 	if (ret != 0)
 		return ret;
+
+	adi_ad9081_jesd_rx_lmfc_delay_set(&phy->ad9081, AD9081_LINK_0,
+		phy->jesd_tx_link.jrx_tpl_phase_adjust);
 
 	ret = adi_ad9081_jesd_rx_lanes_xbar_set(&phy->ad9081, AD9081_LINK_0,
 			phy->jesd_tx_link.logiclane_mapping);
@@ -1708,6 +1728,17 @@ static int ad9081_setup(struct spi_device *spi, bool ad9234)
 	if (ret != 0)
 		return ret;
 
+	ret = adi_ad9081_hal_bf_set(&phy->ad9081, REG_SYNC_DEBUG0_ADDR,
+		BF_AVRG_FLOW_EN_INFO, 0);
+	if (ret != 0)
+		return ret;
+
+	ret = adi_ad9081_hal_bf_set(&phy->ad9081, REG_SYSREF_AVERAGE_ADDR,
+		BF_SYSREF_AVERAGE_INFO,
+		BF_SYSREF_AVERAGE(0));
+	if (ret != 0)
+		return ret;
+
 	schedule_delayed_work(&phy->dwork, msecs_to_jiffies(1000));
 
 	return 0;
@@ -1784,7 +1815,32 @@ static int ad9081_multichip_sync(struct ad9081_phy *phy, int step)
 		ad9081_jesd_rx_link_status_print(phy);
 		break;
 	case 4:
+		ret = adi_ad9081_hal_bf_set(&phy->ad9081, REG_SYNC_DEBUG0_ADDR,
+			BF_AVRG_FLOW_EN_INFO, 1);
+		if (ret != 0)
+			return ret;
+
+		ret = adi_ad9081_hal_bf_set(&phy->ad9081, REG_SYSREF_AVERAGE_ADDR,
+			BF_SYSREF_AVERAGE_INFO,
+			BF_SYSREF_AVERAGE(7));
+		if (ret != 0)
+			return ret;
+
 		ret = adi_ad9081_jesd_oneshot_sync(&phy->ad9081);
+		if (ret != 0)
+			return ret;
+
+		ret = adi_ad9081_hal_bf_set(&phy->ad9081, REG_SYNC_DEBUG0_ADDR,
+			BF_AVRG_FLOW_EN_INFO, 0);
+		if (ret != 0)
+			return ret;
+
+		ret = adi_ad9081_hal_bf_set(&phy->ad9081, REG_SYSREF_AVERAGE_ADDR,
+			BF_SYSREF_AVERAGE_INFO,
+			BF_SYSREF_AVERAGE(0));
+		if (ret != 0)
+			return ret;
+
 		break;
 	case 5:
 		ret = ad9081_nco_sync_master_slave(phy,
@@ -2401,6 +2457,10 @@ static int ad9081_parse_jesd_link_dt(struct ad9081_phy *phy,
 				link->jesd_param.jesd_m);
 			return -EINVAL;
 		}
+	} else { /* JRX */
+		link->jrx_tpl_phase_adjust = 12;
+		of_property_read_u32(np, "adi,tpl-phase-adjust",
+				&link->jrx_tpl_phase_adjust);
 	}
 
 	return 0;
@@ -2624,6 +2684,10 @@ static int ad9081_parse_dt(struct ad9081_phy *phy, struct device *dev)
 	phy->lmfc_delay = 0;
 	of_property_read_u32(np, "adi,lmfc-delay-dac-clk-cycles",
 			&phy->lmfc_delay);
+
+	phy->nco_sync_ms_extra_lmfc_num = 0;
+	of_property_read_u32(np, "adi,nco-sync-ms-extra-lmfc-num",
+			&phy->nco_sync_ms_extra_lmfc_num);
 
 	ret = ad9081_parse_dt_tx(phy, np);
 	if (ret < 0) {
