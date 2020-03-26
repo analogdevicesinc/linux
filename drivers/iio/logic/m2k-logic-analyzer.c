@@ -893,7 +893,6 @@ static int m2k_la_remove(struct platform_device *pdev)
 	struct iio_dev *indio_dev = platform_get_drvdata(pdev);
 	struct m2k_la *m2k_la = iio_priv(indio_dev);
 
-	iio_device_unregister(indio_dev);
 	if (!m2k_la->powerdown)
 		clk_disable_unprepare(m2k_la->clk);
 
