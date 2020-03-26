@@ -881,11 +881,7 @@ static int m2k_la_probe(struct platform_device *pdev)
 
 	iio_device_set_drvdata(indio_dev_rx, m2k_la);
 
-	ret = devm_iio_device_register(&pdev->dev, indio_dev_rx);
-	if (ret)
-		return ret;
-
-	return 0;
+	return devm_iio_device_register(&pdev->dev, indio_dev_rx);
 }
 
 static int m2k_la_remove(struct platform_device *pdev)
