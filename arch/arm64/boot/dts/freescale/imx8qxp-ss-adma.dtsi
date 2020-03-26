@@ -76,3 +76,10 @@
 		status = "disabled";
 	};
 };
+
+&dma_subsys {
+	lcdif_mux_regs: mux-regs@5a170000 {
+		compatible = "fsl,imx8qxp-lcdif-mux-regs", "syscon";
+		reg = <0x5a170000 0x4>;
+	};
+};
