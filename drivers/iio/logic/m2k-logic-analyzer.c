@@ -782,6 +782,14 @@ static const struct iio_buffer_setup_ops m2k_la_tx_setup_ops = {
 	.postdisable = m2k_la_tx_postdisable,
 };
 
+static void m2k_la_disable_clk(void *data)
+{
+	struct m2k_la *m2k_la = data;
+
+	if (!m2k_la->powerdown)
+		clk_disable_unprepare(m2k_la->clk);
+}
+
 static int m2k_la_probe(struct platform_device *pdev)
 {
 	struct iio_dev *indio_dev, *indio_dev_tx, *indio_dev_rx;
@@ -814,6 +822,10 @@ static int m2k_la_probe(struct platform_device *pdev)
 		return -EINVAL;
 
 	m2k_la->powerdown = false;
+
+	ret = devm_add_action_or_reset(&pdev->dev, m2k_la_disable_clk, m2k_la);
+	if (ret)
+		return ret;
 
 	mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	m2k_la->regs = devm_ioremap_resource(&pdev->dev, mem);
@@ -884,17 +896,6 @@ static int m2k_la_probe(struct platform_device *pdev)
 	return devm_iio_device_register(&pdev->dev, indio_dev_rx);
 }
 
-static int m2k_la_remove(struct platform_device *pdev)
-{
-	struct iio_dev *indio_dev = platform_get_drvdata(pdev);
-	struct m2k_la *m2k_la = iio_priv(indio_dev);
-
-	if (!m2k_la->powerdown)
-		clk_disable_unprepare(m2k_la->clk);
-
-	return 0;
-}
-
 static const struct of_device_id m2k_la_of_match[] = {
 	{ .compatible = "adi,m2k-logic-analyzer" },
 	{},
@@ -906,7 +907,6 @@ static struct platform_driver m2k_la_driver = {
 		.of_match_table = m2k_la_of_match,
 	},
 	.probe = m2k_la_probe,
-	.remove = m2k_la_remove,
 };
 module_platform_driver(m2k_la_driver);
 
