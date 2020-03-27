@@ -121,7 +121,7 @@ err:
 static int pfe_platform_probe(struct platform_device *pdev)
 {
 	struct resource res;
-	int ii, rc, interface_count = 0, size = 0;
+	int ii = 0, rc, interface_count = 0, size = 0;
 	const u32 *prop;
 	struct device_node *np, *gem = NULL;
 	struct clk *pfe_clk;
@@ -207,15 +207,16 @@ static int pfe_platform_probe(struct platform_device *pdev)
 
 	pfe_platform_data.ls1012a_mdio_pdata[0].phy_mask = 0xffffffff;
 
-	for (ii = 0; ii < interface_count; ii++) {
-		gem = of_get_next_child(np, gem);
-		if (gem)
+	while ((gem = of_get_next_child(np, gem))) {
+		if (of_find_property(gem, "reg", &size)) {
 			pfe_get_gemac_if_properties(gem, ii,
-						    &pfe_platform_data);
-		else
-			pr_err("Unable to find interface %d\n", ii);
-
+						&pfe_platform_data);
+			ii++;
+		}
 	}
+
+	if (interface_count != ii)
+		pr_info("missing some of gemac interface properties.\n");
 
 	pfe->dev = &pdev->dev;
 
