@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
- * Copyright 2019 NXP
+ * Copyright 2019,2020 NXP
  */
 
 #include <linux/component.h>
@@ -299,16 +299,10 @@ static int lcdifv3_crtc_bind(struct device *dev, struct device *master,
 {
 	int ret;
 	struct drm_device *drm = data;
-	struct lcdifv3_crtc *lcdifv3_crtc;
+	struct lcdifv3_crtc *lcdifv3_crtc = dev_get_drvdata(dev);
 	struct lcdifv3_client_platformdata *pdata = dev->platform_data;
 
 	dev_dbg(dev, "%s: lcdifv3 crtc bind begin\n", __func__);
-
-	lcdifv3_crtc = devm_kzalloc(dev, sizeof(*lcdifv3_crtc), GFP_KERNEL);
-	if (!lcdifv3_crtc)
-		return -ENOMEM;
-
-	lcdifv3_crtc->dev = dev;
 
 	ret = lcdifv3_crtc_init(lcdifv3_crtc, pdata, drm);
 	if (ret)
@@ -323,8 +317,6 @@ static int lcdifv3_crtc_bind(struct device *dev, struct device *master,
 	/* limit the max width and height */
 	drm->mode_config.max_width  = 4096;
 	drm->mode_config.max_height = 4096;
-
-	dev_set_drvdata(dev, lcdifv3_crtc);
 
 	dev_dbg(dev, "%s: lcdifv3 crtc bind end\n", __func__);
 
@@ -348,6 +340,7 @@ static const struct component_ops lcdifv3_crtc_ops = {
 static int lcdifv3_crtc_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
+	struct lcdifv3_crtc *lcdifv3_crtc;
 
 	dev_dbg(&pdev->dev, "%s: lcdifv3 crtc probe begin\n", __func__);
 
@@ -355,6 +348,13 @@ static int lcdifv3_crtc_probe(struct platform_device *pdev)
 		dev_err(dev, "no platform data\n");
 		return -EINVAL;
 	}
+
+	lcdifv3_crtc = devm_kzalloc(dev, sizeof(*lcdifv3_crtc), GFP_KERNEL);
+	if (!lcdifv3_crtc)
+		return -ENOMEM;
+
+	lcdifv3_crtc->dev = dev;
+	dev_set_drvdata(dev, lcdifv3_crtc);
 
 	return component_add(dev, &lcdifv3_crtc_ops);
 }
