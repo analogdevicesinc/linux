@@ -2,7 +2,7 @@
 # Freescale Programmable Packet Forwarding Engine driver
 #
 config FSL_PPFE
-	bool "Freescale PPFE Driver"
+	tristate "Freescale PPFE Driver"
 	select FSL_GUTS
 	default n
 	---help---
