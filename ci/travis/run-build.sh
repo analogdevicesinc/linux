@@ -199,7 +199,12 @@ build_allmodconfig() {
 }
 
 build_checkpatch() {
-	apt_install python-ply
+	# TODO: Re-visit periodically:
+	# https://github.com/torvalds/linux/blob/master/Documentation/devicetree/writing-schema.rst
+	# This seems to change every now-n-then
+	apt_install python-ply python-git libyaml-dev python3-pip python3-setuptools
+	pip3 install wheel
+	pip3 install git+https://github.com/devicetree-org/dt-schema.git@master
 	if [ -n "$TRAVIS_BRANCH" ]; then
 		__update_git_ref "${TRAVIS_BRANCH}" "${TRAVIS_BRANCH}"
 	fi
