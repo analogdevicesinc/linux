@@ -2726,6 +2726,7 @@ static int gpmi_nand_init(struct gpmi_nand_data *this)
 {
 	struct nand_chip *chip = &this->nand;
 	struct mtd_info  *mtd = nand_to_mtd(chip);
+	u32 max_cs;
 	int ret;
 
 	/* init the MTD data structures */
@@ -2756,7 +2757,12 @@ static int gpmi_nand_init(struct gpmi_nand_data *this)
 	this->base.ops = &gpmi_nand_controller_ops;
 	chip->controller = &this->base;
 
-	ret = nand_scan(chip, (GPMI_IS_MX6(this) || GPMI_IS_MX8(this)) ? 2 : 1);
+	max_cs = (GPMI_IS_MX6(this) || GPMI_IS_MX8(this)) ? 2 : 1;
+
+	/* override the max_cs if board has other limitations */
+	of_property_read_u32(this->pdev->dev.of_node, "fsl,max-nand-cs", &max_cs);
+
+	ret = nand_scan(chip, max_cs);
 	if (ret)
 		goto err_out;
 
