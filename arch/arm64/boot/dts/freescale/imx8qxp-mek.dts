@@ -674,6 +674,12 @@
 	status = "okay";
 };
 
+&adma_pwm {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_lcdifpwm>;
+	status = "okay";
+};
+
 &fec1 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_fec1>;
