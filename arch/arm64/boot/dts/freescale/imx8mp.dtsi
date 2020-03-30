@@ -2485,4 +2485,9 @@
 		compatible = "nxp,imx8m-vsiv4l2";
 		status = "disabled";
 	};
+
+	i2c_rpbus_3: i2c-rpbus-3 {
+		compatible = "fsl,i2c-rpbus";
+		status = "disabled";
+	};
 };
