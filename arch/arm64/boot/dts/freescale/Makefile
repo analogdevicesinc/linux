@@ -249,7 +249,8 @@ dtb-$(CONFIG_ARCH_MXC) += imx8qxp-mek.dtb imx8qxp-mek-dsp.dtb imx8qxp-mek-ov5640
 			  imx8qxp-mek-it6263-lvds1-dual-channel.dtb \
 			  imx8qxp-mek-jdi-wuxga-lvds0-panel.dtb \
 			  imx8qxp-mek-jdi-wuxga-lvds1-panel.dtb \
-			  imx8qxp-mek-dsi-rm67191.dtb
+			  imx8qxp-mek-dsi-rm67191.dtb \
+			  imx8qxp-mek-dpu-lcdif.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx8qxp-mek-root.dtb \
 			  imx8qxp-mek-inmate.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx8ulp-evk.dtb
