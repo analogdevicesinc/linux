@@ -294,7 +294,6 @@ static int ad7768_reg_access(struct iio_dev *indio_dev,
 		ret = ad7768_spi_reg_read(st, reg, 1, readval);
 		if (ret < 0)
 			goto err_unlock;
-		*readval = ret;
 		ret = 0;
 	} else {
 		ret = ad7768_spi_reg_write(st, reg, writeval);
