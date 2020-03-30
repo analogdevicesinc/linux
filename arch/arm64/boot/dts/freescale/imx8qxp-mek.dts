@@ -1571,4 +1571,10 @@
 			IMX8QXP_MCLK_OUT0_ADMA_LCDIF_CLK	0x00000060
 		>;
 	};
+
+	pinctrl_lcdifpwm: lcdifpwmgrp {
+		fsl,pins = <
+			IMX8QXP_SPI0_CS1_ADMA_LCD_PWM0_OUT	0x00000060
+		>;
+	};
 };
