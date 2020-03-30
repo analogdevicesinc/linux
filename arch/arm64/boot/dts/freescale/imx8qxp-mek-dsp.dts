@@ -91,6 +91,7 @@
 			<&clk IMX_SC_R_AUDIO_PLL_0 IMX_SC_PM_CLK_MISC1>,
 			<&esai0_lpcg 0>,
 			<&clk IMX_SC_R_UART_2 IMX_SC_PM_CLK_PER>;
+	audio-interface = "esai";
 	assigned-clock-parents = <&aud_pll_div0_lpcg 0>;
 	assigned-clock-rates = <0>, <786432000>, <49152000>, <12288000>, <49152000>, <80000000>;
 	fsl,dsp-firmware = "imx/dsp/hifi4.bin";
