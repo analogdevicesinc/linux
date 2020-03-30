@@ -19,6 +19,8 @@
 #include "pmbus.h"
 
 #define ADM1266_PDIO_CONFIG	0xD4
+#define ADM1266_GO_COMMAND	0xD8
+#define ADM1266_READ_STATE	0xD9
 #define ADM1266_GPIO_CONFIG	0xE1
 #define ADM1266_PDIO_STATUS	0xE9
 #define ADM1266_GPIO_STATUS	0xEA
@@ -40,6 +42,7 @@ struct adm1266_data {
 	struct pmbus_driver_info info;
 	struct gpio_chip gc;
 	struct i2c_client *client;
+	struct dentry *debugfs_dir;
 };
 
 #if IS_ENABLED(CONFIG_GPIOLIB)
@@ -221,6 +224,48 @@ static inline int adm1266_config_gpio(struct adm1266_data *data)
 }
 #endif
 
+static int adm1266_get_state_op(void *pdata, u64 *state)
+{
+	struct adm1266_data *data = pdata;
+	int ret;
+
+	ret = i2c_smbus_read_word_data(data->client, ADM1266_READ_STATE);
+	if (ret < 0)
+		return ret;
+
+	*state = ret;
+
+	return 0;
+}
+
+static int adm1266_set_go_command_op(void *pdata, u64 val)
+{
+	struct adm1266_data *data = pdata;
+	u8 reg;
+
+	reg = FIELD_GET(GENMASK(4, 0), val);
+
+	return i2c_smbus_write_word_data(data->client, ADM1266_GO_COMMAND, reg);
+}
+
+DEFINE_DEBUGFS_ATTRIBUTE(go_command_fops, NULL, adm1266_set_go_command_op,
+			 "%llu\n");
+DEFINE_DEBUGFS_ATTRIBUTE(read_state_fops, adm1266_get_state_op, NULL, "%llu\n");
+
+static void adm1266_debug_init(struct adm1266_data *data)
+{
+	struct dentry *root;
+	char dir_name[30];
+
+	sprintf(dir_name, "adm1266-%x_debugfs", data->client->addr);
+	root = debugfs_create_dir(dir_name, NULL);
+	data->debugfs_dir = root;
+	debugfs_create_file_unsafe("go_command", 0200, root, data,
+				   &go_command_fops);
+	debugfs_create_file_unsafe("read_state", 0400, root, data,
+				   &read_state_fops);
+}
+
 static int adm1266_probe(struct i2c_client *client,
 			 const struct i2c_device_id *id)
 {
@@ -240,6 +285,8 @@ static int adm1266_probe(struct i2c_client *client,
 	ret = adm1266_config_gpio(data);
 	if (ret < 0)
 		return ret;
+
+	adm1266_debug_init(data);
 
 	info = &data->info;
 	info->pages = 17;
