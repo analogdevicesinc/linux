@@ -12,10 +12,10 @@
  * for more details.
  */
 
-#include <drm/drmP.h>
 #include <drm/drm_atomic.h>
 #include <drm/drm_atomic_helper.h>
 #include <drm/drm_gem_framebuffer_helper.h>
+#include <drm/drm_vblank.h>
 #include "imx-drm.h"
 #include "ipuv3-plane.h"
 
