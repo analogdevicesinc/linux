@@ -33,11 +33,31 @@
 		#size-cells = <1>;
 		ranges;
 
-		rpmsg_reserved: rpmsg@9FF00000 {
+		rsc_table: rsc_table@1fff8000{
+			reg = <0x1fff8000 0x1000>;
 			no-map;
-			reg = <0x9FF00000 0x100000>;
 		};
 
+		vdev0vring0: vdev0vring0@9ff00000 {
+			reg = <0x9ff00000 0x8000>;
+			no-map;
+		};
+		vdev0vring1: vdev0vring1@9ff08000 {
+			reg = <0x9ff08000 0x8000>;
+			no-map;
+		};
+		vdev1vring0: vdev1vring0@9ff10000 {
+			reg = <0x9ff10000 0x8000>;
+			no-map;
+		};
+		vdev1vring1: vdev1vring1@9ff18000 {
+			reg = <0x9ff18000 0x8000>;
+			no-map;
+		};
+		vdev1vring3 {
+			reg = <0x9ff20000 0xe0000>;
+			no-map;
+		};
 	};
 
 	backlight {
@@ -224,6 +244,18 @@
 			"Playback", "CPU-Playback",
 			"CPU-Capture", "Capture";
 	};
+
+	imx7ulp-cm4 {
+		compatible = "fsl,imx7ulp-cm4";
+		ipc-only;
+		rsc-da=<0x1fff8000>;
+		mbox-names = "tx", "rx", "rxdb";
+		mboxes = <&mu 0 1
+			  &mu 1 1
+			  &mu 3 1>;
+		memory-region = <&vdev0vring0>, <&vdev0vring1>,
+				<&vdev1vring0>, <&vdev1vring1>, <&rsc_table>;
+	};
 };
 
 &cpu0 {
@@ -384,7 +416,7 @@
 	 */
 	vdev-nums = <2>;
 	reg = <0x9FF00000 0x20000>;
-	status = "okay";
+	status = "disabled";
 };
 
 &tpm4 {
