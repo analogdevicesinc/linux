@@ -1067,7 +1067,7 @@
 	rpc-region = <&encoder_rpc>;
 	reserved-region = <&encoder_reserved>;
 	reg-rpc-system = <0x40000000>;
-	resolution-max = <1920 1080>;
+	resolution-max = <1920 1920>;
 	fps-max = <120>;
 	mbox-names = "enc1_tx0", "enc1_tx1", "enc1_rx";
 	mboxes = <&mu1_m0 0 0

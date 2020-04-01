@@ -1657,7 +1657,7 @@
 	rpc-region = <&encoder_rpc>;
 	reserved-region = <&encoder_reserved>;
 	reg-rpc-system = <0x40000000>;
-	resolution-max = <1920 1080>;
+	resolution-max = <1920 1920>;
 	fps-max = <120>;
 	power-domains = <&pd IMX_SC_R_VPU_ENC_0>, <&pd IMX_SC_R_VPU_ENC_1>,
 			<&pd IMX_SC_R_VPU>;
