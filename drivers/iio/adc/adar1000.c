@@ -153,6 +153,8 @@ struct adar1000_state {
 	int			rx_phase[4][4];
 	struct adar1000_phase	*pt_info;
 	unsigned int		pt_size;
+	struct bin_attribute	bin_pt;
+	char			*bin_attr_buf;
 
 };
 
@@ -622,6 +624,77 @@ out:
 	return ret;
 }
 
+static ssize_t adar1000_pt_bin_write(struct file *filp, struct kobject *kobj,
+				     struct bin_attribute *bin_attr,
+				     char *buf, loff_t off, size_t count)
+{
+	struct iio_dev *indio_dev = dev_to_iio_dev(kobj_to_dev(kobj));
+	struct adar1000_state *st = iio_priv(indio_dev);
+	struct adar1000_phase *table;
+
+	if (off == 0) {
+		if (!st->bin_attr_buf) {
+			st->bin_attr_buf = devm_kzalloc(&st->spi->dev,
+							bin_attr->size,
+							GFP_KERNEL);
+			if (!st->bin_attr_buf)
+				return -ENOMEM;
+		} else {
+			memset(st->bin_attr_buf, 0, bin_attr->size);
+		}
+	}
+
+	memcpy(st->bin_attr_buf + off, buf, count);
+
+	if (strnstr(st->bin_attr_buf, "</phasetable>", off + count) == NULL)
+		return count;
+
+	table = adar1000_parse_pt(st, st->bin_attr_buf, off + count);
+	if (IS_ERR_OR_NULL(table))
+		return PTR_ERR(table);
+
+	adar1000_free_pt(st, st->pt_info);
+
+	st->pt_info = table;
+
+	return count;
+}
+
+static ssize_t adar1000_pt_bin_read(struct file *filp, struct kobject *kobj,
+				    struct bin_attribute *bin_attr,
+				    char *buf, loff_t off, size_t count)
+{
+
+	struct iio_dev *indio_dev = dev_to_iio_dev(kobj_to_dev(kobj));
+	struct adar1000_state *st = iio_priv(indio_dev);
+	int ret, i, len = 0;
+	char *tab;
+
+	tab = kzalloc(count, GFP_KERNEL);
+	if (!tab)
+		return -ENOMEM;
+
+	len += snprintf(tab + len, count - len,
+			"<phasetable ADAR%i table entries=%i>\n", 1000,
+			st->pt_size);
+
+	for (i = 0; i < st->pt_size; i++)
+		len += snprintf(tab + len, count - len,
+			"%d.%03d, 0x%.2X, 0x%.2X\n",
+			st->pt_info[i].val,
+			st->pt_info[i].val2,
+			st->pt_info[i].vm_gain_i,
+			st->pt_info[i].vm_gain_q);
+
+	len += snprintf(tab + len, count - len, "</phasetable>\n");
+
+	ret = memory_read_from_buffer(buf, count, &off, tab, len);
+
+	kfree(tab);
+
+	return ret;
+}
+
 static int adar1000_setup(struct iio_dev *indio_dev)
 {
 	struct adar1000_state *st = iio_priv(indio_dev);
@@ -746,11 +819,12 @@ static int adar1000_probe(struct spi_device *spi)
 
 		st[cnt]->dev_addr = ADAR1000_SPI_ADDR(tmp);
 
-		ret = adar1000_setup(indio_dev[cnt]);
-		if (ret < 0) {
-			dev_err(&spi->dev, "Setup failed (%d)\n", ret);
-			return ret;
-		}
+		sysfs_bin_attr_init(&st[cnt]->bin_pt);
+		st[cnt]->bin_pt.attr.name = "phase_table_config";
+		st[cnt]->bin_pt.attr.mode = 0644;
+		st[cnt]->bin_pt.write = adar1000_pt_bin_write;
+		st[cnt]->bin_pt.read = adar1000_pt_bin_read;
+		st[cnt]->bin_pt.size = 4096;
 
 		indio_dev[cnt]->dev.parent = &spi->dev;
 		indio_dev[cnt]->dev.of_node = child;
@@ -760,7 +834,18 @@ static int adar1000_probe(struct spi_device *spi)
 		indio_dev[cnt]->channels = adar1000_chan;
 		indio_dev[cnt]->num_channels = ARRAY_SIZE(adar1000_chan);
 
+		ret = adar1000_setup(indio_dev[cnt]);
+		if (ret < 0) {
+			dev_err(&spi->dev, "Setup failed (%d)\n", ret);
+			return ret;
+		}
+
 		ret = devm_iio_device_register(&spi->dev, indio_dev[cnt]);
+		if (ret < 0)
+			return ret;
+
+		ret = sysfs_create_bin_file(&indio_dev[cnt]->dev.kobj,
+					    &st[cnt]->bin_pt);
 		if (ret < 0)
 			return ret;
 
