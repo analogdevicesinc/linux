@@ -9,6 +9,7 @@
 #include <linux/module.h>
 #include <linux/regmap.h>
 #include <linux/kernel.h>
+#include <linux/firmware.h>
 #include <linux/spi/spi.h>
 #include <linux/err.h>
 #include <linux/debugfs.h>
@@ -150,6 +151,9 @@ struct adar1000_state {
 
 	int			tx_phase[4][4];
 	int			rx_phase[4][4];
+	struct adar1000_phase	*pt_info;
+	unsigned int		pt_size;
+
 };
 
 static const struct regmap_config adar1000_regmap_config = {
@@ -343,24 +347,24 @@ static int adar1000_set_phase(struct adar1000_state *st, u8 ch_num, u8 output,
 	u32 vm_gain_i, vm_gain_q;
 	u16 reg_i, reg_q;
 
-	for (i = 0; i < ARRAY_SIZE(adar1000_phase_values) - 1; i++) {
-		if (adar1000_phase_values[i].val > val)
+	for (i = 0; i < st->pt_size - 1; i++) {
+		if (st->pt_info[i].val > val)
 			break;
 	}
 
-	prev = adar1000_phase_values[i - 1].val * 1000 +
-		adar1000_phase_values[i - 1].val2;
-	next = adar1000_phase_values[i].val * 1000 +
-		adar1000_phase_values[i].val2;
+	prev = st->pt_info[i - 1].val * 1000 +
+		st->pt_info[i - 1].val2;
+	next = st->pt_info[i].val * 1000 +
+		st->pt_info[i].val2;
 	value = val * 1000 + val2;
 
 	if (prev > next) {
-		vm_gain_i = adar1000_phase_values[i - 1].vm_gain_i;
-		vm_gain_q = adar1000_phase_values[i - 1].vm_gain_q;
+		vm_gain_i = st->pt_info[i - 1].vm_gain_i;
+		vm_gain_q = st->pt_info[i - 1].vm_gain_q;
 		value = prev;
 	} else {
-		vm_gain_i = adar1000_phase_values[i].vm_gain_i;
-		vm_gain_q = adar1000_phase_values[i].vm_gain_q;
+		vm_gain_i = st->pt_info[i].vm_gain_i;
+		vm_gain_q = st->pt_info[i].vm_gain_q;
 		value = next;
 	}
 
@@ -480,10 +484,155 @@ static const struct iio_info adar1000_info = {
 	.debugfs_reg_access = &adar1000_reg_access,
 };
 
+static void adar1000_free_pt(struct adar1000_state *st,
+			     struct adar1000_phase *table)
+{
+	if (!table || table == adar1000_phase_values)
+		return;
+
+	devm_kfree(&st->spi->dev, table);
+}
+
+static struct adar1000_phase *adar1000_parse_pt(struct adar1000_state *st,
+						char *data, u32 size)
+{
+	struct adar1000_phase *table;
+	unsigned int model, count;
+	bool header_found;
+	int i = 0, ret = 0;
+	char *line, *ptr = data;
+
+	header_found = false;
+
+	while ((line = strsep(&ptr, "\n"))) {
+		if (line >= data + size)
+			break;
+
+		if (line[0] == '#') /* skip comment lines */
+			continue;
+
+		if (!header_found) {
+
+			ret = sscanf(line, " <phasetable ADAR%i table entries=%i>",
+				     &model, &count);
+
+			if (ret == 2) {
+				if (!(model == 1000)) {
+					ret = -EINVAL;
+					goto out;
+				}
+				table = devm_kzalloc(&st->spi->dev,
+					sizeof(struct adar1000_phase) * count,
+					GFP_KERNEL);
+				if (!table) {
+					ret = -ENOMEM;
+					goto out;
+				}
+
+				header_found = true;
+				i = 0;
+
+				continue;
+			} else {
+				header_found = false;
+			}
+		}
+
+		if (header_found) {
+			int a, b, c, d;
+
+			ret = sscanf(line, " %i.%i,%i,%i", &a, &b, &c, &d);
+			if (ret == 4) {
+				if (i >= count)
+					goto out;
+
+				table[i].val = a;
+				table[i].val2 = b;
+				table[i].vm_gain_i = c;
+				table[i].vm_gain_q = d;
+				i++;
+				continue;
+			} else if (strstr(line, "</phasetable>")) {
+				goto done;
+			} else {
+				dev_err(&st->spi->dev,
+					"ERROR: Malformed phase table");
+				goto out_free_table;
+			}
+		}
+	}
+
+done:
+	if (header_found) {
+		st->pt_size = count;
+		return table;
+	} else {
+		return ERR_PTR(ret);
+	}
+
+out_free_table:
+	adar1000_free_pt(st, table);
+
+out:
+	return ERR_PTR(ret);
+}
+
+static int adar1000_request_pt(struct adar1000_state *st)
+{
+
+	struct iio_dev *indio_dev;
+	const struct firmware *fw;
+	struct adar1000_phase *phase_table;
+	const char *name;
+	char *cpy;
+	int ret;
+
+	indio_dev = iio_priv_to_dev(st);
+
+	if (of_property_read_string(indio_dev->dev.of_node,
+				    "adi,phasetable-name", &name))
+		return -ENOENT;
+
+	ret = request_firmware(&fw, name, &st->spi->dev);
+	if (ret) {
+		dev_err(&st->spi->dev,
+			"request_firmware(%s) failed with %i\n", name, ret);
+		return ret;
+	}
+
+	cpy = devm_kzalloc(&st->spi->dev, fw->size, GFP_KERNEL);
+	if (!cpy)
+		goto out;
+
+	memcpy(cpy, fw->data, fw->size);
+
+	phase_table = adar1000_parse_pt(st, cpy, fw->size);
+	if (IS_ERR_OR_NULL(phase_table)) {
+		ret = PTR_ERR(phase_table);
+		goto out;
+	}
+
+	adar1000_free_pt(st, st->pt_info);
+
+	st->pt_info = phase_table;
+
+out:
+	release_firmware(fw);
+
+	return ret;
+}
+
 static int adar1000_setup(struct iio_dev *indio_dev)
 {
 	struct adar1000_state *st = iio_priv(indio_dev);
 	int ret;
+
+	/* Load phase values */
+	ret = adar1000_request_pt(st);
+	if (ret < 0) {
+		st->pt_info = (struct adar1000_phase *)&adar1000_phase_values[0];
+		st->pt_size = ARRAY_SIZE(adar1000_phase_values);
+	}
 
 	/* Reset device */
 	ret = regmap_write(st->regmap, st->dev_addr |
