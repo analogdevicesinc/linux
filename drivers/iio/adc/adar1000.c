@@ -466,6 +466,8 @@ static int adar1000_write_raw_get_fmt(struct iio_dev *indio_dev,
 	switch (mask) {
 	case IIO_CHAN_INFO_HARDWAREGAIN:
 		return IIO_VAL_INT_PLUS_MICRO_DB;
+	case IIO_CHAN_INFO_PHASE:
+		return IIO_VAL_INT_PLUS_MICRO;
 	default:
 		return -EINVAL;
 	}
