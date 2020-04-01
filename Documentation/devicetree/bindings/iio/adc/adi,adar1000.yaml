@@ -42,6 +42,12 @@ patternProperties:
           can be supported on the same SPI lines. This is useful when trying to
           identify one device.
 
+      adi,phasetable-name:
+        description:
+          The name specified here will be used by the device to load a custom
+          phase table using the firmware load feature. The user can determine
+          this values during the device calibration.
+
     required:
       - reg
 
@@ -62,6 +68,7 @@ examples:
       dev@0 {
         reg = <0>;
         label = "BEAM0";
+        adi,phasetable-name = "adar1000_std_phasetable";
       };
       dev@1 {
         reg = <1>;
