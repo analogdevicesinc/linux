@@ -453,7 +453,7 @@ static int adar1000_write_raw(struct iio_dev *indio_dev,
 					   chan->output);
 	case IIO_CHAN_INFO_PHASE:
 		return adar1000_set_phase(st, chan->channel, chan->output,
-					   val, val2);
+					  val, val2);
 	default:
 		return -EINVAL;
 	};
@@ -555,7 +555,7 @@ static int adar1000_probe(struct spi_device *spi)
 	struct adar1000_state **st;
 	struct device_node *child, *np = spi->dev.of_node;
 	struct regmap *regmap;
-	int ret = 0, cnt = 0, num_dev;
+	int ret, cnt = 0, num_dev;
 	u32 tmp;
 
 	num_dev = of_get_available_child_count(np);
@@ -618,7 +618,7 @@ static int adar1000_probe(struct spi_device *spi)
 		cnt++;
 	}
 
-	return ret;
+	return 0;
 }
 
 static const struct of_device_id adar1000_of_match[] = {
