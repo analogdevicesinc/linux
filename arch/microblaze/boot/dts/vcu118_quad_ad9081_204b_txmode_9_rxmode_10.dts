@@ -2,7 +2,7 @@
 /*
  * dts file for QUAD AD9081-FMC-EBZ on Xilinx ZynqMP ZCU102 Rev 1.0
  *
- * Copyright (C) 2019 Analog Devices Inc.
+ * Copyright (C) 2019-2020 Analog Devices Inc.
  */
 
 #include <dt-bindings/iio/frequency/hmc7044.h>
@@ -10,6 +10,10 @@
 #include <dt-bindings/gpio/gpio.h>
 
 #include "vcu118_quad_ad9081.dtsi"
+
+// This setup assumes 500MHz clock into J41 (0 dBm)
+// TX JESD204B MODE 9, M=8, L=4
+// RX JESD204B MODE 10, M=8, L=4
 
 #define ADRF4360_RF16_FREQUENCY_HZ 12000000000
 //#define ADRF4360_RF16_FREQUENCY_HZ 500000000
