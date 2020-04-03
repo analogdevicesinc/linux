@@ -13,6 +13,7 @@
 
 &cpu0 {
 	clock-frequency = <900000000>;
+	fsl,low-power-run;
 	operating-points = <
 		/* kHz	uV */
 		900000	1275000
