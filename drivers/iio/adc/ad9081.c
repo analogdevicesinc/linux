@@ -1752,7 +1752,7 @@ static int ad9081_multichip_sync(struct ad9081_phy *phy, int step)
 
 	switch (step & 0xFF) {
 	case 0:
-		/* enable txfe link */
+		/* disable txfe RX (JTX) link */
 		ret = adi_ad9081_jesd_tx_link_enable_set(&phy->ad9081,
 			(phy->jesd_rx_link[0].jesd_param.jesd_duallink > 0) ?
 			AD9081_LINK_ALL : AD9081_LINK_0, 0);
@@ -1764,7 +1764,7 @@ static int ad9081_multichip_sync(struct ad9081_phy *phy, int step)
 
 		break;
 	case 1:
-		/* enable txfe link */
+		/* enable txfe RX (JTX) link */
 		ret = adi_ad9081_jesd_tx_link_enable_set(&phy->ad9081,
 			(phy->jesd_rx_link[0].jesd_param.jesd_duallink > 0) ?
 			AD9081_LINK_ALL : AD9081_LINK_0, 1);
@@ -1783,6 +1783,8 @@ static int ad9081_multichip_sync(struct ad9081_phy *phy, int step)
 		ad9081_jesd_tx_link_status_print(phy);
 		break;
 	case 2:
+		/* disable txfe TX (JRX) link */
+		cancel_delayed_work_sync(&phy->dwork);
 
 		ret = adi_ad9081_jesd_rx_link_enable_set(&phy->ad9081,
 			(phy->jesd_tx_link.jesd_param.jesd_duallink > 0) ?
@@ -1795,7 +1797,7 @@ static int ad9081_multichip_sync(struct ad9081_phy *phy, int step)
 
 		break;
 	case 3:
-
+		/* enable txfe TX (JRX) link */
 		if (!IS_ERR_OR_NULL(phy->jesd_tx_clk)) {
 			ret = clk_prepare_enable(phy->jesd_tx_clk);
 			if (ret < 0) {
@@ -1813,8 +1815,10 @@ static int ad9081_multichip_sync(struct ad9081_phy *phy, int step)
 			return ret;
 
 		ad9081_jesd_rx_link_status_print(phy);
+		schedule_delayed_work(&phy->dwork, msecs_to_jiffies(1000));
 		break;
 	case 4:
+		/* JESD OneShot Sync */
 		ret = adi_ad9081_hal_bf_set(&phy->ad9081, REG_SYNC_DEBUG0_ADDR,
 			BF_AVRG_FLOW_EN_INFO, 1);
 		if (ret != 0)
@@ -1843,15 +1847,18 @@ static int ad9081_multichip_sync(struct ad9081_phy *phy, int step)
 
 		break;
 	case 5:
+		/* Master Slave NCO Sync */
 		ret = ad9081_nco_sync_master_slave(phy,
 			!IS_ERR_OR_NULL(phy->jesd_rx_clk));
 		if (ret != 0)
 			return ret;
 		break;
 	case 6:
+		/* Debug Only */
 		ret = adi_ad9081_dac_nco_sync_set(&phy->ad9081, step >> 8);
 		break;
 	case 7:
+		/* Toggle TX (JRX) link */
 		ret = adi_ad9081_jesd_rx_link_enable_set(&phy->ad9081,
 			(phy->jesd_tx_link.jesd_param.jesd_duallink > 0) ?
 			AD9081_LINK_ALL : AD9081_LINK_0, 0);
@@ -2259,9 +2266,27 @@ static void ad9081_work_func(struct work_struct *work)
 		if (phy->jesd_tx_link.jesd_param.jesd_jesdv == 2) {
 			ad9081_multichip_sync(phy, 7);
 		} else {
-			ad9081_multichip_sync(phy, 2);
+			/* disable txfe TX (JRX) link */
+			adi_ad9081_jesd_rx_link_enable_set(&phy->ad9081,
+				(phy->jesd_tx_link.jesd_param.jesd_duallink > 0) ?
+				AD9081_LINK_ALL : AD9081_LINK_0, 0);
+
+			if (!IS_ERR_OR_NULL(phy->jesd_tx_clk))
+				clk_disable_unprepare(phy->jesd_tx_clk);
+
 			mdelay(20);
-			ad9081_multichip_sync(phy, 3);
+
+			/* enable txfe TX (JRX) link */
+			if (!IS_ERR_OR_NULL(phy->jesd_tx_clk)) {
+				clk_prepare_enable(phy->jesd_tx_clk);
+
+			}
+
+			adi_ad9081_jesd_rx_link_enable_set(&phy->ad9081,
+				(phy->jesd_tx_link.jesd_param.jesd_duallink > 0) ?
+				AD9081_LINK_ALL : AD9081_LINK_0, 1);
+
+			ad9081_jesd_rx_link_status_print(phy);
 		}
 	}
 	schedule_delayed_work(&phy->dwork, msecs_to_jiffies(1000));
