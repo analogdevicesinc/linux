@@ -6,6 +6,7 @@
  * Copyright (c) 2012 Guenter Roeck
  */
 
+#include <linux/crc8.h>
 #include <linux/debugfs.h>
 #include <linux/kernel.h>
 #include <linux/math64.h>
@@ -43,6 +44,8 @@
 #define PB_NUM_STATUS_REG	(PB_STATUS_VMON_BASE + 1)
 
 #define PMBUS_NAME_SIZE		24
+
+DECLARE_CRC8_TABLE(pmbus_crc_table);
 
 struct pmbus_sensor {
 	struct pmbus_sensor *next;
@@ -172,6 +175,89 @@ int pmbus_set_page(struct i2c_client *client, int page)
 	return 0;
 }
 EXPORT_SYMBOL_GPL(pmbus_set_page);
+
+/* Block Write/Read command.
+ * @client: Handle to slave device
+ * @cmd: Byte interpreted by slave
+ * @w_len: Size of write data block; PMBus allows at most 255 bytes
+ * @data_w: byte array which will be written.
+ * @data_r: Byte array into which data will be read; big enough to hold
+ *	the data returned by the slave. PMBus allows at most 255 bytes.
+ *
+ * Different from Block Read as it sends data and waits for the slave to
+ * return a value dependent on that data. The protocol is simply a Write Block
+ * followed by a Read Block without the Read-Block command field and the
+ * Write-Block STOP bit.
+ *
+ * Returns number of bytes read or negative errno.
+ */
+int pmbus_block_wr(struct i2c_client *client, u8 cmd, u8 w_len,
+		   u8 *data_w, u8 *data_r)
+{
+	u8 write_buf[PMBUS_BLOCK_MAX + 1];
+	struct i2c_msg msgs[2] = {
+		{
+			.addr = client->addr,
+			.flags = 0,
+			.buf = write_buf,
+			.len = w_len + 2,
+		},
+		{
+			.addr = client->addr,
+			.flags = I2C_M_RD,
+			.len = PMBUS_BLOCK_MAX,
+		}
+	};
+	u8 addr = 0;
+	u8 crc = 0;
+	int ret;
+
+	msgs[0].buf[0] = cmd;
+	msgs[0].buf[1] = w_len;
+	memcpy(&msgs[0].buf[2], data_w, w_len);
+
+	msgs[0].buf = i2c_get_dma_safe_msg_buf(&msgs[0], 1);
+	if (!msgs[0].buf)
+		return -ENOMEM;
+
+	msgs[1].buf = i2c_get_dma_safe_msg_buf(&msgs[1], 1);
+	if (!msgs[1].buf) {
+		i2c_put_dma_safe_msg_buf(msgs[0].buf, &msgs[0], false);
+		return -ENOMEM;
+	}
+
+	ret = i2c_transfer(client->adapter, msgs, 2);
+	if (ret != 2) {
+		dev_err(&client->dev, "I2C transfer error.");
+		goto cleanup;
+	}
+
+	if (client->flags & I2C_CLIENT_PEC) {
+		addr = i2c_8bit_addr_from_msg(&msgs[0]);
+		crc = crc8(pmbus_crc_table, &addr, 1, crc);
+		crc = crc8(pmbus_crc_table, msgs[0].buf,  msgs[0].len, crc);
+
+		addr = i2c_8bit_addr_from_msg(&msgs[1]);
+		crc = crc8(pmbus_crc_table, &addr, 1, crc);
+		crc = crc8(pmbus_crc_table, msgs[1].buf,  msgs[1].buf[0] + 1,
+			   crc);
+
+		if (crc != msgs[1].buf[msgs[1].buf[0] + 1]) {
+			ret = -EBADMSG;
+			goto cleanup;
+		}
+	}
+
+	memcpy(data_r, &msgs[1].buf[1], msgs[1].buf[0]);
+	ret = msgs[1].buf[0];
+
+cleanup:
+	i2c_put_dma_safe_msg_buf(msgs[0].buf, &msgs[0], true);
+	i2c_put_dma_safe_msg_buf(msgs[1].buf, &msgs[1], true);
+
+	return ret;
+}
+EXPORT_SYMBOL_GPL(pmbus_block_wr);
 
 int pmbus_write_byte(struct i2c_client *client, int page, u8 value)
 {
@@ -2534,6 +2620,8 @@ static int __init pmbus_core_init(void)
 	pmbus_debugfs_dir = debugfs_create_dir("pmbus", NULL);
 	if (IS_ERR(pmbus_debugfs_dir))
 		pmbus_debugfs_dir = NULL;
+
+	crc8_populate_msb(pmbus_crc_table, 0x7);
 
 	return 0;
 }
