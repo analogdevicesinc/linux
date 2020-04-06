@@ -783,6 +783,7 @@ static int pfe_eth_get_hash(u8 *addr)
 }
 
 const struct ethtool_ops pfe_ethtool_ops = {
+	.supported_coalesce_params = ETHTOOL_COALESCE_RX_USECS,
 	.get_drvinfo = pfe_eth_get_drvinfo,
 	.get_regs_len = pfe_eth_gemac_reglen,
 	.get_regs = pfe_eth_gemac_get_regs,
