@@ -1,0 +1,111 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2020 NXP
+ */
+
+/delete-node/ &adv_bridge0;
+/delete-node/ &adv_bridge1;
+
+&ldb1_phy {
+	status = "disabled";
+};
+
+&ldb1 {
+	status = "disabled";
+};
+
+&ldb2_phy {
+	status = "disabled";
+};
+
+&ldb2 {
+	status = "disabled";
+};
+
+&lvds_bridge0 {
+	status = "disabled";
+};
+
+&lvds_bridge1 {
+	status = "disabled";
+};
+
+&mipi0_dphy {
+	status = "okay";
+};
+
+&mipi0_dsi_host {
+	status = "okay";
+	fsl,clock-drop-level = <2>;
+
+	panel@0 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		compatible = "raydium,rm67191";
+		reg = <0>;
+		reset-gpios = <&pca9557_a 6 GPIO_ACTIVE_LOW>;
+		dsi-lanes = <4>;
+		video-mode = <2>;
+		width-mm = <68>;
+		height-mm = <121>;
+
+		port@0 {
+			reg = <0>;
+			panel0_in: endpoint {
+				remote-endpoint = <&mipi0_panel_out>;
+			};
+		};
+	};
+
+	ports {
+		/delete-node/ port@1;
+
+		port@1 {
+			reg = <1>;
+			mipi0_panel_out: endpoint {
+				remote-endpoint = <&panel0_in>;
+			};
+		};
+	};
+};
+
+&mipi1_dphy {
+	status = "okay";
+};
+
+&mipi1_dsi_host {
+	status = "okay";
+	fsl,clock-drop-level = <2>;
+
+	panel@0 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		compatible = "raydium,rm67191";
+		reg = <0>;
+		reset-gpios = <&pca9557_b 7 GPIO_ACTIVE_LOW>;
+		dsi-lanes = <4>;
+		video-mode = <2>;
+		width-mm = <68>;
+		height-mm = <121>;
+
+		port@0 {
+			reg = <0>;
+			panel1_in: endpoint {
+				remote-endpoint = <&mipi1_panel_out>;
+			};
+		};
+	};
+
+	ports {
+		/delete-node/ port@1;
+
+		port@1 {
+			reg = <1>;
+			mipi1_panel_out: endpoint {
+				remote-endpoint = <&panel1_in>;
+			};
+		};
+	};
+};
