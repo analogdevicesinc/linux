@@ -1766,6 +1766,9 @@ int iio_device_register(struct iio_dev *indio_dev)
 	const struct file_operations *fops;
 	int ret;
 
+	if (!indio_dev->info)
+		return -EINVAL;
+
 	/* If the calling driver did not initialize of_node, do it here */
 	if (!indio_dev->dev.of_node && indio_dev->dev.parent)
 		indio_dev->dev.of_node = indio_dev->dev.parent->of_node;
@@ -1776,9 +1779,6 @@ int iio_device_register(struct iio_dev *indio_dev)
 	ret = iio_check_unique_scan_index(indio_dev);
 	if (ret < 0)
 		return ret;
-
-	if (!indio_dev->info)
-		return -EINVAL;
 
 	/* configure elements for the chrdev */
 	indio_dev->dev.devt = MKDEV(MAJOR(iio_devt), indio_dev->id);
