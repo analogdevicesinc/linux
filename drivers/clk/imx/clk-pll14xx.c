@@ -478,6 +478,26 @@ static void clk_pll14xx_unprepare(struct clk_hw *hw)
 	writel_relaxed(val, pll->base + GNRL_CTL);
 }
 
+void clk_set_delta_k(struct clk_hw *hw, short int delta_k)
+{
+	struct clk_pll14xx *pll = to_clk_pll14xx(hw);
+	short int k;
+	u32 val;
+
+	val = readl_relaxed(pll->base + 8);
+	k = (val & KDIV_MASK) + delta_k;
+	writel_relaxed(k, pll->base + 8);
+}
+
+void clk_get_pll_setting(struct clk_hw *hw, u32 *pll_div_ctrl0,
+	u32 *pll_div_ctrl1)
+{
+	struct clk_pll14xx *pll = to_clk_pll14xx(hw);
+
+	*pll_div_ctrl0 = readl_relaxed(pll->base + 4);
+	*pll_div_ctrl1 = readl_relaxed(pll->base + 8);
+}
+
 static const struct clk_ops clk_pll1416x_ops = {
 	.prepare	= clk_pll14xx_prepare,
 	.unprepare	= clk_pll14xx_unprepare,

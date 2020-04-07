@@ -526,4 +526,6 @@ struct clk_hw *imx_clk_gpr_mux(const char *name, const char *compatible,
 			       u32 reg, const char **parent_names,
 			       u8 num_parents, const u32 *mux_table, u32 mask);
 
+void clk_set_delta_k(struct clk_hw *hw, short int delta_k);
+void clk_get_pll_setting(struct clk_hw *hw, u32 *pll_div_ctrl0, u32 *pll_div_ctrl1);
 #endif
