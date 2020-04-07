@@ -83,8 +83,8 @@ static int pm_send_message(struct pm_rpmsg_data *msg,
 	}
 
 	mutex_lock(&info->lock);
-	pm_qos_add_request(&info->pm_qos_req,
-			PM_QOS_CPU_DMA_LATENCY, 0);
+	cpu_latency_qos_add_request(&info->pm_qos_req,
+			0);
 
 	reinit_completion(&info->cmd_complete);
 
@@ -116,7 +116,7 @@ static int pm_send_message(struct pm_rpmsg_data *msg,
 	}
 
 err_out:
-	pm_qos_remove_request(&info->pm_qos_req);
+	cpu_latency_qos_remove_request(&info->pm_qos_req);
 	mutex_unlock(&info->lock);
 
 	return err;
