@@ -56,7 +56,7 @@
 #ifndef __gc_hal_engine_h_
 #define __gc_hal_engine_h_
 
-#include "gc_hal_types.h"
+#include "shared/gc_hal_types.h"
 #include "gc_hal_enum.h"
 
 
@@ -124,33 +124,6 @@ typedef struct _gcoBUFOBJ *             gcoBUFOBJ;
 
 #define gcdATTRIBUTE_COUNT              32
 #define gcdVERTEXARRAY_POOL_CAPACITY    32
-
-typedef enum _gcePROGRAM_STAGE
-{
-    gcvPROGRAM_STAGE_VERTEX         = 0x0,
-    gcvPROGRAM_STAGE_TCS            = 0x1,
-    gcvPROGRAM_STAGE_TES            = 0x2,
-    gcvPROGRAM_STAGE_GEOMETRY       = 0x3,
-    gcvPROGRAM_STAGE_FRAGMENT       = 0x4,
-    gcvPROGRAM_STAGE_GRAPHICS_COUNT = 0x5,
-    gcvPROGRAM_STAGE_COMPUTE        = 0x5,
-    gcvPROGRAM_STAGE_OPENCL         = 0x6,
-    gcvPROGRAM_STAGE_LAST
-}
-gcePROGRAM_STAGE;
-
-typedef enum _gcePROGRAM_STAGE_BIT
-{
-    gcvPROGRAM_STAGE_VERTEX_BIT   = 1 << gcvPROGRAM_STAGE_VERTEX,
-    gcvPROGRAM_STAGE_TCS_BIT      = 1 << gcvPROGRAM_STAGE_TCS,
-    gcvPROGRAM_STAGE_TES_BIT      = 1 << gcvPROGRAM_STAGE_TES,
-    gcvPROGRAM_STAGE_GEOMETRY_BIT = 1 << gcvPROGRAM_STAGE_GEOMETRY,
-    gcvPROGRAM_STAGE_FRAGMENT_BIT = 1 << gcvPROGRAM_STAGE_FRAGMENT,
-    gcvPROGRAM_STAGE_COMPUTE_BIT  = 1 << gcvPROGRAM_STAGE_COMPUTE,
-    gcvPROGRAM_STAGE_OPENCL_BIT   = 1 << gcvPROGRAM_STAGE_OPENCL,
-}
-gcePROGRAM_STAGE_BIT;
-
 
 #define gcvPORGRAM_STAGE_GPIPE (gcvPROGRAM_STAGE_VERTEX_BIT | \
                                 gcvPROGRAM_STAGE_TCS_BIT    | \
@@ -224,12 +197,6 @@ gcoHAL_QueryStreamCaps(
 
 /*----------------------------------------------------------------------------*/
 /*--------------------------------- gcoSURF 3D --------------------------------*/
-typedef enum _gceBLIT_FLAG
-{
-    gcvBLIT_FLAG_SKIP_DEPTH_WRITE   = 1 << 0,
-    gcvBLIT_FLAG_SKIP_STENCIL_WRITE = 1 << 1,
-} gceBLIT_FLAG;
-
 typedef struct _gcsSURF_BLIT_ARGS
 {
     gcoSURF     srcSurface;
@@ -247,22 +214,6 @@ typedef struct _gcsSURF_BLIT_ARGS
     gctBOOL     needDecode;
 }
 gcsSURF_BLIT_ARGS;
-
-
-
-
-/* Clear flags. */
-typedef enum _gceCLEAR
-{
-    gcvCLEAR_COLOR              = 0x1,
-    gcvCLEAR_DEPTH              = 0x2,
-    gcvCLEAR_STENCIL            = 0x4,
-    gcvCLEAR_HZ                 = 0x8,
-    gcvCLEAR_WITH_GPU_ONLY      = 0x100,
-    gcvCLEAR_WITH_CPU_ONLY      = 0x200,
-    gcvCLEAR_MULTI_SLICES       = 0x400,
-}
-gceCLEAR;
 
 typedef struct _gcsSURF_CLEAR_ARGS
 {
@@ -305,33 +256,6 @@ typedef struct _gscSURF_BLITDRAW_BLIT
     gctBOOL  scissorEnabled;
     gcsRECT  scissor;
 }gscSURF_BLITDRAW_BLIT;
-
-
-typedef enum _gceBLITDRAW_TYPE
-{
-    gcvBLITDRAW_CLEAR = 0,
-    gcvBLITDRAW_BLIT  = 1,
-
-    /* last number, not a real type */
-    gcvBLITDRAW_NUM_TYPE
- }
-gceBLITDRAW_TYPE;
-
-typedef enum _gceSPLIT_DRAW_TYPE
-{
-    gcvSPLIT_DRAW_UNKNOWN      = 0x0,
-    gcvSPLIT_DRAW_1,
-    gcvSPLIT_DRAW_2,
-    gcvSPLIT_DRAW_3,
-    gcvSPLIT_DRAW_4,
-    gcvSPLIT_DRAW_XFB,
-    gcvSPLIT_DRAW_INDEX_FETCH,
-    gcvSPLIT_DRAW_TCS,
-    gcvSPLIT_DRAW_STIPPLE,
-    gcvSPLIT_DRAW_WIDE_LINE,
-    gcvSPLIT_DRAW_LAST
-}
-gceSPLIT_DRAW_TYPE;
 
 typedef gceSTATUS (* gctSPLIT_DRAW_FUNC_PTR)(
     IN gctPOINTER gc,
@@ -703,14 +627,6 @@ gcoCLHardware_Construct(void);
 /******************************************************************************\
 ********************************** gco3D Object *********************************
 \******************************************************************************/
-
-/* Blending targets. */
-typedef enum _gceBLEND_UNIT
-{
-    gcvBLEND_SOURCE,
-    gcvBLEND_TARGET,
-}
-gceBLEND_UNIT;
 
 /* Construct a new gco3D object. */
 gceSTATUS
@@ -1489,53 +1405,6 @@ gco3D_SetLogicOp(
     IN gctUINT8 Rop
     );
 
-typedef enum _gceXfbCmd
-{
-    gcvXFBCMD_BEGIN           = 0,
-    gcvXFBCMD_PAUSE           = 1,
-    gcvXFBCMD_RESUME          = 2,
-    gcvXFBCMD_END             = 3,
-    gcvXFBCMD_PAUSE_INCOMMIT  = 4,
-    gcvXFBCMD_RESUME_INCOMMIT = 5,
-    gcvXFBCMD_INVALID         = 6,
-}
-gceXfbCmd;
-
-typedef enum _gceXfbStatus
-{
-    gcvXFB_Disabled = 0,
-    gcvXFB_Paused,
-    gcvXFB_Enabled,
-}
-gceXfbStatus;
-
-typedef enum _gceQueryStatus
-{
-    gcvQUERY_Disabled = 0,
-    gcvQUERY_Paused   = 1,
-    gcvQUERY_Enabled  = 2,
-}
-gceQueryStatus;
-
-typedef enum _gceQueryCmd
-{
-    gcvQUERYCMD_BEGIN   = 0,
-    gcvQUERYCMD_PAUSE   = 1,
-    gcvQUERYCMD_RESUME  = 2,
-    gcvQUERYCMD_END     = 3,
-    gcvQUERYCMD_INVALID = 4,
-}
-gceQueryCmd;
-
-typedef enum _gceQueryType
-{
-    gcvQUERY_OCCLUSION = 0,
-    gcvQUERY_XFB_WRITTEN = 1,
-    gcvQUERY_PRIM_GENERATED = 2,
-    gcvQUERY_MAX_NUM = 3,
-}
-gceQueryType;
-
 gceSTATUS
 gco3D_SetQuery(
     IN gco3D Engine,
@@ -1986,19 +1855,6 @@ gco3D_SetAlphaTextureFunction(
 ******************************* gcoTEXTURE Object *******************************
 \******************************************************************************/
 
-/* Cube faces. */
-typedef enum _gceTEXTURE_FACE
-{
-    gcvFACE_NONE = 0,
-    gcvFACE_POSITIVE_X,
-    gcvFACE_NEGATIVE_X,
-    gcvFACE_POSITIVE_Y,
-    gcvFACE_NEGATIVE_Y,
-    gcvFACE_POSITIVE_Z,
-    gcvFACE_NEGATIVE_Z,
-}
-gceTEXTURE_FACE;
-
 typedef struct _gcsTEXTURE
 {
     /* Addressing modes. */
@@ -2396,43 +2252,6 @@ gcoTEXTURE_GenerateMipMap(
 ******************************* gcoSTREAM Object ******************************
 \******************************************************************************/
 
-typedef enum _gceVERTEX_FORMAT
-{
-    gcvVERTEX_BYTE,
-    gcvVERTEX_UNSIGNED_BYTE,
-    gcvVERTEX_SHORT,
-    gcvVERTEX_UNSIGNED_SHORT,
-    gcvVERTEX_INT,
-    gcvVERTEX_UNSIGNED_INT,
-    gcvVERTEX_FIXED,
-    gcvVERTEX_HALF,
-    gcvVERTEX_FLOAT,
-    gcvVERTEX_DOUBLE,
-    gcvVERTEX_UNSIGNED_INT_10_10_10_2,
-    gcvVERTEX_INT_10_10_10_2,
-    gcvVERTEX_UNSIGNED_INT_2_10_10_10_REV,
-    gcvVERTEX_INT_2_10_10_10_REV,
-    /* integer format */
-    gcvVERTEX_INT8,
-    gcvVERTEX_INT16,
-    gcvVERTEX_INT32,
-}
-gceVERTEX_FORMAT;
-
-/* What the SW converting scheme to create temp attrib */
-typedef enum _gceATTRIB_SCHEME
-{
-    gcvATTRIB_SCHEME_KEEP = 0,
-    gcvATTRIB_SCHEME_2_10_10_10_REV_TO_FLOAT,
-    gcvATTRIB_SCHEME_BYTE_TO_IVEC4,
-    gcvATTRIB_SCHEME_SHORT_TO_IVEC4,
-    gcvATTRIB_SCHEME_INT_TO_IVEC4,
-    gcvATTRIB_SCHEME_UBYTE_TO_UVEC4,
-    gcvATTRIB_SCHEME_USHORT_TO_UVEC4,
-    gcvATTRIB_SCHEME_UINT_TO_UVEC4,
-    gcvATTRIB_SCHEME_DOUBLE_TO_FLOAT,
-} gceATTRIB_SCHEME;
-
 gceSTATUS
 gcoSTREAM_Construct(
     IN gcoHAL Hal,
@@ -2815,32 +2634,6 @@ gcoHAL_DumpGPUProfile(
 /******************************************************************************
 **********************gcoBUFOBJ object*****************************************
 *******************************************************************************/
-typedef enum _gceBUFOBJ_TYPE
-{
-    gcvBUFOBJ_TYPE_ARRAY_BUFFER = 1,
-    gcvBUFOBJ_TYPE_ELEMENT_ARRAY_BUFFER  = 2,
-    gcvBUFOBJ_TYPE_GENERIC_BUFFER = 100
-
-} gceBUFOBJ_TYPE;
-
-typedef enum _gceBUFOBJ_USAGE
-{
-    gcvBUFOBJ_USAGE_STREAM_DRAW = 1,
-    gcvBUFOBJ_USAGE_STREAM_READ,
-    gcvBUFOBJ_USAGE_STREAM_COPY,
-    gcvBUFOBJ_USAGE_STATIC_DRAW,
-    gcvBUFOBJ_USAGE_STATIC_READ,
-    gcvBUFOBJ_USAGE_STATIC_COPY,
-    gcvBUFOBJ_USAGE_DYNAMIC_DRAW,
-    gcvBUFOBJ_USAGE_DYNAMIC_READ,
-    gcvBUFOBJ_USAGE_DYNAMIC_COPY,
-
-    /* special patch for optimaize performance,
-    ** no fence and duplicate stream to ensure data correct
-    */
-    gcvBUFOBJ_USAGE_DISABLE_FENCE_DYNAMIC_STREAM = 256
-} gceBUFOBJ_USAGE;
-
 /* Construct a new gcoBUFOBJ object. */
 gceSTATUS
 gcoBUFOBJ_Construct(

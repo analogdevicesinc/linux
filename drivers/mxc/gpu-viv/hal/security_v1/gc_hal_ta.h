@@ -55,7 +55,7 @@
 
 #ifndef _GC_HAL_TA_H_
 #define _GC_HAL_TA_H_
-#include "gc_hal_types.h"
+#include "shared/gc_hal_types.h"
 #include "gc_hal_security_interface.h"
 
 #ifdef __cplusplus

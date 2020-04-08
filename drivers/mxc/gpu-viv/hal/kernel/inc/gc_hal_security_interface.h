@@ -55,25 +55,6 @@
 
 #ifndef _GC_HAL_SECURITY_INTERFACE_H_
 #define _GC_HAL_SECURITY_INTERFACE_H_
-/*!
- @brief Command codes between kernel module and TrustZone
- @discussion
- Critical services must be done in TrustZone to avoid sensitive content leak. Most of kernel module is kept in non-Secure os to minimize
- code in TrustZone.
- */
-typedef enum kernel_packet_command {
-    KERNEL_START_COMMAND,
-    KERNEL_SUBMIT,
-    KERNEL_MAP_MEMORY, /* */
-    KERNEL_UNMAP_MEMORY,
-    KERNEL_ALLOCATE_SECRUE_MEMORY, /*! Security memory management. */
-    KERNEL_FREE_SECURE_MEMORY,
-    KERNEL_EXECUTE, /* Execute a command buffer. */
-    KERNEL_DUMP_MMU_EXCEPTION,
-    KERNEL_HANDLE_MMU_EXCEPTION,
-    KERNEL_READ_MMU_EXCEPTION,
-} kernel_packet_command_t;
-
 struct kernel_start_command {
     kernel_packet_command_t command;      /*! The command (always needs to be the first entry in a structure). */
     gctUINT8       gpu;                    /*! Which GPU. */
@@ -172,14 +153,6 @@ typedef struct _gcsTA_INTERFACE {
     } u;
     gceSTATUS result;
 } gcsTA_INTERFACE;
-
-enum {
-    gcvTA_COMMAND_INIT,
-    gcvTA_COMMAND_DISPATCH,
-
-    gcvTA_CALLBACK_ALLOC_SECURE_MEM,
-    gcvTA_CALLBACK_FREE_SECURE_MEM,
-};
 
 #endif
 

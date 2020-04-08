@@ -264,7 +264,6 @@ static int import_pfn_map(struct um_desc *um,
     {
         spinlock_t *ptl;
         pgd_t *pgd;
-	p4d_t *p4d;
         pud_t *pud;
         pmd_t *pmd;
         pte_t *pte;
@@ -280,11 +279,7 @@ static int import_pfn_map(struct um_desc *um,
     && LINUX_VERSION_CODE >= KERNEL_VERSION (4,11,0)
         pud = pud_offset((p4d_t*)pgd, addr);
 #else
-	p4d = p4d_offset(pgd, addr);
-	if (p4d_none(READ_ONCE(*p4d)))
-		return false;
-
-	pud = pud_offset(p4d, addr);
+        pud = pud_offset(pgd, addr);
 #endif
         if (pud_none(*pud) || pud_bad(*pud))
             goto err;

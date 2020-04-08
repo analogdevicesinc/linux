@@ -10799,17 +10799,17 @@ OnError:
 
 static gctUINT32
 CalcDelta(
-    IN gctUINT32 new,
-    IN gctUINT32 old
+    IN gctUINT32 newval,
+    IN gctUINT32 oldval
     )
 {
-    if (new >= old)
+    if (newval >= oldval)
     {
-        return new - old;
+        return newval - oldval;
     }
     else
     {
-        return (gctUINT32)((gctUINT64)new + 0x100000000ll - old);
+        return (gctUINT32)((gctUINT64)newval + 0x100000000ll - oldval);
     }
 }
 

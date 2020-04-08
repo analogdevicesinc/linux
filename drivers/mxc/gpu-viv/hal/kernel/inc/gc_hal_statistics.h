@@ -82,13 +82,6 @@
 /* Multiplication factor for previous Hz off mode. Make it more than 1.0 to advertise HZ on.*/
 #define VIV_STAT_EARLY_Z_FACTOR                 (1.05f)
 
-/* Defines the statistical data keys monitored by the statistics module */
-typedef enum _gceSTATISTICS
-{
-    gcvFRAME_FPS        =   1,
-}
-gceSTATISTICS;
-
 /* HAL statistics information. */
 typedef struct _gcsSTATISTICS_EARLYZ
 {

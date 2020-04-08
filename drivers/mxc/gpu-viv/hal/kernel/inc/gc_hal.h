@@ -56,11 +56,11 @@
 #ifndef __gc_hal_h_
 #define __gc_hal_h_
 
-#include "gc_hal_types.h"
+#include "shared/gc_hal_types.h"
 #include "gc_hal_enum.h"
 #include "gc_hal_base.h"
 #include "gc_hal_profiler.h"
-#include "gc_hal_driver.h"
+#include "shared/gc_hal_driver.h"
 #if gcdENABLE_3D
 #include "gc_hal_statistics.h"
 #endif
@@ -156,70 +156,6 @@ extern "C" {
 
 #define gcmGET_POST_ROTATION(rotate) \
     ((rotate) & (gcvSURF_POST_FLIP_X | gcvSURF_POST_FLIP_Y))
-
-/******************************************************************************\
-******************************** gcsOBJECT Object *******************************
-\******************************************************************************/
-
-/* Type of objects. */
-typedef enum _gceOBJECT_TYPE
-{
-    gcvOBJ_UNKNOWN              = 0,
-    gcvOBJ_2D                   = gcmCC('2','D',' ',' '),
-    gcvOBJ_3D                   = gcmCC('3','D',' ',' '),
-    gcvOBJ_ATTRIBUTE            = gcmCC('A','T','T','R'),
-    gcvOBJ_BRUSHCACHE           = gcmCC('B','R','U','$'),
-    gcvOBJ_BRUSHNODE            = gcmCC('B','R','U','n'),
-    gcvOBJ_BRUSH                = gcmCC('B','R','U','o'),
-    gcvOBJ_BUFFER               = gcmCC('B','U','F','R'),
-    gcvOBJ_COMMAND              = gcmCC('C','M','D',' '),
-    gcvOBJ_COMMANDBUFFER        = gcmCC('C','M','D','B'),
-    gcvOBJ_CONTEXT              = gcmCC('C','T','X','T'),
-    gcvOBJ_DEVICE               = gcmCC('D','E','V',' '),
-    gcvOBJ_DUMP                 = gcmCC('D','U','M','P'),
-    gcvOBJ_EVENT                = gcmCC('E','V','N','T'),
-    gcvOBJ_FUNCTION             = gcmCC('F','U','N','C'),
-    gcvOBJ_HAL                  = gcmCC('H','A','L',' '),
-    gcvOBJ_HARDWARE             = gcmCC('H','A','R','D'),
-    gcvOBJ_HEAP                 = gcmCC('H','E','A','P'),
-    gcvOBJ_INDEX                = gcmCC('I','N','D','X'),
-    gcvOBJ_INTERRUPT            = gcmCC('I','N','T','R'),
-    gcvOBJ_KERNEL               = gcmCC('K','E','R','N'),
-    gcvOBJ_KERNEL_FUNCTION      = gcmCC('K','F','C','N'),
-    gcvOBJ_MEMORYBUFFER         = gcmCC('M','E','M','B'),
-    gcvOBJ_MMU                  = gcmCC('M','M','U',' '),
-    gcvOBJ_OS                   = gcmCC('O','S',' ',' '),
-    gcvOBJ_OUTPUT               = gcmCC('O','U','T','P'),
-    gcvOBJ_PAINT                = gcmCC('P','N','T',' '),
-    gcvOBJ_PATH                 = gcmCC('P','A','T','H'),
-    gcvOBJ_QUEUE                = gcmCC('Q','U','E',' '),
-    gcvOBJ_SAMPLER              = gcmCC('S','A','M','P'),
-    gcvOBJ_SHADER               = gcmCC('S','H','D','R'),
-    gcvOBJ_VIR_SHADER           = gcmCC('V','S','D','R'),
-    gcvOBJ_STREAM               = gcmCC('S','T','R','M'),
-    gcvOBJ_SURF                 = gcmCC('S','U','R','F'),
-    gcvOBJ_TEXTURE              = gcmCC('T','X','T','R'),
-    gcvOBJ_UNIFORM              = gcmCC('U','N','I','F'),
-    gcvOBJ_VARIABLE             = gcmCC('V','A','R','I'),
-    gcvOBJ_VERTEX               = gcmCC('V','R','T','X'),
-    gcvOBJ_VIDMEM               = gcmCC('V','M','E','M'),
-    gcvOBJ_VIDMEM_BLOCK         = gcmCC('V','M','B','K'),
-    gcvOBJ_VG                   = gcmCC('V','G',' ',' '),
-    gcvOBJ_BUFOBJ               = gcmCC('B','U','F','O'),
-    gcvOBJ_UNIFORM_BLOCK        = gcmCC('U','B','L','K'),
-    gcvOBJ_CL                   = gcmCC('C','L',' ',' '),
-    gcvOBJ_STORAGE_BLOCK        = gcmCC('S','B','L','K'),
-    gcvOBJ_IO_BLOCK             = gcmCC('I','O','B','K'),
-}
-gceOBJECT_TYPE;
-
-/* gcsOBJECT object defintinon. */
-typedef struct _gcsOBJECT
-{
-    /* Type of an object. */
-    gceOBJECT_TYPE              type;
-}
-gcsOBJECT;
 
 typedef struct _gckHARDWARE *       gckHARDWARE;
 
@@ -1351,35 +1287,6 @@ gckOS_SetDebugFile(
     IN gctCONST_STRING FileName
     );
 
-/*******************************************************************************
-** Broadcast interface.
-*/
-
-typedef enum _gceBROADCAST
-{
-    /* GPU might be idle. */
-    gcvBROADCAST_GPU_IDLE,
-
-    /* A commit is going to happen. */
-    gcvBROADCAST_GPU_COMMIT,
-
-    /* GPU seems to be stuck. */
-    gcvBROADCAST_GPU_STUCK,
-
-    /* First process gets attached. */
-    gcvBROADCAST_FIRST_PROCESS,
-
-    /* Last process gets detached. */
-    gcvBROADCAST_LAST_PROCESS,
-
-    /* AXI bus error. */
-    gcvBROADCAST_AXI_BUS_ERROR,
-
-    /* Out of memory. */
-    gcvBROADCAST_OUT_OF_MEMORY,
-}
-gceBROADCAST;
-
 gceSTATUS
 gckOS_Broadcast(
     IN gckOS Os,
@@ -1610,42 +1517,6 @@ typedef struct _gcsDEVICE *         gckDEVICE;
 \******************************************************************************/
 
 struct _gcsHAL_INTERFACE;
-
-/* Notifications. */
-typedef enum _gceNOTIFY
-{
-    gcvNOTIFY_INTERRUPT,
-    gcvNOTIFY_COMMAND_QUEUE,
-}
-gceNOTIFY;
-
-/* Flush flags. */
-typedef enum _gceKERNEL_FLUSH
-{
-    gcvFLUSH_COLOR              = 0x01,
-    gcvFLUSH_DEPTH              = 0x02,
-    gcvFLUSH_TEXTURE            = 0x04,
-    gcvFLUSH_2D                 = 0x08,
-    gcvFLUSH_L2                 = 0x10,
-    gcvFLUSH_TILE_STATUS        = 0x20,
-    gcvFLUSH_ICACHE             = 0x40,
-    gcvFLUSH_TXDESC             = 0x80,
-    gcvFLUSH_FENCE              = 0x100,
-    gcvFLUSH_VERTEX             = 0x200,
-    gcvFLUSH_TFBHEADER          = 0x400,
-    gcvFLUSH_ALL                = gcvFLUSH_COLOR
-                                | gcvFLUSH_DEPTH
-                                | gcvFLUSH_TEXTURE
-                                | gcvFLUSH_2D
-                                | gcvFLUSH_L2
-                                | gcvFLUSH_TILE_STATUS
-                                | gcvFLUSH_ICACHE
-                                | gcvFLUSH_TXDESC
-                                | gcvFLUSH_FENCE
-                                | gcvFLUSH_VERTEX
-                                | gcvFLUSH_TFBHEADER
-}
-gceKERNEL_FLUSH;
 
 /* Construct a new gckKERNEL object. */
 gceSTATUS

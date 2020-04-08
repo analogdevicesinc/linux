@@ -53,7 +53,7 @@
 *****************************************************************************/
 
 
-#include "gc_hal_types.h"
+#include "shared/gc_hal_types.h"
 #include "gc_hal_base.h"
 #include "gc_hal_security_interface.h"
 #include "gc_hal_ta.h"

@@ -56,7 +56,7 @@
 #include "gc_hal_kernel_linux.h"
 #include "gc_hal_kernel_platform.h"
 #include "gc_hal_kernel_device.h"
-#include "gc_hal_driver.h"
+#include "shared/gc_hal_driver.h"
 #include <linux/slab.h>
 
 #if defined(CONFIG_PM_OPP)
