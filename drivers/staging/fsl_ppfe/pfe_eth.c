@@ -476,9 +476,20 @@ static void pfe_eth_fill_stats(struct net_device *ndev, struct ethtool_stats
 {
 	struct pfe_eth_priv_s *priv = netdev_priv(ndev);
 	int i;
+	u64 pfe_crc_validated = 0;
+	int id;
 
-	for (i = 0; i < ARRAY_SIZE(fec_stats); i++)
+	for (id = CLASS0_ID; id <= CLASS_MAX_ID; id++) {
+		pfe_crc_validated += be32_to_cpu(pe_dmem_read(id,
+			CLASS_DM_CRC_VALIDATED + (priv->id * 4), 4));
+	}
+
+	for (i = 0; i < ARRAY_SIZE(fec_stats); i++) {
 		data[i] = readl(priv->EMAC_baseaddr + fec_stats[i].offset);
+
+		if (fec_stats[i].offset == IEEE_R_DROP)
+			data[i] -= pfe_crc_validated;
+	}
 }
 
 static void pfe_eth_gstrings(struct net_device *netdev,
@@ -1485,7 +1496,7 @@ err0:
 int pfe_eth_shutdown(struct net_device *ndev, int wake)
 {
 	struct pfe_eth_priv_s *priv = netdev_priv(ndev);
-	int i, qstatus;
+	int i, qstatus, id;
 	unsigned long next_poll = jiffies + 1, end = jiffies +
 				(TX_POLL_TIMEOUT_MS * HZ) / 1000;
 	int tx_pkts, prv_tx_pkts;
@@ -1565,6 +1576,11 @@ int pfe_eth_shutdown(struct net_device *ndev, int wake)
 	napi_disable(&priv->lro_napi);
 	napi_disable(&priv->low_napi);
 	napi_disable(&priv->high_napi);
+
+	for (id = CLASS0_ID; id <= CLASS_MAX_ID; id++) {
+		pe_dmem_write(id, 0, CLASS_DM_CRC_VALIDATED
+			      + (priv->id * 4), 4);
+	}
 
 	hif_lib_client_unregister(&priv->client);
 

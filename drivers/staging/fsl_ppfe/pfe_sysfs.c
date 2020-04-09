@@ -640,6 +640,29 @@ static ssize_t pfe_show_pfemem(struct device *dev, struct device_attribute
 	return len;
 }
 
+static ssize_t pfe_show_crc_revalidated(struct device *dev,
+					struct device_attribute *attr,
+					char *buf)
+{
+	u64 crc_validated = 0;
+	ssize_t len = 0;
+	int id, phyid;
+
+	len += sprintf(buf + len, "FCS re-validated by PFE:\n");
+
+	for (phyid = 0; phyid < 2; phyid++) {
+		crc_validated = 0;
+		for (id = CLASS0_ID; id <= CLASS_MAX_ID; id++) {
+			crc_validated += be32_to_cpu(pe_dmem_read(id,
+				CLASS_DM_CRC_VALIDATED + (phyid * 4), 4));
+		}
+		len += sprintf(buf + len, "MAC %d:\n    count:%10llu\n",
+			       phyid, crc_validated);
+	}
+
+	return len;
+}
+
 #ifdef HIF_NAPI_STATS
 static ssize_t pfe_show_hif_napi_stats(struct device *dev,
 				       struct device_attribute *attr,
@@ -695,6 +718,7 @@ static DEVICE_ATTR(tmu1_queues, 0444, pfe_show_tmu1_queues, NULL);
 static DEVICE_ATTR(tmu2_queues, 0444, pfe_show_tmu2_queues, NULL);
 static DEVICE_ATTR(tmu3_queues, 0444, pfe_show_tmu3_queues, NULL);
 static DEVICE_ATTR(pfemem, 0444, pfe_show_pfemem, NULL);
+static DEVICE_ATTR(fcs_revalidated, 0444, pfe_show_crc_revalidated, NULL);
 
 int pfe_sysfs_init(struct pfe *pfe)
 {
@@ -736,6 +760,9 @@ int pfe_sysfs_init(struct pfe *pfe)
 	if (device_create_file(pfe->dev, &dev_attr_pfemem))
 		goto err_pfemem;
 
+	if (device_create_file(pfe->dev, &dev_attr_fcs_revalidated))
+		goto err_crc_revalidated;
+
 #ifdef HIF_NAPI_STATS
 	if (device_create_file(pfe->dev, &dev_attr_hif_napi_stats))
 		goto err_hif_napi_stats;
@@ -745,8 +772,11 @@ int pfe_sysfs_init(struct pfe *pfe)
 
 #ifdef HIF_NAPI_STATS
 err_hif_napi_stats:
-	device_remove_file(pfe->dev, &dev_attr_pfemem);
+	device_remove_file(pfe->dev, &dev_attr_fcs_revalidated);
 #endif
+
+err_crc_revalidated:
+	device_remove_file(pfe->dev, &dev_attr_pfemem);
 
 err_pfemem:
 	device_remove_file(pfe->dev, &dev_attr_tmu3_queues);
@@ -792,6 +822,7 @@ void pfe_sysfs_exit(struct pfe *pfe)
 #ifdef HIF_NAPI_STATS
 	device_remove_file(pfe->dev, &dev_attr_hif_napi_stats);
 #endif
+	device_remove_file(pfe->dev, &dev_attr_fcs_revalidated);
 	device_remove_file(pfe->dev, &dev_attr_pfemem);
 	device_remove_file(pfe->dev, &dev_attr_tmu3_queues);
 	device_remove_file(pfe->dev, &dev_attr_tmu2_queues);
