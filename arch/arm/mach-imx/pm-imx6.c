@@ -1064,7 +1064,6 @@ void __init imx6_pm_map_io(void)
 
 static int __init imx6q_suspend_init(const struct imx6_pm_socdata *socdata)
 {
-	struct device_node *node;
 	struct imx6_cpu_pm_info *pm_info;
 	unsigned long iram_paddr;
 	int i, ret = 0;
@@ -1078,11 +1077,8 @@ static int __init imx6q_suspend_init(const struct imx6_pm_socdata *socdata)
 		return -EINVAL;
 	}
 
-	if (psci_ops.cpu_suspend) {
-		/* TODO: seems not needed */
-		/* of_node_put(node); */
+	if (psci_ops.cpu_suspend)
 		return ret;
-	}
 
 	/*
 	 * 16KB is allocated for IRAM TLB, but only up 8k is for kernel TLB,
@@ -1229,11 +1225,6 @@ static int __init imx6q_suspend_init(const struct imx6_pm_socdata *socdata)
 		MX6Q_SUSPEND_OCRAM_SIZE - sizeof(*pm_info));
 
 	__arm_iomem_set_ro(suspend_ocram_base, MX6Q_SUSPEND_OCRAM_SIZE);
-
- 	goto put_node;
-
-put_node:
-	of_node_put(node);
 
 	return ret;
 }
