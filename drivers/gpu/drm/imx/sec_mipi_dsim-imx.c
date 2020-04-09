@@ -316,6 +316,17 @@ static int imx_sec_dsim_bind(struct device *dev, struct device *master,
 		pm_runtime_disable(dev);
 		drm_encoder_cleanup(encoder);
 		sec_dsim_of_put_resets(dsim_dev);
+
+		/* If no panel or bridge connected, just return 0
+		 * to make component core to believe it is bound
+		 * successfully to allow other components can be
+		 * bound continuously, since in component core,
+		 * it follows 'one fails, all fail'. It is useful
+		 * when there exists multiple heads display.
+		 */
+		if (ret == -ENODEV)
+			return 0;
+
 		goto null_dsim_dev;
 	}
 
@@ -339,6 +350,9 @@ null_dsim_dev:
 static void imx_sec_dsim_unbind(struct device *dev, struct device *master,
 				void *data)
 {
+	if (!dsim_dev->encoder.dev)
+		return;
+
 	pm_runtime_disable(dev);
 
 	sec_mipi_dsim_unbind(dev, master, data);
