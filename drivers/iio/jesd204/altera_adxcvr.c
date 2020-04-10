@@ -53,18 +53,22 @@
 #define XCVR_CALIB_ATX_PLL_EN			0x01
 
 #define XCVR_REG_CAPAB_ATX_PLL_STAT		0x280
+#define XCVR_REG_S10_CAPAB_ATX_PLL_STAT		0x480
 #define XCVR_CAPAB_ATX_PLL_CAL_BSY_MASK		0x02
 #define XCVR_CAPAB_ATX_PLL_CAL_DONE		0x00
-
-
 
 #define XCVR_REG_CALIB_PMA_EN			0x100
 #define XCVR_CALIB_TX_TERM_VOD_MASK		0x20
 #define XCVR_CALIB_TX_TERM_VOD_EN		0x20
 #define XCVR_CALIB_CMU_CDR_PLL_EN_MASK		0x02
 #define XCVR_CALIB_CMU_CDR_PLL_EN		0x02
+#define XCVR_S10_CALIB_TX_PMA_EN_MASK		0x02
+#define XCVR_S10_CALIB_TX_PMA_EN		0x02
+#define XCVR_S10_CALIB_RX_PMA_EN_MASK		0x01
+#define XCVR_S10_CALIB_RX_PMA_EN		0x01
 
 #define XCVR_REG_CAPAB_PMA			0x281
+#define XCVR_REG_S10_CAPAB_PMA			0x481
 #define XCVR_CAPAB_RX_CAL_BUSY_EN_MASK		0x20
 #define XCVR_CAPAB_RX_CAL_BUSY_EN		0x20
 #define XCVR_CAPAB_RX_CAL_BUSY_DIS		0x00
@@ -90,6 +94,7 @@ struct adxcvr_state {
 	void __iomem		*adxcfg_regs[32];
 	struct jesd204_dev	*jdev;
 	unsigned int 		version;
+	bool			is_s10;
 	bool			is_transmit;
 	bool			skip_pll_reconfig;
 	u32			lanes_per_link;
@@ -172,6 +177,7 @@ static void atx_pll_update(struct adxcvr_state *st, unsigned int reg,
 static void atx_pll_acquire_arbitration(struct adxcvr_state *st)
 {
 	adxcvr_acquire_arbitration(st, st->atx_pll_regs,
+		st->is_s10 ? XCVR_REG_S10_CAPAB_ATX_PLL_STAT :
 		XCVR_REG_CAPAB_ATX_PLL_STAT);
 }
 
@@ -237,7 +243,9 @@ static int atx_pll_calibration_check(struct adxcvr_state *st)
 		mdelay(10);
 
 		/* Read ATX PLL calibration status from capability register */
-		val = atx_pll_read(st, XCVR_REG_CAPAB_ATX_PLL_STAT);
+		val = atx_pll_read(st, st->is_s10 ?
+			XCVR_REG_S10_CAPAB_ATX_PLL_STAT :
+			XCVR_REG_CAPAB_ATX_PLL_STAT);
 		if ((val & XCVR_CAPAB_ATX_PLL_CAL_BSY_MASK) ==
 				XCVR_CAPAB_ATX_PLL_CAL_DONE) {
 			dev_info(st->dev, "ATX PLL calibration OK (%d ms)\n",
@@ -272,7 +280,8 @@ static int adxcfg_calibration_check(struct adxcvr_state *st, unsigned int lane,
 		udelay(100);
 
 		/* Read PMA calibration status from capability register */
-		val = adxcfg_read(st, lane, XCVR_REG_CAPAB_PMA);
+		val = adxcfg_read(st, lane, st->is_s10 ?
+			XCVR_REG_S10_CAPAB_PMA : XCVR_REG_CAPAB_PMA);
 		if ((val & mask) == 0) {
 			dev_info(st->dev, "Lane %d %s OK (%d us)\n", lane, msg,
 				timeout * 100);
@@ -501,6 +510,34 @@ static long adxcvr_dummy_pll_round_rate(struct clk_hw *clk_hw,
 	return rate;
 }
 
+static int adxcfg_s10_calibration(struct adxcvr_state *st, bool tx)
+{
+	unsigned int lane;
+	int err = 0;
+
+	for (lane = 0; lane < st->lanes_per_link; lane++) {
+		adxcfg_write(st, lane,
+			XCVR_REG_ARBITRATION,
+			XCVR_ARBITRATION_GET_AVMM);
+		adxcfg_update(st, lane,
+			XCVR_REG_S10_CAPAB_PMA,
+			XCVR_CAPAB_RX_CAL_BUSY_EN_MASK |
+			XCVR_CAPAB_TX_CAL_BUSY_EN_MASK,
+			XCVR_CAPAB_RX_CAL_BUSY_DIS |
+			XCVR_CAPAB_TX_CAL_BUSY_DIS);
+		adxcfg_update(st, lane,
+			XCVR_REG_CALIB_PMA_EN,
+			tx ? XCVR_S10_CALIB_TX_PMA_EN_MASK : XCVR_S10_CALIB_RX_PMA_EN_MASK,
+			tx ? XCVR_S10_CALIB_TX_PMA_EN : XCVR_S10_CALIB_RX_PMA_EN);
+		adxcfg_write(st, lane,
+			XCVR_REG_ARBITRATION,
+			XCVR_ARBITRATION_RELEASE_AVMM_CALIB);
+		err |= adxcfg_calibration_check(st, lane, tx);
+	}
+
+	return err;
+}
+
 static int adxcvr_dummy_pll_set_rate(struct clk_hw *clk_hw,
 	unsigned long rate, unsigned long parent_rate)
 {
@@ -515,7 +552,14 @@ static int adxcvr_dummy_pll_set_rate(struct clk_hw *clk_hw,
 		atx_pll_release_arbitration(st, true);
 
 		atx_pll_calibration_check(st);
-		xcvr_calib_tx(st);
+
+		if (st->is_s10)
+			adxcfg_s10_calibration(st, true);
+		else
+			xcvr_calib_tx(st);
+	} else {
+		if (st->is_s10)
+			adxcfg_s10_calibration(st, false);
 	}
 
 	adxcvr_post_lane_rate_change(st, rate);
@@ -637,6 +681,11 @@ static int adxcvr_probe(struct platform_device *pdev)
 
 	st->skip_pll_reconfig = of_property_read_bool(pdev->dev.of_node,
 		"adi,skip-pll-reconfiguration");
+
+	st->is_s10 = of_property_read_bool(pdev->dev.of_node,
+		"adi,stratix10");
+	if (st->is_s10)
+		st->skip_pll_reconfig = true;
 
 	st->dev = &pdev->dev;
 	platform_set_drvdata(pdev, st);
