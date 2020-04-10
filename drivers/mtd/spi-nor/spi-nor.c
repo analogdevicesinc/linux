@@ -5560,7 +5560,6 @@ int spi_nor_scan(struct spi_nor *nor, const char *name,
 				nor->shift = 1;
 				info->sector_size <<= nor->shift;
 				info->page_size <<= nor->shift;
-				nor->page_size = info->page_size;
 				mtd->size <<= nor->shift;
 				nor->isparallel = 1;
 				nor->isstacked = 0;
