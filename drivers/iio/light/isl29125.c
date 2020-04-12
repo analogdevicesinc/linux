@@ -214,6 +214,7 @@ static const struct iio_info isl29125_info = {
 	.read_raw = isl29125_read_raw,
 	.write_raw = isl29125_write_raw,
 	.attrs = &isl29125_attribute_group,
+	.driver_module = THIS_MODULE,
 };
 
 static int isl29125_buffer_preenable(struct iio_dev *indio_dev)
@@ -230,6 +231,10 @@ static int isl29125_buffer_predisable(struct iio_dev *indio_dev)
 	struct isl29125_data *data = iio_priv(indio_dev);
 	int ret;
 
+	ret = iio_triggered_buffer_predisable(indio_dev);
+	if (ret < 0)
+		return ret;
+
 	data->conf1 &= ~ISL29125_MODE_MASK;
 	data->conf1 |= ISL29125_MODE_PD;
 	return i2c_smbus_write_byte_data(data->client, ISL29125_CONF1,
@@ -238,6 +243,7 @@ static int isl29125_buffer_predisable(struct iio_dev *indio_dev)
 
 static const struct iio_buffer_setup_ops isl29125_buffer_setup_ops = {
 	.preenable = isl29125_buffer_preenable,
+	.postenable = &iio_triggered_buffer_postenable,
 	.predisable = isl29125_buffer_predisable,
 };
 

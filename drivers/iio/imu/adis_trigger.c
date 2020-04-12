@@ -1,9 +1,10 @@
-// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Common library for ADIS16XXX devices
  *
  * Copyright 2012 Analog Devices Inc.
  *   Author: Lars-Peter Clausen <lars@metafoo.de>
+ *
+ * Licensed under the GPL-2 or later.
  */
 
 #include <linux/interrupt.h>
@@ -24,30 +25,10 @@ static int adis_data_rdy_trigger_set_state(struct iio_trigger *trig,
 }
 
 static const struct iio_trigger_ops adis_trigger_ops = {
+	.owner = THIS_MODULE,
 	.set_trigger_state = &adis_data_rdy_trigger_set_state,
 };
 
-static inline void adis_trigger_setup(struct adis *adis)
-{
-	adis->trig->dev.parent = &adis->spi->dev;
-	adis->trig->ops = &adis_trigger_ops;
-	iio_trigger_set_drvdata(adis->trig, adis);
-}
-
-static inline int __adis_validate_irq_mask(struct adis *adis)
-{
-	if (!adis->irq_mask) {
-		adis->irq_mask = IRQF_TRIGGER_RISING;
-		return 0;
-	} else if (adis->irq_mask != IRQF_TRIGGER_RISING &&
-		   adis->irq_mask != IRQF_TRIGGER_FALLING) {
-		dev_err(&adis->spi->dev, "Invalid IRQ mask:%08x\n",
-			adis->irq_mask);
-		return -EINVAL;
-	}
-
-	return 0;
-}
 /**
  * adis_probe_trigger() - Sets up trigger for a adis device
  * @adis: The adis device
@@ -66,20 +47,17 @@ int adis_probe_trigger(struct adis *adis, struct iio_dev *indio_dev)
 	if (adis->trig == NULL)
 		return -ENOMEM;
 
-	adis_trigger_setup(adis);
-
-	ret = __adis_validate_irq_mask(adis);
-	if (ret)
-		return ret;
-
 	ret = request_irq(adis->spi->irq,
 			  &iio_trigger_generic_data_rdy_poll,
-			  adis->irq_mask,
+			  IRQF_TRIGGER_RISING,
 			  indio_dev->name,
 			  adis->trig);
 	if (ret)
 		goto error_free_trig;
 
+	adis->trig->dev.parent = &adis->spi->dev;
+	adis->trig->ops = &adis_trigger_ops;
+	iio_trigger_set_drvdata(adis->trig, adis);
 	ret = iio_trigger_register(adis->trig);
 
 	indio_dev->trig = iio_trigger_get(adis->trig);
@@ -95,40 +73,6 @@ error_free_trig:
 	return ret;
 }
 EXPORT_SYMBOL_GPL(adis_probe_trigger);
-
-/**
- * devm_adis_probe_trigger() - Sets up trigger for a managed adis device
- * @adis: The adis device
- * @indio_dev: The IIO device
- *
- * Returns 0 on success or a negative error code
- */
-int devm_adis_probe_trigger(struct adis *adis, struct iio_dev *indio_dev)
-{
-	int ret;
-
-	adis->trig = devm_iio_trigger_alloc(&adis->spi->dev, "%s-dev%d",
-					    indio_dev->name, indio_dev->id);
-	if (!adis->trig)
-		return -ENOMEM;
-
-	adis_trigger_setup(adis);
-
-	ret = __adis_validate_irq_mask(adis);
-	if (ret)
-		return ret;
-
-	ret = devm_request_irq(&adis->spi->dev, adis->spi->irq,
-			       &iio_trigger_generic_data_rdy_poll,
-			       adis->irq_mask,
-			       indio_dev->name,
-			       adis->trig);
-	if (ret)
-		return ret;
-
-	return devm_iio_trigger_register(&adis->spi->dev, adis->trig);
-}
-EXPORT_SYMBOL_GPL(devm_adis_probe_trigger);
 
 /**
  * adis_remove_trigger() - Remove trigger for a adis devices

@@ -137,13 +137,13 @@ static const struct iio_chan_spec mpl115_channels[] = {
 	{
 		.type = IIO_TEMP,
 		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW),
-		.info_mask_shared_by_type =
 			BIT(IIO_CHAN_INFO_OFFSET) | BIT(IIO_CHAN_INFO_SCALE),
 	},
 };
 
 static const struct iio_info mpl115_info = {
 	.read_raw = &mpl115_read_raw,
+	.driver_module = THIS_MODULE,
 };
 
 int mpl115_probe(struct device *dev, const char *name,

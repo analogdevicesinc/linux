@@ -241,6 +241,7 @@ static const struct iio_info tcs3414_info = {
 	.read_raw = tcs3414_read_raw,
 	.write_raw = tcs3414_write_raw,
 	.attrs = &tcs3414_attribute_group,
+	.driver_module = THIS_MODULE,
 };
 
 static int tcs3414_buffer_preenable(struct iio_dev *indio_dev)
@@ -257,6 +258,10 @@ static int tcs3414_buffer_predisable(struct iio_dev *indio_dev)
 	struct tcs3414_data *data = iio_priv(indio_dev);
 	int ret;
 
+	ret = iio_triggered_buffer_predisable(indio_dev);
+	if (ret < 0)
+		return ret;
+
 	data->control &= ~TCS3414_CONTROL_ADC_EN;
 	return i2c_smbus_write_byte_data(data->client, TCS3414_CONTROL,
 		data->control);
@@ -264,6 +269,7 @@ static int tcs3414_buffer_predisable(struct iio_dev *indio_dev)
 
 static const struct iio_buffer_setup_ops tcs3414_buffer_setup_ops = {
 	.preenable = tcs3414_buffer_preenable,
+	.postenable = &iio_triggered_buffer_postenable,
 	.predisable = tcs3414_buffer_predisable,
 };
 

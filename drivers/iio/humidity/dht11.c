@@ -71,8 +71,7 @@
  * a) select an implementation using busy loop polling on those systems
  * b) use the checksum to do some probabilistic decoding
  */
-#define DHT11_START_TRANSMISSION_MIN	18000  /* us */
-#define DHT11_START_TRANSMISSION_MAX	20000  /* us */
+#define DHT11_START_TRANSMISSION	18  /* ms */
 #define DHT11_MIN_TIMERES	34000  /* ns */
 #define DHT11_THRESHOLD		49000  /* ns */
 #define DHT11_AMBIG_LOW		23000  /* ns */
@@ -159,7 +158,7 @@ static int dht11_decode(struct dht11 *dht11, int offset)
 	}
 
 	dht11->timestamp = ktime_get_boot_ns();
-	if (hum_int < 4) {  /* DHT22: 100000 = (3*256+232)*100 */
+	if (hum_int < 20) {  /* DHT22 */
 		dht11->temperature = (((temp_int & 0x7f) << 8) + temp_dec) *
 					((temp_int & 0x80) ? -100 : 100);
 		dht11->humidity = ((hum_int << 8) + hum_dec) * 100;
@@ -229,8 +228,7 @@ static int dht11_read_raw(struct iio_dev *iio_dev,
 		ret = gpio_direction_output(dht11->gpio, 0);
 		if (ret)
 			goto err;
-		usleep_range(DHT11_START_TRANSMISSION_MIN,
-			     DHT11_START_TRANSMISSION_MAX);
+		msleep(DHT11_START_TRANSMISSION);
 		ret = gpio_direction_input(dht11->gpio);
 		if (ret)
 			goto err;
@@ -284,6 +282,7 @@ err:
 }
 
 static const struct iio_info dht11_iio_info = {
+	.driver_module		= THIS_MODULE,
 	.read_raw		= dht11_read_raw,
 };
 

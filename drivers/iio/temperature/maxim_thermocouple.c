@@ -1,9 +1,17 @@
-// SPDX-License-Identifier: GPL-2.0+
 /*
  * maxim_thermocouple.c  - Support for Maxim thermocouple chips
  *
- * Copyright (C) 2016-2018 Matt Ranostay
- * Author: <matt.ranostay@konsulko.com>
+ * Copyright (C) 2016 Matt Ranostay <mranostay@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
  */
 
 #include <linux/module.h>
@@ -200,6 +208,7 @@ static int maxim_thermocouple_read_raw(struct iio_dev *indio_dev,
 }
 
 static const struct iio_info maxim_thermocouple_info = {
+	.driver_module = THIS_MODULE,
 	.read_raw = maxim_thermocouple_read_raw,
 };
 
@@ -222,7 +231,6 @@ static int maxim_thermocouple_probe(struct spi_device *spi)
 	indio_dev->available_scan_masks = chip->scan_masks;
 	indio_dev->num_channels = chip->num_channels;
 	indio_dev->modes = INDIO_DIRECT_MODE;
-	indio_dev->dev.parent = &spi->dev;
 
 	data = iio_priv(indio_dev);
 	data->spi = spi;
@@ -272,6 +280,6 @@ static struct spi_driver maxim_thermocouple_driver = {
 };
 module_spi_driver(maxim_thermocouple_driver);
 
-MODULE_AUTHOR("Matt Ranostay <matt.ranostay@konsulko.com>");
+MODULE_AUTHOR("Matt Ranostay <mranostay@gmail.com>");
 MODULE_DESCRIPTION("Maxim thermocouple sensors");
 MODULE_LICENSE("GPL");

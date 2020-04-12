@@ -1,4 +1,3 @@
-/* SPDX-License-Identifier: GPL-2.0 */
 #ifndef _BMC150_MAGN_H_
 #define _BMC150_MAGN_H_
 

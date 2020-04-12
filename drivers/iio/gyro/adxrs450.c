@@ -405,6 +405,7 @@ static const struct iio_chan_spec adxrs450_channels[2][2] = {
 };
 
 static const struct iio_info adxrs450_info = {
+	.driver_module = THIS_MODULE,
 	.read_raw = &adxrs450_read_raw,
 	.write_raw = &adxrs450_write_raw,
 };

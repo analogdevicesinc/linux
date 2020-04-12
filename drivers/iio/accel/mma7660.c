@@ -39,7 +39,7 @@
 
 #define MMA7660_SCALE_AVAIL	"0.467142857"
 
-static const int mma7660_nscale = 467142857;
+const int mma7660_nscale = 467142857;
 
 #define MMA7660_CHANNEL(reg, axis) {	\
 	.type = IIO_ACCEL,	\
@@ -168,6 +168,7 @@ static int mma7660_read_raw(struct iio_dev *indio_dev,
 }
 
 static const struct iio_info mma7660_info = {
+	.driver_module	= THIS_MODULE,
 	.read_raw		= mma7660_read_raw,
 	.attrs			= &mma7660_attribute_group,
 };
@@ -252,12 +253,6 @@ static const struct i2c_device_id mma7660_i2c_id[] = {
 };
 MODULE_DEVICE_TABLE(i2c, mma7660_i2c_id);
 
-static const struct of_device_id mma7660_of_match[] = {
-	{ .compatible = "fsl,mma7660" },
-	{ }
-};
-MODULE_DEVICE_TABLE(of, mma7660_of_match);
-
 static const struct acpi_device_id mma7660_acpi_id[] = {
 	{"MMA7660", 0},
 	{}
@@ -269,7 +264,6 @@ static struct i2c_driver mma7660_driver = {
 	.driver = {
 		.name = "mma7660",
 		.pm = MMA7660_PM_OPS,
-		.of_match_table = mma7660_of_match,
 		.acpi_match_table = ACPI_PTR(mma7660_acpi_id),
 	},
 	.probe		= mma7660_probe,

@@ -124,6 +124,7 @@ static const struct iio_chan_spec si7005_channels[] = {
 
 static const struct iio_info si7005_info = {
 	.read_raw = si7005_read_raw,
+	.driver_module = THIS_MODULE,
 };
 
 static int si7005_probe(struct i2c_client *client,

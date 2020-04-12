@@ -277,8 +277,11 @@ static int ssp_handle_big_data(struct ssp_data *data, char *dataframe, int *idx)
 static int ssp_parse_dataframe(struct ssp_data *data, char *dataframe, int len)
 {
 	int idx, sd;
+	struct timespec ts;
 	struct ssp_sensor_data *spd;
 	struct iio_dev **indio_devs = data->sensor_devs;
+
+	getnstimeofday(&ts);
 
 	for (idx = 0; idx < len;) {
 		switch (dataframe[idx++]) {
@@ -326,7 +329,7 @@ static int ssp_parse_dataframe(struct ssp_data *data, char *dataframe, int len)
 	}
 
 	if (data->time_syncing)
-		data->timestamp = ktime_get_real_ns();
+		data->timestamp = ts.tv_sec * 1000000000ULL + ts.tv_nsec;
 
 	return 0;
 }

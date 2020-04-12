@@ -82,9 +82,8 @@ static int mpl3115_read_raw(struct iio_dev *indio_dev,
 
 	switch (mask) {
 	case IIO_CHAN_INFO_RAW:
-		ret = iio_device_claim_direct_mode(indio_dev);
-		if (ret)
-			return ret;
+		if (iio_buffer_enabled(indio_dev))
+			return -EBUSY;
 
 		switch (chan->type) {
 		case IIO_PRESSURE: /* in 0.25 pascal / LSB */
@@ -92,39 +91,32 @@ static int mpl3115_read_raw(struct iio_dev *indio_dev,
 			ret = mpl3115_request(data);
 			if (ret < 0) {
 				mutex_unlock(&data->lock);
-				break;
+				return ret;
 			}
 			ret = i2c_smbus_read_i2c_block_data(data->client,
 				MPL3115_OUT_PRESS, 3, (u8 *) &tmp);
 			mutex_unlock(&data->lock);
 			if (ret < 0)
-				break;
+				return ret;
 			*val = be32_to_cpu(tmp) >> 12;
-			ret = IIO_VAL_INT;
-			break;
+			return IIO_VAL_INT;
 		case IIO_TEMP: /* in 0.0625 celsius / LSB */
 			mutex_lock(&data->lock);
 			ret = mpl3115_request(data);
 			if (ret < 0) {
 				mutex_unlock(&data->lock);
-				break;
+				return ret;
 			}
 			ret = i2c_smbus_read_i2c_block_data(data->client,
 				MPL3115_OUT_TEMP, 2, (u8 *) &tmp);
 			mutex_unlock(&data->lock);
 			if (ret < 0)
-				break;
+				return ret;
 			*val = sign_extend32(be32_to_cpu(tmp) >> 20, 11);
-			ret = IIO_VAL_INT;
-			break;
+			return IIO_VAL_INT;
 		default:
-			ret = -EINVAL;
-			break;
+			return -EINVAL;
 		}
-
-		iio_device_release_direct_mode(indio_dev);
-		return ret;
-
 	case IIO_CHAN_INFO_SCALE:
 		switch (chan->type) {
 		case IIO_PRESSURE:
@@ -190,7 +182,7 @@ static const struct iio_chan_spec mpl3115_channels[] = {
 	{
 		.type = IIO_PRESSURE,
 		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW),
-		.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SCALE),
+			BIT(IIO_CHAN_INFO_SCALE),
 		.scan_index = 0,
 		.scan_type = {
 			.sign = 'u',
@@ -203,7 +195,7 @@ static const struct iio_chan_spec mpl3115_channels[] = {
 	{
 		.type = IIO_TEMP,
 		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW),
-		.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SCALE),
+			BIT(IIO_CHAN_INFO_SCALE),
 		.scan_index = 1,
 		.scan_type = {
 			.sign = 's',
@@ -218,6 +210,7 @@ static const struct iio_chan_spec mpl3115_channels[] = {
 
 static const struct iio_info mpl3115_info = {
 	.read_raw = &mpl3115_read_raw,
+	.driver_module = THIS_MODULE,
 };
 
 static int mpl3115_probe(struct i2c_client *client,
@@ -320,16 +313,9 @@ static const struct i2c_device_id mpl3115_id[] = {
 };
 MODULE_DEVICE_TABLE(i2c, mpl3115_id);
 
-static const struct of_device_id mpl3115_of_match[] = {
-	{ .compatible = "fsl,mpl3115" },
-	{ }
-};
-MODULE_DEVICE_TABLE(of, mpl3115_of_match);
-
 static struct i2c_driver mpl3115_driver = {
 	.driver = {
 		.name	= "mpl3115",
-		.of_match_table = mpl3115_of_match,
 		.pm	= MPL3115_PM_OPS,
 	},
 	.probe = mpl3115_probe,

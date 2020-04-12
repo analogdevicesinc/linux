@@ -141,14 +141,18 @@ struct zpa2326_private {
 	struct regulator               *vdd;
 };
 
-#define zpa2326_err(idev, fmt, ...)					\
-	dev_err(idev->dev.parent, fmt "\n", ##__VA_ARGS__)
+#define zpa2326_err(_idev, _format, _arg...) \
+	dev_err(_idev->dev.parent, _format, ##_arg)
 
-#define zpa2326_warn(idev, fmt, ...)					\
-	dev_warn(idev->dev.parent, fmt "\n", ##__VA_ARGS__)
+#define zpa2326_warn(_idev, _format, _arg...) \
+	dev_warn(_idev->dev.parent, _format, ##_arg)
 
-#define zpa2326_dbg(idev, fmt, ...)					\
-	dev_dbg(idev->dev.parent, fmt "\n", ##__VA_ARGS__)
+#ifdef DEBUG
+#define zpa2326_dbg(_idev, _format, _arg...) \
+	dev_dbg(_idev->dev.parent, _format, ##_arg)
+#else
+#define zpa2326_dbg(_idev, _format, _arg...)
+#endif
 
 bool zpa2326_isreg_writeable(struct device *dev, unsigned int reg)
 {
@@ -751,7 +755,7 @@ static void zpa2326_suspend(struct iio_dev *indio_dev)
  */
 static irqreturn_t zpa2326_handle_irq(int irq, void *data)
 {
-	struct iio_dev *indio_dev = data;
+	struct iio_dev *indio_dev = (struct iio_dev *)data;
 
 	if (iio_buffer_enabled(indio_dev)) {
 		/* Timestamping needed for buffered sampling only. */
@@ -790,7 +794,7 @@ static irqreturn_t zpa2326_handle_irq(int irq, void *data)
  */
 static irqreturn_t zpa2326_handle_threaded_irq(int irq, void *data)
 {
-	struct iio_dev         *indio_dev = data;
+	struct iio_dev         *indio_dev = (struct iio_dev *)data;
 	struct zpa2326_private *priv = iio_priv(indio_dev);
 	unsigned int            val;
 	bool                    cont;
@@ -865,14 +869,14 @@ complete:
 static int zpa2326_wait_oneshot_completion(const struct iio_dev   *indio_dev,
 					   struct zpa2326_private *private)
 {
+	int          ret;
 	unsigned int val;
-	long     timeout;
 
 	zpa2326_dbg(indio_dev, "waiting for one shot completion interrupt");
 
-	timeout = wait_for_completion_interruptible_timeout(
+	ret = wait_for_completion_interruptible_timeout(
 		&private->data_ready, ZPA2326_CONVERSION_JIFFIES);
-	if (timeout > 0)
+	if (ret > 0)
 		/*
 		 * Interrupt handler completed before timeout: return operation
 		 * status.
@@ -882,15 +886,15 @@ static int zpa2326_wait_oneshot_completion(const struct iio_dev   *indio_dev,
 	/* Clear all interrupts just to be sure. */
 	regmap_read(private->regmap, ZPA2326_INT_SOURCE_REG, &val);
 
-	if (!timeout) {
+	if (!ret)
 		/* Timed out. */
-		zpa2326_warn(indio_dev, "no one shot interrupt occurred (%ld)",
-			     timeout);
-		return -ETIME;
-	}
+		ret = -ETIME;
 
-	zpa2326_warn(indio_dev, "wait for one shot interrupt cancelled");
-	return -ERESTARTSYS;
+	if (ret != -ERESTARTSYS)
+		zpa2326_warn(indio_dev, "no one shot interrupt occurred (%d)",
+			     ret);
+
+	return ret;
 }
 
 static int zpa2326_init_managed_irq(struct device          *parent,
@@ -1271,6 +1275,11 @@ static int zpa2326_postenable_buffer(struct iio_dev *indio_dev)
 			goto err;
 	}
 
+	/* Plug our own trigger event handler. */
+	err = iio_triggered_buffer_postenable(indio_dev);
+	if (err)
+		goto err;
+
 	return 0;
 
 err:
@@ -1289,6 +1298,7 @@ static int zpa2326_postdisable_buffer(struct iio_dev *indio_dev)
 static const struct iio_buffer_setup_ops zpa2326_buffer_setup_ops = {
 	.preenable   = zpa2326_preenable_buffer,
 	.postenable  = zpa2326_postenable_buffer,
+	.predisable  = iio_triggered_buffer_predisable,
 	.postdisable = zpa2326_postdisable_buffer
 };
 
@@ -1384,6 +1394,7 @@ static int zpa2326_set_trigger_state(struct iio_trigger *trig, bool state)
 }
 
 static const struct iio_trigger_ops zpa2326_trigger_ops = {
+	.owner             = THIS_MODULE,
 	.set_trigger_state = zpa2326_set_trigger_state,
 };
 
@@ -1583,6 +1594,7 @@ static const struct iio_chan_spec zpa2326_channels[] = {
 };
 
 static const struct iio_info zpa2326_info = {
+	.driver_module = THIS_MODULE,
 	.attrs         = &zpa2326_attribute_group,
 	.read_raw      = zpa2326_read_raw,
 	.write_raw     = zpa2326_write_raw,

@@ -21,50 +21,28 @@
 #define ADIS_REG_PAGE_ID 0x00
 
 struct adis;
-struct adis_burst;
 
-/**
- * struct adis_timeouts - ADIS chip variant timeouts
- * @reset_ms - Wait time after rst pin goes inactive
- * @sw_reset_ms - Wait time after sw reset command
- * @self_test_ms - Wait time after self test command
- */
-struct adis_timeout {
-	u16 reset_ms;
-	u16 sw_reset_ms;
-	u16 self_test_ms;
-};
 /**
  * struct adis_data - ADIS chip variant specific data
  * @read_delay: SPI delay for read operations in us
  * @write_delay: SPI delay for write operations in us
- * @cs_change_delay: SPI delay between CS changes in us
  * @glob_cmd_reg: Register address of the GLOB_CMD register
  * @msc_ctrl_reg: Register address of the MSC_CTRL register
  * @diag_stat_reg: Register address of the DIAG_STAT register
- * @prod_id_reg: Register address of the PROD_ID register
- * @prod_id: Product ID code that should be expected when reading @prod_id_reg
- * @self_test_reg: Register address to request self test command
  * @status_error_msgs: Array of error messgaes
  * @status_error_mask:
- * @timeouts: Chip specific delays
  */
 struct adis_data {
 	unsigned int read_delay;
 	unsigned int write_delay;
-	unsigned int cs_change_delay;
 
 	unsigned int glob_cmd_reg;
 	unsigned int msc_ctrl_reg;
 	unsigned int diag_stat_reg;
-	unsigned int prod_id_reg;
-
-	unsigned int prod_id;
 
 	unsigned int self_test_mask;
-	unsigned int self_test_reg;
 	bool self_test_no_autoclear;
-	const struct adis_timeout *timeouts;
+	unsigned int startup_delay;
 
 	const char * const *status_error_msgs;
 	unsigned int status_error_mask;
@@ -79,13 +57,11 @@ struct adis {
 	struct iio_trigger	*trig;
 
 	const struct adis_data	*data;
-	struct adis_burst	*burst;
 
-	struct mutex		state_lock;
+	struct mutex		txrx_lock;
 	struct spi_message	msg;
 	struct spi_transfer	*xfer;
 	unsigned int		current_page;
-	unsigned int		irq_mask;
 	void			*buffer;
 
 	uint8_t			tx[10] ____cacheline_aligned;
@@ -94,141 +70,12 @@ struct adis {
 
 int adis_init(struct adis *adis, struct iio_dev *indio_dev,
 	struct spi_device *spi, const struct adis_data *data);
-int __adis_reset(struct adis *adis);
+int adis_reset(struct adis *adis);
 
-/**
- * adis_reset() - Reset the device
- * @adis: The adis device
- *
- * Returns 0 on success, a negative error code otherwise
- */
-static inline int adis_reset(struct adis *adis)
-{
-	int ret;
-
-	mutex_lock(&adis->state_lock);
-	ret = __adis_reset(adis);
-	mutex_unlock(&adis->state_lock);
-
-	return ret;
-}
-
-int __adis_write_reg(struct adis *adis, unsigned int reg,
+int adis_write_reg(struct adis *adis, unsigned int reg,
 	unsigned int val, unsigned int size);
-int __adis_read_reg(struct adis *adis, unsigned int reg,
+int adis_read_reg(struct adis *adis, unsigned int reg,
 	unsigned int *val, unsigned int size);
-
-/**
- * __adis_write_reg_8() - Write single byte to a register (unlocked)
- * @adis: The adis device
- * @reg: The address of the register to be written
- * @value: The value to write
- */
-static inline int __adis_write_reg_8(struct adis *adis, unsigned int reg,
-	uint8_t val)
-{
-	return __adis_write_reg(adis, reg, val, 1);
-}
-
-/**
- * __adis_write_reg_16() - Write 2 bytes to a pair of registers (unlocked)
- * @adis: The adis device
- * @reg: The address of the lower of the two registers
- * @value: Value to be written
- */
-static inline int __adis_write_reg_16(struct adis *adis, unsigned int reg,
-	uint16_t val)
-{
-	return __adis_write_reg(adis, reg, val, 2);
-}
-
-/**
- * __adis_write_reg_32() - write 4 bytes to four registers (unlocked)
- * @adis: The adis device
- * @reg: The address of the lower of the four register
- * @value: Value to be written
- */
-static inline int __adis_write_reg_32(struct adis *adis, unsigned int reg,
-	uint32_t val)
-{
-	return __adis_write_reg(adis, reg, val, 4);
-}
-
-/**
- * __adis_read_reg_16() - read 2 bytes from a 16-bit register (unlocked)
- * @adis: The adis device
- * @reg: The address of the lower of the two registers
- * @val: The value read back from the device
- */
-static inline int __adis_read_reg_16(struct adis *adis, unsigned int reg,
-	uint16_t *val)
-{
-	unsigned int tmp;
-	int ret;
-
-	ret = __adis_read_reg(adis, reg, &tmp, 2);
-	if (ret == 0)
-		*val = tmp;
-
-	return ret;
-}
-
-/**
- * __adis_read_reg_32() - read 4 bytes from a 32-bit register (unlocked)
- * @adis: The adis device
- * @reg: The address of the lower of the two registers
- * @val: The value read back from the device
- */
-static inline int __adis_read_reg_32(struct adis *adis, unsigned int reg,
-	uint32_t *val)
-{
-	unsigned int tmp;
-	int ret;
-
-	ret = __adis_read_reg(adis, reg, &tmp, 4);
-	if (ret == 0)
-		*val = tmp;
-
-	return ret;
-}
-
-/**
- * adis_write_reg() - write N bytes to register
- * @adis: The adis device
- * @reg: The address of the lower of the two registers
- * @value: The value to write to device (up to 4 bytes)
- * @size: The size of the @value (in bytes)
- */
-static inline int adis_write_reg(struct adis *adis, unsigned int reg,
-	unsigned int val, unsigned int size)
-{
-	int ret;
-
-	mutex_lock(&adis->state_lock);
-	ret = __adis_write_reg(adis, reg, val, size);
-	mutex_unlock(&adis->state_lock);
-
-	return ret;
-}
-
-/**
- * adis_read_reg() - read N bytes from register
- * @adis: The adis device
- * @reg: The address of the lower of the two registers
- * @val: The value read back from the device
- * @size: The size of the @val buffer
- */
-static int adis_read_reg(struct adis *adis, unsigned int reg,
-	unsigned int *val, unsigned int size)
-{
-	int ret;
-
-	mutex_lock(&adis->state_lock);
-	ret = __adis_read_reg(adis, reg, val, size);
-	mutex_unlock(&adis->state_lock);
-
-	return ret;
-}
 
 /**
  * adis_write_reg_8() - Write single byte to a register
@@ -279,8 +126,7 @@ static inline int adis_read_reg_16(struct adis *adis, unsigned int reg,
 	int ret;
 
 	ret = adis_read_reg(adis, reg, &tmp, 2);
-	if (ret == 0)
-		*val = tmp;
+	*val = tmp;
 
 	return ret;
 }
@@ -298,99 +144,15 @@ static inline int adis_read_reg_32(struct adis *adis, unsigned int reg,
 	int ret;
 
 	ret = adis_read_reg(adis, reg, &tmp, 4);
-	if (ret == 0)
-		*val = tmp;
+	*val = tmp;
 
 	return ret;
 }
 
 int adis_enable_irq(struct adis *adis, bool enable);
-int __adis_check_status(struct adis *adis);
-int __adis_initial_startup(struct adis *adis);
+int adis_check_status(struct adis *adis);
 
-static inline int adis_check_status(struct adis *adis)
-{
-	int ret;
-
-	mutex_lock(&adis->state_lock);
-	ret = __adis_check_status(adis);
-	mutex_unlock(&adis->state_lock);
-
-	return ret;
-}
-
-/* locked version of __adis_initial_startup() */
-static inline int adis_initial_startup(struct adis *adis)
-{
-	int ret;
-
-	mutex_lock(&adis->state_lock);
-	ret = __adis_initial_startup(adis);
-	mutex_unlock(&adis->state_lock);
-
-	return ret;
-}
-
-int __adis_update_bits_base(struct adis *adis, unsigned int reg, const u32 mask,
-			    u32 val, u8 size);
-/**
- * adis_update_bits_base() - ADIS Update bits function - Locked version
- * @adis: The adis device
- * @reg: The address of the lower of the two registers
- * @mask: Bitmask to change
- * @val: Value to be written
- * @size: Size of the register to update
- *
- * Updates the desired bits of @reg in accordance with @mask and @val.
- */
-static inline int adis_update_bits_base(struct adis *adis, unsigned int reg,
-					const u32 mask,  u32 val, u8 size)
-{
-	int ret;
-
-	mutex_lock(&adis->state_lock);
-	ret = __adis_update_bits_base(adis, reg, mask, val, size);
-	mutex_unlock(&adis->state_lock);
-
-	return ret;
-}
-/**
- * adis_update_bits() - Wrapper macro for adis_update_bits_base - Locked version
- * @adis: The adis device
- * @reg: The address of the lower of the two registers
- * @mask: Bitmask to change
- * @val: Value to be written
- *
- * This macro evaluates the sizeof of @val at compile time and calls
- * adis_update_bits_base() accordingly. Be aware that using MACROS/DEFINES for
- * @val can lead to undesired behavior if the register to update is 16bit. Also
- * note that a 64bit value will be treated as an integer. In the same way,
- * a char is seen as a short.
- */
-#define adis_update_bits(adis, reg, mask, val) ({			\
-	__builtin_choose_expr(sizeof(val) == 8 || sizeof(val) == 4,	\
-		adis_update_bits_base(adis, reg, mask, val, 4),		\
-		adis_update_bits_base(adis, reg, mask, val, 2));	\
-})
-
-/**
- * adis_update_bits() - Wrapper macro for adis_update_bits_base
- * @adis: The adis device
- * @reg: The address of the lower of the two registers
- * @mask: Bitmask to change
- * @val: Value to be written
- *
- * This macro evaluates the sizeof of @val at compile time and calls
- * adis_update_bits_base() accordingly. Be aware that using MACROS/DEFINES for
- * @val can lead to undesired behavior if the register to update is 16bit. Also
- * note that a 64bit value will be treated as an integer. In the same way,
- * a char is seen as a short.
- */
-#define __adis_update_bits(adis, reg, mask, val) ({			\
-	__builtin_choose_expr(sizeof(val) == 8 || sizeof(val) == 4,	\
-		__adis_update_bits_base(adis, reg, mask, val, 4),	\
-		__adis_update_bits_base(adis, reg, mask, val, 2));	\
-})
+int adis_initial_startup(struct adis *adis);
 
 int adis_single_conversion(struct iio_dev *indio_dev,
 	const struct iio_chan_spec *chan, unsigned int error_mask,
@@ -470,29 +232,11 @@ int adis_single_conversion(struct iio_dev *indio_dev,
 
 #ifdef CONFIG_IIO_ADIS_LIB_BUFFER
 
-/**
- * struct adis_burst - ADIS data for burst transfers
- * @en			burst mode enabled
- * @reg_cmd		register command that triggers burst
- * @extra_len		extra length to account in the SPI RX buffer
- */
-struct adis_burst {
-	bool		en;
-	unsigned int	reg_cmd;
-	unsigned int	extra_len;
-	unsigned int	read_delay;
-	unsigned int	write_delay;
-};
-
-int
-devm_adis_setup_buffer_and_trigger(struct adis *adis, struct iio_dev *indio_dev,
-				   irqreturn_t (*trigger_handler)(int, void *));
 int adis_setup_buffer_and_trigger(struct adis *adis,
 	struct iio_dev *indio_dev, irqreturn_t (*trigger_handler)(int, void *));
 void adis_cleanup_buffer_and_trigger(struct adis *adis,
 	struct iio_dev *indio_dev);
 
-int devm_adis_probe_trigger(struct adis *adis, struct iio_dev *indio_dev);
 int adis_probe_trigger(struct adis *adis, struct iio_dev *indio_dev);
 void adis_remove_trigger(struct adis *adis);
 
@@ -500,13 +244,6 @@ int adis_update_scan_mode(struct iio_dev *indio_dev,
 	const unsigned long *scan_mask);
 
 #else /* CONFIG_IIO_BUFFER */
-
-static inline int
-devm_adis_setup_buffer_and_trigger(struct adis *adis, struct iio_dev *indio_dev,
-				   irqreturn_t (*trigger_handler)(int, void *))
-{
-	return 0;
-}
 
 static inline int adis_setup_buffer_and_trigger(struct adis *adis,
 	struct iio_dev *indio_dev, irqreturn_t (*trigger_handler)(int, void *))
@@ -517,12 +254,6 @@ static inline int adis_setup_buffer_and_trigger(struct adis *adis,
 static inline void adis_cleanup_buffer_and_trigger(struct adis *adis,
 	struct iio_dev *indio_dev)
 {
-}
-
-static inline int devm_adis_probe_trigger(struct adis *adis,
-					  struct iio_dev *indio_dev)
-{
-	return 0;
 }
 
 static inline int adis_probe_trigger(struct adis *adis,

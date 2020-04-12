@@ -989,12 +989,14 @@ static const struct attribute_group si114x_attribute_group = {
 static const struct iio_info si1132_info = {
 	.read_raw = si1145_read_raw,
 	.write_raw = si1145_write_raw,
+	.driver_module = THIS_MODULE,
 	.attrs = &si1132_attribute_group,
 };
 
 static const struct iio_info si114x_info = {
 	.read_raw = si1145_read_raw,
 	.write_raw = si1145_write_raw,
+	.driver_module = THIS_MODULE,
 	.attrs = &si114x_attribute_group,
 };
 
@@ -1175,6 +1177,8 @@ static bool si1145_validate_scan_mask(struct iio_dev *indio_dev,
 
 static const struct iio_buffer_setup_ops si1145_buffer_setup_ops = {
 	.preenable = si1145_buffer_preenable,
+	.postenable = iio_triggered_buffer_postenable,
+	.predisable = iio_triggered_buffer_predisable,
 	.validate_scan_mask = si1145_validate_scan_mask,
 };
 
@@ -1233,6 +1237,7 @@ disable:
 }
 
 static const struct iio_trigger_ops si1145_trigger_ops = {
+	.owner = THIS_MODULE,
 	.set_trigger_state = si1145_trigger_set_state,
 };
 

@@ -52,9 +52,6 @@
 #define BMG160_DEF_BW			100
 #define BMG160_REG_PMU_BW_RES		BIT(7)
 
-#define BMG160_GYRO_REG_RESET		0x14
-#define BMG160_GYRO_RESET_VAL		0xb6
-
 #define BMG160_REG_INT_MAP_0		0x17
 #define BMG160_INT_MAP_0_BIT_ANY	BIT(1)
 
@@ -238,14 +235,6 @@ static int bmg160_chip_init(struct bmg160_data *data)
 	struct device *dev = regmap_get_device(data->regmap);
 	int ret;
 	unsigned int val;
-
-	/*
-	 * Reset chip to get it in a known good state. A delay of 30ms after
-	 * reset is required according to the datasheet.
-	 */
-	regmap_write(data->regmap, BMG160_GYRO_REG_RESET,
-		     BMG160_GYRO_RESET_VAL);
-	usleep_range(30000, 30700);
 
 	ret = regmap_read(data->regmap, BMG160_REG_CHIP_ID, &val);
 	if (ret < 0) {
@@ -582,10 +571,11 @@ static int bmg160_read_raw(struct iio_dev *indio_dev,
 	case IIO_CHAN_INFO_LOW_PASS_FILTER_3DB_FREQUENCY:
 		return bmg160_get_filter(data, val);
 	case IIO_CHAN_INFO_SCALE:
+		*val = 0;
 		switch (chan->type) {
 		case IIO_TEMP:
-			*val = 500;
-			return IIO_VAL_INT;
+			*val2 = 500000;
+			return IIO_VAL_INT_PLUS_MICRO;
 		case IIO_ANGL_VEL:
 		{
 			int i;
@@ -593,7 +583,6 @@ static int bmg160_read_raw(struct iio_dev *indio_dev,
 			for (i = 0; i < ARRAY_SIZE(bmg160_scale_table); ++i) {
 				if (bmg160_scale_table[i].dps_range ==
 							data->dps_range) {
-					*val = 0;
 					*val2 = bmg160_scale_table[i].scale;
 					return IIO_VAL_INT_PLUS_MICRO;
 				}
@@ -857,6 +846,7 @@ static const struct iio_info bmg160_info = {
 	.write_event_value	= bmg160_write_event,
 	.write_event_config	= bmg160_write_event_config,
 	.read_event_config	= bmg160_read_event_config,
+	.driver_module		= THIS_MODULE,
 };
 
 static const unsigned long bmg160_accel_scan_masks[] = {
@@ -954,6 +944,7 @@ static int bmg160_data_rdy_trigger_set_state(struct iio_trigger *trig,
 static const struct iio_trigger_ops bmg160_trigger_ops = {
 	.set_trigger_state = bmg160_data_rdy_trigger_set_state,
 	.try_reenable = bmg160_trig_try_reen,
+	.owner = THIS_MODULE,
 };
 
 static irqreturn_t bmg160_event_handler(int irq, void *private)
@@ -1043,6 +1034,8 @@ static int bmg160_buffer_postdisable(struct iio_dev *indio_dev)
 
 static const struct iio_buffer_setup_ops bmg160_buffer_setup_ops = {
 	.preenable = bmg160_buffer_preenable,
+	.postenable = iio_triggered_buffer_postenable,
+	.predisable = iio_triggered_buffer_predisable,
 	.postdisable = bmg160_buffer_postdisable,
 };
 

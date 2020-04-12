@@ -1,4 +1,3 @@
-# SPDX-License-Identifier: GPL-2.0
 #
 # Gain Amplifiers, etc.
 #
@@ -7,42 +6,14 @@
 menu "Amplifiers"
 
 config AD8366
-	tristate "Analog Devices AD8366 and similar Gain Amplifiers"
+	tristate "Analog Devices AD8366 VGA"
 	depends on SPI
-	depends on GPIOLIB
 	select BITREVERSE
 	help
-	  Say yes here to build support for Analog Devices AD8366 and similar
-	  gain amplifiers. This driver supports the following gain amplifiers
-	  from Analog Devices:
-	    AD8366 Dual-Digital Variable Gain Amplifier (VGA)
-	    ADA4961 BiCMOS RF Digital Gain Amplifier (DGA)
-	    ADL5240 Digitally controlled variable gain amplifier (VGA)
-	    HMC271 1 dB LSB GaAs MMIC 5-BIT Control Digital Attenuator
-	    HMC1119 0.25 dB LSB, 7-Bit, Silicon Digital Attenuator
+	  Say yes here to build support for Analog Devices AD8366
+	  SPI Dual-Digital Variable Gain Amplifier (VGA).
 
 	  To compile this driver as a module, choose M here: the
 	  module will be called ad8366.
-
-config AD916X_AMP
-	tristate "Analog Devices AD916x Amplifiers"
-	depends on SPI
-	help
-	  Say yes here to build support for Analog Devices AD916x
-	  SPI Amplifier's support. This devices act as output buffer's
-	  in the AD916x DAC families.
-
-	  To compile this driver as a module, choose M here: the
-	  module will be called ad916x_amp.
-
-config HMC425
-	tristate "Analog Devices HMC425A and similar GPIO Gain Amplifiers"
-	depends on GPIOLIB
-	help
-	  Say yes here to build support for Analog Devices HMC425A and similar
-	  gain amplifiers or step attenuators.
-
-	  To compile this driver as a module, choose M here: the
-	  module will be called hmc425a.
 
 endmenu

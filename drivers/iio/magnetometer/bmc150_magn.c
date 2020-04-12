@@ -651,6 +651,7 @@ static const struct iio_info bmc150_magn_info = {
 	.attrs = &bmc150_magn_attrs_group,
 	.read_raw = bmc150_magn_read_raw,
 	.write_raw = bmc150_magn_write_raw,
+	.driver_module = THIS_MODULE,
 };
 
 static const unsigned long bmc150_magn_scan_masks[] = {
@@ -810,6 +811,7 @@ err_unlock:
 static const struct iio_trigger_ops bmc150_magn_trigger_ops = {
 	.set_trigger_state = bmc150_magn_data_rdy_trigger_set_state,
 	.try_reenable = bmc150_magn_trig_try_reen,
+	.owner = THIS_MODULE,
 };
 
 static int bmc150_magn_buffer_preenable(struct iio_dev *indio_dev)
@@ -828,6 +830,8 @@ static int bmc150_magn_buffer_postdisable(struct iio_dev *indio_dev)
 
 static const struct iio_buffer_setup_ops bmc150_magn_buffer_setup_ops = {
 	.preenable = bmc150_magn_buffer_preenable,
+	.postenable = iio_triggered_buffer_postenable,
+	.predisable = iio_triggered_buffer_predisable,
 	.postdisable = bmc150_magn_buffer_postdisable,
 };
 

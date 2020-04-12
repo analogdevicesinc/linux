@@ -5,10 +5,7 @@
 #include <linux/workqueue.h>
 #include <linux/kfifo.h>
 #include <linux/mutex.h>
-#include <linux/iio/iio.h>
-#include <linux/iio/buffer.h>
 #include <linux/iio/kfifo_buf.h>
-#include <linux/iio/buffer_impl.h>
 #include <linux/sched.h>
 #include <linux/poll.h>
 
@@ -22,16 +19,9 @@ struct iio_kfifo {
 #define iio_to_kfifo(r) container_of(r, struct iio_kfifo, buffer)
 
 static inline int __iio_allocate_kfifo(struct iio_kfifo *buf,
-			size_t bytes_per_datum, unsigned int length)
+				int bytes_per_datum, int length)
 {
 	if ((length == 0) || (bytes_per_datum == 0))
-		return -EINVAL;
-
-	/*
-	 * Make sure we don't overflow an unsigned int after kfifo rounds up to
-	 * the next power of 2.
-	 */
-	if (roundup_pow_of_two(length) > UINT_MAX / bytes_per_datum)
 		return -EINVAL;
 
 	return __kfifo_alloc((struct __kfifo *)&buf->kf, length,
@@ -74,7 +64,7 @@ static int iio_set_bytes_per_datum_kfifo(struct iio_buffer *r, size_t bpd)
 	return 0;
 }
 
-static int iio_set_length_kfifo(struct iio_buffer *r, unsigned int length)
+static int iio_set_length_kfifo(struct iio_buffer *r, int length)
 {
 	/* Avoid an invalid state */
 	if (length < 2)
@@ -97,7 +87,8 @@ static int iio_store_to_kfifo(struct iio_buffer *r,
 	return 0;
 }
 
-static int iio_read_kfifo(struct iio_buffer *r, size_t n, char __user *buf)
+static int iio_read_first_n_kfifo(struct iio_buffer *r,
+			   size_t n, char __user *buf)
 {
 	int ret, copied;
 	struct iio_kfifo *kf = iio_to_kfifo(r);
@@ -137,60 +128,10 @@ static void iio_kfifo_buffer_release(struct iio_buffer *buffer)
 	kfree(kf);
 }
 
-static bool iio_kfifo_buf_space_available(struct iio_buffer *r)
-{
-	struct iio_kfifo *kf = iio_to_kfifo(r);
-	bool full;
-
-	mutex_lock(&kf->user_lock);
-	full = kfifo_is_full(&kf->kf);
-	mutex_unlock(&kf->user_lock);
-
-	return !full;
-}
-
-static int iio_kfifo_remove_from(struct iio_buffer *r, void *data)
-{
-	int ret;
-	struct iio_kfifo *kf = iio_to_kfifo(r);
-
-	if (kfifo_len(&kf->kf) < 1)
-		return -EBUSY;
-
-	ret = kfifo_out(&kf->kf, data, 1);
-	if (ret != 1)
-		return -EBUSY;
-
-	wake_up_interruptible_poll(&r->pollq, POLLOUT | POLLWRNORM);
-
-	return 0;
-}
-
-static int iio_kfifo_write(struct iio_buffer *r, size_t n,
-	const char __user *buf)
-{
-	struct iio_kfifo *kf = iio_to_kfifo(r);
-	int ret, copied;
-
-	mutex_lock(&kf->user_lock);
-	if (!kfifo_initialized(&kf->kf) || n < kfifo_esize(&kf->kf))
-		ret = -EINVAL;
-	else
-		ret = kfifo_from_user(&kf->kf, buf, n, &copied);
-	mutex_unlock(&kf->user_lock);
-	if (ret)
-		return ret;
-
-	return copied;
-}
-
 static const struct iio_buffer_access_funcs kfifo_access_funcs = {
 	.store_to = &iio_store_to_kfifo,
-	.read = &iio_read_kfifo,
+	.read_first_n = &iio_read_first_n_kfifo,
 	.data_available = iio_kfifo_buf_data_available,
-	.remove_from = &iio_kfifo_remove_from,
-	.write = &iio_kfifo_write,
-	.space_available = &iio_kfifo_buf_space_available,
 	.request_update = &iio_request_update_kfifo,
 	.set_bytes_per_datum = &iio_set_bytes_per_datum_kfifo,
 	.set_length = &iio_set_length_kfifo,

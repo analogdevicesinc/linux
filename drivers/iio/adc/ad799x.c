@@ -520,17 +520,19 @@ static struct attribute *ad799x_event_attributes[] = {
 	NULL,
 };
 
-static const struct attribute_group ad799x_event_attrs_group = {
+static struct attribute_group ad799x_event_attrs_group = {
 	.attrs = ad799x_event_attributes,
 };
 
 static const struct iio_info ad7991_info = {
 	.read_raw = &ad799x_read_raw,
+	.driver_module = THIS_MODULE,
 	.update_scan_mode = ad799x_update_scan_mode,
 };
 
 static const struct iio_info ad7993_4_7_8_noirq_info = {
 	.read_raw = &ad799x_read_raw,
+	.driver_module = THIS_MODULE,
 	.update_scan_mode = ad799x_update_scan_mode,
 };
 
@@ -541,6 +543,7 @@ static const struct iio_info ad7993_4_7_8_irq_info = {
 	.write_event_config = &ad799x_write_event_config,
 	.read_event_value = &ad799x_read_event_value,
 	.write_event_value = &ad799x_write_event_value,
+	.driver_module = THIS_MODULE,
 	.update_scan_mode = ad799x_update_scan_mode,
 };
 
@@ -814,10 +817,10 @@ static int ad799x_probe(struct i2c_client *client,
 
 	ret = ad799x_write_config(st, st->chip_config->default_config);
 	if (ret < 0)
-		goto error_disable_vref;
+		goto error_disable_reg;
 	ret = ad799x_read_config(st);
 	if (ret < 0)
-		goto error_disable_vref;
+		goto error_disable_reg;
 	st->config = ret;
 
 	ret = iio_triggered_buffer_setup(indio_dev, NULL,

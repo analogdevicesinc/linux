@@ -199,7 +199,7 @@ static int lm3533_als_read_raw(struct iio_dev *indio_dev,
 	int ret;
 
 	switch (mask) {
-	case IIO_CHAN_INFO_RAW:
+	case 0:
 		switch (chan->type) {
 		case IIO_LIGHT:
 			ret = lm3533_als_get_adc(indio_dev, false, val);
@@ -690,7 +690,7 @@ static struct attribute *lm3533_als_event_attributes[] = {
 	NULL
 };
 
-static const struct attribute_group lm3533_als_event_attribute_group = {
+static struct attribute_group lm3533_als_event_attribute_group = {
 	.attrs = lm3533_als_event_attributes
 };
 
@@ -714,7 +714,7 @@ static struct attribute *lm3533_als_attributes[] = {
 	NULL
 };
 
-static const struct attribute_group lm3533_als_attribute_group = {
+static struct attribute_group lm3533_als_attribute_group = {
 	.attrs = lm3533_als_attributes
 };
 
@@ -827,6 +827,7 @@ static int lm3533_als_disable(struct lm3533_als *als)
 static const struct iio_info lm3533_als_info = {
 	.attrs		= &lm3533_als_attribute_group,
 	.event_attrs	= &lm3533_als_event_attribute_group,
+	.driver_module	= THIS_MODULE,
 	.read_raw	= &lm3533_als_read_raw,
 };
 

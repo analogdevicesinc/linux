@@ -277,6 +277,7 @@ static irqreturn_t berlin2_adc_tsen_irq(int irq, void *private)
 }
 
 static const struct iio_info berlin2_adc_info = {
+	.driver_module	= THIS_MODULE,
 	.read_raw	= berlin2_adc_read_raw,
 };
 

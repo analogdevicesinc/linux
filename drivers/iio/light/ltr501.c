@@ -74,9 +74,9 @@ static const int int_time_mapping[] = {100000, 50000, 200000, 400000};
 static const struct reg_field reg_field_it =
 				REG_FIELD(LTR501_ALS_MEAS_RATE, 3, 4);
 static const struct reg_field reg_field_als_intr =
-				REG_FIELD(LTR501_INTR, 1, 1);
-static const struct reg_field reg_field_ps_intr =
 				REG_FIELD(LTR501_INTR, 0, 0);
+static const struct reg_field reg_field_ps_intr =
+				REG_FIELD(LTR501_INTR, 1, 1);
 static const struct reg_field reg_field_als_rate =
 				REG_FIELD(LTR501_ALS_MEAS_RATE, 0, 2);
 static const struct reg_field reg_field_ps_rate =
@@ -631,16 +631,14 @@ static int ltr501_read_raw(struct iio_dev *indio_dev,
 
 	switch (mask) {
 	case IIO_CHAN_INFO_PROCESSED:
+		if (iio_buffer_enabled(indio_dev))
+			return -EBUSY;
+
 		switch (chan->type) {
 		case IIO_LIGHT:
-			ret = iio_device_claim_direct_mode(indio_dev);
-			if (ret)
-				return ret;
-
 			mutex_lock(&data->lock_als);
 			ret = ltr501_read_als(data, buf);
 			mutex_unlock(&data->lock_als);
-			iio_device_release_direct_mode(indio_dev);
 			if (ret < 0)
 				return ret;
 			*val = ltr501_calculate_lux(le16_to_cpu(buf[1]),
@@ -650,9 +648,8 @@ static int ltr501_read_raw(struct iio_dev *indio_dev,
 			return -EINVAL;
 		}
 	case IIO_CHAN_INFO_RAW:
-		ret = iio_device_claim_direct_mode(indio_dev);
-		if (ret)
-			return ret;
+		if (iio_buffer_enabled(indio_dev))
+			return -EBUSY;
 
 		switch (chan->type) {
 		case IIO_INTENSITY:
@@ -660,28 +657,21 @@ static int ltr501_read_raw(struct iio_dev *indio_dev,
 			ret = ltr501_read_als(data, buf);
 			mutex_unlock(&data->lock_als);
 			if (ret < 0)
-				break;
+				return ret;
 			*val = le16_to_cpu(chan->address == LTR501_ALS_DATA1 ?
 					   buf[0] : buf[1]);
-			ret = IIO_VAL_INT;
-			break;
+			return IIO_VAL_INT;
 		case IIO_PROXIMITY:
 			mutex_lock(&data->lock_ps);
 			ret = ltr501_read_ps(data);
 			mutex_unlock(&data->lock_ps);
 			if (ret < 0)
-				break;
+				return ret;
 			*val = ret & LTR501_PS_DATA_MASK;
-			ret = IIO_VAL_INT;
-			break;
+			return IIO_VAL_INT;
 		default:
-			ret = -EINVAL;
-			break;
+			return -EINVAL;
 		}
-
-		iio_device_release_direct_mode(indio_dev);
-		return ret;
-
 	case IIO_CHAN_INFO_SCALE:
 		switch (chan->type) {
 		case IIO_INTENSITY:
@@ -739,9 +729,8 @@ static int ltr501_write_raw(struct iio_dev *indio_dev,
 	int i, ret, freq_val, freq_val2;
 	struct ltr501_chip_info *info = data->chip_info;
 
-	ret = iio_device_claim_direct_mode(indio_dev);
-	if (ret)
-		return ret;
+	if (iio_buffer_enabled(indio_dev))
+		return -EBUSY;
 
 	switch (mask) {
 	case IIO_CHAN_INFO_SCALE:
@@ -750,105 +739,85 @@ static int ltr501_write_raw(struct iio_dev *indio_dev,
 			i = ltr501_get_gain_index(info->als_gain,
 						  info->als_gain_tbl_size,
 						  val, val2);
-			if (i < 0) {
-				ret = -EINVAL;
-				break;
-			}
+			if (i < 0)
+				return -EINVAL;
 
 			data->als_contr &= ~info->als_gain_mask;
 			data->als_contr |= i << info->als_gain_shift;
 
-			ret = regmap_write(data->regmap, LTR501_ALS_CONTR,
-					   data->als_contr);
-			break;
+			return regmap_write(data->regmap, LTR501_ALS_CONTR,
+					    data->als_contr);
 		case IIO_PROXIMITY:
 			i = ltr501_get_gain_index(info->ps_gain,
 						  info->ps_gain_tbl_size,
 						  val, val2);
-			if (i < 0) {
-				ret = -EINVAL;
-				break;
-			}
+			if (i < 0)
+				return -EINVAL;
 			data->ps_contr &= ~LTR501_CONTR_PS_GAIN_MASK;
 			data->ps_contr |= i << LTR501_CONTR_PS_GAIN_SHIFT;
 
-			ret = regmap_write(data->regmap, LTR501_PS_CONTR,
-					   data->ps_contr);
-			break;
+			return regmap_write(data->regmap, LTR501_PS_CONTR,
+					    data->ps_contr);
 		default:
-			ret = -EINVAL;
-			break;
+			return -EINVAL;
 		}
-		break;
-
 	case IIO_CHAN_INFO_INT_TIME:
 		switch (chan->type) {
 		case IIO_INTENSITY:
-			if (val != 0) {
-				ret = -EINVAL;
-				break;
-			}
+			if (val != 0)
+				return -EINVAL;
 			mutex_lock(&data->lock_als);
-			ret = ltr501_set_it_time(data, val2);
+			i = ltr501_set_it_time(data, val2);
 			mutex_unlock(&data->lock_als);
-			break;
+			return i;
 		default:
-			ret = -EINVAL;
-			break;
+			return -EINVAL;
 		}
-		break;
-
 	case IIO_CHAN_INFO_SAMP_FREQ:
 		switch (chan->type) {
 		case IIO_INTENSITY:
 			ret = ltr501_als_read_samp_freq(data, &freq_val,
 							&freq_val2);
 			if (ret < 0)
-				break;
+				return ret;
 
 			ret = ltr501_als_write_samp_freq(data, val, val2);
 			if (ret < 0)
-				break;
+				return ret;
 
 			/* update persistence count when changing frequency */
 			ret = ltr501_write_intr_prst(data, chan->type,
 						     0, data->als_period);
 
 			if (ret < 0)
-				ret = ltr501_als_write_samp_freq(data, freq_val,
-								 freq_val2);
-			break;
+				return ltr501_als_write_samp_freq(data,
+								  freq_val,
+								  freq_val2);
+			return ret;
 		case IIO_PROXIMITY:
 			ret = ltr501_ps_read_samp_freq(data, &freq_val,
 						       &freq_val2);
 			if (ret < 0)
-				break;
+				return ret;
 
 			ret = ltr501_ps_write_samp_freq(data, val, val2);
 			if (ret < 0)
-				break;
+				return ret;
 
 			/* update persistence count when changing frequency */
 			ret = ltr501_write_intr_prst(data, chan->type,
 						     0, data->ps_period);
 
 			if (ret < 0)
-				ret = ltr501_ps_write_samp_freq(data, freq_val,
-								freq_val2);
-			break;
+				return ltr501_ps_write_samp_freq(data,
+								 freq_val,
+								 freq_val2);
+			return ret;
 		default:
-			ret = -EINVAL;
-			break;
+			return -EINVAL;
 		}
-		break;
-
-	default:
-		ret = -EINVAL;
-		break;
 	}
-
-	iio_device_release_direct_mode(indio_dev);
-	return ret;
+	return -EINVAL;
 }
 
 static int ltr501_read_thresh(struct iio_dev *indio_dev,
@@ -1158,6 +1127,7 @@ static const struct iio_info ltr501_info_no_irq = {
 	.read_raw = ltr501_read_raw,
 	.write_raw = ltr501_write_raw,
 	.attrs = &ltr501_attribute_group,
+	.driver_module = THIS_MODULE,
 };
 
 static const struct iio_info ltr501_info = {
@@ -1168,12 +1138,14 @@ static const struct iio_info ltr501_info = {
 	.write_event_value	= &ltr501_write_event,
 	.read_event_config	= &ltr501_read_event_config,
 	.write_event_config	= &ltr501_write_event_config,
+	.driver_module = THIS_MODULE,
 };
 
 static const struct iio_info ltr301_info_no_irq = {
 	.read_raw = ltr501_read_raw,
 	.write_raw = ltr501_write_raw,
 	.attrs = &ltr301_attribute_group,
+	.driver_module = THIS_MODULE,
 };
 
 static const struct iio_info ltr301_info = {
@@ -1184,6 +1156,7 @@ static const struct iio_info ltr301_info = {
 	.write_event_value	= &ltr501_write_event,
 	.read_event_config	= &ltr501_read_event_config,
 	.write_event_config	= &ltr501_write_event_config,
+	.driver_module = THIS_MODULE,
 };
 
 static struct ltr501_chip_info ltr501_chip_info_tbl[] = {

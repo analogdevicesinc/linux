@@ -1,4 +1,3 @@
-/* SPDX-License-Identifier: GPL-2.0 */
 #ifndef __SSP_IIO_SENSOR_H__
 #define __SSP_IIO_SENSOR_H__
 

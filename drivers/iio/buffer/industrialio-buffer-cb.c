@@ -10,8 +10,7 @@
 #include <linux/slab.h>
 #include <linux/err.h>
 #include <linux/export.h>
-#include <linux/iio/iio.h>
-#include <linux/iio/buffer_impl.h>
+#include <linux/iio/buffer.h>
 #include <linux/iio/consumer.h>
 
 struct iio_cb_buffer {
@@ -36,7 +35,7 @@ static int iio_buffer_cb_store_to(struct iio_buffer *buffer, const void *data)
 static void iio_buffer_cb_release(struct iio_buffer *buffer)
 {
 	struct iio_cb_buffer *cb_buff = buffer_to_cb_buffer(buffer);
-	iio_buffer_free_scanmask(buffer);
+	kfree(cb_buff->buffer.scan_mask);
 	kfree(cb_buff);
 }
 
@@ -53,7 +52,6 @@ struct iio_cb_buffer *iio_channel_get_all_cb(struct device *dev,
 					     void *private)
 {
 	int ret;
-	struct iio_dev *indio_dev;
 	struct iio_cb_buffer *cb_buff;
 	struct iio_channel *chan;
 
@@ -74,25 +72,29 @@ struct iio_cb_buffer *iio_channel_get_all_cb(struct device *dev,
 		goto error_free_cb_buff;
 	}
 
-	indio_dev = cb_buff->channels[0].indio_dev;
-
-	ret = iio_buffer_alloc_scanmask(&cb_buff->buffer, indio_dev);
-	if (ret)
+	cb_buff->indio_dev = cb_buff->channels[0].indio_dev;
+	cb_buff->buffer.scan_mask
+		= kcalloc(BITS_TO_LONGS(cb_buff->indio_dev->masklength),
+			  sizeof(long), GFP_KERNEL);
+	if (cb_buff->buffer.scan_mask == NULL) {
+		ret = -ENOMEM;
 		goto error_release_channels;
+	}
 	chan = &cb_buff->channels[0];
 	while (chan->indio_dev) {
-		if (chan->indio_dev != indio_dev) {
+		if (chan->indio_dev != cb_buff->indio_dev) {
 			ret = -EINVAL;
 			goto error_free_scan_mask;
 		}
-		iio_buffer_channel_enable(&cb_buff->buffer, chan);
+		set_bit(chan->channel->scan_index,
+			cb_buff->buffer.scan_mask);
 		chan++;
 	}
 
 	return cb_buff;
 
 error_free_scan_mask:
-	iio_buffer_free_scanmask(&cb_buff->buffer);
+	kfree(cb_buff->buffer.scan_mask);
 error_release_channels:
 	iio_channel_release_all(cb_buff->channels);
 error_free_cb_buff:
@@ -100,17 +102,6 @@ error_free_cb_buff:
 	return ERR_PTR(ret);
 }
 EXPORT_SYMBOL_GPL(iio_channel_get_all_cb);
-
-int iio_channel_cb_set_buffer_watermark(struct iio_cb_buffer *cb_buff,
-					size_t watermark)
-{
-	if (!watermark)
-		return -EINVAL;
-	cb_buff->buffer.watermark = watermark;
-
-	return 0;
-}
-EXPORT_SYMBOL_GPL(iio_channel_cb_set_buffer_watermark);
 
 int iio_channel_start_all_cb(struct iio_cb_buffer *cb_buff)
 {

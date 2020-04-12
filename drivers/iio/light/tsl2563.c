@@ -626,7 +626,7 @@ static irqreturn_t tsl2563_event_handler(int irq, void *private)
 	struct tsl2563_chip *chip = iio_priv(dev_info);
 
 	iio_push_event(dev_info,
-		       IIO_UNMOD_EVENT_CODE(IIO_INTENSITY,
+		       IIO_UNMOD_EVENT_CODE(IIO_LIGHT,
 					    0,
 					    IIO_EV_TYPE_THRESH,
 					    IIO_EV_DIR_EITHER),
@@ -697,11 +697,13 @@ static int tsl2563_read_interrupt_config(struct iio_dev *indio_dev,
 }
 
 static const struct iio_info tsl2563_info_no_irq = {
+	.driver_module = THIS_MODULE,
 	.read_raw = &tsl2563_read_raw,
 	.write_raw = &tsl2563_write_raw,
 };
 
 static const struct iio_info tsl2563_info = {
+	.driver_module = THIS_MODULE,
 	.read_raw = &tsl2563_read_raw,
 	.write_raw = &tsl2563_write_raw,
 	.read_event_value = &tsl2563_read_thresh,
@@ -882,19 +884,9 @@ static const struct i2c_device_id tsl2563_id[] = {
 };
 MODULE_DEVICE_TABLE(i2c, tsl2563_id);
 
-static const struct of_device_id tsl2563_of_match[] = {
-	{ .compatible = "amstaos,tsl2560" },
-	{ .compatible = "amstaos,tsl2561" },
-	{ .compatible = "amstaos,tsl2562" },
-	{ .compatible = "amstaos,tsl2563" },
-	{}
-};
-MODULE_DEVICE_TABLE(of, tsl2563_of_match);
-
 static struct i2c_driver tsl2563_i2c_driver = {
 	.driver = {
 		.name	 = "tsl2563",
-		.of_match_table = tsl2563_of_match,
 		.pm	= TSL2563_PM_OPS,
 	},
 	.probe		= tsl2563_probe,

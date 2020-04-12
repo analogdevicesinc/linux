@@ -64,7 +64,6 @@ static const struct acpi_device_id bmc150_accel_acpi_match[] = {
 	{"BMA250E",	bma250e},
 	{"BMA222E",	bma222e},
 	{"BMA0280",	bma280},
-	{"BOSC0200"},
 	{ },
 };
 MODULE_DEVICE_TABLE(acpi, bmc150_accel_acpi_match);
@@ -81,21 +80,9 @@ static const struct i2c_device_id bmc150_accel_id[] = {
 
 MODULE_DEVICE_TABLE(i2c, bmc150_accel_id);
 
-static const struct of_device_id bmc150_accel_of_match[] = {
-	{ .compatible = "bosch,bmc150_accel" },
-	{ .compatible = "bosch,bmi055_accel" },
-	{ .compatible = "bosch,bma255" },
-	{ .compatible = "bosch,bma250e" },
-	{ .compatible = "bosch,bma222e" },
-	{ .compatible = "bosch,bma280" },
-	{ },
-};
-MODULE_DEVICE_TABLE(of, bmc150_accel_of_match);
-
 static struct i2c_driver bmc150_accel_driver = {
 	.driver = {
 		.name	= "bmc150_accel_i2c",
-		.of_match_table = bmc150_accel_of_match,
 		.acpi_match_table = ACPI_PTR(bmc150_accel_acpi_match),
 		.pm	= &bmc150_accel_pm_ops,
 	},

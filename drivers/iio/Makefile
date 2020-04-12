@@ -1,4 +1,3 @@
-# SPDX-License-Identifier: GPL-2.0
 #
 # Makefile for the industrial I/O core.
 #
@@ -15,12 +14,10 @@ obj-$(CONFIG_IIO_TRIGGERED_EVENT) += industrialio-triggered-event.o
 
 obj-y += accel/
 obj-y += adc/
-obj-y += afe/
 obj-y += amplifiers/
 obj-y += buffer/
 obj-y += chemical/
 obj-y += common/
-obj-y += counter/
 obj-y += dac/
 obj-y += dummy/
 obj-y += gyro/
@@ -28,18 +25,11 @@ obj-y += frequency/
 obj-y += health/
 obj-y += humidity/
 obj-y += imu/
-obj-y += jesd204/
 obj-y += light/
-obj-y += logic/
 obj-y += magnetometer/
-obj-y += multiplexer/
-obj-y += regmap/
 obj-y += orientation/
 obj-y += potentiometer/
-obj-y += potentiostat/
 obj-y += pressure/
 obj-y += proximity/
-obj-y += resolver/
 obj-y += temperature/
 obj-y += trigger/
-

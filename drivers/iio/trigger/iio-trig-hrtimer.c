@@ -30,7 +30,7 @@ struct iio_hrtimer_info {
 	ktime_t period;
 };
 
-static const struct config_item_type iio_hrtimer_type = {
+static struct config_item_type iio_hrtimer_type = {
 	.ct_owner = THIS_MODULE,
 };
 
@@ -63,7 +63,7 @@ ssize_t iio_hrtimer_store_sampling_frequency(struct device *dev,
 		return -EINVAL;
 
 	info->sampling_frequency = val;
-	info->period = NSEC_PER_SEC / val;
+	info->period = ktime_set(0, NSEC_PER_SEC / val);
 
 	return len;
 }
@@ -114,6 +114,7 @@ static int iio_trig_hrtimer_set_state(struct iio_trigger *trig, bool state)
 }
 
 static const struct iio_trigger_ops iio_hrtimer_trigger_ops = {
+	.owner = THIS_MODULE,
 	.set_trigger_state = iio_trig_hrtimer_set_state,
 };
 
@@ -140,7 +141,8 @@ static struct iio_sw_trigger *iio_trig_hrtimer_probe(const char *name)
 	trig_info->timer.function = iio_hrtimer_trig_handler;
 
 	trig_info->sampling_frequency = HRTIMER_DEFAULT_SAMPLING_FREQUENCY;
-	trig_info->period = NSEC_PER_SEC / trig_info->sampling_frequency;
+	trig_info->period = ktime_set(0, NSEC_PER_SEC /
+				      trig_info->sampling_frequency);
 
 	ret = iio_trigger_register(trig_info->swt.trigger);
 	if (ret)

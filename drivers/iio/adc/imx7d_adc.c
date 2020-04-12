@@ -365,7 +365,7 @@ static int imx7d_adc_read_data(struct imx7d_adc *info)
 
 static irqreturn_t imx7d_adc_isr(int irq, void *dev_id)
 {
-	struct imx7d_adc *info = dev_id;
+	struct imx7d_adc *info = (struct imx7d_adc *)dev_id;
 	int status;
 
 	status = readl(info->regs + IMX7D_REG_ADC_INT_STATUS);
@@ -412,6 +412,7 @@ static int imx7d_adc_reg_access(struct iio_dev *indio_dev,
 }
 
 static const struct iio_info imx7d_adc_iio_info = {
+	.driver_module = THIS_MODULE,
 	.read_raw = &imx7d_adc_read_raw,
 	.debugfs_reg_access = &imx7d_adc_reg_access,
 };
@@ -604,5 +605,5 @@ static struct platform_driver imx7d_adc_driver = {
 module_platform_driver(imx7d_adc_driver);
 
 MODULE_AUTHOR("Haibo Chen <haibo.chen@freescale.com>");
-MODULE_DESCRIPTION("Freescale IMX7D ADC driver");
+MODULE_DESCRIPTION("Freeacale IMX7D ADC driver");
 MODULE_LICENSE("GPL v2");

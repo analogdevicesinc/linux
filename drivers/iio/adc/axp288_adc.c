@@ -16,7 +16,6 @@
  *
  */
 
-#include <linux/dmi.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/device.h>
@@ -28,23 +27,9 @@
 #include <linux/iio/machine.h>
 #include <linux/iio/driver.h>
 
-/*
- * This mask enables all ADCs except for the battery temp-sensor (TS), that is
- * left as-is to avoid breaking charging on devices without a temp-sensor.
- */
-#define AXP288_ADC_EN_MASK				0xF0
-#define AXP288_ADC_TS_ENABLE				0x01
-
-#define AXP288_ADC_TS_BIAS_MASK				GENMASK(5, 4)
-#define AXP288_ADC_TS_BIAS_20UA				(0 << 4)
-#define AXP288_ADC_TS_BIAS_40UA				(1 << 4)
-#define AXP288_ADC_TS_BIAS_60UA				(2 << 4)
-#define AXP288_ADC_TS_BIAS_80UA				(3 << 4)
-#define AXP288_ADC_TS_CURRENT_ON_OFF_MASK		GENMASK(1, 0)
-#define AXP288_ADC_TS_CURRENT_OFF			(0 << 0)
-#define AXP288_ADC_TS_CURRENT_ON_WHEN_CHARGING		(1 << 0)
-#define AXP288_ADC_TS_CURRENT_ON_ONDEMAND		(2 << 0)
-#define AXP288_ADC_TS_CURRENT_ON			(3 << 0)
+#define AXP288_ADC_EN_MASK		0xF1
+#define AXP288_ADC_TS_PIN_GPADC		0xF2
+#define AXP288_ADC_TS_PIN_ON		0xF3
 
 enum axp288_adc_id {
 	AXP288_ADC_TS,
@@ -59,7 +44,6 @@ enum axp288_adc_id {
 struct axp288_adc_info {
 	int irq;
 	struct regmap *regmap;
-	bool ts_enabled;
 };
 
 static const struct iio_chan_spec axp288_adc_channels[] = {
@@ -108,14 +92,22 @@ static const struct iio_chan_spec axp288_adc_channels[] = {
 	},
 };
 
+#define AXP288_ADC_MAP(_adc_channel_label, _consumer_dev_name,	\
+		_consumer_channel)				\
+	{							\
+		.adc_channel_label = _adc_channel_label,	\
+		.consumer_dev_name = _consumer_dev_name,	\
+		.consumer_channel = _consumer_channel,		\
+	}
+
 /* for consumer drivers */
 static struct iio_map axp288_adc_default_maps[] = {
-	IIO_MAP("TS_PIN", "axp288-batt", "axp288-batt-temp"),
-	IIO_MAP("PMIC_TEMP", "axp288-pmic", "axp288-pmic-temp"),
-	IIO_MAP("GPADC", "axp288-gpadc", "axp288-system-temp"),
-	IIO_MAP("BATT_CHG_I", "axp288-chrg", "axp288-chrg-curr"),
-	IIO_MAP("BATT_DISCHRG_I", "axp288-chrg", "axp288-chrg-d-curr"),
-	IIO_MAP("BATT_V", "axp288-batt", "axp288-batt-volt"),
+	AXP288_ADC_MAP("TS_PIN", "axp288-batt", "axp288-batt-temp"),
+	AXP288_ADC_MAP("PMIC_TEMP", "axp288-pmic", "axp288-pmic-temp"),
+	AXP288_ADC_MAP("GPADC", "axp288-gpadc", "axp288-system-temp"),
+	AXP288_ADC_MAP("BATT_CHG_I", "axp288-chrg", "axp288-chrg-curr"),
+	AXP288_ADC_MAP("BATT_DISCHRG_I", "axp288-chrg", "axp288-chrg-d-curr"),
+	AXP288_ADC_MAP("BATT_V", "axp288-batt", "axp288-batt-volt"),
 	{},
 };
 
@@ -131,36 +123,14 @@ static int axp288_adc_read_channel(int *val, unsigned long address,
 	return IIO_VAL_INT;
 }
 
-/*
- * The current-source used for the battery temp-sensor (TS) is shared
- * with the GPADC. For proper fuel-gauge and charger operation the TS
- * current-source needs to be permanently on. But to read the GPADC we
- * need to temporary switch the TS current-source to ondemand, so that
- * the GPADC can use it, otherwise we will always read an all 0 value.
- */
-static int axp288_adc_set_ts(struct axp288_adc_info *info,
-			     unsigned int mode, unsigned long address)
+static int axp288_adc_set_ts(struct regmap *regmap, unsigned int mode,
+				unsigned long address)
 {
-	int ret;
-
-	/* No need to switch the current-source if the TS pin is disabled */
-	if (!info->ts_enabled)
-		return 0;
-
-	/* Channels other than GPADC do not need the current source */
+	/* channels other than GPADC do not need to switch TS pin */
 	if (address != AXP288_GP_ADC_H)
 		return 0;
 
-	ret = regmap_update_bits(info->regmap, AXP288_ADC_TS_PIN_CTRL,
-				 AXP288_ADC_TS_CURRENT_ON_OFF_MASK, mode);
-	if (ret)
-		return ret;
-
-	/* When switching to the GPADC pin give things some time to settle */
-	if (mode == AXP288_ADC_TS_CURRENT_ON_ONDEMAND)
-		usleep_range(6000, 10000);
-
-	return 0;
+	return regmap_write(regmap, AXP288_ADC_TS_PIN_CTRL, mode);
 }
 
 static int axp288_adc_read_raw(struct iio_dev *indio_dev,
@@ -173,14 +143,14 @@ static int axp288_adc_read_raw(struct iio_dev *indio_dev,
 	mutex_lock(&indio_dev->mlock);
 	switch (mask) {
 	case IIO_CHAN_INFO_RAW:
-		if (axp288_adc_set_ts(info, AXP288_ADC_TS_CURRENT_ON_ONDEMAND,
+		if (axp288_adc_set_ts(info->regmap, AXP288_ADC_TS_PIN_GPADC,
 					chan->address)) {
 			dev_err(&indio_dev->dev, "GPADC mode\n");
 			ret = -EINVAL;
 			break;
 		}
 		ret = axp288_adc_read_channel(val, chan->address, info->regmap);
-		if (axp288_adc_set_ts(info, AXP288_ADC_TS_CURRENT_ON,
+		if (axp288_adc_set_ts(info->regmap, AXP288_ADC_TS_PIN_ON,
 						chan->address))
 			dev_err(&indio_dev->dev, "TS pin restore\n");
 		break;
@@ -192,65 +162,18 @@ static int axp288_adc_read_raw(struct iio_dev *indio_dev,
 	return ret;
 }
 
-/*
- * We rely on the machine's firmware to correctly setup the TS pin bias current
- * at boot. This lists systems with broken fw where we need to set it ourselves.
- */
-static const struct dmi_system_id axp288_adc_ts_bias_override[] = {
-	{
-		/* Lenovo Ideapad 100S (11 inch) */
-		.matches = {
-		  DMI_MATCH(DMI_SYS_VENDOR, "LENOVO"),
-		  DMI_MATCH(DMI_PRODUCT_VERSION, "Lenovo ideapad 100S-11IBY"),
-		},
-		.driver_data = (void *)(uintptr_t)AXP288_ADC_TS_BIAS_80UA,
-	},
-	{}
-};
-
-static int axp288_adc_initialize(struct axp288_adc_info *info)
+static int axp288_adc_set_state(struct regmap *regmap)
 {
-	const struct dmi_system_id *bias_override;
-	int ret, adc_enable_val;
+	/* ADC should be always enabled for internal FG to function */
+	if (regmap_write(regmap, AXP288_ADC_TS_PIN_CTRL, AXP288_ADC_TS_PIN_ON))
+		return -EIO;
 
-	bias_override = dmi_first_match(axp288_adc_ts_bias_override);
-	if (bias_override) {
-		ret = regmap_update_bits(info->regmap, AXP288_ADC_TS_PIN_CTRL,
-					 AXP288_ADC_TS_BIAS_MASK,
-					 (uintptr_t)bias_override->driver_data);
-		if (ret)
-			return ret;
-	}
-
-	/*
-	 * Determine if the TS pin is enabled and set the TS current-source
-	 * accordingly.
-	 */
-	ret = regmap_read(info->regmap, AXP20X_ADC_EN1, &adc_enable_val);
-	if (ret)
-		return ret;
-
-	if (adc_enable_val & AXP288_ADC_TS_ENABLE) {
-		info->ts_enabled = true;
-		ret = regmap_update_bits(info->regmap, AXP288_ADC_TS_PIN_CTRL,
-					 AXP288_ADC_TS_CURRENT_ON_OFF_MASK,
-					 AXP288_ADC_TS_CURRENT_ON);
-	} else {
-		info->ts_enabled = false;
-		ret = regmap_update_bits(info->regmap, AXP288_ADC_TS_PIN_CTRL,
-					 AXP288_ADC_TS_CURRENT_ON_OFF_MASK,
-					 AXP288_ADC_TS_CURRENT_OFF);
-	}
-	if (ret)
-		return ret;
-
-	/* Turn on the ADC for all channels except TS, leave TS as is */
-	return regmap_update_bits(info->regmap, AXP20X_ADC_EN1,
-				  AXP288_ADC_EN_MASK, AXP288_ADC_EN_MASK);
+	return regmap_write(regmap, AXP20X_ADC_EN1, AXP288_ADC_EN_MASK);
 }
 
 static const struct iio_info axp288_adc_iio_info = {
 	.read_raw = &axp288_adc_read_raw,
+	.driver_module = THIS_MODULE,
 };
 
 static int axp288_adc_probe(struct platform_device *pdev)
@@ -276,7 +199,7 @@ static int axp288_adc_probe(struct platform_device *pdev)
 	 * Set ADC to enabled state at all time, including system suspend.
 	 * otherwise internal fuel gauge functionality may be affected.
 	 */
-	ret = axp288_adc_initialize(info);
+	ret = axp288_adc_set_state(axp20x->regmap);
 	if (ret) {
 		dev_err(&pdev->dev, "unable to enable ADC device\n");
 		return ret;

@@ -400,6 +400,7 @@ static const struct iio_info mlx90614_info = {
 	.write_raw = mlx90614_write_raw,
 	.write_raw_get_fmt = mlx90614_write_raw_get_fmt,
 	.attrs = &mlx90614_attr_group,
+	.driver_module = THIS_MODULE,
 };
 
 #ifdef CONFIG_PM
@@ -433,11 +434,11 @@ static int mlx90614_wakeup(struct mlx90614_data *data)
 
 	dev_dbg(&data->client->dev, "Requesting wake-up");
 
-	i2c_lock_bus(data->client->adapter, I2C_LOCK_ROOT_ADAPTER);
+	i2c_lock_adapter(data->client->adapter);
 	gpiod_direction_output(data->wakeup_gpio, 0);
 	msleep(MLX90614_TIMING_WAKEUP);
 	gpiod_direction_input(data->wakeup_gpio);
-	i2c_unlock_bus(data->client->adapter, I2C_LOCK_ROOT_ADAPTER);
+	i2c_unlock_adapter(data->client->adapter);
 
 	data->ready_timestamp = jiffies +
 			msecs_to_jiffies(MLX90614_TIMING_STARTUP);
@@ -584,12 +585,6 @@ static const struct i2c_device_id mlx90614_id[] = {
 };
 MODULE_DEVICE_TABLE(i2c, mlx90614_id);
 
-static const struct of_device_id mlx90614_of_match[] = {
-	{ .compatible = "melexis,mlx90614" },
-	{ }
-};
-MODULE_DEVICE_TABLE(of, mlx90614_of_match);
-
 #ifdef CONFIG_PM_SLEEP
 static int mlx90614_pm_suspend(struct device *dev)
 {
@@ -649,7 +644,6 @@ static const struct dev_pm_ops mlx90614_pm_ops = {
 static struct i2c_driver mlx90614_driver = {
 	.driver = {
 		.name	= "mlx90614",
-		.of_match_table = mlx90614_of_match,
 		.pm	= &mlx90614_pm_ops,
 	},
 	.probe = mlx90614_probe,

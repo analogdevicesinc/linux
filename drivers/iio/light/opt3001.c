@@ -585,6 +585,7 @@ err:
 }
 
 static const struct iio_info opt3001_info = {
+	.driver_module = THIS_MODULE,
 	.attrs = &opt3001_attribute_group,
 	.read_raw = opt3001_read_raw,
 	.write_raw = opt3001_write_raw,
@@ -694,7 +695,6 @@ static irqreturn_t opt3001_irq(int irq, void *_iio)
 	struct iio_dev *iio = _iio;
 	struct opt3001 *opt = iio_priv(iio);
 	int ret;
-	bool wake_result_ready_queue = false;
 
 	if (!opt->ok_to_ignore_lock)
 		mutex_lock(&opt->lock);
@@ -729,15 +729,12 @@ static irqreturn_t opt3001_irq(int irq, void *_iio)
 		}
 		opt->result = ret;
 		opt->result_ready = true;
-		wake_result_ready_queue = true;
+		wake_up(&opt->result_ready_queue);
 	}
 
 out:
 	if (!opt->ok_to_ignore_lock)
 		mutex_unlock(&opt->lock);
-
-	if (wake_result_ready_queue)
-		wake_up(&opt->result_ready_queue);
 
 	return IRQ_HANDLED;
 }
@@ -843,7 +840,6 @@ static const struct of_device_id opt3001_of_match[] = {
 	{ .compatible = "ti,opt3001" },
 	{ }
 };
-MODULE_DEVICE_TABLE(of, opt3001_of_match);
 
 static struct i2c_driver opt3001_driver = {
 	.probe = opt3001_probe,

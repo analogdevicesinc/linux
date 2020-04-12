@@ -113,7 +113,7 @@ static const char max44000_int_time_avail_str[] =
 	"0.100 "
 	"0.025 "
 	"0.00625 "
-	"0.0015625";
+	"0.001625";
 
 /* Available scales (internal to ulux) with pretty manual alignment: */
 static const int max44000_scale_avail_ulux_array[] = {
@@ -204,18 +204,17 @@ static int max44000_write_alspga(struct max44000_data *data, int val)
 static int max44000_read_alsval(struct max44000_data *data)
 {
 	u16 regval;
-	__be16 val;
 	int alstim, ret;
 
 	ret = regmap_bulk_read(data->regmap, MAX44000_REG_ALS_DATA_HI,
-			       &val, sizeof(val));
+			       &regval, sizeof(regval));
 	if (ret < 0)
 		return ret;
 	alstim = ret = max44000_read_alstim(data);
 	if (ret < 0)
 		return ret;
 
-	regval = be16_to_cpu(val);
+	regval = be16_to_cpu(regval);
 
 	/*
 	 * Overflow is explained on datasheet page 17.
@@ -402,6 +401,7 @@ static const struct attribute_group max44000_attribute_group = {
 };
 
 static const struct iio_info max44000_info = {
+	.driver_module		= THIS_MODULE,
 	.read_raw		= max44000_read_raw,
 	.write_raw		= max44000_write_raw,
 	.write_raw_get_fmt	= max44000_write_raw_get_fmt,

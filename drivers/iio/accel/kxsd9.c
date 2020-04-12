@@ -255,6 +255,8 @@ static int kxsd9_buffer_postdisable(struct iio_dev *indio_dev)
 
 static const struct iio_buffer_setup_ops kxsd9_buffer_setup_ops = {
 	.preenable = kxsd9_buffer_preenable,
+	.postenable = iio_triggered_buffer_postenable,
+	.predisable = iio_triggered_buffer_predisable,
 	.postdisable = kxsd9_buffer_postdisable,
 };
 
@@ -388,6 +390,7 @@ static const struct iio_info kxsd9_info = {
 	.read_raw = &kxsd9_read_raw,
 	.write_raw = &kxsd9_write_raw,
 	.attrs = &kxsd9_attribute_group,
+	.driver_module = THIS_MODULE,
 };
 
 /* Four channels apart from timestamp, scan mask = 0x0f */
@@ -418,7 +421,9 @@ int kxsd9_common_probe(struct device *dev,
 	indio_dev->available_scan_masks = kxsd9_scan_masks;
 
 	/* Read the mounting matrix, if present */
-	ret = iio_read_mount_matrix(dev, "mount-matrix", &st->orientation);
+	ret = of_iio_read_mount_matrix(dev,
+				       "mount-matrix",
+				       &st->orientation);
 	if (ret)
 		return ret;
 
