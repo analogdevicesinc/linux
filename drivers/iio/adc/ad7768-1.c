@@ -169,8 +169,10 @@ struct ad7768_state {
 	} data ____cacheline_aligned;
 };
 
-static int ad7768_spi_reg_read(struct ad7768_state *st, unsigned int addr,
-			       unsigned int len)
+static int ad7768_spi_reg_read(struct ad7768_state *st,
+			       unsigned int addr,
+			       unsigned int len,
+			       unsigned int *data)
 {
 	unsigned int shift;
 	int ret;
@@ -180,10 +182,10 @@ static int ad7768_spi_reg_read(struct ad7768_state *st, unsigned int addr,
 
 	ret = spi_write_then_read(st->spi, st->data.d8, 1,
 				  &st->data.d32, len);
-	if (ret < 0)
-		return ret;
 
-	return (be32_to_cpu(st->data.d32) >> shift);
+	*data = (be32_to_cpu(st->data.d32) >> shift);
+
+	return ret;
 }
 
 static int ad7768_spi_reg_write(struct ad7768_state *st,
@@ -199,11 +201,12 @@ static int ad7768_spi_reg_write(struct ad7768_state *st,
 static int ad7768_set_mode(struct ad7768_state *st,
 			   enum ad7768_conv_mode mode)
 {
-	int regval;
+	int ret;
+	unsigned int regval;
 
-	regval = ad7768_spi_reg_read(st, AD7768_REG_CONVERSION, 1);
-	if (regval < 0)
-		return regval;
+	ret = ad7768_spi_reg_read(st, AD7768_REG_CONVERSION, 1, &regval);
+	if (ret < 0)
+		return ret;
 
 	regval &= ~AD7768_CONV_MODE_MSK;
 	regval |= AD7768_CONV_MODE(mode);
@@ -211,10 +214,11 @@ static int ad7768_set_mode(struct ad7768_state *st,
 	return ad7768_spi_reg_write(st, AD7768_REG_CONVERSION, regval);
 }
 
-static int ad7768_scan_direct(struct iio_dev *indio_dev)
+static int ad7768_scan_direct(struct iio_dev *indio_dev,
+			      int *data)
 {
 	struct ad7768_state *st = iio_priv(indio_dev);
-	int readval, ret;
+	int ret;
 
 	reinit_completion(&st->completion);
 
@@ -227,18 +231,14 @@ static int ad7768_scan_direct(struct iio_dev *indio_dev)
 	if (!ret)
 		return -ETIMEDOUT;
 
-	readval = ad7768_spi_reg_read(st, AD7768_REG_ADC_DATA, 3);
-	if (readval < 0)
-		return readval;
+	ret = ad7768_spi_reg_read(st, AD7768_REG_ADC_DATA, 3, data);
+	if (ret < 0)
+		return ret;
 	/*
 	 * Any SPI configuration of the AD7768-1 can only be
 	 * performed in continuous conversion mode.
 	 */
-	ret = ad7768_set_mode(st, AD7768_CONTINUOUS);
-	if (ret < 0)
-		return ret;
-
-	return readval;
+	return ad7768_set_mode(st, AD7768_CONTINUOUS);
 }
 
 static int ad7768_reg_access(struct iio_dev *indio_dev,
@@ -251,11 +251,9 @@ static int ad7768_reg_access(struct iio_dev *indio_dev,
 
 	mutex_lock(&st->lock);
 	if (readval) {
-		ret = ad7768_spi_reg_read(st, reg, 1);
+		ret = ad7768_spi_reg_read(st, reg, 1, readval);
 		if (ret < 0)
 			goto err_unlock;
-		*readval = ret;
-		ret = 0;
 	} else {
 		ret = ad7768_spi_reg_write(st, reg, writeval);
 	}
@@ -362,9 +360,7 @@ static int ad7768_read_raw(struct iio_dev *indio_dev,
 		if (ret)
 			return ret;
 
-		ret = ad7768_scan_direct(indio_dev);
-		if (ret >= 0)
-			*val = ret;
+		ret = ad7768_scan_direct(indio_dev, val);
 
 		iio_device_release_direct_mode(indio_dev);
 		if (ret < 0)
@@ -499,12 +495,13 @@ static int ad7768_buffer_postenable(struct iio_dev *indio_dev)
 static int ad7768_buffer_predisable(struct iio_dev *indio_dev)
 {
 	struct ad7768_state *st = iio_priv(indio_dev);
+	unsigned int readval;
 
 	/*
 	 * To exit continuous read mode, perform a single read of the ADC_DATA
 	 * reg (0x2C), which allows further configuration of the device.
 	 */
-	return ad7768_spi_reg_read(st, AD7768_REG_ADC_DATA, 3);
+	return ad7768_spi_reg_read(st, AD7768_REG_ADC_DATA, 3, &readval);
 }
 
 static const struct iio_buffer_setup_ops ad7768_buffer_ops = {
