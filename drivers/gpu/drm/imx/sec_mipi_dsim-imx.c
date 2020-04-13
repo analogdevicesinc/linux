@@ -1,7 +1,7 @@
 /*
  * Samsung MIPI DSI Host Controller on IMX
  *
- * Copyright 2018-2019 NXP
+ * Copyright 2018-2020 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -277,13 +277,6 @@ static int imx_sec_dsim_bind(struct device *dev, struct device *master,
 	struct drm_encoder *encoder;
 
 	dev_dbg(dev, "%s: dsim bind begin\n", __func__);
-	dsim_dev = devm_kzalloc(dev, sizeof(*dsim_dev), GFP_KERNEL);
-	if (!dsim_dev) {
-		dev_err(dev, "Unable to allocate 'dsim_dev'\n");
-		return -ENOMEM;
-	}
-
-	dsim_dev->dev = &pdev->dev;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res) {
@@ -362,9 +355,19 @@ static const struct component_ops imx_sec_dsim_ops = {
 
 static int imx_sec_dsim_probe(struct platform_device *pdev)
 {
-	dev_dbg(&pdev->dev, "%s: dsim probe begin\n", __func__);
+	struct device *dev = &pdev->dev;
 
-	return component_add(&pdev->dev, &imx_sec_dsim_ops);
+	dev_dbg(dev, "%s: dsim probe begin\n", __func__);
+
+	dsim_dev = devm_kzalloc(dev, sizeof(*dsim_dev), GFP_KERNEL);
+	if (!dsim_dev) {
+		dev_err(dev, "Unable to allocate 'dsim_dev'\n");
+		return -ENOMEM;
+	}
+
+	dsim_dev->dev = dev;
+
+	return component_add(dev, &imx_sec_dsim_ops);
 }
 
 static int imx_sec_dsim_remove(struct platform_device *pdev)
@@ -389,7 +392,7 @@ static int imx_sec_dsim_resume(struct device *dev)
 static int imx_sec_dsim_runtime_suspend(struct device *dev)
 {
 	/* check sec dsim is bound or not */
-	if (unlikely(!dsim_dev))
+	if (unlikely(!dsim_dev->encoder.dev))
 		return 0;
 
 	if (atomic_inc_return(&dsim_dev->rpm_suspended) > 1)
@@ -407,7 +410,7 @@ static int imx_sec_dsim_runtime_resume(struct device *dev)
 	int ret;
 
 	/* check sec dsim is bound or not */
-	if (unlikely(!dsim_dev))
+	if (unlikely(!dsim_dev->encoder.dev))
 		return 0;
 
 	if (unlikely(!atomic_read(&dsim_dev->rpm_suspended))) {
