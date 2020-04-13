@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0+ */
 /*
- * Copyright 2019 NXP
+ * Copyright 2019,2020 NXP
  */
 
 #ifndef __LCDIFV3_PLANE_H
@@ -21,8 +21,4 @@ struct lcdifv3_plane *lcdifv3_plane_init(struct drm_device *drm,
 				     unsigned int possible_crtcs,
 				     enum drm_plane_type type,
 				     unsigned int zpos);
-
-void lcdifv3_plane_deinit(struct drm_device *dev,
-			struct lcdifv3_plane *lcdifv3_plane);
-
 #endif

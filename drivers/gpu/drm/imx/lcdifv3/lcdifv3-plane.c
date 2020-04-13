@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
- * Copyright 2019 NXP
+ * Copyright 2019,2020 NXP
  */
 
 #include <linux/module.h>
@@ -203,15 +203,4 @@ struct lcdifv3_plane *lcdifv3_plane_init(struct drm_device *dev,
 	}
 
 	return lcdifv3_plane;
-}
-
-void lcdifv3_plane_deinit(struct drm_device *dev,
-			struct lcdifv3_plane *lcdifv3_plane)
-{
-	struct drm_plane *plane = &lcdifv3_plane->base;
-
-	if (plane->zpos_property)
-		drm_property_destroy(dev, plane->zpos_property);
-
-	lcdifv3_plane_destroy(plane);
 }

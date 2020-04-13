@@ -269,7 +269,7 @@ static int lcdifv3_crtc_init(struct lcdifv3_crtc *lcdifv3_crtc,
 			&lcdifv3_crtc_funcs, NULL);
 	if (ret) {
 		dev_err(lcdifv3_crtc->dev, "failed to init crtc\n");
-		goto primary_plane_deinit;
+		return ret;
 	}
 
 	lcdifv3_crtc->vbl_irq = lcdifv3_vblank_irq_get(lcdifv3);
@@ -281,17 +281,12 @@ static int lcdifv3_crtc_init(struct lcdifv3_crtc *lcdifv3_crtc,
 	if (ret) {
 		dev_err(lcdifv3_crtc->dev,
 			"vblank irq request failed: %d\n", ret);
-		goto primary_plane_deinit;
+		return ret;
 	}
 
 	disable_irq(lcdifv3_crtc->vbl_irq);
 
 	return 0;
-
-primary_plane_deinit:
-	lcdifv3_plane_deinit(drm, primary);
-
-	return ret;
 }
 
 static int lcdifv3_crtc_bind(struct device *dev, struct device *master,
@@ -326,10 +321,7 @@ static int lcdifv3_crtc_bind(struct device *dev, struct device *master,
 static void lcdifv3_crtc_unbind(struct device *dev, struct device *master,
 			      void *data)
 {
-	struct drm_device *drm = data;
-	struct lcdifv3_crtc *lcdifv3_crtc = dev_get_drvdata(dev);
-
-	lcdifv3_plane_deinit(drm, lcdifv3_crtc->plane[0]);
+	/* No special to be done */
 }
 
 static const struct component_ops lcdifv3_crtc_ops = {
