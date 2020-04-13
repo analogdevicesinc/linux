@@ -1105,8 +1105,16 @@ static int adxl372_validate_trigger(struct iio_dev *indio_dev,
 	return 0;
 }
 
+static int adxl372_trigger_validate_own_device(struct iio_trigger *trig,
+	struct iio_dev *indio_dev)
+{
+	if (indio_dev->dev.parent != trig->dev.parent)
+		return -EINVAL;
+	return 0;
+}
+
 static const struct iio_trigger_ops adxl372_trigger_ops = {
-	.validate_device = &iio_trigger_validate_own_device,
+	.validate_device = adxl372_trigger_validate_own_device,
 	.set_trigger_state = adxl372_dready_trig_set_state,
 };
 
@@ -1181,7 +1189,8 @@ int adxl372_probe(struct device *dev, struct regmap *regmap,
 	if (ret < 0)
 		return ret;
 
-	iio_buffer_set_attrs(indio_dev->buffer, adxl372_fifo_attributes);
+
+	indio_dev->buffer->attrs = adxl372_fifo_attributes;
 
 	if (st->irq) {
 		st->dready_trig = devm_iio_trigger_alloc(dev,
