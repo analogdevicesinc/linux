@@ -1353,7 +1353,7 @@ static ssize_t iio_dma_show_data_available(struct device *dev,
 }
 
 static DEVICE_ATTR(length, S_IRUGO | S_IWUSR, iio_buffer_read_length,
-	iio_buffer_write_length);
+		   iio_buffer_write_length);
 static struct device_attribute dev_attr_length_ro = __ATTR(length,
 	S_IRUGO, iio_buffer_read_length, NULL);
 static DEVICE_ATTR(enable, S_IRUGO | S_IWUSR,
