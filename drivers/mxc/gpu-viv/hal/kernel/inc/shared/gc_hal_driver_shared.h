@@ -53,8 +53,8 @@
 *****************************************************************************/
 
 
-#ifndef __gc_hal_driver_h_
-#define __gc_hal_driver_h_
+#ifndef __gc_hal_driver_shared_h_
+#define __gc_hal_driver_shared_h_
 
 #include "gc_hal_enum.h"
 #include "gc_hal_types.h"
@@ -1237,6 +1237,6 @@ gcsHAL_INTERFACE;
 }
 #endif
 
-#endif /* __gc_hal_driver_h_ */
+#endif /* __gc_hal_driver_shared_h_ */
 
 

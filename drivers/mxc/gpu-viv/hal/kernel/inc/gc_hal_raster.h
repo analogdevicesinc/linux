@@ -57,7 +57,7 @@
 #define __gc_hal_raster_h_
 
 #include "gc_hal_enum.h"
-#include "shared/gc_hal_types.h"
+#include "gc_hal_types.h"
 
 #ifdef __cplusplus
 extern "C" {

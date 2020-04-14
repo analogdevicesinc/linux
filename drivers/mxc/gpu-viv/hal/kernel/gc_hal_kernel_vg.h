@@ -57,7 +57,7 @@
 #define __gc_hal_kernel_vg_h_
 
 #include "gc_hal.h"
-#include "shared/gc_hal_driver.h"
+#include "gc_hal_driver.h"
 #include "gc_hal_kernel_hardware.h"
 
 /******************************************************************************\

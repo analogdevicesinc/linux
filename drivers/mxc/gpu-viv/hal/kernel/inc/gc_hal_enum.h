@@ -57,7 +57,7 @@
 #define __gc_hal_enum_h_
 
 #include "gc_hal_options.h"
-#include "shared/gc_hal_enum.h"
+#include "shared/gc_hal_enum_shared.h"
 
 #ifdef __cplusplus
 extern "C" {

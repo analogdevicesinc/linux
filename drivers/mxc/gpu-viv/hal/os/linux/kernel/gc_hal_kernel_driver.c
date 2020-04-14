@@ -59,7 +59,7 @@
 #include <linux/uaccess.h>
 
 #include "gc_hal_kernel_linux.h"
-#include "shared/gc_hal_driver.h"
+#include "gc_hal_driver.h"
 
 #include <linux/platform_device.h>
 

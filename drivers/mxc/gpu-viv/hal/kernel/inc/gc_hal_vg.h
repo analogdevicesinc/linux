@@ -61,10 +61,10 @@ extern "C" {
 #endif
 
 
-#include "shared/gc_hal_types.h"
+#include "gc_hal_types.h"
 #include "gc_hal_enum.h"
 #include "gc_hal_base.h"
-#include "shared/gc_hal_vg.h"
+#include "shared/gc_hal_vg_shared.h"
 
 #if gcdENABLE_VG
 

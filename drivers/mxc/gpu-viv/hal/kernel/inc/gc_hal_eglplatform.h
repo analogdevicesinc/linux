@@ -56,7 +56,7 @@
 #ifndef __gc_hal_eglplatform_h_
 #define __gc_hal_eglplatform_h_
 
-#include "shared/gc_hal_types.h"
+#include "gc_hal_types.h"
 #include "gc_hal_base.h"
 
 #ifdef __cplusplus

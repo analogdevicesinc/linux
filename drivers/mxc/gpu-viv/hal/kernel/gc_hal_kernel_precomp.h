@@ -57,7 +57,7 @@
 #define __gc_hal_kernel_precomp_h_
 
 #include "gc_hal.h"
-#include "shared/gc_hal_driver.h"
+#include "gc_hal_driver.h"
 #include "gc_hal_kernel.h"
 
 #endif /* __gc_hal_kernel_precomp_h_ */

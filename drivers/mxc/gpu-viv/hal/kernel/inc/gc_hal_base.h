@@ -57,9 +57,9 @@
 #define __gc_hal_base_h_
 
 #include "gc_hal_enum.h"
-#include "shared/gc_hal_types.h"
+#include "gc_hal_types.h"
 #include "gc_hal_debug_zones.h"
-#include "shared/gc_hal_base.h"
+#include "shared/gc_hal_base_shared.h"
 
 
 #ifdef __cplusplus

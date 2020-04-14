@@ -53,8 +53,8 @@
 *****************************************************************************/
 
 
-#ifndef __gc_hal_driver_vg_h_
-#define __gc_hal_driver_vg_h_
+#ifndef __gc_hal_driver_vg_shared_h_
+#define __gc_hal_driver_vg_shared_h_
 
 #include "gc_hal_types.h"
 
@@ -259,6 +259,6 @@ gcsTASK_FREE_CONTIGUOUS_MEMORY;
 }
 #endif
 
-#endif /* __gc_hal_driver_h_ */
+#endif /* __gc_hal_driver_vg_shared_h_ */
 
 

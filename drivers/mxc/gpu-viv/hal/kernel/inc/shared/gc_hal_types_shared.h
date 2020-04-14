@@ -53,8 +53,8 @@
 *****************************************************************************/
 
 
-#ifndef __gc_hal_types_h_
-#define __gc_hal_types_h_
+#ifndef __gc_hal_types_shared_h_
+#define __gc_hal_types_shared_h_
 
 #include "gc_hal_version.h"
 #include "gc_hal_options.h"
@@ -982,6 +982,6 @@ gcsHAL_PATCH_VIDMEM_TIMESTAMP;
 }
 #endif
 
-#endif /* __gc_hal_types_h_ */
+#endif /* __gc_hal_types_shared_h_ */
 
 

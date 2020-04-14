@@ -56,7 +56,7 @@
 #ifndef __gc_hal_profiler_h_
 #define __gc_hal_profiler_h_
 
-#include "shared/gc_hal_profiler.h"
+#include "shared/gc_hal_profiler_shared.h"
 
 #ifdef __cplusplus
 extern "C" {

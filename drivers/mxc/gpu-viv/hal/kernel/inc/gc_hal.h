@@ -56,11 +56,11 @@
 #ifndef __gc_hal_h_
 #define __gc_hal_h_
 
-#include "shared/gc_hal_types.h"
+#include "gc_hal_types.h"
 #include "gc_hal_enum.h"
 #include "gc_hal_base.h"
 #include "gc_hal_profiler.h"
-#include "shared/gc_hal_driver.h"
+#include "gc_hal_driver.h"
 #if gcdENABLE_3D
 #include "gc_hal_statistics.h"
 #endif
