@@ -140,7 +140,7 @@ static int imx_rpmsg_rtc_read_time(struct device *dev, struct rtc_time *tm)
 	if (ret)
 		return ret;
 
-	rtc_time_to_tm(rtc_rpmsg.msg->sec, tm);
+	rtc_time64_to_tm(rtc_rpmsg.msg->sec, tm);
 
 	return 0;
 }
@@ -151,7 +151,7 @@ static int imx_rpmsg_rtc_set_time(struct device *dev, struct rtc_time *tm)
 	unsigned long time;
 	int ret;
 
-	rtc_tm_to_time(tm, &time);
+	time = rtc_tm_to_time64(tm);
 
 	msg.header.cate = IMX_RPMSG_RTC;
 	msg.header.major = IMX_RMPSG_MAJOR;
@@ -182,7 +182,7 @@ static int imx_rpmsg_rtc_read_alarm(struct device *dev, struct rtc_wkalrm *alrm)
 	if (ret)
 		return ret;
 
-	rtc_time_to_tm(rtc_rpmsg.msg->sec, &alrm->time);
+	rtc_time64_to_tm(rtc_rpmsg.msg->sec, &alrm->time);
 	alrm->pending = rtc_rpmsg.msg->pending;
 
 	return rtc_rpmsg.msg->ret;
@@ -214,7 +214,7 @@ static int imx_rpmsg_rtc_set_alarm(struct device *dev, struct rtc_wkalrm *alrm)
 	unsigned long time;
 	int ret;
 
-	rtc_tm_to_time(&alrm->time, &time);
+	time = rtc_tm_to_time64(&alrm->time);
 
 	msg.header.cate = IMX_RPMSG_RTC;
 	msg.header.major = IMX_RMPSG_MAJOR;
