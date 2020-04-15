@@ -891,86 +891,6 @@ static int fsl_sai_startup(struct snd_pcm_substream *substream,
 	return ret;
 }
 
-static const char
-	*en_sl[] = { "Disabled", "Enabled", },
-	*inc_sl[] = { "On enabled and bitcount increment", "On enabled", };
-
-static const struct soc_enum tstmp_enum[] = {
-SOC_ENUM_SINGLE(FSL_SAI_TTCTL, 0, ARRAY_SIZE(en_sl), en_sl),
-SOC_ENUM_SINGLE(FSL_SAI_RTCTL, 0, ARRAY_SIZE(en_sl), en_sl),
-SOC_ENUM_SINGLE(FSL_SAI_TTCTL, 1, ARRAY_SIZE(inc_sl), inc_sl),
-SOC_ENUM_SINGLE(FSL_SAI_RTCTL, 1, ARRAY_SIZE(inc_sl), inc_sl),
-};
-
-int fsl_sai_get_reg(struct snd_kcontrol *kcontrol,
-		    struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_component *component = snd_kcontrol_chip(kcontrol);
-	struct soc_mreg_control *mc =
-		(struct soc_mreg_control *)kcontrol->private_value;
-	bool pm_active = pm_runtime_active(component->dev);
-	unsigned int regval;
-
-	if (pm_active)
-		regcache_cache_bypass(component->regmap, true);
-
-	regval = snd_soc_component_read(component, mc->regbase);
-
-	if (pm_active)
-		regcache_cache_bypass(component->regmap, false);
-
-	ucontrol->value.integer.value[0] = regval;
-
-	return 0;
-}
-
-#define SOC_SINGLE_REG_RO(xname, xreg) \
-{	.iface = SNDRV_CTL_ELEM_IFACE_PCM, .name = (xname), \
-	.access = SNDRV_CTL_ELEM_ACCESS_READ | \
-		  SNDRV_CTL_ELEM_ACCESS_VOLATILE, \
-	.info = snd_soc_info_xr_sx, .get = fsl_sai_get_reg, \
-	.private_value = (unsigned long)&(struct soc_mreg_control) \
-		{ .regbase = xreg, .regcount = 1, .nbits = 32, \
-		  .invert = 0, .min = 0, .max = 0xffffffff, } }
-
-static const struct snd_kcontrol_new fsl_sai_pb_ctrls[] = {
-	SOC_ENUM("Playback Timestamp Control", tstmp_enum[0]),
-	SOC_ENUM("Playback Timestamp Increment", tstmp_enum[2]),
-	SOC_SINGLE("Playback Timestamp Reset", FSL_SAI_TTCTL, 8, 1, 0),
-	SOC_SINGLE("Playback Bit Counter Reset", FSL_SAI_TTCTL, 9, 1, 0),
-	SOC_SINGLE_REG_RO("Playback Timestamp Counter", FSL_SAI_TTCTN),
-	SOC_SINGLE_REG_RO("Playback Bit Counter", FSL_SAI_TBCTN),
-	SOC_SINGLE_REG_RO("Playback Latched Timestamp Counter", FSL_SAI_TTCAP),
-};
-
-static const struct snd_kcontrol_new fsl_sai_cp_ctrls[] = {
-	SOC_ENUM("Capture Timestamp Control", tstmp_enum[1]),
-	SOC_ENUM("Capture Timestamp Increment", tstmp_enum[3]),
-	SOC_SINGLE("Capture Timestamp Reset", FSL_SAI_RTCTL, 8, 1, 0),
-	SOC_SINGLE("Capture Bit Counter Reset", FSL_SAI_RTCTL, 9, 1, 0),
-	SOC_SINGLE_REG_RO("Capture Timestamp Counter", FSL_SAI_RTCTN),
-	SOC_SINGLE_REG_RO("Capture Bit Counter", FSL_SAI_RBCTN),
-	SOC_SINGLE_REG_RO("Capture Latched Timestamp Counter", FSL_SAI_RTCAP),
-};
-
-static int fsl_sai_pcm_new(struct snd_soc_pcm_runtime *rtd,
-			   struct snd_soc_dai *dai)
-{
-	struct fsl_sai *sai = dev_get_drvdata(dai->dev);
-	struct snd_pcm *pcm = rtd->pcm;
-	bool ts_enabled = sai->verid.feature & FSL_SAI_VERID_TSTMP_EN;
-	struct snd_soc_component *comp = dai->component;
-
-	if (ts_enabled && pcm->streams[SNDRV_PCM_STREAM_PLAYBACK].substream)
-		snd_soc_add_component_controls(comp, fsl_sai_pb_ctrls,
-					       ARRAY_SIZE(fsl_sai_pb_ctrls));
-
-	if (ts_enabled && pcm->streams[SNDRV_PCM_STREAM_CAPTURE].substream)
-		snd_soc_add_component_controls(comp, fsl_sai_cp_ctrls,
-					       ARRAY_SIZE(fsl_sai_cp_ctrls));
-	return 0;
-}
-
 static int fsl_sai_dai_probe(struct snd_soc_dai *cpu_dai)
 {
 	struct fsl_sai *sai = dev_get_drvdata(cpu_dai->dev);
@@ -1052,7 +972,6 @@ static int fsl_sai_dai_resume(struct snd_soc_component *component)
 static struct snd_soc_dai_driver fsl_sai_dai_template[] = {
 	{
 		.name = "sai-tx-rx",
-		.pcm_new = fsl_sai_pcm_new,
 		.playback = {
 			.stream_name = "CPU-Playback",
 			.channels_min = 1,
@@ -1248,6 +1167,14 @@ static bool fsl_sai_volatile_reg(struct device *dev, unsigned int reg)
 	case FSL_SAI_RDR5:
 	case FSL_SAI_RDR6:
 	case FSL_SAI_RDR7:
+	case FSL_SAI_TTCTN:
+	case FSL_SAI_TTCTL:
+	case FSL_SAI_TBCTN:
+	case FSL_SAI_TTCAP:
+	case FSL_SAI_RTCTN:
+	case FSL_SAI_RTCTL:
+	case FSL_SAI_RBCTN:
+	case FSL_SAI_RTCAP:
 		return true;
 	default:
 		return false;
@@ -1632,6 +1559,28 @@ static int fsl_sai_probe(struct platform_device *pdev)
 	if (ret < 0 && ret != -ENOSYS)
 		goto err_pm_get_sync;
 
+	if (sai->verid.feature & FSL_SAI_VERID_TSTMP_EN) {
+		if (of_find_property(np, "fsl,sai-monitor-spdif", NULL) &&
+		    of_device_is_compatible(np, "fsl,imx8mm-sai")) {
+			sai->regmap_gpr = syscon_regmap_lookup_by_compatible("fsl,imx8mm-iomuxc-gpr");
+			if (IS_ERR(sai->regmap_gpr))
+				dev_warn(&pdev->dev, "cannot find iomuxc registers\n");
+
+			sai->gpr_idx = of_alias_get_id(np, "sai");
+			if (sai->gpr_idx < 0)
+				dev_warn(&pdev->dev, "cannot find sai alias id\n");
+
+			if (sai->gpr_idx > 0 && !IS_ERR(sai->regmap_gpr))
+				sai->monitor_spdif = true;
+		}
+
+		ret = sysfs_create_group(&pdev->dev.kobj, fsl_sai_get_dev_attribute_group(sai->monitor_spdif));
+		if (ret) {
+			dev_err(&pdev->dev, "fail to create sys group\n");
+			goto err_pm_get_sync;
+		}
+	}
+
 	/*
 	 * Register platform component before registering cpu dai for there
 	 * is not defer probe for platform component in snd_soc_add_pcm_runtime().
@@ -1642,23 +1591,27 @@ static int fsl_sai_probe(struct platform_device *pdev)
 			dev_err_probe(dev, ret, "PCM DMA init failed\n");
 			if (!IS_ENABLED(CONFIG_SND_SOC_IMX_PCM_DMA))
 				dev_err(dev, "Error: You must enable the imx-pcm-dma support!\n");
-			goto err_pm_get_sync;
+			goto err_component_register;
 		}
 	} else {
 		ret = devm_snd_dmaengine_pcm_register(dev, NULL, 0);
 		if (ret) {
 			dev_err_probe(dev, ret, "Registering PCM dmaengine failed\n");
-			goto err_pm_get_sync;
+			goto err_component_register;
 		}
 	}
 
 	ret = devm_snd_soc_register_component(dev, &fsl_component,
 					      sai->cpu_dai_drv, ARRAY_SIZE(fsl_sai_dai_template));
 	if (ret)
-		goto err_pm_get_sync;
+		goto err_component_register;
 
 	return ret;
 
+err_component_register:
+	if (sai->verid.feature & FSL_SAI_VERID_TSTMP_EN)
+		sysfs_remove_group(&pdev->dev.kobj,
+				   fsl_sai_get_dev_attribute_group(sai->monitor_spdif));
 err_pm_get_sync:
 	if (!pm_runtime_status_suspended(dev))
 		fsl_sai_runtime_suspend(dev);
@@ -1670,9 +1623,14 @@ err_pm_disable:
 
 static void fsl_sai_remove(struct platform_device *pdev)
 {
+	struct fsl_sai *sai = dev_get_drvdata(&pdev->dev);
+
 	pm_runtime_disable(&pdev->dev);
 	if (!pm_runtime_status_suspended(&pdev->dev))
 		fsl_sai_runtime_suspend(&pdev->dev);
+
+	if (sai->verid.feature & FSL_SAI_VERID_TSTMP_EN)
+		sysfs_remove_group(&pdev->dev.kobj,  fsl_sai_get_dev_attribute_group(sai->monitor_spdif));
 }
 
 static const struct fsl_sai_soc_data fsl_sai_vf610_data = {

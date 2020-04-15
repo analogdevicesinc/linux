@@ -277,6 +277,7 @@ struct fsl_sai_dl_cfg {
 struct fsl_sai {
 	struct platform_device *pdev;
 	struct regmap *regmap;
+	struct regmap *regmap_gpr;
 	struct clk *bus_clk;
 	struct clk *mclk_clk[FSL_SAI_MCLK_MAX];
 	struct clk *pll8k_clk;
@@ -292,6 +293,10 @@ struct fsl_sai {
 	struct fsl_sai_dl_cfg *dl_cfg;
 	unsigned int dl_cfg_cnt;
 	bool mclk_direction_output;
+	bool monitor_spdif;
+	bool monitor_spdif_start;
+
+	int gpr_idx;
 
 	unsigned int mclk_id[2];
 	unsigned int mclk_streams;
@@ -310,6 +315,8 @@ struct fsl_sai {
 	struct pinctrl_state *pins_state;
 	struct sdma_peripheral_config audio_config[2];
 };
+
+const struct attribute_group *fsl_sai_get_dev_attribute_group(bool monitor_spdif);
 
 #define TX 1
 #define RX 0
