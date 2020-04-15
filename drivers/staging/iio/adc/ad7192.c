@@ -897,7 +897,7 @@ static int ad7192_channels_config(struct iio_dev *indio_dev)
 	struct ad7192_state *st = iio_priv(indio_dev);
 
 	switch (st->chip_info->chip_id) {
-	case ID_AD7193:
+	case CHIPID_AD7193:
 		indio_dev->channels = ad7193_channels;
 		indio_dev->num_channels = ARRAY_SIZE(ad7193_channels);
 		break;
