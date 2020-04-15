@@ -33,6 +33,11 @@
 		mmc0 = &usdhc1;
 		mmc1 = &usdhc2;
 		mmc2 = &usdhc3;
+		sai1 = &sai1;
+		sai2 = &sai2;
+		sai3 = &sai3;
+		sai5 = &sai5;
+		sai6 = &sai6;
 		serial0 = &uart1;
 		serial1 = &uart2;
 		serial2 = &uart3;
