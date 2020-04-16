@@ -1,0 +1,53 @@
+// SPDX-License-Identifier: GPL-2.0+
+
+/*
+ * Copyright 2020 NXP
+ */
+
+/ {
+	lvds1_panel {
+		compatible = "jdi,tx26d202vm0bwa";
+		backlight = <&lvds_backlight1>;
+
+		port {
+			panel_lvds1_in: endpoint {
+				remote-endpoint = <&lvds1_out>;
+			};
+		};
+	};
+};
+
+&ldb1_phy {
+	status = "disabled";
+};
+
+&ldb1 {
+	status = "disabled";
+};
+
+&i2c1_lvds0 {
+	lvds-to-hdmi-bridge@4c {
+		status = "disabled";
+	};
+};
+
+/delete-node/ &it6263_1_in;
+
+&ldb2 {
+	status = "okay";
+	fsl,dual-channel;
+
+	lvds-channel@0 {
+		fsl,data-mapping = "spwg";
+		fsl,data-width = <24>;
+		status = "okay";
+
+		port@1 {
+			reg = <1>;
+
+			lvds1_out: endpoint {
+				remote-endpoint = <&panel_lvds1_in>;
+			};
+		};
+	};
+};
