@@ -232,6 +232,7 @@ dtb-$(CONFIG_ARCH_MXC) += imx8qm-mek.dtb imx8qm-mek-ov5640.dtb \
 			  imx8qm-mek-hdmi.dtb imx8qm-mek-dsp.dtb \
 			  imx8qm-mek-ca53.dtb imx8qm-mek-ca72.dtb \
 			  imx8qm-mek-jdi-wuxga-lvds1-panel.dtb \
+			  imx8qm-mek-jdi-wuxga-lvds1-panel-rpmsg.dtb \
 			  imx8qm-mek-dsi-rm67191.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx8qm-mek-root.dtb imx8qm-mek-inmate.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx8qxp-ai_ml.dtb
