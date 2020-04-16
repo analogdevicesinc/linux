@@ -407,6 +407,7 @@ extern const struct regulator_ops pmbus_regulator_ops;
 
 void pmbus_clear_cache(struct i2c_client *client);
 int pmbus_set_page(struct i2c_client *client, int page);
+int pmbus_block_write(struct i2c_client *client, u8 cmd, u8 w_len, u8 *data_w);
 int pmbus_block_wr(struct i2c_client *client, u8 cmd, u8 w_len, u8 *data_w,
 		   u8 *data_r);
 int pmbus_read_word_data(struct i2c_client *client, int page, u8 reg);

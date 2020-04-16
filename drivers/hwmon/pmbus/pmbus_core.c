@@ -241,6 +241,52 @@ cleanup:
 }
 EXPORT_SYMBOL_GPL(pmbus_block_wr);
 
+/* Block Write command.
+ * @client: Handle to slave device
+ * @cmd: Byte interpreted by slave
+ * @w_len: Size of write data block; PMBus allows at most 255 bytes
+ * @data_w: byte array which will be written.
+ *
+ * Returns 0 or negative errno.
+ */
+int pmbus_block_write(struct i2c_client *client, u8 cmd, u8 w_len, u8 *data_w)
+{
+	u8 write_buf[PMBUS_BLOCK_MAX + 1];
+	struct i2c_msg msg = {
+		.addr = client->addr,
+		.flags = 0,
+		.buf = write_buf,
+		.len = w_len + 2,
+	};
+	u8 addr = 0;
+	u8 crc = 0;
+	int ret;
+
+	msg.buf[0] = cmd;
+	msg.buf[1] = w_len;
+	memcpy(&msg.buf[2], data_w, w_len);
+
+	msg.buf = i2c_get_dma_safe_msg_buf(&msg, 1);
+	if (!msg.buf)
+		return -ENOMEM;
+
+	if (client->flags & I2C_CLIENT_PEC) {
+		addr = i2c_8bit_addr_from_msg(&msg);
+		crc = crc8(pmbus_crc_table, &addr, 1, crc);
+		crc = crc8(pmbus_crc_table, msg.buf,  msg.len, crc);
+
+		msg.buf[msg.len] = crc;
+		msg.len++;
+	}
+
+	ret = i2c_transfer(client->adapter, &msg, 1);
+
+	i2c_put_dma_safe_msg_buf(msg.buf, &msg, true);
+
+	return ret;
+}
+EXPORT_SYMBOL_GPL(pmbus_block_write);
+
 int pmbus_write_byte(struct i2c_client *client, int page, u8 value)
 {
 	int rv;
