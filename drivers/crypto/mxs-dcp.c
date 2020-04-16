@@ -17,6 +17,10 @@
 #include <linux/clk.h>
 #include <soc/fsl/dcp.h>
 
+#ifdef CONFIG_PM_SLEEP
+#include <linux/freezer.h>
+#endif
+
 #include <crypto/aes.h>
 #include <crypto/sha1.h>
 #include <crypto/sha2.h>
@@ -126,7 +130,10 @@ struct dcp_export_state {
  * design of Linux Crypto API.
  */
 static struct dcp *global_sdcp;
-
+#ifdef CONFIG_PM_SLEEP
+static uint32_t ctrl_bak;
+static int dcp_vmi_irq_bak, dcp_irq_bak;
+#endif
 /* DCP register layout. */
 #define MXS_DCP_CTRL				0x00
 #define MXS_DCP_CTRL_GATHER_RESIDUAL_WRITES	(1 << 23)
@@ -416,9 +423,15 @@ static int dcp_chan_thread_aes(void *data)
 
 	int ret;
 
+#ifdef CONFIG_PM_SLEEP
+	set_freezable();
+#endif
 	while (!kthread_should_stop()) {
 		set_current_state(TASK_INTERRUPTIBLE);
 
+#ifdef CONFIG_PM_SLEEP
+		try_to_freeze();
+#endif
 		spin_lock(&sdcp->lock[chan]);
 		backlog = crypto_get_backlog(&sdcp->queue[chan]);
 		arq = crypto_dequeue_request(&sdcp->queue[chan]);
@@ -456,6 +469,10 @@ static int mxs_dcp_block_fallback(struct skcipher_request *req, int enc)
 	skcipher_request_set_crypt(&rctx->fallback_req, req->src, req->dst,
 				   req->cryptlen, req->iv);
 
+#ifdef CONFIG_PM_SLEEP
+set_freezable();
+try_to_freeze();
+#endif
 	if (enc)
 		ret = crypto_skcipher_encrypt(&rctx->fallback_req);
 	else
@@ -746,9 +763,15 @@ static int dcp_chan_thread_sha(void *data)
 	struct crypto_async_request *arq;
 	int ret;
 
+#ifdef CONFIG_PM_SLEEP
+	set_freezable();
+#endif
 	while (!kthread_should_stop()) {
 		set_current_state(TASK_INTERRUPTIBLE);
 
+#ifdef CONFIG_PM_SLEEP
+		try_to_freeze();
+#endif
 		spin_lock(&sdcp->lock[chan]);
 		backlog = crypto_get_backlog(&sdcp->queue[chan]);
 		arq = crypto_dequeue_request(&sdcp->queue[chan]);
@@ -1052,6 +1075,49 @@ static irqreturn_t mxs_dcp_irq(int irq, void *context)
 	return IRQ_HANDLED;
 }
 
+#ifdef CONFIG_PM_SLEEP
+static int mxs_dcp_resume(struct device *dev)
+{
+	struct dcp *sdcp = global_sdcp;
+	int ret;
+
+	/* Restart the DCP block */
+	ret = stmp_reset_block(sdcp->base);
+	if (ret) {
+		dev_err(dev, "Failed reset\n");
+		clk_disable_unprepare(sdcp->dcp_clk);
+		return ret;
+	}
+
+	/* Restore control register */
+	writel(ctrl_bak, sdcp->base + MXS_DCP_CTRL);
+	/* Enable all DCP DMA channels */
+	writel(MXS_DCP_CHANNELCTRL_ENABLE_CHANNEL_MASK,
+	       sdcp->base + MXS_DCP_CHANNELCTRL);
+
+	/* Re-enable DCP interrupts */
+	enable_irq(dcp_irq_bak);
+	enable_irq(dcp_vmi_irq_bak);
+
+	return 0;
+}
+
+static int mxs_dcp_suspend(struct device *dev)
+{
+	struct dcp *sdcp = global_sdcp;
+
+	/* Backup control register */
+	ctrl_bak = readl(sdcp->base + MXS_DCP_CTRL);
+	/* Temporarily disable DCP interrupts */
+	disable_irq(dcp_irq_bak);
+	disable_irq(dcp_vmi_irq_bak);
+
+	return 0;
+}
+
+SIMPLE_DEV_PM_OPS(mxs_dcp_pm_ops, mxs_dcp_suspend, mxs_dcp_resume);
+#endif
+
 static int mxs_dcp_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -1071,7 +1137,10 @@ static int mxs_dcp_probe(struct platform_device *pdev)
 	dcp_irq = platform_get_irq(pdev, 1);
 	if (dcp_irq < 0)
 		return dcp_irq;
-
+#ifdef CONFIG_PM_SLEEP
+	dcp_vmi_irq_bak = dcp_vmi_irq;
+	dcp_irq_bak = dcp_irq;
+#endif
 	sdcp = devm_kzalloc(dev, sizeof(*sdcp), GFP_KERNEL);
 	if (!sdcp)
 		return -ENOMEM;
@@ -1250,6 +1319,9 @@ static struct platform_driver mxs_dcp_driver = {
 	.driver	= {
 		.name		= "mxs-dcp",
 		.of_match_table	= mxs_dcp_dt_ids,
+#ifdef CONFIG_PM_SLEEP
+		.pm = &mxs_dcp_pm_ops
+#endif
 	},
 };
 
