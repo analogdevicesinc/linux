@@ -248,6 +248,8 @@ dtb-$(CONFIG_ARCH_MXC) += imx8qxp-mek.dtb imx8qxp-mek-dsp.dtb imx8qxp-mek-ov5640
 			  imx8qxp-mek-rpmsg.dtb imx8qxp-mek-a0.dtb \
 			  imx8qxp-mek-it6263-lvds0-dual-channel.dtb \
 			  imx8qxp-mek-it6263-lvds1-dual-channel.dtb \
+			  imx8qxp-mek-it6263-lvds0-dual-channel-rpmsg.dtb \
+			  imx8qxp-mek-it6263-lvds1-dual-channel-rpmsg.dtb \
 			  imx8qxp-mek-jdi-wuxga-lvds0-panel.dtb \
 			  imx8qxp-mek-jdi-wuxga-lvds1-panel.dtb \
 			  imx8qxp-mek-jdi-wuxga-lvds0-panel-rpmsg.dtb \
