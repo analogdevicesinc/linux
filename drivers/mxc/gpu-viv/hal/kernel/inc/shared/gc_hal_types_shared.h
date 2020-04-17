@@ -56,9 +56,6 @@
 #ifndef __gc_hal_types_shared_h_
 #define __gc_hal_types_shared_h_
 
-#include "gc_hal_version.h"
-#include "gc_hal_options.h"
-
 #if !defined(VIV_KMD)
 #if defined(__KERNEL__)
 #include "linux/version.h"

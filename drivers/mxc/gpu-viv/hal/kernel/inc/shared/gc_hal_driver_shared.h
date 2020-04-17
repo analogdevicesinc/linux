@@ -56,8 +56,8 @@
 #ifndef __gc_hal_driver_shared_h_
 #define __gc_hal_driver_shared_h_
 
-#include "gc_hal_enum.h"
-#include "gc_hal_types.h"
+#include "gc_hal_enum_shared.h"
+#include "gc_hal_types_shared.h"
 
 #if gcdENABLE_VG
 #include "gc_hal_driver_vg.h"
