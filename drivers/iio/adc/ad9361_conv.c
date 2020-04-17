@@ -581,7 +581,7 @@ int ad9361_dig_tune(struct ad9361_rf_phy *phy, unsigned long max_freq,
 	struct ad9361_dig_tune_data data;
 	struct axiadc_state *st;
 	bool restore = false;
-	int ret = 0;
+	int ret = 0, ret_mute = -1;
 
 	if (!conv)
 		return -ENODEV;
@@ -601,7 +601,7 @@ int ad9361_dig_tune(struct ad9361_rf_phy *phy, unsigned long max_freq,
 		restore = true;
 	} else {
 		/* Mute TX, we don't want to transmit the PRBS */
-		ad9361_tx_mute(phy, 1);
+		ret_mute = ad9361_tx_mute(phy, 1);
 
 		ad9361_ensm_mode_disable_pinctrl(phy);
 
@@ -637,7 +637,8 @@ int ad9361_dig_tune(struct ad9361_rf_phy *phy, unsigned long max_freq,
 	axiadc_write(st, ADI_REG_RSTN, ADI_MMCM_RSTN);
 	axiadc_write(st, ADI_REG_RSTN, ADI_RSTN | ADI_MMCM_RSTN);
 
-	ad9361_tx_mute(phy, 0);
+	if (ret_mute == 0)
+		ad9361_tx_mute(phy, 0);
 
 	return ret;
 }
