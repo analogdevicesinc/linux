@@ -79,6 +79,7 @@ struct jesd204_rx_config {
 	uint8_t samples_per_frame;
 	uint8_t jesd_version;
 	uint8_t subclass_version;
+	uint16_t sysref_lmfc_offset;
 	bool enable_scrambling;
 	bool high_density;
 };
@@ -455,6 +456,9 @@ static int axi_jesd204_rx_apply_config(struct axi_jesd204_rx *jesd,
 			       jesd->base + JESD204_RX_REG_LINK_CONF2);
 	}
 
+	writel_relaxed(config->sysref_lmfc_offset,
+		jesd->base + JESD204_RX_REG_SYSREF_LMFC_OFFSET);
+
 	return 0;
 }
 
@@ -484,10 +488,16 @@ static int axi_jesd204_rx_parse_dt_config(struct device_node *np,
 	config->lanes_per_device = jesd->num_lanes;
 	config->jesd_version = 1;
 	config->subclass_version = 1;
+	config->sysref_lmfc_offset = 0;
 
+	/* optional */
 	ret = of_property_read_u32(np, "adi,subclass", &val);
 	if (ret == 0)
 		config->subclass_version = val;
+
+	ret = of_property_read_u32(np, "adi,sysref-lmfc-offset", &val);
+	if (ret == 0)
+		config->sysref_lmfc_offset = val;
 
 	return 0;
 }
