@@ -442,6 +442,10 @@ config SND_SOC_AK4642
 config SND_SOC_AK4671
 	tristate
 
+config SND_SOC_AK4954
+	tristate "AKM AK4954 CODEC"
+	depends on I2C
+
 config SND_SOC_AK5386
 	tristate "AKM AK5638 CODEC"
 

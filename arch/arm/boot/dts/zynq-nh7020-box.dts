@@ -1,0 +1,162 @@
+/dts-v1/;
+#include "zynq-nh7020.dtsi"
+#include <dt-bindings/input/input.h>
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+
+/ {
+	model = "Gridrf.com NH7020 RFSOM-BOX (Z7020/AD9361)";
+};
+
+&axi_i2c0 {	
+	ak4954: ak4954@12 {
+				compatible = "gridrf,ak4954";
+				reg = <0x12>;
+
+				clocks = <&audio_clock>;
+				gpios = <&gpio0 62 0>;
+
+				#sound-dai-cells = <0>;
+			};
+};
+
+/ {
+	leds {
+		compatible = "gpio-leds";
+		led0 {
+			label = "led0:green";
+			gpios = <&gpio0 56 1>;
+			};
+
+		led1 {
+			label = "led1:red";
+			gpios = <&gpio0 55 1>;
+		};
+
+		led2 {
+			label = "led2:blue";
+			gpios = <&gpio0 54 0>;
+		};
+	};
+	
+	gpio-keys-nav-switch {
+		compatible = "gpio-keys";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		interrupt-parent = <&gpio0>;
+		autorepeat;
+
+		s5 {
+			label = "Right";
+			linux,code = <KEY_RIGHT>;
+			interrupts = <103 IRQ_TYPE_EDGE_RISING>;
+			debounce-interval = <10>;
+		};
+
+		s3 {
+			label = "Left";
+			linux,code = <KEY_LEFT>;
+			interrupts = <101 IRQ_TYPE_EDGE_RISING>;
+			debounce-interval = <10>;
+			};
+
+		s4 {
+			label = "Down";
+			linux,code = <KEY_DOWN>;
+			interrupts = <104 IRQ_TYPE_EDGE_RISING>;
+			debounce-interval = <10>;
+		};
+
+		s2 {
+			label = "Up";
+			linux,code = <KEY_UP>;
+			interrupts = <102 IRQ_TYPE_EDGE_RISING>;
+			debounce-interval = <10>;
+		};
+
+		s1 {
+			label = "Enter";
+			linux,code = <KEY_ENTER>;
+			interrupts = <111 IRQ_TYPE_EDGE_RISING>;
+			debounce-interval = <10>;
+			gpio-key,wakeup;
+		};
+
+	};
+
+	rotary {
+			compatible = "rotary-encoder";
+			gpios = <&gpio0 112 1>, <&gpio0 113 1>;
+			linux,axis = <REL_WHEEL>;
+			rotary-encoder,steps = <24>;
+			rotary-encoder,steps-per-period = <2>;
+			rotary-encoder,rollover;
+			rotary-encoder,relative-axis;
+	};
+
+	audio_clock: audio_clock {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <12288000>;
+	};
+
+	nh7020_sound {
+		compatible = "simple-audio-card";
+		simple-audio-card,name = "NH7020 AUDIO";
+		
+		simple-audio-card,dai-link@0 {
+			format = "i2s";
+			cpu {
+				sound-dai = <&axi_i2s_0>;
+				frame-master;
+				bitclock-master;
+			};
+			codec {
+				sound-dai = <&ak4954>;
+			};
+		};
+	};
+};
+
+&spi0 {
+	status = "okay";
+
+	nhd@0{
+		compatible = "solomon,ssd1351";
+		reg = <1>;
+		status = "ok";
+		bgr;
+		spi-max-frequency = <10000000>;
+		rotate = <0>;
+		fps = <60>;
+		buswidth = <8>;
+		regwidth = <8>;
+		reset-gpios = <&gpio0 64 0>;
+		dc-gpios = <&gpio0 65 0>;
+		debug = <0>;
+	};
+};
+
+&uart0 {
+	status = "okay";
+};
+
+&aliases {
+	serial1 = &uart0;
+};
+
+&fpga_axi {
+	axi_i2s_0: axi-i2s@77600000 {
+		compatible = "adi,axi-i2s-1.00.a";
+		reg = <0x77600000 0x1000>;
+		dmas = <&dmac_s 0 &dmac_s 1>;
+		dma-names = "tx", "rx";
+		clocks = <&clkc 15>, <&audio_clock>;
+		clock-names = "axi", "ref";
+
+		#sound-dai-cells = <0>;
+	};
+};
+
+
+
