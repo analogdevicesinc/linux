@@ -47,3 +47,29 @@ config DRM_CDNS_MHDP8546_J721E
 	  initializes the J721E Display Port and sets up the
 	  clock and data muxes.
 endif
+
+config DRM_CDNS_MHDP
+	tristate "Cadence MHDP COMMON API driver"
+	select DRM_KMS_HELPER
+	select DRM_PANEL_BRIDGE
+	depends on OF
+	help
+	  Support Cadence MHDP API library.
+
+config DRM_CDNS_HDMI
+	tristate "Cadence HDMI DRM driver"
+	depends on DRM_CDNS_MHDP
+
+config DRM_CDNS_DP
+	tristate "Cadence DP DRM driver"
+	depends on DRM_CDNS_MHDP
+
+config DRM_CDNS_AUDIO
+	tristate "Cadence MHDP Audio driver"
+	depends on DRM_CDNS_MHDP
+
+config DRM_CDNS_HDMI_CEC
+	tristate "Cadence MHDP HDMI CEC driver"
+	depends on DRM_CDNS_HDMI
+	select CEC_CORE
+	select CEC_NOTIFIER
