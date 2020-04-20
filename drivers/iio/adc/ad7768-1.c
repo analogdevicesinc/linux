@@ -176,9 +176,13 @@ struct ad7768_state {
 	 * transfer buffers to live in their own cache lines.
 	 */
 	union {
-		__be32 d32;
-		u8 d8[2];
-	} data ____cacheline_aligned;
+		uint8_t buf[6];
+		struct {
+			__be32 raw;
+			uint8_t crc;
+			uint8_t status;
+		};
+	} adc_data ____cacheline_aligned;
 };
 
 static int ad7768_spi_reg_read(struct ad7768_state *st,
@@ -186,16 +190,27 @@ static int ad7768_spi_reg_read(struct ad7768_state *st,
 			       unsigned int len,
 			       unsigned int *data)
 {
-	unsigned int shift;
 	int ret;
+	uint8_t tx_data[4];
 
-	shift = 32 - (8 * len);
-	st->data.d8[0] = AD7768_RD_FLAG_MSK(addr);
+	st->spi_transfer[0].tx_buf = tx_data;
+	st->spi_transfer[0].rx_buf = st->adc_data.buf,
+	st->spi_transfer[0].len = len + 1,
+	st->spi_transfer[0].bits_per_word = 8,
 
-	ret = spi_write_then_read(st->spi, st->data.d8, 1,
-				  &st->data.d32, len);
+	/* The rest are dummy bytes */
+	tx_data[0] = AD7768_RD_FLAG_MSK(addr);
 
-	*data = (be32_to_cpu(st->data.d32) >> shift);
+	spi_message_init_with_transfers(&st->spi_message, st->spi_transfer, 1);
+	if(st->locked)
+		ret = spi_sync_locked(st->spi, &st->spi_message);
+	else
+		ret = spi_sync(st->spi, &st->spi_message);
+
+	if (len == 1)
+		*data = st->adc_data.buf[1];
+	else
+		*data = (int)(be32_to_cpu(st->adc_data.raw) << 1);
 
 	return ret;
 }
@@ -204,10 +219,21 @@ static int ad7768_spi_reg_write(struct ad7768_state *st,
 				unsigned int addr,
 				unsigned int val)
 {
-	st->data.d8[0] = AD7768_WR_FLAG_MSK(addr);
-	st->data.d8[1] = val & 0xFF;
+	uint8_t tx_data[2];
 
-	return spi_write(st->spi, st->data.d8, 2);
+	st->spi_transfer[0].tx_buf = tx_data;
+	st->spi_transfer[0].rx_buf = NULL;
+	st->spi_transfer[0].len = 2,
+	st->spi_transfer[0].bits_per_word = 8,
+
+	tx_data[0] = AD7768_WR_FLAG_MSK(addr);
+	tx_data[1] = val & 0xFF;
+
+	spi_message_init_with_transfers(&st->spi_message, st->spi_transfer, 1);
+	if(st->locked)
+		return spi_sync_locked(st->spi, &st->spi_message);
+
+	return spi_sync(st->spi, &st->spi_message);
 }
 
 static int ad7768_set_mode(struct ad7768_state *st,
@@ -465,14 +491,15 @@ static irqreturn_t ad7768_trigger_handler(int irq, void *p)
 	struct iio_dev *indio_dev = pf->indio_dev;
 	struct ad7768_state *st = iio_priv(indio_dev);
 	int ret;
+	unsigned int adc_raw;
 
 	mutex_lock(&st->lock);
 
-	ret = spi_read(st->spi, &st->data.d32, 3);
+	ret = ad7768_spi_reg_read(st, AD7768_REG_ADC_DATA, 3, &adc_raw);
 	if (ret < 0)
 		goto err_unlock;
 
-	iio_push_to_buffers_with_timestamp(indio_dev, &st->data.d32,
+	iio_push_to_buffers_with_timestamp(indio_dev, &adc_raw,
 					   iio_get_time_ns(indio_dev));
 
 	iio_trigger_notify_done(indio_dev->trig);
