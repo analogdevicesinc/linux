@@ -28,6 +28,9 @@
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
 #include <linux/iio/buffer.h>
+#include <linux/iio/buffer_impl.h>
+#include <linux/iio/buffer-dma.h>
+#include <linux/iio/buffer-dmaengine.h>
 
 #include "cf_axi_adc.h"
 
@@ -36,6 +39,112 @@ const unsigned int decimation_factors_available[] = {1, 8};
 struct axiadc_core_info {
 	unsigned int version;
 };
+
+struct axiadc_state {
+	struct device 			*dev_spi;
+	struct iio_info			iio_info;
+	struct clk 			*clk;
+	struct gpio_desc		*gpio_decimation;
+	size_t				regs_size;
+	void __iomem			*regs;
+	void __iomem			*slave_regs;
+	unsigned int			max_usr_channel;
+	unsigned int			id;
+	unsigned int			pcore_version;
+	unsigned int			decimation_factor;
+	unsigned long long		adc_clk;
+	unsigned int			have_slave_channels;
+	bool				additional_channel;
+	bool				dp_disable;
+
+	struct iio_chan_spec		channels[AXIADC_MAX_CHANNEL];
+};
+
+struct axiadc_converter *to_converter(struct device *dev)
+{
+	struct axiadc_converter *conv = spi_get_drvdata(to_spi_device(dev));
+
+	if (conv)
+		return conv;
+
+	return ERR_PTR(-ENODEV);
+}
+EXPORT_SYMBOL_GPL(to_converter);
+
+void axiadc_write(struct axiadc_state *st, unsigned reg, unsigned val)
+{
+	iowrite32(val, st->regs + reg);
+}
+EXPORT_SYMBOL_GPL(axiadc_write);
+
+unsigned int axiadc_read(struct axiadc_state *st, unsigned reg)
+{
+	return ioread32(st->regs + reg);
+}
+EXPORT_SYMBOL_GPL(axiadc_read);
+
+void axiadc_slave_write(struct axiadc_state *st, unsigned reg, unsigned val)
+{
+	iowrite32(val, st->slave_regs + reg);
+}
+EXPORT_SYMBOL_GPL(axiadc_slave_write);
+
+unsigned int axiadc_slave_read(struct axiadc_state *st, unsigned reg)
+{
+	return ioread32(st->slave_regs + reg);
+}
+EXPORT_SYMBOL_GPL(axiadc_slave_read);
+
+void axiadc_idelay_set(struct axiadc_state *st, unsigned lane, unsigned val)
+{
+	axiadc_write(st, ADI_REG_DELAY(lane), val);
+}
+EXPORT_SYMBOL_GPL(axiadc_idelay_set);
+
+static int axiadc_hw_submit_block(struct iio_dma_buffer_queue *queue,
+	struct iio_dma_buffer_block *block)
+{
+	struct iio_dev *indio_dev = queue->driver_data;
+	struct axiadc_state *st = iio_priv(indio_dev);
+
+	block->block.bytes_used = block->block.size;
+
+	iio_dmaengine_buffer_submit_block(queue, block, DMA_FROM_DEVICE);
+
+	axiadc_write(st, ADI_REG_STATUS, ~0);
+	axiadc_write(st, ADI_REG_DMA_STATUS, ~0);
+
+	return 0;
+}
+
+static const struct iio_dma_buffer_ops axiadc_dma_buffer_ops = {
+	.submit = axiadc_hw_submit_block,
+	.abort = iio_dmaengine_buffer_abort,
+};
+
+static int axiadc_configure_ring_stream(struct iio_dev *indio_dev,
+	const char *dma_name)
+{
+	struct iio_buffer *buffer;
+
+	if (dma_name == NULL)
+		dma_name = "rx";
+
+	buffer = iio_dmaengine_buffer_alloc(indio_dev->dev.parent, dma_name,
+			&axiadc_dma_buffer_ops, indio_dev);
+	if (IS_ERR(buffer))
+		return PTR_ERR(buffer);
+
+	indio_dev->modes |= INDIO_BUFFER_HARDWARE;
+	iio_device_attach_buffer(indio_dev, buffer);
+
+	return 0;
+}
+
+static void axiadc_unconfigure_ring_stream(struct iio_dev *indio_dev)
+{
+	iio_dmaengine_buffer_free(indio_dev->buffer);
+}
 
 static int axiadc_chan_to_regoffset(struct iio_chan_spec const *chan)
 {
@@ -49,26 +158,10 @@ int axiadc_set_pnsel(struct axiadc_state *st, int channel, enum adc_pn_sel sel)
 {
 	unsigned reg;
 
-	if (ADI_AXI_PCORE_VER_MAJOR(st->pcore_version) > 7) {
-		reg = axiadc_read(st, ADI_REG_CHAN_CNTRL_3(channel));
-		reg &= ~ADI_ADC_PN_SEL(~0);
-		reg |= ADI_ADC_PN_SEL(sel);
-		axiadc_write(st, ADI_REG_CHAN_CNTRL_3(channel), reg);
-	} else {
-		reg = axiadc_read(st, ADI_REG_CHAN_CNTRL(channel));
-
-		if (sel == ADC_PN_CUSTOM) {
-			reg |= ADI_PN_SEL;
-		} else if (sel == ADC_PN9) {
-			reg &= ~ADI_PN23_TYPE;
-			reg &= ~ADI_PN_SEL;
-		} else {
-			reg |= ADI_PN23_TYPE;
-			reg &= ~ADI_PN_SEL;
-		}
-
-		axiadc_write(st, ADI_REG_CHAN_CNTRL(channel), reg);
-	}
+	reg = axiadc_read(st, ADI_REG_CHAN_CNTRL_3(channel));
+	reg &= ~ADI_ADC_PN_SEL(~0);
+	reg |= ADI_ADC_PN_SEL(sel);
+	axiadc_write(st, ADI_REG_CHAN_CNTRL_3(channel), reg);
 
 	return 0;
 }
@@ -78,39 +171,19 @@ enum adc_pn_sel axiadc_get_pnsel(struct axiadc_state *st,
 			       int channel, const char **name)
 {
 	unsigned val;
+	const char *ident[] = {"PN9", "PN23A", "UNDEF", "UNDEF",
+			"PN7", "PN15", "PN23", "PN31", "UNDEF", "PN_CUSTOM"};
 
-	if (ADI_AXI_PCORE_VER_MAJOR(st->pcore_version) > 7) {
-		const char *ident[] = {"PN9", "PN23A", "UNDEF", "UNDEF",
-				"PN7", "PN15", "PN23", "PN31", "UNDEF", "PN_CUSTOM"};
+	val = ADI_TO_ADC_PN_SEL(axiadc_read(st, ADI_REG_CHAN_CNTRL_3(channel)));
 
-		val = ADI_TO_ADC_PN_SEL(axiadc_read(st, ADI_REG_CHAN_CNTRL_3(channel)));
-
-		if (name) {
-			if (val >= ARRAY_SIZE(ident))
-				*name = "UNDEF";
-			else
-				*name = ident[val];
-		}
-
-		return val;
-	} else {
-		val = axiadc_read(st, ADI_REG_CHAN_CNTRL(channel));;
-
-		if (name) {
-			if (val & ADI_PN_SEL)
-				*name = "PN_CUSTOM";
-			else if (val & ADI_PN23_TYPE)
-				*name = "PN23";
-			else
-				*name = "PN9";
-		}
-		return val & (ADI_PN23_TYPE | ADI_PN_SEL);
+	if (name) {
+		if (val >= ARRAY_SIZE(ident))
+			*name = "UNDEF";
+		else
+			*name = ident[val];
 	}
-}
 
-static void axiadc_toggle_scale_offset_en(struct axiadc_state *st)
-{
-	return;
+	return val;
 }
 
 static unsigned int axiadc_num_phys_channels(struct axiadc_state *st)
@@ -238,7 +311,7 @@ static int axiadc_decimation_set(struct axiadc_state *st,
 		case 8:
 			reg = axiadc_read(st, ADI_REG_GP_CONTROL);
 
-			if (st->decimation_factor == 8)
+			if (decimation_factor == 8)
 				reg |= BIT(0);
 			else
 				reg &= ~BIT(0);
@@ -248,6 +321,7 @@ static int axiadc_decimation_set(struct axiadc_state *st,
 						reg & BIT(0));
 			else
 				axiadc_write(st, ADI_REG_GP_CONTROL, reg);
+			st->decimation_factor = decimation_factor;
 			break;
 		default:
 			ret = -EINVAL;
@@ -285,10 +359,8 @@ static ssize_t axiadc_decimation_store(struct axiadc_state *st,
 	val = DIV_ROUND_CLOSEST(parent, frequency);
 
 	for (i = 0; i < ARRAY_SIZE(decimation_factors_available); i++) {
-		if (val == decimation_factors_available[i]) {
-			st->decimation_factor = val;
+		if (val == decimation_factors_available[i])
 			return axiadc_decimation_set(st, val);
-		}
 	}
 
 	return -EINVAL;
@@ -491,8 +563,6 @@ static int axiadc_write_raw(struct iio_dev *indio_dev,
 
 		axiadc_write(st, ADI_REG_CHAN_CNTRL_2(channel), tmp);
 
-		axiadc_toggle_scale_offset_en(st);
-
 		return 0;
 
 	case IIO_CHAN_INFO_HIGH_PASS_FILTER_3DB_FREQUENCY:
@@ -525,7 +595,6 @@ static int axiadc_write_raw(struct iio_dev *indio_dev,
 		tmp |= ADI_DCFILT_OFFSET((short)val);
 
 		axiadc_write(st, ADI_REG_CHAN_CNTRL_1(channel), tmp);
-		axiadc_toggle_scale_offset_en(st);
 		return 0;
 
 	case IIO_CHAN_INFO_SAMP_FREQ:
@@ -683,6 +752,11 @@ static const struct iio_info axiadc_info = {
 	.update_scan_mode = &axiadc_update_scan_mode,
 };
 
+struct axiadc_spidev {
+	struct device_node *of_nspi;
+	struct device *dev_spi;
+};
+
 static int axiadc_attach_spi_client(struct device *dev, void *data)
 {
 	struct axiadc_spidev *axiadc_spidev = data;
@@ -698,39 +772,27 @@ static int axiadc_attach_spi_client(struct device *dev, void *data)
 	return ret;
 }
 
-static const struct axiadc_core_info ad9467_core_1_00_a_info = {
-	.version = ADI_AXI_PCORE_VER(10, 0, 'a'),
-};
-
-static const struct axiadc_core_info ad9361_6_00_a_info = {
-	.version = ADI_AXI_PCORE_VER(10, 0, 'a'),
-};
-
-static const struct axiadc_core_info ad9643_6_00_a_info = {
-	.version = ADI_AXI_PCORE_VER(10, 0, 'a'),
-};
-
-static const struct axiadc_core_info ad9680_6_00_a_info = {
+static const struct axiadc_core_info axi_adc_10_0_a_info = {
 	.version = ADI_AXI_PCORE_VER(10, 0, 'a'),
 };
 
 /* Match table for of_platform binding */
 static const struct of_device_id axiadc_of_match[] = {
-	{ .compatible = "xlnx,cf-ad9467-core-1.00.a", .data = &ad9467_core_1_00_a_info },
-	{ .compatible =	"xlnx,axi-ad9234-1.00.a", .data = &ad9680_6_00_a_info },
-	{ .compatible =	"xlnx,axi-ad9250-1.00.a", .data = &ad9680_6_00_a_info },
-	{ .compatible =	"xlnx,axi-ad9434-1.00.a", .data = &ad9680_6_00_a_info },
-	{ .compatible = "adi,axi-ad9643-6.00.a", .data = &ad9643_6_00_a_info },
-	{ .compatible = "adi,axi-ad9361-6.00.a", .data = &ad9361_6_00_a_info },
-	{ .compatible = "adi,axi-ad9680-1.0", .data = &ad9680_6_00_a_info },
-	{ .compatible = "adi,axi-ad9694-1.0", .data = &ad9680_6_00_a_info },
-	{ .compatible = "adi,axi-ad9625-1.0", .data = &ad9680_6_00_a_info },
-	{ .compatible = "adi,axi-ad6676-1.0", .data = &ad9680_6_00_a_info },
-	{ .compatible = "adi,axi-ad9371-rx-1.0", .data = &ad9361_6_00_a_info },
-	{ .compatible = "adi,axi-ad9684-1.0", .data = &ad9680_6_00_a_info },
-	{ .compatible = "adi,axi-adrv9009-rx-1.0", .data = &ad9361_6_00_a_info },
-	{ .compatible = "adi,axi-ad9208-1.0", .data = &ad9680_6_00_a_info },
-	{ .compatible = "adi,axi-ad9081-rx-1.0", .data = &ad9680_6_00_a_info },
+	{ .compatible =	"xlnx,axi-ad9234-1.00.a", .data = &axi_adc_10_0_a_info },
+	{ .compatible =	"xlnx,axi-ad9250-1.00.a", .data = &axi_adc_10_0_a_info },
+	{ .compatible =	"xlnx,axi-ad9434-1.00.a", .data = &axi_adc_10_0_a_info },
+	{ .compatible = "adi,axi-ad9643-6.00.a", .data = &axi_adc_10_0_a_info },
+	{ .compatible = "adi,axi-ad9361-6.00.a", .data = &axi_adc_10_0_a_info },
+	{ .compatible = "adi,axi-ad9680-1.0", .data = &axi_adc_10_0_a_info },
+	{ .compatible = "adi,axi-ad9694-1.0", .data = &axi_adc_10_0_a_info },
+	{ .compatible = "adi,axi-ad9625-1.0", .data = &axi_adc_10_0_a_info },
+	{ .compatible = "adi,axi-ad6676-1.0", .data = &axi_adc_10_0_a_info },
+	{ .compatible = "adi,axi-ad9371-rx-1.0", .data = &axi_adc_10_0_a_info },
+	{ .compatible = "adi,axi-ad9684-1.0", .data = &axi_adc_10_0_a_info },
+	{ .compatible = "adi,axi-adrv9009-rx-1.0", .data = &axi_adc_10_0_a_info },
+	{ .compatible = "adi,axi-ad9208-1.0", .data = &axi_adc_10_0_a_info },
+	{ .compatible = "adi,axi-ad9081-rx-1.0", .data = &axi_adc_10_0_a_info },
+	{ .compatible = "adi,axi-adc-10.0.a", .data = &axi_adc_10_0_a_info },
 	{ /* end of list */ },
 };
 MODULE_DEVICE_TABLE(of, axiadc_of_match);
@@ -803,7 +865,7 @@ static int axiadc_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, indio_dev);
 
-	st->dp_disable = axiadc_read(st, ADI_REG_ADC_DP_DISABLE);
+	st->dp_disable = false; /* FIXME: resolve later which reg & bit to read for this */
 
 	conv = to_converter(st->dev_spi);
 	if (IS_ERR(conv)) {

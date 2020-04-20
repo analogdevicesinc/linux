@@ -41,7 +41,7 @@ typedef enum {
 	AD9081_CHIP_OUT_RES_11BIT = 0x5, /*!< 11Bit */
 	AD9081_CHIP_OUT_RES_10BIT = 0x6, /*!< 10Bit */
 	AD9081_CHIP_OUT_RES_09BIT = 0x7, /*!<  9Bit */
-	AD9081_CHIP_OUT_RES_08BIT = 0x8  /*!<  8Bit */
+	AD9081_CHIP_OUT_RES_08BIT = 0x8 /*!<  8Bit */
 } adi_ad9081_chip_output_res_e;
 
 /*!
@@ -49,11 +49,11 @@ typedef enum {
  */
 typedef enum {
 	AD9081_DAC_NONE = 0x0, /*!< No DAC */
-	AD9081_DAC_0 = 0x1,    /*!< DAC0 */
-	AD9081_DAC_1 = 0x2,    /*!< DAC1 */
-	AD9081_DAC_2 = 0x4,    /*!< DAC2 */
-	AD9081_DAC_3 = 0x8,    /*!< DAC3 */
-	AD9081_DAC_ALL = 0x0F  /*!< ALL DACs */
+	AD9081_DAC_0 = 0x1, /*!< DAC0 */
+	AD9081_DAC_1 = 0x2, /*!< DAC1 */
+	AD9081_DAC_2 = 0x4, /*!< DAC2 */
+	AD9081_DAC_3 = 0x8, /*!< DAC3 */
+	AD9081_DAC_ALL = 0x0F /*!< ALL DACs */
 } adi_ad9081_dac_select_e;
 
 /*!
@@ -61,15 +61,15 @@ typedef enum {
  */
 typedef enum {
 	AD9081_DAC_CH_NONE = 0x00, /*!< No Channel */
-	AD9081_DAC_CH_0 = 0x01,    /*!< Channel 0 */
-	AD9081_DAC_CH_1 = 0x02,    /*!< Channel 1 */
-	AD9081_DAC_CH_2 = 0x04,    /*!< Channel 2 */
-	AD9081_DAC_CH_3 = 0x08,    /*!< Channel 3 */
-	AD9081_DAC_CH_4 = 0x10,    /*!< Channel 4 */
-	AD9081_DAC_CH_5 = 0x20,    /*!< Channel 5 */
-	AD9081_DAC_CH_6 = 0x40,    /*!< Channel 6 */
-	AD9081_DAC_CH_7 = 0x80,    /*!< Channel 7 */
-	AD9081_DAC_CH_ALL = 0xFF   /*!< ALL Channels */
+	AD9081_DAC_CH_0 = 0x01, /*!< Channel 0 */
+	AD9081_DAC_CH_1 = 0x02, /*!< Channel 1 */
+	AD9081_DAC_CH_2 = 0x04, /*!< Channel 2 */
+	AD9081_DAC_CH_3 = 0x08, /*!< Channel 3 */
+	AD9081_DAC_CH_4 = 0x10, /*!< Channel 4 */
+	AD9081_DAC_CH_5 = 0x20, /*!< Channel 5 */
+	AD9081_DAC_CH_6 = 0x40, /*!< Channel 6 */
+	AD9081_DAC_CH_7 = 0x80, /*!< Channel 7 */
+	AD9081_DAC_CH_ALL = 0xFF /*!< ALL Channels */
 } adi_ad9081_dac_channel_select_e;
 
 /*!
@@ -77,9 +77,9 @@ typedef enum {
  */
 typedef enum {
 	AD9081_DAC_MODE_SWITCH_GROUP_NONE = 0x00, /*!< No Group */
-	AD9081_DAC_MODE_SWITCH_GROUP_0 = 0x01,    /*!< Group 0 (DAC0 & DAC1) */
-	AD9081_DAC_MODE_SWITCH_GROUP_1 = 0x02,    /*!< Group 1 (DAC2 & DAC3) */
-	AD9081_DAC_MODE_SWITCH_GROUP_ALL = 0x03,  /*!< All Groups */
+	AD9081_DAC_MODE_SWITCH_GROUP_0 = 0x01, /*!< Group 0 (DAC0 & DAC1) */
+	AD9081_DAC_MODE_SWITCH_GROUP_1 = 0x02, /*!< Group 1 (DAC2 & DAC3) */
+	AD9081_DAC_MODE_SWITCH_GROUP_ALL = 0x03, /*!< All Groups */
 } adi_ad9081_dac_mode_switch_group_select_e;
 
 /*!
@@ -100,22 +100,22 @@ typedef enum {
  */
 typedef enum {
 	AD9081_ADC_NONE = 0x0, /*!< No ADC */
-	AD9081_ADC_0 = 0x1,    /*!< ADC0 */
-	AD9081_ADC_1 = 0x2,    /*!< ADC1 */
-	AD9081_ADC_2 = 0x4,    /*!< ADC2 */
-	AD9081_ADC_3 = 0x8,    /*!< ADC3 */
-	AD9081_ADC_ALL = 0x0F  /*!< ALL ADCs */
+	AD9081_ADC_0 = 0x1, /*!< ADC0 */
+	AD9081_ADC_1 = 0x2, /*!< ADC1 */
+	AD9081_ADC_2 = 0x4, /*!< ADC2 */
+	AD9081_ADC_3 = 0x8, /*!< ADC3 */
+	AD9081_ADC_ALL = 0x0F /*!< ALL ADCs */
 } adi_ad9081_adc_select_e;
 
 /*!
  * @brief Enumerates ADC NCO Modes
  */
 typedef enum {
-	AD9081_ADC_NCO_VIF = 0,     /*!< Variable IF Mode */
-	AD9081_ADC_NCO_ZIF = 1,     /*!< Zero IF Mode */
+	AD9081_ADC_NCO_VIF = 0, /*!< Variable IF Mode */
+	AD9081_ADC_NCO_ZIF = 1, /*!< Zero IF Mode */
 	AD9081_ADC_NCO_FS_4_IF = 2, /*!< Fs/4 Hz IF Mode */
-	AD9081_ADC_NCO_TEST = 3,    /*!< Test Mode */
-	AD9081_ADC_NCO_INVALID = 4  /*!< Invalid NCO Mode */
+	AD9081_ADC_NCO_TEST = 3, /*!< Test Mode */
+	AD9081_ADC_NCO_INVALID = 4 /*!< Invalid NCO Mode */
 } adi_ad9081_adc_nco_mode_e;
 
 /*!
@@ -125,7 +125,7 @@ typedef enum {
 	AD9081_ADC_4_ADC_REAL_MODE = 0, /*!< Quad ADC Real Mode */
 	AD9081_ADC_4_ADC_COMP_MODE = 1, /*!< Quad ADC Complex Mode */
 	AD9081_ADC_2_ADC_REAL_MODE = 2, /*!< Dual ADC Real Mode */
-	AD9081_ADC_2_ADC_COMP_MODE = 3  /*!< Dual ADC Complex MOde */
+	AD9081_ADC_2_ADC_COMP_MODE = 3 /*!< Dual ADC Complex MOde */
 } adi_ad9081_adc_adc_to_cddc_xbar_e;
 
 /*!
@@ -197,11 +197,11 @@ typedef enum {
  */
 typedef enum {
 	AD9081_ADC_CDDC_NONE = 0x00, /*!< No COARSE DDC */
-	AD9081_ADC_CDDC_0 = 0x01,    /*!< COARSE DDC 0 */
-	AD9081_ADC_CDDC_1 = 0x02,    /*!< COARSE DDC 1 */
-	AD9081_ADC_CDDC_2 = 0x04,    /*!< COARSE DDC 2 */
-	AD9081_ADC_CDDC_3 = 0x08,    /*!< COARSE DDC 3 */
-	AD9081_ADC_CDDC_ALL = 0x0F   /*!< ALL COARSE DDCs */
+	AD9081_ADC_CDDC_0 = 0x01, /*!< COARSE DDC 0 */
+	AD9081_ADC_CDDC_1 = 0x02, /*!< COARSE DDC 1 */
+	AD9081_ADC_CDDC_2 = 0x04, /*!< COARSE DDC 2 */
+	AD9081_ADC_CDDC_3 = 0x08, /*!< COARSE DDC 3 */
+	AD9081_ADC_CDDC_ALL = 0x0F /*!< ALL COARSE DDCs */
 } adi_ad9081_adc_coarse_ddc_select_e;
 
 /*!
@@ -209,45 +209,45 @@ typedef enum {
  */
 typedef enum {
 	AD9081_ADC_FDDC_NONE = 0x00, /*!< No FINE DDC */
-	AD9081_ADC_FDDC_0 = 0x01,    /*!< FINE DDC 0 */
-	AD9081_ADC_FDDC_1 = 0x02,    /*!< FINE DDC 1 */
-	AD9081_ADC_FDDC_2 = 0x04,    /*!< FINE DDC 2 */
-	AD9081_ADC_FDDC_3 = 0x08,    /*!< FINE DDC 3 */
-	AD9081_ADC_FDDC_4 = 0x10,    /*!< FINE DDC 4 */
-	AD9081_ADC_FDDC_5 = 0x20,    /*!< FINE DDC 5 */
-	AD9081_ADC_FDDC_6 = 0x40,    /*!< FINE DDC 6 */
-	AD9081_ADC_FDDC_7 = 0x80,    /*!< FINE DDC 7 */
-	AD9081_ADC_FDDC_ALL = 0xFF   /*!< ALL FINE DDCs */
+	AD9081_ADC_FDDC_0 = 0x01, /*!< FINE DDC 0 */
+	AD9081_ADC_FDDC_1 = 0x02, /*!< FINE DDC 1 */
+	AD9081_ADC_FDDC_2 = 0x04, /*!< FINE DDC 2 */
+	AD9081_ADC_FDDC_3 = 0x08, /*!< FINE DDC 3 */
+	AD9081_ADC_FDDC_4 = 0x10, /*!< FINE DDC 4 */
+	AD9081_ADC_FDDC_5 = 0x20, /*!< FINE DDC 5 */
+	AD9081_ADC_FDDC_6 = 0x40, /*!< FINE DDC 6 */
+	AD9081_ADC_FDDC_7 = 0x80, /*!< FINE DDC 7 */
+	AD9081_ADC_FDDC_ALL = 0xFF /*!< ALL FINE DDCs */
 } adi_ad9081_adc_fine_ddc_select_e;
 
 /*!
  * @brief Enumerates ADC Coarse DDC decimation
  */
 typedef enum {
-	AD9081_CDDC_DCM_1 = 0xC,  /*!< Decimate by 1 */
-	AD9081_CDDC_DCM_2 = 0x0,  /*!< Decimate by 2 */
-	AD9081_CDDC_DCM_3 = 0x8,  /*!< Decimate by 3 */
-	AD9081_CDDC_DCM_4 = 0x1,  /*!< Decimate by 4 */
-	AD9081_CDDC_DCM_6 = 0x5,  /*!< Decimate by 6 */
-	AD9081_CDDC_DCM_8 = 0x2,  /*!< Decimate by 8 */
-	AD9081_CDDC_DCM_9 = 0x9,  /*!< Decimate by 9 */
+	AD9081_CDDC_DCM_1 = 0xC, /*!< Decimate by 1 */
+	AD9081_CDDC_DCM_2 = 0x0, /*!< Decimate by 2 */
+	AD9081_CDDC_DCM_3 = 0x8, /*!< Decimate by 3 */
+	AD9081_CDDC_DCM_4 = 0x1, /*!< Decimate by 4 */
+	AD9081_CDDC_DCM_6 = 0x5, /*!< Decimate by 6 */
+	AD9081_CDDC_DCM_8 = 0x2, /*!< Decimate by 8 */
+	AD9081_CDDC_DCM_9 = 0x9, /*!< Decimate by 9 */
 	AD9081_CDDC_DCM_12 = 0x6, /*!< Decimate by 12 */
 	AD9081_CDDC_DCM_16 = 0x3, /*!< Decimate by 16 */
 	AD9081_CDDC_DCM_18 = 0xA, /*!< Decimate by 18 */
 	AD9081_CDDC_DCM_24 = 0x7, /*!< Decimate by 24 */
-	AD9081_CDDC_DCM_36 = 0xB  /*!< Decimate by 36 */
+	AD9081_CDDC_DCM_36 = 0xB /*!< Decimate by 36 */
 } adi_ad9081_adc_coarse_ddc_dcm_e;
 
 /*!
 * @brief Enumerates ADC Fine DDC decimation
 */
 typedef enum {
-	AD9081_FDDC_DCM_1 = 0x8,  /*!< Decimate by 1 */
-	AD9081_FDDC_DCM_2 = 0x0,  /*!< Decimate by 2 */
-	AD9081_FDDC_DCM_3 = 0x4,  /*!< Decimate by 3 */
-	AD9081_FDDC_DCM_4 = 0x1,  /*!< Decimate by 4 */
-	AD9081_FDDC_DCM_6 = 0x5,  /*!< Decimate by 6 */
-	AD9081_FDDC_DCM_8 = 0x2,  /*!< Decimate by 8 */
+	AD9081_FDDC_DCM_1 = 0x8, /*!< Decimate by 1 */
+	AD9081_FDDC_DCM_2 = 0x0, /*!< Decimate by 2 */
+	AD9081_FDDC_DCM_3 = 0x4, /*!< Decimate by 3 */
+	AD9081_FDDC_DCM_4 = 0x1, /*!< Decimate by 4 */
+	AD9081_FDDC_DCM_6 = 0x5, /*!< Decimate by 6 */
+	AD9081_FDDC_DCM_8 = 0x2, /*!< Decimate by 8 */
 	AD9081_FDDC_DCM_12 = 0x6, /*!< Decimate by 12 */
 	AD9081_FDDC_DCM_16 = 0x3, /*!< Decimate by 16 */
 	AD9081_FDDC_DCM_24 = 0x7, /*!< Decimate by 24 */
@@ -287,8 +287,8 @@ typedef enum {
  *@brief Enumerates PFIR Control Page
  */
 typedef enum {
-	AD9081_ADC_PFIR_ADC_PAIR0 = 0x01,   /*!< PFIR ADC Pair0 */
-	AD9081_ADC_PFIR_ADC_PAIR1 = 0x02,   /*!< PFIR ADC Pair1 */
+	AD9081_ADC_PFIR_ADC_PAIR0 = 0x01, /*!< PFIR ADC Pair0 */
+	AD9081_ADC_PFIR_ADC_PAIR1 = 0x02, /*!< PFIR ADC Pair1 */
 	AD9081_ADC_PFIR_ADC_PAIR_ALL = 0x03 /*!< PFIR ADC Pair All */
 } adi_ad9081_adc_pfir_ctl_page_e;
 
@@ -296,10 +296,10 @@ typedef enum {
  *@brief Enumerates PFIR Coefficient Page
  */
 typedef enum {
-	AD9081_ADC_PFIR_COEFF_PAGE0 = 0x01,   /*!< PFIR Coefficient Page0 */
-	AD9081_ADC_PFIR_COEFF_PAGE1 = 0x02,   /*!< PFIR Coefficient Page1 */
-	AD9081_ADC_PFIR_COEFF_PAGE2 = 0x04,   /*!< PFIR Coefficient Page2 */
-	AD9081_ADC_PFIR_COEFF_PAGE3 = 0x08,   /*!< PFIR Coefficient Page3 */
+	AD9081_ADC_PFIR_COEFF_PAGE0 = 0x01, /*!< PFIR Coefficient Page0 */
+	AD9081_ADC_PFIR_COEFF_PAGE1 = 0x02, /*!< PFIR Coefficient Page1 */
+	AD9081_ADC_PFIR_COEFF_PAGE2 = 0x04, /*!< PFIR Coefficient Page2 */
+	AD9081_ADC_PFIR_COEFF_PAGE3 = 0x08, /*!< PFIR Coefficient Page3 */
 	AD9081_ADC_PFIR_COEFF_PAGE_ALL = 0x0F /*!< PFIR Coefficient Page All */
 } adi_ad9081_adc_pfir_coeff_page_e;
 
@@ -309,9 +309,9 @@ typedef enum {
 typedef enum {
 	AD9081_ADC_PFIR_I_MODE_DISABLE =
 		0x0, /*!< Disabled (filters bypassed) */
-	AD9081_ADC_PFIR_I_MODE_REAL_N4 = 0x1,      /*!< Real N/4 tap filter */
-	AD9081_ADC_PFIR_I_MODE_REAL_N2 = 0x2,      /*!< Real N/2 tap filter */
-	AD9081_ADC_PFIR_I_MODE_MATRIX = 0x4,       /*!< N/4 tap matrix mode */
+	AD9081_ADC_PFIR_I_MODE_REAL_N4 = 0x1, /*!< Real N/4 tap filter */
+	AD9081_ADC_PFIR_I_MODE_REAL_N2 = 0x2, /*!< Real N/2 tap filter */
+	AD9081_ADC_PFIR_I_MODE_MATRIX = 0x4, /*!< N/4 tap matrix mode */
 	AD9081_ADC_PFIR_I_MODE_COMPLEX_FULL = 0x5, /*!< N/3 tap full complex */
 	AD9081_ADC_PFIR_I_MODE_COMPLEX_HALF =
 		0x6, /*!< Half complex using 2 N/2 tap filters */
@@ -324,9 +324,9 @@ typedef enum {
 typedef enum {
 	AD9081_ADC_PFIR_Q_MODE_DISABLE =
 		0x0, /*!< Disabled (filters bypassed) */
-	AD9081_ADC_PFIR_Q_MODE_REAL_N4 = 0x1,      /*!< Real N/4 tap filter */
-	AD9081_ADC_PFIR_Q_MODE_REAL_N2 = 0x2,      /*!< Real N/2 tap filter */
-	AD9081_ADC_PFIR_Q_MODE_MATRIX = 0x4,       /*!< N/4 tap matrix mode */
+	AD9081_ADC_PFIR_Q_MODE_REAL_N4 = 0x1, /*!< Real N/4 tap filter */
+	AD9081_ADC_PFIR_Q_MODE_REAL_N2 = 0x2, /*!< Real N/2 tap filter */
+	AD9081_ADC_PFIR_Q_MODE_MATRIX = 0x4, /*!< N/4 tap matrix mode */
 	AD9081_ADC_PFIR_Q_MODE_COMPLEX_FULL = 0x5, /*!< N/3 tap full complex */
 	AD9081_ADC_PFIR_Q_MODE_COMPLEX_HALF =
 		0x6, /*!< Half complex using 2 N/2 tap filters */
@@ -338,10 +338,10 @@ typedef enum {
  */
 typedef enum {
 	AD9081_ADC_PFIR_GAIN_N12DB = 0x6, /*!< -12dB */
-	AD9081_ADC_PFIR_GAIN_N6DB = 0x7,  /*!<  -6dB */
-	AD9081_ADC_PFIR_GAIN_0DB = 0x0,   /*!<   0dB */
-	AD9081_ADC_PFIR_GAIN_P6DB = 0x1,  /*!<   6dB */
-	AD9081_ADC_PFIR_GAIN_P12DB = 0x2  /*!<  12dB */
+	AD9081_ADC_PFIR_GAIN_N6DB = 0x7, /*!<  -6dB */
+	AD9081_ADC_PFIR_GAIN_0DB = 0x0, /*!<   0dB */
+	AD9081_ADC_PFIR_GAIN_P6DB = 0x1, /*!<   6dB */
+	AD9081_ADC_PFIR_GAIN_P12DB = 0x2 /*!<  12dB */
 } adi_ad9081_adc_pfir_gain_e;
 
 /*!
@@ -349,9 +349,9 @@ typedef enum {
  */
 typedef enum {
 	AD9081_LINK_NONE = 0x0, /*!< No Link */
-	AD9081_LINK_0 = 0x1,    /*!< Link 0 */
-	AD9081_LINK_1 = 0x2,    /*!< Link 1 */
-	AD9081_LINK_ALL = 0x3   /*!< All Links */
+	AD9081_LINK_0 = 0x1, /*!< Link 0 */
+	AD9081_LINK_1 = 0x2, /*!< Link 1 */
+	AD9081_LINK_ALL = 0x3 /*!< All Links */
 } adi_ad9081_jesd_link_select_e;
 
 /*!
@@ -369,10 +369,10 @@ typedef enum {
  */
 typedef enum {
 	AD9081_JESD_RX_PRBS_TEST_MODE_OFF = 0x0, /*!< Disable PRBS Test Mode */
-	AD9081_JESD_RX_PRBS_TEST_MODE_PRBS7 = 0x1,  /*!< PRBS7 */
-	AD9081_JESD_RX_PRBS_TEST_MODE_PRBS9 = 0x2,  /*!< PRBS9 */
+	AD9081_JESD_RX_PRBS_TEST_MODE_PRBS7 = 0x1, /*!< PRBS7 */
+	AD9081_JESD_RX_PRBS_TEST_MODE_PRBS9 = 0x2, /*!< PRBS9 */
 	AD9081_JESD_RX_PRBS_TEST_MODE_PRBS15 = 0x3, /*!< PRBS15 */
-	AD9081_JESD_RX_PRBS_TEST_MODE_PRBS31 = 0x4  /*!< PRBS31 */
+	AD9081_JESD_RX_PRBS_TEST_MODE_PRBS31 = 0x4 /*!< PRBS31 */
 } adi_ad9081_jesd_rx_prbs_test_mode_e;
 
 /*!
@@ -394,10 +394,10 @@ typedef enum {
 	AD9081_JESD_TX_TEST_MODE_CHECKER_BOARD =
 		0x1, /*!< Checker Board Test Mode */
 	AD9081_JESD_TX_TEST_MODE_WORD_TOGGLE =
-		0x2,			     /*!< Word Toggle Test Mode */
+		0x2, /*!< Word Toggle Test Mode */
 	AD9081_JESD_TX_TEST_MODE_PN31 = 0x3, /*!< PN31 Test Mode */
 	AD9081_JESD_TX_TEST_MODE_PN15 = 0x5, /*!< PN15 Test Mode */
-	AD9081_JESD_TX_TEST_MODE_PN7 = 0x7,  /*!< PN7  Test Mode */
+	AD9081_JESD_TX_TEST_MODE_PN7 = 0x7, /*!< PN7  Test Mode */
 	AD9081_JESD_TX_TEST_MODE_RAMP = 0x8, /*!< Ramp Test Mode */
 	AD9081_JESD_TX_TEST_MODE_USER_REPEAT =
 		0xE, /*!< Repeated User Data Test Mode */
@@ -409,30 +409,30 @@ typedef enum {
  * @brief Enumerates ADC Test Mode Type
  */
 typedef enum {
-	AD9081_TMODE_OFF = 0x0,      /*!< Normal Operation */
+	AD9081_TMODE_OFF = 0x0, /*!< Normal Operation */
 	AD9081_TMODE_MIDSCALE = 0x1, /*!< Midscale Short */
 	AD9081_TMODE_POS_FULL = 0x2, /*!< Positive Full-Scale, 0x7FFF */
 	AD9081_TMODE_NEG_FULL = 0x3, /*!< Negative Full-Scale, 0x8000 */
 	AD9081_TMODE_ALT_CHECKER =
-		0x4,		/*!< Alternating Checker Board, 0x5555-0xAAAA */
+		0x4, /*!< Alternating Checker Board, 0x5555-0xAAAA */
 	AD9081_TMODE_PN9 = 0x5, /*!< PN9 Sequence */
-	AD9081_TMODE_PN23 = 0x6,     /*!< PN23 Sequence */
+	AD9081_TMODE_PN23 = 0x6, /*!< PN23 Sequence */
 	AD9081_TMODE_1_0_TOGG = 0x7, /*!< 1/0 Word Toggle, 0x0000-0xFFFF */
 	AD9081_TMODE_USER_PAT = 0x8, /*!< User Pattern Test Mode */
-	AD9081_TMODE_PN7 = 0x9,      /*!< PN7 Sequence */
-	AD9081_TMODE_PN15 = 0xA,     /*!< PN15 Sequence */
-	AD9081_TMODE_PN31 = 0xB,     /*!< PN31 Sequence */
-	AD9081_TMODE_RAMP = 0xF      /*!< Ramp Output */
+	AD9081_TMODE_PN7 = 0x9, /*!< PN7 Sequence */
+	AD9081_TMODE_PN15 = 0xA, /*!< PN15 Sequence */
+	AD9081_TMODE_PN31 = 0xB, /*!< PN31 Sequence */
+	AD9081_TMODE_RAMP = 0xF /*!< Ramp Output */
 } adi_ad9081_test_mode_e;
 
 /*!
  * @brief Enumerates Reset Operation
  */
 typedef enum {
-	AD9081_SOFT_RESET = 0,		/*!< Soft Reset */
-	AD9081_HARD_RESET = 1,		/*!< Hard Reset */
+	AD9081_SOFT_RESET = 0, /*!< Soft Reset */
+	AD9081_HARD_RESET = 1, /*!< Hard Reset */
 	AD9081_SOFT_RESET_AND_INIT = 2, /*!< Soft Reset Then Init */
-	AD9081_HARD_RESET_AND_INIT = 3  /*!< Hard Reset Then Init */
+	AD9081_HARD_RESET_AND_INIT = 3 /*!< Hard Reset Then Init */
 } adi_ad9081_reset_e;
 
 /*!
@@ -448,17 +448,39 @@ typedef enum {
  */
 typedef struct {
 	uint32_t phy_prbs_err_cnt; /*!< PRBS Test Error Count */
-	uint8_t phy_prbs_pass;     /*!< PRBS Test Status */
-	uint8_t phy_src_err_cnt;   /*!< PRBS Test Source Error Count */
+	uint8_t phy_prbs_pass; /*!< PRBS Test Status */
+	uint8_t phy_src_err_cnt; /*!< PRBS Test Source Error Count */
 } adi_ad9081_prbs_test_t;
 
 /*!
  * @brief JESD SPO Structure
  */
 typedef struct {
-	uint8_t left_spo;  /*!< Left good SPO */
+	uint8_t left_spo; /*!< Left good SPO */
 	uint8_t right_spo; /*!< Right good SPO */
 } adi_ad9081_spo_t;
+
+/*!
+ * @brief JESD TX Virtual Converter Select
+ */
+typedef struct {
+	uint8_t virtual_converter0_index; /*! Index for JTX virtual converter0  */
+	uint8_t virtual_converter1_index; /*! Index for JTX virtual converter1  */
+	uint8_t virtual_converter2_index; /*! Index for JTX virtual converter2  */
+	uint8_t virtual_converter3_index; /*! Index for JTX virtual converter3  */
+	uint8_t virtual_converter4_index; /*! Index for JTX virtual converter4  */
+	uint8_t virtual_converter5_index; /*! Index for JTX virtual converter5  */
+	uint8_t virtual_converter6_index; /*! Index for JTX virtual converter6  */
+	uint8_t virtual_converter7_index; /*! Index for JTX virtual converter7  */
+	uint8_t virtual_converter8_index; /*! Index for JTX virtual converter8  */
+	uint8_t virtual_converter9_index; /*! Index for JTX virtual converter9  */
+	uint8_t virtual_convertera_index; /*! Index for JTX virtual converter10 */
+	uint8_t virtual_converterb_index; /*! Index for JTX virtual converter11 */
+	uint8_t virtual_converterc_index; /*! Index for JTX virtual converter12 */
+	uint8_t virtual_converterd_index; /*! Index for JTX virtual converter13 */
+	uint8_t virtual_convertere_index; /*! Index for JTX virtual converter14 */
+	uint8_t virtual_converterf_index; /*! Index for JTX virtual converter15 */
+} adi_ad9081_jtx_conv_sel_t;
 
 /*!
  * @brief Device Structure
@@ -494,10 +516,10 @@ typedef struct {
  * @brief Device Internal Information Structure
  */
 typedef struct {
-	/* passed by user and set by API */
 	uint64_t dev_freq_hz; /*!< Device clock frequency in Hz */
 	uint64_t dac_freq_hz; /*!< DAC clock frequency in Hz */
 	uint64_t adc_freq_hz; /*!< ADC clock frequency in Hz */
+	uint8_t dev_rev; /*!< Device revision, 0:r0, 1:r1, 2:r1r, 3:r2 */
 } adi_ad9081_info_t;
 
 /*!
@@ -552,6 +574,24 @@ int32_t adi_ad9081_device_init(adi_ad9081_device_t *device);
  * @return <0                                   Failed. @see adi_cms_error_e for details.
  */
 int32_t adi_ad9081_device_deinit(adi_ad9081_device_t *device);
+
+/**
+ * @brief  Configure ad9081 direct loopback mode (ADC sample rate must be same as DAC sample rate)
+ *
+ * @param  device  Pointer to the device structure
+ * @param  mode    bit[0]: set 1 to enable ana loop back feature
+ *                 bit[1]: set 1 to enable direct adc data to dac
+ *                         set 0 to control adc data overflow before loop back to dac
+ * @param  mapping bit[1:0]: controls which ADC map to DAC0, 0: ADC0, 1: ADC1
+ *                 bit[3:2]: controls which ADC map to DAC1, 0: ADC0, 1: ADC1
+ *                 bit[5:4]: controls which ADC map to DAC2, 0: ADC0, 1: ADC1
+ *                 bit[7:6]: controls which ADC map to DAC3, 0: ADC0, 1: ADC1
+ *
+ * @return API_CMS_ERROR_OK                     API Completed Successfully
+ * @return <0                                   Failed. @see adi_cms_error_e for details.
+ */
+int32_t adi_ad9081_device_direct_loopback_set(adi_ad9081_device_t *device,
+					      uint8_t mode, uint8_t mapping);
 
 /**
  * @brief  Perform SPI interface configuration
@@ -829,7 +869,7 @@ int32_t adi_ad9081_device_die_id_get(adi_ad9081_device_t *device, uint8_t *id);
  * @param  main_interp    Main interpolator
  * @param  chan_interp    Channel interpolator
  * @param  dac_chan       Enabled channels for each DAC
- * @param  main_shift     Main    NCO shift
+ * @param  main_shift     Main NCO shift
  * @param  chan_shift     Channel NCO shift
  * @param  jesd_param     JRX JESD link settings
  *
@@ -841,6 +881,26 @@ int32_t adi_ad9081_device_startup_tx(adi_ad9081_device_t *device,
 				     uint8_t dac_chan[4], int64_t main_shift[4],
 				     int64_t chan_shift[8],
 				     adi_cms_jesd_param_t *jesd_param);
+
+/**
+ * @brief  Startup Tx As NCO Test Mode
+ *
+ * @param  device         Pointer to the device structure
+ * @param  main_interp    Main interpolator
+ * @param  chan_interp    Channel interpolator
+ * @param  dac_chan       Enabled channels for each DAC
+ * @param  main_shift     Main NCO shift
+ * @param  chan_shift     Channel NCO shift
+ * @param  dc_offset      DC offset for NCO test mode
+ *
+ * @return API_CMS_ERROR_OK                     API Completed Successfully
+ * @return <0                                   Failed. @see adi_cms_error_e for details.
+ */
+int32_t
+adi_ad9081_device_startup_nco_test(adi_ad9081_device_t *device,
+				   uint8_t main_interp, uint8_t chan_interp,
+				   uint8_t dac_chan[4], int64_t main_shift[4],
+				   int64_t chan_shift[8], uint16_t dc_offset);
 
 /**
  * @brief  Startup Rx
@@ -855,16 +915,17 @@ int32_t adi_ad9081_device_startup_tx(adi_ad9081_device_t *device,
  * @param  cc2r_en        Coase  DDC complex-to-real enable
  * @param  fc2r_en        Fine   DDC complex-to-real enable
  * @param  jesd_param     JTX JESD link settings
+ * @param  jesd_conv_sel  JTX virutal converter selection, @see adi_ad9081_adc_fine_ddc_converter_e
  *
  * @return API_CMS_ERROR_OK                     API Completed Successfully
  * @return <0                                   Failed. @see adi_cms_error_e for details.
  */
-int32_t adi_ad9081_device_startup_rx(adi_ad9081_device_t *device, uint8_t cddcs,
-				     uint8_t fddcs, int64_t cddc_shift[4],
-				     int64_t fddc_shift[8], uint8_t cddc_dcm[4],
-				     uint8_t fddc_dcm[8], uint8_t cc2r_en[4],
-				     uint8_t fc2r_en[8],
-				     adi_cms_jesd_param_t jesd_param[2]);
+int32_t adi_ad9081_device_startup_rx(
+	adi_ad9081_device_t *device, uint8_t cddcs, uint8_t fddcs,
+	int64_t cddc_shift[4], int64_t fddc_shift[8], uint8_t cddc_dcm[4],
+	uint8_t fddc_dcm[8], uint8_t cc2r_en[4], uint8_t fc2r_en[8],
+	adi_cms_jesd_param_t jesd_param[2],
+	adi_ad9081_jtx_conv_sel_t jesd_conv_sel[2]);
 
 /**
  * @brief  Select active DACs
@@ -986,17 +1047,43 @@ adi_ad9081_dac_mode_set(adi_ad9081_device_t *device,
 			adi_ad9081_dac_mode_e mode);
 
 /**
+ * @brief  Set DAC complex modulation enable
+ *
+ * @param  device   Pointer to the device structure
+ * @param  groups   Mode switch groups, @see adi_ad9081_dac_mode_switch_group_select_e
+ * @param  enable   1 to enable complex modulation
+ *
+ * @return API_CMS_ERROR_OK                     API Completed Successfully
+ * @return <0                                   Failed. @see adi_cms_error_e for details.
+ */
+int32_t adi_ad9081_dac_complex_modulation_enable_set(
+	adi_ad9081_device_t *device,
+	adi_ad9081_dac_mode_switch_group_select_e groups, uint8_t enable);
+
+/**
  * @brief  Set Fine DUC gain
  *
  * @param  device   Pointer to the device structure
  * @param  channels Channel mask
- * @param  gain     Gain value
+ * @param  gain     Gain value (0~4095)
  *
  * @return API_CMS_ERROR_OK                     API Completed Successfully
  * @return <0                                   Failed. @see adi_cms_error_e for details.
  */
 int32_t adi_ad9081_dac_duc_nco_gain_set(adi_ad9081_device_t *device,
 					uint8_t channels, uint16_t gain);
+
+/**
+ * @brief  Set Fine DUC gain
+ *
+ * @param  device   Pointer to the device structure
+ * @param  gains    Channel gain values (0~4095)
+ *
+ * @return API_CMS_ERROR_OK                     API Completed Successfully
+ * @return <0                                   Failed. @see adi_cms_error_e for details.
+ */
+int32_t adi_ad9081_dac_duc_nco_gains_set(adi_ad9081_device_t *device,
+					 uint16_t gains[8]);
 
 /**
  * @brief  Set Fine DUC Skew
@@ -1139,8 +1226,8 @@ int32_t adi_ad9081_dac_duc_main_nco_hopf_select_set(adi_ad9081_device_t *device,
  *
  * @param  device     Pointer to the device structure
  * @param  dacs       DAC mask, like AD9081_DAC_0, ...
- * @param  enable     0 or 1, if gpio aligned strobe signal not given, set this bit to use internal glitch free logic to 
- *                    remove GPIO glitch, but this will introduce longer response, since the glitch remove logic will 
+ * @param  enable     0 or 1, if gpio aligned strobe signal not given, set this bit to use internal glitch free logic to
+ *                    remove GPIO glitch, but this will introduce longer response, since the glitch remove logic will
  *                    need 4 pipes delay.
  *
  * @return API_CMS_ERROR_OK                     API Completed Successfully
@@ -1275,7 +1362,7 @@ int32_t adi_ad9081_dac_soft_off_gain_ramp_rate_set(adi_ad9081_device_t *device,
  * @param  dacs        Target DAC Channel Output
  * @param  enable      bit0: spi soft-off,           bit1: txen soft-off
  *                     bit2: rotate soft-off,        bit3: jesd error soft-off
- *                     bit4: hwip err soft-off,      bit5: 
+ *                     bit4: hwip err soft-off,      bit5:
  *                     bit6: long paerr soft-off,    bit7: short paerr soft-off
  *                     bit8: dll unlock soft-off,    bit9: 204c crc err soft-off
  *                     bit10:                        bit11: hi-lo-fail soft-off
@@ -1392,9 +1479,9 @@ int32_t adi_ad9081_dac_xbar_set(adi_ad9081_device_t *device, uint8_t dacs,
  * @param  enable     Enable or disable interrupts
  *                    bit0:  PRBS_I        bit1:  PRBS_Q        bit2: SYSREF         bit3:
  *                    bit4:  CAPTURE_DONE  bit5:  LANE_FIFO     bit6: DATA_READY     bit7:
- *                    bit8:                bit9:                bit10:               bit11: PAERR0  
+ *                    bit8:                bit9:                bit10:               bit11: PAERR0
  *                    bit12:               bit13:               bit14:               bit15: PAERR1
- *                    bit16:               bit17:               bit18:               bit19: PAERR2  
+ *                    bit16:               bit17:               bit18:               bit19: PAERR2
  *                    bit20:               bit21:               bit22:               bit23: PAERR3
  *                    bit24: PLL_LOCK_FAST bit25: PLL_LOCK_SLOW bit26: PLL_LOST_FAST bit27: PLL_LOST_SLOW
  *                    bit28: DLL_LOCK01    bit29: DLL_LOST01    bit30: DLL_LOCK23    bit31: DLL_LOST23
@@ -1414,9 +1501,9 @@ int32_t adi_ad9081_dac_irqs_enable_set(adi_ad9081_device_t *device,
  * @param  status     Interrupt status
  *                    bit0:  PRBS_I        bit1:  PRBS_Q        bit2: SYSREF         bit3:
  *                    bit4:  CAPTURE_DONE  bit5:  LANE_FIFO     bit6: DATA_READY     bit7:
- *                    bit8:                bit9:                bit10:               bit11: PAERR0  
+ *                    bit8:                bit9:                bit10:               bit11: PAERR0
  *                    bit12:               bit13:               bit14:               bit15: PAERR1
- *                    bit16:               bit17:               bit18:               bit19: PAERR2  
+ *                    bit16:               bit17:               bit18:               bit19: PAERR2
  *                    bit20:               bit21:               bit22:               bit23: PAERR3
  *                    bit24: PLL_LOCK_FAST bit25: PLL_LOCK_SLOW bit26: PLL_LOST_FAST bit27: PLL_LOST_SLOW
  *                    bit28: DLL_LOCK01    bit29: DLL_LOST01    bit30: DLL_LOCK23    bit31: DLL_LOST23
@@ -1436,9 +1523,9 @@ int32_t adi_ad9081_dac_irqs_status_get(adi_ad9081_device_t *device,
  * @param  clear      Interrupt status clear bits
  *                    bit0:  PRBS_I        bit1:  PRBS_Q        bit2: SYSREF         bit3:
  *                    bit4:  CAPTURE_DONE  bit5:  LANE_FIFO     bit6: DATA_READY     bit7:
- *                    bit8:                bit9:                bit10:               bit11: PAERR0  
+ *                    bit8:                bit9:                bit10:               bit11: PAERR0
  *                    bit12:               bit13:               bit14:               bit15: PAERR1
- *                    bit16:               bit17:               bit18:               bit19: PAERR2  
+ *                    bit16:               bit17:               bit18:               bit19: PAERR2
  *                    bit20:               bit21:               bit22:               bit23: PAERR3
  *                    bit24: PLL_LOCK_FAST bit25: PLL_LOCK_SLOW bit26: PLL_LOST_FAST bit27: PLL_LOST_SLOW
  *                    bit28: DLL_LOCK01    bit29: DLL_LOST01    bit30: DLL_LOCK23    bit31: DLL_LOST23
@@ -1520,6 +1607,37 @@ int32_t adi_ad9081_dac_spi_as_tx_en_set(adi_ad9081_device_t *device,
  */
 int32_t adi_ad9081_dac_tx_enable_set(adi_ad9081_device_t *device, uint8_t dacs,
 				     uint8_t enable);
+
+/**
+ * @brief  Set Enable on DAC DSA
+ *
+ * @param  device  Pointer to the device structure
+ * @param  dacs    Target DAC Channel to enable data output
+ * @param  enable  1 to enable dac dsa, 0 to disable
+ *
+ * @return API_CMS_ERROR_OK                     API Completed Successfully
+ * @return <0                                   Failed. @see adi_cms_error_e for details.
+ */
+int32_t adi_ad9081_dac_duc_main_dsa_enable_set(adi_ad9081_device_t *device,
+					       uint8_t dacs, uint8_t enable);
+
+/**
+ * @brief  Configure DAC DSA
+ *
+ * @param  device  Pointer to the device structure
+ * @param  dacs    Target DAC Channel to enable data output
+ * @param  code    Attenuation code, 0 equals no attention and 235 equals 47dB attenuation.
+ * @param  cutover Governs the switch over from analog to digital gain control
+ * @param  boost   Boost ability to elevate the full_scale current above the 26mA baseline current
+ * @param  gain    12 bit data path digital gain
+ *
+ * @return API_CMS_ERROR_OK                     API Completed Successfully
+ * @return <0                                   Failed. @see adi_cms_error_e for details.
+ */
+int32_t adi_ad9081_dac_duc_main_dsa_set(adi_ad9081_device_t *device,
+					uint8_t dacs, uint8_t code,
+					uint8_t cutover, uint8_t boost,
+					uint16_t gain);
 
 /**
  * @brief  Set full scale current of DAC outputs
@@ -1606,6 +1724,20 @@ int32_t adi_ad9081_dac_nco_master_slave_mode_set(adi_ad9081_device_t *device,
 						 uint8_t mode);
 
 /**
+ * @brief  Select GPIO as NCO LFMC Output or Input
+ *
+ * @param  device     Pointer to the device structure
+ * @param  gpio_index 0~5 to select GPIO0 ~ GPIO5
+ * @param  output     1 for master output, 0 for slave input
+ *
+ * @return API_CMS_ERROR_OK                     API Completed Successfully
+ * @return <0                                   Failed. @see adi_cms_error_e for details.
+ */
+int32_t adi_ad9081_dac_nco_master_slave_gpio_set(adi_ad9081_device_t *device,
+						 uint8_t gpio_index,
+						 uint8_t output);
+
+/**
  * @brief  Set Trigger Source of Master Slave Mode
  *
  * @param  device  Pointer to the device structure
@@ -1665,6 +1797,18 @@ int32_t adi_ad9081_dac_spi_enable_set(adi_ad9081_device_t *device,
  */
 int32_t adi_ad9081_adc_power_up_set(adi_ad9081_device_t *device, uint8_t adcs,
 				    uint8_t enable);
+
+/**
+ * @brief  Reset rx digital datapath
+ *
+ * @param  device   Pointer to the device structure
+ * @param  reset    1 to reset, 0 to release
+ *
+ * @return API_CMS_ERROR_OK                     API Completed Successfully
+ * @return <0                                   Failed. @see adi_cms_error_e for details.
+ */
+int32_t adi_ad9081_adc_digital_datapath_reset_set(adi_ad9081_device_t *device,
+						  uint8_t reset);
 
 /**
  * @brief  Read back the current ADC clock frequency
@@ -2202,10 +2346,10 @@ int32_t adi_ad9081_adc_ddc_fine_nco_channel_selection_set(
  *                        2: profile_pins[1:0] are used. Pin level control {2'b0, profile_pins[1:0]}
  *                        3: profile_pins[2:0] are used. Pin level control {1'b0, profile_pins[2:0]}
  *                        4: profile_pins[3:0] are used. Pin level control {profile_pins[3:0]}
- *                        8: profile_pins[0] increment internal counter at rising edge of profile_pins[0] pin  
- *                        9: profile_pins[1] increment internal counter at rising edge of profile_pins[1] pin  
- *                       10: profile_pins[2] increment internal counter at rising edge of profile_pins[2] pin  
- *                       11: profile_pins[3] increment internal counter at rising edge of profile_pins[3] pin  
+ *                        8: profile_pins[0] increment internal counter at rising edge of profile_pins[0] pin
+ *                        9: profile_pins[1] increment internal counter at rising edge of profile_pins[1] pin
+ *                       10: profile_pins[2] increment internal counter at rising edge of profile_pins[2] pin
+ *                       11: profile_pins[3] increment internal counter at rising edge of profile_pins[3] pin
  *                       12: FHT expire based control - increment internal counter when FHT is expired
  *
  * @return API_CMS_ERROR_OK                     API Completed Successfully
@@ -2341,7 +2485,7 @@ int32_t adi_ad9081_adc_smon_en_to_gpio_mapping_set(adi_ad9081_device_t *device,
  * @param  device     Pointer to the device structure
  * @param  spi_en     enable pin
  * @param  pol        polarity
- * @param  rxen       value  
+ * @param  rxen       value
  *
  * @return API_CMS_ERROR_OK                     API Completed Successfully
  * @return <0                                   Failed. @see adi_cms_error_e for details.
@@ -2356,7 +2500,7 @@ int32_t adi_ad9081_adc_rxen1_gpio_ctrl_set(adi_ad9081_device_t *device,
  * @param  device     Pointer to the device structure
  * @param  spi_en     enable pin
  * @param  pol        polarity
- * @param  rxen       value  
+ * @param  rxen       value
  *
  * @return API_CMS_ERROR_OK                     API Completed Successfully
  * @return <0                                   Failed. @see adi_cms_error_e for details.
@@ -2406,7 +2550,7 @@ int32_t adi_ad9081_adc_cddc_fddc_jtx_clk_en_via_rxen3_gpio_set(
  * @param  use_txen   use txen as rxen
  * @param  spi_en     enable pin
  * @param  rxen0_pol  polarity
- * @param  rxen0      value  
+ * @param  rxen0      value
  *
  * @return API_CMS_ERROR_OK                     API Completed Successfully
  * @return <0                                   Failed. @see adi_cms_error_e for details.
@@ -2422,7 +2566,7 @@ int32_t adi_ad9081_adc_rxen0_ctrl_set(adi_ad9081_device_t *device,
  * @param  use_txen   use txen as rxen
  * @param  spi_en     enable pin
  * @param  rxen1_pol  polarity
- * @param  rxen1      value  
+ * @param  rxen1      value
  *
  * @return API_CMS_ERROR_OK                     API Completed Successfully
  * @return <0                                   Failed. @see adi_cms_error_e for details.
@@ -3262,7 +3406,7 @@ int32_t adi_ad9081_adc_smon_status_read_select_set(adi_ad9081_device_t *device,
  *
  * @param  device         Pointer to the device structure
  * @param  adcs           @see adi_ad9081_adc_select_e
- * @param  enable         1 to enable signal monitor peak detector 
+ * @param  enable         1 to enable signal monitor peak detector
  *
  * @return API_CMS_ERROR_OK                     API Completed Successfully
  * @return <0                                   Failed. @see adi_cms_error_e for details.
@@ -3276,7 +3420,7 @@ adi_ad9081_adc_smon_peak_detector_enable_set(adi_ad9081_device_t *device,
  *
  * @param  device         Pointer to the device structure
  * @param  adcs           @see adi_ad9081_adc_select_e
- * @param  select         0: jesd link0, 1: jesd link1 
+ * @param  select         0: jesd link0, 1: jesd link1
  *
  * @return API_CMS_ERROR_OK                     API Completed Successfully
  * @return <0                                   Failed. @see adi_cms_error_e for details.
@@ -3406,7 +3550,7 @@ int32_t adi_ad9081_jesd_rx_lane_invert_set(adi_ad9081_device_t *device,
 					   uint8_t invert_en);
 
 /**
- * @brief  Configure the JESD Rx lane cross bar
+ * @brief  Configure the JESD Rx lane cross bar between physical lane and logic lane
  *
  * @param  device          Pointer to the device structure
  * @param  links           Target link
@@ -3420,6 +3564,20 @@ int32_t adi_ad9081_jesd_rx_lane_xbar_set(adi_ad9081_device_t *device,
 					 adi_ad9081_jesd_link_select_e links,
 					 uint8_t physical_lane,
 					 uint8_t logical_lane);
+
+/**
+ * @brief  Configure the JESD Rx lanes cross bar between physical lane and logic lane
+ *
+ * @param  device          Pointer to the device structure
+ * @param  links           Target link
+ * @param  logical_lanes   Logical lane index (0~7 for each value)
+ *
+ * @return API_CMS_ERROR_OK                     API Completed Successfully
+ * @return <0                                   Failed. @see adi_cms_error_e for details.
+ */
+int32_t adi_ad9081_jesd_rx_lanes_xbar_set(adi_ad9081_device_t *device,
+					  adi_ad9081_jesd_link_select_e links,
+					  uint8_t logical_lanes[8]);
 
 /**
  * @brief  Configure the JESD Rx Synca Mode
@@ -3514,7 +3672,7 @@ int32_t adi_ad9081_jesd_rx_bring_up(adi_ad9081_device_t *device,
 				    uint8_t lanes);
 
 /**
- * @brief  JRX sysref enable setting
+ * @brief  Set JRX sysref enable
  *
  * @param  device     Pointer to the device structure
  * @param  enable     1:Enable, 0:Disable
@@ -3524,6 +3682,18 @@ int32_t adi_ad9081_jesd_rx_bring_up(adi_ad9081_device_t *device,
  */
 int32_t adi_ad9081_jesd_rx_sysref_enable_set(adi_ad9081_device_t *device,
 					     uint8_t enable);
+
+/**
+ * @brief  Set JRX sysref input mode
+ *
+ * @param  device     Pointer to the device structure
+ * @param  input_mode 0:AC couple, 1:DC couple
+ *
+ * @return API_CMS_ERROR_OK                     API Completed Successfully
+ * @return <0                                   Failed. @see adi_cms_error_e for details.
+ */
+int32_t adi_ad9081_jesd_rx_sysref_input_mode_set(adi_ad9081_device_t *device,
+						 uint8_t input_mode);
 
 /**
  * @brief  Set LMFC delay
@@ -3544,7 +3714,7 @@ int32_t adi_ad9081_jesd_rx_lmfc_delay_set(adi_ad9081_device_t *device,
  *
  * @param  device     Pointer to the device structure
  * @param  links      Target link
- * @param  sync_mode  0: '1', 1: sync# signal from link0, 2: sync# signal from link1, 3: ANDed sync# signal from link0 & link1  
+ * @param  sync_mode  0: '1', 1: sync# signal from link0, 2: sync# signal from link1, 3: ANDed sync# signal from link0 & link1
  *
  * @return API_CMS_ERROR_OK                     API Completed Successfully
  * @return <0                                   Failed. @see adi_cms_error_e for details.
@@ -3570,7 +3740,7 @@ int32_t adi_ad9081_jesd_rx_run_cal_mask_set(adi_ad9081_device_t *device,
  *
  * @param  device        Pointer to the device structure
  * @param  mask          Value for rx_boost_mask, bit0 -> lane0, ...
- * 
+ *
  * @return API_CMS_ERROR_OK                     API Completed Successfully
  * @return <0                                   Failed. @see adi_cms_error_e for details.
  */
@@ -3581,7 +3751,7 @@ int32_t adi_ad9081_jesd_rx_boost_mask_set(adi_ad9081_device_t *device,
  * @brief  Calibrate 204C for JRX
  *
  * @param  device        Pointer to the device structure
- * 
+ *
  * @return API_CMS_ERROR_OK                     API Completed Successfully
  * @return <0                                   Failed. @see adi_cms_error_e for details.
  */
@@ -3825,7 +3995,7 @@ int32_t adi_ad9081_jesd_tx_lane_invert_set(adi_ad9081_device_t *device,
 					   uint8_t invert_en);
 
 /**
- * @brief  Configure the JESD Tx lane cross bar
+ * @brief  Configure the JESD Tx lane cross bar between physical lane and logical lane
  *
  * @param  device          Pointer to the device structure
  * @param  links           Target link select
@@ -3839,6 +4009,20 @@ int32_t adi_ad9081_jesd_tx_lane_xbar_set(adi_ad9081_device_t *device,
 					 adi_ad9081_jesd_link_select_e links,
 					 uint8_t physical_lane,
 					 uint8_t logical_lane);
+
+/**
+ * @brief  Configure the JESD Tx lanes cross bar between physical lane and logical lane
+ *
+ * @param  device          Pointer to the device structure
+ * @param  links           Target link select
+ * @param  logical_lanes   Logical lanes index (0~7 for each value)
+ *
+ * @return API_CMS_ERROR_OK                     API Completed Successfully
+ * @return <0                                   Failed. @see adi_cms_error_e for details.
+ */
+int32_t adi_ad9081_jesd_tx_lanes_xbar_set(adi_ad9081_device_t *device,
+					  adi_ad9081_jesd_link_select_e links,
+					  uint8_t logical_lanes[8]);
 
 /**
  * @brief  Select virtual converter
@@ -3962,6 +4146,20 @@ int32_t adi_ad9081_jesd_tx_lid_cfg_set(adi_ad9081_device_t *device,
 				       uint8_t lane, uint8_t val);
 
 /**
+ * @brief  Configure the lid for all lanes
+ *
+ * @param  device          Pointer to the device structure
+ * @param  links           Target link select
+ * @param  lids            LID values for all lanes
+ *
+ * @return API_CMS_ERROR_OK                     API Completed Successfully
+ * @return <0                                   Failed. @see adi_cms_error_e for details.
+ */
+int32_t adi_ad9081_jesd_tx_lids_cfg_set(adi_ad9081_device_t *device,
+					adi_ad9081_jesd_link_select_e links,
+					uint8_t lids[8]);
+
+/**
  * @brief  Force JESD Tx links reset
  *
  * @param  device     Pointer to the device structure
@@ -4014,16 +4212,18 @@ int32_t adi_ad9081_jesd_tx_link_enable_set(adi_ad9081_device_t *device,
 /**
  * @brief  Bring up jtx link
  *
- * @param  device     Pointer to the device structure
- * @param  links      Target link select
- * @param  lanes      Active lanes, bit0 - lane0, bit1 - lane1, ...
+ * @param  device        Pointer to the device structure
+ * @param  links         Target link select
+ * @param  lanes         Active lanes, bit0 - lane0, bit1 - lane1, ...
+ * @param  jesd_conv_sel Virtual converter selection, @see adi_ad9081_adc_fine_ddc_converter_e
  *
  * @return API_CMS_ERROR_OK                     API Completed Successfully
  * @return <0                                   Failed. @see adi_cms_error_e for details.
  */
 int32_t adi_ad9081_jesd_tx_bring_up(adi_ad9081_device_t *device,
 				    adi_ad9081_jesd_link_select_e links,
-				    uint8_t lanes);
+				    uint8_t lanes,
+				    adi_ad9081_jtx_conv_sel_t jesd_conv_sel[2]);
 
 /**
  * @brief  Get jtx link status
@@ -4234,7 +4434,7 @@ int32_t adi_ad9081_jesd_tx_sample_data_prbs_test(
  * @brief  Enable ILAS Test Mode (Repeated ILAS)
  *
  * @param device         Pointer to the device reference handle
- * @param links          Target link 
+ * @param links          Target link
  * @param enable         Test mode enable
  *
  * @return API_CMS_ERROR_OK                     API Completed Successfully
@@ -4248,7 +4448,7 @@ int32_t adi_ad9081_jesd_tx_ilas_test_mode_enable_set(
  * @brief  Enable Continuous D21.5 Test Mode
  *
  * @param device         Pointer to the device reference handle
- * @param links          Target link 
+ * @param links          Target link
  * @param lane_id        Lane index (0~7)
  * @param enable         Test mode enable
  *
@@ -4263,7 +4463,7 @@ int32_t adi_ad9081_jesd_tx_continuous_d215_enable_set(
  * @brief  Enable RPAT Test Mode
  *
  * @param device         Pointer to the device reference handle
- * @param links          Target link 
+ * @param links          Target link
  * @param lane_id        Lane index (0~7)
  * @param enable         Test mode enable
  *
@@ -4278,7 +4478,7 @@ int32_t adi_ad9081_jesd_tx_rpat_enable_set(adi_ad9081_device_t *device,
  * @brief  Enable JSPAT Test Mode
  *
  * @param device         Pointer to the device reference handle
- * @param links          Target link 
+ * @param links          Target link
  * @param lane_id        Lane index (0~7)
  * @param enable         Test mode enable
  *
@@ -4293,7 +4493,7 @@ int32_t adi_ad9081_jesd_tx_jspat_enable_set(adi_ad9081_device_t *device,
  * @brief  Enable JTSPAT Test Mode
  *
  * @param device         Pointer to the device reference handle
- * @param links          Target link 
+ * @param links          Target link
  * @param lane_id        Lane index (0~7)
  * @param enable         Test mode enable
  *
@@ -4344,4 +4544,4 @@ int32_t adi_ad9081_jesd_rx_spo_test(adi_ad9081_device_t *device, uint8_t lane,
 #endif
 
 #endif /* __ADI_AD9081_H__ */
-       /*! @} */
+/*! @} */

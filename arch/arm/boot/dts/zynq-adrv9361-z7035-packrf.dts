@@ -1,11 +1,26 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * AD9361-Z7035 System on Module (SOM) SDR - PackRF Carrier
+ * Link: https://www.analog.com/ADRV9361-Z7035
+ * Link: https://wiki.analog.com/resources/eval/user-guides/adrv936x_rfsom
+ *
+ * hdl_project: <adrv9361z7035/ccpackrf_lvds>
+ * board_revision: <>
+ *
+ * Copyright 2016-2019 Analog Devices Inc.
+ */
 /dts-v1/;
-#include "zynq-adrv9364-z7020.dtsi"
+#include "zynq-adrv9361-z7035.dtsi"
 #include <dt-bindings/input/input.h>
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/interrupt-controller/irq.h>
 
 / {
-	model = "Analog Devices ADRV9364-Z7020 RFSOM-BOX (Z7020/AD9364)";
+	model = "Analog Devices ADRV9361-Z7035 RFSOM-BOX (Z7035/AD9361)";
+};
+
+&adm1166 {
+	reg = <0x6A>;
 };
 
 &axi_i2c0 {
@@ -45,11 +60,17 @@
 		interrupts = <80 IRQ_TYPE_LEVEL_LOW>;
 	};
 
+
 	fuelgauge: ltc2942@64 {
 		compatible = "lltc,ltc2942";
 		reg = <0x64>;
 		lltc,resistor-sense = <20>;
 		lltc,prescaler-exponent = <5>; /* 2^(2*5) = 1024 */
+	};
+
+	adp5061@14 {
+		    compatible = "adi,adp5061";
+		    reg = <0x14>;
 	};
 };
 
@@ -97,12 +118,13 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 		interrupt-parent = <&gpio0>;
-		autorepeat;
+//		autorepeat;
 
 		s5 {
 			label = "Right";
 			linux,code = <KEY_RIGHT>;
 			interrupts = <101 IRQ_TYPE_EDGE_RISING>;
+			//gpios = <&gpio0 101 GPIO_ACTIVE_LOW>;
 			debounce-interval = <10>;
 		};
 
@@ -110,6 +132,7 @@
 			label = "Left";
 			linux,code = <KEY_LEFT>;
 			interrupts = <103 IRQ_TYPE_EDGE_RISING>;
+			//gpios = <&gpio0 103 GPIO_ACTIVE_LOW>;
 			debounce-interval = <10>;
 			};
 
@@ -117,6 +140,7 @@
 			label = "Down";
 			linux,code = <KEY_DOWN>;
 			interrupts = <102 IRQ_TYPE_EDGE_RISING>;
+			//gpios = <&gpio0 102 GPIO_ACTIVE_LOW>;
 			debounce-interval = <10>;
 		};
 
@@ -124,6 +148,7 @@
 			label = "Up";
 			linux,code = <KEY_UP>;
 			interrupts = <104 IRQ_TYPE_EDGE_RISING>;
+			//gpios = <&gpio0 104 GPIO_ACTIVE_LOW>;
 			debounce-interval = <10>;
 		};
 
@@ -131,6 +156,7 @@
 			label = "Enter";
 			linux,code = <KEY_ENTER>;
 			interrupts = <111 IRQ_TYPE_EDGE_RISING>;
+			//gpios = <&gpio0 111 GPIO_ACTIVE_LOW>;
 			debounce-interval = <10>;
 		};
 
@@ -160,7 +186,7 @@
 
 	pzsdr_sound {
 		compatible = "simple-audio-card-adrv936x-box";
-		simple-audio-card,name = "ADRV9364-Z7020 ADAU1761";
+		simple-audio-card,name = "ADRV9361-Z7035 ADAU1761";
 		simple-audio-card,widgets =
 			"Microphone", "Mic In",
 			"Headphone", "Headphone Out";
@@ -169,7 +195,6 @@
 			"Headphone Out", "RHP",
 			"Mic In", "MICBIAS",
 			"LINN", "Mic In";
-
 		simple-audio-card,dai-link@0 {
 			format = "i2s";
 			cpu {
@@ -280,7 +305,6 @@
 		#sound-dai-cells = <0>;
 	};
 };
-
 /*
 
 input	imu_ready	28	82
@@ -307,8 +331,6 @@ inout	adp5061_io_1	17	71
 inout	adp5061_io_2	18	72
 
 	rtc_int		26	80
-	adp1614_en	25	79
-	otg_ctrl	24	78
 
 inout	ltc2955_kill_n	23	77
 inout	ltc2955_int_n	22	76
@@ -330,6 +352,14 @@ inout	gpio_sync	45	99
 inout	gpio_en_agc	44	98
 inout	gpio_ctl	40..43	94..97
 inout	gpio_status	32..39	86..93
+
+tsw_a    59	113
+tsw_b    58	112
+tsw_s1   57	111
+tsw_s2   50	104
+tsw_s3   49	103
+tsw_s4   48	102
+tsw_s5   47	101
 
 */
 

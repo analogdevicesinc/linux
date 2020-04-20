@@ -1,0 +1,85 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices AD7768-1
+ * https://www.analog.com/en/products/ad7768-1.html
+ * https://wiki.analog.com/resources/tools-software/linux-drivers/platforms/zynq
+ *
+ * hdl_project: <ad77681evb/coraz7s>
+ * board_revision: <A>
+ *
+ * Copyright (C) 2020 Analog Devices Inc.
+ */
+/dts-v1/;
+#include "zynq-coraz7s.dtsi"
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/gpio/gpio.h>
+
+/ {
+	vref: regulator-vref {
+		compatible = "regulator-fixed";
+		regulator-name = "fixed-supply";
+		regulator-min-microvolt = <4096000>;
+		regulator-max-microvolt = <4096000>;
+		regulator-always-on;
+	};
+
+	clocks {
+		ad7768_1_mclk: clock@0 {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <100000000>;
+		};
+	};
+};
+
+&fpga_axi {
+	rx_dma: rx-dmac@44a30000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x44a30000 0x1000>;
+		#dma-cells = <1>;
+		interrupt-parent = <&intc>;
+		interrupts = <0 57 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clkc 16>;
+
+		adi,channels {
+			#size-cells = <0>;
+			#address-cells = <1>;
+
+			dma-channel@0 {
+				reg = <0>;
+				adi,source-bus-width = <32>;
+				adi,source-bus-type = <1>;
+				adi,destination-bus-width = <64>;
+				adi,destination-bus-type = <0>;
+			};
+		};
+	};
+
+	axi_spi_engine_0: axi-spi-engine@44a00000 {
+		compatible = "adi,axi-spi-engine-1.00.a";
+		reg = <0x44a00000 0x1000>;
+		interrupt-parent = <&intc>;
+		interrupts = <0 55 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clkc 15 &clkc 15>;
+		clock-names = "s_axi_aclk", "spi_clk";
+		num-cs = <1>;
+
+		#address-cells = <0x1>;
+		#size-cells = <0x0>;
+
+		ad7768_1: adc@0 {
+			compatible = "adi,ad7768-1";
+			reg = <0>;
+			spi-max-frequency = <2000000>;
+			spi-cpol;
+			spi-cpha;
+			vref-supply = <&vref>;
+			interrupts = <91 IRQ_TYPE_EDGE_RISING>;
+			interrupt-parent = <&gpio0>;
+			adi,sync-in-gpios = <&gpio0 87 GPIO_ACTIVE_LOW>;
+			reset-gpios = <&gpio0 86 GPIO_ACTIVE_LOW>;
+			clocks = <&ad7768_1_mclk>;
+			clock-names = "mclk";
+		};
+	};
+};

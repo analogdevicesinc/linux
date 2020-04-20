@@ -75,6 +75,7 @@ struct xilinx_xcvr_qpll_config {
 	unsigned int refclk_div;
 	unsigned int fb_div;
 	unsigned int band;
+	unsigned int qty4_full_rate;
 };
 
 int xilinx_xcvr_configure_cdr(struct xilinx_xcvr *xcvr, unsigned int drp_port,

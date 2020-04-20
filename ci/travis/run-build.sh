@@ -14,6 +14,49 @@ if [ -f "${FULL_BUILD_DIR}/env" ] ; then
 	. "${FULL_BUILD_DIR}/env"
 fi
 
+# allow this to be configurable; we may want to run it elsewhere
+REPO_SLUG=${REPO_SLUG:-analogdevicesinc/linux}
+
+# Run once for the entire script
+sudo apt-get -qq update
+
+apt_install() {
+	sudo apt-get install -y $@
+}
+
+get_pull_requests_urls() {
+	wget -q -O- https://api.github.com/repos/${REPO_SLUG}/pulls | jq -r '.[].commits_url'
+}
+
+get_pull_request_commits_sha() {
+	wget -q -O- $1 | jq -r '.[].sha'
+}
+
+branch_has_pull_request() {
+	if [ "$TRAVIS_PULL_REQUEST" = "true" ] ; then
+		return 1
+	fi
+	apt_install jq
+
+	for pr_url in $(get_pull_requests_urls) ; do
+		for sha in $(get_pull_request_commits_sha $pr_url) ; do
+			if [ "$sha" = "$TRAVIS_COMMIT" ] ; then
+				TRAVIS_OPEN_PR=$pr_url
+				export TRAVIS_OPEN_PR
+				return 0
+			fi
+		done
+	done
+
+	return 1
+}
+
+# Exit early to save some build time
+if branch_has_pull_request ; then
+	echo_green "Not running build for branch; there is an open PR @ $TRAVIS_OPEN_PR"
+	exit 0
+fi
+
 if [ -z "$NUM_JOBS" ] ; then
 	NUM_JOBS=$(getconf _NPROCESSORS_ONLN)
 	NUM_JOBS=${NUM_JOBS:-1}
@@ -64,27 +107,104 @@ if [ "$ARCH" == "arm" ] ; then
 fi
 
 apt_update_install() {
-	sudo -s <<-EOF
-		apt-get -qq update
-		apt-get -y install $@
-	EOF
+	apt_install $@
 	adjust_kcflags_against_gcc
 }
 
+__get_all_c_files() {
+	git grep -i "$@" | cut -d: -f1 | sort | uniq  | grep "\.c"
+}
+
+check_all_adi_files_have_been_built() {
+	# Collect all .c files that contain the 'Analog Devices' string/name
+	local c_files=$(__get_all_c_files "Analog Devices")
+	local ltc_c_files=$(__get_all_c_files "Linear Technology")
+	local o_files
+	local exceptions_file="ci/travis/${DEFCONFIG}_compile_exceptions"
+	local ret=0
+
+	c_files="drivers/misc/mathworks/*.c $c_files $ltc_c_files"
+
+	# Convert them to .o files via sed, and extract only the filenames
+	for file in $c_files ; do
+		file1=$(echo $file | sed 's/\.c/\.o/g')
+		if [ -f "$exceptions_file" ] ; then
+			if grep -q "$file1" "$exceptions_file" ; then
+				continue
+			fi
+		fi
+		if [ ! -f "$file1" ] ; then
+			if [ "$ret" = "0" ] ; then
+				echo
+				echo_red "The following files need to be built OR"
+				echo_green "      added to '$exceptions_file'"
+
+				echo
+
+				echo_green "  If adding the '$exceptions_file', please make sure"
+				echo_green "  to check if it's better to add the correct Kconfig symbol"
+				echo_green "  to one of the following files:"
+
+				for file in $(find -name Kconfig.adi) ; do
+					echo_green "   $file"
+				done
+
+				echo
+			fi
+			echo_red "File '$file1' has not been compiled"
+			ret=1
+		fi
+	done
+
+	return $ret
+}
+
 build_default() {
+	[ -n "$DEFCONFIG" ] || {
+		echo_red "No DEFCONFIG provided"
+		return 1
+	}
+
+	[ -n "$ARCH" ] || {
+		echo_red "No ARCH provided"
+		return 1
+	}
+
+	APT_LIST="$APT_LIST git"
+
 	apt_update_install $APT_LIST
 	make ${DEFCONFIG}
 	make -j$NUM_JOBS $IMAGE UIMAGE_LOADADDR=0x8000
+
+	if [ "$CHECK_ALL_ADI_DRIVERS_HAVE_BEEN_BUILT" == "1" ] ; then
+		check_all_adi_files_have_been_built
+	fi
+
+	make savedefconfig
+	mv defconfig arch/$ARCH/configs/$DEFCONFIG
+
+	git diff --exit-code || {
+		echo_red "Defconfig file should be updated: 'arch/$ARCH/configs/$DEFCONFIG'"
+		echo_red "Run 'make savedefconfig', overwrite it and commit it"
+		return 1
+	}
 }
 
-build_compile_test() {
+build_allmodconfig() {
+	APT_LIST="$APT_LIST git"
+
 	apt_update_install $APT_LIST
-	export COMPILE_TEST=y
-	make ${DEFCONFIG}
+	make allmodconfig
 	make -j$NUM_JOBS
 }
 
 build_checkpatch() {
+	# TODO: Re-visit periodically:
+	# https://github.com/torvalds/linux/blob/master/Documentation/devicetree/writing-schema.rst
+	# This seems to change every now-n-then
+	apt_install python-ply python-git libyaml-dev python3-pip python3-setuptools
+	pip3 install wheel
+	pip3 install git+https://github.com/devicetree-org/dt-schema.git@master
 	if [ -n "$TRAVIS_BRANCH" ]; then
 		__update_git_ref "${TRAVIS_BRANCH}" "${TRAVIS_BRANCH}"
 	fi
@@ -97,11 +217,25 @@ build_checkpatch() {
 }
 
 build_dtb_build_test() {
-	apt_update_install $APT_LIST
-	make ${DEFCONFIG:-defconfig}
+	if [ "$TRAVIS" = "true" ] ; then
+		for patch in $(ls ci/travis/*.patch | sort) ; do
+			patch -p1 < $patch
+		done
+	fi
+	local last_arch
 	for file in $DTS_FILES; do
 		dtb_file=$(echo $file | sed 's/dts\//=/g' | cut -d'=' -f2 | sed 's\dts\dtb\g')
-		make ${dtb_file} || exit 1
+		arch=$(echo $file |  cut -d'/' -f2)
+		if [ "$last_arch" != "$arch" ] ; then
+			ARCH=$arch make defconfig
+			last_arch=$arch
+		fi
+		# XXX: hack for nios2, which doesn't have `arch/nios2/boot/dts/Makefile`
+		# but even an empty one is fine
+		if [ ! -f arch/$arch/boot/dts/Makefile ] ; then
+			touch arch/$arch/boot/dts/Makefile
+		fi
+		ARCH=$arch make ${dtb_file} -j$NUM_JOBS || exit 1
 	done
 }
 
@@ -223,6 +357,7 @@ build_sync_branches_with_master_travis() {
 	[ -n "$TRAVIS_PULL_REQUEST" ] || return 0
 	[ "$TRAVIS_PULL_REQUEST" == "false" ] || return 0
 	[ "$TRAVIS_BRANCH" == "master" ] || return 0
+	[ "$TRAVIS_REPO_SLUG" == "analogdevicesinc/linux" ] || return 0
 
 	git remote set-url $ORIGIN "git@github.com:analogdevicesinc/linux.git"
 	openssl aes-256-cbc -d -in ci/travis/deploy_key.enc -out /tmp/deploy_key -base64 -K $encrypt_key -iv $encrypt_iv

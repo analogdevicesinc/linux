@@ -1,3 +1,15 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices AD9467
+ * https://wiki.analog.com/resources/tools-software/linux-drivers/iio-adc/axi-adc-hdl
+ * https://wiki.analog.com/resources/eval/ad9467-fmc-250ebz
+ * https://wiki.analog.com/resources/fpga/xilinx/fmc/ad9467
+ *
+ * hdl_project: <ad9467_fmc/zed>
+ * board_revision: <>
+ *
+ * Copyright (C) 2016-2019 Analog Devices Inc.
+ */
 /dts-v1/;
 
 #include "zynq-zed.dtsi"
@@ -26,7 +38,7 @@
 	};
 
 	cf_ad9467_core_0: cf-ad9467-core-lpc@44a00000 {
-		compatible = "xlnx,cf-ad9467-core-1.00.a";
+		compatible = "adi,axi-adc-10.0.a";
 		reg = <0x44A00000 0x10000>;
 		dmas = <&rx_dma 0>;
 		dma-names = "rx";

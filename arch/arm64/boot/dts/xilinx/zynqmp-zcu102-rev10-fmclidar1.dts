@@ -1,0 +1,188 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Prototyping platform for LiDAR applications
+ * Link: https://wiki.analog.com/resources/eval/user-guides/ad-fmclidar1-ebz
+ *
+ * hdl_project: <ad_fmclidar1_ebz/zcu102>
+ * board_revision: <B>
+ *
+ * Copyright 2019 Analog Devices Inc.
+ */
+/dts-v1/;
+
+#include "zynqmp-zcu102-rev1.0.dts"
+#include <dt-bindings/interrupt-controller/irq.h>
+
+&i2c1 {
+	i2c-mux@75 {
+ 		i2c@0 { /* HPC0 */
+ 			#address-cells = <1>;
+ 			#size-cells = <0>;
+ 			reg = <0>;
+ 			/* HPC0_IIC */
+ 			ad7291@2f {
+ 				compatible = "adi,ad7291";
+				reg = <0x2f>;
+ 			};
+
+ 			eeprom@50 {
+ 				compatible = "at24,24c02";
+ 				reg = <0x50>;
+ 			};
+
+ 		};
+	};
+};
+
+/ {
+	fpga_axi: fpga-axi@0 {
+		interrupt-parent = <&gic>;
+		compatible = "simple-bus";
+		#address-cells = <0x1>;
+		#size-cells = <0x1>;
+		ranges = <0 0 0 0xffffffff>;
+
+		axi_spi_vco: axi_quad_spi@9c500000 {
+			reg = <0x9c500000 0x10000>;
+			compatible = "xlnx,xps-spi-2.00.a";
+			bits-per-word = <8>;
+			clock-names = "ext_spi_clk", "s_axi_aclk";
+			clocks = <&zynqmp_clk 71>, <&zynqmp_clk 71>;
+			fifo-size = <16>;
+			interrupt-names = "ip2intc_irpt";
+			interrupt-parent = <&gic>;
+			interrupts = <0 106 IRQ_TYPE_EDGE_RISING>;
+			num-cs = <0x1>;
+			xlnx,num-ss-bits = <0x1>;
+			xlnx,spi-mode = <0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+		};
+
+		axi_spi_afe_adc: axi_quad_spi@9c600000 {
+			reg = <0x9c600000 0x10000>;
+			compatible = "xlnx,xps-spi-2.00.a";
+			bits-per-word = <8>;
+			clock-names = "ext_spi_clk", "s_axi_aclk";
+			clocks = <&zynqmp_clk 71>, <&zynqmp_clk 71>;
+			fifo-size = <16>;
+			interrupt-names = "ip2intc_irpt";
+			interrupt-parent = <&gic>;
+			interrupts = <0 105 IRQ_TYPE_EDGE_RISING>;
+			num-cs = <0x1>;
+			xlnx,num-ss-bits = <0x1>;
+			xlnx,spi-mode = <0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+		};
+
+		axi_i2c_afe_dac: i2c@9c800000 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			clock-names = "s_axi_aclk";
+			clocks = <&zynqmp_clk 71>;
+			compatible = "xlnx,axi-iic-2.0", "xlnx,xps-iic-2.00.a";
+			interrupt-names = "iic2intc_irpt";
+			interrupt-parent = <&gic>;
+			interrupts = <0 108 IRQ_TYPE_LEVEL_HIGH>;
+			reg = <0x9c800000 0x1000>;
+		};
+
+		axi_ad9094_adxcvr: axi-adxcvr-rx@84a50000 {
+			compatible = "adi,axi-adxcvr-1.0";
+			reg = <0x84a50000 0x1000>;
+
+			clocks = <&ad9528 3>;
+			clock-names = "conv";
+
+			#clock-cells = <1>;
+			clock-output-names = "adc_gt_clk", "rx_out_clk";
+
+			adi,sys-clk-select = <3>;
+			adi,out-clk-select = <3>;
+			adi,use-lpm-enable;
+		};
+
+		axi_ad9094_rx_jesd: axi-jesd204-rx@84aa0000 {
+			compatible = "adi,axi-jesd204-rx-1.0";
+			reg = <0x84aa0000 0x1000>;
+
+			interrupts = <0 107 IRQ_TYPE_LEVEL_HIGH>;
+
+			clocks = <&zynqmp_clk 71>, <&ad9528 4>, <&axi_ad9094_adxcvr 0>;
+			clock-names = "s_axi_aclk", "device_clk", "lane_clk";
+
+			adi,octets-per-frame = <1>;
+			adi,frames-per-multiframe = <32>;
+			adi,converter-resolution = <8>;
+			adi,bits-per-sample = <8>;
+			adi,converters-per-device = <2>;
+			adi,subclass = <1>;
+
+			#clock-cells = <0>;
+			clock-output-names = "jesd_adc_lane_clk";
+		};
+
+		axi_pulse_capture: axi-pulse-capture@9c700000 {
+			compatible = "adi,axi-pulse-capture-1.00.a";
+			reg = <0x9c700000 0x10000>;
+			interrupts = <0 104 4>;
+			clocks = <&axi_ad9094_adxcvr 1>;
+		};
+
+		rx_dma: rx-dmac@9c400000 {
+			compatible = "adi,axi-dmac-1.00.a";
+			reg = <0x9c400000 0x10000>;
+			#dma-cells = <1>;
+			interrupts = <0 109 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&zynqmp_clk 71>;
+
+			adi,channels {
+				#size-cells = <0>;
+				#address-cells = <1>;
+
+				dma-channel@0 {
+					reg = <0>;
+					adi,source-bus-width = <256>;
+					adi,source-bus-type = <2>;
+					adi,destination-bus-width = <64>;
+					adi,destination-bus-type = <0>;
+				};
+			};
+		};
+
+		axi_ad9094_core: axi-ad9094-hpc@84a10000 {
+			compatible = "adi,axi-ad9694-1.0";
+			reg = <0x84a10000 0x10000>;
+			dmas = <&rx_dma 0>;
+			dma-names = "rx";
+			spibus-connected = <&ad9094>;
+			adi,axi-additional-channel-available;
+		};
+
+		axi_sysid: axi-sysid@85000000 {
+			compatible = "adi,axi-sysid-1.00.a";
+			reg = <0x85000000 0x10000>;
+		};
+	};
+};
+
+&spi0 {
+	status = "okay";
+};
+
+&spi1 {
+	status = "okay";
+};
+
+#define spi_vco		axi_spi_vco
+#define spi_clkgen	spi1
+#define spi_adc		spi0
+#define spi_afe_adc	axi_spi_afe_adc
+#define i2c_afe_dac	axi_i2c_afe_dac
+
+#include "adi-fmclidar1.dtsi"
+
+&ad7091 {
+	convst-gpios = <&gpio 115 0>;
+};

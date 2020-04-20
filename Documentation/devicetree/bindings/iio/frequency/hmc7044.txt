@@ -38,6 +38,12 @@ Required properties hcm7043:
 Optional properties hmc7044:
 	- adi,pll1-loop-bandwidth-hz: The PLL1 loop bandwidth. If this is
 		not specified, 200 will be used by default.
+	- adi,pfd1-maximum-limit-frequency-hz: If this is specified, the
+		driver will try to find a PLL1 PFD rate close to this
+		value. Otherwise, the maximum limit will be 10 MHz.
+	- adi,pll1-charge-pump-current-ua - PLL1 charge pump current. The
+		accepted range is 120 - 1920 uA. If this is not specified,
+		the current will be set to 1080 uA.
 	- adi,sysref-timer-divider: This sets the internal beat frequency
 		of the master timer, which controls synchronization and
 		pulse generator events. It should be set to a submultiple
@@ -78,6 +84,7 @@ Optional properties hmc7044:
 			pulse generator.
 	- adi,clkin0-rf-sync-enable: CLKIN0 input is used for external RF sync.
 	- adi,clkin1-vco-in-enable: CLKIN1 input is used for external VCO.
+	- adi,rf-reseeder-disable: Disables RF reseed for SYSREF.
 
 Optional properties hmc7043:
 	- adi,sysref-timer-divider: This sets the internal beat frequency
@@ -97,6 +104,7 @@ Optional properties hmc7043:
 		Buffer enable bit ([0]) - see register 0x000B. If this is
 		not specified, 0 will be used by default.
 	- adi,clkin0-rf-sync-enable: CLKIN0 input is used for external RF sync.
+	- adi,rf-reseeder-disable: Disables RF reseed for SYSREF.
 
 Adding channels:
 	Channels can be specified using child nodes.

@@ -1,3 +1,13 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices CN0363
+ * https://www.analog.com/en/design-center/reference-designs/circuits-from-the-lab/CN0363.html
+ *
+ * hdl_project: <cn0363/zed>
+ * board_revision: <>
+ *
+ * Copyright (C) 2020 Analog Devices Inc.
+ */
 /dts-v1/;
 
 #include "zynq-zed.dtsi"

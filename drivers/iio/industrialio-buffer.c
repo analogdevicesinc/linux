@@ -95,7 +95,7 @@ static bool iio_buffer_ready(struct iio_dev *indio_dev, struct iio_buffer *buf,
 }
 
 /**
- * iio_buffer_read_first_n_outer() - chrdev read for buffer access
+ * iio_buffer_read_outer() - chrdev read for buffer access
  * @filp:	File structure pointer for the char device
  * @buf:	Destination buffer for iio buffer read
  * @n:		First n bytes to read
@@ -107,8 +107,8 @@ static bool iio_buffer_ready(struct iio_dev *indio_dev, struct iio_buffer *buf,
  * Return: negative values corresponding to error codes or ret != 0
  *	   for ending the reading activity
  **/
-ssize_t iio_buffer_read_first_n_outer(struct file *filp, char __user *buf,
-				      size_t n, loff_t *f_ps)
+ssize_t iio_buffer_read_outer(struct file *filp, char __user *buf,
+			      size_t n, loff_t *f_ps)
 {
 	struct iio_dev *indio_dev = filp->private_data;
 	struct iio_buffer *rb = indio_dev->buffer;
@@ -270,15 +270,16 @@ int iio_buffer_alloc_scanmask(struct iio_buffer *buffer,
 	if (!indio_dev->masklength)
 		return 0;
 
-	buffer->scan_mask = kcalloc(BITS_TO_LONGS(indio_dev->masklength),
-		sizeof(*buffer->scan_mask), GFP_KERNEL);
+	buffer->scan_mask = bitmap_zalloc(indio_dev->masklength, GFP_KERNEL);
 	if (buffer->scan_mask == NULL)
 		return -ENOMEM;
 
-	buffer->channel_mask = kcalloc(BITS_TO_LONGS(indio_dev->num_channels),
-		sizeof(*buffer->channel_mask), GFP_KERNEL);
-	if (buffer->channel_mask == NULL)
+	buffer->channel_mask = bitmap_zalloc(indio_dev->num_channels,
+					     GFP_KERNEL);
+	if (buffer->channel_mask == NULL) {
+		bitmap_free(buffer->scan_mask);
 		return -ENOMEM;
+	}
 
 	return 0;
 }
@@ -286,8 +287,8 @@ EXPORT_SYMBOL(iio_buffer_alloc_scanmask);
 
 void iio_buffer_free_scanmask(struct iio_buffer *buffer)
 {
-	kfree(buffer->channel_mask);
-	kfree(buffer->scan_mask);
+	bitmap_free(buffer->channel_mask);
+	bitmap_free(buffer->scan_mask);
 }
 EXPORT_SYMBOL(iio_buffer_free_scanmask);
 
@@ -402,8 +403,7 @@ static int iio_channel_mask_set(struct iio_dev *indio_dev,
 	unsigned long *trialmask;
 	unsigned int ch;
 
-	trialmask = kcalloc(BITS_TO_LONGS(indio_dev->masklength),
-			    sizeof(*trialmask), GFP_KERNEL);
+	trialmask = bitmap_zalloc(indio_dev->masklength, GFP_KERNEL);
 	if (trialmask == NULL)
 		return -ENOMEM;
 	if (!indio_dev->masklength) {
@@ -428,13 +428,13 @@ static int iio_channel_mask_set(struct iio_dev *indio_dev,
 	}
 	bitmap_copy(buffer->scan_mask, trialmask, indio_dev->masklength);
 
-	kfree(trialmask);
+	bitmap_free(trialmask);
 
 	return 0;
 
 err_invalid_mask:
 	clear_bit(bit, buffer->channel_mask);
-	kfree(trialmask);
+	bitmap_free(trialmask);
 	return -EINVAL;
 }
 
@@ -664,7 +664,7 @@ static int iio_compute_scan_bytes(struct iio_dev *indio_dev,
 				const unsigned long *mask, bool timestamp)
 {
 	unsigned bytes = 0;
-	int length, i;
+	int length, i, largest = 0;
 
 	/* How much space will the demuxed element take? */
 	for_each_set_bit(i, mask,
@@ -672,13 +672,17 @@ static int iio_compute_scan_bytes(struct iio_dev *indio_dev,
 		length = iio_storage_bytes_for_si(indio_dev, i);
 		bytes = ALIGN(bytes, length);
 		bytes += length;
+		largest = max(largest, length);
 	}
 
 	if (timestamp) {
 		length = iio_storage_bytes_for_timestamp(indio_dev);
 		bytes = ALIGN(bytes, length);
 		bytes += length;
+		largest = max(largest, length);
 	}
+
+	bytes = ALIGN(bytes, largest);
 	return bytes;
 }
 
@@ -759,7 +763,7 @@ static void iio_free_scan_mask(struct iio_dev *indio_dev,
 {
 	/* If the mask is dynamically allocated free it, otherwise do nothing */
 	if (!indio_dev->available_scan_masks)
-		kfree(mask);
+		bitmap_free(mask);
 }
 
 struct iio_device_config {
@@ -780,6 +784,13 @@ static int iio_verify_update(struct iio_dev *indio_dev,
 	struct iio_buffer *buffer;
 	bool scan_timestamp;
 	unsigned int modes;
+
+	if (insert_buffer &&
+	    bitmap_empty(insert_buffer->scan_mask, indio_dev->masklength)) {
+		dev_dbg(&indio_dev->dev,
+			"At least one scan element must be enabled first\n");
+		return -EINVAL;
+	}
 
 	memset(config, 0, sizeof(*config));
 	config->watermark = ~0;
@@ -832,8 +843,7 @@ static int iio_verify_update(struct iio_dev *indio_dev,
 		strict_scanmask = true;
 
 	/* What scan mask do we actually have? */
-	compound_mask = kcalloc(BITS_TO_LONGS(indio_dev->masklength),
-				sizeof(long), GFP_KERNEL);
+	compound_mask = bitmap_zalloc(indio_dev->masklength, GFP_KERNEL);
 	if (compound_mask == NULL)
 		return -ENOMEM;
 
@@ -858,7 +868,7 @@ static int iio_verify_update(struct iio_dev *indio_dev,
 				    indio_dev->masklength,
 				    compound_mask,
 				    strict_scanmask);
-		kfree(compound_mask);
+		bitmap_free(compound_mask);
 		if (scan_mask == NULL)
 			return -EINVAL;
 	} else {
@@ -1136,12 +1146,6 @@ static int __iio_update_buffers(struct iio_dev *indio_dev,
 		return ret;
 
 	if (insert_buffer) {
-		if (bitmap_empty(insert_buffer->scan_mask,
-			indio_dev->masklength)) {
-			ret = -EINVAL;
-			goto err_free_config;
-		}
-
 		ret = iio_buffer_request_update(indio_dev, insert_buffer);
 		if (ret)
 			goto err_free_config;
@@ -1325,7 +1329,7 @@ static ssize_t iio_dma_show_data_available(struct device *dev,
 }
 
 static DEVICE_ATTR(length, S_IRUGO | S_IWUSR, iio_buffer_read_length,
-	iio_buffer_write_length);
+		   iio_buffer_write_length);
 static struct device_attribute dev_attr_length_ro = __ATTR(length,
 	S_IRUGO, iio_buffer_read_length, NULL);
 static DEVICE_ATTR(enable, S_IRUGO | S_IWUSR,
@@ -1393,11 +1397,6 @@ int iio_buffer_alloc_sysfs_and_mask(struct iio_dev *indio_dev)
 
 	indio_dev->groups[indio_dev->groupcounter++] = &buffer->buffer_group;
 
-	if (buffer->scan_el_attrs != NULL) {
-		attr = buffer->scan_el_attrs->attrs;
-		while (*attr++ != NULL)
-			attrcount_orig++;
-	}
 	attrcount = attrcount_orig;
 	INIT_LIST_HEAD(&buffer->scan_el_dev_attr_list);
 	channels = indio_dev->channels;
@@ -1431,9 +1430,6 @@ int iio_buffer_alloc_sysfs_and_mask(struct iio_dev *indio_dev)
 		ret = -ENOMEM;
 		goto error_free_scan_mask;
 	}
-	if (buffer->scan_el_attrs)
-		memcpy(buffer->scan_el_group.attrs, buffer->scan_el_attrs,
-		       sizeof(buffer->scan_el_group.attrs[0])*attrcount_orig);
 	attrn = attrcount_orig;
 
 	list_for_each_entry(p, &buffer->scan_el_dev_attr_list, l)

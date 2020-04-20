@@ -601,6 +601,7 @@ ADI_API int ad916x_dc_test_set_mode(ad916x_handle_t *h,
 	}
 	switch(tmp_reg) {
 		case AD9162_PROD_ID_LSB:
+		case AD9166_PROD_ID_LSB:
 			break;
 		case AD9163_PROD_ID_LSB:
 		case AD9161_PROD_ID_LSB:
@@ -648,6 +649,7 @@ ADI_API int ad916x_dc_test_get_mode(ad916x_handle_t *h,
 	}
 	switch(tmp_reg) {
 		case AD9162_PROD_ID_LSB:
+		case AD9166_PROD_ID_LSB:
 			break;
 		case AD9163_PROD_ID_LSB:
 		case AD9161_PROD_ID_LSB:

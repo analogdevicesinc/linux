@@ -1,8 +1,20 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * AD9361-Z7035 System on Module (SOM) SDR - Userspace Portable Radio Reference Design
+ * Link: https://www.analog.com/ADRV9361-Z7035
+ * Link: https://wiki.analog.com/resources/eval/user-guides/adrv936x_rfsom
+ * Link: https://wiki.analog.com/resources/eval/user-guides/pzsdr/carriers/portable-radio-reference-design/features
+ *
+ * hdl_project: <adrv9361z7035/ccfmc_lvds>
+ * board_revision: <>
+ *
+ * Copyright 2015-2019 Analog Devices Inc.
+ */
 /dts-v1/;
 #include "zynq.dtsi"
 
 / {
-	model = "Analog Devices ADRV9364-Z7020";
+	model = "Analog Devices ADRV9361-Z7035";
 	memory {
 		device_type = "memory";
 		reg = <0x00000000 0x40000000>;

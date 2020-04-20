@@ -29,7 +29,7 @@ int32_t adi_ad9081_adc_select_set(adi_ad9081_device_t *device, uint8_t adcs)
 				     &page_val);
 	AD9081_ERROR_RETURN(err);
 
-	page_val = (adcs & 0x0F) | (page_val & 0xF0);
+	page_val = (adcs & 0x0f) | (page_val & 0xf0);
 	err = adi_ad9081_hal_reg_set(device, REG_ADC_COARSE_PAGE_ADDR,
 				     page_val);
 	AD9081_ERROR_RETURN(err);
@@ -79,6 +79,19 @@ int32_t adi_ad9081_adc_power_up_set(adi_ad9081_device_t *device, uint8_t adcs,
 	adc_cores |= ((adcs & AD9081_ADC_2) > 0) ? 0x2 : 0x0;
 	adc_cores |= ((adcs & AD9081_ADC_3) > 0) ? 0x2 : 0x0;
 	err = adi_ad9081_adc_core_setup(device, adc_cores);
+	AD9081_ERROR_RETURN(err);
+
+	return API_CMS_ERROR_OK;
+}
+
+int32_t adi_ad9081_adc_digital_datapath_reset_set(adi_ad9081_device_t *device,
+						  uint8_t reset)
+{
+	int32_t err;
+	AD9081_NULL_POINTER_RETURN(device);
+	AD9081_LOG_FUNC();
+
+	err = adi_ad9081_hal_bf_set(device, 0x0380, 0x0100, reset);
 	AD9081_ERROR_RETURN(err);
 
 	return API_CMS_ERROR_OK;
@@ -147,12 +160,13 @@ int32_t adi_ad9081_adc_ddc_coarse_select_set(adi_ad9081_device_t *device,
 	uint8_t page_val;
 	AD9081_NULL_POINTER_RETURN(device);
 	AD9081_LOG_FUNC();
+	AD9081_INVALID_PARAM_RETURN(cddcs > AD9081_ADC_CDDC_ALL);
 
 	err = adi_ad9081_hal_reg_get(device, REG_ADC_COARSE_PAGE_ADDR,
 				     &page_val);
 	AD9081_ERROR_RETURN(err);
 
-	page_val = (cddcs << 4) | (page_val & 0x0F);
+	page_val = (cddcs << 4) | (page_val & 0x0f);
 	err = adi_ad9081_hal_reg_set(device, REG_ADC_COARSE_PAGE_ADDR,
 				     page_val);
 	AD9081_ERROR_RETURN(err);
@@ -166,6 +180,7 @@ int32_t adi_ad9081_adc_ddc_fine_select_set(adi_ad9081_device_t *device,
 	int32_t err;
 	AD9081_NULL_POINTER_RETURN(device);
 	AD9081_LOG_FUNC();
+	AD9081_INVALID_PARAM_RETURN(fddcs > AD9081_ADC_FDDC_ALL);
 
 	err = adi_ad9081_hal_reg_set(device, REG_FINE_DDC_PAGE_ADDR, fddcs);
 	AD9081_ERROR_RETURN(err);
@@ -927,16 +942,16 @@ int32_t adi_ad9081_adc_ddc_coarse_nco_channel_select_via_gpio_set(
 			err = adi_ad9081_adc_ddc_coarse_select_set(device,
 								   cddc);
 			AD9081_ERROR_RETURN(err);
-			/* 0:  Register Map control (Use ddc_nco_regmap_chan_sel) 
-               1:  profile_pins[0]     is used. Pin level control {3'b0, profile_pins[0]} 
+			/* 0:  Register Map control (Use ddc_nco_regmap_chan_sel)
+               1:  profile_pins[0]     is used. Pin level control {3'b0, profile_pins[0]}
                2:  profile_pins[1 :0] are used. Pin level control {2'b0, profile_pins[1:0]}
                3:  profile_pins[2 :0] are used. Pin level control {1'b0, profile_pins[2:0]}
-               4:  profile_pins[3 :0] are used. Pin level control { profile_pins[3:0]} 
-               8:  profile_pins[0] Pin edge control- increment internal counter when rising edge of profile_pins[0] Pin. 
-               9:  profile_pins[1] Pin edge control- increment internal counter when rising edge of profile_pins[1] Pin. 
-               10: profile_pins[2] Pin edge control- increment internal counter when rising edge of profile_pins[2] Pin. 
-               11: profile_pins[3] Pin edge control- increment internal counter when rising edge of profile_pins[3] Pin. 
-               12: FHT expire based control - increment internal counter when FHT is expired. 
+               4:  profile_pins[3 :0] are used. Pin level control { profile_pins[3:0]}
+               8:  profile_pins[0] Pin edge control- increment internal counter when rising edge of profile_pins[0] Pin.
+               9:  profile_pins[1] Pin edge control- increment internal counter when rising edge of profile_pins[1] Pin.
+               10: profile_pins[2] Pin edge control- increment internal counter when rising edge of profile_pins[2] Pin.
+               11: profile_pins[3] Pin edge control- increment internal counter when rising edge of profile_pins[3] Pin.
+               12: FHT expire based control - increment internal counter when FHT is expired.
              */
 			err = adi_ad9081_hal_bf_set(
 				device, REG_COARSE_DDC_NCO_CTRL_ADDR,
@@ -987,9 +1002,9 @@ int32_t adi_ad9081_adc_ddc_coarse_nco_channel_update_mode_set(
 			err = adi_ad9081_adc_ddc_coarse_select_set(device,
 								   cddc);
 			AD9081_ERROR_RETURN(err);
-			/* 0: Instantaneous/Continuous Update. Phase increment and phase offset values are updated immediately. 
-               1: Phase increment and phase offset values are updated synchronously either with the chip_transfer 
-                  bit is set high or based on the GPIO (pin ddc_chip_gpio_transfer at nova_dig_dp_top hierarchy) 
+			/* 0: Instantaneous/Continuous Update. Phase increment and phase offset values are updated immediately.
+               1: Phase increment and phase offset values are updated synchronously either with the chip_transfer
+                  bit is set high or based on the GPIO (pin ddc_chip_gpio_transfer at nova_dig_dp_top hierarchy)
                   pin low to high transition. The chip transfer bit will be cleared once the transfer is complete.
              */
 			err = adi_ad9081_hal_bf_set(
@@ -1017,12 +1032,12 @@ adi_ad9081_adc_ddc_coarse_gpio_chip_xfer_mode_set(adi_ad9081_device_t *device,
 			err = adi_ad9081_adc_ddc_coarse_select_set(device,
 								   cddc);
 			AD9081_ERROR_RETURN(err);
-			/* used when ddc0_phase_update_mode is '1' 
-               0: Phase increment and phase offset values are updated synchronously 
-                  when the chip_transfer bit is set high. The chip transfer bit will 
-                  be cleared once the transfer is complete. 
-               1: Phase increment and phase offset values are updated based on the 
-                  GPIO (pin ddc_chip_gpio_transfer at nova_dig_dp_top hierarchy) pin 
+			/* used when ddc0_phase_update_mode is '1'
+               0: Phase increment and phase offset values are updated synchronously
+                  when the chip_transfer bit is set high. The chip transfer bit will
+                  be cleared once the transfer is complete.
+               1: Phase increment and phase offset values are updated based on the
+                  GPIO (pin ddc_chip_gpio_transfer at nova_dig_dp_top hierarchy) pin
                   low to high transition.
              */
 			err = adi_ad9081_hal_bf_set(
@@ -1215,9 +1230,9 @@ int32_t adi_ad9081_adc_ddc_coarse_chip_xfer_set(adi_ad9081_device_t *device,
 			err = adi_ad9081_adc_ddc_coarse_select_set(device,
 								   cddc);
 			AD9081_ERROR_RETURN(err);
-			/* 1: Used to synchronize the transfer of data from master to slave registers. 
+			/* 1: Used to synchronize the transfer of data from master to slave registers.
                0: Do nothing.
-               Note: This bit is used to update the DDC Phase Increment and Phase Offset 
+               Note: This bit is used to update the DDC Phase Increment and Phase Offset
                registers when ddc0_phase_update_mode = 1 and ddc0_gpio_chip_transfer_mode = 0
              */
 			err = adi_ad9081_hal_bf_set(
@@ -1245,7 +1260,7 @@ adi_ad9081_adc_ddc_coarse_chip_xfer_status_get(adi_ad9081_device_t *device,
 			err = adi_ad9081_adc_ddc_coarse_select_set(device,
 								   cddc);
 			AD9081_ERROR_RETURN(err);
-			/* 1: Transfer of data from master to slave registers is complete. 
+			/* 1: Transfer of data from master to slave registers is complete.
                0: Indicates the data transfer is not requested or not completed.
              */
 			err = adi_ad9081_hal_bf_get(
@@ -1527,16 +1542,16 @@ int32_t adi_ad9081_adc_ddc_fine_nco_channel_select_via_gpio_set(
 		if (fddc > 0) {
 			err = adi_ad9081_adc_ddc_fine_select_set(device, fddc);
 			AD9081_ERROR_RETURN(err);
-			/* 0:  Register Map control (Use ddc_nco_regmap_chan_sel) 
-               1:  profile_pins[0]     is used. Pin level control {3'b0, profile_pins[0]} 
-               2:  profile_pins[1 :0] are used. Pin level control {2'b0, profile_pins[1:0]} 
-               3:  profile_pins[2 :0] are used. Pin level control {1'b0, profile_pins[2:0]} 
-               4:  profile_pins[3 :0] are used. Pin level control { profile_pins[3:0]} 
-               8:  profile_pins[0] Pin edge control- increment internal counter when rising edge of profile_pins[0] Pin. 
-               9:  profile_pins[1] Pin edge control- increment internal counter when rising edge of profile_pins[1] Pin. 
-               10: profile_pins[2] Pin edge control- increment internal counter when rising edge of profile_pins[2] Pin. 
-               11: profile_pins[3] Pin edge control- increment internal counter when rising edge of profile_pins[3] Pin. 
-               12: FHT expire based control - increment internal counter when FHT is expired. 
+			/* 0:  Register Map control (Use ddc_nco_regmap_chan_sel)
+               1:  profile_pins[0]     is used. Pin level control {3'b0, profile_pins[0]}
+               2:  profile_pins[1 :0] are used. Pin level control {2'b0, profile_pins[1:0]}
+               3:  profile_pins[2 :0] are used. Pin level control {1'b0, profile_pins[2:0]}
+               4:  profile_pins[3 :0] are used. Pin level control { profile_pins[3:0]}
+               8:  profile_pins[0] Pin edge control- increment internal counter when rising edge of profile_pins[0] Pin.
+               9:  profile_pins[1] Pin edge control- increment internal counter when rising edge of profile_pins[1] Pin.
+               10: profile_pins[2] Pin edge control- increment internal counter when rising edge of profile_pins[2] Pin.
+               11: profile_pins[3] Pin edge control- increment internal counter when rising edge of profile_pins[3] Pin.
+               12: FHT expire based control - increment internal counter when FHT is expired.
              */
 			err = adi_ad9081_hal_bf_set(
 				device, REG_FINE_DDC_NCO_CTRL_ADDR,
@@ -1586,9 +1601,9 @@ adi_ad9081_adc_ddc_fine_nco_channel_update_mode_set(adi_ad9081_device_t *device,
 		if (fddc > 0) {
 			err = adi_ad9081_adc_ddc_fine_select_set(device, fddc);
 			AD9081_ERROR_RETURN(err);
-			/* 0: Instantaneous/Continuous Update. Phase increment and phase offset values are updated immediately. 
-               1: Phase increment and phase offset values are updated synchronously either with the chip_transfer 
-                  bit is set high or based on the GPIO (pin ddc_chip_gpio_transfer at nova_dig_dp_top hierarchy) 
+			/* 0: Instantaneous/Continuous Update. Phase increment and phase offset values are updated immediately.
+               1: Phase increment and phase offset values are updated synchronously either with the chip_transfer
+                  bit is set high or based on the GPIO (pin ddc_chip_gpio_transfer at nova_dig_dp_top hierarchy)
                   pin low to high transition. The chip transfer bit will be cleared once the transfer is complete.
             */
 			err = adi_ad9081_hal_bf_set(
@@ -1615,12 +1630,12 @@ adi_ad9081_adc_ddc_fine_gpio_chip_xfer_mode_set(adi_ad9081_device_t *device,
 		if (fddc > 0) {
 			err = adi_ad9081_adc_ddc_fine_select_set(device, fddc);
 			AD9081_ERROR_RETURN(err);
-			/* used when ddc0_phase_update_mode is '1' 
-               0: Phase increment and phase offset values are updated synchronously 
-                  when the chip_transfer bit is set high. The chip transfer bit will 
-                  be cleared once the transfer is complete. 
-               1: Phase increment and phase offset values are updated based on the 
-                  GPIO (pin ddc_chip_gpio_transfer at nova_dig_dp_top hierarchy) pin 
+			/* used when ddc0_phase_update_mode is '1'
+               0: Phase increment and phase offset values are updated synchronously
+                  when the chip_transfer bit is set high. The chip transfer bit will
+                  be cleared once the transfer is complete.
+               1: Phase increment and phase offset values are updated based on the
+                  GPIO (pin ddc_chip_gpio_transfer at nova_dig_dp_top hierarchy) pin
                   low to high transition.
             */
 			err = adi_ad9081_hal_bf_set(
@@ -1825,9 +1840,9 @@ int32_t adi_ad9081_adc_ddc_fine_chip_xfer_set(adi_ad9081_device_t *device,
 		if (fddc > 0) {
 			err = adi_ad9081_adc_ddc_fine_select_set(device, fddc);
 			AD9081_ERROR_RETURN(err);
-			/* 1: Used to synchronize the transfer of data from master to slave registers. 
+			/* 1: Used to synchronize the transfer of data from master to slave registers.
                0: Do nothing.
-               Note: This bit is used to update the DDC Phase Increment and Phase Offset 
+               Note: This bit is used to update the DDC Phase Increment and Phase Offset
                registers when ddc0_phase_update_mode = 1 and ddc0_gpio_chip_transfer_mode = 0
              */
 			err = adi_ad9081_hal_bf_set(
@@ -1854,7 +1869,7 @@ adi_ad9081_adc_ddc_fine_chip_xfer_status_get(adi_ad9081_device_t *device,
 		if (fddc > 0) {
 			err = adi_ad9081_adc_ddc_fine_select_set(device, fddc);
 			AD9081_ERROR_RETURN(err);
-			/* 1: Transfer of data from master to slave registers is complete. 
+			/* 1: Transfer of data from master to slave registers is complete.
                0: Indicates the data transfer is not requested or not completed.
              */
 			err = adi_ad9081_hal_bf_get(
@@ -2065,11 +2080,18 @@ int32_t adi_ad9081_adc_nyquist_zone_set(adi_ad9081_device_t *device,
 					adi_ad9081_adc_nyquist_zone_e zone)
 {
 	int32_t err;
-	uint32_t reg_nyquist_zone_addr;
+	uint32_t reg_nyquist_zone_addr = 0x2110;
 	AD9081_NULL_POINTER_RETURN(device);
 	AD9081_LOG_FUNC();
 
-	reg_nyquist_zone_addr = 0x210f;
+	if (device->dev_info.dev_rev == 1) { /* r1 */
+		reg_nyquist_zone_addr = 0x210f;
+	}
+	if (device->dev_info.dev_rev == 2 ||
+	    device->dev_info.dev_rev == 3) { /* r1r/r2 */
+		reg_nyquist_zone_addr = 0x2110;
+	}
+
 	if (zone == AD9081_ADC_NYQUIST_ZONE_ODD) {
 		err = adi_ad9081_hal_reg_set(device, reg_nyquist_zone_addr,
 					     0x01);
@@ -2430,9 +2452,9 @@ adi_ad9081_adc_pfir_coeff_load_sel_set(adi_ad9081_device_t *device,
 			err = adi_ad9081_adc_pfir_ctl_page_set(device,
 							       (1 << i));
 			AD9081_ERROR_RETURN(err);
-			/* bit0: real_i_load       
+			/* bit0: real_i_load
                bit1: real_q_load
-               bit2: real_cross_i_load 
+               bit2: real_cross_i_load
                bit3: real_cross_q_load
                bit4: complex_load
              */

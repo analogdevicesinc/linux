@@ -27,8 +27,8 @@
 #include <media/v4l2-ioctl.h>
 #include <media/i2c/adv7604.h>
 
-#define AXI_HDMI_RX_REG_VERSION		0x000
-#define AXI_HDMI_RX_REG_ID		0x004
+#include <linux/fpga/adi-axi-common.h>
+
 #define AXI_HDMI_RX_REG_ENABLE		0x040
 #define AXI_HDMI_RX_REG_CONFIG		0x044
 #define AXI_HDMI_RX_REG_CLK_COUNT	0x054
@@ -73,6 +73,7 @@ struct axi_hdmi_rx {
 	struct v4l2_async_subdev *asds[1];
 
 	u8 bus_width;
+	u8 config_flags;
 
 	u8 edid_data[256];
 	u8 edid_blocks;
@@ -299,8 +300,8 @@ static int axi_hdmi_rx_g_register(struct file *file, void *priv_fh,
 	struct axi_hdmi_rx *hdmi_rx = video_drvdata(file);
 
 	switch (reg->reg) {
-	case AXI_HDMI_RX_REG_VERSION:
-	case AXI_HDMI_RX_REG_ID:
+	case ADI_AXI_REG_VERSION:
+	case ADI_AXI_REG_ID:
 	case AXI_HDMI_RX_REG_ENABLE:
 	case AXI_HDMI_RX_REG_CONFIG:
 	case AXI_HDMI_RX_REG_CLK_COUNT:
@@ -644,7 +645,7 @@ static int axi_hdmi_rx_s_fmt_vid_cap(struct file *file, void *priv_fh,
 	axi_hdmi_rx_write(hdmi_rx, AXI_HDMI_RX_REG_TIMING, 
 		(s->height << 16) | s->width);
 
-	config |= AXI_HDMI_RX_CONFIG_EDGE_SEL;
+	config |= hdmi_rx->config_flags;
 
 	axi_hdmi_rx_write(hdmi_rx, AXI_HDMI_RX_REG_CONFIG, config);
 
@@ -935,8 +936,11 @@ static int axi_hdmi_rx_probe(struct platform_device *pdev)
 		goto err_device_unregister;
 	}
 
+	if (!(bus_cfg.bus.parallel.flags & V4L2_MBUS_PCLK_SAMPLE_RISING))
+		hdmi_rx->config_flags = AXI_HDMI_RX_CONFIG_EDGE_SEL;
+
 	axi_hdmi_rx_write(hdmi_rx, AXI_HDMI_RX_REG_CONFIG,
-			AXI_HDMI_RX_CONFIG_EDGE_SEL);
+			hdmi_rx->config_flags);
 
 	return 0;
 

@@ -5,6 +5,7 @@
  * Copyright 2018 Analog Devices Inc.
  */
 
+#include <linux/bitfield.h>
 #include <linux/bitops.h>
 #include <linux/interrupt.h>
 #include <linux/irq.h>
@@ -99,6 +100,7 @@
 /* ADXL372_FIFO_CTL */
 #define ADXL372_FIFO_CTL_FORMAT_MSK		GENMASK(5, 3)
 #define ADXL372_FIFO_CTL_FORMAT_MODE(x)		(((x) & 0x7) << 3)
+#define ADXL372_FIFO_CTL_FORMAT_SEL(x)		(((x) >> 3) & 0x7)
 #define ADXL372_FIFO_CTL_MODE_MSK		GENMASK(2, 1)
 #define ADXL372_FIFO_CTL_MODE_MODE(x)		(((x) & 0x3) << 1)
 #define ADXL372_FIFO_CTL_SAMPLES_MSK		BIT(1)
@@ -130,6 +132,14 @@
 #define ADXL372_INT1_MAP_AWAKE_MODE(x)		(((x) & 0x1) << 6)
 #define ADXL372_INT1_MAP_LOW_MSK		BIT(7)
 #define ADXL372_INT1_MAP_LOW_MODE(x)		(((x) & 0x1) << 7)
+
+/* ADX372_THRESH */
+#define ADXL372_THRESH_VAL_H_MSK		GENMASK(10, 3)
+#define ADXL372_THRESH_VAL_H_SEL(x)		\
+		FIELD_GET(ADXL372_THRESH_VAL_H_MSK, x)
+#define ADXL372_THRESH_VAL_L_MSK		GENMASK(2, 0)
+#define ADXL372_THRESH_VAL_L_SEL(x)		\
+		FIELD_GET(ADXL372_THRESH_VAL_L_MSK, x)
 
 /* The ADXL372 includes a deep, 512 sample FIFO buffer */
 #define ADXL372_FIFO_SIZE			512
@@ -222,6 +232,32 @@ static const struct adxl372_axis_lookup adxl372_axis_lookup_table[] = {
 	{ BIT(0) | BIT(1) | BIT(2), ADXL372_XYZ_FIFO },
 };
 
+static ssize_t adxl372_read_threshold_value(struct iio_dev *, uintptr_t,
+					    const struct iio_chan_spec *,
+					    char *);
+
+static ssize_t adxl372_write_threshold_value(struct iio_dev *, uintptr_t,
+					     struct iio_chan_spec const *,
+					     const char *, size_t);
+
+static const struct iio_chan_spec_ext_info adxl372_ext_info[] = {
+	{
+		.name = "threshold_activity",
+		.shared = IIO_SEPARATE,
+		.read = adxl372_read_threshold_value,
+		.write = adxl372_write_threshold_value,
+		.private = ADXL372_X_THRESH_ACT_H,
+	},
+	{
+		.name = "threshold_inactivity",
+		.shared = IIO_SEPARATE,
+		.read = adxl372_read_threshold_value,
+		.write = adxl372_write_threshold_value,
+		.private = ADXL372_X_THRESH_INACT_H,
+	},
+	{},
+};
+
 #define ADXL372_ACCEL_CHANNEL(index, reg, axis) {			\
 	.type = IIO_ACCEL,						\
 	.address = reg,							\
@@ -237,7 +273,9 @@ static const struct adxl372_axis_lookup adxl372_axis_lookup_table[] = {
 		.realbits = 12,						\
 		.storagebits = 16,					\
 		.shift = 4,						\
+		.endianness = IIO_BE,					\
 	},								\
+	.ext_info = adxl372_ext_info,					\
 }
 
 static const struct iio_chan_spec adxl372_channels[] = {
@@ -264,6 +302,8 @@ struct adxl372_state {
 	u8				int2_bitmask;
 	u16				watermark;
 	__be16				fifo_buf[ADXL372_FIFO_SIZE];
+	__be16				fifo_sample[3];
+	unsigned int			axis_nr_top;
 	bool				peak_fifo_mode_en;
 };
 
@@ -275,6 +315,61 @@ static const unsigned long adxl372_channel_masks[] = {
 	BIT(0) | BIT(1) | BIT(2),
 	0
 };
+
+static ssize_t adxl372_read_threshold_value(struct iio_dev *indio_dev,
+					    uintptr_t private,
+					    const struct iio_chan_spec *chan,
+					    char *buf)
+{
+	struct adxl372_state *st = iio_priv(indio_dev);
+	unsigned int addr;
+	__be16 __regval;
+	u16 regval;
+	int ret;
+
+	addr = (unsigned int)chan->ext_info->private;
+	addr = addr + chan->scan_index * 2;
+
+	ret = regmap_bulk_read(st->regmap, addr, &__regval, sizeof(__regval));
+	if (ret < 0)
+		return ret;
+
+	regval = be16_to_cpu(__regval);
+	regval >>= 5;
+
+	return sprintf(buf, "%d\n", regval);
+}
+
+static ssize_t adxl372_write_threshold_value(struct iio_dev *indio_dev,
+					     uintptr_t private,
+					     const struct iio_chan_spec *chan,
+					     const char *buf,
+					     size_t len)
+{
+	struct adxl372_state *st = iio_priv(indio_dev);
+	unsigned int addr;
+	u16 threshold;
+	int ret;
+
+	ret = kstrtou16(buf, 0, &threshold);
+	if (ret < 0)
+		return ret;
+
+	addr = chan->ext_info->private;
+	addr = addr + chan->scan_index * 2;
+
+	ret = regmap_write(st->regmap, addr,
+			   ADXL372_THRESH_VAL_H_SEL(threshold));
+	if (ret < 0)
+		return ret;
+
+	ret = regmap_update_bits(st->regmap, addr + 1, GENMASK(7, 5),
+				 ADXL372_THRESH_VAL_L_SEL(threshold) << 5);
+	if (ret < 0)
+		return ret;
+
+	return len;
+}
 
 static int adxl372_read_axis(struct adxl372_state *st, u8 addr)
 {
@@ -631,6 +726,36 @@ static int adxl372_setup(struct adxl372_state *st)
 	return adxl372_set_op_mode(st, ADXL372_FULL_BW_MEASUREMENT);
 }
 
+static int adxl372_read_one_fifo_axis(struct iio_dev *indio_dev,
+				      unsigned int *readval)
+{
+	struct adxl372_state *st = iio_priv(indio_dev);
+	unsigned int nr_axis_en;
+	unsigned int read_reg_val;
+	int ret;
+
+	ret = regmap_read(st->regmap, ADXL372_FIFO_CTL, &read_reg_val);
+	if (ret < 0)
+		return ret;
+
+	nr_axis_en = hweight_long(ADXL372_FIFO_CTL_FORMAT_SEL(read_reg_val));
+	if (nr_axis_en == 0)
+		nr_axis_en = 3;
+
+	if (st->axis_nr_top >= nr_axis_en || st->axis_nr_top == 0) {
+		ret = regmap_noinc_read(st->regmap, ADXL372_FIFO_DATA,
+					st->fifo_sample,
+					nr_axis_en * sizeof(u16));
+		if (ret < 0)
+			return ret;
+		st->axis_nr_top = 0;
+	}
+
+	*readval = be16_to_cpu(st->fifo_sample[st->axis_nr_top++]);
+
+	return 0;
+}
+
 static int adxl372_reg_access(struct iio_dev *indio_dev,
 			      unsigned int reg,
 			      unsigned int writeval,
@@ -638,10 +763,14 @@ static int adxl372_reg_access(struct iio_dev *indio_dev,
 {
 	struct adxl372_state *st = iio_priv(indio_dev);
 
-	if (readval)
+	if (readval) {
+		if (reg == ADXL372_FIFO_DATA)
+			return adxl372_read_one_fifo_axis(indio_dev, readval);
+
 		return regmap_read(st->regmap, reg, readval);
-	else
+	} else {
 		return regmap_write(st->regmap, reg, writeval);
+	}
 }
 
 static int adxl372_read_raw(struct iio_dev *indio_dev,
@@ -756,6 +885,70 @@ static ssize_t adxl372_peak_fifo_en_set(struct device *dev,
 static IIO_DEVICE_ATTR(peak_fifo_mode_enable, 0644,
 		       adxl372_peak_fifo_en_get,
 		       adxl372_peak_fifo_en_set, 0);
+
+static ssize_t adxl372_time_activity_get(struct device *dev,
+					 struct device_attribute *attr,
+					 char *buf)
+{
+	struct adxl372_state *st = iio_priv(dev_to_iio_dev(dev));
+
+	return sprintf(buf, "%d\n", st->act_time_ms);
+}
+
+static ssize_t adxl372_time_activity_set(struct device *dev,
+					 struct device_attribute *attr,
+					 const char *buf, size_t len)
+{
+	struct adxl372_state *st = iio_priv(dev_to_iio_dev(dev));
+	unsigned int val;
+	int ret;
+
+	ret = kstrtouint(buf, 0, &val);
+	if (ret)
+		return ret;
+
+	ret = adxl372_set_activity_time_ms(st, val);
+	if (ret < 0)
+		return ret;
+
+	return len;
+}
+
+static IIO_DEVICE_ATTR(time_activity, 0644,
+		       adxl372_time_activity_get,
+		       adxl372_time_activity_set, 0);
+
+static ssize_t adxl372_time_inactivity_get(struct device *dev,
+					   struct device_attribute *attr,
+					   char *buf)
+{
+	struct adxl372_state *st = iio_priv(dev_to_iio_dev(dev));
+
+	return sprintf(buf, "%d\n", st->inact_time_ms);
+}
+
+static ssize_t adxl372_time_inactivity_set(struct device *dev,
+					   struct device_attribute *attr,
+					   const char *buf, size_t len)
+{
+	struct adxl372_state *st = iio_priv(dev_to_iio_dev(dev));
+	unsigned int val;
+	int ret;
+
+	ret = kstrtouint(buf, 0, &val);
+	if (ret)
+		return ret;
+
+	ret = adxl372_set_inactivity_time_ms(st, val);
+	if (ret)
+		return ret;
+
+	return len;
+}
+
+static IIO_DEVICE_ATTR(time_inactivity, 0644,
+		       adxl372_time_inactivity_get,
+		       adxl372_time_inactivity_set, 0);
 
 static ssize_t adxl372_show_filter_freq_avail(struct device *dev,
 					      struct device_attribute *attr,
@@ -925,6 +1118,8 @@ static struct attribute *adxl372_attributes[] = {
 	&iio_const_attr_sampling_frequency_available.dev_attr.attr,
 	&iio_dev_attr_in_accel_filter_low_pass_3db_frequency_available.dev_attr.attr,
 	&iio_dev_attr_peak_fifo_mode_enable.dev_attr.attr,
+	&iio_dev_attr_time_inactivity.dev_attr.attr,
+	&iio_dev_attr_time_activity.dev_attr.attr,
 	NULL,
 };
 

@@ -1,3 +1,14 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * AD9361-Z0735 System on Module (SOM) SDR - FMC Carrier
+ * Link: https://www.analog.com/ADRV9361-Z7035
+ * Link: https://wiki.analog.com/resources/eval/user-guides/adrv936x_rfsom
+ *
+ * hdl_project: <adrv9361z7035/ccfmc_lvds>
+ * board_revision: <>
+ *
+ * Copyright 2015-2019 Analog Devices Inc.
+ */
 /dts-v1/;
 #include "zynq-adrv9361-z7035.dtsi"
 

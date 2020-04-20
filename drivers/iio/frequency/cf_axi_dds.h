@@ -24,6 +24,7 @@
 #define ADI_CMOS_OR_LVDS_N		(1 << 7)
 #define ADI_PPS_RECEIVER_ENABLE		(1 << 8)
 #define ADI_SCALECORRECTION_ONLY	(1 << 9)
+#define ADI_XBAR_ENABLE				(1 << 10)
 
 /* DAC COMMON */
 
@@ -103,9 +104,6 @@ enum dds_data_select {
 
 #define ADI_REG_DAC_GP_CONTROL	0x00BC
 
-#define ADI_REG_DAC_DP_DISABLE	0x00C0
-#define ADI_DAC_DP_DISABLE	(1 << 0)
-
 /* JESD TPL */
 
 #define ADI_REG_TPL_CNTRL		0x0200
@@ -167,6 +165,9 @@ enum dds_data_select {
 #define ADI_REG_CHAN_CNTRL_7(c)		(0x0418 + (c) * 0x40) /* v8.0 */
 #define ADI_DAC_DDS_SEL(x)		(((x) & 0xF) << 0)
 #define ADI_TO_DAC_DDS_SEL(x)		(((x) >> 0) & 0xF)
+#define ADI_DAC_SRC_CH_SEL(x)		(((x) & 0xFF) << 8)
+#define ADI_TO_DAC_SRC_CH_SEL(x)	(((x) >> 8) & 0xFF)
+#define ADI_DAC_ENABLE_MASK			(1 << 16)
 
 #define ADI_REG_CHAN_CNTRL_8(c)		(0x041C + (c) * 0x40) /* v8.0 */
 #define ADI_IQCOR_COEFF_1(x)		(((x) & 0xFFFF) << 16)
@@ -242,6 +243,10 @@ enum {
 	CLK_NUM,
 };
 
+enum cf_axi_dds_ext_info {
+	CHANNEL_XBAR,
+};
+
 struct cf_axi_converter {
 	struct spi_device 	*spi;
 	struct clk 	*clk[CLK_NUM];
@@ -257,6 +262,7 @@ struct cf_axi_converter {
 	unsigned long 	cs_modes[17];
 	int		temp_calib;
 	unsigned		temp_calib_code;
+	int		temp_slope;
 	int		(*read)(struct spi_device *spi, unsigned reg);
 	int		(*write)(struct spi_device *spi,
 				 unsigned reg, unsigned val);

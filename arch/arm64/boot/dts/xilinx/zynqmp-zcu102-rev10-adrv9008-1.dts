@@ -1,9 +1,14 @@
+// SPDX-License-Identifier: GPL-2.0
 /*
- * dts file for ADRV9008-1 on Xilinx ZynqMP ZCU102 Rev 1.0
+ * Analog Devices ADRV9008-1
+ * https://wiki.analog.com/resources/eval/user-guides/adrv9009
+ * https://wiki.analog.com/resources/tools-software/linux-drivers/iio-transceiver/adrv9009
+ * https://wiki.analog.com/resources/tools-software/linux-software/adrv9009_advanced_plugin
  *
- * Copyright (C) 2018 Analog Devices Inc.
+ * hdl_project: <adrv9009/zcu102>
+ * board_revision: <>
  *
- * Licensed under the GPL-2.
+ * Copyright (C) 2019 Analog Devices Inc.
  */
 #include "zynqmp-zcu102-rev1.0.dts"
 #include <dt-bindings/interrupt-controller/irq.h>

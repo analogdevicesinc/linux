@@ -1,6 +1,6 @@
 
 /dts-v1/;
-/include/ "kcu105.dtsi"
+#include "kcu105.dtsi"
 
 #define fmc_i2c fmc_hpc_iic
 #define fmc_spi axi_spi

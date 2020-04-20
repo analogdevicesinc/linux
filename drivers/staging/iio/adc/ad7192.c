@@ -16,6 +16,7 @@
 #include <linux/err.h>
 #include <linux/sched.h>
 #include <linux/delay.h>
+#include <linux/of_device.h>
 
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
@@ -124,10 +125,10 @@
 #define AD7193_CH_AINCOM	0x600 /* AINCOM - AINCOM */
 
 /* ID Register Bit Designations (AD7192_REG_ID) */
-#define ID_AD7190		0x4
-#define ID_AD7192		0x0
-#define ID_AD7193		0x2
-#define ID_AD7195		0x6
+#define CHIPID_AD7190		0x4
+#define CHIPID_AD7192		0x0
+#define CHIPID_AD7193		0x2
+#define CHIPID_AD7195		0x6
 #define AD7192_ID_MASK		0x0F
 
 /* GPOCON Register Bit Designations (AD7192_REG_GPOCON) */
@@ -160,7 +161,20 @@ enum {
    AD7192_SYSCALIB_FULL_SCALE,
 };
 
+enum {
+	ID_AD7190,
+	ID_AD7192,
+	ID_AD7193,
+	ID_AD7195,
+};
+
+struct ad7192_chip_info {
+	unsigned int			chip_id;
+	const char			*name;
+};
+
 struct ad7192_state {
+	const struct ad7192_chip_info	*chip_info;
 	struct regulator		*avdd;
 	struct regulator		*dvdd;
 	struct clk			*mclk;
@@ -171,7 +185,6 @@ struct ad7192_state {
 	u32				conf;
 	u32				scale_avail[8][2];
 	u8				gpocon;
-	u8				devid;
 	u8				clock_sel;
 	struct mutex			lock;	/* protect sensor state */
 	u8				syscalib_mode[8];
@@ -281,6 +294,7 @@ static const struct ad_sigma_delta_info ad7192_sigma_delta_info = {
 	.has_registers = true,
 	.addr_shift = 3,
 	.read_mask = BIT(6),
+	.irq_flags = IRQF_TRIGGER_FALLING
 };
 
 static const struct ad_sd_calib_data ad7192_calib_arr[8] = {
@@ -348,7 +362,7 @@ static int ad7192_setup(struct ad7192_state *st, struct device_node *np)
 
 	id &= AD7192_ID_MASK;
 
-	if (id != st->devid)
+	if (id != st->chip_info->chip_id)
 		dev_warn(&st->sd.spi->dev, "device ID query failed (0x%X)\n",
 			 id);
 
@@ -363,7 +377,7 @@ static int ad7192_setup(struct ad7192_state *st, struct device_node *np)
 		st->mode |= AD7192_MODE_REJ60;
 
 	refin2_en = of_property_read_bool(np, "adi,refin2-pins-enable");
-	if (refin2_en && st->devid != ID_AD7195)
+	if (refin2_en && st->chip_info->chip_id != CHIPID_AD7195)
 		st->conf |= AD7192_CONF_REFSEL;
 
 	st->conf &= ~AD7192_CONF_CHOP;
@@ -787,71 +801,110 @@ static const struct iio_info ad7195_info = {
 	.validate_trigger = ad_sd_validate_trigger,
 };
 
+#define __AD719x_CHANNEL(_si, _channel1, _channel2, _address, _extend_name, \
+	_type, _mask_type_av, _ext_info) \
+	{ \
+		.type = (_type), \
+		.differential = ((_channel2) == -1 ? 0 : 1), \
+		.indexed = 1, \
+		.channel = (_channel1), \
+		.channel2 = (_channel2), \
+		.address = (_address), \
+		.extend_name = (_extend_name), \
+		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) | \
+			BIT(IIO_CHAN_INFO_OFFSET), \
+		.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SCALE), \
+		.info_mask_shared_by_all = BIT(IIO_CHAN_INFO_SAMP_FREQ) | \
+			BIT(IIO_CHAN_INFO_LOW_PASS_FILTER_3DB_FREQUENCY), \
+		.info_mask_shared_by_type_available = (_mask_type_av), \
+		.ext_info = (_ext_info), \
+		.scan_index = (_si), \
+		.scan_type = { \
+			.sign = 'u', \
+			.realbits = 24, \
+			.storagebits = 32, \
+			.endianness = IIO_BE, \
+		}, \
+	}
+
+#define AD719x_DIFF_CHANNEL(_si, _channel1, _channel2, _address) \
+	__AD719x_CHANNEL(_si, _channel1, _channel2, _address, NULL, \
+		IIO_VOLTAGE, BIT(IIO_CHAN_INFO_SCALE), \
+		ad7192_calibsys_ext_info)
+
+#define AD719x_CHANNEL(_si, _channel1, _address) \
+	__AD719x_CHANNEL(_si, _channel1, -1, _address, NULL, IIO_VOLTAGE, \
+		BIT(IIO_CHAN_INFO_SCALE), ad7192_calibsys_ext_info)
+
+#define AD719x_SHORTED_CHANNEL(_si, _channel1, _address) \
+	__AD719x_CHANNEL(_si, _channel1, -1, _address, "shorted", IIO_VOLTAGE, \
+		BIT(IIO_CHAN_INFO_SCALE), ad7192_calibsys_ext_info)
+
+#define AD719x_TEMP_CHANNEL(_si, _address) \
+	__AD719x_CHANNEL(_si, 0, -1, _address, NULL, IIO_TEMP, 0, NULL)
+
 static const struct iio_chan_spec ad7192_channels[] = {
-	AD_SD_DIFF_CHANNEL(0, 1, 2, AD7192_CH_AIN1P_AIN2M, 24, 32, 0),
-	AD_SD_DIFF_CHANNEL(1, 3, 4, AD7192_CH_AIN3P_AIN4M, 24, 32, 0),
-	AD_SD_TEMP_CHANNEL(2, AD7192_CH_TEMP, 24, 32, 0),
-	AD_SD_SHORTED_CHANNEL(3, 2, AD7192_CH_AIN2P_AIN2M, 24, 32, 0),
-	AD_SD_CHANNEL(4, 1, AD7192_CH_AIN1, 24, 32, 0),
-	AD_SD_CHANNEL(5, 2, AD7192_CH_AIN2, 24, 32, 0),
-	AD_SD_CHANNEL(6, 3, AD7192_CH_AIN3, 24, 32, 0),
-	AD_SD_CHANNEL(7, 4, AD7192_CH_AIN4, 24, 32, 0),
+	AD719x_DIFF_CHANNEL(0, 1, 2, AD7192_CH_AIN1P_AIN2M),
+	AD719x_DIFF_CHANNEL(1, 3, 4, AD7192_CH_AIN3P_AIN4M),
+	AD719x_TEMP_CHANNEL(2, AD7192_CH_TEMP),
+	AD719x_SHORTED_CHANNEL(3, 2, AD7192_CH_AIN2P_AIN2M),
+	AD719x_CHANNEL(4, 1, AD7192_CH_AIN1),
+	AD719x_CHANNEL(5, 2, AD7192_CH_AIN2),
+	AD719x_CHANNEL(6, 3, AD7192_CH_AIN3),
+	AD719x_CHANNEL(7, 4, AD7192_CH_AIN4),
 	IIO_CHAN_SOFT_TIMESTAMP(8),
 };
 
 static const struct iio_chan_spec ad7193_channels[] = {
-	AD_SD_DIFF_CHANNEL(0, 1, 2, AD7193_CH_AIN1P_AIN2M, 24, 32, 0),
-	AD_SD_DIFF_CHANNEL(1, 3, 4, AD7193_CH_AIN3P_AIN4M, 24, 32, 0),
-	AD_SD_DIFF_CHANNEL(2, 5, 6, AD7193_CH_AIN5P_AIN6M, 24, 32, 0),
-	AD_SD_DIFF_CHANNEL(3, 7, 8, AD7193_CH_AIN7P_AIN8M, 24, 32, 0),
-	AD_SD_TEMP_CHANNEL(4, AD7193_CH_TEMP, 24, 32, 0),
-	AD_SD_SHORTED_CHANNEL(5, 2, AD7193_CH_AIN2P_AIN2M, 24, 32, 0),
-	AD_SD_CHANNEL(6, 1, AD7193_CH_AIN1, 24, 32, 0),
-	AD_SD_CHANNEL(7, 2, AD7193_CH_AIN2, 24, 32, 0),
-	AD_SD_CHANNEL(8, 3, AD7193_CH_AIN3, 24, 32, 0),
-	AD_SD_CHANNEL(9, 4, AD7193_CH_AIN4, 24, 32, 0),
-	AD_SD_CHANNEL(10, 5, AD7193_CH_AIN5, 24, 32, 0),
-	AD_SD_CHANNEL(11, 6, AD7193_CH_AIN6, 24, 32, 0),
-	AD_SD_CHANNEL(12, 7, AD7193_CH_AIN7, 24, 32, 0),
-	AD_SD_CHANNEL(13, 8, AD7193_CH_AIN8, 24, 32, 0),
+	AD719x_DIFF_CHANNEL(0, 1, 2, AD7193_CH_AIN1P_AIN2M),
+	AD719x_DIFF_CHANNEL(1, 3, 4, AD7193_CH_AIN3P_AIN4M),
+	AD719x_DIFF_CHANNEL(2, 5, 6, AD7193_CH_AIN5P_AIN6M),
+	AD719x_DIFF_CHANNEL(3, 7, 8, AD7193_CH_AIN7P_AIN8M),
+	AD719x_TEMP_CHANNEL(4, AD7193_CH_TEMP),
+	AD719x_SHORTED_CHANNEL(5, 2, AD7193_CH_AIN2P_AIN2M),
+	AD719x_CHANNEL(6, 1, AD7193_CH_AIN1),
+	AD719x_CHANNEL(7, 2, AD7193_CH_AIN2),
+	AD719x_CHANNEL(8, 3, AD7193_CH_AIN3),
+	AD719x_CHANNEL(9, 4, AD7193_CH_AIN4),
+	AD719x_CHANNEL(10, 5, AD7193_CH_AIN5),
+	AD719x_CHANNEL(11, 6, AD7193_CH_AIN6),
+	AD719x_CHANNEL(12, 7, AD7193_CH_AIN7),
+	AD719x_CHANNEL(13, 8, AD7193_CH_AIN8),
 	IIO_CHAN_SOFT_TIMESTAMP(14),
+};
+
+static const struct ad7192_chip_info ad7192_chip_info_tbl[] = {
+	[ID_AD7190] = {
+		.chip_id = CHIPID_AD7190,
+		.name = "ad7190",
+	},
+	[ID_AD7192] = {
+		.chip_id = CHIPID_AD7192,
+		.name = "ad7192",
+	},
+	[ID_AD7193] = {
+		.chip_id = CHIPID_AD7193,
+		.name = "ad7193",
+	},
+	[ID_AD7195] = {
+		.chip_id = CHIPID_AD7195,
+		.name = "ad7195",
+	},
 };
 
 static int ad7192_channels_config(struct iio_dev *indio_dev)
 {
 	struct ad7192_state *st = iio_priv(indio_dev);
-	const struct iio_chan_spec *channels;
-	struct iio_chan_spec *chan;
-	int i;
 
-	switch (st->devid) {
-	case ID_AD7193:
-		channels = ad7193_channels;
+	switch (st->chip_info->chip_id) {
+	case CHIPID_AD7193:
+		indio_dev->channels = ad7193_channels;
 		indio_dev->num_channels = ARRAY_SIZE(ad7193_channels);
 		break;
 	default:
-		channels = ad7192_channels;
+		indio_dev->channels = ad7192_channels;
 		indio_dev->num_channels = ARRAY_SIZE(ad7192_channels);
 		break;
-	}
-
-	chan = devm_kcalloc(indio_dev->dev.parent, indio_dev->num_channels,
-			    sizeof(*chan), GFP_KERNEL);
-	if (!chan)
-		return -ENOMEM;
-
-	indio_dev->channels = chan;
-
-	for (i = 0; i < indio_dev->num_channels; i++) {
-		*chan = channels[i];
-		chan->info_mask_shared_by_all |=
-			BIT(IIO_CHAN_INFO_LOW_PASS_FILTER_3DB_FREQUENCY);
-		if (chan->type != IIO_TEMP) {
-			chan->info_mask_shared_by_type_available |=
-				BIT(IIO_CHAN_INFO_SCALE);
-			chan->ext_info = ad7192_calibsys_ext_info;
-		}
-		chan++;
 	}
 
 	return 0;
@@ -900,22 +953,25 @@ static int ad7192_probe(struct spi_device *spi)
 
 	voltage_uv = regulator_get_voltage(st->avdd);
 
-	if (voltage_uv)
+	if (voltage_uv > 0) {
 		st->int_vref_mv = voltage_uv / 1000;
-	else
+	} else {
+		ret = voltage_uv;
 		dev_err(&spi->dev, "Device tree error, reference voltage undefined\n");
+		goto error_disable_avdd;
+	}
 
 	spi_set_drvdata(spi, indio_dev);
-	st->devid = spi_get_device_id(spi)->driver_data;
+	st->chip_info = of_device_get_match_data(&spi->dev);
 	indio_dev->dev.parent = &spi->dev;
-	indio_dev->name = spi_get_device_id(spi)->name;
+	indio_dev->name = st->chip_info->name;
 	indio_dev->modes = INDIO_DIRECT_MODE;
 
 	ret = ad7192_channels_config(indio_dev);
 	if (ret < 0)
 		goto error_disable_dvdd;
 
-	if (st->devid == ID_AD7195)
+	if (st->chip_info->chip_id == CHIPID_AD7195)
 		indio_dev->info = &ad7195_info;
 	else
 		indio_dev->info = &ad7192_info;
@@ -987,24 +1043,13 @@ static int ad7192_remove(struct spi_device *spi)
 	return 0;
 }
 
-static const struct spi_device_id ad7192_id[] = {
-	{"ad7190", ID_AD7190},
-	{"ad7192", ID_AD7192},
-	{"ad7193", ID_AD7193},
-	{"ad7195", ID_AD7195},
-	{}
-};
-
-MODULE_DEVICE_TABLE(spi, ad7192_id);
-
 static const struct of_device_id ad7192_of_match[] = {
-	{ .compatible = "adi,ad7190" },
-	{ .compatible = "adi,ad7192" },
-	{ .compatible = "adi,ad7193" },
-	{ .compatible = "adi,ad7195" },
+	{ .compatible = "adi,ad7190", .data = &ad7192_chip_info_tbl[ID_AD7190] },
+	{ .compatible = "adi,ad7192", .data = &ad7192_chip_info_tbl[ID_AD7192] },
+	{ .compatible = "adi,ad7193", .data = &ad7192_chip_info_tbl[ID_AD7193] },
+	{ .compatible = "adi,ad7195", .data = &ad7192_chip_info_tbl[ID_AD7195] },
 	{}
 };
-
 MODULE_DEVICE_TABLE(of, ad7192_of_match);
 
 static struct spi_driver ad7192_driver = {
@@ -1014,7 +1059,6 @@ static struct spi_driver ad7192_driver = {
 	},
 	.probe		= ad7192_probe,
 	.remove		= ad7192_remove,
-	.id_table	= ad7192_id,
 };
 module_spi_driver(ad7192_driver);
 

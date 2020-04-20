@@ -1,3 +1,4 @@
+#include <dt-bindings/gpio/gpio.h>
 
 / {
 	#address-cells = <1>;
@@ -199,7 +200,6 @@
 			phy-mode = "sgmii";
 			reg = <0x40c00000 0x1000>;
 			xlnx = <0x0>;
-			xlnx,int-phy-aneg-set = <0x1>;
 			xlnx,axiliteclkrate = <0x0>;
 			xlnx,axisclkrate = <0x0>;
 			xlnx,clockselection = <0x0>;
@@ -228,6 +228,7 @@
 				phy3: phy@3 {
 					device_type = "ethernet-phy";
 					ti,6-wire-mode;
+					ti,dp83867-rxctrl-strap-quirk;
 					ti,fifo-depth = <0x1>;
 					reg = <3>;
 				};

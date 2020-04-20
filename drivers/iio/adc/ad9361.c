@@ -4073,6 +4073,7 @@ static int ad9361_set_trx_clock_chain(struct ad9361_rf_phy *phy,
 {
 	struct device *dev = &phy->spi->dev;
 	struct ad9361_rf_phy_state *st = phy->state;
+	struct axiadc_converter *conv = spi_get_drvdata(phy->spi);
 	int ret, i, j, n;
 
 	dev_dbg(&phy->spi->dev, "%s", __func__);
@@ -4142,12 +4143,12 @@ static int ad9361_set_trx_clock_chain(struct ad9361_rf_phy *phy,
 
 	if ((!phy->pdata->dig_interface_tune_fir_disable &&
 		!(st->bypass_tx_fir && st->bypass_rx_fir)) &&
-		!phy->pdata->bb_clk_change_dig_tune_en)
+		!phy->pdata->bb_clk_change_dig_tune_en && conv)
 		ret = ad9361_dig_tune(phy, 0, SKIP_STORE_RESULT);
 	if (ret < 0)
 		return ret;
 
-	if (phy->pdata->bb_clk_change_dig_tune_en)
+	if (phy->pdata->bb_clk_change_dig_tune_en && conv)
 		ret = ad9361_dig_tune(phy, 0, 0);
 	if (ret < 0)
 		return ret;
@@ -9345,27 +9346,27 @@ ad9361_gt_bin_read(struct file *filp, struct kobject *kobj,
 	int ret, j, len = 0;
 	char *tab;
 
-	tab = kzalloc(bin_attr->size, GFP_KERNEL);
+	tab = kzalloc(count, GFP_KERNEL);
 	if (tab == NULL)
 		return -ENOMEM;
 
-	len += snprintf(tab + len, bin_attr->size - len,
+	len += snprintf(tab + len, count - len,
 		"<gaintable AD%i type=%s dest=%d start=%lli end=%lli>\n", 9361,
 		phy->gt_info[ad9361_gt(phy)].split_table ? "SPLIT" : "FULL", 3,
 		phy->gt_info[ad9361_gt(phy)].start,
 		phy->gt_info[ad9361_gt(phy)].end);
 
 	for (j = 0; j < phy->gt_info[ad9361_gt(phy)].max_index; j++)
-		len += snprintf(tab + len, bin_attr->size - len,
+		len += snprintf(tab + len, count - len,
 			"%d, 0x%.2X, 0x%.2X, 0x%.2X\n",
 			phy->gt_info[ad9361_gt(phy)].abs_gain_tbl[j],
 			phy->gt_info[ad9361_gt(phy)].tab[j][0],
 			phy->gt_info[ad9361_gt(phy)].tab[j][1],
 			phy->gt_info[ad9361_gt(phy)].tab[j][2]);
 
-	len += snprintf(tab + len, bin_attr->size - len, "</gaintable>\n");
+	len += snprintf(tab + len, count - len, "</gaintable>\n");
 
-	ret = memory_read_from_buffer(buf, count, &off, tab, bin_attr->size);
+	ret = memory_read_from_buffer(buf, count, &off, tab, len);
 
 	kfree(tab);
 

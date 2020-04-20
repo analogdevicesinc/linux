@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: GPL-2.0
 /*!
  * @brief     APIs to call HAL functions
- * 
+ *
  * @copyright copyright(c) 2018 analog devices, inc. all rights reserved.
  *            This software is proprietary to Analog Devices, Inc. and its
  *            licensor. By using this software you agree to the terms of the
  *            associated analog devices software license agreement.
  */
 
-/*! 
+/*!
  * @addtogroup __AD9081_HAL__
  * @{
  */
@@ -82,6 +82,9 @@ int32_t adi_ad9081_hal_calc_rx_nco_ftw(adi_ad9081_device_t *device,
 int32_t adi_ad9081_hal_calc_tx_nco_ftw(adi_ad9081_device_t *device,
 				       uint64_t dac_freq, int64_t nco_shift,
 				       uint64_t *ftw);
+int32_t adi_ad9081_hal_calc_tx_nco_ftw32(adi_ad9081_device_t *device,
+					 uint64_t dac_freq, int64_t nco_shift,
+					 uint64_t *ftw);
 
 #ifdef __cplusplus
 }

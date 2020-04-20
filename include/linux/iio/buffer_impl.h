@@ -141,12 +141,6 @@ struct iio_buffer {
 	unsigned int watermark;
 
 	/* private: */
-	/*
-	 * @scan_el_attrs: Control of scan elements if that scan mode
-	 * control method is used.
-	 */
-	struct attribute_group *scan_el_attrs;
-
 	/* @scan_timestamp: Does the scan mode include a timestamp. */
 	bool scan_timestamp;
 
@@ -162,9 +156,6 @@ struct iio_buffer {
 	 */
 	struct attribute_group scan_el_group;
 
-	/* @stufftoread: Flag to indicate new data. */
-	bool stufftoread;
-
 	/* @attrs: Standard attributes of the buffer. */
 	const struct attribute **attrs;
 
@@ -177,12 +168,6 @@ struct iio_buffer {
 	/* @ref: Reference count of the buffer. */
 	struct kref ref;
 };
-
-static inline int iio_buffer_write(struct iio_buffer *buffer, size_t n,
-	const char __user *buf)
-{
-	return buffer->access->write(buffer, n, buf);
-}
 
 /**
  * iio_update_buffers() - add or remove buffer from active list

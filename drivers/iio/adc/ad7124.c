@@ -18,6 +18,8 @@
 #include <linux/iio/adc/ad_sigma_delta.h>
 #include <linux/iio/sysfs.h>
 
+#define AD7124_SEQUENCER_SLOTS		16
+
 /* AD7124 registers */
 #define AD7124_COMMS			0x00
 #define AD7124_STATUS			0x00
@@ -69,6 +71,13 @@
 /* AD7124_FILTER_X */
 #define AD7124_FILTER_FS_MSK		GENMASK(10, 0)
 #define AD7124_FILTER_FS(x)		FIELD_PREP(AD7124_FILTER_FS_MSK, x)
+#define AD7124_FILTER_TYPE_MSK		GENMASK(23, 21)
+#define AD7124_FILTER_TYPE_SEL(x)	FIELD_PREP(AD7124_FILTER_TYPE_MSK, x)
+
+#define AD7124_SINC3_FILTER 2
+#define AD7124_SINC4_FILTER 0
+
+#define AD7124_REG_NO 57
 
 enum ad7124_ids {
 	ID_AD7124_4,
@@ -90,6 +99,14 @@ enum ad7124_power_mode {
 
 static const unsigned int ad7124_gain[8] = {
 	1, 2, 4, 8, 16, 32, 64, 128
+};
+
+static const unsigned int ad7124_reg_size[AD7124_REG_NO] = {
+	1, 2, 3, 3, 2, 1, 3, 3, 1, 2, 2, 2, 2,
+	2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+	2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3,
+	3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+	3, 3, 3, 3, 3
 };
 
 static const int ad7124_master_clk_freq_hz[3] = {
@@ -118,6 +135,7 @@ struct ad7124_channel_config {
 	unsigned int vref_mv;
 	unsigned int pga_bits;
 	unsigned int odr;
+	unsigned int filter_type;
 };
 
 struct ad7124_state {
@@ -137,12 +155,12 @@ static const struct iio_chan_spec ad7124_channel_template = {
 	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
 		BIT(IIO_CHAN_INFO_SCALE) |
 		BIT(IIO_CHAN_INFO_OFFSET) |
-		BIT(IIO_CHAN_INFO_SAMP_FREQ),
+		BIT(IIO_CHAN_INFO_SAMP_FREQ) |
+		BIT(IIO_CHAN_INFO_LOW_PASS_FILTER_3DB_FREQUENCY),
 	.scan_type = {
 		.sign = 'u',
 		.realbits = 24,
 		.storagebits = 32,
-		.shift = 8,
 		.endianness = IIO_BE,
 	},
 };
@@ -225,6 +243,7 @@ static const struct ad_sigma_delta_info ad7124_sigma_delta_info = {
 	.addr_shift = 0,
 	.read_mask = BIT(6),
 	.data_reg = AD7124_DATA,
+	.irq_flags = IRQF_TRIGGER_FALLING
 };
 
 static int ad7124_set_channel_odr(struct ad7124_state *st,
@@ -280,6 +299,58 @@ static int ad7124_set_channel_gain(struct ad7124_state *st,
 	return 0;
 }
 
+static int ad7124_get_3db_filter_freq(struct ad7124_state *st,
+				      unsigned int channel)
+{
+	unsigned int fadc;
+
+	fadc = st->channel_config[channel].odr;
+
+	switch (st->channel_config[channel].filter_type) {
+	case AD7124_SINC3_FILTER:
+		return DIV_ROUND_CLOSEST(fadc * 230, 1000);
+	case AD7124_SINC4_FILTER:
+		return DIV_ROUND_CLOSEST(fadc * 262, 1000);
+	default:
+		return -EINVAL;
+	}
+}
+
+static int ad7124_set_3db_filter_freq(struct ad7124_state *st,
+				      unsigned int channel,
+				      unsigned int freq)
+{
+	unsigned int sinc4_3db_odr;
+	unsigned int sinc3_3db_odr;
+	unsigned int new_filter;
+	unsigned int new_odr;
+
+	sinc4_3db_odr = DIV_ROUND_CLOSEST(freq * 1000, 230);
+	sinc3_3db_odr = DIV_ROUND_CLOSEST(freq * 1000, 262);
+
+	if (sinc4_3db_odr > sinc3_3db_odr) {
+		new_filter = AD7124_SINC3_FILTER;
+		new_odr = sinc4_3db_odr;
+	} else {
+		new_filter = AD7124_SINC4_FILTER;
+		new_odr = sinc3_3db_odr;
+	}
+
+	if (st->channel_config[channel].filter_type != new_filter) {
+		int ret;
+
+		st->channel_config[channel].filter_type = new_filter;
+		ret = ad7124_spi_write_mask(st, AD7124_FILTER(channel),
+					    AD7124_FILTER_TYPE_MSK,
+					    AD7124_FILTER_TYPE_SEL(new_filter),
+					    3);
+		if (ret < 0)
+			return ret;
+	}
+
+	return ad7124_set_channel_odr(st, channel, new_odr);
+}
+
 static int ad7124_read_raw(struct iio_dev *indio_dev,
 			   struct iio_chan_spec const *chan,
 			   int *val, int *val2, long info)
@@ -322,6 +393,9 @@ static int ad7124_read_raw(struct iio_dev *indio_dev,
 		*val = st->channel_config[chan->address].odr;
 
 		return IIO_VAL_INT;
+	case IIO_CHAN_INFO_LOW_PASS_FILTER_3DB_FREQUENCY:
+		*val = ad7124_get_3db_filter_freq(st, chan->scan_index);
+		return IIO_VAL_INT;
 	default:
 		return -EINVAL;
 	}
@@ -354,9 +428,35 @@ static int ad7124_write_raw(struct iio_dev *indio_dev,
 		gain = DIV_ROUND_CLOSEST(res, val2);
 
 		return ad7124_set_channel_gain(st, chan->address, gain);
+	case IIO_CHAN_INFO_LOW_PASS_FILTER_3DB_FREQUENCY:
+		if (val2 != 0)
+			return -EINVAL;
+
+		return ad7124_set_3db_filter_freq(st, chan->address, val);
 	default:
 		return -EINVAL;
 	}
+}
+
+static int ad7124_reg_access(struct iio_dev *indio_dev,
+			     unsigned int reg,
+			     unsigned int writeval,
+			     unsigned int *readval)
+{
+	struct ad7124_state *st = iio_priv(indio_dev);
+	int ret;
+
+	if (reg >= AD7124_REG_NO)
+		return -EINVAL;
+
+	if (readval)
+		ret = ad_sd_read_reg(&st->sd, reg, ad7124_reg_size[reg],
+				     readval);
+	else
+		ret = ad_sd_write_reg(&st->sd, reg, ad7124_reg_size[reg],
+				      writeval);
+
+	return ret;
 }
 
 static IIO_CONST_ATTR(in_voltage_scale_available,
@@ -371,10 +471,32 @@ static const struct attribute_group ad7124_attrs_group = {
 	.attrs = ad7124_attributes,
 };
 
+static int ad7124_update_scan_mode(struct iio_dev *indio_dev,
+				   const unsigned long *scan_mask)
+{
+	struct ad7124_state *st = iio_priv(indio_dev);
+	bool bit_set;
+	int ret;
+	int i;
+
+	for (i = 0; i < st->num_channels; i++) {
+		bit_set = test_bit(i, scan_mask);
+		ret = ad7124_spi_write_mask(st, AD7124_CHANNEL(i),
+					    AD7124_CHANNEL_EN_MSK,
+					    AD7124_CHANNEL_EN(bit_set),
+					    2);
+		if (ret < 0)
+			return ret;
+	}
+	return 0;
+}
+
 static const struct iio_info ad7124_info = {
 	.read_raw = ad7124_read_raw,
 	.write_raw = ad7124_write_raw,
+	.debugfs_reg_access = &ad7124_reg_access,
 	.validate_trigger = ad_sd_validate_trigger,
+	.update_scan_mode = ad7124_update_scan_mode,
 	.attrs = &ad7124_attrs_group,
 };
 
@@ -582,7 +704,7 @@ static int ad7124_probe(struct spi_device *spi)
 	st->chip_info = &ad7124_chip_info_tbl[id->driver_data];
 
 	ad_sd_init(&st->sd, indio_dev, spi, &ad7124_sigma_delta_info);
-
+	st->sd.num_slots = AD7124_SEQUENCER_SLOTS;
 	spi_set_drvdata(spi, indio_dev);
 
 	indio_dev->dev.parent = &spi->dev;

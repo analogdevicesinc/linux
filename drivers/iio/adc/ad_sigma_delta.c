@@ -304,6 +304,7 @@ int ad_sigma_delta_single_conversion(struct iio_dev *indio_dev,
 {
 	struct ad_sigma_delta *sigma_delta = iio_device_get_drvdata(indio_dev);
 	unsigned int sample, raw_sample;
+	unsigned int reg_size;
 	unsigned int data_reg;
 	int ret = 0;
 
@@ -338,9 +339,10 @@ int ad_sigma_delta_single_conversion(struct iio_dev *indio_dev,
 	else
 		data_reg = AD_SD_REG_DATA;
 
-	ret = ad_sd_read_reg(sigma_delta, data_reg,
-		DIV_ROUND_UP(chan->scan_type.realbits + chan->scan_type.shift, 8),
-		&raw_sample);
+	reg_size = chan->scan_type.realbits + chan->scan_type.shift;
+	reg_size = DIV_ROUND_UP(reg_size, 8);
+	BUG_ON(reg_size > 4);
+	ret = ad_sd_read_reg(sigma_delta, data_reg, reg_size, &raw_sample);
 
 out:
 	if (!sigma_delta->irq_dis) {
@@ -386,10 +388,12 @@ static void ad_sd_prepare_transfer_msg(struct iio_dev *indio_dev)
 	else
 		data_reg = AD_SD_REG_DATA;
 
-	/* We store 24 bit samples in a 32 bit word. Keep the upper
-	 * byte set to zero. */
-	if (reg_size == 3)
-		rx += 1;
+	BUG_ON(reg_size > 4);
+	/* We store reg_size bytes samples in a 32 bit word. Keep the upper
+	 * reg_size bytes set to zero.
+	 */
+	rx += 4 - reg_size;
+
 	ad_sd_prepare_read_reg(sigma_delta, &sigma_delta->spi_msg,
 		sigma_delta->spi_transfer, data_reg, reg_size, tx,
 		rx, true);
@@ -398,6 +402,7 @@ static void ad_sd_prepare_transfer_msg(struct iio_dev *indio_dev)
 static int ad_sd_buffer_postenable(struct iio_dev *indio_dev)
 {
 	struct ad_sigma_delta *sigma_delta = iio_device_get_drvdata(indio_dev);
+	unsigned int reg_size;
 	unsigned int i, slot;
 	int ret;
 
@@ -434,6 +439,9 @@ static int ad_sd_buffer_postenable(struct iio_dev *indio_dev)
 		spi_engine_offload_enable(sigma_delta->spi, true);
 	} else {
 		sigma_delta->spi_transfer[1].rx_buf = sigma_delta->buf_data;
+		reg_size = sigma_delta->spi_transfer[1].len;
+		BUG_ON(reg_size > 4);
+		sigma_delta->spi_transfer[1].rx_buf += 4 - reg_size;
 		sigma_delta->irq_dis = false;
 		enable_irq(sigma_delta->spi->irq);
 	}
@@ -479,6 +487,7 @@ static irqreturn_t ad_sd_trigger_handler(int irq, void *p)
 	struct iio_poll_func *pf = p;
 	struct iio_dev *indio_dev = pf->indio_dev;
 	struct ad_sigma_delta *sigma_delta = iio_device_get_drvdata(indio_dev);
+	unsigned int reg_size;
 	int ret;
 
 	sigma_delta->current_slot++;
@@ -489,6 +498,8 @@ static irqreturn_t ad_sd_trigger_handler(int irq, void *p)
 			sigma_delta->buf_data, pf->timestamp);
 		sigma_delta->current_slot = 0;
 		sigma_delta->spi_transfer[1].rx_buf = sigma_delta->buf_data;
+		reg_size = sigma_delta->spi_transfer[1].len;
+		sigma_delta->spi_transfer[1].rx_buf += 4 - reg_size;
 	} else {
 		sigma_delta->spi_transfer[1].rx_buf +=
 			indio_dev->channels[0].scan_type.storagebits / 8;
@@ -566,7 +577,7 @@ static int ad_sd_probe_trigger(struct iio_dev *indio_dev)
 
 	ret = request_irq(sigma_delta->spi->irq,
 			  ad_sd_data_rdy_trig_poll,
-			  IRQF_TRIGGER_LOW,
+			  sigma_delta->info->irq_flags,
 			  indio_dev->name,
 			  sigma_delta);
 	if (ret)
@@ -663,6 +674,7 @@ int ad_sd_init(struct ad_sigma_delta *sigma_delta, struct iio_dev *indio_dev,
 	sigma_delta->info = info;
 	sigma_delta->num_slots = 1;
 	sigma_delta->active_slots = 1;
+
 	iio_device_set_drvdata(indio_dev, sigma_delta);
 
 	return 0;

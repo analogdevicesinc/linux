@@ -15,7 +15,7 @@ struct device;
 #define ADAU7118_REG_HPF_CONTROL	0x06
 #define ADAU7118_REG_SPT_CTRL1		0x07
 #define ADAU7118_REG_SPT_CTRL2		0x08
-#define ADAU7118_REG_SPT_CX(num)	(0x09 + num)
+#define ADAU7118_REG_SPT_CX(num)	(0x09 + (num))
 #define ADAU7118_REG_DRIVE_STRENGTH	0x11
 #define ADAU7118_REG_RESET		0x12
 

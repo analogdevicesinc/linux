@@ -2,21 +2,27 @@
 /*
  * dts file for QUAD AD9081-FMC-EBZ on Xilinx ZynqMP ZCU102 Rev 1.0
  *
- * Copyright (C) 2019 Analog Devices Inc.
+ * Copyright (C) 2019-2020 Analog Devices Inc.
  */
 
 #include <dt-bindings/iio/frequency/hmc7044.h>
 #include <dt-bindings/iio/adc/adi,ad9081.h>
 #include <dt-bindings/gpio/gpio.h>
 
-#include "vcu118_quad_ad9081.dts"
+#include "vcu118_quad_ad9081.dtsi"
+
+// This setup assumes 500MHz clock into J41 (0 dBm)
+// TX JESD204B MODE 9, M=8, L=4
+// RX JESD204B MODE 10, M=8, L=4
 
 #define ADRF4360_RF16_FREQUENCY_HZ 12000000000
 //#define ADRF4360_RF16_FREQUENCY_HZ 500000000
 
 #define HMC7043_FPGA_XCVR_CLKDIV		1
-#define HMC7043_FPGA_LINK_CLKDIV		1
+#define HMC7043_FPGA_LINK_CLKDIV		2
 #define HMC7043_SYSREF_CLKDIV			256
+#define HMC7043_SYSREF_TIMER			(HMC7043_SYSREF_CLKDIV * 4)
+
 
 #define AD9081_DAC_FREQUENCY 			ADRF4360_RF16_FREQUENCY_HZ
 #define AD9081_ADC_FREQUENCY			4000000000
@@ -26,6 +32,8 @@
 #define AD9081_TX_CHAN_INTERPOLATION	8
 #define AD9081_TX_MAIN_NCO_SHIFT		2800000000
 #define AD9081_TX_CHAN_NCO_SHIFT		0
+
+#define AD9081_GAIN						2048
 
 #define AD9081_TX_JESD_MODE				9
 #define AD9081_TX_JESD_SUBCLASS			1
@@ -59,6 +67,10 @@
 #define AD9081_RX_JESD_S				1
 #define AD9081_RX_JESD_HD				1
 
+/* Interface */
+
+#define AD9081_SPI_MAX_SPEED_HZ			20000000
+
 / {
 	clocks {
 		clkin_j41: clock@0 {
@@ -67,15 +79,6 @@
 			clock-frequency = <500000000>;
 			clock-output-names = "refclk_j41";
 		};
-	};
-};
-
-&axi_gpio {
-	adrf5020_ctrl {
-		gpio-hog;
-		gpios = <34 GPIO_ACTIVE_HIGH>;
-		output-high; /* output-low for the RF2 <-> clk-rfaux8 output */
-		line-name = "ADRF5020_CTRL";
 	};
 };
 
@@ -117,23 +120,11 @@
 	};
 };
 
-// 0 - mxfe_cs[0]
-// 1 - mxfe_cs[1]
-// 2 - mxfe_cs[2]
-// 3 - mxfe_cs[3]
-// 4 - adf4371_cs[0]
-// 5 - adf4371_cs[1]
-// 6 - adf4371_cs[2]
-// 7 - adf4371_cs[3]
-// 8 - hmc7043_slen
+&axi_spi2 {
 
-&fmc_spi {
-
-	num-cs = <9>;
-
-	adf4371_clk0: adf4371-0@4 {
+	adf4371_clk0: adf4371-0@0 {
 		compatible = "adi,adf4371";
-		reg = <4>;
+		reg = <0>;
 
 		#address-cells = <1>;
 		#clock-cells = <1>;
@@ -153,9 +144,9 @@
 		};
 	};
 
-	adf4371_clk1: adf4371-1@5 {
+	adf4371_clk1: adf4371-1@1 {
 		compatible = "adi,adf4371";
-		reg = <5>;
+		reg = <1>;
 
 		#address-cells = <1>;
 		#clock-cells = <1>;
@@ -175,9 +166,9 @@
 		};
 	};
 
-	adf4371_clk2: adf4371-2@6 {
+	adf4371_clk2: adf4371-2@2 {
 		compatible = "adi,adf4371";
-		reg = <6>;
+		reg = <2>;
 
 		#address-cells = <1>;
 		#clock-cells = <1>;
@@ -197,9 +188,9 @@
 		};
 	};
 
-	adf4371_clk3: adf4371-3@7 {
+	adf4371_clk3: adf4371-3@3 {
 		compatible = "adi,adf4371";
-		reg = <7>;
+		reg = <3>;
 
 		#address-cells = <1>;
 		#clock-cells = <1>;
@@ -219,23 +210,24 @@
 		};
 	};
 
-	hmc7043: hmc7043@8 {
+	hmc7043: hmc7043@4 {
 		#address-cells = <1>;
 		#size-cells = <0>;
 		#clock-cells = <1>;
 		compatible = "adi,hmc7043";
-		reg = <8>;
+		reg = <4>;
 		spi-max-frequency = <10000000>;
 
 		clocks = <&clkin_j41>;
 		clock-names = "clkin0";
 
-		adi,sysref-timer-divider = <1024>;
-		adi,pulse-generator-mode = <0>;
+		adi,sysref-timer-divider = <HMC7043_SYSREF_TIMER>;
+		adi,pulse-generator-mode = <HMC7044_PULSE_GEN_CONT_PULSE>;
 
-		adi,clkin0-buffer-mode  = <0x07>;
-		adi,clkin1-buffer-mode  = <0x07>;
-		adi,oscin-buffer-mode = <0x15>;
+		adi,rf-reseeder-disable;
+
+		adi,clkin0-buffer-mode  = <0x07>; /* RFSYNC */
+		adi,clkin1-buffer-mode  = <0x07>; /* CLKIN 500 MHz */
 
 		adi,gpi-controls = <0x00>;
 		adi,gpo-controls = <0x37>;
@@ -266,6 +258,12 @@
 			adi,extended-name = "SYSREF_MXFE0";
 			adi,divider = <HMC7043_SYSREF_CLKDIV>;
 			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;
+			adi,startup-mode-dynamic-enable;
+			adi,high-performance-mode-disable;
+
+			adi,coarse-digital-delay = <0>;
+			adi,fine-analog-delay = <24>; /* max analog */
+			adi,output-mux-mode = <1>;
 		};
 
 		hmc7043_c3: channel@3 {
@@ -273,6 +271,12 @@
 			adi,extended-name = "SYSREF_MXFE1";
 			adi,divider = <HMC7043_SYSREF_CLKDIV>;
 			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;
+			adi,startup-mode-dynamic-enable;
+			adi,high-performance-mode-disable;
+
+			adi,coarse-digital-delay = <1>; /* 1 ns */
+			adi,fine-analog-delay = <0>;
+			adi,output-mux-mode = <0>;
 		};
 
 		hmc7043_c5: channel@5 {
@@ -280,6 +284,12 @@
 			adi,extended-name = "SYSREF_MXFE2";
 			adi,divider = <HMC7043_SYSREF_CLKDIV>;
 			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;
+			adi,startup-mode-dynamic-enable;
+			adi,high-performance-mode-disable;
+
+			adi,coarse-digital-delay = <0>;
+			adi,fine-analog-delay = <16>;
+			adi,output-mux-mode = <1>;
 		};
 
 		hmc7043_c7: channel@7 {
@@ -287,6 +297,12 @@
 			adi,extended-name = "SYSREF_MXFE3";
 			adi,divider = <HMC7043_SYSREF_CLKDIV>;
 			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;
+			adi,startup-mode-dynamic-enable;
+			adi,high-performance-mode-disable;
+
+			adi,coarse-digital-delay = <0>;
+			adi,fine-analog-delay = <0>;
+			adi,output-mux-mode = <0>;
 		};
 
 		hmc7043_c9: channel@9 {
@@ -294,6 +310,8 @@
 			adi,extended-name = "SYSREF_FPGA";
 			adi,divider = <HMC7043_SYSREF_CLKDIV>;
 			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;
+			adi,startup-mode-dynamic-enable;
+			adi,high-performance-mode-disable;
 		};
 	};
 };
@@ -305,7 +323,7 @@
 		#size-cells = <0>;
 		compatible = "adi,ad9081";
 		reg = <0>;
-		spi-max-frequency = <20000000>;
+		spi-max-frequency = <AD9081_SPI_MAX_SPEED_HZ>;
 
 		/* Clocks */
 		clocks =
@@ -320,6 +338,7 @@
 		dev_clk-clock-scales = <1 10>;
 
 		adi,jesd-sync-pins-01-swap-enable;
+		//adi,lmfc-delay-dac-clk-cycles = <14>;
 
 		adi,tx-dacs {
 			#size-cells = <0>;
@@ -362,25 +381,25 @@
 
 				trx0_ad9081_tx_fddc_chan0: channel@0 {
 					reg = <0>;
-					adi,gain = <2048>; /* 2048 * 10^(gain_dB/20) */
+					adi,gain = <AD9081_GAIN>; /* value * 10^(gain_dB/20) */
 					adi,nco-frequency-shift-hz =  /bits/ 64 <AD9081_TX_CHAN_NCO_SHIFT>;
 
 				};
 				trx0_ad9081_tx_fddc_chan1: channel@1 {
 					reg = <1>;
-					adi,gain = <2048>; /* 2048 * 10^(gain_dB/20) */
+					adi,gain = <AD9081_GAIN>; /* value * 10^(gain_dB/20) */
 					adi,nco-frequency-shift-hz =  /bits/ 64 <AD9081_TX_CHAN_NCO_SHIFT>;
 
 				};
 				trx0_ad9081_tx_fddc_chan2: channel@2 {
 					reg = <2>;
-					adi,gain = <2048>; /* 2048 * 10^(gain_dB/20) */
+					adi,gain = <AD9081_GAIN>; /* value * 10^(gain_dB/20) */
 					adi,nco-frequency-shift-hz =  /bits/ 64 <AD9081_TX_CHAN_NCO_SHIFT>;
 
 				};
 				trx0_ad9081_tx_fddc_chan3: channel@3 {
 					reg = <3>;
-					adi,gain = <2048>; /* 2048 * 10^(gain_dB/20) */
+					adi,gain = <AD9081_GAIN>; /* value * 10^(gain_dB/20) */
 					adi,nco-frequency-shift-hz =  /bits/ 64 <AD9081_TX_CHAN_NCO_SHIFT>;
 
 				};
@@ -422,6 +441,7 @@
 			#address-cells = <1>;
 
 			adi,adc-frequency-hz = /bits/ 64 <AD9081_ADC_FREQUENCY>;
+			adi,nyquist-zone = <AD9081_ADC_NYQUIST_ZONE_EVEN>;
 
 			adi,main-data-paths {
 				#address-cells = <1>;
@@ -466,28 +486,28 @@
 				trx0_ad9081_rx_fddc_chan0: channel@0 {
 					reg = <0>;
 					adi,decimation = <AD9081_RX_CHAN_DECIMATION>;
-					adi,gain = <2048>; /* 2048 * 10^(gain_dB/20) */
+					adi,gain = <AD9081_GAIN>; /* value * 10^(gain_dB/20) */
 					adi,nco-frequency-shift-hz =  /bits/ 64 <AD9081_RX_CHAN_NCO_SHIFT>;
 
 				};
 				trx0_ad9081_rx_fddc_chan1: channel@1 {
 					reg = <1>;
 					adi,decimation = <AD9081_RX_CHAN_DECIMATION>;
-					adi,gain = <2048>; /* 2048 * 10^(gain_dB/20) */
+					adi,gain = <AD9081_GAIN>; /* value * 10^(gain_dB/20) */
 					adi,nco-frequency-shift-hz =  /bits/ 64 <AD9081_RX_CHAN_NCO_SHIFT>;
 
 				};
 				trx0_ad9081_rx_fddc_chan4: channel@4 {
 					reg = <4>;
 					adi,decimation = <AD9081_RX_CHAN_DECIMATION>;
-					adi,gain = <2048>; /* 2048 * 10^(gain_dB/20) */
+					adi,gain = <AD9081_GAIN>; /* value * 10^(gain_dB/20) */
 					adi,nco-frequency-shift-hz =  /bits/ 64 <AD9081_RX_CHAN_NCO_SHIFT>;
 
 				};
 				trx0_ad9081_rx_fddc_chan5: channel@5 {
 					reg = <5>;
 					adi,decimation = <AD9081_RX_CHAN_DECIMATION>;
-					adi,gain = <2048>; /* 2048 * 10^(gain_dB/20) */
+					adi,gain = <AD9081_GAIN>; /* value * 10^(gain_dB/20) */
 					adi,nco-frequency-shift-hz =  /bits/ 64 <AD9081_RX_CHAN_NCO_SHIFT>;
 
 				};
@@ -533,7 +553,7 @@
 		#size-cells = <0>;
 		compatible = "adi,ad9081";
 		reg = <1>;
-		spi-max-frequency = <20000000>;
+		spi-max-frequency = <AD9081_SPI_MAX_SPEED_HZ>;
 
 		/* Clocks */
 		clocks =
@@ -548,6 +568,7 @@
 		dev_clk-clock-scales = <1 10>;
 
 		adi,jesd-sync-pins-01-swap-enable;
+		//adi,lmfc-delay-dac-clk-cycles = <16>;
 
 		adi,tx-dacs {
 			#size-cells = <0>;
@@ -590,25 +611,25 @@
 
 				trx1_ad9081_tx_fddc_chan0: channel@0 {
 					reg = <0>;
-					adi,gain = <2048>; /* 2048 * 10^(gain_dB/20) */
+					adi,gain = <AD9081_GAIN>; /* value * 10^(gain_dB/20) */
 					adi,nco-frequency-shift-hz =  /bits/ 64 <AD9081_TX_CHAN_NCO_SHIFT>;
 
 				};
 				trx1_ad9081_tx_fddc_chan1: channel@1 {
 					reg = <1>;
-					adi,gain = <2048>; /* 2048 * 10^(gain_dB/20) */
+					adi,gain = <AD9081_GAIN>; /* value * 10^(gain_dB/20) */
 					adi,nco-frequency-shift-hz =  /bits/ 64 <AD9081_TX_CHAN_NCO_SHIFT>;
 
 				};
 				trx1_ad9081_tx_fddc_chan2: channel@2 {
 					reg = <2>;
-					adi,gain = <2048>; /* 2048 * 10^(gain_dB/20) */
+					adi,gain = <AD9081_GAIN>; /* value * 10^(gain_dB/20) */
 					adi,nco-frequency-shift-hz =  /bits/ 64 <AD9081_TX_CHAN_NCO_SHIFT>;
 
 				};
 				trx1_ad9081_tx_fddc_chan3: channel@3 {
 					reg = <3>;
-					adi,gain = <2048>; /* 2048 * 10^(gain_dB/20) */
+					adi,gain = <AD9081_GAIN>; /* value * 10^(gain_dB/20) */
 					adi,nco-frequency-shift-hz =  /bits/ 64 <AD9081_TX_CHAN_NCO_SHIFT>;
 
 				};
@@ -650,6 +671,7 @@
 			#address-cells = <1>;
 
 			adi,adc-frequency-hz = /bits/ 64 <AD9081_ADC_FREQUENCY>;
+			adi,nyquist-zone = <AD9081_ADC_NYQUIST_ZONE_EVEN>;
 
 			adi,main-data-paths {
 				#address-cells = <1>;
@@ -694,28 +716,28 @@
 				trx1_ad9081_rx_fddc_chan0: channel@0 {
 					reg = <0>;
 					adi,decimation = <AD9081_RX_CHAN_DECIMATION>;
-					adi,gain = <2048>; /* 2048 * 10^(gain_dB/20) */
+					adi,gain = <AD9081_GAIN>; /* value * 10^(gain_dB/20) */
 					adi,nco-frequency-shift-hz =  /bits/ 64 <AD9081_RX_CHAN_NCO_SHIFT>;
 
 				};
 				trx1_ad9081_rx_fddc_chan1: channel@1 {
 					reg = <1>;
 					adi,decimation = <AD9081_RX_CHAN_DECIMATION>;
-					adi,gain = <2048>; /* 2048 * 10^(gain_dB/20) */
+					adi,gain = <AD9081_GAIN>; /* value * 10^(gain_dB/20) */
 					adi,nco-frequency-shift-hz =  /bits/ 64 <AD9081_RX_CHAN_NCO_SHIFT>;
 
 				};
 				trx1_ad9081_rx_fddc_chan4: channel@4 {
 					reg = <4>;
 					adi,decimation = <AD9081_RX_CHAN_DECIMATION>;
-					adi,gain = <2048>; /* 2048 * 10^(gain_dB/20) */
+					adi,gain = <AD9081_GAIN>; /* value * 10^(gain_dB/20) */
 					adi,nco-frequency-shift-hz =  /bits/ 64 <AD9081_RX_CHAN_NCO_SHIFT>;
 
 				};
 				trx1_ad9081_rx_fddc_chan5: channel@5 {
 					reg = <5>;
 					adi,decimation = <AD9081_RX_CHAN_DECIMATION>;
-					adi,gain = <2048>; /* 2048 * 10^(gain_dB/20) */
+					adi,gain = <AD9081_GAIN>; /* value * 10^(gain_dB/20) */
 					adi,nco-frequency-shift-hz =  /bits/ 64 <AD9081_RX_CHAN_NCO_SHIFT>;
 
 				};
@@ -761,7 +783,7 @@
 		#size-cells = <0>;
 		compatible = "adi,ad9081";
 		reg = <2>;
-		spi-max-frequency = <20000000>;
+		spi-max-frequency = <AD9081_SPI_MAX_SPEED_HZ>;
 
 		/* Clocks */
 		clocks = <&adf4371_clk2 2>, <&hmc7043 8>, <&hmc7043 1>, <&hmc7043 9>;
@@ -774,6 +796,7 @@
 		dev_clk-clock-scales = <1 10>;
 
 		adi,jesd-sync-pins-01-swap-enable;
+		//adi,lmfc-delay-dac-clk-cycles = <9>;
 
 		adi,tx-dacs {
 			#size-cells = <0>;
@@ -816,25 +839,25 @@
 
 				trx2_ad9081_tx_fddc_chan0: channel@0 {
 					reg = <0>;
-					adi,gain = <2048>; /* 2048 * 10^(gain_dB/20) */
+					adi,gain = <AD9081_GAIN>; /* value * 10^(gain_dB/20) */
 					adi,nco-frequency-shift-hz =  /bits/ 64 <AD9081_TX_CHAN_NCO_SHIFT>;
 
 				};
 				trx2_ad9081_tx_fddc_chan1: channel@1 {
 					reg = <1>;
-					adi,gain = <2048>; /* 2048 * 10^(gain_dB/20) */
+					adi,gain = <AD9081_GAIN>; /* value * 10^(gain_dB/20) */
 					adi,nco-frequency-shift-hz =  /bits/ 64 <AD9081_TX_CHAN_NCO_SHIFT>;
 
 				};
 				trx2_ad9081_tx_fddc_chan2: channel@2 {
 					reg = <2>;
-					adi,gain = <2048>; /* 2048 * 10^(gain_dB/20) */
+					adi,gain = <AD9081_GAIN>; /* value * 10^(gain_dB/20) */
 					adi,nco-frequency-shift-hz =  /bits/ 64 <AD9081_TX_CHAN_NCO_SHIFT>;
 
 				};
 				trx2_ad9081_tx_fddc_chan3: channel@3 {
 					reg = <3>;
-					adi,gain = <2048>; /* 2048 * 10^(gain_dB/20) */
+					adi,gain = <AD9081_GAIN>; /* value * 10^(gain_dB/20) */
 					adi,nco-frequency-shift-hz =  /bits/ 64 <AD9081_TX_CHAN_NCO_SHIFT>;
 
 				};
@@ -876,6 +899,7 @@
 			#address-cells = <1>;
 
 			adi,adc-frequency-hz = /bits/ 64 <AD9081_ADC_FREQUENCY>;
+			adi,nyquist-zone = <AD9081_ADC_NYQUIST_ZONE_EVEN>;
 
 			adi,main-data-paths {
 				#address-cells = <1>;
@@ -920,28 +944,28 @@
 				trx2_ad9081_rx_fddc_chan0: channel@0 {
 					reg = <0>;
 					adi,decimation = <AD9081_RX_CHAN_DECIMATION>;
-					adi,gain = <2048>; /* 2048 * 10^(gain_dB/20) */
+					adi,gain = <AD9081_GAIN>; /* value * 10^(gain_dB/20) */
 					adi,nco-frequency-shift-hz =  /bits/ 64 <AD9081_RX_CHAN_NCO_SHIFT>;
 
 				};
 				trx2_ad9081_rx_fddc_chan1: channel@1 {
 					reg = <1>;
 					adi,decimation = <AD9081_RX_CHAN_DECIMATION>;
-					adi,gain = <2048>; /* 2048 * 10^(gain_dB/20) */
+					adi,gain = <AD9081_GAIN>; /* value * 10^(gain_dB/20) */
 					adi,nco-frequency-shift-hz =  /bits/ 64 <AD9081_RX_CHAN_NCO_SHIFT>;
 
 				};
 				trx2_ad9081_rx_fddc_chan4: channel@4 {
 					reg = <4>;
 					adi,decimation = <AD9081_RX_CHAN_DECIMATION>;
-					adi,gain = <2048>; /* 2048 * 10^(gain_dB/20) */
+					adi,gain = <AD9081_GAIN>; /* value * 10^(gain_dB/20) */
 					adi,nco-frequency-shift-hz =  /bits/ 64 <AD9081_RX_CHAN_NCO_SHIFT>;
 
 				};
 				trx2_ad9081_rx_fddc_chan5: channel@5 {
 					reg = <5>;
 					adi,decimation = <AD9081_RX_CHAN_DECIMATION>;
-					adi,gain = <2048>; /* 2048 * 10^(gain_dB/20) */
+					adi,gain = <AD9081_GAIN>; /* value * 10^(gain_dB/20) */
 					adi,nco-frequency-shift-hz =  /bits/ 64 <AD9081_RX_CHAN_NCO_SHIFT>;
 
 				};
@@ -987,7 +1011,7 @@
 		#size-cells = <0>;
 		compatible = "adi,ad9081";
 		reg = <3>;
-		spi-max-frequency = <20000000>;
+		spi-max-frequency = <AD9081_SPI_MAX_SPEED_HZ>;
 
 		/* Clocks */
 		clocks = <&axi_ad9081_rx_jesd>, <&axi_ad9081_tx_jesd>,
@@ -1003,6 +1027,7 @@
 
 		adi,multidevice-instance-count = <4>;
 		adi,jesd-sync-pins-01-swap-enable;
+		//adi,lmfc-delay-dac-clk-cycles = <3>;
 
 		adi,tx-dacs {
 			#size-cells = <0>;
@@ -1045,25 +1070,25 @@
 
 				trx3_ad9081_tx_fddc_chan0: channel@0 {
 					reg = <0>;
-					adi,gain = <2048>; /* 2048 * 10^(gain_dB/20) */
+					adi,gain = <AD9081_GAIN>; /* value * 10^(gain_dB/20) */
 					adi,nco-frequency-shift-hz =  /bits/ 64 <AD9081_TX_CHAN_NCO_SHIFT>;
 
 				};
 				trx3_ad9081_tx_fddc_chan1: channel@1 {
 					reg = <1>;
-					adi,gain = <2048>; /* 2048 * 10^(gain_dB/20) */
+					adi,gain = <AD9081_GAIN>; /* value * 10^(gain_dB/20) */
 					adi,nco-frequency-shift-hz =  /bits/ 64 <AD9081_TX_CHAN_NCO_SHIFT>;
 
 				};
 				trx3_ad9081_tx_fddc_chan2: channel@2 {
 					reg = <2>;
-					adi,gain = <2048>; /* 2048 * 10^(gain_dB/20) */
+					adi,gain = <AD9081_GAIN>; /* value * 10^(gain_dB/20) */
 					adi,nco-frequency-shift-hz =  /bits/ 64 <AD9081_TX_CHAN_NCO_SHIFT>;
 
 				};
 				trx3_ad9081_tx_fddc_chan3: channel@3 {
 					reg = <3>;
-					adi,gain = <2048>; /* 2048 * 10^(gain_dB/20) */
+					adi,gain = <AD9081_GAIN>; /* value * 10^(gain_dB/20) */
 					adi,nco-frequency-shift-hz =  /bits/ 64 <AD9081_TX_CHAN_NCO_SHIFT>;
 
 				};
@@ -1105,6 +1130,7 @@
 			#address-cells = <1>;
 
 			adi,adc-frequency-hz = /bits/ 64 <AD9081_ADC_FREQUENCY>;
+			adi,nyquist-zone = <AD9081_ADC_NYQUIST_ZONE_EVEN>;
 
 			adi,main-data-paths {
 				#address-cells = <1>;
@@ -1149,28 +1175,28 @@
 				trx3_ad9081_rx_fddc_chan0: channel@0 {
 					reg = <0>;
 					adi,decimation = <AD9081_RX_CHAN_DECIMATION>;
-					adi,gain = <2048>; /* 2048 * 10^(gain_dB/20) */
+					adi,gain = <AD9081_GAIN>; /* value * 10^(gain_dB/20) */
 					adi,nco-frequency-shift-hz =  /bits/ 64 <AD9081_RX_CHAN_NCO_SHIFT>;
 
 				};
 				trx3_ad9081_rx_fddc_chan1: channel@1 {
 					reg = <1>;
 					adi,decimation = <AD9081_RX_CHAN_DECIMATION>;
-					adi,gain = <2048>; /* 2048 * 10^(gain_dB/20) */
+					adi,gain = <AD9081_GAIN>; /* value * 10^(gain_dB/20) */
 					adi,nco-frequency-shift-hz =  /bits/ 64 <AD9081_RX_CHAN_NCO_SHIFT>;
 
 				};
 				trx3_ad9081_rx_fddc_chan4: channel@4 {
 					reg = <4>;
 					adi,decimation = <AD9081_RX_CHAN_DECIMATION>;
-					adi,gain = <2048>; /* 2048 * 10^(gain_dB/20) */
+					adi,gain = <AD9081_GAIN>; /* value * 10^(gain_dB/20) */
 					adi,nco-frequency-shift-hz =  /bits/ 64 <AD9081_RX_CHAN_NCO_SHIFT>;
 
 				};
 				trx3_ad9081_rx_fddc_chan5: channel@5 {
 					reg = <5>;
 					adi,decimation = <AD9081_RX_CHAN_DECIMATION>;
-					adi,gain = <2048>; /* 2048 * 10^(gain_dB/20) */
+					adi,gain = <AD9081_GAIN>; /* value * 10^(gain_dB/20) */
 					adi,nco-frequency-shift-hz =  /bits/ 64 <AD9081_RX_CHAN_NCO_SHIFT>;
 
 				};

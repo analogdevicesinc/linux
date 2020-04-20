@@ -76,6 +76,9 @@
 #define HMC7044_100_OHM_EN		BIT(1)
 #define HMC7044_BUF_EN			BIT(0)
 
+#define HMC7044_REG_PLL1_CP_CTRL	0x001A
+#define HMC7044_PLL1_CP_CURRENT(x)	((x) & 0xf)
+
 #define HMC7044_REG_CLKIN_PRESCALER(x)	(0x001C + (x))
 #define HMC7044_REG_OSCIN_PRESCALER	0x0020
 
@@ -139,6 +142,9 @@
 #define HMC7044_REG_SYSREF_TIMER_MSB	0x005D
 #define HMC7044_SYSREF_TIMER_MSB(x)	(((x) & 0xf00) >> 8)
 
+#define HMC7044_CLK_INPUT_CTRL		0x0064
+#define HMC7044_LOW_FREQ_INPUT_MODE	BIT(0)
+#define HMC7044_DIV_2_INPUT_MODE	BIT(1)
 
 /* Status and Alarm readback */
 #define HMC7044_REG_ALARM_READBACK	0x007D
@@ -194,7 +200,14 @@
 
 #define HMC7044_RECOMM_LCM_MIN	30000
 #define HMC7044_RECOMM_LCM_MAX	70000
-#define HMC7044_RECOMM_FPD1	10000
+#define HMC7044_RECOMM_PFD1	10000
+#define HMC7044_MIN_PFD1	1
+#define HMC7044_MAX_PFD1	50000
+
+#define HMC7044_CP_CURRENT_STEP	120
+#define HMC7044_CP_CURRENT_MIN	120
+#define HMC7044_CP_CURRENT_MAX	1920
+#define HMC7044_CP_CURRENT_DEF	1080
 
 #define HMC7044_R1_MAX		65535
 #define HMC7044_N1_MAX		65535
@@ -258,6 +271,8 @@ struct hmc7044 {
 	u32				clkin_freq_ccf[4];
 	u32				vcxo_freq;
 	u32				pll1_pfd;
+	u32				pfd1_limit;
+	u32				pll1_cp_current;
 	u32				pll2_freq;
 	unsigned int			pll1_loop_bw;
 	unsigned int			sysref_timer_div;
@@ -266,6 +281,7 @@ struct hmc7044 {
 	bool				clkin1_vcoin_en;
 	bool				high_performance_mode_clock_dist_en;
 	bool				high_performance_mode_pll_vco_en;
+	bool				rf_reseeder_en;
 	unsigned int			sync_pin_mode;
 	unsigned int			pulse_gen_mode;
 	unsigned int			in_buf_mode[5];
@@ -758,7 +774,7 @@ static int hmc7044_setup(struct iio_dev *indio_dev)
 				    &n1, &r1);
 
 	pfd1_freq = vcxo_freq / n1;
-	while ((pfd1_freq > HMC7044_RECOMM_FPD1) &&
+	while ((pfd1_freq > hmc->pfd1_limit) &&
 	       (n1 <= HMC7044_N1_MAX / 2) &&
 	       (r1 <= HMC7044_R1_MAX / 2)) {
 		pfd1_freq /= 2;
@@ -831,7 +847,7 @@ static int hmc7044_setup(struct iio_dev *indio_dev)
 
 	/* Select the VCO range */
 	hmc7044_write(indio_dev, HMC7044_REG_EN_CTRL_0,
-		      HMC7044_RF_RESEEDER_EN |
+		      (hmc->rf_reseeder_en ? HMC7044_RF_RESEEDER_EN : 0) |
 		      HMC7044_VCO_SEL(high_vco_en ?
 				      HMC7044_VCO_HIGH :
 				      HMC7044_VCO_LOW) |
@@ -853,6 +869,10 @@ static int hmc7044_setup(struct iio_dev *indio_dev)
 		      pll2_freq_doubler_en ? 0 : HMC7044_PLL2_FREQ_DOUBLER_DIS);
 
 	/* Program PLL1 */
+
+	hmc7044_write(indio_dev, HMC7044_REG_PLL1_CP_CTRL,
+		HMC7044_PLL1_CP_CURRENT(hmc->pll1_cp_current /
+			HMC7044_CP_CURRENT_STEP - 1));
 
 	/* Set the lock detect timer threshold */
 	hmc7044_write(indio_dev, HMC7044_REG_PLL1_LOCK_DETECT,
@@ -1002,7 +1022,7 @@ static int hmc7043_setup(struct iio_dev *indio_dev)
 	if (hmc->clkin_freq_ccf[0])
 		hmc->pll2_freq = hmc->clkin_freq_ccf[0];
 	else
-		hmc->pll2_freq  = hmc->clkin_freq[0] / 1000;
+		hmc->pll2_freq  = hmc->clkin_freq[0];
 
 	if (!hmc->pll2_freq) {
 		dev_err(&hmc->spi->dev, "Failed to get valid parent rate");
@@ -1015,9 +1035,21 @@ static int hmc7043_setup(struct iio_dev *indio_dev)
 	hmc7044_write(indio_dev, HMC7044_REG_SOFT_RESET, 0);
 	mdelay(10);
 
+	/* Load the configuration updates (provided by Analog Devices) */
+	hmc7044_write(indio_dev, HMC7044_REG_CLK_OUT_DRV_LOW_PW, 0x4d);
+	hmc7044_write(indio_dev, HMC7044_REG_CLK_OUT_DRV_HIGH_PW, 0xdf);
+
 	/* Disable all channels */
 	for (i = 0; i < HMC7044_NUM_CHAN; i++)
 		hmc7044_write(indio_dev, HMC7044_REG_CH_OUT_CRTL_0(i), 0);
+
+	if (hmc->pll2_freq < 1000000000U)
+		hmc7044_write(indio_dev, HMC7044_CLK_INPUT_CTRL,
+			      HMC7044_LOW_FREQ_INPUT_MODE);
+
+	hmc7044_write(indio_dev, HMC7044_REG_EN_CTRL_0,
+		(hmc->rf_reseeder_en ? HMC7044_RF_RESEEDER_EN : 0) |
+		HMC7044_SYSREF_TIMER_EN);
 
 	/* Program the SYSREF timer */
 
@@ -1138,6 +1170,23 @@ static int hmc7044_parse_dt(struct device *dev,
 		of_property_read_u32(np, "adi,pll1-loop-bandwidth-hz",
 				&hmc->pll1_loop_bw);
 
+		hmc->pfd1_limit = 0;
+		of_property_read_u32(np, "adi,pfd1-maximum-limit-frequency-hz",
+				&hmc->pfd1_limit);
+		if (hmc->pfd1_limit) {
+			hmc->pfd1_limit /= 1000;
+			hmc->pfd1_limit = clamp_t(u32, hmc->pfd1_limit,
+				HMC7044_MIN_PFD1, HMC7044_MAX_PFD1);
+		} else {
+			hmc->pfd1_limit = HMC7044_RECOMM_PFD1;
+		}
+
+		hmc->pll1_cp_current = HMC7044_CP_CURRENT_DEF;
+		of_property_read_u32(np, "adi,pll1-charge-pump-current-ua",
+				&hmc->pll1_cp_current);
+		hmc->pll1_cp_current = clamp_t(u32, hmc->pll1_cp_current,
+			HMC7044_CP_CURRENT_MIN, HMC7044_CP_CURRENT_MAX);
+
 		ret = of_property_read_u32(np, "adi,vcxo-frequency",
 					&hmc->vcxo_freq);
 		if (ret)
@@ -1190,6 +1239,9 @@ static int hmc7044_parse_dt(struct device *dev,
 		if (ret)
 			return ret;
 	}
+
+	hmc->rf_reseeder_en =
+		!of_property_read_bool(np, "adi,rf-reseeder-disable");
 
 	hmc->sysref_timer_div = 256;
 	of_property_read_u32(np, "adi,sysref-timer-divider",

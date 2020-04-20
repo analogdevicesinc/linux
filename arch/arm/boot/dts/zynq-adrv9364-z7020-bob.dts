@@ -1,3 +1,14 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * AD9364-Z7020 System on Module (SOM) SDR - Breakout Carrier
+ * Link: https://www.analog.com/ADRV9361-Z7020
+ * Link: https://wiki.analog.com/resources/eval/user-guides/adrv936x_rfsom
+ *
+ * hdl_project: <adrv9364z7020/ccbob_lvds>
+ * board_revision: <>
+ *
+ * Copyright 2015-2019 Analog Devices Inc.
+ */
 /dts-v1/;
 #include "zynq-adrv9364-z7020.dtsi"
 

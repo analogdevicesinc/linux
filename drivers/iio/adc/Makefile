@@ -27,9 +27,10 @@ obj-$(CONFIG_AD7793) += ad7793.o
 obj-$(CONFIG_AD7887) += ad7887.o
 obj-$(CONFIG_AD799X) += ad799x.o
 obj-$(CONFIG_AD9963) += ad9963.o
+obj-$(CONFIG_ADAR1000) += adar1000.o
 obj-$(CONFIG_ADM1177) += adm1177.o
 
-cf_axi_adc-y := cf_axi_adc_core.o cf_axi_adc_ring_stream.o
+cf_axi_adc-y := cf_axi_adc_core.o
 obj-$(CONFIG_CF_AXI_ADC) += cf_axi_adc.o
 
 ad9208_drv-y := ad9208.o \

@@ -1,3 +1,14 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices ADRV9371
+ * https://wiki.analog.com/resources/tools-software/linux-drivers/iio-transceiver/ad9371
+ * https://wiki.analog.com/resources/eval/user-guides/mykonos
+ *
+ * hdl_project: <adrv9371x/zc706>
+ * board_revision: <>
+ *
+ * Copyright (C) 2016-2019 Analog Devices Inc.
+ */
 /dts-v1/;
 
 #include "zynq-zc706.dtsi"
