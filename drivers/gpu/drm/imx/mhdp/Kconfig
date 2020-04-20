@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: GPL-2.0-only
+
+config DRM_IMX_CDNS_MHDP
+	tristate "NXP i.MX MX8 DRM HDMI/DP"
+	select DRM_CDNS_MHDP
+	select DRM_CDNS_DP
+	select DRM_CDNS_HDMI
+	select DRM_CDNS_AUDIO
+	depends on DRM_IMX
+	help
+	  Choose this if you want to use HDMI on i.MX8.
