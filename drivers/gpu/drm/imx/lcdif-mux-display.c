@@ -155,15 +155,11 @@ static int imx_lmuxd_bind(struct device *dev, struct device *master, void *data)
 {
 	struct drm_device *drm = data;
 	struct device_node *np = dev->of_node;
-	struct imx_lcdif_mux_display *lmuxd;
+	struct imx_lcdif_mux_display *lmuxd = dev_get_drvdata(dev);
 	struct drm_panel *panel;
 	const char *fmt;
 	u32 bus_format = 0;
 	int ret;
-
-	lmuxd = devm_kzalloc(dev, sizeof(*lmuxd), GFP_KERNEL);
-	if (!lmuxd)
-		return -ENOMEM;
 
 	lmuxd->regmap =
 		syscon_regmap_lookup_by_phandle(np, "fsl,lcdif-mux-regs");
@@ -207,22 +203,12 @@ static int imx_lmuxd_bind(struct device *dev, struct device *master, void *data)
 
 	lmuxd->dev = dev;
 
-	ret = imx_lmuxd_register(drm, lmuxd);
-	if (ret)
-		return ret;
-
-	dev_set_drvdata(dev, lmuxd);
-
-	return 0;
+	return imx_lmuxd_register(drm, lmuxd);
 }
 
 static void imx_lmuxd_unbind(struct device *dev, struct device *master,
 	void *data)
 {
-	struct imx_lcdif_mux_display *lmuxd = dev_get_drvdata(dev);
-
-	if (lmuxd->encoder.dev)
-		drm_encoder_cleanup(&lmuxd->encoder);
 }
 
 static const struct component_ops imx_lmuxd_ops = {
@@ -232,7 +218,16 @@ static const struct component_ops imx_lmuxd_ops = {
 
 static int imx_lmuxd_probe(struct platform_device *pdev)
 {
-	return component_add(&pdev->dev, &imx_lmuxd_ops);
+	struct device *dev = &pdev->dev;
+	struct imx_lcdif_mux_display *lmuxd;
+
+	lmuxd = devm_kzalloc(dev, sizeof(*lmuxd), GFP_KERNEL);
+	if (!lmuxd)
+		return -ENOMEM;
+
+	dev_set_drvdata(dev, lmuxd);
+
+	return component_add(dev, &imx_lmuxd_ops);
 }
 
 static int imx_lmuxd_remove(struct platform_device *pdev)
