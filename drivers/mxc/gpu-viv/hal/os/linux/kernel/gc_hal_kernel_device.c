@@ -1962,7 +1962,11 @@ gckGALDEVICE_Construct(
                     gcmkONERROR(gcvSTATUS_OUT_OF_RESOURCES);
                 }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,5,0)
                 device->registerBases[i] = (gctPOINTER)ioremap(
+#else
+                device->registerBases[i] = (gctPOINTER)ioremap_nocache(
+#endif
                         physical, device->requestedRegisterMemSizes[i]);
 
                 if (device->registerBases[i] == gcvNULL)

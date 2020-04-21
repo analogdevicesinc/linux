@@ -394,12 +394,14 @@ reserved_mem_map_kernel(
         return gcvSTATUS_INVALID_ARGUMENT;
     }
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,6,0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,5,0)
+    vaddr = ioremap(res->start + Offset, Bytes);
+#elif LINUX_VERSION_CODE >= KERNEL_VERSION(4,6,0)
     vaddr = memremap(res->start + Offset, Bytes, MEMREMAP_WC);
 #elif LINUX_VERSION_CODE >= KERNEL_VERSION(4,3,0)
     vaddr = memremap(res->start + Offset, Bytes, MEMREMAP_WT);
 #else
-    vaddr = ioremap(res->start + Offset, Bytes);
+    vaddr = ioremap_nocache(res->start + Offset, Bytes);
 #endif
 
     if (!vaddr)
