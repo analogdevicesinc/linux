@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-2019 NXP
+ * Copyright 2017-2020 NXP
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -1269,12 +1269,8 @@ static int dpu_crtc_bind(struct device *dev, struct device *master, void *data)
 {
 	struct dpu_client_platformdata *pdata = dev->platform_data;
 	struct drm_device *drm = data;
-	struct dpu_crtc *dpu_crtc;
+	struct dpu_crtc *dpu_crtc = dev_get_drvdata(dev);
 	int ret;
-
-	dpu_crtc = devm_kzalloc(dev, sizeof(*dpu_crtc), GFP_KERNEL);
-	if (!dpu_crtc)
-		return -ENOMEM;
 
 	dpu_crtc->dev = dev;
 
@@ -1285,8 +1281,6 @@ static int dpu_crtc_bind(struct device *dev, struct device *master, void *data)
 	if (!drm->mode_config.funcs)
 		drm->mode_config.funcs = &dpu_drm_mode_config_funcs;
 
-	dev_set_drvdata(dev, dpu_crtc);
-
 	return 0;
 }
 
@@ -1296,10 +1290,6 @@ static void dpu_crtc_unbind(struct device *dev, struct device *master,
 	struct dpu_crtc *dpu_crtc = dev_get_drvdata(dev);
 
 	dpu_crtc_put_resources(dpu_crtc);
-
-	/* make sure the crtc exists, and then cleanup */
-	if (dpu_crtc->base.dev)
-		drm_crtc_cleanup(&dpu_crtc->base);
 }
 
 static const struct component_ops dpu_crtc_ops = {
@@ -1310,9 +1300,16 @@ static const struct component_ops dpu_crtc_ops = {
 static int dpu_crtc_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
+	struct dpu_crtc *dpu_crtc;
 
 	if (!dev->platform_data)
 		return -EINVAL;
+
+	dpu_crtc = devm_kzalloc(dev, sizeof(*dpu_crtc), GFP_KERNEL);
+	if (!dpu_crtc)
+		return -ENOMEM;
+
+	dev_set_drvdata(dev, dpu_crtc);
 
 	return component_add(dev, &dpu_crtc_ops);
 }
