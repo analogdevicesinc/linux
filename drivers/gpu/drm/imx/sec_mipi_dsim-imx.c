@@ -307,9 +307,7 @@ static int imx_sec_dsim_bind(struct device *dev, struct device *master,
 	if (ret)
 		goto null_dsim_dev;
 
-	atomic_set(&dsim_dev->rpm_suspended, 0);
 	pm_runtime_enable(dev);
-	atomic_inc(&dsim_dev->rpm_suspended);
 
 	/* bind sec dsim bridge */
 	ret = sec_mipi_dsim_bind(dev, master, data, encoder, res, irq, pdata);
@@ -364,6 +362,8 @@ static int imx_sec_dsim_probe(struct platform_device *pdev)
 		dev_err(dev, "Unable to allocate 'dsim_dev'\n");
 		return -ENOMEM;
 	}
+
+	atomic_set(&dsim_dev->rpm_suspended, 1);
 
 	dsim_dev->dev = dev;
 
