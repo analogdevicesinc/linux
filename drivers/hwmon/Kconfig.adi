@@ -3,6 +3,9 @@
 
 config HWMON_ALL_ADI_DRIVERS
 	tristate "Build all Analog Devices HWMON Drivers"
+	select CRC8
+	select PMBUS
+	select SENSORS_PMBUS
 	select SENSORS_AD7314
 	select SENSORS_AD7414
 	select SENSORS_AXI_FAN_CONTROL
@@ -13,6 +16,7 @@ config HWMON_ALL_ADI_DRIVERS
 	select SENSORS_ADM1029
 	select SENSORS_ADM1031
 	select SENSORS_ADM1177
+	select SENSORS_ADM1266
 	select SENSORS_ADM1275
 	select SENSORS_ADM9240
 	select SENSORS_ADT7310
