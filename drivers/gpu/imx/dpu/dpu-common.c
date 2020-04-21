@@ -678,12 +678,68 @@ irq_set_chained_handler_and_data(dpu->irq_##name, dpu_##name##_irq_handler, dpu)
 	DPU_IRQ_SET_CHAINED_HANDLER_AND_DATA1(disengcfg_shdload1);
 	DPU_IRQ_SET_CHAINED_HANDLER_AND_DATA1(disengcfg_framecomplete1);
 
+#define DPU_IRQ_CHIP_PM_GET(name)					\
+{									\
+	ret = irq_chip_pm_get(irq_get_irq_data(dpu->irq_##name));	\
+	if (ret < 0) {							\
+		dev_err(dpu->dev,					\
+			"failed to get irq chip PM for irq%d %d\n",	\
+						dpu->irq_##name, ret);	\
+		goto pm_get_rollback;					\
+	}								\
+	dpu->irq_chip_pm_get_##name = true;				\
+}
+
+#define DPU_IRQ_CHIP_PM_PUT_CHECK(name)					\
+{									\
+	if (dpu->irq_chip_pm_get_##name) {				\
+		irq_chip_pm_put(irq_get_irq_data(dpu->irq_##name));	\
+		dpu->irq_chip_pm_get_##name = false;			\
+	}								\
+}
+
+	DPU_IRQ_CHIP_PM_GET(extdst0_shdload);
+	DPU_IRQ_CHIP_PM_GET(extdst4_shdload);
+	DPU_IRQ_CHIP_PM_GET(extdst1_shdload);
+	DPU_IRQ_CHIP_PM_GET(extdst5_shdload);
+	DPU_IRQ_CHIP_PM_GET(disengcfg_shdload0);
+	DPU_IRQ_CHIP_PM_GET(disengcfg_framecomplete0);
+	DPU_IRQ_CHIP_PM_GET(disengcfg_shdload1);
+	DPU_IRQ_CHIP_PM_GET(disengcfg_framecomplete1);
+
 	return 0;
+
+pm_get_rollback:
+	DPU_IRQ_CHIP_PM_PUT_CHECK(extdst0_shdload);
+	DPU_IRQ_CHIP_PM_PUT_CHECK(extdst4_shdload);
+	DPU_IRQ_CHIP_PM_PUT_CHECK(extdst1_shdload);
+	DPU_IRQ_CHIP_PM_PUT_CHECK(extdst5_shdload);
+	DPU_IRQ_CHIP_PM_PUT_CHECK(disengcfg_shdload0);
+	DPU_IRQ_CHIP_PM_PUT_CHECK(disengcfg_framecomplete0);
+	DPU_IRQ_CHIP_PM_PUT_CHECK(disengcfg_shdload1);
+	DPU_IRQ_CHIP_PM_PUT_CHECK(disengcfg_framecomplete1);
+
+	return ret;
 }
 
 static void dpu_irq_exit(struct dpu_soc *dpu)
 {
 	unsigned int i, irq;
+
+#define DPU_IRQ_CHIP_PM_PUT(name)				\
+{								\
+	irq_chip_pm_put(irq_get_irq_data(dpu->irq_##name));	\
+	dpu->irq_chip_pm_get_##name = false;			\
+}
+
+	DPU_IRQ_CHIP_PM_PUT(extdst0_shdload);
+	DPU_IRQ_CHIP_PM_PUT(extdst4_shdload);
+	DPU_IRQ_CHIP_PM_PUT(extdst1_shdload);
+	DPU_IRQ_CHIP_PM_PUT(extdst5_shdload);
+	DPU_IRQ_CHIP_PM_PUT(disengcfg_shdload0);
+	DPU_IRQ_CHIP_PM_PUT(disengcfg_framecomplete0);
+	DPU_IRQ_CHIP_PM_PUT(disengcfg_shdload1);
+	DPU_IRQ_CHIP_PM_PUT(disengcfg_framecomplete1);
 
 #define DPU_IRQ_SET_CHAINED_HANDLER_AND_DATA2(name)	\
 irq_set_chained_handler_and_data(dpu->irq_##name, NULL, NULL)

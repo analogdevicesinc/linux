@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2016 Freescale Semiconductor, Inc.
- * Copyright 2017-2019 NXP
+ * Copyright 2017-2020 NXP
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -236,6 +236,15 @@ struct dpu_soc {
 	int			irq_disengcfg_shdload1;
 	int			irq_disengcfg_framecomplete1;
 	int			irq_line_num;
+
+	bool			irq_chip_pm_get_extdst0_shdload;
+	bool			irq_chip_pm_get_extdst4_shdload;
+	bool			irq_chip_pm_get_extdst1_shdload;
+	bool			irq_chip_pm_get_extdst5_shdload;
+	bool			irq_chip_pm_get_disengcfg_shdload0;
+	bool			irq_chip_pm_get_disengcfg_framecomplete0;
+	bool			irq_chip_pm_get_disengcfg_shdload1;
+	bool			irq_chip_pm_get_disengcfg_framecomplete1;
 
 	struct irq_domain	*domain;
 
