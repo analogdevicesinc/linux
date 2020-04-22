@@ -114,7 +114,7 @@ enum ad7768_dec_rate {
 struct ad7768_clk_configuration {
 	enum ad7768_mclk_div mclk_div;
 	enum ad7768_dec_rate dec_rate;
-	unsigned int clk_div;
+	u32 clk_div;
 	enum ad7768_pwrmode pwrmode;
 };
 
@@ -156,8 +156,8 @@ struct ad7768_state {
 	struct regulator *vref;
 	struct mutex lock;
 	struct clk *mclk;
-	unsigned int mclk_freq;
-	unsigned int samp_freq;
+	u32 mclk_freq;
+	u32 samp_freq;
 	struct completion completion;
 	struct iio_trigger *trig;
 	struct gpio_desc *gpio_sync_in;
@@ -171,11 +171,11 @@ struct ad7768_state {
 	} data ____cacheline_aligned;
 };
 
-static int ad7768_spi_reg_read(struct ad7768_state *st, unsigned int addr,
-			       unsigned int len)
+static s32 ad7768_spi_reg_read(struct ad7768_state *st, u32 addr,
+			       u32 len)
 {
-	unsigned int shift;
-	int ret;
+	u32 shift;
+	s32 ret;
 
 	shift = 32 - (8 * len);
 	st->data.d8[0] = AD7768_RD_FLAG_MSK(addr);
@@ -188,9 +188,9 @@ static int ad7768_spi_reg_read(struct ad7768_state *st, unsigned int addr,
 	return (be32_to_cpu(st->data.d32) >> shift);
 }
 
-static int ad7768_spi_reg_write(struct ad7768_state *st,
-				unsigned int addr,
-				unsigned int val)
+static s32 ad7768_spi_reg_write(struct ad7768_state *st,
+				u32 addr,
+				u32 val)
 {
 	st->data.d8[0] = AD7768_WR_FLAG_MSK(addr);
 	st->data.d8[1] = val & 0xFF;
@@ -198,10 +198,10 @@ static int ad7768_spi_reg_write(struct ad7768_state *st,
 	return spi_write(st->spi, st->data.d8, 2);
 }
 
-static int ad7768_set_mode(struct ad7768_state *st,
+static s32 ad7768_set_mode(struct ad7768_state *st,
 			   enum ad7768_conv_mode mode)
 {
-	int regval;
+	s32 regval;
 
 	regval = ad7768_spi_reg_read(st, AD7768_REG_CONVERSION, 1);
 	if (regval < 0)
@@ -213,10 +213,10 @@ static int ad7768_set_mode(struct ad7768_state *st,
 	return ad7768_spi_reg_write(st, AD7768_REG_CONVERSION, regval);
 }
 
-static int ad7768_scan_direct(struct iio_dev *indio_dev)
+static s32 ad7768_scan_direct(struct iio_dev *indio_dev)
 {
 	struct ad7768_state *st = iio_priv(indio_dev);
-	int readval, ret;
+	s32 readval, ret;
 
 	reinit_completion(&st->completion);
 
@@ -243,13 +243,13 @@ static int ad7768_scan_direct(struct iio_dev *indio_dev)
 	return readval;
 }
 
-static int ad7768_reg_access(struct iio_dev *indio_dev,
-			     unsigned int reg,
-			     unsigned int writeval,
-			     unsigned int *readval)
+static s32 ad7768_reg_access(struct iio_dev *indio_dev,
+			     u32 reg,
+			     u32 writeval,
+			     u32 *readval)
 {
 	struct ad7768_state *st = iio_priv(indio_dev);
-	int ret;
+	s32 ret;
 
 	mutex_lock(&st->lock);
 	if (readval) {
@@ -267,11 +267,11 @@ err_unlock:
 	return ret;
 }
 
-static int ad7768_set_dig_fil(struct ad7768_state *st,
+static s32 ad7768_set_dig_fil(struct ad7768_state *st,
 			      enum ad7768_dec_rate dec_rate)
 {
-	unsigned int mode;
-	int ret;
+	u32 mode;
+	s32 ret;
 
 	if (dec_rate == AD7768_DEC_RATE_8 || dec_rate == AD7768_DEC_RATE_16)
 		mode = AD7768_DIG_FIL_FIL(dec_rate);
@@ -289,11 +289,11 @@ static int ad7768_set_dig_fil(struct ad7768_state *st,
 	return 0;
 }
 
-static int ad7768_set_freq(struct ad7768_state *st,
-			   unsigned int freq)
+static s32 ad7768_set_freq(struct ad7768_state *st,
+			   u32 freq)
 {
-	unsigned int diff_new, diff_old, pwr_mode, i, idx;
-	int res, ret;
+	u32 diff_new, diff_old, pwr_mode, i, idx;
+	s32 res, ret;
 
 	diff_old = U32_MAX;
 	idx = 0;
@@ -335,8 +335,8 @@ static ssize_t ad7768_sampling_freq_avail(struct device *dev,
 {
 	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
 	struct ad7768_state *st = iio_priv(indio_dev);
-	unsigned int freq;
-	int i, len = 0;
+	u32 freq;
+	s32 i, len = 0;
 
 	for (i = 0; i < ARRAY_SIZE(ad7768_clk_config); i++) {
 		freq = DIV_ROUND_CLOSEST(st->mclk_freq,
@@ -351,12 +351,12 @@ static ssize_t ad7768_sampling_freq_avail(struct device *dev,
 
 static IIO_DEV_ATTR_SAMP_FREQ_AVAIL(ad7768_sampling_freq_avail);
 
-static int ad7768_read_raw(struct iio_dev *indio_dev,
+static s32 ad7768_read_raw(struct iio_dev *indio_dev,
 			   struct iio_chan_spec const *chan,
-			   int *val, int *val2, long info)
+			   s32 *val, s32 *val2, long info)
 {
 	struct ad7768_state *st = iio_priv(indio_dev);
-	int scale_uv, ret;
+	s32 scale_uv, ret;
 
 	switch (info) {
 	case IIO_CHAN_INFO_RAW:
@@ -393,9 +393,9 @@ static int ad7768_read_raw(struct iio_dev *indio_dev,
 	return -EINVAL;
 }
 
-static int ad7768_write_raw(struct iio_dev *indio_dev,
+static s32 ad7768_write_raw(struct iio_dev *indio_dev,
 			    struct iio_chan_spec const *chan,
-			    int val, int val2, long info)
+			    s32 val, s32 val2, long info)
 {
 	struct ad7768_state *st = iio_priv(indio_dev);
 
@@ -423,9 +423,9 @@ static const struct iio_info ad7768_info = {
 	.debugfs_reg_access = &ad7768_reg_access,
 };
 
-static int ad7768_setup(struct ad7768_state *st)
+static s32 ad7768_setup(struct ad7768_state *st)
 {
-	int ret;
+	s32 ret;
 
 	/*
 	 * Two writes to the SPI_RESET[1:0] bits are required to initiate
@@ -450,12 +450,12 @@ static int ad7768_setup(struct ad7768_state *st)
 	return ad7768_set_freq(st, 32000);
 }
 
-static irqreturn_t ad7768_trigger_handler(int irq, void *p)
+static irqreturn_t ad7768_trigger_handler(s32 irq, void *p)
 {
 	struct iio_poll_func *pf = p;
 	struct iio_dev *indio_dev = pf->indio_dev;
 	struct ad7768_state *st = iio_priv(indio_dev);
-	int ret;
+	s32 ret;
 
 	mutex_lock(&st->lock);
 
@@ -473,7 +473,7 @@ err_unlock:
 	return IRQ_HANDLED;
 }
 
-static irqreturn_t ad7768_interrupt(int irq, void *dev_id)
+static irqreturn_t ad7768_interrupt(s32 irq, void *dev_id)
 {
 	struct iio_dev *indio_dev = dev_id;
 	struct ad7768_state *st = iio_priv(indio_dev);
@@ -486,7 +486,7 @@ static irqreturn_t ad7768_interrupt(int irq, void *dev_id)
 	return IRQ_HANDLED;
 };
 
-static int ad7768_buffer_postenable(struct iio_dev *indio_dev)
+static s32 ad7768_buffer_postenable(struct iio_dev *indio_dev)
 {
 	struct ad7768_state *st = iio_priv(indio_dev);
 
@@ -498,7 +498,7 @@ static int ad7768_buffer_postenable(struct iio_dev *indio_dev)
 	return ad7768_spi_reg_write(st, AD7768_REG_INTERFACE_FORMAT, 0x01);
 }
 
-static int ad7768_buffer_predisable(struct iio_dev *indio_dev)
+static s32 ad7768_buffer_predisable(struct iio_dev *indio_dev)
 {
 	struct ad7768_state *st = iio_priv(indio_dev);
 
@@ -532,11 +532,11 @@ static void ad7768_clk_disable(void *data)
 	clk_disable_unprepare(st->mclk);
 }
 
-static int ad7768_probe(struct spi_device *spi)
+static s32 ad7768_probe(struct spi_device *spi)
 {
 	struct ad7768_state *st;
 	struct iio_dev *indio_dev;
-	int ret;
+	s32 ret;
 
 	indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*st));
 	if (!indio_dev)
