@@ -100,35 +100,25 @@
 		#sound-dai-cells = <1>;
 	};
 
-	sound {
-		compatible = "simple-audio-card";
-		simple-audio-card,name = "wm8960-audio";
-		simple-audio-card,format = "i2s";
-		simple-audio-card,frame-master = <&cpudai>;
-		simple-audio-card,bitclock-master = <&cpudai>;
-		simple-audio-card,widgets =
-			"Headphone", "Headphone Jack",
-			"Speaker", "External Speaker",
-			"Microphone", "Mic Jack";
-		simple-audio-card,routing =
+	sound-wm8960 {
+		compatible = "fsl,imx-audio-wm8960";
+		model = "wm8960-audio";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_hpdet>;
+		audio-cpu = <&sai3>;
+		audio-codec = <&wm8960>;
+		audio-asrc = <&easrc>;
+		hp-det-gpio = <&gpio4 28 0>;
+		audio-routing =
 			"Headphone Jack", "HP_L",
 			"Headphone Jack", "HP_R",
-			"External Speaker", "SPK_LP",
-			"External Speaker", "SPK_LN",
-			"External Speaker", "SPK_RP",
-			"External Speaker", "SPK_RN",
+			"Ext Spk", "SPK_LP",
+			"Ext Spk", "SPK_LN",
+			"Ext Spk", "SPK_RP",
+			"Ext Spk", "SPK_RN",
 			"LINPUT1", "Mic Jack",
 			"LINPUT3", "Mic Jack",
 			"Mic Jack", "MICB";
-
-		cpudai: simple-audio-card,cpu {
-			sound-dai = <&sai3>;
-		};
-
-		simple-audio-card,codec {
-			sound-dai = <&wm8960>;
-		};
-
 	};
 
 	sound-bt-sco {
@@ -631,11 +621,24 @@
 	assigned-clocks = <&clk IMX8MP_CLK_SAI3>;
 	assigned-clock-parents = <&clk IMX8MP_AUDIO_PLL1_OUT>;
 	assigned-clock-rates = <12288000>;
+	clocks = <&audio_blk_ctrl IMX8MP_CLK_AUDIOMIX_SAI3_IPG>, <&clk IMX8MP_CLK_DUMMY>,
+		 <&audio_blk_ctrl IMX8MP_CLK_AUDIOMIX_SAI3_MCLK1>, <&clk IMX8MP_CLK_DUMMY>,
+		 <&clk IMX8MP_CLK_DUMMY>;
+	clock-names = "bus", "mclk0", "mclk1", "mclk2", "mclk3";
 	fsl,sai-mclk-direction-output;
 	status = "okay";
 };
 
 &snvs_pwrkey {
+	status = "okay";
+};
+
+&easrc {
+	fsl,asrc-rate  = <48000>;
+	status = "okay";
+};
+
+&sdma2 {
 	status = "okay";
 };
 
@@ -811,7 +814,17 @@
 
 	pinctrl_hog: hoggrp {
 		fsl,pins = <
+			MX8MP_IOMUXC_HDMI_DDC_SCL__HDMIMIX_EARC_SCL	0x400001c3
+			MX8MP_IOMUXC_HDMI_DDC_SDA__HDMIMIX_EARC_SDA	0x400001c3
 			MX8MP_IOMUXC_HDMI_HPD__HDMIMIX_HDMI_HPD		0x40000010
+			MX8MP_IOMUXC_HDMI_CEC__HDMIMIX_HDMI_CEC		0x40000010
+
+		>;
+	};
+
+	pinctrl_hpdet: hpdetgrp {
+		fsl,pins = <
+			MX8MP_IOMUXC_SAI3_RXFS__GPIO4_IO28		0xd6
 		>;
 	};
 
