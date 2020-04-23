@@ -494,8 +494,12 @@ static int imx_secvio_sc_setup(struct device *dev)
 
 	data->nvmem = devm_nvmem_device_get(dev, NULL);
 	if (IS_ERR(data->nvmem)) {
-		dev_err(dev, "Failed to retrieve nvmem\n");
-		return PTR_ERR(data->nvmem);
+		ret = PTR_ERR(data->nvmem);
+
+		if (ret != -EPROBE_DEFER)
+			dev_err(dev, "Failed to retrieve nvmem\n");
+
+		goto clean;
 	}
 
 	/* Get a handle */
@@ -644,7 +648,7 @@ static int imx_secvio_sc_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 
 	ret = imx_secvio_sc_setup(dev);
-	if (ret)
+	if (ret && ret != -EPROBE_DEFER)
 		dev_err(dev, "Failed to setup\n");
 
 	return ret;
