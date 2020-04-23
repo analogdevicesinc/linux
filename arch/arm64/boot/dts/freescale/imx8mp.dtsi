@@ -151,7 +151,8 @@
 	display-subsystem {
 		compatible = "fsl,imx-display-subsystem";
 		ports = <&lcdif1_disp>,
-			<&lcdif2_disp>;
+			<&lcdif2_disp>,
+			<&lcdif3_disp>;
 	};
 
 	a53_opp_table: opp-table {
@@ -1911,6 +1912,83 @@
 				clocks = <&clk IMX8MP_CLK_HDMI_APB>;
 				clock-names = "ipg";
 				power-domains = <&hdmi_blk_ctrl IMX8MP_HDMIBLK_PD_IRQSTEER>;
+			};
+
+			hdmi_pavi: hdmi-pai-pvi@32fc4000 {
+				compatible = "fsl,imx8mp-hdmi-pavi";
+				reg = <0x32fc4000 0x1000>;
+				clocks = <&clk IMX8MP_CLK_HDMI_APB>;
+				power-domains = <&hdmi_blk_ctrl IMX8MP_HDMIBLK_PD_PVI>;
+				status = "disabled";
+			};
+
+			lcdif3: lcd-controller@32fc6000 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				compatible = "fsl,imx8mp-lcdif1";
+				reg = <0x32fc6000 0x10000>;
+				clocks = <&hdmiphy 0>,
+						<&clk IMX8MP_CLK_HDMI_AXI>,
+						<&clk IMX8MP_CLK_HDMI_APB>;
+				clock-names = "pix", "disp-axi", "disp-apb";
+				power-domains = <&hdmi_blk_ctrl IMX8MP_HDMIBLK_PD_LCDIF>;
+				assigned-clocks =  <&clk IMX8MP_CLK_HDMI_AXI>,
+								<&clk IMX8MP_CLK_HDMI_APB>;
+				assigned-clock-parents = <&clk IMX8MP_SYS_PLL2_500M>,
+							 <&clk IMX8MP_SYS_PLL1_133M>;
+				assigned-clock-rates = <500000000>, <133000000>;
+				interrupts = <8 IRQ_TYPE_LEVEL_HIGH>;
+				interrupt-parent = <&irqsteer_hdmi>;
+				status = "disabled";
+
+				lcdif3_disp: port@0 {
+					reg = <0>;
+
+					lcdif3_to_hdmi: endpoint {
+						remote-endpoint = <&hdmi_from_lcdif3>;
+					};
+				};
+			};
+
+			hdmi: hdmi@32fd8000 {
+				compatible = "fsl,imx8mp-hdmi";
+				reg = <0x32fd8000 0x7eff>;
+				interrupts = <0 IRQ_TYPE_LEVEL_HIGH>;
+				interrupt-parent = <&irqsteer_hdmi>;
+				power-domains = <&hdmi_blk_ctrl IMX8MP_HDMIBLK_PD_HDMI_TX>;
+				clocks = <&clk IMX8MP_CLK_HDMI_APB>,
+						<&clk IMX8MP_CLK_HDMI_24M>,
+						<&hdmiphy 0>;
+				clock-names = "iahb", "isfr", "pix";
+				assigned-clocks = <&clk IMX8MP_CLK_HDMI_APB>,
+							<&clk IMX8MP_CLK_HDMI_AXI>,
+							<&clk IMX8MP_CLK_HDMI_24M>;
+				assigned-clock-parents = <&clk IMX8MP_SYS_PLL1_133M>,
+							<&clk IMX8MP_SYS_PLL2_500M>,
+							<&clk IMX8MP_CLK_24M>;
+				assigned-clock-rates = <133000000>, <500000000>, <24000000>;
+				status = "disabled";
+
+				port@0 {
+					hdmi_from_lcdif3: endpoint {
+						remote-endpoint = <&lcdif3_to_hdmi>;
+					};
+				};
+			};
+
+			hdmiphy: hdmiphy@32fdff00 {
+				compatible = "fsl,samsung-hdmi-phy";
+				reg = <0x32fdff00 0x100>;
+				clocks = <&clk IMX8MP_CLK_HDMI_APB>,
+					 <&clk IMX8MP_CLK_HDMI_24M>;
+				clock-names = "apb", "ref";
+				assigned-clocks = <&clk IMX8MP_CLK_HDMI_24M>;
+				assigned-clock-parents = <&clk IMX8MP_CLK_24M>;
+				#clock-cells = <1>;
+				clock-output-names = "hdmi_phy";
+				#phy-cells = <0>;
+				power-domains = <&hdmi_blk_ctrl IMX8MP_HDMIBLK_PD_HDMI_TX_PHY>;
+				status = "disabled";
 			};
 
 			ldb: ldb@32ec005c {
