@@ -385,6 +385,12 @@ int xilinx_xcvr_calc_cpll_config(struct xilinx_xcvr *xcvr,
 	if (ret)
 		return ret;
 
+	/**
+	 * Ref: https://www.xilinx.com/support/documentation/user_guides/ug476_7Series_Transceivers.pdf
+	 * Page: 48
+	 *    Vco_Freq = (RefClk * n1 * n2) / m
+	 *    LineRate = (Vco_Freq * 2) / d
+	 */
 	for (m = 1; m <= 2; m++) {
 		for (d = 1; d <= 8; d <<= 1) {
 			for (n1 = 5; n1 >= 4; n1--) {
@@ -394,7 +400,7 @@ int xilinx_xcvr_calc_cpll_config(struct xilinx_xcvr *xcvr,
 					if (vco_freq > vco_max || vco_freq < vco_min)
 						continue;
 
-					if (refclk_khz / m / d == lane_rate_khz / (2 * n1 * n2)) {
+					if ((vco_freq * 2) / d == lane_rate_khz) {
 						if (conf) {
 							conf->refclk_div = m;
 							conf->fb_div_N1 = n1;
