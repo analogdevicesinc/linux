@@ -90,12 +90,6 @@ static void axi_hdmi_rx_write(struct axi_hdmi_rx *axi_hdmi_rx,
 	writel(val, axi_hdmi_rx->base + reg);
 }
 
-static unsigned int axi_hdmi_rx_read(struct axi_hdmi_rx *axi_hdmi_rx,
-	unsigned int reg)
-{
-	return readl(axi_hdmi_rx->base + reg);
-}
-
 static struct axi_hdmi_rx *to_axi_hdmi_rx(struct v4l2_device *v4l2_dev)
 {
 	return container_of(v4l2_dev, struct axi_hdmi_rx, v4l2_dev);
@@ -293,6 +287,12 @@ static const struct vb2_ops axi_hdmi_rx_qops = {
 };
 
 #ifdef CONFIG_VIDEO_ADV_DEBUG
+
+static unsigned int axi_hdmi_rx_read(struct axi_hdmi_rx *axi_hdmi_rx,
+	unsigned int reg)
+{
+	return readl(axi_hdmi_rx->base + reg);
+}
 
 static int axi_hdmi_rx_g_register(struct file *file, void *priv_fh,
 	struct v4l2_dbg_register *reg)
