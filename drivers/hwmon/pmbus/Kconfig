@@ -4,7 +4,8 @@
 
 menuconfig PMBUS
 	tristate "PMBus support"
-	depends on I2C && CRC8
+	depends on I2C
+	select CRC8
 	default n
 	help
 	  Say yes here if you want to enable PMBus support.
