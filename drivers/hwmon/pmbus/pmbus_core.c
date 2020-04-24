@@ -2189,8 +2189,6 @@ int pmbus_do_probe(struct i2c_client *client, const struct i2c_device_id *id,
 	if (!data)
 		return -ENOMEM;
 
-	crc8_populate_msb(pmbus_crc_table, 0x7);
-
 	i2c_set_clientdata(client, data);
 	mutex_init(&data->update_lock);
 	data->dev = dev;
@@ -2261,6 +2259,8 @@ static int __init pmbus_core_init(void)
 	pmbus_debugfs_dir = debugfs_create_dir("pmbus", NULL);
 	if (IS_ERR(pmbus_debugfs_dir))
 		pmbus_debugfs_dir = NULL;
+
+	crc8_populate_msb(pmbus_crc_table, 0x7);
 
 	return 0;
 }
