@@ -91,7 +91,7 @@
 	phy-mode = "rgmii-id";
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_gem3_default>;
-	phy0: phy@c {
+	phy0: ethernet-phy@c {
 		reg = <0xc>;
 		ti,rx-internal-delay = <0x8>;
 		ti,tx-internal-delay = <0xa>;
@@ -410,7 +410,7 @@
 &qspi {
 	status = "okay";
 	flash@0 {
-		compatible = "m25p80", "spi-flash"; /* n25q512a 128MiB */
+		compatible = "m25p80", "jedec,spi-nor"; /* n25q512a 128MiB */
 		#address-cells = <1>;
 		#size-cells = <1>;
 		reg = <0x0>;
@@ -458,11 +458,11 @@
 /* SD1 with level shifter */
 &sdhci1 {
 	status = "okay";
-	no-1-8-v;
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_sdhci1_default>;
 	xlnx,mio_bank = <1>;
 	disable-wp;
+	no-1-8-v;
 };
 
 &serdes {

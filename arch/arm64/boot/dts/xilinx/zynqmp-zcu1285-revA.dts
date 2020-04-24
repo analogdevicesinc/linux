@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * dts file for Xilinx ZynqMP ZC1275 RevB
+ * dts file for Xilinx ZynqMP ZC1285 RevA
  *
  * (C) Copyright 2018 - 2019, Xilinx, Inc.
  *
@@ -194,6 +194,8 @@
 
 &gem1 {
 	mdio {
+		#address-cells = <1>;
+		#size-cells = <0>;
 		phy1: ethernet-phy@1 {
 			reg = <1>; /* KSZ9031RNXIC on AES-FMC-NETW1-G */
 			rxc-skew-ps = <1800>; /* Skew control of RX_CLK pad output */
@@ -224,7 +226,7 @@
 &qspi {
 	status = "okay";
 	flash@0 {
-		compatible = "m25p80", "spi-flash"; /* 32MB */
+		compatible = "m25p80", "jedec,spi-nor"; /* 32MB */
 		#address-cells = <1>;
 		#size-cells = <1>;
 		reg = <0x0>;
@@ -240,6 +242,5 @@
 
 &sdhci1 {
 	status = "okay";
-	no-1-8-v;
 	xlnx,mio_bank = <1>;
 };

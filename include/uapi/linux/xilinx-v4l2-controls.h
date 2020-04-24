@@ -212,4 +212,24 @@
 
 /* Low latency mode */
 #define V4L2_CID_XILINX_LOW_LATENCY		(V4L2_CID_XILINX_VIP + 1)
+
+/* Control values to enable/disable low latency capture mode */
+#define XVIP_LOW_LATENCY_ENABLE		BIT(1)
+#define XVIP_LOW_LATENCY_DISABLE	BIT(2)
+
+/* Control value to start DMA */
+#define XVIP_START_DMA			BIT(3)
+
+/*
+ * Xilinx SCD
+ */
+
+/* Base ID */
+#define V4L2_CID_XILINX_SCD			(V4L2_CID_USER_BASE + 0xc140)
+
+/*
+ * SCD Threshold
+ * User can pass percentage as an integer to tune threshold value
+ */
+#define V4L2_CID_XILINX_SCD_THRESHOLD		(V4L2_CID_XILINX_SCD + 1)
 #endif /* __UAPI_XILINX_V4L2_CONTROLS_H__ */

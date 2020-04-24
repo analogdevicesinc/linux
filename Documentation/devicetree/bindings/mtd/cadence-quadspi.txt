@@ -4,6 +4,7 @@ Required properties:
 - compatible : should be one of the following:
 	Generic default - "cdns,qspi-nor".
 	For TI 66AK2G SoC - "ti,k2g-qspi", "cdns,qspi-nor".
+	For xilinx versal - "xlnx,versal-ospi-1.0"
 - reg : Contains two entries, each of which is a tuple consisting of a
 	physical address and length. The first entry is the address and
 	length of the controller register set. The second entry is the
@@ -13,6 +14,7 @@ Required properties:
 - cdns,fifo-depth : Size of the data FIFO in words.
 - cdns,fifo-width : Bus width of the data FIFO in bytes.
 - cdns,trigger-address : 32-bit indirect AHB trigger address.
+- reset-gpios : GPIO to be used to reset the OSPI flash device.
 
 Optional properties:
 - cdns,is-decoded-cs : Flag to indicate whether decoder is used or not.

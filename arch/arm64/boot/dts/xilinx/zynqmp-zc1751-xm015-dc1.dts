@@ -80,7 +80,7 @@
 	phy-mode = "rgmii-id";
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_gem3_default>;
-	phy0: phy@0 {
+	phy0: ethernet-phy@0 {
 		reg = <0>;
 	};
 };
@@ -323,7 +323,7 @@
 &qspi {
 	status = "okay";
 	flash@0 {
-		compatible = "m25p80", "spi-flash"; /* Micron MT25QU512ABB8ESF */
+		compatible = "m25p80", "jedec,spi-nor"; /* Micron MT25QU512ABB8ESF */
 		#address-cells = <1>;
 		#size-cells = <1>;
 		reg = <0x0>;

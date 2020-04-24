@@ -17,9 +17,6 @@
 
 #include "xilinx-scenechange.h"
 
-#define XSCD_RESET_DEASSERT	(0)
-#define XSCD_RESET_ASSERT	(1)
-
 static irqreturn_t xscd_irq_handler(int irq, void *data)
 {
 	struct xscd_device *xscd = (struct xscd_device *)data;
@@ -162,6 +159,13 @@ static int xscd_probe(struct platform_device *pdev)
 static int xscd_remove(struct platform_device *pdev)
 {
 	struct xscd_device *xscd = platform_get_drvdata(pdev);
+	struct device_node *subdev_node;
+	unsigned int id = 0;
+
+	for_each_child_of_node(xscd->dev->of_node, subdev_node) {
+		xscd_chan_cleanup(xscd, id, subdev_node);
+		id++;
+	}
 
 	xscd_dma_cleanup(xscd);
 	clk_disable_unprepare(xscd->clk);

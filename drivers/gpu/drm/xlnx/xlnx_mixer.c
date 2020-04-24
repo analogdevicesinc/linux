@@ -2544,7 +2544,15 @@ static void
 xlnx_mix_crtc_atomic_enable(struct drm_crtc *crtc,
 			    struct drm_crtc_state *old_crtc_state)
 {
+	struct drm_display_mode *adjusted_mode = &crtc->state->adjusted_mode;
+	int vrefresh;
+
 	xlnx_mix_crtc_dpms(crtc, DRM_MODE_DPMS_ON);
+
+	/* Delay of 3 vblank interval for timing gen to be stable */
+	vrefresh = ((adjusted_mode->clock * 1000) /
+		    (adjusted_mode->vtotal * adjusted_mode->htotal));
+	msleep(3 * 1000 / vrefresh);
 }
 
 /**
@@ -2783,7 +2791,8 @@ static int xlnx_mix_remove(struct platform_device *pdev)
 {
 	struct xlnx_mix *mixer = platform_get_drvdata(pdev);
 
-	of_xlnx_bridge_put(mixer->vtc_bridge);
+	if (mixer->vtc_bridge)
+		of_xlnx_bridge_put(mixer->vtc_bridge);
 	xlnx_drm_pipeline_exit(mixer->master);
 	component_del(&pdev->dev, &xlnx_mix_component_ops);
 	return 0;

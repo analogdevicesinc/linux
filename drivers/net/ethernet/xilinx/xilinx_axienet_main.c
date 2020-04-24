@@ -483,6 +483,11 @@ static void axienet_device_reset(struct net_device *ndev)
 					 XAXIFIFO_TXTS_RESET_MASK);
 			axienet_rxts_iow(lp, XAXIFIFO_TXTS_SRR,
 					 XAXIFIFO_TXTS_RESET_MASK);
+
+			axienet_txts_iow(lp, XAXIFIFO_TXTS_RDFR,
+					 XAXIFIFO_TXTS_RESET_MASK);
+			axienet_txts_iow(lp, XAXIFIFO_TXTS_SRR,
+					 XAXIFIFO_TXTS_RESET_MASK);
 		}
 #endif
 	}
@@ -599,7 +604,7 @@ void axienet_tx_hwtstamp(struct axienet_local *lp,
 
 	val = axienet_txts_ior(lp, XAXIFIFO_TXTS_ISR);
 	if (unlikely(!(val & XAXIFIFO_TXTS_INT_RC_MASK)))
-		dev_info(lp->dev, "Did't get FIFO rx interrupt %d\n", val);
+		dev_info(lp->dev, "Did't get FIFO tx interrupt %d\n", val);
 
 	/* If FIFO is configured in cut through Mode we will get Rx complete
 	 * interrupt even one byte is there in the fifo wait for the full packet
@@ -615,6 +620,9 @@ void axienet_tx_hwtstamp(struct axienet_local *lp,
 	sec  = axienet_txts_ior(lp, XAXIFIFO_TXTS_RXFD);
 	val = axienet_txts_ior(lp, XAXIFIFO_TXTS_RXFD);
 	val = ((val & XAXIFIFO_TXTS_TAG_MASK) >> XAXIFIFO_TXTS_TAG_SHIFT);
+	dev_dbg(lp->dev, "tx_stamp:[%04x] %04x %u %9u\n",
+		cur_p->ptp_tx_ts_tag, val, sec, nsec);
+
 	if (val != cur_p->ptp_tx_ts_tag) {
 		count = axienet_txts_ior(lp, XAXIFIFO_TXTS_RFO);
 		while (count) {
@@ -623,6 +631,9 @@ void axienet_tx_hwtstamp(struct axienet_local *lp,
 			val = axienet_txts_ior(lp, XAXIFIFO_TXTS_RXFD);
 			val = ((val & XAXIFIFO_TXTS_TAG_MASK) >>
 				XAXIFIFO_TXTS_TAG_SHIFT);
+
+			dev_dbg(lp->dev, "tx_stamp:[%04x] %04x %u %9u\n",
+				cur_p->ptp_tx_ts_tag, val, sec, nsec);
 			if (val == cur_p->ptp_tx_ts_tag)
 				break;
 			count = axienet_txts_ior(lp, XAXIFIFO_TXTS_RFO);
@@ -850,7 +861,9 @@ static void axienet_create_tsheader(u8 *buf, u8 msg_type,
 	cur_p = &q->tx_bd_v[q->tx_bd_tail];
 #endif
 
-	if (msg_type == TX_TS_OP_ONESTEP) {
+	if (msg_type == TX_TS_OP_NOOP) {
+		buf[0] = TX_TS_OP_NOOP;
+	} else if (msg_type == TX_TS_OP_ONESTEP) {
 		buf[0] = TX_TS_OP_ONESTEP;
 		buf[1] = TX_TS_CSUM_UPDATE;
 		buf[4] = TX_PTP_TS_OFFSET;
@@ -992,6 +1005,8 @@ static int axienet_skb_tstsmp(struct sk_buff **__skb, struct axienet_dma_q *q,
 			   (lp->axienet_config->mactype == XAXIENET_10G_25G)) {
 			cur_p->ptp_tx_ts_tag = (prandom_u32() &
 						~XAXIFIFO_TXTS_TAG_MASK) + 1;
+			dev_dbg(lp->dev, "tx_tag:[%04x]\n",
+				cur_p->ptp_tx_ts_tag);
 			if (lp->tstamp_config.tx_type ==
 						HWTSTAMP_TX_ONESTEP_SYNC) {
 				axienet_create_tsheader(lp->tx_ptpheader,
@@ -1002,6 +1017,10 @@ static int axienet_skb_tstsmp(struct sk_buff **__skb, struct axienet_dma_q *q,
 				skb_shinfo(skb)->tx_flags |= SKBTX_IN_PROGRESS;
 				cur_p->ptp_tx_skb = (phys_addr_t)skb_get(skb);
 			}
+		} else if (lp->axienet_config->mactype == XAXIENET_10G_25G) {
+			dev_dbg(lp->dev, "tx_tag:NOOP\n");
+			axienet_create_tsheader(lp->tx_ptpheader,
+						TX_TS_OP_NOOP, q);
 		}
 	}
 	return NETDEV_TX_OK;
@@ -1023,8 +1042,20 @@ static int axienet_queue_xmit(struct sk_buff *skb,
 	struct axidma_bd *cur_p;
 #endif
 	unsigned long flags;
-	u32 pad = 0;
 	struct axienet_dma_q *q;
+
+	if (lp->axienet_config->mactype == XAXIENET_10G_25G) {
+		/* Need to manually pad the small frames in case of XXV MAC
+		 * because the pad field is not added by the IP. We must present
+		 * a packet that meets the minimum length to the IP core.
+		 * When the IP core is configured to calculate and add the FCS
+		 * to the packet the minimum packet length is 60 bytes.
+		 */
+		if (eth_skb_pad(skb)) {
+			ndev->stats.tx_dropped++;
+			return NETDEV_TX_OK;
+		}
+	}
 
 #ifdef CONFIG_XILINX_TSN
 	if (unlikely(lp->is_tsn)) {
@@ -1067,13 +1098,6 @@ static int axienet_queue_xmit(struct sk_buff *skb,
 		return NETDEV_TX_BUSY;
 	}
 #endif
-	/* Work around for XXV MAC as MAC will drop the packets
-	 * of size less than 64 bytes we need to append data
-	 * to make packet length greater than or equal to 64
-	 */
-	if (skb->len < XXV_MAC_MIN_PKT_LEN &&
-	    (lp->axienet_config->mactype == XAXIENET_10G_25G))
-		pad = XXV_MAC_MIN_PKT_LEN - skb->len;
 
 	if (skb->ip_summed == CHECKSUM_PARTIAL && !lp->eth_hasnobuf &&
 	    (lp->axienet_config->mactype == XAXIENET_1G)) {
@@ -1093,21 +1117,11 @@ static int axienet_queue_xmit(struct sk_buff *skb,
 		cur_p->app0 |= 2; /* Tx Full Checksum Offload Enabled */
 	}
 
-	if (num_frag == 0) {
 #ifdef CONFIG_AXIENET_HAS_MCDMA
-		cur_p->cntrl = (skb_headlen(skb) |
-				XMCDMA_BD_CTRL_TXSOF_MASK) + pad;
+	cur_p->cntrl = (skb_headlen(skb) | XMCDMA_BD_CTRL_TXSOF_MASK);
 #else
-		cur_p->cntrl = (skb_headlen(skb) |
-				XAXIDMA_BD_CTRL_TXSOF_MASK) + pad;
+	cur_p->cntrl = (skb_headlen(skb) | XAXIDMA_BD_CTRL_TXSOF_MASK);
 #endif
-	} else {
-#ifdef CONFIG_AXIENET_HAS_MCDMA
-		cur_p->cntrl = (skb_headlen(skb) | XMCDMA_BD_CTRL_TXSOF_MASK);
-#else
-		cur_p->cntrl = (skb_headlen(skb) | XAXIDMA_BD_CTRL_TXSOF_MASK);
-#endif
-	}
 
 	if (!q->eth_hasdre &&
 	    (((phys_addr_t)skb->data & 0x3) || (num_frag > 0))) {
@@ -1144,9 +1158,6 @@ static int axienet_queue_xmit(struct sk_buff *skb,
 		cur_p->phys = skb_frag_dma_map(ndev->dev.parent, frag, 0, len,
 					       DMA_TO_DEVICE);
 		cur_p->cntrl = len;
-		/* Only add padding to the end of the last element */
-		if ((ii + 1) == num_frag)
-			cur_p->cntrl = len + pad;
 		cur_p->tx_desc_mapping = DESC_DMA_MAP_PAGE;
 	}
 
@@ -1237,6 +1248,11 @@ static int axienet_recv(struct net_device *ndev, int budget,
 
 	while ((numbdfree < budget) &&
 	       (cur_p->status & XAXIDMA_BD_STS_COMPLETE_MASK)) {
+		new_skb = netdev_alloc_skb(ndev, lp->max_frm_size);
+		if (!new_skb) {
+			dev_err(lp->dev, "No memory for new_skb\n");
+			break;
+		}
 #ifdef CONFIG_AXIENET_HAS_MCDMA
 		tail_p = q->rx_bd_p + sizeof(*q->rxq_bd_v) * q->rx_bd_ci;
 #else
@@ -1314,12 +1330,6 @@ static int axienet_recv(struct net_device *ndev, int budget,
 
 		size += length;
 		packets++;
-
-		new_skb = netdev_alloc_skb(ndev, lp->max_frm_size);
-		if (!new_skb) {
-			dev_err(lp->dev, "No memory for new_skb\n\r");
-			break;
-		}
 
 		/* Ensure that the skb is completely updated
 		 * prio to mapping the DMA
@@ -1677,7 +1687,8 @@ static int axienet_open(struct net_device *ndev)
 		if (err) {
 			netdev_err(ndev, "%s: USXGMII Block lock bit not set",
 				   __func__);
-			return -ENODEV;
+			ret = -ENODEV;
+			goto err_eth_irq;
 		}
 
 		err = readl_poll_timeout(lp->regs + XXV_USXGMII_AN_STS_OFFSET,
@@ -1686,7 +1697,8 @@ static int axienet_open(struct net_device *ndev)
 		if (err) {
 			netdev_err(ndev, "%s: USXGMII AN not complete",
 				   __func__);
-			return -ENODEV;
+			ret = -ENODEV;
+			goto err_eth_irq;
 		}
 
 		netdev_info(ndev, "USXGMII setup at %d\n", lp->usxgmii_rate);
@@ -2419,11 +2431,14 @@ static int __maybe_unused axienet_dma_probe(struct platform_device *pdev,
 				      i);
 		if (np) {
 			ret = of_address_to_resource(np, 0, &dmares);
-			if (ret >= 0)
+			if (ret >= 0) {
 				q->dma_regs = devm_ioremap_resource(&pdev->dev,
 								&dmares);
-			else
+			} else {
+				dev_err(&pdev->dev, "unable to get DMA resource for %pOF\n",
+					np);
 				return -ENODEV;
+			}
 			q->eth_hasdre = of_property_read_bool(np,
 							"xlnx,include-dre");
 			ret = of_property_read_u8(np, "xlnx,addrwidth",
@@ -2435,6 +2450,7 @@ static int __maybe_unused axienet_dma_probe(struct platform_device *pdev,
 			}
 
 		} else {
+			dev_err(&pdev->dev, "missing axistream-connected property\n");
 			return -EINVAL;
 		}
 	}
@@ -3038,7 +3054,8 @@ static int axienet_probe(struct platform_device *pdev)
 
 		ret = axienet_dma_clk_init(pdev);
 		if (ret) {
-			dev_err(&pdev->dev, "DMA clock init failed %d\n", ret);
+			if (ret != -EPROBE_DEFER)
+				dev_err(&pdev->dev, "DMA clock init failed %d\n", ret);
 			goto free_netdev;
 		}
 	}
@@ -3046,7 +3063,8 @@ static int axienet_probe(struct platform_device *pdev)
 	ret = axienet_clk_init(pdev, &lp->aclk, &lp->eth_sclk,
 			       &lp->eth_refclk, &lp->eth_dclk);
 	if (ret) {
-		dev_err(&pdev->dev, "Ethernet clock init failed %d\n", ret);
+		if (ret != -EPROBE_DEFER)
+			dev_err(&pdev->dev, "Ethernet clock init failed %d\n", ret);
 		goto err_disable_clk;
 	}
 

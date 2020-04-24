@@ -59,6 +59,8 @@ Optional properties:
  - snps,dis_u2_susphy_quirk: when set core will disable USB2 suspend phy.
  - snps,dis_enblslpm_quirk: when set clears the enblslpm in GUSB2PHYCFG,
 			disabling the suspend signal to the PHY.
+ - snps,dis-u1-entry-quirk: set if link entering into U1 needs to be disabled.
+ - snps,dis-u2-entry-quirk: set if link entering into U2 needs to be disabled.
  - snps,dis_rxdet_inp3_quirk: when set core will disable receiver detection
 			in PHY P3 power state.
  - snps,dis-u2-freeclk-exists-quirk: when set, clear the u2_freeclk_exists
@@ -114,6 +116,8 @@ Optional properties:
 			When just one value, which means INCRX burst mode enabled. When
 			more than one value, which means undefined length INCR burst type
 			enabled. The values can be 1, 4, 8, 16, 32, 64, 128 and 256.
+ - snps,mask_phy_reset: enabling this quirk masks phy reset signal from reaching
+			the ULPI phy after initialization done of the phy.
 
  - in addition all properties from usb-xhci.txt from the current directory are
    supported as well

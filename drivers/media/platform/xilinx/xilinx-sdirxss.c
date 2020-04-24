@@ -33,6 +33,7 @@
 #include <linux/spinlock.h>
 #include <linux/spinlock_types.h>
 #include <linux/types.h>
+#include <linux/v4l2-dv-timings.h>
 #include <linux/v4l2-subdev.h>
 #include <linux/xilinx-sdirxss.h>
 #include <linux/xilinx-v4l2-controls.h>
@@ -171,9 +172,6 @@
 #define XSDIRX_STAT_SB_RX_TDATA_GT_RESETDONE_MASK	BIT(2)
 #define XSDIRX_STAT_SB_RX_TDATA_GT_BITRATE_MASK		BIT(3)
 
-/* Number of media pads */
-#define XSDIRX_MEDIA_PADS	(1)
-
 #define XSDIRX_DEFAULT_WIDTH	(1920)
 #define XSDIRX_DEFAULT_HEIGHT	(1080)
 
@@ -192,9 +190,7 @@
 #define XSDIRX_MODE_12GI_MASK	0x5
 #define XSDIRX_MODE_12GF_MASK	0x6
 
-/*
- * Maximum number of events per file handle.
- */
+/* Maximum number of events per file handle. */
 #define XSDIRX_MAX_EVENTS	(128)
 
 /* ST352 related macros */
@@ -275,9 +271,8 @@ enum sdi_family_enc {
  * @irq: requested irq number
  * @include_edh: EDH processor presence
  * @mode: 3G/6G/12G mode
- * @axi_clk: Axi lite interface clock
- * @sdirx_clk: SDI Rx GT clock
- * @vidout_clk: Video clock
+ * @clks: array of clocks
+ * @num_clks: number of clocks
  */
 struct xsdirxss_core {
 	struct device *dev;
@@ -285,9 +280,8 @@ struct xsdirxss_core {
 	int irq;
 	bool include_edh;
 	int mode;
-	struct clk *axi_clk;
-	struct clk *sdirx_clk;
-	struct clk *vidout_clk;
+	struct clk_bulk_data *clks;
+	int num_clks;
 };
 
 /**
@@ -296,11 +290,11 @@ struct xsdirxss_core {
  * @subdev: The v4l2 subdev structure
  * @ctrl_handler: control handler
  * @event: Holds the video unlock event
- * @formats: Active V4L2 formats on each pad
+ * @format: Active V4L2 format on source pad
  * @default_format: default V4L2 media bus format
  * @frame_interval: Captures the frame rate
  * @vip_format: format information corresponding to the active format
- * @pads: media pads
+ * @pad: source media pad
  * @streaming: Flag for storing streaming state
  * @vidlocked: Flag indicating SDI Rx has locked onto video stream
  * @ts_is_interlaced: Flag indicating Transport Stream is interlaced.
@@ -312,14 +306,157 @@ struct xsdirxss_state {
 	struct v4l2_subdev subdev;
 	struct v4l2_ctrl_handler ctrl_handler;
 	struct v4l2_event event;
-	struct v4l2_mbus_framefmt formats[XSDIRX_MEDIA_PADS];
+	struct v4l2_mbus_framefmt format;
 	struct v4l2_mbus_framefmt default_format;
 	struct v4l2_fract frame_interval;
 	const struct xvip_video_format *vip_format;
-	struct media_pad pads[XSDIRX_MEDIA_PADS];
+	struct media_pad pad;
 	bool streaming;
 	bool vidlocked;
 	bool ts_is_interlaced;
+};
+
+/* List of clocks required by UHD-SDI Rx subsystem */
+static const char * const xsdirxss_clks[] = {
+	"s_axi_aclk", "sdi_rx_clk", "video_out_clk",
+};
+
+static const u32 xsdirxss_mbus_fmts[] = {
+	MEDIA_BUS_FMT_UYVY10_1X20,
+	MEDIA_BUS_FMT_VYYUYY10_4X20,
+};
+
+static const struct v4l2_dv_timings fmt_cap[] = {
+	V4L2_DV_BT_SDI_720X487I60,
+	V4L2_DV_BT_CEA_720X576I50,
+	V4L2_DV_BT_CEA_1280X720P24,
+	V4L2_DV_BT_CEA_1280X720P25,
+	V4L2_DV_BT_CEA_1280X720P30,
+	V4L2_DV_BT_CEA_1280X720P50,
+	V4L2_DV_BT_CEA_1280X720P60,
+	V4L2_DV_BT_CEA_1920X1080P24,
+	V4L2_DV_BT_CEA_1920X1080P30,
+	V4L2_DV_BT_CEA_1920X1080I50,
+	V4L2_DV_BT_CEA_1920X1080I60,
+	V4L2_DV_BT_CEA_1920X1080P50,
+	V4L2_DV_BT_CEA_1920X1080P60,
+	V4L2_DV_BT_CEA_3840X2160P24,
+	V4L2_DV_BT_CEA_3840X2160P30,
+	V4L2_DV_BT_CEA_3840X2160P50,
+	V4L2_DV_BT_CEA_3840X2160P60,
+	V4L2_DV_BT_CEA_4096X2160P24,
+	V4L2_DV_BT_CEA_4096X2160P25,
+	V4L2_DV_BT_CEA_4096X2160P30,
+	V4L2_DV_BT_CEA_4096X2160P50,
+	V4L2_DV_BT_CEA_4096X2160P60,
+};
+
+struct xsdirxss_dv_map {
+	u32 width;
+	u32 height;
+	u32 fps;
+	struct v4l2_dv_timings format;
+};
+
+static const struct xsdirxss_dv_map xsdirxss_dv_timings[] = {
+	/* SD - 720x487i60 */
+	{ 720, 243, 30, V4L2_DV_BT_SDI_720X487I60 },
+	/* SD - 720x576i50 */
+	{ 720, 288, 25, V4L2_DV_BT_CEA_720X576I50 },
+	/* HD - 1280x720p23.98 */
+	/* HD - 1280x720p24 */
+	{ 1280, 720, 24, V4L2_DV_BT_CEA_1280X720P24 },
+	/* HD - 1280x720p25 */
+	{ 1280, 720, 25, V4L2_DV_BT_CEA_1280X720P25 },
+	/* HD - 1280x720p29.97 */
+	/* HD - 1280x720p30 */
+	{ 1280, 720, 30, V4L2_DV_BT_CEA_1280X720P30 },
+	/* HD - 1280x720p50 */
+	{ 1280, 720, 50, V4L2_DV_BT_CEA_1280X720P50 },
+	/* HD - 1280x720p59.94 */
+	/* HD - 1280x720p60 */
+	{ 1280, 720, 60, V4L2_DV_BT_CEA_1280X720P60 },
+	/* HD - 1920x1080p23.98 */
+	/* HD - 1920x1080p24 */
+	{ 1920, 1080, 24, V4L2_DV_BT_CEA_1920X1080P24 },
+	/* HD - 1920x1080p25 */
+	{ 1920, 1080, 25, V4L2_DV_BT_CEA_1920X1080P25 },
+	/* HD - 1920x1080p29.97 */
+	/* HD - 1920x1080p30 */
+	{ 1920, 1080, 30, V4L2_DV_BT_CEA_1920X1080P30 },
+
+	/* TODO add below timings */
+	/* HD - 2048x1080p23.98 */
+	/* HD - 2048x1080p24 */
+	/* HD - 2048x1080p25 */
+	/* HD - 2048x1080p29.97 */
+	/* HD - 2048x1080p30 */
+	/* HD - 1920x1080i47.95 */
+	/* HD - 1920x1080i48 */
+
+	/* HD - 1920x1080i50 */
+	{ 1920, 540, 25, V4L2_DV_BT_CEA_1920X1080I50 },
+	/* HD - 1920x1080i59.94 */
+	/* HD - 1920x1080i60 */
+	{ 1920, 540, 30, V4L2_DV_BT_CEA_1920X1080I60 },
+
+	/* TODO add below timings */
+	/* HD - 2048x1080i47.95 */
+	/* HD - 2048x1080i48 */
+	/* HD - 2048x1080i50 */
+	/* HD - 2048x1080i59.94 */
+	/* HD - 2048x1080i60 */
+	/* 3G - 1920x1080p47.95 */
+	/* 3G - 1920x1080p48 */
+
+	/* 3G - 1920x1080p50 148.5 */
+	{ 1920, 1080, 50, V4L2_DV_BT_CEA_1920X1080P50 },
+	/* 3G - 1920x1080p59.94 148.5/1.001 */
+	/* 3G - 1920x1080p60 148.5 */
+	{ 1920, 1080, 60, V4L2_DV_BT_CEA_1920X1080P60 },
+
+	/* TODO add below timings */
+	/* 3G - 2048x1080p47.95 */
+	/* 3G - 2048x1080p48 */
+	/* 3G - 2048x1080p50 */
+	/* 3G - 2048x1080p59.94 */
+	/* 3G - 2048x1080p60 */
+
+	/* 6G - 3840X2160p23.98 */
+	/* 6G - 3840X2160p24 */
+	{ 3840, 2160, 24, V4L2_DV_BT_CEA_3840X2160P24 },
+	/* 6G - 3840X2160p25 */
+	{ 3840, 2160, 25, V4L2_DV_BT_CEA_3840X2160P25 },
+	/* 6G - 3840X2160p29.97 */
+	/* 6G - 3840X2160p30 */
+	{ 3840, 2160, 30, V4L2_DV_BT_CEA_3840X2160P30 },
+	/* 6G - 4096X2160p23.98 */
+	/* 6G - 4096X2160p24 */
+	{ 4096, 2160, 24, V4L2_DV_BT_CEA_4096X2160P24 },
+	/* 6G - 4096X2160p25 */
+	{ 4096, 2160, 25, V4L2_DV_BT_CEA_4096X2160P25 },
+	/* 6G - 4096X2160p29.97 */
+	/* 6G - 4096X2160p30 */
+	{ 4096, 2160, 30, V4L2_DV_BT_CEA_4096X2160P30 },
+	/* TODO add below timings */
+	/* 12G - 3840X2160p47.95 */
+	/* 12G - 3840X2160p48 */
+
+	/* 12G - 3840X2160p50 */
+	{ 3840, 2160, 50, V4L2_DV_BT_CEA_3840X2160P50 },
+	/* 12G - 3840X2160p59.94 */
+	/* 12G - 3840X2160p60 */
+	{ 3840, 2160, 60, V4L2_DV_BT_CEA_3840X2160P60 },
+
+	/* TODO add below timings */
+	/* 12G - 4096X2160p47.95 */
+	/* 12G - 4096X2160p48 */
+
+	/* 12G - 4096X2160p50 */
+	{ 4096, 2160, 50, V4L2_DV_BT_CEA_4096X2160P50 },
+	/* 12G - 4096X2160p59.94 */
+	/* 12G - 4096X2160p60 */
+	{ 4096, 2160, 60, V4L2_DV_BT_CEA_4096X2160P60 },
 };
 
 static inline struct xsdirxss_state *
@@ -354,12 +491,12 @@ static inline void xsdirxss_set(struct xsdirxss_core *xsdirxss, u32 addr,
 	xsdirxss_write(xsdirxss, addr, xsdirxss_read(xsdirxss, addr) | set);
 }
 
-static void xsdirx_core_disable(struct xsdirxss_core *core)
+static inline void xsdirx_core_disable(struct xsdirxss_core *core)
 {
 	xsdirxss_clr(core, XSDIRX_RST_CTRL_REG, XSDIRX_RST_CTRL_SS_EN_MASK);
 }
 
-static void xsdirx_core_enable(struct xsdirxss_core *core)
+static inline void xsdirx_core_enable(struct xsdirxss_core *core)
 {
 	xsdirxss_set(core, XSDIRX_RST_CTRL_REG, XSDIRX_RST_CTRL_SS_EN_MASK);
 }
@@ -377,9 +514,9 @@ static int xsdirx_set_modedetect(struct xsdirxss_core *core, u16 mask)
 	dev_dbg(core->dev, "mask = 0x%x\n", mask);
 
 	val = xsdirxss_read(core, XSDIRX_MDL_CTRL_REG);
-	val &= ~(XSDIRX_MDL_CTRL_MODE_DET_EN_MASK);
-	val &= ~(XSDIRX_MDL_CTRL_MODE_AUTO_DET_MASK);
-	val &= ~(XSDIRX_MDL_CTRL_FORCED_MODE_MASK);
+	val &= ~XSDIRX_MDL_CTRL_MODE_DET_EN_MASK;
+	val &= ~XSDIRX_MDL_CTRL_MODE_AUTO_DET_MASK;
+	val &= ~XSDIRX_MDL_CTRL_FORCED_MODE_MASK;
 
 	if (hweight16(mask) > 1) {
 		/* Multi mode detection as more than 1 bit set in mask */
@@ -409,7 +546,7 @@ static int xsdirx_set_modedetect(struct xsdirxss_core *core, u16 mask)
 		val |= XSDIRX_MDL_CTRL_MODE_DET_EN_MASK;
 	} else {
 		/* Fixed Mode */
-		u32 forced_mode_mask = 0;
+		u32 forced_mode_mask;
 
 		dev_dbg(core->dev, "Detect fixed mode\n");
 
@@ -433,6 +570,8 @@ static int xsdirx_set_modedetect(struct xsdirxss_core *core, u16 mask)
 		case XSDIRX_MODE_12GF_OFFSET:
 			forced_mode_mask = XSDIRX_MODE_12GF_MASK;
 			break;
+		default:
+			forced_mode_mask = 0;
 		}
 		dev_dbg(core->dev, "Forced Mode Mask : 0x%x\n",
 			forced_mode_mask);
@@ -465,7 +604,7 @@ static void xsdirx_setedherrcnttrigger(struct xsdirxss_core *core, u32 enable)
 	xsdirxss_write(core, XSDIRX_EDH_ERRCNT_EN_REG, val);
 }
 
-static void xsdirx_setvidlockwindow(struct xsdirxss_core *core, u32 val)
+static inline void xsdirx_setvidlockwindow(struct xsdirxss_core *core, u32 val)
 {
 	/*
 	 * The video lock window is the amount of time for which the
@@ -475,12 +614,12 @@ static void xsdirx_setvidlockwindow(struct xsdirxss_core *core, u32 val)
 	xsdirxss_write(core, XSDIRX_VID_LOCK_WINDOW_REG, val);
 }
 
-static void xsdirx_disableintr(struct xsdirxss_core *core, u32 mask)
+static inline void xsdirx_disableintr(struct xsdirxss_core *core, u32 mask)
 {
 	xsdirxss_clr(core, XSDIRX_IER_REG, mask);
 }
 
-static void xsdirx_enableintr(struct xsdirxss_core *core, u32 mask)
+static inline void xsdirx_enableintr(struct xsdirxss_core *core, u32 mask)
 {
 	xsdirxss_set(core, XSDIRX_IER_REG, mask);
 }
@@ -495,12 +634,13 @@ static void xsdirx_globalintr(struct xsdirxss_core *core, bool flag)
 			     XSDIRX_GLBL_INTR_EN_MASK);
 }
 
-static void xsdirx_clearintr(struct xsdirxss_core *core, u32 mask)
+static inline void xsdirx_clearintr(struct xsdirxss_core *core, u32 mask)
 {
 	xsdirxss_set(core, XSDIRX_ISR_REG, mask);
 }
 
-static void xsdirx_vid_bridge_control(struct xsdirxss_core *core, bool enable)
+static void xsdirx_vid_bridge_control(struct xsdirxss_core *core,
+				      bool enable)
 {
 	if (enable)
 		xsdirxss_set(core, XSDIRX_RST_CTRL_REG,
@@ -510,7 +650,8 @@ static void xsdirx_vid_bridge_control(struct xsdirxss_core *core, bool enable)
 			     XSDIRX_RST_CTRL_SDIRX_BRIDGE_ENB_MASK);
 }
 
-static void xsdirx_axis4_bridge_control(struct xsdirxss_core *core, bool enable)
+static void xsdirx_axis4_bridge_control(struct xsdirxss_core *core,
+					bool enable)
 {
 	if (enable)
 		xsdirxss_set(core, XSDIRX_RST_CTRL_REG,
@@ -530,11 +671,6 @@ static void xsdirx_streamflow_control(struct xsdirxss_core *core, bool enable)
 		xsdirx_vid_bridge_control(core, enable);
 		xsdirx_axis4_bridge_control(core, enable);
 	}
-}
-
-static void xsdirx_streamdowncb(struct xsdirxss_core *core)
-{
-	xsdirx_streamflow_control(core, false);
 }
 
 static void xsdirxss_get_framerate(struct v4l2_fract *frame_interval,
@@ -603,14 +739,14 @@ static int xsdirx_get_stream_properties(struct xsdirxss_state *state)
 	u32 mode, payload = 0, val, family, valid, tscan;
 	u8 byte1 = 0, active_luma = 0, pic_type = 0, framerate = 0;
 	u8 sampling = XST352_BYTE3_COLOR_FORMAT_422;
-	struct v4l2_mbus_framefmt *format = &state->formats[0];
+	struct v4l2_mbus_framefmt *format = &state->format;
 
 	mode = xsdirxss_read(core, XSDIRX_MODE_DET_STAT_REG);
 	mode &= XSDIRX_MODE_DET_STAT_RX_MODE_MASK;
 
 	valid = xsdirxss_read(core, XSDIRX_ST352_VALID_REG);
 
-	if ((mode >= XSDIRX_MODE_3G_MASK) && !valid) {
+	if (mode >= XSDIRX_MODE_3G_MASK && !valid) {
 		dev_err(core->dev, "No valid ST352 payload present even for 3G mode and above\n");
 		return -EINVAL;
 	}
@@ -640,7 +776,7 @@ static int xsdirx_get_stream_properties(struct xsdirxss_state *state)
 	}
 
 	family = (val & XSDIRX_TS_DET_STAT_FAMILY_MASK) >>
-		  XSDIRX_TS_DET_STAT_FAMILY_OFFSET;
+			XSDIRX_TS_DET_STAT_FAMILY_OFFSET;
 	state->ts_is_interlaced = tscan ? false : true;
 
 	dev_dbg(core->dev, "ts_is_interlaced = %d, family = %d\n",
@@ -845,8 +981,7 @@ static int xsdirx_get_stream_properties(struct xsdirxss_state *state)
  * @irq: IRQ number
  * @dev_id: Pointer to device state
  *
- * The SDI Rx interrupts are cleared by first setting and then clearing the bits
- * in the interrupt clear register. The interrupt status register is read only.
+ * The SDI Rx interrupts are cleared by writing 1 to corresponding bit.
  *
  * Return: IRQ_HANDLED after handling interrupts
  */
@@ -862,11 +997,16 @@ static irqreturn_t xsdirxss_irq_handler(int irq, void *dev_id)
 	if (!status)
 		return IRQ_NONE;
 
-	if (status & XSDIRX_INTR_VIDLOCK_MASK) {
+	xsdirxss_write(core, XSDIRX_ISR_REG, status);
+
+	if (status & XSDIRX_INTR_VIDLOCK_MASK ||
+	    status & XSDIRX_INTR_VIDUNLOCK_MASK) {
 		u32 val1, val2;
 
-		dev_dbg(core->dev, "video lock interrupt\n");
-		xsdirx_clearintr(core, XSDIRX_INTR_VIDLOCK_MASK);
+		dev_dbg(core->dev, "video lock/unlock interrupt\n");
+
+		xsdirx_streamflow_control(core, false);
+		state->streaming = false;
 
 		val1 = xsdirxss_read(core, XSDIRX_MODE_DET_STAT_REG);
 		val2 = xsdirxss_read(core, XSDIRX_TS_DET_STAT_REG);
@@ -876,7 +1016,7 @@ static irqreturn_t xsdirxss_irq_handler(int irq, void *dev_id)
 			u32 mask = XSDIRX_RST_CTRL_RST_CRC_ERRCNT_MASK |
 				   XSDIRX_RST_CTRL_RST_EDH_ERRCNT_MASK;
 
-			dev_dbg(core->dev, "mode & ts lock occurred\n");
+			dev_dbg(core->dev, "video lock interrupt\n");
 
 			xsdirxss_set(core, XSDIRX_RST_CTRL_REG, mask);
 			xsdirxss_clr(core, XSDIRX_RST_CTRL_REG, mask);
@@ -888,39 +1028,25 @@ static irqreturn_t xsdirxss_irq_handler(int irq, void *dev_id)
 			dev_dbg(core->dev, "st352 payload = 0x%08x\n", val2);
 
 			if (!xsdirx_get_stream_properties(state)) {
-				memset(&state->event, 0, sizeof(state->event));
-				state->event.type = V4L2_EVENT_SOURCE_CHANGE;
-				state->event.u.src_change.changes =
-					V4L2_EVENT_SRC_CH_RESOLUTION;
-				v4l2_subdev_notify_event(&state->subdev,
-							 &state->event);
-
 				state->vidlocked = true;
 			} else {
 				dev_err(core->dev, "Unable to get stream properties!\n");
 				state->vidlocked = false;
 			}
 		} else {
-			dev_dbg(core->dev, "video unlock before video lock!\n");
+			dev_dbg(core->dev, "video unlock interrupt\n");
 			state->vidlocked = false;
 		}
-	}
-
-	if (status & XSDIRX_INTR_VIDUNLOCK_MASK) {
-		dev_dbg(core->dev, "video unlock interrupt\n");
-		xsdirx_clearintr(core, XSDIRX_INTR_VIDUNLOCK_MASK);
-		xsdirx_streamdowncb(core);
 
 		memset(&state->event, 0, sizeof(state->event));
-		state->event.type = V4L2_EVENT_XLNXSDIRX_VIDUNLOCK;
+		state->event.type = V4L2_EVENT_SOURCE_CHANGE;
+		state->event.u.src_change.changes =
+			V4L2_EVENT_SRC_CH_RESOLUTION;
 		v4l2_subdev_notify_event(&state->subdev, &state->event);
-
-		state->vidlocked = false;
 	}
 
 	if (status & XSDIRX_INTR_UNDERFLOW_MASK) {
 		dev_dbg(core->dev, "Video in to AXI4 Stream core underflow interrupt\n");
-		xsdirx_clearintr(core, XSDIRX_INTR_UNDERFLOW_MASK);
 
 		memset(&state->event, 0, sizeof(state->event));
 		state->event.type = V4L2_EVENT_XLNXSDIRX_UNDERFLOW;
@@ -929,7 +1055,6 @@ static irqreturn_t xsdirxss_irq_handler(int irq, void *dev_id)
 
 	if (status & XSDIRX_INTR_OVERFLOW_MASK) {
 		dev_dbg(core->dev, "Video in to AXI4 Stream core overflow interrupt\n");
-		xsdirx_clearintr(core, XSDIRX_INTR_OVERFLOW_MASK);
 
 		memset(&state->event, 0, sizeof(state->event));
 		state->event.type = V4L2_EVENT_XLNXSDIRX_OVERFLOW;
@@ -955,7 +1080,6 @@ static int xsdirxss_subscribe_event(struct v4l2_subdev *sd,
 	struct xsdirxss_core *core = &xsdirxss->core;
 
 	switch (sub->type) {
-	case V4L2_EVENT_XLNXSDIRX_VIDUNLOCK:
 	case V4L2_EVENT_XLNXSDIRX_UNDERFLOW:
 	case V4L2_EVENT_XLNXSDIRX_OVERFLOW:
 		ret = v4l2_event_subscribe(fh, sub, XSDIRX_MAX_EVENTS, NULL);
@@ -1170,26 +1294,18 @@ static int xsdirxss_log_status(struct v4l2_subdev *sd)
 {
 	struct xsdirxss_state *xsdirxss = to_xsdirxssstate(sd);
 	struct xsdirxss_core *core = &xsdirxss->core;
-	u32 data, i;
+	u32 i;
 
 	v4l2_info(sd, "***** SDI Rx subsystem reg dump start *****\n");
 	for (i = 0; i < 0x28; i++) {
+		u32 data;
+
 		data = xsdirxss_read(core, i * 4);
 		v4l2_info(sd, "offset 0x%08x data 0x%08x\n",
 			  i * 4, data);
 	}
 	v4l2_info(sd, "***** SDI Rx subsystem reg dump end *****\n");
 	return 0;
-}
-
-static void xsdirxss_start_stream(struct xsdirxss_state *xsdirxss)
-{
-	xsdirx_streamflow_control(&xsdirxss->core, true);
-}
-
-static void xsdirxss_stop_stream(struct xsdirxss_state *xsdirxss)
-{
-	xsdirx_streamflow_control(&xsdirxss->core, false);
 }
 
 /**
@@ -1248,7 +1364,7 @@ static int xsdirxss_s_stream(struct v4l2_subdev *sd, int enable)
 			return -EINVAL;
 		}
 
-		xsdirxss_start_stream(xsdirxss);
+		xsdirx_streamflow_control(core, true);
 		xsdirxss->streaming = true;
 		dev_dbg(core->dev, "Streaming started\n");
 	} else {
@@ -1257,7 +1373,7 @@ static int xsdirxss_s_stream(struct v4l2_subdev *sd, int enable)
 			return -EINVAL;
 		}
 
-		xsdirxss_stop_stream(xsdirxss);
+		xsdirx_streamflow_control(core, false);
 		xsdirxss->streaming = false;
 		dev_dbg(core->dev, "Streaming stopped\n");
 	}
@@ -1265,16 +1381,40 @@ static int xsdirxss_s_stream(struct v4l2_subdev *sd, int enable)
 	return 0;
 }
 
+/**
+ * xsdirxss_g_input_status - It is used to determine if the video signal
+ * is present / locked onto or not.
+ *
+ * @sd: V4L2 Sub device
+ * @status: status of signal locked
+ *
+ * This is used to determine if the video signal is present and locked onto
+ * by the SDI Rx core or not based on vidlocked flag.
+ *
+ * Return: zero on success
+ */
+static int xsdirxss_g_input_status(struct v4l2_subdev *sd, u32 *status)
+{
+	struct xsdirxss_state *xsdirxss = to_xsdirxssstate(sd);
+
+	if (!xsdirxss->vidlocked)
+		*status = V4L2_IN_ST_NO_SYNC | V4L2_IN_ST_NO_SIGNAL;
+	else
+		*status = 0;
+
+	return 0;
+}
+
 static struct v4l2_mbus_framefmt *
 __xsdirxss_get_pad_format(struct xsdirxss_state *xsdirxss,
 			  struct v4l2_subdev_pad_config *cfg,
-				unsigned int pad, u32 which)
+			  unsigned int pad, u32 which)
 {
 	switch (which) {
 	case V4L2_SUBDEV_FORMAT_TRY:
 		return v4l2_subdev_get_try_format(&xsdirxss->subdev, cfg, pad);
 	case V4L2_SUBDEV_FORMAT_ACTIVE:
-		return &xsdirxss->formats[pad];
+		return &xsdirxss->format;
 	default:
 		return NULL;
 	}
@@ -1292,7 +1432,7 @@ __xsdirxss_get_pad_format(struct xsdirxss_state *xsdirxss,
  */
 static int xsdirxss_get_format(struct v4l2_subdev *sd,
 			       struct v4l2_subdev_pad_config *cfg,
-					struct v4l2_subdev_format *fmt)
+			       struct v4l2_subdev_format *fmt)
 {
 	struct xsdirxss_state *xsdirxss = to_xsdirxssstate(sd);
 	struct xsdirxss_core *core = &xsdirxss->core;
@@ -1325,7 +1465,7 @@ static int xsdirxss_get_format(struct v4l2_subdev *sd,
  */
 static int xsdirxss_set_format(struct v4l2_subdev *sd,
 			       struct v4l2_subdev_pad_config *cfg,
-				struct v4l2_subdev_format *fmt)
+			       struct v4l2_subdev_format *fmt)
 {
 	struct v4l2_mbus_framefmt *__format;
 	struct xsdirxss_state *xsdirxss = to_xsdirxssstate(sd);
@@ -1344,6 +1484,76 @@ static int xsdirxss_set_format(struct v4l2_subdev *sd,
 	fmt->format.code = __format->code;
 
 	return 0;
+}
+
+/**
+ * xsdirxss_enum_mbus_code - Handle pixel format enumeration
+ * @sd: pointer to v4l2 subdev structure
+ * @cfg: V4L2 subdev pad configuration
+ * @code: pointer to v4l2_subdev_mbus_code_enum structure
+ *
+ * Return: -EINVAL or zero on success
+ */
+static int xsdirxss_enum_mbus_code(struct v4l2_subdev *sd,
+				   struct v4l2_subdev_pad_config *cfg,
+				   struct v4l2_subdev_mbus_code_enum *code)
+{
+	if (code->pad || code->index >= ARRAY_SIZE(xsdirxss_mbus_fmts))
+		return -EINVAL;
+
+	code->code = xsdirxss_mbus_fmts[code->index];
+
+	return 0;
+}
+
+/**
+ * xsdirxss_enum_dv_timings: Enumerate all the supported DV timings
+ * @sd: pointer to v4l2 subdev structure
+ * @timings: DV timings structure to be returned.
+ *
+ * Return: -EINVAL incase of invalid index and pad or zero on success
+ */
+static int xsdirxss_enum_dv_timings(struct v4l2_subdev *sd,
+				    struct v4l2_enum_dv_timings *timings)
+{
+	if (timings->index >= ARRAY_SIZE(fmt_cap))
+		return -EINVAL;
+
+	if (timings->pad != 0)
+		return -EINVAL;
+
+	timings->timings = fmt_cap[timings->index];
+	return 0;
+}
+
+/**
+ * xsdirxss_query_dv_timings: Query for the current DV timings
+ * @sd: pointer to v4l2 subdev structure
+ * @timings: DV timings structure to be returned.
+ *
+ * Return: -ENOLCK when video is not locked, -ERANGE when corresponding timing
+ * entry is not found or zero on success.
+ */
+static int xsdirxss_query_dv_timings(struct v4l2_subdev *sd,
+				     struct v4l2_dv_timings *timings)
+{
+	struct xsdirxss_state *state = to_xsdirxssstate(sd);
+	unsigned int i;
+
+	if (!state->vidlocked)
+		return -ENOLCK;
+
+	for (i = 0; i < ARRAY_SIZE(xsdirxss_dv_timings); i++) {
+		if (state->format.width == xsdirxss_dv_timings[i].width &&
+		    state->format.height == xsdirxss_dv_timings[i].height &&
+		    state->frame_interval.denominator ==
+		    (xsdirxss_dv_timings[i].fps * 1000)) {
+			*timings = xsdirxss_dv_timings[i].format;
+			return 0;
+		}
+	}
+
+	return -ERANGE;
 }
 
 /**
@@ -1395,7 +1605,7 @@ static const struct v4l2_ctrl_ops xsdirxss_ctrl_ops = {
 	.s_ctrl	= xsdirxss_s_ctrl
 };
 
-static struct v4l2_ctrl_config xsdirxss_edh_ctrls[] = {
+static const struct v4l2_ctrl_config xsdirxss_edh_ctrls[] = {
 	{
 		.ops	= &xsdirxss_ctrl_ops,
 		.id	= V4L2_CID_XILINX_SDIRX_EDH_ERRCNT_ENABLE,
@@ -1427,7 +1637,7 @@ static struct v4l2_ctrl_config xsdirxss_edh_ctrls[] = {
 	}
 };
 
-static struct v4l2_ctrl_config xsdirxss_ctrls[] = {
+static const struct v4l2_ctrl_config xsdirxss_ctrls[] = {
 	{
 		.ops	= &xsdirxss_ctrl_ops,
 		.id	= V4L2_CID_XILINX_SDIRX_FRAMER,
@@ -1512,17 +1722,21 @@ static const struct v4l2_subdev_core_ops xsdirxss_core_ops = {
 	.unsubscribe_event = xsdirxss_unsubscribe_event
 };
 
-static struct v4l2_subdev_video_ops xsdirxss_video_ops = {
+static const struct v4l2_subdev_video_ops xsdirxss_video_ops = {
 	.g_frame_interval = xsdirxss_g_frame_interval,
-	.s_stream = xsdirxss_s_stream
+	.s_stream = xsdirxss_s_stream,
+	.g_input_status = xsdirxss_g_input_status,
+	.query_dv_timings = xsdirxss_query_dv_timings,
 };
 
-static struct v4l2_subdev_pad_ops xsdirxss_pad_ops = {
+static const struct v4l2_subdev_pad_ops xsdirxss_pad_ops = {
 	.get_fmt = xsdirxss_get_format,
 	.set_fmt = xsdirxss_set_format,
+	.enum_mbus_code = xsdirxss_enum_mbus_code,
+	.enum_dv_timings = xsdirxss_enum_dv_timings,
 };
 
-static struct v4l2_subdev_ops xsdirxss_ops = {
+static const struct v4l2_subdev_ops xsdirxss_ops = {
 	.core = &xsdirxss_core_ops,
 	.video = &xsdirxss_video_ops,
 	.pad = &xsdirxss_pad_ops
@@ -1551,8 +1765,7 @@ static int xsdirxss_parse_of(struct xsdirxss_state *xsdirxss)
 	dev_dbg(core->dev, "EDH property = %s\n",
 		core->include_edh ? "Present" : "Absent");
 
-	ret = of_property_read_string(node, "xlnx,line-rate",
-				      &sdi_std);
+	ret = of_property_read_string(node, "xlnx,line-rate", &sdi_std);
 	if (ret < 0) {
 		dev_err(core->dev, "xlnx,line-rate property not found\n");
 		return ret;
@@ -1592,8 +1805,9 @@ static int xsdirxss_parse_of(struct xsdirxss_state *xsdirxss)
 			format->vf_code, format->width, format->bpp);
 
 		if (format->vf_code != XVIP_VF_YUV_422 &&
-		    format->vf_code != XVIP_VF_YUV_420) {
-			dev_err(core->dev, "Incorrect UG934 video format set.\n");
+		    format->vf_code != XVIP_VF_YUV_420 && format->width != 10) {
+			dev_err(core->dev,
+				"Incorrect UG934 video format set.\n");
 			return -EINVAL;
 		}
 		xsdirxss->vip_format = format;
@@ -1643,44 +1857,22 @@ static int xsdirxss_probe(struct platform_device *pdev)
 	xsdirxss->core.dev = &pdev->dev;
 	core = &xsdirxss->core;
 
-	core->axi_clk = devm_clk_get(&pdev->dev, "s_axi_aclk");
-	if (IS_ERR(core->axi_clk)) {
-		ret = PTR_ERR(core->axi_clk);
-		dev_err(&pdev->dev, "failed to get s_axi_clk (%d)\n", ret);
+	core->num_clks = ARRAY_SIZE(xsdirxss_clks);
+	core->clks = devm_kcalloc(&pdev->dev, core->num_clks,
+				  sizeof(*core->clks), GFP_KERNEL);
+	if (!core->clks)
+		return -ENOMEM;
+
+	for (i = 0; i < core->num_clks; i++)
+		core->clks[i].id = xsdirxss_clks[i];
+
+	ret = devm_clk_bulk_get(&pdev->dev, core->num_clks, core->clks);
+	if (ret)
 		return ret;
-	}
 
-	core->sdirx_clk = devm_clk_get(&pdev->dev, "sdi_rx_clk");
-	if (IS_ERR(core->sdirx_clk)) {
-		ret = PTR_ERR(core->sdirx_clk);
-		dev_err(&pdev->dev, "failed to get sdi_rx_clk (%d)\n", ret);
+	ret = clk_bulk_prepare_enable(core->num_clks, core->clks);
+	if (ret)
 		return ret;
-	}
-
-	core->vidout_clk = devm_clk_get(&pdev->dev, "video_out_clk");
-	if (IS_ERR(core->vidout_clk)) {
-		ret = PTR_ERR(core->vidout_clk);
-		dev_err(&pdev->dev, "failed to get video_out_aclk (%d)\n", ret);
-		return ret;
-	}
-
-	ret = clk_prepare_enable(core->axi_clk);
-	if (ret) {
-		dev_err(&pdev->dev, "failed to enable axi_clk (%d)\n", ret);
-		return ret;
-	}
-
-	ret = clk_prepare_enable(core->sdirx_clk);
-	if (ret) {
-		dev_err(&pdev->dev, "failed to enable sdirx_clk (%d)\n", ret);
-		goto rx_clk_err;
-	}
-
-	ret = clk_prepare_enable(core->vidout_clk);
-	if (ret) {
-		dev_err(&pdev->dev, "failed to enable vidout_clk (%d)\n", ret);
-		goto vidout_clk_err;
-	}
 
 	ret = xsdirxss_parse_of(xsdirxss);
 	if (ret < 0)
@@ -1703,7 +1895,7 @@ static int xsdirxss_probe(struct platform_device *pdev)
 	xsdirxss_write(core, XSDIRX_CRC_ERRCNT_REG, 0xFFFF);
 
 	/* Initialize V4L2 subdevice and media entity */
-	xsdirxss->pads[0].flags = MEDIA_PAD_FL_SOURCE;
+	xsdirxss->pad.flags = MEDIA_PAD_FL_SOURCE;
 
 	/* Initialize the default format */
 	xsdirxss->default_format.code = xsdirxss->vip_format->code;
@@ -1712,7 +1904,7 @@ static int xsdirxss_probe(struct platform_device *pdev)
 	xsdirxss->default_format.width = XSDIRX_DEFAULT_WIDTH;
 	xsdirxss->default_format.height = XSDIRX_DEFAULT_HEIGHT;
 
-	xsdirxss->formats[0] = xsdirxss->default_format;
+	xsdirxss->format = xsdirxss->default_format;
 
 	/* Initialize V4L2 subdevice and media entity */
 	subdev = &xsdirxss->subdev;
@@ -1720,7 +1912,7 @@ static int xsdirxss_probe(struct platform_device *pdev)
 
 	subdev->dev = &pdev->dev;
 	subdev->internal_ops = &xsdirxss_internal_ops;
-	strlcpy(subdev->name, dev_name(&pdev->dev), sizeof(subdev->name));
+	strscpy(subdev->name, dev_name(&pdev->dev), sizeof(subdev->name));
 
 	subdev->flags |= V4L2_SUBDEV_FL_HAS_EVENTS | V4L2_SUBDEV_FL_HAS_DEVNODE;
 
@@ -1728,7 +1920,7 @@ static int xsdirxss_probe(struct platform_device *pdev)
 
 	v4l2_set_subdevdata(subdev, xsdirxss);
 
-	ret = media_entity_pads_init(&subdev->entity, 1, xsdirxss->pads);
+	ret = media_entity_pads_init(&subdev->entity, 1, &xsdirxss->pad);
 	if (ret < 0)
 		goto error;
 
@@ -1773,8 +1965,6 @@ static int xsdirxss_probe(struct platform_device *pdev)
 				goto error;
 			}
 		}
-	} else {
-		dev_dbg(xsdirxss->core.dev, "Not registering the EDH controls as EDH is disabled in IP\n");
 	}
 
 	if (xsdirxss->ctrl_handler.error) {
@@ -1809,27 +1999,30 @@ static int xsdirxss_probe(struct platform_device *pdev)
 error:
 	v4l2_ctrl_handler_free(&xsdirxss->ctrl_handler);
 	media_entity_cleanup(&subdev->entity);
-
+	xsdirx_globalintr(core, false);
+	xsdirx_disableintr(core, XSDIRX_INTR_ALL_MASK);
 clk_err:
-	clk_disable_unprepare(core->vidout_clk);
-vidout_clk_err:
-	clk_disable_unprepare(core->sdirx_clk);
-rx_clk_err:
-	clk_disable_unprepare(core->axi_clk);
+	clk_bulk_disable_unprepare(core->num_clks, core->clks);
 	return ret;
 }
 
 static int xsdirxss_remove(struct platform_device *pdev)
 {
 	struct xsdirxss_state *xsdirxss = platform_get_drvdata(pdev);
+	struct xsdirxss_core *core = &xsdirxss->core;
 	struct v4l2_subdev *subdev = &xsdirxss->subdev;
 
 	v4l2_async_unregister_subdev(subdev);
 	v4l2_ctrl_handler_free(&xsdirxss->ctrl_handler);
 	media_entity_cleanup(&subdev->entity);
-	clk_disable_unprepare(xsdirxss->core.vidout_clk);
-	clk_disable_unprepare(xsdirxss->core.sdirx_clk);
-	clk_disable_unprepare(xsdirxss->core.axi_clk);
+
+	xsdirx_globalintr(core, false);
+	xsdirx_disableintr(core, XSDIRX_INTR_ALL_MASK);
+	xsdirx_core_disable(core);
+	xsdirx_streamflow_control(core, false);
+
+	clk_bulk_disable_unprepare(core->num_clks, core->clks);
+
 	return 0;
 }
 

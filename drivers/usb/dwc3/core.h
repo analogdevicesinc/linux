@@ -1017,6 +1017,8 @@ struct dwc3_scratchpad_array {
  * @dis_u2_susphy_quirk: set if we disable usb2 suspend phy
  * @dis_enblslpm_quirk: set if we clear enblslpm in GUSB2PHYCFG,
  *                      disabling the suspend signal to the PHY.
+ * @dis_u1_entry_quirk: set if link entering into U1 state needs to be disabled.
+ * @dis_u2_entry_quirk: set if link entering into U2 state needs to be disabled.
  * @dis_rxdet_inp3_quirk: set if we disable Rx.Detect in P3
  * @dis_u2_freeclk_exists_quirk : set if we clear u2_freeclk_exists
  *			in GUSB2PHYCFG, specify that USB2 PHY doesn't
@@ -1207,6 +1209,8 @@ struct dwc3 {
 	unsigned		dis_u3_susphy_quirk:1;
 	unsigned		dis_u2_susphy_quirk:1;
 	unsigned		dis_enblslpm_quirk:1;
+	unsigned		dis_u1_entry_quirk:1;
+	unsigned		dis_u2_entry_quirk:1;
 	unsigned		dis_rxdet_inp3_quirk:1;
 	unsigned		dis_u2_freeclk_exists_quirk:1;
 	unsigned		dis_del_phy_power_chg_quirk:1;
@@ -1219,6 +1223,7 @@ struct dwc3 {
 	unsigned		is_hibernated:1;
 
 	unsigned		dis_metastability_quirk:1;
+	unsigned		mask_phy_rst:1;
 
 	u16			imod_interval;
 	bool			is_d3;
@@ -1407,6 +1412,7 @@ void dwc3_simple_wakeup_capable(struct device *dev, bool wakeup);
 void dwc3_set_simple_data(struct dwc3 *dwc);
 void dwc3_simple_check_quirks(struct dwc3 *dwc);
 int dwc3_set_usb_core_power(struct dwc3 *dwc, bool on);
+void dwc3_mask_phy_reset(struct device *dev, bool mask);
 #else
 static inline int dwc3_enable_hw_coherency(struct device *dev)
 { return 1; }
@@ -1417,6 +1423,8 @@ void dwc3_set_simple_data(struct dwc3 *dwc)
 void dwc3_simple_check_quirks(struct dwc3 *dwc)
 { ; }
 int dwc3_set_usb_core_power(struct dwc3 *dwc, bool on)
+{ ; }
+void dwc3_mask_phy_reset(struct device *dev, bool mask)
 { ; }
 #endif
 

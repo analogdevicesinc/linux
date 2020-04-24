@@ -16301,6 +16301,14 @@ S:	Maintained
 F:	drivers/spi/spi-xilinx.c
 F:	Documentation/devicetree/bindings/spi/spi-xilinx.txt
 
+XILINX FLEXNOC PERFORMANCE MONITOR DRIVER
+M:	Shubhrajyoti Datta <shubhrajyoti.datta@xilinx.com>
+R:	Radhey Shyam Pandey <radhey.shyam.pandey@xilinx.com>
+R:	Srinivas Goud <srinivas.goud@xilinx.com>
+S:	Maintained
+F:	drivers/misc/xilinx_flex_pm.c
+F:	Documentation/devicetree/bindings/misc/xlnx,flexnoc-pm.txt
+
 XILINX AXI USB DRIVER
 M:	Anurag Kumar Vulisha <anurag.kumar.vulisha@xilinx.com>
 S:	Maintained
@@ -16431,6 +16439,13 @@ M:	Naga Sureshkumar Relli <naga.sureshkumar.relli@xilinx.com>
 R:	Amit Kumar Mahapatra <amit.kumar-mahapatra@xilinx.com>
 F:	drivers/spi/spi-zynq-qspi.c
 W:	https://xilinx-wiki.atlassian.net/wiki/spaces/A/pages/18842262/Zynq+QSPI+Driver
+
+XILINX RTC ZYNQMP DRIVER
+M:	Neeli Srinivas <srinivas.neeli@xilinx.com>
+R:	Srinivas Goud <srinivas.goud@xilinx.com>
+R:	Shubhrajyoti Datta <shubhrajyoti.datta@xilinx.com>
+S:	Maintained
+F:	drivers/rtc/rtc-zynqmp.c
 
 XILINX SD-FEC IP CORES
 M:	Derek Kiernan <derek.kiernan@xilinx.com>

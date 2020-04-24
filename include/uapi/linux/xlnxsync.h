@@ -3,82 +3,118 @@
 #ifndef __XLNXSYNC_H__
 #define __XLNXSYNC_H__
 
-/* Bit offset in channel status byte */
-/* x = channel */
-#define XLNXSYNC_CHX_FB0_MASK(x)		BIT(0 + ((x) << 3))
-#define XLNXSYNC_CHX_FB1_MASK(x)		BIT(1 + ((x) << 3))
-#define XLNXSYNC_CHX_FB2_MASK(x)		BIT(2 + ((x) << 3))
-#define XLNXSYNC_CHX_ENB_MASK(x)		BIT(3 + ((x) << 3))
-#define XLNXSYNC_CHX_SYNC_ERR_MASK(x)		BIT(4 + ((x) << 3))
-#define XLNXSYNC_CHX_WDG_ERR_MASK(x)		BIT(5 + ((x) << 3))
+#define XLNXSYNC_IOCTL_HDR_VER		0x10001
 
 /*
- * This is set in the fb_id or channel_id of struct xlnxsync_chan_config when
- * configuring the channel. This makes the driver auto search for the free
- * framebuffer or channel slot.
+ * This is set in the fb_id of struct xlnxsync_chan_config when
+ * configuring the channel. This makes the driver auto search for
+ * a free framebuffer slot.
  */
 #define XLNXSYNC_AUTO_SEARCH		0xFF
 
-#define XLNXSYNC_MAX_ENC_CHANNEL	4
-#define XLNXSYNC_MAX_DEC_CHANNEL	2
-#define XLNXSYNC_BUF_PER_CHANNEL	3
+#define XLNXSYNC_MAX_ENC_CHAN		4
+#define XLNXSYNC_MAX_DEC_CHAN		2
+#define XLNXSYNC_BUF_PER_CHAN		3
 
+#define XLNXSYNC_PROD			0
+#define XLNXSYNC_CONS			1
+#define XLNXSYNC_IO			2
+
+#define XLNXSYNC_MAX_CORES		4
 /**
  * struct xlnxsync_chan_config - Synchronizer channel configuration struct
- * @luma_start_address: Start address of Luma buffer
- * @chroma_start_address: Start address of Chroma buffer
- * @luma_end_address: End address of Luma buffer
- * @chroma_end_address: End address of Chroma buffer
+ * @hdr_ver: IOCTL header version
+ * @luma_start_offset: Start offset of Luma buffer
+ * @chroma_start_offset: Start offset of Chroma buffer
+ * @luma_end_offset: End offset of Luma buffer
+ * @chroma_end_offset: End offset of Chroma buffer
  * @luma_margin: Margin for Luma buffer
  * @chroma_margin: Margin for Chroma buffer
+ * @luma_core_offset: Array of 4 offsets for luma
+ * @chroma_core_offset: Array of 4 offsets for chroma
+ * @dma_fd: File descriptor of dma
  * @fb_id: Framebuffer index. Valid values 0/1/2/XLNXSYNC_AUTO_SEARCH
+ * @ismono: Flag to indicate if buffer is Luma only.
  * @channel_id: Channel index to be configured.
  * Valid 0..3 & XLNXSYNC_AUTO_SEARCH
- * @ismono: Flag to indicate if buffer is Luma only.
  *
  * This structure contains the configuration for monitoring a particular
  * framebuffer on a particular channel.
  */
 struct xlnxsync_chan_config {
-	u64 luma_start_address;
-	u64 chroma_start_address;
-	u64 luma_end_address;
-	u64 chroma_end_address;
+	u64 hdr_ver;
+	u64 luma_start_offset[XLNXSYNC_IO];
+	u64 chroma_start_offset[XLNXSYNC_IO];
+	u64 luma_end_offset[XLNXSYNC_IO];
+	u64 chroma_end_offset[XLNXSYNC_IO];
 	u32 luma_margin;
 	u32 chroma_margin;
-	u8 fb_id;
+	u32 luma_core_offset[XLNXSYNC_MAX_CORES];
+	u32 chroma_core_offset[XLNXSYNC_MAX_CORES];
+	u32 dma_fd;
+	u8 fb_id[XLNXSYNC_IO];
+	u8 ismono[XLNXSYNC_IO];
 	u8 channel_id;
-	u8 ismono;
 };
 
 /**
  * struct xlnxsync_clr_err - Clear channel error
+ * @hdr_ver: IOCTL header version
  * @channel_id: Channel id whose error needs to be cleared
  * @sync_err: Set this to clear sync error
  * @wdg_err: Set this to clear watchdog error
+ * @ldiff_err: Set this to clear luma difference error
+ * @cdiff_err: Set this to clear chroma difference error
  */
 struct xlnxsync_clr_err {
+	u64 hdr_ver;
 	u8 channel_id;
 	u8 sync_err;
 	u8 wdg_err;
+	u8 ldiff_err;
+	u8 cdiff_err;
 };
 
 /**
  * struct xlnxsync_fbdone - Framebuffer Done
+ * @hdr_ver: IOCTL header version
  * @status: Framebuffer Done status
  */
 struct xlnxsync_fbdone {
-	u8 status[XLNXSYNC_MAX_ENC_CHANNEL][XLNXSYNC_BUF_PER_CHANNEL];
+	u64 hdr_ver;
+	u8 status[XLNXSYNC_MAX_ENC_CHAN][XLNXSYNC_BUF_PER_CHAN][XLNXSYNC_IO];
 };
 
 /**
  * struct xlnxsync_config - Synchronizer IP configuration
+ * @hdr_ver: IOCTL header version
  * @encode: true if encoder type, false for decoder type
  * @max_channels: Maximum channels this IP supports
  */
 struct xlnxsync_config {
+	u64	hdr_ver;
 	u8	encode;
 	u8	max_channels;
+};
+
+/**
+ * struct xlnxsync_stat - Sync IP status
+ * @hdr_ver: IOCTL header version
+ * @fbdone: for every pair of luma/chroma buffer for every producer/consumer
+ * @enable: channel enable
+ * @sync_err: Synchronization error
+ * @wdg_err: Watchdog error
+ * @ldiff_err: Luma difference > 1 for channel
+ * @cdiff_err: Chroma difference > 1 for channel
+ */
+struct xlnxsync_stat {
+	u64 hdr_ver;
+	u8 fbdone[XLNXSYNC_MAX_ENC_CHAN][XLNXSYNC_BUF_PER_CHAN][XLNXSYNC_IO];
+	u8 enable[XLNXSYNC_MAX_ENC_CHAN];
+	u8 sync_err[XLNXSYNC_MAX_ENC_CHAN];
+	u8 wdg_err[XLNXSYNC_MAX_ENC_CHAN];
+	u8 ldiff_err[XLNXSYNC_MAX_ENC_CHAN];
+	u8 cdiff_err[XLNXSYNC_MAX_ENC_CHAN];
 };
 
 #define XLNXSYNC_MAGIC			'X'
@@ -107,5 +143,7 @@ struct xlnxsync_config {
 /* This is used to clear the framebuffer done status for a channel */
 #define XLNXSYNC_CLR_CHAN_FBDONE_STAT	_IOW(XLNXSYNC_MAGIC, 8,\
 					     struct xlnxsync_fbdone *)
+/* Reserve channel */
+#define XLNXSYNC_RESERVE_GET_CHAN_ID	_IOR(XLNXSYNC_MAGIC, 9, u8 *)
 
 #endif

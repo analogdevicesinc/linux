@@ -294,12 +294,16 @@ struct xilinx_cdma_tx_segment {
  * @segments: TX segments list
  * @node: Node in the channel descriptors list
  * @cyclic: Check for cyclic transfers.
+ * @err: Whether the descriptor has an error.
+ * @residue: Residue of the completed descriptor
  */
 struct xilinx_dma_tx_descriptor {
 	struct dma_async_tx_descriptor async_tx;
 	struct list_head segments;
 	struct list_head node;
 	bool cyclic;
+	bool err;
+	u32 residue;
 };
 
 /**
@@ -330,7 +334,6 @@ struct xilinx_dma_tx_descriptor {
  * @desc_pendingcount: Descriptor pending count
  * @ext_addr: Indicates 64 bit addressing is supported by dma channel
  * @desc_submitcount: Descriptor h/w submitted count
- * @residue: Residue for AXI DMA
  * @seg_v: Statically allocated segments base
  * @seg_p: Physical allocated segments base
  * @cyclic_seg_v: Statically allocated segment base for cyclic transfers
@@ -366,7 +369,6 @@ struct xilinx_dma_chan {
 	u32 desc_pendingcount;
 	bool ext_addr;
 	u32 desc_submitcount;
-	u32 residue;
 	struct xilinx_axidma_tx_segment *seg_v;
 	dma_addr_t seg_p;
 	struct xilinx_axidma_tx_segment *cyclic_seg_v;
@@ -602,6 +604,9 @@ xilinx_axidma_alloc_tx_segment(struct xilinx_dma_chan *chan)
 	}
 	spin_unlock_irqrestore(&chan->lock, flags);
 
+	if (!segment)
+		dev_dbg(chan->dev, "Could not find free tx segment\n");
+
 	return segment;
 }
 
@@ -779,6 +784,51 @@ static void xilinx_dma_free_chan_resources(struct dma_chan *dchan)
 }
 
 /**
+ * xilinx_dma_get_residue - Compute residue for a given descriptor
+ * @chan: Driver specific dma channel
+ * @desc: dma transaction descriptor
+ *
+ * Return: The number of residue bytes for the descriptor.
+ */
+static u32 xilinx_dma_get_residue(struct xilinx_dma_chan *chan,
+				  struct xilinx_dma_tx_descriptor *desc)
+{
+	struct xilinx_cdma_tx_segment *cdma_seg;
+	struct xilinx_axidma_tx_segment *axidma_seg;
+	struct xilinx_cdma_desc_hw *cdma_hw;
+	struct xilinx_axidma_desc_hw *axidma_hw;
+	struct list_head *entry;
+	u32 residue = 0;
+
+	/**
+	 * VDMA and simple mode do not support residue reporting, so the
+	 * residue field will always be 0.
+	 */
+	if (chan->xdev->dma_config->dmatype == XDMA_TYPE_VDMA || !chan->has_sg)
+		return residue;
+
+	list_for_each(entry, &desc->segments) {
+		if (chan->xdev->dma_config->dmatype == XDMA_TYPE_CDMA) {
+			cdma_seg = list_entry(entry,
+					      struct xilinx_cdma_tx_segment,
+					      node);
+			cdma_hw = &cdma_seg->hw;
+			residue += (cdma_hw->control - cdma_hw->status) &
+				   chan->xdev->max_buffer_len;
+		} else {
+			axidma_seg = list_entry(entry,
+						struct xilinx_axidma_tx_segment,
+						node);
+			axidma_hw = &axidma_seg->hw;
+			residue += (axidma_hw->control - axidma_hw->status) &
+				   chan->xdev->max_buffer_len;
+		}
+	}
+
+	return residue;
+}
+
+/**
  * xilinx_dma_chan_handle_cyclic - Cyclic dma callback
  * @chan: Driver specific dma channel
  * @desc: dma transaction descriptor
@@ -812,7 +862,7 @@ static void xilinx_dma_chan_desc_cleanup(struct xilinx_dma_chan *chan)
 	spin_lock_irqsave(&chan->lock, flags);
 
 	list_for_each_entry_safe(desc, next, &chan->done_list, node) {
-		struct dmaengine_desc_callback cb;
+		struct dmaengine_result result;
 
 		if (desc->cyclic) {
 			xilinx_dma_chan_handle_cyclic(chan, desc, &flags);
@@ -822,13 +872,21 @@ static void xilinx_dma_chan_desc_cleanup(struct xilinx_dma_chan *chan)
 		/* Remove from the list of running transactions */
 		list_del(&desc->node);
 
-		/* Run the link descriptor callback function */
-		dmaengine_desc_get_callback(&desc->async_tx, &cb);
-		if (dmaengine_desc_callback_valid(&cb)) {
-			spin_unlock_irqrestore(&chan->lock, flags);
-			dmaengine_desc_callback_invoke(&cb, NULL);
-			spin_lock_irqsave(&chan->lock, flags);
+		if (unlikely(desc->err)) {
+			if (chan->direction == DMA_DEV_TO_MEM)
+				result.result = DMA_TRANS_READ_FAILED;
+			else
+				result.result = DMA_TRANS_WRITE_FAILED;
+		} else {
+			result.result = DMA_TRANS_NOERROR;
 		}
+
+		result.residue = desc->residue;
+
+		/* Run the link descriptor callback function */
+		spin_unlock_irqrestore(&chan->lock, flags);
+		dmaengine_desc_get_callback_invoke(&desc->async_tx, &result);
+		spin_lock_irqsave(&chan->lock, flags);
 
 		/* Run any dependencies, then free the descriptor */
 		dma_run_dependencies(&desc->async_tx);
@@ -964,33 +1022,22 @@ static enum dma_status xilinx_dma_tx_status(struct dma_chan *dchan,
 {
 	struct xilinx_dma_chan *chan = to_xilinx_chan(dchan);
 	struct xilinx_dma_tx_descriptor *desc;
-	struct xilinx_axidma_tx_segment *segment;
-	struct xilinx_axidma_desc_hw *hw;
 	enum dma_status ret;
 	unsigned long flags;
-	u32 residue = 0;
 
 	ret = dma_cookie_status(dchan, cookie, txstate);
 	if (ret == DMA_COMPLETE || !txstate)
 		return ret;
 
-	if (chan->xdev->dma_config->dmatype == XDMA_TYPE_AXIDMA) {
-		spin_lock_irqsave(&chan->lock, flags);
+	spin_lock_irqsave(&chan->lock, flags);
 
-		desc = list_last_entry(&chan->active_list,
-				       struct xilinx_dma_tx_descriptor, node);
-		if (chan->has_sg) {
-			list_for_each_entry(segment, &desc->segments, node) {
-				hw = &segment->hw;
-				residue += (hw->control - hw->status) &
-					   chan->xdev->max_buffer_len;
-			}
-		}
-		spin_unlock_irqrestore(&chan->lock, flags);
+	desc = list_last_entry(&chan->active_list,
+			       struct xilinx_dma_tx_descriptor, node);
+	desc->residue = xilinx_dma_get_residue(chan, desc);
 
-		chan->residue = residue;
-		dma_set_residue(txstate, chan->residue);
-	}
+	spin_unlock_irqrestore(&chan->lock, flags);
+
+	dma_set_residue(txstate, desc->residue);
 
 	return ret;
 }
@@ -1009,8 +1056,9 @@ static int xilinx_dma_stop_transfer(struct xilinx_dma_chan *chan)
 
 	/* Wait for the hardware to halt */
 	return xilinx_dma_poll_timeout(chan, XILINX_DMA_REG_DMASR, val,
-				       val & XILINX_DMA_DMASR_HALTED, 0,
-				       XILINX_DMA_LOOP_COUNT);
+				       val | (XILINX_DMA_DMASR_IDLE |
+					      XILINX_DMA_DMASR_HALTED),
+				       0, XILINX_DMA_LOOP_COUNT);
 }
 
 /**
@@ -1356,6 +1404,9 @@ static void xilinx_dma_complete_descriptor(struct xilinx_dma_chan *chan)
 		return;
 
 	list_for_each_entry_safe(desc, next, &chan->active_list, node) {
+		desc->residue = xilinx_dma_get_residue(chan, desc);
+		desc->err = chan->err;
+
 		list_del(&desc->node);
 		if (!desc->cyclic)
 			dma_cookie_complete(&desc->async_tx);
@@ -1390,6 +1441,7 @@ static int xilinx_dma_reset(struct xilinx_dma_chan *chan)
 
 	chan->err = false;
 	chan->idle = true;
+	chan->desc_pendingcount = 0;
 	chan->desc_submitcount = 0;
 
 	return err;
@@ -1526,7 +1578,12 @@ static void append_desc_queue(struct xilinx_dma_chan *chan,
 	 */
 append:
 	list_add_tail(&desc->node, &chan->pending_list);
-	chan->desc_pendingcount++;
+	/*
+	 * In CDMA each segment is considered as a descriptor, so increment
+	 * pending count in prep_slave_* implementation.
+	 */
+	if (chan->xdev->dma_config->dmatype != XDMA_TYPE_CDMA)
+		chan->desc_pendingcount++;
 
 	if (chan->has_sg && (chan->xdev->dma_config->dmatype == XDMA_TYPE_VDMA)
 	    && unlikely(chan->desc_pendingcount > chan->num_frms)) {
@@ -1706,6 +1763,7 @@ xilinx_cdma_prep_memcpy(struct dma_chan *dchan, dma_addr_t dma_dst,
 
 	/* Insert the segment into the descriptor segments list. */
 	list_add_tail(&segment->node, &desc->segments);
+	chan->desc_pendingcount++;
 
 	desc->async_tx.phys = segment->phys;
 	hw->next_desc = segment->phys;
@@ -1790,6 +1848,7 @@ static struct dma_async_tx_descriptor *xilinx_cdma_prep_sg(
 		dst_avail -= len;
 		src_avail -= len;
 		list_add_tail(&segment->node, &desc->segments);
+		chan->desc_pendingcount++;
 
 fetch:
 		/* Fetch the next dst scatterlist entry */
@@ -2686,7 +2745,7 @@ static int xilinx_dma_probe(struct platform_device *pdev)
 		xdev->common.device_prep_slave_sg = xilinx_dma_prep_slave_sg;
 		xdev->common.device_prep_dma_cyclic =
 					  xilinx_dma_prep_dma_cyclic;
-		/* Residue calculation is supported by only AXI DMA */
+		/* Residue calculation is supported by only AXI DMA and CDMA */
 		xdev->common.residue_granularity =
 					  DMA_RESIDUE_GRANULARITY_SEGMENT;
 	} else if (xdev->dma_config->dmatype == XDMA_TYPE_CDMA) {
@@ -2694,6 +2753,9 @@ static int xilinx_dma_probe(struct platform_device *pdev)
 		dma_cap_set(DMA_SG, xdev->common.cap_mask);
 		xdev->common.device_prep_dma_memcpy = xilinx_cdma_prep_memcpy;
 		xdev->common.device_prep_dma_sg = xilinx_cdma_prep_sg;
+		/* Residue calculation is supported by only AXI DMA and CDMA */
+		xdev->common.residue_granularity =
+					  DMA_RESIDUE_GRANULARITY_SEGMENT;
 	} else {
 		xdev->common.device_prep_interleaved_dma =
 				xilinx_vdma_dma_prep_interleaved;

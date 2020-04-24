@@ -121,8 +121,10 @@ enum xcan_reg {
 #define XCAN_IDR_RTR_MASK		0x00000001 /* Remote TX request */
 #define XCAN_DLCR_DLC_MASK		0xF0000000 /* Data length code */
 #define XCAN_FSR_FL_MASK		0x00003F00 /* RX Fill Level */
+#define XCAN_2_FSR_FL_MASK		0x00007F00 /* RX Fill Level */
 #define XCAN_FSR_IRI_MASK		0x00000080 /* RX Increment Read Index */
 #define XCAN_FSR_RI_MASK		0x0000001F /* RX Read Index */
+#define XCAN_2_FSR_RI_MASK		0x0000003F /* RX Read Index */
 #define XCAN_DLCR_EDL_MASK		0x08000000 /* EDL Mask in DLC */
 #define XCAN_DLCR_BRS_MASK		0x04000000 /* BRS Mask in DLC */
 
@@ -187,6 +189,8 @@ struct xcan_devtype_data {
  * @bus_clk:			Pointer to struct clk
  * @can_clk:			Pointer to struct clk
  * @devtype:			Device type specific constants
+ * @cfd:			Variable to struct canfd_frame
+ * @is_canfd:			For checking canfd or not
  */
 struct xcan_priv {
 	struct can_priv can;
@@ -204,6 +208,8 @@ struct xcan_priv {
 	struct clk *bus_clk;
 	struct clk *can_clk;
 	struct xcan_devtype_data devtype;
+	struct canfd_frame cfd;
+	bool is_canfd;
 };
 
 /* CAN Bittiming constants as per Xilinx CAN specs */
@@ -421,7 +427,7 @@ static int xcan_set_bittiming(struct net_device *ndev)
 		btr0 = dbt->brp - 1;
 
 		/* Setting Time Segment 1 in BTR Register */
-		btr1 = dbt->prop_seg + bt->phase_seg1 - 1;
+		btr1 = dbt->prop_seg + dbt->phase_seg1 - 1;
 
 		/* Setting Time Segment 2 in BTR Register */
 		btr1 |= (dbt->phase_seg2 - 1) << priv->devtype.btr_ts2_shift;
@@ -534,14 +540,13 @@ static int xcan_do_set_mode(struct net_device *ndev, enum can_mode mode)
 /**
  * xcan_write_frame - Write a frame to HW
  * @priv:		Driver private data structure
- * @skb:		sk_buff pointer that contains data to be Txed
+ * @cf:			canfd_frame pointer that contains data to be Txed
  * @frame_offset:	Register offset to write the frame to
  */
-static void xcan_write_frame(struct xcan_priv *priv, struct sk_buff *skb,
+static void xcan_write_frame(struct xcan_priv *priv, struct canfd_frame *cf,
 			     int frame_offset)
 {
 	u32 id, dlc, data[2] = {0, 0};
-	struct canfd_frame *cf = (struct canfd_frame *)skb->data;
 	u32 ramoff, dwindex = 0, i;
 
 	/* Watch carefully on the bit sequence */
@@ -572,7 +577,7 @@ static void xcan_write_frame(struct xcan_priv *priv, struct sk_buff *skb,
 	}
 
 	dlc = can_len2dlc(cf->len) << XCAN_DLCR_DLC_SHIFT;
-	if (can_is_canfd_skb(skb)) {
+	if (priv->is_canfd) {
 		if (cf->flags & CANFD_BRS)
 			dlc |= XCAN_DLCR_BRS_MASK;
 		dlc |= XCAN_DLCR_EDL_MASK;
@@ -624,6 +629,9 @@ static int xcan_start_xmit_fifo(struct sk_buff *skb, struct net_device *ndev)
 	struct xcan_priv *priv = netdev_priv(ndev);
 	unsigned long flags;
 
+	priv->cfd = *((struct canfd_frame *)skb->data);
+	priv->is_canfd = can_is_canfd_skb(skb);
+
 	/* Check if the TX buffer is full */
 	if (unlikely(priv->read_reg(priv, XCAN_SR_OFFSET) &
 			XCAN_SR_TXFLL_MASK))
@@ -635,7 +643,7 @@ static int xcan_start_xmit_fifo(struct sk_buff *skb, struct net_device *ndev)
 
 	priv->tx_head++;
 
-	xcan_write_frame(priv, skb, XCAN_TXFIFO_OFFSET);
+	xcan_write_frame(priv, &priv->cfd, XCAN_TXFIFO_OFFSET);
 
 	/* Clear TX-FIFO-empty interrupt for xcan_tx_interrupt() */
 	if (priv->tx_max > 1)
@@ -662,6 +670,9 @@ static int xcan_start_xmit_mailbox(struct sk_buff *skb, struct net_device *ndev)
 	struct xcan_priv *priv = netdev_priv(ndev);
 	unsigned long flags;
 
+	priv->cfd = *((struct canfd_frame *)skb->data);
+	priv->is_canfd = can_is_canfd_skb(skb);
+
 	if (unlikely(priv->read_reg(priv, XCAN_TRR_OFFSET) &
 		     BIT(XCAN_TX_MAILBOX_IDX)))
 		return -ENOSPC;
@@ -672,7 +683,7 @@ static int xcan_start_xmit_mailbox(struct sk_buff *skb, struct net_device *ndev)
 
 	priv->tx_head++;
 
-	xcan_write_frame(priv, skb,
+	xcan_write_frame(priv, &priv->cfd,
 			 XCAN_TXMSG_FRAME_OFFSET(XCAN_TX_MAILBOX_IDX));
 
 	/* Mark buffer as ready for transmit */
@@ -1125,7 +1136,7 @@ static int xcan_rx_fifo_get_next_frame(struct xcan_priv *priv)
 	int offset;
 
 	if (priv->devtype.flags & XCAN_FLAG_RX_FIFO_MULTI) {
-		u32 fsr;
+		u32 fsr, mask;
 
 		/* clear RXOK before the is-empty check so that any newly
 		 * received frame will reassert it without a race
@@ -1135,12 +1146,17 @@ static int xcan_rx_fifo_get_next_frame(struct xcan_priv *priv)
 		fsr = priv->read_reg(priv, XCAN_FSR_OFFSET);
 
 		/* check if RX FIFO is empty */
-		if (!(fsr & XCAN_FSR_FL_MASK))
+		if (priv->devtype.flags & XCAN_FLAG_CANFD_2)
+			mask = XCAN_2_FSR_FL_MASK;
+		else
+			mask = XCAN_FSR_FL_MASK;
+
+		if (!(fsr & mask))
 			return -ENOENT;
 
 		if (priv->devtype.flags & XCAN_FLAG_CANFD_2)
 			offset =
-			  XCAN_RXMSG_2_FRAME_OFFSET(fsr & XCAN_FSR_RI_MASK);
+			  XCAN_RXMSG_2_FRAME_OFFSET(fsr & XCAN_2_FSR_RI_MASK);
 		else
 			offset =
 			  XCAN_RXMSG_FRAME_OFFSET(fsr & XCAN_FSR_RI_MASK);
@@ -1760,7 +1776,8 @@ static int xcan_probe(struct platform_device *pdev)
 
 	priv->bus_clk = devm_clk_get(&pdev->dev, devtype->bus_clk_name);
 	if (IS_ERR(priv->bus_clk)) {
-		dev_err(&pdev->dev, "bus clock not found\n");
+		if (PTR_ERR(priv->bus_clk) != -EPROBE_DEFER)
+			dev_err(&pdev->dev, "bus clock not found\n");
 		ret = PTR_ERR(priv->bus_clk);
 		goto err_free;
 	}

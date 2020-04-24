@@ -61,7 +61,7 @@ static int wdt_timeout;
 module_param(wdt_timeout, int, 0644);
 MODULE_PARM_DESC(wdt_timeout,
 		 "Watchdog time in seconds. (default="
-		 __MODULE_STRING(XWDT_WWDT_DEFAULT_TIMEOUT) ")");
+		 __MODULE_STRING(XWT_WWDT_DEFAULT_TIMEOUT) ")");
 
 /**
  * enum xwdt_ip_type - WDT IP type.
@@ -430,10 +430,8 @@ static int xwdt_probe(struct platform_device *pdev)
 
 		rc = watchdog_init_timeout(xilinx_wdt_wdd,
 					   wdt_timeout, &pdev->dev);
-		if (rc) {
-			dev_err(&pdev->dev, "unable to set timeout value\n");
-			return rc;
-		}
+		if (rc)
+			dev_warn(&pdev->dev, "unable to set timeout value\n");
 	}
 
 	spin_lock_init(&xdev->spinlock);
