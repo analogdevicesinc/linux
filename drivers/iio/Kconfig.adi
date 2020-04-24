@@ -47,7 +47,7 @@ config IIO_ALL_ADI_DRIVERS
 	select CF_AXI_TDD
 	select AXI_PULSE_CAPTURE
 	select AXI_FMCADC5_SYNC
-	select XILINX_XADC
+	select XILINX_XADC if (ARCH_ZYNQ || ARCH_ZYNQMP || MICROBLAZE)
 	select LTC2497
 	select AD8366
 	select HMC425
