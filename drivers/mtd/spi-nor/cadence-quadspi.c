@@ -1460,7 +1460,7 @@ static int cqspi_setdlldelay(struct spi_nor *nor)
 	u8 dummy_incr;
 	u8 dummy_flag = 0;
 
-	max_tap = ((TERA_MACRO / cqspi->master_ref_clk_hz) / 160);
+	max_tap = div_u64(div_u64(TERA_MACRO, cqspi->master_ref_clk_hz), 160);
 	for (dummy_incr = 0; dummy_incr <= 1; dummy_incr++) {
 		if (dummy_incr)
 			cqspi->extra_dummy = true;
