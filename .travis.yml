@@ -24,6 +24,8 @@ matrix:
                       arch/arm64/boot/dts/xilinx/zynqmp-*.dts
                       arch/microblaze/boot/dts/*.dts
                       arch/nios2/boot/dts/*.dts"
+    - env: DEFCONFIG=socfpga_adi_defconfig ARCH=arm IMAGE=zImage
+           CHECK_ALL_ADI_DRIVERS_HAVE_BEEN_BUILT=1
     - env: DEFCONFIG=zynq_xcomm_adv7511_defconfig ARCH=arm IMAGE=uImage
            CHECK_ALL_ADI_DRIVERS_HAVE_BEEN_BUILT=1
     - env: DEFCONFIG=zynq_pluto_defconfig ARCH=arm IMAGE=uImage
