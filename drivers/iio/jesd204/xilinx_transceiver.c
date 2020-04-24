@@ -514,6 +514,16 @@ int xilinx_xcvr_calc_qpll_config(struct xilinx_xcvr *xcvr,
 	if (ret)
 		return ret;
 
+	/**
+	 * Ref: https://www.xilinx.com/support/documentation/user_guides/ug476_7Series_Transceivers.pdf
+	 * Page: 55
+	 *   Vco_Freq = (refclk_khz * n) / m
+	 *   LineRate = Vco_Freq / d
+	 *
+	 * Make sure to not confuse Vco_Freq with fPLLClkout.
+	 * fPLLClkout = (refclk_khz * n) / (m * 2), so technically Vco_Freq = 2 * fPLLClkout
+	 * And the 2 is reduced in both equations.
+	 */
 	for (m = 1; m <= 4; m++) {
 		for (d = 1; d <= 16; d <<= 1) {
 			for (n = 0; N[n] != 0; n++) {
@@ -530,7 +540,10 @@ int xilinx_xcvr_calc_qpll_config(struct xilinx_xcvr *xcvr,
 				else
 					continue;
 
-				if (refclk_khz / m / d == lane_rate_khz / N[n]) {
+				/**
+				 * First try to match half-rate 
+				 */
+				if (vco_freq / d == lane_rate_khz) {
 
 					if (conf) {
 						conf->refclk_div = m;
@@ -548,7 +561,13 @@ int xilinx_xcvr_calc_qpll_config(struct xilinx_xcvr *xcvr,
 				if (xcvr->type != XILINX_XCVR_TYPE_US_GTY4)
 					continue;
 
-				if (refclk_khz / m / d == lane_rate_khz / 2 / N[n]) {
+				/**
+				 * Ref: https://www.xilinx.com/support/documentation/user_guides/ug578-ultrascale-gty-transceivers.pdf
+				 * Page: 49
+				 * For GTY4: LineRate = (2 * Vco_Freq) / d
+				 * Try Full-rate
+				 */
+				if ((vco_freq * 2) / d == lane_rate_khz) {
 
 					if (conf) {
 						conf->refclk_div = m;
