@@ -3,6 +3,7 @@
 
 config MEDIA_ALL_ADI_DRIVERS
 	tristate "Build all Analog Devices Media Drivers"
+	select VIDEO_ADV_DEBUG
 	select VIDEO_ADV7170
 	select VIDEO_ADV7175
 	select VIDEO_ADV7343
