@@ -568,6 +568,9 @@ static int sec_mipi_dsim_host_detach(struct mipi_dsi_host *host,
 	dsim->format	 = 0;
 	dsim->mode_flags = 0;
 
+	/* detached panel should be NULL */
+	dsim->panel = NULL;
+
 	return 0;
 }
 
@@ -1999,7 +2002,6 @@ void sec_mipi_dsim_unbind(struct device *dev, struct device *master, void *data)
 	if (dsim->panel) {
 		drm_panel_detach(dsim->panel);
 		drm_connector_cleanup(&dsim->connector);
-		dsim->panel = NULL;
 	}
 
 	mipi_dsi_host_unregister(&dsim->dsi_host);
