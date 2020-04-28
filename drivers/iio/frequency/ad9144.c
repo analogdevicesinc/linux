@@ -77,8 +77,12 @@ struct ad9144_platform_data {
 	u8 interpolation;
 	unsigned int fcenter_shift;
 	bool spi4wire;
+
 	u8 jesd_link_mode;
 	u8 jesd_subclass;
+
+	unsigned int pll_frequency;
+	bool pll_enable;
 };
 
 struct ad9144_state {
@@ -1062,6 +1066,16 @@ static struct ad9144_platform_data *ad9144_parse_dt(struct device *dev)
 	tmp = 1;
 	of_property_read_u32(np, "adi,jesd-subclass", &tmp);
 	pdata->jesd_subclass = (tmp > 1 ? 1 : tmp);
+
+	pdata->pll_enable = of_property_read_bool(np, "adi,pll-enable");
+
+	tmp = 0;
+	of_property_read_u32(np, "adi,pll-frequency", &tmp);
+	pdata->pll_frequency = tmp;
+
+	if (pdata->pll_enable && !pdata->pll_frequency)
+		dev_err(dev, "DAC pll enabled but missing 'adi,pll-frequency'\n");
+
 	/*
 	 * DO NOT copy this. It is as wrong as it gets, we have to do it to
 	 * preserve backwards compatibility with earlier versions of the driver
@@ -1146,6 +1160,9 @@ static int ad9144_probe(struct spi_device *spi)
 	st->interpolation = pdata->interpolation;
 	st->fcenter_shift = pdata->fcenter_shift;
 	conv = &st->conv;
+
+	st->pll_enable = pdata->pll_enable;
+	st->pll_frequency = pdata->pll_frequency;
 
 	switch (st->id) {
 	case CHIPID_AD9144:
