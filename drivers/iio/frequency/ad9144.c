@@ -1261,6 +1261,8 @@ static int ad9144_probe(struct spi_device *spi)
 		link_config.lane_mux[i] = pdata->xbar_lane_sel[i];
 
 	lane_rate_kHz = ad9144_get_lane_rate(st, ad9144_get_sample_rate(st));
+	dev_dbg(&spi->dev, "Setting lane rate %ld kHz\n", lane_rate_kHz);
+
 	ret = clk_set_rate(conv->clk[0], lane_rate_kHz);
 	if (ret < 0) {
 		dev_err(&spi->dev, "Failed to set lane rate to %ld kHz: %d\n",
