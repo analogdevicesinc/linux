@@ -169,6 +169,15 @@ config DRM_ITE_IT66121
 	help
 	  Support for ITE IT66121 HDMI bridge.
 
+config DRM_FSL_IMX_LVDS_BRIDGE
+	tristate "Freescale i.MX LVDS display bridge"
+	depends on MFD_SYSCON
+	depends on OF
+	select DRM_PANEL_BRIDGE
+	help
+	  Support Freescale i.MX parallel to LVDS Display Bridge (LDB).
+	  This bridge is embedded in a SoC.
+
 config DRM_LVDS_CODEC
 	tristate "Transparent LVDS encoders and decoders support"
 	depends on OF
