@@ -1,0 +1,24 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2020 NXP
+ */
+
+#include "imx8dxl-evk.dts"
+
+/delete-node/&spidev0;
+
+&pinctrl_lpspi3 {
+	fsl,pins = <
+		IMX8DXL_SPI3_SCK_ADMA_SPI3_SCK		0x600004c
+		IMX8DXL_SPI3_SDO_ADMA_SPI3_SDO		0x600004c
+		IMX8DXL_SPI3_SDI_ADMA_SPI3_SDI		0x600004c
+		IMX8DXL_SPI3_CS1_ADMA_SPI3_CS1		0x600004c
+	>;
+};
+
+&lpspi3 {
+	#address-cells = <0>;
+	pinctrl-0 = <&pinctrl_lpspi3>;
+	/delete-property/ cs-gpios;
+	spi-slave;
+};
