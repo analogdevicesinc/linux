@@ -14,6 +14,7 @@
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
 #include <linux/regmap.h>
+#include <linux/reset.h>
 #include <linux/types.h>
 #include <drm/drm_fourcc.h>
 #include <video/imx-lcdifv3.h>
@@ -40,6 +41,7 @@ struct lcdifv3_soc_pdata {
 	bool hsync_invert;
 	bool vsync_invert;
 	bool de_invert;
+	bool hdmimix;
 };
 
 struct lcdifv3_platform_reg {
@@ -58,17 +60,26 @@ static struct lcdifv3_soc_pdata imx8mp_lcdif1_pdata = {
 	.hsync_invert = false,
 	.vsync_invert = false,
 	.de_invert    = false,
+	.hdmimix     = false,
 };
 
 static struct lcdifv3_soc_pdata imx8mp_lcdif2_pdata = {
 	.hsync_invert = false,
 	.vsync_invert = false,
 	.de_invert    = true,
+	.hdmimix      = false,
 };
 
+static struct lcdifv3_soc_pdata imx8mp_lcdif3_pdata = {
+	.hsync_invert = false,
+	.vsync_invert = false,
+	.de_invert    = false,
+	.hdmimix     = true,
+};
 static const struct of_device_id imx_lcdifv3_dt_ids[] = {
 	{ .compatible = "fsl,imx8mp-lcdif1", .data = &imx8mp_lcdif1_pdata, },
 	{ .compatible = "fsl,imx8mp-lcdif2", .data = &imx8mp_lcdif2_pdata, },
+	{ .compatible = "fsl,imx8mp-lcdif3", .data = &imx8mp_lcdif3_pdata,},
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, imx_lcdifv3_dt_ids);
@@ -482,6 +493,42 @@ void lcdifv3_disable_controller(struct lcdifv3_soc *lcdifv3)
 }
 EXPORT_SYMBOL(lcdifv3_disable_controller);
 
+static int hdmimix_lcdif3_setup(struct lcdifv3_soc *lcdifv3)
+{
+	struct device *dev = lcdifv3->dev;
+	int ret;
+
+	struct clk_bulk_data clocks[] = {
+		{ .id = "mix_apb" },
+		{ .id = "mix_axi" },
+		{ .id = "xtl_24m" },
+		{ .id = "mix_pix" },
+		{ .id = "lcdif_apb" },
+		{ .id = "lcdif_axi" },
+		{ .id = "lcdif_pdi" },
+		{ .id = "lcdif_pix" },
+		{ .id = "lcdif_spu" },
+		{ .id = "noc_hdmi"  },
+	};
+
+	/* power up hdmimix lcdif and nor */
+	ret = device_reset(dev);
+	if (ret)
+		dev_warn(dev, "No hdmimix sub reset found\n");
+	if (ret == -EPROBE_DEFER)
+		return ret;
+
+	/* enable lpcg of hdmimix lcdif and nor */
+	ret = devm_clk_bulk_get(dev, ARRAY_SIZE(clocks), clocks);
+	if (ret < 0)
+		return ret;
+	ret = clk_bulk_prepare_enable(ARRAY_SIZE(clocks), clocks);
+	if (ret < 0)
+		return ret;
+
+	return 0;
+}
+
 static int platform_remove_device_fn(struct device *dev, void *data)
 {
 	struct platform_device *pdev = to_platform_device(dev);
@@ -559,11 +606,15 @@ err_register:
 
 static int imx_lcdifv3_probe(struct platform_device *pdev)
 {
+	int ret;
 	struct device *dev = &pdev->dev;
 	struct device_node *np = dev->of_node;
 	struct lcdifv3_soc *lcdifv3;
 	struct resource *res;
 	struct regmap *blk_ctl;
+	const struct of_device_id *of_id =
+			of_match_device(imx_lcdifv3_dt_ids, dev);
+	const struct lcdifv3_soc_pdata *soc_pdata = of_id->data;
 
 	dev_dbg(dev, "%s: probe begin\n", __func__);
 
@@ -578,12 +629,17 @@ static int imx_lcdifv3_probe(struct platform_device *pdev)
 		return -ENODEV;
 
 	lcdifv3->irq = platform_get_irq(pdev, 0);
-	if (lcdifv3->irq < 0)
-		return -ENODEV;
+	if (lcdifv3->irq < 0) {
+		dev_err(dev, "No irq get, ret=%d\n", lcdifv3->irq);
+		return lcdifv3->irq;
+	}
 
 	lcdifv3->clk_pix = devm_clk_get(dev, "pix");
-	if (IS_ERR(lcdifv3->clk_pix))
-		return PTR_ERR(lcdifv3->clk_pix);
+	if (IS_ERR(lcdifv3->clk_pix)) {
+		ret = PTR_ERR(lcdifv3->clk_pix);
+		dev_err(dev, "No pix clock get: %d\n", ret);
+		return ret;
+	}
 
 	lcdifv3->clk_disp_axi = devm_clk_get(dev, "disp-axi");
 	if (IS_ERR(lcdifv3->clk_disp_axi))
@@ -618,6 +674,14 @@ static int imx_lcdifv3_probe(struct platform_device *pdev)
 	}
 
 	platform_set_drvdata(pdev, lcdifv3);
+
+	if (soc_pdata->hdmimix) {
+		ret = hdmimix_lcdif3_setup(lcdifv3);
+		if (ret < 0) {
+			dev_err(dev, "hdmimix lcdif3 setup failed\n");
+			return ret;
+		}
+	}
 
 	atomic_set(&lcdifv3->rpm_suspended, 0);
 	pm_runtime_enable(dev);
