@@ -144,7 +144,6 @@ static const struct iio_chan_spec ad7768_channels[] = {
 			.realbits = 24,
 			.storagebits = 32,
 			.shift = 8,
-			.endianness = IIO_BE,
 		},
 	},
 };
