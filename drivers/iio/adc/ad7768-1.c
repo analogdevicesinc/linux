@@ -15,6 +15,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/sysfs.h>
 #include <linux/spi/spi.h>
+#include <linux/spi/spi-engine.h>
 
 #include <linux/iio/buffer.h>
 #include <linux/iio/iio.h>
@@ -158,6 +159,7 @@ struct ad7768_state {
 	struct completion completion;
 	struct iio_trigger *trig;
 	struct gpio_desc *gpio_sync_in;
+	bool spi_engine_supported;
 	/*
 	 * DMA (thus cache coherency maintenance) requires the
 	 * transfer buffers to live in their own cache lines.
@@ -241,16 +243,19 @@ static int ad7768_scan_direct(struct iio_dev *indio_dev)
 	struct ad7768_state *st = iio_priv(indio_dev);
 	int readval, ret;
 
-	reinit_completion(&st->completion);
+	if (!st->spi_engine_supported)
+		reinit_completion(&st->completion);
 
 	ret = ad7768_set_mode(st, AD7768_ONE_SHOT);
 	if (ret < 0)
 		return ret;
 
-	ret = wait_for_completion_timeout(&st->completion,
-					  msecs_to_jiffies(1000));
-	if (!ret)
-		return -ETIMEDOUT;
+	if (!st->spi_engine_supported) {
+		ret = wait_for_completion_timeout(&st->completion,
+						  msecs_to_jiffies(1000));
+		if (!ret)
+			return -ETIMEDOUT;
+	}
 
 	readval = ad7768_spi_reg_read(st, AD7768_REG_ADC_DATA, 3);
 	if (readval < 0)
@@ -513,23 +518,33 @@ static int ad7768_buffer_postenable(struct iio_dev *indio_dev)
 {
 	struct ad7768_state *st = iio_priv(indio_dev);
 
-	/*
-	 * Write a 1 to the LSB of the INTERFACE_FORMAT register to enter
-	 * continuous read mode. Subsequent data reads do not require an
-	 * initial 8-bit write to query the ADC_DATA register.
-	 */
-	return ad7768_spi_reg_write(st, AD7768_REG_INTERFACE_FORMAT, 0x01);
+	if (st->spi_engine_supported){
+		return -ENOSYS;
+	} else {
+		/*
+		 * Write a 1 to the LSB of the INTERFACE_FORMAT register to
+		 * enter continuous read mode. Subsequent data reads do not
+		 * require an initial 8-bit write to query the ADC_DATA
+		 * register.
+		 */
+		return ad7768_spi_reg_write(st, AD7768_REG_INTERFACE_FORMAT, 0x01);
+	}
 }
 
 static int ad7768_buffer_predisable(struct iio_dev *indio_dev)
 {
 	struct ad7768_state *st = iio_priv(indio_dev);
 
-	/*
-	 * To exit continuous read mode, perform a single read of the ADC_DATA
-	 * reg (0x2C), which allows further configuration of the device.
-	 */
-	return ad7768_spi_reg_read(st, AD7768_REG_ADC_DATA, 3);
+	if (st->spi_engine_supported){
+		return -ENOSYS;
+	} else {
+		/*
+		 * To exit continuous read mode, perform a single read of the
+		 * ADC_DATA reg (0x2C), which allows further configuration of
+		 * the device.
+		 */
+		return ad7768_spi_reg_read(st, AD7768_REG_ADC_DATA, 3);
+	}
 }
 
 static const struct iio_buffer_setup_ops ad7768_buffer_ops = {
@@ -559,6 +574,7 @@ static int ad7768_probe(struct spi_device *spi)
 {
 	struct ad7768_state *st;
 	struct iio_dev *indio_dev;
+	int spi_buffer_mode;
 	int ret;
 
 	indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*st));
@@ -599,12 +615,16 @@ static int ad7768_probe(struct spi_device *spi)
 	spi_set_drvdata(spi, indio_dev);
 	mutex_init(&st->lock);
 
+	st->spi_engine_supported = spi_engine_offload_supported(spi);
+
 	indio_dev->channels = ad7768_channels;
 	indio_dev->num_channels = ARRAY_SIZE(ad7768_channels);
 	indio_dev->dev.parent = &spi->dev;
 	indio_dev->name = spi_get_device_id(spi)->name;
 	indio_dev->info = &ad7768_info;
-	indio_dev->modes = INDIO_DIRECT_MODE | INDIO_BUFFER_TRIGGERED;
+	spi_buffer_mode = st->spi_engine_supported ? INDIO_BUFFER_HARDWARE :
+						     INDIO_BUFFER_TRIGGERED;
+	indio_dev->modes = INDIO_DIRECT_MODE | spi_buffer_mode;
 
 	ret = ad7768_setup(st);
 	if (ret < 0) {
@@ -612,35 +632,40 @@ static int ad7768_probe(struct spi_device *spi)
 		return ret;
 	}
 
-	st->trig = devm_iio_trigger_alloc(&spi->dev, "%s-dev%d",
-					  indio_dev->name, indio_dev->id);
-	if (!st->trig)
-		return -ENOMEM;
+	if (st->spi_engine_supported){
+		return -ENOSYS;
+	} else {
+		st->trig = devm_iio_trigger_alloc(&spi->dev, "%s-dev%d",
+						  indio_dev->name, indio_dev->id);
+		if (!st->trig)
+			return -ENOMEM;
 
-	st->trig->ops = &ad7768_trigger_ops;
-	st->trig->dev.parent = &spi->dev;
-	iio_trigger_set_drvdata(st->trig, indio_dev);
-	ret = devm_iio_trigger_register(&spi->dev, st->trig);
-	if (ret)
-		return ret;
+		st->trig->ops = &ad7768_trigger_ops;
+		st->trig->dev.parent = &spi->dev;
+		iio_trigger_set_drvdata(st->trig, indio_dev);
+		ret = devm_iio_trigger_register(&spi->dev, st->trig);
+		if (ret)
+			return ret;
 
-	indio_dev->trig = iio_trigger_get(st->trig);
+		indio_dev->trig = iio_trigger_get(st->trig);
 
-	init_completion(&st->completion);
+		init_completion(&st->completion);
 
-	ret = devm_request_irq(&spi->dev, spi->irq,
-			       &ad7768_interrupt,
-			       IRQF_TRIGGER_RISING | IRQF_ONESHOT,
-			       indio_dev->name, indio_dev);
-	if (ret)
-		return ret;
+		ret = devm_request_irq(&spi->dev, spi->irq,
+				       &ad7768_interrupt,
+				       IRQF_TRIGGER_RISING | IRQF_ONESHOT,
+				       indio_dev->name, indio_dev);
+		if (ret)
+			return ret;
 
-	ret = devm_iio_triggered_buffer_setup(&spi->dev, indio_dev,
-					      &iio_pollfunc_store_time,
-					      &ad7768_trigger_handler,
-					      &ad7768_buffer_ops);
-	if (ret)
-		return ret;
+		ret = devm_iio_triggered_buffer_setup(&spi->dev, indio_dev,
+						      &iio_pollfunc_store_time,
+						      &ad7768_trigger_handler,
+						      &ad7768_buffer_ops);
+		if (ret)
+			return ret;
+
+	}
 
 	return devm_iio_device_register(&spi->dev, indio_dev);
 }
