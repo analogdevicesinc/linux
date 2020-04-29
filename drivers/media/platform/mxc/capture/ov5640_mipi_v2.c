@@ -684,6 +684,40 @@ static s32 ov5640_read_reg(struct ov5640 *sensor, u16 reg, u8 *val)
 static int prev_sysclk, prev_HTS;
 static int AE_low, AE_high, AE_Target = 52;
 
+#ifdef CONFIG_VIDEO_ADV_DEBUG
+static int ov5640_get_register(struct v4l2_subdev *sd,
+			       struct v4l2_dbg_register *reg)
+{
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	struct ov5640 *sensor = to_ov5640(client);
+	int ret;
+	u8 val;
+
+	if (reg->reg & ~0xffff)
+		return -EINVAL;
+
+	reg->size = 1;
+
+	ret = ov5640_read_reg(sensor, reg->reg, &val);
+	if (!ret)
+		reg->val = (__u64)val;
+
+	return ret;
+}
+
+static int ov5640_set_register(struct v4l2_subdev *sd,
+			       const struct v4l2_dbg_register *reg)
+{
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	struct ov5640 *sensor = to_ov5640(client);
+
+	if (reg->reg & ~0xffff || reg->val & ~0xff)
+		return -EINVAL;
+
+	return ov5640_write_reg(sensor, reg->reg, reg->val);
+}
+#endif
+
 static void OV5640_stream_on(struct ov5640 *sensor)
 {
 	ov5640_write_reg(sensor, 0x4202, 0x00);
