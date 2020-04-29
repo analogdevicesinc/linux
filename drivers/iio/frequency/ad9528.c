@@ -881,7 +881,7 @@ static int ad9528_clks_register(struct iio_dev *indio_dev)
 		struct clk *clk;
 
 		chan = &pdata->channels[i];
-		if (chan->channel_num >= AD9528_NUM_CHAN || chan->output_dis)
+		if (chan->channel_num >= AD9528_NUM_CHAN)
 			continue;
 
 		clk = ad9528_clk_register(indio_dev, chan->channel_num,
@@ -1094,10 +1094,9 @@ pll2_bypassed:
 		chan = &pdata->channels[i];
 		if (chan->channel_num >= AD9528_NUM_CHAN)
 			continue;
-		if (chan->output_dis)
-			continue;
+		if (!chan->output_dis)
+			__set_bit(chan->channel_num, &active_mask);
 
-		__set_bit(chan->channel_num, &active_mask);
 		if (chan->sync_ignore_en)
 			__set_bit(chan->channel_num, &ignoresync_mask);
 		ret = ad9528_write(indio_dev,
