@@ -564,6 +564,7 @@ struct audio_info {
 	int channels;
 	int sample_width;
 	int connector_type;
+	bool non_pcm;
 };
 
 enum vic_pxl_encoding_format {
