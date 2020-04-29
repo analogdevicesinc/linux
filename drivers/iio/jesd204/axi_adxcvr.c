@@ -7,6 +7,8 @@
  *
  * https://wiki.analog.com/resources/fpga/docs/axi_adxcvr
  */
+
+#include <asm/io.h>
 #include <linux/module.h>
 #include <linux/delay.h>
 #include <linux/of_device.h>
