@@ -163,8 +163,11 @@ struct ad7768_state {
 	 * transfer buffers to live in their own cache lines.
 	 */
 	union {
-		__be32 d32;
-		u8 d8[2];
+		u8 buf[6];
+		struct{
+			__be32 d32;
+			u8 d8[2];
+		};
 	} data ____cacheline_aligned;
 };
 
@@ -172,13 +175,24 @@ static int ad7768_spi_reg_read(struct ad7768_state *st, unsigned int addr,
 			       unsigned int len)
 {
 	unsigned int shift;
+	u8 tx_data[4];
 	int ret;
+	struct spi_message msg;
 
+	struct spi_transfer xfer = {
+		.tx_buf = tx_data,
+		.rx_buf = st->data.buf,
+		.len = len + 1,
+		.bits_per_word = 8
+	};
+
+	/* The rest are dummy bytes */
+	tx_data[0] = AD7768_RD_FLAG_MSK(addr);
 	shift = 32 - (8 * len);
-	st->data.d8[0] = AD7768_RD_FLAG_MSK(addr);
 
-	ret = spi_write_then_read(st->spi, st->data.d8, 1,
-				  &st->data.d32, len);
+	spi_message_init_with_transfers(&msg, &xfer, 1);
+
+	ret = spi_sync(st->spi, &msg);
 	if (ret < 0)
 		return ret;
 
@@ -189,10 +203,22 @@ static int ad7768_spi_reg_write(struct ad7768_state *st,
 				unsigned int addr,
 				unsigned int val)
 {
-	st->data.d8[0] = AD7768_WR_FLAG_MSK(addr);
-	st->data.d8[1] = val & 0xFF;
+	uint8_t tx_data[2];
+	struct spi_message msg;
 
-	return spi_write(st->spi, st->data.d8, 2);
+	struct spi_transfer xfer = {
+		.tx_buf = tx_data,
+		.rx_buf = st->data.buf,
+		.len = 2,
+		.bits_per_word = 8
+	};
+
+	tx_data[0] = AD7768_WR_FLAG_MSK(addr);
+	tx_data[1] = val & 0xFF;
+
+	spi_message_init_with_transfers(&msg, &xfer, 1);
+
+	return spi_sync(st->spi, &msg);
 }
 
 static int ad7768_set_mode(struct ad7768_state *st,
