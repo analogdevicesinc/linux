@@ -444,6 +444,8 @@ int pmbus_set_page(struct i2c_client *client, int page);
 int pmbus_block_write(struct i2c_client *client, u8 cmd, u8 w_len, u8 *data_w);
 int pmbus_block_wr(struct i2c_client *client, u8 cmd, u8 w_len, u8 *data_w,
 		   u8 *data_r);
+int pmbus_group_command(struct i2c_client **clients, u8 *cmds, u8 *w_lens,
+			u8 **data_w, u8 nr_cmds);
 int pmbus_read_word_data(struct i2c_client *client, int page, u8 reg);
 int pmbus_write_word_data(struct i2c_client *client, int page, u8 reg, u16 word);
 int pmbus_read_byte_data(struct i2c_client *client, int page, u8 reg);
