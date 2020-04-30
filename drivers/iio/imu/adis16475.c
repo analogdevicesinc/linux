@@ -181,8 +181,8 @@ static int adis16475_show_serial_number(void *arg, u64 *val)
 
 	return 0;
 }
-DEFINE_SIMPLE_ATTRIBUTE(adis16475_serial_number_fops,
-			adis16475_show_serial_number, NULL, "0x%.4llx\n");
+DEFINE_DEBUGFS_ATTRIBUTE(adis16475_serial_number_fops,
+			 adis16475_show_serial_number, NULL, "0x%.4llx\n");
 
 static int adis16475_show_product_id(void *arg, u64 *val)
 {
@@ -198,8 +198,8 @@ static int adis16475_show_product_id(void *arg, u64 *val)
 
 	return 0;
 }
-DEFINE_SIMPLE_ATTRIBUTE(adis16475_product_id_fops,
-			adis16475_show_product_id, NULL, "%llu\n");
+DEFINE_DEBUGFS_ATTRIBUTE(adis16475_product_id_fops,
+			 adis16475_show_product_id, NULL, "%llu\n");
 
 static int adis16475_show_flash_count(void *arg, u64 *val)
 {
@@ -216,30 +216,28 @@ static int adis16475_show_flash_count(void *arg, u64 *val)
 
 	return 0;
 }
-DEFINE_SIMPLE_ATTRIBUTE(adis16475_flash_count_fops,
-			adis16475_show_flash_count, NULL, "%lld\n");
+DEFINE_DEBUGFS_ATTRIBUTE(adis16475_flash_count_fops,
+			 adis16475_show_flash_count, NULL, "%lld\n");
 
-static int adis16475_debugfs_init(struct iio_dev *indio_dev)
+static void adis16475_debugfs_init(struct iio_dev *indio_dev)
 {
 	struct adis16475 *st = iio_priv(indio_dev);
+	struct dentry *d = iio_get_debugfs_dentry(indio_dev);
 
-	debugfs_create_file("serial_number", 0400, indio_dev->debugfs_dentry,
-			    st, &adis16475_serial_number_fops);
-	debugfs_create_file("product_id", 0400, indio_dev->debugfs_dentry, st,
-			    &adis16475_product_id_fops);
-	debugfs_create_file("flash_count", 0400, indio_dev->debugfs_dentry, st,
-			    &adis16475_flash_count_fops);
+	debugfs_create_file_unsafe("serial_number", 0400,
+				   d, st, &adis16475_serial_number_fops);
+	debugfs_create_file_unsafe("product_id", 0400,
+				   d, st, &adis16475_product_id_fops);
+	debugfs_create_file_unsafe("flash_count", 0400,
+				   d, st, &adis16475_flash_count_fops);
 	debugfs_create_file("firmware_revision", 0400,
-			    indio_dev->debugfs_dentry, st,
-			    &adis16475_firmware_revision_fops);
-	debugfs_create_file("firmware_date", 0400, indio_dev->debugfs_dentry,
+			    d, st, &adis16475_firmware_revision_fops);
+	debugfs_create_file("firmware_date", 0400, d,
 			    st, &adis16475_firmware_date_fops);
-	return 0;
 }
 #else
-static int adis16475_debugfs_init(struct iio_dev *indio_dev)
+static void adis16475_debugfs_init(struct iio_dev *indio_dev)
 {
-	return 0;
 }
 #endif
 
