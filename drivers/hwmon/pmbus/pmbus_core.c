@@ -287,6 +287,68 @@ int pmbus_block_write(struct i2c_client *client, u8 cmd, u8 w_len, u8 *data_w)
 }
 EXPORT_SYMBOL_GPL(pmbus_block_write);
 
+/* Group command.
+ * @clients: Array of handles to slave devices
+ * @cmds: Array of bytes interpreted by slave
+ * @w_len: Array of sizes of write data block; PMBus allows at most 255 bytes
+ * @data_w: Array of byte arrays which will be written.
+ * @nr_cmds: Number of commands.
+ *
+ * Returns 0 or negative errno.
+ */
+int pmbus_group_command(struct i2c_client **clients, u8 *cmds, u8 *w_lens,
+			u8 **data_w, u8 nr_cmds)
+{
+	u8 write_buf[PMBUS_BLOCK_MAX + 1];
+	struct i2c_msg *msgs;
+	u8 addr;
+	int ret;
+	int i;
+
+	msgs = kcalloc(nr_cmds, sizeof(struct i2c_msg), GFP_KERNEL);
+	if (!msgs)
+		return -ENOMEM;
+
+	for (i = 0; i < nr_cmds; i++) {
+		msgs[i].addr = clients[i]->addr,
+		msgs[i].flags = 0,
+		msgs[i].buf = write_buf,
+		msgs[i].len = w_lens[i] + 1,
+
+		msgs[i].buf[0] = cmds[i];
+		memcpy(&msgs[i].buf[1], data_w[i], w_lens[i]);
+
+		msgs[i].buf = i2c_get_dma_safe_msg_buf(&msgs[i], 1);
+		if (!msgs[i].buf) {
+			ret = -ENOMEM;
+			goto cleanup;
+		}
+
+		if (clients[i]->flags & I2C_CLIENT_PEC) {
+			u8 crc = 0;
+
+			addr = i2c_8bit_addr_from_msg(&msgs[i]);
+			crc = crc8(pmbus_crc_table, &addr, 1, crc);
+			crc = crc8(pmbus_crc_table, msgs[i].buf, msgs[i].len,
+				   crc);
+
+			msgs[i].buf[msgs[i].len] = crc;
+			msgs[i].len++;
+		}
+	};
+
+	ret = i2c_transfer(clients[0]->adapter, msgs, nr_cmds);
+
+cleanup:
+	for (i = i - 1; i >= 0; i--)
+		i2c_put_dma_safe_msg_buf(msgs[i].buf, &msgs[i], true);
+
+	kfree(msgs);
+
+	return ret;
+}
+EXPORT_SYMBOL_GPL(pmbus_group_command);
+
 int pmbus_write_byte(struct i2c_client *client, int page, u8 value)
 {
 	int rv;
