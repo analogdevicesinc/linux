@@ -830,7 +830,7 @@ static int adf4371_setup(struct adf4371_state *st)
 
 	ret = regmap_bulk_write(st->regmap, ADF4371_REG(0x30), st->buf, 5);
 	if (ret < 0)
-		return 0;
+		return ret;
 
 	return adf4371_channel_config(st);
 }
