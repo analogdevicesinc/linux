@@ -8,7 +8,10 @@
 #include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/device.h>
+#include <linux/dma-mapping.h>
+#include <linux/dmaengine.h>
 #include <linux/err.h>
+#include <linux/interrupt.h>
 #include <linux/gpio/consumer.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -18,6 +21,8 @@
 #include <linux/spi/spi-engine.h>
 
 #include <linux/iio/buffer.h>
+#include <linux/iio/buffer-dma.h>
+#include <linux/iio/buffer-dmaengine.h>
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
 #include <linux/iio/trigger.h>
@@ -160,6 +165,7 @@ struct ad7768_state {
 	struct iio_trigger *trig;
 	struct gpio_desc *gpio_sync_in;
 	bool spi_engine_supported;
+	bool spi_locked;
 	/*
 	 * DMA (thus cache coherency maintenance) requires the
 	 * transfer buffers to live in their own cache lines.
@@ -176,7 +182,6 @@ struct ad7768_state {
 static int ad7768_spi_reg_read(struct ad7768_state *st, unsigned int addr,
 			       unsigned int len)
 {
-	unsigned int shift;
 	u8 tx_data[4];
 	int ret;
 	struct spi_message msg;
@@ -190,15 +195,20 @@ static int ad7768_spi_reg_read(struct ad7768_state *st, unsigned int addr,
 
 	/* The rest are dummy bytes */
 	tx_data[0] = AD7768_RD_FLAG_MSK(addr);
-	shift = 32 - (8 * len);
 
 	spi_message_init_with_transfers(&msg, &xfer, 1);
 
-	ret = spi_sync(st->spi, &msg);
+	if (st->spi_locked)
+		ret = spi_sync_locked(st->spi, &msg);
+	else
+		ret = spi_sync(st->spi, &msg);
 	if (ret < 0)
 		return ret;
 
-	return (be32_to_cpu(st->data.d32) >> shift);
+	if (len == 1)
+		return st->data.buf[1];
+	else
+		return be32_to_cpu(st->data.d32);
 }
 
 static int ad7768_spi_reg_write(struct ad7768_state *st,
@@ -219,6 +229,9 @@ static int ad7768_spi_reg_write(struct ad7768_state *st,
 	tx_data[1] = val & 0xFF;
 
 	spi_message_init_with_transfers(&msg, &xfer, 1);
+
+	if (st->spi_locked)
+		return spi_sync_locked(st->spi, &msg);
 
 	return spi_sync(st->spi, &msg);
 }
@@ -517,9 +530,30 @@ static irqreturn_t ad7768_interrupt(int irq, void *dev_id)
 static int ad7768_buffer_postenable(struct iio_dev *indio_dev)
 {
 	struct ad7768_state *st = iio_priv(indio_dev);
+	struct spi_message msg;
+	struct spi_transfer xfer;
+	unsigned int tx_data;
 
 	if (st->spi_engine_supported){
-		return -ENOSYS;
+		spi_bus_lock(st->spi->master);
+		st->spi_locked = true;
+
+		tx_data = AD7768_RD_FLAG_MSK(AD7768_REG_ADC_DATA) << 24;
+		xfer = (struct spi_transfer ){
+			.tx_buf = &tx_data,
+			.rx_buf = (void *)-1,
+			.len = 1,
+			.bits_per_word = 32
+		};
+
+		spi_message_init_with_transfers(&msg, &xfer, 1);
+
+		spi_engine_offload_load_msg(st->spi, &msg);
+
+		spi_engine_offload_enable(st->spi, true);
+
+		return 0;
+
 	} else {
 		/*
 		 * Write a 1 to the LSB of the INTERFACE_FORMAT register to
@@ -536,7 +570,11 @@ static int ad7768_buffer_predisable(struct iio_dev *indio_dev)
 	struct ad7768_state *st = iio_priv(indio_dev);
 
 	if (st->spi_engine_supported){
-		return -ENOSYS;
+		spi_engine_offload_enable(st->spi, false);
+		spi_bus_unlock(st->spi->master);
+		st->spi_locked = false;
+
+		return 0;
 	} else {
 		/*
 		 * To exit continuous read mode, perform a single read of the
@@ -546,6 +584,18 @@ static int ad7768_buffer_predisable(struct iio_dev *indio_dev)
 		return ad7768_spi_reg_read(st, AD7768_REG_ADC_DATA, 3);
 	}
 }
+static int hw_submit_block(struct iio_dma_buffer_queue *queue,
+			   struct iio_dma_buffer_block *block)
+{
+	block->block.bytes_used = block->block.size;
+
+	return iio_dmaengine_buffer_submit_block(queue, block, DMA_DEV_TO_MEM);
+}
+
+static const struct iio_dma_buffer_ops dma_buffer_ops = {
+	.submit = hw_submit_block,
+	.abort = iio_dmaengine_buffer_abort,
+};
 
 static const struct iio_buffer_setup_ops ad7768_buffer_ops = {
 	.postenable = &ad7768_buffer_postenable,
@@ -574,6 +624,7 @@ static int ad7768_probe(struct spi_device *spi)
 {
 	struct ad7768_state *st;
 	struct iio_dev *indio_dev;
+	struct iio_buffer *buffer;
 	int spi_buffer_mode;
 	int ret;
 
@@ -633,7 +684,17 @@ static int ad7768_probe(struct spi_device *spi)
 	}
 
 	if (st->spi_engine_supported){
-		return -ENOSYS;
+		indio_dev->setup_ops = &ad7768_buffer_ops;
+		buffer = iio_dmaengine_buffer_alloc(indio_dev->dev.parent,
+						    "rx",
+						    &dma_buffer_ops,
+						    indio_dev);
+		if (IS_ERR(buffer)) {
+			iio_dmaengine_buffer_free(indio_dev->buffer);
+			return PTR_ERR(buffer);
+		}
+
+		iio_device_attach_buffer(indio_dev, buffer);
 	} else {
 		st->trig = devm_iio_trigger_alloc(&spi->dev, "%s-dev%d",
 						  indio_dev->name, indio_dev->id);
