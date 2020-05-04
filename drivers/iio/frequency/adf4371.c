@@ -35,6 +35,10 @@
 #define ADF4371_SDO_ACT_R(x)		FIELD_PREP(ADF4371_SDO_ACT_R_MSK, x)
 #define ADF4371_RESET_CMD		0x81
 
+/* ADF4371_REG12 */
+#define ADF4371_EN_AUTOCAL_MSK		BIT(6)
+#define ADF4371_EN_AUTOCAL(x)		FIELD_PREP(ADF4371_EN_AUTOCAL_MSK, x)
+
 /* ADF4371_REG17 */
 #define ADF4371_FRAC2WORD_L_MSK		GENMASK(7, 1)
 #define ADF4371_FRAC2WORD_L(x)		FIELD_PREP(ADF4371_FRAC2WORD_L_MSK, x)
@@ -48,6 +52,8 @@
 /* ADF4371_REG1A */
 #define ADF4371_MOD2WORD_MSK		GENMASK(5, 0)
 #define ADF4371_MOD2WORD(x)		FIELD_PREP(ADF4371_MOD2WORD_MSK, x)
+#define ADF4371_PHASE_ADJ_MSK		BIT(6)
+#define ADF4371_PHASE_ADJ(x)		FIELD_PREP(ADF4371_PHASE_ADJ_MSK, x)
 
 /* ADF4371_REG1E */
 #define ADF4371_CP_CURRENT_MSK		GENMASK(7, 4)
@@ -453,6 +459,63 @@ static int adf4371_channel_power_down(struct adf4371_state *st,
 	return regmap_write(st->regmap, reg, readval);
 }
 
+static int adf4371_write_raw(struct iio_dev *indio_dev,
+			struct iio_chan_spec const *chan,
+			int val,
+			int val2,
+			long info)
+{
+	struct adf4371_state *st = iio_priv(indio_dev);
+	u64 val64;
+	int ret;
+
+	switch (info) {
+	case IIO_CHAN_INFO_PHASE:
+		val64 = (u64) val * (1 << 24);
+		do_div(val64, 360000UL);
+
+		st->buf[0] = val64 & 0xFF;
+		st->buf[1] = (val64 >> 8) & 0xFF;
+		st->buf[2] = (val64 >> 16) & 0xFF;
+
+		ret = regmap_update_bits(st->regmap, ADF4371_REG(0x1A),
+					ADF4371_PHASE_ADJ_MSK,
+					ADF4371_PHASE_ADJ(1));
+		if (ret < 0)
+			break;
+
+		ret = regmap_update_bits(st->regmap, ADF4371_REG(0x12),
+					ADF4371_EN_AUTOCAL_MSK,
+					ADF4371_EN_AUTOCAL(0));
+		if (ret < 0)
+			break;
+
+		ret = regmap_write(st->regmap, ADF4371_REG(0x2B), 0x04);
+		if (ret < 0)
+			return ret;
+
+		ret = regmap_bulk_write(st->regmap,
+				ADF4371_REG(0x1B), st->buf, 3);
+		if (ret < 0)
+			return ret;
+
+		ret = regmap_write(st->regmap, ADF4371_REG(0x10), st->integer & 0xFF);
+		if (ret < 0)
+			break;
+
+		ret = regmap_update_bits(st->regmap, ADF4371_REG(0x12),
+					ADF4371_EN_AUTOCAL_MSK,
+					ADF4371_EN_AUTOCAL(1));
+		if (ret < 0)
+			break;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 static int adf4371_read_raw(struct iio_dev *indio_dev,
 			struct iio_chan_spec const *chan,
 			int *val,
@@ -461,9 +524,23 @@ static int adf4371_read_raw(struct iio_dev *indio_dev,
 {
 	struct adf4371_state *st = iio_priv(indio_dev);
 	unsigned int readval;
+	u64 val64;
 	int ret;
 
 	switch (info) {
+	case IIO_CHAN_INFO_PHASE:
+		ret = regmap_bulk_read(st->regmap,
+				       ADF4371_REG(0x1B), st->buf, 3);
+		if (ret < 0)
+			return ret;
+
+		val64 = st->buf[0] | st->buf[1] << 8 | st->buf[2] << 16;
+		val64 *= 360000ULL;
+		do_div(val64, 1 << 24);
+
+		*val = val64;
+
+		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_PROCESSED:
 		ret = regmap_update_bits(st->regmap, ADF4371_REG(0x73),
 					ADF4371_ADC_CLK_DISABLE_MSK,
@@ -676,6 +753,7 @@ static const struct iio_chan_spec_ext_info adf4371_ext_info[] = {
 		.channel = index, \
 		.ext_info = adf4371_ext_info, \
 		.indexed = 1, \
+		.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_PHASE), \
 	}
 
 static const struct iio_chan_spec adf4371_chan[] = {
@@ -718,6 +796,7 @@ static int adf4371_reg_access(struct iio_dev *indio_dev,
 static const struct iio_info adf4371_info = {
 	.debugfs_reg_access = &adf4371_reg_access,
 	.read_raw = &adf4371_read_raw,
+	.write_raw = adf4371_write_raw,
 };
 
 static int adf4371_channel_config(struct adf4371_state *st)
