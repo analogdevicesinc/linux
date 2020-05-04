@@ -141,7 +141,6 @@ static int ad2s1210_config_read(struct ad2s1210_state *st,
 			.len = 1,
 			.rx_buf = &st->rx[1],
 			.tx_buf = &st->tx[1],
-			.cs_change = 1,
 		},
 	};
 	int ret = 0;
