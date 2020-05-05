@@ -177,7 +177,7 @@
 		adi,jesd204-framer-a-external-sysref = <1>;
 		adi,jesd204-framer-a-serializer-lanes-enabled = <0x03>;
 		adi,jesd204-framer-a-serializer-lane-crossbar = <0xE4>;
-		adi,jesd204-framer-a-lmfc-offset = <5>;
+		adi,jesd204-framer-a-lmfc-offset = <15>;
 		adi,jesd204-framer-a-new-sysref-on-relink = <0>;
 		adi,jesd204-framer-a-syncb-in-select = <0>;
 		adi,jesd204-framer-a-over-sample = <0>;
@@ -197,7 +197,7 @@
 		adi,jesd204-framer-b-external-sysref = <1>;
 		adi,jesd204-framer-b-serializer-lanes-enabled = <0x0C>;
 		adi,jesd204-framer-b-serializer-lane-crossbar = <0xE4>;
-		adi,jesd204-framer-b-lmfc-offset = <5>;
+		adi,jesd204-framer-b-lmfc-offset = <15>;
 		adi,jesd204-framer-b-new-sysref-on-relink = <0>;
 		adi,jesd204-framer-b-syncb-in-select = <1>;
 		adi,jesd204-framer-b-over-sample = <0>;
