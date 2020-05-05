@@ -1601,6 +1601,8 @@ static int ad9081_setup(struct spi_device *spi, bool ad9234)
 			REG_GENERAL_JRX_CTRL_ADDR, 0x80);
 		adi_ad9081_jesd_tx_sync_mode_set(&phy->ad9081,
 			AD9081_LINK_0, 1);
+		adi_ad9081_hal_bf_set(&phy->ad9081, REG_SYNCB_CTRL_ADDR,
+			BF_PD_SYNCB_RX_RC_INFO, 0);
 	}
 
 	if (!IS_ERR_OR_NULL(phy->jesd_rx_clk)) {
