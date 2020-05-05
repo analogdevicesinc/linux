@@ -83,6 +83,8 @@ struct ad9144_platform_data {
 
 	unsigned int pll_frequency;
 	bool pll_enable;
+
+	unsigned int sync_mode;
 };
 
 struct ad9144_state {
@@ -1076,6 +1078,13 @@ static struct ad9144_platform_data *ad9144_parse_dt(struct device *dev)
 	if (pdata->pll_enable && !pdata->pll_frequency)
 		dev_err(dev, "DAC pll enabled but missing 'adi,pll-frequency'\n");
 
+	tmp = AD9144_SYNC_ONESHOT;
+	of_property_read_u32(np, "adi,sync-mode", &tmp);
+	pdata->sync_mode = tmp;
+
+	if (pdata->sync_mode == AD9144_SYNC_CONTINUOUS && !pdata->jesd_subclass)
+		dev_warn(dev, "Continuous sync mode can only be used in Subclass 1\n");
+
 	/*
 	 * DO NOT copy this. It is as wrong as it gets, we have to do it to
 	 * preserve backwards compatibility with earlier versions of the driver
@@ -1272,7 +1281,7 @@ static int ad9144_probe(struct spi_device *spi)
 	link_config.high_density = ad9144_jesd_modes[pdata->jesd_link_mode].hd;
 	link_config.scrambling = true;
 	link_config.subclass = pdata->jesd_subclass;
-	link_config.sysref.mode = AD9144_SYNC_ONESHOT;
+	link_config.sysref.mode = pdata->sync_mode;
 
 	for (i = 0; i < 8; i++)
 		link_config.lane_mux[i] = pdata->xbar_lane_sel[i];
