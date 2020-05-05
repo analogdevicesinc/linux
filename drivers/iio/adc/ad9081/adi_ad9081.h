@@ -426,6 +426,14 @@ typedef enum {
 } adi_ad9081_test_mode_e;
 
 /*!
+ * @brief Enumerates DESER CTLE Settings
+ */
+typedef enum {
+	IL_GREATER_THAN_10DB = 0, /*!< CTLE settings with > 10dB */
+	IL_LESS_THAN_10DB = 1 /*!< CTLE settings with < 10dB */
+} adi_ad9081_il_settings_e;
+
+/*!
  * @brief Enumerates Reset Operation
  */
 typedef enum {
@@ -2737,6 +2745,22 @@ int32_t adi_ad9081_adc_pfir_q_mode_set(adi_ad9081_device_t *device,
 				       adi_ad9081_adc_pfir_q_mode_e q_mode);
 
 /**
+ * @brief  Set PFIR Mode
+ *
+ * @param  device         Pointer to the device structure
+ * @param  ctl_pages      PFIR control pages @see adi_ad9081_adc_pfir_ctl_page_e
+ * @param  i_mode         PFIR i-mode @see adi_ad9081_adc_pfir_i_mode_e
+ * @param  q_mode         PFIR q-mode @see adi_ad9081_adc_pfir_q_mode_e
+ *
+ * @return API_CMS_ERROR_OK                     API Completed Successfully
+ * @return <0                                   Failed. @see adi_cms_error_e for details.
+ */
+int32_t adi_ad9081_adc_pfir_mode_set(adi_ad9081_device_t *device,
+				     adi_ad9081_adc_pfir_ctl_page_e ctl_pages,
+				     adi_ad9081_adc_pfir_i_mode_e i_mode,
+				     adi_ad9081_adc_pfir_q_mode_e q_mode);
+
+/**
  * @brief  Set PFIR I Gain
  *
  * @param  device         Pointer to the device structure
@@ -2767,6 +2791,26 @@ int32_t adi_ad9081_adc_pfir_q_gain_set(adi_ad9081_device_t *device,
 				       adi_ad9081_adc_pfir_ctl_page_e ctl_pages,
 				       adi_ad9081_adc_pfir_gain_e qx_gain,
 				       adi_ad9081_adc_pfir_gain_e qy_gain);
+
+/**
+ * @brief  Set PFIR I Gain
+ *
+ * @param  device         Pointer to the device structure
+ * @param  ctl_pages      PFIR control pages @see adi_ad9081_adc_pfir_ctl_page_e
+ * @param  ix_gain        PFIR Ix gain @see adi_ad9081_adc_pfir_gain_e
+ * @param  iy_gain        PFIR Iy gain @see adi_ad9081_adc_pfir_gain_e
+ * @param  qx_gain        PFIR Qx gain @see adi_ad9081_adc_pfir_gain_e
+ * @param  qy_gain        PFIR Qy gain @see adi_ad9081_adc_pfir_gain_e
+ *
+ * @return API_CMS_ERROR_OK                     API Completed Successfully
+ * @return <0                                   Failed. @see adi_cms_error_e for details.
+ */
+int32_t adi_ad9081_adc_pfir_gain_set(adi_ad9081_device_t *device,
+				     adi_ad9081_adc_pfir_ctl_page_e ctl_pages,
+				     adi_ad9081_adc_pfir_gain_e ix_gain,
+				     adi_ad9081_adc_pfir_gain_e iy_gain,
+				     adi_ad9081_adc_pfir_gain_e qx_gain,
+				     adi_ad9081_adc_pfir_gain_e qy_gain);
 
 /**
  * @brief  Set PFIR Delay for Half Complex Mode
@@ -2918,6 +2962,37 @@ int32_t
 adi_ad9081_adc_pfir_coeffs_set(adi_ad9081_device_t *device,
 			       adi_ad9081_adc_pfir_coeff_page_e coeff_pages,
 			       uint16_t *coeffs);
+
+/**
+ * @brief  Set PFIR
+ *
+ * @param  device         Pointer to the device structure
+ * @param  ctl_pages      PFIR control pages @see adi_ad9081_adc_pfir_ctl_page_e
+ * @param  coeff_pages    PFIR coefficient pages @see adi_ad9081_adc_pfir_ctl_page_e
+ * @param  i_mode         PFIR i-mode @see adi_ad9081_adc_pfir_i_mode_e
+ * @param  q_mode         PFIR q-mode @see adi_ad9081_adc_pfir_q_mode_e
+ * @param  ix_gain        PFIR Ix gain @see adi_ad9081_adc_pfir_gain_e
+ * @param  iy_gain        PFIR Iy gain @see adi_ad9081_adc_pfir_gain_e
+ * @param  qx_gain        PFIR Qx gain @see adi_ad9081_adc_pfir_gain_e
+ * @param  qy_gain        PFIR Qy gain @see adi_ad9081_adc_pfir_gain_e
+ * @param  coeff_load_sel Load selection
+ *                            bit 0: real_i load,       bit 1: real_q load
+ *                            bit 2: real_cross_i load, bit 3: real_cross_q load
+ *                            bit 4: complex load
+ * @param  coeffs         Coefficient value array pointer
+ * @param  coeffs_num     Coefficient value array(coeffs) size
+ *
+ * @return API_CMS_ERROR_OK                     API Completed Successfully
+ * @return <0                                   Failed. @see adi_cms_error_e for details.
+ */
+int32_t adi_ad9081_adc_pfir_config_set(
+	adi_ad9081_device_t *device, adi_ad9081_adc_pfir_ctl_page_e ctl_pages,
+	adi_ad9081_adc_pfir_coeff_page_e coeff_pages,
+	adi_ad9081_adc_pfir_i_mode_e i_mode,
+	adi_ad9081_adc_pfir_q_mode_e q_mode, adi_ad9081_adc_pfir_gain_e ix_gain,
+	adi_ad9081_adc_pfir_gain_e iy_gain, adi_ad9081_adc_pfir_gain_e qx_gain,
+	adi_ad9081_adc_pfir_gain_e qy_gain, uint8_t coeff_load_sel,
+	uint16_t *coeffs, uint8_t coeffs_num);
 
 /**
  * @brief  Set Fine DDC Samples Status Selection
@@ -3913,6 +3988,18 @@ int32_t adi_ad9081_jesd_rx_204c_sh_irq_clr(adi_ad9081_device_t *device,
 					   adi_ad9081_jesd_link_select_e links);
 
 /**
+ * @brief  Set JESD RX CTLE
+ *
+ * @param  device      Pointer to the device structure
+ * @param  il_settings CTLE setting, @see adi_il_settings_e
+ *
+ * @return API_CMS_ERROR_OK                     API Completed Successfully
+ * @return <0                                   Failed. @see adi_cms_error_e for details.
+ */
+int32_t adi_ad9081_jesd_rx_ctle_set(adi_ad9081_device_t *device,
+				    adi_ad9081_il_settings_e il_settings);
+
+/**
  * @brief  Select jesd tx link
  *
  * @param  device     Pointer to the device structure
@@ -3929,7 +4016,7 @@ int32_t adi_ad9081_jesd_tx_link_select_set(adi_ad9081_device_t *device,
  *
  * @param  device     Pointer to the device structure
  * @param  links      Target link select
- * @param  jesd_param l,f,k,m,s,n,np,hd,scr,did,bid
+ * @param  jesd_param @see adi_cms_jesd_param_t, pass array with 2 elements for dual link
  *
  * @return API_CMS_ERROR_OK                     API Completed Successfully
  * @return <0                                   Failed. @see adi_cms_error_e for details.
@@ -4520,7 +4607,7 @@ int32_t adi_ad9081_jesd_loopback_mode_set(adi_ad9081_device_t *device,
 					  uint8_t mode);
 
 /**
- * @brief  Run SPO Test for JESD Receiver
+ * @brief  Run SPO Sweep for JESD Receiver
  *
  * @param device         Pointer to the device reference handle.
  * @param lane           Lane index, 0 ~ 7
@@ -4528,16 +4615,18 @@ int32_t adi_ad9081_jesd_loopback_mode_set(adi_ad9081_device_t *device,
  *                       R0: PRBS7, PRBS15, PRBS31
  *                       R1: PRBS7, PRBS9, PRBS15, PRBS31
  * @param spo_mode       AD9081_HALF_RATE, AD9081_QUART_RATE
- * @param spo            Golden left and right SPO
- * @param time_sec       Seconds for PRBS test duration time
+ * @param prbs_delay_sec Seconds for PRBS test duration time
+ * @param left_spo       Good left SPO
+ * @param right_spo      Good right SPO
  *
  * @return API_CMS_ERROR_OK                     API Completed Successfully
  * @return <0                                   Failed. @see adi_cms_error_e for details.
  */
-int32_t adi_ad9081_jesd_rx_spo_test(adi_ad9081_device_t *device, uint8_t lane,
-				    adi_cms_jesd_prbs_pattern_e prbs_pattern,
-				    adi_ad9081_spo_mode_e spo_mode,
-				    adi_ad9081_spo_t *spo, uint32_t time_sec);
+int32_t adi_ad9081_jesd_rx_spo_sweep(adi_ad9081_device_t *device, uint8_t lane,
+				     adi_cms_jesd_prbs_pattern_e prbs_pattern,
+				     adi_ad9081_spo_mode_e spo_mode,
+				     uint32_t prbs_delay_sec, uint8_t *left_spo,
+				     uint8_t *right_spo);
 
 #ifdef __cplusplus
 }
