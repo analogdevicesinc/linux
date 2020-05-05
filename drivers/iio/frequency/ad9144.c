@@ -794,9 +794,9 @@ static int ad9144_setup(struct ad9144_state *st,
 	else
 		sync_mode = 0x2;
 
-	regmap_write(map, 0x03a, sync_mode); // sync-oneshot mode
-	regmap_write(map, 0x03a, 0x80 | sync_mode); // sync-enable
-	regmap_write(map, 0x03a, 0xc0 | sync_mode); // sync-arm
+	regmap_write(map, REG_SYNC_CTRL, sync_mode);
+	regmap_write(map, REG_SYNC_CTRL, sync_mode | SYNCENABLE);
+	regmap_write(map, REG_SYNC_CTRL, sync_mode | SYNCENABLE | SYNCARM);
 
 	ad9144_setup_samplerate(st);
 
