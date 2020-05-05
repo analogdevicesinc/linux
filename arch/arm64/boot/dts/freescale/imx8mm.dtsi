@@ -358,10 +358,10 @@
 					compatible = "fsl,imx8mm-sai", "fsl,imx8mq-sai";
 					reg = <0x30010000 0x10000>;
 					interrupts = <GIC_SPI 95 IRQ_TYPE_LEVEL_HIGH>;
-					clocks = <&clk IMX8MM_CLK_SAI1_IPG>,
+					clocks = <&clk IMX8MM_CLK_SAI1_IPG>, <&clk IMX8MM_CLK_DUMMY>,
 						 <&clk IMX8MM_CLK_SAI1_ROOT>,
 						 <&clk IMX8MM_CLK_DUMMY>, <&clk IMX8MM_CLK_DUMMY>;
-					clock-names = "bus", "mclk1", "mclk2", "mclk3";
+					clock-names = "bus", "mclk0", "mclk1", "mclk2", "mclk3";
 					dmas = <&sdma2 0 2 0>, <&sdma2 1 2 0>;
 					dma-names = "rx", "tx";
 					fsl,dataline = <0 0xff 0xff>;
@@ -373,10 +373,10 @@
 					compatible = "fsl,imx8mm-sai", "fsl,imx8mq-sai";
 					reg = <0x30020000 0x10000>;
 					interrupts = <GIC_SPI 96 IRQ_TYPE_LEVEL_HIGH>;
-					clocks = <&clk IMX8MM_CLK_SAI2_IPG>,
+					clocks = <&clk IMX8MM_CLK_SAI2_IPG>, <&clk IMX8MM_CLK_DUMMY>,
 						<&clk IMX8MM_CLK_SAI2_ROOT>,
 						<&clk IMX8MM_CLK_DUMMY>, <&clk IMX8MM_CLK_DUMMY>;
-					clock-names = "bus", "mclk1", "mclk2", "mclk3";
+					clock-names = "bus", "mclk0", "mclk1", "mclk2", "mclk3";
 					dmas = <&sdma2 2 2 0>, <&sdma2 3 2 0>;
 					dma-names = "rx", "tx";
 					status = "disabled";
@@ -387,10 +387,10 @@
 					compatible = "fsl,imx8mm-sai", "fsl,imx8mq-sai";
 					reg = <0x30030000 0x10000>;
 					interrupts = <GIC_SPI 50 IRQ_TYPE_LEVEL_HIGH>;
-					clocks = <&clk IMX8MM_CLK_SAI3_IPG>,
+					clocks = <&clk IMX8MM_CLK_SAI3_IPG>, <&clk IMX8MM_CLK_DUMMY>,
 						 <&clk IMX8MM_CLK_SAI3_ROOT>,
 						 <&clk IMX8MM_CLK_DUMMY>, <&clk IMX8MM_CLK_DUMMY>;
-					clock-names = "bus", "mclk1", "mclk2", "mclk3";
+					clock-names = "bus", "mclk0", "mclk1", "mclk2", "mclk3";
 					dmas = <&sdma2 4 2 0>, <&sdma2 5 2 0>;
 					dma-names = "rx", "tx";
 					status = "disabled";
@@ -401,10 +401,10 @@
 					compatible = "fsl,imx8mm-sai", "fsl,imx8mq-sai";
 					reg = <0x30050000 0x10000>;
 					interrupts = <GIC_SPI 90 IRQ_TYPE_LEVEL_HIGH>;
-					clocks = <&clk IMX8MM_CLK_SAI5_IPG>,
+					clocks = <&clk IMX8MM_CLK_SAI5_IPG>, <&clk IMX8MM_CLK_DUMMY>,
 						 <&clk IMX8MM_CLK_SAI5_ROOT>,
 						 <&clk IMX8MM_CLK_DUMMY>, <&clk IMX8MM_CLK_DUMMY>;
-					clock-names = "bus", "mclk1", "mclk2", "mclk3";
+					clock-names = "bus", "mclk0", "mclk1", "mclk2", "mclk3";
 					dmas = <&sdma2 8 2 0>, <&sdma2 9 2 0>;
 					dma-names = "rx", "tx";
 					fsl,dataline = <0 0xf 0xf>;
@@ -416,10 +416,10 @@
 					compatible = "fsl,imx8mm-sai", "fsl,imx8mq-sai";
 					reg = <0x30060000 0x10000>;
 					interrupts = <GIC_SPI 90 IRQ_TYPE_LEVEL_HIGH>;
-					clocks = <&clk IMX8MM_CLK_SAI6_IPG>,
+					clocks = <&clk IMX8MM_CLK_SAI6_IPG>, <&clk IMX8MM_CLK_DUMMY>,
 						 <&clk IMX8MM_CLK_SAI6_ROOT>,
 						 <&clk IMX8MM_CLK_DUMMY>, <&clk IMX8MM_CLK_DUMMY>;
-					clock-names = "bus", "mclk1", "mclk2", "mclk3";
+					clock-names = "bus", "mclk0", "mclk1", "mclk2", "mclk3";
 					dmas = <&sdma2 10 2 0>, <&sdma2 11 2 0>;
 					dma-names = "rx", "tx";
 					status = "disabled";
