@@ -37,13 +37,13 @@ enum chip_id {
 	CHIPID_AD9154 = AD9144_CHIPID(0x91, 0x54, 0x9),
 };
 
-enum ad9144_sysref_mode {
-	AD9144_SYSREF_ONESHOT,
-	AD9144_SYSREF_CONTINUOUS
+enum ad9144_sync_mode {
+	AD9144_SYNC_ONESHOT,
+	AD9144_SYNC_CONTINUOUS
 };
 
 struct ad9144_sysref_config {
-	enum ad9144_sysref_mode mode;
+	enum ad9144_sync_mode mode;
 	bool capture_falling_edge;
 };
 
@@ -663,7 +663,7 @@ static int ad9144_setup(struct ad9144_state *st,
 	struct ad9144_jesd204_link_config *link_config)
 {
 	struct regmap *map = st->map;
-	unsigned int sysref_mode;
+	unsigned int sync_mode;
 	unsigned int phy_mask;
 	unsigned int pd_dac;
 	unsigned int pd_clk;
@@ -789,14 +789,14 @@ static int ad9144_setup(struct ad9144_state *st,
 		regmap_write(map, 0x307, 0x0a);	// receive buffer delay
 	}
 
-	if (link_config->sysref.mode == AD9144_SYSREF_ONESHOT)
-		sysref_mode = 0x1;
+	if (link_config->sysref.mode == AD9144_SYNC_ONESHOT)
+		sync_mode = 0x1;
 	else
-		sysref_mode = 0x2;
+		sync_mode = 0x2;
 
-	regmap_write(map, 0x03a, sysref_mode); // sync-oneshot mode
-	regmap_write(map, 0x03a, 0x80 | sysref_mode); // sync-enable
-	regmap_write(map, 0x03a, 0xc0 | sysref_mode); // sysref-armed
+	regmap_write(map, 0x03a, sync_mode); // sync-oneshot mode
+	regmap_write(map, 0x03a, 0x80 | sync_mode); // sync-enable
+	regmap_write(map, 0x03a, 0xc0 | sync_mode); // sync-arm
 
 	ad9144_setup_samplerate(st);
 
@@ -1272,7 +1272,7 @@ static int ad9144_probe(struct spi_device *spi)
 	link_config.high_density = ad9144_jesd_modes[pdata->jesd_link_mode].hd;
 	link_config.scrambling = true;
 	link_config.subclass = pdata->jesd_subclass;
-	link_config.sysref.mode = AD9144_SYSREF_ONESHOT;
+	link_config.sysref.mode = AD9144_SYNC_ONESHOT;
 
 	for (i = 0; i < 8; i++)
 		link_config.lane_mux[i] = pdata->xbar_lane_sel[i];
