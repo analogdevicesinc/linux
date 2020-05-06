@@ -2144,6 +2144,9 @@ typedef struct _gcsSTATE_DELTA      * gcsSTATE_DELTA_PTR;
 typedef struct _gcsQUEUE            * gcsQUEUE_PTR;
 typedef struct _gcoQUEUE            * gcoQUEUE;
 typedef struct _gcsHAL_INTERFACE    * gcsHAL_INTERFACE_PTR;
+#if VIVANTE_PROFILER
+typedef struct _gcsHAL_PROFILER_INTERFACE    * gcsHAL_PROFILER_INTERFACE_PTR;
+#endif
 typedef struct _gcs2D_PROFILE       * gcs2D_PROFILE_PTR;
 
 #if gcdENABLE_VG

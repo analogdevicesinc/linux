@@ -76,7 +76,7 @@ extern "C" {
 
 #define gcvHAL_CLASS                    "galcore"
 #define IOCTL_GCHAL_INTERFACE           30000
-#define IOCTL_GCHAL_KERNEL_INTERFACE    30001
+#define IOCTL_GCHAL_PROFILER_INTERFACE  30001
 #define IOCTL_GCHAL_TERMINATE           30002
 
 /******************************************************************************\
@@ -1171,15 +1171,6 @@ typedef struct _gcsHAL_INTERFACE
         gcsHAL_READ_REGISTER_EX             ReadRegisterDataEx;
         gcsHAL_WRITE_REGISTER_EX            WriteRegisterDataEx;
 
-#if VIVANTE_PROFILER
-        gcsHAL_GET_PROFILE_SETTING          GetProfileSetting;
-        gcsHAL_SET_PROFILE_SETTING          SetProfileSetting;
-        gcsHAL_READ_PROFILER_REGISTER_SETTING SetProfilerRegisterClear;
-        gcsHAL_READ_ALL_PROFILE_REGISTERS_PART1 RegisterProfileData_part1;
-        gcsHAL_READ_ALL_PROFILE_REGISTERS_PART2 RegisterProfileData_part2;
-        gcsHAL_PROFILE_REGISTERS_2D         RegisterProfileData2D;
-#endif
-
         gcsHAL_SET_POWER_MANAGEMENT         SetPowerManagement;
         gcsHAL_QUERY_POWER_MANAGEMENT       QueryPowerManagement;
         gcsHAL_CONFIG_POWER_MANAGEMENT      ConfigPowerManagement;
@@ -1232,6 +1223,44 @@ typedef struct _gcsHAL_INTERFACE
 }
 gcsHAL_INTERFACE;
 
+#if VIVANTE_PROFILER
+typedef struct _gcsHAL_PROFILER_INTERFACE
+{
+    /* Command code. */
+    gceHAL_COMMAND_CODES        command;
+
+    /* Hardware type. */
+    gceHARDWARE_TYPE            hardwareType;
+
+    /* Core index for current hardware type. */
+    gctUINT32                   coreIndex;
+
+    /* Status value. */
+    gceSTATUS                   status;
+
+    /* Engine */
+    gceENGINE                   engine;
+
+    /* Ignore information from TSL when doing IO control */
+    gctBOOL                     ignoreTLS;
+
+    /* The mutext already acquired */
+    IN gctBOOL                  commitMutex;
+
+    /* Union of command structures. */
+    union profiler_u
+    {
+        gcsHAL_GET_PROFILE_SETTING              GetProfileSetting;
+        gcsHAL_SET_PROFILE_SETTING              SetProfileSetting;
+        gcsHAL_READ_PROFILER_REGISTER_SETTING   SetProfilerRegisterClear;
+        gcsHAL_READ_ALL_PROFILE_REGISTERS_PART1 RegisterProfileData_part1;
+        gcsHAL_READ_ALL_PROFILE_REGISTERS_PART2 RegisterProfileData_part2;
+        gcsHAL_PROFILE_REGISTERS_2D             RegisterProfileData2D;
+    }
+    u;
+}
+gcsHAL_PROFILER_INTERFACE;
+#endif
 
 #ifdef __cplusplus
 }

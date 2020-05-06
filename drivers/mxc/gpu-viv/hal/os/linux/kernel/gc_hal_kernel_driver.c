@@ -816,6 +816,11 @@ static long drv_ioctl(
     long ret = -ENOTTY;
     gceSTATUS status = gcvSTATUS_OK;
     gcsHAL_INTERFACE iface;
+
+#if VIVANTE_PROFILER
+    static gcsHAL_PROFILER_INTERFACE iface_profiler;
+#endif
+
     gctUINT32 copyLen;
     DRIVER_ARGS drvArgs;
     gckGALDEVICE device;
@@ -849,97 +854,172 @@ static long drv_ioctl(
         gcmkONERROR(gcvSTATUS_INVALID_ARGUMENT);
     }
 
-    if ((ioctlCode != IOCTL_GCHAL_INTERFACE)
-    &&  (ioctlCode != IOCTL_GCHAL_KERNEL_INTERFACE)
-    )
+    switch (ioctlCode)
     {
+    case IOCTL_GCHAL_INTERFACE:
+        /* Get the drvArgs. */
+        copyLen = copy_from_user(
+            &drvArgs, (void *) arg, sizeof(DRIVER_ARGS)
+            );
+
+        if (copyLen != 0)
+        {
+            gcmkTRACE_ZONE(
+                gcvLEVEL_ERROR, gcvZONE_DRIVER,
+                "%s(%d): error copying of the input arguments.\n",
+                __FUNCTION__, __LINE__
+                );
+
+            gcmkONERROR(gcvSTATUS_INVALID_ARGUMENT);
+        }
+
+        /* Now bring in the gcsHAL_INTERFACE structure. */
+        if ((drvArgs.InputBufferSize  != sizeof(gcsHAL_INTERFACE))
+        ||  (drvArgs.OutputBufferSize != sizeof(gcsHAL_INTERFACE))
+        )
+        {
+            gcmkTRACE_ZONE(
+                gcvLEVEL_ERROR, gcvZONE_DRIVER,
+                "%s(%d): input or/and output structures are invalid.\n",
+                __FUNCTION__, __LINE__
+                );
+
+            gcmkONERROR(gcvSTATUS_INVALID_ARGUMENT);
+        }
+
+        copyLen = copy_from_user(
+            &iface, gcmUINT64_TO_PTR(drvArgs.InputBuffer), sizeof(gcsHAL_INTERFACE)
+            );
+
+        if (copyLen != 0)
+        {
+            gcmkTRACE_ZONE(
+                gcvLEVEL_ERROR, gcvZONE_DRIVER,
+                "%s(%d): error copying of input HAL interface.\n",
+                __FUNCTION__, __LINE__
+                );
+
+            gcmkONERROR(gcvSTATUS_INVALID_ARGUMENT);
+        }
+
+        if (iface.command == gcvHAL_DEVICE_MUTEX)
+        {
+            if (iface.u.DeviceMutex.isMutexLocked == gcvTRUE)
+            {
+                data->isLocked = gcvTRUE;
+            }
+            else
+            {
+                data->isLocked = gcvFALSE;
+            }
+        }
+
+        status = gckDEVICE_Dispatch(device->device, &iface);
+
+        /* Redo system call after pending signal is handled. */
+        if (status == gcvSTATUS_INTERRUPTED)
+        {
+            ret = -ERESTARTSYS;
+            gcmkONERROR(status);
+        }
+
+        /* Copy data back to the user. */
+        copyLen = copy_to_user(
+            gcmUINT64_TO_PTR(drvArgs.OutputBuffer), &iface, sizeof(gcsHAL_INTERFACE)
+            );
+
+        if (copyLen != 0)
+        {
+            gcmkTRACE_ZONE(
+                gcvLEVEL_ERROR, gcvZONE_DRIVER,
+                "%s(%d): error copying of output HAL interface.\n",
+                __FUNCTION__, __LINE__
+                );
+
+            gcmkONERROR(gcvSTATUS_INVALID_ARGUMENT);
+        }
+        break;
+
+    case IOCTL_GCHAL_PROFILER_INTERFACE:
+#if VIVANTE_PROFILER
+        /* Get the drvArgs. */
+        copyLen = copy_from_user(
+            &drvArgs, (void *) arg, sizeof(DRIVER_ARGS)
+            );
+
+        if (copyLen != 0)
+        {
+           gcmkTRACE_ZONE(
+                gcvLEVEL_ERROR, gcvZONE_DRIVER,
+                "%s(%d): error copying of the input arguments.\n",
+                __FUNCTION__, __LINE__
+                );
+
+            gcmkONERROR(gcvSTATUS_INVALID_ARGUMENT);
+        }
+
+        /* Now bring in the gcsHAL_INTERFACE structure. */
+        if ((drvArgs.InputBufferSize  != sizeof(gcsHAL_PROFILER_INTERFACE))
+        ||  (drvArgs.OutputBufferSize != sizeof(gcsHAL_PROFILER_INTERFACE))
+        )
+        {
+            gcmkTRACE_ZONE(
+                gcvLEVEL_ERROR, gcvZONE_DRIVER,
+                "%s(%d): input or/and output structures are invalid.\n",
+                __FUNCTION__, __LINE__
+                );
+
+            gcmkONERROR(gcvSTATUS_INVALID_ARGUMENT);
+        }
+
+        copyLen = copy_from_user(
+            &iface_profiler, gcmUINT64_TO_PTR(drvArgs.InputBuffer), sizeof(gcsHAL_PROFILER_INTERFACE)
+            );
+
+        if (copyLen != 0)
+        {
+            gcmkTRACE_ZONE(
+                gcvLEVEL_ERROR, gcvZONE_DRIVER,
+                "%s(%d): error copying of input HAL interface.\n",
+                __FUNCTION__, __LINE__
+                );
+
+            gcmkONERROR(gcvSTATUS_INVALID_ARGUMENT);
+        }
+
+        status = gckDEVICE_Profiler_Dispatch(device->device, &iface_profiler);
+
+        /* Redo system call after pending signal is handled. */
+        if (status == gcvSTATUS_INTERRUPTED)
+        {
+            ret = -ERESTARTSYS;
+            gcmkONERROR(status);
+        }
+
+        /* Copy data back to the user. */
+        copyLen = copy_to_user(
+            gcmUINT64_TO_PTR(drvArgs.OutputBuffer), &iface_profiler, sizeof(gcsHAL_PROFILER_INTERFACE)
+            );
+
+        if (copyLen != 0)
+        {
+            gcmkTRACE_ZONE(
+                gcvLEVEL_ERROR, gcvZONE_DRIVER,
+                "%s(%d): error copying of output HAL interface.\n",
+                __FUNCTION__, __LINE__
+                );
+
+            gcmkONERROR(gcvSTATUS_INVALID_ARGUMENT);
+        }
+#endif
+        break;
+
+    default:
         gcmkTRACE_ZONE(
             gcvLEVEL_ERROR, gcvZONE_DRIVER,
             "%s(%d): unknown command %d\n",
             __FUNCTION__, __LINE__,
             ioctlCode
-            );
-
-        gcmkONERROR(gcvSTATUS_INVALID_ARGUMENT);
-    }
-
-    /* Get the drvArgs. */
-    copyLen = copy_from_user(
-        &drvArgs, (void *) arg, sizeof(DRIVER_ARGS)
-        );
-
-    if (copyLen != 0)
-    {
-        gcmkTRACE_ZONE(
-            gcvLEVEL_ERROR, gcvZONE_DRIVER,
-            "%s(%d): error copying of the input arguments.\n",
-            __FUNCTION__, __LINE__
-            );
-
-        gcmkONERROR(gcvSTATUS_INVALID_ARGUMENT);
-    }
-
-    /* Now bring in the gcsHAL_INTERFACE structure. */
-    if ((drvArgs.InputBufferSize  != sizeof(gcsHAL_INTERFACE))
-    ||  (drvArgs.OutputBufferSize != sizeof(gcsHAL_INTERFACE))
-    )
-    {
-        gcmkTRACE_ZONE(
-            gcvLEVEL_ERROR, gcvZONE_DRIVER,
-            "%s(%d): input or/and output structures are invalid.\n",
-            __FUNCTION__, __LINE__
-            );
-
-        gcmkONERROR(gcvSTATUS_INVALID_ARGUMENT);
-    }
-
-    copyLen = copy_from_user(
-        &iface, gcmUINT64_TO_PTR(drvArgs.InputBuffer), sizeof(gcsHAL_INTERFACE)
-        );
-
-    if (copyLen != 0)
-    {
-        gcmkTRACE_ZONE(
-            gcvLEVEL_ERROR, gcvZONE_DRIVER,
-            "%s(%d): error copying of input HAL interface.\n",
-            __FUNCTION__, __LINE__
-            );
-
-        gcmkONERROR(gcvSTATUS_INVALID_ARGUMENT);
-    }
-
-    if (iface.command == gcvHAL_DEVICE_MUTEX)
-    {
-        if (iface.u.DeviceMutex.isMutexLocked == gcvTRUE)
-        {
-            data->isLocked = gcvTRUE;
-        }
-        else
-        {
-            data->isLocked = gcvFALSE;
-        }
-    }
-
-    status = gckDEVICE_Dispatch(device->device, &iface);
-
-    /* Redo system call after pending signal is handled. */
-    if (status == gcvSTATUS_INTERRUPTED)
-    {
-        ret = -ERESTARTSYS;
-        gcmkONERROR(status);
-    }
-
-    /* Copy data back to the user. */
-    copyLen = copy_to_user(
-        gcmUINT64_TO_PTR(drvArgs.OutputBuffer), &iface, sizeof(gcsHAL_INTERFACE)
-        );
-
-    if (copyLen != 0)
-    {
-        gcmkTRACE_ZONE(
-            gcvLEVEL_ERROR, gcvZONE_DRIVER,
-            "%s(%d): error copying of output HAL interface.\n",
-            __FUNCTION__, __LINE__
             );
 
         gcmkONERROR(gcvSTATUS_INVALID_ARGUMENT);
