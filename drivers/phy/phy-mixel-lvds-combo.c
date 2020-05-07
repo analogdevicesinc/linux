@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-2019 NXP
+ * Copyright 2017-2020 NXP
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -129,6 +129,8 @@ void mixel_phy_combo_lvds_set_phy_speed(struct phy *phy,
 	if (fvco < MIN_PLL_VCO_FREQ || fvco > MAX_PLL_VCO_FREQ)
 		dev_warn(dev, "PLL VCO frequency %lu is out of range\n", fvco);
 
+	phy_pm_runtime_get_sync(phy);
+
 	clk_prepare_enable(lvds_phy->phy_clk);
 	mutex_lock(&lvds_phy->lock);
 	phy_ctrl_write(phy, CO, CO_DIV(div));
@@ -136,6 +138,8 @@ void mixel_phy_combo_lvds_set_phy_speed(struct phy *phy,
 	clk_disable_unprepare(lvds_phy->phy_clk);
 
 	clk_set_rate(lvds_phy->phy_clk, phy_clk_rate);
+
+	phy_pm_runtime_put(phy);
 }
 EXPORT_SYMBOL_GPL(mixel_phy_combo_lvds_set_phy_speed);
 
@@ -143,6 +147,8 @@ void mixel_phy_combo_lvds_set_hsync_pol(struct phy *phy, bool active_high)
 {
 	struct mixel_lvds_phy *lvds_phy = phy_get_drvdata(phy);
 	u32 val;
+
+	phy_pm_runtime_get_sync(phy);
 
 	clk_prepare_enable(lvds_phy->phy_clk);
 	mutex_lock(&lvds_phy->lock);
@@ -153,6 +159,8 @@ void mixel_phy_combo_lvds_set_hsync_pol(struct phy *phy, bool active_high)
 	phy_csr_write(phy, SS, val);
 	mutex_unlock(&lvds_phy->lock);
 	clk_disable_unprepare(lvds_phy->phy_clk);
+
+	phy_pm_runtime_put(phy);
 }
 EXPORT_SYMBOL_GPL(mixel_phy_combo_lvds_set_hsync_pol);
 
@@ -160,6 +168,8 @@ void mixel_phy_combo_lvds_set_vsync_pol(struct phy *phy, bool active_high)
 {
 	struct mixel_lvds_phy *lvds_phy = phy_get_drvdata(phy);
 	u32 val;
+
+	phy_pm_runtime_get_sync(phy);
 
 	clk_prepare_enable(lvds_phy->phy_clk);
 	mutex_lock(&lvds_phy->lock);
@@ -170,6 +180,8 @@ void mixel_phy_combo_lvds_set_vsync_pol(struct phy *phy, bool active_high)
 	phy_csr_write(phy, SS, val);
 	mutex_unlock(&lvds_phy->lock);
 	clk_disable_unprepare(lvds_phy->phy_clk);
+
+	phy_pm_runtime_put(phy);
 }
 EXPORT_SYMBOL_GPL(mixel_phy_combo_lvds_set_vsync_pol);
 
@@ -284,17 +296,31 @@ static int mixel_lvds_combo_phy_probe(struct platform_device *pdev)
 	lvds_phy->dev = dev;
 	mutex_init(&lvds_phy->lock);
 
+	pm_runtime_enable(dev);
+
 	lvds_phy->phy = devm_phy_create(dev, NULL, &mixel_lvds_combo_phy_ops);
 	if (IS_ERR(lvds_phy->phy)) {
 		dev_err(dev, "failed to create phy\n");
+		pm_runtime_disable(dev);
 		return PTR_ERR(lvds_phy->phy);
 	}
 
 	phy_set_drvdata(lvds_phy->phy, lvds_phy);
 
 	phy_provider = devm_of_phy_provider_register(dev, of_phy_simple_xlate);
+	if (IS_ERR(phy_provider)) {
+		pm_runtime_disable(dev);
+		return PTR_ERR(phy_provider);
+	}
 
-	return PTR_ERR_OR_ZERO(phy_provider);
+	return 0;
+}
+
+static int mixel_lvds_combo_phy_remove(struct platform_device *pdev)
+{
+	pm_runtime_disable(&pdev->dev);
+
+	return 0;
 }
 
 static const struct of_device_id mixel_lvds_combo_phy_of_match[] = {
@@ -305,6 +331,7 @@ MODULE_DEVICE_TABLE(of, mixel_lvds_combo_phy_of_match);
 
 static struct platform_driver mixel_lvds_combo_phy_driver = {
 	.probe	= mixel_lvds_combo_phy_probe,
+	.remove	= mixel_lvds_combo_phy_remove,
 	.driver = {
 		.name = "mixel-lvds-combo-phy",
 		.of_match_table	= mixel_lvds_combo_phy_of_match,
