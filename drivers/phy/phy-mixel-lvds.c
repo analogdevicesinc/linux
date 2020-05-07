@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-2019 NXP
+ * Copyright 2017-2020 NXP
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -81,6 +81,8 @@ void mixel_phy_lvds_set_phy_speed(struct phy *phy, unsigned long phy_clk_rate)
 	struct mixel_lvds_phy_priv *priv = dev_get_drvdata(phy->dev.parent);
 	u32 val;
 
+	phy_pm_runtime_get_sync(phy);
+
 	/* assuming NB is zero - 7bits per channel */
 	clk_prepare_enable(priv->phy_clk);
 	mutex_lock(&priv->lock);
@@ -97,6 +99,8 @@ void mixel_phy_lvds_set_phy_speed(struct phy *phy, unsigned long phy_clk_rate)
 	clk_disable_unprepare(priv->phy_clk);
 
 	clk_set_rate(priv->phy_clk, phy_clk_rate);
+
+	phy_pm_runtime_put(phy);
 }
 EXPORT_SYMBOL_GPL(mixel_phy_lvds_set_phy_speed);
 
@@ -107,6 +111,8 @@ void mixel_phy_lvds_set_hsync_pol(struct phy *phy, bool active_high)
 	unsigned int id = lvds_phy->id;
 	u32 val;
 
+	phy_pm_runtime_get_sync(phy);
+
 	clk_prepare_enable(priv->phy_clk);
 	mutex_lock(&priv->lock);
 	val = phy_read(phy, PHY_SS_CTRL);
@@ -116,6 +122,8 @@ void mixel_phy_lvds_set_hsync_pol(struct phy *phy, bool active_high)
 	phy_write(phy, PHY_SS_CTRL, val);
 	mutex_unlock(&priv->lock);
 	clk_disable_unprepare(priv->phy_clk);
+
+	phy_pm_runtime_put(phy);
 }
 EXPORT_SYMBOL_GPL(mixel_phy_lvds_set_hsync_pol);
 
@@ -126,6 +134,8 @@ void mixel_phy_lvds_set_vsync_pol(struct phy *phy, bool active_high)
 	unsigned int id = lvds_phy->id;
 	u32 val;
 
+	phy_pm_runtime_get_sync(phy);
+
 	clk_prepare_enable(priv->phy_clk);
 	mutex_lock(&priv->lock);
 	val = phy_read(phy, PHY_SS_CTRL);
@@ -135,6 +145,8 @@ void mixel_phy_lvds_set_vsync_pol(struct phy *phy, bool active_high)
 	phy_write(phy, PHY_SS_CTRL, val);
 	mutex_unlock(&priv->lock);
 	clk_disable_unprepare(priv->phy_clk);
+
+	phy_pm_runtime_put(phy);
 }
 EXPORT_SYMBOL_GPL(mixel_phy_lvds_set_vsync_pol);
 
@@ -233,6 +245,8 @@ static int mixel_lvds_phy_probe(struct platform_device *pdev)
 	mutex_init(&priv->lock);
 	dev_set_drvdata(dev, priv);
 
+	pm_runtime_enable(dev);
+
 	for_each_available_child_of_node(np, child) {
 		if (of_property_read_u32(child, "reg", &phy_id)) {
 			dev_err(dev, "missing reg property in node %s\n",
@@ -274,12 +288,24 @@ static int mixel_lvds_phy_probe(struct platform_device *pdev)
 	}
 
 	phy_provider = devm_of_phy_provider_register(dev, of_phy_simple_xlate);
+	if (IS_ERR(phy_provider)) {
+		pm_runtime_disable(dev);
+		return PTR_ERR(phy_provider);
+	}
 
-	return PTR_ERR_OR_ZERO(phy_provider);
+	return 0;
 
 put_child:
 	of_node_put(child);
+	pm_runtime_disable(dev);
 	return ret;
+}
+
+static int mixel_lvds_phy_remove(struct platform_device *pdev)
+{
+	pm_runtime_disable(&pdev->dev);
+
+	return 0;
 }
 
 static const struct of_device_id mixel_lvds_phy_of_match[] = {
@@ -290,6 +316,7 @@ MODULE_DEVICE_TABLE(of, mixel_lvds_phy_of_match);
 
 static struct platform_driver mixel_lvds_phy_driver = {
 	.probe	= mixel_lvds_phy_probe,
+	.remove	= mixel_lvds_phy_remove,
 	.driver = {
 		.name = "mixel-lvds-phy",
 		.of_match_table	= mixel_lvds_phy_of_match,
