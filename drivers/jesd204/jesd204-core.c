@@ -79,8 +79,6 @@ static struct jesd204_dev *jesd204_dev_alloc(struct device_node *np)
 			return ERR_PTR(-ENOMEM);
 	}
 
-	kref_get(&jdev->ref);
-
 	jdev->is_top = is_top;
 	jdev->np = of_node_get(np);
 	kref_init(&jdev->ref);
