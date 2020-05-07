@@ -215,7 +215,7 @@ static void __jesd204_dev_top_fsm_change_cb(struct kref *ref)
 
 	jdev_top->cur_state = jdev_top->nxt_state;
 	if (jdev_top->error) {
-		dev_err(jdev->dev, "jesd got error from topology %d\n",
+		dev_err(jdev->parent, "jesd got error from topology %d\n",
 			jdev_top->error);
 		jdev_top->cur_state = JESD204_STATE_ERROR;
 		goto out;
@@ -225,7 +225,8 @@ static void __jesd204_dev_top_fsm_change_cb(struct kref *ref)
 		ret = jdev_top->fsm_complete_cb(jdev, jdev_top->cb_data);
 		jesd204_dev_set_error(jdev, NULL, ret);
 		if (ret) {
-			dev_err(jdev->dev, "error from completion cb %d, state %s\n",
+			dev_err(jdev->parent,
+				"error from completion cb %d, state %s\n",
 				ret, jesd204_state_str(jdev_top->cur_state));
 			jdev_top->cur_state = JESD204_STATE_ERROR;
 			goto out;
@@ -248,7 +249,7 @@ static int jesd204_dev_validate_cur_state(struct jesd204_dev_top *jdev_top,
 {
 	if (state != jdev_top->cur_state &&
 	    jdev_top->cur_state != JESD204_STATE_DONT_CARE) {
-		dev_warn(jdev->dev,
+		dev_warn(jdev->parent,
 			 "invalid jesd state: %s, exp: %s, nxt: %s\n",
 			 jesd204_state_str(state),
 			 jesd204_state_str(jdev_top->cur_state),
@@ -425,7 +426,7 @@ static int jesd204_fsm_probed_cb(struct jesd204_dev *jdev,
 				 struct jesd204_dev_con_out *con,
 				 void *data)
 {
-	if (!jdev->dev)
+	if (!jdev->parent)
 		return JESD204_STATE_CHANGE_DEFER;
 	return JESD204_STATE_CHANGE_DONE;
 }

@@ -73,7 +73,7 @@ struct jesd204_dev_con_out {
  * @is_top		true if this device is a top device in a topology of
  *			devices that make up a JESD204 link (typically the
  *			device that is the ADC, DAC, or transceiver)
- * @dev			device that registers itself as a JESD204 device
+ * @parent		parent device that registers itself as a JESD204 device
  * @link_ops		JESD204 operations for JESD204 link management
  * @np			reference in the device-tree for this JESD204 device
  * @ref			ref count for this JESD204 device
@@ -89,7 +89,7 @@ struct jesd204_dev {
 
 	bool				is_top;
 
-	struct device			*dev;
+	struct device			*parent;
 	const jesd204_link_cb		*link_ops;
 	struct device_node		*np;
 	struct kref			ref;
