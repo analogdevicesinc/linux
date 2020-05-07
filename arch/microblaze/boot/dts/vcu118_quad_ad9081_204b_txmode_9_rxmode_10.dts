@@ -69,7 +69,7 @@
 
 /* Interface */
 
-#define AD9081_SPI_MAX_SPEED_HZ			20000000
+#define AD9081_SPI_MAX_SPEED_HZ			8000000
 
 / {
 	clocks {
