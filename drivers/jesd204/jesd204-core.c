@@ -45,7 +45,7 @@ struct jesd204_dev *jesd204_dev_from_device(struct device *dev)
 		return NULL;
 
 	list_for_each_entry(jdev, &jesd204_device_list, entry) {
-		if (jdev->dev && jdev->dev == dev)
+		if (jdev->parent && jdev->parent == dev)
 			return jdev;
 	}
 
@@ -55,7 +55,7 @@ EXPORT_SYMBOL(jesd204_dev_from_device);
 
 struct device *jesd204_dev_to_device(struct jesd204_dev *jdev)
 {
-	return jdev ? jdev->dev : NULL;
+	return jdev ? jdev->parent : NULL;
 }
 EXPORT_SYMBOL(jesd204_dev_to_device);
 
@@ -260,11 +260,11 @@ static int jesd204_dev_init_link_lane_ids(struct jesd204_dev *jdev,
 					  int link_idx,
 					  struct jesd204_link *jlink)
 {
-	struct device *dev = jdev->dev;
+	struct device *dev = jdev->parent;
 	u8 id;
 
 	if (!jlink->num_lanes) {
-		dev_err(jdev->dev, "number of lanes is 0 for link %d\n",
+		dev_err(dev, "number of lanes is 0 for link %d\n",
 			link_idx);
 		jlink->lane_ids = NULL;
 		return -EINVAL;
@@ -292,7 +292,7 @@ static struct jesd204_link *jesd204_dev_alloc_links_data(
 		const struct jesd204_link *init_links,
 		unsigned int num_links)
 {
-	struct device *dev = jdev->dev;
+	struct device *dev = jdev->parent;
 	struct jesd204_link *links;
 	size_t mem_size;
 
@@ -333,7 +333,7 @@ static int jesd204_dev_create_links_data(struct jesd204_dev *jdev,
 					 const struct jesd204_dev_data *init)
 {
 	struct jesd204_dev_top *jdev_top = jesd204_dev_top_dev(jdev);
-	struct device *dev = jdev->dev;
+	struct device *dev = jdev->parent;
 
 	if (!jdev_top)
 		return 0;
@@ -395,7 +395,7 @@ struct jesd204_dev *jesd204_dev_register(struct device *dev,
 	}
 
 	jdev->link_ops = init->link_ops;
-	jdev->dev = get_device(dev);
+	jdev->parent = get_device(dev);
 
 	ret = jesd204_dev_create_links_data(jdev, init);
 	if (ret)
@@ -461,8 +461,8 @@ static void __jesd204_dev_release(struct kref *ref)
 
 	mutex_lock(&jesd204_device_list_lock);
 
-	if (jdev->dev)
-		put_device(jdev->dev);
+	if (jdev->parent)
+		put_device(jdev->parent);
 
 	if (jdev->is_top) {
 		jdev_top = jesd204_dev_top_dev(jdev);
