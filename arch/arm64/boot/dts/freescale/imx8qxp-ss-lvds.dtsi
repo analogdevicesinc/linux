@@ -138,6 +138,7 @@
 				      "aux_pixel", "aux_bypass";
 			power-domains = <&pd IMX_SC_R_LVDS_0>,
 					<&pd IMX_SC_R_LVDS_1>;
+			power-domain-names = "main", "aux";
 			gpr = <&lvds_region1>;
 			fsl,auxldb = <&ldb2>;
 			status = "disabled";
@@ -304,6 +305,7 @@
 				      "aux_pixel", "aux_bypass";
 			power-domains = <&pd IMX_SC_R_LVDS_1>,
 					<&pd IMX_SC_R_LVDS_0>;
+			power-domain-names = "main", "aux";
 			gpr = <&lvds_region2>;
 			fsl,auxldb = <&ldb1>;
 			status = "disabled";
