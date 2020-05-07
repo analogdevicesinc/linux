@@ -13,6 +13,7 @@
 #include <linux/of_device.h>
 #include <linux/phy/phy.h>
 #include <linux/phy/phy-mixel-lvds-combo.h>
+#include <linux/pm_domain.h>
 #include <linux/regmap.h>
 
 #include <drm/bridge/fsl_imx_ldb.h>
@@ -72,6 +73,11 @@ struct imx8qxp_ldb {
 	struct clk *clk_aux_pixel;
 	struct clk *clk_aux_bypass;
 	struct imx_sc_ipc *handle;
+
+	struct device *pd_main_dev;
+	struct device *pd_aux_dev;
+	struct device_link *pd_main_link;
+	struct device_link *pd_aux_link;
 
 	int id;
 };
@@ -181,6 +187,8 @@ static void imx8qxp_ldb_encoder_enable(struct drm_encoder *encoder)
 				LDB_CH1_MODE_EN_TO_DI0 : LDB_CH1_MODE_EN_TO_DI1;
 	}
 
+	pm_runtime_get_sync(ldb->dev);
+
 	regmap_write(ldb->regmap, ldb->ctrl_reg, ldb->ldb_ctrl);
 	if (ldb->dual)
 		regmap_write(imx8qxp_ldb->aux_regmap, ldb->ctrl_reg,
@@ -259,12 +267,16 @@ imx8qxp_ldb_encoder_atomic_mode_set(struct drm_encoder *encoder,
 			ldb->ldb_ctrl &= ~LDB_DI1_VS_POL_ACT_LOW;
 	}
 
+	pm_runtime_get_sync(ldb->dev);
+
 	/* settle vsync polarity and channel selection down early */
 	if (ldb->dual) {
 		regmap_write(ldb->regmap, ldb->ctrl_reg, ldb->ldb_ctrl);
 		regmap_write(imx8qxp_ldb->aux_regmap, ldb->ctrl_reg,
 						ldb->ldb_ctrl | LDB_CH_SEL);
 	}
+
+	pm_runtime_put(ldb->dev);
 
 	if (ldb->dual) {
 		/* VSYNC */
@@ -343,6 +355,8 @@ static void imx8qxp_ldb_encoder_disable(struct drm_encoder *encoder)
 		regmap_write(imx8qxp_ldb->aux_regmap,
 					ldb->ctrl_reg, ldb->ldb_ctrl);
 
+	pm_runtime_put(ldb->dev);
+
 	clk_disable_unprepare(imx8qxp_ldb->clk_bypass);
 	clk_disable_unprepare(imx8qxp_ldb->clk_pixel);
 
@@ -407,6 +421,72 @@ static const struct of_device_id imx8qxp_ldb_dt_ids[] = {
 };
 MODULE_DEVICE_TABLE(of, imx8qxp_ldb_dt_ids);
 
+static void imx8qxp_ldb_detach_pm_domains(struct imx8qxp_ldb *imx8qxp_ldb)
+{
+	if (imx8qxp_ldb->pd_aux_link && !IS_ERR(imx8qxp_ldb->pd_aux_link))
+		device_link_del(imx8qxp_ldb->pd_aux_link);
+	if (imx8qxp_ldb->pd_aux_dev && !IS_ERR(imx8qxp_ldb->pd_aux_dev))
+		dev_pm_domain_detach(imx8qxp_ldb->pd_aux_dev, true);
+
+	if (imx8qxp_ldb->pd_main_link && !IS_ERR(imx8qxp_ldb->pd_main_link))
+		device_link_del(imx8qxp_ldb->pd_main_link);
+	if (imx8qxp_ldb->pd_main_dev && !IS_ERR(imx8qxp_ldb->pd_main_dev))
+		dev_pm_domain_detach(imx8qxp_ldb->pd_main_dev, true);
+
+	imx8qxp_ldb->pd_aux_dev = NULL;
+	imx8qxp_ldb->pd_aux_link = NULL;
+	imx8qxp_ldb->pd_main_dev = NULL;
+	imx8qxp_ldb->pd_main_link = NULL;
+}
+
+static int
+imx8qxp_ldb_attach_pm_domains(struct imx8qxp_ldb *imx8qxp_ldb, bool dual)
+{
+	struct ldb *ldb = &imx8qxp_ldb->base;
+	struct device *dev = ldb->dev;
+	u32 flags = DL_FLAG_STATELESS | DL_FLAG_PM_RUNTIME | DL_FLAG_RPM_ACTIVE;
+	int ret = 0;
+
+	imx8qxp_ldb->pd_main_dev = dev_pm_domain_attach_by_name(dev, "main");
+	if (IS_ERR(imx8qxp_ldb->pd_main_dev)) {
+		ret = PTR_ERR(imx8qxp_ldb->pd_main_dev);
+		dev_err(dev, "Failed to attach main pd dev: %d\n", ret);
+		goto fail;
+	}
+	imx8qxp_ldb->pd_main_link = device_link_add(dev,
+					imx8qxp_ldb->pd_main_dev, flags);
+	if (IS_ERR(imx8qxp_ldb->pd_main_link)) {
+		ret = PTR_ERR(imx8qxp_ldb->pd_main_link);
+		dev_err(dev, "Failed to add device link to main pd dev: %d\n",
+			ret);
+		goto fail;
+	}
+
+	if (!dual)
+		goto out;
+
+	imx8qxp_ldb->pd_aux_dev = dev_pm_domain_attach_by_name(dev, "aux");
+	if (IS_ERR(imx8qxp_ldb->pd_aux_dev)) {
+		ret = PTR_ERR(imx8qxp_ldb->pd_aux_dev);
+		dev_err(dev, "Failed to attach aux pd dev: %d\n", ret);
+		goto fail;
+	}
+	imx8qxp_ldb->pd_aux_link = device_link_add(dev,
+					imx8qxp_ldb->pd_aux_dev, flags);
+	if (IS_ERR(imx8qxp_ldb->pd_aux_link)) {
+		ret = PTR_ERR(imx8qxp_ldb->pd_aux_link);
+		dev_err(dev, "Failed to add device link to aux pd dev: %d\n",
+			ret);
+		goto fail;
+	}
+
+out:
+	return ret;
+fail:
+	imx8qxp_ldb_detach_pm_domains(imx8qxp_ldb);
+	return ret;
+}
+
 static int imx8qxp_ldb_init_sc_misc(int ldb_id, bool dual)
 {
 	struct imx_sc_ipc *handle;
@@ -469,6 +549,7 @@ imx8qxp_ldb_bind(struct device *dev, struct device *master, void *data)
 	struct ldb *ldb;
 	struct ldb_channel *ldb_ch;
 	struct drm_encoder *encoder[LDB_CH_NUM];
+	bool dual;
 	int ret;
 	int i;
 
@@ -498,44 +579,64 @@ imx8qxp_ldb_bind(struct device *dev, struct device *master, void *data)
 		drm_simple_encoder_init(drm, encoder[i], DRM_MODE_ENCODER_LVDS);
 	}
 
+	dual = of_property_read_bool(np, "fsl,dual-channel");
+
+	ret = imx8qxp_ldb_attach_pm_domains(imx8qxp_ldb, dual);
+	if (ret) {
+		dev_err(dev, "failed to attach pm domains %d\n", ret);
+		return ret;
+	}
+
+	pm_runtime_enable(dev);
+
 	ret = ldb_bind(ldb, encoder);
 	if (ret)
-		return ret;
+		goto disable_pm_runtime;
 
 	ret = imx8qxp_ldb_init_sc_misc(imx8qxp_ldb->id, ldb->dual);
 	if (ret) {
 		dev_err(dev, "failed to initialize sc misc %d\n", ret);
-		return ret;
+		goto disable_pm_runtime;
 	}
 
 	imx8qxp_ldb->clk_pixel = devm_clk_get(dev, "pixel");
-	if (IS_ERR(imx8qxp_ldb->clk_pixel))
-		return PTR_ERR(imx8qxp_ldb->clk_pixel);
+	if (IS_ERR(imx8qxp_ldb->clk_pixel)) {
+		ret = PTR_ERR(imx8qxp_ldb->clk_pixel);
+		goto disable_pm_runtime;
+	}
 
 	imx8qxp_ldb->clk_bypass = devm_clk_get(dev, "bypass");
-	if (IS_ERR(imx8qxp_ldb->clk_bypass))
-		return PTR_ERR(imx8qxp_ldb->clk_bypass);
+	if (IS_ERR(imx8qxp_ldb->clk_bypass)) {
+		ret = PTR_ERR(imx8qxp_ldb->clk_bypass);
+		goto disable_pm_runtime;
+	}
 
 	if (ldb->dual) {
 		imx8qxp_ldb->clk_aux_pixel = devm_clk_get(dev, "aux_pixel");
-		if (IS_ERR(imx8qxp_ldb->clk_aux_pixel))
-			return PTR_ERR(imx8qxp_ldb->clk_aux_pixel);
+		if (IS_ERR(imx8qxp_ldb->clk_aux_pixel)) {
+			ret = PTR_ERR(imx8qxp_ldb->clk_aux_pixel);
+			goto disable_pm_runtime;
+		}
 
 		imx8qxp_ldb->clk_aux_bypass = devm_clk_get(dev, "aux_bypass");
-		if (IS_ERR(imx8qxp_ldb->clk_aux_bypass))
-			return PTR_ERR(imx8qxp_ldb->clk_aux_bypass);
+		if (IS_ERR(imx8qxp_ldb->clk_aux_bypass)) {
+			ret = PTR_ERR(imx8qxp_ldb->clk_aux_bypass);
+			goto disable_pm_runtime;
+		}
 
 		auxldb_np = of_parse_phandle(np, "fsl,auxldb", 0);
 		if (!auxldb_np) {
 			dev_err(dev,
 				"failed to find aux LDB node in device tree\n");
-			return -ENODEV;
+			ret = -ENODEV;
+			goto disable_pm_runtime;
 		}
 
 		if (of_device_is_available(auxldb_np)) {
 			dev_err(dev, "aux LDB node is already in use\n");
 			of_node_put(auxldb_np);
-			return -ENODEV;
+			ret = -ENODEV;
+			goto disable_pm_runtime;
 		}
 
 		imx8qxp_ldb->aux_regmap =
@@ -545,10 +646,12 @@ imx8qxp_ldb_bind(struct device *dev, struct device *master, void *data)
 			if (ret != -EPROBE_DEFER)
 				dev_err(dev, "failed to get aux regmap\n");
 			of_node_put(auxldb_np);
-			return ret;
+			goto disable_pm_runtime;
 		}
 
+		pm_runtime_get_sync(dev);
 		regmap_write(imx8qxp_ldb->aux_regmap, ldb->ctrl_reg, 0);
+		pm_runtime_put(dev);
 	}
 
 	for_each_child_of_node(np, child) {
@@ -615,7 +718,7 @@ imx8qxp_ldb_bind(struct device *dev, struct device *master, void *data)
 
 		ret = imx_drm_encoder_parse_of(drm, encoder[i], ldb_ch->child);
 		if (ret)
-			return ret;
+			goto disable_pm_runtime;
 	}
 
 	return 0;
@@ -624,6 +727,9 @@ free_child:
 	of_node_put(child);
 	if (ldb->dual)
 		of_node_put(auxldb_np);
+disable_pm_runtime:
+	pm_runtime_disable(dev);
+	imx8qxp_ldb_detach_pm_domains(imx8qxp_ldb);
 
 	return ret;
 }
@@ -649,6 +755,8 @@ static void imx8qxp_ldb_unbind(struct device *dev, struct device *master,
 		if (ldb->dual && i == 0)
 			phy_exit(imx8qxp_ldb_ch->aux_phy);
 	}
+
+	imx8qxp_ldb_detach_pm_domains(imx8qxp_ldb);
 }
 
 static const struct component_ops imx8qxp_ldb_ops = {
