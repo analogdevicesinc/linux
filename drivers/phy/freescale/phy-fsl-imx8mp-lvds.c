@@ -187,6 +187,8 @@ static int imx8mp_lvds_phy_probe(struct platform_device *pdev)
 	mutex_init(&priv->lock);
 	dev_set_drvdata(dev, priv);
 
+	pm_runtime_enable(dev);
+
 	for_each_available_child_of_node(np, child) {
 		if (of_property_read_u32(child, "reg", &phy_id)) {
 			dev_err(dev, "missing reg property in node %s\n",
@@ -228,12 +230,24 @@ static int imx8mp_lvds_phy_probe(struct platform_device *pdev)
 	}
 
 	phy_provider = devm_of_phy_provider_register(dev, of_phy_simple_xlate);
+	if (IS_ERR(phy_provider)) {
+		pm_runtime_disable(dev);
+		return PTR_ERR(phy_provider);
+	}
 
-	return PTR_ERR_OR_ZERO(phy_provider);
+	return 0;
 
 put_child:
 	of_node_put(child);
+	pm_runtime_disable(dev);
 	return ret;
+}
+
+static int imx8mp_lvds_phy_remove(struct platform_device *pdev)
+{
+	pm_runtime_disable(&pdev->dev);
+
+	return 0;
 }
 
 static const struct of_device_id imx8mp_lvds_phy_of_match[] = {
@@ -244,6 +258,7 @@ MODULE_DEVICE_TABLE(of, imx8mp_lvds_phy_of_match);
 
 static struct platform_driver imx8mp_lvds_phy_driver = {
 	.probe	= imx8mp_lvds_phy_probe,
+	.remove = imx8mp_lvds_phy_remove,
 	.driver = {
 		.name = "imx8mp-lvds-phy",
 		.of_match_table	= imx8mp_lvds_phy_of_match,
