@@ -743,8 +743,7 @@ static int adar1000_setup(struct iio_dev *indio_dev)
 			   ADAR1000_SW_CTRL,
 			   ADAR1000_SW_DRV_EN_TR |
 			   ADAR1000_SW_DRV_EN_POL |
-			   ADAR1000_TR_SOURCE |
-			   ADAR1000_RX_CHX_RAM_BYPASS);
+			   ADAR1000_TR_SOURCE);
 	if (ret < 0)
 		return ret;
 
