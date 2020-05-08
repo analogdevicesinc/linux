@@ -22,6 +22,7 @@
 #include <linux/regmap.h>
 #include <drm/drm_atomic_helper.h>
 #include <drm/drm_of.h>
+#include <drm/drm_simple_kms_helper.h>
 
 #include "imx-drm.h"
 
@@ -117,10 +118,6 @@ imx_lmuxd_encoder_atomic_check(struct drm_encoder *encoder,
 	return 0;
 }
 
-static const struct drm_encoder_funcs imx_lmuxd_encoder_funcs = {
-	.destroy = imx_drm_encoder_destroy,
-};
-
 static const struct drm_encoder_helper_funcs imx_lmuxd_encoder_helper_funcs = {
 	.enable = imx_lmuxd_encoder_enable,
 	.disable = imx_lmuxd_encoder_disable,
@@ -139,8 +136,7 @@ static int imx_lmuxd_register(struct drm_device *drm,
 		return ret;
 
 	drm_encoder_helper_add(encoder, &imx_lmuxd_encoder_helper_funcs);
-	drm_encoder_init(drm, encoder, &imx_lmuxd_encoder_funcs,
-			 DRM_MODE_ENCODER_DPI, NULL);
+	drm_simple_encoder_init(drm, encoder, DRM_MODE_ENCODER_DPI);
 
 	ret = drm_bridge_attach(encoder, lmuxd->bridge, NULL, 0);
 	if (ret < 0) {
