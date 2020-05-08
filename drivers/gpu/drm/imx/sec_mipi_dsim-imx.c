@@ -29,6 +29,7 @@
 #include <drm/drm_bridge.h>
 #include <drm/drm_encoder.h>
 #include <drm/drm_modeset_helper_vtables.h>
+#include <drm/drm_simple_kms_helper.h>
 
 #include "imx-drm.h"
 #include "sec_mipi_dphy_ln14lpp.h"
@@ -162,10 +163,6 @@ static const struct drm_encoder_helper_funcs imx_sec_dsim_encoder_helper_funcs =
 	.atomic_check = imx_sec_dsim_encoder_helper_atomic_check,
 };
 
-static const struct drm_encoder_funcs imx_sec_dsim_encoder_funcs = {
-	.destroy = imx_drm_encoder_destroy,
-};
-
 static const struct sec_mipi_dsim_plat_data imx8mm_mipi_dsim_plat_data = {
 	.version	= 0x1060200,
 	.max_data_lanes = 4,
@@ -297,9 +294,7 @@ static int imx_sec_dsim_bind(struct device *dev, struct device *master,
 
 	drm_encoder_helper_add(encoder, &imx_sec_dsim_encoder_helper_funcs);
 
-	ret = drm_encoder_init(drm_dev, encoder,
-			       &imx_sec_dsim_encoder_funcs,
-			       DRM_MODE_ENCODER_DSI, dev_name(dev));
+	ret = drm_simple_encoder_init(drm_dev, encoder, DRM_MODE_ENCODER_DSI);
 	if (ret)
 		return ret;
 
