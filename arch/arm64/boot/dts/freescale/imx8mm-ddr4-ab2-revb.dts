@@ -1,0 +1,22 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2020 NXP
+ */
+
+/dts-v1/;
+
+#include "imx8mm-ddr4-ab2.dts"
+
+/ {
+	model = "FSL i.MX8MM DDR4 RevB Audio Board 2.0";
+};
+
+/*
+ * External OSC is used as PCIe REFCLK on RevC board.
+ * Use the -revb.dts file to distiguish the different
+ * HW design.
+ */
+&pcie0 {
+	ext_osc = <0>;
+	status = "okay";
+};
