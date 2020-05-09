@@ -669,6 +669,12 @@ static int imx_clk_scu_attach_pd(struct device *dev, u32 rsrc_id)
 	    rsrc_id == IMX_SC_R_A72)
 		return 0;
 
+	/*
+	 * Temp fix to avoid the uart clk attached pd power off uart_0
+	 */
+	if (rsrc_id == IMX_SC_R_UART_0 && xen_initial_domain())
+			return 0;
+
 	return of_genpd_add_device(&genpdspec, dev);
 }
 
