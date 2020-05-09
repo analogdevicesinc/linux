@@ -1461,6 +1461,11 @@ static inline int set_power(int gpu, int enable)
     struct imx_priv* priv = &imxPriv;
 #endif
 
+    struct clk *clk_core = priv->imx_gpu_clks[gpu].clk_core;
+    struct clk *clk_shader = priv->imx_gpu_clks[gpu].clk_shader;
+    struct clk *clk_axi = priv->imx_gpu_clks[gpu].clk_axi;
+    struct clk *clk_ahb = priv->imx_gpu_clks[gpu].clk_ahb;
+
     if (enable) {
 #if LINUX_VERSION_CODE < KERNEL_VERSION(3,14,0)
 #if LINUX_VERSION_CODE < KERNEL_VERSION(3,5,0) || LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
@@ -1517,7 +1522,29 @@ static inline int set_power(int gpu, int enable)
             }
         }
 #endif
+        if (clk_core)
+            clk_prepare(clk_core);
+
+        if (clk_shader)
+            clk_prepare(clk_shader);
+
+        if (clk_axi)
+            clk_prepare(clk_axi);
+
+        if (clk_ahb)
+            clk_prepare(clk_ahb);
     } else {
+        if (clk_core)
+            clk_unprepare(clk_core);
+
+        if (clk_shader)
+            clk_unprepare(clk_shader);
+
+        if (clk_axi)
+            clk_unprepare(clk_axi);
+
+        if (clk_ahb)
+            clk_unprepare(clk_ahb);
 #ifdef CONFIG_PM
         pm_runtime_put_sync(priv->pmdev[gpu]);
 #endif
@@ -1544,19 +1571,6 @@ int set_clock(int gpu, int enable)
     struct clk *clk_ahb = priv->imx_gpu_clks[gpu].clk_ahb;
 
     if (enable) {
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,5,0)
-        if (clk_core)
-            clk_prepare(clk_core);
-
-        if (clk_shader)
-            clk_prepare(clk_shader);
-
-        if (clk_axi)
-            clk_prepare(clk_axi);
-
-        if (clk_ahb)
-            clk_prepare(clk_ahb);
-#endif
         if (clk_core)
             clk_enable(clk_core);
 
@@ -1580,20 +1594,6 @@ int set_clock(int gpu, int enable)
 
         if (clk_ahb)
             clk_disable(clk_ahb);
-
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,5,0)
-        if (clk_core)
-            clk_unprepare(clk_core);
-
-        if (clk_shader)
-            clk_unprepare(clk_shader);
-
-        if (clk_axi)
-            clk_unprepare(clk_axi);
-
-        if (clk_ahb)
-            clk_unprepare(clk_ahb);
-#endif
     }
 
     return gcvSTATUS_OK;
