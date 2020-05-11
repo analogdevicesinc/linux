@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Analog Devices AD5766, AD5767
+ * Analog Devices AD5766, AD5767.
  * Digital to Analog Converters driver
  *
  * Copyright 2019 Analog Devices Inc.
