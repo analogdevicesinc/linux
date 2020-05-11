@@ -1039,6 +1039,21 @@ static void adv7511_bridge_hpd_notify(struct drm_bridge *bridge,
 		cec_phys_addr_invalidate(adv->cec_adap);
 }
 
+static void adv7511_bridge_detach(struct drm_bridge *bridge)
+{
+	struct adv7511 *adv = bridge_to_adv7511(bridge);
+
+	if (adv->i2c_main->irq)
+		regmap_write(adv->regmap, ADV7511_REG_INT_ENABLE(0), 0);
+
+	if (adv->info->has_dsi) {
+		mipi_dsi_detach(adv->dsi);
+		mipi_dsi_device_unregister(adv->dsi);
+	}
+
+	drm_connector_cleanup(&adv->connector);
+}
+
 static const struct drm_bridge_funcs adv7511_bridge_funcs = {
 	.enable = adv7511_bridge_enable,
 	.disable = adv7511_bridge_disable,
@@ -1048,6 +1063,7 @@ static const struct drm_bridge_funcs adv7511_bridge_funcs = {
 	.detect = adv7511_bridge_detect,
 	.edid_read = adv7511_bridge_edid_read,
 	.hpd_notify = adv7511_bridge_hpd_notify,
+	.detach = adv7511_bridge_detach,
 };
 
 /* -----------------------------------------------------------------------------
