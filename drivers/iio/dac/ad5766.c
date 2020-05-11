@@ -6,7 +6,9 @@
  * Copyright 2019 Analog Devices Inc.
  */
 
+#include <linux/delay.h>
 #include <linux/device.h>
+#include <linux/gpio/consumer.h>
 #include <linux/module.h>
 #include <linux/spi/spi.h>
 #include <linux/iio/iio.h>
@@ -87,6 +89,7 @@ struct ad5766_chip_info {
  * @spi:		Spi device
  * @lock:		Mutex lock
  * @chip_info:		Chip model specific constants
+ * @gpio_reset:		Reset gpio
  * @data:		Spi transfer buffers
  */
 
@@ -94,6 +97,7 @@ struct ad5766_state {
 	struct spi_device		*spi;
 	struct mutex			lock;
 	const struct ad5766_chip_info 	*chip_info;
+	struct gpio_desc		*gpio_reset;
 	union {
 		u32	d32;
 		u16	w16[2];
@@ -159,6 +163,30 @@ static int ad5766_write(struct iio_dev *indio_dev, u8 dac, u16 data)
 	mutex_unlock(&st->lock);
 
 	return ret;
+}
+
+static int ad5766_reset(struct ad5766_state *st)
+{
+	int ret = 0;
+
+	if (st->gpio_reset) {
+		gpiod_set_value_cansleep(st->gpio_reset, 0);
+		ndelay(100); /* t_reset >= 100ns */
+		gpiod_set_value_cansleep(st->gpio_reset, 1);
+	} else {
+		ret = _ad5766_spi_write(st, AD5766_CMD_SW_FULL_RESET,
+					AD5766_FULL_RESET_CODE);
+		if (ret < 0)
+			return ret;
+	}
+
+	/*
+	 * Minimum time between a reset and the subsequent successful write is
+	 * typically 25 ns
+	 */
+	ndelay(25);
+
+	return 0;
 }
 
 static int ad5766_write_raw(struct iio_dev *indio_dev,
@@ -258,6 +286,12 @@ static int ad5766_read_raw(struct iio_dev *indio_dev,
 
 static int ad5766_setup(struct ad5766_state *st)
 {
+	int ret;
+
+	ret = ad5766_reset(st);
+	if (ret < 0)
+		return ret;
+
 	return 0;
 }
 
@@ -287,6 +321,9 @@ static int ad5766_probe(struct spi_device *spi)
 	indio_dev->dev.of_node = spi->dev.of_node;
 	indio_dev->name = spi_get_device_id(spi)->name;
 	indio_dev->modes = INDIO_DIRECT_MODE;
+
+	st->gpio_reset = devm_gpiod_get_optional(&st->spi->dev, "reset",
+							GPIOD_OUT_HIGH);
 
 	ret = ad5766_setup(st);
 	if (ret)
