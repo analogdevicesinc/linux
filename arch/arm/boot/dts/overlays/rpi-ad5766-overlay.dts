@@ -16,6 +16,7 @@
 				reg = <0>;
 				spi-cpol;
 				spi-max-frequency = <1000000>;
+				reset-gpios = <&gpio 27 1>;
 			};
 		};
 	};
