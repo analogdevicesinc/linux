@@ -67,6 +67,8 @@ static ssize_t dp_aux_transfer(struct drm_dp_aux *aux,
 
 			return ret;
 		}
+		msg->reply = DP_AUX_NATIVE_REPLY_ACK;
+		return msg->size;
 	}
 
 	if (msg->request == DP_AUX_NATIVE_READ) {
