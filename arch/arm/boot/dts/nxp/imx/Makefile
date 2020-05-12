@@ -322,6 +322,7 @@ dtb-$(CONFIG_SOC_IMX6SX) += \
 	imx6sx-sdb-m4.dtb \
 	imx6sx-sdb-mqs.dtb \
 	imx6sx-sdb-btwifi.dtb \
+	imx6sx-sdb-pcie-ep.dtb \
 	imx6sx-softing-vining-2000.dtb \
 	imx6sx-udoo-neo-basic.dtb \
 	imx6sx-udoo-neo-extended.dtb \
