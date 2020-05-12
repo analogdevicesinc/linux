@@ -106,7 +106,9 @@ static int cdns_mhdp_training_start(struct cdns_mhdp_device *mhdp)
 		if (ret)
 			goto err_training_start;
 
-		if (event[1] & EQ_PHASE_FINISHED)
+		if (event[1] & CLK_RECOVERY_FAILED)
+			DRM_DEV_ERROR(mhdp->dev, "clock recovery failed\n");
+		else if (event[1] & EQ_PHASE_FINISHED)
 			return 0;
 	}
 
