@@ -97,6 +97,7 @@ struct nwl_dsi {
 	struct clk *rx_esc_clk;
 	struct clk *tx_esc_clk;
 	struct clk *core_clk;
+	struct clk *pll_clk;
 	/*
 	 * hardware bug: the i.MX8MQ needs this clock on during reset
 	 * even when not using LCDIF.
@@ -111,6 +112,7 @@ struct nwl_dsi {
 	int error;
 
 	struct nwl_dsi_transfer *xfer;
+	bool use_dcss;
 };
 
 static const struct regmap_config nwl_dsi_regmap_config = {
@@ -822,11 +824,17 @@ static int nwl_dsi_bridge_atomic_check(struct drm_bridge *bridge,
 				       struct drm_crtc_state *crtc_state,
 				       struct drm_connector_state *conn_state)
 {
-	struct drm_display_mode *adjusted_mode = &crtc_state->adjusted_mode;
+	struct nwl_dsi *dsi = bridge_to_dsi(bridge);
+	struct drm_display_mode *adjusted = &crtc_state->adjusted_mode;
 
-	/* At least LCDIF + NWL needs active high sync */
-	adjusted_mode->flags |= (DRM_MODE_FLAG_PHSYNC | DRM_MODE_FLAG_PVSYNC);
-	adjusted_mode->flags &= ~(DRM_MODE_FLAG_NHSYNC | DRM_MODE_FLAG_NVSYNC);
+	if (!dsi->use_dcss) {
+		/* At least LCDIF + NWL needs active high sync */
+		adjusted->flags |= (DRM_MODE_FLAG_PHSYNC | DRM_MODE_FLAG_PVSYNC);
+		adjusted->flags &= ~(DRM_MODE_FLAG_NHSYNC | DRM_MODE_FLAG_NVSYNC);
+	} else {
+		adjusted->flags &= ~(DRM_MODE_FLAG_PHSYNC | DRM_MODE_FLAG_PVSYNC);
+		adjusted->flags |= (DRM_MODE_FLAG_NHSYNC | DRM_MODE_FLAG_NVSYNC);
+	}
 
 	/*
 	 * Do a full modeset if crtc_state->active is changed to be true.
@@ -870,6 +878,10 @@ nwl_dsi_bridge_mode_set(struct drm_bridge *bridge,
 		goto runtime_put;
 	if (clk_prepare_enable(dsi->core_clk) < 0)
 		goto runtime_put;
+
+	/* Set the PLL clock 10 times the pixel-clock rate */
+	if (dsi->pll_clk)
+		clk_set_rate(dsi->pll_clk, adjusted_mode->clock * 10000);
 
 	/* Step 1 from DSI reset-out instructions */
 	ret = reset_control_deassert(dsi->rst_pclk);
@@ -1033,6 +1045,11 @@ static int nwl_dsi_parse_dt(struct nwl_dsi *dsi)
 	}
 	dsi->tx_esc_clk = clk;
 
+	/* The video_pll clock is optional */
+	clk = devm_clk_get(dsi->dev, "video_pll");
+	if (!IS_ERR(clk))
+		dsi->pll_clk = clk;
+
 	dsi->mux = devm_mux_control_get(dsi->dev, NULL);
 	if (IS_ERR(dsi->mux)) {
 		ret = PTR_ERR(dsi->mux);
@@ -1115,6 +1132,9 @@ static int nwl_dsi_select_input(struct nwl_dsi *dsi)
 		DRM_DEV_ERROR(dsi->dev, "Failed to select input: %d\n", ret);
 
 	of_node_put(remote);
+
+	dsi->use_dcss = use_dcss;
+
 	return ret;
 }
 
