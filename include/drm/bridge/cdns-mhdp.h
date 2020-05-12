@@ -723,7 +723,7 @@ u32 cdns_mhdp_get_fw_clk(struct cdns_mhdp_device *mhdp);
 int cdns_mhdp_load_firmware(struct cdns_mhdp_device *mhdp, const u32 *i_mem,
 			    u32 i_size, const u32 *d_mem, u32 d_size);
 int cdns_mhdp_set_firmware_active(struct cdns_mhdp_device *mhdp, bool enable);
-int cdns_mhdp_set_host_cap(struct cdns_mhdp_device *mhdp, bool flip);
+int cdns_mhdp_set_host_cap(struct cdns_mhdp_device *mhdp);
 int cdns_mhdp_event_config(struct cdns_mhdp_device *mhdp);
 u32 cdns_mhdp_get_event(struct cdns_mhdp_device *mhdp);
 int cdns_mhdp_dpcd_write(struct cdns_mhdp_device *mhdp, u32 addr, u8 value);

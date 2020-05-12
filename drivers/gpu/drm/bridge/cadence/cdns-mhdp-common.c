@@ -438,7 +438,7 @@ err_set_firmware_active:
 }
 EXPORT_SYMBOL(cdns_mhdp_set_firmware_active);
 
-int cdns_mhdp_set_host_cap(struct cdns_mhdp_device *mhdp, bool flip)
+int cdns_mhdp_set_host_cap(struct cdns_mhdp_device *mhdp)
 {
 	u8 msg[8];
 	int ret;
@@ -449,7 +449,7 @@ int cdns_mhdp_set_host_cap(struct cdns_mhdp_device *mhdp, bool flip)
 	msg[3] = PRE_EMPHASIS_LEVEL_3;
 	msg[4] = PTS1 | PTS2 | PTS3 | PTS4;
 	msg[5] = FAST_LT_NOT_SUPPORT;
-	msg[6] = flip ? LANE_MAPPING_FLIPPED : LANE_MAPPING_NORMAL;
+	msg[6] = mhdp->lane_mapping;
 	msg[7] = ENHANCED;
 
 	ret = cdns_mhdp_mailbox_send(mhdp, MB_MODULE_ID_DP_TX,

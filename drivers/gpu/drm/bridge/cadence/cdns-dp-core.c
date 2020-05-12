@@ -152,7 +152,7 @@ static void cdns_dp_mode_set(struct cdns_mhdp_device *mhdp)
 	cdns_mhdp_reg_write(mhdp, LANES_CONFIG, 0x00400000 | lane_mapping);
 
 	/* Set DP host capability */
-	ret = cdns_mhdp_set_host_cap(mhdp, false);
+	ret = cdns_mhdp_set_host_cap(mhdp);
 	if (ret) {
 		DRM_DEV_ERROR(mhdp->dev, "Failed to set host cap %d\n", ret);
 		return;
