@@ -232,6 +232,7 @@ static int adar1000_reg_access(struct iio_dev *indio_dev,
 	.channel = (_num),					\
 	.info_mask_separate = BIT(IIO_CHAN_INFO_HARDWAREGAIN) | \
 		BIT(IIO_CHAN_INFO_PHASE),			\
+	.extend_name = "RX",					\
 }
 
 #define ADAR1000_TX_CHANNEL(_num)				\
@@ -242,6 +243,7 @@ static int adar1000_reg_access(struct iio_dev *indio_dev,
 	.channel = (_num),					\
 	.info_mask_separate = BIT(IIO_CHAN_INFO_HARDWAREGAIN) | \
 		BIT(IIO_CHAN_INFO_PHASE),			\
+	.extend_name = "TX",					\
 }
 
 #define ADAR1000_TEMP_CHANNEL(_num)				\
