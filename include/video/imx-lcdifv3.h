@@ -26,6 +26,7 @@ void lcdifv3_set_fb_addr(struct lcdifv3_soc *lcdifv3, int id, u32 addr);
 void lcdifv3_set_mode(struct lcdifv3_soc *lcdifv3, struct videomode *vmode);
 void lcdifv3_set_fb_hcrop(struct lcdifv3_soc *lcdifv3, u32 src_w,
 			u32 fb_w, bool crop);
+void lcdifv3_en_shadow_load(struct lcdifv3_soc *lcdifv3);
 void lcdifv3_enable_controller(struct lcdifv3_soc *lcdifv3);
 void lcdifv3_disable_controller(struct lcdifv3_soc *lcdifv3);
 void lcdifv3_dump_registers(struct lcdifv3_soc *lcdifv3);

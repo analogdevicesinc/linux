@@ -134,7 +134,11 @@ static void lcdifv3_crtc_atomic_begin(struct drm_crtc *crtc,
 static void lcdifv3_crtc_atomic_flush(struct drm_crtc *crtc,
 				    struct drm_crtc_state *old_crtc_state)
 {
-	/* LCDIFV3 doesn't have command buffer */
+	struct lcdifv3_crtc *lcdifv3_crtc = to_lcdifv3_crtc(crtc);
+	struct lcdifv3_soc *lcdifv3 = dev_get_drvdata(lcdifv3_crtc->dev->parent);
+
+	/* kick shadow load for plane config */
+	lcdifv3_en_shadow_load(lcdifv3);
 }
 
 static void lcdifv3_crtc_atomic_enable(struct drm_crtc *crtc,

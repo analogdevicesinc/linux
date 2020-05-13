@@ -449,6 +449,17 @@ void lcdifv3_set_mode(struct lcdifv3_soc *lcdifv3, struct videomode *vmode)
 }
 EXPORT_SYMBOL(lcdifv3_set_mode);
 
+void lcdifv3_en_shadow_load(struct lcdifv3_soc *lcdifv3)
+{
+	u32 ctrldescl0_5;
+
+	ctrldescl0_5 = readl(lcdifv3->base + LCDIFV3_CTRLDESCL0_5);
+	ctrldescl0_5 |= CTRLDESCL0_5_SHADOW_LOAD_EN;
+
+	writel(ctrldescl0_5, lcdifv3->base + LCDIFV3_CTRLDESCL0_5);
+}
+EXPORT_SYMBOL(lcdifv3_en_shadow_load);
+
 void lcdifv3_enable_controller(struct lcdifv3_soc *lcdifv3)
 {
 	u32 disp_para, ctrldescl0_5;
@@ -459,10 +470,6 @@ void lcdifv3_enable_controller(struct lcdifv3_soc *lcdifv3)
 	/* disp on */
 	disp_para |= DISP_PARA_DISP_ON;
 	writel(disp_para, lcdifv3->base + LCDIFV3_DISP_PARA);
-
-	/* enable shadow load */
-	ctrldescl0_5 |= CTRLDESCL0_5_SHADOW_LOAD_EN;
-	writel(ctrldescl0_5, lcdifv3->base + LCDIFV3_CTRLDESCL0_5);
 
 	/* enable layer dma */
 	ctrldescl0_5 |= CTRLDESCL0_5_EN;
