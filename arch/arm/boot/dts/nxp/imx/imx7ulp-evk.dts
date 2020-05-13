@@ -227,7 +227,7 @@
 };
 
 &cpu0 {
-	arm-supply= <&sw1_reg>;
+	cpu-supply= <&sw1_reg>;
 };
 
 &lpspi3 {

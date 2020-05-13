@@ -41,23 +41,34 @@
 			compatible = "arm,cortex-a7";
 			device_type = "cpu";
 			reg = <0xf00>;
-			operating-points = <
-				/* KHz	uV */
-				720000	1125000
-				500210	1025000
-			>;
 			clocks = <&smc1 IMX7ULP_CLK_ARM>,
-				 <&scg1 IMX7ULP_CLK_CORE_DIV>,
+				 <&scg1 IMX7ULP_CLK_CORE>,
 				 <&scg1 IMX7ULP_CLK_SYS_SEL>,
+				 <&scg1 IMX7ULP_CLK_HSRUN_CORE>,
 				 <&scg1 IMX7ULP_CLK_HSRUN_SYS_SEL>,
-				 <&scg1 IMX7ULP_CLK_HSRUN_CORE_DIV>,
-				 <&scg1 IMX7ULP_CLK_SPLL_PFD0>,
-				 <&scg1 IMX7ULP_CLK_SPLL_SEL>,
-				 <&scg1 IMX7ULP_CLK_FIRC>,
-				 <&scg1 IMX7ULP_CLK_SPLL>;
-			clock-names = "arm", "core_div", "sys_sel", "hsrun_sys_sel",
-				      "hsrun_core", "spll_pfd0", "spll_sel", "firc",
-				      "spll";
+				 <&scg1 IMX7ULP_CLK_FIRC>;
+			clock-names = "arm", "core", "scs_sel",
+				      "hsrun_core", "hsrun_scs_sel",
+				      "firc";
+			operating-points-v2 = <&cpu0_opp_table>;
+		};
+	};
+
+	cpu0_opp_table: opp-table {
+		compatible = "operating-points-v2";
+		opp-shared;
+
+		opp-500210000 {
+			opp-hz = /bits/ 64 <500210000>;
+			opp-microvolt = <1025000>;
+			clock-latency-ns = <150000>;
+			opp-suspend;
+		};
+
+		opp-720000000 {
+			opp-hz = /bits/ 64 <720000000>;
+			opp-microvolt = <1125000>;
+			clock-latency-ns = <150000>;
 		};
 	};
 
