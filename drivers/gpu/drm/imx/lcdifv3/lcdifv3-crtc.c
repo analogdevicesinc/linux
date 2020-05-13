@@ -169,10 +169,8 @@ static void lcdifv3_crtc_atomic_enable(struct drm_crtc *crtc,
 	/* config LCDIF output bus format */
 	lcdifv3_set_bus_fmt(lcdifv3, imx_crtc_state->bus_format);
 
-	/* defer the lcdifv3 controller enable to plane update,
-	 * since until then the lcdifv3 config is complete to
-	 * enable the controller to run actually.
-	 */
+	/* run LCDIFv3 */
+	lcdifv3_enable_controller(lcdifv3);
 }
 
 static void lcdifv3_crtc_atomic_disable(struct drm_crtc *crtc,
