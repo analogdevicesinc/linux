@@ -780,6 +780,16 @@ void __init imx7ulp_pm_common_init(const struct imx7ulp_pm_socdata
 	}
 }
 
+u32 imx7ulp_get_mode(void)
+{
+	u32 mode;
+
+	mode = readl_relaxed(smc1_base + PMCTRL) & BM_PMCTRL_RUNM;
+	mode >>= 8;
+
+	return mode;
+}
+
 void __init imx7ulp_pm_init(void)
 {
 	imx7ulp_pm_common_init(&imx7ulp_lpddr3_pm_data);

@@ -139,6 +139,7 @@ static inline int imx_mmdc_get_ddr_type(void) { return 0; }
 static inline int imx_mmdc_get_lpddr2_2ch_mode(void) { return 0; }
 #endif
 int imx7ulp_set_lpm(enum ulp_cpu_pwr_mode mode);
+u32 imx7ulp_get_mode(void);
 void imx_busfreq_map_io(void);
 void imx7_pm_map_io(void);
 void imx6_pm_map_io(void);
