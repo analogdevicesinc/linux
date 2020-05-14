@@ -846,6 +846,11 @@ static int hantro_h1_dev_remove(struct platform_device *pdev)
 	pm_runtime_disable(&pdev->dev);
 	hantro_h1_clk_disable(&pdev->dev);
 
+	if (!IS_ERR(hantro_clk_h1))
+		clk_put(hantro_clk_h1);
+	if (!IS_ERR(hantro_clk_h1_bus))
+		clk_put(hantro_clk_h1_bus);
+
 	return 0;
 }
 
@@ -910,7 +915,6 @@ static int __init hantro_h1_init(void)
 
 static void __exit hantro_h1_exit(void)
 {
-	//clk_put(hantro_clk);
 	platform_driver_unregister(&mxchantro_h1_driver);
 }
 
