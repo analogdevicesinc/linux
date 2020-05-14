@@ -1859,6 +1859,13 @@ static int hantro_dev_remove(struct platform_device *pdev)
 	pm_runtime_disable(&pdev->dev);
 	hantro_clk_disable(&pdev->dev);
 
+	if (!IS_ERR(hantro_clk_g1))
+		clk_put(hantro_clk_g1);
+	if (!IS_ERR(hantro_clk_g2))
+		clk_put(hantro_clk_g2);
+	if (!IS_ERR(hantro_clk_bus))
+		clk_put(hantro_clk_bus);
+
 #ifdef CONFIG_DEVICE_THERMAL
 	HANTRO_UNREG_THERMAL_NOTIFIER(&hantro_thermal_hot_notifier);
 #endif
@@ -1925,12 +1932,7 @@ static int __init hantro_init(void)
 
 static void __exit hantro_exit(void)
 {
-	if (!IS_ERR(hantro_clk_g1))
-		clk_put(hantro_clk_g1);
-	if (!IS_ERR(hantro_clk_g2))
-		clk_put(hantro_clk_g2);
-	if (!IS_ERR(hantro_clk_bus))
-		clk_put(hantro_clk_bus);
+
 #if 0
 	if (!IS_ERR(hantro_regulator))
 		regulator_put(hantro_regulator);
