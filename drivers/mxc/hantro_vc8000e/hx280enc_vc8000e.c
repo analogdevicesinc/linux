@@ -983,7 +983,7 @@ static void ReleaseIO(void)
 {
 	u32 i;
 
-	for (i = 0; i <= total_core_num; i++)	{
+	for (i = 0; i < total_core_num; i++)	{
 		//if (hantroenc_data[i].is_valid == 0)
 		//   continue;
 		if (hantroenc_data[i].hwregs)
@@ -1161,7 +1161,10 @@ static int hantro_vc8000e_dev_remove(struct platform_device *pdev)
 	pm_runtime_put_sync(&pdev->dev);
 	pm_runtime_disable(&pdev->dev);
 	hantro_vc8000e_clk_disable(&pdev->dev);
-
+	if (!IS_ERR(hantro_clk_vc8000e))
+		clk_put(hantro_clk_vc8000e);
+	if (!IS_ERR(hantro_clk_vc8000e_bus))
+		clk_put(hantro_clk_vc8000e_bus);
 	return 0;
 }
 
@@ -1208,7 +1211,7 @@ static const struct of_device_id hantro_vc8000e_of_match[] = {
 	{ .compatible = "nxp,imx8mp-hantro-vc8000e", },
 	{/* sentinel */}
 };
-MODULE_DEVICE_TABLE(of, hantro_h1_of_match);
+MODULE_DEVICE_TABLE(of, hantro_vc8000e_of_match);
 
 
 static struct platform_driver mxchantro_vc8000e_driver = {
