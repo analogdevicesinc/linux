@@ -184,8 +184,6 @@ static struct adis_burst adis16495_burst = {
 	 * two don't care segments.
 	 */
 	.extra_len = 12 * sizeof(u16),
-	.read_delay = 5,
-	.write_delay = 5,
 };
 
 static const char * const adis16480_int_pin_names[4] = {
@@ -1495,7 +1493,7 @@ static int adis16480_probe(struct spi_device *spi)
 	/* If burst mode is supported, enable it by default */
 	if (st->chip_info->burst) {
 		st->adis.burst = st->chip_info->burst;
-		st->adis.burst->extra_len = st->chip_info->burst->extra_len;
+		st->adis.burst_extra_len = st->chip_info->burst->extra_len;
 		indio_dev->info = &adis16495_info;
 	}
 
