@@ -4,7 +4,6 @@
  *
  * Copyright 2019 Analog Devices Inc.
  */
-#include <asm/unaligned.h>
 #include <linux/bitfield.h>
 #include <linux/bitops.h>
 #include <linux/clk.h>
@@ -19,6 +18,8 @@
 #include <linux/iio/trigger_consumer.h>
 #include <linux/irq.h>
 #include <linux/module.h>
+#include <linux/mod_devicetable.h>
+#include <linux/property.h>
 #include <linux/spi/spi.h>
 
 #define ADIS16475_REG_DIAG_STAT		0x02
@@ -42,8 +43,8 @@
 #define ADIS16475_MSG_CTRL_DR_POL_MASK	BIT(0)
 #define ADIS16475_MSG_CTRL_DR_POL(x) \
 				FIELD_PREP(ADIS16475_MSG_CTRL_DR_POL_MASK, x)
-#define ADIS16475_EXT_CLK_MASK		GENMASK(4, 2)
-#define ADIS16475_EXT_CLK(x)		FIELD_PREP(ADIS16475_EXT_CLK_MASK, x)
+#define ADIS16475_SYNC_MODE_MASK	GENMASK(4, 2)
+#define ADIS16475_SYNC_MODE(x)		FIELD_PREP(ADIS16475_SYNC_MODE_MASK, x)
 #define ADIS16475_REG_UP_SCALE		0x62
 #define ADIS16475_REG_DEC_RATE		0x64
 #define ADIS16475_REG_GLOB_CMD		0x68
@@ -56,27 +57,32 @@
 #define ADIS16500_BURST32_MASK		BIT(9)
 #define ADIS16500_BURST32(x)		FIELD_PREP(ADIS16500_BURST32_MASK, x)
 /* number of data elements in burst mode */
-#define ADIS16475_BURST_MAX_DATA	10
-#define ADIS16475_MAX_SCAN_DATA		15
+#define ADIS16475_BURST32_MAX_DATA	32
+#define ADIS16475_BURST_MAX_DATA	20
+#define ADIS16475_MAX_SCAN_DATA		20
+/* spi max speed in brust mode */
+#define ADIS16475_BURST_MAX_SPEED	1000000
+#define ADIS16475_LSB_DEC_MASK		BIT(0)
+#define ADIS16475_LSB_FIR_MASK		BIT(1)
 
-enum clk_mode {
-	ADIS16475_CLK_DIRECT = 1,
-	ADIS16475_CLK_SCALED,
-	ADIS16475_CLK_OUTPUT,
-	ADIS16475_CLK_PULSE = 5,
+enum {
+	ADIS16475_SYNC_DIRECT = 1,
+	ADIS16475_SYNC_SCALED,
+	ADIS16475_SYNC_OUTPUT,
+	ADIS16475_SYNC_PULSE = 5,
 };
 
-struct adis16475_clks {
-	const char *name;
-	enum clk_mode clk_mode;
+struct adis16475_sync {
+	u16 sync_mode;
 	u16 min_rate;
 	u16 max_rate;
 };
 
 struct adis16475_chip_info {
 	const struct iio_chan_spec *channels;
-	const struct adis16475_clks *clks;
-	const struct adis_timeout *timeouts;
+	const struct adis16475_sync *sync;
+	const struct adis_data adis_data;
+	const char *name;
 	u32 num_channels;
 	u32 gyro_max_val;
 	u32 gyro_max_scale;
@@ -85,7 +91,7 @@ struct adis16475_chip_info {
 	u32 temp_scale;
 	u32 int_clk;
 	u16 max_dec;
-	u8 num_clks;
+	u8 num_sync;
 	bool has_burst32;
 };
 
@@ -93,8 +99,10 @@ struct adis16475 {
 	const struct adis16475_chip_info *info;
 	struct adis adis;
 	u32 clk_freq;
-	u32 cached_spi_speed_hz;
 	bool burst32;
+	unsigned long lsb_flag;
+	/* Alignment needed for the timestamp */
+	__be16 data[ADIS16475_MAX_SCAN_DATA] __aligned(8);
 };
 
 enum {
@@ -241,51 +249,6 @@ static void adis16475_debugfs_init(struct iio_dev *indio_dev)
 }
 #endif
 
-static ssize_t adis16475_burst_mode_enable_get(struct device *dev,
-					       struct device_attribute *attr,
-					       char *buf)
-{
-	struct adis16475 *st = iio_priv(dev_to_iio_dev(dev));
-
-	return sprintf(buf, "%d\n", st->adis.burst->en);
-}
-
-static ssize_t adis16475_burst_mode_enable_set(struct device *dev,
-					       struct device_attribute *attr,
-					       const char *buf, size_t len)
-{
-	struct adis16475 *st = iio_priv(dev_to_iio_dev(dev));
-	bool val;
-	int ret;
-
-	ret = kstrtobool(buf, &val);
-	if (ret)
-		return ret;
-
-	if (val)
-		/* 1MHz max in burst mode */
-		st->adis.spi->max_speed_hz = 1000000;
-	else
-		st->adis.spi->max_speed_hz = st->cached_spi_speed_hz;
-
-	st->adis.burst->en = val;
-
-	return len;
-}
-
-static IIO_DEVICE_ATTR(burst_mode_enable, 0644,
-		       adis16475_burst_mode_enable_get,
-		       adis16475_burst_mode_enable_set, 0);
-
-static struct attribute *adis16475_attributes[] = {
-	&iio_dev_attr_burst_mode_enable.dev_attr.attr,
-	NULL,
-};
-
-static const struct attribute_group adis16495_attribute_group = {
-	.attrs = adis16475_attributes,
-};
-
 static int adis16475_get_freq(struct adis16475 *st, u32 *freq)
 {
 	int ret;
@@ -303,8 +266,9 @@ static int adis16475_get_freq(struct adis16475 *st, u32 *freq)
 static int adis16475_set_freq(struct adis16475 *st, const u32 freq)
 {
 	u16 dec;
+	int ret;
 
-	if (freq == 0 || freq > st->clk_freq)
+	if (!freq)
 		return -EINVAL;
 
 	dec = DIV_ROUND_CLOSEST(st->clk_freq, freq);
@@ -315,7 +279,17 @@ static int adis16475_set_freq(struct adis16475 *st, const u32 freq)
 	if (dec > st->info->max_dec)
 		dec = st->info->max_dec;
 
-	return adis_write_reg_16(&st->adis, ADIS16475_REG_DEC_RATE, dec);
+	ret = adis_write_reg_16(&st->adis, ADIS16475_REG_DEC_RATE, dec);
+	if (ret)
+		return ret;
+
+	/*
+	 * If decimation is used, then gyro and accel data will have meaningful
+	 * bits on the LSB registers. This info is used on the trigger handler.
+	 */
+	assign_bit(ADIS16475_LSB_DEC_MASK, &st->lsb_flag, dec);
+
+	return 0;
 }
 
 /* The values are approximated. */
@@ -327,7 +301,6 @@ static const u32 adis16475_3db_freqs[] = {
 	[4] = 40,
 	[5] = 20,
 	[6] = 10,
-	[7] = 10, /* not a valid setting */
 };
 
 static int adis16475_get_filter(struct adis16475 *st, u32 *filter)
@@ -347,15 +320,26 @@ static int adis16475_get_filter(struct adis16475 *st, u32 *filter)
 
 static int adis16475_set_filter(struct adis16475 *st, const u32 filter)
 {
-	int i;
+	int i = ARRAY_SIZE(adis16475_3db_freqs);
+	int ret;
 
-	for (i = ARRAY_SIZE(adis16475_3db_freqs) - 1; i >= 1; i--) {
+	while (--i) {
 		if (adis16475_3db_freqs[i] >= filter)
 			break;
 	}
 
-	return adis_write_reg_16(&st->adis, ADIS16475_REG_FILT_CTRL,
-				 ADIS16475_FILT_CTRL(i));
+	ret = adis_write_reg_16(&st->adis, ADIS16475_REG_FILT_CTRL,
+				ADIS16475_FILT_CTRL(i));
+	if (ret)
+		return ret;
+
+	/*
+	 * If FIR is used, then gyro and accel data will have meaningful
+	 * bits on the LSB registers. This info is used on the trigger handler.
+	 */
+	assign_bit(ADIS16475_LSB_FIR_MASK, &st->lsb_flag, i);
+
+	return 0;
 }
 
 static const u32 adis16475_calib_regs[] = {
@@ -398,10 +382,16 @@ static int adis16475_read_raw(struct iio_dev *indio_dev,
 		ret = adis_read_reg_32(&st->adis,
 				       adis16475_calib_regs[chan->scan_index],
 				       val);
-		break;
+		if (ret)
+			return ret;
+
+		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_LOW_PASS_FILTER_3DB_FREQUENCY:
 		ret = adis16475_get_filter(st, val);
-		break;
+		if (ret)
+			return ret;
+
+		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_SAMP_FREQ:
 		ret = adis16475_get_freq(st, &tmp);
 		if (ret)
@@ -413,11 +403,6 @@ static int adis16475_read_raw(struct iio_dev *indio_dev,
 	default:
 		return -EINVAL;
 	}
-
-	if (ret)
-		return ret;
-
-	return IIO_VAL_INT;
 }
 
 static int adis16475_write_raw(struct iio_dev *indio_dev,
@@ -464,13 +449,13 @@ static int adis16475_write_raw(struct iio_dev *indio_dev,
 
 #define ADIS16475_GYRO_CHANNEL(_mod) \
 	ADIS16475_MOD_CHAN(IIO_ANGL_VEL, IIO_MOD_ ## _mod, \
-	ADIS16475_REG_ ## _mod ## _GYRO_L, ADIS16475_SCAN_GYRO_ ## _mod, 32, \
-	32)
+			   ADIS16475_REG_ ## _mod ## _GYRO_L, \
+			   ADIS16475_SCAN_GYRO_ ## _mod, 32, 32)
 
 #define ADIS16475_ACCEL_CHANNEL(_mod) \
 	ADIS16475_MOD_CHAN(IIO_ACCEL, IIO_MOD_ ## _mod, \
-	ADIS16475_REG_ ## _mod ## _ACCEL_L, ADIS16475_SCAN_ACCEL_ ## _mod, 32, \
-	32)
+			   ADIS16475_REG_ ## _mod ## _ACCEL_L, \
+			   ADIS16475_SCAN_ACCEL_ ## _mod, 32, 32)
 
 #define ADIS16475_TEMP_CHANNEL() { \
 		.type = IIO_TEMP, \
@@ -490,33 +475,6 @@ static int adis16475_write_raw(struct iio_dev *indio_dev,
 		}, \
 	}
 
-#define ADIS16475_DIAG_FLAGS_CHANNEL() { \
-		.type = IIO_FLAGS, \
-		.indexed = 1, \
-		.channel = 0, \
-		.scan_index = ADIS16475_SCAN_DIAG_S_FLAGS, \
-		.scan_type = { \
-			.sign = 'u', \
-			.realbits = 16, \
-			.storagebits = 16, \
-			.endianness = IIO_BE, \
-		}, \
-	}
-
-#define ADIS16475_CRC_CHANNEL() { \
-		.type = IIO_FLAGS, \
-		.indexed = 1, \
-		.channel = 1, \
-		.scan_index = ADIS16475_SCAN_CRC_FAILURE, \
-		.scan_type = { \
-			.sign = 'u', \
-			.realbits = 16, \
-			.storagebits = 16, \
-			.endianness = IIO_CPU, \
-		}, \
-		.extend_name = "crc", \
-	}
-
 static const struct iio_chan_spec adis16475_channels[] = {
 	ADIS16475_GYRO_CHANNEL(X),
 	ADIS16475_GYRO_CHANNEL(Y),
@@ -525,249 +483,31 @@ static const struct iio_chan_spec adis16475_channels[] = {
 	ADIS16475_ACCEL_CHANNEL(Y),
 	ADIS16475_ACCEL_CHANNEL(Z),
 	ADIS16475_TEMP_CHANNEL(),
-	ADIS16475_DIAG_FLAGS_CHANNEL(),
-	ADIS16475_CRC_CHANNEL(),
-	IIO_CHAN_SOFT_TIMESTAMP(9)
+	IIO_CHAN_SOFT_TIMESTAMP(7)
 };
 
 enum adis16475_variant {
+	ADIS16470,
 	ADIS16475_1,
 	ADIS16475_2,
 	ADIS16475_3,
 	ADIS16477_1,
 	ADIS16477_2,
 	ADIS16477_3,
+	ADIS16465_1,
+	ADIS16465_2,
+	ADIS16465_3,
+	ADIS16467_1,
+	ADIS16467_2,
+	ADIS16467_3,
 	ADIS16500,
 	ADIS16505_1,
 	ADIS16505_2,
 	ADIS16505_3,
 	ADIS16507_1,
 	ADIS16507_2,
+	ADIS16507_3,
 };
-
-static const struct adis16475_clks adis16475_ext_clks[] = {
-	{ "sync", ADIS16475_CLK_OUTPUT, 1900, 2100 },
-	{ "direct-sync", ADIS16475_CLK_DIRECT, 1900, 2100 },
-	{ "scaled-sync", ADIS16475_CLK_SCALED, 1, 128 },
-	{ "pulse-sync", ADIS16475_CLK_PULSE, 1000, 2100 },
-};
-
-static const struct adis_timeout adis16475_timeouts = {
-	.reset_ms = 200,
-	.sw_reset_ms = 200,
-	.self_test_ms = 20,
-};
-
-static const struct adis_timeout adis1650x_timeouts = {
-	.reset_ms = 260,
-	.sw_reset_ms = 260,
-	.self_test_ms = 30,
-};
-
-static const struct adis16475_chip_info adis16475_chip_info[] = {
-	[ADIS16475_1] = {
-		.num_channels = ARRAY_SIZE(adis16475_channels),
-		.channels = adis16475_channels,
-		.gyro_max_val = 1,
-		.gyro_max_scale = IIO_RAD_TO_DEGREE(160 << 16),
-		.accel_max_val = 1,
-		.accel_max_scale = IIO_M_S_2_TO_G(4000 << 16),
-		.temp_scale = 100,
-		.int_clk = 2000,
-		.max_dec = 1999,
-		.timeouts = &adis16475_timeouts,
-		.clks = adis16475_ext_clks,
-		.num_clks = ARRAY_SIZE(adis16475_ext_clks),
-	},
-	[ADIS16475_2] = {
-		.num_channels = ARRAY_SIZE(adis16475_channels),
-		.channels = adis16475_channels,
-		.gyro_max_val = 1,
-		.gyro_max_scale = IIO_RAD_TO_DEGREE(40 << 16),
-		.accel_max_val = 1,
-		.accel_max_scale = IIO_M_S_2_TO_G(4000 << 16),
-		.temp_scale = 100,
-		.int_clk = 2000,
-		.max_dec = 1999,
-		.timeouts = &adis16475_timeouts,
-		.clks = adis16475_ext_clks,
-		.num_clks = ARRAY_SIZE(adis16475_ext_clks),
-	},
-	[ADIS16475_3] = {
-		.num_channels = ARRAY_SIZE(adis16475_channels),
-		.channels = adis16475_channels,
-		.gyro_max_val = 1,
-		.gyro_max_scale = IIO_RAD_TO_DEGREE(10 << 16),
-		.accel_max_val = 1,
-		.accel_max_scale = IIO_M_S_2_TO_G(4000 << 16),
-		.temp_scale = 100,
-		.int_clk = 2000,
-		.max_dec = 1999,
-		.timeouts = &adis16475_timeouts,
-		.clks = adis16475_ext_clks,
-		.num_clks = ARRAY_SIZE(adis16475_ext_clks),
-	},
-	[ADIS16477_1] = {
-		.num_channels = ARRAY_SIZE(adis16475_channels),
-		.channels = adis16475_channels,
-		.gyro_max_val = 1,
-		.gyro_max_scale = IIO_RAD_TO_DEGREE(160 << 16),
-		.accel_max_val = 1,
-		.accel_max_scale = IIO_M_S_2_TO_G(800 << 16),
-		.temp_scale = 100,
-		.int_clk = 2000,
-		.max_dec = 1999,
-		.timeouts = &adis16475_timeouts,
-		.clks = adis16475_ext_clks,
-		.num_clks = ARRAY_SIZE(adis16475_ext_clks),
-	},
-	[ADIS16477_2] = {
-		.num_channels = ARRAY_SIZE(adis16475_channels),
-		.channels = adis16475_channels,
-		.gyro_max_val = 1,
-		.gyro_max_scale = IIO_RAD_TO_DEGREE(40 << 16),
-		.accel_max_val = 1,
-		.accel_max_scale = IIO_M_S_2_TO_G(800 << 16),
-		.temp_scale = 100,
-		.int_clk = 2000,
-		.max_dec = 1999,
-		.timeouts = &adis16475_timeouts,
-		.clks = adis16475_ext_clks,
-		.num_clks = ARRAY_SIZE(adis16475_ext_clks),
-	},
-	[ADIS16477_3] = {
-		.num_channels = ARRAY_SIZE(adis16475_channels),
-		.channels = adis16475_channels,
-		.gyro_max_val = 1,
-		.gyro_max_scale = IIO_RAD_TO_DEGREE(10 << 16),
-		.accel_max_val = 1,
-		.accel_max_scale = IIO_M_S_2_TO_G(800 << 16),
-		.temp_scale = 100,
-		.int_clk = 2000,
-		.max_dec = 1999,
-		.timeouts = &adis16475_timeouts,
-		.clks = adis16475_ext_clks,
-		.num_clks = ARRAY_SIZE(adis16475_ext_clks),
-	},
-	[ADIS16500] = {
-		.num_channels = ARRAY_SIZE(adis16475_channels),
-		.channels = adis16475_channels,
-		.gyro_max_val = 1,
-		.gyro_max_scale = IIO_RAD_TO_DEGREE(10 << 16),
-		.accel_max_val = 392,
-		.accel_max_scale = 32000 << 16,
-		.temp_scale = 100,
-		.int_clk = 2000,
-		.max_dec = 1999,
-		.timeouts = &adis1650x_timeouts,
-		.clks = adis16475_ext_clks,
-		/* pulse sync not supported */
-		.num_clks = ARRAY_SIZE(adis16475_ext_clks) - 1,
-		.has_burst32 = true,
-	},
-	[ADIS16505_1] = {
-		.num_channels = ARRAY_SIZE(adis16475_channels),
-		.channels = adis16475_channels,
-		.gyro_max_val = 1,
-		.gyro_max_scale = IIO_RAD_TO_DEGREE(160 << 16),
-		.accel_max_val = 78,
-		.accel_max_scale = 32000 << 16,
-		.temp_scale = 100,
-		.int_clk = 2000,
-		.max_dec = 1999,
-		.timeouts = &adis1650x_timeouts,
-		.clks = adis16475_ext_clks,
-		/* pulse sync not supported */
-		.num_clks = ARRAY_SIZE(adis16475_ext_clks) - 1,
-		.has_burst32 = true
-	},
-	[ADIS16505_2] = {
-		.num_channels = ARRAY_SIZE(adis16475_channels),
-		.channels = adis16475_channels,
-		.gyro_max_val = 1,
-		.gyro_max_scale = IIO_RAD_TO_DEGREE(40 << 16),
-		.accel_max_val = 78,
-		.accel_max_scale = 32000 << 16,
-		.temp_scale = 100,
-		.int_clk = 2000,
-		.max_dec = 1999,
-		.timeouts = &adis1650x_timeouts,
-		.clks = adis16475_ext_clks,
-		/* pulse sync not supported */
-		.num_clks = ARRAY_SIZE(adis16475_ext_clks) - 1,
-		.has_burst32 = true
-	},
-	[ADIS16505_3] = {
-		.num_channels = ARRAY_SIZE(adis16475_channels),
-		.channels = adis16475_channels,
-		.gyro_max_val = 1,
-		.gyro_max_scale = IIO_RAD_TO_DEGREE(10 << 16),
-		.accel_max_val = 78,
-		.accel_max_scale = 32000 << 16,
-		.temp_scale = 100,
-		.int_clk = 2000,
-		.max_dec = 1999,
-		.timeouts = &adis1650x_timeouts,
-		.clks = adis16475_ext_clks,
-		/* pulse sync not supported */
-		.num_clks = ARRAY_SIZE(adis16475_ext_clks) - 1,
-		.has_burst32 = true
-	},
-	[ADIS16507_1] = {
-		.num_channels = ARRAY_SIZE(adis16475_channels),
-		.channels = adis16475_channels,
-		.gyro_max_val = 1,
-		.gyro_max_scale = IIO_RAD_TO_DEGREE(160 << 16),
-		.accel_max_val = 392,
-		.accel_max_scale = 32000 << 16,
-		.temp_scale = 100,
-		.int_clk = 2000,
-		.max_dec = 1999,
-		.timeouts = &adis1650x_timeouts,
-		.clks = adis16475_ext_clks,
-		/* pulse sync not supported */
-		.num_clks = ARRAY_SIZE(adis16475_ext_clks) - 1,
-		.has_burst32 = true
-	},
-	[ADIS16507_2] = {
-		.num_channels = ARRAY_SIZE(adis16475_channels),
-		.channels = adis16475_channels,
-		.gyro_max_val = 1,
-		.gyro_max_scale = IIO_RAD_TO_DEGREE(40 << 16),
-		.accel_max_val = 392,
-		.accel_max_scale = 32000 << 16,
-		.temp_scale = 100,
-		.int_clk = 2000,
-		.max_dec = 1999,
-		.timeouts = &adis1650x_timeouts,
-		.clks = adis16475_ext_clks,
-		/* pulse sync not supported */
-		.num_clks = ARRAY_SIZE(adis16475_ext_clks) - 1,
-		.has_burst32 = true
-	},
-};
-
-static const struct iio_info adis16475_info = {
-	.read_raw = &adis16475_read_raw,
-	.write_raw = &adis16475_write_raw,
-	.update_scan_mode = adis_update_scan_mode,
-	.attrs = &adis16495_attribute_group,
-	.debugfs_reg_access = adis_debugfs_reg_access,
-};
-
-static int adis16475_enable_irq(struct adis *adis, bool enable)
-{
-	/*
-	 * There is no way to gate the data-ready signal internally inside the
-	 * ADIS16475. We can only control it's polarity...
-	 */
-	if (enable)
-		enable_irq(adis->spi->irq);
-	else
-		disable_irq(adis->spi->irq);
-
-	return 0;
-}
 
 enum {
 	ADIS16475_DIAG_STAT_DATA_PATH = 1,
@@ -789,6 +529,387 @@ static const char * const adis16475_status_error_msgs[] = {
 	[ADIS16475_DIAG_STAT_CLK] = "Clock error",
 };
 
+static int adis16475_enable_irq(struct adis *adis, bool enable)
+{
+	/*
+	 * There is no way to gate the data-ready signal internally inside the
+	 * ADIS16475. We can only control it's polarity...
+	 */
+	if (enable)
+		enable_irq(adis->spi->irq);
+	else
+		disable_irq(adis->spi->irq);
+
+	return 0;
+}
+
+#define ADIS16475_DATA(_prod_id, _timeouts)				\
+{									\
+	.msc_ctrl_reg = ADIS16475_REG_MSG_CTRL,				\
+	.glob_cmd_reg = ADIS16475_REG_GLOB_CMD,				\
+	.diag_stat_reg = ADIS16475_REG_DIAG_STAT,			\
+	.prod_id_reg = ADIS16475_REG_PROD_ID,				\
+	.prod_id = (_prod_id),						\
+	.self_test_mask = BIT(2),					\
+	.self_test_reg = ADIS16475_REG_GLOB_CMD,			\
+	.cs_change_delay = 16,						\
+	.read_delay = 5,						\
+	.write_delay = 5,						\
+	.status_error_msgs = adis16475_status_error_msgs,		\
+	.status_error_mask = BIT(ADIS16475_DIAG_STAT_DATA_PATH) |	\
+		BIT(ADIS16475_DIAG_STAT_FLASH_MEM) |			\
+		BIT(ADIS16475_DIAG_STAT_SPI) |				\
+		BIT(ADIS16475_DIAG_STAT_STANDBY) |			\
+		BIT(ADIS16475_DIAG_STAT_SENSOR) |			\
+		BIT(ADIS16475_DIAG_STAT_MEMORY) |			\
+		BIT(ADIS16475_DIAG_STAT_CLK),				\
+	.enable_irq = adis16475_enable_irq,				\
+	.timeouts = (_timeouts),					\
+}
+
+static const struct adis16475_sync adis16475_sync_mode[] = {
+	{ ADIS16475_SYNC_OUTPUT },
+	{ ADIS16475_SYNC_DIRECT, 1900, 2100 },
+	{ ADIS16475_SYNC_SCALED, 1, 128 },
+	{ ADIS16475_SYNC_PULSE, 1000, 2100 },
+};
+
+static const struct adis_timeout adis16475_timeouts = {
+	.reset_ms = 200,
+	.sw_reset_ms = 200,
+	.self_test_ms = 20,
+};
+
+static const struct adis_timeout adis1650x_timeouts = {
+	.reset_ms = 260,
+	.sw_reset_ms = 260,
+	.self_test_ms = 30,
+};
+
+static const struct adis16475_chip_info adis16475_chip_info[] = {
+	[ADIS16470] = {
+		.name = "adis16470",
+		.num_channels = ARRAY_SIZE(adis16475_channels),
+		.channels = adis16475_channels,
+		.gyro_max_val = 1,
+		.gyro_max_scale = IIO_RAD_TO_DEGREE(10 << 16),
+		.accel_max_val = 1,
+		.accel_max_scale = IIO_M_S_2_TO_G(800 << 16),
+		.temp_scale = 100,
+		.int_clk = 2000,
+		.max_dec = 1999,
+		.sync = adis16475_sync_mode,
+		.num_sync = ARRAY_SIZE(adis16475_sync_mode),
+		.adis_data = ADIS16475_DATA(16470, &adis16475_timeouts),
+	},
+	[ADIS16475_1] = {
+		.name = "adis16475-1",
+		.num_channels = ARRAY_SIZE(adis16475_channels),
+		.channels = adis16475_channels,
+		.gyro_max_val = 1,
+		.gyro_max_scale = IIO_RAD_TO_DEGREE(160 << 16),
+		.accel_max_val = 1,
+		.accel_max_scale = IIO_M_S_2_TO_G(4000 << 16),
+		.temp_scale = 100,
+		.int_clk = 2000,
+		.max_dec = 1999,
+		.sync = adis16475_sync_mode,
+		.num_sync = ARRAY_SIZE(adis16475_sync_mode),
+		.adis_data = ADIS16475_DATA(16475, &adis16475_timeouts),
+	},
+	[ADIS16475_2] = {
+		.name = "adis16475-2",
+		.num_channels = ARRAY_SIZE(adis16475_channels),
+		.channels = adis16475_channels,
+		.gyro_max_val = 1,
+		.gyro_max_scale = IIO_RAD_TO_DEGREE(40 << 16),
+		.accel_max_val = 1,
+		.accel_max_scale = IIO_M_S_2_TO_G(4000 << 16),
+		.temp_scale = 100,
+		.int_clk = 2000,
+		.max_dec = 1999,
+		.sync = adis16475_sync_mode,
+		.num_sync = ARRAY_SIZE(adis16475_sync_mode),
+		.adis_data = ADIS16475_DATA(16475, &adis16475_timeouts),
+	},
+	[ADIS16475_3] = {
+		.name = "adis16475-3",
+		.num_channels = ARRAY_SIZE(adis16475_channels),
+		.channels = adis16475_channels,
+		.gyro_max_val = 1,
+		.gyro_max_scale = IIO_RAD_TO_DEGREE(10 << 16),
+		.accel_max_val = 1,
+		.accel_max_scale = IIO_M_S_2_TO_G(4000 << 16),
+		.temp_scale = 100,
+		.int_clk = 2000,
+		.max_dec = 1999,
+		.sync = adis16475_sync_mode,
+		.num_sync = ARRAY_SIZE(adis16475_sync_mode),
+		.adis_data = ADIS16475_DATA(16475, &adis16475_timeouts),
+	},
+	[ADIS16477_1] = {
+		.name = "adis16477-1",
+		.num_channels = ARRAY_SIZE(adis16475_channels),
+		.channels = adis16475_channels,
+		.gyro_max_val = 1,
+		.gyro_max_scale = IIO_RAD_TO_DEGREE(160 << 16),
+		.accel_max_val = 1,
+		.accel_max_scale = IIO_M_S_2_TO_G(800 << 16),
+		.temp_scale = 100,
+		.int_clk = 2000,
+		.max_dec = 1999,
+		.sync = adis16475_sync_mode,
+		.num_sync = ARRAY_SIZE(adis16475_sync_mode),
+		.adis_data = ADIS16475_DATA(16477, &adis16475_timeouts),
+	},
+	[ADIS16477_2] = {
+		.name = "adis16477-2",
+		.num_channels = ARRAY_SIZE(adis16475_channels),
+		.channels = adis16475_channels,
+		.gyro_max_val = 1,
+		.gyro_max_scale = IIO_RAD_TO_DEGREE(40 << 16),
+		.accel_max_val = 1,
+		.accel_max_scale = IIO_M_S_2_TO_G(800 << 16),
+		.temp_scale = 100,
+		.int_clk = 2000,
+		.max_dec = 1999,
+		.sync = adis16475_sync_mode,
+		.num_sync = ARRAY_SIZE(adis16475_sync_mode),
+		.adis_data = ADIS16475_DATA(16477, &adis16475_timeouts),
+	},
+	[ADIS16477_3] = {
+		.name = "adis16477-3",
+		.num_channels = ARRAY_SIZE(adis16475_channels),
+		.channels = adis16475_channels,
+		.gyro_max_val = 1,
+		.gyro_max_scale = IIO_RAD_TO_DEGREE(10 << 16),
+		.accel_max_val = 1,
+		.accel_max_scale = IIO_M_S_2_TO_G(800 << 16),
+		.temp_scale = 100,
+		.int_clk = 2000,
+		.max_dec = 1999,
+		.sync = adis16475_sync_mode,
+		.num_sync = ARRAY_SIZE(adis16475_sync_mode),
+		.adis_data = ADIS16475_DATA(16477, &adis16475_timeouts),
+	},
+	[ADIS16465_1] = {
+		.name = "adis16465-1",
+		.num_channels = ARRAY_SIZE(adis16475_channels),
+		.channels = adis16475_channels,
+		.gyro_max_val = 1,
+		.gyro_max_scale = IIO_RAD_TO_DEGREE(160 << 16),
+		.accel_max_val = 1,
+		.accel_max_scale = IIO_M_S_2_TO_G(4000 << 16),
+		.temp_scale = 100,
+		.int_clk = 2000,
+		.max_dec = 1999,
+		.sync = adis16475_sync_mode,
+		.num_sync = ARRAY_SIZE(adis16475_sync_mode),
+		.adis_data = ADIS16475_DATA(16465, &adis16475_timeouts),
+	},
+	[ADIS16465_2] = {
+		.name = "adis16465-2",
+		.num_channels = ARRAY_SIZE(adis16475_channels),
+		.channels = adis16475_channels,
+		.gyro_max_val = 1,
+		.gyro_max_scale = IIO_RAD_TO_DEGREE(40 << 16),
+		.accel_max_val = 1,
+		.accel_max_scale = IIO_M_S_2_TO_G(4000 << 16),
+		.temp_scale = 100,
+		.int_clk = 2000,
+		.max_dec = 1999,
+		.sync = adis16475_sync_mode,
+		.num_sync = ARRAY_SIZE(adis16475_sync_mode),
+		.adis_data = ADIS16475_DATA(16465, &adis16475_timeouts),
+	},
+	[ADIS16465_3] = {
+		.name = "adis16465-3",
+		.num_channels = ARRAY_SIZE(adis16475_channels),
+		.channels = adis16475_channels,
+		.gyro_max_val = 1,
+		.gyro_max_scale = IIO_RAD_TO_DEGREE(10 << 16),
+		.accel_max_val = 1,
+		.accel_max_scale = IIO_M_S_2_TO_G(4000 << 16),
+		.temp_scale = 100,
+		.int_clk = 2000,
+		.max_dec = 1999,
+		.sync = adis16475_sync_mode,
+		.num_sync = ARRAY_SIZE(adis16475_sync_mode),
+		.adis_data = ADIS16475_DATA(16465, &adis16475_timeouts),
+	},
+	[ADIS16467_1] = {
+		.name = "adis16467-1",
+		.num_channels = ARRAY_SIZE(adis16475_channels),
+		.channels = adis16475_channels,
+		.gyro_max_val = 1,
+		.gyro_max_scale = IIO_RAD_TO_DEGREE(160 << 16),
+		.accel_max_val = 1,
+		.accel_max_scale = IIO_M_S_2_TO_G(800 << 16),
+		.temp_scale = 100,
+		.int_clk = 2000,
+		.max_dec = 1999,
+		.sync = adis16475_sync_mode,
+		.num_sync = ARRAY_SIZE(adis16475_sync_mode),
+		.adis_data = ADIS16475_DATA(16467, &adis16475_timeouts),
+	},
+	[ADIS16467_2] = {
+		.name = "adis16467-2",
+		.num_channels = ARRAY_SIZE(adis16475_channels),
+		.channels = adis16475_channels,
+		.gyro_max_val = 1,
+		.gyro_max_scale = IIO_RAD_TO_DEGREE(40 << 16),
+		.accel_max_val = 1,
+		.accel_max_scale = IIO_M_S_2_TO_G(800 << 16),
+		.temp_scale = 100,
+		.int_clk = 2000,
+		.max_dec = 1999,
+		.sync = adis16475_sync_mode,
+		.num_sync = ARRAY_SIZE(adis16475_sync_mode),
+		.adis_data = ADIS16475_DATA(16467, &adis16475_timeouts),
+	},
+	[ADIS16467_3] = {
+		.name = "adis16467-3",
+		.num_channels = ARRAY_SIZE(adis16475_channels),
+		.channels = adis16475_channels,
+		.gyro_max_val = 1,
+		.gyro_max_scale = IIO_RAD_TO_DEGREE(10 << 16),
+		.accel_max_val = 1,
+		.accel_max_scale = IIO_M_S_2_TO_G(800 << 16),
+		.temp_scale = 100,
+		.int_clk = 2000,
+		.max_dec = 1999,
+		.sync = adis16475_sync_mode,
+		.num_sync = ARRAY_SIZE(adis16475_sync_mode),
+		.adis_data = ADIS16475_DATA(16467, &adis16475_timeouts),
+	},
+	[ADIS16500] = {
+		.name = "adis16500",
+		.num_channels = ARRAY_SIZE(adis16475_channels),
+		.channels = adis16475_channels,
+		.gyro_max_val = 1,
+		.gyro_max_scale = IIO_RAD_TO_DEGREE(10 << 16),
+		.accel_max_val = 392,
+		.accel_max_scale = 32000 << 16,
+		.temp_scale = 100,
+		.int_clk = 2000,
+		.max_dec = 1999,
+		.sync = adis16475_sync_mode,
+		/* pulse sync not supported */
+		.num_sync = ARRAY_SIZE(adis16475_sync_mode) - 1,
+		.has_burst32 = true,
+		.adis_data = ADIS16475_DATA(16500, &adis1650x_timeouts),
+	},
+	[ADIS16505_1] = {
+		.name = "adis16505-1",
+		.num_channels = ARRAY_SIZE(adis16475_channels),
+		.channels = adis16475_channels,
+		.gyro_max_val = 1,
+		.gyro_max_scale = IIO_RAD_TO_DEGREE(160 << 16),
+		.accel_max_val = 78,
+		.accel_max_scale = 32000 << 16,
+		.temp_scale = 100,
+		.int_clk = 2000,
+		.max_dec = 1999,
+		.sync = adis16475_sync_mode,
+		/* pulse sync not supported */
+		.num_sync = ARRAY_SIZE(adis16475_sync_mode) - 1,
+		.has_burst32 = true,
+		.adis_data = ADIS16475_DATA(16505, &adis1650x_timeouts),
+	},
+	[ADIS16505_2] = {
+		.name = "adis16505-2",
+		.num_channels = ARRAY_SIZE(adis16475_channels),
+		.channels = adis16475_channels,
+		.gyro_max_val = 1,
+		.gyro_max_scale = IIO_RAD_TO_DEGREE(40 << 16),
+		.accel_max_val = 78,
+		.accel_max_scale = 32000 << 16,
+		.temp_scale = 100,
+		.int_clk = 2000,
+		.max_dec = 1999,
+		.sync = adis16475_sync_mode,
+		/* pulse sync not supported */
+		.num_sync = ARRAY_SIZE(adis16475_sync_mode) - 1,
+		.has_burst32 = true,
+		.adis_data = ADIS16475_DATA(16505, &adis1650x_timeouts),
+	},
+	[ADIS16505_3] = {
+		.name = "adis16505-3",
+		.num_channels = ARRAY_SIZE(adis16475_channels),
+		.channels = adis16475_channels,
+		.gyro_max_val = 1,
+		.gyro_max_scale = IIO_RAD_TO_DEGREE(10 << 16),
+		.accel_max_val = 78,
+		.accel_max_scale = 32000 << 16,
+		.temp_scale = 100,
+		.int_clk = 2000,
+		.max_dec = 1999,
+		.sync = adis16475_sync_mode,
+		/* pulse sync not supported */
+		.num_sync = ARRAY_SIZE(adis16475_sync_mode) - 1,
+		.has_burst32 = true,
+		.adis_data = ADIS16475_DATA(16505, &adis1650x_timeouts),
+	},
+	[ADIS16507_1] = {
+		.name = "adis16507-1",
+		.num_channels = ARRAY_SIZE(adis16475_channels),
+		.channels = adis16475_channels,
+		.gyro_max_val = 1,
+		.gyro_max_scale = IIO_RAD_TO_DEGREE(160 << 16),
+		.accel_max_val = 392,
+		.accel_max_scale = 32000 << 16,
+		.temp_scale = 100,
+		.int_clk = 2000,
+		.max_dec = 1999,
+		.sync = adis16475_sync_mode,
+		/* pulse sync not supported */
+		.num_sync = ARRAY_SIZE(adis16475_sync_mode) - 1,
+		.has_burst32 = true,
+		.adis_data = ADIS16475_DATA(16507, &adis1650x_timeouts),
+	},
+	[ADIS16507_2] = {
+		.name = "adis16507-2",
+		.num_channels = ARRAY_SIZE(adis16475_channels),
+		.channels = adis16475_channels,
+		.gyro_max_val = 1,
+		.gyro_max_scale = IIO_RAD_TO_DEGREE(40 << 16),
+		.accel_max_val = 392,
+		.accel_max_scale = 32000 << 16,
+		.temp_scale = 100,
+		.int_clk = 2000,
+		.max_dec = 1999,
+		.sync = adis16475_sync_mode,
+		/* pulse sync not supported */
+		.num_sync = ARRAY_SIZE(adis16475_sync_mode) - 1,
+		.has_burst32 = true,
+		.adis_data = ADIS16475_DATA(16507, &adis1650x_timeouts),
+	},
+	[ADIS16507_3] = {
+		.name = "adis16507-3",
+		.num_channels = ARRAY_SIZE(adis16475_channels),
+		.channels = adis16475_channels,
+		.gyro_max_val = 1,
+		.gyro_max_scale = IIO_RAD_TO_DEGREE(10 << 16),
+		.accel_max_val = 392,
+		.accel_max_scale = 32000 << 16,
+		.temp_scale = 100,
+		.int_clk = 2000,
+		.max_dec = 1999,
+		.sync = adis16475_sync_mode,
+		/* pulse sync not supported */
+		.num_sync = ARRAY_SIZE(adis16475_sync_mode) - 1,
+		.has_burst32 = true,
+		.adis_data = ADIS16475_DATA(16507, &adis1650x_timeouts),
+	},
+};
+
+static const struct iio_info adis16475_info = {
+	.read_raw = &adis16475_read_raw,
+	.write_raw = &adis16475_write_raw,
+	.update_scan_mode = adis_update_scan_mode,
+	.debugfs_reg_access = adis_debugfs_reg_access,
+};
+
 static struct adis_burst adis16475_burst = {
 	.en = true,
 	.reg_cmd = ADIS16475_REG_GLOB_CMD,
@@ -800,48 +921,66 @@ static struct adis_burst adis16475_burst = {
 	 * don't care...) and CRC.
 	 */
 	.extra_len = 3 * sizeof(u16),
-	.read_delay = 5,
-	.write_delay = 5,
+	.burst_max_len = ADIS16475_BURST32_MAX_DATA,
 };
 
-static const struct adis_data adis16475_data = {
-	.msc_ctrl_reg = ADIS16475_REG_MSG_CTRL,
-	.glob_cmd_reg = ADIS16475_REG_GLOB_CMD,
-	.diag_stat_reg = ADIS16475_REG_DIAG_STAT,
-	.prod_id_reg = ADIS16475_REG_PROD_ID,
-
-	.self_test_mask = BIT(2),
-	.self_test_reg = ADIS16475_REG_GLOB_CMD,
-
-	.cs_change_delay = 16,
-	.read_delay = 5,
-	.write_delay = 5,
-
-	.status_error_msgs = adis16475_status_error_msgs,
-	.status_error_mask = BIT(ADIS16475_DIAG_STAT_DATA_PATH) |
-		BIT(ADIS16475_DIAG_STAT_FLASH_MEM) |
-		BIT(ADIS16475_DIAG_STAT_SPI) |
-		BIT(ADIS16475_DIAG_STAT_STANDBY) |
-		BIT(ADIS16475_DIAG_STAT_SENSOR) |
-		BIT(ADIS16475_DIAG_STAT_MEMORY) |
-		BIT(ADIS16475_DIAG_STAT_CLK),
-
-	.enable_irq = adis16475_enable_irq
-};
-
-static u16 adis16475_validate_crc(const u8 *buffer, const u16 crc,
-				  const bool burst32)
+static bool adis16475_validate_crc(const u8 *buffer, u16 crc,
+				   const bool burst32)
 {
 	int i;
-	u16 __crc = 0;
 	/* extra 6 elements for low gyro and accel */
-	const u16 sz = burst32 ? ADIS16475_BURST_MAX_DATA + 6 :
+	const u16 sz = burst32 ? ADIS16475_BURST32_MAX_DATA :
 		ADIS16475_BURST_MAX_DATA;
 
-	for (i = 0; i < sz * 2 - 2; i++)
-		__crc += buffer[i];
+	for (i = 0; i < sz - 2; i++)
+		crc -= buffer[i];
 
-	return (__crc != crc);
+	return crc == 0;
+}
+
+static void adis16475_burst32_check(struct adis16475 *st)
+{
+	int ret;
+	struct adis *adis = &st->adis;
+
+	if (!st->info->has_burst32)
+		return;
+
+	if (st->lsb_flag && !st->burst32) {
+		const u16 en = ADIS16500_BURST32(1);
+
+		ret = __adis_update_bits(&st->adis, ADIS16475_REG_MSG_CTRL,
+					 ADIS16500_BURST32_MASK, en);
+		if (ret)
+			return;
+
+		st->burst32 = true;
+
+		/*
+		 * In 32-bit mode we need extra 2 bytes for all gyro
+		 * and accel channels.
+		 */
+		adis->burst_extra_len = 6 * sizeof(u16);
+		adis->xfer[1].len += 6 * sizeof(u16);
+		dev_dbg(&adis->spi->dev, "Enable burst32 mode, xfer:%d",
+			adis->xfer[1].len);
+
+	} else if (!st->lsb_flag && st->burst32) {
+		const u16 en = ADIS16500_BURST32(0);
+
+		ret = __adis_update_bits(&st->adis, ADIS16475_REG_MSG_CTRL,
+					 ADIS16500_BURST32_MASK, en);
+		if (ret)
+			return;
+
+		st->burst32 = false;
+
+		/* Remove the extra bits */
+		adis->burst_extra_len = 0;
+		adis->xfer[1].len -= 6 * sizeof(u16);
+		dev_dbg(&adis->spi->dev, "Disable burst32 mode, xfer:%d\n",
+			adis->xfer[1].len);
+	}
 }
 
 static irqreturn_t adis16475_trigger_handler(int irq, void *p)
@@ -851,25 +990,28 @@ static irqreturn_t adis16475_trigger_handler(int irq, void *p)
 	struct adis16475 *st = iio_priv(indio_dev);
 	struct adis *adis = &st->adis;
 	int ret, bit, i = 0;
-	u16 crc, data[ADIS16475_MAX_SCAN_DATA], *buffer, crc_res;
+	__be16 *buffer;
+	u16 crc;
+	bool valid;
 	/* offset until the first element after gyro and accel */
 	const u8 offset = st->burst32 ? 13 : 7;
+	const u32 cached_spi_speed_hz = adis->spi->max_speed_hz;
+
+	adis->spi->max_speed_hz = ADIS16475_BURST_MAX_SPEED;
 
 	ret = spi_sync(adis->spi, &adis->msg);
 	if (ret)
 		return ret;
 
-	buffer = (u16 *)adis->buffer;
+	adis->spi->max_speed_hz = cached_spi_speed_hz;
+	buffer = adis->buffer;
 
-	if (!(adis->burst && adis->burst->en))
-		goto push_to_buffers;
-
-	/* We always validate the crc to at least print a message */
-	crc = get_unaligned_be16(&buffer[offset + 2]);
-	crc_res = adis16475_validate_crc((u8 *)adis->buffer, crc,
-					 st->burst32);
-	if (crc_res)
+	crc = be16_to_cpu(buffer[offset + 2]);
+	valid = adis16475_validate_crc(adis->buffer, crc, st->burst32);
+	if (!valid) {
 		dev_err(&adis->spi->dev, "Invalid crc\n");
+		goto check_burst32;
+	}
 
 	for_each_set_bit(bit, indio_dev->active_scan_mask,
 			 indio_dev->masklength) {
@@ -879,13 +1021,7 @@ static irqreturn_t adis16475_trigger_handler(int irq, void *p)
 		 */
 		switch (bit) {
 		case ADIS16475_SCAN_TEMP:
-			data[i++] = get_unaligned(&buffer[offset]);
-			break;
-		case ADIS16475_SCAN_DIAG_S_FLAGS:
-			data[i++] = get_unaligned(&buffer[0]);
-			break;
-		case ADIS16475_SCAN_CRC_FAILURE:
-			data[i++] = crc_res;
+			st->data[i++] = buffer[offset];
 			break;
 		case ADIS16475_SCAN_GYRO_X ... ADIS16475_SCAN_ACCEL_Z:
 			/*
@@ -894,22 +1030,41 @@ static irqreturn_t adis16475_trigger_handler(int irq, void *p)
 			 */
 			if (st->burst32) {
 				/* upper 16 */
-				data[i++] = get_unaligned(&buffer[bit * 2 + 2]);
+				st->data[i++] = buffer[bit * 2 + 2];
 				/* lower 16 */
-				data[i++] = get_unaligned(&buffer[bit * 2 + 1]);
+				st->data[i++] = buffer[bit * 2 + 1];
 			} else {
-				data[i++] = get_unaligned(&buffer[bit + 1]);
-				/* lower not used */
-				data[i++] = 0;
+				st->data[i++] = buffer[bit + 1];
+				/*
+				 * Don't bother in doing the manual read if the
+				 * device supports burst32. burst32 will be
+				 * enabled in the next call to
+				 * adis16475_burst32_check()...
+				 */
+				if (st->lsb_flag && !st->info->has_burst32) {
+					u16 val = 0;
+					const u32 reg = ADIS16475_REG_X_GYRO_L +
+						bit * 4;
+
+					adis_read_reg_16(adis, reg, &val);
+					st->data[i++] = cpu_to_be16(val);
+				} else {
+					/* lower not used */
+					st->data[i++] = 0;
+				}
 			}
 			break;
 		}
 	}
 
-	buffer = data;
-
-push_to_buffers:
-	iio_push_to_buffers_with_timestamp(indio_dev, buffer, pf->timestamp);
+	iio_push_to_buffers_with_timestamp(indio_dev, st->data, pf->timestamp);
+check_burst32:
+	/*
+	 * We only check the burst mode at the end of the current capture since
+	 * it takes a full data ready cycle for the device to update the burst
+	 * array.
+	 */
+	adis16475_burst32_check(st);
 	iio_trigger_notify_done(indio_dev->trig);
 
 	return IRQ_HANDLED;
@@ -920,21 +1075,34 @@ static void adis16475_disable_clk(void *data)
 	clk_disable_unprepare((struct clk *)data);
 }
 
-static int adis16475_config_ext_clk(struct adis16475 *st)
+static int adis16475_config_sync_mode(struct adis16475 *st)
 {
 	int ret;
-	int i;
 	struct device *dev = &st->adis.spi->dev;
-	const struct adis16475_clks *ext_clks = st->info->clks;
+	const struct adis16475_sync *sync;
+	u32 sync_mode;
 
-	for (i = 0; i < st->info->num_clks; i++) {
-		u16 mode;
-		struct clk *clk = devm_clk_get(dev, ext_clks[i].name);
+	/* default to internal clk */
+	st->clk_freq = st->info->int_clk * 1000;
 
-		if (IS_ERR(clk) && PTR_ERR(clk) != -ENOENT)
+	ret = device_property_read_u32(dev, "adi,sync-mode", &sync_mode);
+	if (ret)
+		return 0;
+
+	if (sync_mode >= st->info->num_sync) {
+		dev_err(dev, "Invalid sync mode: %u for %s\n", sync_mode,
+			st->info->name);
+		return -EINVAL;
+	}
+
+	sync = &st->info->sync[sync_mode];
+
+	/* All the other modes require external input signal */
+	if (sync->sync_mode != ADIS16475_SYNC_OUTPUT) {
+		struct clk *clk = devm_clk_get(dev, NULL);
+
+		if (IS_ERR(clk))
 			return PTR_ERR(clk);
-		else if (IS_ERR(clk))
-			continue;
 
 		ret = clk_prepare_enable(clk);
 		if (ret)
@@ -945,16 +1113,15 @@ static int adis16475_config_ext_clk(struct adis16475 *st)
 			return ret;
 
 		st->clk_freq = clk_get_rate(clk);
-		if (st->clk_freq < ext_clks[i].min_rate ||
-		    st->clk_freq > ext_clks[i].max_rate) {
+		if (st->clk_freq < sync->min_rate ||
+		    st->clk_freq > sync->max_rate) {
 			dev_err(dev,
 				"Clk rate:%u not in a valid range:[%u %u]\n",
-				st->clk_freq, ext_clks[i].min_rate,
-				ext_clks[i].max_rate);
+				st->clk_freq, sync->min_rate, sync->max_rate);
 			return -EINVAL;
 		}
 
-		if (ext_clks[i].clk_mode == ADIS16475_CLK_SCALED) {
+		if (sync->sync_mode == ADIS16475_SYNC_SCALED) {
 			u16 up_scale;
 			u32 scaled_out_freq = 0;
 			/*
@@ -964,12 +1131,15 @@ static int adis16475_config_ext_clk(struct adis16475 *st)
 			 * 1900 to 2100 Hz. Hence, a scale must be given to
 			 * get the allowable output.
 			 */
-			device_property_read_u32(dev, "adi,scaled-output-hz",
-						 &scaled_out_freq);
-
-			if (scaled_out_freq < 1900 || scaled_out_freq > 2100) {
-				dev_err(dev,
-					"Invalid value:%u for adi,scaled-output-hz",
+			ret = device_property_read_u32(dev,
+						       "adi,scaled-output-hz",
+						       &scaled_out_freq);
+			if (ret) {
+				dev_err(dev, "adi,scaled-output-hz must be given when in scaled sync mode");
+				return -EINVAL;
+			} else if (scaled_out_freq < 1900 ||
+				   scaled_out_freq > 2100) {
+				dev_err(dev, "Invalid value: %u for adi,scaled-output-hz",
 					scaled_out_freq);
 				return -EINVAL;
 			}
@@ -977,7 +1147,8 @@ static int adis16475_config_ext_clk(struct adis16475 *st)
 			up_scale = DIV_ROUND_CLOSEST(scaled_out_freq,
 						     st->clk_freq);
 
-			ret = __adis_write_reg_16(&st->adis, ADIS16475_CLK_SCALED,
+			ret = __adis_write_reg_16(&st->adis,
+						  ADIS16475_REG_UP_SCALE,
 						  up_scale);
 			if (ret)
 				return ret;
@@ -985,36 +1156,22 @@ static int adis16475_config_ext_clk(struct adis16475 *st)
 			st->clk_freq = scaled_out_freq;
 		}
 
-		/* set clk mode */
-		ret = __adis_read_reg_16(&st->adis, ADIS16475_REG_MSG_CTRL,
-					 &mode);
-		if (ret)
-			return ret;
-
-		/*
-		 * Keep in mind that the mask for the clk modes in adis1650*
-		 * chips is different (1100 instead of 11100). However, we
-		 * are not configuring BIT(4) in these chips and the default
-		 * value is 0, so we are fine in doing the below operations.
-		 * I'm keeping this for simplicity and avoiding extra variables
-		 * in chip_info.
-		 */
-		mode &= ~ADIS16475_EXT_CLK_MASK;
-		mode |= ADIS16475_EXT_CLK(ext_clks[i].clk_mode);
-
-		ret = __adis_write_reg_16(&st->adis, ADIS16475_REG_MSG_CTRL,
-					  mode);
-		if (ret)
-			return ret;
-
-		break;
+		st->clk_freq *= 1000;
 	}
+	/*
+	 * Keep in mind that the mask for the clk modes in adis1650*
+	 * chips is different (1100 instead of 11100). However, we
+	 * are not configuring BIT(4) in these chips and the default
+	 * value is 0, so we are fine in doing the below operations.
+	 * I'm keeping this for simplicity and avoiding extra variables
+	 * in chip_info.
+	 */
+	ret = __adis_update_bits(&st->adis, ADIS16475_REG_MSG_CTRL,
+				 ADIS16475_SYNC_MODE_MASK, sync->sync_mode);
+	if (ret)
+		return ret;
 
-	if (i == st->info->num_clks)
-		/* internal clk */
-		st->clk_freq = st->info->int_clk;
-
-	st->clk_freq *= 1000;
+	usleep_range(250, 260);
 
 	return 0;
 }
@@ -1024,7 +1181,7 @@ static int adis16475_config_irq_pin(struct adis16475 *st)
 	int ret;
 	struct irq_data *desc;
 	u32 irq_type;
-	u16 val;
+	u16 val = 0;
 	u8 polarity;
 	struct spi_device *spi = st->adis.spi;
 
@@ -1038,25 +1195,21 @@ static int adis16475_config_irq_pin(struct adis16475 *st)
 	 * need to update the adis struct if we want data ready as active low.
 	 */
 	irq_type = irqd_get_trigger_type(desc);
-	if (irq_type == IRQF_TRIGGER_RISING) {
+	if (irq_type == IRQ_TYPE_EDGE_RISING) {
 		polarity = 1;
-	} else if (irq_type == IRQF_TRIGGER_FALLING) {
+		st->adis.irq_flag = IRQF_TRIGGER_RISING;
+	} else if (irq_type == IRQ_TYPE_EDGE_FALLING) {
 		polarity = 0;
-		st->adis.irq_mask = IRQF_TRIGGER_FALLING;
+		st->adis.irq_flag = IRQF_TRIGGER_FALLING;
 	} else {
 		dev_err(&spi->dev, "Invalid interrupt type 0x%x specified\n",
 			irq_type);
 		return -EINVAL;
 	}
 
-	ret = __adis_read_reg_16(&st->adis, ADIS16475_REG_MSG_CTRL, &val);
-	if (ret)
-		return ret;
-
-	val &= ~ADIS16475_MSG_CTRL_DR_POL_MASK;
-	val |= ADIS16475_MSG_CTRL_DR_POL(polarity);
-
-	ret = __adis_write_reg_16(&st->adis, ADIS16475_REG_MSG_CTRL, val);
+	val = ADIS16475_MSG_CTRL_DR_POL(polarity);
+	ret = __adis_update_bits(&st->adis, ADIS16475_REG_MSG_CTRL,
+				 ADIS16475_MSG_CTRL_DR_POL_MASK, val);
 	if (ret)
 		return ret;
 	/*
@@ -1069,64 +1222,55 @@ static int adis16475_config_irq_pin(struct adis16475 *st)
 	return 0;
 }
 
-static int adis16475_burst_config(struct adis16475 *st)
-{
-	const u16 burst32 = ADIS16500_BURST32(1);
-	int ret;
-
-	st->burst32 = device_property_read_bool(&st->adis.spi->dev,
-						"adi,burst32-enable");
-	if (!st->burst32)
-		goto burst16;
-
-	if (!st->info->has_burst32) {
-		dev_err(&st->adis.spi->dev, "%s does not support burst32 mode\n",
-			spi_get_device_id(st->adis.spi)->name);
-		return -EINVAL;
-	}
-
-	ret = __adis_update_bits(&st->adis, ADIS16475_REG_MSG_CTRL,
-				 ADIS16500_BURST32_MASK, burst32);
-	if (ret)
-		return ret;
-
-	usleep_range(250, 260);
-	/*
-	 * In 32bit mode we need extra 2 bytes for all gyro and accel
-	 * channels.
-	 */
-	adis16475_burst.extra_len += 6 * sizeof(u16);
-burst16:
-	st->adis.burst = &adis16475_burst;
-	/* it's enabled by default so spi max speed needs to be 1MHz */
-	st->cached_spi_speed_hz = st->adis.spi->max_speed_hz;
-	st->adis.spi->max_speed_hz = 1000000;
-
-	return 0;
-}
-
-static struct adis_data *adis16475_adis_data_alloc(struct adis16475 *st,
-						   struct device *dev)
-{
-	struct adis_data *data;
-
-	data = devm_kmalloc(dev, sizeof(struct adis_data), GFP_KERNEL);
-	if (!data)
-		return ERR_PTR(-ENOMEM);
-
-	memcpy(data, &adis16475_data, sizeof(*data));
-
-	data->timeouts = st->info->timeouts;
-
-	return data;
-}
+static const struct of_device_id adis16475_of_match[] = {
+	{ .compatible = "adi,adis16470",
+		.data = &adis16475_chip_info[ADIS16470] },
+	{ .compatible = "adi,adis16475-1",
+		.data = &adis16475_chip_info[ADIS16475_1] },
+	{ .compatible = "adi,adis16475-2",
+		.data = &adis16475_chip_info[ADIS16475_2] },
+	{ .compatible = "adi,adis16475-3",
+		.data = &adis16475_chip_info[ADIS16475_3] },
+	{ .compatible = "adi,adis16477-1",
+		.data = &adis16475_chip_info[ADIS16477_1] },
+	{ .compatible = "adi,adis16477-2",
+		.data = &adis16475_chip_info[ADIS16477_2] },
+	{ .compatible = "adi,adis16477-3",
+		.data = &adis16475_chip_info[ADIS16477_3] },
+	{ .compatible = "adi,adis16465-1",
+		.data = &adis16475_chip_info[ADIS16465_1] },
+	{ .compatible = "adi,adis16465-2",
+		.data = &adis16475_chip_info[ADIS16465_2] },
+	{ .compatible = "adi,adis16465-3",
+		.data = &adis16475_chip_info[ADIS16465_3] },
+	{ .compatible = "adi,adis16467-1",
+		.data = &adis16475_chip_info[ADIS16467_1] },
+	{ .compatible = "adi,adis16467-2",
+		.data = &adis16475_chip_info[ADIS16467_2] },
+	{ .compatible = "adi,adis16467-3",
+		.data = &adis16475_chip_info[ADIS16467_3] },
+	{ .compatible = "adi,adis16500",
+		.data = &adis16475_chip_info[ADIS16500] },
+	{ .compatible = "adi,adis16505-1",
+		.data = &adis16475_chip_info[ADIS16505_1] },
+	{ .compatible = "adi,adis16505-2",
+		.data = &adis16475_chip_info[ADIS16505_2] },
+	{ .compatible = "adi,adis16505-3",
+		.data = &adis16475_chip_info[ADIS16505_3] },
+	{ .compatible = "adi,adis16507-1",
+		.data = &adis16475_chip_info[ADIS16507_1] },
+	{ .compatible = "adi,adis16507-2",
+		.data = &adis16475_chip_info[ADIS16507_2] },
+	{ .compatible = "adi,adis16507-3",
+		.data = &adis16475_chip_info[ADIS16507_3] },
+	{ },
+};
+MODULE_DEVICE_TABLE(of, adis16475_of_match);
 
 static int adis16475_probe(struct spi_device *spi)
 {
 	struct iio_dev *indio_dev;
 	struct adis16475 *st;
-	const struct spi_device_id *id = spi_get_device_id(spi);
-	const struct adis_data *adis16475_data;
 	int ret;
 
 	indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*st));
@@ -1134,19 +1278,19 @@ static int adis16475_probe(struct spi_device *spi)
 		return -ENOMEM;
 
 	st = iio_priv(indio_dev);
-	st->info = &adis16475_chip_info[id->driver_data];
 	spi_set_drvdata(spi, indio_dev);
+	st->adis.burst = &adis16475_burst;
 
-	adis16475_data = adis16475_adis_data_alloc(st, &spi->dev);
-	if (IS_ERR(adis16475_data))
-		return PTR_ERR(adis16475_data);
+	st->info = device_get_match_data(&spi->dev);
+	if (!st->info)
+		return -EINVAL;
 
-	ret = adis_init(&st->adis, indio_dev, spi, adis16475_data);
+	ret = adis_init(&st->adis, indio_dev, spi, &st->info->adis_data);
 	if (ret)
 		return ret;
 
 	indio_dev->dev.parent = &spi->dev;
-	indio_dev->name = id->name;
+	indio_dev->name = st->info->name;
 	indio_dev->channels = st->info->channels;
 	indio_dev->num_channels = st->info->num_channels;
 	indio_dev->info = &adis16475_info;
@@ -1156,15 +1300,11 @@ static int adis16475_probe(struct spi_device *spi)
 	if (ret)
 		return ret;
 
-	ret = adis16475_burst_config(st);
-	if (ret)
-		return ret;
-
 	ret = adis16475_config_irq_pin(st);
 	if (ret)
 		return ret;
 
-	ret = adis16475_config_ext_clk(st);
+	ret = adis16475_config_sync_mode(st);
 	if (ret)
 		return ret;
 
@@ -1184,66 +1324,11 @@ static int adis16475_probe(struct spi_device *spi)
 	return 0;
 }
 
-static const struct spi_device_id adis16475_ids[] = {
-	/* Identical to adis16477-3 */
-	{ "adis16470", ADIS16477_3 },
-	{ "adis16475-1", ADIS16475_1 },
-	{ "adis16475-2", ADIS16475_2 },
-	{ "adis16475-3", ADIS16475_3 },
-	{ "adis16477-1", ADIS16477_1 },
-	{ "adis16477-2", ADIS16477_2 },
-	{ "adis16477-3", ADIS16477_3 },
-	/* This devices are identical to adis16475 in terms of chip_info */
-	{ "adis16465-1", ADIS16475_1 },
-	{ "adis16465-2", ADIS16475_2 },
-	{ "adis16465-3", ADIS16475_3 },
-	/* This devices are identical to adis16477 in terms of chip_info */
-	{ "adis16467-1", ADIS16477_1 },
-	{ "adis16467-2", ADIS16477_2 },
-	{ "adis16467-3", ADIS16477_3 },
-	{ "adis16500", ADIS16500 },
-	{ "adis16505-1", ADIS16505_1 },
-	{ "adis16505-2", ADIS16505_2 },
-	{ "adis16505-3", ADIS16505_3 },
-	{ "adis16507-1", ADIS16507_1 },
-	{ "adis16507-2", ADIS16507_2 },
-	/* Identical to adis16500 */
-	{ "adis16507-3", ADIS16500 },
-	{ }
-};
-MODULE_DEVICE_TABLE(spi, adis16475_ids);
-
-static const struct of_device_id adis16475_of_match[] = {
-	{ .compatible = "adi,adis16470" },
-	{ .compatible = "adi,adis16475-1" },
-	{ .compatible = "adi,adis16475-2" },
-	{ .compatible = "adi,adis16475-3" },
-	{ .compatible = "adi,adis16477-1" },
-	{ .compatible = "adi,adis16477-2" },
-	{ .compatible = "adi,adis16477-3" },
-	{ .compatible = "adi,adis16465-1" },
-	{ .compatible = "adi,adis16465-2" },
-	{ .compatible = "adi,adis16465-3" },
-	{ .compatible = "adi,adis16467-1" },
-	{ .compatible = "adi,adis16467-2" },
-	{ .compatible = "adi,adis16467-3" },
-	{ .compatible = "adi,adis16500" },
-	{ .compatible = "adi,adis16505-1" },
-	{ .compatible = "adi,adis16505-2" },
-	{ .compatible = "adi,adis16505-3" },
-	{ .compatible = "adi,adis16507-1" },
-	{ .compatible = "adi,adis16507-2" },
-	{ .compatible = "adi,adis16507-3" },
-	{ },
-};
-MODULE_DEVICE_TABLE(of, adis16475_of_match);
-
 static struct spi_driver adis16475_driver = {
 	.driver = {
 		.name = "adis16475",
 		.of_match_table = adis16475_of_match,
 	},
-	.id_table = adis16475_ids,
 	.probe = adis16475_probe,
 };
 module_spi_driver(adis16475_driver);
