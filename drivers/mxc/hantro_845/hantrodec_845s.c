@@ -1988,19 +1988,14 @@ static int hantro_dev_remove(struct platform_device *pdev)
 
 	hantro_clk_enable(&dev->clk);
 	pm_runtime_get_sync(&pdev->dev);
-
 	hantrodec_cleanup(dev->core_id);
-#if 1 // FIXME: need to identify core id
-	if (hantrodec_major > 0) {
-		device_destroy(hantro_class, MKDEV(hantrodec_major, 0));
-		class_destroy(hantro_class);
-		unregister_chrdev(hantrodec_major, "hantrodec");
-		hantrodec_major = 0;
-	}
-#endif
 	pm_runtime_put_sync(&pdev->dev);
 	pm_runtime_disable(&pdev->dev);
 	hantro_clk_disable(&dev->clk);
+	if (!IS_ERR(dev->clk.dec))
+		clk_put(dev->clk.dec);
+	if (!IS_ERR(dev->clk.bus))
+		clk_put(dev->clk.bus);
 
 #ifdef CONFIG_DEVICE_THERMAL_HANTRO
 	HANTRO_UNREG_THERMAL_NOTIFIER(&hantro_thermal_hot_notifier);
@@ -2090,8 +2085,13 @@ static int __init hantro_init(void)
 
 static void __exit hantro_exit(void)
 {
-	//clk_put(hantro_clk);
 	platform_driver_unregister(&mxchantro_driver);
+	if (hantrodec_major > 0) {
+		device_destroy(hantro_class, MKDEV(hantrodec_major, 0));
+		class_destroy(hantro_class);
+		unregister_chrdev(hantrodec_major, "hantrodec");
+		hantrodec_major = 0;
+	}
 }
 
 module_init(hantro_init);
