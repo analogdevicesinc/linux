@@ -719,7 +719,6 @@ int32_t adi_ad9081_hal_calc_rx_nco_ftw(adi_ad9081_device_t *device,
 		b = nco_shift -
 		    (a * adc_freq); /* b = fmod(nco_shift, adc_freq) */
 		adi_ad9081_hal_mult_128(281474976710656ull, b, &hi, &lo);
-		adi_ad9081_hal_add_128(hi, lo, 0, adc_freq - 1, &hi, &lo);
 		adi_ad9081_hal_div_128(hi, lo, 0, adc_freq, &hi, ftw);
 	} else {
 #ifdef __KERNEL__
@@ -729,7 +728,6 @@ int32_t adi_ad9081_hal_calc_rx_nco_ftw(adi_ad9081_device_t *device,
 #endif
 		b = -nco_shift - (a * adc_freq);
 		adi_ad9081_hal_mult_128(281474976710656ull, b, &hi, &lo);
-		adi_ad9081_hal_add_128(hi, lo, 0, adc_freq - 1, &hi, &lo);
 		adi_ad9081_hal_div_128(hi, lo, 0, adc_freq, &hi, ftw);
 		*ftw = 281474976710656ull - *ftw;
 	}
