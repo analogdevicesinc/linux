@@ -174,6 +174,7 @@ struct ad9081_phy {
 	struct ad9081_jesd_link jesd_rx_link[2];
 };
 
+
 static int ad9081_nco_sync_master_slave(struct ad9081_phy *phy, bool master)
 {
 	int ret;
@@ -1460,7 +1461,7 @@ static int ad9081_setup(struct spi_device *spi, bool ad9234)
 		return ret;
 
 	/* AC couple SYSREF */
-	ret = adi_ad9081_jesd_rx_sysref_input_mode_set(&phy->ad9081, 0);
+	ret = adi_ad9081_jesd_sysref_input_mode_set(&phy->ad9081, 0);
 	if (ret != 0)
 		return ret;
 
@@ -1619,7 +1620,7 @@ static int ad9081_setup(struct spi_device *spi, bool ad9234)
 
 	if ((phy->jesd_tx_link.jesd_param.jesd_jesdv == 2) &&
 		(tx_lane_rate_kbps > 16230000UL)) {
-		ret = adi_ad9081_jesd_rx_calibrate_204c(&phy->ad9081);
+		ret = adi_ad9081_jesd_rx_calibrate_204c(&phy->ad9081, 0);
 		if (ret < 0)
 			return ret;
 	}
