@@ -338,9 +338,9 @@ static void imx_sec_dsim_unbind(struct device *dev, struct device *master,
 
 	pm_runtime_disable(dev);
 
-	sec_mipi_dsim_unbind(dev, master, data);
-
 	drm_encoder_cleanup(&dsim_dev->encoder);
+
+	sec_mipi_dsim_unbind(dev, master, data);
 
 	sec_dsim_of_put_resets(dsim_dev);
 }
