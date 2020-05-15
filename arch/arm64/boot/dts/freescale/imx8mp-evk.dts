@@ -500,6 +500,18 @@
 			};
 		};
 	};
+
+	lvds_bridge: lvds-to-hdmi-bridge@4c {
+		compatible = "ite,it6263";
+		reg = <0x4c>;
+		reset-gpios = <&gpio1 10 GPIO_ACTIVE_LOW>;
+
+		port {
+			it6263_in: endpoint {
+				remote-endpoint = <&lvds_out>;
+			};
+		};
+	};
 };
 
 &i2c3 {
@@ -566,6 +578,32 @@
 };
 
 &lcdif1 {
+	status = "okay";
+};
+
+&lcdif2 {
+	status = "okay";
+};
+
+&ldb {
+	status = "okay";
+
+	lvds-channel@0 {
+		fsl,data-mapping = "jeida";
+		fsl,data-width = <24>;
+		status = "okay";
+
+		port@1 {
+			reg = <1>;
+
+			lvds_out: endpoint {
+				remote-endpoint = <&it6263_in>;
+			};
+		};
+	};
+};
+
+&ldb_phy {
 	status = "okay";
 };
 

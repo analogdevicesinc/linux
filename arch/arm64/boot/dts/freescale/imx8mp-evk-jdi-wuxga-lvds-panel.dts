@@ -16,16 +16,9 @@
 			};
 		};
 	};
-
-	display-subsystem {
-		compatible = "fsl,imx-display-subsystem";
-		ports = <&lcdif2_disp>;
-	};
 };
 
-&lcdif2 {
-	status = "okay";
-};
+/delete-node/ &lvds_bridge;
 
 &ldb {
 	status = "okay";
@@ -33,8 +26,7 @@
 
 	lvds-channel@0 {
 		fsl,data-mapping = "spwg";
-		fsl,data-width = <24>;
-		status = "okay";
+		/delete-node/ port@1;
 
 		port@1 {
 			reg = <1>;
@@ -44,8 +36,4 @@
 			};
 		};
 	};
-};
-
-&ldb_phy {
-	status = "okay";
 };
