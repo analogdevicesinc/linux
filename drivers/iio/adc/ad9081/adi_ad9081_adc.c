@@ -2576,6 +2576,36 @@ int32_t adi_ad9081_adc_pfir_rd_coeff_page_sel_set(
 	return API_CMS_ERROR_OK;
 }
 
+int32_t adi_ad9081_adc_pfir_coeff_validate(adi_ad9081_device_t *device,
+					   uint8_t ntaps, uint16_t coeffs[192])
+{
+	int32_t i, first_16b_idx, last_16b_idx, first_12b_idx, last_12b_idx;
+	AD9081_NULL_POINTER_RETURN(device);
+	AD9081_LOG_FUNC();
+
+	/* find first and last 16bit coeff */
+	first_16b_idx = 192;
+	last_16b_idx = 0;
+	for (i = 0; i < 192; i++) {
+		if ((coeffs[i] >> 12) > 0) {
+			first_16b_idx = first_16b_idx > i ? i : first_16b_idx;
+			last_16b_idx = last_16b_idx < i ? i : last_16b_idx;
+		}
+	}
+
+	/* find first and last 12bit coeff */
+	first_12b_idx = 192;
+	last_12b_idx = 0;
+	for (i = 0; i < 192; i++) {
+		if ((coeffs[i] >> 7) > 0) {
+			first_12b_idx = first_12b_idx > i ? i : first_12b_idx;
+			last_12b_idx = last_12b_idx < i ? i : last_12b_idx;
+		}
+	}
+
+	return API_CMS_ERROR_OK;
+}
+
 int32_t
 adi_ad9081_adc_pfir_coeff_set(adi_ad9081_device_t *device,
 			      adi_ad9081_adc_pfir_coeff_page_e coeff_pages,

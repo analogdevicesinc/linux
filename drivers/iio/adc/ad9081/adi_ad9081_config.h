@@ -152,6 +152,8 @@ int32_t adi_ad9081_dac_data_xor_set(adi_ad9081_device_t *device, uint8_t dacs,
 int32_t adi_ad9081_adc_select_set(adi_ad9081_device_t *device, uint8_t adcs);
 int32_t adi_ad9081_adc_core_setup(adi_ad9081_device_t *device,
 				  uint8_t adc_cores);
+int32_t adi_ad9081_adc_power_up_set(adi_ad9081_device_t *device, uint8_t adcs,
+				    uint8_t enable);
 uint8_t
 adi_ad9081_adc_ddc_coarse_dcm_decode(adi_ad9081_adc_coarse_ddc_dcm_e cddc_dcm);
 uint8_t
@@ -206,7 +208,7 @@ int32_t adi_ad9081_jesd_tx_link_conv_sel_set(
 int32_t adi_ad9081_jesd_tx_pll_status_get(adi_ad9081_device_t *device,
 					  uint8_t *pll_locked);
 int32_t adi_ad9081_jesd_rx_startup_des(adi_ad9081_device_t *device,
-				       uint8_t deser_rate_config);
+				       adi_ad9081_deser_mode_e deser_mode);
 int32_t adi_ad9081_jesd_pll_lock_status_get(adi_ad9081_device_t *device,
 					    uint8_t *locked);
 uint16_t adi_ad9081_jesd_find_dformat_out_nc(

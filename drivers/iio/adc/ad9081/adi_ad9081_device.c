@@ -18,7 +18,7 @@
 #include "adi_ad9081_hal.h"
 
 /*============= D A T A ====================*/
-static uint8_t ad9081_api_revision[3] = { 1, 0, 2 };
+static uint8_t ad9081_api_revision[3] = { 1, 0, 3 };
 
 /*============= C O D E ====================*/
 int32_t adi_ad9081_device_boot_pre_clock(adi_ad9081_device_t *device)
@@ -871,7 +871,7 @@ int32_t adi_ad9081_device_init(adi_ad9081_device_t *device)
 	err = adi_ad9081_hal_log_write(
 		device, ADI_CMS_LOG_MSG, "api v%d.%d.%d commit %s for ad%x ",
 		ad9081_api_revision[0], ad9081_api_revision[1],
-		ad9081_api_revision[2], "ff59ecc", AD9081_ID);
+		ad9081_api_revision[2], "459600c", AD9081_ID);
 	AD9081_ERROR_RETURN(err);
 
 	/* get host cpu endian mode */
@@ -1186,7 +1186,7 @@ int32_t adi_ad9081_device_startup_tx_or_nco_test(
 					       chan_interp);
 	AD9081_ERROR_RETURN(err);
 
-	/* configure jrx links */
+	/* configure jrx links for normal mode */
 	if (enable_nco_test == 0) {
 		links = (jesd_param->jesd_duallink > 0) ? AD9081_LINK_ALL :
 							  AD9081_LINK_0;
@@ -1195,7 +1195,7 @@ int32_t adi_ad9081_device_startup_tx_or_nco_test(
 		AD9081_ERROR_RETURN(err);
 		err = adi_ad9081_jesd_rx_bring_up(device, links, 0xff);
 		AD9081_ERROR_RETURN(err);
-		err = adi_ad9081_jesd_rx_sysref_enable_set(
+		err = adi_ad9081_jesd_sysref_enable_set(
 			device, jesd_param->jesd_subclass > 0 ? 1 : 0);
 		AD9081_ERROR_RETURN(err);
 	}
