@@ -279,25 +279,21 @@ static int imx_sec_dsim_bind(struct device *dev, struct device *master,
 	dev_dbg(dev, "%s: dsim bind begin\n", __func__);
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (!res) {
-		ret = -ENODEV;
-		goto null_dsim_dev;
-	}
+	if (!res)
+		return -ENODEV;
 
 	irq = platform_get_irq(pdev, 0);
-	if (irq < 0) {
-		ret = irq;
-		goto null_dsim_dev;
-	}
+	if (irq < 0)
+		return -ENODEV;
 
 	ret = sec_dsim_of_parse_resets(dsim_dev);
 	if (ret)
-		goto null_dsim_dev;
+		return ret;
 
 	encoder = &dsim_dev->encoder;
 	ret = imx_drm_encoder_parse_of(drm_dev, encoder, np);
 	if (ret)
-		goto null_dsim_dev;
+		return ret;
 
 	drm_encoder_helper_add(encoder, &imx_sec_dsim_encoder_helper_funcs);
 
@@ -305,7 +301,7 @@ static int imx_sec_dsim_bind(struct device *dev, struct device *master,
 			       &imx_sec_dsim_encoder_funcs,
 			       DRM_MODE_ENCODER_DSI, dev_name(dev));
 	if (ret)
-		goto null_dsim_dev;
+		return ret;
 
 	pm_runtime_enable(dev);
 
@@ -327,24 +323,12 @@ static int imx_sec_dsim_bind(struct device *dev, struct device *master,
 		if (ret == -ENODEV)
 			return 0;
 
-		goto null_dsim_dev;
+		return ret;
 	}
 
 	dev_dbg(dev, "%s: dsim bind end\n", __func__);
 
 	return 0;
-
-null_dsim_dev:
-	/* NULL dsim_dev:
-	 * when bind failed, the dsim_dev will be
-	 * freed by devres framework, so make it
-	 * to be NULL can avoid possible accesses
-	 * to this freed memory which is a kind of
-	 * hard to find issue.
-	 */
-	dsim_dev = NULL;
-
-	return ret;
 }
 
 static void imx_sec_dsim_unbind(struct device *dev, struct device *master,
