@@ -96,20 +96,20 @@
 			<GIC_SPI 315 IRQ_TYPE_LEVEL_HIGH>,
 			<GIC_SPI 391 IRQ_TYPE_LEVEL_HIGH>,
 			<GIC_SPI 393 IRQ_TYPE_LEVEL_HIGH>;
-	interrupt-names = "edma0-chan8-rx", "edma0-chan9-tx", /* spdif0 */
-			"edma0-chan12-rx", "edma0-chan13-tx", /* sai0 */
-			"edma0-chan21-tx",		/* gpt5 */
-			"edma0-chan23-rx";		/* gpt7 */
+	interrupt-names = "edma2-chan8-rx", "edma2-chan9-tx", /* spdif0 */
+			"edma2-chan12-rx", "edma2-chan13-tx", /* sai0 */
+			"edma2-chan21-tx",		/* gpt5 */
+			"edma2-chan23-rx";		/* gpt7 */
 
-	power-domains = <&pd IMX_SC_R_DMA_0_CH8>,
-			<&pd IMX_SC_R_DMA_0_CH9>,
-			<&pd IMX_SC_R_DMA_0_CH12>,
-			<&pd IMX_SC_R_DMA_0_CH13>,
-			<&pd IMX_SC_R_DMA_0_CH21>,
-			<&pd IMX_SC_R_DMA_0_CH23>;
-	power-domain-names = "edma0-chan8", "edma0-chan9",
-			"edma0-chan12", "edma0-chan13",
-			"edma0-chan21", "edma0-chan23";
+	power-domains = <&pd IMX_SC_R_DMA_2_CH8>,
+			<&pd IMX_SC_R_DMA_2_CH9>,
+			<&pd IMX_SC_R_DMA_2_CH12>,
+			<&pd IMX_SC_R_DMA_2_CH13>,
+			<&pd IMX_SC_R_DMA_2_CH21>,
+			<&pd IMX_SC_R_DMA_2_CH23>;
+	power-domain-names = "edma2-chan8", "edma2-chan9",
+			"edma2-chan12", "edma2-chan13",
+			"edma2-chan21", "edma2-chan23";
 	status = "okay";
 };
 
