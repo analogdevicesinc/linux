@@ -41,6 +41,7 @@
 				compatible = "adi,ad5791";
 				reg = <1>;
 				spi-max-frequency = <5000000>;
+				spi-cpha;
 				vdd-supply = <&vdd>;
 				vss-supply = <&vss>;
 			};
