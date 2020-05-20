@@ -34,3 +34,7 @@
 &flexspi0 {
 	status = "disabled";
 };
+
+&cm40_lpuart {
+	status = "disabled";
+};
