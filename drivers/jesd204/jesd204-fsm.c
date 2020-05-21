@@ -42,6 +42,10 @@ struct jesd204_fsm_table_entry {
 	bool			last;
 };
 
+struct jesd204_fsm_table_entry_iter {
+	const struct jesd204_fsm_table_entry	*table;
+};
+
 #define _JESD204_STATE_OP(x, _last)	\
 {					\
 	.state = JESD204_STATE_##x,	\
@@ -53,15 +57,15 @@ struct jesd204_fsm_table_entry {
 
 static int jesd204_fsm_table(struct jesd204_dev *jdev,
 			     enum jesd204_dev_state init_state,
-			     struct jesd204_fsm_table_entry *table);
+			     const struct jesd204_fsm_table_entry *table);
 
 /* States to transition to initialize a JESD204 link */
-static struct jesd204_fsm_table_entry jesd204_init_links_states[] = {
+static const struct jesd204_fsm_table_entry jesd204_init_links_states[] = {
 	JESD204_STATE_OP_LAST(LINK_INIT),
 };
 
 /* States to transition to start a JESD204 link */
-static struct jesd204_fsm_table_entry jesd204_start_links_states[] = {
+static const struct jesd204_fsm_table_entry jesd204_start_links_states[] = {
 	JESD204_STATE_OP(LINK_SUPPORTED),
 	JESD204_STATE_OP(LINK_SETUP),
 	JESD204_STATE_OP(CLOCKS_ENABLE),
@@ -479,7 +483,8 @@ static int jesd204_fsm_table_entry_cb(struct jesd204_dev *jdev,
 static int jesd204_fsm_table_entry_done(struct jesd204_dev *jdev,
 					void *data)
 {
-	struct jesd204_fsm_table_entry *table = data;
+	struct jesd204_fsm_table_entry_iter *it = data;
+	const struct jesd204_fsm_table_entry *table = it->table;
 
 	if (table[0].last)
 		return 0;
@@ -489,12 +494,16 @@ static int jesd204_fsm_table_entry_done(struct jesd204_dev *jdev,
 
 static int jesd204_fsm_table(struct jesd204_dev *jdev,
 			     enum jesd204_dev_state init_state,
-			     struct jesd204_fsm_table_entry *table)
+			     const struct jesd204_fsm_table_entry *table)
 {
+	struct jesd204_fsm_table_entry_iter it;
+
+	it.table = table;
+
 	return jesd204_fsm(jdev,
 			   init_state, table[0].state,
 			   jesd204_fsm_table_entry_cb,
-			   table,
+			   &it,
 			   jesd204_fsm_table_entry_done);
 }
 
