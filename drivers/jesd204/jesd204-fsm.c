@@ -422,6 +422,24 @@ int jesd204_init_topology(struct jesd204_dev_top *jdev_top)
 			   jesd204_dev_initialize_cb, jdev_top, NULL);
 }
 
+static int jesd204_fsm_init_links(struct jesd204_dev *jdev,
+				  enum jesd204_dev_state init_state)
+{
+	int ret;
+
+	ret = jesd204_fsm_table(jdev, init_state, jesd204_init_links_states);
+	if (ret)
+		return ret;
+
+	return jesd204_dev_init_link_data(jdev);
+}
+
+static int jesd204_fsm_start_links(struct jesd204_dev *jdev,
+				   enum jesd204_dev_state init_state)
+{
+	return jesd204_fsm_table(jdev, init_state, jesd204_start_links_states);
+}
+
 static int jesd204_fsm_probed_cb(struct jesd204_dev *jdev,
 				 struct jesd204_dev_con_out *con,
 				 void *data)
@@ -506,24 +524,6 @@ static int jesd204_fsm_table(struct jesd204_dev *jdev,
 			   jesd204_fsm_table_entry_cb,
 			   &it,
 			   jesd204_fsm_table_entry_done);
-}
-
-int jesd204_fsm_init_links(struct jesd204_dev *jdev,
-			   enum jesd204_dev_state init_state)
-{
-	int ret;
-
-	ret = jesd204_fsm_table(jdev, init_state, jesd204_init_links_states);
-	if (ret)
-		return ret;
-
-	return jesd204_dev_init_link_data(jdev);
-}
-
-int jesd204_fsm_start_links(struct jesd204_dev *jdev,
-			    enum jesd204_dev_state init_state)
-{
-	return jesd204_fsm_table(jdev, init_state, jesd204_start_links_states);
 }
 
 void jesd204_fsm_uninit_device(struct jesd204_dev *jdev)

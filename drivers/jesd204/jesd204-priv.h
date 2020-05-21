@@ -157,12 +157,6 @@ int jesd204_init_topology(struct jesd204_dev_top *jdev_top);
 
 int jesd204_fsm_probe(struct jesd204_dev *jdev);
 
-int jesd204_fsm_init_links(struct jesd204_dev *jdev,
-			   enum jesd204_dev_state init_state);
-
-int jesd204_fsm_start_links(struct jesd204_dev *jdev,
-			    enum jesd204_dev_state init_state);
-
 void jesd204_fsm_uninit_device(struct jesd204_dev *jdev);
 
 #endif /* _JESD204_PRIV_H_ */
