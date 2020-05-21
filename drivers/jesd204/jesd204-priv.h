@@ -69,6 +69,8 @@ struct jesd204_dev_con_out {
 
 /**
  * struct jesd204_dev - JESD204 device
+ * @dev			underlying device object
+ * @id			unique device id
  * @entry		list entry for the framework to keep a list of devices
  * @is_top		true if this device is a top device in a topology of
  *			devices that make up a JESD204 link (typically the
@@ -85,6 +87,8 @@ struct jesd204_dev_con_out {
  * @outputs_count	number of @outputs in the list
  */
 struct jesd204_dev {
+	struct device			dev;
+	int				id;
 	struct list_head		entry;
 
 	bool				is_top;
