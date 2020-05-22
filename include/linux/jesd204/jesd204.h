@@ -36,6 +36,7 @@ struct jesd204_sysref {
 
 /**
  * struct jesd204_link - JESD204 link configuration settings
+ * @link_id			JESD204 link ID provided via DT configuration
  * @sample_rate			sample rate for the link
  * @num_lanes			number of JESD204 lanes (L)
  * @num_converters		number of converters per link (M)
@@ -65,6 +66,8 @@ struct jesd204_sysref {
  *				Subclass 2 only
  */
 struct jesd204_link {
+	u32 link_id;
+
 	u64 sample_rate;
 
 	u8 num_lanes;
@@ -99,7 +102,7 @@ struct jesd204_link {
 };
 
 typedef int (*jesd204_link_cb)(struct jesd204_dev *jdev,
-			       unsigned int link_id,
+			       unsigned int link_idx,
 			       struct jesd204_link *lnk);
 
 enum jesd204_dev_op {
