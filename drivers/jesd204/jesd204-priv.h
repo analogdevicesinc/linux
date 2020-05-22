@@ -10,8 +10,13 @@
 
 #include <linux/jesd204/jesd204.h>
 
+#define JESD204_LINKS_ALL		((unsigned int)(-1))
+#define JESD204_MAX_LINKS		16
+
 struct jesd204_dev;
 struct jesd204_dev_top;
+struct jesd204_link_opaque;
+struct jesd204_dev_con_out;
 struct jesd204_fsm_data;
 
 enum jesd204_dev_state {
@@ -48,6 +53,12 @@ struct jesd204_dev_list_entry {
  *			belongs to
  * @jdev_top		pointer to JESD204 top device, to which this connection
  *			belongs to
+ * @topo_id		topology ID, that this connection belongs to
+ *			(must match JESD204 top device)
+ * @link_id		JESD204 link ID, that this connection belongs to
+ *			(obtained from DT, must match a link ID in the top device)
+ * @link_idx		JESD204 link index in the list of link IDs of the top device
+ *			(computed at initialize)
  * @dests		list of JESD204 devices this connection is connected
  *			as input
  * @dests_count		number of connected JESD204 devices to this output
@@ -59,6 +70,9 @@ struct jesd204_dev_con_out {
 	struct list_head		entry;
 	struct jesd204_dev		*owner;
 	struct jesd204_dev_top		*jdev_top;
+	unsigned int			topo_id;
+	unsigned int			link_id;
+	unsigned int			link_idx;
 	struct list_head		dests;
 	unsigned int			dests_count;
 	struct of_phandle_args		of;
@@ -104,33 +118,71 @@ struct jesd204_dev {
 };
 
 /**
+ * struct jesd204_link_opaque - JESD204 link information (opaque part)
+ * @link		public link information
+ * @jdev_top		JESD204 top level this links belongs to
+ * @link_idx		Index in the array of JESD204 links in @jdev_top
+ * @cb_ref		kref which for each JESD204 link will increment when it
+ *			needs to defer a state transition; an equivalent
+ *			notification must be called by the device to decrement
+ *			this and finally call the @fsm_complete_cbs
+ *			callback (if provided)
+ * @cur_state		current state of the JESD204 link
+ * @fsm_data		reference to state-transition information
+ * @flags		internal flags set by the framework
+ * @error		error codes for the JESD204 link
+ */
+struct jesd204_link_opaque {
+	struct jesd204_link		link;
+	struct jesd204_dev_top		*jdev_top;
+	unsigned int			link_idx;
+
+	struct kref			cb_ref;
+	enum jesd204_dev_state		state;
+	struct jesd204_fsm_data		*fsm_data;
+	unsigned long			flags;
+	int				error;
+};
+
+/**
  * struct jesd204_dev_top - JESD204 top device (in a JESD204 topology)
  * @jdev		JESD204 device data
  * @entry		list entry for the framework to keep a list of top
  *			devices (and implicitly topologies)
+ * @initialized		true the topoology connections have been initialized
  * @fsm_data		ref to JESD204 FSM data for JESD204_LNK_FSM_PARALLEL
  * @cb_ref		kref which for each JESD204 link will increment when it
  *			needs to defer a state transition; this is similar to the
  *			cb_ref on the jesd204_link_opaque struct, but each link
  *			increments/decrements it, to group transitions of multiple
  *			JESD204 links
+ * @topo_id		topology ID for this device (and top-level device)
+ *			(connections should match against this)
+ * @link_ids		JESD204 link IDs for this top-level device
+ *			(connections should match against this)
  * @error		error code for this topology after a state has failed
  *			to transition
  * @init_links		initial settings passed from the driver
  * @active_links	active JESD204 link settings
+ * @staged_links	JESD204 link settings staged to be committed as active
  * @num_links		number of links
  */
 struct jesd204_dev_top {
 	struct jesd204_dev		jdev;
 	struct list_head		entry;
+	bool				initialized;
 
 	struct jesd204_fsm_data		*fsm_data;
 	struct kref			cb_ref;
+
+	int				topo_id;
+	unsigned int			link_ids[JESD204_MAX_LINKS];
+	unsigned int			num_links;
 	int				error;
 
 	const struct jesd204_link	*init_links;
-	struct jesd204_link		*active_links;
-	unsigned int			num_links;
+	struct jesd204_link_opaque	*active_links;
+	struct jesd204_link_opaque	*staged_links;
 };
 
 struct list_head *jesd204_topologies_get(void);
@@ -145,7 +197,8 @@ static inline struct jesd204_dev_top *jesd204_dev_top_dev(
 
 const char *jesd204_state_str(enum jesd204_dev_state state);
 
-int jesd204_dev_init_link_data(struct jesd204_dev *jdev);
+int jesd204_dev_init_link_data(struct jesd204_dev_top *jdev_top,
+			       unsigned int link_idx);
 
 int jesd204_init_topology(struct jesd204_dev_top *jdev_top);
 
