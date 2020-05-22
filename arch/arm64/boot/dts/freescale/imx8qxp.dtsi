@@ -372,6 +372,7 @@
 	#include "imx8-ss-lsio.dtsi"
 	#include "imx8-ss-hsio.dtsi"
 	#include "imx8-ss-gpu0.dtsi"
+	#include "imx8-ss-lcdif.dtsi"
 };
 
 #include "imx8qxp-ss-img.dtsi"
@@ -380,7 +381,6 @@
 #include "imx8qxp-ss-lsio.dtsi"
 #include "imx8qxp-ss-hsio.dtsi"
 #include "imx8qxp-ss-dc.dtsi"
-#include "imx8qxp-ss-lcdif.dtsi"
 #include "imx8qxp-ss-lvds.dtsi"
 #include "imx8qxp-ss-gpu.dtsi"
 

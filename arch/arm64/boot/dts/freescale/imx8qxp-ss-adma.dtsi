@@ -82,28 +82,4 @@
 		compatible = "fsl,imx8qxp-lcdif-mux-regs", "syscon";
 		reg = <0x5a170000 0x4>;
 	};
-
-	adma_pwm: pwm@5a190000 {
-		compatible = "fsl,imx8qxp-pwm", "fsl,imx27-pwm";
-		reg = <0x5a190000 0x1000>;
-		clocks = <&adma_pwm_lpcg 0>, <&adma_pwm_lpcg 1>;
-		clock-names = "per", "ipg";
-		assigned-clocks = <&clk IMX_SC_R_LCD_0_PWM_0 IMX_SC_PM_CLK_PER>;
-		assigned-clock-rates = <24000000>;
-		#pwm-cells = <2>;
-		power-domains = <&pd IMX_SC_R_LCD_0_PWM_0>;
-		status = "disabled";
-	};
-
-	adma_pwm_lpcg: clock-controller@5a590000 {
-		compatible = "fsl,imx8qxp-lpcg";
-		reg = <0x5a590000 0x10000>;
-		#clock-cells = <1>;
-		clocks = <&clk IMX_SC_R_LCD_0_PWM_0 IMX_SC_PM_CLK_PER>,
-			 <&dma_ipg_clk>;
-		bit-offset = <0 16>;
-		clock-output-names = "adma_pwm_lpcg_clk",
-				     "adma_pwm_lpcg_ipg_clk";
-		power-domains = <&pd IMX_SC_R_LCD_0_PWM_0>;
-	};
 };

@@ -87,6 +87,11 @@
 	status = "okay";
 };
 
+&adma_pwm_lpcg {
+	status = "okay";
+};
+
+
 &adma_lcdif {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_lcdif>;
