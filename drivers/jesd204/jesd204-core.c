@@ -62,18 +62,74 @@ struct device *jesd204_dev_to_device(struct jesd204_dev *jdev)
 }
 EXPORT_SYMBOL(jesd204_dev_to_device);
 
+static int jesd204_dev_alloc_links(struct jesd204_dev_top *jdev_top)
+{
+	struct jesd204_link_opaque *links;
+	size_t mem_size;
+	unsigned int i;
+
+	mem_size = jdev_top->num_links * sizeof(*links);
+
+	links = kzalloc(mem_size, GFP_KERNEL);
+	if (!links)
+		return -ENOMEM;
+	jdev_top->active_links = links;
+
+	for (i = 0; i < jdev_top->num_links; i++) {
+		links[i].jdev_top = jdev_top;
+		links[i].link_idx = i;
+		links[i].link.link_id = jdev_top->link_ids[i];
+	}
+
+	links = kzalloc(mem_size, GFP_KERNEL);
+	if (!links) {
+		kfree(jdev_top->active_links);
+		return -ENOMEM;
+	}
+	jdev_top->staged_links = links;
+
+	return 0;
+}
+
 static struct jesd204_dev *jesd204_dev_alloc(struct device_node *np)
 {
 	struct jesd204_dev_top *jdev_top;
 	struct jesd204_dev *jdev;
-	bool is_top = of_property_read_bool(np, "jesd204-top-device");
+	unsigned int link_ids[JESD204_MAX_LINKS];
+	u32 topo_id;
+	int i, ret;
 
-	if (is_top) {
+	if (of_property_read_u32(np, "jesd204-top-device", &topo_id) == 0) {
+		ret = of_property_read_variable_u32_array(np,
+							  "jesd204-link-ids",
+							  link_ids,
+							  1,
+							  JESD204_MAX_LINKS);
+		if (ret < 0) {
+			pr_err("%pOF error getting 'jesd204-link-ids': %d\n",
+			       np, ret);
+			return ERR_PTR(ret);
+		}
+
 		jdev_top = kzalloc(sizeof(*jdev_top), GFP_KERNEL);
 		if (!jdev_top)
 			return ERR_PTR(-ENOMEM);
 
 		jdev = &jdev_top->jdev;
+
+		jdev_top->topo_id = topo_id;
+		jdev_top->num_links = ret;
+		for (i = 0; i < jdev_top->num_links; i++)
+			jdev_top->link_ids[i] = link_ids[i];
+
+		ret = jesd204_dev_alloc_links(jdev_top);
+		if (ret) {
+			kfree(jdev_top);
+			return ERR_PTR(ret);
+		}
+
+		jdev->is_top = true;
+
 		list_add(&jdev_top->entry, &jesd204_topologies);
 		jesd204_topologies_count++;
 	} else {
@@ -82,7 +138,6 @@ static struct jesd204_dev *jesd204_dev_alloc(struct device_node *np)
 			return ERR_PTR(-ENOMEM);
 	}
 
-	jdev->is_top = is_top;
 	jdev->id = -1;
 	jdev->np = of_node_get(np);
 	kref_init(&jdev->ref);
@@ -144,6 +199,12 @@ static int jesd204_dev_create_con(struct jesd204_dev *jdev,
 	struct jesd204_dev *jdev_in;
 	struct jesd204_dev_list_entry *e;
 
+	if (args->args_count < 2) {
+		pr_err("connection %pOF->%pOF requires 2 args minimum\n",
+		       args->np, jdev->np);
+		return -EINVAL;
+	}
+
 	jdev_in = jesd204_dev_find_by_of_node(args->np);
 	if (!jdev_in) {
 		pr_err("connection %pOF->%pOF invalid\n", args->np, jdev->np);
@@ -162,6 +223,9 @@ static int jesd204_dev_create_con(struct jesd204_dev *jdev,
 			return -ENOMEM;
 		}
 
+		con->topo_id = args->args[0];
+		con->link_id = args->args[1];
+		con->link_idx = JESD204_LINKS_ALL;
 		con->owner = jdev_in;
 		INIT_LIST_HEAD(&con->dests);
 
@@ -247,8 +311,6 @@ static int jesd204_of_create_devices(void)
 	}
 
 	list_for_each_entry(jdev_top, &jesd204_topologies, entry) {
-		jdev = &jdev_top->jdev;
-
 		ret = jesd204_init_topology(jdev_top);
 		if (ret)
 			goto unlock;
@@ -260,15 +322,16 @@ unlock:
 	return ret;
 }
 
-static int jesd204_dev_init_link_lane_ids(struct jesd204_dev *jdev,
+static int jesd204_dev_init_link_lane_ids(struct jesd204_dev_top *jdev_top,
 					  int link_idx,
 					  struct jesd204_link *jlink)
 {
+	struct jesd204_dev *jdev = &jdev_top->jdev;
 	struct device *dev = jdev->parent;
 	u8 id;
 
 	if (!jlink->num_lanes) {
-		dev_err(dev, "number of lanes is 0 for link %d\n",
+		dev_err(dev, "JESD204 link [%d] number of lanes is 0\n",
 			link_idx);
 		jlink->lane_ids = NULL;
 		return -EINVAL;
@@ -291,41 +354,37 @@ static int jesd204_dev_init_link_lane_ids(struct jesd204_dev *jdev,
 	return 0;
 }
 
-static struct jesd204_link *jesd204_dev_alloc_links_data(
-		struct jesd204_dev *jdev,
-		const struct jesd204_link *init_links,
-		unsigned int num_links)
+static int __jesd204_dev_init_link_data(struct jesd204_dev_top *jdev_top,
+					unsigned int link_idx)
 {
-	struct device *dev = jdev->parent;
-	struct jesd204_link *links;
-	size_t mem_size;
-
-	mem_size = num_links * sizeof(*links);
-
-	/* make a copy of the initial JESD204 link settings */
-	links = devm_kzalloc(dev, mem_size, GFP_KERNEL);
-	if (!links)
-		return ERR_PTR(-ENOMEM);
-
-	if (init_links)
-		memcpy(links, init_links, mem_size);
-
-	return links;
-}
-
-int jesd204_dev_init_link_data(struct jesd204_dev *jdev)
-{
-	struct jesd204_dev_top *jdev_top = jesd204_dev_top_dev(jdev);
-	struct jesd204_link *jlink;
-	int i, ret;
-
-	if (!jdev_top)
-		return 0;
+	struct jesd204_link_opaque *ol;
+	int ret;
 
 	/* FIXME: fix the case where the driver provides static lane IDs */
-	for (i = 0; i < jdev_top->num_links; i++) {
-		jlink = &jdev_top->active_links[i];
-		ret = jesd204_dev_init_link_lane_ids(jdev, i, jlink);
+	ol = &jdev_top->active_links[link_idx];
+	ol->link.link_id = jdev_top->link_ids[link_idx];
+	ol->jdev_top = jdev_top;
+	ol->link_idx = link_idx;
+	ret = jesd204_dev_init_link_lane_ids(jdev_top, link_idx, &ol->link);
+	if (ret)
+		return ret;
+
+	memcpy(&jdev_top->staged_links[link_idx], ol,
+	       sizeof(jdev_top->staged_links[link_idx]));
+
+	return 0;
+}
+
+int jesd204_dev_init_link_data(struct jesd204_dev_top *jdev_top,
+			       unsigned int link_idx)
+{
+	int ret;
+
+	if (link_idx != JESD204_LINKS_ALL)
+		return __jesd204_dev_init_link_data(jdev_top, link_idx);
+
+	for (link_idx = 0; link_idx < jdev_top->num_links; link_idx++) {
+		ret = __jesd204_dev_init_link_data(jdev_top, link_idx);
 		if (ret)
 			return ret;
 	}
@@ -333,17 +392,26 @@ int jesd204_dev_init_link_data(struct jesd204_dev *jdev)
 	return 0;
 }
 
-static int jesd204_dev_create_links_data(struct jesd204_dev *jdev,
-					 const struct jesd204_dev_data *init)
+static int jesd204_dev_init_links_data(struct jesd204_dev *jdev,
+				       const struct jesd204_dev_data *init)
 {
 	struct jesd204_dev_top *jdev_top = jesd204_dev_top_dev(jdev);
 	struct device *dev = jdev->parent;
+	unsigned int i;
 
 	if (!jdev_top)
 		return 0;
 
 	if (!init->num_links) {
 		dev_err(dev, "num_links shouldn't be zero\n");
+		return -EINVAL;
+	}
+
+	/* FIXME: should we just do a minimum? for now we error out if these mismatch */
+	if (init->num_links != jdev_top->num_links) {
+		dev_err(dev,
+			"Driver and DT mismatch for number of links %u vs %u\n",
+			init->num_links, jdev_top->num_links);
 		return -EINVAL;
 	}
 
@@ -357,12 +425,16 @@ static int jesd204_dev_create_links_data(struct jesd204_dev *jdev,
 		return -EINVAL;
 	}
 
-	jdev_top->active_links = jesd204_dev_alloc_links_data(jdev,
-			init->links, init->num_links);
-	if (IS_ERR_OR_NULL(jdev_top->active_links))
-		return PTR_ERR(jdev_top->active_links);
+	if (!init->links)
+		return 0;
 
-	jdev_top->num_links = init->num_links;
+	for (i = 0; i < jdev_top->num_links; i++) {
+		memcpy(&jdev_top->active_links[i].link, &init->links[i],
+		       sizeof(struct jesd204_link));
+		memcpy(&jdev_top->staged_links[i].link, &init->links[i],
+		       sizeof(struct jesd204_link));
+	}
+
 	jdev_top->init_links = init->links;
 
 	return 0;
@@ -407,7 +479,7 @@ struct jesd204_dev *jesd204_dev_register(struct device *dev,
 	jdev->link_ops = init->link_ops;
 	jdev->parent = get_device(dev);
 
-	ret = jesd204_dev_create_links_data(jdev, init);
+	ret = jesd204_dev_init_links_data(jdev, init);
 	if (ret)
 		goto err_put_device;
 
@@ -505,10 +577,13 @@ static void __jesd204_dev_release(struct kref *ref)
 	list_del(&jdev->entry);
 	of_node_put(jdev->np);
 
-	if (jdev_top)
+	if (jdev_top) {
+		kfree(jdev_top->active_links);
+		kfree(jdev_top->staged_links);
 		kfree(jdev_top);
-	else
+	} else {
 		kfree(jdev);
+	}
 
 	jesd204_device_count--;
 
