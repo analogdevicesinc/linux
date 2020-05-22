@@ -1,0 +1,100 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright NXP 2020
+ */
+
+#include "imx8dxl-evk.dts"
+
+/ {
+	domu {
+		/*
+		 * There are 5 MUs, 0A is used by root cell, 1A is used
+		 * by ATF, so for non-root cell, 2A/3A/4A could be used.
+		 * SC_R_MU_0A
+		 * SC_R_MU_1A
+		 * SC_R_MU_2A
+		 * SC_R_MU_3A
+		 * SC_R_MU_4A
+		 * The rsrcs and pads will be configured by uboot scu_rm cmd
+		 */
+		#address-cells = <1>;
+		#size-cells = <0>;
+		doma {
+			/*
+			 * This is not for domu, this is just reuse
+			 * the method for jailhouse inmate non root cell
+			 * Linux.
+			 */
+			compatible = "xen,domu";
+			/*
+			 * The reg property will be updated by U-Boot to
+			 * reflect the partition id.
+			 */
+			reg = <0>;
+			init_on_rsrcs = <
+				IMX_SC_R_MU_2A
+			>;
+			rsrcs = <
+				IMX_SC_R_SDHC_0
+				IMX_SC_R_M4_0_INTMUX
+				IMX_SC_R_M4_0_UART
+				IMX_SC_R_MU_2A
+			>;
+			pads = <
+				/* emmc */
+				IMX8DXL_EMMC0_CLK
+				IMX8DXL_EMMC0_CMD
+				IMX8DXL_EMMC0_DATA0
+				IMX8DXL_EMMC0_DATA1
+				IMX8DXL_EMMC0_DATA2
+				IMX8DXL_EMMC0_DATA3
+				IMX8DXL_EMMC0_DATA4
+				IMX8DXL_EMMC0_DATA5
+				IMX8DXL_EMMC0_DATA6
+				IMX8DXL_EMMC0_DATA7
+				IMX8DXL_EMMC0_STROBE
+				/* cm40_lpuart */
+				IMX8DXL_ADC_IN3
+				IMX8DXL_ADC_IN2
+			>;
+		};
+	};
+};
+
+&{/reserved-memory} {
+
+	jh_reserved: jh@bfc00000 {
+		no-map;
+		reg = <0x0 0xbfc00000 0x0 0x400000>;
+	};
+
+	loader_reserved: loader@bfb00000 {
+		no-map;
+		reg = <0x0 0xbfb00000 0x0 0x00100000>;
+	};
+
+	ivshmem_reserved: ivshmem@bf900000 {
+		no-map;
+		reg = <0x0 0xbf900000 0x0 0x00200000>;
+	};
+
+	pci_reserved: pci@bf700000 {
+		no-map;
+		reg = <0x0 0xbf700000 0x0 0x00200000>;
+	};
+
+	/* Decrease if no need such big memory */
+	inmate_reserved: inmate@a1700000 {
+		no-map;
+		reg = <0x0 0xa1700000 0x0 0x1e000000>;
+	};
+};
+
+&usdhc1 {
+	status = "disabled";
+};
+
+&cm40_lpuart {
+	/* Let inmate linux use this for console */
+	status = "disabled";
+};
