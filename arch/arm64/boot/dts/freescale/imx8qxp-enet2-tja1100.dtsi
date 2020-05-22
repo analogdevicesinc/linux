@@ -31,9 +31,9 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 
-		ethphy2: ethernet-phy@5 {
+		ethphy2: ethernet-phy@2 {
 			compatible = "ethernet-phy-ieee802.3-c22";
-			reg = <5>;
+			reg = <2>;
 			tja110x,refclk_in;
 		};
 	};

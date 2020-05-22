@@ -18,24 +18,24 @@
  * to board limitation.
  */
 &fec1 {
-	/* PHY address should rework to 2 */
-	phy-handle = <&ethphy2>;
+	/* PHY address should rework to 3 */
+	phy-handle = <&ethphy3>;
 
 	mdio {
 		#address-cells = <1>;
 		#size-cells = <0>;
 
-		ethphy0: ethernet-phy@0 {
+		ethphy2: ethernet-phy@2 {
 			compatible = "ethernet-phy-ieee802.3-c22";
-			reg = <0>;
+			reg = <2>;
 			tja110x,refclk_in;
 			/delete-property/ at803x,eee-disabled;
 			/delete-property/ at803x,vddio-1p8v;
 		};
 
-		ethphy2: ethernet-phy@2 {
+		ethphy3: ethernet-phy@3 {
 			compatible = "ethernet-phy-ieee802.3-c22";
-			reg = <2>;
+			reg = <3>;
 			at803x,eee-disabled;
 			at803x,vddio-1p8v;
 		};
@@ -50,7 +50,7 @@
 		 <&enet1_lpcg 0>,
 		 <&enet1_lpcg 1>;
 	phy-mode = "rmii";
-	phy-handle = <&ethphy0>;
+	phy-handle = <&ethphy2>;
 	/delete-property/ phy-supply;
 };
 
