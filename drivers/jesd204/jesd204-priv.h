@@ -12,8 +12,7 @@
 
 struct jesd204_dev;
 struct jesd204_dev_top;
-
-typedef int (*jesd204_cb_priv)(struct jesd204_dev *jdev, void *data);
+struct jesd204_fsm_data;
 
 enum jesd204_dev_state {
 	JESD204_STATE_ERROR = -1,
@@ -106,20 +105,15 @@ struct jesd204_dev {
 
 /**
  * struct jesd204_dev_top - JESD204 top device (in a JESD204 topology)
+ * @jdev		JESD204 device data
  * @entry		list entry for the framework to keep a list of top
  *			devices (and implicitly topologies)
- * @jdev		JESD204 device data
- * @fsm_complete_cb	callback that gets called after a topology has finished
- *			it's state transition, meaning that all JESD204 devices
- *			have moved to the desired @nxt_state
- * @cb_ref		kref which all JESD204 devices will increment when they
- *			need to defer their state transition; an equivalent
- *			notification must be called by the device to decrement
- *			this and finally call the @fsm_complete_cb
- *			callback (if provided)
- * @cb_data		pointer to private data used during a state transition
- * @nxt_state		next state this topology has to transition to
- * @cur_state		current state of this topology
+ * @fsm_data		ref to JESD204 FSM data for JESD204_LNK_FSM_PARALLEL
+ * @cb_ref		kref which for each JESD204 link will increment when it
+ *			needs to defer a state transition; this is similar to the
+ *			cb_ref on the jesd204_link_opaque struct, but each link
+ *			increments/decrements it, to group transitions of multiple
+ *			JESD204 links
  * @error		error code for this topology after a state has failed
  *			to transition
  * @init_links		initial settings passed from the driver
@@ -127,15 +121,11 @@ struct jesd204_dev {
  * @num_links		number of links
  */
 struct jesd204_dev_top {
+	struct jesd204_dev		jdev;
 	struct list_head		entry;
 
-	struct jesd204_dev		jdev;
-
-	jesd204_cb_priv			fsm_complete_cb;
+	struct jesd204_fsm_data		*fsm_data;
 	struct kref			cb_ref;
-	void				*cb_data;
-	enum jesd204_dev_state		nxt_state;
-	enum jesd204_dev_state		cur_state;
 	int				error;
 
 	const struct jesd204_link	*init_links;
