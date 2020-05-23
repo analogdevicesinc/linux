@@ -49,10 +49,10 @@ enum dds_data_select {
 	DATA_SEL_SED,
 	DATA_SEL_DMA,
 	DATA_SEL_ZERO,	/* OUTPUT 0 */
+	DATA_SEL_INV_PN7,
+	DATA_SEL_INV_PN15,
 	DATA_SEL_PN7,
 	DATA_SEL_PN15,
-	DATA_SEL_PN23,
-	DATA_SEL_PN31,
 	DATA_SEL_LB,	/* loopback data (ADC) */
 	DATA_SEL_PNXX,	/* (Device specific) */
 };
