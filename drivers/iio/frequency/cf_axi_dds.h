@@ -24,17 +24,17 @@
 #define ADI_CMOS_OR_LVDS_N		(1 << 7)
 #define ADI_PPS_RECEIVER_ENABLE		(1 << 8)
 #define ADI_SCALECORRECTION_ONLY	(1 << 9)
-#define ADI_XBAR_ENABLE				(1 << 10)
+#define ADI_XBAR_ENABLE			(1 << 10)
 
 /* DAC COMMON */
 
 #define ADI_REG_RSTN		0x0040
-#define ADI_RSTN			(1 << 0)
-#define ADI_MMCM_RSTN 		(1 << 1)
+#define ADI_RSTN		(1 << 0)
+#define ADI_MMCM_RSTN		(1 << 1)
 
 #define ADI_REG_CNTRL_1		0x0044
 #define ADI_ENABLE		(1 << 0) /* v7.0 */
-#define ADI_SYNC			(1 << 0) /* v8.0 */
+#define ADI_SYNC		(1 << 0) /* v8.0 */
 
 #define ADI_REG_CNTRL_2		0x0048
 #define ADI_PAR_TYPE		(1 << 7)
@@ -65,12 +65,12 @@ enum dds_data_select {
 #define ADI_REG_FRAME		0x0050
 #define ADI_FRAME		(1 << 0)
 
-#define ADI_REG_CLK_FREQ		0x0054
+#define ADI_REG_CLK_FREQ	0x0054
 #define ADI_CLK_FREQ(x)		(((x) & 0xFFFFFFFF) << 0)
 #define ADI_TO_CLK_FREQ(x)	(((x) >> 0) & 0xFFFFFFFF)
 
-#define ADI_REG_CLK_RATIO		0x0058
-#define ADI_CLK_RATIO(x)		(((x) & 0xFFFFFFFF) << 0)
+#define ADI_REG_CLK_RATIO	0x0058
+#define ADI_CLK_RATIO(x)	(((x) & 0xFFFFFFFF) << 0)
 #define ADI_TO_CLK_RATIO(x)	(((x) >> 0) & 0xFFFFFFFF)
 
 #define ADI_REG_STATUS		0x005C
@@ -81,13 +81,13 @@ enum dds_data_select {
 #define ADI_DRP_RWN		(1 << 28)
 #define ADI_DRP_ADDRESS(x)	(((x) & 0xFFF) << 16)
 #define ADI_TO_DRP_ADDRESS(x)	(((x) >> 16) & 0xFFF)
-#define ADI_DRP_WDATA(x)		(((x) & 0xFFFF) << 0)
+#define ADI_DRP_WDATA(x)	(((x) & 0xFFFF) << 0)
 #define ADI_TO_DRP_WDATA(x)	(((x) >> 0) & 0xFFFF)
 
 #define ADI_REG_DRP_STATUS	0x0074
 #define ADI_DRP_LOCKED		(1 << 17)
 #define ADI_DRP_STATUS		(1 << 16)
-#define ADI_DRP_RDATA(x)		(((x) & 0xFFFF) << 0)
+#define ADI_DRP_RDATA(x)	(((x) & 0xFFFF) << 0)
 #define ADI_TO_DRP_RDATA(x)	(((x) >> 0) & 0xFFFF)
 
 #define ADI_REG_VDMA_FRMCNT	0x0084
@@ -122,7 +122,7 @@ enum dds_data_select {
 /* DAC CHANNEL */
 
 #define ADI_REG_CHAN_CNTRL_1_IIOCHAN(x)	(0x0400 + ((x) >> 1) * 0x40 + ((x) & 1) * 0x8)
-#define ADI_DDS_SCALE(x)			(((x) & 0xFFFF) << 0)
+#define ADI_DDS_SCALE(x)		(((x) & 0xFFFF) << 0)
 #define ADI_TO_DDS_SCALE(x)		(((x) >> 0) & 0xFFFF)
 
 #define ADI_REG_CHAN_CNTRL_2_IIOCHAN(x)	(0x0404 + ((x) >> 1) * 0x40 + ((x) & 1) * 0x8)
@@ -159,7 +159,7 @@ enum dds_data_select {
 
 #define ADI_REG_CHAN_CNTRL_6(c)		(0x0414 + (c) * 0x40)
 #define ADI_IQCOR_ENB			(1 << 2) /* v8.0 */
-//#define ADI_DAC_LB_ENB  			(1 << 1) /* v7.0 */
+//#define ADI_DAC_LB_ENB			(1 << 1) /* v7.0 */
 //#define ADI_DAC_PN_ENB 			(1 << 0) /* v7.0 */
 
 #define ADI_REG_CHAN_CNTRL_7(c)		(0x0418 + (c) * 0x40) /* v8.0 */
@@ -167,7 +167,7 @@ enum dds_data_select {
 #define ADI_TO_DAC_DDS_SEL(x)		(((x) >> 0) & 0xF)
 #define ADI_DAC_SRC_CH_SEL(x)		(((x) & 0xFF) << 8)
 #define ADI_TO_DAC_SRC_CH_SEL(x)	(((x) >> 8) & 0xFF)
-#define ADI_DAC_ENABLE_MASK			(1 << 16)
+#define ADI_DAC_ENABLE_MASK		(1 << 16)
 
 #define ADI_REG_CHAN_CNTRL_8(c)		(0x041C + (c) * 0x40) /* v8.0 */
 #define ADI_IQCOR_COEFF_1(x)		(((x) & 0xFFFF) << 16)
@@ -175,15 +175,15 @@ enum dds_data_select {
 #define ADI_IQCOR_COEFF_2(x)		(((x) & 0xFFFF) << 0)
 #define ADI_TO_IQCOR_COEFF_2(x)		(((x) >> 0) & 0xFFFF)
 
-#define ADI_REG_USR_CNTRL_3(c)		(0x0420 + (c) * 0x40)
-#define ADI_USR_DATATYPE_BE		(1 << 25)
-#define ADI_USR_DATATYPE_SIGNED		(1 << 24)
-#define ADI_USR_DATATYPE_SHIFT(x)	(((x) & 0xFF) << 16)
-#define ADI_TO_USR_DATATYPE_SHIFT(x)	(((x) >> 16) & 0xFF)
-#define ADI_USR_DATATYPE_TOTAL_BITS(x)	(((x) & 0xFF) << 8)
-#define ADI_TO_USR_DATATYPE_TOTAL_BITS(x) (((x) >> 8) & 0xFF)
+#define ADI_REG_USR_CNTRL_3(c)			(0x0420 + (c) * 0x40)
+#define ADI_USR_DATATYPE_BE			(1 << 25)
+#define ADI_USR_DATATYPE_SIGNED			(1 << 24)
+#define ADI_USR_DATATYPE_SHIFT(x)		(((x) & 0xFF) << 16)
+#define ADI_TO_USR_DATATYPE_SHIFT(x)		(((x) >> 16) & 0xFF)
+#define ADI_USR_DATATYPE_TOTAL_BITS(x)		(((x) & 0xFF) << 8)
+#define ADI_TO_USR_DATATYPE_TOTAL_BITS(x)	(((x) >> 8) & 0xFF)
 #define ADI_USR_DATATYPE_BITS(x)		(((x) & 0xFF) << 0)
-#define ADI_TO_USR_DATATYPE_BITS(x)	(((x) >> 0) & 0xFF)
+#define ADI_TO_USR_DATATYPE_BITS(x)		(((x) >> 0) & 0xFF)
 
 #define ADI_REG_USR_CNTRL_4(c)		(0x0424 + (c) * 0x40)
 #define ADI_USR_INTERPOLATION_M(x)	(((x) & 0x1FFFF) << 15)
@@ -248,20 +248,20 @@ enum cf_axi_dds_ext_info {
 };
 
 struct cf_axi_converter {
-	struct spi_device 	*spi;
-	struct clk 	*clk[CLK_NUM];
+	struct spi_device	*spi;
+	struct clk		*clk[CLK_NUM];
 	struct clock_scale	clkscale[CLK_NUM];
 	void		*phy;
 	struct gpio_desc			*pwrdown_gpio;
 	struct gpio_desc			*reset_gpio;
 	struct gpio_desc			*txen_gpio[2];
-	unsigned		id;
-	unsigned		interp_factor;
-	unsigned		fcenter_shift;
-	unsigned long 	intp_modes[5];
-	unsigned long 	cs_modes[17];
+	unsigned	id;
+	unsigned	interp_factor;
+	unsigned	fcenter_shift;
+	unsigned long	intp_modes[5];
+	unsigned long	cs_modes[17];
 	int		temp_calib;
-	unsigned		temp_calib_code;
+	unsigned	temp_calib_code;
 	int		temp_slope;
 	int		(*read)(struct spi_device *spi, unsigned reg);
 	int		(*write)(struct spi_device *spi,
@@ -282,7 +282,7 @@ struct cf_axi_converter {
 			 int val2,
 			 long mask);
 	const struct attribute_group	*attrs;
-	struct iio_dev 	*indio_dev;
+	struct iio_dev	*indio_dev;
 	void		(*pcore_set_sed_pattern)(struct iio_dev *indio_dev,
 						 unsigned chan, unsigned pat1,
 						 unsigned pat2);
@@ -302,7 +302,7 @@ static inline struct cf_axi_converter *to_converter(struct device *dev)
 int cf_axi_dds_configure_buffer(struct iio_dev *indio_dev);
 void cf_axi_dds_unconfigure_buffer(struct iio_dev *indio_dev);
 int cf_axi_dds_datasel(struct cf_axi_dds_state *st,
-			       int channel, enum dds_data_select sel);
+		       int channel, enum dds_data_select sel);
 void cf_axi_dds_start_sync(struct cf_axi_dds_state *st);
 int cf_axi_dds_pl_ddr_fifo_ctrl(struct cf_axi_dds_state *st, bool enable);
 
