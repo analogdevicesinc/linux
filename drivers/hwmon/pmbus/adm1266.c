@@ -49,6 +49,7 @@
 struct adm1266_data {
 	struct pmbus_driver_info info;
 	struct gpio_chip gc;
+	const char *gpio_names[ADM1266_GPIO_NR + ADM1266_PDIO_NR];
 	struct i2c_client *client;
 	struct dentry *debugfs_dir;
 	struct nvmem_config nvmem_config;
@@ -217,14 +218,26 @@ static void adm1266_gpio_dbg_show(struct seq_file *s, struct gpio_chip *chip)
 static int adm1266_config_gpio(struct adm1266_data *data)
 {
 	const char *name = dev_name(&data->client->dev);
+	char *gpio_name;
 	int ret;
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(data->gpio_names); i++) {
+		gpio_name = devm_kasprintf(&data->client->dev, GFP_KERNEL,
+					   "adm1266-%x-%s", data->client->addr,
+					   adm1266_names[i]);
+		if (!gpio_name)
+			return -ENOMEM;
+
+		data->gpio_names[i] = gpio_name;
+	}
 
 	data->gc.label = name;
 	data->gc.parent = &data->client->dev;
 	data->gc.owner = THIS_MODULE;
 	data->gc.base = -1;
-	data->gc.names = adm1266_names;
-	data->gc.ngpio = ADM1266_PDIO_NR + ADM1266_GPIO_NR;
+	data->gc.names = data->gpio_names;
+	data->gc.ngpio = ARRAY_SIZE(data->gpio_names);
 	data->gc.get = adm1266_gpio_get;
 	data->gc.get_multiple = adm1266_gpio_get_multiple;
 	data->gc.dbg_show = adm1266_gpio_dbg_show;
