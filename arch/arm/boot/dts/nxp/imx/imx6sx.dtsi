@@ -1412,6 +1412,7 @@
 						 <&clks IMX6SX_CLK_CSI>,
 						 <&clks IMX6SX_CLK_DCIC1>;
 					clock-names = "disp-axi", "csi_mclk", "disp_dcic";
+					power-domains = <&pd_disp>;
 					status = "disabled";
 				};
 
