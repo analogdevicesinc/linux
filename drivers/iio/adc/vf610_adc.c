@@ -724,7 +724,6 @@ static int vf610_adc_buffer_postenable(struct iio_dev *indio_dev)
 {
 	struct vf610_adc *info = iio_priv(indio_dev);
 	unsigned int channel;
-	int ret;
 	int val;
 
 	val = readl(info->regs + VF610_REG_ADC_GC);

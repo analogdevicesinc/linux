@@ -225,7 +225,6 @@ static int isl29125_buffer_preenable(struct iio_dev *indio_dev)
 static int isl29125_buffer_predisable(struct iio_dev *indio_dev)
 {
 	struct isl29125_data *data = iio_priv(indio_dev);
-	int ret;
 
 	data->conf1 &= ~ISL29125_MODE_MASK;
 	data->conf1 |= ISL29125_MODE_PD;
