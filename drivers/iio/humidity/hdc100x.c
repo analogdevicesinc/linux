@@ -283,10 +283,8 @@ static int hdc100x_buffer_postenable(struct iio_dev *indio_dev)
 	ret = hdc100x_update_config(data, HDC100X_REG_CONFIG_ACQ_MODE,
 				    HDC100X_REG_CONFIG_ACQ_MODE);
 	mutex_unlock(&data->lock);
-	if (ret)
-		return ret;
 
-	return 0;
+	return ret;
 }
 
 static int hdc100x_buffer_predisable(struct iio_dev *indio_dev)

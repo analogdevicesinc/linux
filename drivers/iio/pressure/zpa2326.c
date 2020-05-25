@@ -1249,8 +1249,11 @@ static int zpa2326_postenable_buffer(struct iio_dev *indio_dev)
 		 * get rid of samples acquired during previous rounds (if any).
 		 */
 		err = zpa2326_clear_fifo(indio_dev, 0);
-		if (err)
-			goto err;
+		if (err) {
+			zpa2326_err(indio_dev,
+				    "failed to enable buffering (%d)", err);
+			return err;
+		}
 	}
 
 	if (!iio_trigger_using_own(indio_dev) && priv->waken) {
@@ -1259,16 +1262,14 @@ static int zpa2326_postenable_buffer(struct iio_dev *indio_dev)
 		 * powered up: reconfigure one-shot mode.
 		 */
 		err = zpa2326_config_oneshot(indio_dev, priv->irq);
-		if (err)
-			goto err;
+		if (err) {
+			zpa2326_err(indio_dev,
+				    "failed to enable buffering (%d)", err);
+			return err;
+		}
 	}
 
 	return 0;
-
-err:
-	zpa2326_err(indio_dev, "failed to enable buffering (%d)", err);
-
-	return err;
 }
 
 static int zpa2326_postdisable_buffer(struct iio_dev *indio_dev)

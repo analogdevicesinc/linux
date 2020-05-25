@@ -240,17 +240,12 @@ static void iio_trigger_put_irq(struct iio_trigger *trig, int irq)
  * the relevant function is in there may be the best option.
  */
 /* Worth protecting against double additions? */
-int iio_trigger_attach_poll_func(struct iio_dev *indio_dev)
+int iio_trigger_attach_poll_func(struct iio_trigger *trig,
+				 struct iio_poll_func *pf)
 {
-	struct iio_trigger *trig = indio_dev->trig;
-	struct iio_poll_func *pf = indio_dev->pollfunc;
-	bool notinuse;
 	int ret = 0;
-
-	if (indio_dev->currentmode != INDIO_BUFFER_TRIGGERED)
-		return 0;
-
-	notinuse = bitmap_empty(trig->pool, CONFIG_IIO_CONSUMERS_PER_TRIGGER);
+	bool notinuse
+		= bitmap_empty(trig->pool, CONFIG_IIO_CONSUMERS_PER_TRIGGER);
 
 	/* Prevent the module from being removed whilst attached to a trigger */
 	__module_get(pf->indio_dev->driver_module);
@@ -296,19 +291,14 @@ out_put_module:
 	return ret;
 }
 
-int iio_trigger_detach_poll_func(struct iio_dev *indio_dev)
+int iio_trigger_detach_poll_func(struct iio_trigger *trig,
+				 struct iio_poll_func *pf)
 {
-	struct iio_trigger *trig = indio_dev->trig;
-	struct iio_poll_func *pf = indio_dev->pollfunc;
-	bool no_other_users = false;
 	int ret = 0;
-
-	if (indio_dev->currentmode != INDIO_BUFFER_TRIGGERED)
-		return 0;
-
-	if (bitmap_weight(trig->pool, CONFIG_IIO_CONSUMERS_PER_TRIGGER) == 1)
-		no_other_users = true;
-
+	bool no_other_users
+		= (bitmap_weight(trig->pool,
+				 CONFIG_IIO_CONSUMERS_PER_TRIGGER)
+		   == 1);
 	if (trig->ops && trig->ops->set_trigger_state && no_other_users) {
 		ret = trig->ops->set_trigger_state(trig, false);
 		if (ret)
@@ -445,16 +435,18 @@ static ssize_t iio_trigger_write_current(struct device *dev,
 			goto out_trigger_put;
 	}
 
+	indio_dev->trig = trig;
 
-	if (indio_dev->trig) {
+	if (oldtrig) {
 		if (indio_dev->modes & INDIO_EVENT_TRIGGERED)
-			iio_trigger_detach_poll_func(indio_dev);
+			iio_trigger_detach_poll_func(oldtrig,
+						     indio_dev->pollfunc_event);
 		iio_trigger_put(oldtrig);
 	}
-	indio_dev->trig = trig;
 	if (indio_dev->trig) {
 		if (indio_dev->modes & INDIO_EVENT_TRIGGERED)
-			iio_trigger_attach_poll_func(indio_dev);
+			iio_trigger_attach_poll_func(indio_dev->trig,
+						     indio_dev->pollfunc_event);
 	}
 
 	return len;
