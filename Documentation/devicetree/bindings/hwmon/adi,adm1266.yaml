@@ -28,13 +28,12 @@ properties:
       maximum: 0x4F
 
   avcc-supply:
-    description:
+    description: |
       Phandle to the Avcc power supply.
 
-  adi,connected-adm1266:
+  adi,master-adm1266:
     description: |
-      Represents other ADM1266 devices cascaded through the IDB. Can be
-      cascaded with maximum 15 other adm1266s.
+      Represents phandle of a master ADM1266 device cascaded through the IDB.
     $ref: "/schemas/types.yaml#/definitions/phandle"
 
 required:
