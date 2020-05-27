@@ -565,7 +565,9 @@ static int jesd204_dev_init_links_data(struct jesd204_dev *jdev,
 	 * Framework users should provide at least initial JESD204 link data,
 	 * or a link init op/callback which should do JESD204 link init.
 	 */
-	if (!init->links && !init->link_ops[JESD204_OP_LINK_INIT]) {
+	if (!init->links &&
+	    !init->state_ops &&
+	    !init->state_ops[JESD204_OP_LINK_INIT].per_link) {
 		dev_err(dev,
 			"num_links is non-zero, but no links data provided\n");
 		return -EINVAL;
@@ -622,7 +624,7 @@ struct jesd204_dev *jesd204_dev_register(struct device *dev,
 		goto err_free_id;
 	}
 
-	jdev->link_ops = init->link_ops;
+	jdev->state_ops = init->state_ops;
 	jdev->parent = get_device(dev);
 
 	ret = jesd204_dev_init_links_data(jdev, init);
