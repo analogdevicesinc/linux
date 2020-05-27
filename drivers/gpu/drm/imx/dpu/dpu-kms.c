@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-2019 NXP
+ * Copyright 2017-2020 NXP
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -521,7 +521,7 @@ static int dpu_drm_atomic_check(struct drm_device *dev,
 						pipe_states_prone_to_put);
 
 		crtc_state = drm_atomic_get_crtc_state(state, crtc);
-		if (WARN_ON(IS_ERR(crtc_state)))
+		if (IS_ERR(crtc_state))
 			return PTR_ERR(crtc_state);
 
 		imx_crtc_state = to_imx_crtc_state(crtc_state);
