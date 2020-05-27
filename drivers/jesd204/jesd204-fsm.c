@@ -151,13 +151,16 @@ static int jesd204_con_link_idx_in_jdev_top(struct jesd204_dev_con_out *con,
 	return -EINVAL;
 }
 
-static int jesd204_dev_set_error(struct jesd204_link_opaque *ol,
+static int jesd204_dev_set_error(struct jesd204_dev *jdev,
+				 struct jesd204_link_opaque *ol,
 				 struct jesd204_dev_con_out *con,
 				 int err)
 {
 	/* FIXME: should we exit here? */
 	if (err == 0)
 		return 0;
+
+	jdev->error = err;
 
 	if (con) {
 		con->error = err;
@@ -287,7 +290,7 @@ static void __jesd204_link_fsm_done_cb(struct kref *ref)
 		goto out;
 
 	ret = fsm_data->fsm_complete_cb(jdev, ol, fsm_data);
-	if (jesd204_dev_set_error(ol, NULL, ret)) {
+	if (jesd204_dev_set_error(jdev, ol, NULL, ret)) {
 		dev_err(jdev->parent,
 			"error from completion cb %d, state %s\n",
 			ret,
@@ -328,7 +331,7 @@ static void __jesd204_all_links_fsm_done_cb(struct kref *ref)
 
 	for (link_idx = 0; link_idx < jdev_top->num_links; link_idx++) {
 		ol = &jdev_top->active_links[link_idx];
-		jesd204_dev_set_error(ol, NULL, ret);
+		jesd204_dev_set_error(jdev, ol, NULL, ret);
 	}
 out:
 	jdev_top->fsm_data = NULL;
@@ -392,7 +395,7 @@ static int jesd204_con_validate_cur_state(struct jesd204_dev *jdev,
 			 jesd204_state_str(c->state),
 			 jesd204_state_str(cur_state),
 			 jesd204_state_str(nxt_state));
-		return jesd204_dev_set_error(ol, c, -EINVAL);
+		return jesd204_dev_set_error(jdev, ol, c, -EINVAL);
 	}
 
 	return 0;
@@ -584,7 +587,7 @@ static int jesd204_validate_lnk_state(struct jesd204_dev *jdev,
 			 jesd204_state_str(ol->state),
 			 jesd204_state_str(cur_state),
 			 jesd204_state_str(nxt_state));
-		return jesd204_dev_set_error(ol, NULL, -EINVAL);
+		return jesd204_dev_set_error(jdev, ol, NULL, -EINVAL);
 	}
 
 	return 0;
@@ -834,10 +837,10 @@ static int jesd204_fsm_table_entry_cb(struct jesd204_dev *jdev,
 	unsigned int link_idx;
 	int ret, ret1;
 
-	if (!jdev->link_ops)
+	if (!jdev->state_ops)
 		return JESD204_STATE_CHANGE_DONE;
 
-	link_op = jdev->link_ops[it->table[0].op];
+	link_op = jdev->state_ops[it->table[0].op].per_link;
 	if (!link_op)
 		return JESD204_STATE_CHANGE_DONE;
 
@@ -873,6 +876,16 @@ static int jesd204_fsm_table_entry_done(struct jesd204_dev *jdev,
 {
 	struct jesd204_fsm_table_entry_iter *it = fsm_data->cb_data;
 	const struct jesd204_fsm_table_entry *table = it->table;
+	jesd204_dev_cb op;
+	int ret;
+
+	if (jdev->state_ops &&
+	    jdev->state_ops[table[0].op].post_transition) {
+		op = jdev->state_ops[table[0].op].post_transition;
+		ret = op(jdev, fsm_data->link_idx);
+		if (ret < 0)
+			return jesd204_dev_set_error(jdev, NULL, NULL, ret);
+	}
 
 	if (table[0].last)
 		return 0;
@@ -888,8 +901,18 @@ static int jesd204_fsm_table(struct jesd204_dev *jdev,
 			     bool handle_busy_flags)
 {
 	struct jesd204_fsm_table_entry_iter it;
+	jesd204_dev_cb op;
+	int ret;
 
 	it.table = table;
+
+	if (jdev->state_ops &&
+	    jdev->state_ops[table[0].op].pre_transition) {
+		op = jdev->state_ops[table[0].op].pre_transition;
+		ret = op(jdev, link_idx);
+		if (ret < 0)
+			return jesd204_dev_set_error(jdev, NULL, NULL, ret);
+	}
 
 	return jesd204_fsm(jdev, link_idx,
 			   init_state, table[0].state,

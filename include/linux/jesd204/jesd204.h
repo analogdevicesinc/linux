@@ -40,7 +40,7 @@ enum jesd204_state_change_result {
 	JESD204_STATE_CHANGE_DONE,
 };
 
-typedef int (*jesd204_cb)(struct jesd204_dev *jdev);
+#define JESD204_LINKS_ALL		((unsigned int)(-1))
 
 /** struct jesd204_sysref - JESD204 configuration for SYSREF
  * @mode			SYSREF mode (see @jesd204_sysref_mode)
@@ -127,9 +127,24 @@ struct jesd204_link {
 	u8 dac_phase_adj;
 };
 
+typedef int (*jesd204_dev_cb)(struct jesd204_dev *jdev,
+			      unsigned int link_idx);
+
 typedef int (*jesd204_link_cb)(struct jesd204_dev *jdev,
 			       unsigned int link_idx,
 			       struct jesd204_link *lnk);
+
+/**
+ * struct jesd204_state_ops - JESD204 device per-state ops
+ * @pre_transition_ops	ops to be called (once) before the @per_link are called for each link
+ * @per_link		ops called for **each** JESD204 link individually during a transition
+ * @post_transition_ops	ops to be called (once) after the @per_link are called for each link
+ */
+struct jesd204_state_ops {
+	jesd204_dev_cb		pre_transition;
+	jesd204_link_cb		per_link;
+	jesd204_dev_cb		post_transition;
+};
 
 enum jesd204_dev_op {
 	JESD204_OP_LINK_INIT,
@@ -146,14 +161,13 @@ enum jesd204_dev_op {
 
 /**
  * struct jesd204_dev_data - JESD204 device initialization data
- * @link_ops		JESD204 operations this device passes to the framework
- *			for JESD204 link management
+ * @state_ops		ops for each state transition of type @struct jesd204_state_ops
  * @sizeof_priv		amount of data to allocate for private information
  * @links		JESD204 initial link configuration
  * @num_links		number of JESD204 links
  */
 struct jesd204_dev_data {
-	const jesd204_link_cb			link_ops[__JESD204_MAX_OPS];
+	struct jesd204_state_ops		state_ops[__JESD204_MAX_OPS];
 	size_t					sizeof_priv;
 	const struct jesd204_link		*links;
 	unsigned int				num_links;
