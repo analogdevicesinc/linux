@@ -10,7 +10,6 @@
 
 #include <linux/jesd204/jesd204.h>
 
-#define JESD204_LINKS_ALL		((unsigned int)(-1))
 #define JESD204_MAX_LINKS		16
 
 struct jesd204_dev;
@@ -89,8 +88,9 @@ struct jesd204_dev_con_out {
  * @is_top		true if this device is a top device in a topology of
  *			devices that make up a JESD204 link (typically the
  *			device that is the ADC, DAC, or transceiver)
+ * @error		error code for this device if something happened
  * @parent		parent device that registers itself as a JESD204 device
- * @link_ops		JESD204 operations for JESD204 link management
+ * @state_ops		ops for each state transition of type @struct jesd204_state_ops
  * @np			reference in the device-tree for this JESD204 device
  * @ref			ref count for this JESD204 device
  * @inputs		array of pointers to output connections from other
@@ -108,8 +108,9 @@ struct jesd204_dev {
 
 	bool				is_top;
 
+	int				error;
 	struct device			*parent;
-	const jesd204_link_cb		*link_ops;
+	const struct jesd204_state_ops	*state_ops;
 	struct device_node		*np;
 	struct kref			ref;
 
@@ -162,8 +163,6 @@ struct jesd204_link_opaque {
  *			(connections should match against this)
  * @link_ids		JESD204 link IDs for this top-level device
  *			(connections should match against this)
- * @error		error code for this topology after a state has failed
- *			to transition
  * @init_links		initial settings passed from the driver
  * @active_links	active JESD204 link settings
  * @staged_links	JESD204 link settings staged to be committed as active
@@ -180,7 +179,6 @@ struct jesd204_dev_top {
 	int				topo_id;
 	unsigned int			link_ids[JESD204_MAX_LINKS];
 	unsigned int			num_links;
-	int				error;
 
 	const struct jesd204_link	*init_links;
 	struct jesd204_link_opaque	*active_links;
