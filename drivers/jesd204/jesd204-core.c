@@ -465,7 +465,7 @@ unlock:
 }
 
 static int jesd204_dev_init_link_lane_ids(struct jesd204_dev_top *jdev_top,
-					  int link_idx,
+					  unsigned int link_idx,
 					  struct jesd204_link *jlink)
 {
 	struct jesd204_dev *jdev = &jdev_top->jdev;
@@ -479,7 +479,11 @@ static int jesd204_dev_init_link_lane_ids(struct jesd204_dev_top *jdev_top,
 		return -EINVAL;
 	}
 
-	/* FIXME: see about the case where lane IDs are provided via init */
+	/* We have some lane IDs provided statically for this link ID; exit */
+	if (jdev_top->init_links &&
+	    jdev_top->init_links[link_idx].lane_ids)
+		return 0;
+
 	if (jlink->lane_ids)
 		devm_kfree(dev, jlink->lane_ids);
 
@@ -502,7 +506,6 @@ static int __jesd204_dev_init_link_data(struct jesd204_dev_top *jdev_top,
 	struct jesd204_link_opaque *ol;
 	int ret;
 
-	/* FIXME: fix the case where the driver provides static lane IDs */
 	ol = &jdev_top->active_links[link_idx];
 	ol->link.link_id = jdev_top->link_ids[link_idx];
 	ol->jdev_top = jdev_top;
@@ -517,6 +520,7 @@ static int __jesd204_dev_init_link_data(struct jesd204_dev_top *jdev_top,
 	return 0;
 }
 
+/* FIXME: see about maybe handling lane IDs assigned via the link_op for init links */
 int jesd204_dev_init_link_data(struct jesd204_dev_top *jdev_top,
 			       unsigned int link_idx)
 {
