@@ -122,11 +122,13 @@ enum jesd204_dev_op {
  * struct jesd204_dev_data - JESD204 device initialization data
  * @link_ops		JESD204 operations this device passes to the framework
  *			for JESD204 link management
+ * @sizeof_priv		amount of data to allocate for private information
  * @links		JESD204 initial link configuration
  * @num_links		number of JESD204 links
  */
 struct jesd204_dev_data {
 	const jesd204_link_cb			link_ops[__JESD204_MAX_OPS];
+	size_t					sizeof_priv;
 	const struct jesd204_link		*links;
 	unsigned int				num_links;
 };
@@ -143,6 +145,8 @@ void devm_jesd204_unregister(struct device *dev, struct jesd204_dev *jdev);
 
 struct device *jesd204_dev_to_device(struct jesd204_dev *jdev);
 struct jesd204_dev *jesd204_dev_from_device(struct device *dev);
+
+void *jesd204_dev_priv(struct jesd204_dev *jdev);
 
 #else /* !IS_ENABLED(CONFIG_JESD204) */
 
@@ -169,6 +173,11 @@ static inline struct device *jesd204_dev_to_device(struct jesd204_dev *jdev)
 }
 
 static inline struct jesd204_dev *jesd204_dev_from_device(struct device *dev)
+{
+	return NULL;
+}
+
+static inline void *jesd204_dev_priv(struct jesd204_dev *jdev)
 {
 	return NULL;
 }

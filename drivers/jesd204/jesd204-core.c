@@ -40,6 +40,12 @@ static inline bool dev_is_jesd204_dev(struct device *dev)
 	return device_property_read_bool(dev, "jesd204-device");
 }
 
+void *jesd204_dev_priv(struct jesd204_dev *jdev)
+{
+	return jdev->priv;
+}
+EXPORT_SYMBOL(jesd204_dev_priv);
+
 struct jesd204_dev *jesd204_dev_from_device(struct device *dev)
 {
 	struct jesd204_dev *jdev;
@@ -500,6 +506,15 @@ struct jesd204_dev *jesd204_dev_register(struct device *dev,
 	ret = jesd204_fsm_probe(jdev);
 	if (ret)
 		goto err_device_del;
+
+	if (init->sizeof_priv) {
+		jdev->priv = devm_kzalloc(jdev->parent, init->sizeof_priv,
+					  GFP_KERNEL);
+		if (!jdev->priv) {
+			ret = -ENOMEM;
+			goto err_device_del;
+		}
+	}
 
 	mutex_unlock(&jesd204_device_list_lock);
 
