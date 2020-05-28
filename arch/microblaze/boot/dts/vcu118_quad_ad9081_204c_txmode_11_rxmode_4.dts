@@ -123,9 +123,9 @@
 	adi,channels {
 		dma-channel@0 {
 			reg = <0>;
-			adi,source-bus-width = <256>; /* Needs to be 32 * JESD_L */
+			adi,source-bus-width = <512>; /* Needs to be 64 * JESD_L (4 * MxFE_L) */
 			adi,source-bus-type = <2>;
-			adi,destination-bus-width = <256>;  /* Needs to be 32 * JESD_L */
+			adi,destination-bus-width = <512>;  /* Needs to be 64 * JESD_L (4 * MxFE_L) */
 			adi,destination-bus-type = <0>;
 		};
 	};
@@ -135,9 +135,9 @@
 	adi,channels {
 		dma-channel@0 {
 			reg = <0>;
-			adi,source-bus-width = <512>; /* Needs to be 32 * JESD_L */
+			adi,source-bus-width = <1024>; /* Needs to be 64 * JESD_L (4 * MxFE_L) */
 			adi,source-bus-type = <0>;
-			adi,destination-bus-width = <512>; /* Needs to be 32 * JESD_L */
+			adi,destination-bus-width = <1024>; /* Needs to be 64 * JESD_L (4 * MxFE_L) */
 			adi,destination-bus-type = <2>;
 		};
 	};
