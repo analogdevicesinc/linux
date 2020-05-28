@@ -2803,6 +2803,7 @@ static const struct panel_desc jdi_tx26d202vm0bwa = {
 		.disable = 100,
 	},
 	.bus_format = MEDIA_BUS_FMT_RGB888_1X7X4_SPWG,
+	.connector_type = DRM_MODE_CONNECTOR_LVDS,
 };
 
 static const struct display_timing koe_tx14d24vm1bpa_timing = {
