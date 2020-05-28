@@ -30,6 +30,142 @@ static LIST_HEAD(jesd204_topologies);
 static unsigned int jesd204_device_count;
 static unsigned int jesd204_topologies_count;
 
+int jesd204_link_get_rate(struct jesd204_link *lnk, u64 *lane_rate_hz)
+{
+	u64 rate, encoding_n, encoding_d;
+
+	if (!lnk->num_lanes || !lnk->num_converters ||
+	    !lnk->bits_per_sample || !lnk->sample_rate) {
+		/* FIXME: make this a bit more verbose */
+		pr_err("%s: Invalid pramater", __func__);
+		return -EINVAL;
+	}
+
+	switch (lnk->jesd_version) {
+	case JESD204_VERSION_C:
+		switch (lnk->jesd_encoder) {
+		case JESD204_ENC_64B66B:
+			encoding_n = 66; /* JESD 204C */
+			encoding_d = 64;
+			break;
+		case JESD204_ENC_8B10B:
+			encoding_n = 10; /* JESD 204C */
+			encoding_d = 8;
+			break;
+		case JESD204_ENC_64B80B:
+			encoding_n = 80; /* JESD 204C */
+			encoding_d = 64;
+			break;
+		default:
+			return -EINVAL;
+		}
+	default:
+		encoding_n = 10; /* JESD 204AB */
+		encoding_d = 8;
+		break;
+	}
+
+	rate = lnk->num_converters * lnk->bits_per_sample *
+		encoding_n * lnk->sample_rate;
+	do_div(rate, lnk->num_lanes * encoding_d);
+
+	*lane_rate_hz = rate;
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(jesd204_link_get_rate);
+
+int jesd204_link_get_rate_khz(struct jesd204_link *lnk,
+			      unsigned long *lane_rate_khz)
+{
+	u64 lane_rate_hz;
+	int ret;
+
+	ret = jesd204_link_get_rate(lnk, &lane_rate_hz);
+	if (ret)
+		return ret;
+
+	do_div(lane_rate_hz, 1000);
+
+	*lane_rate_khz = lane_rate_hz;
+
+	return ret;
+}
+EXPORT_SYMBOL_GPL(jesd204_link_get_rate_khz);
+
+int jesd204_link_get_device_clock(struct jesd204_link *lnk,
+				  unsigned long *device_clock)
+{
+	u64 lane_rate_hz;
+	u32 encoding_n;
+	int ret;
+
+	ret = jesd204_link_get_rate(lnk, &lane_rate_hz);
+	if (ret)
+		return ret;
+
+	switch (lnk->jesd_encoder) {
+	case JESD204_ENC_64B66B:
+		encoding_n = 66; /* JESD 204C */
+		break;
+	case JESD204_ENC_8B10B:
+		encoding_n = 40; /* JESD 204ABC */
+		break;
+	case JESD204_ENC_64B80B:
+		encoding_n = 80; /* JESD 204C */
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	do_div(lane_rate_hz, encoding_n);
+
+	*device_clock = lane_rate_hz;
+
+	return ret;
+}
+EXPORT_SYMBOL_GPL(jesd204_link_get_device_clock);
+
+int jesd204_link_get_lmfc_lemc_rate(struct jesd204_link *lnk,
+				    unsigned long *rate_hz)
+{
+	u64 lane_rate_hz;
+	u32 bkw;
+	int ret;
+
+	ret = jesd204_link_get_rate(lnk, &lane_rate_hz);
+	if (ret)
+		return ret;
+
+	switch (lnk->jesd_encoder) {
+	case JESD204_ENC_64B66B:
+		bkw = 66; /* JESD 204C */
+	case JESD204_ENC_64B80B:
+		if (lnk->jesd_encoder == JESD204_ENC_64B80B)
+			bkw = 80; /* JESD 204C */
+
+		if (lnk->num_of_multiblocks_in_emb) {
+			do_div(lane_rate_hz, bkw * 32 *
+				lnk->num_of_multiblocks_in_emb);
+		} else {
+			lane_rate_hz *= 8;
+			do_div(lane_rate_hz, bkw *
+				lnk->octets_per_frame *
+				lnk->frames_per_multiframe);
+		}
+		break;
+	default:
+		do_div(lane_rate_hz, 10 * lnk->octets_per_frame *
+			lnk->frames_per_multiframe);
+		break;
+	}
+
+	*rate_hz = lane_rate_hz;
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(jesd204_link_get_lmfc_lemc_rate);
+
 struct list_head *jesd204_topologies_get(void)
 {
 	return &jesd204_topologies;
