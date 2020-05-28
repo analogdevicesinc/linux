@@ -511,7 +511,7 @@ static int jesd204_fsm_link_init(struct jesd204_dev_top *jdev_top,
 
 static int jesd204_fsm_test_and_set_busy(struct jesd204_dev_top *jdev_top,
 					 enum jesd204_dev_state cur_state,
-					 int link_idx)
+					 unsigned int link_idx)
 {
 	struct jesd204_dev *jdev = &jdev_top->jdev;
 	struct jesd204_link_opaque *ol;
@@ -542,7 +542,7 @@ static int jesd204_fsm_test_and_set_busy(struct jesd204_dev_top *jdev_top,
 	return 0;
 
 err_unwind_busy:
-	for (; link_idx > 0; link_idx--) {
+	for (; link_idx != JESD204_LINKS_ALL; link_idx--) {
 		ol = &jdev_top->active_links[link_idx];
 		clear_bit(JESD204_FSM_BUSY, &ol->flags);
 	}
