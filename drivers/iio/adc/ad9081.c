@@ -687,6 +687,49 @@ static const struct iio_enum ad9081_testmode_enum = {
 	.get = ad9081_testmode_read,
 };
 
+static int ad9081_nyquist_zone_read(struct iio_dev *indio_dev,
+				const struct iio_chan_spec *chan)
+{
+	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+	struct ad9081_phy *phy = conv->phy;
+
+	return phy->rx_nyquist_zone;
+}
+
+static int ad9081_nyquist_zone_write(struct iio_dev *indio_dev,
+				 const struct iio_chan_spec *chan,
+				 unsigned int item)
+{
+	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+	struct ad9081_phy *phy = conv->phy;
+	int ret;
+
+	mutex_lock(&indio_dev->mlock);
+
+	ret = adi_ad9081_adc_nyquist_zone_set(&phy->ad9081, item);
+	if (ret != 0)
+		return ret;
+
+	if (!ret)
+		phy->rx_nyquist_zone = item;
+	mutex_unlock(&indio_dev->mlock);
+
+	return ret;
+}
+
+static const char *const ad9081_adc_nyquist_zones[] = {
+	[AD9081_ADC_NYQUIST_ZONE_ODD] = "odd",
+	[AD9081_ADC_NYQUIST_ZONE_EVEN] = "even",
+};
+
+static const struct iio_enum ad9081_nyquist_zone_enum = {
+	.items = ad9081_adc_nyquist_zones,
+	.num_items = ARRAY_SIZE(ad9081_adc_nyquist_zones),
+	.set = ad9081_nyquist_zone_write,
+	.get = ad9081_nyquist_zone_read,
+};
+
+
 int ad9081_iio_val_to_str(char *buf, u32 max, int val)
 {
 	int vals[2];
@@ -1111,6 +1154,8 @@ out:
 static struct iio_chan_spec_ext_info rxadc_ext_info[] = {
 	IIO_ENUM("test_mode", IIO_SHARED_BY_TYPE, &ad9081_testmode_enum),
 	IIO_ENUM_AVAILABLE("test_mode", &ad9081_testmode_enum),
+	IIO_ENUM("nyquist_zone", IIO_SHARED_BY_TYPE, &ad9081_nyquist_zone_enum),
+	IIO_ENUM_AVAILABLE("nyquist_zone", &ad9081_nyquist_zone_enum),
 	{
 		.name = "main_nco_frequency",
 		.read = ad9081_ext_info_read,
