@@ -9,6 +9,25 @@
 
 struct jesd204_dev;
 
+enum jesd204_subclass {
+	JESD204_SUBCLASS_0,
+	JESD204_SUBCLASS_1,
+	JESD204_SUBCLASS_2,
+};
+
+enum jesd204_version {
+	JESD204_VERSION_A,
+	JESD204_VERSION_B,
+	JESD204_VERSION_C,
+};
+
+/* JESD204C Supported encoding scheme */
+enum jesd204_enc { /* FIXME: unify with link layer defines */
+	JESD204_ENC_8B10B,
+	JESD204_ENC_64B66B,
+	JESD204_ENC_64B80B,
+};
+
 enum jesd204_sysref_mode {
 	JESD204_SYSREF_DISABLED,
 	JESD204_SYSREF_CONTINUOUS,
@@ -37,14 +56,17 @@ struct jesd204_sysref {
 /**
  * struct jesd204_link - JESD204 link configuration settings
  * @link_id			JESD204 link ID provided via DT configuration
+ * @is_transmit			true if this link is transmit (digital to analog)
  * @sample_rate			sample rate for the link
  * @num_lanes			number of JESD204 lanes (L)
  * @num_converters		number of converters per link (M)
  * @octets_per_frame		number of octets per frame (F)
  * @frames_per_multiframe	number of frames per frame (K)
+ * @num_of_multiblocks_in_emb	number of multiblocks in extended multiblock (E) (JESD204C)
  * @bits_per_sample		number of bits per sample (N')
  * @converter_resolution	converter resolution (N)
  * @jesd_version		JESD204 version (A, B or C) (JESDV)
+ * @jesd_encoder		JESD204C encoder (8B10B, 64B66B, 64B80B)
  * @subclass			JESD204 subclass (0,1 or 2) (SUBCLASSV)
  * @did				device ID (DID)
  * @bid				bank ID (BID)
@@ -70,15 +92,19 @@ struct jesd204_link {
 
 	u64 sample_rate;
 
+	bool is_transmit;
+
 	u8 num_lanes;
 	u8 num_converters;
 	u8 octets_per_frame;
 	u8 frames_per_multiframe;
+	u8 num_of_multiblocks_in_emb; /* E */
 
 	u8 bits_per_sample;
 
 	u8 converter_resolution;
 	u8 jesd_version;
+	u8 jesd_encoder;
 	u8 subclass;
 
 	u8 did;
