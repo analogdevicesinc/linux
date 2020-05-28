@@ -174,6 +174,14 @@ struct jesd204_dev *jesd204_dev_from_device(struct device *dev);
 
 void *jesd204_dev_priv(struct jesd204_dev *jdev);
 
+int jesd204_link_get_lmfc_lemc_rate(struct jesd204_link *lnk,
+				    unsigned long *rate_hz);
+int jesd204_link_get_rate_khz(struct jesd204_link *lnk,
+				 unsigned long *lane_rate_khz);
+int jesd204_link_get_rate(struct jesd204_link *lnk, u64 *lane_rate_hz);
+int jesd204_link_get_device_clock(struct jesd204_link *lnk,
+				  unsigned long *device_clock);
+
 #else /* !IS_ENABLED(CONFIG_JESD204) */
 
 static inline struct jesd204_dev *jesd204_dev_register(
@@ -206,6 +214,30 @@ static inline struct jesd204_dev *jesd204_dev_from_device(struct device *dev)
 static inline void *jesd204_dev_priv(struct jesd204_dev *jdev)
 {
 	return NULL;
+}
+
+static inline int jesd204_link_get_lmfc_lemc_rate(struct jesd204_link *lnk,
+						  unsigned long *rate_hz)
+{
+	return -ENOTSUPP;
+}
+
+static inline int jesd204_link_get_rate_khz(struct jesd204_link *lnk,
+					    unsigned long *lane_rate_khz);
+{
+	return -ENOTSUPP;
+}
+
+static inline int jesd204_link_get_rate(struct jesd204_link *lnk,
+					u64 *lane_rate_hz)
+{
+	return -ENOTSUPP;
+}
+
+static inline int jesd204_link_get_device_clock(struct jesd204_link *lnk,
+						unsigned long *device_clock)
+{
+	return -ENOTSUPP;
 }
 
 #endif /* IS_ENABLED(CONFIG_JESD204) */
