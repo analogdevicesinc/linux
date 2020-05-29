@@ -182,7 +182,7 @@ void *jesd204_dev_priv(struct jesd204_dev *jdev)
 {
 	return jdev->priv;
 }
-EXPORT_SYMBOL(jesd204_dev_priv);
+EXPORT_SYMBOL_GPL(jesd204_dev_priv);
 
 struct jesd204_dev *jesd204_dev_from_device(struct device *dev)
 {
@@ -198,13 +198,13 @@ struct jesd204_dev *jesd204_dev_from_device(struct device *dev)
 
 	return NULL;
 }
-EXPORT_SYMBOL(jesd204_dev_from_device);
+EXPORT_SYMBOL_GPL(jesd204_dev_from_device);
 
 struct device *jesd204_dev_to_device(struct jesd204_dev *jdev)
 {
 	return jdev ? jdev->parent : NULL;
 }
-EXPORT_SYMBOL(jesd204_dev_to_device);
+EXPORT_SYMBOL_GPL(jesd204_dev_to_device);
 
 static int jesd204_dev_alloc_links(struct jesd204_dev_top *jdev_top)
 {
