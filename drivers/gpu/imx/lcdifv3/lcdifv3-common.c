@@ -368,8 +368,12 @@ void lcdifv3_set_mode(struct lcdifv3_soc *lcdifv3, struct videomode *vmode)
 {
 	const struct of_device_id *of_id =
 			of_match_device(imx_lcdifv3_dt_ids, lcdifv3->dev);
-	const struct lcdifv3_soc_pdata *soc_pdata = of_id->data;
+	const struct lcdifv3_soc_pdata *soc_pdata;
 	u32 disp_size, hsyn_para, vsyn_para, vsyn_hsyn_width, ctrldescl0_1;
+
+	if (unlikely(!of_id))
+		return;
+	soc_pdata = of_id->data;
 
 	/* set pixel clock rate */
 	clk_disable_unprepare(lcdifv3->clk_pix);
