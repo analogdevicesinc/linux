@@ -270,10 +270,14 @@ static int imx_sec_dsim_bind(struct device *dev, struct device *master,
 	struct device_node *np = dev->of_node;
 	const struct of_device_id *of_id = of_match_device(imx_sec_dsim_dt_ids,
 							   dev);
-	const struct sec_mipi_dsim_plat_data *pdata = of_id->data;
+	const struct sec_mipi_dsim_plat_data *pdata;
 	struct drm_encoder *encoder;
 
 	dev_dbg(dev, "%s: dsim bind begin\n", __func__);
+
+	if (!of_id)
+		return -ENODEV;
+	pdata = of_id->data;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res)
