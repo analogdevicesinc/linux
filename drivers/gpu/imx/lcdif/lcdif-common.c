@@ -436,8 +436,12 @@ void lcdif_set_mode(struct lcdif_soc *lcdif, struct videomode *vmode)
 {
 	const struct of_device_id *of_id =
 			of_match_device(imx_lcdif_dt_ids, lcdif->dev);
-	const struct lcdif_soc_pdata *soc_pdata = of_id->data;
+	const struct lcdif_soc_pdata *soc_pdata;
 	u32 vdctrl0, vdctrl1, vdctrl2, vdctrl3, vdctrl4, htotal;
+
+	if (unlikely(!of_id))
+		return;
+	soc_pdata = of_id->data;
 
 	/* Clear the FIFO */
 	writel(CTRL1_FIFO_CLEAR, lcdif->base + LCDIF_CTRL1 + REG_SET);
