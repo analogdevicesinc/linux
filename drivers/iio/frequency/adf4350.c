@@ -507,8 +507,13 @@ static int adf4350_probe(struct spi_device *spi)
 	st->pdata = pdata;
 
 	indio_dev->dev.parent = &spi->dev;
-	indio_dev->name = (pdata->name[0] != 0) ? pdata->name :
-		spi_get_device_id(spi)->name;
+
+	if (spi->dev.of_node)
+		indio_dev->name = spi->dev.of_node->name;
+	else if (pdata->name[0] != 0)
+		indio_dev->name = pdata->name;
+	else
+		indio_dev->name = spi_get_device_id(spi)->name;
 
 	indio_dev->info = &adf4350_info;
 	indio_dev->modes = INDIO_DIRECT_MODE;
