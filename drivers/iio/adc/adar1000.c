@@ -337,7 +337,7 @@ static int adar1000_read_adc(struct adar1000_state *st, u8 adc_ch, s32 *adc_data
 				  &adc_ctrl);
 		if (ret < 0)
 			return ret;
-	} while (adc_ctrl & ADAR1000_ADC_EOC);
+	} while (!(adc_ctrl & ADAR1000_ADC_EOC));
 
 	/* Read ADC sample */
 	return regmap_read(st->regmap, st->dev_addr | ADAR1000_ADC_OUTPUT,
