@@ -175,13 +175,10 @@ struct jesd204_dev_data {
 
 #if IS_ENABLED(CONFIG_JESD204)
 
-struct jesd204_dev *jesd204_dev_register(struct device *dev,
-					 const struct jesd204_dev_data *init);
 struct jesd204_dev *devm_jesd204_dev_register(struct device *dev,
 					      const struct jesd204_dev_data *i);
 
-void jesd204_dev_unregister(struct jesd204_dev *jdev);
-void devm_jesd204_unregister(struct device *dev, struct jesd204_dev *jdev);
+int jesd204_start_fsm_from_probe(struct jesd204_dev *jdev);
 
 struct device *jesd204_dev_to_device(struct jesd204_dev *jdev);
 struct jesd204_dev *jesd204_dev_from_device(struct device *dev);
@@ -198,22 +195,16 @@ int jesd204_link_get_device_clock(struct jesd204_link *lnk,
 
 #else /* !IS_ENABLED(CONFIG_JESD204) */
 
-static inline struct jesd204_dev *jesd204_dev_register(
-		struct device *dev, const struct jesd204_dev_data *init)
-{
-	return NULL;
-}
-
-static inline void jesd204_dev_unregister(struct jesd204_dev *jdev) {}
-
 static inline struct jesd204_dev *devm_jesd204_dev_register(
 		struct device *dev, const struct jesd204_dev_data *init)
 {
 	return NULL;
 }
 
-static inline void devm_jesd204_unregister(struct device *dev,
-	       struct jesd204_dev *jdev) {}
+static inline int jesd204_start_fsm_from_probe(struct jesd204_dev *jdev)
+{
+	return 0;
+}
 
 static inline struct device *jesd204_dev_to_device(struct jesd204_dev *jdev)
 {

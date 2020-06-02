@@ -30,6 +30,8 @@ static LIST_HEAD(jesd204_topologies);
 static unsigned int jesd204_device_count;
 static unsigned int jesd204_topologies_count;
 
+static void jesd204_dev_unregister(struct jesd204_dev *jdev);
+
 int jesd204_link_get_rate(struct jesd204_link *lnk, u64 *lane_rate_hz)
 {
 	u64 rate, encoding_n, encoding_d;
@@ -584,8 +586,8 @@ static int jesd204_dev_init_links_data(struct jesd204_dev *jdev,
 	return 0;
 }
 
-struct jesd204_dev *jesd204_dev_register(struct device *dev,
-					 const struct jesd204_dev_data *init)
+static struct jesd204_dev *jesd204_dev_register(struct device *dev,
+						const struct jesd204_dev_data *init)
 {
 	struct jesd204_dev *jdev;
 	int ret, id;
@@ -625,7 +627,7 @@ struct jesd204_dev *jesd204_dev_register(struct device *dev,
 
 	ret = jesd204_dev_init_links_data(jdev, init);
 	if (ret)
-		goto err_put_device;
+		goto err_put_parent;
 
 	jdev->dev.parent = dev;
 	jdev->dev.bus = &jesd204_bus_type;
@@ -635,7 +637,7 @@ struct jesd204_dev *jesd204_dev_register(struct device *dev,
 	ret = device_add(&jdev->dev);
 	if (ret) {
 		put_device(&jdev->dev);
-		goto err_put_device;
+		goto err_put_parent;
 	}
 	jdev->id = id;
 
@@ -658,7 +660,7 @@ struct jesd204_dev *jesd204_dev_register(struct device *dev,
 
 err_device_del:
 	device_del(&jdev->dev);
-err_put_device:
+err_put_parent:
 	put_device(dev);
 err_free_id:
 	ida_simple_remove(&jesd204_ida, id);
@@ -666,7 +668,6 @@ err_free_id:
 
 	return ERR_PTR(ret);
 }
-EXPORT_SYMBOL(jesd204_dev_register);
 
 static void jesd204_dev_destroy_cons(struct jesd204_dev *jdev)
 {
@@ -734,7 +735,7 @@ static void jesd204_dev_kref_put(struct jesd204_dev *jdev)
  * jesd204_dev_unregister() - unregister a device from the JESD204 subsystem
  * @jdev:		Device structure representing the device.
  **/
-void jesd204_dev_unregister(struct jesd204_dev *jdev)
+static void jesd204_dev_unregister(struct jesd204_dev *jdev)
 {
 	if (IS_ERR_OR_NULL(jdev))
 		return;
@@ -747,7 +748,6 @@ void jesd204_dev_unregister(struct jesd204_dev *jdev)
 	jesd204_fsm_uninit_device(jdev);
 	jesd204_dev_kref_put(jdev);
 }
-EXPORT_SYMBOL(jesd204_dev_unregister);
 
 static void devm_jesd204_dev_unreg(struct device *dev, void *res)
 {
