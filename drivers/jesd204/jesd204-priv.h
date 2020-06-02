@@ -85,6 +85,7 @@ struct jesd204_dev_con_out {
  * @id			unique device id
  * @entry		list entry for the framework to keep a list of devices
  * @priv		private data to be returned to the driver
+ * @fsm_started		true if the FSM has been started for this device
  * @is_top		true if this device is a top device in a topology of
  *			devices that make up a JESD204 link (typically the
  *			device that is the ADC, DAC, or transceiver)
@@ -106,6 +107,7 @@ struct jesd204_dev {
 	struct list_head		entry;
 	void				*priv;
 
+	bool				fsm_started;
 	bool				is_top;
 
 	int				error;
