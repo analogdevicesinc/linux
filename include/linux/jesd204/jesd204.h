@@ -178,7 +178,7 @@ struct jesd204_dev_data {
 struct jesd204_dev *devm_jesd204_dev_register(struct device *dev,
 					      const struct jesd204_dev_data *i);
 
-int jesd204_start_fsm_from_probe(struct jesd204_dev *jdev);
+int jesd204_fsm_start(struct jesd204_dev *jdev, unsigned int link_idx);
 
 struct device *jesd204_dev_to_device(struct jesd204_dev *jdev);
 struct jesd204_dev *jesd204_dev_from_device(struct device *dev);
@@ -201,7 +201,8 @@ static inline struct jesd204_dev *devm_jesd204_dev_register(
 	return NULL;
 }
 
-static inline int jesd204_start_fsm_from_probe(struct jesd204_dev *jdev)
+static inline int jesd204_fsm_start(struct jesd204_dev *jdev,
+				    unsigned int link_idx)
 {
 	return 0;
 }
