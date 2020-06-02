@@ -741,8 +741,10 @@ void jesd204_dev_unregister(struct jesd204_dev *jdev)
 	if (IS_ERR_OR_NULL(jdev))
 		return;
 
-	if (jdev->id > -1)
+	if (jdev->id > -1) {
+		jdev->id = -1;
 		device_del(&jdev->dev);
+	}
 
 	jesd204_fsm_uninit_device(jdev);
 	jesd204_dev_kref_put(jdev);
