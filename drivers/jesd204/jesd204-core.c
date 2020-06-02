@@ -641,10 +641,6 @@ static struct jesd204_dev *jesd204_dev_register(struct device *dev,
 	}
 	jdev->id = id;
 
-	ret = jesd204_fsm_probe(jdev);
-	if (ret)
-		goto err_device_del;
-
 	if (init->sizeof_priv) {
 		jdev->priv = devm_kzalloc(jdev->parent, init->sizeof_priv,
 					  GFP_KERNEL);
