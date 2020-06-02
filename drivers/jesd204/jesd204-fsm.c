@@ -797,7 +797,7 @@ static int jesd204_fsm_probed_cb(struct jesd204_dev *jdev,
 				 struct jesd204_dev_con_out *con,
 				 struct jesd204_fsm_data *fsm_data)
 {
-	if (!jdev->parent)
+	if (!jdev->fsm_started)
 		return JESD204_STATE_CHANGE_DEFER;
 	return JESD204_STATE_CHANGE_DONE;
 }
@@ -818,13 +818,29 @@ static int jesd204_fsm_probe_done(struct jesd204_dev *jdev,
 				      JESD204_STATE_LINK_INIT);
 }
 
-int jesd204_fsm_probe(struct jesd204_dev *jdev)
+int jesd204_fsm_start(struct jesd204_dev *jdev, unsigned int link_idx)
 {
-	return jesd204_fsm(jdev, JESD204_LINKS_ALL,
-			   JESD204_STATE_INITIALIZED, JESD204_STATE_PROBED,
-			   jesd204_fsm_probed_cb, NULL,
-			   jesd204_fsm_probe_done, true);
+	int ret;
+
+	if (!jdev)
+		return 0;
+
+	if (IS_ERR(jdev))
+		return PTR_ERR(jdev);
+
+	jdev->fsm_started = true;
+
+	ret = jesd204_fsm(jdev, link_idx,
+			  JESD204_STATE_INITIALIZED, JESD204_STATE_PROBED,
+			  jesd204_fsm_probed_cb, NULL,
+			  jesd204_fsm_probe_done, true);
+
+	if (ret)
+		jdev->fsm_started = false;
+
+	return ret;
 }
+EXPORT_SYMBOL_GPL(jesd204_fsm_start);
 
 static int jesd204_fsm_table_entry_cb(struct jesd204_dev *jdev,
 				      struct jesd204_link_opaque *ol,
@@ -924,6 +940,9 @@ static int jesd204_fsm_table(struct jesd204_dev *jdev,
 
 void jesd204_fsm_uninit_device(struct jesd204_dev *jdev)
 {
+	if (!jdev->fsm_started)
+		return;
+
 	jesd204_fsm_table(jdev, JESD204_LINKS_ALL,
 			  JESD204_STATE_DONT_CARE, jesd204_uninit_dev_states,
 			  false);
