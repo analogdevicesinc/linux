@@ -627,8 +627,6 @@ struct jesd204_dev *jesd204_dev_register(struct device *dev,
 	if (ret)
 		goto err_put_device;
 
-	jdev->id = id;
-
 	jdev->dev.parent = dev;
 	jdev->dev.bus = &jesd204_bus_type;
 	device_initialize(&jdev->dev);
