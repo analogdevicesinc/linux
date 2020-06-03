@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2016 Freescale Semiconductor, Inc.
- * Copyright 2017-2019 NXP
+ * Copyright 2017-2020 NXP
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -1085,14 +1085,19 @@ err_get_plane_res:
 
 static int dpu_probe(struct platform_device *pdev)
 {
-	const struct of_device_id *of_id =
-			of_match_device(dpu_dt_ids, &pdev->dev);
+	const struct of_device_id *of_id;
 	struct device_node *np = pdev->dev.of_node;
 	struct dpu_soc *dpu;
 	struct resource *res;
 	unsigned long dpu_base;
-	const struct dpu_data *data = of_id->data;
+	const struct dpu_data *data;
 	int ret;
+
+	of_id = of_match_device(dpu_dt_ids, &pdev->dev);
+	if (!of_id)
+		return -ENODEV;
+
+	data = of_id->data;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res)
