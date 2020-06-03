@@ -741,7 +741,7 @@ static void jesd204_dev_unregister(struct jesd204_dev *jdev)
 		device_del(&jdev->dev);
 	}
 
-	jesd204_fsm_uninit_device(jdev);
+	jesd204_fsm_stop(jdev, JESD204_LINKS_ALL);
 	jesd204_dev_kref_put(jdev);
 }
 
