@@ -938,12 +938,13 @@ static int jesd204_fsm_table(struct jesd204_dev *jdev,
 			   handle_busy_flags);
 }
 
-void jesd204_fsm_uninit_device(struct jesd204_dev *jdev)
+void jesd204_fsm_stop(struct jesd204_dev *jdev, unsigned int link_idx)
 {
 	if (!jdev->fsm_started)
 		return;
 
-	jesd204_fsm_table(jdev, JESD204_LINKS_ALL,
+	jesd204_fsm_table(jdev, link_idx,
 			  JESD204_STATE_DONT_CARE, jesd204_uninit_dev_states,
 			  false);
 }
+EXPORT_SYMBOL_GPL(jesd204_fsm_stop);
