@@ -626,6 +626,11 @@ static int macb_mii_probe(struct net_device *dev)
 	else
 		phydev->supported &= PHY_BASIC_FEATURES;
 
+	/* FIXME: Drop this in newer kernels */
+	if (bp->phy_interface == PHY_INTERFACE_MODE_RMII ||
+	    bp->phy_interface == PHY_INTERFACE_MODE_MII)
+		phydev->supported &= PHY_BASIC_FEATURES;
+
 	if (bp->caps & MACB_CAPS_NO_GIGABIT_HALF)
 		phydev->supported &= ~SUPPORTED_1000baseT_Half;
 
