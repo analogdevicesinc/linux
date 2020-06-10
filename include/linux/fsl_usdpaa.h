@@ -393,6 +393,9 @@ struct usdpaa_ioctl_link_status_args {
 	char    if_name[IF_NAME_MAX_LEN];
 	/* link status(UP/DOWN) */
 	int     link_status;
+	int	link_speed;
+	int	link_duplex;
+	int	link_autoneg;
 };
 
 struct usdpaa_ioctl_update_link_status {
