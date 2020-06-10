@@ -769,7 +769,8 @@ static int imx_lcdifv3_resume(struct device *dev)
 #endif
 
 static const struct dev_pm_ops imx_lcdifv3_pm_ops = {
-	SET_SYSTEM_SLEEP_PM_OPS(imx_lcdifv3_suspend, imx_lcdifv3_resume)
+	SET_LATE_SYSTEM_SLEEP_PM_OPS(imx_lcdifv3_suspend,
+				     imx_lcdifv3_resume)
 	SET_RUNTIME_PM_OPS(imx_lcdifv3_runtime_suspend,
 			   imx_lcdifv3_runtime_resume, NULL)
 };
