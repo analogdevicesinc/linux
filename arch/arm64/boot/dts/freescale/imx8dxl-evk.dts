@@ -188,13 +188,6 @@
 		regulator-always-on;
 	};
 
-	clock_mclk_out1: clock_mclk_out1 {
-		compatible = "gpio-gate-clock";
-		clocks = <&mclkout1_lpcg 0>;
-		#clock-cells = <0>;
-		enable-gpios = <&pca6416_1 4 GPIO_ACTIVE_HIGH>;
-	};
-
 	sound-wm8960 {
 		compatible = "fsl,imx7d-evk-wm8960",
 			   "fsl,imx-audio-wm8960";
@@ -408,7 +401,8 @@
 			wm8960_1: wm8960@1a {
 				compatible = "wlf,wm8960";
 				reg = <0x1a>;
-				clocks = <&clock_mclk_out1>;
+				pinctrl-assert-gpios = <&pca6416_1 4 GPIO_ACTIVE_HIGH>;
+				clocks = <&mclkout1_lpcg 0>;
 				clock-names = "mclk";
 				wlf,shared-lrclk;
 				wlf,hp-cfg = <2 2 3>;
@@ -429,7 +423,8 @@
 			wm8960_2: wm8960@1a {
 				compatible = "wlf,wm8960";
 				reg = <0x1a>;
-				clocks = <&clock_mclk_out1>;
+				pinctrl-assert-gpios = <&pca6416_1 4 GPIO_ACTIVE_HIGH>;
+				clocks = <&mclkout1_lpcg 0>;
 				clock-names = "mclk";
 				wlf,shared-lrclk;
 				wlf,hp-cfg = <2 2 3>;
@@ -450,7 +445,8 @@
 			wm8960_3: wm8960@1a {
 				compatible = "wlf,wm8960";
 				reg = <0x1a>;
-				clocks = <&clock_mclk_out1>;
+				pinctrl-assert-gpios = <&pca6416_1 4 GPIO_ACTIVE_HIGH>;
+				clocks = <&mclkout1_lpcg 0>;
 				clock-names = "mclk";
 				wlf,shared-lrclk;
 				wlf,hp-cfg = <2 2 3>;
