@@ -21,7 +21,6 @@
 #include <linux/sysfs.h>
 #include <linux/uaccess.h>
 
-#include "intel_fcs.h"
 #include <uapi/linux/intel_fcs-ioctl.h>
 
 #define RANDOM_NUMBER_SIZE	32
@@ -223,7 +222,7 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 			return -EFAULT;
 		}
 
-		dev_dbg(dev, "Test=%d, Size=%ld; Address=0x%p\n",
+		dev_dbg(dev, "Test=%d, Size=%d; Address=0x%p\n",
 			data->com_paras.c_request.test.test_bit,
 			data->com_paras.c_request.size,
 			data->com_paras.c_request.addr);
