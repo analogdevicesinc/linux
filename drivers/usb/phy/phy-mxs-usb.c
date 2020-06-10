@@ -138,6 +138,7 @@
 #define DCD_CONTROL				0x800
 #define DCD_CLOCK				(DCD_CONTROL + 0x4)
 #define DCD_STATUS				(DCD_CONTROL + 0x8)
+#define DCD_TIMER1				(DCD_CONTROL + 0x14)
 
 #define DCD_CONTROL_SR				BIT(25)
 #define DCD_CONTROL_START			BIT(24)
@@ -159,6 +160,9 @@
 #define DCD_SDP_PORT				BIT(16)
 #define DCD_CDP_PORT				BIT(17)
 #define DCD_DCP_PORT				(BIT(16) | BIT(17))
+
+#define DCD_TVDPSRC_ON_MASK			GENMASK(9, 0)
+#define DCD_TVDPSRC_ON_VALUE			0xf0 /* 240ms */
 
 #define to_mxs_phy(p) container_of((p), struct mxs_phy, phy)
 
@@ -877,6 +881,11 @@ static int mxs_phy_dcd_start(struct mxs_phy *mxs_phy)
 	value = readl(base + DCD_CONTROL);
 	writel(((mxs_phy->clk_rate / 1000000) << 2) | DCD_CLOCK_MHZ,
 		base + DCD_CLOCK);
+
+	value = readl(base + DCD_TIMER1);
+	value &= ~DCD_TVDPSRC_ON_MASK;
+	value |= DCD_TVDPSRC_ON_VALUE;
+	writel(value, base + DCD_TIMER1);
 
 	value = readl(base + DCD_CONTROL);
 	value &= ~DCD_CONTROL_IE;
