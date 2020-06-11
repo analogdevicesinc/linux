@@ -265,6 +265,46 @@ static const struct iio_chan_spec adar1000_chan[] = {
 	ADAR1000_TX_CHANNEL(3),
 };
 
+static int adar1000_mode_4wire(struct adar1000_state *st, bool enable)
+{
+	int ret;
+	uint8_t tmp;
+
+	if (enable)
+		tmp = ADAR1000_SDOACTIVE;
+	else
+		tmp = 0;
+
+	ret = regmap_write(st->regmap, st->dev_addr |
+			   ADAR1000_INTERFACE_CFG_A,
+			   ADAR1000_SOFTRESET |
+			   ADAR1000_ADDR_ASCN | tmp);
+	if (ret < 0)
+		return ret;
+
+	/* If device addr is 0 treat the broadcast scenario and reset all other
+	 * devices back to 3-wire SPI mode
+	 */
+	if (st->dev_addr != 0 || !enable)
+		return 0;
+
+	ret = regmap_write(st->regmap, ADAR1000_SPI_ADDR(1) |
+			   ADAR1000_INTERFACE_CFG_A,
+			   ADAR1000_SOFTRESET | ADAR1000_ADDR_ASCN);
+	if (ret < 0)
+		return ret;
+
+	ret = regmap_write(st->regmap, ADAR1000_SPI_ADDR(2) |
+			   ADAR1000_INTERFACE_CFG_A,
+			   ADAR1000_SOFTRESET | ADAR1000_ADDR_ASCN);
+	if (ret < 0)
+		return ret;
+
+	return regmap_write(st->regmap, ADAR1000_SPI_ADDR(3) |
+			    ADAR1000_INTERFACE_CFG_A,
+			    ADAR1000_SOFTRESET | ADAR1000_ADDR_ASCN);
+}
+
 static int adar1000_get_atten(struct adar1000_state *st, u32 ch_num, u8 output)
 {
 	u32 val, reg;
@@ -276,7 +316,15 @@ static int adar1000_get_atten(struct adar1000_state *st, u32 ch_num, u8 output)
 	else
 		reg = ADAR1000_CH_RX_GAIN(ch_num);
 
+	ret = adar1000_mode_4wire(st, 1);
+	if (ret < 0)
+		return ret;
+
 	ret = regmap_read(st->regmap, st->dev_addr | reg, &val);
+	if (ret < 0)
+		return ret;
+
+	ret = adar1000_mode_4wire(st, 0);
 	if (ret < 0)
 		return ret;
 
@@ -293,6 +341,7 @@ static int adar1000_set_atten(struct adar1000_state *st, u32 atten_mdb,
 			      u32 ch_num, u8 output)
 {
 	u32 temp = 0, code, reg;
+	int ret;
 
 	/* The values for this are explained at page 33 of the datasheet */
 	if (atten_mdb > 31000)
@@ -311,7 +360,15 @@ static int adar1000_set_atten(struct adar1000_state *st, u32 atten_mdb,
 	else
 		reg = ADAR1000_CH_RX_GAIN(ch_num);
 
-	return regmap_write(st->regmap, st->dev_addr | reg, temp);
+	ret = adar1000_mode_4wire(st, 1);
+	if (ret < 0)
+		return ret;
+
+	ret = regmap_write(st->regmap, st->dev_addr | reg, temp);
+	if (ret < 0)
+		return ret;
+
+	return adar1000_mode_4wire(st, 0);
 }
 
 static int adar1000_read_adc(struct adar1000_state *st, u8 adc_ch, s32 *adc_data)
@@ -332,6 +389,10 @@ static int adar1000_read_adc(struct adar1000_state *st, u8 adc_ch, s32 *adc_data
 	if (ret < 0)
 		return ret;
 
+	ret = adar1000_mode_4wire(st, 1);
+	if (ret < 0)
+		return ret;
+
 	do {
 		ret = regmap_read(st->regmap, st->dev_addr | ADAR1000_ADC_CTRL,
 				  &adc_ctrl);
@@ -340,8 +401,12 @@ static int adar1000_read_adc(struct adar1000_state *st, u8 adc_ch, s32 *adc_data
 	} while (!(adc_ctrl & ADAR1000_ADC_EOC));
 
 	/* Read ADC sample */
-	return regmap_read(st->regmap, st->dev_addr | ADAR1000_ADC_OUTPUT,
-			   adc_data);
+	ret = regmap_read(st->regmap, st->dev_addr | ADAR1000_ADC_OUTPUT,
+			  adc_data);
+	if (ret < 0)
+		return ret;
+
+	return adar1000_mode_4wire(st, 0);
 }
 
 static int adar1000_set_phase(struct adar1000_state *st, u8 ch_num, u8 output,
@@ -382,11 +447,19 @@ static int adar1000_set_phase(struct adar1000_state *st, u8 ch_num, u8 output,
 		st->rx_phase[st->dev_addr][ch_num] = value;
 	}
 
+	ret = adar1000_mode_4wire(st, 1);
+	if (ret < 0)
+		return ret;
+
 	ret = regmap_write(st->regmap, reg_i, vm_gain_i);
 	if (ret < 0)
 		return ret;
 
-	return regmap_write(st->regmap, reg_q, vm_gain_q);
+	ret = regmap_write(st->regmap, reg_q, vm_gain_q);
+	if (ret < 0)
+		return ret;
+
+	return adar1000_mode_4wire(st, 0);
 }
 
 static int adar1000_get_phase(struct adar1000_state *st, u8 ch_num, u8 output,
