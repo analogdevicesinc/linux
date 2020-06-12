@@ -142,9 +142,17 @@ static const struct i2c_device_id ltc2471_i2c_id[] = {
 };
 MODULE_DEVICE_TABLE(i2c, ltc2471_i2c_id);
 
+static const struct of_device_id ltc2471_of_match[] = {
+	{ .compatible = "adi,ltc2471" },
+	{ .compatible = "adi,ltc2473" },
+	{}
+};
+MODULE_DEVICE_TABLE(of, ltc2471_of_match);
+
 static struct i2c_driver ltc2471_i2c_driver = {
 	.driver = {
 		.name = "ltc2471",
+		.of_match_table = of_match_ptr(ltc2471_of_match)
 	},
 	.probe    = ltc2471_i2c_probe,
 	.id_table = ltc2471_i2c_id,
