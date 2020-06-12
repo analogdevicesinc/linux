@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Driver for Linear Technology LTC2471 and LTC2473 voltage monitors
+ * Driver for Linear Technology LTC2471, LTC2473, LTC2461 and LTC2463 voltage
+ * monitors.
  * The LTC2473 is identical to the 2471, but reports a differential signal.
+ * The LTC2463 is identical to the 2461, but reports a differential signal.
  *
  * Copyright (C) 2017 Topic Embedded Products
  * Author: Mike Looijmans <mike.looijmans@topic.nl>
@@ -17,6 +19,8 @@
 enum ltc2471_chips {
 	ltc2471,
 	ltc2473,
+	ltc2461,
+	ltc2463
 };
 
 struct ltc2471_data {
@@ -119,7 +123,7 @@ static int ltc2471_i2c_probe(struct i2c_client *client,
 	indio_dev->name = id->name;
 	indio_dev->info = &ltc2471_info;
 	indio_dev->modes = INDIO_DIRECT_MODE;
-	if (id->driver_data == ltc2473)
+	if (id->driver_data == ltc2473 || id->driver_data == ltc2463)
 		indio_dev->channels = ltc2473_channel;
 	else
 		indio_dev->channels = ltc2471_channel;
@@ -138,6 +142,8 @@ static int ltc2471_i2c_probe(struct i2c_client *client,
 static const struct i2c_device_id ltc2471_i2c_id[] = {
 	{ "ltc2471", ltc2471 },
 	{ "ltc2473", ltc2473 },
+	{ "ltc2461", ltc2461 },
+	{ "ltc2463", ltc2463 },
 	{}
 };
 MODULE_DEVICE_TABLE(i2c, ltc2471_i2c_id);
@@ -145,6 +151,8 @@ MODULE_DEVICE_TABLE(i2c, ltc2471_i2c_id);
 static const struct of_device_id ltc2471_of_match[] = {
 	{ .compatible = "adi,ltc2471" },
 	{ .compatible = "adi,ltc2473" },
+	{ .compatible = "adi,ltc2461" },
+	{ .compatible = "adi,ltc2463" },
 	{}
 };
 MODULE_DEVICE_TABLE(of, ltc2471_of_match);
@@ -160,6 +168,6 @@ static struct i2c_driver ltc2471_i2c_driver = {
 
 module_i2c_driver(ltc2471_i2c_driver);
 
-MODULE_DESCRIPTION("LTC2471/LTC2473 ADC driver");
+MODULE_DESCRIPTION("LTC2471/LTC2473/LTC2461/LTC2463 ADC driver");
 MODULE_AUTHOR("Topic Embedded Products");
 MODULE_LICENSE("GPL v2");
