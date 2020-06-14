@@ -1786,6 +1786,42 @@ static int ioctl_set_link_speed(struct usdpaa_ioctl_update_link_speed *args)
 	return phy_start_aneg(mac_dev->phy_dev);
 }
 
+static int ioctl_link_restart_autoneg(char *if_name)
+{
+	struct device *dev;
+	struct mac_device *mac_dev;
+
+	dev = get_dev_ptr(if_name);
+	if (!dev)
+		return -ENODEV;
+
+	if (of_device_is_compatible(dev->of_node, "fsl,dpa-ethernet")) {
+		struct net_device *ndev;
+		struct dpa_priv_s *npriv = NULL;
+
+		ndev = dev_get_drvdata(dev);
+		npriv = netdev_priv(ndev);
+		mac_dev =  npriv->mac_dev;
+	} else if (of_device_is_compatible(dev->of_node, "fsl,dpa-ethernet-init")) {
+		struct proxy_device *proxy_dev;
+
+		proxy_dev = dev_get_drvdata(dev);
+		mac_dev =  proxy_dev->mac_dev;
+	} else {
+		pr_err(KBUILD_MODNAME "Not supported device\n");
+		return -ENOMEM;
+	}
+
+	if (!mac_dev->phy_dev) {
+		pr_err(KBUILD_MODNAME "Device does not have associated phy dev\n");
+		return -EINVAL;
+	}
+
+	mac_dev->phy_dev->autoneg = AUTONEG_ENABLE;
+
+	return phy_restart_aneg(mac_dev->phy_dev);
+}
+
 /* This function will return Current link status, link speed, link duplex and
  * link autoneg status of the device.
  *
@@ -2238,6 +2274,20 @@ static long usdpaa_ioctl(struct file *fp, unsigned int cmd, unsigned long arg)
 		if (ret)
 			pr_err("Error(%d) updating link speed:IF: %s\n",
 			       ret, input.if_name);
+		return ret;
+	}
+	case USDPAA_IOCTL_RESTART_LINK_AUTONEG:
+	{
+		char *input;
+		int ret;
+
+		if (copy_from_user(&input, a, sizeof(input)))
+			return -EFAULT;
+
+		ret = ioctl_link_restart_autoneg(input);
+		if (ret)
+			pr_err("Error(%d) restarting autoneg:IF: %s\n",
+			       ret, input);
 		return ret;
 	}
 	}
