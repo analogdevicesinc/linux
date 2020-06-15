@@ -1,0 +1,52 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+# Copyright 2020 Analog Devices Inc.
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/bindings/iio/adc/adi,ltc2471.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Analog Devices LTC2471 16-bit I2C Sigma-Delta ADC
+
+maintainers:
+  - Mike Looijmans <mike.looijmans@topic.nl>
+
+description: |
+  Analog Devices LTC2471 (single-ended) and LTC2473 (differential) 16-bit
+  I2C Sigma-Delta ADC with selectable 208/833sps output rate.
+  https://www.analog.com/media/en/technical-documentation/data-sheets/24713fb.pdf
+
+  Analog Devices LTC2461 (single-ended) and LTC2463 (differential) 16-bit
+  I2C Sigma-Delta ADC with 60sps output rate.
+  https://www.analog.com/media/en/technical-documentation/data-sheets/24613fa.pdf
+
+properties:
+  compatible:
+    enum:
+      - adi,ltc2471
+      - adi,ltc2473
+      - adi,ltc2461
+      - adi,ltc2463
+
+  reg:
+    maxItems: 1
+
+required:
+  - compatible
+  - reg
+
+examples:
+  - |
+    i2c0 {
+      ltc2461@14 {
+        compatible = "ltc2461";
+        reg = <0x14>;
+      };
+    };
+  - |
+    i2c0 {
+      ltc2473@54 {
+        compatible = "ltc2473";
+        reg = <0x54>;
+      };
+    };
+
