@@ -932,13 +932,16 @@ static void arasan_dt_read_tap_delay(struct device *dev, u32 *tapdly,
 				     u8 mode, const char *prop)
 {
 	struct device_node *np = dev->of_node;
+	u32 tmp;
 	/*
 	 * Read Tap Delay values from DT, if the DT does not contain the
 	 * Tap Values then use the pre-defined values
 	 */
-	if (of_property_read_u32(np, prop, &tapdly[mode])) {
+	if (of_property_read_u32(np, prop, &tmp)) {
 		dev_dbg(dev, "Using predefined tapdly for %s = %d\n",
 			prop, tapdly[mode]);
+	} else {
+		tapdly[mode] = tmp;
 	}
 }
 
