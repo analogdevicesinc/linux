@@ -955,20 +955,26 @@ static void arasan_dt_parse_tap_delays(struct device *dev)
 	struct sdhci_host *host = platform_get_drvdata(pdev);
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
 	struct sdhci_arasan_data *sdhci_arasan = sdhci_pltfm_priv(pltfm_host);
-	u32 *itapdly;
-	u32 *otapdly;
+	u32 itapdly[MMC_TIMING_MMC_HS400 + 1];
+	u32 otapdly[MMC_TIMING_MMC_HS400 + 1];
 	int i;
 
 	if (of_device_is_compatible(pdev->dev.of_node, "xlnx,zynqmp-8.9a")) {
-		itapdly = (u32 [MMC_TIMING_MMC_HS400 + 1]) ZYNQMP_ITAP_DELAYS;
-		otapdly = (u32 [MMC_TIMING_MMC_HS400 + 1]) ZYNQMP_OTAP_DELAYS;
+		u32 zynqmp_itapdly[MMC_TIMING_MMC_HS400 + 1] = ZYNQMP_ITAP_DELAYS;
+		u32 zynqmp_otapdly[MMC_TIMING_MMC_HS400 + 1] = ZYNQMP_OTAP_DELAYS;
+
+		memcpy(itapdly, zynqmp_itapdly, sizeof(itapdly));
+		memcpy(otapdly, zynqmp_otapdly, sizeof(otapdly));
 		if (sdhci_arasan->mio_bank == MMC_BANK2) {
 			otapdly[MMC_TIMING_UHS_SDR104] = 0x2;
 			otapdly[MMC_TIMING_MMC_HS200] = 0x2;
 		}
 	} else {
-		itapdly = (u32 [MMC_TIMING_MMC_HS400 + 1]) VERSAL_ITAP_DELAYS;
-		otapdly = (u32 [MMC_TIMING_MMC_HS400 + 1]) VERSAL_OTAP_DELAYS;
+		u32 versal_itapdly[MMC_TIMING_MMC_HS400 + 1] = VERSAL_ITAP_DELAYS;
+		u32 versal_otapdly[MMC_TIMING_MMC_HS400 + 1] = VERSAL_OTAP_DELAYS;
+
+		memcpy(itapdly, versal_itapdly, sizeof(itapdly));
+		memcpy(otapdly, versal_otapdly, sizeof(otapdly));
 	}
 
 	arasan_dt_read_tap_delay(dev, itapdly, MMC_TIMING_SD_HS,
