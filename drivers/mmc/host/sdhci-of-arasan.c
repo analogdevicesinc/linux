@@ -1123,7 +1123,8 @@ static void arasan_dt_read_clk_phase(struct device *dev,
 static void arasan_dt_parse_clk_phases(struct device *dev,
 				       struct sdhci_arasan_clk_data *clk_data)
 {
-	int *iclk_phase, *oclk_phase;
+	int iclk_phase[MMC_TIMING_MMC_HS400 + 1];
+	int oclk_phase[MMC_TIMING_MMC_HS400 + 1];
 	u32 mio_bank = 0;
 	int i;
 
@@ -1135,8 +1136,11 @@ static void arasan_dt_parse_clk_phases(struct device *dev,
 	clk_data->set_clk_delays = sdhci_arasan_set_clk_delays;
 
 	if (of_device_is_compatible(dev->of_node, "xlnx,zynqmp-8.9a")) {
-		iclk_phase = (int [MMC_TIMING_MMC_HS400 + 1]) ZYNQMP_ICLK_PHASE;
-		oclk_phase = (int [MMC_TIMING_MMC_HS400 + 1]) ZYNQMP_OCLK_PHASE;
+		int zynqmp_iclk_phase[MMC_TIMING_MMC_HS400 + 1] = ZYNQMP_ICLK_PHASE;
+		int zynqmp_oclk_phase[MMC_TIMING_MMC_HS400 + 1] = ZYNQMP_OCLK_PHASE;
+
+		memcpy(iclk_phase, zynqmp_iclk_phase, sizeof(iclk_phase));
+		memcpy(oclk_phase, zynqmp_oclk_phase, sizeof(oclk_phase));
 
 		of_property_read_u32(dev->of_node, "xlnx,mio-bank", &mio_bank);
 		if (mio_bank == 2) {
@@ -1151,8 +1155,11 @@ static void arasan_dt_parse_clk_phases(struct device *dev,
 	}
 
 	if (of_device_is_compatible(dev->of_node, "xlnx,versal-8.9a")) {
-		iclk_phase = (int [MMC_TIMING_MMC_HS400 + 1]) VERSAL_ICLK_PHASE;
-		oclk_phase = (int [MMC_TIMING_MMC_HS400 + 1]) VERSAL_OCLK_PHASE;
+		int versal_iclk_phase[MMC_TIMING_MMC_HS400 + 1] = VERSAL_ICLK_PHASE;
+		int versal_oclk_phase[MMC_TIMING_MMC_HS400 + 1] = VERSAL_OCLK_PHASE;
+
+		memcpy(iclk_phase, versal_iclk_phase, sizeof(iclk_phase));
+		memcpy(oclk_phase, versal_oclk_phase, sizeof(oclk_phase));
 
 		for (i = 0; i <= MMC_TIMING_MMC_HS400; i++) {
 			clk_data->clk_phase_in[i] = iclk_phase[i];
