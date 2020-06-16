@@ -38,6 +38,8 @@
 #include "mac.h"
 #include "dpaa_eth_common.h"
 
+#define USDPAA_IOCTL_VERSION_NUMBER 2
+
 /* Private data for Proxy Interface */
 struct dpa_proxy_priv_s {
 	struct mac_device	*mac_dev;
@@ -2176,6 +2178,15 @@ static long usdpaa_ioctl(struct file *fp, unsigned int cmd, unsigned long arg)
 			pr_err("Error(%d) updating link status:IF: %s\n",
 			       ret, input.if_name);
 		return ret;
+	}
+	case USDPAA_IOCTL_GET_IOCTL_VERSION:
+	{
+		int ver_num = USDPAA_IOCTL_VERSION_NUMBER;
+
+		if (copy_to_user(a, &ver_num, sizeof(ver_num)))
+			return -EFAULT;
+
+		return 0;
 	}
 	}
 	return -EINVAL;
