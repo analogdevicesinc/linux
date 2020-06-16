@@ -827,7 +827,7 @@ static int ltc6952_probe(struct spi_device *spi)
 		return ret;
 
 	indio_dev->dev.parent = &spi->dev;
-	indio_dev->name = spi_get_device_id(spi)->name;
+	indio_dev->name = spi->dev.of_node->name;
 	indio_dev->info = &ltc6952_iio_info;
 	indio_dev->modes = INDIO_DIRECT_MODE;
 	indio_dev->channels = st->iio_channels;
