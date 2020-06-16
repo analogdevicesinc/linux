@@ -10,7 +10,7 @@
  */
 
 /*!
- * @addtogroup __ADI_API_CONFIG__
+ * @addtogroup ADI_API_CONFIG
  * @{
  */
 #ifndef __ADI_CMS_API_CONFIG_H__
