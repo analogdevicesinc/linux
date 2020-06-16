@@ -203,6 +203,7 @@ struct ltc6952_state {
 	u32				ref_freq;
 	u32				vco_freq;
 	u32				pfd_freq;
+	bool				follower;
 	bool				sysref_request;
 	unsigned int			ref_divider;
 	unsigned int			vco_divider;
@@ -595,6 +596,21 @@ static int ltc6952_setup(struct iio_dev *indio_dev)
 	unsigned int i, tmp;
 	int ret;
 
+	mutex_lock(&st->lock);
+	/* Resets all registers to default values */
+	ret = ltc6952_write_mask(indio_dev, LTC6952_REG(0x02),
+				 LTC6952_POR_MSK, LTC6952_POR(1));
+	if (ret < 0)
+		goto err_unlock;
+
+	if (st->follower) {
+		ret = ltc6952_write_mask(indio_dev, LTC6952_REG(0x02),
+					LTC6952_PDPLL_MSK, LTC6952_PDPLL(1));
+		if (ret < 0)
+			goto err_unlock;
+		goto follower;
+	}
+
 	vco_freq = st->vco_freq / 1000;
 	ref_freq = st->ref_freq / 1000;
 
@@ -611,13 +627,6 @@ static int ltc6952_setup(struct iio_dev *indio_dev)
 		n *= 2;
 		r *= 2;
 	}
-
-	mutex_lock(&st->lock);
-	/* Resets all registers to default values */
-	ret = ltc6952_write_mask(indio_dev, LTC6952_REG(0x02),
-				 LTC6952_POR_MSK, LTC6952_POR(1));
-	if (ret < 0)
-		goto err_unlock;
 
 	/* Program the dividers */
 	ret |= ltc6952_write_mask(indio_dev, LTC6952_REG(0x06),
@@ -642,6 +651,7 @@ static int ltc6952_setup(struct iio_dev *indio_dev)
 	if (ret < 0)
 		goto err_unlock;
 
+follower:
 	/* Program the output channels */
 	for (i = 0; i < st->num_channels; i++) {
 		chan = &st->channels[i];
@@ -742,6 +752,8 @@ static int ltc6952_parse_dt(struct device *dev,
 				   &st->vco_freq);
 	if (ret < 0)
 		return ret;
+
+	st->follower = of_property_read_bool(np, "adi,follower-mode-enable");
 
 	ret = of_property_read_string_array(np, "clock-output-names",
 			st->clk_out_names, ARRAY_SIZE(st->clk_out_names));
