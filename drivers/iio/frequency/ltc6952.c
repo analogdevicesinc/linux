@@ -205,12 +205,8 @@ struct ltc6952_state {
 	struct mutex			lock;
 	u32				ref_freq;
 	u32				vco_freq;
-	u32				pfd_freq;
 	bool				follower;
-	bool				sysref_request;
 	u32				cp_current;
-	unsigned int			ref_divider;
-	unsigned int			vco_divider;
 	const char			*clk_out_names[LTC6952_NUM_CHAN];
 	unsigned int			num_channels;
 	struct ltc6952_chan_spec	*channels;
