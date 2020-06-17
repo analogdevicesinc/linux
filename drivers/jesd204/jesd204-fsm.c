@@ -377,24 +377,25 @@ static void jesd204_fsm_kref_link_put(struct jesd204_dev_top *jdev_top,
 }
 
 static int jesd204_con_validate_cur_state(struct jesd204_dev *jdev,
-					  struct jesd204_link_opaque *ol,
 					  struct jesd204_dev_con_out *c,
-					  enum jesd204_dev_state cur_state,
-					  enum jesd204_dev_state nxt_state)
+					  struct jesd204_fsm_data *fsm_data)
 {
-	if (cur_state == JESD204_STATE_DONT_CARE)
+	struct jesd204_link_opaque *ol;
+
+	if (fsm_data->cur_state == JESD204_STATE_DONT_CARE)
 		return 0;
 
-	if (c && c->state == nxt_state)
+	if (c && c->state == fsm_data->nxt_state)
 		return 0;
 
-	if (c && cur_state != c->state) {
+	if (c && fsm_data->cur_state != c->state) {
+		ol = &fsm_data->jdev_top->active_links[c->link_idx];
 		dev_warn(&jdev->dev,
 			 "JESD204 link[%d] invalid connection state: %s, exp: %s, nxt: %s\n",
 			 c->link_idx,
 			 jesd204_state_str(c->state),
-			 jesd204_state_str(cur_state),
-			 jesd204_state_str(nxt_state));
+			 jesd204_state_str(fsm_data->cur_state),
+			 jesd204_state_str(fsm_data->nxt_state));
 		return jesd204_dev_set_error(jdev, ol, c, -EINVAL);
 	}
 
@@ -410,12 +411,6 @@ static int jesd204_fsm_propagate_cb(struct jesd204_dev *jdev,
 	int ret;
 
 	jesd204_fsm_kref_link_get(jdev_top, fsm_data->link_idx);
-
-	ret = jesd204_con_validate_cur_state(jdev, ol, con,
-					     fsm_data->cur_state,
-					     fsm_data->nxt_state);
-	if (ret)
-		return ret;
 
 	ret = fsm_data->fsm_change_cb(jdev, ol, con, fsm_data);
 	if (ret < 0) {
@@ -450,6 +445,10 @@ static int jesd204_fsm_propagated_cb(struct jesd204_dev *jdev,
 	/* if this transitioned already, we're done */
 	if (con && con->state == fsm_data->nxt_state)
 		return 0;
+
+	ret = jesd204_con_validate_cur_state(jdev, con, fsm_data);
+	if (ret)
+		return ret;
 
 	jdev_top = fsm_data->jdev_top;
 	link_idx = fsm_data->link_idx;
