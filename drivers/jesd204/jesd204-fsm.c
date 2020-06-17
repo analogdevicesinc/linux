@@ -8,6 +8,7 @@
 #include <linux/kernel.h>
 #include <linux/device.h>
 #include <linux/of.h>
+#include <linux/slab.h>
 
 #include "jesd204-priv.h"
 
@@ -63,8 +64,15 @@ struct jesd204_fsm_table_entry {
 	bool			last;
 };
 
+/**
+ * struct jesd204_fsm_table_entry_iter - JESD204 table state iterator
+ * @table		current entry in a state table
+ * @per_device_ran	list of JESD204 device IDs to mark when a device's
+ *			callback was ran, when running ops per_device
+ */
 struct jesd204_fsm_table_entry_iter {
 	const struct jesd204_fsm_table_entry	*table;
+	bool					*per_device_ran;
 };
 
 #define _JESD204_STATE_OP(x, _last)	\
@@ -848,8 +856,32 @@ int jesd204_fsm_start(struct jesd204_dev *jdev, unsigned int link_idx)
 }
 EXPORT_SYMBOL_GPL(jesd204_fsm_start);
 
+
+static int jesd204_fsm_table_dev_op_cb(struct jesd204_dev *jdev,
+				       const struct jesd204_state_op *state_op,
+				       unsigned int link_idx,
+				       struct jesd204_fsm_data *fsm_data)
+{
+	struct jesd204_fsm_table_entry_iter *it = fsm_data->cb_data;
+	jesd204_dev_cb dev_op;
+	int ret;
+
+	dev_op = state_op->per_device;
+	if (!dev_op)
+		return JESD204_STATE_CHANGE_DONE;
+
+	if (it->per_device_ran[jdev->id])
+		return JESD204_STATE_CHANGE_DONE;
+
+	ret = dev_op(jdev);
+
+	it->per_device_ran[jdev->id] = true;
+
+	return ret;
+}
+
 static int jesd204_fsm_table_link_op_cb(struct jesd204_dev *jdev,
-					const struct jesd204_state_ops *state_op,
+					const struct jesd204_state_op *state_op,
 					unsigned int link_idx,
 					struct jesd204_fsm_data *fsm_data)
 {
@@ -871,15 +903,25 @@ static int jesd204_fsm_table_entry_cb(struct jesd204_dev *jdev,
 				      struct jesd204_fsm_data *fsm_data)
 {
 	struct jesd204_fsm_table_entry_iter *it = fsm_data->cb_data;
-	const struct jesd204_state_ops *state_op;
+	const struct jesd204_state_op *state_op;
 
 	if (!jdev->state_ops)
 		return JESD204_STATE_CHANGE_DONE;
 
 	state_op = &jdev->state_ops[it->table[0].op];
 
-	return jesd204_fsm_table_link_op_cb(jdev, state_op, link_idx,
-					    fsm_data);
+	switch (state_op->mode) {
+	case JESD204_STATE_OP_MODE_PER_DEVICE:
+		return jesd204_fsm_table_dev_op_cb(jdev, state_op, link_idx,
+						   fsm_data);
+	case JESD204_STATE_OP_MODE_PER_LINK:
+		return jesd204_fsm_table_link_op_cb(jdev, state_op, link_idx,
+						    fsm_data);
+	default:
+		dev_err(&jdev->dev, "Invalid state_op mode %d\n",
+			state_op->mode);
+		return -EINVAL;
+	}
 }
 
 static int jesd204_fsm_table_entry_done(struct jesd204_dev *jdev,
@@ -887,19 +929,15 @@ static int jesd204_fsm_table_entry_done(struct jesd204_dev *jdev,
 {
 	struct jesd204_fsm_table_entry_iter *it = fsm_data->cb_data;
 	const struct jesd204_fsm_table_entry *table = it->table;
-	jesd204_dev_cb op;
-	int ret;
+	int cnt;
 
-	if (jdev->state_ops &&
-	    jdev->state_ops[table[0].op].post_transition) {
-		op = jdev->state_ops[table[0].op].post_transition;
-		ret = op(jdev, fsm_data->link_idx);
-		if (ret < 0)
-			return jesd204_dev_set_error(jdev, NULL, NULL, ret);
+	if (table[0].last) {
+		kfree(it->per_device_ran);
+		return 0;
 	}
 
-	if (table[0].last)
-		return 0;
+	cnt = jesd204_device_count_get();
+	memset(it->per_device_ran, 0, sizeof(bool) * cnt);
 
 	return jesd204_fsm_table(jdev, fsm_data->link_idx,
 				 table[0].state, &table[1], false);
@@ -912,25 +950,21 @@ static int jesd204_fsm_table(struct jesd204_dev *jdev,
 			     bool handle_busy_flags)
 {
 	struct jesd204_fsm_table_entry_iter it;
-	jesd204_dev_cb op;
-	int ret;
+	int cnt;
 
 	it.table = table;
 
-	if (jdev->state_ops &&
-	    jdev->state_ops[table[0].op].pre_transition) {
-		op = jdev->state_ops[table[0].op].pre_transition;
-		ret = op(jdev, link_idx);
-		if (ret < 0)
-			return jesd204_dev_set_error(jdev, NULL, NULL, ret);
-	}
+	cnt = jesd204_device_count_get();
+	it.per_device_ran = kcalloc(cnt, sizeof(bool), GFP_KERNEL);
+	if (!it.per_device_ran)
+		return -ENOMEM;
 
 	return jesd204_fsm(jdev, link_idx,
-			   init_state, table[0].state,
-			   jesd204_fsm_table_entry_cb,
-			   &it,
-			   jesd204_fsm_table_entry_done,
-			   handle_busy_flags);
+			  init_state, table[0].state,
+			  jesd204_fsm_table_entry_cb,
+			  &it,
+			  jesd204_fsm_table_entry_done,
+			  handle_busy_flags);
 }
 
 void jesd204_fsm_stop(struct jesd204_dev *jdev, unsigned int link_idx)
