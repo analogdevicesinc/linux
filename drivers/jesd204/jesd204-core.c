@@ -191,7 +191,7 @@ struct jesd204_dev *jesd204_dev_from_device(struct device *dev)
 		return NULL;
 
 	list_for_each_entry(jdev, &jesd204_device_list, entry) {
-		if (jdev->parent && jdev->parent == dev)
+		if (jdev->dev.parent && jdev->dev.parent == dev)
 			return jdev;
 	}
 
@@ -201,7 +201,7 @@ EXPORT_SYMBOL_GPL(jesd204_dev_from_device);
 
 struct device *jesd204_dev_to_device(struct jesd204_dev *jdev)
 {
-	return jdev ? jdev->parent : NULL;
+	return jdev ? jdev->dev.parent : NULL;
 }
 EXPORT_SYMBOL_GPL(jesd204_dev_to_device);
 
@@ -458,7 +458,7 @@ static int jesd204_dev_init_link_lane_ids(struct jesd204_dev_top *jdev_top,
 					  struct jesd204_link *jlink)
 {
 	struct jesd204_dev *jdev = &jdev_top->jdev;
-	struct device *dev = jdev->parent;
+	struct device *dev = jdev->dev.parent;
 	u8 id;
 
 	if (!jlink->num_lanes) {
@@ -527,24 +527,24 @@ int jesd204_dev_init_link_data(struct jesd204_dev_top *jdev_top,
 	return 0;
 }
 
-static int jesd204_dev_init_links_data(struct jesd204_dev *jdev,
+static int jesd204_dev_init_links_data(struct device *parent,
+				       struct jesd204_dev *jdev,
 				       const struct jesd204_dev_data *init)
 {
 	struct jesd204_dev_top *jdev_top = jesd204_dev_top_dev(jdev);
-	struct device *dev = jdev->parent;
 	unsigned int i;
 
 	if (!jdev_top)
 		return 0;
 
 	if (!init->num_links) {
-		dev_err(dev, "num_links shouldn't be zero\n");
+		dev_err(parent, "num_links shouldn't be zero\n");
 		return -EINVAL;
 	}
 
 	/* FIXME: should we just do a minimum? for now we error out if these mismatch */
 	if (init->num_links != jdev_top->num_links) {
-		dev_err(dev,
+		dev_err(parent,
 			"Driver and DT mismatch for number of links %u vs %u\n",
 			init->num_links, jdev_top->num_links);
 		return -EINVAL;
@@ -557,7 +557,7 @@ static int jesd204_dev_init_links_data(struct jesd204_dev *jdev,
 	if (!init->links &&
 	    !init->state_ops &&
 	    !init->state_ops[JESD204_OP_LINK_INIT].per_link) {
-		dev_err(dev,
+		dev_err(parent,
 			"num_links is non-zero, but no links data provided\n");
 		return -EINVAL;
 	}
@@ -612,11 +612,10 @@ static struct jesd204_dev *jesd204_dev_register(struct device *dev,
 	}
 
 	jdev->state_ops = init->state_ops;
-	jdev->parent = get_device(dev);
 
-	ret = jesd204_dev_init_links_data(jdev, init);
+	ret = jesd204_dev_init_links_data(dev, jdev, init);
 	if (ret)
-		goto err_put_parent;
+		goto err_free_id;
 
 	jdev->dev.parent = dev;
 	jdev->dev.bus = &jesd204_bus_type;
@@ -626,12 +625,12 @@ static struct jesd204_dev *jesd204_dev_register(struct device *dev,
 	ret = device_add(&jdev->dev);
 	if (ret) {
 		put_device(&jdev->dev);
-		goto err_put_parent;
+		goto err_uninit_device;
 	}
 	jdev->id = id;
 
 	if (init->sizeof_priv) {
-		jdev->priv = devm_kzalloc(jdev->parent, init->sizeof_priv,
+		jdev->priv = devm_kzalloc(dev, init->sizeof_priv,
 					  GFP_KERNEL);
 		if (!jdev->priv) {
 			ret = -ENOMEM;
@@ -643,8 +642,8 @@ static struct jesd204_dev *jesd204_dev_register(struct device *dev,
 
 err_device_del:
 	device_del(&jdev->dev);
-err_put_parent:
-	put_device(dev);
+err_uninit_device:
+	memset(&jdev->dev, 0, sizeof(jdev->dev));
 err_free_id:
 	ida_simple_remove(&jesd204_ida, id);
 
@@ -695,11 +694,6 @@ static void __jesd204_dev_release(struct kref *ref)
 	struct jesd204_dev *jdev = container_of(ref, struct jesd204_dev, ref);
 	int id = jdev->id;
 
-	if (jdev->parent) {
-		put_device(jdev->parent);
-		jdev->parent = NULL;
-	}
-
 	if (id > -1)
 		ida_simple_remove(&jesd204_ida, id);
 }
@@ -718,12 +712,11 @@ static void jesd204_dev_unregister(struct jesd204_dev *jdev)
 	if (IS_ERR_OR_NULL(jdev))
 		return;
 
-	if (jdev->id > -1) {
-		jdev->id = -1;
+	if (jdev->dev.parent)
 		device_del(&jdev->dev);
-	}
 
 	jesd204_fsm_stop(jdev, JESD204_LINKS_ALL);
+
 	jesd204_dev_kref_put(jdev);
 }
 
