@@ -260,12 +260,12 @@ static int __jesd204_link_fsm_update_state(struct jesd204_dev *jdev,
 	ol->fsm_data = NULL;
 
 	if (ol->error) {
-		dev_err(jdev->parent, "jesd got error from topology %d\n",
+		dev_err(&jdev->dev, "jesd got error from topology %d\n",
 			ol->error);
 		return ol->error;
 	}
 
-	dev_info(jdev->parent, "JESD204 link[%u] transition %s -> %s\n",
+	dev_info(&jdev->dev, "JESD204 link[%u] transition %s -> %s\n",
 		 ol->link_idx,
 		 jesd204_state_str(fsm_data->cur_state),
 		 jesd204_state_str(fsm_data->nxt_state));
@@ -291,7 +291,7 @@ static void __jesd204_link_fsm_done_cb(struct kref *ref)
 
 	ret = fsm_data->fsm_complete_cb(jdev, ol, fsm_data);
 	if (jesd204_dev_set_error(jdev, ol, NULL, ret)) {
-		dev_err(jdev->parent,
+		dev_err(&jdev->dev,
 			"error from completion cb %d, state %s\n",
 			ret,
 			jesd204_state_str(ol->state));
@@ -325,7 +325,7 @@ static void __jesd204_all_links_fsm_done_cb(struct kref *ref)
 	if (ret == 0)
 		goto out;
 
-	dev_err(jdev->parent,
+	dev_err(&jdev->dev,
 		"error from completion cb %d, state %s\n",
 		ret, jesd204_state_str(fsm_data->cur_state));
 
@@ -389,7 +389,7 @@ static int jesd204_con_validate_cur_state(struct jesd204_dev *jdev,
 		return 0;
 
 	if (c && cur_state != c->state) {
-		dev_warn(jdev->parent,
+		dev_warn(&jdev->dev,
 			 "JESD204 link[%d] invalid connection state: %s, exp: %s, nxt: %s\n",
 			 c->link_idx,
 			 jesd204_state_str(c->state),
@@ -419,7 +419,7 @@ static int jesd204_fsm_propagate_cb(struct jesd204_dev *jdev,
 
 	ret = fsm_data->fsm_change_cb(jdev, ol, con, fsm_data);
 	if (ret < 0) {
-		dev_err(jdev->parent,
+		dev_err(&jdev->dev,
 			"JESD204 link[%u] got error from cb: %d\n",
 			ol->link_idx, ret);
 		return ret;
@@ -455,7 +455,7 @@ static int jesd204_fsm_propagated_cb(struct jesd204_dev *jdev,
 	link_idx = fsm_data->link_idx;
 
 	if (con && jdev_top->initialized && con->link_idx == JESD204_LINKS_ALL) {
-		dev_err(jdev->parent, "Uninitialized connection in topology\n");
+		dev_err(&jdev->dev, "Uninitialized connection in topology\n");
 		return -EINVAL;
 	}
 
@@ -526,7 +526,7 @@ static int jesd204_fsm_test_and_set_busy(struct jesd204_dev_top *jdev_top,
 	if (link_idx != JESD204_LINKS_ALL) {
 		ol = &jdev_top->active_links[link_idx];
 		if (test_and_set_bit(JESD204_FSM_BUSY, &ol->flags)) {
-			dev_err(jdev->parent, "JESD204 link [%u]: FSM is busy\n",
+			dev_err(&jdev->dev, "JESD204 link [%u]: FSM is busy\n",
 				ol->link_idx);
 			return -EBUSY;
 		}
@@ -536,7 +536,7 @@ static int jesd204_fsm_test_and_set_busy(struct jesd204_dev_top *jdev_top,
 	for (link_idx = 0; link_idx < jdev_top->num_links; link_idx++) {
 		ol = &jdev_top->active_links[link_idx];
 		if (test_and_set_bit(JESD204_FSM_BUSY, &ol->flags)) {
-			dev_err(jdev->parent, "JESD204 link [%u]: FSM is busy\n",
+			dev_err(&jdev->dev, "JESD204 link [%u]: FSM is busy\n",
 				ol->link_idx);
 			goto err_unwind_busy;
 		}
@@ -581,7 +581,7 @@ static int jesd204_validate_lnk_state(struct jesd204_dev *jdev,
 		return 0;
 
 	if (cur_state != ol->state) {
-		dev_warn(jdev->parent,
+		dev_warn(&jdev->dev,
 			 "JESD204 link[%d] invalid link state: %s, exp: %s, nxt: %s\n",
 			 ol->link_idx,
 			 jesd204_state_str(ol->state),
@@ -602,7 +602,7 @@ static int jesd204_validate_fsm_data(struct jesd204_dev *jdev,
 	int ret;
 
 	if (!jdev_top) {
-		dev_err(jdev->parent, "Null top-level device\n");
+		dev_err(&jdev->dev, "Null top-level device\n");
 		return -EINVAL;
 	}
 
@@ -733,7 +733,7 @@ static int jesd204_dev_initialize_cb(struct jesd204_dev *jdev,
 	int ret;
 
 	if (fsm_data->jdev_top->initialized) {
-		dev_err(jdev->parent,
+		dev_err(&jdev->dev,
 			"top-level device already initialized\n");
 		return -EINVAL;
 	}
