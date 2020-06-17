@@ -127,23 +127,27 @@ struct jesd204_link {
 	u8 dac_phase_adj;
 };
 
-typedef int (*jesd204_dev_cb)(struct jesd204_dev *jdev,
-			      unsigned int link_idx);
+typedef int (*jesd204_dev_cb)(struct jesd204_dev *jdev);
 
 typedef int (*jesd204_link_cb)(struct jesd204_dev *jdev,
 			       unsigned int link_idx,
 			       struct jesd204_link *lnk);
 
+enum jesd204_state_op_mode {
+	JESD204_STATE_OP_MODE_PER_LINK,
+	JESD204_STATE_OP_MODE_PER_DEVICE,
+};
+
 /**
- * struct jesd204_state_ops - JESD204 device per-state ops
- * @pre_transition_ops	ops to be called (once) before the @per_link are called for each link
- * @per_link		ops called for **each** JESD204 link individually during a transition
- * @post_transition_ops	ops to be called (once) after the @per_link are called for each link
+ * struct jesd204_state_op - JESD204 device per-state op
+ * @mode		mode for this state op, depending on this @per_device or @per_link is called
+ * @per_device		op called for each JESD204 **device** during a transition
+ * @per_link		op called for each JESD204 **link** individually during a transition
  */
-struct jesd204_state_ops {
-	jesd204_dev_cb		pre_transition;
-	jesd204_link_cb		per_link;
-	jesd204_dev_cb		post_transition;
+struct jesd204_state_op {
+	enum jesd204_state_op_mode	mode;
+	jesd204_dev_cb			per_device;
+	jesd204_link_cb			per_link;
 };
 
 enum jesd204_dev_op {
@@ -161,13 +165,13 @@ enum jesd204_dev_op {
 
 /**
  * struct jesd204_dev_data - JESD204 device initialization data
- * @state_ops		ops for each state transition of type @struct jesd204_state_ops
+ * @state_ops		ops for each state transition of type @struct jesd204_state_op
  * @sizeof_priv		amount of data to allocate for private information
  * @links		JESD204 initial link configuration
  * @num_links		number of JESD204 links
  */
 struct jesd204_dev_data {
-	struct jesd204_state_ops		state_ops[__JESD204_MAX_OPS];
+	struct jesd204_state_op			state_ops[__JESD204_MAX_OPS];
 	size_t					sizeof_priv;
 	const struct jesd204_link		*links;
 	unsigned int				num_links;

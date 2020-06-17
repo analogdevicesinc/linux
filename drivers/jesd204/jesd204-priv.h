@@ -110,7 +110,7 @@ struct jesd204_dev {
 	bool				is_top;
 
 	int				error;
-	const struct jesd204_state_ops	*state_ops;
+	const struct jesd204_state_op	*state_ops;
 	struct device_node		*np;
 
 	struct jesd204_dev_con_out	**inputs;
@@ -183,6 +183,8 @@ struct jesd204_dev_top {
 	struct jesd204_link_opaque	*active_links;
 	struct jesd204_link_opaque	*staged_links;
 };
+
+int jesd204_device_count_get(void);
 
 struct list_head *jesd204_topologies_get(void);
 
