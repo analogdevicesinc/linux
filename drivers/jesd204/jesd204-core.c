@@ -31,6 +31,11 @@ static unsigned int jesd204_topologies_count;
 
 static void jesd204_dev_unregister(struct jesd204_dev *jdev);
 
+int jesd204_device_count_get()
+{
+	return jesd204_device_count;
+}
+
 int jesd204_link_get_rate(struct jesd204_link *lnk, u64 *lane_rate_hz)
 {
 	u64 rate, encoding_n, encoding_d;
