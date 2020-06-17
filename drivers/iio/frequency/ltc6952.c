@@ -177,6 +177,9 @@
 #define LTC6952_OUT_DIV_MIN	1
 #define LTC6952_OUT_DIV_MAX	1048576
 
+#define LTC6952_CP_CURRENT_MIN	423
+#define LTC6952_CP_CURRENT_MAX	11200
+
 #define LTC6952_CH_OFFSET(ch)	(0x04 * (ch))
 
 struct ltc6952_output {
@@ -205,6 +208,7 @@ struct ltc6952_state {
 	u32				pfd_freq;
 	bool				follower;
 	bool				sysref_request;
+	u32				cp_current;
 	unsigned int			ref_divider;
 	unsigned int			vco_divider;
 	const char			*clk_out_names[LTC6952_NUM_CHAN];
@@ -594,6 +598,7 @@ static int ltc6952_setup(struct iio_dev *indio_dev)
 	unsigned long pfd_freq;
 	unsigned long n, r;
 	unsigned int i, tmp;
+	u32 cp_current;
 	int ret;
 
 	mutex_lock(&st->lock);
@@ -645,9 +650,11 @@ static int ltc6952_setup(struct iio_dev *indio_dev)
 	if (ret < 0)
 		goto err_unlock;
 
-	/* Disable CP Hi-Z */
-	ret = ltc6952_write_mask(indio_dev, LTC6952_REG(0x0A), LTC6952_CPRST_MSK,
-				 LTC6952_CPRST(0x0));
+	/* Disable CP Hi-Z and set the CP current */
+	cp_current = st->cp_current / LTC6952_CP_CURRENT_MIN;
+	ret = ltc6952_write_mask(indio_dev, LTC6952_REG(0x0A),
+				 LTC6952_CPRST_MSK | LTC6952_CP_MSK,
+				 LTC6952_CPRST(0x0) | LTC6952_CP(cp_current));
 	if (ret < 0)
 		goto err_unlock;
 
@@ -754,6 +761,14 @@ static int ltc6952_parse_dt(struct device *dev,
 		return ret;
 
 	st->follower = of_property_read_bool(np, "adi,follower-mode-enable");
+
+	ret = of_property_read_u32(np, "adi,charge-pump-microamp",
+				   &st->cp_current);
+	if (ret < 0)
+		st->cp_current = LTC6952_CP_CURRENT_MAX;
+	else
+		st->cp_current = clamp_t(u32, st->cp_current,
+			LTC6952_CP_CURRENT_MIN, LTC6952_CP_CURRENT_MAX);
 
 	ret = of_property_read_string_array(np, "clock-output-names",
 			st->clk_out_names, ARRAY_SIZE(st->clk_out_names));
