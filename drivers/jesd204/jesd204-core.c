@@ -240,7 +240,13 @@ static struct jesd204_dev *jesd204_dev_alloc(struct device_node *np)
 	struct jesd204_dev *jdev;
 	unsigned int link_ids[JESD204_MAX_LINKS];
 	u32 topo_id;
-	int i, ret;
+	int i, ret, id;
+
+	id = ida_simple_get(&jesd204_ida, 0, 0, GFP_KERNEL);
+	if (id < 0) {
+		pr_err("%pOF: Unable to get unique ID for device\n", np);
+		return ERR_PTR(id);
+	}
 
 	if (of_property_read_u32(np, "jesd204-top-device", &topo_id) == 0) {
 		ret = of_property_read_variable_u32_array(np,
@@ -251,12 +257,14 @@ static struct jesd204_dev *jesd204_dev_alloc(struct device_node *np)
 		if (ret < 0) {
 			pr_err("%pOF error getting 'jesd204-link-ids': %d\n",
 			       np, ret);
-			return ERR_PTR(ret);
+			goto err_free_id;
 		}
 
 		jdev_top = kzalloc(sizeof(*jdev_top), GFP_KERNEL);
-		if (!jdev_top)
-			return ERR_PTR(-ENOMEM);
+		if (!jdev_top) {
+			ret = -ENOMEM;
+			goto err_free_id;
+		}
 
 		jdev = &jdev_top->jdev;
 
@@ -268,7 +276,7 @@ static struct jesd204_dev *jesd204_dev_alloc(struct device_node *np)
 		ret = jesd204_dev_alloc_links(jdev_top);
 		if (ret) {
 			kfree(jdev_top);
-			return ERR_PTR(ret);
+			goto err_free_id;
 		}
 
 		jdev->is_top = true;
@@ -277,11 +285,13 @@ static struct jesd204_dev *jesd204_dev_alloc(struct device_node *np)
 		jesd204_topologies_count++;
 	} else {
 		jdev = kzalloc(sizeof(*jdev), GFP_KERNEL);
-		if (!jdev)
-			return ERR_PTR(-ENOMEM);
+		if (!jdev) {
+			ret = -ENOMEM;
+			goto err_free_id;
+		}
 	}
 
-	jdev->id = -1;
+	jdev->id = id;
 	jdev->np = of_node_get(np);
 
 	INIT_LIST_HEAD(&jdev->outputs);
@@ -290,6 +300,11 @@ static struct jesd204_dev *jesd204_dev_alloc(struct device_node *np)
 	jesd204_device_count++;
 
 	return jdev;
+
+err_free_id:
+	ida_simple_remove(&jesd204_ida, id);
+
+	return ERR_PTR(ret);
 }
 
 static struct jesd204_dev *jesd204_dev_find_by_of_node(struct device_node *np)
@@ -580,53 +595,39 @@ static struct jesd204_dev *jesd204_dev_register(struct device *dev,
 						const struct jesd204_dev_data *init)
 {
 	struct jesd204_dev *jdev;
-	int ret, id;
+	int ret;
 
 	if (!dev || !init) {
 		dev_err(dev, "Invalid register arguments\n");
 		return ERR_PTR(-EINVAL);
 	}
 
-	if (!dev_is_jesd204_dev(dev))
-		return NULL;
-
-	id = ida_simple_get(&jesd204_ida, 0, 0, GFP_KERNEL);
-	if (id < 0) {
-		dev_err(dev, "Unable to get unique ID for device\n");
-		return ERR_PTR(id);
-	}
-
 	jdev = jesd204_dev_from_device(dev);
 	if (jdev) {
 		dev_err(dev, "Device already registered with framework\n");
-		ret = -EEXIST;
-		goto err_free_id;
+		return ERR_PTR(-EEXIST);
 	}
 
 	jdev = jesd204_dev_find_by_of_node(dev->of_node);
 	if (!jdev) {
 		dev_err(dev, "Device has no configuration node\n");
-		ret = -ENODEV;
-		goto err_free_id;
+		return ERR_PTR(-ENODEV);
 	}
-
-	jdev->state_ops = init->state_ops;
 
 	ret = jesd204_dev_init_links_data(dev, jdev, init);
 	if (ret)
-		goto err_free_id;
+		return ERR_PTR(ret);
 
 	jdev->dev.parent = dev;
 	jdev->dev.bus = &jesd204_bus_type;
 	device_initialize(&jdev->dev);
-	dev_set_name(&jdev->dev, "jesd204:%d", id);
+	dev_set_name(&jdev->dev, "jesd204:%d", jdev->id);
 
 	ret = device_add(&jdev->dev);
 	if (ret) {
 		put_device(&jdev->dev);
 		goto err_uninit_device;
 	}
-	jdev->id = id;
 
 	if (init->sizeof_priv) {
 		jdev->priv = devm_kzalloc(dev, init->sizeof_priv,
@@ -643,8 +644,6 @@ err_device_del:
 	device_del(&jdev->dev);
 err_uninit_device:
 	memset(&jdev->dev, 0, sizeof(jdev->dev));
-err_free_id:
-	ida_simple_remove(&jesd204_ida, id);
 
 	return ERR_PTR(ret);
 }
