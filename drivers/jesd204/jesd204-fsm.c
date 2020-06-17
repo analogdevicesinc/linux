@@ -186,10 +186,6 @@ static int jesd204_dev_propagate_cb_inputs(struct jesd204_dev *jdev,
 	for (i = 0; i < jdev->inputs_count; i++) {
 		con = jdev->inputs[i];
 
-		if (data->link_idx != JESD204_LINKS_ALL &&
-		    data->link_idx != con->link_idx)
-			continue;
-
 		ret = jesd204_dev_propagate_cb_inputs(con->owner,
 						      propagated_cb, data);
 		if (ret)
@@ -212,10 +208,6 @@ static int jesd204_dev_propagate_cb_outputs(struct jesd204_dev *jdev,
 
 	list_for_each_entry(con, &jdev->outputs, entry) {
 		list_for_each_entry(e, &con->dests, entry) {
-			if (data->link_idx != JESD204_LINKS_ALL &&
-			    data->link_idx != con->link_idx)
-				continue;
-
 			ret = propagated_cb(e->jdev, con, data);
 			if (ret)
 				goto done;
@@ -457,6 +449,10 @@ static int jesd204_fsm_propagated_cb(struct jesd204_dev *jdev,
 		dev_err(&jdev->dev, "Uninitialized connection in topology\n");
 		return -EINVAL;
 	}
+
+	if (fsm_data->link_idx != JESD204_LINKS_ALL &&
+	    fsm_data->link_idx != con->link_idx)
+		return 0;
 
 	if (con && con->link_idx != JESD204_LINKS_ALL) {
 		ol = &jdev_top->active_links[con->link_idx];
