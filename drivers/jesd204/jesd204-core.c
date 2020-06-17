@@ -23,7 +23,6 @@ static struct bus_type jesd204_bus_type = {
 	.name = "jesd204",
 };
 
-static DEFINE_MUTEX(jesd204_device_list_lock);
 static LIST_HEAD(jesd204_device_list);
 static LIST_HEAD(jesd204_topologies);
 
@@ -433,33 +432,25 @@ static int jesd204_of_create_devices(void)
 	struct device_node *np;
 	int ret;
 
-	mutex_lock(&jesd204_device_list_lock);
-
-	ret = 0;
 	for_each_node_with_property(np, "jesd204-device") {
 		jdev = jesd204_dev_alloc(np);
-		if (IS_ERR(jdev)) {
-			ret = PTR_ERR(jdev);
-			goto unlock;
-		}
+		if (IS_ERR(jdev))
+			return PTR_ERR(jdev);
 	}
 
 	list_for_each_entry(jdev, &jesd204_device_list, entry) {
 		ret = jesd204_of_device_create_cons(jdev);
 		if (ret)
-			goto unlock;
+			return ret;
 	}
 
 	list_for_each_entry(jdev_top, &jesd204_topologies, entry) {
 		ret = jesd204_init_topology(jdev_top);
 		if (ret)
-			goto unlock;
+			return ret;
 	}
 
-unlock:
-	mutex_unlock(&jesd204_device_list_lock);
-
-	return ret;
+	return 0;
 }
 
 static int jesd204_dev_init_link_lane_ids(struct jesd204_dev_top *jdev_top,
@@ -606,8 +597,6 @@ static struct jesd204_dev *jesd204_dev_register(struct device *dev,
 		return ERR_PTR(id);
 	}
 
-	mutex_lock(&jesd204_device_list_lock);
-
 	jdev = jesd204_dev_from_device(dev);
 	if (jdev) {
 		dev_err(dev, "Device already registered with framework\n");
@@ -650,8 +639,6 @@ static struct jesd204_dev *jesd204_dev_register(struct device *dev,
 		}
 	}
 
-	mutex_unlock(&jesd204_device_list_lock);
-
 	return jdev;
 
 err_device_del:
@@ -660,7 +647,6 @@ err_put_parent:
 	put_device(dev);
 err_free_id:
 	ida_simple_remove(&jesd204_ida, id);
-	mutex_unlock(&jesd204_device_list_lock);
 
 	return ERR_PTR(ret);
 }
@@ -709,14 +695,10 @@ static void __jesd204_dev_release(struct kref *ref)
 	struct jesd204_dev *jdev = container_of(ref, struct jesd204_dev, ref);
 	int id = jdev->id;
 
-	mutex_lock(&jesd204_device_list_lock);
-
 	if (jdev->parent) {
 		put_device(jdev->parent);
 		jdev->parent = NULL;
 	}
-
-	mutex_unlock(&jesd204_device_list_lock);
 
 	if (id > -1)
 		ida_simple_remove(&jesd204_ida, id);
@@ -779,8 +761,6 @@ static int __init jesd204_init(void)
 {
 	int ret;
 
-	mutex_init(&jesd204_device_list_lock);
-
 	ret  = bus_register(&jesd204_bus_type);
 	if (ret < 0) {
 		pr_err("could not register bus type\n");
@@ -805,7 +785,6 @@ error_unreg_devices:
 static void __exit jesd204_exit(void)
 {
 	jesd204_of_unregister_devices();
-	mutex_destroy(&jesd204_device_list_lock);
 	bus_unregister(&jesd204_bus_type);
 }
 
