@@ -112,7 +112,6 @@ struct jesd204_dev {
 	int				error;
 	const struct jesd204_state_ops	*state_ops;
 	struct device_node		*np;
-	struct kref			ref;
 
 	struct jesd204_dev_con_out	**inputs;
 	unsigned int			inputs_count;

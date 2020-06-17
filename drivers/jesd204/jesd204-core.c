@@ -283,7 +283,6 @@ static struct jesd204_dev *jesd204_dev_alloc(struct device_node *np)
 
 	jdev->id = -1;
 	jdev->np = of_node_get(np);
-	kref_init(&jdev->ref);
 
 	INIT_LIST_HEAD(&jdev->outputs);
 
@@ -688,21 +687,6 @@ static void jesd204_of_unregister_devices(void)
 	}
 }
 
-/* Free memory allocated. */
-static void __jesd204_dev_release(struct kref *ref)
-{
-	struct jesd204_dev *jdev = container_of(ref, struct jesd204_dev, ref);
-	int id = jdev->id;
-
-	if (id > -1)
-		ida_simple_remove(&jesd204_ida, id);
-}
-
-static void jesd204_dev_kref_put(struct jesd204_dev *jdev)
-{
-	kref_put(&jdev->ref, __jesd204_dev_release);
-}
-
 /**
  * jesd204_dev_unregister() - unregister a device from the JESD204 subsystem
  * @jdev:		Device structure representing the device.
@@ -717,7 +701,7 @@ static void jesd204_dev_unregister(struct jesd204_dev *jdev)
 
 	jesd204_fsm_stop(jdev, JESD204_LINKS_ALL);
 
-	jesd204_dev_kref_put(jdev);
+	memset(&jdev->dev, 0, sizeof(jdev->dev));
 }
 
 static void devm_jesd204_dev_unreg(struct device *dev, void *res)
