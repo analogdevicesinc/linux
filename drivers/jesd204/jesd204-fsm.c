@@ -518,7 +518,6 @@ static int jesd204_fsm_link_init(struct jesd204_dev_top *jdev_top,
 		return 0;
 	}
 
-	/* sequentional all links */
 	for (link_idx = 0; link_idx < jdev_top->num_links; link_idx++) {
 		kref_init(&jdev_top->cb_ref);
 		for (link_idx = 1; link_idx < jdev_top->num_links; link_idx++)
