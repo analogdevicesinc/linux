@@ -7,6 +7,7 @@
 #include <linux/clk.h>
 #include <linux/platform_device.h>
 #include <linux/dmaengine.h>
+#include <linux/bitfield.h>
 
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
@@ -29,6 +30,7 @@
 #define M2K_LA_REG_TRIGGER_DELAY	0x44
 #define M2K_LA_REG_TRIGGERED		0x48
 #define M2K_LA_REG_STREAMING		0x4c
+#define M2K_LA_REG_INSTRUMENT_TRIGGER	0x54
 
 #define M2K_LA_TRIGGER_EDGE_ANY		0
 #define M2K_LA_TRIGGER_EDGE_RISING	1
@@ -38,6 +40,10 @@
 
 #define M2K_LA_TRIGGER_LOGIC_MODE_OR 0
 #define M2K_LA_TRIGGER_LOGIC_MODE_AND 1
+
+#define M2K_LA_TRIGGER_CONDITION_MASK(x)	(0x155 << x)
+#define M2K_LA_TRIGGER_SOURCE_MASK		GENMASK(19, 16)
+#define M2K_LA_TRIGGER_EXT_SOURCE_MASK		GENMASK(17, 16)
 
 struct m2k_la {
 	void __iomem *regs;
@@ -68,6 +74,17 @@ static void m2k_la_write(struct m2k_la *m2k_la, unsigned int reg,
 static unsigned int m2k_la_read(struct m2k_la *m2k_la, unsigned int reg)
 {
 	return readl_relaxed(m2k_la->regs + reg);
+}
+
+static void m2k_la_update(struct m2k_la *m2k_la, unsigned int reg,
+			      unsigned int writeval, const unsigned int mask)
+{
+	unsigned int regval;
+
+	regval = m2k_la_read(m2k_la, reg);
+	regval &= ~mask;
+	writeval &= mask;
+	m2k_la_write(m2k_la, reg, writeval | regval);
 }
 
 static int m2k_la_read_raw(struct iio_dev *indio_dev,
@@ -434,6 +451,129 @@ static const struct iio_chan_spec_ext_info m2k_la_rx_ext_info[] = {
 	{}
 };
 
+static int m2k_la_set_trig_condition(struct iio_dev *indio_dev,
+	const struct iio_chan_spec *chan, unsigned int val)
+{
+	struct m2k_la *m2k_la = iio_device_get_drvdata(indio_dev);
+	int trig_src;
+
+	mutex_lock(&m2k_la->lock);
+	/* Read Trig SRC */
+	trig_src = m2k_la_read(m2k_la, M2K_LA_REG_INSTRUMENT_TRIGGER);
+	trig_src = FIELD_GET(M2K_LA_TRIGGER_EXT_SOURCE_MASK, trig_src);
+
+	if (trig_src) {
+		trig_src -= 1;
+		if (val)
+			/* Subtract 1 because of the none item. Multiply with 2
+			 * and shift with trig_src due to channel selection
+			 */
+			val = BIT(2 * (val - 1)) << trig_src;
+
+		m2k_la_update(m2k_la, M2K_LA_REG_INSTRUMENT_TRIGGER, val,
+				  M2K_LA_TRIGGER_CONDITION_MASK(trig_src));
+	}
+
+	mutex_unlock(&m2k_la->lock);
+
+	return 0;
+}
+
+static int m2k_la_get_trig_condition(struct iio_dev *indio_dev,
+	const struct iio_chan_spec *chan)
+{
+	struct m2k_la *m2k_la = iio_device_get_drvdata(indio_dev);
+	int val, trig_src;
+
+	/* Read Trig SRC */
+	trig_src = val = m2k_la_read(m2k_la, M2K_LA_REG_INSTRUMENT_TRIGGER);
+	trig_src = FIELD_GET(M2K_LA_TRIGGER_EXT_SOURCE_MASK, trig_src);
+
+	if (trig_src) {
+		trig_src -= 1;
+		val &= M2K_LA_TRIGGER_CONDITION_MASK(trig_src);
+		return ((fls(val >> trig_src) + 1) / 2);
+	}
+
+	return 0;
+}
+
+static const char * const m2k_la_trigger_tx_items[] = {
+	"none",
+	"level-low",
+	"level-high",
+	"edge-any",
+	"edge-rising",
+	"edge-falling",
+};
+
+static const struct iio_enum m2k_la_trig_condition_enum = {
+	.items = m2k_la_trigger_tx_items,
+	.num_items = ARRAY_SIZE(m2k_la_trigger_tx_items),
+	.set = m2k_la_set_trig_condition,
+	.get = m2k_la_get_trig_condition,
+};
+
+static int m2k_la_set_trig_src(struct iio_dev *indio_dev,
+	const struct iio_chan_spec *chan, unsigned int val)
+{
+	struct m2k_la *m2k_la = iio_device_get_drvdata(indio_dev);
+
+	mutex_lock(&m2k_la->lock);
+
+	/* reset required by HDL */
+	m2k_la_update(m2k_la, M2K_LA_REG_INSTRUMENT_TRIGGER, 0x0,
+			   M2K_LA_TRIGGER_SOURCE_MASK);
+
+	val = BIT(val) << 15;
+	m2k_la_update(m2k_la, M2K_LA_REG_INSTRUMENT_TRIGGER, val,
+			   M2K_LA_TRIGGER_SOURCE_MASK);
+
+	mutex_unlock(&m2k_la->lock);
+
+	return 0;
+}
+
+static int m2k_la_get_trig_src(struct iio_dev *indio_dev,
+	const struct iio_chan_spec *chan)
+{
+	struct m2k_la *m2k_la = iio_device_get_drvdata(indio_dev);
+	int val;
+
+	val = m2k_la_read(m2k_la, M2K_LA_REG_INSTRUMENT_TRIGGER);
+
+	if (val & M2K_LA_TRIGGER_SOURCE_MASK)
+		return fls(val) - 16;
+
+	return 0;
+}
+
+static const char * const m2k_la_trig_src_items[] = {
+	"none",
+	"trigger-i_0",
+	"trigger-i_1",
+	"trigger-adc",
+	"trigger-la",
+};
+
+static const struct iio_enum m2k_la_trig_src_enum = {
+	.items = m2k_la_trig_src_items,
+	.num_items = ARRAY_SIZE(m2k_la_trig_src_items),
+	.set = m2k_la_set_trig_src,
+	.get = m2k_la_get_trig_src,
+};
+
+static const struct iio_chan_spec_ext_info m2k_la_tx_ext_info[] = {
+	IIO_ENUM_AVAILABLE_SHARED("trigger_src", IIO_SHARED_BY_ALL,
+		&m2k_la_trig_src_enum),
+	IIO_ENUM("trigger_src", IIO_SHARED_BY_ALL, &m2k_la_trig_src_enum),
+	IIO_ENUM_AVAILABLE_SHARED("trigger_condition", IIO_SHARED_BY_ALL,
+		&m2k_la_trig_condition_enum),
+	IIO_ENUM("trigger_condition", IIO_SHARED_BY_ALL,
+		&m2k_la_trig_condition_enum),
+	{ },
+};
+
 static int m2k_la_set_direction(struct iio_dev *indio_dev,
 	const struct iio_chan_spec *chan, unsigned int val)
 {
@@ -604,6 +744,7 @@ static const struct iio_chan_spec_ext_info m2k_la_ext_info[] = {
 	.output = 1, \
 	.info_mask_shared_by_all = BIT(IIO_CHAN_INFO_SAMP_FREQ), \
 	.scan_index = 0, \
+	.ext_info = m2k_la_tx_ext_info, \
 	.scan_type = { \
 		.sign = 'u', \
 		.realbits = 1, \
