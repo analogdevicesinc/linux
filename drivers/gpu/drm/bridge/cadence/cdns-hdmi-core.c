@@ -32,8 +32,9 @@ static void hdmi_sink_config(struct cdns_mhdp_device *mhdp)
 	struct drm_scdc *scdc = &mhdp->connector.base.display_info.hdmi.scdc;
 	u8 buff = 0;
 
-	/* Default work in HDMI1.4 */
-	mhdp->hdmi.hdmi_type = MODE_HDMI_1_4;
+	/* return if hdmi work in DVI mode */
+	if (mhdp->hdmi.hdmi_type == MODE_DVI)
+		return;
 
 	/* check sink support SCDC or not */
 	if (scdc->supported != true) {
@@ -264,6 +265,8 @@ static int cdns_hdmi_connector_get_modes(struct drm_connector *connector)
 			 edid->header[6], edid->header[7]);
 		drm_connector_update_edid_property(connector, edid);
 		num_modes = drm_add_edid_modes(connector, edid);
+		mhdp->hdmi.hdmi_type = drm_detect_hdmi_monitor(edid) ?
+						MODE_HDMI_1_4 : MODE_DVI;
 		kfree(edid);
 	}
 
