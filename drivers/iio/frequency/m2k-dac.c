@@ -13,6 +13,7 @@
 #include <linux/io.h>
 #include <linux/clk.h>
 #include <linux/dmaengine.h>
+#include <linux/bitfield.h>
 
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
@@ -28,10 +29,14 @@
 #define M2K_DAC_REG_FLAGS	0x50
 #define M2K_DAC_REG_CORRECTION_ENABLE 0x54
 #define M2K_DAC_REG_CORRECTION_COEFFICIENT(x) (0x58 + (x) * 4)
+#define M2K_DAC_REG_INSTRUMENT_TRIGGER 0x60
 
 #define M2K_DAC_DMA_SYNC_BIT	BIT(0)
 #define M2K_DAC_SYNC_START_BIT	BIT(1)
 
+#define M2K_DAC_TRIGGER_CONDITION_MASK(x)	(0x155 << x)
+#define M2K_DAC_TRIGGER_SOURCE_MASK		GENMASK(19, 16)
+#define M2K_DAC_TRIGGER_EXT_SOURCE		GENMASK(17, 16)
 
 struct m2k_dac {
 	void __iomem *regs;
@@ -355,9 +360,133 @@ static const struct iio_enum m2k_dac_samp_freq_available_enum = {
 	.num_items = ARRAY_SIZE(m2k_dac_samp_freq_available),
 };
 
+static int m2k_dac_set_trig_condition(struct iio_dev *indio_dev,
+	const struct iio_chan_spec *chan, unsigned int val)
+{
+	struct m2k_dac_ch *ch = iio_priv(indio_dev);
+	struct m2k_dac *m2k_dac = ch->dac;
+	int trig_src;
+
+	mutex_lock(&m2k_dac->lock);
+
+	trig_src = ioread32(m2k_dac->regs + M2K_DAC_REG_INSTRUMENT_TRIGGER);
+	trig_src = FIELD_GET(M2K_DAC_TRIGGER_EXT_SOURCE, trig_src);
+
+	if (trig_src) {
+		trig_src -= 1;
+
+		if (val)
+			/* Subtract 1 because of the none item. Multiply with 2
+			 * and shift with trig_src due to channel selection
+			 */
+			val = BIT(2 * (val - 1)) << trig_src;
+
+		m2k_dac_reg_update(indio_dev, M2K_DAC_REG_INSTRUMENT_TRIGGER,
+				val, M2K_DAC_TRIGGER_CONDITION_MASK(trig_src));
+	}
+
+	mutex_unlock(&m2k_dac->lock);
+
+	return 0;
+}
+
+static int m2k_dac_get_trig_condition(struct iio_dev *indio_dev,
+				      const struct iio_chan_spec *chan)
+{
+	struct m2k_dac_ch *ch = iio_priv(indio_dev);
+	struct m2k_dac *m2k_dac = ch->dac;
+	int val, trig_src;
+
+	trig_src = val =
+		ioread32(m2k_dac->regs + M2K_DAC_REG_INSTRUMENT_TRIGGER);
+	trig_src = FIELD_GET(M2K_DAC_TRIGGER_EXT_SOURCE, trig_src);
+
+	if (trig_src) {
+		trig_src -= 1;
+		val &= M2K_DAC_TRIGGER_CONDITION_MASK(trig_src);
+		return ((fls(val >> trig_src) + 1) / 2);
+	}
+
+	return 0;
+}
+
+static const char * const m2k_dac_trig_condition_items[] = {
+	"none",
+	"level-low",
+	"level-high",
+	"edge-any",
+	"edge-rising",
+	"edge-falling",
+};
+
+static const struct iio_enum m2k_dac_trig_condition_enum = {
+	.items = m2k_dac_trig_condition_items,
+	.num_items = ARRAY_SIZE(m2k_dac_trig_condition_items),
+	.set = m2k_dac_set_trig_condition,
+	.get = m2k_dac_get_trig_condition,
+};
+
+static int m2k_dac_set_trig_src(struct iio_dev *indio_dev,
+	const struct iio_chan_spec *chan, unsigned int val)
+{
+	struct m2k_dac_ch *ch = iio_priv(indio_dev);
+	struct m2k_dac *m2k_dac = ch->dac;
+
+	mutex_lock(&m2k_dac->lock);
+
+	/* HDL required reset */
+	m2k_dac_reg_update(indio_dev, M2K_DAC_REG_INSTRUMENT_TRIGGER, 0x0,
+			   M2K_DAC_TRIGGER_SOURCE_MASK);
+
+	val = BIT(val) << 15;
+	m2k_dac_reg_update(indio_dev, M2K_DAC_REG_INSTRUMENT_TRIGGER, val,
+			   M2K_DAC_TRIGGER_SOURCE_MASK);
+
+	mutex_unlock(&m2k_dac->lock);
+
+	return 0;
+}
+
+static int m2k_dac_get_trig_src(struct iio_dev *indio_dev,
+	const struct iio_chan_spec *chan)
+{
+	struct m2k_dac_ch *ch = iio_priv(indio_dev);
+	struct m2k_dac *m2k_dac = ch->dac;
+	int val;
+
+	val = ioread32(m2k_dac->regs + M2K_DAC_REG_INSTRUMENT_TRIGGER);
+
+	if (val & M2K_DAC_TRIGGER_SOURCE_MASK)
+		return fls(val) - 16;
+
+	return 0;
+}
+
+static const char * const m2k_dac_trig_src_items[] = {
+	"none",
+	"trigger-i_0",
+	"trigger-i_1",
+	"trigger-adc",
+	"trigger-la",
+};
+
+static const struct iio_enum m2k_dac_trig_src_enum = {
+	.items = m2k_dac_trig_src_items,
+	.num_items = ARRAY_SIZE(m2k_dac_trig_src_items),
+	.set = m2k_dac_set_trig_src,
+	.get = m2k_dac_get_trig_src,
+};
+
 static const struct iio_chan_spec_ext_info m2k_dac_ext_info[] = {
 	IIO_ENUM_AVAILABLE_SHARED("sampling_frequency", IIO_SHARED_BY_ALL,
 		&m2k_dac_samp_freq_available_enum),
+	IIO_ENUM("trigger_src", IIO_SHARED_BY_ALL, &m2k_dac_trig_src_enum),
+	IIO_ENUM_AVAILABLE_SHARED("trigger_src", IIO_SHARED_BY_ALL,
+		&m2k_dac_trig_src_enum),
+	IIO_ENUM("trigger_condition", IIO_SHARED_BY_ALL,
+		&m2k_dac_trig_condition_enum),
+	IIO_ENUM_AVAILABLE_SHARED("trigger_condition", IIO_SHARED_BY_ALL,
+		&m2k_dac_trig_condition_enum),
 	{ },
 };
 
