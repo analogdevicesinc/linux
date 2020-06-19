@@ -612,13 +612,15 @@ static const struct media_device_ops mxc_md_ops = {
 static struct mxc_isi_info *mxc_md_parse_isi_entity(struct mxc_md *mxc_md,
 						    struct device_node *node)
 {
-	struct device *dev = &mxc_md->pdev->dev;
+	struct device *dev;
 	struct mxc_isi_info *mxc_isi;
 	struct device_node *child;
 	int ret, id = -1;
 
 	if (!mxc_md || !node)
 		return NULL;
+
+	dev = &mxc_md->pdev->dev;
 
 	id = of_alias_get_id(node, ISI_OF_NODE_NAME);
 	if (id < 0 || id >= MXC_ISI_MAX_DEVS)
