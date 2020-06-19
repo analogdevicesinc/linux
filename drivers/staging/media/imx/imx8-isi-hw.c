@@ -391,8 +391,8 @@ void mxc_isi_channel_set_deinterlace(struct mxc_isi_dev *mxc_isi)
 	val &= ~CHNL_IMG_CTRL_DEINT_MASK;
 	if (mxc_isi->deinterlace)
 		val |= mxc_isi->deinterlace << CHNL_IMG_CTRL_DEINT_OFFSET;
-	if (mxc_isi->deinterlace == CHNL_IMG_CTRL_DEINT_LDOUBLE_ODD_EVEN ||
-	    mxc_isi->deinterlace == CHNL_IMG_CTRL_DEINT_LDOUBLE_EVEN_ODD)
+	if ((mxc_isi->deinterlace == CHNL_IMG_CTRL_DEINT_LDOUBLE_ODD_EVEN) ||
+	    (mxc_isi->deinterlace == CHNL_IMG_CTRL_DEINT_LDOUBLE_EVEN_ODD))
 		mxc_isi_channel_deinterlace_init(mxc_isi);
 
 	writel(val, mxc_isi->regs + CHNL_IMG_CTRL);

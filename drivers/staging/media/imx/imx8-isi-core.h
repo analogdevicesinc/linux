@@ -322,7 +322,7 @@ struct mxc_isi_dev {
 	unsigned int scale:1;
 	unsigned int alphaen:1;
 	unsigned int crop:1;
-	unsigned int deinterlace:1;
+	unsigned int deinterlace:3;
 	unsigned int is_streaming:1;
 };
 
