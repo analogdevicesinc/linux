@@ -288,7 +288,7 @@ static int mxc_isi_clk_enable(struct mxc_isi_dev *mxc_isi)
 {
 	const struct mxc_isi_dev_ops *ops = mxc_isi->ops;
 
-	if (!ops && !ops->clk_enable)
+	if (!ops || !ops->clk_enable)
 		return -EINVAL;
 
 	return ops->clk_enable(mxc_isi);
