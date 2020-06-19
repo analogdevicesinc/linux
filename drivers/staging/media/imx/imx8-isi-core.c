@@ -278,7 +278,7 @@ static int mxc_isi_clk_get(struct mxc_isi_dev *mxc_isi)
 {
 	const struct mxc_isi_dev_ops *ops = mxc_isi->ops;
 
-	if (!ops && !ops->clk_get)
+	if (!ops || !ops->clk_get)
 		return -EINVAL;
 
 	return ops->clk_get(mxc_isi);
