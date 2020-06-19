@@ -2879,7 +2879,8 @@ static const struct flash_info *spi_nor_read_id(struct spi_nor *nor)
 		info = &spi_nor_ids[tmp];
 		if (info->id_len) {
 			if (!memcmp(info->id, id, info->id_len)) {
-				if (id[0] == SNOR_MFR_MICRON)
+				/* ST and MICRON seem to use the same manufacturer ID */
+				if (id[0] == SNOR_MFR_MICRON || id[0] == SNOR_MFR_ST)
 					dev_info(nor->dev, "SPI-NOR-UniqueID %*phN\n",
 						 SPI_NOR_MAX_EDID_LEN - info->id_len, &id[info->id_len]);
 				return &spi_nor_ids[tmp];
