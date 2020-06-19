@@ -1194,7 +1194,7 @@ static int mipi_csis_parse_dt(struct platform_device *pdev,
 
 	node = of_graph_get_next_endpoint(node, NULL);
 	if (!node) {
-		dev_err(&pdev->dev, "No port node at %s\n", node->full_name);
+		dev_err(&pdev->dev, "No port node\n");
 		return -EINVAL;
 	}
 
