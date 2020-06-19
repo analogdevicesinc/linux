@@ -298,7 +298,7 @@ static void mxc_isi_clk_disable(struct mxc_isi_dev *mxc_isi)
 {
 	const struct mxc_isi_dev_ops *ops = mxc_isi->ops;
 
-	if (!ops && !ops->clk_disable)
+	if (!ops || !ops->clk_disable)
 		return;
 
 	ops->clk_disable(mxc_isi);
