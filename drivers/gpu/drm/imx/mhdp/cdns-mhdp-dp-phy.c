@@ -198,6 +198,10 @@ static void dp_phy_pma_cmn_pll0_24mhz(struct cdns_mhdp_device *mhdp)
 
 	/* DP PHY PLL 24MHz configuration */
 	index = link_rate_index(link_rate);
+	if (index < 0) {
+		dev_err(mhdp->dev, "wrong link rate index\n");
+		return;
+	}
 	for (i = 0; i < ARRAY_SIZE(phy_pll_24m_cfg); i++)
 		cdns_phy_reg_write(mhdp, phy_pll_24m_cfg[i].addr, phy_pll_24m_cfg[i].val[index]);
 
@@ -320,6 +324,10 @@ static void dp_phy_pma_cmn_pll0_27mhz(struct cdns_mhdp_device *mhdp)
 
 	/* DP PHY PLL 27MHz configuration */
 	index = link_rate_index(link_rate);
+	if (index < 0) {
+		dev_err(mhdp->dev, "wrong link rate index\n");
+		return;
+	}
 	for (i = 0; i < ARRAY_SIZE(phy_pll_27m_cfg); i++)
 		cdns_phy_reg_write(mhdp, phy_pll_27m_cfg[i].addr, phy_pll_27m_cfg[i].val[index]);
 
