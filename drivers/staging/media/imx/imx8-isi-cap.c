@@ -795,8 +795,6 @@ static int mxc_isi_cap_enum_fmt(struct file *file, void *priv,
 		return -EINVAL;
 
 	fmt = &mxc_isi_out_formats[f->index];
-	if (!fmt)
-		return -EINVAL;
 
 	strncpy(f->description, fmt->name, sizeof(f->description) - 1);
 
