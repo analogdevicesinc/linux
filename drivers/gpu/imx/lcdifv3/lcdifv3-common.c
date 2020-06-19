@@ -623,11 +623,18 @@ static int imx_lcdifv3_probe(struct platform_device *pdev)
 	struct lcdifv3_soc *lcdifv3;
 	struct resource *res;
 	struct regmap *blk_ctl;
-	const struct of_device_id *of_id =
-			of_match_device(imx_lcdifv3_dt_ids, dev);
-	const struct lcdifv3_soc_pdata *soc_pdata = of_id->data;
+	const struct of_device_id *of_id;
+	const struct lcdifv3_soc_pdata *soc_pdata;
 
 	dev_dbg(dev, "%s: probe begin\n", __func__);
+
+	of_id = of_match_device(imx_lcdifv3_dt_ids, dev);
+	if (!of_id) {
+		dev_err(&pdev->dev, "OF data missing\n");
+		return -EINVAL;
+	}
+
+	soc_pdata = of_id->data;
 
 	lcdifv3 = devm_kzalloc(dev, sizeof(*lcdifv3), GFP_KERNEL);
 	if (!lcdifv3) {
