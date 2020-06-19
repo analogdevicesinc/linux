@@ -657,7 +657,7 @@ int cdns_mhdp_config_video(struct cdns_mhdp_device *mhdp)
 	 */
 	do {
 		tu_size_reg += 2;
-		symbol = (u64)tu_size_reg * mode->clock * bit_per_pix;
+		symbol = (u64) tu_size_reg * mode->clock * bit_per_pix;
 		do_div(symbol, mhdp->dp.num_lanes * link_rate * 8);
 		rem = do_div(symbol, 1000);
 		if (tu_size_reg > 64) {
