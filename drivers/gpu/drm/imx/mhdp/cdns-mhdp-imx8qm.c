@@ -167,7 +167,7 @@ int imx8qm_clocks_init(struct imx_mhdp_device *imx_mhdp)
 	}
 
 	clks->clk_pxl_link = devm_clk_get(dev, "clk_pxl_link");
-	if (IS_ERR(clks->clk_pxl_mux)) {
+	if (IS_ERR(clks->clk_pxl_link)) {
 		dev_warn(dev, "failed to get pxl link clk\n");
 		return PTR_ERR(clks->clk_pxl_link);
 	}
