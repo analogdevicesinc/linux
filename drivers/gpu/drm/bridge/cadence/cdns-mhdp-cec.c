@@ -163,13 +163,13 @@ static int mhdp_cec_set_logical_addr(struct cdns_mhdp_cec *cec, u32 la)
 
 	if (la == CEC_LOG_ADDR_INVALID)
 		/* invalid all LA address */
-		for (i = 0; i < CEC_MAX_LOG_ADDRS; ++i) {
+		for (i = 0; i < CEC_MAX_LOG_ADDRS; i++) {
 			mhdp_cec_write(cec, LOGICAL_ADDRESS_LA0 + (i * REG_ADDR_OFF), 0);
 			return 0;
 		}
 
 	/* In fact cdns mhdp cec could support max 5 La address */
-	for (i = 0; i < CEC_MAX_LOG_ADDRS; ++i) {
+	for (i = 0; i < CEC_MAX_LOG_ADDRS; i++) {
 		la_reg = mhdp_cec_read(cec, LOGICAL_ADDRESS_LA0 + (i * REG_ADDR_OFF));
 		/* Check LA already used */
 		if (la_reg & 0x10)
