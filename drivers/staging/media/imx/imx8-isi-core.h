@@ -313,7 +313,7 @@ struct mxc_isi_dev {
 
 	u32 status;
 
-	u32 interface[MAX_PORTS];
+	int interface[MAX_PORTS];
 	int id;
 
 	unsigned int hflip:1;
