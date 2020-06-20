@@ -1,0 +1,40 @@
+# SPDX-License-Identifier: (GPL-2.0 OR BSD-2-Clause)
+# Copyright 2020 Analog Devices Inc.
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/iio/gyroscope/adi,adxrs290.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Analog Devices ADXRS290 Dual-Axis MEMS Gyroscope
+
+maintainers:
+  - Nishant Malpani <nish.malpani25@gmail.com>
+
+description: |
+  Bindings for the Analog Devices ADXRS290 dual-axis MEMS gyroscope device.
+  https://www.analog.com/media/en/technical-documentation/data-sheets/ADXRS290.pdf
+
+properties:
+  compatible:
+    enum:
+      - adi,adxrs290
+
+  reg:
+    maxItems: 1
+
+required:
+  - compatible
+  - reg
+
+examples:
+  - |
+    spi {
+        #address-cells = <1>;
+        #size-cells = <0>;
+        adxrs290@0 {
+                   compatible = "adi,adxrs290";
+                   reg = <0>;
+                   spi-max-frequency = <5000000>;
+        };
+    };
+...
