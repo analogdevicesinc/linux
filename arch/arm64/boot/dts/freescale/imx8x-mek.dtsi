@@ -179,6 +179,30 @@
 		regulator-always-on;
 	};
 
+	bt_sco_codec: bt_sco_codec {
+		#sound-dai-cells = <0>;
+		compatible = "linux,bt-sco";
+	};
+
+	sound-bt-sco {
+		compatible = "simple-audio-card";
+		simple-audio-card,name = "bt-sco-audio";
+		simple-audio-card,format = "dsp_a";
+		simple-audio-card,bitclock-inversion;
+		simple-audio-card,frame-master = <&btcpu>;
+		simple-audio-card,bitclock-master = <&btcpu>;
+
+		btcpu: simple-audio-card,cpu {
+			sound-dai = <&sai0>;
+			dai-tdm-slot-num = <2>;
+			dai-tdm-slot-width = <16>;
+		};
+
+		simple-audio-card,codec {
+			sound-dai = <&bt_sco_codec>;
+		};
+	};
+
 	sound-cs42888 {
 		compatible = "fsl,imx8qm-sabreauto-cs42888",
 				"fsl,imx-audio-cs42888";
@@ -650,6 +674,18 @@
 	assigned-clock-parents = <&aud_pll_div0_lpcg 0>;
 	assigned-clock-rates = <0>, <786432000>, <49152000>, <12288000>, <49152000>;
 	fsl,txm-rxs;
+	status = "okay";
+};
+
+&sai0 {
+	#sound-dai-cells = <0>;
+	assigned-clocks = <&clk IMX_SC_R_AUDIO_PLL_0 IMX_SC_PM_CLK_PLL>,
+			<&clk IMX_SC_R_AUDIO_PLL_0 IMX_SC_PM_CLK_SLV_BUS>,
+			<&clk IMX_SC_R_AUDIO_PLL_0 IMX_SC_PM_CLK_MST_BUS>,
+			<&sai0_lpcg 0>;
+	assigned-clock-rates = <786432000>, <49152000>, <12288000>, <49152000>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_sai0>;
 	status = "okay";
 };
 
@@ -1386,6 +1422,15 @@
 	pinctrl_pwm_mipi_lvds1: mipi_lvds1_pwm_grp {
 		fsl,pins = <
 			IMX8QXP_MIPI_DSI1_GPIO0_00_MIPI_DSI1_PWM0_OUT		0x00000020
+		>;
+	};
+
+	pinctrl_sai0: sai0grp {
+		fsl,pins = <
+			IMX8QXP_SAI0_TXD_ADMA_SAI0_TXD		0x06000060
+			IMX8QXP_SAI0_RXD_ADMA_SAI0_RXD		0x06000040
+			IMX8QXP_SAI0_TXC_ADMA_SAI0_TXC		0x06000040
+			IMX8QXP_SAI0_TXFS_ADMA_SAI0_TXFS	0x06000040
 		>;
 	};
 
