@@ -149,6 +149,9 @@
 /* Status and Alarm readback */
 #define HMC7044_REG_ALARM_READBACK	0x007D
 #define HMC7044_REG_PLL1_STATUS		0x0082
+#define HMC7044_REG_PLL2_STATUS_TV	0x008C
+
+#define HMC7044_CAP_BANK_TUNEVAL(x)	((x) & 0x1F)
 
 #define HMC7044_PLL1_FSM_STATE(x)	((x) & 0x7)
 #define HMC7044_PLL1_ACTIVE_CLKIN(x)	(((x) >> 3) & 0x3)
@@ -165,6 +168,10 @@
 #define HMC7044_REG_PLL1_DELAY		0x00A5
 #define HMC7044_REG_PLL1_HOLDOVER	0x00A8
 #define HMC7044_REG_VTUNE_PRESET	0x00B0
+#define HMC7044_REG_FORCE_CAPVAL	0x00B2
+
+#define HMC7044_FORCE_CAPS_FROM_SPI_EN	BIT(0)
+#define HMC7044_FORCE_CAP_VALUE(x)	(((x) & 0x1F) << 2)
 
 /* Clock Distribution */
 #define HMC7044_REG_CH_OUT_CRTL_0(ch)	(0x00C8 + 0xA * (ch))
@@ -274,6 +281,7 @@ struct hmc7044 {
 	u32				pfd1_limit;
 	u32				pll1_cp_current;
 	u32				pll2_freq;
+	u32				pll2_cap_bank_sel;
 	unsigned int			pll1_loop_bw;
 	unsigned int			sysref_timer_div;
 	unsigned int			pll1_ref_prio_ctrl;
@@ -854,6 +862,11 @@ static int hmc7044_setup(struct iio_dev *indio_dev)
 		      HMC7044_SYSREF_TIMER_EN | HMC7044_PLL2_EN |
 		      HMC7044_PLL1_EN);
 
+	if (hmc->pll2_cap_bank_sel != ~0)
+		hmc7044_write(indio_dev, HMC7044_REG_FORCE_CAPVAL,
+			HMC7044_FORCE_CAP_VALUE(hmc->pll2_cap_bank_sel) |
+			HMC7044_FORCE_CAPS_FROM_SPI_EN);
+
 	/* Program the dividers */
 	hmc7044_write(indio_dev, HMC7044_REG_PLL2_R_LSB,
 		      HMC7044_R2_LSB(r2[0]));
@@ -1197,6 +1210,10 @@ static int hmc7044_parse_dt(struct device *dev,
 		if (ret)
 			return ret;
 
+		hmc->pll2_cap_bank_sel = ~0;
+		ret = of_property_read_u32(np, "adi,pll2-autocal-bypass-manual-cap-bank-sel",
+					&hmc->pll2_cap_bank_sel);
+
 		ret = of_property_read_u32_array(np, "adi,gpi-controls",
 				hmc->gpi_ctrl, ARRAY_SIZE(hmc->gpi_ctrl));
 		if (ret)
@@ -1382,13 +1399,17 @@ static int hmc7044_status_show(struct seq_file *file, void *offset)
 	struct iio_dev *indio_dev = spi_get_drvdata(file->private);
 	struct hmc7044 *hmc = iio_priv(indio_dev);
 	int ret;
-	u32 alarm_stat, pll1_stat;
+	u32 alarm_stat, pll1_stat, pll2_autotune_val;
 
 	ret = hmc7044_read(indio_dev, HMC7044_REG_PLL1_STATUS, &pll1_stat);
 	if (ret < 0)
 		return ret;
 
 	ret = hmc7044_read(indio_dev, HMC7044_REG_ALARM_READBACK, &alarm_stat);
+	if (ret < 0)
+		return ret;
+
+	ret = hmc7044_read(indio_dev, HMC7044_REG_PLL2_STATUS_TV, &pll2_autotune_val);
 	if (ret < 0)
 		return ret;
 
@@ -1400,12 +1421,12 @@ static int hmc7044_status_show(struct seq_file *file, void *offset)
 		   hmc->pll1_pfd);
 
 	seq_printf(file, "--- PLL2 ---\n"
-		   "Status:\t%s (%s)\nFrequency:\t%u Hz\n",
+		   "Status:\t%s (%s)\nFrequency:\t%u Hz (Autocal cap bank value: %u)\n",
 		   HMC7044_PLL2_LOCK_DETECT(alarm_stat) ?
 		   "Locked" : "Unlocked",
 		   HMC7044_SYNC_REQ_STATUS(alarm_stat) ?
 		   "Unsynchronized" : "Synchronized",
-		   hmc->pll2_freq);
+		   hmc->pll2_freq, HMC7044_CAP_BANK_TUNEVAL(pll2_autotune_val));
 
 	seq_printf(file,
 		   "SYSREF Status:\t%s\nSYNC Status:\t%s\nLock Status:\t%s\n",
