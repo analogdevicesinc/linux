@@ -32,6 +32,7 @@
 //#include <dt-bindings/iio/adc/adi,ad9081.h>
 
 #define CHIPID_AD9081 0x9081
+#define CHIPID_AD9082 0x9082
 #define CHIPID_MASK 0xFFFF
 #define ID_DUAL BIT(31)
 
@@ -1995,7 +1996,7 @@ static int ad9081_write_raw(struct iio_dev *indio_dev,
 		if (conv->sample_rate_read_only)
 			return -EPERM;
 
-		if (conv->id == CHIPID_AD9081)
+		if (conv->id == CHIPID_AD9081 || conv->id == CHIPID_AD9082)
 			return ad9081_set_sample_rate(conv, val);
 
 		r_clk = clk_round_rate(conv->clk, val);
@@ -3025,6 +3026,7 @@ static int ad9081_probe(struct spi_device *spi)
 
 	switch (conv->id) {
 	case CHIPID_AD9081:
+	case CHIPID_AD9082:
 		ret = ad9081_setup_chip_info_tbl(phy, true,
 			!IS_ERR_OR_NULL(phy->jesd_rx_clk));
 		if (ret)
@@ -3065,7 +3067,7 @@ static int ad9081_probe(struct spi_device *spi)
 			goto out_clk_del_provider;
 	}
 
-	if (conv->id == CHIPID_AD9081) {
+	if (conv->id == CHIPID_AD9081 || conv->id == CHIPID_AD9082) {
 		ret = ad9081_request_fd_irqs(conv);
 		if (ret < 0)
 			dev_warn(&spi->dev,
@@ -3112,12 +3114,14 @@ static int ad9081_remove(struct spi_device *spi)
 
 static const struct spi_device_id ad9081_id[] = {
 	{ "ad9081", CHIPID_AD9081 },
+	{ "ad9082", CHIPID_AD9082 },
 	{}
 };
 MODULE_DEVICE_TABLE(spi, ad9081_id);
 
 static const struct of_device_id ad9081_of_match[] = {
 	{ .compatible = "adi,ad9081" },
+	{ .compatible = "adi,ad9082" },
 	{},
 };
 MODULE_DEVICE_TABLE(of, ad9081_of_match);
