@@ -24,6 +24,7 @@ enum jesd204_dev_state {
 	JESD204_STATE_INITIALIZED,
 	JESD204_STATE_PROBED,
 	JESD204_STATE_LINK_INIT,
+	JESD204_STATE_LINK_DOWN,
 	JESD204_STATE_LINK_SUPPORTED,
 	JESD204_STATE_LINK_SETUP,
 	JESD204_STATE_CLOCKS_ENABLE,
@@ -31,7 +32,6 @@ enum jesd204_dev_state {
 	JESD204_STATE_LINK_RUNNING,
 	JESD204_STATE_LINK_DISABLE,
 	JESD204_STATE_CLOCKS_DISABLE,
-	JESD204_STATE_LINK_UNINIT,
 	JESD204_STATE_DONT_CARE = 999,
 };
 
@@ -85,7 +85,7 @@ struct jesd204_dev_con_out {
  * @id			unique device id
  * @entry		list entry for the framework to keep a list of devices
  * @priv		private data to be returned to the driver
- * @fsm_started		true if the FSM has been started for this device
+ * @fsm_inited		true if the FSM has been initialized for this device
  * @is_top		true if this device is a top device in a topology of
  *			devices that make up a JESD204 link (typically the
  *			device that is the ADC, DAC, or transceiver)
@@ -106,7 +106,7 @@ struct jesd204_dev {
 	struct list_head		entry;
 	void				*priv;
 
-	bool				fsm_started;
+	bool				fsm_inited;
 	bool				is_top;
 
 	int				error;
