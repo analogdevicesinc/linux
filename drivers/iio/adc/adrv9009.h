@@ -111,6 +111,7 @@ enum ad937x_device_id {
 	ID_ADRV90081,
 	ID_ADRV90082,
 	ID_ADRV9009_X2,
+	ID_ADRV9009_X4,
 };
 
 enum adrv9009_sysref_req_mode {
