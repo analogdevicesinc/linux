@@ -217,12 +217,35 @@ build_checkpatch() {
 }
 
 build_dtb_build_test() {
+	local exceptions_file="ci/travis/dtb_build_test_exceptions"
+	local err=0
+	local last_arch
+
 	if [ "$TRAVIS" = "true" ] ; then
 		for patch in $(ls ci/travis/*.patch | sort) ; do
 			patch -p1 < $patch
 		done
 	fi
-	local last_arch
+
+	for file in $DTS_FILES; do
+		arch=$(echo $file |  cut -d'/' -f2)
+		# a bit hard-coding for now; only check arm & arm64 DTs;
+		# they are shipped via SD-card
+		if [ "$arch" != "arm" ] && [ "$arch" != "arm64" ] ; then
+			continue
+		fi
+		if [ -f "$exceptions_file" ] ; then
+			if grep -q "$file" "$exceptions_file" ; then
+				continue
+			fi
+		fi
+		if ! grep -q "hdl_project:" $file ; then
+			echo_red "'$file' doesn't contain an 'hdl_project:' tag"
+			err=1
+			hdl_project_tag_err=1
+		fi
+	done
+
 	for file in $DTS_FILES; do
 		dtb_file=$(echo $file | sed 's/dts\//=/g' | cut -d'=' -f2 | sed 's\dts\dtb\g')
 		arch=$(echo $file |  cut -d'/' -f2)
@@ -235,8 +258,25 @@ build_dtb_build_test() {
 		if [ ! -f arch/$arch/boot/dts/Makefile ] ; then
 			touch arch/$arch/boot/dts/Makefile
 		fi
-		ARCH=$arch make ${dtb_file} -j$NUM_JOBS || exit 1
+		ARCH=$arch make ${dtb_file} -j$NUM_JOBS || err=1
 	done
+
+	if [ "$err" = "0" ] ; then
+		echo_green "DTB build tests passed"
+		return 0
+	fi
+
+	if [ "$hdl_project_tag_err" = "1" ] ; then
+		echo
+		echo
+		echo_green "Some DTs have been found that do not contain an 'hdl_project:' tag"
+		echo_green "   Either:"
+		echo_green "     1. Create a 'hdl_project' tag for it"
+		echo_green "     OR"
+		echo_green "     1. add it in file '$exceptions_file'"
+	fi
+
+	return $err
 }
 
 branch_contains_commit() {

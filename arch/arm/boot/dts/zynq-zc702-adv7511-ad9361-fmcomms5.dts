@@ -1,3 +1,13 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices AD-FMCOMMS5-EBZ
+ * https://wiki.analog.com/resources/eval/user-guides/ad-fmcomms5-ebz
+ *
+ * hdl_project: <fmcomms5/zc702>
+ * board_revision: <>
+ *
+ * Copyright (C) 2014-2020 Analog Devices Inc.
+ */
 /dts-v1/;
 
 #include "zynq-zc702.dtsi"
