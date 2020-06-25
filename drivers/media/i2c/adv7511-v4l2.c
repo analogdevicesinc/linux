@@ -25,6 +25,7 @@
 #include <media/v4l2-common.h>
 #include <media/v4l2-ctrls.h>
 #include <media/v4l2-dv-timings.h>
+#include <media/v4l2-event.h>
 #include <media/i2c/adv7511.h>
 #include <media/cec.h>
 
@@ -1057,6 +1058,8 @@ static const struct v4l2_subdev_core_ops adv7511_core_ops = {
 #endif
 	.s_power = adv7511_s_power,
 	.interrupt_service_routine = adv7511_isr,
+	.subscribe_event = v4l2_ctrl_subdev_subscribe_event,
+	.unsubscribe_event = v4l2_event_subdev_unsubscribe,
 };
 
 /* ------------------------------ VIDEO OPS ------------------------------ */
@@ -2298,6 +2301,7 @@ static int adv7511_probe(struct i2c_client *client, const struct i2c_device_id *
 
 	v4l2_i2c_subdev_init(sd, client, &adv7511_ops);
 	sd->flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
+	sd->flags |= V4L2_SUBDEV_FL_HAS_EVENTS;
 	adv7511_subdev(sd);
 	sd->internal_ops = &adv7511_int_ops;
 
