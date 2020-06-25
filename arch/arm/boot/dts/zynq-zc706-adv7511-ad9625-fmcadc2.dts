@@ -1,3 +1,13 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices AD-FMCADC2-EBZ
+ * https://wiki.analog.com/resources/eval/user-guides/ad-fmcadc2-ebz
+ *
+ * hdl_project: <fmcadc2/zc706>
+ * board_revision: <>
+ *
+ * Copyright (C) 2014-2020 Analog Devices Inc.
+ */
 /dts-v1/;
 
 #include "zynq-zc706.dtsi"
