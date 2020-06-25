@@ -1,9 +1,12 @@
+// SPDX-License-Identifier: GPL-2.0
 /*
- * dts file for FMCDAQ3 on Xilinx ZynqMP ZCU102 Rev 1.0
+ * Analog Devices AD-FMCDAQ3-EBZ
+ * https://wiki.analog.com/resources/eval/user-guides/ad-fmcdaq3-ebz
  *
- * Copyright (C) 2018 Analog Devices Inc.
+ * hdl_project: <daq3/zcu102>
+ * board_revision: <>
  *
- * Licensed under the GPL-2.
+ * Copyright (C) 2015-2019 Analog Devices Inc.
  */
 
 #include "zynqmp-zcu102-rev1.0.dts"

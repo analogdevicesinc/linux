@@ -1,3 +1,14 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices AD917x-FMC-EBZ
+ * https://wiki.analog.com/resources/eval/dpg/ad917x-fmc-ebz
+ * https://wiki.analog.com/resources/eval/dpg/eval-ad9172
+ *
+ * hdl_project: <dac_fmc_ebz/zc706>
+ * board_revision: <>
+ *
+ * Copyright (C) 2018-2020 Analog Devices Inc.
+ */
 /dts-v1/;
 
 #include "zynq-zc706.dtsi"

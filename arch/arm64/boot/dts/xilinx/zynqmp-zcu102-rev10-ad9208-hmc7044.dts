@@ -1,9 +1,13 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * dts file for AD9208 on Xilinx ZynqMP ZCU102 Rev 1.0
+ * Analog Devices AD9208 / AD9689 ANALOG-TO-DIGITAL CONVERTER
+ * https://wiki.analog.com/resources/eval/ad9208-3000ebz
+ * https://wiki.analog.com/resources/tools-software/linux-drivers/iio-adc/ad9208
  *
- * Copyright (C) 2019 Analog Devices Inc.
+ * hdl_project: <ad9208/zcu102>
+ * board_revision: <>
  *
+ * Copyright (C) 2019-2020 Analog Devices Inc.
  */
 
 #include "zynqmp-zcu102-rev10-ad9208.dts"
