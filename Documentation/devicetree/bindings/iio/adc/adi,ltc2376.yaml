@@ -1,0 +1,65 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+title: Linear Technology LTC2376 SAR ADC
+
+maintainers:
+  - Meenal Parakh <meenalparakh18@gmail.com>
+
+description: |
+  Bindings for the Linear Technology LTC2376 16-bit SAR ADC device
+  https://www.analog.com/media/en/technical-documentation/data-sheets/237616fa.pdf
+
+properties:
+  compatible:
+    const: adi,ltc2376
+
+  reg:
+    maxItems: 1
+
+  spi-max-frequency:
+    maximum: 16000000
+
+  vref-supply:
+    description:
+      Phandle to the vref power supply
+
+  spi-cpol: true
+
+  spi-cpha: true
+
+  interrupts:
+    maxItems: 1
+
+required:
+  - compatible
+  - reg
+  - spi-max-frequency
+  - spi-cpol
+  - spi-cpha
+  - vref-supply
+  - interrupts
+
+additionalProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/interrupt-controller/irq.h>
+
+    spi {
+        #address-cells = <0x01>;
+        #size-cells = <0x00>;
+
+        adc@0{
+              compatible = "adi,ltc2376";
+              reg = <0>;
+              spi-max-frequency = <16000000>;
+              pwms = <&pwm 0 10000000>;
+              vref-supply = <&adc_vref>;
+              spi-cpha;
+              spi-cpol;
+              interrupt-parent = <&gpio>;
+              interrupts = <25 IRQ_TYPE_EDGE_FALLING>;
+        };
+    };
+...
