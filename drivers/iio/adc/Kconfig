@@ -732,6 +732,16 @@ config LTC2308
 	  This driver can also be built as a module. If so, the module will
 	  be called ltc2308.
 
+config LTC2376
+	tristate "Linear Technology LTC2376 ADC driver"
+	depends on SPI
+	help
+	  Say yes here to build support for Linear Technology LTC2376
+	  single channel 16-bit SAR ADC.
+
+	  This driver can also be built as a module. If so, the module will
+	  be called ltc2376.
+
 config LTC2471
 	tristate "Linear Technology LTC2471 and LTC2473 ADC driver"
 	depends on I2C
