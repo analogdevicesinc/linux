@@ -413,9 +413,9 @@ _QueryProcessPageTable(
         if (!current->mm)
             return gcvSTATUS_NOT_FOUND;
 
-        down_read(&current->mm->mmap_sem);
+        down_read(&current->mm->mmap_lock);
         vma = find_vma(current->mm, logical);
-        up_read(&current->mm->mmap_sem);
+        up_read(&current->mm->mmap_lock);
 
         /* To check if mapped to user. */
         if (!vma)

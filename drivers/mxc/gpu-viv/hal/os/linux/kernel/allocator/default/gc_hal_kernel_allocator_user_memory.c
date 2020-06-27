@@ -141,7 +141,7 @@ static int import_page_map(struct um_desc *um,
     if (!pages)
         return -ENOMEM;
 
-    down_read(&current->mm->mmap_sem);
+    down_read(&current->mm->mmap_lock);
 
     result = get_user_pages(
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4, 6, 0)
@@ -159,7 +159,7 @@ static int import_page_map(struct um_desc *um,
             pages,
             NULL);
 
-    up_read(&current->mm->mmap_sem);
+    up_read(&current->mm->mmap_lock);
 
     if (result < page_count)
     {
@@ -240,9 +240,9 @@ static int import_pfn_map(struct um_desc *um,
     if (!current->mm)
         return -ENOTTY;
 
-    down_read(&current->mm->mmap_sem);
+    down_read(&current->mm->mmap_lock);
     vma = find_vma(current->mm, addr);
-    up_read(&current->mm->mmap_sem);
+    up_read(&current->mm->mmap_lock);
 
     if (!vma)
         return -ENOTTY;

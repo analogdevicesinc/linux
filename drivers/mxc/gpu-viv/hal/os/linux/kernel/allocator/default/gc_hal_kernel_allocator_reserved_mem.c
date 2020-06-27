@@ -294,12 +294,12 @@ reserved_mem_unmap_user(
         printk("%s: vm_munmap failed\n", __func__);
     }
 #else
-    down_write(&current->mm->mmap_sem);
+    down_write(&current->mm->mmap_lock);
     if (do_munmap(current->mm, (unsigned long)MdlMap->vmaAddr - res->offset_in_page, res->size) < 0)
     {
         printk("%s: do_munmap failed\n", __func__);
     }
-    up_write(&current->mm->mmap_sem);
+    up_write(&current->mm->mmap_lock);
 #endif
 }
 
@@ -321,10 +321,10 @@ reserved_mem_map_user(
     userLogical = (gctPOINTER)vm_mmap(NULL, 0L, res->size,
                 PROT_READ | PROT_WRITE, MAP_SHARED | MAP_NORESERVE, 0);
 #else
-    down_write(&current->mm->mmap_sem);
+    down_write(&current->mm->mmap_lock);
     userLogical = (gctPOINTER)do_mmap_pgoff(NULL, 0L, res->size,
                 PROT_READ | PROT_WRITE, MAP_SHARED, 0);
-    up_write(&current->mm->mmap_sem);
+    up_write(&current->mm->mmap_lock);
 #endif
 
     gcmkTRACE_ZONE(
@@ -344,7 +344,7 @@ reserved_mem_map_user(
         gcmkONERROR(gcvSTATUS_OUT_OF_MEMORY);
     }
 
-    down_write(&current->mm->mmap_sem);
+    down_write(&current->mm->mmap_lock);
     do
     {
         struct vm_area_struct *vma = find_vma(current->mm, (unsigned long)userLogical);
@@ -366,7 +366,7 @@ reserved_mem_map_user(
         MdlMap->vma = vma;
     }
     while (gcvFALSE);
-    up_write(&current->mm->mmap_sem);
+    up_write(&current->mm->mmap_lock);
 
 OnError:
     if (gcmIS_ERROR(status) && userLogical)
