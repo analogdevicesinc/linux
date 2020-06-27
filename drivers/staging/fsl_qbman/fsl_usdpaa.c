@@ -1101,9 +1101,9 @@ static long ioctl_dma_map(struct file *fp, struct ctx *ctx,
 	i->did_create = 1;
 do_map:
 	/* Verify there is sufficient space to do the mapping */
-	down_write(&current->mm->mmap_sem);
+	down_write(&current->mm->mmap_lock);
 	next_addr = usdpaa_get_unmapped_area(fp, next_addr, i->len, 0, 0);
-	up_write(&current->mm->mmap_sem);
+	up_write(&current->mm->mmap_lock);
 
 	if (next_addr & ~PAGE_MASK) {
 		ret = -ENOMEM;
@@ -1151,7 +1151,7 @@ out:
 
 	if (!ret) {
 		unsigned long longret;
-		down_write(&current->mm->mmap_sem);
+		down_write(&current->mm->mmap_lock);
 		longret = do_mmap_pgoff(fp, next_addr, map->total_size,
 					PROT_READ |
 					(i->flags &
@@ -1161,7 +1161,7 @@ out:
 					start_frag->pfn_base,
 					&populate,
 					NULL);
-		up_write(&current->mm->mmap_sem);
+		up_write(&current->mm->mmap_lock);
 		if (longret & ~PAGE_MASK) {
 			ret = (int)longret;
 		} else {
@@ -1183,10 +1183,10 @@ static long ioctl_dma_unmap(struct ctx *ctx, void __user *arg)
 	unsigned long base;
 	unsigned long vaddr;
 
-	down_write(&current->mm->mmap_sem);
+	down_write(&current->mm->mmap_lock);
 	vma = find_vma(current->mm, (unsigned long)arg);
 	if (!vma || (vma->vm_start > (unsigned long)arg)) {
-		up_write(&current->mm->mmap_sem);
+		up_write(&current->mm->mmap_lock);
 		return -EFAULT;
 	}
 	spin_lock(&mem_lock);
@@ -1242,7 +1242,7 @@ map_match:
 	do_munmap(current->mm, base, sz, NULL);
 	ret = 0;
  out:
-	up_write(&current->mm->mmap_sem);
+	up_write(&current->mm->mmap_lock);
 	return ret;
 }
 
@@ -1278,10 +1278,10 @@ static long ioctl_dma_lock(struct ctx *ctx, void __user *arg)
 	struct mem_mapping *map;
 	struct vm_area_struct *vma;
 
-	down_read(&current->mm->mmap_sem);
+	down_read(&current->mm->mmap_lock);
 	vma = find_vma(current->mm, (unsigned long)arg);
 	if (!vma || (vma->vm_start > (unsigned long)arg)) {
-		up_read(&current->mm->mmap_sem);
+		up_read(&current->mm->mmap_lock);
 		return -EFAULT;
 	}
 	spin_lock(&mem_lock);
@@ -1292,7 +1292,7 @@ static long ioctl_dma_lock(struct ctx *ctx, void __user *arg)
 	map = NULL;
 map_match:
 	spin_unlock(&mem_lock);
-	up_read(&current->mm->mmap_sem);
+	up_read(&current->mm->mmap_lock);
 
 	if (!map)
 		return -EFAULT;
@@ -1307,7 +1307,7 @@ static long ioctl_dma_unlock(struct ctx *ctx, void __user *arg)
 	struct vm_area_struct *vma;
 	int ret;
 
-	down_read(&current->mm->mmap_sem);
+	down_read(&current->mm->mmap_lock);
 	vma = find_vma(current->mm, (unsigned long)arg);
 	if (!vma || (vma->vm_start > (unsigned long)arg))
 		ret = -EFAULT;
@@ -1330,7 +1330,7 @@ static long ioctl_dma_unlock(struct ctx *ctx, void __user *arg)
 map_match:
 		spin_unlock(&mem_lock);
 	}
-	up_read(&current->mm->mmap_sem);
+	up_read(&current->mm->mmap_lock);
 	return ret;
 }
 
@@ -1339,14 +1339,14 @@ static int portal_mmap(struct file *fp, struct resource *res, void **ptr)
 	unsigned long longret = 0, populate;
 	resource_size_t len;
 
-	down_write(&current->mm->mmap_sem);
+	down_write(&current->mm->mmap_lock);
 	len = resource_size(res);
 	if (len != (unsigned long)len)
 		return -EINVAL;
 	longret = do_mmap_pgoff(fp, PAGE_SIZE, (unsigned long)len,
 				PROT_READ | PROT_WRITE, MAP_SHARED,
 				res->start >> PAGE_SHIFT, &populate, NULL);
-	up_write(&current->mm->mmap_sem);
+	up_write(&current->mm->mmap_lock);
 
 	if (longret & ~PAGE_MASK)
 		return (int)longret;
@@ -1357,9 +1357,9 @@ static int portal_mmap(struct file *fp, struct resource *res, void **ptr)
 
 static void portal_munmap(struct resource *res, void  *ptr)
 {
-	down_write(&current->mm->mmap_sem);
+	down_write(&current->mm->mmap_lock);
 	do_munmap(current->mm, (unsigned long)ptr, resource_size(res), NULL);
-	up_write(&current->mm->mmap_sem);
+	up_write(&current->mm->mmap_lock);
 }
 
 static long ioctl_portal_map(struct file *fp, struct ctx *ctx,
@@ -1438,14 +1438,14 @@ static long ioctl_portal_unmap(struct ctx *ctx, struct usdpaa_portal_map *i)
 	u32 channel;
 
 	/* Get the PFN corresponding to one of the virt addresses */
-	down_read(&current->mm->mmap_sem);
+	down_read(&current->mm->mmap_lock);
 	vma = find_vma(current->mm, (unsigned long)i->cinh);
 	if (!vma || (vma->vm_start > (unsigned long)i->cinh)) {
-		up_read(&current->mm->mmap_sem);
+		up_read(&current->mm->mmap_lock);
 		return -EFAULT;
 	}
 	pfn = vma->vm_pgoff;
-	up_read(&current->mm->mmap_sem);
+	up_read(&current->mm->mmap_lock);
 
 	/* Find the corresponding portal */
 	spin_lock(&mem_lock);
