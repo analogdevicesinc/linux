@@ -1577,17 +1577,19 @@ static int nwl_dsi_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	const struct of_device_id *of_id = of_match_device(nwl_dsi_dt_ids, dev);
-	const struct nwl_dsi_platform_data *pdata = of_id->data;
 	const struct soc_device_attribute *attr;
 	struct nwl_dsi *dsi;
 	int ret;
+
+	if (!of_id || !of_id->data)
+		return -ENODEV;
 
 	dsi = devm_kzalloc(dev, sizeof(*dsi), GFP_KERNEL);
 	if (!dsi)
 		return -ENOMEM;
 
 	dsi->dev = dev;
-	dsi->pdata = pdata;
+	dsi->pdata = of_id->data;
 
 	attr = soc_device_match(nwl_dsi_quirks_match);
 	if (attr)
