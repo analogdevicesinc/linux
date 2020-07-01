@@ -12,34 +12,6 @@
 		status = "disabled";
 	};
 
-	sai1_port: sai-port {
-		#sound-dai-cells = <0>;
-		compatible = "fsl,sai-dai";
-
-		pinctrl-names = "default";
-		pinctrl-0 = <&pinctrl_sai1>;
-
-		power-domains = <&pd IMX_SC_R_SAI_1>,
-			<&pd IMX_SC_R_DMA_0_CH14>,
-			<&pd IMX_SC_R_DMA_0_CH15>,
-			<&pd IMX_SC_R_AUDIO_CLK_0>,
-			<&pd IMX_SC_R_AUDIO_CLK_1>,
-			<&pd IMX_SC_R_AUDIO_PLL_0>,
-			<&pd IMX_SC_R_AUDIO_PLL_1>;
-
-		clock-names = "bus", "mclk0", "mclk1", "mclk2", "mclk3";
-		clocks = <&sai1_lpcg 1>, <&clk_dummy>, <&sai1_lpcg 0>,
-			<&clk_dummy>, <&clk_dummy>;
-		assigned-clocks = <&acm IMX_ADMA_ACM_SAI1_MCLK_SEL>,
-				<&clk IMX_SC_R_AUDIO_PLL_0 IMX_SC_PM_CLK_PLL>,
-				<&clk IMX_SC_R_AUDIO_PLL_0 IMX_SC_PM_CLK_MISC0>,
-				<&clk IMX_SC_R_AUDIO_PLL_0 IMX_SC_PM_CLK_MISC1>,
-				<&sai1_lpcg 0>; /* FIXME: should be sai1, original code is 0 */
-		assigned-clock-parents = <&aud_pll_div0_lpcg 0>;
-		assigned-clock-rates = <0>, <786432000>, <49152000>, <12288000>, <49152000>;
-		status="okay";
-	};
-
 	sof-sound-wm8960 {
 		compatible = "simple-audio-card";
 		label = "wm8960-audio";
@@ -67,10 +39,7 @@
 		simple-audio-card,dai-link {
 			format = "i2s";
 			cpu {
-				sound-dai = <&sai1_port>;
-			};
-			plat {
-				sound-dai = <&dsp>;
+				sound-dai = <&dsp 1>;
 			};
 			sndcodec: codec {
 				sound-dai = <&wm8960>;
@@ -114,9 +83,39 @@
 };
 
 &dsp {
-	#sound-dai-cells = <0>;
+	#sound-dai-cells = <1>;
 	compatible = "fsl,imx8qxp-dsp";
 	reg = <0x596e8000 0x88000>;
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_sai1>;
+
+	power-domains = <&pd IMX_SC_R_MU_13A>,
+		<&pd IMX_SC_R_MU_13B>,
+		<&pd IMX_SC_R_DSP>,
+		<&pd IMX_SC_R_DSP_RAM>,
+		<&pd IMX_SC_R_IRQSTR_DSP>,
+		<&pd IMX_SC_R_SAI_1>,
+		<&pd IMX_SC_R_DMA_0_CH14>,
+		<&pd IMX_SC_R_DMA_0_CH15>,
+		<&pd IMX_SC_R_AUDIO_CLK_0>,
+		<&pd IMX_SC_R_AUDIO_CLK_1>,
+		<&pd IMX_SC_R_AUDIO_PLL_0>,
+		<&pd IMX_SC_R_AUDIO_PLL_1>;
+
+	clock-names = "ipg", "ocram", "core",
+		"sai1_bus", "sai1_mclk0", "sai1_mclk1", "sai1_mclk2", "sai1_mclk3";
+	clocks = <&dsp_lpcg 1>, <&dsp_ram_lpcg 0>, <&dsp_lpcg 2>,
+		<&sai1_lpcg 1>, <&clk_dummy>, <&sai1_lpcg 0>,
+		<&clk_dummy>, <&clk_dummy>;
+	assigned-clocks = <&acm IMX_ADMA_ACM_SAI1_MCLK_SEL>,
+			<&clk IMX_SC_R_AUDIO_PLL_0 IMX_SC_PM_CLK_PLL>,
+			<&clk IMX_SC_R_AUDIO_PLL_0 IMX_SC_PM_CLK_MISC0>,
+			<&clk IMX_SC_R_AUDIO_PLL_0 IMX_SC_PM_CLK_MISC1>,
+			<&sai1_lpcg 0>; /* FIXME: should be sai1, original code is 0 */
+	assigned-clock-parents = <&aud_pll_div0_lpcg 0>;
+	assigned-clock-rates = <0>, <786432000>, <49152000>, <12288000>, <49152000>;
+
 	tplg-name = "sof-imx8qxp-wm8960.tplg";
 	machine-drv-name = "asoc-simple-card";
 	status = "okay";
