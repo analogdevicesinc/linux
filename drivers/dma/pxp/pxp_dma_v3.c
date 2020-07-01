@@ -3354,7 +3354,7 @@ reparse:
 		filter_possible_inputs(input_s0, &possible_inputs_s0);
 		filter_possible_inputs(input_s1, &possible_inputs_s1);
 
-		if (!possible_inputs_s0 || !possible_inputs_s0)
+		if (!possible_inputs_s0 || !possible_inputs_s1)
 			return -EINVAL;
 
 		filter_possible_outputs(output, &possible_outputs);
