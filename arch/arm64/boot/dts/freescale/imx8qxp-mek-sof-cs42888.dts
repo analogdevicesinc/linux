@@ -12,34 +12,6 @@
 		status = "disabled";
 	};
 
-	esai0_port: esai-port {
-		#sound-dai-cells = <0>;
-		compatible = "fsl,esai-dai";
-
-		pinctrl-names = "default";
-		pinctrl-0 = <&pinctrl_esai0>;
-
-		power-domains = <&pd IMX_SC_R_ESAI_0>,
-			<&pd IMX_SC_R_DMA_0_CH6>,
-			<&pd IMX_SC_R_DMA_0_CH7>,
-			<&pd IMX_SC_R_AUDIO_CLK_0>,
-			<&pd IMX_SC_R_AUDIO_CLK_1>,
-			<&pd IMX_SC_R_AUDIO_PLL_0>,
-			<&pd IMX_SC_R_AUDIO_PLL_1>;
-
-		clocks = <&esai0_lpcg 1>, <&esai0_lpcg 0>,  <&esai0_lpcg 1>,
-			<&clk_dummy>;
-		clock-names = "core", "extal", "fsys", "spba";
-		assigned-clocks = <&acm IMX_ADMA_ACM_ESAI0_MCLK_SEL>,
-			<&clk IMX_SC_R_AUDIO_PLL_0 IMX_SC_PM_CLK_PLL>,
-			<&clk IMX_SC_R_AUDIO_PLL_0 IMX_SC_PM_CLK_MISC0>,
-			<&clk IMX_SC_R_AUDIO_PLL_0 IMX_SC_PM_CLK_MISC1>,
-			<&esai0_lpcg 0>;
-		assigned-clock-parents = <&aud_pll_div0_lpcg 0>;
-		assigned-clock-rates = <0>, <786432000>, <49152000>, <12288000>, <49152000>;
-		status="okay";
-	};
-
 	sof-audio-cs42888 {
 		compatible = "simple-audio-card";
 		label = "imx-cs42888";
@@ -64,10 +36,7 @@
 		simple-audio-card,dai-link {
 			format = "i2s";
 			cpu {
-				sound-dai = <&esai0_port>;
-			};
-			plat {
-				sound-dai = <&dsp>;
+				sound-dai = <&dsp 0>;
 			};
 			codec {
 				sound-dai = <&cs42888>;
@@ -118,8 +87,35 @@
 };
 
 &dsp {
-	#sound-dai-cells = <0>;
+	#sound-dai-cells = <1>;
 	compatible = "fsl,imx8qxp-dsp";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_esai0>;
+
+	power-domains = <&pd IMX_SC_R_MU_13A>,
+			<&pd IMX_SC_R_MU_13B>,
+			<&pd IMX_SC_R_DSP>,
+			<&pd IMX_SC_R_DSP_RAM>,
+			<&pd IMX_SC_R_IRQSTR_DSP>,
+			<&pd IMX_SC_R_ESAI_0>,
+			<&pd IMX_SC_R_DMA_0_CH6>,
+			<&pd IMX_SC_R_DMA_0_CH7>,
+			<&pd IMX_SC_R_AUDIO_CLK_0>,
+			<&pd IMX_SC_R_AUDIO_CLK_1>,
+			<&pd IMX_SC_R_AUDIO_PLL_0>,
+			<&pd IMX_SC_R_AUDIO_PLL_1>;
+
+		clocks = <&dsp_lpcg 1>, <&dsp_ram_lpcg 0>, <&dsp_lpcg 2>, <&esai0_lpcg 1>, <&esai0_lpcg 0>,  <&esai0_lpcg 1>,
+			<&clk_dummy>;
+		clock-names = "ipg", "ocram", "core", "esai0_core", "esai0_extal", "esai0_fsys", "esai0_spba";
+		assigned-clocks = <&acm IMX_ADMA_ACM_ESAI0_MCLK_SEL>,
+			<&clk IMX_SC_R_AUDIO_PLL_0 IMX_SC_PM_CLK_PLL>,
+			<&clk IMX_SC_R_AUDIO_PLL_0 IMX_SC_PM_CLK_MISC0>,
+			<&clk IMX_SC_R_AUDIO_PLL_0 IMX_SC_PM_CLK_MISC1>,
+			<&esai0_lpcg 0>;
+		assigned-clock-parents = <&aud_pll_div0_lpcg 0>;
+		assigned-clock-rates = <0>, <786432000>, <49152000>, <12288000>, <49152000>;
+
 	reg = <0x596e8000 0x88000>;
 	tplg-name = "sof-imx8qxp-cs42888.tplg";
 	machine-drv-name = "asoc-simple-card";
