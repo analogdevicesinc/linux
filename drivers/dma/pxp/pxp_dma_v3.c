@@ -1543,7 +1543,7 @@ static uint32_t pxp_store_ctrl_config(struct pxp_pixmap *out, uint8_t mode,
 		ctrl.store_memory_en = 1;
 	}
 
-	if (out->rotate || out->flip)
+	if (out && (out->rotate || out->flip))
 		ctrl.block_en = 1;
 
 	ctrl.ch_en = 1;
