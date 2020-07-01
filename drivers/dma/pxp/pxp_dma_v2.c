@@ -1150,7 +1150,7 @@ static void __pxpdma_dostart(struct pxp_channel *pxp_chan)
 
 	memset(&pxp->pxp_conf_state.s0_param, 0,  sizeof(struct pxp_layer_param));
 	memset(&pxp->pxp_conf_state.out_param, 0,  sizeof(struct pxp_layer_param));
-	memset(pxp->pxp_conf_state.ol_param, 0,  sizeof(struct pxp_layer_param) * 8);
+	memset(pxp->pxp_conf_state.ol_param, 0,  sizeof(struct pxp_layer_param));
 	memset(&pxp->pxp_conf_state.proc_data, 0,  sizeof(struct pxp_proc_data));
 	/* S0 */
 	desc = list_first_entry(&head, struct pxp_tx_desc, list);
