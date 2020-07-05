@@ -158,6 +158,17 @@ static irqreturn_t dwc3_imx8mp_interrupt(int irq, void *_dwc3_imx)
 	return IRQ_HANDLED;
 }
 
+static struct dwc3_platform_data dwc3_imx8mp_pdata = {
+};
+
+static struct of_dev_auxdata dwc3_imx8mp_auxdata[] = {
+	{
+	.compatible = "snps,dwc3",
+	.platform_data = &dwc3_imx8mp_pdata,
+	},
+	{},
+};
+
 static int dwc3_imx8mp_probe(struct platform_device *pdev)
 {
 	struct device		*dev = &pdev->dev;
@@ -227,7 +238,7 @@ static int dwc3_imx8mp_probe(struct platform_device *pdev)
 		goto disable_rpm;
 	}
 
-	err = of_platform_populate(node, NULL, NULL, dev);
+	err = of_platform_populate(node, NULL, dwc3_imx8mp_auxdata, dev);
 	if (err) {
 		dev_err(&pdev->dev, "failed to create dwc3 core\n");
 		goto remove_swnode;
