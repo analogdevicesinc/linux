@@ -282,6 +282,10 @@ static int __jesd204_link_fsm_update_state(struct jesd204_dev *jdev,
 {
 	ol->fsm_data = NULL;
 
+	/* clear error if current state is DONT_CARE */
+	if (fsm_data->cur_state == JESD204_STATE_DONT_CARE)
+		ol->error = 0;
+
 	if (ol->error) {
 		dev_err(&jdev->dev, "jesd got error from topology %d\n",
 			ol->error);
