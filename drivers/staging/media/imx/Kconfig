@@ -51,9 +51,9 @@ config IMX8_ISI_CAPTURE
 	default y
 
 config IMX8_ISI_M2M
-	bool "IMX8 Image Sensor Interface Memory to Memory Device Driver"
+	tristate "IMX8 Image Sensor Interface Memory to Memory Device Driver"
 	select V4L2_MEM2MEM_DEV
-	depends on IMX8_ISI_CORE
+	depends on IMX8_ISI_HW
 	default y
 
 endmenu
