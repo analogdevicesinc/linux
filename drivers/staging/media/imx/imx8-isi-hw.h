@@ -469,11 +469,7 @@ void mxc_isi_m2m_config_dst(struct mxc_isi_dev *mxc_isi,
 			    struct mxc_isi_frame *dst_f);
 
 void mxc_isi_m2m_start_read(struct mxc_isi_dev *mxc_isi);
-#if defined(CONFIG_IMX8_ISI_M2M)
 void mxc_isi_m2m_frame_write_done(struct mxc_isi_dev *mxc_isi);
-#else
-static inline void mxc_isi_m2m_frame_write_done(struct mxc_isi_dev *mxc_isi) {}
-#endif
 void mxc_isi_clean_irq_status(struct mxc_isi_dev *mxc_isi, u32 val);
 void mxc_isi_clean_registers(struct mxc_isi_dev *mxc_isi);
 void mxc_isi_enable_irq(struct mxc_isi_dev *mxc_isi);
