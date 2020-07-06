@@ -1277,7 +1277,6 @@ static int mipi_csis_remove(struct platform_device *pdev)
 
 	pm_runtime_disable(&pdev->dev);
 	mipi_csis_pm_suspend(&pdev->dev, true);
-	mipi_csis_clk_disable(state);
 	pm_runtime_set_suspended(&pdev->dev);
 
 	return 0;
