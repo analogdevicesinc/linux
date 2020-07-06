@@ -311,6 +311,7 @@ void mxc_isi_cap_frame_write_done(struct mxc_isi_dev *mxc_isi)
 	vb2->state = VB2_BUF_STATE_ACTIVE;
 	list_move_tail(isi_cap->out_pending.next, &isi_cap->out_active);
 }
+EXPORT_SYMBOL_GPL(mxc_isi_cap_frame_write_done);
 
 static int cap_vb2_queue_setup(struct vb2_queue *q,
 			       unsigned int *num_buffers,

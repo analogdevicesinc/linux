@@ -430,11 +430,7 @@ void mxc_isi_channel_init(struct mxc_isi_dev *mxc_isi);
 void mxc_isi_channel_deinit(struct mxc_isi_dev *mxc_isi);
 void mxc_isi_channel_enable(struct mxc_isi_dev *mxc_isi, bool m2m_enabled);
 void mxc_isi_channel_disable(struct mxc_isi_dev *mxc_isi);
-#if defined(CONFIG_IMX8_ISI_CAPTURE)
 void mxc_isi_cap_frame_write_done(struct mxc_isi_dev *mxc_isi);
-#else
-static inline void mxc_isi_cap_frame_write_done(struct mxc_isi_dev *mxc_isi) {}
-#endif
 void mxc_isi_channel_set_deinterlace(struct mxc_isi_dev *mxc_isi);
 void mxc_isi_channel_sw_reset(struct mxc_isi_dev *mxc_isi);
 void mxc_isi_channel_hw_reset(struct mxc_isi_dev *mxc_isi);
