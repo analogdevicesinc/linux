@@ -479,4 +479,6 @@ void dump_isi_regs(struct mxc_isi_dev *mxc_isi);
 u32 mxc_isi_get_irq_status(struct mxc_isi_dev *mxc_isi);
 bool is_buf_active(struct mxc_isi_dev *mxc_isi, int buf_id);
 
+struct device *mxc_isi_dev_get_parent(struct platform_device *pdev);
+struct mxc_isi_dev *mxc_isi_get_hostdata(struct platform_device *pdev);
 #endif /* __MXC_ISI_HW_H__ */

@@ -158,6 +158,45 @@ static void chain_buf(struct mxc_isi_dev *mxc_isi, struct mxc_isi_frame *frm)
 	}
 }
 
+struct device *mxc_isi_dev_get_parent(struct platform_device *pdev)
+{
+	struct device *dev = &pdev->dev;
+	struct device_node *parent;
+	struct platform_device *parent_pdev;
+
+	if (!pdev)
+		return NULL;
+
+	/* Get parent for isi capture device */
+	parent = of_get_parent(dev->of_node);
+	parent_pdev = of_find_device_by_node(parent);
+	if (!parent_pdev) {
+		of_node_put(parent);
+		return NULL;
+	}
+	of_node_put(parent);
+
+	return &parent_pdev->dev;
+}
+EXPORT_SYMBOL_GPL(mxc_isi_dev_get_parent);
+
+struct mxc_isi_dev *mxc_isi_get_hostdata(struct platform_device *pdev)
+{
+	struct mxc_isi_dev *mxc_isi;
+
+	if (!pdev || !pdev->dev.parent)
+		return NULL;
+
+	mxc_isi = (struct mxc_isi_dev *)dev_get_drvdata(pdev->dev.parent);
+	if (!mxc_isi) {
+		dev_err(&pdev->dev, "Cann't get host data\n");
+		return NULL;
+	}
+
+	return mxc_isi;
+}
+EXPORT_SYMBOL_GPL(mxc_isi_get_hostdata);
+
 void mxc_isi_channel_set_outbuf(struct mxc_isi_dev *mxc_isi,
 				struct mxc_isi_buffer *buf)
 {

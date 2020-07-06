@@ -405,13 +405,4 @@ static inline void set_frame_crop(struct mxc_isi_frame *f,
 	f->c_width  = width;
 	f->c_height = height;
 }
-
-#if defined(CONFIG_IMX8_ISI_CORE)
-struct mxc_isi_dev *mxc_isi_get_hostdata(struct platform_device *pdev);
-struct device *mxc_isi_dev_get_parent(struct platform_device *pdev);
-#else
-static inline struct mxc_isi_dev *mxc_isi_get_hostdata(struct platform_device *pdev) {}
-static inline struct struct device *mxc_isi_dev_get_parent(struct platform_device *pdev) {}
-#endif
-
 #endif /* __MXC_ISI_CORE_H__ */
