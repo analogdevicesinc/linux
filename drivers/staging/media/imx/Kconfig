@@ -39,8 +39,8 @@ config IMX8_ISI_HW
 	  driver
 
 config IMX8_ISI_CORE
-	bool "IMX8 Image Sensor Interface Core Driver"
-	depends on VIDEO_V4L2 && VIDEO_V4L2_SUBDEV_API
+	tristate "IMX8 Image Sensor Interface Core Driver"
+	depends on IMX8_ISI_CAPTURE && IMX8_ISI_M2M
 	default y
 
 config IMX8_ISI_CAPTURE
