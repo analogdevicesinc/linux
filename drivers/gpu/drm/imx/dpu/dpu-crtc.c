@@ -282,7 +282,8 @@ static void dpu_crtc_atomic_enable(struct drm_crtc *crtc,
 	}
 
 	if (dcstate->crc.source != DPU_CRC_SRC_NONE)
-		dpu_crtc_enable_crc_source(crtc, dcstate->crc.source);
+		dpu_crtc_enable_crc_source(crtc,
+				dcstate->crc.source, &dcstate->crc.roi);
 }
 
 static void dpu_crtc_atomic_disable(struct drm_crtc *crtc,
@@ -438,6 +439,10 @@ static void dpu_drm_crtc_reset(struct drm_crtc *crtc)
 	state = kzalloc(sizeof(*state), GFP_KERNEL);
 	if (state) {
 		state->crc.source = DPU_CRC_SRC_NONE;
+		state->crc.roi.x1 = 0;
+		state->crc.roi.y1 = 0;
+		state->crc.roi.x2 = 0;
+		state->crc.roi.y2 = 0;
 
 		crtc->state = &state->imx_crtc_state.base;
 		crtc->state->crtc = crtc;
@@ -474,6 +479,7 @@ dpu_drm_crtc_duplicate_state(struct drm_crtc *crtc)
 	state = to_dpu_crtc_state(imx_crtc_state);
 	copy->use_pc = state->use_pc;
 	copy->crc.source = state->crc.source;
+	dpu_copy_roi(&state->crc.roi, &copy->crc.roi);
 
 	return &copy->imx_crtc_state.base;
 }
@@ -625,6 +631,25 @@ static int dpu_crtc_atomic_check(struct drm_crtc *crtc,
 	if (!crtc->state->active && !crtc_state->enable &&
 	    to_enable_dpu_crc(dcstate, old_dcstate))
 		return -EINVAL;
+
+	if (crtc_state->enable && dcstate->crc.source == DPU_CRC_SRC_FRAMEGEN) {
+		dcstate->crc.roi.x1 = 0;
+		dcstate->crc.roi.y1 = 0;
+		dcstate->crc.roi.x2 = mode->hdisplay;
+		dcstate->crc.roi.y2 = mode->vdisplay;
+	}
+
+	if (crtc_state->enable && dcstate->crc.source != DPU_CRC_SRC_NONE) {
+		if (dcstate->crc.roi.x1 < 0 || dcstate->crc.roi.y1 < 0)
+			return -EINVAL;
+
+		if (dcstate->crc.roi.x2 > mode->hdisplay ||
+		    dcstate->crc.roi.y2 > mode->vdisplay)
+			return -EINVAL;
+
+		if (!drm_rect_visible(&dcstate->crc.roi))
+			return -EINVAL;
+	}
 
 	/*
 	 * cache the plane states so that the planes can be disabled in
@@ -958,7 +983,8 @@ again2:
 	}
 
 	if (!need_modeset && to_enable_dpu_crc(dcstate, old_dcstate))
-		dpu_crtc_enable_crc_source(crtc, dcstate->crc.source);
+		dpu_crtc_enable_crc_source(crtc,
+				dcstate->crc.source, &dcstate->crc.roi);
 }
 
 static void dpu_crtc_mode_set_nofb(struct drm_crtc *crtc)

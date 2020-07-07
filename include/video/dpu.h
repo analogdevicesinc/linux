@@ -335,6 +335,7 @@ enum {
 enum dpu_crc_source {
 	DPU_CRC_SRC_NONE,
 	DPU_CRC_SRC_FRAMEGEN,
+	DPU_CRC_SRC_FRAMEGEN_ROI,
 };
 
 struct dpu_fetchunit;

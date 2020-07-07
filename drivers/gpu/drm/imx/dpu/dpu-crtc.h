@@ -82,10 +82,12 @@ struct dpu_crtc {
 	u32			crc_red;
 	u32			crc_green;
 	u32			crc_blue;
+	u32			dual_crc_flag;
 };
 
 struct dpu_crc {
 	enum dpu_crc_source	source;
+	struct drm_rect		roi;
 };
 
 struct dpu_crtc_state {
