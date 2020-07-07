@@ -100,16 +100,13 @@ static int fcs_request_service(struct intel_fcs_priv *priv,
 	if (ret)
 		return -EINVAL;
 
-	ret = wait_for_completion_interruptible_timeout(&priv->completion,
+	ret = wait_for_completion_timeout(&priv->completion,
 							timeout);
 	if (!ret) {
 		dev_err(priv->client.dev,
 			"timeout waiting for SMC call\n");
 		ret = -ETIMEDOUT;
-	} else if (ret < 0)
-		dev_err(priv->client.dev,
-			"interrupted while waiting for SMC call\n");
-	else
+	} else
 		ret = 0;
 
 	mutex_unlock(&priv->lock);
