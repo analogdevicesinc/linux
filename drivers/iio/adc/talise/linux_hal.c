@@ -66,7 +66,7 @@ adiHalErr_t ADIHAL_resetHw(void *devHalInfo)
 		return (ADIHAL_GEN_SW);
 	}
 
-	dev_err(&devHalData->spi->dev, "ADIHAL_resetHw at index");
+	dev_info(&devHalData->spi->dev, "ADIHAL_resetHw");
 
 	gpiod_set_value(devHalData->reset_gpio, 0);
 	mdelay(1);
