@@ -1,0 +1,19 @@
+/dts-v1/;
+/plugin/;
+
+/ {
+	compatible = "brcm,bcm2708", "brcm,bcm2837";
+
+	fragment@0 {
+		target-path = "/";
+		__overlay__ {
+			one-bit-adc-dac@0 {
+				compatible = "adi,one-bit-adc-dac";
+				in-gpios = <&gpio 17 0>, <&gpio 27 0>;
+				in-gpio-names = "i_17", "i_27";
+				out-gpios = <&gpio 23 0>, <&gpio 24 0>;
+				out-gpio-names = "o_23", "o_24";
+			};
+		};
+	};
+};
