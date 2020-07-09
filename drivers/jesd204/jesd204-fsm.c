@@ -947,10 +947,8 @@ static int jesd204_fsm_table_entry_done(struct jesd204_dev *jdev,
 	const struct jesd204_fsm_table_entry *table = it->table;
 	int cnt;
 
-	if (table[0].last) {
-		kfree(it->per_device_ran);
+	if (table[0].last)
 		return 0;
-	}
 
 	cnt = jesd204_device_count_get();
 	memset(it->per_device_ran, 0, sizeof(bool) * cnt);
@@ -966,7 +964,7 @@ static int jesd204_fsm_table(struct jesd204_dev *jdev,
 			     bool handle_busy_flags)
 {
 	struct jesd204_fsm_table_entry_iter it;
-	int cnt;
+	int cnt, ret;
 
 	it.table = table;
 
@@ -975,12 +973,16 @@ static int jesd204_fsm_table(struct jesd204_dev *jdev,
 	if (!it.per_device_ran)
 		return -ENOMEM;
 
-	return jesd204_fsm(jdev, link_idx,
+	ret = jesd204_fsm(jdev, link_idx,
 			  init_state, table[0].state,
 			  jesd204_fsm_table_entry_cb,
 			  &it,
 			  jesd204_fsm_table_entry_done,
 			  handle_busy_flags);
+
+	kfree(it.per_device_ran);
+
+	return ret;
 }
 
 void jesd204_fsm_stop(struct jesd204_dev *jdev, unsigned int link_idx)
