@@ -873,7 +873,6 @@ int jesd204_fsm_start(struct jesd204_dev *jdev, unsigned int link_idx)
 }
 EXPORT_SYMBOL_GPL(jesd204_fsm_start);
 
-
 static int jesd204_fsm_table_dev_op_cb(struct jesd204_dev *jdev,
 				       const struct jesd204_state_op *state_op,
 				       unsigned int link_idx,
