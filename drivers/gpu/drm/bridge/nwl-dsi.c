@@ -420,6 +420,18 @@ static int nwl_dsi_host_attach(struct mipi_dsi_host *dsi_host,
 	return 0;
 }
 
+static int nwl_dsi_host_detach(struct mipi_dsi_host *dsi_host,
+			       struct mipi_dsi_device *device)
+{
+	struct nwl_dsi *dsi = container_of(dsi_host, struct nwl_dsi, dsi_host);
+
+	dsi->lanes = 0;
+	dsi->format = 0;
+	dsi->dsi_mode_flags = 0;
+
+	return 0;
+}
+
 static bool nwl_dsi_read_packet(struct nwl_dsi *dsi, u32 status)
 {
 	struct device *dev = dsi->dev;
@@ -683,6 +695,7 @@ static ssize_t nwl_dsi_host_transfer(struct mipi_dsi_host *dsi_host,
 
 static const struct mipi_dsi_host_ops nwl_dsi_host_ops = {
 	.attach = nwl_dsi_host_attach,
+	.detach = nwl_dsi_host_detach,
 	.transfer = nwl_dsi_host_transfer,
 };
 
