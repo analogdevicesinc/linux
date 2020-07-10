@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-2019 NXP
+ * Copyright 2017-2020 NXP
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -154,6 +154,7 @@ struct dprc {
 	struct clk *clk_apb;
 	struct clk *clk_b;
 	struct clk *clk_rtram;
+	struct imx_sc_ipc *ipc_handle;
 	spinlock_t spin_lock;
 	u32 sc_resource;
 	bool is_blit_chan;
@@ -294,21 +295,18 @@ void dprc_disable(struct dprc *dprc)
 }
 EXPORT_SYMBOL_GPL(dprc_disable);
 
-static void dprc_dpu_gpr_configure(struct dprc *dprc, unsigned int stream_id)
+static inline void
+dprc_dpu_gpr_configure(struct dprc *dprc, unsigned int stream_id)
 {
-	struct imx_sc_ipc *ipc_handle;
-
-	imx_scu_get_handle(&ipc_handle);
-	imx_sc_misc_set_control(ipc_handle,
+	imx_sc_misc_set_control(dprc->ipc_handle,
 		dprc->sc_resource, IMX_SC_C_KACHUNK_SEL, stream_id);
 }
 
-static void dprc_prg_sel_configure(struct dprc *dprc, u32 resource, bool enable)
+static inline void
+dprc_prg_sel_configure(struct dprc *dprc, u32 resource, bool enable)
 {
-	struct imx_sc_ipc *ipc_handle;
-
-	imx_scu_get_handle(&ipc_handle);
-	imx_sc_misc_set_control(ipc_handle, resource, IMX_SC_C_SEL0, enable);
+	imx_sc_misc_set_control(dprc->ipc_handle,
+				resource, IMX_SC_C_SEL0, enable);
 }
 
 void dprc_configure(struct dprc *dprc, unsigned int stream_id,
@@ -769,6 +767,10 @@ static int dprc_probe(struct platform_device *pdev)
 	dprc = devm_kzalloc(dev, sizeof(*dprc), GFP_KERNEL);
 	if (!dprc)
 		return -ENOMEM;
+
+	ret = imx_scu_get_handle(&dprc->ipc_handle);
+	if (ret)
+		return ret;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	dprc->base = devm_ioremap_resource(&pdev->dev, res);
