@@ -214,6 +214,45 @@ struct device *jesd204_dev_to_device(struct jesd204_dev *jdev)
 }
 EXPORT_SYMBOL_GPL(jesd204_dev_to_device);
 
+static void __jesd204_printk(const char *level, const struct jesd204_dev *jdev,
+			     struct va_format *vaf)
+{
+	const struct device *dev;
+
+	if (!jdev) {
+		printk("%sjesd204: (NULL jesd204 device *): %pV", level, vaf);
+		return;
+	}
+
+	if (!jdev->dev.parent) {
+		printk("%sjesd204: %pOF: %pV", level, jdev->np, vaf);
+		return;
+	}
+
+	dev = &jdev->dev;
+	dev_printk_emit(level[1] - '0', dev, "jesd204: %pOF,%s,parent=%s: %pV",
+			jdev->np,
+			dev_name(dev),
+			dev_name(dev->parent),
+			vaf);
+}
+
+void jesd204_printk(const char *level, const struct jesd204_dev *jdev,
+		    const char *fmt, ...)
+{
+	struct va_format vaf;
+	va_list args;
+
+	va_start(args, fmt);
+
+	vaf.fmt = fmt;
+	vaf.va = &args;
+
+	__jesd204_printk(level, jdev, &vaf);
+
+	va_end(args);
+}
+
 static int jesd204_dev_alloc_links(struct jesd204_dev_top *jdev_top)
 {
 	struct jesd204_link_opaque *links;
