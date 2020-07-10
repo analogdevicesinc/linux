@@ -764,10 +764,11 @@ static int jesd204_dev_initialize_cb(struct jesd204_dev *jdev,
 		return JESD204_STATE_CHANGE_DONE;
 
 	ret = jesd204_con_link_idx_in_jdev_top(con, fsm_data->jdev_top);
-	if (ret >= 0) {
-		con->jdev_top = fsm_data->jdev_top;
-		con->link_idx = ret;
-	}
+	if (ret < 0)
+		return JESD204_STATE_CHANGE_DEFER;
+
+	con->jdev_top = fsm_data->jdev_top;
+	con->link_idx = ret;
 
 	return JESD204_STATE_CHANGE_DONE;
 }
