@@ -418,6 +418,13 @@ static int jesd204_con_validate_cur_state(struct jesd204_dev *jdev,
 	if (c->state == fsm_data->nxt_state)
 		return 0;
 
+	if (c->link_idx == JESD204_LINKS_ALL) {
+		if (!fsm_data->jdev_top->initialized)
+			return 0;
+		dev_err(&jdev->dev, "Uninitialized connection in topology\n");
+		return -EINVAL;
+	}
+
 	if (fsm_data->cur_state != c->state) {
 		ol = &fsm_data->jdev_top->active_links[c->link_idx];
 		dev_warn(&jdev->dev,
@@ -474,17 +481,9 @@ static int jesd204_fsm_handle_con(struct jesd204_dev *jdev,
 	/* if this transitioned already, we're done */
 	if (con->state == fsm_data->nxt_state)
 		return 0;
-
 	ret = jesd204_con_validate_cur_state(jdev, con, fsm_data);
 	if (ret)
 		return ret;
-
-	jdev_top = fsm_data->jdev_top;
-
-	if (jdev_top->initialized && con->link_idx == JESD204_LINKS_ALL) {
-		dev_err(&jdev->dev, "Uninitialized connection in topology\n");
-		return -EINVAL;
-	}
 
 	if (fsm_data->link_idx != JESD204_LINKS_ALL &&
 	    fsm_data->link_idx != con->link_idx)
@@ -493,6 +492,8 @@ static int jesd204_fsm_handle_con(struct jesd204_dev *jdev,
 	if (con->link_idx != JESD204_LINKS_ALL)
 		return jesd204_fsm_handle_con_cb(jdev, con, con->link_idx,
 						 fsm_data);
+
+	jdev_top = fsm_data->jdev_top;
 
 	if (jdev_top->initialized)
 		return 0;
