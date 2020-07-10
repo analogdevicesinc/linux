@@ -7,6 +7,8 @@
 #ifndef _JESD204_H_
 #define _JESD204_H_
 
+#include <linux/kern_levels.h>
+
 struct jesd204_dev;
 
 enum jesd204_subclass {
@@ -255,5 +257,34 @@ static inline int jesd204_link_get_device_clock(struct jesd204_link *lnk,
 }
 
 #endif /* #ifdef CONFIG_JESD204 */
+
+#if defined(CONFIG_PRINTK) && defined(CONFIG_JESD204)
+
+__printf(3, 4)
+void jesd204_printk(const char *level, const struct jesd204_dev *jdev,
+		    const char *fmt, ...);
+#else
+
+static inline __printf(3, 4)
+void jesd204_printk(const char *level, const struct jesd204_dev *jdev,
+		    const char *fmt, ...)
+{}
+
+#endif /* #ifdef CONFIG_PRINTK */
+
+#define jesd204_emerg(dev, fmt, ...)					\
+	jesd204_printk(KERN_EMERG, dev, fmt, ##__VA_ARGS__)
+#define jesd204_crit(dev, fmt, ...)					\
+	jesd204_printk(KERN_CRIT, dev, fmt, ##__VA_ARGS__)
+#define jesd204_alert(dev, fmt, ...)					\
+	jesd204_printk(KERN_ALERT, dev, fmt, ##__VA_ARGS__)
+#define jesd204_err(dev, fmt, ...)					\
+	jesd204_printk(KERN_ERR, dev, fmt, ##__VA_ARGS__)
+#define jesd204_warn(dev, fmt, ...)					\
+	jesd204_printk(KERN_WARNING, dev, fmt, ##__VA_ARGS__)
+#define jesd204_notice(dev, fmt, ...)					\
+	jesd204_printk(KERN_NOTICE, dev, fmt, ##__VA_ARGS__)
+#define jesd204_info(dev, fmt, ...)					\
+	jesd204_printk(KERN_INFO, dev, fmt, ##__VA_ARGS__)
 
 #endif
