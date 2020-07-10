@@ -683,6 +683,8 @@ static int __jesd204_fsm(struct jesd204_dev *jdev,
 		goto out_clear_busy;
 
 	ret = jesd204_fsm_propagate_cb(jdev, &data);
+	if (ret)
+		goto out_clear_busy;
 
 	jesd204_fsm_kref_link_put(jdev_top, link_idx);
 
