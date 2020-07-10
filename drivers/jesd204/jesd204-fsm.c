@@ -382,16 +382,11 @@ static void __jesd204_fsm_kref_link_put_get(struct jesd204_dev_top *jdev_top,
 		return;
 	}
 
-	for (link_idx = 0; link_idx < jdev_top->num_links; link_idx++) {
-		kref = &jdev_top->cb_ref;
-		for (link_idx = 0; link_idx < jdev_top->num_links; link_idx++) {
-			if (put)
-				kref_put(kref,
-					 __jesd204_all_links_fsm_done_cb);
-			else
-				kref_get(kref);
-		}
-	}
+	kref = &jdev_top->cb_ref;
+	if (put)
+		kref_put(kref, __jesd204_all_links_fsm_done_cb);
+	else
+		kref_get(kref);
 }
 
 static void jesd204_fsm_kref_link_get(struct jesd204_dev_top *jdev_top,
@@ -526,12 +521,8 @@ static int jesd204_fsm_link_init(struct jesd204_dev_top *jdev_top,
 		return 0;
 	}
 
-	for (link_idx = 0; link_idx < jdev_top->num_links; link_idx++) {
-		kref_init(&jdev_top->cb_ref);
-		for (link_idx = 1; link_idx < jdev_top->num_links; link_idx++)
-			kref_get(&jdev_top->cb_ref);
-		jdev_top->fsm_data = fsm_data;
-	}
+	kref_init(&jdev_top->cb_ref);
+	jdev_top->fsm_data = fsm_data;
 
 	return 0;
 }
