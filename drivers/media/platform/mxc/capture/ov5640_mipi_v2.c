@@ -1667,6 +1667,8 @@ static int ov5640_probe(struct i2c_client *client)
 	struct ov5640 *sensor;
 
 	sensor = devm_kzalloc(dev, sizeof(*sensor), GFP_KERNEL);
+	if (!sensor)
+		return -ENOMEM;
 
 	/* ov5640 pinctrl */
 	pinctrl = devm_pinctrl_get_select_default(dev);
