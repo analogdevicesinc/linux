@@ -1,0 +1,109 @@
+// SPDX-License-Identifier: GPL-2.0+
+// Copyright NXP 2020
+
+#include "imx8mp-evk.dts"
+
+/ {
+	reserved-memory {
+		/delete-node/ dsp_reserved;
+		/delete-node/ dsp_reserved_heap;
+		/delete-node/ dsp_vdev0vring0;
+		/delete-node/ dsp_vdev0vring1;
+		/delete-node/ dsp_vdev0buffer;
+
+		dsp_reserved: dsp@92400000 {
+			reg = <0 0x92400000 0 0x2000000>;
+			no-map;
+		};
+	};
+
+	sound-wm8960 {
+		status = "disabled";
+	};
+
+	sound-micfil {
+		status = "disabled";
+	};
+
+	sof-sound-wm8960 {
+		compatible = "simple-audio-card";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_hpdet>;
+		label = "wm8960-audio";
+		simple-audio-card,bitclock-master = <&sndcodec>;
+		simple-audio-card,frame-master = <&sndcodec>;
+		simple-audio-card,hp-det-gpio = <&gpio4 28 0>;
+		simple-audio-card,widgets =
+			"Headphone", "Headphones",
+			"Speaker", "Ext Spk",
+			"Microphone", "Mic Jack";
+		simple-audio-card,routing =
+			"Headphones", "HP_L",
+			"Headphones", "HP_R",
+			"Ext Spk", "SPK_LP",
+			"Ext Spk", "SPK_LN",
+			"Ext Spk", "SPK_RP",
+			"Ext Spk", "SPK_RN",
+			"LINPUT1", "Mic Jack",
+			"LINPUT3", "Mic Jack",
+			"Mic Jack", "MICB";
+		simple-audio-card,dai-link {
+			format = "i2s";
+			cpu {
+				sound-dai = <&dsp 1>;
+			};
+			sndcodec: codec {
+				sound-dai = <&codec>;
+			};
+		};
+	};
+};
+
+&dsp {
+	#sound-dai-cells = <1>;
+	compatible = "fsl,imx8mp-dsp";
+	reg = <0x0 0x3B6E8000 0x0 0x88000>;
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_sai3>;
+
+	power-domains = <&audiomix_pd>;
+
+	assigned-clocks = <&clk IMX8MP_CLK_SAI3>;
+	assigned-clock-parents = <&clk IMX8MP_AUDIO_PLL1_OUT>;
+	assigned-clock-rates = <12288000>;
+	clocks = <&audio_blk_ctrl IMX8MP_CLK_AUDIOMIX_OCRAMA_IPG>,
+		<&audio_blk_ctrl IMX8MP_CLK_AUDIOMIX_DSP_ROOT>,
+		<&audio_blk_ctrl IMX8MP_CLK_AUDIOMIX_DSPDBG_ROOT>,
+		<&audio_blk_ctrl IMX8MP_CLK_AUDIOMIX_SAI3_IPG>, <&clk IMX8MP_CLK_DUMMY>,
+		<&audio_blk_ctrl IMX8MP_CLK_AUDIOMIX_SAI3_MCLK1>, <&clk IMX8MP_CLK_DUMMY>,
+		<&clk IMX8MP_CLK_DUMMY>,
+		<&audio_blk_ctrl IMX8MP_CLK_AUDIOMIX_SDMA3_ROOT>;
+
+	clock-names = "ipg", "ocram", "core",
+		"sai3_bus", "sai3_mclk0", "sai3_mclk1", "sai3_mclk2", "sai3_mclk3",
+		"sdma3_root";
+
+	mbox-names = "txdb0", "txdb1", "rxdb0", "rxdb1";
+	mboxes = <&mu2 2 0>, <&mu2 2 1>,
+		 <&mu2 3 0>, <&mu2 3 1>;
+	memory-region = <&dsp_reserved>;
+	/delete-property/ firmware-name;
+
+	tplg-name = "sof-imx8mp-wm8960.tplg";
+	machine-drv-name = "asoc-simple-card";
+	status = "okay";
+};
+
+&wm8960 {
+	#sound-dai-cells = <0>;
+	status = "okay";
+};
+
+&sai3 {
+	status = "disabled";
+};
+
+&sdma3 {
+	status = "disabled";
+};
