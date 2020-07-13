@@ -30,7 +30,6 @@ typedef int (*jesd204_fsm_done_cb)(struct jesd204_dev *jdev,
  * @cb_data		callback data for @fsm_change_cb
  * @cur_state		current state from which this FSM is transitioning
  * @nxt_state		next state to which this FSM is transitioning
- * @inputs		true if this is running on the inputs
  */
 struct jesd204_fsm_data {
 	struct jesd204_dev_top		*jdev_top;
@@ -40,7 +39,6 @@ struct jesd204_fsm_data {
 	void				*cb_data;
 	enum jesd204_dev_state		cur_state;
 	enum jesd204_dev_state		nxt_state;
-	bool				inputs;
 };
 
 static int jesd204_fsm_handle_con_cb(struct jesd204_dev *jdev,
@@ -264,12 +262,10 @@ static int jesd204_fsm_propagate_cb(struct jesd204_dev *jdev,
 {
 	int ret;
 
-	data->inputs = true;
 	ret = jesd204_fsm_propagate_cb_inputs(jdev, data);
 	if (ret)
 		goto out;
 
-	data->inputs = false;
 	ret = jesd204_fsm_propagate_cb_outputs(jdev, data);
 	if (ret)
 		goto out;
