@@ -242,11 +242,6 @@ static int jesd204_fsm_propagate_cb_top_level(struct jesd204_dev *jdev_it,
 						 fsm_data->link_idx,
 						 fsm_data);
 
-	/*
-	 * FIXME: think of a better way to iterate the top-level device callback here.
-	 * for now this works; and is slightly cleaner than before
-	 */
-	jdev_it = &fsm_data->jdev_top->jdev;
 	for (i = 0; i < fsm_data->jdev_top->num_links; i++) {
 		ret = jesd204_fsm_handle_con_cb(jdev_it, NULL, i, fsm_data);
 		if (ret)
@@ -671,7 +666,13 @@ static int __jesd204_fsm(struct jesd204_dev *jdev,
 	if (ret)
 		goto out_clear_busy;
 
-	ret = jesd204_fsm_propagate_cb(jdev, &data);
+	/**
+	 * Always propagate from the top-level device, otherwise if
+	 * if we propagate from a device that is somewhere in a topology
+	 * and belongs to a certain JESD204 link, we may miss certain
+	 * devices when propagating changes for all JESD204 links
+	 */
+	ret = jesd204_fsm_propagate_cb(&jdev_top->jdev, &data);
 	if (ret)
 		goto out_clear_busy;
 
