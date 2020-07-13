@@ -29,6 +29,8 @@ static LIST_HEAD(jesd204_topologies);
 static unsigned int jesd204_device_count;
 static unsigned int jesd204_topologies_count;
 
+static unsigned int jesd204_con_id_counter;
+
 static void jesd204_dev_unregister(struct jesd204_dev *jdev);
 
 int jesd204_device_count_get()
@@ -385,6 +387,7 @@ static int jesd204_dev_create_con(struct jesd204_dev *jdev,
 			return -ENOMEM;
 		}
 
+		con->id = jesd204_con_id_counter++;
 		con->topo_id = args->args[0];
 		con->link_id = args->args[1];
 		con->link_idx = JESD204_LINKS_ALL;
@@ -395,6 +398,9 @@ static int jesd204_dev_create_con(struct jesd204_dev *jdev,
 		list_add(&con->entry, &jdev_in->outputs);
 		jdev_in->outputs_count++;
 	}
+
+	pr_info("created con: id=%u, topo=%u, link=%u, %pOF <-> %pOF\n",
+		con->id, con->topo_id, con->link_id, con->owner->np, jdev->np);
 
 	e->jdev = jdev;
 	list_add(&e->entry, &con->dests);

@@ -47,6 +47,7 @@ struct jesd204_dev_list_entry {
 
 /**
  * struct jesd204_dev_con_out - Output connection of a JESD204 device
+ * @id			unique ID for this connection
  * @entry		list entry for a device to keep a list of connections
  * @owner		pointer to JESD204 device to which this connection
  *			belongs to
@@ -66,6 +67,7 @@ struct jesd204_dev_list_entry {
  * @state		current state of this connection
  */
 struct jesd204_dev_con_out {
+	unsigned int			id;
 	struct list_head		entry;
 	struct jesd204_dev		*owner;
 	struct jesd204_dev_top		*jdev_top;
