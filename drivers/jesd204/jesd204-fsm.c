@@ -423,8 +423,9 @@ static int jesd204_con_validate_cur_state(struct jesd204_dev *jdev,
 	if (fsm_data->cur_state != c->state) {
 		ol = &fsm_data->jdev_top->active_links[c->link_idx];
 		dev_warn(&jdev->dev,
-			 "JESD204 link[%d] invalid connection state: %s, exp: %s, nxt: %s\n",
+			 "JESD204 link[%d] invalid con[%u] state: %s, exp: %s, nxt: %s\n",
 			 c->link_idx,
+			 c->id,
 			 jesd204_state_str(c->state),
 			 jesd204_state_str(fsm_data->cur_state),
 			 jesd204_state_str(fsm_data->nxt_state));
