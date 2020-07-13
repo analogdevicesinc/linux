@@ -450,7 +450,7 @@ static int jesd204_fsm_handle_con_cb(struct jesd204_dev *jdev,
 		dev_err(&jdev->dev,
 			"JESD204 link[%u] got error from cb: %d\n",
 			link_idx, ret);
-		return ret;
+		return jesd204_dev_set_error(jdev, NULL, con, ret);
 	}
 
 	if (ret != JESD204_STATE_CHANGE_DONE)
