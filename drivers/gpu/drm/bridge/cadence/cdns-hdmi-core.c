@@ -359,6 +359,7 @@ static int cdns_hdmi_bridge_attach(struct drm_bridge *bridge,
 
 static enum drm_mode_status
 cdns_hdmi_bridge_mode_valid(struct drm_bridge *bridge,
+			    const struct drm_display_info *info,
 			  const struct drm_display_mode *mode)
 {
 	struct cdns_mhdp_device *mhdp = bridge->driver_private;

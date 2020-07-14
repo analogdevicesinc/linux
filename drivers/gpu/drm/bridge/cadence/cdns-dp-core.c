@@ -256,6 +256,7 @@ static int cdns_dp_bridge_attach(struct drm_bridge *bridge,
 
 static enum drm_mode_status
 cdns_dp_bridge_mode_valid(struct drm_bridge *bridge,
+			const struct drm_display_info *info,
 			  const struct drm_display_mode *mode)
 {
 	enum drm_mode_status mode_status = MODE_OK;
