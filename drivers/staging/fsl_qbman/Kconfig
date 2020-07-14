@@ -11,7 +11,7 @@ menu "Freescale Datapath QMan/BMan options"
 config FSL_DPA_CHECKING
 	bool "additional driver checking"
 	default n
-	---help---
+	help
 	  Compiles in additional checks to sanity-check the drivers and any
 	  use of it by other code. Not recommended for performance.
 
@@ -44,7 +44,7 @@ if FSL_SDK_BMAN
 config FSL_BMAN_CONFIG
 	bool "BMan device management"
 	default y
-	---help---
+	help
 	  If this linux image is running natively, you need this option. If this
 	  linux image is running as a guest OS under the hypervisor, only one
 	  guest OS ("the control plane") needs this option.
@@ -52,14 +52,14 @@ config FSL_BMAN_CONFIG
 config FSL_BMAN_TEST
 	tristate "BMan self-tests"
 	default n
-	---help---
+	help
 	  This option compiles self-test code for BMan.
 
 config FSL_BMAN_TEST_HIGH
 	bool "BMan high-level self-test"
 	depends on FSL_BMAN_TEST
 	default y
-	---help---
+	help
 	  This requires the presence of cpu-affine portals, and performs
 	  high-level API testing with them (whichever portal(s) are affine to
 	  the cpu(s) the test executes on).
@@ -68,7 +68,7 @@ config FSL_BMAN_TEST_THRESH
 	bool "BMan threshold test"
 	depends on FSL_BMAN_TEST
 	default y
-	---help---
+	help
 	  Multi-threaded (SMP) test of BMan pool depletion. A pool is seeded
 	  before multiple threads (one per cpu) create pool objects to track
 	  depletion state changes. The pool is then drained to empty by a
@@ -79,7 +79,7 @@ config FSL_BMAN_DEBUGFS
 	tristate "BMan debugfs interface"
 	depends on DEBUG_FS
 	default y
-	---help---
+	help
 	  This option compiles debugfs code for BMan.
 
 endif # FSL_SDK_BMAN
@@ -97,7 +97,7 @@ config FSL_QMAN_POLL_LIMIT
 config FSL_QMAN_CONFIG
 	bool "QMan device management"
 	default y
-	---help---
+	help
 	  If this linux image is running natively, you need this option. If this
 	  linux image is running as a guest OS under the hypervisor, only one
 	  guest OS ("the control plane") needs this option.
@@ -105,14 +105,14 @@ config FSL_QMAN_CONFIG
 config FSL_QMAN_TEST
 	tristate "QMan self-tests"
 	default n
-	---help---
+	help
 	  This option compiles self-test code for QMan.
 
 config FSL_QMAN_TEST_STASH_POTATO
 	bool "QMan 'hot potato' data-stashing self-test"
 	depends on FSL_QMAN_TEST
 	default y
-	---help---
+	help
 	  This performs a "hot potato" style test enqueuing/dequeuing a frame
 	  across a series of FQs scheduled to different portals (and cpus), with
 	  DQRR, data and context stashing always on.
@@ -121,7 +121,7 @@ config FSL_QMAN_TEST_HIGH
 	bool "QMan high-level self-test"
 	depends on FSL_QMAN_TEST
 	default y
-	---help---
+	help
 	  This requires the presence of cpu-affine portals, and performs
 	  high-level API testing with them (whichever portal(s) are affine to
 	  the cpu(s) the test executes on).
@@ -130,14 +130,14 @@ config FSL_QMAN_DEBUGFS
 	tristate "QMan debugfs interface"
 	depends on DEBUG_FS
 	default y
-	---help---
+	help
 	  This option compiles debugfs code for QMan.
 
 # H/w settings that can be hard-coded for now.
 config FSL_QMAN_FQD_SZ
 	int "size of Frame Queue Descriptor region"
 	default 10
-	---help---
+	help
 	  This is the size of the FQD region defined as: PAGE_SIZE * (2^value)
 	  ex: 10 => PAGE_SIZE * (2^10)
 	  Note: Default device-trees now require minimum Kconfig setting of 10.
@@ -145,7 +145,7 @@ config FSL_QMAN_FQD_SZ
 config FSL_QMAN_PFDR_SZ
 	int "size of the PFDR pool"
 	default 13
-	---help---
+	help
 	  This is the size of the PFDR pool defined as: PAGE_SIZE * (2^value)
 	  ex: 13 => PAGE_SIZE * (2^13)
 
@@ -187,7 +187,7 @@ config FSL_QMAN_FQ_LOOKUP
 config QMAN_CEETM_UPDATE_PERIOD
 	int "Token update period for shaping, in nanoseconds"
 	default 1000
-	 ---help---
+	help
 	Traffic shaping works by performing token calculations (using
 	credits) on shaper instances periodically. This update period
 	sets the granularity for how often those token rate credit
@@ -201,7 +201,7 @@ config QMAN_CEETM_UPDATE_PERIOD
 config FSL_QMAN_INIT_TIMEOUT
 	int "timeout for qman init stage, in seconds"
 	default 10
-	---help---
+	help
 	The timeout setting to quit the initialization loop for non-control
 	partition in case the control partition fails to boot-up.
 
@@ -211,7 +211,7 @@ config FSL_USDPAA
         bool "Freescale USDPAA process driver"
         depends on FSL_SDK_DPA
         default y
-	---help---
+	help
         This driver provides user-space access to kernel-managed
         resource interfaces for USDPAA applications, on the assumption
         that each process will open this device once. Specifically, this
