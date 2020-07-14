@@ -754,6 +754,7 @@ static int adm1266_write_mem_cell(struct adm1266_data *data,
 {
 	unsigned int cell_end = mem_cell->offset + mem_cell->bytes;
 	unsigned int cell_start = mem_cell->offset;
+	int (*program_func)(struct adm1266_data *data);
 	bool fw_writen;
 
 	switch (mem_cell->offset) {
@@ -764,24 +765,27 @@ static int adm1266_write_mem_cell(struct adm1266_data *data,
 			return -EINVAL;
 		}
 
-		if (offset < cell_start || offset + bytes >= cell_end)
-			return -EINVAL;
-
-		if (offset == ADM1266_FIRMWARE_OFFSET)
-			memset(data->dev_mem, 0, ADM1266_FIRMWARE_SIZE);
-
-		memcpy(data->dev_mem + offset, val, bytes);
-
-		fw_writen = adm1266_check_ending(data, ADM1266_FIRMWARE_OFFSET,
-						 ADM1266_FIRMWARE_SIZE);
-
-		if (fw_writen)
-			return adm1266_program_firmware(data);
-
-		return 0;
+		program_func = &adm1266_program_firmware;
+		break;
 	default:
 		return -EINVAL;
 	}
+
+	if (offset < cell_start || offset + bytes >= cell_end)
+		return -EINVAL;
+
+	if (offset == mem_cell->offset)
+		memset(data->dev_mem + mem_cell->offset, 0, mem_cell->bytes);
+
+	memcpy(data->dev_mem + offset, val, bytes);
+
+	fw_writen = adm1266_check_ending(data, mem_cell->offset,
+					 mem_cell->bytes);
+
+	if (fw_writen)
+		return program_func(data);
+
+	return 0;
 }
 
 static int adm1266_nvmem_write(void *priv, unsigned int offset, void *val,
