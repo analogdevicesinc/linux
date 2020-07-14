@@ -157,7 +157,7 @@ static void lcdifv3_crtc_atomic_enable(struct drm_crtc *crtc,
 	else
 		vm.flags |= DISPLAY_FLAGS_DE_LOW;
 
-	if (imx_crtc_state->bus_flags & DRM_BUS_FLAG_PIXDATA_POSEDGE)
+	if (imx_crtc_state->bus_flags & DRM_BUS_FLAG_PIXDATA_SAMPLE_NEGEDGE)
 		vm.flags |= DISPLAY_FLAGS_PIXDATA_POSEDGE;
 	else
 		vm.flags |= DISPLAY_FLAGS_PIXDATA_NEGEDGE;
