@@ -6,6 +6,11 @@
 /delete-node/ &cm40_i2c;
 /delete-node/ &i2c1;
 
+/ {
+	aliases {
+		i2c1 = &i2c_rpbus_1;
+	};
+};
 
 &i2c_rpbus_1 {
 	#address-cells = <1>;
