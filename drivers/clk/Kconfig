@@ -218,7 +218,6 @@ config COMMON_CLK_OXNAS
 
 config COMMON_CLK_ALTERA_A10_FPLL
 	tristate "Clock driver for Altera Arria10 FPLL"
-	depends on ARCH_SOCFPGA || NIOS2
 	---help---
 	  Support for the Altera Fractional PLL found in the reconfiguable logic
 	  of Arria10 and Arria10 SoC FPGAs.

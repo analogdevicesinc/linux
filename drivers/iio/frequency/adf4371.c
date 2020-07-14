@@ -1069,7 +1069,13 @@ static int adf4371_probe(struct spi_device *spi)
 	if (ret < 0)
 		return ret;
 
-	return devm_iio_device_register(&spi->dev, indio_dev);
+	ret = devm_iio_device_register(&spi->dev, indio_dev);
+	if (ret < 0)
+		return ret;
+
+	dev_info(&spi->dev, "%s Probed\n", indio_dev->name);
+
+	return 0;
 }
 
 static const struct spi_device_id adf4371_id_table[] = {

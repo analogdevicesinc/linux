@@ -177,6 +177,9 @@
 #define LTC6952_OUT_DIV_MIN	1
 #define LTC6952_OUT_DIV_MAX	1048576
 
+#define LTC6952_CP_CURRENT_MIN	423
+#define LTC6952_CP_CURRENT_MAX	11200
+
 #define LTC6952_CH_OFFSET(ch)	(0x04 * (ch))
 
 struct ltc6952_output {
@@ -202,10 +205,8 @@ struct ltc6952_state {
 	struct mutex			lock;
 	u32				ref_freq;
 	u32				vco_freq;
-	u32				pfd_freq;
-	bool				sysref_request;
-	unsigned int			ref_divider;
-	unsigned int			vco_divider;
+	bool				follower;
+	u32				cp_current;
 	const char			*clk_out_names[LTC6952_NUM_CHAN];
 	unsigned int			num_channels;
 	struct ltc6952_chan_spec	*channels;
@@ -593,7 +594,23 @@ static int ltc6952_setup(struct iio_dev *indio_dev)
 	unsigned long pfd_freq;
 	unsigned long n, r;
 	unsigned int i, tmp;
+	u32 cp_current;
 	int ret;
+
+	mutex_lock(&st->lock);
+	/* Resets all registers to default values */
+	ret = ltc6952_write_mask(indio_dev, LTC6952_REG(0x02),
+				 LTC6952_POR_MSK, LTC6952_POR(1));
+	if (ret < 0)
+		goto err_unlock;
+
+	if (st->follower) {
+		ret = ltc6952_write_mask(indio_dev, LTC6952_REG(0x02),
+					LTC6952_PDPLL_MSK, LTC6952_PDPLL(1));
+		if (ret < 0)
+			goto err_unlock;
+		goto follower;
+	}
 
 	vco_freq = st->vco_freq / 1000;
 	ref_freq = st->ref_freq / 1000;
@@ -612,13 +629,6 @@ static int ltc6952_setup(struct iio_dev *indio_dev)
 		r *= 2;
 	}
 
-	mutex_lock(&st->lock);
-	/* Resets all registers to default values */
-	ret = ltc6952_write_mask(indio_dev, LTC6952_REG(0x02),
-				 LTC6952_POR_MSK, LTC6952_POR(1));
-	if (ret < 0)
-		goto err_unlock;
-
 	/* Program the dividers */
 	ret |= ltc6952_write_mask(indio_dev, LTC6952_REG(0x06),
 				  LTC6952_RD_HIGH_MSK,
@@ -636,12 +646,19 @@ static int ltc6952_setup(struct iio_dev *indio_dev)
 	if (ret < 0)
 		goto err_unlock;
 
-	/* Disable CP Hi-Z */
-	ret = ltc6952_write_mask(indio_dev, LTC6952_REG(0x0A), LTC6952_CPRST_MSK,
-				 LTC6952_CPRST(0x0));
+	/* Disable CP Hi-Z and set the CP current */
+	cp_current = st->cp_current / LTC6952_CP_CURRENT_MIN;
+	ret = ltc6952_write_mask(indio_dev, LTC6952_REG(0x0A),
+				 LTC6952_CPRST_MSK | LTC6952_CP_MSK,
+				 LTC6952_CPRST(0x0) | LTC6952_CP(cp_current));
 	if (ret < 0)
 		goto err_unlock;
 
+	ret = ltc6952_write(indio_dev, LTC6952_REG(0x0B), 0x08);
+	if (ret < 0)
+		goto err_unlock;
+
+follower:
 	/* Program the output channels */
 	for (i = 0; i < st->num_channels; i++) {
 		chan = &st->channels[i];
@@ -743,6 +760,16 @@ static int ltc6952_parse_dt(struct device *dev,
 	if (ret < 0)
 		return ret;
 
+	st->follower = of_property_read_bool(np, "adi,follower-mode-enable");
+
+	ret = of_property_read_u32(np, "adi,charge-pump-microamp",
+				   &st->cp_current);
+	if (ret < 0)
+		st->cp_current = LTC6952_CP_CURRENT_MAX;
+	else
+		st->cp_current = clamp_t(u32, st->cp_current,
+			LTC6952_CP_CURRENT_MIN, LTC6952_CP_CURRENT_MAX);
+
 	ret = of_property_read_string_array(np, "clock-output-names",
 			st->clk_out_names, ARRAY_SIZE(st->clk_out_names));
 	if (ret < 0)
@@ -827,7 +854,7 @@ static int ltc6952_probe(struct spi_device *spi)
 		return ret;
 
 	indio_dev->dev.parent = &spi->dev;
-	indio_dev->name = spi_get_device_id(spi)->name;
+	indio_dev->name = spi->dev.of_node->name;
 	indio_dev->info = &ltc6952_iio_info;
 	indio_dev->modes = INDIO_DIRECT_MODE;
 	indio_dev->channels = st->iio_channels;
