@@ -380,8 +380,7 @@ __handle_sync_with_master() {
 build_sync_branches_with_master() {
 	GIT_FETCH_DEPTH=50
 	BRANCHES="xcomm_zynq:fast-forward adi-4.19.0:cherry-pick"
-	BRANCHES="$BRANCHES rpi-4.19.y:cherry-pick altera_4.14:cherry-pick"
-	BRANCHES="$BRANCHES adi-iio:cherry-pick"
+	BRANCHES="$BRANCHES rpi-4.19.y:cherry-pick"
 
 	for branch in $BRANCHES ; do
 		local dst_branch="$(echo $branch | cut -d: -f1)"
