@@ -146,7 +146,7 @@ static int imx_sec_dsim_encoder_helper_atomic_check(struct drm_encoder *encoder,
 	 * and in the dsim spec, there is no explict words
 	 * to illustrate the dotclock polarity requirement.
 	 */
-	imx_crtc_state->bus_flags |= DRM_BUS_FLAG_PIXDATA_NEGEDGE;
+	imx_crtc_state->bus_flags |= DRM_BUS_FLAG_PIXDATA_SAMPLE_POSEDGE,
 
 	/* set the bus format for CRTC output which should be
 	 * the same as the bus format between dsim and connector,
