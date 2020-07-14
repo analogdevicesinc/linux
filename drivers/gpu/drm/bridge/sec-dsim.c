@@ -1327,7 +1327,7 @@ int sec_mipi_dsim_check_pll_out(void *driver_private,
 
 	if (dsim->mode_flags & MIPI_DSI_MODE_VIDEO_SYNC_PULSE) {
 		hpar = sec_mipi_dsim_get_hblank_par(mode->name,
-						    mode->vrefresh,
+						    drm_mode_vrefresh(mode),
 						    dsim->lanes);
 		dsim->hpar = hpar;
 		if (!hpar)
@@ -1512,7 +1512,7 @@ static bool sec_mipi_dsim_bridge_mode_fixup(struct drm_bridge *bridge,
 	 * happens after that.
 	 */
 	if (!strcmp(mode->name, "1280x720") &&
-	    mode->vrefresh == 60	    &&
+	    drm_mode_vrefresh(mode) == 60	    &&
 	    dsim->lanes == 4		    &&
 	    dsim->mode_flags & MIPI_DSI_MODE_VIDEO_SYNC_PULSE) {
 		adjusted_mode->hsync_start += 2;
