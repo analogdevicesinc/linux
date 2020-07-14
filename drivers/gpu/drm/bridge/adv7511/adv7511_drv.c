@@ -695,7 +695,7 @@ static int adv7511_get_modes(struct adv7511 *adv7511,
 	drm_edid_free(drm_edid);
 
 	connector->display_info.bus_flags = DRM_BUS_FLAG_DE_LOW |
-					    DRM_BUS_FLAG_PIXDATA_NEGEDGE;
+					    DRM_BUS_FLAG_PIXDATA_SAMPLE_POSEDGE;
 
 	ret = drm_display_info_set_bus_formats(&connector->display_info,
 					       &bus_format, 1);
