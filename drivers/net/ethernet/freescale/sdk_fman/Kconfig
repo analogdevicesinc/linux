@@ -4,7 +4,7 @@ menuconfig FSL_SDK_FMAN
 	bool "Freescale Frame Manager (datapath) support - SDK driver"
 	depends on (FSL_SOC || ARM64 || ARM) && FSL_SDK_BMAN && FSL_SDK_QMAN && !FSL_FMAN
 	default y
-	---help---
+	help
 		If unsure, say Y.
 
 if FSL_SDK_FMAN
@@ -13,7 +13,7 @@ config FSL_SDK_FMAN_TEST
 	bool "FMan test module"
 	default n
 	select FSL_DPAA_HOOKS
-	---help---
+	help
 		This option compiles test code for FMan.
 
 menu "FMAN Processor support"
@@ -24,7 +24,7 @@ choice
 config FMAN_ARM
 	bool "LS1043"
 	depends on ARM64 || ARM
-	---help---
+	help
 	  Choose "LS1043" for the ARM platforms:
 	  LS1043
 
@@ -36,13 +36,13 @@ config FMAN_P1023
 
 config FMAN_V3H
 	bool "FmanV3H"
-	---help---
+	help
 	  Choose "FmanV3H" for Fman rev3H:
 	  B4860, T4240, T4160, etc
 
 config FMAN_V3L
 	bool "FmanV3L"
-	---help---
+	help
 	  Choose "FmanV3L" for Fman rev3L:
 	  T1040, T1042, T1020, T1022, T1023, T1024, etc
 
@@ -61,7 +61,7 @@ config FSL_SDK_FMAN_RTC_API
 config FMAN_MIB_CNT_OVF_IRQ_EN
 	bool "Enable the dTSEC MIB counters overflow interrupt"
 	default n
-	---help---
+	help
 		Enable the dTSEC MIB counters overflow interrupt to get
 		accurate MIB counters values. Enabled it compensates
 		for the counters overflow but reduces performance and
