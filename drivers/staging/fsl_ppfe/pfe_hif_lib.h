@@ -214,7 +214,7 @@ static inline int hif_lib_tx_pending(struct hif_client_s *client, unsigned int
 #define hif_lib_tx_credit_use(pfe, id, qno, credit)			\
 	({ typeof(pfe) pfe_ = pfe;					\
 		typeof(id) id_ = id;					\
-		typeof(qno) qno_ = qno_;				\
+		typeof(qno) qno_ = qno;					\
 		typeof(credit) credit_ = credit;			\
 		do {							\
 			if (tx_qos) {					\
