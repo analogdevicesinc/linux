@@ -138,6 +138,8 @@ static void send_dummy_pkt_to_hif(void)
 				STATUS_TCP_CHECKSUM_CORRECT |
 				STATUS_UNICAST_HASH_MATCH |
 				STATUS_CUMULATIVE_ARC_HIT));
+	local_hdr.status2 = 0;
+
 	copy_to_lmem((u32 *)lmem_virt_addr, (u32 *)&local_hdr,
 		     sizeof(local_hdr));
 
