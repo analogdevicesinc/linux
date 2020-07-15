@@ -26,6 +26,12 @@
 		interrupts = <3 IRQ_TYPE_LEVEL_LOW>;
 		status = "okay";
 
+		port {
+			typec_dr_sw: endpoint {
+				remote-endpoint = <&usb3_drd_sw>;
+			};
+		};
+
 		usb_con1: connector {
 			compatible = "usb-c-connector";
 			label = "USB-C";

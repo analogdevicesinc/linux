@@ -834,6 +834,12 @@
 		interrupts = <3 IRQ_TYPE_LEVEL_LOW>;
 		status = "okay";
 
+		port {
+			typec_dr_sw: endpoint {
+				remote-endpoint = <&usb3_drd_sw>;
+			};
+		};
+
 		usb_con1: connector {
 			compatible = "usb-c-connector";
 			label = "USB-C";
@@ -996,14 +1002,24 @@
 	status = "okay";
 };
 
-&usb3phynop1 {
+&usb3_phy {
 	status = "okay";
 };
 
 &usbotg3 {
-	dr_mode = "otg";
-	extcon = <&ptn5110>;
 	status = "okay";
+};
+
+&usbotg3_cdns3 {
+	dr_mode = "otg";
+	usb-role-switch;
+	status = "okay";
+
+	port {
+		usb3_drd_sw: endpoint {
+			remote-endpoint = <&typec_dr_sw>;
+		};
+	};
 };
 
 &usdhc1 {

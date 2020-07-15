@@ -231,6 +231,10 @@
 	/delete-property/ iommus;
 };
 
+&usbotg3_cdns3 {
+	/delete-property/ iommus;
+};
+
 &iomuxc {
 	pinctrl_lpuart2: lpuart2grp {
 		fsl,pins = <
