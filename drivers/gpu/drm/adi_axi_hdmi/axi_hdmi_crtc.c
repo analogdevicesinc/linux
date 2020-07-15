@@ -174,7 +174,6 @@ static const struct drm_plane_helper_funcs axi_hdmi_plane_helper_funcs = {
 
 static void axi_hdmi_plane_destroy(struct drm_plane *plane)
 {
-	drm_plane_helper_disable(plane, NULL);
 	drm_plane_cleanup(plane);
 }
 
