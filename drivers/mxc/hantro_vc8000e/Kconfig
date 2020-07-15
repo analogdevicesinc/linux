@@ -9,7 +9,7 @@ menu "MXC HANTRO(Video Processing Unit) VC8000E encoder support"
 config MXC_HANTRO_VC8000E
 	tristate "Support for MXC HANTRO(Video Processing Unit) VC8000E encoder"
 	default y
-	---help---
+	help
 	  VPU codec device.
 
 endmenu

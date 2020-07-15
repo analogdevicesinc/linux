@@ -8,7 +8,7 @@ config MXC_VPU
 	  tristate "Support for MXC VPU(Video Processing Unit)"
 	  depends on (SOC_IMX27 || SOC_IMX5 || SOC_IMX6Q)
 	  default y
-	---help---
+	help
 	  The VPU codec device provides codec function for H.264/MPEG4/H.263,
 	  as well as MPEG2/VC-1/DivX on some platforms.
 
