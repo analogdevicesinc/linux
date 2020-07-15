@@ -53,6 +53,9 @@ static ssize_t display_pe_status(char *buf, int id, u32 dmem_addr, unsigned long
 	u32 debug_indicator;
 	u32 debug[20];
 
+	if (id < CLASS0_ID || id >= MAX_PE)
+		return len;
+
 	*(u32 *)statebuf = pe_dmem_read(id, dmem_addr, 4);
 	dmem_addr += 4;
 
