@@ -5,7 +5,7 @@ config FSL_PPFE
 	tristate "Freescale PPFE Driver"
 	select FSL_GUTS
 	default n
-	---help---
+	help
 	Freescale LS1012A SoC has a Programmable Packet Forwarding Engine.
 	It provides two high performance ethernet interfaces.
 	This driver initializes, programs and controls the PPFE.
@@ -15,7 +15,7 @@ if FSL_PPFE
 
 config FSL_PPFE_UTIL_DISABLED
 	bool "Disable PPFE UTIL Processor Engine"
-	---help---
+	help
 	UTIL PE has to be enabled only if required.
 
 endif # FSL_PPFE
