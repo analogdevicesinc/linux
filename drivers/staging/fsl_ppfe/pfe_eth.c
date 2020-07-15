@@ -1328,6 +1328,7 @@ static int pfe_gemac_init(struct pfe_eth_priv_s *priv)
 
 	netif_info(priv, ifup, priv->ndev, "%s\n", __func__);
 
+	cfg.mode = 0;
 	cfg.speed = SPEED_1000M;
 	cfg.duplex = DUPLEX_FULL;
 
