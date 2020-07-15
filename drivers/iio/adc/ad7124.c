@@ -238,7 +238,8 @@ static int ad7124_set_mode(struct ad_sigma_delta *sd,
 	return ad_sd_write_reg(&st->sd, AD7124_ADC_CONTROL, 2, st->adc_control);
 }
 
-static int ad7124_set_channel(struct ad_sigma_delta *sd, unsigned int channel)
+static int ad7124_set_channel(struct ad_sigma_delta *sd, unsigned int slot,
+			      unsigned int channel)
 {
 	struct ad7124_state *st = container_of(sd, struct ad7124_state, sd);
 	unsigned int val;
