@@ -992,9 +992,9 @@ static int pfe_eth_mdio_init(struct pfe *pfe,
 	priv->mdc_div = mdio_info->mdc_div;
 	if (!priv->mdc_div)
 		priv->mdc_div = 64;
-		dev_info(bus->parent, "%s: mdc_div: %d, phy_mask: %x\n",
-			 __func__, priv->mdc_div, bus->phy_mask);
 
+	dev_info(bus->parent, "%s: mdc_div: %d, phy_mask: %x\n",
+		 __func__, priv->mdc_div, bus->phy_mask);
 	mdio_node = of_get_child_by_name(pfe->dev->of_node, "mdio");
 	if ((mdio_info->id == 0) && mdio_node) {
 		rc = of_mdiobus_register(bus, mdio_node);
