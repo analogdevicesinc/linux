@@ -141,7 +141,10 @@ static int pfe_platform_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, pfe);
 
-	dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(32));
+	if (dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(32))) {
+		pr_err("unable to configure DMA mask.\n");
+		goto err_ddr;
+	}
 
 	if (of_address_to_resource(np, 1, &res)) {
 		rc = -ENOMEM;
