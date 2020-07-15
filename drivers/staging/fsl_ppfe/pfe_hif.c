@@ -732,8 +732,10 @@ void __hif_tx_done_process(struct pfe_hif *hif, int count)
 					 desc_sw->len, DMA_TO_DEVICE);
 		}
 
-		if (desc_sw->client_id > HIF_CLIENTS_MAX)
+		if (desc_sw->client_id > HIF_CLIENTS_MAX) {
 			pr_err("Invalid cl id %d\n", desc_sw->client_id);
+			break;
+		}
 
 		pkts_done[desc_sw->client_id]++;
 
