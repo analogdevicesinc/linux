@@ -548,6 +548,54 @@ static int adm1266_unlock_all_dev(struct adm1266_data *data)
 	return 0;
 }
 
+static int adm1266_lock_device(struct adm1266_data *data)
+{
+	struct i2c_client *client = data->client;
+	u8 passwd_cmd[ADM1266_PASSWD_CMD_LEN];
+	int reg_val;
+	int ret;
+
+	memset(passwd_cmd, 0, ADM1266_PASSWD_CMD_LEN);
+	passwd_cmd[ADM1266_PASSWD_CMD_LEN - 1] = ADM1266_LOCK_DEV;
+
+	ret = pmbus_block_write(client, ADM1266_FW_PASSWORD,
+				ADM1266_PASSWD_CMD_LEN,
+				passwd_cmd);
+	if (ret < 0)
+		return ret;
+
+	msleep(50);
+
+	/* check if device is now locked */
+	reg_val = pmbus_read_byte_data(client, 0, ADM1266_STATUS_MFR);
+	if (reg_val < 0)
+		return reg_val;
+
+	if (!ADM1266_STATUS_PART_LOCKED(reg_val))
+		return -EBUSY;
+
+	return 0;
+}
+
+static void adm1266_lock_all_dev(struct adm1266_data *data)
+{
+	struct adm1266_data_ref *slave_ref;
+	int ret;
+
+	ret = adm1266_lock_device(data);
+	if (ret < 0)
+		dev_warn(&data->client->dev, "Could not lock dev: %s.",
+			 dev_name(&data->client->dev));
+
+	list_for_each_entry(slave_ref, &data->cascaded_devices_list, list) {
+		ret = adm1266_lock_device(slave_ref->data);
+		if (ret < 0)
+			dev_warn(&slave_ref->data->client->dev,
+				 "Could not lock dev: %s.",
+				 dev_name(&slave_ref->data->client->dev));
+	}
+}
+
 static const int write_delays[][3] = {
 	{ADM1266_SYSTEM_CONFIG, 400, 1},
 	{ADM1266_USER_DATA, 100, 1},
@@ -644,7 +692,7 @@ static int adm1266_program_firmware(struct adm1266_data *data)
 
 	ret = adm1266_unlock_all_dev(data);
 	if (ret < 0)
-		return ret;
+		goto lock_all_devices;
 
 	write_data[0] = 0x2;
 	write_data[1] = 0x0;
@@ -652,7 +700,7 @@ static int adm1266_program_firmware(struct adm1266_data *data)
 	ret = adm1266_group_cmd(data, ADM1266_UPDATE_FW, write_data, 3, true);
 	if (ret < 0) {
 		dev_err(&data->client->dev, "Could not set bootloader mode.");
-		return ret;
+		goto lock_all_devices;
 	}
 
 	/* wait for adm1266 to enter bootloader mode */
@@ -662,17 +710,20 @@ static int adm1266_program_firmware(struct adm1266_data *data)
 				ADM1266_FIRMWARE_SIZE);
 	if (ret < 0) {
 		dev_err(&data->client->dev, "Could not write hex.");
-		return ret;
+		goto lock_all_devices;
 	}
 
 	write_data[0] = ADM1266_GO_COMMAND_HARD_RES;
 	ret = adm1266_group_cmd(data, ADM1266_GO_COMMAND, write_data, 2, true);
 	if (ret < 0) {
 		dev_err(&data->client->dev, "Could not reset all devs.");
-		return ret;
+		goto lock_all_devices;
 	}
 
-	return 0;
+lock_all_devices:
+	adm1266_lock_all_dev(data);
+
+	return ret;
 }
 
 /* check if firmware/config write has ended */
