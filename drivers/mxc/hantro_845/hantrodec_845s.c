@@ -323,23 +323,26 @@ static int hantro_power_on_disirq(hantrodec_t *hantrodev)
 static int hantro_new_instance(void)
 {
 	int idx;
+	unsigned long flags;
 
-	spin_lock(&owner_lock);
+	spin_lock_irqsave(&owner_lock, flags);
 	if (instance_mask  == ((1UL << MAX_HANTRODEC_INSTANCE) - 1)) {
-		spin_unlock(&owner_lock);
+		spin_unlock_irqrestore(&owner_lock, flags);
 		return -1;
 	}
 	idx = ffz(instance_mask);
 	set_bit(idx, &instance_mask);
-	spin_unlock(&owner_lock);
+	spin_unlock_irqrestore(&owner_lock, flags);
 	return idx;
 }
 
 static int hantro_free_instance(int idx)
 {
-	spin_lock(&owner_lock);
+	unsigned long flags;
+
+	spin_lock_irqsave(&owner_lock, flags);
 	clear_bit(idx, &instance_mask);
-	spin_unlock(&owner_lock);
+	spin_unlock_irqrestore(&owner_lock, flags);
 
 	return 0;
 }
