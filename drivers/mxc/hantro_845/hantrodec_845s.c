@@ -771,7 +771,8 @@ static long DecFlushRegs(hantrodec_t *dev, struct core_desc *Core)
 			iowrite32(dev->dec_regs[i], dev->hwregs + i*4);
 	}
 
-	dev->hw_active = 1;
+	if (dev->dec_regs[1] & 0x1)
+		dev->hw_active = 1;
 	/* write the status register, which may start the decoder */
 	iowrite32(dev->dec_regs[1], dev->hwregs + 4);
 
