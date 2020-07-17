@@ -266,7 +266,8 @@ static struct ad7192_state *ad_sigma_delta_to_ad7192(struct ad_sigma_delta *sd)
 	return container_of(sd, struct ad7192_state, sd);
 }
 
-static int ad7192_set_channel(struct ad_sigma_delta *sd, unsigned int channel)
+static int ad7192_set_channel(struct ad_sigma_delta *sd, unsigned int slot,
+	unsigned int channel)
 {
 	struct ad7192_state *st = ad_sigma_delta_to_ad7192(sd);
 
