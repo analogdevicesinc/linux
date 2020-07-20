@@ -871,14 +871,16 @@ static ssize_t ad9081_ext_info_read(struct iio_dev *indio_dev,
 				    BIT(chan->channel)) {
 					val = phy->tx_main_ffh_select[i];
 					ret = 0;
-					break;
+					goto out_unlock;
 				}
 			}
 		}
+		/* fall-through */
 	default:
 		ret = -EINVAL;
 	}
 
+out_unlock:
 	mutex_unlock(&indio_dev->mlock);
 
 	if (ret == 0)
