@@ -219,13 +219,13 @@ static int adm1177_remove(struct i2c_client *client)
 }
 
 static const struct i2c_device_id adm1177_ids[] = {
-	{ "adm1177", 0 },
+	{ "adm1177-iio", 0 },
 	{}
 };
 MODULE_DEVICE_TABLE(i2c, adm1177_ids);
 
 static const struct of_device_id adm1177_dt_ids[] = {
-	{ .compatible = "adi,adm1177" },
+	{ .compatible = "adi,adm1177-iio" },
 	{},
 };
 MODULE_DEVICE_TABLE(of, nau7802_dt_ids);
