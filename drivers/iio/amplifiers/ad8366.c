@@ -269,6 +269,14 @@ static int ad8366_probe(struct spi_device *spi)
 	st->spi = spi;
 	st->type = spi_get_device_id(spi)->driver_data;
 
+	/* try to get a unique name */
+	if (spi->dev.platform_data)
+		indio_dev->name = spi->dev.platform_data;
+	else if (spi->dev.of_node)
+		indio_dev->name = spi->dev.of_node->name;
+	else
+		indio_dev->name = spi_get_device_id(spi)->name;
+
 	switch (st->type) {
 	case ID_AD8366:
 		indio_dev->channels = ad8366_channels;
