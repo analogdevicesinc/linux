@@ -14,8 +14,6 @@
 #include <linux/phy.h>
 #include <linux/property.h>
 
-#include "adin-compat.h"
-
 #define PHY_ID_ADIN1200				0x0283bc20
 #define PHY_ID_ADIN1300				0x0283bc30
 
@@ -414,10 +412,6 @@ static int adin_config_init(struct phy_device *phydev)
 	int rc;
 
 	phydev->mdix_ctrl = ETH_TP_MDI_AUTO;
-
-	rc = genphy_config_init(phydev);
-	if (rc < 0)
-		return rc;
 
 	rc = adin_config_rgmii_mode(phydev);
 	if (rc < 0)

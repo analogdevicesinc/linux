@@ -10,12 +10,6 @@
 
 #include <linux/firmware/xlnx-zynqmp.h>
 
-/* Clock APIs payload parameters */
-#define CLK_GET_NAME_RESP_LEN				16
-#define CLK_GET_TOPOLOGY_RESP_WORDS			3
-#define CLK_GET_PARENTS_RESP_WORDS			3
-#define CLK_GET_ATTR_RESP_WORDS				1
-
 enum topology_type {
 	TYPE_INVALID,
 	TYPE_MUX,
@@ -31,11 +25,13 @@ enum topology_type {
  * @type:	Type of topology
  * @flag:	Topology flags
  * @type_flag:	Topology type specific flag
+ * @custom_type_flag: Topology type specific custome flag
  */
 struct clock_topology {
 	u32 type;
 	u32 flag;
 	u32 type_flag;
+	u8 custom_type_flag;
 };
 
 struct clk_hw *zynqmp_clk_register_pll(const char *name, u32 clk_id,

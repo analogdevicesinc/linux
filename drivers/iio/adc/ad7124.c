@@ -88,8 +88,6 @@
 #define AD7124_SINC3_FILTER 2
 #define AD7124_SINC4_FILTER 0
 
-#define AD7124_REG_NO 57
-
 enum ad7124_ids {
 	ID_AD7124_4,
 	ID_AD7124_8,
@@ -112,7 +110,7 @@ static const unsigned int ad7124_gain[8] = {
 	1, 2, 4, 8, 16, 32, 64, 128
 };
 
-static const unsigned int ad7124_reg_size[AD7124_REG_NO] = {
+static const unsigned int ad7124_reg_size[] = {
 	1, 2, 3, 3, 2, 1, 3, 3, 1, 2, 2, 2, 2,
 	2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
 	2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3,
@@ -463,7 +461,7 @@ static int ad7124_reg_access(struct iio_dev *indio_dev,
 	struct ad7124_state *st = iio_priv(indio_dev);
 	int ret;
 
-	if (reg >= AD7124_REG_NO)
+	if (reg >= ARRAY_SIZE(ad7124_reg_size))
 		return -EINVAL;
 
 	if (readval)
@@ -585,7 +583,7 @@ static int ad7124_init_channel_vref(struct ad7124_state *st,
 			dev_err(&st->sd.spi->dev,
 				"Error, trying to use external voltage reference without a %s regulator.\n",
 				ad7124_ref_names[refsel]);
-				return PTR_ERR(st->vref[refsel]);
+			return PTR_ERR(st->vref[refsel]);
 		}
 		st->channel_config[channel_number].vref_mv =
 			regulator_get_voltage(st->vref[refsel]);

@@ -6,9 +6,6 @@
  */
 
 #ifndef IIO_ADC_AD7606_H_
-
-#include <linux/gpio/consumer.h>
-
 #define IIO_ADC_AD7606_H_
 
 #define AD760X_CHANNEL(num, mask_sep, mask_type, mask_all) {	\
@@ -37,7 +34,7 @@
 		BIT(IIO_CHAN_INFO_SCALE),		\
 		BIT(IIO_CHAN_INFO_OVERSAMPLING_RATIO))
 
-#define AD7606B_CHANNEL(num)	\
+#define AD7616_CHANNEL(num)	\
 	AD760X_CHANNEL(num, BIT(IIO_CHAN_INFO_RAW) | BIT(IIO_CHAN_INFO_SCALE),\
 		0, BIT(IIO_CHAN_INFO_OVERSAMPLING_RATIO))
 
@@ -90,6 +87,7 @@ struct ad7606_chip_info {
  * @complete		completion to indicate end of conversion
  * @trig		The IIO trigger associated with the device.
  * @data		buffer for reading data from the device
+ * @d16			be16 buffer for reading data from the device
  */
 struct ad7606_state {
 	struct device			*dev;
@@ -104,8 +102,8 @@ struct ad7606_state {
 	unsigned int			num_scales;
 	const unsigned int		*oversampling_avail;
 	unsigned int			num_os_ratios;
-	int (*write_scale)(struct iio_dev *indio_dev, int, int);
-	int (*write_os)(struct iio_dev *indio_dev, int);
+	int (*write_scale)(struct iio_dev *indio_dev, int ch, int val);
+	int (*write_os)(struct iio_dev *indio_dev, int val);
 
 	struct mutex			lock; /* protect sensor state */
 	struct gpio_desc		*gpio_convst;
@@ -123,21 +121,23 @@ struct ad7606_state {
 	 * 16 * 16-bit samples + 64-bit timestamp
 	 */
 	unsigned short			data[20] ____cacheline_aligned;
+	__be16				d16[2];
 };
 
 /**
  * struct ad7606_bus_ops - driver bus operations
  * @read_block		function pointer for reading blocks of data
+ * @sw_mode_config:	pointer to a function which configured the device
+ *			for software mode
  * @reg_read	function pointer for reading spi register
  * @reg_write	function pointer for writing spi register
  * @write_mask	function pointer for write spi register with mask
  * @rd_wr_cmd	pointer to the function which calculates the spi address
- * @sw_mode_config	pointer to a function which configured the device
- *			for software mode
  */
 struct ad7606_bus_ops {
 	/* more methods added in future? */
 	int (*read_block)(struct device *dev, int num, void *data);
+	int (*sw_mode_config)(struct iio_dev *indio_dev);
 	int (*reg_read)(struct ad7606_state *st, unsigned int addr);
 	int (*reg_write)(struct ad7606_state *st,
 				unsigned int addr,
@@ -146,8 +146,7 @@ struct ad7606_bus_ops {
 				 unsigned int addr,
 				 unsigned long mask,
 				 unsigned int val);
-	u16 (*rd_wr_cmd)(int, char);
-	int (*sw_mode_config)(struct iio_dev *indio_dev);
+	u16 (*rd_wr_cmd)(int addr, char isWriteOp);
 };
 
 int ad7606_probe(struct device *dev, int irq, void __iomem *base_address,

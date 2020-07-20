@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-2.0-only
 snd-soc-adi-axi-i2s-objs := axi-i2s.o
 snd-soc-adi-axi-spdif-objs := axi-spdif.o
 snd-soc-adrv936x-box-objs := adrv936x_box.o

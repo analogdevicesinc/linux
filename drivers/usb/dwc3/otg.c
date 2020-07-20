@@ -1,18 +1,10 @@
+// SPDX-License-Identifier: GPL-2.0
 /**
  * otg.c - DesignWare USB3 DRD Controller OTG file
  *
  * Copyright (C) 2016 Xilinx, Inc. All rights reserved.
  *
  * Author:  Manish Narani <mnarani@xilinx.com>
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2  of
- * the License as published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
  */
 
 #include <linux/module.h>
@@ -446,7 +438,8 @@ int dwc3_otg_host_release(struct usb_hcd *hcd)
 
 		if (__usb_get_extra_descriptor(udev->rawdescriptors[0],
 				le16_to_cpu(udev->config[0].desc.wTotalLength),
-				USB_DT_OTG, (void **) &desc) == 0) {
+				USB_DT_OTG, (void **)&desc, sizeof(*desc)) ==
+				0) {
 			int err;
 
 			dev_info(&udev->dev, "found OTG descriptor\n");
@@ -1678,7 +1671,7 @@ static int dwc3_otg_notify_connect(struct usb_phy *phy,
 		/* descriptor may appear anywhere in config */
 		err = __usb_get_extra_descriptor(udev->rawdescriptors[0],
 				le16_to_cpu(udev->config[0].desc.wTotalLength),
-				USB_DT_OTG, (void **) &desc);
+				USB_DT_OTG, (void **)&desc, sizeof(*desc));
 		if (err || !(desc->bmAttributes & USB_OTG_HNP))
 			return 0;
 
@@ -1727,7 +1720,6 @@ static void dwc3_otg_set_peripheral(struct usb_otg *_otg, int yes)
 
 	set_peri_mode(otg, yes);
 }
-EXPORT_SYMBOL(dwc3_otg_set_peripheral);
 
 static int dwc3_otg_set_periph(struct usb_otg *_otg, struct usb_gadget *gadget)
 {
@@ -1868,7 +1860,6 @@ static int otg_end_session(struct usb_otg *otg)
 {
 	return dwc3_otg_end_session(otg);
 }
-EXPORT_SYMBOL(otg_end_session);
 
 static int dwc3_otg_received_host_release(struct usb_otg *x)
 {

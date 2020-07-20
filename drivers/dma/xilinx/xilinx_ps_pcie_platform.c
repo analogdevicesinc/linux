@@ -2443,8 +2443,8 @@ static int dma_alloc_descriptors_two_queues(struct ps_pcie_dma_chan *chan)
 	size = chan->total_descriptors *
 		sizeof(struct SOURCE_DMA_DESCRIPTOR);
 
-	sgl_base = dma_zalloc_coherent(chan->dev, size, &phy_addr_sglbase,
-				       GFP_KERNEL);
+	sgl_base = dma_alloc_coherent(chan->dev, size, &phy_addr_sglbase,
+				      GFP_KERNEL);
 
 	if (!sgl_base) {
 		dev_err(chan->dev,
@@ -2454,8 +2454,8 @@ static int dma_alloc_descriptors_two_queues(struct ps_pcie_dma_chan *chan)
 	}
 
 	size = chan->total_descriptors * sizeof(struct STATUS_DMA_DESCRIPTOR);
-	sta_base = dma_zalloc_coherent(chan->dev, size, &phy_addr_stabase,
-				       GFP_KERNEL);
+	sta_base = dma_alloc_coherent(chan->dev, size, &phy_addr_stabase,
+				      GFP_KERNEL);
 
 	if (!sta_base) {
 		dev_err(chan->dev,
@@ -2519,8 +2519,8 @@ static int dma_alloc_decriptors_all_queues(struct ps_pcie_dma_chan *chan)
 	size = chan->total_descriptors *
 		sizeof(struct SOURCE_DMA_DESCRIPTOR);
 	chan->psrc_sgl_bd =
-		dma_zalloc_coherent(chan->dev, size, &chan->src_sgl_bd_pa,
-				    GFP_KERNEL);
+		dma_alloc_coherent(chan->dev, size, &chan->src_sgl_bd_pa,
+				   GFP_KERNEL);
 
 	if (!chan->psrc_sgl_bd) {
 		dev_err(chan->dev,
@@ -2531,8 +2531,8 @@ static int dma_alloc_decriptors_all_queues(struct ps_pcie_dma_chan *chan)
 
 	size = chan->total_descriptors * sizeof(struct DEST_DMA_DESCRIPTOR);
 	chan->pdst_sgl_bd =
-		dma_zalloc_coherent(chan->dev, size, &chan->dst_sgl_bd_pa,
-				    GFP_KERNEL);
+		dma_alloc_coherent(chan->dev, size, &chan->dst_sgl_bd_pa,
+				   GFP_KERNEL);
 
 	if (!chan->pdst_sgl_bd) {
 		dev_err(chan->dev,
@@ -2543,8 +2543,8 @@ static int dma_alloc_decriptors_all_queues(struct ps_pcie_dma_chan *chan)
 
 	size = chan->total_descriptors * sizeof(struct STATUS_DMA_DESCRIPTOR);
 	chan->psrc_sta_bd =
-		dma_zalloc_coherent(chan->dev, size, &chan->src_sta_bd_pa,
-				    GFP_KERNEL);
+		dma_alloc_coherent(chan->dev, size, &chan->src_sta_bd_pa,
+				   GFP_KERNEL);
 
 	if (!chan->psrc_sta_bd) {
 		dev_err(chan->dev,
@@ -2554,8 +2554,8 @@ static int dma_alloc_decriptors_all_queues(struct ps_pcie_dma_chan *chan)
 	}
 
 	chan->pdst_sta_bd =
-		dma_zalloc_coherent(chan->dev, size, &chan->dst_sta_bd_pa,
-				    GFP_KERNEL);
+		dma_alloc_coherent(chan->dev, size, &chan->dst_sta_bd_pa,
+				   GFP_KERNEL);
 
 	if (!chan->pdst_sta_bd) {
 		dev_err(chan->dev,

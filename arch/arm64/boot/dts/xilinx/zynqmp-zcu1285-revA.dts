@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * dts file for Xilinx ZynqMP ZC1285 RevA
+ * dts file for Xilinx ZynqMP ZCU1285 RevA
  *
- * (C) Copyright 2018 - 2019, Xilinx, Inc.
+ * (C) Copyright 2018 - 2020, Xilinx, Inc.
  *
  * Michal Simek <michal.simek@xilinx.com>
  * Siva Durga Prasad Paladugu <sivadur@xilinx.com>
@@ -15,7 +15,8 @@
 
 / {
 	model = "ZynqMP ZCU1285 RevA";
-	compatible = "xlnx,zynqmp-zcu1285-revA", "xlnx,zynqmp-zcu1285", "xlnx,zynqmp";
+	compatible = "xlnx,zynqmp-zcu1285-revA", "xlnx,zynqmp-zcu1285",
+		     "xlnx,zynqmp";
 
 	aliases {
 		serial0 = &uart0;
@@ -23,7 +24,6 @@
 		spi0 = &qspi;
 		mmc0 = &sdhci1;
 		ethernet0 = &gem1; /* EMIO */
-		ethernet1 = &gem3; /* PS ethernet */
 		i2c = &i2c0; /* EMIO */
 	};
 
@@ -35,6 +35,27 @@
 	memory@0 {
 		device_type = "memory";
 		reg = <0x0 0x0 0x0 0x80000000>;
+	};
+
+	ina226-u60 {
+		compatible = "iio-hwmon";
+		io-channels = <&u60 0>, <&u60 1>, <&u60 2>, <&u60 3>;
+	};
+	ina226-u61 {
+		compatible = "iio-hwmon";
+		io-channels = <&u61 0>, <&u61 1>, <&u61 2>, <&u61 3>;
+	};
+	ina226-u63 {
+		compatible = "iio-hwmon";
+		io-channels = <&u63 0>, <&u63 1>, <&u63 2>, <&u63 3>;
+	};
+	ina226-u65 {
+		compatible = "iio-hwmon";
+		io-channels = <&u65 0>, <&u65 1>, <&u65 2>, <&u65 3>;
+	};
+	ina226-u64 {
+		compatible = "iio-hwmon";
+		io-channels = <&u64 0>, <&u64 1>, <&u64 2>, <&u64 3>;
 	};
 };
 
@@ -151,28 +172,38 @@
 			#size-cells = <0>;
 			reg = <5>;
 			/* ANALOG_PMBUS */
-			ina226@40 { /* u60 */
+			u60: ina226@40 { /* u60 */
 				compatible = "ti,ina226";
+				#io-channel-cells = <1>;
+				label = "ina226-u60";
 				reg = <0x40>;
 				shunt-resistor = <1000>;
 			};
-			ina226@41 { /* u61 */
+			u61: ina226@41 { /* u61 */
 				compatible = "ti,ina226";
+				#io-channel-cells = <1>;
+				label = "ina226-u61";
 				reg = <0x41>;
 				shunt-resistor = <1000>;
 			};
-			ina226@42 { /* u63 */
+			u63: ina226@42 { /* u63 */
 				compatible = "ti,ina226";
+				#io-channel-cells = <1>;
+				label = "ina226-u63";
 				reg = <0x42>;
 				shunt-resistor = <1000>;
 			};
-			ina226@43 { /* u65 */
+			u65: ina226@43 { /* u65 */
 				compatible = "ti,ina226";
+				#io-channel-cells = <1>;
+				label = "ina226-u65";
 				reg = <0x43>;
 				shunt-resistor = <1000>;
 			};
-			ina226@44 { /* u64 */
+			u64: ina226@44 { /* u64 */
 				compatible = "ti,ina226";
+				#io-channel-cells = <1>;
+				label = "ina226-u64";
 				reg = <0x44>;
 				shunt-resistor = <1000>;
 			};
@@ -214,15 +245,6 @@
 	};
 };
 
-&gem3 {
-	status = "okay";
-	phy-mode = "rgmii";
-	phy-handle = <&phy2>;
-	phy2: ethernet-phy@1 {
-		reg = <1>; /* KSZ9031RNXIC */
-	};
-};
-
 &qspi {
 	status = "okay";
 	flash@0 {
@@ -242,5 +264,9 @@
 
 &sdhci1 {
 	status = "okay";
+	/*
+	 * This property should be removed for supporting UHS mode
+	 */
+	no-1-8-v;
 	xlnx,mio_bank = <1>;
 };

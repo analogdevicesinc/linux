@@ -8,6 +8,7 @@
 
 #include <linux/kgdb.h>
 #include <linux/kdebug.h>
+#include <linux/smp.h>
 #include <linux/irq.h>
 #include <linux/io.h>
 #include <asm/cacheflush.h>
@@ -105,6 +106,13 @@ void sleeping_thread_to_gdb_regs(unsigned long *gdb_regs, struct task_struct *p)
 		gdb_regs[GDB_PVR + i] = pvr.pvr[i];
 }
 
+#ifdef CONFIG_SMP
+void kgdb_roundup_cpus(void)
+{
+	smp_send_debugger_break();
+}
+#endif
+
 void kgdb_arch_set_pc(struct pt_regs *regs, unsigned long ip)
 {
 	regs->pc = ip;
@@ -143,7 +151,7 @@ void kgdb_arch_exit(void)
 /*
  * Global data
  */
-struct kgdb_arch arch_kgdb_ops = {
+const struct kgdb_arch arch_kgdb_ops = {
 #ifdef __MICROBLAZEEL__
 	.gdb_bpt_instr = {0x18, 0x00, 0x0c, 0xba}, /* brki r16, 0x18 */
 #else

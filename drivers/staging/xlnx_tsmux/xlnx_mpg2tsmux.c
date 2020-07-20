@@ -77,7 +77,7 @@
  */
 struct stream_context {
 	enum ts_mux_command command;
-	u8 is_pcr_stream;
+	bool is_pcr_stream;
 	u8 stream_id;
 	u8 extended_stream_id;
 	u8 reserved1;
@@ -88,8 +88,8 @@ struct stream_context {
 	u64 dts;
 	u64 in_buf_pointer;
 	u32 reserved2;
-	u8 insert_pcr;
-	u8 reserved3;
+	bool insert_pcr;
+	bool reserved3;
 	u16 pcr_extension;
 	u64 pcr_base;
 };
@@ -156,7 +156,7 @@ struct stream_context_node {
 struct stream_info {
 	u16 pid;
 	u8 continuity_counter;
-	u8 usageflag;
+	bool usageflag;
 	enum strmtbl_cnxt strmtbl_update;
 };
 
@@ -436,10 +436,10 @@ static int xlnx_tsmux_ioctl_srcbuf_alloc(struct xlnx_tsmux *mpgmuxts,
 	 */
 	for (i = 0; i < mpgmuxts->num_inbuf; i++) {
 		mpgmuxts->src_kaddrs[i] =
-			dma_zalloc_coherent(mpgmuxts->dev,
-					    mpgmuxts->srcbuf_size,
-					    &mpgmuxts->srcbuf_addrs[i],
-					    GFP_KERNEL | GFP_DMA32);
+			dma_alloc_coherent(mpgmuxts->dev,
+					   mpgmuxts->srcbuf_size,
+					   &mpgmuxts->srcbuf_addrs[i],
+					   GFP_KERNEL | GFP_DMA32);
 		if (!mpgmuxts->src_kaddrs[i]) {
 			dev_dbg(mpgmuxts->dev, "dma alloc fail %d buffer", i);
 			goto exit_free;
@@ -495,10 +495,10 @@ static int xlnx_tsmux_ioctl_dstbuf_alloc(struct xlnx_tsmux *mpgmuxts,
 	/* buf_size & num_buf boundary conditions are handled in application*/
 	for (i = 0; i < mpgmuxts->num_outbuf; i++) {
 		mpgmuxts->dst_kaddrs[i] =
-			dma_zalloc_coherent(mpgmuxts->dev,
-					    mpgmuxts->dstbuf_size,
-					    &mpgmuxts->dstbuf_addrs[i],
-					    GFP_KERNEL | GFP_DMA32);
+			dma_alloc_coherent(mpgmuxts->dev,
+					   mpgmuxts->dstbuf_size,
+					   &mpgmuxts->dstbuf_addrs[i],
+					   GFP_KERNEL | GFP_DMA32);
 		if (!mpgmuxts->dst_kaddrs[i]) {
 			dev_dbg(mpgmuxts->dev, "dmamem alloc fail for %d", i);
 			goto exit_free;
@@ -550,9 +550,9 @@ static int xlnx_tsmux_ioctl_strmtbl_alloc(struct xlnx_tsmux *mpgmuxts,
 	buf_size = sizeof(struct stream_info) * mpgmuxts->num_strmnodes;
 
 	mpgmuxts->strmtbl_kaddrs =
-		dma_zalloc_coherent(mpgmuxts->dev,
-				    buf_size, &mpgmuxts->strmtbl_addrs,
-				    GFP_KERNEL | GFP_DMA32);
+		dma_alloc_coherent(mpgmuxts->dev,
+				   buf_size, &mpgmuxts->strmtbl_addrs,
+				   GFP_KERNEL | GFP_DMA32);
 	if (!mpgmuxts->strmtbl_kaddrs) {
 		dev_dbg(mpgmuxts->dev, "dmamem alloc fail for strm table");
 		return -ENOMEM;
@@ -560,9 +560,9 @@ static int xlnx_tsmux_ioctl_strmtbl_alloc(struct xlnx_tsmux *mpgmuxts,
 
 	/* Allocating memory for internal streamid table */
 	mpgmuxts->intn_strmtbl_kaddrs =
-		dma_zalloc_coherent(mpgmuxts->dev,
-				    buf_size, &mpgmuxts->intn_strmtbl_addrs,
-				    GFP_KERNEL | GFP_DMA32);
+		dma_alloc_coherent(mpgmuxts->dev,
+				   buf_size, &mpgmuxts->intn_strmtbl_addrs,
+				   GFP_KERNEL | GFP_DMA32);
 
 	if (!mpgmuxts->intn_strmtbl_kaddrs) {
 		dev_dbg(mpgmuxts->dev, "dmamem alloc fail for intr strm table");
@@ -576,6 +576,66 @@ exist_free:
 	return -ENOMEM;
 }
 
+/**
+ * xlnx_tsmux_update_intstrm_tbl - updates stream id table
+ * @mpgmuxts: pointer to the device structure
+ *
+ * This function updates the stream id table
+ *
+ * Return: 0 on success and error value on failure.
+ *
+ */
+static int xlnx_tsmux_update_intstrm_tbl(struct xlnx_tsmux *mpgmuxts)
+{
+	struct stream_info *cptr, *intn_cptr;
+	int i, j;
+
+	cptr = (struct stream_info *)mpgmuxts->strmtbl_kaddrs;
+
+	if (!cptr->usageflag)
+		return 0;
+
+	for (i = 0; i < mpgmuxts->num_strmnodes && cptr->usageflag;
+	     i++, cptr++) {
+		intn_cptr = (struct stream_info *)mpgmuxts->intn_strmtbl_kaddrs;
+		/* Adding to table */
+		if (cptr->strmtbl_update == ADD_TO_TBL) {
+			for (j = 0; j < mpgmuxts->num_strmnodes;
+			     j++, intn_cptr++) {
+				if (!intn_cptr->usageflag) {
+					intn_cptr->pid = cptr->pid;
+					intn_cptr->continuity_counter = 0;
+					intn_cptr->usageflag = 1;
+					cptr->usageflag = 0;
+					break;
+				}
+			}
+			if (j == mpgmuxts->num_strmnodes)
+				return -EIO;
+		} else if (cptr->strmtbl_update == DEL_FR_TBL) {
+			/* deleting from table */
+			for (j = 0; j < mpgmuxts->num_strmnodes; j++,
+			     intn_cptr++) {
+				if (intn_cptr->usageflag) {
+					if (intn_cptr->pid == cptr->pid) {
+						intn_cptr->pid = 0;
+						intn_cptr->continuity_counter = 0;
+						intn_cptr->usageflag = 0;
+						cptr->usageflag = 0;
+						break;
+					}
+				}
+			}
+			if (j == mpgmuxts->num_strmnodes)
+				return -EIO;
+		} else {
+			return -EIO;
+		}
+	}
+
+	return 0;
+}
+
 static int xlnx_tsmux_update_strminfo_table(struct xlnx_tsmux *mpgmuxts,
 					    struct strc_strminfo new_strm_info)
 {
@@ -584,25 +644,16 @@ static int xlnx_tsmux_update_strminfo_table(struct xlnx_tsmux *mpgmuxts,
 
 	cptr = (struct stream_info *)mpgmuxts->strmtbl_kaddrs;
 
-	if (new_strm_info.strmtbl_ctxt == ADD_TO_TBL) {
 	/* Finding free memory block and writing input data into the block*/
-		for (i = 0; i < mpgmuxts->num_strmnodes; i++, cptr++) {
-			if (!cptr->usageflag) {
-				cptr->pid = new_strm_info.pid;
-				cptr->continuity_counter = 0;
-				cptr->usageflag = XTSMUX_STRMBL_BUSY;
-				break;
-			}
-		}
-	} else if (new_strm_info.strmtbl_ctxt == DEL_FR_TBL) {
-		for (i = 0; i < mpgmuxts->num_strmnodes; i++, cptr++) {
-			if (cptr->pid == new_strm_info.pid) {
-				cptr->usageflag = XTSMUX_STRMBL_FREE;
-				break;
-			}
+	for (i = 0; i < mpgmuxts->num_strmnodes; i++, cptr++) {
+		if (!cptr->usageflag) {
+			cptr->pid = new_strm_info.pid;
+			cptr->continuity_counter = 0;
+			cptr->usageflag = XTSMUX_STRMBL_BUSY;
+			cptr->strmtbl_update = new_strm_info.strmtbl_ctxt;
+			break;
 		}
 	}
-
 	if (i == mpgmuxts->num_strmnodes)
 		return -EIO;
 
@@ -769,7 +820,7 @@ static enum xlnx_tsmux_status xlnx_tsmux_get_device_status(struct xlnx_tsmux *
 static int xlnx_tsmux_ioctl_start(struct xlnx_tsmux *mpgmuxts)
 {
 	enum xlnx_tsmux_status ip_stat;
-	int cnt;
+	int cnt, ret;
 
 	/* get IP status */
 	ip_stat = xlnx_tsmux_get_device_status(mpgmuxts);
@@ -787,6 +838,13 @@ static int xlnx_tsmux_ioctl_start(struct xlnx_tsmux *mpgmuxts)
 	cnt = atomic_read(&mpgmuxts->stream_count);
 	atomic_set(&mpgmuxts->intn_stream_count, cnt);
 
+	/* update streamid table */
+	ret = xlnx_tsmux_update_intstrm_tbl(mpgmuxts);
+
+	if (ret < 0) {
+		dev_err(mpgmuxts->dev, "Update streamid intn table failed\n");
+		return ret;
+	}
 	return xlnx_tsmux_start_muxer(mpgmuxts);
 }
 
@@ -1208,7 +1266,7 @@ static __poll_t xlnx_tsmux_poll(struct file *fptr, poll_table *wait)
 	poll_wait(fptr, &mpgmuxts->waitq, wait);
 
 	if (xlnx_tsmux_read(mpgmuxts, XTSMUX_LAST_NODE_PROCESSED))
-		return EPOLLIN | EPOLLPRI;
+		return POLLIN | POLLPRI;
 
 	return 0;
 }

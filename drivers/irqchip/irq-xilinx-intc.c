@@ -15,10 +15,11 @@
 #include <linux/irqchip/chained_irq.h>
 #include <linux/of_address.h>
 #include <linux/io.h>
+#include <linux/jump_label.h>
 #include <linux/bug.h>
 #include <linux/of_irq.h>
-
-static struct xintc_irq_chip *primary_intc;
+#include <linux/cpuhotplug.h>
+#include <linux/smp.h>
 
 /* No one else should require these constants, so define them locally here. */
 #define ISR 0x00			/* Interrupt Status Register */
@@ -35,33 +36,55 @@ static struct xintc_irq_chip *primary_intc;
 
 struct xintc_irq_chip {
 	void		__iomem *base;
-	struct		irq_domain *root_domain;
+	struct		irq_domain *domain;
 	u32		intr_mask;
 	struct			irq_chip *intc_dev;
 	u32				nr_irq;
-	unsigned int	(*read_fn)(void __iomem *addr);
-	void			(*write_fn)(void __iomem *addr, u32);
+	u32				sw_irq;
 };
 
-static void xintc_write(void __iomem *addr, u32 data)
+static DEFINE_STATIC_KEY_FALSE(xintc_is_be);
+
+static DEFINE_PER_CPU(struct xintc_irq_chip, primary_intc);
+
+static void xintc_write(struct xintc_irq_chip *irqc, int reg, u32 data)
 {
-		iowrite32(data, addr);
+	if (!irqc)
+		irqc = per_cpu_ptr(&primary_intc, smp_processor_id());
+
+	if (static_branch_unlikely(&xintc_is_be))
+		iowrite32be(data, irqc->base + reg);
+	else
+		iowrite32(data, irqc->base + reg);
 }
 
-static unsigned int xintc_read(void __iomem *addr)
+static unsigned int xintc_read(struct xintc_irq_chip *irqc, int reg)
 {
-		return ioread32(addr);
+	if (static_branch_unlikely(&xintc_is_be))
+		return ioread32be(irqc->base + reg);
+	else
+		return ioread32(irqc->base + reg);
 }
 
-static void xintc_write_be(void __iomem *addr, u32 data)
-{
-		iowrite32be(data, addr);
-}
+#if defined(CONFIG_SMP) && defined(CONFIG_MICROBLAZE)
+static DEFINE_RAW_SPINLOCK(ipi_lock);
 
-static unsigned int xintc_read_be(void __iomem *addr)
+static void send_ipi(unsigned int cpu, unsigned int ipi_number)
 {
-		return ioread32be(addr);
+	unsigned long flags;
+	struct xintc_irq_chip *irqc = per_cpu_ptr(&primary_intc, cpu);
+	u32 sw_irq = 1 << (ipi_number + irqc->nr_irq);
+
+	pr_debug("%s: cpu: %u, sends IPI: %d to cpu: %u, sw_irq %x\n",
+		 __func__, smp_processor_id(), ipi_number, cpu, sw_irq);
+
+	raw_spin_lock_irqsave(&ipi_lock, flags);
+
+	xintc_write(irqc, ISR, sw_irq);
+
+	raw_spin_unlock_irqrestore(&ipi_lock, flags);
 }
+#endif
 
 static void intc_enable_or_unmask(struct irq_data *d)
 {
@@ -75,9 +98,9 @@ static void intc_enable_or_unmask(struct irq_data *d)
 	 * acks the irq before calling the interrupt handler
 	 */
 	if (irqd_is_level_type(d))
-		local_intc->write_fn(local_intc->base + IAR, mask);
+		xintc_write(local_intc, IAR, mask);
 
-	local_intc->write_fn(local_intc->base + SIE, mask);
+	xintc_write(local_intc, SIE, mask);
 }
 
 static void intc_disable_or_mask(struct irq_data *d)
@@ -85,7 +108,7 @@ static void intc_disable_or_mask(struct irq_data *d)
 	struct xintc_irq_chip *local_intc = irq_data_get_irq_chip_data(d);
 
 	pr_debug("irq-xilinx: disable: %ld\n", d->hwirq);
-	local_intc->write_fn(local_intc->base + CIE, 1 << d->hwirq);
+	xintc_write(local_intc, CIE, 1 << d->hwirq);
 }
 
 static void intc_ack(struct irq_data *d)
@@ -93,7 +116,7 @@ static void intc_ack(struct irq_data *d)
 	struct xintc_irq_chip *local_intc = irq_data_get_irq_chip_data(d);
 
 	pr_debug("irq-xilinx: ack: %ld\n", d->hwirq);
-	local_intc->write_fn(local_intc->base + IAR, 1 << d->hwirq);
+	xintc_write(local_intc, IAR, 1 << d->hwirq);
 }
 
 static void intc_mask_ack(struct irq_data *d)
@@ -102,30 +125,17 @@ static void intc_mask_ack(struct irq_data *d)
 	struct xintc_irq_chip *local_intc = irq_data_get_irq_chip_data(d);
 
 	pr_debug("irq-xilinx: disable_and_ack: %ld\n", d->hwirq);
-	local_intc->write_fn(local_intc->base + CIE, mask);
-	local_intc->write_fn(local_intc->base + IAR, mask);
+	xintc_write(local_intc, CIE, mask);
+	xintc_write(local_intc, IAR, mask);
 }
 
 static unsigned int xintc_get_irq_local(struct xintc_irq_chip *local_intc)
 {
 	int hwirq, irq = -1;
 
-	hwirq = local_intc->read_fn(local_intc->base + IVR);
+	hwirq = xintc_read(local_intc, IVR);
 	if (hwirq != -1U)
-		irq = irq_find_mapping(local_intc->root_domain, hwirq);
-
-	pr_debug("irq-xilinx: hwirq=%d, irq=%d\n", hwirq, irq);
-
-	return irq;
-}
-
-unsigned int xintc_get_irq(void)
-{
-	int hwirq, irq = -1;
-
-	hwirq = primary_intc->read_fn(primary_intc->base + IVR);
-	if (hwirq != -1U)
-		irq = irq_find_mapping(primary_intc->root_domain, hwirq);
+		irq = irq_find_mapping(local_intc->domain, hwirq);
 
 	pr_debug("irq-xilinx: hwirq=%d, irq=%d\n", hwirq, irq);
 
@@ -135,17 +145,49 @@ unsigned int xintc_get_irq(void)
 static int xintc_map(struct irq_domain *d, unsigned int irq, irq_hw_number_t hw)
 {
 	struct xintc_irq_chip *local_intc = d->host_data;
+	u32 edge = local_intc->intr_mask & (1 << hw);
 
-	if (local_intc->intr_mask & (1 << hw)) {
+	/*
+	 * Find out which irq_domain this IRQ is assigned to. If it is assigned
+	 * to root domain then do not fill chip_data and set it up in the code
+	 */
+	if (irq_get_default_host() != d)
+		irq_set_chip_data(irq, local_intc);
+	else {
+		local_intc = per_cpu_ptr(&primary_intc, 0);
+		irq_set_chip_data(irq, NULL);
+	}
+
+	if (edge) {
+#if defined(CONFIG_SMP) && defined(CONFIG_MICROBLAZE)
+		irq_set_chip_and_handler_name(irq, local_intc->intc_dev,
+			handle_percpu_irq, "percpu");
+#else
 		irq_set_chip_and_handler_name(irq, local_intc->intc_dev,
 						handle_edge_irq, "edge");
+#endif
 		irq_clear_status_flags(irq, IRQ_LEVEL);
 	} else {
+#if defined(CONFIG_SMP) && defined(CONFIG_MICROBLAZE)
+		irq_set_chip_and_handler_name(irq, local_intc->intc_dev,
+			handle_percpu_irq, "percpu");
+#else
 		irq_set_chip_and_handler_name(irq, local_intc->intc_dev,
 						handle_level_irq, "level");
+#endif
 		irq_set_status_flags(irq, IRQ_LEVEL);
 	}
-	irq_set_chip_data(irq, local_intc);
+
+	/*
+	 * Setup all IRQs to be per CPU because servicing it by different
+	 * cpu is not implemented yet. And for uniprocessor system this flag
+	 * is nop all time time.
+	 */
+	irq_set_status_flags(irq, IRQ_PER_CPU);
+
+	pr_debug("cpu: %u, xintc_map: hwirq=%u, irq=%u, edge=%u\n",
+		 smp_processor_id(), (u32)hw, irq, edge);
+
 	return 0;
 }
 
@@ -153,6 +195,35 @@ static const struct irq_domain_ops xintc_irq_domain_ops = {
 	.xlate = irq_domain_xlate_onetwocell,
 	.map = xintc_map,
 };
+
+static void xil_intc_initial_setup(struct xintc_irq_chip *irqc)
+{
+	int i;
+	u32 mask;
+
+	/*
+	 * Disable all external interrupts until they are
+	 * explicity requested.
+	 */
+	xintc_write(irqc, IER, 0);
+
+	/* Acknowledge any pending interrupts just in case. */
+	xintc_write(irqc, IAR, 0xffffffff);
+
+	/* Turn on the Master Enable. */
+	xintc_write(irqc, MER, MER_HIE | MER_ME);
+	if (!(xintc_read(irqc, MER) & (MER_HIE | MER_ME))) {
+		static_branch_enable(&xintc_is_be);
+		xintc_write(irqc, MER, MER_HIE | MER_ME);
+	}
+
+	/* Enable all SW IRQs */
+	for (i = 0; i < irqc->sw_irq; i++) {
+		mask = 1 << (i + irqc->nr_irq);
+		xintc_write(irqc, IAR, mask);
+		xintc_write(irqc, SIE, mask);
+	}
+}
 
 static void xil_intc_irq_handler(struct irq_desc *desc)
 {
@@ -171,16 +242,81 @@ static void xil_intc_irq_handler(struct irq_desc *desc)
 	chained_irq_exit(chip, desc);
 }
 
+static int xil_intc_start(unsigned int cpu)
+{
+	struct xintc_irq_chip *irqc = per_cpu_ptr(&primary_intc, cpu);
+
+	pr_debug("%s: intc cpu %d\n", __func__, cpu);
+
+	xil_intc_initial_setup(irqc);
+
+	return 0;
+}
+
+static int xil_intc_stop(unsigned int cpu)
+{
+	pr_debug("%s: intc cpu %d\n", __func__, cpu);
+
+	return 0;
+}
+
+static void xil_intc_handle_irq(struct pt_regs *regs)
+{
+	int ret;
+	unsigned int hwirq, cpu_id = smp_processor_id();
+	struct xintc_irq_chip *irqc = per_cpu_ptr(&primary_intc, cpu_id);
+
+	do {
+		hwirq = xintc_read(irqc, IVR);
+		if (hwirq != -1U) {
+			if (hwirq >= irqc->nr_irq) {
+#if defined(CONFIG_SMP) && defined(CONFIG_MICROBLAZE)
+				handle_IPI(hwirq - irqc->nr_irq, regs);
+#else
+				WARN_ONCE(1, "SW interrupt not handled\n");
+#endif
+				/* ACK is necessary */
+				xintc_write(irqc, IAR, 1 << hwirq);
+				continue;
+			} else {
+				ret = handle_domain_irq(irqc->domain,
+							hwirq, regs);
+				WARN_ONCE(ret, "cpu %d: Unhandled HWIRQ %d\n",
+					  cpu_id, hwirq);
+				continue;
+			}
+		}
+
+		break;
+	} while (1);
+}
+
 static int __init xilinx_intc_of_init(struct device_node *intc,
 					     struct device_node *parent)
 {
 	int ret, irq;
 	struct xintc_irq_chip *irqc;
 	struct irq_chip *intc_dev;
+	u32 cpu_id = 0;
 
-	irqc = kzalloc(sizeof(*irqc), GFP_KERNEL);
-	if (!irqc)
-		return -ENOMEM;
+	ret = of_property_read_u32(intc, "cpu-id", &cpu_id);
+	if (ret < 0)
+		pr_debug("%s: %pOF: cpu_id not found\n", __func__, intc);
+
+	/* No parent means it is primary intc */
+	if (!parent) {
+		irqc = per_cpu_ptr(&primary_intc, cpu_id);
+		if (irqc->base) {
+			pr_err("%pOF: %s: cpu %d has already irq controller\n",
+				intc, __func__, cpu_id);
+			return -EINVAL;
+		}
+	} else {
+		irqc = kzalloc(sizeof(*irqc), GFP_KERNEL);
+		if (!irqc)
+			return -ENOMEM;
+	}
+
 	irqc->base = of_iomap(intc, 0);
 	BUG_ON(!irqc->base);
 
@@ -199,8 +335,17 @@ static int __init xilinx_intc_of_init(struct device_node *intc,
 	if (irqc->intr_mask >> irqc->nr_irq)
 		pr_warn("irq-xilinx: mismatch in kind-of-intr param\n");
 
-	pr_info("irq-xilinx: %pOF: num_irq=%d, edge=0x%x\n",
-		intc, irqc->nr_irq, irqc->intr_mask);
+	/* sw irqs are optinal */
+	of_property_read_u32(intc, "xlnx,num-sw-intr", &irqc->sw_irq);
+
+	pr_info("irq-xilinx: %pOF: num_irq=%d, sw_irq=%d, edge=0x%x\n",
+		intc, irqc->nr_irq, irqc->sw_irq, irqc->intr_mask);
+
+	/* Right now enable only SW IRQs on that IP and wait */
+	if (cpu_id) {
+		xil_intc_initial_setup(irqc);
+		return 0;
+	}
 
 	intc_dev = kzalloc(sizeof(*intc_dev), GFP_KERNEL);
 	if (!intc_dev) {
@@ -215,29 +360,11 @@ static int __init xilinx_intc_of_init(struct device_node *intc,
 	intc_dev->irq_mask_ack = intc_mask_ack,
 	irqc->intc_dev = intc_dev;
 
-	irqc->write_fn = xintc_write;
-	irqc->read_fn = xintc_read;
-	/*
-	 * Disable all external interrupts until they are
-	 * explicity requested.
-	 */
-	irqc->write_fn(irqc->base + IER, 0);
-
-	/* Acknowledge any pending interrupts just in case. */
-	irqc->write_fn(irqc->base + IAR, 0xffffffff);
-
-	/* Turn on the Master Enable. */
-	irqc->write_fn(irqc->base + MER, MER_HIE | MER_ME);
-	if (!(irqc->read_fn(irqc->base + MER) & (MER_HIE | MER_ME))) {
-		irqc->write_fn = xintc_write_be;
-		irqc->read_fn = xintc_read_be;
-		irqc->write_fn(irqc->base + MER, MER_HIE | MER_ME);
-	}
-
-	irqc->root_domain = irq_domain_add_linear(intc, irqc->nr_irq,
+	irqc->domain = irq_domain_add_linear(intc, irqc->nr_irq,
 						  &xintc_irq_domain_ops, irqc);
-	if (!irqc->root_domain) {
+	if (!irqc->domain) {
 		pr_err("irq-xilinx: Unable to create IRQ domain\n");
+		ret = -EINVAL;
 		goto err_alloc;
 	}
 
@@ -252,20 +379,34 @@ static int __init xilinx_intc_of_init(struct device_node *intc,
 			ret = -EINVAL;
 			goto err_alloc;
 		}
-	} else {
-		primary_intc = irqc;
-		irq_set_default_host(primary_intc->root_domain);
+		xil_intc_initial_setup(irqc);
+		return 0;
 	}
 
-	return 0;
+	/*
+	 * Set default domain here because for other root intc
+	 * irq_find_mapping() will use irq_default_domain as fallback
+	 */
+	irq_set_default_host(irqc->domain);
+	set_handle_irq(xil_intc_handle_irq);
+
+	ret = cpuhp_setup_state(CPUHP_AP_IRQ_XILINX_STARTING,
+				"microblaze/arch_intc:starting",
+				xil_intc_start, xil_intc_stop);
+
+#if defined(CONFIG_SMP) && defined(CONFIG_MICROBLAZE)
+	set_smp_cross_call(send_ipi);
+#endif
+
+	return ret;
 
 err_alloc:
 	kfree(intc_dev);
 error:
 	iounmap(irqc->base);
-	kfree(irqc);
+	if (parent)
+		kfree(irqc);
 	return ret;
-
 }
 
 IRQCHIP_DECLARE(xilinx_intc_xps, "xlnx,xps-intc-1.00.a", xilinx_intc_of_init);

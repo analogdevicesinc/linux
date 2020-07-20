@@ -1,14 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-only
 /*
  * Remote Processor Framework
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * version 2 as published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
  */
 
 #include <linux/remoteproc.h>
@@ -48,6 +40,11 @@ static ssize_t firmware_store(struct device *dev,
 	}
 
 	len = strcspn(buf, "\n");
+	if (!len) {
+		dev_err(dev, "can't provide a NULL firmware\n");
+		err = -EINVAL;
+		goto out;
+	}
 
 	p = kstrndup(buf, len, GFP_KERNEL);
 	if (!p) {
@@ -156,7 +153,7 @@ static DEVICE_ATTR_WO(kick);
  *
  * It will check if the remote has kicked.
  *
- * Return: 2 if it allows kick from sysfs, and the value in the sysfs buffer
+ * Return: always 2, and the value in the sysfs buffer
  * shows if the remote has kicked. '0' - not kicked, '1' - kicked.
  */
 static ssize_t remote_kick_show(struct device *dev,
@@ -168,7 +165,7 @@ static ssize_t remote_kick_show(struct device *dev,
 	buf[0] = '0';
 	buf[1] = '\n';
 	if (rproc_peek_remote_kick(rproc, NULL, NULL))
-		buf[0] += 1;
+		buf[0] = '1';
 	return 2;
 }
 
@@ -195,35 +192,20 @@ static ssize_t remote_kick_store(struct device *dev,
 }
 static DEVICE_ATTR_RW(remote_kick);
 
-/**
- * remote_pending_message_show() - Show pending message sent from remote
- * @dev: remoteproc device
- * @attr: sysfs device attribute
- * @buf: sysfs buffer
- *
- * It shows the pending message sent from remote
- *
- * Return: length of pending remote message.
- */
-static ssize_t remote_pending_message_show(struct device *dev,
-					   struct device_attribute *attr,
-					   char *buf)
+/* Expose the name of the remote processor via sysfs */
+static ssize_t name_show(struct device *dev, struct device_attribute *attr,
+			 char *buf)
 {
 	struct rproc *rproc = to_rproc(dev);
-	size_t len;
 
-	if (rproc_peek_remote_kick(rproc, buf, &len)) {
-		buf[len] = '0';
-		return len;
-	} else {
-		return -EAGAIN;
-	}
+	return sprintf(buf, "%s\n", rproc->name);
 }
-static DEVICE_ATTR_RO(remote_pending_message);
+static DEVICE_ATTR_RO(name);
 
 static struct attribute *rproc_attrs[] = {
 	&dev_attr_firmware.attr,
 	&dev_attr_state.attr,
+	&dev_attr_name.attr,
 	NULL
 };
 
@@ -263,15 +245,8 @@ int rproc_create_kick_sysfs(struct rproc *rproc)
 		return ret;
 	}
 	ret = sysfs_create_file(&dev->kobj, &dev_attr_remote_kick.attr);
-	if (ret) {
-		dev_err(dev, "failed to create sysfs for remote kick.\n");
-		return ret;
-	}
-	ret = sysfs_create_file(&dev->kobj,
-				&dev_attr_remote_pending_message.attr);
 	if (ret)
-		dev_err(dev,
-			"failed to create sysfs for remote pending message.\n");
+		dev_err(dev, "failed to create sysfs for remote kick.\n");
 	return ret;
 }
 EXPORT_SYMBOL(rproc_create_kick_sysfs);

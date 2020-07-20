@@ -1483,9 +1483,9 @@ vidioc_try_fmt(struct xm2msc_chan_ctx *chan_ctx, struct v4l2_format *f)
 
 	/* The width value must be a multiple of pixels per clock */
 	if (pix->width % chan_ctx->xm2msc_dev->ppc) {
-		dev_info(xm2msc->dev,
-			 "Wrong align parameters %d, wxh: %dx%d.\n",
-			 f->type, f->fmt.pix.width, f->fmt.pix.height);
+		dev_dbg(xm2msc->dev,
+			"Wrong align parameters %d, wxh: %dx%d.\n",
+			f->type, f->fmt.pix.width, f->fmt.pix.height);
 		pix->width = ALIGN(pix->width, chan_ctx->xm2msc_dev->ppc);
 	}
 
@@ -1925,12 +1925,12 @@ static int queue_init(void *priv, struct vb2_queue *src_vq,
 static const struct v4l2_ioctl_ops xm2msc_ioctl_ops = {
 	.vidioc_querycap = xm2msc_querycap,
 
-	.vidioc_enum_fmt_vid_cap_mplane = xm2msc_enum_fmt_vid_cap,
+	.vidioc_enum_fmt_vid_cap = xm2msc_enum_fmt_vid_cap,
 	.vidioc_g_fmt_vid_cap_mplane = xm2msc_g_fmt_vid_cap,
 	.vidioc_try_fmt_vid_cap_mplane = xm2msc_try_fmt_vid_cap,
 	.vidioc_s_fmt_vid_cap_mplane = xm2msc_s_fmt_vid_cap,
 
-	.vidioc_enum_fmt_vid_out_mplane = xm2msc_enum_fmt_vid_out,
+	.vidioc_enum_fmt_vid_out = xm2msc_enum_fmt_vid_out,
 	.vidioc_g_fmt_vid_out_mplane = xm2msc_g_fmt_vid_out,
 	.vidioc_try_fmt_vid_out_mplane = xm2msc_try_fmt_vid_out,
 	.vidioc_s_fmt_vid_out_mplane = xm2msc_s_fmt_vid_out,
@@ -2171,7 +2171,7 @@ static int xm2msc_parse_of(struct platform_device *pdev,
 	if (IS_ERR((__force void *)xm2msc->regs))
 		return PTR_ERR((__force const void *)xm2msc->regs);
 
-	dev_dbg(dev, "IO Mem 0x%llx mapped at %p\n", res->start, xm2msc->regs);
+	dev_dbg(dev, "IO Mem %pa mapped at %p\n", &res->start, xm2msc->regs);
 
 	ret = of_property_read_u32(node, "xlnx,max-chan",
 				   &xm2msc->max_chan);
@@ -2349,6 +2349,7 @@ static int xm2m_msc_probe(struct platform_device *pdev)
 		*vfd = xm2msc_videodev;
 		vfd->lock = &xm2msc->dev_mutex;
 		vfd->v4l2_dev = &xm2msc->v4l2_dev;
+		vfd->device_caps = V4L2_CAP_VIDEO_M2M_MPLANE;
 
 		ret = video_register_device(vfd, VFL_TYPE_GRABBER, chan);
 		if (ret) {

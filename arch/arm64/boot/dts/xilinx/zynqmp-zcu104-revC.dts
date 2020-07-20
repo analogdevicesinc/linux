@@ -2,7 +2,7 @@
 /*
  * dts file for Xilinx ZynqMP ZCU104
  *
- * (C) Copyright 2017 - 2018, Xilinx, Inc.
+ * (C) Copyright 2017 - 2020, Xilinx, Inc.
  *
  * Michal Simek <michal.simek@xilinx.com>
  */
@@ -41,6 +41,11 @@
 	memory@0 {
 		device_type = "memory";
 		reg = <0x0 0x0 0x0 0x80000000>;
+	};
+
+	ina226 {
+		compatible = "iio-hwmon";
+		io-channels = <&u183 0>, <&u183 1>, <&u183 2>, <&u183 3>;
 	};
 };
 
@@ -124,17 +129,17 @@
 		gpio-controller;
 		#gpio-cells = <2>;
 		/*
-		  * IRQ not connected
-		  * Lines:
-		  * 0 - IRPS5401_ALERT_B
-		  * 1 - HDMI_8T49N241_INT_ALM
-		  * 2 - MAX6643_OT_B
-		  * 3 - MAX6643_FANFAIL_B
-		  * 5 - IIC_MUX_RESET_B
-		  * 6 - GEM3_EXP_RESET_B
-		  * 7 - FMC_LPC_PRSNT_M2C_B
-		  * 4, 10 - 17 - not connected
-		  */
+		 * IRQ not connected
+		 * Lines:
+		 * 0 - IRPS5401_ALERT_B
+		 * 1 - HDMI_8T49N241_INT_ALM
+		 * 2 - MAX6643_OT_B
+		 * 3 - MAX6643_FANFAIL_B
+		 * 5 - IIC_MUX_RESET_B
+		 * 6 - GEM3_EXP_RESET_B
+		 * 7 - FMC_LPC_PRSNT_M2C_B
+		 * 4, 10 - 17 - not connected
+		 */
 	};
 
 	/* Another connection to this bus via PL i2c via PCA9306 - u45 */
@@ -177,15 +182,13 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 			reg = <2>;
-			irps5401_43: irps54012@43 { /* IRPS5401 - u175 */
-				#clock-cells = <0>;
+			irps5401_43: irps5401@43 { /* IRPS5401 - u175 */
 				compatible = "infineon,irps5401";
-				reg = <0x43>;
+				reg = <0x43>; /* pmbus / i2c 0x13 */
 			};
-			irps5401_4d: irps54012@4d { /* IRPS5401 - u180 */
-				#clock-cells = <0>;
+			irps5401_44: irps5401@44 { /* IRPS5401 - u180 */
 				compatible = "infineon,irps5401";
-				reg = <0x4d>;
+				reg = <0x44>; /* pmbus / i2c 0x14 */
 			};
 		};
 
@@ -193,8 +196,9 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 			reg = <3>;
-			ina226@40 { /* u183 */
+			u183: ina226@40 { /* u183 */
 				compatible = "ti,ina226";
+				#io-channel-cells = <1>;
 				reg = <0x40>;
 				shunt-resistor = <5000>;
 			};
@@ -424,19 +428,19 @@
 		spi-tx-bus-width = <1>;
 		spi-rx-bus-width = <4>;
 		spi-max-frequency = <108000000>; /* Based on DC1 spec */
-		partition@qspi-fsbl-uboot { /* for testing purpose */
+		partition@0 { /* for testing purpose */
 			label = "qspi-fsbl-uboot";
 			reg = <0x0 0x100000>;
 		};
-		partition@qspi-linux { /* for testing purpose */
+		partition@100000 { /* for testing purpose */
 			label = "qspi-linux";
 			reg = <0x100000 0x500000>;
 		};
-		partition@qspi-device-tree { /* for testing purpose */
+		partition@600000 { /* for testing purpose */
 			label = "qspi-device-tree";
 			reg = <0x600000 0x20000>;
 		};
-		partition@qspi-rootfs { /* for testing purpose */
+		partition@620000 { /* for testing purpose */
 			label = "qspi-rootfs";
 			reg = <0x620000 0x5E0000>;
 		};
@@ -465,11 +469,11 @@
 /* SD1 with level shifter */
 &sdhci1 {
 	status = "okay";
+	no-1-8-v;
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_sdhci1_default>;
 	xlnx,mio_bank = <1>;
 	disable-wp;
-	no-1-8-v;
 };
 
 &serdes {

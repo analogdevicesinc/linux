@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Exception handling for Microblaze
  *
@@ -30,10 +31,6 @@
  *
  * Original code
  * Copyright (C) 2004 Xilinx, Inc.
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License version 2 as published
- * by the Free Software Foundation.
  */
 
 /*
@@ -255,10 +252,15 @@
 
 /* wrappers to restore state before coming to entry.S */
 #ifdef CONFIG_MMU
+#ifdef CONFIG_SMP
+#define CURRENT_SAVE  __phys_to_virt(CURRENT_SAVE_ADDR)
+#define pt_pool_space __phys_to_virt(PT_POOL_SPACE_ADDR)
+#else
 .section .data
 .align 4
 pt_pool_space:
 	.space	PT_SIZE
+#endif /* CONFIG_SMP */
 
 #ifdef DEBUG
 /* Create space for exception counting. */

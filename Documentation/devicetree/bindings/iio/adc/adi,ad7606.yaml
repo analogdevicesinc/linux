@@ -89,13 +89,12 @@ properties:
 
   adi,sw-mode:
     description:
-      Software mode of operation, so far available only for ad7606b and ad7616.
+      Software mode of operation, so far available only for ad7616 and ad7606b.
       It is enabled when all three oversampling mode pins are connected to
-      high level. The AD7606B is configured by the corresponding registers. If the
+      high level. The device is configured by the corresponding registers. If the
       adi,oversampling-ratio-gpios property is defined, then the driver will set the
       oversampling gpios to high. Otherwise, it is assumed that the pins are hardwired
       to VDD.
-    maxItems: 1
     type: boolean
 
 required:
@@ -108,6 +107,8 @@ required:
 
 examples:
   - |
+    #include <dt-bindings/gpio/gpio.h>
+    #include <dt-bindings/interrupt-controller/irq.h>
     spi0 {
         #address-cells = <1>;
         #size-cells = <0>;
@@ -117,6 +118,7 @@ examples:
                 reg = <0>;
                 spi-max-frequency = <1000000>;
                 spi-cpol;
+                spi-cpha;
 
                 avcc-supply = <&adc_vref>;
 

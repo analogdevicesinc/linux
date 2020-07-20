@@ -45,13 +45,12 @@ struct hmc425a_state {
 static int hmc425a_write(struct iio_dev *indio_dev, u32 value)
 {
 	struct hmc425a_state *st = iio_priv(indio_dev);
-	int i, values[6];
+	DECLARE_BITMAP(values, BITS_PER_TYPE(value));
 
-	for (i = 0; i < st->gpios->ndescs; i++)
-		values[i] = (value >> i) & 1;
+	values[0] = value;
 
 	gpiod_set_array_value_cansleep(st->gpios->ndescs, st->gpios->desc,
-				       values);
+				       NULL, values);
 	return 0;
 }
 

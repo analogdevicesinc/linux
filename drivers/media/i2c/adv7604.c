@@ -28,6 +28,7 @@
 #include <linux/workqueue.h>
 #include <linux/interrupt.h>
 #include <linux/regmap.h>
+#include <linux/interrupt.h>
 
 #include <media/i2c/adv7604.h>
 #include <media/cec.h>
@@ -114,6 +115,11 @@ struct adv76xx_chip_info {
 	unsigned int tdms_lock_mask;
 	unsigned int fmt_change_digital_mask;
 	unsigned int cp_csc;
+
+	unsigned int cec_irq_status;
+	unsigned int cec_rx_enable;
+	unsigned int cec_rx_enable_mask;
+	bool cec_irq_swap;
 
 	const struct adv76xx_format_info *formats;
 	unsigned int nformats;
@@ -779,7 +785,7 @@ static const struct v4l2_dv_timings_cap adv7604_timings_cap_analog = {
 	.type = V4L2_DV_BT_656_1120,
 	/* keep this initialization for compatibility with GCC < 4.4.6 */
 	.reserved = { 0 },
-	V4L2_INIT_BT_TIMINGS(0, 1920, 0, 1200, 25000000, 170000000,
+	V4L2_INIT_BT_TIMINGS(640, 1920, 350, 1200, 25000000, 170000000,
 		V4L2_DV_BT_STD_CEA861 | V4L2_DV_BT_STD_DMT |
 			V4L2_DV_BT_STD_GTF | V4L2_DV_BT_STD_CVT,
 		V4L2_DV_BT_CAP_PROGRESSIVE | V4L2_DV_BT_CAP_REDUCED_BLANKING |
@@ -790,7 +796,7 @@ static const struct v4l2_dv_timings_cap adv76xx_timings_cap_digital = {
 	.type = V4L2_DV_BT_656_1120,
 	/* keep this initialization for compatibility with GCC < 4.4.6 */
 	.reserved = { 0 },
-	V4L2_INIT_BT_TIMINGS(0, 1920, 0, 1200, 25000000, 225000000,
+	V4L2_INIT_BT_TIMINGS(640, 1920, 350, 1200, 25000000, 225000000,
 		V4L2_DV_BT_STD_CEA861 | V4L2_DV_BT_STD_DMT |
 			V4L2_DV_BT_STD_GTF | V4L2_DV_BT_STD_CVT,
 		V4L2_DV_BT_CAP_PROGRESSIVE | V4L2_DV_BT_CAP_REDUCED_BLANKING |
@@ -2050,10 +2056,11 @@ static void adv76xx_cec_tx_raw_status(struct v4l2_subdev *sd, u8 tx_raw_status)
 static void adv76xx_cec_isr(struct v4l2_subdev *sd, bool *handled)
 {
 	struct adv76xx_state *state = to_state(sd);
+	const struct adv76xx_chip_info *info = state->info;
 	u8 cec_irq;
 
 	/* cec controller */
-	cec_irq = io_read(sd, 0x4d) & 0x0f;
+	cec_irq = io_read(sd, info->cec_irq_status) & 0x0f;
 	if (!cec_irq)
 		return;
 
@@ -2071,15 +2078,21 @@ static void adv76xx_cec_isr(struct v4l2_subdev *sd, bool *handled)
 
 			for (i = 0; i < msg.len; i++)
 				msg.msg[i] = cec_read(sd, i + 0x15);
-			cec_write(sd, 0x26, 0x01); /* re-enable rx */
+			cec_write(sd, info->cec_rx_enable,
+				  info->cec_rx_enable_mask); /* re-enable rx */
 			cec_received_msg(state->cec_adap, &msg);
 		}
 	}
 
-	/* note: the bit order is swapped between 0x4d and 0x4e */
-	cec_irq = ((cec_irq & 0x08) >> 3) | ((cec_irq & 0x04) >> 1) |
-		  ((cec_irq & 0x02) << 1) | ((cec_irq & 0x01) << 3);
-	io_write(sd, 0x4e, cec_irq);
+	if (info->cec_irq_swap) {
+		/*
+		 * Note: the bit order is swapped between 0x4d and 0x4e
+		 * on adv7604
+		 */
+		cec_irq = ((cec_irq & 0x08) >> 3) | ((cec_irq & 0x04) >> 1) |
+			  ((cec_irq & 0x02) << 1) | ((cec_irq & 0x01) << 3);
+	}
+	io_write(sd, info->cec_irq_status + 1, cec_irq);
 
 	if (handled)
 		*handled = true;
@@ -2088,6 +2101,7 @@ static void adv76xx_cec_isr(struct v4l2_subdev *sd, bool *handled)
 static int adv76xx_cec_adap_enable(struct cec_adapter *adap, bool enable)
 {
 	struct adv76xx_state *state = cec_get_drvdata(adap);
+	const struct adv76xx_chip_info *info = state->info;
 	struct v4l2_subdev *sd = &state->sd;
 
 	if (!state->cec_enabled_adap && enable) {
@@ -2099,11 +2113,11 @@ static int adv76xx_cec_adap_enable(struct cec_adapter *adap, bool enable)
 		/* tx: arbitration lost */
 		/* tx: retry timeout */
 		/* rx: ready */
-		io_write_clr_set(sd, 0x50, 0x0f, 0x0f);
-		cec_write(sd, 0x26, 0x01);            /* enable rx */
+		io_write_clr_set(sd, info->cec_irq_status + 3, 0x0f, 0x0f);
+		cec_write(sd, info->cec_rx_enable, info->cec_rx_enable_mask);
 	} else if (state->cec_enabled_adap && !enable) {
 		/* disable cec interrupts */
-		io_write_clr_set(sd, 0x50, 0x0f, 0x00);
+		io_write_clr_set(sd, info->cec_irq_status + 3, 0x0f, 0x00);
 		/* disable address mask 1-3 */
 		cec_write_clr_set(sd, 0x27, 0x70, 0x00);
 		/* power down cec section */
@@ -2278,6 +2292,16 @@ static int adv76xx_isr(struct v4l2_subdev *sd, u32 status, bool *handled)
 	return 0;
 }
 
+static irqreturn_t adv76xx_irq_handler(int irq, void *dev_id)
+{
+	struct adv76xx_state *state = dev_id;
+	bool handled = false;
+
+	adv76xx_isr(&state->sd, 0, &handled);
+
+	return handled ? IRQ_HANDLED : IRQ_NONE;
+}
+
 static int adv76xx_get_edid(struct v4l2_subdev *sd, struct v4l2_edid *edid)
 {
 	struct adv76xx_state *state = to_state(sd);
@@ -2341,8 +2365,10 @@ static int adv76xx_set_edid(struct v4l2_subdev *sd, struct v4l2_edid *edid)
 		state->aspect_ratio.numerator = 16;
 		state->aspect_ratio.denominator = 9;
 
-		if (!state->edid.present)
+		if (!state->edid.present) {
 			state->edid.blocks = 0;
+			cec_phys_addr_invalidate(state->cec_adap);
+		}
 
 		v4l2_dbg(2, debug, sd, "%s: clear EDID pad %d, edid.present = 0x%x\n",
 				__func__, edid->pad, state->edid.present);
@@ -2475,7 +2501,7 @@ static int adv76xx_read_infoframe(struct v4l2_subdev *sd, int index,
 		buffer[i + 3] = infoframe_read(sd,
 				       adv76xx_cri[index].payload_addr + i);
 
-	if (hdmi_infoframe_unpack(frame, buffer) < 0) {
+	if (hdmi_infoframe_unpack(frame, buffer, sizeof(buffer)) < 0) {
 		v4l2_err(sd, "%s: unpack of %s infoframe failed\n", __func__,
 			 adv76xx_cri[index].desc);
 		return -ENOENT;
@@ -2531,7 +2557,7 @@ static int adv76xx_log_status(struct v4l2_subdev *sd)
 		"YCbCr Bt.601 (16-235)", "YCbCr Bt.709 (16-235)",
 		"xvYCC Bt.601", "xvYCC Bt.709",
 		"YCbCr Bt.601 (0-255)", "YCbCr Bt.709 (0-255)",
-		"sYCC", "Adobe YCC 601", "AdobeRGB", "invalid", "invalid",
+		"sYCC", "opYCC 601", "opRGB", "invalid", "invalid",
 		"invalid", "invalid", "invalid"
 	};
 	static const char * const rgb_quantization_range_txt[] = {
@@ -2911,10 +2937,8 @@ static void adv76xx_unregister_clients(struct adv76xx_state *state)
 {
 	unsigned int i;
 
-	for (i = 1; i < ARRAY_SIZE(state->i2c_clients); ++i) {
-		if (state->i2c_clients[i])
-			i2c_unregister_device(state->i2c_clients[i]);
-	}
+	for (i = 1; i < ARRAY_SIZE(state->i2c_clients); ++i)
+		i2c_unregister_device(state->i2c_clients[i]);
 }
 
 static struct i2c_client *adv76xx_dummy_client(struct v4l2_subdev *sd,
@@ -2927,14 +2951,14 @@ static struct i2c_client *adv76xx_dummy_client(struct v4l2_subdev *sd,
 	struct i2c_client *new_client;
 
 	if (pdata && pdata->i2c_addresses[page])
-		new_client = i2c_new_dummy(client->adapter,
+		new_client = i2c_new_dummy_device(client->adapter,
 					   pdata->i2c_addresses[page]);
 	else
-		new_client = i2c_new_secondary_device(client,
+		new_client = i2c_new_ancillary_device(client,
 				adv76xx_default_addresses[page].name,
 				adv76xx_default_addresses[page].default_addr);
 
-	if (new_client)
+	if (!IS_ERR(new_client))
 		io_write(sd, io_reg, new_client->addr << 1);
 
 	return new_client;
@@ -3033,6 +3057,10 @@ static const struct adv76xx_chip_info adv76xx_chip_info[] = {
 		.cable_det_mask = 0x1e,
 		.fmt_change_digital_mask = 0xc1,
 		.cp_csc = 0xfc,
+		.cec_irq_status = 0x4d,
+		.cec_rx_enable = 0x26,
+		.cec_rx_enable_mask = 0x01,
+		.cec_irq_swap = true,
 		.formats = adv7604_formats,
 		.nformats = ARRAY_SIZE(adv7604_formats),
 		.set_termination = adv7604_set_termination,
@@ -3079,6 +3107,9 @@ static const struct adv76xx_chip_info adv76xx_chip_info[] = {
 		.cable_det_mask = 0x01,
 		.fmt_change_digital_mask = 0x01,
 		.cp_csc = 0xf4,
+		.cec_irq_status = 0x93,
+		.cec_rx_enable = 0x2c,
+		.cec_rx_enable_mask = 0x02,
 		.formats = adv7611_formats,
 		.nformats = ARRAY_SIZE(adv7611_formats),
 		.set_termination = adv7611_set_termination,
@@ -3120,6 +3151,9 @@ static const struct adv76xx_chip_info adv76xx_chip_info[] = {
 		.cable_det_mask = 0x01,
 		.fmt_change_digital_mask = 0x03,
 		.cp_csc = 0xf4,
+		.cec_irq_status = 0x93,
+		.cec_rx_enable = 0x2c,
+		.cec_rx_enable_mask = 0x02,
 		.formats = adv7612_formats,
 		.nformats = ARRAY_SIZE(adv7612_formats),
 		.set_termination = adv7611_set_termination,
@@ -3168,7 +3202,7 @@ MODULE_DEVICE_TABLE(of, adv76xx_of_id);
 
 static int adv76xx_parse_dt(struct adv76xx_state *state)
 {
-	struct v4l2_fwnode_endpoint bus_cfg;
+	struct v4l2_fwnode_endpoint bus_cfg = { .bus_type = 0 };
 	struct device_node *endpoint;
 	struct device_node *np;
 	unsigned int flags;
@@ -3207,7 +3241,7 @@ static int adv76xx_parse_dt(struct adv76xx_state *state)
 		state->pdata.insert_av_codes = 1;
 
 	/* Disable the interrupt for now as no DT-based board uses it. */
-	state->pdata.int1_config = ADV76XX_INT1_CONFIG_DISABLED;
+	state->pdata.int1_config = ADV76XX_INT1_CONFIG_ACTIVE_HIGH;
 
 	/* Hardcode the remaining platform data fields. */
 	state->pdata.disable_pwrdnb = 0;
@@ -3566,15 +3600,19 @@ static int adv76xx_probe(struct i2c_client *client,
 	}
 
 	for (i = 1; i < ADV76XX_PAGE_MAX; ++i) {
+		struct i2c_client *dummy_client;
+
 		if (!(BIT(i) & state->info->page_mask))
 			continue;
 
-		state->i2c_clients[i] = adv76xx_dummy_client(sd, i);
-		if (!state->i2c_clients[i]) {
-			err = -EINVAL;
+		dummy_client = adv76xx_dummy_client(sd, i);
+		if (IS_ERR(dummy_client)) {
+			err = PTR_ERR(dummy_client);
 			v4l2_err(sd, "failed to create i2c client %u\n", i);
 			goto err_i2c;
 		}
+
+		state->i2c_clients[i] = dummy_client;
 	}
 
 	INIT_DELAYED_WORK(&state->delayed_work_enable_hotplug,
@@ -3600,6 +3638,16 @@ static int adv76xx_probe(struct i2c_client *client,
 	err = adv76xx_core_init(sd);
 	if (err)
 		goto err_entity;
+
+	if (client->irq) {
+		err = devm_request_threaded_irq(&client->dev,
+						client->irq,
+						NULL, adv76xx_irq_handler,
+						IRQF_TRIGGER_HIGH | IRQF_ONESHOT,
+						client->name, state);
+		if (err)
+			goto err_entity;
+	}
 
 #if IS_ENABLED(CONFIG_VIDEO_ADV7604_CEC)
 	state->cec_adap = cec_allocate_adapter(&adv76xx_cec_adap_ops,

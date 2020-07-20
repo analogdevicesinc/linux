@@ -571,7 +571,7 @@ static int adxl372_configure_fifo(struct adxl372_state *st)
 		return ret;
 
 	/*
-	 * watermak stores the number of sets; we need to write the FIFO
+	 * watermark stores the number of sets; we need to write the FIFO
 	 * registers with the number of samples
 	 */
 	fifo_samples = (st->watermark * st->fifo_set_size);

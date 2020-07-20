@@ -1,11 +1,10 @@
+// SPDX-License-Identifier: GPL-2.0-only
 /*
  * STMicroelectronics pressures driver
  *
  * Copyright 2013 STMicroelectronics Inc.
  *
  * Denis Ciocca <denis.ciocca@st.com>
- *
- * Licensed under the GPL-2.
  */
 
 #include <linux/module.h>
@@ -30,35 +29,17 @@ int st_press_trig_set_state(struct iio_trigger *trig, bool state)
 	return st_sensors_set_dataready_irq(indio_dev, state);
 }
 
-static int st_press_buffer_preenable(struct iio_dev *indio_dev)
+static int st_press_buffer_postenable(struct iio_dev *indio_dev)
 {
 	return st_sensors_set_enable(indio_dev, true);
 }
 
-static int st_press_buffer_postenable(struct iio_dev *indio_dev)
-{
-	struct st_sensor_data *press_data = iio_priv(indio_dev);
-
-	press_data->buffer_data = kmalloc(indio_dev->scan_bytes, GFP_KERNEL);
-	if (press_data->buffer_data == NULL)
-		return -ENOMEM;
-
-	return 0;
-}
-
 static int st_press_buffer_predisable(struct iio_dev *indio_dev)
 {
-	int err;
-	struct st_sensor_data *press_data = iio_priv(indio_dev);
-
-	err = st_sensors_set_enable(indio_dev, false);
-
-	kfree(press_data->buffer_data);
-	return err;
+	return st_sensors_set_enable(indio_dev, false);
 }
 
 static const struct iio_buffer_setup_ops st_press_buffer_setup_ops = {
-	.preenable = &st_press_buffer_preenable,
 	.postenable = &st_press_buffer_postenable,
 	.predisable = &st_press_buffer_predisable,
 };

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0
+// SPDX-License-Identifier: GPL-2.0-only
 /*
  * Driver for the Analog Devices AXI-DMAC core
  *
@@ -82,8 +82,6 @@
 
 #define AXI_DMAC_FLAG_PARTIAL_XFER_DONE BIT(31)
 
-#undef SPEED_TEST
-
 /* The maximum ID allocated by the hardware is 31 */
 #define AXI_DMAC_SG_UNUSED 32U
 
@@ -141,11 +139,6 @@ struct axi_dmac {
 	struct axi_dmac_chan chan;
 
 	struct device_dma_parameters dma_parms;
-
-#ifdef SPEED_TEST
-	void *test_virt;
-	dma_addr_t test_phys;
-#endif
 };
 
 static struct axi_dmac *chan_to_axi_dmac(struct axi_dmac_chan *chan)
@@ -405,40 +398,6 @@ static bool axi_dmac_transfer_done(struct axi_dmac_chan *chan,
 	return start_next;
 }
 
-#ifdef SPEED_TEST
-static s64 get_time(void)
-{
-	struct timespec ts;
-	ktime_get_real_ts(&ts);
-
-	return timespec_to_ns(&ts);
-}
-
-static s64 start;
-static unsigned int count;
-
-static irqreturn_t axi_dmac_interrupt_handler(int irq, void *devid)
-{
-	struct axi_dmac *dmac = devid;
-	unsigned int pending;
-
-	pending = axi_dmac_read(dmac, AXI_DMAC_REG_IRQ_PENDING);
-	axi_dmac_write(dmac, AXI_DMAC_REG_IRQ_PENDING, pending);
-
-	if (pending & 1) {
-		if (count == 0)
-			start = get_time();
-		if (count < 100) {
-			axi_dmac_write(dmac, AXI_DMAC_REG_START_TRANSFER, 1);
-			count += 1;
-		}
-	} else if ((pending & 2) && count == 100) {
-		printk("time: %lld %x\n", get_time() - start, pending);
-	}
-
-	return IRQ_HANDLED;
-}
-#else
 static irqreturn_t axi_dmac_interrupt_handler(int irq, void *devid)
 {
 	struct axi_dmac *dmac = devid;
@@ -466,7 +425,6 @@ static irqreturn_t axi_dmac_interrupt_handler(int irq, void *devid)
 
 	return IRQ_HANDLED;
 }
-#endif
 
 static int axi_dmac_terminate_all(struct dma_chan *c)
 {
@@ -513,8 +471,7 @@ static struct axi_dmac_desc *axi_dmac_alloc_desc(unsigned int num_sgs)
 	struct axi_dmac_desc *desc;
 	unsigned int i;
 
-	desc = kzalloc(sizeof(struct axi_dmac_desc) +
-		sizeof(struct axi_dmac_sg) * num_sgs, GFP_NOWAIT);
+	desc = kzalloc(struct_size(desc, sg, num_sgs), GFP_NOWAIT);
 	if (!desc)
 		return NULL;
 
@@ -987,33 +944,6 @@ static int axi_dmac_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, dmac);
 
 	devm_regmap_init_mmio(&pdev->dev, dmac->base, &axi_dmac_regmap_config);
-
-#ifdef SPEED_TEST
-	for (i = 0; i < 0x30; i += 4)
-		printk("reg %x: %x\n", i, axi_dmac_read(dmac, i));
-	dmac->test_virt = dma_alloc_coherent(&pdev->dev, SZ_8M,
-			&dmac->test_phys, GFP_KERNEL);
-
-	axi_dmac_write(dmac, AXI_DMAC_REG_CTRL, AXI_DMAC_CTRL_ENABLE);
-	axi_dmac_write(dmac, AXI_DMAC_REG_DMA_ADDRESS, dmac->test_phys);
-	axi_dmac_write(dmac, AXI_DMAC_REG_DMA_COUNT, SZ_8M);
-
-	printk("Check registers\n");
-	printk("CTRL: %x %x\n", AXI_DMAC_CTRL_ENABLE, axi_dmac_read(dmac, AXI_DMAC_REG_CTRL));
-	printk("ADDR: %x %x\n", dmac->test_phys, axi_dmac_read(dmac, AXI_DMAC_REG_DMA_ADDRESS));
-	printk("COUNT: %x %x\n", PAGE_SIZE, axi_dmac_read(dmac, AXI_DMAC_REG_DMA_COUNT));
-	printk("MASK: %x %x\n", 0, axi_dmac_read(dmac, AXI_DMAC_REG_IRQ_MASK));
-
-	printk("Start transfer\n");
-	axi_dmac_write(dmac, AXI_DMAC_REG_START_TRANSFER, 1);
-	printk("START: %x %x\n", 1, axi_dmac_read(dmac, AXI_DMAC_REG_START_TRANSFER));
-
-	for (i = 0; i < 0x100; i++)
-		printk("%.8x%c", ((unsigned long *)dmac->test_virt)[i],
-			i % 16 == 15 ? '\n' : ' ');
-	printk("Last: %x\n", ((unsigned long *)dmac->test_virt)[PAGE_SIZE/4-1]);
-	printk("PROGRESS: %x %x\n", 1, axi_dmac_read(dmac, AXI_DMAC_REG_DMA_COUNT_PROGRESS));
-#endif
 
 	return 0;
 

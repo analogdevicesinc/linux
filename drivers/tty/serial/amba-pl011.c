@@ -1717,7 +1717,7 @@ static int pl011_allocate_irq(struct uart_amba_port *uap)
 {
 	pl011_write(uap->im, uap, REG_IMSC);
 
-	return request_irq(uap->port.irq, pl011_int, 0, "uart-pl011", uap);
+	return request_irq(uap->port.irq, pl011_int, IRQF_SHARED, "uart-pl011", uap);
 }
 
 /*
@@ -2072,17 +2072,45 @@ sbsa_uart_set_termios(struct uart_port *port, struct ktermios *termios,
 	struct uart_amba_port *uap =
 	    container_of(port, struct uart_amba_port, port);
 	unsigned long flags;
+	unsigned int lcr_h, old_cr;
 
 	tty_termios_encode_baud_rate(termios, uap->fixed_baud, uap->fixed_baud);
-
 	/* The SBSA UART only supports 8n1 without hardware flow control. */
-	termios->c_cflag &= ~(CSIZE | CSTOPB | PARENB | PARODD);
 	termios->c_cflag &= ~(CMSPAR | CRTSCTS);
-	termios->c_cflag |= CS8 | CLOCAL;
+	switch (termios->c_cflag & CSIZE) {
+	case CS5:
+		lcr_h = UART01x_LCRH_WLEN_5;
+		break;
+	case CS6:
+		lcr_h = UART01x_LCRH_WLEN_6;
+		break;
+	case CS7:
+		lcr_h = UART01x_LCRH_WLEN_7;
+		break;
+	default:
+		lcr_h = UART01x_LCRH_WLEN_8;
+		break;
+	}
+	if (termios->c_cflag & CSTOPB)
+		lcr_h |= UART01x_LCRH_STP2;
+	if (termios->c_cflag & PARENB) {
+		lcr_h |= UART01x_LCRH_PEN;
+		if (!(termios->c_cflag & PARODD))
+			lcr_h |= UART01x_LCRH_EPS;
+		if (termios->c_cflag & CMSPAR)
+			lcr_h |= UART011_LCRH_SPS;
+	}
+	if (uap->fifosize > 1)
+		lcr_h |= UART01x_LCRH_FEN;
 
 	spin_lock_irqsave(&port->lock, flags);
 	uart_update_timeout(port, CS8, uap->fixed_baud);
 	pl011_setup_status_masks(port, termios);
+	/* first, disable everything */
+	old_cr = pl011_read(uap, REG_CR);
+	pl011_write(0, uap, REG_CR);
+	pl011_write_lcr_h(uap, lcr_h);
+	pl011_write(old_cr, uap, REG_CR);
 	spin_unlock_irqrestore(&port->lock, flags);
 }
 
@@ -2718,11 +2746,8 @@ static int sbsa_uart_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	ret = platform_get_irq(pdev, 0);
-	if (ret < 0) {
-		if (ret != -EPROBE_DEFER)
-			dev_err(&pdev->dev, "cannot obtain irq\n");
+	if (ret < 0)
 		return ret;
-	}
 	uap->port.irq	= ret;
 
 #ifdef CONFIG_ACPI_SPCR_TABLE
@@ -2781,6 +2806,7 @@ static struct platform_driver arm_sbsa_uart_platform_driver = {
 		.pm	= &pl011_dev_pm_ops,
 		.of_match_table = of_match_ptr(sbsa_uart_of_match),
 		.acpi_match_table = ACPI_PTR(sbsa_uart_acpi_match),
+		.suppress_bind_attrs = IS_BUILTIN(CONFIG_SERIAL_AMBA_PL011),
 	},
 };
 
@@ -2809,6 +2835,7 @@ static struct amba_driver pl011_driver = {
 	.drv = {
 		.name	= "uart-pl011",
 		.pm	= &pl011_dev_pm_ops,
+		.suppress_bind_attrs = IS_BUILTIN(CONFIG_SERIAL_AMBA_PL011),
 	},
 	.id_table	= pl011_ids,
 	.probe		= pl011_probe,
