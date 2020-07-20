@@ -1,5 +1,9 @@
 # Device-trees that are upstream/non-ADI, go here
 
+arch/arm/boot/dts/socfpga_cyclone5_chameleon96.dts
+arch/arm/boot/dts/socfpga_cyclone5_de0_nano_soc.dts
+arch/arm64/boot/dts/xilinx/zynqmp-zcu208-revA.dts
+arch/arm64/boot/dts/xilinx/zynqmp-zcu216-revA.dts
 arch/arm64/boot/dts/xilinx/zynqmp-zcu1285-revA.dts
 arch/arm64/boot/dts/xilinx/zynqmp-zcu1275-revB.dts
 arch/arm64/boot/dts/xilinx/zynqmp-zcu111-revA.dts
