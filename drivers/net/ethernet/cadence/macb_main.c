@@ -592,11 +592,6 @@ static int macb_mii_probe(struct net_device *dev)
 	else
 		phy_set_max_speed(phydev, SPEED_100);
 
-	/* FIXME: Drop this in newer kernels */
-	if (bp->phy_interface == PHY_INTERFACE_MODE_RMII ||
-	    bp->phy_interface == PHY_INTERFACE_MODE_MII)
-		phydev->supported &= PHY_BASIC_FEATURES;
-
 	if (bp->caps & MACB_CAPS_NO_GIGABIT_HALF)
 		phy_remove_link_mode(phydev,
 				     ETHTOOL_LINK_MODE_1000baseT_Half_BIT);
