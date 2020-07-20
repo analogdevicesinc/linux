@@ -147,7 +147,7 @@ struct spi_device {
 	u32			max_speed_hz;
 	u8			chip_select;
 	u8			bits_per_word;
-	u16			mode;
+	u32			mode;
 #define	SPI_CPHA	0x01			/* clock phase */
 #define	SPI_CPOL	0x02			/* clock polarity */
 #define	SPI_MODE_0	(0|0)			/* (original MicroWire) */
@@ -167,6 +167,8 @@ struct spi_device {
 #define	SPI_CS_WORD	0x1000			/* toggle cs after each word */
 #define	SPI_TX_OCTAL	0x2000			/* transmit with 8 wires */
 #define	SPI_RX_OCTAL	0x4000			/* receive with 8 wires */
+#define	SPI_NO_MOSI	0x8000			/* no transmit wire */
+#define	SPI_NO_MISO	0x10000			/* no receive wire */
 	int			irq;
 	void			*controller_state;
 	void			*controller_data;
