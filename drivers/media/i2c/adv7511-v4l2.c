@@ -2411,6 +2411,11 @@ static int adv7511_probe(struct i2c_client *client, const struct i2c_device_id *
 #endif
 	v4l2_info(sd, "%s found @ 0x%x (%s)\n", client->name,
 			  client->addr << 1, client->adapter->name);
+
+	err = v4l2_async_register_subdev(sd);
+	if (err)
+		goto err_unreg_pktmem;
+
 	return 0;
 
 err_unreg_pktmem:
@@ -2445,6 +2450,7 @@ static int adv7511_remove(struct i2c_client *client)
 	i2c_unregister_device(state->i2c_cec);
 	i2c_unregister_device(state->i2c_pktmem);
 	destroy_workqueue(state->work_queue);
+	v4l2_async_unregister_subdev(sd);
 	v4l2_device_unregister_subdev(sd);
 	media_entity_cleanup(&sd->entity);
 	v4l2_ctrl_handler_free(sd->ctrl_handler);
