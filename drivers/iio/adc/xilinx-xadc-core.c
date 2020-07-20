@@ -3,7 +3,7 @@
  * Xilinx XADC driver
  *
  * Copyright 2013-2014 Analog Devices Inc.
- *  Author: Lars-Peter Clauen <lars@metafoo.de>
+ *  Author: Lars-Peter Clausen <lars@metafoo.de>
  *
  * Documentation for the parts can be found at:
  *  - XADC hardmacro: Xilinx UG480
@@ -663,7 +663,7 @@ static int xadc_trigger_set_state(struct iio_trigger *trigger, bool state)
 	mutex_lock(&xadc->mutex);
 
 	if (state) {
-		/* Only one of the two triggers can be active at the a time. */
+		/* Only one of the two triggers can be active at a time. */
 		if (xadc->trigger != NULL) {
 			ret = -EBUSY;
 			goto err_out;
@@ -1186,7 +1186,6 @@ static int xadc_probe(struct platform_device *pdev)
 	const struct of_device_id *id;
 	struct iio_dev *indio_dev;
 	unsigned int bipolar_mask;
-	struct resource *mem;
 	unsigned int conf0;
 	struct xadc *xadc;
 	int ret;
@@ -1216,13 +1215,10 @@ static int xadc_probe(struct platform_device *pdev)
 	spin_lock_init(&xadc->lock);
 	INIT_DELAYED_WORK(&xadc->zynq_unmask_work, xadc_zynq_unmask_worker);
 
-	mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	xadc->base = devm_ioremap_resource(&pdev->dev, mem);
+	xadc->base = devm_platform_ioremap_resource(pdev, 0);
 	if (IS_ERR(xadc->base))
 		return PTR_ERR(xadc->base);
 
-	indio_dev->dev.parent = &pdev->dev;
-	indio_dev->dev.of_node = pdev->dev.of_node;
 	indio_dev->name = "xadc";
 	indio_dev->modes = INDIO_DIRECT_MODE;
 	indio_dev->info = &xadc_info;
@@ -1279,7 +1275,7 @@ static int xadc_probe(struct platform_device *pdev)
 	ret = request_irq(xadc->irq, xadc->ops->interrupt_handler, 0,
 			dev_name(&pdev->dev), indio_dev);
 	if (ret)
-		goto err_free_samplerate_trigger;
+		goto err_clk_disable_unprepare;
 
 	ret = xadc->ops->setup(pdev, indio_dev, xadc->irq);
 	if (ret)
