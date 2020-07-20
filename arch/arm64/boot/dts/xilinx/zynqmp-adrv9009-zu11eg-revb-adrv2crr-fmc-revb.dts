@@ -21,7 +21,7 @@
 	dr_mode = "otg";
 };
 
-&hmc7044_fmc_car {
+&hmc7044_car {
 	adi,pll1-clkin-frequencies = <122880000 122880000 0 38400000>;
 	adi,pll1-ref-prio-ctrl = <0xb1>;  // priorities: clkin 1,0,3,2
 	adi,pll1-ref-autorevert-enable;
