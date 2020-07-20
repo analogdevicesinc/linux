@@ -186,6 +186,8 @@ struct spi_device {
 #define	SPI_TX_OCTAL	0x2000			/* transmit with 8 wires */
 #define	SPI_RX_OCTAL	0x4000			/* receive with 8 wires */
 #define	SPI_3WIRE_HIZ	0x8000			/* high impedance turnaround */
+#define	SPI_NO_MOSI	0x10000			/* no transmit wire */
+#define	SPI_NO_MISO	0x20000			/* no receive wire */
 	int			irq;
 	void			*controller_state;
 	void			*controller_data;
