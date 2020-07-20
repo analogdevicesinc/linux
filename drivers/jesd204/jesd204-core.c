@@ -67,6 +67,7 @@ int jesd204_link_get_rate(struct jesd204_link *lnk, u64 *lane_rate_hz)
 		default:
 			return -EINVAL;
 		}
+		break;
 	default:
 		encoding_n = 10; /* JESD 204AB */
 		encoding_d = 8;
