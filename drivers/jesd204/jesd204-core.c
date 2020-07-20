@@ -67,6 +67,7 @@ int jesd204_link_get_rate(struct jesd204_link *lnk, u64 *lane_rate_hz)
 		default:
 			return -EINVAL;
 		}
+		break;
 	default:
 		encoding_n = 10; /* JESD 204AB */
 		encoding_d = 8;
@@ -148,6 +149,7 @@ int jesd204_link_get_lmfc_lemc_rate(struct jesd204_link *lnk,
 	switch (lnk->jesd_encoder) {
 	case JESD204_ENC_64B66B:
 		bkw = 66; /* JESD 204C */
+		/* fall-through */
 	case JESD204_ENC_64B80B:
 		if (lnk->jesd_encoder == JESD204_ENC_64B80B)
 			bkw = 80; /* JESD 204C */
