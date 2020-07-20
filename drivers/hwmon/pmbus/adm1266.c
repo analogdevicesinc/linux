@@ -507,7 +507,7 @@ static int adm1266_unlock_device(struct adm1266_data *data)
 		}
 
 		/* 50 ms delay between subsequent password writes are needed*/
-		mdelay(50);
+		msleep(50);
 	}
 
 	/* check if device is unlocked */
@@ -620,7 +620,7 @@ static int adm1266_write_hex(struct adm1266_data *data,
 					write_delay = write_delays[i][1];
 			}
 		}
-		mdelay(write_delay);
+		msleep(write_delay);
 	}
 
 	return 0;
@@ -640,7 +640,7 @@ static int adm1266_program_firmware(struct adm1266_data *data)
 	}
 
 	/* after issuing a stop command, wait 100 ms */
-	mdelay(100);
+	msleep(100);
 
 	ret = adm1266_unlock_all_dev(data);
 	if (ret < 0)
@@ -656,7 +656,7 @@ static int adm1266_program_firmware(struct adm1266_data *data)
 	}
 
 	/* wait for adm1266 to enter bootloader mode */
-	mdelay(2000);
+	msleep(2000);
 
 	ret = adm1266_write_hex(data, ADM1266_FIRMWARE_OFFSET,
 				ADM1266_FIRMWARE_SIZE);
