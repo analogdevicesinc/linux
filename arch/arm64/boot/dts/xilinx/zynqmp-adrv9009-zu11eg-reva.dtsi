@@ -78,7 +78,7 @@
 	sda-gpios = <&gpio 15 GPIO_ACTIVE_HIGH>;
 
 	current_limiter@58 { /* U12 */
-		compatible = "adi,adm1177";
+		compatible = "adi,adm1177-iio";
 		reg = <0x58>;
 		adi,r-sense-mohm = <10>; /* 10 mOhm */
 		adi,shutdown-threshold-ma = <10000>; /* 10 A */
