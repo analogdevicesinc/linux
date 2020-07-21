@@ -119,6 +119,9 @@ enum dds_data_select {
 #define ADI_TO_JESD_N(x)		(((x) >> 0) & 0xFF)
 #define ADI_TO_JESD_NP(x)		(((x) >> 8) & 0xFF)
 
+#define ADI_TO_PROFILE_NUM(x)	(((x) >> 0) & 0xF)
+#define ADI_PROFILE_SEL(x)		((x) & 0xF)
+
 /* DAC CHANNEL */
 
 #define ADI_REG_CHAN_CNTRL_1_IIOCHAN(x)	(0x0400 + ((x) >> 1) * 0x40 + ((x) & 1) * 0x8)
