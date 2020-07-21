@@ -212,24 +212,25 @@ int adrv9009_register_axi_converter(struct adrv9009_rf_phy *phy)
 	struct axiadc_converter *conv;
 	struct spi_device *spi = phy->spi;
 
-	if (phy->spi_device_id == ID_ADRV90082)
-		return 0;
-
 	conv = devm_kzalloc(&spi->dev, sizeof(*conv), GFP_KERNEL);
 	if (conv == NULL)
 		return -ENOMEM;
+
+	conv->spi = spi;
+	conv->phy = phy;
+
+	spi_set_drvdata(spi, conv); /* Take care here */
 
 	conv->chip_info = &axiadc_chip_info_tbl[phy->spi_device_id];
 	conv->write_raw = adrv9009_write_raw;
 	conv->read_raw = adrv9009_read_raw;
 	conv->post_setup = adrv9009_post_setup;
-	conv->spi = spi;
-	conv->phy = phy;
+
+	if (phy->spi_device_id == ID_ADRV90082)
+		return 0;
 
 	conv->clk = phy->clks[RX_SAMPL_CLK];
 	conv->adc_clk = clk_get_rate(conv->clk);
-
-	spi_set_drvdata(spi, conv); /* Take care here */
 
 	return 0;
 }
