@@ -1,4 +1,5 @@
 /* Copyright 2008 - 2016 Freescale Semiconductor, Inc.
+ * Copyright 2020 Puresoftware Ltd.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -28,6 +29,7 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <linux/acpi.h>
 #include "qman_priv.h"
 
 u16 qman_ip_rev;
@@ -752,6 +754,9 @@ static int fsl_qman_probe(struct platform_device *pdev)
 			node);
 		return -ENXIO;
 	}
+	dev_dbg(dev, "Qman IORESOURCE [%llx] of size [%llx]\n",
+		res->start, resource_size(res));
+
 	qm_ccsr_start = devm_ioremap(dev, res->start, resource_size(res));
 	if (!qm_ccsr_start)
 		return -ENXIO;
@@ -781,6 +786,7 @@ static int fsl_qman_probe(struct platform_device *pdev)
 		qm_channel_pool1 = QMAN_CHANNEL_POOL1_REV3;
 		qm_channel_caam = QMAN_CHANNEL_CAAM_REV3;
 	}
+	dev_dbg(dev, "Qman version:%04x,%02x,%02x\n", id, major, minor);
 
 	/*
 	* Order of memory regions is assumed as FQD followed by PFDR
@@ -873,6 +879,7 @@ static int fsl_qman_probe(struct platform_device *pdev)
 		return ret;
 
 	__qman_probed = 1;
+	dev_dbg(dev, "Qman probed successfully [%d]\n", __qman_probed);
 
 	return 0;
 }
@@ -884,10 +891,16 @@ static const struct of_device_id fsl_qman_ids[] = {
 	{}
 };
 
+static const struct acpi_device_id fsl_qman_acpi_ids[] = {
+	{"NXP0028", 0}
+};
+MODULE_DEVICE_TABLE(acpi, fsl_qman_acpi_ids);
+
 static struct platform_driver fsl_qman_driver = {
 	.driver = {
 		.name = KBUILD_MODNAME,
 		.of_match_table = fsl_qman_ids,
+		.acpi_match_table = ACPI_PTR(fsl_qman_acpi_ids),
 		.suppress_bind_attrs = true,
 	},
 	.probe = fsl_qman_probe,
