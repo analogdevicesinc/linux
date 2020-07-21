@@ -35,6 +35,8 @@
 #include <linux/iio/sysfs.h>
 #include <linux/iio/buffer.h>
 
+#include <linux/jesd204/jesd204.h>
+
 #include "cf_axi_dds.h"
 #include "ad9122.h"
 
@@ -81,6 +83,7 @@ struct cf_axi_dds_state {
 	struct cf_axi_dds_chip_info	*chip_info;
 	struct gpio_desc		*plddrbypass_gpio;
 	struct gpio_desc		*interpolation_gpio;
+	struct jesd204_dev 		*jdev;
 
 	bool				standalone;
 	bool				dp_disable;
@@ -1573,6 +1576,91 @@ static struct iio_chan_spec_ext_info axidds_ext_info[] = {
 	{},
 };
 
+static int cf_axi_dds_jesd204_link_supported(struct jesd204_dev *jdev,
+		enum jesd204_state_op_reason reason,
+		struct jesd204_link *lnk)
+{
+	struct device *dev = jesd204_dev_to_device(jdev);
+	struct iio_dev *indio_dev = dev_get_drvdata(dev);
+	struct cf_axi_dds_state *st = iio_priv(indio_dev);
+	u32 i, d1, d2, num, multi_device_link;
+	bool failed, last;
+
+	if (reason != JESD204_STATE_OP_REASON_INIT)
+		return JESD204_STATE_CHANGE_DONE;
+
+	dev_dbg(dev, "%s:%d link_num %u reason %s\n", __func__, __LINE__, lnk->link_id, jesd204_state_op_reason_str(reason));
+
+	num = ADI_TO_PROFILE_NUM(dds_read(st, ADI_REG_TPL_STATUS));
+
+	for (i = 0; i < num; i++) {
+		last = (i == (num - 1));
+		failed = false;
+
+		dds_write(st, ADI_REG_TPL_CNTRL, ADI_PROFILE_SEL(i));
+		d1 = dds_read(st, ADI_REG_TPL_DESCRIPTOR_1);
+		d2 = dds_read(st, ADI_REG_TPL_DESCRIPTOR_2);
+
+		if ((ADI_TO_JESD_L(d1) / lnk->num_lanes) ==
+			(ADI_TO_JESD_M(d1) / lnk->num_converters))
+			multi_device_link = ADI_TO_JESD_L(d1) / lnk->num_lanes;
+		else
+			multi_device_link = 1;
+
+		if (ADI_TO_JESD_L(d1) != lnk->num_lanes * multi_device_link) {
+			if (last)
+				dev_warn(dev, "profile%u:link_num%u param L mismatch %u!=%u*%u\n",
+					i, lnk->link_id, ADI_TO_JESD_L(d1), lnk->num_lanes,
+					multi_device_link);
+			failed = true;
+		}
+
+		if (ADI_TO_JESD_M(d1) != lnk->num_converters * multi_device_link) {
+			if (last)
+				dev_warn(dev, "profile%u:link_num%u param M mismatch %u!=%u*%u\n",
+					i, lnk->link_id, ADI_TO_JESD_M(d1), lnk->num_converters,
+					multi_device_link);
+			failed = true;
+		}
+
+		if (lnk->samples_per_conv_frame && ADI_TO_JESD_S(d1) != lnk->samples_per_conv_frame) {
+			if (last)
+				dev_warn(dev, "profile%u:link_num%u param S mismatch %u!=%u\n",
+					i, lnk->link_id, ADI_TO_JESD_S(d1), lnk->samples_per_conv_frame);
+			failed = true;
+		}
+
+		if (ADI_TO_JESD_F(d1) != lnk->octets_per_frame) {
+			if (last)
+				dev_warn(dev, "profile%u:link_num%u param F mismatch %u!=%u\n",
+					i, lnk->link_id, ADI_TO_JESD_F(d1), lnk->octets_per_frame);
+			failed = true;
+		}
+
+		if (ADI_TO_JESD_NP(d2) != lnk->bits_per_sample) {
+			if (last)
+				dev_warn(dev, "profile%u:link_num%u param NP mismatch %u!=%u\n",
+					i, lnk->link_id, ADI_TO_JESD_NP(d2), lnk->bits_per_sample);
+			failed = true;
+		}
+
+		if (!failed)
+			return JESD204_STATE_CHANGE_DONE;
+	}
+
+	dev_err(dev, "JESD param mismatch between TPL and Link configuration !\n");
+
+	return JESD204_STATE_CHANGE_DONE;
+}
+
+static const struct jesd204_dev_data jesd204_cf_axi_dds_init = {
+	.state_ops = {
+		[JESD204_OP_LINK_SUPPORTED] = {
+			.per_link = cf_axi_dds_jesd204_link_supported,
+		},
+	},
+};
+
 static int cf_axi_dds_setup_chip_info_tbl(struct cf_axi_dds_state *st,
 					  const char *name, bool complex)
 {
@@ -1837,6 +1925,10 @@ static int cf_axi_dds_probe(struct platform_device *pdev)
 	if (!st->regs)
 		return -ENOMEM;
 
+	st->jdev = devm_jesd204_dev_register(&pdev->dev, &jesd204_cf_axi_dds_init);
+	if (IS_ERR(st->jdev))
+		return PTR_ERR(st->jdev);
+
 	if (info->standalone) {
 		st->clk = devm_clk_get(&pdev->dev, "sampl_clk");
 		if (IS_ERR(st->clk))
@@ -2075,6 +2167,10 @@ static int cf_axi_dds_probe(struct platform_device *pdev)
 				    indio_dev, &cf_axi_dds_debugfs_fops);
 
 	platform_set_drvdata(pdev, indio_dev);
+
+	ret = jesd204_fsm_start(st->jdev, JESD204_LINKS_ALL);
+	if (ret)
+		goto err_unconfigure_buffer;
 
 	return 0;
 
