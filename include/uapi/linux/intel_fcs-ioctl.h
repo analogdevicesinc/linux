@@ -71,11 +71,13 @@ struct fcs_key_manage_request {
  * @test: test bit (1 if want to write to cache instead of fuses)
  * @addr: the virtual address of the signed object,
  * @size: the size of the signed object
+ * @c_status: returned certificate status
  */
 struct fcs_certificate_request {
 	struct intel_fcs_cert_test_word test;
 	void *addr;
 	__u32 size;
+	__u32 c_status;
 };
 
 /**
