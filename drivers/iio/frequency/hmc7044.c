@@ -19,6 +19,8 @@
 #include <linux/iio/sysfs.h>
 #include <dt-bindings/iio/frequency/hmc7044.h>
 
+#include <linux/jesd204/jesd204.h>
+
 #define HMC7044_WRITE		(0 << 15)
 #define HMC7044_READ		(1 << 15)
 #define HMC7044_CNT(x)		(((x) - 1) << 13)
@@ -312,6 +314,10 @@ struct hmc7044 {
 	struct clk_onecell_data		clk_data;
 	struct clk			*clk_input[4];
 	struct mutex			lock;
+	struct jesd204_dev 		*jdev;
+	u32				jdev_lmfc_lemc_rate;
+	u32				jdev_lmfc_lemc_gcd;
+	bool				is_sysref_provider;
 };
 
 static const char * const hmc7044_input_clk_names[] = {
@@ -1280,6 +1286,8 @@ static int hmc7044_parse_dt(struct device *dev,
 			return ret;
 	}
 
+	hmc->is_sysref_provider = of_property_read_bool(np, "jesd204-sysref-provider");
+
 	hmc->rf_reseeder_en =
 		!of_property_read_bool(np, "adi,rf-reseeder-disable");
 
@@ -1468,6 +1476,238 @@ static int hmc7044_status_show(struct seq_file *file, void *offset)
 	return 0;
 }
 
+static int hmc7044_jesd204_link_supported(struct jesd204_dev *jdev,
+		enum jesd204_state_op_reason reason,
+		struct jesd204_link *lnk)
+{
+	struct device *dev = jesd204_dev_to_device(jdev);
+	struct iio_dev *indio_dev = dev_get_drvdata(dev);
+	struct hmc7044 *hmc = iio_priv(indio_dev);
+	int ret;
+	unsigned long rate;
+
+	if (reason != JESD204_STATE_OP_REASON_INIT)
+		return JESD204_STATE_CHANGE_DONE;
+
+	dev_dbg(dev, "%s:%d link_num %u reason %s\n", __func__, __LINE__, lnk->link_id, jesd204_state_op_reason_str(reason));
+
+	ret = jesd204_link_get_lmfc_lemc_rate(lnk, &rate);
+	if (ret < 0)
+		return ret;
+
+	if (hmc->jdev_lmfc_lemc_rate) {
+		hmc->jdev_lmfc_lemc_rate = min(hmc->jdev_lmfc_lemc_rate, (u32)rate);
+		hmc->jdev_lmfc_lemc_gcd = gcd(hmc->jdev_lmfc_lemc_gcd, rate);
+	} else {
+		hmc->jdev_lmfc_lemc_rate = rate;
+		hmc->jdev_lmfc_lemc_gcd = gcd(hmc->pll2_freq, rate);
+	}
+
+	dev_dbg(dev, "%s:%d link_num %u LMFC/LEMC %u/%lu gcd %u\n",
+		__func__, __LINE__, lnk->link_id, hmc->jdev_lmfc_lemc_rate,
+		rate, hmc->jdev_lmfc_lemc_gcd);
+
+	return JESD204_STATE_CHANGE_DONE;
+}
+
+static int hmc7044_jesd204_sysref(struct jesd204_dev *jdev)
+{
+	struct device *dev = jesd204_dev_to_device(jdev);
+	struct iio_dev *indio_dev = dev_get_drvdata(dev);
+	struct hmc7044 *hmc = iio_priv(indio_dev);
+	int ret;
+	u32 val;
+
+	dev_dbg(dev, "%s:%d\n", __func__, __LINE__);
+
+	mutex_lock(&hmc->lock);
+
+	ret = hmc7044_read(indio_dev, HMC7044_REG_REQ_MODE_0, &val);
+	if (ret < 0) {
+		mutex_unlock(&hmc->lock);
+		return ret;
+	}
+
+	hmc7044_write(indio_dev, HMC7044_REG_REQ_MODE_0,
+		val | HMC7044_PULSE_GEN_REQ);
+
+	ret = hmc7044_write(indio_dev, HMC7044_REG_REQ_MODE_0, val);
+
+	mutex_unlock(&hmc->lock);
+
+	return ret;
+}
+
+static int hmc7044_jesd204_clks_sync1(struct jesd204_dev *jdev,
+				      enum jesd204_state_op_reason reason)
+{
+	struct device *dev = jesd204_dev_to_device(jdev);
+	struct iio_dev *indio_dev = dev_get_drvdata(dev);
+	struct hmc7044 *hmc = iio_priv(indio_dev);
+	int ret;
+	unsigned mask, val;
+
+	if (reason != JESD204_STATE_OP_REASON_INIT)
+		return JESD204_STATE_CHANGE_DONE;
+
+	dev_dbg(dev, "%s:%d reason %s\n", __func__, __LINE__, jesd204_state_op_reason_str(reason));
+
+	if (hmc->is_sysref_provider) {
+		if (hmc->device_id == HMC7044)
+			hmc7044_sync_pin_set(indio_dev, HMC7044_SYNC_PIN_DISABLED);
+
+		mask = HMC7044_RESTART_DIV_FSM;
+	} else {
+		if (hmc->device_id == HMC7044)
+			hmc7044_sync_pin_set(indio_dev, HMC7044_SYNC_PIN_SYNC);
+
+		mask = HMC7044_RESTART_DIV_FSM | HMC7044_RESEED_REQ;
+	}
+
+	ret = hmc7044_read(indio_dev, HMC7044_REG_REQ_MODE_0, &val);
+	if (ret < 0)
+		return ret;
+
+	hmc7044_write(indio_dev, HMC7044_REG_REQ_MODE_0,
+		val | mask);
+
+	ret = hmc7044_write(indio_dev, HMC7044_REG_REQ_MODE_0, val);
+	if (ret)
+		return ret;
+
+	msleep(1);
+
+	return JESD204_STATE_CHANGE_DONE;
+}
+
+static int hmc7044_jesd204_clks_sync2(struct jesd204_dev *jdev,
+				      enum jesd204_state_op_reason reason)
+
+{
+	struct device *dev = jesd204_dev_to_device(jdev);
+	struct iio_dev *indio_dev = dev_get_drvdata(dev);
+	struct hmc7044 *hmc = iio_priv(indio_dev);
+
+	if (reason != JESD204_STATE_OP_REASON_INIT)
+		return JESD204_STATE_CHANGE_DONE;
+
+	dev_dbg(dev, "%s:%d reason %s\n", __func__, __LINE__, jesd204_state_op_reason_str(reason));
+
+	if (hmc->is_sysref_provider) {
+		int ret =  hmc7044_jesd204_sysref(jdev);
+		msleep(2);
+		return ret;
+	}
+
+	return JESD204_STATE_CHANGE_DONE;
+}
+
+static int hmc7044_jesd204_clks_sync3(struct jesd204_dev *jdev,
+				      enum jesd204_state_op_reason reason)
+{
+	struct device *dev = jesd204_dev_to_device(jdev);
+	struct iio_dev *indio_dev = dev_get_drvdata(dev);
+	struct hmc7044 *hmc = iio_priv(indio_dev);
+	unsigned val;
+	int ret;
+
+	if (reason != JESD204_STATE_OP_REASON_INIT)
+		return JESD204_STATE_CHANGE_DONE;
+
+	dev_dbg(dev, "%s:%d reason %s\n", __func__, __LINE__, jesd204_state_op_reason_str(reason));
+
+	if (hmc->is_sysref_provider)
+		return JESD204_STATE_CHANGE_DONE;
+
+	ret = hmc7044_read(indio_dev, HMC7044_REG_ALARM_READBACK, &val);
+	if (ret < 0)
+		return ret;
+
+	if (!HMC7044_CLK_OUT_PH_STATUS(val))
+		dev_err(dev,
+			"%s: SYSREF of the HMC7044 is not valid; that is, its phase output is not stable (0x%X)\n",
+			__func__, val & 0xFF);
+
+	if (hmc->device_id == HMC7044)
+		hmc7044_sync_pin_set(indio_dev, HMC7044_SYNC_PIN_PULSE_GEN_REQ);
+
+	return JESD204_STATE_CHANGE_DONE;
+}
+
+static int hmc7044_jesd204_link_pre_setup(struct jesd204_dev *jdev,
+		enum jesd204_state_op_reason reason,
+		struct jesd204_link *lnk)
+{
+	struct device *dev = jesd204_dev_to_device(jdev);
+	struct iio_dev *indio_dev = dev_get_drvdata(dev);
+	struct hmc7044 *hmc = iio_priv(indio_dev);
+	int i, ret;
+	u32 sysref_timer;
+
+	if (reason != JESD204_STATE_OP_REASON_INIT)
+		return JESD204_STATE_CHANGE_DONE;
+
+	dev_dbg(dev, "%s:%d link_num %u\n", __func__, __LINE__, lnk->link_id);
+
+	/* Program the output channels */
+	for (i = 0; i < hmc->num_channels; i++) {
+		if (hmc->channels[i].start_up_mode_dynamic_enable) {
+			dev_dbg(dev, "%s:%d Found SYSREF channel%u setting f=%u Hz\n",
+				__func__, __LINE__, hmc->channels[i].num, hmc->jdev_lmfc_lemc_gcd);
+			ret = clk_set_rate(hmc->clks[hmc->channels[i].num], hmc->jdev_lmfc_lemc_gcd);
+			if (ret < 0)
+				dev_err(dev, "%s: Link%u setting SYSREF rate %u failed (%d)\n",
+					__func__, lnk->link_id, hmc->jdev_lmfc_lemc_gcd, ret);
+
+		 }
+	}
+
+	/* Program the SYSREF timer
+	 * Set the 12-bit timer to a submultiple of the lowest
+	 * output SYSREF frequency, and program it to be no faster than 4 MHz.
+	 */
+
+	sysref_timer = hmc->jdev_lmfc_lemc_gcd / 2;
+
+	while (sysref_timer >= 4000000U)
+		sysref_timer >>= 1;
+
+	sysref_timer = hmc->pll2_freq / sysref_timer;
+
+	/* Set the divide ratio */
+	hmc7044_write(indio_dev, HMC7044_REG_SYSREF_TIMER_LSB,
+		      HMC7044_SYSREF_TIMER_LSB(sysref_timer));
+	hmc7044_write(indio_dev, HMC7044_REG_SYSREF_TIMER_MSB,
+		      HMC7044_SYSREF_TIMER_MSB(sysref_timer));
+
+	return JESD204_STATE_CHANGE_DONE;
+}
+
+static const struct jesd204_dev_data jesd204_hmc7044_init = {
+	.sysref_cb = hmc7044_jesd204_sysref,
+	.state_ops = {
+		[JESD204_OP_LINK_SUPPORTED] = {
+			.per_link = hmc7044_jesd204_link_supported,
+		},
+		[JESD204_OP_CLK_SYNC_STAGE1] = {
+			.per_device = hmc7044_jesd204_clks_sync1,
+			.mode = JESD204_STATE_OP_MODE_PER_DEVICE,
+		},
+		[JESD204_OP_CLK_SYNC_STAGE2] = {
+			.per_device = hmc7044_jesd204_clks_sync2,
+			.mode = JESD204_STATE_OP_MODE_PER_DEVICE,
+		},
+		[JESD204_OP_CLK_SYNC_STAGE3] = {
+			.per_device = hmc7044_jesd204_clks_sync3,
+			.mode = JESD204_STATE_OP_MODE_PER_DEVICE,
+		},
+		[JESD204_OP_LINK_PRE_SETUP] = {
+			.per_link = hmc7044_jesd204_link_pre_setup,
+		},
+	},
+};
+
+
 static int hmc7044_probe(struct spi_device *spi)
 {
 	struct iio_dev *indio_dev;
@@ -1479,6 +1719,10 @@ static int hmc7044_probe(struct spi_device *spi)
 		return -ENOMEM;
 
 	hmc = iio_priv(indio_dev);
+
+	hmc->jdev = devm_jesd204_dev_register(&spi->dev, &jesd204_hmc7044_init);
+	if (IS_ERR(hmc->jdev))
+		return PTR_ERR(hmc->jdev);
 
 	ret = hmc7044_get_clks(&spi->dev, hmc);
 	if (ret)
@@ -1531,7 +1775,7 @@ static int hmc7044_probe(struct spi_device *spi)
 				"Failed to create debugfs entry");
 	}
 
-	return ret;
+	return jesd204_fsm_start(hmc->jdev, JESD204_LINKS_ALL);
 
 }
 
