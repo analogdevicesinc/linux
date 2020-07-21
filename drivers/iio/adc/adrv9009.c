@@ -5171,6 +5171,7 @@ static int adrv9009_jesd204_link_init(struct jesd204_dev *jdev,
 	struct adrv9009_rf_phy *phy = adrv9009_spi_to_phy(spi);
 	taliseJesd204bFramerConfig_t *framer = NULL;
 	taliseJesd204bDeframerConfig_t *deframer = NULL;
+	bool orx_adc_stitching_enabled;
 
 	struct adrv9009_jesd204_priv *priv = jesd204_dev_priv(jdev);
 
@@ -5198,6 +5199,25 @@ static int adrv9009_jesd204_link_init(struct jesd204_dev *jdev,
 		priv->link[FRAMER_LINK_RX].is_framer = true;
 		break;
 	case FRAMER_LINK_ORX:
+		orx_adc_stitching_enabled =
+			(phy->talInit.obsRx.orxProfile.rfBandwidth_Hz > 200000000) ?
+			1 : 0;
+
+		if (orx_adc_stitching_enabled) {
+			if (phy->talInit.obsRx.framerSel != TAL_FRAMER_B) {
+				dev_warn(&phy->spi->dev, "%s:%d: Can't apply fixup",
+					__func__, __LINE__);
+			} else {
+				phy->talInit.jesd204Settings.framerB.M = 2;
+				phy->talInit.jesd204Settings.framerB.F = 2;
+				phy->talInit.obsRx.obsRxChannelsEnable = 1;
+			}
+		} else {
+			phy->talInit.jesd204Settings.framerB.M = phy->framer_b_m;
+			phy->talInit.jesd204Settings.framerB.F = phy->framer_b_f;
+			phy->talInit.obsRx.obsRxChannelsEnable = phy->orx_channel_enabled;
+		}
+
 		framer = &phy->talInit.jesd204Settings.framerB;
 		lnk->sample_rate = phy->talInit.obsRx.orxProfile.orxOutputRate_kHz * 1000;
 		priv->link[FRAMER_LINK_ORX].source_id = TAL_FRAMER_B;
@@ -6150,6 +6170,10 @@ static int adrv9009_probe(struct spi_device *spi)
 	phy->talInit.spiSettings.autoIncAddrUp = 1;
 	phy->talInit.spiSettings.fourWireMode = 1;
 	phy->talInit.spiSettings.cmosPadDrvStrength = TAL_CMOSPAD_DRV_2X;
+
+	phy->framer_b_m = phy->talInit.jesd204Settings.framerB.M;
+	phy->framer_b_f = phy->talInit.jesd204Settings.framerB.F;
+	phy->orx_channel_enabled = phy->talInit.obsRx.obsRxChannelsEnable;
 
 	switch (phy->spi_device_id) {
 	case ID_ADRV9009:

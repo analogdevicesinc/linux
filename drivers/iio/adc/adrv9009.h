@@ -232,6 +232,10 @@ struct adrv9009_rf_phy {
 	u32			cal_mask;
 	bool			is_initialized;
 	int			spi_device_id;
+
+	u32 			framer_b_m;
+	u32 			framer_b_f;
+	u32 			orx_channel_enabled;
 };
 
 int adrv9009_hdl_loopback(struct adrv9009_rf_phy *phy, bool enable);
