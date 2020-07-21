@@ -286,7 +286,7 @@ static int __jesd204_link_fsm_update_state(struct jesd204_dev *jdev,
 	}
 
 	jesd204_info(jdev, "JESD204 link[%u] transition %s -> %s\n",
-		 ol->link_idx,
+		 ol->link.link_id,
 		 jesd204_state_str(fsm_data->cur_state),
 		 jesd204_state_str(fsm_data->nxt_state));
 	ol->state = fsm_data->nxt_state;
@@ -413,7 +413,7 @@ static int jesd204_con_validate_cur_state(struct jesd204_dev *jdev,
 		ol = &fsm_data->jdev_top->active_links[c->link_idx];
 		jesd204_warn(jdev,
 			 "JESD204 link[%d] invalid con[%u] state: %s, exp: %s, nxt: %s\n",
-			 c->link_idx,
+			 c->link_id,
 			 c->id,
 			 jesd204_state_str(c->state),
 			 jesd204_state_str(fsm_data->cur_state),
@@ -438,7 +438,8 @@ static int jesd204_fsm_handle_con_cb(struct jesd204_dev *jdev_it,
 	if (ret < 0) {
 		jesd204_err(jdev_it,
 			    "JESD204 link[%u] got error from cb: %d\n",
-			    link_idx, ret);
+			    jdev_top->active_links[link_idx].link.link_id,
+			    ret);
 		return jesd204_dev_set_error(jdev_it, NULL, con, ret);
 	}
 
@@ -532,8 +533,8 @@ static int jesd204_fsm_test_and_set_busy(struct jesd204_dev_top *jdev_top,
 	if (link_idx != JESD204_LINKS_ALL) {
 		ol = &jdev_top->active_links[link_idx];
 		if (test_and_set_bit(JESD204_FSM_BUSY, &ol->flags)) {
-			jesd204_err(jdev, "JESD204 link [%u]: FSM is busy\n",
-				    ol->link_idx);
+			jesd204_err(jdev, "JESD204 link[%u]: FSM is busy\n",
+				    ol->link.link_id);
 			return -EBUSY;
 		}
 		return 0;
@@ -542,8 +543,8 @@ static int jesd204_fsm_test_and_set_busy(struct jesd204_dev_top *jdev_top,
 	for (link_idx = 0; link_idx < jdev_top->num_links; link_idx++) {
 		ol = &jdev_top->active_links[link_idx];
 		if (test_and_set_bit(JESD204_FSM_BUSY, &ol->flags)) {
-			jesd204_err(jdev, "JESD204 link [%u]: FSM is busy\n",
-				    ol->link_idx);
+			jesd204_err(jdev, "JESD204 link[%u]: FSM is busy\n",
+				    ol->link.link_id);
 			goto err_unwind_busy;
 		}
 	}
@@ -588,8 +589,8 @@ static int jesd204_validate_lnk_state(struct jesd204_dev *jdev,
 
 	if (cur_state != ol->state) {
 		jesd204_warn(jdev,
-			 "JESD204 link[%d] invalid link state: %s, exp: %s, nxt: %s\n",
-			 ol->link_idx,
+			 "JESD204 link[%u] invalid link state: %s, exp: %s, nxt: %s\n",
+			 ol->link.link_id,
 			 jesd204_state_str(ol->state),
 			 jesd204_state_str(cur_state),
 			 jesd204_state_str(nxt_state));
