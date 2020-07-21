@@ -237,14 +237,16 @@ static int adxcvr_clk_enable(struct clk_hw *hw)
 {
 	struct adxcvr_state *st =
 		container_of(hw, struct adxcvr_state, lane_clk_hw);
-	int ret;
+	int ret, retry = 1;
 
 	dev_dbg(st->dev, "%s: %s", __func__, st->tx_enable ? "TX" : "RX");
 
-
-	adxcvr_write(st, ADXCVR_REG_RESETN, ADXCVR_RESETN);
-
-	ret = adxcvr_status_error(st->dev);
+	do {
+		adxcvr_write(st, ADXCVR_REG_RESETN, 0);
+		udelay(2);
+		adxcvr_write(st, ADXCVR_REG_RESETN, ADXCVR_RESETN);
+		ret = adxcvr_status_error(st->dev);
+	} while (ret < 0 && retry--);
 
 	return ret;
 }
@@ -253,6 +255,8 @@ static void adxcvr_clk_disable(struct clk_hw *hw)
 {
 	struct adxcvr_state *st =
 		container_of(hw, struct adxcvr_state, lane_clk_hw);
+
+	dev_dbg(st->dev, "%s: %s", __func__, st->tx_enable ? "TX" : "RX");
 
 	adxcvr_write(st, ADXCVR_REG_RESETN, 0);
 }
