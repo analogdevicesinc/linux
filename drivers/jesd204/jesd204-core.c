@@ -199,6 +199,12 @@ int jesd204_link_get_lmfc_lemc_rate(struct jesd204_link *lnk,
 }
 EXPORT_SYMBOL_GPL(jesd204_link_get_lmfc_lemc_rate);
 
+bool jesd204_dev_is_top(struct jesd204_dev *jdev)
+{
+	return jdev && jdev->is_top;
+}
+EXPORT_SYMBOL(jesd204_dev_is_top);
+
 struct list_head *jesd204_topologies_get(void)
 {
 	return &jesd204_topologies;

@@ -199,6 +199,8 @@ int jesd204_link_get_rate(struct jesd204_link *lnk, u64 *lane_rate_hz);
 int jesd204_link_get_device_clock(struct jesd204_link *lnk,
 				  unsigned long *device_clock);
 
+bool jesd204_dev_is_top(struct jesd204_dev *jdev);
+
 #else /* !IS_ENABLED(CONFIG_JESD204) */
 
 static inline struct jesd204_dev *devm_jesd204_dev_register(
@@ -253,6 +255,11 @@ static inline int jesd204_link_get_device_clock(struct jesd204_link *lnk,
 						unsigned long *device_clock)
 {
 	return -ENOTSUPP;
+}
+
+static inline bool jesd204_dev_is_top(struct jesd204_dev *jdev)
+{
+	return false;
 }
 
 #endif /* #ifdef CONFIG_JESD204 */
