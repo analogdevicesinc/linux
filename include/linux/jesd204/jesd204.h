@@ -177,7 +177,7 @@ struct jesd204_dev_data {
 	unsigned int				num_links;
 };
 
-#if IS_ENABLED(CONFIG_JESD204)
+#ifdef CONFIG_JESD204
 
 struct jesd204_dev *devm_jesd204_dev_register(struct device *dev,
 					      const struct jesd204_dev_data *i);
@@ -254,6 +254,6 @@ static inline int jesd204_link_get_device_clock(struct jesd204_link *lnk,
 	return -ENOTSUPP;
 }
 
-#endif /* IS_ENABLED(CONFIG_JESD204) */
+#endif /* #ifdef CONFIG_JESD204 */
 
 #endif
