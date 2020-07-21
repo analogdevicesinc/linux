@@ -1417,6 +1417,13 @@ struct ad9528_platform_data *ad9528_parse_dt(struct device *dev)
 }
 #endif
 
+static void ad9528_reg_disable(void *data)
+{
+	struct regulator *reg = data;
+
+	regulator_disable(reg);
+}
+
 static int ad9528_probe(struct spi_device *spi)
 {
 	struct ad9528_platform_data *pdata;
@@ -1454,6 +1461,11 @@ static int ad9528_probe(struct spi_device *spi)
 		ret = regulator_enable(st->reg);
 		if (ret)
 			return ret;
+
+		ret = devm_add_action_or_reset(&spi->dev, ad9528_reg_disable,
+					       st->reg);
+		if (ret)
+			return ret;
 	}
 
 	status0_gpio = devm_gpiod_get_optional(&spi->dev,
@@ -1488,32 +1500,9 @@ static int ad9528_probe(struct spi_device *spi)
 
 	ret = ad9528_setup(indio_dev);
 	if (ret < 0)
-		goto error_disable_reg;
+		return ret;
 
-	ret = iio_device_register(indio_dev);
-	if (ret)
-		goto error_disable_reg;
-
-	return 0;
-
-error_disable_reg:
-	if (!IS_ERR(st->reg))
-		regulator_disable(st->reg);
-
-	return ret;
-}
-
-static int ad9528_remove(struct spi_device *spi)
-{
-	struct iio_dev *indio_dev = spi_get_drvdata(spi);
-	struct ad9528_state *st = iio_priv(indio_dev);
-
-	iio_device_unregister(indio_dev);
-
-	if (!IS_ERR(st->reg))
-		regulator_disable(st->reg);
-
-	return 0;
+	return devm_iio_device_register(&spi->dev, indio_dev);
 }
 
 static const struct spi_device_id ad9528_id[] = {
@@ -1527,7 +1516,6 @@ static struct spi_driver ad9528_driver = {
 		.name	= "ad9528",
 	},
 	.probe		= ad9528_probe,
-	.remove		= ad9528_remove,
 	.id_table	= ad9528_id,
 };
 module_spi_driver(ad9528_driver);
