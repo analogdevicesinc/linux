@@ -1,4 +1,5 @@
 /* Copyright 2008 - 2016 Freescale Semiconductor, Inc.
+ * Copyright 2020 Puresoftware Ltd.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -28,6 +29,7 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <linux/acpi.h>
 #include "qman_priv.h"
 
 struct qman_portal *qman_dma_portal;
@@ -218,7 +220,11 @@ static int qman_portal_probe(struct platform_device *pdev)
 		goto err_ioremap1;
 	}
 
-	err = of_property_read_u32(node, "cell-index", &val);
+	if (is_of_node(pdev->dev.fwnode))
+		err = of_property_read_u32(node, "cell-index", &val);
+	else
+		err = device_property_read_u32(&pdev->dev, "cell-index", &val);
+
 	if (err) {
 		dev_err(dev, "Can't get %pOF property 'cell-index'\n", node);
 		__qman_portals_probed = -1;
@@ -291,7 +297,8 @@ check_cleanup:
 		}
 		qman_done_cleanup();
 	}
-
+	dev_dbg(dev, "Qman : Portal[%d] probed successfully [%d]\n",
+		cpu, __qman_portals_probed);
 	return 0;
 
 err_portal_init:
@@ -312,10 +319,16 @@ static const struct of_device_id qman_portal_ids[] = {
 };
 MODULE_DEVICE_TABLE(of, qman_portal_ids);
 
+static const struct acpi_device_id qman_portal_acpi_ids[] = {
+	{"NXP0022", 0}
+};
+MODULE_DEVICE_TABLE(acpi, qman_portal_acpi_ids);
+
 static struct platform_driver qman_portal_driver = {
 	.driver = {
 		.name = KBUILD_MODNAME,
 		.of_match_table = qman_portal_ids,
+		.acpi_match_table = ACPI_PTR(qman_portal_acpi_ids),
 	},
 	.probe = qman_portal_probe,
 };
