@@ -528,8 +528,8 @@ static int jesd204_dev_init_link_lane_ids(struct jesd204_dev_top *jdev_top,
 	u8 id;
 
 	if (!jlink->num_lanes) {
-		dev_err(dev, "JESD204 link [%d] number of lanes is 0\n",
-			link_idx);
+		jesd204_err(jdev, "JESD204 link [%d] number of lanes is 0\n",
+			    link_idx);
 		jlink->lane_ids = NULL;
 		return -EINVAL;
 	}
@@ -604,13 +604,13 @@ static int jesd204_dev_init_links_data(struct device *parent,
 		return 0;
 
 	if (!init->num_links) {
-		dev_err(parent, "num_links shouldn't be zero\n");
+		jesd204_err(jdev, "num_links shouldn't be zero\n");
 		return -EINVAL;
 	}
 
 	/* FIXME: should we just do a minimum? for now we error out if these mismatch */
 	if (init->num_links != jdev_top->num_links) {
-		dev_err(parent,
+		jesd204_err(jdev,
 			"Driver and DT mismatch for number of links %u vs %u\n",
 			init->num_links, jdev_top->num_links);
 		return -EINVAL;
@@ -623,8 +623,8 @@ static int jesd204_dev_init_links_data(struct device *parent,
 	if (!init->links &&
 	    !init->state_ops &&
 	    !init->state_ops[JESD204_OP_LINK_INIT].per_link) {
-		dev_err(parent,
-			"num_links is non-zero, but no links data provided\n");
+		jesd204_err(jdev,
+			    "num_links is non-zero, but no links data provided\n");
 		return -EINVAL;
 	}
 
@@ -656,13 +656,13 @@ static struct jesd204_dev *jesd204_dev_register(struct device *dev,
 
 	jdev = jesd204_dev_from_device(dev);
 	if (jdev) {
-		dev_err(dev, "Device already registered with framework\n");
+		jesd204_err(jdev, "Device already registered with framework\n");
 		return ERR_PTR(-EEXIST);
 	}
 
 	jdev = jesd204_dev_find_by_of_node(dev->of_node);
 	if (!jdev) {
-		dev_err(dev, "Device has no configuration node\n");
+		jesd204_err(jdev, "Device has no configuration node\n");
 		return ERR_PTR(-ENODEV);
 	}
 
