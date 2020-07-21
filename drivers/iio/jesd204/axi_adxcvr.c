@@ -554,6 +554,8 @@ static void adxcvr_enforce_settings(struct adxcvr_state *st)
 	 */
 
 	parent_rate = clk_get_rate(st->conv_clk);
+	if (st->conv2_clk)
+		clk_set_rate(st->conv2_clk, parent_rate);
 
 	lane_rate = adxcvr_clk_recalc_rate(&st->lane_clk_hw, parent_rate);
 
@@ -601,6 +603,17 @@ static int adxcvr_probe(struct platform_device *pdev)
 	if (IS_ERR(st->conv_clk))
 		return PTR_ERR(st->conv_clk);
 
+	/*
+	 * Otional CPLL/QPLL REFCLK from a difference source
+	 * which rate and state must be in sync with the conv clk
+	 */
+	st->conv2_clk = devm_clk_get(&pdev->dev, "conv2");
+	if (IS_ERR(st->conv2_clk)) {
+		if (PTR_ERR(st->conv2_clk) != -ENOENT)
+			return PTR_ERR(st->conv2_clk);
+		st->conv2_clk = NULL;
+	}
+
 	st->lane_rate_div40_clk = devm_clk_get(&pdev->dev, "div40");
 	if (IS_ERR(st->lane_rate_div40_clk)) {
 		if (PTR_ERR(st->lane_rate_div40_clk) != -ENOENT)
@@ -622,18 +635,24 @@ static int adxcvr_probe(struct platform_device *pdev)
 	if (ret < 0)
 		return ret;
 
+	if (st->conv2_clk) {
+		ret = clk_prepare_enable(st->conv2_clk);
+		if (ret)
+			goto disable_unprepare;
+	}
+
 	st->xcvr.dev = &pdev->dev;
 	st->xcvr.drp_ops = &adxcvr_drp_ops;
 
 	ret = adxcvr_parse_dt(st, np);
 	if (ret < 0)
-		goto disable_unprepare;
+		goto disable_unprepare_conv_clk2;
 
 	mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	st->regs = devm_ioremap_resource(&pdev->dev, mem);
 	if (IS_ERR(st->regs)) {
 		ret = PTR_ERR(st->regs);
-		goto disable_unprepare;
+		goto disable_unprepare_conv_clk2;
 	}
 
 	st->dev = &pdev->dev;
@@ -679,7 +698,8 @@ static int adxcvr_probe(struct platform_device *pdev)
 	default:
 		dev_err(&pdev->dev, "Unknown transceiver type: %d\n",
 			st->xcvr.type);
-		return -EINVAL;
+		ret = -EINVAL;
+		goto disable_unprepare_conv_clk2;
 	}
 	st->xcvr.encoding = ENC_8B10B;
 	st->xcvr.refclk_ppm = PM_200; /* TODO use clock accuracy */
@@ -707,7 +727,7 @@ static int adxcvr_probe(struct platform_device *pdev)
 
 	ret = adxcvr_eyescan_register(st);
 	if (ret)
-		return ret;
+		goto disable_unprepare_conv_clk2;
 
 	device_create_file(st->dev, &dev_attr_reg_access);
 
@@ -722,6 +742,8 @@ static int adxcvr_probe(struct platform_device *pdev)
 
 	return 0;
 
+disable_unprepare_conv_clk2:
+	clk_disable_unprepare(st->conv2_clk);
 disable_unprepare:
 	clk_disable_unprepare(st->conv_clk);
 
@@ -743,6 +765,7 @@ static int adxcvr_remove(struct platform_device *pdev)
 	device_remove_file(st->dev, &dev_attr_reg_access);
 	adxcvr_eyescan_unregister(st);
 	of_clk_del_provider(pdev->dev.of_node);
+	clk_disable_unprepare(st->conv2_clk);
 	clk_disable_unprepare(st->conv_clk);
 
 	if (st->clks[1])

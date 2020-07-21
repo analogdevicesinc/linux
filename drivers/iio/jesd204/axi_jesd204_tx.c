@@ -82,6 +82,7 @@ struct axi_jesd204_tx {
 
 	struct clk *axi_clk;
 	struct clk *device_clk;
+	struct clk *conv2_clk;
 
 	int irq;
 
@@ -567,9 +568,28 @@ static int axi_jesd204_tx_probe(struct platform_device *pdev)
 	if (IS_ERR(jesd->lane_clk))
 		return PTR_ERR(jesd->lane_clk);
 
+	/*
+	 * Optional CPLL/QPLL REFCLK from a difference source
+	 * which rate and state must be in sync with the main conv clk
+	 * This is used in axi_jesd204_rx_jesd204_link_setup() where the
+	 * main REFCLK is the parent of jesd->lane_clk.
+	 */
+	jesd->conv2_clk = devm_clk_get(&pdev->dev, "conv2");
+	if (IS_ERR(jesd->conv2_clk)) {
+		if (PTR_ERR(jesd->conv2_clk) != -ENOENT)
+			return PTR_ERR(jesd->conv2_clk);
+		jesd->conv2_clk = NULL;
+	}
+
 	ret = clk_prepare_enable(jesd->axi_clk);
 	if (ret)
 		return ret;
+
+	if (jesd->conv2_clk) {
+		ret = clk_prepare_enable(jesd->conv2_clk);
+		if (ret)
+			goto err_axi_clk_disable;
+	}
 
 	jesd->num_lanes = readl_relaxed(jesd->base + JESD204_TX_REG_CONF_NUM_LANES);
 	jesd->data_path_width = readl_relaxed(jesd->base + JESD204_TX_REG_CONF_DATA_PATH_WIDTH);
@@ -581,15 +601,15 @@ static int axi_jesd204_tx_probe(struct platform_device *pdev)
 	if (jesd->encoder == JESD204_ENCODER_UNKNOWN)
 		jesd->encoder = JESD204_ENCODER_8B10B;
 	else if (jesd->encoder >= JESD204_ENCODER_MAX)
-		goto err_axi_clk_disable;
+		goto err_conv2_clk_disable;
 
 	ret = axi_jesd204_tx_parse_dt_config(pdev->dev.of_node, jesd, &config);
 	if (ret)
-		goto err_axi_clk_disable;
+		goto err_conv2_clk_disable;
 
 	ret = axi_jesd204_tx_apply_config(jesd, &config);
 	if (ret)
-		goto err_axi_clk_disable;
+		goto err_conv2_clk_disable;
 
 	writel_relaxed(0xff, jesd->base + JESD204_TX_REG_IRQ_PENDING);
 	writel_relaxed(0x00, jesd->base + JESD204_TX_REG_IRQ_ENABLE);
@@ -597,7 +617,7 @@ static int axi_jesd204_tx_probe(struct platform_device *pdev)
 	ret = request_irq(irq, axi_jesd204_tx_irq, 0, dev_name(&pdev->dev),
 		jesd);
 	if (ret)
-		goto err_axi_clk_disable;
+		goto err_conv2_clk_disable;
 
 /* FIXME: Enabling the clock here and keeping it enabled will prevent
  * reconfiguration of the the clock when the lane rate changes. We need to find
@@ -624,6 +644,8 @@ err_disable_device_clk:
 err_free_irq:
 */
 	free_irq(irq, jesd);
+err_conv2_clk_disable:
+	clk_disable_unprepare(jesd->conv2_clk);
 err_axi_clk_disable:
 	clk_disable_unprepare(jesd->axi_clk);
 
@@ -645,6 +667,7 @@ static int axi_jesd204_tx_remove(struct platform_device *pdev)
 	writel_relaxed(0x1, jesd->base + JESD204_TX_REG_LINK_DISABLE);
 
 /*	clk_disable_unprepare(jesd->device_clk); */
+	clk_disable_unprepare(jesd->conv2_clk);
 	clk_disable_unprepare(jesd->axi_clk);
 
 	return 0;
