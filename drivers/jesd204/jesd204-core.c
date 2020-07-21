@@ -528,8 +528,8 @@ static int jesd204_dev_init_link_lane_ids(struct jesd204_dev_top *jdev_top,
 	u8 id;
 
 	if (!jlink->num_lanes) {
-		jesd204_err(jdev, "JESD204 link [%d] number of lanes is 0\n",
-			    link_idx);
+		jesd204_err(jdev, "JESD204 link [%u] number of lanes is 0\n",
+			    jlink->link_id);
 		jlink->lane_ids = NULL;
 		return -EINVAL;
 	}
