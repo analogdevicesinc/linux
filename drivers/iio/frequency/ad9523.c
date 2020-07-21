@@ -1474,6 +1474,13 @@ struct ad9523_platform_data *ad9523_parse_dt(struct device *dev)
 }
 #endif
 
+static void ad9523_reg_disable(void *data)
+{
+	struct regulator *reg = data;
+
+	regulator_disable(reg);
+}
+
 static int ad9523_probe(struct spi_device *spi)
 {
 	struct ad9523_platform_data *pdata;
@@ -1507,21 +1514,22 @@ static int ad9523_probe(struct spi_device *spi)
 		ret = regulator_enable(st->reg);
 		if (ret)
 			return ret;
+
+		ret = devm_add_action_or_reset(&spi->dev, ad9523_reg_disable,
+					       st->reg);
+		if (ret)
+			return ret;
 	}
 
 	st->pwrdown_gpio = devm_gpiod_get_optional(&spi->dev, "powerdown",
 		GPIOD_OUT_HIGH);
-	if (IS_ERR(st->pwrdown_gpio)) {
-		ret = PTR_ERR(st->pwrdown_gpio);
-		goto error_disable_reg;
-	}
+	if (IS_ERR(st->pwrdown_gpio))
+		return PTR_ERR(st->pwrdown_gpio);
 
 	st->reset_gpio = devm_gpiod_get_optional(&spi->dev, "reset",
 		GPIOD_OUT_LOW);
-	if (IS_ERR(st->reset_gpio)) {
-		ret = PTR_ERR(st->reset_gpio);
-		goto error_disable_reg;
-	}
+	if (IS_ERR(st->reset_gpio))
+		return PTR_ERR(st->reset_gpio);
 
 	if (st->reset_gpio) {
 		udelay(1);
@@ -1532,10 +1540,8 @@ static int ad9523_probe(struct spi_device *spi)
 
 	st->sync_gpio = devm_gpiod_get_optional(&spi->dev, "sync",
 		GPIOD_OUT_HIGH);
-	if (IS_ERR(st->sync_gpio)) {
-		ret = PTR_ERR(st->sync_gpio);
-		goto error_disable_reg;
-	}
+	if (IS_ERR(st->sync_gpio))
+		return PTR_ERR(st->sync_gpio);
 
 	spi_set_drvdata(spi, indio_dev);
 	st->spi = spi;
@@ -1551,34 +1557,13 @@ static int ad9523_probe(struct spi_device *spi)
 
 	ret = ad9523_setup(indio_dev);
 	if (ret < 0)
-		goto error_disable_reg;
+		return ret;
 
-	ret = iio_device_register(indio_dev);
-	if (ret)
-		goto error_disable_reg;
-
-	dev_info(&spi->dev, "probed %s\n", indio_dev->name);
-
-	return 0;
-
-error_disable_reg:
-	if (!IS_ERR(st->reg))
-		regulator_disable(st->reg);
+	ret = devm_iio_device_register(&spi->dev, indio_dev);
+	if (ret == 0)
+		dev_info(&spi->dev, "probed %s\n", indio_dev->name);
 
 	return ret;
-}
-
-static int ad9523_remove(struct spi_device *spi)
-{
-	struct iio_dev *indio_dev = spi_get_drvdata(spi);
-	struct ad9523_state *st = iio_priv(indio_dev);
-
-	iio_device_unregister(indio_dev);
-
-	if (!IS_ERR(st->reg))
-		regulator_disable(st->reg);
-
-	return 0;
 }
 
 static const struct spi_device_id ad9523_id[] = {
@@ -1592,7 +1577,6 @@ static struct spi_driver ad9523_driver = {
 		.name	= "ad9523",
 	},
 	.probe		= ad9523_probe,
-	.remove		= ad9523_remove,
 	.id_table	= ad9523_id,
 };
 module_spi_driver(ad9523_driver);
