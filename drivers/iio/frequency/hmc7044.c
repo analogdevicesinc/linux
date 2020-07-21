@@ -508,6 +508,21 @@ static ssize_t hmc7044_show(struct device *dev,
 	return ret;
 }
 
+static int hmc7044_sync_pin_set(struct iio_dev *indio_dev, unsigned mode)
+{
+	u32 val;
+	int ret;
+
+	ret = hmc7044_read(indio_dev, HMC7044_REG_GLOB_MODE, &val);
+	if (ret < 0)
+		return ret;
+
+	val &= ~HMC7044_SYNC_PIN_MODE(~0);
+	val |= HMC7044_SYNC_PIN_MODE(mode);
+
+	return  hmc7044_write(indio_dev, HMC7044_REG_GLOB_MODE, val);
+}
+
 static ssize_t hmc7044_sync_pin_mode_store(struct device *dev,
 			     struct device_attribute *attr,
 			     const char *buf, size_t len)
@@ -515,21 +530,11 @@ static ssize_t hmc7044_sync_pin_mode_store(struct device *dev,
 	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
 	struct hmc7044 *hmc = iio_priv(indio_dev);
 	int i, ret = -EINVAL;
-	u32 val;
 
 	i = sysfs_match_string(sync_pin_modes, buf);
 	if (i >= 0) {
 		mutex_lock(&hmc->lock);
-		ret = hmc7044_read(indio_dev, HMC7044_REG_GLOB_MODE, &val);
-		if (ret < 0) {
-			mutex_unlock(&hmc->lock);
-			return ret;
-		}
-
-		val &= ~HMC7044_SYNC_PIN_MODE(~0);
-		val |= HMC7044_SYNC_PIN_MODE(i);
-
-		ret = hmc7044_write(indio_dev, HMC7044_REG_GLOB_MODE, val);
+		ret = hmc7044_sync_pin_set(indio_dev, i);
 		mutex_unlock(&hmc->lock);
 	}
 
