@@ -793,7 +793,8 @@ static int fsl_qman_probe(struct platform_device *pdev)
 	* in order to ensure allocations from the correct regions the
 	* driver initializes then allocates each piece in order
 	*/
-	ret = qbman_init_private_mem(dev, 0, "fsl,qman-fqd", &fqd_a, &fqd_sz);
+	ret = qbman_init_private_mem(dev, 0, "fsl,qman-fqd", &fqd_a, &fqd_sz,
+				     DPAA_QMAN_DEV);
 	if (ret) {
 		dev_err(dev, "qbman_init_private_mem() for FQD failed 0x%x\n",
 			ret);
@@ -809,7 +810,8 @@ static int fsl_qman_probe(struct platform_device *pdev)
 	dev_dbg(dev, "Allocated FQD 0x%llx 0x%zx\n", fqd_a, fqd_sz);
 
 	/* Setup PFDR memory */
-	ret = qbman_init_private_mem(dev, 1, "fsl,qman-pfdr", &pfdr_a, &pfdr_sz);
+	ret = qbman_init_private_mem(dev, 1, "fsl,qman-pfdr", &pfdr_a, &pfdr_sz,
+				     DPAA_QMAN_DEV);
 	if (ret) {
 		dev_err(dev, "qbman_init_private_mem() for PFDR failed 0x%x\n",
 			ret);

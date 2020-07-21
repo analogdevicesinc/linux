@@ -233,7 +233,8 @@ static int fsl_bman_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
-	ret = qbman_init_private_mem(dev, 0, "fsl,bman-fbpr", &fbpr_a, &fbpr_sz);
+	ret = qbman_init_private_mem(dev, 0, "fsl,bman-fbpr", &fbpr_a, &fbpr_sz,
+				     DPAA_BMAN_DEV);
 	if (ret) {
 		dev_err(dev, "qbman_init_private_mem() failed 0x%x\n",
 			ret);
