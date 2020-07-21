@@ -246,7 +246,7 @@
 	};
 
 	bt_sco_codec: bt_sco_codec {
-		#sound-dai-cells = <0>;
+		#sound-dai-cells = <1>;
 		compatible = "linux,bt-sco";
 	};
 
@@ -265,7 +265,7 @@
 		};
 
 		simple-audio-card,codec {
-			sound-dai = <&bt_sco_codec>;
+			sound-dai = <&bt_sco_codec 1>;
 		};
 	};
 
