@@ -132,7 +132,6 @@ struct jesd204_link {
 typedef int (*jesd204_dev_cb)(struct jesd204_dev *jdev);
 
 typedef int (*jesd204_link_cb)(struct jesd204_dev *jdev,
-			       unsigned int link_idx,
 			       struct jesd204_link *lnk);
 
 enum jesd204_state_op_mode {
