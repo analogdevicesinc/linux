@@ -38,16 +38,39 @@ int jesd204_device_count_get()
 	return jesd204_device_count;
 }
 
+static int jesd204_link_validate_params(const struct jesd204_link *lnk)
+{
+	if (!lnk->num_lanes) {
+		pr_err("link[%u], number of lanes is zero\n", lnk->link_id);
+		return -EINVAL;
+	}
+
+	if (!lnk->num_converters) {
+		pr_err("link[%u], number of converters is zero\n", lnk->link_id);
+		return -EINVAL;
+	}
+
+	if (!lnk->bits_per_sample) {
+		pr_err("link[%u], bits-per-sample is zero\n", lnk->link_id);
+		return -EINVAL;
+	}
+
+	if (!lnk->sample_rate) {
+		pr_err("link[%u], sample rate is zero\n", lnk->link_id);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 int jesd204_link_get_rate(struct jesd204_link *lnk, u64 *lane_rate_hz)
 {
 	u64 rate, encoding_n, encoding_d;
+	int ret;
 
-	if (!lnk->num_lanes || !lnk->num_converters ||
-	    !lnk->bits_per_sample || !lnk->sample_rate) {
-		/* FIXME: make this a bit more verbose */
-		pr_err("%s: Invalid pramater", __func__);
-		return -EINVAL;
-	}
+	ret = jesd204_link_validate_params(lnk);
+	if (ret)
+		return ret;
 
 	switch (lnk->jesd_version) {
 	case JESD204_VERSION_C:
