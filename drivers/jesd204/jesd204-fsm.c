@@ -890,7 +890,7 @@ static int jesd204_fsm_table_link_op_cb(struct jesd204_dev *jdev,
 
 	ol = &fsm_data->jdev_top->active_links[link_idx];
 
-	return link_op(jdev, link_idx, &ol->link);
+	return link_op(jdev, &ol->link);
 }
 
 static int jesd204_fsm_table_entry_cb(struct jesd204_dev *jdev,
