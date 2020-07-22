@@ -69,6 +69,10 @@
 /* JESD204_RX_REG_LINK_CONF2 */
 #define JESD204_RX_LINK_CONF2_BUFFER_EARLY_RELEASE	BIT(16)
 
+/* JESD204_RX_REG_IRQ_ENABLE */
+#define JESD204_RX_IRQ_FRAME_ALIGNMENT_ERROR		BIT(0) /* 204B only */
+#define JESD204_RX_IRQ_UNEXP_LANE_STATE_ERROR		BIT(1)
+
 struct axi_jesd204_rx {
 	void __iomem *base;
 	struct device *dev;
@@ -79,7 +83,7 @@ struct axi_jesd204_rx {
 
 	struct jesd204_dev *jdev;
 
-	int irq;
+	bool irq_enabled;
 
 	unsigned int num_lanes;
 	unsigned int data_path_width;
@@ -399,10 +403,25 @@ static irqreturn_t axi_jesd204_rx_irq(int irq, void *devid)
 	unsigned int pending;
 
 	pending = readl(jesd->base + JESD204_RX_REG_IRQ_PENDING);
+	dev_dbg(jesd->dev, "%s: pending 0x%X\n", __func__, pending);
 	if (!pending)
 		return IRQ_NONE;
 
+	writel_relaxed(0x1, jesd->base + JESD204_RX_REG_LINK_DISABLE);
+	udelay(1);
+	writel_relaxed(0x3, jesd->base + JESD204_RX_REG_SYSREF_STATUS);
+	writel_relaxed(0x0, jesd->base + JESD204_RX_REG_LINK_DISABLE);
+
 	writel(pending, jesd->base + JESD204_RX_REG_IRQ_PENDING);
+
+	return IRQ_WAKE_THREAD;
+}
+
+static irqreturn_t axi_jesd204_rx_irq_thread_fn(int irq, void *devid)
+{
+	struct axi_jesd204_rx *jesd = devid;
+
+	jesd204_sysref_async(jesd->jdev);
 
 	return IRQ_HANDLED;
 }
@@ -618,7 +637,8 @@ static int axi_jesd204_rx_lane_clk_enable(struct clk_hw *clk)
 	writel_relaxed(0x3, jesd->base + JESD204_RX_REG_SYSREF_STATUS);
 	writel_relaxed(0x0, jesd->base + JESD204_RX_REG_LINK_DISABLE);
 
-	schedule_delayed_work(&jesd->watchdog_work, HZ);
+	if (!jesd->irq_enabled)
+		schedule_delayed_work(&jesd->watchdog_work, HZ);
 
 	return 0;
 }
@@ -841,7 +861,8 @@ static int axi_jesd204_rx_jesd204_link_enable(struct jesd204_dev *jdev,
 	writel_relaxed(0x3, jesd->base + JESD204_RX_REG_SYSREF_STATUS);
 	writel_relaxed(0x0, jesd->base + JESD204_RX_REG_LINK_DISABLE);
 
-	schedule_delayed_work(&jesd->watchdog_work, HZ);
+	if (!jesd->irq_enabled)
+		schedule_delayed_work(&jesd->watchdog_work, HZ);
 
 	return JESD204_STATE_CHANGE_DONE;
 }
@@ -961,10 +982,19 @@ static int axi_jesd204_rx_probe(struct platform_device *pdev)
 
 	INIT_DELAYED_WORK(&jesd->watchdog_work, axi_jesd204_rx_watchdog);
 
-	ret = request_irq(irq, axi_jesd204_rx_irq, 0, dev_name(&pdev->dev),
-		jesd);
-	if (ret)
-		goto err_conv2_clk_disable;
+	if (jesd->version >= ADI_AXI_PCORE_VER(1, 4, 'a')) {
+		ret = devm_request_threaded_irq(&pdev->dev, irq, axi_jesd204_rx_irq,
+						axi_jesd204_rx_irq_thread_fn,
+						0, dev_name(&pdev->dev),
+						jesd);
+		if (ret)
+			goto err_axi_clk_disable;
+
+		jesd->irq_enabled = true;
+		writel_relaxed(JESD204_RX_IRQ_FRAME_ALIGNMENT_ERROR |
+				JESD204_RX_IRQ_UNEXP_LANE_STATE_ERROR,
+				jesd->base + JESD204_RX_REG_IRQ_ENABLE);
+	}
 
 /* FIXME: Enabling the clock here and keeping it enabled will prevent
  * reconfiguration of the the clock when the lane rate changes. We need to find
@@ -978,7 +1008,7 @@ static int axi_jesd204_rx_probe(struct platform_device *pdev)
 
 	ret = axi_jesd204_register_dummy_clk(jesd, pdev);
 	if (ret)
-		goto err_disable_device_clk;
+		goto err_axi_clk_disable;
 
 	platform_set_drvdata(pdev, jesd);
 
@@ -1022,12 +1052,6 @@ static int axi_jesd204_rx_probe(struct platform_device *pdev)
 
 	return 0;
 
-err_disable_device_clk:
-/*
-	clk_disable_unprepare(jesd->device_clk);
-err_free_irq:
-*/
-	free_irq(irq, jesd);
 err_conv2_clk_disable:
 	clk_disable_unprepare(jesd->conv2_clk);
 err_axi_clk_disable:
@@ -1039,18 +1063,14 @@ err_axi_clk_disable:
 static int axi_jesd204_rx_remove(struct platform_device *pdev)
 {
 	struct axi_jesd204_rx *jesd = platform_get_drvdata(pdev);
-	int irq = platform_get_irq(pdev, 0);
 
 	of_clk_del_provider(pdev->dev.of_node);
-
-	free_irq(irq, jesd);
 
 	writel_relaxed(0xff, jesd->base + JESD204_RX_REG_IRQ_PENDING);
 	writel_relaxed(0x00, jesd->base + JESD204_RX_REG_IRQ_ENABLE);
 
 	writel_relaxed(0x1, jesd->base + JESD204_RX_REG_LINK_DISABLE);
 
-/*	clk_disable_unprepare(jesd->device_clk);*/
 	clk_disable_unprepare(jesd->conv2_clk);
 	clk_disable_unprepare(jesd->axi_clk);
 
