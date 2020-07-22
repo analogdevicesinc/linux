@@ -671,6 +671,7 @@ static struct jesd204_dev *jesd204_dev_register(struct device *dev,
 		return ERR_PTR(ret);
 
 	jdev->dev.parent = dev;
+	jdev->state_ops = init->state_ops;
 	jdev->dev.bus = &jesd204_bus_type;
 	device_initialize(&jdev->dev);
 	dev_set_name(&jdev->dev, "jesd204:%d", jdev->id);
