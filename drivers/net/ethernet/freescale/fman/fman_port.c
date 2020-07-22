@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: BSD-3-Clause OR GPL-2.0-or-later
 /*
  * Copyright 2008 - 2015 Freescale Semiconductor Inc.
+ * Copyright 2020 Puresoftware Ltd.
  */
 
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
@@ -14,6 +15,7 @@
 #include <linux/of_address.h>
 #include <linux/delay.h>
 #include <linux/libfdt_env.h>
+#include <linux/acpi.h>
 
 #include "fman.h"
 #include "fman_port.h"
@@ -1739,6 +1741,125 @@ int fman_port_get_tstamp(struct fman_port *port, const void *data, u64 *tstamp)
 }
 EXPORT_SYMBOL(fman_port_get_tstamp);
 
+static int fwnode_match_devnode(struct device *dev, const void *fwnode)
+{
+	return dev->fwnode == fwnode;
+}
+
+static int fman_port_acpi_probe(struct platform_device *pdev)
+{
+	struct fwnode_handle *fman_fwnode = NULL;
+	struct fwnode_handle *port_fwnode = NULL;
+	enum fman_port_type port_type = 0;
+	struct device *fman_dev = NULL;
+	struct fman_port *port = NULL;
+	struct fman *fman = NULL;
+	const char *cp = NULL;
+	struct resource res;
+	u16 port_speed;
+	int err = 0;
+	u8 port_id;
+	u32 val;
+
+	port = kzalloc(sizeof(*port), GFP_KERNEL);
+	if (!port)
+		return -ENOMEM;
+
+	port->dev = &pdev->dev;
+
+	/* Get the FM node */
+	port_fwnode = fwnode_handle_get(pdev->dev.fwnode);
+	fman_fwnode = fwnode_get_parent(port_fwnode);
+	fman_dev = bus_find_device(&platform_bus_type, NULL, fman_fwnode,
+				   fwnode_match_devnode);
+	if (!fman_dev) {
+		err = -ENODEV;
+		goto return_err;
+	}
+	fman = dev_get_drvdata(fman_dev);
+	if (!fman) {
+		dev_err(&pdev->dev, "getting Fman drv data (fman) failed\n");
+		err = -EINVAL;
+		goto return_err;
+	}
+
+	err = fwnode_property_read_u32(port_fwnode, "cell-index", &val);
+	if (err) {
+		dev_err(&pdev->dev, "%s: reading cell-index failed\n",
+			__func__);
+		err = -EINVAL;
+		goto return_err;
+	}
+	port_id = (u8)val;
+	port->dts_params.id = port_id;
+
+	fwnode_property_read_string(port_fwnode, "compatible", &cp);
+	if (!strcmp(cp, "fman-v3-port-tx")) {
+		port_type = FMAN_PORT_TYPE_TX;
+		port_speed = 1000;
+		if (fwnode_property_present(port_fwnode,
+					    "fsl,fman-10g-port"))
+			port_speed = 10000;
+	} else if (!strcmp(cp, "fman-v2-port-tx")) {
+		if (port_id >= TX_10G_PORT_BASE)
+			port_speed = 10000;
+		else
+			port_speed = 1000;
+		port_type = FMAN_PORT_TYPE_TX;
+	} else if (!strcmp(cp, "fman-v3-port-rx")) {
+		port_type = FMAN_PORT_TYPE_RX;
+		port_speed = 1000;
+		if (fwnode_property_present(port_fwnode,
+					    "fsl,fman-10g-port"))
+			port_speed = 10000;
+	} else if (!strcmp(cp, "fman-v2-port-rx")) {
+		if (port_id >= RX_10G_PORT_BASE)
+			port_speed = 10000;
+		else
+			port_speed = 1000;
+		port_type = FMAN_PORT_TYPE_RX;
+	} else {
+		dev_err(&pdev->dev, "%s: Illegal port type\n",
+			__func__);
+		err = -EINVAL;
+		goto return_err;
+	}
+
+	port->dts_params.type = port_type;
+	port->dts_params.speed = port_speed;
+
+	if (port_type == FMAN_PORT_TYPE_TX) {
+		u32 qman_channel_id;
+
+		qman_channel_id = fman_get_qman_channel_id(fman, port_id);
+		if (qman_channel_id == 0) {
+			dev_err(port->dev, "%s: incorrect qman-channel-id\n",
+				__func__);
+			err = -EINVAL;
+			goto return_err;
+		}
+		port->dts_params.qman_channel_id = qman_channel_id;
+	}
+
+	memcpy(&res, platform_get_resource(pdev, IORESOURCE_MEM, 0),
+	       sizeof(res));
+
+	port->dts_params.fman = fman;
+
+	port->dts_params.base_addr = devm_ioremap(&pdev->dev, res.start,
+						  resource_size(&res));
+	if (!port->dts_params.base_addr)
+		dev_err(&pdev->dev, "%s: devm_ioremap() failed\n", __func__);
+
+	dev_set_drvdata(&pdev->dev, port);
+
+	return 0;
+
+return_err:
+	kfree(port);
+	return err;
+}
+
 static int fman_port_probe(struct platform_device *of_dev)
 {
 	struct fman_port *port;
@@ -1752,6 +1873,9 @@ static int fman_port_probe(struct platform_device *of_dev)
 	enum fman_port_type port_type;
 	u16 port_speed;
 	u8 port_id;
+
+	if (is_acpi_node(of_dev->dev.fwnode))
+		return fman_port_acpi_probe(of_dev);
 
 	port = kzalloc(sizeof(*port), GFP_KERNEL);
 	if (!port)
@@ -1889,10 +2013,16 @@ static const struct of_device_id fman_port_match[] = {
 
 MODULE_DEVICE_TABLE(of, fman_port_match);
 
+static const struct acpi_device_id fman_port_acpi_match[] = {
+	{"NXP0026", 0}
+};
+MODULE_DEVICE_TABLE(acpi, fman_port_acpi_match);
+
 static struct platform_driver fman_port_driver = {
 	.driver = {
 		.name = "fsl-fman-port",
 		.of_match_table = fman_port_match,
+		.acpi_match_table = ACPI_PTR(fman_port_acpi_match),
 	},
 	.probe = fman_port_probe,
 };
