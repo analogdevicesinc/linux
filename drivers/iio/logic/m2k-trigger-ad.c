@@ -365,6 +365,7 @@ static const char * const axi_adc_trig_trigger_out_mix_mode_items[] = {
 	"a_OR_trigger_in",
 	"b_OR_trigger_in",
 	"a_OR_b_OR_trigger_in",
+	"disabled"
 };
 
 static const struct iio_enum axi_adc_trig_trigger_out_mix_mode_enum = {

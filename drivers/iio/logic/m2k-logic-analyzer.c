@@ -317,7 +317,8 @@ static const char * const m2k_la_trigger_mux_out_items[] = {
 	"trigger-in",
 	"trigger-logic-and-trigger-in",
 	"trigger-logic-or-trigger-in",
-	"trigger-logic-xor-trigger-in"
+	"trigger-logic-xor-trigger-in",
+	"disabled"
 };
 
 static const struct iio_enum m2k_la_trigger_mux_out_enum = {
