@@ -197,7 +197,7 @@ static t_Error CheckInitParameters(t_FmPort *p_FmPort)
             RETURN_ERROR(
                     MAJOR,
                     E_INVALID_VALUE,
-                    ("rxFifoPriElevationLevel has to be in the range of 256 - %d", MAX_PORT_FIFO_SIZE));
+                    ("rxFifoPriElevationLevel has to be in the range of 256 - %lu", MAX_PORT_FIFO_SIZE));
         if (p_DfltConfig->rx_fifo_thr % BMI_FIFO_UNITS)
             RETURN_ERROR(
                     MAJOR,
@@ -208,7 +208,7 @@ static t_Error CheckInitParameters(t_FmPort *p_FmPort)
             RETURN_ERROR(
                     MAJOR,
                     E_INVALID_VALUE,
-                    ("rxFifoThreshold has to be in the range of 256 - %d", MAX_PORT_FIFO_SIZE));
+                    ("rxFifoThreshold has to be in the range of 256 - %lu", MAX_PORT_FIFO_SIZE));
 
         /* Check that not larger than 16 */
         if (p_DfltConfig->rx_cut_end_bytes > FRAME_END_DATA_SIZE)
@@ -268,7 +268,7 @@ static t_Error CheckInitParameters(t_FmPort *p_FmPort)
             RETURN_ERROR(
                     MAJOR,
                     E_INVALID_VALUE,
-                    ("txFifoMinFillLevel has to be in the range of 0 - %d", (MAX_PORT_FIFO_SIZE - 256)));
+                    ("txFifoMinFillLevel has to be in the range of 0 - %lu", (MAX_PORT_FIFO_SIZE - 256)));
         if (p_DfltConfig->tx_fifo_low_comf_level % BMI_FIFO_UNITS)
             RETURN_ERROR(
                     MAJOR,
@@ -279,7 +279,7 @@ static t_Error CheckInitParameters(t_FmPort *p_FmPort)
             RETURN_ERROR(
                     MAJOR,
                     E_INVALID_VALUE,
-                    ("txFifoLowComfLevel has to be in the range of 256 - %d", MAX_PORT_FIFO_SIZE));
+                    ("txFifoLowComfLevel has to be in the range of 256 - %lu", MAX_PORT_FIFO_SIZE));
 
         if (p_FmPort->portType == e_FM_PORT_TYPE_TX)
             if (p_FmPort->p_FmPortDriverParam->dfltCfg.tx_fifo_deq_pipeline_depth
@@ -397,7 +397,7 @@ static t_Error CheckInitParameters(t_FmPort *p_FmPort)
         RETURN_ERROR(
                 MAJOR,
                 E_INVALID_VALUE,
-                ("fifoBufs.num has to be in the range of 256 - %d", MAX_PORT_FIFO_SIZE));
+                ("fifoBufs.num has to be in the range of 256 - %lu", MAX_PORT_FIFO_SIZE));
     if (p_Params->setSizeOfFifo && (p_FmPort->fifoBufs.num % BMI_FIFO_UNITS))
         RETURN_ERROR(
                 MAJOR, E_INVALID_VALUE,
