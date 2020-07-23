@@ -776,6 +776,10 @@ static const struct axiadc_core_info axi_adc_10_0_a_info = {
 	.version = ADI_AXI_PCORE_VER(10, 0, 'a'),
 };
 
+static const struct axiadc_core_info axi_adc_10_1_b_info = {
+	.version = ADI_AXI_PCORE_VER(10, 1, 'b'),
+};
+
 /* Match table for of_platform binding */
 static const struct of_device_id axiadc_of_match[] = {
 	{ .compatible =	"xlnx,axi-ad9234-1.00.a", .data = &axi_adc_10_0_a_info },
@@ -793,6 +797,7 @@ static const struct of_device_id axiadc_of_match[] = {
 	{ .compatible = "adi,axi-ad9208-1.0", .data = &axi_adc_10_0_a_info },
 	{ .compatible = "adi,axi-ad9081-rx-1.0", .data = &axi_adc_10_0_a_info },
 	{ .compatible = "adi,axi-adc-10.0.a", .data = &axi_adc_10_0_a_info },
+	{ .compatible = "adi,axi-adrv9002-rx-1.0", .data = &axi_adc_10_1_b_info},
 	{ /* end of list */ },
 };
 MODULE_DEVICE_TABLE(of, axiadc_of_match);
