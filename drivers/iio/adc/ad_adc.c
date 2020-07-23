@@ -210,10 +210,39 @@ static const struct iio_chan_spec_ext_info m2k_chan_ext_info[] = {
 	}, \
 }
 
+#define ADRV9002_ADC_CHANNEL(_chan, _mod, _si)	{			\
+	.type = IIO_VOLTAGE,						\
+	.indexed = 1,							\
+	.modified = 1,							\
+	.channel = _chan,						\
+	.channel2 = _mod,						\
+	.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SAMP_FREQ),	\
+	.scan_index = _si,						\
+	.scan_type = {							\
+		.sign = 'S',						\
+		.realbits = 16,						\
+		.storagebits = 16,					\
+		.shift = 0,						\
+	},								\
+}
+
 static const struct adc_chip_info obs_rx_chip_info = {
 	.special_probe = NULL,
 	.has_no_sample_clk = false,
 	.channels = NULL,
+	.ctrl_flags = ADI_FORMAT_SIGNEXT | ADI_FORMAT_ENABLE,
+};
+
+static const struct iio_chan_spec adrv9002_rx_channels[] = {
+	ADRV9002_ADC_CHANNEL(0, IIO_MOD_I, 0),
+	ADRV9002_ADC_CHANNEL(0, IIO_MOD_Q, 1),
+};
+
+static const struct adc_chip_info adrv9002_rx_chip_info = {
+	.special_probe = NULL,
+	.has_no_sample_clk = false,
+	.channels = adrv9002_rx_channels,
+	.num_channels = ARRAY_SIZE(adrv9002_rx_channels),
 	.ctrl_flags = ADI_FORMAT_SIGNEXT | ADI_FORMAT_ENABLE,
 };
 
@@ -569,6 +598,8 @@ static const struct of_device_id adc_of_match[] = {
 				.data = &obs_rx_chip_info },
 	{ .compatible = "adi,axi-adrv9009-obs-single-1.0",
 				.data = &obs_rx_chip_info },
+	{ .compatible = "adi,axi-adrv9002-rx2-1.0",
+				.data = &adrv9002_rx_chip_info },
 	{ /* end of list */ },
 };
 MODULE_DEVICE_TABLE(of, adc_of_match);

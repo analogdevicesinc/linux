@@ -1041,6 +1041,15 @@ static const unsigned long ad9361_available_scan_masks[] = {
 	0x00,
 };
 
+static const unsigned long adrv9002_rx2tx2_available_scan_masks[] = {
+	0x01, 0x02, 0x04, 0x08, 0x03, 0x0C, 0x0F,
+	0x00,
+};
+
+static const unsigned long adrv9002_available_scan_masks[] = {
+	0x01, 0x02, 0x03, 0x00
+};
+
 static struct cf_axi_dds_chip_info cf_axi_dds_chip_info_tbl[] = {
 	[ID_AD9122] = {
 		.name = "AD9122",
@@ -1470,6 +1479,44 @@ static struct cf_axi_dds_chip_info cf_axi_dds_chip_info_ad9936 = {
 	.num_buf_channels = 0,
 };
 
+static struct cf_axi_dds_chip_info cf_axi_dds_chip_info_adrv9002_rx2tx2 = {
+	.name = "ADRV9002",
+	.channel = {
+		CF_AXI_DDS_CHAN_BUF(0),
+		CF_AXI_DDS_CHAN_BUF(1),
+		CF_AXI_DDS_CHAN_BUF(2),
+		CF_AXI_DDS_CHAN_BUF(3),
+		CF_AXI_DDS_CHAN(0, 0, "TX1_I_F1"),
+		CF_AXI_DDS_CHAN(1, 0, "TX1_I_F2"),
+		CF_AXI_DDS_CHAN(2, 0, "TX1_Q_F1"),
+		CF_AXI_DDS_CHAN(3, 0, "TX1_Q_F2"),
+		CF_AXI_DDS_CHAN(4, 0, "TX2_I_F1"),
+		CF_AXI_DDS_CHAN(5, 0, "TX2_I_F2"),
+		CF_AXI_DDS_CHAN(6, 0, "TX2_Q_F1"),
+		CF_AXI_DDS_CHAN(7, 0, "TX2_Q_F2"),
+	},
+	.num_channels = 12,
+	.num_dds_channels = 8,
+	.num_buf_channels = 4,
+	.scan_masks = adrv9002_rx2tx2_available_scan_masks,
+};
+
+static struct cf_axi_dds_chip_info cf_axi_dds_chip_info_adrv9002 = {
+	.name = "ADRV9002",
+	.channel = {
+		CF_AXI_DDS_CHAN_BUF(0),
+		CF_AXI_DDS_CHAN_BUF(1),
+		CF_AXI_DDS_CHAN(0, 0, "TX1_I_F1"),
+		CF_AXI_DDS_CHAN(1, 0, "TX1_I_F2"),
+		CF_AXI_DDS_CHAN(2, 0, "TX1_Q_F1"),
+		CF_AXI_DDS_CHAN(3, 0, "TX1_Q_F2"),
+	},
+	.num_channels = 6,
+	.num_dds_channels = 4,
+	.num_buf_channels = 2,
+	.scan_masks = adrv9002_available_scan_masks,
+};
+
 static const struct iio_info cf_axi_dds_info = {
 	.read_raw = &cf_axi_dds_read_raw,
 	.write_raw = &cf_axi_dds_write_raw,
@@ -1877,6 +1924,20 @@ static const struct axidds_core_info ad9081_1_00_a_info = {
 	.complex_modified = true,
 };
 
+static const struct axidds_core_info adrv9002_9_01_b_info = {
+	.version = ADI_AXI_PCORE_VER(9, 1, 'b'),
+	.standalone = true,
+	.rate_format_skip_en = true, /* Set by the ad9002_conv driver */
+	.chip_info = &cf_axi_dds_chip_info_adrv9002,
+};
+
+static const struct axidds_core_info adrv9002_rx2tx2_9_01_b_info = {
+	.version = ADI_AXI_PCORE_VER(9, 1, 'b'),
+	.standalone = true,
+	.rate_format_skip_en = true, /* Set by the ad9002_conv driver */
+	.chip_info = &cf_axi_dds_chip_info_adrv9002_rx2tx2,
+};
+
 /* Match table for of_platform binding */
 static const struct of_device_id cf_axi_dds_of_match[] = {
 	{ .compatible = "adi,axi-ad9122-6.00.a", .data = &ad9122_6_00_a_info},
@@ -1917,6 +1978,12 @@ static const struct of_device_id cf_axi_dds_of_match[] = {
 	}, {
 	    .compatible = "adi,axi-ad9081-tx-1.0",
 	    .data = &ad9081_1_00_a_info,
+	}, {
+	    .compatible = "adi,axi-adrv9002-tx-1.0",
+	    .data = &adrv9002_9_01_b_info
+	},{
+	    .compatible = "adi,axi-adrv9002-rx2tx2-1.0",
+	    .data = &adrv9002_rx2tx2_9_01_b_info
 	},
 	{ },
 };
