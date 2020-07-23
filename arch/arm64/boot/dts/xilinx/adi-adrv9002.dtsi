@@ -1,0 +1,136 @@
+/ {
+	clocks {
+		adrv9002_clkin: clock@0 {
+			compatible = "fixed-clock";
+
+			clock-frequency = <38400000>;
+			clock-output-names = "adrv9002_ext_refclk";
+			#clock-cells = <0>;
+		};
+	};
+};
+
+&fmc_spi {
+	status = "okay";
+
+	adc0_adrv9002: adrv9002-phy@0 {
+		compatible = "adi,adrv9002";
+		reg = <0>;
+
+		interrupt-parent = <&gpio>;
+		interrupts = <122 IRQ_TYPE_EDGE_RISING>;
+
+		spi-max-frequency = <20000000>;
+		/* Clocks */
+		clocks = <&adrv9002_clkin 0>;
+		clock-names = "adrv9002_ext_refclk";
+		clock-output-names = "rx1_sampl_clk", "rx2_sampl_clk", "tx1_sampl_clk", "tx2_sampl_clk";
+		#clock-cells = <1>;
+
+		agc0: agc@0 {
+			adi,peak-wait-time = <4>;
+			adi,gain-update-counter = <11520>;
+			adi,attack-delax-us = <10>;
+			adi,slow-loop-settling-delay = <16>;
+			adi,change-gain-threshold-high = <3>;
+			adi,agc-mode = <0>;
+			adi,reset-on-rx-on-gain-index = <255>;
+			adi,power-measurement-en;
+			adi,power-under-range-high-threshold = <10>;
+			adi,power-under-range-low-threshold = <4>;
+			adi,power-under-range-high-gain-step-recovery = <2>;
+			adi,power-under-range-low-gain-step-recovery = <4>;
+			adi,power-measurement-duration = <10>;
+			adi,power-measurement-delay = <2>;
+			adi,power-rx-tdd-measurement-duration = <0>;
+			adi,power-rx-tdd-measurement-delay = <0>;
+			adi,power-over-range-high-threshold = <0>;
+			adi,power-over-range-low-threshold = <7>;
+			adi,power-over-range-high-gain-step-attack = <4>;
+			adi,power-over-range-low-gain-step-attack = <4>;
+			adi,peak-agc-under-range-low-interval = <50>;
+			adi,peak-agc-under-range-mid-interval = <2>;
+			adi,peak-agc-under-range-high-interval = <4>;
+			adi,peak-apd-high-threshold = <26>;
+			adi,peak-apd-low-threshold = <18>;
+			adi,peak-apd-upper-threshold-exceeded-count = <6>;
+			adi,peak-apd-lower-threshold-exceeded-count = <3>;
+			adi,peak-apd-gain-step-attack = <4>;
+			adi,peak-apd-gain-step-recovery = <0>;
+			adi,peak-hb-overload-en;
+			adi,peak-hb-overload-duration-count = <1>;
+			adi,peak-hb-overload-threshold-count = <1>;
+			adi,peak-hb-high-threshold = <16383>;
+			adi,peak-hb-under-range-low-threshold = <5826>;
+			adi,peak-hb-under-range-mid-threshold = <8230>;
+			adi,peak-hb-under-range-high-threshold = <11626>;
+			adi,peak-hb-upper-threshold-exceeded-count = <6>;
+			adi,peak-hb-under-range-high-threshold-exceeded-count = <3>;
+			adi,peak-hb-gain-step-high-recovery = <4>;
+			adi,peak-hb-gain-step-low-recovery = <6>;
+			adi,peak-hb-gain-step-mid-recovery = <4>;
+			adi,peak-hb-gain-step-attack = <4>;
+			adi,peak-hb-overload-power-mode = <0>;
+			adi,peak-hb-under-range-mid-threshold-exceeded-count = <3>;
+			adi,peak-hb-under-range-low-threshold-exceeded-count = <3>;
+		};
+
+		rx_pinctrl0: rx-pinctrl@0 {
+			adi,increment-step-size = <1>;
+			adi,decrement-step-size = <1>;
+			adi,increment-pin = <2>;
+			adi,decrement-pin = <1>;
+		};
+
+		rx_pinctrl1: rx-pinctrl@1 {
+			adi,increment-step-size = <1>;
+			adi,decrement-step-size = <1>;
+			adi,increment-pin = <4>;
+			adi,decrement-pin = <5>;
+		};
+
+		tx_pinctrl0: tx-pinctrl@0 {
+			adi,step-size-mdB = <500>;
+			adi,increment-pin = <6>;
+			adi,decrement-pin = <7>;
+		};
+
+		tx_pinctrl1: tx-pinctrl@1 {
+			adi,step-size-mdB = <500>;
+			adi,increment-pin = <9>;
+			adi,decrement-pin = <8>;
+		};
+
+		adi,channels {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			rx@0 {
+				reg = <0>;
+				adi,port = <0>;
+				adi,agc = <&agc0>;
+				adi,pinctrl = <&rx_pinctrl0>;
+			};
+
+			rx@1 {
+				reg = <1>;
+				adi,port = <0>;
+				adi,agc = <&agc0>;
+				adi,pinctrl = <&rx_pinctrl1>;
+			};
+
+			tx@0 {
+				reg = <0>;
+				adi,port = <1>;
+				adi,pinctrl = <&tx_pinctrl0>;
+			};
+
+			tx@1 {
+				reg = <1>;
+				adi,port = <1>;
+				adi,pinctrl = <&tx_pinctrl1>;
+			};
+
+		};
+	};
+};
