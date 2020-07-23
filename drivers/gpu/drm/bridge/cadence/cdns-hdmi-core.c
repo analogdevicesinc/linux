@@ -375,8 +375,8 @@ cdns_hdmi_bridge_mode_valid(struct drm_bridge *bridge,
 	if (mode->clock > 594000)
 		return MODE_CLOCK_HIGH;
 
-	/* 4096x2160 is not supported */
-	if (mode->hdisplay > 3840 || mode->vdisplay > 2160)
+	/* 5120 x 2160 is the maximum supported resolution */
+	if (mode->hdisplay > 5120 || mode->vdisplay > 2160)
 		return MODE_BAD_HVALUE;
 
 	mhdp->valid_mode = mode;
