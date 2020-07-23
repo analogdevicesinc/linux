@@ -28,6 +28,9 @@
 #define PS_BUF_SIZE		64
 #define INVALID_STATUS		0xff
 
+#define MIN_SDOS_BUF_SZ		16
+#define MAX_SDOS_BUF_SZ		32768
+
 #define FCS_REQUEST_TIMEOUT (msecs_to_jiffies(SVC_FCS_REQUEST_TIMEOUT_MS))
 #define FCS_COMPLETED_TIMEOUT (msecs_to_jiffies(SVC_COMPLETED_TIMEOUT_MS))
 
@@ -76,7 +79,6 @@ static void fcs_vab_callback(struct stratix10_svc_client *client,
 			     struct stratix10_svc_cb_data *data)
 {
 	struct intel_fcs_priv *priv = client->priv;
-	unsigned int *status = (unsigned int *)data->kaddr1;
 
 	priv->status = 0;
 
@@ -146,6 +148,7 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 	void *s_buf;
 	void *d_buf;
 	void *ps_buf;
+	unsigned int buf_sz;
 	int ret = 0;
 	int i;
 
@@ -246,6 +249,7 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 		ps_buf = stratix10_svc_allocate_memory(priv->chan, PS_BUF_SIZE);
 		if (!ps_buf) {
 			dev_err(dev, "failed to allocate p-status buf\n");
+			stratix10_svc_free_memory(priv->chan, s_buf);
 			return -ENOMEM;
 		}
 
@@ -303,7 +307,7 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 
 	case INTEL_FCS_DEV_RANDOM_NUMBER_GEN:
 		if (copy_from_user(data, (void __user *)arg, sizeof(*data))) {
-			dev_err(dev, "faiure on copy_from_user\n");
+			dev_err(dev, "failure on copy_from_user\n");
 			return -EFAULT;
 		}
 
@@ -323,6 +327,12 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 					  FCS_REQUEST_TIMEOUT);
 
 		if (!ret && !priv->status) {
+			if (!priv->kbuf) {
+				dev_err(dev, "failure on kbuf\n");
+				fcs_close_services(priv, s_buf, NULL);
+				return -EFAULT;
+			}
+
 			/* for debug only, will be removed for upstream */
 			for (i = 0; i < 8; i++)
 				dev_info(dev, "output_data[%d]=%d\n", i,
@@ -339,7 +349,7 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 		}
 
 		if (copy_to_user((void __user *)arg, data, sizeof(*data))) {
-			dev_err(dev, "faiure on copy_to_user\n");
+			dev_err(dev, "failure on copy_to_user\n");
 			fcs_close_services(priv, s_buf, NULL);
 			ret = -EFAULT;
 		}
@@ -349,7 +359,7 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 	case INTEL_FCS_DEV_GET_PROVISION_DATA:
 		if (copy_from_user(data, (void __user *)arg,
 				   sizeof(*data))) {
-			dev_err(dev, "faiure on copy_from_user\n");
+			dev_err(dev, "failure on copy_from_user\n");
 			return -EFAULT;
 		}
 
@@ -368,11 +378,16 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 		ret = fcs_request_service(priv, (void *)msg,
 					  FCS_REQUEST_TIMEOUT);
 		if (!ret && !priv->status) {
+			if (!priv->kbuf) {
+				dev_err(dev, "failure on kbuf\n");
+				fcs_close_services(priv, s_buf, NULL);
+				return -EFAULT;
+			}
 			data->com_paras.gp_data.size = priv->size;
 			ret = copy_to_user(data->com_paras.gp_data.addr,
 					   priv->kbuf, priv->size);
 			if (ret) {
-				dev_err(dev, "faiure on copy_to_user\n");
+				dev_err(dev, "failure on copy_to_user\n");
 				fcs_close_services(priv, s_buf, NULL);
 				return -EFAULT;
 			}
@@ -384,7 +399,7 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 		}
 
 		if (copy_to_user((void __user *)arg, data, sizeof(*data))) {
-			dev_err(dev, "faiure on copy_to_user\n");
+			dev_err(dev, "failure on copy_to_user\n");
 			fcs_close_services(priv, s_buf, NULL);
 			return -EFAULT;
 		}
@@ -393,31 +408,51 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 		break;
 	case INTEL_FCS_DEV_DATA_ENCRYPTION:
 		if (copy_from_user(data, (void __user *)arg, sizeof(*data))) {
-			dev_err(dev, "faiure on copy_from_user\n");
+			dev_err(dev, "failure on copy_from_user\n");
+			return -EFAULT;
+		}
+
+		if ((data->com_paras.d_encryption.src_size < MIN_SDOS_BUF_SZ) ||
+		    (data->com_paras.d_encryption.src_size > MAX_SDOS_BUF_SZ)) {
+			dev_err(dev, "Invalid SDOS Buffer src size:%d\n",
+				data->com_paras.d_encryption.src_size);
+			return -EFAULT;
+		}
+
+		if ((data->com_paras.d_encryption.dst_size < MIN_SDOS_BUF_SZ) ||
+		    (data->com_paras.d_encryption.dst_size > MAX_SDOS_BUF_SZ)) {
+			dev_err(dev, "Invalid SDOS Buffer dst size:%d\n",
+				data->com_paras.d_encryption.dst_size);
 			return -EFAULT;
 		}
 
 		/* allocate buffer for both source and destination */
 		s_buf = stratix10_svc_allocate_memory(priv->chan,
-				data->com_paras.d_encryption.src_size);
+						      MAX_SDOS_BUF_SZ);
 		if (!s_buf) {
 			dev_err(dev, "failed allocate encrypt src buf\n");
 			return -ENOMEM;
 		}
 		d_buf = stratix10_svc_allocate_memory(priv->chan,
-				data->com_paras.d_encryption.dst_size);
+						      MAX_SDOS_BUF_SZ);
 		if (!d_buf) {
 			dev_err(dev, "failed allocate encrypt dst buf\n");
 			stratix10_svc_free_memory(priv->chan, s_buf);
+			return -ENOMEM;
+		}
+		ps_buf = stratix10_svc_allocate_memory(priv->chan, PS_BUF_SIZE);
+		if (!ps_buf) {
+			dev_err(dev, "failed allocate p-status buffer\n");
+			fcs_close_services(priv, s_buf, d_buf);
 			return -ENOMEM;
 		}
 		ret = copy_from_user(s_buf,
 				     data->com_paras.d_encryption.src,
 				     data->com_paras.d_encryption.src_size);
 		if (ret) {
-			dev_err(dev, "faiure on copy_from_user\n");
-			stratix10_svc_free_memory(priv->chan, s_buf);
-			stratix10_svc_free_memory(priv->chan, d_buf);
+			dev_err(dev, "failure on copy_from_user\n");
+			fcs_close_services(priv, ps_buf, NULL);
+			fcs_close_services(priv, s_buf, d_buf);
 			return -ENOMEM;
 		}
 
@@ -428,20 +463,43 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 		msg->payload_output = d_buf;
 		msg->payload_length_output =
 			data->com_paras.d_encryption.dst_size;
-		priv->client.receive_cb = fcs_data_callback;
+		priv->client.receive_cb = fcs_vab_callback;
 
 		ret = fcs_request_service(priv, (void *)msg,
 					  FCS_REQUEST_TIMEOUT);
 		if (!ret && !priv->status) {
-			data->com_paras.d_encryption.dst_size = priv->size;
-			ret = copy_to_user(data->com_paras.d_encryption.dst,
-					   priv->kbuf, priv->size);
-			if (ret) {
-				dev_err(dev, "faiure on copy_to_user\n");
-				fcs_close_services(priv, s_buf, d_buf);
-				ret = -EFAULT;
+			msg->payload = ps_buf;
+			msg->payload_length = PS_BUF_SIZE;
+			msg->command = COMMAND_POLL_SERVICE_STATUS;
+
+			priv->client.receive_cb = fcs_data_callback;
+			ret = fcs_request_service(priv, (void *)msg,
+						  FCS_COMPLETED_TIMEOUT);
+			dev_dbg(dev, "request service ret=%d\n", ret);
+
+			if (!ret && !priv->status) {
+				if (!priv->kbuf) {
+					dev_err(dev, "failure on kbuf\n");
+					fcs_close_services(priv, ps_buf, NULL);
+					fcs_close_services(priv, s_buf, d_buf);
+					return -EFAULT;
+				}
+				buf_sz = *(unsigned int *)priv->kbuf;
+				data->com_paras.d_encryption.dst_size = buf_sz;
+				data->status = 0;
+				ret = copy_to_user(data->com_paras.d_encryption.dst,
+						   d_buf, buf_sz);
+				if (ret) {
+					dev_err(dev, "failure on copy_to_user\n");
+					fcs_close_services(priv, ps_buf, NULL);
+					fcs_close_services(priv, s_buf, d_buf);
+					return -EFAULT;
+				}
+			} else {
+				data->com_paras.d_encryption.dst = NULL;
+				data->com_paras.d_encryption.dst_size = 0;
+				data->status = priv->status;
 			}
-			data->status = 0;
 		} else {
 			data->com_paras.d_encryption.dst = NULL;
 			data->com_paras.d_encryption.dst_size = 0;
@@ -449,31 +507,55 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 		}
 
 		if (copy_to_user((void __user *)arg, data, sizeof(*data))) {
-			dev_err(dev, "faiure on copy_to_user\n");
+			dev_err(dev, "failure on copy_to_user\n");
+			fcs_close_services(priv, ps_buf, NULL);
 			fcs_close_services(priv, s_buf, d_buf);
 			ret = -EFAULT;
 		}
 
+		fcs_close_services(priv, ps_buf, NULL);
 		fcs_close_services(priv, s_buf, d_buf);
 		break;
 	case INTEL_FCS_DEV_DATA_DECRYPTION:
 		if (copy_from_user(data, (void __user *)arg, sizeof(*data))) {
-			dev_err(dev, "faiure on copy_from_user\n");
+			dev_err(dev, "failure on copy_from_user\n");
+			return -EFAULT;
+		}
+
+		if ((data->com_paras.d_encryption.src_size < MIN_SDOS_BUF_SZ) ||
+		    (data->com_paras.d_encryption.src_size > MAX_SDOS_BUF_SZ)) {
+			dev_err(dev, "Invalid SDOS Buffer src size:%d\n",
+				data->com_paras.d_encryption.src_size);
+			return -EFAULT;
+		}
+
+		if ((data->com_paras.d_encryption.dst_size < MIN_SDOS_BUF_SZ) ||
+		    (data->com_paras.d_encryption.dst_size > MAX_SDOS_BUF_SZ)) {
+			dev_err(dev, "Invalid SDOS Buffer dst size:%d\n",
+				data->com_paras.d_encryption.dst_size);
 			return -EFAULT;
 		}
 
 		/* allocate buffer for both source and destination */
 		s_buf = stratix10_svc_allocate_memory(priv->chan,
-				data->com_paras.d_decryption.src_size);
+						      MAX_SDOS_BUF_SZ);
 		if (!s_buf) {
 			dev_err(dev, "failed allocate decrypt src buf\n");
 			return -ENOMEM;
 		}
 		d_buf = stratix10_svc_allocate_memory(priv->chan,
-				data->com_paras.d_decryption.dst_size);
+						      MAX_SDOS_BUF_SZ);
 		if (!d_buf) {
 			dev_err(dev, "failed allocate decrypt dst buf\n");
 			stratix10_svc_free_memory(priv->chan, s_buf);
+			return -ENOMEM;
+		}
+
+		ps_buf = stratix10_svc_allocate_memory(priv->chan,
+						       PS_BUF_SIZE);
+		if (!ps_buf) {
+			dev_err(dev, "failed allocate p-status buffer\n");
+			fcs_close_services(priv, s_buf, d_buf);
 			return -ENOMEM;
 		}
 
@@ -481,9 +563,10 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 				     data->com_paras.d_decryption.src,
 				     data->com_paras.d_decryption.src_size);
 		if (ret) {
-			dev_err(dev, "faiure on copy_from_user\n");
-			stratix10_svc_free_memory(priv->chan, s_buf);
-			stratix10_svc_free_memory(priv->chan, d_buf);
+			dev_err(dev, "failure on copy_from_user\n");
+			fcs_close_services(priv, ps_buf, NULL);
+			fcs_close_services(priv, s_buf, d_buf);
+			return -EFAULT;
 		}
 
 		msg->command = COMMAND_FCS_DATA_DECRYPTION;
@@ -493,21 +576,41 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 		msg->payload_output = d_buf;
 		msg->payload_length_output =
 				data->com_paras.d_decryption.dst_size;
-		priv->client.receive_cb = fcs_data_callback;
+		priv->client.receive_cb = fcs_vab_callback;
 
 		ret = fcs_request_service(priv, (void *)msg,
 					  FCS_REQUEST_TIMEOUT);
 		if (!ret && !priv->status) {
-			ret = copy_to_user(data->com_paras.d_decryption.dst,
-					   priv->kbuf, priv->size);
-			if (ret) {
-				dev_err(dev, "faiure on copy_to_user\n");
-				fcs_close_services(priv, s_buf, d_buf);
-				ret = -EFAULT;
+			msg->command = COMMAND_POLL_SERVICE_STATUS;
+			msg->payload = ps_buf;
+			msg->payload_length = PS_BUF_SIZE;
+			priv->client.receive_cb = fcs_data_callback;
+			ret = fcs_request_service(priv, (void *)msg,
+						  FCS_COMPLETED_TIMEOUT);
+			dev_dbg(dev, "request service ret=%d\n", ret);
+			if (!ret && !priv->status) {
+				if (!priv->kbuf) {
+					dev_err(dev, "failure on kbuf\n");
+					fcs_close_services(priv, ps_buf, NULL);
+					fcs_close_services(priv, s_buf, d_buf);
+					return -EFAULT;
+				}
+				buf_sz = *((unsigned int *)priv->kbuf);
+				data->com_paras.d_decryption.dst_size = buf_sz;
+				data->status = 0;
+				ret = copy_to_user(data->com_paras.d_decryption.dst,
+						   d_buf, buf_sz);
+				if (ret) {
+					dev_err(dev, "failure on copy_to_user\n");
+					fcs_close_services(priv, ps_buf, NULL);
+					fcs_close_services(priv, s_buf, d_buf);
+					return -EFAULT;
+				}
+			} else {
+				data->com_paras.d_decryption.dst = NULL;
+				data->com_paras.d_decryption.dst_size = 0;
+				data->status = priv->status;
 			}
-
-			data->com_paras.d_decryption.dst_size = priv->size;
-			data->status = 0;
 		} else {
 			data->com_paras.d_decryption.dst = NULL;
 			data->com_paras.d_decryption.dst_size = 0;
@@ -515,11 +618,13 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 		}
 
 		if (copy_to_user((void __user *)arg, data, sizeof(*data))) {
-			dev_err(dev, "faiure on copy_to_user\n");
+			dev_err(dev, "failure on copy_to_user\n");
+			fcs_close_services(priv, ps_buf, NULL);
 			fcs_close_services(priv, s_buf, d_buf);
 			ret = -EFAULT;
 		}
 
+		fcs_close_services(priv, ps_buf, NULL);
 		fcs_close_services(priv, s_buf, d_buf);
 		break;
 	default:
@@ -586,7 +691,7 @@ static int fcs_driver_probe(struct platform_device *pdev)
 
 	ret = misc_register(&priv->miscdev);
 	if (ret) {
-		dev_err(dev, "can't register onn minor=%d\n",
+		dev_err(dev, "can't register on minor=%d\n",
 			MISC_DYNAMIC_MINOR);
 		return ret;
 	}
