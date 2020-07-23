@@ -3432,7 +3432,7 @@ t_Error FM_PORT_SetSizeOfFifo(t_Handle h_FmPort, t_FmPortRsrc *p_SizeOfFifo)
         RETURN_ERROR(
                 MAJOR,
                 E_INVALID_VALUE,
-                ("SizeOfFifo-num has to be in the range of 256 - %d", MAX_PORT_FIFO_SIZE));
+                ("SizeOfFifo-num has to be in the range of 256 - %lu", MAX_PORT_FIFO_SIZE));
     if (p_SizeOfFifo->num % BMI_FIFO_UNITS)
         RETURN_ERROR(
                 MAJOR, E_INVALID_VALUE,
