@@ -1274,6 +1274,9 @@ static int dpu_crtc_bind(struct device *dev, struct device *master, void *data)
 
 	dpu_crtc->dev = dev;
 
+	drm->mode_config.max_width = 5120;
+	drm->mode_config.max_height = 4096;
+
 	ret = dpu_crtc_init(dpu_crtc, pdata, drm);
 	if (ret)
 		return ret;
