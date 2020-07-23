@@ -81,6 +81,8 @@ adrv9009_drv-y := adrv9009.o adrv9009_conv.o \
 
 obj-$(CONFIG_ADRV9009) += adrv9009_drv.o
 
+obj-$(CONFIG_ADRV9001) += navassa/
+
 obj-$(CONFIG_AD9680) += ad9680.o
 obj-$(CONFIG_ADMC) += admc_adc.o admc_speed.o admc_ctrl.o ad_adc.o
 

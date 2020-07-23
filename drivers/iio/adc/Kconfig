@@ -419,6 +419,29 @@ config AD9371
 	  AD9371 RF Transceivers. Provides direct access
 	  via sysfs.
 
+config ADRV9001
+        tristate "Analog Devices ADRV9001/ADRV9002 RF Transceiver driver"
+        depends on SPI
+        help
+          Say yes here to build support for Analog Devices:
+          ADRV9001/ADRV9002 RF Transceivers. Provides direct access
+          via sysfs
+
+config ADRV9001_COMMON_VERBOSE
+	bool "Enables verbose error reports"
+	depends on ADRV9001
+	default y
+
+config ADRV9001_ARM_VERBOSE
+	bool "Enables ARM verbose error messages"
+	depends on ADRV9001
+	default y
+
+config ADRV9001_VALIDATE_PARAMS
+	bool "Causes the API to validate all the input parameters"
+	depends on ADRV9001
+	default y
+
 config ADRV9009
 	tristate "Analog Devices ADRV9009/ADRV9008 RF Transceiver driver"
 	depends on SPI
