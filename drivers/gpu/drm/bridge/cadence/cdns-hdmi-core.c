@@ -364,6 +364,7 @@ cdns_hdmi_bridge_mode_valid(struct drm_bridge *bridge,
 {
 	struct cdns_mhdp_device *mhdp = bridge->driver_private;
 	enum drm_mode_status mode_status = MODE_OK;
+	u32 vic;
 	int ret;
 
 	/* We don't support double-clocked and Interlaced modes */
@@ -378,6 +379,13 @@ cdns_hdmi_bridge_mode_valid(struct drm_bridge *bridge,
 	/* 5120 x 2160 is the maximum supported resolution */
 	if (mode->hdisplay > 5120 || mode->vdisplay > 2160)
 		return MODE_BAD_HVALUE;
+
+	/* imx8mq-hdmi does not support non CEA modes */
+	if (!strncmp("imx8mq-hdmi", mhdp->plat_data->plat_name, 11)) {
+		vic = drm_match_cea_mode(mode);
+		if (vic == 0)
+			return MODE_BAD;
+	}
 
 	mhdp->valid_mode = mode;
 	ret = cdns_mhdp_plat_call(mhdp, phy_video_valid);
