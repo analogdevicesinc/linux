@@ -31,6 +31,7 @@
 #define M2K_LA_REG_TRIGGERED		0x48
 #define M2K_LA_REG_STREAMING		0x4c
 #define M2K_LA_REG_INSTRUMENT_TRIGGER	0x54
+#define M2K_LA_REG_DATA_DELAY_CONFIG	0x58
 
 #define M2K_LA_TRIGGER_EDGE_ANY		0
 #define M2K_LA_TRIGGER_EDGE_RISING	1
@@ -44,6 +45,10 @@
 #define M2K_LA_TRIGGER_CONDITION_MASK(x)	(0x155 << x)
 #define M2K_LA_TRIGGER_SOURCE_MASK		GENMASK(19, 16)
 #define M2K_LA_TRIGGER_EXT_SOURCE_MASK		GENMASK(17, 16)
+
+#define M2K_LA_IN_DATA_DELAY_MASK		GENMASK(5, 0)
+#define M2K_LA_IN_DATA_AUTO_DELAY_MASK		BIT(8)
+#define M2K_LA_IN_DATA_DELAY_MUX_MASK		BIT(9)
 
 struct m2k_la {
 	void __iomem *regs;
@@ -392,6 +397,120 @@ static ssize_t m2k_la_get_triggered(struct iio_dev *indio_dev,
 	return scnprintf(buf, PAGE_SIZE, "%d\n", val);
 }
 
+static int m2k_la_set_data_delay_auto(struct iio_dev *indio_dev,
+	const struct iio_chan_spec *chan, unsigned int val)
+{
+	struct m2k_la *m2k_la = iio_device_get_drvdata(indio_dev);
+
+	mutex_lock(&m2k_la->lock);
+
+	m2k_la_update(m2k_la, M2K_LA_REG_DATA_DELAY_CONFIG,
+		      FIELD_PREP(M2K_LA_IN_DATA_AUTO_DELAY_MASK, val),
+		      M2K_LA_IN_DATA_AUTO_DELAY_MASK);
+
+	mutex_unlock(&m2k_la->lock);
+
+	return 0;
+}
+
+static int m2k_la_get_data_delay_auto(struct iio_dev *indio_dev,
+	const struct iio_chan_spec *chan)
+{
+	struct m2k_la *m2k_la = iio_device_get_drvdata(indio_dev);
+	unsigned int val;
+
+	val = m2k_la_read(m2k_la, M2K_LA_REG_DATA_DELAY_CONFIG);
+	val = FIELD_GET(M2K_LA_IN_DATA_AUTO_DELAY_MASK, val);
+
+	return val;
+}
+
+static const char * const m2k_la_data_delay_auto_items[] = {
+	"auto",
+	"manual"
+};
+
+static const struct iio_enum m2k_la_data_delay_auto_enum = {
+	.items = m2k_la_data_delay_auto_items,
+	.num_items = ARRAY_SIZE(m2k_la_data_delay_auto_items),
+	.set = m2k_la_set_data_delay_auto,
+	.get = m2k_la_get_data_delay_auto,
+};
+
+static int m2k_la_set_rate_mux(struct iio_dev *indio_dev,
+	const struct iio_chan_spec *chan, unsigned int val)
+{
+	struct m2k_la *m2k_la = iio_device_get_drvdata(indio_dev);
+
+	mutex_lock(&m2k_la->lock);
+
+	m2k_la_update(m2k_la, M2K_LA_REG_DATA_DELAY_CONFIG,
+		      FIELD_PREP(M2K_LA_IN_DATA_DELAY_MUX_MASK, val),
+		      M2K_LA_IN_DATA_DELAY_MUX_MASK);
+
+	mutex_unlock(&m2k_la->lock);
+
+	return 0;
+}
+
+static int m2k_la_get_rate_mux(struct iio_dev *indio_dev,
+	const struct iio_chan_spec *chan)
+{
+	struct m2k_la *m2k_la = iio_device_get_drvdata(indio_dev);
+	unsigned int val;
+
+	val = m2k_la_read(m2k_la, M2K_LA_REG_DATA_DELAY_CONFIG);
+	val = FIELD_GET(M2K_LA_IN_DATA_DELAY_MUX_MASK, val);
+
+	return val;
+}
+
+static const char * const m2k_la_rate_mux_items[] = {
+	"logic_analyzer",
+	"oscilloscope"
+};
+
+static const struct iio_enum m2k_la_rate_mux_enum = {
+	.items = m2k_la_rate_mux_items,
+	.num_items = ARRAY_SIZE(m2k_la_rate_mux_items),
+	.set = m2k_la_set_rate_mux,
+	.get = m2k_la_get_rate_mux,
+};
+
+static ssize_t m2k_la_set_in_data_delay(struct iio_dev *indio_dev,
+	uintptr_t priv, const struct iio_chan_spec *chan, const char *buf,
+	size_t len)
+{
+	struct m2k_la *m2k_la = iio_device_get_drvdata(indio_dev);
+	unsigned int val;
+	int ret;
+
+	ret = kstrtouint(buf, 10, &val);
+	if (ret < 0)
+		return ret;
+
+	mutex_lock(&m2k_la->lock);
+
+	m2k_la_update(m2k_la, M2K_LA_REG_DATA_DELAY_CONFIG, val,
+		      M2K_LA_IN_DATA_DELAY_MASK);
+
+	mutex_unlock(&m2k_la->lock);
+
+	return len;
+}
+
+static ssize_t m2k_la_get_in_data_delay(struct iio_dev *indio_dev,
+	uintptr_t priv, const struct iio_chan_spec *chan, char *buf)
+{
+	struct m2k_la *m2k_la = iio_device_get_drvdata(indio_dev);
+	unsigned int val;
+
+	val = m2k_la_read(m2k_la, M2K_LA_REG_DATA_DELAY_CONFIG);
+	val = FIELD_GET(M2K_LA_IN_DATA_DELAY_MASK, val);
+
+	return scnprintf(buf, PAGE_SIZE, "%u\n", val);
+}
+
 static ssize_t m2k_la_get_streaming(struct iio_dev *indio_dev,
 	uintptr_t priv, const struct iio_chan_spec *chan, char *buf)
 {
@@ -431,6 +550,14 @@ static const struct iio_chan_spec_ext_info m2k_la_rx_ext_info[] = {
 		&m2k_la_trigger_mux_out_enum),
 	IIO_ENUM_AVAILABLE("trigger_mux_out",
 		&m2k_la_trigger_mux_out_enum),
+	IIO_ENUM("data_delay_auto", IIO_SHARED_BY_ALL,
+		&m2k_la_data_delay_auto_enum),
+	IIO_ENUM_AVAILABLE_SHARED("data_delay_auto", IIO_SHARED_BY_ALL,
+		&m2k_la_data_delay_auto_enum),
+	IIO_ENUM("rate_mux", IIO_SHARED_BY_ALL,
+		&m2k_la_rate_mux_enum),
+	IIO_ENUM_AVAILABLE_SHARED("rate_mux", IIO_SHARED_BY_ALL,
+		&m2k_la_rate_mux_enum),
 	{
 		.name = "trigger_delay",
 		.shared = IIO_SHARED_BY_TYPE,
@@ -442,6 +569,12 @@ static const struct iio_chan_spec_ext_info m2k_la_rx_ext_info[] = {
 		.shared = IIO_SHARED_BY_ALL,
 		.read = m2k_la_get_triggered,
 		.write = m2k_la_set_triggered,
+	},
+	{
+		.name = "data_in_delay",
+		.shared = IIO_SHARED_BY_ALL,
+		.read = m2k_la_get_in_data_delay,
+		.write = m2k_la_set_in_data_delay,
 	},
 	{
 		.name = "streaming",
