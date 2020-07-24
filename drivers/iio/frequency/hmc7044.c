@@ -1422,7 +1422,7 @@ static int hmc7044_status_show(struct seq_file *file, void *offset)
 	struct iio_dev *indio_dev = spi_get_drvdata(file->private);
 	struct hmc7044 *hmc = iio_priv(indio_dev);
 	int ret;
-	u32 alarm_stat, pll1_stat, pll2_autotune_val;
+	u32 alarm_stat, pll1_stat, pll2_autotune_val, clkin_freq;
 
 	ret = hmc7044_read(indio_dev, HMC7044_REG_PLL1_STATUS, &pll1_stat);
 	if (ret < 0)
@@ -1436,11 +1436,16 @@ static int hmc7044_status_show(struct seq_file *file, void *offset)
 	if (ret < 0)
 		return ret;
 
+	if (hmc->clkin_freq_ccf[HMC7044_PLL1_ACTIVE_CLKIN(pll1_stat)])
+		clkin_freq = hmc->clkin_freq_ccf[HMC7044_PLL1_ACTIVE_CLKIN(pll1_stat)];
+	else
+		clkin_freq = hmc->clkin_freq[HMC7044_PLL1_ACTIVE_CLKIN(pll1_stat)];
+
 	seq_printf(file, "--- PLL1 ---\n"
 		   "Status:\t%s\nUsing:\tCLKIN%u @ %u Hz\nPFD:\t%u kHz\n",
 		   pll1_fsm_states[HMC7044_PLL1_FSM_STATE(pll1_stat)],
 		   HMC7044_PLL1_ACTIVE_CLKIN(pll1_stat),
-		   hmc->clkin_freq[HMC7044_PLL1_ACTIVE_CLKIN(pll1_stat)],
+		   clkin_freq,
 		   hmc->pll1_pfd);
 
 	seq_printf(file, "--- PLL2 ---\n"
