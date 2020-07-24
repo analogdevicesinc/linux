@@ -500,8 +500,8 @@ static int jesd204_fsm_handle_con(struct jesd204_dev *jdev_it,
 	return 0;
 }
 
-static int jesd204_fsm_link_init(struct jesd204_dev_top *jdev_top,
-				 struct jesd204_fsm_data *fsm_data)
+static void jesd204_fsm_link_init(struct jesd204_dev_top *jdev_top,
+				  struct jesd204_fsm_data *fsm_data)
 {
 	unsigned int link_idx = fsm_data->link_idx;
 	struct jesd204_link_opaque *ol;
@@ -510,13 +510,11 @@ static int jesd204_fsm_link_init(struct jesd204_dev_top *jdev_top,
 		ol = &jdev_top->active_links[link_idx];
 		ol->fsm_data = fsm_data;
 		kref_init(&ol->cb_ref);
-		return 0;
+		return;
 	}
 
 	kref_init(&jdev_top->cb_ref);
 	jdev_top->fsm_data = fsm_data;
-
-	return 0;
 }
 
 static int jesd204_fsm_test_and_set_busy(struct jesd204_dev_top *jdev_top,
@@ -648,9 +646,7 @@ static int __jesd204_fsm(struct jesd204_dev *jdev,
 	if (ret)
 		goto out_clear_busy;
 
-	ret = jesd204_fsm_link_init(jdev_top, data);
-	if (ret)
-		goto out_clear_busy;
+	jesd204_fsm_link_init(jdev_top, data);
 
 	/**
 	 * Always propagate from the top-level device, otherwise if
