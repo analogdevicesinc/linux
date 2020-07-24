@@ -64,20 +64,12 @@
 	  },								\
 	}
 
-
-
-static const unsigned long adrv9009_available_scan_masks[] = {
-	0x01, 0x02, 0x04, 0x08, 0x03, 0x0C, 0x0F,
-	0x00,
-};
-
 static const struct axiadc_chip_info axiadc_chip_info_tbl[] = {
 	[ID_ADRV9009] = {
 		.name = "ADRV9009",
 		.max_rate = 245760000,
 		.max_testmode = 0,
 		.num_channels = 4,
-		.scan_masks = adrv9009_available_scan_masks,
 		.channel[0] = AIM_CHAN(0, IIO_MOD_I, 0, 16, 'S'),
 		.channel[1] = AIM_CHAN(0, IIO_MOD_Q, 1, 16, 'S'),
 		.channel[2] = AIM_CHAN(1, IIO_MOD_I, 2, 16, 'S'),
@@ -88,7 +80,6 @@ static const struct axiadc_chip_info axiadc_chip_info_tbl[] = {
 		.max_rate = 245760000,
 		.max_testmode = 0,
 		.num_channels = 8,
-		.scan_masks = NULL, /* FIXME: later */
 		.channel[0] = AIM_CHAN(0, IIO_MOD_I, 0, 16, 'S'),
 		.channel[1] = AIM_CHAN(0, IIO_MOD_Q, 1, 16, 'S'),
 		.channel[2] = AIM_CHAN(1, IIO_MOD_I, 2, 16, 'S'),
@@ -103,7 +94,6 @@ static const struct axiadc_chip_info axiadc_chip_info_tbl[] = {
 		.max_rate = 245760000,
 		.max_testmode = 0,
 		.num_channels = 4,
-		.scan_masks = adrv9009_available_scan_masks,
 		.channel[0] = AIM_CHAN(0, IIO_MOD_I, 0, 16, 'S'),
 		.channel[1] = AIM_CHAN(0, IIO_MOD_Q, 1, 16, 'S'),
 		.channel[2] = AIM_CHAN(1, IIO_MOD_I, 2, 16, 'S'),
