@@ -129,9 +129,28 @@ struct jesd204_link {
 	u8 dac_phase_adj;
 };
 
-typedef int (*jesd204_dev_cb)(struct jesd204_dev *jdev);
+enum jesd204_state_op_reason {
+	JESD204_STATE_OP_REASON_INIT,
+	JESD204_STATE_OP_REASON_UNINIT,
+};
+
+static inline const char *jesd204_state_op_reason_str(enum jesd204_state_op_reason reason)
+{
+	switch (reason) {
+	case JESD204_STATE_OP_REASON_INIT:
+		return "initialization";
+	case JESD204_STATE_OP_REASON_UNINIT:
+		return "uninitialization";
+	default:
+		return "unknown";
+	}
+}
+
+typedef int (*jesd204_dev_cb)(struct jesd204_dev *jdev,
+			     enum jesd204_state_op_reason reason);
 
 typedef int (*jesd204_link_cb)(struct jesd204_dev *jdev,
+			       enum jesd204_state_op_reason,
 			       struct jesd204_link *lnk);
 
 enum jesd204_state_op_mode {
@@ -152,15 +171,14 @@ struct jesd204_state_op {
 };
 
 enum jesd204_dev_op {
+	JESD204_OP_DEVICE_INIT,
 	JESD204_OP_LINK_INIT,
-	JESD204_OP_LINK_DOWN,
 	JESD204_OP_LINK_SUPPORTED,
 	JESD204_OP_CLOCKS_ENABLE,
-	JESD204_OP_CLOCKS_DISABLE,
 	JESD204_OP_LINK_SETUP,
 	JESD204_OP_LINK_ENABLE,
 	JESD204_OP_LINK_RUNNING,
-	JESD204_OP_LINK_DISABLE,
+
 	__JESD204_MAX_OPS,
 };
 
