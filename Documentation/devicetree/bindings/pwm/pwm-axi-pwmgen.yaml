@@ -1,0 +1,42 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/pwm/pwm-axi-pwmgen.yaml#
+
+title: Analog devices AXI PWM controller
+
+maintainers:
+  - Sergiu Cuciurean <sergiu.cuciurean@analog.com>
+
+properties:
+  compatible:
+    enum:
+      - adi,axi-pwmgen
+
+  reg:
+    maxItems: 1
+
+  "#pwm-cells":
+    const: 2
+
+  clocks:
+    description: Clock used as reference when generating the pwm
+
+required:
+  - compatible
+  - reg
+  - "#pwm-cells"
+  - clocks
+
+additionalProperties: false
+
+examples:
+  - |
+    axi-pwmgen@44b00000 {
+            compatible = "adi,axi-pwmgen";
+            reg = <0x44b00000 0x1000>;
+            label = "pwm_out1";
+            #pwm-cells = <2>;
+            clocks = <&ref_clk>;
+
+    };
