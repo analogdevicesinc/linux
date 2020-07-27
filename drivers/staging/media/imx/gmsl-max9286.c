@@ -3055,22 +3055,20 @@ static int max9286_s_stream(struct v4l2_subdev *sd, int enable)
 
 	dev_dbg(sd->dev, "%s\n", __func__);
 	if (enable) {
-		if (!max9286_data->running) {
+		if (!max9286_data->running++) {
 			/*
 			 * Enable CSI output, set virtual channel
 			 * according to the link number
 			 */
 			max9286_write_reg(max9286_data, 0x15, 0x9B);
 		}
-		max9286_data->running++;
 
 	} else {
 
-		if (max9286_data->running) {
+		if (!--max9286_data->running) {
 			/* Disable CSI Output */
 			max9286_write_reg(max9286_data, 0x15, 0x03);
 		}
-		max9286_data->running--;
 	}
 
 	return 0;
