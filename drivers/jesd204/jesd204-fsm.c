@@ -69,10 +69,12 @@ struct jesd204_fsm_table_entry {
  * @table		current entry in a state table
  * @per_device_ran	list of JESD204 device IDs to mark when a device's
  *			callback was ran, when running ops per_device
+ * @completed		true if the completed_cb was called
  */
 struct jesd204_fsm_table_entry_iter {
 	const struct jesd204_fsm_table_entry	*table;
 	bool					*per_device_ran;
+	bool					completed;
 };
 
 #define _JESD204_STATE_OP(x, _last, _post_hook)			\
@@ -910,7 +912,7 @@ static int jesd204_fsm_table_entry_done(struct jesd204_dev *jdev,
 {
 	struct jesd204_fsm_table_entry_iter *it = fsm_data->cb_data;
 	const struct jesd204_fsm_table_entry *table = it->table;
-	int cnt, ret;
+	int ret;
 
 	if (table[0].post_hook) {
 		ret = table[0].post_hook(jdev, fsm_data);
@@ -918,14 +920,14 @@ static int jesd204_fsm_table_entry_done(struct jesd204_dev *jdev,
 			return ret;
 	}
 
-	if (table[0].last)
-		return 0;
+	it->completed = true;
 
-	cnt = jesd204_device_count_get();
-	memset(it->per_device_ran, 0, sizeof(bool) * cnt);
+	return 0;
+}
 
-	return jesd204_fsm_table(jdev, fsm_data->link_idx,
-				 table[0].state, &table[1], false);
+static bool jesd204_fsm_table_end(const struct jesd204_fsm_table_entry *entry)
+{
+	return entry->last;
 }
 
 static int jesd204_fsm_table(struct jesd204_dev *jdev,
@@ -937,19 +939,39 @@ static int jesd204_fsm_table(struct jesd204_dev *jdev,
 	struct jesd204_fsm_table_entry_iter it;
 	int cnt, ret;
 
-	it.table = table;
-
 	cnt = jesd204_device_count_get();
 	it.per_device_ran = kcalloc(cnt, sizeof(bool), GFP_KERNEL);
 	if (!it.per_device_ran)
 		return -ENOMEM;
 
-	ret = jesd204_fsm(jdev, link_idx,
-			  init_state, table[0].state,
-			  jesd204_fsm_table_entry_cb,
-			  &it,
-			  jesd204_fsm_table_entry_done,
-			  handle_busy_flags);
+	it.table = table;
+
+	ret = 0;
+	/**
+	 * FIXME: the handle_busy_flags logic needs re-visit, we should lock
+	 * here and unlock after the loop is done
+	 */
+	while (!jesd204_fsm_table_end(&it.table[0])) {
+		it.completed = false;
+		memset(it.per_device_ran, 0, sizeof(bool) * cnt);
+		it.table = table;
+
+		ret = jesd204_fsm(jdev, link_idx,
+				  init_state, table[0].state,
+				  jesd204_fsm_table_entry_cb,
+				  &it,
+				  jesd204_fsm_table_entry_done,
+				  handle_busy_flags);
+		if (ret)
+			break;
+
+		if (!it.completed)
+			break;
+
+		init_state = table[0].state;
+
+		table++;
+	}
 
 	kfree(it.per_device_ran);
 
