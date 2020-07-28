@@ -2762,7 +2762,7 @@ static t_Error BuildNewNodeAddOrMdfyKeyAndNextEngine(
                 {
                     p_KeysMatchTableOldTmp =
                             PTR_MOVE(p_CcNode->h_KeysMatchTable,
-                                    i * (int)p_CcNode->ccKeySizeAccExtraction * sizeof(uint8_t));
+                                    i * p_CcNode->ccKeySizeAccExtraction * sizeof(uint8_t));
 
                     if (p_CcNode->ccKeySizeAccExtraction > 4)
                     {
@@ -3075,7 +3075,7 @@ static t_Error BuildNewNodeModifyKey(
                 {
                     p_KeysMatchTableOldTmp =
                             PTR_MOVE(p_CcNode->h_KeysMatchTable,
-                                     i * (int)p_CcNode->ccKeySizeAccExtraction * sizeof(uint8_t));
+                                     i * p_CcNode->ccKeySizeAccExtraction * sizeof(uint8_t));
 
                     if (p_CcNode->ccKeySizeAccExtraction > 4)
                         MemSet8(PTR_MOVE(p_KeysMatchTableNewTmp,
