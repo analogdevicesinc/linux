@@ -293,7 +293,8 @@ static int __jesd204_link_fsm_update_state(struct jesd204_dev *jdev,
 		 ol->link.link_id,
 		 jesd204_state_str(fsm_data->cur_state),
 		 jesd204_state_str(fsm_data->nxt_state));
-	ol->state = fsm_data->nxt_state;
+	if (fsm_data->nxt_state != JESD204_STATE_DONT_CARE)
+		ol->state = fsm_data->nxt_state;
 	fsm_data->completed = true;
 
 	return 0;
@@ -471,7 +472,7 @@ static int jesd204_fsm_handle_con_cb(struct jesd204_dev *jdev_it,
 		return ret;
 
 out:
-	if (con)
+	if (con && fsm_data->nxt_state != JESD204_STATE_DONT_CARE)
 		con->state = fsm_data->nxt_state;
 
 	jesd204_fsm_kref_link_put(jdev_top, fsm_data->link_idx);
@@ -1031,3 +1032,35 @@ void jesd204_fsm_stop(struct jesd204_dev *jdev, unsigned int link_idx)
 	jesd204_fsm_table(jdev, link_idx, start->state, start, true, true);
 }
 EXPORT_SYMBOL_GPL(jesd204_fsm_stop);
+
+static int jesd204_fsm_clr_errors_cb(struct jesd204_dev *jdev,
+				     struct jesd204_dev_con_out *con,
+				     unsigned int link_idx,
+				     struct jesd204_fsm_data *fsm_data)
+{
+	struct jesd204_link_opaque *ol;
+
+	if (con) {
+		con->error = 0;
+		return JESD204_STATE_CHANGE_DONE;
+	}
+
+	ol = &fsm_data->jdev_top->active_links[link_idx];
+	ol->error = 0;
+
+	return JESD204_STATE_CHANGE_DONE;
+}
+
+void jesd204_fsm_clear_errors(struct jesd204_dev *jdev, unsigned int link_idx)
+{
+	struct jesd204_fsm_data data;
+
+	memset(&data, 0, sizeof(data));
+	data.fsm_change_cb = jesd204_fsm_clr_errors_cb;
+	data.cur_state = JESD204_STATE_DONT_CARE;
+	data.nxt_state = JESD204_STATE_DONT_CARE;
+	data.link_idx = link_idx;
+
+	jesd204_fsm(jdev, &data, true);
+}
+EXPORT_SYMBOL_GPL(jesd204_fsm_clear_errors);
