@@ -30,6 +30,7 @@ typedef int (*jesd204_fsm_done_cb)(struct jesd204_dev *jdev,
  * @cb_data		callback data for @fsm_change_cb
  * @cur_state		current state from which this FSM is transitioning
  * @nxt_state		next state to which this FSM is transitioning
+ * @completed		true if the state change has completed
  */
 struct jesd204_fsm_data {
 	struct jesd204_dev_top		*jdev_top;
@@ -39,6 +40,7 @@ struct jesd204_fsm_data {
 	void				*cb_data;
 	enum jesd204_dev_state		cur_state;
 	enum jesd204_dev_state		nxt_state;
+	bool				completed;
 };
 
 static int jesd204_fsm_handle_con_cb(struct jesd204_dev *jdev,
@@ -69,12 +71,10 @@ struct jesd204_fsm_table_entry {
  * @table		current entry in a state table
  * @per_device_ran	list of JESD204 device IDs to mark when a device's
  *			callback was ran, when running ops per_device
- * @completed		true if the completed_cb was called
  */
 struct jesd204_fsm_table_entry_iter {
 	const struct jesd204_fsm_table_entry	*table;
 	bool					*per_device_ran;
-	bool					completed;
 };
 
 #define _JESD204_STATE_OP(x, _last, _post_hook)			\
@@ -292,6 +292,7 @@ static int __jesd204_link_fsm_update_state(struct jesd204_dev *jdev,
 		 jesd204_state_str(fsm_data->cur_state),
 		 jesd204_state_str(fsm_data->nxt_state));
 	ol->state = fsm_data->nxt_state;
+	fsm_data->completed = true;
 
 	return 0;
 }
@@ -690,35 +691,21 @@ static bool jesd204_dev_has_con_in_topology(struct jesd204_dev *jdev,
 }
 
 static int jesd204_fsm(struct jesd204_dev *jdev,
-		       unsigned int link_idx,
-		       enum jesd204_dev_state cur_state,
-		       enum jesd204_dev_state nxt_state,
-		       jesd204_fsm_cb fsm_change_cb,
-		       void *cb_data,
-		       jesd204_fsm_done_cb fsm_complete_cb,
+		       struct jesd204_fsm_data *data,
 		       bool handle_busy_flags)
 {
 	struct list_head *jesd204_topologies = jesd204_topologies_get();
 	struct jesd204_dev_top *jdev_top = jesd204_dev_top_dev(jdev);
-	struct jesd204_fsm_data data;
 	int ret;
 
-	memset(&data, 0, sizeof(data));
-	data.cur_state = cur_state;
-	data.nxt_state = nxt_state;
-	data.fsm_change_cb = fsm_change_cb;
-	data.fsm_complete_cb = fsm_complete_cb;
-	data.cb_data = cb_data;
-	data.link_idx = link_idx;
-
 	if (jdev_top)
-		return __jesd204_fsm(jdev, jdev_top, &data, handle_busy_flags);
+		return __jesd204_fsm(jdev, jdev_top, data, handle_busy_flags);
 
 	list_for_each_entry(jdev_top, jesd204_topologies, entry) {
 		if (!jesd204_dev_has_con_in_topology(jdev, jdev_top))
 			continue;
 
-		ret = __jesd204_fsm(jdev, jdev_top, &data, handle_busy_flags);
+		ret = __jesd204_fsm(jdev, jdev_top, data, handle_busy_flags);
 		if (ret)
 			return ret;
 	}
@@ -753,14 +740,20 @@ static int jesd204_dev_initialize_cb(struct jesd204_dev *jdev,
 
 int jesd204_init_topology(struct jesd204_dev_top *jdev_top)
 {
+	struct jesd204_fsm_data data;
 	int ret;
 
 	if (!jdev_top)
 		return -EINVAL;
 
-	ret = jesd204_fsm(&jdev_top->jdev, JESD204_LINKS_ALL,
-			  JESD204_STATE_UNINIT, JESD204_STATE_INITIALIZED,
-			  jesd204_dev_initialize_cb, jdev_top, NULL, true);
+	memset(&data, 0, sizeof(data));
+	data.cur_state = JESD204_STATE_UNINIT;
+	data.nxt_state = JESD204_STATE_INITIALIZED;
+	data.fsm_change_cb = jesd204_dev_initialize_cb;
+	data.cb_data = jdev_top;
+	data.link_idx = JESD204_LINKS_ALL;
+
+	ret = jesd204_fsm(&jdev_top->jdev, &data, true);
 	if (ret)
 		return ret;
 
@@ -810,15 +803,19 @@ static int jesd204_fsm_probe_done(struct jesd204_dev *jdev,
 static int jesd204_fsm_start_from_probe(struct jesd204_dev *jdev,
 					unsigned int link_idx)
 {
+	struct jesd204_fsm_data data;
 	int ret;
 
 	jdev->fsm_inited = true;
 
-	ret = jesd204_fsm(jdev, link_idx,
-			  JESD204_STATE_INITIALIZED, JESD204_STATE_PROBED,
-			  jesd204_fsm_probed_cb, NULL,
-			  jesd204_fsm_probe_done, true);
+	memset(&data, 0, sizeof(data));
+	data.cur_state = JESD204_STATE_INITIALIZED;
+	data.nxt_state = JESD204_STATE_PROBED;
+	data.fsm_change_cb = jesd204_fsm_probed_cb;
+	data.fsm_complete_cb = jesd204_fsm_probe_done;
+	data.link_idx = link_idx;
 
+	ret = jesd204_fsm(jdev, &data, true);
 	if (ret)
 		jdev->fsm_inited = false;
 
@@ -920,8 +917,6 @@ static int jesd204_fsm_table_entry_done(struct jesd204_dev *jdev,
 			return ret;
 	}
 
-	it->completed = true;
-
 	return 0;
 }
 
@@ -937,6 +932,7 @@ static int jesd204_fsm_table(struct jesd204_dev *jdev,
 			     bool handle_busy_flags)
 {
 	struct jesd204_fsm_table_entry_iter it;
+	struct jesd204_fsm_data data;
 	int cnt, ret;
 
 	cnt = jesd204_device_count_get();
@@ -946,26 +942,30 @@ static int jesd204_fsm_table(struct jesd204_dev *jdev,
 
 	it.table = table;
 
+	memset(&data, 0, sizeof(data));
+	data.fsm_change_cb = jesd204_fsm_table_entry_cb;
+	data.fsm_complete_cb = jesd204_fsm_table_entry_done;
+	data.cb_data = &it;
+	data.link_idx = link_idx;
+
 	ret = 0;
 	/**
 	 * FIXME: the handle_busy_flags logic needs re-visit, we should lock
 	 * here and unlock after the loop is done
 	 */
 	while (!jesd204_fsm_table_end(&it.table[0])) {
-		it.completed = false;
 		memset(it.per_device_ran, 0, sizeof(bool) * cnt);
 		it.table = table;
 
-		ret = jesd204_fsm(jdev, link_idx,
-				  init_state, table[0].state,
-				  jesd204_fsm_table_entry_cb,
-				  &it,
-				  jesd204_fsm_table_entry_done,
-				  handle_busy_flags);
+		data.completed = false;
+		data.cur_state = init_state;
+		data.nxt_state = table[0].state;
+
+		ret = jesd204_fsm(jdev, &data, handle_busy_flags);
 		if (ret)
 			break;
 
-		if (!it.completed)
+		if (!data.completed)
 			break;
 
 		init_state = table[0].state;
