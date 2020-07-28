@@ -474,7 +474,7 @@ typedef struct ioc_compat_fm_pcd_manip_hdr_params_t {
     bool                                        dont_parse_after_manip;
 } ioc_compat_fm_pcd_manip_hdr_params_t;
 
-typedef struct ioc_compat_fm_pcd_manip_special_offload_params_t {
+typedef struct ioc_compat_fm_pcd_manip_special_offload_ipsec_params_t {
     bool    decryption;
     bool    ecn_copy;
     bool    dscp_copy;
@@ -483,6 +483,16 @@ typedef struct ioc_compat_fm_pcd_manip_special_offload_params_t {
     uint8_t outer_ip_hdr_len;
     uint16_t    arw_size;
     compat_uptr_t   arw_addr;
+} ioc_compat_fm_pcd_manip_special_offload_ipsec_params_t;
+
+typedef struct ioc_compat_fm_pcd_manip_special_offload_params_t {
+	ioc_fm_pcd_manip_special_offload_type               type;
+    union {
+		ioc_compat_fm_pcd_manip_special_offload_ipsec_params_t ipsec;
+#if (DPAA_VERSION >= 11)
+		ioc_fm_pcd_manip_special_offload_capwap_params_t  capwap;
+#endif /* (DPAA_VERSION >= 11) */
+    } u;
 } ioc_compat_fm_pcd_manip_special_offload_params_t;
 
 typedef struct ioc_compat_fm_pcd_manip_params_t {
