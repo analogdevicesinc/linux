@@ -117,8 +117,6 @@ static const struct jesd204_fsm_table_entry jesd204_uninit_dev_states[] = {
 const char *jesd204_state_str(enum jesd204_dev_state state)
 {
 	switch (state) {
-	case JESD204_STATE_ERROR:
-		return "error";
 	case JESD204_STATE_UNINIT:
 		return "uninitialized";
 	case JESD204_STATE_INITIALIZED:
@@ -177,15 +175,11 @@ static int jesd204_dev_set_error(struct jesd204_dev *jdev,
 
 	jdev->error = err;
 
-	if (con) {
+	if (con)
 		con->error = err;
-		con->state = JESD204_STATE_ERROR;
-	}
 
-	if (ol) {
+	if (ol)
 		ol->error = err;
-		ol->state = JESD204_STATE_ERROR;
-	}
 
 	return err;
 }

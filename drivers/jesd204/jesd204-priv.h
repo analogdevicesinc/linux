@@ -19,7 +19,6 @@ struct jesd204_dev_con_out;
 struct jesd204_fsm_data;
 
 enum jesd204_dev_state {
-	JESD204_STATE_ERROR = -1,
 	JESD204_STATE_UNINIT = 0,
 	JESD204_STATE_INITIALIZED,
 	JESD204_STATE_PROBED,
