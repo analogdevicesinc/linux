@@ -146,8 +146,10 @@ static inline const char *jesd204_state_op_reason_str(enum jesd204_state_op_reas
 	}
 }
 
+typedef int (*jesd204_sysref_cb)(struct jesd204_dev *jdev);
+
 typedef int (*jesd204_dev_cb)(struct jesd204_dev *jdev,
-			     enum jesd204_state_op_reason reason);
+			      enum jesd204_state_op_reason reason);
 
 typedef int (*jesd204_link_cb)(struct jesd204_dev *jdev,
 			       enum jesd204_state_op_reason,
@@ -185,12 +187,14 @@ enum jesd204_dev_op {
 /**
  * struct jesd204_dev_data - JESD204 device initialization data
  * @state_ops		ops for each state transition of type @struct jesd204_state_op
+ * @sysref_cb		SYSREF callback, if this device/driver supports it
  * @sizeof_priv		amount of data to allocate for private information
  * @links		JESD204 initial link configuration
  * @num_links		number of JESD204 links
  */
 struct jesd204_dev_data {
 	struct jesd204_state_op			state_ops[__JESD204_MAX_OPS];
+	jesd204_sysref_cb			sysref_cb;
 	size_t					sizeof_priv;
 	const struct jesd204_link		*links;
 	unsigned int				num_links;
@@ -218,6 +222,8 @@ int jesd204_link_get_rate_khz(struct jesd204_link *lnk,
 int jesd204_link_get_rate(struct jesd204_link *lnk, u64 *lane_rate_hz);
 int jesd204_link_get_device_clock(struct jesd204_link *lnk,
 				  unsigned long *device_clock);
+
+int jesd204_sysref_async(struct jesd204_dev *jdev);
 
 bool jesd204_dev_is_top(struct jesd204_dev *jdev);
 
@@ -276,6 +282,11 @@ static inline int jesd204_link_get_rate(struct jesd204_link *lnk,
 
 static inline int jesd204_link_get_device_clock(struct jesd204_link *lnk,
 						unsigned long *device_clock)
+{
+	return -ENOTSUPP;
+}
+
+static inline int jesd204_sysref_async(struct jesd204_dev *jdev)
 {
 	return -ENOTSUPP;
 }
