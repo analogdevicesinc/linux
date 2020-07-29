@@ -271,6 +271,7 @@ struct hmc7044_chan_spec {
 	bool			dynamic_driver_enable;
 	bool			output_control0_rb4_enable;
 	bool			force_mute_enable;
+	bool			is_sysref;
 	unsigned int		divider;
 	unsigned int		driver_mode;
 	unsigned int		driver_impedance;
@@ -1383,6 +1384,8 @@ static int hmc7044_parse_dt(struct device *dev,
 		hmc->channels[cnt].out_mux_mode = 0;
 		of_property_read_u32(chan_np, "adi,output-mux-mode",
 				     &hmc->channels[cnt].out_mux_mode);
+		hmc->channels[cnt].is_sysref =
+			of_property_read_bool(chan_np,"adi,jesd204-sysref-chan");
 
 		cnt++;
 	}
@@ -1663,7 +1666,7 @@ static int hmc7044_jesd204_link_pre_setup(struct jesd204_dev *jdev,
 
 	/* Program the output channels */
 	for (i = 0; i < hmc->num_channels; i++) {
-		if (hmc->channels[i].start_up_mode_dynamic_enable) {
+		if (hmc->channels[i].start_up_mode_dynamic_enable || hmc->channels[i].is_sysref) {
 			dev_dbg(dev, "%s:%d Found SYSREF channel%u setting f=%u Hz\n",
 				__func__, __LINE__, hmc->channels[i].num, hmc->jdev_lmfc_lemc_gcd);
 			ret = clk_set_rate(hmc->clks[hmc->channels[i].num], hmc->jdev_lmfc_lemc_gcd);
@@ -1691,6 +1694,17 @@ static int hmc7044_jesd204_link_pre_setup(struct jesd204_dev *jdev,
 		      HMC7044_SYSREF_TIMER_LSB(sysref_timer));
 	hmc7044_write(indio_dev, HMC7044_REG_SYSREF_TIMER_MSB,
 		      HMC7044_SYSREF_TIMER_MSB(sysref_timer));
+
+	if (lnk->sysref.mode == JESD204_SYSREF_CONTINUOUS) {
+		/* Set the pulse generator mode configuration */
+		if (hmc->pulse_gen_mode != HMC7044_PULSE_GEN_CONT_PULSE)
+			dev_warn(dev, "%s: Link%u forcing continous SYSREF mode\n",
+				__func__, lnk->link_id);
+
+		hmc7044_write(indio_dev, HMC7044_REG_PULSE_GEN,
+			HMC7044_PULSE_GEN_MODE(HMC7044_PULSE_GEN_CONT_PULSE));
+	}
+
 
 	return JESD204_STATE_CHANGE_DONE;
 }
