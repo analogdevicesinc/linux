@@ -318,6 +318,7 @@ struct hmc7044 {
 	u32				jdev_lmfc_lemc_rate;
 	u32				jdev_lmfc_lemc_gcd;
 	bool				is_sysref_provider;
+	bool				hmc_two_level_tree_sync_en;
 };
 
 static const char * const hmc7044_input_clk_names[] = {
@@ -1288,6 +1289,8 @@ static int hmc7044_parse_dt(struct device *dev,
 
 	hmc->is_sysref_provider = of_property_read_bool(np, "jesd204-sysref-provider");
 
+	hmc->hmc_two_level_tree_sync_en = of_property_read_bool(np, "adi,hmc-two-level-tree-sync-en");
+
 	hmc->rf_reseeder_en =
 		!of_property_read_bool(np, "adi,rf-reseeder-disable");
 
@@ -1547,6 +1550,9 @@ static int hmc7044_jesd204_clks_sync1(struct jesd204_dev *jdev,
 	int ret;
 	unsigned mask, val;
 
+	if (!hmc->hmc_two_level_tree_sync_en)
+		return JESD204_STATE_CHANGE_DONE;
+
 	if (reason != JESD204_STATE_OP_REASON_INIT)
 		return JESD204_STATE_CHANGE_DONE;
 
@@ -1588,6 +1594,9 @@ static int hmc7044_jesd204_clks_sync2(struct jesd204_dev *jdev,
 	struct iio_dev *indio_dev = dev_get_drvdata(dev);
 	struct hmc7044 *hmc = iio_priv(indio_dev);
 
+	if (!hmc->hmc_two_level_tree_sync_en)
+		return JESD204_STATE_CHANGE_DONE;
+
 	if (reason != JESD204_STATE_OP_REASON_INIT)
 		return JESD204_STATE_CHANGE_DONE;
 
@@ -1610,6 +1619,9 @@ static int hmc7044_jesd204_clks_sync3(struct jesd204_dev *jdev,
 	struct hmc7044 *hmc = iio_priv(indio_dev);
 	unsigned val;
 	int ret;
+
+	if (!hmc->hmc_two_level_tree_sync_en)
+		return JESD204_STATE_CHANGE_DONE;
 
 	if (reason != JESD204_STATE_OP_REASON_INIT)
 		return JESD204_STATE_CHANGE_DONE;
