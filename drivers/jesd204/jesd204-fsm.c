@@ -687,26 +687,6 @@ out_clear_busy:
 	return ret;
 }
 
-static bool jesd204_dev_has_con_in_topology(struct jesd204_dev *jdev,
-					    struct jesd204_dev_top *jdev_top)
-{
-	struct jesd204_dev_con_out *c;
-	int i;
-
-	list_for_each_entry(c, &jdev->outputs, entry) {
-		if (c->jdev_top == jdev_top)
-			return true;
-	}
-
-	for (i = 0; i < jdev->inputs_count; i++) {
-		c = jdev->inputs[i];
-		if (c->jdev_top == jdev_top)
-			return true;
-	}
-
-	return false;
-}
-
 static int jesd204_fsm(struct jesd204_dev *jdev,
 		       struct jesd204_fsm_data *data,
 		       bool handle_busy_flags)
