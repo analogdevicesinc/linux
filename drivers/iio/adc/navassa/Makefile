@@ -1,14 +1,40 @@
-SRCS = $(addprefix devices/adrv9001/private/src/, $(notdir $(wildcard $(src)/devices/adrv9001/private/src/*.c))) \
-	$(addprefix devices/adrv9001/public/src/, $(notdir $(wildcard $(src)/devices/adrv9001/public/src/*.c))) \
-	common/adi_logging/adi_common_log.c \
-	common/adi_common.c  \
-	common/adi_error/adi_common_error.c  \
-	common/adi_hal/adi_common_hal.c \
+SRCS = \
+	adrv9002_init_data.c \
 	platforms/linux_platform.c \
-	third_party/jsmn/jsmn.c \
-	adrv9002.c \
 	adrv9002_conv.c \
-	adrv9002_init_data.c
+	third_party/jsmn/jsmn.c \
+	common/adi_logging/adi_common_log.c \
+	common/adi_error/adi_common_error.c \
+	common/adi_common.c \
+	common/adi_hal/adi_common_hal.c \
+	adrv9002.c \
+	devices/adrv9001/private/src/adrv9001_validators.c \
+	devices/adrv9001/private/src/adrv9001_rx.c \
+	devices/adrv9001/private/src/adrv9001_crc32.c \
+	devices/adrv9001/private/src/adrv9001_utilities.c \
+	devices/adrv9001/private/src/adrv9001_arm.c \
+	devices/adrv9001/private/src/adrv9001_bf_hal.c \
+	devices/adrv9001/private/src/adrv9001_init.c \
+	devices/adrv9001/private/src/adrv9001_gpio.c \
+	devices/adrv9001/private/src/adrv9001_powermanagement.c \
+	devices/adrv9001/public/src/adi_adrv9001_tx.c \
+	devices/adrv9001/public/src/adi_adrv9001_arm.c \
+	devices/adrv9001/public/src/adi_adrv9001_bbdc.c \
+	devices/adrv9001/public/src/adi_adrv9001_gpio.c \
+	devices/adrv9001/public/src/adi_adrv9001_auxdac.c \
+	devices/adrv9001/public/src/adi_adrv9001_utilities.c \
+	devices/adrv9001/public/src/adi_adrv9001_cals.c \
+	devices/adrv9001/public/src/adi_adrv9001_auxadc.c \
+	devices/adrv9001/public/src/adi_adrv9001_radio.c \
+	devices/adrv9001/public/src/adi_adrv9001_mcs.c \
+	devices/adrv9001/public/src/adi_adrv9001_ssi.c \
+	devices/adrv9001/public/src/adi_adrv9001_rx_gaincontrol.c \
+	devices/adrv9001/public/src/adi_adrv9001_stream.c \
+	devices/adrv9001/public/src/adi_adrv9001_spi.c \
+	devices/adrv9001/public/src/adi_adrv9001_rx.c \
+	devices/adrv9001/public/src/adi_adrv9001.c \
+	devices/adrv9001/public/src/adi_adrv9001_orx.c \
+	devices/adrv9001/public/src/adi_adrv9001_dpd.c
 
 ccflags-y += -I$(src)/devices/adrv9001/private/include \
 	-I$(src)/devices/adrv9001/private/include/bitfields \
