@@ -15,7 +15,7 @@
 	dspaudio: dspaudio {
 		compatible = "fsl,dsp-audio";
 		pinctrl-names = "default";
-		pinctrl-0 = <&pinctrl_esai0>;
+		pinctrl-0 = <&pinctrl_esai0 &pinctrl_lpuart2>;
 		status = "okay";
 	};
 
@@ -80,16 +80,19 @@
 		<&aud_pll_div0_lpcg 0>,
 		<&aud_pll_div1_lpcg 0>,
 		<&acm IMX_ADMA_ACM_AUD_CLK0_SEL>,
-		<&acm IMX_ADMA_ACM_AUD_CLK1_SEL>;
+		<&acm IMX_ADMA_ACM_AUD_CLK1_SEL>,
+		<&uart2_lpcg 1>, <&uart2_lpcg 0>;
 	clock-names = "esai_ipg", "esai_mclk", "asrc_ipg", "asrc_mem",
-			"asrck_0", "asrck_1", "asrck_2", "asrck_3";
+			"asrck_0", "asrck_1", "asrck_2", "asrck_3", "uart_ipg",
+			"uart_per";
 	assigned-clocks = <&acm IMX_ADMA_ACM_ESAI0_MCLK_SEL>,
 			<&clk IMX_SC_R_AUDIO_PLL_0 IMX_SC_PM_CLK_PLL>,
 			<&clk IMX_SC_R_AUDIO_PLL_0 IMX_SC_PM_CLK_MISC0>,
 			<&clk IMX_SC_R_AUDIO_PLL_0 IMX_SC_PM_CLK_MISC1>,
-			<&esai0_lpcg 0>;
+			<&esai0_lpcg 0>,
+			<&clk IMX_SC_R_UART_2 IMX_SC_PM_CLK_PER>;
 	assigned-clock-parents = <&aud_pll_div0_lpcg 0>;
-	assigned-clock-rates = <0>, <786432000>, <49152000>, <12288000>, <49152000>;
+	assigned-clock-rates = <0>, <786432000>, <49152000>, <12288000>, <49152000>, <80000000>;
 	fsl,dsp-firmware = "imx/dsp/hifi4.bin";
 	power-domains = <&pd IMX_SC_R_MU_13A>,
 			<&pd IMX_SC_R_MU_13B>,
@@ -109,7 +112,8 @@
 			<&pd IMX_SC_R_DMA_0_CH2>,
 			<&pd IMX_SC_R_DMA_0_CH3>,
 			<&pd IMX_SC_R_DMA_0_CH4>,
-			<&pd IMX_SC_R_DMA_0_CH5>;
+			<&pd IMX_SC_R_DMA_0_CH5>,
+			<&pd IMX_SC_R_UART_2>;
 };
 
 &esai0 {
@@ -135,3 +139,8 @@
 			  <&mclkout0_lpcg 0>;
 	assigned-clock-rates = <786432000>, <49152000>, <12288000>, <12288000>;
 };
+
+&lpuart2 {
+	status = "disabled";
+};
+
