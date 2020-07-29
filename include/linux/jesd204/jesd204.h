@@ -263,7 +263,7 @@ static inline int jesd204_link_get_lmfc_lemc_rate(struct jesd204_link *lnk,
 }
 
 static inline int jesd204_link_get_rate_khz(struct jesd204_link *lnk,
-					    unsigned long *lane_rate_khz);
+					    unsigned long *lane_rate_khz)
 {
 	return -ENOTSUPP;
 }
