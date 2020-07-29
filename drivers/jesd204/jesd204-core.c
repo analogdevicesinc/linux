@@ -38,6 +38,26 @@ int jesd204_device_count_get()
 	return jesd204_device_count;
 }
 
+bool jesd204_dev_has_con_in_topology(struct jesd204_dev *jdev,
+				     struct jesd204_dev_top *jdev_top)
+{
+	struct jesd204_dev_con_out *c;
+	int i;
+
+	list_for_each_entry(c, &jdev->outputs, entry) {
+		if (c->jdev_top == jdev_top)
+			return true;
+	}
+
+	for (i = 0; i < jdev->inputs_count; i++) {
+		c = jdev->inputs[i];
+		if (c->jdev_top == jdev_top)
+			return true;
+	}
+
+	return false;
+}
+
 static int jesd204_link_validate_params(const struct jesd204_link *lnk)
 {
 	if (!lnk->num_lanes) {
