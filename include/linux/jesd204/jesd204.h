@@ -186,11 +186,15 @@ enum jesd204_state_op_mode {
  * @mode		mode for this state op, depending on this @per_device or @per_link is called
  * @per_device		op called for each JESD204 **device** during a transition
  * @per_link		op called for each JESD204 **link** individually during a transition
+ * // FIXME: maybe pass 'struct jesd204_sysref' for post_state_sysref, to make this configurable? we'll see later
+ * // FIXME: for now, the device should also be a top-level device, in case of multi-chip setups
+ * @post_state_sysref	true if a SYSREF should be issued after the state change
  */
 struct jesd204_state_op {
 	enum jesd204_state_op_mode	mode;
 	jesd204_dev_cb			per_device;
 	jesd204_link_cb			per_link;
+	bool				post_state_sysref;
 };
 
 enum jesd204_dev_op {
