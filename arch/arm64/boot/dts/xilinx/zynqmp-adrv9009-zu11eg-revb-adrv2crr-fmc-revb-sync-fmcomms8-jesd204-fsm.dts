@@ -130,6 +130,7 @@
 	adi,sync-pin-mode = <1>;
 
 	/delete-property/ adi,pll2-autocal-bypass-manual-cap-bank-sel;
+	adi,hmc-two-level-tree-sync-en;
 };
 
 &hmc7044_fmc {
@@ -143,6 +144,7 @@
 	adi,sync-pin-mode = <1>;
 
 	/delete-property/ adi,pll2-autocal-bypass-manual-cap-bank-sel;
+	adi,hmc-two-level-tree-sync-en;
 };
 
 &hmc7044_car {
@@ -158,4 +160,5 @@
 	adi,sync-pin-mode = <0>;
 
 	/delete-property/ adi,pll2-autocal-bypass-manual-cap-bank-sel;
+	adi,hmc-two-level-tree-sync-en;
 };
