@@ -219,6 +219,39 @@ int jesd204_link_get_lmfc_lemc_rate(struct jesd204_link *lnk,
 }
 EXPORT_SYMBOL_GPL(jesd204_link_get_lmfc_lemc_rate);
 
+int jesd204_sysref_async(struct jesd204_dev *jdev)
+{
+	struct jesd204_dev_top *jdev_top = jesd204_dev_top_dev(jdev);
+
+	if (jdev_top) {
+		/* No SYSREF registered for this topology */
+		if (!jdev_top->jdev_sysref)
+			return 0;
+
+		/* By now, this should have been validated to have sysref_cb() */
+		return jdev_top->jdev_sysref->sysref_cb(jdev_top->jdev_sysref);
+	}
+
+	/**
+	 * FIXME: need to think about a device potentially being in more
+	 * than one topology; this would trigger a SYSREF in all topologies
+	 * it belongs to; not sure if this a good idea, but we also
+	 * don't have any cases yet on this
+	 */
+	list_for_each_entry(jdev_top, &jesd204_topologies, entry) {
+		if (!jesd204_dev_has_con_in_topology(jdev, jdev_top))
+			continue;
+
+		if (!jdev_top->jdev_sysref)
+			continue;
+
+		return jdev_top->jdev_sysref->sysref_cb(jdev_top->jdev_sysref);
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(jesd204_sysref_async);
+
 bool jesd204_dev_is_top(struct jesd204_dev *jdev)
 {
 	return jdev && jdev->is_top;
@@ -387,6 +420,8 @@ static struct jesd204_dev *jesd204_dev_alloc(struct device_node *np)
 			goto err_free_id;
 		}
 	}
+
+	jdev->is_sysref_provider = of_property_read_bool(np, "jesd204-sysref-provider");
 
 	jdev->id = id;
 	jdev->np = of_node_get(np);
@@ -720,6 +755,7 @@ static struct jesd204_dev *jesd204_dev_register(struct device *dev,
 		return ERR_PTR(ret);
 
 	jdev->dev.parent = dev;
+	jdev->sysref_cb = init->sysref_cb;
 	jdev->state_ops = init->state_ops;
 	jdev->dev.bus = &jesd204_bus_type;
 	device_initialize(&jdev->dev);

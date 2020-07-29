@@ -780,13 +780,49 @@ static int jesd204_fsm_start_link(struct jesd204_dev *jdev,
 				 false, handle_busy_flags);
 }
 
+static int jesd204_init_sysref_cb(struct jesd204_dev *jdev,
+				  struct jesd204_dev_top *jdev_top)
+{
+	if (!jdev->is_sysref_provider)
+		return 0;
+
+	if (!jdev->sysref_cb) {
+		jesd204_err(jdev, "Configured as SYSREF, but no SYSREF cb\n");
+		return -EINVAL;
+	}
+
+	/**
+	 * For multi-link devices, we get here the number of links.
+	 * FIXME: would it make sense to re-use the per_device_ran[] logic?
+	 */
+	if (jdev_top->jdev_sysref && (jdev_top->jdev_sysref != jdev)) {
+		jesd204_err(jdev, "Duplicate SYSREF for topology %pOF\n",
+			    jdev_top->jdev.np);
+		jesd204_err(jdev, "Previously set SYSREF is %pOF\n",
+			    jdev_top->jdev_sysref->np);
+		return -EEXIST;
+	}
+
+	jesd204_info(jdev, "Using as SYSREF provider\n");
+	jdev_top->jdev_sysref = jdev;
+
+	return 0;
+}
+
 static int jesd204_fsm_probed_cb(struct jesd204_dev *jdev,
 				 struct jesd204_dev_con_out *con,
 				 unsigned int link_idx,
 				 struct jesd204_fsm_data *fsm_data)
 {
+	int ret;
+
 	if (!jdev->fsm_inited)
 		return JESD204_STATE_CHANGE_DEFER;
+
+	ret = jesd204_init_sysref_cb(jdev, fsm_data->jdev_top);
+	if (ret)
+		return ret;
+
 	return JESD204_STATE_CHANGE_DONE;
 }
 

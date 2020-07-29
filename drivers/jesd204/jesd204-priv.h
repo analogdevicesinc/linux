@@ -89,6 +89,8 @@ struct jesd204_dev_con_out {
  * @is_top		true if this device is a top device in a topology of
  *			devices that make up a JESD204 link (typically the
  *			device that is the ADC, DAC, or transceiver)
+ * @sysref_cb		callback to the SYSREF logic provided by this device
+ * @is_sysref_provider	true if this device wants to be a SYSREF provider
  * @error		error code for this device if something happened
  * @state_ops		ops for each state transition of type @struct jesd204_state_ops
  * @np			reference in the device-tree for this JESD204 device
@@ -108,6 +110,9 @@ struct jesd204_dev {
 
 	bool				fsm_inited;
 	bool				is_top;
+
+	jesd204_sysref_cb		sysref_cb;
+	bool				is_sysref_provider;
 
 	int				error;
 	const struct jesd204_state_op	*state_ops;
@@ -152,6 +157,7 @@ struct jesd204_link_opaque {
  * @entry		list entry for the framework to keep a list of top
  *			devices (and implicitly topologies)
  * @initialized		true the topoology connections have been initialized
+ * @jdev_sysref		reference to the object that is the SYSREF provider for this topology
  * @fsm_data		ref to JESD204 FSM data for JESD204_LNK_FSM_PARALLEL
  * @cb_ref		kref which for each JESD204 link will increment when it
  *			needs to defer a state transition; this is similar to the
@@ -171,6 +177,8 @@ struct jesd204_dev_top {
 	struct jesd204_dev		jdev;
 	struct list_head		entry;
 	bool				initialized;
+
+	struct jesd204_dev		*jdev_sysref;
 
 	struct jesd204_fsm_data		*fsm_data;
 	struct kref			cb_ref;
