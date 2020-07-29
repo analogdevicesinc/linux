@@ -186,6 +186,9 @@ struct jesd204_dev_top {
 
 int jesd204_device_count_get(void);
 
+bool jesd204_dev_has_con_in_topology(struct jesd204_dev *jdev,
+				     struct jesd204_dev_top *jdev_top);
+
 struct list_head *jesd204_topologies_get(void);
 
 static inline struct jesd204_dev_top *jesd204_dev_top_dev(
