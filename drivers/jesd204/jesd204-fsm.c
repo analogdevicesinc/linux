@@ -953,12 +953,19 @@ static int jesd204_fsm_table_entry_done(struct jesd204_dev *jdev,
 {
 	struct jesd204_fsm_table_entry_iter *it = fsm_data->cb_data;
 	const struct jesd204_fsm_table_entry *table = it->table;
+	const struct jesd204_state_op *state_op;
 	int ret;
 
 	if (table[0].post_hook) {
 		ret = table[0].post_hook(jdev, fsm_data);
 		if (ret)
 			return ret;
+	}
+
+	if (!fsm_data->rollback) {
+		state_op = &jdev->state_ops[it->table[0].op];
+		if (state_op->post_state_sysref && jesd204_dev_is_top(jdev))
+			jesd204_sysref_async(jdev);
 	}
 
 	return 0;
