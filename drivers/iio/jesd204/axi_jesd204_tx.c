@@ -541,6 +541,14 @@ static int axi_jesd204_tx_jesd204_link_setup(struct jesd204_dev *jdev,
 
 	dev_dbg(dev, "%s:%d link_num %u reason %s\n", __func__, __LINE__, lnk->link_id, jesd204_state_op_reason_str(reason));
 
+	/* FIXME: need to find a neater way to match these between framework and device */
+	if (jesd->num_lanes != lnk->num_lanes) {
+		jesd204_notice(jdev,
+				"Mismatch for num_lanes; device=%u, framework=%u. Using %u\n",
+				jesd->num_lanes, lnk->num_lanes, jesd->num_lanes);
+		lnk->num_lanes = jesd->num_lanes;
+	}
+
 	config.device_id = lnk->device_id;
 	config.bank_id = lnk->bank_id;
 	config.lanes_per_device = jesd->num_lanes;
