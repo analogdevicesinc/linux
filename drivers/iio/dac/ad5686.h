@@ -138,6 +138,7 @@ struct ad5686_state {
 	ad5686_read_func		read;
 	bool				use_internal_vref;
 	struct mutex			lock;
+	int				irq;
 
 	/*
 	 * DMA (thus cache coherency maintenance) may require the
@@ -155,7 +156,7 @@ struct ad5686_state {
 int ad5686_probe(struct device *dev,
 		 enum ad5686_supported_device_ids chip_type,
 		 const char *name, ad5686_write_func write,
-		 ad5686_read_func read);
+		 ad5686_read_func read, int irq);
 
 void ad5686_remove(struct device *dev);
 
