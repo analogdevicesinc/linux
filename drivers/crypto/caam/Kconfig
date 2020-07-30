@@ -8,6 +8,9 @@ config CRYPTO_DEV_FSL_CAAM_CRYPTO_API_DESC
 config CRYPTO_DEV_FSL_CAAM_AHASH_API_DESC
 	tristate
 
+config CRYPTO_DEV_FSL_CAAM_KEYBLOB_API_DESC
+	tristate
+
 config CRYPTO_DEV_FSL_CAAM_SECVIO
 	tristate "CAAM/SNVS Security Violation Handler"
 	depends on ARCH_MXC
@@ -172,12 +175,25 @@ config CRYPTO_DEV_FSL_CAAM_BLOB_GEN
 
 config CRYPTO_DEV_FSL_CAAM_TK_API
 	bool "Register tagged key cryptography implementations with Crypto API"
+	default y
 	select CRYPTO_DEV_FSL_CAAM_CRYPTO_API
+	select CRYPTO_DEV_FSL_CAAM_KEYBLOB_API_DESC
 	help
-	  Selecting this will register algorithms supporting tagged key.
+	  Selecting this will register algorithms supporting tagged key and
+	  generate black keys and encapsulate them into black blobs.
 
-	  Tagged keys are keys that contains metadata indicating what
+	  Tagged keys are black keys that contain metadata indicating what
 	  they are and how to handle them.
+	  CAAM protects data in a data structure called a Blob, which provides
+	  both confidentiality and integrity protection.
+
+config CRYPTO_DEV_FSL_CAAM_TK_API_TEST
+	tristate "CAAM keys and blobs test"
+	depends on CRYPTO_DEV_FSL_CAAM_TK_API
+	depends on m
+	help
+	  Test to exercise black key generation and blob encapsulation and
+	  decapsulation.
 
 config CRYPTO_DEV_FSL_CAAM_RNG_TEST
 	bool "Test caam rng"
