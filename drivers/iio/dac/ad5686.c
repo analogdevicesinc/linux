@@ -123,6 +123,7 @@ static int ad5686_read_raw(struct iio_dev *indio_dev,
 			   long m)
 {
 	struct ad5686_state *st = iio_priv(indio_dev);
+	struct pwm_state state;
 	int ret;
 
 	switch (m) {
@@ -139,6 +140,10 @@ static int ad5686_read_raw(struct iio_dev *indio_dev,
 		*val = st->vref_mv;
 		*val2 = chan->scan_type.realbits;
 		return IIO_VAL_FRACTIONAL_LOG2;
+	case IIO_CHAN_INFO_SAMP_FREQ:
+		pwm_get_state(st->pwm, &state);
+		*val = DIV_ROUND_CLOSEST_ULL(1000000000ULL, state.period);
+		return IIO_VAL_INT;
 	}
 	return -EINVAL;
 }
@@ -150,6 +155,7 @@ static int ad5686_write_raw(struct iio_dev *indio_dev,
 			    long mask)
 {
 	struct ad5686_state *st = iio_priv(indio_dev);
+	struct pwm_state state;
 	int ret;
 
 	switch (mask) {
@@ -163,6 +169,14 @@ static int ad5686_write_raw(struct iio_dev *indio_dev,
 				chan->address,
 				val << chan->scan_type.shift);
 		mutex_unlock(&st->lock);
+		break;
+	case IIO_CHAN_INFO_SAMP_FREQ:
+		pwm_get_state(st->pwm, &state);
+
+		state.period = DIV_ROUND_CLOSEST_ULL(1000000000ULL, val);
+		pwm_set_relative_duty_cycle(&state, 50, 100);
+
+		ret = pwm_apply_state(st->pwm, &state);
 		break;
 	default:
 		ret = -EINVAL;
@@ -194,7 +208,8 @@ static const struct iio_chan_spec_ext_info ad5686_ext_info[] = {
 		.output = 1,					\
 		.channel = chan,				\
 		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW),	\
-		.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SCALE),\
+		.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SCALE) | \
+					    BIT(IIO_CHAN_INFO_SAMP_FREQ),\
 		.address = addr,				\
 		.scan_type = {					\
 			.sign = 'u',				\
@@ -442,6 +457,7 @@ int ad5686_probe(struct device *dev,
 {
 	struct ad5686_state *st;
 	struct iio_dev *indio_dev;
+	struct pwm_state state;
 	unsigned int val, ref_bit_msk;
 	u8 cmd;
 	int ret, i, voltage_uv = 0;
@@ -469,6 +485,20 @@ int ad5686_probe(struct device *dev,
 
 		voltage_uv = ret;
 	}
+
+	/* PWM configuration */
+	st->pwm = devm_pwm_get(dev, "pwm-trigger");
+	if (IS_ERR(st->pwm))
+		return PTR_ERR(st->pwm);
+
+	/* Set a default pwm frequency of 1kHz and 50% duty cycle */
+	pwm_init_state(st->pwm, &state);
+	state.enabled = false;
+	state.period = 1000000;
+	pwm_set_relative_duty_cycle(&state, 50, 100);
+	ret = pwm_apply_state(st->pwm, &state);
+	if (ret < 0)
+		return ret;
 
 	/* Configure IRQ */
 	if (irq) {
