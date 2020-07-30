@@ -60,7 +60,6 @@
 struct jesd204_tx_config {
 	uint8_t device_id;
 	uint8_t bank_id;
-	uint8_t lane_id;
 	uint8_t lanes_per_device;
 	uint8_t octets_per_frame;
 	uint8_t frames_per_multiframe;
@@ -215,13 +214,14 @@ static irqreturn_t axi_jesd204_tx_irq(int irq, void *devid)
 }
 
 static unsigned int axi_jesd204_tx_calc_ilas_chksum(
-	const struct jesd204_tx_config *config)
+	const struct jesd204_tx_config *config,
+	unsigned int lane_id)
 {
 	unsigned int chksum;
 
 	chksum = config->device_id;
 	chksum += config->bank_id;
-	chksum += config->lane_id;
+	chksum += lane_id;
 	chksum += config->lanes_per_device - 1;
 	chksum += config->enable_scrambling;
 	chksum += config->octets_per_frame - 1;
@@ -239,12 +239,10 @@ static unsigned int axi_jesd204_tx_calc_ilas_chksum(
 }
 
 static void axi_jesd204_tx_set_lane_ilas(struct axi_jesd204_tx *jesd,
-	struct jesd204_tx_config *config, unsigned int lane)
+	struct jesd204_tx_config *config, unsigned int lane_id)
 {
 	unsigned int i;
 	unsigned int val;
-
-	config->lane_id = lane;
 
 	for (i = 0; i < 4; i++) {
 		switch (i) {
@@ -253,7 +251,7 @@ static void axi_jesd204_tx_set_lane_ilas(struct axi_jesd204_tx *jesd,
 			val |= config->bank_id << 24;
 			break;
 		case 1:
-			val = config->lane_id;
+			val = lane_id;
 			val |= (config->lanes_per_device - 1) << 8;
 			val |= config->enable_scrambling << 15;
 			val |= (config->octets_per_frame - 1) << 16;
@@ -270,11 +268,11 @@ static void axi_jesd204_tx_set_lane_ilas(struct axi_jesd204_tx *jesd,
 			break;
 		case 3:
 			val = config->high_density << 7;
-			val |= axi_jesd204_tx_calc_ilas_chksum(config) << 24;
+			val |= axi_jesd204_tx_calc_ilas_chksum(config, lane_id) << 24;
 			break;
 		}
 
-		writel_relaxed(val, jesd->base + JESD204_TX_REG_ILAS(lane, i));
+		writel_relaxed(val, jesd->base + JESD204_TX_REG_ILAS(lane_id, i));
 	}
 }
 
