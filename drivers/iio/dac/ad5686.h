@@ -128,6 +128,7 @@ struct ad5686_chip_info {
 struct ad5686_state {
 	struct device			*dev;
 	struct pwm_device		*pwm;
+	struct iio_trigger		*trig;
 	const struct ad5686_chip_info	*chip_info;
 	struct regulator		*reg;
 	unsigned short			vref_mv;
