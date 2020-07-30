@@ -70,8 +70,8 @@ struct jesd204_sysref {
  * @jesd_version		JESD204 version (A, B or C) (JESDV)
  * @jesd_encoder		JESD204C encoder (8B10B, 64B66B, 64B80B)
  * @subclass			JESD204 subclass (0,1 or 2) (SUBCLASSV)
- * @did				device ID (DID)
- * @bid				bank ID (BID)
+ * @device_id			device ID (DID)
+ * @bank_id			bank ID (BID)
  * @scrambling			true if scrambling enabled (SCR)
  * @high_density		true if high-density format is used (HD)
  * @ctrl_words_per_frame_clk	number of control words per frame clock
@@ -109,8 +109,8 @@ struct jesd204_link {
 	u8 jesd_encoder;
 	u8 subclass;
 
-	u8 did;
-	u8 bid;
+	u8 device_id;
+	u8 bank_id;
 
 	u8 scrambling;
 	u8 high_density;
