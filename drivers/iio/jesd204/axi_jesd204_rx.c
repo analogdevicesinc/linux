@@ -69,24 +69,6 @@
 /* JESD204_RX_REG_LINK_CONF2 */
 #define JESD204_RX_LINK_CONF2_BUFFER_EARLY_RELEASE	BIT(16)
 
-struct jesd204_rx_config {
-	uint8_t device_id;
-	uint8_t bank_id;
-	uint8_t lane_id;
-	uint8_t lanes_per_device;
-	uint8_t octets_per_frame;
-	uint8_t frames_per_multiframe;
-	uint8_t converters_per_device;
-	uint8_t resolution;
-	uint8_t bits_per_sample;
-	uint8_t samples_per_frame;
-	uint8_t jesd_version;
-	uint8_t subclass_version;
-	uint16_t sysref_lmfc_offset;
-	bool enable_scrambling;
-	bool high_density;
-};
-
 struct axi_jesd204_rx {
 	void __iomem *base;
 	struct device *dev;
@@ -426,7 +408,7 @@ static irqreturn_t axi_jesd204_rx_irq(int irq, void *devid)
 }
 
 static int axi_jesd204_rx_apply_config(struct axi_jesd204_rx *jesd,
-	struct jesd204_rx_config *config)
+	struct jesd204_link *config)
 {
 	unsigned int octets_per_multiframe;
 	unsigned int val;
@@ -455,15 +437,15 @@ static int axi_jesd204_rx_apply_config(struct axi_jesd204_rx *jesd,
 
 	writel_relaxed(val, jesd->base + JESD204_RX_REG_LINK_CONF0);
 
-	if (config->subclass_version == 0) {
+	if (config->subclass == JESD204_SUBCLASS_0) {
 		writel_relaxed(JESD204_RX_REG_SYSREF_CONF_SYSREF_DISABLE,
 			       jesd->base + JESD204_RX_REG_SYSREF_CONF);
 		writel_relaxed(JESD204_RX_LINK_CONF2_BUFFER_EARLY_RELEASE,
 			       jesd->base + JESD204_RX_REG_LINK_CONF2);
 	}
 
-	if (config->sysref_lmfc_offset)
-		writel_relaxed(config->sysref_lmfc_offset,
+	if (config->sysref.lmfc_offset != JESD204_LMFC_OFFSET_UNINITIALIZED)
+		writel_relaxed(config->sysref.lmfc_offset,
 			jesd->base + JESD204_RX_REG_SYSREF_LMFC_OFFSET);
 
 	return 0;
@@ -474,7 +456,7 @@ static int axi_jesd204_rx_apply_config(struct axi_jesd204_rx *jesd,
  * description and does not belong into the devicetree.
  */
 static int axi_jesd204_rx_parse_dt_config(struct device_node *np,
-	struct axi_jesd204_rx *jesd, struct jesd204_rx_config *config)
+	struct axi_jesd204_rx *jesd, struct jesd204_link *config)
 {
 	int ret;
 	u32 val;
@@ -491,20 +473,20 @@ static int axi_jesd204_rx_parse_dt_config(struct device_node *np,
 
 	config->high_density = of_property_read_bool(np, "adi,high-density");
 
-	config->enable_scrambling = true;
-	config->lanes_per_device = jesd->num_lanes;
-	config->jesd_version = 1;
-	config->subclass_version = 1;
-	config->sysref_lmfc_offset = 0;
+	config->scrambling = true;
+	config->num_lanes = jesd->num_lanes;
+	config->jesd_version = JESD204_VERSION_B;
+	config->subclass = JESD204_SUBCLASS_1;
+	config->sysref.lmfc_offset = JESD204_LMFC_OFFSET_UNINITIALIZED;
 
 	/* optional */
 	ret = of_property_read_u32(np, "adi,subclass", &val);
 	if (ret == 0)
-		config->subclass_version = val;
+		config->subclass = val;
 
 	ret = of_property_read_u32(np, "adi,sysref-lmfc-offset", &val);
 	if (ret == 0)
-		config->sysref_lmfc_offset = val;
+		config->sysref.lmfc_offset = val;
 
 	return 0;
 }
@@ -718,7 +700,6 @@ static int axi_jesd204_rx_jesd204_link_setup(struct jesd204_dev *jdev,
 {
 	struct device *dev = jesd204_dev_to_device(jdev);
 	struct axi_jesd204_rx *jesd = dev_get_drvdata(dev);
-	struct jesd204_rx_config config;
 	unsigned long link_rate, lane_rate;
 	long rate;
 	int ret;
@@ -728,22 +709,7 @@ static int axi_jesd204_rx_jesd204_link_setup(struct jesd204_dev *jdev,
 
 	dev_dbg(dev, "%s:%d link_num %u reason %s\n", __func__, __LINE__, lnk->link_id, jesd204_state_op_reason_str(reason));
 
-	config.device_id = lnk->device_id;
-	config.bank_id = lnk->bank_id;
-	config.lanes_per_device = jesd->num_lanes;
-	config.octets_per_frame = lnk->octets_per_frame;
-	config.frames_per_multiframe = lnk->frames_per_multiframe;
-	config.converters_per_device = lnk->num_converters;
-	config.resolution = lnk->converter_resolution;
-	config.bits_per_sample = lnk->bits_per_sample;
-	config.samples_per_frame = lnk->samples_per_conv_frame;
-	config.jesd_version = lnk->jesd_version;
-	config.subclass_version = lnk->subclass;
-	config.sysref_lmfc_offset = 0;
-	config.enable_scrambling = lnk->scrambling;
-	config.high_density = lnk->high_density;
-
-	ret = axi_jesd204_rx_apply_config(jesd, &config);
+	ret = axi_jesd204_rx_apply_config(jesd, lnk);
 	if (ret) {
 		dev_err(dev, "%s: Apply config Link%u failed (%d)\n",
 			__func__, lnk->link_id, ret);
@@ -896,7 +862,7 @@ static const struct jesd204_dev_data jesd204_axi_jesd204_rx_init = {
 
 static int axi_jesd204_rx_probe(struct platform_device *pdev)
 {
-	struct jesd204_rx_config config;
+	struct jesd204_link config;
 	struct axi_jesd204_rx *jesd;
 	struct jesd204_dev *jdev;
 	struct resource *res;
