@@ -645,7 +645,7 @@ static int adxcvr_probe(struct platform_device *pdev)
 	if (st->conv2_clk) {
 		ret = clk_prepare_enable(st->conv2_clk);
 		if (ret)
-			goto disable_unprepare;
+			goto disable_unprepare_conv_clk;
 	}
 
 	st->xcvr.dev = &pdev->dev;
@@ -690,7 +690,8 @@ static int adxcvr_probe(struct platform_device *pdev)
 			break;
 		default:
 			pr_err("axi_adxcvr: not supported\n");
-			return -EINVAL;
+			ret = -EINVAL;
+			goto disable_unprepare_conv_clk2;
 		}
 	} else
 		st->xcvr.type = xcvr_type;
@@ -729,17 +730,17 @@ static int adxcvr_probe(struct platform_device *pdev)
 
 	ret = adxcvr_clk_register(&pdev->dev, np, __clk_get_name(st->conv_clk));
 	if (ret)
-		return ret;
+		goto disable_unprepare_conv_clk2;
 
 	ret = adxcvr_eyescan_register(st);
 	if (ret)
-		goto disable_unprepare_conv_clk2;
+		goto unreg_adxcvr_clk;
 
 	device_create_file(st->dev, &dev_attr_reg_access);
 
 	ret = jesd204_fsm_start(st->jdev, JESD204_LINKS_ALL);
 	if (ret)
-		goto disable_unprepare;
+		goto remove_debugfs;
 
 	dev_info(&pdev->dev, "AXI-ADXCVR-%s (%d.%.2d.%c) using %s at 0x%08llX mapped to 0x%p. Number of lanes: %d.",
 		st->tx_enable ? "TX" : "RX",
@@ -752,9 +753,16 @@ static int adxcvr_probe(struct platform_device *pdev)
 
 	return 0;
 
+remove_debugfs:
+	device_remove_file(st->dev, &dev_attr_reg_access);
+	adxcvr_eyescan_unregister(st);
+unreg_adxcvr_clk:
+	if (st->clks[1])
+		clk_unregister_fixed_factor(st->clks[1]);
+	of_clk_del_provider(pdev->dev.of_node);
 disable_unprepare_conv_clk2:
 	clk_disable_unprepare(st->conv2_clk);
-disable_unprepare:
+disable_unprepare_conv_clk:
 	clk_disable_unprepare(st->conv_clk);
 
 	return ret;
@@ -774,12 +782,11 @@ static int adxcvr_remove(struct platform_device *pdev)
 
 	device_remove_file(st->dev, &dev_attr_reg_access);
 	adxcvr_eyescan_unregister(st);
+	if (st->clks[1])
+		clk_unregister_fixed_factor(st->clks[1]);
 	of_clk_del_provider(pdev->dev.of_node);
 	clk_disable_unprepare(st->conv2_clk);
 	clk_disable_unprepare(st->conv_clk);
-
-	if (st->clks[1])
-		clk_unregister_fixed_factor(st->clks[1]);
 
 	return 0;
 }
