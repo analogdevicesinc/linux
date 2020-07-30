@@ -62,6 +62,7 @@
 			adi,extended-name = "DEV_SYSREF";
 			adi,divider = <256>;	// 12.109375
 			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;	// LVDS
+			adi,jesd204-sysref-chan;
 		};
 
 		hmc7044_c6: channel@6 {
@@ -94,6 +95,7 @@
 			adi,extended-name = "FPGA_SYSREF";
 			adi,divider = <256>;	// 12.109375
 			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;	// LVDS
+			adi,jesd204-sysref-chan;
 		};
 	};
 	trx0_ad9081: ad9081@0 {
