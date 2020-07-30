@@ -62,7 +62,7 @@ static int ad5686_i2c_probe(struct i2c_client *i2c,
 			    const struct i2c_device_id *id)
 {
 	return ad5686_probe(&i2c->dev, id->driver_data, id->name,
-			    ad5686_i2c_write, ad5686_i2c_read);
+			    ad5686_i2c_write, ad5686_i2c_read, i2c->irq);
 }
 
 static int ad5686_i2c_remove(struct i2c_client *i2c)
