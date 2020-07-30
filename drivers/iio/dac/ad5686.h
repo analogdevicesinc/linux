@@ -12,6 +12,7 @@
 #include <linux/cache.h>
 #include <linux/mutex.h>
 #include <linux/kernel.h>
+#include <linux/pwm.h>
 
 #include <linux/iio/iio.h>
 
@@ -116,6 +117,7 @@ struct ad5686_chip_info {
 /**
  * struct ad5446_state - driver instance specific data
  * @spi:		spi_device
+ * @pwm:		pwm used for buffer trigger
  * @chip_info:		chip model specific constants, available modes etc
  * @reg:		supply regulator
  * @vref_mv:		actual reference voltage used
@@ -128,6 +130,7 @@ struct ad5686_chip_info {
 
 struct ad5686_state {
 	struct device			*dev;
+	struct pwm_device		*pwm;
 	const struct ad5686_chip_info	*chip_info;
 	struct regulator		*reg;
 	unsigned short			vref_mv;
