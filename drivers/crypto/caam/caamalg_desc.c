@@ -1806,6 +1806,10 @@ void cnstr_shdsc_skcipher_encap(u32 * const desc, struct alginfo *cdata,
 	/* Load class1 key only */
 	if (IS_ENABLED(CONFIG_CRYPTO_DEV_FSL_CAAM_TK_API) &&
 	    cdata->key_cmd_opt)
+		/*
+		 * Black keys can be loaded using only a KEY command
+		 * with ENC=1 and the proper setting of the EKT bit.
+		 */
 		append_key_as_imm(desc, cdata->key_virt, cdata->keylen,
 				  cdata->key_real_len, CLASS_1 |
 				  KEY_DEST_CLASS_REG | cdata->key_cmd_opt);
@@ -1887,6 +1891,10 @@ void cnstr_shdsc_skcipher_decap(u32 * const desc, struct alginfo *cdata,
 	/* Load class1 key only */
 	if (IS_ENABLED(CONFIG_CRYPTO_DEV_FSL_CAAM_TK_API) &&
 	    cdata->key_cmd_opt)
+		/*
+		 * Black keys can be loaded using only a KEY command
+		 * with ENC=1 and the proper setting of the EKT bit.
+		 */
 		append_key_as_imm(desc, cdata->key_virt, cdata->keylen,
 				  cdata->key_real_len, CLASS_1 |
 				  KEY_DEST_CLASS_REG | cdata->key_cmd_opt);
