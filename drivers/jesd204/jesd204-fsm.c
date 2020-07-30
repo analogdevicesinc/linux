@@ -114,6 +114,7 @@ static const struct jesd204_fsm_table_entry jesd204_start_links_states[] = {
 	JESD204_STATE_OP(DEVICE_INIT),
 	JESD204_STATE_OP_WITH_POST_HOOK(LINK_INIT, jesd204_fsm_init_link),
 	JESD204_STATE_OP(LINK_SUPPORTED),
+	JESD204_STATE_OP(LINK_PRE_SETUP),
 	JESD204_STATE_OP(LINK_SETUP),
 	JESD204_STATE_OP(CLOCKS_ENABLE),
 	JESD204_STATE_OP(LINK_ENABLE),
@@ -137,6 +138,8 @@ const char *jesd204_state_str(enum jesd204_dev_state state)
 		return "link_init";
 	case JESD204_STATE_LINK_SUPPORTED:
 		return "link_supported";
+	case JESD204_STATE_LINK_PRE_SETUP:
+		return "link_pre_setup";
 	case JESD204_STATE_LINK_SETUP:
 		return "link_setup";
 	case JESD204_STATE_CLOCKS_ENABLE:
