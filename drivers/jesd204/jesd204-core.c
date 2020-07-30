@@ -649,6 +649,7 @@ static int __jesd204_dev_init_link_data(struct jesd204_dev_top *jdev_top,
 	ol->link.link_id = jdev_top->link_ids[link_idx];
 	ol->jdev_top = jdev_top;
 	ol->link_idx = link_idx;
+	ol->link.sysref.lmfc_offset = JESD204_LMFC_OFFSET_UNINITIALIZED;
 	ret = jesd204_dev_init_link_lane_ids(jdev_top, link_idx, &ol->link);
 	if (ret)
 		return ret;

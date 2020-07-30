@@ -44,15 +44,19 @@ enum jesd204_state_change_result {
 
 #define JESD204_LINKS_ALL		((unsigned int)(-1))
 
-/** struct jesd204_sysref - JESD204 configuration for SYSREF
+#define JESD204_LMFC_OFFSET_UNINITIALIZED	((u16)-1)
+
+/** struct jesd204_sysref - JESD204 parameters for SYSREF
  * @mode			SYSREF mode (see @jesd204_sysref_mode)
  * @capture_falling_edge	true if it should capture falling edge
  * @valid_falling_edge		true if falling edge should be valid
+ * @lmfc_offset			offset for LMFC
  */
 struct jesd204_sysref {
 	enum jesd204_sysref_mode	mode;
 	u8				capture_falling_edge;
 	u8				valid_falling_edge;
+	u16				lmfc_offset;
 };
 
 /**
