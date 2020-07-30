@@ -92,7 +92,7 @@ static int ad5686_spi_probe(struct spi_device *spi)
 	const struct spi_device_id *id = spi_get_device_id(spi);
 
 	return ad5686_probe(&spi->dev, id->driver_data, id->name,
-			    ad5686_spi_write, ad5686_spi_read);
+			    ad5686_spi_write, ad5686_spi_read, spi->irq);
 }
 
 static int ad5686_spi_remove(struct spi_device *spi)

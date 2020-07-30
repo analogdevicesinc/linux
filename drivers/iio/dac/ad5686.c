@@ -427,10 +427,18 @@ static const struct ad5686_chip_info ad5686_chip_info_tbl[] = {
 	},
 };
 
+static irqreturn_t ad5686_irq_handler(int irq, void *data)
+{
+	struct iio_dev *indio_dev = data;
+	struct ad5686_state *st = iio_priv(indio_dev);
+
+	return IRQ_HANDLED;
+}
+
 int ad5686_probe(struct device *dev,
 		 enum ad5686_supported_device_ids chip_type,
 		 const char *name, ad5686_write_func write,
-		 ad5686_read_func read)
+		 ad5686_read_func read, int irq)
 {
 	struct ad5686_state *st;
 	struct iio_dev *indio_dev;
@@ -460,6 +468,17 @@ int ad5686_probe(struct device *dev,
 			goto error_disable_reg;
 
 		voltage_uv = ret;
+	}
+
+	/* Configure IRQ */
+	if (irq) {
+		ret = devm_request_threaded_irq(dev, irq, NULL, ad5686_irq_handler,
+						IRQF_TRIGGER_RISING | IRQF_ONESHOT,
+						"ad5686 irq", indio_dev);
+		if (ret)
+			return ret;
+
+		st->irq = irq;
 	}
 
 	st->chip_info = &ad5686_chip_info_tbl[chip_type];
