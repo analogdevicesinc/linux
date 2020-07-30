@@ -524,7 +524,7 @@ static void adxcvr_parse_dt_vco_ranges(struct adxcvr_state *st,
 		st->xcvr.vco1_max = 0;
 }
 
-static int adxcvr_parse_dt(struct adxcvr_state *st, struct device_node *np)
+static void adxcvr_parse_dt(struct adxcvr_state *st, struct device_node *np)
 {
 	of_property_read_u32(np, "adi,sys-clk-select", &st->sys_clk_sel);
 	of_property_read_u32(np, "adi,out-clk-select", &st->out_clk_sel);
@@ -533,10 +533,6 @@ static int adxcvr_parse_dt(struct adxcvr_state *st, struct device_node *np)
 	st->lpm_enable = of_property_read_bool(np, "adi,use-lpm-enable");
 
 	adxcvr_parse_dt_vco_ranges(st, np);
-
-	INIT_WORK(&st->work, adxcvr_work_func);
-
-	return 0;
 }
 
 /* Match table for of_platform binding */
@@ -654,10 +650,9 @@ static int adxcvr_probe(struct platform_device *pdev)
 
 	st->xcvr.dev = &pdev->dev;
 	st->xcvr.drp_ops = &adxcvr_drp_ops;
+	INIT_WORK(&st->work, adxcvr_work_func);
 
-	ret = adxcvr_parse_dt(st, np);
-	if (ret < 0)
-		goto disable_unprepare_conv_clk2;
+	adxcvr_parse_dt(st, np);
 
 	mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	st->regs = devm_ioremap_resource(&pdev->dev, mem);
