@@ -9,6 +9,7 @@
  */
 /dts-v1/;
 #include "vcu118.dtsi"
+#include <dt-bindings/iio/adi,ad5592r.h>
 
 #define fmc_i2c fmcp_hspc_iic
 #define fmc_spi axi_spi
@@ -237,5 +238,52 @@
 		gpios = <44 GPIO_ACTIVE_HIGH>;
 		output-high; /* output-high gpio_mode - connect GPIO_0 of MxFE3 (output) to GPIO_0 of MxFE0,1,2 (input) */
 		line-name = "GPIO_0 HDL mux mode";
+	};
+};
+
+/ {
+	vref: regulator-vref {
+		compatible = "regulator-fixed";
+		regulator-name = "vref-ad5592";
+		regulator-min-microvolt = <2500000>;
+		regulator-max-microvolt = <2500000>;
+		regulator-always-on;
+	};
+
+	calibration-board-control@0 {
+		compatible = "one-bit-adc-dac";
+		out-gpios = <&axi_gpio_2 56 0>, <&axi_gpio_2 57 0>, <&axi_gpio_2 58 0>, <&axi_gpio_2 59 0>;
+		out-gpio-names = "5045_V1", "5045_V2", "CTRL_IND", "CTRL_RX_COMBINED";
+	};
+};
+
+&axi_spi {
+	ad5592r@4 {
+		#size-cells = <0>;
+		#address-cells = <1>;
+		compatible = "adi,ad5592r";
+		reg = <4>;
+
+		spi-max-frequency = <1000000>;
+		spi-cpol;
+
+		vref-supply = <&vref>; /* optional */
+
+		channel@0 {
+			reg = <0>;
+			adi,mode = <CH_MODE_ADC>;
+		};
+		channel@1 {
+			reg = <1>;
+			adi,mode = <CH_MODE_ADC>;
+		};
+		channel@5 {
+			reg = <5>;
+			adi,mode = <CH_MODE_ADC>;
+		};
+		channel@7 {
+			reg = <7>;
+			adi,mode = <CH_MODE_ADC>;
+		};
 	};
 };
