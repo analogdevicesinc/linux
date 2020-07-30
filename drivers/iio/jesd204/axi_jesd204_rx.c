@@ -354,7 +354,7 @@ static ssize_t axi_jesd204_rx_laneinfo_read(struct device *dev,
 	lane_status = readl_relaxed(jesd->base +
 				    JESD204_RX_REG_LANE_STATUS(lane));
 
-	if (ADI_AXI_PCORE_VER_MINOR(jesd->version) >= 2) {
+	if (jesd->version >= ADI_AXI_PCORE_VER(1, 2, 'a')) {
 		errors = axi_jesd204_rx_get_lane_errors(jesd, lane);
 		ret += scnprintf(buf + ret, PAGE_SIZE - ret, "Errors: %u\n",
 				 errors);
@@ -587,7 +587,7 @@ static bool axi_jesd204_rx_check_lane_status(struct axi_jesd204_rx *jesd,
 			return false;
 	}
 
-	if (ADI_AXI_PCORE_VER_MINOR(jesd->version) >= 2) {
+	if (jesd->version >= ADI_AXI_PCORE_VER(1, 2, 'a')) {
 		errors = axi_jesd204_rx_get_lane_errors(jesd, lane);
 		scnprintf(error_str, sizeof(error_str), " (%u errors)", errors);
 	} else {
