@@ -60,24 +60,6 @@
 /* JESD204_TX_REG_SYSREF_CONF */
 #define JESD204_TX_REG_SYSREF_CONF_SYSREF_DISABLE	BIT(0)
 
-struct jesd204_tx_config {
-	uint8_t device_id;
-	uint8_t bank_id;
-	uint8_t lanes_per_device;
-	uint8_t octets_per_frame;
-	uint8_t frames_per_multiframe;
-	uint8_t converters_per_device;
-	uint8_t resolution;
-	uint8_t bits_per_sample;
-	uint8_t samples_per_frame;
-	uint8_t jesd_version;
-	uint8_t subclass_version;
-	uint8_t control_bits_per_sample;
-	uint16_t sysref_lmfc_offset;
-	bool enable_scrambling;
-	bool high_density;
-};
-
 struct axi_jesd204_tx {
 	void __iomem *base;
 	struct device *dev;
@@ -219,7 +201,7 @@ static irqreturn_t axi_jesd204_tx_irq(int irq, void *devid)
 }
 
 static unsigned int axi_jesd204_tx_calc_ilas_chksum(
-	const struct jesd204_tx_config *config,
+	const struct jesd204_link *config,
 	unsigned int lane_id)
 {
 	unsigned int chksum;
@@ -227,16 +209,16 @@ static unsigned int axi_jesd204_tx_calc_ilas_chksum(
 	chksum = config->device_id;
 	chksum += config->bank_id;
 	chksum += lane_id;
-	chksum += config->lanes_per_device - 1;
-	chksum += config->enable_scrambling;
+	chksum += config->num_lanes - 1;
+	chksum += config->scrambling;
 	chksum += config->octets_per_frame - 1;
 	chksum += config->frames_per_multiframe - 1;
-	chksum += config->converters_per_device - 1;
-	chksum += config->control_bits_per_sample;
-	chksum += config->resolution - 1;
+	chksum += config->num_converters - 1;
+	chksum += config->ctrl_bits_per_sample;
+	chksum += config->converter_resolution - 1;
 	chksum += config->bits_per_sample - 1;
-	chksum += config->subclass_version;
-	chksum += config->samples_per_frame  - 1;
+	chksum += config->subclass;
+	chksum += config->samples_per_conv_frame  - 1;
 	chksum += config->jesd_version;
 	chksum += config->high_density;
 
@@ -244,7 +226,7 @@ static unsigned int axi_jesd204_tx_calc_ilas_chksum(
 }
 
 static void axi_jesd204_tx_set_lane_ilas(struct axi_jesd204_tx *jesd,
-	struct jesd204_tx_config *config, unsigned int lane_id)
+	struct jesd204_link *config, unsigned int lane_id)
 {
 	unsigned int i;
 	unsigned int val;
@@ -257,18 +239,18 @@ static void axi_jesd204_tx_set_lane_ilas(struct axi_jesd204_tx *jesd,
 			break;
 		case 1:
 			val = lane_id;
-			val |= (config->lanes_per_device - 1) << 8;
-			val |= config->enable_scrambling << 15;
+			val |= (config->num_lanes - 1) << 8;
+			val |= config->scrambling << 15;
 			val |= (config->octets_per_frame - 1) << 16;
 			val |= (config->frames_per_multiframe - 1) << 24;
 			break;
 		case 2:
-			val = (config->converters_per_device - 1);
-			val |= (config->resolution - 1) << 8;
-			val |= config->control_bits_per_sample << 14;
+			val = (config->num_converters - 1);
+			val |= (config->converter_resolution - 1) << 8;
+			val |= config->ctrl_bits_per_sample << 14;
 			val |= (config->bits_per_sample - 1) << 16;
-			val |= config->subclass_version << 21;
-			val |= (config->samples_per_frame - 1) << 24;
+			val |= config->subclass << 21;
+			val |= (config->samples_per_conv_frame - 1) << 24;
 			val |= config->jesd_version << 29;
 			break;
 		case 3:
@@ -282,7 +264,7 @@ static void axi_jesd204_tx_set_lane_ilas(struct axi_jesd204_tx *jesd,
 }
 
 static int axi_jesd204_tx_apply_config(struct axi_jesd204_tx *jesd,
-	struct jesd204_tx_config *config)
+	struct jesd204_link *config)
 {
 	unsigned int octets_per_multiframe;
 	unsigned int multiframe_align;
@@ -310,19 +292,21 @@ static int axi_jesd204_tx_apply_config(struct axi_jesd204_tx *jesd,
 	val = (octets_per_multiframe - 1);
 	val |= (config->octets_per_frame - 1) << 16;
 
-	if (config->subclass_version == 0)
+	if (config->subclass == JESD204_SUBCLASS_0)
 		writel_relaxed(JESD204_TX_REG_SYSREF_CONF_SYSREF_DISABLE,
 			       jesd->base + JESD204_TX_REG_SYSREF_CONF);
 
 	writel_relaxed(val, jesd->base + JESD204_TX_REG_CONF0);
 
 	for (lane = 0; lane < jesd->num_lanes; lane++) {
-		if (jesd->encoder == JESD204_ENCODER_8B10B)
-			axi_jesd204_tx_set_lane_ilas(jesd, config, lane);
+		if (jesd->encoder == JESD204_ENCODER_8B10B) {
+			unsigned int lane_id = config->lane_ids[lane];
+			axi_jesd204_tx_set_lane_ilas(jesd, config, lane_id);
+		}
 	}
 
-	if (config->sysref_lmfc_offset)
-		writel_relaxed(config->sysref_lmfc_offset,
+	if (config->sysref.lmfc_offset != JESD204_LMFC_OFFSET_UNINITIALIZED)
+		writel_relaxed(config->sysref.lmfc_offset,
 			jesd->base + JESD204_TX_REG_SYSREF_LMFC_OFFSET);
 
 	return 0;
@@ -333,20 +317,20 @@ static int axi_jesd204_tx_apply_config(struct axi_jesd204_tx *jesd,
  * description and does not belong into the devicetree.
  */
 static int axi_jesd204_tx_parse_dt_config(struct device_node *np,
-	struct axi_jesd204_tx *jesd, struct jesd204_tx_config *config)
+	struct axi_jesd204_tx *jesd, struct jesd204_link *config)
 {
 	int ret;
 	u32 val;
 
 	config->device_id = 0;
 	config->bank_id = 0;
-	config->enable_scrambling = true;
-	config->lanes_per_device = jesd->num_lanes;
-	config->jesd_version = 1;
-	config->subclass_version = 1;
-	config->control_bits_per_sample = 0;
-	config->samples_per_frame = 1;
-	config->sysref_lmfc_offset = 0;
+	config->scrambling = true;
+	config->num_lanes = jesd->num_lanes;
+	config->jesd_version = JESD204_VERSION_B;
+	config->subclass = JESD204_SUBCLASS_0;
+	config->ctrl_bits_per_sample = 0;
+	config->samples_per_conv_frame = 1;
+	config->sysref.lmfc_offset = 0;
 
 	ret = of_property_read_u32(np, "adi,octets-per-frame", &val);
 	if (ret)
@@ -363,7 +347,7 @@ static int axi_jesd204_tx_parse_dt_config(struct device_node *np,
 	ret = of_property_read_u32(np, "adi,converter-resolution", &val);
 	if (ret)
 		return ret;
-	config->resolution = val;
+	config->converter_resolution = val;
 
 	ret = of_property_read_u32(np, "adi,bits-per-sample", &val);
 	if (ret)
@@ -373,20 +357,20 @@ static int axi_jesd204_tx_parse_dt_config(struct device_node *np,
 	ret = of_property_read_u32(np, "adi,converters-per-device", &val);
 	if (ret)
 		return ret;
-	config->converters_per_device = val;
+	config->num_converters = val;
 
 	/* optional */
 	ret = of_property_read_u32(np, "adi,control-bits-per-sample", &val);
 	if (ret == 0)
-		config->control_bits_per_sample = val;
+		config->ctrl_bits_per_sample = val;
 
 	ret = of_property_read_u32(np, "adi,subclass", &val);
 	if (ret == 0)
-		config->subclass_version = val;
+		config->subclass = val;
 
 	ret = of_property_read_u32(np, "adi,sysref-lmfc-offset", &val);
 	if (ret == 0)
-		config->sysref_lmfc_offset = val;
+		config->sysref.lmfc_offset = val;
 
 	return 0;
 }
@@ -531,7 +515,6 @@ static int axi_jesd204_tx_jesd204_link_setup(struct jesd204_dev *jdev,
 {
 	struct device *dev = jesd204_dev_to_device(jdev);
 	struct axi_jesd204_tx *jesd = dev_get_drvdata(dev);
-	struct jesd204_tx_config config;
 	unsigned long link_rate, lane_rate;
 	long rate;
 	int ret;
@@ -549,24 +532,7 @@ static int axi_jesd204_tx_jesd204_link_setup(struct jesd204_dev *jdev,
 		lnk->num_lanes = jesd->num_lanes;
 	}
 
-	config.device_id = lnk->device_id;
-	config.bank_id = lnk->bank_id;
-	config.lanes_per_device = jesd->num_lanes;
-	//config.lanes_per_device = lnk->num_lanes;
-	config.octets_per_frame = lnk->octets_per_frame;
-	config.frames_per_multiframe = lnk->frames_per_multiframe;
-	config.converters_per_device = lnk->num_converters;
-	config.resolution = lnk->converter_resolution;
-	config.bits_per_sample = lnk->bits_per_sample;
-	config.control_bits_per_sample = lnk->ctrl_bits_per_sample;
-	config.samples_per_frame = lnk->samples_per_conv_frame;
-	config.jesd_version = lnk->jesd_version;
-	config.subclass_version = lnk->subclass;
-	config.sysref_lmfc_offset = 0;
-	config.enable_scrambling = lnk->scrambling;
-	config.high_density = lnk->high_density;
-
-	ret = axi_jesd204_tx_apply_config(jesd, &config);
+	ret = axi_jesd204_tx_apply_config(jesd, lnk);
 	if (ret) {
 		dev_err(dev, "%s: Apply config Link%u failed (%d)\n",
 			__func__, lnk->link_id, ret);
@@ -716,7 +682,7 @@ static const struct jesd204_dev_data jesd204_axi_jesd204_tx_init = {
 
 static int axi_jesd204_tx_probe(struct platform_device *pdev)
 {
-	struct jesd204_tx_config config;
+	struct jesd204_link config;
 	struct axi_jesd204_tx *jesd;
 	struct jesd204_dev *jdev;
 	struct resource *res;
@@ -802,6 +768,16 @@ static int axi_jesd204_tx_probe(struct platform_device *pdev)
 		jesd->encoder = JESD204_ENCODER_8B10B;
 	else if (jesd->encoder >= JESD204_ENCODER_MAX)
 		goto err_conv2_clk_disable;
+
+	/* Allocate lane IDs if not running with the framework */
+	if (!jdev) {
+		unsigned int lane;
+		config.lane_ids = devm_kcalloc(&pdev->dev, jesd->num_lanes,
+					       sizeof(*config.lane_ids),
+					       GFP_KERNEL);
+		for (lane = 0; lane < jesd->num_lanes; lane++)
+			config.lane_ids[lane] = lane;
+	}
 
 	ret = axi_jesd204_tx_parse_dt_config(pdev->dev.of_node, jesd, &config);
 	if (ret)
