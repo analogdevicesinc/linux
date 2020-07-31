@@ -2388,7 +2388,7 @@ static int max9271_write_reg(struct sensor_data *max9286_data, int index, u8 reg
 	max9286_data->i2c_client->addr = ADDR_MAX9271 + index;
 	for (retry = 0; retry < timeout; retry++) {
 		ret = i2c_smbus_write_byte_data(client, reg, val);
-		if (val < 0)
+		if (ret < 0)
 			msleep(5);
 		else
 			break;
