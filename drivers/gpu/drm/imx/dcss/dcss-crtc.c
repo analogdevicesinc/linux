@@ -92,7 +92,10 @@ static void dcss_crtc_atomic_enable(struct drm_crtc *crtc,
 	struct dcss_dev *dcss = dcss_crtc->base.dev->dev_private;
 	struct drm_display_mode *mode = &crtc->state->adjusted_mode;
 	struct drm_display_mode *old_mode = &old_crtc_state->adjusted_mode;
+	struct drm_connector *connector;
+	struct drm_connector_state *conn_state;
 	struct videomode vm;
+	int i;
 
 	drm_display_mode_to_videomode(mode, &vm);
 
@@ -100,7 +103,20 @@ static void dcss_crtc_atomic_enable(struct drm_crtc *crtc,
 
 	vm.pixelclock = mode->crtc_clock * 1000;
 
-	dcss_kms_setup_opipe(dcss_kms->connector->state);
+	if (!dcss_drv_is_componentized(dcss->dev)) {
+		dcss_kms_setup_opipe(dcss_kms->connector->state);
+	} else {
+		for_each_new_connector_in_state(old_crtc_state->state, connector,
+						conn_state, i) {
+			if (!conn_state->best_encoder)
+				continue;
+
+			if (!crtc->state->active)
+				continue;
+
+			dcss_kms_setup_opipe(conn_state);
+		}
+	}
 
 	dcss_ss_subsam_set(dcss->ss, dcss_crtc->output_is_yuv);
 	dcss_dtg_css_set(dcss->dtg, dcss_crtc->output_is_yuv);
