@@ -142,6 +142,7 @@ static int pfe_platform_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, pfe);
 
 	if (dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(32))) {
+		rc = -ENOMEM;
 		pr_err("unable to configure DMA mask.\n");
 		goto err_ddr;
 	}
