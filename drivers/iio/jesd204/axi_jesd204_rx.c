@@ -659,9 +659,9 @@ static const struct clk_ops axi_jesd204_rx_dummy_clk_ops = {
 
 /* FIXME: This is terrible and needs to be replaced */
 static int axi_jesd204_register_dummy_clk(struct axi_jesd204_rx *jesd,
-	struct platform_device *pdev)
+	struct device *dev)
 {
-	struct device_node *np = pdev->dev.of_node;
+	struct device_node *np = dev->of_node;
 	const char *parent_name, *clk_name;
 	struct clk_init_data init;
 	struct clk *dummy_clk;
@@ -682,7 +682,7 @@ static int axi_jesd204_register_dummy_clk(struct axi_jesd204_rx *jesd,
 
 	jesd->dummy_clk.init = &init;
 
-	dummy_clk = devm_clk_register(&pdev->dev, &jesd->dummy_clk);
+	dummy_clk = devm_clk_register(dev, &jesd->dummy_clk);
 	if (IS_ERR(dummy_clk))
 		return PTR_ERR(dummy_clk);
 
@@ -882,9 +882,29 @@ static const struct jesd204_dev_data jesd204_axi_jesd204_rx_init = {
 	},
 };
 
-static int axi_jesd204_rx_probe(struct platform_device *pdev)
+static int axi_jesd204_init_non_framework(struct device *dev,
+					  struct axi_jesd204_rx *jesd)
 {
 	struct jesd204_link config;
+	int ret;
+
+	ret = axi_jesd204_rx_parse_dt_config(dev->of_node, jesd, &config);
+	if (ret)
+		return ret;
+
+	/* let the framework initialize & apply the config */
+	if (jesd->jdev)
+		return 0;
+
+	ret = axi_jesd204_rx_apply_config(jesd, &config);
+	if (ret)
+		return ret;
+
+	return axi_jesd204_register_dummy_clk(jesd, dev);
+}
+
+static int axi_jesd204_rx_probe(struct platform_device *pdev)
+{
 	struct axi_jesd204_rx *jesd;
 	struct jesd204_dev *jdev;
 	struct resource *res;
@@ -911,10 +931,6 @@ static int axi_jesd204_rx_probe(struct platform_device *pdev)
 
 	jesd->dev = &pdev->dev;
 	jesd->jdev = jdev;
-
-	ret = axi_jesd204_rx_parse_dt_config(pdev->dev.of_node, jesd, &config);
-	if (ret)
-		return ret;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	jesd->base = devm_ioremap_resource(&pdev->dev, res);
@@ -977,7 +993,7 @@ static int axi_jesd204_rx_probe(struct platform_device *pdev)
 		goto err_conv2_clk_disable;
 	}
 
-	ret = axi_jesd204_rx_apply_config(jesd, &config);
+	ret = axi_jesd204_init_non_framework(&pdev->dev, jesd);
 	if (ret)
 		goto err_conv2_clk_disable;
 
@@ -992,27 +1008,13 @@ static int axi_jesd204_rx_probe(struct platform_device *pdev)
 						0, dev_name(&pdev->dev),
 						jesd);
 		if (ret)
-			goto err_axi_clk_disable;
+			goto err_uninit_non_framework;
 
 		jesd->irq_enabled = true;
 		writel_relaxed(JESD204_RX_IRQ_FRAME_ALIGNMENT_ERROR |
 				JESD204_RX_IRQ_UNEXP_LANE_STATE_ERROR,
 				jesd->base + JESD204_RX_REG_IRQ_ENABLE);
 	}
-
-/* FIXME: Enabling the clock here and keeping it enabled will prevent
- * reconfiguration of the the clock when the lane rate changes. We need to find
- * a mechanism to disable the clock before link reconfiguration. For the time
- * being don't enable it and hope that some other driver does.
- *
- *	ret = clk_prepare_enable(jesd->device_clk);
- *	if (ret)
- *		goto err_free_irq;
- */
-
-	ret = axi_jesd204_register_dummy_clk(jesd, pdev);
-	if (ret)
-		goto err_axi_clk_disable;
 
 	platform_set_drvdata(pdev, jesd);
 
@@ -1052,10 +1054,16 @@ static int axi_jesd204_rx_probe(struct platform_device *pdev)
 
 	ret = jesd204_fsm_start(jesd->jdev, JESD204_LINKS_ALL);
 	if (ret)
-		goto err_axi_clk_disable;
+		goto err_remove_debugfs;
 
 	return 0;
 
+err_remove_debugfs:
+	device_remove_file(&pdev->dev, &dev_attr_status);
+	device_remove_file(&pdev->dev, &dev_attr_encoder);
+err_uninit_non_framework:
+	if (!jesd->jdev)
+		of_clk_del_provider(pdev->dev.of_node);
 err_conv2_clk_disable:
 	clk_disable_unprepare(jesd->conv2_clk);
 err_axi_clk_disable:
@@ -1068,7 +1076,13 @@ static int axi_jesd204_rx_remove(struct platform_device *pdev)
 {
 	struct axi_jesd204_rx *jesd = platform_get_drvdata(pdev);
 
-	of_clk_del_provider(pdev->dev.of_node);
+	jesd204_fsm_stop(jesd->jdev, JESD204_LINKS_ALL);
+
+	device_remove_file(&pdev->dev, &dev_attr_status);
+	device_remove_file(&pdev->dev, &dev_attr_encoder);
+
+	if (!jesd->jdev)
+		of_clk_del_provider(pdev->dev.of_node);
 
 	writel_relaxed(0xff, jesd->base + JESD204_RX_REG_IRQ_PENDING);
 	writel_relaxed(0x00, jesd->base + JESD204_RX_REG_IRQ_ENABLE);
