@@ -333,9 +333,8 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 				return -EFAULT;
 			}
 
-			/* for debug only, will be removed for upstream */
 			for (i = 0; i < 8; i++)
-				dev_info(dev, "output_data[%d]=%d\n", i,
+				dev_dbg(dev, "output_data[%d]=%d\n", i,
 					 *((int *)priv->kbuf + i));
 
 			for (i = 0; i < 8; i++)
