@@ -209,7 +209,7 @@ static ssize_t encoder_show(struct device *dev, struct device_attribute *attr,
 {
 	struct axi_jesd204_rx *jesd = dev_get_drvdata(dev);
 
-	return sprintf(buf, "%s", axi_jesd204_encoder_label[jesd->encoder]);
+	return sprintf(buf, "%s", jesd204_encoder_str(jesd->encoder));
 }
 
 static DEVICE_ATTR_RO(encoder);
@@ -968,10 +968,13 @@ static int axi_jesd204_rx_probe(struct platform_device *pdev)
 	jesd->encoder = JESD204_ENCODER_GET(synth_1);
 
 	/* backward compatibility with older HDL cores */
-	if (jesd->encoder == JESD204_ENCODER_UNKNOWN)
+	if (jesd->encoder == JESD204_ENCODER_UNKNOWN) {
 		jesd->encoder = JESD204_ENCODER_8B10B;
-	else if (jesd->encoder >= JESD204_ENCODER_MAX)
+	} else if (jesd->encoder >= JESD204_ENCODER_MAX) {
+		dev_err(&pdev->dev, "Invalid encoder value from HDL core %u\n",
+			jesd->encoder);
 		goto err_conv2_clk_disable;
+	}
 
 	ret = axi_jesd204_rx_apply_config(jesd, &config);
 	if (ret)

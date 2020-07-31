@@ -95,15 +95,15 @@ int jesd204_link_get_rate(struct jesd204_link *lnk, u64 *lane_rate_hz)
 	switch (lnk->jesd_version) {
 	case JESD204_VERSION_C:
 		switch (lnk->jesd_encoder) {
-		case JESD204_ENC_64B66B:
+		case JESD204_ENCODER_64B66B:
 			encoding_n = 66; /* JESD 204C */
 			encoding_d = 64;
 			break;
-		case JESD204_ENC_8B10B:
+		case JESD204_ENCODER_8B10B:
 			encoding_n = 10; /* JESD 204C */
 			encoding_d = 8;
 			break;
-		case JESD204_ENC_64B80B:
+		case JESD204_ENCODER_64B80B:
 			encoding_n = 80; /* JESD 204C */
 			encoding_d = 64;
 			break;
@@ -157,13 +157,13 @@ int jesd204_link_get_device_clock(struct jesd204_link *lnk,
 		return ret;
 
 	switch (lnk->jesd_encoder) {
-	case JESD204_ENC_64B66B:
+	case JESD204_ENCODER_64B66B:
 		encoding_n = 66; /* JESD 204C */
 		break;
-	case JESD204_ENC_8B10B:
+	case JESD204_ENCODER_8B10B:
 		encoding_n = 40; /* JESD 204ABC */
 		break;
-	case JESD204_ENC_64B80B:
+	case JESD204_ENCODER_64B80B:
 		encoding_n = 80; /* JESD 204C */
 		break;
 	default:
@@ -190,11 +190,11 @@ int jesd204_link_get_lmfc_lemc_rate(struct jesd204_link *lnk,
 		return ret;
 
 	switch (lnk->jesd_encoder) {
-	case JESD204_ENC_64B66B:
+	case JESD204_ENCODER_64B66B:
 		bkw = 66; /* JESD 204C */
 		/* fall-through */
-	case JESD204_ENC_64B80B:
-		if (lnk->jesd_encoder == JESD204_ENC_64B80B)
+	case JESD204_ENCODER_64B80B:
+		if (lnk->jesd_encoder == JESD204_ENCODER_64B80B)
 			bkw = 80; /* JESD 204C */
 
 		if (lnk->num_of_multiblocks_in_emb) {
