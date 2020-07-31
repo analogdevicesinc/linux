@@ -24,10 +24,13 @@ enum jesd204_version {
 };
 
 /* JESD204C Supported encoding scheme */
-enum jesd204_enc { /* FIXME: unify with link layer defines */
-	JESD204_ENC_8B10B,
-	JESD204_ENC_64B66B,
-	JESD204_ENC_64B80B,
+enum jesd204_encoder {
+	JESD204_ENCODER_UNKNOWN,
+	JESD204_ENCODER_8B10B,
+	JESD204_ENCODER_64B66B,
+	JESD204_ENCODER_64B80B,
+
+	JESD204_ENCODER_MAX
 };
 
 enum jesd204_sysref_mode {
@@ -137,6 +140,20 @@ enum jesd204_state_op_reason {
 	JESD204_STATE_OP_REASON_INIT,
 	JESD204_STATE_OP_REASON_UNINIT,
 };
+
+static inline const char *jesd204_encoder_str(enum jesd204_encoder enc)
+{
+	switch (enc) {
+	case JESD204_ENCODER_8B10B:
+		return "8b10b";
+	case JESD204_ENCODER_64B66B:
+		return "64b66b";
+	case JESD204_ENCODER_64B80B:
+		return "64b80b";
+	default:
+		return "unknown";
+	}
+}
 
 static inline const char *jesd204_state_op_reason_str(enum jesd204_state_op_reason reason)
 {
