@@ -40,6 +40,10 @@
 		serial2 = &uart3;
 		serial3 = &uart4;
 		spi0 = &flexspi;
+		isi0 = &isi_0;
+		isi1 = &isi_1;
+		csi0 = &mipi_csi_0;
+		csi1 = &mipi_csi_1;
 	};
 
 	cpus {
@@ -2098,6 +2102,132 @@
 				ldb_phy2: port@1 {
 					reg = <1>;
 					#phy-cells = <0>;
+				};
+			};
+
+			mediamix_gpr: media_gpr@32ec0008 {
+				compatible = "fsl,imx8mp-iomuxc-gpr", "syscon";
+				reg = <0x32ec0008 0x4>;
+			};
+
+			mediamix_gasket0: gasket@32ec0060 {
+				compatible = "fsl,imx8mp-iomuxc-gpr", "syscon";
+				reg = <0x32ec0060 0x28>;
+			};
+
+			mediamix_gasket1: gasket@32ec0090 {
+				compatible = "fsl,imx8mp-iomuxc-gpr", "syscon";
+				reg = <0x32ec0090 0x28>;
+			};
+
+			isi_chain_buf: isi_chain@32e02000{
+				compatible = "fsl,imx8mp-iomuxc-gpr", "syscon";
+				reg = <0x32e02000 0x4>;
+			};
+
+			cameradev: camera {
+				compatible = "fsl,mxc-md", "simple-bus";
+				#address-cells = <1>;
+				#size-cells = <1>;
+				ranges;
+				status = "disabled";
+
+				isi_0: isi@32e00000 {
+					compatible = "nxp,imx8mp-isi", "nxp,imx8mn-isi";
+					reg = <0x32e00000 0x2000>;
+					interrupts = <GIC_SPI 16 IRQ_TYPE_LEVEL_HIGH>;
+					interface = <2 0 2>;
+					clocks = <&clk IMX8MP_CLK_MEDIA_AXI>,
+						 <&clk IMX8MP_CLK_MEDIA_APB>,
+						 <&clk IMX8MP_CLK_MEDIA_AXI_ROOT>,
+						 <&clk IMX8MP_CLK_MEDIA_APB_ROOT>;
+					clock-names = "disp_axi",
+						      "disp_apb",
+						      "disp_axi_root",
+						      "disp_apb_root";
+					assigned-clocks = <&clk IMX8MP_CLK_MEDIA_AXI_ROOT>,
+							  <&clk IMX8MP_CLK_MEDIA_APB_ROOT>;
+					assigned-clock-rates = <500000000>, <200000000>;
+					power-domains = <&media_blk_ctrl IMX8MP_MEDIABLK_PD_ISI>;
+					isi_chain = <&isi_chain_buf>;
+					status = "disabled";
+
+					cap_device {
+						compatible = "imx-isi-capture";
+						status = "disabled";
+					};
+
+					m2m_device{
+						compatible = "imx-isi-m2m";
+						status = "disabled";
+					};
+				};
+
+				isi_1: isi@32e02000 {
+					compatible = "nxp,imx8mp-isi", "nxp,imx8mn-isi";
+					reg = <0x32e02000 0x2000>;
+					interrupts = <GIC_SPI 42 IRQ_TYPE_LEVEL_HIGH>;
+					interface = <3 0 2>;
+					clocks = <&clk IMX8MP_CLK_MEDIA_AXI>,
+						 <&clk IMX8MP_CLK_MEDIA_APB>,
+						 <&clk IMX8MP_CLK_MEDIA_AXI_ROOT>,
+						 <&clk IMX8MP_CLK_MEDIA_APB_ROOT>;
+					clock-names = "disp_axi",
+						      "disp_apb",
+						      "disp_axi_root",
+						      "disp_apb_root";
+					assigned-clocks = <&clk IMX8MP_CLK_MEDIA_AXI_ROOT>,
+							  <&clk IMX8MP_CLK_MEDIA_APB_ROOT>;
+					assigned-clock-rates = <500000000>, <200000000>;
+					power-domains = <&media_blk_ctrl IMX8MP_MEDIABLK_PD_ISI>;
+					status = "disabled";
+
+					cap_device {
+						compatible = "imx-isi-capture";
+						status = "disabled";
+					};
+				};
+
+				mipi_csi_0: csi@32e40000 {
+					compatible = "fsl,imx8mp-mipi-csi", "fsl,imx8mn-mipi-csi";
+					reg = <0x32e40000 0x10000>;
+					interrupts = <GIC_SPI 17 IRQ_TYPE_LEVEL_HIGH>;
+					clock-frequency = <500000000>;
+					clocks = <&clk IMX8MP_CLK_MEDIA_CAM1_PIX_ROOT>,
+						 <&clk IMX8MP_CLK_MEDIA_AXI>,
+						 <&clk IMX8MP_CLK_MEDIA_APB_ROOT>;
+					clock-names = "mipi_clk",
+						      "disp_axi",
+						      "disp_apb";
+					assigned-clocks = <&clk IMX8MP_CLK_MEDIA_CAM1_PIX>;
+					assigned-clock-parents = <&clk IMX8MP_SYS_PLL2_1000M>;
+					assigned-clock-rates = <500000000>;
+					bus-width = <4>;
+					csi-gpr = <&mediamix_gasket0>;
+					gpr = <&media_blk_ctrl>;
+					power-domains = <&media_blk_ctrl IMX8MP_MEDIABLK_PD_MIPI_CSI2_1>;
+					status = "disabled";
+				};
+
+				mipi_csi_1: csi@32e50000 {
+					compatible = "fsl,imx8mp-mipi-csi", "fsl,imx8mn-mipi-csi";
+					reg = <0x32e50000 0x10000>;
+					interrupts = <GIC_SPI 80 IRQ_TYPE_LEVEL_HIGH>;
+					clock-frequency = <266000000>;
+					clocks = <&clk IMX8MP_CLK_MEDIA_CAM2_PIX_ROOT>,
+						 <&clk IMX8MP_CLK_MEDIA_AXI>,
+						 <&clk IMX8MP_CLK_MEDIA_APB_ROOT>;
+					clock-names = "mipi_clk",
+						      "disp_axi",
+						      "disp_apb";
+					assigned-clocks = <&clk IMX8MP_CLK_MEDIA_CAM2_PIX>;
+					assigned-clock-parents = <&clk IMX8MP_SYS_PLL1_266M>;
+					assigned-clock-rates = <266000000>;
+					bus-width = <4>;
+					csi-gpr = <&mediamix_gasket1>;
+					gpr = <&media_blk_ctrl>;
+					power-domains = <&media_blk_ctrl IMX8MP_MEDIABLK_PD_MIPI_CSI2_2>;
+					status = "disabled";
 				};
 			};
 		};
