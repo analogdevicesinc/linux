@@ -834,6 +834,9 @@ static int jesd204_init_sysref_cb(struct jesd204_dev *jdev,
 		return -EEXIST;
 	}
 
+	if (jdev_top->jdev_sysref)
+		return 0;
+
 	jesd204_info(jdev, "Using as SYSREF provider\n");
 	jdev_top->jdev_sysref = jdev;
 
