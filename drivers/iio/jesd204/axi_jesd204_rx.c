@@ -440,14 +440,15 @@ static int axi_jesd204_rx_apply_config(struct axi_jesd204_rx *jesd,
 
 	if (jesd->encoder == JESD204_ENCODER_64B66B &&
 	    (octets_per_multiframe % 256) != 0) {
-		dev_err(jesd->dev, "octets_per_frame * frames_per_multiframe must be a multiple of 256");
+		dev_err(jesd->dev, "octets_per_frame * frames_per_multiframe must be a multiple of 256, got %u\n",
+			octets_per_multiframe);
 		return -EINVAL;
 	}
 
 	if (octets_per_multiframe % multiframe_align != 0) {
 		dev_err(jesd->dev,
-			"octets_per_frame * frames_per_multiframe must be a multiple of  %d\n",
-			multiframe_align);
+			"octets_per_frame * frames_per_multiframe must be a multiple of %u, got %u\n",
+			multiframe_align, octets_per_multiframe);
 		return -EINVAL;
 	}
 
