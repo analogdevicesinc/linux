@@ -16,8 +16,7 @@ description: |
 
 properties:
   compatible:
-    enum:
-      - adi,adxrs290
+    const: adi,adxrs290
 
   reg:
     maxItems: 1
@@ -35,6 +34,8 @@ required:
   - spi-max-frequency
   - spi-cpol
   - spi-cpha
+
+additionalProperties: false
 
 examples:
   - |
