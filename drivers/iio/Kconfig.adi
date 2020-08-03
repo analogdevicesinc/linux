@@ -146,6 +146,7 @@ config IIO_ALL_ADI_DRIVERS
 	select LTC2471
 	select LTC2632
 	select LTC2485
+	select ADXRS290
 	select ADXRS450
 	select AXI_JESD204_TX
 	select AXI_JESD204_RX
