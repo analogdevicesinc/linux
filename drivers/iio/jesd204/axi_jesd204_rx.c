@@ -397,6 +397,25 @@ JESD_LANE(13);
 JESD_LANE(14);
 JESD_LANE(15);
 
+static const struct device_attribute *jesd204_rx_lane_devattrs[] = {
+	&dev_attr_lane0_info,
+	&dev_attr_lane1_info,
+	&dev_attr_lane2_info,
+	&dev_attr_lane3_info,
+	&dev_attr_lane4_info,
+	&dev_attr_lane5_info,
+	&dev_attr_lane6_info,
+	&dev_attr_lane7_info,
+	&dev_attr_lane8_info,
+	&dev_attr_lane9_info,
+	&dev_attr_lane10_info,
+	&dev_attr_lane11_info,
+	&dev_attr_lane12_info,
+	&dev_attr_lane13_info,
+	&dev_attr_lane14_info,
+	&dev_attr_lane15_info,
+};
+
 static irqreturn_t axi_jesd204_rx_irq(int irq, void *devid)
 {
 	struct axi_jesd204_rx *jesd = devid;
@@ -903,6 +922,40 @@ static int axi_jesd204_init_non_framework(struct device *dev,
 	return axi_jesd204_register_dummy_clk(jesd, dev);
 }
 
+static void axi_jesd204_rx_create_remove_devattrs(struct device *dev,
+						  struct axi_jesd204_rx *jesd,
+						  bool create)
+{
+	const struct device_attribute *dattr;
+	unsigned int i;
+
+	if (create) {
+		device_create_file(dev, &dev_attr_status);
+		device_create_file(dev, &dev_attr_encoder);
+	} else {
+		device_remove_file(dev, &dev_attr_status);
+		device_remove_file(dev, &dev_attr_encoder);
+	}
+
+	switch (jesd->num_lanes) {
+	case 16:
+	case 8:
+	case 4:
+	case 2:
+	case 1:
+		for (i = 0; i < jesd->num_lanes; i++) {
+			dattr = jesd204_rx_lane_devattrs[i];
+			if (create)
+				device_create_file(dev, dattr);
+			else
+				device_remove_file(dev, dattr);
+		}
+		break;
+	default:
+		break;
+	}
+}
+
 static int axi_jesd204_rx_probe(struct platform_device *pdev)
 {
 	struct axi_jesd204_rx *jesd;
@@ -1018,39 +1071,7 @@ static int axi_jesd204_rx_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, jesd);
 
-	switch (jesd->num_lanes) {
-	case 16:
-		device_create_file(&pdev->dev, &dev_attr_lane15_info);
-		device_create_file(&pdev->dev, &dev_attr_lane14_info);
-		device_create_file(&pdev->dev, &dev_attr_lane13_info);
-		device_create_file(&pdev->dev, &dev_attr_lane12_info);
-		device_create_file(&pdev->dev, &dev_attr_lane11_info);
-		device_create_file(&pdev->dev, &dev_attr_lane10_info);
-		device_create_file(&pdev->dev, &dev_attr_lane9_info);
-		device_create_file(&pdev->dev, &dev_attr_lane8_info);
-		/* fall-through */
-	case 8:
-		device_create_file(&pdev->dev, &dev_attr_lane4_info);
-		device_create_file(&pdev->dev, &dev_attr_lane5_info);
-		device_create_file(&pdev->dev, &dev_attr_lane6_info);
-		device_create_file(&pdev->dev, &dev_attr_lane7_info);
-		/* fall-through */
-	case 4:
-		device_create_file(&pdev->dev, &dev_attr_lane2_info);
-		device_create_file(&pdev->dev, &dev_attr_lane3_info);
-		/* fall-through */
-	case 2:
-		device_create_file(&pdev->dev, &dev_attr_lane1_info);
-		/* fall-through */
-	case 1:
-		device_create_file(&pdev->dev, &dev_attr_lane0_info);
-		break;
-	default:
-		break;
-	}
-
-	device_create_file(&pdev->dev, &dev_attr_status);
-	device_create_file(&pdev->dev, &dev_attr_encoder);
+	axi_jesd204_rx_create_remove_devattrs(&pdev->dev, jesd, true);
 
 	ret = jesd204_fsm_start(jesd->jdev, JESD204_LINKS_ALL);
 	if (ret)
@@ -1059,8 +1080,7 @@ static int axi_jesd204_rx_probe(struct platform_device *pdev)
 	return 0;
 
 err_remove_debugfs:
-	device_remove_file(&pdev->dev, &dev_attr_status);
-	device_remove_file(&pdev->dev, &dev_attr_encoder);
+	axi_jesd204_rx_create_remove_devattrs(&pdev->dev, jesd, false);
 err_uninit_non_framework:
 	if (!jesd->jdev)
 		of_clk_del_provider(pdev->dev.of_node);
@@ -1078,8 +1098,7 @@ static int axi_jesd204_rx_remove(struct platform_device *pdev)
 
 	jesd204_fsm_stop(jesd->jdev, JESD204_LINKS_ALL);
 
-	device_remove_file(&pdev->dev, &dev_attr_status);
-	device_remove_file(&pdev->dev, &dev_attr_encoder);
+	axi_jesd204_rx_create_remove_devattrs(&pdev->dev, jesd, false);
 
 	if (!jesd->jdev)
 		of_clk_del_provider(pdev->dev.of_node);
