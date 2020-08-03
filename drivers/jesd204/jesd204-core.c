@@ -156,18 +156,25 @@ int jesd204_link_get_device_clock(struct jesd204_link *lnk,
 	if (ret)
 		return ret;
 
-	switch (lnk->jesd_encoder) {
-	case JESD204_ENCODER_64B66B:
-		encoding_n = 66; /* JESD 204C */
-		break;
-	case JESD204_ENCODER_8B10B:
-		encoding_n = 40; /* JESD 204ABC */
-		break;
-	case JESD204_ENCODER_64B80B:
-		encoding_n = 80; /* JESD 204C */
+	switch (lnk->jesd_version) {
+	case JESD204_VERSION_C:
+		switch (lnk->jesd_encoder) {
+		case JESD204_ENCODER_64B66B:
+			encoding_n = 66; /* JESD 204C */
+			break;
+		case JESD204_ENCODER_8B10B:
+			encoding_n = 40; /* JESD 204ABC */
+			break;
+		case JESD204_ENCODER_64B80B:
+			encoding_n = 80; /* JESD 204C */
+			break;
+		default:
+			return -EINVAL;
+		}
 		break;
 	default:
-		return -EINVAL;
+		encoding_n = 40; /* JESD 204AB */
+		break;
 	}
 
 	do_div(lane_rate_hz, encoding_n);
@@ -189,22 +196,32 @@ int jesd204_link_get_lmfc_lemc_rate(struct jesd204_link *lnk,
 	if (ret)
 		return ret;
 
-	switch (lnk->jesd_encoder) {
-	case JESD204_ENCODER_64B66B:
-		bkw = 66; /* JESD 204C */
-		/* fall-through */
-	case JESD204_ENCODER_64B80B:
-		if (lnk->jesd_encoder == JESD204_ENCODER_64B80B)
-			bkw = 80; /* JESD 204C */
+	switch (lnk->jesd_version) {
+	case JESD204_VERSION_C:
+		switch (lnk->jesd_encoder) {
+		case JESD204_ENCODER_64B66B:
+			bkw = 66; /* JESD 204C */
+			/* fall-through */
+		case JESD204_ENCODER_64B80B:
+			if (lnk->jesd_encoder == JESD204_ENCODER_64B80B)
+				bkw = 80; /* JESD 204C */
 
-		if (lnk->num_of_multiblocks_in_emb) {
-			do_div(lane_rate_hz, bkw * 32 *
-				lnk->num_of_multiblocks_in_emb);
-		} else {
-			lane_rate_hz *= 8;
-			do_div(lane_rate_hz, bkw *
-				lnk->octets_per_frame *
+			if (lnk->num_of_multiblocks_in_emb) {
+				do_div(lane_rate_hz, bkw * 32 *
+					lnk->num_of_multiblocks_in_emb);
+			} else {
+				lane_rate_hz *= 8;
+				do_div(lane_rate_hz, bkw *
+					lnk->octets_per_frame *
+					lnk->frames_per_multiframe);
+			}
+			break;
+		case JESD204_ENCODER_8B10B:
+			do_div(lane_rate_hz, 10 * lnk->octets_per_frame *
 				lnk->frames_per_multiframe);
+			break;
+		default:
+			return -EINVAL;
 		}
 		break;
 	default:
