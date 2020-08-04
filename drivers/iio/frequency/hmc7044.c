@@ -1606,9 +1606,10 @@ static int hmc7044_jesd204_clks_sync2(struct jesd204_dev *jdev,
 	dev_dbg(dev, "%s:%d reason %s\n", __func__, __LINE__, jesd204_state_op_reason_str(reason));
 
 	if (hmc->is_sysref_provider) {
-		int ret =  hmc7044_jesd204_sysref(jdev);
+		int ret = hmc7044_jesd204_sysref(jdev);
+		if (ret)
+			return ret;
 		msleep(2);
-		return ret;
 	}
 
 	return JESD204_STATE_CHANGE_DONE;
