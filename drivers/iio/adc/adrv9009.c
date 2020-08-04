@@ -5236,8 +5236,8 @@ static int adrv9009_jesd204_link_init(struct jesd204_dev *jdev,
 		lnk->bank_id = framer->bankId;
 		lnk->scrambling = framer->scramble;
 		lnk->bits_per_sample = framer->Np;
-		lnk->converter_resolution = 14;
-		lnk->ctrl_bits_per_sample = 2;
+		lnk->converter_resolution = 16;
+		lnk->ctrl_bits_per_sample = 0;
 		lnk->jesd_version = JESD204_VERSION_B;
 		lnk->subclass = framer->externalSysref ? JESD204_SUBCLASS_1 : JESD204_SUBCLASS_0;
 		lnk->is_transmit = false;
@@ -5250,8 +5250,8 @@ static int adrv9009_jesd204_link_init(struct jesd204_dev *jdev,
 		lnk->bank_id = deframer->bankId;
 		lnk->scrambling = deframer->scramble;
 		lnk->bits_per_sample = deframer->Np;
-		lnk->converter_resolution = 14;
-		lnk->ctrl_bits_per_sample = 2;
+		lnk->converter_resolution = 16;
+		lnk->ctrl_bits_per_sample = 0;
 		lnk->jesd_version = JESD204_VERSION_B;
 		lnk->subclass = deframer->externalSysref ? JESD204_SUBCLASS_1 : JESD204_SUBCLASS_0;
 		lnk->is_transmit = true;
