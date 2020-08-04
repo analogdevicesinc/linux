@@ -3398,7 +3398,7 @@ static int adrv9009_restart(struct adrv9009_rf_phy *phy)
 		} else {
 			dev_warn(&phy->spi->dev, "initialize ignored: in multichip "
 				"configuration this is only allowed by the top device");
-			ret = -EFAULT;
+			ret = -ENOTSUPP;
 		}
 	} else {
 		adrv9009_shutdown(phy);
@@ -4765,6 +4765,9 @@ adrv9009_profile_bin_write(struct file *filp, struct kobject *kobj,
 	mutex_lock(&phy->indio_dev->mlock);
 
 	ret = adrv9009_restart(phy);
+
+	if (ret == -ENOTSUPP)
+		ret = 0;
 
 	mutex_unlock(&phy->indio_dev->mlock);
 
