@@ -218,7 +218,7 @@ static unsigned int axi_jesd204_tx_calc_ilas_chksum(
 	chksum += config->converter_resolution - 1;
 	chksum += config->bits_per_sample - 1;
 	chksum += config->subclass;
-	chksum += config->samples_per_conv_frame  - 1;
+	chksum += config->samples_per_conv_frame ? config->samples_per_conv_frame - 1 : 0;
 	chksum += config->jesd_version;
 	chksum += config->high_density;
 
@@ -226,7 +226,7 @@ static unsigned int axi_jesd204_tx_calc_ilas_chksum(
 }
 
 static void axi_jesd204_tx_set_lane_ilas(struct axi_jesd204_tx *jesd,
-	struct jesd204_link *config, unsigned int lane_id)
+	struct jesd204_link *config, unsigned int lane_id, unsigned int lane)
 {
 	unsigned int i;
 	unsigned int val;
@@ -250,7 +250,7 @@ static void axi_jesd204_tx_set_lane_ilas(struct axi_jesd204_tx *jesd,
 			val |= config->ctrl_bits_per_sample << 14;
 			val |= (config->bits_per_sample - 1) << 16;
 			val |= config->subclass << 21;
-			val |= (config->samples_per_conv_frame - 1) << 24;
+			val |= (config->samples_per_conv_frame ? config->samples_per_conv_frame  - 1 : 0) << 24;
 			val |= config->jesd_version << 29;
 			break;
 		case 3:
@@ -259,7 +259,7 @@ static void axi_jesd204_tx_set_lane_ilas(struct axi_jesd204_tx *jesd,
 			break;
 		}
 
-		writel_relaxed(val, jesd->base + JESD204_TX_REG_ILAS(lane_id, i));
+		writel_relaxed(val, jesd->base + JESD204_TX_REG_ILAS(lane, i));
 	}
 }
 
@@ -269,7 +269,7 @@ static int axi_jesd204_tx_apply_config(struct axi_jesd204_tx *jesd,
 	unsigned int octets_per_multiframe;
 	unsigned int multiframe_align;
 	unsigned int val;
-	unsigned int lane;
+	unsigned int lane, i;
 
 	octets_per_multiframe = config->frames_per_multiframe *
 		config->octets_per_frame;
@@ -298,10 +298,16 @@ static int axi_jesd204_tx_apply_config(struct axi_jesd204_tx *jesd,
 
 	writel_relaxed(val, jesd->base + JESD204_TX_REG_CONF0);
 
-	for (lane = 0; lane < jesd->num_lanes; lane++) {
-		if (jesd->encoder == JESD204_ENCODER_8B10B) {
-			unsigned int lane_id = config->lane_ids[lane];
-			axi_jesd204_tx_set_lane_ilas(jesd, config, lane_id);
+	if (jesd->encoder == JESD204_ENCODER_8B10B) {
+		for (i = 0, lane = 0; lane < jesd->num_lanes; lane++) {
+			unsigned int lane_id;
+
+			if (i >= config->num_lanes)
+				i = 0;
+
+			lane_id = config->lane_ids[i++];
+			axi_jesd204_tx_set_lane_ilas(jesd, config, lane_id, lane);
+
 		}
 	}
 
