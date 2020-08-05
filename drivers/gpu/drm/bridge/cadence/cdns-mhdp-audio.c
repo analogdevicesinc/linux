@@ -358,8 +358,8 @@ static void audio_shutdown(struct device *dev, void *data)
 		mhdp->audio_info.format = AFMT_UNUSED;
 }
 
-static int audio_digital_mute(struct device *dev, void *data,
-				     bool enable)
+static int audio_mute_stream(struct device *dev, void *data,
+				     bool enable, int direction)
 {
 	struct cdns_mhdp_device *mhdp = dev_get_drvdata(dev);
 	int ret;
@@ -392,9 +392,10 @@ static int audio_hook_plugged_cb(struct device *dev, void *data,
 static const struct hdmi_codec_ops audio_codec_ops = {
 	.hw_params = audio_hw_params,
 	.audio_shutdown = audio_shutdown,
-	.digital_mute = audio_digital_mute,
+	.mute_stream = audio_mute_stream,
 	.get_eld = audio_get_eld,
 	.hook_plugged_cb = audio_hook_plugged_cb,
+	.no_capture_mute = 1,
 };
 
 int cdns_mhdp_register_audio_driver(struct device *dev)
