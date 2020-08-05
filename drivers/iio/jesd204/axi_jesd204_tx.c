@@ -333,7 +333,7 @@ static int axi_jesd204_tx_parse_dt_config(struct device_node *np,
 	config->scrambling = true;
 	config->num_lanes = jesd->num_lanes;
 	config->jesd_version = JESD204_VERSION_B;
-	config->subclass = JESD204_SUBCLASS_0;
+	config->subclass = JESD204_SUBCLASS_1;
 	config->ctrl_bits_per_sample = 0;
 	config->samples_per_conv_frame = 1;
 	config->sysref.lmfc_offset = 0;
