@@ -34,6 +34,19 @@
 
 #include "adi-fmcomms8.dtsi"
 
+
+&hmc7044_fmc {
+	/* REF CLK (J14) -> On board REF (Y4) */
+	adi,pll1-ref-prio-ctrl = <0x1E>; /* CLKIN2 -> CLKIN3 -> CLKIN1 -> CLKIN0 */
+	adi,pll1-clkin-frequencies = <30720000 30720000 30720000 19200000>;
+
+	adi,clkin0-buffer-mode = <0x07>; /* AC + 100 Ohm Term */
+	adi,clkin1-buffer-mode = <0x09>; /* LVPECL */
+	adi,clkin2-buffer-mode = <0x5>;  /* AC */
+	adi,clkin3-buffer-mode = <0x11>; /* HIGH-Z */
+
+};
+
 &trx2_adrv9009 {
 	interrupt-parent = <&gpio>;
 	interrupts = <119 1>;
