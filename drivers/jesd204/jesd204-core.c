@@ -38,8 +38,8 @@ int jesd204_device_count_get()
 	return jesd204_device_count;
 }
 
-bool jesd204_dev_has_con_in_topology(struct jesd204_dev *jdev,
-				     struct jesd204_dev_top *jdev_top)
+static bool jesd204_dev_has_con_in_topology(struct jesd204_dev *jdev,
+					    struct jesd204_dev_top *jdev_top)
 {
 	struct jesd204_dev_con_out *c;
 	int i;
@@ -236,36 +236,38 @@ int jesd204_link_get_lmfc_lemc_rate(struct jesd204_link *lnk,
 }
 EXPORT_SYMBOL_GPL(jesd204_link_get_lmfc_lemc_rate);
 
-int jesd204_sysref_async(struct jesd204_dev *jdev)
+struct jesd204_dev_top *jesd204_dev_get_topology_top_dev(struct jesd204_dev *jdev)
 {
 	struct jesd204_dev_top *jdev_top = jesd204_dev_top_dev(jdev);
 
-	if (jdev_top) {
-		/* No SYSREF registered for this topology */
-		if (!jdev_top->jdev_sysref)
-			return 0;
+	if (jdev_top)
+		return jdev_top;
 
-		/* By now, this should have been validated to have sysref_cb() */
-		return jdev_top->jdev_sysref->sysref_cb(jdev_top->jdev_sysref);
-	}
-
-	/**
-	 * FIXME: need to think about a device potentially being in more
-	 * than one topology; this would trigger a SYSREF in all topologies
-	 * it belongs to; not sure if this a good idea, but we also
-	 * don't have any cases yet on this
-	 */
+	/* FIXME: enforce that one jdev object can only be in one topology */
 	list_for_each_entry(jdev_top, &jesd204_topologies, entry) {
 		if (!jesd204_dev_has_con_in_topology(jdev, jdev_top))
 			continue;
-
-		if (!jdev_top->jdev_sysref)
-			continue;
-
-		return jdev_top->jdev_sysref->sysref_cb(jdev_top->jdev_sysref);
+		return jdev_top;
 	}
 
-	return 0;
+	jesd204_warn(jdev, "Device isn't a top-device, nor does it belong to topology with top-device\n");
+
+	return NULL;
+}
+
+int jesd204_sysref_async(struct jesd204_dev *jdev)
+{
+	struct jesd204_dev_top *jdev_top = jesd204_dev_get_topology_top_dev(jdev);
+
+	if (!jdev_top)
+		return -EFAULT;
+
+	/* No SYSREF registered for this topology */
+	if (!jdev_top->jdev_sysref)
+		return 0;
+
+	/* By now, this should have been validated to have sysref_cb() */
+	return jdev_top->jdev_sysref->sysref_cb(jdev_top->jdev_sysref);
 }
 EXPORT_SYMBOL(jesd204_sysref_async);
 
@@ -274,11 +276,6 @@ bool jesd204_dev_is_top(struct jesd204_dev *jdev)
 	return jdev && jdev->is_top;
 }
 EXPORT_SYMBOL(jesd204_dev_is_top);
-
-struct list_head *jesd204_topologies_get(void)
-{
-	return &jesd204_topologies;
-}
 
 static inline bool dev_is_jesd204_dev(struct device *dev)
 {
