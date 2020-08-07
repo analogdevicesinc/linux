@@ -243,6 +243,7 @@ struct iio_event_spec {
  *			correspond to the first name that the channel is referred
  *			to by in the datasheet (e.g. IND), or the nearest
  *			possible compound name (e.g. IND-INC).
+ * @label_name:		Unique name to identify which channel this is.
  * @modified:		Does a modifier apply to this channel. What these are
  *			depends on the channel type.  Modifier is set in
  *			channel2. Examples are IIO_MOD_X for axial sensors about
@@ -280,6 +281,7 @@ struct iio_chan_spec {
 	const struct iio_chan_spec_ext_info *ext_info;
 	const char		*extend_name;
 	const char		*datasheet_name;
+	const char		*label_name;
 	unsigned		modified:1;
 	unsigned		indexed:1;
 	unsigned		output:1;
