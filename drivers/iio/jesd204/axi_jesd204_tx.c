@@ -641,6 +641,8 @@ static int axi_jesd204_tx_jesd204_clks_enable(struct jesd204_dev *jdev,
 		return JESD204_STATE_CHANGE_DONE;
 	}
 
+	writel_relaxed(0x1, jesd->base + JESD204_TX_REG_LINK_DISABLE);
+	udelay(1);
 	writel_relaxed(0x3, jesd->base + JESD204_TX_REG_SYSREF_STATUS);
 	writel_relaxed(0x0, jesd->base + JESD204_TX_REG_LINK_DISABLE);
 
