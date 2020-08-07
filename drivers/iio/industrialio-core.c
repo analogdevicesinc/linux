@@ -135,6 +135,7 @@ static const char * const iio_modifier_names[] = {
 /* relies on pairs of these shared then separate */
 static const char * const iio_chan_info_postfix[] = {
 	[IIO_CHAN_INFO_RAW] = "raw",
+	[IIO_CHAN_INFO_LABEL] = "label",
 	[IIO_CHAN_INFO_PROCESSED] = "input",
 	[IIO_CHAN_INFO_SCALE] = "scale",
 	[IIO_CHAN_INFO_OFFSET] = "offset",
@@ -654,14 +655,19 @@ static ssize_t iio_read_channel_info(struct device *dev,
 	int ret;
 	int val_len = 2;
 
-	if (indio_dev->info->read_raw_multi)
+	if (indio_dev->info->read_raw_multi) {
 		ret = indio_dev->info->read_raw_multi(indio_dev, this_attr->c,
 							INDIO_MAX_RAW_ELEMENTS,
 							vals, &val_len,
 							this_attr->address);
-	else
+	} else {
+		if (this_attr->address == IIO_CHAN_INFO_LABEL &&
+			this_attr->c->label_name)
+			return sprintf(buf, "%s\n", this_attr->c->label_name);
+
 		ret = indio_dev->info->read_raw(indio_dev, this_attr->c,
 				    &vals[0], &vals[1], this_attr->address);
+	}
 
 	if (ret < 0)
 		return ret;
@@ -1400,6 +1406,7 @@ static int iio_device_register_sysfs(struct iio_dev *indio_dev)
 			attrcount_orig++;
 	}
 	attrcount = attrcount_orig;
+
 	/*
 	 * New channel registration method - relies on the fact a group does
 	 * not need to be initialized if its name is NULL.
