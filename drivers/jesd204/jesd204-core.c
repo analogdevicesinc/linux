@@ -758,13 +758,13 @@ static struct jesd204_dev *jesd204_dev_register(struct device *dev,
 
 	jdev = jesd204_dev_from_device(dev);
 	if (jdev) {
-		jesd204_err(jdev, "Device already registered with framework\n");
+		dev_err(dev, "Device already registered with framework\n");
 		return ERR_PTR(-EEXIST);
 	}
 
 	jdev = jesd204_dev_find_by_of_node(dev->of_node);
 	if (!jdev) {
-		jesd204_err(jdev, "Device has no configuration node\n");
+		dev_err(dev, "Device has no configuration node\n");
 		return ERR_PTR(-ENODEV);
 	}
 
