@@ -998,29 +998,20 @@ static bool jesd204_fsm_table_end(const struct jesd204_fsm_table_entry *entry,
 	return entry->last;
 }
 
-static int jesd204_fsm_table(struct jesd204_dev *jdev,
-			     unsigned int link_idx,
-			     enum jesd204_dev_state init_state,
-			     const struct jesd204_fsm_table_entry *table,
-			     bool rollback,
-			     bool handle_busy_flags)
+static int jesd204_fsm_table_single(struct jesd204_dev *jdev,
+				    struct jesd204_dev_top *jdev_top,
+				    struct jesd204_fsm_data *data,
+				    enum jesd204_dev_state init_state,
+				    const struct jesd204_fsm_table_entry *table,
+				    bool rollback,
+				    bool handle_busy_flags)
 {
-	struct jesd204_fsm_table_entry_iter it;
-	struct jesd204_fsm_data data;
-	int cnt, ret, ret1;
+	struct jesd204_fsm_table_entry_iter *it = data->cb_data;
+	int ret, ret1, cnt;
 
 	cnt = jesd204_device_count_get();
-	it.per_device_ran = kcalloc(cnt, sizeof(bool), GFP_KERNEL);
-	if (!it.per_device_ran)
-		return -ENOMEM;
 
-	it.table = table;
-
-	memset(&data, 0, sizeof(data));
-	data.fsm_change_cb = jesd204_fsm_table_entry_cb;
-	data.fsm_complete_cb = jesd204_fsm_table_entry_done;
-	data.cb_data = &it;
-	data.link_idx = link_idx;
+	it->table = table;
 
 	ret1 = 0;
 	ret = 0;
@@ -1028,16 +1019,16 @@ static int jesd204_fsm_table(struct jesd204_dev *jdev,
 	 * FIXME: the handle_busy_flags logic needs re-visit, we should lock
 	 * here and unlock after the loop is done
 	 */
-	while (!jesd204_fsm_table_end(&it.table[0], rollback)) {
-		memset(it.per_device_ran, 0, sizeof(bool) * cnt);
-		it.table = table;
+	while (!jesd204_fsm_table_end(&it->table[0], rollback)) {
+		memset(it->per_device_ran, 0, sizeof(bool) * cnt);
+		it->table = table;
 
-		data.completed = false;
-		data.cur_state = init_state;
-		data.nxt_state = table[0].state;
-		data.rollback = rollback;
+		data->completed = false;
+		data->cur_state = init_state;
+		data->nxt_state = table[0].state;
+		data->rollback = rollback;
 
-		ret = jesd204_fsm(jdev, &data, handle_busy_flags);
+		ret = __jesd204_fsm(jdev, jdev_top, data, handle_busy_flags);
 
 		if (ret && !rollback) {
 			ret1 = ret;
@@ -1049,7 +1040,7 @@ static int jesd204_fsm_table(struct jesd204_dev *jdev,
 			continue;
 		}
 
-		if (!data.completed && !rollback)
+		if (!data->completed && !rollback)
 			break;
 
 		init_state = table[0].state;
@@ -1060,9 +1051,53 @@ static int jesd204_fsm_table(struct jesd204_dev *jdev,
 			table++;
 	}
 
+	return ret1;
+}
+
+static int jesd204_fsm_table(struct jesd204_dev *jdev,
+			     unsigned int link_idx,
+			     enum jesd204_dev_state init_state,
+			     const struct jesd204_fsm_table_entry *table,
+			     bool rollback,
+			     bool handle_busy_flags)
+{
+	struct jesd204_dev_top *jdev_top = jesd204_dev_get_topology_top_dev(jdev);
+	struct jesd204_fsm_table_entry_iter it;
+	struct jesd204_fsm_data data;
+	unsigned int num_retries;
+	int cnt, ret;
+
+	if (!jdev_top)
+		return -EFAULT;
+
+	cnt = jesd204_device_count_get();
+	it.per_device_ran = kcalloc(cnt, sizeof(bool), GFP_KERNEL);
+	if (!it.per_device_ran)
+		return -ENOMEM;
+
+	memset(&data, 0, sizeof(data));
+	data.fsm_change_cb = jesd204_fsm_table_entry_cb;
+	data.fsm_complete_cb = jesd204_fsm_table_entry_done;
+	data.cb_data = &it;
+	data.link_idx = link_idx;
+
+	num_retries = jdev_top->num_retries;
+
+	do {
+		ret = jesd204_fsm_table_single(jdev, jdev_top, &data,
+					       init_state, table, rollback,
+					       handle_busy_flags);
+		/**
+		 * If we got an error, we rolled-back, we should be in IDLE
+		 * for the next retry
+		 */
+		if (ret)
+			init_state = JESD204_STATE_IDLE;
+	} while (ret && num_retries--);
+
 	kfree(it.per_device_ran);
 
-	return ret1;
+	return ret;
 }
 
 void jesd204_fsm_stop(struct jesd204_dev *jdev, unsigned int link_idx)
