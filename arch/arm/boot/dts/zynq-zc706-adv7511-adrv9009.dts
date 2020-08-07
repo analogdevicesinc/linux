@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Analog Devices ADRV9008-1
+ * Analog Devices ADRV9009
  * https://wiki.analog.com/resources/eval/user-guides/adrv9009
  * https://wiki.analog.com/resources/tools-software/linux-drivers/iio-transceiver/adrv9009
  * https://wiki.analog.com/resources/tools-software/linux-software/adrv9009_advanced_plugin
