@@ -167,6 +167,7 @@ struct jesd204_link_opaque {
  * @entry		list entry for the framework to keep a list of top
  *			devices (and implicitly topologies)
  * @initialized		true the topoology connections have been initialized
+ * @num_retries		number of retries if an error occurs
  * @jdev_sysref		reference to the object that is the SYSREF provider for this topology
  * @fsm_data		ref to JESD204 FSM data for JESD204_LNK_FSM_PARALLEL
  * @cb_ref		kref which for each JESD204 link will increment when it
@@ -178,15 +179,16 @@ struct jesd204_link_opaque {
  *			(connections should match against this)
  * @link_ids		JESD204 link IDs for this top-level device
  *			(connections should match against this)
+ * @num_links		number of links
  * @init_links		initial settings passed from the driver
  * @active_links	active JESD204 link settings
  * @staged_links	JESD204 link settings staged to be committed as active
- * @num_links		number of links
  */
 struct jesd204_dev_top {
 	struct jesd204_dev		jdev;
 	struct list_head		entry;
 	bool				initialized;
+	unsigned int			num_retries;
 
 	struct jesd204_dev		*jdev_sysref;
 

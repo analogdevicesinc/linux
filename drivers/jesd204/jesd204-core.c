@@ -742,6 +742,18 @@ static int jesd204_dev_init_links_data(struct device *parent,
 	return 0;
 }
 
+static void jesd204_dev_init_top_data(struct jesd204_dev *jdev,
+				      const struct jesd204_dev_data *init)
+{
+	struct jesd204_dev_top *jdev_top;
+
+	jdev_top = jesd204_dev_top_dev(jdev);
+	if (!jdev_top)
+		return;
+
+	jdev_top->num_retries = init->num_retries;
+}
+
 static struct jesd204_dev *jesd204_dev_register(struct device *dev,
 						const struct jesd204_dev_data *init)
 {
@@ -768,6 +780,8 @@ static struct jesd204_dev *jesd204_dev_register(struct device *dev,
 	ret = jesd204_dev_init_links_data(dev, jdev, init);
 	if (ret)
 		return ERR_PTR(ret);
+
+	jesd204_dev_init_top_data(jdev, init);
 
 	jdev->dev.parent = dev;
 	jdev->sysref_cb = init->sysref_cb;
