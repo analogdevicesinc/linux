@@ -721,23 +721,12 @@ static int jesd204_fsm(struct jesd204_dev *jdev,
 		       struct jesd204_fsm_data *data,
 		       bool handle_busy_flags)
 {
-	struct list_head *jesd204_topologies = jesd204_topologies_get();
-	struct jesd204_dev_top *jdev_top = jesd204_dev_top_dev(jdev);
-	int ret;
+	struct jesd204_dev_top *jdev_top = jesd204_dev_get_topology_top_dev(jdev);
 
-	if (jdev_top)
-		return __jesd204_fsm(jdev, jdev_top, data, handle_busy_flags);
+	if (!jdev_top)
+		return -EFAULT;
 
-	list_for_each_entry(jdev_top, jesd204_topologies, entry) {
-		if (!jesd204_dev_has_con_in_topology(jdev, jdev_top))
-			continue;
-
-		ret = __jesd204_fsm(jdev, jdev_top, data, handle_busy_flags);
-		if (ret)
-			return ret;
-	}
-
-	return 0;
+	return __jesd204_fsm(jdev, jdev_top, data, handle_busy_flags);
 }
 
 static int jesd204_dev_initialize_cb(struct jesd204_dev *jdev,
