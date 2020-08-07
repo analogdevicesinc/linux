@@ -37,6 +37,7 @@ enum iio_available_type {
 
 enum iio_chan_info_enum {
 	IIO_CHAN_INFO_RAW = 0,
+	IIO_CHAN_INFO_LABEL,
 	IIO_CHAN_INFO_PROCESSED,
 	IIO_CHAN_INFO_SCALE,
 	IIO_CHAN_INFO_OFFSET,
