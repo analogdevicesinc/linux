@@ -221,18 +221,18 @@ enum jesd204_dev_op {
 
 /**
  * struct jesd204_dev_data - JESD204 device initialization data
- * @state_ops		ops for each state transition of type @struct jesd204_state_op
  * @sysref_cb		SYSREF callback, if this device/driver supports it
  * @sizeof_priv		amount of data to allocate for private information
  * @links		JESD204 initial link configuration
  * @num_links		number of JESD204 links
+ * @state_ops		ops for each state transition of type @struct jesd204_state_op
  */
 struct jesd204_dev_data {
-	struct jesd204_state_op			state_ops[__JESD204_MAX_OPS];
 	jesd204_sysref_cb			sysref_cb;
 	size_t					sizeof_priv;
 	const struct jesd204_link		*links;
 	unsigned int				num_links;
+	struct jesd204_state_op			state_ops[__JESD204_MAX_OPS];
 };
 
 #ifdef CONFIG_JESD204
