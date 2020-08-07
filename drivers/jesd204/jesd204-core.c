@@ -830,6 +830,7 @@ static void jesd204_of_unregister_devices(void)
 		jesd204_dev_unregister(jdev);
 		jesd204_dev_destroy_cons(jdev);
 		of_node_put(jdev->np);
+		list_del(&jdev->entry);
 		jesd204_device_count--;
 		if (!jdev->is_top) {
 			kfree(jdev);
