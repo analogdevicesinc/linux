@@ -19,6 +19,7 @@
 #include <linux/mfd/syscon.h>
 #include <linux/iopoll.h>
 #include <linux/regulator/consumer.h>
+#include <linux/pm_runtime.h>
 
 #define DRIVER_NAME "mxs_phy"
 
@@ -608,7 +609,9 @@ static int mxs_phy_suspend(struct usb_phy *x, int suspend)
 			(mxs_phy->data->flags &
 				MXS_PHY_HARDWARE_CONTROL_PHY2_CLK)))
 			clk_disable_unprepare(mxs_phy->clk);
+		pm_runtime_put(x->dev);
 	} else {
+		pm_runtime_get_sync(x->dev);
 		mxs_phy_clock_switch_delay();
 		if (!(mxs_phy->port_id == 1 &&
 			(mxs_phy->data->flags &
@@ -1101,6 +1104,10 @@ static int mxs_phy_probe(struct platform_device *pdev)
 
 	device_set_wakeup_capable(&pdev->dev, true);
 
+	pm_runtime_set_active(&pdev->dev);
+	pm_runtime_enable(&pdev->dev);
+	pm_runtime_get_noresume(&pdev->dev);
+
 	return usb_add_phy_dev(&mxs_phy->phy);
 }
 
@@ -1109,7 +1116,12 @@ static void mxs_phy_remove(struct platform_device *pdev)
 	struct mxs_phy *mxs_phy = platform_get_drvdata(pdev);
 
 	usb_remove_phy(&mxs_phy->phy);
+	pm_runtime_get_sync(&pdev->dev);
+	pm_runtime_disable(&pdev->dev);
+	pm_runtime_put_noidle(&pdev->dev);
 }
+
+#ifdef CONFIG_PM
 
 #ifdef CONFIG_PM_SLEEP
 static void mxs_phy_wakeup_enable(struct mxs_phy *mxs_phy, bool on)
@@ -1177,12 +1189,29 @@ static int mxs_phy_system_resume(struct device *dev)
 		mxs_phy_wakeup_enable(mxs_phy, false);
 	}
 
+	pm_runtime_disable(dev);
+	pm_runtime_set_active(dev);
+	pm_runtime_enable(dev);
+
 	return 0;
 }
 #endif /* CONFIG_PM_SLEEP */
 
-static SIMPLE_DEV_PM_OPS(mxs_phy_pm, mxs_phy_system_suspend,
-		mxs_phy_system_resume);
+static int mxs_phy_runtime_resume(struct device *dev)
+{
+	return 0;
+}
+
+static int mxs_phy_runtime_suspend(struct device *dev)
+{
+	return 0;
+}
+#endif /* CONFIG_PM */
+
+static const struct dev_pm_ops mxs_phy_pm_ops = {
+	SET_SYSTEM_SLEEP_PM_OPS(mxs_phy_system_suspend, mxs_phy_system_resume)
+	SET_RUNTIME_PM_OPS(mxs_phy_runtime_suspend, mxs_phy_runtime_resume, NULL)
+};
 
 static struct platform_driver mxs_phy_driver = {
 	.probe = mxs_phy_probe,
@@ -1190,7 +1219,7 @@ static struct platform_driver mxs_phy_driver = {
 	.driver = {
 		.name = DRIVER_NAME,
 		.of_match_table = mxs_phy_dt_ids,
-		.pm = &mxs_phy_pm,
+		.pm = &mxs_phy_pm_ops,
 	 },
 };
 
