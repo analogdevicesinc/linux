@@ -6,6 +6,7 @@ config KERNEL_ALL_ADI_DRIVERS
 	select SPI
 	select I2C
 	select IIO
+	select PWM
 	select JESD204
 	select STAGING
 	select FB_TFT
@@ -56,6 +57,7 @@ config KERNEL_ALL_ADI_DRIVERS
 	select IEEE802154_DRIVERS
 	select IEEE802154_ADF7242
 	select PMIC_ADP5520
+	select PWM_AXI_PWMGEN
 	select LEDS_ADP5520
 	select BACKLIGHT_ADP5520
 	select BACKLIGHT_ADP8860
