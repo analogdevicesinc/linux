@@ -380,6 +380,11 @@
 #define DPTX_FORCE_LANES			0x10
 #define DPTX_HPD_STATE				0x11
 #define DPTX_ADJUST_LT				0x12
+#define DPTX_I2C_READ              0x15
+#define DPTX_I2C_WRITE             0x16
+#define DPTX_GET_LAST_I2C_STATUS   0x17
+
+
 
 /* HDMI TX opcode */
 #define HDMI_TX_READ				0x00
@@ -818,6 +823,12 @@ u32 cdns_mhdp_get_event(struct cdns_mhdp_device *mhdp);
 int cdns_mhdp_dpcd_write(struct cdns_mhdp_device *mhdp, u32 addr, u8 value);
 int cdns_mhdp_dpcd_read(struct cdns_mhdp_device *mhdp,
 			u32 addr, u8 *data, u16 len);
+
+int cdns_mhdp_get_last_i2c_status(struct cdns_mhdp_device *mhdp, u8 *resp);
+int cdns_mhdp_i2c_write(struct cdns_mhdp_device *mhdp, u8 addr,
+			u8 *value, u8 mot, u16 len, u16 *respLength);
+int cdns_mhdp_i2c_read(struct cdns_mhdp_device *mhdp, u8 addr, u8 *data,
+	u16 len, u8 mot, u16 *respLength);
 int cdns_mhdp_get_edid_block(void *mhdp, u8 *edid,
 			     unsigned int block, size_t length);
 int cdns_mhdp_train_link(struct cdns_mhdp_device *mhdp);

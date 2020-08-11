@@ -35,22 +35,16 @@ static ssize_t dp_aux_transfer(struct drm_dp_aux *aux,
 	bool native = msg->request & (DP_AUX_NATIVE_WRITE & DP_AUX_NATIVE_READ);
 	int ret;
 
-	/* Ignore address only message */
-	if ((msg->size == 0) || (msg->buffer == NULL)) {
-		msg->reply = native ?
-			DP_AUX_NATIVE_REPLY_ACK : DP_AUX_I2C_REPLY_ACK;
+	/* Ignore address only message , for native */
+	if ((native == true) && ((msg->size == 0) || (msg->buffer == NULL))) {
+		msg->reply = DP_AUX_NATIVE_REPLY_ACK;
 		return msg->size;
-	}
-
-	if (!native) {
-		dev_err(mhdp->dev, "%s: only native messages supported\n", __func__);
-		return -EINVAL;
 	}
 
 	/* msg sanity check */
 	if (msg->size > DP_AUX_MAX_PAYLOAD_BYTES) {
 		dev_err(mhdp->dev, "%s: invalid msg: size(%zu), request(%x)\n",
-						__func__, msg->size, (unsigned int)msg->request);
+			__func__, msg->size, (unsigned int)msg->request);
 		return -EINVAL;
 	}
 
@@ -72,12 +66,96 @@ static ssize_t dp_aux_transfer(struct drm_dp_aux *aux,
 	}
 
 	if (msg->request == DP_AUX_NATIVE_READ) {
-		ret = cdns_mhdp_dpcd_read(mhdp, msg->address, msg->buffer, msg->size);
+		ret = cdns_mhdp_dpcd_read(mhdp, msg->address, msg->buffer,
+					  msg->size);
 		if (ret < 0)
 			return -EIO;
 		msg->reply = DP_AUX_NATIVE_REPLY_ACK;
 		return msg->size;
 	}
+
+	if (((msg->request & ~DP_AUX_I2C_MOT) == DP_AUX_I2C_WRITE)
+	    || ((msg->request & ~DP_AUX_I2C_MOT) ==
+		DP_AUX_I2C_WRITE_STATUS_UPDATE)) {
+
+		u8 i2c_status = 0u;
+		u16 respSize = 0u;
+
+		ret =  cdns_mhdp_i2c_write(mhdp, msg->address,
+					   msg->buffer,
+					   !!(msg->request & DP_AUX_I2C_MOT),
+					   msg->size, &respSize);
+
+		if (ret < 0) {
+			dev_err(aux->dev, "cdns_mhdp_i2c_write status %d\n",
+				ret);
+			return -EIO;
+		}
+
+		ret = cdns_mhdp_get_last_i2c_status(mhdp, &i2c_status);
+		if (ret < 0) {
+			dev_err(aux->dev,
+				"cdns_mhdp_get_last_i2c_status status %d\n",
+				ret);
+			return -EIO;
+		}
+
+		switch (i2c_status) {
+		case 0u:
+			msg->reply = DP_AUX_I2C_REPLY_ACK;
+			break;
+		case 1u:
+			msg->reply = DP_AUX_I2C_REPLY_NACK;
+			break;
+		case 2u:
+			msg->reply = DP_AUX_I2C_REPLY_DEFER;
+			break;
+		default:
+			msg->reply = DP_AUX_I2C_REPLY_NACK;
+			break;
+		}
+
+		return respSize;
+	}
+
+	if ((msg->request & ~DP_AUX_I2C_MOT) == DP_AUX_I2C_READ) {
+
+		u8 i2c_status = 0u;
+		u16 respSize = 0u;
+
+		ret = cdns_mhdp_i2c_read(mhdp, msg->address, msg->buffer,
+					 msg->size,
+					 !!(msg->request & DP_AUX_I2C_MOT),
+					 &respSize);
+		if (ret < 0)
+			return -EIO;
+
+		ret = cdns_mhdp_get_last_i2c_status(mhdp, &i2c_status);
+
+		if (ret < 0) {
+			dev_err(aux->dev,
+				"cdns_mhdp_get_last_i2c_status ret %d\n", ret);
+			return -EIO;
+		}
+
+		switch (i2c_status) {
+		case 0u:
+			msg->reply = DP_AUX_I2C_REPLY_ACK;
+			break;
+		case 1u:
+			msg->reply = DP_AUX_I2C_REPLY_NACK;
+			break;
+		case 2u:
+			msg->reply = DP_AUX_I2C_REPLY_DEFER;
+			break;
+		default:
+			msg->reply = DP_AUX_I2C_REPLY_NACK;
+			break;
+		}
+
+		return respSize;
+	}
+
 	return 0;
 }
 

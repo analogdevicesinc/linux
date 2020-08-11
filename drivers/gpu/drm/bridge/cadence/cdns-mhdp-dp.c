@@ -39,6 +39,41 @@ err_dpcd_read:
 }
 EXPORT_SYMBOL(cdns_mhdp_dpcd_read);
 
+int cdns_mhdp_i2c_read(struct cdns_mhdp_device *mhdp, u8 addr, u8 *data,
+	 u16 len, u8 mot, u16 *respLength)
+{
+	u8 msg[5], reg[3];
+	int ret;
+
+	put_unaligned_be16(len, msg);
+	msg[2] = addr;
+	msg[3] = mot;
+
+	ret = cdns_mhdp_mailbox_send(mhdp, MB_MODULE_ID_DP_TX,
+				     DPTX_I2C_READ, sizeof(msg), msg);
+	if (ret)
+		goto err_i2c_read;
+
+	ret = cdns_mhdp_mailbox_validate_receive(mhdp, MB_MODULE_ID_DP_TX,
+						 DPTX_I2C_READ,
+						 sizeof(reg) + len);
+	if (ret)
+		goto err_i2c_read;
+
+	ret = cdns_mhdp_mailbox_read_receive(mhdp, reg, sizeof(reg));
+	if (ret)
+		goto err_i2c_read;
+
+	ret = cdns_mhdp_mailbox_read_receive(mhdp, data, len);
+	*respLength = (reg[0] << 8u) + reg[1];
+
+err_i2c_read:
+	if (ret)
+		DRM_DEV_ERROR(mhdp->dev, "i2c read failed: %d\n", ret);
+	return ret;
+}
+EXPORT_SYMBOL(cdns_mhdp_i2c_read);
+
 int cdns_mhdp_dpcd_write(struct cdns_mhdp_device *mhdp, u32 addr, u8 value)
 {
 	u8 msg[6], reg[5];
@@ -71,6 +106,75 @@ err_dpcd_write:
 	return ret;
 }
 EXPORT_SYMBOL(cdns_mhdp_dpcd_write);
+
+int cdns_mhdp_i2c_write(struct cdns_mhdp_device *mhdp, u8 addr, u8 *value,
+	 u8 mot, u16 len, u16 *respLength)
+{
+	u8 msg[4+DP_AUX_MAX_PAYLOAD_BYTES], reg[3];
+	int ret;
+
+	put_unaligned_be16(len, msg);
+	msg[2] = addr;
+	msg[3] = mot;
+	memcpy(&msg[4], value, len);
+
+
+	ret = cdns_mhdp_mailbox_send(mhdp, MB_MODULE_ID_DP_TX,
+				     DPTX_I2C_WRITE, sizeof(msg), msg);
+	if (ret)
+		goto err_i2c_write;
+
+	ret = cdns_mhdp_mailbox_validate_receive(mhdp, MB_MODULE_ID_DP_TX,
+						 DPTX_I2C_WRITE, sizeof(reg));
+	if (ret)
+		goto err_i2c_write;
+
+	ret = cdns_mhdp_mailbox_read_receive(mhdp, reg, sizeof(reg));
+	if (ret)
+		goto err_i2c_write;
+
+	if (addr != reg[2])
+		ret = -EINVAL;
+
+	*respLength = (reg[0]<<8u) + reg[1];
+
+err_i2c_write:
+	if (ret)
+		DRM_DEV_ERROR(mhdp->dev, "i2c write failed: %d\n", ret);
+	return ret;
+}
+EXPORT_SYMBOL(cdns_mhdp_i2c_write);
+
+
+int cdns_mhdp_get_last_i2c_status(struct cdns_mhdp_device *mhdp, u8 *resp)
+{
+	u8 status[1];
+	int ret;
+
+	ret = cdns_mhdp_mailbox_send(mhdp, MB_MODULE_ID_DP_TX,
+				     DPTX_GET_LAST_I2C_STATUS, 0, NULL);
+	if (ret)
+		goto err_get_i2c_status;
+
+	ret = cdns_mhdp_mailbox_validate_receive(mhdp, MB_MODULE_ID_DP_TX,
+						 DPTX_GET_LAST_I2C_STATUS,
+						 sizeof(status));
+	if (ret)
+		goto err_get_i2c_status;
+
+	ret = cdns_mhdp_mailbox_read_receive(mhdp, status, sizeof(status));
+	if (ret)
+		goto err_get_i2c_status;
+
+	*resp = status[0];
+
+err_get_i2c_status:
+	if (ret)
+		DRM_DEV_ERROR(mhdp->dev, "get i2c status failed: %d\n",
+			      ret);
+	return ret;
+}
+EXPORT_SYMBOL(cdns_mhdp_get_last_i2c_status);
 
 static int cdns_mhdp_training_start(struct cdns_mhdp_device *mhdp)
 {
