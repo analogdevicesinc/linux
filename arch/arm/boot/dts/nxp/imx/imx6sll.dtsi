@@ -219,7 +219,7 @@
 				};
 
 				ecspi1: spi@2008000 {
-					compatible ="fsl,imx51-ecspi";
+					compatible ="fsl,imx6ul-ecspi";
 					reg = <0x02008000 0x4000>;
 					interrupts = <GIC_SPI 31 IRQ_TYPE_LEVEL_HIGH>;
 					dmas = <&sdma 3 7 1>, <&sdma 4 7 2>;
@@ -231,7 +231,7 @@
 				};
 
 				ecspi2: spi@200c000 {
-					compatible = "fsl,imx51-ecspi";
+					compatible = "fsl,imx6ul-ecspi";
 					reg = <0x0200c000 0x4000>;
 					interrupts = <GIC_SPI 32 IRQ_TYPE_LEVEL_HIGH>;
 					dmas = <&sdma 5 7 1>, <&sdma 6 7 2>;
@@ -243,7 +243,7 @@
 				};
 
 				ecspi3: spi@2010000 {
-					compatible = "fsl,imx51-ecspi";
+					compatible = "fsl,imx6ul-ecspi";
 					reg = <0x02010000 0x4000>;
 					interrupts = <GIC_SPI 33 IRQ_TYPE_LEVEL_HIGH>;
 					dmas = <&sdma 7 7 1>, <&sdma 8 7 2>;
@@ -255,7 +255,7 @@
 				};
 
 				ecspi4: spi@2014000 {
-					compatible = "fsl,imx51-ecspi";
+					compatible = "fsl,imx6ul-ecspi";
 					reg = <0x02014000 0x4000>;
 					interrupts = <GIC_SPI 34 IRQ_TYPE_LEVEL_HIGH>;
 					dmas = <&sdma 9 7 1>, <&sdma 10 7 2>;
