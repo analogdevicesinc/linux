@@ -309,8 +309,12 @@ dprc_dpu_gpr_configure(struct dprc *dprc, unsigned int stream_id)
 static inline void
 dprc_prg_sel_configure(struct dprc *dprc, u32 resource, bool enable)
 {
-	imx_sc_misc_set_control(dprc->ipc_handle,
+	int ret;
+
+	ret = imx_sc_misc_set_control(dprc->ipc_handle,
 				resource, IMX_SC_C_SEL0, enable);
+	if (ret)
+		dev_warn(dprc->dev, "failed to set SEL0: %d\n", ret);
 }
 
 void dprc_configure(struct dprc *dprc, unsigned int stream_id,
