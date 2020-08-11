@@ -103,6 +103,7 @@ struct jesd204_dev_con_out {
  * @is_sysref_provider	true if this device wants to be a SYSREF provider
  * @error		error code for this device if something happened
  * @state_ops		ops for each state transition of type @struct jesd204_state_ops
+ * @sysfs_attr_group	attribute group for the sysfs files of this JESD204 device
  * @np			reference in the device-tree for this JESD204 device
  * @ref			ref count for this JESD204 device
  * @inputs		array of pointers to output connections from other
@@ -128,11 +129,16 @@ struct jesd204_dev {
 	const struct jesd204_state_op	*state_ops;
 	struct device_node		*np;
 
+	struct attribute_group		sysfs_attr_group;
+
 	struct jesd204_dev_con_out	**inputs;
 	unsigned int			inputs_count;
 	struct list_head		outputs;
 	unsigned int			outputs_count;
 };
+
+#define dev_to_jesd204_dev(dev)		\
+	container_of(dev, struct jesd204_dev, dev)
 
 /**
  * struct jesd204_link_opaque - JESD204 link information (opaque part)
@@ -224,5 +230,8 @@ int jesd204_dev_init_link_data(struct jesd204_dev_top *jdev_top,
 int jesd204_init_topology(struct jesd204_dev_top *jdev_top);
 
 int jesd204_fsm_probe(struct jesd204_dev *jdev);
+
+int jesd204_dev_create_sysfs(struct jesd204_dev *jdev);
+void jesd204_dev_destroy_sysfs(struct jesd204_dev *jdev);
 
 #endif /* _JESD204_PRIV_H_ */
