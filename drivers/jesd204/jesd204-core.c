@@ -805,6 +805,10 @@ static struct jesd204_dev *jesd204_dev_register(struct device *dev,
 		}
 	}
 
+	ret = jesd204_dev_create_sysfs(jdev);
+	if (ret)
+		goto err_device_del;
+
 	return jdev;
 
 err_device_del:
@@ -862,6 +866,8 @@ static void jesd204_dev_unregister(struct jesd204_dev *jdev)
 {
 	if (IS_ERR_OR_NULL(jdev))
 		return;
+
+	jesd204_dev_destroy_sysfs(jdev);
 
 	if (jdev->dev.parent)
 		device_del(&jdev->dev);
