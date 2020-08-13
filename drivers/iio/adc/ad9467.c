@@ -1,9 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-only
 /*
- * AD9467 SPI ADC driver for DDS PCORE/COREFPGA Module
+ * Analog Devices AD9467 SPI ADC driver
  *
- * Copyright 2012-2014 Analog Devices Inc.
- *
- * Licensed under the GPL-2.
+ * Copyright 2012-2020 Analog Devices Inc.
  */
 
 #include <linux/module.h>
@@ -14,7 +13,8 @@
 #include <linux/err.h>
 #include <linux/delay.h>
 #include <linux/gpio/consumer.h>
-#include <linux/of.h>
+#include <linux/of_device.h>
+
 
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
@@ -27,7 +27,8 @@
 
 /*
  * ADI High-Speed ADC common spi interface registers
- * See Application-Note AN-877
+ * See Application-Note AN-877:
+ *   https://www.analog.com/media/en/technical-documentation/application-notes/AN-877.pdf
  */
 
 #define ADC_REG_CHIP_PORT_CONF		0x00
@@ -1270,5 +1271,5 @@ static struct spi_driver ad9467_driver = {
 module_spi_driver(ad9467_driver);
 
 MODULE_AUTHOR("Michael Hennerich <michael.hennerich@analog.com>");
-MODULE_DESCRIPTION("Analog Devices AD9467 ADC");
+MODULE_DESCRIPTION("Analog Devices AD9467 ADC driver");
 MODULE_LICENSE("GPL v2");
