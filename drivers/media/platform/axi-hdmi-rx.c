@@ -869,7 +869,7 @@ static int axi_hdmi_rx_probe(struct platform_device *pdev)
 	struct device_node *ep_node;
 	struct axi_hdmi_rx *hdmi_rx;
 	struct resource *res;
-	struct v4l2_fwnode_endpoint bus_cfg;
+	struct v4l2_fwnode_endpoint bus_cfg = { .bus_type = V4L2_MBUS_UNKNOWN };
 	int ret;
 
 	hdmi_rx = devm_kzalloc(&pdev->dev, sizeof(*hdmi_rx), GFP_KERNEL);
