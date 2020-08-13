@@ -9,7 +9,6 @@
 
 #include <linux/dmapool.h>
 
-#include "pfe_mod.h"
 #include "pfe/pfe.h"
 
 #define DMA_BUF_SIZE_128	0x80	/* enough for 1 conntracks */
