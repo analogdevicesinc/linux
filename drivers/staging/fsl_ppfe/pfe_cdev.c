@@ -201,6 +201,7 @@ int pfe_cdev_init(void)
 	if (IS_ERR(pfe_char_class)) {
 		pr_err(
 		"Failed to init class for PFE CDEV. PFE CDEV not available.\n");
+		ret = PTR_ERR(pfe_char_class);
 		goto cleanup;
 	}
 
@@ -232,7 +233,6 @@ cleanup:
 	if (pfe_majno > 0)
 		unregister_chrdev(pfe_majno, PFE_CDEV_NAME);
 
-	ret = -EFAULT;
 	return ret;
 }
 
