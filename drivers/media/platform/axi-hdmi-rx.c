@@ -748,6 +748,7 @@ static int axi_hdmi_rx_nodes_register(struct axi_hdmi_rx *hdmi_rx)
 		 "%s", hdmi_rx->v4l2_dev.name);
 	vdev->v4l2_dev = &hdmi_rx->v4l2_dev;
 	vdev->fops = &axi_hdmi_rx_fops;
+	vdev->device_caps = V4L2_CAP_VIDEO_CAPTURE | V4L2_CAP_STREAMING;
 	vdev->release = video_device_release_empty;
 	vdev->ctrl_handler = s->subdev->ctrl_handler;
 	vdev->lock = &s->lock;
