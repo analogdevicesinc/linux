@@ -181,30 +181,27 @@ static int ad9467_spi_read(struct spi_device *spi, unsigned reg)
 	return -ENODEV;
 }
 
-static int ad9467_spi_write(struct spi_device *spi, unsigned reg, unsigned val)
+static int ad9467_spi_write(struct spi_device *spi, unsigned int reg,
+			    unsigned int val)
 {
 	unsigned char buf[3];
 	int ret;
 
-	if (spi) {
-		buf[0] = reg >> 8;
-		buf[1] = reg & 0xFF;
-		buf[2] = val;
-		ret = spi_write_then_read(spi, buf, 3, NULL, 0);
-		if (ret < 0)
-			return ret;
+	buf[0] = reg >> 8;
+	buf[1] = reg & 0xFF;
+	buf[2] = val;
+	ret = spi_write_then_read(spi, buf, 3, NULL, 0);
+	if (ret < 0)
+		return ret;
 
-		dev_dbg(&spi->dev, "%s: REG: 0x%X VAL: 0x%X (%d)\n",
-			__func__, reg, val, ret);
+	dev_dbg(&spi->dev, "%s: REG: 0x%X VAL: 0x%X (%d)\n",
+		__func__, reg, val, ret);
 
-		if ((reg == AN877_ADC_REG_TRANSFER) && (val == AN877_ADC_TRANSFER_SYNC) &&
-		    (spi_get_device_id(spi)->driver_data == CHIPID_AD9265))
-			ad9467_spi_write(spi, AN877_ADC_REG_TRANSFER, 0);
+	if ((reg == AN877_ADC_REG_TRANSFER) && (val == AN877_ADC_TRANSFER_SYNC) &&
+	    (spi_get_device_id(spi)->driver_data == CHIPID_AD9265))
+		return ad9467_spi_write(spi, AN877_ADC_REG_TRANSFER, 0);
 
-		return 0;
-	}
-
-	return -ENODEV;
+	return 0;
 }
 
 static int ad9467_reg_access(struct iio_dev *indio_dev, unsigned int reg,
