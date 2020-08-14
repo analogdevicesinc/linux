@@ -1121,24 +1121,25 @@ static int ad9467_probe(struct spi_device *spi)
 	conv->adc_clkscale.mult = 1;
 	conv->adc_clkscale.div = 1;
 
-	spi_set_drvdata(spi, conv);
-	conv->spi = spi;
+	st->pwrdown_gpio = devm_gpiod_get_optional(&spi->dev, "powerdown",
+						   GPIOD_OUT_LOW);
+	if (IS_ERR(st->pwrdown_gpio))
+		return PTR_ERR(st->pwrdown_gpio);
 
-	conv->pwrdown_gpio = devm_gpiod_get_optional(&spi->dev, "powerdown",
-		GPIOD_OUT_LOW);
-	if (IS_ERR(conv->pwrdown_gpio))
-		return PTR_ERR(conv->pwrdown_gpio);
+	st->reset_gpio = devm_gpiod_get_optional(&spi->dev, "reset",
+						 GPIOD_OUT_LOW);
+	if (IS_ERR(st->reset_gpio))
+		return PTR_ERR(st->reset_gpio);
 
-	conv->reset_gpio = devm_gpiod_get_optional(&spi->dev, "reset", GPIOD_OUT_LOW);
-	if (IS_ERR(conv->reset_gpio))
-		return PTR_ERR(conv->reset_gpio);
-
-	if (conv->reset_gpio) {
+	if (st->reset_gpio) {
 		udelay(1);
-		ret = gpiod_direction_output(conv->reset_gpio, 1);
+		ret = gpiod_direction_output(st->reset_gpio, 1);
+		if (ret)
+			return ret;
+		mdelay(10);
 	}
 
-	mdelay(10);
+	spi_set_drvdata(spi, st);
 
 	conv->id = ad9467_spi_read(spi, AN877_ADC_REG_CHIP_ID);
 	if (conv->id != spi_get_device_id(spi)->driver_data) {
