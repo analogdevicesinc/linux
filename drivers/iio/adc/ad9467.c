@@ -1086,6 +1086,74 @@ static int ad9467_post_setup(struct iio_dev *indio_dev)
 	return 0;
 }
 
+static int ad9467_setup(struct axiadc_converter *st, unsigned int chip_id)
+{
+	struct spi_device *spi = st->spi;
+	int ret;
+
+	st->adc_output_mode = AN877_ADC_OUTPUT_MODE_TWOS_COMPLEMENT;
+
+	switch (chip_id) {
+	case CHIPID_AD9467:
+		st->chip_info = &axiadc_chip_info_tbl[ID_AD9467];
+		st->adc_output_mode |= AD9467_DEF_OUTPUT_MODE;
+		return 0;
+	case CHIPID_AD9643:
+		st->chip_info = &axiadc_chip_info_tbl[ID_AD9643];
+		st->adc_output_mode |= AD9643_DEF_OUTPUT_MODE;
+		return ad9467_spi_write(spi, AN877_ADC_REG_OUTPUT_PHASE,
+					AN877_ADC_OUTPUT_MODE_TWOS_COMPLEMENT);
+	case CHIPID_AD9250:
+		ret = ad9250_setup(spi, 2, 2);
+		if (ret) {
+			dev_err(&spi->dev, "Failed to initialize: %d\n", ret);
+			return ret;
+		}
+
+		st->chip_info = &axiadc_chip_info_tbl[ID_AD9250];
+		st->adc_output_mode |= AD9250_DEF_OUTPUT_MODE;
+		return 0;
+	case CHIPID_AD9683:
+		ret = ad9250_setup(spi, 1, 1);
+		if (ret) {
+			dev_err(&spi->dev, "Failed to initialize: %d\n", ret);
+			return ret;
+		}
+		st->chip_info = &axiadc_chip_info_tbl[ID_AD9683];
+		st->adc_output_mode |= AD9683_DEF_OUTPUT_MODE;
+		return 0;
+	case CHIPID_AD9625:
+		ret = ad9625_setup(spi);
+		if (ret) {
+			dev_err(&spi->dev, "Failed to initialize: %d\n", ret);
+			return ret;
+		}
+
+		st->chip_info = &axiadc_chip_info_tbl[ID_AD9625];
+		st->adc_output_mode |= AD9625_DEF_OUTPUT_MODE;
+		return 0;
+	case CHIPID_AD9265:
+		st->chip_info = &axiadc_chip_info_tbl[ID_AD9265];
+		st->adc_output_mode |= AD9265_DEF_OUTPUT_MODE;
+		return 0;
+	case CHIPID_AD9434:
+		st->chip_info = &axiadc_chip_info_tbl[ID_AD9434];
+		st->adc_output_mode |= AD9434_DEF_OUTPUT_MODE;
+		return 0;
+	case CHIPID_AD9652:
+		st->chip_info = &axiadc_chip_info_tbl[ID_AD9652];
+		st->adc_output_mode |= AD9643_DEF_OUTPUT_MODE;
+		return 0;
+	case CHIPID_AD9649:
+		st->chip_info = &axiadc_chip_info_tbl[ID_AD9649];
+		st->adc_output_mode |= AD9643_DEF_OUTPUT_MODE;
+		return 0;
+	default:
+		dev_err(&spi->dev, "Unrecognized CHIP_ID 0x%X\n", chip_id);
+		return -ENODEV;;
+	}
+}
+
 static void ad9467_clk_disable(void *data)
 {
 	struct axiadc_converter *st = data;
@@ -1096,6 +1164,7 @@ static void ad9467_clk_disable(void *data)
 static int ad9467_probe(struct spi_device *spi)
 {
 	struct axiadc_converter *conv, *st;
+	unsigned int id;
 	int ret;
 
 	conv = devm_kzalloc(&spi->dev, sizeof(*conv), GFP_KERNEL);
@@ -1141,94 +1210,12 @@ static int ad9467_probe(struct spi_device *spi)
 
 	spi_set_drvdata(spi, st);
 
-	conv->id = ad9467_spi_read(spi, AN877_ADC_REG_CHIP_ID);
-	if (conv->id != spi_get_device_id(spi)->driver_data) {
+	id = ad9467_spi_read(spi, AN877_ADC_REG_CHIP_ID);
+	if (id != spi_get_device_id(spi)->driver_data) {
 		dev_err(&spi->dev, "Unrecognized CHIP_ID 0x%X\n",
 			conv->id);
 		return -ENODEV;
 	}
-
-	switch (conv->id) {
-	case CHIPID_AD9467:
-		conv->chip_info = &axiadc_chip_info_tbl[ID_AD9467];
-		conv->adc_output_mode =
-		    AD9467_DEF_OUTPUT_MODE | AN877_ADC_OUTPUT_MODE_TWOS_COMPLEMENT;
-		ret = ad9467_outputmode_set(spi, conv->adc_output_mode);
-		break;
-	case CHIPID_AD9643:
-		conv->chip_info = &axiadc_chip_info_tbl[ID_AD9643];
-		conv->adc_output_mode =
-		    AD9643_DEF_OUTPUT_MODE | AN877_ADC_OUTPUT_MODE_TWOS_COMPLEMENT;
-		ad9467_spi_write(spi, AN877_ADC_REG_OUTPUT_PHASE,
-				 AN877_ADC_OUTPUT_MODE_TWOS_COMPLEMENT);
-		ret = ad9467_outputmode_set(spi, conv->adc_output_mode);
-		break;
-	case CHIPID_AD9250:
-		ret = ad9250_setup(spi, 2, 2);
-		if (ret) {
-			dev_err(&spi->dev, "Failed to initialize: %d\n", ret);
-			return ret;
-		}
-
-		conv->chip_info = &axiadc_chip_info_tbl[ID_AD9250];
-		conv->adc_output_mode =
-		    AD9250_DEF_OUTPUT_MODE | AN877_ADC_OUTPUT_MODE_TWOS_COMPLEMENT;
-		ret = ad9467_outputmode_set(spi, conv->adc_output_mode);
-		break;
-	case CHIPID_AD9683:
-		ret = ad9250_setup(spi, 1, 1);
-		if (ret) {
-			dev_err(&spi->dev, "Failed to initialize: %d\n", ret);
-			return ret;
-		}
-		conv->chip_info = &axiadc_chip_info_tbl[ID_AD9683];
-		conv->adc_output_mode =
-		    AD9683_DEF_OUTPUT_MODE | AN877_ADC_OUTPUT_MODE_TWOS_COMPLEMENT;
-		ret = ad9467_outputmode_set(spi, conv->adc_output_mode);
-		break;
-	case CHIPID_AD9625:
-		ret = ad9625_setup(spi);
-		if (ret) {
-			dev_err(&spi->dev, "Failed to initialize: %d\n", ret);
-			return ret;
-		}
-
-		conv->chip_info = &axiadc_chip_info_tbl[ID_AD9625];
-		conv->adc_output_mode =
-		    AD9625_DEF_OUTPUT_MODE | AN877_ADC_OUTPUT_MODE_TWOS_COMPLEMENT;
-		ret = ad9467_outputmode_set(spi, conv->adc_output_mode);
-		break;
-	case CHIPID_AD9265:
-		conv->chip_info = &axiadc_chip_info_tbl[ID_AD9265];
-		conv->adc_output_mode =
-		    AD9265_DEF_OUTPUT_MODE | AN877_ADC_OUTPUT_MODE_TWOS_COMPLEMENT;
-		ret = ad9467_outputmode_set(spi, conv->adc_output_mode);
-		break;
-	case CHIPID_AD9434:
-		conv->chip_info = &axiadc_chip_info_tbl[ID_AD9434];
-		conv->adc_output_mode =
-		    AD9434_DEF_OUTPUT_MODE | AN877_ADC_OUTPUT_MODE_TWOS_COMPLEMENT;
-		ret = ad9467_outputmode_set(spi, conv->adc_output_mode);
-		break;
-	case CHIPID_AD9652:
-		conv->chip_info = &axiadc_chip_info_tbl[ID_AD9652];
-		conv->adc_output_mode =
-		    AD9643_DEF_OUTPUT_MODE | AN877_ADC_OUTPUT_MODE_TWOS_COMPLEMENT;
-		ret = ad9467_outputmode_set(spi, conv->adc_output_mode);
-		break;
-	case CHIPID_AD9649:
-		conv->chip_info = &axiadc_chip_info_tbl[ID_AD9649];
-		conv->adc_output_mode =
-		    AD9643_DEF_OUTPUT_MODE | AN877_ADC_OUTPUT_MODE_TWOS_COMPLEMENT;
-		ret = ad9467_outputmode_set(spi, conv->adc_output_mode);
-		break;
-	default:
-		dev_err(&spi->dev, "Unrecognized CHIP_ID 0x%X\n", conv->id);
-		return -ENODEV;;
-	}
-
-	if (ret < 0)
-		return ret;
 
 	conv->reg_access = ad9467_reg_access;
 	conv->write_raw = ad9467_write_raw;
@@ -1236,7 +1223,11 @@ static int ad9467_probe(struct spi_device *spi)
 	conv->post_setup = ad9467_post_setup;
 	conv->set_pnsel = ad9467_set_pnsel;
 
-	return 0;
+	ret = ad9467_setup(conv, id);
+	if (ret)
+		return ret;
+
+	return ad9467_outputmode_set(spi, conv->adc_output_mode);
 }
 
 static const struct spi_device_id ad9467_id[] = {
