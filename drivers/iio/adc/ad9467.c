@@ -1086,34 +1086,43 @@ static int ad9467_post_setup(struct iio_dev *indio_dev)
 	return 0;
 }
 
+static void ad9467_clk_disable(void *data)
+{
+	struct axiadc_converter *st = data;
+
+	clk_disable_unprepare(st->clk);
+}
+
 static int ad9467_probe(struct spi_device *spi)
 {
-	struct axiadc_converter *conv;
-	int ret, clk_enabled = 0;
-	struct clk *clk;
-
-	clk = devm_clk_get(&spi->dev, NULL);
-	if (IS_ERR(clk))
-		return PTR_ERR(clk);
+	struct axiadc_converter *conv, *st;
+	int ret;
 
 	conv = devm_kzalloc(&spi->dev, sizeof(*conv), GFP_KERNEL);
 	if (conv == NULL)
 		return -ENOMEM;
+	/* FIXME: remove this asap; it's to make things easier to diff with upstream version */
+	st = conv;
 
-	if (spi_get_device_id(spi)->driver_data != CHIPID_AD9625) {
-		ret = clk_prepare_enable(clk);
-		if (ret < 0)
-			return ret;
-		clk_enabled = 1;
-		conv->adc_clk = clk_get_rate(clk);
-	}
+	st->spi = spi;
+
+	st->clk = devm_clk_get(&spi->dev, NULL);
+	if (IS_ERR(st->clk))
+		return PTR_ERR(st->clk);
+
+	ret = clk_prepare_enable(st->clk);
+	if (ret < 0)
+		return ret;
+
+	ret = devm_add_action_or_reset(&spi->dev, ad9467_clk_disable, st);
+	if (ret)
+		return ret;
 
 	conv->adc_clkscale.mult = 1;
 	conv->adc_clkscale.div = 1;
 
 	spi_set_drvdata(spi, conv);
 	conv->spi = spi;
-	conv->clk = clk;
 
 	conv->pwrdown_gpio = devm_gpiod_get_optional(&spi->dev, "powerdown",
 		GPIOD_OUT_LOW);
@@ -1135,8 +1144,7 @@ static int ad9467_probe(struct spi_device *spi)
 	if (conv->id != spi_get_device_id(spi)->driver_data) {
 		dev_err(&spi->dev, "Unrecognized CHIP_ID 0x%X\n",
 			conv->id);
-		ret = -ENODEV;
-		goto out;
+		return -ENODEV;
 	}
 
 	switch (conv->id) {
@@ -1158,7 +1166,7 @@ static int ad9467_probe(struct spi_device *spi)
 		ret = ad9250_setup(spi, 2, 2);
 		if (ret) {
 			dev_err(&spi->dev, "Failed to initialize: %d\n", ret);
-			goto out;
+			return ret;
 		}
 
 		conv->chip_info = &axiadc_chip_info_tbl[ID_AD9250];
@@ -1170,7 +1178,7 @@ static int ad9467_probe(struct spi_device *spi)
 		ret = ad9250_setup(spi, 1, 1);
 		if (ret) {
 			dev_err(&spi->dev, "Failed to initialize: %d\n", ret);
-			goto out;
+			return ret;
 		}
 		conv->chip_info = &axiadc_chip_info_tbl[ID_AD9683];
 		conv->adc_output_mode =
@@ -1181,7 +1189,7 @@ static int ad9467_probe(struct spi_device *spi)
 		ret = ad9625_setup(spi);
 		if (ret) {
 			dev_err(&spi->dev, "Failed to initialize: %d\n", ret);
-			goto out;
+			return ret;
 		}
 
 		conv->chip_info = &axiadc_chip_info_tbl[ID_AD9625];
@@ -1215,32 +1223,17 @@ static int ad9467_probe(struct spi_device *spi)
 		break;
 	default:
 		dev_err(&spi->dev, "Unrecognized CHIP_ID 0x%X\n", conv->id);
-		ret = -ENODEV;
-		goto out;
+		return -ENODEV;;
 	}
 
 	if (ret < 0)
-		goto out;
+		return ret;
 
 	conv->reg_access = ad9467_reg_access;
 	conv->write_raw = ad9467_write_raw;
 	conv->read_raw = ad9467_read_raw;
 	conv->post_setup = ad9467_post_setup;
 	conv->set_pnsel = ad9467_set_pnsel;
-
-	return 0;
-out:
-	if (clk_enabled)
-		clk_disable_unprepare(clk);
-
-	return ret;
-}
-
-static int ad9467_remove(struct spi_device *spi)
-{
-	struct axiadc_converter *conv = spi_get_drvdata(spi);
-
-	clk_disable_unprepare(conv->clk);
 
 	return 0;
 }
@@ -1264,7 +1257,6 @@ static struct spi_driver ad9467_driver = {
 		.name = "ad9467",
 	},
 	.probe = ad9467_probe,
-	.remove = ad9467_remove,
 	.id_table = ad9467_id,
 };
 module_spi_driver(ad9467_driver);
