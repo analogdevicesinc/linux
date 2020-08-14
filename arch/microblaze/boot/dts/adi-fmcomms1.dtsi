@@ -107,7 +107,7 @@
 		adc0_ad9467: ad9467@1 {
 			#address-cells = <1>;
 			#size-cells = <0>;
-			compatible = "ad9643";
+			compatible = "adi,ad9643";
 			reg = <1>;
 			spi-max-frequency = <10000000>;
 			spi-3wire;
