@@ -192,6 +192,7 @@ enum adc_data_sel {
 struct axiadc_state;
 
 struct axiadc_chip_info {
+	unsigned int			id;
 	char				*name;
 	unsigned			num_channels;
 	unsigned 		num_shadow_slave_channels;
