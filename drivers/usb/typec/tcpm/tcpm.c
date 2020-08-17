@@ -7296,7 +7296,7 @@ static enum power_supply_property tcpm_psy_props[] = {
 static int tcpm_psy_get_online(struct tcpm_port *port,
 			       union power_supply_propval *val)
 {
-	if (port->vbus_charge) {
+	if (port->vbus_present && tcpm_port_is_sink(port)) {
 		if (port->pps_data.active)
 			val->intval = TCPM_PSY_PROG_ONLINE;
 		else
