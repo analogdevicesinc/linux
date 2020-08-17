@@ -163,9 +163,23 @@
 			status = "disabled";
 		};
 
+		i2c0_lvds0: i2c@56246000 {
+			compatible = "fsl,imx8qm-lpi2c", "fsl,imx7ulp-lpi2c";
+			reg = <0x56246000 0x1000>;
+			interrupts = <8>;
+			interrupt-parent = <&irqsteer_lvds0>;
+			clocks = <&lvds0_i2c0_lpcg 0>,
+				 <&lvds0_i2c0_lpcg 1>;
+			clock-names = "per", "ipg";
+			assigned-clocks = <&clk IMX_SC_R_LVDS_0_I2C_0 IMX_SC_PM_CLK_PER>;
+			assigned-clock-rates = <24000000>;
+			power-domains = <&pd IMX_SC_R_LVDS_0_I2C_0>;
+			status = "disabled";
+		};
+
 		i2c1_lvds0: i2c@56247000 {
 			compatible = "fsl,imx8qm-lpi2c", "fsl,imx7ulp-lpi2c";
-			reg = <0x56247000 0x4000>;
+			reg = <0x56247000 0x1000>;
 			interrupts = <9>;
 			interrupt-parent = <&irqsteer_lvds0>;
 			clocks = <&lvds0_i2c0_lpcg 0>,
@@ -336,9 +350,23 @@
 			status = "disabled";
 		};
 
+		i2c0_lvds1: i2c@57246000 {
+			compatible = "fsl,imx8qm-lpi2c", "fsl,imx7ulp-lpi2c";
+			reg = <0x57246000 0x1000>;
+			interrupts = <8>;
+			interrupt-parent = <&irqsteer_lvds1>;
+			clocks = <&lvds1_i2c0_lpcg 0>,
+				 <&lvds1_i2c0_lpcg 1>;
+			clock-names = "per", "ipg";
+			assigned-clocks = <&clk IMX_SC_R_LVDS_1_I2C_0 IMX_SC_PM_CLK_PER>;
+			assigned-clock-rates = <24000000>;
+			power-domains = <&pd IMX_SC_R_LVDS_1_I2C_0>;
+			status = "disabled";
+		};
+
 		i2c1_lvds1: i2c@57247000 {
 			compatible = "fsl,imx8qm-lpi2c", "fsl,imx7ulp-lpi2c";
-			reg = <0x57247000 0x4000>;
+			reg = <0x57247000 0x1000>;
 			interrupts = <9>;
 			interrupt-parent = <&irqsteer_lvds1>;
 			clocks = <&lvds1_i2c0_lpcg 0>,
