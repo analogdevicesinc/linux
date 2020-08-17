@@ -7465,6 +7465,9 @@ static int tcpm_psy_set_prop(struct power_supply *psy,
 		else
 			ret = tcpm_pps_set_op_curr(port, val->intval / 1000);
 		break;
+	case POWER_SUPPLY_PROP_USB_TYPE:
+		port->usb_type = val->intval;
+		break;
 	default:
 		ret = -EINVAL;
 		break;
@@ -7506,7 +7509,11 @@ static int devm_tcpm_psy_register(struct tcpm_port *port)
 		 port_dev_name);
 	port->psy_desc.name = psy_name;
 	port->psy_desc.type = POWER_SUPPLY_TYPE_USB;
-	port->psy_desc.usb_types = BIT(POWER_SUPPLY_USB_TYPE_C)  |
+	port->psy_desc.usb_types = BIT(POWER_SUPPLY_USB_TYPE_SDP) |
+				   BIT(POWER_SUPPLY_USB_TYPE_DCP) |
+				   BIT(POWER_SUPPLY_USB_TYPE_CDP) |
+				   BIT(POWER_SUPPLY_USB_TYPE_ACA) |
+				   BIT(POWER_SUPPLY_USB_TYPE_C)  |
 				   BIT(POWER_SUPPLY_USB_TYPE_PD) |
 				   BIT(POWER_SUPPLY_USB_TYPE_PD_PPS);
 	port->psy_desc.properties = tcpm_psy_props;
