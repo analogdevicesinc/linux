@@ -82,6 +82,11 @@ properties:
     minimum: 0
     maximum: 100
 
+  vbus-power-supply:
+    description:
+      A phandle to the vbus power supply provider, used to to detect the
+      possible BC charger type of it.
+
 required:
   - compatible
   - reg
