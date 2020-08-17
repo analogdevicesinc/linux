@@ -277,7 +277,6 @@ static int adar1000_mode_4wire(struct adar1000_state *st, bool enable)
 
 	ret = regmap_write(st->regmap, st->dev_addr |
 			   ADAR1000_INTERFACE_CFG_A,
-			   ADAR1000_SOFTRESET |
 			   ADAR1000_ADDR_ASCN | tmp);
 	if (ret < 0)
 		return ret;
@@ -290,19 +289,19 @@ static int adar1000_mode_4wire(struct adar1000_state *st, bool enable)
 
 	ret = regmap_write(st->regmap, ADAR1000_SPI_ADDR(1) |
 			   ADAR1000_INTERFACE_CFG_A,
-			   ADAR1000_SOFTRESET | ADAR1000_ADDR_ASCN);
+			   ADAR1000_ADDR_ASCN);
 	if (ret < 0)
 		return ret;
 
 	ret = regmap_write(st->regmap, ADAR1000_SPI_ADDR(2) |
 			   ADAR1000_INTERFACE_CFG_A,
-			   ADAR1000_SOFTRESET | ADAR1000_ADDR_ASCN);
+			   ADAR1000_ADDR_ASCN);
 	if (ret < 0)
 		return ret;
 
 	return regmap_write(st->regmap, ADAR1000_SPI_ADDR(3) |
 			    ADAR1000_INTERFACE_CFG_A,
-			    ADAR1000_SOFTRESET | ADAR1000_ADDR_ASCN);
+			    ADAR1000_ADDR_ASCN);
 }
 
 static int adar1000_get_atten(struct adar1000_state *st, u32 ch_num, u8 output)
@@ -786,8 +785,7 @@ static int adar1000_setup(struct iio_dev *indio_dev)
 	ret = regmap_write(st->regmap, st->dev_addr |
 			   ADAR1000_INTERFACE_CFG_A,
 			   ADAR1000_SOFTRESET |
-			   ADAR1000_ADDR_ASCN |
-			   ADAR1000_SDOACTIVE);
+			   ADAR1000_ADDR_ASCN);
 	if (ret < 0)
 		return ret;
 
