@@ -1,0 +1,33 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2019~2020 NXP
+ */
+
+&hsio_subsys {
+	phyx1_lpcg: clock-controller@5f090000 {
+		compatible = "fsl,imx8qxp-lpcg";
+		reg = <0x5f090000 0x10000>;
+		#clock-cells = <1>;
+		clocks = <&hsio_refb_clk>, <&hsio_per_clk>,
+			<&hsio_per_clk>, <&hsio_per_clk>;
+		bit-offset = <0 4 8 16>;
+		clock-output-names = "hsio_phyx1_pclk",
+				     "hsio_phyx1_epcs_tx_clk",
+				     "hsio_phyx1_epcs_rx_clk",
+				     "hsio_phyx1_apb_clk";
+		power-domains = <&pd IMX_SC_R_SERDES_1>;
+	};
+};
+
+&pcieb {
+	compatible = "fsl,imx8dxl-pcie", "fsl,imx8qxp-pcie", "snps,dw-pcie";
+	interrupts = <GIC_SPI 44 IRQ_TYPE_LEVEL_HIGH>,
+				 <GIC_SPI 46 IRQ_TYPE_LEVEL_HIGH>;
+	interrupt-names = "msi", "dma";
+	#interrupt-cells = <1>;
+	interrupt-map-mask = <0 0 0 0x7>;
+	interrupt-map =  <0 0 0 1 &gic 0 47 4>,
+			 <0 0 0 2 &gic 0 48 4>,
+			 <0 0 0 3 &gic 0 49 4>,
+			 <0 0 0 4 &gic 0 50 4>;
+};
