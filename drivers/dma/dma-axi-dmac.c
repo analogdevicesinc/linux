@@ -795,6 +795,28 @@ static int axi_dmac_parse_chan_dt(struct device_node *of_chan,
 	return 0;
 }
 
+static int axi_dmac_parse_dt(struct device *dev, struct axi_dmac *dmac)
+{
+	struct device_node *of_channels, *of_chan;
+	int ret;
+
+	of_channels = of_get_child_by_name(dev->of_node, "adi,channels");
+	if (of_channels == NULL)
+		return -ENODEV;
+
+	for_each_child_of_node(of_channels, of_chan) {
+		ret = axi_dmac_parse_chan_dt(of_chan, &dmac->chan);
+		if (ret) {
+			of_node_put(of_chan);
+			of_node_put(of_channels);
+			return -EINVAL;
+		}
+	}
+	of_node_put(of_channels);
+
+	return 0;
+}
+
 static int axi_dmac_detect_caps(struct axi_dmac *dmac, unsigned int version)
 {
 	struct axi_dmac_chan *chan = &dmac->chan;
@@ -844,7 +866,6 @@ static int axi_dmac_detect_caps(struct axi_dmac *dmac, unsigned int version)
 
 static int axi_dmac_probe(struct platform_device *pdev)
 {
-	struct device_node *of_channels, *of_chan;
 	struct dma_device *dma_dev;
 	struct axi_dmac *dmac;
 	struct resource *res;
@@ -876,19 +897,9 @@ static int axi_dmac_probe(struct platform_device *pdev)
 
 	INIT_LIST_HEAD(&dmac->chan.active_descs);
 
-	of_channels = of_get_child_by_name(pdev->dev.of_node, "adi,channels");
-	if (of_channels == NULL)
-		return -ENODEV;
-
-	for_each_child_of_node(of_channels, of_chan) {
-		ret = axi_dmac_parse_chan_dt(of_chan, &dmac->chan);
-		if (ret) {
-			of_node_put(of_chan);
-			of_node_put(of_channels);
-			return -EINVAL;
-		}
-	}
-	of_node_put(of_channels);
+	ret = axi_dmac_parse_dt(&pdev->dev, dmac);
+	if (ret < 0)
+		return ret;
 
 	pdev->dev.dma_parms = &dmac->dma_parms;
 	dma_set_max_seg_size(&pdev->dev, UINT_MAX);
