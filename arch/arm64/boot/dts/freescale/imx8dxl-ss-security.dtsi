@@ -1,0 +1,24 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2020 NXP
+ */
+
+&sec_mu2 {
+	interrupts = <GIC_SPI 318 IRQ_TYPE_LEVEL_HIGH>;
+};
+
+&sec_mu3 {
+	interrupts = <GIC_SPI 319 IRQ_TYPE_LEVEL_HIGH>;
+};
+
+&sec_mu4 {
+	interrupts = <GIC_SPI 320 IRQ_TYPE_LEVEL_HIGH>;
+};
+
+&sec_jr2 {
+	interrupts = <GIC_SPI 323 IRQ_TYPE_LEVEL_HIGH>;
+};
+
+&sec_jr3 {
+	interrupts = <GIC_SPI 324 IRQ_TYPE_LEVEL_HIGH>;
+};
