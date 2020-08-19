@@ -139,6 +139,10 @@
 &edma2 {
 	reg = <0x5a200000 0x10000>, /* channel0 LPSPI0 rx */
 	      <0x5a210000 0x10000>, /* channel1 LPSPI0 tx */
+	      <0x5a220000 0x10000>, /* channel2 LPSPI1 rx */
+	      <0x5a230000 0x10000>, /* channel3 LPSPI1 tx */
+	      <0x5a240000 0x10000>, /* channel4 LPSPI2 rx */
+	      <0x5a250000 0x10000>, /* channel5 LPSPI2 tx */
 	      <0x5a260000 0x10000>, /* channel6 LPSPI3 rx */
 	      <0x5a270000 0x10000>, /* channel7 LPSPI3 tx */
 	      <0x5a2c0000 0x10000>, /* channel12 UART0 rx */
@@ -152,9 +156,13 @@
 	      <0x5a340000 0x10000>, /* channel20 UART4 rx */
 	      <0x5a350000 0x10000>; /* channel21 UART4 tx */
 	#dma-cells = <3>;
-	dma-channels = <14>;
+	dma-channels = <18>;
 	interrupts = <GIC_SPI 416 IRQ_TYPE_LEVEL_HIGH>,
 		     <GIC_SPI 417 IRQ_TYPE_LEVEL_HIGH>,
+		     <GIC_SPI 418 IRQ_TYPE_LEVEL_HIGH>,
+		     <GIC_SPI 419 IRQ_TYPE_LEVEL_HIGH>,
+		     <GIC_SPI 420 IRQ_TYPE_LEVEL_HIGH>,
+		     <GIC_SPI 421 IRQ_TYPE_LEVEL_HIGH>,
 		     <GIC_SPI 422 IRQ_TYPE_LEVEL_HIGH>,
 		     <GIC_SPI 423 IRQ_TYPE_LEVEL_HIGH>,
 		     <GIC_SPI 434 IRQ_TYPE_LEVEL_HIGH>,
@@ -168,6 +176,8 @@
 		     <GIC_SPI 442 IRQ_TYPE_LEVEL_HIGH>,
 		     <GIC_SPI 443 IRQ_TYPE_LEVEL_HIGH>;
 	interrupt-names = "edma0-chan0-rx", "edma0-chan1-tx",
+			  "edma0-chan2-rx", "edma0-chan3-tx",
+			  "edma0-chan4-rx", "edma0-chan5-tx",
 			  "edma0-chan6-rx", "edma0-chan7-tx",
 			  "edma0-chan12-rx", "edma0-chan13-tx",
 			  "edma0-chan14-rx", "edma0-chan15-tx",
@@ -176,6 +186,10 @@
 			  "edma0-chan20-rx", "edma0-chan21-tx";
 	power-domains = <&pd IMX_SC_R_DMA_0_CH0>,
 			<&pd IMX_SC_R_DMA_0_CH1>,
+			<&pd IMX_SC_R_DMA_0_CH2>,
+			<&pd IMX_SC_R_DMA_0_CH3>,
+			<&pd IMX_SC_R_DMA_0_CH4>,
+			<&pd IMX_SC_R_DMA_0_CH5>,
 			<&pd IMX_SC_R_DMA_0_CH6>,
 			<&pd IMX_SC_R_DMA_0_CH7>,
 			<&pd IMX_SC_R_DMA_0_CH12>,
@@ -189,6 +203,8 @@
 			<&pd IMX_SC_R_DMA_0_CH20>,
 			<&pd IMX_SC_R_DMA_0_CH21>;
 	power-domain-names = "edma0-chan0", "edma0-chan1",
+			     "edma0-chan2", "edma0-chan3",
+			     "edma0-chan4", "edma0-chan5",
 			     "edma0-chan6", "edma0-chan7",
 			     "edma0-chan12", "edma0-chan13",
 			     "edma0-chan14", "edma0-chan15",
