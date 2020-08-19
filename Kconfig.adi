@@ -47,6 +47,11 @@ config KERNEL_ALL_ADI_DRIVERS
 	select AD525X_DPOT_I2C
 	select AD525X_DPOT_SPI
 	select ADIN_PHY
+	select IPV6
+	select BRIDGE
+	select NET_DSA
+	select MICROCHIP_KSZ
+	select MICROCHIP_KSZ_SPI_DRIVER
 	select GPIO_ADP5588
 	select GPIO_ADP5588_IRQ
 	select GPIO_ADP5520
