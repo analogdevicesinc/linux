@@ -18,6 +18,7 @@ config KERNEL_ALL_ADI_DRIVERS
 	select SND_SOC
 	select I2C_MUX
 	select LEDS_CLASS_FLASH
+	select PHYLIB
 	select USB
 	select USB_SUPPORT
 	select USB_SERIAL
