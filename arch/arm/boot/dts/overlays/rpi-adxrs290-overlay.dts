@@ -1,6 +1,8 @@
 /dts-v1/;
 /plugin/;
 
+#include <dt-bindings/interrupt-controller/irq.h>
+
 / {
 	compatible = "brcm,bcm2835";
 
@@ -26,6 +28,8 @@
 				spi-max-frequency = <5000000>;
 				spi-cpol;
 				spi-cpha;
+				interrupt-parent = <&gpio>;
+				interrupts = <25 IRQ_TYPE_EDGE_RISING>;
 			};
 		};
 	};
