@@ -127,17 +127,19 @@
 						SIER_SDIE | SIER_BEIE)
 
 #define I2C_CLK_RATIO	2
+#define I2C_CLK_HIGH	24
+#define I2C_CLK_ALL	59
 #define CHUNK_DATA	256
 
 #define I2C_PM_TIMEOUT		1000 /* ms */
 #define I2C_DMA_THRESHOLD	8 /* bytes */
 
 enum lpi2c_imx_mode {
-	STANDARD,	/* 100+Kbps */
-	FAST,		/* 400+Kbps */
-	FAST_PLUS,	/* 1.0+Mbps */
-	HS,		/* 3.4+Mbps */
-	ULTRA_FAST,	/* 5.0+Mbps */
+	STANDARD,	/* <=100Kbps */
+	FAST,		/* <=400Kbps */
+	FAST_PLUS,	/* <=1.0Mbps */
+	HS,		/* <=3.4Mbps */
+	ULTRA_FAST,	/* <=5.0Mbps */
 };
 
 enum lpi2c_imx_pincfg {
@@ -227,13 +229,13 @@ static void lpi2c_imx_set_mode(struct lpi2c_imx_struct *lpi2c_imx)
 	unsigned int bitrate = lpi2c_imx->bitrate;
 	enum lpi2c_imx_mode mode;
 
-	if (bitrate < I2C_MAX_FAST_MODE_FREQ)
+	if (bitrate <= I2C_MAX_STANDARD_MODE_FREQ)
 		mode = STANDARD;
-	else if (bitrate < I2C_MAX_FAST_MODE_PLUS_FREQ)
+	else if (bitrate <= I2C_MAX_FAST_MODE_FREQ)
 		mode = FAST;
-	else if (bitrate < I2C_MAX_HIGH_SPEED_MODE_FREQ)
+	else if (bitrate <= I2C_MAX_FAST_MODE_PLUS_FREQ)
 		mode = FAST_PLUS;
-	else if (bitrate < I2C_MAX_ULTRA_FAST_MODE_FREQ)
+	else if (bitrate <= I2C_MAX_HIGH_SPEED_MODE_FREQ)
 		mode = HS;
 	else
 		mode = ULTRA_FAST;
@@ -280,7 +282,10 @@ static void lpi2c_imx_stop(struct lpi2c_imx_struct *lpi2c_imx)
 	} while (1);
 }
 
-/* CLKLO = I2C_CLK_RATIO * CLKHI, SETHOLD = CLKHI, DATAVD = CLKHI/2 */
+/*
+ * CLKLO = (1 - I2C_CLK_HIGH / I2C_CLK_ALL) * clk_cycle, SETHOLD = CLKHI, DATAVD = CLKHI/2
+ * CLKHI = I2C_CLK_HIGH / I2C_CLK_ALL * clk_cycle
+ */
 static int lpi2c_imx_config(struct lpi2c_imx_struct *lpi2c_imx)
 {
 	u8 prescale, filt, sethold, datavd;
@@ -299,8 +304,8 @@ static int lpi2c_imx_config(struct lpi2c_imx_struct *lpi2c_imx)
 
 	for (prescale = 0; prescale <= 7; prescale++) {
 		clk_cycle = clk_rate / ((1 << prescale) * lpi2c_imx->bitrate)
-			    - 3 - (filt >> 1);
-		clkhi = DIV_ROUND_UP(clk_cycle, I2C_CLK_RATIO + 1);
+			    - (2 + filt) / (1 << prescale);
+		clkhi = clk_cycle * I2C_CLK_HIGH / I2C_CLK_ALL;
 		clklo = clk_cycle - clkhi;
 		if (clklo < 64)
 			break;
