@@ -434,7 +434,7 @@ typedef struct ioc_fm_ctrl_mon_counters_params_t {
 
  @Retval        Handle to FM VSP object, or NULL for Failure.
 *//***************************************************************************/
-#if defined(CONFIG_COMPAT)
+#if defined(FM_COMPAT)
 #define FM_IOC_VSP_CONFIG_COMPAT                             _IOWR(FM_IOC_TYPE_BASE, FM_IOC_NUM(8), ioc_compat_fm_vsp_params_t)
 #endif
 #define FM_IOC_VSP_CONFIG                                    _IOWR(FM_IOC_TYPE_BASE, FM_IOC_NUM(8), ioc_fm_vsp_params_t)
@@ -448,7 +448,7 @@ typedef struct ioc_fm_ctrl_mon_counters_params_t {
 
  @Return        E_OK on success; Error code otherwise.
 *//***************************************************************************/
-#if defined(CONFIG_COMPAT)
+#if defined(FM_COMPAT)
 #define FM_IOC_VSP_INIT_COMPAT                               _IOW(FM_IOC_TYPE_BASE, FM_IOC_NUM(9), ioc_compat_fm_obj_t)
 #endif
 #define FM_IOC_VSP_INIT                                      _IOW(FM_IOC_TYPE_BASE, FM_IOC_NUM(9), ioc_fm_obj_t)
@@ -464,7 +464,7 @@ typedef struct ioc_fm_ctrl_mon_counters_params_t {
 
  @Return        E_OK on success; Error code otherwise.
 *//***************************************************************************/
-#if defined(CONFIG_COMPAT)
+#if defined(FM_COMPAT)
 #define FM_IOC_VSP_FREE_COMPAT                               _IOW(FM_IOC_TYPE_BASE, FM_IOC_NUM(10), ioc_compat_fm_obj_t)
 #endif
 #define FM_IOC_VSP_FREE                                      _IOW(FM_IOC_TYPE_BASE, FM_IOC_NUM(10), ioc_fm_obj_t)
@@ -482,7 +482,7 @@ typedef struct ioc_fm_ctrl_mon_counters_params_t {
 
  @Cautions      Allowed only following FM_VSP_Config() and before FM_VSP_Init().
 *//***************************************************************************/
-#if defined(CONFIG_COMPAT)
+#if defined(FM_COMPAT)
 #define FM_IOC_VSP_CONFIG_POOL_DEPLETION_COMPAT              _IOW(FM_IOC_TYPE_BASE, FM_IOC_NUM(11), ioc_compat_fm_buf_pool_depletion_params_t)
 #endif
 #define FM_IOC_VSP_CONFIG_POOL_DEPLETION                     _IOW(FM_IOC_TYPE_BASE, FM_IOC_NUM(11), ioc_fm_buf_pool_depletion_params_t)
@@ -512,7 +512,7 @@ typedef struct ioc_fm_ctrl_mon_counters_params_t {
 
  @Cautions      Allowed only following FM_VSP_Config() and before FM_VSP_Init().
 *//***************************************************************************/
-#if defined(CONFIG_COMPAT)
+#if defined(FM_COMPAT)
 #define FM_IOC_VSP_CONFIG_BUFFER_PREFIX_CONTENT_COMPAT       _IOW(FM_IOC_TYPE_BASE, FM_IOC_NUM(12), ioc_compat_fm_buffer_prefix_content_params_t)
 #endif
 #define FM_IOC_VSP_CONFIG_BUFFER_PREFIX_CONTENT              _IOW(FM_IOC_TYPE_BASE, FM_IOC_NUM(12), ioc_fm_buffer_prefix_content_params_t)
@@ -530,7 +530,7 @@ typedef struct ioc_fm_ctrl_mon_counters_params_t {
 
  @Cautions      Allowed only following FM_VSP_Config() and before FM_VSP_Init().
 *//***************************************************************************/
-#if defined(CONFIG_COMPAT)
+#if defined(FM_COMPAT)
 #define FM_IOC_VSP_CONFIG_NO_SG_COMPAT                     _IOW(FM_IOC_TYPE_BASE, FM_IOC_NUM(13), ioc_compat_fm_vsp_config_no_sg_params_t)
 #endif
 #define FM_IOC_VSP_CONFIG_NO_SG                            _IOW(FM_IOC_TYPE_BASE, FM_IOC_NUM(13), ioc_fm_vsp_config_no_sg_params_t)
@@ -554,7 +554,7 @@ typedef struct ioc_fm_ctrl_mon_counters_params_t {
 
  @Cautions      Allowed only following FM_VSP_Init().
 *//***************************************************************************/
-#if defined(CONFIG_COMPAT)
+#if defined(FM_COMPAT)
 #define FM_IOC_VSP_GET_BUFFER_PRS_RESULT_COMPAT            _IOWR(FM_IOC_TYPE_BASE, FM_IOC_NUM(14), ioc_compat_fm_vsp_prs_result_params_t)
 #endif
 #define FM_IOC_VSP_GET_BUFFER_PRS_RESULT                   _IOWR(FM_IOC_TYPE_BASE, FM_IOC_NUM(14), ioc_fm_vsp_prs_result_params_t)
@@ -612,7 +612,7 @@ typedef struct ioc_fm_ctrl_mon_counters_params_t {
 
  @Cautions      Allowed only following FM_Init().
 *//***************************************************************************/
-#if defined(CONFIG_COMPAT)
+#if defined(FM_COMPAT)
 #define FM_IOC_CTRL_MON_GET_COUNTERS_COMPAT                _IOW(FM_IOC_TYPE_BASE, FM_IOC_NUM(17), ioc_compat_fm_ctrl_mon_counters_params_t)
 #endif
 #define FM_IOC_CTRL_MON_GET_COUNTERS                       _IOW(FM_IOC_TYPE_BASE, FM_IOC_NUM(17), ioc_fm_ctrl_mon_counters_params_t)

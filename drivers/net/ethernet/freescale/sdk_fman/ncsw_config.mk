@@ -44,6 +44,11 @@ ifdef CONFIG_FMAN_ARM
 ccflags-y += -I$(FMAN)/inc/integrations/LS1043
 endif
 
+# FM_COMPAT is used in kernel headers in case of kernel option leaking
+ifeq ("$(CONFIG_COMPAT)", "y")
+ccflags-y += -DFM_COMPAT
+endif
+
 ccflags-y += -I$(FMAN)/src/inc
 ccflags-y += -I$(FMAN)/src/inc/system
 ccflags-y += -I$(FMAN)/src/inc/wrapper

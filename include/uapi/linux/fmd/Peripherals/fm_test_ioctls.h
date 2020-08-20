@@ -90,7 +90,7 @@ typedef struct ioc_fmt_buff_context_t {
     uint8_t         fm_time_stamp[FM_TIME_STAMP_MAX];
 } ioc_fmt_buff_context_t;
 
-#if defined(__KERNEL__) && defined(CONFIG_COMPAT)
+#if defined(__KERNEL__) && defined(FM_COMPAT)
 typedef struct ioc_fmt_compat_buff_context_t {
     compat_uptr_t         p_user_priv;
     uint8_t               fm_prs_res[FM_PRS_MAX];
@@ -109,7 +109,7 @@ typedef struct ioc_fmt_buff_desc_t {
     ioc_fmt_buff_context_t buff_context;
 } ioc_fmt_buff_desc_t;
 
-#if defined(__KERNEL__) && defined(CONFIG_COMPAT)
+#if defined(__KERNEL__) && defined(FM_COMPAT)
 typedef struct ioc_fmt_compat_buff_desc_t {
     uint32_t                qid;
     compat_uptr_t           p_data;

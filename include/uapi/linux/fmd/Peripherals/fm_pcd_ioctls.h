@@ -312,7 +312,7 @@ typedef struct ioc_fm_pcd_kg_dflt_value_params_t {
 
  @Cautions      Allowed only when PCD is disabled.
 *//***************************************************************************/
-#if defined(CONFIG_COMPAT)
+#if defined(FM_COMPAT)
 #define FM_PCD_IOC_PRS_LOAD_SW_COMPAT  _IOW(FM_IOC_TYPE_BASE, FM_PCD_IOC_NUM(3), ioc_compat_fm_pcd_prs_sw_params_t)
 #endif
 #define FM_PCD_IOC_PRS_LOAD_SW  _IOW(FM_IOC_TYPE_BASE, FM_PCD_IOC_NUM(3), ioc_fm_pcd_prs_sw_params_t)
@@ -385,7 +385,7 @@ typedef struct ioc_fm_pcd_kg_dflt_value_params_t {
 
  @Cautions      Allowed only following FM_PCD_Init() & FM_PCD_KgSchemeSet().
 *//***************************************************************************/
-#if defined(CONFIG_COMPAT)
+#if defined(FM_COMPAT)
 #define FM_PCD_IOC_KG_SCHEME_GET_CNTR_COMPAT  _IOR(FM_IOC_TYPE_BASE, FM_PCD_IOC_NUM(4), ioc_compat_fm_pcd_kg_scheme_spc_t)
 #endif
 #define FM_PCD_IOC_KG_SCHEME_GET_CNTR  _IOR(FM_IOC_TYPE_BASE, FM_PCD_IOC_NUM(4), ioc_fm_pcd_kg_scheme_spc_t)
@@ -2413,7 +2413,7 @@ typedef struct ioc_fm_pcd_cc_tbl_get_stats_t {
  @Cautions      Allowed only following FM_PCD_MatchTableSet().
 *//***************************************************************************/
 
-#if defined(CONFIG_COMPAT)
+#if defined(FM_COMPAT)
 #define FM_PCD_IOC_MATCH_TABLE_GET_KEY_STAT_COMPAT   _IOWR(FM_IOC_TYPE_BASE, FM_PCD_IOC_NUM(12), ioc_compat_fm_pcd_cc_tbl_get_stats_t)
 #endif
 #define FM_PCD_IOC_MATCH_TABLE_GET_KEY_STAT  _IOWR(FM_IOC_TYPE_BASE, FM_PCD_IOC_NUM(12), ioc_fm_pcd_cc_tbl_get_stats_t)
@@ -2439,7 +2439,7 @@ typedef struct ioc_fm_pcd_cc_tbl_get_stats_t {
  @Cautions      Allowed only following FM_PCD_MatchTableSet().
 *//***************************************************************************/
 
-#if defined(CONFIG_COMPAT)
+#if defined(FM_COMPAT)
 #define FM_PCD_IOC_MATCH_TABLE_GET_MISS_STAT_COMPAT   _IOWR(FM_IOC_TYPE_BASE, FM_PCD_IOC_NUM(13), ioc_compat_fm_pcd_cc_tbl_get_stats_t)
 #endif
 #define FM_PCD_IOC_MATCH_TABLE_GET_MISS_STAT  _IOWR(FM_IOC_TYPE_BASE, FM_PCD_IOC_NUM(13), ioc_fm_pcd_cc_tbl_get_stats_t)
@@ -2463,7 +2463,7 @@ typedef struct ioc_fm_pcd_cc_tbl_get_stats_t {
  @Cautions      Allowed only following FM_PCD_HashTableSet().
 *//***************************************************************************/
 
-#if defined(CONFIG_COMPAT)
+#if defined(FM_COMPAT)
 #define FM_PCD_IOC_HASH_TABLE_GET_MISS_STAT_COMPAT   _IOWR(FM_IOC_TYPE_BASE, FM_PCD_IOC_NUM(14), ioc_compat_fm_pcd_cc_tbl_get_stats_t)
 #endif
 #define FM_PCD_IOC_HASH_TABLE_GET_MISS_STAT  _IOWR(FM_IOC_TYPE_BASE, FM_PCD_IOC_NUM(14), ioc_fm_pcd_cc_tbl_get_stats_t)
@@ -2511,7 +2511,7 @@ typedef struct ioc_fm_pcd_cc_tbl_get_stats_t {
 
  @Return        0 on success; Error code otherwise.
 *//***************************************************************************/
-#if defined(CONFIG_COMPAT)
+#if defined(FM_COMPAT)
 #define FM_PCD_IOC_NET_ENV_CHARACTERISTICS_SET_COMPAT   _IOWR(FM_IOC_TYPE_BASE, FM_PCD_IOC_NUM(20), ioc_compat_fm_pcd_net_env_params_t)
 #endif
 #define FM_PCD_IOC_NET_ENV_CHARACTERISTICS_SET  _IOWR(FM_IOC_TYPE_BASE, FM_PCD_IOC_NUM(20), ioc_fm_pcd_net_env_params_t)
@@ -2525,7 +2525,7 @@ typedef struct ioc_fm_pcd_cc_tbl_get_stats_t {
 
  @Return        0 on success; Error code otherwise.
 *//***************************************************************************/
-#if defined(CONFIG_COMPAT)
+#if defined(FM_COMPAT)
 #define FM_PCD_IOC_NET_ENV_CHARACTERISTICS_DELETE_COMPAT  _IOW(FM_IOC_TYPE_BASE, FM_PCD_IOC_NUM(21), ioc_compat_fm_obj_t)
 #endif
 #define FM_PCD_IOC_NET_ENV_CHARACTERISTICS_DELETE   _IOW(FM_IOC_TYPE_BASE, FM_PCD_IOC_NUM(21), ioc_fm_obj_t)
@@ -2544,7 +2544,7 @@ typedef struct ioc_fm_pcd_cc_tbl_get_stats_t {
 
  @Return        0 on success; Error code otherwise.
 *//***************************************************************************/
-#if defined(CONFIG_COMPAT)
+#if defined(FM_COMPAT)
 #define FM_PCD_IOC_KG_SCHEME_SET_COMPAT     _IOWR(FM_IOC_TYPE_BASE, FM_PCD_IOC_NUM(24), ioc_compat_fm_pcd_kg_scheme_params_t)
 #endif
 #define FM_PCD_IOC_KG_SCHEME_SET    _IOWR(FM_IOC_TYPE_BASE, FM_PCD_IOC_NUM(24), ioc_fm_pcd_kg_scheme_params_t)
@@ -2558,7 +2558,7 @@ typedef struct ioc_fm_pcd_cc_tbl_get_stats_t {
 
  @Return        0 on success; Error code otherwise.
 *//***************************************************************************/
-#if defined(CONFIG_COMPAT)
+#if defined(FM_COMPAT)
 #define FM_PCD_IOC_KG_SCHEME_DELETE_COMPAT  _IOW(FM_IOC_TYPE_BASE, FM_PCD_IOC_NUM(25), ioc_compat_fm_obj_t)
 #endif
 #define FM_PCD_IOC_KG_SCHEME_DELETE     _IOW(FM_IOC_TYPE_BASE, FM_PCD_IOC_NUM(25), ioc_fm_obj_t)
@@ -2575,7 +2575,7 @@ typedef struct ioc_fm_pcd_cc_tbl_get_stats_t {
 
  @Return        0 on success; Error code otherwise.
 *//***************************************************************************/
-#if defined(CONFIG_COMPAT)
+#if defined(FM_COMPAT)
 #define FM_PCD_IOC_CC_ROOT_BUILD_COMPAT _IOWR(FM_IOC_TYPE_BASE, FM_PCD_IOC_NUM(26), compat_uptr_t)
 #endif
 #define FM_PCD_IOC_CC_ROOT_BUILD    _IOWR(FM_IOC_TYPE_BASE, FM_PCD_IOC_NUM(26), void *) /* workaround ...*/
@@ -2587,7 +2587,7 @@ typedef struct ioc_fm_pcd_cc_tbl_get_stats_t {
 
  @Param[in]     ioc_fm_obj_t - The id of a CC tree.
 *//***************************************************************************/
-#if defined(CONFIG_COMPAT)
+#if defined(FM_COMPAT)
 #define FM_PCD_IOC_CC_ROOT_DELETE_COMPAT    _IOW(FM_IOC_TYPE_BASE, FM_PCD_IOC_NUM(27), ioc_compat_fm_obj_t)
 #endif
 #define FM_PCD_IOC_CC_ROOT_DELETE    _IOW(FM_IOC_TYPE_BASE, FM_PCD_IOC_NUM(27), ioc_fm_obj_t)
@@ -2604,7 +2604,7 @@ typedef struct ioc_fm_pcd_cc_tbl_get_stats_t {
 
  @Return        0 on success; Error code otherwise.
 *//***************************************************************************/
-#if defined(CONFIG_COMPAT)
+#if defined(FM_COMPAT)
 #define FM_PCD_IOC_MATCH_TABLE_SET_COMPAT    _IOWR(FM_IOC_TYPE_BASE, FM_PCD_IOC_NUM(28), compat_uptr_t)
 #endif
 #define FM_PCD_IOC_MATCH_TABLE_SET    _IOWR(FM_IOC_TYPE_BASE, FM_PCD_IOC_NUM(28), void *) /* workaround ...*/
@@ -2618,7 +2618,7 @@ typedef struct ioc_fm_pcd_cc_tbl_get_stats_t {
 
  @Return        0 on success; Error code otherwise.
 *//***************************************************************************/
-#if defined(CONFIG_COMPAT)
+#if defined(FM_COMPAT)
 #define FM_PCD_IOC_MATCH_TABLE_DELETE_COMPAT    _IOW(FM_IOC_TYPE_BASE, FM_PCD_IOC_NUM(29), ioc_compat_fm_obj_t)
 #endif
 #define FM_PCD_IOC_MATCH_TABLE_DELETE   _IOW(FM_IOC_TYPE_BASE, FM_PCD_IOC_NUM(29), ioc_fm_obj_t)
@@ -2634,7 +2634,7 @@ typedef struct ioc_fm_pcd_cc_tbl_get_stats_t {
 
  @Cautions      Allowed only following FM_PCD_CcRootBuild().
 *//***************************************************************************/
-#if defined(CONFIG_COMPAT)
+#if defined(FM_COMPAT)
 #define FM_PCD_IOC_CC_ROOT_MODIFY_NEXT_ENGINE_COMPAT   _IOW(FM_IOC_TYPE_BASE, FM_PCD_IOC_NUM(30), ioc_compat_fm_pcd_cc_tree_modify_next_engine_params_t)
 #endif
 #define FM_PCD_IOC_CC_ROOT_MODIFY_NEXT_ENGINE   _IOW(FM_IOC_TYPE_BASE, FM_PCD_IOC_NUM(30), ioc_fm_pcd_cc_tree_modify_next_engine_params_t)
@@ -2650,7 +2650,7 @@ typedef struct ioc_fm_pcd_cc_tbl_get_stats_t {
 
  @Cautions      Allowed only following FM_PCD_MatchTableSet().
 *//***************************************************************************/
-#if defined(CONFIG_COMPAT)
+#if defined(FM_COMPAT)
 #define FM_PCD_IOC_MATCH_TABLE_MODIFY_NEXT_ENGINE_COMPAT   _IOW(FM_IOC_TYPE_BASE, FM_PCD_IOC_NUM(31), ioc_compat_fm_pcd_cc_node_modify_next_engine_params_t)
 #endif
 #define FM_PCD_IOC_MATCH_TABLE_MODIFY_NEXT_ENGINE   _IOW(FM_IOC_TYPE_BASE, FM_PCD_IOC_NUM(31), ioc_fm_pcd_cc_node_modify_next_engine_params_t)
@@ -2666,7 +2666,7 @@ typedef struct ioc_fm_pcd_cc_tbl_get_stats_t {
 
  @Cautions      Allowed only following FM_PCD_MatchTableSet().
 *//***************************************************************************/
-#if defined(CONFIG_COMPAT)
+#if defined(FM_COMPAT)
 #define FM_PCD_IOC_MATCH_TABLE_MODIFY_MISS_NEXT_ENGINE_COMPAT   _IOW(FM_IOC_TYPE_BASE, FM_PCD_IOC_NUM(32), ioc_compat_fm_pcd_cc_node_modify_next_engine_params_t)
 #endif
 #define FM_PCD_IOC_MATCH_TABLE_MODIFY_MISS_NEXT_ENGINE _IOW(FM_IOC_TYPE_BASE, FM_PCD_IOC_NUM(32), ioc_fm_pcd_cc_node_modify_next_engine_params_t)
@@ -2684,7 +2684,7 @@ typedef struct ioc_fm_pcd_cc_tbl_get_stats_t {
  @Cautions      Allowed only after FM_PCD_MatchTableSet() has been called for this
                 node and for all of the nodes that lead to it.
 *//***************************************************************************/
-#if defined(CONFIG_COMPAT)
+#if defined(FM_COMPAT)
 #define FM_PCD_IOC_MATCH_TABLE_REMOVE_KEY_COMPAT    _IOW(FM_IOC_TYPE_BASE, FM_PCD_IOC_NUM(33), ioc_compat_fm_pcd_cc_node_remove_key_params_t)
 #endif
 #define FM_PCD_IOC_MATCH_TABLE_REMOVE_KEY   _IOW(FM_IOC_TYPE_BASE, FM_PCD_IOC_NUM(33), ioc_fm_pcd_cc_node_remove_key_params_t)
@@ -2705,7 +2705,7 @@ typedef struct ioc_fm_pcd_cc_tbl_get_stats_t {
  @Cautions      Allowed only after FM_PCD_MatchTableSet() has been called for this
                 node and for all of the nodes that lead to it.
 *//***************************************************************************/
-#if defined(CONFIG_COMPAT)
+#if defined(FM_COMPAT)
 #define FM_PCD_IOC_MATCH_TABLE_ADD_KEY_COMPAT   _IOW(FM_IOC_TYPE_BASE, FM_PCD_IOC_NUM(34), ioc_compat_fm_pcd_cc_node_modify_key_and_next_engine_params_t)
 #endif
 #define FM_PCD_IOC_MATCH_TABLE_ADD_KEY  _IOW(FM_IOC_TYPE_BASE, FM_PCD_IOC_NUM(34), ioc_fm_pcd_cc_node_modify_key_and_next_engine_params_t)
@@ -2722,7 +2722,7 @@ typedef struct ioc_fm_pcd_cc_tbl_get_stats_t {
  @Cautions      Allowed only following FM_PCD_MatchTableSet() not only of the relevnt node but also
                 the node that points to this node
 *//***************************************************************************/
-#if defined(CONFIG_COMPAT)
+#if defined(FM_COMPAT)
 #define FM_PCD_IOC_MATCH_TABLE_MODIFY_KEY_AND_NEXT_ENGINE_COMPAT    _IOW(FM_IOC_TYPE_BASE, FM_PCD_IOC_NUM(35), ioc_compat_fm_pcd_cc_node_modify_key_and_next_engine_params_t)
 #endif
 #define FM_PCD_IOC_MATCH_TABLE_MODIFY_KEY_AND_NEXT_ENGINE   _IOW(FM_IOC_TYPE_BASE, FM_PCD_IOC_NUM(35), ioc_fm_pcd_cc_node_modify_key_and_next_engine_params_t)
@@ -2739,7 +2739,7 @@ typedef struct ioc_fm_pcd_cc_tbl_get_stats_t {
  @Cautions      Allowed only after FM_PCD_MatchTableSet() has been called for this
                 node and for all of the nodes that lead to it.
 *//***************************************************************************/
-#if defined(CONFIG_COMPAT)
+#if defined(FM_COMPAT)
 #define FM_PCD_IOC_MATCH_TABLE_MODIFY_KEY_COMPAT    _IOW(FM_IOC_TYPE_BASE, FM_PCD_IOC_NUM(36), ioc_compat_fm_pcd_cc_node_modify_key_params_t)
 #endif
 #define FM_PCD_IOC_MATCH_TABLE_MODIFY_KEY   _IOW(FM_IOC_TYPE_BASE, FM_PCD_IOC_NUM(36), ioc_fm_pcd_cc_node_modify_key_params_t)
@@ -2766,7 +2766,7 @@ typedef struct ioc_fm_pcd_cc_tbl_get_stats_t {
 
  @Return        0 on success; Error code otherwise.
 *//***************************************************************************/
-#if defined(CONFIG_COMPAT)
+#if defined(FM_COMPAT)
 #define FM_PCD_IOC_HASH_TABLE_SET_COMPAT _IOWR(FM_IOC_TYPE_BASE, FM_PCD_IOC_NUM(37), ioc_compat_fm_pcd_hash_table_params_t)
 #endif
 #define FM_PCD_IOC_HASH_TABLE_SET _IOWR(FM_IOC_TYPE_BASE, FM_PCD_IOC_NUM(37), ioc_fm_pcd_hash_table_params_t)
@@ -2784,7 +2784,7 @@ typedef struct ioc_fm_pcd_cc_tbl_get_stats_t {
 
  @Cautions      Allowed only following FM_PCD_HashTableSet().
 *//***************************************************************************/
-#if defined(CONFIG_COMPAT)
+#if defined(FM_COMPAT)
 #define FM_PCD_IOC_HASH_TABLE_DELETE_COMPAT _IOW(FM_IOC_TYPE_BASE, FM_PCD_IOC_NUM(37), ioc_compat_fm_obj_t)
 #endif
 #define FM_PCD_IOC_HASH_TABLE_DELETE _IOW(FM_IOC_TYPE_BASE, FM_PCD_IOC_NUM(37), ioc_fm_obj_t)
@@ -2803,7 +2803,7 @@ typedef struct ioc_fm_pcd_cc_tbl_get_stats_t {
 
  @Cautions      Allowed only following FM_PCD_HashTableSet().
 *//***************************************************************************/
-#if defined(CONFIG_COMPAT)
+#if defined(FM_COMPAT)
 #define FM_PCD_IOC_HASH_TABLE_ADD_KEY_COMPAT _IOW(FM_IOC_TYPE_BASE, FM_PCD_IOC_NUM(39), ioc_compat_fm_pcd_hash_table_add_key_params_t)
 #endif
 #define FM_PCD_IOC_HASH_TABLE_ADD_KEY _IOW(FM_IOC_TYPE_BASE, FM_PCD_IOC_NUM(39), ioc_fm_pcd_hash_table_add_key_params_t)
@@ -2820,7 +2820,7 @@ typedef struct ioc_fm_pcd_cc_tbl_get_stats_t {
 
  @Cautions      Allowed only following FM_PCD_HashTableSet().
 *//***************************************************************************/
-#if defined(CONFIG_COMPAT)
+#if defined(FM_COMPAT)
 #define FM_PCD_IOC_HASH_TABLE_REMOVE_KEY_COMPAT _IOW(FM_IOC_TYPE_BASE, FM_PCD_IOC_NUM(40), ioc_compat_fm_pcd_hash_table_remove_key_params_t)
 #endif
 #define FM_PCD_IOC_HASH_TABLE_REMOVE_KEY _IOW(FM_IOC_TYPE_BASE, FM_PCD_IOC_NUM(40), ioc_fm_pcd_hash_table_remove_key_params_t)
@@ -2836,7 +2836,7 @@ typedef struct ioc_fm_pcd_cc_tbl_get_stats_t {
 
  @Return        0 on success; Error code otherwise.
 *//***************************************************************************/
-#if defined(CONFIG_COMPAT)
+#if defined(FM_COMPAT)
 #define FM_PCD_IOC_PLCR_PROFILE_SET_COMPAT     _IOWR(FM_IOC_TYPE_BASE, FM_PCD_IOC_NUM(41), ioc_compat_fm_pcd_plcr_profile_params_t)
 #endif
 #define FM_PCD_IOC_PLCR_PROFILE_SET     _IOWR(FM_IOC_TYPE_BASE, FM_PCD_IOC_NUM(41), ioc_fm_pcd_plcr_profile_params_t)
@@ -2851,7 +2851,7 @@ typedef struct ioc_fm_pcd_cc_tbl_get_stats_t {
 
  @Return        0 on success; Error code otherwise.
 *//***************************************************************************/
-#if defined(CONFIG_COMPAT)
+#if defined(FM_COMPAT)
 #define FM_PCD_IOC_PLCR_PROFILE_DELETE_COMPAT   _IOW(FM_IOC_TYPE_BASE, FM_PCD_IOC_NUM(41), ioc_compat_fm_obj_t)
 #endif
 #define FM_PCD_IOC_PLCR_PROFILE_DELETE  _IOW(FM_IOC_TYPE_BASE, FM_PCD_IOC_NUM(41), ioc_fm_obj_t)
@@ -2867,7 +2867,7 @@ typedef struct ioc_fm_pcd_cc_tbl_get_stats_t {
 
  @Return        A handle to the initialized object on success; NULL code otherwise.
 *//***************************************************************************/
-#if defined(CONFIG_COMPAT)
+#if defined(FM_COMPAT)
 #define FM_PCD_IOC_MANIP_NODE_SET_COMPAT    _IOWR(FM_IOC_TYPE_BASE, FM_PCD_IOC_NUM(43), ioc_compat_fm_pcd_manip_params_t)
 #endif
 #define FM_PCD_IOC_MANIP_NODE_SET   _IOWR(FM_IOC_TYPE_BASE, FM_PCD_IOC_NUM(43), ioc_fm_pcd_manip_params_t)
@@ -2887,7 +2887,7 @@ typedef struct ioc_fm_pcd_cc_tbl_get_stats_t {
 
  @Cautions      Allowed only following FM_PCD_ManipNodeSet().
 *//***************************************************************************/
-#if defined(CONFIG_COMPAT)
+#if defined(FM_COMPAT)
 #define FM_PCD_IOC_MANIP_NODE_REPLACE_COMPAT    FM_PCD_IOC_MANIP_NODE_SET_COMPAT
 #endif
 #define FM_PCD_IOC_MANIP_NODE_REPLACE           FM_PCD_IOC_MANIP_NODE_SET
@@ -2903,7 +2903,7 @@ typedef struct ioc_fm_pcd_cc_tbl_get_stats_t {
 
  @Cautions      Allowed only following FM_PCD_ManipNodeSet().
 *//***************************************************************************/
-#if defined(CONFIG_COMPAT)
+#if defined(FM_COMPAT)
 #define FM_PCD_IOC_MANIP_NODE_DELETE_COMPAT _IOW(FM_IOC_TYPE_BASE, FM_PCD_IOC_NUM(44), ioc_compat_fm_obj_t)
 #endif
 #define FM_PCD_IOC_MANIP_NODE_DELETE    _IOW(FM_IOC_TYPE_BASE, FM_PCD_IOC_NUM(44), ioc_fm_obj_t)
@@ -2920,7 +2920,7 @@ typedef struct ioc_fm_pcd_cc_tbl_get_stats_t {
 
  @Cautions      Allowed only following FM_PCD_ManipNodeSet().
 *//***************************************************************************/
-#if defined(CONFIG_COMPAT)
+#if defined(FM_COMPAT)
 #define FM_PCD_IOC_MANIP_GET_STATS_COMPAT  _IOWR(FM_IOC_TYPE_BASE, FM_PCD_IOC_NUM(50), ioc_compat_fm_pcd_manip_get_stats_t)
 #endif
 #define FM_PCD_IOC_MANIP_GET_STATS   _IOWR(FM_IOC_TYPE_BASE, FM_PCD_IOC_NUM(50), ioc_fm_pcd_manip_get_stats_t)
@@ -2953,7 +2953,7 @@ typedef struct ioc_fm_pcd_cc_tbl_get_stats_t {
 
  @Cautions      Allowed only following FM_PCD_Init().
 *//***************************************************************************/
-#if defined(CONFIG_COMPAT)
+#if defined(FM_COMPAT)
 #define FM_PCD_IOC_FRM_REPLIC_GROUP_SET_COMPAT _IOWR(FM_IOC_TYPE_BASE, FM_PCD_IOC_NUM(46), ioc_compat_fm_pcd_frm_replic_group_params_t)
 #endif
 #define FM_PCD_IOC_FRM_REPLIC_GROUP_SET _IOWR(FM_IOC_TYPE_BASE, FM_PCD_IOC_NUM(46), ioc_fm_pcd_frm_replic_group_params_t)
@@ -2969,7 +2969,7 @@ typedef struct ioc_fm_pcd_cc_tbl_get_stats_t {
 
  @Cautions      Allowed only following FM_PCD_FrmReplicSetGroup().
 *//***************************************************************************/
-#if defined(CONFIG_COMPAT)
+#if defined(FM_COMPAT)
 #define FM_PCD_IOC_FRM_REPLIC_GROUP_DELETE_COMPAT _IOWR(FM_IOC_TYPE_BASE, FM_PCD_IOC_NUM(47), ioc_compat_fm_obj_t)
 #endif
 #define FM_PCD_IOC_FRM_REPLIC_GROUP_DELETE _IOWR(FM_IOC_TYPE_BASE, FM_PCD_IOC_NUM(47), ioc_fm_obj_t)
@@ -2987,7 +2987,7 @@ typedef struct ioc_fm_pcd_cc_tbl_get_stats_t {
 
  @Cautions      Allowed only following FM_PCD_FrmReplicSetGroup() of this group.
 *//***************************************************************************/
-#if defined(CONFIG_COMPAT)
+#if defined(FM_COMPAT)
 #define FM_PCD_IOC_FRM_REPLIC_MEMBER_ADD_COMPAT _IOWR(FM_IOC_TYPE_BASE, FM_PCD_IOC_NUM(48), ioc_compat_fm_pcd_frm_replic_member_params_t)
 #endif
 #define FM_PCD_IOC_FRM_REPLIC_MEMBER_ADD _IOWR(FM_IOC_TYPE_BASE, FM_PCD_IOC_NUM(48), ioc_fm_pcd_frm_replic_member_params_t)
@@ -3004,7 +3004,7 @@ typedef struct ioc_fm_pcd_cc_tbl_get_stats_t {
 
  @Cautions      Allowed only following FM_PCD_FrmReplicSetGroup() of this group.
 *//***************************************************************************/
-#if defined(CONFIG_COMPAT)
+#if defined(FM_COMPAT)
 #define FM_PCD_IOC_FRM_REPLIC_MEMBER_REMOVE_COMPAT _IOWR(FM_IOC_TYPE_BASE, FM_PCD_IOC_NUM(49), ioc_compat_fm_pcd_frm_replic_member_t)
 #endif
 #define FM_PCD_IOC_FRM_REPLIC_MEMBER_REMOVE _IOWR(FM_IOC_TYPE_BASE, FM_PCD_IOC_NUM(49), ioc_fm_pcd_frm_replic_member_t)
@@ -3021,7 +3021,7 @@ typedef struct ioc_fm_pcd_cc_tbl_get_stats_t {
 
  @Return        0 on success; Error code otherwise.
 *//***************************************************************************/
-#if defined(CONFIG_COMPAT)
+#if defined(FM_COMPAT)
 #define FM_PCD_IOC_STATISTICS_SET_NODE_COMPAT _IOWR(FM_IOC_TYPE_BASE, FM_PCD_IOC_NUM(45), void *)
 #endif
 #define FM_PCD_IOC_STATISTICS_SET_NODE _IOWR(FM_IOC_TYPE_BASE, FM_PCD_IOC_NUM(45), void *)
@@ -3029,7 +3029,7 @@ typedef struct ioc_fm_pcd_cc_tbl_get_stats_t {
 #endif /* FM_CAPWAP_SUPPORT */
 
 #ifdef NCSW_BACKWARD_COMPATIBLE_API
-#if defined(CONFIG_COMPAT)
+#if defined(FM_COMPAT)
 #define FM_PCD_IOC_SET_NET_ENV_CHARACTERISTICS_COMPAT \
                                                 FM_PCD_IOC_NET_ENV_CHARACTERISTICS_SET_COMPAT
 #define FM_PCD_IOC_DELETE_NET_ENV_CHARACTERISTICS_COMPAT \
