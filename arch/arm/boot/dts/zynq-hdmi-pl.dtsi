@@ -1,0 +1,94 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ *  Copyright (C) 2020 - Analog Devices Inc.
+ */
+
+#include <dt-bindings/interrupt-controller/irq.h>
+
+/ {
+	fpga_axi: fpga-axi@0 {
+		compatible = "simple-bus";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+
+		fpga_i2c: i2c@41600000 {
+			compatible = "xlnx,xps-iic-2.00.a";
+			reg = <0x41600000 0x10000>;
+			interrupt-parent = <&intc>;
+			interrupts = <0 58 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clkc 15>;
+			clock-names = "pclk";
+
+			#size-cells = <0>;
+			#address-cells = <1>;
+		};
+
+		hdmi_dma: dma@43000000 {
+			compatible = "adi,axi-dmac-1.00.a";
+			reg = <0x43000000 0x10000>;
+			#dma-cells = <1>;
+			interrupt-parent = <&intc>;
+			interrupts = <0 59 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clkc 16>;
+		};
+
+		hdmi_clock: axi-clkgen@79000000 {
+			compatible = "adi,axi-clkgen-2.00.a";
+			reg = <0x79000000 0x10000>;
+			#clock-cells = <0>;
+			clocks = <&clkc 16>;
+			clock-names = "clkin1";
+		};
+
+		axi_hdmi@70e00000 {
+			compatible = "adi,axi-hdmi-tx-1.00.a";
+			reg = <0x70e00000 0x10000>;
+			dmas = <&hdmi_dma 0>;
+			dma-names = "video";
+			clocks = <&hdmi_clock>;
+
+			port {
+				axi_hdmi_out: endpoint {
+					remote-endpoint = <&zynq_hdmi_in>;
+				};
+			};
+		};
+
+		axi_spdif_tx_0: axi-spdif-tx@75c00000 {
+			compatible = "adi,axi-spdif-tx-1.00.a";
+			reg = <0x75c00000 0x1000>;
+			dmas = <&dmac_s 0>;
+			dma-names = "tx";
+			clocks = <&clkc 15>, <&audio_clock>;
+			clock-names = "axi", "ref";
+
+			#sound-dai-cells = <0>;
+		};
+	};
+
+	audio_clock: audio_clock {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <12288000>;
+	};
+
+	zynq_hdmi_snd {
+		compatible = "simple-audio-card";
+		simple-audio-card,name = "HDMI monitor";
+		simple-audio-card,widgets =
+			"Speaker", "Speaker";
+		simple-audio-card,routing =
+			"Speaker", "TX";
+
+		simple-audio-card,dai-link@0 {
+			format = "spdif";
+			cpu {
+				sound-dai = <&axi_spdif_tx_0>;
+			};
+			codec {
+				sound-dai = <&zynq_hdmi_code_dai 1>;
+			};
+		};
+	};
+};
