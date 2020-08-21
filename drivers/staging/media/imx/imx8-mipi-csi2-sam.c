@@ -365,6 +365,8 @@ struct csi_state {
 	struct clk *mipi_clk;
 	struct clk *disp_axi;
 	struct clk *disp_apb;
+	struct clk *csi_pclk;
+	struct clk *csi_aclk;
 	int irq;
 	u32 flags;
 
@@ -394,6 +396,8 @@ struct csi_state {
 	struct reset_control *soft_resetn;
 	struct reset_control *clk_enable;
 	struct reset_control *mipi_reset;
+	struct reset_control *csi_rst_pclk;
+	struct reset_control *csi_rst_aclk;
 
 	struct mipi_csis_pdata const *pdata;
 };
@@ -1416,6 +1420,138 @@ static struct mipi_csis_pdata mipi_csis_imx8mn_pdata = {
 	.phy_ops  = &imx8mn_phy_ops,
 };
 
+/*
+ * IMX8MP platform data
+ */
+static int mipi_csis_imx8mp_parse_resets(struct csi_state *state)
+{
+	struct device *dev = state->dev;
+	struct reset_control *reset;
+
+	reset = devm_reset_control_get(dev, "csi_rst_pclk");
+	if (IS_ERR(reset)) {
+		dev_err(dev, "Failed to get csi pclk reset control\n");
+		return PTR_ERR(reset);
+	}
+	state->csi_rst_pclk = reset;
+
+	reset = devm_reset_control_get(dev, "csi_rst_aclk");
+	if (IS_ERR(reset)) {
+		dev_err(dev, "Failed to get csi aclk reset control\n");
+		return PTR_ERR(reset);
+	}
+	state->csi_rst_aclk = reset;
+
+	return 0;
+}
+
+static int mipi_csis_imx8mp_resets_assert(struct csi_state *state)
+{
+	struct device *dev = state->dev;
+	int ret;
+
+	if (!state->csi_rst_pclk || !state->csi_rst_aclk)
+		return -EINVAL;
+
+	ret = reset_control_assert(state->csi_rst_pclk);
+	if (ret) {
+		dev_err(dev, "Failed to assert csi pclk reset control\n");
+		return ret;
+	}
+
+	ret = reset_control_assert(state->csi_rst_aclk);
+	if (ret) {
+		dev_err(dev, "Failed to assert csi aclk reset control\n");
+		return ret;
+	}
+
+	return ret;
+}
+
+static int mipi_csis_imx8mp_resets_deassert(struct csi_state *state)
+{
+	if (!state->csi_rst_pclk || !state->csi_rst_aclk)
+		return -EINVAL;
+
+	reset_control_deassert(state->csi_rst_pclk);
+	reset_control_deassert(state->csi_rst_aclk);
+
+	return 0;
+}
+
+static struct mipi_csis_rst_ops imx8mp_rst_ops = {
+	.parse  = mipi_csis_imx8mp_parse_resets,
+	.assert = mipi_csis_imx8mp_resets_assert,
+	.deassert = mipi_csis_imx8mp_resets_deassert,
+};
+
+static int mipi_csis_imx8mp_gclk_get(struct csi_state *state)
+{
+	struct device *dev = state->dev;
+
+	state->csi_pclk = devm_clk_get(dev, "media_blk_csi_pclk");
+	if (IS_ERR(state->csi_pclk)) {
+		dev_err(dev, "Failed to get media csi pclk\n");
+		return -ENODEV;
+	}
+
+	state->csi_aclk = devm_clk_get(dev, "media_blk_csi_aclk");
+	if (IS_ERR(state->csi_aclk)) {
+		dev_err(dev, "Failed to get media csi aclk\n");
+		return -ENODEV;
+	}
+
+	return 0;
+}
+
+static int mipi_csis_imx8mp_gclk_enable(struct csi_state *state)
+{
+	struct device *dev = state->dev;
+	int ret;
+
+	ret = clk_prepare_enable(state->csi_pclk);
+	if (ret) {
+		dev_err(dev, "enable csi_pclk failed!\n");
+		return ret;
+	}
+
+	ret = clk_prepare_enable(state->csi_aclk);
+	if (ret) {
+		dev_err(dev, "enable csi_aclk failed!\n");
+		return ret;
+	}
+
+	return ret;
+}
+
+static int mipi_csis_imx8mp_gclk_disable(struct csi_state *state)
+{
+	clk_disable_unprepare(state->csi_pclk);
+	clk_disable_unprepare(state->csi_aclk);
+	return 0;
+}
+
+static struct mipi_csis_gate_clk_ops imx8mp_gclk_ops = {
+	.gclk_get = mipi_csis_imx8mp_gclk_get,
+	.gclk_enable  = mipi_csis_imx8mp_gclk_enable,
+	.gclk_disable = mipi_csis_imx8mp_gclk_disable,
+};
+
+static void mipi_csis_imx8mp_phy_reset(struct csi_state *state)
+{
+	mipi_csis_imx8mn_phy_reset(state);
+}
+
+static struct mipi_csis_phy_ops imx8mp_phy_ops = {
+	.phy_reset = mipi_csis_imx8mp_phy_reset,
+};
+
+static struct mipi_csis_pdata mipi_csis_imx8mp_pdata = {
+	.rst_ops  = &imx8mp_rst_ops,
+	.gclk_ops = &imx8mp_gclk_ops,
+	.phy_ops  = &imx8mp_phy_ops,
+};
+
 static int mipi_csis_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -1609,6 +1745,9 @@ static const struct dev_pm_ops mipi_csis_pm_ops = {
 static const struct of_device_id mipi_csis_of_match[] = {
 	{	.compatible = "fsl,imx8mn-mipi-csi",
 		.data = (void *)&mipi_csis_imx8mn_pdata,
+	},
+	{	.compatible = "fsl,imx8mp-mipi-csi",
+		.data = (void *)&mipi_csis_imx8mp_pdata,
 	},
 	{ /* sentinel */ },
 };
