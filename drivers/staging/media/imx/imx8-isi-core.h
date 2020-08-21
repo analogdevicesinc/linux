@@ -279,11 +279,25 @@ struct mxc_isi_set_thd {
 	struct mxc_isi_panic_thd panic_set_thd_v;
 };
 
+struct mxc_isi_rst_ops {
+	int (*parse)(struct mxc_isi_dev *mxc_isi);
+	int (*assert)(struct mxc_isi_dev *mxc_isi);
+	int (*deassert)(struct mxc_isi_dev *mxc_isi);
+};
+
+struct mxc_isi_gate_clk_ops {
+	int (*gclk_get)(struct mxc_isi_dev *mxc_isi);
+	int (*gclk_enable)(struct mxc_isi_dev *mxc_isi);
+	int (*gclk_disable)(struct mxc_isi_dev *mxc_isi);
+};
+
 struct mxc_isi_plat_data {
 	struct mxc_isi_dev_ops *ops;
 	struct mxc_isi_chan_src *chan_src;
 	struct mxc_isi_ier_reg  *ier_reg;
 	struct mxc_isi_set_thd *set_thd;
+	struct mxc_isi_rst_ops *rst_ops;
+	struct mxc_isi_gate_clk_ops *gclk_ops;
 };
 
 struct mxc_isi_cap_dev {
@@ -352,6 +366,7 @@ struct mxc_isi_dev {
 	u8 alpha;
 	bool m2m_enabled;
 	bool buf_active_reverse;
+	bool no_dispmix;
 
 	/* manage share ISI channel resource */
 	atomic_t usage_count;

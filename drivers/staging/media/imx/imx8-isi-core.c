@@ -76,27 +76,65 @@ static irqreturn_t mxc_isi_irq_handler(int irq, void *priv)
 	return IRQ_HANDLED;
 }
 
-static int disp_mix_sft_rstn(struct reset_control *reset, bool enable)
+static int disp_mix_sft_parse_resets(struct mxc_isi_dev *mxc_isi)
 {
-	int ret;
+	struct mxc_isi_plat_data const *pdata = mxc_isi->pdata;
 
-	if (!reset)
+	if (mxc_isi->no_dispmix)
 		return 0;
 
-	ret = enable ? reset_control_assert(reset) :
-			 reset_control_deassert(reset);
+	if (!pdata->rst_ops || !pdata->rst_ops->parse)
+		return -EINVAL;
+
+	return pdata->rst_ops->parse(mxc_isi);
+}
+
+static int disp_mix_sft_rstn(struct mxc_isi_dev *mxc_isi, bool enable)
+{
+	struct mxc_isi_plat_data const *pdata = mxc_isi->pdata;
+	int ret;
+
+	if (mxc_isi->no_dispmix)
+		return 0;
+
+	if (!pdata->rst_ops ||
+	    !pdata->rst_ops->assert ||
+	    !pdata->rst_ops->deassert)
+		return -EINVAL;
+
+	ret = enable ? pdata->rst_ops->assert(mxc_isi) :
+		       pdata->rst_ops->deassert(mxc_isi);
 	return ret;
 }
 
-static int disp_mix_clks_enable(struct reset_control *reset, bool enable)
+static int disp_mix_clks_get(struct mxc_isi_dev *mxc_isi)
 {
-	int ret;
+	struct mxc_isi_plat_data  const *pdata = mxc_isi->pdata;
 
-	if (!reset)
+	if (mxc_isi->no_dispmix)
 		return 0;
 
-	ret = enable ? reset_control_assert(reset) :
-			 reset_control_deassert(reset);
+	if (!pdata->gclk_ops || !pdata->gclk_ops->gclk_get)
+		return -EINVAL;
+
+	return pdata->gclk_ops->gclk_get(mxc_isi);
+}
+
+static int disp_mix_clks_enable(struct mxc_isi_dev *mxc_isi, bool enable)
+{
+	struct mxc_isi_plat_data const *pdata = mxc_isi->pdata;
+	int ret;
+
+	if (mxc_isi->no_dispmix)
+		return 0;
+
+	if (!pdata->gclk_ops ||
+	    !pdata->gclk_ops->gclk_enable ||
+	    !pdata->gclk_ops->gclk_disable)
+		return -EINVAL;
+
+	ret = enable ? pdata->gclk_ops->gclk_enable(mxc_isi) :
+		       pdata->gclk_ops->gclk_disable(mxc_isi);
 	return ret;
 }
 
@@ -291,11 +329,112 @@ static struct mxc_isi_dev_ops mxc_imx8mn_clk_ops = {
 	.clk_disable = mxc_imx8mn_clk_disable,
 };
 
+static int mxc_isi_imx8mn_parse_resets(struct mxc_isi_dev *mxc_isi)
+{
+	int ret;
+	struct device *dev = &mxc_isi->pdev->dev;
+	struct device_node *np = dev->of_node;
+	struct device_node *parent, *child;
+	struct of_phandle_args args;
+	struct reset_control *rstc;
+	const char *compat;
+	u32 len, rstc_num = 0;
+
+	ret = of_parse_phandle_with_args(np, "resets", "#reset-cells",
+					 0, &args);
+	if (ret)
+		return ret;
+
+	parent = args.np;
+	for_each_child_of_node(parent, child) {
+		compat = of_get_property(child, "compatible", NULL);
+		if (!compat)
+			continue;
+
+		rstc = of_reset_control_array_get(child, false, false, true);
+		if (IS_ERR(rstc))
+			continue;
+
+		len = strlen(compat);
+		if (!of_compat_cmp("isi,soft-resetn", compat, len)) {
+			mxc_isi->soft_resetn = rstc;
+			rstc_num++;
+		} else if (!of_compat_cmp("isi,clk-enable", compat, len)) {
+			mxc_isi->clk_enable = rstc;
+			rstc_num++;
+		} else {
+			dev_warn(dev, "invalid isi reset node: %s\n", compat);
+		}
+	}
+
+	if (!rstc_num) {
+		dev_err(dev, "no invalid reset control exists\n");
+		return -EINVAL;
+	}
+
+	of_node_put(parent);
+	return 0;
+}
+
+static int mxc_isi_imx8mn_resets_assert(struct mxc_isi_dev *mxc_isi)
+{
+	if (!mxc_isi->soft_resetn)
+		return -EINVAL;
+
+	return reset_control_assert(mxc_isi->soft_resetn);
+}
+
+static int mxc_isi_imx8mn_resets_deassert(struct mxc_isi_dev *mxc_isi)
+{
+	if (!mxc_isi->soft_resetn)
+		return -EINVAL;
+
+	return reset_control_deassert(mxc_isi->soft_resetn);
+}
+
+static struct mxc_isi_rst_ops mxc_imx8mn_isi_rst_ops = {
+	.parse  = mxc_isi_imx8mn_parse_resets,
+	.assert = mxc_isi_imx8mn_resets_assert,
+	.deassert = mxc_isi_imx8mn_resets_deassert,
+};
+
+static int mxc_isi_imx8mn_gclk_get(struct mxc_isi_dev *mxc_isi)
+{
+	if (mxc_isi->clk_enable)
+		return 0;
+
+	return mxc_isi_imx8mn_parse_resets(mxc_isi);
+}
+
+static int mxc_isi_imx8mn_gclk_enable(struct mxc_isi_dev *mxc_isi)
+{
+	if (!mxc_isi->clk_enable)
+		return -EINVAL;
+
+	return reset_control_assert(mxc_isi->clk_enable);
+}
+
+static int mxc_isi_imx8mn_gclk_disable(struct mxc_isi_dev *mxc_isi)
+{
+	if (!mxc_isi->clk_enable)
+		return -EINVAL;
+
+	return reset_control_deassert(mxc_isi->clk_enable);
+}
+
+static struct mxc_isi_gate_clk_ops mxc_imx8mn_isi_gclk_ops = {
+	.gclk_get = mxc_isi_imx8mn_gclk_get,
+	.gclk_enable  = mxc_isi_imx8mn_gclk_enable,
+	.gclk_disable = mxc_isi_imx8mn_gclk_disable,
+};
+
 static struct mxc_isi_plat_data mxc_imx8mn_data = {
 	.ops      = &mxc_imx8mn_clk_ops,
 	.chan_src = &mxc_imx8mn_chan_src,
 	.ier_reg  = &mxc_imx8_isi_ier_v1,
 	.set_thd  = &mxc_imx8_isi_thd_v1,
+	.rst_ops  = &mxc_imx8mn_isi_rst_ops,
+	.gclk_ops = &mxc_imx8mn_isi_gclk_ops,
 };
 
 static int mxc_isi_parse_dt(struct mxc_isi_dev *mxc_isi)
@@ -347,53 +486,6 @@ static void mxc_isi_clk_disable(struct mxc_isi_dev *mxc_isi)
 		return;
 
 	ops->clk_disable(mxc_isi);
-}
-
-static int mxc_isi_of_parse_resets(struct mxc_isi_dev *mxc_isi)
-{
-	int ret;
-	struct device *dev = &mxc_isi->pdev->dev;
-	struct device_node *np = dev->of_node;
-	struct device_node *parent, *child;
-	struct of_phandle_args args;
-	struct reset_control *rstc;
-	const char *compat;
-	uint32_t len, rstc_num = 0;
-
-	ret = of_parse_phandle_with_args(np, "resets", "#reset-cells",
-					 0, &args);
-	if (ret)
-		return ret;
-
-	parent = args.np;
-	for_each_child_of_node(parent, child) {
-		compat = of_get_property(child, "compatible", NULL);
-		if (!compat)
-			continue;
-
-		rstc = of_reset_control_array_get(child, false, false, true);
-		if (IS_ERR(rstc))
-			continue;
-
-		len = strlen(compat);
-		if (!of_compat_cmp("isi,soft-resetn", compat, len)) {
-			mxc_isi->soft_resetn = rstc;
-			rstc_num++;
-		} else if (!of_compat_cmp("isi,clk-enable", compat, len)) {
-			mxc_isi->clk_enable = rstc;
-			rstc_num++;
-		} else {
-			dev_warn(dev, "invalid isi reset node: %s\n", compat);
-		}
-	}
-
-	if (!rstc_num) {
-		dev_err(dev, "no invalid reset control exists\n");
-		return -EINVAL;
-	}
-
-	of_node_put(parent);
-	return 0;
 }
 
 static int mxc_isi_soc_match(struct mxc_isi_dev *mxc_isi,
@@ -469,17 +561,24 @@ static int mxc_isi_probe(struct platform_device *pdev)
 	mutex_init(&mxc_isi->lock);
 	atomic_set(&mxc_isi->usage_count, 0);
 
-	if (!of_property_read_bool(dev->of_node, "no-reset-control")) {
-		ret = mxc_isi_of_parse_resets(mxc_isi);
-		if (ret) {
-			dev_warn(dev, "Can not parse reset control\n");
-			return ret;
-		}
+	mxc_isi->no_dispmix =
+		of_property_read_bool(dev->of_node, "no-reset-control");
+
+	ret = disp_mix_sft_parse_resets(mxc_isi);
+	if (ret) {
+		dev_err(dev, "Can not parse reset control for isi\n");
+		return ret;
 	}
 
 	ret = mxc_isi_clk_get(mxc_isi);
 	if (ret < 0) {
 		dev_err(dev, "ISI_%d get clocks fail\n", mxc_isi->id);
+		return ret;
+	}
+
+	ret = disp_mix_clks_get(mxc_isi);
+	if (ret < 0) {
+		dev_err(dev, "Failed to get disp mix clocks");
 		return ret;
 	}
 
@@ -495,8 +594,8 @@ static int mxc_isi_probe(struct platform_device *pdev)
 		dev_err(dev, "ISI_%d enable clocks fail\n", mxc_isi->id);
 		return ret;
 	}
-	disp_mix_sft_rstn(mxc_isi->soft_resetn, false);
-	disp_mix_clks_enable(mxc_isi->clk_enable, true);
+	disp_mix_sft_rstn(mxc_isi, false);
+	disp_mix_clks_enable(mxc_isi, true);
 
 	mxc_isi_clean_registers(mxc_isi);
 
@@ -527,8 +626,8 @@ static int mxc_isi_probe(struct platform_device *pdev)
 	return 0;
 
 err:
-	disp_mix_clks_enable(mxc_isi->clk_enable, false);
-	disp_mix_sft_rstn(mxc_isi->soft_resetn, true);
+	disp_mix_clks_enable(mxc_isi, false);
+	disp_mix_sft_rstn(mxc_isi, true);
 	mxc_isi_clk_disable(mxc_isi);
 	return -ENXIO;
 }
@@ -564,7 +663,7 @@ static int mxc_isi_runtime_suspend(struct device *dev)
 {
 	struct mxc_isi_dev *mxc_isi = dev_get_drvdata(dev);
 
-	disp_mix_clks_enable(mxc_isi->clk_enable, false);
+	disp_mix_clks_enable(mxc_isi, false);
 	mxc_isi_clk_disable(mxc_isi);
 
 	return 0;
@@ -580,8 +679,8 @@ static int mxc_isi_runtime_resume(struct device *dev)
 		dev_err(dev, "%s clk enable fail\n", __func__);
 		return ret;
 	}
-	disp_mix_sft_rstn(mxc_isi->soft_resetn, false);
-	disp_mix_clks_enable(mxc_isi->clk_enable, true);
+	disp_mix_sft_rstn(mxc_isi, false);
+	disp_mix_clks_enable(mxc_isi, true);
 
 	return 0;
 }
