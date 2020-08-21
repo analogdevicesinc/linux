@@ -163,26 +163,31 @@ struct ad7768_state {
 	 * transfer buffers to live in their own cache lines.
 	 */
 	union {
-		__be32 d32;
-		u8 d8[2];
+		unsigned char buf[6];
+		struct {
+			__be32 word;
+			unsigned char status[2];
+		};
 	} data ____cacheline_aligned;
 };
 
 static int ad7768_spi_reg_read(struct ad7768_state *st, unsigned int addr,
 			       unsigned int *data, unsigned int len)
 {
-	unsigned int shift;
+	struct spi_transfer xfer = {
+		.rx_buf = st->data.buf,
+		.len = len + 1,
+		.bits_per_word = (len == 3 ? 32 : 16),
+	};
+	unsigned char tx_data[4];
 	int ret;
 
-	shift = 32 - (8 * len);
-	st->data.d8[0] = AD7768_RD_FLAG_MSK(addr);
-
-	ret = spi_write_then_read(st->spi, st->data.d8, 1,
-				  &st->data.d32, len);
+	tx_data[0] = AD7768_RD_FLAG_MSK(addr);
+	xfer.tx_buf = tx_data;
+	ret = spi_sync_transfer(st->spi, &xfer, 1);
 	if (ret < 0)
 		return ret;
-
-	*data = (be32_to_cpu(st->data.d32) >> shift);
+	*data = (len == 1 ? st->data.buf[0] : st->data.word);
 
 	return ret;
 }
@@ -191,10 +196,17 @@ static int ad7768_spi_reg_write(struct ad7768_state *st,
 				unsigned int addr,
 				unsigned int val)
 {
-	st->data.d8[0] = AD7768_WR_FLAG_MSK(addr);
-	st->data.d8[1] = val & 0xFF;
+	struct spi_transfer xfer = {
+		.rx_buf = st->data.buf,
+		.len = 2,
+		.bits_per_word = 16,
+	};
+	unsigned char tx_data[2];
 
-	return spi_write(st->spi, st->data.d8, 2);
+	tx_data[0] = AD7768_WR_FLAG_MSK(addr);
+	tx_data[1] = val & 0xFF;
+	xfer.tx_buf = tx_data;
+	return spi_sync_transfer(st->spi, &xfer, 1);
 }
 
 static int ad7768_set_mode(struct ad7768_state *st,
@@ -456,7 +468,7 @@ static irqreturn_t ad7768_trigger_handler(int irq, void *p)
 
 	mutex_lock(&st->lock);
 
-	ret = spi_read(st->spi, &st->data.d32, 3);
+	ret = spi_read(st->spi, &st->data.word, 3);
 	if (ret < 0)
 		goto err_unlock;
 
