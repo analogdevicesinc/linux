@@ -437,6 +437,150 @@ static struct mxc_isi_plat_data mxc_imx8mn_data = {
 	.gclk_ops = &mxc_imx8mn_isi_gclk_ops,
 };
 
+static int mxc_isi_imx8mp_parse_resets(struct mxc_isi_dev *mxc_isi)
+{
+	struct device *dev = &mxc_isi->pdev->dev;
+	struct reset_control *reset;
+
+	reset = devm_reset_control_get(dev, "isi_rst_proc");
+	if (IS_ERR(reset)) {
+		dev_err(dev, "Failed to get isi proc reset control\n");
+		return PTR_ERR(reset);
+	}
+	mxc_isi->isi_rst_proc = reset;
+
+	reset = devm_reset_control_get(dev, "isi_rst_apb");
+	if (IS_ERR(reset)) {
+		dev_err(dev, "Failed to get isi apb reset control\n");
+		return PTR_ERR(reset);
+	}
+	mxc_isi->isi_rst_apb = reset;
+
+	return 0;
+}
+
+static int mxc_isi_imx8mp_resets_assert(struct mxc_isi_dev *mxc_isi)
+{
+	struct device *dev = &mxc_isi->pdev->dev;
+	int ret;
+
+	if (!mxc_isi->isi_rst_proc || !mxc_isi->isi_rst_apb)
+		return -EINVAL;
+
+	ret = reset_control_assert(mxc_isi->isi_rst_proc);
+	if (ret) {
+		dev_err(dev, "Failed to assert isi proc reset control\n");
+		return ret;
+	}
+
+	ret = reset_control_assert(mxc_isi->isi_rst_apb);
+	if (ret) {
+		dev_err(dev, "Failed to assert isi apb reset control\n");
+		return ret;
+	}
+
+	ret = reset_control_assert(mxc_isi->isi_rst_bus);
+	if (ret) {
+		dev_err(dev, "Failed to assert isi bus reset control\n");
+		return ret;
+	}
+
+	return ret;
+}
+
+static int mxc_isi_imx8mp_resets_deassert(struct mxc_isi_dev *mxc_isi)
+{
+	if (!mxc_isi->isi_rst_proc || !mxc_isi->isi_rst_apb)
+		return -EINVAL;
+
+	reset_control_deassert(mxc_isi->isi_rst_proc);
+	reset_control_deassert(mxc_isi->isi_rst_apb);
+	reset_control_deassert(mxc_isi->isi_rst_bus);
+
+	return 0;
+}
+
+static struct mxc_isi_rst_ops mxc_imx8mp_isi_rst_ops = {
+	.parse  = mxc_isi_imx8mp_parse_resets,
+	.assert = mxc_isi_imx8mp_resets_assert,
+	.deassert = mxc_isi_imx8mp_resets_deassert,
+};
+
+static int mxc_isi_imx8mp_gclk_get(struct mxc_isi_dev *mxc_isi)
+{
+	struct device *dev = &mxc_isi->pdev->dev;
+
+	mxc_isi->isi_proc = devm_clk_get(dev, "media_blk_isi_proc");
+	if (IS_ERR(mxc_isi->isi_proc)) {
+		dev_err(dev, "Failed to get media isi proc clock\n");
+		return -ENODEV;
+	}
+
+	mxc_isi->isi_apb = devm_clk_get(dev, "media_blk_isi_apb");
+	if (IS_ERR(mxc_isi->isi_apb)) {
+		dev_err(dev, "Failed to get media isi apb clock\n");
+		return -ENODEV;
+	}
+
+	mxc_isi->isi_bus = devm_clk_get(dev, "media_blk_bus");
+	if (IS_ERR(mxc_isi->isi_bus)) {
+		dev_err(dev, "Failed to get media bus clock\n");
+		return -ENODEV;
+	}
+
+	return 0;
+}
+
+static int mxc_isi_imx8mp_gclk_enable(struct mxc_isi_dev *mxc_isi)
+{
+	struct device *dev = &mxc_isi->pdev->dev;
+	int ret;
+
+	ret = clk_prepare_enable(mxc_isi->isi_proc);
+	if (ret) {
+		dev_err(dev, "enable isi proc clock failed!\n");
+		return ret;
+	}
+
+	ret = clk_prepare_enable(mxc_isi->isi_apb);
+	if (ret) {
+		dev_err(dev, "enable isi apb clock failed!\n");
+		return ret;
+	}
+
+	ret = clk_prepare_enable(mxc_isi->isi_bus);
+	if (ret) {
+		dev_err(dev, "enable bus clock failed!\n");
+		return ret;
+	}
+
+	return ret;
+}
+
+static int mxc_isi_imx8mp_gclk_disable(struct mxc_isi_dev *mxc_isi)
+{
+	clk_disable_unprepare(mxc_isi->isi_proc);
+	clk_disable_unprepare(mxc_isi->isi_apb);
+	clk_disable_unprepare(mxc_isi->isi_bus);
+
+	return 0;
+}
+
+static struct mxc_isi_gate_clk_ops mxc_imx8mp_isi_gclk_ops = {
+	.gclk_get = mxc_isi_imx8mp_gclk_get,
+	.gclk_enable  = mxc_isi_imx8mp_gclk_enable,
+	.gclk_disable = mxc_isi_imx8mp_gclk_disable,
+};
+
+static struct mxc_isi_plat_data mxc_imx8mp_data = {
+	.ops      = &mxc_imx8mn_clk_ops,
+	.chan_src = &mxc_imx8mn_chan_src,
+	.ier_reg  = &mxc_imx8_isi_ier_v1,
+	.set_thd  = &mxc_imx8_isi_thd_v1,
+	.rst_ops  = &mxc_imx8mp_isi_rst_ops,
+	.gclk_ops = &mxc_imx8mp_isi_gclk_ops,
+};
+
 static int mxc_isi_parse_dt(struct mxc_isi_dev *mxc_isi)
 {
 	struct device *dev = &mxc_isi->pdev->dev;
@@ -693,6 +837,7 @@ static const struct dev_pm_ops mxc_isi_pm_ops = {
 static const struct of_device_id mxc_isi_of_match[] = {
 	{.compatible = "fsl,imx8-isi", .data = &mxc_imx8_data },
 	{.compatible = "nxp,imx8mn-isi", .data = &mxc_imx8mn_data },
+	{.compatible = "nxp,imx8mp-isi", .data = &mxc_imx8mp_data },
 	{ /* sentinel */ },
 };
 MODULE_DEVICE_TABLE(of, mxc_isi_of_match);

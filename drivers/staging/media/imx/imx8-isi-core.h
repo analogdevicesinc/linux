@@ -351,11 +351,17 @@ struct mxc_isi_dev {
 	struct clk *clk_disp_apb;
 	struct clk *clk_root_disp_axi;
 	struct clk *clk_root_disp_apb;
+	struct clk *isi_proc;
+	struct clk *isi_apb;
+	struct clk *isi_bus;
 
 	const struct mxc_isi_plat_data *pdata;
 
 	struct reset_control *soft_resetn;
 	struct reset_control *clk_enable;
+	struct reset_control *isi_rst_proc;
+	struct reset_control *isi_rst_apb;
+	struct reset_control *isi_rst_bus;
 
 	struct mutex lock;
 	spinlock_t   slock;
