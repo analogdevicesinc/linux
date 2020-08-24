@@ -211,6 +211,20 @@ static int ad7768_spi_reg_write(struct ad7768_state *st,
 	xfer.tx_buf = tx_data;
 	return spi_sync_transfer(st->spi, &xfer, 1);
 }
+static int ad7768_spi_reg_write_masked(struct ad7768_state *st,
+				       unsigned int addr,
+				       unsigned int mask,
+				       unsigned int val)
+{
+	unsigned int reg_val;
+	int ret;
+
+	ret = ad7768_spi_reg_read(st, addr, &reg_val, 1);
+	if (ret < 0)
+		return ret;
+
+	return ad7768_spi_reg_write(st, addr, (reg_val & ~mask) | val);
+}
 
 static int ad7768_set_mode(struct ad7768_state *st,
 			   enum ad7768_conv_mode mode)
