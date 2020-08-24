@@ -8,15 +8,21 @@
 #include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/device.h>
+#include <linux/dma-mapping.h>
+#include <linux/dmaengine.h>
 #include <linux/err.h>
+#include <linux/interrupt.h>
 #include <linux/gpio/consumer.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/regulator/consumer.h>
 #include <linux/sysfs.h>
 #include <linux/spi/spi.h>
+#include <linux/spi/spi-engine.h>
 
 #include <linux/iio/buffer.h>
+#include <linux/iio/buffer-dma.h>
+#include <linux/iio/buffer-dmaengine.h>
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
 #include <linux/iio/trigger.h>
@@ -160,6 +166,7 @@ struct ad7768_state {
 	struct gpio_desc *gpio_sync_in;
 	const char *labels[ARRAY_SIZE(ad7768_channels)];
 	struct gpio_desc *gpio_reset;
+	bool spi_is_dma_mapped;
 	int irq;
 	/*
 	 * DMA (thus cache coherency maintenance) may require the
@@ -233,16 +240,19 @@ static int ad7768_scan_direct(struct iio_dev *indio_dev)
 	struct ad7768_state *st = iio_priv(indio_dev);
 	int readval, ret;
 
-	reinit_completion(&st->completion);
+	if (!st->spi_is_dma_mapped)
+		reinit_completion(&st->completion);
 
 	ret = ad7768_set_mode(st, AD7768_ONE_SHOT);
 	if (ret < 0)
 		return ret;
 
-	ret = wait_for_completion_timeout(&st->completion,
+	if (!st->spi_is_dma_mapped) {
+		ret = wait_for_completion_timeout(&st->completion,
 					  msecs_to_jiffies(1000));
-	if (!ret)
-		return -ETIMEDOUT;
+		if (!ret)
+			return -ETIMEDOUT;
+	}
 
 	ret = ad7768_spi_reg_read(st, AD7768_REG_ADC_DATA, &readval, 3);
 	if (ret < 0)
@@ -523,19 +533,49 @@ static irqreturn_t ad7768_interrupt(int irq, void *dev_id)
 static int ad7768_buffer_postenable(struct iio_dev *indio_dev)
 {
 	struct ad7768_state *st = iio_priv(indio_dev);
+	struct spi_transfer xfer = {
+		.len = 1,
+		.bits_per_word = 32
+	};
+	unsigned int rx_data[2];
+	unsigned int tx_data[2];
+	struct spi_message msg;
+	int ret;
 
 	/*
-	 * Write a 1 to the LSB of the INTERFACE_FORMAT register to enter
-	 * continuous read mode. Subsequent data reads do not require an
-	 * initial 8-bit write to query the ADC_DATA register.
-	 */
-	return ad7768_spi_reg_write(st, AD7768_REG_INTERFACE_FORMAT, 0x01);
+	* Write a 1 to the LSB of the INTERFACE_FORMAT register to enter
+	* continuous read mode. Subsequent data reads do not require an
+	* initial 8-bit write to query the ADC_DATA register.
+	*/
+	ret =  ad7768_spi_reg_write(st, AD7768_REG_INTERFACE_FORMAT, 0x01);
+	if (ret)
+		return ret;
+
+	if (st->spi_is_dma_mapped) {
+		spi_bus_lock(st->spi->master);
+
+		tx_data[0] = AD7768_RD_FLAG_MSK(AD7768_REG_ADC_DATA) << 24;
+		xfer.tx_buf = tx_data;
+		xfer.rx_buf = rx_data;
+		spi_message_init_with_transfers(&msg, &xfer, 1);
+		ret = spi_engine_offload_load_msg(st->spi, &msg);
+		if (ret < 0)
+			return ret;
+		spi_engine_offload_enable(st->spi, true);
+	}
+
+	return ret;
 }
 
 static int ad7768_buffer_predisable(struct iio_dev *indio_dev)
 {
 	struct ad7768_state *st = iio_priv(indio_dev);
 	unsigned int regval;
+
+	if (st->spi_is_dma_mapped) {
+		spi_engine_offload_enable(st->spi, false);
+		spi_bus_unlock(st->spi->master);
+	}
 
 	/*
 	 * To exit continuous read mode, perform a single read of the ADC_DATA
@@ -591,6 +631,14 @@ static int ad7768_triggered_buffer_alloc(struct iio_dev *indio_dev)
 					       &iio_pollfunc_store_time,
 					       &ad7768_trigger_handler,
 					       &ad7768_buffer_ops);
+}
+
+static int ad7768_hardware_buffer_alloc(struct iio_dev *indio_dev)
+{
+	indio_dev->setup_ops = &ad7768_buffer_ops;
+	return devm_iio_dmaengine_buffer_setup(indio_dev->dev.parent,
+					       indio_dev, "rx",
+					       IIO_BUFFER_DIRECTION_IN);
 }
 
 static int ad7768_set_channel_label(struct iio_dev *indio_dev,
@@ -652,6 +700,7 @@ static int ad7768_probe(struct spi_device *spi)
 		return PTR_ERR(st->mclk);
 
 	st->mclk_freq = clk_get_rate(st->mclk);
+	st->spi_is_dma_mapped = spi_engine_offload_supported(spi);
 	st->irq = spi->irq;
 
 	mutex_init(&st->lock);
@@ -672,7 +721,10 @@ static int ad7768_probe(struct spi_device *spi)
 	if (ret)
 		return ret;
 
-	ret = ad7768_triggered_buffer_alloc(indio_dev);
+	if (st->spi_is_dma_mapped)
+		ret = ad7768_hardware_buffer_alloc(indio_dev);
+	else
+		ret = ad7768_triggered_buffer_alloc(indio_dev);
 	if (ret)
 		return ret;
 
