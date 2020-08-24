@@ -479,8 +479,11 @@ static int ad7768_setup(struct ad7768_state *st)
 	if (IS_ERR(st->gpio_sync_in))
 		return PTR_ERR(st->gpio_sync_in);
 
-	/* Set the default sampling frequency to 32000 kSPS */
-	return ad7768_set_freq(st, 32000);
+	/**
+	 * Set the default sampling frequency to 256 kSPS for hardware buffer,
+	 * or 32 kSPS for triggered buffer
+	 */
+	return ad7768_set_freq(st, st->spi_is_dma_mapped ? 256000 : 32000);
 }
 
 static irqreturn_t ad7768_trigger_handler(int irq, void *p)
