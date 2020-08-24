@@ -124,6 +124,17 @@ struct ad7768_clk_configuration {
 	enum ad7768_pwrmode pwrmode;
 };
 
+static const char * const ad7768_vcm_modes[] = {
+	"(AVDD1-AVSS)/2",
+	"2V5",
+	"2V05",
+	"1V9",
+	"1V65",
+	"1V1",
+	"0V9",
+	"OFF",
+};
+
 static const struct ad7768_clk_configuration ad7768_clk_config[] = {
 	{ AD7768_MCLK_DIV_2, AD7768_DEC_RATE_32, 64, AD7768_FAST_MODE },
 	{ AD7768_MCLK_DIV_2, AD7768_DEC_RATE_64, 128, AD7768_FAST_MODE },
@@ -136,24 +147,6 @@ static const struct ad7768_clk_configuration ad7768_clk_config[] = {
 	{ AD7768_MCLK_DIV_16, AD7768_DEC_RATE_1024, 16384, AD7768_ECO_MODE },
 };
 
-static const struct iio_chan_spec ad7768_channels[] = {
-	{
-		.type = IIO_VOLTAGE,
-		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW),
-		.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SCALE),
-		.info_mask_shared_by_all = BIT(IIO_CHAN_INFO_SAMP_FREQ),
-		.indexed = 1,
-		.channel = 0,
-		.scan_index = 0,
-		.scan_type = {
-			.sign = 's',
-			.realbits = 24,
-			.storagebits = 32,
-			.shift = 8,
-		},
-	},
-};
-
 struct ad7768_state {
 	struct spi_device *spi;
 	struct regulator *vref;
@@ -161,6 +154,7 @@ struct ad7768_state {
 	struct clk *mclk;
 	unsigned int mclk_freq;
 	unsigned int samp_freq;
+	unsigned int common_mode_voltage;
 	struct completion completion;
 	struct iio_trigger *trig;
 	struct gpio_desc *gpio_sync_in;
@@ -350,6 +344,35 @@ static int ad7768_set_freq(struct ad7768_state *st,
 	return 0;
 }
 
+static int ad7768_get_vcm(struct iio_dev *dev, const struct iio_chan_spec *chan)
+{
+	struct ad7768_state *st = iio_priv(dev);
+
+	return st->common_mode_voltage;
+}
+
+static int ad7768_set_vcm(struct iio_dev *dev,
+			  const struct iio_chan_spec *chan,
+			  unsigned int mode)
+{
+	int ret;
+	struct ad7768_state *st = iio_priv(dev);
+
+	ret = ad7768_spi_reg_write(st, AD7768_REG_ANALOG2, mode);
+
+	if (ret == 0)
+		st->common_mode_voltage = mode;
+
+	return ret;
+}
+
+static const struct iio_enum ad7768_vcm_mode_enum = {
+	.items = ad7768_vcm_modes,
+	.num_items = ARRAY_SIZE(ad7768_vcm_modes),
+	.set = ad7768_set_vcm,
+	.get = ad7768_get_vcm,
+};
+
 static ssize_t ad7768_sampling_freq_avail(struct device *dev,
 					  struct device_attribute *attr,
 					  char *buf)
@@ -427,6 +450,16 @@ static int ad7768_write_raw(struct iio_dev *indio_dev,
 		return -EINVAL;
 	}
 }
+
+static struct iio_chan_spec_ext_info ad7768_ext_info[] = {
+	IIO_ENUM("common_mode_voltage",
+		 IIO_SHARED_BY_ALL,
+		 &ad7768_vcm_mode_enum),
+	IIO_ENUM_AVAILABLE_SHARED("common_mode_voltage",
+				  IIO_SHARED_BY_ALL,
+				  &ad7768_vcm_mode_enum),
+	{ },
+};
 
 static struct attribute *ad7768_attributes[] = {
 	&iio_dev_attr_sampling_frequency_available.dev_attr.attr,
@@ -667,6 +700,25 @@ static int ad7768_hardware_buffer_alloc(struct iio_dev *indio_dev)
 
 	return 0;
 }
+
+static const struct iio_chan_spec ad7768_channels[] = {
+	{
+		.type = IIO_VOLTAGE,
+		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW),
+		.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SCALE),
+		.info_mask_shared_by_all = BIT(IIO_CHAN_INFO_SAMP_FREQ),
+		.ext_info = ad7768_ext_info,
+		.indexed = 1,
+		.channel = 0,
+		.scan_index = 0,
+		.scan_type = {
+			.sign = 's',
+			.realbits = 24,
+			.storagebits = 32,
+			.shift = 8,
+		},
+	},
+};
 
 static int ad7768_probe(struct spi_device *spi)
 {
