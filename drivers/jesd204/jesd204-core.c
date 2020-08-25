@@ -258,6 +258,7 @@ struct jesd204_dev_top *jesd204_dev_get_topology_top_dev(struct jesd204_dev *jde
 int jesd204_sysref_async(struct jesd204_dev *jdev)
 {
 	struct jesd204_dev_top *jdev_top = jesd204_dev_get_topology_top_dev(jdev);
+	const struct jesd204_dev_data *dev_data;
 
 	if (!jdev_top)
 		return -EFAULT;
@@ -266,8 +267,13 @@ int jesd204_sysref_async(struct jesd204_dev *jdev)
 	if (!jdev_top->jdev_sysref)
 		return 0;
 
+	if (!jdev_top->jdev_sysref->dev_data)
+		return -EFAULT;
+
+	dev_data = jdev_top->jdev_sysref->dev_data;
+
 	/* By now, this should have been validated to have sysref_cb() */
-	return jdev_top->jdev_sysref->sysref_cb(jdev_top->jdev_sysref);
+	return dev_data->sysref_cb(jdev_top->jdev_sysref);
 }
 EXPORT_SYMBOL(jesd204_sysref_async);
 
@@ -784,8 +790,7 @@ static struct jesd204_dev *jesd204_dev_register(struct device *dev,
 	jesd204_dev_init_top_data(jdev, init);
 
 	jdev->dev.parent = dev;
-	jdev->sysref_cb = init->sysref_cb;
-	jdev->state_ops = init->state_ops;
+	jdev->dev_data = init;
 	jdev->dev.bus = &jesd204_bus_type;
 	device_initialize(&jdev->dev);
 	dev_set_name(&jdev->dev, "jesd204:%d", jdev->id);

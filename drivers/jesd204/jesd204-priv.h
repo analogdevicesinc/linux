@@ -92,6 +92,7 @@ struct jesd204_dev_con_out {
 /**
  * struct jesd204_dev - JESD204 device
  * @dev			underlying device object
+ * @dev_data		ref to data provided by the driver registering with the framework
  * @id			unique device id
  * @entry		list entry for the framework to keep a list of devices
  * @priv		private data to be returned to the driver
@@ -99,10 +100,8 @@ struct jesd204_dev_con_out {
  * @is_top		true if this device is a top device in a topology of
  *			devices that make up a JESD204 link (typically the
  *			device that is the ADC, DAC, or transceiver)
- * @sysref_cb		callback to the SYSREF logic provided by this device
  * @is_sysref_provider	true if this device wants to be a SYSREF provider
  * @error		error code for this device if something happened
- * @state_ops		ops for each state transition of type @struct jesd204_state_ops
  * @sysfs_attr_group	attribute group for the sysfs files of this JESD204 device
  * @np			reference in the device-tree for this JESD204 device
  * @ref			ref count for this JESD204 device
@@ -115,6 +114,7 @@ struct jesd204_dev_con_out {
  */
 struct jesd204_dev {
 	struct device			dev;
+	const struct jesd204_dev_data	*dev_data;
 	int				id;
 	struct list_head		entry;
 	void				*priv;
@@ -122,11 +122,9 @@ struct jesd204_dev {
 	bool				fsm_inited;
 	bool				is_top;
 
-	jesd204_sysref_cb		sysref_cb;
 	bool				is_sysref_provider;
 
 	int				error;
-	const struct jesd204_state_op	*state_ops;
 	struct device_node		*np;
 
 	struct attribute_group		sysfs_attr_group;
