@@ -178,6 +178,10 @@ typedef int (*jesd204_link_cb)(struct jesd204_dev *jdev,
 			       enum jesd204_state_op_reason,
 			       struct jesd204_link *lnk);
 
+typedef void (*jesd204_fsm_finished_cb)(struct jesd204_dev *jdev,
+					const struct jesd204_link * const *links,
+					unsigned int num_links);
+
 enum jesd204_state_op_mode {
 	JESD204_STATE_OP_MODE_PER_LINK,
 	JESD204_STATE_OP_MODE_PER_DEVICE,
@@ -224,6 +228,7 @@ enum jesd204_dev_op {
 /**
  * struct jesd204_dev_data - JESD204 device initialization data
  * @sysref_cb		SYSREF callback, if this device/driver supports it
+ * @fsm_finished_cb	callback for when the FSM finishes a series of transitions
  * @sizeof_priv		amount of data to allocate for private information
  * @links		JESD204 initial link configuration
  * @num_links		number of JESD204 links
@@ -232,6 +237,7 @@ enum jesd204_dev_op {
  */
 struct jesd204_dev_data {
 	jesd204_sysref_cb			sysref_cb;
+	jesd204_fsm_finished_cb			fsm_finished_cb;
 	size_t					sizeof_priv;
 	const struct jesd204_link		*links;
 	unsigned int				num_links;
