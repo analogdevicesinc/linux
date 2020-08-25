@@ -1046,6 +1046,51 @@ static int jesd204_fsm_table_single(struct jesd204_dev *jdev,
 	return ret1;
 }
 
+static int jesd204_fsm_run_finished_cb_cb(struct jesd204_dev *jdev,
+					  struct jesd204_dev_con_out *con,
+					  unsigned int link_idx,
+					  struct jesd204_fsm_data *fsm_data)
+{
+	const struct jesd204_link * const *links = fsm_data->cb_data;
+
+	if (!jdev->dev_data->fsm_finished_cb)
+		return JESD204_STATE_CHANGE_DONE;
+
+	jdev->dev_data->fsm_finished_cb(jdev, links,
+					fsm_data->jdev_top->num_links);
+
+	return JESD204_STATE_CHANGE_DONE;
+}
+
+static void jesd204_fsm_run_finished_cb(struct jesd204_dev *jdev,
+					struct jesd204_dev_top *jdev_top,
+					unsigned int link_idx,
+					bool handle_busy_flags)
+{
+	struct jesd204_fsm_data data;
+	struct jesd204_link **links;
+	unsigned int i;
+
+	links = kcalloc(jdev_top->num_links, sizeof(*links), GFP_KERNEL);
+	if (!links)
+		return;
+
+	for (i = 0; i < jdev_top->num_links; i++)
+		links[i] = &jdev_top->active_links[i].link;
+
+	memset(&data, 0, sizeof(data));
+	data.fsm_change_cb = jesd204_fsm_run_finished_cb_cb;
+	data.cur_state = JESD204_STATE_DONT_CARE;
+	data.nxt_state = JESD204_STATE_DONT_CARE;
+	data.link_idx = link_idx;
+	data.mode = JESD204_STATE_OP_MODE_PER_DEVICE;
+	data.cb_data = links;
+
+	jesd204_fsm(jdev, &data, handle_busy_flags);
+
+	kfree(links);
+}
+
 static int jesd204_fsm_table(struct jesd204_dev *jdev,
 			     unsigned int link_idx,
 			     enum jesd204_dev_state init_state,
@@ -1084,6 +1129,8 @@ static int jesd204_fsm_table(struct jesd204_dev *jdev,
 						   handle_busy_flags);
 		}
 	} while (ret && num_retries--);
+
+	jesd204_fsm_run_finished_cb(jdev, jdev_top, link_idx, handle_busy_flags);
 
 	return ret;
 }
