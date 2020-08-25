@@ -830,7 +830,7 @@ static int jesd204_init_sysref_cb(struct jesd204_dev *jdev,
 	if (!jdev->is_sysref_provider)
 		return 0;
 
-	if (!jdev->sysref_cb) {
+	if (!jdev->dev_data->sysref_cb) {
 		jesd204_err(jdev, "Configured as SYSREF, but no SYSREF cb\n");
 		return -EINVAL;
 	}
@@ -928,10 +928,10 @@ static int jesd204_fsm_table_entry_cb(struct jesd204_dev *jdev,
 	enum jesd204_state_op_reason reason;
 	struct jesd204_link_opaque *ol;
 
-	if (!jdev->state_ops)
+	if (!jdev->dev_data->state_ops)
 		return JESD204_STATE_CHANGE_DONE;
 
-	state_op = &jdev->state_ops[it->table[0].op];
+	state_op = &jdev->dev_data->state_ops[it->table[0].op];
 
 	if (fsm_data->rollback)
 		reason = JESD204_STATE_OP_REASON_UNINIT;
@@ -969,7 +969,7 @@ static int jesd204_fsm_table_entry_done(struct jesd204_dev *jdev,
 	}
 
 	if (!fsm_data->rollback) {
-		state_op = &jdev->state_ops[it->table[0].op];
+		state_op = &jdev->dev_data->state_ops[it->table[0].op];
 		if (state_op->post_state_sysref && jesd204_dev_is_top(jdev))
 			jesd204_sysref_async(jdev);
 	}
@@ -1010,7 +1010,7 @@ static int jesd204_fsm_table_single(struct jesd204_dev *jdev,
 	while (!jesd204_fsm_table_end(&it->table[0], rollback)) {
 		it->table = table;
 
-		state_op = &jdev->state_ops[table[0].op];
+		state_op = &jdev->dev_data->state_ops[table[0].op];
 
 		data->completed = false;
 		data->cur_state = init_state;
