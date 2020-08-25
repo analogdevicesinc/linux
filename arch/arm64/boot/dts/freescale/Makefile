@@ -256,6 +256,7 @@ dtb-$(CONFIG_ARCH_MXC) += imx8qxp-mek.dtb imx8qxp-mek-dsp.dtb imx8qxp-mek-ov5640
 			  imx8qxp-mek-jdi-wuxga-lvds1-panel-rpmsg.dtb \
 			  imx8qxp-mek-dsi-rm67191.dtb \
 			  imx8qxp-mek-dsi-rm67191-rpmsg.dtb \
+			  imx8qxp-mek-ov5640-rpmsg.dtb \
 			  imx8qxp-mek-dpu-lcdif.dtb \
 			  imx8qxp-mek-dpu-lcdif-rpmsg.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx8qxp-mek-root.dtb \
