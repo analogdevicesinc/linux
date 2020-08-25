@@ -231,6 +231,8 @@ config DRM_SCHED
 
 source "drivers/gpu/drm/i2c/Kconfig"
 
+source "drivers/gpu/drm/adi/Kconfig"
+
 source "drivers/gpu/drm/arm/Kconfig"
 
 config DRM_RADEON

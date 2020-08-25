@@ -1,0 +1,16 @@
+# SPDX-License-Identifier: GPL-2.0-only
+config DRM_ADI_AXI_HDMI_TX
+	tristate "DRM Support for Analog Devices HDMI FPGA platforms"
+	depends on DRM
+	default	n
+	select DRM_KMS_HELPER
+	select DRM_KMS_CMA_HELPER
+	select DMA_CMA if HAVE_DMA_CONTIGUOUS
+	select CMA if HAVE_DMA_CONTIGUOUS
+	select AXI_DMAC
+	select VT_HW_CONSOLE_BINDING if FRAMEBUFFER_CONSOLE
+	help
+	  Choose this option if you have an FPGA board using this AXI HDMI
+	  Controller (aka GFX).
+
+	  If M is selected this module will be called adi_axi_hdmi_tx.
