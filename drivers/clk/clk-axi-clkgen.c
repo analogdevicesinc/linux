@@ -6,6 +6,7 @@
  *  Author: Lars-Peter Clausen <lars@metafoo.de>
  */
 
+#include <linux/clk.h>
 #include <linux/platform_device.h>
 #include <linux/clk-provider.h>
 #include <linux/fpga/adi-axi-common.h>
@@ -51,6 +52,7 @@ struct axi_clkgen {
 	void __iomem *base;
 	struct clk_hw clk_hw;
 	unsigned int pcore_version;
+	struct clk *parent_clocks[2];
 };
 
 static uint32_t axi_clkgen_lookup_filter(unsigned int m)
@@ -547,6 +549,7 @@ static int axi_clkgen_probe(struct platform_device *pdev)
 	const struct of_device_id *id;
 	struct axi_clkgen *axi_clkgen;
 	struct clk_init_data init;
+	char clkin_name[7];
 	const char *parent_names[2];
 	const char *clk_name;
 	struct resource *mem;
@@ -574,14 +577,30 @@ static int axi_clkgen_probe(struct platform_device *pdev)
 	if (AXI_PCORE_VER_MAJOR(axi_clkgen->pcore_version) > 0x04)
 		axi_clkgen_setup_ranges(axi_clkgen);
 
-	init.num_parents = of_clk_get_parent_count(pdev->dev.of_node);
-	if (init.num_parents < 1 || init.num_parents > 2)
+	for (i = 0, init.num_parents = 0; i < ARRAY_SIZE(axi_clkgen->parent_clocks); i++) {
+		sprintf(clkin_name, "clkin%d", i + 1);
+		axi_clkgen->parent_clocks[i] = devm_clk_get(&pdev->dev, clkin_name);
+		if (PTR_ERR(axi_clkgen->parent_clocks[i]) == -ENOENT)
+			continue;
+		if (IS_ERR(axi_clkgen->parent_clocks[i]))
+			return PTR_ERR(axi_clkgen->parent_clocks[i]);
+
+		parent_names[i] = __clk_get_name(axi_clkgen->parent_clocks[i]);
+		init.num_parents++;
+	}
+
+	if (init.num_parents < 1) {
+		dev_err(&pdev->dev, "Missing input clock, see 'clkin1' and 'clkin2'\n");
 		return -EINVAL;
+	}
 
 	for (i = 0; i < init.num_parents; i++) {
-		parent_names[i] = of_clk_get_parent_name(pdev->dev.of_node, i);
-		if (!parent_names[i])
-			return -EINVAL;
+		ret = clk_prepare_enable(axi_clkgen->parent_clocks[i]);
+		if (ret) {
+			while (--i >= 0)
+				clk_disable_unprepare(axi_clkgen->parent_clocks[i]);
+			return ret;
+		}
 	}
 
 	clk_name = pdev->dev.of_node->name;
@@ -598,15 +617,29 @@ static int axi_clkgen_probe(struct platform_device *pdev)
 	axi_clkgen->clk_hw.init = &init;
 	ret = devm_clk_hw_register(&pdev->dev, &axi_clkgen->clk_hw);
 	if (ret)
-		return ret;
+		goto err_disable_parent_clocks;
+
+	platform_set_drvdata(pdev, axi_clkgen);
 
 	return of_clk_add_hw_provider(pdev->dev.of_node, of_clk_hw_simple_get,
 				      &axi_clkgen->clk_hw);
+
+err_disable_parent_clocks:
+	for (i = 0; i < init.num_parents; i++)
+		clk_disable_unprepare(axi_clkgen->parent_clocks[i]);
+
+	return ret;
 }
 
 static int axi_clkgen_remove(struct platform_device *pdev)
 {
+	struct axi_clkgen *axi_clkgen = platform_get_drvdata(pdev);
+	int i;
+
 	of_clk_del_provider(pdev->dev.of_node);
+
+	for (i = 0; i < ARRAY_SIZE(axi_clkgen->parent_clocks); i++)
+		clk_disable_unprepare(axi_clkgen->parent_clocks[i]);
 
 	return 0;
 }
