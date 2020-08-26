@@ -101,7 +101,6 @@ struct jesd204_dev_con_out {
  *			devices that make up a JESD204 link (typically the
  *			device that is the ADC, DAC, or transceiver)
  * @is_sysref_provider	true if this device wants to be a SYSREF provider
- * @error		error code for this device if something happened
  * @sysfs_attr_group	attribute group for the sysfs files of this JESD204 device
  * @np			reference in the device-tree for this JESD204 device
  * @ref			ref count for this JESD204 device
@@ -124,7 +123,6 @@ struct jesd204_dev {
 
 	bool				is_sysref_provider;
 
-	int				error;
 	struct device_node		*np;
 
 	struct attribute_group		sysfs_attr_group;

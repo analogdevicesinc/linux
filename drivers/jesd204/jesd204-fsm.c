@@ -213,8 +213,6 @@ static int jesd204_dev_set_error(struct jesd204_dev *jdev,
 	if (err == 0)
 		return 0;
 
-	jdev->error = err;
-
 	if (con)
 		con->error = err;
 
