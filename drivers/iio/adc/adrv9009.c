@@ -3671,7 +3671,7 @@ static int adrv9009_phy_parse_dt(struct iio_dev *iodev, struct device *dev)
 	ADRV9009_OF_PROP(_dt_base_name"-num-fir-coefs", &_member.numFirCoefs, 0); \
 	ret = of_property_read_u16_array(np, _dt_base_name"-coefs", _storage, _member.numFirCoefs); \
 	if (ret < 0) { \
-		dev_err(dev, "Failed to read %d FIR coefficients (%d)\n", phy->talInit.rx.rxProfile.rxFir.numFirCoefs, ret); \
+		dev_err(dev, "Failed to read %d FIR coefficients (%d)\n", _member.numFirCoefs, ret); \
 		return ret; \
 	} \
 	_member.coefs = _storage; \
