@@ -216,8 +216,7 @@ static int jesd204_dev_set_error(struct jesd204_dev *jdev,
 	if (con)
 		con->error = err;
 
-	if (ol)
-		ol->link.error = err;
+	ol->link.error = err;
 
 	return err;
 }
@@ -496,6 +495,7 @@ static int jesd204_fsm_handle_con_cb(struct jesd204_dev *jdev_it,
 				     struct jesd204_fsm_data *fsm_data)
 {
 	struct jesd204_dev_top *jdev_top = fsm_data->jdev_top;
+	struct jesd204_link_opaque *ol;
 	int ret;
 
 	jesd204_fsm_kref_link_get(jdev_top, fsm_data->link_idx);
@@ -516,11 +516,11 @@ static int jesd204_fsm_handle_con_cb(struct jesd204_dev *jdev_it,
 		goto out;
 
 	if (ret < 0) {
+		ol = &jdev_top->active_links[link_idx];
 		jesd204_err(jdev_it,
 			    "JESD204 link[%u] got error from cb: %d\n",
-			    jdev_top->active_links[link_idx].link.link_id,
-			    ret);
-		return jesd204_dev_set_error(jdev_it, NULL, con, ret);
+			    ol->link.link_id, ret);
+		return jesd204_dev_set_error(jdev_it, ol, con, ret);
 	}
 
 	if (ret != JESD204_STATE_CHANGE_DONE)
