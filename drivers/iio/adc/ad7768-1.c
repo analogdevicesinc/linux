@@ -12,6 +12,8 @@
 #include <linux/dmaengine.h>
 #include <linux/err.h>
 #include <linux/interrupt.h>
+#include <linux/gpio.h>
+#include <linux/gpio/driver.h>
 #include <linux/gpio/consumer.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -81,6 +83,19 @@
 /* AD7768_REG_CONVERSION */
 #define AD7768_CONV_MODE_MSK		GENMASK(2, 0)
 #define AD7768_CONV_MODE(x)		FIELD_PREP(AD7768_CONV_MODE_MSK, x)
+
+/* AD7768_REG_GPIO_CONTROL */
+#define AD7768_GPIO_CONTROL_MSK		GENMASK(3, 0)
+#define AD7768_GPIO_UNIVERSAL_EN	BIT(7)
+
+/* AD7768_REG_GPIO_WRITE */
+#define AD7768_GPIO_WRITE_MSK		GENMASK(3, 0)
+
+/* AD7768_REG_GPIO_READ */
+#define AD7768_GPIO_READ_MSK		GENMASK(3, 0)
+
+#define AD7768_GPIO_INPUT(x)		0x00
+#define AD7768_GPIO_OUTPUT(x)		BIT(x)
 
 #define AD7768_RD_FLAG_MSK(x)		(BIT(6) | ((x) & 0x3F))
 #define AD7768_WR_FLAG_MSK(x)		((x) & 0x3F)
@@ -152,6 +167,8 @@ struct ad7768_state {
 	struct regulator *vref;
 	struct mutex lock;
 	struct clk *mclk;
+	struct gpio_chip gpiochip;
+	unsigned int gpio_avail_map;
 	unsigned int mclk_freq;
 	unsigned int samp_freq;
 	unsigned int common_mode_voltage;
@@ -316,6 +333,122 @@ static int ad7768_set_dig_fil(struct ad7768_state *st,
 	gpiod_set_value(st->gpio_sync_in, 0);
 
 	return 0;
+}
+
+int ad7768_gpio_direction_input(struct gpio_chip *chip, unsigned int offset)
+{
+	struct ad7768_state *st = gpiochip_get_data(chip);
+	int ret;
+
+	mutex_lock(&st->lock);
+	ret = ad7768_spi_reg_write_masked(st,
+					  AD7768_REG_GPIO_CONTROL,
+					  BIT(offset),
+					  AD7768_GPIO_INPUT(offset));
+	mutex_unlock(&st->lock);
+
+	return ret;
+}
+
+int ad7768_gpio_direction_output(struct gpio_chip *chip,
+				 unsigned int offset, int value)
+{
+	struct ad7768_state *st = gpiochip_get_data(chip);
+	int ret;
+
+	mutex_lock(&st->lock);
+	ret = ad7768_spi_reg_write_masked(st,
+					  AD7768_REG_GPIO_CONTROL,
+					  BIT(offset),
+					  AD7768_GPIO_OUTPUT(offset));
+	mutex_unlock(&st->lock);
+
+	return ret;
+}
+
+int ad7768_gpio_get(struct gpio_chip *chip, unsigned int offset)
+{
+	struct ad7768_state *st = gpiochip_get_data(chip);
+	unsigned int val;
+	int ret;
+
+	mutex_lock(&st->lock);
+	ret = ad7768_spi_reg_read(st, AD7768_REG_GPIO_CONTROL, &val, 1);
+	if (ret < 0)
+		goto gpio_get_err;
+
+	if (val & BIT(offset))
+		ret = ad7768_spi_reg_read(st, AD7768_REG_GPIO_WRITE, &val, 1);
+	else
+		ret = ad7768_spi_reg_read(st, AD7768_REG_GPIO_READ, &val, 1);
+	if (ret < 0)
+		goto gpio_get_err;
+
+	ret = !!(val & BIT(offset));
+
+gpio_get_err:
+	mutex_unlock(&st->lock);
+
+	return ret;
+}
+
+void ad7768_gpio_set(struct gpio_chip *chip, unsigned int offset, int value)
+{
+	struct ad7768_state *st = gpiochip_get_data(chip);
+	unsigned int val;
+	int ret;
+
+	mutex_lock(&st->lock);
+	ret = ad7768_spi_reg_read(st, AD7768_REG_GPIO_CONTROL, &val, 1);
+	if (ret < 0)
+		goto gpio_set_err;
+
+	if (val & BIT(offset))
+		ad7768_spi_reg_write_masked(st,
+					    AD7768_REG_GPIO_WRITE,
+					    BIT(offset),
+					    (value << offset));
+
+gpio_set_err:
+	mutex_unlock(&st->lock);
+}
+
+int ad7768_gpio_request(struct gpio_chip *chip, unsigned int offset)
+{
+	struct ad7768_state *st = gpiochip_get_data(chip);
+
+	if (!(st->gpio_avail_map & BIT(offset)))
+		return -ENODEV;
+
+	st->gpio_avail_map &= ~BIT(offset);
+
+	return 0;
+}
+
+int ad7768_gpio_init(struct ad7768_state *st)
+{
+	int ret;
+
+	ret = ad7768_spi_reg_write(st,
+				   AD7768_REG_GPIO_CONTROL,
+				   AD7768_GPIO_UNIVERSAL_EN);
+	if (ret < 0)
+		return ret;
+
+	st->gpio_avail_map = AD7768_GPIO_CONTROL_MSK;
+	st->gpiochip.label = "ad7768_1_gpios";
+	st->gpiochip.base = -1;
+	st->gpiochip.ngpio = 4;
+	st->gpiochip.parent = &st->spi->dev;
+	st->gpiochip.can_sleep = true;
+	st->gpiochip.direction_input = ad7768_gpio_direction_input;
+	st->gpiochip.direction_output = ad7768_gpio_direction_output;
+	st->gpiochip.get = ad7768_gpio_get;
+	st->gpiochip.set = ad7768_gpio_set;
+	st->gpiochip.request = ad7768_gpio_request;
+	st->gpiochip.owner = THIS_MODULE;
+
+	return gpiochip_add_data(&st->gpiochip, st);
 }
 
 static int ad7768_set_freq(struct ad7768_state *st,
@@ -525,6 +658,10 @@ static int ad7768_setup(struct ad7768_state *st)
 					  GPIOD_OUT_LOW);
 	if (IS_ERR(st->gpio_sync_in))
 		return PTR_ERR(st->gpio_sync_in);
+
+	ret = ad7768_gpio_init(st);
+	if (ret < 0)
+		return ret;
 
 	/**
 	 * Set the default sampling frequency to 256 kSPS for hardware buffer,
