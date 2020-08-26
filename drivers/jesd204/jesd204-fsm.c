@@ -108,6 +108,10 @@ static int jesd204_fsm_table(struct jesd204_dev *jdev,
 static int jesd204_fsm_init_link(struct jesd204_dev *jdev,
 				 struct jesd204_fsm_data *fsm_data);
 
+static void __jesd204_fsm_clear_errors(struct jesd204_dev *jdev,
+				       unsigned int link_idx,
+				       bool handle_busy_flags);
+
 /* States to transition to start a JESD204 link */
 static const struct jesd204_fsm_table_entry jesd204_start_links_states[] = {
 	JESD204_STATE_NOP(IDLE),
@@ -1091,10 +1095,13 @@ static int jesd204_fsm_table(struct jesd204_dev *jdev,
 					       handle_busy_flags);
 		/**
 		 * If we got an error, we rolled-back, we should be in IDLE
-		 * for the next retry
+		 * for the next retry, and clear errors on JESD204 link objects
 		 */
-		if (ret)
+		if (ret && num_retries) {
 			init_state = JESD204_STATE_IDLE;
+			__jesd204_fsm_clear_errors(jdev, link_idx,
+						   handle_busy_flags);
+		}
 	} while (ret && num_retries--);
 
 	kfree(it.per_device_ran);
@@ -1133,7 +1140,9 @@ static int jesd204_fsm_clr_errors_cb(struct jesd204_dev *jdev,
 	return JESD204_STATE_CHANGE_DONE;
 }
 
-void jesd204_fsm_clear_errors(struct jesd204_dev *jdev, unsigned int link_idx)
+static void __jesd204_fsm_clear_errors(struct jesd204_dev *jdev,
+				       unsigned int link_idx,
+				       bool handle_busy_flags)
 {
 	struct jesd204_fsm_data data;
 
@@ -1143,6 +1152,11 @@ void jesd204_fsm_clear_errors(struct jesd204_dev *jdev, unsigned int link_idx)
 	data.nxt_state = JESD204_STATE_DONT_CARE;
 	data.link_idx = link_idx;
 
-	jesd204_fsm(jdev, &data, true);
+	jesd204_fsm(jdev, &data, handle_busy_flags);
+}
+
+void jesd204_fsm_clear_errors(struct jesd204_dev *jdev, unsigned int link_idx)
+{
+	__jesd204_fsm_clear_errors(jdev, link_idx, true);
 }
 EXPORT_SYMBOL_GPL(jesd204_fsm_clear_errors);
