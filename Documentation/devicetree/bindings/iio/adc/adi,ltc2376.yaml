@@ -1,22 +1,18 @@
 # SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
 %YAML 1.2
 ---
-$id: http://devicetree.org/schemas/iio/adc/adi,ltc2376.yaml#
-$schema: http://devicetree.org/meta-schemas/core.yaml#
-
 title: Linear Technology LTC2376 SAR ADC
 
 maintainers:
-  - Meenal Parakh <meenalparakh19@gmail.com>
+  - Meenal Parakh <meenalparakh18@gmail.com>
 
 description: |
-  Linear Technology LTC2376 Single Channel 16-bit SAR ADC
+  Bindings for the Linear Technology LTC2376 16-bit SAR ADC device
   https://www.analog.com/media/en/technical-documentation/data-sheets/237616fa.pdf
 
 properties:
   compatible:
-    enum:
-      - adi,ltc2376
+    const: adi,ltc2376
 
   reg:
     maxItems: 1
@@ -28,24 +24,42 @@ properties:
     description:
       Phandle to the vref power supply
 
+  spi-cpol: true
+
+  spi-cpha: true
+
+  interrupts:
+    maxItems: 1
+
 required:
   - compatible
   - reg
+  - spi-max-frequency
+  - spi-cpol
+  - spi-cpha
+  - vref-supply
+  - interrupts
 
 additionalProperties: false
 
 examples:
   - |
+    #include <dt-bindings/interrupt-controller/irq.h>
+
     spi {
         #address-cells = <0x01>;
         #size-cells = <0x00>;
 
         adc@0{
-                compatible = "adi,ltc2376";
-                vref-supply = <&vref>;
-                reg = <0>;
-                spi-max-frequency = <16000000>;
-                spi-cpha;
+              compatible = "adi,ltc2376";
+              reg = <0>;
+              spi-max-frequency = <16000000>;
+              pwms = <&pwm 0 10000000>;
+              vref-supply = <&adc_vref>;
+              spi-cpha;
+              spi-cpol;
+              interrupt-parent = <&gpio>;
+              interrupts = <25 IRQ_TYPE_EDGE_FALLING>;
         };
     };
 ...
