@@ -1960,6 +1960,7 @@ static int ad9081_read_raw(struct iio_dev *indio_dev,
 {
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
 	struct ad9081_phy *phy = conv->phy;
+	u8 msb, lsb;
 
 	switch (info) {
 	case IIO_CHAN_INFO_SAMP_FREQ:
@@ -1974,6 +1975,13 @@ static int ad9081_read_raw(struct iio_dev *indio_dev,
 			*val = phy->dac_cache.enable[chan->channel];
 			return IIO_VAL_INT;
 		}
+		break;
+	case IIO_CHAN_INFO_PROCESSED:
+		adi_ad9081_hal_reg_get(&phy->ad9081, 0x2108, &msb);
+		adi_ad9081_hal_reg_get(&phy->ad9081, 0x2107, &lsb);
+
+		*val = ((s16)(msb << 8 | lsb) * 1000) / 128;
+		return IIO_VAL_INT;
 	}
 	return -EINVAL;
 }
@@ -2870,6 +2878,12 @@ static int ad9081_setup_chip_info_tbl(struct ad9081_phy *phy,
 
 		phy->chip_info.channel[c].ext_info = txdac_ext_info;
 	}
+
+	phy->chip_info.channel[c].type = IIO_TEMP;
+	phy->chip_info.channel[c].indexed = 1;
+	phy->chip_info.channel[c].info_mask_separate = BIT(IIO_CHAN_INFO_PROCESSED);
+	phy->chip_info.channel[c].scan_index = -1;
+	c++;
 
 	phy->chip_info.num_channels = c;
 	phy->chip_info.name = "AD9081";
