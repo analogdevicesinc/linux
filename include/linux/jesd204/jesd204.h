@@ -65,6 +65,7 @@ struct jesd204_sysref {
 /**
  * struct jesd204_link - JESD204 link configuration settings
  * @link_id			JESD204 link ID provided via DT configuration
+ * @error			error code for this JESD204 link
  * @is_transmit			true if this link is transmit (digital to analog)
  * @sample_rate			sample rate for the link
  * @num_lanes			number of JESD204 lanes (L)
@@ -98,6 +99,7 @@ struct jesd204_sysref {
  */
 struct jesd204_link {
 	u32 link_id;
+	int error;
 
 	u64 sample_rate;
 
