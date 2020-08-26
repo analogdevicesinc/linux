@@ -8,6 +8,7 @@
 #define _JESD204_H_
 
 #include <linux/kern_levels.h>
+#include <dt-bindings/jesd204/device-states.h>
 
 struct jesd204_dev;
 

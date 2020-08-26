@@ -916,6 +916,8 @@ static int __init jesd204_init(void)
 {
 	int ret;
 
+	BUILD_BUG_ON(__JESD204_MAX_OPS != JESD204_FSM_STATES_NUM);
+
 	ret  = bus_register(&jesd204_bus_type);
 	if (ret < 0) {
 		pr_err("could not register bus type\n");
