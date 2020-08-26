@@ -149,7 +149,6 @@ struct jesd204_dev {
  * @cur_state		current state of the JESD204 link
  * @fsm_data		reference to state-transition information
  * @flags		internal flags set by the framework
- * @error		error codes for the JESD204 link
  */
 struct jesd204_link_opaque {
 	struct jesd204_link		link;
@@ -160,7 +159,6 @@ struct jesd204_link_opaque {
 	enum jesd204_dev_state		state;
 	struct jesd204_fsm_data		*fsm_data;
 	unsigned long			flags;
-	int				error;
 };
 
 /**

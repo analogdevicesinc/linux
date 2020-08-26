@@ -217,7 +217,7 @@ static int jesd204_dev_set_error(struct jesd204_dev *jdev,
 		con->error = err;
 
 	if (ol)
-		ol->error = err;
+		ol->link.error = err;
 
 	return err;
 }
@@ -330,9 +330,10 @@ static int __jesd204_link_fsm_update_state(struct jesd204_dev *jdev,
 	if (fsm_data->rollback)
 		exit_on_error = false;
 
-	if (exit_on_error && ol->error) {
-		jesd204_err(jdev, "jesd got error from topology %d\n", ol->error);
-		return ol->error;
+	if (exit_on_error && ol->link.error) {
+		jesd204_err(jdev, "jesd got error from topology %d\n",
+			    ol->link.error);
+		return ol->link.error;
 	}
 
 	jesd204_info(jdev, "JESD204 link[%u] transition %s -> %s\n",
@@ -1110,7 +1111,7 @@ static int jesd204_fsm_clr_errors_cb(struct jesd204_dev *jdev,
 	}
 
 	ol = &fsm_data->jdev_top->active_links[link_idx];
-	ol->error = 0;
+	ol->link.error = 0;
 
 	return JESD204_STATE_CHANGE_DONE;
 }
