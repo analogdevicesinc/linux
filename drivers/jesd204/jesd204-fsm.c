@@ -316,17 +316,19 @@ static int __jesd204_link_fsm_update_state(struct jesd204_dev *jdev,
 					   struct jesd204_link_opaque *ol,
 					   struct jesd204_fsm_data *fsm_data)
 {
+	bool exit_on_error = true;
+
 	ol->fsm_data = NULL;
 
 	/* clear error if current state is DONT_CARE */
 	if (fsm_data->cur_state == JESD204_STATE_DONT_CARE)
-		ol->error = 0;
+		exit_on_error = false;
 
 	/* clear error if rolling back */
 	if (fsm_data->rollback)
-		ol->error = 0;
+		exit_on_error = false;
 
-	if (ol->error) {
+	if (exit_on_error && ol->error) {
 		jesd204_err(jdev, "jesd got error from topology %d\n", ol->error);
 		return ol->error;
 	}
