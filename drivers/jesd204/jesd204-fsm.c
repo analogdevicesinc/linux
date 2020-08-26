@@ -336,12 +336,16 @@ static int __jesd204_link_fsm_update_state(struct jesd204_dev *jdev,
 		return ol->link.error;
 	}
 
-	jesd204_info(jdev, "JESD204 link[%u] transition %s -> %s\n",
-		 ol->link.link_id,
-		 jesd204_state_str(fsm_data->cur_state),
-		 jesd204_state_str(fsm_data->nxt_state));
+	if (fsm_data->cur_state != JESD204_STATE_DONT_CARE &&
+	    fsm_data->nxt_state != JESD204_STATE_DONT_CARE)
+		jesd204_info(jdev, "JESD204 link[%u] transition %s -> %s\n",
+			     ol->link.link_id,
+			     jesd204_state_str(fsm_data->cur_state),
+			     jesd204_state_str(fsm_data->nxt_state));
+
 	if (fsm_data->nxt_state != JESD204_STATE_DONT_CARE)
 		ol->state = fsm_data->nxt_state;
+
 	fsm_data->completed = true;
 
 	return 0;
@@ -365,11 +369,6 @@ static void __jesd204_link_fsm_done_cb(struct kref *ref)
 	ret = fsm_data->fsm_complete_cb(jdev, fsm_data);
 	if (ret == 0)
 		goto out;
-
-	jesd204_err(jdev,
-		    "error from completion cb %d, state %s\n",
-		    ret,
-		    jesd204_state_str(ol->state));
 
 	if (fsm_data->rollback)
 		goto out;
@@ -406,9 +405,6 @@ static void __jesd204_all_links_fsm_done_cb(struct kref *ref)
 
 	if (fsm_data->rollback)
 		goto out;
-
-	jesd204_err(jdev, "error from completion cb %d, state %s\n",
-		    ret, jesd204_state_str(fsm_data->cur_state));
 
 	for (link_idx = 0; link_idx < jdev_top->num_links; link_idx++) {
 		ol = &jdev_top->active_links[link_idx];
@@ -1129,6 +1125,9 @@ static int jesd204_fsm_table(struct jesd204_dev *jdev,
 						   handle_busy_flags);
 		}
 	} while (ret && num_retries--);
+
+	if (ret)
+		jesd204_err(jdev, "FSM completed with error %d\n", ret);
 
 	jesd204_fsm_run_finished_cb(jdev, jdev_top, link_idx, handle_busy_flags);
 
