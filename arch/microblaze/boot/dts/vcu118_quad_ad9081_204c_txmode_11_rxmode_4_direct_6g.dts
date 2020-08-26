@@ -105,7 +105,7 @@
         #clock-cells = <0>;
         compatible = "fixed-clock";
         clock-frequency = <AD9081_RX_LANERATE_KHZ>;
-        clock-output-names = "rx_ane_clk";
+        clock-output-names = "rx_lane_clk";
     };
 
     tx_fixed_linerate: clock@3 {
