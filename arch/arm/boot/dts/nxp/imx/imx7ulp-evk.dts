@@ -247,6 +247,7 @@
 &lpi2c5 {
 	#address-cells = <1>;
 	#size-cells = <0>;
+	clock-frequency = <100000>;
 	pinctrl-names = "default", "sleep";
 	pinctrl-0 = <&pinctrl_lpi2c5>;
 	pinctrl-1 = <&pinctrl_lpi2c5>;
@@ -325,6 +326,7 @@
 &lpi2c7 {
 	#address-cells = <1>;
 	#size-cells = <0>;
+	clock-frequency = <100000>;
 	pinctrl-names = "default", "sleep";
 	pinctrl-0 = <&pinctrl_lpi2c7 &pinctrl_touch_io>;
 	pinctrl-1 = <&pinctrl_lpi2c7 &pinctrl_touch_io>;
