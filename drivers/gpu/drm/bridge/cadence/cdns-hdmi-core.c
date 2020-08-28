@@ -412,6 +412,7 @@ bool cdns_hdmi_bridge_mode_fixup(struct drm_bridge *bridge,
 				 struct drm_display_mode *adjusted_mode)
 {
 	struct cdns_mhdp_device *mhdp = bridge->driver_private;
+	struct drm_connector_state *conn_state = mhdp->connector.base.state;
 	struct drm_display_info *di = &mhdp->connector.base.display_info;
 	struct video_info *video = &mhdp->video_info;
 	int vic = drm_match_cea_mode(mode);
@@ -428,36 +429,49 @@ bool cdns_hdmi_bridge_mode_fixup(struct drm_bridge *bridge,
 	}
 
 	/* imx8mq */
-	if (vic == 97 || vic == 96) {
-		if (di->hdmi.y420_dc_modes & DRM_EDID_YCBCR420_DC_36)
-			video->color_depth = 12;
-		else if (di->hdmi.y420_dc_modes & DRM_EDID_YCBCR420_DC_30)
-			video->color_depth = 10;
+	if (conn_state->colorspace == DRM_MODE_COLORIMETRY_DEFAULT)
+		return !drm_mode_is_420_only(di, mode);
 
-		if (drm_mode_is_420_only(di, mode) ||
-		    (drm_mode_is_420_also(di, mode) &&
-		     video->color_depth > 8)) {
-			video->color_fmt = YCBCR_4_2_0;
+	if (conn_state->colorspace == DRM_MODE_COLORIMETRY_BT2020_RGB) {
+		if (drm_mode_is_420_only(di, mode))
+			return false;
 
-			adjusted_mode->private_flags = 1;
-			return true;
-		}
+		/* 10b RGB is not supported for following VICs */
+		if (vic == 97 || vic == 96 || vic == 95 || vic == 93 || vic == 94)
+			return false;
 
-		video->color_depth = 8;
+		video->color_depth = 10;
+
 		return true;
 	}
 
-	/* Any defined maximum tmds clock limit we must not exceed*/
-	if ((di->edid_hdmi_dc_modes & DRM_EDID_HDMI_DC_36) &&
-	    (mode->clock * 3 / 2 <= di->max_tmds_clock))
-		video->color_depth = 12;
-	else if ((di->edid_hdmi_dc_modes & DRM_EDID_HDMI_DC_30) &&
-		 (mode->clock * 5 / 4 <= di->max_tmds_clock))
-		video->color_depth = 10;
+	if (conn_state->colorspace == DRM_MODE_COLORIMETRY_BT2020_CYCC ||
+	    conn_state->colorspace == DRM_MODE_COLORIMETRY_BT2020_YCC) {
+		if (drm_mode_is_420_only(di, mode)) {
+			video->color_fmt = YCBCR_4_2_0;
 
-	/* 10-bit color depth for the following modes is not supported */
-	if ((vic == 95 || vic == 94 || vic == 93) && video->color_depth == 10)
-		video->color_depth = 8;
+			if (di->hdmi.y420_dc_modes & DRM_EDID_YCBCR420_DC_36)
+				video->color_depth = 12;
+			else if (di->hdmi.y420_dc_modes & DRM_EDID_YCBCR420_DC_30)
+				video->color_depth = 10;
+			else
+				return false;
+
+			return true;
+		}
+
+		video->color_fmt = YCBCR_4_2_2;
+
+		if (!(di->edid_hdmi_dc_modes & DRM_EDID_HDMI_DC_36))
+			return false;
+
+		video->color_depth = 12;
+
+		return true;
+	}
+
+	video->color_fmt = drm_mode_is_420_only(di, mode) ? YCBCR_4_2_0 : YCBCR_4_4_4;
+	video->color_depth = 8;
 
 	return true;
 }
