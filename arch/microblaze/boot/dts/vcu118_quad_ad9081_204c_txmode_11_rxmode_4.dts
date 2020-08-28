@@ -294,8 +294,6 @@
 			adi,extended-name = "SYSREF_MXFE0";
 			adi,divider = <HMC7043_SYSREF_CLKDIV>;
 			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;
-			adi,startup-mode-dynamic-enable;
-			adi,high-performance-mode-disable;
 
 			adi,coarse-digital-delay = <0>;
 			adi,fine-analog-delay = <24>; /* max analog */
@@ -308,8 +306,6 @@
 			adi,extended-name = "SYSREF_MXFE1";
 			adi,divider = <HMC7043_SYSREF_CLKDIV>;
 			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;
-			adi,startup-mode-dynamic-enable;
-			adi,high-performance-mode-disable;
 
 			adi,coarse-digital-delay = <1>; /* 1 ns */
 			adi,fine-analog-delay = <0>;
@@ -322,8 +318,6 @@
 			adi,extended-name = "SYSREF_MXFE2";
 			adi,divider = <HMC7043_SYSREF_CLKDIV>;
 			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;
-			adi,startup-mode-dynamic-enable;
-			adi,high-performance-mode-disable;
 
 			adi,coarse-digital-delay = <0>;
 			adi,fine-analog-delay = <16>;
@@ -336,8 +330,6 @@
 			adi,extended-name = "SYSREF_MXFE3";
 			adi,divider = <HMC7043_SYSREF_CLKDIV>;
 			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;
-			adi,startup-mode-dynamic-enable;
-			adi,high-performance-mode-disable;
 
 			adi,coarse-digital-delay = <0>;
 			adi,fine-analog-delay = <0>;
@@ -350,8 +342,6 @@
 			adi,extended-name = "SYSREF_FPGA";
 			adi,divider = <HMC7043_SYSREF_CLKDIV>;
 			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;
-			adi,startup-mode-dynamic-enable;
-			adi,high-performance-mode-disable;
 			adi,jesd204-sysref-chan;
 		};
 	};
