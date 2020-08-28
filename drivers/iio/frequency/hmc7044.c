@@ -1670,15 +1670,25 @@ static int hmc7044_jesd204_link_pre_setup(struct jesd204_dev *jdev,
 
 	dev_dbg(dev, "%s:%d link_num %u\n", __func__, __LINE__, lnk->link_id);
 
-	while (hmc->jdev_lmfc_lemc_gcd > hmc->jdev_max_sysref_freq)
+	while ((hmc->jdev_lmfc_lemc_gcd > hmc->jdev_max_sysref_freq) &&
+		(hmc->jdev_lmfc_lemc_gcd % (hmc->jdev_lmfc_lemc_gcd >> 1) == 0))
 		hmc->jdev_lmfc_lemc_gcd >>= 1;
 
 	/* Program the output channels */
 	for (i = 0; i < hmc->num_channels; i++) {
 		if (hmc->channels[i].start_up_mode_dynamic_enable || hmc->channels[i].is_sysref) {
+			long rate;
+
 			dev_dbg(dev, "%s:%d Found SYSREF channel%u setting f=%u Hz\n",
 				__func__, __LINE__, hmc->channels[i].num, hmc->jdev_lmfc_lemc_gcd);
-			ret = clk_set_rate(hmc->clks[hmc->channels[i].num], hmc->jdev_lmfc_lemc_gcd);
+
+			rate = clk_round_rate(hmc->clks[hmc->channels[i].num], hmc->jdev_lmfc_lemc_gcd);
+
+			if (rate == (long)hmc->jdev_lmfc_lemc_gcd)
+				ret = clk_set_rate(hmc->clks[hmc->channels[i].num], hmc->jdev_lmfc_lemc_gcd);
+			else
+				ret = -EINVAL;
+
 			if (ret < 0)
 				dev_err(dev, "%s: Link%u setting SYSREF rate %u failed (%d)\n",
 					__func__, lnk->link_id, hmc->jdev_lmfc_lemc_gcd, ret);
