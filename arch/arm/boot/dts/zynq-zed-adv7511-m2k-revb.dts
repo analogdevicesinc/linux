@@ -214,6 +214,7 @@
 		compatible = "adi,axi-clkgen-2.00.a";
 		reg = <0x70000000 0x10000>;
 		clocks = <&clkc 16>;
+		clock-names = "clkin1";
 
 		#clock-cells = <0>;
 	};
