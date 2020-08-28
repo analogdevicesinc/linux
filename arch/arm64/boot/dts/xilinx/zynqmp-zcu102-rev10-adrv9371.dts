@@ -195,6 +195,7 @@
 			reg = <0x83c00000 0x10000>;
 			#clock-cells = <0>;
 			clocks = <&clk0_ad9528 1>;
+			clock-names = "clkin1";
 			clock-output-names = "axi_tx_clkgen";
 		};
 
@@ -203,6 +204,7 @@
 			reg = <0x83c10000 0x10000>;
 			#clock-cells = <0>;
 			clocks = <&clk0_ad9528 1>;
+			clock-names = "clkin1";
 			clock-output-names = "axi_rx_clkgen";
 		};
 
@@ -211,6 +213,7 @@
 			reg = <0x83c20000 0x10000>;
 			#clock-cells = <0>;
 			clocks = <&clk0_ad9528 1>;
+			clock-names = "clkin1";
 			clock-output-names = "axi_rx_os_clkgen";
 		};
 

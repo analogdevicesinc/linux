@@ -104,6 +104,7 @@
 			reg = <0x79000000 0x10000>;
 			#clock-cells = <0>;
 			clocks = <&clkc 16>;
+			clock-names = "clkin1";
 		};
 
 		axi_hdmi@70e00000 {
