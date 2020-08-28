@@ -118,8 +118,8 @@ static void dcss_crtc_atomic_enable(struct drm_crtc *crtc,
 		}
 	}
 
-	dcss_ss_subsam_set(dcss->ss, dcss_crtc->output_is_yuv);
-	dcss_dtg_css_set(dcss->dtg, dcss_crtc->output_is_yuv);
+	dcss_ss_subsam_set(dcss->ss, dcss_crtc->output_encoding);
+	dcss_dtg_css_set(dcss->dtg, dcss_crtc->output_encoding);
 
 	if (!drm_mode_equal(mode, old_mode) || !old_crtc_state->active) {
 		dcss_dtg_sync_set(dcss->dtg, &vm);

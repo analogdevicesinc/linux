@@ -454,7 +454,7 @@ static void dcss_plane_setup_hdr10_pipes(struct drm_plane *plane)
 	struct drm_framebuffer *fb = state->fb;
 	struct dcss_hdr10_pipe_cfg ipipe_cfg, opipe_cfg;
 
-	opipe_cfg.is_yuv = dcss_crtc->output_is_yuv;
+	opipe_cfg.is_yuv = dcss_crtc->output_encoding != DCSS_PIPE_OUTPUT_RGB;
 	opipe_cfg.g = dcss_crtc->opipe_g;
 	opipe_cfg.nl = dcss_crtc->opipe_nl;
 	opipe_cfg.pr = dcss_crtc->opipe_pr;

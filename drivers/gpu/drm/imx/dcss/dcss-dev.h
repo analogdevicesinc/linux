@@ -60,6 +60,13 @@ enum dcss_ctxld_ctx_type {
 	CTX_SB_LP, /* low-priority  */
 };
 
+enum dcss_pixel_pipe_output {
+	DCSS_PIPE_OUTPUT_RGB = 0,
+	DCSS_PIPE_OUTPUT_YUV444,
+	DCSS_PIPE_OUTPUT_YUV422,
+	DCSS_PIPE_OUTPUT_YUV420,
+};
+
 struct dcss_dev {
 	struct device *dev;
 	const struct dcss_type_data *devtype;
@@ -145,7 +152,8 @@ bool dcss_dtg_vblank_irq_valid(struct dcss_dtg *dtg);
 void dcss_dtg_vblank_irq_enable(struct dcss_dtg *dtg, bool en);
 void dcss_dtg_vblank_irq_clear(struct dcss_dtg *dtg);
 void dcss_dtg_sync_set(struct dcss_dtg *dtg, struct videomode *vm);
-void dcss_dtg_css_set(struct dcss_dtg *dtg, bool out_is_yuv);
+void dcss_dtg_css_set(struct dcss_dtg *dtg,
+		      enum dcss_pixel_pipe_output output_encoding);
 void dcss_dtg_enable(struct dcss_dtg *dtg);
 void dcss_dtg_shutoff(struct dcss_dtg *dtg);
 bool dcss_dtg_is_enabled(struct dcss_dtg *dtg);
@@ -162,7 +170,8 @@ int dcss_ss_init(struct dcss_dev *dcss, unsigned long subsam_base);
 void dcss_ss_exit(struct dcss_ss *ss);
 void dcss_ss_enable(struct dcss_ss *ss);
 void dcss_ss_shutoff(struct dcss_ss *ss);
-void dcss_ss_subsam_set(struct dcss_ss *ss, bool output_is_yuv);
+void dcss_ss_subsam_set(struct dcss_ss *ss,
+			enum dcss_pixel_pipe_output output_encoding);
 void dcss_ss_sync_set(struct dcss_ss *ss, struct videomode *vm,
 		      bool phsync, bool pvsync);
 

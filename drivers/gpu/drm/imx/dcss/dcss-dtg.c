@@ -299,11 +299,12 @@ void dcss_dtg_plane_alpha_set(struct dcss_dtg *dtg, int ch_num,
 	dtg->alpha = alpha;
 }
 
-void dcss_dtg_css_set(struct dcss_dtg *dtg, bool out_is_yuv)
+void dcss_dtg_css_set(struct dcss_dtg *dtg,
+		      enum dcss_pixel_pipe_output output_encoding)
 {
 	dtg->control_status &= ~CSS_PIX_COMP_SWAP_MASK;
 
-	if (out_is_yuv)
+	if (output_encoding != DCSS_PIPE_OUTPUT_RGB)
 		return;
 
 	dtg->control_status |=

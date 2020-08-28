@@ -109,12 +109,29 @@ void dcss_ss_exit(struct dcss_ss *ss)
 	dcss_writel(0, ss->base_reg + DCSS_SS_SYS_CTRL);
 }
 
-void dcss_ss_subsam_set(struct dcss_ss *ss, bool out_is_yuv)
+void dcss_ss_subsam_set(struct dcss_ss *ss,
+			enum dcss_pixel_pipe_output output_encoding)
 {
-	dcss_ss_write(ss, out_is_yuv ? 0x21612161 : 0x41614161, DCSS_SS_COEFF);
-	dcss_ss_write(ss, out_is_yuv ? 2 : 0, DCSS_SS_MODE);
-	dcss_ss_write(ss, 0x03ff0000, DCSS_SS_CLIP_CB);
-	dcss_ss_write(ss, 0x03ff0000, DCSS_SS_CLIP_CR);
+	u32 ss_coeff = 0x41614161;
+	u32 ss_mode = 0;
+	u32 ss_clip = 0x03ff0000;
+
+	if (output_encoding == DCSS_PIPE_OUTPUT_YUV420) {
+		ss_coeff = 0x21612161;
+		ss_mode = 2;
+		ss_clip = 0x03c00040;
+	} else if (output_encoding == DCSS_PIPE_OUTPUT_YUV422) {
+		ss_coeff = 0x33a333a3;
+		ss_mode = 1;
+		ss_clip = 0x03c00040;
+	} else if (output_encoding == DCSS_PIPE_OUTPUT_YUV444) {
+		ss_clip = 0x03c00040;
+	}
+
+	dcss_ss_write(ss, ss_coeff, DCSS_SS_COEFF);
+	dcss_ss_write(ss, ss_mode, DCSS_SS_MODE);
+	dcss_ss_write(ss, ss_clip, DCSS_SS_CLIP_CB);
+	dcss_ss_write(ss, ss_clip, DCSS_SS_CLIP_CR);
 }
 
 void dcss_ss_sync_set(struct dcss_ss *ss, struct videomode *vm,

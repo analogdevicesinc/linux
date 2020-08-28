@@ -3,6 +3,7 @@
  * Copyright 2019 NXP.
  */
 
+#include <drm/bridge/cdns-mhdp.h>
 #include <drm/drm_atomic.h>
 #include <drm/drm_atomic_helper.h>
 #include <drm/drm_bridge_connector.h>
@@ -78,14 +79,12 @@ static void dcss_kms_setup_opipe_gamut(u32 colorspace,
 	*nl = NL_REC709;
 }
 
-#define YUV_MODE		BIT(0)
-
 void dcss_kms_setup_opipe(struct drm_connector_state *conn_state)
 {
 	struct drm_crtc *crtc = conn_state->crtc;
 	struct dcss_crtc *dcss_crtc = container_of(crtc, struct dcss_crtc,
 						   base);
-	int mode_flags = crtc->state->adjusted_mode.private_flags;
+	struct dcss_dev *dcss = dcss_crtc->base.dev->dev_private;
 	enum hdmi_quantization_range qr;
 
 	qr = drm_default_rgb_quant_range(&crtc->state->adjusted_mode);
@@ -98,7 +97,25 @@ void dcss_kms_setup_opipe(struct drm_connector_state *conn_state)
 	dcss_crtc->opipe_pr = qr == HDMI_QUANTIZATION_RANGE_FULL ? PR_FULL :
 								   PR_LIMITED;
 
-	dcss_crtc->output_is_yuv = !!(mode_flags & YUV_MODE);
+	dcss_crtc->output_encoding = DCSS_PIPE_OUTPUT_RGB;
+
+	if (dcss->hdmi_output) {
+		struct cdns_mhdp_device *mhdp_dev;
+		int mhdp_color_format;
+
+		mhdp_dev = container_of(conn_state->connector,
+					struct cdns_mhdp_device,
+					connector.base);
+
+		mhdp_color_format = mhdp_dev->video_info.color_fmt;
+
+		if (mhdp_color_format == YCBCR_4_2_2)
+			dcss_crtc->output_encoding = DCSS_PIPE_OUTPUT_YUV422;
+		else if (mhdp_color_format == YCBCR_4_2_0)
+			dcss_crtc->output_encoding = DCSS_PIPE_OUTPUT_YUV420;
+		else if (mhdp_color_format == YCBCR_4_4_4)
+			dcss_crtc->output_encoding = DCSS_PIPE_OUTPUT_YUV444;
+	}
 }
 
 static const struct drm_mode_config_funcs dcss_drm_mode_config_funcs = {
