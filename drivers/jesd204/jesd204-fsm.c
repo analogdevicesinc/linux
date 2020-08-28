@@ -289,15 +289,16 @@ static int jesd204_fsm_propagate_cb_top_level(struct jesd204_dev *jdev_it,
 static int jesd204_fsm_propagate_cb(struct jesd204_dev *jdev,
 				    struct jesd204_fsm_data *data)
 {
+	int cnt = jesd204_device_count_get();
 	int ret;
 
-	if (data->mode == JESD204_STATE_OP_MODE_PER_DEVICE) {
-		int cnt = jesd204_device_count_get();
-
-		data->per_device_ran = kcalloc(cnt, sizeof(bool), GFP_KERNEL);
-		if (!data->per_device_ran)
-			return -ENOMEM;
-	}
+	/**
+	 * Always alocate this, we may never know which devices want
+	 * to run per_device & which per_link
+	 */
+	data->per_device_ran = kcalloc(cnt, sizeof(bool), GFP_KERNEL);
+	if (!data->per_device_ran)
+		return -ENOMEM;
 
 	ret = jesd204_fsm_propagate_cb_inputs(jdev, data);
 	if (ret)
@@ -937,10 +938,13 @@ static int jesd204_fsm_table_entry_cb(struct jesd204_dev *jdev,
 	else
 		reason = JESD204_STATE_OP_REASON_INIT;
 
-	switch (fsm_data->mode) {
+	switch (state_op->mode) {
 	case JESD204_STATE_OP_MODE_PER_DEVICE:
 		if (!state_op->per_device)
 			return JESD204_STATE_CHANGE_DONE;
+		if (fsm_data->per_device_ran[jdev->id])
+			return JESD204_STATE_CHANGE_DONE;
+		fsm_data->per_device_ran[jdev->id] = true;
 		return state_op->per_device(jdev, reason);
 	case JESD204_STATE_OP_MODE_PER_LINK:
 		if (!state_op->per_link)
@@ -948,7 +952,7 @@ static int jesd204_fsm_table_entry_cb(struct jesd204_dev *jdev,
 		ol = &fsm_data->jdev_top->active_links[link_idx];
 		return state_op->per_link(jdev, reason, &ol->link);
 	default:
-		jesd204_err(jdev, "Invalid state_op mode %d\n", fsm_data->mode);
+		jesd204_err(jdev, "Invalid state_op mode %d\n", state_op->mode);
 		return -EINVAL;
 	}
 }
@@ -1014,7 +1018,6 @@ static int jesd204_fsm_table_single(struct jesd204_dev *jdev,
 		data->completed = false;
 		data->cur_state = init_state;
 		data->nxt_state = table[0].state;
-		data->mode = state_op->mode;
 		data->rollback = rollback;
 
 		ret = __jesd204_fsm(jdev, jdev_top, data, handle_busy_flags);
