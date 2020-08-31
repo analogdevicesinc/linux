@@ -149,8 +149,8 @@ struct adar1000_state {
 	struct regmap		*regmap;
 	u16			dev_addr;
 
-	int			tx_phase[4][4];
-	int			rx_phase[4][4];
+	int			tx_phase[4];
+	int			rx_phase[4];
 	struct adar1000_phase	*pt_info;
 	unsigned int		pt_size;
 	struct bin_attribute	bin_pt;
@@ -439,11 +439,11 @@ static int adar1000_set_phase(struct adar1000_state *st, u8 ch_num, u8 output,
 	if (output) {
 		reg_i = st->dev_addr | ADAR1000_CH_TX_PHASE_I(ch_num);
 		reg_q = st->dev_addr | ADAR1000_CH_TX_PHASE_Q(ch_num);
-		st->tx_phase[st->dev_addr][ch_num] = value;
+		st->tx_phase[ch_num] = value;
 	} else {
 		reg_i = st->dev_addr | ADAR1000_CH_RX_PHASE_I(ch_num);
 		reg_q = st->dev_addr | ADAR1000_CH_RX_PHASE_Q(ch_num);
-		st->rx_phase[st->dev_addr][ch_num] = value;
+		st->rx_phase[ch_num] = value;
 	}
 
 	ret = adar1000_mode_4wire(st, 1);
@@ -465,11 +465,11 @@ static int adar1000_get_phase(struct adar1000_state *st, u8 ch_num, u8 output,
 			      u32 *val, u32 *val2)
 {
 	if (output) {
-		*val = st->tx_phase[st->dev_addr][ch_num] / 1000;
-		*val2 = (st->tx_phase[st->dev_addr][ch_num] % 1000) * 1000;
+		*val = st->tx_phase[ch_num] / 1000;
+		*val2 = (st->tx_phase[ch_num] % 1000) * 1000;
 	} else {
-		*val = st->rx_phase[st->dev_addr][ch_num] / 1000;
-		*val2 = (st->rx_phase[st->dev_addr][ch_num] % 1000) * 1000;
+		*val = st->rx_phase[ch_num] / 1000;
+		*val2 = (st->rx_phase[ch_num] % 1000) * 1000;
 	}
 
 	return IIO_VAL_INT_PLUS_MICRO;
