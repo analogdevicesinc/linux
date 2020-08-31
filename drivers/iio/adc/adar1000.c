@@ -454,7 +454,7 @@ static int adar1000_set_atten(struct adar1000_state *st, u32 atten_mdb,
 	return adar1000_mode_4wire(st, 0);
 }
 
-static int adar1000_read_adc(struct adar1000_state *st, u8 adc_ch, s32 *adc_data)
+static int adar1000_read_adc(struct adar1000_state *st, u8 adc_ch, u32 *adc_data)
 {
 	u32 adc_ctrl;
 	int ret;
@@ -573,17 +573,14 @@ static int adar1000_read_raw(struct iio_dev *indio_dev,
 {
 	struct adar1000_state *st = iio_priv(indio_dev);
 	int ret;
-	s32 adc_data;
 
 	switch (m) {
-	case IIO_CHAN_INFO_PROCESSED:
-		ret = adar1000_read_adc(st, 0x04, &adc_data);
+	case IIO_CHAN_INFO_RAW:
+		ret = adar1000_read_adc(st, chan->channel, val);
 		if (ret < 0)
 			return ret;
 
-		*val2 = adc_data * 800;
-
-		return IIO_VAL_INT_PLUS_MICRO;
+		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_HARDWAREGAIN:
 		ret = adar1000_get_atten(st, chan->channel, chan->output);
 		if (ret < 0)
@@ -908,8 +905,20 @@ static const struct iio_chan_spec_ext_info adar1000_ext_info[] = {
 	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW),		\
 }
 
+#define ADAR1000_DET_CHANNEL(_num)				\
+{	.type = IIO_VOLTAGE,					\
+	.indexed = 1,						\
+	.channel = (_num),					\
+	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW),		\
+	.extend_name = "DET",					\
+}
+
 static const struct iio_chan_spec adar1000_chan[] = {
 	ADAR1000_TEMP_CHANNEL(0),
+	ADAR1000_DET_CHANNEL(1),
+	ADAR1000_DET_CHANNEL(2),
+	ADAR1000_DET_CHANNEL(3),
+	ADAR1000_DET_CHANNEL(4),
 	ADAR1000_RX_CHANNEL(0),
 	ADAR1000_RX_CHANNEL(1),
 	ADAR1000_RX_CHANNEL(2),
