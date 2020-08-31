@@ -327,11 +327,13 @@ static int adar1000_get_atten(struct adar1000_state *st, u32 ch_num, u8 output)
 	if (ret < 0)
 		return ret;
 
-	val &= ~ADAR1000_CH_ATTN;
-	if (val & ADAR1000_CH_ATTN)
+	if (val & ADAR1000_CH_ATTN) {
+		val &= ~ADAR1000_CH_ATTN;
 		code = val * 125 + 16000;
-	else
+	} else {
+		val &= ~ADAR1000_CH_ATTN;
 		code = val * 125;
+	}
 
 	return code;
 }
