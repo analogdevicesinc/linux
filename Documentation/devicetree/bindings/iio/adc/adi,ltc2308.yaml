@@ -1,0 +1,80 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+# Copyright 2020 Analog Devices Inc.
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/bindings/iio/adc/adi,ltc2308.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Linear Technology LTC2308 ADC device driver
+
+maintainers:
+  - Sergiu Cuciurean <sergiu.cuciurean@analog.com>
+
+description: |
+  The LTC ® 2308 is a low noise, 500ksps, 8-channel, 12-bit ADC
+
+properties:
+  compatible:
+    enum:
+      - adi,ltc2308
+
+  reg:
+    maxItems: 1
+
+  cnv-gpios:
+    description:
+      Conversion start pin, used to trigger a transfer sequence
+
+patternProperties:
+  "^channel@([0-15])$":
+    type: object
+    description: Represents one input channel
+
+    properties:
+      reg:
+        description: Represents the index of a single-ended channel
+        minimum: 0
+        maximum: 7
+
+      diff-channels:
+        description: see Documentation/devicetree/bindings/iio/adc/adc.txt
+        items:
+          minimum: 0
+          maximum: 7
+
+      bipolar:
+        description: see Documentation/devicetree/bindings/iio/adc/adc.txt
+        type: boolean
+
+    required:
+      - reg
+      - diff-channels
+
+required:
+  - compatible
+  - cnv-gpios
+
+examples:
+  - |
+    ltc2308: adc@0 {
+            compatible = "adi,ltc2308";
+            reg = <0>;
+            #address-cells = <1>;
+            #size-cells = <0>;
+            spi-max-frequency = <40000000>;
+            cnv-gpios = <&gpio 1 GPIO_ACTIVE_HIGH>;
+            channel@0 {
+                    reg = <0>;
+            };
+            channel@1 {
+                    reg = <1>;
+                    bipolar;
+            };
+            channel@2 {
+                    diff-channels = <2 3>;
+            };
+            channel@3 {
+                    diff-channels = <5 4>;
+                    bipolar;
+            };
+    };
