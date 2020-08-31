@@ -22,6 +22,7 @@
 #include <drm/drm_dp_mst_helper.h>
 #include <media/cec.h>
 #include <linux/bitops.h>
+#include <sound/hdmi-codec.h>
 
 #define ADDR_IMEM		0x10000
 #define ADDR_DMEM		0x20000
@@ -714,6 +715,9 @@ struct cdns_mhdp_device {
 	};
 	const struct cdns_plat_data *plat_data;
 
+	hdmi_codec_plugged_cb plugged_cb;
+	struct device *codec_dev;
+	enum drm_connector_status last_connector_result;
 };
 
 u32 cdns_mhdp_bus_read(struct cdns_mhdp_device *mhdp, u32 offset);
@@ -796,6 +800,8 @@ void cdns_dp_remove(struct platform_device *pdev);
 void cdns_dp_unbind(struct device *dev);
 int cdns_dp_bind(struct platform_device *pdev,
 			struct drm_encoder *encoder, struct cdns_mhdp_device *mhdp);
+int cdns_hdmi_set_plugged_cb(struct cdns_mhdp_device *mhdp, hdmi_codec_plugged_cb fn,
+			     struct device *codec_dev);
 
 /* CEC */
 #ifdef CONFIG_DRM_CDNS_HDMI_CEC

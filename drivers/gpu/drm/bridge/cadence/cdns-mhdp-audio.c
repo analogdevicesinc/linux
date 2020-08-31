@@ -380,11 +380,21 @@ static int audio_get_eld(struct device *dev, void *data,
 	return 0;
 }
 
+static int audio_hook_plugged_cb(struct device *dev, void *data,
+				 hdmi_codec_plugged_cb fn,
+				 struct device *codec_dev)
+{
+	struct cdns_mhdp_device *mhdp = dev_get_drvdata(dev);
+
+	return cdns_hdmi_set_plugged_cb(mhdp, fn, codec_dev);
+}
+
 static const struct hdmi_codec_ops audio_codec_ops = {
 	.hw_params = audio_hw_params,
 	.audio_shutdown = audio_shutdown,
 	.digital_mute = audio_digital_mute,
 	.get_eld = audio_get_eld,
+	.hook_plugged_cb = audio_hook_plugged_cb,
 };
 
 int cdns_mhdp_register_audio_driver(struct device *dev)
