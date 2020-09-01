@@ -12,6 +12,103 @@
 
 #include "zynqmp-zcu102-rev10-ad9081-m8-l4.dts"
 
+/ {
+	clocks {
+		adf4371_clkin: clock@0 {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <100000000>;
+			clock-output-names = "adf4371_clkin";
+		};
+	};
+
+	stingray_control@0 {
+	        compatible = "one-bit-adc-dac";
+	        #address-cells = <1>;
+	        #size-cells = <0>;
+
+	        out-gpios = <&gpio 139 0>, <&gpio 140 0>, <&gpio 141 0>,
+			<&gpio 142 0>, <&gpio 143 0>;
+		label = "stingray_control";
+
+	        channel@0 {
+			reg = <0>;
+			label = "PA_ON";
+	        };
+
+	        channel@1 {
+			reg = <1>;
+			label = "TR";
+	        };
+
+	        channel@2 {
+			reg = <2>;
+			label = "TX_LOAD";
+	        };
+
+	        channel@3 {
+			reg = <3>;
+			label = "RX_LOAD";
+	        };
+
+	        channel@4 {
+			reg = <4>;
+			label = "5V_CTRL";
+	        };
+	};
+
+	xud_control@1 {
+	        compatible = "one-bit-adc-dac";
+	        #address-cells = <1>;
+	        #size-cells = <0>;
+
+	        out-gpios = <&gpio 145 0>, <&gpio 146 0>, <&gpio 147 0>,
+			<&gpio 148 0>, <&gpio 149 0>, <&gpio 150 0>,
+			<&gpio 151 0>, <&gpio 152 0>;
+		label = "xud_control";
+
+	        channel@0 {
+			reg = <0>;
+			label = "TX_RX_1";
+	        };
+
+	        channel@1 {
+			reg = <1>;
+			label = "IF_STATE_1";
+	        };
+
+	        channel@2 {
+			reg = <2>;
+			label = "RX_AMP_EN_1";
+	        };
+
+	        channel@3 {
+			reg = <3>;
+			label = "CTRL_PLL_1";
+	        };
+
+	        channel@4 {
+			reg = <4>;
+			label = "TX_RX_2";
+	        };
+
+	        channel@5 {
+			reg = <5>;
+			label = "IF_STATE_2";
+	        };
+
+	        channel@6 {
+			reg = <6>;
+			label = "RX_AMP_EN_2";
+	        };
+
+	        channel@7 {
+			reg = <7>;
+			label = "CTRL_PLL_1";
+	        };
+	};
+};
+
 &fpga_axi {
 	axi_spi_pmod: axi_quad_spi@85200000 {
 		#address-cells = <1>;
@@ -42,7 +139,7 @@
 	adar1000@1 {
 		compatible = "adi,adar1000";
 		reg = <1>;
-		spi-max-frequency = <20000000>;
+		spi-max-frequency = <12500000>;
 
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -68,7 +165,7 @@
 	adar1000@2 {
 		compatible = "adi,adar1000";
 		reg = <2>;
-		spi-max-frequency = <20000000>;
+		spi-max-frequency = <12500000>;
 
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -89,5 +186,35 @@
 			reg = <3>;
 			label = "BEAM3_R";
 		};
+	};
+
+	adf4371_clk0: adf4371-0@6 {
+		compatible = "adi,adf4371";
+		reg = <6>;
+
+		#address-cells = <1>;
+		#clock-cells = <1>;
+		#size-cells = <0>;
+
+		spi-max-frequency = <12500000>;
+		clocks = <&adf4371_clkin>;
+		clock-names = "clkin";
+		clock-output-names = "pll0-clk-rf8", "pll0-clk-rfaux8",
+			"pll0-clk-rf16", "pll0-clk-rf32";
+	};
+
+	adf4371_clk1: adf4371-1@7 {
+		compatible = "adi,adf4371";
+		reg = <7>;
+
+		#address-cells = <1>;
+		#clock-cells = <1>;
+		#size-cells = <0>;
+
+		spi-max-frequency = <12500000>;
+		clocks = <&adf4371_clkin>;
+		clock-names = "clkin";
+		clock-output-names = "pll1-clk-rf8", "pll1-clk-rfaux8",
+			"pll1-clk-rf16", "pll1-clk-rf32";
 	};
 };
