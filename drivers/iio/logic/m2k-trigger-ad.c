@@ -33,6 +33,7 @@
 #define AXI_ADC_TRIG_REG_TRIGGERED		0x3c
 #define AXI_ADC_TRIG_REG_DELAY			0x40
 #define AXI_ADC_TRIG_REG_STREAMING		0x44
+#define AXI_ADC_TRIG_REG_HOLDOFF		0x48
 
 /* AXI_ADC_TRIG_REG_CONFIG_TRIGGER */
 #define CONF_LOW_LEVEL				0
@@ -48,6 +49,8 @@
 #define TRIGGER_PIN_CHAN			2
 #define TRIGGER_ADC_CHAN			2
 #define TRIGGER_MIX_CHAN			2
+
+#define TRIGGER_HOLDOFF_MASK			GENMASK(31, 0)
 
 #define IIO_ENUM_AVAILABLE_SEPARATE(_name, _e) \
 { \
@@ -497,6 +500,35 @@ static ssize_t axi_adc_trig_set_streaming(struct iio_dev *indio_dev,
 	return len;
 }
 
+static ssize_t axi_adc_trig_get_holdoff(struct iio_dev *indio_dev,
+	uintptr_t priv, const struct iio_chan_spec *chan, char *buf)
+{
+	struct axi_adc_trig *axi_adc_trig = iio_priv(indio_dev);
+	unsigned int val;
+
+	val = axi_adc_trig_read(axi_adc_trig, AXI_ADC_TRIG_REG_HOLDOFF);
+	val &= TRIGGER_HOLDOFF_MASK;
+
+	return scnprintf(buf, PAGE_SIZE, "%d\n", val);
+}
+
+static ssize_t axi_adc_trig_set_holdoff(struct iio_dev *indio_dev,
+	uintptr_t priv, const struct iio_chan_spec *chan, const char *buf,
+	size_t len)
+{
+	struct axi_adc_trig *axi_adc_trig = iio_priv(indio_dev);
+	unsigned int val;
+	int ret;
+
+	ret = kstrtouint(buf, 10, &val);
+	if (ret < 0)
+		return ret;
+
+	axi_adc_trig_write(axi_adc_trig, AXI_ADC_TRIG_REG_HOLDOFF, val);
+
+	return len;
+}
+
 static ssize_t axi_adc_trig_get_embedded_trigger(struct iio_dev *indio_dev,
 	uintptr_t priv, const struct iio_chan_spec *chan, char *buf)
 {
@@ -564,6 +596,12 @@ static const struct iio_chan_spec_ext_info axi_adc_trig_analog_info[] = {
 		.shared = IIO_SHARED_BY_ALL,
 		.write = axi_adc_trig_set_streaming,
 		.read = axi_adc_trig_get_streaming,
+	},
+	{
+		.name = "holdoff_raw",
+		.shared = IIO_SHARED_BY_ALL,
+		.write = axi_adc_trig_set_holdoff,
+		.read = axi_adc_trig_get_holdoff,
 	},
 	{}
 };
