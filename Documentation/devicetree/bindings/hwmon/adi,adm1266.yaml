@@ -31,14 +31,11 @@ properties:
     description: |
       Phandle to the Avcc power supply.
 
-  adi,master-adm1266:
-    description: |
-      Represents phandle of a master ADM1266 device cascaded through the IDB.
-    $ref: "/schemas/types.yaml#/definitions/phandle"
-
 required:
   - compatible
   - reg
+
+additionalProperties: false
 
 examples:
   - |
@@ -49,8 +46,6 @@ examples:
         adm1266@40 {
                 compatible = "adi,adm1266";
                 reg = <0x40>;
-                #address-cells = <1>;
-                #size-cells = <0>;
         };
     };
 ...
