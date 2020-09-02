@@ -220,6 +220,9 @@ int32_t adi_adrv9001_arm_ChannelPowerSaving_Inspect(adi_adrv9001_Device_t *adrv9
  *
  * \note Message type: \ref timing_prioritymailbox "High-priority mailbox command"
  *
+ * \pre The ADI_ADRV9001_GPIO_SIGNAL_MON_ENABLE_SPS signal must be assigned to a pin, by either:
+ *     - setting adi_adrv9001_RadioCtrlInit_t.adi_adrv9001_GpioCtrlInitCfg_t.systemPowerSavingAndMonitorEnable at init
+ *     - calling adi_adrv9001_gpio_Configure with the mentioned signal
  * \pre All channels in any of STANDBY, CALIBRATED, PRIMED, RF_ENABLE states
  *
  * \param[in] adrv9001		    Context variable - Pointer to the ADRV9001 device settings data structure
@@ -405,18 +408,18 @@ int32_t adi_adrv9001_arm_Memory_Write(adi_adrv9001_Device_t *adrv9001,
  * \pre This function is private and is not called directly by the user.
  *
  * \param[in] adrv9001			Context variable - Pointer to the ADRV9001 device settings data structure
- * \param[in] objectId		ARM id of a particular structure or setting in ARM memory
- * \param[in] byteOffset		Byte offset from the start of the objectId's memory location in ARM memory
- * \param[in] data			A byte array containing data to write to the ARM memory buffer.
- * \param[in] byteCount		Number of bytes in the data array (Valid size = 1-255 bytes)
+ * \param[in] armData			A byte array (uint8_t) containing data to be written to ARM memory
+ * \param[in] armDataSize		Number of bytes in armData[] array to be written
+ * \param[in] mailboxCmd		A byte array containing data to write to the ARM command interface
+ * \param[in] mailboxCmdSize	Number of bytes to write to the ARM command interface
  *
  * \returns A code indicating success (ADI_COMMON_ACT_NO_ACTION) or the required action to recover
  */
 int32_t adi_adrv9001_arm_Config_Write(adi_adrv9001_Device_t *adrv9001, 
-                                      uint8_t objectId,
-                                      uint16_t byteOffset,
-                                      const uint8_t data[],
-                                      uint32_t byteCount);
+                                      const uint8_t armData[],
+                                      uint32_t armDataSize,
+                                      const uint8_t mailboxCmd[],
+                                      uint32_t mailboxCmdSize);
 
 /**
  * \brief Low level helper function used by ADRV9001 API to read the ARM memory config structures
@@ -430,6 +433,7 @@ int32_t adi_adrv9001_arm_Config_Write(adi_adrv9001_Device_t *adrv9001,
  *
  * \param[in]  adrv9001			Context variable - Pointer to the ADRV9001 device settings data structure
  * \param[in]  objectId			ARM id of a particular structure or setting in ARM memory
+ * \param[in]  channelMask      The mask of Tx/Rx channels
  * \param[in]  byteOffset		Byte offset from the start of the objectId's memory location in ARM memory
  * \param[out] returnData		A byte array containing data read back from the ARM memory buffer
  * \param[in]  byteCount		Number of bytes in the data array (Valid size = 1-255 bytes)
@@ -438,6 +442,7 @@ int32_t adi_adrv9001_arm_Config_Write(adi_adrv9001_Device_t *adrv9001,
  */
 int32_t adi_adrv9001_arm_Config_Read(adi_adrv9001_Device_t *adrv9001, 
                                      uint8_t objectId,
+                                     uint8_t channelMask,
                                      uint16_t byteOffset,
                                      uint8_t returnData[],
                                      uint32_t byteCount);
@@ -693,6 +698,26 @@ int32_t adi_adrv9001_arm_NextPfir_Set(adi_adrv9001_Device_t *adrv9001,
  * \returns A code indicating success (ADI_COMMON_ACT_NO_ACTION) or the required action to recover
  */
 int32_t adi_adrv9001_arm_Profile_Switch(adi_adrv9001_Device_t *adrv9001);
+
+/** \brief Start the ARM processor
+ *
+ * \note Message type: \ref timing_direct "Direct register access"
+ *
+ * \param[in]  adrv9001     Context variable - Pointer to the ADRV9001 device data structure containing settings
+ *
+ * \returns A code indicating success (ADI_COMMON_ACT_NO_ACTION) or the required action to recover
+ */
+int32_t adi_adrv9001_arm_Start(adi_adrv9001_Device_t *adrv9001);
+
+/** \brief Stop the ARM processor
+ *
+ * \note Message type: \ref timing_direct "Direct register access"
+ *
+ * \param[in]  adrv9001     Context variable - Pointer to the ADRV9001 device data structure containing settings
+ *
+ * \returns A code indicating success (ADI_COMMON_ACT_NO_ACTION) or the required action to recover
+ */
+int32_t adi_adrv9001_arm_Stop(adi_adrv9001_Device_t *adrv9001);
 
 
 #define ADRV9001_ARM_OPCODE_MASK      0xFFFF0000

@@ -71,6 +71,9 @@ typedef struct adi_adrv9001_Carrier
     adi_adrv9001_LoGenOptimization_e loGenOptimization;
     adi_adrv9001_PllPower_e pllPower;   /*!< PLL power; ignored in CALIBRATED state */
     uint64_t carrierFrequency_Hz;       /*!< Carrier frequency, denoted in Hz. Valid range: 30MHz to 6 GHz*/
+    uint32_t intermediateFrequency_Hz;  /*!< Intermediate frequency, denoted in Hz.
+                                             Valid range: min: 200 kHz, 
+                                                          max: min(20 MHz, rfChannelBandwidth_Hz /2)) */
 } adi_adrv9001_Carrier_t;
 
 /**

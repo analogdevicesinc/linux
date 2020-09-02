@@ -289,8 +289,8 @@ int32_t adi_adrv9001_gpio_InputPinLevel_Get(adi_adrv9001_Device_t *device,
     ADI_API_RETURN(device);
 }
 
-static int32_t adi_adrv9001_gpio_ManualInput_Configure_Validate(adi_adrv9001_Device_t *device,
-                                                                adi_adrv9001_GpioPin_e pin)
+static int32_t __maybe_unused adi_adrv9001_gpio_ManualInput_Configure_Validate(adi_adrv9001_Device_t *device,
+									       adi_adrv9001_GpioPin_e pin)
 {
     ADI_RANGE_CHECK(device, pin, ADI_ADRV9001_GPIO_DIGITAL_00, ADI_ADRV9001_GPIO_DIGITAL_15);
     ADI_API_RETURN(device);
@@ -309,8 +309,8 @@ int32_t adi_adrv9001_gpio_ManualInput_Configure(adi_adrv9001_Device_t *device, a
     ADI_API_RETURN(device);
 }
 
-static int32_t adi_adrv9001_gpio_ManualOutput_Configure_Validate(adi_adrv9001_Device_t *device,
-                                                                 adi_adrv9001_GpioPinCrumbSel_e crumb)
+static int32_t __maybe_unused adi_adrv9001_gpio_ManualOutput_Configure_Validate(adi_adrv9001_Device_t *device,
+										adi_adrv9001_GpioPinCrumbSel_e crumb)
 {
     ADI_RANGE_CHECK(device, crumb, ADI_ADRV9001_GPIO_PIN_CRUMB_01_00, ADI_ADRV9001_GPIO_PIN_CRUMB_15_14);
     ADI_API_RETURN(device);
@@ -335,8 +335,8 @@ int32_t adi_adrv9001_gpio_ManualOutput_Configure(adi_adrv9001_Device_t *device, 
     ADI_API_RETURN(device);
 }
 
-static int32_t adi_adrv9001_gpio_ManualAnalogInput_Configure_Validate(adi_adrv9001_Device_t *device,
-                                                                      adi_adrv9001_GpioPin_e pin)
+static int32_t __maybe_unused adi_adrv9001_gpio_ManualAnalogInput_Configure_Validate(adi_adrv9001_Device_t *device,
+										     adi_adrv9001_GpioPin_e pin)
 {
     ADI_RANGE_CHECK(device, pin, ADI_ADRV9001_GPIO_ANALOG_00, ADI_ADRV9001_GPIO_ANALOG_11);
     ADI_API_RETURN(device);
@@ -372,7 +372,7 @@ int32_t adi_adrv9001_gpio_ManualAnalogOutput_Configure(adi_adrv9001_Device_t *de
     ADI_EXPECT(adrv9001_NvsRegmapCore1_NvsGpioAnalogDirectionControlOe_Set, device, gpioOutEn);
 
     /* Configure source */
-    ADRV9001_SPIWRITEBYTE(device, "ANALOG_GPIO_SOURCE_SEL", (ANALOG_GPIO_SOURCE_SEL_ADDR + nibble - 1), nibble);
+    ADRV9001_SPIWRITEBYTE(device, "ANALOG_GPIO_SOURCE_SEL", (ANALOG_GPIO_SOURCE_SEL_ADDR + nibble - 1), nibble - 1);
 
     ADI_API_RETURN(device);
 }
@@ -450,9 +450,9 @@ int32_t adi_adrv9001_gpio_ControlInit_Configure(adi_adrv9001_Device_t *adrv9001,
     ADI_API_RETURN(adrv9001);
 }
 
-static int32_t adi_adrv9001_gpio_Configure_Validate(adi_adrv9001_Device_t *device,
-                                                    adi_adrv9001_GpioSignal_e signal,
-                                                    adi_adrv9001_GpioCfg_t *gpioConfig)
+static int32_t __maybe_unused adi_adrv9001_gpio_Configure_Validate(adi_adrv9001_Device_t *device,
+								   adi_adrv9001_GpioSignal_e signal,
+								   adi_adrv9001_GpioCfg_t *gpioConfig)
 {
     /* Check device pointer is not null */
     ADI_API_PRIV_ENTRY_PTR_EXPECT(device, gpioConfig);
@@ -529,7 +529,7 @@ int32_t adi_adrv9001_gpio_Configure(adi_adrv9001_Device_t *device,
     ADI_ERROR_RETURN(device->common.error.newAction);
 
     /* Wait for command to finish executing */
-    recoveryAction = adi_adrv9001_arm_CmdStatus_Wait(device, 
+    recoveryAction = adi_adrv9001_arm_CmdStatus_Wait(device,
                                                      ADRV9001_ARM_SET_OPCODE,
                                                      &cmdStatusByte,
                                                      ADI_ADRV9001_SETARMGPIO_TIMEOUT_US,
@@ -549,9 +549,9 @@ int32_t adi_adrv9001_gpio_Configure(adi_adrv9001_Device_t *device,
     ADI_API_RETURN(device);
 }
 
-static int32_t adi_adrv9001_gpio_Inspect_Validate(adi_adrv9001_Device_t *device,
-                                                  adi_adrv9001_GpioSignal_e gpioSignalSel,
-                                                  adi_adrv9001_GpioCfg_t *gpioConfig)
+static int32_t __maybe_unused adi_adrv9001_gpio_Inspect_Validate(adi_adrv9001_Device_t *device,
+								 adi_adrv9001_GpioSignal_e gpioSignalSel,
+								 adi_adrv9001_GpioCfg_t *gpioConfig)
 {
     ADI_RANGE_CHECK(device, gpioSignalSel, 0x00, ADI_ADRV9001_GPIO_NUM_SIGNALS - 1);
     ADI_NULL_PTR_RETURN(&device->common, gpioConfig);

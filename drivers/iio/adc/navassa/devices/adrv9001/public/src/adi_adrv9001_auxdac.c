@@ -17,7 +17,7 @@
 #include "adi_adrv9001_gpio.h"
 #include "adrv9001_bf.h"
 
-static int32_t adi_adrv9001_AuxDac_Configure_Validate(adi_adrv9001_Device_t *device, adi_adrv9001_AuxDac_e auxDac)
+static int32_t __maybe_unused adi_adrv9001_AuxDac_Configure_Validate(adi_adrv9001_Device_t *device, adi_adrv9001_AuxDac_e auxDac)
 {
     ADI_RANGE_CHECK(device, auxDac, ADI_ADRV9001_AUXDAC0, ADI_ADRV9001_AUXDAC3);
 
@@ -26,13 +26,14 @@ static int32_t adi_adrv9001_AuxDac_Configure_Validate(adi_adrv9001_Device_t *dev
 
 int32_t adi_adrv9001_AuxDac_Configure(adi_adrv9001_Device_t *device, adi_adrv9001_AuxDac_e auxDac, bool enable)
 {
-    adi_adrv9001_GpioCfg_t gpio = { 
-        .master = ADI_ADRV9001_GPIO_MASTER_ADRV9001, 
-        .polarity = ADI_ADRV9001_GPIO_POLARITY_NORMAL, 
+    adi_adrv9001_GpioCfg_t gpio = {
+        .pin = ADI_ADRV9001_GPIO_ANALOG_00,
+        .polarity = ADI_ADRV9001_GPIO_POLARITY_NORMAL,
+        .master = ADI_ADRV9001_GPIO_MASTER_ADRV9001,
     };
-    
+
     static const uint8_t AUXDAC_DEFAULT_MODE = 0x01;
-    
+
     ADI_PERFORM_VALIDATION(adi_adrv9001_AuxDac_Configure_Validate, device, auxDac);
 
     switch (auxDac)
@@ -57,16 +58,16 @@ int32_t adi_adrv9001_AuxDac_Configure(adi_adrv9001_Device_t *device, adi_adrv900
         ADI_SHOULD_NOT_EXECUTE(device);
         break;
     }
-    
+
     gpio.pin = ADI_ADRV9001_GPIO_ANALOG_00 + auxDac;
     ADI_EXPECT(adi_adrv9001_gpio_Configure, device, (ADI_ADRV9001_GPIO_SIGNAL_AUX_DAC_0 + auxDac), &gpio);
 
     ADI_API_RETURN(device);
 }
 
-static int32_t adi_adrv9001_AuxDac_Inspect_Validate(adi_adrv9001_Device_t *device,
-                                                    adi_adrv9001_AuxDac_e auxDac,
-                                                    bool *enabled)
+static int32_t __maybe_unused adi_adrv9001_AuxDac_Inspect_Validate(adi_adrv9001_Device_t *device,
+                                                                   adi_adrv9001_AuxDac_e auxDac,
+                                                                   bool *enabled)
 {
     ADI_RANGE_CHECK(device, auxDac, ADI_ADRV9001_AUXDAC0, ADI_ADRV9001_AUXDAC3);
     ADI_NULL_PTR_RETURN(&device->common, enabled);
@@ -99,7 +100,7 @@ int32_t adi_adrv9001_AuxDac_Inspect(adi_adrv9001_Device_t *device, adi_adrv9001_
         break;
     }
     *enabled = !(bool)bfEnable;
-    
+
     /* TODO: Remove */
     ADI_EXPECT(adi_adrv9001_gpio_Inspect, device, (ADI_ADRV9001_GPIO_SIGNAL_AUX_DAC_0 + auxDac), &gpio);
     if (gpio.pin != ADI_ADRV9001_GPIO_ANALOG_00 + auxDac)
@@ -115,9 +116,9 @@ int32_t adi_adrv9001_AuxDac_Inspect(adi_adrv9001_Device_t *device, adi_adrv9001_
     ADI_API_RETURN(device);
 }
 
-static int32_t adi_adrv9001_AuxDac_Code_Set_Validate(adi_adrv9001_Device_t *device,
-                                                     adi_adrv9001_AuxDac_e auxDac,
-                                                     uint16_t code)
+static int32_t __maybe_unused adi_adrv9001_AuxDac_Code_Set_Validate(adi_adrv9001_Device_t *device,
+                                                                    adi_adrv9001_AuxDac_e auxDac,
+                                                                    uint16_t code)
 {
     static const uint16_t AUX_DAC_VALUE_MIN = 0;
     static const uint16_t AUX_DAC_VALUE_MAX = 4095;
@@ -154,9 +155,9 @@ int32_t adi_adrv9001_AuxDac_Code_Set(adi_adrv9001_Device_t *device, adi_adrv9001
     ADI_API_RETURN(device);
 }
 
-static int32_t adi_adrv9001_AuxDac_Code_Get_Validate(adi_adrv9001_Device_t *device,
-                                                     adi_adrv9001_AuxDac_e auxDac,
-                                                     uint16_t *code)
+static int32_t __maybe_unused adi_adrv9001_AuxDac_Code_Get_Validate(adi_adrv9001_Device_t *device,
+                                                                    adi_adrv9001_AuxDac_e auxDac,
+                                                                    uint16_t *code)
 {
     ADI_RANGE_CHECK(device, auxDac, ADI_ADRV9001_AUXDAC0, ADI_ADRV9001_AUXDAC3);
     ADI_NULL_PTR_RETURN(&device->common, code);

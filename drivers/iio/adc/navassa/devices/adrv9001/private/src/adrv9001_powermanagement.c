@@ -13,6 +13,7 @@
 
 #include "adrv9001_powermanagement.h"
 #include "adi_adrv9001_arm.h"
+#include "adrv9001_arm_macros.h"
 
 static int32_t adrv9001_ldo_Configure_Validate(adi_adrv9001_Device_t *adrv9001, 
                                                adi_adrv9001_PowerManagementSettings_t *powerManagementSettings)
@@ -64,7 +65,6 @@ static int32_t adrv9001_ldo_Configure_Validate(adi_adrv9001_Device_t *adrv9001,
 int32_t adrv9001_powermanagement_Configure(adi_adrv9001_Device_t *adrv9001, 
                                            adi_adrv9001_PowerManagementSettings_t *powerManagementSettings)
 {
-    static const uint32_t LDO_POWER_SAVING_MODES_LOCATION = 0x01000544;
     uint8_t addrData[8] = { 0 };
     uint32_t offset = 0;
     uint32_t ldoPowerSavingModesAddr = 0;

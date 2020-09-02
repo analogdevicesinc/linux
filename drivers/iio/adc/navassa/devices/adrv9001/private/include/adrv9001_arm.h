@@ -29,42 +29,6 @@ extern "C" {
 #include "adi_adrv9001.h"
 
 /**
-* \brief Start the ARM processor
-*
-* Sets ARM Run = 1. Then wait and check for ARM FW Status. 
-*
-* 
-* \pre This function is called after the device has been initialized and before multichip-sync
-* (MCS) has been completed
-*
-* \param device Context variable - Pointer to the ADRV9001 device settings data structure
-* \param init   Pointer to the ADRV9001 initialization setting data structure
-*
-* \retval ADI_COMMON_ACT_WARN_RESET_LOG      Recovery action for log reset
-* \retval ADI_COMMON_ACT_ERR_CHECK_PARAM     Recovery action for bad parameter check
-* \retval ADI_COMMON_ACT_ERR_RESET_INTERFACE Recovery action for SPI reset required
-* \retval ADI_COMMON_ACT_NO_ACTION           Function completed successfully, no action required
-*/
-int32_t adrv9001_ArmStart(adi_adrv9001_Device_t *device, const adi_adrv9001_Init_t *init);
-
-/**
-* \brief Stp the ARM processor
-*
-* Sets ARM Run = 0.
-*
-* 
-* \pre This function is called after the device has been initialized 
-*
-* \param device Context variable - Pointer to the ADRV9001 device settings data structure
-*
-* \retval ADI_COMMON_ACT_WARN_RESET_LOG      Recovery action for log reset
-* \retval ADI_COMMON_ACT_ERR_CHECK_PARAM     Recovery action for bad parameter check
-* \retval ADI_COMMON_ACT_ERR_RESET_INTERFACE Recovery action for SPI reset required
-* \retval ADI_COMMON_ACT_NO_ACTION           Function completed successfully, no action required
-*/
-int32_t adrv9001_ArmStop(adi_adrv9001_Device_t *device);
-
-/**
 * \brief Read from the ADRV9001 ARM program or data memory
 *
 * The user must make sure the memory addresses are valid.
