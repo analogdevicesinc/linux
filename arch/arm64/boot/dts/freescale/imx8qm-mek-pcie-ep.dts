@@ -5,7 +5,7 @@
 
 /dts-v1/;
 
-#include "imx8qm-mek.dts"
+#include "imx8qm-mek-rpmsg.dts"
 
 &pciea{
 	status = "disabled";

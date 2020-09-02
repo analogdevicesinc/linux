@@ -5,7 +5,7 @@
 
 /dts-v1/;
 
-#include "imx8dxl-evk.dts"
+#include "imx8dxl-evk-rpmsg.dts"
 
 &pcieb {
 	status = "disabled";
