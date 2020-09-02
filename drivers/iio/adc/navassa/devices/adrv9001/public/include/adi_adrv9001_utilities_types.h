@@ -26,6 +26,7 @@
 #include "adi_adrv9001_rx_types.h"
 #include "adi_adrv9001_ssi_types.h"
 #include "adi_adrv9001_powermanagement_types.h"
+#include "adi_adrv9001_fh_types.h"
 #include "adi_adrv9001_tx_types.h"
 #include "adi_adrv9001_types.h"
 #include "adi_common_error_types.h"
@@ -69,6 +70,9 @@ typedef struct adi_adrv9001_RadioCtrlInit
     /* TODO: Make these pointers in future */
     adi_adrv9001_PowerManagementSettings_t powerManagementSettings;                    /*!< LDO settings for adjusting power consumption */
     adi_adrv9001_arm_MonitorModeInitCfg_t monitorModeInitCfg;  /*!< Monitor Mode configuration at initialization time */
+    adi_adrv9001_FhCfg_t fhConfig; /*!< Frequency Hopping configuration at initialisation time */
+    adi_adrv9001_SsiPowerDown_e rxSsiPowerDown[ADI_ADRV9001_MAX_RX_ONLY]; /*!< LSSI power down for Rx1/2 */
+    adi_adrv9001_SsiPowerDown_e txSsiPowerDown[ADI_ADRV9001_MAX_TXCHANNELS]; /*!< LSSI power down for Tx1/2 */
 } adi_adrv9001_RadioCtrlInit_t;
 
 /**

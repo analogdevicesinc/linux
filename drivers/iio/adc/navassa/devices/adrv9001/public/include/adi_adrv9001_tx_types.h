@@ -18,7 +18,11 @@
 extern "C" {
 #endif
 
+#ifdef __KERNEL__
+#include <linux/types.h>
+#else
 #include <stdbool.h>
+#endif
 
 #include "adi_adrv9001_auxdac_types.h"
 #include "adi_adrv9001_gpio_types.h"
@@ -156,7 +160,7 @@ typedef struct adi_adrv9001_PaRampCfg
     adi_adrv9001_GpioPin_e     gpioSource;             /*!< Desired GPIO pin to be used as source of trigger if gpioTriggered = True */
     uint8_t  upEndIndex;                               /*!< 8-bit look-up-table index. This index indicates the end of the ramp up waveform. */
     bool     asymmetricRamp;                           /*!< False = symmetric, True = Ramp-down waveform is asymmetric to the Ramp-up waveform */
-    uint8_t  downEndIndex;                             /*!< 8-bit look-up-table index. This index indicates the start of the ramp down waveform. 
+    uint8_t  downEndIndex;                             /*!< 8-bit look-up-table index. This index indicates the start of the ramp down waveform.
                                                           Valid only when asymmetricRamp=1 */
     adi_adrv9001_AuxDac_e  auxDacChannelSelect;        /*!< Choose the AuxDacChannel [0, 1, 2, 3] to ouptut the Ramp or SPI signal */
     uint16_t paRampLUT[ADRV9001_TX_PA_RAMP_LUT_SIZE];  /*!< PA Ramp look-up-table. 256 depth Array of LUT elements */
@@ -167,10 +171,10 @@ typedef struct adi_adrv9001_PaRampCfg
  */
 typedef struct adi_adrv9001_TxAttenuationPinControlCfg
 {
-    uint16_t stepSize_mdB;                  /*!< Step size of change in txAttenuation when a rising edge occurs on on either incrementPin or decrementPin. Range: 0 mdB to 1550 mdB, LSB =50 mdB */ 
-    adi_adrv9001_GpioPin_e incrementPin;    /*!< When a rising edge occurs on this GPIO pin, txAttenuation will increment by stepSize_mdB . 
+    uint16_t stepSize_mdB;                  /*!< Step size of change in txAttenuation when a rising edge occurs on on either incrementPin or decrementPin. Range: 0 mdB to 1550 mdB, LSB =50 mdB */
+    adi_adrv9001_GpioPin_e incrementPin;    /*!< When a rising edge occurs on this GPIO pin, txAttenuation will increment by stepSize_mdB .
                                                  Once txAttenuation has reached index 839(2094 mdB) subsequent rising edges on incrementPin will not change the txAttenuation */
-    adi_adrv9001_GpioPin_e decrementPin;    /*!< When a rising edge occurs on this GPIO pin, txAttenuation will decrement by stepSize_mdB . 
+    adi_adrv9001_GpioPin_e decrementPin;    /*!< When a rising edge occurs on this GPIO pin, txAttenuation will decrement by stepSize_mdB .
                                                  Once txAttenuation has reached index 0 subsequent rising edges on decrementPin will not change the txAttenuation */
 } adi_adrv9001_TxAttenuationPinControlCfg_t;
 

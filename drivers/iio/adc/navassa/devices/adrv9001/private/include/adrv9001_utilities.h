@@ -71,6 +71,8 @@ int32_t adrv9001_SafeFileLoad(adi_adrv9001_Device_t *device, const char *filenam
 *                           bit 3     | TX2
 * \endparblock
 *
+* \param ssiType LVDS or CMOS mode
+*
 * \retval ADI_COMMON_ACT_WARN_RESET_LOG Recovery action for log reset
 * \retval ADI_COMMON_ACT_ERR_CHECK_PARAM Recovery action for bad parameter check
 * \retval ADI_COMMON_ACT_ERR_RESET_INTERFACE Recovery action for SPI reset required
@@ -78,7 +80,8 @@ int32_t adrv9001_SafeFileLoad(adi_adrv9001_Device_t *device, const char *filenam
 */
 int32_t adrv9001_RadioCtrlInit(adi_adrv9001_Device_t *device, 
                                adi_adrv9001_RadioCtrlInit_t *radioCtrlInit,
-                               uint8_t channelMask);
+                               uint8_t channelMask,
+                               adi_adrv9001_SsiType_e ssiType);
 
 
 #ifdef __cplusplus

@@ -22,6 +22,7 @@
 #include "adi_adrv9001_radio.h"
 #include "adi_adrv9001_rx.h"
 #include "adi_adrv9001_rx_gaincontrol.h"
+#include "adi_adrv9001_ssi.h"
 #include "adi_adrv9001_tx.h"
 #include "adrv9001_powermanagement.h"
 #include "adrv9001_reg_addr_macros.h"
@@ -135,7 +136,7 @@ int32_t adrv9001_SafeFileLoad(adi_adrv9001_Device_t *device, const char *filenam
 #endif
 #endif
 
-int32_t adrv9001_RadioCtrlInit(adi_adrv9001_Device_t *device, adi_adrv9001_RadioCtrlInit_t *radioCtrlInit, uint8_t channelMask)
+int32_t adrv9001_RadioCtrlInit(adi_adrv9001_Device_t *device, adi_adrv9001_RadioCtrlInit_t *radioCtrlInit, uint8_t channelMask, adi_adrv9001_SsiType_e ssiType)
 {
     uint8_t i = 0;
 
@@ -187,6 +188,15 @@ int32_t adrv9001_RadioCtrlInit(adi_adrv9001_Device_t *device, adi_adrv9001_Radio
                        device,
                        rxChannelArr[i],
                        radioCtrlInit->adcDynamicSwitchEnable[i]);
+
+            if (ADI_ADRV9001_SSI_TYPE_LVDS == ssiType)
+            {
+                ADI_EXPECT(adi_adrv9001_Ssi_PowerDown_Set,
+                           device,
+                           ADI_RX,
+                           rxChannelArr[i],
+                           radioCtrlInit->rxSsiPowerDown[i]);
+            }
         }
     }
 
@@ -210,6 +220,15 @@ int32_t adrv9001_RadioCtrlInit(adi_adrv9001_Device_t *device, adi_adrv9001_Radio
                        device,
                        txChannelArr[i],
                        radioCtrlInit->externalPathDelay_ps[i]);
+
+            if (ADI_ADRV9001_SSI_TYPE_LVDS == ssiType)
+            {
+                ADI_EXPECT(adi_adrv9001_Ssi_PowerDown_Set,
+                           device,
+                           ADI_TX,
+                           txChannelArr[i],
+                           radioCtrlInit->txSsiPowerDown[i]);
+            }
 
 #if ADI_ADRV9001_SLEWRATE_CONFIG
             ADI_EXPECT(adi_adrv9001_Tx_SlewRateLimiter_Configure, device, txChannelArr[i], &radioCtrlInit->slewRateLimiterCfg);

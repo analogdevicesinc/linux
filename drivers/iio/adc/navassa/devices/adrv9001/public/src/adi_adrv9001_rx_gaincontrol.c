@@ -34,9 +34,9 @@ static int32_t adi_adrv9001_Rx_GainControl_MinMaxGainIndex_Set_Validate(adi_adrv
                                                                         uint8_t minGainIndex,
                                                                         uint8_t maxGainIndex);
 
-static int32_t adi_adrv9001_Rx_GainControl_Mode_Set_Validate(adi_adrv9001_Device_t *device,
-                                                             adi_common_ChannelNumber_e channel,
-                                                             adi_adrv9001_RxGainControlMode_e gainCtrlMode)
+static int32_t __maybe_unused adi_adrv9001_Rx_GainControl_Mode_Set_Validate(adi_adrv9001_Device_t *device,
+									    adi_common_ChannelNumber_e channel,
+									    adi_adrv9001_RxGainControlMode_e gainCtrlMode)
 {
     ADI_API_ENTRY_EXPECT(device);
     ADI_RANGE_CHECK(device, gainCtrlMode, ADI_ADRV9001_RX_GAIN_CONTROL_MODE_SPI, ADI_ADRV9001_RX_GAIN_CONTROL_MODE_AUTO);
@@ -93,9 +93,9 @@ int32_t adi_adrv9001_Rx_GainControl_Mode_Set(adi_adrv9001_Device_t *device,
     ADI_API_RETURN(device);
 }
 
-static int32_t adi_adrv9001_Rx_GainControl_Mode_Get_Validate(adi_adrv9001_Device_t *device,
-                                                             adi_common_ChannelNumber_e channel,
-                                                             adi_adrv9001_RxGainControlMode_e *gainCtrlMode)
+static int32_t __maybe_unused adi_adrv9001_Rx_GainControl_Mode_Get_Validate(adi_adrv9001_Device_t *device,
+									    adi_common_ChannelNumber_e channel,
+									    adi_adrv9001_RxGainControlMode_e *gainCtrlMode)
 {
     ADI_API_ENTRY_PTR_EXPECT(device, gainCtrlMode);
     ADI_RANGE_CHECK(device, channel, ADI_CHANNEL_1, ADI_CHANNEL_2);
@@ -140,9 +140,9 @@ int32_t adi_adrv9001_Rx_GainControl_Mode_Get(adi_adrv9001_Device_t *device,
 }
 
 
-static int32_t adi_adrv9001_Rx_GainControl_Configure_Validate(adi_adrv9001_Device_t *device,
-                                                              adi_common_ChannelNumber_e channel,
-                                                              adi_adrv9001_GainControlCfg_t *agcCfg)
+static int32_t __maybe_unused adi_adrv9001_Rx_GainControl_Configure_Validate(adi_adrv9001_Device_t *device,
+									     adi_common_ChannelNumber_e channel,
+									     adi_adrv9001_GainControlCfg_t *agcCfg)
 {
     static const uint8_t PEAK_WAIT_TIME_MAX = 0x1F;
     static const uint32_t GAIN_UPDATE_COUNTER_MAX = 0x003FFFFF;
@@ -284,6 +284,7 @@ int32_t adi_adrv9001_Rx_GainControl_Configure(adi_adrv9001_Device_t *device,
     /* APD Low Frequency MITIGATION Mode Setup */
     static const uint8_t APD_LOW_FREQ_ADCOVRG_2ND_HIGH_COUNTER = 3;
     static const uint8_t APD_LOW_FREQ_ERROR_MITIGATION_MODE = 1;
+
     static const uint32_t APD_LOW_FREQ_THRESH_SUBTRACTION_FACTOR = 33352;
     static const uint32_t APD_LOW_FREQ_THRESH_DIVISION_FACTOR = 133352;
     static const uint32_t APD_LOW_FREQ_THRESH_MULTIPLICATION_FACTOR = 100000;
@@ -464,9 +465,9 @@ int32_t adi_adrv9001_Rx_GainControl_Configure(adi_adrv9001_Device_t *device,
     ADI_API_RETURN(device);
 }
 
-static int32_t adi_adrv9001_Rx_GainControl_Inspect_Validate(adi_adrv9001_Device_t *device,
-                                                            adi_common_ChannelNumber_e channel,
-                                                            adi_adrv9001_GainControlCfg_t *agcCfg)
+static int32_t __maybe_unused adi_adrv9001_Rx_GainControl_Inspect_Validate(adi_adrv9001_Device_t *device,
+									   adi_common_ChannelNumber_e channel,
+									   adi_adrv9001_GainControlCfg_t *agcCfg)
 {
     ADI_RANGE_CHECK(device, channel, ADI_CHANNEL_1, ADI_CHANNEL_2);
     ADI_NULL_PTR_RETURN(&device->common, agcCfg);
@@ -669,10 +670,10 @@ int32_t adi_adrv9001_Rx_GainControl_MinMaxGainIndex_Set(adi_adrv9001_Device_t *d
     ADI_API_RETURN(device);
 }
 
-static int32_t adi_adrv9001_Rx_GainControl_MinMaxGainIndex_Get_Validate(adi_adrv9001_Device_t *device,
-                                                                        adi_common_ChannelNumber_e channel,
-                                                                        uint8_t *minGainIndex,
-                                                                        uint8_t *maxGainIndex)
+static int32_t __maybe_unused adi_adrv9001_Rx_GainControl_MinMaxGainIndex_Get_Validate(adi_adrv9001_Device_t *device,
+										       adi_common_ChannelNumber_e channel,
+										       uint8_t *minGainIndex,
+										       uint8_t *maxGainIndex)
 {
     ADI_RANGE_CHECK(device, channel, ADI_CHANNEL_1, ADI_CHANNEL_2);
     ADI_NULL_PTR_RETURN(&device->common, minGainIndex);
@@ -700,7 +701,8 @@ int32_t adi_adrv9001_Rx_GainControl_MinMaxGainIndex_Get(adi_adrv9001_Device_t *d
     ADI_API_RETURN(device);
 }
 
-static int32_t adi_adrv9001_Rx_GainControl_Reset_Validate(adi_adrv9001_Device_t *device, adi_common_ChannelNumber_e channel)
+static int32_t __maybe_unused adi_adrv9001_Rx_GainControl_Reset_Validate(adi_adrv9001_Device_t *device,
+									 adi_common_ChannelNumber_e channel)
 {
     ADI_RANGE_CHECK(device, channel, ADI_CHANNEL_1, ADI_CHANNEL_2);
     ADI_API_RETURN(device);
@@ -723,9 +725,9 @@ int32_t adi_adrv9001_Rx_GainControl_Reset(adi_adrv9001_Device_t *device, adi_com
     ADI_API_RETURN(device);
 }
 
-static int32_t adi_adrv9001_Rx_GainControl_PinMode_Configure_Validate(adi_adrv9001_Device_t *device,
-                                                                      adi_common_ChannelNumber_e channel,
-                                                                      adi_adrv9001_RxGainControlPinCfg_t *config)
+static int32_t __maybe_unused adi_adrv9001_Rx_GainControl_PinMode_Configure_Validate(adi_adrv9001_Device_t *device,
+										     adi_common_ChannelNumber_e channel,
+										     adi_adrv9001_RxGainControlPinCfg_t *config)
 {
     static const uint8_t MAX_STEP_SIZE = 8;
 
@@ -796,9 +798,9 @@ int32_t adi_adrv9001_Rx_GainControl_PinMode_Configure(adi_adrv9001_Device_t *dev
     ADI_API_RETURN(device);
 }
 
-static int32_t adi_adrv9001_Rx_GainControl_PinMode_Inspect_Validate(adi_adrv9001_Device_t *device,
-                                                                    adi_common_ChannelNumber_e channel,
-                                                                    adi_adrv9001_RxGainControlPinCfg_t *config)
+static int32_t __maybe_unused adi_adrv9001_Rx_GainControl_PinMode_Inspect_Validate(adi_adrv9001_Device_t *device,
+										   adi_common_ChannelNumber_e channel,
+										   adi_adrv9001_RxGainControlPinCfg_t *config)
 {
     ADI_RANGE_CHECK(device, channel, ADI_CHANNEL_1, ADI_CHANNEL_2);
     ADI_NULL_PTR_RETURN(&device->common, config);

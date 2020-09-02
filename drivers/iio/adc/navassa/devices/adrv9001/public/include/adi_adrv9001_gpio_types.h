@@ -168,13 +168,13 @@ typedef enum adi_adrv9001_GpioSignal
     ADI_ADRV9001_GPIO_SIGNAL_FH_GAIN_SEL_0,         /*!< Frequency hopping gain select bit 0 */
     ADI_ADRV9001_GPIO_SIGNAL_FH_GAIN_SEL_1,         /*!< Frequency hopping gain select bit 1 */
     ADI_ADRV9001_GPIO_SIGNAL_FH_GAIN_SEL_2,         /*!< Frequency hopping gain select bit 2 */
-    ADI_ADRV9001_GPIO_SIGNAL_FH_FREQ_SEL_0,         /*!< Frequency hopping frequency index select bit 0 */
-    ADI_ADRV9001_GPIO_SIGNAL_FH_FREQ_SEL_1,         /*!< Frequency hopping frequency index select bit 1 */
-    ADI_ADRV9001_GPIO_SIGNAL_FH_FREQ_SEL_2,         /*!< Frequency hopping frequency index select bit 2 */
-    ADI_ADRV9001_GPIO_SIGNAL_FH_FREQ_SEL_3,         /*!< Frequency hopping frequency index select bit 3 */
-    ADI_ADRV9001_GPIO_SIGNAL_FH_FREQ_SEL_4,         /*!< Frequency hopping frequency index select bit 4 */
-    ADI_ADRV9001_GPIO_SIGNAL_FH_FREQ_SEL_5,         /*!< Frequency hopping frequency index select bit 5 */
-
+    ADI_ADRV9001_GPIO_SIGNAL_FH_TABLE_INDEX_0,      /*!< Frequency hopping frequency index select bit 0 */
+    ADI_ADRV9001_GPIO_SIGNAL_FH_TABLE_INDEX_1,      /*!< Frequency hopping frequency index select bit 1 */
+    ADI_ADRV9001_GPIO_SIGNAL_FH_TABLE_INDEX_2,      /*!< Frequency hopping frequency index select bit 2 */
+    ADI_ADRV9001_GPIO_SIGNAL_FH_TABLE_INDEX_3,      /*!< Frequency hopping frequency index select bit 3 */
+    ADI_ADRV9001_GPIO_SIGNAL_FH_TABLE_INDEX_4,      /*!< Frequency hopping frequency index select bit 4 */
+    ADI_ADRV9001_GPIO_SIGNAL_FH_TABLE_INDEX_5,      /*!< Frequency hopping frequency index select bit 5 */
+    ADI_ADRV9001_GPIO_SIGNAL_FH_HOP_TABLE_SWITCH,   /*!< Frequency hopping Hop table select signal */
     ADI_ADRV9001_GPIO_SIGNAL_TX1_PA_RAMP_CTRL,              /*!< Tx1 Aux DAC ramp control request signal*/
     ADI_ADRV9001_GPIO_SIGNAL_TX2_PA_RAMP_CTRL,              /*!< Tx2 Aux DAC ramp control request signal*/
 

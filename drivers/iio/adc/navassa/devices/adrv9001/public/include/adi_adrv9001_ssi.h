@@ -115,6 +115,45 @@ int32_t adi_adrv9001_Ssi_Delay_Inspect(adi_adrv9001_Device_t *adrv9001,
                                        adi_adrv9001_SsiType_e ssiType,
                                        adi_adrv9001_SsiCalibrationCfg_t *ssiCalibration);
 
+/**
+ * \brief Set the power down mode for the specified channel and SSI type
+ * 
+ * SSI pad power down enablement is valid only for LVDS. For CMOS, power down is always disabled 
+ *
+ * \note Message type: \ref timing_mailbox "Mailbox command"
+ *
+ * \pre Channel state is STANDBY
+ *
+ * \param[in] adrv9001          Context variable - Pointer to the ADRV9001 device data structure
+ * \param[in] port              The port that the channel refers to
+ * \param[in] channel           The channel for which to set the power down mode
+ * \param[in] powerDownMode     The desired power down mode
+ *
+ * \returns A code indicating success (ADI_COMMON_ACT_NO_ACTION) or the required action to recover
+ */
+int32_t adi_adrv9001_Ssi_PowerDown_Set(adi_adrv9001_Device_t *adrv9001,
+                                       adi_common_Port_e port,
+                                       adi_common_ChannelNumber_e channel,
+                                       adi_adrv9001_SsiPowerDown_e powerDownMode);
+
+/**
+ * \brief Get the power down mode for the specified channel
+ * 
+ * \note Message type: \ref timing_mailbox "Mailbox command"
+ *
+ * \pre Channel state any of STANDBY, CALIBRATED, PRIMED, RF_ENABLED
+ *
+ * \param[in]  adrv9001          Context variable - Pointer to the ADRV9001 device data structure
+ * \param[in]  port              The port that the channel refers to
+ * \param[in]  channel           The channel for which to get the power down mode
+ * \param[out] powerDownMode     The current power down mode
+ *
+ * \returns A code indicating success (ADI_COMMON_ACT_NO_ACTION) or the required action to recover
+ */
+int32_t adi_adrv9001_Ssi_PowerDown_Get(adi_adrv9001_Device_t *adrv9001,
+                                       adi_common_Port_e port,
+                                       adi_common_ChannelNumber_e channel,
+                                       adi_adrv9001_SsiPowerDown_e *powerDownMode);
 
 #ifdef __cplusplus
 }

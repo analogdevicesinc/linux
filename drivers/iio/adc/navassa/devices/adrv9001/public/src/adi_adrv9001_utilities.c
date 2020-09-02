@@ -43,6 +43,7 @@
 #include "adi_adrv9001_cals.h"
 #include "adi_adrv9001_mcs.h"
 #include "adi_adrv9001_dpd.h"
+#include "adi_adrv9001_fh.h"
 #include "adrv9001_Init_t_parser.h"
 #include "adrv9001_arm.h"
 #include "adrv9001_arm_macros.h"
@@ -118,7 +119,7 @@ int32_t adi_adrv9001_Utilities_DeviceProfile_Parse(adi_adrv9001_Device_t *device
     /* Loop over all keys of the root object, searching for matching fields. */
     for (ii = 1; ii < numTokens; ii++)
     {
-        ADI_ADRV9001_INIT_T(tokens, ii, jsonBuffer, parsingBuffer, (*init));
+        ADRV9001_INIT_T(tokens, ii, jsonBuffer, parsingBuffer, (*init));
     }
 
     free(tokens);
@@ -588,7 +589,7 @@ int32_t adi_adrv9001_Utilities_Resources_Load(adi_adrv9001_Device_t *device, adi
     ADI_EXPECT(adi_adrv9001_Utilities_Tables_Load, device, resourceCfg);
 
     /* ARM Bootup */
-    ADI_EXPECT(adrv9001_ArmStart, device, init);
+    ADI_EXPECT(adi_adrv9001_arm_Start, device);
 
     /* ARM Bootup Status Check (Non Broadcast mode) */
 #if ADI_ADRV9001_PRE_MCS_BROADCAST_DISABLE > 0
@@ -598,6 +599,9 @@ int32_t adi_adrv9001_Utilities_Resources_Load(adi_adrv9001_Device_t *device, adi
     /* Enable SPI logging */
     adi_common_LogLevelSet(&device->common, origLogLevel);
     ADI_ERROR_RETURN(device->common.error.newAction);
+
+    /* Save whether we are in FH mode to state */
+    device->devStateInfo.frequencyHoppingEnabled = init->sysConfig.fhModeOn;
 
     ADI_API_RETURN(device);
 }
@@ -1480,7 +1484,7 @@ int32_t adi_adrv9001_Utilities_InitRadio_Load(adi_adrv9001_Device_t *device,
     ADI_EXPECT(adi_adrv9001_gpio_ControlInit_Configure, device, &initConfig->radioCtrlInit->gpioCtrlInitCfg);
 
     /*Initialize radio control. This is required to run before running init cals*/
-    ADI_EXPECT(adrv9001_RadioCtrlInit, device, initConfig->radioCtrlInit, channelMask);
+    ADI_EXPECT(adrv9001_RadioCtrlInit, device, initConfig->radioCtrlInit, channelMask, ssiType);
     
     if (ADRV9001_BF_EQUAL(device->devStateInfo.initializedChannels, ADI_ADRV9001_TX1) &&
         (true == initConfig->radioCtrlInit->txDpdInit[0].enable))
@@ -1491,6 +1495,12 @@ int32_t adi_adrv9001_Utilities_InitRadio_Load(adi_adrv9001_Device_t *device,
         (true == initConfig->radioCtrlInit->txDpdInit[1].enable))
     {
         ADI_EXPECT(adi_adrv9001_dpd_Initial_Configure, device, ADI_CHANNEL_2, &initConfig->radioCtrlInit->txDpdInit[1]);
+    }
+    /* Load frequency hopping configuration if set in the device profile */
+    if (true == initConfig->adrv9001Init->sysConfig.fhModeOn)
+    { 
+        /* Load configuration */
+        ADI_EXPECT(adi_adrv9001_fh_Configure, device, &initConfig->radioCtrlInit->fhConfig);
     }
     
     /* Send SYSTEM_CONFIG mailbox command to ARM */

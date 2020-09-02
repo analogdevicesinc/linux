@@ -162,6 +162,12 @@ if ((value < minimum) || (value > maximum)) \
 { \
     return ADI_COMMON_ACT_ERR_CHECK_PARAM; \
 }
+
+#define ADI_RANGE_CHECK_X(devicePtr, value, minimum, maximum, formatSpecifier) \
+if ((value < minimum) || (value > maximum)) \
+{ \
+    return ADI_COMMON_ACT_ERR_CHECK_PARAM; \
+}
 #endif
 
 /**

@@ -1941,38 +1941,6 @@ static int32_t adrv9001_PfirFilterCoeffWrite(adi_adrv9001_Device_t *device,
 }
 
 /****************************************************** Private APIs *******************************************************/
-int32_t adrv9001_ArmStart(adi_adrv9001_Device_t *device, const adi_adrv9001_Init_t *init)
-{
-    int32_t recoveryAction = ADI_COMMON_ACT_NO_ACTION;
-    uint8_t armCtl1 = 0;
-    uint8_t mailBox[4] = { 0xFF, 0xFF, 0xFF, 0xFF };
-
-    ADI_API_ENTRY_PTR_EXPECT(device, init);
-
-    /* Set MailBox 0xFF */
-    recoveryAction = adi_adrv9001_arm_Memory_Write(device, ADRV9001_ADDR_ARM_MAILBOX_GET, &mailBox[0], 4);
-    ADI_ERROR_REPORT(&device->common, ADI_COMMON_ERRSRC_API, ADI_COMMON_ERR_API_FAIL, recoveryAction, NULL, "ArmStart Failed");
-    ADI_ERROR_RETURN(device->common.error.newAction);
-
-
-    armCtl1 = ADRV9001_AC1_ARM_DEBUG_ENABLE | ADRV9001_AC1_ARM_MEM_HRESP_MASK | ADRV9001_AC1_ARM_M3_RUN;
-    ADRV9001_SPIWRITEBYTE(device, "ARM_CTL_1", ADRV9001_ADDR_ARM_CTL_1, armCtl1);
-
-    ADI_API_RETURN(device);
-}
-
-int32_t adrv9001_ArmStop(adi_adrv9001_Device_t *device)
-{
-    uint8_t armCtl1 = 0;
-
-    ADI_API_ENTRY_EXPECT(device);
-
-    armCtl1 = ADRV9001_AC1_ARM_DEBUG_ENABLE | ADRV9001_AC1_ARM_MEM_HRESP_MASK;
-    ADRV9001_SPIWRITEBYTE(device, "ARM_CTL_1", ADRV9001_ADDR_ARM_CTL_1, armCtl1);
-
-    ADI_API_RETURN(device);
-}
-
 int32_t adrv9001_DmaMemWrite(adi_adrv9001_Device_t *device, uint32_t address, const uint8_t data[], uint32_t byteCount)
 {
     uint32_t i = 0;
@@ -2619,34 +2587,40 @@ static uint32_t adrv9001_ArmProfileWrite_Validate(adi_adrv9001_Device_t *device,
     ADI_RANGE_CHECK(device, init->clocks.auxPllPower, ADI_ADRV9001_COMPONENT_POWER_LEVEL_LOW, ADI_ADRV9001_COMPONENT_POWER_LEVEL_HIGH);
     ADI_RANGE_CHECK(device, init->clocks.clkPllPower, ADI_ADRV9001_COMPONENT_POWER_LEVEL_LOW, ADI_ADRV9001_COMPONENT_POWER_LEVEL_HIGH);
 
-    /* PLL LO dividers must be even numbers between 2 and 1022 */
-    if ((1022  < init->clocks.extLo1Divider) ||
-           (2  > init->clocks.extLo1Divider) ||
-           (0 != init->clocks.extLo1Divider % 2))
+    /* PLL LO dividers must be 1 or even numbers between 2 and 1022 */
+    if (1 != init->clocks.extLo1Divider)
     {
-        ADI_ERROR_REPORT(&device->common,
-            ADI_COMMON_ERRSRC_API,
-            ADI_COMMON_ERR_INV_PARAM,
-            ADI_COMMON_ACT_ERR_CHECK_PARAM,
-            init->clocks.rfPll1LoDivider,
-            "Invalid clock rfPll1LoDivider. Valid values are even numbers between 2 and 1022, inclusive.");
-        ADI_ERROR_RETURN(device->common.error.newAction);
+        if ((1022  < init->clocks.extLo1Divider) ||
+               (2  > init->clocks.extLo1Divider) ||
+               (0 != init->clocks.extLo1Divider % 2))
+        {
+            ADI_ERROR_REPORT(&device->common,
+                             ADI_COMMON_ERRSRC_API,
+                             ADI_COMMON_ERR_INV_PARAM,
+                             ADI_COMMON_ACT_ERR_CHECK_PARAM,
+                             init->clocks.rfPll1LoDivider,
+                             "Invalid clock rfPll1LoDivider. Valid values are 1 and even numbers between 2 and 1022, inclusive.");
+            ADI_ERROR_RETURN(device->common.error.newAction);
+        }
     }
 
-    /* PLL LO dividers must be even numbers between 2 and 1022 */
-    if ((1022  < init->clocks.extLo2Divider) ||
-           (2  > init->clocks.extLo2Divider) ||
-           (0 != init->clocks.extLo2Divider % 2))
+    /* PLL LO dividers must be 1 or even numbers between 2 and 1022 */
+    if (1 != init->clocks.extLo2Divider)
     {
-        ADI_ERROR_REPORT(&device->common,
-            ADI_COMMON_ERRSRC_API,
-            ADI_COMMON_ERR_INV_PARAM,
-            ADI_COMMON_ACT_ERR_CHECK_PARAM,
-            init->clocks.rfPll2LoDivider,
-            "Invalid clock rfPll2LoDivider. Valid values are even numbers between 2 and 1022, inclusive.");
-        ADI_ERROR_RETURN(device->common.error.newAction);
+        if ((1022  < init->clocks.extLo2Divider) ||
+               (2  > init->clocks.extLo2Divider) ||
+               (0 != init->clocks.extLo2Divider % 2))
+        {
+            ADI_ERROR_REPORT(&device->common,
+                             ADI_COMMON_ERRSRC_API,
+                             ADI_COMMON_ERR_INV_PARAM,
+                             ADI_COMMON_ACT_ERR_CHECK_PARAM,
+                             init->clocks.rfPll2LoDivider,
+                             "Invalid clock rfPll2LoDivider. Valid values are 1 and even numbers between 2 and 1022, inclusive.");
+            ADI_ERROR_RETURN(device->common.error.newAction);
+        }
     }
-
+    
     /* Range check parameters in adi_adrv9001_TxSettings_t */
     for (i = 0; i < ADI_ADRV9001_MAX_TXCHANNELS; i++)
     {
@@ -2803,12 +2777,10 @@ int32_t adrv9001_ArmProfileWrite(adi_adrv9001_Device_t *device, const adi_adrv90
 
     adrv9001_cfgDataSet(&cfgData[0], 0, ADRV9001_PROFILE_CHUNK_MAX);
 
-    /* 'clkPllVcoFreq_kHz' is referred as 'vcoFreq_kHz' in FW */
-    adrv9001_LoadFourBytes(&offset, &cfgData[0], (init->clocks.clkPllVcoFreq_kHz)); /* CLKPLL VCO frequency */
+    /* 'clkPllVcoFreq_daHz' is referred as 'vcoFreq_daHz' in FW */
+    adrv9001_LoadFourBytes(&offset, &cfgData[0], (init->clocks.clkPllVcoFreq_daHz)); /* CLKPLL VCO frequency is dekaHz (10^1) */
 
-    /* In adi_adrv9001_Device_t struct in API, hsDigClk_kHz and deviceClock_kHz are in kHz whereas
-     * in ARM these two are in Hz format. Hence the conversion from kHz to Hz is needed */
-    adrv9001_LoadFourBytes(&offset, &cfgData[0], KILO_TO_BASE_UNIT(device->devStateInfo.hsDigClk_kHz)); /* HS Dig clock calculated in initialze() */
+    adrv9001_LoadFourBytes(&offset, &cfgData[0], device->devStateInfo.hsDigClk_Hz); /* HS Dig clock calculated in initialze() */
 
     adrv9001_LoadFourBytes(&offset, &cfgData[0], KILO_TO_BASE_UNIT(init->clocks.deviceClock_kHz)); /* Device clock frequency */
 

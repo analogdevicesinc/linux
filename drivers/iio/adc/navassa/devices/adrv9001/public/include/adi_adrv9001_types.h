@@ -198,13 +198,15 @@ typedef struct adi_adrv9001_Info
                                                                              Tx = 0x01, Rx = 0x02, Orx = 0x04 */
     adi_adrv9001_TxSignalType_e outputSignaling[ADI_ADRV9001_MAX_TXCHANNELS]; /*!< Output to Analog signal type */
     uint32_t swTest;													/*!< Software testmode signal */
-    uint32_t hsDigClk_kHz;												/*!< Calculated in initialize() digital clock used throughout API functions */
+    uint32_t hsDigClk_Hz;												/*!< Calculated in initialize() digital clock used throughout API functions */
     uint32_t deviceClock_kHz;                                           /*!< Device clock frequency in kHz (copy from adi_adrv9001_ClockSettings_t struct) */
     adi_adrv9001_ClkPllMode_e  clkPllMode;                              /*!< CLKPLL Mode */
     adi_adrv9001_ClkDivideRatios_t clkDivideRatios;						/*!< Clock divide ratios w.r.t hsDigClk for various modules in the device */
     uint32_t  profileAddr;												/*!< Address to load Profile */
     uint32_t  adcProfileAddr;											/*!< Address to load ADC Profile */
     uint32_t  pfirProfileAddr;                                          /*!< Address to load PFIR coefficients */
+    uint32_t  fhHopTable1Addr;                                          /*!< Address to load hop table 1 in frequency hopping mode */
+    uint32_t  fhHopTable2Addr;                                          /*!< Address to load hop table 2 in frequency hopping mode */
     uint32_t txInputRate_kHz[ADI_ADRV9001_MAX_TXCHANNELS];				/*!< Tx Input sample rate from currently loaded profile */
     uint32_t rxOutputRate_kHz[ADI_ADRV9001_MAX_RXCHANNELS];				/*!< Rx Output sample rate from currently loaded profile */
     uint32_t rx1InterfaceSampleRate_kHz;                                /*!< Rx1 Interface sample rate from currently loaded profile */
@@ -216,6 +218,7 @@ typedef struct adi_adrv9001_Info
     uint8_t currentStreamNumberStreams;									/*!< Number of Streams for current stream  */
     uint8_t currentStreamImageIndex;									/*!< Index of current stream  */
     uint32_t currentStreamImageSize;									/*!< Image size of current stream */
+    uint8_t frequencyHoppingEnabled;                                    /*!< Frequency hopping enabled flag from currently loaded profile */
 } adi_adrv9001_Info_t;
 
 /**

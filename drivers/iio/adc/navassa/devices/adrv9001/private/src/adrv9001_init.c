@@ -459,7 +459,7 @@ static int32_t adrv9001_VerifyTxProfile(adi_adrv9001_Device_t *device,
     static const uint32_t TX_INPUT_RATE_MAX = MEGA_TO_BASE_UNIT(100);
 
     static const uint32_t PRIMARY_SIGNAL_BW_MIN = 6250;
-    static const uint32_t PRIMARY_SIGNAL_BW_MAX = MEGA_TO_BASE_UNIT(40);
+    static const uint32_t PRIMARY_SIGNAL_BW_MAX = MEGA_TO_BASE_UNIT(41);
 
     ADI_API_PRIV_ENTRY_PTR_EXPECT(device, txProfile);
 
@@ -495,7 +495,7 @@ static int32_t adrv9001_VerifyRxProfile(adi_adrv9001_Device_t *device,
     static const uint32_t RX_OUTPUT_RATE_MAX = MEGA_TO_BASE_UNIT(100);
 
     static const uint32_t RX_BANDWIDTH_MIN = 6250;
-    static const uint32_t RX_BANDWIDTH_MAX = MEGA_TO_BASE_UNIT(40);
+    static const uint32_t RX_BANDWIDTH_MAX = MEGA_TO_BASE_UNIT(41);
 
     ADI_API_PRIV_ENTRY_PTR_EXPECT(device, rxProfile);
 
@@ -531,7 +531,7 @@ static int32_t adrv9001_VerifyOrxProfile(adi_adrv9001_Device_t *device,
     static const uint32_t ORX_OUTPUT_RATE_MAX = MEGA_TO_BASE_UNIT(100);
 
     static const uint32_t ORX_BANDWIDTH_MIN = 6250;
-    static const uint32_t ORX_BANDWIDTH_MAX = MEGA_TO_BASE_UNIT(40);
+    static const uint32_t ORX_BANDWIDTH_MAX = MEGA_TO_BASE_UNIT(41);
 
     ADI_API_PRIV_ENTRY_PTR_EXPECT(device, orxProfile);
 
@@ -567,7 +567,7 @@ static int32_t adrv9001_VerifyLbProfile(adi_adrv9001_Device_t *device,
     static const uint32_t LB_OUTPUT_RATE_MAX = MEGA_TO_BASE_UNIT(100);
 
     static const uint32_t LB_BANDWIDTH_MIN = 6250;
-    static const uint32_t LB_BANDWIDTH_MAX = MEGA_TO_BASE_UNIT(40);
+    static const uint32_t LB_BANDWIDTH_MAX = MEGA_TO_BASE_UNIT(41);
 
     ADI_API_PRIV_ENTRY_PTR_EXPECT(device, lbProfile);
 
@@ -667,7 +667,7 @@ int32_t adrv9001_ProfilesVerify(adi_adrv9001_Device_t *device, adi_adrv9001_Init
         ADI_ERROR_RETURN(device->common.error.newAction);
     }
 
-    device->devStateInfo.hsDigClk_kHz = init->clocks.clkPllVcoFreq_kHz / divHsDigClk;
+    device->devStateInfo.hsDigClk_Hz = init->clocks.clkPllVcoFreq_daHz / divHsDigClk * 10;
 
     // Validate Rx channels
     for (i = 0; i < ADI_ADRV9001_MAX_RXCHANNELS; i++)
@@ -709,7 +709,6 @@ int32_t adrv9001_ProfilesVerify(adi_adrv9001_Device_t *device, adi_adrv9001_Init
     }
 
     // Validate Tx channels
-    device->devStateInfo.profilesValid |= ADI_ADRV9001_TX_PROFILE_VALID;
     for (i = 0; i < ADI_ADRV9001_MAX_TXCHANNELS; i++)
     {
         if (ADRV9001_BF_EQUAL(init->tx.txInitChannelMask, TX_CHANNELS[i]))
@@ -720,6 +719,7 @@ int32_t adrv9001_ProfilesVerify(adi_adrv9001_Device_t *device, adi_adrv9001_Init
             // ILB for this Tx channel must be configured for Tx to be valid
             if (ADRV9001_BF_EQUAL(ilbValidForTxMask, TX_CHANNELS[i]))
             {
+                device->devStateInfo.profilesValid |= ADI_ADRV9001_TX_PROFILE_VALID;
                 device->devStateInfo.initializedChannels |= TX_CHANNELS[i];
             }
             else
