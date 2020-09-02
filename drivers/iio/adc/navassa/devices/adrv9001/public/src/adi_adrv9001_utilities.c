@@ -44,7 +44,7 @@
 #include "adi_adrv9001_mcs.h"
 #include "adi_adrv9001_dpd.h"
 #include "adi_adrv9001_fh.h"
-#include "adrv9001_Init_t_parser.h"
+#include "adi_adrv9001_Init_t_parser.h"
 #include "adrv9001_arm.h"
 #include "adrv9001_arm_macros.h"
 #include "adrv9001_reg_addr_macros.h"
@@ -269,7 +269,7 @@ int32_t adi_adrv9001_Utilities_ArmImage_Load(adi_adrv9001_Device_t *device, cons
     return recoveryAction;
 }
 #else
-int32_t adi_adrv9001_Utilities_ArmImage_Load(adi_adrv9001_Device_t *device, const char *armImagePath) 
+int32_t adi_adrv9001_Utilities_ArmImage_Load(adi_adrv9001_Device_t *device, const char *armImagePath)
 {
     int32_t recoveryAction = ADI_COMMON_ACT_NO_ACTION;
     uint32_t i = 0;
@@ -419,7 +419,7 @@ int32_t adi_adrv9001_Utilities_StreamImage_Load(adi_adrv9001_Device_t *device, c
     return recoveryAction;
 }
 # else
-int32_t adi_adrv9001_Utilities_StreamImage_Load(adi_adrv9001_Device_t *device, const char *streamImagePath) 
+int32_t adi_adrv9001_Utilities_StreamImage_Load(adi_adrv9001_Device_t *device, const char *streamImagePath)
 {
 
     int32_t recoveryAction = ADI_COMMON_ACT_NO_ACTION;
@@ -466,12 +466,12 @@ int32_t adi_adrv9001_Utilities_StreamImageBinary_Program(adi_adrv9001_Device_t *
 {
     int32_t i = 0;
     uint32_t numFileChunks = 0;
-    
+
     /* Check device pointer is not null */
     ADI_API_ENTRY_EXPECT(device);
-    
+
     numFileChunks = ADI_ADRV9001_STREAM_BINARY_IMAGE_FILE_SIZE_BYTES / ADI_ADRV9001_STREAM_BINARY_IMAGE_LOAD_CHUNK_SIZE_BYTES;
-    
+
     /*Read ARM binary file*/
     for (i = 0; i < numFileChunks; i++)
     {
@@ -482,7 +482,7 @@ int32_t adi_adrv9001_Utilities_StreamImageBinary_Program(adi_adrv9001_Device_t *
                    &(*streamImageBinary)[i*ADI_ADRV9001_STREAM_BINARY_IMAGE_LOAD_CHUNK_SIZE_BYTES],
                    ADI_ADRV9001_STREAM_BINARY_IMAGE_LOAD_CHUNK_SIZE_BYTES);
     }
-    
+
     device->devStateInfo.devState = (adi_adrv9001_ApiStates_e)(device->devStateInfo.devState | ADI_ADRV9001_STATE_STREAM_LOADED);
     ADI_API_RETURN(device);
 }
@@ -504,7 +504,7 @@ static int32_t adi_adrv9001_Utilities_Tables_Load(adi_adrv9001_Device_t *device,
                    (const char*)resourceCfg->adrv9001PlatformFiles->orxGainTableFile,
                    mask);
     }
-    
+
     if ((ADRV9001_BF_EQUAL(device->devStateInfo.profilesValid, ADI_ADRV9001_RX_PROFILE_VALID)) ||
         (ADRV9001_BF_EQUAL(device->devStateInfo.profilesValid, ADI_ADRV9001_TX_PROFILE_VALID)))
     {
@@ -519,7 +519,7 @@ static int32_t adi_adrv9001_Utilities_Tables_Load(adi_adrv9001_Device_t *device,
                    (const char*)resourceCfg->adrv9001PlatformFiles->rxGainTableFile,
                    mask);
     }
-    
+
     if (ADRV9001_BF_EQUAL(device->devStateInfo.profilesValid, ADI_ADRV9001_TX_PROFILE_VALID))
     {
         mask = 0;
@@ -531,7 +531,7 @@ static int32_t adi_adrv9001_Utilities_Tables_Load(adi_adrv9001_Device_t *device,
                    (const char*)resourceCfg->adrv9001PlatformFiles->txAttenTableFile,
                    mask);
     }
-    
+
     ADI_API_RETURN(device);
 }
 
@@ -571,12 +571,12 @@ int32_t adi_adrv9001_Utilities_Resources_Load(adi_adrv9001_Device_t *device, adi
         ADI_EXPECT(adi_adrv9001_Utilities_StreamImage_Load, device, streamImagePath);
     }
     else
-    {   
+    {
         ADI_EXPECT(adi_adrv9001_Utilities_StreamImageBinary_Program,
                    device,
                    resourceCfg->radioCtrlInit->streamImageBinary);
     }
-    
+
     /* Load ARM binary image */
     ADI_EXPECT(adi_adrv9001_Utilities_ArmImage_Load, device, armImagePath);
 
@@ -629,7 +629,7 @@ int32_t adi_adrv9001_Utilities_RxGainTable_Load(adi_adrv9001_Device_t *device, c
     char headerStr6[ADI_ADRV9001_HEADER_BUFFER_SIZE];
     char headerStr7[ADI_ADRV9001_HEADER_BUFFER_SIZE];
     static adi_adrv9001_RxGainTableRow_t rxGainTableRowBuffer[ADI_ADRV9001_RX_GAIN_TABLE_SIZE_ROWS];
-    
+
     /* Don't load the Rx gain tables if the rxChannelMask is 0 */
     if (rxChannelMask == 0)
     {
@@ -913,7 +913,7 @@ int32_t adi_adrv9001_Utilities_TxAttenTable_Load(adi_adrv9001_Device_t *device, 
     char headerStr2[ADI_ADRV9001_HEADER_BUFFER_SIZE];
     char headerStr3[ADI_ADRV9001_HEADER_BUFFER_SIZE];
     static adi_adrv9001_TxAttenTableRow_t txAttenTableRowBuffer[ADI_ADRV9001_TX_ATTEN_TABLE_SIZE_ROWS];
-    
+
     /* Don't load the Tx attenuation tables if the txChannelMask is 0 */
     if (txChannelMask == 0)
     {
@@ -1102,7 +1102,7 @@ int32_t adi_adrv9001_Utilities_TxAttenTable_Load(adi_adrv9001_Device_t *device, 
     return recoveryAction;
 }
 #else
-int32_t adi_adrv9001_Utilities_RxGainTable_Load(adi_adrv9001_Device_t *device, const char *rxGainTablePath, uint32_t rxChannelMask) 
+int32_t adi_adrv9001_Utilities_RxGainTable_Load(adi_adrv9001_Device_t *device, const char *rxGainTablePath, uint32_t rxChannelMask)
 {
     uint8_t minGainIndex = 0;
     uint8_t maxGainIndex = 0;
@@ -1125,7 +1125,7 @@ int32_t adi_adrv9001_Utilities_RxGainTable_Load(adi_adrv9001_Device_t *device, c
     ADI_API_ENTRY_PTR_EXPECT(device, rxGainTablePath);
 
     /*Loop until the gain table end is reached or no. of lines scanned exceeds maximum*/
-    while (lineCount <  ADI_ADRV9001_RX_GAIN_TABLE_SIZE_ROWS) 
+    while (lineCount <  ADI_ADRV9001_RX_GAIN_TABLE_SIZE_ROWS)
     {
         returnTableEntry = adi_hal_RxGainTableEntryGet(device->common.devHalInfo,
                                                        rxGainTablePath,
@@ -1182,7 +1182,7 @@ int32_t adi_adrv9001_Utilities_RxGainTable_Load(adi_adrv9001_Device_t *device, c
 
     maxGainIndex = prevGainIndex;
     ADI_EXPECT(adi_adrv9001_Rx_GainTable_Write, device, rxChannelMask, maxGainIndex, &rxGainTableRowBuffer[0], lineCount);
-    
+
     ADI_EXPECT(adi_adrv9001_Rx_MinMaxGainIndex_Set, device, rxChannelMask, minGainIndex, maxGainIndex);
 
     ADI_API_RETURN(device);
@@ -1205,7 +1205,7 @@ int32_t adi_adrv9001_Utilities_TxAttenTable_Load(adi_adrv9001_Device_t *device, 
     ADI_API_ENTRY_PTR_EXPECT(device, txAttenTablePath);
 
     /*Loop until the atten table end is reached or no. of lines scanned exceeds maximum*/
-    while (lineCount < ADRV9001_TX_ATTEN_TABLE_MAX) 
+    while (lineCount < ADRV9001_TX_ATTEN_TABLE_MAX)
     {
         returnTableEntry = adi_hal_TxAttenTableEntryGet(device->common.devHalInfo,
                                                         txAttenTablePath,
@@ -1254,7 +1254,7 @@ int32_t adi_adrv9001_Utilities_TxAttenTable_Load(adi_adrv9001_Device_t *device, 
     tableSize = attenIndex - minAttenIndex + 1;
 
     ADI_EXPECT(adi_adrv9001_Tx_AttenuationTable_Write, device, txChannelMask, minAttenIndex, &txAttenTableRowBuffer[0], tableSize);
-    
+
     ADI_API_RETURN(device);
 }
 #endif
@@ -1472,9 +1472,9 @@ int32_t adi_adrv9001_Utilities_InitRadio_Load(adi_adrv9001_Device_t *device,
     ADI_API_ENTRY_PTR_EXPECT(device, initConfig);
     ADI_NULL_PTR_RETURN(&device->common, initConfig->radioCtrlInit);
     ADI_NULL_PTR_RETURN(&device->common, initConfig->adrv9001PlatformFiles);
-    
+
     ssiType = initConfig->adrv9001Init->rx.rxChannelCfg[0].profile.rxSsiConfig.ssiType |
-        initConfig->adrv9001Init->rx.rxChannelCfg[1].profile.rxSsiConfig.ssiType | 
+        initConfig->adrv9001Init->rx.rxChannelCfg[1].profile.rxSsiConfig.ssiType |
         initConfig->adrv9001Init->tx.txProfile[0].txSsiConfig.ssiType |
         initConfig->adrv9001Init->tx.txProfile[1].txSsiConfig.ssiType;
 
@@ -1485,7 +1485,7 @@ int32_t adi_adrv9001_Utilities_InitRadio_Load(adi_adrv9001_Device_t *device,
 
     /*Initialize radio control. This is required to run before running init cals*/
     ADI_EXPECT(adrv9001_RadioCtrlInit, device, initConfig->radioCtrlInit, channelMask, ssiType);
-    
+
     if (ADRV9001_BF_EQUAL(device->devStateInfo.initializedChannels, ADI_ADRV9001_TX1) &&
         (true == initConfig->radioCtrlInit->txDpdInit[0].enable))
     {
@@ -1498,11 +1498,11 @@ int32_t adi_adrv9001_Utilities_InitRadio_Load(adi_adrv9001_Device_t *device,
     }
     /* Load frequency hopping configuration if set in the device profile */
     if (true == initConfig->adrv9001Init->sysConfig.fhModeOn)
-    { 
+    {
         /* Load configuration */
         ADI_EXPECT(adi_adrv9001_fh_Configure, device, &initConfig->radioCtrlInit->fhConfig);
     }
-    
+
     /* Send SYSTEM_CONFIG mailbox command to ARM */
     ADI_EXPECT(adi_adrv9001_arm_System_Program, device, channelMask);
 
