@@ -18,13 +18,13 @@
 #include "adi_adrv9001_radio.h"
 #include "adrv9001_arm_macros.h"
 
-static int32_t adi_adrv9001_bbdc_RejectionEnable_Set_Validate(adi_adrv9001_Device_t *device, 
-                                                              adi_common_Port_e port,
-                                                              adi_common_ChannelNumber_e channel,
-                                                              adi_adrv9001_BbdcRejectionStatus_e bbdcRejectionStatus)
+static int32_t __maybe_unused adi_adrv9001_bbdc_RejectionEnable_Set_Validate(adi_adrv9001_Device_t *device,
+									     adi_common_Port_e port,
+									     adi_common_ChannelNumber_e channel,
+									     adi_adrv9001_BbdcRejectionStatus_e bbdcRejectionStatus)
 {
     adi_adrv9001_ChannelState_e state = ADI_ADRV9001_CHANNEL_STANDBY;
-    
+
     ADI_RANGE_CHECK(device, channel, ADI_CHANNEL_1, ADI_CHANNEL_2);
     ADI_RANGE_CHECK(device, bbdcRejectionStatus, ADI_ADRV9001_BBDC_REJECTION_DISABLED, ADI_ADRV9001_BBDC_REJECTION_PAUSED);
 
@@ -87,10 +87,10 @@ int32_t adi_adrv9001_bbdc_RejectionEnable_Set(adi_adrv9001_Device_t *device,
     ADI_API_RETURN(device);
 }
 
-static int32_t adi_adrv9001_bbdc_RejectionEnable_Get_Validate(adi_adrv9001_Device_t *device, 
-                                                              adi_common_Port_e port,
-                                                              adi_common_ChannelNumber_e channel,
-                                                              adi_adrv9001_BbdcRejectionStatus_e *bbdcRejectionStatus)
+static int32_t __maybe_unused adi_adrv9001_bbdc_RejectionEnable_Get_Validate(adi_adrv9001_Device_t *device,
+									     adi_common_Port_e port,
+									     adi_common_ChannelNumber_e channel,
+									     adi_adrv9001_BbdcRejectionStatus_e *bbdcRejectionStatus)
 {
     /* Check device pointer is not null */
     ADI_API_ENTRY_PTR_EXPECT(device, bbdcRejectionStatus);
@@ -121,7 +121,7 @@ int32_t adi_adrv9001_bbdc_RejectionEnable_Get(adi_adrv9001_Device_t *device,
     uint8_t armExtData[2] = { 0 };
 
     ADI_PERFORM_VALIDATION(adi_adrv9001_bbdc_RejectionEnable_Get_Validate, device, port, channel, bbdcRejectionStatus);
-    
+
     armExtData[0] = adi_adrv9001_Radio_MailboxChannel_Get(port, channel);
     armExtData[1] = ADRV9001_ARM_OBJECTID_BBDC_ENABLE;
 

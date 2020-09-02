@@ -127,12 +127,12 @@ static uint32_t Tx_AttenTableAddr_Get(adi_common_ChannelNumber_e channel)
 
 /*********************************************************************************************************/
 
-static int32_t adi_adrv9001_Tx_AttenuationMode_Set_Validate(adi_adrv9001_Device_t *device,
-                                                            adi_common_ChannelNumber_e channel,
-                                                            adi_adrv9001_TxAttenuationControlMode_e mode)
+static int32_t __maybe_unused adi_adrv9001_Tx_AttenuationMode_Set_Validate(adi_adrv9001_Device_t *device,
+                                                                           adi_common_ChannelNumber_e channel,
+                                                                           adi_adrv9001_TxAttenuationControlMode_e mode)
 {
     adi_adrv9001_ChannelState_e state = ADI_ADRV9001_CHANNEL_STANDBY;
-    
+
     ADI_RANGE_CHECK(device, channel, ADI_CHANNEL_1, ADI_CHANNEL_2);
     switch (mode)
     {
@@ -149,7 +149,7 @@ static int32_t adi_adrv9001_Tx_AttenuationMode_Set_Validate(adi_adrv9001_Device_
                          "Invalid parameter value. mode must be a valid adi_adrv9001_TxAttenuationControlMode_e");
         ADI_API_RETURN(device);
     }
-    
+
     ADI_EXPECT(adi_adrv9001_Radio_Channel_State_Get, device, ADI_TX, channel, &state);
     switch (state)
     {
@@ -183,9 +183,9 @@ int32_t adi_adrv9001_Tx_AttenuationMode_Set(adi_adrv9001_Device_t *device,
     ADI_API_RETURN(device)
 }
 
-static int32_t adi_adrv9001_Tx_AttenuationMode_Get_Validate(adi_adrv9001_Device_t *device,
-                                                            adi_common_ChannelNumber_e channel,
-                                                            adi_adrv9001_TxAttenuationControlMode_e *mode)
+static int32_t __maybe_unused adi_adrv9001_Tx_AttenuationMode_Get_Validate(adi_adrv9001_Device_t *device,
+                                                                           adi_common_ChannelNumber_e channel,
+                                                                           adi_adrv9001_TxAttenuationControlMode_e *mode)
 {
     ADI_RANGE_CHECK(device, channel, ADI_CHANNEL_1, ADI_CHANNEL_2);
     ADI_NULL_PTR_RETURN(&device->common, mode);
@@ -210,9 +210,9 @@ int32_t adi_adrv9001_Tx_AttenuationMode_Get(adi_adrv9001_Device_t *device,
     ADI_API_RETURN(device);
 }
 
-static int32_t adi_adrv9001_Tx_Attenuation_Configure_Validate(adi_adrv9001_Device_t *device,
-                                                              adi_common_ChannelNumber_e channel,
-                                                              adi_adrv9001_TxAttenuationConfig_t *config)
+static int32_t __maybe_unused adi_adrv9001_Tx_Attenuation_Configure_Validate(adi_adrv9001_Device_t *device,
+                                                                             adi_common_ChannelNumber_e channel,
+                                                                             adi_adrv9001_TxAttenuationConfig_t *config)
 {
     ADI_NULL_PTR_RETURN(&device->common, config);
     ADI_EXPECT(adi_adrv9001_Tx_AttenuationMode_Set_Validate, device, channel, config->attenMode);
@@ -237,9 +237,9 @@ int32_t adi_adrv9001_Tx_Attenuation_Configure(adi_adrv9001_Device_t *device,
     ADI_API_RETURN(device);
 }
 
-static int32_t adi_adrv9001_Tx_Attenuation_Inspect_Validate(adi_adrv9001_Device_t *device,
-                                                            adi_common_ChannelNumber_e channel,
-                                                            adi_adrv9001_TxAttenuationConfig_t *config)
+static int32_t __maybe_unused adi_adrv9001_Tx_Attenuation_Inspect_Validate(adi_adrv9001_Device_t *device,
+                                                                           adi_common_ChannelNumber_e channel,
+                                                                           adi_adrv9001_TxAttenuationConfig_t *config)
 {
     ADI_RANGE_CHECK(device, channel, ADI_CHANNEL_1, ADI_CHANNEL_2);
     ADI_NULL_PTR_RETURN(&device->common, config);
@@ -314,15 +314,15 @@ static int32_t adi_adrv9001_TxAttenDmGet(adi_adrv9001_Device_t *device,
     ADI_API_RETURN(device);
 }
 
-static int32_t adi_adrv9001_Tx_Attenuation_Set_Validate(adi_adrv9001_Device_t* device,
-                                                        adi_common_ChannelNumber_e channel,
-                                                        uint16_t attenuation_mdB)
+static int32_t __maybe_unused adi_adrv9001_Tx_Attenuation_Set_Validate(adi_adrv9001_Device_t* device,
+                                                                       adi_common_ChannelNumber_e channel,
+                                                                       uint16_t attenuation_mdB)
 {
     uint8_t chan_index = 0;
     ADI_RANGE_CHECK(device, channel, ADI_CHANNEL_1, ADI_CHANNEL_2);
 
     adi_common_channel_to_index(channel, &chan_index);
-    
+
     if (device->devStateInfo.outputSignaling[chan_index] == ADI_ADRV9001_TX_DIRECT_FM_FSK)
     {
         /* Below 12dB, changing the analog attenuation word by 1 changes the attenuation by more than 0.5 dB */
@@ -368,7 +368,7 @@ int32_t adi_adrv9001_Tx_Attenuation_Set(adi_adrv9001_Device_t* device,
     uint8_t bfVal = 0;
 
     ADI_PERFORM_VALIDATION(adi_adrv9001_Tx_Attenuation_Set_Validate, device, channel, attenuation_mdB);
-    
+
     adi_common_channel_to_index(channel, &chan_index);
 
     /* Save the current attenuation mode and set to the required mode */
@@ -421,9 +421,9 @@ int32_t adi_adrv9001_Tx_Attenuation_Set(adi_adrv9001_Device_t* device,
     ADI_API_RETURN(device);
 }
 
-static int32_t adi_adrv9001_Tx_Attenuation_Get_Validate(adi_adrv9001_Device_t* device,
-                                                        adi_common_ChannelNumber_e channel,
-                                                        uint16_t *attenuation_mdB)
+static int32_t __maybe_unused adi_adrv9001_Tx_Attenuation_Get_Validate(adi_adrv9001_Device_t* device,
+                                                                       adi_common_ChannelNumber_e channel,
+                                                                       uint16_t *attenuation_mdB)
 {
     ADI_RANGE_CHECK(device, channel, ADI_CHANNEL_1, ADI_CHANNEL_2);
     ADI_NULL_PTR_RETURN(&device->common, attenuation_mdB);
@@ -504,12 +504,13 @@ int32_t adi_adrv9001_Tx_Attenuation_Get(adi_adrv9001_Device_t* device,
     ADI_API_RETURN(device);
 }
 
-static int32_t adi_adrv9001_Tx_OutputPowerBoost_Set_Validate(adi_adrv9001_Device_t* device, adi_common_ChannelNumber_e channel)
+static int32_t __maybe_unused adi_adrv9001_Tx_OutputPowerBoost_Set_Validate(adi_adrv9001_Device_t* device,
+                                                                            adi_common_ChannelNumber_e channel)
 {
     adi_adrv9001_ChannelState_e state = ADI_ADRV9001_CHANNEL_STANDBY;
-    
+
     ADI_EXPECT(adi_adrv9001_Channel_Validate, device, channel);
-    
+
     ADI_EXPECT(adi_adrv9001_Radio_Channel_State_Get, device, ADI_TX, channel, &state);
     if (state != ADI_ADRV9001_CHANNEL_STANDBY)
     {
@@ -520,7 +521,7 @@ static int32_t adi_adrv9001_Tx_OutputPowerBoost_Set_Validate(adi_adrv9001_Device
                          state,
                          "Invalid channel state. Channel must be in STANDBY");
     }
-    
+
     ADI_API_RETURN(device);
 }
 
@@ -533,7 +534,7 @@ int32_t adi_adrv9001_Tx_OutputPowerBoost_Set(adi_adrv9001_Device_t* device,
     ADI_PERFORM_VALIDATION(adi_adrv9001_Tx_OutputPowerBoost_Set_Validate, device, channel);
 
     txDacChannelBaseAddr = Tx_DacAddr_Get(channel);
-    
+
     /* DAC full scale setting */
     ADI_EXPECT(adrv9001_TxdacMemMap_TxdacFscBoostI_Set, device, txDacChannelBaseAddr, boostEnable);
     ADI_EXPECT(adrv9001_TxdacMemMap_TxdacFscBoostQ_Set, device, txDacChannelBaseAddr, boostEnable);
@@ -561,11 +562,11 @@ int32_t adi_adrv9001_Tx_OutputPowerBoost_Get(adi_adrv9001_Device_t* device,
     ADI_API_RETURN(device);
 }
 
-static int32_t adi_adrv9001_Tx_AttenuationTable_Write_Validate(adi_adrv9001_Device_t *device,
-                                                               uint32_t channelMask,
-                                                               uint32_t indexOffset,
-                                                               adi_adrv9001_TxAttenTableRow_t attenTableRows[],
-                                                               uint32_t arraySize)
+static int32_t __maybe_unused adi_adrv9001_Tx_AttenuationTable_Write_Validate(adi_adrv9001_Device_t *device,
+                                                                              uint32_t channelMask,
+                                                                              uint32_t indexOffset,
+                                                                              adi_adrv9001_TxAttenTableRow_t attenTableRows[],
+                                                                              uint32_t arraySize)
 {
     static const uint8_t ATTEN_HP_MIN = 0;
     static const uint8_t ATTEN_HP_MAX = 63;
@@ -648,7 +649,7 @@ int32_t adi_adrv9001_Tx_AttenuationTable_Write(adi_adrv9001_Device_t *device,
     ADI_EXPECT(adrv9001_NvsRegmapTxb_TxAlgArmOrGroup11ClkSel_Set, device, ADRV9001_BF_TXB2_CORE, true);
     ADI_EXPECT(adrv9001_NvsRegmapCore2_Tx2GainTableClkEn_Set, device, true);
 #endif // SI_REV_B0
-    
+
     for (idx = 0; idx < ADI_ADRV9001_MAX_TXCHANNELS; idx++)
     {
         maskBit = (1UL << idx);
@@ -686,7 +687,7 @@ int32_t adi_adrv9001_Tx_AttenuationTable_Write(adi_adrv9001_Device_t *device,
         start = 0;
         stop = 0;
     }
-    
+
 #ifdef SI_REV_B0
     /* Disable ARM clock to Tx1/2 atten table memory access */
     ADI_EXPECT(adrv9001_NvsRegmapCore2_Tx1GainTableClkEn_Set, device, false);
@@ -698,12 +699,12 @@ int32_t adi_adrv9001_Tx_AttenuationTable_Write(adi_adrv9001_Device_t *device,
     ADI_API_RETURN(device);
 }
 
-static int32_t adi_adrv9001_Tx_AttenuationTable_Read_Validate(adi_adrv9001_Device_t *device,
-                                                              adi_common_ChannelNumber_e channel,
-                                                              uint32_t indexOffset,
-                                                              adi_adrv9001_TxAttenTableRow_t attenTableRows[],
-                                                              uint32_t arraySize,
-                                                              uint16_t *numAttenIndicesRead)
+static int32_t __maybe_unused adi_adrv9001_Tx_AttenuationTable_Read_Validate(adi_adrv9001_Device_t *device,
+                                                                             adi_common_ChannelNumber_e channel,
+                                                                             uint32_t indexOffset,
+                                                                             adi_adrv9001_TxAttenTableRow_t attenTableRows[],
+                                                                             uint32_t arraySize,
+                                                                             uint16_t *numAttenIndicesRead)
 {
     ADI_RANGE_CHECK(device, channel, ADI_CHANNEL_1, ADI_CHANNEL_2);
 
@@ -778,7 +779,7 @@ int32_t adi_adrv9001_Tx_AttenuationTable_Read(adi_adrv9001_Device_t *device,
 #endif // SI_REV_B0
 
     ADI_EXPECT(adrv9001_DmaMemRead, device, offset + stop, &cfgData[0], numTxAttenEntriesRead, ADRV9001_ARM_MEM_READ_AUTOINCR);
-    
+
 #ifdef SI_REV_B0
     /* Disable ARM clock to Tx1/2 atten table memory access */
     ADI_EXPECT(adrv9001_NvsRegmapCore2_Tx1GainTableClkEn_Set, device, false);
@@ -820,9 +821,9 @@ int32_t adi_adrv9001_Tx_AttenuationTable_Read(adi_adrv9001_Device_t *device,
     ADI_API_RETURN(device);
 }
 
-static int32_t adi_adrv9001_Tx_PaProtection_Configure_Validate(adi_adrv9001_Device_t *device,
-                                                               adi_common_ChannelNumber_e channel,
-                                                               adi_adrv9001_TxPaProtectCfg_t *config)
+static int32_t __maybe_unused adi_adrv9001_Tx_PaProtection_Configure_Validate(adi_adrv9001_Device_t *device,
+                                                                              adi_common_ChannelNumber_e channel,
+                                                                              adi_adrv9001_TxPaProtectCfg_t *config)
 {
     /* Valid ranges for the pa protection configuration values */
     static const uint8_t AVG_DURATION_MAX = 0x0F;
@@ -872,9 +873,9 @@ int32_t adi_adrv9001_Tx_PaProtection_Configure(adi_adrv9001_Device_t *device,
     ADI_API_RETURN(device);
 }
 
-static int32_t adi_adrv9001_Tx_PaProtection_Inspect_Validate(adi_adrv9001_Device_t *device,
-                                                             adi_common_ChannelNumber_e channel,
-                                                             adi_adrv9001_TxPaProtectCfg_t *config)
+static int32_t __maybe_unused adi_adrv9001_Tx_PaProtection_Inspect_Validate(adi_adrv9001_Device_t *device,
+                                                                            adi_common_ChannelNumber_e channel,
+                                                                            adi_adrv9001_TxPaProtectCfg_t *config)
 {
     ADI_RANGE_CHECK(device, channel, ADI_CHANNEL_1, ADI_CHANNEL_2);
     ADI_NULL_PTR_RETURN(&device->common, config);
@@ -912,9 +913,9 @@ int32_t adi_adrv9001_Tx_PaProtection_Inspect(adi_adrv9001_Device_t *device,
     ADI_API_RETURN(device);
 }
 
-static int32_t adi_adrv9001_Tx_NcoFrequency_Set_Validate(adi_adrv9001_Device_t* device,
-                                                         adi_common_ChannelNumber_e channel,
-                                                         int32_t ncoFrequency_Hz)
+static int32_t __maybe_unused adi_adrv9001_Tx_NcoFrequency_Set_Validate(adi_adrv9001_Device_t* device,
+                                                                        adi_common_ChannelNumber_e channel,
+                                                                        int32_t ncoFrequency_Hz)
 {
     int32_t txSampleRateDiv2_Hz = 0;   // TODO: get profiles IQ rate from device data structure
 
@@ -959,9 +960,9 @@ int32_t adi_adrv9001_Tx_NcoFrequency_Set(adi_adrv9001_Device_t* device,
     ADI_API_RETURN(device)
 }
 
-static int32_t adi_adrv9001_Tx_NcoFrequency_Get_Validate(adi_adrv9001_Device_t* device,
-                                                         adi_common_ChannelNumber_e channel,
-                                                         int32_t *ncoFrequency_Hz)
+static int32_t __maybe_unused adi_adrv9001_Tx_NcoFrequency_Get_Validate(adi_adrv9001_Device_t* device,
+                                                                        adi_common_ChannelNumber_e channel,
+                                                                        int32_t *ncoFrequency_Hz)
 {
     ADI_RANGE_CHECK(device, channel, ADI_CHANNEL_1, ADI_CHANNEL_2);
     ADI_NULL_PTR_RETURN(&device->common, ncoFrequency_Hz);
@@ -1001,9 +1002,9 @@ int32_t adi_adrv9001_Tx_NcoFrequency_Get(adi_adrv9001_Device_t* device,
     ADI_API_RETURN(device);
 }
 
-static int32_t adi_adrv9001_SlewRateLimiter_Configure_Validate(adi_adrv9001_Device_t *device,
-                                                               adi_common_ChannelNumber_e channel,
-                                                               adi_adrv9001_SlewRateLimiterCfg_t *config)
+static int32_t __maybe_unused adi_adrv9001_SlewRateLimiter_Configure_Validate(adi_adrv9001_Device_t *device,
+                                                                              adi_common_ChannelNumber_e channel,
+                                                                              adi_adrv9001_SlewRateLimiterCfg_t *config)
 {
     ADI_RANGE_CHECK(device, channel, ADI_CHANNEL_1, ADI_CHANNEL_2);
 
@@ -1065,9 +1066,9 @@ int32_t adi_adrv9001_Tx_SlewRateLimiter_Configure(adi_adrv9001_Device_t *device,
     ADI_API_RETURN(device);
 }
 
-static int32_t adi_adrv9001_SlewRateLimiter_Inspect_Validate(adi_adrv9001_Device_t *device,
-                                                             adi_common_ChannelNumber_e channel,
-                                                             adi_adrv9001_SlewRateLimiterCfg_t *config)
+static int32_t __maybe_unused adi_adrv9001_SlewRateLimiter_Inspect_Validate(adi_adrv9001_Device_t *device,
+                                                                            adi_common_ChannelNumber_e channel,
+                                                                            adi_adrv9001_SlewRateLimiterCfg_t *config)
 {
     ADI_RANGE_CHECK(device, channel, ADI_CHANNEL_1, ADI_CHANNEL_2);
 
@@ -1115,9 +1116,9 @@ int32_t adi_adrv9001_Tx_SlewRateLimiter_Inspect(adi_adrv9001_Device_t *device,
     ADI_API_RETURN(device);
 }
 
-static int32_t adi_adrv9001_Tx_PaRamp_Configure_Validate(adi_adrv9001_Device_t *device,
-                                                         adi_common_ChannelNumber_e channel,
-                                                         adi_adrv9001_PaRampCfg_t *paRampCfg)
+static int32_t __maybe_unused adi_adrv9001_Tx_PaRamp_Configure_Validate(adi_adrv9001_Device_t *device,
+									adi_common_ChannelNumber_e channel,
+									adi_adrv9001_PaRampCfg_t *paRampCfg)
 {
     /* Check device pointer and gain pointer are not null */
     ADI_NULL_DEVICE_PTR_RETURN(device);
@@ -1125,7 +1126,7 @@ static int32_t adi_adrv9001_Tx_PaRamp_Configure_Validate(adi_adrv9001_Device_t *
     ADI_RANGE_CHECK(device, channel, ADI_CHANNEL_1, ADI_CHANNEL_2);
 
     /* FIXME: Validate paRampCfg? */
-    
+
     ADI_API_RETURN(device);
 }
 
@@ -1342,9 +1343,9 @@ int32_t adi_adrv9001_Tx_PaRamp_Configure(adi_adrv9001_Device_t *device,
     ADI_API_RETURN(device);
 }
 
-static int32_t adi_adrv9001_Tx_PaRamp_Inspect_Validate(adi_adrv9001_Device_t *device,
-                                                       adi_common_ChannelNumber_e channel,
-                                                       adi_adrv9001_PaRampCfg_t *paRampCfg)
+static int32_t __maybe_unused adi_adrv9001_Tx_PaRamp_Inspect_Validate(adi_adrv9001_Device_t *device,
+                                                                      adi_common_ChannelNumber_e channel,
+                                                                      adi_adrv9001_PaRampCfg_t *paRampCfg)
 {
     /* Check device pointer and gain pointer are not null */
     ADI_NULL_DEVICE_PTR_RETURN(device);
@@ -1516,9 +1517,9 @@ int32_t adi_adrv9001_Tx_PaRamp_Inspect(adi_adrv9001_Device_t *device,
     ADI_API_RETURN(device);
 }
 
-static int32_t adi_adrv9001_Tx_Attenuation_PinControl_Configure_Validate(adi_adrv9001_Device_t *device,
-                                                                         adi_common_ChannelNumber_e channel,
-                                                                         adi_adrv9001_TxAttenuationPinControlCfg_t *config)
+static int32_t __maybe_unused adi_adrv9001_Tx_Attenuation_PinControl_Configure_Validate(adi_adrv9001_Device_t *device,
+                                                                                        adi_common_ChannelNumber_e channel,
+                                                                                        adi_adrv9001_TxAttenuationPinControlCfg_t *config)
 {
     uint8_t chan_index = 0;
 
@@ -1610,9 +1611,9 @@ int32_t adi_adrv9001_Tx_Attenuation_PinControl_Configure(adi_adrv9001_Device_t *
     ADI_API_RETURN(device);
 }
 
-static int32_t adi_adrv9001_Tx_Attenuation_PinControl_Inspect_Validate(adi_adrv9001_Device_t *device,
-                                                                       adi_common_ChannelNumber_e channel,
-                                                                       adi_adrv9001_TxAttenuationPinControlCfg_t *config)
+static int32_t __maybe_unused adi_adrv9001_Tx_Attenuation_PinControl_Inspect_Validate(adi_adrv9001_Device_t *device,
+                                                                                      adi_common_ChannelNumber_e channel,
+                                                                                      adi_adrv9001_TxAttenuationPinControlCfg_t *config)
 {
     uint8_t chan_index = 0;
 
@@ -1673,9 +1674,9 @@ int32_t adi_adrv9001_Tx_Attenuation_PinControl_Inspect(adi_adrv9001_Device_t *de
     ADI_API_RETURN(device);
 }
 
-static int32_t adrv9001_Tx_FrequencyCorrection_Set_Validate(adi_adrv9001_Device_t *device,
-                                                            adi_common_ChannelNumber_e channel,
-                                                            int32_t frequencyOffset_Hz)
+static int32_t __maybe_unused adrv9001_Tx_FrequencyCorrection_Set_Validate(adi_adrv9001_Device_t *device,
+                                                                           adi_common_ChannelNumber_e channel,
+                                                                           int32_t frequencyOffset_Hz)
 {
     uint8_t chan_index = 0;
     int32_t maxFrequency_Hz = 0;
@@ -1686,7 +1687,7 @@ static int32_t adrv9001_Tx_FrequencyCorrection_Set_Validate(adi_adrv9001_Device_
     ADI_RANGE_CHECK(device, channel, ADI_CHANNEL_1, ADI_CHANNEL_2);
 
     adi_common_channel_to_index(channel, &chan_index);
-    
+
     maxFrequency_Hz  = KILO_TO_BASE_UNIT(device->devStateInfo.txInputRate_kHz[chan_index]) / DIVISOR;
     maxFrequency_Hz = (maxFrequency_Hz < ABSOLUTE_MAX_FREQUENCY_HZ) ? maxFrequency_Hz : ABSOLUTE_MAX_FREQUENCY_HZ;
 

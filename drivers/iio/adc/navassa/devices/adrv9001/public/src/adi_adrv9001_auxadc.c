@@ -16,8 +16,8 @@
 #include "adi_adrv9001_auxadc.h"
 #include "adrv9001_bf.h"
 
-static int32_t adi_adrv9001_AuxAdc_Configure_Validate(adi_adrv9001_Device_t *device,
-                                                      adi_adrv9001_AuxAdc_e auxAdc)
+static int32_t __maybe_unused adi_adrv9001_AuxAdc_Configure_Validate(adi_adrv9001_Device_t *device,
+                                                                     adi_adrv9001_AuxAdc_e auxAdc)
 {
     ADI_RANGE_CHECK(device, auxAdc, ADI_ADRV9001_AUXADC0, ADI_ADRV9001_AUXADC3);
     ADI_API_RETURN(device);
@@ -83,9 +83,9 @@ int32_t adi_adrv9001_AuxAdc_Configure(adi_adrv9001_Device_t *device,
     ADI_API_RETURN(device);
 }
 
-static int32_t adi_adrv9001_AuxAdc_Inspect_Validate(adi_adrv9001_Device_t *device,
-                                                    adi_adrv9001_AuxAdc_e auxAdc,
-                                                    bool *enabled)
+static int32_t __maybe_unused adi_adrv9001_AuxAdc_Inspect_Validate(adi_adrv9001_Device_t *device,
+                                                                   adi_adrv9001_AuxAdc_e auxAdc,
+                                                                   bool *enabled)
 {
     ADI_NULL_PTR_RETURN(&device->common, enabled);
     ADI_RANGE_CHECK(device, auxAdc, ADI_ADRV9001_AUXADC0, ADI_ADRV9001_AUXADC3);
@@ -122,9 +122,9 @@ int32_t adi_adrv9001_AuxAdc_Inspect(adi_adrv9001_Device_t *device,
     ADI_API_RETURN(device);
 }
 
-static int32_t adi_adrv9001_AuxAdc_Voltage_Get_Validate(adi_adrv9001_Device_t *device,
-                                                        adi_adrv9001_AuxAdc_e auxAdc,
-                                                        uint16_t *auxAdc_mV)
+static int32_t __maybe_unused adi_adrv9001_AuxAdc_Voltage_Get_Validate(adi_adrv9001_Device_t *device,
+                                                                       adi_adrv9001_AuxAdc_e auxAdc,
+                                                                       uint16_t *auxAdc_mV)
 {
     ADI_NULL_PTR_RETURN(&device->common, auxAdc_mV);
     ADI_RANGE_CHECK(device, auxAdc, ADI_ADRV9001_AUXADC0, ADI_ADRV9001_AUXADC3);
@@ -162,7 +162,7 @@ int32_t adi_adrv9001_AuxAdc_Voltage_Get(adi_adrv9001_Device_t *device,
 
     /*TODO: offset and gain may be read from ADRV9001 device for this calculation */
     /* AUXADC_mV = (auxAdcCode - meausured_offset) / measured_gain */
-    *auxAdc_mV = KILO_TO_BASE_UNIT(auxAdcCode - MEASURED_OFFSET) / MEASURED_GAIN;
+    *auxAdc_mV = 1000 * (auxAdcCode - MEASURED_OFFSET) / MEASURED_GAIN;
 
     ADI_API_RETURN(device);
 }

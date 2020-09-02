@@ -8,12 +8,9 @@
 #ifndef _ADI_ADRV9001_CLOCKSETTINGS_TYPES_H_
 #define _ADI_ADRV9001_CLOCKSETTINGS_TYPES_H_
 
-#ifdef __KERNEL__
-#include <linux/types.h>
-#else
 #include <stdint.h>
 #include <stdbool.h>
-#endif
+
 /**
  *  \brief Enum of possible ADRV9001 HS divider settings
  */
@@ -142,7 +139,7 @@ typedef enum adi_adrv9001_LoGenPower
 typedef struct adi_adrv9001_ClockSettings
 {
     uint32_t deviceClock_kHz;                         /*!< Device clock frequency in kHz */
-    uint32_t clkPllVcoFreq_kHz;                       /*!< CLKPLL VCO frequency in kHz */
+    uint32_t clkPllVcoFreq_daHz;                      /*!< CLKPLL VCO frequency in daHz (dekaHertz, 10^1) */
     adi_adrv9001_HsDiv_e  clkPllHsDiv;                /*!< CLKPLL high speed clock divider */
     adi_adrv9001_ClkPllMode_e  clkPllMode;            /*!< CLKPLL Mode */
     adi_adrv9001_InternalClock_Divisor_e  clk1105Div; /*!< CLK1105 clock divider */

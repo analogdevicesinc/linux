@@ -246,6 +246,14 @@ static void cacheInitInfo(adi_adrv9001_Device_t *adrv9001, adi_adrv9001_Init_t *
     {
         adrv9001->devStateInfo.rxOutputRate_kHz[i] = init->rx.rxChannelCfg[i].profile.rxOutputRate_Hz / 1000;
     }
+    
+    if (adrv9001->devStateInfo.profilesValid & ADI_ADRV9001_TX_PROFILE_VALID)
+    {
+        adrv9001->devStateInfo.outputSignaling[0] = init->tx.txProfile[0].outputSignaling;
+        adrv9001->devStateInfo.outputSignaling[1] = init->tx.txProfile[1].outputSignaling;
+        adrv9001->devStateInfo.txInputRate_kHz[0] = init->tx.txProfile[0].txInputRate_Hz / 1000;
+        adrv9001->devStateInfo.txInputRate_kHz[1] = init->tx.txProfile[1].txInputRate_Hz / 1000;
+    }
 }
 
 int32_t adi_adrv9001_InitAnalog(adi_adrv9001_Device_t *device,
@@ -434,13 +442,14 @@ int32_t adi_adrv9001_spi_Inspect(adi_adrv9001_Device_t *device, adi_adrv9001_Spi
 int32_t adi_adrv9001_spi_Verify(adi_adrv9001_Device_t *device)
 {
     uint8_t spiReg = 0;
+
+    ADI_API_ENTRY_EXPECT(device);
+
     static const uint8_t SCRATCH_PAD_1 = 0xB6; /* DATA 10110110 */
     static const uint8_t SCRATCH_PAD_2 = 0x49; /* DATA 01001001 */
     static const uint8_t SCRATCH_PAD_3 = 0xA5; /* DATA 10100101 */
     static const uint8_t VENDOR_ID_0   = 0x56;
     static const uint8_t VENDOR_ID_1   = 0x04;
-
-    ADI_API_ENTRY_EXPECT(device);
 
     /* Check SPI read - VENDOR_ID_0 */
     ADRV9001_SPIREADBYTE(device, "VENDOR_ID_0", ADRV9001_ADDR_VENDOR_ID_0, &spiReg);
@@ -649,8 +658,8 @@ int32_t adi_adrv9001_Profiles_Verify(adi_adrv9001_Device_t *device, adi_adrv9001
     ADI_API_RETURN(device);
 }
 
-static int32_t adrv9001_TemperatureGetValidate(adi_adrv9001_Device_t *device,
-                                               int16_t *temperature_C)
+static int32_t __maybe_unused adrv9001_TemperatureGetValidate(adi_adrv9001_Device_t *device,
+                                                              int16_t *temperature_C)
 {
     ADI_NULL_PTR_RETURN(&device->common, temperature_C);
 
