@@ -185,8 +185,8 @@ static int32_t adi_adrv9001_TrackingCals_Channel_State_Validate(adi_adrv9001_Dev
     ADI_API_RETURN(adrv9001);
 }
 
-static int32_t adi_adrv9001_cals_Tracking_Set_Validate(adi_adrv9001_Device_t *adrv9001,
-                                                       adi_adrv9001_TrackingCals_t *trackingCals)
+static int32_t __maybe_unused adi_adrv9001_cals_Tracking_Set_Validate(adi_adrv9001_Device_t *adrv9001,
+								      adi_adrv9001_TrackingCals_t *trackingCals)
 {
     static const uint32_t TRACING_CAL_MASK_MAX = 0xF8133F;
     static const uint32_t ADRV9001_RX1_TX1  = 0; /*!< Rx1/Tx1 channels */
@@ -247,8 +247,8 @@ int32_t adi_adrv9001_cals_Tracking_Set(adi_adrv9001_Device_t *adrv9001,
     ADI_API_RETURN(adrv9001);
 }
 
-static uint32_t adi_adrv9001_cals_Tracking_Get_Validate(adi_adrv9001_Device_t *adrv9001,
-                                                        adi_adrv9001_TrackingCals_t *trackingCals)
+static uint32_t __maybe_unused adi_adrv9001_cals_Tracking_Get_Validate(adi_adrv9001_Device_t *adrv9001,
+								       adi_adrv9001_TrackingCals_t *trackingCals)
 {
     ADI_NULL_PTR_RETURN(&adrv9001->common, trackingCals);
     ADI_API_RETURN(adrv9001);
@@ -298,9 +298,9 @@ int32_t adi_adrv9001_cals_Tracking_Get(adi_adrv9001_Device_t *adrv9001,
     ADI_API_RETURN(adrv9001);
 }
 
-static int32_t adi_adrv9001_cals_ExternalPathDelay_Run_Validate(adi_adrv9001_Device_t *adrv9001,
-                                                                adi_common_ChannelNumber_e channel,
-                                                                uint8_t *initCalsError)
+static int32_t __maybe_unused adi_adrv9001_cals_ExternalPathDelay_Run_Validate(adi_adrv9001_Device_t *adrv9001,
+									       adi_common_ChannelNumber_e channel,
+									       uint8_t *initCalsError)
 {
     uint8_t chan_index = 0;
     adi_adrv9001_RadioState_t currentState = { 0 };
@@ -356,9 +356,9 @@ int32_t adi_adrv9001_cals_ExternalPathDelay_Run(adi_adrv9001_Device_t *adrv9001,
     ADI_API_RETURN(adrv9001);
 }
 
-static int32_t adi_adrv9001_cals_ExternalMinusInternalPathDelay_Measure_Validate(adi_adrv9001_Device_t *adrv9001,
-                                                                                 adi_common_ChannelNumber_e channel,
-                                                                                 uint32_t *externalPathDelay_ps)
+static int32_t __maybe_unused adi_adrv9001_cals_ExternalMinusInternalPathDelay_Measure_Validate(adi_adrv9001_Device_t *adrv9001,
+												adi_common_ChannelNumber_e channel,
+												uint32_t *externalPathDelay_ps)
 {
     uint8_t chan_index = 0;
     adi_adrv9001_RadioState_t currentState = { 0 };
@@ -419,10 +419,10 @@ int32_t adi_adrv9001_cals_ExternalMinusInternalPathDelay_Measure(adi_adrv9001_De
     ADI_API_RETURN(adrv9001);
 }
 
-static int32_t adi_adrv9001_cals_ExternalPathDelay_Calibrate_Validate(adi_adrv9001_Device_t *adrv9001,
-                                                                      adi_common_ChannelNumber_e channel,
-                                                                      uint8_t *initCalsError,
-                                                                      uint32_t *externalPathDelay_ps)
+static int32_t __maybe_unused adi_adrv9001_cals_ExternalPathDelay_Calibrate_Validate(adi_adrv9001_Device_t *adrv9001,
+										     adi_common_ChannelNumber_e channel,
+										     uint8_t *initCalsError,
+										     uint32_t *externalPathDelay_ps)
 {
     uint8_t chan_index = 0;
     adi_adrv9001_RadioState_t currentState = { 0 };
@@ -468,9 +468,9 @@ int32_t adi_adrv9001_cals_ExternalPathDelay_Calibrate(adi_adrv9001_Device_t *adr
     ADI_API_RETURN(adrv9001);
 }
 
-static int32_t adi_adrv9001_cals_ExternalPathDelay_Set_Validate(adi_adrv9001_Device_t *adrv9001,
-                                                                adi_common_ChannelNumber_e channel,
-                                                                uint32_t externalPathDelay_ps)
+static int32_t __maybe_unused adi_adrv9001_cals_ExternalPathDelay_Set_Validate(adi_adrv9001_Device_t *adrv9001,
+									       adi_common_ChannelNumber_e channel,
+									       uint32_t externalPathDelay_ps)
 {
     uint8_t chan_index = 0;
     adi_adrv9001_RadioState_t currentState = { 0 };
@@ -529,9 +529,9 @@ int32_t adi_adrv9001_cals_ExternalPathDelay_Set(adi_adrv9001_Device_t *adrv9001,
     ADI_API_RETURN(adrv9001);
 }
 
-static int32_t adi_adrv9001_cals_ExternalPathDelay_Get_Validate(adi_adrv9001_Device_t *adrv9001,
-                                                                adi_common_ChannelNumber_e channel,
-                                                                uint32_t *externalPathDelay_ps)
+static int32_t __maybe_unused adi_adrv9001_cals_ExternalPathDelay_Get_Validate(adi_adrv9001_Device_t *adrv9001,
+									       adi_common_ChannelNumber_e channel,
+									       uint32_t *externalPathDelay_ps)
 {
     ADI_RANGE_CHECK(adrv9001, channel, ADI_CHANNEL_1, ADI_CHANNEL_2);
     ADI_NULL_PTR_RETURN(&adrv9001->common, externalPathDelay_ps);
@@ -580,7 +580,7 @@ int32_t adi_adrv9001_cals_InternalPathDelay_Get_Validate(adi_adrv9001_Device_t *
 {
     static uint8_t MAX_NUM_PROFILE = 6;
     adi_adrv9001_ChannelState_e state = ADI_ADRV9001_CHANNEL_STANDBY;
-
+    
     ADI_RANGE_CHECK(adrv9001, port, ADI_RX, ADI_TX);
     ADI_RANGE_CHECK(adrv9001, channel, ADI_CHANNEL_1, ADI_CHANNEL_2);
     ADI_NULL_PTR_RETURN(&adrv9001->common, internalPathDelays_ns);
@@ -588,7 +588,7 @@ int32_t adi_adrv9001_cals_InternalPathDelay_Get_Validate(adi_adrv9001_Device_t *
     ADI_EXPECT(adi_adrv9001_Radio_Channel_State_Get, adrv9001, port, channel, &state);
     if (ADI_ADRV9001_CHANNEL_STANDBY == state)
     {
-        ADI_ERROR_REPORT(&adrv9001->common,
+        ADI_ERROR_REPORT(&adrv9001->common, 
             ADI_COMMON_ERRSRC_API,
             ADI_COMMON_ERR_INV_PARAM,
             ADI_COMMON_ACT_ERR_CHECK_PARAM,

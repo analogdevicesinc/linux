@@ -14,6 +14,8 @@
 #ifndef _ADI_ADRV9001_CALS_TYPES_H_
 #define _ADI_ADRV9001_CALS_TYPES_H_
 
+#include "adi_adrv9001_defines.h"
+
 #define ARMINITCAL_ERRCODE(armCalId, armCalErrCode) ((armCalId << 8) | armCalErrCode)
 
 #ifdef __cplusplus

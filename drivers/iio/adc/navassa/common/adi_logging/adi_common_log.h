@@ -19,6 +19,7 @@
 #else
 #include <stdint.h>
 #endif
+
 #include "adi_common_log_types.h"
 #include "adi_common_macros.h"
 #include "adi_common_error.h"

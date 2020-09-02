@@ -15,9 +15,7 @@
 #ifndef ADRV9001_SPI_TYPES_H_
 #define ADRV9001_SPI_TYPES_H_
 
-#ifdef __KERNEL__
-#include <linux/types.h>
-#else
+#ifndef __KERNEL__
 #include <stdint.h>
 #include <stddef.h>
 #endif

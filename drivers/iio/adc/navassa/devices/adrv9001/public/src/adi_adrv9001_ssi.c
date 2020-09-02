@@ -12,19 +12,24 @@
 * see the "LICENSE.txt" file in this zip file.
 */
 
-#include "adi_adrv9001_user.h"
 #include "adi_adrv9001_ssi.h"
+#include "adi_adrv9001_arm.h"
 #include "adi_adrv9001_error.h"
+#include "adi_adrv9001_radio.h"
 #include "adi_adrv9001_spi.h"
+#include "adi_adrv9001_user.h"
+
+#include "adrv9001_arm.h"
+#include "adrv9001_arm_macros.h"
+#include "adrv9001_bf.h"
 #include "adrv9001_init.h"
 #include "adrv9001_reg_addr_macros.h"
-#include "adrv9001_bf.h"
 
-static int32_t adi_adrv9001_Ssi_Rx_TestMode_Configure_Validate(adi_adrv9001_Device_t *device,
-                                                               adi_common_ChannelNumber_e channel,
-                                                               adi_adrv9001_SsiType_e ssiType,
-                                                               adi_adrv9001_SsiDataFormat_e dataFormat,
-                                                               adi_adrv9001_RxSsiTestModeCfg_t *ssiTestModeConfig)
+static int32_t __maybe_unused adi_adrv9001_Ssi_Rx_TestMode_Configure_Validate(adi_adrv9001_Device_t *device,
+                                                                              adi_common_ChannelNumber_e channel,
+                                                                              adi_adrv9001_SsiType_e ssiType,
+                                                                              adi_adrv9001_SsiDataFormat_e dataFormat,
+                                                                              adi_adrv9001_RxSsiTestModeCfg_t *ssiTestModeConfig)
 {
     ADI_NULL_PTR_RETURN(&device->common, ssiTestModeConfig);
     ADI_RANGE_CHECK(device, channel, ADI_CHANNEL_1, ADI_CHANNEL_2);
@@ -148,11 +153,11 @@ int32_t adi_adrv9001_Ssi_Rx_TestMode_Configure(adi_adrv9001_Device_t *device,
     ADI_API_RETURN(device);
 }
 
-static int32_t adi_adrv9001_Ssi_Tx_TestMode_Configure_Validate(adi_adrv9001_Device_t *device,
-                                                               adi_common_ChannelNumber_e channel,
-                                                               adi_adrv9001_SsiType_e ssiType,
-                                                               adi_adrv9001_SsiDataFormat_e dataFormat,
-                                                               adi_adrv9001_TxSsiTestModeCfg_t *ssiTestModeConfig)
+static int32_t __maybe_unused adi_adrv9001_Ssi_Tx_TestMode_Configure_Validate(adi_adrv9001_Device_t *device,
+                                                                              adi_common_ChannelNumber_e channel,
+                                                                              adi_adrv9001_SsiType_e ssiType,
+                                                                              adi_adrv9001_SsiDataFormat_e dataFormat,
+                                                                              adi_adrv9001_TxSsiTestModeCfg_t *ssiTestModeConfig)
 {
     ADI_NULL_PTR_RETURN(&device->common, ssiTestModeConfig);
     ADI_RANGE_CHECK(device, channel, ADI_CHANNEL_1, ADI_CHANNEL_2);
@@ -200,7 +205,6 @@ int32_t adi_adrv9001_Ssi_Tx_TestMode_Configure(adi_adrv9001_Device_t *device,
         baseAddress = ADRV9001_BF_TX2_CORE;
     }
 
-    /* FIXME: Add support to disable the debug test block for CMOS */
     if (ADI_ADRV9001_SSI_TYPE_CMOS == ssiType)
     {
         ADI_EXPECT(adrv9001_NvsRegmapTx_CssiTxDebugMode_Set, device, baseAddress, 0x1);
@@ -226,93 +230,85 @@ int32_t adi_adrv9001_Ssi_Tx_TestMode_Configure(adi_adrv9001_Device_t *device,
     }
     else /* LVDS */
     {
-	if (ADI_ADRV9001_SSI_TESTMODE_DATA_NORMAL == ssiTestModeConfig->testData)
-	{
-            ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxDebugMode_Set, device, baseAddress, 0x0);
-	}
-	else
-	{
-            ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxDebugMode_Set, device, baseAddress, 0x1);
-            ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxDebugStartRamp_Set, device, baseAddress, 0x0);
-            ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxDebugPrbs7Enable_Set, device, baseAddress, 0x0);
-            ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxDebugPrbs15Enable_Set, device, baseAddress, 0x0);
-            ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxDebugStartErrorCheck_Set, device, baseAddress, 0x0);
+        ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxDebugMode_Set, device, baseAddress, 0x1);
+        ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxDebugStartRamp_Set, device, baseAddress, 0x0);
+        ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxDebugStartErrorCheck_Set, device, baseAddress, 0x0);
+        ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxDebugAfterFifoErrorClear_Set, device, baseAddress, 0x1);
+        ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxDebugAfterFifoErrorClear_Set, device, baseAddress, 0x0);
+        ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxClearStrobeAlignError_Set, device, baseAddress, 0x1);
+        ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxClearStrobeAlignError_Set, device, baseAddress, 0x0);
+        ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxFifoClear_Set, device, baseAddress, 0x1);
+        ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxFifoClear_Set, device, baseAddress, 0x0);
+
+        /* Nothing to be configured for fixed pattern */
+        if (ADI_ADRV9001_SSI_TESTMODE_DATA_RAMP_16_BIT == ssiTestModeConfig->testData)
+        {
+            ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxDebugStartRamp_Set, device, baseAddress, 0x1);
+
+            ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxDebugStartErrorCheck_Set, device, baseAddress, 0x1);
+
+            recoveryAction = adi_common_hal_Wait_us(&device->common, 1000);
+
+            ADI_ERROR_REPORT(&device->common,
+                             ADI_ADRV9001_SRC_ARMCMD,
+                             recoveryAction,
+                             ADI_COMMON_ACT_ERR_CHECK_TIMER,
+                             device,
+                             "Timer not working in adi_adrv9001_Ssi_Tx_TestMode_Configure()");
+            ADI_ERROR_RETURN(device->common.error.newAction);
+
+            ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxDebugErrorCounterRead_Set, device, baseAddress, 0x1);
+            ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxDebugErrorCounterRead_Set, device, baseAddress, 0x0);
+        }
+        else if (ADI_ADRV9001_SSI_TESTMODE_DATA_PRBS7 == ssiTestModeConfig->testData)
+        {
+            ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxDebugPrbs7Enable_Set, device, baseAddress, 0x1);
+            ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxDebugPrbs7ErrorClear_Set, device, baseAddress, 0x1);
+            ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxDebugPrbs7Restart_Set, device, baseAddress, 0x1);
+            ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxDebugStartErrorCheck_Set, device, baseAddress, 0x1);
+            recoveryAction = adi_common_hal_Wait_us(&device->common, 1000);
+
+            ADI_ERROR_REPORT(&device->common,
+                ADI_ADRV9001_SRC_ARMCMD,
+                recoveryAction,
+                ADI_COMMON_ACT_ERR_CHECK_TIMER,
+                device,
+                "Timer not working in adi_adrv9001_Ssi_Tx_TestMode_Configure()");
+            ADI_ERROR_RETURN(device->common.error.newAction);
+
+            ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxDebugErrorCounterRead_Set, device, baseAddress, 0x1);
+            ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxDebugErrorCounterRead_Set, device, baseAddress, 0x0);
+        }
+        else /* ADI_ADRV9001_SSI_TESTMODE_DATA_PRBS15 */
+        {
+            ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxDebugPrbs15Enable_Set, device, baseAddress, 0x1);
             ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxDebugAfterFifoErrorClear_Set, device, baseAddress, 0x1);
-            ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxDebugAfterFifoErrorClear_Set, device, baseAddress, 0x0);
-            ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxClearStrobeAlignError_Set, device, baseAddress, 0x1);
-            ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxClearStrobeAlignError_Set, device, baseAddress, 0x0);
-            ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxFifoClear_Set, device, baseAddress, 0x1);
-            ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxFifoClear_Set, device, baseAddress, 0x0);
-            if (ADI_ADRV9001_SSI_TESTMODE_DATA_RAMP_16_BIT == ssiTestModeConfig->testData)
-            {
-                ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxDebugStartRamp_Set, device, baseAddress, 0x1);
+            ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxDebugPrbs15Restart_Set, device, baseAddress, 0x1);
+            ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxDebugStartErrorCheck_Set, device, baseAddress, 0x1);
+            recoveryAction = adi_common_hal_Wait_us(&device->common, 1000);
 
-                ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxDebugStartErrorCheck_Set, device, baseAddress, 0x1);
+            ADI_ERROR_REPORT(&device->common,
+                ADI_ADRV9001_SRC_ARMCMD,
+                recoveryAction,
+                ADI_COMMON_ACT_ERR_CHECK_TIMER,
+                device,
+                "Timer not working in adi_adrv9001_Ssi_Tx_TestMode_Configure()");
+            ADI_ERROR_RETURN(device->common.error.newAction);
 
-                recoveryAction = adi_common_hal_Wait_us(&device->common, 1000);
-
-                ADI_ERROR_REPORT(&device->common,
-                                 ADI_ADRV9001_SRC_ARMCMD,
-                                 recoveryAction,
-                                 ADI_COMMON_ACT_ERR_CHECK_TIMER,
-                                 device,
-                                 "Timer not working in adi_adrv9001_Ssi_Tx_TestMode_Configure()");
-                ADI_ERROR_RETURN(device->common.error.newAction);
-
-                ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxDebugErrorCounterRead_Set, device, baseAddress, 0x1);
-                ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxDebugErrorCounterRead_Set, device, baseAddress, 0x0);
-            }
-            else if (ADI_ADRV9001_SSI_TESTMODE_DATA_PRBS7 == ssiTestModeConfig->testData)
-            {
-                ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxDebugPrbs7Enable_Set, device, baseAddress, 0x1);
-                ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxDebugPrbs7ErrorClear_Set, device, baseAddress, 0x1);
-                ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxDebugPrbs7Restart_Set, device, baseAddress, 0x1);
-                ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxDebugStartErrorCheck_Set, device, baseAddress, 0x1);
-                recoveryAction = adi_common_hal_Wait_us(&device->common, 1000);
-
-                ADI_ERROR_REPORT(&device->common,
-                    ADI_ADRV9001_SRC_ARMCMD,
-                    recoveryAction,
-                    ADI_COMMON_ACT_ERR_CHECK_TIMER,
-                    device,
-                    "Timer not working in adi_adrv9001_Ssi_Tx_TestMode_Configure()");
-                ADI_ERROR_RETURN(device->common.error.newAction);
-
-                ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxDebugErrorCounterRead_Set, device, baseAddress, 0x1);
-                ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxDebugErrorCounterRead_Set, device, baseAddress, 0x0);
-            }
-            else if (ADI_ADRV9001_SSI_TESTMODE_DATA_PRBS15 == ssiTestModeConfig->testData)
-            {
-                ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxDebugPrbs15Enable_Set, device, baseAddress, 0x1);
-                ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxDebugAfterFifoErrorClear_Set, device, baseAddress, 0x1);
-                ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxDebugPrbs15Restart_Set, device, baseAddress, 0x1);
-                ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxDebugStartErrorCheck_Set, device, baseAddress, 0x1);
-                recoveryAction = adi_common_hal_Wait_us(&device->common, 1000);
-
-                ADI_ERROR_REPORT(&device->common,
-                    ADI_ADRV9001_SRC_ARMCMD,
-                    recoveryAction,
-                    ADI_COMMON_ACT_ERR_CHECK_TIMER,
-                    device,
-                    "Timer not working in adi_adrv9001_Ssi_Tx_TestMode_Configure()");
-                ADI_ERROR_RETURN(device->common.error.newAction);
-
-                ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxDebugErrorCounterRead_Set, device, baseAddress, 0x1);
-                ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxDebugErrorCounterRead_Set, device, baseAddress, 0x0);
-            }
-	    /* Nothing to be configured for fixed pattern */
-	}
+            ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxDebugErrorCounterRead_Set, device, baseAddress, 0x1);
+            ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxDebugErrorCounterRead_Set, device, baseAddress, 0x0);
+        }
     }
 
     ADI_API_RETURN(device);
 }
 
-static int32_t adi_adrv9001_Ssi_Tx_TestMode_Status_Inspect_Validate(adi_adrv9001_Device_t *device,
-                                                                    adi_common_ChannelNumber_e channel,
-                                                                    adi_adrv9001_SsiType_e ssiType,
-                                                                    adi_adrv9001_SsiDataFormat_e dataFormat,
-                                                                    adi_adrv9001_TxSsiTestModeCfg_t *ssiTestModeConfig,
-                                                                    adi_adrv9001_TxSsiTestModeStatus_t *ssiTestModeStatus)
+static int32_t __maybe_unused adi_adrv9001_Ssi_Tx_TestMode_Status_Inspect_Validate(adi_adrv9001_Device_t *device,
+                                                                                   adi_common_ChannelNumber_e channel,
+                                                                                   adi_adrv9001_SsiType_e ssiType,
+                                                                                   adi_adrv9001_SsiDataFormat_e dataFormat,
+                                                                                   adi_adrv9001_TxSsiTestModeCfg_t *ssiTestModeConfig,
+                                                                                   adi_adrv9001_TxSsiTestModeStatus_t *ssiTestModeStatus)
 {
     ADI_NULL_PTR_RETURN(&device->common, ssiTestModeConfig);
     ADI_NULL_PTR_RETURN(&device->common, ssiTestModeStatus);
@@ -611,9 +607,9 @@ static int32_t adi_adrv9001_Ssi_CmosDelayConfigSet(adi_adrv9001_Device_t *device
     ADI_API_RETURN(device);
 }
 
-static int32_t adi_adrv9001_Ssi_Delay_Configure_Validate(adi_adrv9001_Device_t *device,
-                                                         adi_adrv9001_SsiType_e ssiType,
-                                                         adi_adrv9001_SsiCalibrationCfg_t *ssiCalibration)
+static int32_t __maybe_unused adi_adrv9001_Ssi_Delay_Configure_Validate(adi_adrv9001_Device_t *device,
+                                                                        adi_adrv9001_SsiType_e ssiType,
+                                                                        adi_adrv9001_SsiCalibrationCfg_t *ssiCalibration)
 {
     static const uint8_t MAX_DELAY = 7;
     ADI_RANGE_CHECK(device, ssiType, ADI_ADRV9001_SSI_TYPE_CMOS, ADI_ADRV9001_SSI_TYPE_LVDS);
@@ -753,9 +749,9 @@ static int32_t adi_adrv9001_Ssi_CmosDelayConfigGet(adi_adrv9001_Device_t *device
     ADI_API_RETURN(device);
 }
 
-static int32_t adi_adrv9001_Ssi_Delay_Inspect_Validate(adi_adrv9001_Device_t *device,
-                                                       adi_adrv9001_SsiType_e ssiType,
-                                                       adi_adrv9001_SsiCalibrationCfg_t *ssiCalibration)
+static int32_t __maybe_unused adi_adrv9001_Ssi_Delay_Inspect_Validate(adi_adrv9001_Device_t *device,
+                                                                      adi_adrv9001_SsiType_e ssiType,
+                                                                      adi_adrv9001_SsiCalibrationCfg_t *ssiCalibration)
 {
     ADI_RANGE_CHECK(device, ssiType, ADI_ADRV9001_SSI_TYPE_CMOS, ADI_ADRV9001_SSI_TYPE_LVDS);
     ADI_NULL_PTR_RETURN(&device->common, ssiCalibration);
@@ -776,6 +772,86 @@ int32_t adi_adrv9001_Ssi_Delay_Inspect(adi_adrv9001_Device_t *device,
     {
         ADI_EXPECT(adi_adrv9001_Ssi_CmosDelayConfigGet, device, ssiCalibration);
     }
+
+    ADI_API_RETURN(device);
+}
+
+static int32_t __maybe_unused adi_adrv9001_Ssi_PowerDown_Set_Validate(adi_adrv9001_Device_t *device,
+                                                                      adi_common_Port_e port,
+                                                                      adi_common_ChannelNumber_e channel,
+                                                                      adi_adrv9001_SsiPowerDown_e powerDownMode)
+{
+    adi_adrv9001_ChannelState_e state = ADI_ADRV9001_CHANNEL_STANDBY;
+
+    ADI_RANGE_CHECK(device, port, ADI_RX, ADI_TX);
+    ADI_RANGE_CHECK(device, channel, ADI_CHANNEL_1, ADI_CHANNEL_2);
+    ADI_RANGE_CHECK(device, powerDownMode, ADI_ADRV9001_SSI_POWER_DOWN_DISABLED, ADI_ADRV9001_SSI_POWER_DOWN_HIGH);
+
+    ADI_EXPECT(adi_adrv9001_Radio_Channel_State_Get, device, ADI_RX, channel, &state);
+    if (ADI_ADRV9001_CHANNEL_STANDBY != state)
+    {
+        ADI_ERROR_REPORT(&device->common,
+            ADI_COMMON_ERRSRC_API,
+            ADI_COMMON_ERR_API_FAIL,
+            ADI_COMMON_ACT_ERR_CHECK_PARAM,
+            currentState.channelStates[port_index][chan_index],
+            "Specified channel must be in STANDBY state to set LSSI power saving mode.");
+        ADI_API_RETURN(device)
+    }
+
+    ADI_API_RETURN(device);
+}
+
+int32_t adi_adrv9001_Ssi_PowerDown_Set(adi_adrv9001_Device_t *device,
+                                       adi_common_Port_e port,
+                                       adi_common_ChannelNumber_e channel,
+                                       adi_adrv9001_SsiPowerDown_e powerDownMode)
+{
+    uint8_t armData[5] = { 0 };
+    uint8_t extData[3] = { 0 };
+    uint32_t offset = 0;
+
+    ADI_PERFORM_VALIDATION(adi_adrv9001_Ssi_PowerDown_Set_Validate, device, port, channel, powerDownMode);
+
+    adrv9001_LoadFourBytes(&offset, armData, sizeof(armData) - sizeof(uint32_t));
+    armData[offset++] = (uint8_t)powerDownMode;
+
+    extData[0] = adi_adrv9001_Radio_MailboxChannel_Get(port, channel);
+    extData[1] = ADRV9001_ARM_OBJECTID_CONFIG;
+    extData[2] = ADRV9001_ARM_OBJECTID_LSSI_PADS_POWERDOWN;
+
+    ADI_EXPECT(adi_adrv9001_arm_Config_Write, device, armData, sizeof(armData), extData, sizeof(extData))
+
+    ADI_API_RETURN(device);
+}
+
+static int32_t __maybe_unused adi_adrv9001_Ssi_PowerDown_Get_Validate(adi_adrv9001_Device_t *device,
+                                                                      adi_common_Port_e port,
+                                                                      adi_common_ChannelNumber_e channel,
+                                                                      adi_adrv9001_SsiPowerDown_e *powerDownMode)
+{
+    ADI_RANGE_CHECK(device, port, ADI_RX, ADI_TX);
+    ADI_RANGE_CHECK(device, channel, ADI_CHANNEL_1, ADI_CHANNEL_2);
+    ADI_NULL_PTR_RETURN(&device->common, powerDownMode);
+    ADI_API_RETURN(device);
+}
+
+int32_t adi_adrv9001_Ssi_PowerDown_Get(adi_adrv9001_Device_t *device,
+                                       adi_common_Port_e port,
+                                       adi_common_ChannelNumber_e channel,
+                                       adi_adrv9001_SsiPowerDown_e *powerDownMode)
+{
+    uint8_t armReadBack[1] = { 0 };
+    uint8_t channelMask = 0;
+    uint32_t offset = 0;
+
+    ADI_PERFORM_VALIDATION(adi_adrv9001_Ssi_PowerDown_Get_Validate, device, port , channel, powerDownMode);
+
+    channelMask = adi_adrv9001_Radio_MailboxChannel_Get(port, channel);
+
+    ADI_EXPECT(adi_adrv9001_arm_Config_Read, device, ADRV9001_ARM_OBJECTID_LSSI_PADS_POWERDOWN, channelMask, offset, armReadBack, sizeof(armReadBack))
+
+    *powerDownMode = (bool)armReadBack[0];
 
     ADI_API_RETURN(device);
 }

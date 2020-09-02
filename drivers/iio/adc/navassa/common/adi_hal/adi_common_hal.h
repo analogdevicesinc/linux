@@ -20,6 +20,7 @@
 #else
 #include <stdint.h>
 #endif
+
 #include "adi_common_log.h"
 
 

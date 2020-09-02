@@ -280,7 +280,7 @@ int32_t adi_adrv9001_Mcs_DigitalStatus_Get(adi_adrv9001_Device_t *device, uint32
     ADI_API_RETURN(device);
 }
 
-static int32_t Mcs_Execute_Validate(adi_adrv9001_Device_t *device, adi_adrv9001_McsAction_e mcsAction)
+static int32_t __maybe_unused Mcs_Execute_Validate(adi_adrv9001_Device_t *device, adi_adrv9001_McsAction_e mcsAction)
 {
     ADI_RANGE_CHECK(device, mcsAction, ADI_ADRV9001_MCS_INT_DIGITAL_ALL, ADI_ADRV9001_MCS_EXT_ANALOG_3);
 
@@ -414,15 +414,15 @@ int32_t adi_adrv9001_Mcs_Execute(adi_adrv9001_Device_t *device, adi_adrv9001_Mcs
                          "ADRV9001 did not request a known MCS action");
         ADI_ERROR_RETURN(device->common.error.newAction);
     }
-    
-    ADI_ERROR_REPORT(&device->common, 
-                     ADI_COMMON_ERR_API_FAIL, 
-                     halError, 
-                     ADI_COMMON_ACT_ERR_RESET_FULL, 
+
+    ADI_ERROR_REPORT(&device->common,
+                     ADI_COMMON_ERR_API_FAIL,
+                     halError,
+                     ADI_COMMON_ACT_ERR_RESET_FULL,
                      NULL,
                      "Error occurred in adi_hal_Mcs_Pulse");
     ADI_ERROR_RETURN(device->common.error.newAction);
-    
+
     halError = adi_hal_ssi_Reset(device->common.devHalInfo);
     ADI_ERROR_REPORT(&device->common,
                      ADI_COMMON_ERRSRC_DEVICEHAL,

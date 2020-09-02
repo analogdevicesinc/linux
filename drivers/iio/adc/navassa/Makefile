@@ -34,7 +34,8 @@ SRCS = \
 	devices/adrv9001/public/src/adi_adrv9001_rx.c \
 	devices/adrv9001/public/src/adi_adrv9001.c \
 	devices/adrv9001/public/src/adi_adrv9001_orx.c \
-	devices/adrv9001/public/src/adi_adrv9001_dpd.c
+	devices/adrv9001/public/src/adi_adrv9001_dpd.c \
+	devices/adrv9001/public/src/adi_adrv9001_fh.c
 
 ccflags-y += -I$(src)/devices/adrv9001/private/include \
 	-I$(src)/devices/adrv9001/private/include/bitfields \

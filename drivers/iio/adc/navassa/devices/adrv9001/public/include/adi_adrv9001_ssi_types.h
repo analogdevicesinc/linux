@@ -37,6 +37,17 @@ typedef enum adi_adrv9001_SsiTestModeData
 } adi_adrv9001_SsiTestModeData_e;
 
 /**
+ * \brief SSI power down modes in LVDS mode
+ */
+typedef enum adi_adrv9001_SsiPowerDown
+{
+    ADI_ADRV9001_SSI_POWER_DOWN_DISABLED = 0, /*!< All SSI PADS powered up in PRIMED */
+    ADI_ADRV9001_SSI_POWER_DOWN_MEDIUM = 1,   /*!< RX_CLK and TX_REF_CLK SSI pads powered up, 
+                                                   TX_CLK and all STROBE and DATA SSI pads powered down in PRIMED */
+    ADI_ADRV9001_SSI_POWER_DOWN_HIGH = 2,     /*!< All SSI pads powered down in PRIMED */
+}adi_adrv9001_SsiPowerDown_e;
+
+/**
  * \brief Data structure to transmit ADRV9001 SSI test mode configuration for Rx channel.
  */
 typedef struct adi_adrv9001_RxSsiTestModeCfg
