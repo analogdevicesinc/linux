@@ -8,7 +8,11 @@
 #ifndef _ADI_ADRV9001_RXSETTINGS_TYPES_H_
 #define _ADI_ADRV9001_RXSETTINGS_TYPES_H_
 
+#ifdef __KERNEL__
+#include <linux/types.h>
+#else
 #include <stdint.h>
+#endif
 
 #include "adi_adrv9001_pfirBuffer_types.h"
 
