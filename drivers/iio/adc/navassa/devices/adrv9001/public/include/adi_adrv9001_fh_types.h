@@ -18,11 +18,15 @@
 extern "C" {
 #endif
 
+#ifdef __KERNEL__
+#include <linux/types.h>
+#else
 #include <stdint.h>
+#endif
 #include "adi_adrv9001_gpio_types.h"
 
 /**
- * \brief Max number of GPIO pins for frequency selection. 
+ * \brief Max number of GPIO pins for frequency selection.
  */
 #define ADI_ADRV9001_FH_MAX_NUM_FREQ_SELECT_PINS 6u /* 6 pins is enough to index all 64 frequencies in table */
 
@@ -35,7 +39,7 @@ extern "C" {
  * \brief Max number of GPIO pins for gain selection.
  */
 /* TODO: Really 10 pins would be required to reference all entries in the tx attenuation table.
-   It's really up to the user's system and use as to how many PINS can be allocated. 
+   It's really up to the user's system and use as to how many PINS can be allocated.
    We should looked into increasing this number */
 #define  ADI_ADRV9001_FH_MAX_NUM_GAIN_SELECT_PINS 3u
 
@@ -60,7 +64,7 @@ typedef enum {
 } adi_adrv9001_FhMode_e;
 
 /**
- * \brief Enumeration of frequency hopping table ID's 
+ * \brief Enumeration of frequency hopping table ID's
  */
 typedef enum {
     ADI_ADRV9001_FHHOPTABLE_A = 0u, /*!< ID for hop table A in arm memory */
@@ -89,7 +93,7 @@ typedef struct {
 /**
  * \brief Frequency hopping configuration data
  */
-typedef struct { 
+typedef struct {
     adi_adrv9001_FhMode_e            mode;                          /*!< Frequency hopping mode */
     uint8_t                          channelMaskHopPin;             /*!< Set of channels to be controlled by hop pin.
                                                                           D0 -  Rx1           0 = Disabled, 1 = Mapped to hop pin (Enabled for frequency hopping)
