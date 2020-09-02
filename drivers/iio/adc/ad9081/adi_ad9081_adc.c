@@ -3607,6 +3607,12 @@ int32_t adi_ad9081_adc_nco_master_slave_sync(adi_ad9081_device_t *device,
 		device, extra_lmfc_num);
 	AD9081_ERROR_RETURN(err);
 
+	err = adi_ad9081_dac_nco_sync_reset_via_sysref_set(device, 0);
+	AD9081_ERROR_RETURN(err);
+
+	err = adi_ad9081_dac_nco_sync_reset_via_sysref_set(device, 1);
+	AD9081_ERROR_RETURN(err);
+
 	err = adi_ad9081_adc_ddc_coarse_sync_next_set(device,
 						      AD9081_ADC_CDDC_ALL, 0);
 	AD9081_ERROR_RETURN(err);
