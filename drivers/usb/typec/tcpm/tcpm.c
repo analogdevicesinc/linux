@@ -3885,20 +3885,11 @@ static int tcpm_pd_select_pdo(struct tcpm_port *port, int *sink_pdo,
 			continue;
 		}
 
-		switch (type) {
-		case PDO_TYPE_FIXED:
-		case PDO_TYPE_VAR:
+		if (type == PDO_TYPE_FIXED || type == PDO_TYPE_VAR) {
 			src_ma = pdo_max_current(pdo);
 			src_mw = src_ma * min_src_mv / 1000;
-			break;
-		case PDO_TYPE_BATT:
+		} else if (type == PDO_TYPE_BATT) {
 			src_mw = pdo_max_power(pdo);
-			break;
-		case PDO_TYPE_APDO:
-			continue;
-		default:
-			tcpm_log(port, "Invalid source PDO type, ignoring");
-			continue;
 		}
 
 		for (j = 0; j < port->nr_snk_pdo; j++) {
