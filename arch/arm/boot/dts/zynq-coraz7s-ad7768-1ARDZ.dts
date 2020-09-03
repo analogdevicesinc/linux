@@ -27,7 +27,7 @@
 		ad7768_1_mclk: clock@0 {
 			#clock-cells = <0>;
 			compatible = "fixed-clock";
-			clock-frequency = <100000000>;
+			clock-frequency = <16384000>;
 		};
 	};
 };
