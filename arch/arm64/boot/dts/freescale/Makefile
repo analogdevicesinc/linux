@@ -240,7 +240,8 @@ dtb-$(CONFIG_ARCH_MXC) += imx8qxp-colibri-aster.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx8qxp-colibri-eval-v3.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx8qxp-colibri-iris.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx8qxp-colibri-iris-v2.dtb
-dtb-$(CONFIG_ARCH_MXC) += imx8dxl-evk.dtb
+dtb-$(CONFIG_ARCH_MXC) += imx8dxl-evk.dtb \
+			  imx8dxl-evk-rpmsg.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx8dxl-phantom-mek.dtb \
 			  imx8dxl-phantom-mek-rpmsg.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx8qxp-mek.dtb imx8qxp-mek-dsp.dtb imx8qxp-mek-ov5640.dtb \
