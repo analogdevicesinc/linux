@@ -2,9 +2,10 @@
 /*
  * Analog Devices AD7768-1
  * https://www.analog.com/en/products/ad7768-1.html
- * https://wiki.analog.com/resources/tools-software/linux-drivers/platforms/zynq
+ * https://wiki.analog.com/resources/eval/user-guides/circuits-from-the-lab/cn0540
+ * https://wiki.analog.com/resources/eval/user-guides/cn0540
  *
- * hdl_project: <ad77681evb/coraz7s>
+ * hdl_project: <cn0540/coraz7s>
  * board_revision: <A>
  *
  * Copyright (C) 2020 Analog Devices Inc.
