@@ -322,11 +322,9 @@ static int __jesd204_link_fsm_update_state(struct jesd204_dev *jdev,
 
 	ol->fsm_data = NULL;
 
-	/* clear error if current state is DONT_CARE */
 	if (fsm_data->cur_state == JESD204_STATE_DONT_CARE)
 		exit_on_error = false;
 
-	/* clear error if rolling back */
 	if (fsm_data->rollback)
 		exit_on_error = false;
 
