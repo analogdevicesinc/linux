@@ -627,9 +627,8 @@ void mxc_isi_ctrls_delete(struct mxc_isi_cap_dev *isi_cap)
 }
 
 static struct media_pad
-*mxc_isi_get_remote_source_pad(struct mxc_isi_cap_dev *isi_cap)
+*mxc_isi_get_remote_source_pad(struct v4l2_subdev *subdev)
 {
-	struct v4l2_subdev *subdev = &isi_cap->sd;
 	struct media_pad *sink_pad, *source_pad;
 	int i;
 
@@ -654,28 +653,46 @@ static struct media_pad
 	return NULL;
 }
 
-static struct v4l2_subdev *mxc_get_remote_subdev(struct mxc_isi_cap_dev *isi_cap,
+static struct v4l2_subdev *mxc_get_remote_subdev(struct v4l2_subdev *subdev,
 						 const char * const label)
 {
 	struct media_pad *source_pad;
 	struct v4l2_subdev *sen_sd;
 
 	/* Get remote source pad */
-	source_pad = mxc_isi_get_remote_source_pad(isi_cap);
+	source_pad = mxc_isi_get_remote_source_pad(subdev);
 	if (!source_pad) {
-		v4l2_err(&isi_cap->sd,
-			 "%s, No remote pad found!\n", label);
+		v4l2_err(subdev, "%s, No remote pad found!\n", label);
 		return NULL;
 	}
 
 	/* Get remote source pad subdev */
 	sen_sd = media_entity_to_v4l2_subdev(source_pad->entity);
 	if (!sen_sd) {
-		v4l2_err(&isi_cap->sd, "%s, No remote subdev found!\n", label);
+		v4l2_err(subdev, "%s, No remote subdev found!\n", label);
 		return NULL;
 	}
 
 	return sen_sd;
+}
+
+static bool is_entity_link_setup(struct mxc_isi_cap_dev *isi_cap)
+{
+	struct video_device *vdev = &isi_cap->vdev;
+	struct v4l2_subdev *csi_sd, *sen_sd;
+
+	if (!vdev->entity.num_links || !isi_cap->sd.entity.num_links)
+		return false;
+
+	csi_sd = mxc_get_remote_subdev(&isi_cap->sd, __func__);
+	if (!csi_sd || !csi_sd->entity.num_links)
+		return false;
+
+	sen_sd = mxc_get_remote_subdev(csi_sd, __func__);
+	if (!sen_sd || !sen_sd->entity.num_links)
+		return false;
+
+	return true;
 }
 
 static int mxc_isi_capture_open(struct file *file)
@@ -686,12 +703,20 @@ static int mxc_isi_capture_open(struct file *file)
 	struct v4l2_subdev *sd;
 	int ret = -EBUSY;
 
+	mutex_lock(&isi_cap->lock);
+	isi_cap->is_link_setup = is_entity_link_setup(isi_cap);
+	if (!isi_cap->is_link_setup) {
+		mutex_unlock(&isi_cap->lock);
+		return 0;
+	}
+	mutex_unlock(&isi_cap->lock);
+
 	if (mxc_isi->m2m_enabled) {
 		dev_err(dev, "ISI channel[%d] is busy\n", isi_cap->id);
 		return ret;
 	}
 
-	sd = mxc_get_remote_subdev(isi_cap, __func__);
+	sd = mxc_get_remote_subdev(&isi_cap->sd, __func__);
 	if (!sd)
 		return -ENODEV;
 
@@ -729,7 +754,10 @@ static int mxc_isi_capture_release(struct file *file)
 	struct v4l2_subdev *sd;
 	int ret = -1;
 
-	sd = mxc_get_remote_subdev(isi_cap, __func__);
+	if (!isi_cap->is_link_setup)
+		return 0;
+
+	sd = mxc_get_remote_subdev(&isi_cap->sd, __func__);
 	if (!sd)
 		goto label;
 
@@ -870,14 +898,14 @@ static int mxc_isi_source_fmt_init(struct mxc_isi_cap_dev *isi_cap)
 	struct v4l2_subdev *src_sd;
 	int ret;
 
-	source_pad = mxc_isi_get_remote_source_pad(isi_cap);
+	source_pad = mxc_isi_get_remote_source_pad(&isi_cap->sd);
 	if (!source_pad) {
 		v4l2_err(&isi_cap->sd,
 			 "%s, No remote pad found!\n", __func__);
 		return -EINVAL;
 	}
 
-	src_sd = mxc_get_remote_subdev(isi_cap, __func__);
+	src_sd = mxc_get_remote_subdev(&isi_cap->sd, __func__);
 	if (!src_sd)
 		return -EINVAL;
 
@@ -1018,7 +1046,7 @@ static int mxc_isi_cap_g_parm(struct file *file, void *fh,
 	struct mxc_isi_cap_dev *isi_cap = video_drvdata(file);
 	struct v4l2_subdev *sd;
 
-	sd = mxc_get_remote_subdev(isi_cap, __func__);
+	sd = mxc_get_remote_subdev(&isi_cap->sd, __func__);
 	if (!sd)
 		return -ENODEV;
 
@@ -1031,7 +1059,7 @@ static int mxc_isi_cap_s_parm(struct file *file, void *fh,
 	struct mxc_isi_cap_dev *isi_cap = video_drvdata(file);
 	struct v4l2_subdev *sd;
 
-	sd = mxc_get_remote_subdev(isi_cap, __func__);
+	sd = mxc_get_remote_subdev(&isi_cap->sd, __func__);
 	if (!sd)
 		return -ENODEV;
 
@@ -1187,7 +1215,7 @@ static int mxc_isi_cap_enum_framesizes(struct file *file, void *priv,
 		return -EINVAL;
 	fse.code = fmt->mbus_code;
 
-	sd = mxc_get_remote_subdev(isi_cap, __func__);
+	sd = mxc_get_remote_subdev(&isi_cap->sd, __func__);
 	if (!sd) {
 		v4l2_err(&isi_cap->sd, "Can't find subdev\n");
 		return -ENODEV;
@@ -1241,7 +1269,7 @@ static int mxc_isi_cap_enum_frameintervals(struct file *file, void *fh,
 		return -EINVAL;
 	fie.code = fmt->mbus_code;
 
-	sd = mxc_get_remote_subdev(isi_cap, __func__);
+	sd = mxc_get_remote_subdev(&isi_cap->sd, __func__);
 	if (!sd)
 		return -EINVAL;
 
