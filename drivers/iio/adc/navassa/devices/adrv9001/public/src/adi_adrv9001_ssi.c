@@ -205,6 +205,7 @@ int32_t adi_adrv9001_Ssi_Tx_TestMode_Configure(adi_adrv9001_Device_t *device,
         baseAddress = ADRV9001_BF_TX2_CORE;
     }
 
+    /* FIXME: Add support to disable the debug test block for CMOS */
     if (ADI_ADRV9001_SSI_TYPE_CMOS == ssiType)
     {
         ADI_EXPECT(adrv9001_NvsRegmapTx_CssiTxDebugMode_Set, device, baseAddress, 0x1);
@@ -230,73 +231,81 @@ int32_t adi_adrv9001_Ssi_Tx_TestMode_Configure(adi_adrv9001_Device_t *device,
     }
     else /* LVDS */
     {
-        ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxDebugMode_Set, device, baseAddress, 0x1);
         ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxDebugStartRamp_Set, device, baseAddress, 0x0);
+        ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxDebugPrbs7Enable_Set, device, baseAddress, 0x0);
+        ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxDebugPrbs15Enable_Set, device, baseAddress, 0x0);
         ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxDebugStartErrorCheck_Set, device, baseAddress, 0x0);
-        ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxDebugAfterFifoErrorClear_Set, device, baseAddress, 0x1);
-        ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxDebugAfterFifoErrorClear_Set, device, baseAddress, 0x0);
-        ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxClearStrobeAlignError_Set, device, baseAddress, 0x1);
-        ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxClearStrobeAlignError_Set, device, baseAddress, 0x0);
-        ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxFifoClear_Set, device, baseAddress, 0x1);
-        ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxFifoClear_Set, device, baseAddress, 0x0);
-
-        /* Nothing to be configured for fixed pattern */
-        if (ADI_ADRV9001_SSI_TESTMODE_DATA_RAMP_16_BIT == ssiTestModeConfig->testData)
+	if (ADI_ADRV9001_SSI_TESTMODE_DATA_NORMAL == ssiTestModeConfig->testData)
         {
-            ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxDebugStartRamp_Set, device, baseAddress, 0x1);
-
-            ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxDebugStartErrorCheck_Set, device, baseAddress, 0x1);
-
-            recoveryAction = adi_common_hal_Wait_us(&device->common, 1000);
-
-            ADI_ERROR_REPORT(&device->common,
-                             ADI_ADRV9001_SRC_ARMCMD,
-                             recoveryAction,
-                             ADI_COMMON_ACT_ERR_CHECK_TIMER,
-                             device,
-                             "Timer not working in adi_adrv9001_Ssi_Tx_TestMode_Configure()");
-            ADI_ERROR_RETURN(device->common.error.newAction);
-
-            ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxDebugErrorCounterRead_Set, device, baseAddress, 0x1);
-            ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxDebugErrorCounterRead_Set, device, baseAddress, 0x0);
-        }
-        else if (ADI_ADRV9001_SSI_TESTMODE_DATA_PRBS7 == ssiTestModeConfig->testData)
-        {
-            ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxDebugPrbs7Enable_Set, device, baseAddress, 0x1);
-            ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxDebugPrbs7ErrorClear_Set, device, baseAddress, 0x1);
-            ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxDebugPrbs7Restart_Set, device, baseAddress, 0x1);
-            ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxDebugStartErrorCheck_Set, device, baseAddress, 0x1);
-            recoveryAction = adi_common_hal_Wait_us(&device->common, 1000);
-
-            ADI_ERROR_REPORT(&device->common,
-                ADI_ADRV9001_SRC_ARMCMD,
-                recoveryAction,
-                ADI_COMMON_ACT_ERR_CHECK_TIMER,
-                device,
-                "Timer not working in adi_adrv9001_Ssi_Tx_TestMode_Configure()");
-            ADI_ERROR_RETURN(device->common.error.newAction);
-
-            ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxDebugErrorCounterRead_Set, device, baseAddress, 0x1);
-            ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxDebugErrorCounterRead_Set, device, baseAddress, 0x0);
-        }
-        else /* ADI_ADRV9001_SSI_TESTMODE_DATA_PRBS15 */
-        {
-            ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxDebugPrbs15Enable_Set, device, baseAddress, 0x1);
+	    ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxDebugMode_Set, device, baseAddress, 0x0);
+	}
+	else
+	{
+            ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxDebugMode_Set, device, baseAddress, 0x1);
             ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxDebugAfterFifoErrorClear_Set, device, baseAddress, 0x1);
-            ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxDebugPrbs15Restart_Set, device, baseAddress, 0x1);
-            ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxDebugStartErrorCheck_Set, device, baseAddress, 0x1);
-            recoveryAction = adi_common_hal_Wait_us(&device->common, 1000);
+            ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxDebugAfterFifoErrorClear_Set, device, baseAddress, 0x0);
+            ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxClearStrobeAlignError_Set, device, baseAddress, 0x1);
+            ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxClearStrobeAlignError_Set, device, baseAddress, 0x0);
+            ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxFifoClear_Set, device, baseAddress, 0x1);
+            ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxFifoClear_Set, device, baseAddress, 0x0);
+            if (ADI_ADRV9001_SSI_TESTMODE_DATA_RAMP_16_BIT == ssiTestModeConfig->testData)
+            {
+                ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxDebugStartRamp_Set, device, baseAddress, 0x1);
 
-            ADI_ERROR_REPORT(&device->common,
-                ADI_ADRV9001_SRC_ARMCMD,
-                recoveryAction,
-                ADI_COMMON_ACT_ERR_CHECK_TIMER,
-                device,
-                "Timer not working in adi_adrv9001_Ssi_Tx_TestMode_Configure()");
-            ADI_ERROR_RETURN(device->common.error.newAction);
+                ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxDebugStartErrorCheck_Set, device, baseAddress, 0x1);
 
-            ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxDebugErrorCounterRead_Set, device, baseAddress, 0x1);
-            ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxDebugErrorCounterRead_Set, device, baseAddress, 0x0);
+                recoveryAction = adi_common_hal_Wait_us(&device->common, 1000);
+
+                ADI_ERROR_REPORT(&device->common,
+                                 ADI_ADRV9001_SRC_ARMCMD,
+                                 recoveryAction,
+                                 ADI_COMMON_ACT_ERR_CHECK_TIMER,
+                                 device,
+                                 "Timer not working in adi_adrv9001_Ssi_Tx_TestMode_Configure()");
+                ADI_ERROR_RETURN(device->common.error.newAction);
+
+                ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxDebugErrorCounterRead_Set, device, baseAddress, 0x1);
+                ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxDebugErrorCounterRead_Set, device, baseAddress, 0x0);
+            }
+            else if (ADI_ADRV9001_SSI_TESTMODE_DATA_PRBS7 == ssiTestModeConfig->testData)
+            {
+                ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxDebugPrbs7Enable_Set, device, baseAddress, 0x1);
+                ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxDebugPrbs7ErrorClear_Set, device, baseAddress, 0x1);
+                ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxDebugPrbs7Restart_Set, device, baseAddress, 0x1);
+                ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxDebugStartErrorCheck_Set, device, baseAddress, 0x1);
+                recoveryAction = adi_common_hal_Wait_us(&device->common, 1000);
+
+                ADI_ERROR_REPORT(&device->common,
+                    ADI_ADRV9001_SRC_ARMCMD,
+                    recoveryAction,
+                    ADI_COMMON_ACT_ERR_CHECK_TIMER,
+                    device,
+                    "Timer not working in adi_adrv9001_Ssi_Tx_TestMode_Configure()");
+                ADI_ERROR_RETURN(device->common.error.newAction);
+
+                ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxDebugErrorCounterRead_Set, device, baseAddress, 0x1);
+                ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxDebugErrorCounterRead_Set, device, baseAddress, 0x0);
+            }
+            else if (ADI_ADRV9001_SSI_TESTMODE_DATA_PRBS15 == ssiTestModeConfig->testData)
+            {
+                ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxDebugPrbs15Enable_Set, device, baseAddress, 0x1);
+                ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxDebugAfterFifoErrorClear_Set, device, baseAddress, 0x1);
+                ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxDebugPrbs15Restart_Set, device, baseAddress, 0x1);
+                ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxDebugStartErrorCheck_Set, device, baseAddress, 0x1);
+                recoveryAction = adi_common_hal_Wait_us(&device->common, 1000);
+
+                ADI_ERROR_REPORT(&device->common,
+                    ADI_ADRV9001_SRC_ARMCMD,
+                    recoveryAction,
+                    ADI_COMMON_ACT_ERR_CHECK_TIMER,
+                    device,
+                    "Timer not working in adi_adrv9001_Ssi_Tx_TestMode_Configure()");
+                ADI_ERROR_RETURN(device->common.error.newAction);
+
+                ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxDebugErrorCounterRead_Set, device, baseAddress, 0x1);
+                ADI_EXPECT(adrv9001_NvsRegmapTx_LssiTxDebugErrorCounterRead_Set, device, baseAddress, 0x0);
+            }
+	    /* Nothing to be configured for fixed pattern */
         }
     }
 
