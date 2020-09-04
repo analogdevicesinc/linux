@@ -254,6 +254,8 @@ struct jesd204_dev *devm_jesd204_dev_register(struct device *dev,
 int jesd204_fsm_start(struct jesd204_dev *jdev, unsigned int link_idx);
 void jesd204_fsm_stop(struct jesd204_dev *jdev, unsigned int link_idx);
 
+int jesd204_fsm_resume(struct jesd204_dev *jdev, unsigned int link_idx);
+
 void jesd204_fsm_clear_errors(struct jesd204_dev *jdev, unsigned int link_idx);
 
 struct device *jesd204_dev_to_device(struct jesd204_dev *jdev);
@@ -289,6 +291,12 @@ static inline int jesd204_fsm_start(struct jesd204_dev *jdev,
 
 static inline void jesd204_fsm_stop(struct jesd204_dev *jdev,
 				    unsigned int link_idx) {}
+
+static inline int jesd204_fsm_resume(struct jesd204_dev *jdev,
+				     unsigned int link_idx)
+{
+	return 0;
+}
 
 static inline void jesd204_fsm_clear_errors(struct jesd204_dev *jdev,
 					    unsigned int link_idx) {}

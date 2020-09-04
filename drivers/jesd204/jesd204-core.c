@@ -384,6 +384,34 @@ static int jesd204_dev_alloc_links(struct jesd204_dev_top *jdev_top)
 	return 0;
 }
 
+static int jesd204_dev_init_stop_states(struct jesd204_dev *jdev,
+					struct device_node *np)
+{
+	unsigned int stop_states[JESD204_FSM_STATES_NUM];
+	int fsm_state;
+	int i, ret;
+
+	ret = of_property_read_variable_u32_array(np, "jesd204-stop-states",
+						  stop_states,
+						  1, JESD204_FSM_STATES_NUM);
+	if (ret <= 0)
+		return 0;
+
+	for (i = 0; i < ret; i++) {
+		if (stop_states[i] >= JESD204_FSM_STATES_NUM) {
+			pr_err("%pOF: Invalid state ID %u\n", np,
+			       stop_states[i]);
+			return -EINVAL;
+		}
+		jdev->stop_states[stop_states[i]] = true;
+		fsm_state = stop_states[i] + JESD204_STATE_FSM_OFFSET;
+		pr_info("%pOF: stop state: '%s'\n", np,
+			jesd204_state_str(fsm_state));
+	}
+
+	return 0;
+}
+
 static struct jesd204_dev *jesd204_dev_alloc(struct device_node *np)
 {
 	struct jesd204_dev_top *jdev_top;
@@ -442,6 +470,10 @@ static struct jesd204_dev *jesd204_dev_alloc(struct device_node *np)
 	}
 
 	jdev->is_sysref_provider = of_property_read_bool(np, "jesd204-sysref-provider");
+
+	ret = jesd204_dev_init_stop_states(jdev, np);
+	if (ret)
+		goto err_free_id;
 
 	jdev->id = id;
 	jdev->np = of_node_get(np);

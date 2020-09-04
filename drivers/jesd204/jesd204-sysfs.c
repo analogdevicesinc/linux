@@ -46,6 +46,9 @@
 #define JESD204_LNK_ATTR_BOOL(_name)	\
 	JESD204_LNK_ATTR_TYPE(_name, JESD204_ATTR_TYPE_BOOL)
 
+#define JESD204_LNK_ATTR_BOOL_PRIV(_name)	\
+	JESD204_LNK_ATTR_TYPE_PRIV(_name, JESD204_ATTR_TYPE_BOOL)
+
 #define JESD204_LNK_ATTR_STR_PRIV(_name)	\
 	JESD204_LNK_ATTR_TYPE_PRIV(_name, JESD204_ATTR_TYPE_STR)
 
@@ -86,6 +89,7 @@ enum {
 	JESD204_LNK_ATTR_link_id,
 	JESD204_LNK_ATTR_error,
 	JESD204_LNK_ATTR_state,
+	JESD204_LNK_ATTR_fsm_paused,
 	JESD204_LNK_ATTR_sample_rate,
 	JESD204_LNK_ATTR_is_transmit,
 	JESD204_LNK_ATTR_num_lanes,
@@ -114,6 +118,7 @@ static const struct jesd204_attr jesd204_lnk_attrs[] = {
 	JESD204_LNK_ATTR_UINT(link_id),
 	JESD204_LNK_ATTR_INT(error),
 	JESD204_LNK_ATTR_STR_PRIV(state),
+	JESD204_LNK_ATTR_BOOL_PRIV(fsm_paused),
 	JESD204_LNK_ATTR_UINT(sample_rate),
 	JESD204_LNK_ATTR_BOOL(is_transmit),
 	JESD204_LNK_ATTR_UINT(num_lanes),
