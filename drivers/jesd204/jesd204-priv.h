@@ -18,8 +18,10 @@ struct jesd204_link_opaque;
 struct jesd204_dev_con_out;
 struct jesd204_fsm_data;
 
+#define JESD204_STATE_FSM_OFFSET	100
+
 #define JESD204_STATE_ENUM(x)	\
-	JESD204_STATE_##x = (JESD204_FSM_STATE_##x + 100)
+	JESD204_STATE_##x = (JESD204_FSM_STATE_##x + JESD204_STATE_FSM_OFFSET)
 
 enum jesd204_dev_state {
 	JESD204_STATE_UNINIT = 0,
@@ -104,6 +106,7 @@ struct jesd204_dev_con_out {
  *			devices that make up a JESD204 link (typically the
  *			device that is the ADC, DAC, or transceiver)
  * @is_sysref_provider	true if this device wants to be a SYSREF provider
+ * @stop_states		array of states on which to stop, after finishing transition
  * @sysfs_attr_group	attribute group for the sysfs files of this JESD204 device
  * @np			reference in the device-tree for this JESD204 device
  * @ref			ref count for this JESD204 device
@@ -125,6 +128,7 @@ struct jesd204_dev {
 	bool				is_top;
 
 	bool				is_sysref_provider;
+	bool				stop_states[JESD204_FSM_STATES_NUM + 1];
 
 	struct device_node		*np;
 
@@ -149,7 +153,8 @@ struct jesd204_dev {
  *			notification must be called by the device to decrement
  *			this and finally call the @fsm_complete_cbs
  *			callback (if provided)
- * @cur_state		current state of the JESD204 link
+ * @state		current state of the JESD204 link
+ * @fsm_paused		true if the FSM has paused during a transition (set)
  * @fsm_data		reference to state-transition information
  * @flags		internal flags set by the framework
  */
@@ -160,6 +165,7 @@ struct jesd204_link_opaque {
 
 	struct kref			cb_ref;
 	enum jesd204_dev_state		state;
+	bool				fsm_paused;
 	struct jesd204_fsm_data		*fsm_data;
 	unsigned long			flags;
 };
