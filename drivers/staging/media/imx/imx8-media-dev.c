@@ -177,6 +177,9 @@ static int mxc_md_do_clean(struct mxc_md *mxc_md, struct media_pad *pad)
 	struct media_pad *remote_pad;
 	struct v4l2_subdev	*subdev;
 
+	if (!pad->entity->num_links)
+		return 0;
+
 	remote_pad = media_entity_remote_pad(pad);
 	if (remote_pad == NULL) {
 		dev_err(dev, "%s get remote pad fail\n", __func__);
