@@ -20,16 +20,16 @@
 #define JESD204_CON_ATTR(_name)	\
 	[JESD204_CON_ATTR_ ## _name] = { .name = __stringify(_name) }
 
-#define JESD204_LNK_ATTR_UINT_TYPE(_name, _type)			\
-	[JESD204_LNK_ATTR_UINT_ ## _name] = {				\
+#define JESD204_LNK_ATTR_TYPE(_name, _type)				\
+	[JESD204_LNK_ATTR_ ## _name] = {				\
 		.name = __stringify(_name),				\
 		.offset = offsetof(struct jesd204_link, _name),		\
 		.size = sizeof_field(struct jesd204_link, _name),	\
 		.type = _type,						\
 	}
 
-#define JESD204_LNK_ATTR_UINT_TYPE_PRIV(_name, _type)			\
-	[JESD204_LNK_ATTR_UINT_ ## _name] = {				\
+#define JESD204_LNK_ATTR_TYPE_PRIV(_name, _type)			\
+	[JESD204_LNK_ATTR_ ## _name] = {				\
 		.name = __stringify(_name),				\
 		.offset = offsetof(struct jesd204_link_opaque, _name),	\
 		.size = sizeof_field(struct jesd204_link_opaque, _name),\
@@ -38,16 +38,16 @@
 	}
 
 #define JESD204_LNK_ATTR_INT(_name)	\
-	JESD204_LNK_ATTR_UINT_TYPE(_name, JESD204_ATTR_TYPE_INT)
+	JESD204_LNK_ATTR_TYPE(_name, JESD204_ATTR_TYPE_INT)
 
 #define JESD204_LNK_ATTR_UINT(_name)	\
-	JESD204_LNK_ATTR_UINT_TYPE(_name, JESD204_ATTR_TYPE_UINT)
+	JESD204_LNK_ATTR_TYPE(_name, JESD204_ATTR_TYPE_UINT)
 
 #define JESD204_LNK_ATTR_BOOL(_name)	\
-	JESD204_LNK_ATTR_UINT_TYPE(_name, JESD204_ATTR_TYPE_BOOL)
+	JESD204_LNK_ATTR_TYPE(_name, JESD204_ATTR_TYPE_BOOL)
 
 #define JESD204_LNK_ATTR_STR_PRIV(_name)	\
-	JESD204_LNK_ATTR_UINT_TYPE_PRIV(_name, JESD204_ATTR_TYPE_STR)
+	JESD204_LNK_ATTR_TYPE_PRIV(_name, JESD204_ATTR_TYPE_STR)
 
 enum {
 	JESD204_ATTR_TYPE_INT,
@@ -83,31 +83,31 @@ static const struct attribute jesd204_con_attrs[] = {
 };
 
 enum {
-	JESD204_LNK_ATTR_UINT_link_id,
-	JESD204_LNK_ATTR_UINT_error,
-	JESD204_LNK_ATTR_UINT_state,
-	JESD204_LNK_ATTR_UINT_sample_rate,
-	JESD204_LNK_ATTR_UINT_is_transmit,
-	JESD204_LNK_ATTR_UINT_num_lanes,
-	JESD204_LNK_ATTR_UINT_num_converters,
-	JESD204_LNK_ATTR_UINT_octets_per_frame,
-	JESD204_LNK_ATTR_UINT_frames_per_multiframe,
-	JESD204_LNK_ATTR_UINT_num_of_multiblocks_in_emb,
-	JESD204_LNK_ATTR_UINT_bits_per_sample,
-	JESD204_LNK_ATTR_UINT_converter_resolution,
-	JESD204_LNK_ATTR_UINT_jesd_version,
-	JESD204_LNK_ATTR_UINT_jesd_encoder,
-	JESD204_LNK_ATTR_UINT_subclass,
-	JESD204_LNK_ATTR_UINT_device_id,
-	JESD204_LNK_ATTR_UINT_bank_id,
-	JESD204_LNK_ATTR_UINT_scrambling,
-	JESD204_LNK_ATTR_UINT_high_density,
-	JESD204_LNK_ATTR_UINT_ctrl_words_per_frame_clk,
-	JESD204_LNK_ATTR_UINT_ctrl_bits_per_sample,
-	JESD204_LNK_ATTR_UINT_samples_per_conv_frame,
-	JESD204_LNK_ATTR_UINT_dac_adj_resolution_steps,
-	JESD204_LNK_ATTR_UINT_dac_adj_direction,
-	JESD204_LNK_ATTR_UINT_dac_phase_adj,
+	JESD204_LNK_ATTR_link_id,
+	JESD204_LNK_ATTR_error,
+	JESD204_LNK_ATTR_state,
+	JESD204_LNK_ATTR_sample_rate,
+	JESD204_LNK_ATTR_is_transmit,
+	JESD204_LNK_ATTR_num_lanes,
+	JESD204_LNK_ATTR_num_converters,
+	JESD204_LNK_ATTR_octets_per_frame,
+	JESD204_LNK_ATTR_frames_per_multiframe,
+	JESD204_LNK_ATTR_num_of_multiblocks_in_emb,
+	JESD204_LNK_ATTR_bits_per_sample,
+	JESD204_LNK_ATTR_converter_resolution,
+	JESD204_LNK_ATTR_jesd_version,
+	JESD204_LNK_ATTR_jesd_encoder,
+	JESD204_LNK_ATTR_subclass,
+	JESD204_LNK_ATTR_device_id,
+	JESD204_LNK_ATTR_bank_id,
+	JESD204_LNK_ATTR_scrambling,
+	JESD204_LNK_ATTR_high_density,
+	JESD204_LNK_ATTR_ctrl_words_per_frame_clk,
+	JESD204_LNK_ATTR_ctrl_bits_per_sample,
+	JESD204_LNK_ATTR_samples_per_conv_frame,
+	JESD204_LNK_ATTR_dac_adj_resolution_steps,
+	JESD204_LNK_ATTR_dac_adj_direction,
+	JESD204_LNK_ATTR_dac_phase_adj,
 };
 
 static const struct jesd204_attr jesd204_lnk_attrs[] = {
