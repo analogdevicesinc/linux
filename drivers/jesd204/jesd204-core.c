@@ -33,6 +33,54 @@ static unsigned int jesd204_con_id_counter;
 
 static void jesd204_dev_unregister(struct jesd204_dev *jdev);
 
+int jesd204_get_links_data(struct jesd204_dev *jdev,
+			   struct jesd204_link ** const links,
+			   const unsigned int num_links)
+{
+	struct jesd204_dev_top *jdev_top;
+	unsigned int i;
+
+	if (!jdev || !links || !num_links)
+		return -EINVAL;
+
+	jdev_top = jesd204_dev_get_topology_top_dev(jdev);
+	if (!jdev_top) {
+		jesd204_err(jdev, "Could not find top-level device\n");
+		return -EFAULT;
+	}
+
+	if (jdev_top->num_links != num_links) {
+		jesd204_err(jdev,
+			    "Link number mismatch: top-level has %u, call has %u\n",
+			    jdev_top->num_links, num_links);
+		return -EINVAL;
+	}
+
+	for (i = 0; i < jdev_top->num_links; i++)
+		links[i] = &jdev_top->active_links[i].link;
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(jesd204_get_links_data);
+
+const char *jesd204_link_get_state_str(const struct jesd204_link *lnk)
+{
+	struct jesd204_link_opaque *ol =
+		container_of(lnk, struct jesd204_link_opaque, link);
+
+	return jesd204_state_str(ol->state);
+}
+EXPORT_SYMBOL_GPL(jesd204_link_get_state_str);
+
+bool jesd204_link_get_paused(const struct jesd204_link *lnk)
+{
+	struct jesd204_link_opaque *ol =
+		container_of(lnk, struct jesd204_link_opaque, link);
+
+	return ol->fsm_paused;
+}
+EXPORT_SYMBOL_GPL(jesd204_link_get_paused);
+
 int jesd204_device_count_get()
 {
 	return jesd204_device_count;

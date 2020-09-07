@@ -251,6 +251,10 @@ struct jesd204_dev_data {
 struct jesd204_dev *devm_jesd204_dev_register(struct device *dev,
 					      const struct jesd204_dev_data *i);
 
+int jesd204_get_links_data(struct jesd204_dev *jdev,
+			   struct jesd204_link ** const links,
+			   const unsigned int num_links);
+
 int jesd204_fsm_start(struct jesd204_dev *jdev, unsigned int link_idx);
 void jesd204_fsm_stop(struct jesd204_dev *jdev, unsigned int link_idx);
 
@@ -275,12 +279,23 @@ int jesd204_sysref_async(struct jesd204_dev *jdev);
 
 bool jesd204_dev_is_top(struct jesd204_dev *jdev);
 
+bool jesd204_link_get_paused(const struct jesd204_link *lnk);
+
+const char *jesd204_link_get_state_str(const struct jesd204_link *lnk);
+
 #else /* !IS_ENABLED(CONFIG_JESD204) */
 
 static inline struct jesd204_dev *devm_jesd204_dev_register(
 		struct device *dev, const struct jesd204_dev_data *init)
 {
 	return NULL;
+}
+
+static inline int jesd204_get_links_data(struct jesd204_dev *jdev,
+					 struct jesd204_link * const *links,
+					 const unsigned int num_links)
+{
+	return -ENOTSUPP;
 }
 
 static inline int jesd204_fsm_start(struct jesd204_dev *jdev,
@@ -348,6 +363,16 @@ static inline int jesd204_sysref_async(struct jesd204_dev *jdev)
 static inline bool jesd204_dev_is_top(struct jesd204_dev *jdev)
 {
 	return false;
+}
+
+static inline bool jesd204_link_get_paused(const struct jesd204_link *lnk)
+{
+	return false;
+}
+
+static inline const char *jesd204_link_get_state_str(const struct jesd204_link *lnk)
+{
+	return NULL;
 }
 
 #endif /* #ifdef CONFIG_JESD204 */
