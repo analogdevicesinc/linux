@@ -216,6 +216,10 @@ enum adrv9009_iio_dev_attr {
 	ADRV9009_ENSM_MODE_AVAIL,
 	ADRV9009_INIT_CAL,
 	ADRV9009_MCS,
+	ADRV9009_JESD204_FSM_ERROR,
+	ADRV9009_JESD204_FSM_PAUSED,
+	ADRV9009_JESD204_FSM_STATE,
+	ADRV9009_JESD204_FSM_RESUME,
 };
 
 int adrv9009_spi_read(struct spi_device *spi, unsigned reg)
@@ -1489,7 +1493,9 @@ static ssize_t adrv9009_phy_store(struct device *dev,
 		ret = adrv9009_multi_chip_sync(phy, readin);
 		enable_irq(phy->spi->irq);
 		break;
-
+	case ADRV9009_JESD204_FSM_RESUME:
+		ret = jesd204_fsm_resume(phy->jdev, JESD204_LINKS_ALL);
+		break;
 	default:
 		ret = -EINVAL;
 	}
@@ -1506,7 +1512,10 @@ static ssize_t adrv9009_phy_show(struct device *dev,
 	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
 	struct iio_dev_attr *this_attr = to_iio_dev_attr(attr);
 	struct adrv9009_rf_phy *phy = iio_priv(indio_dev);
+	struct jesd204_dev *jdev = phy->jdev;
+	struct jesd204_link *links[3];
 	int ret = 0;
+	int i, err;
 	u32 val;
 
 	mutex_lock(&indio_dev->mlock);
@@ -1524,6 +1533,33 @@ static ssize_t adrv9009_phy_show(struct device *dev,
 
 		if (val)
 			ret = sprintf(buf, "%d\n", !!(phy->cal_mask & val));
+		break;
+	case ADRV9009_JESD204_FSM_ERROR:
+		ret = jesd204_get_links_data(jdev, links, 3);
+		if (ret)
+			return ret;
+		err = 0;
+		for (i = 0; i < 3; i++) {
+			if (links[i]->error) {
+				err = links[i]->error;
+				break;
+			}
+		}
+		ret = sprintf(buf, "%d\n", err);
+		break;
+	case ADRV9009_JESD204_FSM_PAUSED:
+		ret = jesd204_get_links_data(jdev, links, 3);
+		if (ret)
+			return ret;
+		/* just get the first link state; we're assuming that all 3 are in sync  */
+		ret = sprintf(buf, "%d\n", jesd204_link_get_paused(links[0]));
+		break;
+	case ADRV9009_JESD204_FSM_STATE:
+		ret = jesd204_get_links_data(jdev, links, 3);
+		if (ret)
+			return ret;
+		/* just get the first link state; we're assuming that all 3 are in sync  */
+		ret = sprintf(buf, "%s\n", jesd204_link_get_state_str(links[0]));
 		break;
 	default:
 		ret = -EINVAL;
@@ -1583,9 +1619,38 @@ static IIO_DEVICE_ATTR(multichip_sync, S_IWUSR,
 		       adrv9009_phy_store,
 		       ADRV9009_MCS);
 
+/**
+ * FIXME: these work only if working with all JESD204 links at once,
+ * so, if one link has an error, the first will be shown, and all
+ * links need to transition to a state together.
+ */
+static IIO_DEVICE_ATTR(jesd204_fsm_error, S_IRUGO,
+		       adrv9009_phy_show,
+		       NULL,
+		       ADRV9009_JESD204_FSM_ERROR);
+
+static IIO_DEVICE_ATTR(jesd204_fsm_paused, S_IRUGO,
+		       adrv9009_phy_show,
+		       NULL,
+		       ADRV9009_JESD204_FSM_PAUSED);
+
+static IIO_DEVICE_ATTR(jesd204_fsm_state, S_IRUGO,
+		       adrv9009_phy_show,
+		       NULL,
+		       ADRV9009_JESD204_FSM_STATE);
+
+static IIO_DEVICE_ATTR(jesd204_fsm_resume, S_IWUSR,
+		       NULL,
+		       adrv9009_phy_store,
+		       ADRV9009_JESD204_FSM_RESUME);
+
 static struct attribute *adrv9009_phy_attributes[] = {
 	&iio_dev_attr_ensm_mode.dev_attr.attr,
 	&iio_dev_attr_ensm_mode_available.dev_attr.attr,
+	&iio_dev_attr_jesd204_fsm_error.dev_attr.attr,
+	&iio_dev_attr_jesd204_fsm_state.dev_attr.attr,
+	&iio_dev_attr_jesd204_fsm_paused.dev_attr.attr,
+	&iio_dev_attr_jesd204_fsm_resume.dev_attr.attr,
 	&iio_dev_attr_multichip_sync.dev_attr.attr,
 	&iio_dev_attr_calibrate.dev_attr.attr,
 	&iio_dev_attr_calibrate_rx_qec_en.dev_attr.attr,
