@@ -127,7 +127,7 @@ static int one_bit_adc_dac_parse_dt(struct iio_dev *indio_dev)
 	if (st->in_gpio_descs)
 		in_num_ch = st->in_gpio_descs->ndescs;
 
-	st->out_gpio_descs = devm_gpiod_get_array_optional(&st->pdev->dev, "out", GPIOD_OUT_HIGH);
+	st->out_gpio_descs = devm_gpiod_get_array_optional(&st->pdev->dev, "out", GPIOD_OUT_LOW);
 	if (IS_ERR(st->out_gpio_descs))
 		return PTR_ERR(st->out_gpio_descs);
 
