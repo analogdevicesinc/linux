@@ -255,6 +255,7 @@ static const struct regmap_config adar1000_regmap_config = {
 	.reg_bits = 16,
 	.val_bits = 8,
 	.read_flag_mask = BIT(7),
+	.can_multi_write = 1,
 };
 
 /* Phase values Table 13, 14, 15, 16 page 34 of the datasheet - these values
@@ -694,9 +695,10 @@ static int adar1000_beam_save(struct adar1000_state *st, u32 channel, bool tx,
 			      u32 profile, struct adar1000_beam_position beam)
 {
 	int ret, phase_value;
-	u16 tmp;
+	u16 ram_access_tx_rx;
 	u32 gain_reg, atten_mdb;
 	u32 vm_gain_i, vm_gain_q;
+	struct reg_sequence regs[3] = {0};
 
 	if (profile < ADAR1000_RAM_BEAM_POS_MIN || profile > ADAR1000_RAM_BEAM_POS_MAX)
 		return -EINVAL;
@@ -709,10 +711,10 @@ static int adar1000_beam_save(struct adar1000_state *st, u32 channel, bool tx,
 
 	/* Set gain value & save beam information */
 	if (tx) {
-		tmp = ADAR1000_RAM_ACCESS_TX;
+		ram_access_tx_rx = ADAR1000_RAM_ACCESS_TX;
 		st->tx_beam_pos[profile] = beam;
 	} else {
-		tmp = ADAR1000_RAM_ACCESS_RX;
+		ram_access_tx_rx = ADAR1000_RAM_ACCESS_RX;
 		st->rx_beam_pos[profile] = beam;
 	}
 
@@ -722,30 +724,20 @@ static int adar1000_beam_save(struct adar1000_state *st, u32 channel, bool tx,
 	}
 
 	atten_mdb = (abs(beam.gain_val) * 1000) + (abs(beam.gain_val2) / 1000);
-
 	adar1000_atten_translate(atten_mdb, &gain_reg);
-	pr_err("%s %d gainreg = %x\n", __func__, __LINE__, gain_reg); 
-
-	ret = regmap_write(st->regmap, st->dev_addr |
-			   ADAR1000_RAM_BEAM_POS_0(channel, profile) | tmp,
-			   gain_reg);
-	if (ret < 0)
-		return ret;
 
 	/* Set phase value */
 	adar1000_phase_search(st, beam.phase_val, beam.phase_val2,
 			      &vm_gain_i, &vm_gain_q, &phase_value);
 
-	pr_err("%s %d vm_i = %x vm_q = %x\n", __func__, __LINE__, vm_gain_i, vm_gain_q); 
-	ret = regmap_write(st->regmap, st->dev_addr |
-			   ADAR1000_RAM_BEAM_POS_1(channel, profile) | tmp,
-			   vm_gain_i);
-	if (ret < 0)
-		return ret;
+	regs[0].reg = st->dev_addr | ADAR1000_RAM_BEAM_POS_0(channel, profile) | ram_access_tx_rx;
+	regs[0].def = gain_reg;
+	regs[1].reg = st->dev_addr | ADAR1000_RAM_BEAM_POS_1(channel, profile) | ram_access_tx_rx;
+	regs[1].def = vm_gain_i;
+	regs[2].reg = st->dev_addr | ADAR1000_RAM_BEAM_POS_2(channel, profile) | ram_access_tx_rx;
+	regs[2].def = vm_gain_q;
 
-	ret = regmap_write(st->regmap, st->dev_addr |
-			   ADAR1000_RAM_BEAM_POS_2(channel, profile) | tmp,
-			   vm_gain_q);
+	ret = regmap_multi_reg_write(st->regmap, regs, ARRAY_SIZE(regs));
 	if (ret < 0)
 		return ret;
 
