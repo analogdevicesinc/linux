@@ -361,17 +361,7 @@ static ssize_t jesd204_show_store_bool(bool *val, char *wbuf, const char *rbuf,
 	int ret;
 
 	if (!store)
-		return sprintf(wbuf, "%s\n", (*val) ? "enabled" : "disabled");
-
-	if (sysfs_streq("enabled", rbuf)) {
-		*val = true;
-		return count;
-	}
-
-	if (sysfs_streq("disabled", rbuf)) {
-		*val = false;
-		return count;
-	}
+		return sprintf(wbuf, "%u\n", !!(*val));
 
 	ret = kstrtoull(rbuf, 0, &val1);
 	if (ret)
