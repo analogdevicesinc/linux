@@ -28,6 +28,15 @@
 		.type = _type,						\
 	}
 
+#define JESD204_LNK_ATTR_UINT_TYPE_PRIV(_name, _type)			\
+	[JESD204_LNK_ATTR_UINT_ ## _name] = {				\
+		.name = __stringify(_name),				\
+		.offset = offsetof(struct jesd204_link_opaque, _name),	\
+		.size = sizeof_field(struct jesd204_link_opaque, _name),\
+		.type = _type,						\
+		.priv = true,						\
+	}
+
 #define JESD204_LNK_ATTR_INT(_name)	\
 	JESD204_LNK_ATTR_UINT_TYPE(_name, JESD204_ATTR_TYPE_INT)
 
@@ -37,13 +46,14 @@
 #define JESD204_LNK_ATTR_BOOL(_name)	\
 	JESD204_LNK_ATTR_UINT_TYPE(_name, JESD204_ATTR_TYPE_BOOL)
 
-#define JESD204_LNK_ATTR_STR(_name)	\
-	JESD204_LNK_ATTR_UINT_TYPE(_name, JESD204_ATTR_TYPE_STR)
+#define JESD204_LNK_ATTR_STR_PRIV(_name)	\
+	JESD204_LNK_ATTR_UINT_TYPE_PRIV(_name, JESD204_ATTR_TYPE_STR)
 
 enum {
 	JESD204_ATTR_TYPE_INT,
 	JESD204_ATTR_TYPE_UINT,
 	JESD204_ATTR_TYPE_BOOL,
+	JESD204_ATTR_TYPE_STR,
 };
 
 struct jesd204_attr {
@@ -51,6 +61,7 @@ struct jesd204_attr {
 	size_t offset;
 	size_t size;
 	int type;
+	bool priv;
 };
 
 enum {
@@ -74,6 +85,7 @@ static const struct attribute jesd204_con_attrs[] = {
 enum {
 	JESD204_LNK_ATTR_UINT_link_id,
 	JESD204_LNK_ATTR_UINT_error,
+	JESD204_LNK_ATTR_UINT_state,
 	JESD204_LNK_ATTR_UINT_sample_rate,
 	JESD204_LNK_ATTR_UINT_is_transmit,
 	JESD204_LNK_ATTR_UINT_num_lanes,
@@ -101,6 +113,7 @@ enum {
 static const struct jesd204_attr jesd204_lnk_attrs[] = {
 	JESD204_LNK_ATTR_UINT(link_id),
 	JESD204_LNK_ATTR_INT(error),
+	JESD204_LNK_ATTR_STR_PRIV(state),
 	JESD204_LNK_ATTR_UINT(sample_rate),
 	JESD204_LNK_ATTR_BOOL(is_transmit),
 	JESD204_LNK_ATTR_UINT(num_lanes),
@@ -368,6 +381,20 @@ static ssize_t jesd204_show_store_bool(bool *val, char *wbuf, const char *rbuf,
 	return count;
 }
 
+static ssize_t jesd204_lnk_show_store_str(u32 *val,
+					  const char *attr_name,
+					  char *wbuf, const char *rbuf,
+					  size_t count, bool store)
+{
+	if (!wbuf)
+		return -EINVAL;
+
+	if (sysfs_streq("state", attr_name))
+		return sprintf(wbuf, "%s\n", jesd204_state_str(*val));
+
+	return -EINVAL;
+}
+
 static ssize_t jesd204_link_show_store(struct device *dev,
 				       struct device_attribute *devattr,
 				       char *wbuf, const char *rbuf,
@@ -376,7 +403,6 @@ static ssize_t jesd204_link_show_store(struct device *dev,
 	struct jesd204_dev *jdev = dev_to_jesd204_dev(dev);
 	struct jesd204_dev_top *jdev_top = jesd204_dev_top_dev(jdev);
 	const struct jesd204_attr *jattr;
-	struct jesd204_link *lnk;
 	struct attribute *attr;
 	void *field;
 	char *name, *ptr;
@@ -413,15 +439,23 @@ static ssize_t jesd204_link_show_store(struct device *dev,
 		goto out;
 	}
 
-	lnk = &jdev_top->active_links[idx].link;
 	ret = jesd204_match_attribute_name(jesd204_lnk_attrs, ptr);
 	if (ret < 0)
 		goto out;
 
 	jattr = &jesd204_lnk_attrs[ret];
-	field = ((void *)(lnk) + jattr->offset);
+	if (jattr->priv)
+		field = &jdev_top->active_links[idx];
+	else
+		field = &jdev_top->active_links[idx].link;
+
+	field += jattr->offset;
 
 	switch (jattr->type) {
+	case JESD204_ATTR_TYPE_STR:
+		ret = jesd204_lnk_show_store_str(field, jattr->name,
+						 wbuf, rbuf, count, store);
+		break;
 	case JESD204_ATTR_TYPE_BOOL:
 		ret = jesd204_show_store_bool(field, wbuf, rbuf,
 					      count, store);
