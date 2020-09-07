@@ -28,13 +28,20 @@
 		.type = _type,						\
 	}
 
+#define JESD204_LNK_ATTR_INT(_name)	\
+	JESD204_LNK_ATTR_UINT_TYPE(_name, JESD204_ATTR_TYPE_INT)
+
 #define JESD204_LNK_ATTR_UINT(_name)	\
 	JESD204_LNK_ATTR_UINT_TYPE(_name, JESD204_ATTR_TYPE_UINT)
 
 #define JESD204_LNK_ATTR_BOOL(_name)	\
 	JESD204_LNK_ATTR_UINT_TYPE(_name, JESD204_ATTR_TYPE_BOOL)
 
+#define JESD204_LNK_ATTR_STR(_name)	\
+	JESD204_LNK_ATTR_UINT_TYPE(_name, JESD204_ATTR_TYPE_STR)
+
 enum {
+	JESD204_ATTR_TYPE_INT,
 	JESD204_ATTR_TYPE_UINT,
 	JESD204_ATTR_TYPE_BOOL,
 };
@@ -66,6 +73,7 @@ static const struct attribute jesd204_con_attrs[] = {
 
 enum {
 	JESD204_LNK_ATTR_UINT_link_id,
+	JESD204_LNK_ATTR_UINT_error,
 	JESD204_LNK_ATTR_UINT_sample_rate,
 	JESD204_LNK_ATTR_UINT_is_transmit,
 	JESD204_LNK_ATTR_UINT_num_lanes,
@@ -92,6 +100,7 @@ enum {
 
 static const struct jesd204_attr jesd204_lnk_attrs[] = {
 	JESD204_LNK_ATTR_UINT(link_id),
+	JESD204_LNK_ATTR_INT(error),
 	JESD204_LNK_ATTR_UINT(sample_rate),
 	JESD204_LNK_ATTR_BOOL(is_transmit),
 	JESD204_LNK_ATTR_UINT(num_lanes),
@@ -286,19 +295,24 @@ out:
 	return rc;
 }
 
-static ssize_t jesd204_show_store_uint(u64 *val, size_t usize,
-				       char *wbuf, const char *rbuf,
-				       size_t count, bool store)
+static ssize_t jesd204_show_store_int(u64 *val, size_t usize,
+				      char *wbuf, const char *rbuf,
+				      size_t count, bool store, bool is_signed)
 {
 	u64 val1 = 0;
 	int ret, max;
 
 	if (!store) {
 		memcpy(&val1, val, usize);
+		if (is_signed)
+			return sprintf(wbuf, "%lld\n", val1);
 		return sprintf(wbuf, "%llu\n", val1);
 	}
 
-	ret = kstrtoull(rbuf, 0, &val1);
+	if (is_signed)
+		ret = kstrtoll(rbuf, 0, &val1);
+	else
+		ret = kstrtoull(rbuf, 0, &val1);
 	if (ret)
 		return ret;
 
@@ -368,6 +382,7 @@ static ssize_t jesd204_link_show_store(struct device *dev,
 	char *name, *ptr;
 	unsigned int idx;
 	int len, ret;
+	bool is_signed = false;
 
 	if (!jdev_top || !jdev_top->num_links || !jdev_top->active_links)
 		return -ENOENT;
@@ -411,9 +426,11 @@ static ssize_t jesd204_link_show_store(struct device *dev,
 		ret = jesd204_show_store_bool(field, wbuf, rbuf,
 					      count, store);
 		break;
+	case JESD204_ATTR_TYPE_INT:
+		is_signed = true;
 	case JESD204_ATTR_TYPE_UINT:
-		ret = jesd204_show_store_uint(field, jattr->size, wbuf, rbuf,
-					      count, store);
+		ret = jesd204_show_store_int(field, jattr->size, wbuf, rbuf,
+					     count, store, is_signed);
 		break;
 	default:
 		ret = -EINVAL;
