@@ -3964,7 +3964,6 @@ static int adrv9002_probe(struct spi_device *spi)
 	phy = iio_priv(indio_dev);
 	phy->indio_dev = indio_dev;
 	phy->spi = spi;
-	phy->hal.phy = phy;
 	phy->spi_device_id = *id;
 	if (phy->spi_device_id == ID_ADRV9002_RX2TX2)
 		phy->rx2tx2 = true;
