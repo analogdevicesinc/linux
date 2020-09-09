@@ -32,6 +32,34 @@
 	};
 };
 
+&adc {
+	xlnx,channels {
+		#address-cells = <0x1>;
+		#size-cells = <0x0>;
+		channel@0 {
+			reg = <0>;
+		};
+		channel@2 {
+			reg = <2>;
+		};
+		channel@6 {
+			reg = <6>;
+		};
+		channel@7 {
+			reg = <7>;
+		};
+		channel@10 {
+			reg = <10>;
+		};
+		channel@14 {
+			reg = <14>;
+		};
+		channel@16 {
+			reg = <16>;
+		};
+	};
+};
+
 &fpga_axi {
 	rx_dma: rx-dmac@44a30000 {
 		compatible = "adi,axi-dmac-1.00.a";
