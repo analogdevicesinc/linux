@@ -74,6 +74,8 @@
 			spi-cpol;
 			spi-cpha;
 			vref-supply = <&vref>;
+			#gpio-cells = <2>;
+			gpio-controller;
 			adi,sync-in-gpios = <&gpio0 87 GPIO_ACTIVE_LOW>;
 			reset-gpios = <&gpio0 93 GPIO_ACTIVE_LOW>;
 			clocks = <&ad7768_1_mclk>;
