@@ -30,4 +30,12 @@
 #define FDDC_I 0
 #define FDDC_Q 1
 
+ /*
+  * JESD204-FSM defines
+  */
+#define DEFRAMER_LINK0_TX 0
+#define DEFRAMER_LINK1_TX 1
+#define FRAMER_LINK0_RX 2
+#define FRAMER_LINK1_RX 3
+
 #endif
