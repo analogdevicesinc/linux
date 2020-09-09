@@ -30,6 +30,52 @@
 			clock-frequency = <16384000>;
 		};
 	};
+
+	one-bit-adc-dac@0 {
+		compatible = "one-bit-adc-dac";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		in-gpios =  <&gpio0 91 GPIO_ACTIVE_HIGH>;
+		out-gpios = <&gpio0 88 GPIO_ACTIVE_HIGH>,
+			    <&gpio0 89 GPIO_ACTIVE_HIGH>,
+			    <&gpio0 94 GPIO_ACTIVE_HIGH>,
+			    <&ad7768_1 0 GPIO_ACTIVE_HIGH>,
+			    <&ad7768_1 1 GPIO_ACTIVE_HIGH>,
+			    <&ad7768_1 2 GPIO_ACTIVE_HIGH>,
+			    <&ad7768_1 3 GPIO_ACTIVE_HIGH>;
+		channel@0 {
+			reg = <0>;
+			label = "cn0540_sw_ff_gpio";
+		};
+		channel@1 {
+			reg = <1>;
+			label = "cn0540_red_led";
+		};
+		channel@2 {
+			reg = <2>;
+			label = "cn0540_blue_led";
+		};
+		channel@3 {
+			reg = <3>;
+			label = "cn0540_shutdown_gpio";
+		};
+		channel@4 {
+			reg = <4>;
+			label = "cn0540_ad7768-1-gpio0";
+		};
+		channel@5 {
+			reg = <5>;
+			label = "cn0540_ad7768-1-gpio1";
+		};
+		channel@6 {
+			reg = <6>;
+			label = "cn0540_FDA_DIS";
+		};
+		channel@7 {
+			reg = <7>;
+			label = "cn0540_FDA_MODE";
+		};
+	};
 };
 
 &adc {
