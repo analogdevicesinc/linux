@@ -95,21 +95,6 @@
 #define ADI_REG_CLOCKS_PER_PPS_STATUS	0x00C4
 #define ADI_CLOCKS_PER_PPS_STAT_INVAL	(1 << 0)
 
-/* JESD TPL */
-
-#define ADI_REG_TPL_CNTRL		0x0200
-#define ADI_REG_TPL_STATUS		0x0204
-#define ADI_REG_TPL_DESCRIPTOR_1	0x0240
-#define ADI_REG_TPL_DESCRIPTOR_2	0x0244
-
-#define ADI_TO_JESD_M(x)		(((x) >> 0) & 0xFF)
-#define ADI_TO_JESD_L(x)		(((x) >> 8) & 0xFF)
-#define ADI_TO_JESD_S(x)		(((x) >> 16) & 0xFF)
-#define ADI_TO_JESD_F(x)		(((x) >> 24) & 0xFF)
-
-#define ADI_TO_JESD_N(x)		(((x) >> 0) & 0xFF)
-#define ADI_TO_JESD_NP(x)		(((x) >> 8) & 0xFF)
-
 /* ADC CHANNEL */
 
 #define ADI_REG_CHAN_CNTRL(c)		(0x0400 + (c) * 0x40)
