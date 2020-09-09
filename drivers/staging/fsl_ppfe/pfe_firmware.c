@@ -17,10 +17,9 @@
 #include <linux/of_platform.h>
 #include <linux/of_address.h>
 
-/*NOTE: Will be moving to loading the firmware from FDT once uboot changes
- *	are merged and ready into all branches
+/*NOTE: Uncomment below macro to load firmware binaries from file system
+ *	#define LOAD_PFEFIRMWARE_FROM_FILESYSTEM	1
  */
-#define LOAD_PFEFIRMWARE_FROM_FILESYSTEM	1
 
 static struct elf32_shdr *get_elf_section_header(const u8 *fw,
 						 const char *section)
