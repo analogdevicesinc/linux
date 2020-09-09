@@ -251,6 +251,11 @@
 		clock-output-names = "xtal_24MHz";
 	};
 
+	imx_ion {
+		compatible = "fsl,mxc-ion";
+		fsl,heap-id = <0>;
+	};
+
 	/* sorted in register address */
 	#include "imx8-ss-cm40.dtsi"
 	#include "imx8-ss-adma.dtsi"
