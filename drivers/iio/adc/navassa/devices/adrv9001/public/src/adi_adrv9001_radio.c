@@ -359,6 +359,43 @@ int32_t adi_adrv9001_Radio_Channel_Prime(adi_adrv9001_Device_t *adrv9001,
     return adi_adrv9001_Radio_Channels_Prime(adrv9001, &port, &channel, 1, prime);
 }
 
+static int32_t adi_adrv9001_Channel_DisableRF_Wait(adi_adrv9001_Device_t *adrv9001,
+                                                   adi_common_Port_e port,
+                                                   adi_common_ChannelNumber_e channel,
+                                                   uint8_t numTries);
+
+static int32_t adi_adrv9001_Radio_ToPrimed_Fix(adi_adrv9001_Device_t *adrv9001,
+					       const adi_common_Port_e ports[],
+					       adi_common_ChannelNumber_e channels[],
+					       const uint32_t length)
+{
+    uint8_t i = 0;
+    adi_adrv9001_RadioState_t currentState = { 0 };
+    static const uint8_t NUM_TRIES = 5;
+
+    ADI_EXPECT(adi_adrv9001_Radio_State_Get, adrv9001, &currentState);
+
+    for (i = 0; i < length; i++)
+    {
+        uint8_t port_index = 0;
+        uint8_t chan_index = 0;
+
+        if (ports[i] != ADI_TX)
+            continue;
+
+        adi_common_port_to_index(ADI_RX, &port_index);
+        adi_common_channel_to_index(channels[i], &chan_index);
+        if (currentState.channelStates[port_index][chan_index] != ADI_ADRV9001_CHANNEL_RF_ENABLED)
+            continue;
+
+        /* Disable and Enable the RF in the same channel to make sure the capture still works */
+        ADI_EXPECT(adi_adrv9001_Channel_DisableRF_Wait, adrv9001, ADI_RX, channels[i], NUM_TRIES);
+        ADI_EXPECT(adi_adrv9001_Radio_Channel_EnableRf, adrv9001, ADI_RX, channels[i], true);
+    }
+
+    ADI_API_RETURN(adrv9001);
+}
+
 int32_t adi_adrv9001_Radio_Channels_Prime(adi_adrv9001_Device_t *adrv9001,
                                           adi_common_Port_e ports[],
                                           adi_common_ChannelNumber_e channels[],
@@ -425,6 +462,23 @@ int32_t adi_adrv9001_Radio_Channels_Prime(adi_adrv9001_Device_t *adrv9001,
                                         0,
                                         (uint32_t)ADI_ADRV9001_RADIOONOFF_TIMEOUT_US,
                                         (uint32_t)ADI_ADRV9001_RADIOONOFF_INTERVAL_US);
+
+    /*
+     * FIXME: Remove this as soon as it is fixed in the arm firmware. Most likely, it will
+     * be fixed in the next release and this does not have to be included. Consideraing the
+     * following state:
+     *    RX1: rf_enabled
+     *    RX2: primed
+     *    TX1: primed
+     *    TX2: rf_enabled
+     * In the previous state everything works as expected the data is captured ai RX1.
+     * However moving TX1 to calibrated and then back to primed, the signal in RX1 is lost as if
+     * the RX1 path was powered down. This seems only to affect ports on the same channel meaning
+     * that if TX2 is moved to calibrated and then back to primed or rf_enabled everything works as
+     * expected.
+     */
+    if (prime)
+        ADI_EXPECT(adi_adrv9001_Radio_ToPrimed_Fix, adrv9001, ports, channels, length);
 
     ADI_API_RETURN(adrv9001);
 }
