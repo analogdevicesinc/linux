@@ -1,8 +1,11 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * dts file for the QUAD AD9081-FMC-EBZ on Xilinx VCU118
+ * Analog Devices Quad-MxFE
+ * https://wiki.analog.com/resources/eval/user-guides/quadmxfe
+ * https://wiki.analog.com/resources/tools-software/linux-drivers/iio-mxfe/ad9081
+ * https://wiki.analog.com/resources/eval/user-guides/ad_quadmxfe1_ebz/ad_quadmxfe1_ebz_hdl
  *
- * Copyright (C) 2019 Analog Devices Inc.
+ * Copyright (C) 2019-2020 Analog Devices Inc.
  */
 /dts-v1/;
 #include "vcu118.dtsi"
