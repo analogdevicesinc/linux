@@ -2048,10 +2048,6 @@ panel:
 		ret = drm_connector_attach_encoder(connector, encoder);
 		if (ret)
 			goto cleanup_connector;
-
-		ret = drm_panel_attach(dsim->panel, connector);
-		if (ret)
-			goto cleanup_connector;
 	}
 
 	dev_dbg(dev, "sec-dsim bridge bind end\n");
@@ -2070,10 +2066,8 @@ void sec_mipi_dsim_unbind(struct device *dev, struct device *master, void *data)
 {
 	struct sec_mipi_dsim *dsim = dev_get_drvdata(dev);
 
-	if (dsim->panel) {
-		drm_panel_detach(dsim->panel);
+	if (dsim->panel)
 		drm_connector_cleanup(&dsim->connector);
-	}
 
 	mipi_dsi_host_unregister(&dsim->dsi_host);
 }
