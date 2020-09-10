@@ -1,0 +1,73 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices AD9081-FMC-EBZ
+ * https://wiki.analog.com/resources/tools-software/linux-drivers/iio-mxfe/ad9081
+ * https://wiki.analog.com/resources/eval/user-guides/ad9081_fmca_ebz/ad9081_fmca_ebz_hdl
+ *
+ * hdl_project: <ad9081_fmca_ebz/vcu118>
+ * board_revision: <>
+ *
+ * Copyright (C) 2019-2020 Analog Devices Inc.
+ */
+#include "vcu118_ad9081.dts"
+
+#include <dt-bindings/iio/adc/adi,ad9081.h>
+
+&trx0_ad9081 {
+	jesd204-device;
+	#jesd204-cells = <2>;
+        jesd204-top-device = <0>; /* This is the TOP device */
+	jesd204-link-ids = < FRAMER_LINK0_RX DEFRAMER_LINK0_TX>;
+
+	jesd204-inputs =
+		<&axi_ad9081_core_rx 0 FRAMER_LINK0_RX>,
+		<&axi_ad9081_core_tx 0 DEFRAMER_LINK0_TX>;
+};
+
+&axi_ad9081_core_rx {
+	jesd204-device;
+	#jesd204-cells = <2>;
+	jesd204-inputs = <&axi_ad9081_rx_jesd 0 FRAMER_LINK0_RX>;
+};
+
+&axi_ad9081_core_tx {
+	jesd204-device;
+	#jesd204-cells = <2>;
+	jesd204-inputs = <&axi_ad9081_tx_jesd 0 DEFRAMER_LINK0_TX>;
+};
+
+&axi_ad9081_rx_jesd {
+	jesd204-device;
+	#jesd204-cells = <2>;
+	jesd204-inputs = <&axi_ad9081_adxcvr_rx 0 FRAMER_LINK0_RX>;
+};
+
+&axi_ad9081_tx_jesd {
+	jesd204-device;
+	#jesd204-cells = <2>;
+	jesd204-inputs = <&axi_ad9081_adxcvr_tx 0 DEFRAMER_LINK0_TX>;
+};
+
+&axi_ad9081_adxcvr_rx {
+	jesd204-device;
+	#jesd204-cells = <2>;
+	jesd204-inputs =  <&hmc7044 0 FRAMER_LINK0_RX>;
+	clocks = <&hmc7044 12>; /* div40 is controlled by axi_ad9081_rx_jesd */
+	clock-names = "conv";
+};
+
+&axi_ad9081_adxcvr_tx {
+	jesd204-device;
+	#jesd204-cells = <2>;
+	jesd204-inputs =  <&hmc7044 0 DEFRAMER_LINK0_TX>;
+	clocks = <&hmc7044 12>; /* div40 is controlled by axi_ad9081_tx_jesd */
+	clock-names = "conv";
+};
+
+&hmc7044 {
+	jesd204-device;
+	#jesd204-cells = <2>;
+	jesd204-sysref-provider;
+
+	adi,jesd204-max-sysref-frequency-hz = <2000000>;
+};

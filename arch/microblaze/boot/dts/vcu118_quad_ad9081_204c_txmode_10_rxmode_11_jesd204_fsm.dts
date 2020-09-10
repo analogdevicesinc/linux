@@ -1,0 +1,89 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices Quad-MxFE
+ * https://wiki.analog.com/resources/eval/user-guides/quadmxfe
+ * https://wiki.analog.com/resources/tools-software/linux-drivers/iio-mxfe/ad9081
+ * https://wiki.analog.com/resources/eval/user-guides/ad_quadmxfe1_ebz/ad_quadmxfe1_ebz_hdl
+ *
+ * hdl_project: <ad_quadmxfe1_ebz/vcu118>
+ * board_revision: <>
+ *
+ * Copyright (C) 2019-2020 Analog Devices Inc.
+ */
+
+#include "vcu118_quad_ad9081_204c_txmode_10_rxmode_11.dts"
+
+#include <dt-bindings/iio/adc/adi,ad9081.h>
+
+&trx3_ad9081 {
+	jesd204-device;
+	#jesd204-cells = <2>;
+	jesd204-top-device = <0>; /* This is the TOP device */
+	jesd204-link-ids = < FRAMER_LINK0_RX DEFRAMER_LINK0_TX>;
+
+	jesd204-inputs =
+		<&trx2_ad9081 0 FRAMER_LINK0_RX>,
+		<&trx2_ad9081 0 DEFRAMER_LINK0_TX>;
+};
+
+&trx2_ad9081 {
+	jesd204-device;
+	#jesd204-cells = <2>;
+	jesd204-link-ids = < FRAMER_LINK0_RX DEFRAMER_LINK0_TX>;
+
+	jesd204-inputs =
+		<&trx1_ad9081 0 FRAMER_LINK0_RX>,
+		<&trx1_ad9081 0 DEFRAMER_LINK0_TX>;
+};
+
+&trx1_ad9081 {
+	jesd204-device;
+	#jesd204-cells = <2>;
+	jesd204-link-ids = < FRAMER_LINK0_RX DEFRAMER_LINK0_TX>;
+
+	jesd204-inputs =
+		<&trx0_ad9081 0 FRAMER_LINK0_RX>,
+		<&trx0_ad9081 0 DEFRAMER_LINK0_TX>;
+};
+
+&trx0_ad9081 {
+	jesd204-device;
+	#jesd204-cells = <2>;
+	jesd204-link-ids = < FRAMER_LINK0_RX DEFRAMER_LINK0_TX>;
+
+	jesd204-inputs =
+		<&axi_ad9081_core_rx 0 FRAMER_LINK0_RX>,
+		<&axi_ad9081_core_tx 0 DEFRAMER_LINK0_TX>;
+};
+
+&axi_ad9081_core_rx {
+	jesd204-device;
+	#jesd204-cells = <2>;
+	jesd204-inputs = <&axi_ad9081_rx_jesd 0 FRAMER_LINK0_RX>;
+};
+
+&axi_ad9081_core_tx {
+	jesd204-device;
+	#jesd204-cells = <2>;
+	jesd204-inputs = <&axi_ad9081_tx_jesd 0 DEFRAMER_LINK0_TX>;
+};
+
+&axi_ad9081_rx_jesd {
+	jesd204-device;
+	#jesd204-cells = <2>;
+	jesd204-inputs = <&hmc7043 0 FRAMER_LINK0_RX>;
+};
+
+&axi_ad9081_tx_jesd {
+	jesd204-device;
+	#jesd204-cells = <2>;
+	jesd204-inputs = <&hmc7043 0 DEFRAMER_LINK0_TX>;
+};
+
+&hmc7043 {
+	jesd204-device;
+	#jesd204-cells = <2>;
+	jesd204-sysref-provider;
+
+	adi,jesd204-max-sysref-frequency-hz = <2000000>; /* 2 MHz */
+};
