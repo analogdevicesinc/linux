@@ -27,3 +27,8 @@
 	adi,pll1-ref-autorevert-enable;
 	adi,clkin0-buffer-mode  = <0x07>; // buffer en, AC coupling, 100ohm termination
 };
+
+&hmc7044 {
+	clocks = <&hmc7044_car 2>;
+	clock-names = "clkin1";
+};
