@@ -766,7 +766,7 @@ static int hmc7044_setup(struct iio_dev *indio_dev)
 	unsigned long pfd1_freq;
 	unsigned long vco_limit;
 	unsigned long n2[2], r2[2];
-	unsigned int i, ref_en = 0;
+	unsigned int i, c, ref_en = 0;
 	int ret;
 
 	vcxo_freq = hmc->vcxo_freq / 1000;
@@ -867,6 +867,7 @@ static int hmc7044_setup(struct iio_dev *indio_dev)
 	hmc7044_write(indio_dev, HMC7044_REG_PLL1_HOLDOVER, 0x06);
 	hmc7044_write(indio_dev, HMC7044_REG_VTUNE_PRESET, 0x04);
 
+
 	hmc7044_write(indio_dev, HMC7044_REG_GLOB_MODE,
 		      HMC7044_SYNC_PIN_MODE(hmc->sync_pin_mode) |
 		      (hmc->clkin0_rfsync_en ? HMC7044_RFSYNC_EN : 0) |
@@ -876,13 +877,30 @@ static int hmc7044_setup(struct iio_dev *indio_dev)
 	/* Program PLL2 */
 
 	/* Select the VCO range */
-	hmc7044_write(indio_dev, HMC7044_REG_EN_CTRL_0,
-		      (hmc->rf_reseeder_en ? HMC7044_RF_RESEEDER_EN : 0) |
-		      HMC7044_VCO_SEL(high_vco_en ?
-				      HMC7044_VCO_HIGH :
-				      HMC7044_VCO_LOW) |
-		      HMC7044_SYSREF_TIMER_EN | HMC7044_PLL2_EN |
-		      HMC7044_PLL1_EN);
+
+	if (hmc->clkin1_vcoin_en) {
+		hmc->pll2_freq = hmc->clkin_freq_ccf[1] ?
+			hmc->clkin_freq_ccf[1] : hmc->clkin_freq[1];
+
+		if (hmc->pll2_freq < 1000000000U)
+			hmc7044_write(indio_dev, HMC7044_CLK_INPUT_CTRL,
+				      HMC7044_LOW_FREQ_INPUT_MODE);
+
+		hmc7044_write(indio_dev, HMC7044_REG_EN_CTRL_0,
+			      (hmc->rf_reseeder_en ? HMC7044_RF_RESEEDER_EN : 0) |
+			      HMC7044_VCO_SEL(0) |
+			      HMC7044_SYSREF_TIMER_EN);
+
+		hmc7044_write(indio_dev, HMC7044_REG_SYNC, HMC7044_SYNC_RETIME);
+	} else {
+		hmc7044_write(indio_dev, HMC7044_REG_EN_CTRL_0,
+			      (hmc->rf_reseeder_en ? HMC7044_RF_RESEEDER_EN : 0) |
+				HMC7044_VCO_SEL(high_vco_en ?
+				HMC7044_VCO_HIGH :
+				HMC7044_VCO_LOW) |
+				HMC7044_SYSREF_TIMER_EN | HMC7044_PLL2_EN |
+				HMC7044_PLL1_EN);
+	}
 
 	if (hmc->pll2_cap_bank_sel != ~0)
 		hmc7044_write(indio_dev, HMC7044_REG_FORCE_CAPVAL,
@@ -1441,7 +1459,7 @@ static int hmc7044_status_show(struct seq_file *file, void *offset)
 	struct iio_dev *indio_dev = spi_get_drvdata(file->private);
 	struct hmc7044 *hmc = iio_priv(indio_dev);
 	int ret;
-	u32 alarm_stat, pll1_stat, pll2_autotune_val, clkin_freq;
+	u32 alarm_stat, pll1_stat, pll2_autotune_val, clkin_freq, active;
 
 	ret = hmc7044_read(indio_dev, HMC7044_REG_PLL1_STATUS, &pll1_stat);
 	if (ret < 0)
@@ -1455,15 +1473,20 @@ static int hmc7044_status_show(struct seq_file *file, void *offset)
 	if (ret < 0)
 		return ret;
 
-	if (hmc->clkin_freq_ccf[HMC7044_PLL1_ACTIVE_CLKIN(pll1_stat)])
-		clkin_freq = hmc->clkin_freq_ccf[HMC7044_PLL1_ACTIVE_CLKIN(pll1_stat)];
+	if (hmc->clkin1_vcoin_en)
+		active = 1;
 	else
-		clkin_freq = hmc->clkin_freq[HMC7044_PLL1_ACTIVE_CLKIN(pll1_stat)];
+		active = HMC7044_PLL1_ACTIVE_CLKIN(pll1_stat);
+
+	if (hmc->clkin_freq_ccf[active])
+		clkin_freq = hmc->clkin_freq_ccf[active];
+	else
+		clkin_freq = hmc->clkin_freq[active];
 
 	seq_printf(file, "--- PLL1 ---\n"
 		   "Status:\t%s\nUsing:\tCLKIN%u @ %u Hz\nPFD:\t%u kHz\n",
 		   pll1_fsm_states[HMC7044_PLL1_FSM_STATE(pll1_stat)],
-		   HMC7044_PLL1_ACTIVE_CLKIN(pll1_stat),
+		   active,
 		   clkin_freq,
 		   hmc->pll1_pfd);
 
