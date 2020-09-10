@@ -2921,7 +2921,6 @@ static int ad9081_register_iiodev(struct axiadc_converter *conv)
 
 	indio_dev->info = &ad9081_iio_info;
 	indio_dev->modes = INDIO_DIRECT_MODE;
-	indio_dev->modes = INDIO_DIRECT_MODE;
 	indio_dev->channels = phy->chip_info.channel;
 	indio_dev->num_channels = phy->chip_info.num_channels;
 
