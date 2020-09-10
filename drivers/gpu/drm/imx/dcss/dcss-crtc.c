@@ -181,11 +181,25 @@ static void dcss_crtc_atomic_disable(struct drm_crtc *crtc,
 	pm_runtime_put_autosuspend(dcss->dev);
 }
 
+static enum drm_mode_status dcss_crtc_mode_valid(struct drm_crtc *crtc,
+						 const struct drm_display_mode *mode)
+{
+	/*
+	 * From DCSS perspective, dissallow any mode higher than
+	 * 3840x2160 or 2160x3840.
+	 */
+	if (mode->hdisplay * mode->vdisplay > 3840 * 2160)
+		return MODE_BAD;
+
+	return MODE_OK;
+}
+
 static const struct drm_crtc_helper_funcs dcss_helper_funcs = {
 	.atomic_begin = dcss_crtc_atomic_begin,
 	.atomic_flush = dcss_crtc_atomic_flush,
 	.atomic_enable = dcss_crtc_atomic_enable,
 	.atomic_disable = dcss_crtc_atomic_disable,
+	.mode_valid = dcss_crtc_mode_valid,
 };
 
 static irqreturn_t dcss_crtc_irq_handler(int irq, void *dev_id)
