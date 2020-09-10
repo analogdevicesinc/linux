@@ -1052,13 +1052,26 @@ static int hmc7044_setup(struct iio_dev *indio_dev)
 		      HMC7044_HIGH_PERF_PLL_VCO : 0));
 	mdelay(1);
 
+	if (!hmc->clkin1_vcoin_en) {
+		u32 pll1_stat;
+
+		ret = hmc7044_read(indio_dev, HMC7044_REG_PLL1_STATUS, &pll1_stat);
+		if (ret < 0)
+			return ret;
+
+		c = HMC7044_PLL1_ACTIVE_CLKIN(pll1_stat);
+	} else {
+		c = 1; /* CLKIN1 */
+	}
+
 	for (i = 0; i < hmc->num_channels; i++) {
 		chan = &hmc->channels[i];
 
 		if (chan->num >= HMC7044_NUM_CHAN || chan->disable)
 			continue;
 
-		ret = hmc7044_clk_register(indio_dev, chan->num, i, NULL);
+		ret = hmc7044_clk_register(indio_dev, chan->num, i,
+					   __clk_get_name(hmc->clk_input[c]));
 		if (ret)
 			return ret;
 	}
