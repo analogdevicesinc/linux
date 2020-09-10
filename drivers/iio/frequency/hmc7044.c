@@ -1523,6 +1523,33 @@ static int hmc7044_status_show(struct seq_file *file, void *offset)
 	return 0;
 }
 
+static int hmc7044_continuous_chan_sync_enable(struct iio_dev *indio_dev, bool enable)
+{
+	struct hmc7044 *hmc = iio_priv(indio_dev);
+	struct hmc7044_chan_spec *chan;
+	int ret, i;
+
+	for (i = 0; i < hmc->num_channels; i++) {
+		chan = &hmc->channels[i];
+
+		if (chan->num >= HMC7044_NUM_CHAN || chan->disable)
+			continue;
+
+		ret = hmc7044_write(indio_dev, HMC7044_REG_CH_OUT_CRTL_0(chan->num),
+			      (chan->start_up_mode_dynamic_enable ?
+			      HMC7044_START_UP_MODE_DYN_EN : 0) |
+			      (chan->output_control0_rb4_enable ? BIT(4) : 0) |
+			      (chan->high_performance_mode_dis ?
+			      0 : HMC7044_HI_PERF_MODE) |
+			      ((enable || chan->start_up_mode_dynamic_enable) ?
+			      HMC7044_SYNC_EN : 0) | HMC7044_CH_EN);
+		if (ret < 0)
+			return ret;
+	}
+
+	return 0;
+}
+
 static int hmc7044_jesd204_link_supported(struct jesd204_dev *jdev,
 		enum jesd204_state_op_reason reason,
 		struct jesd204_link *lnk)
@@ -1608,8 +1635,11 @@ static int hmc7044_jesd204_clks_sync1(struct jesd204_dev *jdev,
 
 		mask = HMC7044_RESTART_DIV_FSM;
 	} else {
-		if (hmc->device_id == HMC7044)
+		if (hmc->device_id == HMC7044 && !hmc->clkin0_rfsync_en && !hmc->clkin1_vcoin_en)
 			hmc7044_sync_pin_set(indio_dev, HMC7044_SYNC_PIN_SYNC);
+		else
+			hmc7044_continuous_chan_sync_enable(indio_dev, 1);
+
 
 		mask = HMC7044_RESTART_DIV_FSM | HMC7044_RESEED_REQ;
 	}
@@ -1685,8 +1715,11 @@ static int hmc7044_jesd204_clks_sync3(struct jesd204_dev *jdev,
 			"%s: SYSREF of the HMC7044 is not valid; that is, its phase output is not stable (0x%X)\n",
 			__func__, val & 0xFF);
 
-	if (hmc->device_id == HMC7044)
+	if (hmc->device_id == HMC7044 && !hmc->clkin0_rfsync_en && !hmc->clkin1_vcoin_en)
 		hmc7044_sync_pin_set(indio_dev, HMC7044_SYNC_PIN_PULSE_GEN_REQ);
+	else
+		hmc7044_continuous_chan_sync_enable(indio_dev, 0);
+
 
 	return JESD204_STATE_CHANGE_DONE;
 }
@@ -1753,7 +1786,7 @@ static int hmc7044_jesd204_link_pre_setup(struct jesd204_dev *jdev,
 	if (lnk->sysref.mode == JESD204_SYSREF_CONTINUOUS) {
 		/* Set the pulse generator mode configuration */
 		if (hmc->pulse_gen_mode != HMC7044_PULSE_GEN_CONT_PULSE)
-			dev_warn(dev, "%s: Link%u forcing continous SYSREF mode\n",
+			dev_warn(dev, "%s: Link%u forcing continuous SYSREF mode\n",
 				__func__, lnk->link_id);
 
 		hmc7044_write(indio_dev, HMC7044_REG_PULSE_GEN,
