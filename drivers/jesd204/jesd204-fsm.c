@@ -974,6 +974,9 @@ static void jesd204_fsm_handle_stop_state(struct jesd204_dev *jdev,
 	struct jesd204_fsm_table_entry_iter *it = fsm_data->cb_data;
 	int state_idx;
 
+	if (fsm_data->rollback)
+		return;
+
 	/* FSM states from DT start at offset 100 */
 	state_idx = it->table[0].state - JESD204_STATE_FSM_OFFSET;
 	if (state_idx < 0 || state_idx >= JESD204_FSM_STATES_NUM)
