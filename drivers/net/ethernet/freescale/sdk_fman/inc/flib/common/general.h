@@ -39,14 +39,9 @@
 #endif
 
 
-extern uint32_t get_mac_addr_crc(uint64_t _addr);
-
 #ifndef CONFIG_FMAN_ARM
 #define iowrite32be(val, addr)  WRITE_UINT32(*addr, val)
 #define ioread32be(addr)        GET_UINT32(*addr)
 #endif
-
-#define ether_crc(len, addr)    get_mac_addr_crc(*(uint64_t *)(addr)>>16)
-
 
 #endif /* __GENERAL_H */
