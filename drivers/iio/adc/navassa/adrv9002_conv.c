@@ -412,6 +412,7 @@ static int adrv9002_axi_pn_check(const struct axiadc_converter *conv, const int 
 	struct axiadc_state *st = iio_priv(conv->indio_dev);
 	int n_chan = conv->chip_info->num_channels, chan;
 	struct adrv9002_rf_phy *phy = conv->phy;
+	u32 reg;
 
 	/* reset result */
 	for (chan = 0; chan < n_chan; chan++)
@@ -431,8 +432,9 @@ static int adrv9002_axi_pn_check(const struct axiadc_converter *conv, const int 
 			continue;
 		}
 
-		if (axiadc_read(st, AIM_AXI_REG(off, ADI_REG_CHAN_STATUS(chan)))) {
-			dev_dbg(&phy->spi->dev, "pn error in c:%d\n", chan);
+		reg = axiadc_read(st, AIM_AXI_REG(off, ADI_REG_CHAN_STATUS(chan)));
+		if (reg) {
+			dev_dbg(&phy->spi->dev, "pn error in c:%d, reg: %02X\n", chan, reg);
 			return 1;
 		}
 	}
