@@ -131,4 +131,34 @@ hsio_subsys: bus@5f000000 {
 		local-addr = <0x80000000>;
 		status = "disabled";
 	};
+
+	pcieb_ep: pcie_ep@0x5f010000 {
+		compatible = "fsl,imx8qxp-pcie-ep";
+		reg = <0x5f010000 0x00010000>,
+		      <0x5f080000 0xf0000>, /* lpcg, csr, msic, gpio */
+		      <0x70000000 0x10000000>;
+		reg-names = "regs", "hsio", "addr_space";
+		num-lanes = <1>;
+		interrupts = <GIC_SPI 104 IRQ_TYPE_LEVEL_HIGH>; /* eDMA */
+		interrupt-names = "dma";
+		clocks = <&pcieb_lpcg 0>,
+			 <&pcieb_lpcg 1>,
+			 <&pcieb_lpcg 2>,
+			 <&phyx1_lpcg 0>,
+			 <&phyx1_crr1_lpcg 0>,
+			 <&pcieb_crr3_lpcg 0>,
+			 <&misc_crr5_lpcg 0>;
+		clock-names = "pcie", "pcie_bus", "pcie_inbound_axi",
+			      "pcie_phy", "phy_per", "pcie_per", "misc_per";
+		power-domains = <&pd IMX_SC_R_PCIE_B>,
+				<&pd IMX_SC_R_SERDES_1>,
+				<&pd IMX_SC_R_HSIO_GPIO>;
+		power-domain-names = "pcie", "pcie_phy", "hsio_gpio";
+		fsl,max-link-speed = <3>;
+		hsio-cfg = <PCIEAX2PCIEBX1>;
+		local-addr = <0x80000000>;
+		num-ib-windows = <6>;
+		num-ob-windows = <6>;
+		status = "disabled";
+	};
 };
