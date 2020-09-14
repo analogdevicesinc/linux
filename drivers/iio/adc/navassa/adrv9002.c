@@ -198,8 +198,7 @@ int adrv9002_ssi_configure(struct adrv9002_rf_phy *phy)
 
 		/* the SSI settings should be done with the core in reset */
 		adrv9002_axi_interface_enable(phy, c, false);
-		if (phy->rx2tx2)
-			adrv9002_sync_gpio_toogle(phy);
+		adrv9002_sync_gpio_toogle(phy);
 
 		adrv9002_get_ssi_interface(phy, c, &ssi_intf, &n_lanes, &cmos_ddr);
 		ret = adrv9002_axi_interface_set(phy, n_lanes, ssi_intf, cmos_ddr, c);
