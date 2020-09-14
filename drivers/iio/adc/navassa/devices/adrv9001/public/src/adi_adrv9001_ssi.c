@@ -205,29 +205,34 @@ int32_t adi_adrv9001_Ssi_Tx_TestMode_Configure(adi_adrv9001_Device_t *device,
         baseAddress = ADRV9001_BF_TX2_CORE;
     }
 
-    /* FIXME: Add support to disable the debug test block for CMOS */
     if (ADI_ADRV9001_SSI_TYPE_CMOS == ssiType)
     {
-        ADI_EXPECT(adrv9001_NvsRegmapTx_CssiTxDebugMode_Set, device, baseAddress, 0x1);
-        /* Nothing to be configured for fixed pattern */
-        if (ADI_ADRV9001_SSI_TESTMODE_DATA_RAMP_NIBBLE == ssiTestModeConfig->testData)
+        ADI_EXPECT(adrv9001_NvsRegmapTx_CssiTxDebugStartRamp_Set, device, baseAddress, 0x0);
+        if (ADI_ADRV9001_SSI_TESTMODE_DATA_NORMAL == ssiTestModeConfig->testData)
         {
-            ADI_EXPECT(adrv9001_NvsRegmapTx_CssiTxDebugStartRamp_Set, device, baseAddress, 0x0);
-
-            ADI_EXPECT(adrv9001_NvsRegmapTx_CssiTxClearRampShiftError_Set, device, baseAddress, 0x0);
-            ADI_EXPECT(adrv9001_NvsRegmapTx_CssiTxClearRampShiftError_Set, device, baseAddress, 0x1);
-            ADI_EXPECT(adrv9001_NvsRegmapTx_CssiTxClearRampShiftError_Set, device, baseAddress, 0x0);
-
-            ADI_EXPECT(adrv9001_NvsRegmapTx_CssiTxFifoClear_Set, device, baseAddress, 0x0);
-            ADI_EXPECT(adrv9001_NvsRegmapTx_CssiTxFifoClear_Set, device, baseAddress, 0x1);
-            ADI_EXPECT(adrv9001_NvsRegmapTx_CssiTxFifoClear_Set, device, baseAddress, 0x0);
-
-            ADI_EXPECT(adrv9001_NvsRegmapTx_CssiTxClearStrobeAlignError_Set, device, baseAddress, 0x0);
-            ADI_EXPECT(adrv9001_NvsRegmapTx_CssiTxClearStrobeAlignError_Set, device, baseAddress, 0x1);
-            ADI_EXPECT(adrv9001_NvsRegmapTx_CssiTxClearStrobeAlignError_Set, device, baseAddress, 0x0);
-
-            ADI_EXPECT(adrv9001_NvsRegmapTx_CssiTxDebugStartRamp_Set, device, baseAddress, 0x1);
+            ADI_EXPECT(adrv9001_NvsRegmapTx_CssiTxDebugMode_Set, device, baseAddress, 0x0);
         }
+        else
+        {
+            ADI_EXPECT(adrv9001_NvsRegmapTx_CssiTxDebugMode_Set, device, baseAddress, 0x1);
+            /* Nothing to be configured for fixed pattern */
+            if (ADI_ADRV9001_SSI_TESTMODE_DATA_RAMP_NIBBLE == ssiTestModeConfig->testData)
+            {
+                ADI_EXPECT(adrv9001_NvsRegmapTx_CssiTxClearRampShiftError_Set, device, baseAddress, 0x0);
+                ADI_EXPECT(adrv9001_NvsRegmapTx_CssiTxClearRampShiftError_Set, device, baseAddress, 0x1);
+                ADI_EXPECT(adrv9001_NvsRegmapTx_CssiTxClearRampShiftError_Set, device, baseAddress, 0x0);
+
+                ADI_EXPECT(adrv9001_NvsRegmapTx_CssiTxFifoClear_Set, device, baseAddress, 0x0);
+                ADI_EXPECT(adrv9001_NvsRegmapTx_CssiTxFifoClear_Set, device, baseAddress, 0x1);
+                ADI_EXPECT(adrv9001_NvsRegmapTx_CssiTxFifoClear_Set, device, baseAddress, 0x0);
+
+                ADI_EXPECT(adrv9001_NvsRegmapTx_CssiTxClearStrobeAlignError_Set, device, baseAddress, 0x0);
+                ADI_EXPECT(adrv9001_NvsRegmapTx_CssiTxClearStrobeAlignError_Set, device, baseAddress, 0x1);
+                ADI_EXPECT(adrv9001_NvsRegmapTx_CssiTxClearStrobeAlignError_Set, device, baseAddress, 0x0);
+
+                ADI_EXPECT(adrv9001_NvsRegmapTx_CssiTxDebugStartRamp_Set, device, baseAddress, 0x1);
+            }
+	}
     }
     else /* LVDS */
     {
