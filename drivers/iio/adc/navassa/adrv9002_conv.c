@@ -448,8 +448,8 @@ static void adrv9002_axi_tx_test_pattern_set(const struct axiadc_converter *conv
 	int c, sel;
 
 	if (ssi_type == ADI_ADRV9001_SSI_TYPE_CMOS)
-		/* FIXME: custom pattern - Need support for RAMP */
-		sel = 9;
+		/* RAMP nibble */
+		sel = 10;
 	else
 		/* pn15 */
 		sel = 7;
@@ -482,8 +482,7 @@ static void adrv9002_axi_rx_test_pattern_pn_sel(const struct axiadc_converter *c
 	enum adc_pn_sel sel;
 
 	if (ssi_type == ADI_ADRV9001_SSI_TYPE_CMOS)
-		/* FIXME: custom pattern - Need support for RAMP */
-		sel = ADC_PN_OFF;
+		sel = ADC_PN_RAMP_NIBBLE;
 	else
 		sel = ADC_PN15;
 
