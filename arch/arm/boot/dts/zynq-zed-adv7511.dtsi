@@ -134,8 +134,6 @@
 			format = "spdif";
 			cpu {
 				sound-dai = <&axi_spdif_tx_0>;
-				frame-master;
-				bitclock-master;
 			};
 			codec {
 				sound-dai = <&adv7511>;
@@ -166,8 +164,6 @@
 			format = "i2s";
 			cpu {
 				sound-dai = <&axi_i2s_0>;
-				frame-master;
-				bitclock-master;
 			};
 			codec {
 				sound-dai = <&adau1761>;
