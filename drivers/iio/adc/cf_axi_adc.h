@@ -138,7 +138,9 @@ enum adc_pn_sel {
 	ADC_PN23 = 6,
 	ADC_PN31 = 7,
 	ADC_PN_CUSTOM = 9,
-	ADC_PN_OFF = 10,
+	ADC_PN_RAMP_NIBBLE = 10,
+	ADC_PN_RAMP_16 = 11,
+	ADC_PN_OFF = 12,
 };
 
 enum adc_data_sel {
