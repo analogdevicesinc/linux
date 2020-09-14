@@ -3204,15 +3204,5 @@ void adrv9002_cmos_default_set(void)
 	 * use the cmos default profile
 	 */
 	adrv9002_init = &adrv9002_init_cmos;
-	/*
-	 * FIXME: This is necessary for a proper spectrum. However, this
-	 * might be different for different profiles, so that we need to
-	 * dynamically compute the best parameters for the interface at runtime.
-	 * For that we need to make use of the test mode API and we need support
-	 * for ramp test patterns in cmos (the axi core only supports
-	 * prbs for now)
-	 */
-	adrv9001_radio_ctrl_init.ssiConfig.txClkDelay[0] = 0x7;
-	adrv9001_radio_ctrl_init.ssiConfig.txClkDelay[1] = 0x7;
 }
 EXPORT_SYMBOL(adrv9002_cmos_default_set);
