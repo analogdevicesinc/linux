@@ -64,19 +64,6 @@
 			#dma-cells = <1>;
 			interrupts = <0 59 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clkc 16>;
-
-			adi,channels {
-				#size-cells = <0>;
-				#address-cells = <1>;
-
-				dma-channel@0 {
-					reg = <0>;
-					adi,source-bus-width = <64>;
-					adi,source-bus-type = <0>;
-					adi,destination-bus-width = <64>;
-					adi,destination-bus-type = <1>;
-				};
-			};
 		};
 
 		hdmi_clock: axi-clkgen@79000000 {
