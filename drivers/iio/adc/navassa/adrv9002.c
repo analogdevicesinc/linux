@@ -2325,10 +2325,6 @@ static int adrv9002_intf_tuning_unlocked(struct adrv9002_rf_phy *phy)
 	adi_adrv9001_SsiType_e ssi_type = adrv9002_axi_ssi_type_get(phy);
 	int i;
 
-	/* FIXME: do not tune for CMOS for now */
-	if (ssi_type == ADI_ADRV9001_SSI_TYPE_CMOS)
-		return 0;
-
 	for (i = 0; i < ARRAY_SIZE(phy->rx_channels); i++) {
 		chan = &phy->rx_channels[i].channel;
 
