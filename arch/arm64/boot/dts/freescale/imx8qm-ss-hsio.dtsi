@@ -135,6 +135,40 @@
 		status = "disabled";
 	};
 
+	pciea_ep: pcie_ep@0x5f000000 {
+		compatible = "fsl,imx8qm-pcie-ep";
+		reg = <0x5f000000 0x00010000>,
+		      <0x5f080000 0xf0000>, /* lpcg, csr, msic, gpio */
+		      <0x60000000 0x10000000>;
+		reg-names = "regs", "hsio", "addr_space";
+		num-lanes = <1>;
+		interrupts = <GIC_SPI 72 IRQ_TYPE_LEVEL_HIGH>; /* eDMA */
+		interrupt-names = "dma";
+		/*
+		 * Set these clocks in default, then clocks should be
+		 * refined for exact hw design of imx8 pcie.
+		 */
+		clocks = <&pciea_lpcg 0>,
+			 <&pciea_lpcg 1>,
+			 <&pciea_lpcg 2>,
+			 <&phyx2_lpcg 0>,
+			 <&phyx2_crr0_lpcg 0>,
+			 <&pciea_crr2_lpcg 0>,
+			 <&misc_crr5_lpcg 0>;
+		clock-names = "pcie", "pcie_bus", "pcie_inbound_axi",
+			      "pcie_phy", "phy_per", "pcie_per", "misc_per";
+		power-domains = <&pd IMX_SC_R_PCIE_A>,
+				<&pd IMX_SC_R_SERDES_0>,
+				<&pd IMX_SC_R_HSIO_GPIO>;
+		power-domain-names = "pcie", "pcie_phy", "hsio_gpio";
+		fsl,max-link-speed = <3>;
+		hsio-cfg = <PCIEAX1PCIEBX1SATA>;
+		local-addr = <0x40000000>;
+		num-ib-windows = <6>;
+		num-ob-windows = <6>;
+		status = "disabled";
+	};
+
 	pcieb: pcie@0x5f010000 {
 		compatible = "fsl,imx8qm-pcie","snps,dw-pcie";
 		reg = <0x5f010000 0x10000>, /* Controller reg */

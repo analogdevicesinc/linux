@@ -1,0 +1,23 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2020 NXP
+ */
+
+/dts-v1/;
+
+#include "imx8qm-mek.dts"
+
+&pciea{
+	status = "disabled";
+};
+
+&pcieb{
+	status = "disabled";
+};
+
+&pciea_ep{
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_pciea>;
+	ext_osc = <1>;
+	status = "okay";
+};
