@@ -706,6 +706,33 @@ EXPORT_SYMBOL(adrv9002_axi_tx_test_pattern_cfg);
 
 #else  /* CONFIG_CF_AXI_ADC */
 
+int adrv9002_axi_interface_set(struct adrv9002_rf_phy *phy, const u8 n_lanes,
+			       const u8 ssi_intf, const bool cmos_ddr,
+			       const int channel)
+{
+	return -ENODEV;
+}
+EXPORT_SYMBOL(adrv9002_axi_interface_set);
+
+int adrv9002_axi_intf_tune(struct adrv9002_rf_phy *phy, const bool tx, const int chann,
+			   const adi_adrv9001_SsiType_e ssi_type, u8 *clk_delay, u8 *data_delay)
+{
+	return -ENODEV;
+}
+EXPORT_SYMBOL(adrv9002_axi_intf_tune);
+
+void adrv9002_axi_interface_enable(struct adrv9002_rf_phy *phy, const int chan, const bool en)
+{
+	return -ENODEV;
+}
+EXPORT_SYMBOL(adrv9002_axi_interface_enable);
+
+adi_adrv9001_SsiType_e adrv9002_axi_ssi_type_get(struct adrv9002_rf_phy *phy)
+{
+	return -ENODEV;
+}
+EXPORT_SYMBOL(adrv9002_axi_ssi_type_get);
+
 int adrv9002_axi_tx_test_pattern_cfg(struct adrv9002_rf_phy *phy, const int channel,
 				     const adi_adrv9001_SsiTestModeData_e data)
 {
