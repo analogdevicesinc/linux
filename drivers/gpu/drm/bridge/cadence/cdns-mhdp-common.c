@@ -445,8 +445,8 @@ int cdns_mhdp_set_host_cap(struct cdns_mhdp_device *mhdp)
 
 	msg[0] = drm_dp_link_rate_to_bw_code(mhdp->dp.rate);
 	msg[1] = mhdp->dp.num_lanes | SCRAMBLER_EN;
-	msg[2] = VOLTAGE_LEVEL_2;
-	msg[3] = PRE_EMPHASIS_LEVEL_3;
+	msg[2] = VOLTAGE_LEVEL_3;
+	msg[3] = PRE_EMPHASIS_LEVEL_2;
 	msg[4] = PTS1 | PTS2 | PTS3 | PTS4;
 	msg[5] = FAST_LT_NOT_SUPPORT;
 	msg[6] = mhdp->lane_mapping;
