@@ -27,6 +27,8 @@
 #include <linux/clk-provider.h>
 
 #include "adrv9002.h"
+#include "adi_adrv9001_rxSettings_types.h"
+#include "adi_adrv9001_ssi_types.h"
 
 #if IS_ENABLED(CONFIG_CF_AXI_ADC)
 #include "../cf_axi_adc.h"
