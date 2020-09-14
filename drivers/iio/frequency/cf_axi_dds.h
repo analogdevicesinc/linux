@@ -55,6 +55,8 @@ enum dds_data_select {
 	DATA_SEL_PN15,
 	DATA_SEL_LB,	/* loopback data (ADC) */
 	DATA_SEL_PNXX,	/* (Device specific) */
+	DATA_SEL_RAMP_NIBBLE,
+	DATA_SEL_RAMP_16,
 };
 
 
