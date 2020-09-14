@@ -20,10 +20,8 @@
 #include "adi_adrv9001_cals_types.h"
 #include "adi_adrv9001_radio_types.h"
 #include "adi_adrv9001_rx_gaincontrol_types.h"
+#include "adi_adrv9001_rxSettings_types.h"
 #include "adi_adrv9001_ssi_types.h"
-#ifdef CONFIG_DEBUG_FS
-#include "adi_adrv9001_ssi.h"
-#endif
 #include "adi_platform_types.h"
 
 #define ADRV_ADDRESS(port, chan)	((port) << 8 | (chan))

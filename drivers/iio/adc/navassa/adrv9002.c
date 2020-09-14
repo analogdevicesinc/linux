@@ -39,6 +39,8 @@
 #include "adi_adrv9001_rx.h"
 #include "adi_adrv9001_rx_types.h"
 #include "adi_adrv9001_rxSettings_types.h"
+#include "adi_adrv9001_ssi.h"
+#include "adi_adrv9001_ssi_types.h"
 #include "adi_adrv9001_types.h"
 #include "adi_adrv9001_tx.h"
 #include "adi_adrv9001_tx_types.h"
