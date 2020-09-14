@@ -427,7 +427,7 @@ static void hsw_fw_ready(struct sst_hsw *hsw, u32 header)
 	u32 offset;
 	u8 fw_info[IPC_MAX_MAILBOX_BYTES - 5 * sizeof(u32)];
 	char *tmp[5], *pinfo;
-	int i = 0;
+	int i;
 
 	offset = (header & 0x1FFFFFFF) << 3;
 
@@ -1507,7 +1507,7 @@ static int sst_hsw_dx_state_dump(struct sst_hsw *hsw)
 
 	ret = sst_dsp_dma_get_channel(sst, 0);
 	if (ret < 0) {
-		dev_err(hsw->dev, "error: cant allocate dma channel %d\n", ret);
+		dev_err(hsw->dev, "error: can't allocate dma channel %d\n", ret);
 		return ret;
 	}
 
@@ -1587,7 +1587,7 @@ int sst_hsw_dsp_load(struct sst_hsw *hsw)
 
 	ret = sst_dsp_dma_get_channel(dsp, 0);
 	if (ret < 0) {
-		dev_err(hsw->dev, "error: cant allocate dma channel %d\n", ret);
+		dev_err(hsw->dev, "error: can't allocate dma channel %d\n", ret);
 		return ret;
 	}
 
@@ -1616,7 +1616,7 @@ static int sst_hsw_dsp_restore(struct sst_hsw *hsw)
 
 	ret = sst_dsp_dma_get_channel(dsp, 0);
 	if (ret < 0) {
-		dev_err(hsw->dev, "error: cant allocate dma channel %d\n", ret);
+		dev_err(hsw->dev, "error: can't allocate dma channel %d\n", ret);
 		return ret;
 	}
 
@@ -1789,7 +1789,7 @@ int sst_hsw_store_param_line(struct sst_hsw *hsw, u8 *buf)
 
 int sst_hsw_load_param_line(struct sst_hsw *hsw, u8 *buf)
 {
-	u8 id = 0;
+	u8 id;
 
 	/* read the first matching line from param buffer */
 	while (hsw->param_idx_r < WAVES_PARAM_LINES) {
