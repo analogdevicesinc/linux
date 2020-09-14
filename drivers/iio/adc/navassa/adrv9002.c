@@ -2931,7 +2931,7 @@ static int adrv9002_ssi_rx_test_mode_set(void *arg, const u64 val)
 						     &rx->ssi_test);
 	mutex_unlock(&phy->lock);
 	if (ret)
-		adrv9002_dev_err(phy);
+		return adrv9002_dev_err(phy);
 
 	return 0;
 };
@@ -3065,7 +3065,7 @@ static int adrv9002_ssi_tx_test_mode_status_show(struct seq_file *s,
 							  &ssi_status);
 	mutex_unlock(&phy->lock);
 	if (ret)
-		adrv9002_dev_err(phy);
+		return adrv9002_dev_err(phy);
 
 	seq_printf(s, "dataError: %u\n", ssi_status.dataError);
 	seq_printf(s, "fifoFull: %u\n", ssi_status.fifoFull);
