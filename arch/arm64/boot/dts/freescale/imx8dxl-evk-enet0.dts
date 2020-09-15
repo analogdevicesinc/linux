@@ -1,0 +1,32 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2020 NXP
+ */
+
+/dts-v1/;
+
+#include "imx8dxl-evk.dts"
+
+&reg_fec1_sel {
+	status = "okay";
+};
+
+&reg_fec1_io {
+	status = "okay";
+};
+
+&eqos {
+	status = "disabled";
+};
+
+&fec1 {
+	status = "okay";
+};
+
+&max7322 {
+	status = "okay";
+};
+
+&usdhc2 {
+	status = "disabled";
+};

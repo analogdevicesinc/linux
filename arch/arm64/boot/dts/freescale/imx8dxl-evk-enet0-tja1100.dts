@@ -1,0 +1,60 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2020 NXP
+ */
+
+#include "imx8dxl-evk-enet0.dts"
+
+&ethphy1 {
+	status = "disabled";
+};
+
+&fec1 {
+	pinctrl-0 = <&pinctrl_fec1_rmii>;
+	clocks = <&enet0_lpcg 4>,
+		 <&enet0_lpcg 2>,
+		 <&clk IMX_SC_R_ENET_0 IMX_SC_C_DISABLE_50>,
+		 <&enet0_lpcg 0>,
+		 <&enet0_lpcg 1>;
+	phy-mode = "rmii";
+	phy-handle = <&ethphy2>;
+	status = "okay";
+
+	mdio {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		ethphy2: ethernet-phy@2 {
+			compatible = "ethernet-phy-ieee802.3-c22";
+			reg = <2>;
+			tja110x,refclk_in;
+		};
+	};
+};
+
+&iomuxc {
+	pinctrl_fec1_rmii: fec1rmiigrp {
+		fsl,pins = <
+			IMX8DXL_COMP_CTL_GPIO_1V8_3V3_ENET_ENETB0_PAD	0x000014a0
+			IMX8DXL_COMP_CTL_GPIO_1V8_3V3_ENET_ENETB1_PAD	0x000014a0
+			IMX8DXL_ENET0_MDC_CONN_ENET0_MDC			0x06000020
+			IMX8DXL_ENET0_MDIO_CONN_ENET0_MDIO			0x06000020
+			IMX8DXL_ENET0_RGMII_TXC_CONN_ENET0_RCLK50M_OUT		0x06000060
+			IMX8DXL_ENET0_RGMII_TX_CTL_CONN_ENET0_RGMII_TX_CTL	0x00000060
+			IMX8DXL_ENET0_RGMII_TXD0_CONN_ENET0_RGMII_TXD0		0x00000060
+			IMX8DXL_ENET0_RGMII_TXD1_CONN_ENET0_RGMII_TXD1		0x00000060
+			IMX8DXL_ENET0_RGMII_RX_CTL_CONN_ENET0_RGMII_RX_CTL	0x00000060
+			IMX8DXL_ENET0_RGMII_RXD0_CONN_ENET0_RGMII_RXD0		0x00000060
+			IMX8DXL_ENET0_RGMII_RXD1_CONN_ENET0_RGMII_RXD1		0x00000060
+			IMX8DXL_ENET0_RGMII_RXD2_CONN_ENET0_RMII_RX_ER		0x00000060
+		>;
+	};
+};
+
+&max7322 {
+	status = "disabled";
+};
+
+&reg_fec1_io {
+	status = "disabled";
+};
