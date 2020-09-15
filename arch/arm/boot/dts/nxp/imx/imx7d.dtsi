@@ -396,6 +396,32 @@
 		status = "disabled";
 	};
 
+	pcie_ep: pcie_ep@33800000 {
+		compatible = "fsl,imx7d-pcie-ep";
+		reg = <0x33800000 0x4000>, <0x40000000 0x10000000>;
+		reg-names = "regs", "addr_space";
+		num-lanes = <1>;
+		clocks = <&clks IMX7D_PCIE_CTRL_ROOT_CLK>,
+			 <&clks IMX7D_PLL_ENET_MAIN_100M_CLK>,
+			 <&clks IMX7D_PCIE_PHY_ROOT_CLK>;
+		clock-names = "pcie", "pcie_bus", "pcie_phy";
+		assigned-clocks = <&clks IMX7D_PCIE_CTRL_ROOT_SRC>,
+				  <&clks IMX7D_PCIE_PHY_ROOT_SRC>;
+		assigned-clock-parents = <&clks IMX7D_PLL_ENET_MAIN_250M_CLK>,
+					 <&clks IMX7D_PLL_ENET_MAIN_100M_CLK>;
+
+		fsl,max-link-speed = <2>;
+		power-domains = <&pgc_pcie_phy>;
+		resets = <&src IMX7_RESET_PCIEPHY>,
+			 <&src IMX7_RESET_PCIE_CTRL_APPS_EN>,
+			 <&src IMX7_RESET_PCIE_CTRL_APPS_TURNOFF>;
+		reset-names = "pciephy", "apps", "turnoff";
+		fsl,imx7d-pcie-phy = <&pcie_phy>;
+		num-ib-windows = <4>;
+		num-ob-windows = <4>;
+		status = "disabled";
+	};
+
 	rpmsg: rpmsg{
 		compatible = "fsl,imx7d-rpmsg";
 		/* up to now, the following channels are used in imx rpmsg
