@@ -245,6 +245,12 @@ config CLK_TWL6040
 	  McPDM. McPDM module is using the external bit clock on the McPDM bus
 	  as functional clock.
 
+config COMMON_CLK_AD9517
+	tristate "Clock driver for Analog Devices AD9517 Clock Generators"
+	help
+	  This driver supports the Analog Devices AD9517 family of clock
+	  generators.
+
 config COMMON_CLK_AXI_CLKGEN
 	tristate "AXI clkgen driver"
 	depends on ARCH_ZYNQ || MICROBLAZE || COMPILE_TEST
