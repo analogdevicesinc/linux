@@ -440,7 +440,7 @@ static irqreturn_t axi_jesd204_rx_irq_thread_fn(int irq, void *devid)
 {
 	struct axi_jesd204_rx *jesd = devid;
 
-	jesd204_sysref_async(jesd->jdev);
+	jesd204_sysref_async_force(jesd->jdev);
 
 	return IRQ_HANDLED;
 }
@@ -642,7 +642,7 @@ static void axi_jesd204_rx_watchdog(struct work_struct *work)
 			writel_relaxed(0x1, jesd->base + JESD204_RX_REG_LINK_DISABLE);
 			mdelay(100);
 			writel_relaxed(0x0, jesd->base + JESD204_RX_REG_LINK_DISABLE);
-			jesd204_sysref_async(jesd->jdev);
+			jesd204_sysref_async_force(jesd->jdev);
 		}
 	}
 
