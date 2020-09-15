@@ -113,6 +113,7 @@
 				compatible = "adi,ad5693r";
 				clock-frequency = <400000>;
 				reg = <0x4c>;
+				adi,vout-raw = <43254>;
 			};
 		};
 	};
