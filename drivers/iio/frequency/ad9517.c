@@ -26,47 +26,47 @@
 
 #define FIRMWARE	"ad9517.stp"
 
-#define AD_READ		(1 << 15)
-#define AD_WRITE		(0 << 15)
-#define AD_CNT(x)	(((x) - 1) << 13)
-#define AD_ADDR(x)	((x) & 0xFFF)
+#define AD9517_READ			(1 << 15)
+#define AD9517_WRITE			(0 << 15)
+#define AD9517_CNT(x)			(((x) - 1) << 13)
+#define AD9517_ADDR(x)			((x) & 0xFFF)
 
 /*
 * AD9517-X Registers
 */
-#define AD9517_SERCONF	0x00
-#define AD9517_PARTID	0x03
-#define AD9517_RB_CTL	0x04
-#define AD9517_PFD_CP	0x10
-#define AD9517_RCNT_L	0x11
-#define AD9517_RCNT_H	0x12
-#define AD9517_ACNT	0x13
-#define AD9517_BCNT_L	0x14
-#define AD9517_BCNT_H	0x15
-#define AD9517_PLL1	0x16
-#define AD9517_PLL2	0x17
-#define AD9517_PLL3	0x18
-#define AD9517_PLL4	0x19
-#define AD9517_PLL5	0x1A
-#define AD9517_PLL6	0x1B
-#define AD9517_PLL7	0x1C
-#define AD9517_PLL8	0x1D
-#define AD9517_PLL9	0x1E
-#define AD9517_PLL_RB	0x1F
+#define AD9517_SERCONF			0x00
+#define AD9517_PARTID			0x03
+#define AD9517_RB_CTL			0x04
+#define AD9517_PFD_CP			0x10
+#define AD9517_RCNT_L			0x11
+#define AD9517_RCNT_H			0x12
+#define AD9517_ACNT			0x13
+#define AD9517_BCNT_L			0x14
+#define AD9517_BCNT_H			0x15
+#define AD9517_PLL1			0x16
+#define AD9517_PLL2			0x17
+#define AD9517_PLL3			0x18
+#define AD9517_PLL4			0x19
+#define AD9517_PLL5			0x1A
+#define AD9517_PLL6			0x1B
+#define AD9517_PLL7			0x1C
+#define AD9517_PLL8			0x1D
+#define AD9517_PLL9			0x1E
+#define AD9517_PLL_RB			0x1F
 
 /* LVDS/CMOS delay registers */
-#define AD9517_OUT_DELAY_BP(x) (0xA0 + (x) * 3)
-#define AD9517_OUT_DELAY_FS(x) (0xA1 + (x) * 3)
-#define AD9517_OUT_DELAY_FR(x) (0xA2 + (x) * 3)
+#define AD9517_OUT_DELAY_BP(x)		(0xA0 + (x) * 3)
+#define AD9517_OUT_DELAY_FS(x)		(0xA1 + (x) * 3)
+#define AD9517_OUT_DELAY_FR(x)		(0xA2 + (x) * 3)
 
-#define AD9517_OUT_LVPECL(x) (0xF0 + (x))
+#define AD9517_OUT_LVPECL(x)		(0xF0 + (x))
 
-#define AD9517_OUT_CMOS(x) (0x140 + (x))
+#define AD9517_OUT_CMOS(x)		(0x140 + (x))
 
 /* LVPECL Channel Dividers */
-#define AD9517_PECLDIV_1(x) (0x190 + (x) * 3)
-#define AD9517_PECLDIV_2(x) (0x191 + (x) * 3)
-#define AD9517_PECLDIV_3(x) (0x192 + (x) * 3)
+#define AD9517_PECLDIV_1(x)		(0x190 + (x) * 3)
+#define AD9517_PECLDIV_2(x)		(0x191 + (x) * 3)
+#define AD9517_PECLDIV_3(x)		(0x192 + (x) * 3)
 
 /* LVDS/CMOS Channel Dividers */
 #define AD9517_CMOSDIV_1(x)		(0x199 + (x) * 5)
@@ -76,43 +76,43 @@
 #define AD9517_CMOSDIV_DCCOFF(x)	(0x19D + (x) * 5)
 
 /* VCO Divider and CLK Input */
-#define AD9517_VCO_DIVIDER	0x1E0
-#define AD9517_INPUT_CLKS	0x1E1
-#define AD9517_POWDOWN_SYNC	0x230
+#define AD9517_VCO_DIVIDER		0x1E0
+#define AD9517_INPUT_CLKS		0x1E1
+#define AD9517_POWDOWN_SYNC		0x230
 
 /* Update All Registers */
-#define AD9517_TRANSFER		0x232
+#define AD9517_TRANSFER			0x232
 
-#define AD9517_PLL3_VCO_CAL	(1 << 0)
-#define AD9517_TRANSFER_NOW	(1 << 0)
-#define AD9517_PLL1_BCNT_BP	(1 << 3)
-#define AD9517_VCO_DIVIDER_BP	(1 << 0)
-#define AD9517_VCO_DIVIDER_SEL	(1 << 1)
-#define AD9517_PECLDIV_VCO_SEL	(1 << 1)
-#define AD9517_PECLDIV_3_BP	(1 << 7)
-#define AD9517_CMOSDIV_BYPASS_2 (1 << 5)
-#define AD9517_CMOSDIV_BYPASS_1 (1 << 4)
-#define AD9517_SOFT_RESET	(0x24)
-#define AD9517_SDO_ACTIVE	(0x81)
-#define AD9517_LONG_INSTR	(0x18)
+#define AD9517_PLL3_VCO_CAL		BIT(0)
+#define AD9517_TRANSFER_NOW		BIT(0)
+#define AD9517_PLL1_BCNT_BP		BIT(3)
+#define AD9517_VCO_DIVIDER_BP		BIT(0)
+#define AD9517_VCO_DIVIDER_SEL		BIT(1)
+#define AD9517_PECLDIV_VCO_SEL		BIT(1)
+#define AD9517_PECLDIV_3_BP		BIT(7)
+#define AD9517_CMOSDIV_BYPASS_2		BIT(5)
+#define AD9517_CMOSDIV_BYPASS_1		BIT(4)
+#define AD9517_SOFT_RESET		0x24
+#define AD9517_SDO_ACTIVE		0x81
+#define AD9517_LONG_INSTR		0x18
 
-#define MAX_NUM_DIVIDERS 5
-#define MAX_NUM_OUTPUTS 10
+#define MAX_NUM_DIVIDERS		5
+#define MAX_NUM_OUTPUTS			10
 
 /*
  * The address field of the channel is used to identify the output type
  * (LVDS/CMOS or LVPECL) and the offset in the register map. The offset is
  * storeed in the lowerd 8 bits and the type in bit 9.
  */
-#define AD9517_ADDRESS_CHAN_TYPE_LVPECL 0x100
+#define AD9517_ADDRESS_CHAN_TYPE_LVPECL	0x100
 
-#define AD9517_ADDRESS_LVPECL(x) (AD9517_ADDRESS_CHAN_TYPE_LVPECL | (x))
-#define AD9517_ADDRESS_CMOS(x) (x)
+#define AD9517_ADDRESS_LVPECL(x)	(AD9517_ADDRESS_CHAN_TYPE_LVPECL | (x))
+#define AD9517_ADDRESS_CMOS(x)		(x)
 
-#define AD9517_ADDRESS_INDEX(x) ((x) & 0xff)
+#define AD9517_ADDRESS_INDEX(x)		((x) & 0xff)
 
 /* Two channels share one divider */
-#define AD9517_ADDRESS_DIVIDER_INDEX(x) (AD9517_ADDRESS_INDEX(x) / 2)
+#define AD9517_ADDRESS_DIVIDER_INDEX(x)	(AD9517_ADDRESS_INDEX(x) / 2)
 
 struct ad9517_platform_data {
 	unsigned long *regs;
@@ -185,7 +185,7 @@ static const unsigned char ad9517_default_regs[AD9517_TRANSFER+1] = {
 	[AD9517_VCO_DIVIDER] = 0x02,
 };
 
-#define IS_FD				(1 << 7)
+#define IS_FD				BIT(7)
 #define AD9517_PLL1_PRESCALER_MASK	0x7
 static const unsigned char to_prescaler[] = {
 	1 | IS_FD,
@@ -211,10 +211,9 @@ static int ad9517_read(struct spi_device *spi, unsigned reg)
 	int ret;
 	u16 cmd;
 
-	cmd = AD_READ | AD_CNT(1) | AD_ADDR(reg);
+	cmd = AD9517_READ | AD9517_CNT(1) | AD9517_ADDR(reg);
 	buf[0] = cmd >> 8;
 	buf[1] = cmd & 0xFF;
-
 
 	ret = spi_write_then_read(spi, &buf[0], 2, &buf[2], 1);
 	if (ret < 0)
@@ -230,7 +229,7 @@ static int ad9517_write(struct spi_device *spi,
 	int ret;
 	u16 cmd;
 
-	cmd = AD_WRITE | AD_CNT(1) | AD_ADDR(reg);
+	cmd = AD9517_WRITE | AD9517_CNT(1) | AD9517_ADDR(reg);
 	buf[0] = cmd >> 8;
 	buf[1] = cmd & 0xFF;
 	buf[2] = val;
