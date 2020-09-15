@@ -325,6 +325,32 @@ int jesd204_sysref_async(struct jesd204_dev *jdev)
 }
 EXPORT_SYMBOL(jesd204_sysref_async);
 
+int jesd204_sysref_async_force(struct jesd204_dev *jdev)
+{
+	struct jesd204_dev_top *jdev_top = jesd204_dev_get_topology_top_dev(jdev);
+	const struct jesd204_dev_data *dev_data;
+
+	if (!jdev_top)
+		return -EFAULT;
+
+	/* Primary SYSREF registered for this topology? */
+	if (jdev_top->jdev_sysref)
+		return jesd204_sysref_async(jdev);
+
+	/* No SYSREF registered for this topology */
+	if (!jdev_top->jdev_sysref_sec)
+		return 0;
+
+	if (!jdev_top->jdev_sysref_sec->dev_data)
+		return -EFAULT;
+
+	dev_data = jdev_top->jdev_sysref_sec->dev_data;
+
+	/* By now, this should have been validated to have sysref_cb() */
+	return dev_data->sysref_cb(jdev_top->jdev_sysref_sec);
+}
+EXPORT_SYMBOL(jesd204_sysref_async_force);
+
 bool jesd204_dev_is_top(struct jesd204_dev *jdev)
 {
 	return jdev && jdev->is_top;
@@ -517,7 +543,10 @@ static struct jesd204_dev *jesd204_dev_alloc(struct device_node *np)
 		}
 	}
 
-	jdev->is_sysref_provider = of_property_read_bool(np, "jesd204-sysref-provider");
+	jdev->is_sysref_provider = of_property_read_bool(np,
+		"jesd204-sysref-provider");
+	jdev->is_sec_sysref_provider = of_property_read_bool(np,
+		"jesd204-secondary-sysref-provider");
 
 	ret = jesd204_dev_init_stop_states(jdev, np);
 	if (ret)

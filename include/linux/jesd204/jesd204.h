@@ -277,6 +277,8 @@ int jesd204_link_get_device_clock(struct jesd204_link *lnk,
 
 int jesd204_sysref_async(struct jesd204_dev *jdev);
 
+int jesd204_sysref_async_force(struct jesd204_dev *jdev);
+
 bool jesd204_dev_is_top(struct jesd204_dev *jdev);
 
 bool jesd204_link_get_paused(const struct jesd204_link *lnk);
@@ -356,6 +358,11 @@ static inline int jesd204_link_get_device_clock(struct jesd204_link *lnk,
 }
 
 static inline int jesd204_sysref_async(struct jesd204_dev *jdev)
+{
+	return -ENOTSUPP;
+}
+
+static inline int jesd204_sysref_async_force(struct jesd204_dev *jdev)
 {
 	return -ENOTSUPP;
 }
