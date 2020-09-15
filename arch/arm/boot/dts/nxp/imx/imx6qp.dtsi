@@ -145,3 +145,7 @@
 &pcie {
 	compatible = "fsl,imx6qp-pcie";
 };
+
+&pcie_ep {
+	compatible = "fsl,imx6qp-pcie-ep";
+};
