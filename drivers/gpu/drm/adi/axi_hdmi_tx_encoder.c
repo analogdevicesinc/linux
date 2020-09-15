@@ -295,35 +295,28 @@ static const struct drm_encoder_helper_funcs axi_hdmi_tx_encoder_helper_funcs = 
 	.atomic_mode_set = axi_hdmi_tx_encoder_mode_set,
 };
 
-static void axi_hdmi_tx_encoder_destroy(struct drm_encoder *encoder)
-{
-	struct axi_hdmi_tx_encoder *axi_hdmi_tx_encoder =
-		to_axi_hdmi_tx_encoder(encoder);
-
-	drm_encoder_cleanup(encoder);
-	kfree(axi_hdmi_tx_encoder);
-}
-
 static const struct drm_encoder_funcs axi_hdmi_tx_encoder_funcs = {
-	.destroy = axi_hdmi_tx_encoder_destroy,
+	.destroy = drm_encoder_cleanup,
 };
 
-struct drm_encoder *axi_hdmi_tx_encoder_create(struct drm_device *dev)
+struct drm_encoder *axi_hdmi_tx_encoder_create(struct drm_device *ddev,
+					       struct device *parent)
 {
-	struct drm_encoder *encoder;
+	struct axi_hdmi_tx_private *priv = ddev->dev_private;
 	struct axi_hdmi_tx_encoder *axi_hdmi_tx_encoder;
-	struct axi_hdmi_tx_private *priv = dev->dev_private;
+	struct drm_encoder *encoder;
 	struct drm_bridge *bridge;
 	int ret;
 
-	axi_hdmi_tx_encoder = kzalloc(sizeof(*axi_hdmi_tx_encoder), GFP_KERNEL);
+	axi_hdmi_tx_encoder = devm_kzalloc(parent, sizeof(*axi_hdmi_tx_encoder),
+					   GFP_KERNEL);
 	if (!axi_hdmi_tx_encoder)
 		return ERR_PTR(-ENOMEM);
 
 	encoder = &axi_hdmi_tx_encoder->encoder.base;
 	encoder->possible_crtcs = 1;
 
-	drm_encoder_init(dev, encoder, &axi_hdmi_tx_encoder_funcs,
+	drm_encoder_init(ddev, encoder, &axi_hdmi_tx_encoder_funcs,
 			 DRM_MODE_ENCODER_TMDS, NULL);
 	drm_encoder_helper_add(encoder, &axi_hdmi_tx_encoder_helper_funcs);
 

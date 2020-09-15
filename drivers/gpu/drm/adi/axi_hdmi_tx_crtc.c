@@ -137,17 +137,8 @@ static const struct drm_crtc_helper_funcs axi_hdmi_tx_crtc_helper_funcs = {
 	.atomic_begin = axi_hdmi_tx_crtc_atomic_begin,
 };
 
-static void axi_hdmi_tx_crtc_destroy(struct drm_crtc *crtc)
-{
-	struct axi_hdmi_tx_crtc *axi_hdmi_tx_crtc = to_axi_hdmi_tx_crtc(crtc);
-
-	drm_crtc_cleanup(crtc);
-	kfree(axi_hdmi_tx_crtc->dma_template);
-	kfree(axi_hdmi_tx_crtc);
-}
-
 static const struct drm_crtc_funcs axi_hdmi_tx_crtc_funcs = {
-	.destroy = axi_hdmi_tx_crtc_destroy,
+	.destroy = drm_crtc_cleanup,
 	.set_config = drm_atomic_helper_set_config,
 	.page_flip = drm_atomic_helper_page_flip,
 	.reset = drm_atomic_helper_crtc_reset,
@@ -159,15 +150,10 @@ static const struct drm_plane_helper_funcs axi_hdmi_tx_plane_helper_funcs = {
 	.atomic_update = axi_hdmi_tx_plane_atomic_update,
 };
 
-static void axi_hdmi_tx_plane_destroy(struct drm_plane *plane)
-{
-	drm_plane_cleanup(plane);
-}
-
 static const struct drm_plane_funcs axi_hdmi_tx_plane_funcs = {
 	.update_plane = drm_atomic_helper_update_plane,
 	.disable_plane = drm_atomic_helper_disable_plane,
-	.destroy = axi_hdmi_tx_plane_destroy,
+	.destroy = drm_plane_cleanup,
 	.reset = drm_atomic_helper_plane_reset,
 	.atomic_duplicate_state = drm_atomic_helper_plane_duplicate_state,
 	.atomic_destroy_state = drm_atomic_helper_plane_destroy_state,
@@ -177,9 +163,10 @@ static const u32 axi_hdmi_tx_supported_formats[] = {
 	DRM_FORMAT_XRGB8888,
 };
 
-struct drm_crtc *axi_hdmi_tx_crtc_create(struct drm_device *dev)
+struct drm_crtc *axi_hdmi_tx_crtc_create(struct drm_device *ddev,
+					 struct device *parent)
 {
-	struct axi_hdmi_tx_private *p = dev->dev_private;
+	struct axi_hdmi_tx_private *p = ddev->dev_private;
 	struct axi_hdmi_tx_crtc *axi_hdmi_tx_crtc;
 	struct drm_crtc *crtc;
 	struct drm_plane *plane;
@@ -190,7 +177,8 @@ struct drm_crtc *axi_hdmi_tx_crtc_create(struct drm_device *dev)
 		return ERR_PTR(-EINVAL);
 	}
 
-	axi_hdmi_tx_crtc = kzalloc(sizeof(*axi_hdmi_tx_crtc), GFP_KERNEL);
+	axi_hdmi_tx_crtc = devm_kzalloc(parent, sizeof(*axi_hdmi_tx_crtc),
+					GFP_KERNEL);
 	if (!axi_hdmi_tx_crtc)
 		return ERR_PTR(-ENOMEM);
 
@@ -198,26 +186,25 @@ struct drm_crtc *axi_hdmi_tx_crtc_create(struct drm_device *dev)
 	plane = &axi_hdmi_tx_crtc->plane;
 
 	/* we know we'll always use only one data chunk */
-	axi_hdmi_tx_crtc->dma_template = kzalloc(
+	axi_hdmi_tx_crtc->dma_template = devm_kzalloc(parent,
 		sizeof(struct dma_interleaved_template) +
 		sizeof(struct data_chunk), GFP_KERNEL);
-	if (!axi_hdmi_tx_crtc->dma_template) {
-		ret = -ENOMEM;
-		goto err_free_crtc;
-	}
+	if (!axi_hdmi_tx_crtc->dma_template)
+		return ERR_PTR(-ENOMEM);
 
-	ret = drm_universal_plane_init(dev, plane, 0xff, &axi_hdmi_tx_plane_funcs,
+	ret = drm_universal_plane_init(ddev, plane, 0xff,
+		&axi_hdmi_tx_plane_funcs,
 		axi_hdmi_tx_supported_formats,
 		ARRAY_SIZE(axi_hdmi_tx_supported_formats), NULL,
 		DRM_PLANE_TYPE_PRIMARY, NULL);
 	if (ret)
-		goto err_free_dma_template;
+		return ERR_PTR(ret);
 
 	drm_plane_helper_add(plane, &axi_hdmi_tx_plane_helper_funcs);
 
 	axi_hdmi_tx_crtc->dma = p->dma;
 
-	ret = drm_crtc_init_with_planes(dev, crtc, plane, NULL,
+	ret = drm_crtc_init_with_planes(ddev, crtc, plane, NULL,
 		&axi_hdmi_tx_crtc_funcs, NULL);
 	if (ret)
 		goto err_plane_destroy;
@@ -226,11 +213,7 @@ struct drm_crtc *axi_hdmi_tx_crtc_create(struct drm_device *dev)
 	return crtc;
 
 err_plane_destroy:
-	axi_hdmi_tx_plane_destroy(plane);
-err_free_dma_template:
-	kfree(axi_hdmi_tx_crtc->dma_template);
-err_free_crtc:
-	kfree(axi_hdmi_tx_crtc);
+	drm_plane_cleanup(plane);
 
 	return ERR_PTR(ret);
 }

@@ -70,17 +70,13 @@ static int axi_hdmi_tx_init(struct drm_driver *ddrv, struct device *dev)
 
 	axi_hdmi_tx_mode_config_init(ddev);
 
-	private->crtc = axi_hdmi_tx_crtc_create(ddev);
-	if (IS_ERR(private->crtc)) {
-		ret = PTR_ERR(private->crtc);
+	private->crtc = axi_hdmi_tx_crtc_create(ddev, dev);
+	if (IS_ERR(private->crtc))
 		goto err_crtc;
-	}
 
-	encoder = axi_hdmi_tx_encoder_create(ddev);
-	if (IS_ERR(encoder)) {
-		ret = PTR_ERR(encoder);
+	encoder = axi_hdmi_tx_encoder_create(ddev, dev);
+	if (IS_ERR(encoder))
 		goto err_crtc;
-	}
 
 	drm_mode_config_reset(ddev);
 

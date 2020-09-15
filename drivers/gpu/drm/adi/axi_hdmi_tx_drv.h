@@ -37,7 +37,9 @@ struct axi_hdmi_tx_private {
 	bool is_rgb;
 };
 
-struct drm_crtc *axi_hdmi_tx_crtc_create(struct drm_device *dev);
-struct drm_encoder *axi_hdmi_tx_encoder_create(struct drm_device *dev);
+struct drm_crtc *axi_hdmi_tx_crtc_create(struct drm_device *ddev,
+					 struct device *parent);
+struct drm_encoder *axi_hdmi_tx_encoder_create(struct drm_device *ddev,
+					       struct device *parent);
 
 #endif
