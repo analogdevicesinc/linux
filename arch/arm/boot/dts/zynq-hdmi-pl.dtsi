@@ -41,7 +41,7 @@
 			clock-names = "clkin1";
 		};
 
-		axi_hdmi@70e00000 {
+		axi_hdmi_tx: axi_hdmi@70e00000 {
 			compatible = "adi,axi-hdmi-tx-1.00.a";
 			reg = <0x70e00000 0x10000>;
 			dmas = <&hdmi_dma 0>;
