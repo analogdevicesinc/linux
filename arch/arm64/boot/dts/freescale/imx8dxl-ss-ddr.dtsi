@@ -35,6 +35,5 @@
 		clock-output-names = "perf_lpcg_cnt_clk",
 				     "perf_lpcg_ipg_clk";
 		power-domains = <&pd IMX_SC_R_PERF>;
-		status = "disabled";
 	};
 };
