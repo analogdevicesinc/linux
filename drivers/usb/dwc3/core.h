@@ -1007,6 +1007,7 @@ struct dwc3_scratchpad_array {
 };
 
 struct dwc3_platform_data {
+	void	(*set_role_post)(struct dwc3 *dwc, u32 role);
 };
 
 /**
