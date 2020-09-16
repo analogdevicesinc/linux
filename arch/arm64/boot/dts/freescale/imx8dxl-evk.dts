@@ -94,12 +94,31 @@
 		#reset-cells = <0>;
 	};
 
+	epdev_on: fixedregulator@100 {
+		compatible = "regulator-fixed";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		regulator-name = "epdev_on";
+		gpio = <&pca6416_1 13 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+	};
+
 	mux3_en: regulator-0 {
 		compatible = "regulator-fixed";
 		regulator-min-microvolt = <3300000>;
 		regulator-max-microvolt = <3300000>;
 		regulator-name = "mux3_en";
 		gpio = <&pca6416_2 8 GPIO_ACTIVE_LOW>;
+		regulator-always-on;
+	};
+
+	pcie_clk_sel_ext: fixedregulator@103 {
+		compatible = "regulator-fixed";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		regulator-name = "clk_ext_sel";
+		gpio = <&pca6416_1 10 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
 		regulator-always-on;
 	};
 
@@ -422,6 +441,17 @@
 	status = "okay";
 };
 
+&pcieb{
+	compatible = "fsl,imx8qxp-pcie","snps,dw-pcie";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_pcieb>;
+	clkreq-gpio = <&lsio_gpio4 1 GPIO_ACTIVE_LOW>;
+	reset-gpio = <&lsio_gpio4 0 GPIO_ACTIVE_LOW>;
+	ext_osc = <0>;
+	epdev_on-supply = <&epdev_on>;
+	status = "okay";
+};
+
 &thermal_zones {
 	pmic-thermal {
 		polling-delay-passive = <250>;
@@ -666,6 +696,14 @@
 			IMX8DXL_UART1_RX_ADMA_UART1_RX          0x06000020
 			IMX8DXL_UART1_RTS_B_ADMA_UART1_RTS_B    0x06000020
 			IMX8DXL_UART1_CTS_B_ADMA_UART1_CTS_B    0x06000020
+		>;
+	};
+
+	pinctrl_pcieb: pcieagrp{
+		fsl,pins = <
+			IMX8DXL_PCIE_CTRL0_PERST_B_LSIO_GPIO4_IO00	0x06000021
+			IMX8DXL_PCIE_CTRL0_CLKREQ_B_LSIO_GPIO4_IO01	0x06000021
+			IMX8DXL_PCIE_CTRL0_WAKE_B_LSIO_GPIO4_IO02	0x04000021
 		>;
 	};
 
