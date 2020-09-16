@@ -463,6 +463,7 @@
 			compatible = "usb-c-connector";
 			label = "USB-C";
 			power-role = "dual";
+			data-role = "dual";
 			try-power-role = "sink";
 			source-pdos = <PDO_FIXED(5000, 3000, PDO_FIXED_USB_COMM)>;
 			sink-pdos = <PDO_FIXED(5000, 3000, PDO_FIXED_USB_COMM)
