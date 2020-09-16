@@ -452,6 +452,14 @@
 	status = "okay";
 };
 
+&pcieb_ep{
+	compatible = "fsl,imx8qxp-pcie-ep";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_pcieb>;
+	ext_osc = <0>;
+	status = "disabled";
+};
+
 &thermal_zones {
 	pmic-thermal {
 		polling-delay-passive = <250>;
