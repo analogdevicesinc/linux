@@ -750,6 +750,7 @@
 	srp-disable;
 	adp-disable;
 	usb-role-switch;
+	role-switch-default-mode = "none";
 	snps,dis-u1-entry-quirk;
 	snps,dis-u2-entry-quirk;
 	status = "okay";
