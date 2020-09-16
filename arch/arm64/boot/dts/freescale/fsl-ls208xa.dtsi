@@ -394,9 +394,9 @@
 			compatible = "arm,sp805", "arm,primecell";
 			reg = <0x0 0xc000000 0x0 0x1000>;
 			clocks = <&clockgen QORIQ_CLK_PLATFORM_PLL
-					    QORIQ_CLK_PLL_DIV(4)>,
+					    QORIQ_CLK_PLL_DIV(32)>,
 				 <&clockgen QORIQ_CLK_PLATFORM_PLL
-					    QORIQ_CLK_PLL_DIV(4)>;
+					    QORIQ_CLK_PLL_DIV(32)>;
 			clock-names = "wdog_clk", "apb_pclk";
 		};
 
@@ -404,9 +404,9 @@
 			compatible = "arm,sp805", "arm,primecell";
 			reg = <0x0 0xc010000 0x0 0x1000>;
 			clocks = <&clockgen QORIQ_CLK_PLATFORM_PLL
-					    QORIQ_CLK_PLL_DIV(4)>,
+					    QORIQ_CLK_PLL_DIV(32)>,
 				 <&clockgen QORIQ_CLK_PLATFORM_PLL
-					    QORIQ_CLK_PLL_DIV(4)>;
+					    QORIQ_CLK_PLL_DIV(32)>;
 			clock-names = "wdog_clk", "apb_pclk";
 		};
 
@@ -414,9 +414,9 @@
 			compatible = "arm,sp805", "arm,primecell";
 			reg = <0x0 0xc100000 0x0 0x1000>;
 			clocks = <&clockgen QORIQ_CLK_PLATFORM_PLL
-					    QORIQ_CLK_PLL_DIV(4)>,
+					    QORIQ_CLK_PLL_DIV(32)>,
 				 <&clockgen QORIQ_CLK_PLATFORM_PLL
-					    QORIQ_CLK_PLL_DIV(4)>;
+					    QORIQ_CLK_PLL_DIV(32)>;
 			clock-names = "wdog_clk", "apb_pclk";
 		};
 
@@ -424,9 +424,9 @@
 			compatible = "arm,sp805", "arm,primecell";
 			reg = <0x0 0xc110000 0x0 0x1000>;
 			clocks = <&clockgen QORIQ_CLK_PLATFORM_PLL
-					    QORIQ_CLK_PLL_DIV(4)>,
+					    QORIQ_CLK_PLL_DIV(32)>,
 				 <&clockgen QORIQ_CLK_PLATFORM_PLL
-					    QORIQ_CLK_PLL_DIV(4)>;
+					    QORIQ_CLK_PLL_DIV(32)>;
 			clock-names = "wdog_clk", "apb_pclk";
 		};
 
@@ -434,9 +434,9 @@
 			compatible = "arm,sp805", "arm,primecell";
 			reg = <0x0 0xc200000 0x0 0x1000>;
 			clocks = <&clockgen QORIQ_CLK_PLATFORM_PLL
-					    QORIQ_CLK_PLL_DIV(4)>,
+					    QORIQ_CLK_PLL_DIV(32)>,
 				 <&clockgen QORIQ_CLK_PLATFORM_PLL
-					    QORIQ_CLK_PLL_DIV(4)>;
+					    QORIQ_CLK_PLL_DIV(32)>;
 			clock-names = "wdog_clk", "apb_pclk";
 		};
 
@@ -444,9 +444,9 @@
 			compatible = "arm,sp805", "arm,primecell";
 			reg = <0x0 0xc210000 0x0 0x1000>;
 			clocks = <&clockgen QORIQ_CLK_PLATFORM_PLL
-					    QORIQ_CLK_PLL_DIV(4)>,
+					    QORIQ_CLK_PLL_DIV(32)>,
 				 <&clockgen QORIQ_CLK_PLATFORM_PLL
-					    QORIQ_CLK_PLL_DIV(4)>;
+					    QORIQ_CLK_PLL_DIV(32)>;
 			clock-names = "wdog_clk", "apb_pclk";
 		};
 
@@ -454,9 +454,9 @@
 			compatible = "arm,sp805", "arm,primecell";
 			reg = <0x0 0xc300000 0x0 0x1000>;
 			clocks = <&clockgen QORIQ_CLK_PLATFORM_PLL
-					    QORIQ_CLK_PLL_DIV(4)>,
+					    QORIQ_CLK_PLL_DIV(32)>,
 				 <&clockgen QORIQ_CLK_PLATFORM_PLL
-					    QORIQ_CLK_PLL_DIV(4)>;
+					    QORIQ_CLK_PLL_DIV(32)>;
 			clock-names = "wdog_clk", "apb_pclk";
 		};
 
@@ -464,9 +464,9 @@
 			compatible = "arm,sp805", "arm,primecell";
 			reg = <0x0 0xc310000 0x0 0x1000>;
 			clocks = <&clockgen QORIQ_CLK_PLATFORM_PLL
-					    QORIQ_CLK_PLL_DIV(4)>,
+					    QORIQ_CLK_PLL_DIV(32)>,
 				 <&clockgen QORIQ_CLK_PLATFORM_PLL
-					    QORIQ_CLK_PLL_DIV(4)>;
+					    QORIQ_CLK_PLL_DIV(32)>;
 			clock-names = "wdog_clk", "apb_pclk";
 		};
 
