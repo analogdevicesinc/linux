@@ -126,6 +126,7 @@ dtb-$(CONFIG_SOC_IMX6Q) += \
 	imx6dl-sabresd-btwifi.dtb \
 	imx6dl-sabresd-hdcp.dtb \
 	imx6dl-sabresd-enetirq.dtb \
+	imx6dl-sabresd-pcie.dtb \
 	imx6dl-sabresd-pcie-ep.dtb \
 	imx6dl-savageboard.dtb \
 	imx6dl-sielaff.dtb \
@@ -243,6 +244,7 @@ dtb-$(CONFIG_SOC_IMX6Q) += \
 	imx6q-sabresd-hdcp.dtb \
 	imx6q-sabresd-uart.dtb \
 	imx6q-sabresd-enetirq.dtb \
+	imx6q-sabresd-pcie.dtb \
 	imx6q-sabresd-pcie-ep.dtb \
 	imx6q-savageboard.dtb \
 	imx6q-sbc6x.dtb \
