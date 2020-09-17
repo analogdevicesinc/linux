@@ -576,17 +576,16 @@ int ad5686_probe(struct device *dev,
 
 	/* PWM configuration */
 	st->pwm = devm_pwm_get(dev, "pwm-trigger");
-	if (IS_ERR(st->pwm))
-		return PTR_ERR(st->pwm);
-
-	/* Set a default pwm frequency of 1kHz and 50% duty cycle */
-	pwm_init_state(st->pwm, &state);
-	state.enabled = false;
-	state.period = 1000000;
-	pwm_set_relative_duty_cycle(&state, 50, 100);
-	ret = pwm_apply_state(st->pwm, &state);
-	if (ret < 0)
-		return ret;
+	if (!IS_ERR(st->pwm)) {
+		/* Set a default pwm frequency of 1kHz and 50% duty cycle */
+		pwm_init_state(st->pwm, &state);
+		state.enabled = false;
+		state.period = 1000000;
+		pwm_set_relative_duty_cycle(&state, 50, 100);
+		ret = pwm_apply_state(st->pwm, &state);
+		if (ret < 0)
+			return ret;
+	}
 
 	/* Configure IRQ */
 	if (irq) {
