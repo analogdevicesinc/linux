@@ -62,8 +62,7 @@ static int imx_irqsteer_attach_pd(struct irqsteer_data *data)
 
 	link = device_link_add(dev, data->pd_csi,
 			DL_FLAG_STATELESS |
-			DL_FLAG_PM_RUNTIME |
-			DL_FLAG_RPM_ACTIVE);
+			DL_FLAG_PM_RUNTIME);
 	if (IS_ERR(link))
 		return PTR_ERR(link);
 
@@ -75,8 +74,7 @@ static int imx_irqsteer_attach_pd(struct irqsteer_data *data)
 
 	link = device_link_add(dev, data->pd_isi,
 			DL_FLAG_STATELESS |
-			DL_FLAG_PM_RUNTIME |
-			DL_FLAG_RPM_ACTIVE);
+			DL_FLAG_PM_RUNTIME);
 	if (IS_ERR(link))
 		return PTR_ERR(link);
 
