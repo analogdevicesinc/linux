@@ -154,6 +154,8 @@
 struct cf_axi_tdd_state {
 	struct iio_info		iio_info;
 	void __iomem		*regs;
+	/* TDD core access locking */
+	struct mutex		lock;
 	unsigned			version;
 	unsigned			enable;
 	unsigned			mode;
@@ -219,7 +221,7 @@ static ssize_t cf_axi_tdd_store(struct device *dev,
 	unsigned long readin;
 	int ret = 0;
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&st->lock);
 	switch ((u32)this_attr->address) {
 	case CF_AXI_TDD_ENABLE:
 		ret = strtobool(buf, &state);
@@ -275,7 +277,7 @@ static ssize_t cf_axi_tdd_store(struct device *dev,
 	default:
 		ret = -ENODEV;
 	}
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&st->lock);
 
 	return ret ? ret : len;
 }
@@ -289,7 +291,7 @@ static ssize_t cf_axi_tdd_show(struct device *dev,
 	struct cf_axi_tdd_state *st = iio_priv(indio_dev);
 	int ret;
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&st->lock);
 	switch ((u32)this_attr->address) {
 	case CF_AXI_TDD_ENABLE:
 		ret = sprintf(buf, "%d\n", st->enable);
@@ -324,7 +326,7 @@ static ssize_t cf_axi_tdd_show(struct device *dev,
 	default:
 		ret = -ENODEV;
 	}
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&st->lock);
 
 	return ret;
 }
@@ -380,7 +382,7 @@ static int cf_axi_tdd_reg_access(struct iio_dev *indio_dev,
 	struct cf_axi_tdd_state *st = iio_priv(indio_dev);
 	int ret;
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&st->lock);
 	if (readval == NULL) {
 		tdd_write(st, reg & 0xFFFF, writeval);
 		ret = 0;
@@ -390,7 +392,7 @@ static int cf_axi_tdd_reg_access(struct iio_dev *indio_dev,
 		ret = 0;
 	}
 
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&st->lock);
 
 	return ret;
 }
@@ -451,6 +453,7 @@ static int cf_axi_tdd_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
+	mutex_init(&st->lock);
 	indio_dev->dev.parent = &pdev->dev;
 	indio_dev->name = np->name;
 	indio_dev->modes = INDIO_DIRECT_MODE;
