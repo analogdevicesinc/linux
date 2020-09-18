@@ -1511,6 +1511,19 @@ static int ad9081_setup(struct spi_device *spi)
 	if (ret != 0)
 		return ret;
 
+	if (conv->id == CHIPID_AD9081) {
+		/* Fix: 4x4 Crossbar Mux0 Mappings for AD9081 */
+		ret  = adi_ad9081_adc_pfir_din_select_set(&phy->ad9081,
+			AD9081_ADC_PFIR_ADC_PAIR0, 0, 1);
+		if (ret != 0)
+			return ret;
+
+		ret  = adi_ad9081_adc_pfir_din_select_set(&phy->ad9081,
+			AD9081_ADC_PFIR_ADC_PAIR1, 3, 0);
+		if (ret != 0)
+			return ret;
+	}
+
 	/* setup txfe dac channel gain */
 	ret = adi_ad9081_dac_duc_nco_gains_set(&phy->ad9081,
 					       phy->dac_cache.chan_gain);
