@@ -12,40 +12,6 @@
 
 #include "zynqmp-zcu102-rev10-ad9081.dts"
 
-
-&axi_ad9081_rx_jesd {
-	adi,octets-per-frame = <4>;
-};
-
-&axi_ad9081_tx_jesd {
-	adi,octets-per-frame = <4>;
-	adi,converters-per-device = <8>;
-};
-
-&rx_dma {
-	adi,channels {
-		dma-channel@0 {
-			reg = <0>;
-			adi,source-bus-width = <128>; /* Needs to be 32 * JESD_L */
-			adi,source-bus-type = <2>;
-			adi,destination-bus-width = <128>;  /* Needs to be 32 * JESD_L */
-			adi,destination-bus-type = <0>;
-		};
-	};
-};
-
-&tx_dma {
-	adi,channels {
-		dma-channel@0 {
-			reg = <0>;
-			adi,source-bus-width = <128>; /* Needs to be 32 * JESD_L */
-			adi,source-bus-type = <0>;
-			adi,destination-bus-width = <128>; /* Needs to be 32 * JESD_L */
-			adi,destination-bus-type = <2>;
-		};
-	};
-};
-
 &spi1 {
 	status = "okay";
 
@@ -56,6 +22,12 @@
 		compatible = "adi,hmc7044";
 		reg = <0>;
 		spi-max-frequency = <1000000>;
+
+		jesd204-device;
+		#jesd204-cells = <2>;
+		jesd204-sysref-provider;
+
+		adi,jesd204-max-sysref-frequency-hz = <2000000>; /* 2 MHz */
 
 		adi,pll1-clkin-frequencies = <122880000 30720000 0 0>;
 
@@ -149,15 +121,20 @@
 		spi-max-frequency = <5000000>;
 
 		/* Clocks */
-		clocks = <&axi_ad9081_rx_jesd>, <&axi_ad9081_tx_jesd>,
-			<&hmc7044 2>, <&hmc7044 6>, <&hmc7044 3>, <&hmc7044 13>;
-
-		clock-names = "jesd_rx_clk", "jesd_tx_clk",
-			"dev_clk", "fmc_clk", "sysref_dev_clk",
-			"sysref_fmc_clk";
+		clocks = <&hmc7044 2>;
+		clock-names = "dev_clk";
 
 		clock-output-names = "rx_sampl_clk", "tx_sampl_clk";
 		#clock-cells = <1>;
+
+		jesd204-device;
+		#jesd204-cells = <2>;
+		jesd204-top-device = <0>; /* This is the TOP device */
+		jesd204-link-ids = <FRAMER_LINK0_RX DEFRAMER_LINK0_TX>;
+
+		jesd204-inputs =
+			<&axi_ad9081_core_rx 0 FRAMER_LINK0_RX>,
+			<&axi_ad9081_core_tx 0 DEFRAMER_LINK0_TX>;
 
 		adi,tx-dacs {
 			#size-cells = <0>;
