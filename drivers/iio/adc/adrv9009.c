@@ -5976,7 +5976,7 @@ static const struct jesd204_dev_data jesd204_adrv9009_init = {
 		},
 	},
 
-	.num_links = 3,
+	.max_num_links = 3,
 	.sizeof_priv = sizeof(struct adrv9009_jesd204_priv),
 };
 
@@ -6032,7 +6032,7 @@ static const struct jesd204_dev_data jesd204_adrv90081_init = {
 		},
 	},
 
-	.num_links = 1,
+	.max_num_links = 1,
 	.sizeof_priv = sizeof(struct adrv9009_jesd204_priv),
 };
 
@@ -6088,7 +6088,7 @@ static const struct jesd204_dev_data jesd204_adrv90082_init = {
 		},
 	},
 
-	.num_links = 2,
+	.max_num_links = 2,
 	.sizeof_priv = sizeof(struct adrv9009_jesd204_priv),
 };
 
