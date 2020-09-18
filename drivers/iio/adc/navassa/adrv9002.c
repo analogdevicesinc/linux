@@ -3018,7 +3018,8 @@ DEFINE_DEBUGFS_ATTRIBUTE(adrv9002_init_fops,
 static int adrv9002_ssi_tx_test_mode_set(void *arg, const u64 val)
 {
 	struct adrv9002_tx_chan	*tx = arg;
-	struct adrv9002_rf_phy *phy = tx_to_phy(tx, tx->channel.number - 1);
+	const int channel_idx = tx->channel.number - 1;
+	struct adrv9002_rf_phy *phy = tx_to_phy(tx, channel_idx);
 	adi_adrv9001_SsiType_e ssi_type = adrv9002_axi_ssi_type_get(phy);
 	int ret;
 
@@ -3026,15 +3027,20 @@ static int adrv9002_ssi_tx_test_mode_set(void *arg, const u64 val)
 		return -ENODEV;
 
 	mutex_lock(&phy->lock);
+	ret = adrv9002_axi_tx_test_pattern_cfg(phy, channel_idx, tx->ssi_test.testData);
+	if (ret)
+		goto unlock;
+
 	ret = adi_adrv9001_Ssi_Tx_TestMode_Configure(phy->adrv9001, tx->channel.number,
 						     ssi_type,
 						     ADI_ADRV9001_SSI_FORMAT_16_BIT_I_Q_DATA,
 						     &tx->ssi_test);
-	mutex_unlock(&phy->lock);
 	if (ret)
-		adrv9002_dev_err(phy);
+		ret = adrv9002_dev_err(phy);
 
-	return 0;
+unlock:
+	mutex_unlock(&phy->lock);
+	return ret;
 };
 DEFINE_DEBUGFS_ATTRIBUTE(adrv9002_ssi_tx_test_mode_config_fops,
 			 NULL, adrv9002_ssi_tx_test_mode_set, "%llu");

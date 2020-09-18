@@ -20,6 +20,7 @@
 #include "adi_adrv9001_cals_types.h"
 #include "adi_adrv9001_radio_types.h"
 #include "adi_adrv9001_rx_gaincontrol_types.h"
+#include "adi_adrv9001_ssi_types.h"
 #ifdef CONFIG_DEBUG_FS
 #include "adi_adrv9001_ssi.h"
 #endif
@@ -173,6 +174,8 @@ struct adrv9002_rf_phy *adrv9002_spi_to_phy(struct spi_device *spi);
 int adrv9002_axi_intf_tune(struct adrv9002_rf_phy *phy, const bool tx, const int chann,
 			   const adi_adrv9001_SsiType_e ssi_type, u8 *clk_delay, u8 *data_delay);
 void adrv9002_axi_interface_enable(struct adrv9002_rf_phy *phy, const int chan, const bool en);
+int __maybe_unused adrv9002_axi_tx_test_pattern_cfg(struct adrv9002_rf_phy *phy, const int channel,
+						    const adi_adrv9001_SsiTestModeData_e data);
 int adrv9002_spi_read(struct spi_device *spi, u32 reg);
 int adrv9002_spi_write(struct spi_device *spi, u32 reg, u32 val);
 void adrv9002_get_ssi_interface(struct adrv9002_rf_phy *phy, const int channel,
