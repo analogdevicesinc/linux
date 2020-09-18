@@ -696,10 +696,6 @@ static int axi_jesd204_init_non_framework(struct device *dev,
 	if (ret)
 		return ret;
 
-	/* let the framework initialize & apply the config */
-	if (jesd->jdev)
-		return 0;
-
 	config.lane_ids = devm_kcalloc(dev, jesd->num_lanes,
 				       sizeof(*config.lane_ids),
 				       GFP_KERNEL);
@@ -807,9 +803,11 @@ static int axi_jesd204_tx_probe(struct platform_device *pdev)
 		goto err_conv2_clk_disable;
 	}
 
-	ret = axi_jesd204_init_non_framework(&pdev->dev, jesd);
-	if (ret)
-		goto err_conv2_clk_disable;
+	if (!jesd->jdev) {
+		ret = axi_jesd204_init_non_framework(&pdev->dev, jesd);
+		if (ret)
+			goto err_conv2_clk_disable;
+	}
 
 	writel_relaxed(0xff, jesd->base + JESD204_TX_REG_IRQ_PENDING);
 	writel_relaxed(0x00, jesd->base + JESD204_TX_REG_IRQ_ENABLE);
