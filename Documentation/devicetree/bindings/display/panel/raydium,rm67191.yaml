@@ -4,7 +4,7 @@
 $id: http://devicetree.org/schemas/display/panel/raydium,rm67191.yaml#
 $schema: http://devicetree.org/meta-schemas/core.yaml#
 
-title: Raydium RM67171 OLED LCD panel with MIPI-DSI protocol
+title: Raydium RM67171/RM67199 OLED LCD panel with MIPI-DSI protocol
 
 maintainers:
   - Robert Chiras <robert.chiras@nxp.com>
@@ -14,7 +14,9 @@ allOf:
 
 properties:
   compatible:
-    const: raydium,rm67191
+    items:
+      - const: raydium,rm67191
+      - const: raydium,rm67199
 
   reg:
     maxItems: 1
