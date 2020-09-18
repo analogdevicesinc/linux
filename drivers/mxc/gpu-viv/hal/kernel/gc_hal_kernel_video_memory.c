@@ -273,6 +273,12 @@ gckVIDMEM_Construct(
     gcmkVERIFY_ARGUMENT(Bytes > 0);
     gcmkVERIFY_ARGUMENT(Memory != gcvNULL);
 
+    if (BankSize == 0)
+    {
+        /* set two banks in 16:1 */
+        BankSize = heapBytes >> 4;
+    }
+
     gcmkSAFECASTSIZET(heapBytes, Bytes);
     gcmkSAFECASTSIZET(bankSize, BankSize);
 
@@ -368,29 +374,34 @@ gckVIDMEM_Construct(
         base += bytes;
         heapBytes   -= bytes;
         banks ++;
+
+        if (bankSize == (heapBytes >> 4))
+        {
+            bankSize = heapBytes;
+        }
     }
 
     /* Assign all the bank mappings. */
     memory->mapping[gcvVIDMEM_TYPE_COLOR_BUFFER]    = banks - 1;
     memory->mapping[gcvVIDMEM_TYPE_BITMAP]          = banks - 1;
 
-    if (banks > 1) --banks;
+    if (banks > 7) --banks;
     memory->mapping[gcvVIDMEM_TYPE_DEPTH_BUFFER]    = banks - 1;
     memory->mapping[gcvVIDMEM_TYPE_HZ_BUFFER]       = banks - 1;
 
-    if (banks > 1) --banks;
+    if (banks > 6) --banks;
     memory->mapping[gcvVIDMEM_TYPE_TEXTURE]         = banks - 1;
 
-    if (banks > 1) --banks;
+    if (banks > 5) --banks;
     memory->mapping[gcvVIDMEM_TYPE_VERTEX_BUFFER]   = banks - 1;
 
-    if (banks > 1) --banks;
+    if (banks > 4) --banks;
     memory->mapping[gcvVIDMEM_TYPE_INDEX_BUFFER]    = banks - 1;
 
-    if (banks > 1) --banks;
+    if (banks > 3) --banks;
     memory->mapping[gcvVIDMEM_TYPE_TILE_STATUS]     = banks - 1;
 
-    if (banks > 1) --banks;
+    if (banks > 2) --banks;
     memory->mapping[gcvVIDMEM_TYPE_COMMAND]         = banks - 1;
 
     if (banks > 1) --banks;
