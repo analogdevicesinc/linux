@@ -12,6 +12,7 @@
 
 #include "zynqmp-zcu102-rev1.0.dts"
 #include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/iio/adc/adi,ad9081.h>
 
 &i2c1 {
 	i2c-mux@75 {
@@ -43,19 +44,6 @@
 			#clock-cells = <0>;
 			interrupts = <0 109 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&zynqmp_clk 73>;
-
-			adi,channels {
-				#size-cells = <0>;
-				#address-cells = <1>;
-
-				dma-channel@0 {
-					reg = <0>;
-					adi,source-bus-width = <265>;
-					adi,source-bus-type = <2>;
-					adi,destination-bus-width = <265>;
-					adi,destination-bus-type = <0>;
-				};
-			};
 		};
 
 		tx_dma: dma@9c430000  {
@@ -65,19 +53,6 @@
 			#clock-cells = <0>;
 			interrupts = <0 108 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&zynqmp_clk 73>;
-
-			adi,channels {
-				#size-cells = <0>;
-				#address-cells = <1>;
-
-				dma-channel@0 {
-					reg = <0>;
-					adi,source-bus-width = <256>;
-					adi,source-bus-type = <0>;
-					adi,destination-bus-width = <256>;
-					adi,destination-bus-type = <2>;
-				};
-			};
 		};
 
 		axi_ad9081_core_rx: axi-ad9081-rx-hpc@84a10000 {
@@ -86,6 +61,10 @@
 			dmas = <&rx_dma 0>;
 			dma-names = "rx";
 			spibus-connected = <&trx0_ad9081>;
+
+			jesd204-device;
+			#jesd204-cells = <2>;
+			jesd204-inputs = <&axi_ad9081_rx_jesd 0 FRAMER_LINK0_RX>;
 		};
 
 		axi_ad9081_core_tx: axi-ad9081-tx-hpc@84b10000 {
@@ -97,6 +76,10 @@
 			clock-names = "sampl_clk";
 			spibus-connected = <&trx0_ad9081>;
 			//adi,axi-pl-fifo-enable;
+
+			jesd204-device;
+			#jesd204-cells = <2>;
+			jesd204-inputs = <&axi_ad9081_tx_jesd 0 DEFRAMER_LINK0_TX>;
 		};
 
 		axi_ad9081_rx_jesd: axi-jesd204-rx@84a90000 {
@@ -111,8 +94,9 @@
 			#clock-cells = <0>;
 			clock-output-names = "jesd_rx_lane_clk";
 
-			adi,octets-per-frame = <1>;
-			adi,frames-per-multiframe = <32>;
+			jesd204-device;
+			#jesd204-cells = <2>;
+			jesd204-inputs = <&axi_ad9081_adxcvr_rx 0 FRAMER_LINK0_RX>;
 		};
 
 		axi_ad9081_tx_jesd: axi-jesd204-tx@84b90000 {
@@ -127,12 +111,9 @@
 			#clock-cells = <0>;
 			clock-output-names = "jesd_tx_lane_clk";
 
-			adi,octets-per-frame = <1>;
-			adi,frames-per-multiframe = <32>;
-			adi,converter-resolution = <16>;
-			adi,bits-per-sample = <16>;
-			adi,converters-per-device = <4>;
-			adi,control-bits-per-sample = <0>;
+			jesd204-device;
+			#jesd204-cells = <2>;
+			jesd204-inputs = <&axi_ad9081_adxcvr_tx 0 DEFRAMER_LINK0_TX>;
 		};
 
 		axi_ad9081_adxcvr_rx: axi-adxcvr-rx@84a60000 {
@@ -141,8 +122,8 @@
 			compatible = "adi,axi-adxcvr-1.0";
 			reg = <0x84a60000 0x1000>;
 
-			clocks = <&hmc7044 12>, <&hmc7044 10>;
-			clock-names = "conv", "div40";
+			clocks = <&hmc7044 12>;
+			clock-names = "conv";
 
 			#clock-cells = <1>;
 			clock-output-names = "rx_gt_clk", "rx_out_clk";
@@ -151,6 +132,10 @@
 			adi,out-clk-select = <4>;
  			adi,use-lpm-enable;
  			adi,use-cpll-enable;
+
+			jesd204-device;
+			#jesd204-cells = <2>;
+			jesd204-inputs =  <&hmc7044 0 FRAMER_LINK0_RX>;
 		};
 
 		axi_ad9081_adxcvr_tx: axi-adxcvr-tx@84b60000 {
@@ -159,14 +144,18 @@
 			compatible = "adi,axi-adxcvr-1.0";
 			reg = <0x84b60000 0x1000>;
 
-			clocks = <&hmc7044 12>, <&hmc7044 6>;
-			clock-names = "conv", "div40";
+			clocks = <&hmc7044 12>;
+			clock-names = "conv";
 
 			#clock-cells = <1>;
 			clock-output-names = "tx_gt_clk", "tx_out_clk";
 
 			adi,sys-clk-select = <3>;
 			adi,out-clk-select = <4>;
+
+			jesd204-device;
+			#jesd204-cells = <2>;
+			jesd204-inputs =  <&hmc7044 0 DEFRAMER_LINK0_TX>;
 		};
 
 		axi_sysid_0: axi-sysid-0@85000000 {
