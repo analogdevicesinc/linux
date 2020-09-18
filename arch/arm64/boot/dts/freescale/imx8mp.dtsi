@@ -44,6 +44,8 @@
 		isi1 = &isi_1;
 		csi0 = &mipi_csi_0;
 		csi1 = &mipi_csi_1;
+		isp0 = &isp_0;
+		isp1 = &isp_1;
 	};
 
 	cpus {
@@ -2213,6 +2215,44 @@
 					reg = <0x32e30000 0x10000>;
 					interrupts = <GIC_SPI 100 IRQ_TYPE_LEVEL_HIGH>;
 					power-domains = <&media_blk_ctrl IMX8MP_MEDIABLK_PD_DWE>;
+					status = "disabled";
+				};
+
+				isp_0: isp@32e10000 {
+					compatible = "fsl,imx8mp-isp";
+					reg = <0x32e10000 0x10000>;
+					interrupts = <GIC_SPI 74 IRQ_TYPE_LEVEL_HIGH>;
+					clocks = <&clk IMX8MP_CLK_MEDIA_ISP_ROOT>,
+						 <&clk IMX8MP_CLK_MEDIA_AXI_ROOT>,
+						 <&clk IMX8MP_CLK_MEDIA_APB_ROOT>,
+						 <&clk IMX8MP_CLK_MEDIA_CAM1_PIX_ROOT>;
+					clock-names = "core", "axi", "ahb", "sensor";
+					assigned-clocks = <&clk IMX8MP_CLK_MEDIA_ISP>;
+					assigned-clock-parents = <&clk IMX8MP_SYS_PLL2_500M>;
+					assigned-clock-rates = <500000000>;
+					power-domains = <&media_blk_ctrl IMX8MP_MEDIABLK_PD_MIPI_CSI2_1>,
+							<&media_blk_ctrl IMX8MP_MEDIABLK_PD_ISP>;
+					id = <0>;
+					gpr = <&media_blk_ctrl>;
+					status = "disabled";
+				};
+
+				isp_1: isp@32e20000 {
+					compatible = "fsl,imx8mp-isp";
+					reg = <0x32e20000 0x10000>;
+					interrupts = <GIC_SPI 75 IRQ_TYPE_LEVEL_HIGH>;
+					clocks = <&clk IMX8MP_CLK_MEDIA_ISP_ROOT>,
+						 <&clk IMX8MP_CLK_MEDIA_AXI_ROOT>,
+						 <&clk IMX8MP_CLK_MEDIA_APB_ROOT>,
+						 <&clk IMX8MP_CLK_MEDIA_CAM2_PIX_ROOT>;
+					clock-names = "core", "axi", "ahb", "sensor";
+					assigned-clocks = <&clk IMX8MP_CLK_MEDIA_ISP>;
+					assigned-clock-parents = <&clk IMX8MP_SYS_PLL2_500M>;
+					assigned-clock-rates = <500000000>;
+					power-domains = <&media_blk_ctrl IMX8MP_MEDIABLK_PD_MIPI_CSI2_2>,
+							<&media_blk_ctrl IMX8MP_MEDIABLK_PD_ISP>;
+					id = <1>;
+					gpr = <&media_blk_ctrl>;
 					status = "disabled";
 				};
 
