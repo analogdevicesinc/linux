@@ -817,16 +817,15 @@ static int jesd204_dev_init_links_data(struct device *parent,
 	if (!jdev_top)
 		return 0;
 
-	if (!init->num_links) {
-		jesd204_err(jdev, "num_links shouldn't be zero\n");
+	if (!init->max_num_links) {
+		jesd204_err(jdev, "max_num_links shouldn't be zero\n");
 		return -EINVAL;
 	}
 
-	/* FIXME: should we just do a minimum? for now we error out if these mismatch */
-	if (init->num_links != jdev_top->num_links) {
+	if (init->max_num_links < jdev_top->num_links) {
 		jesd204_err(jdev,
-			"Driver and DT mismatch for number of links %u vs %u\n",
-			init->num_links, jdev_top->num_links);
+			"Driver supports %u number of links, DT specified %u\n",
+			init->max_num_links, jdev_top->num_links);
 		return -EINVAL;
 	}
 

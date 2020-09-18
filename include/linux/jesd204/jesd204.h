@@ -232,7 +232,7 @@ enum jesd204_dev_op {
  * @fsm_finished_cb	callback for when the FSM finishes a series of transitions
  * @sizeof_priv		amount of data to allocate for private information
  * @links		JESD204 initial link configuration
- * @num_links		number of JESD204 links
+ * @max_num_links	maximum number of JESD204 links this device can support
  * @num_retries		number of retries in case of error (only for top-level device)
  * @state_ops		ops for each state transition of type @struct jesd204_state_op
  */
@@ -241,7 +241,7 @@ struct jesd204_dev_data {
 	jesd204_fsm_finished_cb			fsm_finished_cb;
 	size_t					sizeof_priv;
 	const struct jesd204_link		*links;
-	unsigned int				num_links;
+	unsigned int				max_num_links;
 	unsigned int				num_retries;
 	struct jesd204_state_op			state_ops[__JESD204_MAX_OPS];
 };
