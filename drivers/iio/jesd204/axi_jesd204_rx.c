@@ -1061,7 +1061,7 @@ static int axi_jesd204_rx_probe(struct platform_device *pdev)
 	if (jesd->version >= ADI_AXI_PCORE_VER(1, 4, 'a')) {
 		ret = devm_request_threaded_irq(&pdev->dev, irq, axi_jesd204_rx_irq,
 						axi_jesd204_rx_irq_thread_fn,
-						0, dev_name(&pdev->dev),
+						IRQF_ONESHOT, dev_name(&pdev->dev),
 						jesd);
 		if (ret)
 			goto err_uninit_non_framework;
