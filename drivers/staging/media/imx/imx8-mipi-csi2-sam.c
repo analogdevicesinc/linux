@@ -1766,7 +1766,8 @@ static void mipi_csis_imx8mp_phy_reset(struct csi_state *state)
 	mipi_csis_imx8mn_phy_reset(state);
 
 	/* temporary place */
-	regmap_write(state->mix_gpr, 0x138, 0x8d8360);
+	if (state->mix_gpr)
+		regmap_write(state->mix_gpr, 0x138, 0x8d8360);
 }
 
 static struct mipi_csis_phy_ops imx8mp_phy_ops = {
@@ -1834,8 +1835,8 @@ static int mipi_csis_probe(struct platform_device *pdev)
 
 	state->mix_gpr = syscon_regmap_lookup_by_phandle(dev->of_node, "gpr");
 	if (IS_ERR(state->mix_gpr)) {
-		dev_err(dev, "failed to get mix gpr\n");
-		return PTR_ERR(state->mix_gpr);
+		dev_warn(dev, "failed to get mix gpr\n");
+		state->mix_gpr = NULL;
 	}
 
 	mem_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
