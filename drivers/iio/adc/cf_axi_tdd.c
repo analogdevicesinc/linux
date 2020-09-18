@@ -462,7 +462,7 @@ static int cf_axi_tdd_probe(struct platform_device *pdev)
 
 	tdd_write_config(st, 0);
 
-	ret = iio_device_register(indio_dev);
+	ret = devm_iio_device_register(&pdev->dev, indio_dev);
 	if (ret < 0)
 		return ret;
 
@@ -474,28 +474,15 @@ static int cf_axi_tdd_probe(struct platform_device *pdev)
 		ADI_AXI_PCORE_VER_PATCH(st->version),
 		(unsigned long long)res->start, st->regs);
 
-	platform_set_drvdata(pdev, indio_dev);
-
-	return 0;
-}
-
-static int cf_axi_tdd_remove(struct platform_device *pdev)
-{
-	struct iio_dev *indio_dev = platform_get_drvdata(pdev);
-
-	iio_device_unregister(indio_dev);
-
 	return 0;
 }
 
 static struct platform_driver cf_axi_tdd_driver = {
 	.driver = {
 		.name = "cf_axi_tdd",
-		.owner = THIS_MODULE,
 		.of_match_table = cf_axi_tdd_of_match,
 	},
 	.probe		= cf_axi_tdd_probe,
-	.remove		= cf_axi_tdd_remove,
 };
 module_platform_driver(cf_axi_tdd_driver);
 
