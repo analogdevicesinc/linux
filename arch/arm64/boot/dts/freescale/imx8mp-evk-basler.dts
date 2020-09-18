@@ -1,0 +1,76 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright (C) 2020 Basler AG
+ * Copyright 2020 NXP
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "imx8mp-evk.dts"
+
+&i2c2 {
+	/delete-node/ov5640_mipi@3c;
+
+	basler_camera_vvcam@36 {
+		compatible = "basler,basler-camera-vvcam", "basler-camera-vvcam";
+		reg = <0x36>;
+		csi_id = <0x00>;
+		status = "okay";
+
+		port {
+			basler_ep_0: endpoint {
+				data-lanes = <1 2 3 4>;
+				clock-lanes = <0>;
+				link-frequencies = /bits/ 64 <750000000>;
+				max-lane-frequency = /bits/ 64 <750000000>;
+				max-pixel-frequency = /bits/ 64 <500000000>;
+				max-data-rate = /bits/ 64 <0>;
+				remote-endpoint = <&mipi_csi0_ep>;
+			};
+		};
+	};
+};
+
+&mipi_csi_0 {
+	status = "okay";
+
+	port@0 {
+		mipi_csi0_ep: endpoint {
+			remote-endpoint = <&basler_ep_0>;
+			data-lanes = <4>;
+			csis-hs-settle = <16>;
+		};
+	};
+};
+
+&mipi_csi_1 {
+	/delete-node/port@1;
+};
+
+&cameradev {
+	status = "okay";
+};
+
+&isi_0 {
+	status = "disabled";
+};
+
+&isp_0 {
+	status = "okay";
+};
+
+&dewarp {
+	status = "okay";
+};
+
+&i2c3 {
+	/delete-node/ov5640_mipi@3c;
+};
