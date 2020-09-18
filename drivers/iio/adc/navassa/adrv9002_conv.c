@@ -647,7 +647,71 @@ adi_adrv9001_SsiType_e adrv9002_axi_ssi_type_get(struct adrv9002_rf_phy *phy)
 		return ADI_ADRV9001_SSI_TYPE_LVDS;
 }
 EXPORT_SYMBOL(adrv9002_axi_ssi_type_get);
+
+int __maybe_unused adrv9002_axi_tx_test_pattern_cfg(struct adrv9002_rf_phy *phy, const int channel,
+						    const adi_adrv9001_SsiTestModeData_e data)
+{
+	struct axiadc_converter *conv = spi_get_drvdata(phy->spi);
+	struct axiadc_state *st = iio_priv(conv->indio_dev);
+	int off, start, n_chan, c, sel;
+
+	if (phy->rx2tx2) {
+		off = ADI_TX1_REG_OFF;
+		start = channel * 2;
+		/* I and Q channels */
+		n_chan = start + 2;
+	} else {
+		off = channel ? ADI_TX2_REG_OFF : ADI_TX1_REG_OFF;
+		start = 0;
+		n_chan = conv->chip_info->num_channels;
+	}
+
+	switch (data) {
+	case ADI_ADRV9001_SSI_TESTMODE_DATA_NORMAL:
+		/* DATA_SEL_DDS */
+		sel = 0;
+		break;
+	case ADI_ADRV9001_SSI_TESTMODE_DATA_FIXED_PATTERN:
+		/* DATA_SEL_SED */
+		sel = 1;
+		break;
+	case ADI_ADRV9001_SSI_TESTMODE_DATA_RAMP_NIBBLE:
+		/* DATA_SEL_RAMP_NIBBLE */
+		sel = 10;
+		break;
+	case ADI_ADRV9001_SSI_TESTMODE_DATA_RAMP_16_BIT:
+		/* DATA_SEL_RAMP_16 */;
+		sel = 11;
+		break;
+	case ADI_ADRV9001_SSI_TESTMODE_DATA_PRBS15:
+		/* DATA_SEL_PN15 */
+		sel = 7;
+		break;
+	case ADI_ADRV9001_SSI_TESTMODE_DATA_PRBS7:
+		/* DATA_SEL_PN7 */
+		sel = 6;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	for (c = start; c < n_chan; c++)
+		axiadc_write(st, AIM_AXI_REG(off, ADI_TX_REG_CHAN_CTRL_7(c)), sel);
+
+	axiadc_write(st, AIM_AXI_REG(off, ADI_TX_REG_CTRL_1), 1);
+
+	return 0;
+}
+EXPORT_SYMBOL(adrv9002_axi_tx_test_pattern_cfg);
+
 #else  /* CONFIG_CF_AXI_ADC */
+
+int adrv9002_axi_tx_test_pattern_cfg(struct adrv9002_rf_phy *phy, const int channel,
+				     const adi_adrv9001_SsiTestModeData_e data)
+{
+	return -ENODEV;
+}
+EXPORT_SYMBOL(adrv9002_axi_tx_test_pattern_cfg);
 
 int adrv9002_hdl_loopback(struct adrv9002_rf_phy *phy, bool enable)
 {
