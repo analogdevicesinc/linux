@@ -37,13 +37,11 @@ required:
   - spi-max-frequency
   - spi-cpol
   - spi-cpha
-  - interrupts
 
 additionalProperties: false
 
 examples:
   - |
-    #include <dt-bindings/gpio/gpio.h>
     #include <dt-bindings/interrupt-controller/irq.h>
     spi {
         #address-cells = <1>;
