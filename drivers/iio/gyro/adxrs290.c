@@ -75,7 +75,7 @@ struct adxrs290_state {
 	struct {
 		s16 channels[3];
 		s64 ts __aligned(8);
-	}                       buffer;
+	} buffer;
 };
 
 /*
@@ -216,18 +216,16 @@ static int adxrs290_set_mode(struct iio_dev *indio_dev, enum adxrs290_mode mode)
 	struct adxrs290_state *st = iio_priv(indio_dev);
 	int val, ret;
 
+	if (st->mode == mode)
+		return 0;
+
 	mutex_lock(&st->lock);
 
-	if (st->mode == mode) {
-		ret = 0;
-		goto done;
-	}
+	ret = spi_w8r8(st->spi, ADXRS290_READ_REG(ADXRS290_REG_POWER_CTL));
+	if (ret < 0)
+		goto out_unlock;
 
-	val = spi_w8r8(st->spi, ADXRS290_READ_REG(ADXRS290_REG_POWER_CTL));
-	if (val < 0) {
-		ret = val;
-		goto done;
-	}
+	val = ret;
 
 	switch (mode) {
 	case ADXRS290_MODE_STANDBY:
@@ -238,34 +236,21 @@ static int adxrs290_set_mode(struct iio_dev *indio_dev, enum adxrs290_mode mode)
 		break;
 	default:
 		ret = -EINVAL;
-		goto done;
+		goto out_unlock;
 	}
 
-	ret = adxrs290_spi_write_reg(st->spi,
-				     ADXRS290_REG_POWER_CTL,
-				     val);
+	ret = adxrs290_spi_write_reg(st->spi, ADXRS290_REG_POWER_CTL, val);
 	if (ret < 0) {
 		dev_err(&st->spi->dev, "unable to set mode: %d\n", ret);
-		goto done;
+		goto out_unlock;
 	}
 
 	/* update cached mode */
 	st->mode = mode;
 
-done:
+out_unlock:
 	mutex_unlock(&st->lock);
 	return ret;
-}
-
-static int adxrs290_initial_setup(struct iio_dev *indio_dev)
-{
-	struct adxrs290_state *st = iio_priv(indio_dev);
-
-	st->mode = ADXRS290_MODE_MEASUREMENT;
-
-	return adxrs290_spi_write_reg(st->spi,
-				      ADXRS290_REG_POWER_CTL,
-				      ADXRS290_MEASUREMENT | ADXRS290_TSM);
 }
 
 static void adxrs290_chip_off_action(void *data)
@@ -273,6 +258,23 @@ static void adxrs290_chip_off_action(void *data)
 	struct iio_dev *indio_dev = data;
 
 	adxrs290_set_mode(indio_dev, ADXRS290_MODE_STANDBY);
+}
+
+static int adxrs290_initial_setup(struct iio_dev *indio_dev)
+{
+	struct adxrs290_state *st = iio_priv(indio_dev);
+	struct spi_device *spi = st->spi;
+	int ret;
+
+	ret = adxrs290_spi_write_reg(spi, ADXRS290_REG_POWER_CTL,
+				     ADXRS290_MEASUREMENT | ADXRS290_TSM);
+	if (ret < 0)
+		return ret;
+
+	st->mode = ADXRS290_MODE_MEASUREMENT;
+
+	return devm_add_action_or_reset(&spi->dev, adxrs290_chip_off_action,
+					indio_dev);
 }
 
 static int adxrs290_read_raw(struct iio_dev *indio_dev,
@@ -297,14 +299,14 @@ static int adxrs290_read_raw(struct iio_dev *indio_dev,
 						     ADXRS290_READ_REG(chan->address),
 						     val);
 			if (ret < 0)
-				goto err_release;
+				break;
 
 			ret = IIO_VAL_INT;
 			break;
 		case IIO_TEMP:
 			ret = adxrs290_get_temp_data(indio_dev, val);
 			if (ret < 0)
-				goto err_release;
+				break;
 
 			ret = IIO_VAL_INT;
 			break;
@@ -312,7 +314,7 @@ static int adxrs290_read_raw(struct iio_dev *indio_dev,
 			ret = -EINVAL;
 			break;
 		}
-err_release:
+
 		iio_device_release_direct_mode(indio_dev);
 		return ret;
 	case IIO_CHAN_INFO_SCALE:
@@ -374,7 +376,7 @@ static int adxrs290_write_raw(struct iio_dev *indio_dev,
 					      val, val2);
 		if (lpf_idx < 0) {
 			ret = -EINVAL;
-			goto err_release;
+			break;
 		}
 
 		/* caching the updated state of the low-pass filter */
@@ -390,7 +392,7 @@ static int adxrs290_write_raw(struct iio_dev *indio_dev,
 					      val, val2);
 		if (hpf_idx < 0) {
 			ret = -EINVAL;
-			goto err_release;
+			break;
 		}
 
 		/* caching the updated state of the high-pass filter */
@@ -405,7 +407,6 @@ static int adxrs290_write_raw(struct iio_dev *indio_dev,
 		break;
 	}
 
-err_release:
 	iio_device_release_direct_mode(indio_dev);
 	return ret;
 }
@@ -435,16 +436,12 @@ static int adxrs290_read_avail(struct iio_dev *indio_dev,
 	}
 }
 
-static int adxrs290_reg_access(struct iio_dev *indio_dev, unsigned int reg,
-			       unsigned int writeval, unsigned int *readval)
+static int adxrs290_reg_access_rw(struct spi_device *spi, unsigned int reg,
+				  unsigned int *readval)
 {
-	struct adxrs290_state *st = iio_priv(indio_dev);
 	int ret;
 
-	if (!readval)
-		return adxrs290_spi_write_reg(st->spi, reg, writeval);
-
-	ret = spi_w8r8(st->spi, ADXRS290_READ_REG(reg));
+	ret = spi_w8r8(spi, ADXRS290_READ_REG(reg));
 	if (ret < 0)
 		return ret;
 
@@ -453,18 +450,30 @@ static int adxrs290_reg_access(struct iio_dev *indio_dev, unsigned int reg,
 	return 0;
 }
 
-static int adxrs290_data_rdy_trigger_set_state(struct iio_trigger *trig, bool state)
+static int adxrs290_reg_access(struct iio_dev *indio_dev, unsigned int reg,
+			       unsigned int writeval, unsigned int *readval)
+{
+	struct adxrs290_state *st = iio_priv(indio_dev);
+
+	if (readval)
+		return adxrs290_reg_access_rw(st->spi, reg, readval);
+	else
+		return adxrs290_spi_write_reg(st->spi, reg, writeval);
+}
+
+static int adxrs290_data_rdy_trigger_set_state(struct iio_trigger *trig,
+					       bool state)
 {
 	struct iio_dev *indio_dev = iio_trigger_get_drvdata(trig);
 	struct adxrs290_state *st = iio_priv(indio_dev);
 	int ret;
 	u8 val;
 
-	val = (state ? ADXRS290_SYNC(ADXRS290_DATA_RDY_OUT) : 0);
+	val = state ? ADXRS290_SYNC(ADXRS290_DATA_RDY_OUT) : 0;
 
 	ret = adxrs290_spi_write_reg(st->spi, ADXRS290_REG_DATA_RDY, val);
 	if (ret < 0)
-		dev_err(&st->spi->dev, "failed to start data ready interrupt\n");
+		dev_err(&st->spi->dev, "failed to start data rdy interrupt\n");
 
 	return ret;
 }
@@ -477,9 +486,13 @@ static int adxrs290_reset_trig(struct iio_trigger *trig)
 	/*
 	 * Data ready interrupt is reset after a read of the data registers.
 	 * Here, we only read the 16b DATAY registers as that marks the end of
-	 * a read of the data registers and initiates a reset for the interrupt line.
+	 * a read of the data registers and initiates a reset for the interrupt
+	 * line.
 	 */
-	return adxrs290_get_rate_data(indio_dev, ADXRS290_READ_REG(ADXRS290_REG_DATAY0), &val);
+	adxrs290_get_rate_data(indio_dev,
+			       ADXRS290_READ_REG(ADXRS290_REG_DATAY0), &val);
+
+	return 0;
 }
 
 static const struct iio_trigger_ops adxrs290_trigger_ops = {
@@ -493,22 +506,21 @@ static irqreturn_t adxrs290_trigger_handler(int irq, void *p)
 	struct iio_poll_func *pf = p;
 	struct iio_dev *indio_dev = pf->indio_dev;
 	struct adxrs290_state *st = iio_priv(indio_dev);
-	struct spi_device *spi = st->spi;
 	u8 tx = ADXRS290_READ_REG(ADXRS290_REG_DATAX0);
 	int ret;
 
 	mutex_lock(&st->lock);
 
 	/* exercise a bulk data capture starting from reg DATAX0... */
-	ret = spi_write_then_read(spi, &tx, sizeof(tx), st->buffer.channels,
+	ret = spi_write_then_read(st->spi, &tx, sizeof(tx), st->buffer.channels,
 				  sizeof(st->buffer.channels));
 	if (ret < 0)
-		goto done;
+		goto out_unlock_notify;
 
 	iio_push_to_buffers_with_timestamp(indio_dev, &st->buffer,
 					   pf->timestamp);
 
-done:
+out_unlock_notify:
 	mutex_unlock(&st->lock);
 	iio_trigger_notify_done(indio_dev->trig);
 
@@ -549,7 +561,6 @@ static const struct iio_chan_spec adxrs290_channels[] = {
 			.sign = 's',
 			.realbits = 12,
 			.storagebits = 16,
-			.shift = 0,
 			.endianness = IIO_LE,
 		},
 	},
@@ -578,8 +589,7 @@ static int adxrs290_probe_trigger(struct iio_dev *indio_dev)
 		return 0;
 	}
 
-	st->dready_trig = devm_iio_trigger_alloc(&st->spi->dev,
-						 "%s-dev%d",
+	st->dready_trig = devm_iio_trigger_alloc(&st->spi->dev, "%s-dev%d",
 						 indio_dev->name,
 						 indio_dev->id);
 	if (!st->dready_trig)
@@ -591,10 +601,10 @@ static int adxrs290_probe_trigger(struct iio_dev *indio_dev)
 
 	ret = devm_request_irq(&st->spi->dev, st->spi->irq,
 			       &iio_trigger_generic_data_rdy_poll,
-			       IRQF_ONESHOT,
-			       "adxrs290_irq", st->dready_trig);
+			       IRQF_ONESHOT, "adxrs290_irq", st->dready_trig);
 	if (ret < 0) {
-		dev_err(&st->spi->dev, "request irq %d failed\n", st->spi->irq);
+		dev_err(&st->spi->dev, "request irq %d failed\n",
+			st->spi->irq);
 		return ret;
 	}
 
@@ -661,12 +671,6 @@ static int adxrs290_probe(struct spi_device *spi)
 
 	/* max transition time to measurement mode */
 	msleep(ADXRS290_MAX_TRANSITION_TIME_MS);
-
-	ret = devm_add_action_or_reset(&spi->dev,
-				       adxrs290_chip_off_action,
-				       indio_dev);
-	if (ret < 0)
-		return ret;
 
 	ret = adxrs290_get_3db_freq(indio_dev, &val, &val2);
 	if (ret < 0)
