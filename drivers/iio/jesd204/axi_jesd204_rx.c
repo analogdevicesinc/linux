@@ -83,7 +83,7 @@ struct axi_jesd204_rx {
 
 	struct jesd204_dev *jdev;
 
-	bool irq_enabled;
+	unsigned int irq;
 
 	unsigned int num_lanes;
 	unsigned int data_path_width;
@@ -657,7 +657,7 @@ static int axi_jesd204_rx_lane_clk_enable(struct clk_hw *clk)
 	writel_relaxed(0x3, jesd->base + JESD204_RX_REG_SYSREF_STATUS);
 	writel_relaxed(0x0, jesd->base + JESD204_RX_REG_LINK_DISABLE);
 
-	if (!jesd->irq_enabled)
+	if (!jesd->irq)
 		schedule_delayed_work(&jesd->watchdog_work, HZ);
 
 	return 0;
@@ -877,6 +877,10 @@ static int axi_jesd204_rx_jesd204_link_enable(struct jesd204_dev *jdev,
 	case JESD204_STATE_OP_REASON_INIT:
 		break;
 	case JESD204_STATE_OP_REASON_UNINIT:
+		if (!jesd->irq)
+			cancel_delayed_work_sync(&jesd->watchdog_work);
+		else
+			disable_irq(jesd->irq);
 		writel_relaxed(0x1, jesd->base + JESD204_RX_REG_LINK_DISABLE);
 		return JESD204_STATE_CHANGE_DONE;
 	default:
@@ -886,8 +890,10 @@ static int axi_jesd204_rx_jesd204_link_enable(struct jesd204_dev *jdev,
 	writel_relaxed(0x3, jesd->base + JESD204_RX_REG_SYSREF_STATUS);
 	writel_relaxed(0x0, jesd->base + JESD204_RX_REG_LINK_DISABLE);
 
-	if (!jesd->irq_enabled)
+	if (!jesd->irq)
 		schedule_delayed_work(&jesd->watchdog_work, HZ);
+	else
+		enable_irq(jesd->irq);
 
 	return JESD204_STATE_CHANGE_DONE;
 }
@@ -1066,7 +1072,9 @@ static int axi_jesd204_rx_probe(struct platform_device *pdev)
 		if (ret)
 			goto err_uninit_non_framework;
 
-		jesd->irq_enabled = true;
+		disable_irq(irq);
+
+		jesd->irq = irq;
 		writel_relaxed(JESD204_RX_IRQ_FRAME_ALIGNMENT_ERROR |
 				JESD204_RX_IRQ_UNEXP_LANE_STATE_ERROR,
 				jesd->base + JESD204_RX_REG_IRQ_ENABLE);
