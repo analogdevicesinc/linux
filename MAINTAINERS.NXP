@@ -1031,6 +1031,13 @@ M: Andy Tang <andy.tang@nxp.com>
 M: Richard Zhu <hongxing.zhu@nxp.com>
 F: drivers/ata/
 
+script
+M: Ting Liu <ting.liu@nxp.com>
+M: Aisheng Dong <aisheng.dong@nxp.com>
+M: Li Yang <leoyang.li@nxp.com>
+F: MAINTAINERS.NXP
+F: scripts/get_maintainer_nxp.sh
+
 sdhc
 M: Ghennadi Procopciuc <ghennadi.procopciuc@nxp.com>
 M: Haibo Chen <haibo.chen@nxp.com>
