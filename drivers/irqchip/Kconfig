@@ -486,7 +486,7 @@ config CSKY_APB_INTC
 	  the controller's register.
 
 config IMX_IRQSTEER
-	bool "i.MX IRQSTEER support"
+	tristate "i.MX IRQSTEER support"
 	depends on ARCH_MXC || COMPILE_TEST
 	default ARCH_MXC
 	select IRQ_DOMAIN
