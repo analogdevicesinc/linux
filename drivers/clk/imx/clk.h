@@ -419,6 +419,15 @@ static inline struct clk_hw *__imx_clk_hw_gate2(const char *name, const char *pa
 					shift, cgr_val, 0x3, 0, &imx_ccm_lock, share_count);
 }
 
+static inline struct clk *imx_dev_clk_mux(struct device *dev, const char *name,
+			void __iomem *reg, u8 shift, u8 width,
+			const char * const *parents, int num_parents)
+{
+	return clk_register_mux(dev, name, parents, num_parents,
+			CLK_SET_RATE_NO_REPARENT | CLK_SET_PARENT_GATE,
+			reg, shift, width, 0, &imx_ccm_lock);
+}
+
 static inline struct clk_hw *__imx_clk_hw_mux(const char *name, void __iomem *reg,
 			u8 shift, u8 width, const char * const *parents,
 			int num_parents, unsigned long flags, unsigned long clk_mux_flags)
