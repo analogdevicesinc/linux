@@ -2797,7 +2797,7 @@ static const char *const adrv9002_ssi_test_mode_data_avail[] = {
 #define ADRV9002_RX_SSI_TEST_DATA_LVDS_MASK	0x3b
 #define ADRV9002_RX_SSI_TEST_DATA_CMOS_MASK	GENMASK(2, 0)
 #define ADRV9002_TX_SSI_TEST_DATA_LVDS_MASK	0x33
-#define ADRV9002_TX_SSI_TEST_DATA_CMOS_MASK	GENMASK(1, 0)
+#define ADRV9002_TX_SSI_TEST_DATA_CMOS_MASK	GENMASK(2, 0)
 
 static unsigned long rx_ssi_avail_mask;
 static unsigned long tx_ssi_avail_mask;
