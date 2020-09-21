@@ -1312,41 +1312,64 @@ static const char *const ad9081_jtx_qbf_states[] = {
 	"ILA_BP", "DATA"
 };
 
-int ad9081_jesd_tx_link_status_print(struct ad9081_phy *phy)
+int ad9081_jesd_tx_link_status_print(struct ad9081_phy *phy,
+				     struct jesd204_link *lnk, int retry)
 {
 	int ret, l;
 	u16 stat;
 
-	for (l = AD9081_LINK_0; l < AD9081_LINK_ALL; l++) {
+	switch (lnk->link_id) {
+	case FRAMER_LINK0_RX:
+		l = AD9081_LINK_0;
+		break;
+	case FRAMER_LINK1_RX:
+		l = AD9081_LINK_1;
+		break;
+	default:
+		return -EINVAL;
+	}
 
+	do {
 		ret = adi_ad9081_jesd_tx_link_status_get(
 			&phy->ad9081, l, &stat);
-
 		if (ret)
 			return -EFAULT;
 
-		if (phy->jesd_rx_link[l - 1].jesd_param.jesd_jesdv == 2)
-			dev_info(&phy->spi->dev,
-				"JESD RX (JTX) Link%d PLL %s, PHASE %s, MODE %s\n",
-				l,
-				stat & BIT(5) ? "locked" : "unlocked",
-				stat & BIT(6) ? "established" : "lost",
-				stat & BIT(7) ? "invalid" : "valid");
-		else
-			dev_info(&phy->spi->dev,
-				"JESD RX (JTX) Link%d in %s, SYNC %s, PLL %s, PHASE %s, MODE %s\n",
-				l, ad9081_jtx_qbf_states[stat & 0xF],
-				stat & BIT(4) ? "deasserted" : "asserted",
-				stat & BIT(5) ? "locked" : "unlocked",
-				stat & BIT(6) ? "established" : "lost",
-				stat & BIT(7) ? "invalid" : "valid");
+		if (lnk->jesd_version == JESD204_VERSION_C) {
+			if ((stat & 0x60) == 0x60)
+				ret = 0;
+			else
+				ret = -EIO;
 
+			if (ret == 0 || retry == 0)
+				dev_info(&phy->spi->dev,
+					"JESD RX (JTX) Link%d PLL %s, PHASE %s, MODE %s\n",
+					lnk->link_id,
+					stat & BIT(5) ? "locked" : "unlocked",
+					stat & BIT(6) ? "established" : "lost",
+					stat & BIT(7) ? "invalid" : "valid");
+			else
+				msleep(20);
+		} else {
+			if ((stat & 0xFF) == 0x7D)
+				ret = 0;
+			else
+				ret = -EIO;
 
-		if (!phy->jesd_rx_link[l - 1].jesd_param.jesd_duallink)
-			return 0;
-	}
+			if (ret == 0 || retry == 0)
+				dev_info(&phy->spi->dev,
+					"JESD RX (JTX) Link%d in %s, SYNC %s, PLL %s, PHASE %s, MODE %s\n",
+					lnk->link_id, ad9081_jtx_qbf_states[stat & 0xF],
+					stat & BIT(4) ? "deasserted" : "asserted",
+					stat & BIT(5) ? "locked" : "unlocked",
+					stat & BIT(6) ? "established" : "lost",
+					stat & BIT(7) ? "invalid" : "valid");
+			else
+				msleep(20);
+		}
+	} while (ret && retry--);
 
-	return 0;
+	return ret;
 }
 
 static const char *const ad9081_jrx_204c_states[] = {
@@ -1356,39 +1379,62 @@ static const char *const ad9081_jrx_204c_states[] = {
 	"Undef", "Link is good", "Undef",
 };
 
-int ad9081_jesd_rx_link_status_print(struct ad9081_phy *phy)
+static int ad9081_jesd_rx_link_status_print(struct ad9081_phy *phy,
+				     struct jesd204_link *lnk, int retry)
 {
 	int ret, l;
-	u16 stat;
+	u16 stat, mask;
 
-	for (l = AD9081_LINK_0; l < AD9081_LINK_ALL; l++) {
+	switch (lnk->link_id) {
+	case DEFRAMER_LINK0_TX:
+		l = AD9081_LINK_0;
+		break;
+	case DEFRAMER_LINK1_TX:
+		l = AD9081_LINK_1;
+		break;
+	default:
+		return -EINVAL;
+	}
 
-		ret = adi_ad9081_jesd_rx_link_status_get(
-			&phy->ad9081, l, &stat);
+	do {
+		ret = adi_ad9081_jesd_rx_link_status_get(&phy->ad9081, l, &stat);
 		if (ret)
 			return -EFAULT;
 
-		if (phy->jesd_tx_link.jesd_param.jesd_jesdv == 2) {
+		if (lnk->jesd_version == JESD204_VERSION_C) {
 			stat >>= 8;
-			dev_info(&phy->spi->dev,
-				"JESD TX (JRX) Link%d 204C status: %s (%d)\n",
-				l, ad9081_jrx_204c_states[stat & 0x7], stat);
-
-			if (stat == 6) /* FIXME DUAL Link */
-				return 0xF;
+			if (stat == 6)
+				ret = 0;
 			else
-				return 0;
+				ret = -EIO;
+
+			if (ret == 0 || retry == 0)
+				dev_info(&phy->spi->dev,
+					"JESD TX (JRX) Link%d 204C status: %s (%d)\n",
+					lnk->link_id, ad9081_jrx_204c_states[stat & 0x7],
+					stat);
+			else
+				msleep(20);
 		} else {
-			dev_info(&phy->spi->dev,
-				"JESD TX (JRX) Link%d 0x%X lanes in DATA\n",
-				l, stat & 0xF);
+			mask = (1 << lnk->num_lanes) - 1;
+
+			stat = mask & stat;
+
+			if (stat == mask)
+				ret = 0;
+			else
+				ret = -EIO;
+
+			if (ret == 0 || retry == 0)
+				dev_info(&phy->spi->dev,
+					"JESD TX (JRX) Link%d 0x%X lanes in DATA\n",
+					lnk->link_id, stat);
+			else
+				msleep(20);
 		}
+	} while (ret && retry--);
 
-		if (!phy->jesd_tx_link.jesd_param.jesd_duallink)
-			return stat & 0xF;
-	}
-
-	return stat & 0xF;
+	return ret;
 }
 
 static void ad9081_convert_link_converter_select(
@@ -1616,26 +1662,9 @@ static int ad9081_setup(struct spi_device *spi)
 
 static int ad9081_multichip_sync(struct ad9081_phy *phy, int step)
 {
-	int ret;
-
 	dev_dbg(&phy->spi->dev, "%s:%d\n", __func__, step);
 
 	switch (step & 0xFF) {
-	case 7:
-		/* Toggle TX (JRX) link */
-		ret = adi_ad9081_jesd_rx_link_enable_set(&phy->ad9081,
-			(phy->jesd_tx_link.jesd_param.jesd_duallink > 0) ?
-			AD9081_LINK_ALL : AD9081_LINK_0, 0);
-		if (ret != 0)
-			return ret;
-		mdelay(1);
-		ret = adi_ad9081_jesd_rx_link_enable_set(&phy->ad9081,
-			(phy->jesd_tx_link.jesd_param.jesd_duallink > 0) ?
-			AD9081_LINK_ALL : AD9081_LINK_0, 1);
-		ad9081_jesd_rx_link_status_print(phy);
-		if (ret != 0)
-			return ret;
-		break;
 	case 8:
 		jesd204_fsm_stop(phy->jdev, JESD204_LINKS_ALL);
 		jesd204_fsm_clear_errors(phy->jdev, JESD204_LINKS_ALL);
@@ -2045,22 +2074,10 @@ static void ad9081_work_func(struct work_struct *work)
 
 	if (!(status & BIT(6))) {
 		dev_err(&phy->spi->dev, "IRQ_STATUS0: 0x%X\n", status);
-		if (phy->jesd_tx_link.jesd_param.jesd_jesdv == 2) {
-			ad9081_multichip_sync(phy, 7);
-		} else {
-			/* disable txfe TX (JRX) link */
-			adi_ad9081_jesd_rx_link_enable_set(&phy->ad9081,
-				(phy->jesd_tx_link.jesd_param.jesd_duallink > 0) ?
-				AD9081_LINK_ALL : AD9081_LINK_0, 0);
 
-			mdelay(20);
-
-			adi_ad9081_jesd_rx_link_enable_set(&phy->ad9081,
-				(phy->jesd_tx_link.jesd_param.jesd_duallink > 0) ?
-				AD9081_LINK_ALL : AD9081_LINK_0, 1);
-
-			ad9081_jesd_rx_link_status_print(phy);
-		}
+		jesd204_fsm_stop(phy->jdev, JESD204_LINKS_ALL);
+		jesd204_fsm_clear_errors(phy->jdev, JESD204_LINKS_ALL);
+		jesd204_fsm_start(phy->jdev, JESD204_LINKS_ALL);
 	}
 	schedule_delayed_work(&phy->dwork, msecs_to_jiffies(1000));
 }
@@ -2787,11 +2804,11 @@ static int ad9081_jesd204_link_running(struct jesd204_dev *jdev,
 	dev_dbg(dev, "%s:%d link_num %u reason %s\n", __func__, __LINE__, lnk->link_id, jesd204_state_op_reason_str(reason));
 
 	if (lnk->is_transmit) {
-		ret = ad9081_jesd_rx_link_status_print(phy);
-		if (ret <= 0)
+		ret = ad9081_jesd_rx_link_status_print(phy, lnk, 3);
+		if (ret < 0)
 			return JESD204_STATE_CHANGE_ERROR;
 	} else {
-		ret = ad9081_jesd_tx_link_status_print(phy);
+		ret = ad9081_jesd_tx_link_status_print(phy, lnk, 3);
 		if (ret < 0)
 			return JESD204_STATE_CHANGE_ERROR;
 	}
