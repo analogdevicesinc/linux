@@ -2850,6 +2850,8 @@ static int ad9081_jesd204_setup_stage1(struct jesd204_dev *jdev,
 			AD9081_LINK_ALL : AD9081_LINK_0, 1);
 	adi_ad9081_jesd_tx_link_reset(&phy->ad9081, 0);
 
+	mdelay(4);
+
 	/* JESD OneShot Sync */
 	ret = adi_ad9081_hal_bf_set(&phy->ad9081, REG_SYNC_DEBUG0_ADDR,
 		BF_AVRG_FLOW_EN_INFO, 1);
