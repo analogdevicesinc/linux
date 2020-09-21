@@ -247,7 +247,8 @@ dtb-$(CONFIG_ARCH_MXC) += imx8dxl-evk.dtb \
 			  imx8dxl-evk-enet0.dtb imx8dxl-evk-enet0-tja1100.dtb \
 			  imx8dxl-evk-pcie-ep.dtb \
 			  imx8dxl-evk-lpspi-slave.dtb \
-			  imx8dxl-evk-rpmsg.dtb
+			  imx8dxl-evk-rpmsg.dtb \
+			  imx8dxl-ddr3-evk.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx8dxl-phantom-mek.dtb \
 			  imx8dxl-phantom-mek-rpmsg.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx8qxp-mek.dtb imx8qxp-mek-dsp.dtb imx8qxp-mek-ov5640.dtb \
