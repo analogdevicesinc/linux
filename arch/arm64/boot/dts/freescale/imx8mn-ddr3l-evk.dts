@@ -118,3 +118,12 @@
 		DOVDD-supply = <&buck5>;
 	};
 };
+
+&aips4 {
+	/delete-node/ display-subsystem;
+};
+
+/delete-node/ &adv_bridge;
+/delete-node/ &gpu;
+/delete-node/ &lcdif;
+/delete-node/ &mipi_dsi;
