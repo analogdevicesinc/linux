@@ -55,26 +55,27 @@
 			linux,cma-default;
 		};
 
+		rsc_table: rsc_table@90000000 {
+			reg = <0 0x90000000 0 0x8000>;
+			no-map;
+		};
+
 		vdev0vring0: vdev0vring0@90000000 {
-			compatible = "shared-dma-pool";
 			reg = <0 0x90000000 0 0x8000>;
 			no-map;
 		};
 
 		vdev0vring1: vdev0vring1@90008000 {
-			compatible = "shared-dma-pool";
 			reg = <0 0x90008000 0 0x8000>;
 			no-map;
 		};
 
 		vdev1vring0: vdev1vring0@90010000 {
-			compatible = "shared-dma-pool";
 			reg = <0 0x90010000 0 0x8000>;
 			no-map;
 		};
 
 		vdev1vring1: vdev1vring1@90018000 {
-			compatible = "shared-dma-pool";
 			reg = <0 0x90018000 0 0x8000>;
 			no-map;
 		};
@@ -356,8 +357,8 @@
 };
 
 &imx8dxl_cm4 {
-	memory-region = <&vdev0vring0>, <&vdev0vring1>, <&vdevbuffer>,
-			<&vdev1vring0>, <&vdev1vring1>;
+	memory-region = <&vdevbuffer>, <&vdev0vring0>, <&vdev0vring1>,
+			<&vdev1vring0>, <&vdev1vring1>, <&rsc_table>;
 	status = "disabled";
 };
 
