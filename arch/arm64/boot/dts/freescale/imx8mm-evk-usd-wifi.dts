@@ -1,0 +1,58 @@
+// SPDX-License-Identifier: (GPL-2.0 OR MIT)
+/*
+ * Copyright 2020 NXP
+ */
+
+/dts-v1/;
+
+#include "imx8mm-evk.dts"
+
+&pinctrl_usdhc2 {
+	fsl,pins = <
+		MX8MM_IOMUXC_SD2_CLK_USDHC2_CLK		0x190
+		MX8MM_IOMUXC_SD2_CMD_USDHC2_CMD		0x1d0
+		MX8MM_IOMUXC_SD2_DATA0_USDHC2_DATA0	0x1d0
+		MX8MM_IOMUXC_SD2_DATA1_USDHC2_DATA1	0x1d0
+		MX8MM_IOMUXC_SD2_DATA2_USDHC2_DATA2	0x1d0
+		MX8MM_IOMUXC_SD2_DATA3_USDHC2_DATA3	0x1d0
+		MX8MM_IOMUXC_GPIO1_IO04_GPIO1_IO4	0x1d0
+	>;
+};
+
+&pinctrl_usdhc2_100mhz {
+	fsl,pins = <
+		MX8MM_IOMUXC_SD2_CLK_USDHC2_CLK		0x194
+		MX8MM_IOMUXC_SD2_CMD_USDHC2_CMD		0x1d4
+		MX8MM_IOMUXC_SD2_DATA0_USDHC2_DATA0	0x1d4
+		MX8MM_IOMUXC_SD2_DATA1_USDHC2_DATA1	0x1d4
+		MX8MM_IOMUXC_SD2_DATA2_USDHC2_DATA2	0x1d4
+		MX8MM_IOMUXC_SD2_DATA3_USDHC2_DATA3	0x1d4
+		MX8MM_IOMUXC_GPIO1_IO04_GPIO1_IO4	0x1d0
+	>;
+};
+
+&pinctrl_usdhc2_200mhz {
+	fsl,pins = <
+		MX8MM_IOMUXC_SD2_CLK_USDHC2_CLK		0x196
+		MX8MM_IOMUXC_SD2_CMD_USDHC2_CMD		0x1d6
+		MX8MM_IOMUXC_SD2_DATA0_USDHC2_DATA0	0x1d6
+		MX8MM_IOMUXC_SD2_DATA1_USDHC2_DATA1	0x1d6
+		MX8MM_IOMUXC_SD2_DATA2_USDHC2_DATA2	0x1d6
+		MX8MM_IOMUXC_SD2_DATA3_USDHC2_DATA3	0x1d6
+		MX8MM_IOMUXC_GPIO1_IO04_GPIO1_IO4	0x1d0
+	>;
+};
+
+&usdhc2 {
+	pinctrl-assert-gpios = <&gpio1 4 GPIO_ACTIVE_HIGH>;
+	/delete-property/ cd-gpios;
+	keep-power-in-suspend;
+	non-removable;
+	wakeup-source;
+	fsl,sdio-async-interrupt-enabled;
+};
+
+&usdhc1 {
+	status = "disabled";
+	/delete-node/ wifi_wake_host;
+};
