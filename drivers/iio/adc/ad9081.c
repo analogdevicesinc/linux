@@ -1607,8 +1607,6 @@ static int ad9081_setup(struct spi_device *spi)
 
 	if (phy->config_sync_01_swapped &&
 		phy->jesd_tx_link.jesd_param.jesd_jesdv != 2) {
-		adi_ad9081_hal_bf_set(&phy->ad9081, REG_SYNCB_CTRL_ADDR,
-			BF_SYNCB_RX_MODE_RC_INFO, 1); /* not paged */
 		adi_ad9081_jesd_rx_syncb_driver_powerdown_set(&phy->ad9081, 0);
 		adi_ad9081_hal_reg_set(&phy->ad9081,
 			REG_GENERAL_JRX_CTRL_ADDR, 0x80);
@@ -1616,8 +1614,14 @@ static int ad9081_setup(struct spi_device *spi)
 		adi_ad9081_dac_gpio_as_sync1_out_set(&phy->ad9081, 1);
 		adi_ad9081_jesd_tx_sync_mode_set(&phy->ad9081,
 			AD9081_LINK_0, 1);
-		adi_ad9081_hal_bf_set(&phy->ad9081, REG_SYNCB_CTRL_ADDR,
-			BF_PD_SYNCB_RX_RC_INFO, 0);
+
+		adi_ad9081_hal_2bf_set(&phy->ad9081, REG_SYNCA_CTRL_ADDR,
+					BF_PD_SYNCB_RX_RC_INFO, 1,
+					BF_SYNCB_RX_MODE_RC_INFO, 1);
+
+		adi_ad9081_hal_2bf_set(&phy->ad9081, REG_SYNCB_CTRL_ADDR,
+					BF_PD_SYNCB_RX_RC_INFO, 0,
+					BF_SYNCB_RX_MODE_RC_INFO, 1);
 	}
 
 	if (phy->jesd_tx_link.jesd_param.jesd_jesdv == 2) {
