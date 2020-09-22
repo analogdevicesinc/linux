@@ -1,0 +1,27 @@
+// SPDX-License-Identifier: (GPL-2.0 OR MIT)
+/*
+ * Copyright 2020 NXP
+ */
+#include "imx8qm-mek-rpmsg.dts"
+
+&pinctrl_usdhc2 {
+	fsl,pins = <
+		IMX8QM_USDHC1_CLK_CONN_USDHC1_CLK			0x06000041
+		IMX8QM_USDHC1_CMD_CONN_USDHC1_CMD			0x00000021
+		IMX8QM_USDHC1_DATA0_CONN_USDHC1_DATA0			0x00000021
+		IMX8QM_USDHC1_DATA1_CONN_USDHC1_DATA1			0x00000021
+		IMX8QM_USDHC1_DATA2_CONN_USDHC1_DATA2			0x00000021
+		IMX8QM_USDHC1_DATA3_CONN_USDHC1_DATA3			0x00000021
+		IMX8QM_USDHC1_VSELECT_LSIO_GPIO4_IO08			0x00000021
+	>;
+};
+
+&usdhc2 {
+	pinctrl-assert-gpios = <&lsio_gpio4 8 GPIO_ACTIVE_HIGH>;
+	/delete-property/ cd-gpios;
+	/delete-property/ wp-gpios;
+	pm-ignore-notify;
+	keep-power-in-suspend;
+	non-removable;
+	cap-power-off-card;
+};
