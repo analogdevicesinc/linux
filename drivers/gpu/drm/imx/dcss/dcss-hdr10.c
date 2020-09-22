@@ -6,19 +6,10 @@
 #include <linux/device.h>
 #include <linux/bitops.h>
 #include <linux/io.h>
-#include <linux/seq_file.h>
-#include <linux/firmware.h>
 #include <drm/drm_fourcc.h>
 
 #include "dcss-dev.h"
-
-#define USE_TBL_HEADER
-
-#ifdef USE_TBL_HEADER
 #include "dcss-hdr10-tables.h"
-#endif
-
-#define USE_CTXLD
 
 #define DCSS_HDR10_A0_LUT		0x0000
 #define DCSS_HDR10_A1_LUT		0x1000
@@ -384,49 +375,6 @@ static void dcss_hdr10_cleanup_tbls(struct dcss_hdr10 *hdr10)
 	kfree(hdr10->ipipe_tbls);
 }
 
-#ifndef USE_TBL_HEADER
-static void dcss_hdr10_fw_handler(const struct firmware *fw, void *context)
-{
-	struct dcss_hdr10 *hdr10 = context;
-	int i;
-
-	if (!fw) {
-		dev_err(hdr10->dev, "hdr10: DCSS FW load failed.\n");
-		return;
-	}
-
-	/* we need to keep the tables for the entire life of the driver */
-	hdr10->fw_data = kzalloc(fw->size, GFP_KERNEL);
-	if (!hdr10->fw_data)
-		return;
-
-	memcpy(hdr10->fw_data, fw->data, fw->size);
-	hdr10->fw_size = fw->size;
-
-	release_firmware(fw);
-
-	if (dcss_hdr10_parse_fw_data(hdr10)) {
-		dcss_hdr10_cleanup_tbls(hdr10);
-		return;
-	}
-
-	for (i = 0; i < 4; i++) {
-		u32 *lut, *csca, *cscb;
-		struct dcss_hdr10_ch *ch = &hdr10->ch[i];
-		bool is_input_pipe = i != OPIPE_CH_NO ? true : false;
-
-		if (ch->old_cfg_desc != HDR10_DESC_INVALID) {
-			dcss_hdr10_get_tbls(hdr10, is_input_pipe,
-					    ch->old_cfg_desc, &lut,
-					    &csca, &cscb);
-			dcss_hdr10_write_pipe_tbls(ch, lut, csca, cscb);
-		}
-	}
-
-	dev_info(hdr10->dev, "hdr10: DCSS FW loaded successfully\n");
-}
-#endif
-
 static int dcss_hdr10_tbls_init(struct dcss_hdr10 *hdr10)
 {
 	hdr10->ipipe_tbls = kzalloc(sizeof(*hdr10->ipipe_tbls), GFP_KERNEL);
@@ -469,22 +417,12 @@ int dcss_hdr10_init(struct dcss_dev *dcss, unsigned long hdr10_base)
 		goto cleanup;
 	}
 
-#ifndef USE_TBL_HEADER
-	ret = request_firmware_nowait(THIS_MODULE, FW_ACTION_HOTPLUG, "dcss.fw",
-				      dcss->dev, GFP_KERNEL, hdr10,
-				      dcss_hdr10_fw_handler);
-	if (ret < 0) {
-		dev_err(dcss->dev, "hdr10: Cannot async load DCSS FW.\n");
-		goto cleanup_tbls;
-	}
-#else
 	hdr10->fw_data = (u8 *)dcss_hdr10_tables;
 	hdr10->fw_size = sizeof(dcss_hdr10_tables);
 
 	ret = dcss_hdr10_parse_fw_data(hdr10);
 	if (ret)
 		goto cleanup_tbls;
-#endif
 
 	ret = dcss_hdr10_ch_init_all(hdr10, hdr10_base);
 	if (ret) {
