@@ -443,6 +443,7 @@ dtb-$(CONFIG_SOC_IMX7D) += \
 	imx7d-sdb-qspi.dtb \
 	imx7d-sdb-reva.dtb \
 	imx7d-sdb-sht11.dtb \
+	imx7d-sdb-usd-wifi.dtb \
 	imx7d-sdb-pcie-ep.dtb \
 	imx7d-smegw01.dtb \
 	imx7d-12x12-lpddr3-val.dtb \
