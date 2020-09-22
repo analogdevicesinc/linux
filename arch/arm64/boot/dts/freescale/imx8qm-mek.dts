@@ -982,7 +982,6 @@
 	disable-gpio = <&lsio_gpio4 9 GPIO_ACTIVE_LOW>;
 	ext_osc = <1>;
 	epdev_on-supply = <&epdev_on>;
-	reserved-region = <&rpmsg_reserved>;
 	status = "okay";
 };
 
