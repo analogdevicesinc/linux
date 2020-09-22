@@ -610,7 +610,8 @@ config CLKSRC_IMX_TPM
 	  clocksource.
 
 config TIMER_IMX_SYS_CTR
-	bool "i.MX system counter timer" if COMPILE_TEST
+	tristate "i.MX system counter timer"
+	default ARCH_MXC
 	select TIMER_OF
 	help
 	  Enable this option to use i.MX system counter timer as a

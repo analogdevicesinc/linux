@@ -4,6 +4,8 @@
 
 #include <linux/interrupt.h>
 #include <linux/clockchips.h>
+#include <linux/module.h>
+#include <linux/platform_device.h>
 #include <linux/slab.h>
 
 #include "timer-of.h"
@@ -203,5 +205,38 @@ static int __init sysctr_timer_imx95_init(struct device_node *np)
 	return 0;
 }
 
+#ifdef MODULE
+static int sysctr_timer_probe(struct platform_device *pdev)
+{
+	struct device_node *np = pdev->dev.of_node;
+	int (*init_func)(struct device_node *);
+
+	init_func = of_device_get_match_data(&pdev->dev);
+	if (!init_func)
+		return -ENODEV;
+
+	return init_func(np);
+}
+
+static const struct of_device_id sysctr_timer_match_table[] = {
+	{ .compatible = "nxp,sysctr-timer", .data = sysctr_timer_init, },
+	{ .compatible = "nxp,imx95-sysctr-timer", .data = sysctr_timer_imx95_init, },
+	{ }
+};
+MODULE_DEVICE_TABLE(of, sysctr_timer_match_table);
+
+static struct platform_driver sysctr_timer_driver = {
+	.probe		= sysctr_timer_probe,
+	.driver		= {
+		.name	= "sysctr-timer",
+		.of_match_table = sysctr_timer_match_table,
+	},
+};
+module_platform_driver(sysctr_timer_driver);
+
+#else
 TIMER_OF_DECLARE(sysctr_timer, "nxp,sysctr-timer", sysctr_timer_init);
 TIMER_OF_DECLARE(sysctr_timer_imx95, "nxp,imx95-sysctr-timer", sysctr_timer_imx95_init);
+#endif
+
+MODULE_LICENSE("GPL");
