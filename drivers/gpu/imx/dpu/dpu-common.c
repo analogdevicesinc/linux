@@ -498,6 +498,8 @@ static int dpu_attach_pm_domains(struct dpu_soc *dpu)
 			ret);
 		goto fail;
 	}
+
+	return ret;
 fail:
 	dpu_detach_pm_domains(dpu);
 	return ret;
