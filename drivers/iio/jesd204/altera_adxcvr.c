@@ -592,9 +592,11 @@ static int adxcvr_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
-	ret = clk_prepare_enable(st->link_clk);
-	if (ret)
-		return ret;
+	if (!IS_ERR(st->link_clk)) {
+		ret = clk_prepare_enable(st->link_clk);
+		if (ret)
+			return ret;
+	}
 
 	ret = sysfs_create_group(&pdev->dev.kobj, &adxcvr_sysfs_group);
 	if (ret)
