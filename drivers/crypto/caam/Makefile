@@ -18,7 +18,7 @@ obj-$(CONFIG_CRYPTO_DEV_FSL_CAAM_JR_UIO) += fsl_jr_uio.o
 
 caam-y := ctrl.o
 caam_jr-y := jr.o key_gen.o
-caam_jr-$(CONFIG_CRYPTO_DEV_FSL_CAAM_TK_API) += tag_object.o caamkeyblob.o
+caam_jr-$(CONFIG_CRYPTO_DEV_FSL_CAAM_TK_API) += tag_object.o caamkeyblob.o caamkeygen.o
 caam_jr-$(CONFIG_CRYPTO_DEV_FSL_CAAM_CRYPTO_API) += caamalg.o
 caam_jr-$(CONFIG_CRYPTO_DEV_FSL_CAAM_CRYPTO_API_QI) += caamalg_qi.o
 caam_jr-$(CONFIG_CRYPTO_DEV_FSL_CAAM_AHASH_API) += caamhash.o
