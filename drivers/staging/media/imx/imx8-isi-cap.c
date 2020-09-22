@@ -1700,7 +1700,6 @@ static int isi_cap_probe(struct platform_device *pdev)
 
 	sd = &isi_cap->sd;
 	v4l2_subdev_init(sd, &mxc_isi_subdev_ops);
-	sd->flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
 	snprintf(sd->name, sizeof(sd->name), "mxc_isi.%d", isi_cap->id);
 
 	sd->entity.function = MEDIA_ENT_F_PROC_VIDEO_PIXEL_FORMATTER;
