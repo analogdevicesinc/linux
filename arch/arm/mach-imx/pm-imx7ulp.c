@@ -127,6 +127,7 @@ static void __iomem *pcc2_base;
 static void __iomem *pcc3_base;
 static void __iomem *mu_base;
 static void __iomem *scg1_base;
+static void __iomem *wdog1_base;
 static void __iomem *gpio_base[4];
 static void __iomem *suspend_ocram_base;
 static void (*imx7ulp_suspend_in_ocram_fn)(void __iomem *sram_base);
@@ -457,6 +458,16 @@ static int imx7ulp_suspend_finish(unsigned long val)
 	return 0;
 }
 
+static void imx7ulp_wdog_refresh(void)
+{
+	/*
+	 * On revision 2.2, wdog2 is by default disabled when out of
+	 * reset, so here, we ONLY refresh wdog1.
+	 */
+	writel_relaxed(0xA602, wdog1_base + 0x4);
+	writel_relaxed(0xB480, wdog1_base + 0x4);
+}
+
 static int imx7ulp_pm_enter(suspend_state_t state)
 {
 	switch (state) {
@@ -509,6 +520,8 @@ static int imx7ulp_pm_enter(suspend_state_t state)
 	default:
 		return -EINVAL;
 	}
+
+	imx7ulp_wdog_refresh();
 
 	return 0;
 }
@@ -699,6 +712,10 @@ void __init imx7ulp_pm_common_init(const struct imx7ulp_pm_socdata
 	np = of_find_compatible_node(NULL, NULL, "fsl,imx7ulp-scg1");
 	scg1_base = of_iomap(np, 0);
 	WARN_ON(!scg1_base);
+
+	np = of_find_compatible_node(NULL, NULL, "fsl,imx7ulp-wdt");
+	wdog1_base = of_iomap(np, 0);
+	WARN_ON(!wdog1_base);
 
 	np = NULL;
 	for (i = 0; i < 4; i++) {
