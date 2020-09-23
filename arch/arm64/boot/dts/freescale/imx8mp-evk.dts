@@ -261,6 +261,10 @@
 	cpu-supply = <&buck2>;
 };
 
+&dsp {
+	status = "okay";
+};
+
 &aud2htx {
 	status = "okay";
 };
