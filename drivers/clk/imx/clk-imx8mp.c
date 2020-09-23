@@ -13,6 +13,7 @@
 #include <linux/platform_device.h>
 #include <linux/slab.h>
 #include <linux/types.h>
+#include <soc/imx/soc.h>
 
 #include "clk.h"
 
@@ -440,6 +441,8 @@ static int imx8mp_clocks_probe(struct platform_device *pdev)
 	struct device_node *np;
 	void __iomem *anatop_base, *ccm_base;
 	int err;
+
+	check_m4_enabled();
 
 	np = of_find_compatible_node(NULL, NULL, "fsl,imx8mp-anatop");
 	anatop_base = devm_of_iomap(dev, np, 0, NULL);
