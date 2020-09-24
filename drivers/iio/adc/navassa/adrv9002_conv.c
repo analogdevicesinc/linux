@@ -581,7 +581,7 @@ int adrv9002_axi_intf_tune(struct adrv9002_rf_phy *phy, const bool tx, const int
 		}
 	}
 
-	return cnt < 0 ? cnt : 0;
+	return max_cnt ? 0 : -EIO;
 }
 EXPORT_SYMBOL(adrv9002_axi_intf_tune);
 
