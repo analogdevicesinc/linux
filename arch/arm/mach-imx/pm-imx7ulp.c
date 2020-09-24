@@ -117,6 +117,13 @@
 
 #define ADDR_1M_MASK	0xFFF00000
 
+#define WDOG_CS			0x0
+#define WDOG_CS_CMD32EN		BIT(13)
+#define WDOG_CNT	0x4
+#define REFRESH_SEQ0	0xA602
+#define REFRESH_SEQ1	0xB480
+#define REFRESH		((REFRESH_SEQ1 << 16) | REFRESH_SEQ0)
+
 static void __iomem *smc1_base;
 static void __iomem *pmc0_base;
 static void __iomem *pmc1_base;
@@ -464,8 +471,12 @@ static void imx7ulp_wdog_refresh(void)
 	 * On revision 2.2, wdog2 is by default disabled when out of
 	 * reset, so here, we ONLY refresh wdog1.
 	 */
-	writel_relaxed(0xA602, wdog1_base + 0x4);
-	writel_relaxed(0xB480, wdog1_base + 0x4);
+	if (readl_relaxed(wdog1_base + WDOG_CS) & WDOG_CS_CMD32EN) {
+		writel(REFRESH, wdog1_base + WDOG_CNT);
+	} else {
+		writel_relaxed(REFRESH_SEQ0, wdog1_base + WDOG_CNT);
+		writel_relaxed(REFRESH_SEQ1, wdog1_base + WDOG_CNT);
+	}
 }
 
 static int imx7ulp_pm_enter(suspend_state_t state)
