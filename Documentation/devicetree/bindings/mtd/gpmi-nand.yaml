@@ -80,6 +80,10 @@ properties:
       in the FCB. Thus, partitions written from Linux with this feature turned
       on may not be accessible by the BootROM code.
 
+  fsl,max-nand-cs:
+    description: |
+      Maximum nand cs the board can support
+
 required:
   - compatible
   - reg
