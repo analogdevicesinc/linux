@@ -356,6 +356,7 @@ M: Bogdan Folea <bogdan.folea@nxp.com>
 M: Valentin Ciocoi Radulescu <valentin.ciocoi@nxp.com>
 M: Horia Geanta <horia.geanta@nxp.com>
 F: drivers/crypto/caam/
+F: include/uapi/linux/caam_keygen.h
 
 crypto/cse
 M: Bogdan Folea <bogdan.folea@nxp.com>
