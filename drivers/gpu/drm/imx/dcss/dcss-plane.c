@@ -471,9 +471,14 @@ static void dcss_plane_setup_hdr10_pipes(struct drm_plane *plane)
 	ipipe_cfg.is_yuv = fb->format->is_yuv;
 
 	if (!fb->format->is_yuv) {
-		ipipe_cfg.nl = NL_SRGB;
 		ipipe_cfg.pr = PR_FULL;
-		ipipe_cfg.g = G_ADOBE_ARGB;
+		if (fb->format->depth == 30) {
+			ipipe_cfg.nl = NL_REC2084;
+			ipipe_cfg.g = G_REC2020;
+		} else {
+			ipipe_cfg.nl = NL_REC709;
+			ipipe_cfg.g = G_REC709;
+		}
 		goto setup;
 	}
 
@@ -490,7 +495,7 @@ static void dcss_plane_setup_hdr10_pipes(struct drm_plane *plane)
 
 	default:
 		ipipe_cfg.nl = NL_REC709;
-		ipipe_cfg.g = G_REC601_PAL;
+		ipipe_cfg.g = G_REC709;
 		break;
 	}
 

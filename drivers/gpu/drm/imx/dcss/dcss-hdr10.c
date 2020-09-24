@@ -5,6 +5,7 @@
 
 #include <linux/device.h>
 #include <linux/bitops.h>
+#include <linux/bsearch.h>
 #include <linux/io.h>
 #include <drm/drm_fourcc.h>
 
@@ -117,24 +118,6 @@ enum dcss_hdr10_csc {
 	HDR10_CSCB,
 };
 
-struct dcss_hdr10_tbl_node {
-	struct list_head node;
-
-	u64 tbl_descriptor;
-	u32 *tbl_data;
-};
-
-struct dcss_hdr10_opipe_tbls {
-	struct list_head lut;
-	struct list_head csc;
-};
-
-struct dcss_hdr10_ipipe_tbls {
-	struct list_head lut;
-	struct list_head csca;
-	struct list_head cscb;
-};
-
 struct dcss_hdr10_ch {
 	struct dcss_hdr10 *hdr10;
 	void __iomem *base_reg;
@@ -152,12 +135,6 @@ struct dcss_hdr10 {
 	u32 ctx_id;
 
 	struct dcss_hdr10_ch ch[4]; /* 4th channel is, actually, OPIPE */
-
-	struct dcss_hdr10_ipipe_tbls *ipipe_tbls;
-	struct dcss_hdr10_opipe_tbls *opipe_tbls;
-
-	u8 *fw_data;
-	u32 fw_size;
 };
 
 static void dcss_hdr10_write(struct dcss_hdr10_ch *ch, u32 val, u32 ofs)
@@ -169,7 +146,7 @@ static void dcss_hdr10_write(struct dcss_hdr10_ch *ch, u32 val, u32 ofs)
 
 static void dcss_hdr10_csc_fill(struct dcss_hdr10_ch *ch,
 				enum dcss_hdr10_csc csc_to_use,
-				u32 *map)
+				const u32 *map)
 {
 	int i;
 	u32 csc_base_ofs[] = {
@@ -184,7 +161,7 @@ static void dcss_hdr10_csc_fill(struct dcss_hdr10_ch *ch,
 	}
 }
 
-static void dcss_hdr10_lut_fill(struct dcss_hdr10_ch *ch, u32 *map)
+static void dcss_hdr10_lut_fill(struct dcss_hdr10_ch *ch, const u16 *map)
 {
 	int i, comp;
 	u32 lut_base_ofs, ctrl_ofs, lut_entries;
@@ -249,42 +226,52 @@ static int dcss_hdr10_ch_init_all(struct dcss_hdr10 *hdr10,
 	return 0;
 }
 
-static u32 *dcss_hdr10_find_tbl(u64 desc, struct list_head *head)
+static int dcss_hdr10_id_compare(const void *a, const void *b)
 {
-	struct list_head *node;
-	struct dcss_hdr10_tbl_node *tbl_node;
+	const u32 id = *(const u32 *)a;
+	const u32 tbl_id = *(const u32 *)b;
 
-	list_for_each(node, head) {
-		tbl_node = container_of(node, struct dcss_hdr10_tbl_node, node);
+	if (id == tbl_id)
+		return 0;
 
-		if ((tbl_node->tbl_descriptor & desc) == desc)
-			return tbl_node->tbl_data;
-	}
+	if (id > tbl_id)
+		return 1;
 
-	return NULL;
+	return -1;
 }
 
-static int dcss_hdr10_get_tbls(struct dcss_hdr10 *hdr10, bool input,
-			       u64 desc, u32 **lut, u32 **csca, u32 **cscb)
+static int dcss_hdr10_get_tbls(struct dcss_hdr10 *hdr10, u32 desc,
+			       const u16 **ilut, const u32 **csca,
+			       const u32 **cscb, const u16 **olut,
+			       const u32 **csco)
 {
-	struct list_head *lut_list, *csca_list, *cscb_list;
+	struct dcss_pipe_cfg *pipe_cfg = NULL;
 
-	lut_list = input ? &hdr10->ipipe_tbls->lut : &hdr10->opipe_tbls->lut;
-	csca_list = input ? &hdr10->ipipe_tbls->csca : &hdr10->opipe_tbls->csc;
-	cscb_list = input ? &hdr10->ipipe_tbls->cscb : NULL;
+	pipe_cfg = bsearch(&desc, dcss_cfg_table,
+			   ARRAY_SIZE(dcss_cfg_table),
+			   sizeof(dcss_cfg_table[0]), dcss_hdr10_id_compare);
 
-	*lut = dcss_hdr10_find_tbl(desc, lut_list);
-	*csca = dcss_hdr10_find_tbl(desc, csca_list);
+	if (!pipe_cfg) {
+		WARN_ON(1);
+		return -1;
+	}
 
-	*cscb = NULL;
-	if (cscb_list)
-		*cscb = dcss_hdr10_find_tbl(desc, cscb_list);
+	dev_dbg(hdr10->dev, "found tbl_id = 0x%08x: (%d, %d, %d, %d, %d)",
+			pipe_cfg->id, pipe_cfg->idx[0], pipe_cfg->idx[1],
+			pipe_cfg->idx[2], pipe_cfg->idx[3], pipe_cfg->idx[4]);
+
+	*csca = dcss_cscas[pipe_cfg->idx[0]];
+	*ilut = dcss_iluts[pipe_cfg->idx[1]];
+	*cscb = dcss_cscbs[pipe_cfg->idx[2]];
+	*olut = dcss_oluts[pipe_cfg->idx[3]];
+	*csco = dcss_cscos[pipe_cfg->idx[4]];
 
 	return 0;
 }
 
 static void dcss_hdr10_write_pipe_tbls(struct dcss_hdr10_ch *ch,
-				       u32 *lut, u32 *csca, u32 *cscb)
+				       const u16 *lut, const u32 *csca,
+				       const u32 *cscb)
 {
 	if (csca)
 		dcss_hdr10_csc_fill(ch, HDR10_CSCA, csca);
@@ -294,107 +281,6 @@ static void dcss_hdr10_write_pipe_tbls(struct dcss_hdr10_ch *ch,
 
 	if (lut)
 		dcss_hdr10_lut_fill(ch, lut);
-}
-
-static int dcss_hdr10_tbl_add(struct dcss_hdr10 *hdr10, u64 desc, u32 sz,
-			      u32 *data)
-{
-	struct dcss_hdr10_tbl_node *node;
-
-	node = kzalloc(sizeof(*node), GFP_KERNEL);
-	if (!node)
-		return -ENOMEM;
-
-	/* we don't need to store the table type and pipe type */
-	node->tbl_descriptor = desc >> 4;
-	node->tbl_data = data;
-
-	if (!(desc & HDR10_PT_OUTPUT)) {
-		if (desc & HDR10_TT_LUT)
-			list_add(&node->node, &hdr10->ipipe_tbls->lut);
-		else if (desc & HDR10_TT_CSCA)
-			list_add(&node->node, &hdr10->ipipe_tbls->csca);
-		else if (desc & HDR10_TT_CSCB)
-			list_add(&node->node, &hdr10->ipipe_tbls->cscb);
-
-		return 0;
-	}
-
-	if (desc & HDR10_TT_LUT)
-		list_add(&node->node, &hdr10->opipe_tbls->lut);
-	else if (desc & HDR10_TT_CSCA)
-		list_add(&node->node, &hdr10->opipe_tbls->csc);
-
-	return 0;
-}
-
-static int dcss_hdr10_parse_fw_data(struct dcss_hdr10 *hdr10)
-{
-	u32 *data = (u32 *)hdr10->fw_data;
-	u32 remaining = hdr10->fw_size / sizeof(u32);
-	u64 tbl_desc;
-	u32 tbl_size;
-	int ret;
-
-	while (remaining) {
-		tbl_desc = *((u64 *)data);
-		data += 2;
-		tbl_size = *data++;
-
-		ret = dcss_hdr10_tbl_add(hdr10, tbl_desc, tbl_size, data);
-		if (ret)
-			return ret;
-
-		data += tbl_size;
-		remaining -= tbl_size + 3;
-	}
-
-	return 0;
-}
-
-static void dcss_hdr10_cleanup_tbls(struct dcss_hdr10 *hdr10)
-{
-	int i;
-	struct dcss_hdr10_tbl_node *tbl_node, *next;
-	struct list_head *tbls[] = {
-		&hdr10->ipipe_tbls->lut,
-		&hdr10->ipipe_tbls->csca,
-		&hdr10->ipipe_tbls->cscb,
-		&hdr10->opipe_tbls->lut,
-		&hdr10->opipe_tbls->csc,
-	};
-
-	for (i = 0; i < 5; i++) {
-		list_for_each_entry_safe(tbl_node, next, tbls[i], node) {
-			list_del(&tbl_node->node);
-			kfree(tbl_node);
-		}
-	}
-
-	kfree(hdr10->opipe_tbls);
-	kfree(hdr10->ipipe_tbls);
-}
-
-static int dcss_hdr10_tbls_init(struct dcss_hdr10 *hdr10)
-{
-	hdr10->ipipe_tbls = kzalloc(sizeof(*hdr10->ipipe_tbls), GFP_KERNEL);
-	if (!hdr10->ipipe_tbls)
-		return -ENOMEM;
-
-	INIT_LIST_HEAD(&hdr10->ipipe_tbls->lut);
-	INIT_LIST_HEAD(&hdr10->ipipe_tbls->csca);
-	INIT_LIST_HEAD(&hdr10->ipipe_tbls->cscb);
-
-	hdr10->opipe_tbls = kzalloc(sizeof(*hdr10->opipe_tbls), GFP_KERNEL);
-	if (!hdr10->opipe_tbls) {
-		kfree(hdr10->ipipe_tbls);
-		return -ENOMEM;
-	}
-
-	INIT_LIST_HEAD(&hdr10->opipe_tbls->lut);
-	INIT_LIST_HEAD(&hdr10->opipe_tbls->csc);
-
-	return 0;
 }
 
 int dcss_hdr10_init(struct dcss_dev *dcss, unsigned long hdr10_base)
@@ -411,19 +297,6 @@ int dcss_hdr10_init(struct dcss_dev *dcss, unsigned long hdr10_base)
 	hdr10->ctx_id = CTX_SB_HP;
 	hdr10->ctxld = dcss->ctxld;
 
-	ret = dcss_hdr10_tbls_init(hdr10);
-	if (ret < 0) {
-		dev_err(dcss->dev, "hdr10: Cannot init table lists.\n");
-		goto cleanup;
-	}
-
-	hdr10->fw_data = (u8 *)dcss_hdr10_tables;
-	hdr10->fw_size = sizeof(dcss_hdr10_tables);
-
-	ret = dcss_hdr10_parse_fw_data(hdr10);
-	if (ret)
-		goto cleanup_tbls;
-
 	ret = dcss_hdr10_ch_init_all(hdr10, hdr10_base);
 	if (ret) {
 		int i;
@@ -433,13 +306,10 @@ int dcss_hdr10_init(struct dcss_dev *dcss, unsigned long hdr10_base)
 				iounmap(hdr10->ch[i].base_reg);
 		}
 
-		goto cleanup_tbls;
+		goto cleanup;
 	}
 
 	return 0;
-
-cleanup_tbls:
-	dcss_hdr10_cleanup_tbls(hdr10);
 
 cleanup:
 	kfree(hdr10);
@@ -455,8 +325,6 @@ void dcss_hdr10_exit(struct dcss_hdr10 *hdr10)
 		if (hdr10->ch[i].base_reg)
 			iounmap(hdr10->ch[i].base_reg);
 	}
-
-	dcss_hdr10_cleanup_tbls(hdr10);
 
 	kfree(hdr10);
 }
@@ -485,34 +353,23 @@ static u64 dcss_hdr10_get_desc(struct dcss_hdr10_pipe_cfg *ipipe_cfg,
 	return (ipipe_desc & 0xFFFF) | ((opipe_desc & 0xFFFF) << 16);
 }
 
-static void dcss_hdr10_pipe_setup(struct dcss_hdr10_ch *ch, u64 desc)
-{
-	bool pipe_cfg_chgd;
-	u32 *csca, *cscb, *lut;
-
-	pipe_cfg_chgd = ch->old_cfg_desc != desc;
-
-	if (!pipe_cfg_chgd)
-		return;
-
-	dcss_hdr10_get_tbls(ch->hdr10, ch->id != OPIPE_CH_NO,
-			    desc, &lut, &csca, &cscb);
-	dcss_hdr10_write_pipe_tbls(ch, lut, csca, cscb);
-
-	ch->old_cfg_desc = desc;
-}
-
 void dcss_hdr10_setup(struct dcss_hdr10 *hdr10, int ch_num,
 		      struct dcss_hdr10_pipe_cfg *ipipe_cfg,
 		      struct dcss_hdr10_pipe_cfg *opipe_cfg)
 {
-	u64 desc = dcss_hdr10_get_desc(ipipe_cfg, opipe_cfg);
+	const u16 *ilut, *olut;
+	const u32 *csca, *cscb, *csco;
+	u32 desc = dcss_hdr10_get_desc(ipipe_cfg, opipe_cfg);
 
-	dcss_hdr10_pipe_setup(&hdr10->ch[ch_num], desc);
+	if (hdr10->ch[ch_num].old_cfg_desc == desc)
+		return;
 
-	/*
-	 * Input pipe configuration doesn't matter for configuring the output
-	 * pipe. So, will just mask off the input part of the descriptor.
-	 */
-	dcss_hdr10_pipe_setup(&hdr10->ch[OPIPE_CH_NO], desc & ~0xffff);
+	if (dcss_hdr10_get_tbls(hdr10, desc, &ilut, &csca, &cscb, &olut, &csco))
+		return;
+
+	dcss_hdr10_write_pipe_tbls(&hdr10->ch[ch_num], ilut, csca, cscb);
+
+	hdr10->ch[ch_num].old_cfg_desc = desc;
+
+	dcss_hdr10_write_pipe_tbls(&hdr10->ch[OPIPE_CH_NO], olut, csco, NULL);
 }
