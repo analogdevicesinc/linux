@@ -2,7 +2,7 @@
 *
 *    The MIT License (MIT)
 *
-*    Copyright (c) 2014 - 2019 Vivante Corporation
+*    Copyright (c) 2014 - 2020 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 *
 *    The GPL License (GPL)
 *
-*    Copyright (C) 2014 - 2019 Vivante Corporation
+*    Copyright (C) 2014 - 2020 Vivante Corporation
 *
 *    This program is free software; you can redistribute it and/or
 *    modify it under the terms of the GNU General Public License
@@ -1454,7 +1454,7 @@ gckEVENT_Submit(
                 gcmkONERROR(gckCOMMAND_ExecuteMultiChannel(command, 0, 0, executeBytes));
             }
 
-#if gcdNULL_DRIVER
+#if gcdNULL_DRIVER || gcdCAPTURE_ONLY_MODE
             /* Notify immediately on infinite hardware. */
             gcmkONERROR(gckEVENT_Interrupt(Event, 1 << id));
 

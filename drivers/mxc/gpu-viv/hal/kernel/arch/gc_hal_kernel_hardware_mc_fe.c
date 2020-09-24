@@ -2,7 +2,7 @@
 *
 *    The MIT License (MIT)
 *
-*    Copyright (c) 2014 - 2019 Vivante Corporation
+*    Copyright (c) 2014 - 2020 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 *
 *    The GPL License (GPL)
 *
-*    Copyright (C) 2014 - 2019 Vivante Corporation
+*    Copyright (C) 2014 - 2020 Vivante Corporation
 *
 *    This program is free software; you can redistribute it and/or
 *    modify it under the terms of the GNU General Public License
@@ -326,17 +326,17 @@ _ProgramDescRingBuf(
 
     if (Priority)
     {
-        ringBufStartReg = 0x02900;
-        depthExpReg     = 0x02A00;
-        readPtrReg      = 0x02C00;
-        writePtrReg     = 0x02B00;
+        ringBufStartReg = 0x02800;
+        depthExpReg     = 0x02900;
+        readPtrReg      = 0x02B00;
+        writePtrReg     = 0x02A00;
     }
     else
     {
-        ringBufStartReg = 0x02500;
-        depthExpReg     = 0x02600;
-        readPtrReg      = 0x02800;
-        writePtrReg     = 0x02700;
+        ringBufStartReg = 0x02400;
+        depthExpReg     = 0x02500;
+        readPtrReg      = 0x02700;
+        writePtrReg     = 0x02600;
     }
 
     ringBufStartReg += Index << 2;
@@ -773,8 +773,8 @@ gckMCFE_Execute(
     while (_NextPtr(ringBuf->writePtr) == ringBuf->readPtr)
     {
         gctUINT32 data;
-        regBase = Priority ? 0x02C00
-                : 0x02800;
+        regBase = Priority ? 0x02B00
+                : 0x02700;
 
         gcmkVERIFY_OK(gckOS_ReadRegisterEx(Hardware->os,
                                            Hardware->core,
@@ -794,8 +794,8 @@ gckMCFE_Execute(
         }
     }
 
-    regBase = Priority ? 0x02B00
-            : 0x02700;
+    regBase = Priority ? 0x02A00
+            : 0x02600;
 
     /* ringBufLogical is in uint32, 2 uint32 contributes 1 descriptr. */
     desc = (gcsMCFE_DESCRIPTOR *)&ringBuf->ringBufLogical[ringBuf->writePtr * 2];
@@ -833,6 +833,57 @@ gckMCFE_Execute(
                                         ringBuf->writePtr));
 
     return gcvSTATUS_OK;
+}
+
+gceSTATUS
+gckMCFE_HardwareIdle(
+    IN gckHARDWARE Hardware,
+    OUT gctBOOL_PTR isIdle
+    )
+{
+    gceSTATUS status;
+    gctUINT32 idle;
+    gctUINT32 regRBase;
+    gctUINT32 readPtr;
+    gctUINT32 ChannelId = 0;
+    gctBOOL Priority = gcvFALSE;
+    gcsMCFE_CHANNEL * channel  = &Hardware->mcFE->channels[ChannelId];
+    gcsMCFE_RING_BUF * ringBuf = Priority ? &channel->priRingBuf
+                              : &channel->stdRingBuf;
+
+    gcmkHEADER();
+
+    *isIdle = gcvTRUE;
+
+    /* Read idle register. */
+    gcmkONERROR(
+        gckOS_ReadRegisterEx(Hardware->os, Hardware->core, 0x00004, &idle));
+
+    /* Pipe must be idle. */
+    if ((idle | (1 << 14)) != 0x7fffffff)
+    {
+        /* Something is busy. */
+        *isIdle = gcvFALSE;
+        return status;
+    }
+
+    regRBase = Priority ? 0x02B00
+        : 0x02700;
+
+    gcmkONERROR(gckOS_ReadRegisterEx(Hardware->os,
+                                       Hardware->core,
+                                       regRBase + ChannelId * 4,
+                                       &readPtr));
+
+    if (readPtr != ringBuf->writePtr)
+    {
+        *isIdle = gcvFALSE;
+    }
+
+    gcmkFOOTER();
+
+OnError:
+    return status;
 }
 
 

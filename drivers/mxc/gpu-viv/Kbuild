@@ -2,7 +2,7 @@
 #
 #    The MIT License (MIT)
 #
-#    Copyright (c) 2014 - 2019 Vivante Corporation
+#    Copyright (c) 2014 - 2020 Vivante Corporation
 #
 #    Permission is hereby granted, free of charge, to any person obtaining a
 #    copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 #
 #    The GPL License (GPL)
 #
-#    Copyright (C) 2014 - 2019 Vivante Corporation
+#    Copyright (C) 2014 - 2020 Vivante Corporation
 #
 #    This program is free software; you can redistribute it and/or
 #    modify it under the terms of the GNU General Public License
@@ -56,7 +56,11 @@
 #
 # Linux build file for kernel HAL driver.
 #
-AQROOT := $(srctree)/drivers/mxc/gpu-viv
+AQROOT ?= $(srctree)/drivers/mxc/gpu-viv
+
+ifeq ($(CONFIG_MXC_GPU_VIV),)
+    CONFIG_MXC_GPU_VIV=m
+endif
 
 include $(AQROOT)/config
 
@@ -126,6 +130,8 @@ OBJS += $(HAL_KERNEL_DIR)/gc_hal_kernel.o \
 
 OBJS += $(ARCH_KERNEL_DIR)/gc_hal_kernel_context.o \
         $(ARCH_KERNEL_DIR)/gc_hal_kernel_hardware.o \
+        $(ARCH_KERNEL_DIR)/gc_hal_kernel_hardware_func.o \
+        $(ARCH_KERNEL_DIR)/gc_hal_kernel_hardware_func_flop_reset.o \
         $(ARCH_KERNEL_DIR)/gc_hal_kernel_hardware_async_fe.o \
         $(ARCH_KERNEL_DIR)/gc_hal_kernel_hardware_mc_fe.o \
         $(ARCH_KERNEL_DIR)/gc_hal_kernel_hardware_waitlink_fe.o
@@ -183,7 +189,7 @@ ifeq ($(KERNELRELEASE), )
 
 # Define targets.
 all:
-	@$(MAKE) V=$(V) ARCH=$(ARCH_TYPE) -C $(KERNEL_DIR) SUBDIRS=`pwd` modules
+	@$(MAKE) V=$(V) ARCH=$(ARCH_TYPE) -C $(KERNEL_DIR) M=`pwd` modules
 
 clean:
 	@rm -rf $(OBJS)

@@ -2,7 +2,7 @@
 *
 *    The MIT License (MIT)
 *
-*    Copyright (c) 2014 - 2019 Vivante Corporation
+*    Copyright (c) 2014 - 2020 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 *
 *    The GPL License (GPL)
 *
-*    Copyright (C) 2014 - 2019 Vivante Corporation
+*    Copyright (C) 2014 - 2020 Vivante Corporation
 *
 *    This program is free software; you can redistribute it and/or
 *    modify it under the terms of the GNU General Public License
@@ -218,6 +218,9 @@ extern "C" {
 
 /* Beside gcvSTUCK_DUMP_USER_COMMAND, dump kernel command buffer. */
 #define gcvSTUCK_DUMP_ALL_COMMAND   4
+
+/* Dump all the cores with level 4 dump. */
+#define gcvSTUCK_DUMP_ALL_CORE      5
 
 /*******************************************************************************
 ***** Page table **************************************************************/
@@ -640,6 +643,7 @@ struct _gckKERNEL
     gctUINT64                   sRAMLoopMode;
 
     gctUINT32                   timeoutPID;
+    gctBOOL                     threadInitialized;
 };
 
 struct _FrequencyHistory
@@ -1334,6 +1338,11 @@ typedef struct _gcsVIDMEM_NODE
     gctUINT32                   tilingMode;
     gctUINT32                   tsMode;
     gctUINT64                   clearValue;
+
+#if gcdCAPTURE_ONLY_MODE
+    gctSIZE_T                   captureSize;
+    gctPOINTER                  captureLogical;
+#endif
 }
 gcsVIDMEM_NODE;
 
@@ -1408,14 +1417,18 @@ typedef struct _gcsDEVICE
     gctUINT32                   sRAMBaseAddresses[gcvCORE_COUNT][gcvSRAM_INTER_COUNT];
     gctBOOL                     sRAMPhysFaked[gcvCORE_COUNT][gcvSRAM_INTER_COUNT];
 
-    /* Physical address of external SRAMs. */
+    /* CPU physical address of external SRAMs. */
     gctUINT64                   extSRAMBases[gcvSRAM_EXT_COUNT];
+    /* GPU physical address of external SRAMs. */
+    gctUINT64                   extSRAMGPUBases[gcvSRAM_EXT_COUNT];
     /* External SRAMs' size. */
     gctUINT32                   extSRAMSizes[gcvSRAM_EXT_COUNT];
     /* GPU/VIP virtual address of external SRAMs. */
     gctUINT32                   extSRAMBaseAddresses[gcvSRAM_EXT_COUNT];
     /* MDL. */
     gctPHYS_ADDR                extSRAMPhysical[gcvSRAM_EXT_COUNT];
+    /* IntegerId. */
+    gctUINT32                   extSRAMGPUPhysNames[gcvSRAM_EXT_COUNT];
 
     /* Show SRAM mapping info or not. */
     gctUINT                     showSRAMMapInfo;

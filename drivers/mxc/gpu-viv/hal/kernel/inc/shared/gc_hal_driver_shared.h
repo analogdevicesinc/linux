@@ -26,7 +26,7 @@
 *
 *    The GPL License (GPL)
 *
-*    Copyright (C) 2014 - 2019 Vivante Corporation
+*    Copyright (C) 2014 - 2020 Vivante Corporation
 *
 *    This program is free software; you can redistribute it and/or
 *    modify it under the terms of the GNU General Public License
@@ -68,7 +68,11 @@ extern "C" {
 #endif
 
 /* The number of context buffers per user. */
-#define gcdCONTEXT_BUFFER_NUM 2
+#if gcdCAPTURE_ONLY_MODE
+#define gcdCONTEXT_BUFFER_COUNT 1
+#else
+#define gcdCONTEXT_BUFFER_COUNT 2
+#endif
 
 /******************************************************************************\
 ******************************* I/O Control Codes ******************************
@@ -79,6 +83,7 @@ extern "C" {
 #define IOCTL_GCHAL_PROFILER_INTERFACE  30001
 #define IOCTL_GCHAL_TERMINATE           30002
 
+#undef CONFIG_ANDROID_RESERVED_MEMORY_ACCOUNT
 /******************************************************************************\
 ****************************** Interface Structure *****************************
 \******************************************************************************/
@@ -257,6 +262,8 @@ typedef struct _gcsHAL_QUERY_CHIP_OPTIONS
     gceSECURE_MODE              secureMode;
     gctBOOL                     enableNNTPParallel;
     gctUINT                     enableSwtilingPhase1;
+
+    gctBOOL                     hasShader;
 }
 gcsHAL_QUERY_CHIP_OPTIONS;
 
@@ -404,6 +411,12 @@ typedef struct _gcsHAL_LOCK_VIDEO_MEMORY
 
     /* Bus address of a contiguous video node. */
     OUT gctUINT64               physicalAddress;
+
+#if gcdCAPTURE_ONLY_MODE
+    IN gctBOOL                  queryCapSize;
+    IN gctPOINTER               captureLogical;
+    OUT gctSIZE_T               captureSize;
+#endif
 }
 gcsHAL_LOCK_VIDEO_MEMORY;
 
@@ -424,6 +437,10 @@ typedef struct _gcsHAL_UNLOCK_VIDEO_MEMORY
 
     /* Flag to unlock surface asynchroneously. */
     IN OUT gctBOOL              asynchroneous;
+
+#if gcdCAPTURE_ONLY_MODE
+    OUT gctPOINTER              captureLogical;
+#endif
 }
 gcsHAL_UNLOCK_VIDEO_MEMORY;
 
@@ -527,6 +544,12 @@ typedef struct _gcsHAL_ATTACH
 
     /* Bytes of context buffer. */
     OUT gctUINT32               bytes;
+
+#if gcdCAPTURE_ONLY_MODE
+    IN gctBOOL                  queryCapSize;
+    IN gctPOINTER               contextLogical[gcdCONTEXT_BUFFER_NUM];
+    OUT gctSIZE_T               captureSize;
+#endif
 }
 gcsHAL_ATTACH;
 
@@ -577,6 +600,10 @@ typedef struct _gcsHAL_COMMAND_LOCATION
 
     /* struct _gcsHAL_COMMAND_LOCATION * next; */
     gctUINT64                   next;
+
+#if gcdCAPTURE_ONLY_MODE
+    gctPOINTER                  contextLogical[gcdCONTEXT_BUFFER_NUM];
+#endif
 }
 gcsHAL_COMMAND_LOCATION;
 

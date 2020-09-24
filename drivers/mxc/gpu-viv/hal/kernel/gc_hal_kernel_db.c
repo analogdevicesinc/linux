@@ -2,7 +2,7 @@
 *
 *    The MIT License (MIT)
 *
-*    Copyright (c) 2014 - 2019 Vivante Corporation
+*    Copyright (c) 2014 - 2020 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 *
 *    The GPL License (GPL)
 *
-*    Copyright (C) 2014 - 2019 Vivante Corporation
+*    Copyright (C) 2014 - 2020 Vivante Corporation
 *
 *    This program is free software; you can redistribute it and/or
 *    modify it under the terms of the GNU General Public License
@@ -610,12 +610,20 @@ gckKERNEL_CreateProcessDB(
     database->vidMem.bytes              = 0;
     database->vidMem.maxBytes           = 0;
     database->vidMem.totalBytes         = 0;
+    database->vidMem.freeCount          = 0;
+    database->vidMem.allocCount         = 0;
+
     database->nonPaged.bytes            = 0;
     database->nonPaged.maxBytes         = 0;
     database->nonPaged.totalBytes       = 0;
+    database->nonPaged.freeCount        = 0;
+    database->nonPaged.allocCount       = 0;
+
     database->mapMemory.bytes           = 0;
     database->mapMemory.maxBytes        = 0;
     database->mapMemory.totalBytes      = 0;
+    database->mapMemory.freeCount       = 0;
+    database->mapMemory.allocCount      = 0;
 
     for (i = 0; i < gcmCOUNTOF(database->list); i++)
     {
@@ -627,6 +635,8 @@ gckKERNEL_CreateProcessDB(
         database->vidMemType[i].bytes = 0;
         database->vidMemType[i].maxBytes = 0;
         database->vidMemType[i].totalBytes = 0;
+        database->vidMemType[i].freeCount = 0;
+        database->vidMemType[i].allocCount = 0;
     }
 
     for (i = 0; i < gcvPOOL_NUMBER_OF_POOLS; i++)
@@ -634,6 +644,8 @@ gckKERNEL_CreateProcessDB(
         database->vidMemPool[i].bytes = 0;
         database->vidMemPool[i].maxBytes = 0;
         database->vidMemPool[i].totalBytes = 0;
+        database->vidMemPool[i].freeCount = 0;
+        database->vidMemPool[i].allocCount = 0;
     }
 
     gcmkASSERT(database->refs == gcvNULL);
@@ -1164,6 +1176,10 @@ gckKERNEL_DestroyProcessDB(
         gcmkONERROR(gcvSTATUS_NOT_FOUND);
     }
 
+#if gcdCAPTURE_ONLY_MODE
+    gcmkPRINT("Capture only mode: The max allocation from System Pool is %llu bytes", database->vidMemPool[gcvPOOL_SYSTEM].maxBytes);
+#endif
+
     /* Cannot remove the database from the hash list
     ** since later records deinit need to access from the hash
     */
@@ -1373,6 +1389,8 @@ gckKERNEL_DestroyProcessDB(
                                                gcvNULL));
         }
     }
+
+    gcmkONERROR(gckKERNEL_DestroyProcessReservedUserMap(Kernel, ProcessID));
 
     /* Acquire the database mutex. */
     gcmkONERROR(gckOS_AcquireMutex(Kernel->os, Kernel->db->dbMutex, gcvINFINITE));

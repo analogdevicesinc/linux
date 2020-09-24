@@ -2,7 +2,7 @@
 *
 *    The MIT License (MIT)
 *
-*    Copyright (c) 2014 - 2019 Vivante Corporation
+*    Copyright (c) 2014 - 2020 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 *
 *    The GPL License (GPL)
 *
-*    Copyright (C) 2014 - 2019 Vivante Corporation
+*    Copyright (C) 2014 - 2020 Vivante Corporation
 *
 *    This program is free software; you can redistribute it and/or
 *    modify it under the terms of the GNU General Public License
@@ -58,6 +58,7 @@
 #include "gc_hal_kernel_device.h"
 #include "gc_hal_driver.h"
 #include <linux/slab.h>
+#include <linux/pm_qos.h>
 
 #if defined(CONFIG_PM_OPP)
 #include <linux/pm_opp.h>
@@ -73,7 +74,7 @@
 #   include <linux/platform_device.h>
 #endif
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,9,0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,1,0)
 #  define IMX_GPU_SUBSYSTEM   1
 #  include <linux/component.h>
 #endif
@@ -141,28 +142,26 @@ struct platform_device *pdevice;
 #  include <linux/sched.h>
 #  include <linux/profile.h>
 
-struct task_struct *lowmem_deathpending;
-
-static int
-task_notify_func(struct notifier_block *self, unsigned long val, void *data);
-
-static struct notifier_block task_nb = {
-    .notifier_call  = task_notify_func,
-};
+struct task_struct *oom_crashpending;
 
 static int
 task_notify_func(struct notifier_block *self, unsigned long val, void *data)
 {
     struct task_struct *task = data;
 
-    if (task == lowmem_deathpending)
-        lowmem_deathpending = NULL;
+    if (task == oom_crashpending) {
+        oom_crashpending = NULL;
+    }
 
     return NOTIFY_DONE;
 }
 
-extern struct task_struct *lowmem_deathpending;
-static unsigned long lowmem_deathpending_timeout;
+static struct notifier_block task_nb = {
+    .notifier_call  = task_notify_func,
+};
+
+extern struct task_struct *oom_crashpending;
+static unsigned long oom_crashpending_timeout;
 
 static int force_contiguous_lowmem_shrink(IN gckKERNEL Kernel)
 {
@@ -173,16 +172,13 @@ static int force_contiguous_lowmem_shrink(IN gckKERNEL Kernel)
     int min_adj = 0;
     int selected_tasksize = 0;
     int selected_oom_adj;
-    /*
-     * If we already have a death outstanding, then
-     * bail out right away; indicating to vmscan
-     * that we have nothing further to offer on
-     * this pass.
-     *
+
+    /* Return if we already have a oom crash pending
      */
-    if (lowmem_deathpending &&
-        time_before_eq(jiffies, lowmem_deathpending_timeout))
+    if (oom_crashpending &&
+        time_before_eq(jiffies, oom_crashpending_timeout)) {
         return 0;
+    }
     selected_oom_adj = min_adj;
 
     rcu_read_lock();
@@ -241,8 +237,8 @@ static int force_contiguous_lowmem_shrink(IN gckKERNEL Kernel)
         printk("<gpu> send sigkill to %d (%s), adj %d, size %d\n",
                  selected->pid, selected->comm,
                  selected_oom_adj, selected_tasksize);
-        lowmem_deathpending = selected;
-        lowmem_deathpending_timeout = jiffies + HZ;
+        oom_crashpending = selected;
+        oom_crashpending_timeout = jiffies + HZ;
         force_sig(SIGKILL, selected);
         ret = 0;
     }
@@ -294,6 +290,8 @@ static int thermal_hot_pm_notify(struct notifier_block *nb, unsigned long event,
     static gctBOOL bAlreadyTooHot = gcvFALSE;
     gckHARDWARE hardware;
     gckGALDEVICE galDevice;
+    gctUINT FscaleVal = orgFscale;
+    gctUINT core = gcvCORE_MAJOR;
 
     galDevice = platform_get_drvdata(pdevice);
     if (!galDevice)
@@ -316,14 +314,19 @@ static int thermal_hot_pm_notify(struct notifier_block *nb, unsigned long event,
 
     if (event && !bAlreadyTooHot) {
         gckHARDWARE_GetFscaleValue(hardware,&orgFscale,&minFscale, &maxFscale);
-        gckHARDWARE_SetFscaleValue(hardware, minFscale, ~0U);
+        FscaleVal = minFscale;
         bAlreadyTooHot = gcvTRUE;
         printk("System is too hot. GPU3D will work at %d/64 clock.\n", minFscale);
     } else if (!event && bAlreadyTooHot) {
-        gckHARDWARE_SetFscaleValue(hardware, orgFscale, ~0U);
         printk("Hot alarm is canceled. GPU3D clock will return to %d/64\n", orgFscale);
         bAlreadyTooHot = gcvFALSE;
     }
+
+    while (galDevice->kernels[core] && core <= gcvCORE_3D_MAX)
+    {
+        gckHARDWARE_SetFscaleValue(galDevice->kernels[core++]->hardware, FscaleVal, ~0U);
+    }
+
     return NOTIFY_OK;
 }
 
@@ -355,17 +358,20 @@ static ssize_t gpu3DMinClock_store(struct device_driver *dev, const char *buf, s
     gctINT fields;
     gctUINT MinFscaleValue;
     gckGALDEVICE galDevice;
+    gctUINT core = gcvCORE_MAJOR;
 
     galDevice = platform_get_drvdata(pdevice);
+    if (!galDevice)
+         return -EINVAL;
 
-    if (galDevice->kernels[gcvCORE_MAJOR])
+    fields = sscanf(buf, "%d", &MinFscaleValue);
+
+    if (fields < 1)
+         return -EINVAL;
+
+    while (galDevice->kernels[core] && core <= gcvCORE_3D_MAX)
     {
-         fields = sscanf(buf, "%d", &MinFscaleValue);
-
-         if (fields < 1)
-             return -EINVAL;
-
-         gckHARDWARE_SetMinFscaleValue(galDevice->kernels[gcvCORE_MAJOR]->hardware,MinFscaleValue);
+         gckHARDWARE_SetMinFscaleValue(galDevice->kernels[core++]->hardware,MinFscaleValue);
     }
 
     return count;
@@ -494,6 +500,11 @@ struct imx_priv
 
     int gpu3dCount;
 
+#ifdef CONFIG_PM
+    int pm_qos_core;
+    struct pm_qos_request pm_qos;
+#endif
+
 #if defined(CONFIG_PM_OPP)
     struct gpu_govern imx_gpu_govern;
 #endif
@@ -596,13 +607,7 @@ int init_gpu_opp_table(struct device *dev)
     int nr;
     int ret = 0;
     int i, p;
-    int core = gcvCORE_MAJOR;
     struct imx_priv *priv = &imxPriv;
-
-    struct clk *clk_core;
-    struct clk *clk_shader;
-
-    unsigned long core_freq, shader_freq;
 
     priv->imx_gpu_govern.num_modes = 0;
 
@@ -685,30 +690,6 @@ int init_gpu_opp_table(struct device *dev)
             dev_err(dev, "create gpu_govern attr failed (%d)\n", ret);
         return ret;
     }
-
-    /*
-    * This could be redundant, but it is useful for testing DTS with
-    * different OPPs that have assigned-clock rates different than the
-    * ones specified in OPP tuple array. Otherwise we will display
-    * different clock values when the driver is loaded. Further
-    * modifications of the governor will display correctly but not when
-    * the driver has been loaded.
-    */
-    core_freq = priv->imx_gpu_govern.core_clk_freq[priv->imx_gpu_govern.current_mode];
-    shader_freq = priv->imx_gpu_govern.shader_clk_freq[priv->imx_gpu_govern.current_mode];
-
-    if (core_freq && shader_freq) {
-        for (; core <= gcvCORE_3D_MAX; core++) {
-            clk_core = priv->imx_gpu_clks[core].clk_core;
-            clk_shader = priv->imx_gpu_clks[core].clk_shader;
-
-            if (clk_core != NULL && clk_shader != NULL) {
-                clk_set_rate(clk_core, core_freq);
-                clk_set_rate(clk_shader, shader_freq);
-            }
-        }
-    }
-
     }
 
     return ret;
@@ -835,6 +816,12 @@ static int patch_param_imx8_subsystem(struct platform_device *pdev,
         if (!pdev_gpu)
             break;
 
+#ifdef CONFIG_PM
+        if(of_device_is_compatible(core_node,"fsl,imx8-vipsi")) {
+            priv->pm_qos_core = core;
+        }
+#endif
+
         irqLine = platform_get_irq(pdev_gpu, 0);
 
         if (irqLine < 0)
@@ -944,7 +931,7 @@ static inline int get_power_imx8_subsystem(struct device *pdev)
                 printk("galcore: cannot open MU channel to SCU\n");
                 return ret;
             }
-	}
+    }
 #elif defined(IMX8_SCU_CONTROL)
         else if (!gpu_ipcHandle) {
             sc_err_t sciErr;
@@ -1034,33 +1021,33 @@ static int patch_param_imx6(struct platform_device *pdev,
 static bool is_layerscape;
 
 static int patch_param_ls(struct platform_device *pdev,
-		gcsMODULE_PARAMETERS *args)
+        gcsMODULE_PARAMETERS *args)
 {
-	struct device_node *node = pdev->dev.of_node;
-	struct resource *res;
-	int core = gcvCORE_MAJOR;
-	struct platform_device *pdev_gpu;
-	int irqLine = -1;
+    struct device_node *node = pdev->dev.of_node;
+    struct resource *res;
+    int core = gcvCORE_MAJOR;
+    struct platform_device *pdev_gpu;
+    int irqLine = -1;
 
-	pdev_gpu = of_find_device_by_node(node);
-	if (!pdev_gpu)
-		return gcvSTATUS_DEVICE;
+    pdev_gpu = of_find_device_by_node(node);
+    if (!pdev_gpu)
+        return gcvSTATUS_DEVICE;
 
-	of_node_put(node);
+    of_node_put(node);
 
-	irqLine = platform_get_irq(pdev_gpu, 0);
-	if (irqLine < 0)
-		return gcvSTATUS_NOT_FOUND;
+    irqLine = platform_get_irq(pdev_gpu, 0);
+    if (irqLine < 0)
+        return gcvSTATUS_NOT_FOUND;
 
-	res = platform_get_resource(pdev_gpu, IORESOURCE_MEM, 0);
-	if (!res)
-		return gcvSTATUS_NOT_FOUND;
+    res = platform_get_resource(pdev_gpu, IORESOURCE_MEM, 0);
+    if (!res)
+        return gcvSTATUS_NOT_FOUND;
 
-	args->irqs[core] = irqLine;
-	args->registerBases[core] = res->start;
-	args->registerSizes[core] = res->end - res->start + 1;
+    args->irqs[core] = irqLine;
+    args->registerBases[core] = res->start;
+    args->registerSizes[core] = res->end - res->start + 1;
 
-	return 0;
+    return 0;
 }
 
 static int patch_param(struct platform_device *pdev,
@@ -1081,16 +1068,16 @@ static int patch_param(struct platform_device *pdev,
 
     pdevice = pdev;
 
-	if (is_layerscape) {
-		patch_param_ls(pdev, args);
-	} else {
+    if (is_layerscape) {
+        patch_param_ls(pdev, args);
+    } else {
 #ifdef IMX_GPU_SUBSYSTEM
-		if (pdev->dev.of_node && use_imx_gpu_subsystem)
-			patch_param_imx8_subsystem(pdev, args);
-		else
+        if (pdev->dev.of_node && use_imx_gpu_subsystem)
+            patch_param_imx8_subsystem(pdev, args);
+        else
 #endif
-			patch_param_imx6(pdev, args);
-	}
+            patch_param_imx6(pdev, args);
+    }
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3,5,0)
     if(args->compression == gcvCOMPRESSION_OPTION_DEFAULT)
@@ -1185,6 +1172,10 @@ int init_priv(void)
 {
     memset(&imxPriv, 0, sizeof(imxPriv));
 
+#ifdef CONFIG_PM
+    imxPriv.pm_qos_core = -1;
+#endif
+
 #ifdef CONFIG_GPU_LOW_MEMORY_KILLER
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4,1,0)
     task_free_register(&task_nb);
@@ -1209,6 +1200,7 @@ free_priv(void)
 }
 
 static int set_clock(int gpu, int enable);
+static int set_power(int gpu, int enable);
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
 static void imx6sx_optimize_qosc_for_GPU(void)
@@ -1223,6 +1215,7 @@ static void imx6sx_optimize_qosc_for_GPU(void)
     src_base = of_iomap(np, 0);
     WARN_ON(!src_base);
 
+    set_power(gcvCORE_MAJOR, 1);
     set_clock(gcvCORE_MAJOR, 1);
 
     writel_relaxed(0, src_base); /* Disable clkgate & soft_rst */
@@ -1232,6 +1225,8 @@ static void imx6sx_optimize_qosc_for_GPU(void)
     writel_relaxed(0x0f000822, src_base+0x1400+0xe0); /* Set Read QoS 8 for gpu */
 
     set_clock(gcvCORE_MAJOR, 0);
+    set_power(gcvCORE_MAJOR, 0);
+
     return;
 }
 #endif
@@ -1482,6 +1477,13 @@ static inline int set_power(int gpu, int enable)
 
 #ifdef CONFIG_PM
         pm_runtime_get_sync(priv->pmdev[gpu]);
+        if(priv->pm_qos_core == gpu) {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,9,0)
+            cpu_latency_qos_add_request(&priv->pm_qos, 0);
+#else
+            pm_qos_add_request(&(priv->pm_qos), PM_QOS_CPU_DMA_LATENCY, 0);
+#endif
+        }
 #endif
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5,0,0)
@@ -1547,6 +1549,13 @@ static inline int set_power(int gpu, int enable)
             clk_unprepare(clk_ahb);
 #ifdef CONFIG_PM
         pm_runtime_put_sync(priv->pmdev[gpu]);
+        if(priv->pm_qos_core == gpu) {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,9,0)
+            cpu_latency_qos_remove_request(&priv->pm_qos);
+#else
+            pm_qos_remove_request(&(priv->pm_qos));
+#endif
+        }
 #endif
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(3,14,0)
@@ -1695,8 +1704,8 @@ _AdjustParam(
     patch_param(Platform->device, Args);
 
     if ((of_find_compatible_node(NULL, NULL, "fsl,imx8mq-gpu") ||
-	of_find_compatible_node(NULL, NULL, "fsl,imx8mm-gpu") ||
-	of_find_compatible_node(NULL, NULL, "fsl,imx8mn-gpu")) &&
+    of_find_compatible_node(NULL, NULL, "fsl,imx8mm-gpu") ||
+    of_find_compatible_node(NULL, NULL, "fsl,imx8mn-gpu")) &&
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5,0,0)
         ((Args->baseAddress + totalram_pages() * PAGE_SIZE) > 0x100000000))
 #else
@@ -1796,17 +1805,17 @@ static struct _gcsPLATFORM imx_platform =
 };
 
 static const struct of_device_id gpu_match[] = {
-	{ .compatible = "fsl,ls1028a-gpu"},
-	{ /* sentinel */ }
+    { .compatible = "fsl,ls1028a-gpu"},
+    { /* sentinel */ }
 };
 
 struct _gcsPLATFORM_OPERATIONS ls_platform_ops = {
-	.adjustParam  = _AdjustParam,
+    .adjustParam  = _AdjustParam,
 };
 
 static struct _gcsPLATFORM ls_platform = {
-	.name = __FILE__,
-	.ops  = &ls_platform_ops,
+    .name = __FILE__,
+    .ops  = &ls_platform_ops,
 };
 
 int gckPLATFORM_Init(struct platform_driver *pdrv,
@@ -1823,13 +1832,13 @@ int gckPLATFORM_Init(struct platform_driver *pdrv,
     }
 #endif
 
-	if (of_find_compatible_node(NULL, NULL, "fsl,ls1028a-gpu")) {
-		is_layerscape = 1;
-		pdrv->driver.of_match_table = gpu_match;
-		*platform = &ls_platform;
+    if (of_find_compatible_node(NULL, NULL, "fsl,ls1028a-gpu")) {
+        is_layerscape = 1;
+        pdrv->driver.of_match_table = gpu_match;
+        *platform = &ls_platform;
 
-		return 0;
-	}
+        return 0;
+    }
 
     adjust_platform_driver(pdrv);
     init_priv();
@@ -1844,8 +1853,8 @@ int gckPLATFORM_Init(struct platform_driver *pdrv,
 
 int gckPLATFORM_Terminate(struct _gcsPLATFORM *platform)
 {
-	if (is_layerscape)
-		return 0;
+    if (is_layerscape)
+        return 0;
 
 #ifdef IMX_GPU_SUBSYSTEM
     unregister_mxc_gpu_sub_driver();

@@ -2,7 +2,7 @@
 *
 *    The MIT License (MIT)
 *
-*    Copyright (c) 2014 - 2019 Vivante Corporation
+*    Copyright (c) 2014 - 2020 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 *
 *    The GPL License (GPL)
 *
-*    Copyright (C) 2014 - 2019 Vivante Corporation
+*    Copyright (C) 2014 - 2020 Vivante Corporation
 *
 *    This program is free software; you can redistribute it and/or
 *    modify it under the terms of the GNU General Public License
@@ -157,13 +157,22 @@ _DmaAlloc(
     {
         gfp |= __GFP_DMA32;
     }
+#else
+    if (Flags & gcvALLOC_FLAG_4GB_ADDR)
+    {
+        gfp |= __GFP_DMA;
+    }
 #endif
 
     mdlPriv->kvaddr
-#if defined CONFIG_MIPS || defined CONFIG_CPU_CSKYV2 || defined CONFIG_PPC || defined CONFIG_ARM64
+#if defined CONFIG_MIPS || defined CONFIG_CPU_CSKYV2 || defined CONFIG_PPC || defined CONFIG_ARM64 || !gcdENABLE_BUFFERABLE_VIDEO_MEMORY
         = dma_alloc_coherent(galcore_device, NumPages * PAGE_SIZE, &mdlPriv->dmaHandle, gfp);
 #else
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,6,0)
+        = dma_alloc_wc(galcore_device, NumPages * PAGE_SIZE,  &mdlPriv->dmaHandle, gfp);
+#else
         = dma_alloc_writecombine(galcore_device, NumPages * PAGE_SIZE,  &mdlPriv->dmaHandle, gfp);
+#endif
 #endif
 
 #ifdef CONFLICT_BETWEEN_BASE_AND_PHYS
@@ -281,10 +290,14 @@ _DmaFree(
     struct mdl_dma_priv *mdlPriv=(struct mdl_dma_priv *)Mdl->priv;
     gcsDMA_PRIV_PTR allocatorPriv = (gcsDMA_PRIV_PTR)Allocator->privateData;
 
-#if defined CONFIG_MIPS || defined CONFIG_CPU_CSKYV2 || defined CONFIG_PPC || defined CONFIG_ARM64
+#if defined CONFIG_MIPS || defined CONFIG_CPU_CSKYV2 || defined CONFIG_PPC || defined CONFIG_ARM64 || !gcdENABLE_BUFFERABLE_VIDEO_MEMORY
     dma_free_coherent(galcore_device, Mdl->numPages * PAGE_SIZE, mdlPriv->kvaddr, mdlPriv->dmaHandle);
 #else
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,6,0)
+    dma_free_wc(galcore_device, Mdl->numPages * PAGE_SIZE, mdlPriv->kvaddr, mdlPriv->dmaHandle);
+#else
     dma_free_writecombine(galcore_device, Mdl->numPages * PAGE_SIZE, mdlPriv->kvaddr, mdlPriv->dmaHandle);
+#endif
 #endif
 
     gckOS_Free(os, mdlPriv);
@@ -309,7 +322,7 @@ _DmaMmap(
     gcmkHEADER_ARG("Allocator=%p Mdl=%p vma=%p", Allocator, Mdl, vma);
 
     gcmkASSERT(skipPages + numPages <= Mdl->numPages);
-
+#if gcdENABLE_BUFFERABLE_VIDEO_MEMORY
     /* map kernel memory to user space.. */
 #if defined CONFIG_MIPS || defined CONFIG_CPU_CSKYV2 || defined CONFIG_PPC
     if (remap_pfn_range(
@@ -320,7 +333,25 @@ _DmaMmap(
             pgprot_writecombine(vma->vm_page_prot)) < 0)
 #else
     /* map kernel memory to user space.. */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,6,0)
+    /* map kernel memory to user space.. */
+    if (dma_mmap_wc(galcore_device,
+            vma,
+            (gctINT8_PTR)mdlPriv->kvaddr + (skipPages << PAGE_SHIFT),
+            mdlPriv->dmaHandle + (skipPages << PAGE_SHIFT),
+            numPages << PAGE_SHIFT) < 0)
+#else
+    /* map kernel memory to user space.. */
     if (dma_mmap_writecombine(galcore_device,
+            vma,
+            (gctINT8_PTR)mdlPriv->kvaddr + (skipPages << PAGE_SHIFT),
+            mdlPriv->dmaHandle + (skipPages << PAGE_SHIFT),
+            numPages << PAGE_SHIFT) < 0)
+#endif
+#endif
+#else
+    /* map kernel memory to user space.. */
+    if (dma_mmap_coherent(galcore_device,
             vma,
             (gctINT8_PTR)mdlPriv->kvaddr + (skipPages << PAGE_SHIFT),
             mdlPriv->dmaHandle + (skipPages << PAGE_SHIFT),
@@ -364,7 +395,7 @@ _DmaUnmapUser(
                 );
     }
 #else
-    down_write(&current->mm->mmap_lock);
+    down_write(&current->mm->mmap_sem);
     if (do_munmap(current->mm, (unsigned long)MdlMap->vmaAddr, Size) < 0)
     {
         gcmkTRACE_ZONE(
@@ -373,7 +404,7 @@ _DmaUnmapUser(
                 __FUNCTION__, __LINE__
                 );
     }
-    up_write(&current->mm->mmap_lock);
+    up_write(&current->mm->mmap_sem);
 #endif
 }
 
@@ -398,14 +429,14 @@ _DmaMapUser(
                     MAP_SHARED | MAP_NORESERVE,
                     0);
 #else
-    down_write(&current->mm->mmap_lock);
+    down_write(&current->mm->mmap_sem);
     userLogical = (gctPOINTER)do_mmap_pgoff(gcvNULL,
                     0L,
                     Mdl->numPages * PAGE_SIZE,
                     PROT_READ | PROT_WRITE,
                     MAP_SHARED,
                     0);
-    up_write(&current->mm->mmap_lock);
+    up_write(&current->mm->mmap_sem);
 #endif
 
     gcmkTRACE_ZONE(
@@ -425,7 +456,12 @@ _DmaMapUser(
         gcmkONERROR(gcvSTATUS_OUT_OF_MEMORY);
     }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 9, 0)
     down_write(&current->mm->mmap_lock);
+#else
+    down_write(&current->mm->mmap_sem);
+#endif
+
     do
     {
         struct vm_area_struct *vma = find_vma(current->mm, (unsigned long)userLogical);
@@ -447,7 +483,12 @@ _DmaMapUser(
         MdlMap->vma = vma;
     }
     while (gcvFALSE);
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 9, 0)
     up_write(&current->mm->mmap_lock);
+#else
+    up_write(&current->mm->mmap_sem);
+#endif
 
 OnError:
     if (gcmIS_ERROR(status) && userLogical)
@@ -586,7 +627,7 @@ _DmaAlloctorInit(
      */
     allocator->capability = gcvALLOC_FLAG_CONTIGUOUS
                           | gcvALLOC_FLAG_DMABUF_EXPORTABLE
-#if defined(CONFIG_ZONE_DMA32) && LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,37)
+#if (defined(CONFIG_ZONE_DMA32) || defined(CONFIG_ZONE_DMA)) && LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,37)
                           | gcvALLOC_FLAG_4GB_ADDR
 #endif
                           ;

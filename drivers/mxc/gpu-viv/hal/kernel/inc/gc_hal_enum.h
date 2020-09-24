@@ -2,7 +2,7 @@
 *
 *    The MIT License (MIT)
 *
-*    Copyright (c) 2014 - 2019 Vivante Corporation
+*    Copyright (c) 2014 - 2020 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 *
 *    The GPL License (GPL)
 *
-*    Copyright (C) 2014 - 2019 Vivante Corporation
+*    Copyright (C) 2014 - 2020 Vivante Corporation
 *
 *    This program is free software; you can redistribute it and/or
 *    modify it under the terms of the GNU General Public License
@@ -108,6 +108,7 @@ typedef enum _gceOPTION
     gcvOPTION_OVX_ENABLE_NN_STRIDE,
     gcvOPTION_OVX_USE_MULTI_DEVICES,
     gcvOPTION_OVX_ENABLE_NN_DDR_BURST_SIZE_256B,
+    gcvOPTION_OVX_ENABLE_NN_DDR_BURST_SIZE_64B,
 #endif
     /* Insert option above this comment only */
     gcvOPTION_COUNT                     /* Not a OPTION*/
@@ -484,12 +485,21 @@ typedef enum _gce2D_TILE_STATUS_CONFIG
 }
 gce2D_TILE_STATUS_CONFIG;
 
+typedef enum _gce2D_DEC400_MINOR_VERSION
+{
+    gcv2D_DEC400_MINOR_V1 = 1,
+    gcv2D_DEC400_MINOR_V2 = 2,
+    gcv2D_DEC400_MINOR_V3 = 3,
+}
+gce2D_DEC400_MINOR_VERSION;
+
 typedef enum _gce2D_QUERY
 {
     gcv2D_QUERY_RGB_ADDRESS_MIN_ALIGN       = 0,
     gcv2D_QUERY_RGB_STRIDE_MIN_ALIGN,
     gcv2D_QUERY_YUV_ADDRESS_MIN_ALIGN,
     gcv2D_QUERY_YUV_STRIDE_MIN_ALIGN,
+    gcv2D_QUERY_DEC400_MINOR_VERSION,
 }
 gce2D_QUERY;
 
@@ -846,6 +856,15 @@ typedef enum _gceTEXTURE_DS_MODE
     gcvTEXTURE_DS_MODE_STENCIL = 2,
 }gceTEXTURE_DS_MODE;
 
+typedef enum _gceTEXTURE_DS_TEX_MODE
+{
+    gcvTEXTURE_DS_TEXTURE_MODE_LUMINANCE    = 0,
+    gcvTEXTURE_DS_TEXTURE_MODE_INTENSITY,
+    gcvTEXTURE_DS_TEXTURE_MODE_ALPHA,
+    gcvTEXTURE_DS_TEXTURE_MODE_RED,
+
+    gcvTEXTURE_DS_TEXTURE_MODE_INVALID,
+}gceTEXTURE_DS_TEX_MODE;
 
 /* Pixel output swizzle modes. */
 typedef enum _gcePIXEL_SWIZZLE
@@ -935,6 +954,30 @@ typedef enum _gceHAL_ARG_VERSION
 }
 gceHAL_ARG_VERSION;
 
+
+/** endian mode  for each 2Bytes
+* endian mode                          endian
+*endian mode0: 0  1  2  3  4  5  6  7  8  9  10  11  12  13  14  15
+*endian mode1: 1  0  3  2  5  4  7  6  9  8  11  10  13  12  15  14
+*endian mode2: 2  3  0  1  6  7  4  5  10  11  8  9  14  15  12  13
+*endain mode3: 3  2  1  0  7  6  5  4  11  10  9  8  15  14  13  12
+*endain mode4: 12  13  14  15  8  9  10  11  4  5  6  7  0  1  2  3
+*endain mode5: 13  12  15  14  9  8  11  10  5  4  7  6  1  0  3  2
+*endain mode6: 14  15  12  13  10  11  8  9  6  7  4  5  2  3  0  1
+*endain mode7: 15  14  13  12  11  10  9  8  7  6  5  4  3  2  1  0
+**/
+typedef enum _gceENDIAN_MODE
+{
+    gcvENDIAN_MODE0          = 0x0, /* endian mode0 */
+    gcvENDIAN_MODE1          = 0x1, /* endian mode1 */
+    gcvENDIAN_MODE2          = 0x2, /* endian mode2 */
+    gcvENDIAN_MODE3          = 0x3, /* endian mode3 */
+    gcvENDIAN_MODE4          = 0x4, /* endian mode4 */
+    gcvENDIAN_MODE5          = 0x5, /* endian mode5 */
+    gcvENDIAN_MODE6          = 0x6, /* endian mode6 */
+    gcvENDIAN_MODE7          = 0x7, /* endian mode7 */
+}
+gceENDIAN_MODE;
 
 typedef enum _gceHW_FE_TYPE
 {
@@ -1425,7 +1468,8 @@ typedef enum _gceFORMAT_CLASS
     gcvFORMAT_CLASS_DEPTH,
     gcvFORMAT_CLASS_ASTC,
     gcvFORMAT_CLASS_COMPRESSED,
-    gcvFORMAT_CLASS_OTHER
+    gcvFORMAT_CLASS_OTHER,
+    gcvFORMAT_CLASS_INTENSITY
 }
 gceFORMAT_CLASS;
 
@@ -1546,8 +1590,9 @@ gceCLEAR;
 
 typedef enum _gceBLITDRAW_TYPE
 {
-    gcvBLITDRAW_CLEAR = 0,
-    gcvBLITDRAW_BLIT  = 1,
+    gcvBLITDRAW_CLEAR      = 0,
+    gcvBLITDRAW_BLIT       = 1,
+    gcvBLITDRAW_BLIT_DEPTH = 2,
 
     /* last number, not a real type */
     gcvBLITDRAW_NUM_TYPE

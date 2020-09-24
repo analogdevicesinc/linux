@@ -2,7 +2,7 @@
 *
 *    The MIT License (MIT)
 *
-*    Copyright (c) 2014 - 2019 Vivante Corporation
+*    Copyright (c) 2014 - 2020 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 *
 *    The GPL License (GPL)
 *
-*    Copyright (C) 2014 - 2019 Vivante Corporation
+*    Copyright (C) 2014 - 2020 Vivante Corporation
 *
 *    This program is free software; you can redistribute it and/or
 *    modify it under the terms of the GNU General Public License
@@ -159,7 +159,6 @@ extern "C" {
 
 typedef struct _gckHARDWARE *       gckHARDWARE;
 
-
 #define gcdMAX_GPU_COUNT               gcvCORE_COUNT
 
 #define gcdMAX_SURF_LAYERS             4
@@ -169,6 +168,8 @@ typedef struct _gckHARDWARE *       gckHARDWARE;
 #define gcdMAX_3DGPU_COUNT             8
 
 #define gcdMAX_MAJOR_CORE_COUNT        8
+
+#define gcdMAX_VERTEX_STREAM_COUNT     4
 /*******************************************************************************
 **
 **  gcmVERIFY_OBJECT
@@ -1607,6 +1608,12 @@ gckKERNEL_UnmapMemory(
     IN gctSIZE_T Bytes,
     IN gctPOINTER Logical,
     IN gctUINT32 ProcessID
+    );
+/* Destroy reserved mem when destroy process*/
+gceSTATUS
+gckKERNEL_DestroyProcessReservedUserMap(
+    IN gckKERNEL Kernel,
+    IN gctUINT32 Pid
     );
 
 /* Notification of events. */

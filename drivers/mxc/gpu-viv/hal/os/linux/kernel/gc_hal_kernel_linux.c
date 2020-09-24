@@ -2,7 +2,7 @@
 *
 *    The MIT License (MIT)
 *
-*    Copyright (c) 2014 - 2019 Vivante Corporation
+*    Copyright (c) 2014 - 2020 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 *
 *    The GPL License (GPL)
 *
-*    Copyright (C) 2014 - 2019 Vivante Corporation
+*    Copyright (C) 2014 - 2020 Vivante Corporation
 *
 *    This program is free software; you can redistribute it and/or
 *    modify it under the terms of the GNU General Public License
@@ -266,6 +266,120 @@ gckKERNEL_UnmapMemory(
     gctPHYS_ADDR physical = gcmNAME_TO_PTR(Physical);
 
     return gckOS_UnmapMemoryEx(Kernel->os, physical, Bytes, Logical, ProcessID);
+}
+
+/****************************************************************************
+**
+**  gckKERNEL_DestroyProcessReservedUserMap
+**
+**  Destroy process reserved memory
+**
+**  INPUT:
+**
+**      gctPHYS_ADDR Physical
+**          Physical address of video memory to map.
+**
+**      gctUINT32 Pid
+**          Process ID.
+*/
+gceSTATUS
+gckKERNEL_DestroyProcessReservedUserMap(
+    IN gckKERNEL Kernel,
+    IN gctUINT32 Pid
+    )
+{
+    gceSTATUS status      = gcvSTATUS_OK;
+    gckGALDEVICE device   = gcvNULL;
+    gctSIZE_T bytes       = 0;
+    gctPHYS_ADDR physHandle = gcvNULL;
+    /* when unmap reserved memory, we don't need real logical*/
+    gctPOINTER Logical = (gctPOINTER)0xFFFFFFFF;
+    gctINT i;
+    PLINUX_MDL mdl;
+    PLINUX_MDL_MAP mdlMap = gcvNULL;
+
+    gcmkHEADER_ARG("Logical=0x%08x pid=%u",
+                   Logical, Pid);
+    /* Verify the arguments. */
+    gcmkVERIFY_OBJECT(Kernel, gcvOBJ_KERNEL);
+    /* Extract the pointer to the gckGALDEVICE class. */
+    device = (gckGALDEVICE) Kernel->context;
+
+    physHandle = (PLINUX_MDL)device->internalPhysical;
+    bytes = device->internalSize;
+    if (bytes)
+    {
+        mdl = physHandle;
+        mdlMap = FindMdlMap(mdl, Pid);
+        if (mdlMap)
+        {
+            gckOS_UnmapMemoryEx(Kernel->os, physHandle, bytes, Logical, Pid);
+        }
+    }
+
+    physHandle = (PLINUX_MDL)device->externalPhysical;
+    bytes = device->externalSize;
+    if (bytes)
+    {
+        mdl = physHandle;
+        mdlMap = FindMdlMap(mdl, Pid);
+        if (mdlMap)
+        {
+            gckOS_UnmapMemoryEx(Kernel->os, physHandle, bytes, Logical, Pid);
+        }
+    }
+
+    /* System memory. */
+    physHandle = (PLINUX_MDL)device->contiguousPhysical;
+    bytes = device->contiguousSize;
+    if (bytes)
+    {
+        mdl = physHandle;
+        mdlMap = FindMdlMap(mdl, Pid);
+        if (mdlMap)
+        {
+            gckOS_UnmapMemoryEx(Kernel->os, physHandle, bytes, Logical, Pid);
+        }
+    }
+
+    /* External shared SRAM memory. */
+    for(i = 0; i < gcvSRAM_EXT_COUNT; i++)
+    {
+        physHandle = (PLINUX_MDL)device->extSRAMPhysical[i];
+        bytes = device->extSRAMSizes[i];
+        if (bytes)
+        {
+            mdl = physHandle;
+            mdlMap = FindMdlMap(mdl, Pid);
+            if (mdlMap)
+            {
+                gckOS_UnmapMemoryEx(Kernel->os, physHandle, bytes, Logical, Pid);
+            }
+        }
+    }
+
+    /* Per core SRAM reserved usage. */
+    for(i = 0; i < gcvSRAM_INTER_COUNT; i++)
+    {
+        if (!Kernel->sRAMPhysFaked[i])
+        {
+            physHandle = (PLINUX_MDL)Kernel->sRAMPhysical[i];
+            bytes = Kernel->sRAMSizes[i];
+            if (bytes)
+            {
+                mdl = physHandle;
+                mdlMap = FindMdlMap(mdl, Pid);
+                if (mdlMap)
+                {
+                    gckOS_UnmapMemoryEx(Kernel->os, physHandle, bytes, Logical, Pid);
+                }
+            }
+        }
+    }
+
+    /* Retunn the status. */
+    gcmkFOOTER_NO();
+    return status;
 }
 
 /*******************************************************************************

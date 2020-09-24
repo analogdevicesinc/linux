@@ -53,7 +53,40 @@
 *****************************************************************************/
 
 
-#include "shared/gc_hal_driver_vg_shared.h"
+#ifndef __gc_hal_kernel_hardware_func_flop_reset_h_
+#define __gc_hal_kernel_hardware_func_flop_reset_h_
+#ifdef __cplusplus
+extern "C" {
+#endif
+#include "gc_hal.h"
+#include "gc_hal_kernel.h"
+#include "gc_hal_kernel_hardware.h"
 
+gceSTATUS
+gckHARDWARE_ResetFlopWithPPU(
+    IN gckHARDWARE Hardware,
+    IN gctUINT32 AllocFlag,
+    IN gcePOOL *Pool,
+    OUT gcsFUNCTION_COMMAND_PTR Command
+    );
 
+gceSTATUS
+gckHARDWARE_ResetFlopWithNN(
+    IN gckHARDWARE Hardware,
+    IN gctUINT32 AllocFlag,
+    IN gcePOOL *Pool,
+    OUT gcsFUNCTION_COMMAND_PTR Command
+    );
+
+gceSTATUS
+gckHARDWARE_ResetFlopWithTP(
+    IN gckHARDWARE Hardware,
+    IN gctUINT32 AllocFlag,
+    IN gcePOOL *Pool,
+    OUT gcsFUNCTION_COMMAND_PTR Command
+    );
+#ifdef __cplusplus
+}
+#endif
+#endif
 

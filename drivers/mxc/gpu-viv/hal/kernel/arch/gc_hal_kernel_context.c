@@ -2,7 +2,7 @@
 *
 *    The MIT License (MIT)
 *
-*    Copyright (c) 2014 - 2019 Vivante Corporation
+*    Copyright (c) 2014 - 2020 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 *
 *    The GPL License (GPL)
 *
-*    Copyright (C) 2014 - 2019 Vivante Corporation
+*    Copyright (C) 2014 - 2020 Vivante Corporation
 *
 *    This program is free software; you can redistribute it and/or
 *    modify it under the terms of the GNU General Public License
@@ -2846,12 +2846,277 @@ _UpdateUnifiedReg(
 #endif
 
 #if (gcdENABLE_3D || gcdENABLE_2D)
+
+static gceSTATUS
+_InitializeNoShaderAndPixelEngine(
+    IN gckCONTEXT Context
+    )
+{
+    gctUINT32_PTR buffer;
+    gctUINT32 index;
+
+#if gcdENABLE_3D
+    gctBOOL halti5;
+    gctBOOL hasSecurity;
+    gctBOOL hasRobustness;
+    gctBOOL multiCluster;
+    gctUINT clusterAliveMask;
+#endif
+
+    gckHARDWARE hardware;
+
+    gcmkHEADER();
+
+    hardware = Context->hardware;
+
+    gcmkVERIFY_OBJECT(hardware, gcvOBJ_HARDWARE);
+
+    /* Reset the buffer index. */
+    index = 0;
+
+    /* Reset the last state address. */
+    Context->lastAddress = ~0U;
+
+    /* Get the buffer pointer. */
+    buffer = (Context->buffer == gcvNULL)
+        ? gcvNULL
+        : Context->buffer->logical;
+
+
+    /**************************************************************************/
+    /* Build 2D states. *******************************************************/
+
+
+#if gcdENABLE_3D
+    /**************************************************************************/
+    /* Build 3D states. *******************************************************/
+
+    halti5 = gckHARDWARE_IsFeatureAvailable(hardware, gcvFEATURE_HALTI5);
+    hasSecurity = gckHARDWARE_IsFeatureAvailable(hardware, gcvFEATURE_SECURITY);
+    hasRobustness = gckHARDWARE_IsFeatureAvailable(hardware, gcvFEATURE_ROBUSTNESS);
+    multiCluster = gckHARDWARE_IsFeatureAvailable(hardware, gcvFEATURE_MULTI_CLUSTER);
+    clusterAliveMask = hardware->identity.clusterAvailMask & hardware->options.userClusterMask;
+
+    /* Store the 3D entry index. */
+    Context->entryOffset3D = (gctUINT)index * gcmSIZEOF(gctUINT32);
+
+    /* Switch to 3D pipe. */
+    index += _SwitchPipe(Context, index, gcvPIPE_3D);
+
+    if (multiCluster)
+    {
+        index += _State(Context, index, (0x03910 >> 2) + (0 << 2), ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 7:0) - (0 ?
+ 7:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 7:0) - (0 ?
+ 7:0) + 1))))))) << (0 ?
+ 7:0))) | (((gctUINT32) ((gctUINT32) (clusterAliveMask) & ((gctUINT32) ((((1 ?
+ 7:0) - (0 ?
+ 7:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 7:0) - (0 ? 7:0) + 1))))))) << (0 ? 7:0))), 4, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x03908 >> 2, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 2:0) - (0 ?
+ 2:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 2:0) - (0 ?
+ 2:0) + 1))))))) << (0 ?
+ 2:0))) | (((gctUINT32) (0x2 & ((gctUINT32) ((((1 ?
+ 2:0) - (0 ?
+ 2:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 2:0) - (0 ? 2:0) + 1))))))) << (0 ? 2:0))), 1, gcvFALSE, gcvFALSE);
+    }
+
+    /* Current context pointer. */
+#if gcdDEBUG
+    index += _State(Context, index, 0x03850 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+#endif
+
+    index += _FlushPipe(Context, index, gcvPIPE_3D);
+
+    /* Global states. */
+    if (hasSecurity)
+    {
+        index += _State(Context, index, 0x03900 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+        index += _CLOSE_RANGE();
+        index += _State(Context, index, 0x03904 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+    }
+
+    if (halti5)
+    {
+        gctUINT32 uscControl = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 20:16) - (0 ?
+ 20:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 20:16) - (0 ?
+ 20:16) + 1))))))) << (0 ?
+ 20:16))) | (((gctUINT32) ((gctUINT32) (2) & ((gctUINT32) ((((1 ?
+ 20:16) - (0 ?
+ 20:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 20:16) - (0 ? 20:16) + 1))))))) << (0 ? 20:16)));
+        index += _State(Context, index, 0x03888 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x038C0 >> 2, 0x00000000, 16, gcvFALSE, gcvFALSE);
+
+        uscControl |= ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 2:0) - (0 ?
+ 2:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 2:0) - (0 ?
+ 2:0) + 1))))))) << (0 ?
+ 2:0))) | (((gctUINT32) ((gctUINT32) (hardware->options.uscL1CacheRatio) & ((gctUINT32) ((((1 ?
+ 2:0) - (0 ?
+ 2:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 2:0) - (0 ? 2:0) + 1))))))) << (0 ? 2:0)));
+        if (multiCluster)
+        {
+            uscControl |= ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 11:8) - (0 ?
+ 11:8) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 11:8) - (0 ?
+ 11:8) + 1))))))) << (0 ?
+ 11:8))) | (((gctUINT32) ((gctUINT32) (hardware->options.uscAttribCacheRatio) & ((gctUINT32) ((((1 ?
+ 11:8) - (0 ?
+ 11:8) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 11:8) - (0 ? 11:8) + 1))))))) << (0 ? 11:8)));
+        }
+        index += _State(Context, index, 0x03884 >> 2, uscControl, 1, gcvFALSE, gcvFALSE);
+    }
+    else
+    {
+        index += _State(Context, index, 0x03820 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x03828 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x0382C >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x03834 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x03838 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x03854 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+    }
+
+    index += _CLOSE_RANGE();
+
+    /* Memory Controller */
+    index += _State(Context, index, 0x01654 >> 2, 0x00200000, 1, gcvFALSE, gcvFALSE);
+
+    if (hasSecurity || hasRobustness)
+    {
+        index += _State(Context, index, 0x001AC >> 2, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 16:16) - (0 ?
+ 16:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 16:16) - (0 ?
+ 16:16) + 1))))))) << (0 ?
+ 16:16))) | (((gctUINT32) (0x1 & ((gctUINT32) ((((1 ?
+ 16:16) - (0 ?
+ 16:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 16:16) - (0 ? 16:16) + 1))))))) << (0 ? 16:16))), 1, gcvFALSE, gcvFALSE);
+    }
+
+    /* Semaphore/stall. */
+    index += _SemaphoreStall(Context, index);
+#endif
+
+    /**************************************************************************/
+    /* Link to another address. ***********************************************/
+
+    Context->linkIndex3D = (gctUINT)index;
+
+    if (buffer != gcvNULL)
+    {
+        buffer[index + 0]
+            = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27))) | (((gctUINT32) (0x08 & ((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
+            | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1))))))) << (0 ?
+ 15:0))) | (((gctUINT32) ((gctUINT32) (0) & ((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));
+
+        buffer[index + 1]
+            = 0;
+    }
+
+    index += 2;
+
+    /* Store the end of the context buffer. */
+    Context->bufferSize = index * gcmSIZEOF(gctUINT32);
+
+
+    /**************************************************************************/
+    /* Pipe switch for the case where neither 2D nor 3D are used. *************/
+
+    /* Store the 3D entry index. */
+    Context->entryOffsetXDFrom2D = (gctUINT)index * gcmSIZEOF(gctUINT32);
+
+    /* Switch to 3D pipe. */
+    index += _SwitchPipe(Context, index, gcvPIPE_3D);
+
+    /* Store the location of the link. */
+    Context->linkIndexXD = (gctUINT)index;
+
+    if (buffer != gcvNULL)
+    {
+        buffer[index + 0]
+            = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27))) | (((gctUINT32) (0x08 & ((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
+            | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1))))))) << (0 ?
+ 15:0))) | (((gctUINT32) ((gctUINT32) (0) & ((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));
+
+        buffer[index + 1]
+            = 0;
+    }
+
+    index += 2;
+
+
+    /**************************************************************************/
+    /* Save size for buffer. **************************************************/
+
+    Context->totalSize = index * gcmSIZEOF(gctUINT32);
+
+    /* Success. */
+    gcmkFOOTER_NO();
+    return gcvSTATUS_OK;
+
+}
+
 static gceSTATUS
 _InitializeContextBuffer(
     IN gckCONTEXT Context
     )
 {
-    gctUINT32_PTR buffer;
+    gctUINT32_PTR buffer = gcvNULL;
     gctUINT32 index;
 
 #if gcdENABLE_3D
@@ -2884,6 +3149,11 @@ _InitializeContextBuffer(
     hardware = Context->hardware;
 
     gcmkVERIFY_OBJECT(hardware, gcvOBJ_HARDWARE);
+
+    if (!hardware->options.hasShader)
+    {
+        return _InitializeNoShaderAndPixelEngine(Context);
+    }
 
     /* Reset the buffer index. */
     index = 0;
@@ -3134,8 +3404,11 @@ _InitializeContextBuffer(
     index += _State(Context, index, 0x00644 >> 2, 0x00000000, 1, gcvFALSE, gcvTRUE);
     index += _State(Context, index, 0x00648 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
     index += _State(Context, index, 0x00674 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-    index += _State(Context, index, 0x00678 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
-    index += _State(Context, index, 0x0067C >> 2, 0xFFFFFFFF, 1, gcvFALSE, gcvFALSE);
+    if (halti1)
+    {
+        index += _State(Context, index, 0x00678 >> 2, 0x00000000, 1, gcvFALSE, gcvFALSE);
+        index += _State(Context, index, 0x0067C >> 2, 0xFFFFFFFF, 1, gcvFALSE, gcvFALSE);
+    }
     index += _CLOSE_RANGE();
 
     if (hasRobustness)
@@ -4174,6 +4447,11 @@ _DestroyContext(
             {
                 gckKERNEL kernel = Context->hardware->kernel;
 
+#if gcdCAPTURE_ONLY_MODE
+                gceDATABASE_TYPE dbType;
+                gctUINT32 processID;
+#endif
+
                 /* End cpu access. */
                 gcmkVERIFY_OK(gckVIDMEM_NODE_UnlockCPU(
                     kernel,
@@ -4190,6 +4468,21 @@ _DestroyContext(
                     0,
                     gcvNULL
                     ));
+
+#if gcdCAPTURE_ONLY_MODE
+                /* Encode surface type and pool to database type. */
+                dbType = gcvDB_VIDEO_MEMORY
+                       | (gcvVIDMEM_TYPE_GENERIC << gcdDB_VIDEO_MEMORY_TYPE_SHIFT)
+                       | (buffer->videoMem->pool << gcdDB_VIDEO_MEMORY_POOL_SHIFT);
+
+                gcmkONERROR(gckOS_GetProcessID(&processID));
+
+                gcmkONERROR(
+                    gckKERNEL_RemoveProcessDB(kernel,
+                        processID,
+                        dbType,
+                        buffer->videoMem));
+#endif
 
                 /* Free video memory. */
                 gcmkVERIFY_OK(gckVIDMEM_NODE_Dereference(
@@ -4231,6 +4524,11 @@ _AllocateContextBuffer(
     gctSIZE_T totalSize = Context->totalSize;
     gctUINT32 allocFlag = 0;
 
+#if gcdCAPTURE_ONLY_MODE
+    gceDATABASE_TYPE dbType;
+    gctUINT32 processID;
+#endif
+
 #if gcdENABLE_CACHEABLE_COMMAND_BUFFER
     allocFlag = gcvALLOC_FLAG_CACHEABLE;
 #endif
@@ -4245,6 +4543,26 @@ _AllocateContextBuffer(
         &pool,
         &Buffer->videoMem
         ));
+
+#if gcdCAPTURE_ONLY_MODE
+    gcmkONERROR(gckVIDMEM_HANDLE_Allocate(kernel, Buffer->videoMem, &Context->buffer->handle));
+
+    /* Encode surface type and pool to database type. */
+    dbType = gcvDB_VIDEO_MEMORY
+           | (gcvVIDMEM_TYPE_GENERIC << gcdDB_VIDEO_MEMORY_TYPE_SHIFT)
+           | (pool << gcdDB_VIDEO_MEMORY_POOL_SHIFT);
+
+    gcmkONERROR(gckOS_GetProcessID(&processID));
+
+    /* Record in process db. */
+    gcmkONERROR(
+            gckKERNEL_AddProcessDB(kernel,
+                                   processID,
+                                   dbType,
+                                   Buffer->videoMem,
+                                   gcvNULL,
+                                   totalSize));
+#endif
 
     /* Lock for GPU access. */
     gcmkONERROR(gckVIDMEM_NODE_Lock(

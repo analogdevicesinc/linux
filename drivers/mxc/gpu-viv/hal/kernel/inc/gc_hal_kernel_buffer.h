@@ -2,7 +2,7 @@
 *
 *    The MIT License (MIT)
 *
-*    Copyright (c) 2014 - 2019 Vivante Corporation
+*    Copyright (c) 2014 - 2020 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 *
 *    The GPL License (GPL)
 *
-*    Copyright (C) 2014 - 2019 Vivante Corporation
+*    Copyright (C) 2014 - 2020 Vivante Corporation
 *
 *    This program is free software; you can redistribute it and/or
 *    modify it under the terms of the GNU General Public License
@@ -63,9 +63,6 @@ extern "C" {
 /******************************************************************************\
 ************************ Command Buffer and Event Objects **********************
 \******************************************************************************/
-
-/* The number of context buffers per user. */
-#define gcdCONTEXT_BUFFER_COUNT 2
 
 #define gcdRENDER_FENCE_LENGTH                      (6 * gcmSIZEOF(gctUINT32))
 #define gcdBLT_FENCE_LENGTH                         (10 * gcmSIZEOF(gctUINT32))
