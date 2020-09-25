@@ -285,7 +285,26 @@
 	calibration-board-control@0 {
 		compatible = "one-bit-adc-dac";
 		out-gpios = <&axi_gpio_2 56 0>, <&axi_gpio_2 57 0>, <&axi_gpio_2 58 0>, <&axi_gpio_2 59 0>;
-		out-gpio-names = "5045_V1", "5045_V2", "CTRL_IND", "CTRL_RX_COMBINED";
+
+		channel@0 {
+			reg = <0>;
+			label = "5045_V1";
+		};
+
+		channel@1 {
+			reg = <1>;
+			label = "5045_V2";
+		};
+
+		channel@2 {
+			reg = <2>;
+			label = "CTRL_IND";
+		};
+
+		channel@3 {
+			reg = <3>;
+			label = "CTRL_RX_COMBINED";
+		};
 	};
 
 	clocks {
