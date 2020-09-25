@@ -210,12 +210,3 @@ dgpio_0		32	86
 	reset-gpios = <&gpio0 100 GPIO_ACTIVE_LOW>;
 };
 
-&gpio0 {
-	status = "okay";
-	output_enable {
-		gpio-hog;
-		gpios = <106 0>;
-		output-high;
-		line-name = "output_enable";
-	};
-};
