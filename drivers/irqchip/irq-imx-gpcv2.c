@@ -25,7 +25,6 @@
 
 #define IMR_NUM			4
 #define GPC_MAX_IRQS            (IMR_NUM * 32)
-#define IMX8MP_MAX_IRQS         160
 
 #define GPC_IMR1_CORE0		0x30
 #define GPC_IMR1_CORE1		0x40
@@ -33,7 +32,6 @@
 #define GPC_IMR1_CORE3		0x1d0
 
 static unsigned int err11171;
-static unsigned int gpc_max_irqs;
 
 struct gpcv2_irqchip_data {
 	struct raw_spinlock	rlock;
@@ -295,7 +293,7 @@ static int imx_gpcv2_domain_alloc(struct irq_domain *domain,
 	if (err)
 		return err;
 
-	if (hwirq >= gpc_max_irqs)
+	if (hwirq >= GPC_MAX_IRQS)
 		return -EINVAL;
 
 	for (i = 0; i < nr_irqs; i++) {
@@ -364,12 +362,7 @@ static int __init imx_gpcv2_irqchip_init(struct device_node *node,
 		return -ENOMEM;
 	}
 
-	if (of_machine_is_compatible("fsl,imx8mp"))
-		gpc_max_irqs = IMX8MP_MAX_IRQS;
-	else
-		gpc_max_irqs = GPC_MAX_IRQS;
-
-	domain = irq_domain_add_hierarchy(parent_domain, 0, gpc_max_irqs,
+	domain = irq_domain_add_hierarchy(parent_domain, 0, GPC_MAX_IRQS,
 				node, &gpcv2_irqchip_data_domain_ops, cd);
 	if (!domain) {
 		iounmap(cd->gpc_base);
