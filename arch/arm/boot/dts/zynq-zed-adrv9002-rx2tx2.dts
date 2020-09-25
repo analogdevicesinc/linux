@@ -148,12 +148,3 @@ dgpio_0		32	86
 	ssi-sync-gpios = <&gpio0 108 GPIO_ACTIVE_HIGH>;
 };
 
-&gpio0 {
-	status = "okay";
-	output_enable {
-		gpio-hog;
-		gpios = <106 0>;
-		output-high;
-		line-name = "output_enable";
-	};
-};

@@ -145,12 +145,3 @@ dgpio_0		32	110
 	reset-gpios = <&gpio 124 GPIO_ACTIVE_LOW>;
 	ssi-sync-gpios = <&gpio 132 GPIO_ACTIVE_HIGH>;
 };
-
-&gpio {
-	output_enable {
-		gpio-hog;
-		gpios = <130 0>;
-		output-high;
-		line-name = "output_enable";
-	};
-};

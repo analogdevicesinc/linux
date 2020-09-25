@@ -205,12 +205,3 @@ dgpio_0		32	110
 &adc0_adrv9002 {
 	reset-gpios = <&gpio 124 GPIO_ACTIVE_LOW>;
 };
-
-&gpio {
-	output_enable {
-		gpio-hog;
-		gpios = <130 0>;
-		output-high;
-		line-name = "output_enable";
-	};
-};
