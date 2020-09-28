@@ -622,7 +622,6 @@ static int imx_lcdifv3_probe(struct platform_device *pdev)
 	struct device_node *np = dev->of_node;
 	struct lcdifv3_soc *lcdifv3;
 	struct resource *res;
-	struct regmap *blk_ctl;
 	const struct of_device_id *of_id;
 	const struct lcdifv3_soc_pdata *soc_pdata;
 
@@ -676,17 +675,17 @@ static int imx_lcdifv3_probe(struct platform_device *pdev)
 	/* reset controller to avoid any conflict
 	 * with uboot splash screen settings.
 	 */
-	blk_ctl = syscon_regmap_lookup_by_phandle(np, "blk-ctl");
-	if (IS_ERR(blk_ctl))
-		blk_ctl = NULL;
-
-	if (blk_ctl) {
+	if (of_device_is_compatible(np, "fsl,imx8mp-lcdif1")) {
+		/* TODO: Maybe the clock enable should
+		 *	 be done in reset driver.
+		 */
 		clk_prepare_enable(lcdifv3->clk_disp_apb);
+
 		writel(CTRL_SW_RESET, lcdifv3->base + LCDIFV3_CTRL_CLR);
 
-		/* reset LCDIFv3 controller */
-		regmap_update_bits(blk_ctl, 0x0, BIT(5), 0x0);
-		regmap_update_bits(blk_ctl, 0x0, BIT(5), BIT(5));
+		ret = device_reset(dev);
+		if (ret)
+			dev_warn(dev, "lcdif1 reset failed: %d\n", ret);
 
 		clk_disable_unprepare(lcdifv3->clk_disp_apb);
 	}
