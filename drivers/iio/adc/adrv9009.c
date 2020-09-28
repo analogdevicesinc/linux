@@ -1515,7 +1515,7 @@ static ssize_t adrv9009_phy_show(struct device *dev,
 	struct jesd204_dev *jdev = phy->jdev;
 	struct jesd204_link *links[3];
 	int ret = 0;
-	int i, err;
+	int i, err, num_links;
 	u32 val;
 
 	mutex_lock(&indio_dev->mlock);
@@ -1535,11 +1535,15 @@ static ssize_t adrv9009_phy_show(struct device *dev,
 			ret = sprintf(buf, "%d\n", !!(phy->cal_mask & val));
 		break;
 	case ADRV9009_JESD204_FSM_ERROR:
-		ret = jesd204_get_links_data(jdev, links, 3);
+		num_links = jesd204_get_active_links_num(jdev);
+		if (num_links < 0)
+			return num_links;
+
+		ret = jesd204_get_links_data(jdev, links, num_links);
 		if (ret)
 			return ret;
 		err = 0;
-		for (i = 0; i < 3; i++) {
+		for (i = 0; i < num_links; i++) {
 			if (links[i]->error) {
 				err = links[i]->error;
 				break;
@@ -1548,14 +1552,22 @@ static ssize_t adrv9009_phy_show(struct device *dev,
 		ret = sprintf(buf, "%d\n", err);
 		break;
 	case ADRV9009_JESD204_FSM_PAUSED:
-		ret = jesd204_get_links_data(jdev, links, 3);
+		num_links = jesd204_get_active_links_num(jdev);
+		if (num_links < 0)
+			return num_links;
+
+		ret = jesd204_get_links_data(jdev, links, num_links);
 		if (ret)
 			return ret;
 		/* just get the first link state; we're assuming that all 3 are in sync  */
 		ret = sprintf(buf, "%d\n", jesd204_link_get_paused(links[0]));
 		break;
 	case ADRV9009_JESD204_FSM_STATE:
-		ret = jesd204_get_links_data(jdev, links, 3);
+		num_links = jesd204_get_active_links_num(jdev);
+		if (num_links < 0)
+			return num_links;
+
+		ret = jesd204_get_links_data(jdev, links, num_links);
 		if (ret)
 			return ret;
 		/* just get the first link state; we're assuming that all 3 are in sync  */
