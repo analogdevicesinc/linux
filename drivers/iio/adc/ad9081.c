@@ -118,6 +118,7 @@ struct ad9081_phy {
 	adi_ad9081_device_t ad9081;
 	struct axiadc_chip_info chip_info;
 	struct clk *dev_clk;
+	struct bin_attribute 	bin;
 
 	struct gpio_desc *rx1_en_gpio;
 	struct gpio_desc *rx2_en_gpio;
@@ -175,6 +176,8 @@ struct ad9081_phy {
 	u8 rx_cddc_select;
 
 	struct ad9081_jesd_link jesd_rx_link[2];
+	short coeffs_i[196];
+	short coeffs_q[196];
 };
 
 
@@ -2105,9 +2108,309 @@ static int ad9081_fsc_set(void *arg, const u64 val)
 
 DEFINE_DEBUGFS_ATTRIBUTE(ad9081_fsc_fops, NULL, ad9081_fsc_set, "%llu");
 
+static const char* const pfir_filter_modes[] = {
+	"disabled", "real_n4", "real_n2", "undef",
+	"matrix", "complex_full", "complex_half", "real_n"
+};
+
+static const char* const pfir_filter_pairs[] = {
+	"adc_pair_0", "adc_pair_1", "adc_pair_all"
+};
+
+static const char* const pfir_filter_pages[] = {
+	"page_0", "page_1", "page_2", "page_3", "page_all"
+};
+
+static const char* const pfir_filter_load_type[] = {
+	"real_i", "real_q", "real_cross_i", "real_cross_q", "complex"
+};
+
+static u32 ad9081_pfir_gain_enc(int val)
+{
+	switch (val) {
+	case -12:
+		return AD9081_ADC_PFIR_GAIN_N12DB;
+	case -6:
+		return AD9081_ADC_PFIR_GAIN_N6DB;
+	case 6:
+		return AD9081_ADC_PFIR_GAIN_P6DB;
+	case 12:
+		return AD9081_ADC_PFIR_GAIN_P12DB;
+	default:
+		return AD9081_ADC_PFIR_GAIN_0DB;
+	}
+};
+
+
+static int ad9081_parse_fir(struct ad9081_phy *phy,
+				 char *data, u32 size)
+{
+	char *line;
+	int i = 0, q = 0, val1, val2, ret;
+	char *ptr = data;
+
+	adi_ad9081_adc_pfir_ctl_page_e ctl_pages = AD9081_ADC_PFIR_ADC_PAIR_ALL;
+	adi_ad9081_adc_pfir_coeff_page_e coeff_pages = AD9081_ADC_PFIR_COEFF_PAGE_ALL;
+	adi_ad9081_adc_pfir_i_mode_e i_mode = AD9081_ADC_PFIR_I_MODE_DISABLE;
+	adi_ad9081_adc_pfir_q_mode_e q_mode = AD9081_ADC_PFIR_Q_MODE_DISABLE;
+	adi_ad9081_adc_pfir_gain_e ix_gain = 0, iy_gain = 0, qx_gain = 0, qy_gain = 0;
+	u8 coeff_load_sel = 0;
+	u8 read_mask = 0;
+
+	while ((line = strsep(&ptr, "\n"))) {
+		if (line >= data + size) {
+			break;
+		}
+
+		if (line[0] == '#')
+			continue;
+
+		if (~read_mask & BIT(0)) {
+			char imode[16], qmode[16];
+
+			ret = sscanf(line, "mode: %15s %15s",
+				     imode, qmode);
+			switch (ret) {
+			case 2:
+				q_mode = sysfs_match_string(pfir_filter_modes, qmode);
+				/* fall-through */
+			case 1:
+				i_mode = sysfs_match_string(pfir_filter_modes, imode);
+				break;
+			default:
+				q_mode = AD9081_ADC_PFIR_Q_MODE_DISABLE;
+				i_mode = AD9081_ADC_PFIR_I_MODE_DISABLE;
+			}
+
+			read_mask |= BIT(0);
+			continue;
+		}
+
+		if (~read_mask & BIT(1)) {
+			int ix = 0, iy = 0, qx = 0, qy = 0;
+
+			ret = sscanf(line, "gain: %d %d %d %d",
+				     &ix, &iy, &qx, &qy);
+
+			ix_gain = ad9081_pfir_gain_enc(ix);
+			iy_gain = ad9081_pfir_gain_enc(iy);
+			qx_gain = ad9081_pfir_gain_enc(qx);
+			qy_gain = ad9081_pfir_gain_enc(qy);
+
+			read_mask |= BIT(1);
+			continue;
+		}
+
+		if (~read_mask & BIT(2)) {
+			char a[16], b[16], c[16];
+
+			ret = sscanf(line, "dest: %15s %15s %15s", a, b, c);
+
+			switch (ret) {
+			case 3:
+				ret  = sysfs_match_string(pfir_filter_load_type, c);
+				if (ret < 0)
+					goto out;
+				coeff_load_sel = ret;
+				/* fall-through */
+			case 2:
+				ret = sysfs_match_string(pfir_filter_pages, b);
+				if (ret < 0)
+					goto out;
+				coeff_pages = 1 << ret;
+				if (ret == 4)
+					coeff_pages = AD9081_ADC_PFIR_COEFF_PAGE_ALL;
+				/* fall-through */
+			case 1:
+				ret = sysfs_match_string(pfir_filter_pairs, a);
+				if (ret < 0)
+					goto out;
+				ctl_pages = 1 << ret;
+				if (ret == 2)
+					ctl_pages = AD9081_ADC_PFIR_ADC_PAIR_ALL;
+
+				break;
+			}
+
+			read_mask |= BIT(2);
+			continue;
+		}
+
+		ret = sscanf(line, "%d %d", &val1, &val2);
+		if (ret > 0) {
+			if (i >= ARRAY_SIZE(phy->coeffs_i))
+				return -EINVAL;
+
+			phy->coeffs_i[i] = (short)val1;
+			i++;
+
+			if (ret == 2) {
+				if (q >= ARRAY_SIZE(phy->coeffs_q))
+					return -EINVAL;
+
+				phy->coeffs_q[q] = (short)val2;
+				q++;
+			}
+			continue;
+		}
+	}
+
+	adi_ad9081_adc_pfir_quad_mode_set(&phy->ad9081, ctl_pages, 1); /* Fixme 82 */
+
+	adi_ad9081_adc_pfir_coeff_page_set(&phy->ad9081, coeff_pages);
+	adi_ad9081_adc_pfir_coeff_clear_set(&phy->ad9081, ctl_pages, 1);
+	adi_ad9081_adc_pfir_coeff_clear_set(&phy->ad9081, ctl_pages, 0);
+
+	if (i_mode && i) {
+		switch (i_mode) {
+		case AD9081_ADC_PFIR_I_MODE_REAL_N4:
+			coeff_load_sel = BIT(0);
+			if (i != 48) {
+				dev_err(&phy->spi->dev, "I Real N/4 expected 48 got %d coefficients\n", i);
+			}
+			break;
+		case AD9081_ADC_PFIR_I_MODE_REAL_N2:
+			coeff_load_sel = BIT(0);
+			if (i != 96) {
+				dev_err(&phy->spi->dev, "I Real N/2 expected 96 got %d coefficients\n", i);
+			}
+			break;
+		case AD9081_ADC_PFIR_I_MODE_MATRIX:
+			coeff_load_sel = BIT(2);
+			if (i != 96 && i != 48) {
+				dev_err(&phy->spi->dev, "I Matrix expected 96/48 got %d coefficients\n", i);
+			}
+			break;
+		case AD9081_ADC_PFIR_I_MODE_COMPLEX_FULL:
+			coeff_load_sel = BIT(4);
+			/* Fixme */
+			break;
+		case AD9081_ADC_PFIR_I_MODE_COMPLEX_HALF:
+			coeff_load_sel = BIT(4);
+			if (i != 96) {
+				dev_err(&phy->spi->dev, "I Complex half expected 96 got %d coefficients\n", i);
+			}
+			break;
+		case AD9081_ADC_PFIR_I_MODE_REAL_N:
+			coeff_load_sel = BIT(0);
+			if (i != 192) {
+				dev_err(&phy->spi->dev, "I Real N expected 192 got %d coefficients\n", i);
+			}
+			break;
+		default:
+			break;
+		}
+
+
+		ret = adi_ad9081_adc_pfir_coeff_validate(&phy->ad9081, i, phy->coeffs_i);
+		if (ret != API_CMS_ERROR_OK)
+			dev_err(&phy->spi->dev, "Validate I coefficients failed (%d)", ret);
+
+		dev_err(&phy->spi->dev,
+			"Filter loading <I> ADC<0x%X> on pages <0x%X> using <%s> with <%d> tabs {%d, %d, %d, ..., %d, %d, %d} load type <0x%X>\n",
+			ctl_pages, coeff_pages, pfir_filter_modes[i_mode], i,
+			(int)phy->coeffs_i[0], (int)phy->coeffs_i[1], (int)phy->coeffs_i[2],
+			(int)phy->coeffs_i[i-3], (int)phy->coeffs_i[i-2], (int)phy->coeffs_i[i-1],
+			coeff_load_sel);
+
+		ret = adi_ad9081_adc_pfir_config_set(&phy->ad9081,
+			ctl_pages, coeff_pages,
+			i_mode, q_mode, ix_gain, iy_gain, qx_gain, qy_gain,
+			coeff_load_sel, &phy->coeffs_i[0], i);
+	} else {
+		ret = adi_ad9081_adc_pfir_i_mode_set(&phy->ad9081, ctl_pages,
+			AD9081_ADC_PFIR_I_MODE_DISABLE);
+	}
+
+	if (q_mode && q) {
+		switch (q_mode) {
+		case AD9081_ADC_PFIR_Q_MODE_REAL_N4:
+			coeff_load_sel = BIT(1);
+			if (i != 48) {
+				dev_err(&phy->spi->dev, "Q Real N/4 expected 48 got %d coefficients\n", i);
+			}
+			break;
+		case AD9081_ADC_PFIR_Q_MODE_REAL_N2:
+			coeff_load_sel = BIT(1);
+			if (i != 96) {
+				dev_err(&phy->spi->dev, "Q Real N/2 expected 96 got %d coefficients\n", i);
+			}
+			break;
+		case AD9081_ADC_PFIR_Q_MODE_MATRIX:
+			coeff_load_sel = BIT(3);
+			if (i != 96 && i != 48) {
+				dev_err(&phy->spi->dev, "Q Matrix expected 96/48 got %d coefficients\n", i);
+			}
+			break;
+		case AD9081_ADC_PFIR_Q_MODE_COMPLEX_FULL:
+			coeff_load_sel = BIT(4);
+			/* Fixme */
+			break;
+		case AD9081_ADC_PFIR_Q_MODE_COMPLEX_HALF:
+			coeff_load_sel = BIT(4);
+			if (i != 96) {
+				dev_err(&phy->spi->dev, "Q Complex half expected 96 got %d coefficients\n", i);
+			}
+			break;
+		case AD9081_ADC_PFIR_Q_MODE_REAL_N:
+			coeff_load_sel = BIT(1);
+			if (i != 192) {
+				dev_err(&phy->spi->dev, "Q Real N expected 192 got %d coefficients\n", i);
+			}
+			break;
+		default:
+			break;
+		}
+
+		ret = adi_ad9081_adc_pfir_coeff_validate(&phy->ad9081, q, phy->coeffs_q);
+		if (ret != API_CMS_ERROR_OK)
+			dev_err(&phy->spi->dev, "Validate Q coefficients failed (%d)", ret);
+
+
+		dev_err(&phy->spi->dev,
+			"Filter loading <Q> ADC<0x%X> on pages <0x%X> using <%s> with <%d> tabs {%d, %d, %d, ..., %d, %d, %d} load type <0x%X>\n",
+			ctl_pages, coeff_pages, pfir_filter_modes[q_mode], q,
+			(int)phy->coeffs_q[0], (int)phy->coeffs_q[1], (int)phy->coeffs_q[2],
+			(int)phy->coeffs_q[q-3], (int)phy->coeffs_q[q-2], (int)phy->coeffs_q[q-1],
+			coeff_load_sel);
+
+		ret = adi_ad9081_adc_pfir_config_set(&phy->ad9081,
+			ctl_pages, coeff_pages,
+			i_mode, q_mode, ix_gain, iy_gain, qx_gain, qy_gain,
+			coeff_load_sel, &phy->coeffs_q[0], q);
+	} else {
+		ret = adi_ad9081_adc_pfir_q_mode_set(&phy->ad9081, ctl_pages,
+			AD9081_ADC_PFIR_Q_MODE_DISABLE);
+	}
+
+	if (ret != API_CMS_ERROR_OK)
+		dev_err(&phy->spi->dev, "Prgramming filter failed (%d)", ret);
+
+	return size;
+
+out:
+	dev_err(&phy->spi->dev, "malformed pFir filter file detected\n");
+
+	return -EINVAL;
+}
+
+static ssize_t
+ad9081_fir_bin_write(struct file *filp, struct kobject *kobj,
+		       struct bin_attribute *bin_attr,
+		       char *buf, loff_t off, size_t count)
+{
+
+	struct iio_dev *indio_dev = dev_to_iio_dev(kobj_to_dev(kobj));
+	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+	struct ad9081_phy *phy = conv->phy;
+
+	return ad9081_parse_fir(phy, buf, count);
+}
+
 static int ad9081_post_iio_register(struct iio_dev *indio_dev)
 {
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+	struct ad9081_phy *phy = conv->phy;
 
 	if (iio_get_debugfs_dentry(indio_dev)) {
 		struct dentry *stats;
@@ -2124,7 +2427,13 @@ static int ad9081_post_iio_register(struct iio_dev *indio_dev)
 			&ad9081_fsc_fops);
 	}
 
-	return 0;
+	sysfs_bin_attr_init(&phy->bin);
+	phy->bin.attr.name = "filter_fir_config";
+	phy->bin.attr.mode = S_IWUSR;
+	phy->bin.write = ad9081_fir_bin_write;
+	phy->bin.size = 4096;
+
+	return sysfs_create_bin_file(&indio_dev->dev.kobj, &phy->bin);
 }
 
 static int ad9081_get_jesd_converter_selection(struct ad9081_phy *phy,
