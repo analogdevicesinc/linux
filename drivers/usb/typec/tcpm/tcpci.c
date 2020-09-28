@@ -697,6 +697,9 @@ static int tcpci_init(struct tcpc_dev *tcpc)
 	if (ret < 0)
 		return ret;
 
+	/* Clear fault condition */
+	regmap_write(tcpci->regmap, TCPC_FAULT_STATUS, 0x80);
+
 	if (tcpci->controls_vbus)
 		reg = TCPC_POWER_STATUS_VBUS_PRES;
 	else
@@ -714,7 +717,7 @@ static int tcpci_init(struct tcpc_dev *tcpc)
 	reg = TCPC_ALERT_TX_SUCCESS | TCPC_ALERT_TX_FAILED |
 		TCPC_ALERT_TX_DISCARDED | TCPC_ALERT_RX_STATUS |
 		TCPC_ALERT_RX_HARD_RST | TCPC_ALERT_CC_STATUS |
-		TCPC_ALERT_V_ALARM_LO;
+		TCPC_ALERT_V_ALARM_LO | TCPC_ALERT_FAULT;
 	if (tcpci->controls_vbus)
 		reg |= TCPC_ALERT_POWER_STATUS;
 	/* Enable VSAFE0V status interrupt when detecting VSAFE0V is supported */
@@ -754,8 +757,6 @@ process_status:
 		tcpm_cc_change(tcpci->port);
 
 	if (status & TCPC_ALERT_POWER_STATUS) {
-		unsigned int reg;
-
 		/* Read power status to clear the event */
 		regmap_read(tcpci->regmap, TCPC_POWER_STATUS, &raw);
 		regmap_read(tcpci->regmap, TCPC_POWER_STATUS_MASK, &raw);
@@ -810,6 +811,13 @@ process_status:
 		ret = regmap_read(tcpci->regmap, TCPC_EXTENDED_STATUS, &raw);
 		if (!ret && (raw & TCPC_EXTENDED_STATUS_VSAFE0V))
 			tcpm_vbus_change(tcpci->port);
+	}
+
+	/* Clear the fault status anyway */
+	if (status & TCPC_ALERT_FAULT) {
+		regmap_read(tcpci->regmap, TCPC_FAULT_STATUS, &raw);
+		regmap_write(tcpci->regmap, TCPC_FAULT_STATUS,
+				raw | TCPC_FAULT_STATUS_CLEAR);
 	}
 
 	if (status & TCPC_ALERT_RX_HARD_RST)
