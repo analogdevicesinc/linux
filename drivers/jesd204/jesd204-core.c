@@ -33,6 +33,22 @@ static unsigned int jesd204_con_id_counter;
 
 static void jesd204_dev_unregister(struct jesd204_dev *jdev);
 
+int jesd204_get_active_links_num(struct jesd204_dev *jdev)
+{
+	struct jesd204_dev_top *jdev_top;
+
+	if (!jdev)
+		return -EINVAL;
+
+	jdev_top = jesd204_dev_get_topology_top_dev(jdev);
+	if (!jdev_top) {
+		jesd204_err(jdev, "Could not find top-level device\n");
+		return -EFAULT;
+	}
+
+	return jdev_top->num_links;
+}
+
 int jesd204_get_links_data(struct jesd204_dev *jdev,
 			   struct jesd204_link ** const links,
 			   const unsigned int num_links)
