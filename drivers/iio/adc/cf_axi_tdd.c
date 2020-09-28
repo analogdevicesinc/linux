@@ -409,7 +409,6 @@ static int cf_axi_tdd_probe(struct platform_device *pdev)
 	unsigned int expected_version;
 	struct cf_axi_tdd_state *st;
 	struct iio_dev *indio_dev;
-	struct resource *res;
 	int ret, i;
 	char buf[32];
 
@@ -424,10 +423,9 @@ static int cf_axi_tdd_probe(struct platform_device *pdev)
 		of_property_read_u32_array(np, buf, st->config[i], 15);
 	}
 
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	st->regs = devm_ioremap(&pdev->dev, res->start, resource_size(res));
-	if (!st->regs)
-		return -ENOMEM;
+	st->regs = devm_platform_ioremap_resource(pdev, 0);
+	if (IS_ERR(st->regs))
+		return PTR_ERR(st->regs);
 
 	st->version = tdd_read(st, ADI_AXI_REG_VERSION);
 	expected_version = ADI_AXI_PCORE_VER(1, 0, 'a');
@@ -457,12 +455,11 @@ static int cf_axi_tdd_probe(struct platform_device *pdev)
 	if (ret < 0)
 		return ret;
 
-	dev_info(&pdev->dev, "Analog Devices CF_AXI_TDD %s (%d.%.2d.%c) at 0x%08llX mapped to 0x%p\n",
+	dev_info(&pdev->dev, "Analog Devices CF_AXI_TDD %s (%d.%.2d.%c)",
 		 tdd_read(st, ADI_AXI_REG_ID) ? "SLAVE" : "MASTER",
 		 ADI_AXI_PCORE_VER_MAJOR(st->version),
 		 ADI_AXI_PCORE_VER_MINOR(st->version),
-		 ADI_AXI_PCORE_VER_PATCH(st->version),
-		 (unsigned long long)res->start, st->regs);
+		 ADI_AXI_PCORE_VER_PATCH(st->version));
 
 	return 0;
 }
