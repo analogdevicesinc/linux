@@ -1516,6 +1516,7 @@ static ssize_t adrv9009_phy_show(struct device *dev,
 	struct jesd204_link *links[3];
 	int ret = 0;
 	int i, err, num_links;
+	bool paused;
 	u32 val;
 
 	mutex_lock(&indio_dev->mlock);
@@ -1559,8 +1560,18 @@ static ssize_t adrv9009_phy_show(struct device *dev,
 		ret = jesd204_get_links_data(jdev, links, num_links);
 		if (ret)
 			return ret;
-		/* just get the first link state; we're assuming that all 3 are in sync  */
-		ret = sprintf(buf, "%d\n", jesd204_link_get_paused(links[0]));
+		/*
+		 * Take the slowest link; if there are N links and one is paused, all are paused.
+		 * Not sure if this can happen yet, but best design it like this here.
+		 */
+		paused = false;
+		for (i = 0; i < num_links; i++) {
+			if (jesd204_link_get_paused(links[i])) {
+				paused = true;
+				break;
+			}
+		}
+		ret = sprintf(buf, "%d\n", paused);
 		break;
 	case ADRV9009_JESD204_FSM_STATE:
 		num_links = jesd204_get_active_links_num(jdev);
@@ -1570,7 +1581,10 @@ static ssize_t adrv9009_phy_show(struct device *dev,
 		ret = jesd204_get_links_data(jdev, links, num_links);
 		if (ret)
 			return ret;
-		/* just get the first link state; we're assuming that all 3 are in sync  */
+		/*
+		 * just get the first link state; we're assuming that all 3 are in sync
+		 * and that ADRV9009_JESD204_FSM_PAUSED was called before
+		 */
 		ret = sprintf(buf, "%s\n", jesd204_link_get_state_str(links[0]));
 		break;
 	default:
