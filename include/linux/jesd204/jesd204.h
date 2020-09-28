@@ -251,6 +251,8 @@ struct jesd204_dev_data {
 struct jesd204_dev *devm_jesd204_dev_register(struct device *dev,
 					      const struct jesd204_dev_data *i);
 
+int jesd204_get_active_links_num(struct jesd204_dev *jdev);
+
 int jesd204_get_links_data(struct jesd204_dev *jdev,
 			   struct jesd204_link ** const links,
 			   const unsigned int num_links);
@@ -291,6 +293,11 @@ static inline struct jesd204_dev *devm_jesd204_dev_register(
 		struct device *dev, const struct jesd204_dev_data *init)
 {
 	return NULL;
+}
+
+static inline int jesd204_get_active_links_num(struct jesd204_dev *jdev)
+{
+	return -ENOTSUPP;
 }
 
 static inline int jesd204_get_links_data(struct jesd204_dev *jdev,
