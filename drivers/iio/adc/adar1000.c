@@ -664,6 +664,10 @@ enum adar1000_iio_dev_attr {
 	ADAR1000_TX_LNA,
 	ADAR1000_LNABIAS_ON,
 	ADAR1000_LNABIAS_OFF,
+	ADAR1000_CUR_RX_LNA,
+	ADAR1000_CUR_RX,
+	ADAR1000_CUR_TX,
+	ADAR1000_CUR_TX_DRV,
 };
 
 static ssize_t adar1000_store(struct device *dev,
@@ -761,6 +765,38 @@ static ssize_t adar1000_store(struct device *dev,
 		if (ret)
 			return ret;
 		break;
+	case ADAR1000_CUR_RX_LNA:
+		reg = ADAR1000_BIAS_CURRENT_RX_LNA;
+		ret = kstrtou8(buf, 10, &readval);
+		if (ret)
+			return ret;
+
+		readval &= 0xf;
+		break;
+	case ADAR1000_CUR_RX:
+		reg = ADAR1000_BIAS_CURRENT_RX;
+		ret = kstrtou8(buf, 10, &readval);
+		if (ret)
+			return ret;
+
+		readval &= 0x3f;
+		break;
+	case ADAR1000_CUR_TX:
+		reg = ADAR1000_BIAS_CURRENT_TX;
+		ret = kstrtou8(buf, 10, &readval);
+		if (ret)
+			return ret;
+
+		readval &= 0x3f;
+		break;
+	case ADAR1000_CUR_TX_DRV:
+		reg = ADAR1000_BIAS_CURRENT_TX_DRV;
+		ret = kstrtou8(buf, 10, &readval);
+		if (ret)
+			return ret;
+
+		readval &= 0x7;
+		break;
 	default:
 		return -EINVAL;
 	}
@@ -829,6 +865,18 @@ static ssize_t adar1000_show(struct device *dev,
 	case ADAR1000_LNABIAS_OFF:
 		reg = ADAR1000_LNA_BIAS_OFF;
 		break;
+	case ADAR1000_CUR_RX_LNA:
+		reg = ADAR1000_BIAS_CURRENT_RX_LNA;
+		break;
+	case ADAR1000_CUR_RX:
+		reg = ADAR1000_BIAS_CURRENT_RX;
+		break;
+	case ADAR1000_CUR_TX:
+		reg = ADAR1000_BIAS_CURRENT_TX;
+		break;
+	case ADAR1000_CUR_TX_DRV:
+		reg = ADAR1000_BIAS_CURRENT_TX_DRV;
+		break;
 	default:
 		return -EINVAL;
 	}
@@ -872,6 +920,19 @@ static IIO_DEVICE_ATTR(lna_bias_off, 0644,
 static IIO_DEVICE_ATTR(lna_bias_on, 0644,
 		       adar1000_show, adar1000_store, ADAR1000_LNABIAS_ON);
 
+/* BIAS current configurations */
+static IIO_DEVICE_ATTR(bias_current_rx_lna, 0644,
+		       adar1000_show, adar1000_store, ADAR1000_CUR_RX_LNA);
+
+static IIO_DEVICE_ATTR(bias_current_rx, 0644,
+		       adar1000_show, adar1000_store, ADAR1000_CUR_RX);
+
+static IIO_DEVICE_ATTR(bias_current_tx, 0644,
+		       adar1000_show, adar1000_store, ADAR1000_CUR_TX);
+
+static IIO_DEVICE_ATTR(bias_current_tx_drv, 0644,
+		       adar1000_show, adar1000_store, ADAR1000_CUR_TX_DRV);
+
 static struct attribute *adar1000_attributes[] = {
 	&iio_dev_attr_rx_vga_enable.dev_attr.attr,
 	&iio_dev_attr_rx_vm_enable.dev_attr.attr,
@@ -881,6 +942,11 @@ static struct attribute *adar1000_attributes[] = {
 	&iio_dev_attr_tx_lna_enable.dev_attr.attr,
 	&iio_dev_attr_lna_bias_off.dev_attr.attr,
 	&iio_dev_attr_lna_bias_on.dev_attr.attr,
+	&iio_dev_attr_bias_current_rx_lna.dev_attr.attr,
+	&iio_dev_attr_bias_current_rx.dev_attr.attr,
+	&iio_dev_attr_bias_current_tx.dev_attr.attr,
+	&iio_dev_attr_bias_current_tx_drv.dev_attr.attr,
+	&iio_dev_attr_reset.dev_attr.attr,
 	NULL,
 };
 
