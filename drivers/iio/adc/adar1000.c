@@ -662,6 +662,8 @@ enum adar1000_iio_dev_attr {
 	ADAR1000_TX_VGA,
 	ADAR1000_TX_VM,
 	ADAR1000_TX_LNA,
+	ADAR1000_LNABIAS_ON,
+	ADAR1000_LNABIAS_OFF,
 };
 
 static ssize_t adar1000_store(struct device *dev,
@@ -747,6 +749,18 @@ static ssize_t adar1000_store(struct device *dev,
 		if (readin)
 			val = ADAR1000_LNA_EN;
 		break;
+	case ADAR1000_LNABIAS_ON:
+		reg = ADAR1000_LNA_BIAS_ON;
+		ret = kstrtou8(buf, 10, &readval);
+		if (ret)
+			return ret;
+		break;
+	case ADAR1000_LNABIAS_OFF:
+		reg = ADAR1000_LNA_BIAS_OFF;
+		ret = kstrtou8(buf, 10, &readval);
+		if (ret)
+			return ret;
+		break;
 	default:
 		return -EINVAL;
 	}
@@ -809,6 +823,12 @@ static ssize_t adar1000_show(struct device *dev,
 		reg = ADAR1000_TX_ENABLES;
 		mask = ADAR1000_LNA_EN;
 		break;
+	case ADAR1000_LNABIAS_ON:
+		reg = ADAR1000_LNA_BIAS_ON;
+		break;
+	case ADAR1000_LNABIAS_OFF:
+		reg = ADAR1000_LNA_BIAS_OFF;
+		break;
 	default:
 		return -EINVAL;
 	}
@@ -845,6 +865,13 @@ static IIO_DEVICE_ATTR(tx_vm_enable, 0644,
 static IIO_DEVICE_ATTR(tx_lna_enable, 0644,
 		       adar1000_show, adar1000_store, ADAR1000_TX_LNA);
 
+/* LNA BIAS setting */
+static IIO_DEVICE_ATTR(lna_bias_off, 0644,
+		       adar1000_show, adar1000_store, ADAR1000_LNABIAS_OFF);
+
+static IIO_DEVICE_ATTR(lna_bias_on, 0644,
+		       adar1000_show, adar1000_store, ADAR1000_LNABIAS_ON);
+
 static struct attribute *adar1000_attributes[] = {
 	&iio_dev_attr_rx_vga_enable.dev_attr.attr,
 	&iio_dev_attr_rx_vm_enable.dev_attr.attr,
@@ -852,6 +879,8 @@ static struct attribute *adar1000_attributes[] = {
 	&iio_dev_attr_tx_vga_enable.dev_attr.attr,
 	&iio_dev_attr_tx_vm_enable.dev_attr.attr,
 	&iio_dev_attr_tx_lna_enable.dev_attr.attr,
+	&iio_dev_attr_lna_bias_off.dev_attr.attr,
+	&iio_dev_attr_lna_bias_on.dev_attr.attr,
 	NULL,
 };
 
@@ -1076,6 +1105,8 @@ static ssize_t adar1000_beam_pos_read(struct iio_dev *indio_dev,
 enum adar1000_enables {
 	ADAR1000_POWERDOWN,
 	ADAR1000_DETECTOR,
+	ADAR1000_PA_BIAS_ON,
+	ADAR1000_PA_BIAS_OFF,
 };
 
 static ssize_t adar1000_read_enable(struct iio_dev *indio_dev,
@@ -1112,6 +1143,19 @@ static ssize_t adar1000_read_enable(struct iio_dev *indio_dev,
 			return ret;
 
 		val = !!!(val >> (3 - chan->channel + 1));
+
+		break;
+	case ADAR1000_PA_BIAS_ON:
+		ret = regmap_read(st->regmap, st->dev_addr |
+				  ADAR1000_CH_PA_BIAS_ON(chan->channel), &val);
+		if (ret < 0)
+			return ret;
+		break;
+	case ADAR1000_PA_BIAS_OFF:
+		ret = regmap_read(st->regmap, st->dev_addr |
+				  ADAR1000_CH_PA_BIAS_OFF(chan->channel), &val);
+		if (ret < 0)
+			return ret;
 
 		break;
 	}
@@ -1175,6 +1219,26 @@ static ssize_t adar1000_write_enable(struct iio_dev *indio_dev,
 		if (ret < 0)
 			return ret;
 		break;
+	case ADAR1000_PA_BIAS_ON:
+		ret = kstrtou8(buf, 10, &readval);
+		if (ret)
+			return ret;
+
+		ret = regmap_write(st->regmap, st->dev_addr |
+				   ADAR1000_CH_PA_BIAS_ON(chan->channel), readval);
+		if (ret < 0)
+			return ret;
+		break;
+	case ADAR1000_PA_BIAS_OFF:
+		ret = kstrtou8(buf, 10, &readval);
+		if (ret)
+			return ret;
+
+		ret = regmap_write(st->regmap, st->dev_addr |
+				   ADAR1000_CH_PA_BIAS_OFF(chan->channel), readval);
+		if (ret < 0)
+			return ret;
+		break;
 	}
 
 	ret = adar1000_mode_4wire(st, 0);
@@ -1201,6 +1265,8 @@ static const struct iio_chan_spec_ext_info adar1000_tx_ext_info[] = {
 	_ADAR1000_BEAM_POS_INFO("beam_pos_load", BEAM_POS_LOAD),
 	_ADAR1000_BEAM_POS_INFO("beam_pos_save", BEAM_POS_SAVE),
 	_ADAR1000_ENABLES_INFO("powerdown", ADAR1000_POWERDOWN),
+	_ADAR1000_ENABLES_INFO("pa_bias_on", ADAR1000_PA_BIAS_ON),
+	_ADAR1000_ENABLES_INFO("pa_bias_off", ADAR1000_PA_BIAS_OFF),
 	{ },
 };
 
