@@ -128,6 +128,13 @@
 #define ADAR1000_VM_EN			BIT(1)
 #define ADAR1000_VGA_EN			BIT(0)
 
+/* ADAR1000_MISC_ENABLES */
+#define ADAR1000_SW_DRV_TR_MODE_SEL	BIT(7)
+#define ADAR1000_BIAS_CTRL		BIT(6)
+#define ADAR1000_BIAS_EN		BIT(5)
+#define ADAR1000_LNA_BIAS_OUT_EN	BIT(4)
+#define ADAR1000_CH_DET_EN(ch)		(0x08 >> (ch))
+
 /* ADAR1000_LD_WRK_REGS */
 #define ADAR1000_LDTX_OVERRIDE		BIT(1)
 #define ADAR1000_LDRX_OVERRIDE		BIT(0)
@@ -861,10 +868,140 @@ static ssize_t adar1000_beam_pos_read(struct iio_dev *indio_dev,
 	.private = _ident, \
 }
 
-static const struct iio_chan_spec_ext_info adar1000_ext_info[] = {
+enum adar1000_enables {
+	ADAR1000_POWERDOWN,
+	ADAR1000_DETECTOR,
+};
+
+static ssize_t adar1000_read_enable(struct iio_dev *indio_dev,
+				    uintptr_t private,
+				    const struct iio_chan_spec *chan,
+				    char *buf)
+{
+	struct adar1000_state *st = iio_priv(indio_dev);
+	u16 reg;
+	unsigned int val;
+	int ret;
+
+	ret = adar1000_mode_4wire(st, 1);
+	if (ret < 0)
+		return ret;
+
+	switch (private) {
+	case ADAR1000_POWERDOWN:
+		if (chan->output)
+			reg = ADAR1000_TX_ENABLES;
+		else
+			reg = ADAR1000_RX_ENABLES;
+
+		ret = regmap_read(st->regmap, st->dev_addr | reg, &val);
+		if (ret < 0)
+			return ret;
+
+		val = !!(val >> (6 - chan->channel));
+
+		break;
+	case ADAR1000_DETECTOR:
+		ret = regmap_read(st->regmap, st->dev_addr | ADAR1000_MISC_ENABLES, &val);
+		if (ret < 0)
+			return ret;
+
+		val = !!!(val >> (3 - chan->channel + 1));
+
+		break;
+	}
+
+	ret = adar1000_mode_4wire(st, 0);
+	if (ret < 0)
+		return ret;
+
+	return sprintf(buf, "%d\n", val);
+}
+
+static ssize_t adar1000_write_enable(struct iio_dev *indio_dev,
+				     uintptr_t private,
+				     const struct iio_chan_spec *chan,
+				     const char *buf, size_t len)
+{
+	struct adar1000_state *st = iio_priv(indio_dev);
+	u16 reg;
+	unsigned int val = 0, mask;
+	bool readin;
+	u8 readval;
+	int ret;
+
+	ret = adar1000_mode_4wire(st, 1);
+	if (ret < 0)
+		return ret;
+
+	switch (private) {
+	case ADAR1000_POWERDOWN:
+		ret = kstrtobool(buf, &readin);
+		if (ret)
+			return ret;
+
+		readin = !readin;
+
+		if (chan->output)
+			reg = ADAR1000_TX_ENABLES;
+		else
+			reg = ADAR1000_RX_ENABLES;
+
+		mask = ADAR1000_CH1_EN >> chan->channel;
+		if (readin)
+			val = ADAR1000_CH1_EN >> chan->channel;
+
+		ret = regmap_update_bits(st->regmap, st->dev_addr | reg,
+					 mask, val);
+		if (ret < 0)
+			return ret;
+		break;
+	case ADAR1000_DETECTOR:
+		ret = kstrtobool(buf, &readin);
+		if (ret)
+			return ret;
+
+		mask = ADAR1000_CH_DET_EN(chan->channel - 1);
+		if (readin)
+			val = ADAR1000_CH_DET_EN(chan->channel - 1);
+
+		ret = regmap_update_bits(st->regmap, st->dev_addr | ADAR1000_MISC_ENABLES,
+					 mask, val);
+		if (ret < 0)
+			return ret;
+		break;
+	}
+
+	ret = adar1000_mode_4wire(st, 0);
+
+	return ret ? ret : len;
+}
+
+#define _ADAR1000_ENABLES_INFO(_name, _private) { \
+	.name = _name, \
+	.read = adar1000_read_enable, \
+	.write = adar1000_write_enable, \
+	.shared = IIO_SEPARATE, \
+	.private = _private, \
+}
+
+static const struct iio_chan_spec_ext_info adar1000_rx_ext_info[] = {
 	_ADAR1000_BEAM_POS_INFO("beam_pos_load", BEAM_POS_LOAD),
 	_ADAR1000_BEAM_POS_INFO("beam_pos_save", BEAM_POS_SAVE),
+	_ADAR1000_ENABLES_INFO("powerdown", ADAR1000_POWERDOWN),
 	{ },
+};
+
+static const struct iio_chan_spec_ext_info adar1000_tx_ext_info[] = {
+	_ADAR1000_BEAM_POS_INFO("beam_pos_load", BEAM_POS_LOAD),
+	_ADAR1000_BEAM_POS_INFO("beam_pos_save", BEAM_POS_SAVE),
+	_ADAR1000_ENABLES_INFO("powerdown", ADAR1000_POWERDOWN),
+	{ },
+};
+
+static const struct iio_chan_spec_ext_info adar1000_det_ext_info[] = {
+	_ADAR1000_ENABLES_INFO("detector", ADAR1000_DETECTOR),
+	{ }
 };
 
 #define ADAR1000_RX_CHANNEL(_num)				\
@@ -875,7 +1012,7 @@ static const struct iio_chan_spec_ext_info adar1000_ext_info[] = {
 	.info_mask_separate = BIT(IIO_CHAN_INFO_HARDWAREGAIN) | \
 		BIT(IIO_CHAN_INFO_PHASE),			\
 	.extend_name = "RX",					\
-	.ext_info = adar1000_ext_info,				\
+	.ext_info = adar1000_rx_ext_info,			\
 }
 
 #define ADAR1000_TX_CHANNEL(_num)				\
@@ -887,7 +1024,7 @@ static const struct iio_chan_spec_ext_info adar1000_ext_info[] = {
 	.info_mask_separate = BIT(IIO_CHAN_INFO_HARDWAREGAIN) | \
 		BIT(IIO_CHAN_INFO_PHASE),			\
 	.extend_name = "TX",					\
-	.ext_info = adar1000_ext_info,				\
+	.ext_info = adar1000_tx_ext_info,			\
 }
 
 #define ADAR1000_TEMP_CHANNEL(_num)				\
@@ -903,6 +1040,7 @@ static const struct iio_chan_spec_ext_info adar1000_ext_info[] = {
 	.channel = (_num),					\
 	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW),		\
 	.extend_name = "DET",					\
+	.ext_info = adar1000_det_ext_info,			\
 }
 
 static const struct iio_chan_spec adar1000_chan[] = {
@@ -1182,26 +1320,9 @@ static int adar1000_setup(struct iio_dev *indio_dev)
 		return ret;
 
 	/* Setup ADC operation */
-	ret = regmap_write(st->regmap, st->dev_addr |
-			   ADAR1000_ADC_CTRL, ADAR1000_AC_EN |
-			   ADAR1000_CLK_EN | ADAR1000_MUX_SEL(0x05));
-	if (ret < 0)
-		return ret;
-
-	/* Enable Channels */
-	ret = regmap_write(st->regmap, st->dev_addr |
-			   ADAR1000_RX_ENABLES, ADAR1000_CH1_EN |
-			   ADAR1000_CH2_EN | ADAR1000_CH3_EN |
-			   ADAR1000_CH4_EN | ADAR1000_LNA_EN |
-			   ADAR1000_VM_EN | ADAR1000_VGA_EN);
-	if (ret < 0)
-		return ret;
-
 	return regmap_write(st->regmap, st->dev_addr |
-			    ADAR1000_TX_ENABLES, ADAR1000_CH1_EN |
-			    ADAR1000_CH2_EN | ADAR1000_CH3_EN |
-			    ADAR1000_CH4_EN | ADAR1000_LNA_EN |
-			    ADAR1000_VM_EN | ADAR1000_VGA_EN);
+			    ADAR1000_ADC_CTRL, ADAR1000_AC_EN |
+			    ADAR1000_CLK_EN | ADAR1000_MUX_SEL(0x05));
 }
 
 static int adar1000_probe(struct spi_device *spi)
