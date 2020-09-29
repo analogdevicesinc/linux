@@ -895,6 +895,33 @@ static ssize_t adar1000_show(struct device *dev,
 	return sprintf(buf, "%d\n", val);
 }
 
+static ssize_t adar1000_reset(struct device *dev,
+			      struct device_attribute *attr,
+			      const char *buf, size_t len)
+{
+	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
+	struct adar1000_state *st = iio_priv(indio_dev);
+	int ret;
+
+	ret = adar1000_mode_4wire(st, 1);
+	if (ret < 0)
+		return ret;
+
+	/* Reset device */
+	ret = regmap_write(st->regmap, st->dev_addr | ADAR1000_INTERFACE_CFG_A,
+			   ADAR1000_SOFTRESET | ADAR1000_ADDR_ASCN);
+	if (ret < 0)
+		return ret;
+
+	/* Clear phase values */
+	memset(st->tx_phase, 0, sizeof(st->tx_phase));
+	memset(st->rx_phase, 0, sizeof(st->rx_phase));
+
+	ret = adar1000_mode_4wire(st, 0);
+
+	return ret ? ret : len;
+}
+
 static IIO_DEVICE_ATTR(rx_vga_enable, 0644,
 		       adar1000_show, adar1000_store, ADAR1000_RX_VGA);
 
@@ -932,6 +959,10 @@ static IIO_DEVICE_ATTR(bias_current_tx, 0644,
 
 static IIO_DEVICE_ATTR(bias_current_tx_drv, 0644,
 		       adar1000_show, adar1000_store, ADAR1000_CUR_TX_DRV);
+
+/* Reset attribute */
+static IIO_DEVICE_ATTR(reset, 0200,
+		       NULL, adar1000_reset, 0);
 
 static struct attribute *adar1000_attributes[] = {
 	&iio_dev_attr_rx_vga_enable.dev_attr.attr,
