@@ -655,11 +655,216 @@ static int adar1000_write_raw_get_fmt(struct iio_dev *indio_dev,
 	}
 }
 
+enum adar1000_iio_dev_attr {
+	ADAR1000_RX_VGA,
+	ADAR1000_RX_VM,
+	ADAR1000_RX_LNA,
+	ADAR1000_TX_VGA,
+	ADAR1000_TX_VM,
+	ADAR1000_TX_LNA,
+};
+
+static ssize_t adar1000_store(struct device *dev,
+			      struct device_attribute *attr,
+			      const char *buf, size_t len)
+{
+	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
+	struct iio_dev_attr *this_attr = to_iio_dev_attr(attr);
+	struct adar1000_state *st = iio_priv(indio_dev);
+	bool readin;
+	u8 readval;
+	u16 reg = 0;
+	int ret = 0;
+	u32 val = 0, mask = 0;
+
+	ret = adar1000_mode_4wire(st, 1);
+	if (ret < 0)
+		return ret;
+
+	/* Disable RAM access */
+	ret = adar1000_ram_enable(st, 0);
+	if (ret < 0)
+		return ret;
+
+	switch ((u32)this_attr->address) {
+	case ADAR1000_RX_VGA:
+		reg = ADAR1000_RX_ENABLES;
+		mask = ADAR1000_VGA_EN;
+		ret = kstrtobool(buf, &readin);
+		if (ret)
+			return ret;
+
+		if (readin)
+			val = ADAR1000_VGA_EN;
+		break;
+	case ADAR1000_RX_VM:
+		reg = ADAR1000_RX_ENABLES;
+		mask = ADAR1000_VM_EN;
+		ret = kstrtobool(buf, &readin);
+		if (ret)
+			return ret;
+
+		if (readin)
+			val = ADAR1000_VM_EN;
+		break;
+	case ADAR1000_RX_LNA:
+		reg = ADAR1000_RX_ENABLES;
+		mask = ADAR1000_LNA_EN;
+		ret = kstrtobool(buf, &readin);
+		if (ret)
+			return ret;
+
+		if (readin)
+			val = ADAR1000_LNA_EN;
+		break;
+	case ADAR1000_TX_VGA:
+		reg = ADAR1000_TX_ENABLES;
+		mask = ADAR1000_VGA_EN;
+		ret = kstrtobool(buf, &readin);
+		if (ret)
+			return ret;
+
+		if (readin)
+			val = ADAR1000_VGA_EN;
+		break;
+	case ADAR1000_TX_VM:
+		reg = ADAR1000_TX_ENABLES;
+		mask = ADAR1000_VM_EN;
+		ret = kstrtobool(buf, &readin);
+		if (ret)
+			return ret;
+
+		if (readin)
+			val = ADAR1000_VM_EN;
+		break;
+	case ADAR1000_TX_LNA:
+		reg = ADAR1000_TX_ENABLES;
+		mask = ADAR1000_LNA_EN;
+		ret = kstrtobool(buf, &readin);
+		if (ret)
+			return ret;
+
+		if (readin)
+			val = ADAR1000_LNA_EN;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	if (mask)
+		ret = regmap_update_bits(st->regmap, st->dev_addr | reg, mask, val);
+	else
+		ret = regmap_write(st->regmap, st->dev_addr | reg, readval);
+
+	if (ret < 0)
+		return ret;
+
+	ret = adar1000_mode_4wire(st, 0);
+
+	return ret ? ret : len;
+}
+
+static ssize_t adar1000_show(struct device *dev,
+			struct device_attribute *attr,
+			char *buf)
+{
+	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
+	struct iio_dev_attr *this_attr = to_iio_dev_attr(attr);
+	struct adar1000_state *st = iio_priv(indio_dev);
+	int ret = 0;
+	u16 reg = 0;
+	unsigned int val, mask = 0;
+
+	ret = adar1000_mode_4wire(st, 1);
+	if (ret < 0)
+		return ret;
+
+	/* Disable RAM access */
+	ret = adar1000_ram_enable(st, 0);
+	if (ret < 0)
+		return ret;
+
+	switch ((u32)this_attr->address) {
+	case ADAR1000_RX_VGA:
+		reg = ADAR1000_RX_ENABLES;
+		mask = ADAR1000_VGA_EN;
+		break;
+	case ADAR1000_RX_VM:
+		reg = ADAR1000_RX_ENABLES;
+		mask = ADAR1000_VM_EN;
+		break;
+	case ADAR1000_RX_LNA:
+		reg = ADAR1000_RX_ENABLES;
+		mask = ADAR1000_LNA_EN;
+		break;
+	case ADAR1000_TX_VGA:
+		reg = ADAR1000_TX_ENABLES;
+		mask = ADAR1000_VGA_EN;
+		break;
+	case ADAR1000_TX_VM:
+		reg = ADAR1000_TX_ENABLES;
+		mask = ADAR1000_VM_EN;
+		break;
+	case ADAR1000_TX_LNA:
+		reg = ADAR1000_TX_ENABLES;
+		mask = ADAR1000_LNA_EN;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	ret = regmap_read(st->regmap, st->dev_addr | reg, &val);
+	if (ret < 0)
+		return ret;
+
+	ret = adar1000_mode_4wire(st, 0);
+	if (ret < 0)
+		return ret;
+
+	if (mask)
+		val = !!(val & mask);
+
+	return sprintf(buf, "%d\n", val);
+}
+
+static IIO_DEVICE_ATTR(rx_vga_enable, 0644,
+		       adar1000_show, adar1000_store, ADAR1000_RX_VGA);
+
+static IIO_DEVICE_ATTR(rx_vm_enable, 0644,
+		       adar1000_show, adar1000_store, ADAR1000_RX_VM);
+
+static IIO_DEVICE_ATTR(rx_lna_enable, 0644,
+		       adar1000_show, adar1000_store, ADAR1000_RX_LNA);
+
+static IIO_DEVICE_ATTR(tx_vga_enable, 0644,
+		       adar1000_show, adar1000_store, ADAR1000_TX_VGA);
+
+static IIO_DEVICE_ATTR(tx_vm_enable, 0644,
+		       adar1000_show, adar1000_store, ADAR1000_TX_VM);
+
+static IIO_DEVICE_ATTR(tx_lna_enable, 0644,
+		       adar1000_show, adar1000_store, ADAR1000_TX_LNA);
+
+static struct attribute *adar1000_attributes[] = {
+	&iio_dev_attr_rx_vga_enable.dev_attr.attr,
+	&iio_dev_attr_rx_vm_enable.dev_attr.attr,
+	&iio_dev_attr_rx_lna_enable.dev_attr.attr,
+	&iio_dev_attr_tx_vga_enable.dev_attr.attr,
+	&iio_dev_attr_tx_vm_enable.dev_attr.attr,
+	&iio_dev_attr_tx_lna_enable.dev_attr.attr,
+	NULL,
+};
+
+static const struct attribute_group adar1000_attribute_group = {
+	.attrs = adar1000_attributes,
+};
+
 static const struct iio_info adar1000_info = {
 	.read_raw = &adar1000_read_raw,
 	.write_raw = &adar1000_write_raw,
 	.write_raw_get_fmt = &adar1000_write_raw_get_fmt,
 	.debugfs_reg_access = &adar1000_reg_access,
+	.attrs = &adar1000_attribute_group,
 };
 
 /* RAM access - BEAM Position */
