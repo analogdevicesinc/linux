@@ -9,6 +9,7 @@
 
 #define CLASS_FIRMWARE_FILENAME		"ppfe_class_ls1012a.elf"
 #define TMU_FIRMWARE_FILENAME		"ppfe_tmu_ls1012a.elf"
+#define UTIL_FIRMWARE_FILENAME		"ppfe_util_ls1012a.elf"
 
 #define PFE_FW_CHECK_PASS		0
 #define PFE_FW_CHECK_FAIL		1

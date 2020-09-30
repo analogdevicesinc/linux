@@ -17,10 +17,6 @@
 #include <linux/of_platform.h>
 #include <linux/of_address.h>
 
-/*NOTE: Uncomment below macro to load firmware binaries from file system
- *	#define LOAD_PFEFIRMWARE_FROM_FILESYSTEM	1
- */
-
 static struct elf32_shdr *get_elf_section_header(const u8 *fw,
 						 const char *section)
 {
@@ -186,7 +182,6 @@ err:
 	return rc;
 }
 
-#if !defined(LOAD_PFEFIRMWARE_FROM_FILESYSTEM)
 int get_firmware_in_fdt(const u8 **pe_fw, const char *name)
 {
 	struct device_node *np;
@@ -232,6 +227,25 @@ int get_firmware_in_fdt(const u8 **pe_fw, const char *name)
 		}
 		of_node_put(np);
 		*pe_fw = data;
+	} else if (!strcmp(name, UTIL_FIRMWARE_FILENAME)) {
+		np = of_find_compatible_node(NULL, NULL,
+					     "fsl,pfe-util-firmware");
+		if (!np) {
+			pr_info("Failed to find the node\n");
+			return -ENOENT;
+		}
+
+		data = of_get_property(np, "fsl,util-firmware", NULL);
+		if (data) {
+			len = of_get_property(np, "length", NULL);
+			pr_info("UTIL fw of length %d bytes loaded from FDT.\n",
+				be32_to_cpu(*len));
+		} else {
+			pr_info("fsl,util-firmware not found!!!!\n");
+			return -ENOENT;
+		}
+		of_node_put(np);
+		*pe_fw = data;
 	} else {
 		pr_err("firmware:%s not known\n", name);
 		return -EINVAL;
@@ -239,7 +253,6 @@ int get_firmware_in_fdt(const u8 **pe_fw, const char *name)
 
 	return 0;
 }
-#endif
 
 /* PFE firmware initialization.
  * Loads different firmware files from filesystem.
@@ -253,65 +266,57 @@ int get_firmware_in_fdt(const u8 **pe_fw, const char *name)
  */
 int pfe_firmware_init(struct pfe *pfe)
 {
-#if defined(LOAD_PFEFIRMWARE_FROM_FILESYSTEM)
 	const struct firmware *class_fw, *tmu_fw;
-#endif
 	const u8 *class_elf_fw, *tmu_elf_fw;
-	int rc = 0;
+	int rc = 0, fs_load = 0;
 #if !defined(CONFIG_FSL_PPFE_UTIL_DISABLED)
-	const char *util_fw_name;
 	const struct firmware *util_fw;
 	const u8 *util_elf_fw;
+
 #endif
 
 	pr_info("%s\n", __func__);
 
-#if defined(LOAD_PFEFIRMWARE_FROM_FILESYSTEM)
-	if (request_firmware(&class_fw, CLASS_FIRMWARE_FILENAME, pfe->dev)) {
-		pr_err("%s: request firmware %s failed\n", __func__,
-		       CLASS_FIRMWARE_FILENAME);
-		rc = -ETIMEDOUT;
-		goto err0;
-	}
-	class_elf_fw = class_fw->data;
-
-	if (request_firmware(&tmu_fw, TMU_FIRMWARE_FILENAME, pfe->dev)) {
-		pr_err("%s: request firmware %s failed\n", __func__,
-		       TMU_FIRMWARE_FILENAME);
-		rc = -ETIMEDOUT;
-		goto err1;
-	}
-	tmu_elf_fw = tmu_fw->data;
-
 #if !defined(CONFIG_FSL_PPFE_UTIL_DISABLED)
-	util_fw_name = UTIL_FIRMWARE_FILENAME;
-
-	if (request_firmware(&util_fw, util_fw_name, pfe->dev)) {
-		pr_err("%s: request firmware %s failed\n", __func__,
-		       util_fw_name);
-		rc = -ETIMEDOUT;
-		goto err2;
-	}
-	util_elf_fw = util_fw->data;
-#endif
-
-#else /*!LOAD_PFEFIRMWARE_FROM_FILESYSTEM*/
 	if (get_firmware_in_fdt(&class_elf_fw, CLASS_FIRMWARE_FILENAME) ||
-	    get_firmware_in_fdt(&tmu_elf_fw, TMU_FIRMWARE_FILENAME)) {
-		pr_err("%s: PFE firmware not found in FDT\n", __func__);
-		return -ENOENT;
-	}
+	    get_firmware_in_fdt(&tmu_elf_fw, TMU_FIRMWARE_FILENAME) ||
+	    get_firmware_in_fdt(&util_elf_fw, UTIL_FIRMWARE_FILENAME))
+#else
+	if (get_firmware_in_fdt(&class_elf_fw, CLASS_FIRMWARE_FILENAME) ||
+	    get_firmware_in_fdt(&tmu_elf_fw, TMU_FIRMWARE_FILENAME))
+#endif
+	{
+		pr_info("%s:PFE firmware not found in FDT.\n", __func__);
+		pr_info("%s:Trying to load firmware from filesystem...!\n", __func__);
+
+		/* look for firmware in filesystem...!*/
+		fs_load = 1;
+		if (request_firmware(&class_fw, CLASS_FIRMWARE_FILENAME, pfe->dev)) {
+			pr_err("%s: request firmware %s failed\n", __func__,
+			       CLASS_FIRMWARE_FILENAME);
+			rc = -ETIMEDOUT;
+			goto err0;
+		}
+		class_elf_fw = class_fw->data;
+
+		if (request_firmware(&tmu_fw, TMU_FIRMWARE_FILENAME, pfe->dev)) {
+			pr_err("%s: request firmware %s failed\n", __func__,
+			       TMU_FIRMWARE_FILENAME);
+			rc = -ETIMEDOUT;
+			goto err1;
+		}
+		tmu_elf_fw = tmu_fw->data;
 
 #if !defined(CONFIG_FSL_PPFE_UTIL_DISABLED)
-	util_fw_name = UTIL_FIRMWARE_FILENAME;
-
-	if (get_firmware_in_fdt(&util_elf_fw, util_fw_name)) {
-		pr_err("%s: PFE fw %s not found in FDT\n", __func__,
-		       util_fw_name);
-		return -ENOENT;
+		if (request_firmware(&util_fw, UTIL_FIRMWARE_FILENAME, pfe->dev)) {
+			pr_err("%s: request firmware %s failed\n", __func__,
+			       UTIL_FIRMWARE_FILENAME);
+			rc = -ETIMEDOUT;
+			goto err2;
+		}
+		util_elf_fw = util_fw->data;
+#endif
 	}
-#endif
-#endif
 
 	rc = pfe_load_elf(CLASS_MASK, class_elf_fw, pfe);
 	if (rc < 0) {
@@ -356,22 +361,20 @@ int pfe_firmware_init(struct pfe *pfe)
 	tmu_enable(0xf);
 	class_enable();
 
-#if defined(LOAD_PFEFIRMWARE_FROM_FILESYSTEM)
 err3:
 #if !defined(CONFIG_FSL_PPFE_UTIL_DISABLED)
-	release_firmware(util_fw);
-
+	if (fs_load)
+		release_firmware(util_fw);
 err2:
 #endif
-	release_firmware(tmu_fw);
+	if (fs_load)
+		release_firmware(tmu_fw);
 
 err1:
-	release_firmware(class_fw);
+	if (fs_load)
+		release_firmware(class_fw);
 
 err0:
-#else
-err3:
-#endif
 	return rc;
 }
 
