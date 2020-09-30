@@ -197,6 +197,7 @@ struct ad9371_rf_phy {
 	struct bin_attribute 	bin;
 	struct bin_attribute 	bin_gt;
 	struct iio_dev 		*indio_dev;
+	struct jesd204_dev	*jdev;
 
 	struct gpio_desc	*reset_gpio;
 	struct gpio_desc	*sysref_req_gpio;
