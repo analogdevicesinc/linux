@@ -114,6 +114,7 @@ struct ad9528_platform_data {
 	unsigned char			sysref_nshot_mode;
 	unsigned char			sysref_req_trigger_mode;
 	bool				sysref_req_en;
+	u32				jdev_max_sysref_freq;
 
 	/* PLL2 Setting */
 	unsigned int			pll2_charge_pump_current_nA;
