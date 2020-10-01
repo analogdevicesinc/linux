@@ -99,6 +99,23 @@ const char* const adrv9001_error_table_CmdCtrlMboxCmdError[] =
     "Command error"
 };
 
+const char* const adrv9001_error_table_CmdError[] = 
+{ 
+    "Error occurred during an Init Calibration. Check that no signal is being applied to the Rx ports. Check that "
+        "correct external LOs are applied, and synchronized,  where appropriate",
+    "Error occurred during a Tracking Calibration. Disable tracking calibrations, reset and program. If enabled "
+        "tracking calibrations require external loopback, check loopback connections. If issue persists, contact "
+        "Analog Devices for support",
+    "Error occurred during a Firmware Mailbox SET or GET transaction.Check the connection between ADRV9001 Evaluation "
+        "card and FPGA Platform",
+    "Error occurred during a Firmware Mailbox GET transaction.Check the connection between ADRV9001 Evaluation card "
+        "and FPGA Platform",
+    "Error occurred during a Firmware Mailbox CONFIG transaction.Check the connection between ADRV9001 Evaluation card"
+        " and FPGA Platform",
+    "Error occurred in Firmware Driver code",
+    "Error occurred in Firmware System code"
+};
+
 /****************************************************** Local Constants ********************************************************/
 
 static const uint32_t TX_CHANNELS[] = { ADI_ADRV9001_TX1, ADI_ADRV9001_TX2 };
@@ -124,7 +141,7 @@ static int32_t adrv9001_DmaMemWriteByte(adi_adrv9001_Device_t *device,
     uint8_t regWrite = 0;
     uint8_t autoInc = ADI_ADRV9001_ARM_MEM_AUTO_INCR;
 
-    ADI_API_PRIV_ENTRY_PTR_ARRAY_EXPECT(device, data, byteCount);
+    ADI_ENTRY_PTR_ARRAY_EXPECT(device, data, byteCount);
 
     ADRV9001_DMAINFO("ARM_MEM_WRITE", address, byteCount);
 
@@ -210,7 +227,7 @@ static int32_t adrv9001_DmaMemReadByte(adi_adrv9001_Device_t *device,
     uint8_t regRead = 0;
     uint8_t dataRead0 = 0;
 
-    ADI_API_PRIV_ENTRY_PTR_ARRAY_EXPECT(device, returnData, byteCount);
+    ADI_ENTRY_PTR_ARRAY_EXPECT(device, returnData, byteCount);
 
     ADRV9001_DMAINFO("ARM_MEM_READ", address, byteCount);
 
@@ -326,7 +343,7 @@ static int32_t adrv9001_FlexStreamProcessorMemWriteByte(adi_adrv9001_Device_t *d
     uint8_t regWrite = 0;
     uint8_t autoInc = ADI_ADRV9001_ARM_MEM_AUTO_INCR;
 
-    ADI_API_PRIV_ENTRY_PTR_ARRAY_EXPECT(device, data, byteCount);
+    ADI_ENTRY_PTR_ARRAY_EXPECT(device, data, byteCount);
 
     ADRV9001_DMAINFO("FLEX_SP_ARM_MEM_WRITE", address, byteCount);
 
@@ -407,7 +424,7 @@ static int32_t adrv9001_FlexStreamProcessorMemReadByte(adi_adrv9001_Device_t *de
     uint8_t regRead = 0;
     uint8_t dataRead0 = 0;
 
-    ADI_API_PRIV_ENTRY_PTR_ARRAY_EXPECT(device, returnData, byteCount);
+    ADI_ENTRY_PTR_ARRAY_EXPECT(device, returnData, byteCount);
 
     ADRV9001_DMAINFO("ADRV9001_ADDR_FLEX_SP_ARM_MEM_READ", address, byteCount);
 
@@ -1868,7 +1885,7 @@ static int32_t adrv9001_PfirFilterCoeffWrite(adi_adrv9001_Device_t *device,
         &pfirBuffer->pfirRxMagCompNb[0], &pfirBuffer->pfirRxMagCompNb[1]
     };
 
-    ADI_API_PRIV_ENTRY_PTR_EXPECT(device, pfirBuffer);
+    ADI_ENTRY_PTR_EXPECT(device, pfirBuffer);
 
     arraySize = sizeof(PfirWbNbFilterBankInfo) / sizeof(PfirWbNbFilterBankInfo[0]);
     for (i = 0; i < arraySize; i++)
@@ -1958,7 +1975,7 @@ int32_t adrv9001_DmaMemWrite(adi_adrv9001_Device_t *device, uint32_t address, co
     uint8_t regVal = 0;
     int32_t recoveryAction = ADI_COMMON_ACT_NO_ACTION;
 
-    ADI_API_PRIV_ENTRY_PTR_ARRAY_EXPECT(device, data, byteCount);
+    ADI_ENTRY_PTR_ARRAY_EXPECT(device, data, byteCount);
 
     ADRV9001_DMAINFO("ARM_MEM_WRITE", armMemAddress, byteCount);
 
@@ -2104,7 +2121,7 @@ int32_t adrv9001_DmaMemRead(adi_adrv9001_Device_t *device, uint32_t address, uin
     uint8_t dataRead = 0;
     uint8_t regVal = 0;
 
-    ADI_API_PRIV_ENTRY_PTR_ARRAY_EXPECT(device, returnData, byteCount);
+    ADI_ENTRY_PTR_ARRAY_EXPECT(device, returnData, byteCount);
 
     ADRV9001_DMAINFO("ARM_MEM_READ", address, byteCount);
 
@@ -2218,7 +2235,7 @@ int32_t adrv9001_FlexStreamProcessorMemWrite(adi_adrv9001_Device_t *device,
     uint8_t regVal = 0;
     int32_t recoveryAction = ADI_COMMON_ACT_NO_ACTION;
 
-    ADI_API_PRIV_ENTRY_PTR_ARRAY_EXPECT(device, data, byteCount);
+    ADI_ENTRY_PTR_ARRAY_EXPECT(device, data, byteCount);
 
     ADRV9001_DMAINFO("FLEX_SP_ARM_MEM_WRITE", flexSpAddress, byteCount);
 
@@ -2371,7 +2388,7 @@ int32_t adrv9001_FlexStreamProcessorMemRead(adi_adrv9001_Device_t *device,
     uint8_t dataRead = 0;
     uint8_t regVal = 0;
 
-    ADI_API_PRIV_ENTRY_PTR_ARRAY_EXPECT(device, returnData, byteCount);
+    ADI_ENTRY_PTR_ARRAY_EXPECT(device, returnData, byteCount);
 
     ADRV9001_DMAINFO("ADRV9001_ADDR_FLEX_SP_ARM_MEM_READ", address, byteCount);
 
@@ -2467,6 +2484,40 @@ int32_t adrv9001_ArmMailBoxErrCodeGet(adi_adrv9001_Device_t *device, uint16_t *m
 #include "adrv9001_arm_error_mapping.h"
 #endif
 
+static const char* adrv9001_CmdErrMsgGet(uint32_t errCode)
+{
+    if (0x2000 <= errCode && errCode <= 0x3FFF)
+    {
+        return adrv9001_error_table_CmdError[0];
+    }
+    else if (0x4000 <= errCode && errCode <= 0x5FFF)
+    {
+        return adrv9001_error_table_CmdError[1];
+    }
+    else if (0x6000 <= errCode && errCode <= 0x7FFF)
+    {
+        return adrv9001_error_table_CmdError[2];
+    }
+    else if (0x8000 <= errCode && errCode <= 0x9FFF)
+    {
+        return adrv9001_error_table_CmdError[3];
+    }
+    else if (0xA000 <= errCode && errCode <= 0xBFFF)
+    {
+        return adrv9001_error_table_CmdError[4];
+    }
+    else if (0xC000 <= errCode && errCode <= 0xDFFF)
+    {
+        return adrv9001_error_table_CmdError[5];
+    }
+    else if (0xE000 <= errCode && errCode <= 0xFFFF)
+    {
+        return adrv9001_error_table_CmdError[6];
+    }
+    
+    return NULL;
+}
+
 const char* adrv9001_ArmMailBoxErrMsgGet(uint32_t errCode)
 {
 #ifndef ADI_ADRV9001_ARM_VERBOSE
@@ -2492,7 +2543,7 @@ int32_t adrv9001_ArmCmdErrorHandler(adi_adrv9001_Device_t *device, uint32_t detE
     static const uint8_t ERR_FLAG_MASK = 0x0E;
     static const uint8_t ERR_FLAG_SHIFT = 1;
 
-    ADI_API_PRIV_ENTRY_EXPECT(device);
+    ADI_ENTRY_EXPECT(device);
 
     armErrorFlag = ADRV9001_BF_DECODE((uint8_t)detErr, ERR_FLAG_MASK, ERR_FLAG_SHIFT);
 
@@ -2519,6 +2570,8 @@ int32_t adrv9001_ArmCmdErrorHandler(adi_adrv9001_Device_t *device, uint32_t detE
             }
 
             ADI_EXPECT(adrv9001_ArmMailBoxErrCodeGet, device, &mailboxErrCode);
+            errorString = adrv9001_CmdErrMsgGet(mailboxErrCode);
+            
             ADI_ERROR_REPORT(&device->common,
                              ADI_ADRV9001_SRC_ARMCMD,
                              mailboxErrCode,
@@ -2550,7 +2603,7 @@ static uint32_t adrv9001_ArmProfileWrite_Validate(adi_adrv9001_Device_t *device,
 
     static const uint32_t ADRV9001_ADDR_DEVICE_PROFILE = 0x20000000;
 
-    ADI_API_PRIV_ENTRY_PTR_EXPECT(device, init);
+    ADI_ENTRY_PTR_EXPECT(device, init);
 
     if (device->devStateInfo.profileAddr < ADRV9001_ADDR_DEVICE_PROFILE)
     {
@@ -3039,7 +3092,7 @@ int32_t adrv9001_PfirProfilesWrite(adi_adrv9001_Device_t *device, const adi_adrv
 
     static const uint32_t ADRV9001_PROFILE_MAX_SIZE = 6620;
 
-    ADI_API_PRIV_ENTRY_PTR_EXPECT(device, init);
+    ADI_ENTRY_PTR_EXPECT(device, init);
     ADI_EXPECT(adrv9001_pFirProfileAddr_Get, device, &profileStartAddr);
     profileAddr = profileStartAddr;
 

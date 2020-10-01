@@ -97,7 +97,7 @@ int32_t adi_adrv9001_Stream_Image_Write(adi_adrv9001_Device_t *device,
         ADI_ADRV9001_RX2
     };
 
-    ADI_API_ENTRY_PTR_EXPECT(device, binary);
+    ADI_ENTRY_PTR_EXPECT(device, binary);
 
     if ((byteCount % 4) > 0)
     {
@@ -284,7 +284,7 @@ int32_t adi_adrv9001_Stream_Version(adi_adrv9001_Device_t *device, adi_adrv9001_
     static uint32_t STREAM_BASE_ADDR = 0x20040000;
     static uint32_t STREAM_VERSION_OFFSET = 0x30;
 
-    ADI_API_ENTRY_PTR_EXPECT(device, streamVersion);
+    ADI_ENTRY_PTR_EXPECT(device, streamVersion);
 
     if ((device->devStateInfo.devState & ADI_ADRV9001_STATE_STREAM_LOADED) != ADI_ADRV9001_STATE_STREAM_LOADED)
     {
@@ -335,7 +335,7 @@ int32_t adi_adrv9001_StreamGpioConfigSet(adi_adrv9001_Device_t *device, adi_adrv
     int32_t recoveryAction = ADI_COMMON_ACT_NO_ACTION;
 
     /* Check device pointer is not null */
-    ADI_API_ENTRY_PTR_EXPECT(device, streamGpioPinCfg);
+    ADI_ENTRY_PTR_EXPECT(device, streamGpioPinCfg);
 
 #if ADI_ADRV9001_STREAM_RANGE_CHECK > 0
     recoveryAction = adrv9001_StreamGpioConfigSetRangeCheck(device, streamGpioPinCfg);
@@ -367,7 +367,7 @@ int32_t adi_adrv9001_StreamGpioConfigGet(adi_adrv9001_Device_t *device, adi_adrv
     int32_t recoveryAction = ADI_COMMON_ACT_NO_ACTION;
 
     /* Check device pointer is not null */
-    ADI_API_ENTRY_PTR_EXPECT(device, streamGpioPinCfg);
+    ADI_ENTRY_PTR_EXPECT(device, streamGpioPinCfg);
 
     recoveryAction = adrv9001_StreamGpioPinGet(device, STREAM_GP_INPUT0_SIGNAL_ID, &streamGpioPinCfg->steamGpInput0);
     ADI_ERROR_RETURN(device->common.error.newAction);

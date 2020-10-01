@@ -8,9 +8,7 @@
 #ifndef _ADI_ADRV9001_PROFILE_TYPES_H_
 #define _ADI_ADRV9001_PROFILE_TYPES_H_
 
-#ifndef __KERNEL__
 #include <stdint.h>
-#endif
 
 #include "adi_adrv9001_clockSettings_types.h"
 #include "adi_adrv9001_rxSettings_types.h"
