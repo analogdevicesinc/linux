@@ -36,9 +36,9 @@
 /* TODO: Determine a reasonable value */
 #define ADI_ADRV9001_READY_FOR_MCS_DELAY_US 100U
 
-/* TODO: Evaluate if this can be removed */
 /**
  * \brief Enum of all ADRV9001 channels
+ * \note Maskable
  */
 typedef enum adi_adrv9001_MailboxChannel
 {
@@ -66,9 +66,7 @@ typedef enum adi_adrv9001_DeviceClockDivisor
     ADI_ADRV9001_DEVICECLOCKDIVISOR_16       = 4,
     ADI_ADRV9001_DEVICECLOCKDIVISOR_32       = 5,
     ADI_ADRV9001_DEVICECLOCKDIVISOR_64       = 6,
-#ifdef SI_REV_B0
     ADI_ADRV9001_DEVICECLOCKDIVISOR_DISABLED = 7 /* Arbitrary value, just to select in case to disable device clock output */
-#endif
 } adi_adrv9001_DeviceClockDivisor_e;
 
 /**
@@ -145,17 +143,6 @@ typedef struct adi_adrv9001_SpiSettings
 } adi_adrv9001_SpiSettings_t;
 
 /**
-* \brief Data Structure to hold ADRV9001 device Rx Max and Min gain indices
-*/
-typedef struct
-{
-    uint8_t rx1MinGainIndex;	/*!< Current device minimum Rx1 gain index */
-    uint8_t rx1MaxGainIndex;	/*!< Current device maximum Rx1 gain index */
-    uint8_t rx2MinGainIndex;	/*!< Current device minimum Rx2 gain index */
-    uint8_t rx2MaxGainIndex;	/*!< Current device maximum Rx2 gain index */
-} adi_adrv9001_GainIndex_t;
-
-/**
 * \brief Data structure to hold clock divide ratios
 */
 typedef struct adi_adrv9001_ClkDivideRatios
@@ -210,7 +197,6 @@ typedef struct adi_adrv9001_Info
     uint32_t txInputRate_kHz[ADI_ADRV9001_MAX_TXCHANNELS];				/*!< Tx Input sample rate from currently loaded profile */
     uint32_t rxOutputRate_kHz[ADI_ADRV9001_MAX_RXCHANNELS];				/*!< Rx Output sample rate from currently loaded profile */
     uint32_t rx1InterfaceSampleRate_kHz;                                /*!< Rx1 Interface sample rate from currently loaded profile */
-    adi_adrv9001_GainIndex_t gainIndexes;								/*!< Current device Rx min max gain index values */
     uint16_t chunkStreamImageSize[12];									/*!< Stream Image Size */
     uint16_t chunkStreamImageOffset[12];								/*!< Stream Image Offset */
     uint32_t currentStreamBinBaseAddr;									/*!< Address to load current stream */

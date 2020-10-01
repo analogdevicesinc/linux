@@ -1,6 +1,6 @@
 /* Auto-generated file - DO NOT MANUALLY EDIT */
 /* Filename: C:\Jenkins\workspace\vice-driver_profile-types_master\include\adrv9001_Init_t_parser.h */
-/* Created on: 7/10/2020 2:47:12 PM */
+/* Created on: 8/13/2020 7:28:52 PM */
 
 /**
  * Contains auto-generated C macros for loading fields from a JSON file

@@ -35,10 +35,10 @@ static int32_t adi_adrv9001_Rx_GainControl_MinMaxGainIndex_Set_Validate(adi_adrv
                                                                         uint8_t maxGainIndex);
 
 static int32_t __maybe_unused adi_adrv9001_Rx_GainControl_Mode_Set_Validate(adi_adrv9001_Device_t *device,
-									    adi_common_ChannelNumber_e channel,
-									    adi_adrv9001_RxGainControlMode_e gainCtrlMode)
+                                        adi_common_ChannelNumber_e channel,
+                                        adi_adrv9001_RxGainControlMode_e gainCtrlMode)
 {
-    ADI_API_ENTRY_EXPECT(device);
+    ADI_ENTRY_EXPECT(device);
     ADI_RANGE_CHECK(device, gainCtrlMode, ADI_ADRV9001_RX_GAIN_CONTROL_MODE_SPI, ADI_ADRV9001_RX_GAIN_CONTROL_MODE_AUTO);
     ADI_RANGE_CHECK(device, channel, ADI_CHANNEL_1, ADI_CHANNEL_2);
 
@@ -94,10 +94,10 @@ int32_t adi_adrv9001_Rx_GainControl_Mode_Set(adi_adrv9001_Device_t *device,
 }
 
 static int32_t __maybe_unused adi_adrv9001_Rx_GainControl_Mode_Get_Validate(adi_adrv9001_Device_t *device,
-									    adi_common_ChannelNumber_e channel,
-									    adi_adrv9001_RxGainControlMode_e *gainCtrlMode)
+                                        adi_common_ChannelNumber_e channel,
+                                        adi_adrv9001_RxGainControlMode_e *gainCtrlMode)
 {
-    ADI_API_ENTRY_PTR_EXPECT(device, gainCtrlMode);
+    ADI_ENTRY_PTR_EXPECT(device, gainCtrlMode);
     ADI_RANGE_CHECK(device, channel, ADI_CHANNEL_1, ADI_CHANNEL_2);
 
     ADI_API_RETURN(device);
@@ -141,8 +141,8 @@ int32_t adi_adrv9001_Rx_GainControl_Mode_Get(adi_adrv9001_Device_t *device,
 
 
 static int32_t __maybe_unused adi_adrv9001_Rx_GainControl_Configure_Validate(adi_adrv9001_Device_t *device,
-									     adi_common_ChannelNumber_e channel,
-									     adi_adrv9001_GainControlCfg_t *agcCfg)
+                                         adi_common_ChannelNumber_e channel,
+                                         adi_adrv9001_GainControlCfg_t *agcCfg)
 {
     static const uint8_t PEAK_WAIT_TIME_MAX = 0x1F;
     static const uint32_t GAIN_UPDATE_COUNTER_MAX = 0x003FFFFF;
@@ -220,19 +220,19 @@ static int32_t __maybe_unused adi_adrv9001_Rx_GainControl_Configure_Validate(adi
     ADI_RANGE_CHECK(device, agcCfg->peak.hbOverloadPowerMode,    0, ENABLE_MAX);
 
     ADI_RANGE_CHECK(device,
-                    agcCfg->peak.feedback_low_threshold_counter_exceeded,
+                    agcCfg->peak.feedback_apd_low_hb_low,
                     ADI_ADRV9001_GPIO_PIN_CRUMB_UNASSIGNED,
                     ADI_ADRV9001_GPIO_PIN_CRUMB_15_14);
     ADI_RANGE_CHECK(device,
-                    agcCfg->peak.feedback_high_threshold_counter_exceeded,
+        agcCfg->peak.feedback_apd_high_hb_high,
                     ADI_ADRV9001_GPIO_PIN_CRUMB_UNASSIGNED,
                     ADI_ADRV9001_GPIO_PIN_CRUMB_15_14);
     ADI_RANGE_CHECK(device,
-                    agcCfg->power.feedback_lowThreshold_gainChange,
+                    agcCfg->power.feedback_inner_high_inner_low,
                     ADI_ADRV9001_GPIO_PIN_CRUMB_UNASSIGNED,
                     ADI_ADRV9001_GPIO_PIN_CRUMB_15_14);
     ADI_RANGE_CHECK(device,
-                    agcCfg->power.feedback_high_threshold_exceeded,
+                    agcCfg->power.feedback_apd_high_apd_low,
                     ADI_ADRV9001_GPIO_PIN_CRUMB_UNASSIGNED,
                     ADI_ADRV9001_GPIO_PIN_CRUMB_15_14);
 
@@ -263,7 +263,7 @@ int32_t adi_adrv9001_Rx_GainControl_Configure(adi_adrv9001_Device_t *device,
     adi_adrv9001_RxGainControlMode_e gainCtrlMode = ADI_ADRV9001_RX_GAIN_CONTROL_MODE_SPI;
 
     static const uint8_t ADI_ADRV9001_GAIN_PEAK_ADDRESS = 0x28;
-    static const uint8_t ADI_ADRV9001_GAIN_PEAK_POWER_ADDRESS = 0x29;
+    static const uint8_t ADI_ADRV9001_GAIN_PEAK_POWER_ADDRESS = 0x30;
 
     /* GPIO variables */
     uint8_t gpioCrumb1_0 = 0;
@@ -421,8 +421,8 @@ int32_t adi_adrv9001_Rx_GainControl_Configure(adi_adrv9001_Device_t *device,
     /* Determine crumbs and sources to set */
     if (agcCfg->agcMode == ADI_ADRV9001_RX_GAIN_CONTROL_DETECTION_MODE_PEAK)
     {
-        gpioCrumb1_0 = (uint8_t)agcCfg->peak.feedback_low_threshold_counter_exceeded;
-        gpioCrumb3_2 = (uint8_t)agcCfg->peak.feedback_high_threshold_counter_exceeded;
+        gpioCrumb1_0 = (uint8_t)agcCfg->peak.feedback_apd_low_hb_low;
+        gpioCrumb3_2 = (uint8_t)agcCfg->peak.feedback_apd_high_hb_high;
         if (ADI_CHANNEL_1 == channel)
         {
             gpioSource1_0 = ADI_ADRV9001_GPIO_SOURCE_RX1_5_4;
@@ -436,8 +436,8 @@ int32_t adi_adrv9001_Rx_GainControl_Configure(adi_adrv9001_Device_t *device,
     }
     else
     {
-        gpioCrumb1_0 = (uint8_t)agcCfg->power.feedback_lowThreshold_gainChange;
-        gpioCrumb3_2 = (uint8_t)agcCfg->power.feedback_high_threshold_exceeded;
+        gpioCrumb1_0 = (uint8_t)agcCfg->power.feedback_inner_high_inner_low;
+        gpioCrumb3_2 = (uint8_t)agcCfg->power.feedback_apd_high_apd_low;
         if (ADI_CHANNEL_1 == channel)
         {
             gpioSource1_0 = ADI_ADRV9001_GPIO_SOURCE_RX1_1_0;
@@ -466,8 +466,8 @@ int32_t adi_adrv9001_Rx_GainControl_Configure(adi_adrv9001_Device_t *device,
 }
 
 static int32_t __maybe_unused adi_adrv9001_Rx_GainControl_Inspect_Validate(adi_adrv9001_Device_t *device,
-									   adi_common_ChannelNumber_e channel,
-									   adi_adrv9001_GainControlCfg_t *agcCfg)
+                                       adi_common_ChannelNumber_e channel,
+                                       adi_adrv9001_GainControlCfg_t *agcCfg)
 {
     ADI_RANGE_CHECK(device, channel, ADI_CHANNEL_1, ADI_CHANNEL_2);
     ADI_NULL_PTR_RETURN(&device->common, agcCfg);
@@ -589,10 +589,10 @@ int32_t adi_adrv9001_Rx_GainControl_Inspect(adi_adrv9001_Device_t *device,
     ADI_EXPECT(adrv9001_NvsRegmapRxb_ExtLnaSettlingDelay_Get, device, rxbAddr, &agcCfg->extLna.settlingDelay);
 
     /* GPIO */
-    agcCfg->peak.feedback_high_threshold_counter_exceeded = ADI_ADRV9001_GPIO_PIN_CRUMB_UNASSIGNED;
-    agcCfg->peak.feedback_low_threshold_counter_exceeded = ADI_ADRV9001_GPIO_PIN_CRUMB_UNASSIGNED;
-    agcCfg->power.feedback_high_threshold_exceeded = ADI_ADRV9001_GPIO_PIN_CRUMB_UNASSIGNED;
-    agcCfg->power.feedback_lowThreshold_gainChange = ADI_ADRV9001_GPIO_PIN_CRUMB_UNASSIGNED;
+    agcCfg->peak.feedback_apd_high_hb_high = ADI_ADRV9001_GPIO_PIN_CRUMB_UNASSIGNED;
+    agcCfg->peak.feedback_apd_low_hb_low = ADI_ADRV9001_GPIO_PIN_CRUMB_UNASSIGNED;
+    agcCfg->power.feedback_apd_high_apd_low = ADI_ADRV9001_GPIO_PIN_CRUMB_UNASSIGNED;
+    agcCfg->power.feedback_inner_high_inner_low = ADI_ADRV9001_GPIO_PIN_CRUMB_UNASSIGNED;
     for (i = 0; i < ADI_ADRV9001_GPIO_PIN_CRUMB_15_14; i++)
     {
         ADRV9001_SPIREADBYTE(device, "GPIO_SOURCE_SEL", (GPIO_SOURCE_SEL_ADDR + i), &bfValue);
@@ -601,19 +601,19 @@ int32_t adi_adrv9001_Rx_GainControl_Inspect(adi_adrv9001_Device_t *device,
         {
         case ADI_ADRV9001_GPIO_SOURCE_RX1_1_0:  /* Falls through */
         case ADI_ADRV9001_GPIO_SOURCE_RX2_1_0:
-            agcCfg->power.feedback_lowThreshold_gainChange = (adi_adrv9001_GpioPinCrumbSel_e)(i + 1);
+            agcCfg->power.feedback_inner_high_inner_low = (adi_adrv9001_GpioPinCrumbSel_e)(i + 1);
             break;
         case ADI_ADRV9001_GPIO_SOURCE_RX1_3_2:  /* Falls through */
         case ADI_ADRV9001_GPIO_SOURCE_RX2_3_2:
-            agcCfg->power.feedback_high_threshold_exceeded = (adi_adrv9001_GpioPinCrumbSel_e)(i + 1);
+            agcCfg->power.feedback_apd_high_apd_low = (adi_adrv9001_GpioPinCrumbSel_e)(i + 1);
             break;
         case ADI_ADRV9001_GPIO_SOURCE_RX1_5_4:  /* Falls through */
         case ADI_ADRV9001_GPIO_SOURCE_RX2_5_4:
-            agcCfg->peak.feedback_low_threshold_counter_exceeded = (adi_adrv9001_GpioPinCrumbSel_e)(i + 1);
+            agcCfg->peak.feedback_apd_low_hb_low = (adi_adrv9001_GpioPinCrumbSel_e)(i + 1);
             break;
         case ADI_ADRV9001_GPIO_SOURCE_RX1_7_6:  /* Falls through */
         case ADI_ADRV9001_GPIO_SOURCE_RX2_7_6:
-            agcCfg->peak.feedback_high_threshold_counter_exceeded= (adi_adrv9001_GpioPinCrumbSel_e)(i + 1);
+            agcCfg->peak.feedback_apd_high_hb_high = (adi_adrv9001_GpioPinCrumbSel_e)(i + 1);
             break;
         default:
             break;
@@ -628,24 +628,10 @@ static int32_t adi_adrv9001_Rx_GainControl_MinMaxGainIndex_Set_Validate(adi_adrv
                                                                         uint8_t minGainIndex,
                                                                         uint8_t maxGainIndex)
 {
-    uint8_t absMinGainIdx = 0;
-    uint8_t absMaxGainIdx = 0;
-
     ADI_RANGE_CHECK(device, channel, ADI_CHANNEL_1, ADI_CHANNEL_2);
 
-    /* TODO: Remove the fields from devStateInfo - requires reading and parsing gain table or storing values in firmware */
-    if (ADI_CHANNEL_1 == channel)
-    {
-        absMinGainIdx = device->devStateInfo.gainIndexes.rx1MinGainIndex;
-        absMaxGainIdx = device->devStateInfo.gainIndexes.rx1MaxGainIndex;
-    }
-    else
-    {
-        absMinGainIdx = device->devStateInfo.gainIndexes.rx2MinGainIndex;
-        absMaxGainIdx = device->devStateInfo.gainIndexes.rx2MaxGainIndex;
-    }
-    ADI_RANGE_CHECK(device, minGainIndex, absMinGainIdx, (maxGainIndex - 1));
-    ADI_RANGE_CHECK(device, maxGainIndex, (minGainIndex + 1), absMaxGainIdx);
+    ADI_RANGE_CHECK(device, minGainIndex, ADI_ADRV9001_RX_GAIN_INDEX_MIN, (maxGainIndex - 1));
+    ADI_RANGE_CHECK(device, maxGainIndex, (minGainIndex + 1), ADI_ADRV9001_RX_GAIN_INDEX_MAX);
 
     ADI_API_RETURN(device);
 }
@@ -671,9 +657,9 @@ int32_t adi_adrv9001_Rx_GainControl_MinMaxGainIndex_Set(adi_adrv9001_Device_t *d
 }
 
 static int32_t __maybe_unused adi_adrv9001_Rx_GainControl_MinMaxGainIndex_Get_Validate(adi_adrv9001_Device_t *device,
-										       adi_common_ChannelNumber_e channel,
-										       uint8_t *minGainIndex,
-										       uint8_t *maxGainIndex)
+                                               adi_common_ChannelNumber_e channel,
+                                               uint8_t *minGainIndex,
+                                               uint8_t *maxGainIndex)
 {
     ADI_RANGE_CHECK(device, channel, ADI_CHANNEL_1, ADI_CHANNEL_2);
     ADI_NULL_PTR_RETURN(&device->common, minGainIndex);
@@ -702,7 +688,7 @@ int32_t adi_adrv9001_Rx_GainControl_MinMaxGainIndex_Get(adi_adrv9001_Device_t *d
 }
 
 static int32_t __maybe_unused adi_adrv9001_Rx_GainControl_Reset_Validate(adi_adrv9001_Device_t *device,
-									 adi_common_ChannelNumber_e channel)
+                                     adi_common_ChannelNumber_e channel)
 {
     ADI_RANGE_CHECK(device, channel, ADI_CHANNEL_1, ADI_CHANNEL_2);
     ADI_API_RETURN(device);
@@ -726,8 +712,8 @@ int32_t adi_adrv9001_Rx_GainControl_Reset(adi_adrv9001_Device_t *device, adi_com
 }
 
 static int32_t __maybe_unused adi_adrv9001_Rx_GainControl_PinMode_Configure_Validate(adi_adrv9001_Device_t *device,
-										     adi_common_ChannelNumber_e channel,
-										     adi_adrv9001_RxGainControlPinCfg_t *config)
+                                             adi_common_ChannelNumber_e channel,
+                                             adi_adrv9001_RxGainControlPinCfg_t *config)
 {
     static const uint8_t MAX_STEP_SIZE = 8;
 
@@ -799,8 +785,8 @@ int32_t adi_adrv9001_Rx_GainControl_PinMode_Configure(adi_adrv9001_Device_t *dev
 }
 
 static int32_t __maybe_unused adi_adrv9001_Rx_GainControl_PinMode_Inspect_Validate(adi_adrv9001_Device_t *device,
-										   adi_common_ChannelNumber_e channel,
-										   adi_adrv9001_RxGainControlPinCfg_t *config)
+                                           adi_common_ChannelNumber_e channel,
+                                           adi_adrv9001_RxGainControlPinCfg_t *config)
 {
     ADI_RANGE_CHECK(device, channel, ADI_CHANNEL_1, ADI_CHANNEL_2);
     ADI_NULL_PTR_RETURN(&device->common, config);
