@@ -6,7 +6,7 @@
  *
  * Licensed under the GPL-2.
  */
-
+#include <linux/bitfield.h>
 #include <linux/bits.h>
 #include <linux/module.h>
 #include <linux/interrupt.h>
@@ -33,10 +33,12 @@
 /* Transceiver TDD Control (axi_ad*) */
 
 #define ADI_REG_TDD_CONTROL_0		0x0040
-#define ADI_TDD_DMA_GATE_TX_EN		BIT(5)
-#define ADI_TDD_DMA_GATE_RX_EN		BIT(4)
-#define ADI_TDD_TXONLY_EN		BIT(3)
-#define ADI_TDD_RXONLY_EN		BIT(2)
+#define ADI_TDD_DMA_GATE_MASK		GENMASK(5, 4)
+#define ADI_TDD_DMA_GATE_GET(x)		FIELD_GET(ADI_TDD_DMA_GATE_MASK, x)
+#define ADI_TDD_DMA_GATE(x)		FIELD_PREP(ADI_TDD_DMA_GATE_MASK, x)
+#define ADI_TDD_EN_MODE_MASK		GENMASK(3, 2)
+#define ADI_TDD_EN_MODE_GET(x)		FIELD_GET(ADI_TDD_EN_MODE_MASK, x)
+#define ADI_TDD_EN_MODE(x)		FIELD_PREP(ADI_TDD_EN_MODE_MASK, x)
 #define ADI_TDD_SECONDARY		BIT(1)
 #define ADI_TDD_ENABLE			BIT(0)
 
@@ -185,6 +187,18 @@ static inline unsigned int tdd_read(struct cf_axi_tdd_state *st, const u32 reg)
 	return ioread32(st->regs + reg);
 }
 
+static void tdd_update_bits(struct cf_axi_tdd_state *st, const u32 reg, const u32 mask,
+			    const u32 val)
+{
+	u32 __val;
+
+	mutex_lock(&st->lock);
+	__val = tdd_read(st, reg);
+	__val = (__val & ~mask) | (val & mask);
+	tdd_write(st, reg, __val);
+	mutex_unlock(&st->lock);
+}
+
 static inline void tdd_write_config(struct cf_axi_tdd_state *st, const u32 profile)
 {
 	int i;
@@ -218,46 +232,11 @@ static ssize_t cf_axi_tdd_store(struct device *dev,
 	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
 	struct iio_dev_attr *this_attr = to_iio_dev_attr(attr);
 	struct cf_axi_tdd_state *st = iio_priv(indio_dev);
-	bool state;
 	unsigned long readin;
 	int ret = 0;
 
 	mutex_lock(&st->lock);
 	switch ((u32)this_attr->address) {
-	case CF_AXI_TDD_ENABLE:
-		ret = strtobool(buf, &state);
-		if (ret < 0)
-			break;
-		st->enable = (state ? ADI_TDD_ENABLE : 0);
-		tdd_write(st, ADI_REG_TDD_CONTROL_0, st->dma_mode | st->mode | st->enable);
-		break;
-	case CF_AXI_TDD_ENABLE_MODE:
-		if (sysfs_streq(buf, "rx_tx"))
-			st->mode = 0;
-		else if (sysfs_streq(buf, "rx_only"))
-			st->mode = ADI_TDD_RXONLY_EN;
-		else if (sysfs_streq(buf, "tx_only"))
-			st->mode = ADI_TDD_TXONLY_EN;
-		tdd_write(st, ADI_REG_TDD_CONTROL_0, st->dma_mode | st->mode | st->enable);
-		break;
-	case CF_AXI_TDD_DMA_GATEING_MODE:
-		if (sysfs_streq(buf, "rx_tx"))
-			st->dma_mode = ADI_TDD_DMA_GATE_RX_EN | ADI_TDD_DMA_GATE_TX_EN;
-		else if (sysfs_streq(buf, "rx_only"))
-			st->dma_mode = ADI_TDD_DMA_GATE_RX_EN;
-		else if (sysfs_streq(buf, "tx_only"))
-			st->dma_mode = ADI_TDD_DMA_GATE_TX_EN;
-		else if (sysfs_streq(buf, "none"))
-			st->dma_mode = 0;
-		tdd_write(st, ADI_REG_TDD_CONTROL_0, st->dma_mode | st->mode | st->enable);
-		break;
-	case CF_AXI_TDD_BURST_COUNT:
-		ret = kstrtoul(buf, 0, &readin);
-		if (ret)
-			break;
-		tdd_write(st, ADI_REG_TDD_CONTROL_1,
-			  ADI_TDD_BURST_COUNT(readin));
-		break;
 	case CF_AXI_TDD_PROFILE_CONFIG:
 		ret = kstrtoul(buf, 0, &readin);
 		if (ret)
@@ -289,33 +268,6 @@ static ssize_t cf_axi_tdd_show(struct device *dev, struct device_attribute *attr
 
 	mutex_lock(&st->lock);
 	switch ((u32)this_attr->address) {
-	case CF_AXI_TDD_ENABLE:
-		ret = sprintf(buf, "%d\n", st->enable);
-		break;
-	case CF_AXI_TDD_ENABLE_MODE:
-		ret = sprintf(buf, "%s\n", (st->mode == ADI_TDD_RXONLY_EN) ?
-			"rx_only" : (st->mode == ADI_TDD_TXONLY_EN) ?
-			"tx_only" : "rx_tx");
-		break;
-	case CF_AXI_TDD_DMA_GATEING_MODE:
-		switch (st->dma_mode) {
-		case ADI_TDD_DMA_GATE_RX_EN | ADI_TDD_DMA_GATE_TX_EN:
-			ret = sprintf(buf, "%s\n", "rx_tx");
-			break;
-		case ADI_TDD_DMA_GATE_RX_EN:
-			ret = sprintf(buf, "%s\n", "rx_only");
-			break;
-		case ADI_TDD_DMA_GATE_TX_EN:
-			ret = sprintf(buf, "%s\n", "tx_only");
-			break;
-		default:
-			ret = sprintf(buf, "%s\n", "none");
-			break;
-		}
-		break;
-	case CF_AXI_TDD_BURST_COUNT:
-		ret = sprintf(buf, "%d\n", tdd_read(st, ADI_REG_TDD_CONTROL_1));
-		break;
 	case CF_AXI_TDD_PROFILE_CONFIG:
 		ret = sprintf(buf, "%d\n", st->profile);
 		break;
@@ -327,42 +279,12 @@ static ssize_t cf_axi_tdd_show(struct device *dev, struct device_attribute *attr
 	return ret;
 }
 
-static IIO_DEVICE_ATTR(enable, 0644,
-			cf_axi_tdd_show,
-			cf_axi_tdd_store,
-			CF_AXI_TDD_ENABLE);
-
-static IIO_DEVICE_ATTR(enable_mode, 0644,
-			cf_axi_tdd_show,
-			cf_axi_tdd_store,
-			CF_AXI_TDD_ENABLE_MODE);
-
-static IIO_CONST_ATTR(enable_mode_available, "rx_tx rx_only tx_only");
-
-static IIO_DEVICE_ATTR(dma_gateing_mode, 0644,
-			cf_axi_tdd_show,
-			cf_axi_tdd_store,
-			CF_AXI_TDD_DMA_GATEING_MODE);
-
-static IIO_CONST_ATTR(dma_gateing_mode_available, "none rx_only tx_only rx_tx");
-
-static IIO_DEVICE_ATTR(burst_count, 0644,
-			cf_axi_tdd_show,
-			cf_axi_tdd_store,
-			CF_AXI_TDD_BURST_COUNT);
-
 static IIO_DEVICE_ATTR(profile_config, 0644,
 			cf_axi_tdd_show,
 			cf_axi_tdd_store,
 			CF_AXI_TDD_PROFILE_CONFIG);
 
 static struct attribute *cf_axi_tdd_attributes[] = {
-	&iio_dev_attr_enable.dev_attr.attr,
-	&iio_dev_attr_enable_mode.dev_attr.attr,
-	&iio_const_attr_enable_mode_available.dev_attr.attr,
-	&iio_dev_attr_dma_gateing_mode.dev_attr.attr,
-	&iio_const_attr_dma_gateing_mode_available.dev_attr.attr,
-	&iio_dev_attr_burst_count.dev_attr.attr,
 	&iio_dev_attr_profile_config.dev_attr.attr,
 	NULL,
 };
@@ -370,6 +292,173 @@ static struct attribute *cf_axi_tdd_attributes[] = {
 static const struct attribute_group cf_axi_tdd_attribute_group = {
 	.attrs = cf_axi_tdd_attributes,
 };
+
+enum {
+	CF_AXI_TDD_RX_TX,
+	CF_AXI_TDD_RXONLY,
+	CF_AXI_TDD_TXONLY
+};
+
+static const char * const cf_axi_tdd_en_modes[] = {
+	"rx_tx", "rx_only", "tx_only"
+};
+
+static int cf_axi_tdd_set_en_modes(struct iio_dev *indio_dev, const struct iio_chan_spec *chan,
+				   u32 mode)
+{
+	struct cf_axi_tdd_state *st = iio_priv(indio_dev);
+
+	if (mode > CF_AXI_TDD_TXONLY)
+		return -EINVAL;
+
+	tdd_update_bits(st, ADI_REG_TDD_CONTROL_0, ADI_TDD_EN_MODE_MASK, ADI_TDD_EN_MODE(mode));
+
+	return 0;
+}
+
+static int cf_axi_tdd_get_en_modes(struct iio_dev *indio_dev, const struct iio_chan_spec *chan)
+{
+	struct cf_axi_tdd_state *st = iio_priv(indio_dev);
+	const u32 reg = tdd_read(st, ADI_REG_TDD_CONTROL_0) & ADI_TDD_EN_MODE_MASK;
+
+	return ADI_TDD_EN_MODE_GET(reg);
+}
+
+static const struct iio_enum cf_axi_tdd_en_available = {
+	.items = cf_axi_tdd_en_modes,
+	.num_items = ARRAY_SIZE(cf_axi_tdd_en_modes),
+	.get = cf_axi_tdd_get_en_modes,
+	.set = cf_axi_tdd_set_en_modes,
+};
+
+enum {
+	CF_AXI_TDD_DMA_GATE_NONE,
+	CF_AXI_TDD_DMA_GATE_RX,
+	CF_AXI_TDD_DMA_GATE_TX,
+	CF_AXI_TDD_DMA_GATE_RX_TX
+};
+
+static const char * const cf_axi_tdd_dma_gateing_mode[] = {
+	"rx_tx", "rx_only", "tx_only", "none"
+};
+
+static int cf_axi_tdd_get_dma_gateing_mode(struct iio_dev *indio_dev,
+					   const struct iio_chan_spec *chan)
+{
+	struct cf_axi_tdd_state *st = iio_priv(indio_dev);
+	const u32 reg = tdd_read(st, ADI_REG_TDD_CONTROL_0);
+
+	return ADI_TDD_DMA_GATE_GET(reg);
+}
+
+static int cf_axi_tdd_set_dma_gateing_mode(struct iio_dev *indio_dev,
+					   const struct iio_chan_spec *chan, u32 mode)
+{
+	struct cf_axi_tdd_state *st = iio_priv(indio_dev);
+
+	tdd_update_bits(st, ADI_REG_TDD_CONTROL_0, ADI_TDD_DMA_GATE_MASK, ADI_TDD_DMA_GATE(mode));
+
+	return 0;
+}
+
+static const struct iio_enum cf_axi_tdd_dma_gateing_mode_available = {
+	.items = cf_axi_tdd_dma_gateing_mode,
+	.num_items = ARRAY_SIZE(cf_axi_tdd_dma_gateing_mode),
+	.get = cf_axi_tdd_get_dma_gateing_mode,
+	.set = cf_axi_tdd_set_dma_gateing_mode,
+};
+
+static ssize_t cf_axi_tdd_read(struct iio_dev *indio_dev, uintptr_t private,
+			       const struct iio_chan_spec *chan, char *buf)
+{
+	struct cf_axi_tdd_state *st = iio_priv(indio_dev);
+	u32 val;
+
+	switch (private) {
+	case CF_AXI_TDD_BURST_COUNT:
+		val = tdd_read(st, ADI_REG_TDD_CONTROL_1);
+		return sprintf(buf, "%d\n", val);
+	default:
+		return -EINVAL;
+	}
+}
+
+static ssize_t cf_axi_tdd_write(struct iio_dev *indio_dev, uintptr_t private,
+				const struct iio_chan_spec *chan, const char *buf, size_t len)
+{
+	struct cf_axi_tdd_state *st = iio_priv(indio_dev);
+	u32 val;
+	int ret;
+
+	ret = kstrtouint(buf, 10, &val);
+	if (ret)
+		return ret;
+
+	switch (private) {
+	case CF_AXI_TDD_BURST_COUNT:
+		tdd_write(st, ADI_REG_TDD_CONTROL_1, ADI_TDD_BURST_COUNT(val));
+		return len;
+	default:
+		return -EINVAL;
+	}
+
+	return len;
+}
+
+#define CF_AXI_TDD_IIO_EXT_INFO(_name, _priv, _shared) { \
+	.name = _name,	\
+	.read = cf_axi_tdd_read, \
+	.write = cf_axi_tdd_write, \
+	.private = _priv, \
+	.shared = _shared \
+}
+
+static const struct iio_chan_spec_ext_info cf_axi_tdd_ext_info[] = {
+	IIO_ENUM("en_mode", IIO_SHARED_BY_ALL, &cf_axi_tdd_en_available),
+	IIO_ENUM_AVAILABLE_SHARED("en_mode", IIO_SHARED_BY_ALL, &cf_axi_tdd_en_available),
+	IIO_ENUM("dma_gateing_mode", IIO_SHARED_BY_ALL, &cf_axi_tdd_dma_gateing_mode_available),
+	IIO_ENUM_AVAILABLE_SHARED("dma_gateing_mode", IIO_SHARED_BY_ALL,
+				  &cf_axi_tdd_dma_gateing_mode_available),
+	CF_AXI_TDD_IIO_EXT_INFO("burst_count", CF_AXI_TDD_BURST_COUNT, IIO_SHARED_BY_ALL),
+	{}
+};
+
+#define CF_AXI_TDD_IIO_SHARED() { \
+	.info_mask_shared_by_all = BIT(IIO_CHAN_INFO_ENABLE), \
+	.ext_info = cf_axi_tdd_ext_info, \
+}
+
+struct iio_chan_spec cf_axi_tdd_channels[] = {
+	CF_AXI_TDD_IIO_SHARED(),
+};
+
+static int cf_axi_tdd_read_raw(struct iio_dev *indio_dev, struct iio_chan_spec const *chan,
+			       int *val, int *val2, long mask)
+{
+	struct cf_axi_tdd_state *st = iio_priv(indio_dev);
+
+	switch (mask) {
+	case IIO_CHAN_INFO_ENABLE:
+		*val = tdd_read(st, ADI_REG_TDD_CONTROL_0) & ADI_TDD_ENABLE;
+		return IIO_VAL_INT;
+	default:
+		return -EINVAL;
+	}
+}
+
+static int cf_axi_tdd_write_raw(struct iio_dev *indio_dev, struct iio_chan_spec const *chan,
+				int val, int val2, long mask)
+{
+	struct cf_axi_tdd_state *st = iio_priv(indio_dev);
+
+	switch (mask) {
+	case IIO_CHAN_INFO_ENABLE:
+		tdd_update_bits(st, ADI_REG_TDD_CONTROL_0, ADI_TDD_ENABLE, val);
+		return 0;
+	default:
+		return -EINVAL;
+	}
+}
 
 static int cf_axi_tdd_reg_access(struct iio_dev *indio_dev, u32 reg, u32 writeval, u32 *readval)
 {
@@ -392,6 +481,8 @@ static int cf_axi_tdd_reg_access(struct iio_dev *indio_dev, u32 reg, u32 writeva
 }
 
 static const struct iio_info cf_axi_tdd_info = {
+	.read_raw = &cf_axi_tdd_read_raw,
+	.write_raw = &cf_axi_tdd_write_raw,
 	.debugfs_reg_access = &cf_axi_tdd_reg_access,
 	.attrs = &cf_axi_tdd_attribute_group,
 };
@@ -446,7 +537,8 @@ static int cf_axi_tdd_probe(struct platform_device *pdev)
 	indio_dev->dev.parent = &pdev->dev;
 	indio_dev->name = np->name;
 	indio_dev->modes = INDIO_DIRECT_MODE;
-
+	indio_dev->channels = cf_axi_tdd_channels;
+	indio_dev->num_channels = ARRAY_SIZE(cf_axi_tdd_channels);
 	indio_dev->info = &cf_axi_tdd_info;
 
 	tdd_write_config(st, 0);
