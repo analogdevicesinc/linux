@@ -12,11 +12,10 @@
  * see the "LICENSE.txt" file in this zip file.
  */
 
-#ifndef _ADI_ADRV9001_HAL_H_
-#define _ADI_ADRV9001_HAL_H_
+#ifndef _ADI_ADRV9001_SPI_H_
+#define _ADI_ADRV9001_SPI_H_
 
 #include "adi_adrv9001_spi_types.h"
-#include "adi_platform.h"
 
 #ifdef __KERNEL__
 #include <linux/types.h>
@@ -169,4 +168,4 @@ int32_t adi_adrv9001_spi_Cache_Read(adi_adrv9001_Device_t *adrv9001, const uint3
 }
 #endif
 
-#endif /* _ADI_ADRV9001_HAL_H_ */
+#endif /* _ADI_ADRV9001_SPI_H_ */

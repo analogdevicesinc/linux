@@ -13,8 +13,10 @@
 */
 
 #include "adi_adrv9001_spi.h"
-
+#include "adi_common_error.h"
 #include "adi_adrv9001_error.h"
+
+#include "adi_adrv9001_hal.h"
 
 /*********************************************************************************************************/
 int32_t adi_adrv9001_spi_DataPack(adi_adrv9001_Device_t *device,
@@ -25,7 +27,7 @@ int32_t adi_adrv9001_spi_DataPack(adi_adrv9001_Device_t *device,
                                  uint8_t data,
                                  uint8_t writeFlag)
 {
-    ADI_API_PRIV_ENTRY_EXPECT(device);
+    ADI_ENTRY_EXPECT(device);
 
     ADI_NULL_PTR_RETURN(&device->common, wrData);
     
@@ -99,14 +101,14 @@ int32_t adi_adrv9001_spi_Byte_Write(adi_adrv9001_Device_t *device, uint16_t addr
 
     ADI_NULL_DEVICE_PTR_RETURN(device);
 
-    ADI_FUNCTION_ENTRY_VARIABLE_LOG(&device->common, ADI_COMMON_LOG_SPI, "%s(0x%04X, 0x%02X)", addr, data);
+    ADI_FUNCTION_ENTRY_VARIABLE_LOG(&device->common, "%s(0x%04X, 0x%02X)", addr, data);
 
     ADI_EXPECT(adi_adrv9001_spi_DataPack, device, &txData[0], &numTxBytes, addr, 0xFF, data, ADRV9001_SPI_WRITE_POLARITY);
 
     for (i = 0; i < ADI_ADRV9001_NUMBER_SPI_RETRY; i++)
     {
         halError = adi_hal_SpiWrite(device->common.devHalInfo, &txData[0], numTxBytes);
-        if (halError == ADI_COMMON_HAL_OK)
+        if (halError == 0)
         {
             break;
         }
@@ -131,7 +133,7 @@ int32_t adi_adrv9001_spi_Bytes_Write(adi_adrv9001_Device_t *device, const uint16
 
     for (i = 0; i < count; i++)
     {
-        ADI_FUNCTION_ENTRY_VARIABLE_LOG(&device->common, ADI_COMMON_LOG_SPI, "%s(0x%04X, 0x%02X)", addr[i], data[i]);
+        ADI_FUNCTION_ENTRY_VARIABLE_LOG(&device->common, "%s(0x%04X, 0x%02X)", addr[i], data[i]);
     }
 
     ADI_NULL_PTR_RETURN(&device->common, addr);
@@ -146,7 +148,7 @@ int32_t adi_adrv9001_spi_Bytes_Write(adi_adrv9001_Device_t *device, const uint16
     for (i = 0; i < ADI_ADRV9001_NUMBER_SPI_RETRY; i++)
     {
         halError = adi_hal_SpiWrite(device->common.devHalInfo, &wrData[0], numWrBytes);
-        if (halError == ADI_COMMON_HAL_OK)
+        if (halError == 0)
         {
             break;
         }
@@ -169,14 +171,14 @@ int32_t adi_adrv9001_spi_Byte_Read(adi_adrv9001_Device_t *device, uint16_t addr,
     uint8_t regVal = 0;
     uint8_t regData[ADRV9001_SPI_BYTES] = { 0 };
    
-    ADI_ENTRY_PTR_EXPECT(device, ADI_COMMON_LOG_HAL, readData);
+    ADI_ENTRY_PTR_EXPECT(device, readData);
 
     ADI_EXPECT(adi_adrv9001_spi_DataPack, device, &wrData[0], &numWrBytes, addr, 0xFF, regVal, ~ADRV9001_SPI_WRITE_POLARITY);
 
     for (i = 0; i < ADI_ADRV9001_NUMBER_SPI_RETRY; i++)
     {
-        halError = (adi_common_hal_Err_e)adi_hal_SpiRead(device->common.devHalInfo, &wrData[0], &regData[0], numWrBytes);
-        if (halError == ADI_COMMON_HAL_OK)
+        halError = adi_hal_SpiRead(device->common.devHalInfo, &wrData[0], &regData[0], numWrBytes);
+        if (halError == 0)
         {
             break;
         }
@@ -191,7 +193,7 @@ int32_t adi_adrv9001_spi_Byte_Read(adi_adrv9001_Device_t *device, uint16_t addr,
 
     *readData = regData[2];
 
-    ADI_FUNCTION_ENTRY_VARIABLE_LOG(&device->common, ADI_COMMON_LOG_SPI, "%s(0x%04X, 0x%02X)", addr, *readData);
+    ADI_FUNCTION_ENTRY_VARIABLE_LOG(&device->common, "%s(0x%04X, 0x%02X)", addr, *readData);
 
     ADI_API_RETURN(device);
 }
@@ -210,7 +212,7 @@ int32_t adi_adrv9001_spi_Bytes_Read(adi_adrv9001_Device_t *device,
     uint16_t numWrBytes = 0;
     uint8_t regVal = 0;
     
-    ADI_ENTRY_EXPECT(device, ADI_COMMON_LOG_HAL);
+    ADI_ENTRY_EXPECT(device);
 
     ADI_NULL_PTR_RETURN(&device->common, addr);
 
@@ -225,7 +227,7 @@ int32_t adi_adrv9001_spi_Bytes_Read(adi_adrv9001_Device_t *device,
     for (j = 0; j < ADI_ADRV9001_NUMBER_SPI_RETRY; j++)
     {
         halError = adi_hal_SpiRead(device->common.devHalInfo, &wrData[0], &rdData[0], numWrBytes);
-        if (halError == ADI_COMMON_HAL_OK)
+        if (halError == 0)
         {
             break;
         }
@@ -233,7 +235,7 @@ int32_t adi_adrv9001_spi_Bytes_Read(adi_adrv9001_Device_t *device,
 
     for (i = 0; i < count; i++)
     {
-        ADI_FUNCTION_ENTRY_VARIABLE_LOG(&device->common, ADI_COMMON_LOG_SPI, "%s(0x%04X, 0x%02X)", addr[i], rdData[(i * 3) + 2]);
+        ADI_FUNCTION_ENTRY_VARIABLE_LOG(&device->common, "%s(0x%04X, 0x%02X)", addr[i], rdData[(i * 3) + 2]);
     }
 
     ADI_ERROR_REPORT(&device->common,
@@ -268,13 +270,13 @@ int32_t adi_adrv9001_spi_Field_Write(adi_adrv9001_Device_t *device,
 
     ADI_NULL_DEVICE_PTR_RETURN(device);
 
-    ADI_FUNCTION_ENTRY_VARIABLE_LOG(&device->common, ADI_COMMON_LOG_SPI, "%s(0x%04X, 0x%02X)", addr, regVal);
+    ADI_FUNCTION_ENTRY_VARIABLE_LOG(&device->common, "%s(0x%04X, 0x%02X)", addr, regVal);
             
     ADI_EXPECT(adi_adrv9001_spi_DataPack, device, &wrData[0], &numWrBytes, addr, 0xFF, regVal, ~ADRV9001_SPI_WRITE_POLARITY);
     for (i = 0; i < ADI_ADRV9001_NUMBER_SPI_RETRY; i++)
     {
         halError = adi_hal_SpiRead(device->common.devHalInfo, &wrData[0], &registerVal[0], numWrBytes);
-        if (halError == ADI_COMMON_HAL_OK)
+        if (halError == 0)
         {
             break;
         }
@@ -295,7 +297,7 @@ int32_t adi_adrv9001_spi_Field_Write(adi_adrv9001_Device_t *device,
     for (i = 0; i < ADI_ADRV9001_NUMBER_SPI_RETRY; i++)
     {
         halError = adi_hal_SpiWrite(device->common.devHalInfo, &wrData[0], numWrBytes);
-        if (halError == ADI_COMMON_HAL_OK)
+        if (halError == 0)
         {
             break;
         }
@@ -324,7 +326,7 @@ int32_t adi_adrv9001_spi_Field_Read(adi_adrv9001_Device_t *device,
     uint8_t regVal = 0;
     uint8_t i = 0;
 
-    ADI_ENTRY_EXPECT(device, ADI_COMMON_LOG_HAL);
+    ADI_ENTRY_EXPECT(device);
 
     ADI_NULL_PTR_RETURN(&device->common, fieldVal);
 
@@ -333,7 +335,7 @@ int32_t adi_adrv9001_spi_Field_Read(adi_adrv9001_Device_t *device,
     for (i = 0; i < ADI_ADRV9001_NUMBER_SPI_RETRY; i++)
     {
         halError = adi_hal_SpiRead(device->common.devHalInfo, &wrData[0], &rdData[0], numWrBytes);
-        if (halError == ADI_COMMON_HAL_OK)
+        if (halError == 0)
         {
             break;
         }
@@ -351,7 +353,7 @@ int32_t adi_adrv9001_spi_Field_Read(adi_adrv9001_Device_t *device,
 
     *fieldVal = (uint8_t)((regVal & mask) >> startBit);
 
-    ADI_FUNCTION_ENTRY_VARIABLE_LOG(&device->common, ADI_COMMON_LOG_SPI, "%s(0x%04X, 0x%02X)", addr, regVal);
+    ADI_FUNCTION_ENTRY_VARIABLE_LOG(&device->common, "%s(0x%04X, 0x%02X)", addr, regVal);
 
     ADI_API_RETURN(device);
 }
@@ -373,11 +375,11 @@ int32_t adi_adrv9001_spi_Cache_Write(adi_adrv9001_Device_t *device,
     ADI_NULL_DEVICE_PTR_RETURN(device);
 
 #ifdef ADI_ADRV9001_VERBOSE
-    ADI_FUNCTION_ENTRY_LOG(&device->common, ADI_COMMON_LOG_HAL);
+    ADI_FUNCTION_ENTRY_LOG(&device->common);
 
     for (i = 0; i < count; i++)
     {
-        ADI_FUNCTION_ENTRY_VARIABLE_LOG(&device->common, ADI_COMMON_LOG_SPI, "%s(0x%04X, 0x%02X)", (uint16_t)(wrCache[i] >> SPI_ADDR_SIZE), (uint8_t)wrCache[i]);
+        ADI_FUNCTION_ENTRY_VARIABLE_LOG(&device->common, "%s(0x%04X, 0x%02X)", (uint16_t)(wrCache[i] >> SPI_ADDR_SIZE), (uint8_t)wrCache[i]);
     }
 #endif
 
@@ -397,7 +399,7 @@ int32_t adi_adrv9001_spi_Cache_Write(adi_adrv9001_Device_t *device,
     for (i = 0; i < ADI_ADRV9001_NUMBER_SPI_RETRY; i++)
     {
         halError = adi_hal_SpiWrite(device->common.devHalInfo, &wrData[0], numWrBytes);
-        if (halError == ADI_COMMON_HAL_OK)
+        if (halError == 0)
         {
             break;
         }
@@ -422,10 +424,9 @@ int32_t adi_adrv9001_spi_Cache_Read(adi_adrv9001_Device_t *device,
     uint32_t j = 0;
     int32_t halError = 0;
     uint8_t wrData[HAL_SPIWRITEARRAY_BUFFERSIZE] = { 0 };
-    uint8_t rdData[HAL_SPIWRITEARRAY_BUFFERSIZE] = { 0 };
     uint16_t numWrBytes = 0;
 
-    ADI_ENTRY_EXPECT(device, ADI_COMMON_LOG_HAL);
+    ADI_ENTRY_EXPECT(device);
 
     ADI_NULL_PTR_RETURN(&device->common, rdCache);
 
@@ -446,7 +447,7 @@ int32_t adi_adrv9001_spi_Cache_Read(adi_adrv9001_Device_t *device,
     for (j = 0; j < ADI_ADRV9001_NUMBER_SPI_RETRY; j++)
     {
         halError = adi_hal_SpiRead(device->common.devHalInfo, &wrData[0], &readData[0], numWrBytes);
-        if (halError == ADI_COMMON_HAL_OK)
+        if (halError == 0)
         {
             break;
         }
@@ -454,7 +455,7 @@ int32_t adi_adrv9001_spi_Cache_Read(adi_adrv9001_Device_t *device,
 
     for (i = 0; i < count; i++)
     {
-        ADI_FUNCTION_ENTRY_VARIABLE_LOG(&device->common, ADI_COMMON_LOG_SPI, "%s(0x%04X, 0x%02X)", wrData[i], rdData[(i * 3) + 2]);
+        ADI_FUNCTION_ENTRY_VARIABLE_LOG(&device->common, "%s(0x%04X, 0x%02X)", wrData[i], readData[(i * 3) + 2]);
     }
 
     ADI_ERROR_REPORT(&device->common,

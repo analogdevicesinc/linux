@@ -164,7 +164,7 @@ static int32_t adrv9001_ClocksSet(adi_adrv9001_Device_t *device,
     static const uint32_t DEV_CLOCK_MIN_KHZ = 10000;
     static const uint32_t DEV_CLOCK_MAX_KHZ = 1000000;
 
-    ADI_API_PRIV_ENTRY_PTR_EXPECT(device, init);
+    ADI_ENTRY_PTR_EXPECT(device, init);
     clocks = &init->clocks;
 
     ADI_RANGE_CHECK(device, clocks->deviceClock_kHz, DEV_CLOCK_MIN_KHZ, DEV_CLOCK_MAX_KHZ);
@@ -461,7 +461,7 @@ static int32_t adrv9001_VerifyTxProfile(adi_adrv9001_Device_t *device,
     static const uint32_t PRIMARY_SIGNAL_BW_MIN = 6250;
     static const uint32_t PRIMARY_SIGNAL_BW_MAX = MEGA_TO_BASE_UNIT(41);
 
-    ADI_API_PRIV_ENTRY_PTR_EXPECT(device, txProfile);
+    ADI_ENTRY_PTR_EXPECT(device, txProfile);
 
     /********************************/
     /* Check for a valid Tx profile */
@@ -497,7 +497,7 @@ static int32_t adrv9001_VerifyRxProfile(adi_adrv9001_Device_t *device,
     static const uint32_t RX_BANDWIDTH_MIN = 6250;
     static const uint32_t RX_BANDWIDTH_MAX = MEGA_TO_BASE_UNIT(41);
 
-    ADI_API_PRIV_ENTRY_PTR_EXPECT(device, rxProfile);
+    ADI_ENTRY_PTR_EXPECT(device, rxProfile);
 
     /********************************/
     /* Check for a valid Rx profile */
@@ -533,7 +533,7 @@ static int32_t adrv9001_VerifyOrxProfile(adi_adrv9001_Device_t *device,
     static const uint32_t ORX_BANDWIDTH_MIN = 6250;
     static const uint32_t ORX_BANDWIDTH_MAX = MEGA_TO_BASE_UNIT(41);
 
-    ADI_API_PRIV_ENTRY_PTR_EXPECT(device, orxProfile);
+    ADI_ENTRY_PTR_EXPECT(device, orxProfile);
 
     /********************************/
     /* Check for a valid ORx profile */
@@ -569,7 +569,7 @@ static int32_t adrv9001_VerifyLbProfile(adi_adrv9001_Device_t *device,
     static const uint32_t LB_BANDWIDTH_MIN = 6250;
     static const uint32_t LB_BANDWIDTH_MAX = MEGA_TO_BASE_UNIT(41);
 
-    ADI_API_PRIV_ENTRY_PTR_EXPECT(device, lbProfile);
+    ADI_ENTRY_PTR_EXPECT(device, lbProfile);
 
     /********************************/
     /* Check for a valid LB profile */
@@ -600,7 +600,7 @@ int32_t adrv9001_ProfilesVerify(adi_adrv9001_Device_t *device, adi_adrv9001_Init
      };
     uint8_t divHsDigClk = 0;
 
-    ADI_API_PRIV_ENTRY_PTR_EXPECT(device, init);
+    ADI_ENTRY_PTR_EXPECT(device, init);
 
     device->devStateInfo.profilesValid = 0;
 

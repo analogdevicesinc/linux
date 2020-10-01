@@ -259,7 +259,7 @@ int32_t adrv9001_GpInterruptsMaskPinBfGet(adi_adrv9001_Device_t *device, uint32_
 
     ADI_NULL_DEVICE_PTR_RETURN(device);
 
-    ADI_FUNCTION_ENTRY_LOG(&device->common, ADI_COMMON_LOG_BF);
+    ADI_FUNCTION_ENTRY_LOG(&device->common);
 
 #ifdef ADRV9001_BITFIELD_NULL_CHECK
     /* NULL check */

@@ -27,6 +27,9 @@ extern "C" {
 #include <stdbool.h>
 #endif
 
+#define ADI_ADRV9001_RX_GAIN_INDEX_MIN 195
+#define ADI_ADRV9001_RX_GAIN_INDEX_MAX 255
+    
 /**
 *  \brief Rx gain table SRAM base addresses
 */

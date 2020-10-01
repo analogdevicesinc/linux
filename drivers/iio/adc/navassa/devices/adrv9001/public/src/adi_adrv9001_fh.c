@@ -16,6 +16,7 @@
 #include "adi_adrv9001_arm.h"
 #include "adi_adrv9001_radio.h"
 #include "adi_adrv9001_gpio.h"
+#include "adi_adrv9001_rx_types.h"
 #include "adrv9001_bf.h"
 #include "adrv9001_arm_macros.h"
 #include "adrv9001_reg_addr_macros.h"
@@ -24,8 +25,9 @@
     #line __LINE__ "adi_adrv9001_fh.c"
 #endif
 
-#define FREQ_HOPPING_CONFIGURATION_NUM_BYTES 30u
-#define FREQ_HOPPING_MAX_NUM_BYTES           1032u
+#define FREQ_HOPPING_CONFIGURATION_NUM_BYTES       35u
+#define FREQ_HOPPING_MAX_NUM_BYTES                 1032u
+#define FREQ_HOPPING_MAX_TX_FE_POWERON_FRAME_DELAY 64u
 
 #define ADI_FH_CHECK_FH_ENABLED(device) \
 if (device->devStateInfo.frequencyHoppingEnabled == 0) \
@@ -43,7 +45,7 @@ if (device->devStateInfo.frequencyHoppingEnabled == 0) \
 static const uint16_t NORMAL_MAX_ATTENUATION_MDB        = 41950;
 static const uint16_t NORMAL_ATTENUATION_RESOLUTION_MDB = 50;
 
-/*  TODO JP: Determine if we need to validate the whole table.
+/*  TODO JP: Determine if we need to validate the whole table. 
     It's difficult to validate the hop table due to the following:
 	    1) At the time of receiving the HOP table, we don't know the channel sequence. So a tx or rx gain index
 	       might be valid, or it might be a 'don't care' value, programmed by the user. We could potentially enforce the
@@ -51,7 +53,7 @@ static const uint16_t NORMAL_ATTENUATION_RESOLUTION_MDB = 50;
         2) There doesn't seem a nice way to validate the rx gain in API, since there is no state
            of the FH operating gain range. The best we could do would be to ensure its within the
            absolute min/max. However, this could be effected by point 1.
-        3) Validating the whole table before its written to ARM might be valuable, however, it might
+        3) Validating the whole table before its written to ARM might be valuable, however, it might 
            also waste time. Especially considering we can't validate every field in the table.
            It might be better for ARM to validate it once received, or on the fly.
 */
@@ -61,8 +63,8 @@ static int32_t adi_adrv9001_fh_FrameInfo_Validate(adi_adrv9001_Device_t *adrv900
     /* Check if FH is enabled in device profile */
     ADI_FH_CHECK_FH_ENABLED(adrv9001);
 
-    ADI_RANGE_CHECK_X(adrv9001, hopFrame->hopFrequencyHz,
-                     ADI_ADRV9001_FH_MIN_CARRIER_FREQUENCY_HZ,
+    ADI_RANGE_CHECK_X(adrv9001, hopFrame->hopFrequencyHz,  
+                     ADI_ADRV9001_FH_MIN_CARRIER_FREQUENCY_HZ, 
                      ADI_ADRV9001_FH_MAX_CARRIER_FREQUENCY_HZ, "%llu");
 
 #if 0
@@ -77,7 +79,7 @@ static int32_t adi_adrv9001_fh_FrameInfo_Validate(adi_adrv9001_Device_t *adrv900
                          hopFrame->txAttenuation_mdB,
                          "Invalid attenuation_mdB value. The resolution is only 0.05dB");
     }
-
+    
     ADI_RANGE_CHECK(adrv9001, hopFrame->rxGainIndex, MIN_RX_GAIN_INDEX, MAX_RX_GAIN_INDEX)
 #endif
 	/* TODO JP: Validate Offset frequency. Not sure about ranges */
@@ -86,45 +88,64 @@ static int32_t adi_adrv9001_fh_FrameInfo_Validate(adi_adrv9001_Device_t *adrv900
 
 static int32_t adi_adrv9001_fh_Configure_Validate(adi_adrv9001_Device_t *adrv9001,
                                                   adi_adrv9001_FhCfg_t  *fhConfig)
-{
+{  
     uint32_t i;
-    uint8_t initialisedChannelMask;
+    uint8_t initializedChannelMask;
+	uint8_t rxChannelMask = (ADI_ADRV9001_RX1 | \
+							 ADI_ADRV9001_RX2);
     /* Check if FH is enabled in device profile */
     ADI_FH_CHECK_FH_ENABLED(adrv9001);
     /* Check for NULL pointer */
 	ADI_NULL_PTR_RETURN(&adrv9001->common, fhConfig);
     /* Check channel mask */
-	if ((!ADRV9001_BF_EQUAL(0x0F, fhConfig->channelMaskHopPin))
-      ||(fhConfig->channelMaskHopPin == 0x00))
+	if ((!ADRV9001_BF_EQUAL(0x0F, fhConfig->hopSignalChannelMask))
+      ||(fhConfig->hopSignalChannelMask == 0x00))
     {
         ADI_ERROR_REPORT(&adrv9001->common,
                          ADI_COMMON_ERRSRC_API,
                          ADI_COMMON_ERR_API_FAIL,
                          ADI_COMMON_ACT_ERR_CHECK_PARAM,
-                         fhConfig->channelMaskHopPin,
+                         fhConfig->hopSignalChannelMask,
                          "Invalid bits set in frequency hopping channel mask.");
         ADI_API_RETURN(adrv9001);
     }
-    initialisedChannelMask = (uint8_t)(adrv9001->devStateInfo.initializedChannels & 0x0F);
-    /* Mask sure channels in channel mask have been enabled in device profile. channelMaskHopPin must be a subset of initializedChannels */
-	if (!ADRV9001_BF_EQUAL(initialisedChannelMask, fhConfig->channelMaskHopPin))
+    initializedChannelMask = (uint8_t)(adrv9001->devStateInfo.initializedChannels & 0x0F);
+    /* Make sure channels in channel mask have been enabled in device profile. hopSignalChannelMask must be a subset of initializedChannels */
+	if (!ADRV9001_BF_EQUAL(initializedChannelMask, fhConfig->hopSignalChannelMask))
     {
         ADI_ERROR_REPORT(&adrv9001->common,
                          ADI_COMMON_ERRSRC_API,
                          ADI_COMMON_ERR_API_FAIL,
                          ADI_COMMON_ACT_ERR_CHECK_PARAM,
-                         adrv9001->devStateInfo.initializedChannels,
+                         fhConfig->hopSignalChannelMask,
                          "Invalid frequency hopping channel mask for device profile");
         ADI_API_RETURN(adrv9001);
     }
+	/* Check txAnalogPowerOnFrameDelay is within range */
+	ADI_RANGE_CHECK(adrv9001, fhConfig->txAnalogPowerOnFrameDelay, 0, FREQ_HOPPING_MAX_TX_FE_POWERON_FRAME_DELAY);
+	/* Ensure tx analog power on delay is zero if Rx is enabled */
+	if ((ADRV9001_BF_EQUAL(fhConfig->hopSignalChannelMask, rxChannelMask))
+	  &&(fhConfig->txAnalogPowerOnFrameDelay > 0))
+	{
+		ADI_ERROR_REPORT(&adrv9001->common,
+			ADI_COMMON_ERRSRC_API,
+			ADI_COMMON_ERR_API_FAIL,
+			ADI_COMMON_ACT_ERR_CHECK_PARAM,
+			fhConfig->txAnalogPowerOnFrameDelay,
+			"Value must be non-zero in Tx only operation");
+		ADI_API_RETURN(adrv9001);
+	}
+	
     /* Check mode*/
-    ADI_RANGE_CHECK(adrv9001, fhConfig->mode, ADI_ADRV9001_FHMODE_VERY_FAST, ADI_ADRV9001_FHMODE_SLOW);
+    ADI_RANGE_CHECK(adrv9001, fhConfig->mode, ADI_ADRV9001_FHMODE_LO_MUX_PREPROCESS, ADI_ADRV9001_FHMODE_LO_RETUNE_REALTIME_PROCESS);
+    /* Check tableIndexCtrl_e */
+    ADI_RANGE_CHECK(adrv9001, fhConfig->tableIndexCtrl, ADI_ADRV9001_TABLEINDEXCTRL_AUTO_LOOP, ADI_ADRV9001_TABLEINDEXCTRL_GPIO);
     /* Check operating frequency range */
-	ADI_RANGE_CHECK_X(adrv9001, fhConfig->minOperatingFrequency_Hz,
-                      ADI_ADRV9001_FH_MIN_CARRIER_FREQUENCY_HZ,
+	ADI_RANGE_CHECK_X(adrv9001, fhConfig->minOperatingFrequency_Hz, 
+                      ADI_ADRV9001_FH_MIN_CARRIER_FREQUENCY_HZ, 
                       ADI_ADRV9001_FH_MAX_CARRIER_FREQUENCY_HZ, "%llu");
-	ADI_RANGE_CHECK_X(adrv9001, fhConfig->maxOperatingFrequency_Hz,
-                      ADI_ADRV9001_FH_MIN_CARRIER_FREQUENCY_HZ,
+	ADI_RANGE_CHECK_X(adrv9001, fhConfig->maxOperatingFrequency_Hz, 
+                      ADI_ADRV9001_FH_MIN_CARRIER_FREQUENCY_HZ, 
                       ADI_ADRV9001_FH_MAX_CARRIER_FREQUENCY_HZ, "%llu");
 
     if (fhConfig->minOperatingFrequency_Hz >= fhConfig->maxOperatingFrequency_Hz)
@@ -138,36 +159,20 @@ static int32_t adi_adrv9001_fh_Configure_Validate(adi_adrv9001_Device_t *adrv900
         ADI_API_RETURN(adrv9001);
     }
     /* Check RX gain ranges */
-    if (ADRV9001_BF_EQUAL(fhConfig->channelMaskHopPin, ADI_CHANNEL_1))
-    {
-        ADI_RANGE_CHECK(adrv9001, fhConfig->minRxGainIndex,
-                        adrv9001->devStateInfo.gainIndexes.rx1MinGainIndex,
-                        fhConfig->maxRxGainIndex);
-        /* Max index can be equal to min and no greater than rx1MaxGainIndex */
-        ADI_RANGE_CHECK(adrv9001, fhConfig->maxRxGainIndex,
-                        fhConfig->minRxGainIndex,
-                        adrv9001->devStateInfo.gainIndexes.rx1MaxGainIndex);
-    }
-    /* TODO JP: Investigate gain requirements for diversity mode. Will min/max RX gain be
-             the same for both channels in diversity mode?
-    */
-    if (ADRV9001_BF_EQUAL(fhConfig->channelMaskHopPin, ADI_CHANNEL_2))
-    {
-        ADI_RANGE_CHECK(adrv9001, fhConfig->minRxGainIndex,
-                        adrv9001->devStateInfo.gainIndexes.rx2MinGainIndex,
-                        fhConfig->maxRxGainIndex);
-        /* Max index can be equal to min and no greater than rx2MaxGainIndex */
-        ADI_RANGE_CHECK(adrv9001, fhConfig->maxRxGainIndex,
-                        fhConfig->minRxGainIndex,
-                        adrv9001->devStateInfo.gainIndexes.rx2MaxGainIndex);
-    }
+    ADI_RANGE_CHECK(adrv9001, fhConfig->minRxGainIndex, 
+                    ADI_ADRV9001_RX_GAIN_INDEX_MIN, 
+                    fhConfig->maxRxGainIndex);
+    /* Max index can be equal to min and no greater than rx1MaxGainIndex */
+    ADI_RANGE_CHECK(adrv9001, fhConfig->maxRxGainIndex, 
+                    fhConfig->minRxGainIndex, 
+                    ADI_ADRV9001_RX_GAIN_INDEX_MAX);
     /* TODO JP: Investigate requirements for TX attenuation in diversity mode.
              Will min/max be the same, or will we need a seperate field?
     */
     ADI_RANGE_CHECK(adrv9001, fhConfig->minTxAtten_mdB, 0, fhConfig->maxTxAtten_mdB);
     ADI_RANGE_CHECK(adrv9001, fhConfig->maxTxAtten_mdB, fhConfig->minTxAtten_mdB, NORMAL_MAX_ATTENUATION_MDB);
 
-    if (fhConfig->minTxAtten_mdB % NORMAL_ATTENUATION_RESOLUTION_MDB != 0)
+    if (fhConfig->minTxAtten_mdB % NORMAL_ATTENUATION_RESOLUTION_MDB != 0) 
     {
         ADI_ERROR_REPORT(&adrv9001->common,
                          ADI_COMMON_ERRSRC_API,
@@ -186,12 +191,12 @@ static int32_t adi_adrv9001_fh_Configure_Validate(adi_adrv9001_Device_t *adrv900
                          fhConfig->maxTxAtten_mdB,
                          "Invalid attenuation_mdB value. The resolution of adi_adrv9001_Tx_Attenuation_Set() is only 0.05dB");
     }
-
+    
     /* Can be unassigned but throw an error if it's set to analog*/
     ADI_RANGE_CHECK(adrv9001, fhConfig->hopSignalGpioConfig.pin, ADI_ADRV9001_GPIO_UNASSIGNED, ADI_ADRV9001_GPIO_DIGITAL_15);
 
     /* Check frequency select pins */
-	if (true == fhConfig->tableIndexByPin)
+	if (ADI_ADRV9001_TABLEINDEXCTRL_GPIO == fhConfig->tableIndexCtrl) 
     {
 	    ADI_RANGE_CHECK(adrv9001, fhConfig->numTableIndexPins, 1u, ADI_ADRV9001_FH_MAX_NUM_FREQ_SELECT_PINS);
         for (i = 0; i < fhConfig->numTableIndexPins; i++)
@@ -200,7 +205,7 @@ static int32_t adi_adrv9001_fh_Configure_Validate(adi_adrv9001_Device_t *adrv900
         }
     }
     /* Configure gain select pins */
-    if (true == fhConfig->gainSetupByPin)
+    if (true == fhConfig->gainSetupByPin) 
     {
 	    ADI_RANGE_CHECK(adrv9001, fhConfig->numGainCtrlPins, 1u, ADI_ADRV9001_FH_MAX_NUM_GAIN_SELECT_PINS);
         for (i = 0; i < fhConfig->numGainCtrlPins; i++)
@@ -209,35 +214,35 @@ static int32_t adi_adrv9001_fh_Configure_Validate(adi_adrv9001_Device_t *adrv900
         }
     }
 	/* Can be unassigned but throw an error if it's set to analog*/
-	ADI_RANGE_CHECK(adrv9001, fhConfig->hopTableSwitchGpioConfig.pin, ADI_ADRV9001_GPIO_UNASSIGNED, ADI_ADRV9001_GPIO_DIGITAL_15);
+	ADI_RANGE_CHECK(adrv9001, fhConfig->hopTableSwitchGpioConfig.pin, ADI_ADRV9001_GPIO_UNASSIGNED, ADI_ADRV9001_GPIO_DIGITAL_15); 
 
 	ADI_API_RETURN(adrv9001);
 }
 
 static int32_t adi_adrv9001_fh_Inspect_Validate(adi_adrv9001_Device_t *adrv9001,
                                                 adi_adrv9001_FhCfg_t  *fhConfig)
-{
+{  
     /* Check for NULL pointer */
     ADI_NULL_PTR_RETURN(&adrv9001->common, fhConfig);
     ADI_API_RETURN(adrv9001);
 }
 
 static int32_t adi_adrv9001_fh_HopTable_Configure_Validate(adi_adrv9001_Device_t *adrv9001,
-                                                           adi_adrv9001_FhHopTable_e tableId,
+                                                           adi_adrv9001_FhHopTable_e tableId, 
                                                            adi_adrv9001_FhHopFrame_t hopTable[],
                                                            uint32_t tableSize)
 {
-    uint32_t frequencyIndex = 0;
+	uint32_t frequencyIndex = 0;
     uint32_t tempAddress = (tableId == ADI_ADRV9001_FHHOPTABLE_A) ? adrv9001->devStateInfo.fhHopTable1Addr :
                                                                       adrv9001->devStateInfo.fhHopTable2Addr;
     /* Check if FH is enabled in device profile */
     ADI_FH_CHECK_FH_ENABLED(adrv9001);
     /* Check for NULL pointer */
     ADI_NULL_PTR_RETURN(&adrv9001->common, hopTable);
-    ADI_API_ENTRY_PTR_ARRAY_EXPECT(adrv9001, hopTable, tableSize);
+    ADI_ENTRY_PTR_ARRAY_EXPECT(adrv9001, hopTable, tableSize);
     ADI_RANGE_CHECK(adrv9001, tableId, ADI_ADRV9001_FHHOPTABLE_A, ADI_ADRV9001_FHHOPTABLE_B);
 
-    if ((tempAddress < ADRV9001_ADDR_ARM_START_DATA) || (tempAddress > ADRV9001_ADDR_ARM_END_DATA))
+	if ((tempAddress < ADRV9001_ADDR_ARM_START_DATA) || (tempAddress > ADRV9001_ADDR_ARM_END_DATA))
     {
         ADI_ERROR_REPORT(&adrv9001->common,
             ADI_COMMON_ERRSRC_API,
@@ -248,7 +253,7 @@ static int32_t adi_adrv9001_fh_HopTable_Configure_Validate(adi_adrv9001_Device_t
 
         ADI_API_RETURN(adrv9001);
     }
-
+    
     /* Check fhHopTable->numHopFrames are valid */
 	ADI_RANGE_CHECK(adrv9001, tableSize, 1u, ADI_ADRV9001_FH_MAX_HOP_TABLE_SIZE);
 
@@ -258,7 +263,7 @@ static int32_t adi_adrv9001_fh_HopTable_Configure_Validate(adi_adrv9001_Device_t
     }
 
     ADI_API_RETURN(adrv9001);
-}
+}          
 
 static int32_t adi_adrv9001_fh_HopTable_Inspect_Validate(adi_adrv9001_Device_t *adrv9001,
                                                          adi_adrv9001_FhHopTable_e tableId,
@@ -272,11 +277,11 @@ static int32_t adi_adrv9001_fh_HopTable_Inspect_Validate(adi_adrv9001_Device_t *
     ADI_FH_CHECK_FH_ENABLED(adrv9001);
     /* Check for NULL pointer */
     ADI_NULL_PTR_RETURN(&adrv9001->common, hopTable);
-    ADI_API_ENTRY_PTR_ARRAY_EXPECT(adrv9001, hopTable, tableSize);
+    ADI_ENTRY_PTR_ARRAY_EXPECT(adrv9001, hopTable, tableSize);
     /* Check table Id */
     ADI_RANGE_CHECK(adrv9001, tableId, ADI_ADRV9001_FHHOPTABLE_A, ADI_ADRV9001_FHHOPTABLE_B);
 
-    if ((tempAddress < ADRV9001_ADDR_ARM_START_DATA) || (tempAddress > ADRV9001_ADDR_ARM_END_DATA))
+	if ((tempAddress < ADRV9001_ADDR_ARM_START_DATA) || (tempAddress > ADRV9001_ADDR_ARM_END_DATA))
     {
         ADI_ERROR_REPORT(&adrv9001->common,
             ADI_COMMON_ERRSRC_API,
@@ -289,15 +294,15 @@ static int32_t adi_adrv9001_fh_HopTable_Inspect_Validate(adi_adrv9001_Device_t *
     }
 
     ADI_API_RETURN(adrv9001);
-}
+}     
 
 int32_t adi_adrv9001_fh_Configure(adi_adrv9001_Device_t *adrv9001,
                                   adi_adrv9001_FhCfg_t  *fhConfig)
 {
-    /* Write the config data to the SET buffer */
-    uint8_t extData[5] = { 0 };
-    uint8_t armData[FREQ_HOPPING_CONFIGURATION_NUM_BYTES]  = { 0 };
-    uint32_t offset = 0;
+	/* Write the config data to the SET buffer */
+	uint8_t extData[5] = { 0 };
+	uint8_t armData[FREQ_HOPPING_CONFIGURATION_NUM_BYTES]  = { 0 };
+	uint32_t offset = 0;
     uint32_t i;
     adi_adrv9001_GpioSignal_e frequencySelectPinSignal = 0;
     adi_adrv9001_GpioSignal_e gainSelectPinSignal      = 0;
@@ -307,8 +312,8 @@ int32_t adi_adrv9001_fh_Configure(adi_adrv9001_Device_t *adrv9001,
     /* Size of configuration is first written to SET buffer, tells ARM how many bytes have been written */
 	adrv9001_LoadFourBytes(&offset, armData, sizeof(armData) - sizeof(uint32_t));
 	armData[offset++] = fhConfig->mode;
-	armData[offset++] = fhConfig->channelMaskHopPin;
-	armData[offset++] = fhConfig->tableIndexByPin;
+	armData[offset++] = fhConfig->hopSignalChannelMask;
+	armData[offset++] = fhConfig->tableIndexCtrl;
 	armData[offset++] = fhConfig->gainSetupByPin;
 	armData[offset++] = fhConfig->minRxGainIndex;
 	armData[offset++] = fhConfig->maxRxGainIndex;
@@ -316,6 +321,8 @@ int32_t adi_adrv9001_fh_Configure(adi_adrv9001_Device_t *adrv9001,
 	adrv9001_LoadTwoBytes(&offset, armData, fhConfig->maxTxAtten_mdB);
 	adrv9001_LoadEightBytes(&offset, armData, fhConfig->minOperatingFrequency_Hz);
 	adrv9001_LoadEightBytes(&offset, armData, fhConfig->maxOperatingFrequency_Hz);
+    adrv9001_LoadFourBytes(&offset, armData, fhConfig->minFrameDuration_us);
+    armData[offset++] = fhConfig->txAnalogPowerOnFrameDelay;
     /* Write to set buffer */
     ADI_EXPECT(adi_adrv9001_arm_Memory_Write, adrv9001, ADRV9001_ADDR_ARM_MAILBOX_SET, armData, sizeof(armData));
 
@@ -338,7 +345,7 @@ int32_t adi_adrv9001_fh_Configure(adi_adrv9001_Device_t *adrv9001,
         ADI_EXPECT(adi_adrv9001_gpio_Configure, adrv9001, ADI_ADRV9001_GPIO_SIGNAL_FH_HOP, &(fhConfig->hopSignalGpioConfig));
     }
     /* Configure table index pins if selected */
-	if (fhConfig->tableIndexByPin == true)
+	if (fhConfig->tableIndexCtrl == true) 
     {
         frequencySelectPinSignal = ADI_ADRV9001_GPIO_SIGNAL_FH_TABLE_INDEX_0;
         for (i = 0; i < fhConfig->numTableIndexPins; i++)
@@ -347,7 +354,7 @@ int32_t adi_adrv9001_fh_Configure(adi_adrv9001_Device_t *adrv9001,
         }
     }
     /* Configure gain index pins if selected */
-    if (fhConfig->gainSetupByPin == true)
+    if (fhConfig->gainSetupByPin == true) 
     {
         gainSelectPinSignal = ADI_ADRV9001_GPIO_SIGNAL_FH_GAIN_SEL_0;
         for (i = 0; i < fhConfig->numGainCtrlPins; i++)
@@ -369,11 +376,10 @@ int32_t adi_adrv9001_fh_Configuration_Inspect(adi_adrv9001_Device_t *adrv9001,
 {
     /* Write the size to the GET buffer */
     uint8_t extData[5] = { 0 };
-    uint8_t armData[FREQ_HOPPING_CONFIGURATION_NUM_BYTES]  = { 0 };
-    uint32_t offset = 0;
+	uint8_t armData[FREQ_HOPPING_CONFIGURATION_NUM_BYTES]  = { 0 };
+	uint32_t offset = 0;
 
-    ADI_PERFORM_VALIDATION(adi_adrv9001_fh_Inspect_Validate, adrv9001, fhConfig);
-
+	ADI_PERFORM_VALIDATION(adi_adrv9001_fh_Inspect_Validate, adrv9001, fhConfig);
 	adrv9001_LoadFourBytes(&offset, armData, sizeof(armData));
 
     ADI_EXPECT(adi_adrv9001_arm_Memory_Write, adrv9001, ADRV9001_ADDR_ARM_MAILBOX_GET, armData, sizeof(uint32_t));
@@ -394,8 +400,8 @@ int32_t adi_adrv9001_fh_Configuration_Inspect(adi_adrv9001_Device_t *adrv9001,
     offset = 0;
     ADI_EXPECT(adi_adrv9001_arm_Memory_Read, adrv9001, ADRV9001_ADDR_ARM_MAILBOX_GET, armData, sizeof(armData), false);
     fhConfig->mode              = (adi_adrv9001_FhMode_e)armData[offset++];
-	fhConfig->channelMaskHopPin = armData[offset++];
-	fhConfig->tableIndexByPin   = armData[offset++];
+	fhConfig->hopSignalChannelMask = armData[offset++];
+	fhConfig->tableIndexCtrl    = armData[offset++];
 	fhConfig->gainSetupByPin    = armData[offset++];
 	fhConfig->minRxGainIndex    = armData[offset++];
 	fhConfig->maxRxGainIndex    = armData[offset++];
@@ -403,11 +409,13 @@ int32_t adi_adrv9001_fh_Configuration_Inspect(adi_adrv9001_Device_t *adrv9001,
     adrv9001_ParseTwoBytes(&offset,   armData, &fhConfig->maxTxAtten_mdB);
 	adrv9001_ParseEightBytes(&offset, armData, &fhConfig->minOperatingFrequency_Hz);
 	adrv9001_ParseEightBytes(&offset, armData, &fhConfig->maxOperatingFrequency_Hz);
+	adrv9001_ParseFourBytes(&offset,  armData, &fhConfig->minFrameDuration_us);
+	fhConfig->txAnalogPowerOnFrameDelay = armData[offset++];
     ADI_API_RETURN(adrv9001);
 }
 
 int32_t adi_adrv9001_fh_HopTable_Configure(adi_adrv9001_Device_t *adrv9001,
-                                           adi_adrv9001_FhHopTable_e tableId,
+                                           adi_adrv9001_FhHopTable_e tableId, 
                                            adi_adrv9001_FhHopFrame_t hopTable[],
 										   uint32_t hopTableSize)
 {
@@ -417,7 +425,7 @@ int32_t adi_adrv9001_fh_HopTable_Configure(adi_adrv9001_Device_t *adrv9001,
     uint32_t offset = 0;
 	uint32_t frequencyIndex = 0;
     /* Find address of hop table */
-	uint32_t _pFhHopTable = (tableId == ADI_ADRV9001_FHHOPTABLE_A) ? adrv9001->devStateInfo.fhHopTable1Addr :
+	uint32_t _pFhHopTable = (tableId == ADI_ADRV9001_FHHOPTABLE_A) ? adrv9001->devStateInfo.fhHopTable1Addr : 
 	                                                                 adrv9001->devStateInfo.fhHopTable2Addr;
 
     ADI_PERFORM_VALIDATION(adi_adrv9001_fh_HopTable_Configure_Validate, adrv9001, tableId, hopTable, hopTableSize);
@@ -453,7 +461,7 @@ int32_t adi_adrv9001_fh_HopTable_Configure(adi_adrv9001_Device_t *adrv9001,
 }
 
 int32_t adi_adrv9001_fh_HopTable_Inspect(adi_adrv9001_Device_t *adrv9001,
-                                         adi_adrv9001_FhHopTable_e tableId,
+                                         adi_adrv9001_FhHopTable_e tableId, 
 										 adi_adrv9001_FhHopFrame_t hopTable[],
 		                                 uint32_t hopTableSize,
 		                                 uint32_t *numHopFramesRead)
@@ -464,12 +472,11 @@ int32_t adi_adrv9001_fh_HopTable_Inspect(adi_adrv9001_Device_t *adrv9001,
 	uint32_t frequencyIndex = 0;
     uint32_t numHopFrequenciesReadback = 0;
     /* Table must be read directly from ARM memory, instead of GET buffer. Get pointer to hop table */
-    uint32_t _pFhHopTable = (tableId == ADI_ADRV9001_FHHOPTABLE_A) ? adrv9001->devStateInfo.fhHopTable1Addr :
+	uint32_t _pFhHopTable = (tableId == ADI_ADRV9001_FHHOPTABLE_A) ? adrv9001->devStateInfo.fhHopTable1Addr : 
 	                                                                 adrv9001->devStateInfo.fhHopTable2Addr;
 
     ADI_PERFORM_VALIDATION(adi_adrv9001_fh_HopTable_Inspect_Validate, adrv9001, tableId, hopTable, hopTableSize);
-
-    /* Even though we are going to read directly from ARM memory, we can still use the GET protocol to
+    /* Even though we are going to read directly from ARM memory, we can still use the GET protocol to 
        tell ARM how many bytes we will read. ARM will return an error if the read size is invalid
     */
     adrv9001_LoadFourBytes(&offset, armData, sizeof(armData));
@@ -485,7 +492,7 @@ int32_t adi_adrv9001_fh_HopTable_Inspect(adi_adrv9001_Device_t *adrv9001,
                                         ADRV9001_ARM_OBJECTID_GET_FH_HOP_TABLE,
                                         ADI_ADRV9001_DEFAULT_TIMEOUT_US,
                                         ADI_ADRV9001_DEFAULT_INTERVAL_US);
-
+    
     /* Read hop table from ARM memory */
     ADI_EXPECT(adi_adrv9001_arm_Memory_Read, adrv9001, _pFhHopTable, armData, sizeof(armData), false);
 
@@ -539,14 +546,14 @@ int32_t adi_adrv9001_fh_HopTable_Get(adi_adrv9001_Device_t *adrv9001,
                                      adi_adrv9001_FhHopTable_e *tableId)
 {
     uint8_t armData = sizeof(uint8_t);
-     /* Construct SET payload and send command */
+    /* Construct SET payload and send command */
     uint8_t extData[5] = { 0,
                            ADRV9001_ARM_OBJECTID_GET_FH_HOP_TABLE_SELECT
-                         };
+                            };
 
     /* Check if FH is enabled in device profile */
     ADI_FH_CHECK_FH_ENABLED(adrv9001);
-    ADI_NULL_PTR_RETURN(&adrv9001->common, tableId);
+	ADI_NULL_PTR_RETURN(&adrv9001->common, tableId);
     ADI_EXPECT(adi_adrv9001_arm_Memory_Write, adrv9001, ADRV9001_ADDR_ARM_MAILBOX_GET, &armData, sizeof(armData));
     armData = 0;
 
@@ -564,7 +571,7 @@ int32_t adi_adrv9001_fh_HopTable_Get(adi_adrv9001_Device_t *adrv9001,
     ADI_API_RETURN(adrv9001);
 }
 
-int32_t adi_adrv9001_fh_FrameInfo_Inspect(adi_adrv9001_Device_t *adrv9001,
+int32_t adi_adrv9001_fh_FrameInfo_Inspect(adi_adrv9001_Device_t *adrv9001, 
                                           adi_adrv9001_FhFrameIndex_e frameIndex,
                                           adi_adrv9001_FhHopFrame_t *hopFrame)
 {
@@ -576,7 +583,7 @@ int32_t adi_adrv9001_fh_FrameInfo_Inspect(adi_adrv9001_Device_t *adrv9001,
     ADI_FH_CHECK_FH_ENABLED(adrv9001);
     ADI_NULL_PTR_RETURN(&adrv9001->common, hopFrame);
 	ADI_RANGE_CHECK(adrv9001, frameIndex, ADI_ADRV9001_FHFRAMEINDEX_CURRENT_FRAME, ADI_ADRV9001_FHFRAMEINDEX_NEXT_FRAME);
-
+    
     /* Write the size to the GET buffer */
 	adrv9001_LoadFourBytes(&offset, armData, sizeof(armData));
     ADI_EXPECT(adi_adrv9001_arm_Memory_Write, adrv9001, ADRV9001_ADDR_ARM_MAILBOX_GET, armData, sizeof(uint32_t));
@@ -602,7 +609,7 @@ int32_t adi_adrv9001_fh_FrameInfo_Inspect(adi_adrv9001_Device_t *adrv9001,
     hopFrame->rxGainIndex = armData[offset++];
     adrv9001_ParseTwoBytes(&offset, armData, &hopFrame->txAttenuation_mdB);
     ADI_API_RETURN(adrv9001);
-}
+}                                                              
 
 int32_t adi_adrv9001_fh_Hop(adi_adrv9001_Device_t *adrv9001)
 {
