@@ -93,7 +93,7 @@ static int32_t __maybe_unused adi_adrv9001_bbdc_RejectionEnable_Get_Validate(adi
 									     adi_adrv9001_BbdcRejectionStatus_e *bbdcRejectionStatus)
 {
     /* Check device pointer is not null */
-    ADI_API_ENTRY_PTR_EXPECT(device, bbdcRejectionStatus);
+    ADI_ENTRY_PTR_EXPECT(device, bbdcRejectionStatus);
 
     if ((port != ADI_RX) &&
         (port != ADI_ORX))

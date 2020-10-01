@@ -30,8 +30,8 @@ typedef enum adi_adrv9001_SsiTestModeData
     ADI_ADRV9001_SSI_TESTMODE_DATA_NORMAL = 0,      /*!< No check available for this data type */
     ADI_ADRV9001_SSI_TESTMODE_DATA_FIXED_PATTERN,   /*!< Length of pattern is dependent on SSI configuration.
                                                          Refer to 'fixedDataPatternToTransmit' in adi_adrv9001_RxSsiTestModeCfg_t for details */
-    ADI_ADRV9001_SSI_TESTMODE_DATA_RAMP_NIBBLE,
-    ADI_ADRV9001_SSI_TESTMODE_DATA_RAMP_16_BIT,     /*!< LSSI-Only */
+    ADI_ADRV9001_SSI_TESTMODE_DATA_RAMP_NIBBLE,     /*!< CSSI-Only */
+    ADI_ADRV9001_SSI_TESTMODE_DATA_RAMP_16_BIT,     /*!< CSSI and LSSI */
     ADI_ADRV9001_SSI_TESTMODE_DATA_PRBS15,          /*!< LSSI-Only */
     ADI_ADRV9001_SSI_TESTMODE_DATA_PRBS7,           /*!< LSSI-Only */
 } adi_adrv9001_SsiTestModeData_e;

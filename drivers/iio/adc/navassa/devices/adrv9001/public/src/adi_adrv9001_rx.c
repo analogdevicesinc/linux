@@ -66,7 +66,7 @@ static int32_t __maybe_unused adi_adrv9001_Rx_GainTable_Write_Validate(adi_adrv9
 
     uint16_t  gainIndex = 0;
 
-    ADI_API_ENTRY_PTR_ARRAY_EXPECT(device, gainTableRows, arraySize);
+    ADI_ENTRY_PTR_ARRAY_EXPECT(device, gainTableRows, arraySize);
 
     /*Check that the gain index offset is within range*/
     ADI_RANGE_CHECK(device, gainIndexOffset, ADI_ADRV9001_MIN_RX_GAIN_TABLE_INDEX, ADI_ADRV9001_START_RX_GAIN_INDEX);
@@ -217,58 +217,6 @@ int32_t adi_adrv9001_Rx_GainTable_Write(adi_adrv9001_Device_t *device,
     ADI_API_RETURN(device);
 }
 
-static int32_t __maybe_unused adi_adrv9001_Rx_MinMaxGainIndex_Set_Validate(adi_adrv9001_Device_t *device,
-                                                                           uint32_t rxChannelMask,
-                                                                           uint8_t minGainIndex,
-                                                                           uint8_t maxGainIndex)
-{
-    /* Check device pointer is not null */
-    ADI_API_ENTRY_EXPECT(device);
-
-    /*Check that rxChannelMask is valid*/
-    ADI_RANGE_CHECK(device, rxChannelMask, ADI_CHANNEL_1, (ADI_CHANNEL_1 | ADI_CHANNEL_2));
-
-    /*Check that requested min gain index does not exceed max gain index*/
-    if (minGainIndex >= maxGainIndex)
-    {
-        ADI_ERROR_REPORT(&device->common,
-                         ADI_COMMON_ERRSRC_API,
-                         ADI_COMMON_ERR_INV_PARAM,
-                         ADI_COMMON_ACT_ERR_CHECK_PARAM,
-                         device,
-                         "minGainIndex should be less than maxGainIndex");
-        ADI_ERROR_RETURN(device->common.error.newAction);
-    }
-
-    ADI_API_RETURN(device);
-}
-
-int32_t adi_adrv9001_Rx_MinMaxGainIndex_Set(adi_adrv9001_Device_t *device,
-                                            uint32_t rxChannelMask,
-                                            uint8_t minGainIndex,
-                                            uint8_t maxGainIndex)
-{
-    /* Check device pointer is not null */
-    ADI_API_ENTRY_EXPECT(device);
-
-    ADI_PERFORM_VALIDATION(adi_adrv9001_Rx_MinMaxGainIndex_Set_Validate, device, rxChannelMask, minGainIndex, maxGainIndex);
-
-    /*Update device gain table min and max gain indices*/
-    if (ADRV9001_BF_EQUAL(rxChannelMask, ADI_CHANNEL_1))
-    {
-        device->devStateInfo.gainIndexes.rx1MaxGainIndex = maxGainIndex;
-        device->devStateInfo.gainIndexes.rx1MinGainIndex = minGainIndex;
-    }
-
-    if (ADRV9001_BF_EQUAL(rxChannelMask, ADI_CHANNEL_2))
-    {
-        device->devStateInfo.gainIndexes.rx2MaxGainIndex = maxGainIndex;
-        device->devStateInfo.gainIndexes.rx2MinGainIndex = minGainIndex;
-    }
-
-    ADI_API_RETURN(device);
-}
-
 static int32_t __maybe_unused adi_adrv9001_Rx_GainTable_Read_Validate(adi_adrv9001_Device_t *device,
                                                                     adi_common_ChannelNumber_e channel,
                                                                     uint8_t  gainIndexOffset,
@@ -276,7 +224,7 @@ static int32_t __maybe_unused adi_adrv9001_Rx_GainTable_Read_Validate(adi_adrv90
                                                                     uint32_t arraySize,
                                                                     uint16_t *numGainIndicesRead)
 {
-    ADI_API_ENTRY_PTR_ARRAY_EXPECT(device, gainTableRows, arraySize);
+    ADI_ENTRY_PTR_ARRAY_EXPECT(device, gainTableRows, arraySize);
 
     /* numGainIndicesRead is the actual no.of gain indices read from SRAM(output).A NULL can be passed
     * if the value of no.of gain indices actually read is not required.
@@ -297,27 +245,8 @@ static int32_t __maybe_unused adi_adrv9001_Rx_GainTable_Read_Validate(adi_adrv90
         ADI_ERROR_RETURN(device->common.error.newAction);
     }
 
-    /*Check that gainIndexOffset is correct*/
-    if (channel == ADI_CHANNEL_1)
-    {
-        ADI_RANGE_CHECK(device,
-                        gainIndexOffset,
-                        device->devStateInfo.gainIndexes.rx1MinGainIndex,
-                        device->devStateInfo.gainIndexes.rx1MaxGainIndex);
-    }
-    else if (channel == ADI_CHANNEL_2)
-    {
-        ADI_RANGE_CHECK(device,
-                        gainIndexOffset,
-                        device->devStateInfo.gainIndexes.rx2MinGainIndex,
-                        device->devStateInfo.gainIndexes.rx2MaxGainIndex);
-    }
-    else
-    {
-        /* Should never reach here, included only for style purposes */
-        ADI_SHOULD_NOT_EXECUTE(device);
-    }
-
+    ADI_RANGE_CHECK(device, gainIndexOffset, ADI_ADRV9001_RX_GAIN_INDEX_MIN, ADI_ADRV9001_RX_GAIN_INDEX_MAX);
+    
     if (((ADRV9001_BF_EQUAL(device->devStateInfo.profilesValid, ADI_ADRV9001_RX_PROFILE_VALID)) == 0) &&
         ((ADRV9001_BF_EQUAL(device->devStateInfo.profilesValid, ADI_ADRV9001_ORX_PROFILE_VALID)) == 0) &&
         ((ADRV9001_BF_EQUAL(device->devStateInfo.profilesValid, ADI_ADRV9001_TX_PROFILE_VALID)) == 0))
@@ -350,24 +279,22 @@ int32_t adi_adrv9001_Rx_GainTable_Read(adi_adrv9001_Device_t *device,
     /*Maximum Array Size = Max Gain Table Size x Bytes Per Gain Table Entry*/
     static uint8_t armDmaData[ADI_ADRV9001_GAIN_TABLE_ARRAY_SIZE] = { 0 };
 
-    ADI_API_ENTRY_PTR_ARRAY_EXPECT(device, gainTableRows, arraySize);
+    ADI_ENTRY_PTR_ARRAY_EXPECT(device, gainTableRows, arraySize);
     /* numGainIndicesRead is the actual no.of gain indices read from SRAM(output).A NULL can be passed
     * if the value of no.of gain indices actually read is not required.
     */
-    //ADI_NULL_PTR_RETURN(&device->common, numGainIndicesRead);
 
     ADI_PERFORM_VALIDATION(adi_adrv9001_Rx_GainTable_Read_Validate, device,
                            channel, gainIndexOffset, gainTableRows, arraySize, numGainIndicesRead);
 
+    maxGainIndices = (gainIndexOffset - ADI_ADRV9001_RX_GAIN_INDEX_MIN) + 1;
     /*Calculate no. of indices to read and the base address for the config*/
     if (channel == ADI_CHANNEL_1)
     {
-        maxGainIndices = (gainIndexOffset - device->devStateInfo.gainIndexes.rx1MinGainIndex) + 1;
         baseAddress = (uint32_t)ADI_ADRV9001_RX_GAIN_TABLE_BASE_ADDR_1;
     }
     else if (channel == ADI_CHANNEL_2)
     {
-        maxGainIndices = (gainIndexOffset - device->devStateInfo.gainIndexes.rx2MinGainIndex) + 1;
         baseAddress = (uint32_t)ADI_ADRV9001_RX_GAIN_TABLE_BASE_ADDR_2;
 
     }
@@ -446,12 +373,16 @@ static int32_t __maybe_unused adi_adrv9001_Rx_Gain_Set_Validate(adi_adrv9001_Dev
                                                                  adi_adrv9001_RxGainControlMode_e *gainCtrlMode)
 {
     adi_adrv9001_ChannelState_e state = ADI_ADRV9001_CHANNEL_STANDBY;
+    static const uint32_t RX_CHANNELS[] = { ADI_ADRV9001_RX1, ADI_ADRV9001_RX2 };
+    uint8_t chan_idx = 0;
 
     /* Check for valid channel */
     ADI_RANGE_CHECK(device, channel, ADI_CHANNEL_1, ADI_CHANNEL_2);
 
+    adi_common_channel_to_index(channel, &chan_idx);
+    
     /* Check that Rx profile is valid */
-    if ((device->devStateInfo.profilesValid & ADI_ADRV9001_RX_PROFILE_VALID) == 0)
+    if (0 == ADRV9001_BF_EQUAL(device->devStateInfo.initializedChannels, RX_CHANNELS[chan_idx]))
     {
         ADI_ERROR_REPORT(&device->common,
             ADI_COMMON_ERRSRC_API,
@@ -463,21 +394,8 @@ static int32_t __maybe_unused adi_adrv9001_Rx_Gain_Set_Validate(adi_adrv9001_Dev
     }
 
     /*Check that gain indices are within range for the channel selected*/
-    if (channel == ADI_CHANNEL_1)
-    {
-        ADI_RANGE_CHECK(device,
-            gainIndex,
-            device->devStateInfo.gainIndexes.rx1MinGainIndex,
-            device->devStateInfo.gainIndexes.rx1MaxGainIndex);
-    }
-    else /* ADI_CHANNEL_2 */
-    {
-        ADI_RANGE_CHECK(device,
-                        gainIndex,
-                        device->devStateInfo.gainIndexes.rx2MinGainIndex,
-                        device->devStateInfo.gainIndexes.rx2MaxGainIndex);
-    }
-
+    ADI_RANGE_CHECK(device, gainIndex, ADI_ADRV9001_RX_GAIN_INDEX_MIN, ADI_ADRV9001_RX_GAIN_INDEX_MAX);
+    
     /* Save the current gain control mode and set to the required mode */
     ADI_EXPECT(adi_adrv9001_Rx_GainControl_Mode_Get, device, channel, gainCtrlMode);
     if (ADI_ADRV9001_RX_GAIN_CONTROL_MODE_AUTO == *gainCtrlMode)
@@ -644,7 +562,7 @@ int32_t adi_adrv9001_Rx_DecimatedPower_Get(adi_adrv9001_Device_t *device,
     static const uint8_t RX_DEC_POWER_MULT_mdB = 250; /* 250 = 1000 * 0.25dB */
     static const uint8_t DEC_MAX_POWER = 252;
 
-    ADI_API_ENTRY_PTR_EXPECT(device, rxDecPower_mdBFS);
+    ADI_ENTRY_PTR_EXPECT(device, rxDecPower_mdBFS);
     ADI_RANGE_CHECK(device, channel, ADI_CHANNEL_1, ADI_CHANNEL_2);
 
     adi_common_channel_to_index(channel, &instanceIdx);
@@ -894,7 +812,7 @@ static int32_t __maybe_unused adi_adrv9001_Rx_InterfaceGain_Inspect_Validate(adi
     adi_common_channel_to_index(channel, &chan_index);
 
     /* Check device pointer and rxInterfaceGainCtrl are not null */
-    ADI_API_ENTRY_PTR_EXPECT(device, rxInterfaceGainCtrl);
+    ADI_ENTRY_PTR_EXPECT(device, rxInterfaceGainCtrl);
 
     ADI_RANGE_CHECK(device, channel, ADI_CHANNEL_1, ADI_CHANNEL_2);
 
@@ -966,7 +884,7 @@ static int32_t __maybe_unused adi_adrv9001_Rx_InterfaceGain_Get_Validate(adi_adr
     adi_common_channel_to_index(channel, &chan_index);
 
     /* Check device pointer and gain pointer are not null */
-    ADI_API_ENTRY_PTR_EXPECT(device, gain);
+    ADI_ENTRY_PTR_EXPECT(device, gain);
 
     ADI_RANGE_CHECK(device, channel, ADI_CHANNEL_1, ADI_CHANNEL_2);
 

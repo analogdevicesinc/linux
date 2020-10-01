@@ -11,6 +11,7 @@
 * see the "LICENSE.txt" file in this zip file.
 */
 
+#include "adi_adrv9001_hal.h"
 #include "adi_adrv9001_user.h"
 #include "adi_adrv9001_mcs.h"
 #include "adi_adrv9001_arm.h"
@@ -161,7 +162,7 @@ int32_t adi_adrv9001_Mcs_Digital_Reset(adi_adrv9001_Device_t *device)
     static const uint8_t RX1_SECOND_CAPTURE_RECEIVED_CLEAR = 0x10;
     static const uint8_t RX2_SECOND_CAPTURE_RECEIVED_CLEAR = 0x20;
 
-    ADI_API_ENTRY_EXPECT(device);
+    ADI_ENTRY_EXPECT(device);
 
     mcsClearBitValue = (RX2_SECOND_CAPTURE_RECEIVED_CLEAR | RX1_SECOND_CAPTURE_RECEIVED_CLEAR |
                         MCS_SECOND_CAPTURE_RECEIVED_CLEAR | MCS_CAPTURE_RECEIVED_CLEAR);
@@ -252,7 +253,7 @@ int32_t adi_adrv9001_Mcs_DigitalInt_Set(adi_adrv9001_Device_t *device, uint8_t n
 {
     uint8_t i = 0;
 
-    ADI_API_ENTRY_EXPECT(device);
+    ADI_ENTRY_EXPECT(device);
 
     ADI_RANGE_CHECK(device, numberOfPulses, 1, 2);
 
@@ -272,7 +273,7 @@ int32_t adi_adrv9001_Mcs_DigitalStatus_Get(adi_adrv9001_Device_t *device, uint32
 {
     uint8_t mcsStatusRead = 0;
 
-    ADI_API_ENTRY_PTR_EXPECT(device, mcsStatus);
+    ADI_ENTRY_PTR_EXPECT(device, mcsStatus);
 
     ADRV9001_SPIREADBYTE(device, "MCS_STATUS_0", ADRV9001_ADDR_MCS_STATUS_0, &mcsStatusRead);
 
