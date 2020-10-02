@@ -407,6 +407,27 @@ static const struct clk_ops clkout_ops = {
 	.set_rate = adxcvr_clk_set_rate,
 };
 
+static unsigned long adxcvr_qpll_recalc_rate(struct clk_hw *hw,
+					    unsigned long parent_rate)
+{
+	struct adxcvr_state *st =
+		container_of(hw, struct adxcvr_state, qpll_clk_hw);
+	struct xilinx_xcvr_qpll_config qpll_conf;
+
+	dev_dbg(st->dev, "%s: Parent Rate %lu Hz",
+		__func__, parent_rate);
+
+	xilinx_xcvr_qpll_read_config(&st->xcvr, st->sys_clk_sel,
+		ADXCVR_DRP_PORT_COMMON(0), &qpll_conf);
+
+	return xilinx_xcvr_qpll_calc_lane_rate(&st->xcvr,
+		st->sys_clk_sel, parent_rate, &qpll_conf, 1);
+}
+
+static const struct clk_ops qpll_ops = {
+	.recalc_rate = adxcvr_qpll_recalc_rate,
+};
+
 static int adxcvr_clk_register(struct device *dev,
 			       struct device_node *node,
 			       const char *parent_name)
@@ -414,13 +435,13 @@ static int adxcvr_clk_register(struct device *dev,
 	struct adxcvr_state *st = dev_get_drvdata(dev);
 	unsigned int out_clk_divider, out_clk_multiplier;
 	struct clk_init_data init;
-	const char *clk_names[2];
+	const char *clk_names[3];
 	unsigned int num_clks;
 	unsigned int i;
 	int ret;
 
 	num_clks = of_property_count_strings(node, "clock-output-names");
-	if (num_clks < 1 || num_clks > 2)
+	if (num_clks < 1 || num_clks > 3)
 		return -EINVAL;
 
 	for (i = 0; i < num_clks; i++) {
@@ -447,6 +468,22 @@ static int adxcvr_clk_register(struct device *dev,
 	/* Backwards compatibility */
 	if (num_clks == 1)
 		return of_clk_add_provider(node, of_clk_src_simple_get, st->clks[0]);
+
+	if (num_clks == 3) {
+		init.name = clk_names[2];
+		init.ops = &qpll_ops;
+		init.flags = CLK_GET_RATE_NOCACHE;
+
+		init.parent_names = (parent_name ? &parent_name : NULL);
+		init.num_parents = (parent_name ? 1 : 0);
+
+		st->qpll_clk_hw.init = &init;
+
+		/* register the clock */
+		st->clks[2] = devm_clk_register(dev, &st->qpll_clk_hw);
+		if (IS_ERR(st->clks[2]))
+			return PTR_ERR(st->clks[2]);
+	}
 
 	switch (st->out_clk_sel) {
 	case 1:
