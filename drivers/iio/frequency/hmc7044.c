@@ -359,7 +359,9 @@ static int hmc7044_read(struct iio_dev *indio_dev,
 	buf[0] = cmd >> 8;
 	buf[1] = cmd & 0xFF;
 
-	ret = spi_write_then_read(hmc->spi, &buf[0], 2, val, 1);
+	ret = spi_write_then_read(hmc->spi, &buf[0], 2, &buf[2], 1);
+
+	*val = buf[2];
 
 	return ret;
 }
