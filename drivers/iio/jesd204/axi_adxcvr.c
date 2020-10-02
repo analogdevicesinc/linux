@@ -295,6 +295,9 @@ static unsigned long adxcvr_clk_recalc_rate(struct clk_hw *hw,
 	} else {
 		struct xilinx_xcvr_qpll_config qpll_conf;
 
+		if (!st->qpll_enable)
+			return st->lane_rate;
+
 		xilinx_xcvr_qpll_read_config(&st->xcvr, st->sys_clk_sel,
 			ADXCVR_DRP_PORT_COMMON(0), &qpll_conf);
 		return xilinx_xcvr_qpll_calc_lane_rate(&st->xcvr,
@@ -359,7 +362,7 @@ static int adxcvr_clk_set_rate(struct clk_hw *hw,
 		if (st->cpll_enable)
 			ret = xilinx_xcvr_cpll_write_config(&st->xcvr,
 							    ADXCVR_DRP_PORT_CHANNEL(i), &cpll_conf);
-		else if (i % 4 == 0)
+		else if ((i % 4 == 0) && st->qpll_enable)
 			ret = xilinx_xcvr_qpll_write_config(&st->xcvr,
 					st->sys_clk_sel,
 					ADXCVR_DRP_PORT_COMMON(i), &qpll_conf);
@@ -705,8 +708,9 @@ static int adxcvr_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, st);
 
 	synth_conf = adxcvr_read(st, ADXCVR_REG_SYNTH);
-	st->tx_enable = (synth_conf >> 8) & 1;
+	st->tx_enable = !!(synth_conf & BIT(8));
 	st->num_lanes = synth_conf & 0xff;
+	st->qpll_enable = !!(synth_conf & BIT(20));
 
 	xcvr_type = (synth_conf >> 16) & 0xf;
 
