@@ -61,6 +61,7 @@ struct adxcvr_state {
 	struct work_struct	work;
 	unsigned long		lane_rate;
 	bool			tx_enable;
+	bool			qpll_enable;
 	u32			sys_clk_sel;
 	u32			out_clk_sel;
 
