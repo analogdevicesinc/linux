@@ -400,7 +400,7 @@ int xilinx_xcvr_calc_cpll_config(struct xilinx_xcvr *xcvr,
 					if (vco_freq > vco_max || vco_freq < vco_min)
 						continue;
 
-					if ((vco_freq * 2) / d == lane_rate_khz) {
+					if (refclk_khz / m / d == lane_rate_khz / (2 * n1 * n2)) {
 						if (conf) {
 							conf->refclk_div = m;
 							conf->fb_div_N1 = n1;
@@ -540,10 +540,7 @@ int xilinx_xcvr_calc_qpll_config(struct xilinx_xcvr *xcvr,
 				else
 					continue;
 
-				/**
-				 * First try to match half-rate 
-				 */
-				if (vco_freq / d == lane_rate_khz) {
+				if (refclk_khz / m / d == lane_rate_khz / N[n]) {
 
 					if (conf) {
 						conf->refclk_div = m;
@@ -567,7 +564,7 @@ int xilinx_xcvr_calc_qpll_config(struct xilinx_xcvr *xcvr,
 				 * For GTY4: LineRate = (2 * Vco_Freq) / d
 				 * Try Full-rate
 				 */
-				if ((vco_freq * 2) / d == lane_rate_khz) {
+				if (refclk_khz / m / d == lane_rate_khz / 2 / N[n]) {
 
 					if (conf) {
 						conf->refclk_div = m;
