@@ -58,6 +58,14 @@
 #define CONTROL_MULT_SELECT	(1 << 0)
 #define CONTROL_TEST_MODE	(1 << 4)
 
+/**
+ * struct ltc2945_state - driver instance specific data
+ * @regmap		regmap object to access device registers
+ */
+struct ltc2945_state {
+	struct regmap		*regmap;
+};
+
 static inline bool is_power_reg(u8 reg)
 {
 	return reg < LTC2945_SENSE_H;
@@ -66,7 +74,8 @@ static inline bool is_power_reg(u8 reg)
 /* Return the value from the given register in uW, mV, or mA */
 static long long ltc2945_reg_to_val(struct device *dev, u8 reg)
 {
-	struct regmap *regmap = dev_get_drvdata(dev);
+	struct ltc2945_state *st = dev_get_drvdata(dev);
+	struct regmap *regmap = st->regmap;
 	unsigned int control;
 	u8 buf[3];
 	long long val;
@@ -148,7 +157,8 @@ static long long ltc2945_reg_to_val(struct device *dev, u8 reg)
 static int ltc2945_val_to_reg(struct device *dev, u8 reg,
 			      unsigned long val)
 {
-	struct regmap *regmap = dev_get_drvdata(dev);
+	struct ltc2945_state *st = dev_get_drvdata(dev);
+	struct regmap *regmap = st->regmap;
 	unsigned int control;
 	int ret;
 
@@ -234,7 +244,8 @@ static ssize_t ltc2945_value_store(struct device *dev,
 				   const char *buf, size_t count)
 {
 	struct sensor_device_attribute *attr = to_sensor_dev_attr(da);
-	struct regmap *regmap = dev_get_drvdata(dev);
+	struct ltc2945_state *st = dev_get_drvdata(dev);
+	struct regmap *regmap = st->regmap;
 	u8 reg = attr->index;
 	unsigned long val;
 	u8 regbuf[3];
@@ -269,7 +280,8 @@ static ssize_t ltc2945_history_store(struct device *dev,
 				     const char *buf, size_t count)
 {
 	struct sensor_device_attribute *attr = to_sensor_dev_attr(da);
-	struct regmap *regmap = dev_get_drvdata(dev);
+	struct ltc2945_state *st = dev_get_drvdata(dev);
+	struct regmap *regmap = st->regmap;
 	u8 reg = attr->index;
 	int num_regs = is_power_reg(reg) ? 3 : 2;
 	u8 buf_min[3] = { 0xff, 0xff, 0xff };
@@ -321,7 +333,8 @@ static ssize_t ltc2945_bool_show(struct device *dev,
 				 struct device_attribute *da, char *buf)
 {
 	struct sensor_device_attribute *attr = to_sensor_dev_attr(da);
-	struct regmap *regmap = dev_get_drvdata(dev);
+	struct ltc2945_state *st = dev_get_drvdata(dev);
+	struct regmap *regmap = st->regmap;
 	unsigned int fault;
 	int ret;
 
@@ -448,14 +461,21 @@ static const struct regmap_config ltc2945_regmap_config = {
 static int ltc2945_probe(struct i2c_client *client)
 {
 	struct device *dev = &client->dev;
+	struct ltc2945_state *st;
 	struct device *hwmon_dev;
 	struct regmap *regmap;
+
+	st = devm_kzalloc(dev, sizeof(*st), GFP_KERNEL);
+	if (!st)
+		return -ENOMEM;
 
 	regmap = devm_regmap_init_i2c(client, &ltc2945_regmap_config);
 	if (IS_ERR(regmap)) {
 		dev_err(dev, "failed to allocate register map\n");
 		return PTR_ERR(regmap);
 	}
+
+	st->regmap = regmap;
 
 	/* Clear faults */
 	regmap_write(regmap, LTC2945_FAULT, 0x00);
