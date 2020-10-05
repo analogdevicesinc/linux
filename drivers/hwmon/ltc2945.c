@@ -155,7 +155,7 @@ static long long ltc2945_reg_to_val(struct device *dev, u8 reg)
 }
 
 static int ltc2945_val_to_reg(struct device *dev, u8 reg,
-			      unsigned long val)
+			      unsigned long long val)
 {
 	struct ltc2945_state *st = dev_get_drvdata(dev);
 	struct regmap *regmap = st->regmap;
@@ -181,14 +181,14 @@ static int ltc2945_val_to_reg(struct device *dev, u8 reg,
 			return ret;
 		if (control & CONTROL_MULT_SELECT) {
 			/* 25 mV * 25 uV = 0.625 uV resolution. */
-			val = DIV_ROUND_CLOSEST(val, 625);
+			val = DIV_ROUND_CLOSEST_ULL(val, 625);
 		} else {
 			/*
 			 * 0.5 mV * 25 uV = 0.0125 uV resolution.
 			 * Divide first to avoid overflow;
 			 * accept loss of accuracy.
 			 */
-			val = DIV_ROUND_CLOSEST(val, 25) * 2;
+			val = DIV_ROUND_CLOSEST_ULL(val, 25) * 2;
 		}
 		break;
 	case LTC2945_VIN_H:
@@ -197,7 +197,7 @@ static int ltc2945_val_to_reg(struct device *dev, u8 reg,
 	case LTC2945_MAX_VIN_THRES_H:
 	case LTC2945_MIN_VIN_THRES_H:
 		/* 25 mV resolution. */
-		val /= 25;
+		val = div_u64(val, 25);
 		break;
 	case LTC2945_ADIN_H:
 	case LTC2945_MAX_ADIN_H:
@@ -219,7 +219,7 @@ static int ltc2945_val_to_reg(struct device *dev, u8 reg,
 		 * dividing the reported current by the sense resistor value
 		 * in mOhm.
 		 */
-		val = DIV_ROUND_CLOSEST(val, 25);
+		val = DIV_ROUND_CLOSEST_ULL(val, 25);
 		break;
 	default:
 		return -EINVAL;
@@ -247,13 +247,13 @@ static ssize_t ltc2945_value_store(struct device *dev,
 	struct ltc2945_state *st = dev_get_drvdata(dev);
 	struct regmap *regmap = st->regmap;
 	u8 reg = attr->index;
-	unsigned long val;
+	unsigned long long val;
 	u8 regbuf[3];
 	int num_regs;
 	int regval;
 	int ret;
 
-	ret = kstrtoul(buf, 10, &val);
+	ret = kstrtoull(buf, 10, &val);
 	if (ret)
 		return ret;
 
