@@ -22,7 +22,7 @@
 #include "adi_adrv9001_rx_gaincontrol_types.h"
 #include "adi_adrv9001_rxSettings_types.h"
 #include "adi_adrv9001_ssi_types.h"
-#include "adi_platform_types.h"
+#include "linux_platform.h"
 
 #define ADRV_ADDRESS(port, chan)	((port) << 8 | (chan))
 #define ADRV_ADDRESS_PORT(addr)		((addr) >> 8)
@@ -151,7 +151,7 @@ struct adrv9002_rf_phy {
 	struct adrv9002_gpio 		*adrv9002_gpios;
 	struct adi_adrv9001_Device	adrv9001_device;
 	struct adi_adrv9001_Device	*adrv9001;
-	struct adi_hal_Cfg		hal;
+	struct adrv9002_hal_cfg		hal;
 	struct adi_adrv9001_Init	*curr_profile;
 	struct adi_adrv9001_Init	profile;
 	struct adi_adrv9001_InitCals	init_cals;
