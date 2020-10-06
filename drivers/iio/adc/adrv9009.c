@@ -1416,6 +1416,8 @@ static void adrv9009_shutdown(struct adrv9009_rf_phy *phy)
 			clk_disable_unprepare(phy->jesd_tx_clk);
 	}
 
+	phy->is_initialized = 0;
+
 	memset(&phy->talise_device.devStateInfo, 0,
 	       sizeof(phy->talise_device.devStateInfo));
 }
@@ -1436,6 +1438,11 @@ static ssize_t adrv9009_phy_store(struct device *dev,
 
 	switch ((u32)this_attr->address & 0xFF) {
 	case ADRV9009_ENSM_MODE:
+		if (!phy->is_initialized) {
+			mutex_unlock(&indio_dev->mlock);
+			return -EBUSY;
+		}
+
 		if (sysfs_streq(buf, "radio_on"))
 			val = RADIO_ON;
 		else if (sysfs_streq(buf, "radio_off"))
@@ -1446,6 +1453,11 @@ static ssize_t adrv9009_phy_store(struct device *dev,
 		ret = adrv9009_set_radio_state(phy, val);
 		break;
 	case ADRV9009_INIT_CAL:
+		if (!phy->is_initialized) {
+			mutex_unlock(&indio_dev->mlock);
+			return -EBUSY;
+		}
+
 		ret = strtobool(buf, &enable);
 		if (ret)
 			break;
@@ -1760,6 +1772,9 @@ static ssize_t adrv9009_phy_lo_write(struct iio_dev *indio_dev,
 	bool enable;
 	int ret = 0;
 
+	if (!phy->is_initialized)
+		return -EBUSY;
+
 	switch (private) {
 	case LOEXT_FREQ:
 
@@ -1849,6 +1864,9 @@ static ssize_t adrv9009_phy_lo_read(struct iio_dev *indio_dev,
 	u64 val;
 	int ret;
 
+	if (!phy->is_initialized)
+		return -EBUSY;
+
 	mutex_lock(&indio_dev->mlock);
 	switch (private) {
 	case LOEXT_FREQ:
@@ -1905,6 +1923,9 @@ static int adrv9009_set_agc_mode(struct iio_dev *indio_dev,
 	unsigned val;
 	int ret;
 
+	if (!phy->is_initialized)
+		return -EBUSY;
+
 	switch (mode) {
 	case 0:
 		val = TAL_MGC;
@@ -1956,6 +1977,9 @@ static int adrv9009_set_obs_rx_path(struct iio_dev *indio_dev,
 	struct adrv9009_rf_phy *phy = iio_priv(indio_dev);
 	int ret;
 
+	if (!phy->is_initialized)
+		return -EBUSY;
+
 	ret = TALISE_setOrxLoSource(phy->talDevice, adrv9009_obs_rx_port_lut[mode]);
 	if (!ret)
 		phy->obs_rx_path_source = mode;
@@ -1990,6 +2014,9 @@ static ssize_t adrv9009_phy_rx_write(struct iio_dev *indio_dev,
 	bool enable;
 	int ret = 0;
 	u32 mask;
+
+	if (!phy->is_initialized)
+		return -EBUSY;
 
 	ret = strtobool(buf, &enable);
 	if (ret)
@@ -2144,6 +2171,9 @@ static ssize_t adrv9009_phy_rx_read(struct iio_dev *indio_dev,
 	int ret = 0;
 	u16 dec_pwr_mdb;
 	u32 mask;
+
+	if (!phy->is_initialized)
+		return -EBUSY;
 
 	mutex_lock(&indio_dev->mlock);
 
@@ -2306,6 +2336,9 @@ static ssize_t adrv9009_phy_tx_read(struct iio_dev *indio_dev,
 	u32 mask;
 	int val, ret = 0;
 
+	if (!phy->is_initialized)
+		return -EBUSY;
+
 	if (chan->channel > CHAN_TX2)
 		return -EINVAL;
 
@@ -2384,6 +2417,9 @@ static ssize_t adrv9009_phy_tx_write(struct iio_dev *indio_dev,
 	bool enable;
 	int ret = 0;
 	u32 mask;
+
+	if (!phy->is_initialized)
+		return -EBUSY;
 
 	if (chan->channel > CHAN_TX2)
 		return -EINVAL;
@@ -2723,6 +2759,8 @@ static int adrv9009_phy_read_raw(struct iio_dev *indio_dev,
 	u16 temp;
 	int ret;
 
+	if (!phy->is_initialized)
+		return -EBUSY;
 
 	mutex_lock(&indio_dev->mlock);
 	switch (m) {
@@ -2884,6 +2922,9 @@ static int adrv9009_phy_write_raw(struct iio_dev *indio_dev,
 	struct adrv9009_rf_phy *phy = iio_priv(indio_dev);
 	u32 code;
 	int ret = 0;
+
+	if (!phy->is_initialized)
+		return -EBUSY;
 
 	mutex_lock(&indio_dev->mlock);
 	switch (mask) {
@@ -5060,6 +5101,9 @@ adrv9009_gt_bin_write(struct file *filp, struct kobject *kobj,
 	struct gain_table_info *table;
 	int ret;
 
+	if (!phy->is_initialized)
+		return -EBUSY;
+
 	if (off == 0) {
 		if (phy->bin_gt_attr_buf == NULL) {
 			phy->bin_gt_attr_buf = devm_kzalloc(&phy->spi->dev,
@@ -5870,8 +5914,10 @@ static int adrv9009_jesd204_post_running_stage(struct jesd204_dev *jdev,
 
 	u32 trackingCalMask = phy->tracking_cal_mask =  TAL_TRACK_NONE;
 
-	if (reason != JESD204_STATE_OP_REASON_INIT)
+	if (reason != JESD204_STATE_OP_REASON_INIT) {
+		phy->is_initialized = 0;
 		return JESD204_STATE_CHANGE_DONE;
+	}
 
 	dev_dbg(dev, "%s:%d reason %s\n", __func__, __LINE__, jesd204_state_op_reason_str(reason));
 
