@@ -23,11 +23,11 @@ extern "C" {
 
 /**
  * \brief Load and write the ADRV9001 ARM binary image one page at a time
- * 
+ *
  * Loads each ADI_ADRV9001_ARM_BINARY_IMAGE_LOAD_CHUNK_SIZE_BYTES sized page using adi_hal_ArmImagePageGet and writes
  * it using adi_adrv9001_arm_Image_Write.
- * 
- * \note A large ADI_ADRV9001_ARM_BINARY_IMAGE_LOAD_CHUNK_SIZE_BYTES could cause the stack to crash. Please optimize 
+ *
+ * \note A large ADI_ADRV9001_ARM_BINARY_IMAGE_LOAD_CHUNK_SIZE_BYTES could cause the stack to crash. Please optimize
  * the chunk size in accordance with the stack space available
  *
  * \note Message type: \ref timing_direct "Direct register acccess"
@@ -41,10 +41,10 @@ int32_t adi_adrv9001_Utilities_ArmImage_Load(adi_adrv9001_Device_t *adrv9001, co
 
 /**
  * \brief Load and write the ADRV9001 stream binary image one page at a time
- * 
+ *
  * Loads each ADI_ADRV9001_STREAM_BINARY_IMAGE_LOAD_CHUNK_SIZE_BYTES sized page using adi_hal_StreamImagePageGet and
  * writes it using adi_adrv9001_Stream_Image_Write.
- * 
+ *
  * \note A large ADI_ADRV9001_STREAM_BINARY_IMAGE_LOAD_CHUNK_SIZE_BYTES could cause the stack to crash. Please optimize
  * the chunk size in accordance with the stack space available.
  *
@@ -60,7 +60,7 @@ int32_t adi_adrv9001_Utilities_StreamImage_Load(adi_adrv9001_Device_t *adrv9001,
 /**
  * \brief Load and write the ADRV9001 Rx gain table
  *
- * Loads each Rx gain table entry using adi_hal_RxGainTableEntryGet and writes the table to ADRV9001 SRAM using 
+ * Loads each Rx gain table entry using adi_hal_RxGainTableEntryGet and writes the table to ADRV9001 SRAM using
  * adi_adrv9001_Rx_GainTable_Write
  *
  * \note Message type: \ref timing_direct "Direct register acccess"
@@ -78,7 +78,7 @@ int32_t adi_adrv9001_Utilities_RxGainTable_Load(adi_adrv9001_Device_t *adrv9001,
 
 /**
  * \brief Load and write the ADRV9001 Tx attenuation table
- * 
+ *
  * Loads each Tx attenuation table entry using adi_hal_TxAttenTableEntryGet and writes the table to ADRV9001 SRAM using
  * adi_adrv9001_Tx_AttenuationTable_Write
  *
@@ -94,6 +94,10 @@ int32_t adi_adrv9001_Utilities_RxGainTable_Load(adi_adrv9001_Device_t *adrv9001,
 int32_t adi_adrv9001_Utilities_TxAttenTable_Load(adi_adrv9001_Device_t *adrv9001,
                                                  const char *txAttenTablePath,
                                                  uint32_t txChannelMask);
+
+int32_t adi_adrv9001_Utilities_DeviceProfile_Parse(adi_adrv9001_Device_t *device,
+						   adi_adrv9001_Init_t *init, char * jsonBuffer,
+						   uint32_t length);
 
 #ifdef __cplusplus
 }
