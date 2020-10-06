@@ -220,6 +220,7 @@ enum adrv9009_iio_dev_attr {
 	ADRV9009_JESD204_FSM_PAUSED,
 	ADRV9009_JESD204_FSM_STATE,
 	ADRV9009_JESD204_FSM_RESUME,
+	ADRV9009_JESD204_FSM_CTRL,
 };
 
 int adrv9009_spi_read(struct spi_device *spi, unsigned reg)
@@ -1508,6 +1509,22 @@ static ssize_t adrv9009_phy_store(struct device *dev,
 	case ADRV9009_JESD204_FSM_RESUME:
 		ret = jesd204_fsm_resume(phy->jdev, JESD204_LINKS_ALL);
 		break;
+	case ADRV9009_JESD204_FSM_CTRL:
+		ret = strtobool(buf, &enable);
+		if (ret)
+			break;
+
+		if (enable) {
+			jesd204_fsm_stop(phy->jdev, JESD204_LINKS_ALL);
+			jesd204_fsm_clear_errors(phy->jdev, JESD204_LINKS_ALL);
+			ret = jesd204_fsm_start(phy->jdev, JESD204_LINKS_ALL);
+		} else {
+			jesd204_fsm_stop(phy->jdev, JESD204_LINKS_ALL);
+			jesd204_fsm_clear_errors(phy->jdev, JESD204_LINKS_ALL);
+			ret = 0;
+		}
+
+		break;
 	default:
 		ret = -EINVAL;
 	}
@@ -1599,6 +1616,9 @@ static ssize_t adrv9009_phy_show(struct device *dev,
 		 */
 		ret = sprintf(buf, "%s\n", jesd204_link_get_state_str(links[0]));
 		break;
+	case ADRV9009_JESD204_FSM_CTRL:
+		ret = sprintf(buf, "%d\n", phy->is_initialized);
+		break;
 	default:
 		ret = -EINVAL;
 	}
@@ -1682,6 +1702,11 @@ static IIO_DEVICE_ATTR(jesd204_fsm_resume, S_IWUSR,
 		       adrv9009_phy_store,
 		       ADRV9009_JESD204_FSM_RESUME);
 
+static IIO_DEVICE_ATTR(jesd204_fsm_ctrl, S_IWUSR | S_IRUGO,
+		       adrv9009_phy_show,
+		       adrv9009_phy_store,
+		       ADRV9009_JESD204_FSM_CTRL);
+
 static struct attribute *adrv9009_phy_attributes[] = {
 	&iio_dev_attr_ensm_mode.dev_attr.attr,
 	&iio_dev_attr_ensm_mode_available.dev_attr.attr,
@@ -1689,6 +1714,7 @@ static struct attribute *adrv9009_phy_attributes[] = {
 	&iio_dev_attr_jesd204_fsm_state.dev_attr.attr,
 	&iio_dev_attr_jesd204_fsm_paused.dev_attr.attr,
 	&iio_dev_attr_jesd204_fsm_resume.dev_attr.attr,
+	&iio_dev_attr_jesd204_fsm_ctrl.dev_attr.attr,
 	&iio_dev_attr_multichip_sync.dev_attr.attr,
 	&iio_dev_attr_calibrate.dev_attr.attr,
 	&iio_dev_attr_calibrate_rx_qec_en.dev_attr.attr,
