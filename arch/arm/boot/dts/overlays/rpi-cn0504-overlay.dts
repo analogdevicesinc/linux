@@ -28,6 +28,8 @@
 			ltc2945@6f{
 				compatible = "adi,ltc2945";
 				reg = <0x6f>;
+
+				shunt-resistor-micro-ohms = <20000>;
 			};
 		};
 	};
