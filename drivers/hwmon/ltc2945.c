@@ -61,9 +61,11 @@
 /**
  * struct ltc2945_state - driver instance specific data
  * @regmap		regmap object to access device registers
+ * @r_sense_uohm	current sense resistor value
  */
 struct ltc2945_state {
 	struct regmap		*regmap;
+	u32			r_sense_uohm;
 };
 
 static inline bool is_power_reg(u8 reg)
@@ -101,9 +103,8 @@ static long long ltc2945_reg_to_val(struct device *dev, u8 reg)
 	case LTC2945_MAX_POWER_THRES_H:
 	case LTC2945_MIN_POWER_THRES_H:
 		/*
-		 * Convert to uW by assuming current is measured with
-		 * an 1mOhm sense resistor, similar to current
-		 * measurements.
+		 * Convert to uW by and scale it with the configured
+		 * sense resistor, similar to current measurements.
 		 * Control register bit 0 selects if voltage at SENSE+/VDD
 		 * or voltage at ADIN is used to measure power.
 		 */
@@ -112,10 +113,10 @@ static long long ltc2945_reg_to_val(struct device *dev, u8 reg)
 			return ret;
 		if (control & CONTROL_MULT_SELECT) {
 			/* 25 mV * 25 uV = 0.625 uV resolution. */
-			val *= 625LL;
+			val = DIV_ROUND_CLOSEST_ULL(val * 625LL * 1000, st->r_sense_uohm);
 		} else {
 			/* 0.5 mV * 25 uV = 0.0125 uV resolution. */
-			val = (val * 25LL) >> 1;
+			val = DIV_ROUND_CLOSEST_ULL(val * 25LL * 1000, st->r_sense_uohm) >> 1;
 		}
 		break;
 	case LTC2945_VIN_H:
@@ -140,13 +141,10 @@ static long long ltc2945_reg_to_val(struct device *dev, u8 reg)
 	case LTC2945_MAX_SENSE_THRES_H:
 	case LTC2945_MIN_SENSE_THRES_H:
 		/*
-		 * 25 uV resolution. Convert to current as measured with
-		 * an 1 mOhm sense resistor, in mA. If a different sense
-		 * resistor is installed, calculate the actual current by
-		 * dividing the reported current by the sense resistor value
-		 * in mOhm.
+		 * 25 uV resolution. Convert to current and scale it
+		 * with the value of the sense resistor.
 		 */
-		val *= 25;
+		val = DIV_ROUND_CLOSEST_ULL(val * 25 * 1000, st->r_sense_uohm);
 		break;
 	default:
 		return -EINVAL;
@@ -169,9 +167,8 @@ static int ltc2945_val_to_reg(struct device *dev, u8 reg,
 	case LTC2945_MAX_POWER_THRES_H:
 	case LTC2945_MIN_POWER_THRES_H:
 		/*
-		 * Convert to register value by assuming current is measured
-		 * with an 1mOhm sense resistor, similar to current
-		 * measurements.
+		 * Convert to register value, scale it with the configured sense
+		 * resistor value, similar to current measurements.
 		 * Control register bit 0 selects if voltage at SENSE+/VDD
 		 * or voltage at ADIN is used to measure power, which in turn
 		 * determines register calculations.
@@ -181,14 +178,10 @@ static int ltc2945_val_to_reg(struct device *dev, u8 reg,
 			return ret;
 		if (control & CONTROL_MULT_SELECT) {
 			/* 25 mV * 25 uV = 0.625 uV resolution. */
-			val = DIV_ROUND_CLOSEST_ULL(val, 625);
+			val = DIV_ROUND_CLOSEST_ULL(val * 1000, 625 * st->r_sense_uohm);
 		} else {
-			/*
-			 * 0.5 mV * 25 uV = 0.0125 uV resolution.
-			 * Divide first to avoid overflow;
-			 * accept loss of accuracy.
-			 */
-			val = DIV_ROUND_CLOSEST_ULL(val, 25) * 2;
+			/* 0.5 mV * 25 uV = 0.0125 uV resolution. */
+			val = DIV_ROUND_CLOSEST_ULL(val * 2 * 1000, 25 * st->r_sense_uohm);
 		}
 		break;
 	case LTC2945_VIN_H:
@@ -213,13 +206,10 @@ static int ltc2945_val_to_reg(struct device *dev, u8 reg,
 	case LTC2945_MAX_SENSE_THRES_H:
 	case LTC2945_MIN_SENSE_THRES_H:
 		/*
-		 * 25 uV resolution. Convert to current as measured with
-		 * an 1 mOhm sense resistor, in mA. If a different sense
-		 * resistor is installed, calculate the actual current by
-		 * dividing the reported current by the sense resistor value
-		 * in mOhm.
+		 * 25 uV resolution. Convert to current and scale it
+		 * with the value of the sense resistor, in mA.
 		 */
-		val = DIV_ROUND_CLOSEST_ULL(val, 25);
+		val = DIV_ROUND_CLOSEST_ULL(val * 1000, 25 * st->r_sense_uohm);
 		break;
 	default:
 		return -EINVAL;
@@ -474,6 +464,10 @@ static int ltc2945_probe(struct i2c_client *client)
 		dev_err(dev, "failed to allocate register map\n");
 		return PTR_ERR(regmap);
 	}
+
+	if (device_property_read_u32(dev, "shunt-resistor-micro-ohms",
+				     &st->r_sense_uohm))
+		st->r_sense_uohm = 1000;
 
 	st->regmap = regmap;
 
