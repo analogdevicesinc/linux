@@ -8,8 +8,12 @@
 #ifndef _ADI_ADRV9001_CLOCKSETTINGS_TYPES_H_
 #define _ADI_ADRV9001_CLOCKSETTINGS_TYPES_H_
 
+#ifdef __KERNEL__
+#include <linux/types.h>
+#else
 #include <stdint.h>
 #include <stdbool.h>
+#endif
 
 /**
  *  \brief Enum of possible ADRV9001 HS divider settings
