@@ -1182,13 +1182,15 @@ static int ad9467_probe(struct spi_device *spi)
 	if (IS_ERR(st->clk))
 		return PTR_ERR(st->clk);
 
-	ret = clk_prepare_enable(st->clk);
-	if (ret < 0)
-		return ret;
+	if (info->id != CHIPID_AD9625) {
+		ret = clk_prepare_enable(st->clk);
+		if (ret < 0)
+			return ret;
 
-	ret = devm_add_action_or_reset(&spi->dev, ad9467_clk_disable, st);
-	if (ret)
-		return ret;
+		ret = devm_add_action_or_reset(&spi->dev, ad9467_clk_disable, st);
+		if (ret)
+			return ret;
+	}
 
 	conv->adc_clkscale.mult = 1;
 	conv->adc_clkscale.div = 1;
