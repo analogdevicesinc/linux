@@ -112,6 +112,7 @@
 
 &axi_ad9152_adxcvr {
 	clocks = <&clk0_ad9528 4>, <&clk0_ad9528 6>;
+	adi,vco1-max-khz = <12333340>;
 };
 
 
