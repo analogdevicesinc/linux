@@ -31,6 +31,8 @@
 #include "adi_common_types.h"
 #include "adi_adrv9001_gpio.h"
 #include "adi_adrv9001_gpio_types.h"
+#include "adi_adrv9001_powermanagement.h"
+#include "adi_adrv9001_powermanagement_types.h"
 #include "adi_adrv9001_profile_types.h"
 #include "adi_adrv9001_radio.h"
 #include "adi_adrv9001_radio_types.h"
@@ -41,6 +43,7 @@
 #include "adi_adrv9001_rxSettings_types.h"
 #include "adi_adrv9001_ssi.h"
 #include "adi_adrv9001_ssi_types.h"
+#include "adi_adrv9001_stream.h"
 #include "adi_adrv9001_types.h"
 #include "adi_adrv9001_tx.h"
 #include "adi_adrv9001_tx_types.h"
@@ -61,10 +64,10 @@
 #define ADRV9002_RX_EN(nr)	BIT(((nr) * 2) & 0x3)
 #define ADRV9002_TX_EN(nr)	BIT(((nr) * 2 + 1) & 0x3)
 
-#define ADRV9002_RX_MAX_GAIN_mdB	36000
+#define ADRV9002_RX_MAX_GAIN_mdB	30000
 #define ADRV9002_RX_GAIN_STEP_mDB	500
-#define ADRV9002_RX_MIN_GAIN_IDX	183
-#define ADRV9002_RX_MAX_GAIN_IDX	255
+#define ADRV9002_RX_MIN_GAIN_IDX	ADI_ADRV9001_RX_GAIN_INDEX_MIN
+#define ADRV9002_RX_MAX_GAIN_IDX	ADI_ADRV9001_RX_GAIN_INDEX_MAX
 
 /* IRQ Masks */
 #define ADRV9002_GP_MASK_RX_DP_RECEIVE_ERROR		0x08000000
@@ -2074,27 +2077,281 @@ static int adrv9002_compute_init_cals(struct adrv9002_rf_phy *phy)
 	return 0;
 }
 
+static int adrv9002_digital_init(struct adrv9002_rf_phy *phy)
+{
+	int ret;
+	u8 mask = 0;
+	const u32 valid_profiles = phy->adrv9001->devStateInfo.profilesValid;
+	const u32 channels = phy->adrv9001->devStateInfo.initializedChannels;
+
+	ret = adi_adrv9001_arm_AhbSpiBridge_Enable(phy->adrv9001);
+	if (ret)
+		return adrv9002_dev_err(phy);
+
+	/* program stream */
+	ret = adi_adrv9001_Utilities_StreamImage_Load(phy->adrv9001, "Navassa_Stream.bin");
+	if (ret)
+		return adrv9002_dev_err(phy);
+
+	/* program arm firmware */
+	ret = adi_adrv9001_Utilities_ArmImage_Load(phy->adrv9001, "Navassa_EvaluationFw.bin");
+	if (ret)
+		return adrv9002_dev_err(phy);
+
+	ret = adi_adrv9001_arm_Profile_Write(phy->adrv9001, phy->curr_profile);
+	if (ret)
+		return adrv9002_dev_err(phy);
+
+	ret = adi_adrv9001_arm_PfirProfiles_Write(phy->adrv9001, phy->curr_profile);
+	if (ret)
+		return adrv9002_dev_err(phy);
+
+	/* Load gain tables */
+	if ((ADRV9001_BF_EQUAL(valid_profiles, ADI_ADRV9001_ORX_PROFILE_VALID)) ||
+	    (ADRV9001_BF_EQUAL(valid_profiles, ADI_ADRV9001_TX_PROFILE_VALID))) {
+		mask |= ADRV9001_BF_EQUAL(channels, ADI_ADRV9001_ORX1) ? ADI_CHANNEL_1 : 0;
+		mask |= ADRV9001_BF_EQUAL(channels, ADI_ADRV9001_ORX2) ? ADI_CHANNEL_2 : 0;
+		mask |= ADRV9001_BF_EQUAL(channels, ADI_ADRV9001_TX1) ? ADI_CHANNEL_1 : 0;
+		mask |= ADRV9001_BF_EQUAL(channels, ADI_ADRV9001_TX2) ? ADI_CHANNEL_2 : 0;
+
+		ret = adi_adrv9001_Utilities_RxGainTable_Load(phy->adrv9001, "ORxGainTable.csv",
+							      mask);
+		if (ret)
+			return adrv9002_dev_err(phy);
+	}
+
+	if ((ADRV9001_BF_EQUAL(valid_profiles, ADI_ADRV9001_RX_PROFILE_VALID)) ||
+	    (ADRV9001_BF_EQUAL(valid_profiles, ADI_ADRV9001_TX_PROFILE_VALID))) {
+		mask = 0;
+		mask |= ADRV9001_BF_EQUAL(channels, ADI_ADRV9001_RX1) ? ADI_CHANNEL_1 : 0;
+		mask |= ADRV9001_BF_EQUAL(channels, ADI_ADRV9001_RX2) ? ADI_CHANNEL_2 : 0;
+		mask |= ADRV9001_BF_EQUAL(channels, ADI_ADRV9001_TX1) ? ADI_CHANNEL_1 : 0;
+		mask |= ADRV9001_BF_EQUAL(channels, ADI_ADRV9001_TX2) ? ADI_CHANNEL_2 : 0;
+
+		ret = adi_adrv9001_Utilities_RxGainTable_Load(phy->adrv9001, "RxGainTable.csv",
+							      mask);
+		if (ret)
+			return adrv9002_dev_err(phy);
+	}
+
+	if (ADRV9001_BF_EQUAL(valid_profiles, ADI_ADRV9001_TX_PROFILE_VALID)) {
+		mask = 0;
+		mask |= ADRV9001_BF_EQUAL(channels, ADI_ADRV9001_TX1) ? ADI_CHANNEL_1 : 0;
+		mask |= ADRV9001_BF_EQUAL(channels, ADI_ADRV9001_TX2) ? ADI_CHANNEL_2 : 0;
+
+		ret = adi_adrv9001_Utilities_TxAttenTable_Load(phy->adrv9001, "TxAttenTable.csv",
+							       mask);
+		if (ret)
+			return adrv9002_dev_err(phy);
+	}
+
+	ret = adi_adrv9001_arm_Start(phy->adrv9001);
+	if (ret)
+		return adrv9002_dev_err(phy);
+
+	ret = adi_adrv9001_arm_StartStatus_Check(phy->adrv9001, 5000000);
+	if (ret)
+		return adrv9002_dev_err(phy);
+
+	return 0;
+}
+
+static int adrv9002_power_mgmt_config(struct adrv9002_rf_phy *phy)
+{
+	int ret;
+	struct adi_adrv9001_PowerManagementSettings power_mgmt = {
+		.ldoPowerSavingModes = { ADI_ADRV9001_LDO_POWER_SAVING_MODE_1,
+					 ADI_ADRV9001_LDO_POWER_SAVING_MODE_1,
+					 ADI_ADRV9001_LDO_POWER_SAVING_MODE_1,
+					 ADI_ADRV9001_LDO_POWER_SAVING_MODE_1,
+					 ADI_ADRV9001_LDO_POWER_SAVING_MODE_1,
+					 ADI_ADRV9001_LDO_POWER_SAVING_MODE_1,
+					 ADI_ADRV9001_LDO_POWER_SAVING_MODE_1,
+					 ADI_ADRV9001_LDO_POWER_SAVING_MODE_1,
+					 ADI_ADRV9001_LDO_POWER_SAVING_MODE_1,
+					 ADI_ADRV9001_LDO_POWER_SAVING_MODE_1,
+					 ADI_ADRV9001_LDO_POWER_SAVING_MODE_1,
+					 ADI_ADRV9001_LDO_POWER_SAVING_MODE_1,
+					 ADI_ADRV9001_LDO_POWER_SAVING_MODE_1,
+					 ADI_ADRV9001_LDO_POWER_SAVING_MODE_1,
+					 ADI_ADRV9001_LDO_POWER_SAVING_MODE_1,
+					 ADI_ADRV9001_LDO_POWER_SAVING_MODE_1,
+					 ADI_ADRV9001_LDO_POWER_SAVING_MODE_1,
+					 ADI_ADRV9001_LDO_POWER_SAVING_MODE_1,
+					 ADI_ADRV9001_LDO_POWER_SAVING_MODE_1 },
+		.ldoConfigs = {
+			{
+				.shuntResistanceOff = ADI_ADRV9001_LDO_SHUNT_RESISTANCE_333_OHM,
+				.diffPairBiasOff = ADI_ADRV9001_LDO_DIFFERENTIAL_PAIR_BIAS_100_PERCENT,
+				.shuntResistancePowerSave = ADI_ADRV9001_LDO_SHUNT_RESISTANCE_333_OHM,
+				.diffPairBiasPowerSave = ADI_ADRV9001_LDO_DIFFERENTIAL_PAIR_BIAS_100_PERCENT,
+				.shuntResistanceNormal = ADI_ADRV9001_LDO_SHUNT_RESISTANCE_333_OHM,
+				.diffPairBiasNormal = ADI_ADRV9001_LDO_DIFFERENTIAL_PAIR_BIAS_100_PERCENT
+			},
+			{
+				.shuntResistanceOff = ADI_ADRV9001_LDO_SHUNT_RESISTANCE_333_OHM,
+				.diffPairBiasOff = ADI_ADRV9001_LDO_DIFFERENTIAL_PAIR_BIAS_100_PERCENT,
+				.shuntResistancePowerSave = ADI_ADRV9001_LDO_SHUNT_RESISTANCE_333_OHM,
+				.diffPairBiasPowerSave = ADI_ADRV9001_LDO_DIFFERENTIAL_PAIR_BIAS_100_PERCENT,
+				.shuntResistanceNormal = ADI_ADRV9001_LDO_SHUNT_RESISTANCE_333_OHM,
+				.diffPairBiasNormal = ADI_ADRV9001_LDO_DIFFERENTIAL_PAIR_BIAS_100_PERCENT
+			},
+			{
+				.shuntResistanceOff = ADI_ADRV9001_LDO_SHUNT_RESISTANCE_333_OHM,
+				.diffPairBiasOff = ADI_ADRV9001_LDO_DIFFERENTIAL_PAIR_BIAS_100_PERCENT,
+				.shuntResistancePowerSave = ADI_ADRV9001_LDO_SHUNT_RESISTANCE_333_OHM,
+				.diffPairBiasPowerSave = ADI_ADRV9001_LDO_DIFFERENTIAL_PAIR_BIAS_100_PERCENT,
+				.shuntResistanceNormal = ADI_ADRV9001_LDO_SHUNT_RESISTANCE_333_OHM,
+				.diffPairBiasNormal = ADI_ADRV9001_LDO_DIFFERENTIAL_PAIR_BIAS_100_PERCENT
+			},
+			{
+				.shuntResistanceOff = ADI_ADRV9001_LDO_SHUNT_RESISTANCE_333_OHM,
+				.diffPairBiasOff = ADI_ADRV9001_LDO_DIFFERENTIAL_PAIR_BIAS_100_PERCENT,
+				.shuntResistancePowerSave = ADI_ADRV9001_LDO_SHUNT_RESISTANCE_333_OHM,
+				.diffPairBiasPowerSave = ADI_ADRV9001_LDO_DIFFERENTIAL_PAIR_BIAS_100_PERCENT,
+				.shuntResistanceNormal = ADI_ADRV9001_LDO_SHUNT_RESISTANCE_333_OHM,
+				.diffPairBiasNormal = ADI_ADRV9001_LDO_DIFFERENTIAL_PAIR_BIAS_100_PERCENT
+			},
+			{
+				.shuntResistanceOff = ADI_ADRV9001_LDO_SHUNT_RESISTANCE_333_OHM,
+				.diffPairBiasOff = ADI_ADRV9001_LDO_DIFFERENTIAL_PAIR_BIAS_100_PERCENT,
+				.shuntResistancePowerSave = ADI_ADRV9001_LDO_SHUNT_RESISTANCE_333_OHM,
+				.diffPairBiasPowerSave = ADI_ADRV9001_LDO_DIFFERENTIAL_PAIR_BIAS_100_PERCENT,
+				.shuntResistanceNormal = ADI_ADRV9001_LDO_SHUNT_RESISTANCE_333_OHM,
+				.diffPairBiasNormal = ADI_ADRV9001_LDO_DIFFERENTIAL_PAIR_BIAS_100_PERCENT
+			},
+			{
+				.shuntResistanceOff = ADI_ADRV9001_LDO_SHUNT_RESISTANCE_333_OHM,
+				.diffPairBiasOff = ADI_ADRV9001_LDO_DIFFERENTIAL_PAIR_BIAS_100_PERCENT,
+				.shuntResistancePowerSave = ADI_ADRV9001_LDO_SHUNT_RESISTANCE_333_OHM,
+				.diffPairBiasPowerSave = ADI_ADRV9001_LDO_DIFFERENTIAL_PAIR_BIAS_100_PERCENT,
+				.shuntResistanceNormal = ADI_ADRV9001_LDO_SHUNT_RESISTANCE_333_OHM,
+				.diffPairBiasNormal = ADI_ADRV9001_LDO_DIFFERENTIAL_PAIR_BIAS_100_PERCENT
+			},
+			{
+				.shuntResistanceOff = ADI_ADRV9001_LDO_SHUNT_RESISTANCE_333_OHM,
+				.diffPairBiasOff = ADI_ADRV9001_LDO_DIFFERENTIAL_PAIR_BIAS_100_PERCENT,
+				.shuntResistancePowerSave = ADI_ADRV9001_LDO_SHUNT_RESISTANCE_333_OHM,
+				.diffPairBiasPowerSave = ADI_ADRV9001_LDO_DIFFERENTIAL_PAIR_BIAS_100_PERCENT,
+				.shuntResistanceNormal = ADI_ADRV9001_LDO_SHUNT_RESISTANCE_333_OHM,
+				.diffPairBiasNormal = ADI_ADRV9001_LDO_DIFFERENTIAL_PAIR_BIAS_100_PERCENT
+			},
+			{
+				.shuntResistanceOff = ADI_ADRV9001_LDO_SHUNT_RESISTANCE_333_OHM,
+				.diffPairBiasOff = ADI_ADRV9001_LDO_DIFFERENTIAL_PAIR_BIAS_100_PERCENT,
+				.shuntResistancePowerSave = ADI_ADRV9001_LDO_SHUNT_RESISTANCE_333_OHM,
+				.diffPairBiasPowerSave = ADI_ADRV9001_LDO_DIFFERENTIAL_PAIR_BIAS_100_PERCENT,
+				.shuntResistanceNormal = ADI_ADRV9001_LDO_SHUNT_RESISTANCE_333_OHM,
+				.diffPairBiasNormal = ADI_ADRV9001_LDO_DIFFERENTIAL_PAIR_BIAS_100_PERCENT
+			},
+			{
+				.shuntResistanceOff = ADI_ADRV9001_LDO_SHUNT_RESISTANCE_333_OHM,
+				.diffPairBiasOff = ADI_ADRV9001_LDO_DIFFERENTIAL_PAIR_BIAS_100_PERCENT,
+				.shuntResistancePowerSave = ADI_ADRV9001_LDO_SHUNT_RESISTANCE_333_OHM,
+				.diffPairBiasPowerSave = ADI_ADRV9001_LDO_DIFFERENTIAL_PAIR_BIAS_100_PERCENT,
+				.shuntResistanceNormal = ADI_ADRV9001_LDO_SHUNT_RESISTANCE_333_OHM,
+				.diffPairBiasNormal = ADI_ADRV9001_LDO_DIFFERENTIAL_PAIR_BIAS_100_PERCENT
+			}
+		}
+	};
+
+	ret = adi_adrv9001_powermanagement_Configure(phy->adrv9001, &power_mgmt);
+	if (ret)
+		return adrv9002_dev_err(phy);
+
+	return 0;
+}
+
+/*
+ * All of these structures are taken from TES when exporting the default profile to C code. Consider
+ * about having all of these configurable through devicetree.
+ */
+static int adrv9002_radio_init(struct adrv9002_rf_phy *phy)
+{
+	int ret;
+	int chan;
+	u8 channel_mask = (phy->curr_profile->tx.txInitChannelMask |
+			   phy->curr_profile->rx.rxInitChannelMask) & 0xFF;
+	struct adi_adrv9001_PllLoopFilterCfg pll_loop_filter = {
+		.effectiveLoopBandwidth_kHz = 0,
+		.loopBandwidth_kHz = 300,
+		.phaseMargin_degrees = 60,
+		.powerScale = 5
+	};
+	struct adi_adrv9001_arm_MonitorModeRssiCfg monitor_rssi_cfg = {
+		.numberOfMeasurementsToAverage = 4,
+		.measurementsStartPeriod_ms = 1,
+		.detectionThreshold_mdBFS = -80000,
+		.measurementDuration_samples = 10
+	};
+	struct adi_adrv9001_Carrier carrier = {
+		.pllCalibration = ADI_ADRV9001_PLL_CALIBRATION_NORMAL,
+		.loGenOptimization = ADI_ADRV9001_LO_GEN_OPTIMIZATION_PHASE_NOISE,
+		.pllPower = ADI_ADRV9001_PLL_POWER_LOW,
+		.intermediateFrequency_Hz = 0
+	};
+
+	ret = adi_adrv9001_Radio_PllLoopFilter_Set(phy->adrv9001, ADI_ADRV9001_PLL_LO1, &pll_loop_filter);
+	if (ret)
+		return adrv9002_dev_err(phy);
+
+	ret = adi_adrv9001_Radio_PllLoopFilter_Set(phy->adrv9001, ADI_ADRV9001_PLL_LO2, &pll_loop_filter);
+	if (ret)
+		return adrv9002_dev_err(phy);
+
+	ret = adi_adrv9001_Radio_PllLoopFilter_Set(phy->adrv9001, ADI_ADRV9001_PLL_AUX, &pll_loop_filter);
+	if (ret)
+		return adrv9002_dev_err(phy);
+
+	ret = adi_adrv9001_arm_MonitorMode_Rssi_Configure(phy->adrv9001, &monitor_rssi_cfg);
+	if (ret)
+		return adrv9002_dev_err(phy);
+
+	for (chan = 0; chan < ADRV9002_CHANN_MAX; chan++) {
+		struct adrv9002_chan *tx = &phy->tx_channels[chan].channel;
+		struct adrv9002_chan *rx = &phy->rx_channels[chan].channel;
+
+		if (!rx->enabled)
+			goto tx;
+
+		carrier.carrierFrequency_Hz = 2400000000ULL;
+		ret = adi_adrv9001_Radio_Carrier_Configure(phy->adrv9001, ADI_RX, rx->number,
+							   &carrier);
+		if (ret)
+			return adrv9002_dev_err(phy);
+
+tx:
+		if (!tx->enabled)
+			continue;
+
+		carrier.carrierFrequency_Hz = 2450000000ULL;
+		ret = adi_adrv9001_Radio_Carrier_Configure(phy->adrv9001, ADI_TX, tx->number,
+							   &carrier);
+		if (ret)
+			return adrv9002_dev_err(phy);
+	}
+
+	ret = adrv9002_power_mgmt_config(phy);
+	if (ret)
+		return ret;
+
+	ret = adi_adrv9001_arm_System_Program(phy->adrv9001, channel_mask);
+	if (ret)
+		return adrv9002_dev_err(phy);
+
+	return 0;
+}
+
 static int adrv9002_setup(struct adrv9002_rf_phy *phy,
 			  adi_adrv9001_Init_t *adrv9002_init)
 {
 	struct adi_adrv9001_Device *adrv9001_device = phy->adrv9001;
-	struct adi_adrv9001_RadioCtrlInit *adrv9002_radio_init =
-						adrv9002_radio_ctrl_init_get();
-	struct adi_adrv9001_ResourceCfg adrv9001_resource_cfg = {
-		adrv9002_init,
-		adrv9002_radio_init,
-		adrv9002_platform_files_get()
-	};
 	u8 init_cals_error = 0;
-	u8 channel_mask = 0;
 	int ret;
 	adi_adrv9001_gpMaskArray_t gp_mask;
 	adi_adrv9001_ChannelState_e init_state;
 
 	phy->curr_profile = adrv9002_init;
-
-	channel_mask = adrv9002_init->tx.txInitChannelMask |
-		(adrv9002_init->rx.rxInitChannelMask & ALL_RX_CHANNEL_MASK);
 
 	/* in TDD we cannot start with all ports enabled as RX/TX cannot be on at the same time */
 	if (phy->curr_profile->sysConfig.duplexMode == ADI_ADRV9001_TDD_MODE)
@@ -2112,28 +2369,25 @@ static int adrv9002_setup(struct adrv9002_rf_phy *phy,
 	if (ret)
 		return adrv9002_dev_err(phy);
 
-	adrv9002_set_loglevel(&adrv9001_device->common, ADI_HAL_LOG_ERR);
+	adrv9002_log_enable(&adrv9001_device->common);
 
 	ret = adi_adrv9001_InitAnalog(adrv9001_device, adrv9002_init,
-			adrv9002_radio_init->adrv9001DeviceClockOutputDivisor);
+				      ADI_ADRV9001_DEVICECLOCKDIVISOR_2);
 	if (ret)
 		return adrv9002_dev_err(phy);
 
-	/* needs to be done before loading the ARM image */
-	ret = adrv9002_tx_set_dac_full_scale(phy);
+	ret = adrv9002_digital_init(phy);
 	if (ret)
 		return ret;
 
-	ret = adi_adrv9001_Utilities_Resources_Load(adrv9001_device,
-						    &adrv9001_resource_cfg);
+	ret = adrv9002_radio_init(phy);
 	if (ret)
-		return adrv9002_dev_err(phy);
+		return ret;
 
-	ret = adi_adrv9001_Utilities_InitRadio_Load(adrv9001_device,
-						    &adrv9001_resource_cfg,
-						    channel_mask);
+	/* should be done before init calibrations */
+	ret = adrv9002_tx_set_dac_full_scale(phy);
 	if (ret)
-		return adrv9002_dev_err(phy);
+		return ret;
 
 	ret = adi_adrv9001_cals_InitCals_Run(adrv9001_device, &phy->init_cals,
 					     60000, &init_cals_error);
@@ -2539,8 +2793,8 @@ static int adrv9002_rx_agc_config_show(struct seq_file *s, void *ignored)
 	adrv9002_agc_seq_printf(power.overRangeLowPowerThresh);
 	adrv9002_agc_seq_printf(power.overRangeHighPowerGainStepAttack);
 	adrv9002_agc_seq_printf(power.overRangeLowPowerGainStepAttack);
-	adrv9002_agc_seq_printf(power.feedback_lowThreshold_gainChange);
-	adrv9002_agc_seq_printf(power.feedback_high_threshold_exceeded);
+	adrv9002_agc_seq_printf(power.feedback_inner_high_inner_low);
+	adrv9002_agc_seq_printf(power.feedback_apd_high_apd_low);
 	/* peak parameters */
 	adrv9002_agc_seq_printf(peak.agcUnderRangeLowInterval);
 	adrv9002_agc_seq_printf(peak.agcUnderRangeMidInterval);
@@ -2567,8 +2821,8 @@ static int adrv9002_rx_agc_config_show(struct seq_file *s, void *ignored)
 	adrv9002_agc_seq_printf(peak.hbOverloadPowerMode);
 	adrv9002_agc_seq_printf(peak.hbUnderRangeMidThreshExceededCount);
 	adrv9002_agc_seq_printf(peak.hbUnderRangeLowThreshExceededCount);
-	adrv9002_agc_seq_printf(peak.feedback_low_threshold_counter_exceeded);
-	adrv9002_agc_seq_printf(peak.feedback_high_threshold_counter_exceeded);
+	adrv9002_agc_seq_printf(peak.feedback_apd_low_hb_low);
+	adrv9002_agc_seq_printf(peak.feedback_apd_high_hb_high);
 
 	return 0;
 }
@@ -2656,8 +2910,8 @@ void adrv9002_debugfs_agc_config_create(struct adrv9002_rx_chan *rx, struct dent
 	adrv9002_agc_add_file_u8(power.overRangeLowPowerThresh);
 	adrv9002_agc_add_file_u8(power.overRangeHighPowerGainStepAttack);
 	adrv9002_agc_add_file_u8(power.overRangeLowPowerGainStepAttack);
-	adrv9002_agc_add_file_u8(power.feedback_lowThreshold_gainChange);
-	adrv9002_agc_add_file_u8(power.feedback_high_threshold_exceeded);
+	adrv9002_agc_add_file_u8(power.feedback_inner_high_inner_low);
+	adrv9002_agc_add_file_u8(power.feedback_apd_high_apd_low);
 	/* peak parameters */
 	adrv9002_agc_add_file_u16(peak.agcUnderRangeLowInterval);
 	adrv9002_agc_add_file_u8(peak.agcUnderRangeMidInterval);
@@ -2684,8 +2938,8 @@ void adrv9002_debugfs_agc_config_create(struct adrv9002_rx_chan *rx, struct dent
 	adrv9002_agc_add_file_u8(peak.hbOverloadPowerMode);
 	adrv9002_agc_add_file_u8(peak.hbUnderRangeMidThreshExceededCount);
 	adrv9002_agc_add_file_u8(peak.hbUnderRangeLowThreshExceededCount);
-	adrv9002_agc_add_file_u8(peak.feedback_low_threshold_counter_exceeded);
-	adrv9002_agc_add_file_u8(peak.feedback_high_threshold_counter_exceeded);
+	adrv9002_agc_add_file_u8(peak.feedback_apd_low_hb_low);
+	adrv9002_agc_add_file_u8(peak.feedback_apd_high_hb_high);
 }
 
 static int adrv9002_tx_dac_full_scale_get(void *arg, u64 *val)
@@ -3403,28 +3657,29 @@ static const struct {
 	 AGC_OFFSETOF(changeGainIfThreshHigh), 3, 0, 3, 1},
 	{"adi,agc-mode", AGC_OFFSETOF(agcMode), 1, 0, 1, 1},
 	{"adi,reset-on-rx-on-gain-index",
-	 AGC_OFFSETOF(resetOnRxonGainIndex), 255, 183, 255, 1},
+	 AGC_OFFSETOF(resetOnRxonGainIndex), ADRV9002_RX_MAX_GAIN_IDX, ADRV9002_RX_MIN_GAIN_IDX,
+	 ADRV9002_RX_MAX_GAIN_IDX, 1},
 	/* power detector */
 	{"adi,power-under-range-high-threshold",
-	 AGC_OFFSETOF(power.underRangeHighPowerThresh), 4, 0, 127, 1},
+	 AGC_OFFSETOF(power.underRangeHighPowerThresh), 10, 0, 127, 1},
 	{"adi,power-under-range-low-threshold",
-	 AGC_OFFSETOF(power.underRangeLowPowerThresh), 0, 0, 31, 1},
+	 AGC_OFFSETOF(power.underRangeLowPowerThresh), 4, 0, 15, 1},
 	{"adi,power-under-range-high-gain-step-recovery",
-	 AGC_OFFSETOF(power.underRangeHighPowerGainStepRecovery), 4, 0, 31, 1},
+	 AGC_OFFSETOF(power.underRangeHighPowerGainStepRecovery), 2, 0, 31, 1},
 	{"adi,power-under-range-low-gain-step-recovery",
 	 AGC_OFFSETOF(power.underRangeLowPowerGainStepRecovery), 4, 0, 31, 1},
 	{"adi,power-measurement-duration",
 	 AGC_OFFSETOF(power.powerMeasurementDuration), 10, 0, 31, 1},
 	{"adi,power-measurement-delay",
-	 AGC_OFFSETOF(power.powerMeasurementDelay), 3, 0, 255, 1},
+	 AGC_OFFSETOF(power.powerMeasurementDelay), 2, 0, 255, 1},
 	{"adi,power-rx-tdd-measurement-duration",
 	 AGC_OFFSETOF(power.rxTddPowerMeasDuration), 0, 0, 65535, 2},
 	{"adi,power-rx-tdd-measurement-delay",
-	 AGC_OFFSETOF(power.rxTddPowerMeasDelay), 92, 0, 65535, 2},
+	 AGC_OFFSETOF(power.rxTddPowerMeasDelay), 0, 0, 65535, 2},
 	{"adi,power-over-range-high-threshold",
 	 AGC_OFFSETOF(power.overRangeHighPowerThresh), 0, 0, 15, 1},
 	{"adi,power-over-range-low-threshold",
-	 AGC_OFFSETOF(power.overRangeLowPowerThresh), 1, 0, 127, 1},
+	 AGC_OFFSETOF(power.overRangeLowPowerThresh), 7, 0, 127, 1},
 	{"adi,power-over-range-high-gain-step-attack",
 	 AGC_OFFSETOF(power.overRangeHighPowerGainStepAttack), 4, 0, 31, 1},
 	{"adi,power-over-range-low-gain-step-attack",
@@ -3437,41 +3692,41 @@ static const struct {
 	{"adi,peak-agc-under-range-high-interval",
 	 AGC_OFFSETOF(peak.agcUnderRangeHighInterval), 4, 0, 63, 1},
 	{"adi,peak-apd-high-threshold",
-	 AGC_OFFSETOF(peak.apdHighThresh), 38, 0, 63, 1},
+	 AGC_OFFSETOF(peak.apdHighThresh), 21, 0, 63, 1},
 	{"adi,peak-apd-low-threshold",
-	 AGC_OFFSETOF(peak.apdLowThresh), 27, 10, 63, 1},
+	 AGC_OFFSETOF(peak.apdLowThresh), 12, 0, 63, 1},
 	{"adi,peak-apd-upper-threshold-exceeded-count",
 	 AGC_OFFSETOF(peak.apdUpperThreshPeakExceededCount), 6, 0, 255, 1},
 	{"adi,peak-apd-lower-threshold-exceeded-count",
 	 AGC_OFFSETOF(peak.apdLowerThreshPeakExceededCount), 3, 0, 255, 1},
 	{"adi,peak-apd-gain-step-attack",
-	 AGC_OFFSETOF(peak.apdGainStepAttack), 4, 0, 31, 1},
+	 AGC_OFFSETOF(peak.apdGainStepAttack), 2, 0, 31, 1},
 	{"adi,peak-apd-gain-step-recovery",
 	 AGC_OFFSETOF(peak.apdGainStepRecovery), 0, 0, 31, 1},
 	{"adi,peak-hb-overload-duration-count",
 	 AGC_OFFSETOF(peak.hbOverloadDurationCount), 1, 0, 7, 1},
 	{"adi,peak-hb-overload-threshold-count",
-	 AGC_OFFSETOF(peak.hbOverloadThreshCount), 1, 0, 15, 1},
+	 AGC_OFFSETOF(peak.hbOverloadThreshCount), 1, 1, 15, 1},
 	{"adi,peak-hb-high-threshold",
-	 AGC_OFFSETOF(peak.hbHighThresh), 16383, 0, 16383, 2},
+	 AGC_OFFSETOF(peak.hbHighThresh), 13044, 0, 16383, 2},
 	{"adi,peak-hb-under-range-low-threshold",
-	 AGC_OFFSETOF(peak.hbUnderRangeLowThresh), 3768, 0, 16383, 2},
+	 AGC_OFFSETOF(peak.hbUnderRangeLowThresh), 5826, 0, 16383, 2},
 	{"adi,peak-hb-under-range-mid-threshold",
-	 AGC_OFFSETOF(peak.hbUnderRangeMidThresh), 7209, 0, 16383, 2},
+	 AGC_OFFSETOF(peak.hbUnderRangeMidThresh), 8230, 0, 16383, 2},
 	{"adi,peak-hb-under-range-high-threshold",
-	 AGC_OFFSETOF(peak.hbUnderRangeHighThresh), 10321, 0, 16383, 2},
+	 AGC_OFFSETOF(peak.hbUnderRangeHighThresh), 7335, 0, 16383, 2},
 	{"adi,peak-hb-upper-threshold-exceeded-count",
 	 AGC_OFFSETOF(peak.hbUpperThreshPeakExceededCount), 6, 0, 255, 1},
 	{"adi,peak-hb-under-range-high-threshold-exceeded-count",
 	 AGC_OFFSETOF(peak.hbUnderRangeHighThreshExceededCount), 3, 0, 255, 1},
 	{"adi,peak-hb-gain-step-high-recover",
-	 AGC_OFFSETOF(peak.hbGainStepHighRecovery), 4, 0, 31, 1},
+	 AGC_OFFSETOF(peak.hbGainStepHighRecovery), 2, 0, 31, 1},
 	{"adi,peak-hb-gain-step-low-recovery",
 	 AGC_OFFSETOF(peak.hbGainStepLowRecovery), 6, 0, 31, 1},
 	{"adi,peak-hb-gain-step-mid-recovery",
 	 AGC_OFFSETOF(peak.hbGainStepMidRecovery), 4, 0, 31, 1},
 	{"adi,peak-hb-gain-step-attack",
-	 AGC_OFFSETOF(peak.hbGainStepAttack), 4, 0, 31, 1},
+	 AGC_OFFSETOF(peak.hbGainStepAttack), 2, 0, 31, 1},
 	{"adi,peak-hb-overload-power-mode",
 	 AGC_OFFSETOF(peak.hbOverloadPowerMode), 0, 0, 1, 1},
 	{"adi,peak-hb-under-range-mid-threshold-exceeded-count",
@@ -3555,7 +3810,7 @@ static int adrv9002_parse_rx_agc_dt(struct adrv9002_rf_phy *phy,
 	ret = ADRV9002_OF_AGC_PIN("adi,agc-power-feedback-high-thres-exceeded",
 				  ADI_ADRV9001_GPIO_PIN_CRUMB_01_00,
 				  ADI_ADRV9001_GPIO_PIN_CRUMB_15_14,
-				  rx->agc->power.feedback_high_threshold_exceeded);
+				  rx->agc->power.feedback_inner_high_inner_low);
 	if (ret)
 		goto out;
 
@@ -3563,21 +3818,21 @@ static int adrv9002_parse_rx_agc_dt(struct adrv9002_rf_phy *phy,
 	ret = ADRV9002_OF_AGC_PIN("adi,agc-power-feedback-low-thres-gain-change",
 				  ADI_ADRV9001_GPIO_PIN_CRUMB_01_00,
 				  ADI_ADRV9001_GPIO_PIN_CRUMB_15_14,
-				  rx->agc->power.feedback_lowThreshold_gainChange);
+				  rx->agc->power.feedback_apd_high_apd_low);
 	if (ret)
 		goto out;
 
 	ret = ADRV9002_OF_AGC_PIN("adi,agc-peak-feedback-high-thres-counter-exceeded",
 				  ADI_ADRV9001_GPIO_PIN_CRUMB_01_00,
 				  ADI_ADRV9001_GPIO_PIN_CRUMB_15_14,
-				  rx->agc->peak.feedback_high_threshold_counter_exceeded);
+				  rx->agc->peak.feedback_apd_low_hb_low);
 	if (ret)
 		goto out;
 
 	ret = ADRV9002_OF_AGC_PIN("adi,agc-peak-feedback-low-thres-counter-exceeded",
 				  ADI_ADRV9001_GPIO_PIN_CRUMB_01_00,
 				  ADI_ADRV9001_GPIO_PIN_CRUMB_15_14,
-				  rx->agc->peak.feedback_low_threshold_counter_exceeded);
+				  rx->agc->peak.feedback_apd_high_hb_high);
 out:
 	of_node_put(agc);
 	return ret;
@@ -3604,13 +3859,14 @@ static int adrv9002_parse_rx_dt(struct adrv9002_rf_phy *phy,
 	ADRV9002_OF_U32_GET_VALIDATE(&phy->spi->dev, node, key, def, \
 				     min, max, val, false)
 
-	ret = ADRV9002_OF_RX_OPTIONAL("adi,min-gain-index", 183, 183, 255,
-				      min_gain);
+	ret = ADRV9002_OF_RX_OPTIONAL("adi,min-gain-index", ADRV9002_RX_MIN_GAIN_IDX,
+				      ADRV9002_RX_MIN_GAIN_IDX,
+				      ADRV9002_RX_MAX_GAIN_IDX, min_gain);
 	if (ret)
 		return ret;
 
-	ret = ADRV9002_OF_RX_OPTIONAL("adi,max-gain-index", 255, min_gain, 255,
-				      max_gain);
+	ret = ADRV9002_OF_RX_OPTIONAL("adi,max-gain-index", ADRV9002_RX_MAX_GAIN_IDX,
+				      min_gain, ADRV9002_RX_MAX_GAIN_IDX, max_gain);
 	if (ret)
 		return ret;
 
@@ -3765,7 +4021,6 @@ of_channels_put:
 	return ret;
 }
 
-#ifdef ADI_DYNAMIC_PROFILE_LOAD
 static int adrv9002_profile_update(struct adrv9002_rf_phy *phy)
 {
 	int ret;
@@ -3786,10 +4041,9 @@ static int adrv9002_profile_update(struct adrv9002_rf_phy *phy)
 	return adrv9002_intf_tuning_unlocked(phy);
 }
 
-static ssize_t
-adrv9002_profile_bin_write(struct file *filp, struct kobject *kobj,
-			   struct bin_attribute *bin_attr,
-			   char *buf, loff_t off, size_t count)
+static ssize_t adrv9002_profile_bin_write(struct file *filp, struct kobject *kobj,
+					  struct bin_attribute *bin_attr, char *buf, loff_t off,
+					  size_t count)
 {
 	struct iio_dev *indio_dev = dev_to_iio_dev(kobj_to_dev(kobj));
 	struct adrv9002_rf_phy *phy = iio_priv(indio_dev);
@@ -3831,15 +4085,6 @@ out:
 
 	return (ret < 0) ? ret : count;
 }
-#else
-static ssize_t
-adrv9002_profile_bin_write(struct file *filp, struct kobject *kobj,
-			   struct bin_attribute *bin_attr,
-			   char *buf, loff_t off, size_t count)
-{
-	return -ENOTSUPP;
-}
-#endif
 
 static void adrv9002_clk_disable(void *data)
 {
