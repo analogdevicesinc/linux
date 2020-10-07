@@ -36,15 +36,12 @@ enum {
 
 #ifdef ADI_COMMON_VERBOSE
 /*
- * Setting logEnable enables error reports which are only available if
- * ADI_COMMON_VERBOSE is defined
+ * Enable log if ADI_COMMON_VERBOSE is defined
  */
-#define	adrv9002_set_loglevel(common, level)	\
-	adi_common_LogLevelSet(common, level); \
+#define	adrv9002_log_enable(common)	\
 	(common)->error.logEnable = true
 #else
-#define	adrv9002_set_loglevel(common, level)	\
-	adi_common_LogLevelSet(common, level)
+#define	adrv9002_log_enable(common)
 #endif
 
 enum ad900x_device_id {
@@ -193,8 +190,6 @@ adi_adrv9001_SsiType_e adrv9002_axi_ssi_type_get(struct adrv9002_rf_phy *phy);
 /* get init structs */
 struct adi_adrv9001_SpiSettings *adrv9002_spi_settings_get(void);
 struct adi_adrv9001_Init *adrv9002_init_get(void);
-struct adi_adrv9001_RadioCtrlInit *adrv9002_radio_ctrl_init_get(void);
-struct adi_adrv9001_PlatformFiles *adrv9002_platform_files_get(void);
 
 static inline void adrv9002_sync_gpio_toogle(const struct adrv9002_rf_phy *phy)
 {
