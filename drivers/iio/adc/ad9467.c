@@ -308,7 +308,7 @@ static int ad9467_calibrate(struct iio_dev *indio_dev, unsigned chan,
 	do {
 		if (dco && conv->chip_info->id != CHIPID_AD9652) {
 			ad9467_spi_write(conv->spi, AN877_ADC_REG_OUTPUT_PHASE,
-					AN877_ADC_OUTPUT_MODE_TWOS_COMPLEMENT | (inv_range ?
+					AN877_ADC_OUTPUT_EVEN_ODD_MODE_EN | (inv_range ?
 						AN877_ADC_INVERT_DCO_CLK : 0));
 		} else if (!dco) {
 			unsigned reg_cntrl = axiadc_read(st, ADI_REG_CNTRL);
@@ -405,7 +405,7 @@ static int ad9467_calibrate(struct iio_dev *indio_dev, unsigned chan,
 		val -= max_val + 1;
 		if (dco && conv->chip_info->id != CHIPID_AD9652) {
 			ad9467_spi_write(conv->spi, AN877_ADC_REG_OUTPUT_PHASE,
-				 AN877_ADC_OUTPUT_MODE_TWOS_COMPLEMENT | AN877_ADC_INVERT_DCO_CLK);
+				 AN877_ADC_OUTPUT_EVEN_ODD_MODE_EN | AN877_ADC_INVERT_DCO_CLK);
 		} else if (!dco) {
 			unsigned reg_cntrl = axiadc_read(st, ADI_REG_CNTRL);
 			reg_cntrl |= ADI_DDR_EDGESEL;
@@ -415,7 +415,7 @@ static int ad9467_calibrate(struct iio_dev *indio_dev, unsigned chan,
 	} else {
 		if (dco && conv->chip_info->id != CHIPID_AD9652) {
 			ad9467_spi_write(conv->spi, AN877_ADC_REG_OUTPUT_PHASE,
-				 AN877_ADC_OUTPUT_MODE_TWOS_COMPLEMENT);
+				 AN877_ADC_OUTPUT_EVEN_ODD_MODE_EN);
 		} else if (!dco) {
 			unsigned reg_cntrl = axiadc_read(st, ADI_REG_CNTRL);
 			reg_cntrl &= ~ADI_DDR_EDGESEL;
@@ -1107,7 +1107,7 @@ static int ad9467_setup(struct axiadc_converter *st, unsigned int chip_id)
 	case CHIPID_AD9643:
 		st->adc_output_mode |= AD9643_DEF_OUTPUT_MODE;
 		return ad9467_spi_write(spi, AN877_ADC_REG_OUTPUT_PHASE,
-					AN877_ADC_OUTPUT_MODE_TWOS_COMPLEMENT);
+					AN877_ADC_OUTPUT_EVEN_ODD_MODE_EN);
 	case CHIPID_AD9250:
 		ret = ad9250_setup(spi, 2, 2);
 		if (ret) {
