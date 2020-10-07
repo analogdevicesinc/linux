@@ -11,12 +11,10 @@ SRCS = \
 	devices/adrv9001/private/src/adrv9001_validators.c \
 	devices/adrv9001/private/src/adrv9001_rx.c \
 	devices/adrv9001/private/src/adrv9001_crc32.c \
-	devices/adrv9001/private/src/adrv9001_utilities.c \
 	devices/adrv9001/private/src/adrv9001_arm.c \
 	devices/adrv9001/private/src/adrv9001_bf_hal.c \
 	devices/adrv9001/private/src/adrv9001_init.c \
 	devices/adrv9001/private/src/adrv9001_gpio.c \
-	devices/adrv9001/private/src/adrv9001_powermanagement.c \
 	devices/adrv9001/public/src/adi_adrv9001_tx.c \
 	devices/adrv9001/public/src/adi_adrv9001_arm.c \
 	devices/adrv9001/public/src/adi_adrv9001_bbdc.c \
@@ -35,7 +33,8 @@ SRCS = \
 	devices/adrv9001/public/src/adi_adrv9001.c \
 	devices/adrv9001/public/src/adi_adrv9001_orx.c \
 	devices/adrv9001/public/src/adi_adrv9001_dpd.c \
-	devices/adrv9001/public/src/adi_adrv9001_fh.c
+	devices/adrv9001/public/src/adi_adrv9001_fh.c \
+	devices/adrv9001/public/src/adi_adrv9001_powermanagement.c
 
 ccflags-y += -I$(src)/devices/adrv9001/private/include \
 	-I$(src)/devices/adrv9001/private/include/bitfields \
