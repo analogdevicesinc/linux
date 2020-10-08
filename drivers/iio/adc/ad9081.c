@@ -138,6 +138,7 @@ struct ad9081_phy {
 	u32 nco_sync_ms_extra_lmfc_num;
 
 	bool config_sync_01_swapped;
+	bool config_sync_0a_cmos_en;
 
 	struct device_settings_cache device_cache;
 
@@ -1629,6 +1630,11 @@ static int ad9081_setup(struct spi_device *spi)
 					BF_SYNCB_RX_MODE_RC_INFO, 1);
 	}
 
+	if (phy->config_sync_0a_cmos_en) {
+		adi_ad9081_jesd_rx_synca_mode_set(&phy->ad9081, 0);
+		adi_ad9081_hal_reg_set(&phy->ad9081, REG_SYNCA_CTRL_ADDR, 0x0);
+	}
+
 	if (phy->jesd_tx_link.jesd_param.jesd_jesdv == 2) {
 		/* FIXME */
 		ret = adi_ad9081_hal_bf_set(&phy->ad9081, REG_JRX_TPL_1_ADDR,
@@ -2894,6 +2900,9 @@ static int ad9081_parse_dt(struct ad9081_phy *phy, struct device *dev)
 
 	phy->config_sync_01_swapped =
 		of_property_read_bool(np, "adi,jesd-sync-pins-01-swap-enable");
+
+	phy->config_sync_0a_cmos_en =
+		of_property_read_bool(np, "adi,jesd-sync-pin-0a-cmos-enable");
 
 	phy->lmfc_delay = 0;
 	of_property_read_u32(np, "adi,lmfc-delay-dac-clk-cycles",
