@@ -139,6 +139,9 @@
 #define ADAR1000_LDTX_OVERRIDE		BIT(1)
 #define ADAR1000_LDRX_OVERRIDE		BIT(0)
 
+/* ADAR1000_RX_BIAS_RAM_CTL/ADAR1000_TX_BIAS_RAM_CTL */
+#define ADAR1000_BIAS_RAM_FETCH		BIT(3)
+
 #define ADAR1000_SPI_ADDR_MSK		GENMASK(14, 13)
 #define ADAR1000_SPI_ADDR(x)		FIELD_PREP(ADAR1000_SPI_ADDR_MSK, x)
 
@@ -239,6 +242,26 @@ struct adar1000_beam_position {
 	int phase_val2;
 };
 
+struct adar1000_rx_bias_setting {
+	u8 lna_bias_off;
+	u8 lna_bias_on;
+	u8 bias_current_rx;
+	u8 bias_current_rx_lna;
+};
+
+struct adar1000_tx_bias_setting {
+	u8 ch1_pa_bias_off;
+	u8 ch2_pa_bias_off;
+	u8 ch3_pa_bias_off;
+	u8 ch1_pa_bias_on;
+	u8 ch2_pa_bias_on;
+	u8 ch3_pa_bias_on;
+	u8 ch4_pa_bias_off;
+	u8 ch4_pa_bias_on;
+	u8 bias_current_tx;
+	u8 bias_current_tx_drv;
+};
+
 struct adar1000_state {
 	struct spi_device	*spi;
 	struct regmap		*regmap;
@@ -256,6 +279,11 @@ struct adar1000_state {
 	u8			save_beam_idx;
 	struct adar1000_beam_position rx_beam_pos[121];
 	struct adar1000_beam_position tx_beam_pos[121];
+
+	u8			load_bias_idx;
+	u8			save_bias_idx;
+	struct adar1000_rx_bias_setting rx_bias[7];
+	struct adar1000_tx_bias_setting tx_bias[7];
 };
 
 static const struct regmap_config adar1000_regmap_config = {
@@ -1080,12 +1108,148 @@ static int adar1000_beam_save(struct adar1000_state *st, u32 channel, bool tx,
 	return adar1000_mode_4wire(st, 1);
 }
 
+static int adar1000_bias_load(struct adar1000_state *st, u32 channel, bool tx,
+			      u32 setting)
+{
+	int ret;
+
+	if (setting < ADAR1000_RAM_BIAS_SET_MIN || setting > ADAR1000_RAM_BIAS_SET_MAX)
+		return -EINVAL;
+
+	ret = adar1000_mode_4wire(st, 1);
+	if (ret < 0)
+		return ret;
+
+	/* Bias settings are from 1 to 7 so subtract 1 to get the index */
+	st->load_bias_idx = setting - 1;
+
+	if (tx)
+		ret = regmap_write(st->regmap, st->dev_addr |
+				   ADAR1000_TX_BIAS_RAM_CTL | ADAR1000_RAM_ACCESS_TX,
+				   ADAR1000_BIAS_RAM_FETCH  | (setting - 1));
+	else
+		ret = regmap_write(st->regmap, st->dev_addr |
+				   ADAR1000_RX_BIAS_RAM_CTL | ADAR1000_RAM_ACCESS_RX,
+				   ADAR1000_BIAS_RAM_FETCH  | (setting - 1));
+	if (ret < 0)
+		return ret;
+
+
+	return adar1000_mode_4wire(st, 0);
+}
+
+static int adar1000_bias_save(struct adar1000_state *st, u32 channel, bool tx,
+			      u32 setting, void * const bias)
+{
+	int ret, cnt;
+	struct reg_sequence regs[10] = {0};
+
+	if (setting < ADAR1000_RAM_BIAS_SET_MIN || setting > ADAR1000_RAM_BIAS_SET_MAX)
+		return -EINVAL;
+
+	ret = adar1000_mode_4wire(st, 1);
+	if (ret < 0)
+		return ret;
+
+	/* Bias settings are from 1 to 7 so subtract 1 to get the index */
+	st->save_bias_idx = setting - 1;
+
+	if (tx) {
+		regs[0].reg = st->dev_addr | ADAR1000_RAM_TX_BIAS_SET_0(setting) | ADAR1000_RAM_ACCESS_TX;
+		regs[0].def = ((struct adar1000_tx_bias_setting*)bias)->ch1_pa_bias_off;
+		regs[1].reg = st->dev_addr | ADAR1000_RAM_TX_BIAS_SET_1(setting) | ADAR1000_RAM_ACCESS_TX;
+		regs[1].def = ((struct adar1000_tx_bias_setting*)bias)->ch2_pa_bias_off;
+		regs[2].reg = st->dev_addr | ADAR1000_RAM_TX_BIAS_SET_2(setting) | ADAR1000_RAM_ACCESS_TX;
+		regs[2].def = ((struct adar1000_tx_bias_setting*)bias)->ch3_pa_bias_off;
+
+		regs[3].reg = st->dev_addr | ADAR1000_RAM_TX_BIAS_SET_3(setting) | ADAR1000_RAM_ACCESS_TX;
+		regs[3].def = ((struct adar1000_tx_bias_setting*)bias)->ch1_pa_bias_on;
+		regs[4].reg = st->dev_addr | ADAR1000_RAM_TX_BIAS_SET_4(setting) | ADAR1000_RAM_ACCESS_TX;
+		regs[4].def = ((struct adar1000_tx_bias_setting*)bias)->ch2_pa_bias_on;
+		regs[5].reg = st->dev_addr | ADAR1000_RAM_TX_BIAS_SET_5(setting) | ADAR1000_RAM_ACCESS_TX;
+		regs[5].def = ((struct adar1000_tx_bias_setting*)bias)->ch3_pa_bias_on;
+
+		regs[6].reg = st->dev_addr | ADAR1000_RAM_TX_BIAS_SET_6(setting) | ADAR1000_RAM_ACCESS_TX;
+		regs[6].def = ((struct adar1000_tx_bias_setting*)bias)->ch4_pa_bias_off;
+		regs[7].reg = st->dev_addr | ADAR1000_RAM_TX_BIAS_SET_7(setting) | ADAR1000_RAM_ACCESS_TX;
+		regs[7].def = ((struct adar1000_tx_bias_setting*)bias)->ch4_pa_bias_on;
+		regs[8].reg = st->dev_addr | ADAR1000_RAM_TX_BIAS_SET_8(setting) | ADAR1000_RAM_ACCESS_TX;
+		regs[8].def = ((struct adar1000_tx_bias_setting*)bias)->bias_current_tx;
+		regs[9].reg = st->dev_addr | ADAR1000_RAM_TX_BIAS_SET_9(setting) | ADAR1000_RAM_ACCESS_TX;
+		regs[9].def = ((struct adar1000_tx_bias_setting*)bias)->bias_current_tx_drv;
+		cnt = 10;
+
+		st->tx_bias[setting -1] = *(struct adar1000_tx_bias_setting*)bias;
+	} else {
+		regs[0].reg = st->dev_addr | ADAR1000_RAM_RX_BIAS_SET_0(setting) | ADAR1000_RAM_ACCESS_RX;
+		regs[0].def = ((struct adar1000_rx_bias_setting*)bias)->lna_bias_off;
+		regs[1].reg = st->dev_addr | ADAR1000_RAM_RX_BIAS_SET_1(setting) | ADAR1000_RAM_ACCESS_RX;
+		regs[1].def = ((struct adar1000_rx_bias_setting*)bias)->lna_bias_on;
+		regs[2].reg = st->dev_addr | ADAR1000_RAM_RX_BIAS_SET_2(setting) | ADAR1000_RAM_ACCESS_RX;
+		regs[2].def = ((struct adar1000_rx_bias_setting*)bias)->bias_current_rx;
+		regs[3].reg = st->dev_addr | ADAR1000_RAM_RX_BIAS_SET_3(setting) | ADAR1000_RAM_ACCESS_RX;
+		regs[3].def = ((struct adar1000_rx_bias_setting*)bias)->bias_current_rx_lna;
+		cnt = 4;
+
+		st->rx_bias[setting - 1] = *(struct adar1000_rx_bias_setting*)bias;
+	}
+
+	ret = regmap_multi_reg_write(st->regmap, regs, cnt);
+	if (ret < 0)
+		return ret;
+
+	return adar1000_mode_4wire(st, 0);
+}
+
 enum beam_pos_info {
 	BEAM_POS_LOAD,
 	BEAM_POS_SAVE,
+	BIAS_SET_LOAD,
+	BIAS_SET_SAVE,
 };
 
-static ssize_t adar1000_beam_pos_write(struct iio_dev *indio_dev,
+static int adar1000_bias_parse(struct adar1000_state *st, bool tx, const char *buf,
+			       size_t len,  u64 *readin, void **value_bias)
+{
+	int ret;
+	char *line, *ptr = (char*) buf;
+	int val, i = 0, j = 0, cnt;
+	u8 tmp[10];
+
+	while ((line = strsep(&ptr, ","))) {
+		if (line >= buf + len)
+			break;
+
+		if (j == 0) {
+			ret = kstrtoull(buf, 10, readin);
+			if (ret < 0)
+				return ret;
+			j++;
+			continue;
+		}
+
+		ret = sscanf(line, "%d", &val);
+		if (ret == 1)
+			tmp[i] = val;
+		i++;
+	}
+
+	if (tx)
+		cnt = sizeof(struct adar1000_tx_bias_setting);
+	else
+		cnt = sizeof(struct adar1000_rx_bias_setting);
+
+
+	*value_bias = devm_kzalloc(&st->spi->dev, cnt, GFP_KERNEL);
+	if (!*value_bias)
+		return -ENOMEM;
+
+	memcpy(*value_bias, tmp, cnt);
+
+	return 0;
+}
+
+static ssize_t adar1000_ram_write(struct iio_dev *indio_dev,
 				       uintptr_t private,
 				       const struct iio_chan_spec *chan,
 				       const char *buf, size_t len)
@@ -1146,12 +1310,35 @@ static ssize_t adar1000_beam_pos_write(struct iio_dev *indio_dev,
 
 		break;
 	}
+	case BIAS_SET_LOAD:
+		/* Enable RAM access & using configurations from RAM */
+		ret = adar1000_ram_enable(st, 1);
+		if (ret < 0)
+			return ret;
+
+		ret = kstrtoull(buf, 10, &readin);
+		if (ret)
+			return ret;
+
+		ret = adar1000_bias_load(st, chan->channel, chan->output == 1, readin);
+		break;
+	case BIAS_SET_SAVE: {
+		void *value_bias = NULL;
+
+		ret = adar1000_bias_parse(st, chan->output == 1, buf, len,
+					  &readin, &value_bias);
+		if (ret < 0)
+			return ret;
+
+		ret = adar1000_bias_save(st, chan->channel, chan->output == 1, readin, value_bias);
+		break;
+	}
 	}
 
 	return ret ? ret : len;
 }
 
-static ssize_t adar1000_beam_pos_read(struct iio_dev *indio_dev,
+static ssize_t adar1000_ram_read(struct iio_dev *indio_dev,
 				      uintptr_t private,
 				      const struct iio_chan_spec *chan,
 				      char *buf)
@@ -1183,18 +1370,38 @@ static ssize_t adar1000_beam_pos_read(struct iio_dev *indio_dev,
 		val  = st->load_beam_idx;
 		len += sprintf(buf + len, "%llu\n", val);
 		break;
+	case BIAS_SET_LOAD:
+		val  = st->load_bias_idx + 1;
+		len += sprintf(buf + len, "%llu\n", val);
+		break;
+	case BIAS_SET_SAVE:
+		if (chan->output == 1)
+			len += sprintf(buf, "%d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d\n",
+				       st->save_bias_idx + 1,
+				       st->tx_bias[st->save_bias_idx].ch1_pa_bias_off,
+				       st->tx_bias[st->save_bias_idx].ch2_pa_bias_off,
+				       st->tx_bias[st->save_bias_idx].ch3_pa_bias_off,
+				       st->tx_bias[st->save_bias_idx].ch1_pa_bias_on,
+				       st->tx_bias[st->save_bias_idx].ch2_pa_bias_on,
+				       st->tx_bias[st->save_bias_idx].ch3_pa_bias_on,
+				       st->tx_bias[st->save_bias_idx].ch4_pa_bias_off,
+				       st->tx_bias[st->save_bias_idx].ch4_pa_bias_on,
+				       st->tx_bias[st->save_bias_idx].bias_current_tx,
+				       st->tx_bias[st->save_bias_idx].bias_current_tx_drv);
+		else
+			len += sprintf(buf, "%d, %d, %d, %d, %d\n",
+				       st->save_bias_idx + 1,
+				       st->rx_bias[st->save_bias_idx].lna_bias_off,
+				       st->rx_bias[st->save_bias_idx].lna_bias_on,
+				       st->rx_bias[st->save_bias_idx].bias_current_rx,
+				       st->rx_bias[st->save_bias_idx].bias_current_rx_lna);
+		val = st->save_beam_idx;
+		break;
 	default:
 		ret = 0;
 	}
 
 	return ret < 0 ? ret : len;
-}
-
-#define _ADAR1000_BEAM_POS_INFO(_name, _ident) { \
-	.name = _name, \
-	.read = adar1000_beam_pos_read, \
-	.write = adar1000_beam_pos_write, \
-	.private = _ident, \
 }
 
 enum adar1000_enables {
@@ -1347,9 +1554,26 @@ static ssize_t adar1000_write_enable(struct iio_dev *indio_dev,
 	.private = _private, \
 }
 
+#define _ADAR1000_BEAM_POS_INFO(_name, _ident) { \
+	.name = _name, \
+	.read = adar1000_ram_read, \
+	.write = adar1000_ram_write, \
+	.private = _ident, \
+}
+
+#define _ADAR1000_RAM_BIAS_INFO(_name, _private) { \
+	.name = _name, \
+	.read = adar1000_ram_read, \
+	.write = adar1000_ram_write, \
+	.shared = IIO_SHARED_BY_TYPE, \
+	.private = _private, \
+}
+
 static const struct iio_chan_spec_ext_info adar1000_rx_ext_info[] = {
 	_ADAR1000_BEAM_POS_INFO("beam_pos_load", BEAM_POS_LOAD),
 	_ADAR1000_BEAM_POS_INFO("beam_pos_save", BEAM_POS_SAVE),
+	_ADAR1000_RAM_BIAS_INFO("bias_set_load", BIAS_SET_LOAD),
+	_ADAR1000_RAM_BIAS_INFO("bias_set_save", BIAS_SET_SAVE),
 	_ADAR1000_ENABLES_INFO("powerdown", ADAR1000_POWERDOWN),
 	{ },
 };
@@ -1357,6 +1581,8 @@ static const struct iio_chan_spec_ext_info adar1000_rx_ext_info[] = {
 static const struct iio_chan_spec_ext_info adar1000_tx_ext_info[] = {
 	_ADAR1000_BEAM_POS_INFO("beam_pos_load", BEAM_POS_LOAD),
 	_ADAR1000_BEAM_POS_INFO("beam_pos_save", BEAM_POS_SAVE),
+	_ADAR1000_RAM_BIAS_INFO("bias_set_load", BIAS_SET_LOAD),
+	_ADAR1000_RAM_BIAS_INFO("bias_set_save", BIAS_SET_SAVE),
 	_ADAR1000_ENABLES_INFO("powerdown", ADAR1000_POWERDOWN),
 	_ADAR1000_ENABLES_INFO("pa_bias_on", ADAR1000_PA_BIAS_ON),
 	_ADAR1000_ENABLES_INFO("pa_bias_off", ADAR1000_PA_BIAS_OFF),
