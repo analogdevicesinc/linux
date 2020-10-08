@@ -2022,9 +2022,6 @@ static int adrv9002_compute_init_cals(struct adrv9002_rf_phy *phy)
 	const u32 rx_channels[ADRV9002_CHANN_MAX] = {
 		ADI_ADRV9001_RX1, ADI_ADRV9001_RX2
 	};
-	const u32 channels[ADRV9002_CHANN_MAX] = {
-		ADI_CHANNEL_1, ADI_CHANNEL_2
-	};
 	int i, pos = 0;
 
 	phy->init_cals.sysInitCalMask = 0;
@@ -2040,7 +2037,7 @@ static int adrv9002_compute_init_cals(struct adrv9002_rf_phy *phy)
 			pos |= ADRV9002_RX_EN(i);
 			rx->channel.power = true;
 			rx->channel.enabled = true;
-			rx->channel.number = channels[i];
+			rx->channel.nco_freq = 0;
 		} else if (phy->rx2tx2 && i == ADRV9002_CHANN_1 ) {
 			/*
 			 * In rx2tx2 mode RX1 must be always enabled because RX2 cannot be
@@ -2062,7 +2059,7 @@ static int adrv9002_compute_init_cals(struct adrv9002_rf_phy *phy)
 			pos |= ADRV9002_TX_EN(i);
 			tx->channel.power = true;
 			tx->channel.enabled = true;
-			tx->channel.number = channels[i];
+			tx->channel.nco_freq = 0;
 		}
 
 	}
@@ -2664,11 +2661,8 @@ static void adrv9002_cleanup(struct adrv9002_rf_phy *phy)
 	int i;
 
 	for (i = 0; i < ADRV9002_CHANN_MAX; i++) {
-		memset(&phy->rx_channels[i].channel, 0,
-		       sizeof(struct adrv9002_chan));
-
-		memset(&phy->tx_channels[i].channel, 0,
-		       sizeof(struct adrv9002_chan));
+		phy->rx_channels[i].channel.enabled = 0;
+		phy->tx_channels[i].channel.enabled = 0;
 	}
 
 	memset(&phy->adrv9001->devStateInfo, 0,
@@ -4194,7 +4188,7 @@ static int adrv9002_probe(struct spi_device *spi)
 	struct iio_dev *indio_dev;
 	struct adrv9002_rf_phy *phy;
 	struct clk *clk = NULL;
-	int ret;
+	int ret, c;
 	const int *id;
 
 	id = of_device_get_match_data(&spi->dev);
@@ -4220,6 +4214,12 @@ static int adrv9002_probe(struct spi_device *spi)
 	phy->adrv9001 = &phy->adrv9001_device;
 	phy->hal.spi = spi;
 	phy->adrv9001->common.devHalInfo = &phy->hal;
+
+	/* initialize channel numbers here since these will never change */
+	for (c = 0; c < ADRV9002_CHANN_MAX; c++) {
+		phy->rx_channels[c].channel.number = c + ADI_CHANNEL_1;
+		phy->tx_channels[c].channel.number = c + ADI_CHANNEL_1;
+	}
 
 	phy->hal.reset_gpio = devm_gpiod_get(&spi->dev, "reset", GPIOD_OUT_LOW);
 	if (IS_ERR(phy->hal.reset_gpio))
