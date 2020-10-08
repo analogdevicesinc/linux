@@ -131,7 +131,7 @@
 		axi_adrv9002_core_tx1: axi-adrv9002-tx-lpc@84A04000 {
 			compatible = "adi,axi-adrv9002-tx-1.0";
 			reg = <0x84A0A000 0x2000>;
-			clocks = <&adc0_adrv9002 2>;
+			clocks = <&adc0_adrv9002 1>;
 			clock-names = "sampl_clk";
 			dmas = <&tx1_dma 0>;
 			dma-names = "tx";
@@ -142,7 +142,7 @@
 		axi_adrv9002_core_rx2: axi-adrv9002-rx2-lpc@84A02000 {
 			compatible = "adi,axi-adrv9002-rx2-1.0";
 			reg = <0x84A09000 0x1000>;
-			clocks = <&adc0_adrv9002 1>;
+			clocks = <&adc0_adrv9002 2>;
 			clock-names = "sampl_clk";
 			dmas = <&rx2_dma 0>;
 			dma-names = "rx";
