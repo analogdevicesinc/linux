@@ -286,6 +286,9 @@
 		compatible = "one-bit-adc-dac";
 		out-gpios = <&axi_gpio_2 56 0>, <&axi_gpio_2 57 0>, <&axi_gpio_2 58 0>, <&axi_gpio_2 59 0>;
 
+		#address-cells = <1>;
+		#size-cells = <0>;
+
 		channel@0 {
 			reg = <0>;
 			label = "5045_V1";
