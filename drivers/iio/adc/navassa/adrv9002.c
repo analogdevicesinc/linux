@@ -292,22 +292,13 @@ static const struct clk_ops bb_clk_ops = {
 	.recalc_rate = adrv9002_bb_recalc_rate,
 };
 
-static int adrv9002_clk_register(struct adrv9002_rf_phy *phy,
-				 const char *name, const char *parent_name,
-				 const char *parent_name2, unsigned long flags,
-				 u32 source)
+static struct clk *adrv9002_clk_register(struct adrv9002_rf_phy *phy, const char *name,
+					 const unsigned long flags, const u32 source)
 {
 	struct adrv9002_clock *clk_priv = &phy->clk_priv[source];
 	struct clk_init_data init;
 	struct clk *clk;
-	char c_name[ADRV9002_MAX_CLK_NAME + 1],
-		p_name[2][ADRV9002_MAX_CLK_NAME + 1];
-	const char *_parent_name[2];
-	struct adi_adrv9001_TxProfile *tx_profile;
-	struct adi_adrv9001_RxChannelCfg *rx_cfg;
-
-	tx_profile = phy->curr_profile->tx.txProfile;
-	rx_cfg = phy->curr_profile->rx.rxChannelCfg;
+	char c_name[ADRV9002_MAX_CLK_NAME + 1];
 
 	/* struct adrv9002_clock assignments */
 	clk_priv->source = source;
@@ -315,42 +306,21 @@ static int adrv9002_clk_register(struct adrv9002_rf_phy *phy,
 	clk_priv->spi = phy->spi;
 	clk_priv->phy = phy;
 
-	_parent_name[0] = adrv9002_clk_set_dev_name(phy, p_name[0],
-						    parent_name);
-	_parent_name[1] = adrv9002_clk_set_dev_name(phy, p_name[1],
-						    parent_name2);
-
 	init.name = adrv9002_clk_set_dev_name(phy, c_name, name);
 	init.flags = flags;
-	init.parent_names = &_parent_name[0];
-	init.num_parents = _parent_name[1] ? 2 : _parent_name[0] ? 1 : 0;
-
-	switch (source) {
-	case RX1_SAMPL_CLK:
-		init.ops = &bb_clk_ops;
-		/* TODO: check indexing */
-		clk_priv->rate = rx_cfg[0].profile.rxOutputRate_Hz;
-		break;
-	case RX2_SAMPL_CLK:
-		init.ops = &bb_clk_ops;
-		clk_priv->rate = rx_cfg[1].profile.rxOutputRate_Hz;
-		break;
-	case TX1_SAMPL_CLK:
-		init.ops = &bb_clk_ops;
-		clk_priv->rate = tx_profile[0].txInputRate_Hz;
-		break;
-	case TX2_SAMPL_CLK:
-		init.ops = &bb_clk_ops;
-		clk_priv->rate = tx_profile[1].txInputRate_Hz;
-		break;
-	default:
-		return -EINVAL;
-	}
+	init.num_parents = 0;
+	init.ops = &bb_clk_ops;
 
 	clk = devm_clk_register(&phy->spi->dev, &clk_priv->hw);
-	phy->clks[source] = clk;
+	if (IS_ERR(clk)) {
+		dev_err(&phy->spi->dev, "Error registering clock=%d, err=%ld\n", source,
+			PTR_ERR(clk));
+		return ERR_CAST(clk);
+	}
 
-	return 0;
+	phy->clks[phy->n_clks++] = clk;
+
+	return clk;
 }
 
 static void adrv9002_set_clk_rates(const struct adrv9002_rf_phy *phy)
@@ -370,23 +340,15 @@ static void adrv9002_set_clk_rates(const struct adrv9002_rf_phy *phy)
 			/* if in rx2tx2 we only care about RX1 clk */
 			goto tx_clk;
 
-		clk_set_rate(phy->clks[c], rx_cfg[c].profile.rxOutputRate_Hz);
+		clk_set_rate(rx->clk, rx_cfg[c].profile.rxOutputRate_Hz);
 tx_clk:
 		if (!tx->enabled)
 			continue;
-		/*
-		 * the point here is that TX2 can be enabled and TX1 not. If we are in
-		 * rx2tx2 only TX1 is instantiated in the dds driver (with all 4 channels),
-		 * so we need to set the TX1 clk rate.
-		 */
-		if (phy->rx2tx2) {
-			clk_set_rate(phy->clks[TX1_SAMPL_CLK], tx_cfg[c].txInputRate_Hz);
-			/* if TX0 is enabled then there's nothing else todo.. */
-			if (!c)
-				break;
-		} else {
-			clk_set_rate(phy->clks[c + TX1_SAMPL_CLK], tx_cfg[c].txInputRate_Hz);
-		}
+
+		clk_set_rate(tx->clk, tx_cfg[c].txInputRate_Hz);
+		/* if TX0 is enabled then there's nothing else todo.. */
+		if (!c && phy->rx2tx2)
+			break;
 	}
 }
 
@@ -1621,34 +1583,7 @@ static int adrv9002_phy_read_raw(struct iio_dev *indio_dev,
 
 		return IIO_VAL_INT_PLUS_MICRO_DB;
 	case IIO_CHAN_INFO_SAMP_FREQ:
-		if (chan->output) {
-			if (phy->rx2tx2) {
-				*val = clk_get_rate(phy->clks[TX1_SAMPL_CLK]);
-			} else {
-				switch (chann->number) {
-				case ADI_CHANNEL_1:
-					*val = clk_get_rate(phy->clks[TX1_SAMPL_CLK]);
-					break;
-				case ADI_CHANNEL_2:
-					*val = clk_get_rate(phy->clks[TX2_SAMPL_CLK]);
-					break;
-				}
-			}
-		} else {
-			if (phy->rx2tx2) {
-				*val = clk_get_rate(phy->clks[RX1_SAMPL_CLK]);
-			} else {
-				switch (chann->number) {
-				case ADI_CHANNEL_1:
-					*val = clk_get_rate(phy->clks[RX1_SAMPL_CLK]);
-					break;
-				case ADI_CHANNEL_2:
-					*val = clk_get_rate(phy->clks[RX2_SAMPL_CLK]);
-					break;
-				}
-			}
-		}
-
+		*val = clk_get_rate(chann->clk);
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_ENABLE:
 		*val = chann->power;
@@ -2406,7 +2341,6 @@ static int adrv9002_setup(struct adrv9002_rf_phy *phy,
 	if (ret)
 		return adrv9002_dev_err(phy);
 
-	adrv9002_set_clk_rates(phy);
 	return adrv9002_dgpio_config(phy);
 }
 
@@ -4028,6 +3962,8 @@ static int adrv9002_profile_update(struct adrv9002_rf_phy *phy)
 			return ret;
 	}
 
+	adrv9002_set_clk_rates(phy);
+
 	ret = adrv9002_ssi_configure(phy);
 	if (ret)
 		return ret;
@@ -4099,33 +4035,46 @@ int adrv9002_post_init(struct adrv9002_rf_phy *phy)
 	struct adi_common_ApiVersion api_version;
 	struct adi_adrv9001_ArmVersion arm_version;
 	struct adi_adrv9001_SiliconVersion silicon_version;
-	int ret;
+	int ret, c;
 	struct spi_device *spi = phy->spi;
 	struct iio_dev *indio_dev = phy->indio_dev;
+	const char * const clk_names[NUM_ADRV9002_CLKS] = {
+		[RX1_SAMPL_CLK] = "-rx1_sampl_clk",
+		[RX2_SAMPL_CLK] = "-rx2_sampl_clk",
+		[TX1_SAMPL_CLK] = "-tx1_sampl_clk",
+		[TX2_SAMPL_CLK] = "-tx2_sampl_clk",
+	};
 
 	ret = adrv9002_setup(phy, adrv9002_init_get());
 	if (ret < 0)
 		return ret;
 
-	adrv9002_clk_register(phy, "-rx1_sampl_clk", NULL, NULL,
-			      CLK_GET_RATE_NOCACHE | CLK_IGNORE_UNUSED,
-			      RX1_SAMPL_CLK);
+	/* register channels clocks */
+	for (c = 0; c < ADRV9002_CHANN_MAX; c++) {
+		struct adrv9002_chan *rx = &phy->rx_channels[c].channel;
+		struct adrv9002_chan *tx = &phy->tx_channels[c].channel;
 
-	adrv9002_clk_register(phy, "-rx2_sampl_clk", NULL, NULL,
-			      CLK_GET_RATE_NOCACHE | CLK_IGNORE_UNUSED,
-			      RX2_SAMPL_CLK);
+		rx->clk = adrv9002_clk_register(phy, clk_names[c + RX1_SAMPL_CLK],
+						CLK_GET_RATE_NOCACHE | CLK_IGNORE_UNUSED, c);
+		if (IS_ERR(rx->clk))
+			return PTR_ERR(rx->clk);
 
-	adrv9002_clk_register(phy, "-tx1_sampl_clk", NULL, NULL,
-			      CLK_GET_RATE_NOCACHE | CLK_IGNORE_UNUSED,
-			      TX1_SAMPL_CLK);
+		tx->clk = adrv9002_clk_register(phy, clk_names[c + TX1_SAMPL_CLK],
+						CLK_GET_RATE_NOCACHE | CLK_IGNORE_UNUSED,
+						c + TX1_SAMPL_CLK);
+		if (IS_ERR(tx->clk))
+			return PTR_ERR(tx->clk);
 
-	adrv9002_clk_register(phy, "-tx2_sampl_clk", NULL, NULL,
-			      CLK_GET_RATE_NOCACHE | CLK_IGNORE_UNUSED,
-			      TX2_SAMPL_CLK);
+		if (phy->rx2tx2) {
+			/* just point RX2/TX2 to RX1/TX1*/
+			phy->rx_channels[c + 1].channel.clk = rx->clk;
+			phy->tx_channels[c + 1].channel.clk = tx->clk;
+			break;
+		}
+	}
 
 	phy->clk_data.clks = phy->clks;
-	phy->clk_data.clk_num = NUM_ADRV9002_CLKS;
-
+	phy->clk_data.clk_num = phy->n_clks;
 	ret = of_clk_add_provider(spi->dev.of_node, of_clk_src_onecell_get,
 				  &phy->clk_data);
 	if (ret)
@@ -4135,6 +4084,8 @@ int adrv9002_post_init(struct adrv9002_rf_phy *phy)
 				       &spi->dev);
 	if (ret)
 		return ret;
+
+	adrv9002_set_clk_rates(phy);
 
 	indio_dev->dev.parent = &spi->dev;
 	indio_dev->name = spi->dev.of_node->name;
