@@ -340,15 +340,15 @@ void adrv9002_axi_digital_tune_verbose(struct adrv9002_rf_phy *phy, u8 field[][8
 {
 	int i, j;
 	char c;
-	u8 clk;
+	struct adrv9002_chan *ch;
 
 	if (tx)
-		clk = channel ? TX2_SAMPL_CLK : TX1_SAMPL_CLK;
+		ch = &phy->tx_channels[channel].channel;
 	else
-		clk = channel ? RX2_SAMPL_CLK : RX1_SAMPL_CLK;
+		ch = &phy->tx_channels[channel].channel;
 
 	pr_info("SAMPL CLK: %lu tuning: %s%d\n",
-	        clk_get_rate(phy->clks[clk]), tx ? "TX" : "RX",
+	        clk_get_rate(ch->clk), tx ? "TX" : "RX",
 		channel ? 2 : 1);
 	pr_info("  ");
 	for (i = 0; i < 8; i++)
