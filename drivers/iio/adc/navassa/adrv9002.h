@@ -98,6 +98,7 @@ struct adrv9002_clock {
 };
 
 struct adrv9002_chan {
+	struct clk *clk;
 	adi_adrv9001_ChannelState_e cached_state;
 	adi_common_ChannelNumber_e number;
 	u32 power;
@@ -152,6 +153,7 @@ struct adrv9002_rf_phy {
 	struct adi_adrv9001_Init	*curr_profile;
 	struct adi_adrv9001_Init	profile;
 	struct adi_adrv9001_InitCals	init_cals;
+	u32				n_clks;
 	int				spi_device_id;
 	int				ngpios;
 	u8				rx2tx2;
