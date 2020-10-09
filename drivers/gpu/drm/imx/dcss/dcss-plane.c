@@ -50,15 +50,17 @@ static const u32 dcss_common_formats[] = {
 	DRM_FORMAT_NV12_10LE40,
 };
 
-static const u64 dcss_video_format_modifiers[] = {
+static const u64 dcss_overlay_format_modifiers[] = {
 	DRM_FORMAT_MOD_VSI_G1_TILED,
 	DRM_FORMAT_MOD_VSI_G2_TILED,
 	DRM_FORMAT_MOD_VSI_G2_TILED_COMPRESSED,
+	DRM_FORMAT_MOD_VIVANTE_TILED,
+	DRM_FORMAT_MOD_VIVANTE_SUPER_TILED,
 	DRM_FORMAT_MOD_LINEAR,
 	DRM_FORMAT_MOD_INVALID,
 };
 
-static const u64 dcss_graphics_format_modifiers[] = {
+static const u64 dcss_primary_format_modifiers[] = {
 	DRM_FORMAT_MOD_VIVANTE_TILED,
 	DRM_FORMAT_MOD_VIVANTE_SUPER_TILED,
 	DRM_FORMAT_MOD_VIVANTE_SUPER_TILED_FC,
@@ -144,6 +146,12 @@ static bool dcss_plane_format_mod_supported(struct drm_plane *plane,
 			       modifier == DRM_FORMAT_MOD_VSI_G1_TILED ||
 			       modifier == DRM_FORMAT_MOD_VSI_G2_TILED ||
 			       modifier == DRM_FORMAT_MOD_VSI_G2_TILED_COMPRESSED;
+		case DRM_FORMAT_ARGB8888:
+		case DRM_FORMAT_XRGB8888:
+		case DRM_FORMAT_ARGB2101010:
+			return modifier == DRM_FORMAT_MOD_LINEAR ||
+			       modifier == DRM_FORMAT_MOD_VIVANTE_TILED ||
+			       modifier == DRM_FORMAT_MOD_VIVANTE_SUPER_TILED;
 		default:
 			return modifier == DRM_FORMAT_MOD_LINEAR;
 		}
@@ -179,7 +187,8 @@ static bool dcss_plane_can_rotate(const struct drm_format_info *format,
 				     DRM_MODE_REFLECT_MASK;
 	else if (!format->is_yuv &&
 		 (modifier == DRM_FORMAT_MOD_VIVANTE_TILED ||
-		  modifier == DRM_FORMAT_MOD_VIVANTE_SUPER_TILED))
+		  modifier == DRM_FORMAT_MOD_VIVANTE_SUPER_TILED ||
+		  modifier == DRM_FORMAT_MOD_VIVANTE_SUPER_TILED_FC))
 		supported_rotation = DRM_MODE_ROTATE_MASK |
 				     DRM_MODE_REFLECT_MASK;
 	else if (format->is_yuv && linear_format &&
@@ -620,7 +629,7 @@ struct dcss_plane *dcss_plane_init(struct drm_device *drm,
 				   unsigned int zpos)
 {
 	struct dcss_plane *dcss_plane;
-	const u64 *format_modifiers = dcss_video_format_modifiers;
+	const u64 *format_modifiers = dcss_overlay_format_modifiers;
 	struct drm_property *prop;
 	int ret;
 
@@ -634,7 +643,7 @@ struct dcss_plane *dcss_plane_init(struct drm_device *drm,
 	}
 
 	if (type == DRM_PLANE_TYPE_PRIMARY)
-		format_modifiers = dcss_graphics_format_modifiers;
+		format_modifiers = dcss_primary_format_modifiers;
 
 	ret = drm_universal_plane_init(drm, &dcss_plane->base, possible_crtcs,
 				       &dcss_plane_funcs, dcss_common_formats,

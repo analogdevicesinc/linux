@@ -505,7 +505,20 @@ static void dcss_dpr_tile_set(struct dcss_dpr_ch *ch, uint64_t modifier)
 		break;
 	case 1:
 	case 2:
-		ch->tile = TILE_LINEAR;
+		switch (modifier) {
+		case DRM_FORMAT_MOD_LINEAR:
+			ch->tile = TILE_LINEAR;
+			break;
+		case DRM_FORMAT_MOD_VIVANTE_TILED:
+			ch->tile = TILE_GPU_STANDARD;
+			break;
+		case DRM_FORMAT_MOD_VIVANTE_SUPER_TILED:
+			ch->tile = TILE_GPU_SUPER;
+			break;
+		default:
+			WARN_ON(1);
+			break;
+		}
 		break;
 	default:
 		WARN_ON(1);
@@ -522,7 +535,10 @@ void dcss_dpr_format_set(struct dcss_dpr *dpr, int ch_num,
 	struct dcss_dpr_ch *ch = &dpr->ch[ch_num];
 
 	ch->format = *format;
-	ch->use_dtrc = ch_num && modifier != DRM_FORMAT_MOD_LINEAR;
+	ch->use_dtrc = ch_num &&
+			(modifier == DRM_FORMAT_MOD_VSI_G1_TILED ||
+			 modifier == DRM_FORMAT_MOD_VSI_G2_TILED ||
+			 modifier == DRM_FORMAT_MOD_VSI_G2_TILED_COMPRESSED);
 
 	dcss_dpr_yuv_en(ch, format->is_yuv);
 
