@@ -1540,7 +1540,149 @@ static void sec_mipi_dsim_bridge_mode_set(struct drm_bridge *bridge,
 	drm_display_mode_to_videomode(adjusted_mode, &dsim->vmode);
 }
 
+static u32 *sec_mipi_dsim_atomic_get_input_bus_fmts(struct drm_bridge *bridge,
+						    struct drm_bridge_state *bridge_state,
+						    struct drm_crtc_state *crtc_state,
+						    struct drm_connector_state *conn_state,
+						    u32 output_fmt,
+						    unsigned int *num_input_fmts)
+{
+	u32 *input_fmts;
+	struct sec_mipi_dsim *dsim = bridge->driver_private;
+
+	/* use dsi format to determine output bus format
+	 * if it is passed with MEDIA_BUS_FMT_FIXED
+	 */
+	if (output_fmt == MEDIA_BUS_FMT_FIXED) {
+		switch (dsim->format) {
+		case MIPI_DSI_FMT_RGB888:
+			output_fmt = MEDIA_BUS_FMT_RGB888_1X24;
+			break;
+		case MIPI_DSI_FMT_RGB666:
+			output_fmt = MEDIA_BUS_FMT_RGB666_1X24_CPADHI;
+			break;
+		case MIPI_DSI_FMT_RGB666_PACKED:
+			output_fmt = MEDIA_BUS_FMT_RGB666_1X18;
+			break;
+		case MIPI_DSI_FMT_RGB565:
+			output_fmt = MEDIA_BUS_FMT_RGB565_1X16;
+			break;
+		default:
+			return NULL;
+		}
+	} else {
+		/* check if the output format matches with
+		 * DSI device requested format
+		 */
+		switch (dsim->format) {
+		case MIPI_DSI_FMT_RGB888:
+			if (output_fmt != MEDIA_BUS_FMT_RGB888_1X24)
+				return NULL;
+			break;
+		case MIPI_DSI_FMT_RGB666:
+			if (output_fmt != MEDIA_BUS_FMT_RGB666_1X24_CPADHI)
+				return NULL;
+			break;
+		case MIPI_DSI_FMT_RGB666_PACKED:
+			if (output_fmt != MEDIA_BUS_FMT_RGB666_1X18)
+				return NULL;
+			break;
+		case MIPI_DSI_FMT_RGB565:
+			if (output_fmt != MEDIA_BUS_FMT_RGB565_1X16)
+				return NULL;
+			break;
+		default:
+			return NULL;
+		}
+	}
+
+	/* Since dsim cannot do any color conversion, so the
+	 * bus format output by mipi dsi should just be
+	 * propagated to the bus format recieved by mipi dsi
+	 * directly.
+	 */
+	input_fmts = drm_atomic_helper_bridge_propagate_bus_fmt(bridge,
+								bridge_state,
+								crtc_state,
+								conn_state,
+								output_fmt,
+								num_input_fmts);
+
+	return input_fmts;
+}
+
+static int sec_mipi_dsim_bridge_atomic_check(struct drm_bridge *bridge,
+					     struct drm_bridge_state *bridge_state,
+					     struct drm_crtc_state *crtc_state,
+					     struct drm_connector_state *conn_state)
+{
+	struct drm_display_mode *adjusted_mode = &crtc_state->adjusted_mode;
+	struct drm_bus_cfg *input_bus_cfg = &bridge_state->input_bus_cfg;
+	struct sec_mipi_dsim *dsim = bridge->driver_private;
+
+	/* seems unnecessary to check the input bus format
+	 * again, since during the negotiation process, it
+	 * has already been checked
+	 */
+	if (bridge_state->output_bus_cfg.format == MEDIA_BUS_FMT_FIXED)
+		bridge_state->output_bus_cfg.format = bridge_state->input_bus_cfg.format;
+
+	/* adjust Hsync and Vsync polarities for drm display mode,
+	 * since DSIM can only accept active high Hsync and Vsync
+	 * signals
+	 */
+	if (adjusted_mode->flags & DRM_MODE_FLAG_NHSYNC) {
+		adjusted_mode->flags &= ~DRM_MODE_FLAG_NHSYNC;
+		adjusted_mode->flags |= DRM_MODE_FLAG_PHSYNC;
+	}
+
+	if (adjusted_mode->flags & DRM_MODE_FLAG_NVSYNC) {
+		adjusted_mode->flags &= ~DRM_MODE_FLAG_NVSYNC;
+		adjusted_mode->flags |= DRM_MODE_FLAG_PVSYNC;
+	}
+
+	/* adjust input DE and pixel data sample polarities for
+	 * input bus_flags, since DSIM can only accept active
+	 * high DE and sample pixel data at clock postive edge
+	 */
+	if (input_bus_cfg->flags & DRM_BUS_FLAG_DE_LOW ||
+	    !(input_bus_cfg->flags & DRM_BUS_FLAG_DE_HIGH)) {
+		input_bus_cfg->flags &= ~DRM_BUS_FLAG_DE_LOW;
+		input_bus_cfg->flags |= DRM_BUS_FLAG_DE_HIGH;
+	}
+
+	if (input_bus_cfg->flags & DRM_BUS_FLAG_PIXDATA_SAMPLE_NEGEDGE ||
+	    !(input_bus_cfg->flags & DRM_BUS_FLAG_PIXDATA_SAMPLE_POSEDGE)) {
+		input_bus_cfg->flags &= ~DRM_BUS_FLAG_PIXDATA_SAMPLE_NEGEDGE;
+		input_bus_cfg->flags |= DRM_BUS_FLAG_PIXDATA_SAMPLE_POSEDGE;
+	}
+
+	/* workaround for CEA standard mode "1280x720@60"
+	 * display on 4 data lanes with Non-burst with sync
+	 * pulse DSI mode, since use the standard horizontal
+	 * timings cannot display correctly. And this code
+	 * cannot be put into the dsim Bridge's mode_fixup,
+	 * since the DSI device lane number change always
+	 * happens after that.
+	 */
+	if (!strcmp(adjusted_mode->name, "1280x720") &&
+	    drm_mode_vrefresh(adjusted_mode) == 60   &&
+	    dsim->lanes == 4		    &&
+	    dsim->mode_flags & MIPI_DSI_MODE_VIDEO_SYNC_PULSE) {
+		adjusted_mode->hsync_start += 2;
+		adjusted_mode->hsync_end   += 2;
+		adjusted_mode->htotal      += 2;
+	}
+
+	return 0;
+}
+
 static const struct drm_bridge_funcs sec_mipi_dsim_bridge_funcs = {
+	.atomic_check = sec_mipi_dsim_bridge_atomic_check,
+	.atomic_reset = drm_atomic_helper_bridge_reset,
+	.atomic_duplicate_state = drm_atomic_helper_bridge_duplicate_state,
+	.atomic_destroy_state = drm_atomic_helper_bridge_destroy_state,
+	.atomic_get_input_bus_fmts = sec_mipi_dsim_atomic_get_input_bus_fmts,
 	.attach     = sec_mipi_dsim_bridge_attach,
 	.enable     = sec_mipi_dsim_bridge_enable,
 	.disable    = sec_mipi_dsim_bridge_disable,
