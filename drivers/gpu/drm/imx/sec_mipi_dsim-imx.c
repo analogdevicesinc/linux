@@ -107,31 +107,12 @@ static int imx_sec_dsim_encoder_helper_atomic_check(struct drm_encoder *encoder,
 						    struct drm_crtc_state *crtc_state,
 						    struct drm_connector_state *conn_state)
 {
-	int i, ret;
-	u32 bus_format;
-	unsigned int num_bus_formats;
-	struct imx_sec_dsim_device *dsim_dev = enc_to_dsim(encoder);
+	int ret;
 	struct drm_display_mode *adjusted_mode = &crtc_state->adjusted_mode;
 	struct imx_crtc_state *imx_crtc_state = to_imx_crtc_state(crtc_state);
-	struct drm_display_info *display_info = &conn_state->connector->display_info;
 	struct drm_bridge *bridge = drm_bridge_chain_get_first_bridge(encoder);
-
-	num_bus_formats = display_info->num_bus_formats;
-	if (unlikely(!num_bus_formats))
-		dev_warn(dsim_dev->dev, "no bus formats assigned by connector\n");
-
-	bus_format = adjusted_mode->private_flags & 0xffff;
-
-	for (i = 0; i < num_bus_formats; i++) {
-		if (display_info->bus_formats[i] != bus_format)
-			continue;
-		break;
-	}
-
-	if (i && i == num_bus_formats) {
-		dev_err(dsim_dev->dev, "invalid bus format for connector\n");
-		return -EINVAL;
-	}
+	struct drm_bridge_state *bridge_state;
+	struct drm_bus_cfg *input_bus_cfg;
 
 	/* check pll out */
 	ret = sec_mipi_dsim_check_pll_out(bridge->driver_private,
@@ -139,20 +120,16 @@ static int imx_sec_dsim_encoder_helper_atomic_check(struct drm_encoder *encoder,
 	if (ret)
 		return ret;
 
-	/* sec dsim can only accept active hight DE */
-	imx_crtc_state->bus_flags |= DRM_BUS_FLAG_DE_HIGH;
+	bridge_state = drm_atomic_get_new_bridge_state(crtc_state->state,
+						       bridge);
 
-	/* For the dotclock polarity, default is neg edge;
-	 * and in the dsim spec, there is no explict words
-	 * to illustrate the dotclock polarity requirement.
-	 */
-	imx_crtc_state->bus_flags |= DRM_BUS_FLAG_PIXDATA_SAMPLE_POSEDGE,
+	if (WARN_ON(!bridge_state))
+		return -ENODEV;
 
-	/* set the bus format for CRTC output which should be
-	 * the same as the bus format between dsim and connector,
-	 * since dsim cannot do any pixel conversions.
-	 */
-	imx_crtc_state->bus_format = bus_format;
+	input_bus_cfg = &bridge_state->input_bus_cfg;
+
+	imx_crtc_state->bus_format = input_bus_cfg->format;
+	imx_crtc_state->bus_flags  = input_bus_cfg->flags;
 
 	return 0;
 }
