@@ -1453,76 +1453,6 @@ static void sec_mipi_dsim_bridge_disable(struct drm_bridge *bridge)
 	}
 }
 
-static bool sec_mipi_dsim_bridge_mode_fixup(struct drm_bridge *bridge,
-					    const struct drm_display_mode *mode,
-					    struct drm_display_mode *adjusted_mode)
-{
-	int private_flags;
-	struct sec_mipi_dsim *dsim = bridge->driver_private;
-
-	/* Since mipi dsi cannot do color conversion,
-	 * so the pixel format output by mipi dsi should
-	 * be the same with the pixel format recieved by
-	 * mipi dsi. And the pixel format information needs
-	 * to be passed to CRTC to be checked with the CRTC
-	 * attached plane fb pixel format.
-	 */
-	switch (dsim->format) {
-	case MIPI_DSI_FMT_RGB888:
-		private_flags = MEDIA_BUS_FMT_RGB888_1X24;
-		break;
-	case MIPI_DSI_FMT_RGB666:
-		private_flags = MEDIA_BUS_FMT_RGB666_1X24_CPADHI;
-		break;
-	case MIPI_DSI_FMT_RGB666_PACKED:
-		private_flags = MEDIA_BUS_FMT_RGB666_1X18;
-		break;
-	case MIPI_DSI_FMT_RGB565:
-		private_flags = MEDIA_BUS_FMT_RGB565_1X16;
-		break;
-	default:
-		return false;
-	}
-
-	adjusted_mode->private_flags = private_flags;
-
-	/* the 'bus_flags' in connector's display_info is useless
-	 * for mipi dsim, since dsim only sends packets with no
-	 * polarities information in the packets. But the dsim
-	 * host has some polarities requirements for the CRTC:
-	 * dsim only can accpet active high Vsync, Hsync and DE
-	 * signals.
-	 */
-	if (adjusted_mode->flags & DRM_MODE_FLAG_NHSYNC) {
-		adjusted_mode->flags &= ~DRM_MODE_FLAG_NHSYNC;
-		adjusted_mode->flags |= DRM_MODE_FLAG_PHSYNC;
-	}
-
-	if (adjusted_mode->flags & DRM_MODE_FLAG_NVSYNC) {
-		adjusted_mode->flags &= ~DRM_MODE_FLAG_NVSYNC;
-		adjusted_mode->flags |= DRM_MODE_FLAG_PVSYNC;
-	}
-
-	/* workaround for CEA standard mode "1280x720@60"
-	 * display on 4 data lanes with Non-burst with sync
-	 * pulse DSI mode, since use the standard horizontal
-	 * timings cannot display correctly. And this code
-	 * cannot be put into the dsim Bridge's mode_fixup,
-	 * since the DSI device lane number change always
-	 * happens after that.
-	 */
-	if (!strcmp(mode->name, "1280x720") &&
-	    drm_mode_vrefresh(mode) == 60	    &&
-	    dsim->lanes == 4		    &&
-	    dsim->mode_flags & MIPI_DSI_MODE_VIDEO_SYNC_PULSE) {
-		adjusted_mode->hsync_start += 2;
-		adjusted_mode->hsync_end   += 2;
-		adjusted_mode->htotal      += 2;
-	}
-
-	return true;
-}
-
 static void sec_mipi_dsim_bridge_mode_set(struct drm_bridge *bridge,
 					  const struct drm_display_mode *mode,
 					  const struct drm_display_mode *adjusted_mode)
@@ -1687,7 +1617,6 @@ static const struct drm_bridge_funcs sec_mipi_dsim_bridge_funcs = {
 	.enable     = sec_mipi_dsim_bridge_enable,
 	.disable    = sec_mipi_dsim_bridge_disable,
 	.mode_set   = sec_mipi_dsim_bridge_mode_set,
-	.mode_fixup = sec_mipi_dsim_bridge_mode_fixup,
 };
 
 void sec_mipi_dsim_suspend(struct device *dev)
