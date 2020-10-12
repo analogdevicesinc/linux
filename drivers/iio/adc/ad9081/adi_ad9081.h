@@ -421,8 +421,8 @@ typedef enum {
 	AD9081_TMODE_NEG_FULL = 0x3, /*!< Negative Full-Scale, 0x8000 */
 	AD9081_TMODE_ALT_CHECKER =
 		0x4, /*!< Alternating Checker Board, 0x5555-0xAAAA */
-	AD9081_TMODE_PN9 = 0x5, /*!< PN9 Sequence */
-	AD9081_TMODE_PN23 = 0x6, /*!< PN23 Sequence */
+	AD9081_TMODE_PN9 = 0x6, /*!< PN9 Sequence */
+	AD9081_TMODE_PN23 = 0x5, /*!< PN23 Sequence */
 	AD9081_TMODE_1_0_TOGG = 0x7, /*!< 1/0 Word Toggle, 0x0000-0xFFFF */
 	AD9081_TMODE_USER_PAT = 0x8, /*!< User Pattern Test Mode */
 	AD9081_TMODE_PN7 = 0x9, /*!< PN7 Sequence */
