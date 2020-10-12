@@ -1,4 +1,5 @@
 /* Copyright (C) 2008-2012 Freescale Semiconductor, Inc.
+ * Copyright 2020 NXP
  * Authors: Andy Fleming <afleming@freescale.com>
  *	    Timur Tabi <timur@freescale.com>
  *	    Geoff Thorpe <Geoff.Thorpe@freescale.com>
@@ -1694,6 +1695,46 @@ static inline struct device *get_dev_ptr(char *if_name)
 	return dev;
 }
 
+static int ioctl_set_link_status(struct usdpaa_ioctl_update_link_status *args)
+{
+	struct device *dev;
+	struct mac_device *mac_dev;
+
+	dev = get_dev_ptr(args->if_name);
+	if (!dev)
+		return -ENODEV;
+
+	if (of_device_is_compatible(dev->of_node, "fsl,dpa-ethernet")) {
+		struct net_device *ndev;
+		struct dpa_priv_s *npriv = NULL;
+
+		ndev = dev_get_drvdata(dev);
+		npriv = netdev_priv(ndev);
+		mac_dev =  npriv->mac_dev;
+	} else if (of_device_is_compatible(dev->of_node, "fsl,dpa-ethernet-init")) {
+		struct proxy_device *proxy_dev;
+
+		proxy_dev = dev_get_drvdata(dev);
+		mac_dev =  proxy_dev->mac_dev;
+	} else {
+		pr_err(KBUILD_MODNAME "Not supported device\n");
+		return -ENOMEM;
+	}
+
+	if (!mac_dev->phy_dev) {
+		pr_err(KBUILD_MODNAME "Device does not have associated phy dev\n");
+		return -EINVAL;
+	}
+
+	if (args->set_link_status == ETH_LINK_UP)
+		phy_resume(mac_dev->phy_dev);
+	else if (args->set_link_status == ETH_LINK_DOWN)
+		phy_suspend(mac_dev->phy_dev);
+	else
+		return -EINVAL;
+	return 0;
+}
+
 /* This function will return Current link status of the device
  * '1' if Link is UP, '0' otherwise.
  *
@@ -1709,14 +1750,22 @@ static inline int ioctl_usdpaa_get_link_status(char *if_name)
 	dev = get_dev_ptr(if_name);
 	if (dev == NULL)
 		return -ENODEV;
-	net_dev = dev->platform_data;
-	if (net_dev == NULL)
-		return -ENODEV;
 
-	if (test_bit(__LINK_STATE_NOCARRIER, &net_dev->state))
-		return 0; /* Link is DOWN */
-	else
-		return 1; /* Link is UP */
+	if (of_device_is_compatible(dev->of_node, "fsl,dpa-ethernet")) {
+		net_dev = dev_get_drvdata(dev);
+		if (test_bit(__LINK_STATE_START, &net_dev->state))
+			return 1;
+		else
+			return 0;
+	} else {
+		net_dev = dev->platform_data;
+		if (net_dev == NULL)
+			return -ENODEV;
+		if (test_bit(__LINK_STATE_NOCARRIER, &net_dev->state))
+			return 0; /* Link is DOWN */
+		else
+			return 1; /* Link is UP */
+	}
 }
 
 
@@ -1727,18 +1776,32 @@ static inline int ioctl_usdpaa_get_link_status(char *if_name)
  */
 static void phy_link_updates(struct net_device *net_dev)
 {
-	struct dpa_proxy_priv_s *priv = NULL;
+	struct dpa_priv_s *npriv = NULL;
+	struct mac_device *mac_dev;
+	struct phy_device *phy_dev;
+
+	if (!net_dev->phydev) {
+		npriv = netdev_priv(net_dev);
+		mac_dev =  npriv->mac_dev;
+		phy_dev = of_phy_find_device(mac_dev->phy_node);
+	} else {
+		phy_dev = net_dev->phydev;
+	}
+
+	if (phy_dev->priv == NULL) {
+		struct dpa_proxy_priv_s *priv = NULL;
+		priv = netdev_priv(net_dev);
+		eventfd_signal(priv->efd_ctx, 1);
+	} else {
+		eventfd_signal((struct eventfd_ctx *)phy_dev->priv, 1);
+	}
 
 	pr_debug("%s: Link '%s': Speed '%d-Mbps': Autoneg '%d': Duplex '%d'\n",
 		net_dev->name,
 		ioctl_usdpaa_get_link_status(net_dev->name)?"UP":"DOWN",
-		net_dev->phydev->speed,
-		net_dev->phydev->autoneg,
-		net_dev->phydev->duplex);
-
-	/* Wake up the user space context to notify PHY update */
-	priv = netdev_priv(net_dev);
-	eventfd_signal(priv->efd_ctx, 1);
+		phy_dev->speed,
+		phy_dev->autoneg,
+		phy_dev->duplex);
 }
 
 
@@ -1756,56 +1819,89 @@ static int ioctl_en_if_link_status(struct usdpaa_ioctl_link_status *args)
 	struct dpa_proxy_priv_s *priv = NULL;
 	struct device *dev;
 	struct mac_device *mac_dev;
-	struct proxy_device *proxy_dev;
 	struct task_struct *userspace_task = NULL;
 	struct file *efd_file = NULL;
 
 	dev = get_dev_ptr(args->if_name);
 	if (dev == NULL)
 		return -ENODEV;
-	/* Utilize dev->platform_data to save netdevice
-	   pointer as it will not be registered */
-	if (dev->platform_data) {
-		pr_debug("%s: IF %s already initialized\n",
-			__func__, args->if_name);
-		/* This will happen when application is not able to initiate
-		 * cleanup in last run. We still need to save the new
-		 * eventfd context.
-		 */
-		net_dev = dev->platform_data;
-		priv = netdev_priv(net_dev);
 
+	if (of_device_is_compatible(dev->of_node, "fsl,dpa-ethernet")) {
+		struct dpa_priv_s *npriv = NULL;
+		struct phy_device *phy;
+
+		net_dev = dev_get_drvdata(dev);
+		npriv = netdev_priv(net_dev);
+		mac_dev =  npriv->mac_dev;
+		phy = of_phy_find_device(mac_dev->phy_node);
+		phy->adjust_link = phy_link_updates;
 		/* Get current task context from which IOCTL was called */
 		userspace_task = current;
 
 		rcu_read_lock();
 		efd_file = fcheck_files(userspace_task->files, args->efd);
 		rcu_read_unlock();
-
-		priv->efd_ctx = eventfd_ctx_fileget(efd_file);
-		if (!priv->efd_ctx) {
+		/* Utilising the PHYs priv for efd */
+		phy->priv = (void *)eventfd_ctx_fileget(efd_file);
+		if (phy->priv == NULL) {
 			pr_err(KBUILD_MODNAME "get eventfd context failed\n");
-			/* Free the allocated memory for net device */
-			dev->platform_data = NULL;
-			free_netdev(net_dev);
 			return -EINVAL;
 		}
+
 		/* Since there will be NO PHY update as link is already setup,
 		 * wake user context once so that current PHY status can
 		 * be fetched.
 		 */
 		phy_link_updates(net_dev);
-		return 0;
-	}
 
-	proxy_dev = dev_get_drvdata(dev);
-	mac_dev =  proxy_dev->mac_dev;
-	/* Allocate an dummy net device for proxy interface */
-	net_dev = alloc_etherdev(sizeof(*priv));
-	if (!net_dev) {
-		pr_err(KBUILD_MODNAME "alloc_etherdev failed\n");
-		return -ENOMEM;
-	} else {
+	} else if (of_device_is_compatible(dev->of_node, "fsl,dpa-ethernet-init")) {
+		struct proxy_device *proxy_dev;
+
+		/* Utilize dev->platform_data to save netdevice
+		 * pointer as it will not be registered.
+		 */
+		if (dev->platform_data) {
+			pr_debug("%s: IF %s already initialized\n",
+				 __func__, args->if_name);
+			/* This will happen when application is not able to initiate
+			 * cleanup in last run. We still need to save the new
+			 * eventfd context.
+			 */
+			net_dev = dev->platform_data;
+			priv = netdev_priv(net_dev);
+
+			/* Get current task context from which IOCTL was called */
+			userspace_task = current;
+
+			rcu_read_lock();
+			efd_file = fcheck_files(userspace_task->files, args->efd);
+			rcu_read_unlock();
+
+			priv->efd_ctx = eventfd_ctx_fileget(efd_file);
+			if (!priv->efd_ctx) {
+				pr_err(KBUILD_MODNAME "get eventfd context failed\n");
+				/* Free the allocated memory for net device */
+				dev->platform_data = NULL;
+				free_netdev(net_dev);
+				return -EINVAL;
+			}
+			/* Since there will be NO PHY update as link is already setup,
+			 * wake user context once so that current PHY status can
+			 * be fetched.
+			 */
+			phy_link_updates(net_dev);
+			return 0;
+		}
+
+		proxy_dev = dev_get_drvdata(dev);
+		mac_dev =  proxy_dev->mac_dev;
+
+		/* Allocate an dummy net device for proxy interface */
+		net_dev = alloc_etherdev(sizeof(*priv));
+		if (!net_dev) {
+			pr_err(KBUILD_MODNAME "alloc_etherdev failed\n");
+			return -ENOMEM;
+		}
 		SET_NETDEV_DEV(net_dev, dev);
 		priv = netdev_priv(net_dev);
 		priv->mac_dev = mac_dev;
@@ -1826,21 +1922,25 @@ static int ioctl_en_if_link_status(struct usdpaa_ioctl_link_status *args)
 		}
 		strncpy(net_dev->name, args->if_name, IF_NAME_MAX_LEN);
 		dev->platform_data = net_dev;
-	}
 
-	pr_debug("%s: mac_dev %p cell_index %d\n",
-		__func__, mac_dev, mac_dev->cell_index);
-	mac_dev->phy_dev = of_phy_connect(net_dev, mac_dev->phy_node,
-	                         phy_link_updates, 0, mac_dev->phy_if);
-	if (unlikely(mac_dev->phy_dev == NULL) || IS_ERR(mac_dev->phy_dev)) {
-		pr_err("%s: --------Error in PHY Connect\n", __func__);
-		/* Free the allocated memory for net device */
-		free_netdev(net_dev);
-		return -ENODEV;
+		pr_debug("%s: mac_dev %p cell_index %d\n",
+			 __func__, mac_dev, mac_dev->cell_index);
+		mac_dev->phy_dev = of_phy_connect(net_dev, mac_dev->phy_node,
+						  phy_link_updates, 0,
+						  mac_dev->phy_if);
+		if (unlikely(mac_dev->phy_dev == NULL) || IS_ERR(mac_dev->phy_dev)) {
+			pr_err("%s: --------Error in PHY Connect\n", __func__);
+			/* Free the allocated memory for net device */
+			free_netdev(net_dev);
+			return -ENODEV;
+		}
+		pr_debug("%s: --- PHY connected for %s\n", __func__, args->if_name);
+		net_dev->phydev = mac_dev->phy_dev;
+		mac_dev->start(mac_dev);
+	} else {
+		pr_err(KBUILD_MODNAME "Not supported device\n");
+		return -ENOMEM;
 	}
-	net_dev->phydev = mac_dev->phy_dev;
-	mac_dev->start(mac_dev);
-	pr_debug("%s: --- PHY connected for %s\n", __func__, args->if_name);
 
 	return 0;
 }
@@ -1862,6 +1962,10 @@ static int ioctl_disable_if_link_status(char *if_name)
 	dev = get_dev_ptr(if_name);
 	if (dev == NULL)
 		return -ENODEV;
+
+	if (of_device_is_compatible(dev->of_node, "fsl,dpa-ethernet"))
+		return 0;
+
 	/* Utilize dev->platform_data to save netdevice
 	   pointer as it will not be registered */
 	if (!dev->platform_data) {
@@ -1995,6 +2099,20 @@ static long usdpaa_ioctl(struct file *fp, unsigned int cmd, unsigned long arg)
 			return -EFAULT;
 
 		return 0;
+	}
+	case USDPAA_IOCTL_UPDATE_LINK_STATUS:
+	{
+		struct usdpaa_ioctl_update_link_status input;
+		int ret;
+
+		if (copy_from_user(&input, a, sizeof(input)))
+			return -EFAULT;
+
+		ret = ioctl_set_link_status(&input);
+		if (ret)
+			pr_err("Error(%d) updating link status:IF: %s\n",
+			       ret, input.if_name);
+		return ret;
 	}
 	}
 	return -EINVAL;

@@ -1,5 +1,5 @@
 /* Copyright 2011-2012 Freescale Semiconductor, Inc.
- *
+ * Copyright 2020 NXP
  * This file is licensed under the terms of the GNU General Public License
  * version 2.  This program is licensed "as is" without any warranty of any
  * kind, whether express or implied.
@@ -372,6 +372,8 @@ int dpa_alloc_check(struct dpa_alloc *list, u32 id);
  ************************************/
 #define IF_NAME_MAX_LEN 16
 #define NODE_NAME_LEN	32
+#define ETH_LINK_DOWN 0
+#define ETH_LINK_UP 1
 
 struct usdpaa_ioctl_link_status {
 	/* network device node name */
@@ -393,9 +395,18 @@ struct usdpaa_ioctl_link_status_args {
 	int     link_status;
 };
 
+struct usdpaa_ioctl_update_link_status {
+	/* network device node name */
+	char    if_name[IF_NAME_MAX_LEN];
+	/* link status(ETH_LINK_UP/DOWN) */
+	int     set_link_status;
+};
+
 #define USDPAA_IOCTL_GET_LINK_STATUS \
 	_IOWR(USDPAA_IOCTL_MAGIC, 0x10, struct usdpaa_ioctl_link_status_args)
 
+#define USDPAA_IOCTL_UPDATE_LINK_STATUS \
+	_IOW(USDPAA_IOCTL_MAGIC, 0x11, struct usdpaa_ioctl_update_link_status)
 
 #ifdef __cplusplus
 }
