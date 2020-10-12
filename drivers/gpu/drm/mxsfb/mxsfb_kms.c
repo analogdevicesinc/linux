@@ -360,6 +360,28 @@ static void mxsfb_crtc_mode_set_nofb(struct mxsfb_drm_private *mxsfb,
 	mxsfb_set_mode(mxsfb, bus_flags);
 }
 
+static enum drm_mode_status mxsfb_crtc_mode_valid(struct drm_crtc *crtc,
+					   const struct drm_display_mode *mode)
+{
+	struct mxsfb_drm_private *mxsfb = to_mxsfb_drm_private(crtc->dev);
+	u32 bpp;
+	u64 bw;
+
+	if (!crtc->primary->state->fb)
+		bpp = 32;
+	else
+		bpp = crtc->primary->state->fb->format->depth;
+
+	bw = (u64)mode->clock * 1000;
+	bw = bw * mode->hdisplay * mode->vdisplay * (bpp / 8);
+	bw = div_u64(bw, mode->htotal * mode->vtotal);
+
+	if (mxsfb->max_bw && bw > mxsfb->max_bw)
+		return MODE_BAD;
+
+	return MODE_OK;
+}
+
 static int mxsfb_crtc_atomic_check(struct drm_crtc *crtc,
 				   struct drm_atomic_state *state)
 {
@@ -528,6 +550,7 @@ static int mxsfb_crtc_verify_crc_source(struct drm_crtc *crtc,
 }
 
 static const struct drm_crtc_helper_funcs mxsfb_crtc_helper_funcs = {
+	.mode_valid = mxsfb_crtc_mode_valid,
 	.atomic_check = mxsfb_crtc_atomic_check,
 	.atomic_flush = mxsfb_crtc_atomic_flush,
 	.atomic_enable = mxsfb_crtc_atomic_enable,
