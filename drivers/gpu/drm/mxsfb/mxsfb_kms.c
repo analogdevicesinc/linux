@@ -618,17 +618,85 @@ static int mxsfb_plane_atomic_check(struct drm_plane *plane,
 						   false, true);
 }
 
+static void mxsfb_set_fb_hcrop(struct mxsfb_drm_private *mxsfb, u32 src_w, u32 fb_w)
+{
+	u32 mask_cnt, htotal, hcount;
+	u32 vdctrl2, vdctrl3, vdctrl4, transfer_count;
+
+	if (src_w == fb_w) {
+		writel(0x0, mxsfb->base + HW_EPDC_PIGEON_12_0);
+		writel(0x0, mxsfb->base + HW_EPDC_PIGEON_12_1);
+
+		return;
+	}
+
+	transfer_count = readl(mxsfb->base + LCDC_V4_TRANSFER_COUNT);
+	hcount = TRANSFER_COUNT_GET_HCOUNT(transfer_count);
+
+	transfer_count &= ~TRANSFER_COUNT_SET_HCOUNT(0xffff);
+	transfer_count |= TRANSFER_COUNT_SET_HCOUNT(fb_w);
+	writel(transfer_count, mxsfb->base + LCDC_V4_TRANSFER_COUNT);
+
+	vdctrl2 = readl(mxsfb->base + LCDC_VDCTRL2);
+	htotal  = VDCTRL2_GET_HSYNC_PERIOD(vdctrl2);
+	htotal  += fb_w - hcount;
+	vdctrl2 &= ~VDCTRL2_SET_HSYNC_PERIOD(0x3ffff);
+	vdctrl2 |= VDCTRL2_SET_HSYNC_PERIOD(htotal);
+	writel(vdctrl2, mxsfb->base + LCDC_VDCTRL2);
+
+	vdctrl4 = readl(mxsfb->base + LCDC_VDCTRL4);
+	vdctrl4 &= ~SET_DOTCLK_H_VALID_DATA_CNT(0x3ffff);
+	vdctrl4 |= SET_DOTCLK_H_VALID_DATA_CNT(fb_w);
+	writel(vdctrl4, mxsfb->base + LCDC_VDCTRL4);
+
+	/* configure related pigeon registers */
+	vdctrl3  = readl(mxsfb->base + LCDC_VDCTRL3);
+	mask_cnt = GET_HOR_WAIT_CNT(vdctrl3) - 5;
+
+	writel(PIGEON_12_0_SET_STATE_MASK(0x24) |
+	       PIGEON_12_0_SET_MASK_CNT(mask_cnt) |
+	       PIGEON_12_0_SET_MASK_CNT_SEL(0x6) |
+	       PIGEON_12_0_POL_ACTIVE_LOW |
+	       PIGEON_12_0_EN,
+	       mxsfb->base + HW_EPDC_PIGEON_12_0);
+
+	writel(PIGEON_12_1_SET_CLR_CNT(src_w) |
+	       PIGEON_12_1_SET_SET_CNT(0x0),
+	       mxsfb->base + HW_EPDC_PIGEON_12_1);
+
+	writel(0, mxsfb->base + HW_EPDC_PIGEON_12_2);
+}
+
 static void mxsfb_plane_primary_atomic_update(struct drm_plane *plane,
 					      struct drm_atomic_state *state)
 {
 	struct mxsfb_drm_private *mxsfb = to_mxsfb_drm_private(plane->dev);
 	struct drm_plane_state *new_pstate = drm_atomic_get_new_plane_state(state,
 									    plane);
+	struct drm_framebuffer *fb = new_pstate->fb;
 	dma_addr_t dma_addr;
+	u32 src_off, src_w, stride, cpp = 0;
 
 	dma_addr = drm_fb_dma_get_gem_addr(new_pstate->fb, new_pstate, 0);
-	if (dma_addr)
-		writel(dma_addr, mxsfb->base + mxsfb->devdata->next_buf);
+	if (!dma_addr)
+		return;
+
+	/* We will use the 'has_ctrl2' to assume IP version larger than 4 */
+	if (mxsfb->devdata->has_ctrl2) {
+		cpp = fb->format->cpp[0];
+		src_off = (new_pstate->src_y >> 16) * fb->pitches[0] +
+			  (new_pstate->src_x >> 16) * cpp;
+		dma_addr += fb->offsets[0] + src_off;
+	}
+
+	writel(dma_addr, mxsfb->base + mxsfb->devdata->next_buf);
+
+	if (mxsfb->devdata->has_ctrl2 &&
+	    unlikely(drm_atomic_crtc_needs_modeset(new_pstate->crtc->state))) {
+		stride = DIV_ROUND_UP(fb->pitches[0], cpp);
+		src_w = new_pstate->src_w >> 16;
+		mxsfb_set_fb_hcrop(mxsfb, src_w, stride);
+	}
 }
 
 static void mxsfb_plane_overlay_atomic_update(struct drm_plane *plane,
