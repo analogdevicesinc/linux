@@ -2,7 +2,6 @@
 /*
  * Copyright 2019~2020, 2022 NXP
  */
-
 &flexspi0 {
 	compatible = "nxp,imx8dxl-fspi";
 	interrupts = <GIC_SPI 34 IRQ_TYPE_LEVEL_HIGH>;

@@ -168,7 +168,6 @@
 &flexspi0 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_flexspi0>;
-	interrupts = <GIC_SPI 34 IRQ_TYPE_LEVEL_HIGH>;
 	status = "okay";
 
 	mt35xu512aba0: flash@0 {
