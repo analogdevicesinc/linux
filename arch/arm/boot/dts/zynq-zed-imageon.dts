@@ -3,7 +3,7 @@
  * Analog Devices FMC-IMAGEON
  * https://wiki.analog.com/resources/fpga/xilinx/fmc/fmc-imageon
  *
- * hdl_project: <imageon>
+ * hdl_project: <imageon/zed>
  * board_revision: <>
  *
  * Copyright (C) 2016-2020 Analog Devices Inc.
