@@ -2263,20 +2263,15 @@ static int ad9081_parse_fir(struct ad9081_phy *phy,
 
 			ret = sscanf(line, "mode: %15s %15s",
 				     imode, qmode);
-			switch (ret) {
-			case 2:
-				q_mode = sysfs_match_string(pfir_filter_modes, qmode);
-				/* fall-through */
-			case 1:
-				i_mode = sysfs_match_string(pfir_filter_modes, imode);
-				break;
-			default:
-				q_mode = AD9081_ADC_PFIR_Q_MODE_DISABLE;
-				i_mode = AD9081_ADC_PFIR_I_MODE_DISABLE;
-			}
 
-			read_mask |= BIT(0);
-			continue;
+			if (ret == 2)
+				q_mode = sysfs_match_string(pfir_filter_modes, qmode);
+
+			if (ret == 1 || ret == 2) {
+				i_mode = sysfs_match_string(pfir_filter_modes, imode);
+				read_mask |= BIT(0);
+				continue;
+			}
 		}
 
 		if (~read_mask & BIT(1)) {
@@ -2285,13 +2280,15 @@ static int ad9081_parse_fir(struct ad9081_phy *phy,
 			ret = sscanf(line, "gain: %d %d %d %d",
 				     &ix, &iy, &qx, &qy);
 
-			ix_gain = ad9081_pfir_gain_enc(ix);
-			iy_gain = ad9081_pfir_gain_enc(iy);
-			qx_gain = ad9081_pfir_gain_enc(qx);
-			qy_gain = ad9081_pfir_gain_enc(qy);
+			if (ret == 4) {
+				ix_gain = ad9081_pfir_gain_enc(ix);
+				iy_gain = ad9081_pfir_gain_enc(iy);
+				qx_gain = ad9081_pfir_gain_enc(qx);
+				qy_gain = ad9081_pfir_gain_enc(qy);
 
-			read_mask |= BIT(1);
-			continue;
+				read_mask |= BIT(1);
+				continue;
+			}
 		}
 
 		if (~read_mask & BIT(2)) {
@@ -2299,16 +2296,14 @@ static int ad9081_parse_fir(struct ad9081_phy *phy,
 
 			ret = sscanf(line, "dest: %15s %15s", a, b);
 
-			switch (ret) {
-			case 2:
+			if (ret == 2) {
 				ret = sysfs_match_string(pfir_filter_pages, b);
 				if (ret < 0)
 					goto out;
 				coeff_pages = 1 << ret;
 				if (ret == 4)
 					coeff_pages = AD9081_ADC_PFIR_COEFF_PAGE_ALL;
-				/* fall-through */
-			case 1:
+
 				ret = sysfs_match_string(pfir_filter_pairs, a);
 				if (ret < 0)
 					goto out;
@@ -2316,19 +2311,19 @@ static int ad9081_parse_fir(struct ad9081_phy *phy,
 				if (ret == 2)
 					ctl_pages = AD9081_ADC_PFIR_ADC_PAIR_ALL;
 
-				break;
-			}
 
-			read_mask |= BIT(2);
-			continue;
+				read_mask |= BIT(2);
+				continue;
+			}
 		}
 
 		if (~read_mask & BIT(3)) {
 			ret = sscanf(line, "delay: %hhu %hhu",
 				     &half_complex_delay, &image_cancel_delay);
-
-			read_mask |= BIT(3);
-			continue;
+			if (ret == 2) {
+				read_mask |= BIT(3);
+				continue;
+			}
 		}
 
 		if (i_mode == AD9081_ADC_PFIR_I_MODE_MATRIX) {
