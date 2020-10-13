@@ -188,6 +188,8 @@ int adrv9002_ssi_configure(struct adrv9002_rf_phy *phy)
 	bool cmos_ddr;
 	u8 n_lanes, ssi_intf;
 	int c, ret;
+	const struct adi_adrv9001_RxChannelCfg *rx_cfg = phy->curr_profile->rx.rxChannelCfg;
+	unsigned long rate;
 
 	for (c = 0; c < ADRV9002_CHANN_MAX; c++) {
 		/*
@@ -196,9 +198,9 @@ int adrv9002_ssi_configure(struct adrv9002_rf_phy *phy)
 		 * only care at channel 1 and RX1 must be enabled. However, TX1 can be
 		 * disabled which would lead to problems since we would no configure channel 1...
 		 */
-		struct adrv9002_chan *chan = &phy->rx_channels[c].channel;
+		struct adrv9002_rx_chan *rx = &phy->rx_channels[c];
 
-		if (!chan->enabled)
+		if (!rx->channel.enabled)
 			continue;
 
 		/* the SSI settings should be done with the core in reset */
@@ -210,6 +212,8 @@ int adrv9002_ssi_configure(struct adrv9002_rf_phy *phy)
 		if (ret)
 			return ret;
 
+		rate = adrv9002_axi_dds_rate_get(phy, c) * rx_cfg[c].profile.rxOutputRate_Hz;
+		clk_set_rate(rx->tdd_clk, rate);
 		adrv9002_axi_interface_enable(phy, c, true);
 
 		if (phy->rx2tx2)
@@ -4043,6 +4047,8 @@ int adrv9002_post_init(struct adrv9002_rf_phy *phy)
 		[RX2_SAMPL_CLK] = "-rx2_sampl_clk",
 		[TX1_SAMPL_CLK] = "-tx1_sampl_clk",
 		[TX2_SAMPL_CLK] = "-tx2_sampl_clk",
+		[TDD1_INTF_CLK] = "-tdd1_intf_clk",
+		[TDD2_INTF_CLK] = "-tdd2_intf_clk"
 	};
 
 	ret = adrv9002_setup(phy, adrv9002_init_get());
@@ -4051,13 +4057,14 @@ int adrv9002_post_init(struct adrv9002_rf_phy *phy)
 
 	/* register channels clocks */
 	for (c = 0; c < ADRV9002_CHANN_MAX; c++) {
-		struct adrv9002_chan *rx = &phy->rx_channels[c].channel;
+		struct adrv9002_rx_chan *rx = &phy->rx_channels[c];
 		struct adrv9002_chan *tx = &phy->tx_channels[c].channel;
 
-		rx->clk = adrv9002_clk_register(phy, clk_names[c + RX1_SAMPL_CLK],
-						CLK_GET_RATE_NOCACHE | CLK_IGNORE_UNUSED, c);
-		if (IS_ERR(rx->clk))
-			return PTR_ERR(rx->clk);
+		rx->channel.clk = adrv9002_clk_register(phy, clk_names[c],
+							CLK_GET_RATE_NOCACHE | CLK_IGNORE_UNUSED,
+							c);
+		if (IS_ERR(rx->channel.clk))
+			return PTR_ERR(rx->channel.clk);
 
 		tx->clk = adrv9002_clk_register(phy, clk_names[c + TX1_SAMPL_CLK],
 						CLK_GET_RATE_NOCACHE | CLK_IGNORE_UNUSED,
@@ -4065,9 +4072,15 @@ int adrv9002_post_init(struct adrv9002_rf_phy *phy)
 		if (IS_ERR(tx->clk))
 			return PTR_ERR(tx->clk);
 
+		rx->tdd_clk = adrv9002_clk_register(phy, clk_names[c + TDD1_INTF_CLK],
+						    CLK_GET_RATE_NOCACHE | CLK_IGNORE_UNUSED,
+						    c + TDD1_INTF_CLK);
+		if (IS_ERR(rx->tdd_clk))
+			return PTR_ERR(rx->tdd_clk);
+
 		if (phy->rx2tx2) {
 			/* just point RX2/TX2 to RX1/TX1*/
-			phy->rx_channels[c + 1].channel.clk = rx->clk;
+			phy->rx_channels[c + 1].channel.clk = rx->channel.clk;
 			phy->tx_channels[c + 1].channel.clk = tx->clk;
 			break;
 		}
