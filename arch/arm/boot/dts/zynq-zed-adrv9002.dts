@@ -137,10 +137,17 @@
 			adi,axi-dds-default-frequency = <2000000>;
 		};
 
+		axi_adrv9002_core_tdd1: axi-adrv9002-core-tdd1-lpc@44A0C800 {
+			compatible = "adi,axi-tdd-1.00";
+			reg = <0x44A0C800 0x400>;
+			clocks = <&clkc 16>, <&adc0_adrv9002 2>;
+			clock-names = "s_axi_aclk", "intf_clk";
+		};
+
 		axi_adrv9002_core_rx2: axi-adrv9002-rx2-lpc@44A02000 {
 			compatible = "adi,axi-adrv9002-rx2-1.0";
 			reg = <0x44A09000 0x1000>;
-			clocks = <&adc0_adrv9002 2>;
+			clocks = <&adc0_adrv9002 3>;
 			clock-names = "sampl_clk";
 			dmas = <&rx2_dma 0>;
 			dma-names = "rx";
@@ -149,12 +156,19 @@
 		axi_adrv9002_core_tx2: axi-adrv9002-tx2-lpc@44A06000 {
 			compatible = "adi,axi-adrv9002-tx-1.0";
 			reg = <0x44A0C000 0x2000>;
-			clocks = <&adc0_adrv9002 3>;
+			clocks = <&adc0_adrv9002 4>;
 			clock-names = "sampl_clk";
 			dmas = <&tx2_dma 0>;
 			dma-names = "tx";
 			adi,axi-dds-default-scale = <0x800>;
 			adi,axi-dds-default-frequency = <2000000>;
+		};
+
+		axi_adrv9002_core_tdd2: axi-adrv9002-core-tdd2-lpc@44A0C800 {
+			compatible = "adi,axi-tdd-1.00";
+			reg = <0x44A0CC00 0x400>;
+			clocks = <&clkc 16>, <&adc0_adrv9002 5>;
+			clock-names = "s_axi_aclk", "intf_clk";
 		};
 
 		misc_clk_0: misc_clk_0 {

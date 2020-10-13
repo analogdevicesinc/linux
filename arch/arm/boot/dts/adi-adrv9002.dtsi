@@ -24,7 +24,8 @@
 		/* Clocks */
 		clocks = <&adrv9002_clkin 0>;
 		clock-names = "adrv9002_ext_refclk";
-		clock-output-names = "rx1_sampl_clk", "tx1_sampl_clk", "rx2_sampl_clk", "tx2_sampl_clk";
+		clock-output-names = "rx1_sampl_clk", "tx1_sampl_clk", "tdd1_intf_clk",
+				"rx2_sampl_clk", "tx2_sampl_clk", "tdd2_intf_clk";
 		#clock-cells = <1>;
 
 		agc0: agc@0 {
