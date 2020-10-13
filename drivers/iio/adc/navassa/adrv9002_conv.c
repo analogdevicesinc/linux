@@ -707,7 +707,24 @@ int __maybe_unused adrv9002_axi_tx_test_pattern_cfg(struct adrv9002_rf_phy *phy,
 }
 EXPORT_SYMBOL(adrv9002_axi_tx_test_pattern_cfg);
 
+u32 adrv9002_axi_dds_rate_get(struct adrv9002_rf_phy *phy, const int chan)
+{
+	struct axiadc_converter *conv = spi_get_drvdata(phy->spi);
+	struct axiadc_state *st = iio_priv(conv->indio_dev);
+	const int off = chan ? ADI_TX2_REG_OFF : ADI_TX1_REG_OFF;
+
+	/* the rate is decremented by one when configured on the core */
+	return axiadc_read(st, AIM_AXI_REG(off, ADI_TX_REG_RATE)) + 1;
+}
+EXPORT_SYMBOL(adrv9002_axi_dds_rate_get);
+
 #else  /* CONFIG_CF_AXI_ADC */
+
+u32 adrv9002_axi_dds_rate_get(struct adrv9002_rf_phy *phy, const int chan)
+{
+	return -ENODEV;
+}
+EXPORT_SYMBOL(adrv9002_axi_dds_rate_get);
 
 int adrv9002_axi_interface_set(struct adrv9002_rf_phy *phy, const u8 n_lanes,
 			       const u8 ssi_intf, const bool cmos_ddr,
