@@ -93,6 +93,13 @@
 			adi,axi-dds-default-frequency = <2000000>;
 		};
 
+		axi_adrv9002_core_tdd: axi-adrv9002-core-tdd-lpc@44A0C800 {
+			compatible = "adi,axi-tdd-1.00";
+			reg = <0x44A0C800 0x400>;
+			clocks = <&clkc 16>, <&adc0_adrv9002 2>;
+			clock-names = "s_axi_aclk", "intf_clk";
+		};
+
 		misc_clk_0: misc_clk_0 {
 			#clock-cells = <0>;
 			clock-frequency = <100000000>;
@@ -147,6 +154,6 @@ dgpio_0		32	86
 	reset-gpios = <&gpio0 100 GPIO_ACTIVE_LOW>;
 	ssi-sync-gpios = <&gpio0 108 GPIO_ACTIVE_HIGH>;
 
-	clock-output-names = "rx1_sampl_clk", "tx1_sampl_clk";
+	clock-output-names = "rx1_sampl_clk", "tx1_sampl_clk", "tdd1_intf_clk";
 };
 
