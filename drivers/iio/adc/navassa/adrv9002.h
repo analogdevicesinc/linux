@@ -54,6 +54,8 @@ enum adrv9002_clocks {
 	RX2_SAMPL_CLK,
 	TX1_SAMPL_CLK,
 	TX2_SAMPL_CLK,
+	TDD1_INTF_CLK,
+	TDD2_INTF_CLK,
 	NUM_ADRV9002_CLKS,
 };
 
@@ -110,6 +112,7 @@ struct adrv9002_rx_chan {
 	struct adrv9002_chan channel;
 	struct adi_adrv9001_GainControlCfg *agc;
 	struct adi_adrv9001_RxGainControlPinCfg *pin_cfg;
+	struct clk *tdd_clk;
 #ifdef CONFIG_DEBUG_FS
 	struct adi_adrv9001_RxSsiTestModeCfg ssi_test;
 	struct adi_adrv9001_GainControlCfg debug_agc;
@@ -189,6 +192,7 @@ int adrv9002_intf_change_delay(struct adrv9002_rf_phy *phy, const int channel, u
 			       u8 data_delay, const bool tx,
 			       const adi_adrv9001_SsiType_e ssi_type);
 adi_adrv9001_SsiType_e adrv9002_axi_ssi_type_get(struct adrv9002_rf_phy *phy);
+u32 adrv9002_axi_dds_rate_get(struct adrv9002_rf_phy *phy, const int chan);
 /* get init structs */
 struct adi_adrv9001_SpiSettings *adrv9002_spi_settings_get(void);
 struct adi_adrv9001_Init *adrv9002_init_get(void);
