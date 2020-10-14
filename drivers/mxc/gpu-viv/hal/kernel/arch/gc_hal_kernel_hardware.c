@@ -16144,7 +16144,7 @@ gckHARDWARE_SetClock(
 
     if (mcScale > 0 && mcScale <= 64)
     {
-        gckOS_ReadRegisterEx(Hardware->os, core, 0x00000, &org);
+        gcmkONERROR(gckOS_ReadRegisterEx(Hardware->os, core, 0x00000, &org));
 
         org = ((((gctUINT32) (org)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  8:2) - (0 ?
@@ -16158,7 +16158,7 @@ gckHARDWARE_SetClock(
  ~0U : (~(~0U << ((1 ? 8:2) - (0 ? 8:2) + 1))))))) << (0 ? 8:2)));
 
         /* Write the clock control register. */
-        gckOS_WriteRegisterEx(Hardware->os, core,
+        gcmkONERROR(gckOS_WriteRegisterEx(Hardware->os, core,
                             0x00000,
                             ((((gctUINT32) (org)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  9:9) - (0 ?
@@ -16169,10 +16169,10 @@ gckHARDWARE_SetClock(
  9:9))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
  9:9) - (0 ?
  9:9) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 9:9) - (0 ? 9:9) + 1))))))) << (0 ? 9:9))));
+ ~0U : (~(~0U << ((1 ? 9:9) - (0 ? 9:9) + 1))))))) << (0 ? 9:9)))));
 
         /* Done loading the frequency scaler. */
-        gckOS_WriteRegisterEx(Hardware->os, core,
+        gcmkONERROR(gckOS_WriteRegisterEx(Hardware->os, core,
                             0x00000,
                             ((((gctUINT32) (org)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  9:9) - (0 ?
@@ -16183,21 +16183,21 @@ gckHARDWARE_SetClock(
  9:9))) | (((gctUINT32) ((gctUINT32) (0) & ((gctUINT32) ((((1 ?
  9:9) - (0 ?
  9:9) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 9:9) - (0 ? 9:9) + 1))))))) << (0 ? 9:9))));
+ ~0U : (~(~0U << ((1 ? 9:9) - (0 ? 9:9) + 1))))))) << (0 ? 9:9)))));
 
         /* Need to change 0x0010C when it is introduced. */
-        gckOS_ReadRegisterEx(Hardware->os, core, 0x0010C, &org);
+        gcmkONERROR(gckOS_ReadRegisterEx(Hardware->os, core, 0x0010C, &org));
 
         /* Never impact shader clk. */
         org = 0x01020800 | (org & 0xFF);
 
-        gckOS_WriteRegisterEx(Hardware->os, core, 0x0010C, org);
+        gcmkONERROR(gckOS_WriteRegisterEx(Hardware->os, core, 0x0010C, org));
     }
 
     /* set SH clock */
     if (shScale > 0 && shScale <= 64)
     {
-        gckOS_ReadRegisterEx(Hardware->os, core, 0x0010C, &org);
+        gcmkONERROR(gckOS_ReadRegisterEx(Hardware->os, core, 0x0010C, &org));
 
         org = ((((gctUINT32) (org)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  7:1) - (0 ?
@@ -16231,7 +16231,7 @@ gckHARDWARE_SetClock(
  ~0U : (~(~0U << ((1 ? 17:17) - (0 ? 17:17) + 1))))))) << (0 ? 17:17)));
 
         /* Write the clock control register. */
-        gckOS_WriteRegisterEx(Hardware->os, core,
+        gcmkONERROR(gckOS_WriteRegisterEx(Hardware->os, core,
                             0x0010C,
                             ((((gctUINT32) (org)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  0:0) - (0 ?
@@ -16242,10 +16242,10 @@ gckHARDWARE_SetClock(
  0:0))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
  0:0) - (0 ?
  0:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 0:0) - (0 ? 0:0) + 1))))))) << (0 ? 0:0))));
+ ~0U : (~(~0U << ((1 ? 0:0) - (0 ? 0:0) + 1))))))) << (0 ? 0:0)))));
 
         /* Done loading the frequency scaler. */
-        gckOS_WriteRegisterEx(Hardware->os, core,
+        gcmkONERROR(gckOS_WriteRegisterEx(Hardware->os, core,
                             0x0010C,
                             ((((gctUINT32) (org)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  0:0) - (0 ?
@@ -16256,7 +16256,7 @@ gckHARDWARE_SetClock(
  0:0))) | (((gctUINT32) ((gctUINT32) (0) & ((gctUINT32) ((((1 ?
  0:0) - (0 ?
  0:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 0:0) - (0 ? 0:0) + 1))))))) << (0 ? 0:0))));
+ ~0U : (~(~0U << ((1 ? 0:0) - (0 ? 0:0) + 1))))))) << (0 ? 0:0)))));
     }
 
     /* Release the global semaphore. */
