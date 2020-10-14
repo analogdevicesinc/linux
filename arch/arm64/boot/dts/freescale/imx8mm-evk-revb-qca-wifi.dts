@@ -5,10 +5,10 @@
 
 /dts-v1/;
 
-#include "imx8mm-evk.dts"
+#include "imx8mm-evk-qca-wifi.dts"
 
 / {
-	model = "FSL i.MX8MM LPDDR4 EVK RevB board";
+	model = "FSL i.MX8MM LPDDR4 EVK with QCA WIFI revB board ";
 };
 
 /*
