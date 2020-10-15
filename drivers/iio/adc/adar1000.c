@@ -778,7 +778,7 @@ static ssize_t adar1000_store(struct device *dev,
 		if (ret)
 			return ret;
 
-		readval &= 0x3f;
+		readval &= 0x7f;
 		break;
 	case ADAR1000_CUR_TX:
 		reg = ADAR1000_BIAS_CURRENT_TX;
@@ -786,7 +786,7 @@ static ssize_t adar1000_store(struct device *dev,
 		if (ret)
 			return ret;
 
-		readval &= 0x3f;
+		readval &= 0x7f;
 		break;
 	case ADAR1000_CUR_TX_DRV:
 		reg = ADAR1000_BIAS_CURRENT_TX_DRV;
