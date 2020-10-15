@@ -1016,11 +1016,11 @@ static int adar1000_beam_load(struct adar1000_state *st, u32 channel, bool tx,
 	if (tx)
 		ret = regmap_write(st->regmap, st->dev_addr |
 				   ADAR1000_TX_CH_MEM(channel) | ADAR1000_RAM_ACCESS_TX,
-				   CHX_RAM_FETCH | ADAR1000_RAM_BEAM_POS_0(channel, profile));
+				   CHX_RAM_FETCH | profile);
 	else
 		ret = regmap_write(st->regmap, st->dev_addr |
 				   ADAR1000_RX_CH_MEM(channel) | ADAR1000_RAM_ACCESS_RX,
-				   CHX_RAM_FETCH | ADAR1000_RAM_BEAM_POS_0(channel, profile));
+				   CHX_RAM_FETCH | profile);
 	if (ret < 0)
 		return ret;
 
