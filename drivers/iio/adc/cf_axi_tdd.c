@@ -12,6 +12,7 @@
 #include <linux/interrupt.h>
 #include <linux/errno.h>
 #include <linux/device.h>
+#include <linux/notifier.h>
 #include <linux/slab.h>
 #include <linux/init.h>
 #include <linux/list.h>
@@ -39,124 +40,42 @@
 #define ADI_TDD_EN_MODE_MASK		GENMASK(3, 2)
 #define ADI_TDD_EN_MODE_GET(x)		FIELD_GET(ADI_TDD_EN_MODE_MASK, x)
 #define ADI_TDD_EN_MODE(x)		FIELD_PREP(ADI_TDD_EN_MODE_MASK, x)
-#define ADI_TDD_SECONDARY		BIT(1)
+#define ADI_TDD_SECONDARY_MASK		BIT(1)
+#define ADI_TDD_SECONDARY_GET(x)	FIELD_GET(ADI_TDD_SECONDARY_MASK, x)
+#define ADI_TDD_SECONDARY(x)		FIELD_PREP(ADI_TDD_SECONDARY_MASK, x)
 #define ADI_TDD_ENABLE			BIT(0)
 
+#define ADI_TDD_RX_TX_MASK		GENMASK(23, 0)
+#define ADI_TDD_RX_TX(x)		FIELD_PREP(ADI_TDD_RX_TX_MASK, x)
+
 #define ADI_REG_TDD_CONTROL_1		0x0044
-#define ADI_TDD_BURST_COUNT(x)		(((x) & 0xFF) << 0)
-#define ADI_TO_TDD_BURST_COUNT(x)	(((x) >> 0) & 0xFF)
+#define ADI_TDD_BURST_COUNT_MASK	GENMASK(7, 0)
+#define ADI_TDD_BURST_COUNT(x)		FIELD_PREP(ADI_TDD_BURST_COUNT_MASK, x)
 
 #define ADI_REG_TDD_COUNTER_2		0x0048
-#define ADI_TDD_COUNTER_INIT(x)		(((x) & 0xFFFFFF) << 0)
-#define ADI_TO_TDD_COUNTER_INIT(x)	(((x) >> 0) & 0xFFFFFF)
+#define ADI_TDD_COUNTER_INIT(x)		ADI_TDD_RX_TX(x)
 
 #define ADI_REG_TDD_FRAME_LENGTH	0x004c
-#define ADI_TDD_FRAME_LENGTH(x)		(((x) & 0xFFFFFF) << 0)
-#define ADI_TO_TDD_FRAME_LENGTH(x)	(((x) >> 0) & 0xFFFFFF)
 
 #define ADI_REG_TDD_SYNC_TERM_TYPE	0x0050
 #define ADI_TDD_SYNC_PULSE_ENABLE	BIT(0)
 
-#define ADI_REG_TDD_VCO_RX_ON_1		0x0080
-#define ADI_TDD_VCO_RX_ON_1(x)		(((x) & 0xFFFFFF) << 0)
-#define ADI_TO_TDD_VCO_RX_ON_1(x)	(((x) >> 0) & 0xFFFFFF)
+#define ADI_REG_TDD_VCO_RX_TX_ON(o, c)		(0x0080 + 8 * (o) + 0x40 * (c))
+#define ADI_REG_TDD_VCO_RX_TX_OFF(o, c)		(0x0084 + 8 * (o) + 0x40 * (c))
+#define ADI_REG_TDD_RX_TX_ON(o, c)		(0x0090 + 8 * (o) + 0x40 * (c))
+#define ADI_REG_TDD_RX_TX_OFF(o, c)		(0x0094 + 8 * (o) + 0x40 * (c))
+#define ADI_REG_TDD_RX_TX_DP_ON(o, c)		(0x00A0 + 8 * (o) + 0x40 * (c))
+#define ADI_REG_TDD_RX_TX_DP_OFF(o, c)		(0x00A4 + 8 * (o) + 0x40 * (c))
 
-#define ADI_REG_TDD_VCO_RX_OFF_1	0x0084
-#define ADI_TDD_VCO_RX_OFF_1(x)		(((x) & 0xFFFFFF) << 0)
-#define ADI_TO_TDD_VCO_RX_OFF_1(x)	(((x) >> 0) & 0xFFFFFF)
-
-#define ADI_REG_TDD_VCO_TX_ON_1		0x0088
-#define ADI_TDD_VCO_TX_ON_1(x)		(((x) & 0xFFFFFF) << 0)
-#define ADI_TO_TDD_VCO_TX_ON_1(x)	(((x) >> 0) & 0xFFFFFF)
-
-#define ADI_REG_TDD_VCO_TX_OFF_1	0x008C
-#define ADI_TDD_VCO_TX_OFF_1(x)		(((x) & 0xFFFFFF) << 0)
-#define ADI_TO_TDD_VCO_TX_OFF_1(x)	(((x) >> 0) & 0xFFFFFF)
-
-#define ADI_REG_TDD_RX_ON_1		0x0090
-#define ADI_TDD_RX_ON_1(x)		(((x) & 0xFFFFFF) << 0)
-#define ADI_TO_TDD_RX_ON_1(x)		(((x) >> 0) & 0xFFFFFF)
-
-#define ADI_REG_TDD_RX_OFF_1		0x0094
-#define ADI_TDD_RX_OFF_1(x)		(((x) & 0xFFFFFF) << 0)
-#define ADI_TO_TDD_RX_OFF_1(x)		(((x) >> 0) & 0xFFFFFF)
-
-#define ADI_REG_TDD_TX_ON_1		0x0098
-#define ADI_TDD_TX_ON_1(x)		(((x) & 0xFFFFFF) << 0)
-#define ADI_TO_TDD_TX_ON_1(x)		(((x) >> 0) & 0xFFFFFF)
-
-#define ADI_REG_TDD_TX_OFF_1		0x009C
-#define ADI_TDD_TX_OFF_1(x)		(((x) & 0xFFFFFF) << 0)
-#define ADI_TO_TDD_TX_OFF_1(x)		(((x) >> 0) & 0xFFFFFF)
-
-#define ADI_REG_TDD_TX_DP_ON_1		0x00A0
-#define ADI_TDD_TX_DP_ON_1(x)		(((x) & 0xFFFFFF) << 0)
-#define ADI_TO_TDD_TX_DP_ON_1(x)	(((x) >> 0) & 0xFFFFFF)
-
-#define ADI_REG_TDD_TX_DP_OFF_1		0x00A4
-#define ADI_TDD_TX_DP_OFF_1(x)		(((x) & 0xFFFFFF) << 0)
-#define ADI_TO_TDD_TX_DP_OFF_1(x)	(((x) >> 0) & 0xFFFFFF)
-
-#define ADI_REG_TDD_RX_DP_ON_1		0x00A8
-#define ADI_TDD_RX_DP_ON_1(x)		(((x) & 0xFFFFFF) << 0)
-#define ADI_TO_TDD_RX_DP_ON_1(x)	(((x) >> 0) & 0xFFFFFF)
-
-#define ADI_REG_TDD_RX_DP_OFF_1		0x00AC
-#define ADI_TDD_RX_DP_OFF_1(x)		(((x) & 0xFFFFFF) << 0)
-#define ADI_TO_TDD_RX_DP_OFF_1(x)	(((x) >> 0) & 0xFFFFFF)
-
-#define ADI_REG_TDD_VCO_RX_ON_2		0x00C0
-#define ADI_TDD_VCO_RX_ON_2(x)		(((x) & 0xFFFFFF) << 0)
-#define ADI_TO_TDD_VCO_RX_ON_2(x)	(((x) >> 0) & 0xFFFFFF)
-
-#define ADI_REG_TDD_VCO_RX_OFF_2	0x00C4
-#define ADI_TDD_VCO_RX_OFF_2(x)		(((x) & 0xFFFFFF) << 0)
-#define ADI_TO_TDD_VCO_RX_OFF_2(x)	(((x) >> 0) & 0xFFFFFF)
-
-#define ADI_REG_TDD_VCO_TX_ON_2		0x00C8
-#define ADI_TDD_VCO_TX_ON_2(x)		(((x) & 0xFFFFFF) << 0)
-#define ADI_TO_TDD_VCO_TX_ON_2(x)	(((x) >> 0) & 0xFFFFFF)
-
-#define ADI_REG_TDD_VCO_TX_OFF_2	0x00CC
-#define ADI_TDD_VCO_TX_OFF_2(x)		(((x) & 0xFFFFFF) << 0)
-#define ADI_TO_TDD_VCO_TX_OFF_2(x)	(((x) >> 0) & 0xFFFFFF)
-
-#define ADI_REG_TDD_RX_ON_2		0x00D0
-#define ADI_TDD_RX_ON_2(x)		(((x) & 0xFFFFFF) << 0)
-#define ADI_TO_TDD_RX_ON_2(x)		(((x) >> 0) & 0xFFFFFF)
-
-#define ADI_REG_TDD_RX_OFF_2		0x00D4
-#define ADI_TDD_RX_OFF_2(x)		(((x) & 0xFFFFFF) << 0)
-#define ADI_TO_TDD_RX_OFF_2(x)		(((x) >> 0) & 0xFFFFFF)
-
-#define ADI_REG_TDD_TX_ON_2		0x00D8
-#define ADI_TDD_TX_ON_2(x)		(((x) & 0xFFFFFF) << 0)
-#define ADI_TO_TDD_TX_ON_2(x)		(((x) >> 0) & 0xFFFFFF)
-
-#define ADI_REG_TDD_TX_OFF_2		0x00DC
-#define ADI_TDD_TX_OFF_2(x)		(((x) & 0xFFFFFF) << 0)
-#define ADI_TO_TDD_TX_OFF_2(x)		(((x) >> 0) & 0xFFFFFF)
-
-#define ADI_REG_TDD_TX_DP_ON_2		0x00E0
-#define ADI_TDD_TX_DP_ON_2(x)		(((x) & 0xFFFFFF) << 0)
-#define ADI_TO_TDD_TX_DP_ON_2(x)	(((x) >> 0) & 0xFFFFFF)
-
-#define ADI_REG_TDD_TX_DP_OFF_2		0x00E4
-#define ADI_TDD_TX_DP_OFF_2(x)		(((x) & 0xFFFFFF) << 0)
-#define ADI_TO_TDD_TX_DP_OFF_2(x)	(((x) >> 0) & 0xFFFFFF)
-
-#define ADI_REG_TDD_RX_DP_ON_2		0x00E8
-#define ADI_TDD_RX_DP_ON_2(x)		(((x) & 0xFFFFFF) << 0)
-#define ADI_TO_TDD_RX_DP_ON_2(x)	(((x) >> 0) & 0xFFFFFF)
-
-#define ADI_REG_TDD_RX_DP_OFF_2		0x00EC
-#define ADI_TDD_RX_DP_OFF_2(x)		(((x) & 0xFFFFFF) << 0)
-#define ADI_TO_TDD_RX_DP_OFF_2(x)	(((x) >> 0) & 0xFFFFFF)
-
-#define MAX_NUM_PROFILES			7
+struct cf_axi_tdd_clk {
+	struct notifier_block nb;
+	struct clk *clk;
+	unsigned long rate;
+};
 
 struct cf_axi_tdd_state {
 	struct iio_info		iio_info;
+	struct cf_axi_tdd_clk	clk;
 	void __iomem		*regs;
 	/* TDD core access locking */
 	struct mutex		lock;
@@ -164,9 +83,6 @@ struct cf_axi_tdd_state {
 	u32			enable;
 	u32			mode;
 	u32			dma_mode;
-	u32			profile;
-	u32			config[MAX_NUM_PROFILES][27];
-
 };
 
 enum {
@@ -174,7 +90,16 @@ enum {
 	CF_AXI_TDD_ENABLE_MODE,
 	CF_AXI_TDD_DMA_GATEING_MODE,
 	CF_AXI_TDD_BURST_COUNT,
-	CF_AXI_TDD_PROFILE_CONFIG,
+	CF_AXI_TDD_SECONDARY,
+	CF_AXI_TDD_COUNTER_INT,
+	CF_AXI_TDD_FRAME_LEN,
+	CF_AXI_TDD_SYNC_TERMINAL_TYPE,
+	CF_AXI_TDD_CHAN_ON,
+	CF_AXI_TDD_CHAN_OFF,
+	CF_AXI_TDD_CHAN_DP_ON,
+	CF_AXI_TDD_CHAN_DP_OFF,
+	CF_AXI_TDD_CHAN_VCO_ON,
+	CF_AXI_TDD_CHAN_VCO_OFF,
 };
 
 static inline void tdd_write(struct cf_axi_tdd_state *st, const u32 reg, const u32 val)
@@ -198,100 +123,6 @@ static void tdd_update_bits(struct cf_axi_tdd_state *st, const u32 reg, const u3
 	tdd_write(st, reg, __val);
 	mutex_unlock(&st->lock);
 }
-
-static inline void tdd_write_config(struct cf_axi_tdd_state *st, const u32 profile)
-{
-	int i;
-
-	tdd_write(st, ADI_REG_TDD_COUNTER_2, st->config[profile][0]);
-	tdd_write(st, ADI_REG_TDD_FRAME_LENGTH, st->config[profile][1]);
-	tdd_write(st, ADI_REG_TDD_SYNC_TERM_TYPE, st->config[profile][2]);
-
-	for (i = 0; i < 24; i++)
-		tdd_write(st, ADI_REG_TDD_VCO_RX_ON_1 + i * 4, st->config[profile][3 + i]);
-
-}
-
-static inline void tdd_read_config(struct cf_axi_tdd_state *st, const u32 profile)
-{
-	int i;
-
-	st->config[profile][0] = tdd_read(st, ADI_REG_TDD_COUNTER_2);
-	st->config[profile][1] = tdd_read(st, ADI_REG_TDD_FRAME_LENGTH);
-	st->config[profile][2] = tdd_read(st, ADI_REG_TDD_SYNC_TERM_TYPE);
-
-	for (i = 0; i < 24; i++)
-		st->config[profile][3 + i] = tdd_read(st, ADI_REG_TDD_VCO_RX_ON_1 + i * 4);
-
-}
-
-static ssize_t cf_axi_tdd_store(struct device *dev,
-				struct device_attribute *attr,
-				const char *buf, size_t len)
-{
-	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
-	struct iio_dev_attr *this_attr = to_iio_dev_attr(attr);
-	struct cf_axi_tdd_state *st = iio_priv(indio_dev);
-	unsigned long readin;
-	int ret = 0;
-
-	mutex_lock(&st->lock);
-	switch ((u32)this_attr->address) {
-	case CF_AXI_TDD_PROFILE_CONFIG:
-		ret = kstrtoul(buf, 0, &readin);
-		if (ret)
-			break;
-		if (readin > MAX_NUM_PROFILES) {
-			ret = -EINVAL;
-			break;
-		}
-		if (st->profile != readin) {
-			tdd_read_config(st, st->profile);
-			tdd_write_config(st, readin);
-		}
-		st->profile = readin;
-		break;
-	default:
-		ret = -ENODEV;
-	}
-	mutex_unlock(&st->lock);
-
-	return ret ? ret : len;
-}
-
-static ssize_t cf_axi_tdd_show(struct device *dev, struct device_attribute *attr, char *buf)
-{
-	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
-	struct iio_dev_attr *this_attr = to_iio_dev_attr(attr);
-	struct cf_axi_tdd_state *st = iio_priv(indio_dev);
-	int ret;
-
-	mutex_lock(&st->lock);
-	switch ((u32)this_attr->address) {
-	case CF_AXI_TDD_PROFILE_CONFIG:
-		ret = sprintf(buf, "%d\n", st->profile);
-		break;
-	default:
-		ret = -ENODEV;
-	}
-	mutex_unlock(&st->lock);
-
-	return ret;
-}
-
-static IIO_DEVICE_ATTR(profile_config, 0644,
-			cf_axi_tdd_show,
-			cf_axi_tdd_store,
-			CF_AXI_TDD_PROFILE_CONFIG);
-
-static struct attribute *cf_axi_tdd_attributes[] = {
-	&iio_dev_attr_profile_config.dev_attr.attr,
-	NULL,
-};
-
-static const struct attribute_group cf_axi_tdd_attribute_group = {
-	.attrs = cf_axi_tdd_attributes,
-};
 
 enum {
 	CF_AXI_TDD_RX_TX,
@@ -378,16 +209,48 @@ static ssize_t cf_axi_tdd_read(struct iio_dev *indio_dev, uintptr_t private,
 	case CF_AXI_TDD_BURST_COUNT:
 		val = tdd_read(st, ADI_REG_TDD_CONTROL_1);
 		return sprintf(buf, "%d\n", val);
+	case CF_AXI_TDD_SECONDARY:
+		val = tdd_read(st, ADI_REG_TDD_CONTROL_0);
+		return sprintf(buf, "%lu\n", ADI_TDD_SECONDARY_GET(val));
+	case CF_AXI_TDD_COUNTER_INT:
+		val = tdd_read(st, ADI_REG_TDD_COUNTER_2);
+		return sprintf(buf, "%d\n", val);
+	case CF_AXI_TDD_SYNC_TERMINAL_TYPE:
+		val = tdd_read(st, ADI_REG_TDD_SYNC_TERM_TYPE);
+		return sprintf(buf, "%d\n", val);
+	case CF_AXI_TDD_FRAME_LEN:
+		val = tdd_read(st, ADI_REG_TDD_FRAME_LENGTH);
+		break;
+	case CF_AXI_TDD_CHAN_ON:
+		val = tdd_read(st, ADI_REG_TDD_RX_TX_ON(chan->output, chan->channel));
+		break;
+	case CF_AXI_TDD_CHAN_OFF:
+		val = tdd_read(st, ADI_REG_TDD_RX_TX_OFF(chan->output, chan->channel));
+		break;
+	case CF_AXI_TDD_CHAN_DP_ON:
+		val = tdd_read(st, ADI_REG_TDD_RX_TX_DP_ON(chan->output, chan->channel));
+		break;
+	case CF_AXI_TDD_CHAN_DP_OFF:
+		val = tdd_read(st, ADI_REG_TDD_RX_TX_DP_OFF(chan->output, chan->channel));
+		break;
+	case CF_AXI_TDD_CHAN_VCO_ON:
+		val = tdd_read(st, ADI_REG_TDD_VCO_RX_TX_ON(chan->output, chan->channel));
+		break;
+	case CF_AXI_TDD_CHAN_VCO_OFF:
+		val = tdd_read(st, ADI_REG_TDD_VCO_RX_TX_OFF(chan->output, chan->channel));
+		break;
 	default:
 		return -EINVAL;
 	}
+
+	return sprintf(buf, "%llu\n", DIV_ROUND_CLOSEST_ULL((u64)val * 1000, st->clk.rate));
 }
 
 static ssize_t cf_axi_tdd_write(struct iio_dev *indio_dev, uintptr_t private,
 				const struct iio_chan_spec *chan, const char *buf, size_t len)
 {
 	struct cf_axi_tdd_state *st = iio_priv(indio_dev);
-	u32 val;
+	u32 val, reg;
 	int ret;
 
 	ret = kstrtouint(buf, 10, &val);
@@ -398,9 +261,43 @@ static ssize_t cf_axi_tdd_write(struct iio_dev *indio_dev, uintptr_t private,
 	case CF_AXI_TDD_BURST_COUNT:
 		tdd_write(st, ADI_REG_TDD_CONTROL_1, ADI_TDD_BURST_COUNT(val));
 		return len;
+	case CF_AXI_TDD_SECONDARY:
+		tdd_update_bits(st, ADI_REG_TDD_CONTROL_0, ADI_TDD_SECONDARY_MASK,
+				ADI_TDD_SECONDARY(val));
+		return len;
+	case CF_AXI_TDD_COUNTER_INT:
+		tdd_write(st, ADI_REG_TDD_COUNTER_2, ADI_TDD_COUNTER_INIT(val));
+		return len;
+	case CF_AXI_TDD_SYNC_TERMINAL_TYPE:
+		tdd_write(st, ADI_REG_TDD_SYNC_TERM_TYPE, val & ADI_TDD_SYNC_PULSE_ENABLE);
+		return len;
+	case CF_AXI_TDD_FRAME_LEN:
+		reg = ADI_REG_TDD_FRAME_LENGTH;
+		break;
+	case CF_AXI_TDD_CHAN_ON:
+		reg = ADI_REG_TDD_RX_TX_ON(chan->output, chan->channel);
+		break;
+	case CF_AXI_TDD_CHAN_OFF:
+		reg = ADI_REG_TDD_RX_TX_OFF(chan->output, chan->channel);
+		break;
+	case CF_AXI_TDD_CHAN_DP_ON:
+		reg = ADI_REG_TDD_RX_TX_DP_ON(chan->output, chan->channel);
+		break;
+	case CF_AXI_TDD_CHAN_DP_OFF:
+		reg = ADI_REG_TDD_RX_TX_DP_OFF(chan->output, chan->channel);
+		break;
+	case CF_AXI_TDD_CHAN_VCO_ON:
+		reg = ADI_REG_TDD_VCO_RX_TX_ON(chan->output, chan->channel);
+		break;
+	case CF_AXI_TDD_CHAN_VCO_OFF:
+		reg = ADI_REG_TDD_VCO_RX_TX_OFF(chan->output, chan->channel);
+		break;
 	default:
 		return -EINVAL;
 	}
+
+	val =  DIV_ROUND_CLOSEST_ULL((u64)val * st->clk.rate, 1000);
+	tdd_write(st, reg, ADI_TDD_RX_TX(val));
 
 	return len;
 }
@@ -420,6 +317,11 @@ static const struct iio_chan_spec_ext_info cf_axi_tdd_ext_info[] = {
 	IIO_ENUM_AVAILABLE_SHARED("dma_gateing_mode", IIO_SHARED_BY_ALL,
 				  &cf_axi_tdd_dma_gateing_mode_available),
 	CF_AXI_TDD_IIO_EXT_INFO("burst_count", CF_AXI_TDD_BURST_COUNT, IIO_SHARED_BY_ALL),
+	CF_AXI_TDD_IIO_EXT_INFO("secondary", CF_AXI_TDD_SECONDARY, IIO_SHARED_BY_ALL),
+	CF_AXI_TDD_IIO_EXT_INFO("counter_int", CF_AXI_TDD_COUNTER_INT, IIO_SHARED_BY_ALL),
+	CF_AXI_TDD_IIO_EXT_INFO("frame_length_ms", CF_AXI_TDD_FRAME_LEN, IIO_SHARED_BY_ALL),
+	CF_AXI_TDD_IIO_EXT_INFO("sync_terminal_type", CF_AXI_TDD_SYNC_TERMINAL_TYPE,
+				IIO_SHARED_BY_ALL),
 	{}
 };
 
@@ -428,8 +330,34 @@ static const struct iio_chan_spec_ext_info cf_axi_tdd_ext_info[] = {
 	.ext_info = cf_axi_tdd_ext_info, \
 }
 
+static const struct iio_chan_spec_ext_info cf_axi_tdd_chan_ext_info[] = {
+	CF_AXI_TDD_IIO_EXT_INFO("on_ms", CF_AXI_TDD_CHAN_ON, IIO_SEPARATE),
+	CF_AXI_TDD_IIO_EXT_INFO("off_ms", CF_AXI_TDD_CHAN_OFF, IIO_SEPARATE),
+	CF_AXI_TDD_IIO_EXT_INFO("dp_on_ms", CF_AXI_TDD_CHAN_DP_ON, IIO_SEPARATE),
+	CF_AXI_TDD_IIO_EXT_INFO("dp_off_ms", CF_AXI_TDD_CHAN_DP_OFF, IIO_SEPARATE),
+	CF_AXI_TDD_IIO_EXT_INFO("vco_on_ms", CF_AXI_TDD_CHAN_VCO_ON, IIO_SEPARATE),
+	CF_AXI_TDD_IIO_EXT_INFO("vco_off_ms", CF_AXI_TDD_CHAN_VCO_OFF, IIO_SEPARATE),
+	{}
+};
+
+#define CF_AXI_TDD_IIO_CHAN(_idx, _dir) { \
+	.type = IIO_GENERIC_DATA, \
+	.indexed = 1, \
+	.channel = _idx, \
+	.output = _dir, \
+	.ext_info = cf_axi_tdd_chan_ext_info, \
+}
+
 struct iio_chan_spec cf_axi_tdd_channels[] = {
 	CF_AXI_TDD_IIO_SHARED(),
+	/* RX1 path registers */
+	CF_AXI_TDD_IIO_CHAN(0, 0),
+	/* RX2 path registers */
+	CF_AXI_TDD_IIO_CHAN(1, 0),
+	/* TX1 path registers */
+	CF_AXI_TDD_IIO_CHAN(0, 1),
+	/* TX2 path registers */
+	CF_AXI_TDD_IIO_CHAN(1, 1),
 };
 
 static int cf_axi_tdd_read_raw(struct iio_dev *indio_dev, struct iio_chan_spec const *chan,
@@ -484,8 +412,69 @@ static const struct iio_info cf_axi_tdd_info = {
 	.read_raw = &cf_axi_tdd_read_raw,
 	.write_raw = &cf_axi_tdd_write_raw,
 	.debugfs_reg_access = &cf_axi_tdd_reg_access,
-	.attrs = &cf_axi_tdd_attribute_group,
 };
+
+static int cf_axi_tdd_rate_change(struct notifier_block *nb, unsigned long flags, void *data)
+{
+	struct cf_axi_tdd_clk *clk = container_of(nb, struct cf_axi_tdd_clk, nb);
+	struct clk_notifier_data *cnd = data;
+
+	/* cache the new rate */
+	clk->rate = cnd->new_rate;
+
+	return NOTIFY_OK;
+}
+
+static void cf_axi_tdd_clk_disable(void *clk)
+{
+	clk_disable_unprepare(clk);
+}
+
+static void cf_axi_tdd_clk_notifier_unreg(void *data)
+{
+	struct cf_axi_tdd_clk *clk = data;
+
+	clk_notifier_unregister(clk->clk, &clk->nb);
+}
+
+static int cf_axi_tdd_clk_setup(struct platform_device *pdev, struct cf_axi_tdd_state *st)
+{
+	int ret;
+	struct cf_axi_tdd_clk *clk = &st->clk;
+	struct clk *aclk;
+
+	aclk = devm_clk_get(&pdev->dev, "s_axi_aclk");
+	if (IS_ERR(aclk))
+		return PTR_ERR(aclk);
+
+	ret = clk_prepare_enable(aclk);
+	if (ret)
+		return ret;
+
+	ret = devm_add_action_or_reset(&pdev->dev, cf_axi_tdd_clk_disable, aclk);
+	if (ret)
+		return ret;
+
+	clk->clk = devm_clk_get(&pdev->dev, "intf_clk");
+	if (IS_ERR(clk->clk))
+		return PTR_ERR(clk->clk);
+
+	ret = clk_prepare_enable(clk->clk);
+	if (ret)
+		return ret;
+
+	ret = devm_add_action_or_reset(&pdev->dev, cf_axi_tdd_clk_disable, clk->clk);
+	if (ret)
+		return ret;
+
+	clk->rate = clk_get_rate(clk->clk);
+	clk->nb.notifier_call = cf_axi_tdd_rate_change;
+	ret = clk_notifier_register(clk->clk, &clk->nb);
+	if (ret)
+		return ret;
+
+	return devm_add_action_or_reset(&pdev->dev, cf_axi_tdd_clk_notifier_unreg, clk);
+}
 
 /* Match table for of_platform binding */
 static const struct of_device_id cf_axi_tdd_of_match[] = {
@@ -500,8 +489,7 @@ static int cf_axi_tdd_probe(struct platform_device *pdev)
 	unsigned int expected_version;
 	struct cf_axi_tdd_state *st;
 	struct iio_dev *indio_dev;
-	int ret, i;
-	char buf[32];
+	int ret;
 
 	indio_dev = devm_iio_device_alloc(&pdev->dev, sizeof(*st));
 	if (!indio_dev)
@@ -509,10 +497,9 @@ static int cf_axi_tdd_probe(struct platform_device *pdev)
 
 	st = iio_priv(indio_dev);
 
-	for (i = 0; i < MAX_NUM_PROFILES; i++) {
-		snprintf(buf, sizeof(buf), "adi,profile-config%d", i);
-		of_property_read_u32_array(np, buf, st->config[i], 15);
-	}
+	ret = cf_axi_tdd_clk_setup(pdev, st);
+	if (ret)
+		return ret;
 
 	st->regs = devm_platform_ioremap_resource(pdev, 0);
 	if (IS_ERR(st->regs))
@@ -540,8 +527,6 @@ static int cf_axi_tdd_probe(struct platform_device *pdev)
 	indio_dev->channels = cf_axi_tdd_channels;
 	indio_dev->num_channels = ARRAY_SIZE(cf_axi_tdd_channels);
 	indio_dev->info = &cf_axi_tdd_info;
-
-	tdd_write_config(st, 0);
 
 	ret = devm_iio_device_register(&pdev->dev, indio_dev);
 	if (ret < 0)
