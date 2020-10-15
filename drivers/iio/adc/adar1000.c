@@ -1229,7 +1229,7 @@ static ssize_t adar1000_read_enable(struct iio_dev *indio_dev,
 		if (ret < 0)
 			return ret;
 
-		val = !!(val >> (6 - chan->channel));
+		val = !(val >> (6 - chan->channel));
 
 		break;
 	case ADAR1000_DETECTOR:
@@ -1237,7 +1237,7 @@ static ssize_t adar1000_read_enable(struct iio_dev *indio_dev,
 		if (ret < 0)
 			return ret;
 
-		val = !!!(val >> (3 - chan->channel + 1));
+		val = !!(val >> (3 - chan->channel + 1));
 
 		break;
 	case ADAR1000_PA_BIAS_ON:
@@ -1284,15 +1284,13 @@ static ssize_t adar1000_write_enable(struct iio_dev *indio_dev,
 		if (ret)
 			return ret;
 
-		readin = !readin;
-
 		if (chan->output)
 			reg = ADAR1000_TX_ENABLES;
 		else
 			reg = ADAR1000_RX_ENABLES;
 
 		mask = ADAR1000_CH1_EN >> chan->channel;
-		if (readin)
+		if (!readin)
 			val = ADAR1000_CH1_EN >> chan->channel;
 
 		ret = regmap_update_bits(st->regmap, st->dev_addr | reg,
