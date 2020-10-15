@@ -960,8 +960,7 @@ static IIO_DEVICE_ATTR(bias_current_tx_drv, 0644,
 		       adar1000_show, adar1000_store, ADAR1000_CUR_TX_DRV);
 
 /* Reset attribute */
-static IIO_DEVICE_ATTR(reset, 0200,
-		       NULL, adar1000_reset, 0);
+static IIO_DEVICE_ATTR(reset, 0200, NULL, adar1000_reset, 0);
 
 static struct attribute *adar1000_attributes[] = {
 	&iio_dev_attr_rx_vga_enable.dev_attr.attr,
@@ -1165,14 +1164,14 @@ static ssize_t adar1000_beam_pos_read(struct iio_dev *indio_dev,
 	switch (private) {
 	case BEAM_POS_SAVE:
 		if (chan->output == 1)
-			len += sprintf(buf, "%d, %d.%d, %d.%d ",
+			len += sprintf(buf, "%d, %d.%d, %d.%d\n",
 				       st->save_beam_idx,
 				       st->tx_beam_pos[st->save_beam_idx].gain_val,
 				       st->tx_beam_pos[st->save_beam_idx].gain_val2,
 				       st->tx_beam_pos[st->save_beam_idx].phase_val,
 				       st->tx_beam_pos[st->save_beam_idx].phase_val2);
 		else
-			len += sprintf(buf, "%d, %d.%d, %d.%d ",
+			len += sprintf(buf, "%d, %d.%d, %d.%d\n",
 				       st->save_beam_idx,
 				       st->rx_beam_pos[st->save_beam_idx].gain_val,
 				       st->rx_beam_pos[st->save_beam_idx].gain_val2,
