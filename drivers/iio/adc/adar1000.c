@@ -949,6 +949,62 @@ static ssize_t adar1000_reset(struct device *dev,
 	return ret ? ret : len;
 }
 
+static ssize_t adar1000_seq_enable(struct device *dev,
+			      struct device_attribute *attr,
+			      const char *buf, size_t len)
+{
+	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
+	struct adar1000_state *st = iio_priv(indio_dev);
+	bool readin;
+	u8 val;
+	int ret;
+
+	ret = adar1000_mode_4wire(st, 1);
+	if (ret < 0)
+		return ret;
+
+	ret = kstrtobool(buf, &readin);
+	if (ret)
+		return ret;
+
+	/* Setup sequencer */
+	if (readin)
+		val = ADAR1000_TX_BEAM_STEP_EN | ADAR1000_TX_BEAM_STEP_EN;
+	else
+		val = 0;
+
+	ret = regmap_update_bits(st->regmap, st->dev_addr | ADAR1000_MEM_CTRL,
+				 ADAR1000_TX_BEAM_STEP_EN | ADAR1000_TX_BEAM_STEP_EN,
+				 val);
+	if (ret < 0)
+		return ret;
+
+	ret = adar1000_mode_4wire(st, 0);
+
+	return ret ? ret : len;
+}
+
+static ssize_t adar1000_gen_clk_cycles(struct device *dev,
+				       struct device_attribute *attr,
+				       const char *buf, size_t len)
+{
+	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
+	struct adar1000_state *st = iio_priv(indio_dev);
+	struct spi_message m;
+	struct spi_transfer t = {0};
+	int ret;
+
+	/* Generate clock cycles to load new data from RAM */
+	t.bits_per_word = 8;
+	t.len = 1;
+
+	spi_message_init_with_transfers(&m, &t, 1);
+
+	ret = spi_sync_locked(st->spi, &m);
+
+	return ret ? ret : len;
+}
+
 static IIO_DEVICE_ATTR(rx_vga_enable, 0644,
 		       adar1000_show, adar1000_store, ADAR1000_RX_VGA);
 
@@ -990,6 +1046,11 @@ static IIO_DEVICE_ATTR(bias_current_tx_drv, 0644,
 /* Reset attribute */
 static IIO_DEVICE_ATTR(reset, 0200, NULL, adar1000_reset, 0);
 
+/* Sequencer enable attribute - should be called before TR_LOAD */
+static IIO_DEVICE_ATTR(sequencer_enable, 0200, NULL, adar1000_seq_enable, 0);
+
+/* Generate CLK cycles for SPI */
+static IIO_DEVICE_ATTR(gen_clk_cycles, 0200, NULL, adar1000_gen_clk_cycles, 0);
 static struct attribute *adar1000_attributes[] = {
 	&iio_dev_attr_rx_vga_enable.dev_attr.attr,
 	&iio_dev_attr_rx_vm_enable.dev_attr.attr,
@@ -1004,6 +1065,8 @@ static struct attribute *adar1000_attributes[] = {
 	&iio_dev_attr_bias_current_tx.dev_attr.attr,
 	&iio_dev_attr_bias_current_tx_drv.dev_attr.attr,
 	&iio_dev_attr_reset.dev_attr.attr,
+	&iio_dev_attr_sequencer_enable.dev_attr.attr,
+	&iio_dev_attr_gen_clk_cycles.dev_attr.attr,
 	NULL,
 };
 
@@ -1546,6 +1609,97 @@ static ssize_t adar1000_write_enable(struct iio_dev *indio_dev,
 	return ret ? ret : len;
 }
 
+enum adar1000_sequence {
+	ADAR1000_SEQ_START,
+	ADAR1000_SEQ_STOP
+};
+
+static ssize_t adar1000_seq_show(struct iio_dev *indio_dev,  uintptr_t private,
+				 const struct iio_chan_spec *chan, char *buf)
+{
+	struct adar1000_state *st = iio_priv(indio_dev);
+	u16 reg = 0;
+	unsigned int val;
+	int ret;
+
+	ret = adar1000_mode_4wire(st, 1);
+	if (ret < 0)
+		return ret;
+
+	switch(private) {
+	case ADAR1000_SEQ_START:
+		if (chan->output)
+			reg = ADAR1000_TX_BEAM_STEP_START;
+		else
+			reg = ADAR1000_RX_BEAM_STEP_START;
+		break;
+	case ADAR1000_SEQ_STOP:
+		if (chan->output)
+			reg = ADAR1000_TX_BEAM_STEP_STOP;
+		else
+			reg = ADAR1000_RX_BEAM_STEP_STOP;
+		break;
+	}
+
+	ret = regmap_read(st->regmap, st->dev_addr | reg, &val);
+	if (ret < 0)
+		return ret;
+
+	ret = adar1000_mode_4wire(st, 0);
+	if (ret < 0)
+		return ret;
+
+	return sprintf(buf, "%d\n", val);
+}
+
+static ssize_t adar1000_seq_store(struct iio_dev *indio_dev, uintptr_t private,
+				  const struct iio_chan_spec *chan, const char *buf, size_t len)
+{
+	struct adar1000_state *st = iio_priv(indio_dev);
+	u16 reg = 0;
+	u8 readval;
+	int ret;
+
+	ret = adar1000_mode_4wire(st, 1);
+	if (ret < 0)
+		return ret;
+
+	ret = kstrtou8(buf, 10, &readval);
+	if (ret)
+		return ret;
+
+	switch(private) {
+	case ADAR1000_SEQ_START:
+		if (chan->output)
+			reg = ADAR1000_TX_BEAM_STEP_START;
+		else
+			reg = ADAR1000_RX_BEAM_STEP_START;
+		break;
+	case ADAR1000_SEQ_STOP:
+		if (chan->output)
+			reg = ADAR1000_TX_BEAM_STEP_STOP;
+		else
+			reg = ADAR1000_RX_BEAM_STEP_STOP;
+		break;
+	}
+
+	ret = regmap_write(st->regmap, st->dev_addr | reg, readval);
+	if (ret < 0)
+		return ret;
+
+	ret = adar1000_mode_4wire(st, 0);
+
+	return ret ? ret : len;
+}
+
+#define _ADAR1000_SEQ_INFO(_name, _private) { \
+	.name = _name, \
+	.read = adar1000_seq_show, \
+	.write = adar1000_seq_store, \
+	.shared = IIO_SHARED_BY_TYPE, \
+	.private = _private, \
+}
+
 #define _ADAR1000_ENABLES_INFO(_name, _private) { \
 	.name = _name, \
 	.read = adar1000_read_enable, \
@@ -1574,6 +1728,8 @@ static const struct iio_chan_spec_ext_info adar1000_rx_ext_info[] = {
 	_ADAR1000_BEAM_POS_INFO("beam_pos_save", BEAM_POS_SAVE),
 	_ADAR1000_RAM_BIAS_INFO("bias_set_load", BIAS_SET_LOAD),
 	_ADAR1000_RAM_BIAS_INFO("bias_set_save", BIAS_SET_SAVE),
+	_ADAR1000_SEQ_INFO("sequence_start", ADAR1000_SEQ_START),
+	_ADAR1000_SEQ_INFO("sequence_end", ADAR1000_SEQ_STOP),
 	_ADAR1000_ENABLES_INFO("powerdown", ADAR1000_POWERDOWN),
 	{ },
 };
@@ -1583,6 +1739,8 @@ static const struct iio_chan_spec_ext_info adar1000_tx_ext_info[] = {
 	_ADAR1000_BEAM_POS_INFO("beam_pos_save", BEAM_POS_SAVE),
 	_ADAR1000_RAM_BIAS_INFO("bias_set_load", BIAS_SET_LOAD),
 	_ADAR1000_RAM_BIAS_INFO("bias_set_save", BIAS_SET_SAVE),
+	_ADAR1000_SEQ_INFO("sequence_start", ADAR1000_SEQ_START),
+	_ADAR1000_SEQ_INFO("sequence_end", ADAR1000_SEQ_STOP),
 	_ADAR1000_ENABLES_INFO("powerdown", ADAR1000_POWERDOWN),
 	_ADAR1000_ENABLES_INFO("pa_bias_on", ADAR1000_PA_BIAS_ON),
 	_ADAR1000_ENABLES_INFO("pa_bias_off", ADAR1000_PA_BIAS_OFF),
