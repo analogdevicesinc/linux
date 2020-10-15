@@ -3831,7 +3831,7 @@ static int adrv9002_parse_rx_dt(struct adrv9002_rf_phy *phy,
 static int adrv9002_parse_dt(struct adrv9002_rf_phy *phy)
 {
 	int ret, idx = 0;
-	struct device_node *of_channels, *of_gpios;
+	struct device_node *of_channels, *of_gpios = NULL;
 	struct device_node *parent = phy->spi->dev.of_node, *child;
 
 	/* handle channels */
@@ -3846,19 +3846,19 @@ static int adrv9002_parse_dt(struct adrv9002_rf_phy *phy)
 		if (ret) {
 			dev_err(&phy->spi->dev,
 				"No reg property defined for channel\n");
-			goto of_channels_put;
+			goto of_child_put;
 		} else if (chann > 1) {
 			dev_err(&phy->spi->dev,
 				"Invalid value for channel: %d\n", chann);
 			ret = -EINVAL;
-			goto of_channels_put;
+			goto of_child_put;
 		}
 
 		ret = of_property_read_u32(child, "adi,port", &port);
 		if (ret) {
 			dev_err(&phy->spi->dev,
 				"No port property defined for channel\n");
-			goto of_channels_put;
+			goto of_child_put;
 		}
 
 		switch (port) {
@@ -3875,7 +3875,7 @@ static int adrv9002_parse_dt(struct adrv9002_rf_phy *phy)
 		};
 
 		if (ret)
-			goto of_channels_put;
+			goto of_child_put;
 	}
 
 of_gpio:
@@ -3903,12 +3903,12 @@ of_gpio:
 		if (ret) {
 			dev_err(&phy->spi->dev,
 				"No reg property defined for gpio\n");
-			goto of_gpio_put;
+			goto of_child_put;
 		} else if (gpio >= ADI_ADRV9001_GPIO_ANALOG_11) {
 			dev_err(&phy->spi->dev,
 				"Invalid gpio number: %d\n", gpio);
 			ret = -EINVAL;
-			goto of_gpio_put;
+			goto of_child_put;
 		}
 		/* index 0 is not valid */
 		phy->adrv9002_gpios[idx].gpio.pin = gpio + 1;
@@ -3918,12 +3918,12 @@ of_gpio:
 			dev_err(&phy->spi->dev,
 				"No adi,signal property defined for gpio%d\n",
 				gpio);
-			goto of_gpio_put;
+			goto of_child_put;
 		} else if (signal > ADI_ADRV9001_GPIO_SIGNAL_ADC_SWITCHING_CHANNEL2) {
 			dev_err(&phy->spi->dev,
 				"Invalid gpio signal: %d\n", signal);
 			ret = -EINVAL;
-			goto of_gpio_put;
+			goto of_child_put;
 		}
 		phy->adrv9002_gpios[idx].signal = signal;
 
@@ -3935,7 +3935,7 @@ of_gpio:
 					polarity);
 
 				ret = -EINVAL;
-				goto of_gpio_put;
+				goto of_child_put;
 			}
 			phy->adrv9002_gpios[idx].gpio.polarity = polarity;
 		}
@@ -3949,7 +3949,7 @@ of_gpio:
 					master);
 
 				ret = -EINVAL;
-				goto of_gpio_put;
+				goto of_child_put;
 			}
 			phy->adrv9002_gpios[idx].gpio.master = master;
 		} else {
@@ -3959,6 +3959,8 @@ of_gpio:
 		idx++;
 	}
 
+of_child_put:
+	of_node_put(child);
 of_gpio_put:
 	of_node_put(of_gpios);
 of_channels_put:
