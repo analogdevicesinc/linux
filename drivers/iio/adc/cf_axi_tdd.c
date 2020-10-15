@@ -1,35 +1,23 @@
-// SPDX-License-Identifier: GPL-2.0
+// SPDX-License-Identifier: (GPL-2.0-only OR BSD-3-Clause)
 /*
  * TDD HDL CORE driver
  *
  * Copyright 2016 Analog Devices Inc.
  *
- * Licensed under the GPL-2.
  */
 #include <linux/bitfield.h>
 #include <linux/bits.h>
-#include <linux/module.h>
-#include <linux/interrupt.h>
-#include <linux/errno.h>
-#include <linux/device.h>
-#include <linux/notifier.h>
-#include <linux/slab.h>
-#include <linux/init.h>
-#include <linux/list.h>
-#include <linux/io.h>
-#include <linux/sched.h>
-#include <linux/wait.h>
-#include <linux/delay.h>
 #include <linux/clk.h>
-
-#include <linux/of_device.h>
-#include <linux/of_dma.h>
-#include <linux/of_platform.h>
-#include <linux/of_address.h>
-
-#include <linux/iio/iio.h>
-#include <linux/iio/sysfs.h>
+#include <linux/device.h>
 #include <linux/fpga/adi-axi-common.h>
+#include <linux/iio/iio.h>
+#include <linux/io.h>
+#include <linux/mod_devicetable.h>
+#include <linux/module.h>
+#include <linux/mutex.h>
+#include <linux/notifier.h>
+#include <linux/of.h>
+#include <linux/platform_device.h>
 
 /* Transceiver TDD Control (axi_ad*) */
 
@@ -74,15 +62,10 @@ struct cf_axi_tdd_clk {
 };
 
 struct cf_axi_tdd_state {
-	struct iio_info		iio_info;
 	struct cf_axi_tdd_clk	clk;
 	void __iomem		*regs;
 	/* TDD core access locking */
 	struct mutex		lock;
-	u32			version;
-	u32			enable;
-	u32			mode;
-	u32			dma_mode;
 };
 
 enum {
@@ -486,7 +469,7 @@ MODULE_DEVICE_TABLE(of, cf_axi_tdd_of_match);
 static int cf_axi_tdd_probe(struct platform_device *pdev)
 {
 	struct device_node *np = pdev->dev.of_node;
-	unsigned int expected_version;
+	unsigned int expected_version, version;
 	struct cf_axi_tdd_state *st;
 	struct iio_dev *indio_dev;
 	int ret;
@@ -505,18 +488,18 @@ static int cf_axi_tdd_probe(struct platform_device *pdev)
 	if (IS_ERR(st->regs))
 		return PTR_ERR(st->regs);
 
-	st->version = tdd_read(st, ADI_AXI_REG_VERSION);
+	version = tdd_read(st, ADI_AXI_REG_VERSION);
 	expected_version = ADI_AXI_PCORE_VER(1, 0, 'a');
 
-	if (ADI_AXI_PCORE_VER_MAJOR(st->version) !=
+	if (ADI_AXI_PCORE_VER_MAJOR(version) !=
 		ADI_AXI_PCORE_VER_MAJOR(expected_version)) {
 		dev_err(&pdev->dev, "Major version mismatch between PCORE and driver. Driver expected %d.%.2d.%c, PCORE reported %d.%.2d.%c\n",
 			ADI_AXI_PCORE_VER_MAJOR(expected_version),
 			ADI_AXI_PCORE_VER_MINOR(expected_version),
 			ADI_AXI_PCORE_VER_PATCH(expected_version),
-			ADI_AXI_PCORE_VER_MAJOR(st->version),
-			ADI_AXI_PCORE_VER_MINOR(st->version),
-			ADI_AXI_PCORE_VER_PATCH(st->version));
+			ADI_AXI_PCORE_VER_MAJOR(version),
+			ADI_AXI_PCORE_VER_MINOR(version),
+			ADI_AXI_PCORE_VER_PATCH(version));
 		return -ENODEV;
 	}
 
@@ -534,9 +517,9 @@ static int cf_axi_tdd_probe(struct platform_device *pdev)
 
 	dev_info(&pdev->dev, "Analog Devices CF_AXI_TDD %s (%d.%.2d.%c)",
 		 tdd_read(st, ADI_AXI_REG_ID) ? "SLAVE" : "MASTER",
-		 ADI_AXI_PCORE_VER_MAJOR(st->version),
-		 ADI_AXI_PCORE_VER_MINOR(st->version),
-		 ADI_AXI_PCORE_VER_PATCH(st->version));
+		 ADI_AXI_PCORE_VER_MAJOR(version),
+		 ADI_AXI_PCORE_VER_MINOR(version),
+		 ADI_AXI_PCORE_VER_PATCH(version));
 
 	return 0;
 }
@@ -552,4 +535,4 @@ module_platform_driver(cf_axi_tdd_driver);
 
 MODULE_AUTHOR("Michael Hennerich <michael.hennerich@analog.com>");
 MODULE_DESCRIPTION("Analog Devices TDD HDL CORE driver");
-MODULE_LICENSE("GPL v2");
+MODULE_LICENSE("Dual BSD/GPL");
