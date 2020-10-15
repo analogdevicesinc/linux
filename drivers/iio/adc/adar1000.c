@@ -262,7 +262,6 @@ static const struct regmap_config adar1000_regmap_config = {
 	.reg_bits = 16,
 	.val_bits = 8,
 	.read_flag_mask = BIT(7),
-	.can_multi_write = 1,
 };
 
 /* Phase values Table 13, 14, 15, 16 page 34 of the datasheet - these values
